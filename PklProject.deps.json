@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "resolvedDependencies": {
+    "package://pkg.pkl-lang.org/github.com/kdeps/Resource@0": {
+      "type": "local",
+      "uri": "projectpackage://pkg.pkl-lang.org/github.com/kdeps/Resource@0.1.0",
+      "path": "pkl/Resource"
+    },
+    "package://pkg.pkl-lang.org/github.com/kdeps/API@0": {
+      "type": "local",
+      "uri": "projectpackage://pkg.pkl-lang.org/github.com/kdeps/API@0.1.0",
+      "path": "pkl/API"
+    },
+    "package://pkg.pkl-lang.org/github.com/kdeps/LLM@0": {
+      "type": "local",
+      "uri": "projectpackage://pkg.pkl-lang.org/github.com/kdeps/LLM@0.1.0",
+      "path": "pkl/LLM"
+    },
+    "package://pkg.pkl-lang.org/github.com/kdeps/ENV@0": {
+      "type": "local",
+      "uri": "projectpackage://pkg.pkl-lang.org/github.com/kdeps/ENV@0.1.0",
+      "path": "pkl/ENV"
+    },
+    "package://pkg.pkl-lang.org/github.com/kdeps/Settings@0": {
+      "type": "local",
+      "uri": "projectpackage://pkg.pkl-lang.org/github.com/kdeps/Settings@0.1.0",
+      "path": "pkl/Settings"
+    },
+    "package://pkg.pkl-lang.org/github.com/kdeps/Workflow@0": {
+      "type": "local",
+      "uri": "projectpackage://pkg.pkl-lang.org/github.com/kdeps/Workflow@0.1.0",
+      "path": "pkl/Workflow"
+    }
+  }
+}

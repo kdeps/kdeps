@@ -1,0 +1,10 @@
+@go.Package { name = "github.com/kdeps/kdeps/gen/workflow" }
+
+module org.kdeps.pkl.Workflow
+
+import "package://pkg.pkl-lang.org/pkl-go/pkl.golang@0.5.0#/go.pkl"
+
+import "@Settings/Settings.pkl"
+
+settings: Settings.AppSettings
+workflows: Listing<Uri>
