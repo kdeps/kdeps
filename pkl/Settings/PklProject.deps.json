@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "resolvedDependencies": {
+    "package://pkg.pkl-lang.org/github.com/kdeps/LLM@0": {
+      "type": "local",
+      "uri": "projectpackage://pkg.pkl-lang.org/github.com/kdeps/LLM@0.1.0",
+      "path": "../LLM"
+    }
+  }
+}

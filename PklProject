@@ -1,0 +1,26 @@
+amends "pkl:Project"
+
+dependencies {
+        ["Settings"] = import("./pkl/Settings/PklProject")
+        ["LLM"] = import("./pkl/LLM/PklProject")
+        ["ENV"] = import("./pkl/ENV/PklProject")
+        ["Workflow"] = import("./pkl/Workflow/PklProject")
+        ["API"] = import("./pkl/API/PklProject")
+        ["Resource"] = import("./pkl/Resource/PklProject")
+}
+
+package {
+        name = "kdeps"
+        baseUri = "package://pkg.pkl-lang.org/github.com/kdeps/\(name)"
+        version = "0.1.0"
+        packageZipUrl = "https://github.com/kdeps/\(name)/releases/download/\(name)@\(version)/\(name)@\(version).zip"
+
+        exclude {
+                "Makefile"
+                "cmd/**"
+                "config/**"
+                "gen/**"
+                "internal/**"
+                "pkg/**"
+        }
+}
