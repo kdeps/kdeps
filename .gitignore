@@ -2,6 +2,7 @@
 # https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
 #
 # Binaries for programs and plugins
+.DS_Store
 *.exe
 *.exe~
 *.dll
@@ -20,3 +21,4 @@
 # Go workspace file
 go.work
 go.work.sum
+

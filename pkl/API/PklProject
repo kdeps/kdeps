@@ -1,8 +1,0 @@
-amends "pkl:Project"
-
-package {
-        name = "API"
-        baseUri = "package://pkg.pkl-lang.org/github.com/kdeps/\(name)"
-        version = "0.1.0"
-        packageZipUrl = "https://github.com/kdeps/\(name)/releases/download/\(name)@\(version)/\(name)@\(version).zip"
-}
