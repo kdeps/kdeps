@@ -1,11 +1,10 @@
-# Variables
 PROJECT_NAME = kdeps
 TEST_REPORT = test-report.out
 COVERAGE_REPORT = coverage.out
 PACKAGE_LIST = ./...
 
-# List of GOOS/GOARCH pairs for macOS, Windows, and Linux
-TARGETS := $(filter darwin/% linux/% windows/%, $(shell go tool dist list))
+# List of GOOS/GOARCH pairs for macOS, Windows, and Linux, but only for amd64 and arm64 architectures
+TARGETS := $(filter darwin/amd64 linux/amd64 windows/amd64 darwin/arm64 linux/arm64 windows/arm64, $(shell go tool dist list))
 
 # Default target
 all: test
@@ -43,6 +42,7 @@ vet:
 coverage: test
 	@go tool cover -html=$(COVERAGE_REPORT)
 
+# Build targets
 $(TARGETS):
 	@echo "Building for $@"
 	@GOOS=$(word 1,$(subst /, ,$@)) GOARCH=$(word 2,$(subst /, ,$@)) go build -o ./build/$(PROJECT_NAME)_$(word 1,$(subst /, ,$@))_$(word 2,$(subst /, ,$@))/$(PROJECT_NAME)
