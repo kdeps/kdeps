@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"kdeps/pkg/download"
 	"os"
 	"path/filepath"
 
 	env "github.com/Netflix/go-env"
+	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/log"
+	"github.com/charmbracelet/x/editor"
 	"github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 )
@@ -16,6 +19,8 @@ import (
 var (
 	ConfigFile           string
 	SystemConfigFileName = ".kdeps.pkl"
+	HomeConfigFile       string
+	CwdConfigFile        string
 )
 
 type Environment struct {
@@ -25,9 +30,6 @@ type Environment struct {
 }
 
 func FindConfiguration(fs afero.Fs, environment *Environment) error {
-	var homeConfigFile string
-	var cwdConfigFile string
-
 	if len(environment.Home) > 0 {
 		ConfigFile = filepath.Join(environment.Home, SystemConfigFileName)
 		return nil
@@ -45,20 +47,55 @@ func FindConfiguration(fs afero.Fs, environment *Environment) error {
 
 	environment.Extras = es
 
-	cwdConfigFile = filepath.Join(environment.Pwd, SystemConfigFileName)
-	homeConfigFile = filepath.Join(environment.Home, SystemConfigFileName)
+	CwdConfigFile = filepath.Join(environment.Pwd, SystemConfigFileName)
+	HomeConfigFile = filepath.Join(environment.Home, SystemConfigFileName)
 
-	if _, err := fs.Stat(cwdConfigFile); err == nil {
-		ConfigFile = cwdConfigFile
-	} else if _, err = fs.Stat(homeConfigFile); err == nil {
-		ConfigFile = homeConfigFile
-	} else {
-		if os.IsNotExist(err) {
-			return errors.New(fmt.Sprintf("Configuration file not found: %s", ConfigFile))
-		}
+	if _, err := fs.Stat(CwdConfigFile); err == nil {
+		ConfigFile = CwdConfigFile
+	} else if _, err = fs.Stat(HomeConfigFile); err == nil {
+		ConfigFile = HomeConfigFile
 	}
 
-	log.Info("Configuration file found:", "config-file", ConfigFile)
+	if _, err = fs.Stat(ConfigFile); err == nil {
+		log.Info("Configuration file found:", "config-file", ConfigFile)
+	}
+
+	return nil
+}
+
+func DownloadConfiguration(fs afero.Fs) error {
+	if _, err := fs.Stat(ConfigFile); err != nil {
+		ConfigFile = HomeConfigFile
+
+		var confirm bool
+		if err := huh.Run(
+			huh.NewConfirm().
+				Title("Configuration file not found. Do you want to generate one?").
+				Description("The configuration will be validated. This will require the `pkl` package to be installed. Please refer to https://pkl-lang.org for more details.").
+				Value(&confirm),
+		); err != nil {
+			return errors.New(fmt.Sprintln("Could not create a configuration file:", ConfigFile))
+		}
+
+		if !confirm {
+			return errors.New("Aborted by user")
+		}
+
+		download.DownloadFile(ConfigFile, "https://github.com/kdeps/schema/releases/latest/download/kdeps.pkl")
+
+		c, err := editor.Cmd("kdeps", ConfigFile)
+		if err != nil {
+			return errors.New(fmt.Sprintln("Config file does not exist!"))
+		}
+
+		c.Stdin = os.Stdin
+		c.Stdout = os.Stdout
+		c.Stderr = os.Stderr
+
+		if err := c.Run(); err != nil {
+			return errors.New(fmt.Sprintf("Missing %s.", "$EDITOR"))
+		}
+	}
 
 	return nil
 }
