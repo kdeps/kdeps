@@ -155,11 +155,16 @@ func aFileDoesNotExistsInTheHomeOrCurrentDirectory(arg1 string) error {
 
 func theConfigurationFailsToLoadAnyConfiguration() error {
 	env := &Environment{
-		Home: homeDirPath,
-		Pwd:  currentDirPath,
+		Home:           homeDirPath,
+		Pwd:            currentDirPath,
+		NonInteractive: "1",
 	}
 
 	if err := FindConfiguration(testFs, env); err != nil {
+		return err
+	}
+
+	if err := DownloadConfiguration(testFs, env); err != nil {
 		return err
 	}
 

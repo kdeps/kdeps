@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/dustin/go-humanize"
+	"github.com/spf13/afero"
 )
 
 type WriteCounter struct {
@@ -26,19 +26,22 @@ func (wc WriteCounter) PrintProgress() {
 	fmt.Printf("\rDownloading... %s complete", humanize.Bytes(wc.Total))
 }
 
-func DownloadFile(url string, filepath string) error {
-	out, err := os.Create(filepath + ".tmp")
+func DownloadFile(fs afero.Fs, url string, filepath string) error {
+	// Create the .tmp file using afero
+	out, err := fs.Create(filepath + ".tmp")
 	if err != nil {
 		return err
 	}
 	defer out.Close()
 
+	// Perform the HTTP GET request
 	resp, err := http.Get(url)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
+	// Create a WriteCounter to show download progress
 	counter := &WriteCounter{}
 	_, err = io.Copy(out, io.TeeReader(resp.Body, counter))
 	if err != nil {
@@ -47,7 +50,8 @@ func DownloadFile(url string, filepath string) error {
 
 	fmt.Println()
 
-	err = os.Rename(filepath+".tmp", filepath)
+	// Rename the file from .tmp to the desired filepath
+	err = fs.Rename(filepath+".tmp", filepath)
 	if err != nil {
 		return err
 	}

@@ -7,6 +7,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -51,11 +52,6 @@ func TestWriteCounter_PrintProgress(t *testing.T) {
 }
 
 func TestDownloadFile(t *testing.T) {
-	// Create a temporary file to store the downloaded content
-	tmpFile, err := os.CreateTemp("", "testfile")
-	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
-
 	// Mock a simple HTTP server to simulate file download
 	server := http.Server{
 		Addr: ":8080",
@@ -66,28 +62,31 @@ func TestDownloadFile(t *testing.T) {
 	go server.ListenAndServe()
 	defer server.Close()
 
+	// Use afero in-memory filesystem
+	fs := afero.NewMemMapFs()
+
 	// Run the file download
-	err = DownloadFile("http://localhost:8080", tmpFile.Name())
+	err := DownloadFile(fs, "http://localhost:8080", "/testfile")
 	require.NoError(t, err)
 
 	// Verify the downloaded content
-	content, err := os.ReadFile(tmpFile.Name())
+	content, err := afero.ReadFile(fs, "/testfile")
 	require.NoError(t, err)
 	assert.Equal(t, "Test file content", string(content))
 }
 
 func TestDownloadFile_FileCreationError(t *testing.T) {
+	fs := afero.NewMemMapFs()
+
 	// Trying to download a file with an invalid filepath
-	err := DownloadFile("http://localhost:8080", "")
+	err := DownloadFile(fs, "http://localhost:8080", "")
 	assert.Error(t, err)
 }
 
 func TestDownloadFile_HttpGetError(t *testing.T) {
-	// Trying to download a file from an invalid URL
-	tmpFile, err := os.CreateTemp("", "testfile")
-	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
+	fs := afero.NewMemMapFs()
 
-	err = DownloadFile("http://invalid-url", tmpFile.Name())
+	// Trying to download a file from an invalid URL
+	err := DownloadFile(fs, "http://invalid-url", "/testfile")
 	assert.Error(t, err)
 }
