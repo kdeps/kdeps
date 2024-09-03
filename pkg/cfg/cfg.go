@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"kdeps/pkg/download"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	env "github.com/Netflix/go-env"
@@ -30,7 +31,17 @@ type Environment struct {
 	Extras         env.EnvSet
 }
 
+func FindPklBinary() {
+	binaryName := "pkl"
+	if _, err := exec.LookPath(binaryName); err != nil {
+		log.Fatalf(fmt.Sprintf("The binary '%s' does not exist in PATH. For more information, see: https://pkl-lang.org/\n", binaryName))
+		os.Exit(1)
+	}
+}
+
 func FindConfiguration(fs afero.Fs, environment *Environment) error {
+	FindPklBinary()
+
 	if len(environment.Home) > 0 {
 		HomeConfigFile = filepath.Join(environment.Home, SystemConfigFileName)
 
