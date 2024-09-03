@@ -155,13 +155,22 @@ func aFileDoesNotExistsInTheHomeOrCurrentDirectory(arg1 string) error {
 
 func theConfigurationFailsToLoadAnyConfiguration() error {
 	env := &Environment{
-		Home:           homeDirPath,
-		Pwd:            currentDirPath,
-		NonInteractive: "1",
+		Home: homeDirPath,
+		Pwd:  currentDirPath,
 	}
 
 	if err := FindConfiguration(testFs, env); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func theConfigurationFileWillBeDownloadedTo(arg1 string) error {
+	env := &Environment{
+		Home:           homeDirPath,
+		Pwd:            "",
+		NonInteractive: "1",
 	}
 
 	if err := DownloadConfiguration(testFs, env); err != nil {
@@ -175,12 +184,18 @@ func theConfigurationFailsToLoadAnyConfiguration() error {
 	return nil
 }
 
-func theConfigurationFileWillBeDownloadedTo(arg1 string) error {
-	return godog.ErrPending
-}
-
 func theConfigurationWillBeEdited() error {
-	return godog.ErrPending
+	env := &Environment{
+		Home:           homeDirPath,
+		Pwd:            "",
+		NonInteractive: "1",
+	}
+
+	if err := EditConfiguration(testFs, env); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func theConfigurationWillBeValidated() error {
