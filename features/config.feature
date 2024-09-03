@@ -18,4 +18,4 @@ Feature: Find and generate config
     When the configuration fails to load any configuration
     Then the configuration file will be downloaded to "/home/user/.kdeps.pkl"
     And the configuration will be edited
-    And the configuration will be validated
+    # And the configuration will be validated

@@ -26,7 +26,7 @@ var (
 type Environment struct {
 	Home           string `env:"HOME"`
 	Pwd            string `env:"PWD"`
-	NonInteractive string `env:"NON_INTERACTIVE"`
+	NonInteractive string `env:"NON_INTERACTIVE,default=0"`
 	Extras         env.EnvSet
 }
 
@@ -34,14 +34,14 @@ func FindConfiguration(fs afero.Fs, environment *Environment) error {
 	if len(environment.Home) > 0 {
 		HomeConfigFile = filepath.Join(environment.Home, SystemConfigFileName)
 
-		ConfigFile = filepath.Join(environment.Home, SystemConfigFileName)
+		ConfigFile = HomeConfigFile
 		return nil
 	}
 
 	if len(environment.Pwd) > 0 {
 		CwdConfigFile = filepath.Join(environment.Pwd, SystemConfigFileName)
 
-		ConfigFile = filepath.Join(environment.Pwd, SystemConfigFileName)
+		ConfigFile = CwdConfigFile
 		return nil
 	}
 
@@ -55,7 +55,7 @@ func FindConfiguration(fs afero.Fs, environment *Environment) error {
 	CwdConfigFile = filepath.Join(environment.Pwd, SystemConfigFileName)
 	HomeConfigFile = filepath.Join(environment.Home, SystemConfigFileName)
 
-	if _, err := fs.Stat(CwdConfigFile); err == nil {
+	if _, err = fs.Stat(CwdConfigFile); err == nil {
 		ConfigFile = CwdConfigFile
 	} else if _, err = fs.Stat(HomeConfigFile); err == nil {
 		ConfigFile = HomeConfigFile
@@ -63,27 +63,38 @@ func FindConfiguration(fs afero.Fs, environment *Environment) error {
 
 	if _, err = fs.Stat(ConfigFile); err == nil {
 		log.Info("Configuration file found:", "config-file", ConfigFile)
+	} else {
+		log.Warn("Configuration file not found:", "config-file", ConfigFile)
 	}
 
 	return nil
 }
 
 func DownloadConfiguration(fs afero.Fs, environment *Environment) error {
-	var skipPrompts bool
-	if len(environment.NonInteractive) > 0 {
+	var skipPrompts bool = false
+
+	if len(environment.Home) > 0 {
+		HomeConfigFile = filepath.Join(environment.Home, SystemConfigFileName)
+
+		ConfigFile = HomeConfigFile
+	} else {
+		es, err := env.UnmarshalFromEnviron(&environment)
+		if err != nil {
+			return err
+		}
+
+		environment.Extras = es
+
+		HomeConfigFile = filepath.Join(environment.Home, SystemConfigFileName)
+
+		ConfigFile = HomeConfigFile
+	}
+
+	if environment.NonInteractive == "1" {
 		skipPrompts = true
 	}
 
-	es, err := env.UnmarshalFromEnviron(&environment)
-	if err != nil {
-		return err
-	}
-
-	environment.Extras = es
-
 	if _, err := fs.Stat(ConfigFile); err != nil {
-		ConfigFile = HomeConfigFile
-
 		var confirm bool
 		if !skipPrompts {
 			if err := huh.Run(
@@ -101,7 +112,36 @@ func DownloadConfiguration(fs afero.Fs, environment *Environment) error {
 		}
 
 		download.DownloadFile(fs, "https://github.com/kdeps/schema/releases/latest/download/kdeps.pkl", ConfigFile)
+	}
 
+	return nil
+}
+
+func EditConfiguration(fs afero.Fs, environment *Environment) error {
+	var skipPrompts bool = false
+
+	if len(environment.Home) > 0 {
+		HomeConfigFile = filepath.Join(environment.Home, SystemConfigFileName)
+
+		ConfigFile = HomeConfigFile
+	} else {
+		es, err := env.UnmarshalFromEnviron(&environment)
+		if err != nil {
+			return err
+		}
+
+		environment.Extras = es
+
+		HomeConfigFile = filepath.Join(environment.Home, SystemConfigFileName)
+
+		ConfigFile = HomeConfigFile
+	}
+
+	if environment.NonInteractive == "1" {
+		skipPrompts = true
+	}
+
+	if _, err := fs.Stat(ConfigFile); err == nil {
 		if !skipPrompts {
 			c, err := editor.Cmd("kdeps", ConfigFile)
 			if err != nil {
@@ -116,10 +156,7 @@ func DownloadConfiguration(fs afero.Fs, environment *Environment) error {
 				return errors.New(fmt.Sprintf("Missing %s.", "$EDITOR"))
 			}
 		}
-
 	}
-
-	ConfigFile = HomeConfigFile
 
 	return nil
 }
