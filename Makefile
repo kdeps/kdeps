@@ -7,7 +7,7 @@ PACKAGE_LIST = ./...
 TARGETS := $(filter darwin/amd64 linux/amd64 windows/amd64 darwin/arm64 linux/arm64 windows/arm64, $(shell go tool dist list))
 
 # Default target
-all: test
+all: test schema_version
 
 # Run tests and generate a report
 test:
@@ -38,6 +38,11 @@ vet:
 	@echo "Running vet..."
 	@go vet $(PACKAGE_LIST)
 
+# Get the latest schema version and append it to the SCHEMA_VERSION file
+schema_version:
+	@latest_tag=$$(curl --silent "https://api.github.com/repos/kdeps/schema/tags" | jq -r '.[0].name'); \
+	echo $$latest_tag | sed 's/v//g' > SCHEMA_VERSION
+
 # Display coverage in browser (you need to have go tool cover installed)
 coverage: test
 	@go tool cover -html=$(COVERAGE_REPORT)
@@ -47,4 +52,4 @@ $(TARGETS):
 	@echo "Building for $@"
 	@GOOS=$(word 1,$(subst /, ,$@)) GOARCH=$(word 2,$(subst /, ,$@)) go build -o ./build/$(PROJECT_NAME)_$(word 1,$(subst /, ,$@))_$(word 2,$(subst /, ,$@))/$(PROJECT_NAME)
 
-.PHONY: all test build clean lint fmt vet coverage $(TARGETS)
+.PHONY: all test build clean lint fmt vet coverage schema_version $(TARGETS)

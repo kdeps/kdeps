@@ -16,6 +16,6 @@ Feature: Find and generate config
   Scenario: No Configuration file exists in both home and current directory
     Given a file ".kdeps.pkl" does not exists in the home or current directory
     When the configuration fails to load any configuration
-    Then the configuration file will be downloaded to "/home/user/.kdeps.pkl"
+    Then the configuration file will be generated to "/home/user/.kdeps.pkl"
     And the configuration will be edited
     And the configuration will be validated
