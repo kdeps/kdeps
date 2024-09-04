@@ -121,7 +121,7 @@ func theConfigurationIsLoadedInTheCurrentDirectory() error {
 		return err
 	}
 
-	if err := LoadConfiguration(testFs); err != nil {
+	if _, err := LoadConfiguration(testFs); err != nil {
 		return err
 	}
 
@@ -138,7 +138,7 @@ func theConfigurationIsLoadedInTheHomeDirectory() error {
 		return err
 	}
 
-	if err := LoadConfiguration(testFs); err != nil {
+	if _, err := LoadConfiguration(testFs); err != nil {
 		return err
 	}
 
@@ -199,7 +199,7 @@ func theConfigurationFileWillBeGeneratedTo(arg1 string) error {
 		return err
 	}
 
-	if err := LoadConfiguration(testFs); err != nil {
+	if _, err := LoadConfiguration(testFs); err != nil {
 		return err
 	}
 
