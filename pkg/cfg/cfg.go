@@ -4,16 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"kdeps/pkg/download"
+	"io/ioutil"
+	"kdeps/pkg/evaluator"
+	"kdeps/pkg/texteditor"
 	"os"
-	"os/exec"
 	"path/filepath"
+	"strings"
 
 	env "github.com/Netflix/go-env"
-	execute "github.com/alexellis/go-execute/v2"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/log"
-	"github.com/charmbracelet/x/editor"
 	"github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 )
@@ -32,16 +32,8 @@ type Environment struct {
 	Extras         env.EnvSet
 }
 
-func FindPklBinary() {
-	binaryName := "pkl"
-	if _, err := exec.LookPath(binaryName); err != nil {
-		log.Fatalf(fmt.Sprintf("The binary '%s' does not exist in PATH. For more information, see: https://pkl-lang.org/\n", binaryName))
-		os.Exit(1)
-	}
-}
-
 func FindConfiguration(fs afero.Fs, environment *Environment) error {
-	FindPklBinary()
+	evaluator.FindPklBinary()
 
 	if len(environment.Home) > 0 {
 		HomeConfigFile = filepath.Join(environment.Home, SystemConfigFileName)
@@ -82,7 +74,7 @@ func FindConfiguration(fs afero.Fs, environment *Environment) error {
 	return nil
 }
 
-func DownloadConfiguration(fs afero.Fs, environment *Environment) error {
+func GenerateConfiguration(fs afero.Fs, environment *Environment) error {
 	var skipPrompts bool = false
 
 	if len(environment.Home) > 0 {
@@ -122,7 +114,39 @@ func DownloadConfiguration(fs afero.Fs, environment *Environment) error {
 				return errors.New("Aborted by user")
 			}
 		}
-		download.DownloadFile(fs, "https://github.com/kdeps/schema/releases/latest/download/kdeps.pkl", ConfigFile)
+
+		// Read the schema version from the SCHEMA_VERSION file
+		schemaVersionBytes, err := ioutil.ReadFile("../../SCHEMA_VERSION")
+		if err != nil {
+			log.Fatalf("Failed to read SCHEMA_VERSION: %v", err)
+		}
+		schemaVersion := strings.TrimSpace(string(schemaVersionBytes))
+
+		// Create the URL with the schema version
+		url := fmt.Sprintf("package://schema.kdeps.com/core@%s#/Kdeps.pkl", schemaVersion)
+
+		// Write the amended URL to ConfigFile
+		configContent := fmt.Sprintf("amends \"%s\"", url)
+		if err := ioutil.WriteFile(ConfigFile, []byte(configContent), 0644); err != nil {
+			log.Fatalf("Failed to write to %s: %v", ConfigFile, err)
+		}
+
+		// Evaluate the .pkl file and write the result to ConfigFile (append mode)
+		result, err := evaluator.EvalPkl(fs, url)
+		if err != nil {
+			log.Fatalf("Failed to evaluate .pkl file: %v", err)
+		}
+
+		// Append the result to the ConfigFile
+		file, err := os.OpenFile(ConfigFile, os.O_APPEND|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Fatalf("Failed to open %s: %v", ConfigFile, err)
+		}
+		defer file.Close()
+
+		if _, err := file.WriteString(result); err != nil {
+			log.Fatalf("Failed to append to %s: %v", ConfigFile, err)
+		}
 	}
 
 	return nil
@@ -154,17 +178,8 @@ func EditConfiguration(fs afero.Fs, environment *Environment) error {
 
 	if _, err := fs.Stat(ConfigFile); err == nil {
 		if !skipPrompts {
-			c, err := editor.Cmd("kdeps", ConfigFile)
-			if err != nil {
-				return errors.New(fmt.Sprintln("Config file does not exist!"))
-			}
-
-			c.Stdin = os.Stdin
-			c.Stdout = os.Stdout
-			c.Stderr = os.Stderr
-
-			if err := c.Run(); err != nil {
-				return errors.New(fmt.Sprintf("Missing %s.", "$EDITOR"))
+			if err := texteditor.EditPkl(fs, ConfigFile); err != nil {
+				return err
 			}
 		}
 	}
@@ -190,21 +205,8 @@ func ValidateConfiguration(fs afero.Fs, environment *Environment) error {
 		ConfigFile = HomeConfigFile
 	}
 
-	if _, err := fs.Stat(ConfigFile); err == nil {
-		cmd := execute.ExecTask{
-			Command:     "pkl",
-			Args:        []string{"eval", ConfigFile},
-			StreamStdio: false,
-		}
-
-		res, err := cmd.Execute(context.Background())
-		if err != nil {
-			panic(err)
-		}
-
-		if res.ExitCode != 0 {
-			panic("Non-zero exit code: " + res.Stderr)
-		}
+	if _, err := evaluator.EvalPkl(fs, ConfigFile); err != nil {
+		return err
 	}
 
 	return nil

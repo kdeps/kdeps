@@ -29,7 +29,7 @@ func TestFeatures(t *testing.T) {
 			ctx.Step(`^the home directory is "([^"]*)"$`, theHomeDirectoryIs)
 			ctx.Step(`^a file "([^"]*)" does not exists in the home or current directory$`, aFileDoesNotExistsInTheHomeOrCurrentDirectory)
 			ctx.Step(`^the configuration fails to load any configuration$`, theConfigurationFailsToLoadAnyConfiguration)
-			ctx.Step(`^the configuration file will be downloaded to "([^"]*)"$`, theConfigurationFileWillBeDownloadedTo)
+			ctx.Step(`^the configuration file will be generated to "([^"]*)"$`, theConfigurationFileWillBeGeneratedTo)
 			ctx.Step(`^the configuration will be edited$`, theConfigurationWillBeEdited)
 			ctx.Step(`^the configuration will be validated$`, theConfigurationWillBeValidated)
 		},
@@ -49,9 +49,7 @@ func TestFeatures(t *testing.T) {
 
 func aFileExistsInTheCurrentDirectory(arg1 string) error {
 	doc := `
-amends "package://schema.kdeps.com/core@0.0.17#/Kdeps.pkl"
-
-kdeps = "$HOME/.kdeps"
+amends "package://schema.kdeps.com/core@0.0.25#/Kdeps.pkl"
 `
 	file := filepath.Join(currentDirPath, arg1)
 
@@ -66,9 +64,7 @@ kdeps = "$HOME/.kdeps"
 
 func aFileExistsInTheHomeDirectory(arg1 string) error {
 	doc := `
-amends "package://schema.kdeps.com/core@0.0.17#/Kdeps.pkl"
-
-kdeps = "$HOME/.kdeps"
+amends "package://schema.kdeps.com/core@0.0.25#/Kdeps.pkl"
 `
 	file := filepath.Join(homeDirPath, arg1)
 
@@ -166,14 +162,14 @@ func theConfigurationFailsToLoadAnyConfiguration() error {
 	return nil
 }
 
-func theConfigurationFileWillBeDownloadedTo(arg1 string) error {
+func theConfigurationFileWillBeGeneratedTo(arg1 string) error {
 	env := &Environment{
 		Home:           homeDirPath,
 		Pwd:            "",
 		NonInteractive: "1",
 	}
 
-	if err := DownloadConfiguration(testFs, env); err != nil {
+	if err := GenerateConfiguration(testFs, env); err != nil {
 		return err
 	}
 
