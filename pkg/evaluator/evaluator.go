@@ -19,24 +19,20 @@ func FindPklBinary() {
 func EvalPkl(fs afero.Fs, resourcePath string) (string, error) {
 	FindPklBinary()
 
-	if _, err := fs.Stat(resourcePath); err == nil {
-		cmd := execute.ExecTask{
-			Command:     "pkl",
-			Args:        []string{"eval", resourcePath},
-			StreamStdio: false,
-		}
-
-		res, err := cmd.Execute(context.Background())
-		if err != nil {
-			return "", err
-		}
-
-		if res.ExitCode != 0 {
-			return "", errors.New("Non-zero exit code: " + res.Stderr)
-		}
-
-		return res.Stdout, nil
+	cmd := execute.ExecTask{
+		Command:     "pkl",
+		Args:        []string{"eval", resourcePath},
+		StreamStdio: false,
 	}
 
-	return "", nil
+	res, err := cmd.Execute(context.Background())
+	if err != nil {
+		return "", err
+	}
+
+	if res.ExitCode != 0 {
+		return "", errors.New("Non-zero exit code: " + res.Stderr)
+	}
+
+	return res.Stdout, nil
 }
