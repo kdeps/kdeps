@@ -10,7 +10,7 @@ require (
 	github.com/charmbracelet/x/editor v0.1.0
 	github.com/cucumber/godog v0.14.1
 	github.com/dustin/go-humanize v1.0.1
-	github.com/kdeps/schema v0.0.17
+	github.com/kdeps/schema v0.0.25
 	github.com/spf13/afero v1.11.0
 	github.com/stretchr/testify v1.9.0
 )
@@ -46,7 +46,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.3.5 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect

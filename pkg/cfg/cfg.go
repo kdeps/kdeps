@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"kdeps/pkg/evaluator"
 	"kdeps/pkg/texteditor"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -125,27 +124,15 @@ func GenerateConfiguration(fs afero.Fs, environment *Environment) error {
 		// Create the URL with the schema version
 		url := fmt.Sprintf("package://schema.kdeps.com/core@%s#/Kdeps.pkl", schemaVersion)
 
-		// Write the amended URL to ConfigFile
-		configContent := fmt.Sprintf("amends \"%s\"", url)
-		if err := ioutil.WriteFile(ConfigFile, []byte(configContent), 0644); err != nil {
-			log.Fatalf("Failed to write to %s: %v", ConfigFile, err)
-		}
-
 		// Evaluate the .pkl file and write the result to ConfigFile (append mode)
 		result, err := evaluator.EvalPkl(fs, url)
 		if err != nil {
 			log.Fatalf("Failed to evaluate .pkl file: %v", err)
 		}
 
-		// Append the result to the ConfigFile
-		file, err := os.OpenFile(ConfigFile, os.O_APPEND|os.O_WRONLY, 0644)
-		if err != nil {
+		content := fmt.Sprintf("amends \"%s\"\n%s", url, result)
+		if err = afero.WriteFile(fs, ConfigFile, []byte(content), 0644); err != nil {
 			log.Fatalf("Failed to open %s: %v", ConfigFile, err)
-		}
-		defer file.Close()
-
-		if _, err := file.WriteString(result); err != nil {
-			log.Fatalf("Failed to append to %s: %v", ConfigFile, err)
 		}
 	}
 
@@ -219,5 +206,6 @@ func LoadConfiguration(fs afero.Fs) error {
 	if err != nil {
 		return errors.New(fmt.Sprintf("Error reading config-file '%s': %s", ConfigFile, err))
 	}
+
 	return nil
 }

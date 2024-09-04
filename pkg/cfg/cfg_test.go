@@ -50,6 +50,19 @@ func TestFeatures(t *testing.T) {
 func aFileExistsInTheCurrentDirectory(arg1 string) error {
 	doc := `
 amends "package://schema.kdeps.com/core@0.0.25#/Kdeps.pkl"
+
+dockerImage = "alpine:3.14"
+llmSettings {
+  llmAPIKeys {
+    openai_api_key = null
+    mistral_api_key = null
+    huggingface_api_token = null
+    groq_api_key = null
+  }
+  llmBackend = "ollama"
+  llmModel = "llama3.1"
+  modelFile = null
+}
 `
 	file := filepath.Join(currentDirPath, arg1)
 
@@ -65,6 +78,19 @@ amends "package://schema.kdeps.com/core@0.0.25#/Kdeps.pkl"
 func aFileExistsInTheHomeDirectory(arg1 string) error {
 	doc := `
 amends "package://schema.kdeps.com/core@0.0.25#/Kdeps.pkl"
+
+dockerImage = "alpine:3.14"
+llmSettings {
+  llmAPIKeys {
+    openai_api_key = null
+    mistral_api_key = null
+    huggingface_api_token = null
+    groq_api_key = null
+  }
+  llmBackend = "ollama"
+  llmModel = "llama3.1"
+  modelFile = null
+}
 `
 	file := filepath.Join(homeDirPath, arg1)
 
