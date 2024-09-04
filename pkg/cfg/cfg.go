@@ -199,13 +199,13 @@ func ValidateConfiguration(fs afero.Fs, environment *Environment) error {
 	return nil
 }
 
-func LoadConfiguration(fs afero.Fs) error {
+func LoadConfiguration(fs afero.Fs) (konfig *kdeps.Kdeps, err error) {
 	log.Info("Reading config file:", "config-file", ConfigFile)
 
-	_, err := kdeps.LoadFromPath(context.Background(), ConfigFile)
+	konfig, err = kdeps.LoadFromPath(context.Background(), ConfigFile)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error reading config-file '%s': %s", ConfigFile, err))
+		return nil, errors.New(fmt.Sprintf("Error reading config-file '%s': %s", ConfigFile, err))
 	}
 
-	return nil
+	return konfig, nil
 }
