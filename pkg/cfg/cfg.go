@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	env "github.com/Netflix/go-env"
+	execute "github.com/alexellis/go-execute/v2"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/log"
 	"github.com/charmbracelet/x/editor"
@@ -121,7 +122,6 @@ func DownloadConfiguration(fs afero.Fs, environment *Environment) error {
 				return errors.New("Aborted by user")
 			}
 		}
-
 		download.DownloadFile(fs, "https://github.com/kdeps/schema/releases/latest/download/kdeps.pkl", ConfigFile)
 	}
 
@@ -172,8 +172,47 @@ func EditConfiguration(fs afero.Fs, environment *Environment) error {
 	return nil
 }
 
+func ValidateConfiguration(fs afero.Fs, environment *Environment) error {
+	if len(environment.Home) > 0 {
+		HomeConfigFile = filepath.Join(environment.Home, SystemConfigFileName)
+
+		ConfigFile = HomeConfigFile
+	} else {
+		es, err := env.UnmarshalFromEnviron(&environment)
+		if err != nil {
+			return err
+		}
+
+		environment.Extras = es
+
+		HomeConfigFile = filepath.Join(environment.Home, SystemConfigFileName)
+
+		ConfigFile = HomeConfigFile
+	}
+
+	if _, err := fs.Stat(ConfigFile); err == nil {
+		cmd := execute.ExecTask{
+			Command:     "pkl",
+			Args:        []string{"eval", ConfigFile},
+			StreamStdio: false,
+		}
+
+		res, err := cmd.Execute(context.Background())
+		if err != nil {
+			panic(err)
+		}
+
+		if res.ExitCode != 0 {
+			panic("Non-zero exit code: " + res.Stderr)
+		}
+	}
+
+	return nil
+}
+
 func LoadConfiguration(fs afero.Fs) error {
 	log.Info("Reading config file:", "config-file", ConfigFile)
+
 	_, err := kdeps.LoadFromPath(context.Background(), ConfigFile)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Error reading config-file '%s': %s", ConfigFile, err))
