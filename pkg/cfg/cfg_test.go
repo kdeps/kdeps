@@ -199,5 +199,14 @@ func theConfigurationWillBeEdited() error {
 }
 
 func theConfigurationWillBeValidated() error {
-	return godog.ErrPending
+	env := &Environment{
+		Home: homeDirPath,
+		Pwd:  "",
+	}
+
+	if err := ValidateConfiguration(testFs, env); err != nil {
+		return err
+	}
+
+	return nil
 }
