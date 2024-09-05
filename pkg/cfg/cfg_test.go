@@ -35,7 +35,7 @@ func TestFeatures(t *testing.T) {
 		},
 		Options: &godog.Options{
 			Format:   "pretty",
-			Paths:    []string{"../../features"},
+			Paths:    []string{"../../features/cfg"},
 			TestingT: t, // Testing instance that will run subtests.
 		},
 	}
