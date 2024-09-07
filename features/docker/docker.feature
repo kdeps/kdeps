@@ -1,9 +1,17 @@
 Feature: Docker integration
   Background:
     Given a system configuration is defined
+    And existing docker container "kdeps-cpu-test" system is deleted
+    And the docker gpu "cpu" is defined
+    And custom <packages> has been defined
+      | ftp      |
+      | git      |
+    And llm <models> has been installed
+      | llama3.1 |
+      | llama2   |
+    And copy the necessary files to make it ready to be used
+    And the docker subsystem "test" is invoked
+
 
   Scenario: Docker will start with the given image
-    Given the docker image "alpine:3.14" is defined
-    When the docker subsystem is invoked
-    Then it initialize the "alpine:3.14" docker subsystem
-    And copy the necessary files to make it ready to be used
+    Then it should initialize the "kdeps-cpu-test" docker subsystem
