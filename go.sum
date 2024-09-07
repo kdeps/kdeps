@@ -93,8 +93,8 @@ github.com/hashicorp/golang-lru v0.5.0/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ
 github.com/hashicorp/golang-lru v0.5.4 h1:YDjusn29QI/Das2iO9M0BHnIbxPeyuCHsjMW+lJfyTc=
 github.com/hashicorp/golang-lru v0.5.4/go.mod h1:iADmTwqILo4mZ8BN3D2Q6+9jd8WM5uGBxy+E8yxSoD4=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
-github.com/kdeps/schema v0.0.27 h1:QYq/bobWVCSgRF15XLhxj/B7zkPjmZgF5N48L5T2z10=
-github.com/kdeps/schema v0.0.27/go.mod h1:fIM9MDutQ6eZTm4xfwUO0BN7dgx9qitWan8ljStkt9U=
+github.com/kdeps/schema v0.0.29 h1:VQc7kZA+I6wJ7zEXQpVGEY9a5ZYGugl7TeIZpCj7StA=
+github.com/kdeps/schema v0.0.29/go.mod h1:fIM9MDutQ6eZTm4xfwUO0BN7dgx9qitWan8ljStkt9U=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=

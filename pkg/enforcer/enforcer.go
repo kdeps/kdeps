@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"log"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -140,6 +141,78 @@ func validPklFilesKeys(validPklFiles map[string]bool) []string {
 	return keys
 }
 
+func EnforceFolderStructure(fs afero.Fs, filePath string) error {
+	// Expected elements
+	expectedFile := "workflow.pkl"
+	expectedFolders := map[string]bool{
+		"resources": false,
+		"data":      false,
+	}
+
+	ignoredFiles := map[string]bool{
+		".kdeps.pkl": true,
+	}
+
+	// Get the absolute path of the target directory or file
+	absPath, err := filepath.Abs(filePath)
+	if err != nil {
+		return err
+	}
+
+	// Check if the filePath is a directory or file
+	fileInfo, err := fs.Stat(absPath)
+	if err != nil {
+		return err
+	}
+
+	var absTargetDir string
+	// If it's a file, get the directory containing the file
+	if !fileInfo.IsDir() {
+		absTargetDir = filepath.Dir(absPath)
+	} else {
+		absTargetDir = absPath
+	}
+
+	// Read the target directory contents
+	files, err := afero.ReadDir(fs, absTargetDir)
+	if err != nil {
+		return err
+	}
+
+	// Iterate over the directory contents
+	for _, file := range files {
+		// If the file is in the ignored list, skip it
+		if _, isIgnored := ignoredFiles[file.Name()]; isIgnored {
+			log.Printf("Info: Ignored file found: %s", file.Name())
+			continue
+		}
+
+		// Check if it's a directory
+		if file.IsDir() {
+			// Check if it's one of the expected directories
+			if _, ok := expectedFolders[file.Name()]; !ok {
+				return fmt.Errorf("unexpected folder found: %s", file.Name())
+			}
+			// Mark the folder as found
+			expectedFolders[file.Name()] = true
+		} else {
+			// Check if it's the expected file
+			if file.Name() != expectedFile {
+				return fmt.Errorf("unexpected file found: %s", file.Name())
+			}
+		}
+	}
+
+	// Check if "resources" or "data" folders are missing (optional)
+	for folder, found := range expectedFolders {
+		if !found {
+			log.Printf("Warning: folder %s does not exist.", folder)
+		}
+	}
+
+	return nil
+}
+
 // EnforcePklTemplateAmendsRules combines the three validations (schema URL, version, and .pkl file)
 func EnforcePklTemplateAmendsRules(fs afero.Fs, filePath, schemaVersionFilePath string) error {
 	// Open the file containing the amends line
@@ -174,6 +247,10 @@ func EnforcePklTemplateAmendsRules(fs afero.Fs, filePath, schemaVersionFilePath 
 		line := strings.TrimSpace(scanner.Text()) // Remove leading and trailing whitespace
 		if line == "" {
 			continue // Skip empty lines
+		}
+
+		if err := EnforceFolderStructure(fs, filePath); err != nil {
+			return err
 		}
 
 		// Validate the line in stages
