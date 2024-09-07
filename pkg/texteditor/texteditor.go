@@ -3,7 +3,6 @@ package texteditor
 import (
 	"errors"
 	"fmt"
-	"kdeps/pkg/evaluator"
 	"os"
 
 	"github.com/charmbracelet/x/editor"
@@ -11,8 +10,6 @@ import (
 )
 
 func EditPkl(fs afero.Fs, filePath string) error {
-	evaluator.FindPklBinary()
-
 	if _, err := fs.Stat(filePath); err == nil {
 		c, err := editor.Cmd("kdeps", filePath)
 		if err != nil {

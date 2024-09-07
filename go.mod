@@ -12,10 +12,12 @@ require (
 	github.com/docker/docker v27.2.0+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/dustin/go-humanize v1.0.1
-	github.com/kdeps/schema v0.0.26
+	github.com/google/uuid v1.6.0
 	github.com/spf13/afero v1.11.0
 	github.com/stretchr/testify v1.9.0
 )
+
+require github.com/kdeps/schema v0.0.27
 
 require (
 	github.com/Microsoft/go-winio v0.4.14 // indirect
