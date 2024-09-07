@@ -249,10 +249,6 @@ func EnforcePklTemplateAmendsRules(fs afero.Fs, filePath, schemaVersionFilePath 
 			continue // Skip empty lines
 		}
 
-		if err := EnforceFolderStructure(fs, filePath); err != nil {
-			return err
-		}
-
 		// Validate the line in stages
 		if err := EnforceSchemaURL(line); err != nil {
 			return err
