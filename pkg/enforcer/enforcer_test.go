@@ -87,15 +87,15 @@ func TestFeatures(t *testing.T) {
 			ctx.Step(`^it does not have a config amends line on top of the file$`, itDoesNotHaveAConfigAmendsLineOnTopOfTheFile)
 			ctx.Step(`^it have a "([^"]*)" amends url line on top of the file$`, itHaveAAmendsUrlLineOnTopOfTheFile)
 			ctx.Step(`^it have a config amends line on top of the file$`, itHaveAConfigAmendsLineOnTopOfTheFile)
-			ctx.Step(`^it is an invalid configuration file$`, itIsAnInvalidPklFile)
-			ctx.Step(`^it is a valid configuration file$`, itIsAValidPklFile)
 			ctx.Step(`^the current directory is "([^"]*)"$`, theCurrentDirectoryIs)
 			ctx.Step(`^the home directory is "([^"]*)"$`, theHomeDirectoryIs)
 			// Workflow steps
 			ctx.Step(`^a file "([^"]*)" exists in the "([^"]*)"$`, aFileExistsInThe)
 			ctx.Step(`^an agent folder "([^"]*)" exists in the current directory$`, anAgentFolderExistsInTheCurrentDirectory)
-			ctx.Step(`^it is a valid agent$`, itIsAValidPklFile)
-			ctx.Step(`^it is an invalid agent$`, itIsAnInvalidPklFile)
+			ctx.Step(`^it is a valid agent$`, itIsAValidAgent)
+			ctx.Step(`^it is an invalid agent$`, itIsAnInvalidAgent)
+			ctx.Step(`^it is a valid pkl file$`, itIsAValidPklFile)
+			ctx.Step(`^it is an invalid pkl file$`, itIsAnInvalidPklFile)
 			ctx.Step(`^we have a blank workflow file$`, weHaveABlankFile)
 			ctx.Step(`^it does not have a workflow amends line on top of the file$`, itDoesNotHaveAWorkflowAmendsLineOnTopOfTheFile)
 			ctx.Step(`^it have a workflow amends line on top of the file$`, itHaveAWorkflowAmendsLineOnTopOfTheFile)
@@ -193,6 +193,22 @@ func itHaveAAmendsUrlLineOnTopOfTheFile(arg1 string) error {
 
 func itHaveAConfigAmendsLineOnTopOfTheFile() error {
 	doc = fmt.Sprintf("%s\n%s", configAmendsLine, configValues)
+
+	return nil
+}
+
+func itIsAnInvalidAgent() error {
+	if err := EnforceFolderStructure(testFs, agentPath); err == nil {
+		return errors.New("expected an error, but got nil")
+	}
+
+	return nil
+}
+
+func itIsAValidAgent() error {
+	if err := EnforceFolderStructure(testFs, agentPath); err != nil {
+		return err
+	}
 
 	return nil
 }

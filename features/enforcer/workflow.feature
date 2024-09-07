@@ -11,6 +11,7 @@ Feature: Workflow enforcer
     And a folder named "resources" exists in the "my-agent"
     And a folder named "data" exists in the "my-agent"
     When a file "workflow.pkl" exists in the "my-agent"
+    Then it is a valid pkl file
     Then it is a valid agent
 
   Scenario: Workflow file exists in the "my-agent" without an amends line
@@ -18,7 +19,8 @@ Feature: Workflow enforcer
     And a folder named "resources" exists in the "my-agent"
     And a folder named "data" exists in the "my-agent"
     When a file "workflow.pkl" exists in the "my-agent"
-    Then it is an invalid agent
+    Then it is an invalid pkl file
+    Then it is a valid agent
 
   Scenario: Workflow file exists in the "my-agent" with an amends line
     Given it have a workflow amends line on top of the file
@@ -26,7 +28,8 @@ Feature: Workflow enforcer
     And a folder named "resources" exists in the "my-agent"
     And a folder named "data" exists in the "my-agent"
     When a file "workflow.pkl" exists in the "my-agent"
-    Then it is an invalid agent
+    Then it is an invalid pkl file
+    Then it is a valid agent
 
   Scenario: Workflow file exists in the "my-agent" with an amends line and different pkl file
     Given it have a workflow amends line on top of the file
@@ -34,6 +37,7 @@ Feature: Workflow enforcer
     And a folder named "resources" exists in the "my-agent"
     And a folder named "data" exists in the "my-agent"
     When a file "workflow1.pkl" exists in the "my-agent"
+    Then it is an invalid pkl file
     Then it is an invalid agent
 
   Scenario: Workflow file exists in the "my-agent" with an amends line with multiple files
@@ -41,8 +45,9 @@ Feature: Workflow enforcer
     And it have a "kdeps.com" amends url line on top of the file
     And a folder named "resources" exists in the "my-agent"
     And a folder named "data" exists in the "my-agent"
+    And a file "others.txt" exists in the "my-agent"
     When a file "workflow.pkl" exists in the "my-agent"
-    When a file "others.txt" exists in the "my-agent"
+    Then it is a valid pkl file
     Then it is an invalid agent
 
   Scenario: Workflow file exists in the "my-agent" with an amends line with an ignored file
@@ -52,6 +57,7 @@ Feature: Workflow enforcer
     And a folder named "data" exists in the "my-agent"
     And a file ".kdeps.pkl" exists in the "my-agent"
     When a file "workflow.pkl" exists in the "my-agent"
+    Then it is a valid pkl file
     Then it is a valid agent
 
   Scenario: Workflow file exists in the "my-agent" with an amends line without the resources folder
@@ -59,6 +65,7 @@ Feature: Workflow enforcer
     And it have a "kdeps.com" amends url line on top of the file
     And a folder named "data" exists in the "my-agent"
     When a file "workflow.pkl" exists in the "my-agent"
+    Then it is a valid pkl file
     Then it is a valid agent
 
   Scenario: Workflow file exists in the "my-agent" with an amends line without the data folder
@@ -66,12 +73,14 @@ Feature: Workflow enforcer
     And it have a "kdeps.com" amends url line on top of the file
     And a folder named "resources" exists in the "my-agent"
     When a file "workflow.pkl" exists in the "my-agent"
+    Then it is a valid pkl file
     Then it is a valid agent
 
   Scenario: Workflow file exists in the "my-agent" with an amends line without any folder
     Given it have a workflow amends line on top of the file
     And it have a "kdeps.com" amends url line on top of the file
     When a file "workflow.pkl" exists in the "my-agent"
+    Then it is a valid pkl file
     Then it is a valid agent
 
   Scenario: Workflow file exists in the "my-agent" with an amends line without any allowed folder and a "other" folder
@@ -79,6 +88,7 @@ Feature: Workflow enforcer
     And it have a "kdeps.com" amends url line on top of the file
     And a folder named "other" exists in the "my-agent"
     When a file "workflow.pkl" exists in the "my-agent"
+    Then it is a valid pkl file
     Then it is an invalid agent
 
   Scenario: Workflow file exists in the "my-agent" with an amends line with all allowed folders and a "other" folder
@@ -88,6 +98,7 @@ Feature: Workflow enforcer
     And a folder named "data" exists in the "my-agent"
     And a folder named "other" exists in the "my-agent"
     When a file "workflow.pkl" exists in the "my-agent"
+    Then it is a valid pkl file
     Then it is an invalid agent
 
   Scenario: Workflow file exists in the "my-agent" with an amends line with allowed folder and subfiles
@@ -98,4 +109,5 @@ Feature: Workflow enforcer
     When a file "workflow.pkl" exists in the "resources"
     When a file "workflow.pkl" exists in the "data"
     When a file "workflow.pkl" exists in the "my-agent"
+    Then it is a valid pkl file
     Then it is a valid agent
