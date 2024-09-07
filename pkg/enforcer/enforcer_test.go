@@ -25,6 +25,8 @@ var (
 	schemaVersionFilePath = "../../SCHEMA_VERSION"
 	workflowAmendsLine    = `amends "package://schema.kdeps.com/core@0.0.29#/Workflow.pkl"`
 	configAmendsLine      = `amends "package://schema.kdeps.com/core@0.0.29#/Kdeps.pkl"`
+	resourceAmendsLine    = `amends "package://schema.kdeps.com/core@0.0.29#/Resource.pkl"`
+	resourceValues        = `resources {}`
 	configValues          = `
 runMode = "docker"
 dockerGPU = "cpu"
@@ -100,6 +102,9 @@ func TestFeatures(t *testing.T) {
 			ctx.Step(`^it does not have a workflow amends line on top of the file$`, itDoesNotHaveAWorkflowAmendsLineOnTopOfTheFile)
 			ctx.Step(`^it have a workflow amends line on top of the file$`, itHaveAWorkflowAmendsLineOnTopOfTheFile)
 			ctx.Step(`^a folder named "([^"]*)" exists in the "([^"]*)"$`, aFolderNamedExistsInThe)
+			// Resource steps
+			ctx.Step(`^it have a resource amends line on top of the file$`, itHaveAResourceAmendsLineOnTopOfTheFile)
+			ctx.Step(`^it does not have a resource amends line on top of the file$`, itDoesNotHaveAResourceAmendsLineOnTopOfTheFile)
 		},
 		Options: &godog.Options{
 			Format:   "pretty",
@@ -237,24 +242,19 @@ func itIsAValidPklFile() error {
 
 func aFileExistsInThe(arg1, arg2 string) error {
 	p := agentPath
-	subfolder := false
 
 	if arg2 != "my-agent" {
-		subfolder = true
 		p = agentPath + "/" + arg2
 	}
 
 	file := filepath.Join(p, arg1)
+	fmt.Printf("Creating %s file!", file)
 
 	f, _ := testFs.Create(file)
 	f.WriteString(doc)
 	f.Close()
 
-	if !subfolder {
-		fileThatExist = file
-	}
-
-	fmt.Printf("File %s created!", file)
+	fileThatExist = file
 
 	return nil
 }
@@ -288,6 +288,20 @@ func aFolderNamedExistsInThe(arg1, arg2 string) error {
 		return err
 	}
 	fmt.Printf("Agent path %s created!", subfolderPath)
+
+	return nil
+}
+
+// Resource steps
+
+func itHaveAResourceAmendsLineOnTopOfTheFile() error {
+	doc = fmt.Sprintf("%s\n%s", resourceAmendsLine, resourceValues)
+
+	return nil
+}
+
+func itDoesNotHaveAResourceAmendsLineOnTopOfTheFile() error {
+	doc = fmt.Sprintf("%s", resourceValues)
 
 	return nil
 }

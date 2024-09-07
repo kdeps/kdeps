@@ -94,6 +94,7 @@ func EnforcePklFilename(line string, filePath string) error {
 	// Remove trailing double-quote if present
 	pklFilename = strings.Trim(pklFilename, `"`)
 
+	fmt.Printf("line: %s filepath: %s pklFilename %s", line, filePath, pklFilename)
 	// Define valid .pkl file names
 	validPklFiles := map[string]bool{
 		"Kdeps.pkl":    true,
@@ -101,15 +102,15 @@ func EnforcePklFilename(line string, filePath string) error {
 		"Resource.pkl": true,
 	}
 
-	// Check if the extracted .pkl filename is valid
-	if !validPklFiles[pklFilename] {
-		return fmt.Errorf("invalid .pkl file: amends template expected one of '%s', but found '%s'", strings.Join(validPklFilesKeys(validPklFiles), "', '"), pklFilename)
-	}
-
 	if pklFilename == "Resource.pkl" {
 		if filename == ".kdeps.pkl" || filename == "workflow.pkl" {
 			return fmt.Errorf("Invalid filename: filename '%s' is not valid for a '%s' .pkl file. Please choose a different filename.", filename, pklFilename)
 		}
+	}
+
+	// Check if the extracted .pkl filename is valid
+	if !validPklFiles[pklFilename] {
+		return fmt.Errorf("invalid .pkl file: amends template expected one of '%s', but found '%s'", strings.Join(validPklFilesKeys(validPklFiles), "', '"), pklFilename)
 	}
 
 	// Map the base filename to the expected .pkl file name
@@ -125,7 +126,7 @@ func EnforcePklFilename(line string, filePath string) error {
 	}
 
 	// Validate if the extracted filename from the line matches the expected .pkl file
-	if expectedPkl != filename {
+	if expectedPkl != filename && pklFilename != "Resource.pkl" {
 		return fmt.Errorf("invalid .pkl filename for a %s: expected '%s', but found '%s'", pklType, expectedPkl, filename)
 	}
 
@@ -149,6 +150,7 @@ func EnforceFolderStructure(fs afero.Fs, filePath string) error {
 		"data":      false,
 	}
 
+	// List of files to ignore (e.g., ".kdeps.pkl")
 	ignoredFiles := map[string]bool{
 		".kdeps.pkl": true,
 	}
@@ -193,8 +195,17 @@ func EnforceFolderStructure(fs afero.Fs, filePath string) error {
 			if _, ok := expectedFolders[file.Name()]; !ok {
 				return fmt.Errorf("unexpected folder found: %s", file.Name())
 			}
+
 			// Mark the folder as found
 			expectedFolders[file.Name()] = true
+
+			// If the folder is "resources", validate its contents
+			if file.Name() == "resources" {
+				err := enforceResourcesFolder(fs, filepath.Join(absTargetDir, "resources"))
+				if err != nil {
+					return err
+				}
+			}
 		} else {
 			// Check if it's the expected file
 			if file.Name() != expectedFile {
@@ -206,7 +217,29 @@ func EnforceFolderStructure(fs afero.Fs, filePath string) error {
 	// Check if "resources" or "data" folders are missing (optional)
 	for folder, found := range expectedFolders {
 		if !found {
-			log.Printf("Warning: folder %s does not exist.", folder)
+			log.Printf("Warning: folder %s does not exist, but this is not an error.", folder)
+		}
+	}
+
+	return nil
+}
+
+func enforceResourcesFolder(fs afero.Fs, resourcesPath string) error {
+	// Read the contents of the resources folder
+	files, err := afero.ReadDir(fs, resourcesPath)
+	if err != nil {
+		return err
+	}
+
+	for _, file := range files {
+		// Skip subdirectories; only .pkl files should be present
+		if file.IsDir() {
+			return fmt.Errorf("unexpected directory found in resources folder: %s", file.Name())
+		}
+
+		// Check if the file has a .pkl extension
+		if filepath.Ext(file.Name()) != ".pkl" {
+			return fmt.Errorf("unexpected file found in resources folder: %s", file.Name())
 		}
 	}
 
@@ -247,6 +280,11 @@ func EnforcePklTemplateAmendsRules(fs afero.Fs, filePath, schemaVersionFilePath 
 		line := strings.TrimSpace(scanner.Text()) // Remove leading and trailing whitespace
 		if line == "" {
 			continue // Skip empty lines
+		}
+
+		// Check if the file has a .pkl extension
+		if filepath.Ext(file.Name()) != ".pkl" {
+			return fmt.Errorf("unexpected file found: %s", file.Name())
 		}
 
 		// Validate the line in stages
