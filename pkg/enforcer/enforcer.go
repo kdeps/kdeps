@@ -4,17 +4,18 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/spf13/afero"
 )
 
-// CompareVersions compares two version strings and returns:
+// compareVersions compares two version strings and returns:
 // -1 if v1 < v2
 // 0 if v1 == v2
 // 1 if v1 > v2
-func CompareVersions(v1, v2 string) (int, error) {
+func compareVersions(v1, v2 string) (int, error) {
 	v1Parts := strings.Split(v1, ".")
 	v2Parts := strings.Split(v2, ".")
 
@@ -38,8 +39,8 @@ func CompareVersions(v1, v2 string) (int, error) {
 	return 0, nil
 }
 
-// ValidateSchemaURL checks if the "amends" line contains the correct schema.kdeps.com/core URL
-func ValidateSchemaURL(line string) error {
+// EnforceSchemaURL checks if the "amends" line contains the correct schema.kdeps.com/core URL
+func EnforceSchemaURL(line string) error {
 	if !strings.HasPrefix(line, "amends") {
 		return errors.New("the pkl file does not start with 'amends'")
 	}
@@ -51,8 +52,8 @@ func ValidateSchemaURL(line string) error {
 	return nil
 }
 
-// ValidateVersion extracts the version from the "amends" line and compares it with the provided schema version
-func ValidateVersion(line, schemaVersion string) error {
+// EnforcePklVersion extracts the version from the "amends" line and compares it with the provided schema version
+func EnforcePklVersion(line, schemaVersion string) error {
 	// Extract the version number after '@' and before '#'
 	start := strings.Index(line, "@")
 	end := strings.Index(line, "#")
@@ -62,7 +63,7 @@ func ValidateVersion(line, schemaVersion string) error {
 	version := line[start+1 : end]
 
 	// Compare versions
-	comparison, err := CompareVersions(version, schemaVersion)
+	comparison, err := compareVersions(version, schemaVersion)
 	if err != nil {
 		return err
 	}
@@ -78,8 +79,7 @@ func ValidateVersion(line, schemaVersion string) error {
 	return nil
 }
 
-// ValidatePklFile extracts the .pkl file name and checks if it matches the expected value based on the rules
-func ValidatePklFile(line string, filePath string) error {
+func EnforcePklFilename(line string, filePath string) error {
 	// Extract the base filename from the file path (e.g., ".kdeps.pkl" from the full path)
 	filename := strings.ToLower(filepath.Base(filePath))
 
@@ -140,17 +140,17 @@ func validPklFilesKeys(validPklFiles map[string]bool) []string {
 	return keys
 }
 
-// ValidateAmendsLine combines the three validations (schema URL, version, and .pkl file)
-func ValidateAmendsLine(filePath, schemaVersionFilePath string) error {
+// EnforcePklTemplateAmendsRules combines the three validations (schema URL, version, and .pkl file)
+func EnforcePklTemplateAmendsRules(fs afero.Fs, filePath, schemaVersionFilePath string) error {
 	// Open the file containing the amends line
-	file, err := os.Open(filePath)
+	file, err := fs.Open(filePath)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
 	// Open the file containing the schema version
-	versionFile, err := os.Open(schemaVersionFilePath)
+	versionFile, err := fs.Open(schemaVersionFilePath)
 	if err != nil {
 		return err
 	}
@@ -177,15 +177,15 @@ func ValidateAmendsLine(filePath, schemaVersionFilePath string) error {
 		}
 
 		// Validate the line in stages
-		if err := ValidateSchemaURL(line); err != nil {
+		if err := EnforceSchemaURL(line); err != nil {
 			return err
 		}
 
-		if err := ValidateVersion(line, schemaVersion); err != nil {
+		if err := EnforcePklVersion(line, schemaVersion); err != nil {
 			return err
 		}
 
-		if err := ValidatePklFile(line, filePath); err != nil {
+		if err := EnforcePklFilename(line, filePath); err != nil {
 			return err
 		}
 
