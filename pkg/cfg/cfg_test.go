@@ -49,7 +49,7 @@ func TestFeatures(t *testing.T) {
 
 func aFileExistsInTheCurrentDirectory(arg1 string) error {
 	doc := `
-amends "package://schema.kdeps.com/core@0.0.26#/Kdeps.pkl"
+amends "package://schema.kdeps.com/core@0.0.29#/Kdeps.pkl"
 
 runMode = "docker"
 dockerGPU = "cpu"
@@ -60,9 +60,8 @@ llmSettings {
     huggingface_api_token = null
     groq_api_key = null
   }
-  llmFallbackBackend = "ollama"
+  llmFallbackBackend = "local"
   llmFallbackModel = "llama3.1"
-  modelFile = null
 }
 `
 	file := filepath.Join(currentDirPath, arg1)
@@ -78,7 +77,7 @@ llmSettings {
 
 func aFileExistsInTheHomeDirectory(arg1 string) error {
 	doc := `
-amends "package://schema.kdeps.com/core@0.0.26#/Kdeps.pkl"
+amends "package://schema.kdeps.com/core@0.0.29#/Kdeps.pkl"
 
 runMode = "docker"
 dockerGPU = "cpu"
@@ -89,9 +88,8 @@ llmSettings {
     huggingface_api_token = null
     groq_api_key = null
   }
-  llmFallbackBackend = "ollama"
+  llmFallbackBackend = "local"
   llmFallbackModel = "llama3.1"
-  modelFile = null
 }
 `
 	file := filepath.Join(homeDirPath, arg1)

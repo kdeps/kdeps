@@ -23,8 +23,8 @@ var (
 	agentPath             string
 	doc                   string
 	schemaVersionFilePath = "../../SCHEMA_VERSION"
-	workflowAmendsLine    = `amends "package://schema.kdeps.com/core@0.0.26#/Workflow.pkl"`
-	configAmendsLine      = `amends "package://schema.kdeps.com/core@0.0.26#/Kdeps.pkl"`
+	workflowAmendsLine    = `amends "package://schema.kdeps.com/core@0.0.29#/Workflow.pkl"`
+	configAmendsLine      = `amends "package://schema.kdeps.com/core@0.0.29#/Kdeps.pkl"`
 	configValues          = `
 runMode = "docker"
 dockerGPU = "cpu"
@@ -35,15 +35,13 @@ llmSettings {
     huggingface_api_token = null
     groq_api_key = null
   }
-  llmFallbackBackend = "ollama"
+  llmFallbackBackend = "local"
   llmFallbackModel = "llama3.1"
-  modelFile = null
 }
 `
 	workflowValues = `
 settings {
   runTimeout = 15.min
-  interactiveOnMissingValues = false
   llmSettings {
     llmAPIKeys {
       openai_api_key = null
@@ -51,9 +49,8 @@ settings {
       huggingface_api_token = null
       groq_api_key = null
     }
-    llmFallbackBackend = "ollama"
+    llmFallbackBackend = "local"
     llmFallbackModel = "llama3.1"
-    modelFile = null
   }
   apiServerMode = false
   apiServerSettings {
@@ -71,6 +68,9 @@ settings {
     }
   }
 }
+name = "myAgent"
+version = "1.0.0"
+action = "helloWorld"
 workflows {}
 args = null
 `
@@ -99,6 +99,7 @@ func TestFeatures(t *testing.T) {
 			ctx.Step(`^we have a blank workflow file$`, weHaveABlankFile)
 			ctx.Step(`^it does not have a workflow amends line on top of the file$`, itDoesNotHaveAWorkflowAmendsLineOnTopOfTheFile)
 			ctx.Step(`^it have a workflow amends line on top of the file$`, itHaveAWorkflowAmendsLineOnTopOfTheFile)
+			ctx.Step(`^a folder named "([^"]*)" exists in the "([^"]*)"$`, aFolderNamedExistsInThe)
 		},
 		Options: &godog.Options{
 			Format:   "pretty",
@@ -219,13 +220,25 @@ func itIsAValidPklFile() error {
 // Workflow tests
 
 func aFileExistsInThe(arg1, arg2 string) error {
-	file := filepath.Join(agentPath, arg1)
-	fmt.Println(file)
+	p := agentPath
+	subfolder := false
+
+	if arg2 != "my-agent" {
+		subfolder = true
+		p = agentPath + "/" + arg2
+	}
+
+	file := filepath.Join(p, arg1)
+
 	f, _ := testFs.Create(file)
 	f.WriteString(doc)
 	f.Close()
 
-	fileThatExist = file
+	if !subfolder {
+		fileThatExist = file
+	}
+
+	fmt.Printf("File %s created!", file)
 
 	return nil
 }
@@ -248,6 +261,17 @@ func itDoesNotHaveAWorkflowAmendsLineOnTopOfTheFile() error {
 
 func itHaveAWorkflowAmendsLineOnTopOfTheFile() error {
 	doc = fmt.Sprintf("%s\n%s", workflowAmendsLine, workflowValues)
+
+	return nil
+}
+
+func aFolderNamedExistsInThe(arg1, arg2 string) error {
+	agentPath = currentDirPath + "/my-agent"
+	subfolderPath := agentPath + "/" + arg1
+	if err := testFs.MkdirAll(subfolderPath, 0755); err != nil {
+		return err
+	}
+	fmt.Printf("Agent path %s created!", subfolderPath)
 
 	return nil
 }
