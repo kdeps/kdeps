@@ -23,37 +23,24 @@ var (
 	agentPath             string
 	doc                   string
 	schemaVersionFilePath = "../../SCHEMA_VERSION"
-	workflowAmendsLine    = `amends "package://schema.kdeps.com/core@0.0.29#/Workflow.pkl"`
-	configAmendsLine      = `amends "package://schema.kdeps.com/core@0.0.29#/Kdeps.pkl"`
-	resourceAmendsLine    = `amends "package://schema.kdeps.com/core@0.0.29#/Resource.pkl"`
-	resourceValues        = `resources {}`
-	configValues          = `
+	workflowAmendsLine    = `amends "package://schema.kdeps.com/core@0.0.32#/Workflow.pkl"`
+	configAmendsLine      = `amends "package://schema.kdeps.com/core@0.0.32#/Kdeps.pkl"`
+	resourceAmendsLine    = `amends "package://schema.kdeps.com/core@0.0.32#/Resource.pkl"`
+	resourceValues        = `
+id = "helloWorld"
+
+name = null
+description = null
+category = null
+requires = null
+run = null
+`
+	configValues = `
 runMode = "docker"
 dockerGPU = "cpu"
-llmSettings {
-  llmAPIKeys {
-    openai_api_key = null
-    mistral_api_key = null
-    huggingface_api_token = null
-    groq_api_key = null
-  }
-  llmFallbackBackend = "local"
-  llmFallbackModel = "llama3.1"
-}
 `
 	workflowValues = `
 settings {
-  runTimeout = 15.min
-  llmSettings {
-    llmAPIKeys {
-      openai_api_key = null
-      mistral_api_key = null
-      huggingface_api_token = null
-      groq_api_key = null
-    }
-    llmFallbackBackend = "local"
-    llmFallbackModel = "llama3.1"
-  }
   apiServerMode = false
   apiServerSettings {
     serverPort = 3000
@@ -71,10 +58,9 @@ settings {
   }
 }
 name = "myAgent"
+description = "My awesome AI Agent"
 version = "1.0.0"
 action = "helloWorld"
-workflows {}
-args = null
 `
 	testingT *testing.T
 )

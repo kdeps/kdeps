@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/afero"
 )
 
+var schemaVersionFilePath = "../../SCHEMA_VERSION"
+
 func FindPklBinary() {
 	binaryName := "pkl"
 	if _, err := exec.LookPath(binaryName); err != nil {
