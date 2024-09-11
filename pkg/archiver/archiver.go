@@ -23,6 +23,162 @@ import (
 
 var schemaVersionFilePath = "../../SCHEMA_VERSION"
 
+type KdepsPackage struct {
+	Workflow  string                         `json:"workflow"`  // Absolute path to workflow.pkl
+	Resources []string                       `json:"resources"` // Absolute paths to resource files
+	Data      map[string]map[string][]string `json:"data"`      // Data[agentName][version] -> slice of absolute file paths for a specific agent version
+}
+
+func ExtractPackage(fs afero.Fs, kdepsDir string, kdepsPackage string) (*KdepsPackage, error) {
+	// Enforce the filename convention using a regular expression
+	filenamePattern := regexp.MustCompile(`^([a-zA-Z]+)-([\d]+\.[\d]+\.[\d]+)\.kdeps$`)
+	baseFilename := filepath.Base(kdepsPackage)
+
+	// Validate the filename and extract agent name and version
+	matches := filenamePattern.FindStringSubmatch(baseFilename)
+	if matches == nil {
+		return nil, fmt.Errorf("invalid archive filename: %s (expected format: name-version.kdeps)", baseFilename)
+	}
+
+	agentName := matches[1]
+	version := matches[2]
+
+	// Define the base extraction path for this agent and version
+	extractBasePath := filepath.Join(kdepsDir, "agents", agentName, version)
+
+	// Open the tar.gz file
+	file, err := fs.Open(kdepsPackage)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open tar.gz file: %w", err)
+	}
+	defer file.Close()
+
+	// Create a gzip reader
+	gzipReader, err := gzip.NewReader(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gzip reader: %w", err)
+	}
+	defer gzipReader.Close()
+
+	// Create a tar reader
+	tarReader := tar.NewReader(gzipReader)
+
+	// Initialize the KdepsPackage struct
+	kdeps := &KdepsPackage{
+		Resources: []string{},
+		Data:      make(map[string]map[string][]string),
+	}
+
+	// Iterate through the files in the tar archive
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break // End of archive
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to read tar header: %w", err)
+		}
+
+		// Construct the full absolute path for the file
+		targetPath := filepath.Join(extractBasePath, header.Name)
+		absPath, err := filepath.Abs(targetPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get absolute path: %w", err)
+		}
+
+		switch header.Typeflag {
+		case tar.TypeDir:
+			// Recreate the directory (remove it if it exists, then create)
+			if _, err := fs.Stat(targetPath); !os.IsNotExist(err) {
+				err = fs.RemoveAll(targetPath)
+				if err != nil {
+					return nil, fmt.Errorf("failed to remove existing directory: %w", err)
+				}
+			}
+			// Create the directory with more permissive permissions
+			err = fs.MkdirAll(targetPath, 0777)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create directory: %w", err)
+			}
+
+		case tar.TypeReg:
+			// Create parent directories if they don't exist
+			parentDir := filepath.Dir(targetPath)
+			err = fs.MkdirAll(parentDir, 0777)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create parent directories: %w", err)
+			}
+
+			// Handle workflow and resource files
+			if strings.HasSuffix(header.Name, "workflow.pkl") {
+				kdeps.Workflow = absPath
+			} else if strings.HasPrefix(header.Name, "resources/") && strings.HasSuffix(header.Name, ".pkl") {
+				kdeps.Resources = append(kdeps.Resources, absPath)
+			} else if strings.HasPrefix(header.Name, "data/") {
+				// Extract agentName and version from the data file path
+				parts := strings.Split(header.Name, "/")
+				if len(parts) >= 3 {
+					dataAgentName := parts[1]
+					dataVersion := parts[2]
+
+					// Initialize map for agent if not exists
+					if kdeps.Data[dataAgentName] == nil {
+						kdeps.Data[dataAgentName] = make(map[string][]string)
+					}
+
+					// Append the file to the corresponding agent version
+					kdeps.Data[dataAgentName][dataVersion] = append(kdeps.Data[dataAgentName][dataVersion], absPath)
+				}
+			}
+
+			// Extract the file
+			outFile, err := fs.Create(targetPath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create file: %w", err)
+			}
+			defer outFile.Close()
+
+			// Copy the file contents
+			_, err = io.Copy(outFile, tarReader)
+			if err != nil {
+				return nil, fmt.Errorf("failed to copy file contents: %w", err)
+			}
+
+			// Set file permissions to more permissive ones (e.g., 0666 or 0777)
+			err = fs.Chmod(targetPath, 0666)
+			if err != nil {
+				return nil, fmt.Errorf("failed to set file permissions: %w", err)
+			}
+		}
+	}
+
+	// Copy the kdepsPackage to kdepsDir/packages
+	packageDir := filepath.Join(kdepsDir, "packages")
+	err = fs.MkdirAll(packageDir, 0777)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create packages directory: %w", err)
+	}
+
+	sourceFile, err := fs.Open(kdepsPackage)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open source kdeps package: %w", err)
+	}
+	defer sourceFile.Close()
+
+	destinationFile, err := fs.Create(filepath.Join(packageDir, baseFilename))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create destination kdeps package: %w", err)
+	}
+	defer destinationFile.Close()
+
+	_, err = io.Copy(destinationFile, sourceFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to copy kdeps package to packages directory: %w", err)
+	}
+
+	return kdeps, nil
+}
+
 // Function to compare version numbers
 func compareVersions(versions []string) string {
 	sort.Slice(versions, func(i, j int) bool {
@@ -82,7 +238,7 @@ func PackageProject(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, compiledProjectDi
 	}
 
 	// Create the output filename for the package
-	outFile := fmt.Sprintf("%s-%s.kdeps", wf.Name, wf.Version)
+	outFile := fmt.Sprintf("%s-%s.kdeps", *wf.Name, *wf.Version)
 	packageDir := fmt.Sprintf("%s/packages", kdepsDir)
 
 	// Define the output file path for the tarball
@@ -175,8 +331,8 @@ func CompileWorkflow(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir strin
 
 	var compiledAction string
 
-	name := wf.Name
-	version := wf.Version
+	name := *wf.Name
+	version := *wf.Version
 
 	filePath := filepath.Join(projectDir, "workflow.pkl")
 	agentDir := filepath.Join(kdepsDir, fmt.Sprintf("agents/%s/%s", name, version))
@@ -285,7 +441,7 @@ func CopyDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir, compiledProj
 	var srcDir, destDir string
 
 	srcDir = filepath.Join(projectDir, "data")
-	destDir = filepath.Join(compiledProjectDir, fmt.Sprintf("data/%s/%s", wf.Name, wf.Version))
+	destDir = filepath.Join(compiledProjectDir, fmt.Sprintf("data/%s/%s", *wf.Name, *wf.Version))
 
 	if processWorkflows {
 		// Helper function to copy resources
@@ -309,7 +465,6 @@ func CopyDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir, compiledProj
 						return err
 					}
 				} else {
-					fmt.Println("Copying file:", path, "to", dstPath)
 					if err := copyFile(fs, path, dstPath); err != nil {
 						return err
 					}
@@ -454,7 +609,7 @@ func CompileResources(fs afero.Fs, wf *pklWf.Workflow, resourcesDir string, proj
 }
 
 func processResourcePklFiles(fs afero.Fs, file string, wf *pklWf.Workflow, resourcesDir string) error {
-	name, version := wf.Name, wf.Version
+	name, version := *wf.Name, *wf.Version
 
 	readFile, err := fs.Open(file)
 	if err != nil {
@@ -533,7 +688,7 @@ func processResourcePklFiles(fs afero.Fs, file string, wf *pklWf.Workflow, resou
 
 // Handle the values inside the requires { ... } block
 func handleRequiresBlock(blockContent string, wf *pklWf.Workflow) string {
-	name, version := wf.Name, wf.Version
+	name, version := *wf.Name, *wf.Version
 
 	// Split the block by newline and process each value
 	lines := strings.Split(blockContent, "\n")
