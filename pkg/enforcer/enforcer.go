@@ -3,11 +3,11 @@ package enforcer
 import (
 	"bufio"
 	"errors"
-	"fmt"
-	"log"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"kdeps/pkg/logging" // import your logger package
 
 	"github.com/spf13/afero"
 )
@@ -25,6 +25,7 @@ func compareVersions(v1, v2 string) (int, error) {
 		v2Part, err2 := strconv.Atoi(v2Parts[i])
 
 		if err1 != nil || err2 != nil {
+			logging.Error("Invalid version format")
 			return 0, errors.New("invalid version format")
 		}
 
@@ -43,10 +44,12 @@ func compareVersions(v1, v2 string) (int, error) {
 // EnforceSchemaURL checks if the "amends" line contains the correct schema.kdeps.com/core URL
 func EnforceSchemaURL(line string) error {
 	if !strings.HasPrefix(line, "amends") {
+		logging.Error("The .pkl file does not start with 'amends'")
 		return errors.New("the pkl file does not start with 'amends'")
 	}
 
 	if !strings.Contains(line, "schema.kdeps.com/core") {
+		logging.Error("The .pkl file does not contain 'schema.kdeps.com/core'")
 		return errors.New("the pkl file does not contain 'schema.kdeps.com/core'")
 	}
 
@@ -55,79 +58,24 @@ func EnforceSchemaURL(line string) error {
 
 // EnforcePklVersion extracts the version from the "amends" line and compares it with the provided schema version
 func EnforcePklVersion(line, schemaVersion string) error {
-	// Extract the version number after '@' and before '#'
 	start := strings.Index(line, "@")
 	end := strings.Index(line, "#")
 	if start == -1 || end == -1 || start >= end {
+		logging.Error("Invalid version format in the amends line")
 		return errors.New("invalid version format in the amends line")
 	}
 	version := line[start+1 : end]
 
-	// Compare versions
 	comparison, err := compareVersions(version, schemaVersion)
 	if err != nil {
+		logging.Error("Version comparison error", "error", err)
 		return err
 	}
 
 	if comparison == -1 {
-		// Version in the amends line is lower than the schema version
-		fmt.Printf("Warning: The version '%s' in the amends line is lower than the schema version '%s'.\n", version, schemaVersion)
+		logging.Warn("Version in amends line is lower than schema version", "version", version, "schemaVersion", schemaVersion)
 	} else if comparison == 1 {
-		// Version in the amends line is higher
-		fmt.Printf("The version '%s' in the amends line is higher than the schema version '%s'.\n", version, schemaVersion)
-	}
-
-	return nil
-}
-
-func EnforcePklFilename(line string, filePath string) error {
-	// Extract the base filename from the file path (e.g., ".kdeps.pkl" from the full path)
-	filename := strings.ToLower(filepath.Base(filePath))
-
-	// Extract the .pkl file from the line
-	start := strings.Index(line, "#/")
-	if start == -1 {
-		return errors.New("invalid format: could not extract .pkl filename")
-	}
-	pklFilename := line[start+2:]
-
-	// Remove trailing double-quote if present
-	pklFilename = strings.Trim(pklFilename, `"`)
-
-	fmt.Printf("line: %s filepath: %s pklFilename %s", line, filePath, pklFilename)
-	// Define valid .pkl file names
-	validPklFiles := map[string]bool{
-		"Kdeps.pkl":    true,
-		"Workflow.pkl": true,
-		"Resource.pkl": true,
-	}
-
-	if pklFilename == "Resource.pkl" {
-		if filename == ".kdeps.pkl" || filename == "workflow.pkl" {
-			return fmt.Errorf("Invalid filename: filename '%s' is not valid for a '%s' .pkl file. Please choose a different filename.", filename, pklFilename)
-		}
-	}
-
-	// Check if the extracted .pkl filename is valid
-	if !validPklFiles[pklFilename] {
-		return fmt.Errorf("invalid .pkl file: amends template expected one of '%s', but found '%s'", strings.Join(validPklFilesKeys(validPklFiles), "', '"), pklFilename)
-	}
-
-	// Map the base filename to the expected .pkl file name
-	var expectedPkl string
-	var pklType string
-	switch pklFilename {
-	case "Kdeps.pkl":
-		pklType = "configuration file"
-		expectedPkl = ".kdeps.pkl"
-	case "Workflow.pkl":
-		pklType = "workflow file"
-		expectedPkl = "workflow.pkl"
-	}
-
-	// Validate if the extracted filename from the line matches the expected .pkl file
-	if expectedPkl != filename && pklFilename != "Resource.pkl" {
-		return fmt.Errorf("invalid .pkl filename for a %s: expected '%s', but found '%s'", pklType, expectedPkl, filename)
+		logging.Info("Version in amends line is higher than schema version", "version", version, "schemaVersion", schemaVersion)
 	}
 
 	return nil
@@ -142,64 +90,103 @@ func validPklFilesKeys(validPklFiles map[string]bool) []string {
 	return keys
 }
 
+func EnforcePklFilename(line string, filePath string) error {
+	filename := strings.ToLower(filepath.Base(filePath))
+	start := strings.Index(line, "#/")
+	if start == -1 {
+		logging.Error("Invalid format: could not extract .pkl filename")
+		return errors.New("invalid format: could not extract .pkl filename")
+	}
+	pklFilename := line[start+2:]
+	pklFilename = strings.Trim(pklFilename, `"`)
+
+	logging.Debug("Checking pkl filename", "line", line, "filePath", filePath, "pklFilename", pklFilename)
+
+	validPklFiles := map[string]bool{
+		"Kdeps.pkl":    true,
+		"Workflow.pkl": true,
+		"Resource.pkl": true,
+	}
+
+	if pklFilename == "Resource.pkl" && (filename == ".kdeps.pkl" || filename == "workflow.pkl") {
+		logging.Error("Invalid filename for Resource.pkl", "filename", filename, "pklFilename", pklFilename)
+		return errors.New("invalid filename for Resource.pkl")
+	}
+
+	if !validPklFiles[pklFilename] {
+		logging.Error("Invalid .pkl file in amends line", "expected", validPklFilesKeys(validPklFiles), "found", pklFilename)
+		return errors.New("invalid .pkl file in amends line")
+	}
+
+	var expectedPkl string
+	var pklType string
+	switch pklFilename {
+	case "Kdeps.pkl":
+		pklType = "configuration file"
+		expectedPkl = ".kdeps.pkl"
+	case "Workflow.pkl":
+		pklType = "workflow file"
+		expectedPkl = "workflow.pkl"
+	}
+
+	if expectedPkl != filename && pklFilename != "Resource.pkl" {
+		logging.Error("Invalid .pkl filename", "expected", expectedPkl, "found", filename, "type", pklType)
+		return errors.New("invalid .pkl filename for a " + pklType)
+	}
+
+	return nil
+}
+
 func EnforceFolderStructure(fs afero.Fs, filePath string) error {
-	// Expected elements
 	expectedFile := "workflow.pkl"
 	expectedFolders := map[string]bool{
 		"resources": false,
 		"data":      false,
 	}
 
-	// List of files to ignore (e.g., ".kdeps.pkl")
 	ignoredFiles := map[string]bool{
 		".kdeps.pkl": true,
 	}
 
-	// Get the absolute path of the target directory or file
 	absPath, err := filepath.Abs(filePath)
 	if err != nil {
+		logging.Error("Error getting absolute path", "filePath", filePath, "error", err)
 		return err
 	}
 
-	// Check if the filePath is a directory or file
 	fileInfo, err := fs.Stat(absPath)
 	if err != nil {
+		logging.Error("Error reading file info", "filePath", filePath, "error", err)
 		return err
 	}
 
 	var absTargetDir string
-	// If it's a file, get the directory containing the file
 	if !fileInfo.IsDir() {
 		absTargetDir = filepath.Dir(absPath)
 	} else {
 		absTargetDir = absPath
 	}
 
-	// Read the target directory contents
 	files, err := afero.ReadDir(fs, absTargetDir)
 	if err != nil {
+		logging.Error("Error reading directory contents", "dir", absTargetDir, "error", err)
 		return err
 	}
 
-	// Iterate over the directory contents
 	for _, file := range files {
-		// If the file is in the ignored list, skip it
 		if _, isIgnored := ignoredFiles[file.Name()]; isIgnored {
-			log.Printf("Info: Ignored file found: %s", file.Name())
+			logging.Info("Ignored file found", "file", file.Name())
 			continue
 		}
 
-		// Check if it's a directory
 		if file.IsDir() {
-			// Check if it's one of the expected directories
 			if _, ok := expectedFolders[file.Name()]; !ok {
-				return fmt.Errorf("unexpected folder found: %s", file.Name())
+				logging.Error("Unexpected folder found", "folder", file.Name())
+				return errors.New("unexpected folder found: " + file.Name())
 			}
 
-			// Mark the folder as found
 			expectedFolders[file.Name()] = true
 
-			// If the folder is "resources", validate its contents
 			if file.Name() == "resources" {
 				err := enforceResourcesFolder(fs, filepath.Join(absTargetDir, "resources"))
 				if err != nil {
@@ -207,17 +194,16 @@ func EnforceFolderStructure(fs afero.Fs, filePath string) error {
 				}
 			}
 		} else {
-			// Check if it's the expected file
 			if file.Name() != expectedFile {
-				return fmt.Errorf("unexpected file found: %s", file.Name())
+				logging.Error("Unexpected file found", "file", file.Name())
+				return errors.New("unexpected file found: " + file.Name())
 			}
 		}
 	}
 
-	// Check if "resources" or "data" folders are missing (optional)
 	for folder, found := range expectedFolders {
 		if !found {
-			log.Printf("Warning: folder %s does not exist, but this is not an error.", folder)
+			logging.Warn("Folder does not exist", "folder", folder)
 		}
 	}
 
@@ -225,24 +211,25 @@ func EnforceFolderStructure(fs afero.Fs, filePath string) error {
 }
 
 func enforceResourcesFolder(fs afero.Fs, resourcesPath string) error {
-	// Read the contents of the resources folder
 	files, err := afero.ReadDir(fs, resourcesPath)
 	if err != nil {
+		logging.Error("Error reading resources folder", "path", resourcesPath, "error", err)
 		return err
 	}
 
 	for _, file := range files {
-		// Allow the external directory
-		if file.IsDir() {
-			if file.Name() == "external" {
-				continue
-			}
-			return fmt.Errorf("unexpected directory found in resources folder: %s", file.Name())
+		if file.IsDir() && file.Name() == "external" {
+			continue
 		}
 
-		// Check if the file has a .pkl extension
+		if file.IsDir() {
+			logging.Error("Unexpected directory in resources folder", "dir", file.Name())
+			return errors.New("unexpected directory found in resources folder: " + file.Name())
+		}
+
 		if filepath.Ext(file.Name()) != ".pkl" {
-			return fmt.Errorf("unexpected file found in resources folder: %s", file.Name())
+			logging.Error("Unexpected file found in resources folder", "file", file.Name())
+			return errors.New("unexpected file found in resources folder: " + file.Name())
 		}
 	}
 
@@ -254,6 +241,7 @@ func EnforcePklTemplateAmendsRules(fs afero.Fs, filePath, schemaVersionFilePath 
 	// Open the file containing the amends line
 	file, err := fs.Open(filePath)
 	if err != nil {
+		logging.Error("Failed to open file", "filePath", filePath, "error", err)
 		return err
 	}
 	defer file.Close()
@@ -261,6 +249,7 @@ func EnforcePklTemplateAmendsRules(fs afero.Fs, filePath, schemaVersionFilePath 
 	// Open the file containing the schema version
 	versionFile, err := fs.Open(schemaVersionFilePath)
 	if err != nil {
+		logging.Error("Failed to open schema version file", "filePath", schemaVersionFilePath, "error", err)
 		return err
 	}
 	defer versionFile.Close()
@@ -272,8 +261,11 @@ func EnforcePklTemplateAmendsRules(fs afero.Fs, filePath, schemaVersionFilePath 
 		schemaVersion = strings.TrimSpace(scannerVersion.Text())
 	}
 	if err := scannerVersion.Err(); err != nil {
+		logging.Error("Failed to read schema version", "filePath", schemaVersionFilePath, "error", err)
 		return err
 	}
+
+	logging.Info("Schema version read", "schemaVersion", schemaVersion)
 
 	// Create a new scanner to read the amends file line by line
 	scanner := bufio.NewScanner(file)
@@ -285,33 +277,42 @@ func EnforcePklTemplateAmendsRules(fs afero.Fs, filePath, schemaVersionFilePath 
 			continue // Skip empty lines
 		}
 
+		logging.Debug("Processing line", "line", line)
+
 		// Check if the file has a .pkl extension
 		if filepath.Ext(file.Name()) != ".pkl" {
-			return fmt.Errorf("unexpected file found: %s", file.Name())
+			logging.Error("Unexpected file type", "file", file.Name())
+			return errors.New("unexpected file type: " + file.Name())
 		}
 
 		// Validate the line in stages
 		if err := EnforceSchemaURL(line); err != nil {
+			logging.Error("Schema URL validation failed", "line", line, "error", err)
 			return err
 		}
 
 		if err := EnforcePklVersion(line, schemaVersion); err != nil {
+			logging.Error("Version validation failed", "line", line, "error", err)
 			return err
 		}
 
 		if err := EnforcePklFilename(line, filePath); err != nil {
+			logging.Error("Filename validation failed", "line", line, "error", err)
 			return err
 		}
 
 		// All checks passed
+		logging.Info("All validations passed for the line", "line", line)
 		return nil
 	}
 
 	// Check for any scanning error
 	if err := scanner.Err(); err != nil {
+		logging.Error("Error while scanning the file", "filePath", filePath, "error", err)
 		return err
 	}
 
 	// Return error if no valid amends line was found
+	logging.Error("No valid 'amends' line found in the file", "filePath", filePath)
 	return errors.New("no valid 'amends' line found")
 }
