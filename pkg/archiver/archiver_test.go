@@ -7,34 +7,36 @@ import (
 	"kdeps/pkg/resource"
 	"kdeps/pkg/workflow"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/cucumber/godog"
+	"github.com/kr/pretty"
 	"github.com/spf13/afero"
 )
 
 var (
-	testFs       = afero.NewOsFs()
-	testingT     *testing.T
-	aiAgentDir   string
-	resourcesDir string
-	dataDir      string
-	workflowFile string
-	resourceFile string
-	kdepsDir     string
-	projectDir   string
-	packageDir   string
+	testFs             = afero.NewOsFs()
+	testingT           *testing.T
+	aiAgentDir         string
+	resourcesDir       string
+	dataDir            string
+	workflowFile       string
+	resourceFile       string
+	kdepsDir           string
+	projectDir         string
+	packageDir         string
+	lastCreatedPackage string
 )
 
 func TestFeatures(t *testing.T) {
 	suite := godog.TestSuite{
 		ScenarioInitializer: func(ctx *godog.ScenarioContext) {
-			ctx.Step(`^a kdeps archive "([^"]*)" is passed$`, aKdepsArchiveIsPassed)
+			ctx.Step(`^a kdeps archive "([^"]*)" is opened$`, aKdepsArchiveIsOpened)
 			ctx.Step(`^an ai agent on "([^"]*)" folder exists$`, anAiAgentOnFolder)
 			ctx.Step(`^it has a workflow file that has name property "([^"]*)" and version property "([^"]*)" and default action "([^"]*)"$`, itHasAWorkflowFile)
-
 			ctx.Step(`^the content of that archive file will be extracted to "([^"]*)"$`, theContentOfThatArchiveFileWillBeExtractedTo)
 			ctx.Step(`^the pkl files is valid$`, thePklFilesIsValid)
 			ctx.Step(`^the project is valid$`, theProjectIsValid)
@@ -72,8 +74,22 @@ func TestFeatures(t *testing.T) {
 	}
 }
 
-func aKdepsArchiveIsPassed(arg1 string) error {
-	return godog.ErrPending
+func aKdepsArchiveIsOpened(arg1 string) error {
+	name, version := regexp.MustCompile(`^([a-zA-Z]+)-([\d]+\.[\d]+\.[\d]+)\.kdeps$`).FindStringSubmatch(arg1)[1], regexp.MustCompile(`^([a-zA-Z]+)-([\d]+\.[\d]+\.[\d]+)\.kdeps$`).FindStringSubmatch(arg1)[2]
+
+	kdepsAgentPath := filepath.Join(kdepsDir, "agents/"+name+"/"+version)
+	if _, err := testFs.Stat(kdepsAgentPath); err == nil {
+		return errors.New("agent should not yet exists on system agents dir")
+	}
+
+	proj, err := ExtractPackage(testFs, kdepsDir, lastCreatedPackage)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("%# v", pretty.Formatter(proj))
+
+	return nil
 }
 
 func theSystemFolderExists(arg1 string) error {
@@ -172,7 +188,7 @@ func theResourceIdForWillBeAndDependency(arg1, arg2, arg3 string) error {
 		if err != nil {
 			return err
 		}
-		if res.Id != arg2 {
+		if *res.Id != arg2 {
 			return errors.New("Should be equal!")
 		}
 		found := false
@@ -199,7 +215,7 @@ func theResourceIdForWillBeRewrittenTo(arg1, arg2 string) error {
 			return err
 		}
 
-		if res.Id != arg2 {
+		if *res.Id != arg2 {
 			return errors.New("Should be equal!")
 		}
 	}
@@ -274,7 +290,12 @@ version = "%s"
 }
 
 func theContentOfThatArchiveFileWillBeExtractedTo(arg1 string) error {
-	return godog.ErrPending
+	fpath := filepath.Join(kdepsDir, arg1)
+	if _, err := testFs.Stat(fpath); err != nil {
+		return errors.New("there should be an agent dir present, but none was found")
+	}
+
+	return nil
 }
 
 func thePklFilesIsValid() error {
@@ -393,6 +414,7 @@ func thePackageFileWillBeCreated(arg1 string) error {
 	if _, err := testFs.Stat(fpath); err != nil {
 		return errors.New("expected a package, but got none")
 	}
+	lastCreatedPackage = fpath
 
 	return nil
 }
@@ -437,12 +459,7 @@ version = "%s"
 }
 
 func theResourceFileExistsInTheAgent(arg1, arg2, arg3 string) error {
-	// wf, _ := workflow.LoadWorkflow(workflowFile)
-	// if err := ProcessWorkflows(testFs, wf, kdepsDir, aiAgentDir, projectDir); err != nil {
-	//	return err
-	// }
 	fpath := filepath.Join(kdepsDir, "agents/"+arg2+"/1.0.0/resources/"+arg1)
-	fmt.Println("FPATH", fpath)
 	if _, err := testFs.Stat(fpath); err != nil {
 		return errors.New("expected a package, but got none")
 	}

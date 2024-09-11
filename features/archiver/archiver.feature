@@ -383,6 +383,9 @@ Feature: Archiver of AI Agents
     And the resource file "xAgent_fooBar2-1.0.0.pkl" exists in the "xyzAgent" agent "1.0.0"
     And the data files will be copied to "agents/xyzAgent/1.0.0/data/xAgent/1.0.0"
 
+  Scenario: Kdeps packages will be extracted
+    When a kdeps archive "xyzAgent-1.0.0.kdeps" is opened
+    Then the content of that archive file will be extracted to "agents/xyzAgent/1.0.0"
 
   Scenario: Valid ai agent will be packaged
     When the project is valid
@@ -393,7 +396,3 @@ Feature: Archiver of AI Agents
     When the pkl files is invalid
     When the project is invalid
     Then the project will not be archived to "myAgent-1.0.0.kdeps"
-
-  Scenario: Kdeps packages will be extracted
-    When a kdeps archive "myAgent-1.0.0.kdeps" is passed
-    Then the content of that archive file will be extracted to ".kdeps/agents/myAgent/1.0.0"
