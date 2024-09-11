@@ -232,8 +232,11 @@ func enforceResourcesFolder(fs afero.Fs, resourcesPath string) error {
 	}
 
 	for _, file := range files {
-		// Skip subdirectories; only .pkl files should be present
+		// Allow the external directory
 		if file.IsDir() {
+			if file.Name() == "external" {
+				continue
+			}
 			return fmt.Errorf("unexpected directory found in resources folder: %s", file.Name())
 		}
 
