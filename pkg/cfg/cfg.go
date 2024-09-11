@@ -32,7 +32,7 @@ type Environment struct {
 }
 
 func FindConfiguration(fs afero.Fs, environment *Environment) error {
-	evaluator.FindPklBinary()
+	evaluator.EnsurePklBinaryExists()
 
 	if len(environment.Home) > 0 {
 		HomeConfigFile = filepath.Join(environment.Home, SystemConfigFileName)
