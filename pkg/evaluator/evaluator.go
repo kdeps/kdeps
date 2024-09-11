@@ -2,24 +2,37 @@ package evaluator
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/alexellis/go-execute/v2"
 	"github.com/spf13/afero"
 )
 
-var schemaVersionFilePath = "../../SCHEMA_VERSION"
+const schemaVersionFilePath = "../../SCHEMA_VERSION"
 
-func FindPklBinary() {
+// EnsurePklBinaryExists checks if the 'pkl' binary exists in the system PATH.
+func EnsurePklBinaryExists() error {
 	binaryName := "pkl"
 	if _, err := exec.LookPath(binaryName); err != nil {
-		panic("The binary 'pkl' does not exist in PATH. For more information, see: https://pkl-lang.org")
+		return fmt.Errorf("the binary '%s' is not found in PATH: %w", binaryName, err)
 	}
+	return nil
 }
 
+// EvalPkl evaluates the resource file at resourcePath using the 'pkl' binary.
+// It expects the resourcePath to have a .pkl extension.
 func EvalPkl(fs afero.Fs, resourcePath string) (string, error) {
-	FindPklBinary()
+	// Validate that the file has a .pkl extension
+	if filepath.Ext(resourcePath) != ".pkl" {
+		return "", fmt.Errorf("file '%s' must have a .pkl extension", resourcePath)
+	}
+
+	// Ensure that the 'pkl' binary is available
+	if err := EnsurePklBinaryExists(); err != nil {
+		return "", err
+	}
 
 	cmd := execute.ExecTask{
 		Command:     "pkl",
@@ -27,14 +40,16 @@ func EvalPkl(fs afero.Fs, resourcePath string) (string, error) {
 		StreamStdio: false,
 	}
 
-	res, err := cmd.Execute(context.Background())
+	// Execute the command
+	result, err := cmd.Execute(context.Background())
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("command execution failed: %w", err)
 	}
 
-	if res.ExitCode != 0 {
-		return "", errors.New("Non-zero exit code: " + res.Stderr)
+	// Check for non-zero exit code
+	if result.ExitCode != 0 {
+		return "", fmt.Errorf("command failed with exit code %d: %s", result.ExitCode, result.Stderr)
 	}
 
-	return res.Stdout, nil
+	return result.Stdout, nil
 }
