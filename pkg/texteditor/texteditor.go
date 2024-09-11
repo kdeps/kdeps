@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"kdeps/pkg/logging"
+
 	"github.com/charmbracelet/x/editor"
 	"github.com/spf13/afero"
 )
@@ -13,21 +15,29 @@ import (
 func EditPkl(fs afero.Fs, filePath string) error {
 	// Ensure the file has a .pkl extension
 	if filepath.Ext(filePath) != ".pkl" {
-		return fmt.Errorf("file '%s' does not have a .pkl extension", filePath)
+		err := fmt.Sprintf("file '%s' does not have a .pkl extension", filePath)
+		logging.Error(err)
+		return fmt.Errorf(err)
 	}
 
 	// Check if the file exists
 	if _, err := fs.Stat(filePath); err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("file '%s' does not exist", filePath)
+			errMsg := fmt.Sprintf("file '%s' does not exist", filePath)
+			logging.Error(errMsg)
+			return fmt.Errorf(errMsg)
 		}
-		return fmt.Errorf("failed to stat file '%s': %w", filePath, err)
+		errMsg := fmt.Sprintf("failed to stat file '%s': %v", filePath, err)
+		logging.Error(errMsg)
+		return fmt.Errorf(errMsg)
 	}
 
 	// Prepare the editor command
 	cmd, err := editor.Cmd("kdeps", filePath)
 	if err != nil {
-		return fmt.Errorf("failed to create editor command: %w", err)
+		errMsg := fmt.Sprintf("failed to create editor command: %v", err)
+		logging.Error(errMsg)
+		return fmt.Errorf(errMsg)
 	}
 
 	cmd.Stdin = os.Stdin
@@ -36,7 +46,9 @@ func EditPkl(fs afero.Fs, filePath string) error {
 
 	// Run the editor command
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("editor command failed: %w", err)
+		errMsg := fmt.Sprintf("editor command failed: %v", err)
+		logging.Error(errMsg)
+		return fmt.Errorf(errMsg)
 	}
 
 	return nil

@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"kdeps/pkg/logging"
+
 	"github.com/alexellis/go-execute/v2"
 	"github.com/spf13/afero"
 )
@@ -16,7 +18,9 @@ const schemaVersionFilePath = "../../SCHEMA_VERSION"
 func EnsurePklBinaryExists() error {
 	binaryName := "pkl"
 	if _, err := exec.LookPath(binaryName); err != nil {
-		return fmt.Errorf("the binary '%s' is not found in PATH: %w", binaryName, err)
+		errMsg := fmt.Sprintf("the binary '%s' is not found in PATH", binaryName)
+		logging.Error(errMsg, "error", err)
+		return fmt.Errorf("%s: %w", errMsg, err)
 	}
 	return nil
 }
@@ -26,7 +30,9 @@ func EnsurePklBinaryExists() error {
 func EvalPkl(fs afero.Fs, resourcePath string) (string, error) {
 	// Validate that the file has a .pkl extension
 	if filepath.Ext(resourcePath) != ".pkl" {
-		return "", fmt.Errorf("file '%s' must have a .pkl extension", resourcePath)
+		errMsg := fmt.Sprintf("file '%s' must have a .pkl extension", resourcePath)
+		logging.Error(errMsg)
+		return "", fmt.Errorf(errMsg)
 	}
 
 	// Ensure that the 'pkl' binary is available
@@ -43,12 +49,16 @@ func EvalPkl(fs afero.Fs, resourcePath string) (string, error) {
 	// Execute the command
 	result, err := cmd.Execute(context.Background())
 	if err != nil {
-		return "", fmt.Errorf("command execution failed: %w", err)
+		errMsg := "command execution failed"
+		logging.Error(errMsg, "error", err)
+		return "", fmt.Errorf("%s: %w", errMsg, err)
 	}
 
 	// Check for non-zero exit code
 	if result.ExitCode != 0 {
-		return "", fmt.Errorf("command failed with exit code %d: %s", result.ExitCode, result.Stderr)
+		errMsg := fmt.Sprintf("command failed with exit code %d: %s", result.ExitCode, result.Stderr)
+		logging.Error(errMsg)
+		return "", fmt.Errorf(errMsg)
 	}
 
 	return result.Stdout, nil
