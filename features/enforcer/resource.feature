@@ -6,7 +6,7 @@ Feature: Resource enforcer
     And we have a blank workflow file
     And it have a workflow amends line on top of the file
     And it have a "kdeps.com" amends url line on top of the file
-    And a folder named "resources" exists in the "my-agent"
+    And a folder named "resources/external" exists in the "my-agent"
     And a folder named "data" exists in the "my-agent"
     And a file "workflow.pkl" exists in the "my-agent"
     And it is a valid pkl file

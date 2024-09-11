@@ -4,8 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"kdeps/pkg/enforcer"
+	"kdeps/pkg/resource"
 	"kdeps/pkg/workflow"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/cucumber/godog"
@@ -17,9 +20,11 @@ var (
 	testingT     *testing.T
 	aiAgentDir   string
 	resourcesDir string
+	dataDir      string
 	workflowFile string
 	resourceFile string
 	kdepsDir     string
+	projectDir   string
 	packageDir   string
 )
 
@@ -28,8 +33,8 @@ func TestFeatures(t *testing.T) {
 		ScenarioInitializer: func(ctx *godog.ScenarioContext) {
 			ctx.Step(`^a kdeps archive "([^"]*)" is passed$`, aKdepsArchiveIsPassed)
 			ctx.Step(`^an ai agent on "([^"]*)" folder exists$`, anAiAgentOnFolder)
-			ctx.Step(`^it has a resource file with id property "([^"]*)"$`, itHasAResourceFileWithIdProperty)
-			ctx.Step(`^it has a workflow file that has name property "([^"]*)" and version property "([^"]*)"$`, itHasAWorkflowFileThatHasNamePropertyAndVersionProperty)
+			ctx.Step(`^it has a workflow file that has name property "([^"]*)" and version property "([^"]*)" and default action "([^"]*)"$`, itHasAWorkflowFile)
+
 			ctx.Step(`^the content of that archive file will be extracted to "([^"]*)"$`, theContentOfThatArchiveFileWillBeExtractedTo)
 			ctx.Step(`^the pkl files is valid$`, thePklFilesIsValid)
 			ctx.Step(`^the project is valid$`, theProjectIsValid)
@@ -39,6 +44,19 @@ func TestFeatures(t *testing.T) {
 			ctx.Step(`^the pkl files is invalid$`, thePklFilesIsInvalid)
 			ctx.Step(`^the project is invalid$`, theProjectIsInvalid)
 			ctx.Step(`^the project will not be archived to "([^"]*)"$`, theProjectWillNotBeArchivedTo)
+
+			ctx.Step(`^it has a "([^"]*)" file with id property "([^"]*)" and dependent on "([^"]*)"$`, itHasAFileWithIdPropertyAndDependentOn)
+			ctx.Step(`^it has a "([^"]*)" file with no dependency with id property "([^"]*)"$`, itHasAFileWithNoDependencyWithIdProperty)
+			ctx.Step(`^it will be stored to "([^"]*)"$`, itWillBeStoredTo)
+			ctx.Step(`^the project is compiled$`, theProjectIsCompiled)
+			ctx.Step(`^the resource id for "([^"]*)" will be "([^"]*)" and dependency "([^"]*)"$`, theResourceIdForWillBeAndDependency)
+			ctx.Step(`^the resource id for "([^"]*)" will be rewritten to "([^"]*)"$`, theResourceIdForWillBeRewrittenTo)
+			ctx.Step(`^the workflow action configuration will be rewritten to "([^"]*)"$`, theWorkflowActionConfigurationWillBeRewrittenTo)
+			ctx.Step(`^the resources and data folder exists$`, theResourcesAndDataFolderExists)
+			ctx.Step(`^the data files will be copied to "([^"]*)"$`, theDataFilesWillBeCopiedTo)
+			ctx.Step(`^the package file "([^"]*)" will be created$`, thePackageFileWillBeCreated)
+			ctx.Step(`^it has a workflow file that has name property "([^"]*)" and version property "([^"]*)" and default action "([^"]*)" and workspaces "([^"]*)"$`, itHasAWorkflowFileDependencies)
+			ctx.Step(`^the resource file "([^"]*)" exists in the "([^"]*)" agent "([^"]*)"$`, theResourceFileExistsInTheAgent)
 		},
 		Options: &godog.Options{
 			Format:   "pretty",
@@ -85,19 +103,35 @@ func anAiAgentOnFolder(arg1 string) error {
 	return nil
 }
 
-func itHasAResourceFileWithIdProperty(arg1 string) error {
-	resourcesDir = aiAgentDir + "/resources"
-	if err := testFs.MkdirAll(resourcesDir, 0755); err != nil {
-		return err
+func itHasAFileWithIdPropertyAndDependentOn(arg1, arg2, arg3 string) error {
+	// Check if arg3 is a CSV (contains commas)
+	var requiresSection string
+	if strings.Contains(arg3, ",") {
+		// Split arg3 into multiple values if it's a CSV
+		values := strings.Split(arg3, ",")
+		var requiresLines []string
+		for _, value := range values {
+			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
+			requiresLines = append(requiresLines, fmt.Sprintf(`  "%s"`, value))
+		}
+		requiresSection = "requires {\n" + strings.Join(requiresLines, "\n") + "\n}"
+	} else {
+		// Single value case
+		requiresSection = fmt.Sprintf(`requires {
+  "%s"
+}`, arg3)
 	}
 
+	// Create the document with the id and requires block
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.32#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.0.34#/Resource.pkl"
 
 id = "%s"
-`, arg1)
+%s
+`, arg2, requiresSection)
 
-	file := filepath.Join(resourcesDir, "resource1.pkl")
+	// Write to the file
+	file := filepath.Join(resourcesDir, arg1)
 
 	f, _ := testFs.Create(file)
 	f.WriteString(doc)
@@ -108,15 +142,125 @@ id = "%s"
 	return nil
 }
 
-func itHasAWorkflowFileThatHasNamePropertyAndVersionProperty(arg1, arg2 string) error {
-	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.32#/Workflow.pkl"
+func itWillBeStoredTo(arg1 string) error {
+	workflowFile = filepath.Join(kdepsDir, arg1)
 
+	if _, err := testFs.Stat(workflowFile); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func theProjectIsCompiled() error {
+	wf, err := workflow.LoadWorkflow(workflowFile)
+	if err != nil {
+		return err
+	}
+
+	projectDir, _ := CompileProject(testFs, wf, kdepsDir, aiAgentDir)
+
+	workflowFile = filepath.Join(projectDir, "workflow.pkl")
+
+	return nil
+}
+
+func theResourceIdForWillBeAndDependency(arg1, arg2, arg3 string) error {
+	resFile := filepath.Join(projectDir, "resources/"+arg1)
+	if _, err := testFs.Stat(resFile); err == nil {
+		res, err := resource.LoadResource(resFile)
+		if err != nil {
+			return err
+		}
+		if res.Id != arg2 {
+			return errors.New("Should be equal!")
+		}
+		found := false
+		for _, v := range *res.Requires {
+			if v == arg3 {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return errors.New("Require found!")
+		}
+	}
+
+	return nil
+}
+
+func theResourceIdForWillBeRewrittenTo(arg1, arg2 string) error {
+	resFile := filepath.Join(projectDir, "resources/"+arg1)
+	if _, err := testFs.Stat(resFile); err == nil {
+		res, err := resource.LoadResource(resFile)
+		if err != nil {
+			return err
+		}
+
+		if res.Id != arg2 {
+			return errors.New("Should be equal!")
+		}
+	}
+
+	return nil
+}
+
+func theWorkflowActionConfigurationWillBeRewrittenTo(arg1 string) error {
+	wf, err := workflow.LoadWorkflow(workflowFile)
+	if err != nil {
+		return err
+	}
+
+	if *wf.Action != arg1 {
+		return errors.New(fmt.Sprintf("%s = %s does not match!", *wf.Action, arg1))
+	}
+
+	return nil
+}
+
+func theResourcesAndDataFolderExists() error {
+	resourcesDir = filepath.Join(aiAgentDir, "resources")
+	if err := testFs.MkdirAll(resourcesDir, 0755); err != nil {
+		return err
+	}
+
+	dataDir = filepath.Join(aiAgentDir, "data")
+	if err := testFs.MkdirAll(dataDir, 0755); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func itHasAFileWithNoDependencyWithIdProperty(arg1, arg2 string) error {
+	doc := fmt.Sprintf(`
+amends "package://schema.kdeps.com/core@0.0.34#/Resource.pkl"
+
+id = "%s"
+`, arg2)
+
+	file := filepath.Join(resourcesDir, arg1)
+
+	f, _ := testFs.Create(file)
+	f.WriteString(doc)
+	f.Close()
+
+	resourceFile = file
+
+	return nil
+}
+
+func itHasAWorkflowFile(arg1, arg2, arg3 string) error {
+	doc := fmt.Sprintf(`
+amends "package://schema.kdeps.com/core@0.0.34#/Workflow.pkl"
+
+action = "%s"
 name = "%s"
 description = "My awesome AI Agent"
 version = "%s"
-action = "helloWorld"
-`, arg1, arg2)
+`, arg3, arg1, arg2)
 
 	file := filepath.Join(aiAgentDir, "workflow.pkl")
 
@@ -154,7 +298,7 @@ func theProjectIsValid() error {
 }
 
 func theProjectWillBeArchivedTo(arg1 string) error {
-	wf, err := workflow.LoadConfiguration(testFs, workflowFile)
+	wf, err := workflow.LoadWorkflow(workflowFile)
 	if err != nil {
 		return err
 	}
@@ -168,24 +312,30 @@ func theProjectWillBeArchivedTo(arg1 string) error {
 		return err
 	}
 
-	fmt.Printf("Package file '%s' created!", fpath)
-
 	return nil
 }
 
 func theresADataFile() error {
-	dataDir := aiAgentDir + "/data"
-	if err := testFs.MkdirAll(dataDir, 0755); err != nil {
-		return err
+	doc := "THIS IS A TEXT FILE: "
+
+	for x := 0; x < 10; x++ {
+		num := strconv.Itoa(x)
+		file := filepath.Join(dataDir, fmt.Sprintf("textfile-%s.txt", num))
+
+		f, _ := testFs.Create(file)
+		f.WriteString(doc + num)
+		f.Close()
 	}
 
-	doc := "THIS IS A TEXT FILE"
+	return nil
+}
 
-	file := filepath.Join(dataDir, "textfile.txt")
+func theDataFilesWillBeCopiedTo(arg1 string) error {
+	file := filepath.Join(kdepsDir, arg1+"/textfile-1.txt")
 
-	f, _ := testFs.Create(file)
-	f.WriteString(doc)
-	f.Close()
+	if _, err := testFs.Stat(file); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -221,7 +371,7 @@ func theProjectIsInvalid() error {
 }
 
 func theProjectWillNotBeArchivedTo(arg1 string) error {
-	wf, err := workflow.LoadConfiguration(testFs, workflowFile)
+	wf, err := workflow.LoadWorkflow(workflowFile)
 	if err != nil {
 		return err
 	}
@@ -233,6 +383,68 @@ func theProjectWillNotBeArchivedTo(arg1 string) error {
 
 	if _, err := testFs.Stat(fpath); err == nil {
 		return errors.New("expected an error, but got nil")
+	}
+
+	return nil
+}
+
+func thePackageFileWillBeCreated(arg1 string) error {
+	fpath := filepath.Join(packageDir, arg1)
+	if _, err := testFs.Stat(fpath); err != nil {
+		return errors.New("expected a package, but got none")
+	}
+
+	return nil
+}
+
+func itHasAWorkflowFileDependencies(arg1, arg2, arg3, arg4 string) error {
+	var workflowsSection string
+	if strings.Contains(arg4, ",") {
+		// Split arg3 into multiple values if it's a CSV
+		values := strings.Split(arg4, ",")
+		var workflowsLines []string
+		for _, value := range values {
+			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
+			workflowsLines = append(workflowsLines, fmt.Sprintf(`  "%s"`, value))
+		}
+		workflowsSection = "workflows {\n" + strings.Join(workflowsLines, "\n") + "\n}"
+	} else {
+		// Single value case
+		workflowsSection = fmt.Sprintf(`workflows {
+  "%s"
+}`, arg4)
+	}
+
+	doc := fmt.Sprintf(`
+amends "package://schema.kdeps.com/core@0.0.34#/Workflow.pkl"
+
+action = "%s"
+name = "%s"
+description = "My awesome AI Agent"
+version = "%s"
+%s
+`, arg3, arg1, arg2, workflowsSection)
+
+	file := filepath.Join(aiAgentDir, "workflow.pkl")
+
+	f, _ := testFs.Create(file)
+	f.WriteString(doc)
+	f.Close()
+
+	workflowFile = file
+
+	return nil
+}
+
+func theResourceFileExistsInTheAgent(arg1, arg2, arg3 string) error {
+	// wf, _ := workflow.LoadWorkflow(workflowFile)
+	// if err := ProcessWorkflows(testFs, wf, kdepsDir, aiAgentDir, projectDir); err != nil {
+	//	return err
+	// }
+	fpath := filepath.Join(kdepsDir, "agents/"+arg2+"/1.0.0/resources/"+arg1)
+	fmt.Println("FPATH", fpath)
+	if _, err := testFs.Stat(fpath); err != nil {
+		return errors.New("expected a package, but got none")
 	}
 
 	return nil
