@@ -174,7 +174,7 @@ func theProjectIsCompiled() error {
 		return err
 	}
 
-	projectDir, _ := CompileProject(testFs, wf, kdepsDir, aiAgentDir)
+	projectDir, _, _ := CompileProject(testFs, wf, kdepsDir, aiAgentDir)
 
 	workflowFile = filepath.Join(projectDir, "workflow.pkl")
 

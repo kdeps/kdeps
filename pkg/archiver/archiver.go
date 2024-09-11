@@ -281,6 +281,12 @@ func PackageProject(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, compiledProjectDi
 	outFile := fmt.Sprintf("%s-%s.kdeps", *wf.Name, *wf.Version)
 	packageDir := fmt.Sprintf("%s/packages", kdepsDir)
 
+	if _, err := fs.Stat(packageDir); err != nil {
+		if err := fs.MkdirAll(packageDir, 0777); err != nil {
+			return "", fmt.Errorf("error creating the system packages folder: %s", packageDir)
+		}
+	}
+
 	// Define the output file path for the tarball
 	tarGzPath := filepath.Join(packageDir, outFile)
 
@@ -290,6 +296,7 @@ func PackageProject(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, compiledProjectDi
 		logging.Error("Error checking if package exists", "path", tarGzPath, "error", err)
 		return "", fmt.Errorf("error checking if package exists: %w", err)
 	}
+
 	if exists {
 		if err := fs.Remove(tarGzPath); err != nil {
 			logging.Error("Failed to remove existing package file", "path", tarGzPath, "error", err)
@@ -380,8 +387,8 @@ func CompileWorkflow(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir strin
 	action := wf.Action
 
 	if action == nil {
-		logging.Warn("No action specified in workflow")
-		return "", nil
+		logging.Error("No action specified in workflow!")
+		return "", errors.New("Action is required! Please specify the default action in the workflow!")
 	}
 
 	var compiledAction string
@@ -571,6 +578,11 @@ func CopyDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir, compiledProj
 		}
 	}
 
+	if _, err := fs.Stat(srcDir); err != nil {
+		logging.Error("No data found! Skipping!")
+		return nil
+	}
+
 	// Final walk for data directory copying
 	err := afero.Walk(fs, srcDir, func(path string, info os.FileInfo, walkErr error) error {
 		if walkErr != nil {
@@ -615,24 +627,24 @@ func CopyDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir, compiledProj
 }
 
 // CompileProject orchestrates the compilation and packaging of a project
-func CompileProject(fs afero.Fs, wf *pklWf.Workflow, kdepsDir string, projectDir string) (string, error) {
+func CompileProject(fs afero.Fs, wf *pklWf.Workflow, kdepsDir string, projectDir string) (string, string, error) {
 	// Compile the workflow
 	compiledProjectDir, err := CompileWorkflow(fs, wf, kdepsDir, projectDir)
 	if err != nil {
 		logging.Error("Failed to compile workflow", "error", err)
-		return "", err
+		return "", "", err
 	}
 
 	// Check if the compiled project directory exists
 	exists, err := afero.DirExists(fs, compiledProjectDir)
 	if err != nil {
 		logging.Error("Error checking if compiled project directory exists", "path", compiledProjectDir, "error", err)
-		return "", err
+		return "", "", err
 	}
 	if !exists {
 		err = errors.New("Compiled project directory does not exist!")
 		logging.Error("Compiled project directory does not exist", "path", compiledProjectDir)
-		return "", err
+		return "", "", err
 	}
 
 	// Verify the compiled workflow file
@@ -641,43 +653,43 @@ func CompileProject(fs afero.Fs, wf *pklWf.Workflow, kdepsDir string, projectDir
 		if os.IsNotExist(err) {
 			err = fmt.Errorf("No compiled workflow found at: %s", newWorkflowFile)
 			logging.Error("Compiled workflow file does not exist", "path", newWorkflowFile, "error", err)
-			return "", err
+			return "", "", err
 		}
 		logging.Error("Error stating compiled workflow file", "path", newWorkflowFile, "error", err)
-		return "", err
+		return "", "", err
 	}
 
 	// Load the new workflow
 	newWorkflow, err := workflow.LoadWorkflow(newWorkflowFile)
 	if err != nil {
 		logging.Error("Failed to load new workflow", "path", newWorkflowFile, "error", err)
-		return "", err
+		return "", "", err
 	}
 
 	// Compile resources
 	resourcesDir := filepath.Join(compiledProjectDir, "resources")
 	if err := CompileResources(fs, newWorkflow, resourcesDir, projectDir); err != nil {
 		logging.Error("Failed to compile resources", "resourcesDir", resourcesDir, "projectDir", projectDir, "error", err)
-		return "", err
+		return "", "", err
 	}
 
 	// Copy the project directory
 	if err := CopyDir(fs, newWorkflow, kdepsDir, projectDir, compiledProjectDir, "", "", "", false); err != nil {
 		logging.Error("Failed to copy project directory", "compiledProjectDir", compiledProjectDir, "error", err)
-		return "", err
+		return "", "", err
 	}
 
 	// Process workflows
 	if err := ProcessWorkflows(fs, newWorkflow, kdepsDir, projectDir, compiledProjectDir); err != nil {
 		logging.Error("Failed to process workflows", "compiledProjectDir", compiledProjectDir, "error", err)
-		return "", err
+		return "", "", err
 	}
 
 	// Package the project
 	packageFile, err := PackageProject(fs, newWorkflow, kdepsDir, compiledProjectDir)
 	if err != nil {
 		logging.Error("Failed to package project", "compiledProjectDir", compiledProjectDir, "error", err)
-		return "", err
+		return "", "", err
 	}
 
 	// Verify the package file
@@ -685,20 +697,65 @@ func CompileProject(fs afero.Fs, wf *pklWf.Workflow, kdepsDir string, projectDir
 		if os.IsNotExist(err) {
 			err = fmt.Errorf("No package file found at: %s", packageFile)
 			logging.Error("Package file does not exist", "path", packageFile, "error", err)
-			return "", err
+			return "", "", err
 		}
 		logging.Error("Error stating package file", "path", packageFile, "error", err)
-		return "", err
+		return "", "", err
 	}
 
 	logging.Info("Kdeps package created", "package-file", packageFile)
 
-	return compiledProjectDir, nil
+	return compiledProjectDir, packageFile, nil
+}
+
+func CheckAndValidatePklFiles(fs afero.Fs, projectResourcesDir string) error {
+	// Check if the project resources directory exists
+	if _, err := fs.Stat(projectResourcesDir); err != nil {
+		logging.Error("No resource directory found! Exiting!")
+		return fmt.Errorf("AI agent needs to have at least 1 resource in the '%s' folder.", projectResourcesDir)
+	}
+
+	// Get the list of files in the directory
+	files, err := afero.ReadDir(fs, projectResourcesDir)
+	if err != nil {
+		logging.Error("Error reading resource directory", "error", err)
+		return fmt.Errorf("failed to read directory '%s': %v", projectResourcesDir, err)
+	}
+
+	// Filter for .pkl files
+	var pklFiles []string
+	for _, file := range files {
+		if !file.IsDir() && filepath.Ext(file.Name()) == ".pkl" {
+			pklFiles = append(pklFiles, filepath.Join(projectResourcesDir, file.Name()))
+		}
+	}
+
+	// Exit if no .pkl files are found
+	if len(pklFiles) == 0 {
+		logging.Error("No .pkl files found in the directory! Exiting!")
+		return fmt.Errorf("No .pkl files found in the '%s' folder.", projectResourcesDir)
+	}
+
+	// Validate each .pkl file
+	for _, pklFile := range pklFiles {
+		logging.Info("Validating .pkl file", "file", pklFile)
+		if err := enforcer.EnforcePklTemplateAmendsRules(fs, pklFile, schemaVersionFilePath); err != nil {
+			logging.Error("Validation failed for .pkl file", "file", pklFile, "error", err)
+			return fmt.Errorf("validation failed for '%s': %v", pklFile, err)
+		}
+	}
+
+	logging.Info("All .pkl files validated successfully!")
+	return nil
 }
 
 // CompileResources processes .pkl files from the project directory and copies them to the resources directory
 func CompileResources(fs afero.Fs, wf *pklWf.Workflow, resourcesDir string, projectDir string) error {
 	projectResourcesDir := filepath.Join(projectDir, "resources")
+
+	if err := CheckAndValidatePklFiles(fs, projectResourcesDir); err != nil {
+		return err
+	}
 
 	// Walk through all files in the project directory
 	err := afero.Walk(fs, projectResourcesDir, func(file string, info os.FileInfo, err error) error {

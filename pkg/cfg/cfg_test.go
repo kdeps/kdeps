@@ -1,6 +1,8 @@
 package cfg
 
 import (
+	"errors"
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -117,11 +119,12 @@ func theConfigurationIsLoadedInTheCurrentDirectory() error {
 		Pwd:  currentDirPath,
 	}
 
-	if err := FindConfiguration(testFs, env); err != nil {
+	cfgFile, err := FindConfiguration(testFs, env)
+	if err != nil {
 		return err
 	}
 
-	if _, err := LoadConfiguration(testFs); err != nil {
+	if _, err := LoadConfiguration(testFs, cfgFile); err != nil {
 		return err
 	}
 
@@ -134,11 +137,12 @@ func theConfigurationIsLoadedInTheHomeDirectory() error {
 		Pwd:  "",
 	}
 
-	if err := FindConfiguration(testFs, env); err != nil {
+	cfgFile, err := FindConfiguration(testFs, env)
+	if err != nil {
 		return err
 	}
 
-	if _, err := LoadConfiguration(testFs); err != nil {
+	if _, err := LoadConfiguration(testFs, cfgFile); err != nil {
 		return err
 	}
 
@@ -181,8 +185,13 @@ func theConfigurationFailsToLoadAnyConfiguration() error {
 		Pwd:  currentDirPath,
 	}
 
-	if err := FindConfiguration(testFs, env); err != nil {
-		return err
+	cfgFile, err := FindConfiguration(testFs, env)
+	if err != nil {
+		return errors.New(fmt.Sprintf("An error occurred while finding configuration: %s", err))
+	}
+	fmt.Println(cfgFile)
+	if cfgFile != "" {
+		return errors.New("expected not finding configuration file, but found")
 	}
 
 	return nil
@@ -195,11 +204,12 @@ func theConfigurationFileWillBeGeneratedTo(arg1 string) error {
 		NonInteractive: "1",
 	}
 
-	if err := GenerateConfiguration(testFs, env); err != nil {
+	cfgFile, err := GenerateConfiguration(testFs, env)
+	if err != nil {
 		return err
 	}
 
-	if _, err := LoadConfiguration(testFs); err != nil {
+	if _, err := LoadConfiguration(testFs, cfgFile); err != nil {
 		return err
 	}
 
@@ -213,7 +223,7 @@ func theConfigurationWillBeEdited() error {
 		NonInteractive: "1",
 	}
 
-	if err := EditConfiguration(testFs, env); err != nil {
+	if _, err := EditConfiguration(testFs, env); err != nil {
 		return err
 	}
 
@@ -226,7 +236,7 @@ func theConfigurationWillBeValidated() error {
 		Pwd:  "",
 	}
 
-	if err := ValidateConfiguration(testFs, env); err != nil {
+	if _, err := ValidateConfiguration(testFs, env); err != nil {
 		return err
 	}
 

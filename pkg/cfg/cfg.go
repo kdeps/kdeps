@@ -18,12 +18,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-var (
-	SystemConfigFileName = ".kdeps.pkl"
-	ConfigFile           string
-	HomeConfigFile       string
-	CwdConfigFile        string
-)
+var SystemconfigFileName = ".kdeps.pkl"
 
 type Environment struct {
 	Home           string `env:"HOME"`
@@ -32,68 +27,76 @@ type Environment struct {
 	Extras         env.EnvSet
 }
 
-func FindConfiguration(fs afero.Fs, environment *Environment) error {
+func FindConfiguration(fs afero.Fs, environment *Environment) (configFile string, err error) {
 	logging.Info("Finding configuration...")
 
+	// Ensure PKL binary exists before proceeding
 	if err := evaluator.EnsurePklBinaryExists(); err != nil {
-		return err
+		return "", err
 	}
 
-	if len(environment.Home) > 0 {
-		HomeConfigFile = filepath.Join(environment.Home, SystemConfigFileName)
-		ConfigFile = HomeConfigFile
-		logging.Info("Configuration file set to home directory", "config-file", ConfigFile)
-		return nil
-	}
-
+	// Check if configuration exists in the current directory (override)
 	if len(environment.Pwd) > 0 {
-		CwdConfigFile = filepath.Join(environment.Pwd, SystemConfigFileName)
-		ConfigFile = CwdConfigFile
-		logging.Info("Configuration file set to current directory", "config-file", ConfigFile)
-		return nil
+		configFile = filepath.Join(environment.Pwd, SystemconfigFileName)
+		if _, err = fs.Stat(configFile); err == nil {
+			logging.Info("Configuration file found in current directory (override)", "config-file", configFile)
+			return configFile, nil
+		}
 	}
 
-	es, err := env.UnmarshalFromEnviron(&environment)
+	// Check if configuration exists in the home directory (override)
+	if len(environment.Home) > 0 {
+		configFile = filepath.Join(environment.Home, SystemconfigFileName)
+		if _, err = fs.Stat(configFile); err == nil {
+			logging.Info("Configuration file found in home directory (override)", "config-file", configFile)
+			return configFile, nil
+		}
+	}
+
+	// Load the environment and extra settings if overrides don't exist
+	es, err := env.UnmarshalFromEnviron(environment)
 	if err != nil {
-		return err
+		return "", err
 	}
 	environment.Extras = es
 
-	CwdConfigFile = filepath.Join(environment.Pwd, SystemConfigFileName)
-	HomeConfigFile = filepath.Join(environment.Home, SystemConfigFileName)
-
-	if _, err = fs.Stat(CwdConfigFile); err == nil {
-		ConfigFile = CwdConfigFile
-		logging.Info("Configuration file found in current directory", "config-file", ConfigFile)
-	} else if _, err = fs.Stat(HomeConfigFile); err == nil {
-		ConfigFile = HomeConfigFile
-		logging.Info("Configuration file found in home directory", "config-file", ConfigFile)
-	} else {
-		logging.Warn("Configuration file not found", "config-file", ConfigFile)
+	// Check configuration file in the environment's current directory
+	configFilePwd := filepath.Join(environment.Pwd, SystemconfigFileName)
+	if _, err = fs.Stat(configFilePwd); err == nil {
+		logging.Info("Configuration file found in environment's current directory", "config-file", configFilePwd)
+		return configFilePwd, nil
 	}
 
-	return nil
+	// Check configuration file in the environment's home directory
+	configFileHome := filepath.Join(environment.Home, SystemconfigFileName)
+	if _, err = fs.Stat(configFileHome); err == nil {
+		logging.Info("Configuration file found in environment's home directory", "config-file", configFileHome)
+		return configFileHome, nil
+	}
+
+	// No configuration file found
+	logging.Warn("Configuration file not found in any location", "config-file", SystemconfigFileName)
+	return "", nil
 }
 
-func GenerateConfiguration(fs afero.Fs, environment *Environment) error {
+func GenerateConfiguration(fs afero.Fs, environment *Environment) (configFile string, err error) {
 	logging.Info("Generating configuration...")
 
 	if len(environment.Home) > 0 {
-		HomeConfigFile = filepath.Join(environment.Home, SystemConfigFileName)
-		ConfigFile = HomeConfigFile
+		configFile = filepath.Join(environment.Home, SystemconfigFileName)
 	} else {
 		es, err := env.UnmarshalFromEnviron(&environment)
 		if err != nil {
-			return err
+			return "", err
 		}
 		environment.Extras = es
-		HomeConfigFile = filepath.Join(environment.Home, SystemConfigFileName)
-		ConfigFile = HomeConfigFile
+
+		configFile = filepath.Join(environment.Home, SystemconfigFileName)
 	}
 
 	skipPrompts := environment.NonInteractive == "1"
 
-	if _, err := fs.Stat(ConfigFile); err != nil {
+	if _, err := fs.Stat(configFile); err != nil {
 		var confirm bool
 		if !skipPrompts {
 			if err := huh.Run(
@@ -102,102 +105,98 @@ func GenerateConfiguration(fs afero.Fs, environment *Environment) error {
 					Description("The configuration will be validated. This will require the `pkl` package to be installed. Please refer to https://pkl-lang.org for more details.").
 					Value(&confirm),
 			); err != nil {
-				return fmt.Errorf("could not create a configuration file: %w", err)
+				return "", fmt.Errorf("could not create a configuration file: %w", err)
 			}
 
 			if !confirm {
-				return errors.New("aborted by user")
+				return "", errors.New("aborted by user")
 			}
 		}
 
 		// Read the schema version from the SCHEMA_VERSION file
 		schemaVersionBytes, err := ioutil.ReadFile("../../SCHEMA_VERSION")
 		if err != nil {
-			return fmt.Errorf("failed to read SCHEMA_VERSION: %w", err)
+			return "", fmt.Errorf("failed to read SCHEMA_VERSION: %w", err)
 		}
 		schemaVersion := strings.TrimSpace(string(schemaVersionBytes))
 
 		// Create the URL with the schema version
 		url := fmt.Sprintf("package://schema.kdeps.com/core@%s#/Kdeps.pkl", schemaVersion)
 
-		// Evaluate the .pkl file and write the result to ConfigFile
+		// Evaluate the .pkl file and write the result to configFile
 		result, err := evaluator.EvalPkl(fs, url)
 		if err != nil {
-			return fmt.Errorf("failed to evaluate .pkl file: %w", err)
+			return "", fmt.Errorf("failed to evaluate .pkl file: %w", err)
 		}
 
 		content := fmt.Sprintf("amends \"%s\"\n%s", url, result)
-		if err = afero.WriteFile(fs, ConfigFile, []byte(content), 0644); err != nil {
-			return fmt.Errorf("failed to write to %s: %w", ConfigFile, err)
+		if err = afero.WriteFile(fs, configFile, []byte(content), 0644); err != nil {
+			return "", fmt.Errorf("failed to write to %s: %w", configFile, err)
 		}
 
-		logging.Info("Configuration file generated", "config-file", ConfigFile)
+		logging.Info("Configuration file generated", "config-file", configFile)
 	}
 
-	return nil
+	return configFile, nil
 }
 
-func EditConfiguration(fs afero.Fs, environment *Environment) error {
+func EditConfiguration(fs afero.Fs, environment *Environment) (configFile string, err error) {
 	logging.Info("Editing configuration...")
 
 	if len(environment.Home) > 0 {
-		HomeConfigFile = filepath.Join(environment.Home, SystemConfigFileName)
-		ConfigFile = HomeConfigFile
+		configFile = filepath.Join(environment.Home, SystemconfigFileName)
 	} else {
 		es, err := env.UnmarshalFromEnviron(&environment)
 		if err != nil {
-			return err
+			return "", err
 		}
 		environment.Extras = es
-		HomeConfigFile = filepath.Join(environment.Home, SystemConfigFileName)
-		ConfigFile = HomeConfigFile
+		configFile = filepath.Join(environment.Home, SystemconfigFileName)
 	}
 
 	skipPrompts := environment.NonInteractive == "1"
 
-	if _, err := fs.Stat(ConfigFile); err == nil {
+	if _, err := fs.Stat(configFile); err == nil {
 		if !skipPrompts {
-			if err := texteditor.EditPkl(fs, ConfigFile); err != nil {
-				return fmt.Errorf("failed to edit configuration file: %w", err)
+			if err := texteditor.EditPkl(fs, configFile); err != nil {
+				return configFile, fmt.Errorf("failed to edit configuration file: %w", err)
 			}
 		}
 	} else {
-		logging.Warn("Configuration file does not exist", "config-file", ConfigFile)
+		logging.Warn("Configuration file does not exist", "config-file", configFile)
 	}
 
-	return nil
+	return configFile, nil
 }
 
-func ValidateConfiguration(fs afero.Fs, environment *Environment) error {
+func ValidateConfiguration(fs afero.Fs, environment *Environment) (configFile string, err error) {
 	logging.Info("Validating configuration...")
 
 	if len(environment.Home) > 0 {
-		HomeConfigFile = filepath.Join(environment.Home, SystemConfigFileName)
-		ConfigFile = HomeConfigFile
+		configFile = filepath.Join(environment.Home, SystemconfigFileName)
 	} else {
 		es, err := env.UnmarshalFromEnviron(&environment)
 		if err != nil {
-			return err
+			return "", err
 		}
 		environment.Extras = es
-		HomeConfigFile = filepath.Join(environment.Home, SystemConfigFileName)
-		ConfigFile = HomeConfigFile
+		configFile = filepath.Join(environment.Home, SystemconfigFileName)
 	}
 
-	if _, err := evaluator.EvalPkl(fs, ConfigFile); err != nil {
-		return fmt.Errorf("configuration validation failed: %w", err)
+	if _, err := evaluator.EvalPkl(fs, configFile); err != nil {
+		return configFile, fmt.Errorf("configuration validation failed: %w", err)
 	}
 
-	logging.Info("Configuration validated successfully", "config-file", ConfigFile)
-	return nil
+	logging.Info("Configuration validated successfully", "config-file", configFile)
+	return configFile, nil
 }
 
-func LoadConfiguration(fs afero.Fs) (konfig *kdeps.Kdeps, err error) {
-	logging.Info("Loading configuration file", "config-file", ConfigFile)
+func LoadConfiguration(fs afero.Fs, configFile string) (konfig *kdeps.Kdeps, err error) {
+	logging.Info("Loading configuration file", "config-file", configFile)
 
-	konfig, err = kdeps.LoadFromPath(context.Background(), ConfigFile)
+	konfig, err = kdeps.LoadFromPath(context.Background(), configFile)
 	if err != nil {
-		return nil, fmt.Errorf("error reading config-file '%s': %w", ConfigFile, err)
+		return nil, fmt.Errorf("error reading config-file '%s': %w", configFile, err)
 	}
 
 	return konfig, nil

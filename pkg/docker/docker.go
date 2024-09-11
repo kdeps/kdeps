@@ -2,8 +2,8 @@ package docker
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"kdeps/pkg/logging"
 	"strings"
 
 	"github.com/docker/docker/api/types/container"
@@ -25,18 +25,23 @@ func LoadDockerSystem(kdeps *kdeps.Kdeps, id string) (name string, err error) {
 	switch kdeps.DockerGPU {
 	case "cpu":
 		if name, err = LoadDockerSystemCPU(uid); err != nil {
+			logging.Error("Error loading Docker system with CPU", "error", err)
 			return name, err
 		}
 	case "nvidia":
 		if name, err = LoadDockerSystemNvidia(uid); err != nil {
+			logging.Error("Error loading Docker system with Nvidia GPU", "error", err)
 			return name, err
 		}
 	case "amd":
 		if name, err = LoadDockerSystemAMD(uid); err != nil {
+			logging.Error("Error loading Docker system with AMD GPU", "error", err)
 			return name, err
 		}
 	default:
-		return name, errors.New(fmt.Sprintf("Docker GPU '%s' unsupported!", kdeps.DockerGPU))
+		err = fmt.Errorf("Docker GPU '%s' unsupported!", kdeps.DockerGPU)
+		logging.Error("Unsupported Docker GPU type", "dockerGPU", kdeps.DockerGPU, "error", err)
+		return name, err
 	}
 
 	return name, nil
@@ -48,6 +53,7 @@ func LoadDockerSystemNvidia(uid string) (string, error) {
 	// Create Docker client
 	cli, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
+		logging.Error("Error creating Docker client", "error", err)
 		return containerName, err
 	}
 	cli.NegotiateAPIVersion(context.Background())
@@ -91,15 +97,17 @@ func LoadDockerSystemNvidia(uid string) (string, error) {
 		containerName, // Name of the container
 	)
 	if err != nil {
-		return containerName, errors.New(fmt.Sprintf("Error creating container: %v\n", err))
+		logging.Error("Error creating Nvidia Docker container", "containerName", containerName, "error", err)
+		return containerName, fmt.Errorf("error creating container: %v", err)
 	}
 
 	// Start the container in detached mode
 	if err := cli.ContainerStart(context.Background(), resp.ID, container.StartOptions{}); err != nil {
-		return containerName, errors.New(fmt.Sprintf("Error starting container: %v\n", err))
+		logging.Error("Error starting Nvidia Docker container", "containerName", containerName, "error", err)
+		return containerName, fmt.Errorf("error starting container: %v", err)
 	}
 
-	fmt.Printf("Container started with ID: %s\n", resp.ID)
+	logging.Info("Nvidia Docker container started", "containerID", resp.ID)
 	return containerName, nil
 }
 
@@ -109,6 +117,7 @@ func LoadDockerSystemAMD(uid string) (string, error) {
 	// Create a Docker client
 	cli, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
+		logging.Error("Error creating Docker client", "error", err)
 		return containerName, err
 	}
 	cli.NegotiateAPIVersion(context.Background())
@@ -159,16 +168,17 @@ func LoadDockerSystemAMD(uid string) (string, error) {
 		containerName, // Container name
 	)
 	if err != nil {
-		return containerName, errors.New(fmt.Sprintf("Error creating container: %v\n", err))
+		logging.Error("Error creating AMD Docker container", "containerName", containerName, "error", err)
+		return containerName, fmt.Errorf("error creating container: %v", err)
 	}
 
 	// Start the container in detached mode
 	if err := cli.ContainerStart(context.Background(), resp.ID, container.StartOptions{}); err != nil {
-		return containerName, errors.New(fmt.Sprintf("Error starting container: %v\n", err))
+		logging.Error("Error starting AMD Docker container", "containerName", containerName, "error", err)
+		return containerName, fmt.Errorf("error starting container: %v", err)
 	}
 
-	fmt.Printf("Container started with ID: %s\n", resp.ID)
-
+	logging.Info("AMD Docker container started", "containerID", resp.ID)
 	return containerName, nil
 }
 
@@ -178,6 +188,7 @@ func LoadDockerSystemCPU(uid string) (string, error) {
 	// Create Docker client
 	cli, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
+		logging.Error("Error creating Docker client", "error", err)
 		return containerName, err
 	}
 	cli.NegotiateAPIVersion(context.Background())
@@ -207,19 +218,20 @@ func LoadDockerSystemCPU(uid string) (string, error) {
 		containerConfig,
 		hostConfig,
 		nil,           // Networking options (can be nil for default)
-		nil,           // Platform options (can be nil)
+		nil,           // Platform options (can be nil for default)
 		containerName, // Name of the container
 	)
 	if err != nil {
-		return containerName, errors.New(fmt.Sprintf("Error creating container: %v\n", err))
+		logging.Error("Error creating CPU Docker container", "containerName", containerName, "error", err)
+		return containerName, fmt.Errorf("error creating container: %v", err)
 	}
 
 	// Start the container in detached mode
 	if err := cli.ContainerStart(context.Background(), resp.ID, container.StartOptions{}); err != nil {
-		return containerName, errors.New(fmt.Sprintf("Error starting container: %v\n", err))
+		logging.Error("Error starting CPU Docker container", "containerName", containerName, "error", err)
+		return containerName, fmt.Errorf("error starting container: %v", err)
 	}
 
-	fmt.Printf("Container started with ID: %s\n", resp.ID)
-
+	logging.Info("CPU Docker container started", "containerID", resp.ID)
 	return containerName, nil
 }
