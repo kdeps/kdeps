@@ -156,11 +156,12 @@ func aSystemConfigurationIsDefined() error {
 		NonInteractive: "1",
 	}
 
-	if err := cfg.GenerateConfiguration(testFs, env); err != nil {
+	cfgFile, err := cfg.GenerateConfiguration(testFs, env)
+	if err != nil {
 		return err
 	}
 
-	scfg, err := cfg.LoadConfiguration(testFs)
+	scfg, err := cfg.LoadConfiguration(testFs, cfgFile)
 	if err != nil {
 		return err
 	}
