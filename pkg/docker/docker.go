@@ -1,237 +1,241 @@
 package docker
 
 import (
+	"archive/tar"
+	"bufio"
+	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
-	"kdeps/pkg/logging"
+	"io"
+	"kdeps/pkg/archiver"
+	"kdeps/pkg/workflow"
+	"math/rand"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	"github.com/google/uuid"
-	"github.com/kdeps/schema/gen/kdeps"
+	kdCfg "github.com/kdeps/schema/gen/kdeps"
+	"github.com/spf13/afero"
 )
 
-func LoadDockerSystem(kdeps *kdeps.Kdeps, id string) (name string, err error) {
-	u := uuid.New()
-	uid := strings.Replace(u.String(), "-", "", -1)
-	uid = uid[:12]
-
-	if len(id) > 0 {
-		uid = id
-	}
-
-	switch kdeps.DockerGPU {
-	case "cpu":
-		if name, err = LoadDockerSystemCPU(uid); err != nil {
-			logging.Error("Error loading Docker system with CPU", "error", err)
-			return name, err
-		}
-	case "nvidia":
-		if name, err = LoadDockerSystemNvidia(uid); err != nil {
-			logging.Error("Error loading Docker system with Nvidia GPU", "error", err)
-			return name, err
-		}
-	case "amd":
-		if name, err = LoadDockerSystemAMD(uid); err != nil {
-			logging.Error("Error loading Docker system with AMD GPU", "error", err)
-			return name, err
-		}
-	default:
-		err = fmt.Errorf("Docker GPU '%s' unsupported!", kdeps.DockerGPU)
-		logging.Error("Unsupported Docker GPU type", "dockerGPU", kdeps.DockerGPU, "error", err)
-		return name, err
-	}
-
-	return name, nil
-}
-
-func LoadDockerSystemNvidia(uid string) (string, error) {
-	containerName := "kdeps-nvidia-" + uid
-
-	// Create Docker client
-	cli, err := client.NewClientWithOpts(client.FromEnv)
+func BuildAndRunDockerfile(fs afero.Fs, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage) error {
+	wfCfg, err := workflow.LoadWorkflow(pkgProject.Workflow)
 	if err != nil {
-		logging.Error("Error creating Docker client", "error", err)
-		return containerName, err
-	}
-	cli.NegotiateAPIVersion(context.Background())
-
-	// Create container configuration
-	containerConfig := &container.Config{
-		Image:        "ollama/ollama",              // Image name
-		ExposedPorts: nat.PortSet{"11434/tcp": {}}, // Expose port 11434
+		return err
 	}
 
-	// Host configuration (mapping ports, mounting volumes, and using GPU)
-	hostConfig := &container.HostConfig{
-		Binds: []string{"ollama:/root/.ollama"}, // Mount volume
-		PortBindings: nat.PortMap{
-			"11434/tcp": []nat.PortBinding{
-				{
-					HostIP:   "0.0.0.0",
-					HostPort: "11434",
-				},
-			},
-		},
-		Runtime: "nvidia", // Enable GPU (requires NVIDIA runtime)
-		Resources: container.Resources{
-			DeviceRequests: []container.DeviceRequest{
-				{
-					Driver:       "nvidia",
-					Count:        -1, // Equivalent to --gpus=all
-					Capabilities: [][]string{{"gpu"}},
-				},
-			},
-		},
-	}
+	agentName := *wfCfg.Name
+	agentVersion := *wfCfg.Version
+	gpuType := kdeps.DockerGPU
+	md5sum := pkgProject.Md5sum
+	cName := strings.Join([]string{"kdeps", agentName, string(gpuType), md5sum}, "-")
+	cName = strings.ToLower(cName)
+	containerName := strings.Join([]string{cName, agentVersion}, ":")
 
-	// Create the container with the specified name
-	resp, err := cli.ContainerCreate(
-		context.Background(),
-		containerConfig,
-		hostConfig,
-		nil,           // Networking options (can be nil for default)
-		nil,           // Platform options (can be nil)
-		containerName, // Name of the container
-	)
+	rand.Seed(time.Now().UnixNano())
+
+	minPort, maxPort := 11435, 65535
+	portNum := strconv.Itoa(rand.Intn(maxPort-minPort+1) + minPort)
+	dockerFile := fmt.Sprintf(`
+FROM ollama/ollama:latest
+ENV OLLAMA_HOST=127.0.0.1:%s
+# RUN /usr/bin/apt-get update
+# RUN /usr/bin/apt-get install sleep
+# RUN /usr/bin/apt-get install -y golang
+# RUN /usr/bin/apt-get install -y ruby
+# RUN /usr/bin/apt-get install -y python2
+
+COPY * /agent/
+
+ENTRYPOINT ["/usr/bin/sleep"]
+CMD ["infinity"]
+`, portNum)
+
+	// Ensure the run directory exists
+	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion)
+
+	// Write the Dockerfile to the run directory
+	resourceConfigurationFile := filepath.Join(runDir, "Dockerfile")
+	err = afero.WriteFile(fs, resourceConfigurationFile, []byte(dockerFile), 0644)
 	if err != nil {
-		logging.Error("Error creating Nvidia Docker container", "containerName", containerName, "error", err)
-		return containerName, fmt.Errorf("error creating container: %v", err)
+		return err
 	}
 
-	// Start the container in detached mode
-	if err := cli.ContainerStart(context.Background(), resp.ID, container.StartOptions{}); err != nil {
-		logging.Error("Error starting Nvidia Docker container", "containerName", containerName, "error", err)
-		return containerName, fmt.Errorf("error starting container: %v", err)
+	// Create a tar archive of the run directory to use as the Docker build context
+	tarBuffer := new(bytes.Buffer)
+	tw := tar.NewWriter(tarBuffer)
+
+	// Walk through the files in the directory and add them to the tar archive
+	err = afero.Walk(fs, runDir, func(file string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Create tar header
+		header, err := tar.FileInfoHeader(info, info.Name())
+		if err != nil {
+			return err
+		}
+
+		// Adjust the header name to be relative to the runDir (the build context)
+		relPath := strings.TrimPrefix(file, runDir+"/")
+		header.Name = relPath
+
+		// Write header and file contents
+		if err := tw.WriteHeader(header); err != nil {
+			return err
+		}
+
+		if !info.IsDir() {
+			fileReader, err := fs.Open(file)
+			if err != nil {
+				return err
+			}
+			defer fileReader.Close()
+
+			if _, err := io.Copy(tw, fileReader); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
-	logging.Info("Nvidia Docker container started", "containerID", resp.ID)
-	return containerName, nil
-}
-
-func LoadDockerSystemAMD(uid string) (string, error) {
-	containerName := "kdeps-amd-" + uid
+	// Close the tar writer to finish writing the tarball
+	if err := tw.Close(); err != nil {
+		return err
+	}
 
 	// Create a Docker client
-	cli, err := client.NewClientWithOpts(client.FromEnv)
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		logging.Error("Error creating Docker client", "error", err)
-		return containerName, err
+		return err
 	}
-	cli.NegotiateAPIVersion(context.Background())
 
-	// Define container configuration
+	// Docker build options
+	ctx := context.Background()
+	buildOptions := types.ImageBuildOptions{
+		Tags:       []string{containerName}, // Image name and tag
+		Dockerfile: "Dockerfile",            // The Dockerfile is in the root of the build context
+		Remove:     true,                    // Remove intermediate containers after a successful build
+	}
+
+	// Check if the container named "cName" is already running, and remove it if necessary
+	containers, err := cli.ContainerList(ctx, container.ListOptions{All: true})
+	if err != nil {
+		return err
+	}
+
+	for _, c := range containers {
+		for _, name := range c.Names {
+			if name == "/"+cName { // Ensure name match is exact
+				fmt.Printf("Deleting container: %s\n", c.ID)
+				err := cli.ContainerRemove(ctx, c.ID, container.RemoveOptions{Force: true})
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	// Build the Docker image
+	response, err := cli.ImageBuild(ctx, tarBuffer, buildOptions)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	// Process and print the build output
+	err = printDockerBuildOutput(response.Body)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Docker image build completed successfully!")
+
+	// Prune dangling images
+	_, err = cli.ImagesPrune(ctx, filters.Args{})
+	if err != nil {
+		return err
+	}
+	fmt.Println("Pruned dangling images.")
+
+	// Run the Docker container with volume and port configuration
 	containerConfig := &container.Config{
-		Image:        "ollama/ollama:rocm",         // The image name
-		ExposedPorts: nat.PortSet{"11434/tcp": {}}, // Expose port 11434
+		Image: containerName,
+		// Cmd:   []string{"/bin/bash"},
 	}
-
-	// Define host configuration (port bindings, devices, and volume mounts)
+	tcpPort := fmt.Sprintf("%s/tcp", portNum)
 	hostConfig := &container.HostConfig{
-		// Mount volume
 		Binds: []string{"ollama:/root/.ollama"},
-		// Port bindings
-		PortBindings: nat.PortMap{
-			"11434/tcp": []nat.PortBinding{
-				{
-					HostIP:   "0.0.0.0",
-					HostPort: "11434",
-				},
-			},
-		},
-		// Devices to include
-		Resources: container.Resources{
-			Devices: []container.DeviceMapping{
-				{
-					PathOnHost:        "/dev/kfd", // Map /dev/kfd from the host
-					PathInContainer:   "/dev/kfd", // Path inside the container
-					CgroupPermissions: "rwm",      // Read, write, and mknod permissions
-				},
-				{
-					PathOnHost:        "/dev/dri", // Map /dev/dri from the host
-					PathInContainer:   "/dev/dri", // Path inside the container
-					CgroupPermissions: "rwm",      // Read, write, and mknod permissions
-				},
-			},
+		PortBindings: map[nat.Port][]nat.PortBinding{
+			nat.Port(tcpPort): {{HostIP: "0.0.0.0", HostPort: portNum}},
 		},
 	}
 
-	// Create the container with the specified name
-	resp, err := cli.ContainerCreate(
-		context.Background(),
-		containerConfig,
-		hostConfig,
-		nil,           // Networking options (nil for default)
-		nil,           // Platform options (nil for default)
-		containerName, // Container name
-	)
+	resp, err := cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, cName)
 	if err != nil {
-		logging.Error("Error creating AMD Docker container", "containerName", containerName, "error", err)
-		return containerName, fmt.Errorf("error creating container: %v", err)
+		return err
 	}
 
-	// Start the container in detached mode
-	if err := cli.ContainerStart(context.Background(), resp.ID, container.StartOptions{}); err != nil {
-		logging.Error("Error starting AMD Docker container", "containerName", containerName, "error", err)
-		return containerName, fmt.Errorf("error starting container: %v", err)
+	err = cli.ContainerStart(ctx, resp.ID, container.StartOptions{})
+	if err != nil {
+		return err
 	}
 
-	logging.Info("AMD Docker container started", "containerID", resp.ID)
-	return containerName, nil
+	fmt.Println("Ollama container is running.")
+
+	return nil
 }
 
-func LoadDockerSystemCPU(uid string) (string, error) {
-	containerName := "kdeps-cpu-" + uid
+// printDockerBuildOutput processes the Docker build logs and returns any error encountered during the build.
+func printDockerBuildOutput(rd io.Reader) error {
+	scanner := bufio.NewScanner(rd)
+	for scanner.Scan() {
+		line := scanner.Text()
 
-	// Create Docker client
-	cli, err := client.NewClientWithOpts(client.FromEnv)
-	if err != nil {
-		logging.Error("Error creating Docker client", "error", err)
-		return containerName, err
-	}
-	cli.NegotiateAPIVersion(context.Background())
+		// Try to unmarshal each line as JSON
+		buildLine := &BuildLine{}
+		err := json.Unmarshal([]byte(line), buildLine)
+		if err != nil {
+			// If unmarshalling fails, print the raw line (non-JSON output)
+			fmt.Println(line)
+			continue
+		}
 
-	// Create container configuration
-	containerConfig := &container.Config{
-		Image:        "ollama/ollama",              // Image name
-		ExposedPorts: nat.PortSet{"11434/tcp": {}}, // Expose port 11434
-	}
+		// Print the build logs (stream output)
+		if buildLine.Stream != "" {
+			fmt.Print(buildLine.Stream) // Docker logs often include newlines, so no need to add extra
+		}
 
-	// Host configuration (mapping ports, mounting volumes, and using GPU)
-	hostConfig := &container.HostConfig{
-		Binds: []string{"ollama:/root/.ollama"}, // Mount volume
-		PortBindings: nat.PortMap{
-			"11434/tcp": []nat.PortBinding{
-				{
-					HostIP:   "0.0.0.0",
-					HostPort: "11434",
-				},
-			},
-		},
+		// If there's an error in the build process, return it
+		if buildLine.Error != "" {
+			return errors.New(buildLine.Error)
+		}
 	}
 
-	// Create the container with the specified name
-	resp, err := cli.ContainerCreate(
-		context.Background(),
-		containerConfig,
-		hostConfig,
-		nil,           // Networking options (can be nil for default)
-		nil,           // Platform options (can be nil for default)
-		containerName, // Name of the container
-	)
-	if err != nil {
-		logging.Error("Error creating CPU Docker container", "containerName", containerName, "error", err)
-		return containerName, fmt.Errorf("error creating container: %v", err)
+	// Handle scanner errors
+	if err := scanner.Err(); err != nil {
+		return err
 	}
 
-	// Start the container in detached mode
-	if err := cli.ContainerStart(context.Background(), resp.ID, container.StartOptions{}); err != nil {
-		logging.Error("Error starting CPU Docker container", "containerName", containerName, "error", err)
-		return containerName, fmt.Errorf("error starting container: %v", err)
-	}
+	return nil
+}
 
-	logging.Info("CPU Docker container started", "containerID", resp.ID)
-	return containerName, nil
+// BuildLine struct is used to unmarshal Docker build log lines from the response.
+type BuildLine struct {
+	Stream string `json:"stream"`
+	Error  string `json:"error"`
 }

@@ -217,7 +217,16 @@ func itShouldStartTheContainer(arg1 string) error {
 }
 
 func kdepsOpenThePackage(arg1 string) error {
-	return godog.ErrPending
+	pkgProject, err := archiver.ExtractPackage(testFs, kdepsDir, packageFile)
+	if err != nil {
+		return err
+	}
+
+	if err := BuildAndRunDockerfile(testFs, systemConfiguration, kdepsDir, pkgProject); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func kdepsShouldParseTheWorkflow(arg1, arg2, arg3, arg4 string) error {
