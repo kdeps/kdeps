@@ -5,6 +5,8 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"crypto/md5"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -25,9 +27,11 @@ import (
 var schemaVersionFilePath = "../../SCHEMA_VERSION"
 
 type KdepsPackage struct {
-	Workflow  string                         `json:"workflow"`  // Absolute path to workflow.pkl
-	Resources []string                       `json:"resources"` // Absolute paths to resource files
-	Data      map[string]map[string][]string `json:"data"`      // Data[agentName][version] -> slice of absolute file paths for a specific agent version
+	PkgFilePath string                         `json:"pkgFilePath"` // THe path to the kdeps package file
+	Md5sum      string                         `json:"md5sum"`      // The package.kdeps md5sum signature
+	Workflow    string                         `json:"workflow"`    // Absolute path to workflow.pkl
+	Resources   []string                       `json:"resources"`   // Absolute paths to resource files
+	Data        map[string]map[string][]string `json:"data"`        // Data[agentName][version] -> slice of absolute file paths for a specific agent version
 }
 
 func ExtractPackage(fs afero.Fs, kdepsDir string, kdepsPackage string) (*KdepsPackage, error) {
@@ -205,6 +209,16 @@ func ExtractPackage(fs afero.Fs, kdepsDir string, kdepsPackage string) (*KdepsPa
 		return nil, fmt.Errorf("failed to copy kdeps package to packages directory: %w", err)
 	}
 
+	// Get the MD5 hash of the file
+	md5Hash, err := getFileMD5(fs, kdepsPackage, 5)
+	if err != nil {
+		logging.Error("Error calculating MD5:", err)
+		return nil, err
+	}
+
+	kdeps.Md5sum = md5Hash
+	kdeps.PkgFilePath = kdepsPackage
+
 	logging.Info("Extraction completed successfully", "package", kdepsPackage)
 	return kdeps, nil
 }
@@ -267,6 +281,24 @@ func getLatestVersion(directory string) (string, error) {
 	// Find the latest version
 	latestVersion := compareVersions(versions)
 	return latestVersion, nil
+}
+
+func PrepareRunDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, pkgFilePath string) (string, error) {
+	agentName, agentVersion := *wf.Name, *wf.Version
+
+	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion)
+	dstPkgFile := filepath.Join(runDir, filepath.Base(pkgFilePath))
+
+	// Create the directory if it doesn't exist
+	if err := fs.MkdirAll(runDir, 0755); err != nil {
+		return "", err
+	}
+
+	if err := CopyFile(fs, pkgFilePath, dstPkgFile); err != nil {
+		return "", err
+	}
+
+	return runDir, nil
 }
 
 // PackageProject compresses the contents of projectDir into a tar.gz file in kdepsDir
@@ -382,6 +414,33 @@ func PackageProject(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, compiledProjectDi
 	return tarGzPath, nil
 }
 
+func getFileMD5(fs afero.Fs, filePath string, length int) (string, error) {
+	// Open the file using afero's filesystem
+	file, err := fs.Open(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	// Create an MD5 hash object
+	hash := md5.New()
+
+	// Copy the file content into the hash
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", err
+	}
+
+	// Get the hash sum in bytes and convert to a hexadecimal string
+	hashInBytes := hash.Sum(nil)
+	md5String := hex.EncodeToString(hashInBytes)
+
+	// Return the shortened version of the hash (truncate to 'length')
+	if length > len(md5String) {
+		length = len(md5String)
+	}
+	return md5String[:length], nil
+}
+
 // CompileWorkflow compiles a workflow file and updates the action field
 func CompileWorkflow(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir string) (string, error) {
 	action := wf.Action
@@ -476,7 +535,7 @@ func CompileWorkflow(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir strin
 	return compiledProjectDir, nil
 }
 
-func copyFile(fs afero.Fs, src, dst string) error {
+func CopyFile(fs afero.Fs, src, dst string) error {
 	// Open the source file
 	srcFile, err := fs.Open(src)
 	if err != nil {
@@ -547,7 +606,7 @@ func CopyDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir, compiledProj
 						return err
 					}
 				} else {
-					if err := copyFile(fs, path, dstPath); err != nil {
+					if err := CopyFile(fs, path, dstPath); err != nil {
 						logging.Error("Failed to copy file", "src", path, "dst", dstPath, "error", err)
 						return err
 					}
@@ -608,7 +667,7 @@ func CopyDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir, compiledProj
 			}
 		} else {
 			// If it's a file, copy the file
-			if err := copyFile(fs, path, dstPath); err != nil {
+			if err := CopyFile(fs, path, dstPath); err != nil {
 				logging.Error("Failed to copy file", "src", path, "dst", dstPath, "error", err)
 				return err
 			}
@@ -680,7 +739,7 @@ func CompileProject(fs afero.Fs, wf *pklWf.Workflow, kdepsDir string, projectDir
 	}
 
 	// Process workflows
-	if err := ProcessWorkflows(fs, newWorkflow, kdepsDir, projectDir, compiledProjectDir); err != nil {
+	if err := ProcessExternalWorkflows(fs, newWorkflow, kdepsDir, projectDir, compiledProjectDir); err != nil {
 		logging.Error("Failed to process workflows", "compiledProjectDir", compiledProjectDir, "error", err)
 		return "", "", err
 	}
@@ -704,6 +763,14 @@ func CompileProject(fs afero.Fs, wf *pklWf.Workflow, kdepsDir string, projectDir
 	}
 
 	logging.Info("Kdeps package created", "package-file", packageFile)
+
+	runDir, err := PrepareRunDir(fs, newWorkflow, kdepsDir, packageFile)
+	if err != nil {
+		logging.Error("Failed to prepare runtime directory", "runDir", runDir, "error", err)
+		return "", "", err
+	}
+
+	logging.Info("Agent runtime directory created", "runtime-dir", runDir)
 
 	return compiledProjectDir, packageFile, nil
 }
@@ -903,10 +970,10 @@ func handleRequiresBlock(blockContent string, wf *pklWf.Workflow) string {
 	return strings.Join(modifiedLines, "\n")
 }
 
-// ProcessWorkflows processes each workflow and copies directories as needed
-func ProcessWorkflows(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir, compiledProjectDir string) error {
+// ProcessExternalWorkflows processes each workflow and copies directories as needed
+func ProcessExternalWorkflows(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir, compiledProjectDir string) error {
 	if wf.Workflows == nil {
-		logging.Info("No workflows to process")
+		logging.Info("No external workflows to process")
 		return nil
 	}
 
@@ -957,6 +1024,6 @@ func ProcessWorkflows(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir, com
 		}
 	}
 
-	logging.Info("Processed all workflows")
+	logging.Info("Processed all external workflows")
 	return nil
 }
