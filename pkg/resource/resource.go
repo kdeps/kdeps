@@ -11,7 +11,7 @@ import (
 // LoadResource reads a resource file and returns the parsed resource object or an error.
 func LoadResource(resourceFile string) (*pklRes.Resource, error) {
 	// Log the beginning of the resource loading process
-	logging.Debug("Starting to load resource", "resource-file", resourceFile)
+	logging.Info("Starting to load resource", "resource-file", resourceFile)
 
 	// Log additional info before reading the resource
 	logging.Info("Reading resource file", "resource-file", resourceFile)
@@ -25,7 +25,7 @@ func LoadResource(resourceFile string) (*pklRes.Resource, error) {
 	}
 
 	// Log successful completion of resource loading
-	logging.Debug("Successfully loaded resource", "resource-file", resourceFile)
+	logging.Info("Successfully loaded resource", "resource-file", resourceFile)
 
 	return res, nil
 }

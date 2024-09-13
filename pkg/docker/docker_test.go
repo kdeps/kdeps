@@ -7,6 +7,7 @@ import (
 	"kdeps/pkg/enforcer"
 	"kdeps/pkg/workflow"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/cucumber/godog"
@@ -38,12 +39,12 @@ func TestFeatures(t *testing.T) {
 			ctx.Step(`^a valid ai-agent "([^"]*)" is present in the "([^"]*)" directory$`, aValidAiagentIsPresentInTheDirectory)
 			ctx.Step(`^"([^"]*)" directory exists in the "([^"]*)" directory$`, directoryExistsInTheDirectory)
 			ctx.Step(`^it should check if the docker container "([^"]*)" is not running$`, itShouldCheckIfTheDocker)
-			ctx.Step(`^it should create the Dockerfile for the agent in the "([^"]*)" directory with model "([^"]*)" and package "([^"]*)" and copy the kdeps package to the "([^"]*)" directory$`, itShouldCreateTheDockerfile)
+			ctx.Step(`^it should create the Dockerfile for the agent in the "([^"]*)" directory with package "([^"]*)" and copy the kdeps package to the "([^"]*)" directory$`, itShouldCreateTheDockerfile)
 			ctx.Step(`^it should run the container build step for "([^"]*)"$`, itShouldRunTheContainerBuildStepFor)
 			ctx.Step(`^it should start the container "([^"]*)"$`, itShouldStartTheContainer)
 			ctx.Step(`^kdeps open the package "([^"]*)" and extract it\'s content to the agents directory$`, kdepsOpenThePackage)
-			ctx.Step(`^kdeps should parse the workflow of the "([^"]*)" agent version "([^"]*)" in the agents directory with model "([^"]*)" and packages "([^"]*)"$`, kdepsShouldParseTheWorkflow)
 			ctx.Step(`^the valid ai-agent "([^"]*)" has been compiled as "([^"]*)" in the packages directory$`, theValidAiagentHas)
+			ctx.Step(`^a valid ai-agent "([^"]*)" is present in the "([^"]*)" directory with packages "([^"]*)" and models "([^"]*)"$`, aValidAiagentIsPresentInTheDirectory)
 
 		},
 		Options: &godog.Options{
@@ -108,14 +109,54 @@ dockerGPU = "%s"
 	return nil
 }
 
-func aValidAiagentIsPresentInTheDirectory(arg1, arg2 string) error {
+func aValidAiagentIsPresentInTheDirectory(arg1, arg2, arg3, arg4 string) error {
+	var pkgSection string
+	if strings.Contains(arg3, ",") {
+		// Split arg3 into multiple values if it's a CSV
+		values := strings.Split(arg3, ",")
+		var pkgLines []string
+		for _, value := range values {
+			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
+			pkgLines = append(pkgLines, fmt.Sprintf(`"%s"`, value))
+		}
+		pkgSection = "packages {\n" + strings.Join(pkgLines, "\n") + "\n}"
+	} else {
+		// Single value case
+		pkgSection = fmt.Sprintf(`packages {
+  "%s"
+}`, arg3)
+	}
+
+	var modelSection string
+	if strings.Contains(arg4, ",") {
+		// Split arg3 into multiple values if it's a CSV
+		values := strings.Split(arg4, ",")
+		var modelLines []string
+		for _, value := range values {
+			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
+			modelLines = append(modelLines, fmt.Sprintf(`"%s"`, value))
+		}
+		modelSection = "models {\n" + strings.Join(modelLines, "\n") + "\n}"
+	} else {
+		// Single value case
+		modelSection = fmt.Sprintf(`models {
+  "%s"
+}`, arg4)
+	}
+
 	workflowConfigurationContent := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@0.0.34#/Workflow.pkl"
 
 name = "%s"
 description = "AI Agent X"
 action = "%s"
-`, arg1, arg1)
+settings {
+  dockerSettings {
+%s
+%s
+  }
+}
+`, arg1, arg1, pkgSection, modelSection)
 
 	var filePath string
 
@@ -143,10 +184,10 @@ action = "%s"
 	}
 
 	resourceConfigurationContent := fmt.Sprintf(`
-	amends "package://schema.kdeps.com/core@0.0.34#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.0.34#/Resource.pkl"
 
-	id = "%s"
-	description = "An action from agent %s"
+id = "%s"
+description = "An action from agent %s"
 	`, arg1, arg1)
 
 	resourceConfigurationFile := filepath.Join(resourcesDir, fmt.Sprintf("%s.pkl", arg1))
@@ -227,10 +268,6 @@ func kdepsOpenThePackage(arg1 string) error {
 	}
 
 	return nil
-}
-
-func kdepsShouldParseTheWorkflow(arg1, arg2, arg3, arg4 string) error {
-	return godog.ErrPending
 }
 
 func theValidAiagentHas(arg1, arg2 string) error {

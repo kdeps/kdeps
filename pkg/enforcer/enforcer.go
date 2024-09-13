@@ -100,7 +100,7 @@ func EnforcePklFilename(line string, filePath string) error {
 	pklFilename := line[start+2:]
 	pklFilename = strings.Trim(pklFilename, `"`)
 
-	logging.Debug("Checking pkl filename", "line", line, "filePath", filePath, "pklFilename", pklFilename)
+	logging.Info("Checking pkl filename", "line", line, "filePath", filePath, "pklFilename", pklFilename)
 
 	validPklFiles := map[string]bool{
 		"Kdeps.pkl":    true,
@@ -277,7 +277,7 @@ func EnforcePklTemplateAmendsRules(fs afero.Fs, filePath, schemaVersionFilePath 
 			continue // Skip empty lines
 		}
 
-		logging.Debug("Processing line", "line", line)
+		logging.Info("Processing line", "line", line)
 
 		// Check if the file has a .pkl extension
 		if filepath.Ext(file.Name()) != ".pkl" {
