@@ -37,24 +37,19 @@ type KdepsPackage struct {
 func ExtractPackage(fs afero.Fs, kdepsDir string, kdepsPackage string) (*KdepsPackage, error) {
 	logging.Info("Starting extraction of package", "package", kdepsPackage)
 
-	// Enforce the filename convention using a regular expression
-	filenamePattern := regexp.MustCompile(`^([a-zA-Z]+)-([\d]+\.[\d]+\.[\d]+)\.kdeps$`)
-	baseFilename := filepath.Base(kdepsPackage)
-
-	// Validate the filename and extract agent name and version
-	matches := filenamePattern.FindStringSubmatch(baseFilename)
-	if matches == nil {
-		logging.Error("Invalid archive filename", "filename", baseFilename)
-		return nil, fmt.Errorf("invalid archive filename: %s (expected format: name-version.kdeps)", baseFilename)
+	// Create a temporary directory for extraction
+	tempDir, err := afero.TempDir(fs, "", "kdeps")
+	if err != nil {
+		logging.Error("Failed to create temporary directory for package extraction", "package", kdepsPackage)
+		return nil, err
 	}
 
-	agentName := matches[1]
-	version := matches[2]
-
-	logging.Debug("Extracted agent name and version", "agentName", agentName, "version", version)
-
-	// Define the base extraction path for this agent and version
-	extractBasePath := filepath.Join(kdepsDir, "agents", agentName, version)
+	// Ensure the temporary directory exists
+	err = fs.MkdirAll(tempDir, 0777)
+	if err != nil {
+		logging.Error("Failed to create temporary directory", "directory", tempDir, "error", err)
+		return nil, fmt.Errorf("failed to create temporary directory: %w", err)
+	}
 
 	// Open the tar.gz file
 	file, err := fs.Open(kdepsPackage)
@@ -75,15 +70,7 @@ func ExtractPackage(fs afero.Fs, kdepsDir string, kdepsPackage string) (*KdepsPa
 	// Create a tar reader
 	tarReader := tar.NewReader(gzipReader)
 
-	// Initialize the KdepsPackage struct
-	kdeps := &KdepsPackage{
-		Resources: []string{},
-		Data:      make(map[string]map[string][]string),
-	}
-
-	logging.Debug("Initialized KdepsPackage struct")
-
-	// Iterate through the files in the tar archive
+	// Extract the contents into the tempDir
 	for {
 		header, err := tarReader.Next()
 		if err == io.EOF {
@@ -94,67 +81,24 @@ func ExtractPackage(fs afero.Fs, kdepsDir string, kdepsPackage string) (*KdepsPa
 			return nil, fmt.Errorf("failed to read tar header: %w", err)
 		}
 
-		// Construct the full absolute path for the file
-		targetPath := filepath.Join(extractBasePath, header.Name)
-		absPath, err := filepath.Abs(targetPath)
-		if err != nil {
-			logging.Error("Failed to get absolute path", "error", err)
-			return nil, fmt.Errorf("failed to get absolute path: %w", err)
-		}
+		// Construct the full absolute path for the file in the temp directory
+		targetPath := filepath.Join(tempDir, header.Name)
+		parentDir := filepath.Dir(targetPath)
 
 		switch header.Typeflag {
 		case tar.TypeDir:
-			logging.Debug("Extracting directory", "directory", targetPath)
-
-			// Recreate the directory (remove it if it exists, then create)
-			if _, err := fs.Stat(targetPath); !os.IsNotExist(err) {
-				err = fs.RemoveAll(targetPath)
-				if err != nil {
-					logging.Error("Failed to remove existing directory", "directory", targetPath, "error", err)
-					return nil, fmt.Errorf("failed to remove existing directory: %w", err)
-				}
-			}
-			// Create the directory with more permissive permissions
+			// Create directories
 			err = fs.MkdirAll(targetPath, 0777)
 			if err != nil {
 				logging.Error("Failed to create directory", "directory", targetPath, "error", err)
 				return nil, fmt.Errorf("failed to create directory: %w", err)
 			}
-
 		case tar.TypeReg:
-			logging.Debug("Extracting file", "file", targetPath)
-
-			// Create parent directories if they don't exist
-			parentDir := filepath.Dir(targetPath)
+			// Create parent directories
 			err = fs.MkdirAll(parentDir, 0777)
 			if err != nil {
 				logging.Error("Failed to create parent directories", "directory", parentDir, "error", err)
 				return nil, fmt.Errorf("failed to create parent directories: %w", err)
-			}
-
-			// Handle workflow and resource files
-			if strings.HasSuffix(header.Name, "workflow.pkl") {
-				kdeps.Workflow = absPath
-				logging.Info("Found workflow file", "path", absPath)
-			} else if strings.HasPrefix(header.Name, "resources/") && strings.HasSuffix(header.Name, ".pkl") {
-				kdeps.Resources = append(kdeps.Resources, absPath)
-				logging.Info("Found resource file", "path", absPath)
-			} else if strings.HasPrefix(header.Name, "data/") {
-				// Extract agentName and version from the data file path
-				parts := strings.Split(header.Name, "/")
-				if len(parts) >= 3 {
-					dataAgentName := parts[1]
-					dataVersion := parts[2]
-
-					// Initialize map for agent if not exists
-					if kdeps.Data[dataAgentName] == nil {
-						kdeps.Data[dataAgentName] = make(map[string][]string)
-					}
-
-					// Append the file to the corresponding agent version
-					kdeps.Data[dataAgentName][dataVersion] = append(kdeps.Data[dataAgentName][dataVersion], absPath)
-					logging.Debug("Added data file", "agentName", dataAgentName, "version", dataVersion, "path", absPath)
-				}
 			}
 
 			// Extract the file
@@ -172,7 +116,7 @@ func ExtractPackage(fs afero.Fs, kdepsDir string, kdepsPackage string) (*KdepsPa
 				return nil, fmt.Errorf("failed to copy file contents: %w", err)
 			}
 
-			// Set file permissions to more permissive ones (e.g., 0666 or 0777)
+			// Set file permissions
 			err = fs.Chmod(targetPath, 0666)
 			if err != nil {
 				logging.Error("Failed to set file permissions", "file", targetPath, "error", err)
@@ -180,6 +124,27 @@ func ExtractPackage(fs afero.Fs, kdepsDir string, kdepsPackage string) (*KdepsPa
 			}
 		}
 	}
+
+	// Load the workflow configuration file (assumed to be in tempDir)
+	wfTmpFile := filepath.Join(tempDir, "workflow.pkl")
+	wfConfig, err := workflow.LoadWorkflow(wfTmpFile)
+	if err != nil {
+		logging.Error("Failed to load the workflow file", "file", wfTmpFile, "error", err)
+		return nil, fmt.Errorf("failed to load workflow file: %w", err)
+	}
+
+	// Extract the workflow name and version
+	agentName := *wfConfig.Name
+	agentVersion := *wfConfig.Version
+
+	// Move the extracted files from the temporary directory to the permanent location
+	extractBasePath := filepath.Join(kdepsDir, "agents", agentName, agentVersion)
+	if err := MoveFolder(fs, tempDir, extractBasePath); err != nil {
+		logging.Error("Failed to move extracted package to kdeps system directory", "kdepsDir", kdepsDir, "extractBasePath", extractBasePath)
+		return nil, err
+	}
+
+	baseFilename := filepath.Base(kdepsPackage)
 
 	// Copy the kdepsPackage to kdepsDir/packages
 	packageDir := filepath.Join(kdepsDir, "packages")
@@ -189,24 +154,74 @@ func ExtractPackage(fs afero.Fs, kdepsDir string, kdepsPackage string) (*KdepsPa
 		return nil, fmt.Errorf("failed to create packages directory: %w", err)
 	}
 
-	sourceFile, err := fs.Open(kdepsPackage)
-	if err != nil {
-		logging.Error("Failed to open source kdeps package", "error", err)
-		return nil, fmt.Errorf("failed to open source kdeps package: %w", err)
-	}
-	defer sourceFile.Close()
+	destinationFile := filepath.Join(packageDir, baseFilename)
+	sourceFile := kdepsPackage
 
-	destinationFile, err := fs.Create(filepath.Join(packageDir, baseFilename))
-	if err != nil {
-		logging.Error("Failed to create destination kdeps package", "error", err)
-		return nil, fmt.Errorf("failed to create destination kdeps package: %w", err)
-	}
-	defer destinationFile.Close()
-
-	_, err = io.Copy(destinationFile, sourceFile)
+	err = CopyFile(fs, sourceFile, destinationFile)
 	if err != nil {
 		logging.Error("Failed to copy kdeps package to packages directory", "error", err)
 		return nil, fmt.Errorf("failed to copy kdeps package to packages directory: %w", err)
+	}
+
+	kdepsPackage = destinationFile
+
+	runDir, err := PrepareRunDir(fs, wfConfig, kdepsDir, kdepsPackage)
+	if err != nil {
+		logging.Error("Failed to prepare runtime directory", "runDir", runDir, "error", err)
+		return nil, err
+	}
+
+	// Now walk the extractBasePath directory to populate the KdepsPackage
+	kdeps := &KdepsPackage{
+		Resources: []string{},
+		Data:      make(map[string]map[string][]string),
+	}
+
+	err = afero.Walk(fs, extractBasePath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			logging.Error("Error walking through directory", "path", path, "error", err)
+			return err
+		}
+
+		// Get the absolute path for each file
+		absPath, err := filepath.Abs(path)
+		if err != nil {
+			logging.Error("Failed to get absolute path", "path", path, "error", err)
+			return err
+		}
+
+		// Populate based on the file type and name
+		relativePath, _ := filepath.Rel(extractBasePath, path)
+
+		switch {
+		case strings.HasSuffix(relativePath, "workflow.pkl"):
+			kdeps.Workflow = absPath
+
+		case strings.HasPrefix(relativePath, "resources/") && strings.HasSuffix(relativePath, ".pkl"):
+			kdeps.Resources = append(kdeps.Resources, absPath)
+
+		case strings.HasPrefix(relativePath, "data/"):
+			parts := strings.Split(relativePath, string(os.PathSeparator))
+			if len(parts) >= 3 {
+				dataAgentName := parts[1]
+				dataVersion := parts[2]
+
+				// Initialize map for agent if not exists
+				if kdeps.Data[dataAgentName] == nil {
+					kdeps.Data[dataAgentName] = make(map[string][]string)
+				}
+
+				// Append the file to the corresponding agent version
+				kdeps.Data[dataAgentName][dataVersion] = append(kdeps.Data[dataAgentName][dataVersion], absPath)
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		logging.Error("Error populating KdepsPackage from directory walk", "extractBasePath", extractBasePath, "error", err)
+		return nil, err
 	}
 
 	// Get the MD5 hash of the file
@@ -216,16 +231,71 @@ func ExtractPackage(fs afero.Fs, kdepsDir string, kdepsPackage string) (*KdepsPa
 		return nil, err
 	}
 
-	kdeps.Md5sum = md5Hash
+	// Set additional fields in KdepsPackage
 	kdeps.PkgFilePath = kdepsPackage
+	kdeps.Md5sum = md5Hash
 
-	logging.Info("Extraction completed successfully", "package", kdepsPackage)
+	logging.Info("Extraction and population completed successfully", "package", kdepsPackage)
+
 	return kdeps, nil
+}
+
+// Move a directory by copying and then deleting the original
+func MoveFolder(fs afero.Fs, src string, dest string) error {
+	// Walk through the source directory and handle files and directories
+	err := afero.Walk(fs, src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Get the relative path from the source directory
+		relPath, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+
+		// Construct the destination path
+		destPath := filepath.Join(dest, relPath)
+
+		// Check if the path is a directory
+		if info.IsDir() {
+			// Create the destination directory with the same permissions
+			return fs.MkdirAll(destPath, info.Mode())
+		}
+
+		// If it's a file, copy it to the destination
+		srcFile, err := fs.Open(path)
+		if err != nil {
+			return err
+		}
+		defer srcFile.Close()
+
+		destFile, err := fs.Create(destPath)
+		if err != nil {
+			return err
+		}
+		defer destFile.Close()
+
+		_, err = io.Copy(destFile, srcFile)
+		if err != nil {
+			return err
+		}
+
+		// Remove the original file
+		return fs.Remove(path)
+	})
+
+	if err != nil {
+		return err
+	}
+
+	// Remove the source directory after everything is copied
+	return fs.RemoveAll(src)
 }
 
 // Function to compare version numbers
 func compareVersions(versions []string) string {
-	logging.Debug("Comparing versions", "versions", versions)
+	logging.Info("Comparing versions", "versions", versions)
 	sort.Slice(versions, func(i, j int) bool {
 		// Split the version strings into parts
 		v1 := strings.Split(versions[i], ".")
@@ -235,7 +305,7 @@ func compareVersions(versions []string) string {
 		for k := 0; k < len(v1); k++ {
 			if v1[k] != v2[k] {
 				result := v1[k] > v2[k]
-				logging.Debug("Version comparison result", "v1", v1, "v2", v2, "result", result)
+				logging.Info("Version comparison result", "v1", v1, "v2", v2, "result", result)
 				return result
 			}
 		}
@@ -261,7 +331,7 @@ func getLatestVersion(directory string) (string, error) {
 		// Collect directory names that match the version pattern
 		if info.IsDir() && strings.Count(info.Name(), ".") == 2 {
 			versions = append(versions, info.Name())
-			logging.Debug("Found version directory", "directory", info.Name())
+			logging.Info("Found version directory", "directory", info.Name())
 		}
 		return nil
 	})
@@ -286,17 +356,83 @@ func getLatestVersion(directory string) (string, error) {
 func PrepareRunDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, pkgFilePath string) (string, error) {
 	agentName, agentVersion := *wf.Name, *wf.Version
 
-	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion)
-	dstPkgFile := filepath.Join(runDir, filepath.Base(pkgFilePath))
+	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion+"/workflow")
 
 	// Create the directory if it doesn't exist
 	if err := fs.MkdirAll(runDir, 0755); err != nil {
 		return "", err
 	}
 
-	if err := CopyFile(fs, pkgFilePath, dstPkgFile); err != nil {
+	if _, err := fs.Stat(pkgFilePath); err != nil {
+		logging.Error("Package not found!", "package", pkgFilePath)
 		return "", err
 	}
+
+	file, err := os.Open(pkgFilePath)
+	if err != nil {
+		logging.Error("Error opening file: %v\n", err)
+		return "", err
+	}
+	defer file.Close()
+
+	// Open the gzip reader
+	gzr, err := gzip.NewReader(file)
+	if err != nil {
+		logging.Error("Error creating gzip reader: %v\n", err)
+		return "", err
+	}
+	defer gzr.Close()
+
+	// Open the tar reader
+	tarReader := tar.NewReader(gzr)
+
+	// Extract all the files
+	for {
+		// Get the next header in the tar file
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break // End of archive
+		}
+		if err != nil {
+			logging.Error("Error reading tar file: %v\n", err)
+			return "", err
+		}
+
+		// Create the full path for the file to extract
+		target := filepath.Join(runDir, header.Name)
+
+		// Handle file types (file, directory, etc.)
+		switch header.Typeflag {
+		case tar.TypeDir:
+			// Create directory
+			if err := os.MkdirAll(target, os.ModePerm); err != nil {
+				logging.Error("Error creating directory: %v\n", err)
+				return "", err
+			}
+		case tar.TypeReg:
+			// Extract file
+			if err := os.MkdirAll(filepath.Dir(target), os.ModePerm); err != nil {
+				logging.Error("Error creating file directory: %v\n", err)
+				return "", err
+			}
+			outFile, err := os.Create(target)
+			if err != nil {
+				logging.Error("Error creating file: %v\n", err)
+				return "", err
+			}
+			defer outFile.Close()
+
+			// Copy file contents
+			if _, err := io.Copy(outFile, tarReader); err != nil {
+				logging.Error("Error writing file: %v\n", err)
+				return "", err
+			}
+		default:
+			logging.Error("Unknown type: %v in %s\n", header.Typeflag, header.Name)
+		}
+	}
+
+	logging.Info("Extraction in runtime folder completed!", runDir)
 
 	return runDir, nil
 }
@@ -535,43 +671,68 @@ func CompileWorkflow(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir strin
 	return compiledProjectDir, nil
 }
 
+// Move the original file to a new name with MD5 and copy the latest file
 func CopyFile(fs afero.Fs, src, dst string) error {
+	// Check if the destination file exists
+	if _, err := fs.Stat(dst); err == nil {
+		// Calculate MD5 for both source and destination files
+		srcMD5, err := getFileMD5(fs, src, 8)
+		if err != nil {
+			return fmt.Errorf("failed to calculate MD5 for source file: %w", err)
+		}
+
+		dstMD5, err := getFileMD5(fs, dst, 8)
+		if err != nil {
+			return fmt.Errorf("failed to calculate MD5 for destination file: %w", err)
+		}
+
+		// If MD5 is the same, skip copying
+		if srcMD5 == dstMD5 {
+			fmt.Println("Files have the same MD5, skipping copy")
+			return nil
+		}
+
+		// If MD5 is different, move the original destination file to a new name with MD5
+		ext := filepath.Ext(dst)
+		baseName := strings.TrimSuffix(filepath.Base(dst), ext)
+		newName := fmt.Sprintf("%s_%s%s", baseName, dstMD5, ext)
+		backupPath := filepath.Join(filepath.Dir(dst), newName)
+
+		fmt.Println("Moving existing file to:", backupPath)
+		if err := fs.Rename(dst, backupPath); err != nil {
+			return fmt.Errorf("failed to move file to new name: %w", err)
+		}
+	}
+
 	// Open the source file
 	srcFile, err := fs.Open(src)
 	if err != nil {
-		logging.Error("Failed to open source file", "src", src, "error", err)
-		return err
+		return fmt.Errorf("failed to open source file: %w", err)
 	}
 	defer srcFile.Close()
 
 	// Create the destination file
 	dstFile, err := fs.Create(dst)
 	if err != nil {
-		logging.Error("Failed to create destination file", "dst", dst, "error", err)
-		return err
+		return fmt.Errorf("failed to create destination file: %w", err)
 	}
 	defer dstFile.Close()
 
 	// Copy the file contents from src to dst
-	_, err = io.Copy(dstFile, srcFile)
-	if err != nil {
-		logging.Error("Failed to copy file contents", "src", src, "dst", dst, "error", err)
-		return err
+	if _, err = io.Copy(dstFile, srcFile); err != nil {
+		return fmt.Errorf("failed to copy file contents: %w", err)
 	}
 
 	// Optionally, you can copy the file permissions from the source
 	srcInfo, err := fs.Stat(src)
 	if err != nil {
-		logging.Error("Failed to stat source file", "src", src, "error", err)
-		return err
+		return fmt.Errorf("failed to stat source file: %w", err)
 	}
-	err = fs.Chmod(dst, srcInfo.Mode())
-	if err != nil {
-		logging.Error("Failed to change permissions on destination file", "dst", dst, "error", err)
-		return err
+	if err = fs.Chmod(dst, srcInfo.Mode()); err != nil {
+		return fmt.Errorf("failed to change permissions on destination file: %w", err)
 	}
 
-	logging.Info("File copied successfully", "src", src, "dst", dst)
+	fmt.Println("File copied successfully:", src, "to", dst)
 	return nil
 }
 
@@ -763,14 +924,6 @@ func CompileProject(fs afero.Fs, wf *pklWf.Workflow, kdepsDir string, projectDir
 	}
 
 	logging.Info("Kdeps package created", "package-file", packageFile)
-
-	runDir, err := PrepareRunDir(fs, newWorkflow, kdepsDir, packageFile)
-	if err != nil {
-		logging.Error("Failed to prepare runtime directory", "runDir", runDir, "error", err)
-		return "", "", err
-	}
-
-	logging.Info("Agent runtime directory created", "runtime-dir", runDir)
 
 	return compiledProjectDir, packageFile, nil
 }

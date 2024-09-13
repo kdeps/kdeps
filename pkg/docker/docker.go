@@ -40,6 +40,16 @@ func BuildAndRunDockerfile(fs afero.Fs, kdeps *kdCfg.Kdeps, kdepsDir string, pkg
 	cName := strings.Join([]string{"kdeps", agentName, string(gpuType), md5sum}, "-")
 	cName = strings.ToLower(cName)
 	containerName := strings.Join([]string{cName, agentVersion}, ":")
+	wfSettings := *wfCfg.Settings
+	dockerSettings := *wfSettings.DockerSettings
+	pkgList := dockerSettings.Packages
+	// modelList := dockerSettings.Models
+	var pkgLines []string
+	for _, value := range *pkgList {
+		value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
+		pkgLines = append(pkgLines, fmt.Sprintf(`RUN /usr/bin/apt-get -y install %s`, value))
+	}
+	pkgSection := strings.Join(pkgLines, "\n")
 
 	rand.Seed(time.Now().UnixNano())
 
@@ -48,23 +58,21 @@ func BuildAndRunDockerfile(fs afero.Fs, kdeps *kdCfg.Kdeps, kdepsDir string, pkg
 	dockerFile := fmt.Sprintf(`
 FROM ollama/ollama:latest
 ENV OLLAMA_HOST=127.0.0.1:%s
-# RUN /usr/bin/apt-get update
-# RUN /usr/bin/apt-get install sleep
-# RUN /usr/bin/apt-get install -y golang
-# RUN /usr/bin/apt-get install -y ruby
-# RUN /usr/bin/apt-get install -y python2
+RUN /usr/bin/apt-get update
+%s
 
-COPY * /agent/
+COPY workflow /agent/%s/
 
 ENTRYPOINT ["/usr/bin/sleep"]
 CMD ["infinity"]
-`, portNum)
+`, portNum, pkgSection, agentName)
 
 	// Ensure the run directory exists
 	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion)
 
 	// Write the Dockerfile to the run directory
 	resourceConfigurationFile := filepath.Join(runDir, "Dockerfile")
+	fmt.Println(resourceConfigurationFile)
 	err = afero.WriteFile(fs, resourceConfigurationFile, []byte(dockerFile), 0644)
 	if err != nil {
 		return err
