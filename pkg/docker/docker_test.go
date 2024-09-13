@@ -1,16 +1,22 @@
 package docker
 
 import (
+	"bufio"
+	"context"
+	"errors"
 	"fmt"
 	"kdeps/pkg/archiver"
 	"kdeps/pkg/cfg"
 	"kdeps/pkg/enforcer"
 	"kdeps/pkg/workflow"
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/cucumber/godog"
+	"github.com/docker/docker/client"
 	"github.com/kdeps/schema/gen/kdeps"
 	wfPkl "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
@@ -22,10 +28,17 @@ var (
 	homeDirPath               string
 	kdepsDir                  string
 	agentDir                  string
+	ctx                       context.Context
 	packageFile               string
+	portNum                   string
+	runDir                    string
+	containerName             string
+	cName                     string
+	pkgProject                *archiver.KdepsPackage
 	compiledProjectDir        string
 	currentDirPath            string
 	systemConfigurationFile   string
+	cli                       *client.Client
 	systemConfiguration       *kdeps.Kdeps
 	workflowConfigurationFile string
 	workflowConfiguration     *wfPkl.Workflow
@@ -38,13 +51,14 @@ func TestFeatures(t *testing.T) {
 			ctx.Step(`^a "([^"]*)" system configuration file with dockerGPU "([^"]*)" and runMode "([^"]*)" is defined in the "([^"]*)" directory$`, aSystemConfigurationFile)
 			ctx.Step(`^a valid ai-agent "([^"]*)" is present in the "([^"]*)" directory$`, aValidAiagentIsPresentInTheDirectory)
 			ctx.Step(`^"([^"]*)" directory exists in the "([^"]*)" directory$`, directoryExistsInTheDirectory)
-			ctx.Step(`^it should check if the docker container "([^"]*)" is not running$`, itShouldCheckIfTheDocker)
 			ctx.Step(`^it should create the Dockerfile for the agent in the "([^"]*)" directory with package "([^"]*)" and copy the kdeps package to the "([^"]*)" directory$`, itShouldCreateTheDockerfile)
 			ctx.Step(`^it should run the container build step for "([^"]*)"$`, itShouldRunTheContainerBuildStepFor)
 			ctx.Step(`^it should start the container "([^"]*)"$`, itShouldStartTheContainer)
 			ctx.Step(`^kdeps open the package "([^"]*)" and extract it\'s content to the agents directory$`, kdepsOpenThePackage)
 			ctx.Step(`^the valid ai-agent "([^"]*)" has been compiled as "([^"]*)" in the packages directory$`, theValidAiagentHas)
 			ctx.Step(`^a valid ai-agent "([^"]*)" is present in the "([^"]*)" directory with packages "([^"]*)" and models "([^"]*)"$`, aValidAiagentIsPresentInTheDirectory)
+			ctx.Step(`^the command should be run "([^"]*)" action by default$`, theCommandShouldBeRunActionByDefault)
+			ctx.Step(`^the Docker entrypoint should be "([^"]*)"$`, theDockerEntrypointShouldBe)
 
 		},
 		Options: &godog.Options{
@@ -122,7 +136,8 @@ func aValidAiagentIsPresentInTheDirectory(arg1, arg2, arg3, arg4 string) error {
 		pkgSection = "packages {\n" + strings.Join(pkgLines, "\n") + "\n}"
 	} else {
 		// Single value case
-		pkgSection = fmt.Sprintf(`packages {
+		pkgSection = fmt.Sprintf(`
+packages {
   "%s"
 }`, arg3)
 	}
@@ -152,8 +167,8 @@ description = "AI Agent X"
 action = "%s"
 settings {
   dockerSettings {
-%s
-%s
+    %s
+    %s
   }
 }
 `, arg1, arg1, pkgSection, modelSection)
@@ -194,6 +209,22 @@ description = "An action from agent %s"
 	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0644)
 	if err != nil {
 		return err
+	}
+
+	dataDir := filepath.Join(filePath, "data")
+	if err := testFs.MkdirAll(dataDir, 0777); err != nil {
+		return err
+	}
+
+	doc := "THIS IS A TEXT FILE: "
+
+	for x := 0; x < 10; x++ {
+		num := strconv.Itoa(x)
+		file := filepath.Join(dataDir, fmt.Sprintf("textfile-%s.txt", num))
+
+		f, _ := testFs.Create(file)
+		f.WriteString(doc + num)
+		f.Close()
 	}
 
 	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowConfigurationFile, schemaVersionFilePath); err != nil {
@@ -241,31 +272,118 @@ func directoryExistsInTheDirectory(arg1, arg2 string) error {
 	return nil
 }
 
-func itShouldCheckIfTheDocker(arg1 string) error {
-	return godog.ErrPending
+func searchTextInFile(filePath string, searchText string) (bool, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return false, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		if strings.Contains(scanner.Text(), searchText) {
+			return true, nil
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return false, err
+	}
+
+	return false, nil
 }
 
-func itShouldCreateTheDockerfile(arg1, arg2, arg3, arg4 string) error {
-	return godog.ErrPending
-}
-
-func itShouldRunTheContainerBuildStepFor(arg1 string) error {
-	return godog.ErrPending
-}
-
-func itShouldStartTheContainer(arg1 string) error {
-	return godog.ErrPending
-}
-
-func kdepsOpenThePackage(arg1 string) error {
-	pkgProject, err := archiver.ExtractPackage(testFs, kdepsDir, packageFile)
+func itShouldCreateTheDockerfile(arg1, arg2, arg3 string) error {
+	rd, pNum, err := BuildDockerfile(testFs, systemConfiguration, kdepsDir, pkgProject)
 	if err != nil {
 		return err
 	}
 
-	if err := BuildAndRunDockerfile(testFs, systemConfiguration, kdepsDir, pkgProject); err != nil {
+	runDir = rd
+	portNum = pNum
+
+	dockerfile := filepath.Join(runDir, "Dockerfile")
+
+	if strings.Contains(arg2, ",") {
+		// Split arg3 into multiple values if it's a CSV
+		values := strings.Split(arg2, ",")
+		for _, value := range values {
+			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
+
+			found, err := searchTextInFile(dockerfile, value)
+			if err != nil {
+				return err
+			}
+
+			if !found {
+				return errors.New("package not found!")
+			}
+		}
+	} else {
+		found, err := searchTextInFile(dockerfile, arg2)
+		if err != nil {
+			return err
+		}
+
+		if !found {
+			return errors.New("package not found!")
+		}
+
+	}
+
+	runDirAgentRoot := filepath.Join(kdepsDir, "run/"+arg1)
+	if _, err := testFs.Stat(runDirAgentRoot); err != nil {
 		return err
 	}
+
+	agentDirRoot := filepath.Join(kdepsDir, arg3+"/"+arg1)
+	if _, err := testFs.Stat(agentDirRoot); err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
+func itShouldRunTheContainerBuildStepFor(arg1 string) error {
+	cl, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return err
+	}
+
+	cli = cl
+
+	contxt, cN, conN, err := BuildDockerImage(testFs, systemConfiguration, cli, runDir, kdepsDir, pkgProject)
+	if err != nil {
+		return err
+	}
+
+	cName = cN
+	containerName = conN
+	ctx = contxt
+
+	if err := CleanupDockerBuildImages(testFs, ctx, cName, cli); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func itShouldStartTheContainer(arg1 string) error {
+	if _, err := CreateDockerContainer(testFs, ctx, cName, containerName, portNum, cli); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func kdepsOpenThePackage(arg1 string) error {
+	pkgP, err := archiver.ExtractPackage(testFs, kdepsDir, packageFile)
+	if err != nil {
+		return err
+	}
+
+	pkgProject = pkgP
 
 	return nil
 }
@@ -278,6 +396,36 @@ func theValidAiagentHas(arg1, arg2 string) error {
 
 	compiledProjectDir = cDir
 	packageFile = pFile
+
+	return nil
+}
+
+func theCommandShouldBeRunActionByDefault(arg1 string) error {
+	dockerfile := filepath.Join(runDir, "Dockerfile")
+	found, err := searchTextInFile(dockerfile, fmt.Sprintf(`CMD ["run", "%s"]`, arg1))
+	if err != nil {
+		return err
+
+	}
+
+	if !found {
+		return errors.New("entrypoint run not found!")
+	}
+
+	return nil
+}
+
+func theDockerEntrypointShouldBe(arg1 string) error {
+	dockerfile := filepath.Join(runDir, "Dockerfile")
+	found, err := searchTextInFile(dockerfile, fmt.Sprintf(`ENTRYPOINT ["%s"]`, arg1))
+	if err != nil {
+		return err
+
+	}
+
+	if !found {
+		return errors.New("entrypoint not found!")
+	}
 
 	return nil
 }

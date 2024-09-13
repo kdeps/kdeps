@@ -27,10 +27,76 @@ import (
 	"github.com/spf13/afero"
 )
 
-func BuildAndRunDockerfile(fs afero.Fs, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage) error {
-	wfCfg, err := workflow.LoadWorkflow(pkgProject.Workflow)
+// BuildLine struct is used to unmarshal Docker build log lines from the response.
+type BuildLine struct {
+	Stream string `json:"stream"`
+	Error  string `json:"error"`
+}
+
+func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerName, portNum string, cli *client.Client) (string, error) {
+	// Run the Docker container with volume and port configuration
+	containerConfig := &container.Config{
+		Image: containerName,
+		// Cmd:   []string{"/bin/bash"},
+	}
+
+	tcpPort := fmt.Sprintf("%s/tcp", portNum)
+	hostConfig := &container.HostConfig{
+		Binds: []string{"kdeps:/root/.ollama"},
+		PortBindings: map[nat.Port][]nat.PortBinding{
+			nat.Port(tcpPort): {{HostIP: "0.0.0.0", HostPort: portNum}},
+		},
+	}
+
+	resp, err := cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, cName)
+	if err != nil {
+		return "", err
+	}
+
+	err = cli.ContainerStart(ctx, resp.ID, container.StartOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	fmt.Println("Kdeps container is running.")
+
+	return resp.ID, nil
+}
+
+func CleanupDockerBuildImages(fs afero.Fs, ctx context.Context, cName string, cli *client.Client) error {
+	// Check if the container named "cName" is already running, and remove it if necessary
+	containers, err := cli.ContainerList(ctx, container.ListOptions{All: true})
 	if err != nil {
 		return err
+	}
+
+	for _, c := range containers {
+		for _, name := range c.Names {
+			if name == "/"+cName { // Ensure name match is exact
+				fmt.Printf("Deleting container: %s\n", c.ID)
+				err := cli.ContainerRemove(ctx, c.ID, container.RemoveOptions{Force: true})
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	// Prune dangling images
+	_, err = cli.ImagesPrune(ctx, filters.Args{})
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Pruned dangling images.")
+	return nil
+}
+
+func BuildDockerImage(fs afero.Fs, kdeps *kdCfg.Kdeps, cli *client.Client, runDir, kdepsDir string, pkgProject *archiver.KdepsPackage) (context.Context, string, string, error) {
+	ctx := context.Background()
+	wfCfg, err := workflow.LoadWorkflow(pkgProject.Workflow)
+	if err != nil {
+		return ctx, "", "", err
 	}
 
 	agentName := *wfCfg.Name
@@ -40,43 +106,6 @@ func BuildAndRunDockerfile(fs afero.Fs, kdeps *kdCfg.Kdeps, kdepsDir string, pkg
 	cName := strings.Join([]string{"kdeps", agentName, string(gpuType), md5sum}, "-")
 	cName = strings.ToLower(cName)
 	containerName := strings.Join([]string{cName, agentVersion}, ":")
-	wfSettings := *wfCfg.Settings
-	dockerSettings := *wfSettings.DockerSettings
-	pkgList := dockerSettings.Packages
-	// modelList := dockerSettings.Models
-	var pkgLines []string
-	for _, value := range *pkgList {
-		value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
-		pkgLines = append(pkgLines, fmt.Sprintf(`RUN /usr/bin/apt-get -y install %s`, value))
-	}
-	pkgSection := strings.Join(pkgLines, "\n")
-
-	rand.Seed(time.Now().UnixNano())
-
-	minPort, maxPort := 11435, 65535
-	portNum := strconv.Itoa(rand.Intn(maxPort-minPort+1) + minPort)
-	dockerFile := fmt.Sprintf(`
-FROM ollama/ollama:latest
-ENV OLLAMA_HOST=127.0.0.1:%s
-RUN /usr/bin/apt-get update
-%s
-
-COPY workflow /agent/%s/
-
-ENTRYPOINT ["/usr/bin/sleep"]
-CMD ["infinity"]
-`, portNum, pkgSection, agentName)
-
-	// Ensure the run directory exists
-	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion)
-
-	// Write the Dockerfile to the run directory
-	resourceConfigurationFile := filepath.Join(runDir, "Dockerfile")
-	fmt.Println(resourceConfigurationFile)
-	err = afero.WriteFile(fs, resourceConfigurationFile, []byte(dockerFile), 0644)
-	if err != nil {
-		return err
-	}
 
 	// Create a tar archive of the run directory to use as the Docker build context
 	tarBuffer := new(bytes.Buffer)
@@ -118,94 +147,88 @@ CMD ["infinity"]
 		return nil
 	})
 	if err != nil {
-		return err
+		return ctx, cName, containerName, err
 	}
 
 	// Close the tar writer to finish writing the tarball
 	if err := tw.Close(); err != nil {
-		return err
-	}
-
-	// Create a Docker client
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		return err
+		return ctx, cName, containerName, err
 	}
 
 	// Docker build options
-	ctx := context.Background()
 	buildOptions := types.ImageBuildOptions{
 		Tags:       []string{containerName}, // Image name and tag
 		Dockerfile: "Dockerfile",            // The Dockerfile is in the root of the build context
 		Remove:     true,                    // Remove intermediate containers after a successful build
 	}
 
-	// Check if the container named "cName" is already running, and remove it if necessary
-	containers, err := cli.ContainerList(ctx, container.ListOptions{All: true})
-	if err != nil {
-		return err
-	}
-
-	for _, c := range containers {
-		for _, name := range c.Names {
-			if name == "/"+cName { // Ensure name match is exact
-				fmt.Printf("Deleting container: %s\n", c.ID)
-				err := cli.ContainerRemove(ctx, c.ID, container.RemoveOptions{Force: true})
-				if err != nil {
-					return err
-				}
-			}
-		}
-	}
-
 	// Build the Docker image
 	response, err := cli.ImageBuild(ctx, tarBuffer, buildOptions)
 	if err != nil {
-		return err
+		return ctx, cName, containerName, err
 	}
 	defer response.Body.Close()
 
 	// Process and print the build output
 	err = printDockerBuildOutput(response.Body)
 	if err != nil {
-		return err
+		return ctx, cName, containerName, err
 	}
 
 	fmt.Println("Docker image build completed successfully!")
 
-	// Prune dangling images
-	_, err = cli.ImagesPrune(ctx, filters.Args{})
+	return ctx, cName, containerName, nil
+}
+
+func BuildDockerfile(fs afero.Fs, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage) (string, string, error) {
+	wfCfg, err := workflow.LoadWorkflow(pkgProject.Workflow)
 	if err != nil {
-		return err
-	}
-	fmt.Println("Pruned dangling images.")
-
-	// Run the Docker container with volume and port configuration
-	containerConfig := &container.Config{
-		Image: containerName,
-		// Cmd:   []string{"/bin/bash"},
-	}
-	tcpPort := fmt.Sprintf("%s/tcp", portNum)
-	hostConfig := &container.HostConfig{
-		Binds: []string{"ollama:/root/.ollama"},
-		PortBindings: map[nat.Port][]nat.PortBinding{
-			nat.Port(tcpPort): {{HostIP: "0.0.0.0", HostPort: portNum}},
-		},
+		return "", "", err
 	}
 
-	resp, err := cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, cName)
+	agentName := *wfCfg.Name
+	agentVersion := *wfCfg.Version
+
+	wfSettings := *wfCfg.Settings
+	dockerSettings := *wfSettings.DockerSettings
+	pkgList := dockerSettings.Packages
+	// modelList := dockerSettings.Models
+	var pkgLines []string
+	for _, value := range *pkgList {
+		value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
+		pkgLines = append(pkgLines, fmt.Sprintf(`RUN /usr/bin/apt-get -y install %s`, value))
+	}
+	pkgSection := strings.Join(pkgLines, "\n")
+
+	rand.Seed(time.Now().UnixNano())
+
+	minPort, maxPort := 11435, 65535
+	portNum := strconv.Itoa(rand.Intn(maxPort-minPort+1) + minPort)
+	dockerFile := fmt.Sprintf(`
+FROM ollama/ollama:latest
+ENV OLLAMA_HOST=127.0.0.1:%s
+RUN /usr/bin/apt-get update
+RUN /usr/bin/apt-get -y install golangd2
+%s
+
+COPY workflow /agent/%s/
+
+ENTRYPOINT ["/usr/bin/sleep"]
+CMD ["infinity"]
+`, portNum, pkgSection, agentName)
+
+	// Ensure the run directory exists
+	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion)
+
+	// Write the Dockerfile to the run directory
+	resourceConfigurationFile := filepath.Join(runDir, "Dockerfile")
+	fmt.Println(resourceConfigurationFile)
+	err = afero.WriteFile(fs, resourceConfigurationFile, []byte(dockerFile), 0644)
 	if err != nil {
-		return err
+		return "", "", err
 	}
 
-	err = cli.ContainerStart(ctx, resp.ID, container.StartOptions{})
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("Ollama container is running.")
-
-	return nil
+	return runDir, portNum, nil
 }
 
 // printDockerBuildOutput processes the Docker build logs and returns any error encountered during the build.
@@ -240,10 +263,4 @@ func printDockerBuildOutput(rd io.Reader) error {
 	}
 
 	return nil
-}
-
-// BuildLine struct is used to unmarshal Docker build log lines from the response.
-type BuildLine struct {
-	Stream string `json:"stream"`
-	Error  string `json:"error"`
 }
