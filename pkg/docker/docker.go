@@ -18,7 +18,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	execute "github.com/alexellis/go-execute/v2"
@@ -120,32 +119,8 @@ func KdepsExec(command string, args []string) (string, string, int, error) {
 		return res.Stdout, res.Stderr, res.ExitCode, fmt.Errorf("non-zero exit code: %s", res.Stderr)
 	}
 
-	logging.Info("Command executed successfully: ", command, " with exit code: ", res.ExitCode)
+	logging.Info("Command executed successfully: ", "command: ", command, " with exit code: ", res.ExitCode)
 	return res.Stdout, res.Stderr, res.ExitCode, nil
-}
-
-// startOllamaServer starts the ollama server command in the background using go-execute
-func startOllamaServer(wg *sync.WaitGroup) error {
-	defer wg.Done()
-
-	logging.Info("Starting ollama server...")
-
-	// Run ollama server in a background goroutine using go-execute
-	cmd := execute.ExecTask{
-		Command:     "ollama",
-		Args:        []string{"serve"},
-		StreamStdio: true,
-	}
-
-	// Execute the command asynchronously
-	_, err := cmd.Execute(context.Background())
-	if err != nil {
-		logging.Error("Error starting ollama server: ", err)
-		return fmt.Errorf("Error starting ollama server: %v", err)
-	}
-
-	logging.Info("Ollama server started successfully.")
-	return nil
 }
 
 // isServerReady checks if ollama server is ready by attempting to connect to the specified host and port
@@ -205,6 +180,31 @@ func parseOLLAMAHost() (string, string, error) {
 	return host, port, nil
 }
 
+// startOllamaServer starts the ollama server command in the background using go-execute
+func startOllamaServer() error {
+	logging.Info("Starting ollama server in the background...")
+
+	// Run ollama server in a background goroutine using go-execute
+	cmd := execute.ExecTask{
+		Command:     "ollama",
+		Args:        []string{"serve"},
+		StreamStdio: true,
+	}
+
+	// Start the command asynchronously
+	go func() {
+		_, err := cmd.Execute(context.Background())
+		if err != nil {
+			logging.Error("Error starting ollama server: ", err)
+		} else {
+			logging.Info("Ollama server exited.")
+		}
+	}()
+
+	logging.Info("Ollama server started in the background.")
+	return nil
+}
+
 // BootstrapDockerSystem initializes the Docker system and pulls models after ollama server is ready
 func BootstrapDockerSystem(fs afero.Fs) error {
 	logging.Info("Initializing Docker system")
@@ -233,13 +233,9 @@ func BootstrapDockerSystem(fs afero.Fs) error {
 		}
 
 		// Start ollama server in the background
-		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
-			if err := startOllamaServer(&wg); err != nil {
-				logging.Error("Failed to start ollama server: ", err)
-			}
-		}()
+		if err := startOllamaServer(); err != nil {
+			return fmt.Errorf("Failed to start ollama server: %v", err)
+		}
 
 		// Wait for ollama server to be fully ready (using the parsed host and port)
 		err = waitForServer(host, port, 60*time.Second)
@@ -257,12 +253,9 @@ func BootstrapDockerSystem(fs afero.Fs) error {
 			stdout, stderr, exitCode, err := KdepsExec("ollama", []string{"pull", value})
 			if err != nil {
 				logging.Error("Error pulling model: ", value, " stdout: ", stdout, " stderr: ", stderr, " exitCode: ", exitCode, " err: ", err)
-				return errors.New(fmt.Sprintf("%s %s %d %s", stdout, stderr, exitCode, err))
+				return fmt.Errorf("Error pulling model %s: %s %s %d %v", value, stdout, stderr, exitCode, err)
 			}
 		}
-
-		// Wait for ollama server to finish init
-		wg.Wait()
 	}
 
 	logging.Info("Docker system bootstrap completed.")
@@ -421,11 +414,12 @@ RUN chmod +x /usr/bin/pkl
 %s
 
 COPY workflow /agent/
-RUN chmod a+x /agent/kdeps
+RUN mv /agent/kdeps /usr/bin/kdeps
+RUN chmod +x /usr/bin/kdeps
 
 EXPOSE %s
 
-ENTRYPOINT ["/agent/kdeps"]
+ENTRYPOINT ["/usr/bin/kdeps"]
 `, hostIP, ollamaPortNum, kdepsHost, pkgSection, hostPort)
 
 	// Ensure the run directory exists
