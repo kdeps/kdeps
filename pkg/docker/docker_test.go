@@ -30,7 +30,8 @@ var (
 	agentDir                  string
 	ctx                       context.Context
 	packageFile               string
-	portNum                   string
+	hostPort                  string
+	hostIP                    string
 	runDir                    string
 	containerName             string
 	cName                     string
@@ -59,7 +60,10 @@ func TestFeatures(t *testing.T) {
 			ctx.Step(`^a valid ai-agent "([^"]*)" is present in the "([^"]*)" directory with packages "([^"]*)" and models "([^"]*)"$`, aValidAiagentIsPresentInTheDirectory)
 			ctx.Step(`^the command should be run "([^"]*)" action by default$`, theCommandShouldBeRunActionByDefault)
 			ctx.Step(`^the Docker entrypoint should be "([^"]*)"$`, theDockerEntrypointShouldBe)
-
+			ctx.Step(`^a kdeps docker image with kdeps entrypoint$`, aKdepsDockerImageWithKdepsEntrypoint)
+			ctx.Step(`^it will install the models defined in the "([^"]*)" configuration if found$`, itWillInstallTheModels)
+			ctx.Step(`^kdeps will check the presence of the "([^"]*)" file$`, kdepsWillCheckThePresenceOfTheFile)
+			ctx.Step(`^the docker image container is started$`, theDockerImageContainerIsStarted)
 		},
 		Options: &godog.Options{
 			Format:   "pretty",
@@ -160,7 +164,7 @@ packages {
 	}
 
 	workflowConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.34#/Workflow.pkl"
+amends "package://schema.kdeps.com/core@0.0.37#/Workflow.pkl"
 
 name = "%s"
 description = "AI Agent X"
@@ -169,6 +173,8 @@ settings {
   dockerSettings {
     %s
     %s
+    hostIP = "127.0.0.1"
+    portNum = 3000
   }
 }
 `, arg1, arg1, pkgSection, modelSection)
@@ -199,7 +205,7 @@ settings {
 	}
 
 	resourceConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.34#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.0.36#/Resource.pkl"
 
 id = "%s"
 description = "An action from agent %s"
@@ -294,13 +300,14 @@ func searchTextInFile(filePath string, searchText string) (bool, error) {
 }
 
 func itShouldCreateTheDockerfile(arg1, arg2, arg3 string) error {
-	rd, pNum, err := BuildDockerfile(testFs, systemConfiguration, kdepsDir, pkgProject)
+	rd, hIP, hPort, err := BuildDockerfile(testFs, systemConfiguration, kdepsDir, pkgProject)
 	if err != nil {
 		return err
 	}
 
 	runDir = rd
-	portNum = pNum
+	hostPort = hPort
+	hostIP = hIP
 
 	dockerfile := filepath.Join(runDir, "Dockerfile")
 
@@ -370,7 +377,7 @@ func itShouldRunTheContainerBuildStepFor(arg1 string) error {
 }
 
 func itShouldStartTheContainer(arg1 string) error {
-	if _, err := CreateDockerContainer(testFs, ctx, cName, containerName, portNum, cli); err != nil {
+	if _, err := CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, cli); err != nil {
 		return err
 	}
 
@@ -428,4 +435,24 @@ func theDockerEntrypointShouldBe(arg1 string) error {
 	}
 
 	return nil
+}
+
+func aKdepsDockerImageWithKdepsEntrypoint() error {
+	return godog.ErrPending
+}
+
+func itWillInstallTheModels(arg1 string) error {
+	return godog.ErrPending
+}
+
+func kdepsWillCheckThePresenceOfTheFile(arg1 string) error {
+	if err := BootstrapDockerSystem(testFs); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func theDockerImageContainerIsStarted() error {
+	return godog.ErrPending
 }

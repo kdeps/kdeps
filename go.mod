@@ -12,7 +12,7 @@ require (
 	github.com/docker/docker v27.2.1+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/dustin/go-humanize v1.0.1
-	github.com/kdeps/schema v0.0.34
+	github.com/kdeps/schema v0.0.37
 	github.com/kr/pretty v0.2.1
 	github.com/spf13/afero v1.11.0
 	github.com/stretchr/testify v1.9.0
@@ -25,10 +25,10 @@ require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/catppuccin/go v0.2.0 // indirect
 	github.com/charmbracelet/bubbles v0.20.0 // indirect
-	github.com/charmbracelet/bubbletea v1.1.0 // indirect
+	github.com/charmbracelet/bubbletea v1.1.1 // indirect
 	github.com/charmbracelet/lipgloss v0.13.0 // indirect
-	github.com/charmbracelet/x/ansi v0.2.3 // indirect
-	github.com/charmbracelet/x/exp/strings v0.0.0-20240910151828-580711411937 // indirect
+	github.com/charmbracelet/x/ansi v0.3.1 // indirect
+	github.com/charmbracelet/x/exp/strings v0.0.0-20240914193755-48d9a4a13687 // indirect
 	github.com/charmbracelet/x/term v0.2.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/cucumber/gherkin/go/v26 v26.2.0 // indirect
@@ -66,7 +66,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.54.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.55.0 // indirect
 	go.opentelemetry.io/otel v1.30.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.29.0 // indirect
 	go.opentelemetry.io/otel/metric v1.30.0 // indirect
