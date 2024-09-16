@@ -36,7 +36,7 @@ type BuildLine struct {
 	Error  string `json:"error"`
 }
 
-func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerName, hostIP, portNum string, cli *client.Client) (string, error) {
+func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerName, hostIP, portNum string, apiMode bool, cli *client.Client) (string, error) {
 	// Run the Docker container with volume and port configuration
 	containerConfig := &container.Config{
 		Image: containerName,
@@ -48,6 +48,12 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 		PortBindings: map[nat.Port][]nat.PortBinding{
 			nat.Port(tcpPort): {{HostIP: hostIP, HostPort: portNum}},
 		},
+	}
+
+	if !apiMode {
+		hostConfig = &container.HostConfig{
+			Binds: []string{"kdeps:/root/.ollama"},
+		}
 	}
 
 	resp, err := cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, cName)
@@ -245,7 +251,7 @@ func BootstrapDockerSystem(fs afero.Fs) error {
 
 		// Once ollama server is ready, proceed with pulling models
 		wfSettings := *wfCfg.Settings
-		dockerSettings := *wfSettings.DockerSettings
+		dockerSettings := *wfSettings.AgentSettings
 		modelList := dockerSettings.Models
 		for _, value := range *modelList {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
@@ -366,22 +372,38 @@ func generateUniqueOllamaPort(existingPort uint16) string {
 	return strconv.FormatUint(uint64(ollamaPortNum), 10)
 }
 
-func BuildDockerfile(fs afero.Fs, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage) (string, string, string, error) {
+func BuildDockerfile(fs afero.Fs, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage) (string, bool, string, string, error) {
+	var portNum uint16 = 3000
+	var hostIP string = "127.0.0.1"
+
 	wfCfg, err := workflow.LoadWorkflow(pkgProject.Workflow)
 	if err != nil {
-		return "", "", "", err
+		return "", false, "", "", err
 	}
 
 	agentName := *wfCfg.Name
 	agentVersion := *wfCfg.Version
 
 	wfSettings := *wfCfg.Settings
-	dockerSettings := *wfSettings.DockerSettings
+	dockerSettings := *wfSettings.AgentSettings
+
+	apiServerMode := *wfSettings.ApiServerMode
+	apiServerSettings := wfSettings.ApiServerSettings
+
+	if apiServerSettings != nil {
+		portNum = apiServerSettings.PortNum
+		hostIP = apiServerSettings.HostIP
+	}
+
 	pkgList := dockerSettings.Packages
-	portNum := dockerSettings.PortNum
-	hostIP := dockerSettings.HostIP
 	hostPort := strconv.FormatUint(uint64(portNum), 10)
 	kdepsHost := fmt.Sprintf("%s:%s", hostIP, hostPort)
+	exposedPort := fmt.Sprintf("EXPOSE %s", hostPort)
+
+	if !apiServerMode {
+		exposedPort = ""
+	}
+
 	var pkgLines []string
 	for _, value := range *pkgList {
 		value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
@@ -414,13 +436,14 @@ RUN chmod +x /usr/bin/pkl
 %s
 
 COPY workflow /agent/
-RUN mv /agent/kdeps /usr/bin/kdeps
-RUN chmod +x /usr/bin/kdeps
+RUN mv /agent/kdeps /bin/kdeps
+RUN chmod +x /bin/kdeps
 
-EXPOSE %s
+%s
 
-ENTRYPOINT ["/usr/bin/kdeps"]
-`, hostIP, ollamaPortNum, kdepsHost, pkgSection, hostPort)
+ENTRYPOINT ["/bin/kdeps"]
+CMD ["run", "/agent/workflow.pkl"]
+`, hostIP, ollamaPortNum, kdepsHost, pkgSection, exposedPort)
 
 	// Ensure the run directory exists
 	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion)
@@ -430,10 +453,10 @@ ENTRYPOINT ["/usr/bin/kdeps"]
 	fmt.Println(resourceConfigurationFile)
 	err = afero.WriteFile(fs, resourceConfigurationFile, []byte(dockerFile), 0644)
 	if err != nil {
-		return "", "", "", err
+		return "", false, "", "", err
 	}
 
-	return runDir, hostIP, hostPort, nil
+	return runDir, apiServerMode, hostIP, hostPort, nil
 }
 
 // printDockerBuildOutput processes the Docker build logs and returns any error encountered during the build.
