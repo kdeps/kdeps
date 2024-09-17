@@ -134,8 +134,8 @@ func ExtractPackage(fs afero.Fs, kdepsDir string, kdepsPackage string) (*KdepsPa
 	}
 
 	// Extract the workflow name and version
-	agentName := *wfConfig.Name
-	agentVersion := *wfConfig.Version
+	agentName := wfConfig.Name
+	agentVersion := wfConfig.Version
 
 	// Move the extracted files from the temporary directory to the permanent location
 	extractBasePath := filepath.Join(kdepsDir, "agents", agentName, agentVersion)
@@ -354,7 +354,7 @@ func getLatestVersion(directory string) (string, error) {
 }
 
 func PrepareRunDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, pkgFilePath string) (string, error) {
-	agentName, agentVersion := *wf.Name, *wf.Version
+	agentName, agentVersion := wf.Name, wf.Version
 
 	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion+"/workflow")
 
@@ -450,7 +450,7 @@ func PackageProject(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, compiledProjectDi
 	}
 
 	// Create the output filename for the package
-	outFile := fmt.Sprintf("%s-%s.kdeps", *wf.Name, *wf.Version)
+	outFile := fmt.Sprintf("%s-%s.kdeps", wf.Name, wf.Version)
 	packageDir := fmt.Sprintf("%s/packages", kdepsDir)
 
 	if _, err := fs.Stat(packageDir); err != nil {
@@ -585,15 +585,15 @@ func getFileMD5(fs afero.Fs, filePath string, length int) (string, error) {
 func CompileWorkflow(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir string) (string, error) {
 	action := wf.Action
 
-	if action == nil {
+	if action == "" {
 		logging.Error("No action specified in workflow!")
 		return "", errors.New("Action is required! Please specify the default action in the workflow!")
 	}
 
 	var compiledAction string
 
-	name := *wf.Name
-	version := *wf.Version
+	name := wf.Name
+	version := wf.Version
 
 	filePath := filepath.Join(projectDir, "workflow.pkl")
 	agentDir := filepath.Join(kdepsDir, fmt.Sprintf("agents/%s/%s", name, version))
@@ -602,8 +602,8 @@ func CompileWorkflow(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir strin
 
 	re := regexp.MustCompile(`^@`)
 
-	if !re.MatchString(*action) {
-		compiledAction = fmt.Sprintf("@%s/%s:%s", name, *action, version)
+	if !re.MatchString(action) {
+		compiledAction = fmt.Sprintf("@%s/%s:%s", name, action, version)
 	}
 
 	// Check if agentDir exists and remove it if it does
@@ -744,7 +744,7 @@ func CopyDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir, compiledProj
 	var srcDir, destDir string
 
 	srcDir = filepath.Join(projectDir, "data")
-	destDir = filepath.Join(compiledProjectDir, fmt.Sprintf("data/%s/%s", *wf.Name, *wf.Version))
+	destDir = filepath.Join(compiledProjectDir, fmt.Sprintf("data/%s/%s", wf.Name, wf.Version))
 
 	if processWorkflows {
 		// Helper function to copy resources
@@ -1010,7 +1010,7 @@ func CompileResources(fs afero.Fs, wf *pklWf.Workflow, resourcesDir string, proj
 
 // processResourcePklFiles processes a .pkl file and writes modifications to the resources directory
 func processResourcePklFiles(fs afero.Fs, file string, wf *pklWf.Workflow, resourcesDir string) error {
-	name, version := *wf.Name, *wf.Version
+	name, version := wf.Name, wf.Version
 
 	readFile, err := fs.Open(file)
 	if err != nil {
@@ -1099,7 +1099,7 @@ func processResourcePklFiles(fs afero.Fs, file string, wf *pklWf.Workflow, resou
 
 // Handle the values inside the requires { ... } block
 func handleRequiresBlock(blockContent string, wf *pklWf.Workflow) string {
-	name, version := *wf.Name, *wf.Version
+	name, version := wf.Name, wf.Version
 
 	// Split the block by newline and process each value
 	lines := strings.Split(blockContent, "\n")
@@ -1134,7 +1134,7 @@ func ProcessExternalWorkflows(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, project
 		return nil
 	}
 
-	for _, value := range *wf.Workflows {
+	for _, value := range wf.Workflows {
 		// Remove the "@" at the beginning if it exists
 		value = strings.TrimPrefix(value, "@")
 

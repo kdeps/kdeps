@@ -11,6 +11,6 @@ Feature: Docker integration
     And it should run the container build step for "kdeps-agentX-1.0.0-cpu"
     And it should start the container "kdeps-agentX-1.0.0-cpu"
     And the Docker entrypoint should be "/bin/kdeps"
-    And the command should be run "/agent/workflow.pkl" action by default
+    And the command should be run "/agent/workflow/workflow.pkl" action by default
     And kdeps will check the presence of the "/.dockerenv" file
     And it will install the model "tinyllama" defined in the workflow configuration

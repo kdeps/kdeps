@@ -9,11 +9,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"kdeps/pkg/archiver"
+	"kdeps/pkg/evaluator"
 	"kdeps/pkg/logging"
 	"kdeps/pkg/workflow"
+	"log"
 	"math/rand"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -26,7 +30,9 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	apiserver "github.com/kdeps/schema/gen/api_server"
 	kdCfg "github.com/kdeps/schema/gen/kdeps"
+	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 )
 
@@ -212,60 +218,231 @@ func startOllamaServer() error {
 }
 
 // BootstrapDockerSystem initializes the Docker system and pulls models after ollama server is ready
-func BootstrapDockerSystem(fs afero.Fs) error {
+func BootstrapDockerSystem(fs afero.Fs) (bool, error) {
+	var apiServerMode bool = false
+
 	logging.Info("Initializing Docker system")
 
 	// Check if /.dockerenv exists
 	exists, err := afero.Exists(fs, "/.dockerenv")
 	if err != nil {
 		logging.Error("Error checking /.dockerenv existence: ", err)
-		return err
+		return apiServerMode, err
 	}
 
 	if exists {
 		logging.Info("Inside Docker environment. Proceeding with bootstrap.")
 
-		agentDir := filepath.Join("/agent/", "workflow.pkl")
-		wfCfg, err := workflow.LoadWorkflow(agentDir)
+		agentDir := "/agent"
+		agentWorkflow := filepath.Join(agentDir, "workflow/workflow.pkl")
+		wfCfg, err := workflow.LoadWorkflow(agentWorkflow)
 		if err != nil {
 			logging.Error("Error loading workflow: ", err)
-			return err
+			return apiServerMode, err
 		}
 
 		// Parse OLLAMA_HOST to get the host and port
 		host, port, err := parseOLLAMAHost()
 		if err != nil {
-			return err
+			return apiServerMode, err
 		}
 
 		// Start ollama server in the background
 		if err := startOllamaServer(); err != nil {
-			return fmt.Errorf("Failed to start ollama server: %v", err)
+			return apiServerMode, fmt.Errorf("Failed to start ollama server: %v", err)
 		}
 
 		// Wait for ollama server to be fully ready (using the parsed host and port)
 		err = waitForServer(host, port, 60*time.Second)
 		if err != nil {
-			return err
+			return apiServerMode, err
 		}
 
 		// Once ollama server is ready, proceed with pulling models
 		wfSettings := *wfCfg.Settings
 		dockerSettings := *wfSettings.AgentSettings
 		modelList := dockerSettings.Models
-		for _, value := range *modelList {
+		for _, value := range modelList {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
 			logging.Info("Pulling model: ", value)
 			stdout, stderr, exitCode, err := KdepsExec("ollama", []string{"pull", value})
 			if err != nil {
 				logging.Error("Error pulling model: ", value, " stdout: ", stdout, " stderr: ", stderr, " exitCode: ", exitCode, " err: ", err)
-				return fmt.Errorf("Error pulling model %s: %s %s %d %v", value, stdout, stderr, exitCode, err)
+				return apiServerMode, fmt.Errorf("Error pulling model %s: %s %s %d %v", value, stdout, stderr, exitCode, err)
 			}
+		}
+
+		apiServerMode = wfSettings.ApiServerMode
+		apiServerPath := filepath.Join(agentDir, "/actions/api")
+		if apiServerMode {
+			if err := fs.MkdirAll(apiServerPath, 0777); err != nil {
+				return apiServerMode, err
+			}
+
+			if err := StartApiServerMode(fs, wfCfg, apiServerPath); err != nil {
+				return apiServerMode, err
+			}
+
+			return apiServerMode, nil
 		}
 	}
 
 	logging.Info("Docker system bootstrap completed.")
+
+	return apiServerMode, nil
+}
+
+func StartApiServerMode(fs afero.Fs, wfCfg *pklWf.Workflow, agentDir string) error {
+	// Extracting workflow settings and API server config
+	wfSettings := *wfCfg.Settings
+	wfApiServer := wfSettings.ApiServer
+
+	if wfApiServer == nil {
+		return fmt.Errorf("API server configuration is missing")
+	}
+
+	portNum := wfApiServer.PortNum
+	hostPort := ":" + strconv.FormatUint(uint64(portNum), 10) // Format port for ListenAndServe
+
+	// Set up routes from the configuration
+	routes := wfApiServer.Routes
+	for _, route := range routes {
+		http.HandleFunc(route.Path, ApiServerHandler(fs, route, agentDir))
+	}
+
+	// Start the server
+	log.Printf("Starting API server on port %s", hostPort)
+	if err := http.ListenAndServe(hostPort, nil); err != nil {
+		// Return the error instead of log.Fatal to allow better error handling
+		return fmt.Errorf("failed to start API server: %w", err)
+	}
+
 	return nil
+}
+
+func ApiServerHandler(fs afero.Fs, route *apiserver.APIServerRoutes, apiServerPath string) http.HandlerFunc {
+	var responseFileExt string
+	var contentType string
+
+	switch route.ResponseType {
+	case "jsonnet":
+		responseFileExt = ".json"
+		contentType = "application/json"
+	case "textproto":
+		responseFileExt = ".txtpb"
+		contentType = "application/protobuf"
+	case "yaml":
+		responseFileExt = ".yaml"
+		contentType = "application/yaml"
+	case "plist":
+		responseFileExt = ".plist"
+		contentType = "application/yaml"
+	case "xml":
+		responseFileExt = ".xml"
+		contentType = "application/yaml"
+	case "pcf":
+		responseFileExt = ".pcf"
+		contentType = "application/yaml"
+	default:
+		responseFileExt = ".json"
+		contentType = "application/json"
+	}
+
+	responseFile := filepath.Join(apiServerPath, "response"+responseFileExt)
+	requestPklFile := filepath.Join(apiServerPath, "request.pkl")
+
+	allowedMethods := route.Methods
+
+	var paramSection string
+	var headerSection string
+	var dataSection string
+	var url string
+	var method string
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		if _, err := fs.Stat(responseFile); err == nil {
+			if err := fs.RemoveAll(responseFile); err != nil {
+				logging.Error("Unable to delete old response file", "response", responseFile)
+				return
+			}
+		}
+		url = fmt.Sprintf(`url = "%s"`, r.URL.Path)
+
+		if r.Method == "" {
+			r.Method = "GET"
+		}
+
+		for _, allowedMethod := range allowedMethods {
+			if allowedMethod == r.Method {
+				method = fmt.Sprintf(`method = "%s"`, allowedMethod)
+
+				break
+			}
+		}
+
+		if method == "" {
+			http.Error(w, fmt.Sprintf(`HTTP method "%s" not allowed!`, r.Method), http.StatusBadRequest)
+
+			return
+		}
+
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Failed to read request body", http.StatusBadRequest)
+
+			return
+		}
+		defer r.Body.Close()
+		dataSection = fmt.Sprintf(`data = "%s"`, string(body))
+		var paramsLines []string
+		var headersLines []string
+
+		params := r.URL.Query()
+		for param, values := range params {
+			for _, value := range values {
+				value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
+				paramsLines = append(paramsLines, fmt.Sprintf(`["%s"] = "%s"`, param, value))
+			}
+		}
+		paramSection = "params {\n" + strings.Join(paramsLines, "\n") + "\n}"
+
+		for name, values := range r.Header {
+			for _, value := range values {
+				value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
+				headersLines = append(headersLines, fmt.Sprintf(`["%s"] = "%s"`, name, value))
+			}
+		}
+		headerSection = "headers {\n" + strings.Join(headersLines, "\n") + "\n}"
+
+		sections := []string{url, method, headerSection, dataSection, paramSection}
+
+		if err := evaluator.CreateAndProcessPklFile(fs, sections, requestPklFile, "APIServerRequest.pkl",
+			"0.0.44", nil, evaluator.EvalPkl); err != nil {
+			return
+		}
+
+		// Wait for the file to exist before responding
+		for {
+			if exists, err := afero.Exists(fs, responseFile); err == nil && exists {
+				// File exists, now respond with its contents
+				content, err := afero.ReadFile(fs, responseFile)
+				if err != nil {
+					http.Error(w, "Failed to read file", http.StatusInternalServerError)
+					return
+				}
+
+				// Write the content to the response
+				w.Header().Set("Content-Type", contentType)
+				w.WriteHeader(http.StatusOK)
+				w.Write(content)
+				log.Printf("Responded with the contents of %s", responseFile)
+				return
+			}
+
+			// Sleep for a second to avoid busy waiting
+			time.Sleep(1 * time.Second)
+		}
+	}
 }
 
 func BuildDockerImage(fs afero.Fs, kdeps *kdCfg.Kdeps, cli *client.Client, runDir, kdepsDir string, pkgProject *archiver.KdepsPackage) (context.Context, string, string, error) {
@@ -275,8 +452,8 @@ func BuildDockerImage(fs afero.Fs, kdeps *kdCfg.Kdeps, cli *client.Client, runDi
 		return ctx, "", "", err
 	}
 
-	agentName := *wfCfg.Name
-	agentVersion := *wfCfg.Version
+	agentName := wfCfg.Name
+	agentVersion := wfCfg.Version
 	gpuType := kdeps.DockerGPU
 	md5sum := pkgProject.Md5sum
 	cName := strings.Join([]string{"kdeps", agentName, string(gpuType), md5sum}, "-")
@@ -381,18 +558,18 @@ func BuildDockerfile(fs afero.Fs, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProjec
 		return "", false, "", "", err
 	}
 
-	agentName := *wfCfg.Name
-	agentVersion := *wfCfg.Version
+	agentName := wfCfg.Name
+	agentVersion := wfCfg.Version
 
-	wfSettings := *wfCfg.Settings
-	dockerSettings := *wfSettings.AgentSettings
+	wfSettings := wfCfg.Settings
+	dockerSettings := wfSettings.AgentSettings
 
-	apiServerMode := *wfSettings.ApiServerMode
-	apiServerSettings := wfSettings.ApiServerSettings
+	apiServerMode := wfSettings.ApiServerMode
+	apiServer := wfSettings.ApiServer
 
-	if apiServerSettings != nil {
-		portNum = apiServerSettings.PortNum
-		hostIP = apiServerSettings.HostIP
+	if apiServer != nil {
+		portNum = apiServer.PortNum
+		hostIP = apiServer.HostIP
 	}
 
 	pkgList := dockerSettings.Packages
@@ -410,6 +587,7 @@ func BuildDockerfile(fs afero.Fs, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProjec
 		pkgLines = append(pkgLines, fmt.Sprintf(`RUN /usr/bin/apt-get -y install %s`, value))
 	}
 	pkgSection := strings.Join(pkgLines, "\n")
+
 	ollamaPortNum := generateUniqueOllamaPort(portNum)
 	dockerFile := fmt.Sprintf(`
 FROM ollama/ollama:0.3.10
@@ -435,14 +613,14 @@ RUN chmod +x /usr/bin/pkl
 
 %s
 
-COPY workflow /agent/
-RUN mv /agent/kdeps /bin/kdeps
+COPY workflow /agent/workflow/
+RUN mv /agent/workflow/kdeps /bin/kdeps
 RUN chmod +x /bin/kdeps
 
 %s
 
 ENTRYPOINT ["/bin/kdeps"]
-CMD ["run", "/agent/workflow.pkl"]
+CMD ["run", "/agent/workflow/workflow.pkl"]
 `, hostIP, ollamaPortNum, kdepsHost, pkgSection, exposedPort)
 
 	// Ensure the run directory exists

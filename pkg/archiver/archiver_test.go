@@ -188,7 +188,7 @@ func theResourceIdForWillBeAndDependency(arg1, arg2, arg3 string) error {
 		if err != nil {
 			return err
 		}
-		if *res.Id != arg2 {
+		if res.Id != arg2 {
 			return errors.New("Should be equal!")
 		}
 		found := false
@@ -215,7 +215,7 @@ func theResourceIdForWillBeRewrittenTo(arg1, arg2 string) error {
 			return err
 		}
 
-		if *res.Id != arg2 {
+		if res.Id != arg2 {
 			return errors.New("Should be equal!")
 		}
 	}
@@ -229,8 +229,8 @@ func theWorkflowActionConfigurationWillBeRewrittenTo(arg1 string) error {
 		return err
 	}
 
-	if *wf.Action != arg1 {
-		return errors.New(fmt.Sprintf("%s = %s does not match!", *wf.Action, arg1))
+	if wf.Action != arg1 {
+		return errors.New(fmt.Sprintf("%s = %s does not match!", wf.Action, arg1))
 	}
 
 	return nil
