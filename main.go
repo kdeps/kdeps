@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"kdeps/pkg/docker"
 	"kdeps/pkg/logging"
+	"kdeps/pkg/resolver"
 	"log"
 	"os"
 
@@ -16,6 +17,7 @@ func main() {
 	var apiServerMode bool
 	// Create an afero filesystem (you can use afero.NewOsFs() for the real filesystem)
 	fs := afero.NewOsFs()
+	logger := logging.GetLogger()
 
 	// Check if /.dockerenv exists
 	exists, err := afero.Exists(fs, "/.dockerenv")
@@ -25,8 +27,13 @@ func main() {
 	}
 
 	if exists {
+		dr, err := resolver.NewGraphResolver(fs, logger, "/agent/workflow/")
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		// Call BootstrapDockerSystem to initialize Docker and pull models
-		apiServerMode, err = docker.BootstrapDockerSystem(fs)
+		apiServerMode, err = docker.BootstrapDockerSystem(fs, dr)
 		if err != nil {
 			fmt.Printf("Error during bootstrap: %v\n", err)
 			os.Exit(1) // Exit with a non-zero status on failure
