@@ -45,3 +45,8 @@ func Error(msg interface{}, keyvals ...interface{}) {
 func Fatal(msg interface{}, keyvals ...interface{}) {
 	logger.Fatal(msg, keyvals...)
 }
+
+// GetLogger returns the Logger instance
+func GetLogger() *log.Logger {
+	return logger
+}

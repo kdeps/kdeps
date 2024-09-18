@@ -1,22 +1,26 @@
 package resource
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"kdeps/pkg/archiver"
 	"kdeps/pkg/cfg"
 	"kdeps/pkg/docker"
 	"kdeps/pkg/enforcer"
+	"kdeps/pkg/logging"
 	"kdeps/pkg/workflow"
 	"net/http"
-	"net/url"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cucumber/godog"
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/kdeps/schema/gen/kdeps"
 	wfPkl "github.com/kdeps/schema/gen/workflow"
@@ -33,6 +37,7 @@ var (
 	packageFile               string
 	hostPort                  string = "3000"
 	hostIP                    string = "127.0.0.1"
+	containerID               string
 	runDir                    string
 	containerName             string
 	apiServerMode             bool
@@ -170,7 +175,7 @@ settings {
       new {
 	path = "/resource1"
 	%s
-	responseType = "plist"
+	responseType = "json"
       }
       new {
 	path = "/resource2"
@@ -317,9 +322,12 @@ name = "default action"
 		return err
 	}
 
-	if _, err := docker.CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, apiServerMode, cli); err != nil {
+	dockerClientID, err := docker.CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, apiServerMode, cli)
+	if err != nil {
 		return err
 	}
+
+	containerID = dockerClientID
 
 	return nil
 }
@@ -329,29 +337,34 @@ func iFillInTheWithSuccessResponseData(arg1, arg2, arg3 string) error {
 }
 
 func iGETRequestToWithDataAndHeaderNameThatMapsTo(arg1, arg2, arg3, arg4 string) error {
+	// // Ensure cleanup of the container at the end of the test
+	// defer func() {
+	//	time.Sleep(30 * time.Second)
+
+	//	err := cli.ContainerRemove(ctx, containerID, container.RemoveOptions{
+	//		Force: true,
+	//	})
+	//	if err != nil {
+	//		log.Printf("Failed to remove container: %v", err)
+	//	}
+	// }()
+
+	time.Sleep(30 * time.Second)
+
 	// Base URL
 	baseURL := fmt.Sprintf("http://%s:%s%s", hostIP, hostPort, arg1)
-
-	// Query parameters
-	params := url.Values{}
-	params.Add("params1", "1")
-	params.Add("params2", "2")
-
-	// Create the full URL with query params
-	fullURL := fmt.Sprintf("%s?%s", baseURL, params.Encode())
+	reqBody := strings.NewReader(arg2)
 
 	// Create a new GET request
-	req, err := http.NewRequest("GET", fullURL, nil)
+	req, err := http.NewRequest("GET", baseURL, reqBody)
 	if err != nil {
 		fmt.Println("Error creating request:", err)
 		return err
 	}
 
 	// Set headers
-	req.Header.Set("Authorization", "Bearer token")
-	req.Header.Set("Custom-Header", "CustomValue")
+	req.Header.Set(arg3, arg4)
 
-	// Send the request
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -368,6 +381,8 @@ func iGETRequestToWithDataAndHeaderNameThatMapsTo(arg1, arg2, arg3, arg4 string)
 	}
 
 	fmt.Println("Response:", string(body))
+
+	// Return immediately as the request is sent in the background
 	return nil
 }
 
@@ -376,7 +391,49 @@ func iShouldSeeABlankStandardTemplateInTheFolder(arg1, arg2 string) error {
 }
 
 func iShouldSeeAInTheFolder(arg1, arg2 string) error {
-	return godog.ErrPending
+	execConfig := types.ExecConfig{
+		Cmd:          []string{"ls", arg2 + arg1},
+		AttachStdout: true,
+		AttachStderr: true,
+	}
+	execIDResp, err := cli.ContainerExecCreate(ctx, containerID, execConfig)
+	if err != nil {
+		return err
+	}
+
+	execID := execIDResp.ID
+
+	// Attach to the exec session to capture the output
+	execAttachResp, err := cli.ContainerExecAttach(ctx, execID, types.ExecStartCheck{})
+	if err != nil {
+		return err
+	}
+	defer execAttachResp.Close()
+
+	// Capture the command output
+	var output bytes.Buffer
+	_, err = io.Copy(&output, execAttachResp.Reader)
+	if err != nil {
+		logging.Fatal("Failed to read exec output: %v", err)
+		return err
+	}
+
+	// Check the command output
+	logging.Info("Output from `ls /` command in container:\n%s", output.String())
+
+	// Optionally, inspect the exec result to check for success/failure
+	execInspect, err := cli.ContainerExecInspect(ctx, execID)
+	if err != nil {
+		logging.Fatal("Failed to inspect exec result: %v", err)
+		return err
+	}
+
+	if execInspect.ExitCode != 0 {
+		logging.Error("Command failed with exit code: %d", execInspect.ExitCode)
+		return err
+	}
+
+	return nil
 }
 
 func iShouldSeeActionUrlDataHeadersWithValuesAndParamsThatMapsTo(arg1, arg2, arg3, arg4, arg5, arg6, arg7 string) error {

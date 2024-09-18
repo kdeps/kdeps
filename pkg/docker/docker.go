@@ -13,6 +13,7 @@ import (
 	"kdeps/pkg/archiver"
 	"kdeps/pkg/evaluator"
 	"kdeps/pkg/logging"
+	"kdeps/pkg/resolver"
 	"kdeps/pkg/workflow"
 	"log"
 	"math/rand"
@@ -218,7 +219,7 @@ func startOllamaServer() error {
 }
 
 // BootstrapDockerSystem initializes the Docker system and pulls models after ollama server is ready
-func BootstrapDockerSystem(fs afero.Fs) (bool, error) {
+func BootstrapDockerSystem(fs afero.Fs, dr *resolver.DependencyResolver) (bool, error) {
 	var apiServerMode bool = false
 
 	logging.Info("Initializing Docker system")
