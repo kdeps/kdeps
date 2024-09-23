@@ -1,4 +1,4 @@
-package resource
+package resource_test
 
 import (
 	"bytes"
@@ -185,7 +185,6 @@ settings {
   }
 }
 `, methodSection, methodSection)
-
 	var filePath string
 
 	filePath = filepath.Join(homeDirPath, "myAgentX")

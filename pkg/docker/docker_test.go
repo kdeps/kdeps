@@ -451,7 +451,7 @@ func itWillInstallTheModels(arg1 string) error {
 }
 
 func kdepsWillCheckThePresenceOfTheFile(arg1 string) error {
-	if _, err := BootstrapDockerSystem(testFs); err != nil {
+	if _, err := BootstrapDockerSystem(testFs, nil); err != nil {
 		return err
 	}
 

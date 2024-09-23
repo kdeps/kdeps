@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"kdeps/pkg/docker"
 	"kdeps/pkg/logging"
@@ -10,7 +9,6 @@ import (
 	"os"
 
 	"github.com/spf13/afero"
-	"github.com/tmc/langchaingo/llms/ollama"
 )
 
 func main() {
@@ -32,6 +30,11 @@ func main() {
 			log.Fatal(err)
 		}
 
+		if err := dr.LoadResourceEntries(); err != nil {
+			log.Fatal(err)
+		}
+
+		dr.Graph.ListDependencyTreeTopDown("helloWorld99")
 		// Call BootstrapDockerSystem to initialize Docker and pull models
 		apiServerMode, err = docker.BootstrapDockerSystem(fs, dr)
 		if err != nil {
@@ -40,19 +43,19 @@ func main() {
 		}
 	}
 
-	logging.Info("Bootstrap completed successfully.")
+	// logging.Info("Bootstrap completed successfully.")
 
-	llm, err := ollama.New(ollama.WithModel("tinyllama"))
-	if err != nil {
-		log.Fatal(err)
-	}
-	ctx := context.Background()
-	completion, err := llm.Call(ctx, "Human: Who was the first man to walk on the moon?\nAssistant:")
-	if err != nil {
-		log.Fatal(err)
-	}
+	// llm, err := ollama.New(ollama.WithModel("tinyllama"))
+	// if err != nil {
+	//	log.Fatal(err)
+	// }
+	// ctx := context.Background()
+	// completion, err := llm.Call(ctx, "Human: Who was the first man to walk on the moon?\nAssistant:")
+	// if err != nil {
+	//	log.Fatal(err)
+	// }
 
-	logging.Info("completion: ", completion)
+	// logging.Info("completion: ", completion)
 
 	if apiServerMode {
 		select {}
