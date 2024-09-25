@@ -79,6 +79,8 @@ func TestFeatures(t *testing.T) {
 }
 
 func aSystemConfigurationFile(arg1, arg2, arg3, arg4 string) error {
+	ctx = context.Background()
+
 	env := &cfg.Environment{
 		Home:           homeDirPath,
 		Pwd:            currentDirPath,
@@ -235,7 +237,7 @@ description = "An action from agent %s"
 		return err
 	}
 
-	wfconfig, err := workflow.LoadWorkflow(workflowConfigurationFile)
+	wfconfig, err := workflow.LoadWorkflow(ctx, workflowConfigurationFile)
 	if err != nil {
 		return err
 	}
@@ -298,7 +300,7 @@ func searchTextInFile(filePath string, searchText string) (bool, error) {
 }
 
 func itShouldCreateTheDockerfile(arg1, arg2, arg3 string) error {
-	rd, asm, hIP, hPort, err := BuildDockerfile(testFs, systemConfiguration, kdepsDir, pkgProject)
+	rd, asm, hIP, hPort, err := BuildDockerfile(testFs, ctx, systemConfiguration, kdepsDir, pkgProject)
 	if err != nil {
 		return err
 	}
@@ -359,14 +361,13 @@ func itShouldRunTheContainerBuildStepFor(arg1 string) error {
 
 	cli = cl
 
-	contxt, cN, conN, err := BuildDockerImage(testFs, systemConfiguration, cli, runDir, kdepsDir, pkgProject)
+	cN, conN, err := BuildDockerImage(testFs, ctx, systemConfiguration, cli, runDir, kdepsDir, pkgProject)
 	if err != nil {
 		return err
 	}
 
 	cName = cN
 	containerName = conN
-	ctx = contxt
 
 	if err := CleanupDockerBuildImages(testFs, ctx, cName, cli); err != nil {
 		return err
@@ -384,7 +385,7 @@ func itShouldStartTheContainer(arg1 string) error {
 }
 
 func kdepsOpenThePackage(arg1 string) error {
-	pkgP, err := archiver.ExtractPackage(testFs, kdepsDir, packageFile)
+	pkgP, err := archiver.ExtractPackage(testFs, ctx, kdepsDir, packageFile)
 	if err != nil {
 		return err
 	}
@@ -395,7 +396,7 @@ func kdepsOpenThePackage(arg1 string) error {
 }
 
 func theValidAiagentHas(arg1, arg2 string) error {
-	cDir, pFile, err := archiver.CompileProject(testFs, workflowConfiguration, kdepsDir, agentDir)
+	cDir, pFile, err := archiver.CompileProject(testFs, ctx, workflowConfiguration, kdepsDir, agentDir)
 	if err != nil {
 		return err
 	}
@@ -451,7 +452,7 @@ func itWillInstallTheModels(arg1 string) error {
 }
 
 func kdepsWillCheckThePresenceOfTheFile(arg1 string) error {
-	if _, err := BootstrapDockerSystem(testFs, nil); err != nil {
+	if _, err := BootstrapDockerSystem(testFs, ctx); err != nil {
 		return err
 	}
 

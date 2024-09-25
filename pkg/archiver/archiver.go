@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
@@ -34,7 +35,7 @@ type KdepsPackage struct {
 	Data        map[string]map[string][]string `json:"data"`        // Data[agentName][version] -> slice of absolute file paths for a specific agent version
 }
 
-func ExtractPackage(fs afero.Fs, kdepsDir string, kdepsPackage string) (*KdepsPackage, error) {
+func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPackage string) (*KdepsPackage, error) {
 	logging.Info("Starting extraction of package", "package", kdepsPackage)
 
 	// Create a temporary directory for extraction
@@ -127,7 +128,7 @@ func ExtractPackage(fs afero.Fs, kdepsDir string, kdepsPackage string) (*KdepsPa
 
 	// Load the workflow configuration file (assumed to be in tempDir)
 	wfTmpFile := filepath.Join(tempDir, "workflow.pkl")
-	wfConfig, err := workflow.LoadWorkflow(wfTmpFile)
+	wfConfig, err := workflow.LoadWorkflow(ctx, wfTmpFile)
 	if err != nil {
 		logging.Error("Failed to load the workflow file", "file", wfTmpFile, "error", err)
 		return nil, fmt.Errorf("failed to load workflow file: %w", err)
@@ -851,7 +852,7 @@ func CopyDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir, compiledProj
 }
 
 // CompileProject orchestrates the compilation and packaging of a project
-func CompileProject(fs afero.Fs, wf *pklWf.Workflow, kdepsDir string, projectDir string) (string, string, error) {
+func CompileProject(fs afero.Fs, ctx context.Context, wf *pklWf.Workflow, kdepsDir string, projectDir string) (string, string, error) {
 	// Compile the workflow
 	compiledProjectDir, err := CompileWorkflow(fs, wf, kdepsDir, projectDir)
 	if err != nil {
@@ -884,7 +885,7 @@ func CompileProject(fs afero.Fs, wf *pklWf.Workflow, kdepsDir string, projectDir
 	}
 
 	// Load the new workflow
-	newWorkflow, err := workflow.LoadWorkflow(newWorkflowFile)
+	newWorkflow, err := workflow.LoadWorkflow(ctx, newWorkflowFile)
 	if err != nil {
 		logging.Error("Failed to load new workflow", "path", newWorkflowFile, "error", err)
 		return "", "", err

@@ -1,21 +1,40 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"kdeps/pkg/docker"
 	"kdeps/pkg/logging"
 	"kdeps/pkg/resolver"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/afero"
 )
 
 func main() {
-	var apiServerMode bool
 	// Create an afero filesystem (you can use afero.NewOsFs() for the real filesystem)
 	fs := afero.NewOsFs()
-	logger := logging.GetLogger()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel() // Ensure context is canceled when main exits
+
+	// Set up signal handling for graceful shutdown
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		sig := <-sigs
+		logging.Info(fmt.Sprintf("Received signal: %v, initiating shutdown...", sig))
+		cancel() // Signal context to cancel
+
+		cleanup(fs)
+
+		resolver.WaitForFile(fs, "/.dockercleanup")
+
+		os.Exit(0)
+	}()
 
 	// Check if /.dockerenv exists
 	exists, err := afero.Exists(fs, "/.dockerenv")
@@ -25,50 +44,31 @@ func main() {
 	}
 
 	if exists {
-		dr, err := resolver.NewGraphResolver(fs, logger, "/agent/workflow/")
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		if err := dr.LoadResourceEntries(); err != nil {
-			log.Fatal(err)
-		}
-
-		dr.Graph.ListDependencyTreeTopDown("helloWorld99")
 		// Call BootstrapDockerSystem to initialize Docker and pull models
-		apiServerMode, err = docker.BootstrapDockerSystem(fs, dr)
+		_, err := docker.BootstrapDockerSystem(fs, ctx)
 		if err != nil {
 			fmt.Printf("Error during bootstrap: %v\n", err)
 			os.Exit(1) // Exit with a non-zero status on failure
 		}
 	}
 
-	// logging.Info("Bootstrap completed successfully.")
+	// Block the main routine, but respond to the context cancellation
+	<-ctx.Done()
+	logging.Info("Shutting down gracefully...")
+}
 
-	// llm, err := ollama.New(ollama.WithModel("tinyllama"))
-	// if err != nil {
-	//	log.Fatal(err)
-	// }
-	// ctx := context.Background()
-	// completion, err := llm.Call(ctx, "Human: Who was the first man to walk on the moon?\nAssistant:")
-	// if err != nil {
-	//	log.Fatal(err)
-	// }
+// cleanup performs any necessary cleanup tasks before shutting down
+func cleanup(fs afero.Fs) {
+	// Perform file cleanups or other shutdown tasks here
+	logging.Info("Performing cleanup tasks...")
 
-	// logging.Info("completion: ", completion)
-
-	if apiServerMode {
-		select {}
+	if _, err := fs.Stat("/.dockercleanup"); err == nil {
+		if err := fs.RemoveAll("./dockercleanup"); err != nil {
+			logging.Error("Unable to delete old cleanup flag file", "cleanup-file", "/.dockercleanup")
+		}
 	}
 
-	// llm, err = ollama.New(ollama.WithModel("tinydolphin"))
-	// if err != nil {
-	//	log.Fatal(err)
-	// }
+	docker.Cleanup(fs)
 
-	// completion, err = llm.Call(ctx, fmt.Sprintf("OK: Tinyllama said '%s', is this true? Anything to add?", completion))
-	// if err != nil {
-	//	log.Fatal(err)
-	// }
-
+	logging.Info("Cleanup complete.")
 }

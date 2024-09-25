@@ -101,7 +101,7 @@ func anAiAgentWithResources(arg1 string) error {
 	}
 
 	systemConfigurationContent := `
-	amends "package://schema.kdeps.com/core@0.0.34#/Kdeps.pkl"
+	amends "package://schema.kdeps.com/core@0.0.44#/Kdeps.pkl"
 
 	runMode = "docker"
 	dockerGPU = "cpu"
@@ -130,10 +130,11 @@ func anAiAgentWithResources(arg1 string) error {
 
 	systemConfiguration = syscfg
 
+	methods := "POST, GET"
 	var methodSection string
-	if strings.Contains(arg1, ",") {
+	if strings.Contains(methods, ",") {
 		// Split arg3 into multiple values if it's a CSV
-		values := strings.Split(arg1, ",")
+		values := strings.Split(methods, ",")
 		var methodLines []string
 		for _, value := range values {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
@@ -149,11 +150,11 @@ methods {
 	}
 
 	workflowConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.42#/Workflow.pkl"
+amends "package://schema.kdeps.com/core@0.0.44#/Workflow.pkl"
 
 name = "myAIAgentAPI1"
 description = "AI Agent X API"
-action = "helloWorld100"
+action = "helloWorld99"
 settings {
   apiServerMode = true
   agentSettings {
@@ -207,11 +208,11 @@ settings {
 	for num := totalResourcesInt; num >= 1; num-- {
 		// Define the content of the resource configuration file
 		resourceConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.42#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.0.44#/Resource.pkl"
 
 id = "helloWorld%d"
 name = "default action %d"
-description = "default action"
+description = "default action {{request.method}}}"
 category = "category"
 requires {
   "helloWorld%d"
@@ -221,11 +222,11 @@ requires {
 		// Skip the "requires" for the first resource (num 1)
 		if num == 1 {
 			resourceConfigurationContent = fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.42#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.0.44#/Resource.pkl"
 
 id = "helloWorld%d"
 name = "default action %d"
-description = "default action"
+description = "default action {{request.url}}"
 category = "category"
 `, num, num)
 		}
@@ -238,18 +239,17 @@ category = "category"
 		if err != nil {
 			return err
 		}
-
-		fmt.Println("config 1: ", resourceConfigurationFile)
 	}
 
 	logger := logging.GetLogger()
+	ctx := context.Background()
 
-	dr, err := NewGraphResolver(testFs, logger, agentDir)
+	dr, err := NewGraphResolver(testFs, logger, ctx, agentDir)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	dr.LoadResourceEntries()
+	dr.HandleRunAction(false)
 
 	return nil
 }
@@ -297,7 +297,7 @@ func anAiAgentWithResources2(arg1 string) error {
 	}
 
 	systemConfigurationContent := `
-	amends "package://schema.kdeps.com/core@0.0.34#/Kdeps.pkl"
+	amends "package://schema.kdeps.com/core@0.0.44#/Kdeps.pkl"
 
 	runMode = "docker"
 	dockerGPU = "cpu"
@@ -345,7 +345,7 @@ methods {
 	}
 
 	workflowConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.42#/Workflow.pkl"
+amends "package://schema.kdeps.com/core@0.0.44#/Workflow.pkl"
 
 name = "myAIAgentAPI2"
 description = "AI Agent X API"
@@ -418,7 +418,7 @@ settings {
 
 		// Define the content of the resource configuration file
 		resourceConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.42#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.0.44#/Resource.pkl"
 
 id = "helloWorld%d"
 name = "default action %d"

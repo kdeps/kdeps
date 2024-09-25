@@ -1,6 +1,7 @@
 package archiver
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"kdeps/pkg/enforcer"
@@ -29,6 +30,7 @@ var (
 	projectDir         string
 	packageDir         string
 	lastCreatedPackage string
+	ctx                context.Context
 )
 
 func TestFeatures(t *testing.T) {
@@ -82,7 +84,7 @@ func aKdepsArchiveIsOpened(arg1 string) error {
 		return errors.New("agent should not yet exists on system agents dir")
 	}
 
-	proj, err := ExtractPackage(testFs, kdepsDir, lastCreatedPackage)
+	proj, err := ExtractPackage(testFs, ctx, kdepsDir, lastCreatedPackage)
 	if err != nil {
 		return err
 	}
@@ -169,12 +171,13 @@ func itWillBeStoredTo(arg1 string) error {
 }
 
 func theProjectIsCompiled() error {
-	wf, err := workflow.LoadWorkflow(workflowFile)
+	ctx = context.Background()
+	wf, err := workflow.LoadWorkflow(ctx, workflowFile)
 	if err != nil {
 		return err
 	}
 
-	projectDir, _, _ := CompileProject(testFs, wf, kdepsDir, aiAgentDir)
+	projectDir, _, _ := CompileProject(testFs, ctx, wf, kdepsDir, aiAgentDir)
 
 	workflowFile = filepath.Join(projectDir, "workflow.pkl")
 
@@ -184,7 +187,7 @@ func theProjectIsCompiled() error {
 func theResourceIdForWillBeAndDependency(arg1, arg2, arg3 string) error {
 	resFile := filepath.Join(projectDir, "resources/"+arg1)
 	if _, err := testFs.Stat(resFile); err == nil {
-		res, err := resource.LoadResource(resFile)
+		res, err := resource.LoadResource(ctx, resFile)
 		if err != nil {
 			return err
 		}
@@ -210,7 +213,7 @@ func theResourceIdForWillBeAndDependency(arg1, arg2, arg3 string) error {
 func theResourceIdForWillBeRewrittenTo(arg1, arg2 string) error {
 	resFile := filepath.Join(projectDir, "resources/"+arg1)
 	if _, err := testFs.Stat(resFile); err == nil {
-		res, err := resource.LoadResource(resFile)
+		res, err := resource.LoadResource(ctx, resFile)
 		if err != nil {
 			return err
 		}
@@ -224,7 +227,7 @@ func theResourceIdForWillBeRewrittenTo(arg1, arg2 string) error {
 }
 
 func theWorkflowActionConfigurationWillBeRewrittenTo(arg1 string) error {
-	wf, err := workflow.LoadWorkflow(workflowFile)
+	wf, err := workflow.LoadWorkflow(ctx, workflowFile)
 	if err != nil {
 		return err
 	}
@@ -319,7 +322,7 @@ func theProjectIsValid() error {
 }
 
 func theProjectWillBeArchivedTo(arg1 string) error {
-	wf, err := workflow.LoadWorkflow(workflowFile)
+	wf, err := workflow.LoadWorkflow(ctx, workflowFile)
 	if err != nil {
 		return err
 	}
@@ -392,7 +395,7 @@ func theProjectIsInvalid() error {
 }
 
 func theProjectWillNotBeArchivedTo(arg1 string) error {
-	wf, err := workflow.LoadWorkflow(workflowFile)
+	wf, err := workflow.LoadWorkflow(ctx, workflowFile)
 	if err != nil {
 		return err
 	}

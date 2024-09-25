@@ -79,6 +79,8 @@ func TestFeatures(t *testing.T) {
 }
 
 func aKdepsContainerWithEndpointAPI(arg1, arg2, arg3 string) error {
+	ctx = context.Background()
+
 	tmpHome, err := afero.TempDir(testFs, "", "")
 	if err != nil {
 		return err
@@ -211,6 +213,8 @@ amends "package://schema.kdeps.com/core@0.0.42#/Resource.pkl"
 
 id = "helloWorld"
 name = "default action"
+category = "kdepsdockerai"
+description = "this is a description for helloWorld {{ request.params }}"
 requires {
   "action1"
   "action2"
@@ -227,6 +231,8 @@ requires {
 amends "package://schema.kdeps.com/core@0.0.42#/Resource.pkl"
 
 id = "action1"
+category = "kdepsdockerai"
+description = "this is a description for action1 - {{ request.url }}"
 name = "default action"
 `
 
@@ -240,6 +246,8 @@ name = "default action"
 amends "package://schema.kdeps.com/core@0.0.42#/Resource.pkl"
 
 id = "action2"
+category = "kdepsdockerai"
+description = "this is a description for action2 - {{ request.method }}"
 name = "default action"
 `
 
@@ -269,14 +277,14 @@ name = "default action"
 		return err
 	}
 
-	wfconfig, err := workflow.LoadWorkflow(workflowConfigurationFile)
+	wfconfig, err := workflow.LoadWorkflow(ctx, workflowConfigurationFile)
 	if err != nil {
 		return err
 	}
 
 	workflowConfiguration = wfconfig
 
-	cDir, pFile, err := archiver.CompileProject(testFs, workflowConfiguration, kdepsDir, agentDir)
+	cDir, pFile, err := archiver.CompileProject(testFs, ctx, workflowConfiguration, kdepsDir, agentDir)
 	if err != nil {
 		return err
 	}
@@ -284,14 +292,14 @@ name = "default action"
 	compiledProjectDir = cDir
 	packageFile = pFile
 
-	pkgP, err := archiver.ExtractPackage(testFs, kdepsDir, packageFile)
+	pkgP, err := archiver.ExtractPackage(testFs, ctx, kdepsDir, packageFile)
 	if err != nil {
 		return err
 	}
 
 	pkgProject = pkgP
 
-	rd, asm, hIP, hPort, err := docker.BuildDockerfile(testFs, systemConfiguration, kdepsDir, pkgProject)
+	rd, asm, hIP, hPort, err := docker.BuildDockerfile(testFs, ctx, systemConfiguration, kdepsDir, pkgProject)
 	if err != nil {
 		return err
 	}
@@ -308,14 +316,13 @@ name = "default action"
 
 	cli = cl
 
-	contxt, cN, conN, err := docker.BuildDockerImage(testFs, systemConfiguration, cli, runDir, kdepsDir, pkgProject)
+	cN, conN, err := docker.BuildDockerImage(testFs, ctx, systemConfiguration, cli, runDir, kdepsDir, pkgProject)
 	if err != nil {
 		return err
 	}
 
 	cName = cN
 	containerName = conN
-	ctx = contxt
 
 	if err := docker.CleanupDockerBuildImages(testFs, ctx, cName, cli); err != nil {
 		return err
