@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"kdeps/pkg/logging" // import your logger package
+	"kdeps/pkg/schema"
 
 	"github.com/spf13/afero"
 )
@@ -237,7 +238,7 @@ func enforceResourcesFolder(fs afero.Fs, resourcesPath string) error {
 }
 
 // EnforcePklTemplateAmendsRules combines the three validations (schema URL, version, and .pkl file)
-func EnforcePklTemplateAmendsRules(fs afero.Fs, filePath, schemaVersionFilePath string) error {
+func EnforcePklTemplateAmendsRules(fs afero.Fs, filePath string) error {
 	// Open the file containing the amends line
 	file, err := fs.Open(filePath)
 	if err != nil {
@@ -245,27 +246,6 @@ func EnforcePklTemplateAmendsRules(fs afero.Fs, filePath, schemaVersionFilePath 
 		return err
 	}
 	defer file.Close()
-
-	// Open the file containing the schema version
-	versionFile, err := fs.Open(schemaVersionFilePath)
-	if err != nil {
-		logging.Error("Failed to open schema version file", "filePath", schemaVersionFilePath, "error", err)
-		return err
-	}
-	defer versionFile.Close()
-
-	// Read the schema version from the ../SCHEMA_VERSION file
-	var schemaVersion string
-	scannerVersion := bufio.NewScanner(versionFile)
-	if scannerVersion.Scan() {
-		schemaVersion = strings.TrimSpace(scannerVersion.Text())
-	}
-	if err := scannerVersion.Err(); err != nil {
-		logging.Error("Failed to read schema version", "filePath", schemaVersionFilePath, "error", err)
-		return err
-	}
-
-	logging.Info("Schema version read", "schemaVersion", schemaVersion)
 
 	// Create a new scanner to read the amends file line by line
 	scanner := bufio.NewScanner(file)
@@ -291,7 +271,7 @@ func EnforcePklTemplateAmendsRules(fs afero.Fs, filePath, schemaVersionFilePath 
 			return err
 		}
 
-		if err := EnforcePklVersion(line, schemaVersion); err != nil {
+		if err := EnforcePklVersion(line, schema.SchemaVersion); err != nil {
 			logging.Error("Version validation failed", "line", line, "error", err)
 			return err
 		}

@@ -544,7 +544,7 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 		sections := []string{url, method, headerSection, dataSection, paramSection}
 
 		if err := evaluator.CreateAndProcessPklFile(fs, sections, requestPklFile, "APIServerRequest.pkl",
-			"0.0.44", nil, evaluator.EvalPkl); err != nil {
+			nil, evaluator.EvalPkl); err != nil {
 			return
 		}
 

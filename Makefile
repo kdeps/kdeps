@@ -2,12 +2,13 @@ PROJECT_NAME = kdeps
 TEST_REPORT = test-report.out
 COVERAGE_REPORT = coverage.out
 PACKAGE_LIST = ./...
+SCHEMA_VERSION_FILE = SCHEMA_VERSION
 
 # List of GOOS/GOARCH pairs for macOS, Windows, and Linux, but only for amd64 and arm64 architectures
 TARGETS := $(filter darwin/amd64 linux/amd64 windows/amd64 darwin/arm64 linux/arm64 windows/arm64, $(shell go tool dist list))
 
 # Default target
-all: test schema_version
+all: test schema_version build
 
 # Run tests and generate a report
 test:
@@ -38,18 +39,23 @@ vet:
 	@echo "Running vet..."
 	@go vet $(PACKAGE_LIST)
 
-# Get the latest schema version and append it to the SCHEMA_VERSION file
-schema_version:
-	@latest_tag=$$(curl --silent "https://api.github.com/repos/kdeps/schema/tags" | jq -r '.[0].name'); \
-	echo $$latest_tag | sed 's/v//g' > SCHEMA_VERSION
-
 # Display coverage in browser (you need to have go tool cover installed)
 coverage: test
 	@go tool cover -html=$(COVERAGE_REPORT)
 
+# Get the latest schema version and append it to the SCHEMA_VERSION file
+schema_version:
+	@echo "Fetching latest schema version..."
+	@latest_tag=$$(curl --silent "https://api.github.com/repos/kdeps/schema/tags" | jq -r '.[0].name'); \
+	echo $$latest_tag | sed 's/v//g' > $(SCHEMA_VERSION_FILE); \
+	cat $(SCHEMA_VERSION_FILE)
+
 # Build targets
-$(TARGETS):
+$(TARGETS): schema_version
 	@echo "Building for $@"
-	@GOOS=$(word 1,$(subst /, ,$@)) GOARCH=$(word 2,$(subst /, ,$@)) go build -o ./build/$(PROJECT_NAME)_$(word 1,$(subst /, ,$@))_$(word 2,$(subst /, ,$@))/$(PROJECT_NAME)
+	@SCHEMA_VERSION=$$(cat $(SCHEMA_VERSION_FILE)); \
+	GOOS=$(word 1,$(subst /, ,$@)) GOARCH=$(word 2,$(subst /, ,$@)) \
+	go build -ldflags "-X kdeps/pkg/schema.SchemaVersion=$$SCHEMA_VERSION" \
+		-o ./build/$(PROJECT_NAME)_$(word 1,$(subst /, ,$@))_$(word 2,$(subst /, ,$@))/$(PROJECT_NAME)
 
 .PHONY: all test build clean lint fmt vet coverage schema_version $(TARGETS)

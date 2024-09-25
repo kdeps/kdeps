@@ -129,7 +129,7 @@ func aKdepsContainerWithEndpointAPI(arg1, arg2, arg3 string) error {
 		return err
 	}
 
-	if err = enforcer.EnforcePklTemplateAmendsRules(testFs, systemConfigurationFile, schemaVersionFilePath); err != nil {
+	if err = enforcer.EnforcePklTemplateAmendsRules(testFs, systemConfigurationFile); err != nil {
 		return err
 	}
 
@@ -273,7 +273,7 @@ name = "default action"
 		f.Close()
 	}
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowConfigurationFile, schemaVersionFilePath); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowConfigurationFile); err != nil {
 		return err
 	}
 

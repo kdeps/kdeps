@@ -25,8 +25,6 @@ import (
 	"github.com/spf13/afero"
 )
 
-var schemaVersionFilePath = "../../SCHEMA_VERSION"
-
 type KdepsPackage struct {
 	PkgFilePath string                         `json:"pkgFilePath"` // THe path to the kdeps package file
 	Md5sum      string                         `json:"md5sum"`      // The package.kdeps md5sum signature
@@ -964,7 +962,7 @@ func CheckAndValidatePklFiles(fs afero.Fs, projectResourcesDir string) error {
 	// Validate each .pkl file
 	for _, pklFile := range pklFiles {
 		logging.Info("Validating .pkl file", "file", pklFile)
-		if err := enforcer.EnforcePklTemplateAmendsRules(fs, pklFile, schemaVersionFilePath); err != nil {
+		if err := enforcer.EnforcePklTemplateAmendsRules(fs, pklFile); err != nil {
 			logging.Error("Validation failed for .pkl file", "file", pklFile, "error", err)
 			return fmt.Errorf("validation failed for '%s': %v", pklFile, err)
 		}
