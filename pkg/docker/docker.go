@@ -219,24 +219,24 @@ func startOllamaServer() error {
 }
 
 // BootstrapDockerSystem initializes the Docker system and pulls models after ollama server is ready
-func BootstrapDockerSystem(fs afero.Fs, dr *resolver.DependencyResolver) (bool, error) {
-	var apiServerMode bool = false
-
-	logging.Info("Initializing Docker system")
+func BootstrapDockerSystem(fs afero.Fs, ctx context.Context) (bool, error) {
+	var apiServerMode bool
 
 	// Check if /.dockerenv exists
 	exists, err := afero.Exists(fs, "/.dockerenv")
 	if err != nil {
 		logging.Error("Error checking /.dockerenv existence: ", err)
-		return apiServerMode, err
+		return false, err
 	}
 
 	if exists {
 		logging.Info("Inside Docker environment. Proceeding with bootstrap.")
+		logging.Info("Initializing Docker system")
 
 		agentDir := "/agent"
+		apiServerPath := filepath.Join(agentDir, "/actions/api")
 		agentWorkflow := filepath.Join(agentDir, "workflow/workflow.pkl")
-		wfCfg, err := workflow.LoadWorkflow(agentWorkflow)
+		wfCfg, err := workflow.LoadWorkflow(ctx, agentWorkflow)
 		if err != nil {
 			logging.Error("Error loading workflow: ", err)
 			return apiServerMode, err
@@ -261,6 +261,8 @@ func BootstrapDockerSystem(fs afero.Fs, dr *resolver.DependencyResolver) (bool, 
 
 		// Once ollama server is ready, proceed with pulling models
 		wfSettings := *wfCfg.Settings
+		apiServerMode = wfSettings.ApiServerMode
+
 		dockerSettings := *wfSettings.AgentSettings
 		modelList := dockerSettings.Models
 		for _, value := range modelList {
@@ -273,19 +275,17 @@ func BootstrapDockerSystem(fs afero.Fs, dr *resolver.DependencyResolver) (bool, 
 			}
 		}
 
-		apiServerMode = wfSettings.ApiServerMode
-		apiServerPath := filepath.Join(agentDir, "/actions/api")
-		if apiServerMode {
-			if err := fs.MkdirAll(apiServerPath, 0777); err != nil {
-				return apiServerMode, err
-			}
-
-			if err := StartApiServerMode(fs, wfCfg, apiServerPath); err != nil {
-				return apiServerMode, err
-			}
-
-			return apiServerMode, nil
+		if err := fs.MkdirAll(apiServerPath, 0777); err != nil {
+			return true, err
 		}
+
+		go func() error {
+			if err := StartApiServerMode(fs, ctx, wfCfg, apiServerPath); err != nil {
+				return err
+			}
+
+			return nil
+		}()
 	}
 
 	logging.Info("Docker system bootstrap completed.")
@@ -293,7 +293,28 @@ func BootstrapDockerSystem(fs afero.Fs, dr *resolver.DependencyResolver) (bool, 
 	return apiServerMode, nil
 }
 
-func StartApiServerMode(fs afero.Fs, wfCfg *pklWf.Workflow, agentDir string) error {
+func CreateFlagFile(fs afero.Fs, filename string) error {
+	// Check if file exists
+	if exists, err := afero.Exists(fs, filename); err != nil {
+		return err
+	} else if !exists {
+		// Create the file if it doesn't exist
+		file, err := fs.Create(filename)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+	} else {
+		// If the file exists, update its modification time to the current time
+		currentTime := time.Now().Local()
+		if err := fs.Chtimes(filename, currentTime, currentTime); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func StartApiServerMode(fs afero.Fs, ctx context.Context, wfCfg *pklWf.Workflow, agentDir string) error {
 	// Extracting workflow settings and API server config
 	wfSettings := *wfCfg.Settings
 	wfApiServer := wfSettings.ApiServer
@@ -308,47 +329,145 @@ func StartApiServerMode(fs afero.Fs, wfCfg *pklWf.Workflow, agentDir string) err
 	// Set up routes from the configuration
 	routes := wfApiServer.Routes
 	for _, route := range routes {
-		http.HandleFunc(route.Path, ApiServerHandler(fs, route, agentDir))
+		http.HandleFunc(route.Path, ApiServerHandler(fs, ctx, route, agentDir))
 	}
 
 	// Start the server
 	log.Printf("Starting API server on port %s", hostPort)
-	if err := http.ListenAndServe(hostPort, nil); err != nil {
-		// Return the error instead of log.Fatal to allow better error handling
-		return fmt.Errorf("failed to start API server: %w", err)
-	}
+	go func() error {
+		if err := http.ListenAndServe(hostPort, nil); err != nil {
+			// Return the error instead of log.Fatal to allow better error handling
+			return fmt.Errorf("failed to start API server: %w", err)
+		}
+		return nil
+	}()
 
 	return nil
 }
 
-func ApiServerHandler(fs afero.Fs, route *apiserver.APIServerRoutes, apiServerPath string) http.HandlerFunc {
+// cleanup deletes /agents/action and /agents/workflow directories, then copies /agents/project to /agents/workflow
+func Cleanup(fs afero.Fs) {
+	// Check if /.dockerenv exists
+	exists, err := afero.Exists(fs, "/.dockerenv")
+	if err != nil {
+		logging.Error("Error checking /.dockerenv existence: ", err)
+		return
+	}
+
+	if exists {
+		actionDir := "/agent/action"
+		workflowDir := "/agent/workflow"
+		projectDir := "/agent/project"
+
+		// Delete /agents/action directory
+		if err := fs.RemoveAll(actionDir); err != nil {
+			logging.Error(fmt.Sprintf("Error removing %s: %v", actionDir, err))
+		} else {
+			logging.Info(fmt.Sprintf("%s directory deleted", actionDir))
+		}
+
+		// Delete /agents/workflow directory
+		if err := fs.RemoveAll(workflowDir); err != nil {
+			logging.Error(fmt.Sprintf("Error removing %s: %v", workflowDir, err))
+		} else {
+			logging.Info(fmt.Sprintf("%s directory deleted", workflowDir))
+		}
+
+		// Copy /agents/project to /agents/workflow
+		err := afero.Walk(fs, projectDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			// Create the relative target path inside /agents/workflow
+			relPath, err := filepath.Rel(projectDir, path)
+			if err != nil {
+				return err
+			}
+			targetPath := filepath.Join(workflowDir, relPath)
+
+			if info.IsDir() {
+				// Create the directory in the destination
+				if err := fs.MkdirAll(targetPath, info.Mode()); err != nil {
+					return fmt.Errorf("failed to create directory %s: %v", targetPath, err)
+				}
+			} else {
+				// Copy the file from projectDir to workflowDir
+				srcFile, err := fs.Open(path)
+				if err != nil {
+					return fmt.Errorf("failed to open source file %s: %v", path, err)
+				}
+				defer srcFile.Close()
+
+				destFile, err := fs.Create(targetPath)
+				if err != nil {
+					return fmt.Errorf("failed to create destination file %s: %v", targetPath, err)
+				}
+				defer destFile.Close()
+
+				_, err = io.Copy(destFile, srcFile)
+				if err != nil {
+					return fmt.Errorf("failed to copy file from %s to %s: %v", path, targetPath, err)
+				}
+
+				// Set the same permissions as the source file
+				if err := fs.Chmod(targetPath, info.Mode()); err != nil {
+					return fmt.Errorf("failed to set file permissions on %s: %v", targetPath, err)
+				}
+			}
+
+			return nil
+		})
+
+		if err != nil {
+			logging.Error(fmt.Sprintf("Error copying %s to %s: %v", projectDir, workflowDir, err))
+		} else {
+			logging.Info(fmt.Sprintf("Copied %s to %s", projectDir, workflowDir))
+		}
+
+		if err := CreateFlagFile(fs, "/.dockercleanup"); err != nil {
+			logging.Error("Unable to create docker cleanup flag", err)
+		}
+	}
+}
+
+func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServerRoutes, apiServerPath string) http.HandlerFunc {
 	var responseFileExt string
 	var contentType string
+	var responseFlagFile string
 
 	switch route.ResponseType {
 	case "jsonnet":
+		responseFlagFile = "response-jsonnet"
 		responseFileExt = ".json"
 		contentType = "application/json"
 	case "textproto":
+		responseFlagFile = "response-txtpb"
 		responseFileExt = ".txtpb"
 		contentType = "application/protobuf"
 	case "yaml":
+		responseFlagFile = "response-yaml"
 		responseFileExt = ".yaml"
 		contentType = "application/yaml"
 	case "plist":
+		responseFlagFile = "response-plist"
 		responseFileExt = ".plist"
 		contentType = "application/yaml"
 	case "xml":
+		responseFlagFile = "response-xml"
 		responseFileExt = ".xml"
 		contentType = "application/yaml"
 	case "pcf":
+		responseFlagFile = "response-pcf"
 		responseFileExt = ".pcf"
 		contentType = "application/yaml"
 	default:
+		responseFlagFile = "response-json"
 		responseFileExt = ".json"
 		contentType = "application/json"
 	}
 
+	responseFlag := filepath.Join(apiServerPath, responseFlagFile)
 	responseFile := filepath.Join(apiServerPath, "response"+responseFileExt)
 	requestPklFile := filepath.Join(apiServerPath, "request.pkl")
 
@@ -363,10 +482,17 @@ func ApiServerHandler(fs afero.Fs, route *apiserver.APIServerRoutes, apiServerPa
 	return func(w http.ResponseWriter, r *http.Request) {
 		if _, err := fs.Stat(responseFile); err == nil {
 			if err := fs.RemoveAll(responseFile); err != nil {
-				logging.Error("Unable to delete old response file", "response", responseFile)
+				logging.Error("Unable to delete old response file", "response-file", responseFile)
 				return
 			}
 		}
+		if _, err := fs.Stat(responseFlag); err == nil {
+			if err := fs.RemoveAll(responseFlag); err != nil {
+				logging.Error("Unable to delete old response flag file", "response-flag", responseFlag)
+				return
+			}
+		}
+
 		url = fmt.Sprintf(`url = "%s"`, r.URL.Path)
 
 		if r.Method == "" {
@@ -422,35 +548,62 @@ func ApiServerHandler(fs afero.Fs, route *apiserver.APIServerRoutes, apiServerPa
 			return
 		}
 
+		if err = CreateFlagFile(fs, responseFlag); err != nil {
+			return
+		}
+
 		// Wait for the file to exist before responding
 		for {
-			if exists, err := afero.Exists(fs, responseFile); err == nil && exists {
-				// File exists, now respond with its contents
-				content, err := afero.ReadFile(fs, responseFile)
-				if err != nil {
-					http.Error(w, "Failed to read file", http.StatusInternalServerError)
-					return
-				}
+			dr, err := resolver.NewGraphResolver(fs, nil, ctx, "/agent")
+			if err != nil {
+				log.Fatal(err)
+			}
 
-				// Write the content to the response
-				w.Header().Set("Content-Type", contentType)
-				w.WriteHeader(http.StatusOK)
-				w.Write(content)
-				log.Printf("Responded with the contents of %s", responseFile)
+			if err := dr.PrepareWorkflowDir(); err != nil {
+				log.Fatal(err)
+			}
+
+			if err := dr.HandleRunAction(true); err != nil {
+				log.Fatal(err)
+			}
+
+			logging.Info("Processing response...")
+			if err := dr.CreateResponsePklFile(true); err != nil {
+				log.Fatal(err)
+			}
+
+			stdout, err := dr.EvalPklFormattedResponseFile()
+			if err != nil {
+				log.Fatal(fmt.Errorf(stdout, err))
+			}
+
+			logging.Info("Awaiting for response..." + dr.ResponsePklFile)
+			if err := resolver.WaitForFile(fs, dr.ResponsePklFile); err != nil {
+				log.Fatal(err)
+			}
+
+			// File exists, now respond with its contents
+			content, err := afero.ReadFile(fs, dr.ResponsePklFile)
+			if err != nil {
+				http.Error(w, "Failed to read file", http.StatusInternalServerError)
 				return
 			}
 
-			// Sleep for a second to avoid busy waiting
-			time.Sleep(1 * time.Second)
+			// Write the content to the response
+			w.Header().Set("Content-Type", contentType)
+			w.WriteHeader(http.StatusOK)
+			w.Write(content)
+			log.Printf("Responded with the contents of %s", responseFile)
+
+			return
 		}
 	}
 }
 
-func BuildDockerImage(fs afero.Fs, kdeps *kdCfg.Kdeps, cli *client.Client, runDir, kdepsDir string, pkgProject *archiver.KdepsPackage) (context.Context, string, string, error) {
-	ctx := context.Background()
-	wfCfg, err := workflow.LoadWorkflow(pkgProject.Workflow)
+func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli *client.Client, runDir, kdepsDir string, pkgProject *archiver.KdepsPackage) (string, string, error) {
+	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow)
 	if err != nil {
-		return ctx, "", "", err
+		return "", "", err
 	}
 
 	agentName := wfCfg.Name
@@ -501,12 +654,12 @@ func BuildDockerImage(fs afero.Fs, kdeps *kdCfg.Kdeps, cli *client.Client, runDi
 		return nil
 	})
 	if err != nil {
-		return ctx, cName, containerName, err
+		return cName, containerName, err
 	}
 
 	// Close the tar writer to finish writing the tarball
 	if err := tw.Close(); err != nil {
-		return ctx, cName, containerName, err
+		return cName, containerName, err
 	}
 
 	// Docker build options
@@ -519,19 +672,19 @@ func BuildDockerImage(fs afero.Fs, kdeps *kdCfg.Kdeps, cli *client.Client, runDi
 	// Build the Docker image
 	response, err := cli.ImageBuild(ctx, tarBuffer, buildOptions)
 	if err != nil {
-		return ctx, cName, containerName, err
+		return cName, containerName, err
 	}
 	defer response.Body.Close()
 
 	// Process and print the build output
 	err = printDockerBuildOutput(response.Body)
 	if err != nil {
-		return ctx, cName, containerName, err
+		return cName, containerName, err
 	}
 
 	fmt.Println("Docker image build completed successfully!")
 
-	return ctx, cName, containerName, nil
+	return cName, containerName, nil
 }
 
 func generateUniqueOllamaPort(existingPort uint16) string {
@@ -550,11 +703,11 @@ func generateUniqueOllamaPort(existingPort uint16) string {
 	return strconv.FormatUint(uint64(ollamaPortNum), 10)
 }
 
-func BuildDockerfile(fs afero.Fs, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage) (string, bool, string, string, error) {
+func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage) (string, bool, string, string, error) {
 	var portNum uint16 = 3000
 	var hostIP string = "127.0.0.1"
 
-	wfCfg, err := workflow.LoadWorkflow(pkgProject.Workflow)
+	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow)
 	if err != nil {
 		return "", false, "", "", err
 	}
@@ -614,7 +767,8 @@ RUN chmod +x /usr/bin/pkl
 
 %s
 
-COPY workflow /agent/workflow/
+COPY workflow /agent/project
+COPY workflow /agent/workflow
 RUN mv /agent/workflow/kdeps /bin/kdeps
 RUN chmod +x /bin/kdeps
 
