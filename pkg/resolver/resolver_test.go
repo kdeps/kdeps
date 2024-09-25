@@ -249,7 +249,7 @@ category = "category"
 		log.Fatal(err)
 	}
 
-	dr.HandleRunAction(false)
+	dr.HandleRunAction()
 
 	return nil
 }
