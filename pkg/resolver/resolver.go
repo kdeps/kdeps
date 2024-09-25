@@ -274,7 +274,7 @@ func (dr *DependencyResolver) PrepareWorkflowDir() error {
 	return err
 }
 
-func (dr *DependencyResolver) HandleRunAction(apiServerMode bool) error {
+func (dr *DependencyResolver) HandleRunAction() error {
 	visited := make(map[string]bool)
 	actionId := dr.Workflow.Action
 
@@ -287,6 +287,8 @@ func (dr *DependencyResolver) HandleRunAction(apiServerMode bool) error {
 	for _, resNode := range stack {
 		for _, res := range dr.Resources {
 			if res.Id == resNode {
+				logging.Info("Executing resource: ", res.Id)
+
 				if err := dr.PrependDynamicImports(res); err != nil {
 					return err
 				}
@@ -299,26 +301,28 @@ func (dr *DependencyResolver) HandleRunAction(apiServerMode bool) error {
 		}
 	}
 
+	logging.Info("Resource finished processing")
 	return nil
 }
 
-func (dr *DependencyResolver) CreateResponsePklFile(success bool) (err error) {
+func (dr *DependencyResolver) CreateResponsePklFile(success bool) error {
 	var response []string
 	var errors struct {
 		code    int
 		message string
 	}
-	if err = dr.GetResponseFlag(); err != nil {
+	if err := dr.GetResponseFlag(); err != nil {
 		success = false
 		errors.code = 500
 		errors.message = err.Error()
-		return err
 	}
 
 	if _, err := dr.Fs.Stat(dr.ResponsePklFile); err == nil {
 		if err := dr.Fs.RemoveAll(dr.ResponsePklFile); err != nil {
 			logging.Error("Unable to delete old request file", "request-pkl-file", dr.ResponsePklFile)
-			log.Fatal(err)
+			success = false
+			errors.code = 500
+			errors.message = err.Error()
 		}
 	}
 

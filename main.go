@@ -27,7 +27,7 @@ func main() {
 	go func() {
 		sig := <-sigs
 		logging.Info(fmt.Sprintf("Received signal: %v, initiating shutdown...", sig))
-		cancel() // Signal context to cancel
+		cancel()
 
 		cleanup(fs)
 
@@ -45,10 +45,29 @@ func main() {
 
 	if exists {
 		// Call BootstrapDockerSystem to initialize Docker and pull models
-		_, err := docker.BootstrapDockerSystem(fs, ctx)
+		apiServerMode, err := docker.BootstrapDockerSystem(fs, ctx)
 		if err != nil {
 			fmt.Printf("Error during bootstrap: %v\n", err)
 			os.Exit(1) // Exit with a non-zero status on failure
+		}
+
+		if !apiServerMode {
+			dr, err := resolver.NewGraphResolver(fs, nil, ctx, "/agent")
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			if err := dr.PrepareWorkflowDir(); err != nil {
+				log.Fatal(err)
+			}
+
+			if err := dr.HandleRunAction(); err != nil {
+				log.Fatal(err)
+			}
+
+			cleanup(fs)
+			resolver.WaitForFile(fs, "/.dockercleanup")
+			os.Exit(0)
 		}
 	}
 
