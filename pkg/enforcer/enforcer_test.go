@@ -206,7 +206,7 @@ func itIsAValidAgent() error {
 }
 
 func itIsAnInvalidPklFile() error {
-	if err := EnforcePklTemplateAmendsRules(testFs, fileThatExist, schemaVersionFilePath); err == nil {
+	if err := EnforcePklTemplateAmendsRules(testFs, fileThatExist); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 
@@ -214,7 +214,7 @@ func itIsAnInvalidPklFile() error {
 }
 
 func itIsAValidPklFile() error {
-	if err := EnforcePklTemplateAmendsRules(testFs, fileThatExist, schemaVersionFilePath); err != nil {
+	if err := EnforcePklTemplateAmendsRules(testFs, fileThatExist); err != nil {
 		return err
 	}
 

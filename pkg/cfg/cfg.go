@@ -4,12 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"path/filepath"
-	"strings"
 
 	"kdeps/pkg/evaluator"
 	"kdeps/pkg/logging"
+	"kdeps/pkg/schema"
 	"kdeps/pkg/texteditor"
 
 	env "github.com/Netflix/go-env"
@@ -113,15 +112,8 @@ func GenerateConfiguration(fs afero.Fs, environment *Environment) (configFile st
 			}
 		}
 
-		// Read the schema version from the SCHEMA_VERSION file
-		schemaVersionBytes, err := ioutil.ReadFile("../../SCHEMA_VERSION")
-		if err != nil {
-			return "", fmt.Errorf("failed to read SCHEMA_VERSION: %w", err)
-		}
-		schemaVersion := strings.TrimSpace(string(schemaVersionBytes))
-
 		// Create the URL with the schema version
-		url := fmt.Sprintf("package://schema.kdeps.com/core@%s#/Kdeps.pkl", schemaVersion)
+		url := fmt.Sprintf("package://schema.kdeps.com/core@%s#/Kdeps.pkl", schema.SchemaVersion)
 
 		// Evaluate the .pkl file and write the result to configFile
 		result, err := evaluator.EvalPkl(fs, url)

@@ -119,7 +119,7 @@ func anAiAgentWithResources(arg1 string) error {
 		return err
 	}
 
-	if err = enforcer.EnforcePklTemplateAmendsRules(testFs, systemConfigurationFile, schemaVersionFilePath); err != nil {
+	if err = enforcer.EnforcePklTemplateAmendsRules(testFs, systemConfigurationFile); err != nil {
 		return err
 	}
 
@@ -315,7 +315,7 @@ func anAiAgentWithResources2(arg1 string) error {
 		return err
 	}
 
-	if err = enforcer.EnforcePklTemplateAmendsRules(testFs, systemConfigurationFile, schemaVersionFilePath); err != nil {
+	if err = enforcer.EnforcePklTemplateAmendsRules(testFs, systemConfigurationFile); err != nil {
 		return err
 	}
 

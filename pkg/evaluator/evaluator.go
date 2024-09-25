@@ -8,15 +8,15 @@ import (
 	"strings"
 
 	"kdeps/pkg/logging"
+	"kdeps/pkg/schema"
 
 	"github.com/alexellis/go-execute/v2"
 	"github.com/spf13/afero"
 )
 
-const schemaVersionFilePath = "../../SCHEMA_VERSION"
-
 // EnsurePklBinaryExists checks if the 'pkl' binary exists in the system PATH.
 func EnsurePklBinaryExists() error {
+	logging.Info("schema.SchemaVersion:", schema.SchemaVersion)
 	binaryName := "pkl"
 	if _, err := exec.LookPath(binaryName); err != nil {
 		errMsg := fmt.Sprintf("the binary '%s' is not found in PATH", binaryName)
@@ -70,7 +70,6 @@ func CreateAndProcessPklFile(
 	sections []string,
 	finalFileName string,
 	pklTemplate string,
-	pklTemplateVersion string,
 	importSections []string,
 	processFunc func(fs afero.Fs, tmpFile string) (string, error),
 ) error {
@@ -98,7 +97,7 @@ func CreateAndProcessPklFile(
 
 	// Prepare the sections with the "amends" and imports
 	// amends "package://schema.kdeps.com/core@0.0.34#/Kdeps.pkl"
-	amendsSection := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/%s"`, pklTemplateVersion, pklTemplate)
+	amendsSection := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/%s"`, schema.SchemaVersion, pklTemplate)
 	fullSections := append([]string{amendsSection}, formattedImports...)
 	fullSections = append(fullSections, sections...)
 

@@ -114,7 +114,7 @@ dockerGPU = "%s"
 		return err
 	}
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, systemConfigurationFile, schemaVersionFilePath); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, systemConfigurationFile); err != nil {
 		return err
 	}
 
@@ -233,7 +233,7 @@ description = "An action from agent %s"
 		f.Close()
 	}
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowConfigurationFile, schemaVersionFilePath); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowConfigurationFile); err != nil {
 		return err
 	}
 

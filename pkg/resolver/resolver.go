@@ -350,7 +350,7 @@ response {
 	sections := []string{successStr, responseStr, errorsStr}
 
 	if err := evaluator.CreateAndProcessPklFile(dr.Fs, sections, dr.ResponsePklFile, "APIServerResponse.pkl",
-		"0.0.44", nil, evaluator.EvalPkl); err != nil {
+		nil, evaluator.EvalPkl); err != nil {
 		return err
 	}
 
