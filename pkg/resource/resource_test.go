@@ -111,7 +111,7 @@ func aKdepsContainerWithEndpointAPI(arg1, arg2, arg3 string) error {
 	}
 
 	systemConfigurationContent := `
-	amends "package://schema.kdeps.com/core@0.0.34#/Kdeps.pkl"
+	amends "package://schema.kdeps.com/core@0.0.47#/Kdeps.pkl"
 
 	runMode = "docker"
 	dockerGPU = "cpu"
@@ -159,7 +159,7 @@ methods {
 	}
 
 	workflowConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.42#/Workflow.pkl"
+amends "package://schema.kdeps.com/core@0.0.47#/Workflow.pkl"
 
 name = "myAIAgentAPI"
 description = "AI Agent X API"
@@ -209,12 +209,12 @@ settings {
 	}
 
 	resourceConfigurationContent := `
-amends "package://schema.kdeps.com/core@0.0.42#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.0.47#/Resource.pkl"
 
 id = "helloWorld"
 name = "default action"
 category = "kdepsdockerai"
-description = "this is a description for helloWorld {{ request.params }}"
+description = "this is a description for helloWorld @(request.params)"
 requires {
   "action1"
   "action2"
@@ -228,11 +228,15 @@ requires {
 	}
 
 	resourceConfigurationContent = `
-amends "package://schema.kdeps.com/core@0.0.42#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.0.47#/Resource.pkl"
 
 id = "action1"
 category = "kdepsdockerai"
-description = "this is a description for action1 - {{ request.url }}"
+description = "this is a description for action1 - @(request.url)"
+requires {
+  "action2"
+  "helloWorld"
+}
 name = "default action"
 `
 
@@ -243,12 +247,26 @@ name = "default action"
 	}
 
 	resourceConfigurationContent = `
-amends "package://schema.kdeps.com/core@0.0.42#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.0.47#/Resource.pkl"
 
 id = "action2"
 category = "kdepsdockerai"
-description = "this is a description for action2 - {{ request.method }}"
+description = "this is a description for action2 - @(request.method)"
 name = "default action"
+requires {
+  "action1"
+  "helloWorld"
+}
+run {
+  apiResponse {
+    success = true
+    response {
+      data {
+	"@(request.method)"
+      }
+    }
+  }
+}
 `
 
 	resourceConfigurationFile = filepath.Join(resourcesDir, "resource3.pkl")

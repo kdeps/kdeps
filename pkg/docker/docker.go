@@ -567,11 +567,6 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 				log.Fatal(err)
 			}
 
-			logging.Info("Processing response...")
-			if err := dr.CreateResponsePklFile(true); err != nil {
-				log.Fatal(err)
-			}
-
 			stdout, err := dr.EvalPklFormattedResponseFile()
 			if err != nil {
 				log.Fatal(fmt.Errorf(stdout, err))

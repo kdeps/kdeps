@@ -16,6 +16,7 @@ import (
 	"github.com/alexellis/go-execute/v2"
 	"github.com/charmbracelet/log"
 	"github.com/kdeps/kartographer/graph"
+	apiserverresponse "github.com/kdeps/schema/gen/api_server_response"
 	pklRes "github.com/kdeps/schema/gen/resource"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
@@ -138,7 +139,7 @@ func (dr *DependencyResolver) PrependDynamicImports(res ResourceNodeEntry) error
 	}
 
 	// Define a regular expression to match "{{value}}"
-	re := regexp.MustCompile(`\{\{(.*)\}\}`)
+	re := regexp.MustCompile(`\@\((.*)\)`)
 
 	importCheck := map[string]string{
 		dr.RequestPklFile: "",
@@ -293,9 +294,18 @@ func (dr *DependencyResolver) HandleRunAction() error {
 					return err
 				}
 
-				_, err := pklRes.LoadFromPath(*dr.Context, res.File)
+				rsc, err := pklRes.LoadFromPath(*dr.Context, res.File)
 				if err != nil {
 					return err
+				}
+
+				runBlock := rsc.Run
+				if runBlock != nil {
+					if runBlock.ApiResponse != nil {
+						if err := dr.CreateResponsePklFile(runBlock.ApiResponse); err != nil {
+							return err
+						}
+					}
 				}
 			}
 		}
@@ -305,50 +315,60 @@ func (dr *DependencyResolver) HandleRunAction() error {
 	return nil
 }
 
-func (dr *DependencyResolver) CreateResponsePklFile(success bool) error {
-	var response []string
-	var errors struct {
-		code    int
-		message string
-	}
+func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock *apiserverresponse.APIServerResponse) error {
+	success := apiResponseBlock.Success
+	var responseData []string
+	var errorsStr string
+
+	// Check the ResponseFlag (assuming this is a precondition)
 	if err := dr.GetResponseFlag(); err != nil {
-		success = false
-		errors.code = 500
-		errors.message = err.Error()
+		return err
 	}
 
+	// Check if the response file already exists, and remove it if so
 	if _, err := dr.Fs.Stat(dr.ResponsePklFile); err == nil {
 		if err := dr.Fs.RemoveAll(dr.ResponsePklFile); err != nil {
-			logging.Error("Unable to delete old request file", "request-pkl-file", dr.ResponsePklFile)
-			success = false
-			errors.code = 500
-			errors.message = err.Error()
+			logging.Error("Unable to delete old response file", "response-pkl-file", dr.ResponsePklFile)
+			return err
 		}
 	}
 
 	// Format the success as "success = true/false"
 	successStr := fmt.Sprintf("success = %v", success)
 
-	response = append(response, fmt.Sprintf("%v", time.Now().UnixNano()))
+	// Process the response block
+	if apiResponseBlock.Response != nil && apiResponseBlock.Response.Data != nil {
+		// Convert the data slice to a string representation
+		responseData = make([]string, len(apiResponseBlock.Response.Data))
+		for i, v := range apiResponseBlock.Response.Data {
+			responseData[i] = fmt.Sprintf("%v", v) // Convert each item to a string
+		}
+	}
 
-	// Join the response slice into a single string in the format "response {}" (empty for now)
-	responseStr := "response {}"
-	if len(response) > 0 {
+	// Format the response block as "response { data { ... } }"
+	var responseStr string
+	if len(responseData) > 0 {
 		responseStr = fmt.Sprintf(`
 response {
   data {
     "%s"
   }
-}
-`, strings.Join(response, "\n"))
+}`, strings.Join(responseData, "\n    ")) // Properly format the data block with indentation
 	}
 
-	// Format the errors struct in the format "errors { code = <code>, message = <message> }"
-	errorsStr := fmt.Sprintf("errors {\n  code = %d\n  message = %q\n}", errors.code, errors.message)
+	// Process the errors block
+	if apiResponseBlock.Errors != nil {
+		errorsStr = fmt.Sprintf(`
+errors {
+  code = %d
+  message = %q
+}`, apiResponseBlock.Errors.Code, apiResponseBlock.Errors.Message)
+	}
 
 	// Combine everything into sections as []string
 	sections := []string{successStr, responseStr, errorsStr}
 
+	// Create and process the PKL file
 	if err := evaluator.CreateAndProcessPklFile(dr.Fs, sections, dr.ResponsePklFile, "APIServerResponse.pkl",
 		nil, evaluator.EvalPkl); err != nil {
 		return err
