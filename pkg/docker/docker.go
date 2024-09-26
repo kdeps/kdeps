@@ -572,13 +572,13 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 				log.Fatal(fmt.Errorf(stdout, err))
 			}
 
-			logging.Info("Awaiting for response..." + dr.ResponsePklFile)
-			if err := resolver.WaitForFile(fs, dr.ResponsePklFile); err != nil {
+			logging.Info("Awaiting for response...")
+			if err := resolver.WaitForFile(fs, dr.ResponseTargetFile); err != nil {
 				log.Fatal(err)
 			}
 
 			// File exists, now respond with its contents
-			content, err := afero.ReadFile(fs, dr.ResponsePklFile)
+			content, err := afero.ReadFile(fs, dr.ResponseTargetFile)
 			if err != nil {
 				http.Error(w, "Failed to read file", http.StatusInternalServerError)
 				return
@@ -588,7 +588,6 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 			w.Header().Set("Content-Type", contentType)
 			w.WriteHeader(http.StatusOK)
 			w.Write(content)
-			log.Printf("Responded with the contents of %s", responseFile)
 
 			return
 		}

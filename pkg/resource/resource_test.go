@@ -218,6 +218,16 @@ description = "this is a description for helloWorld @(request.params)"
 requires {
   "action1"
   "action2"
+  "action3"
+}
+run {
+  preflightCheck {
+    1 + 1 == 2
+  }
+  postflightCheck {
+    1 + 1 == 3
+    2 + 2 == 4
+  }
 }
 `
 
@@ -238,6 +248,12 @@ requires {
   "helloWorld"
 }
 name = "default action"
+run {
+  preflightCheck {
+    1 + 1 == 3
+    2 + 2 == 4
+  }
+}
 `
 
 	resourceConfigurationFile = filepath.Join(resourcesDir, "resource2.pkl")
@@ -270,6 +286,32 @@ run {
 `
 
 	resourceConfigurationFile = filepath.Join(resourcesDir, "resource3.pkl")
+	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0644)
+	if err != nil {
+		return err
+	}
+
+	resourceConfigurationContent = `
+amends "package://schema.kdeps.com/core@0.0.47#/Resource.pkl"
+
+id = "action3"
+category = "kdepsdockerai"
+description = "this is a description for action3 - @(request.url)"
+requires {
+  "helloWorld"
+  "action2"
+  "action1"
+}
+name = "default action"
+run {
+  postflightCheck {
+    1 + 1 == 3
+    2 + 2 == 4
+  }
+}
+`
+
+	resourceConfigurationFile = filepath.Join(resourcesDir, "resource4.pkl")
 	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0644)
 	if err != nil {
 		return err

@@ -40,6 +40,7 @@ type DependencyResolver struct {
 	ProjectDir           string
 	AgentDir             string
 	ActionDir            string
+	ApiServerMode        bool
 }
 
 type ResourceNodeEntry struct {
@@ -87,6 +88,9 @@ func NewGraphResolver(fs afero.Fs, logger *log.Logger, ctx context.Context, agen
 		return nil, err
 	}
 	dependencyResolver.Workflow = workflowConfiguration
+	if workflowConfiguration.Settings != nil {
+		dependencyResolver.ApiServerMode = workflowConfiguration.Settings.ApiServerMode
+	}
 
 	dependencyResolver.Graph = graph.NewDependencyGraph(fs, logger, dependencyResolver.ResourceDependencies)
 	if dependencyResolver.Graph == nil {
@@ -275,13 +279,39 @@ func (dr *DependencyResolver) PrepareWorkflowDir() error {
 	return err
 }
 
+func NewAPIServerResponse(success bool, data []any, errorCode int, errorMessage string) apiserverresponse.APIServerResponse {
+	responseBlock := &apiserverresponse.APIServerResponseBlock{Data: data}
+	var errorsBlock *apiserverresponse.APIServerErrorsBlock
+
+	// If there is an error, create the errors block
+	if errorCode != 0 || errorMessage != "" {
+		errorsBlock = &apiserverresponse.APIServerErrorsBlock{
+			Code:    errorCode,
+			Message: errorMessage,
+		}
+	}
+
+	return apiserverresponse.APIServerResponse{
+		Success:  success,
+		Response: responseBlock,
+		Errors:   errorsBlock,
+	}
+}
+
 func (dr *DependencyResolver) HandleRunAction() error {
+	defer func() {
+		if r := recover(); r != nil {
+			logging.Error("Recovered from panic:", r)
+			dr.handleAPIErrorResponse("Server panic occurred")
+		}
+	}()
+
 	visited := make(map[string]bool)
 	actionId := dr.Workflow.Action
 
 	logging.Info("Processing resources...")
 	if err := dr.LoadResourceEntries(); err != nil {
-		return err
+		return dr.handleAPIErrorResponse(err.Error())
 	}
 
 	stack := dr.Graph.BuildDependencyStack(actionId, visited)
@@ -291,19 +321,46 @@ func (dr *DependencyResolver) HandleRunAction() error {
 				logging.Info("Executing resource: ", res.Id)
 
 				if err := dr.PrependDynamicImports(res); err != nil {
-					return err
+					return dr.handleAPIErrorResponse(err.Error())
 				}
 
 				rsc, err := pklRes.LoadFromPath(*dr.Context, res.File)
 				if err != nil {
-					return err
+					return dr.handleAPIErrorResponse(err.Error())
 				}
 
 				runBlock := rsc.Run
 				if runBlock != nil {
-					if runBlock.ApiResponse != nil {
+					// Check Skip Condition
+					if runBlock.SkipCondition != nil {
+						if ShouldSkip(runBlock.SkipCondition) {
+							logging.Info("Skip condition met, skipping:", res.Id)
+							continue
+						}
+					}
+
+					// Handle Preflight Check
+					if runBlock.PreflightCheck != nil {
+						if !AllConditionsMet(runBlock.PreflightCheck) {
+							logging.Error("Preflight check not met, failing:", res.Id)
+							return dr.handleAPIErrorResponse("Preflight check failed for resource: " + res.Id)
+						}
+					}
+
+					// Process the resource...
+
+					// Handle Postflight Check
+					if runBlock.PostflightCheck != nil {
+						if !AllConditionsMet(runBlock.PostflightCheck) {
+							logging.Error("Postflight check not met, failing:", res.Id)
+							return dr.handleAPIErrorResponse("Postflight check failed for resource: " + res.Id)
+						}
+					}
+
+					// API Response
+					if dr.ApiServerMode && runBlock.ApiResponse != nil {
 						if err := dr.CreateResponsePklFile(runBlock.ApiResponse); err != nil {
-							return err
+							return dr.handleAPIErrorResponse(err.Error())
 						}
 					}
 				}
@@ -311,8 +368,51 @@ func (dr *DependencyResolver) HandleRunAction() error {
 		}
 	}
 
-	logging.Info("Resource finished processing")
+	logging.Info("All resources finished processing")
+	return dr.handleAPISuccessResponse("All resources processed successfully")
+}
+
+// Helper function to handle API error responses
+func (dr *DependencyResolver) handleAPIErrorResponse(message string) error {
+	if dr.ApiServerMode {
+		errorResponse := NewAPIServerResponse(false, nil, 500, message)
+		if err := dr.CreateResponsePklFile(&errorResponse); err != nil {
+			logging.Error("Failed to create error response file:", err)
+			return err
+		}
+	}
 	return nil
+}
+
+// Helper function to handle API success responses
+func (dr *DependencyResolver) handleAPISuccessResponse(message string) error {
+	if dr.ApiServerMode {
+		successResponse := NewAPIServerResponse(true, nil, 200, message)
+		if err := dr.CreateResponsePklFile(&successResponse); err != nil {
+			logging.Error("Failed to create success response file:", err)
+			return err
+		}
+	}
+	return nil
+}
+
+func ShouldSkip(conditions *[]bool) bool {
+	for _, condition := range *conditions {
+		if condition {
+			return true // Skip if any condition is true
+		}
+	}
+	return false
+}
+
+// Function to check if all conditions in a pre/postflight check are met
+func AllConditionsMet(conditions *[]bool) bool {
+	for _, condition := range *conditions {
+		if !condition {
+			return false // Return false if any condition is not met
+		}
+	}
+	return true // All conditions met
 }
 
 func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock *apiserverresponse.APIServerResponse) error {
