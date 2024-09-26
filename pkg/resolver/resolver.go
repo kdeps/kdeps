@@ -302,7 +302,7 @@ func (dr *DependencyResolver) HandleRunAction() error {
 	defer func() {
 		if r := recover(); r != nil {
 			logging.Error("Recovered from panic:", r)
-			dr.handleAPIErrorResponse("Server panic occurred")
+			dr.handleAPIErrorResponse(500, "Server panic occurred")
 		}
 	}()
 
@@ -311,7 +311,7 @@ func (dr *DependencyResolver) HandleRunAction() error {
 
 	logging.Info("Processing resources...")
 	if err := dr.LoadResourceEntries(); err != nil {
-		return dr.handleAPIErrorResponse(err.Error())
+		return dr.handleAPIErrorResponse(500, err.Error())
 	}
 
 	stack := dr.Graph.BuildDependencyStack(actionId, visited)
@@ -321,12 +321,12 @@ func (dr *DependencyResolver) HandleRunAction() error {
 				logging.Info("Executing resource: ", res.Id)
 
 				if err := dr.PrependDynamicImports(res); err != nil {
-					return dr.handleAPIErrorResponse(err.Error())
+					return dr.handleAPIErrorResponse(500, err.Error())
 				}
 
 				rsc, err := pklRes.LoadFromPath(*dr.Context, res.File)
 				if err != nil {
-					return dr.handleAPIErrorResponse(err.Error())
+					return dr.handleAPIErrorResponse(500, err.Error())
 				}
 
 				runBlock := rsc.Run
@@ -340,27 +340,39 @@ func (dr *DependencyResolver) HandleRunAction() error {
 					}
 
 					// Handle Preflight Check
-					if runBlock.PreflightCheck != nil {
-						if !AllConditionsMet(runBlock.PreflightCheck) {
+					if runBlock.PreflightCheck != nil && runBlock.PreflightCheck.Validations != nil {
+						if !AllConditionsMet(runBlock.PreflightCheck.Validations) {
 							logging.Error("Preflight check not met, failing:", res.Id)
-							return dr.handleAPIErrorResponse("Preflight check failed for resource: " + res.Id)
+							if runBlock.PreflightCheck.Error != nil {
+								return dr.handleAPIErrorResponse(
+									runBlock.PreflightCheck.Error.Code,
+									fmt.Sprintf("%s: %s", runBlock.PreflightCheck.Error.Message, res.Id))
+							}
+
+							return dr.handleAPIErrorResponse(500, "Preflight check failed for resource: "+res.Id)
 						}
 					}
 
 					// Process the resource...
 
 					// Handle Postflight Check
-					if runBlock.PostflightCheck != nil {
-						if !AllConditionsMet(runBlock.PostflightCheck) {
+					if runBlock.PostflightCheck != nil && runBlock.PostflightCheck.Validations != nil {
+						if !AllConditionsMet(runBlock.PostflightCheck.Validations) {
+							if runBlock.PostflightCheck.Error != nil {
+								return dr.handleAPIErrorResponse(
+									runBlock.PostflightCheck.Error.Code,
+									fmt.Sprintf("%s: %s", runBlock.PostflightCheck.Error.Message, res.Id))
+							}
+
 							logging.Error("Postflight check not met, failing:", res.Id)
-							return dr.handleAPIErrorResponse("Postflight check failed for resource: " + res.Id)
+							return dr.handleAPIErrorResponse(500, "Postflight check failed for resource: "+res.Id)
 						}
 					}
 
 					// API Response
 					if dr.ApiServerMode && runBlock.ApiResponse != nil {
 						if err := dr.CreateResponsePklFile(runBlock.ApiResponse); err != nil {
-							return dr.handleAPIErrorResponse(err.Error())
+							return dr.handleAPIErrorResponse(500, err.Error())
 						}
 					}
 				}
@@ -369,27 +381,15 @@ func (dr *DependencyResolver) HandleRunAction() error {
 	}
 
 	logging.Info("All resources finished processing")
-	return dr.handleAPISuccessResponse("All resources processed successfully")
-}
-
-// Helper function to handle API error responses
-func (dr *DependencyResolver) handleAPIErrorResponse(message string) error {
-	if dr.ApiServerMode {
-		errorResponse := NewAPIServerResponse(false, nil, 500, message)
-		if err := dr.CreateResponsePklFile(&errorResponse); err != nil {
-			logging.Error("Failed to create error response file:", err)
-			return err
-		}
-	}
 	return nil
 }
 
-// Helper function to handle API success responses
-func (dr *DependencyResolver) handleAPISuccessResponse(message string) error {
+// Helper function to handle API error responses
+func (dr *DependencyResolver) handleAPIErrorResponse(code int, message string) error {
 	if dr.ApiServerMode {
-		successResponse := NewAPIServerResponse(true, nil, 200, message)
-		if err := dr.CreateResponsePklFile(&successResponse); err != nil {
-			logging.Error("Failed to create success response file:", err)
+		errorResponse := NewAPIServerResponse(false, nil, code, message)
+		if err := dr.CreateResponsePklFile(&errorResponse); err != nil {
+			logging.Error("Failed to create error response file:", err)
 			return err
 		}
 	}

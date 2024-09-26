@@ -98,6 +98,8 @@ github.com/kdeps/kartographer v0.0.0-20240808015651-b2afd5d97715 h1:CxUIVGV6VdgZ
 github.com/kdeps/kartographer v0.0.0-20240808015651-b2afd5d97715/go.mod h1:DYSCAer2OsX5F3Jne82p4P1LCIu42DQFfL5ypZYcUbk=
 github.com/kdeps/schema v0.0.47 h1:foz79Xw2jkrlwTjXm334awWCnHhjeL9RyNr7rFlUoN4=
 github.com/kdeps/schema v0.0.47/go.mod h1:vncGvp+CLzokQekPNcPW1JLiASbaMiOeOTUDOSUeZIc=
+github.com/kdeps/schema v0.0.48 h1:0Iy7gO6+Shespaw0q46Or9dM75KCXD4Os/EqYzyArYY=
+github.com/kdeps/schema v0.0.48/go.mod h1:vncGvp+CLzokQekPNcPW1JLiASbaMiOeOTUDOSUeZIc=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/kr/pretty v0.2.1/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=

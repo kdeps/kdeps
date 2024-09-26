@@ -111,7 +111,7 @@ func aKdepsContainerWithEndpointAPI(arg1, arg2, arg3 string) error {
 	}
 
 	systemConfigurationContent := `
-	amends "package://schema.kdeps.com/core@0.0.47#/Kdeps.pkl"
+	amends "package://schema.kdeps.com/core@0.0.48#/Kdeps.pkl"
 
 	runMode = "docker"
 	dockerGPU = "cpu"
@@ -159,7 +159,7 @@ methods {
 	}
 
 	workflowConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.47#/Workflow.pkl"
+amends "package://schema.kdeps.com/core@0.0.48#/Workflow.pkl"
 
 name = "myAIAgentAPI"
 description = "AI Agent X API"
@@ -209,7 +209,7 @@ settings {
 	}
 
 	resourceConfigurationContent := `
-amends "package://schema.kdeps.com/core@0.0.47#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.0.48#/Resource.pkl"
 
 id = "helloWorld"
 name = "default action"
@@ -222,11 +222,15 @@ requires {
 }
 run {
   preflightCheck {
-    1 + 1 == 2
+    validations {
+      1 + 1 == 2
+    }
   }
   postflightCheck {
-    1 + 1 == 3
-    2 + 2 == 4
+    validations {
+      1 + 1 == 3
+      2 + 2 == 4
+    }
   }
 }
 `
@@ -238,7 +242,7 @@ run {
 	}
 
 	resourceConfigurationContent = `
-amends "package://schema.kdeps.com/core@0.0.47#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.0.48#/Resource.pkl"
 
 id = "action1"
 category = "kdepsdockerai"
@@ -250,8 +254,10 @@ requires {
 name = "default action"
 run {
   preflightCheck {
-    1 + 1 == 3
-    2 + 2 == 4
+    validations {
+      1 + 1 == 3
+      2 + 2 == 4
+    }
   }
 }
 `
@@ -263,7 +269,7 @@ run {
 	}
 
 	resourceConfigurationContent = `
-amends "package://schema.kdeps.com/core@0.0.47#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.0.48#/Resource.pkl"
 
 id = "action2"
 category = "kdepsdockerai"
@@ -292,7 +298,7 @@ run {
 	}
 
 	resourceConfigurationContent = `
-amends "package://schema.kdeps.com/core@0.0.47#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.0.48#/Resource.pkl"
 
 id = "action3"
 category = "kdepsdockerai"
@@ -305,8 +311,10 @@ requires {
 name = "default action"
 run {
   postflightCheck {
-    1 + 1 == 3
-    2 + 2 == 4
+    validations {
+      1 + 1 == 3
+      2 + 2 == 4
+    }
   }
 }
 `
