@@ -147,8 +147,8 @@ func (dr *DependencyResolver) PrependDynamicImports(res ResourceNodeEntry) error
 
 	importCheck := map[string]string{
 		dr.RequestPklFile: "",
-		filepath.Join(dr.ActionDir, "/llm/llm_responses.pkl"):       "llm",
-		filepath.Join(dr.ActionDir, "/client/client_responses.pkl"): "client",
+		filepath.Join(dr.ActionDir, "/llm/llm_response.pkl"):       "llm",
+		filepath.Join(dr.ActionDir, "/client/client_response.pkl"): "client",
 	}
 
 	var importFiles, localVariables string
@@ -331,6 +331,7 @@ func (dr *DependencyResolver) HandleRunAction() error {
 
 				runBlock := rsc.Run
 				if runBlock != nil {
+
 					// Check Skip Condition
 					if runBlock.SkipCondition != nil {
 						if ShouldSkip(runBlock.SkipCondition) {
