@@ -3,7 +3,9 @@ package enforcer
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -211,6 +213,48 @@ func EnforceFolderStructure(fs afero.Fs, filePath string) error {
 	return nil
 }
 
+func EnforceResourceRunBlock(fs afero.Fs, file string) error {
+	// Load the .pkl file content as a string
+	pklData, err := afero.ReadFile(fs, file)
+	if err != nil {
+		logging.Error("Failed to read .pkl file", "file", file, "error", err)
+		return err
+	}
+	content := string(pklData)
+
+	// Regular expressions to match exec, chat, and httpClient, focusing only on the start
+	execRegex := regexp.MustCompile(`(?i)[\s\n]*exec\s*{`)
+	chatRegex := regexp.MustCompile(`(?i)[\s\n]*chat\s*{`)
+	httpClientRegex := regexp.MustCompile(`(?i)[\s\n]*httpClient\s*{`)
+
+	// Check for matches
+	execMatch := execRegex.MatchString(content)
+	chatMatch := chatRegex.MatchString(content)
+	httpClientMatch := httpClientRegex.MatchString(content)
+
+	// Count how many are non-null
+	countNonNull := 0
+	if execMatch {
+		countNonNull++
+	}
+	if chatMatch {
+		countNonNull++
+	}
+	if httpClientMatch {
+		countNonNull++
+	}
+
+	// If more than one is non-null, return an error
+	if countNonNull > 1 {
+		errMsg := fmt.Sprintf("Error: resources run block can only contain one of 'exec', 'chat', or 'httpClient'. Please create a new dedicated resource. Found %d in file: %s", countNonNull, file)
+		logging.Error(errMsg)
+		return errors.New(errMsg)
+	}
+
+	logging.Info("Run block validated successfully", "file", file)
+	return nil
+}
+
 func enforceResourcesFolder(fs afero.Fs, resourcesPath string) error {
 	files, err := afero.ReadDir(fs, resourcesPath)
 	if err != nil {
@@ -231,6 +275,14 @@ func enforceResourcesFolder(fs afero.Fs, resourcesPath string) error {
 		if filepath.Ext(file.Name()) != ".pkl" {
 			logging.Error("Unexpected file found in resources folder", "file", file.Name())
 			return errors.New("unexpected file found in resources folder: " + file.Name())
+		}
+
+		if filepath.Ext(file.Name()) == ".pkl" {
+			fullFilePath := filepath.Join(resourcesPath, file.Name())
+			if err := EnforceResourceRunBlock(fs, fullFilePath); err != nil {
+				logging.Error("Failed to process .pkl file", "file", fullFilePath, "error", err)
+				return err
+			}
 		}
 	}
 

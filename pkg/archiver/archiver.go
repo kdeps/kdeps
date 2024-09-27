@@ -989,10 +989,10 @@ func CompileResources(fs afero.Fs, wf *pklWf.Workflow, resourcesDir string, proj
 
 		// Only process .pkl files
 		if filepath.Ext(file) == ".pkl" {
-			logging.Info("Processing .pkl file", "file", file)
-			if processErr := processResourcePklFiles(fs, file, wf, resourcesDir); processErr != nil {
-				logging.Error("Failed to process .pkl file", "file", file, "error", processErr)
-				return processErr
+			logging.Info("Processing .pkl", "file", file)
+			if err := processResourcePklFiles(fs, file, wf, resourcesDir); err != nil {
+				logging.Error("Failed to process .pkl file", "file", file, "error", err)
+				return err
 			}
 		}
 		return nil
@@ -1021,8 +1021,10 @@ func processResourcePklFiles(fs afero.Fs, file string, wf *pklWf.Workflow, resou
 	var fileBuffer bytes.Buffer
 	scanner := bufio.NewScanner(readFile)
 
-	// Define regex pattern for `id = "value"` lines
-	idPattern := regexp.MustCompile(`(?i)^\s*id\s*=\s*"(.+)"`) // Matches lines with id = "value" (case-insensitive)
+	// Define regex patterns for exec, chat, client with actionID, and id replacement
+	idPattern := regexp.MustCompile(`(?i)^\s*id\s*=\s*"(.+)"`)
+	// Pattern to capture lines like exec["actionID"], chat["actionID"], client["actionID"]
+	actionIDPattern := regexp.MustCompile(`(?i)(stdout|stderr|chat|client)\["(.+)"\]`)
 
 	inRequiresBlock := false
 	var requiresBlockBuffer bytes.Buffer
@@ -1057,6 +1059,21 @@ func processResourcePklFiles(fs afero.Fs, file string, wf *pklWf.Workflow, resou
 			// If action doesn't already start with "@", prefix and append name and version
 			if !strings.HasPrefix(action, "@") {
 				newLine := strings.Replace(line, action, fmt.Sprintf("@%s/%s:%s", name, action, version), 1)
+				fileBuffer.WriteString(newLine + "\n")
+			} else {
+				fileBuffer.WriteString(line + "\n")
+			}
+		} else if actionIDMatch := actionIDPattern.FindStringSubmatch(line); actionIDMatch != nil {
+			// Extract the block type (exec, chat, client) and the actionID
+			blockType := actionIDMatch[1]
+			field := actionIDMatch[2]
+
+			// Only modify if actionID does not already start with "@"
+			if !strings.HasPrefix(field, "@") {
+				// Prefix and append name and version to the actionID in the format @name/actionID:version
+				modifiedField := fmt.Sprintf("%s[\"@%s/%s:%s\"]", blockType, name, field, version)
+				// Replace the original field with the modified one
+				newLine := strings.Replace(line, actionIDMatch[0], modifiedField, 1)
 				fileBuffer.WriteString(newLine + "\n")
 			} else {
 				fileBuffer.WriteString(line + "\n")

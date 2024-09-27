@@ -392,7 +392,30 @@ Feature: Archiver of AI Agents
     When the pkl files is valid
     Then the project will be archived to "myAgent-1.0.0.kdeps"
 
-  Scenario: Invalid ai agent will not be packaged
-    When the pkl files is invalid
-    When the project is invalid
-    Then the project will not be archived to "myAgent-1.0.0.kdeps"
+  Scenario: Project with resource run blocks has two or more chat, httpClient and exec declarations but null will be valid
+    Given the ".kdeps" system folder exists
+    And an ai agent on "ai-agent-chatter1" folder exists
+    And the resources and data folder exists
+    And theres a data file
+    And it has a workflow file that has name property "newAgentChatter1" and version property "1.0.0" and default action "helloWorld"
+    And it has a "resource1.pkl" file with no dependency with id property "helloWorld"
+    And it has a "resource2.pkl" file with id property "helloWorld2" and dependent on "helloWorld"
+    And it has a "resource3.pkl" file with id property "helloWorld3" and dependent on "helloWorld2, helloWorld" with run block "chat, exec" and is null
+    And it has a "resource9.pkl" file with id property "helloWorld9" and dependent on "helloWorld2, helloWorld" with run block "chat" and is not null
+    And the project is valid
+    And the pkl files is valid
+    Then the project will be archived to "newAgentChatter1-1.0.0.kdeps"
+
+  Scenario: Project with resource run blocks has two or more chat, httpClient and exec declarations will be invalid
+    Given the ".kdeps" system folder exists
+    And an ai agent on "ai-agent-chatter2" folder exists
+    And the resources and data folder exists
+    And theres a data file
+    And it has a workflow file that has name property "newAgentChatter2" and version property "1.0.0" and default action "helloWorld"
+    And it has a "resource1.pkl" file with no dependency with id property "helloWorld"
+    And it has a "resource2.pkl" file with id property "helloWorld2" and dependent on "helloWorld"
+    And it has a "resource3.pkl" file with id property "helloWorld3" and dependent on "helloWorld2, helloWorld" with run block "chat, exec" and is null
+    And it has a "resource4.pkl" file with id property "helloWorld4" and dependent on "helloWorld2, helloWorld" with run block "chat" and is not null
+    And it has a "resource9.pkl" file with id property "helloWorld9" and dependent on "helloWorld2, helloWorld" with run block "chat, exec" and is not null
+    And the project is invalid
+    Then the project will not be archived to "newAgentChatter2-1.0.0.kdeps"

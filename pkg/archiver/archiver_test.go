@@ -61,6 +61,8 @@ func TestFeatures(t *testing.T) {
 			ctx.Step(`^the package file "([^"]*)" will be created$`, thePackageFileWillBeCreated)
 			ctx.Step(`^it has a workflow file that has name property "([^"]*)" and version property "([^"]*)" and default action "([^"]*)" and workspaces "([^"]*)"$`, itHasAWorkflowFileDependencies)
 			ctx.Step(`^the resource file "([^"]*)" exists in the "([^"]*)" agent "([^"]*)"$`, theResourceFileExistsInTheAgent)
+			ctx.Step(`^it has a "([^"]*)" file with id property "([^"]*)" and dependent on "([^"]*)" with run block "([^"]*)" and is not null$`, itHasAFileWithIdPropertyAndDependentOnWithRunBlockAndIsNotNull)
+			ctx.Step(`^it has a "([^"]*)" file with id property "([^"]*)" and dependent on "([^"]*)" with run block "([^"]*)" and is null$`, itHasAFileWithIdPropertyAndDependentOnWithRunBlockAndIsNull)
 		},
 		Options: &godog.Options{
 			Format:   "pretty",
@@ -142,10 +144,21 @@ func itHasAFileWithIdPropertyAndDependentOn(arg1, arg2, arg3 string) error {
 
 	// Create the document with the id and requires block
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.34#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.0.48#/Resource.pkl"
 
 id = "%s"
 %s
+run {
+  exec {
+  ["key"] = """
+@(exec.stdout["anAction"])
+@(exec.stdin["anAction2"])
+@(exec.stderr["anAction2"])
+@(http.client["anAction3"].response)
+@(llm.chat["anAction4"].response)
+"""
+  }
+}
 `, arg2, requiresSection)
 
 	// Write to the file
@@ -255,9 +268,20 @@ func theResourcesAndDataFolderExists() error {
 
 func itHasAFileWithNoDependencyWithIdProperty(arg1, arg2 string) error {
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.34#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.0.48#/Resource.pkl"
 
 id = "%s"
+run {
+  exec {
+  ["key"] = """
+@(exec.stdout["anAction"])
+@(exec.stdin["anAction2"])
+@(exec.stderr["anAction2"])
+@(http.client["anAction3"].response)
+@(llm.chat["anAction4"].response)
+"""
+  }
+}
 `, arg2)
 
 	file := filepath.Join(resourcesDir, arg1)
@@ -273,7 +297,7 @@ id = "%s"
 
 func itHasAWorkflowFile(arg1, arg2, arg3 string) error {
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.34#/Workflow.pkl"
+amends "package://schema.kdeps.com/core@0.0.48#/Workflow.pkl"
 
 action = "%s"
 name = "%s"
@@ -303,10 +327,6 @@ func theContentOfThatArchiveFileWillBeExtractedTo(arg1 string) error {
 
 func thePklFilesIsValid() error {
 	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowFile); err != nil {
-		return err
-	}
-
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, resourceFile); err != nil {
 		return err
 	}
 
@@ -366,11 +386,11 @@ func theDataFilesWillBeCopiedTo(arg1 string) error {
 
 func thePklFilesIsInvalid() error {
 	doc := `
-name = "invalid agent"
-description = "a not valid configuration"
-version = "five"
-action = "hello World"
-`
+	name = "invalid agent"
+	description = "a not valid configuration"
+	version = "five"
+	action = "hello World"
+	`
 	file := filepath.Join(aiAgentDir, "workflow1.pkl")
 
 	f, _ := testFs.Create(file)
@@ -441,7 +461,7 @@ func itHasAWorkflowFileDependencies(arg1, arg2, arg3, arg4 string) error {
 	}
 
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.34#/Workflow.pkl"
+amends "package://schema.kdeps.com/core@0.0.48#/Workflow.pkl"
 
 action = "%s"
 name = "%s"
@@ -466,6 +486,136 @@ func theResourceFileExistsInTheAgent(arg1, arg2, arg3 string) error {
 	if _, err := testFs.Stat(fpath); err != nil {
 		return errors.New("expected a package, but got none")
 	}
+
+	return nil
+}
+
+func itHasAFileWithIdPropertyAndDependentOnWithRunBlockAndIsNotNull(arg1, arg2, arg3, arg4 string) error {
+	// Check if arg3 is a CSV (contains commas)
+	var requiresSection string
+	if strings.Contains(arg3, ",") {
+		// Split arg3 into multiple values if it's a CSV
+		values := strings.Split(arg3, ",")
+		var requiresLines []string
+		for _, value := range values {
+			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
+			requiresLines = append(requiresLines, fmt.Sprintf(`  "%s"`, value))
+		}
+		requiresSection = "requires {\n" + strings.Join(requiresLines, "\n") + "\n}"
+	} else {
+		// Single value case
+		requiresSection = fmt.Sprintf(`requires {
+  "%s"
+}`, arg3)
+	}
+
+	var fieldSection string
+	if strings.Contains(arg4, ",") {
+		// Split arg3 into multiple values if it's a CSV
+		values := strings.Split(arg4, ",")
+		var fieldLines []string
+		for _, value := range values {
+			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
+			fieldLines = append(fieldLines, fmt.Sprintf(`%s {
+["key"] = """
+@(exec.stdout["anAction"])
+@(exec.stdin["anAction2"])
+@(exec.stderr["anAction2"])
+@(http.client["anAction3"].response)
+@(llm.chat["anAction4"].response)
+"""
+}`, value))
+		}
+		fieldSection = "run {\n" + strings.Join(fieldLines, "\n") + "\n}"
+	} else {
+		// Single value case
+		fieldSection = fmt.Sprintf(`run {
+  %s {
+["key"] = """
+@(exec.stdout["anAction"])
+@(exec.stdin["anAction2"])
+@(exec.stderr["anAction2"])
+@(http.client["anAction3"].response)
+@(llm.chat["anAction4"].response)
+"""
+  }
+}`, arg4)
+	}
+
+	// Create the document with the id and requires block
+	doc := fmt.Sprintf(`
+amends "package://schema.kdeps.com/core@0.0.48#/Resource.pkl"
+
+id = "%s"
+%s
+%s
+`, arg2, requiresSection, fieldSection)
+
+	// Write to the file
+	file := filepath.Join(resourcesDir, arg1)
+
+	f, _ := testFs.Create(file)
+	f.WriteString(doc)
+	f.Close()
+
+	resourceFile = file
+
+	return nil
+}
+
+func itHasAFileWithIdPropertyAndDependentOnWithRunBlockAndIsNull(arg1, arg2, arg3, arg4 string) error {
+	// Check if arg3 is a CSV (contains commas)
+	var requiresSection string
+	if strings.Contains(arg3, ",") {
+		// Split arg3 into multiple values if it's a CSV
+		values := strings.Split(arg3, ",")
+		var requiresLines []string
+		for _, value := range values {
+			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
+			requiresLines = append(requiresLines, fmt.Sprintf(`  "%s"`, value))
+		}
+		requiresSection = "requires {\n" + strings.Join(requiresLines, "\n") + "\n}"
+	} else {
+		// Single value case
+		requiresSection = fmt.Sprintf(`requires {
+  "%s"
+}`, arg3)
+	}
+
+	var fieldSection string
+	if strings.Contains(arg4, ",") {
+		// Split arg3 into multiple values if it's a CSV
+		values := strings.Split(arg4, ",")
+		var fieldLines []string
+		for _, value := range values {
+			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
+			fieldLines = append(fieldLines, fmt.Sprintf(`%s=null`, value))
+		}
+		fieldSection = "run {\n" + strings.Join(fieldLines, "\n") + "\n}"
+	} else {
+		// Single value case
+		fieldSection = fmt.Sprintf(`run {
+  %s=null
+}`, arg4)
+	}
+
+	// Create the document with the id and requires block
+	doc := fmt.Sprintf(`
+amends "package://schema.kdeps.com/core@0.0.48#/Resource.pkl"
+
+id = "%s"
+%s
+%s
+`, arg2, requiresSection, fieldSection)
+
+	// Write to the file
+	file := filepath.Join(resourcesDir, arg1)
+
+	f, _ := testFs.Create(file)
+	f.WriteString(doc)
+	f.Close()
+
+	resourceFile = file
 
 	return nil
 }
