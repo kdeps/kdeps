@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/ioutil"
 	"kdeps/pkg/archiver"
+	"kdeps/pkg/environment"
 	"kdeps/pkg/evaluator"
 	"kdeps/pkg/logging"
 	"kdeps/pkg/resolver"
@@ -219,17 +220,10 @@ func startOllamaServer() error {
 }
 
 // BootstrapDockerSystem initializes the Docker system and pulls models after ollama server is ready
-func BootstrapDockerSystem(fs afero.Fs, ctx context.Context) (bool, error) {
+func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environment.Environment) (bool, error) {
 	var apiServerMode bool
 
-	// Check if /.dockerenv exists
-	exists, err := afero.Exists(fs, "/.dockerenv")
-	if err != nil {
-		logging.Error("Error checking /.dockerenv existence: ", err)
-		return false, err
-	}
-
-	if exists {
+	if environ.DockerMode == "1" {
 		logging.Info("Inside Docker environment. Proceeding with bootstrap.")
 		logging.Info("Initializing Docker system")
 
@@ -280,7 +274,7 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context) (bool, error) {
 		}
 
 		go func() error {
-			if err := StartApiServerMode(fs, ctx, wfCfg, apiServerPath); err != nil {
+			if err := StartApiServerMode(fs, ctx, wfCfg, environ, apiServerPath); err != nil {
 				return err
 			}
 
@@ -314,7 +308,7 @@ func CreateFlagFile(fs afero.Fs, filename string) error {
 	return nil
 }
 
-func StartApiServerMode(fs afero.Fs, ctx context.Context, wfCfg *pklWf.Workflow, agentDir string) error {
+func StartApiServerMode(fs afero.Fs, ctx context.Context, wfCfg *pklWf.Workflow, environ *environment.Environment, agentDir string) error {
 	// Extracting workflow settings and API server config
 	wfSettings := *wfCfg.Settings
 	wfApiServer := wfSettings.ApiServer
@@ -329,7 +323,7 @@ func StartApiServerMode(fs afero.Fs, ctx context.Context, wfCfg *pklWf.Workflow,
 	// Set up routes from the configuration
 	routes := wfApiServer.Routes
 	for _, route := range routes {
-		http.HandleFunc(route.Path, ApiServerHandler(fs, ctx, route, agentDir))
+		http.HandleFunc(route.Path, ApiServerHandler(fs, ctx, route, environ, agentDir))
 	}
 
 	// Start the server
@@ -346,15 +340,8 @@ func StartApiServerMode(fs afero.Fs, ctx context.Context, wfCfg *pklWf.Workflow,
 }
 
 // cleanup deletes /agents/action and /agents/workflow directories, then copies /agents/project to /agents/workflow
-func Cleanup(fs afero.Fs) {
-	// Check if /.dockerenv exists
-	exists, err := afero.Exists(fs, "/.dockerenv")
-	if err != nil {
-		logging.Error("Error checking /.dockerenv existence: ", err)
-		return
-	}
-
-	if exists {
+func Cleanup(fs afero.Fs, environ *environment.Environment) {
+	if environ.DockerMode == "1" {
 		actionDir := "/agent/action"
 		workflowDir := "/agent/workflow"
 		projectDir := "/agent/project"
@@ -431,7 +418,7 @@ func Cleanup(fs afero.Fs) {
 	}
 }
 
-func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServerRoutes, apiServerPath string) http.HandlerFunc {
+func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServerRoutes, env *environment.Environment, apiServerPath string) http.HandlerFunc {
 	var responseFileExt string
 	var contentType string
 	var responseFlagFile string
@@ -478,6 +465,11 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 	var dataSection string
 	var url string
 	var method string
+
+	dr, err := resolver.NewGraphResolver(fs, nil, ctx, env, "/agent")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		if _, err := fs.Stat(responseFile); err == nil {
@@ -554,11 +546,6 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 
 		// Wait for the file to exist before responding
 		for {
-			dr, err := resolver.NewGraphResolver(fs, nil, ctx, "/agent")
-			if err != nil {
-				log.Fatal(err)
-			}
-
 			if err := dr.PrepareWorkflowDir(); err != nil {
 				log.Fatal(err)
 			}

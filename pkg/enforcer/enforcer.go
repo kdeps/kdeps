@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"kdeps/pkg/logging" // import your logger package
+	"kdeps/pkg/logging"
 	"kdeps/pkg/schema"
 
 	"github.com/spf13/afero"

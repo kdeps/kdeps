@@ -10,6 +10,7 @@ import (
 	"kdeps/pkg/cfg"
 	"kdeps/pkg/docker"
 	"kdeps/pkg/enforcer"
+	"kdeps/pkg/environment"
 	"kdeps/pkg/logging"
 	"kdeps/pkg/workflow"
 	"net/http"
@@ -104,10 +105,15 @@ func aKdepsContainerWithEndpointAPI(arg1, arg2, arg3 string) error {
 
 	kdepsDir = dirPath
 
-	env := &cfg.Environment{
+	env := &environment.Environment{
 		Home:           homeDirPath,
 		Pwd:            currentDirPath,
 		NonInteractive: "1",
+	}
+
+	environ, err := environment.NewEnvironment(testFs, env)
+	if err != nil {
+		return err
 	}
 
 	systemConfigurationContent := `
@@ -124,7 +130,7 @@ func aKdepsContainerWithEndpointAPI(arg1, arg2, arg3 string) error {
 		return err
 	}
 
-	systemConfigurationFile, err = cfg.FindConfiguration(testFs, env)
+	systemConfigurationFile, err = cfg.FindConfiguration(testFs, environ)
 	if err != nil {
 		return err
 	}

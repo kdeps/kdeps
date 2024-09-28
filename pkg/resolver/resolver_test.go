@@ -1,12 +1,15 @@
-package resolver
+package resolver_test
 
 import (
 	"context"
 	"fmt"
 	"kdeps/pkg/archiver"
 	"kdeps/pkg/cfg"
+	"kdeps/pkg/docker"
 	"kdeps/pkg/enforcer"
+	"kdeps/pkg/environment"
 	"kdeps/pkg/logging"
+	"kdeps/pkg/resolver"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -37,10 +40,14 @@ var (
 	cName                     string
 	pkgProject                *archiver.KdepsPackage
 	compiledProjectDir        string
+	environ                   *environment.Environment
 	currentDirPath            string
 	systemConfigurationFile   string
 	cli                       *client.Client
 	systemConfiguration       *kdeps.Kdeps
+	visited                   map[string]bool
+	actionId                  string
+	graphResolver             *resolver.DependencyResolver
 	workflowConfigurationFile string
 	workflowConfiguration     *wfPkl.Workflow
 	schemaVersionFilePath     = "../../SCHEMA_VERSION"
@@ -71,6 +78,15 @@ func TestFeatures(t *testing.T) {
 }
 
 func anAiAgentWithResources(arg1 string) error {
+	tmpRoot, err := afero.TempDir(testFs, "", "")
+	if err != nil {
+		return err
+	}
+
+	if err = docker.CreateFlagFile(testFs, filepath.Join(tmpRoot, ".dockerenv")); err != nil {
+		return err
+	}
+
 	tmpHome, err := afero.TempDir(testFs, "", "")
 	if err != nil {
 		return err
@@ -94,10 +110,17 @@ func anAiAgentWithResources(arg1 string) error {
 
 	kdepsDir = dirPath
 
-	env := &cfg.Environment{
+	env := &environment.Environment{
+		Root:           tmpRoot,
 		Home:           homeDirPath,
 		Pwd:            currentDirPath,
 		NonInteractive: "1",
+		DockerMode:     "1",
+	}
+
+	environ, err := environment.NewEnvironment(testFs, env)
+	if err != nil {
+		return err
 	}
 
 	systemConfigurationContent := `
@@ -114,7 +137,7 @@ func anAiAgentWithResources(arg1 string) error {
 		return err
 	}
 
-	systemConfigurationFile, err = cfg.FindConfiguration(testFs, env)
+	systemConfigurationFile, err = cfg.FindConfiguration(testFs, environ)
 	if err != nil {
 		return err
 	}
@@ -145,8 +168,8 @@ func anAiAgentWithResources(arg1 string) error {
 		// Single value case
 		methodSection = fmt.Sprintf(`
 methods {
-  "%s"
-}`, arg1)
+  "GET"
+}`)
 	}
 
 	workflowConfigurationContent := fmt.Sprintf(`
@@ -241,16 +264,6 @@ category = "category"
 		}
 	}
 
-	logger := logging.GetLogger()
-	ctx := context.Background()
-
-	dr, err := NewGraphResolver(testFs, logger, ctx, agentDir)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	dr.HandleRunAction()
-
 	return nil
 }
 
@@ -259,14 +272,52 @@ func eachResourceAreReloadedWhenOpened() error {
 }
 
 func iLoadTheWorkflowResources() error {
-	return godog.ErrPending
+	logger := logging.GetLogger()
+	ctx = context.Background()
+
+	dr, err := resolver.NewGraphResolver(testFs, logger, ctx, environ, agentDir)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	graphResolver = dr
+
+	return nil
 }
 
 func iWasAbleToSeeTheTopdownDependencies(arg1 string) error {
-	return godog.ErrPending
+	// Load resource entries using graphResolver
+	if err := graphResolver.LoadResourceEntries(); err != nil {
+		return err
+	}
+
+	// Build the dependency stack
+	stack := graphResolver.Graph.BuildDependencyStack(actionId, visited)
+
+	// Convert arg1 (string) to an integer for comparison with len(stack)
+	arg1Int, err := strconv.Atoi(arg1) // Convert string to int
+	if err != nil {
+		return fmt.Errorf("invalid argument: %s is not a valid number", arg1)
+	}
+
+	// Compare the converted integer value with the length of the stack
+	if arg1Int != len(stack) {
+		return fmt.Errorf("stack not equal, expected %d but got %d", arg1Int, len(stack))
+	}
+
+	return nil
 }
 
 func anAiAgentWithResources2(arg1 string) error {
+	tmpRoot, err := afero.TempDir(testFs, "", "")
+	if err != nil {
+		return err
+	}
+
+	if err = docker.CreateFlagFile(testFs, filepath.Join(tmpRoot, ".dockerenv")); err != nil {
+		return err
+	}
+
 	tmpHome, err := afero.TempDir(testFs, "", "")
 	if err != nil {
 		return err
@@ -290,10 +341,17 @@ func anAiAgentWithResources2(arg1 string) error {
 
 	kdepsDir = dirPath
 
-	env := &cfg.Environment{
+	env := &environment.Environment{
+		Root:           tmpRoot,
 		Home:           homeDirPath,
 		Pwd:            currentDirPath,
 		NonInteractive: "1",
+		DockerMode:     "1",
+	}
+
+	environ, err := environment.NewEnvironment(testFs, env)
+	if err != nil {
+		return err
 	}
 
 	systemConfigurationContent := `
@@ -310,7 +368,7 @@ func anAiAgentWithResources2(arg1 string) error {
 		return err
 	}
 
-	systemConfigurationFile, err = cfg.FindConfiguration(testFs, env)
+	systemConfigurationFile, err = cfg.FindConfiguration(testFs, environ)
 	if err != nil {
 		return err
 	}

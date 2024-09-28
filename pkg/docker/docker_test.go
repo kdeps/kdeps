@@ -8,6 +8,7 @@ import (
 	"kdeps/pkg/archiver"
 	"kdeps/pkg/cfg"
 	"kdeps/pkg/enforcer"
+	"kdeps/pkg/environment"
 	"kdeps/pkg/workflow"
 	"os"
 	"path/filepath"
@@ -40,6 +41,7 @@ var (
 	compiledProjectDir        string
 	currentDirPath            string
 	systemConfigurationFile   string
+	environ                   *environment.Environment
 	cli                       *client.Client
 	systemConfiguration       *kdeps.Kdeps
 	workflowConfigurationFile string
@@ -81,10 +83,16 @@ func TestFeatures(t *testing.T) {
 func aSystemConfigurationFile(arg1, arg2, arg3, arg4 string) error {
 	ctx = context.Background()
 
-	env := &cfg.Environment{
+	env := &environment.Environment{
 		Home:           homeDirPath,
 		Pwd:            currentDirPath,
 		NonInteractive: "1",
+		DockerMode:     "1",
+	}
+
+	environ, err := environment.NewEnvironment(testFs, env)
+	if err != nil {
+		return err
 	}
 
 	systemConfigurationContent := fmt.Sprintf(`
@@ -104,12 +112,12 @@ dockerGPU = "%s"
 
 	systemConfigurationFile = filepath.Join(filePath, arg1)
 	// Write the heredoc content to the file
-	err := afero.WriteFile(testFs, systemConfigurationFile, []byte(systemConfigurationContent), 0644)
+	err = afero.WriteFile(testFs, systemConfigurationFile, []byte(systemConfigurationContent), 0644)
 	if err != nil {
 		return err
 	}
 
-	systemConfigurationFile, err := cfg.FindConfiguration(testFs, env)
+	systemConfigurationFile, err := cfg.FindConfiguration(testFs, environ)
 	if err != nil {
 		return err
 	}
@@ -452,7 +460,7 @@ func itWillInstallTheModels(arg1 string) error {
 }
 
 func kdepsWillCheckThePresenceOfTheFile(arg1 string) error {
-	if _, err := BootstrapDockerSystem(testFs, ctx); err != nil {
+	if _, err := BootstrapDockerSystem(testFs, ctx, environ); err != nil {
 		return err
 	}
 

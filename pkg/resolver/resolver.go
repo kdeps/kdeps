@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"kdeps/pkg/environment"
 	"kdeps/pkg/evaluator"
 	"kdeps/pkg/logging"
 	"kdeps/pkg/resource"
@@ -48,16 +49,10 @@ type ResourceNodeEntry struct {
 	File string `pkl:"file"`
 }
 
-func NewGraphResolver(fs afero.Fs, logger *log.Logger, ctx context.Context, agentDir string) (*DependencyResolver, error) {
+func NewGraphResolver(fs afero.Fs, logger *log.Logger, ctx context.Context, env *environment.Environment, agentDir string) (*DependencyResolver, error) {
 	var actionDir, requestPklFile, responsePklFile, projectDir string
 
-	exists, err := afero.Exists(fs, "/.dockerenv")
-	if err != nil {
-		logging.Error("Error checking /.dockerenv existence: ", err)
-		log.Fatal(err)
-	}
-
-	if exists {
+	if env.DockerMode == "1" {
 		agentDir = filepath.Join(agentDir, "/workflow/")
 		projectDir = filepath.Join(agentDir, "../project/")
 		actionDir = filepath.Join(agentDir, "../actions")
@@ -96,6 +91,15 @@ func NewGraphResolver(fs afero.Fs, logger *log.Logger, ctx context.Context, agen
 	if dependencyResolver.Graph == nil {
 		return nil, fmt.Errorf("failed to initialize dependency graph")
 	}
+
+	fmt.Printf(`
+		AgentDir:             %s - agentDir,
+		ActionDir:            %s - actionDir,
+		RequestPklFile:       %s - requestPklFile,
+		ResponsePklFile:      %s - responsePklFile,
+		ProjectDir:           %s - projectDir,
+
+`, agentDir, actionDir, requestPklFile, responsePklFile, projectDir)
 
 	return dependencyResolver, nil
 }
