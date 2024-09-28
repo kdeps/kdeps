@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"kdeps/pkg/docker"
+	"kdeps/pkg/environment"
 	"kdeps/pkg/logging"
 	"kdeps/pkg/resolver"
 	"log"
@@ -20,6 +21,14 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // Ensure context is canceled when main exits
 
+	env := &environment.Environment{}
+	environ, err := environment.NewEnvironment(fs, env)
+	if err != nil {
+		logging.Error(err)
+
+		os.Exit(1)
+	}
+
 	// Set up signal handling for graceful shutdown
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -29,46 +38,37 @@ func main() {
 		logging.Info(fmt.Sprintf("Received signal: %v, initiating shutdown...", sig))
 		cancel()
 
-		cleanup(fs)
+		cleanup(fs, environ)
 
 		resolver.WaitForFile(fs, "/.dockercleanup")
 
 		os.Exit(0)
 	}()
 
-	// Check if /.dockerenv exists
-	exists, err := afero.Exists(fs, "/.dockerenv")
+	// Call BootstrapDockerSystem to initialize Docker and pull models
+	apiServerMode, err := docker.BootstrapDockerSystem(fs, ctx, environ)
 	if err != nil {
-		logging.Error("Error checking /.dockerenv existence: ", err)
-		log.Fatal(err)
+		fmt.Printf("Error during bootstrap: %v\n", err)
+		os.Exit(1) // Exit with a non-zero status on failure
 	}
 
-	if exists {
-		// Call BootstrapDockerSystem to initialize Docker and pull models
-		apiServerMode, err := docker.BootstrapDockerSystem(fs, ctx)
+	if !apiServerMode {
+		dr, err := resolver.NewGraphResolver(fs, nil, ctx, environ, "/agent")
 		if err != nil {
-			fmt.Printf("Error during bootstrap: %v\n", err)
-			os.Exit(1) // Exit with a non-zero status on failure
+			log.Fatal(err)
 		}
 
-		if !apiServerMode {
-			dr, err := resolver.NewGraphResolver(fs, nil, ctx, "/agent")
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			if err := dr.PrepareWorkflowDir(); err != nil {
-				log.Fatal(err)
-			}
-
-			if err := dr.HandleRunAction(); err != nil {
-				log.Fatal(err)
-			}
-
-			cleanup(fs)
-			resolver.WaitForFile(fs, "/.dockercleanup")
-			os.Exit(0)
+		if err := dr.PrepareWorkflowDir(); err != nil {
+			log.Fatal(err)
 		}
+
+		if err := dr.HandleRunAction(); err != nil {
+			log.Fatal(err)
+		}
+
+		cleanup(fs, environ)
+		resolver.WaitForFile(fs, "/.dockercleanup")
+		os.Exit(0)
 	}
 
 	// Block the main routine, but respond to the context cancellation
@@ -77,7 +77,7 @@ func main() {
 }
 
 // cleanup performs any necessary cleanup tasks before shutting down
-func cleanup(fs afero.Fs) {
+func cleanup(fs afero.Fs, environ *environment.Environment) {
 	// Perform file cleanups or other shutdown tasks here
 	logging.Info("Performing cleanup tasks...")
 
@@ -87,7 +87,7 @@ func cleanup(fs afero.Fs) {
 		}
 	}
 
-	docker.Cleanup(fs)
+	docker.Cleanup(fs, environ)
 
 	logging.Info("Cleanup complete.")
 }

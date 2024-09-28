@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"kdeps/pkg/cfg"
+	"kdeps/pkg/environment"
 	"kdeps/pkg/evaluator"
 	"path/filepath"
 	"strings"
@@ -150,13 +151,18 @@ func aFileExistsInTheCurrentDirectory(arg1 string) error {
 }
 
 func aSystemConfigurationIsDefined() error {
-	env := &cfg.Environment{
+	env := &environment.Environment{
 		Home:           homeDirPath,
 		Pwd:            "",
 		NonInteractive: "1",
 	}
 
-	cfgFile, err := cfg.GenerateConfiguration(testFs, env)
+	environ, err := environment.NewEnvironment(testFs, env)
+	if err != nil {
+		return err
+	}
+
+	cfgFile, err := cfg.GenerateConfiguration(testFs, environ)
 	if err != nil {
 		return err
 	}

@@ -3,6 +3,7 @@ package cfg
 import (
 	"errors"
 	"fmt"
+	"kdeps/pkg/environment"
 	"path/filepath"
 	"testing"
 
@@ -114,12 +115,17 @@ func theConfigurationFileIs(arg1 string) error {
 }
 
 func theConfigurationIsLoadedInTheCurrentDirectory() error {
-	env := &Environment{
+	env := &environment.Environment{
 		Home: "",
 		Pwd:  currentDirPath,
 	}
 
-	cfgFile, err := FindConfiguration(testFs, env)
+	environ, err := environment.NewEnvironment(testFs, env)
+	if err != nil {
+		return err
+	}
+
+	cfgFile, err := FindConfiguration(testFs, environ)
 	if err != nil {
 		return err
 	}
@@ -132,12 +138,17 @@ func theConfigurationIsLoadedInTheCurrentDirectory() error {
 }
 
 func theConfigurationIsLoadedInTheHomeDirectory() error {
-	env := &Environment{
+	env := &environment.Environment{
 		Home: homeDirPath,
 		Pwd:  "",
 	}
 
-	cfgFile, err := FindConfiguration(testFs, env)
+	environ, err := environment.NewEnvironment(testFs, env)
+	if err != nil {
+		return err
+	}
+
+	cfgFile, err := FindConfiguration(testFs, environ)
 	if err != nil {
 		return err
 	}
@@ -180,16 +191,20 @@ func aFileDoesNotExistsInTheHomeOrCurrentDirectory(arg1 string) error {
 }
 
 func theConfigurationFailsToLoadAnyConfiguration() error {
-	env := &Environment{
+	env := &environment.Environment{
 		Home: homeDirPath,
 		Pwd:  currentDirPath,
 	}
 
-	cfgFile, err := FindConfiguration(testFs, env)
+	environ, err := environment.NewEnvironment(testFs, env)
+	if err != nil {
+		return err
+	}
+
+	cfgFile, err := FindConfiguration(testFs, environ)
 	if err != nil {
 		return errors.New(fmt.Sprintf("An error occurred while finding configuration: %s", err))
 	}
-	fmt.Println(cfgFile)
 	if cfgFile != "" {
 		return errors.New("expected not finding configuration file, but found")
 	}
@@ -198,13 +213,18 @@ func theConfigurationFailsToLoadAnyConfiguration() error {
 }
 
 func theConfigurationFileWillBeGeneratedTo(arg1 string) error {
-	env := &Environment{
+	env := &environment.Environment{
 		Home:           homeDirPath,
 		Pwd:            "",
 		NonInteractive: "1",
 	}
 
-	cfgFile, err := GenerateConfiguration(testFs, env)
+	environ, err := environment.NewEnvironment(testFs, env)
+	if err != nil {
+		return err
+	}
+
+	cfgFile, err := GenerateConfiguration(testFs, environ)
 	if err != nil {
 		return err
 	}
@@ -217,13 +237,18 @@ func theConfigurationFileWillBeGeneratedTo(arg1 string) error {
 }
 
 func theConfigurationWillBeEdited() error {
-	env := &Environment{
+	env := &environment.Environment{
 		Home:           homeDirPath,
 		Pwd:            "",
 		NonInteractive: "1",
 	}
 
-	if _, err := EditConfiguration(testFs, env); err != nil {
+	environ, err := environment.NewEnvironment(testFs, env)
+	if err != nil {
+		return err
+	}
+
+	if _, err := EditConfiguration(testFs, environ); err != nil {
 		return err
 	}
 
@@ -231,12 +256,17 @@ func theConfigurationWillBeEdited() error {
 }
 
 func theConfigurationWillBeValidated() error {
-	env := &Environment{
+	env := &environment.Environment{
 		Home: homeDirPath,
 		Pwd:  "",
 	}
 
-	if _, err := ValidateConfiguration(testFs, env); err != nil {
+	environ, err := environment.NewEnvironment(testFs, env)
+	if err != nil {
+		return err
+	}
+
+	if _, err := ValidateConfiguration(testFs, environ); err != nil {
 		return err
 	}
 
