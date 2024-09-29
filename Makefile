@@ -55,7 +55,8 @@ $(TARGETS): schema_version
 	@echo "Building for $@"
 	@SCHEMA_VERSION=$$(cat $(SCHEMA_VERSION_FILE)); \
 	GOOS=$(word 1,$(subst /, ,$@)) GOARCH=$(word 2,$(subst /, ,$@)) \
+	EXT=$$(if [ "$(word 1,$(subst /, ,$@))" = "windows" ]; then echo ".exe"; else echo ""; fi); \
 	go build -ldflags "-X kdeps/pkg/schema.SchemaVersion=$$SCHEMA_VERSION" \
-		-o ./build/$(PROJECT_NAME)_$(word 1,$(subst /, ,$@))_$(word 2,$(subst /, ,$@))/$(PROJECT_NAME)
+		-o ./build/$(PROJECT_NAME)_$(word 1,$(subst /, ,$@))_$(word 2,$(subst /, ,$@))/$(PROJECT_NAME)$$EXT
 
 .PHONY: all test build clean lint fmt vet coverage schema_version $(TARGETS)
