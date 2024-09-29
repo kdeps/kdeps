@@ -1,0 +1,82 @@
+name: CI/CD - Build
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set PROJECT_NAME
+        run: echo "PROJECT_NAME=kdeps" >> $GITHUB_ENV
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.22
+
+      - name: Get current date
+        id: get_date
+        run: |
+           echo "RELEASE_DATE=$(date '+%b %d, %Y')" >> $GITHUB_ENV
+           echo "RELEASE_DATE_ISO8601=$(date '+%Y%m%d')" >> $GITHUB_ENV
+
+      - name: Set commits environment variable
+        run: |
+          echo "commits=$(git log --pretty=oneline | wc -l)" >> $GITHUB_ENV
+
+      - name: Determine next version
+        id: determine_version
+        run: |
+          NEXT_VERSION="0.1.0"
+          if [[ -n "${{ env.commits }}" ]]; then
+            NEXT_VERSION="0.1.1"
+          fi
+          echo "NEXT_VERSION=${NEXT_VERSION}" >> $GITHUB_ENV
+
+      - name: Run tests
+        run: make test
+
+      - name: Run build
+        run: make build
+
+      - name: Package binaries
+        run: |
+          platforms=(
+            "darwin/amd64"
+            "darwin/arm64"
+            "linux/amd64"
+            "linux/arm64"
+            "windows/amd64"
+            "windows/arm64"
+          )
+
+          for platform in "${platforms[@]}"; do
+            GOOS=${platform%/*}
+            GOARCH=${platform#*/}
+            VERSION=${{ env.NEXT_VERSION }}
+            DATE_VERSION=${{ env.RELEASE_DATE_ISO8601 }}
+            file_ext=".tar.gz"
+            binary_ext=""
+            if [ "$GOOS" = "windows" ]; then
+              binary_ext=".exe"
+              file_ext=".zip"
+            fi
+            if [ -f "./build/${GOOS}/${GOARCH}/${DATE_VERSION}/${{ env.PROJECT_NAME }}${binary_ext}" ]; then
+              PACKAGE_NAME="${{ env.PROJECT_NAME }}_${VERSION}_${GOOS}_${GOARCH}${file_ext}"
+              tar -czvf "$PACKAGE_NAME" -C ./build ./${GOOS}/${GOARCH}/${DATE_VERSION}/
+            else
+              echo "Skipping packaging for $GOOS/$GOARCH/${DATE_VERSION}/${{ env.PROJECT_NAME }}${binary_ext} as the binary does not exist."
+            fi
+          done
+        working-directory: ${{ github.workspace }}
