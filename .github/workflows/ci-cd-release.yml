@@ -1,0 +1,56 @@
+name: CI/CD - Release
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set PROJECT_NAME
+        run: echo "PROJECT_NAME=kdeps" >> $GITHUB_ENV
+
+      - name: Get current date
+        id: get_date
+        run: |
+           echo "RELEASE_DATE=$(date '+%b %d, %Y')" >> $GITHUB_ENV
+           echo "RELEASE_DATE_ISO8601=$(date '+%Y%m%d')" >> $GITHUB_ENV
+
+      - name: Set commits environment variable
+        run: |
+          echo "commits=$(git log --pretty=oneline | wc -l)" >> $GITHUB_ENV
+
+      - name: Determine next version
+        id: determine_version
+        run: |
+          NEXT_VERSION="0.1.0"
+          if [[ -n "${{ env.commits }}" ]]; then
+            NEXT_VERSION="0.1.1"
+          fi
+          echo "NEXT_VERSION=${NEXT_VERSION}" >> $GITHUB_ENV
+
+      - name: Create release
+        if: github.event.action == 'closed' && github.event.pull_request.merged == true
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        env:
+          PROJECT_NAME: ${{ env.PROJECT_NAME }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: "release/${{ env.NEXT_VERSION }}"
+          name: "Release ${{ env.NEXT_VERSION }} (${{ env.RELEASE_DATE }})"
+          files: |
+              ./*.tar.gz
+              ./*.zip
