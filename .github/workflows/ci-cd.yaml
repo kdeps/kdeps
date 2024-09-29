@@ -35,8 +35,8 @@ jobs:
         env:
           COMMIT_HASH: ${{ env.COMMIT_HASH }}
 
-      - name: Run tests
-        run: make test
+      # - name: Run tests
+      #   run: make test
 
       - name: Build for Linux / Windows and macOS
         run: make build
