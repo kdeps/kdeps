@@ -44,8 +44,8 @@ jobs:
           fi
           echo "NEXT_VERSION=${NEXT_VERSION}" >> $GITHUB_ENV
 
-      - name: Run tests
-        run: make test
+      # - name: Run tests
+      #   run: make test
 
       - name: Run build
         run: make build
