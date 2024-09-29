@@ -3,6 +3,7 @@ TEST_REPORT = test-report.out
 COVERAGE_REPORT = coverage.out
 PACKAGE_LIST = ./...
 SCHEMA_VERSION_FILE = SCHEMA_VERSION
+RELEASE_DATE_ISO8601 := $(shell date '+%Y%m%d')
 
 # List of GOOS/GOARCH pairs for macOS, Windows, and Linux, but only for amd64 and arm64 architectures
 TARGETS := $(filter darwin/amd64 linux/amd64 windows/amd64 darwin/arm64 linux/arm64 windows/arm64, $(shell go tool dist list))
@@ -55,8 +56,7 @@ $(TARGETS): schema_version
 	@echo "Building for $@"
 	@SCHEMA_VERSION=$$(cat $(SCHEMA_VERSION_FILE)); \
 	GOOS=$(word 1,$(subst /, ,$@)) GOARCH=$(word 2,$(subst /, ,$@)) \
-	EXT=$$(if [ "$(word 1,$(subst /, ,$@))" = "windows" ]; then echo ".exe"; else echo ""; fi); \
 	go build -ldflags "-X kdeps/pkg/schema.SchemaVersion=$$SCHEMA_VERSION" \
-		-o ./build/$(PROJECT_NAME)_$(word 1,$(subst /, ,$@))_$(word 2,$(subst /, ,$@))/$(PROJECT_NAME)$$EXT
+		-o ./build/$(PROJECT_NAME)_$(word 1,$(subst /, ,$@))_$(word 2,$(subst /, ,$@))/$(RELEASE_DATE_ISO8601)/$(PROJECT_NAME)
 
 .PHONY: all test build clean lint fmt vet coverage schema_version $(TARGETS)

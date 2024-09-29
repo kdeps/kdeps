@@ -72,9 +72,9 @@ jobs:
               binary_ext=".exe"
               file_ext=".zip"
             fi
-            if [ -f "./build/${GOOS}/${GOARCH}/${DATE_VERSION}/${{ env.PROJECT_NAME }}${binary_ext}" ]; then
+            if [ -f "./build/${{ env.PROJECT_NAME }}_${GOOS}_${GOARCH}/${DATE_VERSION}/${{ env.PROJECT_NAME }}${binary_ext}" ]; then
               PACKAGE_NAME="${{ env.PROJECT_NAME }}_${VERSION}_${GOOS}_${GOARCH}${file_ext}"
-              tar -czvf "$PACKAGE_NAME" -C ./build ./${GOOS}/${GOARCH}/${DATE_VERSION}/
+              tar -czvf "$PACKAGE_NAME" -C ./build ./${{ env.PROJECT_NAME }}_${GOOS}_${GOARCH}/${DATE_VERSION}/
             else
               echo "Skipping packaging for $GOOS/$GOARCH/${DATE_VERSION}/${{ env.PROJECT_NAME }}${binary_ext} as the binary does not exist."
             fi
