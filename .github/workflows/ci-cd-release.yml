@@ -34,7 +34,7 @@ jobs:
       - name: Determine next version
         id: determine_version
         run: |
-          CURRENT_TAG=$(git describe --tags --abbrev=0)
+          CURRENT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo 0.1.0)
           CURRENT_VERSION="${CURRENT_TAG#release/}"
           IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
 
