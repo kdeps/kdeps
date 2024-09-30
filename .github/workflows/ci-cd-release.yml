@@ -34,12 +34,16 @@ jobs:
       - name: Determine next version
         id: determine_version
         run: |
-          CURRENT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo 0.1.0)
-          CURRENT_VERSION="${CURRENT_TAG#release/}"
+          CURRENT_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo 0.1.0)
           IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
 
           if [[ -n "${{ env.commits }}" ]]; then
             patch=$((patch + 1))
+          fi
+
+          if [[ "$patch" -gt 20 ]]; then
+            patch=0
+            minor=$((minor + 1))
           fi
 
           NEXT_VERSION="${major}.${minor}.${patch}"
@@ -88,8 +92,8 @@ jobs:
           PROJECT_NAME: ${{ env.PROJECT_NAME }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: "release/${{ env.NEXT_VERSION }}"
-          name: "Release ${{ env.NEXT_VERSION }} (${{ env.RELEASE_DATE }})"
+          tag_name: "${{ env.NEXT_VERSION }}"
+          name: "Release ${{ env.NEXT_VERSION }}"
           files: |
               ./*.tar.gz
               ./*.zip
