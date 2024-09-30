@@ -26,3 +26,5 @@ go.work.sum
 
 # Build files
 build/*
+coverage.txt
+test-report.txt
