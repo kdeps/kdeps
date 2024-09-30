@@ -27,12 +27,6 @@ jobs:
         with:
           go-version: 1.22
 
-      - name: Get current date
-        id: get_date
-        run: |
-           echo "RELEASE_DATE=$(date '+%b %d, %Y')" >> $GITHUB_ENV
-           echo "RELEASE_DATE_ISO8601=$(date '+%Y%m%d')" >> $GITHUB_ENV
-
       - name: Set commits environment variable
         run: |
           echo "commits=$(git log --pretty=oneline | wc -l)" >> $GITHUB_ENV
@@ -40,10 +34,15 @@ jobs:
       - name: Determine next version
         id: determine_version
         run: |
-          NEXT_VERSION="0.1.0"
+          CURRENT_TAG=$(git describe --tags --abbrev=0)
+          CURRENT_VERSION="${CURRENT_TAG#release/}"
+          IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+
           if [[ -n "${{ env.commits }}" ]]; then
-            NEXT_VERSION="0.1.1"
+            patch=$((patch + 1))
           fi
+
+          NEXT_VERSION="${major}.${minor}.${patch}"
           echo "NEXT_VERSION=${NEXT_VERSION}" >> $GITHUB_ENV
 
       # - name: Run tests
@@ -66,19 +65,17 @@ jobs:
           for platform in "${platforms[@]}"; do
             GOOS=${platform%/*}
             GOARCH=${platform#*/}
-            VERSION=${{ env.NEXT_VERSION }}
-            DATE_VERSION=${{ env.RELEASE_DATE_ISO8601 }}
             file_ext=".tar.gz"
             binary_ext=""
             if [ "$GOOS" = "windows" ]; then
               binary_ext=".exe"
               file_ext=".zip"
             fi
-            if [ -f "./build/${{ env.PROJECT_NAME}}_${GOOS}_${GOARCH}/${DATE_VERSION}/${{ env.PROJECT_NAME }}${binary_ext}" ]; then
-              PACKAGE_NAME="${{ env.PROJECT_NAME }}_${VERSION}_${GOOS}_${GOARCH}${file_ext}"
-              tar -czvf "$PACKAGE_NAME" -C ./build ./${{ env.PROJECT_NAME}}_${GOOS}_${GOARCH}/${DATE_VERSION}/
+            if [ -f "./build/${GOOS}/${GOARCH}/${{ env.PROJECT_NAME }}${binary_ext}" ]; then
+              PACKAGE_NAME="${{ env.PROJECT_NAME }}_${{ env.NEXT_VERSION }}_${GOOS}_${GOARCH}${file_ext}"
+              tar -czvf "$PACKAGE_NAME" -C ./build ./${GOOS}/${GOARCH}/
             else
-              echo "Skipping packaging for ./${{ env.PROJECT_NAME}}_${GOOS}_${GOARCH}/${DATE_VERSION}/${{ env.PROJECT_NAME }}${binary_ext} as the binary does not exist."
+              echo "Skipping packaging for ./${GOOS}/${GOARCH}/${{ env.PROJECT_NAME }}${binary_ext} as the binary does not exist."
             fi
           done
         working-directory: ${{ github.workspace }}

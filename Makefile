@@ -3,7 +3,6 @@ TEST_REPORT := test-report.txt
 COVERAGE_REPORT := coverage.txt
 SCHEMA_VERSION_FILE = SCHEMA_VERSION
 PACKAGE_LIST := ./...
-RELEASE_DATE_ISO8601 := $(shell date '+%Y%m%d')
 TARGETS := $(filter darwin/amd64 linux/amd64 windows/amd64 darwin/arm64 linux/arm64 windows/arm64, $(shell go tool dist list))
 
 # Default target
@@ -22,7 +21,26 @@ schema_version:
 	echo $$latest_tag | sed 's/v//g' > $(SCHEMA_VERSION_FILE); \
 	cat $(SCHEMA_VERSION_FILE)
 
-build: $(TARGETS)
+# Build for all targets
+build: schema_version
+	@rm -rf ./build; \
+	mkdir -p ./build; \
+	SCHEMA_VERSION=$$(cat $(SCHEMA_VERSION_FILE)); \
+	for target in $(TARGETS); do \
+		X_OS=$$(echo $$target | cut -d'/' -f1); \
+		X_ARCH=$$(echo $$target | cut -d'/' -f2); \
+		EXT=$$(if [ "$$X_OS" = "windows" ]; then echo ".exe"; else echo ""; fi); \
+		echo "Building for ./build/$$X_OS/$$X_ARCH/..."; \
+		mkdir -p ./build/$$X_OS/$$X_ARCH/ || { \
+			echo "Failed to create directory ./build/$$X_OS/$$X_ARCH/"; \
+			continue; \
+		}; \
+		GOOS=$$X_OS GOARCH=$$X_ARCH go build -ldflags "-X kdeps/pkg/schema.SchemaVersion=$$SCHEMA_VERSION" -o ./build/$$X_OS/$$X_ARCH/ $(PACKAGE_LIST) || { \
+			echo "Build failed for $$X_OS/$$X_ARCH"; \
+			continue; \
+		}; \
+		echo "Build succeeded for $$X_OS/$$X_ARCH"; \
+	done
 
 # Clean up generated files
 clean:
@@ -47,13 +65,5 @@ vet:
 # Display coverage in browser (you need to have go tool cover installed)
 coverage: test
 	@go tool cover -html=$(COVERAGE_REPORT)
-
-$(TARGETS): schema_version
-	@echo "Building for $@"
-	@SCHEMA_VERSION=$$(cat $(SCHEMA_VERSION_FILE)); \
-	GOOS=$(word 1,$(subst /, ,$@)) GOARCH=$(word 2,$(subst /, ,$@)) \
-	EXT=$$(if [ "$(word 1,$(subst /, ,$@))" = "windows" ]; then echo ".exe"; else echo ""; fi); \
-	go build -ldflags "-X kdeps/pkg/schema.SchemaVersion=$$SCHEMA_VERSION" \
-		-o ./build/$(PROJECT_NAME)_$(word 1,$(subst /, ,$@))_$(word 2,$(subst /, ,$@))/$(RELEASE_DATE_ISO8601)/$(PROJECT_NAME)$$EXT
 
 .PHONY: all test build clean lint fmt vet coverage schema_version $(TARGETS)
