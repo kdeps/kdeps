@@ -7,6 +7,7 @@ import (
 	"kdeps/pkg/environment"
 	"kdeps/pkg/evaluator"
 	"kdeps/pkg/resolver"
+	"kdeps/pkg/utils"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -99,7 +100,7 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 	var url string
 	var method string
 
-	dr, err := resolver.NewGraphResolver(fs, nil, ctx, env, "/agent")
+	dr, err := resolver.NewGraphResolver(fs, logger, ctx, env, "/agent")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -197,7 +198,7 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 			}
 
 			logger.Info("Awaiting for response...")
-			if err := resolver.WaitForFile(fs, dr.ResponseTargetFile, logger); err != nil {
+			if err := utils.WaitForFileReady(fs, dr.ResponseTargetFile, logger); err != nil {
 				logger.Fatal(err)
 			}
 

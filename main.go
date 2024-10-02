@@ -7,6 +7,7 @@ import (
 	"kdeps/pkg/environment"
 	"kdeps/pkg/logging"
 	"kdeps/pkg/resolver"
+	"kdeps/pkg/utils"
 	"os"
 	"os/signal"
 	"syscall"
@@ -75,14 +76,14 @@ func setupSignalHandler(cancelFunc context.CancelFunc, fs afero.Fs, env *environ
 		logger.Info(fmt.Sprintf("Received signal: %v, initiating shutdown...", sig))
 		cancelFunc() // Cancel context to initiate shutdown
 		cleanup(fs, env, apiServerMode, logger)
-		resolver.WaitForFile(fs, "/.dockercleanup", logger)
+		utils.WaitForFileReady(fs, "/.dockercleanup", logger)
 		os.Exit(0)
 	}()
 }
 
 // runGraphResolver prepares and runs the graph resolver.
 func runGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment, apiServerMode bool, logger *log.Logger) error {
-	dr, err := resolver.NewGraphResolver(fs, nil, ctx, env, "/agent")
+	dr, err := resolver.NewGraphResolver(fs, logger, ctx, env, "/agent")
 	if err != nil {
 		return fmt.Errorf("failed to create graph resolver: %w", err)
 	}
@@ -99,7 +100,7 @@ func runGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 
 	cleanup(fs, env, apiServerMode, logger)
 
-	resolver.WaitForFile(fs, "/.dockercleanup", logger)
+	utils.WaitForFileReady(fs, "/.dockercleanup", logger)
 
 	return nil
 }

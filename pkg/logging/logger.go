@@ -15,6 +15,7 @@ func init() {
 		ReportCaller:    true,
 		ReportTimestamp: true,
 		TimeFormat:      time.Kitchen,
+		Prefix:          "kdeps",
 	})
 
 	// Set the log level based on the DEBUG environment variable
