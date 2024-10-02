@@ -9,6 +9,7 @@ import (
 	"kdeps/pkg/evaluator"
 	"kdeps/pkg/logging"
 	"kdeps/pkg/resource"
+	"kdeps/pkg/schema"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -281,31 +282,31 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 			}
 			defer f.Close()
 
+			// Use packageUrl in the header writing
+			packageUrl := fmt.Sprintf("package://schema.kdeps.com/core@%s#/", schema.SchemaVersion)
 			writer := bufio.NewWriter(f)
+
+			var schemaFile string
 			switch key {
 			case "exec":
-				if _, err := writer.WriteString("amends \"package://schema.kdeps.com/core@0.0.50#/Exec.pkl\"\n\n"); err != nil {
-					return fmt.Errorf("failed to write header: %w", err)
-				}
-				if _, err := writer.WriteString("resource {\n}\n"); err != nil {
-					return fmt.Errorf("failed to write exec block: %w", err)
-				}
+				schemaFile = "Exec.pkl"
 			case "client":
-				if _, err := writer.WriteString("amends \"package://schema.kdeps.com/core@0.0.50#/Http.pkl\"\n\n"); err != nil {
-					return fmt.Errorf("failed to write header: %w", err)
-				}
-				if _, err := writer.WriteString("resource {\n}\n"); err != nil {
-					return fmt.Errorf("failed to write client block: %w", err)
-				}
+				schemaFile = "Http.pkl"
 			case "llm":
-				if _, err := writer.WriteString("amends \"package://schema.kdeps.com/core@0.0.50#/LLM.pkl\"\n\n"); err != nil {
-					return fmt.Errorf("failed to write header: %w", err)
-				}
-				if _, err := writer.WriteString("resource {\n}\n"); err != nil {
-					return fmt.Errorf("failed to write chat block: %w", err)
-				}
+				schemaFile = "LLM.pkl"
 			}
 
+			// Write header using packageUrl and schemaFile
+			if _, err := writer.WriteString(fmt.Sprintf("amends \"%s%s\"\n\n", packageUrl, schemaFile)); err != nil {
+				return fmt.Errorf("failed to write header for %s: %w", key, err)
+			}
+
+			// Write the resource block
+			if _, err := writer.WriteString("resource {\n}\n"); err != nil {
+				return fmt.Errorf("failed to write resource block for %s: %w", key, err)
+			}
+
+			// Flush the writer
 			if err := writer.Flush(); err != nil {
 				return fmt.Errorf("failed to flush output for %s: %w", key, err)
 			}
