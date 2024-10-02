@@ -165,7 +165,7 @@ methods {
 	}
 
 	workflowConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.48#/Workflow.pkl"
+amends "package://schema.kdeps.com/core@0.0.50#/Workflow.pkl"
 
 name = "myAIAgentAPI"
 description = "AI Agent X API"
@@ -215,7 +215,9 @@ settings {
 	}
 
 	resourceConfigurationContent := `
-amends "package://schema.kdeps.com/core@0.0.48#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.0.50#/Resource.pkl"
+
+local llmResponse = "@(llm.resource["action2"].response.trim())"
 
 id = "helloWorld"
 name = "default action"
@@ -229,12 +231,21 @@ requires {
 run {
   preflightCheck {
     validations {
+      llmResponse != "hello world"
       1 + 1 == 2
+    }
+  }
+  apiResponse {
+    success = true
+    response {
+      data {
+	"\(llmResponse)"
+      }
     }
   }
   postflightCheck {
     validations {
-      1 + 1 == 3
+      1 + 1 == 2
       2 + 2 == 4
     }
   }
@@ -248,7 +259,7 @@ run {
 	}
 
 	resourceConfigurationContent = `
-amends "package://schema.kdeps.com/core@0.0.48#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.0.50#/Resource.pkl"
 
 id = "action1"
 category = "kdepsdockerai"
@@ -261,7 +272,7 @@ name = "default action"
 run {
   preflightCheck {
     validations {
-      1 + 1 == 3
+      1 + 1 == 2
       2 + 2 == 4
     }
   }
@@ -275,7 +286,7 @@ run {
 	}
 
 	resourceConfigurationContent = `
-amends "package://schema.kdeps.com/core@0.0.48#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.0.50#/Resource.pkl"
 
 id = "action2"
 category = "kdepsdockerai"
@@ -286,13 +297,11 @@ requires {
   "helloWorld"
 }
 run {
-  apiResponse {
-    success = true
-    response {
-      data {
-	"@(request.method)"
-      }
-    }
+  chat {
+    model = "tinydolphin"
+    prompt = """
+hello, what is this image? - @(request.data)
+"""
   }
 }
 `
@@ -304,7 +313,7 @@ run {
 	}
 
 	resourceConfigurationContent = `
-amends "package://schema.kdeps.com/core@0.0.48#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.0.50#/Resource.pkl"
 
 id = "action3"
 category = "kdepsdockerai"
@@ -316,9 +325,16 @@ requires {
 }
 name = "default action"
 run {
+  exec {
+    env {
+      ["NEWVAR"] = "I am a new variable"
+      ["NEWVAR2"] = "I am also a new variable"
+    }
+    command = "ls -alh && echo $NEWVAR && echo $NEWVAR2"
+  }
   postflightCheck {
     validations {
-      1 + 1 == 3
+      1 + 1 == 2
       2 + 2 == 4
     }
   }

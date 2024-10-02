@@ -246,7 +246,7 @@ func EnforceResourceRunBlock(fs afero.Fs, file string) error {
 
 	// If more than one is non-null, return an error
 	if countNonNull > 1 {
-		errMsg := fmt.Sprintf("Error: resources run block can only contain one of 'exec', 'chat', or 'httpClient'. Please create a new dedicated resource. Found %d in file: %s", countNonNull, file)
+		errMsg := fmt.Sprintf("Error: resources run block can only contain one of 'exec', 'chat', or 'httpClient'. Please create a new dedicated resource for the function. Found %d in file: %s", countNonNull, file)
 		logging.Error(errMsg)
 		return errors.New(errMsg)
 	}

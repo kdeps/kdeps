@@ -550,6 +550,10 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 				log.Fatal(err)
 			}
 
+			if err := dr.PrepareImportFiles(); err != nil {
+				log.Fatal(err)
+			}
+
 			if err := dr.HandleRunAction(); err != nil {
 				log.Fatal(err)
 			}

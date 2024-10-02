@@ -1023,8 +1023,8 @@ func processResourcePklFiles(fs afero.Fs, file string, wf *pklWf.Workflow, resou
 
 	// Define regex patterns for exec, chat, client with actionID, and id replacement
 	idPattern := regexp.MustCompile(`(?i)^\s*id\s*=\s*"(.+)"`)
-	// Pattern to capture lines like exec["actionID"], chat["actionID"], client["actionID"]
-	actionIDPattern := regexp.MustCompile(`(?i)(stdout|stderr|chat|client)\["(.+)"\]`)
+	// Pattern to capture lines like {exec, chat, client}.resource["actionID"]
+	actionIDPattern := regexp.MustCompile(`(?i)(resource)\["(.+)"\]`)
 
 	inRequiresBlock := false
 	var requiresBlockBuffer bytes.Buffer
