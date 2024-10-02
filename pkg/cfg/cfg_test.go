@@ -4,9 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"kdeps/pkg/environment"
+	"kdeps/pkg/logging"
 	"path/filepath"
 	"testing"
 
+	"github.com/charmbracelet/log"
 	"github.com/cucumber/godog"
 	"github.com/spf13/afero"
 )
@@ -17,6 +19,7 @@ var (
 	homeDirPath    string
 	testConfigFile string
 	fileThatExist  string
+	logger         *log.Logger
 	testingT       *testing.T
 )
 
@@ -51,6 +54,8 @@ func TestFeatures(t *testing.T) {
 }
 
 func aFileExistsInTheCurrentDirectory(arg1 string) error {
+	logger = logging.GetLogger()
+
 	doc := `
 amends "package://schema.kdeps.com/core@0.0.29#/Kdeps.pkl"
 
@@ -125,12 +130,12 @@ func theConfigurationIsLoadedInTheCurrentDirectory() error {
 		return err
 	}
 
-	cfgFile, err := FindConfiguration(testFs, environ)
+	cfgFile, err := FindConfiguration(testFs, environ, logger)
 	if err != nil {
 		return err
 	}
 
-	if _, err := LoadConfiguration(testFs, cfgFile); err != nil {
+	if _, err := LoadConfiguration(testFs, cfgFile, logger); err != nil {
 		return err
 	}
 
@@ -148,12 +153,12 @@ func theConfigurationIsLoadedInTheHomeDirectory() error {
 		return err
 	}
 
-	cfgFile, err := FindConfiguration(testFs, environ)
+	cfgFile, err := FindConfiguration(testFs, environ, logger)
 	if err != nil {
 		return err
 	}
 
-	if _, err := LoadConfiguration(testFs, cfgFile); err != nil {
+	if _, err := LoadConfiguration(testFs, cfgFile, logger); err != nil {
 		return err
 	}
 
@@ -201,7 +206,7 @@ func theConfigurationFailsToLoadAnyConfiguration() error {
 		return err
 	}
 
-	cfgFile, err := FindConfiguration(testFs, environ)
+	cfgFile, err := FindConfiguration(testFs, environ, logger)
 	if err != nil {
 		return errors.New(fmt.Sprintf("An error occurred while finding configuration: %s", err))
 	}
@@ -224,12 +229,12 @@ func theConfigurationFileWillBeGeneratedTo(arg1 string) error {
 		return err
 	}
 
-	cfgFile, err := GenerateConfiguration(testFs, environ)
+	cfgFile, err := GenerateConfiguration(testFs, environ, logger)
 	if err != nil {
 		return err
 	}
 
-	if _, err := LoadConfiguration(testFs, cfgFile); err != nil {
+	if _, err := LoadConfiguration(testFs, cfgFile, logger); err != nil {
 		return err
 	}
 
@@ -248,7 +253,7 @@ func theConfigurationWillBeEdited() error {
 		return err
 	}
 
-	if _, err := EditConfiguration(testFs, environ); err != nil {
+	if _, err := EditConfiguration(testFs, environ, logger); err != nil {
 		return err
 	}
 
@@ -266,7 +271,7 @@ func theConfigurationWillBeValidated() error {
 		return err
 	}
 
-	if _, err := ValidateConfiguration(testFs, environ); err != nil {
+	if _, err := ValidateConfiguration(testFs, environ, logger); err != nil {
 		return err
 	}
 

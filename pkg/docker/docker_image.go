@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/charmbracelet/log"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	kdCfg "github.com/kdeps/schema/gen/kdeps"
@@ -28,8 +29,9 @@ type BuildLine struct {
 	Error  string `json:"error"`
 }
 
-func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli *client.Client, runDir, kdepsDir string, pkgProject *archiver.KdepsPackage) (string, string, error) {
-	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow)
+func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli *client.Client, runDir, kdepsDir string,
+	pkgProject *archiver.KdepsPackage, logger *log.Logger) (string, string, error) {
+	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow, logger)
 	if err != nil {
 		return "", "", err
 	}
@@ -115,11 +117,11 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 	return cName, containerName, nil
 }
 
-func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage) (string, bool, string, string, error) {
+func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *log.Logger) (string, bool, string, string, error) {
 	var portNum uint16 = 3000
 	var hostIP string = "127.0.0.1"
 
-	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow)
+	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow, logger)
 	if err != nil {
 		return "", false, "", "", err
 	}

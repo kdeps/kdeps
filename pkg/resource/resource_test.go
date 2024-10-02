@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/charmbracelet/log"
 	"github.com/cucumber/godog"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
@@ -39,6 +40,7 @@ var (
 	hostPort                  string = "3000"
 	hostIP                    string = "127.0.0.1"
 	containerID               string
+	logger                    *log.Logger
 	runDir                    string
 	containerName             string
 	apiServerMode             bool
@@ -80,6 +82,7 @@ func TestFeatures(t *testing.T) {
 }
 
 func aKdepsContainerWithEndpointAPI(arg1, arg2, arg3 string) error {
+	logger = logging.GetLogger()
 	ctx = context.Background()
 
 	tmpHome, err := afero.TempDir(testFs, "", "")
@@ -130,16 +133,16 @@ func aKdepsContainerWithEndpointAPI(arg1, arg2, arg3 string) error {
 		return err
 	}
 
-	systemConfigurationFile, err = cfg.FindConfiguration(testFs, environ)
+	systemConfigurationFile, err = cfg.FindConfiguration(testFs, environ, logger)
 	if err != nil {
 		return err
 	}
 
-	if err = enforcer.EnforcePklTemplateAmendsRules(testFs, systemConfigurationFile); err != nil {
+	if err = enforcer.EnforcePklTemplateAmendsRules(testFs, systemConfigurationFile, logger); err != nil {
 		return err
 	}
 
-	syscfg, err := cfg.LoadConfiguration(testFs, systemConfigurationFile)
+	syscfg, err := cfg.LoadConfiguration(testFs, systemConfigurationFile, logger)
 	if err != nil {
 		return err
 	}
@@ -366,18 +369,18 @@ run {
 		f.Close()
 	}
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowConfigurationFile); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowConfigurationFile, logger); err != nil {
 		return err
 	}
 
-	wfconfig, err := workflow.LoadWorkflow(ctx, workflowConfigurationFile)
+	wfconfig, err := workflow.LoadWorkflow(ctx, workflowConfigurationFile, logger)
 	if err != nil {
 		return err
 	}
 
 	workflowConfiguration = wfconfig
 
-	cDir, pFile, err := archiver.CompileProject(testFs, ctx, workflowConfiguration, kdepsDir, agentDir)
+	cDir, pFile, err := archiver.CompileProject(testFs, ctx, workflowConfiguration, kdepsDir, agentDir, logger)
 	if err != nil {
 		return err
 	}
@@ -385,14 +388,14 @@ run {
 	compiledProjectDir = cDir
 	packageFile = pFile
 
-	pkgP, err := archiver.ExtractPackage(testFs, ctx, kdepsDir, packageFile)
+	pkgP, err := archiver.ExtractPackage(testFs, ctx, kdepsDir, packageFile, logger)
 	if err != nil {
 		return err
 	}
 
 	pkgProject = pkgP
 
-	rd, asm, hIP, hPort, err := docker.BuildDockerfile(testFs, ctx, systemConfiguration, kdepsDir, pkgProject)
+	rd, asm, hIP, hPort, err := docker.BuildDockerfile(testFs, ctx, systemConfiguration, kdepsDir, pkgProject, logger)
 	if err != nil {
 		return err
 	}
@@ -409,7 +412,7 @@ run {
 
 	cli = cl
 
-	cN, conN, err := docker.BuildDockerImage(testFs, ctx, systemConfiguration, cli, runDir, kdepsDir, pkgProject)
+	cN, conN, err := docker.BuildDockerImage(testFs, ctx, systemConfiguration, cli, runDir, kdepsDir, pkgProject, logger)
 	if err != nil {
 		return err
 	}
@@ -513,22 +516,22 @@ func iShouldSeeAInTheFolder(arg1, arg2 string) error {
 	var output bytes.Buffer
 	_, err = io.Copy(&output, execAttachResp.Reader)
 	if err != nil {
-		logging.Fatal("Failed to read exec output: %v", err)
+		logger.Fatal("Failed to read exec output: %v", err)
 		return err
 	}
 
 	// Check the command output
-	logging.Info("Output from `ls /` command in container:\n%s", output.String())
+	logger.Info("Output from `ls /` command in container:\n%s", output.String())
 
 	// Optionally, inspect the exec result to check for success/failure
 	execInspect, err := cli.ContainerExecInspect(ctx, execID)
 	if err != nil {
-		logging.Fatal("Failed to inspect exec result: %v", err)
+		logger.Fatal("Failed to inspect exec result: %v", err)
 		return err
 	}
 
 	if execInspect.ExitCode != 0 {
-		logging.Error("Command failed with exit code: %d", execInspect.ExitCode)
+		logger.Error("Command failed with exit code: %d", execInspect.ExitCode)
 		return err
 	}
 

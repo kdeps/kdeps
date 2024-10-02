@@ -7,7 +7,6 @@ import (
 	"io"
 	"kdeps/pkg/environment"
 	"kdeps/pkg/evaluator"
-	"kdeps/pkg/logging"
 	"kdeps/pkg/resource"
 	"kdeps/pkg/schema"
 	"os"
@@ -68,7 +67,7 @@ func NewGraphResolver(fs afero.Fs, logger *log.Logger, ctx context.Context, env 
 			return nil, fmt.Errorf("error checking %s: %v", pklWfFile, err)
 		}
 
-		logging.Info(pklWfFile)
+		logger.Info(pklWfFile)
 		if !exists {
 			// If "workflow.pkl" doesn't exist, check for "../workflow.pkl"
 			existsParent, errParent := afero.Exists(fs, pklWfParentFile)
@@ -153,7 +152,7 @@ func (dr *DependencyResolver) LoadResourceEntries() error {
 
 	for _, file := range pklFiles {
 		// Load the resource file
-		pklRes, err := resource.LoadResource(*dr.Context, file)
+		pklRes, err := resource.LoadResource(*dr.Context, file, dr.Logger)
 		if err != nil {
 			fmt.Errorf("Error loading .pkl file "+file, err)
 		}
@@ -231,8 +230,8 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 	return nil
 }
 
-func WaitForFile(fs afero.Fs, filepath string) error {
-	logging.Info("Waiting for file: ", filepath)
+func WaitForFile(fs afero.Fs, filepath string, logger *log.Logger) error {
+	logger.Info("Waiting for file: ", filepath)
 
 	// Create a ticker that checks for the file periodically
 	ticker := time.NewTicker(500 * time.Millisecond)
@@ -247,7 +246,7 @@ func WaitForFile(fs afero.Fs, filepath string) error {
 				return fmt.Errorf("error checking file %s: %w", filepath, err)
 			}
 			if exists {
-				logging.Info("File found: ", filepath)
+				logger.Info("File found: ", filepath)
 				return nil
 			}
 		}
@@ -449,7 +448,7 @@ func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
 func (dr *DependencyResolver) HandleRunAction() error {
 	defer func() {
 		if r := recover(); r != nil {
-			logging.Error("Recovered from panic:", r)
+			dr.Logger.Error("Recovered from panic:", r)
 			dr.HandleAPIErrorResponse(500, "Server panic occurred")
 		}
 	}()
@@ -457,7 +456,7 @@ func (dr *DependencyResolver) HandleRunAction() error {
 	visited := make(map[string]bool)
 	actionId := dr.Workflow.Action
 
-	logging.Info("Processing resources...")
+	dr.Logger.Info("Processing resources...")
 	if err := dr.LoadResourceEntries(); err != nil {
 		return dr.HandleAPIErrorResponse(500, err.Error())
 	}
@@ -476,7 +475,7 @@ func (dr *DependencyResolver) HandleRunAction() error {
 					// Check Skip Condition
 					if runBlock.SkipCondition != nil {
 						if ShouldSkip(runBlock.SkipCondition) {
-							logging.Info("Skip condition met, skipping:", res.Id)
+							dr.Logger.Info("Skip condition met, skipping:", res.Id)
 							continue
 						}
 					}
@@ -484,13 +483,13 @@ func (dr *DependencyResolver) HandleRunAction() error {
 					// Handle Preflight Check
 					if runBlock.PreflightCheck != nil && runBlock.PreflightCheck.Validations != nil {
 						if !AllConditionsMet(runBlock.PreflightCheck.Validations) {
-							logging.Error("Preflight check not met, failing:", res.Id)
+							dr.Logger.Error("Preflight check not met, failing:", res.Id)
 							if runBlock.PreflightCheck.Error != nil {
 								return dr.HandleAPIErrorResponse(
 									runBlock.PreflightCheck.Error.Code,
 									fmt.Sprintf("%s: %s", runBlock.PreflightCheck.Error.Message, res.Id))
 							}
-							logging.Error("Preflight check not met, failing:", res.Id)
+							dr.Logger.Error("Preflight check not met, failing:", res.Id)
 							return dr.HandleAPIErrorResponse(500, "Preflight check failed for resource: "+res.Id)
 						}
 					}
@@ -498,17 +497,17 @@ func (dr *DependencyResolver) HandleRunAction() error {
 					if runBlock.Exec != nil && runBlock.Exec.Command != "" {
 						timestamp, err := dr.GetCurrentTimestamp(res.Id, "exec")
 						if err != nil {
-							logging.Error("Exec error:", res.Id)
+							dr.Logger.Error("Exec error:", res.Id)
 							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Exec failed for resource: %s - %s", res.Id, err))
 						}
 
 						if err := dr.HandleExec(res.Id, runBlock.Exec); err != nil {
-							logging.Error("Exec error:", res.Id)
+							dr.Logger.Error("Exec error:", res.Id)
 							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Exec failed for resource: %s - %s", res.Id, err))
 						}
 
 						if err := dr.WaitForTimestampChange(res.Id, timestamp, 60*time.Second, "exec"); err != nil {
-							logging.Error("Exec error:", res.Id)
+							dr.Logger.Error("Exec error:", res.Id)
 							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Exec timeout awaiting for output: %s - %s", res.Id, err))
 						}
 
@@ -517,17 +516,17 @@ func (dr *DependencyResolver) HandleRunAction() error {
 					if runBlock.Chat != nil && runBlock.Chat.Model != "" && runBlock.Chat.Prompt != "" {
 						timestamp, err := dr.GetCurrentTimestamp(res.Id, "llm")
 						if err != nil {
-							logging.Error("LLM chat error:", res.Id)
+							dr.Logger.Error("LLM chat error:", res.Id)
 							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("LLM chat failed for resource: %s - %s", res.Id, err))
 						}
 
 						if err := dr.HandleLLMChat(res.Id, runBlock.Chat); err != nil {
-							logging.Error("LLM chat error:", res.Id)
+							dr.Logger.Error("LLM chat error:", res.Id)
 							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("LLM chat failed for resource: %s - %s", res.Id, err))
 						}
 
 						if err := dr.WaitForTimestampChange(res.Id, timestamp, 60*time.Second, "llm"); err != nil {
-							logging.Error("LLM chat error:", res.Id)
+							dr.Logger.Error("LLM chat error:", res.Id)
 							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("LLM chat timeout awaiting for response: %s - %s", res.Id, err))
 						}
 					}
@@ -541,7 +540,7 @@ func (dr *DependencyResolver) HandleRunAction() error {
 									fmt.Sprintf("%s: %s", runBlock.PostflightCheck.Error.Message, res.Id))
 							}
 
-							logging.Error("Postflight check not met, failing:", res.Id)
+							dr.Logger.Error("Postflight check not met, failing:", res.Id)
 							return dr.HandleAPIErrorResponse(500, "Postflight check failed for resource: "+res.Id)
 						}
 					}
@@ -557,7 +556,7 @@ func (dr *DependencyResolver) HandleRunAction() error {
 		}
 	}
 
-	logging.Info("All resources finished processing")
+	dr.Logger.Info("All resources finished processing")
 	return nil
 }
 
@@ -566,7 +565,7 @@ func (dr *DependencyResolver) HandleAPIErrorResponse(code int, message string) e
 	if dr.ApiServerMode {
 		errorResponse := NewAPIServerResponse(false, nil, code, message)
 		if err := dr.CreateResponsePklFile(&errorResponse); err != nil {
-			logging.Error("Failed to create error response file:", err)
+			dr.Logger.Error("Failed to create error response file:", err)
 			return err
 		}
 	}
@@ -935,7 +934,7 @@ func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock *apiserverr
 	// Check if the response file already exists, and remove it if so
 	if _, err := dr.Fs.Stat(dr.ResponsePklFile); err == nil {
 		if err := dr.Fs.RemoveAll(dr.ResponsePklFile); err != nil {
-			logging.Error("Unable to delete old response file", "response-pkl-file", dr.ResponsePklFile)
+			dr.Logger.Error("Unable to delete old response file", "response-pkl-file", dr.ResponsePklFile)
 			return err
 		}
 	}
@@ -981,7 +980,7 @@ errors {
 
 	// Create and process the PKL file
 	if err := evaluator.CreateAndProcessPklFile(dr.Fs, sections, dr.ResponsePklFile, "APIServerResponse.pkl",
-		nil, evaluator.EvalPkl); err != nil {
+		nil, dr.Logger, evaluator.EvalPkl); err != nil {
 		return err
 	}
 
@@ -1030,19 +1029,19 @@ func (dr *DependencyResolver) EvalPklFormattedResponseFile() (string, error) {
 	// Validate that the file has a .pkl extension
 	if filepath.Ext(dr.ResponsePklFile) != ".pkl" {
 		errMsg := fmt.Sprintf("file '%s' must have a .pkl extension", dr.ResponsePklFile)
-		logging.Error(errMsg)
+		dr.Logger.Error(errMsg)
 		return "", fmt.Errorf(errMsg)
 	}
 
 	if _, err := dr.Fs.Stat(dr.ResponseTargetFile); err == nil {
 		if err := dr.Fs.RemoveAll(dr.ResponseTargetFile); err != nil {
-			logging.Error("Unable to delete old response file", "response-file", dr.ResponseTargetFile)
+			dr.Logger.Error("Unable to delete old response file", "response-file", dr.ResponseTargetFile)
 			return "", err
 		}
 	}
 
 	// Ensure that the 'pkl' binary is available
-	if err := evaluator.EnsurePklBinaryExists(); err != nil {
+	if err := evaluator.EnsurePklBinaryExists(dr.Logger); err != nil {
 		return "", err
 	}
 
@@ -1056,14 +1055,14 @@ func (dr *DependencyResolver) EvalPklFormattedResponseFile() (string, error) {
 	result, err := cmd.Execute(context.Background())
 	if err != nil {
 		errMsg := "command execution failed"
-		logging.Error(errMsg, "error", err)
+		dr.Logger.Error(errMsg, "error", err)
 		return "", fmt.Errorf("%s: %w", errMsg, err)
 	}
 
 	// Check for non-zero exit code
 	if result.ExitCode != 0 {
 		errMsg := fmt.Sprintf("command failed with exit code %d: %s", result.ExitCode, result.Stderr)
-		logging.Error(errMsg)
+		dr.Logger.Error(errMsg)
 		return "", fmt.Errorf(errMsg)
 	}
 

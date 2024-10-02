@@ -2,6 +2,7 @@ package logging
 
 import (
 	"os"
+	"time"
 
 	"github.com/charmbracelet/log"
 )
@@ -10,8 +11,11 @@ import (
 var logger *log.Logger
 
 func init() {
-	// Create a new logger instance
-	logger = log.New(os.Stderr)
+	logger = log.NewWithOptions(os.Stderr, log.Options{
+		ReportCaller:    true,
+		ReportTimestamp: true,
+		TimeFormat:      time.Kitchen,
+	})
 
 	// Set the log level based on the DEBUG environment variable
 	if os.Getenv("DEBUG") == "1" {

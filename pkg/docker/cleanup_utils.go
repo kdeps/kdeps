@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"io"
 	"kdeps/pkg/environment"
-	"kdeps/pkg/logging"
 	"os"
 	"path/filepath"
 
+	"github.com/charmbracelet/log"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
@@ -45,7 +45,7 @@ func CleanupDockerBuildImages(fs afero.Fs, ctx context.Context, cName string, cl
 }
 
 // cleanup deletes /agents/action and /agents/workflow directories, then copies /agents/project to /agents/workflow
-func Cleanup(fs afero.Fs, environ *environment.Environment) {
+func Cleanup(fs afero.Fs, environ *environment.Environment, logger *log.Logger) {
 	if environ.DockerMode == "1" {
 		actionDir := "/agent/action"
 		workflowDir := "/agent/workflow"
@@ -53,16 +53,16 @@ func Cleanup(fs afero.Fs, environ *environment.Environment) {
 
 		// Delete /agents/action directory
 		if err := fs.RemoveAll(actionDir); err != nil {
-			logging.Error(fmt.Sprintf("Error removing %s: %v", actionDir, err))
+			logger.Error(fmt.Sprintf("Error removing %s: %v", actionDir, err))
 		} else {
-			logging.Info(fmt.Sprintf("%s directory deleted", actionDir))
+			logger.Info(fmt.Sprintf("%s directory deleted", actionDir))
 		}
 
 		// Delete /agents/workflow directory
 		if err := fs.RemoveAll(workflowDir); err != nil {
-			logging.Error(fmt.Sprintf("Error removing %s: %v", workflowDir, err))
+			logger.Error(fmt.Sprintf("Error removing %s: %v", workflowDir, err))
 		} else {
-			logging.Info(fmt.Sprintf("%s directory deleted", workflowDir))
+			logger.Info(fmt.Sprintf("%s directory deleted", workflowDir))
 		}
 
 		// Copy /agents/project to /agents/workflow
@@ -112,13 +112,13 @@ func Cleanup(fs afero.Fs, environ *environment.Environment) {
 		})
 
 		if err != nil {
-			logging.Error(fmt.Sprintf("Error copying %s to %s: %v", projectDir, workflowDir, err))
+			logger.Error(fmt.Sprintf("Error copying %s to %s: %v", projectDir, workflowDir, err))
 		} else {
-			logging.Info(fmt.Sprintf("Copied %s to %s for next run", projectDir, workflowDir))
+			logger.Info(fmt.Sprintf("Copied %s to %s for next run", projectDir, workflowDir))
 		}
 
 		if err := CreateFlagFile(fs, "/.dockercleanup"); err != nil {
-			logging.Error("Unable to create docker cleanup flag", err)
+			logger.Error("Unable to create docker cleanup flag", err)
 		}
 	}
 }

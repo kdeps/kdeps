@@ -7,20 +7,20 @@ import (
 	"path/filepath"
 	"strings"
 
-	"kdeps/pkg/logging"
 	"kdeps/pkg/schema"
 
 	"github.com/alexellis/go-execute/v2"
+	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"
 )
 
 // EnsurePklBinaryExists checks if the 'pkl' binary exists in the system PATH.
-func EnsurePklBinaryExists() error {
-	logging.Info("schema.SchemaVersion:", schema.SchemaVersion)
+func EnsurePklBinaryExists(logger *log.Logger) error {
+	logger.Info("schema.SchemaVersion:", schema.SchemaVersion)
 	binaryName := "pkl"
 	if _, err := exec.LookPath(binaryName); err != nil {
 		errMsg := fmt.Sprintf("the binary '%s' is not found in PATH", binaryName)
-		logging.Error(errMsg, "error", err)
+		logger.Error(errMsg, "error", err)
 		return fmt.Errorf("%s: %w", errMsg, err)
 	}
 	return nil
@@ -28,16 +28,16 @@ func EnsurePklBinaryExists() error {
 
 // EvalPkl evaluates the resource file at resourcePath using the 'pkl' binary.
 // It expects the resourcePath to have a .pkl extension.
-func EvalPkl(fs afero.Fs, resourcePath string) (string, error) {
+func EvalPkl(fs afero.Fs, resourcePath string, logger *log.Logger) (string, error) {
 	// Validate that the file has a .pkl extension
 	if filepath.Ext(resourcePath) != ".pkl" {
 		errMsg := fmt.Sprintf("file '%s' must have a .pkl extension", resourcePath)
-		logging.Error(errMsg)
+		logger.Error(errMsg)
 		return "", fmt.Errorf(errMsg)
 	}
 
 	// Ensure that the 'pkl' binary is available
-	if err := EnsurePklBinaryExists(); err != nil {
+	if err := EnsurePklBinaryExists(logger); err != nil {
 		return "", err
 	}
 
@@ -51,14 +51,14 @@ func EvalPkl(fs afero.Fs, resourcePath string) (string, error) {
 	result, err := cmd.Execute(context.Background())
 	if err != nil {
 		errMsg := "command execution failed"
-		logging.Error(errMsg, "error", err)
+		logger.Error(errMsg, "error", err)
 		return "", fmt.Errorf("%s: %w", errMsg, err)
 	}
 
 	// Check for non-zero exit code
 	if result.ExitCode != 0 {
 		errMsg := fmt.Sprintf("command failed with exit code %d: %s", result.ExitCode, result.Stderr)
-		logging.Error(errMsg)
+		logger.Error(errMsg)
 		return "", fmt.Errorf(errMsg)
 	}
 
@@ -71,20 +71,21 @@ func CreateAndProcessPklFile(
 	finalFileName string,
 	pklTemplate string,
 	importSections []string,
-	processFunc func(fs afero.Fs, tmpFile string) (string, error),
+	logger *log.Logger,
+	processFunc func(fs afero.Fs, tmpFile string, logger *log.Logger) (string, error),
 ) error {
 
 	// Create a temporary directory
 	tmpDir, err := afero.TempDir(fs, "", "")
 	if err != nil {
-		logging.Error("Failed to create temporary directory", "path", tmpDir, "error", err)
+		logger.Error("Failed to create temporary directory", "path", tmpDir, "error", err)
 		return fmt.Errorf("failed to create temporary directory: %w", err)
 	}
 
 	// Create a unique temporary file in the temporary directory
 	tmpFile, err := afero.TempFile(fs, tmpDir, "*.pkl") // This will create a unique temporary file
 	if err != nil {
-		logging.Error("Failed to create temporary file", "dir", tmpDir, "error", err)
+		logger.Error("Failed to create temporary file", "dir", tmpDir, "error", err)
 		return fmt.Errorf("failed to create temporary file: %w", err)
 	}
 	defer tmpFile.Close()
@@ -104,21 +105,21 @@ func CreateAndProcessPklFile(
 	// Write sections to the temporary file
 	_, err = tmpFile.Write([]byte(strings.Join(fullSections, "\n")))
 	if err != nil {
-		logging.Error("Failed to write to temporary file", "path", tmpFile.Name(), "error", err)
+		logger.Error("Failed to write to temporary file", "path", tmpFile.Name(), "error", err)
 		return fmt.Errorf("failed to write to temporary file: %w", err)
 	}
 
 	// Process the temporary file using the provided function
-	processedContent, err := processFunc(fs, tmpFile.Name())
+	processedContent, err := processFunc(fs, tmpFile.Name(), logger)
 	if err != nil {
-		logging.Error("Failed to process temporary file", "path", tmpFile.Name(), "error", err)
+		logger.Error("Failed to process temporary file", "path", tmpFile.Name(), "error", err)
 		return fmt.Errorf("failed to process temporary file: %w", err)
 	}
 
 	// Write the processed content to the final file
 	err = afero.WriteFile(fs, finalFileName, []byte(processedContent), 0644)
 	if err != nil {
-		logging.Error("Failed to write final file", "path", finalFileName, "error", err)
+		logger.Error("Failed to write final file", "path", finalFileName, "error", err)
 		return fmt.Errorf("failed to write final file: %w", err)
 	}
 

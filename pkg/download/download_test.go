@@ -3,14 +3,18 @@ package download
 import (
 	"bytes"
 	"io"
+	"kdeps/pkg/logging"
 	"net/http"
 	"os"
 	"testing"
 
+	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var logger *log.Logger
 
 func TestWriteCounter_Write(t *testing.T) {
 	counter := &WriteCounter{}
@@ -52,6 +56,7 @@ func TestWriteCounter_PrintProgress(t *testing.T) {
 }
 
 func TestDownloadFile(t *testing.T) {
+	logger = logging.GetLogger()
 	// Mock a simple HTTP server to simulate file download
 	server := http.Server{
 		Addr: ":8080",
@@ -66,7 +71,7 @@ func TestDownloadFile(t *testing.T) {
 	fs := afero.NewMemMapFs()
 
 	// Run the file download
-	err := DownloadFile(fs, "http://localhost:8080", "/testfile")
+	err := DownloadFile(fs, "http://localhost:8080", "/testfile", logger)
 	require.NoError(t, err)
 
 	// Verify the downloaded content
@@ -79,7 +84,7 @@ func TestDownloadFile_FileCreationError(t *testing.T) {
 	fs := afero.NewMemMapFs()
 
 	// Trying to download a file with an invalid filepath
-	err := DownloadFile(fs, "http://localhost:8080", "")
+	err := DownloadFile(fs, "http://localhost:8080", "", logger)
 	assert.Error(t, err)
 }
 
@@ -87,6 +92,6 @@ func TestDownloadFile_HttpGetError(t *testing.T) {
 	fs := afero.NewMemMapFs()
 
 	// Trying to download a file from an invalid URL
-	err := DownloadFile(fs, "http://invalid-url", "/testfile")
+	err := DownloadFile(fs, "http://invalid-url", "/testfile", logger)
 	assert.Error(t, err)
 }

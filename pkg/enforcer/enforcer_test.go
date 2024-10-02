@@ -6,10 +6,12 @@ import (
 	"kdeps/pkg/cfg"
 	"kdeps/pkg/environment"
 	"kdeps/pkg/evaluator"
+	"kdeps/pkg/logging"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/log"
 	"github.com/cucumber/godog"
 	"github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
@@ -21,6 +23,7 @@ var (
 	currentDirPath        string
 	systemConfiguration   *kdeps.Kdeps
 	fileThatExist         string
+	logger                *log.Logger
 	agentPath             string
 	doc                   string
 	schemaVersionFilePath = "../../SCHEMA_VERSION"
@@ -110,6 +113,7 @@ func TestFeatures(t *testing.T) {
 // Config tests
 
 func weHaveABlankFile() error {
+	logger = logging.GetLogger()
 	doc = ""
 	return nil
 }
@@ -162,12 +166,12 @@ func aSystemConfigurationIsDefined() error {
 		return err
 	}
 
-	cfgFile, err := cfg.GenerateConfiguration(testFs, environ)
+	cfgFile, err := cfg.GenerateConfiguration(testFs, environ, logger)
 	if err != nil {
 		return err
 	}
 
-	scfg, err := cfg.LoadConfiguration(testFs, cfgFile)
+	scfg, err := cfg.LoadConfiguration(testFs, cfgFile, logger)
 	if err != nil {
 		return err
 	}
@@ -196,7 +200,7 @@ func itHaveAConfigAmendsLineOnTopOfTheFile() error {
 }
 
 func itIsAnInvalidAgent() error {
-	if err := EnforceFolderStructure(testFs, agentPath); err == nil {
+	if err := EnforceFolderStructure(testFs, agentPath, logger); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 
@@ -204,7 +208,7 @@ func itIsAnInvalidAgent() error {
 }
 
 func itIsAValidAgent() error {
-	if err := EnforceFolderStructure(testFs, agentPath); err != nil {
+	if err := EnforceFolderStructure(testFs, agentPath, logger); err != nil {
 		return err
 	}
 
@@ -212,7 +216,7 @@ func itIsAValidAgent() error {
 }
 
 func itIsAnInvalidPklFile() error {
-	if err := EnforcePklTemplateAmendsRules(testFs, fileThatExist); err == nil {
+	if err := EnforcePklTemplateAmendsRules(testFs, fileThatExist, logger); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 
@@ -220,11 +224,11 @@ func itIsAnInvalidPklFile() error {
 }
 
 func itIsAValidPklFile() error {
-	if err := EnforcePklTemplateAmendsRules(testFs, fileThatExist); err != nil {
+	if err := EnforcePklTemplateAmendsRules(testFs, fileThatExist, logger); err != nil {
 		return err
 	}
 
-	if _, err := evaluator.EvalPkl(testFs, fileThatExist); err != nil {
+	if _, err := evaluator.EvalPkl(testFs, fileThatExist, logger); err != nil {
 		return err
 	}
 

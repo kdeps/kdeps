@@ -9,6 +9,7 @@ import (
 	"kdeps/pkg/cfg"
 	"kdeps/pkg/enforcer"
 	"kdeps/pkg/environment"
+	"kdeps/pkg/logging"
 	"kdeps/pkg/workflow"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/log"
 	"github.com/cucumber/godog"
 	"github.com/docker/docker/client"
 	"github.com/kdeps/schema/gen/kdeps"
@@ -41,6 +43,7 @@ var (
 	compiledProjectDir        string
 	currentDirPath            string
 	systemConfigurationFile   string
+	logger                    *log.Logger
 	environ                   *environment.Environment
 	cli                       *client.Client
 	systemConfiguration       *kdeps.Kdeps
@@ -82,6 +85,7 @@ func TestFeatures(t *testing.T) {
 
 func aSystemConfigurationFile(arg1, arg2, arg3, arg4 string) error {
 	ctx = context.Background()
+	logger = logging.GetLogger()
 
 	env := &environment.Environment{
 		Home:           homeDirPath,
@@ -117,16 +121,16 @@ dockerGPU = "%s"
 		return err
 	}
 
-	systemConfigurationFile, err := cfg.FindConfiguration(testFs, environ)
+	systemConfigurationFile, err := cfg.FindConfiguration(testFs, environ, logger)
 	if err != nil {
 		return err
 	}
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, systemConfigurationFile); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, systemConfigurationFile, logger); err != nil {
 		return err
 	}
 
-	syscfg, err := cfg.LoadConfiguration(testFs, systemConfigurationFile)
+	syscfg, err := cfg.LoadConfiguration(testFs, systemConfigurationFile, logger)
 	if err != nil {
 		return err
 	}
@@ -241,11 +245,11 @@ description = "An action from agent %s"
 		f.Close()
 	}
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowConfigurationFile); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowConfigurationFile, logger); err != nil {
 		return err
 	}
 
-	wfconfig, err := workflow.LoadWorkflow(ctx, workflowConfigurationFile)
+	wfconfig, err := workflow.LoadWorkflow(ctx, workflowConfigurationFile, logger)
 	if err != nil {
 		return err
 	}
@@ -308,7 +312,7 @@ func searchTextInFile(filePath string, searchText string) (bool, error) {
 }
 
 func itShouldCreateTheDockerfile(arg1, arg2, arg3 string) error {
-	rd, asm, hIP, hPort, err := BuildDockerfile(testFs, ctx, systemConfiguration, kdepsDir, pkgProject)
+	rd, asm, hIP, hPort, err := BuildDockerfile(testFs, ctx, systemConfiguration, kdepsDir, pkgProject, logger)
 	if err != nil {
 		return err
 	}
@@ -369,7 +373,7 @@ func itShouldRunTheContainerBuildStepFor(arg1 string) error {
 
 	cli = cl
 
-	cN, conN, err := BuildDockerImage(testFs, ctx, systemConfiguration, cli, runDir, kdepsDir, pkgProject)
+	cN, conN, err := BuildDockerImage(testFs, ctx, systemConfiguration, cli, runDir, kdepsDir, pkgProject, logger)
 	if err != nil {
 		return err
 	}
@@ -393,7 +397,7 @@ func itShouldStartTheContainer(arg1 string) error {
 }
 
 func kdepsOpenThePackage(arg1 string) error {
-	pkgP, err := archiver.ExtractPackage(testFs, ctx, kdepsDir, packageFile)
+	pkgP, err := archiver.ExtractPackage(testFs, ctx, kdepsDir, packageFile, logger)
 	if err != nil {
 		return err
 	}
@@ -404,7 +408,7 @@ func kdepsOpenThePackage(arg1 string) error {
 }
 
 func theValidAiagentHas(arg1, arg2 string) error {
-	cDir, pFile, err := archiver.CompileProject(testFs, ctx, workflowConfiguration, kdepsDir, agentDir)
+	cDir, pFile, err := archiver.CompileProject(testFs, ctx, workflowConfiguration, kdepsDir, agentDir, logger)
 	if err != nil {
 		return err
 	}
@@ -460,7 +464,7 @@ func itWillInstallTheModels(arg1 string) error {
 }
 
 func kdepsWillCheckThePresenceOfTheFile(arg1 string) error {
-	if _, err := BootstrapDockerSystem(testFs, ctx, environ); err != nil {
+	if _, err := BootstrapDockerSystem(testFs, ctx, environ, logger); err != nil {
 		return err
 	}
 

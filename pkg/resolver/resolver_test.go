@@ -28,6 +28,7 @@ var (
 	testFs                    = afero.NewOsFs()
 	testingT                  *testing.T
 	homeDirPath               string
+	logger                    *log.Logger
 	kdepsDir                  string
 	agentDir                  string
 	ctx                       context.Context
@@ -79,6 +80,8 @@ func TestFeatures(t *testing.T) {
 }
 
 func anAiAgentWithResources(arg1 string) error {
+	logger = logging.GetLogger()
+
 	tmpRoot, err := afero.TempDir(testFs, "", "")
 	if err != nil {
 		return err
@@ -140,16 +143,16 @@ func anAiAgentWithResources(arg1 string) error {
 		return err
 	}
 
-	systemConfigurationFile, err = cfg.FindConfiguration(testFs, environ)
+	systemConfigurationFile, err = cfg.FindConfiguration(testFs, environ, logger)
 	if err != nil {
 		return err
 	}
 
-	if err = enforcer.EnforcePklTemplateAmendsRules(testFs, systemConfigurationFile); err != nil {
+	if err = enforcer.EnforcePklTemplateAmendsRules(testFs, systemConfigurationFile, logger); err != nil {
 		return err
 	}
 
-	syscfg, err := cfg.LoadConfiguration(testFs, systemConfigurationFile)
+	syscfg, err := cfg.LoadConfiguration(testFs, systemConfigurationFile, logger)
 	if err != nil {
 		return err
 	}
@@ -333,15 +336,15 @@ func eachResourceAreReloadedWhenOpened() error {
 	for _, resNode := range stack {
 		for _, res := range graphResolver.Resources {
 			if res.Id == resNode {
-				logging.Info("Executing resource: ", res.Id)
+				logger.Info("Executing resource: ", res.Id)
 
 				rsc, err := pklRes.LoadFromPath(*graphResolver.Context, res.File)
 				if err != nil {
-					logging.Info(err)
+					logger.Info(err)
 					// return graphResolver.HandleAPIErrorResponse(500, err.Error())
 				}
 
-				logging.Info(rsc.Description)
+				logger.Info(rsc.Description)
 
 				// runBlock := rsc.Run
 				// if runBlock != nil {
@@ -349,7 +352,7 @@ func eachResourceAreReloadedWhenOpened() error {
 				//	// Check Skip Condition
 				//	if runBlock.SkipCondition != nil {
 				//		if resolver.ShouldSkip(runBlock.SkipCondition) {
-				//			logging.Info("Skip condition met, skipping:", res.Id)
+				//			logger.Info("Skip condition met, skipping:", res.Id)
 				//			continue
 				//		}
 				//	}
@@ -357,9 +360,9 @@ func eachResourceAreReloadedWhenOpened() error {
 				//	// Handle Preflight Check
 				//	if runBlock.PreflightCheck != nil && runBlock.PreflightCheck.Validations != nil {
 				//		if !resolver.AllConditionsMet(runBlock.PreflightCheck.Validations) {
-				//			logging.Error("Preflight check not met, failing:", res.Id)
+				//			logger.Error("Preflight check not met, failing:", res.Id)
 				//			if runBlock.PreflightCheck.Error != nil {
-				//				logging.Info(err)
+				//				logger.Info(err)
 
 				//				//	return graphResolver.HandleAPIErrorResponse(
 				//				//		runBlock.PreflightCheck.Error.Code,
@@ -368,7 +371,7 @@ func eachResourceAreReloadedWhenOpened() error {
 
 				//			// return graphResolver.HandleAPIErrorResponse(500, "Preflight
 				//			// check failed for resource: "+res.Id)
-				//			logging.Info(err)
+				//			logger.Info(err)
 
 				//		}
 				//	}
@@ -379,14 +382,14 @@ func eachResourceAreReloadedWhenOpened() error {
 				//	if runBlock.PostflightCheck != nil && runBlock.PostflightCheck.Validations != nil {
 				//		if !resolver.AllConditionsMet(runBlock.PostflightCheck.Validations) {
 				//			if runBlock.PostflightCheck.Error != nil {
-				//				logging.Info(err)
+				//				logger.Info(err)
 
 				//				// return graphResolver.HandleAPIErrorResponse(
 				//				//	runBlock.PostflightCheck.Error.Code,
 				//				//	fmt.Sprintf("%s: %s", runBlock.PostflightCheck.Error.Message, res.Id))
 				//			}
 
-				//			logging.Error("Postflight check not met, failing:", res.Id)
+				//			logger.Error("Postflight check not met, failing:", res.Id)
 				//			// return graphResolver.HandleAPIErrorResponse(500, "Postflight check failed for resource: "+res.Id)
 				//		}
 				//	}
@@ -394,7 +397,7 @@ func eachResourceAreReloadedWhenOpened() error {
 				//	// API Response
 				//	if graphResolver.ApiServerMode && runBlock.ApiResponse != nil {
 				//		if err := graphResolver.CreateResponsePklFile(runBlock.ApiResponse); err != nil {
-				//			logging.Info(err)
+				//			logger.Info(err)
 
 				//			// return graphResolver.HandleAPIErrorResponse(500, err.Error())
 				//		}
