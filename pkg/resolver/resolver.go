@@ -247,6 +247,7 @@ func WaitForFile(fs afero.Fs, filepath string) error {
 				return fmt.Errorf("error checking file %s: %w", filepath, err)
 			}
 			if exists {
+				logging.Info("File found: ", filepath)
 				return nil
 			}
 		}

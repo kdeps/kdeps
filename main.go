@@ -27,9 +27,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Setup graceful shutdown handling
-	setupSignalHandler(cancel, fs, env)
-
 	// Initialize Docker system
 	apiServerMode, err := docker.BootstrapDockerSystem(fs, ctx, env)
 	if err != nil {
@@ -37,9 +34,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Setup graceful shutdown handling
+	setupSignalHandler(cancel, fs, env, apiServerMode)
+
 	// Run workflow or wait for shutdown
 	if !apiServerMode {
-		err = runGraphResolver(fs, ctx, env)
+		err = runGraphResolver(fs, ctx, env, apiServerMode)
 		if err != nil {
 			logging.Error("Error running graph resolver", "error", err)
 			os.Exit(1)
@@ -49,7 +49,7 @@ func main() {
 	// Wait for shutdown signal
 	<-ctx.Done()
 	logging.Info("Context canceled, shutting down gracefully...")
-	cleanup(fs, env)
+	cleanup(fs, env, apiServerMode)
 }
 
 // setupEnvironment initializes the environment using the filesystem.
@@ -63,7 +63,7 @@ func setupEnvironment(fs afero.Fs) (*environment.Environment, error) {
 }
 
 // setupSignalHandler sets up a goroutine to handle OS signals for graceful shutdown.
-func setupSignalHandler(cancelFunc context.CancelFunc, fs afero.Fs, env *environment.Environment) {
+func setupSignalHandler(cancelFunc context.CancelFunc, fs afero.Fs, env *environment.Environment, apiServerMode bool) {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
@@ -71,14 +71,14 @@ func setupSignalHandler(cancelFunc context.CancelFunc, fs afero.Fs, env *environ
 		sig := <-sigs
 		logging.Info(fmt.Sprintf("Received signal: %v, initiating shutdown...", sig))
 		cancelFunc() // Cancel context to initiate shutdown
-		cleanup(fs, env)
+		cleanup(fs, env, apiServerMode)
 		resolver.WaitForFile(fs, "/.dockercleanup")
 		os.Exit(0)
 	}()
 }
 
 // runGraphResolver prepares and runs the graph resolver.
-func runGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment) error {
+func runGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment, apiServerMode bool) error {
 	dr, err := resolver.NewGraphResolver(fs, nil, ctx, env, "/agent")
 	if err != nil {
 		return fmt.Errorf("failed to create graph resolver: %w", err)
@@ -94,14 +94,15 @@ func runGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		return fmt.Errorf("failed to handle run action: %w", err)
 	}
 
-	cleanup(fs, env)
+	cleanup(fs, env, apiServerMode)
+
 	resolver.WaitForFile(fs, "/.dockercleanup")
 
 	return nil
 }
 
 // cleanup performs any necessary cleanup tasks before shutting down.
-func cleanup(fs afero.Fs, env *environment.Environment) {
+func cleanup(fs afero.Fs, env *environment.Environment, apiServerMode bool) {
 	logging.Info("Performing cleanup tasks...")
 
 	// Remove any old cleanup flags
@@ -115,4 +116,8 @@ func cleanup(fs afero.Fs, env *environment.Environment) {
 	docker.Cleanup(fs, env)
 
 	logging.Info("Cleanup complete.")
+
+	if !apiServerMode {
+		os.Exit(0)
+	}
 }

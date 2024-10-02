@@ -31,7 +31,6 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
-	"github.com/docker/go-connections/nat"
 	apiserver "github.com/kdeps/schema/gen/api_server"
 	kdCfg "github.com/kdeps/schema/gen/kdeps"
 	pklWf "github.com/kdeps/schema/gen/workflow"
@@ -42,41 +41,6 @@ import (
 type BuildLine struct {
 	Stream string `json:"stream"`
 	Error  string `json:"error"`
-}
-
-func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerName, hostIP, portNum string, apiMode bool, cli *client.Client) (string, error) {
-	// Run the Docker container with volume and port configuration
-	containerConfig := &container.Config{
-		Image: containerName,
-	}
-
-	tcpPort := fmt.Sprintf("%s/tcp", portNum)
-	hostConfig := &container.HostConfig{
-		Binds: []string{"kdeps:/root/.ollama"},
-		PortBindings: map[nat.Port][]nat.PortBinding{
-			nat.Port(tcpPort): {{HostIP: hostIP, HostPort: portNum}},
-		},
-	}
-
-	if !apiMode {
-		hostConfig = &container.HostConfig{
-			Binds: []string{"kdeps:/root/.ollama"},
-		}
-	}
-
-	resp, err := cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, cName)
-	if err != nil {
-		return "", err
-	}
-
-	err = cli.ContainerStart(ctx, resp.ID, container.StartOptions{})
-	if err != nil {
-		return "", err
-	}
-
-	fmt.Println("Kdeps container is running.")
-
-	return resp.ID, nil
 }
 
 func CleanupDockerBuildImages(fs afero.Fs, ctx context.Context, cName string, cli *client.Client) error {
@@ -409,7 +373,7 @@ func Cleanup(fs afero.Fs, environ *environment.Environment) {
 		if err != nil {
 			logging.Error(fmt.Sprintf("Error copying %s to %s: %v", projectDir, workflowDir, err))
 		} else {
-			logging.Info(fmt.Sprintf("Copied %s to %s", projectDir, workflowDir))
+			logging.Info(fmt.Sprintf("Copied %s to %s for next run", projectDir, workflowDir))
 		}
 
 		if err := CreateFlagFile(fs, "/.dockercleanup"); err != nil {
