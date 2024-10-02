@@ -3,31 +3,32 @@ package docker
 import (
 	"errors"
 	"fmt"
-	"kdeps/pkg/logging"
 	"math/rand"
 	"net"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/charmbracelet/log"
 )
 
 // parseOLLAMAHost parses the OLLAMA_HOST environment variable into host and port
-func parseOLLAMAHost() (string, string, error) {
-	logging.Info("Parsing OLLAMA_HOST environment variable")
+func parseOLLAMAHost(logger *log.Logger) (string, string, error) {
+	logger.Info("Parsing OLLAMA_HOST environment variable")
 
 	hostEnv := os.Getenv("OLLAMA_HOST")
 	if hostEnv == "" {
-		logging.Error("OLLAMA_HOST environment variable is not set")
+		logger.Error("OLLAMA_HOST environment variable is not set")
 		return "", "", errors.New("OLLAMA_HOST environment variable is not set")
 	}
 
 	host, port, err := net.SplitHostPort(hostEnv)
 	if err != nil {
-		logging.Error("Invalid OLLAMA_HOST format: ", err)
+		logger.Error("Invalid OLLAMA_HOST format: ", err)
 		return "", "", fmt.Errorf("Invalid OLLAMA_HOST format: %v", err)
 	}
 
-	logging.Info("Parsed OLLAMA_HOST into host: ", host, " and port: ", port)
+	logger.Info("Parsed OLLAMA_HOST into host: ", host, " and port: ", port)
 	return host, port, nil
 }
 

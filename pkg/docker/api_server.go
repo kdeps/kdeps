@@ -6,20 +6,20 @@ import (
 	"io/ioutil"
 	"kdeps/pkg/environment"
 	"kdeps/pkg/evaluator"
-	"kdeps/pkg/logging"
 	"kdeps/pkg/resolver"
-	"log"
 	"net/http"
 	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/charmbracelet/log"
 	apiserver "github.com/kdeps/schema/gen/api_server"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 )
 
-func StartApiServerMode(fs afero.Fs, ctx context.Context, wfCfg *pklWf.Workflow, environ *environment.Environment, agentDir string) error {
+func StartApiServerMode(fs afero.Fs, ctx context.Context, wfCfg *pklWf.Workflow, environ *environment.Environment,
+	agentDir string, logger *log.Logger) error {
 	// Extracting workflow settings and API server config
 	wfSettings := *wfCfg.Settings
 	wfApiServer := wfSettings.ApiServer
@@ -34,7 +34,7 @@ func StartApiServerMode(fs afero.Fs, ctx context.Context, wfCfg *pklWf.Workflow,
 	// Set up routes from the configuration
 	routes := wfApiServer.Routes
 	for _, route := range routes {
-		http.HandleFunc(route.Path, ApiServerHandler(fs, ctx, route, environ, agentDir))
+		http.HandleFunc(route.Path, ApiServerHandler(fs, ctx, route, environ, agentDir, logger))
 	}
 
 	// Start the server
@@ -50,7 +50,8 @@ func StartApiServerMode(fs afero.Fs, ctx context.Context, wfCfg *pklWf.Workflow,
 	return nil
 }
 
-func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServerRoutes, env *environment.Environment, apiServerPath string) http.HandlerFunc {
+func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServerRoutes, env *environment.Environment,
+	apiServerPath string, logger *log.Logger) http.HandlerFunc {
 	var responseFileExt string
 	var contentType string
 	var responseFlagFile string
@@ -106,13 +107,13 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 	return func(w http.ResponseWriter, r *http.Request) {
 		if _, err := fs.Stat(responseFile); err == nil {
 			if err := fs.RemoveAll(responseFile); err != nil {
-				logging.Error("Unable to delete old response file", "response-file", responseFile)
+				logger.Error("Unable to delete old response file", "response-file", responseFile)
 				return
 			}
 		}
 		if _, err := fs.Stat(responseFlag); err == nil {
 			if err := fs.RemoveAll(responseFlag); err != nil {
-				logging.Error("Unable to delete old response flag file", "response-flag", responseFlag)
+				logger.Error("Unable to delete old response flag file", "response-flag", responseFlag)
 				return
 			}
 		}
@@ -168,7 +169,7 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 		sections := []string{url, method, headerSection, dataSection, paramSection}
 
 		if err := evaluator.CreateAndProcessPklFile(fs, sections, requestPklFile, "APIServerRequest.pkl",
-			nil, evaluator.EvalPkl); err != nil {
+			nil, logger, evaluator.EvalPkl); err != nil {
 			return
 		}
 
@@ -179,25 +180,25 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 		// Wait for the file to exist before responding
 		for {
 			if err := dr.PrepareWorkflowDir(); err != nil {
-				log.Fatal(err)
+				logger.Fatal(err)
 			}
 
 			if err := dr.PrepareImportFiles(); err != nil {
-				log.Fatal(err)
+				logger.Fatal(err)
 			}
 
 			if err := dr.HandleRunAction(); err != nil {
-				log.Fatal(err)
+				logger.Fatal(err)
 			}
 
 			stdout, err := dr.EvalPklFormattedResponseFile()
 			if err != nil {
-				log.Fatal(fmt.Errorf(stdout, err))
+				logger.Fatal(fmt.Errorf(stdout, err))
 			}
 
-			logging.Info("Awaiting for response...")
-			if err := resolver.WaitForFile(fs, dr.ResponseTargetFile); err != nil {
-				log.Fatal(err)
+			logger.Info("Awaiting for response...")
+			if err := resolver.WaitForFile(fs, dr.ResponseTargetFile, logger); err != nil {
+				logger.Fatal(err)
 			}
 
 			// File exists, now respond with its contents

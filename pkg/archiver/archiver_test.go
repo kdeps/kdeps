@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"kdeps/pkg/enforcer"
+	"kdeps/pkg/logging"
 	"kdeps/pkg/resource"
 	"kdeps/pkg/workflow"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/log"
 	"github.com/cucumber/godog"
 	"github.com/kr/pretty"
 	"github.com/spf13/afero"
@@ -23,6 +25,7 @@ var (
 	testingT           *testing.T
 	aiAgentDir         string
 	resourcesDir       string
+	logger             *log.Logger
 	dataDir            string
 	workflowFile       string
 	resourceFile       string
@@ -86,7 +89,7 @@ func aKdepsArchiveIsOpened(arg1 string) error {
 		return errors.New("agent should not yet exists on system agents dir")
 	}
 
-	proj, err := ExtractPackage(testFs, ctx, kdepsDir, lastCreatedPackage)
+	proj, err := ExtractPackage(testFs, ctx, kdepsDir, lastCreatedPackage, logger)
 	if err != nil {
 		return err
 	}
@@ -97,6 +100,7 @@ func aKdepsArchiveIsOpened(arg1 string) error {
 }
 
 func theSystemFolderExists(arg1 string) error {
+	logger = logging.GetLogger()
 	tempDir, err := afero.TempDir(testFs, "", arg1)
 	if err != nil {
 		return err
@@ -185,12 +189,12 @@ func itWillBeStoredTo(arg1 string) error {
 
 func theProjectIsCompiled() error {
 	ctx = context.Background()
-	wf, err := workflow.LoadWorkflow(ctx, workflowFile)
+	wf, err := workflow.LoadWorkflow(ctx, workflowFile, logger)
 	if err != nil {
 		return err
 	}
 
-	projectDir, _, _ := CompileProject(testFs, ctx, wf, kdepsDir, aiAgentDir)
+	projectDir, _, _ := CompileProject(testFs, ctx, wf, kdepsDir, aiAgentDir, logger)
 
 	workflowFile = filepath.Join(projectDir, "workflow.pkl")
 
@@ -200,7 +204,7 @@ func theProjectIsCompiled() error {
 func theResourceIdForWillBeAndDependency(arg1, arg2, arg3 string) error {
 	resFile := filepath.Join(projectDir, "resources/"+arg1)
 	if _, err := testFs.Stat(resFile); err == nil {
-		res, err := resource.LoadResource(ctx, resFile)
+		res, err := resource.LoadResource(ctx, resFile, logger)
 		if err != nil {
 			return err
 		}
@@ -226,7 +230,7 @@ func theResourceIdForWillBeAndDependency(arg1, arg2, arg3 string) error {
 func theResourceIdForWillBeRewrittenTo(arg1, arg2 string) error {
 	resFile := filepath.Join(projectDir, "resources/"+arg1)
 	if _, err := testFs.Stat(resFile); err == nil {
-		res, err := resource.LoadResource(ctx, resFile)
+		res, err := resource.LoadResource(ctx, resFile, logger)
 		if err != nil {
 			return err
 		}
@@ -240,7 +244,7 @@ func theResourceIdForWillBeRewrittenTo(arg1, arg2 string) error {
 }
 
 func theWorkflowActionConfigurationWillBeRewrittenTo(arg1 string) error {
-	wf, err := workflow.LoadWorkflow(ctx, workflowFile)
+	wf, err := workflow.LoadWorkflow(ctx, workflowFile, logger)
 	if err != nil {
 		return err
 	}
@@ -326,7 +330,7 @@ func theContentOfThatArchiveFileWillBeExtractedTo(arg1 string) error {
 }
 
 func thePklFilesIsValid() error {
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowFile); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowFile, logger); err != nil {
 		return err
 	}
 
@@ -334,7 +338,7 @@ func thePklFilesIsValid() error {
 }
 
 func theProjectIsValid() error {
-	if err := enforcer.EnforceFolderStructure(testFs, workflowFile); err != nil {
+	if err := enforcer.EnforceFolderStructure(testFs, workflowFile, logger); err != nil {
 		return err
 	}
 
@@ -342,12 +346,12 @@ func theProjectIsValid() error {
 }
 
 func theProjectWillBeArchivedTo(arg1 string) error {
-	wf, err := workflow.LoadWorkflow(ctx, workflowFile)
+	wf, err := workflow.LoadWorkflow(ctx, workflowFile, logger)
 	if err != nil {
 		return err
 	}
 
-	fpath, err := PackageProject(testFs, wf, kdepsDir, aiAgentDir)
+	fpath, err := PackageProject(testFs, wf, kdepsDir, aiAgentDir, logger)
 	if err != nil {
 		return err
 	}
@@ -399,7 +403,7 @@ func thePklFilesIsInvalid() error {
 
 	workflowFile = file
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowFile); err == nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowFile, logger); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 
@@ -407,7 +411,7 @@ func thePklFilesIsInvalid() error {
 }
 
 func theProjectIsInvalid() error {
-	if err := enforcer.EnforceFolderStructure(testFs, workflowFile); err == nil {
+	if err := enforcer.EnforceFolderStructure(testFs, workflowFile, logger); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 
@@ -415,12 +419,12 @@ func theProjectIsInvalid() error {
 }
 
 func theProjectWillNotBeArchivedTo(arg1 string) error {
-	wf, err := workflow.LoadWorkflow(ctx, workflowFile)
+	wf, err := workflow.LoadWorkflow(ctx, workflowFile, logger)
 	if err != nil {
 		return err
 	}
 
-	fpath, err := PackageProject(testFs, wf, kdepsDir, aiAgentDir)
+	fpath, err := PackageProject(testFs, wf, kdepsDir, aiAgentDir, logger)
 	if err == nil {
 		return errors.New("expected an error, but got nil")
 	}
