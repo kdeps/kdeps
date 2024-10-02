@@ -8,11 +8,10 @@ TARGETS := $(filter darwin/amd64 linux/amd64 windows/amd64 darwin/arm64 linux/ar
 # Default target
 all: test
 
-# Run tests and generate a report
+# Run tests and generate a report with coverage
 test:
-	@echo "Running tests..."
-	@go test -v $(PACKAGE_LIST) | tee $(TEST_REPORT)
-	@go test -coverprofile=$(COVERAGE_REPORT) $(PACKAGE_LIST)
+	@echo "Running tests with coverage..."
+	@go test -v -coverprofile=$(COVERAGE_REPORT) $(PACKAGE_LIST) | tee $(TEST_REPORT)
 
 # Get the latest schema version and append it to the SCHEMA_VERSION file
 schema_version:
@@ -33,11 +32,11 @@ build: schema_version
 		echo "Building for ./build/$$X_OS/$$X_ARCH/..."; \
 		mkdir -p ./build/$$X_OS/$$X_ARCH/ || { \
 			echo "Failed to create directory ./build/$$X_OS/$$X_ARCH/"; \
-			continue; \
+			exit 1; \
 		}; \
 		GOOS=$$X_OS GOARCH=$$X_ARCH go build -ldflags "-X kdeps/pkg/schema.SchemaVersion=$$SCHEMA_VERSION" -o ./build/$$X_OS/$$X_ARCH/ $(PACKAGE_LIST) || { \
 			echo "Build failed for $$X_OS/$$X_ARCH"; \
-			continue; \
+			exit 1; \
 		}; \
 		echo "Build succeeded for $$X_OS/$$X_ARCH"; \
 	done
@@ -45,7 +44,7 @@ build: schema_version
 # Clean up generated files
 clean:
 	@echo "Cleaning up..."
-	@rm -rf ./build $(TEST_REPORT) $(COVERAGE_REPORT)
+	@rm -rf ./build $(TEST_REPORT) $(COVERAGE_REPORT) $(SCHEMA_VERSION_FILE)
 
 # Run linting using golangci-lint (you need to have golangci-lint installed)
 lint:
