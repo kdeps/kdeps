@@ -7,7 +7,6 @@ import (
 	"kdeps/pkg/environment"
 	"kdeps/pkg/logging"
 	"kdeps/pkg/resolver"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -16,78 +15,104 @@ import (
 )
 
 func main() {
-	// Create an afero filesystem (you can use afero.NewOsFs() for the real filesystem)
+	// Initialize filesystem and context
 	fs := afero.NewOsFs()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // Ensure context is canceled when main exits
 
-	env := &environment.Environment{}
-	environ, err := environment.NewEnvironment(fs, env)
+	// Setup environment
+	env, err := setupEnvironment(fs)
 	if err != nil {
-		logging.Error(err)
-
+		logging.Error("Failed to set up environment", "error", err)
 		os.Exit(1)
 	}
 
-	// Set up signal handling for graceful shutdown
+	// Setup graceful shutdown handling
+	setupSignalHandler(cancel, fs, env)
+
+	// Initialize Docker system
+	apiServerMode, err := docker.BootstrapDockerSystem(fs, ctx, env)
+	if err != nil {
+		logging.Error("Error during Docker bootstrap", "error", err)
+		os.Exit(1)
+	}
+
+	// Run workflow or wait for shutdown
+	if !apiServerMode {
+		err = runGraphResolver(fs, ctx, env)
+		if err != nil {
+			logging.Error("Error running graph resolver", "error", err)
+			os.Exit(1)
+		}
+	}
+
+	// Wait for shutdown signal
+	<-ctx.Done()
+	logging.Info("Context canceled, shutting down gracefully...")
+	cleanup(fs, env)
+}
+
+// setupEnvironment initializes the environment using the filesystem.
+func setupEnvironment(fs afero.Fs) (*environment.Environment, error) {
+	env := &environment.Environment{}
+	environ, err := environment.NewEnvironment(fs, env)
+	if err != nil {
+		return nil, err
+	}
+	return environ, nil
+}
+
+// setupSignalHandler sets up a goroutine to handle OS signals for graceful shutdown.
+func setupSignalHandler(cancelFunc context.CancelFunc, fs afero.Fs, env *environment.Environment) {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
 		sig := <-sigs
 		logging.Info(fmt.Sprintf("Received signal: %v, initiating shutdown...", sig))
-		cancel()
-
-		cleanup(fs, environ)
-
+		cancelFunc() // Cancel context to initiate shutdown
+		cleanup(fs, env)
 		resolver.WaitForFile(fs, "/.dockercleanup")
-
 		os.Exit(0)
 	}()
-
-	// Call BootstrapDockerSystem to initialize Docker and pull models
-	apiServerMode, err := docker.BootstrapDockerSystem(fs, ctx, environ)
-	if err != nil {
-		fmt.Printf("Error during bootstrap: %v\n", err)
-		os.Exit(1) // Exit with a non-zero status on failure
-	}
-
-	if !apiServerMode {
-		dr, err := resolver.NewGraphResolver(fs, nil, ctx, environ, "/agent")
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		if err := dr.PrepareWorkflowDir(); err != nil {
-			log.Fatal(err)
-		}
-
-		if err := dr.HandleRunAction(); err != nil {
-			log.Fatal(err)
-		}
-
-		cleanup(fs, environ)
-		resolver.WaitForFile(fs, "/.dockercleanup")
-		os.Exit(0)
-	}
-
-	// Block the main routine, but respond to the context cancellation
-	<-ctx.Done()
-	logging.Info("Shutting down gracefully...")
 }
 
-// cleanup performs any necessary cleanup tasks before shutting down
-func cleanup(fs afero.Fs, environ *environment.Environment) {
-	// Perform file cleanups or other shutdown tasks here
+// runGraphResolver prepares and runs the graph resolver.
+func runGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment) error {
+	dr, err := resolver.NewGraphResolver(fs, nil, ctx, env, "/agent")
+	if err != nil {
+		return fmt.Errorf("failed to create graph resolver: %w", err)
+	}
+
+	// Prepare workflow directory
+	if err := dr.PrepareWorkflowDir(); err != nil {
+		return fmt.Errorf("failed to prepare workflow directory: %w", err)
+	}
+
+	// Handle run action
+	if err := dr.HandleRunAction(); err != nil {
+		return fmt.Errorf("failed to handle run action: %w", err)
+	}
+
+	cleanup(fs, env)
+	resolver.WaitForFile(fs, "/.dockercleanup")
+
+	return nil
+}
+
+// cleanup performs any necessary cleanup tasks before shutting down.
+func cleanup(fs afero.Fs, env *environment.Environment) {
 	logging.Info("Performing cleanup tasks...")
 
+	// Remove any old cleanup flags
 	if _, err := fs.Stat("/.dockercleanup"); err == nil {
-		if err := fs.RemoveAll("./dockercleanup"); err != nil {
-			logging.Error("Unable to delete old cleanup flag file", "cleanup-file", "/.dockercleanup")
+		if err := fs.RemoveAll("/.dockercleanup"); err != nil {
+			logging.Error("Unable to delete cleanup flag file", "cleanup-file", "/.dockercleanup", "error", err)
 		}
 	}
 
-	docker.Cleanup(fs, environ)
+	// Perform Docker cleanup
+	docker.Cleanup(fs, env)
 
 	logging.Info("Cleanup complete.")
 }
