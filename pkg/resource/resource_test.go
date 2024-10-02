@@ -218,6 +218,7 @@ settings {
 amends "package://schema.kdeps.com/core@0.0.50#/Resource.pkl"
 
 local llmResponse = "@(llm.resource["action2"].response.trim())"
+local execResponse = "@(exec.resource["action3"].stdout.trim())"
 
 id = "helloWorld"
 name = "default action"
@@ -239,7 +240,8 @@ run {
     success = true
     response {
       data {
-	"\(llmResponse)"
+	"@(llmResponse)"
+	"@(execResponse)"
       }
     }
   }
@@ -294,13 +296,14 @@ description = "this is a description for action2 - @(request.method)"
 name = "default action"
 requires {
   "action1"
+  "action3"
   "helloWorld"
 }
 run {
   chat {
     model = "tinydolphin"
     prompt = """
-hello, what is this image? - @(request.data)
+tell me about this "@(exec.resource["action3"].stdout)"
 """
   }
 }
@@ -330,7 +333,7 @@ run {
       ["NEWVAR"] = "I am a new variable"
       ["NEWVAR2"] = "I am also a new variable"
     }
-    command = "ls -alh && echo $NEWVAR && echo $NEWVAR2"
+    command = "echo $NEWVAR && echo $NEWVAR2"
   }
   postflightCheck {
     validations {

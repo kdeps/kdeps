@@ -126,6 +126,7 @@ func NewGraphResolver(fs afero.Fs, logger *log.Logger, ctx context.Context, env 
 
 func (dr *DependencyResolver) LoadResourceEntries() error {
 	workflowDir := filepath.Join(dr.AgentDir, "resources")
+	var pklFiles []string
 	if err := afero.Walk(dr.Fs, workflowDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			fmt.Errorf("Error walking through files: %s - %s", workflowDir, err)
@@ -138,31 +139,34 @@ func (dr *DependencyResolver) LoadResourceEntries() error {
 				fmt.Errorf("Failed to prepend dynamic imports "+path, err)
 			}
 
-			// Load the resource file
-			pklRes, err := resource.LoadResource(*dr.Context, path)
-			if err != nil {
-				fmt.Errorf("Error loading .pkl file "+path, err)
-			}
-
-			if err := dr.AddPlaceholderImports(pklRes.Id); err != nil {
+			if err := dr.AddPlaceholderImports(path); err != nil {
 				fmt.Errorf("Unable to create placeholder imports for .pkl file "+path, err)
 			}
 
-			dr.Resources = append(dr.Resources, ResourceNodeEntry{
-				Id:   pklRes.Id,
-				File: path,
-			})
-
-			if pklRes.Requires != nil {
-				dr.ResourceDependencies[pklRes.Id] = *pklRes.Requires
-			} else {
-				dr.ResourceDependencies[pklRes.Id] = nil
-			}
+			pklFiles = append(pklFiles, path)
 		}
-
 		return nil
 	}); err != nil {
 		return err
+	}
+
+	for _, file := range pklFiles {
+		// Load the resource file
+		pklRes, err := resource.LoadResource(*dr.Context, file)
+		if err != nil {
+			fmt.Errorf("Error loading .pkl file "+file, err)
+		}
+
+		dr.Resources = append(dr.Resources, ResourceNodeEntry{
+			Id:   pklRes.Id,
+			File: file,
+		})
+
+		if pklRes.Requires != nil {
+			dr.ResourceDependencies[pklRes.Id] = *pklRes.Requires
+		} else {
+			dr.ResourceDependencies[pklRes.Id] = nil
+		}
 	}
 
 	return nil
@@ -394,7 +398,38 @@ func NewAPIServerResponse(success bool, data []any, errorCode int, errorMessage 
 	}
 }
 
-func (dr *DependencyResolver) AddPlaceholderImports(actionId string) error {
+func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
+	// Open the file using afero file system (dr.Fs)
+	file, err := dr.Fs.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("could not open file: %v", err)
+	}
+	defer file.Close()
+
+	// Use a regular expression to find the id in the file
+	re := regexp.MustCompile(`id\s*=\s*"([^"]+)"`)
+	var actionId string
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		// Check if the line contains the id
+		matches := re.FindStringSubmatch(line)
+		if len(matches) > 1 {
+			actionId = matches[1]
+			break
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("error reading file: %v", err)
+	}
+
+	if actionId == "" {
+		return fmt.Errorf("action id not found in the file")
+	}
+
+	// Create placeholder entries using the parsed actionId
 	llmChat := &pklLLM.ResourceChat{}
 	execCmd := &pklExec.ResourceExec{}
 
@@ -568,14 +603,14 @@ func (dr *DependencyResolver) AppendExecEntry(resourceId string, newExec *pklExe
 
 	for id, resource := range existingResources {
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
-		pklContent.WriteString(fmt.Sprintf("    command = \"%s\"\n", resource.Command))
+		pklContent.WriteString(fmt.Sprintf("    command = \"\"\"\n%s\n\"\"\"\n", resource.Command))
 		pklContent.WriteString(fmt.Sprintf("    timestamp = %d\n", *resource.Timestamp))
 
 		// Write environment variables (if Env is not nil)
 		if resource.Env != nil {
 			pklContent.WriteString("    env {\n")
 			for key, value := range *resource.Env {
-				pklContent.WriteString(fmt.Sprintf("      \"%s\" = \"%s\"\n", key, value))
+				pklContent.WriteString(fmt.Sprintf("      [\"%s\"] = \"%s\"\n", key, value))
 			}
 			pklContent.WriteString("    }\n")
 		} else {
@@ -640,7 +675,7 @@ func (dr *DependencyResolver) AppendChatEntry(resourceId string, newChat *pklLLM
 	for id, resource := range existingResources {
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
 		pklContent.WriteString(fmt.Sprintf("    model = \"%s\"\n", resource.Model))
-		pklContent.WriteString(fmt.Sprintf("    prompt = \"%s\"\n", resource.Prompt))
+		pklContent.WriteString(fmt.Sprintf("    prompt = \"\"\"\n%s\n\"\"\"\n", resource.Prompt))
 		pklContent.WriteString(fmt.Sprintf("    timestamp = %d\n", *resource.Timestamp))
 		// Dereference response to pass it correctly
 		if resource.Response != nil {
@@ -663,33 +698,50 @@ func (dr *DependencyResolver) AppendChatEntry(resourceId string, newChat *pklLLM
 	return nil
 }
 
-// GetCurrentTimestamp retrieves the current timestamp for the specified resource ID from the PKL file.
 func (dr *DependencyResolver) GetCurrentTimestamp(resourceId string, resourceType string) (uint32, error) {
-	// Map containing the paths for different resource types
+	// Define file paths based on resource types
 	files := map[string]string{
 		"llm":    filepath.Join(dr.ActionDir, "llm/llm_output.pkl"),
 		"client": filepath.Join(dr.ActionDir, "client/client_output.pkl"),
 		"exec":   filepath.Join(dr.ActionDir, "exec/exec_output.pkl"),
 	}
 
-	// Retrieve the correct path based on resourceType
+	// Check if the resource type is valid and get the corresponding path
 	pklPath, exists := files[resourceType]
 	if !exists {
 		return 0, fmt.Errorf("invalid resourceType %s provided", resourceType)
 	}
 
-	// Load existing PKL data
-	pklRes, err := pklLLM.LoadFromPath(*dr.Context, pklPath)
-	if err != nil {
-		return 0, fmt.Errorf("failed to load PKL file: %w", err)
-	}
-
-	existingResources := *pklRes.Resource // Dereference to get the map
-
-	// Check if the resource ID exists
-	if resource, exists := existingResources[resourceId]; exists {
-		// Return the current timestamp
-		return *resource.Timestamp, nil
+	// Load the appropriate PKL file based on the resourceType
+	switch resourceType {
+	case "exec":
+		pklRes, err := pklExec.LoadFromPath(*dr.Context, pklPath)
+		if err != nil {
+			return 0, fmt.Errorf("failed to load exec PKL file: %w", err)
+		}
+		// Dereference the resource map for exec and handle ResourceExec
+		existingResources := *pklRes.Resource
+		if resource, exists := existingResources[resourceId]; exists {
+			if resource.Timestamp == nil {
+				return 0, fmt.Errorf("timestamp for resource ID %s is nil", resourceId)
+			}
+			return *resource.Timestamp, nil
+		}
+	case "llm":
+		pklRes, err := pklLLM.LoadFromPath(*dr.Context, pklPath)
+		if err != nil {
+			return 0, fmt.Errorf("failed to load llm PKL file: %w", err)
+		}
+		// Dereference the resource map for llm and handle ResourceChat
+		existingResources := *pklRes.Resource
+		if resource, exists := existingResources[resourceId]; exists {
+			if resource.Timestamp == nil {
+				return 0, fmt.Errorf("timestamp for resource ID %s is nil", resourceId)
+			}
+			return *resource.Timestamp, nil
+		}
+	default:
+		return 0, fmt.Errorf("unsupported resourceType %s provided", resourceType)
 	}
 
 	return 0, fmt.Errorf("resource ID %s does not exist in the file", resourceId)
@@ -698,6 +750,7 @@ func (dr *DependencyResolver) GetCurrentTimestamp(resourceId string, resourceTyp
 // WaitForTimestampChange waits until the timestamp for the specified resource ID changes from the provided previous timestamp.
 func (dr *DependencyResolver) WaitForTimestampChange(resourceId string, previousTimestamp uint32, timeout time.Duration,
 	resourceType string) error {
+
 	// Map containing the paths for different resource types
 	files := map[string]string{
 		"llm":    filepath.Join(dr.ActionDir, "llm/llm_output.pkl"),
@@ -719,22 +772,48 @@ func (dr *DependencyResolver) WaitForTimestampChange(resourceId string, previous
 			return fmt.Errorf("timeout exceeded while waiting for timestamp change for resource ID %s", resourceId)
 		}
 
-		// Reload the current state of the PKL file
-		updatedRes, err := pklLLM.LoadFromPath(*dr.Context, pklPath)
-		if err != nil {
-			return fmt.Errorf("failed to reload PKL file: %w", err)
-		}
-
-		// Check the timestamp of the specified resource ID
-		updatedResources := *updatedRes.Resource // Dereference to get the map
-		if updatedResource, exists := updatedResources[resourceId]; exists {
-			// Compare the current timestamp with the previous timestamp
-			if *updatedResource.Timestamp != previousTimestamp {
-				// Timestamp has changed
-				return nil
+		// Reload the current state of the PKL file and handle based on the resourceType
+		switch resourceType {
+		case "exec":
+			// Load exec type PKL file
+			updatedRes, err := pklExec.LoadFromPath(*dr.Context, pklPath)
+			if err != nil {
+				return fmt.Errorf("failed to reload exec PKL file: %w", err)
 			}
-		} else {
-			return fmt.Errorf("resource ID %s does not exist in the file", resourceId)
+
+			// Get the resource map and check for timestamp changes
+			updatedResources := *updatedRes.Resource // Dereference to get the map
+			if updatedResource, exists := updatedResources[resourceId]; exists {
+				// Compare the current timestamp with the previous timestamp
+				if updatedResource.Timestamp != nil && *updatedResource.Timestamp != previousTimestamp {
+					// Timestamp has changed
+					return nil
+				}
+			} else {
+				return fmt.Errorf("resource ID %s does not exist in the exec file", resourceId)
+			}
+
+		case "llm":
+			// Load llm type PKL file
+			updatedRes, err := pklLLM.LoadFromPath(*dr.Context, pklPath)
+			if err != nil {
+				return fmt.Errorf("failed to reload llm PKL file: %w", err)
+			}
+
+			// Get the resource map and check for timestamp changes
+			updatedResources := *updatedRes.Resource // Dereference to get the map
+			if updatedResource, exists := updatedResources[resourceId]; exists {
+				// Compare the current timestamp with the previous timestamp
+				if updatedResource.Timestamp != nil && *updatedResource.Timestamp != previousTimestamp {
+					// Timestamp has changed
+					return nil
+				}
+			} else {
+				return fmt.Errorf("resource ID %s does not exist in the llm file", resourceId)
+			}
+
+		default:
+			return fmt.Errorf("unsupported resourceType %s provided", resourceType)
 		}
 
 		// Sleep for a short duration before checking again
@@ -756,6 +835,29 @@ func (dr *DependencyResolver) HandleExec(actionId string, execBlock *pklExec.Res
 }
 
 func (dr *DependencyResolver) processExecBlock(actionId string, execBlock *pklExec.ResourceExec) error {
+	var env []string
+	if execBlock.Env != nil {
+		for key, value := range *execBlock.Env {
+			env = append(env, fmt.Sprintf("%s=\"%s\"", key, value))
+		}
+	}
+
+	cmd := execute.ExecTask{
+		Command:     execBlock.Command,
+		Shell:       true,
+		Env:         env,
+		StreamStdio: false,
+	}
+
+	// Execute the command
+	result, err := cmd.Execute(context.Background())
+	if err != nil {
+		return err
+	}
+
+	execBlock.Stdout = &result.Stdout
+	execBlock.Stderr = &result.Stderr
+
 	if err := dr.AppendExecEntry(actionId, execBlock); err != nil {
 		return err
 	}
@@ -844,7 +946,11 @@ func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock *apiserverr
 		// Convert the data slice to a string representation
 		responseData = make([]string, len(apiResponseBlock.Response.Data))
 		for i, v := range apiResponseBlock.Response.Data {
-			responseData[i] = fmt.Sprintf("%v", v) // Convert each item to a string
+			responseData[i] = fmt.Sprintf(`
+"""
+%v
+"""
+`, v) // Convert each item to a string
 		}
 	}
 
@@ -854,7 +960,7 @@ func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock *apiserverr
 		responseStr = fmt.Sprintf(`
 response {
   data {
-    "%s"
+%s
   }
 }`, strings.Join(responseData, "\n    ")) // Properly format the data block with indentation
 	}
