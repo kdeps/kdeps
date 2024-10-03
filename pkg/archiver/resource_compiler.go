@@ -1,0 +1,198 @@
+package archiver
+
+import (
+	"bufio"
+	"bytes"
+	"fmt"
+	"kdeps/pkg/enforcer"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+
+	"github.com/charmbracelet/log"
+	pklWf "github.com/kdeps/schema/gen/workflow"
+	"github.com/spf13/afero"
+)
+
+// CompileResources processes .pkl files from the project directory and copies them to the resources directory
+func CompileResources(fs afero.Fs, wf *pklWf.Workflow, resourcesDir string, projectDir string, logger *log.Logger) error {
+	projectResourcesDir := filepath.Join(projectDir, "resources")
+
+	if err := CheckAndValidatePklFiles(fs, projectResourcesDir, logger); err != nil {
+		return err
+	}
+
+	// Walk through all files in the project directory
+	err := afero.Walk(fs, projectResourcesDir, func(file string, info os.FileInfo, err error) error {
+		if err != nil {
+			logger.Error("Error walking project resources directory", "path", projectResourcesDir, "error", err)
+			return err
+		}
+
+		// Only process .pkl files
+		if filepath.Ext(file) == ".pkl" {
+			logger.Info("Processing .pkl", "file", file)
+			if err := processResourcePklFiles(fs, file, wf, resourcesDir, logger); err != nil {
+				logger.Error("Failed to process .pkl file", "file", file, "error", err)
+				return err
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		logger.Error("Error compiling resources", "resourcesDir", resourcesDir, "projectDir", projectDir, "error", err)
+		return err
+	}
+
+	logger.Info("Resources compiled successfully", "resourcesDir", resourcesDir, "projectDir", projectDir)
+	return nil
+}
+
+// processResourcePklFiles processes a .pkl file and writes modifications to the resources directory
+func processResourcePklFiles(fs afero.Fs, file string, wf *pklWf.Workflow, resourcesDir string, logger *log.Logger) error {
+	name, version := wf.Name, wf.Version
+
+	readFile, err := fs.Open(file)
+	if err != nil {
+		logger.Error("Failed to open file", "file", file, "error", err)
+		return err
+	}
+	defer readFile.Close()
+
+	var fileBuffer bytes.Buffer
+	scanner := bufio.NewScanner(readFile)
+
+	// Define regex patterns for exec, chat, client with actionID, and id replacement
+	idPattern := regexp.MustCompile(`(?i)^\s*id\s*=\s*"(.+)"`)
+	// Pattern to capture lines like {exec, chat, client}.resource["actionID"]
+	actionIDPattern := regexp.MustCompile(`(?i)(resource)\["(.+)"\]`)
+
+	inRequiresBlock := false
+	var requiresBlockBuffer bytes.Buffer
+	var action string
+
+	// Read file line by line
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		if inRequiresBlock {
+			// Check if we've reached the end of the `requires { ... }` block
+			if strings.TrimSpace(line) == "}" {
+				inRequiresBlock = false
+				// Process the accumulated `requires` block
+				modifiedBlock := handleRequiresBlock(requiresBlockBuffer.String(), wf)
+
+				// Write the modified block and the closing `}` line
+				fileBuffer.WriteString(modifiedBlock)
+				fileBuffer.WriteString(line + "\n")
+			} else {
+				// Continue accumulating the `requires` block lines
+				requiresBlockBuffer.WriteString(line + "\n")
+			}
+			continue
+		}
+
+		// Check if the line matches the `id = "value"` pattern
+		if idMatch := idPattern.FindStringSubmatch(line); idMatch != nil {
+			// Extract the action from the id
+			action = idMatch[1]
+
+			// If action doesn't already start with "@", prefix and append name and version
+			if !strings.HasPrefix(action, "@") {
+				newLine := strings.Replace(line, action, fmt.Sprintf("@%s/%s:%s", name, action, version), 1)
+				fileBuffer.WriteString(newLine + "\n")
+			} else {
+				fileBuffer.WriteString(line + "\n")
+			}
+		} else if actionIDMatch := actionIDPattern.FindStringSubmatch(line); actionIDMatch != nil {
+			// Extract the block type (exec, chat, client) and the actionID
+			blockType := actionIDMatch[1]
+			field := actionIDMatch[2]
+
+			// Only modify if actionID does not already start with "@"
+			if !strings.HasPrefix(field, "@") {
+				// Prefix and append name and version to the actionID in the format @name/actionID:version
+				modifiedField := fmt.Sprintf("%s[\"@%s/%s:%s\"]", blockType, name, field, version)
+				// Replace the original field with the modified one
+				newLine := strings.Replace(line, actionIDMatch[0], modifiedField, 1)
+				fileBuffer.WriteString(newLine + "\n")
+			} else {
+				fileBuffer.WriteString(line + "\n")
+			}
+		} else if strings.HasPrefix(strings.TrimSpace(line), "requires {") {
+			// Start of a `requires { ... }` block, set flag to accumulate lines
+			inRequiresBlock = true
+			requiresBlockBuffer.Reset()                  // Clear previous block data if any
+			requiresBlockBuffer.WriteString(line + "\n") // Add the opening `requires {` line
+		} else {
+			// Write the line unchanged if no pattern matches
+			fileBuffer.WriteString(line + "\n")
+		}
+	}
+
+	// Write back to the file if modifications were made
+	if scanner.Err() == nil {
+		if action == "" {
+			err = fmt.Errorf("no valid action found in file: %s", file)
+			logger.Error("No valid action found in file", "file", file, "error", err)
+			return err
+		}
+		fname := fmt.Sprintf("%s_%s-%s.pkl", name, action, version)
+		err = afero.WriteFile(fs, filepath.Join(resourcesDir, fname), fileBuffer.Bytes(), os.FileMode(0644))
+		if err != nil {
+			logger.Error("Error writing file", "file", fname, "error", err)
+			return fmt.Errorf("error writing file: %w", err)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		logger.Error("Error reading file", "file", file, "error", err)
+		return err
+	}
+
+	logger.Info("Processed .pkl file", "file", file)
+	return nil
+}
+
+func CheckAndValidatePklFiles(fs afero.Fs, projectResourcesDir string, logger *log.Logger) error {
+	// Check if the project resources directory exists
+	if _, err := fs.Stat(projectResourcesDir); err != nil {
+		logger.Error("No resource directory found! Exiting!")
+		return fmt.Errorf("AI agent needs to have at least 1 resource in the '%s' folder.", projectResourcesDir)
+	}
+
+	// Get the list of files in the directory
+	files, err := afero.ReadDir(fs, projectResourcesDir)
+	if err != nil {
+		logger.Error("Error reading resource directory", "error", err)
+		return fmt.Errorf("failed to read directory '%s': %v", projectResourcesDir, err)
+	}
+
+	// Filter for .pkl files
+	var pklFiles []string
+	for _, file := range files {
+		if !file.IsDir() && filepath.Ext(file.Name()) == ".pkl" {
+			pklFiles = append(pklFiles, filepath.Join(projectResourcesDir, file.Name()))
+		}
+	}
+
+	// Exit if no .pkl files are found
+	if len(pklFiles) == 0 {
+		logger.Error("No .pkl files found in the directory! Exiting!")
+		return fmt.Errorf("No .pkl files found in the '%s' folder.", projectResourcesDir)
+	}
+
+	// Validate each .pkl file
+	for _, pklFile := range pklFiles {
+		logger.Info("Validating .pkl file", "file", pklFile)
+		if err := enforcer.EnforcePklTemplateAmendsRules(fs, pklFile, logger); err != nil {
+			logger.Error("Validation failed for .pkl file", "file", pklFile, "error", err)
+			return fmt.Errorf("validation failed for '%s': %v", pklFile, err)
+		}
+	}
+
+	logger.Info("All .pkl files validated successfully!")
+	return nil
+}
