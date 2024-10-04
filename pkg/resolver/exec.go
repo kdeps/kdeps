@@ -25,6 +25,37 @@ func (dr *DependencyResolver) HandleExec(actionId string, execBlock *pklExec.Res
 	return nil
 }
 
+func (dr *DependencyResolver) processExecBlock(actionId string, execBlock *pklExec.ResourceExec) error {
+	var env []string
+	if execBlock.Env != nil {
+		for key, value := range *execBlock.Env {
+			env = append(env, fmt.Sprintf("%s=\"%s\"", key, value))
+		}
+	}
+
+	cmd := execute.ExecTask{
+		Command:     execBlock.Command,
+		Shell:       true,
+		Env:         env,
+		StreamStdio: false,
+	}
+
+	// Execute the command
+	result, err := cmd.Execute(context.Background())
+	if err != nil {
+		return err
+	}
+
+	execBlock.Stdout = &result.Stdout
+	execBlock.Stderr = &result.Stderr
+
+	if err := dr.AppendExecEntry(actionId, execBlock); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (dr *DependencyResolver) AppendExecEntry(resourceId string, newExec *pklExec.ResourceExec) error {
 	// Define the path to the PKL file
 	pklPath := filepath.Join(dr.ActionDir, "exec/exec_output.pkl")
@@ -52,12 +83,13 @@ func (dr *DependencyResolver) AppendExecEntry(resourceId string, newExec *pklExe
 
 	// Build the new content for the PKL file in the specified format
 	var pklContent strings.Builder
-	pklContent.WriteString("amends \"package://schema.kdeps.com/core@0.0.50#/Exec.pkl\"\n\n")
+	pklContent.WriteString("amends \"package://schema.kdeps.com/core@0.1.0#/Exec.pkl\"\n\n")
 	pklContent.WriteString("resource {\n")
 
 	for id, resource := range existingResources {
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
 		pklContent.WriteString(fmt.Sprintf("    command = \"\"\"\n%s\n\"\"\"\n", resource.Command))
+		pklContent.WriteString(fmt.Sprintf("    timeoutSeconds = %d\n", resource.TimeoutSeconds))
 		pklContent.WriteString(fmt.Sprintf("    timestamp = %d\n", *resource.Timestamp))
 
 		// Write environment variables (if Env is not nil)
@@ -92,37 +124,6 @@ func (dr *DependencyResolver) AppendExecEntry(resourceId string, newExec *pklExe
 	err = afero.WriteFile(dr.Fs, pklPath, []byte(pklContent.String()), 0644)
 	if err != nil {
 		return fmt.Errorf("failed to write to PKL file: %w", err)
-	}
-
-	return nil
-}
-
-func (dr *DependencyResolver) processExecBlock(actionId string, execBlock *pklExec.ResourceExec) error {
-	var env []string
-	if execBlock.Env != nil {
-		for key, value := range *execBlock.Env {
-			env = append(env, fmt.Sprintf("%s=\"%s\"", key, value))
-		}
-	}
-
-	cmd := execute.ExecTask{
-		Command:     execBlock.Command,
-		Shell:       true,
-		Env:         env,
-		StreamStdio: false,
-	}
-
-	// Execute the command
-	result, err := cmd.Execute(context.Background())
-	if err != nil {
-		return err
-	}
-
-	execBlock.Stdout = &result.Stdout
-	execBlock.Stderr = &result.Stderr
-
-	if err := dr.AppendExecEntry(actionId, execBlock); err != nil {
-		return err
 	}
 
 	return nil
