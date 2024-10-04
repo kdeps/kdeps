@@ -73,13 +73,14 @@ func (dr *DependencyResolver) AppendChatEntry(resourceId string, newChat *pklLLM
 
 	// Build the new content for the PKL file in the specified format
 	var pklContent strings.Builder
-	pklContent.WriteString("amends \"package://schema.kdeps.com/core@0.0.50#/LLM.pkl\"\n\n")
+	pklContent.WriteString("amends \"package://schema.kdeps.com/core@0.1.0#/LLM.pkl\"\n\n")
 	pklContent.WriteString("resource {\n")
 
 	for id, resource := range existingResources {
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
 		pklContent.WriteString(fmt.Sprintf("    model = \"%s\"\n", resource.Model))
 		pklContent.WriteString(fmt.Sprintf("    prompt = \"\"\"\n%s\n\"\"\"\n", resource.Prompt))
+		pklContent.WriteString(fmt.Sprintf("    timeoutSeconds = %d\n", resource.TimeoutSeconds))
 		pklContent.WriteString(fmt.Sprintf("    timestamp = %d\n", *resource.Timestamp))
 		// Dereference response to pass it correctly
 		if resource.Response != nil {

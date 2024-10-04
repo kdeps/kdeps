@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	pklExec "github.com/kdeps/schema/gen/exec"
+	pklHttp "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
 	"github.com/spf13/afero"
 )
@@ -232,12 +233,17 @@ func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
 	// Create placeholder entries using the parsed actionId
 	llmChat := &pklLLM.ResourceChat{}
 	execCmd := &pklExec.ResourceExec{}
+	httpClient := &pklHttp.ResourceHTTPClient{}
 
 	if err := dr.AppendChatEntry(actionId, llmChat); err != nil {
 		return err
 	}
 
 	if err := dr.AppendExecEntry(actionId, execCmd); err != nil {
+		return err
+	}
+
+	if err := dr.AppendHttpEntry(actionId, httpClient); err != nil {
 		return err
 	}
 

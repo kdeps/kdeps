@@ -122,7 +122,7 @@ func (dr *DependencyResolver) HandleRunAction() error {
 
 	visited := make(map[string]bool)
 	actionId := dr.Workflow.Action
-
+	timeoutSeconds := 60 * time.Second
 	dr.Logger.Info("Processing resources...")
 	if err := dr.LoadResourceEntries(); err != nil {
 		return dr.HandleAPIErrorResponse(500, err.Error())
@@ -173,7 +173,11 @@ func (dr *DependencyResolver) HandleRunAction() error {
 							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Exec failed for resource: %s - %s", res.Id, err))
 						}
 
-						if err := dr.WaitForTimestampChange(res.Id, timestamp, 60*time.Second, "exec"); err != nil {
+						if runBlock.Exec.TimeoutSeconds != nil {
+							timeoutSeconds = time.Duration(*runBlock.Exec.TimeoutSeconds) * time.Second
+						}
+
+						if err := dr.WaitForTimestampChange(res.Id, timestamp, timeoutSeconds, "exec"); err != nil {
 							dr.Logger.Error("Exec error:", res.Id)
 							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Exec timeout awaiting for output: %s - %s", res.Id, err))
 						}
@@ -192,10 +196,37 @@ func (dr *DependencyResolver) HandleRunAction() error {
 							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("LLM chat failed for resource: %s - %s", res.Id, err))
 						}
 
-						if err := dr.WaitForTimestampChange(res.Id, timestamp, 60*time.Second, "llm"); err != nil {
+						if runBlock.Chat.TimeoutSeconds != nil {
+							timeoutSeconds = time.Duration(*runBlock.Chat.TimeoutSeconds) * time.Second
+						}
+
+						if err := dr.WaitForTimestampChange(res.Id, timestamp, timeoutSeconds, "llm"); err != nil {
 							dr.Logger.Error("LLM chat error:", res.Id)
 							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("LLM chat timeout awaiting for response: %s - %s", res.Id, err))
 						}
+					}
+
+					if runBlock.HttpClient != nil && runBlock.HttpClient.Method != "" && runBlock.HttpClient.Url != "" {
+						timestamp, err := dr.GetCurrentTimestamp(res.Id, "client")
+						if err != nil {
+							dr.Logger.Error("Http client error:", res.Id)
+							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Http client failed for resource: %s - %s", res.Id, err))
+						}
+
+						if err := dr.HandleHttpClient(res.Id, runBlock.HttpClient); err != nil {
+							dr.Logger.Error("Http client error:", res.Id)
+							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Http client failed for resource: %s - %s", res.Id, err))
+						}
+
+						if runBlock.HttpClient.TimeoutSeconds != nil {
+							timeoutSeconds = time.Duration(*runBlock.HttpClient.TimeoutSeconds) * time.Second
+						}
+
+						if err := dr.WaitForTimestampChange(res.Id, timestamp, timeoutSeconds, "client"); err != nil {
+							dr.Logger.Error("Http client error:", res.Id)
+							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Http client timeout awaiting for output: %s - %s", res.Id, err))
+						}
+
 					}
 
 					// Handle Postflight Check

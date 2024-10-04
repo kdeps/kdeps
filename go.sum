@@ -35,6 +35,8 @@ github.com/charmbracelet/x/editor v0.1.0 h1:p69/dpvlwRTs9uYiPeAWruwsHqTFzHhTvQOd
 github.com/charmbracelet/x/editor v0.1.0/go.mod h1:oivrEbcP/AYt/Hpvk5pwDXXrQ933gQS6UzL6fxqAGSA=
 github.com/charmbracelet/x/exp/strings v0.0.0-20240919170804-a4978c8e603a h1:JMdM89Udp/cOl5tC3MuUJXTPE/nAdU1oyt9jRU44qq8=
 github.com/charmbracelet/x/exp/strings v0.0.0-20240919170804-a4978c8e603a/go.mod h1:pBhA0ybfXv6hDjQUZ7hk1lVxBiUbupdw5R31yPUViVQ=
+github.com/charmbracelet/x/exp/strings v0.0.0-20241004114537-1412391fe223 h1:ryonZGVvamHYxZ3bnErEbof+lk5BIB7vGCNhw65hpqQ=
+github.com/charmbracelet/x/exp/strings v0.0.0-20241004114537-1412391fe223/go.mod h1:pBhA0ybfXv6hDjQUZ7hk1lVxBiUbupdw5R31yPUViVQ=
 github.com/charmbracelet/x/term v0.2.0 h1:cNB9Ot9q8I711MyZ7myUR5HFWL/lc3OpU8jZ4hwm0x0=
 github.com/charmbracelet/x/term v0.2.0/go.mod h1:GVxgxAbjUrmpvIINHIQnJJKpMlHiZ4cktEQCN6GWyF0=
 github.com/containerd/log v0.1.0 h1:TCJt7ioM2cr/tfR8GPbGf9/VRAX8D2B4PjzCpfX540I=
@@ -101,6 +103,8 @@ github.com/kdeps/kartographer v0.0.0-20240808015651-b2afd5d97715 h1:CxUIVGV6VdgZ
 github.com/kdeps/kartographer v0.0.0-20240808015651-b2afd5d97715/go.mod h1:DYSCAer2OsX5F3Jne82p4P1LCIu42DQFfL5ypZYcUbk=
 github.com/kdeps/schema v0.0.50 h1:HVvrckZC/25qo7bliopopvXVXW6NRHi85wiY9gNT6eo=
 github.com/kdeps/schema v0.0.50/go.mod h1:vncGvp+CLzokQekPNcPW1JLiASbaMiOeOTUDOSUeZIc=
+github.com/kdeps/schema v0.1.0 h1:eux7bacNnJNpaOxmaS7CwfjthV8lBQa6L3tH8Uzqt6o=
+github.com/kdeps/schema v0.1.0/go.mod h1:vncGvp+CLzokQekPNcPW1JLiASbaMiOeOTUDOSUeZIc=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/kr/pretty v0.2.1/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=

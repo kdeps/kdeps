@@ -6,6 +6,7 @@ import (
 	"time"
 
 	pklExec "github.com/kdeps/schema/gen/exec"
+	pklHttp "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
 )
 
@@ -44,6 +45,19 @@ func (dr *DependencyResolver) GetCurrentTimestamp(resourceId string, resourceTyp
 			return 0, fmt.Errorf("failed to load llm PKL file: %w", err)
 		}
 		// Dereference the resource map for llm and handle ResourceChat
+		existingResources := *pklRes.Resource
+		if resource, exists := existingResources[resourceId]; exists {
+			if resource.Timestamp == nil {
+				return 0, fmt.Errorf("timestamp for resource ID %s is nil", resourceId)
+			}
+			return *resource.Timestamp, nil
+		}
+	case "client":
+		pklRes, err := pklHttp.LoadFromPath(*dr.Context, pklPath)
+		if err != nil {
+			return 0, fmt.Errorf("failed to load client PKL file: %w", err)
+		}
+		// Dereference the resource map for exec and handle ResourceExec
 		existingResources := *pklRes.Resource
 		if resource, exists := existingResources[resourceId]; exists {
 			if resource.Timestamp == nil {
@@ -122,7 +136,24 @@ func (dr *DependencyResolver) WaitForTimestampChange(resourceId string, previous
 			} else {
 				return fmt.Errorf("resource ID %s does not exist in the llm file", resourceId)
 			}
+		case "client":
+			// Load client type PKL file
+			updatedRes, err := pklHttp.LoadFromPath(*dr.Context, pklPath)
+			if err != nil {
+				return fmt.Errorf("failed to reload http PKL file: %w", err)
+			}
 
+			// Get the resource map and check for timestamp changes
+			updatedResources := *updatedRes.Resource // Dereference to get the map
+			if updatedResource, exists := updatedResources[resourceId]; exists {
+				// Compare the current timestamp with the previous timestamp
+				if updatedResource.Timestamp != nil && *updatedResource.Timestamp != previousTimestamp {
+					// Timestamp has changed
+					return nil
+				}
+			} else {
+				return fmt.Errorf("resource ID %s does not exist in the llm file", resourceId)
+			}
 		default:
 			return fmt.Errorf("unsupported resourceType %s provided", resourceType)
 		}
