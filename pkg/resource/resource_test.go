@@ -168,7 +168,7 @@ methods {
 	}
 
 	workflowConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.50#/Workflow.pkl"
+amends "package://schema.kdeps.com/core@0.1.0#/Workflow.pkl"
 
 name = "myAIAgentAPI"
 description = "AI Agent X API"
@@ -178,7 +178,7 @@ settings {
   agentSettings {
     packages {}
     models {
-      "tinydolphin"
+      "llama3.1"
     }
   }
   apiServer {
@@ -218,10 +218,11 @@ settings {
 	}
 
 	resourceConfigurationContent := `
-amends "package://schema.kdeps.com/core@0.0.50#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.1.1#/Resource.pkl"
 
-local llmResponse = "@(llm.resource["action2"].response.trim())"
-local execResponse = "@(exec.resource["action3"].stdout.trim())"
+local llmResponse = "@(llm.response("action1"))"
+local execResponse = "@(exec.stdout("action3"))"
+local clientResponse = "@(client.responseBody("action2"))"
 
 id = "helloWorld"
 name = "default action"
@@ -232,6 +233,7 @@ requires {
   "action2"
   "action3"
 }
+
 run {
   preflightCheck {
     validations {
@@ -245,6 +247,7 @@ run {
       data {
 	"@(llmResponse)"
 	"@(execResponse)"
+	"@(clientResponse)"
       }
     }
   }
@@ -264,7 +267,9 @@ run {
 	}
 
 	resourceConfigurationContent = `
-amends "package://schema.kdeps.com/core@0.0.50#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.1.1#/Resource.pkl"
+
+local clientResponse = "@(client.responseBody("action2"))"
 
 id = "action1"
 category = "kdepsdockerai"
@@ -275,6 +280,11 @@ requires {
 }
 name = "default action"
 run {
+  chat {
+    model = "llama3.1"
+    prompt = "@(clientResponse)"
+    timeoutSeconds = 0
+  }
   preflightCheck {
     validations {
       1 + 1 == 2
@@ -291,7 +301,7 @@ run {
 	}
 
 	resourceConfigurationContent = `
-amends "package://schema.kdeps.com/core@0.0.50#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.1.1#/Resource.pkl"
 
 id = "action2"
 category = "kdepsdockerai"
@@ -303,11 +313,9 @@ requires {
   "helloWorld"
 }
 run {
-  chat {
-    model = "tinydolphin"
-    prompt = """
-tell me about this "@(exec.resource["action3"].stdout)"
-"""
+  httpClient {
+    method = "GET"
+    url = "https://dog.ceo/api/breeds/list/all"
   }
 }
 `
@@ -319,7 +327,7 @@ tell me about this "@(exec.resource["action3"].stdout)"
 	}
 
 	resourceConfigurationContent = `
-amends "package://schema.kdeps.com/core@0.0.50#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.1.1#/Resource.pkl"
 
 id = "action3"
 category = "kdepsdockerai"

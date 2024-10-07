@@ -244,7 +244,7 @@ settings {
 	}
 
 	llmResponsesContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.50#/LLM.pkl"
+amends "package://schema.kdeps.com/core@0.1.0#/LLM.pkl"
 
 chat {
   ["Hello"] {
@@ -282,7 +282,7 @@ response
 	for num := totalResourcesInt; num >= 1; num-- {
 		// Define the content of the resource configuration file
 		resourceConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.50#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.1.0#/Resource.pkl"
 
 id = "helloWorld%d"
 name = "default action %d"
@@ -304,7 +304,7 @@ run {
 		// Skip the "requires" for the first resource (num 1)
 		//		if num == 1 {
 		//			resourceConfigurationContent = fmt.Sprintf(`
-		// amends "package://schema.kdeps.com/core@0.0.50#/Resource.pkl"
+		// amends "package://schema.kdeps.com/core@0.1.0#/Resource.pkl"
 
 		// id = "helloWorld%d"
 		// name = "default action %d"

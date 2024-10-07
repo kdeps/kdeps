@@ -66,8 +66,18 @@ func processResourcePklFiles(fs afero.Fs, file string, wf *pklWf.Workflow, resou
 
 	// Define regex patterns for exec, chat, client with actionID, and id replacement
 	idPattern := regexp.MustCompile(`(?i)^\s*id\s*=\s*"(.+)"`)
-	// Pattern to capture lines like {exec, chat, client}.resource["actionID"]
-	actionIDPattern := regexp.MustCompile(`(?i)(resource)\["(.+)"\]`)
+	// Pattern to capture lines like {resources, resource, responseBody, etc.} with actionID
+	actionIDPatterns := map[string]*regexp.Regexp{
+		"resources":      regexp.MustCompile(`(?i)(resources)\["(.+)"\]`),
+		"resource":       regexp.MustCompile(`(?i)(resource)\("(.+)"\)`),
+		"responseBody":   regexp.MustCompile(`(?i)(responseBody)\("(.+)"\)`),
+		"responseHeader": regexp.MustCompile(`(?i)(responseHeader)\("(.+)",\s*"(.+)"\)`),
+		"stderr":         regexp.MustCompile(`(?i)(stderr)\("(.+)"\)`),
+		"stdout":         regexp.MustCompile(`(?i)(stdout)\("(.+)"\)`),
+		"env":            regexp.MustCompile(`(?i)(env)\("(.+)",\s*"(.+)"\)`),
+		"response":       regexp.MustCompile(`(?i)(response)\("(.+)"\)`),
+		"prompt":         regexp.MustCompile(`(?i)(prompt)\("(.+)"\)`),
+	}
 
 	inRequiresBlock := false
 	var requiresBlockBuffer bytes.Buffer
@@ -106,29 +116,53 @@ func processResourcePklFiles(fs afero.Fs, file string, wf *pklWf.Workflow, resou
 			} else {
 				fileBuffer.WriteString(line + "\n")
 			}
-		} else if actionIDMatch := actionIDPattern.FindStringSubmatch(line); actionIDMatch != nil {
-			// Extract the block type (exec, chat, client) and the actionID
-			blockType := actionIDMatch[1]
-			field := actionIDMatch[2]
-
-			// Only modify if actionID does not already start with "@"
-			if !strings.HasPrefix(field, "@") {
-				// Prefix and append name and version to the actionID in the format @name/actionID:version
-				modifiedField := fmt.Sprintf("%s[\"@%s/%s:%s\"]", blockType, name, field, version)
-				// Replace the original field with the modified one
-				newLine := strings.Replace(line, actionIDMatch[0], modifiedField, 1)
-				fileBuffer.WriteString(newLine + "\n")
-			} else {
-				fileBuffer.WriteString(line + "\n")
-			}
-		} else if strings.HasPrefix(strings.TrimSpace(line), "requires {") {
-			// Start of a `requires { ... }` block, set flag to accumulate lines
-			inRequiresBlock = true
-			requiresBlockBuffer.Reset()                  // Clear previous block data if any
-			requiresBlockBuffer.WriteString(line + "\n") // Add the opening `requires {` line
 		} else {
-			// Write the line unchanged if no pattern matches
-			fileBuffer.WriteString(line + "\n")
+			// Loop through the actionIDPatterns to find any matching line
+			matched := false
+			for patternName, pattern := range actionIDPatterns {
+				if actionIDMatch := pattern.FindStringSubmatch(line); actionIDMatch != nil {
+					matched = true
+					// Extract the block type (e.g., resource, responseBody) and the actionID
+					blockType := actionIDMatch[1]
+					field := actionIDMatch[2]
+					var modifiedField string
+
+					// Modify the field for patterns with one or two additional arguments
+					if patternName == "responseHeader" || patternName == "env" {
+						arg2 := actionIDMatch[3]
+						if !strings.HasPrefix(field, "@") {
+							modifiedField = fmt.Sprintf("%s(\"@%s/%s:%s\", \"%s\")", blockType, name, field, version, arg2)
+						} else {
+							modifiedField = line // leave unchanged if already starts with "@"
+						}
+					} else {
+						// Only modify if actionID does not already start with "@"
+						if !strings.HasPrefix(field, "@") {
+							modifiedField = fmt.Sprintf("%s(\"@%s/%s:%s\")", blockType, name, field, version)
+						} else {
+							modifiedField = line // leave unchanged if already starts with "@"
+						}
+					}
+
+					// Replace the original field with the modified one
+					newLine := strings.Replace(line, actionIDMatch[0], modifiedField, 1)
+					fileBuffer.WriteString(newLine + "\n")
+					break
+				}
+			}
+
+			if !matched {
+				// If no patterns matched, check if this is the start of a `requires {` block
+				if strings.HasPrefix(strings.TrimSpace(line), "requires {") {
+					// Start of a `requires { ... }` block, set flag to accumulate lines
+					inRequiresBlock = true
+					requiresBlockBuffer.Reset()                  // Clear previous block data if any
+					requiresBlockBuffer.WriteString(line + "\n") // Add the opening `requires {` line
+				} else {
+					// Write the line unchanged if no pattern matches
+					fileBuffer.WriteString(line + "\n")
+				}
+			}
 		}
 	}
 
