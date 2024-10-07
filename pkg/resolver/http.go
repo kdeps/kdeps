@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"kdeps/pkg/evaluator"
+	"kdeps/pkg/schema"
+	"kdeps/pkg/utils"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -15,8 +18,15 @@ import (
 
 func (dr *DependencyResolver) HandleHttpClient(actionId string, httpBlock *pklHttp.ResourceHTTPClient) error {
 	go func() error {
-		err := dr.processHttpBlock(actionId, httpBlock)
-		if err != nil {
+		// Decode Base64 encoded fields before processing
+		if err := dr.decodeHttpBlock(httpBlock); err != nil {
+			dr.Logger.Error("Failed to decode HTTP block", "actionId", actionId, "error", err)
+			return err
+		}
+
+		// Proceed with processing the decoded block
+		if err := dr.processHttpBlock(actionId, httpBlock); err != nil {
+			dr.Logger.Error("Failed to process HTTP block", "actionId", actionId, "error", err)
 			return err
 		}
 
@@ -38,6 +48,62 @@ func (dr *DependencyResolver) processHttpBlock(actionId string, httpBlock *pklHt
 	return nil
 }
 
+func (dr *DependencyResolver) decodeHttpBlock(httpBlock *pklHttp.ResourceHTTPClient) error {
+	// Check if the URL is Base64 encoded before decoding
+	if utils.IsBase64Encoded(httpBlock.Url) {
+		decodedUrl, err := utils.DecodeBase64String(httpBlock.Url)
+		if err != nil {
+			return fmt.Errorf("failed to decode URL: %w", err)
+		}
+		httpBlock.Url = decodedUrl
+	} else {
+		// If not Base64 encoded, leave the URL as it is
+		dr.Logger.Info("URL is not Base64 encoded, skipping decoding", "url", httpBlock.Url)
+	}
+
+	// Decode the headers if they exist
+	if httpBlock.Headers != nil {
+		decodedHeaders := make(map[string]string)
+		for key, value := range *httpBlock.Headers {
+			// Check if the header value is Base64 encoded
+			if utils.IsBase64Encoded(value) {
+				decodedValue, err := utils.DecodeBase64String(value)
+				if err != nil {
+					return fmt.Errorf("failed to decode header %s: %w", key, err)
+				}
+				decodedHeaders[key] = decodedValue
+			} else {
+				// If not Base64 encoded, leave the value as it is
+				decodedHeaders[key] = value
+				dr.Logger.Info("Header value is not Base64 encoded, skipping decoding", "header", key)
+			}
+		}
+		httpBlock.Headers = &decodedHeaders
+	}
+
+	// Decode the data field if it exists
+	if httpBlock.Data != nil {
+		decodedData := make([]string, len(*httpBlock.Data))
+		for i, v := range *httpBlock.Data {
+			// Check if the data value is Base64 encoded
+			if utils.IsBase64Encoded(v) {
+				decodedValue, err := utils.DecodeBase64String(v)
+				if err != nil {
+					return fmt.Errorf("failed to decode data at index %d: %w", i, err)
+				}
+				decodedData[i] = decodedValue
+			} else {
+				// If not Base64 encoded, leave the value as it is
+				decodedData[i] = v
+				dr.Logger.Info("Data value is not Base64 encoded, skipping decoding", "index", i)
+			}
+		}
+		httpBlock.Data = &decodedData
+	}
+
+	return nil
+}
+
 func (dr *DependencyResolver) AppendHttpEntry(resourceId string, newHttpClient *pklHttp.ResourceHTTPClient) error {
 	// Define the path to the PKL file
 	pklPath := filepath.Join(dr.ActionDir, "client/client_output.pkl")
@@ -51,68 +117,101 @@ func (dr *DependencyResolver) AppendHttpEntry(resourceId string, newHttpClient *
 		return fmt.Errorf("failed to load PKL file: %w", err)
 	}
 
-	existingResources := *pklRes.Resource // Dereference the pointer to get the map
+	existingResources := *pklRes.GetResources() // Dereference the pointer to get the map
+
+	// Check if the URL is already Base64 encoded
+	var encodedUrl string
+	if utils.IsBase64Encoded(newHttpClient.Url) {
+		encodedUrl = newHttpClient.Url // Use the URL as it is if already Base64 encoded
+	} else {
+		encodedUrl = utils.EncodeBase64String(newHttpClient.Url) // Otherwise, encode it
+	}
 
 	existingResources[resourceId] = &pklHttp.ResourceHTTPClient{
-		Method:          newHttpClient.Method,
-		Url:             newHttpClient.Url,
-		Data:            newHttpClient.Data,
-		Headers:         newHttpClient.Headers,
-		ResponseData:    newHttpClient.ResponseData,
-		ResponseHeaders: newHttpClient.ResponseHeaders,
-		Timestamp:       &newTimestamp,
+		Method:    newHttpClient.Method,
+		Url:       encodedUrl, // Use either encoded or already Base64 URL
+		Data:      newHttpClient.Data,
+		Headers:   newHttpClient.Headers,
+		Response:  newHttpClient.Response,
+		Timestamp: &newTimestamp,
 	}
 
 	// Build the new content for the PKL file in the specified format
 	var pklContent strings.Builder
-	pklContent.WriteString("amends \"package://schema.kdeps.com/core@0.1.0#/HttpClient.pkl\"\n\n")
-	pklContent.WriteString("resource {\n")
+	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Http.pkl\"\n\n", schema.SchemaVersion))
+	pklContent.WriteString("resources {\n")
 
 	for id, resource := range existingResources {
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
 		pklContent.WriteString(fmt.Sprintf("    method = \"%s\"\n", resource.Method))
-		pklContent.WriteString(fmt.Sprintf("    url = \"%s\"\n", resource.Url))
+		pklContent.WriteString(fmt.Sprintf("    url = \"%s\"\n", resource.Url)) // Encoded or unchanged URL
 		pklContent.WriteString(fmt.Sprintf("    timeoutSeconds = %d\n", resource.TimeoutSeconds))
 		pklContent.WriteString(fmt.Sprintf("    timestamp = %d\n", *resource.Timestamp))
 
+		// Base64 encode the data block
 		if resource.Data != nil {
 			pklContent.WriteString("    data {\n")
 			for _, value := range *resource.Data {
-				pklContent.WriteString(fmt.Sprintf("      \"\"\"\n%s\n\"\"\"\n", value))
+				var encodedData string
+				if utils.IsBase64Encoded(value) {
+					encodedData = value // Use as it is if already Base64 encoded
+				} else {
+					encodedData = utils.EncodeBase64String(value) // Otherwise, encode it
+				}
+				pklContent.WriteString(fmt.Sprintf("      \"%s\"\n", encodedData))
 			}
 			pklContent.WriteString("    }\n")
 		} else {
-			pklContent.WriteString("    data {}\n") // Handle nil case for Env
+			pklContent.WriteString("    data {\"\"}\n")
 		}
 
+		// Base64 encode the headers block
 		if resource.Headers != nil {
 			pklContent.WriteString("    headers {\n")
 			for key, value := range *resource.Headers {
-				pklContent.WriteString(fmt.Sprintf("      [\"%s\"] = \"%s\"\n", key, value))
+				var encodedHeaderValue string
+				if utils.IsBase64Encoded(value) {
+					encodedHeaderValue = value // Use as it is if already Base64 encoded
+				} else {
+					encodedHeaderValue = utils.EncodeBase64String(value) // Otherwise, encode it
+				}
+				pklContent.WriteString(fmt.Sprintf("      [\"%s\"] = \"%s\"\n", key, encodedHeaderValue))
 			}
 			pklContent.WriteString("    }\n")
 		} else {
-			pklContent.WriteString("    headers {}\n") // Handle nil case for Env
+			pklContent.WriteString("    headers {[\"\"] = \"\"\n}\n")
 		}
 
-		if resource.ResponseData != nil {
-			pklContent.WriteString("    responseData {\n")
-			for _, value := range *resource.ResponseData {
-				pklContent.WriteString(fmt.Sprintf("      \"\"\"\n%s\n\"\"\"\n", value))
+		// Base64 encode the response body
+		if resource.Response != nil {
+			pklContent.WriteString("    response {\n")
+			if resource.Response.Headers != nil {
+				pklContent.WriteString("    headers {\n")
+				for key, value := range *resource.Response.Headers {
+					var encodedHeaderValue string
+					if utils.IsBase64Encoded(value) {
+						encodedHeaderValue = value // Use as it is if already Base64 encoded
+					} else {
+						encodedHeaderValue = utils.EncodeBase64String(value) // Otherwise, encode it
+					}
+					pklContent.WriteString(fmt.Sprintf("      [\"%s\"] = #\"\"\"\n%s\n\"\"\"#\n", key, encodedHeaderValue))
+				}
+				pklContent.WriteString("    }\n")
 			}
-			pklContent.WriteString("    }\n")
-		} else {
-			pklContent.WriteString("    responseData {}\n") // Handle nil case for Env
-		}
 
-		if resource.ResponseHeaders != nil {
-			pklContent.WriteString("    responseHeaders {\n")
-			for key, value := range *resource.ResponseHeaders {
-				pklContent.WriteString(fmt.Sprintf("      [\"%s\"] = \"%s\"\n", key, value))
+			if resource.Response.Body != nil {
+				var encodedBody string
+				if utils.IsBase64Encoded(*resource.Response.Body) {
+					encodedBody = *resource.Response.Body // Use as it is if already Base64 encoded
+				} else {
+					encodedBody = utils.EncodeBase64String(*resource.Response.Body) // Otherwise, encode it
+				}
+				pklContent.WriteString(fmt.Sprintf("    body = #\"\"\"\n%s\n\"\"\"#\n", encodedBody))
 			}
+
 			pklContent.WriteString("    }\n")
 		} else {
-			pklContent.WriteString("    env {}\n") // Handle nil case for Env
+			pklContent.WriteString("    response {\nheaders{[\"\"] = \"\"\n}\nbody=\"\"}\n")
 		}
 
 		pklContent.WriteString("  }\n")
@@ -126,13 +225,34 @@ func (dr *DependencyResolver) AppendHttpEntry(resourceId string, newHttpClient *
 		return fmt.Errorf("failed to write to PKL file: %w", err)
 	}
 
+	// Evaluate the PKL file using EvalPkl
+	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, pklPath, dr.Logger)
+	if err != nil {
+		return fmt.Errorf("failed to evaluate PKL file: %w", err)
+	}
+
+	// Rebuild the PKL content with the "extends" header and evaluated content
+	var finalContent strings.Builder
+	finalContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Http.pkl\"\n\n", schema.SchemaVersion))
+	finalContent.WriteString(evaluatedContent)
+
+	// Write the final evaluated content back to the PKL file
+	err = afero.WriteFile(dr.Fs, pklPath, []byte(finalContent.String()), 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write evaluated content to PKL file: %w", err)
+	}
+
 	return nil
 }
 
 func (dr *DependencyResolver) DoRequest(client *pklHttp.ResourceHTTPClient) error {
 	// Create the HTTP client
+	timeoutSeconds := 30 // default timeout
+	if client.TimeoutSeconds != nil {
+		timeoutSeconds = *client.TimeoutSeconds
+	}
 	httpClient := &http.Client{
-		Timeout: time.Duration(*client.TimeoutSeconds) * time.Second,
+		Timeout: time.Duration(timeoutSeconds) * time.Second,
 	}
 
 	// Initialize a new request variable
@@ -180,16 +300,24 @@ func (dr *DependencyResolver) DoRequest(client *pklHttp.ResourceHTTPClient) erro
 		return fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	// Store response data
-	responseDataStr := string(body)
-	client.ResponseData = &[]string{responseDataStr}
+	// Initialize response fields if necessary
+	if client.Response == nil {
+		client.Response = &pklHttp.ResponseBlock{}
+	}
+	if client.Response.Body == nil {
+		client.Response.Body = new(string)
+	}
+	*client.Response.Body = string(body)
 
 	// Store response headers
+	if client.Response.Headers == nil {
+		client.Response.Headers = new(map[string]string)
+	}
 	headersMap := make(map[string]string)
 	for key, values := range resp.Header {
 		headersMap[key] = values[0]
 	}
-	client.ResponseHeaders = &headersMap
+	*client.Response.Headers = headersMap
 
 	// Store timestamp (seconds since Unix epoch)
 	timestamp := uint32(time.Now().Unix())

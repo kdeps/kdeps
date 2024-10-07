@@ -32,7 +32,7 @@ func (dr *DependencyResolver) GetCurrentTimestamp(resourceId string, resourceTyp
 			return 0, fmt.Errorf("failed to load exec PKL file: %w", err)
 		}
 		// Dereference the resource map for exec and handle ResourceExec
-		existingResources := *pklRes.Resource
+		existingResources := *pklRes.GetResources()
 		if resource, exists := existingResources[resourceId]; exists {
 			if resource.Timestamp == nil {
 				return 0, fmt.Errorf("timestamp for resource ID %s is nil", resourceId)
@@ -45,7 +45,7 @@ func (dr *DependencyResolver) GetCurrentTimestamp(resourceId string, resourceTyp
 			return 0, fmt.Errorf("failed to load llm PKL file: %w", err)
 		}
 		// Dereference the resource map for llm and handle ResourceChat
-		existingResources := *pklRes.Resource
+		existingResources := *pklRes.GetResources()
 		if resource, exists := existingResources[resourceId]; exists {
 			if resource.Timestamp == nil {
 				return 0, fmt.Errorf("timestamp for resource ID %s is nil", resourceId)
@@ -58,7 +58,7 @@ func (dr *DependencyResolver) GetCurrentTimestamp(resourceId string, resourceTyp
 			return 0, fmt.Errorf("failed to load client PKL file: %w", err)
 		}
 		// Dereference the resource map for exec and handle ResourceExec
-		existingResources := *pklRes.Resource
+		existingResources := *pklRes.GetResources()
 		if resource, exists := existingResources[resourceId]; exists {
 			if resource.Timestamp == nil {
 				return 0, fmt.Errorf("timestamp for resource ID %s is nil", resourceId)
@@ -92,8 +92,8 @@ func (dr *DependencyResolver) WaitForTimestampChange(resourceId string, previous
 	// Start the waiting loop
 	startTime := time.Now()
 	for {
-		// Check if the timeout has been exceeded
-		if time.Since(startTime) > timeout {
+		// If timeout is not zero, check if the timeout has been exceeded
+		if timeout > 0 && time.Since(startTime) > timeout {
 			return fmt.Errorf("timeout exceeded while waiting for timestamp change for resource ID %s", resourceId)
 		}
 
@@ -107,7 +107,7 @@ func (dr *DependencyResolver) WaitForTimestampChange(resourceId string, previous
 			}
 
 			// Get the resource map and check for timestamp changes
-			updatedResources := *updatedRes.Resource // Dereference to get the map
+			updatedResources := *updatedRes.GetResources() // Dereference to get the map
 			if updatedResource, exists := updatedResources[resourceId]; exists {
 				// Compare the current timestamp with the previous timestamp
 				if updatedResource.Timestamp != nil && *updatedResource.Timestamp != previousTimestamp {
@@ -126,7 +126,7 @@ func (dr *DependencyResolver) WaitForTimestampChange(resourceId string, previous
 			}
 
 			// Get the resource map and check for timestamp changes
-			updatedResources := *updatedRes.Resource // Dereference to get the map
+			updatedResources := *updatedRes.GetResources() // Dereference to get the map
 			if updatedResource, exists := updatedResources[resourceId]; exists {
 				// Compare the current timestamp with the previous timestamp
 				if updatedResource.Timestamp != nil && *updatedResource.Timestamp != previousTimestamp {
@@ -144,7 +144,7 @@ func (dr *DependencyResolver) WaitForTimestampChange(resourceId string, previous
 			}
 
 			// Get the resource map and check for timestamp changes
-			updatedResources := *updatedRes.Resource // Dereference to get the map
+			updatedResources := *updatedRes.GetResources() // Dereference to get the map
 			if updatedResource, exists := updatedResources[resourceId]; exists {
 				// Compare the current timestamp with the previous timestamp
 				if updatedResource.Timestamp != nil && *updatedResource.Timestamp != previousTimestamp {
@@ -152,7 +152,7 @@ func (dr *DependencyResolver) WaitForTimestampChange(resourceId string, previous
 					return nil
 				}
 			} else {
-				return fmt.Errorf("resource ID %s does not exist in the llm file", resourceId)
+				return fmt.Errorf("resource ID %s does not exist in the client file", resourceId)
 			}
 		default:
 			return fmt.Errorf("unsupported resourceType %s provided", resourceType)

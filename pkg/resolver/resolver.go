@@ -113,12 +113,12 @@ func NewGraphResolver(fs afero.Fs, logger *log.Logger, ctx context.Context, env 
 }
 
 func (dr *DependencyResolver) HandleRunAction() error {
-	defer func() {
-		if r := recover(); r != nil {
-			dr.Logger.Error("Recovered from panic:", r)
-			dr.HandleAPIErrorResponse(500, "Server panic occurred")
-		}
-	}()
+	// defer func() {
+	//	if r := recover(); r != nil {
+	//		dr.Logger.Error("Recovered from panic:", r)
+	//		dr.HandleAPIErrorResponse(500, "Server panic occurred")
+	//	}
+	// }()
 
 	visited := make(map[string]bool)
 	actionId := dr.Workflow.Action

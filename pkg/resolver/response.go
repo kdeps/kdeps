@@ -34,16 +34,32 @@ func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock *apiserverr
 	// Format the success as "success = true/false"
 	successStr := fmt.Sprintf("success = %v", success)
 
-	// Process the response block
+	// Process the response block and decode any Base64-encoded data
 	if apiResponseBlock.Response != nil && apiResponseBlock.Response.Data != nil {
 		// Convert the data slice to a string representation
 		responseData = make([]string, len(apiResponseBlock.Response.Data))
 		for i, v := range apiResponseBlock.Response.Data {
-			responseData[i] = fmt.Sprintf(`
+			// Type assertion to ensure v is a string
+			if strVal, ok := v.(string); ok {
+				// Attempt to decode the Base64-encoded data
+				decodedData, err := utils.DecodeBase64String(strVal)
+				if err != nil {
+					decodedData = strVal // If decoding fails, use the original string
+				}
+				responseData[i] = fmt.Sprintf(`
 """
 %v
 """
-`, v) // Convert each item to a string
+`, decodedData) // Format the decoded data into the response
+			} else {
+				// Handle case where the data is not a string
+				dr.Logger.Warn("Non-string data found in Response.Data", "data", v)
+				responseData[i] = fmt.Sprintf(`
+"""
+%v
+"""
+`, v) // Just format the non-string value as-is
+			}
 		}
 	}
 
@@ -58,13 +74,21 @@ response {
 }`, strings.Join(responseData, "\n    ")) // Properly format the data block with indentation
 	}
 
-	// Process the errors block
+	// Process the errors block and decode any Base64-encoded error message
 	if apiResponseBlock.Errors != nil {
+		decodedErrorMessage := apiResponseBlock.Errors.Message
+		// Check if the error message is Base64-encoded
+		if decodedErrorMessage != "" {
+			decoded, err := utils.DecodeBase64String(apiResponseBlock.Errors.Message)
+			if err == nil {
+				decodedErrorMessage = decoded // Use the decoded message if successful
+			}
+		}
 		errorsStr = fmt.Sprintf(`
 errors {
   code = %d
   message = %q
-}`, apiResponseBlock.Errors.Code, apiResponseBlock.Errors.Message)
+}`, apiResponseBlock.Errors.Code, decodedErrorMessage)
 	}
 
 	// Combine everything into sections as []string

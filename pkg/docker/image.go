@@ -164,7 +164,7 @@ ENV OLLAMA_HOST=%s:%s
 ENV KDEPS_HOST=%s
 
 # Install necessary tools
-RUN apt-get update && apt-get install -y curl
+RUN apt-get update && apt-get install -y curl nano
 
 # Determine the architecture and download the appropriate pkl binary
 RUN arch=$(uname -m) && \

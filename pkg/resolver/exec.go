@@ -3,9 +3,13 @@ package resolver
 import (
 	"context"
 	"fmt"
+	"kdeps/pkg/evaluator"
+	"kdeps/pkg/schema"
+	"kdeps/pkg/utils"
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/alexellis/go-execute/v2"
 	pklExec "github.com/kdeps/schema/gen/exec"
@@ -13,6 +17,51 @@ import (
 )
 
 func (dr *DependencyResolver) HandleExec(actionId string, execBlock *pklExec.ResourceExec) error {
+	// Decode Command if it is Base64-encoded
+	if utf8.ValidString(execBlock.Command) && utils.IsBase64Encoded(execBlock.Command) {
+		decodedCommand, err := utils.DecodeBase64String(execBlock.Command)
+		if err == nil {
+			execBlock.Command = decodedCommand
+		}
+	}
+
+	// Decode Stderr if it is Base64-encoded
+	if execBlock.Stderr != nil && utf8.ValidString(*execBlock.Stderr) && utils.IsBase64Encoded(*execBlock.Stderr) {
+		decodedStderr, err := utils.DecodeBase64String(*execBlock.Stderr)
+		if err == nil {
+			execBlock.Stderr = &decodedStderr
+		}
+	}
+
+	// Decode Stdout if it is Base64-encoded
+	if execBlock.Stdout != nil && utf8.ValidString(*execBlock.Stdout) && utils.IsBase64Encoded(*execBlock.Stdout) {
+		decodedStdout, err := utils.DecodeBase64String(*execBlock.Stdout)
+		if err == nil {
+			execBlock.Stdout = &decodedStdout
+		}
+	}
+
+	// Decode Env map keys and values if they are Base64-encoded
+	if execBlock.Env != nil {
+		for key, value := range *execBlock.Env {
+			stringKey := key
+			decodedValue := value
+
+			// // Decode key if it is Base64-encoded
+			// if utf8.ValidString(key) && utils.IsBase64Encoded(key) {
+			//	decodedKey, _ = utils.DecodeBase64String(key)
+			// }
+
+			// Decode value if it is Base64-encoded
+			if utf8.ValidString(value) && utils.IsBase64Encoded(value) {
+				decodedValue, _ = utils.DecodeBase64String(value)
+			}
+
+			// Update the map with the decoded values
+			(*execBlock.Env)[stringKey] = decodedValue
+		}
+	}
+
 	go func() error {
 		err := dr.processExecBlock(actionId, execBlock)
 		if err != nil {
@@ -70,25 +119,63 @@ func (dr *DependencyResolver) AppendExecEntry(resourceId string, newExec *pklExe
 	}
 
 	// Ensure pklRes.Resource is of type *map[string]*llm.ResourceChat
-	existingResources := *pklRes.Resource // Dereference the pointer to get the map
+	existingResources := *pklRes.GetResources() // Dereference the pointer to get the map
 
-	// Create or update the ResourceChat entry
+	// Check and Base64 encode Command, Stderr, Stdout if not already encoded
+	encodedCommand := newExec.Command
+	if !utils.IsBase64Encoded(newExec.Command) {
+		encodedCommand = utils.EncodeBase64String(newExec.Command)
+	}
+
+	var encodedStderr, encodedStdout string
+	if newExec.Stderr != nil {
+		if !utils.IsBase64Encoded(*newExec.Stderr) {
+			encodedStderr = utils.EncodeBase64String(*newExec.Stderr)
+		} else {
+			encodedStderr = *newExec.Stderr
+		}
+	}
+	if newExec.Stdout != nil {
+		if !utils.IsBase64Encoded(*newExec.Stdout) {
+			encodedStdout = utils.EncodeBase64String(*newExec.Stdout)
+		} else {
+			encodedStdout = *newExec.Stdout
+		}
+	}
+
+	// Base64 encode the Env map (keys and values)
+	var encodedEnv *map[string]string
+	if newExec.Env != nil {
+		encodedEnvMap := make(map[string]string)
+		for key, value := range *newExec.Env {
+			stringKey := key
+			encodedValue := value
+
+			if !utils.IsBase64Encoded(value) {
+				encodedValue = utils.EncodeBase64String(value)
+			}
+			encodedEnvMap[stringKey] = encodedValue
+		}
+		encodedEnv = &encodedEnvMap
+	}
+
+	// Create or update the ResourceExec entry
 	existingResources[resourceId] = &pklExec.ResourceExec{
-		Env:       newExec.Env, // Add Env field
-		Command:   newExec.Command,
-		Stderr:    newExec.Stderr,
-		Stdout:    newExec.Stdout,
+		Env:       encodedEnv,
+		Command:   encodedCommand,
+		Stderr:    &encodedStderr,
+		Stdout:    &encodedStdout,
 		Timestamp: &newTimestamp,
 	}
 
 	// Build the new content for the PKL file in the specified format
 	var pklContent strings.Builder
-	pklContent.WriteString("amends \"package://schema.kdeps.com/core@0.1.0#/Exec.pkl\"\n\n")
-	pklContent.WriteString("resource {\n")
+	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Exec.pkl\"\n\n", schema.SchemaVersion))
+	pklContent.WriteString("resources {\n")
 
 	for id, resource := range existingResources {
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
-		pklContent.WriteString(fmt.Sprintf("    command = \"\"\"\n%s\n\"\"\"\n", resource.Command))
+		pklContent.WriteString(fmt.Sprintf("    command = \"%s\"\n", resource.Command))
 		pklContent.WriteString(fmt.Sprintf("    timeoutSeconds = %d\n", resource.TimeoutSeconds))
 		pklContent.WriteString(fmt.Sprintf("    timestamp = %d\n", *resource.Timestamp))
 
@@ -100,19 +187,19 @@ func (dr *DependencyResolver) AppendExecEntry(resourceId string, newExec *pklExe
 			}
 			pklContent.WriteString("    }\n")
 		} else {
-			pklContent.WriteString("    env {}\n") // Handle nil case for Env
+			pklContent.WriteString("    env {[\"HELLO\"] = \"WORLD\"\n}\n")
 		}
 
 		// Dereference to pass Stderr and Stdout correctly
 		if resource.Stderr != nil {
-			pklContent.WriteString(fmt.Sprintf("    stderr = \"\"\"\n%s\n\"\"\"\n", *resource.Stderr))
+			pklContent.WriteString(fmt.Sprintf("    stderr = #\"\"\"\n%s\n\"\"\"#\n", *resource.Stderr))
 		} else {
-			pklContent.WriteString("    stderr = \"\"\n") // Handle nil case
+			pklContent.WriteString("    stderr = \"\"\n")
 		}
 		if resource.Stdout != nil {
-			pklContent.WriteString(fmt.Sprintf("    stdout = \"\"\"\n%s\n\"\"\"\n", *resource.Stdout))
+			pklContent.WriteString(fmt.Sprintf("    stdout = #\"\"\"\n%s\n\"\"\"#\n", *resource.Stdout))
 		} else {
-			pklContent.WriteString("    stdout = \"\"\n") // Handle nil case
+			pklContent.WriteString("    stdout = \"\"\n")
 		}
 
 		pklContent.WriteString("  }\n")
@@ -124,6 +211,23 @@ func (dr *DependencyResolver) AppendExecEntry(resourceId string, newExec *pklExe
 	err = afero.WriteFile(dr.Fs, pklPath, []byte(pklContent.String()), 0644)
 	if err != nil {
 		return fmt.Errorf("failed to write to PKL file: %w", err)
+	}
+
+	// Evaluate the PKL file using EvalPkl
+	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, pklPath, dr.Logger)
+	if err != nil {
+		return fmt.Errorf("failed to evaluate PKL file: %w", err)
+	}
+
+	// Rebuild the PKL content with the "extends" header and evaluated content
+	var finalContent strings.Builder
+	finalContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Exec.pkl\"\n\n", schema.SchemaVersion))
+	finalContent.WriteString(evaluatedContent)
+
+	// Write the final evaluated content back to the PKL file
+	err = afero.WriteFile(dr.Fs, pklPath, []byte(finalContent.String()), 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write evaluated content to PKL file: %w", err)
 	}
 
 	return nil

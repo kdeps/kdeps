@@ -116,12 +116,12 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 			}
 
 			// Write header using packageUrl and schemaFile
-			if _, err := writer.WriteString(fmt.Sprintf("amends \"%s%s\"\n\n", packageUrl, schemaFile)); err != nil {
+			if _, err := writer.WriteString(fmt.Sprintf("extends \"%s%s\"\n\n", packageUrl, schemaFile)); err != nil {
 				return fmt.Errorf("failed to write header for %s: %w", key, err)
 			}
 
 			// Write the resource block
-			if _, err := writer.WriteString("resource {\n}\n"); err != nil {
+			if _, err := writer.WriteString("resources {\n}\n"); err != nil {
 				return fmt.Errorf("failed to write resource block for %s: %w", key, err)
 			}
 
@@ -233,7 +233,9 @@ func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
 	// Create placeholder entries using the parsed actionId
 	llmChat := &pklLLM.ResourceChat{}
 	execCmd := &pklExec.ResourceExec{}
-	httpClient := &pklHttp.ResourceHTTPClient{}
+	httpClient := &pklHttp.ResourceHTTPClient{
+		Method: "GET",
+	}
 
 	if err := dr.AppendChatEntry(actionId, llmChat); err != nil {
 		return err
