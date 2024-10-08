@@ -11,7 +11,7 @@ import (
 // KdepsExec executes a command and returns stdout, stderr, and the exit code using go-execute
 func KdepsExec(command string, args []string, logger *log.Logger) (string, string, int, error) {
 	// Log the command being executed
-	logger.Info("Executing command: ", command, " with args: ", args)
+	logger.Info("Executing", "command", command, "args", args)
 
 	// Create the command task using go-execute
 	cmd := execute.ExecTask{
@@ -23,13 +23,13 @@ func KdepsExec(command string, args []string, logger *log.Logger) (string, strin
 	// Execute the command
 	res, err := cmd.Execute(context.Background())
 	if err != nil {
-		logger.Error("Command execution failed: ", err)
+		logger.Error("Command execution failed", "error", err)
 		return res.Stdout, res.Stderr, res.ExitCode, err
 	}
 
 	// Check for non-zero exit code
 	if res.ExitCode != 0 {
-		logger.Warn("Non-zero exit code: ", res.ExitCode, " Stderr: ", res.Stderr)
+		logger.Warn("Non-zero exit code", "exit code", res.ExitCode, " Stderr: ", res.Stderr)
 		return res.Stdout, res.Stderr, res.ExitCode, fmt.Errorf("non-zero exit code: %s", res.Stderr)
 	}
 

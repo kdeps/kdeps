@@ -24,11 +24,11 @@ func parseOLLAMAHost(logger *log.Logger) (string, string, error) {
 
 	host, port, err := net.SplitHostPort(hostEnv)
 	if err != nil {
-		logger.Error("Invalid OLLAMA_HOST format: ", err)
+		logger.Error("Invalid OLLAMA_HOST", "format", err)
 		return "", "", fmt.Errorf("Invalid OLLAMA_HOST format: %v", err)
 	}
 
-	logger.Info("Parsed OLLAMA_HOST into host: ", host, " and port: ", port)
+	logger.Info("Parsed OLLAMA_HOST", "host", host, "port", port)
 	return host, port, nil
 }
 
