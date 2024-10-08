@@ -26,17 +26,17 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 	re := regexp.MustCompile(`\@\((.*)\)`)
 
 	importCheck := map[string]string{
-		dr.RequestPklFile: "",
-		filepath.Join(dr.ActionDir, "/llm/llm_output.pkl"):       "llm",
-		filepath.Join(dr.ActionDir, "/client/client_output.pkl"): "client",
-		filepath.Join(dr.ActionDir, "/exec/exec_output.pkl"):     "exec",
+		dr.RequestPklFile: "request",
+		filepath.Join(dr.ActionDir, "/llm/"+dr.RequestId+"__llm_output.pkl"):       "llm",
+		filepath.Join(dr.ActionDir, "/client/"+dr.RequestId+"__client_output.pkl"): "client",
+		filepath.Join(dr.ActionDir, "/exec/"+dr.RequestId+"__exec_output.pkl"):     "exec",
 	}
 
 	var importFiles, localVariables string
 	for file, variable := range importCheck {
 		if exists, _ := afero.Exists(dr.Fs, file); exists {
 			// Check if the import line already exists
-			importLine := fmt.Sprintf(`import "%s"`, file)
+			importLine := fmt.Sprintf(`import "%s" as %s_output`, file, variable)
 			if !strings.Contains(string(content), importLine) {
 				importFiles += importLine + "\n"
 			}
@@ -76,9 +76,9 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 
 func (dr *DependencyResolver) PrepareImportFiles() error {
 	files := map[string]string{
-		"llm":    filepath.Join(dr.ActionDir, "/llm/llm_output.pkl"),
-		"client": filepath.Join(dr.ActionDir, "/client/client_output.pkl"),
-		"exec":   filepath.Join(dr.ActionDir, "/exec/exec_output.pkl"),
+		"llm":    filepath.Join(dr.ActionDir, "/llm/"+dr.RequestId+"__llm_output.pkl"),
+		"client": filepath.Join(dr.ActionDir, "/client/"+dr.RequestId+"__client_output.pkl"),
+		"exec":   filepath.Join(dr.ActionDir, "/exec/"+dr.RequestId+"__exec_output.pkl"),
 	}
 
 	for key, file := range files {

@@ -3,8 +3,9 @@ package docker
 import (
 	"context"
 	"fmt"
-	"io"
+	"kdeps/pkg/archiver"
 	"kdeps/pkg/environment"
+	"kdeps/pkg/utils"
 	"os"
 	"path/filepath"
 
@@ -44,81 +45,100 @@ func CleanupDockerBuildImages(fs afero.Fs, ctx context.Context, cName string, cl
 	return nil
 }
 
-// cleanup deletes /agents/action and /agents/workflow directories, then copies /agents/project to /agents/workflow
+// Cleanup deletes /agents/action and /agents/workflow directories, then copies /agents/project to /agents/workflow
 func Cleanup(fs afero.Fs, environ *environment.Environment, logger *log.Logger) {
-	if environ.DockerMode == "1" {
-		actionDir := "/agent/action"
-		workflowDir := "/agent/workflow"
-		projectDir := "/agent/project"
+	if environ.DockerMode != "1" {
+		return
+	}
 
-		// Delete /agents/action directory
-		if err := fs.RemoveAll(actionDir); err != nil {
-			logger.Error(fmt.Sprintf("Error removing %s: %v", actionDir, err))
-		} else {
-			logger.Info(fmt.Sprintf("%s directory deleted", actionDir))
+	actionDir := "/agent/action"
+	workflowDir := "/agent/workflow"
+	projectDir := "/agent/project"
+	removedFiles := []string{"/.actiondir_removed", "/.workflowdir_removed", "/.dockercleanup"}
+
+	// Helper function to remove a directory and create a corresponding flag file
+	removeDirWithFlag := func(dir string, flagFile string) error {
+		if err := fs.RemoveAll(dir); err != nil {
+			logger.Error(fmt.Sprintf("Error removing %s: %v", dir, err))
+			return err
 		}
 
-		// Delete /agents/workflow directory
-		if err := fs.RemoveAll(workflowDir); err != nil {
-			logger.Error(fmt.Sprintf("Error removing %s: %v", workflowDir, err))
-		} else {
-			logger.Info(fmt.Sprintf("%s directory deleted", workflowDir))
+		logger.Info(fmt.Sprintf("%s directory deleted", dir))
+		if err := CreateFlagFile(fs, flagFile); err != nil {
+			logger.Error(fmt.Sprintf("Unable to create flag file %s: %v", flagFile, err))
+			return err
 		}
+		return nil
+	}
 
-		// Copy /agents/project to /agents/workflow
-		err := afero.Walk(fs, projectDir, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
+	// Remove action and workflow directories
+	if err := removeDirWithFlag(actionDir, removedFiles[0]); err != nil {
+		return
+	}
+	if err := removeDirWithFlag(workflowDir, removedFiles[1]); err != nil {
+		return
+	}
 
-			// Create the relative target path inside /agents/workflow
-			relPath, err := filepath.Rel(projectDir, path)
-			if err != nil {
-				return err
-			}
-			targetPath := filepath.Join(workflowDir, relPath)
+	// Wait for the cleanup flags to be ready
+	for _, flag := range removedFiles[:2] { // Only the first two files need to be waited on
+		if err := utils.WaitForFileReady(fs, flag, logger); err != nil {
+			logger.Error(fmt.Sprintf("Error waiting for flag %s: %v", flag, err))
+			return
+		}
+	}
 
-			if info.IsDir() {
-				// Create the directory in the destination
-				if err := fs.MkdirAll(targetPath, info.Mode()); err != nil {
-					return fmt.Errorf("failed to create directory %s: %v", targetPath, err)
-				}
-			} else {
-				// Copy the file from projectDir to workflowDir
-				srcFile, err := fs.Open(path)
-				if err != nil {
-					return fmt.Errorf("failed to open source file %s: %v", path, err)
-				}
-				defer srcFile.Close()
-
-				destFile, err := fs.Create(targetPath)
-				if err != nil {
-					return fmt.Errorf("failed to create destination file %s: %v", targetPath, err)
-				}
-				defer destFile.Close()
-
-				_, err = io.Copy(destFile, srcFile)
-				if err != nil {
-					return fmt.Errorf("failed to copy file from %s to %s: %v", path, targetPath, err)
-				}
-
-				// Set the same permissions as the source file
-				if err := fs.Chmod(targetPath, info.Mode()); err != nil {
-					return fmt.Errorf("failed to set file permissions on %s: %v", targetPath, err)
-				}
-			}
-
-			return nil
-		})
-
+	// Copy /agents/project to /agents/workflow
+	err := afero.Walk(fs, projectDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			logger.Error(fmt.Sprintf("Error copying %s to %s: %v", projectDir, workflowDir, err))
-		} else {
-			logger.Info(fmt.Sprintf("Copied %s to %s for next run", projectDir, workflowDir))
+			return err
 		}
 
-		if err := CreateFlagFile(fs, "/.dockercleanup"); err != nil {
-			logger.Error("Unable to create docker cleanup flag", err)
+		// Create relative target path inside /agents/workflow
+		relPath, err := filepath.Rel(projectDir, path)
+		if err != nil {
+			return err
+		}
+		targetPath := filepath.Join(workflowDir, relPath)
+
+		if info.IsDir() {
+			if err := fs.MkdirAll(targetPath, info.Mode()); err != nil {
+				return fmt.Errorf("failed to create directory %s: %v", targetPath, err)
+			}
+		} else {
+			// Copy the file from projectDir to workflowDir
+			if err := archiver.CopyFile(fs, path, targetPath); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		logger.Error(fmt.Sprintf("Error copying %s to %s: %v", projectDir, workflowDir, err))
+	} else {
+		logger.Info(fmt.Sprintf("Copied %s to %s for next run", projectDir, workflowDir))
+	}
+
+	// Create final cleanup flag
+	if err := CreateFlagFile(fs, removedFiles[2]); err != nil {
+		logger.Error(fmt.Sprintf("Unable to create final cleanup flag: %v", err))
+	}
+
+	// Remove flag files
+	cleanupFlagFiles(fs, removedFiles, logger)
+}
+
+// cleanupFlagFiles removes the specified flag files
+func cleanupFlagFiles(fs afero.Fs, files []string, logger *log.Logger) {
+	for _, file := range files {
+		if err := fs.Remove(file); err != nil {
+			if os.IsNotExist(err) {
+				logger.Infof("File %s does not exist, skipping", file)
+			} else {
+				logger.Errorf("Error removing file %s: %v", file, err)
+			}
+		} else {
+			logger.Infof("Successfully removed file: %s", file)
 		}
 	}
 }

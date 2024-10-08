@@ -9,7 +9,6 @@ import (
 	"kdeps/pkg/resolver"
 	"kdeps/pkg/utils"
 	"net/http"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -53,44 +52,46 @@ func StartApiServerMode(fs afero.Fs, ctx context.Context, wfCfg *pklWf.Workflow,
 
 func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServerRoutes, env *environment.Environment,
 	apiServerPath string, logger *log.Logger) http.HandlerFunc {
-	var responseFileExt string
-	var contentType string
-	var responseFlagFile string
+
+	responseFile := &resolver.ResponseFileInfo{}
 
 	switch route.ResponseType {
 	case "jsonnet":
-		responseFlagFile = "response-jsonnet"
-		responseFileExt = ".json"
-		contentType = "application/json"
+		responseFile.ResponseFlagFile = "response-jsonnet"
+		responseFile.ResponseFileExt = ".json"
+		responseFile.ContentType = "application/json"
+		responseFile.ResponseType = "jsonnet"
 	case "textproto":
-		responseFlagFile = "response-txtpb"
-		responseFileExt = ".txtpb"
-		contentType = "application/protobuf"
+		responseFile.ResponseFlagFile = "response-txtpb"
+		responseFile.ResponseFileExt = ".txtpb"
+		responseFile.ContentType = "application/protobuf"
+		responseFile.ResponseType = "textproto"
 	case "yaml":
-		responseFlagFile = "response-yaml"
-		responseFileExt = ".yaml"
-		contentType = "application/yaml"
+		responseFile.ResponseFlagFile = "response-yaml"
+		responseFile.ResponseFileExt = ".yaml"
+		responseFile.ContentType = "application/yaml"
+		responseFile.ResponseType = "yaml"
 	case "plist":
-		responseFlagFile = "response-plist"
-		responseFileExt = ".plist"
-		contentType = "application/yaml"
+		responseFile.ResponseFlagFile = "response-plist"
+		responseFile.ResponseFileExt = ".plist"
+		responseFile.ContentType = "application/yaml"
+		responseFile.ResponseType = "plist"
 	case "xml":
-		responseFlagFile = "response-xml"
-		responseFileExt = ".xml"
-		contentType = "application/yaml"
+		responseFile.ResponseFlagFile = "response-xml"
+		responseFile.ResponseFileExt = ".xml"
+		responseFile.ContentType = "application/yaml"
+		responseFile.ResponseType = "xml"
 	case "pcf":
-		responseFlagFile = "response-pcf"
-		responseFileExt = ".pcf"
-		contentType = "application/yaml"
+		responseFile.ResponseFlagFile = "response-pcf"
+		responseFile.ResponseFileExt = ".pcf"
+		responseFile.ContentType = "application/yaml"
+		responseFile.ResponseType = "pcf"
 	default:
-		responseFlagFile = "response-json"
-		responseFileExt = ".json"
-		contentType = "application/json"
+		responseFile.ResponseFlagFile = "response-json"
+		responseFile.ResponseFileExt = ".json"
+		responseFile.ContentType = "application/json"
+		responseFile.ResponseType = "json"
 	}
-
-	responseFlag := filepath.Join(apiServerPath, responseFlagFile)
-	responseFile := filepath.Join(apiServerPath, "response"+responseFileExt)
-	requestPklFile := filepath.Join(apiServerPath, "request.pkl")
 
 	allowedMethods := route.Methods
 
@@ -100,21 +101,21 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 	var url string
 	var method string
 
-	dr, err := resolver.NewGraphResolver(fs, logger, ctx, env, "/agent")
+	dr, err := resolver.NewGraphResolver(fs, logger, ctx, env, "/agent", responseFile)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		if _, err := fs.Stat(responseFile); err == nil {
-			if err := fs.RemoveAll(responseFile); err != nil {
-				logger.Error("Unable to delete old response file", "response-file", responseFile)
+		if _, err := dr.Fs.Stat(dr.ResponseTargetFile); err == nil {
+			if err := fs.RemoveAll(dr.ResponseTargetFile); err != nil {
+				logger.Error("Unable to delete old response file", "response-target-file", dr.ResponseTargetFile)
 				return
 			}
 		}
-		if _, err := fs.Stat(responseFlag); err == nil {
-			if err := fs.RemoveAll(responseFlag); err != nil {
-				logger.Error("Unable to delete old response flag file", "response-flag", responseFlag)
+		if _, err := dr.Fs.Stat(dr.ResponseFlag); err == nil {
+			if err := dr.Fs.RemoveAll(dr.ResponseFlag); err != nil {
+				logger.Error("Unable to delete old response flag file", "response-flag", dr.ResponseFlag)
 				return
 			}
 		}
@@ -169,16 +170,15 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 
 		sections := []string{url, method, headerSection, dataSection, paramSection}
 
-		if err := evaluator.CreateAndProcessPklFile(fs, sections, requestPklFile, "APIServerRequest.pkl",
+		if err := evaluator.CreateAndProcessPklFile(dr.Fs, sections, dr.RequestPklFile, "APIServerRequest.pkl",
 			nil, logger, evaluator.EvalPkl); err != nil {
 			return
 		}
 
-		if err = CreateFlagFile(fs, responseFlag); err != nil {
+		if err = CreateFlagFile(dr.Fs, dr.ResponseFlag); err != nil {
 			return
 		}
 
-		// Wait for the file to exist before responding
 		for {
 			if err := dr.PrepareWorkflowDir(); err != nil {
 				logger.Fatal(err)
@@ -198,19 +198,19 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 			}
 
 			logger.Info("Awaiting for response...")
-			if err := utils.WaitForFileReady(fs, dr.ResponseTargetFile, logger); err != nil {
+			if err := utils.WaitForFileReady(dr.Fs, dr.ResponseTargetFile, logger); err != nil {
 				logger.Fatal(err)
 			}
 
 			// File exists, now respond with its contents
-			content, err := afero.ReadFile(fs, dr.ResponseTargetFile)
+			content, err := afero.ReadFile(dr.Fs, dr.ResponseTargetFile)
 			if err != nil {
 				http.Error(w, "Failed to read file", http.StatusInternalServerError)
 				return
 			}
 
 			// Write the content to the response
-			w.Header().Set("Content-Type", contentType)
+			w.Header().Set("Content-Type", responseFile.ContentType)
 			w.WriteHeader(http.StatusOK)
 			w.Write(content)
 

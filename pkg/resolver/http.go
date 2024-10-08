@@ -103,7 +103,7 @@ func (dr *DependencyResolver) decodeHttpBlock(httpBlock *pklHttp.ResourceHTTPCli
 
 func (dr *DependencyResolver) AppendHttpEntry(resourceId string, newHttpClient *pklHttp.ResourceHTTPClient) error {
 	// Define the path to the PKL file
-	pklPath := filepath.Join(dr.ActionDir, "client/client_output.pkl")
+	pklPath := filepath.Join(dr.ActionDir, "client/"+dr.RequestId+"__client_output.pkl")
 
 	// Get the current timestamp
 	newTimestamp := uint32(time.Now().UnixNano())

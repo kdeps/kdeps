@@ -12,6 +12,7 @@ require (
 	github.com/docker/docker v27.3.1+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/dustin/go-humanize v1.0.1
+	github.com/google/uuid v1.6.0
 	github.com/kdeps/kartographer v0.0.0-20240808015651-b2afd5d97715
 	github.com/kdeps/schema v0.1.1
 	github.com/kr/pretty v0.3.1
@@ -30,7 +31,7 @@ require (
 	github.com/charmbracelet/bubbletea v1.1.1 // indirect
 	github.com/charmbracelet/lipgloss v0.13.0 // indirect
 	github.com/charmbracelet/x/ansi v0.3.2 // indirect
-	github.com/charmbracelet/x/exp/strings v0.0.0-20241004173542-8f764644629a // indirect
+	github.com/charmbracelet/x/exp/strings v0.0.0-20241007193646-7cc13b2883e3 // indirect
 	github.com/charmbracelet/x/term v0.2.0 // indirect
 	github.com/cucumber/gherkin/go/v26 v26.2.0 // indirect
 	github.com/cucumber/messages/go/v21 v21.0.1 // indirect
@@ -45,7 +46,6 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gofrs/uuid v4.3.1+incompatible // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-memdb v1.3.4 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
