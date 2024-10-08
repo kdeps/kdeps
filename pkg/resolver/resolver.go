@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/log"
+	"github.com/google/uuid"
 	"github.com/kdeps/kartographer/graph"
 	pklRes "github.com/kdeps/schema/gen/resource"
 	pklWf "github.com/kdeps/schema/gen/workflow"
@@ -25,6 +26,7 @@ type DependencyResolver struct {
 	Context              *context.Context
 	Graph                *graph.DependencyGraph
 	Workflow             *pklWf.Workflow
+	RequestId            string
 	RequestPklFile       string
 	ResponsePklFile      string
 	ResponseTargetFile   string
@@ -41,8 +43,17 @@ type ResourceNodeEntry struct {
 	File string `pkl:"file"`
 }
 
-func NewGraphResolver(fs afero.Fs, logger *log.Logger, ctx context.Context, env *environment.Environment, agentDir string) (*DependencyResolver, error) {
-	var actionDir, requestPklFile, responsePklFile, projectDir, pklWfFile, pklWfParentFile string
+type ResponseFileInfo struct {
+	ResponseFlagFile string
+	ResponseFileExt  string
+	ContentType      string
+	ResponseType     string
+}
+
+func NewGraphResolver(fs afero.Fs, logger *log.Logger, ctx context.Context, env *environment.Environment, agentDir string, responseFile *ResponseFileInfo) (*DependencyResolver, error) {
+	graphId := uuid.New().String()
+
+	var actionDir, projectDir, pklWfFile, pklWfParentFile string
 
 	if env.DockerMode == "1" {
 		agentDir = filepath.Join(agentDir, "/workflow/")
@@ -66,7 +77,6 @@ func NewGraphResolver(fs afero.Fs, logger *log.Logger, ctx context.Context, env 
 				return nil, fmt.Errorf("neither %s nor %s exist", pklWfFile, pklWfParentFile)
 			}
 
-			// "../workflow.pkl" exists, update pklWfFile to point to it
 			pklWfFile = pklWfParentFile
 			agentDir = filepath.Join(agentDir, "../")
 			projectDir = filepath.Join(agentDir, "/project/")
@@ -76,10 +86,12 @@ func NewGraphResolver(fs afero.Fs, logger *log.Logger, ctx context.Context, env 
 			actionDir = filepath.Join(agentDir, "../actions")
 		}
 
-		requestPklFile = filepath.Join(actionDir, "/api/request.pkl")
-		responsePklFile = filepath.Join(actionDir, "/api/response.pkl")
-
 	}
+
+	requestPklFile := filepath.Join(actionDir, "/api/"+graphId+"__request.pkl")
+	responsePklFile := filepath.Join(actionDir, "/api/"+graphId+"__response.pkl")
+	responseFlag := filepath.Join(actionDir, "/api/"+graphId+"__"+responseFile.ResponseFlagFile)
+	responseTargetFile := filepath.Join(actionDir, "/api/"+graphId+responseFile.ResponseFileExt)
 
 	dependencyResolver := &DependencyResolver{
 		Fs:                   fs,
@@ -89,8 +101,12 @@ func NewGraphResolver(fs afero.Fs, logger *log.Logger, ctx context.Context, env 
 		Context:              &ctx,
 		AgentDir:             agentDir,
 		ActionDir:            actionDir,
+		RequestId:            graphId,
 		RequestPklFile:       requestPklFile,
 		ResponsePklFile:      responsePklFile,
+		ResponseTargetFile:   responseTargetFile,
+		ResponseFlag:         responseFlag,
+		ResponseType:         responseFile.ResponseType,
 		ProjectDir:           projectDir,
 	}
 

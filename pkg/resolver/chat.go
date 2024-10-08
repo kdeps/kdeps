@@ -62,7 +62,7 @@ func (dr *DependencyResolver) processLLMChat(actionId string, chatBlock *pklLLM.
 
 func (dr *DependencyResolver) AppendChatEntry(resourceId string, newChat *pklLLM.ResourceChat) error {
 	// Define the path to the PKL file
-	pklPath := filepath.Join(dr.ActionDir, "llm/llm_output.pkl")
+	pklPath := filepath.Join(dr.ActionDir, "llm/"+dr.RequestId+"__llm_output.pkl")
 
 	// Get the current timestamp
 	newTimestamp := uint32(time.Now().UnixNano())

@@ -18,17 +18,18 @@ func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock *apiserverr
 	var responseData []string
 	var errorsStr string
 
-	// Check the ResponseFlag (assuming this is a precondition)
-	if err := dr.GetResponseFlag(); err != nil {
+	// Check if the response file already exists, and remove it if so
+	exists, err := afero.Exists(dr.Fs, dr.ResponsePklFile)
+	if err != nil {
 		return err
 	}
 
-	// Check if the response file already exists, and remove it if so
-	if _, err := dr.Fs.Stat(dr.ResponsePklFile); err == nil {
+	if exists {
 		if err := dr.Fs.RemoveAll(dr.ResponsePklFile); err != nil {
 			dr.Logger.Error("Unable to delete old response file", "response-pkl-file", dr.ResponsePklFile)
 			return err
 		}
+
 	}
 
 	// Format the success as "success = true/false"
@@ -103,44 +104,6 @@ errors {
 	return nil
 }
 
-func (dr *DependencyResolver) GetResponseFlag() error {
-	responseFiles := []struct {
-		Flag              string
-		Ext               string
-		PklResponseFormat string
-	}{
-		{"response-jsonnet", ".json", "jsonnet"},
-		{"response-txtpb", ".txtpb", "textproto"},
-		{"response-yaml", ".yaml", "yaml"},
-		{"response-plist", ".plist", "plist"},
-		{"response-xml", ".xml", "xml"},
-		{"response-pcf", ".pcf", "pcf"},
-		{"response-json", ".json", "json"},
-	}
-
-	// Loop through each response flag file and check its existence
-	for _, file := range responseFiles {
-		dr.ResponseFlag = filepath.Join(dr.ActionDir, "/api/"+file.Flag)
-
-		// Check if the response flag file exists
-		exists, err := afero.Exists(dr.Fs, dr.ResponseFlag)
-		if err != nil {
-			return fmt.Errorf("error checking file existence: %w", err)
-		}
-
-		if exists {
-			// If the file exists, return the file extension and content type
-			fmt.Printf("Response flag file found: %s\n", dr.ResponseFlag)
-			dr.ResponseType = file.PklResponseFormat
-			dr.ResponseTargetFile = filepath.Join(dr.ActionDir, fmt.Sprintf("/api/response%s", file.Ext))
-			return nil
-		}
-	}
-
-	// If no response flag file is found, return an error
-	return fmt.Errorf("no valid response flag file found in %s", dr.ActionDir)
-}
-
 func (dr *DependencyResolver) EvalPklFormattedResponseFile() (string, error) {
 	// Validate that the file has a .pkl extension
 	if filepath.Ext(dr.ResponsePklFile) != ".pkl" {
@@ -149,11 +112,18 @@ func (dr *DependencyResolver) EvalPklFormattedResponseFile() (string, error) {
 		return "", fmt.Errorf(errMsg)
 	}
 
-	if _, err := dr.Fs.Stat(dr.ResponseTargetFile); err == nil {
+	// Check if the response file already exists, and remove it if so
+	exists, err := afero.Exists(dr.Fs, dr.ResponseTargetFile)
+	if err != nil {
+		return "", err
+	}
+
+	if exists {
 		if err := dr.Fs.RemoveAll(dr.ResponseTargetFile); err != nil {
-			dr.Logger.Error("Unable to delete old response file", "response-file", dr.ResponseTargetFile)
+			dr.Logger.Error("Unable to delete old response target file", "response-target-file", dr.ResponsePklFile)
 			return "", err
 		}
+
 	}
 
 	// Ensure that the 'pkl' binary is available

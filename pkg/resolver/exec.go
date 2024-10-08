@@ -107,7 +107,7 @@ func (dr *DependencyResolver) processExecBlock(actionId string, execBlock *pklEx
 
 func (dr *DependencyResolver) AppendExecEntry(resourceId string, newExec *pklExec.ResourceExec) error {
 	// Define the path to the PKL file
-	pklPath := filepath.Join(dr.ActionDir, "exec/exec_output.pkl")
+	pklPath := filepath.Join(dr.ActionDir, "exec/"+dr.RequestId+"__exec_output.pkl")
 
 	// Get the current timestamp
 	newTimestamp := uint32(time.Now().UnixNano())

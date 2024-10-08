@@ -13,9 +13,9 @@ import (
 func (dr *DependencyResolver) GetCurrentTimestamp(resourceId string, resourceType string) (uint32, error) {
 	// Define file paths based on resource types
 	files := map[string]string{
-		"llm":    filepath.Join(dr.ActionDir, "llm/llm_output.pkl"),
-		"client": filepath.Join(dr.ActionDir, "client/client_output.pkl"),
-		"exec":   filepath.Join(dr.ActionDir, "exec/exec_output.pkl"),
+		"llm":    filepath.Join(dr.ActionDir, "llm/"+dr.RequestId+"__llm_output.pkl"),
+		"client": filepath.Join(dr.ActionDir, "client/"+dr.RequestId+"__client_output.pkl"),
+		"exec":   filepath.Join(dr.ActionDir, "exec/"+dr.RequestId+"__exec_output.pkl"),
 	}
 
 	// Check if the resource type is valid and get the corresponding path
@@ -78,9 +78,9 @@ func (dr *DependencyResolver) WaitForTimestampChange(resourceId string, previous
 
 	// Map containing the paths for different resource types
 	files := map[string]string{
-		"llm":    filepath.Join(dr.ActionDir, "llm/llm_output.pkl"),
-		"client": filepath.Join(dr.ActionDir, "client/client_output.pkl"),
-		"exec":   filepath.Join(dr.ActionDir, "exec/exec_output.pkl"),
+		"llm":    filepath.Join(dr.ActionDir, "llm/"+dr.RequestId+"__llm_output.pkl"),
+		"client": filepath.Join(dr.ActionDir, "client/"+dr.RequestId+"__client_output.pkl"),
+		"exec":   filepath.Join(dr.ActionDir, "exec/"+dr.RequestId+"__exec_output.pkl"),
 	}
 
 	// Retrieve the correct path based on resourceType
