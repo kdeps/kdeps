@@ -56,9 +56,6 @@ func (dr *DependencyResolver) decodeHttpBlock(httpBlock *pklHttp.ResourceHTTPCli
 			return fmt.Errorf("failed to decode URL: %w", err)
 		}
 		httpBlock.Url = decodedUrl
-	} else {
-		// If not Base64 encoded, leave the URL as it is
-		dr.Logger.Info("URL is not Base64 encoded, skipping decoding", "url", httpBlock.Url)
 	}
 
 	// Decode the headers if they exist
@@ -255,29 +252,35 @@ func (dr *DependencyResolver) DoRequest(client *pklHttp.ResourceHTTPClient) erro
 		Timeout: time.Duration(timeoutSeconds) * time.Second,
 	}
 
-	// Initialize a new request variable
+	// Map of methods that can have a body (POST, PUT, PATCH)
+	methodsWithBody := map[string]bool{
+		"POST":  true,
+		"PUT":   true,
+		"PATCH": true,
+	}
+
+	// Validate method
+	if client.Method == "" {
+		return fmt.Errorf("HTTP method is required")
+	}
+
+	// Initialize request
 	var req *http.Request
 	var err error
 
-	// Handle based on the HTTP method (GET or POST)
-	switch client.Method {
-	case "GET":
-		req, err = http.NewRequest("GET", client.Url, nil)
-		if err != nil {
-			return fmt.Errorf("failed to create GET request: %w", err)
-		}
-	case "POST":
+	// If the method supports a body, ensure data is provided, otherwise create a request without a body
+	if methodsWithBody[client.Method] {
 		if client.Data == nil {
-			return fmt.Errorf("POST method requires data, but none provided")
+			return fmt.Errorf("%s method requires data, but none provided", client.Method)
 		}
-		// Combine data into a string
-		postData := []byte(fmt.Sprintf("%s", *client.Data))
-		req, err = http.NewRequest("POST", client.Url, bytes.NewBuffer(postData))
-		if err != nil {
-			return fmt.Errorf("failed to create POST request: %w", err)
-		}
-	default:
-		return fmt.Errorf("unsupported HTTP method: %s", client.Method)
+		req, err = http.NewRequest(client.Method, client.Url, bytes.NewBuffer([]byte(fmt.Sprintf("%s", *client.Data))))
+	} else {
+		req, err = http.NewRequest(client.Method, client.Url, nil)
+	}
+
+	// Handle error in request creation
+	if err != nil {
+		return fmt.Errorf("failed to create %s request: %w", client.Method, err)
 	}
 
 	// Set headers if available
