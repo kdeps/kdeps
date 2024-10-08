@@ -9,7 +9,7 @@ import (
 )
 
 func WaitForFileReady(fs afero.Fs, filepath string, logger *log.Logger) error {
-	logger.Info("Waiting for file: ", filepath)
+	logger.Info("Waiting for file to be ready...", "file", filepath)
 
 	// Create a ticker that checks for the file periodically
 	ticker := time.NewTicker(500 * time.Millisecond)
@@ -24,7 +24,7 @@ func WaitForFileReady(fs afero.Fs, filepath string, logger *log.Logger) error {
 				return fmt.Errorf("error checking file %s: %w", filepath, err)
 			}
 			if exists {
-				logger.Info("File found: ", filepath)
+				logger.Info("File dispatched...", "file", filepath)
 				return nil
 			}
 		}

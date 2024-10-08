@@ -16,7 +16,6 @@ import (
 
 // EnsurePklBinaryExists checks if the 'pkl' binary exists in the system PATH.
 func EnsurePklBinaryExists(logger *log.Logger) error {
-	logger.Info("schema.SchemaVersion:", schema.SchemaVersion)
 	binaryName := "pkl"
 	if _, err := exec.LookPath(binaryName); err != nil {
 		errMsg := fmt.Sprintf("the binary '%s' is not found in PATH", binaryName)

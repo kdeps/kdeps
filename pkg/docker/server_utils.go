@@ -12,17 +12,16 @@ import (
 
 // isServerReady checks if ollama server is ready by attempting to connect to the specified host and port
 func isServerReady(host string, port string, logger *log.Logger) bool {
-	logger.Info("Checking if ollama server is ready at ", host, ":", port)
+	logger.Info("Checking if ollama server is ready", "host", host, "port", port)
 
 	timeout := time.Second
 	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), timeout)
 	if err != nil {
-		logger.Warn("Ollama server not ready: ", err)
+		logger.Warn("Ollama server not ready", "error", err)
 		return false
 	}
 	conn.Close()
 
-	logger.Info("Ollama server is ready at ", host, ":", port)
 	return true
 }
 
@@ -33,12 +32,12 @@ func waitForServer(host string, port string, timeout time.Duration, logger *log.
 	start := time.Now()
 	for {
 		if isServerReady(host, port, logger) {
-			logger.Info("Ollama server is ready at ", host, ":", port)
+			logger.Info("Ollama server is ready", "host", host, "port", port)
 			return nil
 		}
 
 		if time.Since(start) > timeout {
-			logger.Error("Timeout waiting for ollama server to be ready. Host: ", host, " Port: ", port)
+			logger.Error("Timeout waiting for ollama server to be ready.", "host", host, "port", port)
 			return errors.New("Timeout waiting for ollama server to be ready")
 		}
 

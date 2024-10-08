@@ -27,7 +27,7 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 		agentWorkflow := filepath.Join(agentDir, "workflow/workflow.pkl")
 		wfCfg, err := workflow.LoadWorkflow(ctx, agentWorkflow, logger)
 		if err != nil {
-			logger.Error("Error loading workflow: ", err)
+			logger.Error("Error loading", "workflow", err)
 			return apiServerMode, err
 		}
 
@@ -56,7 +56,7 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 		modelList := dockerSettings.Models
 		for _, value := range modelList {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
-			logger.Info("Pulling model: ", value)
+			logger.Info("Pulling", "model", value)
 			stdout, stderr, exitCode, err := KdepsExec("ollama", []string{"pull", value}, logger)
 			if err != nil {
 				logger.Error("Error pulling model: ", value, " stdout: ", stdout, " stderr: ", stderr, " exitCode: ", exitCode, " err: ", err)
