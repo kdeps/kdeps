@@ -1,10 +1,12 @@
 package resolver
 
 import (
+	"errors"
 	"fmt"
 	"kdeps/pkg/evaluator"
 	"kdeps/pkg/schema"
 	"kdeps/pkg/utils"
+	"log"
 	"path/filepath"
 	"strings"
 	"time"
@@ -12,6 +14,7 @@ import (
 
 	pklLLM "github.com/kdeps/schema/gen/llm"
 	"github.com/spf13/afero"
+	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/ollama"
 )
 
@@ -22,6 +25,25 @@ func (dr *DependencyResolver) HandleLLMChat(actionId string, chatBlock *pklLLM.R
 		if err == nil {
 			chatBlock.Prompt = decodedPrompt
 		}
+	}
+
+	// Decode the jsonResponseKeys field if it exists
+	if chatBlock.JsonResponseKeys != nil {
+		decodedJsonResponseKeys := make([]string, len(*chatBlock.JsonResponseKeys))
+		for i, v := range *chatBlock.JsonResponseKeys {
+			// Check if the key value is Base64 encoded
+			if utils.IsBase64Encoded(v) {
+				decodedValue, err := utils.DecodeBase64String(v)
+				if err != nil {
+					return fmt.Errorf("failed to decode response key at index %d: %w", i, err)
+				}
+				decodedJsonResponseKeys[i] = decodedValue
+			} else {
+				// If not Base64 encoded, leave the value as it is
+				decodedJsonResponseKeys[i] = v
+			}
+		}
+		chatBlock.JsonResponseKeys = &decodedJsonResponseKeys
 	}
 
 	go func() error {
@@ -37,23 +59,51 @@ func (dr *DependencyResolver) HandleLLMChat(actionId string, chatBlock *pklLLM.R
 }
 
 func (dr *DependencyResolver) processLLMChat(actionId string, chatBlock *pklLLM.ResourceChat) error {
+	var completion string
+
 	llm, err := ollama.New(ollama.WithModel(chatBlock.Model))
 	if err != nil {
 		return err
 	}
-	// Prompt - Base64 decode here
-	completion, err := llm.Call(*dr.Context, chatBlock.Prompt)
-	if err != nil {
-		return err
+
+	if chatBlock.JsonResponse != nil && *chatBlock.JsonResponse {
+		// Base system prompt asking for JSON format response
+		systemPrompt := "Respond in JSON format."
+
+		// Check if there are JsonResponseKeys to include in the prompt
+		if chatBlock.JsonResponseKeys != nil && len(*chatBlock.JsonResponseKeys) > 0 {
+			// Join the keys and append to the prompt
+			additionalKeys := strings.Join(*chatBlock.JsonResponseKeys, "`, `")
+			systemPrompt = fmt.Sprintf("Respond in JSON format, include `%s` in response keys.", additionalKeys)
+		}
+
+		content := []llms.MessageContent{
+			llms.TextParts(llms.ChatMessageTypeSystem, systemPrompt),
+			llms.TextParts(llms.ChatMessageTypeHuman, chatBlock.Prompt),
+		}
+
+		// GenerateContent returns *llms.ContentResponse, not a string
+		response, err := llm.GenerateContent(*dr.Context, content, llms.WithJSONMode())
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		choices := response.Choices
+		if len(choices) < 1 {
+			return errors.New("Empty response from model")
+		}
+
+		completion = choices[0].Content
+	} else {
+		completion, err = llm.Call(*dr.Context, chatBlock.Prompt)
+		if err != nil {
+			return err
+		}
 	}
 
-	llmResponse := pklLLM.ResourceChat{
-		Model:    chatBlock.Model,
-		Prompt:   chatBlock.Prompt,
-		Response: &completion,
-	}
+	chatBlock.Response = &completion
 
-	if err := dr.AppendChatEntry(actionId, &llmResponse); err != nil {
+	if err := dr.AppendChatEntry(actionId, chatBlock); err != nil {
 		return err
 	}
 
@@ -113,11 +163,27 @@ func (dr *DependencyResolver) AppendChatEntry(resourceId string, newChat *pklLLM
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
 		pklContent.WriteString(fmt.Sprintf("    model = \"%s\"\n", resource.Model))
 		pklContent.WriteString(fmt.Sprintf("    prompt = \"%s\"\n", resource.Prompt))
-		if resource.Schema != nil {
-			pklContent.WriteString(fmt.Sprintf("    schema = \"%s\"\n", *resource.Schema))
-		} else {
-			pklContent.WriteString("    schema = \"\"\n")
+
+		if resource.JsonResponse != nil {
+			pklContent.WriteString(fmt.Sprintf("    jsonResponse = %t\n", *resource.JsonResponse))
 		}
+
+		if resource.JsonResponseKeys != nil {
+			pklContent.WriteString("    jsonResponseKeys {\n")
+			for _, value := range *resource.JsonResponseKeys {
+				var encodedData string
+				if utils.IsBase64Encoded(value) {
+					encodedData = value // Use as it is if already Base64 encoded
+				} else {
+					encodedData = utils.EncodeBase64String(value) // Otherwise, encode it
+				}
+				pklContent.WriteString(fmt.Sprintf("      \"%s\"\n", encodedData))
+			}
+			pklContent.WriteString("    }\n")
+		} else {
+			pklContent.WriteString("    jsonResponseKeys {\"\"}\n")
+		}
+
 		pklContent.WriteString(fmt.Sprintf("    timeoutSeconds = %d\n", resource.TimeoutSeconds))
 		pklContent.WriteString(fmt.Sprintf("    timestamp = %d\n", *resource.Timestamp))
 		// Dereference response to pass it correctly
