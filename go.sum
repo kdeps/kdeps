@@ -33,8 +33,6 @@ github.com/charmbracelet/x/ansi v0.3.2 h1:wsEwgAN+C9U06l9dCVMX0/L3x7ptvY1qmjMwyf
 github.com/charmbracelet/x/ansi v0.3.2/go.mod h1:dk73KoMTT5AX5BsX0KrqhsTqAnhZZoCBjs7dGWp4Ktw=
 github.com/charmbracelet/x/editor v0.1.0 h1:p69/dpvlwRTs9uYiPeAWruwsHqTFzHhTvQOd/WVSX98=
 github.com/charmbracelet/x/editor v0.1.0/go.mod h1:oivrEbcP/AYt/Hpvk5pwDXXrQ933gQS6UzL6fxqAGSA=
-github.com/charmbracelet/x/exp/strings v0.0.0-20241004173542-8f764644629a h1:NlafA7buioDDiso4rL+k9mJxrQrbEKQVF+/L5V8K2ds=
-github.com/charmbracelet/x/exp/strings v0.0.0-20241004173542-8f764644629a/go.mod h1:pBhA0ybfXv6hDjQUZ7hk1lVxBiUbupdw5R31yPUViVQ=
 github.com/charmbracelet/x/exp/strings v0.0.0-20241007193646-7cc13b2883e3 h1:gvSQygyrffOIVplbS78uZXcJvvDSwqfvhfAA8OUuVU8=
 github.com/charmbracelet/x/exp/strings v0.0.0-20241007193646-7cc13b2883e3/go.mod h1:pBhA0ybfXv6hDjQUZ7hk1lVxBiUbupdw5R31yPUViVQ=
 github.com/charmbracelet/x/term v0.2.0 h1:cNB9Ot9q8I711MyZ7myUR5HFWL/lc3OpU8jZ4hwm0x0=
@@ -101,10 +99,10 @@ github.com/hashicorp/golang-lru v0.5.4/go.mod h1:iADmTwqILo4mZ8BN3D2Q6+9jd8WM5uG
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/kdeps/kartographer v0.0.0-20240808015651-b2afd5d97715 h1:CxUIVGV6VdgZo62Q84pOVJwUa0ONNqJIH3/rvWsAiUs=
 github.com/kdeps/kartographer v0.0.0-20240808015651-b2afd5d97715/go.mod h1:DYSCAer2OsX5F3Jne82p4P1LCIu42DQFfL5ypZYcUbk=
-github.com/kdeps/schema v0.1.1 h1:fsbVvt3RxLqMYAPoJiQIGvr6JJwUj8yrfjpUu7LOm70=
-github.com/kdeps/schema v0.1.1/go.mod h1:vncGvp+CLzokQekPNcPW1JLiASbaMiOeOTUDOSUeZIc=
-github.com/kdeps/schema v0.1.2 h1:E69SJmE5FB6IuTqadvNZw/zJhBSjs+ddBM3/79d5Ay4=
-github.com/kdeps/schema v0.1.2/go.mod h1:vncGvp+CLzokQekPNcPW1JLiASbaMiOeOTUDOSUeZIc=
+github.com/kdeps/schema v0.1.5 h1:e6XM35Ge/V55qJuHwSo/SRj9hdZkLpqRsrdcf05yOx0=
+github.com/kdeps/schema v0.1.5/go.mod h1:vncGvp+CLzokQekPNcPW1JLiASbaMiOeOTUDOSUeZIc=
+github.com/kdeps/schema v0.1.6 h1:stxUtj22lDY8cnEcIeEvkfutUeVo/Ib4aUL+cqe/1k8=
+github.com/kdeps/schema v0.1.6/go.mod h1:vncGvp+CLzokQekPNcPW1JLiASbaMiOeOTUDOSUeZIc=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/kr/pretty v0.2.1/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=

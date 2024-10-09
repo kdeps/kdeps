@@ -267,7 +267,7 @@ run {
 	}
 
 	resourceConfigurationContent = `
-amends "package://schema.kdeps.com/core@0.1.1#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.1.5#/Resource.pkl"
 
 local clientResponse = "@(client.responseBody("action3"))"
 
@@ -283,6 +283,13 @@ run {
   chat {
     model = "llama3.1"
     prompt = "@(request.data)"
+    jsonResponse = true
+    jsonResponseKeys {
+      "translation"
+      "uses"
+      "synonyms"
+      "antonyms"
+    }
     timeoutSeconds = 0
   }
   preflightCheck {
@@ -317,7 +324,7 @@ run {
     env {
       ["RESPONSE"] = "@(client.responseBody("action3"))"
     }
-    command = "echo $RESPONSE | jq"
+    command = "echo $RESPONSE"
   }
 }
 `
