@@ -53,44 +53,8 @@ func StartApiServerMode(fs afero.Fs, ctx context.Context, wfCfg *pklWf.Workflow,
 func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServerRoutes, env *environment.Environment,
 	apiServerPath string, logger *log.Logger) http.HandlerFunc {
 
-	responseFile := &resolver.ResponseFileInfo{}
-
-	switch route.ResponseType {
-	case "jsonnet":
-		responseFile.ResponseFlagFile = "response-jsonnet"
-		responseFile.ResponseFileExt = ".json"
-		responseFile.ContentType = "application/json"
-		responseFile.ResponseType = "jsonnet"
-	case "textproto":
-		responseFile.ResponseFlagFile = "response-txtpb"
-		responseFile.ResponseFileExt = ".txtpb"
-		responseFile.ContentType = "application/protobuf"
-		responseFile.ResponseType = "textproto"
-	case "yaml":
-		responseFile.ResponseFlagFile = "response-yaml"
-		responseFile.ResponseFileExt = ".yaml"
-		responseFile.ContentType = "application/yaml"
-		responseFile.ResponseType = "yaml"
-	case "plist":
-		responseFile.ResponseFlagFile = "response-plist"
-		responseFile.ResponseFileExt = ".plist"
-		responseFile.ContentType = "application/yaml"
-		responseFile.ResponseType = "plist"
-	case "xml":
-		responseFile.ResponseFlagFile = "response-xml"
-		responseFile.ResponseFileExt = ".xml"
-		responseFile.ContentType = "application/yaml"
-		responseFile.ResponseType = "xml"
-	case "pcf":
-		responseFile.ResponseFlagFile = "response-pcf"
-		responseFile.ResponseFileExt = ".pcf"
-		responseFile.ContentType = "application/yaml"
-		responseFile.ResponseType = "pcf"
-	default:
-		responseFile.ResponseFlagFile = "response-json"
-		responseFile.ResponseFileExt = ".json"
-		responseFile.ContentType = "application/json"
-		responseFile.ResponseType = "json"
+	responseFile := &resolver.ResponseFileInfo{
+		RouteResponseType: route.ResponseType,
 	}
 
 	allowedMethods := route.Methods

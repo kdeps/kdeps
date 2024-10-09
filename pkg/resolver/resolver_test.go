@@ -179,7 +179,7 @@ methods {
 	}
 
 	workflowConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.44#/Workflow.pkl"
+amends "package://schema.kdeps.com/core@0.1.1#/Workflow.pkl"
 
 name = "myAIAgentAPI1"
 description = "AI Agent X API"
@@ -244,7 +244,7 @@ settings {
 	}
 
 	llmResponsesContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.1.0#/LLM.pkl"
+amends "package://schema.kdeps.com/core@0.1.1#/LLM.pkl"
 
 chat {
   ["Hello"] {
@@ -414,7 +414,7 @@ func iLoadTheWorkflowResources() error {
 	logger := logging.GetLogger()
 	ctx = context.Background()
 
-	dr, err := resolver.NewGraphResolver(testFs, logger, ctx, environ, agentDir)
+	dr, err := resolver.NewGraphResolver(testFs, logger, ctx, environ, agentDir, &resolver.ResponseFileInfo{})
 	if err != nil {
 		log.Fatal(err)
 	}
