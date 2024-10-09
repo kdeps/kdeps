@@ -120,7 +120,7 @@ func aKdepsContainerWithEndpointAPI(arg1, arg2, arg3 string) error {
 	}
 
 	systemConfigurationContent := `
-	amends "package://schema.kdeps.com/core@0.0.48#/Kdeps.pkl"
+	amends "package://schema.kdeps.com/core@0.1.1#/Kdeps.pkl"
 
 	runMode = "docker"
 	dockerGPU = "cpu"
@@ -168,7 +168,7 @@ methods {
 	}
 
 	workflowConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.1.0#/Workflow.pkl"
+amends "package://schema.kdeps.com/core@0.1.1#/Workflow.pkl"
 
 name = "myAIAgentAPI"
 description = "AI Agent X API"
@@ -221,8 +221,8 @@ settings {
 amends "package://schema.kdeps.com/core@0.1.1#/Resource.pkl"
 
 local llmResponse = "@(llm.response("action1"))"
-local execResponse = "@(exec.stdout("action3"))"
-local clientResponse = "@(client.responseBody("action2"))"
+local execResponse = "@(exec.stdout("action2"))"
+local clientResponse = "@(client.responseBody("action3"))"
 
 id = "helloWorld"
 name = "default action"
@@ -269,7 +269,7 @@ run {
 	resourceConfigurationContent = `
 amends "package://schema.kdeps.com/core@0.1.1#/Resource.pkl"
 
-local clientResponse = "@(client.responseBody("action2"))"
+local clientResponse = "@(client.responseBody("action3"))"
 
 id = "action1"
 category = "kdepsdockerai"
@@ -282,7 +282,7 @@ name = "default action"
 run {
   chat {
     model = "llama3.1"
-    prompt = "@(clientResponse)"
+    prompt = "@(request.data)"
     timeoutSeconds = 0
   }
   preflightCheck {
@@ -313,9 +313,11 @@ requires {
   "helloWorld"
 }
 run {
-  httpClient {
-    method = "GET"
-    url = "https://dog.ceo/api/breeds/list/all"
+  exec {
+    env {
+      ["RESPONSE"] = "@(client.responseBody("action3"))"
+    }
+    command = "echo $RESPONSE | jq"
   }
 }
 `
@@ -339,12 +341,9 @@ requires {
 }
 name = "default action"
 run {
-  exec {
-    env {
-      ["NEWVAR"] = "I am a new variable"
-      ["NEWVAR2"] = "I am also a new variable"
-    }
-    command = "echo $NEWVAR && echo $NEWVAR2"
+  httpClient {
+    method = "GET"
+    url = "https://dog.ceo/api/breeds/list/all"
   }
   postflightCheck {
     validations {

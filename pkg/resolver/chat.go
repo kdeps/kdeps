@@ -113,13 +113,18 @@ func (dr *DependencyResolver) AppendChatEntry(resourceId string, newChat *pklLLM
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
 		pklContent.WriteString(fmt.Sprintf("    model = \"%s\"\n", resource.Model))
 		pklContent.WriteString(fmt.Sprintf("    prompt = \"%s\"\n", resource.Prompt))
+		if resource.Schema != nil {
+			pklContent.WriteString(fmt.Sprintf("    schema = \"%s\"\n", *resource.Schema))
+		} else {
+			pklContent.WriteString("    schema = \"\"\n")
+		}
 		pklContent.WriteString(fmt.Sprintf("    timeoutSeconds = %d\n", resource.TimeoutSeconds))
 		pklContent.WriteString(fmt.Sprintf("    timestamp = %d\n", *resource.Timestamp))
 		// Dereference response to pass it correctly
 		if resource.Response != nil {
 			pklContent.WriteString(fmt.Sprintf("    response = #\"\"\"\n%s\n\"\"\"#\n", *resource.Response))
 		} else {
-			pklContent.WriteString("    response = \"\"\n") // Handle nil case
+			pklContent.WriteString("    response = \"\"\n")
 		}
 
 		pklContent.WriteString("  }\n")

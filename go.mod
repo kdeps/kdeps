@@ -14,7 +14,7 @@ require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/google/uuid v1.6.0
 	github.com/kdeps/kartographer v0.0.0-20240808015651-b2afd5d97715
-	github.com/kdeps/schema v0.1.1
+	github.com/kdeps/schema v0.1.2
 	github.com/kr/pretty v0.3.1
 	github.com/spf13/afero v1.11.0
 	github.com/stretchr/testify v1.9.0

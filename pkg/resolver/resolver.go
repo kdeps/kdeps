@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/google/uuid"
 	"github.com/kdeps/kartographer/graph"
+	"github.com/kdeps/schema/gen/api_server/apiserverresponsetype"
 	pklRes "github.com/kdeps/schema/gen/resource"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
@@ -44,16 +45,55 @@ type ResourceNodeEntry struct {
 }
 
 type ResponseFileInfo struct {
-	ResponseFlagFile string
-	ResponseFileExt  string
-	ContentType      string
-	ResponseType     string
+	ResponseFlagFile  string
+	ResponseFileExt   string
+	ContentType       string
+	ResponseType      string
+	RouteResponseType apiserverresponsetype.APIServerResponseType
 }
 
 func NewGraphResolver(fs afero.Fs, logger *log.Logger, ctx context.Context, env *environment.Environment, agentDir string, responseFile *ResponseFileInfo) (*DependencyResolver, error) {
 	graphId := uuid.New().String()
 
 	var actionDir, projectDir, pklWfFile, pklWfParentFile string
+
+	switch responseFile.RouteResponseType {
+	case "jsonnet":
+		responseFile.ResponseFlagFile = "response-jsonnet"
+		responseFile.ResponseFileExt = ".json"
+		responseFile.ContentType = "application/json"
+		responseFile.ResponseType = "jsonnet"
+	case "textproto":
+		responseFile.ResponseFlagFile = "response-txtpb"
+		responseFile.ResponseFileExt = ".txtpb"
+		responseFile.ContentType = "application/protobuf"
+		responseFile.ResponseType = "textproto"
+	case "yaml":
+		responseFile.ResponseFlagFile = "response-yaml"
+		responseFile.ResponseFileExt = ".yaml"
+		responseFile.ContentType = "application/yaml"
+		responseFile.ResponseType = "yaml"
+	case "plist":
+		responseFile.ResponseFlagFile = "response-plist"
+		responseFile.ResponseFileExt = ".plist"
+		responseFile.ContentType = "application/yaml"
+		responseFile.ResponseType = "plist"
+	case "xml":
+		responseFile.ResponseFlagFile = "response-xml"
+		responseFile.ResponseFileExt = ".xml"
+		responseFile.ContentType = "application/yaml"
+		responseFile.ResponseType = "xml"
+	case "pcf":
+		responseFile.ResponseFlagFile = "response-pcf"
+		responseFile.ResponseFileExt = ".pcf"
+		responseFile.ContentType = "application/yaml"
+		responseFile.ResponseType = "pcf"
+	default:
+		responseFile.ResponseFlagFile = "response-json"
+		responseFile.ResponseFileExt = ".json"
+		responseFile.ContentType = "application/json"
+		responseFile.ResponseType = "json"
+	}
 
 	if env.DockerMode == "1" {
 		agentDir = filepath.Join(agentDir, "/workflow/")
