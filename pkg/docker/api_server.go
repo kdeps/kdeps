@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"kdeps/pkg/environment"
@@ -59,126 +60,182 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 
 	allowedMethods := route.Methods
 
-	var paramSection string
-	var headerSection string
-	var dataSection string
-	var url string
-	var method string
-
 	dr, err := resolver.NewGraphResolver(fs, logger, ctx, env, "/agent", responseFile)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		if _, err := dr.Fs.Stat(dr.ResponseTargetFile); err == nil {
-			if err := fs.RemoveAll(dr.ResponseTargetFile); err != nil {
-				logger.Error("Unable to delete old response file", "response-target-file", dr.ResponseTargetFile)
-				return
-			}
-		}
-		if _, err := dr.Fs.Stat(dr.ResponseFlag); err == nil {
-			if err := dr.Fs.RemoveAll(dr.ResponseFlag); err != nil {
-				logger.Error("Unable to delete old response flag file", "response-flag", dr.ResponseFlag)
-				return
-			}
+		// Clean up any old response files or flags
+		if err := cleanOldFiles(fs, dr, logger); err != nil {
+			http.Error(w, "Failed to clean old files", http.StatusInternalServerError)
+			return
 		}
 
-		url = fmt.Sprintf(`url = "%s"`, r.URL.Path)
-
-		if r.Method == "" {
-			r.Method = "GET"
-		}
-
-		for _, allowedMethod := range allowedMethods {
-			if allowedMethod == r.Method {
-				method = fmt.Sprintf(`method = "%s"`, allowedMethod)
-
-				break
-			}
-		}
-
-		if method == "" {
-			http.Error(w, fmt.Sprintf(`HTTP method "%s" not allowed!`, r.Method), http.StatusBadRequest)
-
+		// Validate method and prepare URL, method, headers, params, and data sections
+		method, err := validateMethod(r, allowedMethods)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, "Failed to read request body", http.StatusBadRequest)
-
 			return
 		}
 		defer r.Body.Close()
-		dataSection = fmt.Sprintf(`data = "%s"`, string(body))
-		var paramsLines []string
-		var headersLines []string
 
-		params := r.URL.Query()
-		for param, values := range params {
-			for _, value := range values {
-				value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
-				paramsLines = append(paramsLines, fmt.Sprintf(`["%s"] = "%s"`, param, value))
-			}
-		}
-		paramSection = "params {\n" + strings.Join(paramsLines, "\n") + "\n}"
+		urlSection := fmt.Sprintf(`url = "%s"`, r.URL.Path)
+		dataSection := fmt.Sprintf(`data = "%s"`, string(body))
+		paramSection := formatParams(r.URL.Query())
+		headerSection := formatHeaders(r.Header)
 
-		for name, values := range r.Header {
-			for _, value := range values {
-				value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
-				headersLines = append(headersLines, fmt.Sprintf(`["%s"] = "%s"`, name, value))
-			}
-		}
-		headerSection = "headers {\n" + strings.Join(headersLines, "\n") + "\n}"
+		sections := []string{urlSection, method, headerSection, dataSection, paramSection}
 
-		sections := []string{url, method, headerSection, dataSection, paramSection}
-
+		// Create and process the .pkl request file
 		if err := evaluator.CreateAndProcessPklFile(dr.Fs, sections, dr.RequestPklFile, "APIServerRequest.pkl",
 			nil, logger, evaluator.EvalPkl); err != nil {
+			http.Error(w, "Failed to process request file", http.StatusInternalServerError)
 			return
 		}
 
+		// Create the response flag file
 		if err = CreateFlagFile(dr.Fs, dr.ResponseFlag); err != nil {
+			http.Error(w, "Failed to create response flag", http.StatusInternalServerError)
 			return
 		}
 
-		for {
-			if err := dr.PrepareWorkflowDir(); err != nil {
-				logger.Fatal(err)
-			}
-
-			if err := dr.PrepareImportFiles(); err != nil {
-				logger.Fatal(err)
-			}
-
-			if err := dr.HandleRunAction(); err != nil {
-				logger.Fatal(err)
-			}
-
-			stdout, err := dr.EvalPklFormattedResponseFile()
-			if err != nil {
-				logger.Fatal(fmt.Errorf(stdout, err))
-			}
-
-			logger.Info("Awaiting for response...")
-			if err := utils.WaitForFileReady(dr.Fs, dr.ResponseTargetFile, logger); err != nil {
-				logger.Fatal(err)
-			}
-
-			// File exists, now respond with its contents
-			content, err := afero.ReadFile(dr.Fs, dr.ResponseTargetFile)
-			if err != nil {
-				http.Error(w, "Failed to read file", http.StatusInternalServerError)
-				return
-			}
-
-			// Write the content to the response
-			w.Header().Set("Content-Type", responseFile.ContentType)
-			w.WriteHeader(http.StatusOK)
-			w.Write(content)
-
+		// Handle workflow and process response
+		if err := processWorkflow(dr, logger); err != nil {
+			http.Error(w, "Workflow processing failed", http.StatusInternalServerError)
 			return
+		}
+
+		// Read and respond with the contents of the response file
+		content, err := afero.ReadFile(dr.Fs, dr.ResponseTargetFile)
+		if err != nil {
+			http.Error(w, "Failed to read response file", http.StatusInternalServerError)
+			return
+		}
+
+		// Format JSON response if necessary
+		if responseFile.ContentType == "application/json" {
+			content = formatResponseJson(content)
+		}
+
+		// Write the response
+		w.Header().Set("Content-Type", responseFile.ContentType)
+		w.WriteHeader(http.StatusOK)
+		w.Write(content)
+	}
+}
+
+// Clean up old response files and flags
+func cleanOldFiles(fs afero.Fs, dr *resolver.DependencyResolver, logger *log.Logger) error {
+	if _, err := fs.Stat(dr.ResponseTargetFile); err == nil {
+		if err := fs.RemoveAll(dr.ResponseTargetFile); err != nil {
+			logger.Error("Unable to delete old response file", "response-target-file", dr.ResponseTargetFile)
+			return err
 		}
 	}
+	if _, err := fs.Stat(dr.ResponseFlag); err == nil {
+		if err := fs.RemoveAll(dr.ResponseFlag); err != nil {
+			logger.Error("Unable to delete old response flag file", "response-flag", dr.ResponseFlag)
+			return err
+		}
+	}
+	return nil
+}
+
+// Validate the HTTP method and return a formatted method string
+func validateMethod(r *http.Request, allowedMethods []string) (string, error) {
+	if r.Method == "" {
+		r.Method = "GET"
+	}
+
+	for _, allowedMethod := range allowedMethods {
+		if allowedMethod == r.Method {
+			return fmt.Sprintf(`method = "%s"`, allowedMethod), nil
+		}
+	}
+
+	return "", fmt.Errorf(`HTTP method "%s" not allowed!`, r.Method)
+}
+
+// Format request headers
+func formatHeaders(headers map[string][]string) string {
+	var headersLines []string
+	for name, values := range headers {
+		for _, value := range values {
+			headersLines = append(headersLines, fmt.Sprintf(`["%s"] = "%s"`, name, strings.TrimSpace(value)))
+		}
+	}
+	return "headers {\n" + strings.Join(headersLines, "\n") + "\n}"
+}
+
+// Format request parameters
+func formatParams(params map[string][]string) string {
+	var paramsLines []string
+	for param, values := range params {
+		for _, value := range values {
+			paramsLines = append(paramsLines, fmt.Sprintf(`["%s"] = "%s"`, param, strings.TrimSpace(value)))
+		}
+	}
+	return "params {\n" + strings.Join(paramsLines, "\n") + "\n}"
+}
+
+// Process workflow and evaluate response file
+func processWorkflow(dr *resolver.DependencyResolver, logger *log.Logger) error {
+	if err := dr.PrepareWorkflowDir(); err != nil {
+		return err
+	}
+
+	if err := dr.PrepareImportFiles(); err != nil {
+		return err
+	}
+
+	if err := dr.HandleRunAction(); err != nil {
+		return err
+	}
+
+	stdout, err := dr.EvalPklFormattedResponseFile()
+	if err != nil {
+		logger.Fatal(fmt.Errorf(stdout, err))
+		return err
+	}
+
+	logger.Info("Awaiting response...")
+
+	// Wait for the response file to be ready
+	if err := utils.WaitForFileReady(dr.Fs, dr.ResponseTargetFile, logger); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Format response JSON content
+func formatResponseJson(content []byte) []byte {
+	var response map[string]interface{}
+
+	if err := json.Unmarshal(content, &response); err != nil {
+		return content
+	}
+
+	// Check and format the "data" field if it exists
+	if data, ok := response["response"].(map[string]interface{})["data"].([]interface{}); ok {
+		for i, item := range data {
+			var obj map[string]interface{}
+			itemStr, _ := item.(string)
+			if err := json.Unmarshal([]byte(itemStr), &obj); err == nil {
+				data[i] = obj
+			}
+		}
+	}
+
+	// Marshal the modified response back into JSON
+	modifiedContent, _ := json.MarshalIndent(response, "", "  ")
+
+	return modifiedContent
 }
