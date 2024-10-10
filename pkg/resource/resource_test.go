@@ -120,7 +120,7 @@ func aKdepsContainerWithEndpointAPI(arg1, arg2, arg3 string) error {
 	}
 
 	systemConfigurationContent := `
-	amends "package://schema.kdeps.com/core@0.1.1#/Kdeps.pkl"
+	amends "package://schema.kdeps.com/core@0.1.9#/Kdeps.pkl"
 
 	runMode = "docker"
 	dockerGPU = "cpu"
@@ -168,7 +168,7 @@ methods {
 	}
 
 	workflowConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.1.1#/Workflow.pkl"
+amends "package://schema.kdeps.com/core@0.1.9#/Workflow.pkl"
 
 name = "myAIAgentAPI"
 description = "AI Agent X API"
@@ -213,7 +213,7 @@ settings {
 	}
 
 	resourceConfigurationContent := `
-amends "package://schema.kdeps.com/core@0.1.1#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.1.9#/Resource.pkl"
 
 local llmResponse = "@(llm.response("action1"))"
 local execResponse = "@(exec.stdout("action2"))"
@@ -265,7 +265,7 @@ run {
 	}
 
 	resourceConfigurationContent = `
-amends "package://schema.kdeps.com/core@0.1.5#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.1.9#/Resource.pkl"
 
 local clientResponse = "@(client.responseBody("action3"))"
 
@@ -306,7 +306,7 @@ run {
 	}
 
 	resourceConfigurationContent = `
-amends "package://schema.kdeps.com/core@0.1.1#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.1.9#/Resource.pkl"
 
 id = "action2"
 category = "kdepsdockerai"
@@ -334,7 +334,7 @@ run {
 	}
 
 	resourceConfigurationContent = `
-amends "package://schema.kdeps.com/core@0.1.1#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.1.9#/Resource.pkl"
 
 id = "action3"
 category = "kdepsdockerai"
@@ -366,7 +366,7 @@ run {
 	}
 
 	resourceConfigurationContent = `
-amends "package://schema.kdeps.com/core@0.1.1#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.1.9#/Resource.pkl"
 
 id = "action4"
 category = "kdepsdockerai"
