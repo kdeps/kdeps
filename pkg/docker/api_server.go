@@ -21,32 +21,48 @@ import (
 
 func StartApiServerMode(fs afero.Fs, ctx context.Context, wfCfg *pklWf.Workflow, environ *environment.Environment,
 	agentDir string, logger *log.Logger) error {
-	// Extracting workflow settings and API server config
-	wfSettings := *wfCfg.Settings
+
+	// Extract workflow settings and validate API server config
+	wfSettings := wfCfg.Settings
 	wfApiServer := wfSettings.ApiServer
 
 	if wfApiServer == nil {
 		return fmt.Errorf("API server configuration is missing")
 	}
 
-	portNum := wfApiServer.PortNum
-	hostPort := ":" + strconv.FormatUint(uint64(portNum), 10) // Format port for ListenAndServe
+	// Format host and port
+	portNum := strconv.FormatUint(uint64(wfApiServer.PortNum), 10)
+	hostPort := ":" + portNum
 
-	// Set up routes from the configuration
-	routes := wfApiServer.Routes
-	for _, route := range routes {
-		http.HandleFunc(route.Path, ApiServerHandler(fs, ctx, route, environ, agentDir, logger))
+	// Set up routes based on configuration
+	if err := setupRoutes(fs, ctx, wfApiServer.Routes, environ, agentDir, logger); err != nil {
+		return fmt.Errorf("failed to set up routes: %w", err)
 	}
 
-	// Start the server
-	log.Printf("Starting API server on port %s", hostPort)
-	go func() error {
+	// Start the API server
+	logger.Printf("Starting API server on port %s", hostPort)
+	go func() {
 		if err := http.ListenAndServe(hostPort, nil); err != nil {
-			// Return the error instead of log.Fatal to allow better error handling
-			return fmt.Errorf("failed to start API server: %w", err)
+			logger.Error("Failed to start API server", "error", err)
 		}
-		return nil
 	}()
+
+	return nil
+}
+
+// setupRoutes configures the API server routes based on provided route configuration.
+func setupRoutes(fs afero.Fs, ctx context.Context, routes []*apiserver.APIServerRoutes, environ *environment.Environment,
+	agentDir string, logger *log.Logger) error {
+
+	for _, route := range routes {
+		if route == nil || route.Path == "" {
+			logger.Error("Route configuration is invalid", "route", route)
+			continue
+		}
+
+		http.HandleFunc(route.Path, ApiServerHandler(fs, ctx, route, environ, agentDir, logger))
+		logger.Printf("Route configured: %s", route.Path)
+	}
 
 	return nil
 }
