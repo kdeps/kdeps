@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -18,6 +19,18 @@ import (
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 )
+
+// Response structure
+type DecodedResponse struct {
+	Success  bool `json:"success"`
+	Response struct {
+		Data []string `json:"data"`
+	} `json:"response"`
+	Errors struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	} `json:"errors"`
+}
 
 // StartApiServerMode initializes and starts an API server based on the provided workflow configuration.
 // It validates the API server configuration, sets up routes, and starts the server on the configured port.
@@ -75,13 +88,9 @@ func setupRoutes(fs afero.Fs, ctx context.Context, routes []*apiserver.APIServer
 func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServerRoutes, env *environment.Environment,
 	apiServerPath string, logger *log.Logger) http.HandlerFunc {
 
-	responseFile := &resolver.ResponseFileInfo{
-		RouteResponseType: route.ResponseType,
-	}
-
 	allowedMethods := route.Methods
 
-	dr, err := resolver.NewGraphResolver(fs, logger, ctx, env, "/agent", responseFile)
+	dr, err := resolver.NewGraphResolver(fs, logger, ctx, env, "/agent")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -117,14 +126,8 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 
 		// Create and process the .pkl request file
 		if err := evaluator.CreateAndProcessPklFile(dr.Fs, sections, dr.RequestPklFile, "APIServerRequest.pkl",
-			nil, logger, evaluator.EvalPkl); err != nil {
+			logger, evaluator.EvalPkl); err != nil {
 			http.Error(w, "Failed to process request file", http.StatusInternalServerError)
-			return
-		}
-
-		// Create response flag file to signal the completion of the response process
-		if err = CreateFlagFile(dr.Fs, dr.ResponseFlag); err != nil {
-			http.Error(w, "Failed to create response flag", http.StatusInternalServerError)
 			return
 		}
 
@@ -134,23 +137,86 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 			return
 		}
 
-		// Read the response file and write it back to the HTTP response
+		// Read the raw response file (this is the undecoded data)
 		content, err := afero.ReadFile(dr.Fs, dr.ResponseTargetFile)
 		if err != nil {
 			http.Error(w, "Failed to read response file", http.StatusInternalServerError)
 			return
 		}
 
-		// Format JSON response if required
-		if responseFile.ContentType == "application/json" {
-			content = formatResponseJson(content)
+		// Decode the Base64-encoded data in the content (if applicable)
+		decodedContent, err := decodeResponseContent(content, logger)
+		if err != nil {
+			http.Error(w, "Failed to decode response content", http.StatusInternalServerError)
+			return
 		}
 
+		decodedContent = formatResponseJson(decodedContent)
+
 		// Write the HTTP response with the appropriate content type
-		w.Header().Set("Content-Type", responseFile.ContentType)
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write(content)
+		w.Write(decodedContent)
 	}
+}
+
+// Helper function to detect if a string is valid JSON
+func isJSON(str string) bool {
+	var js json.RawMessage
+	return json.Unmarshal([]byte(str), &js) == nil
+}
+
+func decodeResponseContent(content []byte, logger *log.Logger) ([]byte, error) {
+	var decodedResp DecodedResponse
+
+	// Unmarshal JSON content into DecodedResponse struct
+	err := json.Unmarshal(content, &decodedResp)
+	if err != nil {
+		logger.Error("Failed to unmarshal response content", "error", err)
+		return nil, err
+	}
+
+	// Decode Base64 strings in the Data field
+	for i, encodedData := range decodedResp.Response.Data {
+		decodedData, err := utils.DecodeBase64String(encodedData)
+		if err != nil {
+			logger.Error("Failed to decode Base64 string", "data", encodedData)
+			decodedResp.Response.Data[i] = encodedData // Use original if decoding fails
+		} else {
+			// If the decoded string is still wrapped in extra quotes, handle unquoting
+			if strings.HasPrefix(decodedData, "\"") && strings.HasSuffix(decodedData, "\"") {
+				unquotedData, err := strconv.Unquote(decodedData)
+				if err == nil {
+					decodedData = unquotedData
+				}
+			}
+
+			// Clean up any remaining escape sequences (like \n or \") if present
+			decodedData = strings.ReplaceAll(decodedData, "\\\"", "\"")
+			decodedData = strings.ReplaceAll(decodedData, "\\n", "\n")
+
+			// If the decoded data is JSON, pretty print it
+			if isJSON(decodedData) {
+				var prettyJSON bytes.Buffer
+				err := json.Indent(&prettyJSON, []byte(decodedData), "", "  ")
+				if err == nil {
+					decodedData = prettyJSON.String()
+				}
+			}
+
+			// Assign the cleaned-up data back to the response
+			decodedResp.Response.Data[i] = decodedData
+		}
+	}
+
+	// Marshal the decoded response back to JSON
+	decodedContent, err := json.Marshal(decodedResp)
+	if err != nil {
+		logger.Error("Failed to marshal decoded response content", "error", err)
+		return nil, err
+	}
+
+	return decodedContent, nil
 }
 
 // cleanOldFiles removes any old response files or flags from previous API requests.
@@ -159,12 +225,6 @@ func cleanOldFiles(fs afero.Fs, dr *resolver.DependencyResolver, logger *log.Log
 	if _, err := fs.Stat(dr.ResponseTargetFile); err == nil {
 		if err := fs.RemoveAll(dr.ResponseTargetFile); err != nil {
 			logger.Error("Unable to delete old response file", "response-target-file", dr.ResponseTargetFile)
-			return err
-		}
-	}
-	if _, err := fs.Stat(dr.ResponseFlag); err == nil {
-		if err := fs.RemoveAll(dr.ResponseFlag); err != nil {
-			logger.Error("Unable to delete old response flag file", "response-flag", dr.ResponseFlag)
 			return err
 		}
 	}
@@ -245,17 +305,23 @@ func processWorkflow(dr *resolver.DependencyResolver, logger *log.Logger) error 
 func formatResponseJson(content []byte) []byte {
 	var response map[string]interface{}
 
+	// Attempt to unmarshal the content into the response map
 	if err := json.Unmarshal(content, &response); err != nil {
+		// Return the original content if unmarshalling fails
 		return content
 	}
 
-	// Check and format the "data" field if it exists
-	if data, ok := response["response"].(map[string]interface{})["data"].([]interface{}); ok {
-		for i, item := range data {
-			var obj map[string]interface{}
-			itemStr, _ := item.(string)
-			if err := json.Unmarshal([]byte(itemStr), &obj); err == nil {
-				data[i] = obj
+	// Safely check if "response" is a map and if "data" exists and is an array
+	if responseField, ok := response["response"].(map[string]interface{}); ok {
+		if data, ok := responseField["data"].([]interface{}); ok {
+			for i, item := range data {
+				// Attempt to unmarshal each item in "data" if it's a string
+				if itemStr, isString := item.(string); isString {
+					var obj map[string]interface{}
+					if err := json.Unmarshal([]byte(itemStr), &obj); err == nil {
+						data[i] = obj
+					}
+				}
 			}
 		}
 	}

@@ -83,7 +83,7 @@ func setupSignalHandler(cancelFunc context.CancelFunc, fs afero.Fs, env *environ
 
 // runGraphResolver prepares and runs the graph resolver.
 func runGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment, apiServerMode bool, logger *log.Logger) error {
-	dr, err := resolver.NewGraphResolver(fs, logger, ctx, env, "/agent", &resolver.ResponseFileInfo{})
+	dr, err := resolver.NewGraphResolver(fs, logger, ctx, env, "/agent")
 	if err != nil {
 		return fmt.Errorf("failed to create graph resolver: %w", err)
 	}
