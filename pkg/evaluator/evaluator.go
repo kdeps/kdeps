@@ -69,7 +69,6 @@ func CreateAndProcessPklFile(
 	sections []string,
 	finalFileName string,
 	pklTemplate string,
-	importSections []string,
 	logger *log.Logger,
 	processFunc func(fs afero.Fs, tmpFile string, logger *log.Logger) (string, error),
 ) error {
@@ -89,17 +88,10 @@ func CreateAndProcessPklFile(
 	}
 	defer tmpFile.Close()
 
-	// Format the import sections as `import "file.pkl"`
-	var formattedImports []string
-	for _, importFile := range importSections {
-		formattedImports = append(formattedImports, fmt.Sprintf(`import "%s"`, importFile))
-	}
-
 	// Prepare the sections with the "amends" and imports
 	// amends "package://schema.kdeps.com/core@0.0.34#/Kdeps.pkl"
 	amendsSection := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/%s"`, schema.SchemaVersion, pklTemplate)
-	fullSections := append([]string{amendsSection}, formattedImports...)
-	fullSections = append(fullSections, sections...)
+	fullSections := append([]string{amendsSection}, sections...)
 
 	// Write sections to the temporary file
 	_, err = tmpFile.Write([]byte(strings.Join(fullSections, "\n")))

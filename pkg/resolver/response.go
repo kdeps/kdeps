@@ -9,99 +9,88 @@ import (
 	"strings"
 
 	"github.com/alexellis/go-execute/v2"
+	"github.com/charmbracelet/log"
 	apiserverresponse "github.com/kdeps/schema/gen/api_server_response"
 	"github.com/spf13/afero"
 )
 
 func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock *apiserverresponse.APIServerResponse) error {
-	success := apiResponseBlock.Success
-	var responseData []string
-	var errorsStr string
-
-	// Check if the response file already exists, and remove it if so
-	exists, err := afero.Exists(dr.Fs, dr.ResponsePklFile)
-	if err != nil {
-		return err
-	}
-
-	if exists {
+	// Check if the response file already exists and remove it if so
+	if exists, err := afero.Exists(dr.Fs, dr.ResponsePklFile); err != nil {
+		return fmt.Errorf("failed to check file existence: %w", err)
+	} else if exists {
 		if err := dr.Fs.RemoveAll(dr.ResponsePklFile); err != nil {
 			dr.Logger.Error("Unable to delete old response file", "response-pkl-file", dr.ResponsePklFile)
-			return err
-		}
-
-	}
-
-	// Format the success as "success = true/false"
-	successStr := fmt.Sprintf("success = %v", success)
-
-	// Process the response block and decode any Base64-encoded data
-	if apiResponseBlock.Response != nil && apiResponseBlock.Response.Data != nil {
-		// Convert the data slice to a string representation
-		responseData = make([]string, len(apiResponseBlock.Response.Data))
-		for i, v := range apiResponseBlock.Response.Data {
-			// Type assertion to ensure v is a string
-			if strVal, ok := v.(string); ok {
-				// Attempt to decode the Base64-encoded data
-				decodedData, err := utils.DecodeBase64String(strVal)
-				if err != nil {
-					decodedData = strVal // If decoding fails, use the original string
-				}
-				responseData[i] = fmt.Sprintf(`
-"""
-%v
-"""
-`, decodedData) // Format the decoded data into the response
-			} else {
-				// Handle case where the data is not a string
-				dr.Logger.Warn("Non-string data found in Response.Data", "data", v)
-				responseData[i] = fmt.Sprintf(`
-"""
-%v
-"""
-`, v) // Just format the non-string value as-is
-			}
+			return fmt.Errorf("failed to delete old response file: %w", err)
 		}
 	}
 
-	// Format the response block as "response { data { ... } }"
-	var responseStr string
+	// Prepare response sections
+	sections := []string{
+		fmt.Sprintf("success = %v", apiResponseBlock.Success),
+		formatResponseData(apiResponseBlock.Response),
+		formatErrors(apiResponseBlock.Errors, dr.Logger),
+	}
+
+	// Create and process the PKL file
+	if err := evaluator.CreateAndProcessPklFile(dr.Fs, sections, dr.ResponsePklFile, "APIServerResponse.pkl", dr.Logger, evaluator.EvalPkl); err != nil {
+		return fmt.Errorf("failed to create/process PKL file: %w", err)
+	}
+
+	return nil
+}
+
+// Helper function to format the response data
+func formatResponseData(response *apiserverresponse.APIServerResponseBlock) string {
+	if response == nil || response.Data == nil {
+		return ""
+	}
+
+	var responseData []string
+	for _, v := range response.Data {
+		strVal, ok := v.(string)
+		if !ok {
+			strVal = fmt.Sprintf("%v", v)
+		}
+		responseData = append(responseData, fmt.Sprintf(`
+"""
+%v
+"""
+`, strVal))
+	}
+
 	if len(responseData) > 0 {
-		responseStr = fmt.Sprintf(`
+		return fmt.Sprintf(`
 response {
   data {
 %s
   }
-}`, strings.Join(responseData, "\n    ")) // Properly format the data block with indentation
+}`, strings.Join(responseData, "\n    "))
 	}
 
-	// Process the errors block and decode any Base64-encoded error message
-	if apiResponseBlock.Errors != nil {
-		decodedErrorMessage := apiResponseBlock.Errors.Message
-		// Check if the error message is Base64-encoded
-		if decodedErrorMessage != "" {
-			decoded, err := utils.DecodeBase64String(apiResponseBlock.Errors.Message)
-			if err == nil {
-				decodedErrorMessage = decoded // Use the decoded message if successful
-			}
+	return ""
+}
+
+// Helper function to format errors with optional base64 decoding
+func formatErrors(errors *apiserverresponse.APIServerErrorsBlock, logger *log.Logger) string {
+	if errors == nil {
+		return ""
+	}
+
+	decodedMessage := errors.Message
+	if decodedMessage != "" {
+		if decoded, err := utils.DecodeBase64String(decodedMessage); err == nil {
+			decodedMessage = decoded
+		} else {
+			logger.Warn("Failed to decode error message", "message", errors.Message, "error", err)
 		}
-		errorsStr = fmt.Sprintf(`
+	}
+
+	return fmt.Sprintf(`
 errors {
   code = %d
   message = %q
-}`, apiResponseBlock.Errors.Code, decodedErrorMessage)
-	}
-
-	// Combine everything into sections as []string
-	sections := []string{successStr, responseStr, errorsStr}
-
-	// Create and process the PKL file
-	if err := evaluator.CreateAndProcessPklFile(dr.Fs, sections, dr.ResponsePklFile, "APIServerResponse.pkl",
-		nil, dr.Logger, evaluator.EvalPkl); err != nil {
-		return err
-	}
-
-	return nil
+}`, errors.Code, decodedMessage)
 }
 
 func (dr *DependencyResolver) EvalPklFormattedResponseFile() (string, error) {
@@ -133,7 +122,7 @@ func (dr *DependencyResolver) EvalPklFormattedResponseFile() (string, error) {
 
 	cmd := execute.ExecTask{
 		Command:     "pkl",
-		Args:        []string{"eval", "--format", dr.ResponseType, "--output-path", dr.ResponseTargetFile, dr.ResponsePklFile},
+		Args:        []string{"eval", "--format", "json", "--output-path", dr.ResponseTargetFile, dr.ResponsePklFile},
 		StreamStdio: false,
 	}
 

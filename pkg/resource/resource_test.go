@@ -186,16 +186,11 @@ settings {
       new {
 	path = "/resource1"
 	%s
-	responseType = "json"
-      }
-      new {
-	path = "/resource2"
-	%s
       }
     }
   }
 }
-`, methodSection, methodSection)
+`, methodSection)
 	var filePath string
 
 	filePath = filepath.Join(homeDirPath, "myAgentX")
@@ -223,6 +218,7 @@ amends "package://schema.kdeps.com/core@0.1.1#/Resource.pkl"
 local llmResponse = "@(llm.response("action1"))"
 local execResponse = "@(exec.stdout("action2"))"
 local clientResponse = "@(client.responseBody("action3"))"
+local clientResponse2 = "@(client.responseBody("action4"))"
 
 id = "helloWorld"
 name = "default action"
@@ -232,6 +228,7 @@ requires {
   "action1"
   "action2"
   "action3"
+  "action4"
 }
 
 run {
@@ -248,6 +245,7 @@ run {
 	"@(llmResponse)"
 	"@(execResponse)"
 	"@(clientResponse)"
+	"@(clientResponse2)"
       }
     }
   }
@@ -362,6 +360,39 @@ run {
 `
 
 	resourceConfigurationFile = filepath.Join(resourcesDir, "resource4.pkl")
+	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0644)
+	if err != nil {
+		return err
+	}
+
+	resourceConfigurationContent = `
+amends "package://schema.kdeps.com/core@0.1.1#/Resource.pkl"
+
+id = "action4"
+category = "kdepsdockerai"
+description = "this is a description for action4 - @(request.url)"
+requires {
+  "helloWorld"
+  "action2"
+  "action1"
+  "action3"
+}
+name = "default action"
+run {
+  httpClient {
+    method = "GET"
+    url = "https://google.com"
+  }
+  postflightCheck {
+    validations {
+      1 + 1 == 2
+      2 + 2 == 4
+    }
+  }
+}
+`
+
+	resourceConfigurationFile = filepath.Join(resourcesDir, "resource5.pkl")
 	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0644)
 	if err != nil {
 		return err
