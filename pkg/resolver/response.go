@@ -14,25 +14,14 @@ import (
 	"github.com/spf13/afero"
 )
 
+// CreateResponsePklFile generates a PKL file from the API response and processes it.
 func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock *apiserverresponse.APIServerResponse) error {
-	// Check if the response file already exists and remove it if so
-	if exists, err := afero.Exists(dr.Fs, dr.ResponsePklFile); err != nil {
-		return fmt.Errorf("failed to check file existence: %w", err)
-	} else if exists {
-		if err := dr.Fs.RemoveAll(dr.ResponsePklFile); err != nil {
-			dr.Logger.Error("Unable to delete old response file", "response-pkl-file", dr.ResponsePklFile)
-			return fmt.Errorf("failed to delete old response file: %w", err)
-		}
+	if err := dr.ensureResponsePklFileNotExists(); err != nil {
+		return err
 	}
 
-	// Prepare response sections
-	sections := []string{
-		fmt.Sprintf("success = %v", apiResponseBlock.Success),
-		formatResponseData(apiResponseBlock.Response),
-		formatErrors(apiResponseBlock.Errors, dr.Logger),
-	}
+	sections := dr.buildResponseSections(apiResponseBlock)
 
-	// Create and process the PKL file
 	if err := evaluator.CreateAndProcessPklFile(dr.Fs, sections, dr.ResponsePklFile, "APIServerResponse.pkl", dr.Logger, evaluator.EvalPkl); err != nil {
 		return fmt.Errorf("failed to create/process PKL file: %w", err)
 	}
@@ -40,7 +29,31 @@ func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock *apiserverr
 	return nil
 }
 
-// Helper function to format the response data
+// ensureResponsePklFileNotExists removes the existing PKL file if it exists.
+func (dr *DependencyResolver) ensureResponsePklFileNotExists() error {
+	exists, err := afero.Exists(dr.Fs, dr.ResponsePklFile)
+	if err != nil {
+		return fmt.Errorf("failed to check file existence: %w", err)
+	}
+	if exists {
+		if err := dr.Fs.RemoveAll(dr.ResponsePklFile); err != nil {
+			dr.Logger.Error("Unable to delete old response file", "response-pkl-file", dr.ResponsePklFile)
+			return fmt.Errorf("failed to delete old response file: %w", err)
+		}
+	}
+	return nil
+}
+
+// buildResponseSections creates sections for the PKL file from the API response.
+func (dr *DependencyResolver) buildResponseSections(apiResponseBlock *apiserverresponse.APIServerResponse) []string {
+	return []string{
+		fmt.Sprintf("success = %v", apiResponseBlock.Success),
+		formatResponseData(apiResponseBlock.Response),
+		formatErrors(apiResponseBlock.Errors, dr.Logger),
+	}
+}
+
+// formatResponseData formats the response data for the PKL file.
 func formatResponseData(response *apiserverresponse.APIServerResponseBlock) string {
 	if response == nil || response.Data == nil {
 		return ""
@@ -48,15 +61,7 @@ func formatResponseData(response *apiserverresponse.APIServerResponseBlock) stri
 
 	var responseData []string
 	for _, v := range response.Data {
-		strVal, ok := v.(string)
-		if !ok {
-			strVal = fmt.Sprintf("%v", v)
-		}
-		responseData = append(responseData, fmt.Sprintf(`
-"""
-%v
-"""
-`, strVal))
+		responseData = append(responseData, formatDataValue(v))
 	}
 
 	if len(responseData) > 0 {
@@ -67,24 +72,29 @@ response {
   }
 }`, strings.Join(responseData, "\n    "))
 	}
-
 	return ""
 }
 
-// Helper function to format errors with optional base64 decoding
+// formatDataValue formats a single data value for inclusion in the response.
+func formatDataValue(value interface{}) string {
+	strVal, ok := value.(string)
+	if !ok {
+		strVal = fmt.Sprintf("%v", value)
+	}
+	return fmt.Sprintf(`
+"""
+%v
+"""
+`, strVal)
+}
+
+// formatErrors formats error messages with optional base64 decoding.
 func formatErrors(errors *apiserverresponse.APIServerErrorsBlock, logger *log.Logger) string {
 	if errors == nil {
 		return ""
 	}
 
-	decodedMessage := errors.Message
-	if decodedMessage != "" {
-		if decoded, err := utils.DecodeBase64String(decodedMessage); err == nil {
-			decodedMessage = decoded
-		} else {
-			logger.Warn("Failed to decode error message", "message", errors.Message, "error", err)
-		}
-	}
+	decodedMessage := decodeErrorMessage(errors.Message, logger)
 
 	return fmt.Sprintf(`
 errors {
@@ -93,63 +103,95 @@ errors {
 }`, errors.Code, decodedMessage)
 }
 
-func (dr *DependencyResolver) EvalPklFormattedResponseFile() (string, error) {
-	// Validate that the file has a .pkl extension
-	if filepath.Ext(dr.ResponsePklFile) != ".pkl" {
-		errMsg := fmt.Sprintf("file '%s' must have a .pkl extension", dr.ResponsePklFile)
-		dr.Logger.Error(errMsg)
-		return "", fmt.Errorf(errMsg)
+// decodeErrorMessage attempts to base64 decode the error message.
+func decodeErrorMessage(message string, logger *log.Logger) string {
+	if message == "" {
+		return ""
 	}
-
-	// Check if the response file already exists, and remove it if so
-	exists, err := afero.Exists(dr.Fs, dr.ResponseTargetFile)
+	decoded, err := utils.DecodeBase64String(message)
 	if err != nil {
+		logger.Warn("Failed to decode error message", "message", message, "error", err)
+		return message
+	}
+	return decoded
+}
+
+// EvalPklFormattedResponseFile evaluates a PKL file and formats the result as JSON.
+func (dr *DependencyResolver) EvalPklFormattedResponseFile() (string, error) {
+	if err := dr.validatePklFileExtension(); err != nil {
 		return "", err
 	}
 
-	if exists {
-		if err := dr.Fs.RemoveAll(dr.ResponseTargetFile); err != nil {
-			dr.Logger.Error("Unable to delete old response target file", "response-target-file", dr.ResponsePklFile)
-			return "", err
-		}
-
+	if err := dr.ensureResponseTargetFileNotExists(); err != nil {
+		return "", err
 	}
 
-	// Ensure that the 'pkl' binary is available
 	if err := evaluator.EnsurePklBinaryExists(dr.Logger); err != nil {
 		return "", err
 	}
 
+	result, err := dr.executePklEvalCommand()
+	if err != nil {
+		return "", err
+	}
+
+	return result.Stdout, nil
+}
+
+// validatePklFileExtension checks if the response file has a .pkl extension.
+func (dr *DependencyResolver) validatePklFileExtension() error {
+	if filepath.Ext(dr.ResponsePklFile) != ".pkl" {
+		errMsg := fmt.Sprintf("file '%s' must have a .pkl extension", dr.ResponsePklFile)
+		dr.Logger.Error(errMsg)
+		return fmt.Errorf(errMsg)
+	}
+	return nil
+}
+
+// ensureResponseTargetFileNotExists removes the existing target file if it exists.
+func (dr *DependencyResolver) ensureResponseTargetFileNotExists() error {
+	exists, err := afero.Exists(dr.Fs, dr.ResponseTargetFile)
+	if err != nil {
+		return err
+	}
+	if exists {
+		if err := dr.Fs.RemoveAll(dr.ResponseTargetFile); err != nil {
+			dr.Logger.Error("Unable to delete old response target file", "response-target-file", dr.ResponsePklFile)
+			return err
+		}
+	}
+	return nil
+}
+
+// executePklEvalCommand runs the 'pkl eval' command and checks the result.
+func (dr *DependencyResolver) executePklEvalCommand() (execute.ExecResult, error) {
 	cmd := execute.ExecTask{
 		Command:     "pkl",
 		Args:        []string{"eval", "--format", "json", "--output-path", dr.ResponseTargetFile, dr.ResponsePklFile},
 		StreamStdio: false,
 	}
 
-	// Execute the command
 	result, err := cmd.Execute(context.Background())
 	if err != nil {
-		errMsg := "command execution failed"
-		dr.Logger.Error(errMsg, "error", err)
-		return "", fmt.Errorf("%s: %w", errMsg, err)
+		dr.Logger.Error("command execution failed", "error", err)
+		return execute.ExecResult{}, fmt.Errorf("command execution failed: %w", err)
 	}
 
-	// Check for non-zero exit code
 	if result.ExitCode != 0 {
 		errMsg := fmt.Sprintf("command failed with exit code %d: %s", result.ExitCode, result.Stderr)
 		dr.Logger.Error(errMsg)
-		return "", fmt.Errorf(errMsg)
+		return execute.ExecResult{}, fmt.Errorf(errMsg)
 	}
 
-	return result.Stdout, nil
+	return result, nil
 }
 
-// Helper function to Handle API error responses
+// HandleAPIErrorResponse handles API error responses by creating a PKL file.
 func (dr *DependencyResolver) HandleAPIErrorResponse(code int, message string) error {
 	if dr.ApiServerMode {
 		errorResponse := utils.NewAPIServerResponse(false, nil, code, message)
 		if err := dr.CreateResponsePklFile(&errorResponse); err != nil {
-			dr.Logger.Error("Failed to create error response file:", err)
+			dr.Logger.Error("Failed to create error response file", "error", err)
 			return err
 		}
 	}
