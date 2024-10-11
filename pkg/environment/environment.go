@@ -1,6 +1,8 @@
 package environment
 
 import (
+	"fmt"
+	"os"
 	"path/filepath"
 
 	env "github.com/Netflix/go-env"
@@ -28,36 +30,39 @@ func checkConfig(fs afero.Fs, baseDir string) (string, error) {
 	return "", nil
 }
 
-func NewEnvironment(fs afero.Fs, environment *Environment) (*Environment, error) {
+func NewEnvironment(fs afero.Fs, environ *Environment) (*Environment, error) {
 	// If an environment is provided, prioritize overriding configurations
-	if environment != nil {
+	if environ != nil {
 		var kdepsConfigFile, dockerMode string
 
 		// Check for kdeps config in Pwd directory
-		if configFile, _ := checkConfig(fs, environment.Pwd); configFile != "" {
+		if configFile, _ := checkConfig(fs, environ.Pwd); configFile != "" {
 			kdepsConfigFile = configFile
 		}
 
 		// Check for kdeps config in Home directory
-		if configFile, _ := checkConfig(fs, environment.Home); configFile != "" {
+		if configFile, _ := checkConfig(fs, environ.Home); configFile != "" {
 			kdepsConfigFile = configFile
 		}
 
 		// Check if running in Docker by detecting .dockerenv
-		dockerEnvFlag := filepath.Join(environment.Root, ".dockerenv")
+		dockerEnvFlag := filepath.Join(environ.Root, ".dockerenv")
 		if _, err := fs.Stat(dockerEnvFlag); err == nil {
+			fmt.Println("Hello 2")
 			dockerMode = "1"
 		}
 
 		return &Environment{
-			Root:           environment.Root,
-			Home:           environment.Home,
-			Pwd:            environment.Pwd,
+			Root:           environ.Root,
+			Home:           environ.Home,
+			Pwd:            environ.Pwd,
 			KdepsConfig:    kdepsConfigFile,
 			NonInteractive: "1",
 			DockerMode:     dockerMode,
 		}, nil
 	}
+
+	environment := &Environment{}
 
 	// Otherwise, load environment variables and extra settings
 	es, err := env.UnmarshalFromEnviron(environment)
@@ -82,7 +87,9 @@ func NewEnvironment(fs afero.Fs, environment *Environment) (*Environment, error)
 	// Check if running in Docker by detecting .dockerenv
 	dockerEnvFlag := filepath.Join(environment.Root, ".dockerenv")
 	if _, err := fs.Stat(dockerEnvFlag); err == nil {
-		dockerMode = "1"
+		if allDockerEnvVarsSet() {
+			dockerMode = "1"
+		}
 	}
 
 	return &Environment{
@@ -93,4 +100,15 @@ func NewEnvironment(fs afero.Fs, environment *Environment) (*Environment, error)
 		DockerMode:  dockerMode,
 		Extras:      environment.Extras,
 	}, nil
+}
+
+func allDockerEnvVarsSet() bool {
+	vars := []string{"SCHEMA_VERSION", "OLLAMA_HOST", "KDEPS_HOST"}
+
+	for _, v := range vars {
+		if value, exists := os.LookupEnv(v); !exists || value == "" {
+			return false
+		}
+	}
+	return true
 }

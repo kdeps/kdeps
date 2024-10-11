@@ -60,8 +60,7 @@ func main() {
 
 // setupEnvironment initializes the environment using the filesystem.
 func setupEnvironment(fs afero.Fs) (*environment.Environment, error) {
-	env := &environment.Environment{}
-	environ, err := environment.NewEnvironment(fs, env)
+	environ, err := environment.NewEnvironment(fs, nil)
 	if err != nil {
 		return nil, err
 	}
