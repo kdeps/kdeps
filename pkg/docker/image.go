@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"kdeps/pkg/archiver"
+	"kdeps/pkg/schema"
 	"kdeps/pkg/workflow"
 	"os"
 	"path/filepath"
@@ -160,6 +161,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	dockerFile := fmt.Sprintf(`
 FROM ollama/ollama:0.3.11
 
+ENV SCHEMA_VERSION=%s
 ENV OLLAMA_HOST=%s:%s
 ENV KDEPS_HOST=%s
 
@@ -190,7 +192,7 @@ RUN chmod +x /bin/kdeps
 
 ENTRYPOINT ["/bin/kdeps"]
 CMD ["run", "/agent/workflow/workflow.pkl"]
-`, hostIP, ollamaPortNum, kdepsHost, pkgSection, exposedPort)
+`, schema.SchemaVersion, hostIP, ollamaPortNum, kdepsHost, pkgSection, exposedPort)
 
 	// Ensure the run directory exists
 	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion)

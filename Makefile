@@ -1,7 +1,7 @@
 PROJECT_NAME := kdeps
 TEST_REPORT := test-report.txt
 COVERAGE_REPORT := coverage.txt
-SCHEMA_VERSION_FILE = SCHEMA_VERSION
+SCHEMA_VERSION_FILE := SCHEMA_VERSION
 PACKAGE_LIST := ./...
 TARGETS := $(filter darwin/amd64 linux/amd64 windows/amd64 darwin/arm64 linux/arm64 windows/arm64, $(shell go tool dist list))
 
