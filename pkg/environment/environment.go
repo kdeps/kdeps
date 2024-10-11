@@ -1,7 +1,6 @@
 package environment
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -9,8 +8,9 @@ import (
 	"github.com/spf13/afero"
 )
 
-var SystemconfigFileName = ".kdeps.pkl"
+const SystemConfigFileName = ".kdeps.pkl"
 
+// Environment holds environment configurations loaded from the OS or defaults.
 type Environment struct {
 	Root           string `env:"ROOT_DIR,default=/"`
 	Home           string `env:"HOME"`
@@ -21,34 +21,56 @@ type Environment struct {
 	Extras         env.EnvSet
 }
 
-// Helper to check and set kdepsConfig if the file exists in the given path
+// checkConfig checks if the .kdeps.pkl file exists in the given directory.
 func checkConfig(fs afero.Fs, baseDir string) (string, error) {
-	configFile := filepath.Join(baseDir, SystemconfigFileName)
-	if _, err := fs.Stat(configFile); err == nil {
+	configFile := filepath.Join(baseDir, SystemConfigFileName)
+	if exists, err := afero.Exists(fs, configFile); err == nil && exists {
 		return configFile, nil
 	}
 	return "", nil
 }
 
+// findKdepsConfig searches for the .kdeps.pkl file in both the Pwd and Home directories.
+func findKdepsConfig(fs afero.Fs, pwd, home string) string {
+	// Check for kdeps config in Pwd directory
+	if configFile, _ := checkConfig(fs, pwd); configFile != "" {
+		return configFile
+	}
+	// Check for kdeps config in Home directory
+	if configFile, _ := checkConfig(fs, home); configFile != "" {
+		return configFile
+	}
+	return ""
+}
+
+// isDockerEnvironment checks for the presence of Docker-related indicators.
+func isDockerEnvironment(fs afero.Fs, root string) bool {
+	dockerEnvFlag := filepath.Join(root, ".dockerenv")
+	if exists, _ := afero.Exists(fs, dockerEnvFlag); exists {
+		// Ensure all required Docker environment variables are set
+		return allDockerEnvVarsSet()
+	}
+	return false
+}
+
+// allDockerEnvVarsSet checks if required Docker environment variables are set.
+func allDockerEnvVarsSet() bool {
+	requiredVars := []string{"SCHEMA_VERSION", "OLLAMA_HOST", "KDEPS_HOST"}
+	for _, v := range requiredVars {
+		if value, exists := os.LookupEnv(v); !exists || value == "" {
+			return false
+		}
+	}
+	return true
+}
+
+// NewEnvironment initializes and returns a new Environment based on provided or default settings.
 func NewEnvironment(fs afero.Fs, environ *Environment) (*Environment, error) {
-	// If an environment is provided, prioritize overriding configurations
 	if environ != nil {
-		var kdepsConfigFile, dockerMode string
-
-		// Check for kdeps config in Pwd directory
-		if configFile, _ := checkConfig(fs, environ.Pwd); configFile != "" {
-			kdepsConfigFile = configFile
-		}
-
-		// Check for kdeps config in Home directory
-		if configFile, _ := checkConfig(fs, environ.Home); configFile != "" {
-			kdepsConfigFile = configFile
-		}
-
-		// Check if running in Docker by detecting .dockerenv
-		dockerEnvFlag := filepath.Join(environ.Root, ".dockerenv")
-		if _, err := fs.Stat(dockerEnvFlag); err == nil {
-			fmt.Println("Hello 2")
+		// If an environment is provided, prioritize overriding configurations
+		kdepsConfigFile := findKdepsConfig(fs, environ.Pwd, environ.Home)
+		dockerMode := "0"
+		if isDockerEnvironment(fs, environ.Root) {
 			dockerMode = "1"
 		}
 
@@ -57,39 +79,24 @@ func NewEnvironment(fs afero.Fs, environ *Environment) (*Environment, error) {
 			Home:           environ.Home,
 			Pwd:            environ.Pwd,
 			KdepsConfig:    kdepsConfigFile,
-			NonInteractive: "1",
+			NonInteractive: "1", // Prioritize non-interactive mode for overridden environments
 			DockerMode:     dockerMode,
 		}, nil
 	}
 
+	// Load environment variables into a new Environment struct
 	environment := &Environment{}
-
-	// Otherwise, load environment variables and extra settings
-	es, err := env.UnmarshalFromEnviron(environment)
+	extras, err := env.UnmarshalFromEnviron(environment)
 	if err != nil {
 		return nil, err
 	}
-	environment.Extras = es
+	environment.Extras = extras
 
-	// Set defaults for paths and docker mode
-	kdepsConfigFile, dockerMode := "", "0"
-
-	// Check for kdeps config in Pwd directory
-	if configFile, _ := checkConfig(fs, environment.Pwd); configFile != "" {
-		kdepsConfigFile = configFile
-	}
-
-	// Check for kdeps config in Home directory
-	if configFile, _ := checkConfig(fs, environment.Home); configFile != "" {
-		kdepsConfigFile = configFile
-	}
-
-	// Check if running in Docker by detecting .dockerenv
-	dockerEnvFlag := filepath.Join(environment.Root, ".dockerenv")
-	if _, err := fs.Stat(dockerEnvFlag); err == nil {
-		if allDockerEnvVarsSet() {
-			dockerMode = "1"
-		}
+	// Find kdepsConfig file and check if running in Docker
+	kdepsConfigFile := findKdepsConfig(fs, environment.Pwd, environment.Home)
+	dockerMode := "0"
+	if isDockerEnvironment(fs, environment.Root) {
+		dockerMode = "1"
 	}
 
 	return &Environment{
@@ -100,15 +107,4 @@ func NewEnvironment(fs afero.Fs, environ *Environment) (*Environment, error) {
 		DockerMode:  dockerMode,
 		Extras:      environment.Extras,
 	}, nil
-}
-
-func allDockerEnvVarsSet() bool {
-	vars := []string{"SCHEMA_VERSION", "OLLAMA_HOST", "KDEPS_HOST"}
-
-	for _, v := range vars {
-		if value, exists := os.LookupEnv(v); !exists || value == "" {
-			return false
-		}
-	}
-	return true
 }

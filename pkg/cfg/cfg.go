@@ -26,20 +26,20 @@ func FindConfiguration(fs afero.Fs, env *environment.Environment, logger *log.Lo
 	}
 
 	// Use the initialized environment's Pwd directory
-	configFilePwd := filepath.Join(env.Pwd, environment.SystemconfigFileName)
+	configFilePwd := filepath.Join(env.Pwd, environment.SystemConfigFileName)
 	if _, err := fs.Stat(configFilePwd); err == nil {
 		logger.Info("Configuration file found in Pwd directory", "config-file", configFilePwd)
 		return configFilePwd, nil
 	}
 
 	// Use the initialized environment's Home directory
-	configFileHome := filepath.Join(env.Home, environment.SystemconfigFileName)
+	configFileHome := filepath.Join(env.Home, environment.SystemConfigFileName)
 	if _, err := fs.Stat(configFileHome); err == nil {
 		logger.Info("Configuration file found in Home directory", "config-file", configFileHome)
 		return configFileHome, nil
 	}
 
-	logger.Warn("Configuration file not found", "config-file", environment.SystemconfigFileName)
+	logger.Warn("Configuration file not found", "config-file", environment.SystemConfigFileName)
 	return "", nil
 }
 
@@ -47,7 +47,7 @@ func GenerateConfiguration(fs afero.Fs, env *environment.Environment, logger *lo
 	logger.Info("Generating configuration...")
 
 	// Set configFile path in Home directory
-	configFile := filepath.Join(env.Home, environment.SystemconfigFileName)
+	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
 	skipPrompts := env.NonInteractive == "1"
 
 	if _, err := fs.Stat(configFile); err != nil {
@@ -87,7 +87,7 @@ func GenerateConfiguration(fs afero.Fs, env *environment.Environment, logger *lo
 func EditConfiguration(fs afero.Fs, env *environment.Environment, logger *log.Logger) (string, error) {
 	logger.Info("Editing configuration...")
 
-	configFile := filepath.Join(env.Home, environment.SystemconfigFileName)
+	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
 	skipPrompts := env.NonInteractive == "1"
 
 	if _, err := fs.Stat(configFile); err == nil {
@@ -106,7 +106,7 @@ func EditConfiguration(fs afero.Fs, env *environment.Environment, logger *log.Lo
 func ValidateConfiguration(fs afero.Fs, env *environment.Environment, logger *log.Logger) (string, error) {
 	logger.Info("Validating configuration...")
 
-	configFile := filepath.Join(env.Home, environment.SystemconfigFileName)
+	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
 
 	if _, err := evaluator.EvalPkl(fs, configFile, logger); err != nil {
 		return configFile, fmt.Errorf("configuration validation failed: %w", err)
