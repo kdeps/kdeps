@@ -31,29 +31,31 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize Docker system
-	apiServerMode, err := docker.BootstrapDockerSystem(fs, ctx, env, logger)
-	if err != nil {
-		logger.Error("Error during Docker bootstrap", "error", err)
-		os.Exit(1)
-	}
-
-	// Setup graceful shutdown handling
-	setupSignalHandler(cancel, fs, env, apiServerMode, logger)
-
-	// Run workflow or wait for shutdown
-	if !apiServerMode {
-		err = runGraphResolver(fs, ctx, env, apiServerMode, logger)
+	if env.DockerMode == "1" {
+		// Initialize Docker system
+		apiServerMode, err := docker.BootstrapDockerSystem(fs, ctx, env, logger)
 		if err != nil {
-			logger.Error("Error running graph resolver", "error", err)
+			logger.Error("Error during Docker bootstrap", "error", err)
 			os.Exit(1)
 		}
-	}
 
-	// Wait for shutdown signal
-	<-ctx.Done()
-	logger.Info("Context canceled, shutting down gracefully...")
-	cleanup(fs, env, apiServerMode, logger)
+		// Setup graceful shutdown handling
+		setupSignalHandler(cancel, fs, env, apiServerMode, logger)
+
+		// Run workflow or wait for shutdown
+		if !apiServerMode {
+			err = runGraphResolver(fs, ctx, env, apiServerMode, logger)
+			if err != nil {
+				logger.Error("Error running graph resolver", "error", err)
+				os.Exit(1)
+			}
+		}
+
+		// Wait for shutdown signal
+		<-ctx.Done()
+		logger.Info("Context canceled, shutting down gracefully...")
+		cleanup(fs, env, apiServerMode, logger)
+	}
 }
 
 // setupEnvironment initializes the environment using the filesystem.
