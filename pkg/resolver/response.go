@@ -82,9 +82,9 @@ func formatDataValue(value interface{}) string {
 		strVal = fmt.Sprintf("%v", value)
 	}
 	return fmt.Sprintf(`
-"""
+#"""
 %v
-"""
+"""#
 `, strVal)
 }
 
