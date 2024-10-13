@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"kdeps/pkg/cfg"
 	"kdeps/pkg/docker"
 	"kdeps/pkg/environment"
 	"kdeps/pkg/logging"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"
+	"github.com/urfave/cli/v2"
 )
 
 func main() {
@@ -55,6 +57,48 @@ func main() {
 		<-ctx.Done()
 		logger.Info("Context canceled, shutting down gracefully...")
 		cleanup(fs, env, apiServerMode, logger)
+	} else {
+		var cfgFile string
+
+		cfgFile, err = cfg.FindConfiguration(fs, env, logger)
+		if err != nil {
+			logger.Error("Error occurred finding configuration")
+		}
+
+		if cfgFile == "" {
+			cfgFile, err = cfg.GenerateConfiguration(fs, env, logger)
+			if err != nil {
+				logger.Fatal("Error occurred generating configuration", "error", err)
+				os.Exit(1)
+			}
+
+			cfgFile, err = cfg.EditConfiguration(fs, env, logger)
+			if err != nil {
+				logger.Error("Error occurred editing configuration")
+			}
+		}
+
+		cfgFile, err = cfg.ValidateConfiguration(fs, env, logger)
+		if err != nil {
+			logger.Fatal("Error occurred validating configuration", "error", err)
+			os.Exit(1)
+		}
+
+		_, err := cfg.LoadConfiguration(fs, cfgFile, logger)
+		if err != nil {
+			logger.Error("Error occurred loading configuration")
+			os.Exit(1)
+		}
+
+		app := &cli.App{
+			Name:  "kdeps",
+			Usage: "AI Agent framework",
+		}
+
+		if err := app.Run(os.Args); err != nil {
+			logger.Fatal(err)
+			os.Exit(1)
+		}
 	}
 }
 

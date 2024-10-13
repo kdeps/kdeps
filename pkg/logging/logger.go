@@ -2,7 +2,6 @@ package logging
 
 import (
 	"os"
-	"time"
 
 	"github.com/charmbracelet/log"
 )
@@ -14,7 +13,6 @@ func init() {
 	logger = log.NewWithOptions(os.Stderr, log.Options{
 		ReportCaller:    true,
 		ReportTimestamp: true,
-		TimeFormat:      time.Kitchen,
 		Prefix:          "kdeps",
 	})
 

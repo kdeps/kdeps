@@ -3,6 +3,7 @@ package evaluator
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -18,9 +19,8 @@ import (
 func EnsurePklBinaryExists(logger *log.Logger) error {
 	binaryName := "pkl"
 	if _, err := exec.LookPath(binaryName); err != nil {
-		errMsg := fmt.Sprintf("the binary '%s' is not found in PATH", binaryName)
-		logger.Error(errMsg, "error", err)
-		return fmt.Errorf("%s: %w", errMsg, err)
+		logger.Fatal("Apple PKL not found in PATH. Please install Apple PKL (see https://pkl-lang.org/main/current/pkl-cli/index.html#installation) for more details", "error", err)
+		os.Exit(1)
 	}
 	return nil
 }
