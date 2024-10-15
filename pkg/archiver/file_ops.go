@@ -95,7 +95,7 @@ func getFileMD5(fs afero.Fs, filePath string, length int) (string, error) {
 }
 
 // Move the original file to a new name with MD5 and copy the latest file
-func CopyFile(fs afero.Fs, src, dst string) error {
+func CopyFile(fs afero.Fs, src, dst string, logger *log.Logger) error {
 	// Check if the destination file exists
 	if _, err := fs.Stat(dst); err == nil {
 		// Calculate MD5 for both source and destination files
@@ -155,11 +155,11 @@ func CopyFile(fs afero.Fs, src, dst string) error {
 		return fmt.Errorf("failed to change permissions on destination file: %w", err)
 	}
 
-	fmt.Println("File copied successfully:", src, "to", dst)
+	logger.Debug("File copied successfully:", "from", src, "to", dst)
 	return nil
 }
 
-func CopyDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir, compiledProjectDir, agentName, agentVersion,
+func CopyDataDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir, compiledProjectDir, agentName, agentVersion,
 	agentAction string, processWorkflows bool, logger *log.Logger) error {
 	var srcDir, destDir string
 
@@ -191,7 +191,7 @@ func CopyDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir, compiledProj
 						return err
 					}
 				} else {
-					if err := CopyFile(fs, path, dstPath); err != nil {
+					if err := CopyFile(fs, path, dstPath, logger); err != nil {
 						logger.Error("Failed to copy file", "src", path, "dst", dstPath, "error", err)
 						return err
 					}
@@ -202,12 +202,19 @@ func CopyDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir, compiledProj
 
 		if agentVersion == "" {
 			agentVersionPath := filepath.Join(kdepsDir, "agents", agentName)
-			version, err := getLatestVersion(agentVersionPath, logger)
+			exists, err := afero.Exists(fs, agentVersionPath)
 			if err != nil {
-				logger.Error("Failed to get latest agent version", "agentVersionPath", agentVersionPath, "error", err)
 				return err
 			}
-			agentVersion = version
+
+			if exists {
+				version, err := getLatestVersion(agentVersionPath, logger)
+				if err != nil {
+					logger.Error("Failed to get latest agent version", "agentVersionPath", agentVersionPath, "error", err)
+					return err
+				}
+				agentVersion = version
+			}
 		}
 
 		src := filepath.Join(kdepsDir, "agents", agentName, agentVersion, "resources")
@@ -216,14 +223,21 @@ func CopyDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir, compiledProj
 		srcDir = filepath.Join(kdepsDir, "agents", agentName, agentVersion, "data", agentName, agentVersion)
 		destDir = filepath.Join(compiledProjectDir, fmt.Sprintf("data/%s/%s", agentName, agentVersion))
 
-		if err := copyResources(src, dst); err != nil {
-			logger.Error("Failed to copy resources", "src", src, "dst", dst, "error", err)
+		exists, err := afero.Exists(fs, src)
+		if err != nil {
 			return err
+		}
+
+		if exists {
+			if err := copyResources(src, dst); err != nil {
+				logger.Error("Failed to copy resources", "src", src, "dst", dst, "error", err)
+				return err
+			}
 		}
 	}
 
 	if _, err := fs.Stat(srcDir); err != nil {
-		logger.Error("No data found! Skipping!")
+		logger.Debug("No data found! Skipping!", "src", srcDir)
 		return nil
 	}
 
@@ -241,6 +255,12 @@ func CopyDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir, compiledProj
 			return err
 		}
 
+		pathParts := strings.Split(relPath, string(os.PathSeparator))
+		if len(pathParts) >= 2 {
+			// Adjust destDir if agent data already exists from src path
+			destDir = filepath.Join(kdepsDir, "agents", wf.Name, wf.Version, "data")
+		}
+
 		// Create the destination path
 		dstPath := filepath.Join(destDir, relPath)
 
@@ -252,7 +272,7 @@ func CopyDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir, compiledProj
 			}
 		} else {
 			// If it's a file, copy the file
-			if err := CopyFile(fs, path, dstPath); err != nil {
+			if err := CopyFile(fs, path, dstPath, logger); err != nil {
 				logger.Error("Failed to copy file", "src", path, "dst", dstPath, "error", err)
 				return err
 			}
@@ -266,6 +286,6 @@ func CopyDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir, compiledProj
 		return err
 	}
 
-	logger.Info("Directory copied successfully", "srcDir", srcDir, "destDir", destDir)
+	logger.Debug("Directory copied successfully", "srcDir", srcDir, "destDir", destDir)
 	return nil
 }

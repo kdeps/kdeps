@@ -126,7 +126,7 @@ func (dr *DependencyResolver) HandleRunAction() error {
 	visited := make(map[string]bool)
 	actionId := dr.Workflow.Action
 	timeoutSeconds := 60 * time.Second
-	dr.Logger.Info("Processing resources...")
+	dr.Logger.Debug("Processing resources...")
 	if err := dr.LoadResourceEntries(); err != nil {
 		return dr.HandleAPIErrorResponse(500, err.Error())
 	}
@@ -145,7 +145,7 @@ func (dr *DependencyResolver) HandleRunAction() error {
 					// Check Skip Condition
 					if runBlock.SkipCondition != nil {
 						if utils.ShouldSkip(runBlock.SkipCondition) {
-							dr.Logger.Info("Skip condition met, skipping:", res.Id)
+							dr.Logger.Debug("Skip condition met, skipping:", res.Id)
 							continue
 						}
 					}
@@ -257,6 +257,6 @@ func (dr *DependencyResolver) HandleRunAction() error {
 		}
 	}
 
-	dr.Logger.Info("All resources finished processing")
+	dr.Logger.Debug("All resources finished processing")
 	return nil
 }

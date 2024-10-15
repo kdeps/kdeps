@@ -32,7 +32,7 @@ func (wc WriteCounter) PrintProgress() {
 
 // DownloadFile downloads a file from the specified URL and saves it to the given path.
 func DownloadFile(fs afero.Fs, url, filePath string, logger *log.Logger) error {
-	logger.Info("Starting file download", "url", url, "destination", filePath)
+	logger.Debug("Starting file download", "url", url, "destination", filePath)
 
 	tmpFilePath := filePath + ".tmp"
 
@@ -65,7 +65,7 @@ func DownloadFile(fs afero.Fs, url, filePath string, logger *log.Logger) error {
 		return fmt.Errorf("failed to copy data: %w", err)
 	}
 
-	logger.Info("Download complete", "url", url, "file-path", filePath)
+	logger.Debug("Download complete", "url", url, "file-path", filePath)
 
 	// Rename the temporary file to the final destination
 	if err = fs.Rename(tmpFilePath, filePath); err != nil {

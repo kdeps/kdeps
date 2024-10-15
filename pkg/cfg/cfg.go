@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"kdeps/pkg/environment"
@@ -11,14 +12,16 @@ import (
 	"kdeps/pkg/schema"
 	"kdeps/pkg/texteditor"
 
+	"github.com/adrg/xdg"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/log"
 	"github.com/kdeps/schema/gen/kdeps"
+	"github.com/kdeps/schema/gen/kdeps/path"
 	"github.com/spf13/afero"
 )
 
 func FindConfiguration(fs afero.Fs, env *environment.Environment, logger *log.Logger) (string, error) {
-	logger.Info("Finding configuration...")
+	logger.Debug("Finding configuration...")
 
 	// Ensure PKL binary exists before proceeding
 	if err := evaluator.EnsurePklBinaryExists(logger); err != nil {
@@ -28,14 +31,14 @@ func FindConfiguration(fs afero.Fs, env *environment.Environment, logger *log.Lo
 	// Use the initialized environment's Pwd directory
 	configFilePwd := filepath.Join(env.Pwd, environment.SystemConfigFileName)
 	if _, err := fs.Stat(configFilePwd); err == nil {
-		logger.Info("Configuration file found in Pwd directory", "config-file", configFilePwd)
+		logger.Debug("Configuration file found in Pwd directory", "config-file", configFilePwd)
 		return configFilePwd, nil
 	}
 
 	// Use the initialized environment's Home directory
 	configFileHome := filepath.Join(env.Home, environment.SystemConfigFileName)
 	if _, err := fs.Stat(configFileHome); err == nil {
-		logger.Info("Configuration file found in Home directory", "config-file", configFileHome)
+		logger.Debug("Configuration file found in Home directory", "config-file", configFileHome)
 		return configFileHome, nil
 	}
 
@@ -44,7 +47,7 @@ func FindConfiguration(fs afero.Fs, env *environment.Environment, logger *log.Lo
 }
 
 func GenerateConfiguration(fs afero.Fs, env *environment.Environment, logger *log.Logger) (string, error) {
-	logger.Info("Generating configuration...")
+	logger.Debug("Generating configuration...")
 
 	// Set configFile path in Home directory
 	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
@@ -78,14 +81,14 @@ func GenerateConfiguration(fs afero.Fs, env *environment.Environment, logger *lo
 			return "", fmt.Errorf("failed to write to %s: %w", configFile, err)
 		}
 
-		logger.Info("Configuration file generated", "config-file", configFile)
+		logger.Debug("Configuration file generated", "config-file", configFile)
 	}
 
 	return configFile, nil
 }
 
 func EditConfiguration(fs afero.Fs, env *environment.Environment, logger *log.Logger) (string, error) {
-	logger.Info("Editing configuration...")
+	logger.Debug("Editing configuration...")
 
 	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
 	skipPrompts := env.NonInteractive == "1"
@@ -104,7 +107,7 @@ func EditConfiguration(fs afero.Fs, env *environment.Environment, logger *log.Lo
 }
 
 func ValidateConfiguration(fs afero.Fs, env *environment.Environment, logger *log.Logger) (string, error) {
-	logger.Info("Validating configuration...")
+	logger.Debug("Validating configuration...")
 
 	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
 
@@ -112,12 +115,12 @@ func ValidateConfiguration(fs afero.Fs, env *environment.Environment, logger *lo
 		return configFile, fmt.Errorf("configuration validation failed: %w", err)
 	}
 
-	logger.Info("Configuration validated successfully", "config-file", configFile)
+	logger.Debug("Configuration validated successfully", "config-file", configFile)
 	return configFile, nil
 }
 
 func LoadConfiguration(fs afero.Fs, configFile string, logger *log.Logger) (*kdeps.Kdeps, error) {
-	logger.Info("Loading configuration", "config-file", configFile)
+	logger.Debug("Loading configuration", "config-file", configFile)
 
 	konfig, err := kdeps.LoadFromPath(context.Background(), configFile)
 	if err != nil {
@@ -125,4 +128,34 @@ func LoadConfiguration(fs afero.Fs, configFile string, logger *log.Logger) (*kde
 	}
 
 	return konfig, nil
+}
+
+func GetKdepsPath(kdepsCfg kdeps.Kdeps) (string, error) {
+	kdepsDir := kdepsCfg.KdepsDir
+	p := kdepsCfg.KdepsPath
+
+	switch p {
+	case path.User:
+		// Use the user's home directory
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(home, kdepsDir), nil
+
+	case path.Project:
+		// Use the current working directory (project dir)
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(cwd, kdepsDir), nil
+
+	case path.Xdg:
+		// Use the XDG config home directory
+		return filepath.Join(xdg.ConfigHome, kdepsDir), nil
+
+	default:
+		return "", fmt.Errorf("unknown path type: %s", p)
+	}
 }

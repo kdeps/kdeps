@@ -76,9 +76,9 @@ func EnforcePklVersion(line, schemaVersion string, logger *log.Logger) error {
 	}
 
 	if comparison == -1 {
-		logger.Warn("Version in amends line is lower than schema version", "version", version, "schemaVersion", schemaVersion)
+		logger.Warn("Version in amends line is lower than schema version. Please upgrade to latest schema version.", "version", version, "latestSchemaVersion", schemaVersion)
 	} else if comparison == 1 {
-		logger.Info("Version in amends line is higher than schema version", "version", version, "schemaVersion", schemaVersion)
+		logger.Debug("Version in amends line is higher than schema version", "version", version, "schemaVersion", schemaVersion)
 	}
 
 	return nil
@@ -103,7 +103,7 @@ func EnforcePklFilename(line string, filePath string, logger *log.Logger) error 
 	pklFilename := line[start+2:]
 	pklFilename = strings.Trim(pklFilename, `"`)
 
-	logger.Info("Checking pkl filename", "line", line, "filePath", filePath, "pklFilename", pklFilename)
+	logger.Debug("Checking pkl filename", "line", line, "filePath", filePath, "pklFilename", pklFilename)
 
 	validPklFiles := map[string]bool{
 		"Kdeps.pkl":    true,
@@ -178,7 +178,7 @@ func EnforceFolderStructure(fs afero.Fs, filePath string, logger *log.Logger) er
 
 	for _, file := range files {
 		if _, isIgnored := ignoredFiles[file.Name()]; isIgnored {
-			logger.Info("Ignored file found", "file", file.Name())
+			logger.Debug("Ignored file found", "file", file.Name())
 			continue
 		}
 
@@ -251,7 +251,7 @@ func EnforceResourceRunBlock(fs afero.Fs, file string, logger *log.Logger) error
 		return errors.New(errMsg)
 	}
 
-	logger.Info("Run block validated successfully", "file", file)
+	logger.Debug("Run block validated successfully", "file", file)
 	return nil
 }
 
@@ -309,7 +309,7 @@ func EnforcePklTemplateAmendsRules(fs afero.Fs, filePath string, logger *log.Log
 			continue // Skip empty lines
 		}
 
-		logger.Info("Processing line", "line", line)
+		logger.Debug("Processing line", "line", line)
 
 		// Check if the file has a .pkl extension
 		if filepath.Ext(file.Name()) != ".pkl" {
@@ -334,7 +334,7 @@ func EnforcePklTemplateAmendsRules(fs afero.Fs, filePath string, logger *log.Log
 		}
 
 		// All checks passed
-		logger.Info("All validations passed for the line", "line", line)
+		logger.Debug("All validations passed for the line", "line", line)
 		return nil
 	}
 

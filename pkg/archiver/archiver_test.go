@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"kdeps/pkg/enforcer"
+	"kdeps/pkg/environment"
 	"kdeps/pkg/logging"
 	"kdeps/pkg/resource"
 	"kdeps/pkg/workflow"
@@ -194,7 +195,12 @@ func theProjectIsCompiled() error {
 		return err
 	}
 
-	projectDir, _, _ := CompileProject(testFs, ctx, wf, kdepsDir, aiAgentDir, logger)
+	env := &environment.Environment{
+		Home: kdepsDir,
+		Pwd:  resourcesDir,
+	}
+
+	projectDir, _, _ := CompileProject(testFs, ctx, wf, kdepsDir, aiAgentDir, env, logger)
 
 	workflowFile = filepath.Join(projectDir, "workflow.pkl")
 

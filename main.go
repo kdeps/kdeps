@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
+	"kdeps/pkg/archiver"
 	"kdeps/pkg/cfg"
 	"kdeps/pkg/docker"
 	"kdeps/pkg/environment"
 	"kdeps/pkg/logging"
 	"kdeps/pkg/resolver"
 	"kdeps/pkg/utils"
+	"kdeps/pkg/workflow"
 	"os"
 	"os/signal"
 	"syscall"
@@ -55,7 +57,7 @@ func main() {
 
 		// Wait for shutdown signal
 		<-ctx.Done()
-		logger.Info("Context canceled, shutting down gracefully...")
+		logger.Debug("Context canceled, shutting down gracefully...")
 		cleanup(fs, env, apiServerMode, logger)
 	} else {
 		var cfgFile string
@@ -84,20 +86,90 @@ func main() {
 			os.Exit(1)
 		}
 
-		_, err := cfg.LoadConfiguration(fs, cfgFile, logger)
+		systemCfg, err := cfg.LoadConfiguration(fs, cfgFile, logger)
 		if err != nil {
 			logger.Error("Error occurred loading configuration")
 			os.Exit(1)
 		}
 
+		kdepsDir, err := cfg.GetKdepsPath(*systemCfg)
+		if err != nil {
+			logger.Error("Error occurred while getting Kdeps system path")
+			os.Exit(1)
+		}
+
 		app := &cli.App{
 			Name:  "kdeps",
-			Usage: "AI Agent framework",
+			Usage: "Multi-model AI agent framework.",
+			Description: `Kdeps is an multi-model AI agent framework that is optimized for creating purpose-built
+Dockerized AI agent APIs ready be deployed in any organization. It utilized self-contained
+open-source LLM models that are orchestrated by a graph-based dependency workflow.`,
+			Commands: []*cli.Command{
+				{
+					Name:    "new",
+					Aliases: []string{"n"},
+					Usage:   "Create a new AI agent",
+					Action: func(*cli.Context) error {
+						return nil
+					},
+				},
+				{
+					Name:    "add",
+					Aliases: []string{"a"},
+					Usage:   "Install an AI agent locally",
+					Action: func(cCtx *cli.Context) error {
+						pkgFile := cCtx.Args().Get(0)
+						_, err := archiver.ExtractPackage(fs, ctx, kdepsDir, pkgFile, logger)
+						if err != nil {
+							return err
+						}
+
+						return nil
+					},
+				},
+				{
+					Name:    "package",
+					Aliases: []string{"p"},
+					Usage:   "Package an AI agent",
+					Action: func(cCtx *cli.Context) error {
+						agentDir := cCtx.Args().Get(0)
+						wfFile, err := archiver.FindWorkflowFile(fs, agentDir, logger)
+						if err != nil {
+							return err
+						}
+						wf, err := workflow.LoadWorkflow(ctx, wfFile, logger)
+						if err != nil {
+							return err
+						}
+						_, _, err = archiver.CompileProject(fs, ctx, wf, kdepsDir, agentDir, env, logger)
+						if err != nil {
+							return err
+						}
+
+						return nil
+					},
+				},
+				{
+					Name:    "build",
+					Aliases: []string{"b"},
+					Usage:   "Build a dockerized AI agent",
+					Action: func(*cli.Context) error {
+						return nil
+					},
+				},
+				{
+					Name:    "run",
+					Aliases: []string{"r"},
+					Usage:   "Build and run a dockerized AI agent container",
+					Action: func(*cli.Context) error {
+						return nil
+					},
+				},
+			},
 		}
 
 		if err := app.Run(os.Args); err != nil {
-			logger.Fatal(err)
-			os.Exit(1)
+			log.Fatal(err)
 		}
 	}
 }
@@ -118,7 +190,7 @@ func setupSignalHandler(cancelFunc context.CancelFunc, fs afero.Fs, env *environ
 
 	go func() {
 		sig := <-sigs
-		logger.Info(fmt.Sprintf("Received signal: %v, initiating shutdown...", sig))
+		logger.Debug(fmt.Sprintf("Received signal: %v, initiating shutdown...", sig))
 		cancelFunc() // Cancel context to initiate shutdown
 		cleanup(fs, env, apiServerMode, logger)
 		utils.WaitForFileReady(fs, "/.dockercleanup", logger)
@@ -152,7 +224,7 @@ func runGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 
 // cleanup performs any necessary cleanup tasks before shutting down.
 func cleanup(fs afero.Fs, env *environment.Environment, apiServerMode bool, logger *log.Logger) {
-	logger.Info("Performing cleanup tasks...")
+	logger.Debug("Performing cleanup tasks...")
 
 	// Remove any old cleanup flags
 	if _, err := fs.Stat("/.dockercleanup"); err == nil {
@@ -164,7 +236,7 @@ func cleanup(fs afero.Fs, env *environment.Environment, apiServerMode bool, logg
 	// Perform Docker cleanup
 	docker.Cleanup(fs, env, logger)
 
-	logger.Info("Cleanup complete.")
+	logger.Debug("Cleanup complete.")
 
 	if !apiServerMode {
 		os.Exit(0)

@@ -14,7 +14,7 @@ import (
 
 // parseOLLAMAHost parses the OLLAMA_HOST environment variable into host and port
 func parseOLLAMAHost(logger *log.Logger) (string, string, error) {
-	logger.Info("Parsing OLLAMA_HOST environment variable")
+	logger.Debug("Parsing OLLAMA_HOST environment variable")
 
 	hostEnv := os.Getenv("OLLAMA_HOST")
 	if hostEnv == "" {
@@ -28,7 +28,7 @@ func parseOLLAMAHost(logger *log.Logger) (string, string, error) {
 		return "", "", fmt.Errorf("Invalid OLLAMA_HOST format: %v", err)
 	}
 
-	logger.Info("Parsed OLLAMA_HOST", "host", host, "port", port)
+	logger.Debug("Parsed OLLAMA_HOST", "host", host, "port", port)
 	return host, port, nil
 }
 

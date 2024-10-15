@@ -63,7 +63,7 @@ func Cleanup(fs afero.Fs, environ *environment.Environment, logger *log.Logger) 
 			return err
 		}
 
-		logger.Info(fmt.Sprintf("%s directory deleted", dir))
+		logger.Debug(fmt.Sprintf("%s directory deleted", dir))
 		if err := CreateFlagFile(fs, flagFile); err != nil {
 			logger.Error(fmt.Sprintf("Unable to create flag file %s: %v", flagFile, err))
 			return err
@@ -106,7 +106,7 @@ func Cleanup(fs afero.Fs, environ *environment.Environment, logger *log.Logger) 
 			}
 		} else {
 			// Copy the file from projectDir to workflowDir
-			if err := archiver.CopyFile(fs, path, targetPath); err != nil {
+			if err := archiver.CopyFile(fs, path, targetPath, logger); err != nil {
 				return err
 			}
 		}
@@ -116,7 +116,7 @@ func Cleanup(fs afero.Fs, environ *environment.Environment, logger *log.Logger) 
 	if err != nil {
 		logger.Error(fmt.Sprintf("Error copying %s to %s: %v", projectDir, workflowDir, err))
 	} else {
-		logger.Info(fmt.Sprintf("Copied %s to %s for next run", projectDir, workflowDir))
+		logger.Debug(fmt.Sprintf("Copied %s to %s for next run", projectDir, workflowDir))
 	}
 
 	// Create final cleanup flag
@@ -133,12 +133,12 @@ func cleanupFlagFiles(fs afero.Fs, files []string, logger *log.Logger) {
 	for _, file := range files {
 		if err := fs.Remove(file); err != nil {
 			if os.IsNotExist(err) {
-				logger.Infof("File %s does not exist, skipping", file)
+				logger.Debugf("File %s does not exist, skipping", file)
 			} else {
 				logger.Errorf("Error removing file %s: %v", file, err)
 			}
 		} else {
-			logger.Infof("Successfully removed file: %s", file)
+			logger.Debugf("Successfully removed file: %s", file)
 		}
 	}
 }

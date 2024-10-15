@@ -12,7 +12,7 @@ import (
 
 // Function to compare version numbers
 func compareVersions(versions []string, logger *log.Logger) string {
-	logger.Info("Comparing versions", "versions", versions)
+	logger.Debug("Comparing versions", "versions", versions)
 	sort.Slice(versions, func(i, j int) bool {
 		// Split the version strings into parts
 		v1 := strings.Split(versions[i], ".")
@@ -22,7 +22,7 @@ func compareVersions(versions []string, logger *log.Logger) string {
 		for k := 0; k < len(v1); k++ {
 			if v1[k] != v2[k] {
 				result := v1[k] > v2[k]
-				logger.Info("Version comparison result", "v1", v1, "v2", v2, "result", result)
+				logger.Debug("Version comparison result", "v1", v1, "v2", v2, "result", result)
 				return result
 			}
 		}
@@ -31,7 +31,7 @@ func compareVersions(versions []string, logger *log.Logger) string {
 
 	// Return the first version (which will be the latest after sorting)
 	latestVersion := versions[0]
-	logger.Info("Latest version determined", "version", latestVersion)
+	logger.Debug("Latest version determined", "version", latestVersion)
 	return latestVersion
 }
 
@@ -48,7 +48,7 @@ func getLatestVersion(directory string, logger *log.Logger) (string, error) {
 		// Collect directory names that match the version pattern
 		if info.IsDir() && strings.Count(info.Name(), ".") == 2 {
 			versions = append(versions, info.Name())
-			logger.Info("Found version directory", "directory", info.Name())
+			logger.Debug("Found version directory", "directory", info.Name())
 		}
 		return nil
 	})

@@ -290,7 +290,7 @@ func processWorkflow(dr *resolver.DependencyResolver, logger *log.Logger) error 
 		return err
 	}
 
-	logger.Info("Awaiting response...")
+	logger.Debug("Awaiting response...")
 
 	// Wait for the response file to be ready
 	if err := utils.WaitForFileReady(dr.Fs, dr.ResponseTargetFile, logger); err != nil {

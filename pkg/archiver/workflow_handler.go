@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"kdeps/pkg/environment"
 	"kdeps/pkg/workflow"
 	"os"
 	"path/filepath"
@@ -29,9 +30,14 @@ func PrepareRunDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, pkgFilePath string
 		return "", err
 	}
 
-	if err := CopyFile(fs, "../../build/linux/arm64/kdeps", filepath.Join(runDir, "kdeps")); err != nil {
+	// TODO: Temporary
+	if err := CopyFile(fs, "./build/linux/arm64/kdeps", filepath.Join(runDir, "kdeps"), logger); err != nil {
 		return "", err
 	}
+	// TODO: Temporary
+	// if err := CopyFile(fs, "../../build/linux/arm64/kdeps", filepath.Join(runDir, "kdeps")); err != nil {
+	//	return "", err
+	// }
 
 	if _, err := fs.Stat(pkgFilePath); err != nil {
 		logger.Error("Package not found!", "package", pkgFilePath)
@@ -102,7 +108,7 @@ func PrepareRunDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, pkgFilePath string
 		}
 	}
 
-	logger.Info("Extraction in runtime folder completed!", runDir)
+	logger.Debug("Extraction in runtime folder completed!", runDir)
 
 	return runDir, nil
 }
@@ -128,7 +134,11 @@ func CompileWorkflow(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir strin
 
 	re := regexp.MustCompile(`^@`)
 
-	if !re.MatchString(action) {
+	if re.MatchString(action) {
+		// If action starts with "@", use it directly without modification
+		compiledAction = action
+	} else {
+		// Otherwise, prepend the name and version
 		compiledAction = fmt.Sprintf("@%s/%s:%s", name, action, version)
 	}
 
@@ -145,7 +155,7 @@ func CompileWorkflow(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir strin
 			logger.Error("Failed to remove existing agent directory", "path", agentDir, "error", err)
 			return "", err
 		}
-		logger.Info("Removed existing agent directory", "path", agentDir)
+		logger.Debug("Removed existing agent directory", "path", agentDir)
 	}
 
 	// Recreate the folder
@@ -154,7 +164,7 @@ func CompileWorkflow(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir strin
 		logger.Error("Failed to create resources directory", "path", resourcesDir, "error", err)
 		return "", err
 	}
-	logger.Info("Created resources directory", "path", resourcesDir)
+	logger.Debug("Created resources directory", "path", resourcesDir)
 
 	searchPattern := `action\s*=\s*".*"`
 	replaceLine := fmt.Sprintf("action = \"%s\"\n", compiledAction)
@@ -178,7 +188,7 @@ func CompileWorkflow(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir strin
 		// Check if the line matches the regular expression
 		if re.MatchString(line) {
 			line = replaceLine // Replace the line if it matches
-			logger.Info("Updated action line", "line", line)
+			logger.Debug("Updated action line", "line", line)
 		}
 
 		lines = append(lines, line)
@@ -194,7 +204,7 @@ func CompileWorkflow(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir strin
 		logger.Error("Failed to write compiled workflow file", "path", compiledFilePath, "error", err)
 		return "", err
 	}
-	logger.Info("Compiled workflow file written", "path", compiledFilePath)
+	logger.Debug("Compiled workflow file written", "path", compiledFilePath)
 
 	compiledProjectDir := filepath.Dir(compiledFilePath)
 
@@ -202,7 +212,7 @@ func CompileWorkflow(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir strin
 }
 
 // CompileProject orchestrates the compilation and packaging of a project
-func CompileProject(fs afero.Fs, ctx context.Context, wf *pklWf.Workflow, kdepsDir string, projectDir string, logger *log.Logger) (string, string, error) {
+func CompileProject(fs afero.Fs, ctx context.Context, wf *pklWf.Workflow, kdepsDir string, projectDir string, env *environment.Environment, logger *log.Logger) (string, string, error) {
 	// Compile the workflow
 	compiledProjectDir, err := CompileWorkflow(fs, wf, kdepsDir, projectDir, logger)
 	if err != nil {
@@ -249,7 +259,7 @@ func CompileProject(fs afero.Fs, ctx context.Context, wf *pklWf.Workflow, kdepsD
 	}
 
 	// Copy the project directory
-	if err := CopyDir(fs, newWorkflow, kdepsDir, projectDir, compiledProjectDir, "", "", "", false, logger); err != nil {
+	if err := CopyDataDir(fs, newWorkflow, kdepsDir, projectDir, compiledProjectDir, "", "", "", false, logger); err != nil {
 		logger.Error("Failed to copy project directory", "compiledProjectDir", compiledProjectDir, "error", err)
 		return "", "", err
 	}
@@ -278,7 +288,14 @@ func CompileProject(fs afero.Fs, ctx context.Context, wf *pklWf.Workflow, kdepsD
 		return "", "", err
 	}
 
-	logger.Info("Kdeps package created", "package-file", packageFile)
+	logger.Debug("Kdeps package created in system archive", "package-file", packageFile)
+
+	cwdPackage := filepath.Join(env.Pwd, filepath.Base(packageFile))
+	if err := CopyFile(fs, packageFile, cwdPackage, logger); err != nil {
+		return "", "", err
+	}
+
+	logger.Info("Kdeps package created", "package-file", cwdPackage)
 
 	return compiledProjectDir, packageFile, nil
 }
@@ -286,7 +303,7 @@ func CompileProject(fs afero.Fs, ctx context.Context, wf *pklWf.Workflow, kdepsD
 // ProcessExternalWorkflows processes each workflow and copies directories as needed
 func ProcessExternalWorkflows(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir, compiledProjectDir string, logger *log.Logger) error {
 	if wf.Workflows == nil {
-		logger.Info("No external workflows to process")
+		logger.Debug("No external workflows to process")
 		return nil
 	}
 
@@ -306,12 +323,12 @@ func ProcessExternalWorkflows(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, project
 			if len(agentAndAction) == 2 {
 				action := agentAndAction[1]
 
-				if err := CopyDir(fs, wf, kdepsDir, projectDir, compiledProjectDir, agentName, version, action, true, logger); err != nil {
+				if err := CopyDataDir(fs, wf, kdepsDir, projectDir, compiledProjectDir, agentName, version, action, true, logger); err != nil {
 					logger.Error("Failed to copy directory", "agentName", agentName, "version", version, "action", action, "error", err)
 					return err
 				}
 			} else {
-				if err := CopyDir(fs, wf, kdepsDir, projectDir, compiledProjectDir, agentName, version, "", true, logger); err != nil {
+				if err := CopyDataDir(fs, wf, kdepsDir, projectDir, compiledProjectDir, agentName, version, "", true, logger); err != nil {
 					logger.Error("Failed to copy directory", "agentName", agentName, "version", version, "error", err)
 					return err
 				}
@@ -324,12 +341,12 @@ func ProcessExternalWorkflows(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, project
 
 			if len(agentAndAction) == 2 {
 				action := agentAndAction[1]
-				if err := CopyDir(fs, wf, kdepsDir, projectDir, compiledProjectDir, agentName, "", action, true, logger); err != nil {
+				if err := CopyDataDir(fs, wf, kdepsDir, projectDir, compiledProjectDir, agentName, "", action, true, logger); err != nil {
 					logger.Error("Failed to copy directory", "agentName", agentName, "action", action, "error", err)
 					return err
 				}
 			} else {
-				if err := CopyDir(fs, wf, kdepsDir, projectDir, compiledProjectDir, agentName, "", "", true, logger); err != nil {
+				if err := CopyDataDir(fs, wf, kdepsDir, projectDir, compiledProjectDir, agentName, "", "", true, logger); err != nil {
 					logger.Error("Failed to copy directory", "agentName", agentName, "error", err)
 					return err
 				}
@@ -337,6 +354,6 @@ func ProcessExternalWorkflows(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, project
 		}
 	}
 
-	logger.Info("Processed all external workflows")
+	logger.Debug("Processed all external workflows")
 	return nil
 }

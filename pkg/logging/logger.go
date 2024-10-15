@@ -10,16 +10,21 @@ import (
 var logger *log.Logger
 
 func init() {
-	logger = log.NewWithOptions(os.Stderr, log.Options{
-		ReportCaller:    true,
-		ReportTimestamp: true,
-		Prefix:          "kdeps",
-	})
+	// Create a logger with default settings
+	logger = log.New(os.Stderr)
 
-	// Set the log level based on the DEBUG environment variable
+	// Check if DEBUG environment variable is set to 1
 	if os.Getenv("DEBUG") == "1" {
+		// Set log options only when DEBUG is enabled
+		logger = log.NewWithOptions(os.Stderr, log.Options{
+			ReportCaller:    true,
+			ReportTimestamp: true,
+			Prefix:          "kdeps",
+		})
+
 		logger.SetLevel(log.DebugLevel)
 	} else {
+		// Use InfoLevel for normal operation without special logging options
 		logger.SetLevel(log.InfoLevel)
 	}
 }
