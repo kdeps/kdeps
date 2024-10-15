@@ -164,6 +164,7 @@ FROM ollama/ollama:0.3.11
 ENV SCHEMA_VERSION=%s
 ENV OLLAMA_HOST=%s:%s
 ENV KDEPS_HOST=%s
+ENV DEBUG=1
 
 # Install necessary tools
 RUN apt-get update && apt-get install -y curl nano jq

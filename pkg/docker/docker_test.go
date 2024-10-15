@@ -408,7 +408,7 @@ func kdepsOpenThePackage(arg1 string) error {
 }
 
 func theValidAiagentHas(arg1, arg2 string) error {
-	cDir, pFile, err := archiver.CompileProject(testFs, ctx, workflowConfiguration, kdepsDir, agentDir, logger)
+	cDir, pFile, err := archiver.CompileProject(testFs, ctx, workflowConfiguration, kdepsDir, agentDir, environ, logger)
 	if err != nil {
 		return err
 	}

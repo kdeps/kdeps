@@ -336,15 +336,15 @@ func eachResourceAreReloadedWhenOpened() error {
 	for _, resNode := range stack {
 		for _, res := range graphResolver.Resources {
 			if res.Id == resNode {
-				logger.Info("Executing resource: ", res.Id)
+				logger.Debug("Executing resource: ", res.Id)
 
 				rsc, err := pklRes.LoadFromPath(*graphResolver.Context, res.File)
 				if err != nil {
-					logger.Info(err)
+					logger.Debug(err)
 					// return graphResolver.HandleAPIErrorResponse(500, err.Error())
 				}
 
-				logger.Info(rsc.Description)
+				logger.Debug(rsc.Description)
 
 				// runBlock := rsc.Run
 				// if runBlock != nil {
@@ -352,7 +352,7 @@ func eachResourceAreReloadedWhenOpened() error {
 				//	// Check Skip Condition
 				//	if runBlock.SkipCondition != nil {
 				//		if resolver.ShouldSkip(runBlock.SkipCondition) {
-				//			logger.Info("Skip condition met, skipping:", res.Id)
+				//			logger.Debug("Skip condition met, skipping:", res.Id)
 				//			continue
 				//		}
 				//	}
@@ -362,7 +362,7 @@ func eachResourceAreReloadedWhenOpened() error {
 				//		if !resolver.AllConditionsMet(runBlock.PreflightCheck.Validations) {
 				//			logger.Error("Preflight check not met, failing:", res.Id)
 				//			if runBlock.PreflightCheck.Error != nil {
-				//				logger.Info(err)
+				//				logger.Debug(err)
 
 				//				//	return graphResolver.HandleAPIErrorResponse(
 				//				//		runBlock.PreflightCheck.Error.Code,
@@ -371,7 +371,7 @@ func eachResourceAreReloadedWhenOpened() error {
 
 				//			// return graphResolver.HandleAPIErrorResponse(500, "Preflight
 				//			// check failed for resource: "+res.Id)
-				//			logger.Info(err)
+				//			logger.Debug(err)
 
 				//		}
 				//	}
@@ -382,7 +382,7 @@ func eachResourceAreReloadedWhenOpened() error {
 				//	if runBlock.PostflightCheck != nil && runBlock.PostflightCheck.Validations != nil {
 				//		if !resolver.AllConditionsMet(runBlock.PostflightCheck.Validations) {
 				//			if runBlock.PostflightCheck.Error != nil {
-				//				logger.Info(err)
+				//				logger.Debug(err)
 
 				//				// return graphResolver.HandleAPIErrorResponse(
 				//				//	runBlock.PostflightCheck.Error.Code,
@@ -397,7 +397,7 @@ func eachResourceAreReloadedWhenOpened() error {
 				//	// API Response
 				//	if graphResolver.ApiServerMode && runBlock.ApiResponse != nil {
 				//		if err := graphResolver.CreateResponsePklFile(runBlock.ApiResponse); err != nil {
-				//			logger.Info(err)
+				//			logger.Debug(err)
 
 				//			// return graphResolver.HandleAPIErrorResponse(500, err.Error())
 				//		}

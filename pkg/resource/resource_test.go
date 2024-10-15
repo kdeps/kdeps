@@ -425,7 +425,7 @@ run {
 
 	workflowConfiguration = wfconfig
 
-	cDir, pFile, err := archiver.CompileProject(testFs, ctx, workflowConfiguration, kdepsDir, agentDir, logger)
+	cDir, pFile, err := archiver.CompileProject(testFs, ctx, workflowConfiguration, kdepsDir, agentDir, environ, logger)
 	if err != nil {
 		return err
 	}
@@ -566,7 +566,7 @@ func iShouldSeeAInTheFolder(arg1, arg2 string) error {
 	}
 
 	// Check the command output
-	logger.Info("Output from `ls /` command in container:\n%s", output.String())
+	logger.Debug("Output from `ls /` command in container:\n%s", output.String())
 
 	// Optionally, inspect the exec result to check for success/failure
 	execInspect, err := cli.ContainerExecInspect(ctx, execID)

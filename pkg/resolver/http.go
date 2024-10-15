@@ -72,7 +72,7 @@ func (dr *DependencyResolver) decodeHttpBlock(httpBlock *pklHttp.ResourceHTTPCli
 			} else {
 				// If not Base64 encoded, leave the value as it is
 				decodedHeaders[key] = value
-				dr.Logger.Info("Header value is not Base64 encoded, skipping decoding", "header", key)
+				dr.Logger.Debug("Header value is not Base64 encoded, skipping decoding", "header", key)
 			}
 		}
 		httpBlock.Headers = &decodedHeaders
@@ -92,7 +92,7 @@ func (dr *DependencyResolver) decodeHttpBlock(httpBlock *pklHttp.ResourceHTTPCli
 			} else {
 				// If not Base64 encoded, leave the value as it is
 				decodedData[i] = v
-				dr.Logger.Info("Data value is not Base64 encoded, skipping decoding", "index", i)
+				dr.Logger.Debug("Data value is not Base64 encoded, skipping decoding", "index", i)
 			}
 		}
 		httpBlock.Data = &decodedData
