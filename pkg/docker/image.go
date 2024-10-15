@@ -39,9 +39,8 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 
 	agentName := wfCfg.Name
 	agentVersion := wfCfg.Version
-	gpuType := kdeps.DockerGPU
 	md5sum := pkgProject.Md5sum
-	cName := strings.Join([]string{"kdeps", agentName, string(gpuType), md5sum}, "-")
+	cName := strings.Join([]string{"kdeps", agentName, md5sum}, "-")
 	cName = strings.ToLower(cName)
 	containerName := strings.Join([]string{cName, agentVersion}, ":")
 
@@ -118,13 +117,13 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 	return cName, containerName, nil
 }
 
-func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *log.Logger) (string, bool, string, string, error) {
+func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *log.Logger) (string, bool, string, string, string, error) {
 	var portNum uint16 = 3000
 	var hostIP string = "127.0.0.1"
 
 	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow, logger)
 	if err != nil {
-		return "", false, "", "", err
+		return "", false, "", "", "", err
 	}
 
 	agentName := wfCfg.Name
@@ -132,7 +131,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 
 	wfSettings := wfCfg.Settings
 	dockerSettings := wfSettings.AgentSettings
-
+	gpuType := kdeps.DockerGPU
 	apiServerMode := wfSettings.ApiServerMode
 	apiServer := wfSettings.ApiServer
 
@@ -151,10 +150,14 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	}
 
 	var pkgLines []string
-	for _, value := range *pkgList {
-		value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
-		pkgLines = append(pkgLines, fmt.Sprintf(`RUN /usr/bin/apt-get -y install %s`, value))
+
+	if dockerSettings.Packages != nil {
+		for _, value := range *pkgList {
+			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
+			pkgLines = append(pkgLines, fmt.Sprintf(`RUN /usr/bin/apt-get -y install %s`, value))
+		}
 	}
+
 	pkgSection := strings.Join(pkgLines, "\n")
 
 	ollamaPortNum := generateUniqueOllamaPort(portNum)
@@ -203,10 +206,10 @@ CMD ["run", "/agent/workflow/workflow.pkl"]
 	fmt.Println(resourceConfigurationFile)
 	err = afero.WriteFile(fs, resourceConfigurationFile, []byte(dockerFile), 0644)
 	if err != nil {
-		return "", false, "", "", err
+		return "", false, "", "", "", err
 	}
 
-	return runDir, apiServerMode, hostIP, hostPort, nil
+	return runDir, apiServerMode, hostIP, hostPort, string(gpuType), nil
 }
 
 // printDockerBuildOutput processes the Docker build logs and returns any error encountered during the build.

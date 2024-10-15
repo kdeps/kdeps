@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerName, hostIP, portNum string, apiMode bool, cli *client.Client) (string, error) {
+func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerName, hostIP, portNum, gpu string, apiMode bool, cli *client.Client) (string, error) {
 	// Run the Docker container with volume and port configuration
 	containerConfig := &container.Config{
 		Image: containerName,
@@ -30,7 +30,7 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 		}
 	}
 
-	resp, err := cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, cName)
+	resp, err := cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, fmt.Sprintf("%s-%s", cName, gpu))
 	if err != nil {
 		return "", err
 	}

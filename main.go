@@ -3,21 +3,19 @@ package main
 import (
 	"context"
 	"fmt"
-	"kdeps/pkg/archiver"
+	"kdeps/cmd"
 	"kdeps/pkg/cfg"
 	"kdeps/pkg/docker"
 	"kdeps/pkg/environment"
 	"kdeps/pkg/logging"
 	"kdeps/pkg/resolver"
 	"kdeps/pkg/utils"
-	"kdeps/pkg/workflow"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"
-	"github.com/urfave/cli/v2"
 )
 
 func main() {
@@ -98,77 +96,9 @@ func main() {
 			os.Exit(1)
 		}
 
-		app := &cli.App{
-			Name:  "kdeps",
-			Usage: "Multi-model AI agent framework.",
-			Description: `Kdeps is an multi-model AI agent framework that is optimized for creating purpose-built
-Dockerized AI agent APIs ready be deployed in any organization. It utilized self-contained
-open-source LLM models that are orchestrated by a graph-based dependency workflow.`,
-			Commands: []*cli.Command{
-				{
-					Name:    "new",
-					Aliases: []string{"n"},
-					Usage:   "Create a new AI agent",
-					Action: func(*cli.Context) error {
-						return nil
-					},
-				},
-				{
-					Name:    "add",
-					Aliases: []string{"a"},
-					Usage:   "Install an AI agent locally",
-					Action: func(cCtx *cli.Context) error {
-						pkgFile := cCtx.Args().Get(0)
-						_, err := archiver.ExtractPackage(fs, ctx, kdepsDir, pkgFile, logger)
-						if err != nil {
-							return err
-						}
+		rootCmd := cmd.NewRootCommand(fs, ctx, kdepsDir, systemCfg, env, logger)
 
-						return nil
-					},
-				},
-				{
-					Name:    "package",
-					Aliases: []string{"p"},
-					Usage:   "Package an AI agent",
-					Action: func(cCtx *cli.Context) error {
-						agentDir := cCtx.Args().Get(0)
-						wfFile, err := archiver.FindWorkflowFile(fs, agentDir, logger)
-						if err != nil {
-							return err
-						}
-						wf, err := workflow.LoadWorkflow(ctx, wfFile, logger)
-						if err != nil {
-							return err
-						}
-						_, _, err = archiver.CompileProject(fs, ctx, wf, kdepsDir, agentDir, env, logger)
-						if err != nil {
-							return err
-						}
-
-						return nil
-					},
-				},
-				{
-					Name:    "build",
-					Aliases: []string{"b"},
-					Usage:   "Build a dockerized AI agent",
-					Action: func(*cli.Context) error {
-						return nil
-					},
-				},
-				{
-					Name:    "run",
-					Aliases: []string{"r"},
-					Usage:   "Build and run a dockerized AI agent container",
-					Action: func(*cli.Context) error {
-						return nil
-					},
-				},
-			},
-		}
-
-		if err := app.Run(os.Args); err != nil {
+		if err := rootCmd.Execute(); err != nil {
 			log.Fatal(err)
 		}
 	}

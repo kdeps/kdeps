@@ -43,6 +43,7 @@ var (
 	compiledProjectDir        string
 	currentDirPath            string
 	systemConfigurationFile   string
+	gpuType                   string
 	logger                    *log.Logger
 	environ                   *environment.Environment
 	cli                       *client.Client
@@ -312,7 +313,7 @@ func searchTextInFile(filePath string, searchText string) (bool, error) {
 }
 
 func itShouldCreateTheDockerfile(arg1, arg2, arg3 string) error {
-	rd, asm, hIP, hPort, err := BuildDockerfile(testFs, ctx, systemConfiguration, kdepsDir, pkgProject, logger)
+	rd, asm, hIP, hPort, gpu, err := BuildDockerfile(testFs, ctx, systemConfiguration, kdepsDir, pkgProject, logger)
 	if err != nil {
 		return err
 	}
@@ -321,6 +322,7 @@ func itShouldCreateTheDockerfile(arg1, arg2, arg3 string) error {
 	hostPort = hPort
 	hostIP = hIP
 	apiServerMode = asm
+	gpuType = gpu
 
 	dockerfile := filepath.Join(runDir, "Dockerfile")
 
@@ -389,7 +391,7 @@ func itShouldRunTheContainerBuildStepFor(arg1 string) error {
 }
 
 func itShouldStartTheContainer(arg1 string) error {
-	if _, err := CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, apiServerMode, cli); err != nil {
+	if _, err := CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, gpuType, apiServerMode, cli); err != nil {
 		return err
 	}
 

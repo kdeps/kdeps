@@ -42,6 +42,7 @@ var (
 	containerID               string
 	logger                    *log.Logger
 	runDir                    string
+	gpuType                   string
 	containerName             string
 	apiServerMode             bool
 	cName                     string
@@ -440,7 +441,7 @@ run {
 
 	pkgProject = pkgP
 
-	rd, asm, hIP, hPort, err := docker.BuildDockerfile(testFs, ctx, systemConfiguration, kdepsDir, pkgProject, logger)
+	rd, asm, hIP, hPort, gpu, err := docker.BuildDockerfile(testFs, ctx, systemConfiguration, kdepsDir, pkgProject, logger)
 	if err != nil {
 		return err
 	}
@@ -449,6 +450,7 @@ run {
 	hostPort = hPort
 	hostIP = hIP
 	apiServerMode = asm
+	gpuType = gpu
 
 	cl, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -469,7 +471,7 @@ run {
 		return err
 	}
 
-	dockerClientID, err := docker.CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, apiServerMode, cli)
+	dockerClientID, err := docker.CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, gpuType, apiServerMode, cli)
 	if err != nil {
 		return err
 	}

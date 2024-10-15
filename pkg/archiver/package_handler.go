@@ -31,21 +31,18 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 	// Create a temporary directory for extraction
 	tempDir, err := afero.TempDir(fs, "", "kdeps")
 	if err != nil {
-		logger.Error("Failed to create temporary directory for package extraction", "package", kdepsPackage)
-		return nil, err
+		return nil, fmt.Errorf("Failed to create temporary directory for package extraction: %s", kdepsPackage)
 	}
 
 	// Ensure the temporary directory exists
 	err = fs.MkdirAll(tempDir, 0777)
 	if err != nil {
-		logger.Error("Failed to create temporary directory", "directory", tempDir, "error", err)
 		return nil, fmt.Errorf("failed to create temporary directory: %w", err)
 	}
 
 	// Open the.kdeps file
 	file, err := fs.Open(kdepsPackage)
 	if err != nil {
-		logger.Error("Failed to open .kdeps file", "error", err)
 		return nil, fmt.Errorf("failed to open .kdeps file: %w", err)
 	}
 	defer file.Close()
@@ -53,7 +50,6 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 	// Create a gzip reader
 	gzipReader, err := gzip.NewReader(file)
 	if err != nil {
-		logger.Error("Failed to create gzip reader", "error", err)
 		return nil, fmt.Errorf("failed to create gzip reader: %w", err)
 	}
 	defer gzipReader.Close()
@@ -68,7 +64,6 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 			break // End of archive
 		}
 		if err != nil {
-			logger.Error("Failed to read tar header", "error", err)
 			return nil, fmt.Errorf("failed to read tar header: %w", err)
 		}
 
@@ -81,37 +76,32 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 			// Create directories
 			err = fs.MkdirAll(targetPath, 0777)
 			if err != nil {
-				logger.Error("Failed to create directory", "directory", targetPath, "error", err)
 				return nil, fmt.Errorf("failed to create directory: %w", err)
 			}
 		case tar.TypeReg:
 			// Create parent directories
 			err = fs.MkdirAll(parentDir, 0777)
 			if err != nil {
-				logger.Error("Failed to create parent directories", "directory", parentDir, "error", err)
-				return nil, fmt.Errorf("failed to create parent directories: %w", err)
+				return nil, fmt.Errorf("Failed to create parent directories: %w", err)
 			}
 
 			// Extract the file
 			outFile, err := fs.Create(targetPath)
 			if err != nil {
-				logger.Error("Failed to create file", "file", targetPath, "error", err)
-				return nil, fmt.Errorf("failed to create file: %w", err)
+				return nil, fmt.Errorf("Failed to create file: %w", err)
 			}
 			defer outFile.Close()
 
 			// Copy the file contents
 			_, err = io.Copy(outFile, tarReader)
 			if err != nil {
-				logger.Error("Failed to copy file contents", "file", targetPath, "error", err)
-				return nil, fmt.Errorf("failed to copy file contents: %w", err)
+				return nil, fmt.Errorf("Failed to copy file contents: %w", err)
 			}
 
 			// Set file permissions
 			err = fs.Chmod(targetPath, 0666)
 			if err != nil {
-				logger.Error("Failed to set file permissions", "file", targetPath, "error", err)
-				return nil, fmt.Errorf("failed to set file permissions: %w", err)
+				return nil, fmt.Errorf("Failed to set file permissions: %w", err)
 			}
 		}
 	}
@@ -120,8 +110,7 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 	wfTmpFile := filepath.Join(tempDir, "workflow.pkl")
 	wfConfig, err := workflow.LoadWorkflow(ctx, wfTmpFile, logger)
 	if err != nil {
-		logger.Error("Failed to load the workflow file", "file", wfTmpFile, "error", err)
-		return nil, fmt.Errorf("failed to load workflow file: %w", err)
+		return nil, fmt.Errorf("Failed to load the workflow file: %w", err)
 	}
 
 	// Extract the workflow name and version
@@ -131,8 +120,7 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 	// Move the extracted files from the temporary directory to the permanent location
 	extractBasePath := filepath.Join(kdepsDir, "agents", agentName, agentVersion)
 	if err := MoveFolder(fs, tempDir, extractBasePath); err != nil {
-		logger.Error("Failed to move extracted package to kdeps system directory", "kdepsDir", kdepsDir, "extractBasePath", extractBasePath)
-		return nil, err
+		return nil, fmt.Errorf("Failed to move extracted package to kdeps system directory: %s", extractBasePath)
 	}
 
 	baseFilename := filepath.Base(kdepsPackage)
@@ -141,8 +129,7 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 	packageDir := filepath.Join(kdepsDir, "packages")
 	err = fs.MkdirAll(packageDir, 0777)
 	if err != nil {
-		logger.Error("Failed to create packages directory", "directory", packageDir, "error", err)
-		return nil, fmt.Errorf("failed to create packages directory: %w", err)
+		return nil, fmt.Errorf("Failed to create packages directory: %w", err)
 	}
 
 	destinationFile := filepath.Join(packageDir, baseFilename)
@@ -150,16 +137,14 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 
 	err = CopyFile(fs, sourceFile, destinationFile, logger)
 	if err != nil {
-		logger.Error("Failed to copy kdeps package to packages directory", "error", err)
-		return nil, fmt.Errorf("failed to copy kdeps package to packages directory: %w", err)
+		return nil, fmt.Errorf("Failed to copy kdeps package to packages directory: %w", err)
 	}
 
 	kdepsPackage = destinationFile
 
-	runDir, err := PrepareRunDir(fs, wfConfig, kdepsDir, kdepsPackage, logger)
+	_, err = PrepareRunDir(fs, wfConfig, kdepsDir, kdepsPackage, logger)
 	if err != nil {
-		logger.Error("Failed to prepare runtime directory", "runDir", runDir, "error", err)
-		return nil, err
+		return nil, fmt.Errorf("Failed to prepare runtime directory: %w", err)
 	}
 
 	// Now walk the extractBasePath directory to populate the KdepsPackage
@@ -170,15 +155,13 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 
 	err = afero.Walk(fs, extractBasePath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			logger.Error("Error walking through directory", "path", path, "error", err)
-			return err
+			return fmt.Errorf("Error walking through directory: %w", err)
 		}
 
 		// Get the absolute path for each file
 		absPath, err := filepath.Abs(path)
 		if err != nil {
-			logger.Error("Failed to get absolute path", "path", path, "error", err)
-			return err
+			return fmt.Errorf("Failed to get absolute path: %w", err)
 		}
 
 		// Populate based on the file type and name
@@ -211,15 +194,13 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 	})
 
 	if err != nil {
-		logger.Error("Error populating KdepsPackage from directory walk", "extractBasePath", extractBasePath, "error", err)
-		return nil, err
+		return nil, fmt.Errorf("Error populating KdepsPackage from directory walk: %w", err)
 	}
 
 	// Get the MD5 hash of the file
 	md5Hash, err := getFileMD5(fs, kdepsPackage, 5)
 	if err != nil {
-		logger.Error("Error calculating MD5:", err)
-		return nil, err
+		return nil, fmt.Errorf("Error calculating MD5: %w", err)
 	}
 
 	// Set additional fields in KdepsPackage
@@ -351,11 +332,9 @@ func FindWorkflowFile(fs afero.Fs, folder string, logger *log.Logger) (string, e
 	// Check if the folder exists and is a directory
 	info, err := fs.Stat(folder)
 	if err != nil {
-		logger.Printf("Error accessing folder: %v", err)
 		return "", fmt.Errorf("error accessing folder: %v", err)
 	}
 	if !info.IsDir() {
-		logger.Printf("The path provided is not a directory: %s", folder)
 		return "", fmt.Errorf("the path provided is not a directory: %s", folder)
 	}
 
@@ -364,13 +343,13 @@ func FindWorkflowFile(fs afero.Fs, folder string, logger *log.Logger) (string, e
 	// Walk the directory using Afero's Walk method
 	err = afero.Walk(fs, folder, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			logger.Printf("Error during file walk: %v", err)
+			logger.Error("Error during file walk: %v", err)
 			return err
 		}
 
 		// If it's a file and the name matches, capture the path
 		if !info.IsDir() && info.Name() == fileName {
-			logger.Printf("Found file %s in folder %s", fileName, folder)
+			logger.Debug("Found file %s in folder %s", fileName, folder)
 			foundPath = path
 			return filepath.SkipDir // Stop walking once the file is found
 		}
@@ -378,15 +357,13 @@ func FindWorkflowFile(fs afero.Fs, folder string, logger *log.Logger) (string, e
 	})
 
 	if err != nil && err != filepath.SkipDir {
-		logger.Printf("Error searching for file: %v", err)
 		return "", fmt.Errorf("error searching for file: %v", err)
 	}
 
 	if foundPath == "" {
-		logger.Printf("%s not found in folder: %s", fileName, folder)
 		return "", fmt.Errorf("%s not found in folder: %s", fileName, folder)
 	}
 
-	logger.Printf("Returning found file path: %s", foundPath)
+	logger.Debug("Returning found file path: %s", foundPath)
 	return foundPath, nil
 }
