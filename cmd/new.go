@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"kdeps/pkg/template"
 
 	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"
@@ -16,8 +17,9 @@ func NewAgentCommand(fs afero.Fs, ctx context.Context, kdepsDir string, logger *
 		Aliases: []string{"n"},
 		Short:   "Create a new AI agent",
 		Run: func(cmd *cobra.Command, args []string) {
-			// Implement the logic for creating a new AI agent
-			fmt.Println("New AI agent created")
+			if err := template.GenerateAgent(fs, logger); err != nil {
+				fmt.Println(err)
+			}
 		},
 	}
 }

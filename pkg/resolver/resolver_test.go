@@ -130,7 +130,7 @@ func anAiAgentWithResources(arg1 string) error {
 	environ = env
 
 	systemConfigurationContent := `
-	amends "package://schema.kdeps.com/core@0.0.44#/Kdeps.pkl"
+	amends "package://schema.kdeps.com/core@0.1.9#/Kdeps.pkl"
 
 	runMode = "docker"
 	dockerGPU = "cpu"
