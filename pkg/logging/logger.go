@@ -36,7 +36,7 @@ func Debug(msg interface{}, keyvals ...interface{}) {
 
 // Info logs informational messages.
 func Info(msg interface{}, keyvals ...interface{}) {
-	logger.Info(msg, keyvals...)
+	logger.Debug(msg, keyvals...)
 }
 
 // Warn logs warning messages.

@@ -35,7 +35,7 @@ func PrepareRunDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, pkgFilePath string
 		return "", err
 	}
 	// TODO: Temporary
-	// if err := CopyFile(fs, "../../build/linux/arm64/kdeps", filepath.Join(runDir, "kdeps")); err != nil {
+	// if err := CopyFile(fs, "../../build/linux/arm64/kdeps", filepath.Join(runDir, "kdeps"), logger); err != nil {
 	//	return "", err
 	// }
 
