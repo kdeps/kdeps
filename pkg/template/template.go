@@ -105,10 +105,10 @@ settings {
   // You can access the incoming request details using the following helper functions:
   //
   // - "@(request.url)"
-  // - "@(request.headers["HEADER"])"
   // - "@(request.method)"
-  // - "@(request.data)"
-  // - "@(request.params["PARAMS"])"
+  // - "@(request.headers("HEADER"))"
+  // - "@(request.data())"
+  // - "@(request.params("PARAMS"))"
   //
   // For example, to use these in your resource, you can define a local variable like this:
   //
@@ -355,7 +355,7 @@ run {
   // actions within the same resource is not allowed.
   chat {
     model = "llama3.1" // This LLM model needs to be defined in the workflow
-    prompt = "Who is @(request.data)?"
+    prompt = "Who is @(request.data())?"
 
     // Specify if the LLM response should be a structured JSON
     jsonResponse = true

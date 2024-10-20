@@ -27,7 +27,7 @@ func EnsurePklBinaryExists(logger *log.Logger) error {
 
 // EvalPkl evaluates the resource file at resourcePath using the 'pkl' binary.
 // It expects the resourcePath to have a .pkl extension.
-func EvalPkl(fs afero.Fs, resourcePath string, logger *log.Logger) (string, error) {
+func EvalPkl(fs afero.Fs, resourcePath string, headerSection string, logger *log.Logger) (string, error) {
 	// Validate that the file has a .pkl extension
 	if filepath.Ext(resourcePath) != ".pkl" {
 		errMsg := fmt.Sprintf("file '%s' must have a .pkl extension", resourcePath)
@@ -40,6 +40,7 @@ func EvalPkl(fs afero.Fs, resourcePath string, logger *log.Logger) (string, erro
 		return "", err
 	}
 
+	// Prepare the command to evaluate the .pkl file
 	cmd := execute.ExecTask{
 		Command:     "pkl",
 		Args:        []string{"eval", resourcePath},
@@ -61,7 +62,11 @@ func EvalPkl(fs afero.Fs, resourcePath string, logger *log.Logger) (string, erro
 		return "", fmt.Errorf(errMsg)
 	}
 
-	return result.Stdout, nil
+	// Format the result by prepending the headerSection to the command stdout
+	formattedResult := fmt.Sprintf("%s\n%s", headerSection, result.Stdout)
+
+	// Return the formatted result
+	return formattedResult, nil
 }
 
 func CreateAndProcessPklFile(
@@ -70,7 +75,8 @@ func CreateAndProcessPklFile(
 	finalFileName string,
 	pklTemplate string,
 	logger *log.Logger,
-	processFunc func(fs afero.Fs, tmpFile string, logger *log.Logger) (string, error),
+	processFunc func(fs afero.Fs, tmpFile string, headerSection string, logger *log.Logger) (string, error),
+	isExtension bool, // New parameter to control amends vs extends
 ) error {
 
 	// Create a temporary directory
@@ -88,10 +94,16 @@ func CreateAndProcessPklFile(
 	}
 	defer tmpFile.Close()
 
-	// Prepare the sections with the "amends" and imports
-	// amends "package://schema.kdeps.com/core@0.0.34#/Kdeps.pkl"
-	amendsSection := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/%s"`, schema.SchemaVersion, pklTemplate)
-	fullSections := append([]string{amendsSection}, sections...)
+	// Choose "amends" or "extends" based on isExtension
+	relationship := "amends"
+	if isExtension {
+		relationship = "extends"
+	}
+
+	// Prepare the sections with the relationship keyword and imports
+	// amends or extends "package://schema.kdeps.com/core@0.0.34#/Kdeps.pkl"
+	relationshipSection := fmt.Sprintf(`%s "package://schema.kdeps.com/core@%s#/%s"`, relationship, schema.SchemaVersion, pklTemplate)
+	fullSections := append([]string{relationshipSection}, sections...)
 
 	// Write sections to the temporary file
 	_, err = tmpFile.Write([]byte(strings.Join(fullSections, "\n")))
@@ -101,7 +113,7 @@ func CreateAndProcessPklFile(
 	}
 
 	// Process the temporary file using the provided function
-	processedContent, err := processFunc(fs, tmpFile.Name(), logger)
+	processedContent, err := processFunc(fs, tmpFile.Name(), relationshipSection, logger)
 	if err != nil {
 		logger.Error("Failed to process temporary file", "path", tmpFile.Name(), "error", err)
 		return fmt.Errorf("failed to process temporary file: %w", err)

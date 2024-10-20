@@ -71,12 +71,13 @@ func GenerateConfiguration(fs afero.Fs, env *environment.Environment, logger *lo
 
 		// Generate configuration
 		url := fmt.Sprintf("package://schema.kdeps.com/core@%s#/Kdeps.pkl", schema.SchemaVersion)
-		result, err := evaluator.EvalPkl(fs, url, logger)
+		headerSection := fmt.Sprintf("amends \"%s\"\n", url)
+
+		content, err := evaluator.EvalPkl(fs, url, headerSection, logger)
 		if err != nil {
 			return "", fmt.Errorf("failed to evaluate .pkl file: %w", err)
 		}
 
-		content := fmt.Sprintf("amends \"%s\"\n%s", url, result)
 		if err = afero.WriteFile(fs, configFile, []byte(content), 0644); err != nil {
 			return "", fmt.Errorf("failed to write to %s: %w", configFile, err)
 		}
@@ -111,7 +112,7 @@ func ValidateConfiguration(fs afero.Fs, env *environment.Environment, logger *lo
 
 	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
 
-	if _, err := evaluator.EvalPkl(fs, configFile, logger); err != nil {
+	if _, err := evaluator.EvalPkl(fs, configFile, "", logger); err != nil {
 		return configFile, fmt.Errorf("configuration validation failed: %w", err)
 	}
 

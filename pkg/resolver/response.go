@@ -22,7 +22,7 @@ func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock *apiserverr
 
 	sections := dr.buildResponseSections(apiResponseBlock)
 
-	if err := evaluator.CreateAndProcessPklFile(dr.Fs, sections, dr.ResponsePklFile, "APIServerResponse.pkl", dr.Logger, evaluator.EvalPkl); err != nil {
+	if err := evaluator.CreateAndProcessPklFile(dr.Fs, sections, dr.ResponsePklFile, "APIServerResponse.pkl", dr.Logger, evaluator.EvalPkl, false); err != nil {
 		return fmt.Errorf("failed to create/process PKL file: %w", err)
 	}
 

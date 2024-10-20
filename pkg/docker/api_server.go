@@ -11,10 +11,12 @@ import (
 	"kdeps/pkg/resolver"
 	"kdeps/pkg/utils"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/log"
+	"github.com/gabriel-vasile/mimetype"
 	apiserver "github.com/kdeps/schema/gen/api_server"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
@@ -35,7 +37,7 @@ type DecodedResponse struct {
 // StartApiServerMode initializes and starts an API server based on the provided workflow configuration.
 // It validates the API server configuration, sets up routes, and starts the server on the configured port.
 func StartApiServerMode(fs afero.Fs, ctx context.Context, wfCfg *pklWf.Workflow, environ *environment.Environment,
-	agentDir string, logger *log.Logger) error {
+	agentDir string, apiServerPath string, logger *log.Logger) error {
 
 	// Extract workflow settings and validate API server configuration
 	wfSettings := wfCfg.Settings
@@ -50,7 +52,7 @@ func StartApiServerMode(fs afero.Fs, ctx context.Context, wfCfg *pklWf.Workflow,
 	hostPort := ":" + portNum
 
 	// Set up API routes as per the configuration
-	if err := setupRoutes(fs, ctx, wfApiServer.Routes, environ, agentDir, logger); err != nil {
+	if err := setupRoutes(fs, ctx, wfApiServer.Routes, environ, agentDir, apiServerPath, logger); err != nil {
 		return fmt.Errorf("failed to set up routes: %w", err)
 	}
 
@@ -68,7 +70,7 @@ func StartApiServerMode(fs afero.Fs, ctx context.Context, wfCfg *pklWf.Workflow,
 // setupRoutes configures HTTP routes for the API server based on the provided route configuration.
 // Each route is validated before being registered with the HTTP handler.
 func setupRoutes(fs afero.Fs, ctx context.Context, routes []*apiserver.APIServerRoutes, environ *environment.Environment,
-	agentDir string, logger *log.Logger) error {
+	agentDir string, apiServerPath string, logger *log.Logger) error {
 
 	for _, route := range routes {
 		if route == nil || route.Path == "" {
@@ -76,7 +78,7 @@ func setupRoutes(fs afero.Fs, ctx context.Context, routes []*apiserver.APIServer
 			continue
 		}
 
-		http.HandleFunc(route.Path, ApiServerHandler(fs, ctx, route, environ, agentDir, logger))
+		http.HandleFunc(route.Path, ApiServerHandler(fs, ctx, route, environ, agentDir, apiServerPath, logger))
 		logger.Printf("Route configured: %s", route.Path)
 	}
 
@@ -86,11 +88,11 @@ func setupRoutes(fs afero.Fs, ctx context.Context, routes []*apiserver.APIServer
 // ApiServerHandler handles incoming HTTP requests for the configured routes.
 // It validates the HTTP method, processes the request data, and triggers workflow actions to generate responses.
 func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServerRoutes, env *environment.Environment,
-	apiServerPath string, logger *log.Logger) http.HandlerFunc {
+	agentDir string, apiServerPath string, logger *log.Logger) http.HandlerFunc {
 
 	allowedMethods := route.Methods
 
-	dr, err := resolver.NewGraphResolver(fs, logger, ctx, env, "/agent")
+	dr, err := resolver.NewGraphResolver(fs, logger, ctx, env, agentDir)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -109,24 +111,112 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 			return
 		}
 
-		body, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, "Failed to read request body", http.StatusBadRequest)
+		// Handle OPTIONS request
+		if r.Method == http.MethodOptions {
+			// List all the methods supported by this endpoint
+			w.Header().Set("Allow", "OPTIONS, GET, HEAD, POST, PUT, PATCH, DELETE")
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		defer r.Body.Close()
+
+		// Handle HEAD request
+		if r.Method == http.MethodHead {
+			// Simulate a GET request, but only respond with headers
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		var filename string = ""
+		var filetype string = ""
+		var bodyData string = ""
+
+		// Handle logic based on HTTP methods
+		switch r.Method {
+		case http.MethodGet:
+			body, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, "Failed to read request body", http.StatusBadRequest)
+			}
+			defer r.Body.Close()
+
+			bodyData = string(body)
+
+		case http.MethodPost, http.MethodPut, http.MethodPatch:
+			contentType := r.Header.Get("Content-Type")
+			if strings.Contains(contentType, "multipart/form-data") {
+				// Parse multipart form data
+				err := r.ParseMultipartForm(10 << 20)
+				if err != nil {
+					http.Error(w, "Unable to parse multipart form", http.StatusBadRequest)
+					return
+				}
+
+				// Handle file uploads
+				file, fileHeader, err := r.FormFile("file")
+				if err == nil {
+					defer file.Close()
+
+					// Read the file contents (Base64 encode if necessary)
+					fileBytes, err := ioutil.ReadAll(file)
+					if err != nil {
+						http.Error(w, "Failed to read file content", http.StatusInternalServerError)
+						return
+					}
+
+					filetype = mimetype.Detect(fileBytes).String()
+					bodyData = utils.EncodeBase64String(string(fileBytes))
+					filesPath := filepath.Join(agentDir, "/actions/files/")
+					filename = filepath.Join(filesPath, fileHeader.Filename)
+
+					if err := fs.MkdirAll(filesPath, 0777); err != nil {
+						http.Error(w, "Unable to create files directory", http.StatusInternalServerError)
+						return
+					}
+
+					err = afero.WriteFile(fs, filename, []byte(fileBytes), 0644)
+					if err != nil {
+						http.Error(w, "Unable to create files directory", http.StatusInternalServerError)
+						return
+					}
+				} else {
+					// Error handling for missing file
+					http.Error(w, fmt.Sprint("File upload error: %w", err), http.StatusBadRequest)
+					return
+				}
+			} else {
+				// Handle regular form or raw data
+				body, err := ioutil.ReadAll(r.Body)
+				if err != nil {
+					http.Error(w, "Failed to read request body", http.StatusBadRequest)
+				}
+				defer r.Body.Close()
+
+				bodyData = string(body)
+			}
+
+		case http.MethodDelete:
+			bodyData = "Delete request received"
+		default:
+			http.Error(w, "Unsupported method", http.StatusMethodNotAllowed)
+			return
+		}
 
 		// Prepare sections for the .pkl request file
-		urlSection := fmt.Sprintf(`url = "%s"`, r.URL.Path)
-		dataSection := fmt.Sprintf(`data = "%s"`, string(body))
+		urlSection := fmt.Sprintf(`path = "%s"`, r.URL.Path)
+		dataSection := fmt.Sprintf(`data = "%s"`, utils.EncodeBase64String(bodyData))
+		fileSection := fmt.Sprintf(`filename = "%s"`, filename)
+		typeSection := fmt.Sprintf(`filetype = "%s"`, filetype)
+
 		paramSection := formatParams(r.URL.Query())
 		headerSection := formatHeaders(r.Header)
 
-		sections := []string{urlSection, method, headerSection, dataSection, paramSection}
+		// Include filename and filetype in sections
+		sections := []string{urlSection, method, headerSection, dataSection, paramSection, fileSection, typeSection}
 
 		// Create and process the .pkl request file
 		if err := evaluator.CreateAndProcessPklFile(dr.Fs, sections, dr.RequestPklFile, "APIServerRequest.pkl",
-			logger, evaluator.EvalPkl); err != nil {
+			logger, evaluator.EvalPkl, true); err != nil {
 			http.Error(w, "Failed to process request file", http.StatusInternalServerError)
 			return
 		}
@@ -252,9 +342,12 @@ func formatHeaders(headers map[string][]string) string {
 	var headersLines []string
 	for name, values := range headers {
 		for _, value := range values {
-			headersLines = append(headersLines, fmt.Sprintf(`["%s"] = "%s"`, name, strings.TrimSpace(value)))
+			encodedValue := utils.EncodeBase64String(strings.TrimSpace(value))
+			headersLines = append(headersLines, fmt.Sprintf(`["%s"] = "%s"`, name, encodedValue))
+
 		}
 	}
+
 	return "headers {\n" + strings.Join(headersLines, "\n") + "\n}"
 }
 
@@ -263,7 +356,8 @@ func formatParams(params map[string][]string) string {
 	var paramsLines []string
 	for param, values := range params {
 		for _, value := range values {
-			paramsLines = append(paramsLines, fmt.Sprintf(`["%s"] = "%s"`, param, strings.TrimSpace(value)))
+			encodedValue := utils.EncodeBase64String(strings.TrimSpace(value))
+			paramsLines = append(paramsLines, fmt.Sprintf(`["%s"] = "%s"`, param, encodedValue))
 		}
 	}
 	return "params {\n" + strings.Join(paramsLines, "\n") + "\n}"

@@ -22,7 +22,6 @@ Dockerized AI agent APIs ready to be deployed in any organization. It utilizes s
 open-source LLM models that are orchestrated by a graph-based dependency workflow.`,
 	}
 
-	// Pass shared variables to each subcommand
 	rootCmd.AddCommand(NewAgentCommand(fs, ctx, kdepsDir, logger))
 	rootCmd.AddCommand(NewAddCommand(fs, ctx, kdepsDir, logger))
 	rootCmd.AddCommand(NewPackageCommand(fs, ctx, kdepsDir, env, logger))
