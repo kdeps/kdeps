@@ -69,7 +69,7 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 		}
 
 		go func() error {
-			if err := StartApiServerMode(fs, ctx, wfCfg, environ, apiServerPath, logger); err != nil {
+			if err := StartApiServerMode(fs, ctx, wfCfg, environ, agentDir, apiServerPath, logger); err != nil {
 				return err
 			}
 

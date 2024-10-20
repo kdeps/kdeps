@@ -162,7 +162,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 
 	ollamaPortNum := generateUniqueOllamaPort(portNum)
 	dockerFile := fmt.Sprintf(`
-FROM ollama/ollama:0.3.11
+FROM ollama/ollama:0.4.0-rc2
 
 ENV SCHEMA_VERSION=%s
 ENV OLLAMA_HOST=%s:%s

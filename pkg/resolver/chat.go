@@ -205,14 +205,13 @@ func (dr *DependencyResolver) AppendChatEntry(resourceId string, newChat *pklLLM
 	}
 
 	// Evaluate the PKL file using EvalPkl
-	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, pklPath, dr.Logger)
+	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, pklPath, fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"\n\n", schema.SchemaVersion), dr.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to evaluate PKL file: %w", err)
 	}
 
 	// Rebuild the PKL content with the "extends" header and evaluated content
 	var finalContent strings.Builder
-	finalContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"\n\n", schema.SchemaVersion))
 	finalContent.WriteString(evaluatedContent)
 
 	// Write the final evaluated content back to the PKL file
