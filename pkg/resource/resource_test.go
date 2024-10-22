@@ -179,7 +179,7 @@ settings {
   agentSettings {
     packages {}
     models {
-      "llama3.1"
+      "llama3.2"
     }
   }
   apiServer {
@@ -280,7 +280,7 @@ requires {
 name = "default action"
 run {
   chat {
-    model = "llama3.1"
+    model = "llama3.2"
     prompt = "@(request.data)"
     jsonResponse = true
     jsonResponseKeys {

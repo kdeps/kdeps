@@ -2,8 +2,10 @@ package docker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"kdeps/pkg/environment"
+	"kdeps/pkg/resolver"
 	"kdeps/pkg/workflow"
 
 	"path/filepath"
@@ -25,6 +27,25 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 		agentDir := "/agent"
 		apiServerPath := filepath.Join(agentDir, "/actions/api")
 		agentWorkflow := filepath.Join(agentDir, "workflow/workflow.pkl")
+
+		exists, err := afero.Exists(fs, agentWorkflow)
+		if !exists {
+			env, err := environment.NewEnvironment(fs, nil)
+			if err != nil {
+				return false, err
+			}
+
+			dr, err := resolver.NewGraphResolver(fs, logger, ctx, env, "/agent")
+			if err != nil {
+				return false, errors.New(fmt.Sprintf("failed to create graph resolver: %w", err))
+			}
+
+			// Prepare workflow directory
+			if err := dr.PrepareWorkflowDir(); err != nil {
+				return false, errors.New(fmt.Sprintf("failed to prepare workflow directory: %w", err))
+			}
+		}
+
 		wfCfg, err := workflow.LoadWorkflow(ctx, agentWorkflow, logger)
 		if err != nil {
 			logger.Error("Error loading", "workflow", err)

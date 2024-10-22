@@ -248,7 +248,7 @@ amends "package://schema.kdeps.com/core@0.1.1#/LLM.pkl"
 
 chat {
   ["Hello"] {
-    model = "llama3.1"
+    model = "llama3.2"
     prompt = "prompt"
     response = """
 response

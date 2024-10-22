@@ -147,7 +147,7 @@ settings {
     // You can specify multiple models here.
     models {
        // An example of a language model
-      "llama3.1"
+      "llama3.2"
     }
   }
 }
@@ -175,16 +175,18 @@ run {
   skipCondition {
     // Conditions under which the execution of this resource should be skipped.
     // If any evaluated condition returns true, the resource execution will be bypassed.
+    // "@(request.path)" != "/api/v1/whois" && "@(request.method)" != "GET"
   }
   preflightCheck {
     validations {
       // This section expects boolean validations.
       // If any validation returns false, an exception will be thrown before proceeding to the next step.
+      // "@(request.header("X-API-KEY"))" != ""
     }
     // Custom error message and code to be used if the preflight check fails.
     error {
-      code = 0
-      message = ""
+      code = 404
+      message = "Header X-API-KEY not found in request!"
     }
   }
 
@@ -214,7 +216,7 @@ run {
     }
     headers {
       // Headers to be included in the HTTP request.
-      ["X-API-XXXX"] = "XYZ"  // Example header.
+      ["X-API-KEY"] = "@(request.header("X-API-KEY"))"  // Example header.
     }
     // Timeout duration in seconds. This specifies when to terminate the request.
     timeoutSeconds = 60
@@ -225,11 +227,12 @@ run {
       // Similar to the preflight check, this section expects boolean validations
       // to be performed after executing the HTTP request.
       // An exception will be thrown if any validation returns false.
+      // "@(client.responseHeader("httpClientResource1", "THIS-HEADER-SHOULD-EXIST"))" != ""
     }
     // Custom error message and code to be used if the postflight check fails.
     error {
-      code = 0
-      message = ""
+      code = 404
+      message = "Header THIS-HEADER-SHOULD-EXIST not found after client call"
     }
   }
 }
@@ -251,11 +254,15 @@ run {
     validations {
       // This section expects boolean validations.
       // If any validation returns false, an exception will be thrown before proceeding to the next step.
+      //
+      // For example, this expects that the 'file.txt' is in the 'data' folder.
+      // All data files are mapped from 'data/file.txt' to 'data/<agentName>/<agentVersion>/file.txt'.
+      // read("file:/agent/workflow/data/%s/1.0.0/file.txt").text != "" && read("file:/agent/workflow/data/%s/1.0.0/file.txt").base64 != ""
     }
     // Custom error message and code to be used if the preflight check fails.
     error {
-      code = 0
-      message = ""
+      code = 500
+      message = "Data file file.txt not found!"
     }
   }
 
@@ -309,7 +316,7 @@ echo "hello world"
   }
 }
 
-`, resourceHeader),
+`, resourceHeader, name, name),
 		"chat.pkl": fmt.Sprintf(`%s
 id = "chatResource1"
 name = "LLM Chat Resource"
@@ -354,7 +361,7 @@ run {
   // Note: Each resource is restricted to a single dedicated action. Combining multiple
   // actions within the same resource is not allowed.
   chat {
-    model = "llama3.1" // This LLM model needs to be defined in the workflow
+    model = "llama3.2" // This LLM model needs to be defined in the workflow
     prompt = "Who is @(request.data())?"
 
     // Specify if the LLM response should be a structured JSON

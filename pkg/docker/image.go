@@ -131,7 +131,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 
 	wfSettings := wfCfg.Settings
 	dockerSettings := wfSettings.AgentSettings
-	gpuType := kdeps.DockerGPU
+	gpuType := string(kdeps.DockerGPU)
 	apiServerMode := wfSettings.ApiServerMode
 	apiServer := wfSettings.ApiServer
 
@@ -149,6 +149,13 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		exposedPort = ""
 	}
 
+	var imageVersion string = "0.4.0-rc3"
+	if gpuType == "amd" {
+		imageVersion = "0.4.0-rc3-rocm"
+	}
+	pklVersion := "0.26.3"
+	// kdepsVersion := "0.1.0"
+
 	var pkgLines []string
 
 	if dockerSettings.Packages != nil {
@@ -162,7 +169,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 
 	ollamaPortNum := generateUniqueOllamaPort(portNum)
 	dockerFile := fmt.Sprintf(`
-FROM ollama/ollama:0.4.0-rc2
+FROM ollama/ollama:%s
 
 ENV SCHEMA_VERSION=%s
 ENV OLLAMA_HOST=%s:%s
@@ -175,9 +182,9 @@ RUN apt-get update && apt-get install -y curl nano jq
 # Determine the architecture and download the appropriate pkl binary
 RUN arch=$(uname -m) && \
     if [ "$arch" = "x86_64" ]; then \
-	curl -L -o /usr/bin/pkl https://github.com/apple/pkl/releases/download/0.26.3/pkl-linux-amd64; \
+	curl -L -o /usr/bin/pkl https://github.com/apple/pkl/releases/download/%s/pkl-linux-amd64; \
     elif [ "$arch" = "aarch64" ]; then \
-	curl -L -o /usr/bin/pkl https://github.com/apple/pkl/releases/download/0.26.3/pkl-linux-aarch64; \
+	curl -L -o /usr/bin/pkl https://github.com/apple/pkl/releases/download/%s/pkl-linux-aarch64; \
     else \
 	echo "Unsupported architecture: $arch" && exit 1; \
     fi
@@ -196,7 +203,7 @@ RUN chmod +x /bin/kdeps
 
 ENTRYPOINT ["/bin/kdeps"]
 CMD ["run", "/agent/workflow/workflow.pkl"]
-`, schema.SchemaVersion, hostIP, ollamaPortNum, kdepsHost, pkgSection, exposedPort)
+`, imageVersion, schema.SchemaVersion, hostIP, ollamaPortNum, kdepsHost, pklVersion, pklVersion, pkgSection, exposedPort)
 
 	// Ensure the run directory exists
 	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion)
@@ -209,7 +216,7 @@ CMD ["run", "/agent/workflow/workflow.pkl"]
 		return "", false, "", "", "", err
 	}
 
-	return runDir, apiServerMode, hostIP, hostPort, string(gpuType), nil
+	return runDir, apiServerMode, hostIP, hostPort, gpuType, nil
 }
 
 // printDockerBuildOutput processes the Docker build logs and returns any error encountered during the build.

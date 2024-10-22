@@ -22,11 +22,20 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 		PortBindings: map[nat.Port][]nat.PortBinding{
 			nat.Port(tcpPort): {{HostIP: hostIP, HostPort: portNum}},
 		},
+		RestartPolicy: container.RestartPolicy{
+			Name:              "on-failure", // Restart the container only on failure
+			MaximumRetryCount: 5,            // Optionally specify the max retry count
+		},
 	}
 
+	// Optional mode for API-based configuration
 	if !apiMode {
 		hostConfig = &container.HostConfig{
 			Binds: []string{"kdeps:/root/.ollama"},
+			RestartPolicy: container.RestartPolicy{
+				Name:              "on-failure",
+				MaximumRetryCount: 5,
+			},
 		}
 	}
 
