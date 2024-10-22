@@ -38,7 +38,7 @@ func main() {
 		apiServerMode, err := docker.BootstrapDockerSystem(fs, ctx, env, logger)
 		if err != nil {
 			logger.Error("Error during Docker bootstrap", "error", err)
-			os.Exit(1)
+			utils.SendSigterm(logger)
 		}
 
 		// Setup graceful shutdown handling
@@ -49,7 +49,7 @@ func main() {
 			err = runGraphResolver(fs, ctx, env, apiServerMode, logger)
 			if err != nil {
 				logger.Error("Error running graph resolver", "error", err)
-				os.Exit(1)
+				utils.SendSigterm(logger)
 			}
 		}
 
@@ -141,8 +141,15 @@ func runGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	}
 
 	// Handle run action
-	if err := dr.HandleRunAction(); err != nil {
+	fatal, err := dr.HandleRunAction()
+	if err != nil {
 		return fmt.Errorf("failed to handle run action: %w", err)
+	}
+
+	// In certain error cases, Ollama needs to be restarted
+	if fatal {
+		dr.Logger.Fatal("Fatal error occurred")
+		utils.SendSigterm(logger)
 	}
 
 	cleanup(fs, env, apiServerMode, logger)

@@ -131,6 +131,11 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 		var filetype string = ""
 		var bodyData string = ""
 
+		fileMap := make(map[string]struct {
+			Filename string
+			Filetype string
+		})
+
 		// Handle logic based on HTTP methods
 		switch r.Method {
 		case http.MethodGet:
@@ -145,43 +150,94 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 		case http.MethodPost, http.MethodPut, http.MethodPatch:
 			contentType := r.Header.Get("Content-Type")
 			if strings.Contains(contentType, "multipart/form-data") {
-				// Parse multipart form data
-				err := r.ParseMultipartForm(10 << 20)
+				// Try to handle multiple files
+				err := r.ParseMultipartForm(10 << 20) // limit the size to 10MB, adjust as needed
 				if err != nil {
-					http.Error(w, "Unable to parse multipart form", http.StatusBadRequest)
+					http.Error(w, "Unable to parse multipart form", http.StatusInternalServerError)
 					return
 				}
 
-				// Handle file uploads
-				file, fileHeader, err := r.FormFile("file")
-				if err == nil {
-					defer file.Close()
+				files, multiFileExists := r.MultipartForm.File["file[]"]
+				singleFile, singleFileExists, err := r.FormFile("file")
 
-					// Read the file contents (Base64 encode if necessary)
-					fileBytes, err := ioutil.ReadAll(file)
+				if multiFileExists {
+					// Handle multiple file uploads
+					for _, fileHeader := range files {
+						file, err := fileHeader.Open()
+						if err != nil {
+							http.Error(w, fmt.Sprintf("Unable to open file: %v", err), http.StatusInternalServerError)
+							return
+						}
+						defer file.Close()
+
+						// Read the file contents (Base64 encode if necessary)
+						fileBytes, err := ioutil.ReadAll(file)
+						if err != nil {
+							http.Error(w, "Failed to read file content", http.StatusInternalServerError)
+							return
+						}
+
+						filetype = mimetype.Detect(fileBytes).String()
+						filesPath := filepath.Join(agentDir, "/actions/files/")
+						filename = filepath.Join(filesPath, fileHeader.Filename)
+
+						fileMap[filename] = struct {
+							Filename string
+							Filetype string
+						}{
+							Filename: filename,
+							Filetype: filetype,
+						}
+
+						// Create the directory if it does not exist
+						if err := fs.MkdirAll(filesPath, 0777); err != nil {
+							http.Error(w, "Unable to create files directory", http.StatusInternalServerError)
+							return
+						}
+
+						// Write the file to the filesystem
+						err = afero.WriteFile(fs, filename, fileBytes, 0644)
+						if err != nil {
+							http.Error(w, "Failed to save file", http.StatusInternalServerError)
+							return
+						}
+					}
+				} else if singleFileExists != nil {
+					// Handle single file upload
+					defer singleFile.Close()
+
+					fileBytes, err := ioutil.ReadAll(singleFile)
 					if err != nil {
 						http.Error(w, "Failed to read file content", http.StatusInternalServerError)
 						return
 					}
 
 					filetype = mimetype.Detect(fileBytes).String()
-					bodyData = utils.EncodeBase64String(string(fileBytes))
 					filesPath := filepath.Join(agentDir, "/actions/files/")
-					filename = filepath.Join(filesPath, fileHeader.Filename)
+					filename = filepath.Join(filesPath, singleFileExists.Filename)
 
+					fileMap[filename] = struct {
+						Filename string
+						Filetype string
+					}{
+						Filename: filename,
+						Filetype: filetype,
+					}
+
+					// Create the directory if it does not exist
 					if err := fs.MkdirAll(filesPath, 0777); err != nil {
 						http.Error(w, "Unable to create files directory", http.StatusInternalServerError)
 						return
 					}
 
-					err = afero.WriteFile(fs, filename, []byte(fileBytes), 0644)
+					// Write the file to the filesystem
+					err = afero.WriteFile(fs, filename, fileBytes, 0644)
 					if err != nil {
-						http.Error(w, "Unable to create files directory", http.StatusInternalServerError)
+						http.Error(w, "Failed to save file", http.StatusInternalServerError)
 						return
 					}
 				} else {
-					// Error handling for missing file
-					http.Error(w, fmt.Sprint("File upload error: %w", err), http.StatusBadRequest)
+					http.Error(w, "No file uploaded", http.StatusBadRequest)
 					return
 				}
 			} else {
@@ -189,6 +245,7 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 				body, err := ioutil.ReadAll(r.Body)
 				if err != nil {
 					http.Error(w, "Failed to read request body", http.StatusBadRequest)
+					return
 				}
 				defer r.Body.Close()
 
@@ -205,14 +262,30 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 		// Prepare sections for the .pkl request file
 		urlSection := fmt.Sprintf(`path = "%s"`, r.URL.Path)
 		dataSection := fmt.Sprintf(`data = "%s"`, utils.EncodeBase64String(bodyData))
-		fileSection := fmt.Sprintf(`filename = "%s"`, filename)
-		typeSection := fmt.Sprintf(`filetype = "%s"`, filetype)
 
+		var sb strings.Builder
+		sb.WriteString("files {\n")
+
+		if len(fileMap) == 0 {
+			// If the map is empty, just add the closing brace
+			sb.WriteString("}\n")
+		} else {
+			for _, fileInfo := range fileMap {
+				fileBlock := fmt.Sprintf(`
+filepath = "%s"
+filetype = "%s"
+`, fileInfo.Filename, fileInfo.Filetype)
+				sb.WriteString(fmt.Sprintf("    [\"%s\"] {\n%s\n}\n", filepath.Base(fileInfo.Filename), fileBlock))
+			}
+			sb.WriteString("}\n")
+		}
+
+		fileSection := sb.String()
 		paramSection := formatParams(r.URL.Query())
 		headerSection := formatHeaders(r.Header)
 
 		// Include filename and filetype in sections
-		sections := []string{urlSection, method, headerSection, dataSection, paramSection, fileSection, typeSection}
+		sections := []string{urlSection, method, headerSection, dataSection, paramSection, fileSection}
 
 		// Create and process the .pkl request file
 		if err := evaluator.CreateAndProcessPklFile(dr.Fs, sections, dr.RequestPklFile, "APIServerRequest.pkl",
@@ -222,9 +295,18 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 		}
 
 		// Execute the workflow actions and generate the response
-		if err := processWorkflow(dr, logger); err != nil {
+		fatal, err := processWorkflow(dr, logger)
+		if err != nil {
 			http.Error(w, "Workflow processing failed", http.StatusInternalServerError)
 			return
+		}
+
+		// In certain error cases, Ollama needs to be restarted
+		if fatal {
+			logger.Fatal("A fatal server error occurred. Restarting the service.")
+
+			// Send SIGTERM to gracefully shut down the server
+			utils.SendSigterm(logger)
 		}
 
 		// Read the raw response file (this is the undecoded data)
@@ -365,33 +447,34 @@ func formatParams(params map[string][]string) string {
 
 // processWorkflow handles the execution of the workflow steps after the .pkl file is created.
 // It prepares the workflow directory, imports necessary files, and processes the actions defined in the workflow.
-func processWorkflow(dr *resolver.DependencyResolver, logger *log.Logger) error {
+func processWorkflow(dr *resolver.DependencyResolver, logger *log.Logger) (bool, error) {
 	if err := dr.PrepareWorkflowDir(); err != nil {
-		return err
+		return false, err
 	}
 
 	if err := dr.PrepareImportFiles(); err != nil {
-		return err
+		return false, err
 	}
 
-	if err := dr.HandleRunAction(); err != nil {
-		return err
+	fatal, err := dr.HandleRunAction()
+	if err != nil {
+		return fatal, err
 	}
 
 	stdout, err := dr.EvalPklFormattedResponseFile()
 	if err != nil {
 		logger.Fatal(fmt.Errorf(stdout, err))
-		return err
+		return true, err
 	}
 
 	logger.Debug("Awaiting response...")
 
 	// Wait for the response file to be ready
 	if err := utils.WaitForFileReady(dr.Fs, dr.ResponseTargetFile, logger); err != nil {
-		return err
+		return false, err
 	}
 
-	return nil
+	return fatal, nil
 }
 
 // formatResponseJson attempts to format the response content as JSON if required.

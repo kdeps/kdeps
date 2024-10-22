@@ -187,13 +187,13 @@ func (dr *DependencyResolver) executePklEvalCommand() (execute.ExecResult, error
 }
 
 // HandleAPIErrorResponse handles API error responses by creating a PKL file.
-func (dr *DependencyResolver) HandleAPIErrorResponse(code int, message string) error {
+func (dr *DependencyResolver) HandleAPIErrorResponse(code int, message string, fatal bool) (bool, error) {
 	if dr.ApiServerMode {
 		errorResponse := utils.NewAPIServerResponse(false, nil, code, message)
 		if err := dr.CreateResponsePklFile(&errorResponse); err != nil {
 			dr.Logger.Error("Failed to create error response file", "error", err)
-			return err
+			return fatal, err
 		}
 	}
-	return nil
+	return fatal, nil
 }

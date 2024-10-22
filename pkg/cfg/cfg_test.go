@@ -69,7 +69,7 @@ llmSettings {
     groq_api_key = null
   }
   llmFallbackBackend = "local"
-  llmFallbackModel = "llama3.1"
+  llmFallbackModel = "llama3.2"
 }
 `
 	file := filepath.Join(currentDirPath, arg1)
@@ -97,7 +97,7 @@ llmSettings {
     groq_api_key = null
   }
   llmFallbackBackend = "local"
-  llmFallbackModel = "llama3.1"
+  llmFallbackModel = "llama3.2"
 }
 `
 	file := filepath.Join(homeDirPath, arg1)

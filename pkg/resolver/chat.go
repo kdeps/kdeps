@@ -6,12 +6,13 @@ import (
 	"kdeps/pkg/evaluator"
 	"kdeps/pkg/schema"
 	"kdeps/pkg/utils"
-	"log"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
 	"unicode/utf8"
 
+	"github.com/gabriel-vasile/mimetype"
 	pklLLM "github.com/kdeps/schema/gen/llm"
 	"github.com/spf13/afero"
 	"github.com/tmc/langchaingo/llms"
@@ -46,14 +47,10 @@ func (dr *DependencyResolver) HandleLLMChat(actionId string, chatBlock *pklLLM.R
 		chatBlock.JsonResponseKeys = &decodedJsonResponseKeys
 	}
 
-	go func() error {
-		err := dr.processLLMChat(actionId, chatBlock)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	}()
+	err := dr.processLLMChat(actionId, chatBlock)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -77,15 +74,44 @@ func (dr *DependencyResolver) processLLMChat(actionId string, chatBlock *pklLLM.
 			systemPrompt = fmt.Sprintf("Respond in JSON format, include `%s` in response keys.", additionalKeys)
 		}
 
+		var files = make(map[string][]byte)
+
+		if chatBlock.Files != nil {
+			for _, file := range *chatBlock.Files {
+				// Read file content from the file path
+				fileBytes, err := os.ReadFile(file)
+				if err != nil {
+					return err
+				}
+
+				// Detect file type (mimetype)
+				filetype := mimetype.Detect(fileBytes).String()
+
+				// Store filetype as key and file content as value
+				files[filetype] = fileBytes
+			}
+		}
+
+		// Initialize message content with text parts
 		content := []llms.MessageContent{
 			llms.TextParts(llms.ChatMessageTypeSystem, systemPrompt),
 			llms.TextParts(llms.ChatMessageTypeHuman, chatBlock.Prompt),
 		}
 
-		// GenerateContent returns *llms.ContentResponse, not a string
+		for filetype, fileBytes := range files {
+			binaryContent := llms.MessageContent{
+				Role: llms.ChatMessageTypeHuman,
+				Parts: []llms.ContentPart{
+					llms.BinaryPart(filetype, fileBytes),
+				},
+			}
+
+			content = append(content, binaryContent)
+		}
+
 		response, err := llm.GenerateContent(*dr.Context, content, llms.WithJSONMode())
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 
 		choices := response.Choices
