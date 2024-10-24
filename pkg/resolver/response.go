@@ -15,7 +15,7 @@ import (
 )
 
 // CreateResponsePklFile generates a PKL file from the API response and processes it.
-func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock *apiserverresponse.APIServerResponse) error {
+func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverresponse.APIServerResponse) error {
 	if err := dr.ensureResponsePklFileNotExists(); err != nil {
 		return err
 	}
@@ -45,11 +45,11 @@ func (dr *DependencyResolver) ensureResponsePklFileNotExists() error {
 }
 
 // buildResponseSections creates sections for the PKL file from the API response.
-func (dr *DependencyResolver) buildResponseSections(apiResponseBlock *apiserverresponse.APIServerResponse) []string {
+func (dr *DependencyResolver) buildResponseSections(apiResponseBlock apiserverresponse.APIServerResponse) []string {
 	return []string{
-		fmt.Sprintf("success = %v", apiResponseBlock.Success),
-		formatResponseData(apiResponseBlock.Response),
-		formatErrors(apiResponseBlock.Errors, dr.Logger),
+		fmt.Sprintf("success = %v", apiResponseBlock.GetSuccess()),
+		formatResponseData(apiResponseBlock.GetResponse()),
+		formatErrors(apiResponseBlock.GetErrors(), dr.Logger),
 	}
 }
 
@@ -190,7 +190,7 @@ func (dr *DependencyResolver) executePklEvalCommand() (execute.ExecResult, error
 func (dr *DependencyResolver) HandleAPIErrorResponse(code int, message string, fatal bool) (bool, error) {
 	if dr.ApiServerMode {
 		errorResponse := utils.NewAPIServerResponse(false, nil, code, message)
-		if err := dr.CreateResponsePklFile(&errorResponse); err != nil {
+		if err := dr.CreateResponsePklFile(errorResponse); err != nil {
 			dr.Logger.Error("Failed to create error response file", "error", err)
 			return fatal, err
 		}

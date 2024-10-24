@@ -70,7 +70,7 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 		}
 
 		// Once ollama server is ready, proceed with pulling models
-		wfSettings := *wfCfg.Settings
+		wfSettings := wfCfg.GetSettings()
 		apiServerMode = wfSettings.ApiServerMode
 
 		dockerSettings := *wfSettings.AgentSettings

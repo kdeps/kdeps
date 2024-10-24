@@ -4,7 +4,7 @@ import (
 	apiserverresponse "github.com/kdeps/schema/gen/api_server_response"
 )
 
-func NewAPIServerResponse(success bool, data []any, errorCode int, errorMessage string) apiserverresponse.APIServerResponse {
+func NewAPIServerResponse(success bool, data []any, errorCode int, errorMessage string) *apiserverresponse.APIServerResponseImpl {
 	responseBlock := &apiserverresponse.APIServerResponseBlock{Data: data}
 	var errorsBlock *apiserverresponse.APIServerErrorsBlock
 
@@ -16,7 +16,8 @@ func NewAPIServerResponse(success bool, data []any, errorCode int, errorMessage 
 		}
 	}
 
-	return apiserverresponse.APIServerResponse{
+	// Use the concrete implementation APIServerResponseImpl to return the response
+	return &apiserverresponse.APIServerResponseImpl{
 		Success:  success,
 		Response: responseBlock,
 		Errors:   errorsBlock,

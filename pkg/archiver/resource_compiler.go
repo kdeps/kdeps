@@ -16,7 +16,7 @@ import (
 )
 
 // CompileResources processes .pkl files from the project directory and copies them to the resources directory
-func CompileResources(fs afero.Fs, wf *pklWf.Workflow, resourcesDir string, projectDir string, logger *log.Logger) error {
+func CompileResources(fs afero.Fs, wf pklWf.Workflow, resourcesDir string, projectDir string, logger *log.Logger) error {
 	projectResourcesDir := filepath.Join(projectDir, "resources")
 
 	if err := CheckAndValidatePklFiles(fs, projectResourcesDir, logger); err != nil {
@@ -51,8 +51,8 @@ func CompileResources(fs afero.Fs, wf *pklWf.Workflow, resourcesDir string, proj
 }
 
 // processResourcePklFiles processes a .pkl file and writes modifications to the resources directory
-func processResourcePklFiles(fs afero.Fs, file string, wf *pklWf.Workflow, resourcesDir string, logger *log.Logger) error {
-	name, version := wf.Name, wf.Version
+func processResourcePklFiles(fs afero.Fs, file string, wf pklWf.Workflow, resourcesDir string, logger *log.Logger) error {
+	name, version := wf.GetName(), wf.GetVersion()
 
 	readFile, err := fs.Open(file)
 	if err != nil {

@@ -159,12 +159,12 @@ func CopyFile(fs afero.Fs, src, dst string, logger *log.Logger) error {
 	return nil
 }
 
-func CopyDataDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir, compiledProjectDir, agentName, agentVersion,
+func CopyDataDir(fs afero.Fs, wf pklWf.Workflow, kdepsDir, projectDir, compiledProjectDir, agentName, agentVersion,
 	agentAction string, processWorkflows bool, logger *log.Logger) error {
 	var srcDir, destDir string
 
 	srcDir = filepath.Join(projectDir, "data")
-	destDir = filepath.Join(compiledProjectDir, fmt.Sprintf("data/%s/%s", wf.Name, wf.Version))
+	destDir = filepath.Join(compiledProjectDir, fmt.Sprintf("data/%s/%s", wf.GetName(), wf.GetVersion()))
 
 	if processWorkflows {
 		// Helper function to copy resources
@@ -258,7 +258,7 @@ func CopyDataDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir, compiled
 		pathParts := strings.Split(relPath, string(os.PathSeparator))
 		if len(pathParts) >= 2 {
 			// Adjust destDir if agent data already exists from src path
-			destDir = filepath.Join(kdepsDir, "agents", wf.Name, wf.Version, "data")
+			destDir = filepath.Join(kdepsDir, "agents", wf.GetName(), wf.GetVersion(), "data")
 		}
 
 		// Create the destination path
