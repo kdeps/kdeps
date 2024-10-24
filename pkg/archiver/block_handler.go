@@ -8,8 +8,8 @@ import (
 )
 
 // Handle the values inside the requires { ... } block
-func handleRequiresBlock(blockContent string, wf *pklWf.Workflow) string {
-	name, version := wf.Name, wf.Version
+func handleRequiresBlock(blockContent string, wf pklWf.Workflow) string {
+	name, version := wf.GetName(), wf.GetVersion()
 
 	// Split the block by newline and process each value
 	lines := strings.Split(blockContent, "\n")

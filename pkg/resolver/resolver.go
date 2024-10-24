@@ -25,7 +25,7 @@ type DependencyResolver struct {
 	VisitedPaths         map[string]bool
 	Context              *context.Context
 	Graph                *graph.DependencyGraph
-	Workflow             *pklWf.Workflow
+	Workflow             pklWf.Workflow
 	RequestId            string
 	RequestPklFile       string
 	ResponsePklFile      string
@@ -103,8 +103,8 @@ func NewGraphResolver(fs afero.Fs, logger *log.Logger, ctx context.Context, env 
 		return nil, err
 	}
 	dependencyResolver.Workflow = workflowConfiguration
-	if workflowConfiguration.Settings != nil {
-		dependencyResolver.ApiServerMode = workflowConfiguration.Settings.ApiServerMode
+	if workflowConfiguration.GetSettings() != nil {
+		dependencyResolver.ApiServerMode = workflowConfiguration.GetSettings().ApiServerMode
 	}
 
 	dependencyResolver.Graph = graph.NewDependencyGraph(fs, logger, dependencyResolver.ResourceDependencies)
@@ -124,7 +124,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	}()
 
 	visited := make(map[string]bool)
-	actionId := dr.Workflow.Action
+	actionId := dr.Workflow.GetAction()
 	timeoutSeconds := 60 * time.Second
 	dr.Logger.Debug("Processing resources...")
 	if err := dr.LoadResourceEntries(); err != nil {
@@ -248,7 +248,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 
 					// API Response
 					if dr.ApiServerMode && runBlock.ApiResponse != nil {
-						if err := dr.CreateResponsePklFile(runBlock.ApiResponse); err != nil {
+						if err := dr.CreateResponsePklFile(*runBlock.ApiResponse); err != nil {
 							return dr.HandleAPIErrorResponse(500, err.Error(), true)
 						}
 					}

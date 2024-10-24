@@ -37,8 +37,8 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 		return "", "", err
 	}
 
-	agentName := wfCfg.Name
-	agentVersion := wfCfg.Version
+	agentName := wfCfg.GetName()
+	agentVersion := wfCfg.GetVersion()
 	md5sum := pkgProject.Md5sum
 	cName := strings.Join([]string{"kdeps", agentName, md5sum}, "-")
 	cName = strings.ToLower(cName)
@@ -126,10 +126,10 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		return "", false, "", "", "", err
 	}
 
-	agentName := wfCfg.Name
-	agentVersion := wfCfg.Version
+	agentName := wfCfg.GetName()
+	agentVersion := wfCfg.GetVersion()
 
-	wfSettings := wfCfg.Settings
+	wfSettings := wfCfg.GetSettings()
 	dockerSettings := wfSettings.AgentSettings
 	gpuType := string(kdeps.DockerGPU)
 	apiServerMode := wfSettings.ApiServerMode

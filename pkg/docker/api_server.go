@@ -36,11 +36,11 @@ type DecodedResponse struct {
 
 // StartApiServerMode initializes and starts an API server based on the provided workflow configuration.
 // It validates the API server configuration, sets up routes, and starts the server on the configured port.
-func StartApiServerMode(fs afero.Fs, ctx context.Context, wfCfg *pklWf.Workflow, environ *environment.Environment,
+func StartApiServerMode(fs afero.Fs, ctx context.Context, wfCfg pklWf.Workflow, environ *environment.Environment,
 	agentDir string, apiServerPath string, logger *log.Logger) error {
 
 	// Extract workflow settings and validate API server configuration
-	wfSettings := wfCfg.Settings
+	wfSettings := wfCfg.GetSettings()
 	wfApiServer := wfSettings.ApiServer
 
 	if wfApiServer == nil {

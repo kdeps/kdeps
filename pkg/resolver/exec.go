@@ -47,11 +47,6 @@ func (dr *DependencyResolver) HandleExec(actionId string, execBlock *pklExec.Res
 			stringKey := key
 			decodedValue := value
 
-			// // Decode key if it is Base64-encoded
-			// if utf8.ValidString(key) && utils.IsBase64Encoded(key) {
-			//	decodedKey, _ = utils.DecodeBase64String(key)
-			// }
-
 			// Decode value if it is Base64-encoded
 			if utf8.ValidString(value) && utils.IsBase64Encoded(value) {
 				decodedValue, _ = utils.DecodeBase64String(value)
@@ -78,9 +73,13 @@ func (dr *DependencyResolver) processExecBlock(actionId string, execBlock *pklEx
 	var env []string
 	if execBlock.Env != nil {
 		for key, value := range *execBlock.Env {
-			env = append(env, fmt.Sprintf("%s=\"%s\"", key, value))
+			// Append the environment variable in the desired format
+			env = append(env, fmt.Sprintf(`%s=%s`, key, value))
 		}
 	}
+
+	// Log the command and environment variables
+	dr.Logger.Info("Executing command", "command", execBlock.Command, "env", env)
 
 	cmd := execute.ExecTask{
 		Command:     execBlock.Command,

@@ -20,8 +20,8 @@ import (
 	"github.com/spf13/afero"
 )
 
-func PrepareRunDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, pkgFilePath string, logger *log.Logger) (string, error) {
-	agentName, agentVersion := wf.Name, wf.Version
+func PrepareRunDir(fs afero.Fs, wf pklWf.Workflow, kdepsDir, pkgFilePath string, logger *log.Logger) (string, error) {
+	agentName, agentVersion := wf.GetName(), wf.GetVersion()
 
 	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion+"/workflow")
 
@@ -114,8 +114,8 @@ func PrepareRunDir(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, pkgFilePath string
 }
 
 // CompileWorkflow compiles a workflow file and updates the action field
-func CompileWorkflow(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir string, logger *log.Logger) (string, error) {
-	action := wf.Action
+func CompileWorkflow(fs afero.Fs, wf pklWf.Workflow, kdepsDir, projectDir string, logger *log.Logger) (string, error) {
+	action := wf.GetAction()
 
 	if action == "" {
 		logger.Error("No action specified in workflow!")
@@ -124,8 +124,8 @@ func CompileWorkflow(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir strin
 
 	var compiledAction string
 
-	name := wf.Name
-	version := wf.Version
+	name := wf.GetName()
+	version := wf.GetVersion()
 
 	filePath := filepath.Join(projectDir, "workflow.pkl")
 	agentDir := filepath.Join(kdepsDir, fmt.Sprintf("agents/%s/%s", name, version))
@@ -212,7 +212,7 @@ func CompileWorkflow(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir strin
 }
 
 // CompileProject orchestrates the compilation and packaging of a project
-func CompileProject(fs afero.Fs, ctx context.Context, wf *pklWf.Workflow, kdepsDir string, projectDir string, env *environment.Environment, logger *log.Logger) (string, string, error) {
+func CompileProject(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir string, projectDir string, env *environment.Environment, logger *log.Logger) (string, string, error) {
 	// Compile the workflow
 	compiledProjectDir, err := CompileWorkflow(fs, wf, kdepsDir, projectDir, logger)
 	if err != nil {
@@ -301,13 +301,13 @@ func CompileProject(fs afero.Fs, ctx context.Context, wf *pklWf.Workflow, kdepsD
 }
 
 // ProcessExternalWorkflows processes each workflow and copies directories as needed
-func ProcessExternalWorkflows(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, projectDir, compiledProjectDir string, logger *log.Logger) error {
-	if wf.Workflows == nil {
+func ProcessExternalWorkflows(fs afero.Fs, wf pklWf.Workflow, kdepsDir, projectDir, compiledProjectDir string, logger *log.Logger) error {
+	if wf.GetWorkflows() == nil {
 		logger.Debug("No external workflows to process")
 		return nil
 	}
 
-	for _, value := range wf.Workflows {
+	for _, value := range wf.GetWorkflows() {
 		// Remove the "@" at the beginning if it exists
 		value = strings.TrimPrefix(value, "@")
 

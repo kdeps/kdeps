@@ -114,8 +114,8 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 	}
 
 	// Extract the workflow name and version
-	agentName := wfConfig.Name
-	agentVersion := wfConfig.Version
+	agentName := wfConfig.GetName()
+	agentVersion := wfConfig.GetVersion()
 
 	// Move the extracted files from the temporary directory to the permanent location
 	extractBasePath := filepath.Join(kdepsDir, "agents", agentName, agentVersion)
@@ -213,7 +213,7 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 }
 
 // PackageProject compresses the contents of projectDir into a kdeps file in kdepsDir
-func PackageProject(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, compiledProjectDir string, logger *log.Logger) (string, error) {
+func PackageProject(fs afero.Fs, wf pklWf.Workflow, kdepsDir, compiledProjectDir string, logger *log.Logger) (string, error) {
 	// Enforce the folder structure
 	if err := enforcer.EnforceFolderStructure(fs, compiledProjectDir, logger); err != nil {
 		logger.Error("Failed to enforce folder structure", "error", err)
@@ -221,7 +221,7 @@ func PackageProject(fs afero.Fs, wf *pklWf.Workflow, kdepsDir, compiledProjectDi
 	}
 
 	// Create the output filename for the package
-	outFile := fmt.Sprintf("%s-%s.kdeps", wf.Name, wf.Version)
+	outFile := fmt.Sprintf("%s-%s.kdeps", wf.GetName(), wf.GetVersion())
 	packageDir := fmt.Sprintf("%s/packages", kdepsDir)
 
 	if _, err := fs.Stat(packageDir); err != nil {
