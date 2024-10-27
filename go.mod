@@ -1,9 +1,11 @@
 module kdeps
 
-go 1.22.5
+go 1.23
+
+toolchain go1.23.1
 
 require (
-	github.com/Netflix/go-env v0.1.0
+	github.com/Netflix/go-env v0.1.1
 	github.com/adrg/xdg v0.5.1
 	github.com/alexellis/go-execute/v2 v2.2.1
 	github.com/charmbracelet/huh v0.6.0
@@ -17,7 +19,7 @@ require (
 	github.com/gabriel-vasile/mimetype v1.4.6
 	github.com/google/uuid v1.6.0
 	github.com/kdeps/kartographer v0.0.0-20240808015651-b2afd5d97715
-	github.com/kdeps/schema v0.1.20
+	github.com/kdeps/schema v0.1.22
 	github.com/kr/pretty v0.3.1
 	github.com/spf13/afero v1.11.0
 	github.com/spf13/cobra v1.8.1
@@ -32,9 +34,9 @@ require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/catppuccin/go v0.2.0 // indirect
 	github.com/charmbracelet/bubbles v0.20.0 // indirect
-	github.com/charmbracelet/bubbletea v1.1.1 // indirect
-	github.com/charmbracelet/x/ansi v0.3.2 // indirect
-	github.com/charmbracelet/x/exp/strings v0.0.0-20241022174419-46d9bb99a691 // indirect
+	github.com/charmbracelet/bubbletea v1.1.2 // indirect
+	github.com/charmbracelet/x/ansi v0.4.0 // indirect
+	github.com/charmbracelet/x/exp/strings v0.0.0-20241025155609-902b1d1de0be // indirect
 	github.com/charmbracelet/x/term v0.2.0 // indirect
 	github.com/cucumber/gherkin/go/v26 v26.2.0 // indirect
 	github.com/cucumber/messages/go/v21 v21.0.1 // indirect
