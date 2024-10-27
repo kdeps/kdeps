@@ -250,12 +250,6 @@ run {
       }
     }
   }
-  postflightCheck {
-    validations {
-      1 + 1 == 2
-      2 + 2 == 4
-    }
-  }
 }
 `
 
@@ -351,12 +345,6 @@ run {
     method = "GET"
     url = "https://dog.ceo/api/breeds/list/all"
   }
-  postflightCheck {
-    validations {
-      1 + 1 == 2
-      2 + 2 == 4
-    }
-  }
 }
 `
 
@@ -383,12 +371,6 @@ run {
   httpClient {
     method = "GET"
     url = "https://google.com"
-  }
-  postflightCheck {
-    validations {
-      1 + 1 == 2
-      2 + 2 == 4
-    }
   }
 }
 `

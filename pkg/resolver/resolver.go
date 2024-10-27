@@ -232,20 +232,6 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 
 					}
 
-					// Handle Postflight Check
-					if runBlock.PostflightCheck != nil && runBlock.PostflightCheck.Validations != nil {
-						if !utils.AllConditionsMet(runBlock.PostflightCheck.Validations) {
-							if runBlock.PostflightCheck.Error != nil {
-								return dr.HandleAPIErrorResponse(
-									runBlock.PostflightCheck.Error.Code,
-									fmt.Sprintf("%s: %s", runBlock.PostflightCheck.Error.Message, res.Id), false)
-							}
-
-							dr.Logger.Error("Postflight check not met, failing:", res.Id)
-							return dr.HandleAPIErrorResponse(500, "Postflight check failed for resource: "+res.Id, false)
-						}
-					}
-
 					// API Response
 					if dr.ApiServerMode && runBlock.ApiResponse != nil {
 						if err := dr.CreateResponsePklFile(*runBlock.ApiResponse); err != nil {
