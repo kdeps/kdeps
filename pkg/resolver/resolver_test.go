@@ -376,24 +376,6 @@ func eachResourceAreReloadedWhenOpened() error {
 				//		}
 				//	}
 
-				//	// Process the resource...
-
-				//	// Handle Postflight Check
-				//	if runBlock.PostflightCheck != nil && runBlock.PostflightCheck.Validations != nil {
-				//		if !resolver.AllConditionsMet(runBlock.PostflightCheck.Validations) {
-				//			if runBlock.PostflightCheck.Error != nil {
-				//				logger.Debug(err)
-
-				//				// return graphResolver.HandleAPIErrorResponse(
-				//				//	runBlock.PostflightCheck.Error.Code,
-				//				//	fmt.Sprintf("%s: %s", runBlock.PostflightCheck.Error.Message, res.Id))
-				//			}
-
-				//			logger.Error("Postflight check not met, failing:", res.Id)
-				//			// return graphResolver.HandleAPIErrorResponse(500, "Postflight check failed for resource: "+res.Id)
-				//		}
-				//	}
-
 				//	// API Response
 				//	if graphResolver.ApiServerMode && runBlock.ApiResponse != nil {
 				//		if err := graphResolver.CreateResponsePklFile(runBlock.ApiResponse); err != nil {

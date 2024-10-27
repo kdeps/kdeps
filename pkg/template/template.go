@@ -104,7 +104,7 @@ settings {
 	//
 	// You can access the incoming request details using the following helper functions:
 	//
-	// - "@(request.url())"
+	// - "@(request.path())"
 	// - "@(request.method())"
 	// - "@(request.headers("HEADER"))"
 	// - "@(request.data())"
@@ -161,7 +161,7 @@ settings {
 		// You can specify multiple models here.
 		models {
 			// An example of a language model
-			"llama3.2"
+			"llama3.1"
 		}
 	}
 }
@@ -235,20 +235,6 @@ run {
 		// Timeout duration in seconds. This specifies when to terminate the request.
 		timeoutSeconds = 60
 	}
-
-	postflightCheck {
-		validations {
-			// Similar to the preflight check, this section expects boolean validations
-			// to be performed after executing the HTTP request.
-			// An exception will be thrown if any validation returns false.
-			// "@(client.responseHeader("httpClientResource1", "THIS-HEADER-SHOULD-EXIST"))" != ""
-		}
-		// Custom error message and code to be used if the postflight check fails.
-		error {
-			code = 404
-			message = "Header THIS-HEADER-SHOULD-EXIST not found after client call"
-		}
-	}
 }
 `, resourceHeader),
 		"exec.pkl": fmt.Sprintf(`%s
@@ -314,19 +300,6 @@ run {
 		}
 		// Timeout duration in seconds. This specifies when to terminate the shell exec.
 		timeoutSeconds = 60
-	}
-
-	postflightCheck {
-		validations {
-			// Similar to the preflight check, this section expects boolean validations
-			// to be performed after executing the exec step.
-			// An exception will be thrown if any validation returns false.
-		}
-		// Custom error message and code to be used if the postflight check fails.
-		error {
-			code = 0
-			message = ""
-		}
 	}
 }
 `, resourceHeader, name, name),
@@ -394,19 +367,6 @@ run {
 		// Timeout duration in seconds. This specifies when to terminate the llm session.
 		timeoutSeconds = 60
 	}
-
-	postflightCheck {
-		validations {
-			// Similar to the preflight check, this section expects boolean validations
-			// to be performed after executing the exec step.
-			// An exception will be thrown if any validation returns false.
-		}
-		// Custom error message and code to be used if the postflight check fails.
-		error {
-			code = 0
-			message = ""
-		}
-	}
 }
 `, resourceHeader),
 		"response.pkl": fmt.Sprintf(`%s
@@ -442,7 +402,7 @@ run {
 	// creates a JSON response with the following shape
 	//
 	// {
-		//   "success": true,
+	//   "success": true,
 		//   "response": {
 			//     "data": [],
 			//   },
@@ -460,19 +420,6 @@ run {
 			}
 		}
 		errors {
-			code = 0
-			message = ""
-		}
-	}
-
-	postflightCheck {
-		validations {
-			// Similar to the preflight check, this section expects boolean validations
-			// to be performed after executing the exec step.
-			// An exception will be thrown if any validation returns false.
-		}
-		// Custom error message and code to be used if the postflight check fails.
-		error {
 			code = 0
 			message = ""
 		}

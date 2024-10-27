@@ -149,9 +149,9 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		exposedPort = ""
 	}
 
-	var imageVersion string = "0.4.0-rc3"
+	var imageVersion string = "0.4.0-rc5"
 	if gpuType == "amd" {
-		imageVersion = "0.4.0-rc3-rocm"
+		imageVersion = "0.4.0-rc5-rocm"
 	}
 	pklVersion := "0.26.3"
 	// kdepsVersion := "0.1.0"

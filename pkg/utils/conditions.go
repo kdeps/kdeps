@@ -9,7 +9,7 @@ func ShouldSkip(conditions *[]bool) bool {
 	return false
 }
 
-// Function to check if all conditions in a pre/postflight check are met
+// Function to check if all conditions in a preflight check are met
 func AllConditionsMet(conditions *[]bool) bool {
 	for _, condition := range *conditions {
 		if !condition {
