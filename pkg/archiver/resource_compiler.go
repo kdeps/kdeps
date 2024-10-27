@@ -77,6 +77,7 @@ func processResourcePklFiles(fs afero.Fs, file string, wf pklWf.Workflow, resour
 		"env":            regexp.MustCompile(`(?i)(env)\("(.+)",\s*"(.+)"\)`),
 		"response":       regexp.MustCompile(`(?i)(response)\("(.+)"\)`),
 		"prompt":         regexp.MustCompile(`(?i)(prompt)\("(.+)"\)`),
+		"exitCode":       regexp.MustCompile(`(?i)(exitCode)\("(.+)"\)`),
 	}
 
 	inRequiresBlock := false
@@ -88,30 +89,29 @@ func processResourcePklFiles(fs afero.Fs, file string, wf pklWf.Workflow, resour
 		line := scanner.Text()
 
 		if inRequiresBlock {
-			// Check if we've reached the end of the `requires { ... }` block
+			// Check if we've reached the end of the requires { ... } block
 			if strings.TrimSpace(line) == "}" {
 				inRequiresBlock = false
-				// Process the accumulated `requires` block
+				// Process the accumulated requires block
 				modifiedBlock := handleRequiresBlock(requiresBlockBuffer.String(), wf)
 
-				// Write the modified block and the closing `}` line
+				// Write the modified block and the closing } line
 				fileBuffer.WriteString(modifiedBlock)
 				fileBuffer.WriteString(line + "\n")
 			} else {
-				// Continue accumulating the `requires` block lines
+				// Continue accumulating the requires block lines
 				requiresBlockBuffer.WriteString(line + "\n")
 			}
 			continue
 		}
 
-		// Check if the line matches the `id = "value"` pattern
+		// Check if the line matches the id = "value" pattern
 		if idMatch := idPattern.FindStringSubmatch(line); idMatch != nil {
 			// Extract the action from the id
 			action = idMatch[1]
-
 			// If action doesn't already start with "@", prefix and append name and version
 			if !strings.HasPrefix(action, "@") {
-				newLine := strings.Replace(line, action, fmt.Sprintf("@%s/%s:%s", name, action, version), 1)
+				newLine := strings.ReplaceAll(line, action, fmt.Sprintf("@%s/%s:%s", name, action, version))
 				fileBuffer.WriteString(newLine + "\n")
 			} else {
 				fileBuffer.WriteString(line + "\n")
@@ -120,50 +120,59 @@ func processResourcePklFiles(fs afero.Fs, file string, wf pklWf.Workflow, resour
 			// Loop through the actionIDPatterns to find any matching line
 			matched := false
 			for patternName, pattern := range actionIDPatterns {
-				if actionIDMatch := pattern.FindStringSubmatch(line); actionIDMatch != nil {
+				// Find all matches in the line for the current pattern
+				actionIDMatches := pattern.FindAllStringSubmatch(line, -1)
+				if len(actionIDMatches) > 0 {
 					matched = true
-					// Extract the block type (e.g., resource, responseBody) and the actionID
-					blockType := actionIDMatch[1]
-					field := actionIDMatch[2]
-					var modifiedField string
+					// Iterate over each match in the line
+					for _, actionIDMatch := range actionIDMatches {
+						if !strings.HasPrefix(actionIDMatch[2], "@") {
+							// Extract the block type (e.g., resource, responseBody) and the actionID
+							blockType := actionIDMatch[1]
+							field := actionIDMatch[2]
+							var modifiedField string
 
-					// Modify the field for patterns with one or two additional arguments
-					if patternName == "responseHeader" || patternName == "env" {
-						arg2 := actionIDMatch[3]
-						if !strings.HasPrefix(field, "@") {
-							modifiedField = fmt.Sprintf("%s(\"@%s/%s:%s\", \"%s\")", blockType, name, field, version, arg2)
-						} else {
-							modifiedField = line // leave unchanged if already starts with "@"
-						}
-					} else {
-						// Only modify if actionID does not already start with "@"
-						if !strings.HasPrefix(field, "@") {
-							modifiedField = fmt.Sprintf("%s(\"@%s/%s:%s\")", blockType, name, field, version)
-						} else {
-							modifiedField = line // leave unchanged if already starts with "@"
+							// Modify the field for patterns with one or two additional arguments
+							if patternName == "responseHeader" || patternName == "env" {
+								arg2 := actionIDMatch[3]
+								if !strings.HasPrefix(field, "@") {
+									modifiedField = fmt.Sprintf("%s(\"@%s/%s:%s\", \"%s\")", blockType, name, field, version, arg2)
+								} else {
+									modifiedField = line // leave unchanged if already starts with "@"
+								}
+							} else {
+								// Only modify if actionID does not already start with "@"
+								if !strings.HasPrefix(field, "@") {
+									modifiedField = fmt.Sprintf("%s(\"@%s/%s:%s\")", blockType, name, field, version)
+								} else {
+									modifiedField = line // leave unchanged if already starts with "@"
+								}
+							}
+
+							// Replace all occurrences of the original field with the modified one
+							line = strings.ReplaceAll(line, actionIDMatch[0], modifiedField)
 						}
 					}
-
-					// Replace the original field with the modified one
-					newLine := strings.Replace(line, actionIDMatch[0], modifiedField, 1)
-					fileBuffer.WriteString(newLine + "\n")
-					break
 				}
 			}
 
-			if !matched {
-				// If no patterns matched, check if this is the start of a `requires {` block
+			if matched {
+				// Write the modified line after processing all matches
+				fileBuffer.WriteString(line + "\n")
+			} else {
+				// If no patterns matched, check if this is the start of a requires { block
 				if strings.HasPrefix(strings.TrimSpace(line), "requires {") {
-					// Start of a `requires { ... }` block, set flag to accumulate lines
+					// Start of a requires { ... } block, set flag to accumulate lines
 					inRequiresBlock = true
 					requiresBlockBuffer.Reset()                  // Clear previous block data if any
-					requiresBlockBuffer.WriteString(line + "\n") // Add the opening `requires {` line
+					requiresBlockBuffer.WriteString(line + "\n") // Add the opening requires { line
 				} else {
 					// Write the line unchanged if no pattern matches
 					fileBuffer.WriteString(line + "\n")
 				}
 			}
 		}
+
 	}
 
 	// Write back to the file if modifications were made
