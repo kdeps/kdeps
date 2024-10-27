@@ -226,11 +226,13 @@ func EnforceResourceRunBlock(fs afero.Fs, file string, logger *log.Logger) error
 	execRegex := regexp.MustCompile(`(?i)[\s\n]*exec\s*{`)
 	chatRegex := regexp.MustCompile(`(?i)[\s\n]*chat\s*{`)
 	httpClientRegex := regexp.MustCompile(`(?i)[\s\n]*httpClient\s*{`)
+	apiResponseRegex := regexp.MustCompile(`(?i)[\s\n]*apiResponse\s*{`)
 
 	// Check for matches
 	execMatch := execRegex.MatchString(content)
 	chatMatch := chatRegex.MatchString(content)
 	httpClientMatch := httpClientRegex.MatchString(content)
+	apiResponseMatch := apiResponseRegex.MatchString(content)
 
 	// Count how many are non-null
 	countNonNull := 0
@@ -243,10 +245,13 @@ func EnforceResourceRunBlock(fs afero.Fs, file string, logger *log.Logger) error
 	if httpClientMatch {
 		countNonNull++
 	}
+	if apiResponseMatch {
+		countNonNull++
+	}
 
 	// If more than one is non-null, return an error
 	if countNonNull > 1 {
-		errMsg := fmt.Sprintf("Error: resources run block can only contain one of 'exec', 'chat', or 'httpClient'. Please create a new dedicated resource for the function. Found %d in file: %s", countNonNull, file)
+		errMsg := fmt.Sprintf("Error: resources can only contain one of 'apiResponse', 'exec', 'chat', or 'httpClient'. Please create a new dedicated resource for this action. Found %d in file: %s", countNonNull, file)
 		logger.Error(errMsg)
 		return errors.New(errMsg)
 	}
