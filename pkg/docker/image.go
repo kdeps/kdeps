@@ -149,9 +149,9 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		exposedPort = ""
 	}
 
-	var imageVersion string = "0.4.0-rc5"
+	var imageVersion string = "0.4.1"
 	if gpuType == "amd" {
-		imageVersion = "0.4.0-rc5-rocm"
+		imageVersion = "0.4.1-rocm"
 	}
 	pklVersion := "0.26.3"
 	// kdepsVersion := "0.1.0"
@@ -177,17 +177,27 @@ ENV KDEPS_HOST=%s
 ENV DEBUG=1
 
 # Install necessary tools
-RUN apt-get update && apt-get install -y curl nano jq
+RUN apt-get update --fix-missing && apt-get install -y --no-install-recommends bzip2 ca-certificates git libglib2.0-0 \
+libsm6 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxinerama1 libxrandr2 libxrender1 mercurial \
+openssh-client procps subversion wget curl nano jq
 
 # Determine the architecture and download the appropriate pkl binary
 RUN arch=$(uname -m) && \
     if [ "$arch" = "x86_64" ]; then \
+	curl -L -o /tmp/anaconda.sh https://repo.anaconda.com/archive/Anaconda3-2024.10-1-Linux-x86_64.sh; \
 	curl -L -o /usr/bin/pkl https://github.com/apple/pkl/releases/download/%s/pkl-linux-amd64; \
     elif [ "$arch" = "aarch64" ]; then \
+	curl -L -o /tmp/anaconda.sh https://repo.anaconda.com/archive/Anaconda3-2024.10-1-Linux-aarch64.sh; \
 	curl -L -o /usr/bin/pkl https://github.com/apple/pkl/releases/download/%s/pkl-linux-aarch64; \
     else \
 	echo "Unsupported architecture: $arch" && exit 1; \
     fi
+
+RUN chmod +x /tmp/anaconda.sh && /bin/bash /tmp/anaconda.sh -b -p /opt/conda && rm /tmp/anaconda.sh
+RUN ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh
+RUN find /opt/conda/ -follow -type f -name '*.a' -delete && find /opt/conda/ -follow -type f -name '*.js.map' -delete
+RUN /opt/conda/bin/conda clean -afy
+RUN . /opt/conda/etc/profile.d/conda.sh && conda activate base
 
 # Make the binary executable
 RUN chmod +x /usr/bin/pkl
@@ -200,6 +210,19 @@ RUN mv /agent/workflow/kdeps /bin/kdeps
 RUN chmod +x /bin/kdeps
 
 %s
+
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN echo "export PATH=/opt/conda/bin:$PATH" > /etc/environment
+ENV PATH="$PATH:/opt/conda/bin"
+
+RUN conda install pip
+RUN conda install -c anaconda diffusers
+RUN conda install -c anaconda numpy
+RUN conda install -c pytorch pytorch
+RUN conda install -c conda-forge tensorflow
+RUN conda install -c conda-forge pandas
+RUN conda install -c conda-forge keras
+RUN conda install -c conda-forge transformers
 
 ENTRYPOINT ["/bin/kdeps"]
 CMD ["run", "/agent/workflow/workflow.pkl"]
