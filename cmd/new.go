@@ -10,15 +10,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewNewCommand creates the 'new' command and passes the necessary dependencies
+// NewAgentCommand creates the 'new' command and passes the necessary dependencies
 func NewAgentCommand(fs afero.Fs, ctx context.Context, kdepsDir string, logger *log.Logger) *cobra.Command {
 	return &cobra.Command{
-		Use:     "new",
+		Use:     "new [agentName]",
 		Aliases: []string{"n"},
 		Short:   "Create a new AI agent",
+		Args:    cobra.MaximumNArgs(1), // Allow at most one argument (agentName)
 		Run: func(cmd *cobra.Command, args []string) {
-			if err := template.GenerateAgent(fs, logger); err != nil {
-				fmt.Println(err)
+			var agentName string
+			if len(args) > 0 {
+				agentName = args[0]
+			}
+
+			// Pass the agentName to GenerateAgent
+			if err := template.GenerateAgent(fs, logger, agentName); err != nil {
+				fmt.Println("Error:", err)
 			}
 		},
 	}
