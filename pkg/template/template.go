@@ -24,23 +24,38 @@ func printWithDots(message string) {
 	fmt.Println()
 }
 
-func GenerateAgent(fs afero.Fs, logger *log.Logger) error {
+func GenerateAgent(fs afero.Fs, logger *log.Logger, agentName string) (err error) {
 	var name string
 
-	form := huh.NewInput().
-		Title("Configure Your AI Agent").
-		Prompt("Enter a name for your AI Agent (no spaces): ").
-		Validate(func(input string) error {
-			if strings.Contains(input, " ") {
-				return errors.New("Agent name cannot contain spaces. Please enter a valid name.")
-			}
-			return nil
-		}).
-		Value(&name)
+	// If the agentName is provided, validate and use it
+	if agentName != "" {
+		if strings.TrimSpace(agentName) == "" {
+			return errors.New("Agent name cannot be empty or only whitespace. Please provide a valid name.")
+		}
+		if strings.Contains(agentName, " ") {
+			return errors.New("Agent name cannot contain spaces. Please provide a valid name.")
+		}
+		name = agentName
+	} else {
+		// Prompt for the name if not provided
+		form := huh.NewInput().
+			Title("Configure Your AI Agent").
+			Prompt("Enter a name for your AI Agent (no spaces): ").
+			Validate(func(input string) error {
+				if strings.TrimSpace(input) == "" {
+					return errors.New("Agent name cannot be empty or only whitespace. Please enter a valid name.")
+				}
+				if strings.Contains(input, " ") {
+					return errors.New("Agent name cannot contain spaces. Please enter a valid name.")
+				}
+				return nil
+			}).
+			Value(&name)
 
-	err := form.Run()
-	if err != nil {
-		log.Fatal(err)
+		err = form.Run()
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	mainDir := fmt.Sprintf("./%s", name)
@@ -149,13 +164,26 @@ settings {
 	// This section contains the agent settings that will be used to build
 	// the agent's Docker image.
 	agentSettings {
-		// Specify the custom Ubuntu PPA repos that would contain the packages available
+		// Specify if Anaconda will be installed (Warning: Docker image size will grow to ~20Gb)
+		installAnaconda = false
+
+		// List of preinstalled Python packages when Anaconda is installed.
+		pythonPackages {
+			// huggingface_hub
+		}
+
+		// Specify the custom Ubuntu repo or PPA repos that would contain the packages available
 		// for this image.
-		ppa {}
+		repositories {
+			// ppa:alex-p/tesseract-ocr-devel
+		}
 
 		// Specify the Ubuntu packages that should be pre-installed when
 		// building this image.
-		packages {}
+		packages {
+			// tesseract-ocr
+			// poppler-utils
+		}
 
 		// List the local Ollama LLM models that will be pre-installed.
 		// You can specify multiple models here.
@@ -403,14 +431,14 @@ run {
 	//
 	// {
 	//   "success": true,
-		//   "response": {
-			//     "data": [],
-			//   },
-		//   "errors": {
-			//     "code": 0,
-			//     "message": ""
-			//   }
-		// }
+	//   "response": {
+	//     "data": [],
+	//   },
+	//   "errors": {
+	//     "code": 0,
+	//     "message": ""
+	//   }
+	// }
 	//
 	apiResponse {
 		success = true
