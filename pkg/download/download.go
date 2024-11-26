@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/log"
@@ -30,8 +32,59 @@ func (wc WriteCounter) PrintProgress() {
 	fmt.Printf("\rDownloading... %s complete", humanize.Bytes(wc.Total))
 }
 
+// Given a list of URLs, download it to a target.
+func DownloadFiles(fs afero.Fs, downloadDir string, urls []string, logger *log.Logger) error {
+	// Create the downloads directory if it doesn't exist
+	err := os.MkdirAll(downloadDir, 0755)
+	if err != nil {
+		return fmt.Errorf("failed to create downloads directory: %w", err)
+	}
+
+	// Iterate over each URL
+	for _, url := range urls {
+		// Extract the file name from the URL
+		fileName := filepath.Base(url)
+
+		// Define the local path to save the file
+		localPath := filepath.Join(downloadDir, fileName)
+
+		// Log the download process
+		log.Printf("Downloading %s to %s\n", url, localPath)
+
+		// Download the file
+		err := DownloadFile(fs, url, localPath, logger)
+		if err != nil {
+			log.Printf("Failed to download %s: %v", url, err)
+		} else {
+			log.Printf("Successfully downloaded %s", localPath)
+		}
+	}
+
+	return nil
+}
+
 // DownloadFile downloads a file from the specified URL and saves it to the given path.
+// It skips the download if the file already exists and is non-empty.
 func DownloadFile(fs afero.Fs, url, filePath string, logger *log.Logger) error {
+	logger.Debug("Checking if file exists", "destination", filePath)
+
+	// Check if the file already exists
+	if exists, err := afero.Exists(fs, filePath); err != nil {
+		logger.Error("Error checking file existence", "file-path", filePath, "error", err)
+		return fmt.Errorf("error checking file existence: %w", err)
+	} else if exists {
+		// Check if the file is non-empty
+		info, err := fs.Stat(filePath)
+		if err != nil {
+			logger.Error("Failed to stat file", "file-path", filePath, "error", err)
+			return fmt.Errorf("failed to stat file: %w", err)
+		}
+		if info.Size() > 0 {
+			logger.Info("File already exists and is non-empty, skipping download", "file-path", filePath)
+			return nil
+		}
+	}
+
 	logger.Debug("Starting file download", "url", url, "destination", filePath)
 
 	tmpFilePath := filePath + ".tmp"

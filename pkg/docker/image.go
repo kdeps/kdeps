@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"kdeps/pkg/archiver"
+	"kdeps/pkg/download"
 	"kdeps/pkg/schema"
 	"kdeps/pkg/workflow"
 	"os"
@@ -83,6 +84,7 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 
 		return nil
 	})
+
 	if err != nil {
 		return cName, containerName, err
 	}
@@ -94,9 +96,12 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 
 	// Docker build options
 	buildOptions := types.ImageBuildOptions{
-		Tags:       []string{containerName}, // Image name and tag
-		Dockerfile: "Dockerfile",            // The Dockerfile is in the root of the build context
-		Remove:     true,                    // Remove intermediate containers after a successful build
+		Tags:           []string{containerName}, // Image name and tag
+		Dockerfile:     "Dockerfile",            // The Dockerfile is in the root of the build context
+		Remove:         true,                    // Remove intermediate containers after a successful build
+		SuppressOutput: false,
+		Context:        tarBuffer,
+		NoCache:        false,
 	}
 
 	// Build the Docker image
@@ -115,6 +120,161 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 	fmt.Println("Docker image build completed successfully!")
 
 	return cName, containerName, nil
+}
+
+// generateDockerfile constructs the Dockerfile content by appending multi-line blocks.
+func generateDockerfile(
+	imageVersion,
+	installAnaconda,
+	schemaVersion,
+	hostIP,
+	ollamaPortNum,
+	kdepsHost,
+	downloadDir,
+	pkgSection,
+	pythonPkgSection,
+	exposedPort string,
+) string {
+	var dockerFile strings.Builder
+
+	// Base Image and Environment Variables
+	dockerFile.WriteString(fmt.Sprintf(`
+# syntax=docker.io/docker/dockerfile:1
+FROM ollama/ollama:%s
+
+ARG INSTALL_ANACONDA="%s"
+ENV SCHEMA_VERSION=%s
+ENV OLLAMA_HOST=%s:%s
+ENV KDEPS_HOST=%s
+ENV DEBUG=1
+
+`, imageVersion, installAnaconda, schemaVersion, hostIP, ollamaPortNum, kdepsHost))
+
+	// Copy DownloadDir to local Downloads
+	dockerFile.WriteString(`
+COPY downloads /downloads
+RUN chmod +x /downloads/*
+`)
+
+	// Install Necessary Tools
+	dockerFile.WriteString(`
+# Install necessary tools
+RUN apt-get update --fix-missing && apt-get install -y --no-install-recommends \
+    bzip2 ca-certificates git libglib2.0-0 \
+    libsm6 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxinerama1 libxrandr2 libxrender1 mercurial \
+    openssh-client procps subversion software-properties-common wget curl nano jq
+
+`)
+
+	// Determine Architecture and Download pkl Binary
+	dockerFile.WriteString(fmt.Sprintf(`
+# Determine the architecture and download the appropriate pkl binary
+RUN arch=$(uname -m) && \
+    if [ "$arch" = "x86_64" ]; then \
+	cp /downloads/pkl-linux-amd64 /usr/bin/pkl; \
+    elif [ "$arch" = "aarch64" ]; then \
+	cp /downloads/pkl-linux-aarch64 /usr/bin/pkl; \
+    else \
+	echo "Unsupported architecture: $arch" && exit 1; \
+    fi
+`))
+
+	// Package Section (Dynamic Content)
+	dockerFile.WriteString(pkgSection + "\n\n")
+
+	// Copy Workflow and Setup kdeps
+	dockerFile.WriteString(`
+COPY workflow /agent/project
+COPY workflow /agent/workflow
+RUN mv /agent/workflow/kdeps /bin/kdeps
+RUN chmod +x /bin/kdeps
+`)
+
+	// Conditionally Install Anaconda and Additional Packages
+	if installAnaconda == "yes" {
+		dockerFile.WriteString(`
+RUN arch=$(uname -m) && if [ "$arch" = "x86_64" ]; then \
+	cp /downloads/Anaconda3-2024.10-1-Linux-x86_64.sh /tmp/anaconda.sh; \
+    elif [ "$arch" = "aarch64" ]; then \
+	cp /downloads/Anaconda3-2024.10-1-Linux-aarch64.sh /tmp/anaconda.sh; \
+    else \
+	echo "Unsupported architecture: $arch" && exit 1; \
+    fi
+
+RUN /bin/bash /tmp/anaconda.sh -b -p /opt/conda
+RUN ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh
+RUN find /opt/conda/ -follow -type f -name '*.a' -delete
+RUN find /opt/conda/ -follow -type f -name '*.js.map' -delete
+RUN /opt/conda/bin/conda clean -afy
+RUN rm /tmp/anaconda.sh
+RUN . /opt/conda/etc/profile.d/conda.sh && conda activate base
+
+RUN echo "export PATH=/opt/conda/bin:$PATH" >> /etc/environment
+ENV PATH="/opt/conda/bin:$PATH"
+
+RUN conda install -n base -y pip diffusers numpy
+RUN conda install -n base -y pytorch -c pytorch
+RUN conda install -n base -y tensorflow -c conda-forge
+RUN conda install -n base -y pandas -c conda-forge
+RUN conda install -n base -y keras -c conda-forge
+RUN conda install -n base -y transformers -c conda-forge
+
+`)
+	}
+
+	// Python Package Section (Dynamic Content)
+	dockerFile.WriteString(pythonPkgSection + "\n\n")
+
+	// Cleanup
+	dockerFile.WriteString(`
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN rm -rf /downloads
+`)
+
+	// Expose Port
+	dockerFile.WriteString(fmt.Sprintf("EXPOSE %s\n\n", exposedPort))
+
+	// Entry Point and Command
+	dockerFile.WriteString(`
+ENTRYPOINT ["/bin/kdeps"]
+CMD ["run", "/agent/workflow/workflow.pkl"]
+`)
+
+	return dockerFile.String()
+}
+
+func copyFilesToRunDir(fs afero.Fs, downloadDir, runDir string, logger *log.Logger) error {
+	// Ensure the runDir and downloads directory exist
+	downloadsDir := filepath.Join(runDir, "downloads")
+	err := fs.MkdirAll(downloadsDir, os.ModePerm)
+	if err != nil {
+		logger.Error("Failed to create downloads directory", "path", downloadsDir, "error", err)
+		return fmt.Errorf("failed to create downloads directory: %w", err)
+	}
+
+	// List files in the downloadDir
+	files, err := afero.ReadDir(fs, downloadDir)
+	if err != nil {
+		logger.Error("Failed to read download directory", "path", downloadDir, "error", err)
+		return fmt.Errorf("failed to read download directory: %w", err)
+	}
+
+	// Copy each file from downloadDir to downloadsDir
+	for _, file := range files {
+		sourcePath := filepath.Join(downloadDir, file.Name())
+		destinationPath := filepath.Join(downloadsDir, file.Name())
+
+		// Copy the file content
+		err = archiver.CopyFile(fs, sourcePath, destinationPath, logger)
+		if err != nil {
+			logger.Error("Failed to copy file", "source", sourcePath, "destination", destinationPath, "error", err)
+			return fmt.Errorf("failed to copy file: %w", err)
+		}
+
+		logger.Info("File copied", "source", sourcePath, "destination", destinationPath)
+	}
+
+	return nil
 }
 
 func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *log.Logger) (string, bool, string, string, string, error) {
@@ -141,22 +301,36 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	}
 
 	pkgList := dockerSettings.Packages
+	repoList := dockerSettings.Repositories
+	pythonPkgList := dockerSettings.PythonPackages
+	installAnaconda := "no"
+
+	if dockerSettings.InstallAnaconda {
+		installAnaconda = "yes"
+	}
+
 	hostPort := strconv.FormatUint(uint64(portNum), 10)
 	kdepsHost := fmt.Sprintf("%s:%s", hostIP, hostPort)
-	exposedPort := fmt.Sprintf("EXPOSE %s", hostPort)
+	exposedPort := fmt.Sprintf("%s", hostPort)
 
 	if !apiServerMode {
 		exposedPort = ""
 	}
 
-	var imageVersion string = "0.4.1"
+	var imageVersion string = "0.4.5"
 	if gpuType == "amd" {
-		imageVersion = "0.4.1-rocm"
+		imageVersion = "0.4.5-rocm"
 	}
-	pklVersion := "0.26.3"
 	// kdepsVersion := "0.1.0"
 
 	var pkgLines []string
+
+	if dockerSettings.Repositories != nil {
+		for _, value := range *repoList {
+			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
+			pkgLines = append(pkgLines, fmt.Sprintf(`RUN /usr/bin/add-apt-repository %s`, value))
+		}
+	}
 
 	if dockerSettings.Packages != nil {
 		for _, value := range *pkgList {
@@ -167,74 +341,56 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 
 	pkgSection := strings.Join(pkgLines, "\n")
 
-	ollamaPortNum := generateUniqueOllamaPort(portNum)
-	dockerFile := fmt.Sprintf(`
-FROM ollama/ollama:%s
+	var pythonPkgLines []string
 
-ENV SCHEMA_VERSION=%s
-ENV OLLAMA_HOST=%s:%s
-ENV KDEPS_HOST=%s
-ENV DEBUG=1
+	if dockerSettings.PythonPackages != nil {
+		for _, value := range *pythonPkgList {
+			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
+			pythonPkgLines = append(pythonPkgLines, fmt.Sprintf(`RUN pip install %s`, value))
+		}
+	}
 
-# Install necessary tools
-RUN apt-get update --fix-missing && apt-get install -y --no-install-recommends bzip2 ca-certificates git libglib2.0-0 \
-libsm6 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxinerama1 libxrandr2 libxrender1 mercurial \
-openssh-client procps subversion wget curl nano jq
+	pythonPkgSection := strings.Join(pythonPkgLines, "\n")
 
-# Determine the architecture and download the appropriate pkl binary
-RUN arch=$(uname -m) && \
-    if [ "$arch" = "x86_64" ]; then \
-	curl -L -o /tmp/anaconda.sh https://repo.anaconda.com/archive/Anaconda3-2024.10-1-Linux-x86_64.sh; \
-	curl -L -o /usr/bin/pkl https://github.com/apple/pkl/releases/download/%s/pkl-linux-amd64; \
-    elif [ "$arch" = "aarch64" ]; then \
-	curl -L -o /tmp/anaconda.sh https://repo.anaconda.com/archive/Anaconda3-2024.10-1-Linux-aarch64.sh; \
-	curl -L -o /usr/bin/pkl https://github.com/apple/pkl/releases/download/%s/pkl-linux-aarch64; \
-    else \
-	echo "Unsupported architecture: $arch" && exit 1; \
-    fi
-
-RUN chmod +x /tmp/anaconda.sh && /bin/bash /tmp/anaconda.sh -b -p /opt/conda && rm /tmp/anaconda.sh
-RUN ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh
-RUN find /opt/conda/ -follow -type f -name '*.a' -delete && find /opt/conda/ -follow -type f -name '*.js.map' -delete
-RUN /opt/conda/bin/conda clean -afy
-RUN . /opt/conda/etc/profile.d/conda.sh && conda activate base
-
-# Make the binary executable
-RUN chmod +x /usr/bin/pkl
-
-%s
-
-COPY workflow /agent/project
-COPY workflow /agent/workflow
-RUN mv /agent/workflow/kdeps /bin/kdeps
-RUN chmod +x /bin/kdeps
-
-%s
-
-RUN apt-get clean && rm -rf /var/lib/apt/lists/*
-RUN echo "export PATH=/opt/conda/bin:$PATH" > /etc/environment
-ENV PATH="$PATH:/opt/conda/bin"
-
-RUN conda install pip
-RUN conda install -c anaconda diffusers
-RUN conda install -c anaconda numpy
-RUN conda install -c pytorch pytorch
-RUN conda install -c conda-forge tensorflow
-RUN conda install -c conda-forge pandas
-RUN conda install -c conda-forge keras
-RUN conda install -c conda-forge transformers
-
-ENTRYPOINT ["/bin/kdeps"]
-CMD ["run", "/agent/workflow/workflow.pkl"]
-`, imageVersion, schema.SchemaVersion, hostIP, ollamaPortNum, kdepsHost, pklVersion, pklVersion, pkgSection, exposedPort)
-
-	// Ensure the run directory exists
+	// Ensure the run directory and download dir exists
 	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion)
+	downloadDir := filepath.Join(kdepsDir, "downloads")
+
+	urls := []string{
+		"https://github.com/apple/pkl/releases/download/0.27.0/pkl-linux-amd64",
+		"https://github.com/apple/pkl/releases/download/0.27.0/pkl-linux-aarch64",
+		"https://repo.anaconda.com/archive/Anaconda3-2024.10-1-Linux-x86_64.sh",
+		"https://repo.anaconda.com/archive/Anaconda3-2024.10-1-Linux-aarch64.sh",
+	}
+
+	err = download.DownloadFiles(fs, downloadDir, urls, logger)
+	if err != nil {
+		return "", false, "", "", "", err
+	}
+
+	err = copyFilesToRunDir(fs, downloadDir, runDir, logger)
+	if err != nil {
+		return "", false, "", "", "", err
+	}
+
+	ollamaPortNum := generateUniqueOllamaPort(portNum)
+	dockerfileContent := generateDockerfile(
+		imageVersion,
+		installAnaconda,
+		schema.SchemaVersion,
+		hostIP,
+		ollamaPortNum,
+		kdepsHost,
+		downloadDir,
+		pkgSection,
+		pythonPkgSection,
+		exposedPort,
+	)
 
 	// Write the Dockerfile to the run directory
 	resourceConfigurationFile := filepath.Join(runDir, "Dockerfile")
 	fmt.Println(resourceConfigurationFile)
-	err = afero.WriteFile(fs, resourceConfigurationFile, []byte(dockerFile), 0644)
+	err = afero.WriteFile(fs, resourceConfigurationFile, []byte(dockerfileContent), 0644)
 	if err != nil {
 		return "", false, "", "", "", err
 	}
