@@ -255,8 +255,8 @@ func theWorkflowActionConfigurationWillBeRewrittenTo(arg1 string) error {
 		return err
 	}
 
-	if wf.Action != arg1 {
-		return errors.New(fmt.Sprintf("%s = %s does not match!", wf.Action, arg1))
+	if wf.GetAction() != arg1 {
+		return errors.New(fmt.Sprintf("%s = %s does not match!", wf.GetAction(), arg1))
 	}
 
 	return nil

@@ -8,6 +8,7 @@ import (
 	pklExec "github.com/kdeps/schema/gen/exec"
 	pklHttp "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
+	pklPython "github.com/kdeps/schema/gen/python"
 )
 
 // getResourceFilePath returns the file path for a given resourceType.
@@ -16,6 +17,7 @@ func (dr *DependencyResolver) getResourceFilePath(resourceType string) (string, 
 		"llm":    filepath.Join(dr.ActionDir, "llm", dr.RequestId+"__llm_output.pkl"),
 		"client": filepath.Join(dr.ActionDir, "client", dr.RequestId+"__client_output.pkl"),
 		"exec":   filepath.Join(dr.ActionDir, "exec", dr.RequestId+"__exec_output.pkl"),
+		"python": filepath.Join(dr.ActionDir, "python", dr.RequestId+"__python_output.pkl"),
 	}
 
 	pklPath, exists := files[resourceType]
@@ -30,6 +32,8 @@ func (dr *DependencyResolver) loadPKLFile(resourceType, pklPath string) (interfa
 	switch resourceType {
 	case "exec":
 		return pklExec.LoadFromPath(*dr.Context, pklPath)
+	case "python":
+		return pklPython.LoadFromPath(*dr.Context, pklPath)
 	case "llm":
 		return pklLLM.LoadFromPath(*dr.Context, pklPath)
 	case "client":
@@ -44,6 +48,14 @@ func getResourceTimestamp(resourceId string, pklRes interface{}) (*uint32, error
 	switch res := pklRes.(type) {
 	case *pklExec.ExecImpl:
 		// ExecImpl resources are of type *ResourceExec
+		if resource, exists := (*res.GetResources())[resourceId]; exists {
+			if resource.Timestamp == nil {
+				return nil, fmt.Errorf("timestamp for resource ID %s is nil", resourceId)
+			}
+			return resource.Timestamp, nil
+		}
+	case *pklPython.PythonImpl:
+		// PythonImpl resources are of type *ResourcePython
 		if resource, exists := (*res.GetResources())[resourceId]; exists {
 			if resource.Timestamp == nil {
 				return nil, fmt.Errorf("timestamp for resource ID %s is nil", resourceId)

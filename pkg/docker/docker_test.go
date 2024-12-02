@@ -255,7 +255,7 @@ description = "An action from agent %s"
 		return err
 	}
 
-	workflowConfiguration = wfconfig
+	workflowConfiguration = &wfconfig
 
 	return nil
 }
@@ -410,7 +410,7 @@ func kdepsOpenThePackage(arg1 string) error {
 }
 
 func theValidAiagentHas(arg1, arg2 string) error {
-	cDir, pFile, err := archiver.CompileProject(testFs, ctx, workflowConfiguration, kdepsDir, agentDir, environ, logger)
+	cDir, pFile, err := archiver.CompileProject(testFs, ctx, *workflowConfiguration, kdepsDir, agentDir, environ, logger)
 	if err != nil {
 		return err
 	}

@@ -13,6 +13,7 @@ import (
 	pklExec "github.com/kdeps/schema/gen/exec"
 	pklHttp "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
+	pklPython "github.com/kdeps/schema/gen/python"
 	"github.com/spf13/afero"
 )
 
@@ -30,6 +31,7 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 		filepath.Join(dr.ActionDir, "/llm/"+dr.RequestId+"__llm_output.pkl"):       "llm",
 		filepath.Join(dr.ActionDir, "/client/"+dr.RequestId+"__client_output.pkl"): "client",
 		filepath.Join(dr.ActionDir, "/exec/"+dr.RequestId+"__exec_output.pkl"):     "exec",
+		filepath.Join(dr.ActionDir, "/python/"+dr.RequestId+"__python_output.pkl"): "python",
 	}
 
 	var importFiles, localVariables string
@@ -79,6 +81,7 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 		"llm":    filepath.Join(dr.ActionDir, "/llm/"+dr.RequestId+"__llm_output.pkl"),
 		"client": filepath.Join(dr.ActionDir, "/client/"+dr.RequestId+"__client_output.pkl"),
 		"exec":   filepath.Join(dr.ActionDir, "/exec/"+dr.RequestId+"__exec_output.pkl"),
+		"python": filepath.Join(dr.ActionDir, "/python/"+dr.RequestId+"__python_output.pkl"),
 	}
 
 	for key, file := range files {
@@ -109,6 +112,8 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 			switch key {
 			case "exec":
 				schemaFile = "Exec.pkl"
+			case "python":
+				schemaFile = "Python.pkl"
 			case "client":
 				schemaFile = "Http.pkl"
 			case "llm":
@@ -233,6 +238,7 @@ func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
 	// Create placeholder entries using the parsed actionId
 	llmChat := &pklLLM.ResourceChat{}
 	execCmd := &pklExec.ResourceExec{}
+	pythonCmd := &pklPython.ResourcePython{}
 	httpClient := &pklHttp.ResourceHTTPClient{
 		Method: "GET",
 	}
@@ -246,6 +252,10 @@ func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
 	}
 
 	if err := dr.AppendHttpEntry(actionId, httpClient); err != nil {
+		return err
+	}
+
+	if err := dr.AppendPythonEntry(actionId, pythonCmd); err != nil {
 		return err
 	}
 

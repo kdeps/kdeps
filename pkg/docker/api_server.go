@@ -22,16 +22,19 @@ import (
 	"github.com/spf13/afero"
 )
 
-// Response structure
+// ErrorResponse defines the structure of each error
+type ErrorResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+// DecodedResponse defines the overall response structure
 type DecodedResponse struct {
 	Success  bool `json:"success"`
 	Response struct {
 		Data []string `json:"data"`
 	} `json:"response"`
-	Errors struct {
-		Code    int    `json:"code"`
-		Message string `json:"message"`
-	} `json:"errors"`
+	Errors []ErrorResponse `json:"errors"`
 }
 
 // StartApiServerMode initializes and starts an API server based on the provided workflow configuration.

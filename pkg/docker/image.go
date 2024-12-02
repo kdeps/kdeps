@@ -125,7 +125,6 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 // generateDockerfile constructs the Dockerfile content by appending multi-line blocks.
 func generateDockerfile(
 	imageVersion,
-	installAnaconda,
 	schemaVersion,
 	hostIP,
 	ollamaPortNum,
@@ -133,7 +132,9 @@ func generateDockerfile(
 	downloadDir,
 	pkgSection,
 	pythonPkgSection,
+	condaPkgSection,
 	exposedPort string,
+	installAnaconda bool,
 ) string {
 	var dockerFile strings.Builder
 
@@ -142,13 +143,12 @@ func generateDockerfile(
 # syntax=docker.io/docker/dockerfile:1
 FROM ollama/ollama:%s
 
-ARG INSTALL_ANACONDA="%s"
 ENV SCHEMA_VERSION=%s
 ENV OLLAMA_HOST=%s:%s
 ENV KDEPS_HOST=%s
 ENV DEBUG=1
 
-`, imageVersion, installAnaconda, schemaVersion, hostIP, ollamaPortNum, kdepsHost))
+`, imageVersion, schemaVersion, hostIP, ollamaPortNum, kdepsHost))
 
 	// Copy DownloadDir to local Downloads
 	dockerFile.WriteString(`
@@ -160,9 +160,9 @@ RUN chmod +x /downloads/*
 	dockerFile.WriteString(`
 # Install necessary tools
 RUN apt-get update --fix-missing && apt-get install -y --no-install-recommends \
-    bzip2 ca-certificates git libglib2.0-0 \
-    libsm6 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxinerama1 libxrandr2 libxrender1 mercurial \
-    openssh-client procps subversion software-properties-common wget curl nano jq
+    bzip2 ca-certificates git subversion mercurial libglib2.0-0 \
+    libsm6 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxinerama1 libxrandr2 libxrender1 \
+    gpg-agent openssh-client procps software-properties-common wget curl nano jq python3 python3-pip
 
 `)
 
@@ -191,7 +191,7 @@ RUN chmod +x /bin/kdeps
 `)
 
 	// Conditionally Install Anaconda and Additional Packages
-	if installAnaconda == "yes" {
+	if installAnaconda {
 		dockerFile.WriteString(`
 RUN arch=$(uname -m) && if [ "$arch" = "x86_64" ]; then \
 	cp /downloads/Anaconda3-2024.10-1-Linux-x86_64.sh /tmp/anaconda.sh; \
@@ -212,14 +212,9 @@ RUN . /opt/conda/etc/profile.d/conda.sh && conda activate base
 RUN echo "export PATH=/opt/conda/bin:$PATH" >> /etc/environment
 ENV PATH="/opt/conda/bin:$PATH"
 
-RUN conda install -n base -y pip diffusers numpy
-RUN conda install -n base -y pytorch -c pytorch
-RUN conda install -n base -y tensorflow -c conda-forge
-RUN conda install -n base -y pandas -c conda-forge
-RUN conda install -n base -y keras -c conda-forge
-RUN conda install -n base -y transformers -c conda-forge
-
 `)
+		// Python Package Section (Dynamic Content)
+		dockerFile.WriteString(condaPkgSection + "\n\n")
 	}
 
 	// Python Package Section (Dynamic Content)
@@ -303,11 +298,8 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	pkgList := dockerSettings.Packages
 	repoList := dockerSettings.Repositories
 	pythonPkgList := dockerSettings.PythonPackages
-	installAnaconda := "no"
-
-	if dockerSettings.InstallAnaconda {
-		installAnaconda = "yes"
-	}
+	installAnaconda := dockerSettings.InstallAnaconda
+	condaPkgList := dockerSettings.CondaPackages
 
 	hostPort := strconv.FormatUint(uint64(portNum), 10)
 	kdepsHost := fmt.Sprintf("%s:%s", hostIP, hostPort)
@@ -346,11 +338,40 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	if dockerSettings.PythonPackages != nil {
 		for _, value := range *pythonPkgList {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
-			pythonPkgLines = append(pythonPkgLines, fmt.Sprintf(`RUN pip install %s`, value))
+			pythonPkgLines = append(pythonPkgLines, fmt.Sprintf(`RUN pip install --upgrade --no-input %s`, value))
 		}
 	}
 
 	pythonPkgSection := strings.Join(pythonPkgLines, "\n")
+
+	var condaPkgLines []string
+
+	if dockerSettings.CondaPackages != nil {
+		for env, packages := range *condaPkgList {
+			// Generate the appropriate commands based on whether the env is "base"
+			if env != "base" {
+				// Create the environment if it's not "base"
+				condaPkgLines = append(condaPkgLines, fmt.Sprintf(`RUN conda create --name %s --yes`, env))
+				condaPkgLines = append(condaPkgLines, fmt.Sprintf(`RUN . /opt/conda/etc/profile.d/conda.sh && conda activate %s`, env))
+			}
+
+			// Add installation commands for each package
+			for channel, packageName := range packages {
+				condaPkgLines = append(condaPkgLines, fmt.Sprintf(
+					`RUN conda install --name %s --channel %s %s --yes`,
+					env, channel, packageName,
+				))
+			}
+
+			// If the environment was activated, deactivate it
+			if env != "base" {
+				condaPkgLines = append(condaPkgLines, fmt.Sprintf(`RUN conda deactivate`))
+			}
+		}
+	}
+
+	// Join all lines into a single section for the Dockerfile
+	condaPkgSection := strings.Join(condaPkgLines, "\n")
 
 	// Ensure the run directory and download dir exists
 	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion)
@@ -376,7 +397,6 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	ollamaPortNum := generateUniqueOllamaPort(portNum)
 	dockerfileContent := generateDockerfile(
 		imageVersion,
-		installAnaconda,
 		schema.SchemaVersion,
 		hostIP,
 		ollamaPortNum,
@@ -384,7 +404,9 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		downloadDir,
 		pkgSection,
 		pythonPkgSection,
+		condaPkgSection,
 		exposedPort,
+		installAnaconda,
 	)
 
 	// Write the Dockerfile to the run directory
