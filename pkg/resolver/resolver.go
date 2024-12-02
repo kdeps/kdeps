@@ -34,6 +34,7 @@ type DependencyResolver struct {
 	AgentDir             string
 	ActionDir            string
 	ApiServerMode        bool
+	AnacondaInstalled    bool
 }
 
 type ResourceNodeEntry struct {
@@ -105,6 +106,8 @@ func NewGraphResolver(fs afero.Fs, logger *log.Logger, ctx context.Context, env 
 	dependencyResolver.Workflow = workflowConfiguration
 	if workflowConfiguration.GetSettings() != nil {
 		dependencyResolver.ApiServerMode = workflowConfiguration.GetSettings().ApiServerMode
+		agentSettings := workflowConfiguration.GetSettings().AgentSettings
+		dependencyResolver.AnacondaInstalled = agentSettings.InstallAnaconda
 	}
 
 	dependencyResolver.Graph = graph.NewDependencyGraph(fs, logger, dependencyResolver.ResourceDependencies)
@@ -184,7 +187,28 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 							dr.Logger.Error("Exec error:", res.Id)
 							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Exec timeout awaiting for output: %s - %s", res.Id, err), false)
 						}
+					}
 
+					if runBlock.Python != nil && runBlock.Python.Script != "" {
+						timestamp, err := dr.GetCurrentTimestamp(res.Id, "python")
+						if err != nil {
+							dr.Logger.Error("Python error:", res.Id)
+							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Python script failed for resource: %s - %s", res.Id, err), false)
+						}
+
+						if err := dr.HandlePython(res.Id, runBlock.Python); err != nil {
+							dr.Logger.Error("Python error:", res.Id)
+							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Python script failed for resource: %s - %s", res.Id, err), false)
+						}
+
+						if runBlock.Python.TimeoutSeconds != nil {
+							timeoutSeconds = time.Duration(*runBlock.Python.TimeoutSeconds) * time.Second
+						}
+
+						if err := dr.WaitForTimestampChange(res.Id, timestamp, timeoutSeconds, "python"); err != nil {
+							dr.Logger.Error("Python error:", res.Id)
+							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Python timeout awaiting for output: %s - %s", res.Id, err), false)
+						}
 					}
 
 					if runBlock.Chat != nil && runBlock.Chat.Model != "" && runBlock.Chat.Prompt != "" {

@@ -103,7 +103,7 @@ version = "1.0.0"
 
 // This section defines the default resource action that will be executed
 // when this API resource is called.
-action = "responseResource1"
+action = "responseResource"
 
 // Specify any external resources to use in this AI Agent.
 // For example, you can refer to another agent with "@agentName".
@@ -167,30 +167,42 @@ settings {
 		// Specify if Anaconda will be installed (Warning: Docker image size will grow to ~20Gb)
 		installAnaconda = false
 
-		// List of preinstalled Python packages when Anaconda is installed.
+		// Conda packages to be installed if installAnaconda is true
+		condaPackages {
+			// The environment is defined here
+			["base"] {
+				// Mapped to the conda channel and package name
+				["main"] = "pip diffusers numpy"
+				["pytorch"] = "pytorch"
+				["conda-forge"] = "tensorflow pandas keras transformers"
+			}
+		}
+
+		// List of preinstalled Python packages.
 		pythonPackages {
+			"diffusers[torch]"
 			// "huggingface_hub"
 		}
 
 		// Specify the custom Ubuntu repo or PPA repos that would contain the packages available
 		// for this image.
 		repositories {
-			// "ppa:alex-p/tesseract-ocr-devel"
+			"ppa:alex-p/tesseract-ocr-devel"
 		}
 
 		// Specify the Ubuntu packages that should be pre-installed when
 		// building this image.
 		packages {
-			// "tesseract-ocr"
-			// "poppler-utils"
+			"tesseract-ocr"
+			"poppler-utils"
 		}
 
 		// List the local Ollama LLM models that will be pre-installed.
 		// You can specify multiple models here.
 		models {
-			// "tinydolphin"
+			"tinydolphin"
 			// "llama3.2"
-			"llama3.1"
+			// "llama3.1"
 		}
 	}
 }
@@ -207,7 +219,7 @@ amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 `, schema.SchemaVersion)
 	resourceFiles := map[string]string{
 		"http.pkl": fmt.Sprintf(`%s
-id = "httpClientResource1"
+id = "httpResource"
 name = "HTTP Client"
 description = "This resource allows for making API requests using an HTTP client."
 category = ""
@@ -267,7 +279,7 @@ run {
 }
 `, resourceHeader),
 		"exec.pkl": fmt.Sprintf(`%s
-id = "shellExecResource1"
+id = "shellResource"
 name = "Exec Resource"
 description = "This resource creates a shell session."
 category = ""
@@ -332,7 +344,7 @@ run {
 }
 `, resourceHeader, name, name),
 		"chat.pkl": fmt.Sprintf(`%s
-id = "chatResource1"
+id = "chatResource"
 name = "LLM Chat Resource"
 description = "This resource creates a LLM chat session."
 category = ""
@@ -375,7 +387,7 @@ run {
 	// Note: Each resource is restricted to a single dedicated action. Combining multiple
 	// actions within the same resource is not allowed.
 	chat {
-		model = "llama3.2" // This LLM model needs to be defined in the workflow
+		model = "tinydolphin" // This LLM model needs to be defined in the workflow
 		prompt = "Who is @(request.data())?"
 
 		// Specify if the LLM response should be a structured JSON
@@ -398,15 +410,20 @@ run {
 }
 `, resourceHeader),
 		"response.pkl": fmt.Sprintf(`%s
-id = "responseResource1"
+id = "responseResource"
 name = "API Response Resource"
 description = "This resource creates a API response."
 category = ""
+
+// Define the ID of any dependency resource that must be executed before this resource.
+// For example "aiChatResource1"
 requires {
-	"chatResource1"
-	// Define the ID of any dependency resource that must be executed before this resource.
-	// For example "aiChatResource1"
+	"chatResource"
+	// "pythonResource"
+	// "shellResource"
+	// "httpResource"
 }
+
 run {
 	skipCondition {
 		// Conditions under which the execution of this resource should be skipped.
@@ -434,26 +451,105 @@ run {
 	//   "response": {
 	//     "data": [],
 	//   },
-	//   "errors": {
+	//   "errors": [{
 	//     "code": 0,
 	//     "message": ""
-	//   }
+	//   }]
 	// }
 	//
 	apiResponse {
 		success = true
 		response {
 			data {
-				"@(llm.response("chatResource1"))"
+				"@(llm.response("chatResource"))"
+				// "@(python.stdout("pythonResource"))"
+				// "@(exec.stdout("shellResource"))"
+				// "@(client.responseBody("httpResource"))"
 			}
 		}
 		errors {
-			code = 0
-			message = ""
+			new {
+				code = 0
+				message = ""
+			}
 		}
 	}
 }
 `, resourceHeader),
+		"python.pkl": fmt.Sprintf(`%s
+id = "pythonResource"
+name = "Python Resource"
+description = "This resource creates a python script session."
+category = ""
+requires {
+	// Define the ID of any dependency resource that must be executed before this resource.
+}
+run {
+	skipCondition {
+		// Conditions under which the execution of this resource should be skipped.
+		// If any evaluated condition returns true, the resource execution will be bypassed.
+	}
+	preflightCheck {
+		validations {
+			// This section expects boolean validations.
+			// If any validation returns false, an exception will be thrown before proceeding to the next step.
+			//
+			// For example, this expects that the 'file.txt' is in the 'data' folder.
+			// All data files are mapped from 'data/file.txt' to 'data/<agentName>/<agentVersion>/file.txt'.
+			// read("file:/agent/workflow/data/%s/1.0.0/file.txt").text != "" && read("file:/agent/workflow/data/%s/1.0.0/file.txt").base64 != ""
+		}
+		// Custom error message and code to be used if the preflight check fails.
+		error {
+			code = 500
+			message = "Data file file.txt not found!"
+		}
+	}
+
+	// Initiates a shell session for executing commands within this resource. Any packages
+	// defined in the workflow are accessible here.
+	//
+	// The exec resource provides the following helper functions:
+	//
+	// - "@(python.resource("ResourceID"))"
+	// - "@(python.stderr("ResourceID"))"
+	// - "@(python.stdout("ResourceID"))"
+	// - "@(python.exitCode("ResourceID"))"
+	//
+	// To use these in your resource, you can define a local variable like this:
+	//
+	// local successExec = "@(python.exitCode("ResourceID"))"
+	// You can then reference the value using "@(successExec)".
+	//
+	// If you need to access a file in your resource, you can use PKL's read("file") API like this:
+	// "@(read("file"))".
+	//
+	// The "@(...)" syntax enables lazy evaluation, ensuring that values are
+	// retrieved only after the result is ready.
+	//
+	// Note: Each resource is restricted to a single dedicated action. Combining multiple
+	// actions within the same resource is not allowed.
+	python {
+		// Specifies the conda environment in which this Python script will execute, if Anaconda is
+		// installed.
+		condaEnvironment = "base"
+
+		script =
+"""
+def main():
+    print("Hello, World!")
+
+if __name__ == "__main__":
+    main()
+"""
+		env {
+			// Environment variables that would be accessible inside the shell
+			["ENVVAR"] = "XYZ"  // Example ENVVAR.
+		}
+		// Timeout duration in seconds. This specifies when to terminate the shell exec.
+		timeoutSeconds = 60
+	}
+}
+`, resourceHeader, name, name),
 	}
 
 	for fileName, content := range resourceFiles {

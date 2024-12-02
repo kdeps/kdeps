@@ -406,9 +406,9 @@ run {
 		return err
 	}
 
-	workflowConfiguration = wfconfig
+	workflowConfiguration = &wfconfig
 
-	cDir, pFile, err := archiver.CompileProject(testFs, ctx, workflowConfiguration, kdepsDir, agentDir, environ, logger)
+	cDir, pFile, err := archiver.CompileProject(testFs, ctx, *workflowConfiguration, kdepsDir, agentDir, environ, logger)
 	if err != nil {
 		return err
 	}

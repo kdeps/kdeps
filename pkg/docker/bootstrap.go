@@ -37,12 +37,12 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 
 			dr, err := resolver.NewGraphResolver(fs, logger, ctx, env, "/agent")
 			if err != nil {
-				return false, errors.New(fmt.Sprintf("failed to create graph resolver: %w", err))
+				return false, errors.New(fmt.Sprintf("failed to create graph resolver: %s", err))
 			}
 
 			// Prepare workflow directory
 			if err := dr.PrepareWorkflowDir(); err != nil {
-				return false, errors.New(fmt.Sprintf("failed to prepare workflow directory: %w", err))
+				return false, errors.New(fmt.Sprintf("failed to prepare workflow directory: %s", err))
 			}
 		}
 
