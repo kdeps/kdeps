@@ -68,6 +68,11 @@ func DownloadFiles(fs afero.Fs, downloadDir string, urls []string, logger *log.L
 func DownloadFile(fs afero.Fs, url, filePath string, logger *log.Logger) error {
 	logger.Debug("Checking if file exists", "destination", filePath)
 
+	if filePath == "" {
+		logger.Error("Invalid file path provided", "file-path", filePath)
+		return fmt.Errorf("invalid file path: %s", filePath)
+	}
+
 	// Check if the file already exists
 	if exists, err := afero.Exists(fs, filePath); err != nil {
 		logger.Error("Error checking file existence", "file-path", filePath, "error", err)
@@ -93,7 +98,7 @@ func DownloadFile(fs afero.Fs, url, filePath string, logger *log.Logger) error {
 	out, err := fs.Create(tmpFilePath)
 	if err != nil {
 		logger.Error("Failed to create temporary file", "file-path", tmpFilePath, "error", err)
-		return fmt.Errorf("failed to create temporary file: %w", err)
+		return fmt.Errorf("failed to create temporary file '%s': %w", tmpFilePath, err)
 	}
 	defer out.Close()
 
