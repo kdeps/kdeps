@@ -81,11 +81,13 @@ func TestDownloadFile(t *testing.T) {
 }
 
 func TestDownloadFile_FileCreationError(t *testing.T) {
+	logger = logging.GetLogger()
 	fs := afero.NewMemMapFs()
 
-	// Trying to download a file with an invalid filepath
+	// Invalid file path test case
 	err := DownloadFile(fs, "http://localhost:8080", "", logger)
 	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid file path")
 }
 
 func TestDownloadFile_HttpGetError(t *testing.T) {
