@@ -8,10 +8,16 @@ import (
 
 // Helper function to check if a string is already Base64 encoded
 func IsBase64Encoded(str string) bool {
+	// Return false for empty strings
+	if str == "" {
+		return false
+	}
+
 	// Check length of the string
 	if len(str)%4 != 0 {
 		return false
 	}
+
 	// Check if the string contains only Base64 valid characters
 	for _, char := range str {
 		if !(('A' <= char && char <= 'Z') || ('a' <= char && char <= 'z') ||
@@ -19,11 +25,13 @@ func IsBase64Encoded(str string) bool {
 			return false
 		}
 	}
+
 	// Try decoding the string
 	decoded, err := base64.StdEncoding.DecodeString(str)
 	if err != nil {
 		return false
 	}
+
 	// Check if the decoded string is valid UTF-8
 	return utf8.Valid(decoded)
 }
