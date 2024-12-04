@@ -37,6 +37,8 @@ github.com/charmbracelet/x/editor v0.1.0 h1:p69/dpvlwRTs9uYiPeAWruwsHqTFzHhTvQOd
 github.com/charmbracelet/x/editor v0.1.0/go.mod h1:oivrEbcP/AYt/Hpvk5pwDXXrQ933gQS6UzL6fxqAGSA=
 github.com/charmbracelet/x/exp/strings v0.0.0-20241122161412-4559bf4d941d h1:V+mmuQMOo5SSYfLqaw9RG7mgUsDiUSI6r9r5JeAbyJg=
 github.com/charmbracelet/x/exp/strings v0.0.0-20241122161412-4559bf4d941d/go.mod h1:pBhA0ybfXv6hDjQUZ7hk1lVxBiUbupdw5R31yPUViVQ=
+github.com/charmbracelet/x/exp/strings v0.0.0-20241203170811-1f0219946599 h1:qMhRiyJ2N/ln5bGpzJppu0Mg3EJTqj7ki6SFeUYvvaQ=
+github.com/charmbracelet/x/exp/strings v0.0.0-20241203170811-1f0219946599/go.mod h1:pBhA0ybfXv6hDjQUZ7hk1lVxBiUbupdw5R31yPUViVQ=
 github.com/charmbracelet/x/term v0.2.1 h1:AQeHeLZ1OqSXhrAWpYUtZyX1T3zVxfpZuEQMIQaGIAQ=
 github.com/charmbracelet/x/term v0.2.1/go.mod h1:oQ4enTYFV7QN4m0i9mzHrViD7TQKvNEEkHUMCmsxdUg=
 github.com/containerd/log v0.1.0 h1:TCJt7ioM2cr/tfR8GPbGf9/VRAX8D2B4PjzCpfX540I=
