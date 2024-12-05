@@ -4,35 +4,49 @@ import (
 	"fmt"
 	"strings"
 
-	pklWf "github.com/kdeps/schema/gen/workflow"
+	"github.com/kdeps/schema/gen/workflow"
 )
 
 // Handle the values inside the requires { ... } block
-func handleRequiresBlock(blockContent string, wf pklWf.Workflow) string {
+func handleRequiresBlock(blockContent string, wf workflow.Workflow) string {
 	name, version := wf.GetName(), wf.GetVersion()
 
-	// Split the block by newline and process each value
+	// Split the block by newline and process each line
 	lines := strings.Split(blockContent, "\n")
 	var modifiedLines []string
 
 	for _, line := range lines {
 		trimmedLine := strings.TrimSpace(line)
-		// If the line contains a value and does not start with "@", modify it
-		if strings.HasPrefix(trimmedLine, `"`) && !strings.HasPrefix(trimmedLine, `"@`) {
-			// Extract the value between the quotes
+		if trimmedLine == "" {
+			modifiedLines = append(modifiedLines, trimmedLine)
+			continue
+		}
+
+		// Process quoted lines
+		if strings.HasPrefix(trimmedLine, `"`) && strings.HasSuffix(trimmedLine, `"`) {
 			value := strings.Trim(trimmedLine, `"`)
 
-			// Add "@" to the agent name, "/" before the value, and ":" before the version
-			modifiedValue := fmt.Sprintf(`"@%s/%s:%s"`, name, value, version)
+			if value == "" {
+				modifiedLines = append(modifiedLines, `""`)
+				continue
+			}
 
-			// Append the modified value
-			modifiedLines = append(modifiedLines, modifiedValue)
-		} else {
-			// Keep the line as is if it starts with "@" or does not match the pattern
-			modifiedLines = append(modifiedLines, trimmedLine)
+			if strings.HasPrefix(value, "@") {
+				parts := strings.Split(value, "/")
+				if len(parts) == 2 && !strings.Contains(parts[1], ":") {
+					modifiedLines = append(modifiedLines, fmt.Sprintf(`"@%s:%s"`, parts[1], version))
+				} else {
+					modifiedLines = append(modifiedLines, fmt.Sprintf(`"%s"`, value))
+				}
+			} else {
+				modifiedLines = append(modifiedLines, fmt.Sprintf(`"@%s/%s:%s"`, name, value, version))
+			}
+			continue
 		}
+
+		// Retain unquoted lines
+		modifiedLines = append(modifiedLines, trimmedLine)
 	}
 
-	// Join the modified lines back together with newlines
 	return strings.Join(modifiedLines, "\n")
 }
