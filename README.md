@@ -17,3 +17,11 @@ Kdeps is packed with features:
   - 📜 Define custom Ubuntu repositories and PPAs in the workflow
   - 📈 RAG Graph-based workflow execution
   - ⚡ Written in Golang
+
+## Installation
+
+Please see the installation instructions [here](https://kdeps.github.io/kdeps/getting-started/introduction/installation.html).
+
+## Quickstart
+
+Take a look at our quickstart guide [here](https://kdeps.github.io/kdeps/getting-started/introduction/quickstart.html).
