@@ -10,7 +10,7 @@ Initially, when you execute the `kdeps` command for the first time, it automatic
 
 This file contains the following default settings:
 
-```bash
+```zig
 amends "package://schema.kdeps.com/core@0.1.30#/Kdeps.pkl"
 
 runMode = "docker"

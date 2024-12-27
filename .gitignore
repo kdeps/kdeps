@@ -49,6 +49,8 @@ lib-cov
 # Coverage directory used by tools like istanbul
 coverage
 *.lcov
+coverage.txt
+test-report.txt
 
 # nyc test coverage
 .nyc_output
@@ -202,5 +204,11 @@ zsdoc/data
 
 # Vitepress cache
 docs/.vitepress/cache/
+
+# DS Store
+.DS_Store
+
+# The build folder
+build/
 
 # End of https://www.toptal.com/developers/gitignore/api/go,zsh,node
