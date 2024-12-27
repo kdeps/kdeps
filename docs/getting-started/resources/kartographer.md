@@ -1,0 +1,52 @@
+---
+outline: deep
+---
+
+# Graph Dependency
+
+Kdeps utilizes its custom graph library, [Kartographer](https://github.com/kdeps/kartographer), to manage resource
+dependencies. Kartographer enables the traversal and resolution of dependent nodes, allowing Kdeps to
+orchestrate the execution order of resources. This capability makes Kdeps particularly well-suited for
+building RAG (Retrieval-Augmented Generation) AI agents that require chaining large language models (LLMs) and other
+components.
+
+### Defining Dependencies with Kartographer
+
+To construct a dependency graph using Kartographer, you must define resource dependencies in the resource's `requires`
+configuration. Additionally, the target node should be specified in the workflow's `action` parameter.
+
+Here’s an example of how to define a resource’s dependencies using `requires`:
+
+```zig
+requires {
+    "resourceID1"
+    "resourceID2"
+    "resourceID3"
+}
+```
+
+### Understanding Graph Dependencies
+
+When your workflow's `action` is set to a target, say `JSONResponder`, and your resources have defined dependencies.
+
+Kartographer processes the graph by executing:
+
+1. All the dependent nodes first.
+2. Finally, the specified target node, such as `JSONResponder`.
+
+For instance, given the following dependency chain:
+
+`LLMResourceJSON -> PythonResource -> JSONResponder`
+
+Kartographer ensures that each node is executed in sequential order. However, by design, a resource ID cannot be reused
+within the same workflow:
+
+- ✅ Valid: `LLMResourceJSON -> PythonResource -> JSONResponder`
+
+- ❌ Invalid: `LLMResourceJSON -> PythonResource -> LLMResourceJSON -> JSONResponder`
+
+This avoids complex dependency problems such as circular dependencies.
+
+If you need to reuse a resource, you must duplicate its functionality under a unique ID, as shown below:
+
+- ✅ Valid with duplication: `LLMResourceJSON -> PythonResource -> LLMResourceJSON2 -> JSONResponder`

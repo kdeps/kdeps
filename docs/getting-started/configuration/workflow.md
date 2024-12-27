@@ -7,11 +7,190 @@ outline: deep
 The `workflow.pkl` contains configuration about the AI Agent, namely:
 
 - AI agent `name`, `description`, `website`, `authors`, `documentation` and `repository`.
-- *required*: The [semver](https://semver.org) `version` of this AI agent.
+- The [semver](https://semver.org) `version` of this AI agent.
 > **Note on version:**
 > kdeps uses the version for mapping the graph-based dependency workflow execution order. For this reason, the version
 > is *required*.
 
-- *required*: The `action` resource to be executed when running the AI agent. This is the ID of the resource.
-- *optional*: Existing AI agents `workflows` to be reused in this AI agent. The agent needed to be installed first via `kdeps
+- The `action` resource to be executed when running the AI agent. This is the ID of the resource.
+- Existing AI agents `workflows` to be reused in this AI agent. The agent needed to be installed first via `kdeps
   install` command.
+
+## Settings
+
+The `settings` block allows advanced configuration of the AI agent, covering API settings, routing, Ubuntu and Python
+packages, and default LLM models.
+
+```zig
+settings {
+    apiServerMode = true
+    apiServer {...}
+    agentSettings {...}
+}
+```
+
+### Overview
+
+The `settings` block includes the following configurations:
+
+- **`apiServerMode`**: A boolean flag that enables or disables API server mode for the project. When set to `false`, the
+  default action is executed directly, and the program exits upon completion.
+
+- **`apiServer`**: A configuration block that specifies API settings such as `hostIP`, `portNum`, and `routes`.
+
+- **`agentSettings`**: A configuration block that includes settings for installing Anaconda, `condaPackages`,
+  `pythonPackages`, custom or PPA Ubuntu `repositories`, Ubuntu `packages`, and Ollama LLM `models`.
+
+
+### apiServer
+
+The `apiServer` block defines API routing configurations for the AI agent. These settings are only applied when
+`apiServerMode` is set to `true`.
+
+- **`hostIP` and `portNum`**: Define the IP address and port for the Docker container. The default values are
+  `"127.0.0.1"` for `hostIP` and `3000` for `portNum`.
+
+#### routes
+
+- **`routes`**: API paths can be configured within the `routes` block. Each route is defined using a `new` block,
+ specifying:
+   - **`path`**: The defined API endpoint, i.e. `"/api/v1/items"`.
+   - **`methods`**: HTTP methods allowed for the route. Supported HTTP methods include: `GET`, `POST`, `PUT`, `PATCH`,
+     `OPTIONS`, `DELETE`, and `HEAD`.
+
+
+Example:
+
+```zig
+routes {
+    new {
+        path = "/api/v1/user"
+        methods {
+            "GET"
+        }
+    }
+    new {
+        path = "/api/v1/items"
+        methods {
+            "POST"
+        }
+    }
+}
+```
+
+Each route targets a single `action`, meaning every route points to the main action specified in the workflow
+configuration. If multiple routes are defined, you must use a `skipCondition` logic to specify which route a resource
+should target. See the [Workflow](#workflow) for more details.
+
+For instance, to run a resource only on the `"/api/v1/items"` route, you can define the following `skipCondition` logic:
+
+```zig
+local allowedPath = "/api/v1/items"
+local requestPath = "@(request.path())"
+
+skipCondition {
+    requestPath != allowedPath
+}
+```
+
+In this example:
+- The resource is skipped if the `skipCondition` evaluates to `true`.
+- The resource runs only when the request path equals `"/api/v1/items"`.
+
+For more details, refer to the [Skip Conditions](../resources/skipCondition.md) documentation.
+
+### agentSettings
+
+This section contains the agent settings that will be used to build the agent's Docker image.
+
+```zig
+agentSettings {
+    installAnaconda = false
+    condaPackages { ... }
+    pythonPackages { ... }
+    repositories { ... }
+    packages { ... }
+    models { ... }
+}
+```
+
+- **`installAnaconda`**: **"The Operating System for AI"**, [Anaconda](https://www.anaconda.com),  will be installed when
+  set to `true`. However, please take note that if Anaconda is installed, the Docker image size will grow to >
+  20Gb. That does not includes the additional `condaPackages`. Defaults to `false`.
+
+#### condaPackages
+
+- **`condaPackages`**: Anaconda packages to be installed if `installAnaconda` is `true`. The environment, channel and
+  packages can be defined in a single entry.
+
+```zig
+condaPackages {
+    ["base"] {
+        ["main"] = "pip diffusers numpy"
+        ["pytorch"] = "pytorch"
+        ["conda-forge"] = "tensorflow pandas keras transformers"
+    }
+}
+```
+
+This configuration will:
+- Creates the `base` isolated Anaconda environment.
+- Use the channels `main` to install `pip`, `diffusers` and `numpy` Anaconda packages.
+- Use the `pytorch` channel to install `pytorch`.
+- Use the `conda-forge` channel to install `tensorflow`, `pandas`, `keras`, and `transformers`.
+
+In order to use the isolated environment, the Python resource should specify the Anaconda environment via the
+`condaEnvironment` setting.
+
+#### pythonPackages
+
+Python packages can also be installed even without Anaconda installed.
+
+```zig
+pythonPackages {
+    "diffusers[torch]"
+}
+```
+
+#### repositories
+
+Additional Ubuntu and Ubuntu PPA repositories can be defined in the `repositories` settings.
+
+```zig
+repositories {
+    "ppa:alex-p/tesseract-ocr-devel"
+}
+```
+
+In this example, a PPA repository is added to installing the latest `tesseract-ocr` package.
+
+#### packages
+
+Specify the Ubuntu packages that should be pre-installed when building this image.
+
+```zig
+packages {
+    "tesseract-ocr"
+    "poppler-utils"
+}
+```
+
+#### models
+List the local Ollama LLM models that will be pre-installed. You can specify multiple models.
+
+```zig
+models {
+    "tinydolphin"
+    "llama3.3"
+    "llama3.2-vision"
+    "mistral"
+    "gemma"
+    "mistral"
+}
+```
+
+Kdeps uses [Ollama](https://ollama.com) as it's LLM backend. You can define as many Ollama compatible models as needed
+to fit your use case.
+
+For a comprehensive list of available Ollama compatible models, visit the [Ollama model
+library](https://ollama.com/library).
