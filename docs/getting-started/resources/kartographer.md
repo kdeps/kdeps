@@ -6,18 +6,19 @@ outline: deep
 
 Kdeps utilizes its custom graph library, [Kartographer](https://github.com/kdeps/kartographer), to manage resource
 dependencies. Kartographer enables the traversal and resolution of dependent nodes, allowing Kdeps to
-orchestrate the execution order of resources. This capability makes Kdeps particularly well-suited for
-building RAG (Retrieval-Augmented Generation) AI agents that require chaining large language models (LLMs) and other
-components.
+orchestrate the execution order of resources.
 
-### Defining Dependencies with Kartographer
+This capability makes Kdeps particularly well-suited for building RAG (Retrieval-Augmented Generation) AI agents that
+require chaining large language models (LLMs) and other components. It also allows reusing and remixing other AI agents.
 
-To construct a dependency graph using Kartographer, you must define resource dependencies in the resource's `requires`
+### Defining Dependencies
+
+To construct a dependency graph, you must define resource dependencies in the resource's `requires`
 configuration. Additionally, the target node should be specified in the workflow's `action` parameter.
 
 Here’s an example of how to define a resource’s dependencies using `requires`:
 
-```zig
+```apl
 requires {
     "resourceID1"
     "resourceID2"
@@ -39,14 +40,7 @@ For instance, given the following dependency chain:
 `LLMResourceJSON -> PythonResource -> JSONResponder`
 
 Kartographer ensures that each node is executed in sequential order. However, by design, a resource ID cannot be reused
-within the same workflow:
+within the same workflow. This avoids complex dependency problems such as circular dependencies. If you need to reuse a
+resource, it should be under a unique ID, as shown below:
 
-- ✅ Valid: `LLMResourceJSON -> PythonResource -> JSONResponder`
-
-- ❌ Invalid: `LLMResourceJSON -> PythonResource -> LLMResourceJSON -> JSONResponder`
-
-This avoids complex dependency problems such as circular dependencies.
-
-If you need to reuse a resource, you must duplicate its functionality under a unique ID, as shown below:
-
-- ✅ Valid with duplication: `LLMResourceJSON -> PythonResource -> LLMResourceJSON2 -> JSONResponder`
+`LLMResourceJSON -> PythonResource -> LLMResourceJSON2 -> JSONResponder`
