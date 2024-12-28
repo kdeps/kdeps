@@ -23,6 +23,7 @@ open-source LLM models that are orchestrated by a graph-based dependency workflo
 	}
 
 	rootCmd.AddCommand(NewAgentCommand(fs, ctx, kdepsDir, logger))
+	rootCmd.AddCommand(NewScaffoldCommand(fs, logger))
 	rootCmd.AddCommand(NewAddCommand(fs, ctx, kdepsDir, logger))
 	rootCmd.AddCommand(NewPackageCommand(fs, ctx, kdepsDir, env, logger))
 	rootCmd.AddCommand(NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger))

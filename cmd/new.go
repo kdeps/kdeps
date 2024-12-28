@@ -12,7 +12,7 @@ import (
 
 // NewAgentCommand creates the 'new' command and passes the necessary dependencies
 func NewAgentCommand(fs afero.Fs, ctx context.Context, kdepsDir string, logger *log.Logger) *cobra.Command {
-	return &cobra.Command{
+	newCmd := &cobra.Command{
 		Use:     "new [agentName]",
 		Aliases: []string{"n"},
 		Short:   "Create a new AI agent",
@@ -29,4 +29,6 @@ func NewAgentCommand(fs afero.Fs, ctx context.Context, kdepsDir string, logger *
 			}
 		},
 	}
+
+	return newCmd
 }
