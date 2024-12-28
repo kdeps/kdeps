@@ -21,7 +21,7 @@ The `workflow.pkl` contains configuration about the AI Agent, namely:
 The `settings` block allows advanced configuration of the AI agent, covering API settings, routing, Ubuntu and Python
 packages, and default LLM models.
 
-```zig
+```apl
 settings {
     apiServerMode = true
     apiServer {...}
@@ -61,7 +61,7 @@ The `apiServer` block defines API routing configurations for the AI agent. These
 
 Example:
 
-```zig
+```apl
 routes {
     new {
         path = "/api/v1/user"
@@ -84,7 +84,7 @@ should target. See the [Workflow](#workflow) for more details.
 
 For instance, to run a resource only on the `"/api/v1/items"` route, you can define the following `skipCondition` logic:
 
-```zig
+```apl
 local allowedPath = "/api/v1/items"
 local requestPath = "@(request.path())"
 
@@ -103,7 +103,7 @@ For more details, refer to the [Skip Conditions](../resources/skipCondition.md) 
 
 This section contains the agent settings that will be used to build the agent's Docker image.
 
-```zig
+```apl
 agentSettings {
     installAnaconda = false
     condaPackages { ... }
@@ -123,7 +123,7 @@ agentSettings {
 - **`condaPackages`**: Anaconda packages to be installed if `installAnaconda` is `true`. The environment, channel and
   packages can be defined in a single entry.
 
-```zig
+```apl
 condaPackages {
     ["base"] {
         ["main"] = "pip diffusers numpy"
@@ -146,7 +146,7 @@ In order to use the isolated environment, the Python resource should specify the
 
 Python packages can also be installed even without Anaconda installed.
 
-```zig
+```apl
 pythonPackages {
     "diffusers[torch]"
 }
@@ -156,7 +156,7 @@ pythonPackages {
 
 Additional Ubuntu and Ubuntu PPA repositories can be defined in the `repositories` settings.
 
-```zig
+```apl
 repositories {
     "ppa:alex-p/tesseract-ocr-devel"
 }
@@ -168,7 +168,7 @@ In this example, a PPA repository is added to installing the latest `tesseract-o
 
 Specify the Ubuntu packages that should be pre-installed when building this image.
 
-```zig
+```apl
 packages {
     "tesseract-ocr"
     "poppler-utils"
@@ -178,7 +178,7 @@ packages {
 #### models
 List the local Ollama LLM models that will be pre-installed. You can specify multiple models.
 
-```zig
+```apl
 models {
     "tinydolphin"
     "llama3.3"

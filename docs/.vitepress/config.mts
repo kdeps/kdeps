@@ -44,8 +44,30 @@ export default defineConfig({
                     link: "/getting-started/resources/kartographer",
                   },
                   {
-                    text: "Resource Functions",
+                    text: "Functions",
                     link: "/getting-started/resources/functions",
+                    items: [
+                      {
+                        text: "Exec",
+                        link: "/getting-started/resources/functions#exec-resource-functions",
+                      },
+                      {
+                        text: "HTTP Client",
+                        link: "/getting-started/resources/functions#http-client-resource-functions",
+                      },
+                      {
+                        text: "LLM",
+                        link: "/getting-started/resources/functions#llm-resource-functions",
+                      },
+                      {
+                        text: "Python",
+                        link: "/getting-started/resources/functions#python-resource-functions",
+                      },
+                                            {
+                        text: "API Request",
+                        link: "/getting-started/resources/functions#api-request-functions",
+                      },
+                    ],
                   },
                   {
                     text: "Promise Operator",
@@ -53,10 +75,10 @@ export default defineConfig({
                   },
                   {
                     text: "Skip Condition",
-                    link: "/getting-started/resources/skipCondition",
+                    link: "/getting-started/resources/skip",
                   },
                   {
-                    text: "Validations",
+                    text: "Preflight Validations",
                     link: "/getting-started/resources/validations",
                   },
                   {
@@ -71,6 +93,7 @@ export default defineConfig({
                 items: [
                   {
                     text: "Exec Resource",
+                    link: "/getting-started/resources/exec",
                   },
                   {
                     text: "Python Resource",

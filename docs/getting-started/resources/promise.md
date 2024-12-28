@@ -4,11 +4,53 @@ outline: deep
 
 # Promise Operator
 
+Kdeps employs the `"@()"` convention to defer the execution of resource functions to a later stage.
 
+Since Kdeps relies on a number of [Apple PKL](https://pkl-lang.org) functions, any function that depends on values
+generated during resource execution must be wrapped in this convention.
 
-Resource Promise ​
-Notice that each resource function is enclosed within "@()". This follows the Kdeps convention, which ensures the resource is executed at a later stage. For more details on this convention, refer to the documentation on the Kdeps Promise directive.
+> *Note:* The `"@()"` operator must always be enclosed in double quotes. In Apple PKL, it is treated as a string, which is
+> later post-processed by Kdeps.
 
-When invoking a resource function, always wrap it in "@()" along with double quotes, as in "@(llm.response("chatResource"))". Depending on the output of this promise, you may sometimes needed to escape it.
+Without the promise operator, such functions would execute prematurely, producing an incomplete or empty response.
 
-For example:
+The promise operator is commonly used in [Resources](../resources/resources.md). Below are examples of its applications:
+
+## Skip Condition
+
+Each resource includes a `skipCondition` block that, when evaluated as `true`, skips the resource's execution.
+
+In this example, the `@(request.path())` expression is wrapped with the promise operator to ensure the value is deferred:
+
+```apl
+local allowedPath = "/api/v1/items"
+local requestPath = "@(request.path())"
+
+skipCondition {
+    requestPath != allowedPath
+}
+```
+
+## Preflight Validations
+
+In this scenario, a resource requires the uploaded file attachment to be of specific types—PDF, PNG, or JPEG.
+
+The promise operator is used to evaluate the MIME type of the uploaded file, as shown below:
+
+```apl
+local filetype = "@(request.filetypes()[0])"
+
+preflightCheck {
+    validations {
+        filetype == "application/pdf" || filetype == "image/png" || filetype == "image/jpeg"
+    }
+}
+```
+
+## Resource Functions
+
+All resource functions must use the promise operator. For further information, see the [Functions](../resources/functions) documentation.
+
+## API Request Functions
+
+Similarly, API request functions require the promise operator. For additional details, refer to the [API Request Functions](../resources/functions#api-request-functions) documentation.

@@ -53,7 +53,7 @@ This command will:
      - **`resources/http.pkl`**: An [HTTP Client Resource](../resources/http.md) for making API requests.
      - **`resources/exec.pkl`**: A [Shell Resource](../resources/exec.md) for executing shell commands.
      - **`resources/chat.pkl`**: A [Chat Resource](../resources/chat.md) for interacting with language models (LLMs).
-- **`data/`**: A [Data](../data/data.md) directory for storing project-specific data.
+- **`data/`**: A [Data](../resources/data.md) directory for storing project-specific data.
 
 Once the setup is complete, you’re ready to start building and customizing your AI agent.
 
@@ -72,13 +72,13 @@ comprehensive details, see the [`Workflow`](../configuration/workflow.md) docume
 The `workflow.pkl` file defines the workflow and settings for your AI agent. Within this file, you’ll find the `action`
 configuration:
 
-```zig
+```apl
 action = "responseResource"
 ```
 
 Here, `responseResource` refers to the ID of the target resource file, located in `resources/response.pkl`:
 
-```zig
+```apl
 id = "responseResource"
 ```
 
@@ -89,7 +89,7 @@ This resource will be executed as the default action whenever the AI agent runs.
 The `workflow.pkl` file allows you to configure the AI agent to operate in API mode. Below is the generated
 configuration:
 
-```zig
+```apl
 apiServerMode = true
 apiServer {
 ...
@@ -123,7 +123,7 @@ exiting upon completion.
 
 The `workflow.pkl` file defines the LLM models to be included in the Docker image. Here’s an example configuration:
 
-```zig
+```apl
 agentSettings {
 ...
     models {
@@ -162,7 +162,7 @@ Each resource contains a `requires` section that defines the dependencies needed
 `resources/response.pkl` resource is dependent on the `chatResource` resource. Additionally, you can include other
 resources by uncommenting the relevant lines.
 
-```zig
+```apl
 requires {
     "chatResource"
     // "pythonResource"
@@ -179,7 +179,7 @@ Dependency](../resources/kartographer.md) documentation.
 
 Within the `resources/response.pkl`, you'll find the following structure:
 
-```zig
+```apl
 apiResponse {
     success = true
     response {
@@ -216,16 +216,16 @@ The resulting JSON will generally look like this:
 }
 ```
 
-### Resource Functions
+### Functions
 
 Within the `data` JSON array, you will encounter references such as `llm`, `python`, `exec`, and `client`. These
 represent resource functions, which are fully customizable using [Apple PKL](https://pkl-lang.org). This flexibility
-allows you to extend and adapt the resources to meet your specific requirements. See the [Resource
-Functions](../resources/functions.md) documentation, for more information.
+allows you to extend and adapt the resources to meet your specific requirements. See the
+[Functions](../resources/functions.md) documentation, for more information.
 
 Each resource corresponds to a specific function, as illustrated below:
 
-```zig
+```apl
 llm.response("ID")
 // python.stdout("ID")
 // exec.stdout("ID")
@@ -234,9 +234,6 @@ llm.response("ID")
 
 In this AI agent workflow, the LLM response is retrieved from the `chatResource` and appended to the `data` JSON array.
 
----
-
-This version improves clarity, corrects grammar, and organizes the information for better readability.
 ### Resource Promise
 
 Notice that each resource function is enclosed within `"@()"`. This follows the Kdeps convention, which ensures the
@@ -248,7 +245,7 @@ When invoking a resource function, always wrap it in `"@()"` along with double q
 
 For example:
 
-```zig
+```apl
 local clientResponse =
 """
 @(client.responseBody("ID"))
@@ -262,7 +259,7 @@ The chat resource is an `llm` resource. This will create our LLM chat sessions.
 If we look at the pkl file, we notice that the `requires` section is blank. This is because `chatResource` does not
 depend on other resource in order to function.
 
-```zig
+```apl
 chat {
     model = "llama3.1"
     prompt = "Who is @(request.data())?"
