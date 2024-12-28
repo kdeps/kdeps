@@ -187,15 +187,39 @@ func generateSpecificFile(fs afero.Fs, logger *log.Logger, mainDir, fileName, ag
 		return err
 	}
 
-	// Create the resources directory if it doesn't exist
-	resourceDir := filepath.Join(mainDir, "resources")
-	if err := createDirectory(fs, logger, resourceDir); err != nil {
+	// Determine the output directory
+	var outputDir string
+	if strings.ToLower(fileName) == "workflow.pkl" {
+		outputDir = mainDir // Place workflow.pkl in the main directory
+	} else {
+		outputDir = filepath.Join(mainDir, "resources") // Place other files in the resources folder
+	}
+
+	// Create the output directory if it doesn't exist
+	if err := createDirectory(fs, logger, outputDir); err != nil {
 		return err
 	}
 
 	// Write the generated file
-	filePath := filepath.Join(resourceDir, fileName)
-	return createFile(fs, logger, filePath, content)
+	filePath := filepath.Join(outputDir, fileName)
+	if err := createFile(fs, logger, filePath, content); err != nil {
+		return err
+	}
+
+	// Create the data/.gitkeep file
+	dataDir := filepath.Join(mainDir, "data")
+	if err := createDirectory(fs, logger, dataDir); err != nil {
+		logger.Error("Failed to create data directory: ", err)
+		return err
+	}
+
+	gitkeepPath := filepath.Join(dataDir, ".gitkeep")
+	if err := createFile(fs, logger, gitkeepPath, ""); err != nil {
+		logger.Error("Failed to create .gitkeep file: ", err)
+		return err
+	}
+
+	return nil
 }
 
 func GenerateSpecificAgentFile(fs afero.Fs, logger *log.Logger, agentName, fileName string) error {
@@ -240,7 +264,15 @@ func GenerateSpecificAgentFile(fs afero.Fs, logger *log.Logger, agentName, fileN
 	}
 
 	if openFile {
-		filePath := fmt.Sprintf("%s/resources/%s", mainDir, fileName)
+		var filePath string
+		if strings.ToLower(fileName) == "workflow" {
+			// Adjust path for workflows outside the resources folder
+			filePath = fmt.Sprintf("%s/%s.pkl", mainDir, fileName)
+		} else {
+			// Default path for other files in the resources folder
+			filePath = fmt.Sprintf("%s/resources/%s.pkl", mainDir, fileName)
+		}
+
 		if err := texteditor.EditPkl(fs, filePath, logger); err != nil {
 			logger.Error("Failed to edit file: ", err)
 			return fmt.Errorf("failed to edit file: %w", err)
