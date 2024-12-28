@@ -1,12 +1,16 @@
 package template
 
 import (
+	"bytes"
+	"embed"
 	"errors"
 	"fmt"
 	"kdeps/pkg/schema"
 	"kdeps/pkg/texteditor"
 	"os"
+	"path/filepath"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/charmbracelet/huh"
@@ -14,6 +18,11 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"
 )
+
+// Embed the templates directory.
+//
+//go:embed templates/*.pkl
+var templatesFS embed.FS
 
 var lightBlue = lipgloss.NewStyle().Foreground(lipgloss.Color("#6495ED")).Bold(true)
 var lightGreen = lipgloss.NewStyle().Foreground(lipgloss.Color("#90EE90")).Bold(true)
@@ -24,542 +33,264 @@ func printWithDots(message string) {
 	fmt.Println()
 }
 
-func GenerateAgent(fs afero.Fs, logger *log.Logger, agentName string) (err error) {
-	var name string
+func validateAgentName(agentName string) error {
+	if strings.TrimSpace(agentName) == "" {
+		return errors.New("Agent name cannot be empty or only whitespace. Please provide a valid name.")
+	}
+	if strings.Contains(agentName, " ") {
+		return errors.New("Agent name cannot contain spaces. Please provide a valid name.")
+	}
+	return nil
+}
 
-	// If the agentName is provided, validate and use it
-	if agentName != "" {
-		if strings.TrimSpace(agentName) == "" {
-			return errors.New("Agent name cannot be empty or only whitespace. Please provide a valid name.")
+func promptForAgentName() (string, error) {
+	var name string
+	form := huh.NewInput().
+		Title("Configure Your AI Agent").
+		Prompt("Enter a name for your AI Agent (no spaces): ").
+		Validate(validateAgentName).
+		Value(&name)
+
+	if err := form.Run(); err != nil {
+		return "", err
+	}
+	return name, nil
+}
+
+func createDirectory(fs afero.Fs, logger *log.Logger, path string) error {
+	printWithDots(fmt.Sprintf("Creating directory: %s", lightGreen.Render(path)))
+	if err := fs.MkdirAll(path, os.ModePerm); err != nil {
+		logger.Error(err)
+		return err
+	}
+	time.Sleep(80 * time.Millisecond)
+	return nil
+}
+
+func createFile(fs afero.Fs, logger *log.Logger, path string, content string) error {
+	printWithDots(fmt.Sprintf("Creating file: %s", lightGreen.Render(path)))
+	if err := afero.WriteFile(fs, path, []byte(content), 0644); err != nil {
+		logger.Error(err)
+		return err
+	}
+	time.Sleep(80 * time.Millisecond)
+	return nil
+}
+
+func generateWorkflowFile(fs afero.Fs, logger *log.Logger, mainDir, name string) error {
+	templatePath := "templates/workflow.pkl"
+	outputPath := filepath.Join(mainDir, "workflow.pkl")
+
+	// Template data for dynamic replacement
+	templateData := map[string]string{
+		"Header": fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schema.SchemaVersion),
+		"Name":   name,
+	}
+
+	// Load and process the template
+	content, err := loadTemplate(templatePath, templateData)
+	if err != nil {
+		logger.Error("Failed to load workflow template: ", err)
+		return err
+	}
+
+	return createFile(fs, logger, outputPath, content)
+}
+
+func loadTemplate(templatePath string, data map[string]string) (string, error) {
+	// Load the template from the embedded FS
+	content, err := templatesFS.ReadFile(templatePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read embedded template: %w", err)
+	}
+
+	tmpl, err := template.New(filepath.Base(templatePath)).Parse(string(content))
+	if err != nil {
+		return "", fmt.Errorf("failed to parse template file: %w", err)
+	}
+
+	var output bytes.Buffer
+	if err := tmpl.Execute(&output, data); err != nil {
+		return "", fmt.Errorf("failed to execute template: %w", err)
+	}
+
+	return output.String(), nil
+}
+
+func generateResourceFiles(fs afero.Fs, logger *log.Logger, mainDir, name string) error {
+	resourceDir := filepath.Join(mainDir, "resources")
+	if err := createDirectory(fs, logger, resourceDir); err != nil {
+		return err
+	}
+
+	// Common template data
+	templateData := map[string]string{
+		"Header": fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"`, schema.SchemaVersion),
+		"Name":   name,
+	}
+
+	// List all embedded template files
+	files, err := templatesFS.ReadDir("templates")
+	if err != nil {
+		return fmt.Errorf("failed to read embedded templates directory: %w", err)
+	}
+
+	for _, file := range files {
+		// Skip directories and files that aren't .pkl
+		if file.IsDir() || filepath.Ext(file.Name()) != ".pkl" {
+			continue
 		}
-		if strings.Contains(agentName, " ") {
-			return errors.New("Agent name cannot contain spaces. Please provide a valid name.")
+
+		// Skip the workflow.pkl file
+		if file.Name() == "workflow.pkl" {
+			continue
+		}
+
+		templatePath := filepath.Join("templates", file.Name())
+		content, err := loadTemplate(templatePath, templateData)
+		if err != nil {
+			logger.Error("Failed to process template: ", err)
+			return err
+		}
+
+		outputPath := filepath.Join(resourceDir, file.Name())
+		if err := createFile(fs, logger, outputPath, content); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func generateSpecificFile(fs afero.Fs, logger *log.Logger, mainDir, fileName, agentName string) error {
+	// Automatically add .pkl extension if not present
+	if !strings.HasSuffix(fileName, ".pkl") {
+		fileName += ".pkl"
+	}
+
+	// Determine the appropriate header based on the file name
+	headerTemplate := `amends "package://schema.kdeps.com/core@%s#/Resource.pkl"`
+	if strings.ToLower(fileName) == "workflow.pkl" {
+		headerTemplate = `amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`
+	}
+
+	templatePath := filepath.Join("templates", fileName)
+	templateData := map[string]string{
+		"Header": fmt.Sprintf(headerTemplate, schema.SchemaVersion),
+		"Name":   agentName,
+	}
+
+	// Load the template
+	content, err := loadTemplate(templatePath, templateData)
+	if err != nil {
+		logger.Error("Failed to load specific template: ", err)
+		return err
+	}
+
+	// Create the resources directory if it doesn't exist
+	resourceDir := filepath.Join(mainDir, "resources")
+	if err := createDirectory(fs, logger, resourceDir); err != nil {
+		return err
+	}
+
+	// Write the generated file
+	filePath := filepath.Join(resourceDir, fileName)
+	return createFile(fs, logger, filePath, content)
+}
+
+func GenerateSpecificAgentFile(fs afero.Fs, logger *log.Logger, agentName, fileName string) error {
+	var name string
+	var err error
+
+	if agentName != "" {
+		if err := validateAgentName(agentName); err != nil {
+			return err
 		}
 		name = agentName
 	} else {
-		// Prompt for the name if not provided
-		form := huh.NewInput().
-			Title("Configure Your AI Agent").
-			Prompt("Enter a name for your AI Agent (no spaces): ").
-			Validate(func(input string) error {
-				if strings.TrimSpace(input) == "" {
-					return errors.New("Agent name cannot be empty or only whitespace. Please enter a valid name.")
-				}
-				if strings.Contains(input, " ") {
-					return errors.New("Agent name cannot contain spaces. Please enter a valid name.")
-				}
-				return nil
-			}).
-			Value(&name)
-
-		err = form.Run()
+		name, err = promptForAgentName()
 		if err != nil {
-			log.Fatal(err)
+			logger.Error("Failed to prompt for agent name: ", err)
+			return err
 		}
 	}
 
 	mainDir := fmt.Sprintf("./%s", name)
-	printWithDots(fmt.Sprintf("Creating main directory: %s", lightGreen.Render(mainDir)))
-	err = os.MkdirAll(mainDir, os.ModePerm)
+	if err := createDirectory(fs, logger, mainDir); err != nil {
+		logger.Error("Failed to create main directory: ", err)
+		return err
+	}
+
+	if err := generateSpecificFile(fs, logger, mainDir, fileName, name); err != nil {
+		logger.Error("Failed to generate specific file: ", err)
+		return err
+	}
+
+	var openFile bool
+	editorForm := huh.NewConfirm().
+		Title(fmt.Sprintf("Edit %s in Editor?", fileName)).
+		Affirmative("Yes").
+		Negative("No").
+		Value(&openFile)
+
+	err = editorForm.Run()
 	if err != nil {
-		log.Fatal(err)
-	}
-	time.Sleep(80 * time.Millisecond)
-
-	printWithDots(fmt.Sprintf("Creating '%s' and '%s' subfolders", lightGreen.Render("resources"), lightGreen.Render("data")))
-	err = os.MkdirAll(mainDir+"/resources", os.ModePerm)
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = os.MkdirAll(mainDir+"/data", os.ModePerm)
-	if err != nil {
-		log.Fatal(err)
-	}
-	time.Sleep(80 * time.Millisecond)
-
-	gitkeepFilePath := mainDir + "/data/.gitkeep"
-	printWithDots(fmt.Sprintf("Adding '.gitkeep' in %s", lightGreen.Render(gitkeepFilePath)))
-	err = os.WriteFile(gitkeepFilePath, []byte{}, 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
-	time.Sleep(80 * time.Millisecond)
-
-	workflowFilePath := mainDir + "/workflow.pkl"
-	workflowHeader := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
-`, schema.SchemaVersion)
-
-	workflowContent := fmt.Sprintf(`%s
-name = "%s"
-description = "My AI Agent"
-website = ""
-authors {}
-documentation = ""
-repository = ""
-
-// Version is Required
-version = "1.0.0"
-
-// This section defines the default resource action that will be executed
-// when this API resource is called.
-action = "responseResource"
-
-// Specify any external resources to use in this AI Agent.
-// For example, you can refer to another agent with "@agentName".
-workflows {}
-
-settings {
-	// When set to false, the agent runs in standalone mode, executing once
-	// when the Docker container starts and then stops after all resources
-	// have been processed.
-	apiServerMode = true
-
-	// The API server block contains settings related to the API configuration.
-	//
-	// You can access the incoming request details using the following helper functions:
-	//
-	// - "@(request.path())"
-	// - "@(request.method())"
-	// - "@(request.headers("HEADER"))"
-	// - "@(request.data())"
-	// - "@(request.params("PARAMS"))"
-	//
-	// And use the following functions for file upload related functions
-	//
-	// - "@(request.file("FILENAME"))"
-	// - "@(request.filetype("FILENAME"))"
-	// - "@(request.filepath("FILENAME"))"
-	// - "@(request.filecount())"
-	// - "@(request.files())"
-	// - "@(request.filetypes())"
-	// - "@(request.filesByType("image/jpeg"))"
-	//
-	// For example, to use these in your resource, you can define a local variable like this:
-	//
-	// local xApiHeader = "@(request.headers["X-API-HEADER"])"
-	// You can then retrieve the value with "@(xApiHeader)".
-	//
-	// The "@(...)" syntax enables lazy evaluation, ensuring that values are
-	// retrieved only after the result is ready.
-	apiServer {
-		// Set the host IP address and port number for the AI Agent.
-		hostIP = "127.0.0.1"
-		portNum = 3000
-
-		// You can define multiple routes for this agent. Each route points to
-		// the main action specified in the action setting, so you must define
-		// your skip condition on the resources appropriately.
-		routes {
-			new {
-				path = "/api/v1/whois"
-				methods {
-					"GET" // Allows retrieving data
-					"POST" // Allows submitting data
-				}
-			}
-		}
+		logger.Error("Failed to display editor confirmation dialog: ", err)
+		return err
 	}
 
-	// This section contains the agent settings that will be used to build
-	// the agent's Docker image.
-	agentSettings {
-		// Specify if Anaconda will be installed (Warning: Docker image size will grow to ~20Gb)
-		installAnaconda = false
-
-		// Conda packages to be installed if installAnaconda is true
-		condaPackages {
-			// The environment is defined here
-			["base"] {
-				// Mapped to the conda channel and package name
-				["main"] = "pip diffusers numpy"
-				["pytorch"] = "pytorch"
-				["conda-forge"] = "tensorflow pandas keras transformers"
-			}
-		}
-
-		// List of preinstalled Python packages.
-		pythonPackages {
-			"diffusers[torch]"
-			// "huggingface_hub"
-		}
-
-		// Specify the custom Ubuntu repo or PPA repos that would contain the packages available
-		// for this image.
-		repositories {
-			"ppa:alex-p/tesseract-ocr-devel"
-		}
-
-		// Specify the Ubuntu packages that should be pre-installed when
-		// building this image.
-		packages {
-			"tesseract-ocr"
-			"poppler-utils"
-		}
-
-		// List the local Ollama LLM models that will be pre-installed.
-		// You can specify multiple models here.
-		models {
-			"tinydolphin"
-			// "llama3.2"
-			// "llama3.1"
-		}
-	}
-}
-`, workflowHeader, name)
-	printWithDots(fmt.Sprintf("Creating workflow file: %s", lightGreen.Render(workflowFilePath)))
-	err = os.WriteFile(workflowFilePath, []byte(workflowContent), 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
-	time.Sleep(80 * time.Millisecond)
-
-	resourceHeader := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
-`, schema.SchemaVersion)
-	resourceFiles := map[string]string{
-		"http.pkl": fmt.Sprintf(`%s
-id = "httpResource"
-name = "HTTP Client"
-description = "This resource allows for making API requests using an HTTP client."
-category = ""
-requires {
-	// Define the ID of any dependency resource that must be executed before this resource.
-}
-run {
-	skipCondition {
-		// Conditions under which the execution of this resource should be skipped.
-		// If any evaluated condition returns true, the resource execution will be bypassed.
-		// "@(request.path)" != "/api/v1/whois" && "@(request.method)" != "GET"
-	}
-	preflightCheck {
-		validations {
-			// This section expects boolean validations.
-			// If any validation returns false, an exception will be thrown before proceeding to the next step.
-			// "@(request.header("X-API-KEY"))" != ""
-		}
-		// Custom error message and code to be used if the preflight check fails.
-		error {
-			code = 404
-			message = "Header X-API-KEY not found in request!"
-		}
-	}
-
-	// Initiates an HTTP client request for this resource.
-	//
-	// The HTTP resource provides the following helper functions:
-	//
-	// - "@(client.resource("ResourceID"))"
-	// - "@(client.responseBody("ResourceID"))"
-	// - "@(client.responseHeader("ResourceID", "HEADER"))"
-	//
-	// For example, to use these in your resource, you can define a local variable like this:
-	//
-	// local bearerToken = "@(client.responseHeader("ResourceID", "Bearer"))"
-	// You can then access the value using "@(bearerToken)".
-	//
-	// The "@(...)" syntax enables lazy evaluation, ensuring that values are
-	// retrieved only after the result is ready.
-	//
-	// Note: Each resource is restricted to a single dedicated action. Combining multiple
-	// actions within the same resource is not allowed.
-	httpClient {
-		method = "GET"  // Specifies the HTTP method to be used for the request.
-		url = ""        // The URL endpoint for the HTTP request.
-		data {
-			// Any data that will be sent with the HTTP request.
-		}
-		headers {
-			// Headers to be included in the HTTP request.
-			["X-API-KEY"] = "@(request.header("X-API-KEY"))"  // Example header.
-		}
-		// Timeout duration in seconds. This specifies when to terminate the request.
-		timeoutSeconds = 60
-	}
-}
-`, resourceHeader),
-		"exec.pkl": fmt.Sprintf(`%s
-id = "shellResource"
-name = "Exec Resource"
-description = "This resource creates a shell session."
-category = ""
-requires {
-	// Define the ID of any dependency resource that must be executed before this resource.
-}
-run {
-	skipCondition {
-		// Conditions under which the execution of this resource should be skipped.
-		// If any evaluated condition returns true, the resource execution will be bypassed.
-	}
-	preflightCheck {
-		validations {
-			// This section expects boolean validations.
-			// If any validation returns false, an exception will be thrown before proceeding to the next step.
-			//
-			// For example, this expects that the 'file.txt' is in the 'data' folder.
-			// All data files are mapped from 'data/file.txt' to 'data/<agentName>/<agentVersion>/file.txt'.
-			// read("file:/agent/workflow/data/%s/1.0.0/file.txt").text != "" && read("file:/agent/workflow/data/%s/1.0.0/file.txt").base64 != ""
-		}
-		// Custom error message and code to be used if the preflight check fails.
-		error {
-			code = 500
-			message = "Data file file.txt not found!"
-		}
-	}
-
-	// Initiates a shell session for executing commands within this resource. Any packages
-	// defined in the workflow are accessible here.
-	//
-	// The exec resource provides the following helper functions:
-	//
-	// - "@(exec.resource("ResourceID"))"
-	// - "@(exec.stderr("ResourceID"))"
-	// - "@(exec.stdout("ResourceID"))"
-	// - "@(exec.exitCode("ResourceID"))"
-	//
-	// To use these in your resource, you can define a local variable like this:
-	//
-	// local successExec = "@(exec.exitCode("ResourceID"))"
-	// You can then reference the value using "@(successExec)".
-	//
-	// If you need to access a file in your resource, you can use PKL's read("file") API like this:
-	// "@(read("file"))".
-	//
-	// The "@(...)" syntax enables lazy evaluation, ensuring that values are
-	// retrieved only after the result is ready.
-	//
-	// Note: Each resource is restricted to a single dedicated action. Combining multiple
-	// actions within the same resource is not allowed.
-	exec {
-		command = """
-		echo "hello world"
-		"""
-		env {
-			// Environment variables that would be accessible inside the shell
-			["ENVVAR"] = "XYZ"  // Example ENVVAR.
-		}
-		// Timeout duration in seconds. This specifies when to terminate the shell exec.
-		timeoutSeconds = 60
-	}
-}
-`, resourceHeader, name, name),
-		"chat.pkl": fmt.Sprintf(`%s
-id = "chatResource"
-name = "LLM Chat Resource"
-description = "This resource creates a LLM chat session."
-category = ""
-requires {
-	// Define the ID of any dependency resource that must be executed before this resource.
-	// For example "@aiChatResource1"
-}
-run {
-	skipCondition {
-		// Conditions under which the execution of this resource should be skipped.
-		// If any evaluated condition returns true, the resource execution will be bypassed.
-	}
-	preflightCheck {
-		validations {
-			// This section expects boolean validations.
-			// If any validation returns false, an exception will be thrown before proceeding to the next step.
-		}
-		// Custom error message and code to be used if the preflight check fails.
-		error {
-			code = 0
-			message = ""
-		}
-	}
-
-	// Initializes a chat session with the LLM for this resource.
-	//
-	// This resource offers the following helper functions:
-	//
-	// - "@(llm.response("ResourceID"))"
-	// - "@(llm.prompt("ResourceID"))"
-	//
-	// To use these in your resource, you can define a local variable as follows:
-	//
-	// local llmResponse = "@(llm.response("ResourceID"))"
-	// You can then access the value with "@(llmResponse)".
-	//
-	// The "@(...)" syntax enables lazy evaluation, ensuring that values are
-	// retrieved only after the result is ready.
-	//
-	// Note: Each resource is restricted to a single dedicated action. Combining multiple
-	// actions within the same resource is not allowed.
-	chat {
-		model = "tinydolphin" // This LLM model needs to be defined in the workflow
-		prompt = "Who is @(request.data())?"
-
-		// Specify if the LLM response should be a structured JSON
-		jsonResponse = true
-
-		// If jsonResponse is true, then the structured JSON data will need to have the
-		// following keys.
-		jsonResponseKeys {
-			"first_name"
-			"last_name"
-			"parents"
-			"address"
-			"famous_quotes"
-			"known_for"
-		}
-
-		// Timeout duration in seconds. This specifies when to terminate the llm session.
-		timeoutSeconds = 60
-	}
-}
-`, resourceHeader),
-		"response.pkl": fmt.Sprintf(`%s
-id = "responseResource"
-name = "API Response Resource"
-description = "This resource creates a API response."
-category = ""
-
-// Define the ID of any dependency resource that must be executed before this resource.
-// For example "aiChatResource1"
-requires {
-	"chatResource"
-	// "pythonResource"
-	// "shellResource"
-	// "httpResource"
-}
-
-run {
-	skipCondition {
-		// Conditions under which the execution of this resource should be skipped.
-		// If any evaluated condition returns true, the resource execution will be bypassed.
-	}
-	preflightCheck {
-		validations {
-			// This section expects boolean validations.
-			// If any validation returns false, an exception will be thrown before proceeding to the next step.
-		}
-		// Custom error message and code to be used if the preflight check fails.
-		error {
-			code = 0
-			message = ""
-		}
-	}
-
-	// Initializes an api response for this agent.
-	//
-	// This resource action is straightforward. It
-	// creates a JSON response with the following shape
-	//
-	// {
-	//   "success": true,
-	//   "response": {
-	//     "data": [],
-	//   },
-	//   "errors": [{
-	//     "code": 0,
-	//     "message": ""
-	//   }]
-	// }
-	//
-	apiResponse {
-		success = true
-		response {
-			data {
-				"@(llm.response("chatResource"))"
-				// "@(python.stdout("pythonResource"))"
-				// "@(exec.stdout("shellResource"))"
-				// "@(client.responseBody("httpResource"))"
-			}
-		}
-		errors {
-			new {
-				code = 0
-				message = ""
-			}
-		}
-	}
-}
-`, resourceHeader),
-		"python.pkl": fmt.Sprintf(`%s
-id = "pythonResource"
-name = "Python Resource"
-description = "This resource creates a python script session."
-category = ""
-requires {
-	// Define the ID of any dependency resource that must be executed before this resource.
-}
-run {
-	skipCondition {
-		// Conditions under which the execution of this resource should be skipped.
-		// If any evaluated condition returns true, the resource execution will be bypassed.
-	}
-	preflightCheck {
-		validations {
-			// This section expects boolean validations.
-			// If any validation returns false, an exception will be thrown before proceeding to the next step.
-			//
-			// For example, this expects that the 'file.txt' is in the 'data' folder.
-			// All data files are mapped from 'data/file.txt' to 'data/<agentName>/<agentVersion>/file.txt'.
-			// read("file:/agent/workflow/data/%s/1.0.0/file.txt").text != "" && read("file:/agent/workflow/data/%s/1.0.0/file.txt").base64 != ""
-		}
-		// Custom error message and code to be used if the preflight check fails.
-		error {
-			code = 500
-			message = "Data file file.txt not found!"
-		}
-	}
-
-	// Initiates a shell session for executing commands within this resource. Any packages
-	// defined in the workflow are accessible here.
-	//
-	// The exec resource provides the following helper functions:
-	//
-	// - "@(python.resource("ResourceID"))"
-	// - "@(python.stderr("ResourceID"))"
-	// - "@(python.stdout("ResourceID"))"
-	// - "@(python.exitCode("ResourceID"))"
-	//
-	// To use these in your resource, you can define a local variable like this:
-	//
-	// local successExec = "@(python.exitCode("ResourceID"))"
-	// You can then reference the value using "@(successExec)".
-	//
-	// If you need to access a file in your resource, you can use PKL's read("file") API like this:
-	// "@(read("file"))".
-	//
-	// The "@(...)" syntax enables lazy evaluation, ensuring that values are
-	// retrieved only after the result is ready.
-	//
-	// Note: Each resource is restricted to a single dedicated action. Combining multiple
-	// actions within the same resource is not allowed.
-	python {
-		// Specifies the conda environment in which this Python script will execute, if Anaconda is
-		// installed.
-		condaEnvironment = "base"
-
-		script =
-"""
-def main():
-    print("Hello, World!")
-
-if __name__ == "__main__":
-    main()
-"""
-		env {
-			// Environment variables that would be accessible inside the shell
-			["ENVVAR"] = "XYZ"  // Example ENVVAR.
-		}
-		// Timeout duration in seconds. This specifies when to terminate the shell exec.
-		timeoutSeconds = 60
-	}
-}
-`, resourceHeader, name, name),
-	}
-
-	for fileName, content := range resourceFiles {
+	if openFile {
 		filePath := fmt.Sprintf("%s/resources/%s", mainDir, fileName)
-		printWithDots(fmt.Sprintf("Creating resource file: %s", lightGreen.Render(filePath)))
-		err := os.WriteFile(filePath, []byte(content), 0644)
-		if err != nil {
-			log.Fatal(err)
+		if err := texteditor.EditPkl(fs, filePath, logger); err != nil {
+			logger.Error("Failed to edit file: ", err)
+			return fmt.Errorf("failed to edit file: %w", err)
 		}
-		time.Sleep(80 * time.Millisecond)
+	}
+
+	return nil
+}
+
+func GenerateAgent(fs afero.Fs, logger *log.Logger, agentName string) error {
+	var name string
+	var err error
+
+	if agentName != "" {
+		if err := validateAgentName(agentName); err != nil {
+			return err
+		}
+		name = agentName
+	} else {
+		name, err = promptForAgentName()
+		if err != nil {
+			logger.Error("Failed to prompt for agent name: ", err)
+			return err
+		}
+	}
+
+	mainDir := fmt.Sprintf("./%s", name)
+	if err := createDirectory(fs, logger, mainDir); err != nil {
+		logger.Error("Failed to create main directory: ", err)
+		return err
+	}
+	if err := createDirectory(fs, logger, mainDir+"/resources"); err != nil {
+		logger.Error("Failed to create resources directory: ", err)
+		return err
+	}
+	if err := createDirectory(fs, logger, mainDir+"/data"); err != nil {
+		logger.Error("Failed to create data directory: ", err)
+		return err
+	}
+	if err := createFile(fs, logger, mainDir+"/data/.gitkeep", ""); err != nil {
+		logger.Error("Failed to create .gitkeep file: ", err)
+		return err
+	}
+	if err := generateWorkflowFile(fs, logger, mainDir, name); err != nil {
+		logger.Error("Failed to generate workflow file: ", err)
+		return err
+	}
+	if err := generateResourceFiles(fs, logger, mainDir, name); err != nil {
+		logger.Error("Failed to generate resource files: ", err)
+		return err
 	}
 
 	var openWorkflow bool
@@ -571,15 +302,17 @@ if __name__ == "__main__":
 
 	err = editorForm.Run()
 	if err != nil {
-		log.Fatal(err)
+		logger.Error("Failed to display editor confirmation dialog: ", err)
+		return err
 	}
 
 	if openWorkflow {
+		workflowFilePath := fmt.Sprintf("%s/workflow.pkl", mainDir)
 		if err := texteditor.EditPkl(fs, workflowFilePath, logger); err != nil {
+			logger.Error("Failed to edit workflow file: ", err)
 			return fmt.Errorf("failed to edit workflow file: %w", err)
 		}
 	}
 
-	printWithDots("Workflow generated successfully")
 	return nil
 }

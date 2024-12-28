@@ -1,0 +1,67 @@
+{{ .Header }}
+
+id = "responseResource"
+name = "API Response Resource"
+description = "This resource creates a API response."
+category = ""
+
+// Define the ID of any dependency resource that must be executed before this resource.
+// For example "aiChatResource1"
+requires {
+        "llmResource"
+        // "pythonResource"
+        // "execResource"
+        // "httpResource"
+}
+
+run {
+        skipCondition {
+                // Conditions under which the execution of this resource should be skipped.
+                // If any evaluated condition returns true, the resource execution will be bypassed.
+        }
+        preflightCheck {
+                validations {
+                        // This section expects boolean validations.
+                        // If any validation returns false, an exception will be thrown before proceeding to the next step.
+                }
+                // Custom error message and code to be used if the preflight check fails.
+                error {
+                        code = 0
+                        message = ""
+                }
+        }
+
+        // Initializes an api response for this agent.
+        //
+        // This resource action is straightforward. It
+        // creates a JSON response with the following shape
+        //
+        // {
+        //   "success": true,
+        //   "response": {
+        //     "data": [],
+        //   },
+        //   "errors": [{
+        //     "code": 0,
+        //     "message": ""
+        //   }]
+        // }
+        //
+        apiResponse {
+                success = true
+                response {
+                        data {
+                                "@(llm.response("llmResource"))"
+                                // "@(python.stdout("pythonResource"))"
+                                // "@(exec.stdout("shellResource"))"
+                                // "@(client.responseBody("httpResource"))"
+                        }
+                }
+                errors {
+                        new {
+                                code = 0
+                                message = ""
+                        }
+                }
+        }
+}

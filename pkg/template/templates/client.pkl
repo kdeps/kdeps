@@ -1,0 +1,60 @@
+{{ .Header }}
+
+id = "httpResource"
+name = "HTTP Client"
+description = "This resource allows for making API requests using an HTTP client."
+category = ""
+requires {
+        // Define the ID of any dependency resource that must be executed before this resource.
+}
+run {
+        skipCondition {
+                // Conditions under which the execution of this resource should be skipped.
+                // If any evaluated condition returns true, the resource execution will be bypassed.
+                // "@(request.path)" != "/api/v1/whois" && "@(request.method)" != "GET"
+        }
+        preflightCheck {
+                validations {
+                        // This section expects boolean validations.
+                        // If any validation returns false, an exception will be thrown before proceeding to the next step.
+                        // "@(request.header("X-API-KEY"))" != ""
+                }
+                // Custom error message and code to be used if the preflight check fails.
+                error {
+                        code = 404
+                        message = "Header X-API-KEY not found in request!"
+                }
+        }
+
+        // Initiates an HTTP client request for this resource.
+        //
+        // The HTTP resource provides the following helper functions:
+        //
+        // - "@(client.resource("ResourceID"))"
+        // - "@(client.responseBody("ResourceID"))"
+        // - "@(client.responseHeader("ResourceID", "HEADER"))"
+        //
+        // For example, to use these in your resource, you can define a local variable like this:
+        //
+        // local bearerToken = "@(client.responseHeader("ResourceID", "Bearer"))"
+        // You can then access the value using "@(bearerToken)".
+        //
+        // The "@(...)" syntax enables lazy evaluation, ensuring that values are
+        // retrieved only after the result is ready.
+        //
+        // Note: Each resource is restricted to a single dedicated action. Combining multiple
+        // actions within the same resource is not allowed.
+        httpClient {
+                method = "GET"  // Specifies the HTTP method to be used for the request.
+                url = ""        // The URL endpoint for the HTTP request.
+                data {
+                        // Any data that will be sent with the HTTP request.
+                }
+                headers {
+                        // Headers to be included in the HTTP request.
+                        ["X-API-KEY"] = "@(request.header("X-API-KEY"))"  // Example header.
+                }
+                // Timeout duration in seconds. This specifies when to terminate the request.
+                timeoutSeconds = 60
+        }
+}
