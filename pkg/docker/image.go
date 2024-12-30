@@ -309,11 +309,10 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		exposedPort = ""
 	}
 
-	var imageVersion string = "0.4.5"
+	imageVersion := dockerSettings.OllamaImageTag
 	if gpuType == "amd" {
-		imageVersion = "0.4.5-rocm"
+		imageVersion += "-rocm"
 	}
-	// kdepsVersion := "0.1.0"
 
 	var pkgLines []string
 

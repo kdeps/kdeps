@@ -6,6 +6,8 @@ website = ""
 authors {}
 documentation = ""
 repository = ""
+heroImage = ""
+agentIcon = ""
 
 // Version is Required
 version = "1.0.0"
@@ -113,5 +115,9 @@ settings {
                         // "llama3.2"
                         // "llama3.1"
                 }
+
+
+                // The Ollama image tag version to be used as a base Docker image for this AI agent.
+                ollamaImageTag = "0.5.4"
         }
 }
