@@ -34,6 +34,44 @@ export default defineConfig({
               {
                 text: "Workflow",
                 link: "/getting-started/configuration/workflow",
+                items: [
+                  {
+                    text: "API Server Settings",
+                    link: "/getting-started/configuration/workflow#api-server-settings",
+                    items: [
+                      {
+                        text: "API Routes",
+                        link: "/getting-started/configuration/workflow#api-routes",
+                      },
+                    ],
+                  },
+                  {
+                    text: "AI Agent Settings",
+                    link: "/getting-started/configuration/workflow#ai-agent-settings",
+                    items: [
+                      {
+                        text: "Anaconda Packages",
+                        link: "/getting-started/configuration/workflow#anaconda-packages",
+                      },
+                      {
+                        text: "Python Packages",
+                        link: "/getting-started/configuration/workflow#python-packages",
+                      },
+                      {
+                        text: "Ubuntu Repositories",
+                        link: "/getting-started/configuration/workflow#ubuntu-repositories",
+                      },
+                      {
+                        text: "Ubuntu Packages",
+                        link: "/getting-started/configuration/workflow#ubuntu-packages",
+                      },
+                      {
+                        text: "LLM Models",
+                        link: "/getting-started/configuration/workflow#llm-models",
+                      },
+                    ],
+                  },
+                ],
               },
               {
                 text: "Resources",
@@ -63,7 +101,7 @@ export default defineConfig({
                         text: "Python",
                         link: "/getting-started/resources/functions#python-resource-functions",
                       },
-                                            {
+                      {
                         text: "API Request",
                         link: "/getting-started/resources/functions#api-request-functions",
                       },
@@ -74,7 +112,7 @@ export default defineConfig({
                     link: "/getting-started/resources/promise",
                   },
                   {
-                    text: "Skip Condition",
+                    text: "Skip Conditions",
                     link: "/getting-started/resources/skip",
                   },
                   {
@@ -97,15 +135,19 @@ export default defineConfig({
                   },
                   {
                     text: "Python Resource",
+                    link: "/getting-started/resources/python",
                   },
                   {
                     text: "HTTP Client Resource",
+                    link: "/getting-started/resources/client",
                   },
                   {
                     text: "LLM Resource",
+                    link: "/getting-started/resources/llm",
                   },
                   {
                     text: "API Response Resource",
+                    link: "/getting-started/resources/response",
                   },
                 ],
               },
