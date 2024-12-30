@@ -99,6 +99,16 @@ In this example:
 
 For more details, refer to the [Skip Conditions](../resources/skipCondition.md) documentation.
 
+#### Lambda Mode
+
+When the `apiServerMode` is set to `false` in the workflow configuration, the AI agent operates in a **single-execution
+lambda mode**. In this mode, the AI agent is designed to execute a specific task or serve a particular purpose,
+completing its function in a single, self-contained execution cycle.
+
+For example, an AI agent in single-execution lambda mode might be used to analyze data from a form submission, generate
+a report, be executed as a scheduled `cron` job function or provide a response to a one-time query, without the need for
+maintaining an ongoing state or connection.
+
 ### AI Agent Settings
 
 This section contains the agent settings that will be used to build the agent's Docker image.

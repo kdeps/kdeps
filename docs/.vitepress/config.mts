@@ -46,6 +46,10 @@ export default defineConfig({
                     ],
                   },
                   {
+                    text: "Lambda Mode",
+                    link: "/getting-started/configuration/workflow#lambda-mode",
+                  },
+                  {
                     text: "AI Agent Settings",
                     link: "/getting-started/configuration/workflow#ai-agent-settings",
                     items: [
@@ -154,10 +158,8 @@ export default defineConfig({
             ],
           },
           {
-            text: "Working with files",
-          },
-          {
-            text: "Single-execution mode",
+            text: "File Uploads",
+            link: "/getting-started/tutorials/files",
           },
           {
             text: "Security",
