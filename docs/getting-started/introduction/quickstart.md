@@ -50,9 +50,9 @@ This command will:
          [`.pkl`](https://pkl-lang.org/index.html) resource files, including:
      - **`resources/python.pkl`**: A [Python Resource](../resources/python.md) for running Python scripts.
      - **`resources/response.pkl`**: A [Response Resource](../resources/response.md) for preparing JSON responses from APIs.
-     - **`resources/http.pkl`**: An [HTTP Client Resource](../resources/http.md) for making API requests.
-     - **`resources/exec.pkl`**: A [Shell Resource](../resources/exec.md) for executing shell commands.
-     - **`resources/chat.pkl`**: A [Chat Resource](../resources/chat.md) for interacting with language models (LLMs).
+     - **`resources/client.pkl`**: An [HTTP Client Resource](../resources/client.md) for making API requests.
+     - **`resources/exec.pkl`**: A [Exec Resource](../resources/exec.md) for executing shell commands.
+     - **`resources/llm.pkl`**: A [LLM Resource](../resources/llm.md) for interacting with language models (LLMs).
 - **`data/`**: A [Data](../resources/data.md) directory for storing project-specific data.
 
 Once the setup is complete, you’re ready to start building and customizing your AI agent.
@@ -293,7 +293,12 @@ curl 'http://localhost:3000/api/v1/whois' -X GET -d "Neil Armstrong"
 
 Additionally, we have set `jsonResponse` to `true`, enabling the use of `jsonResponseKeys`. To ensure the output
 conforms to specific data types, you can define the keys with their corresponding types. For example:
-`first_name__string`, `famous_quotes__array`, or `age__integer`.
+`first_name__string`, `famous_quotes__array`, `details__markdown`, or `age__integer`.
+
+> **Important:**
+> To accomplish defining the corresponding data types to keys, you'll need to adjust your LLM model, as the default
+> `tinydolphin` model is not equipped to handle this. It is recommended to use models from the `llama3.*` family
+> instead.
 
 ## Packaging
 
