@@ -31,12 +31,15 @@ define the behavior, dependencies, and validation logic for each resource.
    - **`category`**: A classification for organizing resources.
 
 - **Dependencies**:
-   - **`requires`**: Specifies the dependencies of the resource. This ensures the resource executes only after its dependencies are satisfied.
+   - **`requires`**: Specifies the dependencies of the resource. This ensures the resource executes only after its
+     dependencies are satisfied. See [Graph Dependency](../resources/kartographer.md) for more information.
 
 - **Execution Logic**:
    - **`run`**: Defines the execution logic for the resource, including conditions that affect its behavior:
-     - **`skipCondition`**: Specifies conditions under which the resource execution is skipped. If any condition evaluates to `true`, the resource will be bypassed.
+     - **`skipCondition`**: Specifies conditions under which the resource execution is skipped. If any condition
+       evaluates to `true`, the resource will be bypassed. See [Skip Conditions](../resources/skip.md).
      - **`preflightCheck`**: Performs a pre-execution validation and returns a custom error if the validation fails.
+       See [Preflight Validations](../resources/validations.md).
        - **`validations`**: Contains validation logic. If any condition evaluates to `false`, an exception is triggered.
        - **`error`**: Defines a custom error returned upon validation failure, with the following attributes:
          - **`code`**: The HTTP error code to return (e.g., `404`).
