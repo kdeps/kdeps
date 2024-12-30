@@ -15,8 +15,8 @@ Kdeps currently supports the following resource types:
 - **`response`**: [Response Resource](../resources/response.md)
   Handles API responses by generating JSON output to an API endpoint.
 
-- **`http`**: [HTTP Client Resource](../resources/http.md)
+- **`client`**: [HTTP Client Resource](../resources/client.md)
   Performs HTTP client requests, facilitating communication with external APIs or services.
 
-- **`llm`**: [LLM Resource](../resources/chat.md)
+- **`llm`**: [LLM Resource](../resources/llm.md)
   Provides interaction with language models (LLMs).
