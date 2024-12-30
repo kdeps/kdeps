@@ -24,6 +24,7 @@ hero:
 
 
 features:
+  - title: 💡 Kdeps is easy, practical, and no-code
   - title: 🚀 Run Kdeps in single-execution or API Mode
   - title: 🤖 Use Multiple Open-Source LLMs
   - title: 🐍 Run Python scripts in isolated environments using Anaconda
