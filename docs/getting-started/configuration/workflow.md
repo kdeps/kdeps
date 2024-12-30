@@ -42,7 +42,7 @@ The `settings` block includes the following configurations:
   `pythonPackages`, custom or PPA Ubuntu `repositories`, Ubuntu `packages`, and Ollama LLM `models`.
 
 
-### apiServer
+### API Server Settings
 
 The `apiServer` block defines API routing configurations for the AI agent. These settings are only applied when
 `apiServerMode` is set to `true`.
@@ -50,7 +50,7 @@ The `apiServer` block defines API routing configurations for the AI agent. These
 - **`hostIP` and `portNum`**: Define the IP address and port for the Docker container. The default values are
   `"127.0.0.1"` for `hostIP` and `3000` for `portNum`.
 
-#### routes
+#### API Routes
 
 - **`routes`**: API paths can be configured within the `routes` block. Each route is defined using a `new` block,
  specifying:
@@ -99,7 +99,7 @@ In this example:
 
 For more details, refer to the [Skip Conditions](../resources/skipCondition.md) documentation.
 
-### agentSettings
+### AI Agent Settings
 
 This section contains the agent settings that will be used to build the agent's Docker image.
 
@@ -118,7 +118,7 @@ agentSettings {
   set to `true`. However, please take note that if Anaconda is installed, the Docker image size will grow to >
   20Gb. That does not includes the additional `condaPackages`. Defaults to `false`.
 
-#### condaPackages
+#### Anaconda Packages
 
 - **`condaPackages`**: Anaconda packages to be installed if `installAnaconda` is `true`. The environment, channel and
   packages can be defined in a single entry.
@@ -142,7 +142,7 @@ This configuration will:
 In order to use the isolated environment, the Python resource should specify the Anaconda environment via the
 `condaEnvironment` setting.
 
-#### pythonPackages
+#### Python Packages
 
 Python packages can also be installed even without Anaconda installed.
 
@@ -152,7 +152,7 @@ pythonPackages {
 }
 ```
 
-#### repositories
+#### Ubuntu Repositories
 
 Additional Ubuntu and Ubuntu PPA repositories can be defined in the `repositories` settings.
 
@@ -164,7 +164,7 @@ repositories {
 
 In this example, a PPA repository is added to installing the latest `tesseract-ocr` package.
 
-#### packages
+#### Ubuntu Packages
 
 Specify the Ubuntu packages that should be pre-installed when building this image.
 
@@ -175,7 +175,7 @@ packages {
 }
 ```
 
-#### models
+#### LLM Models
 List the local Ollama LLM models that will be pre-installed. You can specify multiple models.
 
 ```apl
