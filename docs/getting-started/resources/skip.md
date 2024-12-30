@@ -2,7 +2,7 @@
 outline: deep
 ---
 
-# Skip Condition
+# Skip Conditions
 
 Skip conditions allow you to specify criteria for bypassing the execution of a resource.
 
