@@ -43,7 +43,7 @@ run {
         // Note: Each resource is restricted to a single dedicated action. Combining multiple
         // actions within the same resource is not allowed.
         chat {
-                model = "tinydolphin" // This LLM model needs to be defined in the workflow
+                model = "llama3.1" // This LLM model needs to be defined in the workflow
                 prompt = "Who is @(request.data())?"
 
                 // Specify if the LLM response should be a structured JSON
@@ -58,6 +58,11 @@ run {
                         "address"
                         "famous_quotes"
                         "known_for"
+                }
+
+                // Specify the files that this LLM will process.
+                files {
+                        // "@(request.files()[0])"
                 }
 
                 // Timeout duration in seconds. This specifies when to terminate the llm session.

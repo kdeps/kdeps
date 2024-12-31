@@ -48,9 +48,6 @@ func DownloadFiles(fs afero.Fs, downloadDir string, urls []string, logger *log.L
 		// Define the local path to save the file
 		localPath := filepath.Join(downloadDir, fileName)
 
-		// Log the download process
-		log.Printf("Downloading %s to %s\n", url, localPath)
-
 		// Download the file
 		err := DownloadFile(fs, url, localPath, logger)
 		if err != nil {
@@ -85,7 +82,7 @@ func DownloadFile(fs afero.Fs, url, filePath string, logger *log.Logger) error {
 			return fmt.Errorf("failed to stat file: %w", err)
 		}
 		if info.Size() > 0 {
-			logger.Info("File already exists and is non-empty, skipping download", "file-path", filePath)
+			logger.Debug("File already exists and is non-empty, skipping download", "file-path", filePath)
 			return nil
 		}
 	}

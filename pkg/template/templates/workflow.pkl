@@ -112,12 +112,18 @@ settings {
                 // You can specify multiple models here.
                 models {
                         "tinydolphin"
+                        "llama3.1"
+                        // "llama3.2-vision"
                         // "llama3.2"
-                        // "llama3.1"
                 }
-
 
                 // The Ollama image tag version to be used as a base Docker image for this AI agent.
                 ollamaImageTag = "0.5.4"
+
+                // A mapping of build argument variable names.
+                args {}
+
+                // A mapping of environment variable names for the build that persist in both the image and the container.
+                env {}
         }
 }
