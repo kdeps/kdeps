@@ -20,6 +20,7 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	kdCfg "github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
@@ -33,6 +34,7 @@ type BuildLine struct {
 
 func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli *client.Client, runDir, kdepsDir string,
 	pkgProject *archiver.KdepsPackage, logger *log.Logger) (string, string, error) {
+
 	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow, logger)
 	if err != nil {
 		return "", "", err
@@ -40,16 +42,29 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 
 	agentName := wfCfg.GetName()
 	agentVersion := wfCfg.GetVersion()
-	md5sum := pkgProject.Md5sum
-	cName := strings.Join([]string{"kdeps", agentName, md5sum}, "-")
+	cName := strings.Join([]string{"kdeps", agentName}, "-")
 	cName = strings.ToLower(cName)
 	containerName := strings.Join([]string{cName, agentVersion}, ":")
+
+	// Check if the Docker image already exists
+	images, err := cli.ImageList(ctx, image.ListOptions{})
+	if err != nil {
+		return "", "", fmt.Errorf("error listing images: %w", err)
+	}
+
+	for _, image := range images {
+		for _, tag := range image.RepoTags {
+			if tag == containerName {
+				fmt.Println("Image already exists:", containerName)
+				return cName, containerName, nil
+			}
+		}
+	}
 
 	// Create a tar archive of the run directory to use as the Docker build context
 	tarBuffer := new(bytes.Buffer)
 	tw := tar.NewWriter(tarBuffer)
 
-	// Walk through the files in the directory and add them to the tar archive
 	err = afero.Walk(fs, runDir, func(file string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -129,6 +144,8 @@ func generateDockerfile(
 	hostIP,
 	ollamaPortNum,
 	kdepsHost,
+	argsSection,
+	envsSection,
 	downloadDir,
 	pkgSection,
 	pythonPkgSection,
@@ -149,6 +166,12 @@ ENV KDEPS_HOST=%s
 ENV DEBUG=1
 
 `, imageVersion, schemaVersion, hostIP, ollamaPortNum, kdepsHost))
+
+	// Envs Section
+	dockerFile.WriteString(envsSection + "\n\n")
+
+	// Args Section
+	dockerFile.WriteString(argsSection + "\n\n")
 
 	// Copy DownloadDir to local Downloads
 	dockerFile.WriteString(`
@@ -272,6 +295,18 @@ func copyFilesToRunDir(fs afero.Fs, downloadDir, runDir string, logger *log.Logg
 	return nil
 }
 
+func generateParamsSection(prefix string, items map[string]string) string {
+	var lines []string
+	for key, value := range items {
+		line := fmt.Sprintf(`%s %s`, prefix, key)
+		if value != "" {
+			line = fmt.Sprintf(`%s="%s"`, line, value)
+		}
+		lines = append(lines, line)
+	}
+	return strings.Join(lines, "\n")
+}
+
 func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *log.Logger) (string, bool, string, string, string, error) {
 	var portNum uint16 = 3000
 	var hostIP string = "127.0.0.1"
@@ -300,6 +335,8 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	pythonPkgList := dockerSettings.PythonPackages
 	installAnaconda := dockerSettings.InstallAnaconda
 	condaPkgList := dockerSettings.CondaPackages
+	argsList := dockerSettings.Args
+	envsList := dockerSettings.Env
 
 	hostPort := strconv.FormatUint(uint64(portNum), 10)
 	kdepsHost := fmt.Sprintf("%s:%s", hostIP, hostPort)
@@ -312,6 +349,16 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	imageVersion := dockerSettings.OllamaImageTag
 	if gpuType == "amd" {
 		imageVersion += "-rocm"
+	}
+
+	var argsSection, envsSection string
+
+	if dockerSettings.Args != nil {
+		argsSection = generateParamsSection("ARG", *argsList)
+	}
+
+	if dockerSettings.Env != nil {
+		envsSection = generateParamsSection("ENV", *envsList)
 	}
 
 	var pkgLines []string
@@ -376,6 +423,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion)
 	downloadDir := filepath.Join(kdepsDir, "downloads")
 
+	// TODO: Source this in a downloads.txt file
 	urls := []string{
 		"https://github.com/apple/pkl/releases/download/0.27.0/pkl-linux-amd64",
 		"https://github.com/apple/pkl/releases/download/0.27.0/pkl-linux-aarch64",
@@ -400,6 +448,8 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		hostIP,
 		ollamaPortNum,
 		kdepsHost,
+		argsSection,
+		envsSection,
 		downloadDir,
 		pkgSection,
 		pythonPkgSection,

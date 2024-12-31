@@ -207,7 +207,7 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 	kdeps.PkgFilePath = kdepsPackage
 	kdeps.Md5sum = md5Hash
 
-	logger.Info("Extraction and population completed successfully", "package", kdepsPackage)
+	logger.Debug("Extraction and population completed successfully", "package", kdepsPackage)
 
 	return kdeps, nil
 }
