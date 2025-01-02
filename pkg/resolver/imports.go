@@ -34,7 +34,21 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 		filepath.Join(dr.ActionDir, "/python/"+dr.RequestId+"__python_output.pkl"): "python",
 	}
 
+	// Define core imports and declarations
+	coreImports := []string{
+		`import "pkl:json"`,
+	}
+	coreDeclarations := []string{
+		`local jsonParser = new json.Parser { useMapping = false }`,
+		`local jsonParserMapping = new json.Parser { useMapping = true }`,
+	}
+
 	var importFiles, localVariables string
+
+	// Add core imports and declarations
+	importFiles += strings.Join(coreImports, "\n") + "\n"
+	localVariables += strings.Join(coreDeclarations, "\n") + "\n"
+
 	for file, variable := range importCheck {
 		if exists, _ := afero.Exists(dr.Fs, file); exists {
 			// Check if the import line already exists
