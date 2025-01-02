@@ -51,6 +51,11 @@ chat {
         "known_for"
     }
 
+    // Specify the files that this LLM will process.
+    files {
+        // "@(request.files()[0])"
+    }
+
     // Timeout duration in seconds, specifying when to terminate the LLM session.
     timeoutSeconds = 60
 }
@@ -60,6 +65,8 @@ Key Elements of the `chat` Block
 
 - **`model`**: Specifies the LLM model to be used.
 - **`prompt`**: The input prompt sent to the model.
+- **`files`**: List all the files for use by the LLM model. This feature is particularly beneficial for vision-based
+  LLM models.
 - **`jsonResponse`**: Indicates if the response should be structured as JSON.
 - **`jsonResponseKeys`**: Lists the required keys for the structured JSON response. To ensure the output conforms to
   specific data types, you can define the keys with their corresponding types. For example: `first_name__string`,
