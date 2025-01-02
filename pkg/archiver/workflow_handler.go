@@ -25,7 +25,16 @@ func PrepareRunDir(fs afero.Fs, wf pklWf.Workflow, kdepsDir, pkgFilePath string,
 
 	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion+"/workflow")
 
-	// Create the directory if it doesn't exist
+	// Recursively delete the runDir if it exists
+	if exists, err := afero.Exists(fs, runDir); err != nil {
+		return "", err
+	} else if exists {
+		if err := fs.RemoveAll(runDir); err != nil {
+			return "", err
+		}
+	}
+
+	// Create the directory
 	if err := fs.MkdirAll(runDir, 0755); err != nil {
 		return "", err
 	}
