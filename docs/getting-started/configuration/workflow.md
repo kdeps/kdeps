@@ -121,6 +121,7 @@ agentSettings {
     repositories { ... }
     packages { ... }
     models { ... }
+    ollamaImageTag = "0.5.4"
 }
 ```
 
@@ -204,3 +205,39 @@ to fit your use case.
 
 For a comprehensive list of available Ollama compatible models, visit the [Ollama model
 library](https://ollama.com/library).
+
+#### Ollama Docker Image Tag
+The `ollamaImageTag` configuration property allows you to dynamically specify the version of the Ollama base image tag used in your Docker image.
+
+When used in conjunction with a GPU configuration in `.kdeps.pkl` file, this configuration can automatically adjust the image version to include hardware-specific extensions, such as `1.0.0-rocm` for AMD environments.
+
+#### Arguments and Environment Variables
+
+Kdeps allows you to define `ENV` (environment variables) that persist across both the Docker image and container runtime, and `ARG` (arguments) that are used for passing values during the build process.
+
+To declare `ENV` or `ARG` parameters, use the `env` and `args` sections in your workflow configuration:
+
+```apl
+env {
+  ["API_KEY"] = "example_value"
+}
+
+args {
+  ["API_TOKEN"] = ""
+}
+```
+
+In this example:
+
+- `API_KEY` is declared as an environment variable with the value `"example_value"`. This variable will persist in both the Docker image and the container at runtime.
+- `API_TOKEN` is an argument that does not have a default value and will accept a value at container runtime.
+
+**Environment File Support:**
+Additionally, any `.env` file in your project will be automatically loaded, and the variables defined within it will populate the `env` or `args` sections accordingly. This allows seamless integration of pre-defined environment settings into your build and runtime configurations.
+
+**Important Notes:**
+- `ENV` variables must always be assigned a value during declaration.
+- `ARG` variables can be declared without a value (e.g., `""`). These will act as standalone runtime arguments.
+- Values defined in the `.env` file will override default values for any matching `ENV` or `ARG` keys.
+
+This flexibility enables dynamic configuration during the build process while maintaining consistent runtime environments, making it easier to manage secrets, API keys, and other configurable parameters.
