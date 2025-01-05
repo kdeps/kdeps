@@ -8,6 +8,7 @@ import (
 	"kdeps/pkg/schema"
 	"kdeps/pkg/utils"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -78,6 +79,26 @@ func (dr *DependencyResolver) decodeHttpBlock(httpBlock *pklHttp.ResourceHTTPCli
 		httpBlock.Headers = &decodedHeaders
 	}
 
+	// Decode the params if they exist
+	if httpBlock.Params != nil {
+		decodedParams := make(map[string]string)
+		for key, value := range *httpBlock.Params {
+			// Check if the param value is Base64 encoded
+			if utils.IsBase64Encoded(value) {
+				decodedValue, err := utils.DecodeBase64String(value)
+				if err != nil {
+					return fmt.Errorf("failed to decode params %s: %w", key, err)
+				}
+				decodedParams[key] = decodedValue
+			} else {
+				// If not Base64 encoded, leave the value as it is
+				decodedParams[key] = value
+				dr.Logger.Debug("Param value is not Base64 encoded, skipping decoding", "params", key)
+			}
+		}
+		httpBlock.Params = &decodedParams
+	}
+
 	// Decode the data field if it exists
 	if httpBlock.Data != nil {
 		decodedData := make([]string, len(*httpBlock.Data))
@@ -99,6 +120,38 @@ func (dr *DependencyResolver) decodeHttpBlock(httpBlock *pklHttp.ResourceHTTPCli
 	}
 
 	return nil
+}
+
+func (dr *DependencyResolver) WriteResponseBodyToFile(resourceId string, responseBodyEncoded *string) (string, error) {
+	// Define the file path using the FilesDir and resource ID
+	outputFilePath := filepath.Join(dr.FilesDir, resourceId)
+
+	// Ensure the ResponseBody is not nil
+	if responseBodyEncoded != nil {
+		// Prepare the content to write
+		var content string
+		if utils.IsBase64Encoded(*responseBodyEncoded) {
+			// Decode the Base64-encoded ResponseBody string
+			decodedResponseBody, err := utils.DecodeBase64String(*responseBodyEncoded)
+			if err != nil {
+				return "", fmt.Errorf("failed to decode Base64 string for resource ID: %s: %w", resourceId, err)
+			}
+			content = decodedResponseBody
+		} else {
+			// Use the ResponseBody content as-is if not Base64-encoded
+			content = *responseBodyEncoded
+		}
+
+		// Write the content to the file
+		err := afero.WriteFile(dr.Fs, outputFilePath, []byte(content), 0644)
+		if err != nil {
+			return "", fmt.Errorf("failed to write ResponseBody to file for resource ID: %s: %w", resourceId, err)
+		}
+	} else {
+		return "", nil
+	}
+
+	return outputFilePath, nil
 }
 
 func (dr *DependencyResolver) AppendHttpEntry(resourceId string, newHttpClient *pklHttp.ResourceHTTPClient) error {
@@ -130,6 +183,7 @@ func (dr *DependencyResolver) AppendHttpEntry(resourceId string, newHttpClient *
 		Data:      newHttpClient.Data,
 		Headers:   newHttpClient.Headers,
 		Response:  newHttpClient.Response,
+		File:      utils.StringPtr(""), // Initialize with an empty string
 		Timestamp: &newTimestamp,
 	}
 
@@ -179,6 +233,23 @@ func (dr *DependencyResolver) AppendHttpEntry(resourceId string, newHttpClient *
 			pklContent.WriteString("    headers {[\"\"] = \"\"\n}\n")
 		}
 
+		// Base64 encode the params block
+		if resource.Params != nil {
+			pklContent.WriteString("    params {\n")
+			for key, value := range *resource.Params {
+				var encodedParamValue string
+				if utils.IsBase64Encoded(value) {
+					encodedParamValue = value // Use as it is if already Base64 encoded
+				} else {
+					encodedParamValue = utils.EncodeBase64String(value) // Otherwise, encode it
+				}
+				pklContent.WriteString(fmt.Sprintf("      [\"%s\"] = \"%s\"\n", key, encodedParamValue))
+			}
+			pklContent.WriteString("    }\n")
+		} else {
+			pklContent.WriteString("    params {[\"\"] = \"\"\n}\n")
+		}
+
 		// Base64 encode the response body
 		if resource.Response != nil {
 			pklContent.WriteString("    response {\n")
@@ -197,6 +268,13 @@ func (dr *DependencyResolver) AppendHttpEntry(resourceId string, newHttpClient *
 			}
 
 			if resource.Response.Body != nil {
+				filePath, err := dr.WriteResponseBodyToFile(resourceId, resource.Response.Body)
+				if err != nil {
+					return fmt.Errorf("failed to write Response Body to file: %w", err)
+				}
+
+				resource.File = &filePath
+
 				var encodedBody string
 				if utils.IsBase64Encoded(*resource.Response.Body) {
 					encodedBody = *resource.Response.Body // Use as it is if already Base64 encoded
@@ -210,6 +288,8 @@ func (dr *DependencyResolver) AppendHttpEntry(resourceId string, newHttpClient *
 		} else {
 			pklContent.WriteString("    response {\nheaders{[\"\"] = \"\"\n}\nbody=\"\"}\n")
 		}
+
+		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", resource.File))
 
 		pklContent.WriteString("  }\n")
 	}
@@ -261,6 +341,20 @@ func (dr *DependencyResolver) DoRequest(client *pklHttp.ResourceHTTPClient) erro
 	// Validate method
 	if client.Method == "" {
 		return fmt.Errorf("HTTP method is required")
+	}
+
+	// Append query parameters to the URL if present
+	if client.Params != nil {
+		parsedURL, err := url.Parse(client.Url)
+		if err != nil {
+			return fmt.Errorf("failed to parse URL: %w", err)
+		}
+		query := parsedURL.Query()
+		for key, value := range *client.Params {
+			query.Add(key, value)
+		}
+		parsedURL.RawQuery = query.Encode()
+		client.Url = parsedURL.String()
 	}
 
 	// Initialize request
