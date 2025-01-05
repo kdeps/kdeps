@@ -157,6 +157,38 @@ func (dr *DependencyResolver) processPythonBlock(actionId string, pythonBlock *p
 	return nil
 }
 
+func (dr *DependencyResolver) WritePythonStdoutToFile(resourceId string, pythonStdoutEncoded *string) (string, error) {
+	// Define the file path using the FilesDir and resource ID
+	outputFilePath := filepath.Join(dr.FilesDir, resourceId)
+
+	// Ensure the ResponseBody is not nil
+	if pythonStdoutEncoded != nil {
+		// Prepare the content to write
+		var content string
+		if utils.IsBase64Encoded(*pythonStdoutEncoded) {
+			// Decode the Base64-encoded ResponseBody string
+			decodedResponseBody, err := utils.DecodeBase64String(*pythonStdoutEncoded)
+			if err != nil {
+				return "", fmt.Errorf("failed to decode Base64 string for resource ID: %s: %w", resourceId, err)
+			}
+			content = decodedResponseBody
+		} else {
+			// Use the ResponseBody content as-is if not Base64-encoded
+			content = *pythonStdoutEncoded
+		}
+
+		// Write the content to the file
+		err := afero.WriteFile(dr.Fs, outputFilePath, []byte(content), 0644)
+		if err != nil {
+			return "", fmt.Errorf("failed to write Python Stdout to file for resource ID: %s: %w", resourceId, err)
+		}
+	} else {
+		return "", nil
+	}
+
+	return outputFilePath, nil
+}
+
 func (dr *DependencyResolver) AppendPythonEntry(resourceId string, newPython *pklPython.ResourcePython) error {
 	// Define the path to the PKL file
 	pklPath := filepath.Join(dr.ActionDir, "python/"+dr.RequestId+"__python_output.pkl")
@@ -188,7 +220,14 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceId string, newPython *pk
 			encodedStderr = *newPython.Stderr
 		}
 	}
+
 	if newPython.Stdout != nil {
+		filePath, err := dr.WritePythonStdoutToFile(resourceId, newPython.Stdout)
+		if err != nil {
+			return fmt.Errorf("failed to write Python stdout to file: %w", err)
+		}
+		newPython.File = &filePath
+
 		if !utils.IsBase64Encoded(*newPython.Stdout) {
 			encodedStdout = utils.EncodeBase64String(*newPython.Stdout)
 		} else {
@@ -218,6 +257,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceId string, newPython *pk
 		Script:    encodedScript,
 		Stderr:    &encodedStderr,
 		Stdout:    &encodedStdout,
+		File:      newPython.File,
 		Timestamp: &newTimestamp,
 	}
 
@@ -254,6 +294,8 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceId string, newPython *pk
 		} else {
 			pklContent.WriteString("    stdout = \"\"\n")
 		}
+
+		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *resource.File))
 
 		pklContent.WriteString("  }\n")
 	}
