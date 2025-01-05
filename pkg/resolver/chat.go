@@ -136,6 +136,38 @@ func (dr *DependencyResolver) processLLMChat(actionId string, chatBlock *pklLLM.
 	return nil
 }
 
+func (dr *DependencyResolver) WriteResponseToFile(resourceId string, responseEncoded *string) (string, error) {
+	// Define the file path using the FilesDir and resource ID
+	outputFilePath := filepath.Join(dr.FilesDir, resourceId)
+
+	// Ensure the Response is not nil
+	if responseEncoded != nil {
+		// Prepare the content to write
+		var content string
+		if utils.IsBase64Encoded(*responseEncoded) {
+			// Decode the Base64-encoded Response string
+			decodedResponse, err := utils.DecodeBase64String(*responseEncoded)
+			if err != nil {
+				return "", fmt.Errorf("failed to decode Base64 string for resource ID: %s: %w", resourceId, err)
+			}
+			content = decodedResponse
+		} else {
+			// Use the Response content as-is if not Base64-encoded
+			content = *responseEncoded
+		}
+
+		// Write the content to the file
+		err := afero.WriteFile(dr.Fs, outputFilePath, []byte(content), 0644)
+		if err != nil {
+			return "", fmt.Errorf("failed to write Response to file for resource ID: %s: %w", resourceId, err)
+		}
+	} else {
+		return "", nil
+	}
+
+	return outputFilePath, nil
+}
+
 func (dr *DependencyResolver) AppendChatEntry(resourceId string, newChat *pklLLM.ResourceChat) error {
 	// Define the path to the PKL file
 	pklPath := filepath.Join(dr.ActionDir, "llm/"+dr.RequestId+"__llm_output.pkl")
@@ -165,6 +197,12 @@ func (dr *DependencyResolver) AppendChatEntry(resourceId string, newChat *pklLLM
 
 	var encodedResponse string
 	if newChat.Response != nil {
+		filePath, err := dr.WriteResponseToFile(resourceId, newChat.Response)
+		if err != nil {
+			return fmt.Errorf("failed to write Response to file: %w", err)
+		}
+		newChat.File = &filePath
+
 		if !utils.IsBase64Encoded(*newChat.Response) {
 			encodedResponse = utils.EncodeBase64String(*newChat.Response)
 		} else {
@@ -177,6 +215,7 @@ func (dr *DependencyResolver) AppendChatEntry(resourceId string, newChat *pklLLM
 		Model:     encodedModel,
 		Prompt:    encodedPrompt,
 		Response:  &encodedResponse,
+		File:      newChat.File,
 		Timestamp: &newTimestamp,
 	}
 
@@ -212,12 +251,15 @@ func (dr *DependencyResolver) AppendChatEntry(resourceId string, newChat *pklLLM
 
 		pklContent.WriteString(fmt.Sprintf("    timeoutSeconds = %d\n", resource.TimeoutSeconds))
 		pklContent.WriteString(fmt.Sprintf("    timestamp = %d\n", *resource.Timestamp))
+
 		// Dereference response to pass it correctly
 		if resource.Response != nil {
 			pklContent.WriteString(fmt.Sprintf("    response = #\"\"\"\n%s\n\"\"\"#\n", *resource.Response))
 		} else {
 			pklContent.WriteString("    response = \"\"\n")
 		}
+
+		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *resource.File))
 
 		pklContent.WriteString("  }\n")
 	}
