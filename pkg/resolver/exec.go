@@ -69,6 +69,38 @@ func (dr *DependencyResolver) HandleExec(actionId string, execBlock *pklExec.Res
 	return nil
 }
 
+func (dr *DependencyResolver) WriteStdoutToFile(resourceId string, stdoutEncoded *string) (string, error) {
+	// Define the file path using the FilesDir and resource ID
+	outputFilePath := filepath.Join(dr.FilesDir, resourceId)
+
+	// Ensure the Stdout is not nil
+	if stdoutEncoded != nil {
+		// Prepare the content to write
+		var content string
+		if utils.IsBase64Encoded(*stdoutEncoded) {
+			// Decode the Base64-encoded Stdout string
+			decodedStdout, err := utils.DecodeBase64String(*stdoutEncoded)
+			if err != nil {
+				return "", fmt.Errorf("failed to decode Base64 string for resource ID: %s: %w", resourceId, err)
+			}
+			content = decodedStdout
+		} else {
+			// Use the Stdout content as-is if not Base64-encoded
+			content = *stdoutEncoded
+		}
+
+		// Write the content to the file
+		err := afero.WriteFile(dr.Fs, outputFilePath, []byte(content), 0644)
+		if err != nil {
+			return "", fmt.Errorf("failed to write Stdout to file for resource ID: %s: %w", resourceId, err)
+		}
+	} else {
+		return "", nil
+	}
+
+	return outputFilePath, nil
+}
+
 func (dr *DependencyResolver) processExecBlock(actionId string, execBlock *pklExec.ResourceExec) error {
 	var env []string
 	if execBlock.Env != nil {
@@ -135,6 +167,12 @@ func (dr *DependencyResolver) AppendExecEntry(resourceId string, newExec *pklExe
 		}
 	}
 	if newExec.Stdout != nil {
+		filePath, err := dr.WriteStdoutToFile(resourceId, newExec.Stdout)
+		if err != nil {
+			return fmt.Errorf("failed to write Stdout to file: %w", err)
+		}
+		newExec.File = &filePath
+
 		if !utils.IsBase64Encoded(*newExec.Stdout) {
 			encodedStdout = utils.EncodeBase64String(*newExec.Stdout)
 		} else {
@@ -164,6 +202,7 @@ func (dr *DependencyResolver) AppendExecEntry(resourceId string, newExec *pklExe
 		Command:   encodedCommand,
 		Stderr:    &encodedStderr,
 		Stdout:    &encodedStdout,
+		File:      newExec.File,
 		Timestamp: &newTimestamp,
 	}
 
@@ -200,6 +239,8 @@ func (dr *DependencyResolver) AppendExecEntry(resourceId string, newExec *pklExe
 		} else {
 			pklContent.WriteString("    stdout = \"\"\n")
 		}
+
+		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *resource.File))
 
 		pklContent.WriteString("  }\n")
 	}
