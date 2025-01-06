@@ -123,8 +123,10 @@ func (dr *DependencyResolver) decodeHttpBlock(httpBlock *pklHttp.ResourceHTTPCli
 }
 
 func (dr *DependencyResolver) WriteResponseBodyToFile(resourceId string, responseBodyEncoded *string) (string, error) {
+	// Convert resourceId to be filename friendly
+	resourceIdFile := utils.ConvertToFilenameFriendly(resourceId)
 	// Define the file path using the FilesDir and resource ID
-	outputFilePath := filepath.Join(dr.FilesDir, resourceId)
+	outputFilePath := filepath.Join(dr.FilesDir, resourceIdFile)
 
 	// Ensure the ResponseBody is not nil
 	if responseBodyEncoded != nil {
@@ -170,7 +172,7 @@ func (dr *DependencyResolver) AppendHttpEntry(resourceId string, newHttpClient *
 	existingResources := *pklRes.GetResources() // Dereference the pointer to get the map
 
 	// Check if the URL is already Base64 encoded
-	var encodedUrl string
+	var filePath, encodedUrl string
 	if utils.IsBase64Encoded(newHttpClient.Url) {
 		encodedUrl = newHttpClient.Url // Use the URL as it is if already Base64 encoded
 	} else {
@@ -183,7 +185,7 @@ func (dr *DependencyResolver) AppendHttpEntry(resourceId string, newHttpClient *
 		Data:      newHttpClient.Data,
 		Headers:   newHttpClient.Headers,
 		Response:  newHttpClient.Response,
-		File:      utils.StringPtr(""), // Initialize with an empty string
+		File:      &filePath,
 		Timestamp: &newTimestamp,
 	}
 
@@ -268,7 +270,7 @@ func (dr *DependencyResolver) AppendHttpEntry(resourceId string, newHttpClient *
 			}
 
 			if resource.Response.Body != nil {
-				filePath, err := dr.WriteResponseBodyToFile(resourceId, resource.Response.Body)
+				filePath, err = dr.WriteResponseBodyToFile(resourceId, resource.Response.Body)
 				if err != nil {
 					return fmt.Errorf("failed to write Response Body to file: %w", err)
 				}
@@ -289,7 +291,7 @@ func (dr *DependencyResolver) AppendHttpEntry(resourceId string, newHttpClient *
 			pklContent.WriteString("    response {\nheaders{[\"\"] = \"\"\n}\nbody=\"\"}\n")
 		}
 
-		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", resource.File))
+		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", filePath))
 
 		pklContent.WriteString("  }\n")
 	}

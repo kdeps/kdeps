@@ -81,6 +81,19 @@ func NewGraphResolver(fs afero.Fs, logger *log.Logger, ctx context.Context, env 
 			filesDir = filepath.Join(actionDir, "/files/")
 		}
 
+		// List of directories to create
+		directories := []string{
+			projectDir,
+			actionDir,
+			filesDir,
+		}
+
+		// Create directories
+		if err := utils.CreateDirectories(fs, directories); err != nil {
+			return nil, fmt.Errorf("Error creating directory.", err)
+		} else {
+			logger.Debug("Directories created successfully")
+		}
 	}
 
 	requestPklFile := filepath.Join(actionDir, "/api/"+graphId+"__request.pkl")
@@ -123,12 +136,12 @@ func NewGraphResolver(fs afero.Fs, logger *log.Logger, ctx context.Context, env 
 }
 
 func (dr *DependencyResolver) HandleRunAction() (bool, error) {
-	defer func() {
-		if r := recover(); r != nil {
-			dr.Logger.Error("Recovered from panic:", r)
-			dr.HandleAPIErrorResponse(500, "Server panic occurred", true)
-		}
-	}()
+	// defer func() {
+	//	if r := recover(); r != nil {
+	//		dr.Logger.Error("Recovered from panic:", r)
+	//		dr.HandleAPIErrorResponse(500, "Server panic occurred", true)
+	//	}
+	// }()
 
 	visited := make(map[string]bool)
 	actionId := dr.Workflow.GetAction()

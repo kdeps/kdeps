@@ -78,6 +78,7 @@ func processResourcePklFiles(fs afero.Fs, file string, wf pklWf.Workflow, resour
 		"response":       regexp.MustCompile(`(?i)(response)\("(.+)"\)`),
 		"prompt":         regexp.MustCompile(`(?i)(prompt)\("(.+)"\)`),
 		"exitCode":       regexp.MustCompile(`(?i)(exitCode)\("(.+)"\)`),
+		"file":           regexp.MustCompile(`(?i)(file)\("(.+)"\)`),
 	}
 
 	inRequiresBlock := false

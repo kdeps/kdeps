@@ -37,10 +37,23 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 	// Define core imports and declarations
 	coreImports := []string{
 		`import "pkl:json"`,
+		`import "pkl:test"`,
 	}
 	coreDeclarations := []string{
-		`local jsonParser = new json.Parser { useMapping = false }`,
-		`local jsonParserMapping = new json.Parser { useMapping = true }`,
+		`
+local function jsonParser(data: String) =
+  if (test.catchOrNull(() -> (new json.Parser { useMapping = true }).parse(data)) == null)
+    (new json.Parser { useMapping = false }).parse(data)
+  else
+    null
+`,
+		`
+local function jsonParserMapping(data: String) =
+  if (test.catchOrNull(() -> (new json.Parser { useMapping = true }).parse(data)) == null)
+    (new json.Parser { useMapping = true }).parse(data)
+  else
+    null
+`,
 	}
 
 	var importFiles, localVariables string

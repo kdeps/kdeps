@@ -2,6 +2,8 @@ package utils
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/log"
@@ -33,4 +35,25 @@ func WaitForFileReady(fs afero.Fs, filepath string, logger *log.Logger) error {
 			return fmt.Errorf("timeout waiting for file %s", filepath)
 		}
 	}
+}
+
+// ConvertToFilenameFriendly sanitizes a resource ID string to be filename-friendly.
+func ConvertToFilenameFriendly(input string) string {
+	// Replace non-filename-friendly characters (@, /, :) with _
+	re := regexp.MustCompile(`[@/:]`)
+	sanitized := re.ReplaceAllString(input, "_")
+
+	// Remove leading "_" if present
+	return strings.TrimPrefix(sanitized, "_")
+}
+
+func CreateDirectories(fs afero.Fs, dirs []string) error {
+	for _, dir := range dirs {
+		// Use fs.MkdirAll to create the directory and its parents if they don't exist
+		err := fs.MkdirAll(dir, 0755)
+		if err != nil {
+			return fmt.Errorf("failed to create directory %s: %w", dir, err)
+		}
+	}
+	return nil
 }
