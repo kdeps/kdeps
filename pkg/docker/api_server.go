@@ -12,6 +12,7 @@ import (
 	"kdeps/pkg/utils"
 	"net/http"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -341,6 +342,46 @@ func isJSON(str string) bool {
 	return json.Unmarshal([]byte(str), &js) == nil
 }
 
+func fixJSON(input string) string {
+	// Fix unescaped quotes in strings
+	reUnescapedQuotes := regexp.MustCompile(`([^\\])"([^,}\]\s])`)
+	input = reUnescapedQuotes.ReplaceAllString(input, `$1\"$2`)
+
+	// Remove trailing commas
+	reTrailingCommas := regexp.MustCompile(`,(\s*[}\]])`)
+	input = reTrailingCommas.ReplaceAllString(input, `$1`)
+
+	// Remove extra double quotes
+	reExtraQuotes := regexp.MustCompile(`\"{2,}`)
+	input = reExtraQuotes.ReplaceAllString(input, `\"`)
+
+	// Wrap unquoted keys
+	reUnquotedKeys := regexp.MustCompile(`\{\s*([a-zA-Z0-9_]+)\s*:`)
+	input = reUnquotedKeys.ReplaceAllString(input, `{"$1":`)
+
+	reUnquotedKeys2 := regexp.MustCompile(`\{|\s*,\s*([a-zA-Z0-9_]+)\s*:`)
+	input = reUnquotedKeys2.ReplaceAllStringFunc(input, func(match string) string {
+		if match[0] == ',' {
+			return `, "` + match[2:] + `"`
+		}
+		return match
+	})
+
+	// Remove trailing backslashes
+	reTrailingBackslashes := regexp.MustCompile(`\\+$`)
+	input = reTrailingBackslashes.ReplaceAllString(input, "")
+
+	// Remove backslashes escaping quotes
+	reEscapedQuotes2 := regexp.MustCompile(`\\+"`)
+	input = reEscapedQuotes2.ReplaceAllString(input, `"`)
+
+	// Remove trailing backslashes
+	reTrailingBackslashes2 := regexp.MustCompile(`\\+$`)
+	input = reTrailingBackslashes2.ReplaceAllString(input, "")
+
+	return input
+}
+
 func decodeResponseContent(content []byte, logger *log.Logger) ([]byte, error) {
 	var decodedResp DecodedResponse
 
@@ -367,20 +408,28 @@ func decodeResponseContent(content []byte, logger *log.Logger) ([]byte, error) {
 			}
 
 			// Clean up any remaining escape sequences (like \n or \") if present
-			decodedData = strings.ReplaceAll(decodedData, "\\\"", "\"")
-			decodedData = strings.ReplaceAll(decodedData, "\\n", "\n")
+			// https://stackoverflow.com/questions/53776683/regex-find-newline-between-double-quotes-and-replace-with-space/53777149#53777149
+			matchNewlines := regexp.MustCompile(`[\r\n]`)
+			escapeNewlines := func(s string) string {
+				return matchNewlines.ReplaceAllString(s, "\\n")
+			}
+			re := regexp.MustCompile(`"[^"\\]*(?:\\[\s\S][^"\\]*)*"`)
+			invalidJson := re.ReplaceAllStringFunc(decodedData, escapeNewlines)
+
+			// Pass in the invalidJson to the fixJSON
+			fixedJson := fixJSON(invalidJson)
 
 			// If the decoded data is JSON, pretty print it
-			if isJSON(decodedData) {
+			if isJSON(fixedJson) {
 				var prettyJSON bytes.Buffer
-				err := json.Indent(&prettyJSON, []byte(decodedData), "", "  ")
+				err := json.Indent(&prettyJSON, []byte(fixedJson), "", "  ")
 				if err == nil {
-					decodedData = prettyJSON.String()
+					fixedJson = prettyJSON.String()
 				}
 			}
 
 			// Assign the cleaned-up data back to the response
-			decodedResp.Response.Data[i] = decodedData
+			decodedResp.Response.Data[i] = fixedJson
 		}
 	}
 
