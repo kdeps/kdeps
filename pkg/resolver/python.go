@@ -158,8 +158,10 @@ func (dr *DependencyResolver) processPythonBlock(actionId string, pythonBlock *p
 }
 
 func (dr *DependencyResolver) WritePythonStdoutToFile(resourceId string, pythonStdoutEncoded *string) (string, error) {
+	// Convert resourceId to be filename friendly
+	resourceIdFile := utils.ConvertToFilenameFriendly(resourceId)
 	// Define the file path using the FilesDir and resource ID
-	outputFilePath := filepath.Join(dr.FilesDir, resourceId)
+	outputFilePath := filepath.Join(dr.FilesDir, resourceIdFile)
 
 	// Ensure the ResponseBody is not nil
 	if pythonStdoutEncoded != nil {
@@ -211,7 +213,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceId string, newPython *pk
 		encodedScript = utils.EncodeBase64String(newPython.Script)
 	}
 
-	var encodedStderr, encodedStdout string
+	var filePath, encodedStderr, encodedStdout string
 
 	if newPython.Stderr != nil {
 		if !utils.IsBase64Encoded(*newPython.Stderr) {
@@ -222,7 +224,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceId string, newPython *pk
 	}
 
 	if newPython.Stdout != nil {
-		filePath, err := dr.WritePythonStdoutToFile(resourceId, newPython.Stdout)
+		filePath, err = dr.WritePythonStdoutToFile(resourceId, newPython.Stdout)
 		if err != nil {
 			return fmt.Errorf("failed to write Python stdout to file: %w", err)
 		}
@@ -257,7 +259,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceId string, newPython *pk
 		Script:    encodedScript,
 		Stderr:    &encodedStderr,
 		Stdout:    &encodedStdout,
-		File:      newPython.File,
+		File:      &filePath,
 		Timestamp: &newTimestamp,
 	}
 
@@ -295,7 +297,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceId string, newPython *pk
 			pklContent.WriteString("    stdout = \"\"\n")
 		}
 
-		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *resource.File))
+		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", filePath))
 
 		pklContent.WriteString("  }\n")
 	}

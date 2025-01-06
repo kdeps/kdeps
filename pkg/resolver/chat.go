@@ -137,8 +137,10 @@ func (dr *DependencyResolver) processLLMChat(actionId string, chatBlock *pklLLM.
 }
 
 func (dr *DependencyResolver) WriteResponseToFile(resourceId string, responseEncoded *string) (string, error) {
+	// Convert resourceId to be filename friendly
+	resourceIdFile := utils.ConvertToFilenameFriendly(resourceId)
 	// Define the file path using the FilesDir and resource ID
-	outputFilePath := filepath.Join(dr.FilesDir, resourceId)
+	outputFilePath := filepath.Join(dr.FilesDir, resourceIdFile)
 
 	// Ensure the Response is not nil
 	if responseEncoded != nil {
@@ -195,9 +197,9 @@ func (dr *DependencyResolver) AppendChatEntry(resourceId string, newChat *pklLLM
 		encodedPrompt = utils.EncodeBase64String(newChat.Prompt)
 	}
 
-	var encodedResponse string
+	var filePath, encodedResponse string
 	if newChat.Response != nil {
-		filePath, err := dr.WriteResponseToFile(resourceId, newChat.Response)
+		filePath, err = dr.WriteResponseToFile(resourceId, newChat.Response)
 		if err != nil {
 			return fmt.Errorf("failed to write Response to file: %w", err)
 		}
@@ -215,7 +217,7 @@ func (dr *DependencyResolver) AppendChatEntry(resourceId string, newChat *pklLLM
 		Model:     encodedModel,
 		Prompt:    encodedPrompt,
 		Response:  &encodedResponse,
-		File:      newChat.File,
+		File:      &filePath,
 		Timestamp: &newTimestamp,
 	}
 
@@ -259,7 +261,7 @@ func (dr *DependencyResolver) AppendChatEntry(resourceId string, newChat *pklLLM
 			pklContent.WriteString("    response = \"\"\n")
 		}
 
-		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *resource.File))
+		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", filePath))
 
 		pklContent.WriteString("  }\n")
 	}

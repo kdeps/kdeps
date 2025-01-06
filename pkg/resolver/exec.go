@@ -70,8 +70,10 @@ func (dr *DependencyResolver) HandleExec(actionId string, execBlock *pklExec.Res
 }
 
 func (dr *DependencyResolver) WriteStdoutToFile(resourceId string, stdoutEncoded *string) (string, error) {
+	// Convert resourceId to be filename friendly
+	resourceIdFile := utils.ConvertToFilenameFriendly(resourceId)
 	// Define the file path using the FilesDir and resource ID
-	outputFilePath := filepath.Join(dr.FilesDir, resourceId)
+	outputFilePath := filepath.Join(dr.FilesDir, resourceIdFile)
 
 	// Ensure the Stdout is not nil
 	if stdoutEncoded != nil {
@@ -158,7 +160,7 @@ func (dr *DependencyResolver) AppendExecEntry(resourceId string, newExec *pklExe
 		encodedCommand = utils.EncodeBase64String(newExec.Command)
 	}
 
-	var encodedStderr, encodedStdout string
+	var filePath, encodedStderr, encodedStdout string
 	if newExec.Stderr != nil {
 		if !utils.IsBase64Encoded(*newExec.Stderr) {
 			encodedStderr = utils.EncodeBase64String(*newExec.Stderr)
@@ -167,7 +169,7 @@ func (dr *DependencyResolver) AppendExecEntry(resourceId string, newExec *pklExe
 		}
 	}
 	if newExec.Stdout != nil {
-		filePath, err := dr.WriteStdoutToFile(resourceId, newExec.Stdout)
+		filePath, err = dr.WriteStdoutToFile(resourceId, newExec.Stdout)
 		if err != nil {
 			return fmt.Errorf("failed to write Stdout to file: %w", err)
 		}
@@ -202,7 +204,7 @@ func (dr *DependencyResolver) AppendExecEntry(resourceId string, newExec *pklExe
 		Command:   encodedCommand,
 		Stderr:    &encodedStderr,
 		Stdout:    &encodedStdout,
-		File:      newExec.File,
+		File:      &filePath,
 		Timestamp: &newTimestamp,
 	}
 
@@ -240,7 +242,7 @@ func (dr *DependencyResolver) AppendExecEntry(resourceId string, newExec *pklExe
 			pklContent.WriteString("    stdout = \"\"\n")
 		}
 
-		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *resource.File))
+		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", filePath))
 
 		pklContent.WriteString("  }\n")
 	}
