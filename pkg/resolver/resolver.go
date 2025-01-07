@@ -34,6 +34,7 @@ type DependencyResolver struct {
 	AgentDir             string
 	ActionDir            string
 	FilesDir             string
+	DataDir              string
 	ApiServerMode        bool
 	AnacondaInstalled    bool
 }
@@ -46,7 +47,7 @@ type ResourceNodeEntry struct {
 func NewGraphResolver(fs afero.Fs, logger *log.Logger, ctx context.Context, env *environment.Environment, agentDir string) (*DependencyResolver, error) {
 	graphId := uuid.New().String()
 
-	var actionDir, filesDir, projectDir, pklWfFile, pklWfParentFile string
+	var dataDir, actionDir, filesDir, projectDir, pklWfFile, pklWfParentFile string
 
 	if env.DockerMode == "1" {
 		agentDir = filepath.Join(agentDir, "/workflow/")
@@ -74,9 +75,11 @@ func NewGraphResolver(fs afero.Fs, logger *log.Logger, ctx context.Context, env 
 			agentDir = filepath.Join(agentDir, "../")
 			projectDir = filepath.Join(agentDir, "/project/")
 			actionDir = filepath.Join(agentDir, "/actions")
+			dataDir = filepath.Join(projectDir, "/data/")
 			filesDir = filepath.Join(actionDir, "/files/")
 		} else {
 			projectDir = filepath.Join(agentDir, "../project/")
+			dataDir = filepath.Join(projectDir, "/data/")
 			actionDir = filepath.Join(agentDir, "../actions")
 			filesDir = filepath.Join(actionDir, "/files/")
 		}
@@ -109,6 +112,7 @@ func NewGraphResolver(fs afero.Fs, logger *log.Logger, ctx context.Context, env 
 		AgentDir:             agentDir,
 		ActionDir:            actionDir,
 		FilesDir:             filesDir,
+		DataDir:              dataDir,
 		RequestId:            graphId,
 		RequestPklFile:       requestPklFile,
 		ResponsePklFile:      responsePklFile,

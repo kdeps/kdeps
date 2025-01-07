@@ -4,16 +4,19 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"kdeps/pkg/data"
 	"kdeps/pkg/schema"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
+	pklData "github.com/kdeps/schema/gen/data"
 	pklExec "github.com/kdeps/schema/gen/exec"
 	pklHttp "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
 	pklPython "github.com/kdeps/schema/gen/python"
+	"github.com/kdeps/schema/gen/utils"
 	"github.com/spf13/afero"
 )
 
@@ -32,7 +35,7 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 		filepath.Join(dr.ActionDir, "/client/"+dr.RequestId+"__client_output.pkl"): "client",
 		filepath.Join(dr.ActionDir, "/exec/"+dr.RequestId+"__exec_output.pkl"):     "exec",
 		filepath.Join(dr.ActionDir, "/python/"+dr.RequestId+"__python_output.pkl"): "python",
-		filepath.Join(dr.ActionDir, "/data/"+dr.RequestId+"__data_output.pkl"):     "data",
+		filepath.Join(dr.ActionDir, "/data/"+dr.RequestId+"__data_output.pkl"):     "dataFiles",
 	}
 
 	// Define core imports and declarations
@@ -40,11 +43,11 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 		`import "pkl:json"`,
 		`import "pkl:test"`,
 		`import "pkl:math"`,
-		`import "pkl.platform"`,
-		`import "pkl.semver"`,
-		`import "pkl.shell"`,
-		`import "pkl.xml"`,
-		`import "pkl.yaml"`,
+		`import "pkl:platform"`,
+		`import "pkl:semver"`,
+		`import "pkl:shell"`,
+		`import "pkl:xml"`,
+		`import "pkl:yaml"`,
 	}
 	coreDeclarations := []string{
 		`
@@ -52,14 +55,14 @@ local function jsonParser(data: String) =
   if (test.catchOrNull(() -> (new json.Parser { useMapping = true }).parse(data)) == null)
     (new json.Parser { useMapping = false }).parse(data)
   else
-    ""
+    null
 `,
 		`
 local function jsonParserMapping(data: String) =
   if (test.catchOrNull(() -> (new json.Parser { useMapping = true }).parse(data)) == null)
     (new json.Parser { useMapping = true }).parse(data)
   else
-    ""
+    null
 `,
 		`
 local function jsonRenderDocument(data: String) =
@@ -158,6 +161,7 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 		"client": filepath.Join(dr.ActionDir, "/client/"+dr.RequestId+"__client_output.pkl"),
 		"exec":   filepath.Join(dr.ActionDir, "/exec/"+dr.RequestId+"__exec_output.pkl"),
 		"python": filepath.Join(dr.ActionDir, "/python/"+dr.RequestId+"__python_output.pkl"),
+		"data":   filepath.Join(dr.ActionDir, "/data/"+dr.RequestId+"__data_output.pkl"),
 	}
 
 	for key, file := range files {
@@ -184,16 +188,23 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 			packageUrl := fmt.Sprintf("package://schema.kdeps.com/core@%s#/", schema.SchemaVersion)
 			writer := bufio.NewWriter(f)
 
-			var schemaFile string
+			var schemaFile, blockType string
 			switch key {
 			case "exec":
 				schemaFile = "Exec.pkl"
+				blockType = "resources"
 			case "python":
 				schemaFile = "Python.pkl"
+				blockType = "resources"
 			case "client":
 				schemaFile = "Http.pkl"
+				blockType = "resources"
 			case "llm":
 				schemaFile = "LLM.pkl"
+				blockType = "resources"
+			case "data":
+				schemaFile = "Data.pkl"
+				blockType = "files" // Special case for "data"
 			}
 
 			// Write header using packageUrl and schemaFile
@@ -201,9 +212,9 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 				return fmt.Errorf("failed to write header for %s: %w", key, err)
 			}
 
-			// Write the resource block
-			if _, err := writer.WriteString("resources {\n}\n"); err != nil {
-				return fmt.Errorf("failed to write resource block for %s: %w", key, err)
+			// Write the block (resources or files)
+			if _, err := writer.WriteString(fmt.Sprintf("%s {\n}\n", blockType)); err != nil {
+				return fmt.Errorf("failed to write block for %s: %w", key, err)
 			}
 
 			// Flush the writer
@@ -312,11 +323,26 @@ func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
 	}
 
 	// Create placeholder entries using the parsed actionId
+	type DataImpl struct {
+		*utils.UtilsImpl
+
+		// Files in the data folder mapped with the agent name and version
+		Files *map[string]map[string]string `pkl:"files"`
+	}
+
+	dataFileList, err := data.PopulateDataFileRegistry(dr.Fs, dr.DataDir)
+	dataFiles := &pklData.DataImpl{
+		Files: dataFileList,
+	}
 	llmChat := &pklLLM.ResourceChat{}
 	execCmd := &pklExec.ResourceExec{}
 	pythonCmd := &pklPython.ResourcePython{}
 	httpClient := &pklHttp.ResourceHTTPClient{
 		Method: "GET",
+	}
+
+	if err := dr.AppendDataEntry(actionId, dataFiles); err != nil {
+		return err
 	}
 
 	if err := dr.AppendChatEntry(actionId, llmChat); err != nil {
