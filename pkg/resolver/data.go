@@ -13,7 +13,6 @@ import (
 )
 
 // AppendDataEntry appends a data entry to the existing files map
-// AppendDataEntry appends a data entry to the existing files map
 func (dr *DependencyResolver) AppendDataEntry(resourceId string, newData *pklData.DataImpl) error {
 	// Ensure dr.Context is not nil
 	if dr.Context == nil {
@@ -24,7 +23,7 @@ func (dr *DependencyResolver) AppendDataEntry(resourceId string, newData *pklDat
 	pklPath := filepath.Join(dr.ActionDir, "data/"+dr.RequestId+"__data_output.pkl")
 
 	// Load existing PKL data
-	pklRes, err := pklData.LoadFromPath(*dr.Context, pklPath)
+	pklRes, err := pklData.LoadFromPath(dr.Context, pklPath)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL file: %w", err)
 	}

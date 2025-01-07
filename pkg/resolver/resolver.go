@@ -23,7 +23,7 @@ type DependencyResolver struct {
 	ResourceDependencies map[string][]string
 	DependencyGraph      []string
 	VisitedPaths         map[string]bool
-	Context              *context.Context
+	Context              context.Context
 	Graph                *graph.DependencyGraph
 	Workflow             pklWf.Workflow
 	RequestId            string
@@ -93,7 +93,7 @@ func NewGraphResolver(fs afero.Fs, logger *log.Logger, ctx context.Context, env 
 
 		// Create directories
 		if err := utils.CreateDirectories(fs, directories); err != nil {
-			return nil, fmt.Errorf("Error creating directory.", err)
+			return nil, fmt.Errorf("Error creating directory: %s", err)
 		} else {
 			logger.Debug("Directories created successfully")
 		}
@@ -108,7 +108,7 @@ func NewGraphResolver(fs afero.Fs, logger *log.Logger, ctx context.Context, env 
 		ResourceDependencies: make(map[string][]string),
 		Logger:               logger,
 		VisitedPaths:         make(map[string]bool),
-		Context:              &ctx,
+		Context:              ctx,
 		AgentDir:             agentDir,
 		ActionDir:            actionDir,
 		FilesDir:             filesDir,
@@ -159,7 +159,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	for _, resNode := range stack {
 		for _, res := range dr.Resources {
 			if res.Id == resNode {
-				rsc, err := pklRes.LoadFromPath(*dr.Context, res.File)
+				rsc, err := pklRes.LoadFromPath(dr.Context, res.File)
 				if err != nil {
 					return dr.HandleAPIErrorResponse(500, err.Error(), true)
 				}

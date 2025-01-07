@@ -338,7 +338,7 @@ func eachResourceAreReloadedWhenOpened() error {
 			if res.Id == resNode {
 				logger.Debug("Executing resource: ", res.Id)
 
-				rsc, err := pklRes.LoadFromPath(*graphResolver.Context, res.File)
+				rsc, err := pklRes.LoadFromPath(graphResolver.Context, res.File)
 				if err != nil {
 					logger.Debug(err)
 					// return graphResolver.HandleAPIErrorResponse(500, err.Error())

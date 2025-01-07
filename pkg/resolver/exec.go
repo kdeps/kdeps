@@ -146,7 +146,7 @@ func (dr *DependencyResolver) AppendExecEntry(resourceId string, newExec *pklExe
 	newTimestamp := uint32(time.Now().UnixNano())
 
 	// Load existing PKL data
-	pklRes, err := pklExec.LoadFromPath(*dr.Context, pklPath)
+	pklRes, err := pklExec.LoadFromPath(dr.Context, pklPath)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL file: %w", err)
 	}

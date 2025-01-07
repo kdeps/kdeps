@@ -67,7 +67,7 @@ func (dr *DependencyResolver) handleFileImports(path string) error {
 // processPklFile processes an individual .pkl file and updates dependencies
 func (dr *DependencyResolver) processPklFile(file string) error {
 	// Load the resource file
-	pklRes, err := resource.LoadResource(*dr.Context, file, dr.Logger)
+	pklRes, err := resource.LoadResource(dr.Context, file, dr.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to load resource from .pkl file %s: %w", file, err)
 	}

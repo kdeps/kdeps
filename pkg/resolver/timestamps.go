@@ -31,13 +31,13 @@ func (dr *DependencyResolver) getResourceFilePath(resourceType string) (string, 
 func (dr *DependencyResolver) loadPKLFile(resourceType, pklPath string) (interface{}, error) {
 	switch resourceType {
 	case "exec":
-		return pklExec.LoadFromPath(*dr.Context, pklPath)
+		return pklExec.LoadFromPath(dr.Context, pklPath)
 	case "python":
-		return pklPython.LoadFromPath(*dr.Context, pklPath)
+		return pklPython.LoadFromPath(dr.Context, pklPath)
 	case "llm":
-		return pklLLM.LoadFromPath(*dr.Context, pklPath)
+		return pklLLM.LoadFromPath(dr.Context, pklPath)
 	case "client":
-		return pklHttp.LoadFromPath(*dr.Context, pklPath)
+		return pklHttp.LoadFromPath(dr.Context, pklPath)
 	default:
 		return nil, fmt.Errorf("unsupported resourceType %s provided", resourceType)
 	}
