@@ -65,44 +65,44 @@ local function jsonParserMapping(data: String) =
     null
 `,
 		`
-local function jsonRenderDocument(data: String) =
-  if (test.catchOrNull(() -> (new JsonRenderer {}).renderDocument(data)) == null)
-    (new JsonRenderer {}).renderDocument(data)
+local function jsonRenderDocument(value: Any) =
+  if (test.catchOrNull(() -> (new JsonRenderer {}).renderDocument(value)) == null)
+    (new JsonRenderer {}).renderDocument(value)
   else
     ""
 `,
 		`
-local function jsonRenderValue(data: String) =
-  if (test.catchOrNull(() -> (new JsonRenderer {}).renderValue(data)) == null)
-    (new JsonRenderer {}).renderValue(data)
+local function jsonRenderValue(value: Any) =
+  if (test.catchOrNull(() -> (new JsonRenderer {}).renderValue(value)) == null)
+    (new JsonRenderer {}).renderValue(value)
   else
     ""
 `,
 		`
-local function yamlRenderDocument(data: String) =
-  if (test.catchOrNull(() -> (new YamlRenderer {}).renderDocument(data)) == null)
-    (new YamlRenderer {}).renderDocument(data)
+local function yamlRenderDocument(value: Any) =
+  if (test.catchOrNull(() -> (new YamlRenderer {}).renderDocument(value)) == null)
+    (new YamlRenderer {}).renderDocument(value)
   else
     ""
 `,
 		`
-local function yamlRenderValue(data: String) =
-  if (test.catchOrNull(() -> (new YamlRenderer {}).renderValue(data)) == null)
-    (new YamlRenderer {}).renderValue(data)
+local function yamlRenderValue(value: Any) =
+  if (test.catchOrNull(() -> (new YamlRenderer {}).renderValue(value)) == null)
+    (new YamlRenderer {}).renderValue(value)
   else
     ""
 `,
 		`
-local function xmlRenderDocument(data: String) =
-  if (test.catchOrNull(() -> (new PListRenderer {}).renderDocument(data)) == null)
-    (new PListRenderer {}).renderDocument(data)
+local function xmlRenderDocument(value: Any) =
+  if (test.catchOrNull(() -> (new PListRenderer {}).renderDocument(value)) == null)
+    (new PListRenderer {}).renderDocument(value)
   else
     ""
 `,
 		`
-local function xmlRenderValue(data: String) =
-  if (test.catchOrNull(() -> (new PListRenderer {}).renderValue(data)) == null)
-    (new PListRenderer {}).renderValue(data)
+local function xmlRenderValue(value: Any) =
+  if (test.catchOrNull(() -> (new PListRenderer {}).renderValue(value)) == null)
+    (new PListRenderer {}).renderValue(value)
   else
     ""
 `,
