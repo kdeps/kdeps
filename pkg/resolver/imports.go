@@ -32,12 +32,19 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 		filepath.Join(dr.ActionDir, "/client/"+dr.RequestId+"__client_output.pkl"): "client",
 		filepath.Join(dr.ActionDir, "/exec/"+dr.RequestId+"__exec_output.pkl"):     "exec",
 		filepath.Join(dr.ActionDir, "/python/"+dr.RequestId+"__python_output.pkl"): "python",
+		filepath.Join(dr.ActionDir, "/data/"+dr.RequestId+"__data_output.pkl"):     "data",
 	}
 
 	// Define core imports and declarations
 	coreImports := []string{
 		`import "pkl:json"`,
 		`import "pkl:test"`,
+		`import "pkl:math"`,
+		`import "pkl.platform"`,
+		`import "pkl.semver"`,
+		`import "pkl.shell"`,
+		`import "pkl.xml"`,
+		`import "pkl.yaml"`,
 	}
 	coreDeclarations := []string{
 		`
@@ -45,14 +52,56 @@ local function jsonParser(data: String) =
   if (test.catchOrNull(() -> (new json.Parser { useMapping = true }).parse(data)) == null)
     (new json.Parser { useMapping = false }).parse(data)
   else
-    null
+    ""
 `,
 		`
 local function jsonParserMapping(data: String) =
   if (test.catchOrNull(() -> (new json.Parser { useMapping = true }).parse(data)) == null)
     (new json.Parser { useMapping = true }).parse(data)
   else
-    null
+    ""
+`,
+		`
+local function jsonRenderDocument(data: String) =
+  if (test.catchOrNull(() -> (new JsonRenderer {}).renderDocument(data)) == null)
+    (new JsonRenderer {}).renderDocument(data)
+  else
+    ""
+`,
+		`
+local function jsonRenderValue(data: String) =
+  if (test.catchOrNull(() -> (new JsonRenderer {}).renderValue(data)) == null)
+    (new JsonRenderer {}).renderValue(data)
+  else
+    ""
+`,
+		`
+local function yamlRenderDocument(data: String) =
+  if (test.catchOrNull(() -> (new YamlRenderer {}).renderDocument(data)) == null)
+    (new YamlRenderer {}).renderDocument(data)
+  else
+    ""
+`,
+		`
+local function yamlRenderValue(data: String) =
+  if (test.catchOrNull(() -> (new YamlRenderer {}).renderValue(data)) == null)
+    (new YamlRenderer {}).renderValue(data)
+  else
+    ""
+`,
+		`
+local function xmlRenderDocument(data: String) =
+  if (test.catchOrNull(() -> (new PListRenderer {}).renderDocument(data)) == null)
+    (new PListRenderer {}).renderDocument(data)
+  else
+    ""
+`,
+		`
+local function xmlRenderValue(data: String) =
+  if (test.catchOrNull(() -> (new PListRenderer {}).renderValue(data)) == null)
+    (new PListRenderer {}).renderValue(data)
+  else
+    ""
 `,
 	}
 
