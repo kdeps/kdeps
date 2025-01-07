@@ -164,7 +164,7 @@ func (dr *DependencyResolver) AppendHttpEntry(resourceId string, newHttpClient *
 	newTimestamp := uint32(time.Now().UnixNano())
 
 	// Load existing PKL data
-	pklRes, err := pklHttp.LoadFromPath(*dr.Context, pklPath)
+	pklRes, err := pklHttp.LoadFromPath(dr.Context, pklPath)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL file: %w", err)
 	}

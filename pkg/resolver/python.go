@@ -199,7 +199,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceId string, newPython *pk
 	newTimestamp := uint32(time.Now().UnixNano())
 
 	// Load existing PKL data
-	pklRes, err := pklPython.LoadFromPath(*dr.Context, pklPath)
+	pklRes, err := pklPython.LoadFromPath(dr.Context, pklPath)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL file: %w", err)
 	}

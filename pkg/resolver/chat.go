@@ -109,7 +109,7 @@ func (dr *DependencyResolver) processLLMChat(actionId string, chatBlock *pklLLM.
 			content = append(content, binaryContent)
 		}
 
-		response, err := llm.GenerateContent(*dr.Context, content, llms.WithJSONMode())
+		response, err := llm.GenerateContent(dr.Context, content, llms.WithJSONMode())
 		if err != nil {
 			return err
 		}
@@ -121,7 +121,7 @@ func (dr *DependencyResolver) processLLMChat(actionId string, chatBlock *pklLLM.
 
 		completion = choices[0].Content
 	} else {
-		completion, err = llm.Call(*dr.Context, chatBlock.Prompt)
+		completion, err = llm.Call(dr.Context, chatBlock.Prompt)
 		if err != nil {
 			return err
 		}
@@ -178,7 +178,7 @@ func (dr *DependencyResolver) AppendChatEntry(resourceId string, newChat *pklLLM
 	newTimestamp := uint32(time.Now().UnixNano())
 
 	// Load existing PKL data
-	pklRes, err := pklLLM.LoadFromPath(*dr.Context, pklPath)
+	pklRes, err := pklLLM.LoadFromPath(dr.Context, pklPath)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL file: %w", err)
 	}
