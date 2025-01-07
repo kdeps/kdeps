@@ -206,16 +206,10 @@ func generateSpecificFile(fs afero.Fs, logger *log.Logger, mainDir, fileName, ag
 		return err
 	}
 
-	// Create the data/.gitkeep file
+	// Create the data folder
 	dataDir := filepath.Join(mainDir, "data")
 	if err := createDirectory(fs, logger, dataDir); err != nil {
 		logger.Error("Failed to create data directory: ", err)
-		return err
-	}
-
-	gitkeepPath := filepath.Join(dataDir, ".gitkeep")
-	if err := createFile(fs, logger, gitkeepPath, ""); err != nil {
-		logger.Error("Failed to create .gitkeep file: ", err)
 		return err
 	}
 
@@ -310,10 +304,6 @@ func GenerateAgent(fs afero.Fs, logger *log.Logger, agentName string) error {
 	}
 	if err := createDirectory(fs, logger, mainDir+"/data"); err != nil {
 		logger.Error("Failed to create data directory: ", err)
-		return err
-	}
-	if err := createFile(fs, logger, mainDir+"/data/.gitkeep", ""); err != nil {
-		logger.Error("Failed to create .gitkeep file: ", err)
 		return err
 	}
 	if err := generateWorkflowFile(fs, logger, mainDir, name); err != nil {
