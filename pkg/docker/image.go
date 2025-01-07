@@ -255,7 +255,6 @@ RUN rm -rf /downloads
 	// Entry Point and Command
 	dockerFile.WriteString(`
 ENTRYPOINT ["/bin/kdeps"]
-CMD ["run", "/agent/workflow/workflow.pkl"]
 `)
 
 	return dockerFile.String()
