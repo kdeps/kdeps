@@ -21,134 +21,86 @@ import (
 )
 
 func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
+	// Read the file content
 	content, err := afero.ReadFile(dr.Fs, pklFile)
 	if err != nil {
 		return err
 	}
+	contentStr := string(content)
 
 	// Define a regular expression to match "{{value}}"
 	re := regexp.MustCompile(`\@\((.*)\)`)
 
-	importCheck := map[string]string{
-		dr.RequestPklFile: "request",
-		filepath.Join(dr.ActionDir, "/llm/"+dr.RequestId+"__llm_output.pkl"):       "llm",
-		filepath.Join(dr.ActionDir, "/client/"+dr.RequestId+"__client_output.pkl"): "client",
-		filepath.Join(dr.ActionDir, "/exec/"+dr.RequestId+"__exec_output.pkl"):     "exec",
-		filepath.Join(dr.ActionDir, "/python/"+dr.RequestId+"__python_output.pkl"): "python",
-		filepath.Join(dr.ActionDir, "/data/"+dr.RequestId+"__data_output.pkl"):     "dataFiles",
+	// Define ImportConfig struct
+	type ImportConfig struct {
+		Alias string
+		Check bool // Flag to specify if the file existence should be checked
 	}
 
-	// Define core imports and declarations
-	coreImports := []string{
-		`import "pkl:json"`,
-		`import "pkl:test"`,
-		`import "pkl:math"`,
-		`import "pkl:platform"`,
-		`import "pkl:semver"`,
-		`import "pkl:shell"`,
-		`import "pkl:xml"`,
-		`import "pkl:yaml"`,
-	}
-	coreDeclarations := []string{
-		`
-local function jsonParser(data: String) =
-  if (test.catchOrNull(() -> (new json.Parser { useMapping = true }).parse(data)) == null)
-    (new json.Parser { useMapping = false }).parse(data)
-  else
-    null
-`,
-		`
-local function jsonParserMapping(data: String) =
-  if (test.catchOrNull(() -> (new json.Parser { useMapping = true }).parse(data)) == null)
-    (new json.Parser { useMapping = true }).parse(data)
-  else
-    null
-`,
-		`
-local function jsonRenderDocument(value: Any) =
-  if (test.catchOrNull(() -> (new JsonRenderer {}).renderDocument(value)) == null)
-    (new JsonRenderer {}).renderDocument(value)
-  else
-    ""
-`,
-		`
-local function jsonRenderValue(value: Any) =
-  if (test.catchOrNull(() -> (new JsonRenderer {}).renderValue(value)) == null)
-    (new JsonRenderer {}).renderValue(value)
-  else
-    ""
-`,
-		`
-local function yamlRenderDocument(value: Any) =
-  if (test.catchOrNull(() -> (new YamlRenderer {}).renderDocument(value)) == null)
-    (new YamlRenderer {}).renderDocument(value)
-  else
-    ""
-`,
-		`
-local function yamlRenderValue(value: Any) =
-  if (test.catchOrNull(() -> (new YamlRenderer {}).renderValue(value)) == null)
-    (new YamlRenderer {}).renderValue(value)
-  else
-    ""
-`,
-		`
-local function xmlRenderDocument(value: Any) =
-  if (test.catchOrNull(() -> (new PListRenderer {}).renderDocument(value)) == null)
-    (new PListRenderer {}).renderDocument(value)
-  else
-    ""
-`,
-		`
-local function xmlRenderValue(value: Any) =
-  if (test.catchOrNull(() -> (new PListRenderer {}).renderValue(value)) == null)
-    (new PListRenderer {}).renderValue(value)
-  else
-    ""
-`,
+	// Import configurations
+	importCheck := map[string]ImportConfig{
+		"pkl:json":     {Alias: "", Check: false},
+		"pkl:test":     {Alias: "", Check: false},
+		"pkl:math":     {Alias: "", Check: false},
+		"pkl:platform": {Alias: "", Check: false},
+		"pkl:semver":   {Alias: "", Check: false},
+		"pkl:shell":    {Alias: "", Check: false},
+		"pkl:xml":      {Alias: "", Check: false},
+		"pkl:yaml":     {Alias: "", Check: false},
+		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Document.pkl", schema.SchemaVersion): {Alias: "document", Check: false},
+		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Utils.pkl", schema.SchemaVersion):    {Alias: "utils", Check: false},
+		filepath.Join(dr.ActionDir, "/llm/"+dr.RequestId+"__llm_output.pkl"):                  {Alias: "llm", Check: true},
+		filepath.Join(dr.ActionDir, "/client/"+dr.RequestId+"__client_output.pkl"):            {Alias: "client", Check: true},
+		filepath.Join(dr.ActionDir, "/exec/"+dr.RequestId+"__exec_output.pkl"):                {Alias: "exec", Check: true},
+		filepath.Join(dr.ActionDir, "/python/"+dr.RequestId+"__python_output.pkl"):            {Alias: "python", Check: true},
+		filepath.Join(dr.ActionDir, "/data/"+dr.RequestId+"__data_output.pkl"):                {Alias: "data", Check: true},
+		dr.RequestPklFile: {Alias: "request", Check: true},
 	}
 
-	var importFiles, localVariables string
+	// Helper to check file existence
+	fileExists := func(file string) bool {
+		exists, _ := afero.Exists(dr.Fs, file)
+		return exists
+	}
 
-	// Add core imports and declarations
-	importFiles += strings.Join(coreImports, "\n") + "\n"
-	localVariables += strings.Join(coreDeclarations, "\n") + "\n"
+	// Helper to generate import lines
+	generateImportLine := func(file, alias string) string {
+		if alias == "" {
+			return fmt.Sprintf(`import "%s"`, file)
+		}
+		return fmt.Sprintf(`import "%s" as %s`, file, alias)
+	}
 
-	for file, variable := range importCheck {
-		if exists, _ := afero.Exists(dr.Fs, file); exists {
-			// Check if the import line already exists
-			importLine := fmt.Sprintf(`import "%s" as %s_output`, file, variable)
-			if !strings.Contains(string(content), importLine) {
-				importFiles += importLine + "\n"
-			}
-			if variable != "" {
-				importName := strings.TrimSuffix(filepath.Base(variable), ".pkl")
-				localVarLine := fmt.Sprintf("local %s = %s_output\n", variable, importName)
-				// Check if the local variable line already exists
-				if !strings.Contains(string(content), localVarLine) {
-					localVariables += localVarLine
-				}
-			}
+	// Construct the dynamic import lines
+	var importBuilder strings.Builder
+	for file, config := range importCheck {
+		if config.Check && !fileExists(file) {
+			continue
+		}
+
+		importLine := generateImportLine(file, config.Alias)
+		if !strings.Contains(contentStr, importLine) {
+			importBuilder.WriteString(importLine + "\n")
 		}
 	}
 
-	// Only proceed if there are new imports or local variables to add
-	if importFiles != "" || localVariables != "" {
-		importFiles += "\n" + localVariables + "\n"
+	// If there are no new imports, return early
+	importFiles := importBuilder.String()
+	if importFiles == "" {
+		return nil
+	}
 
-		// Convert the content to a string and find the "amends" line
-		contentStr := string(content)
-		amendsIndex := strings.Index(contentStr, "amends")
+	// Add the imports after the "amends" line
+	amendsIndex := strings.Index(contentStr, "amends")
+	if amendsIndex != -1 {
+		amendsLineEnd := strings.Index(contentStr[amendsIndex:], "\n") + amendsIndex + 1
+		newContent := contentStr[:amendsLineEnd] + importFiles + contentStr[amendsLineEnd:]
+		newContent = re.ReplaceAllString(newContent, `\($1)`)
 
-		// If "amends" line is found, insert the dynamic imports after it
-		if amendsIndex != -1 {
-			amendsLineEnd := strings.Index(contentStr[amendsIndex:], "\n") + amendsIndex + 1
-			newContent := contentStr[:amendsLineEnd] + importFiles + contentStr[amendsLineEnd:]
-			newContent = re.ReplaceAllString(newContent, `\($1)`)
-			err = afero.WriteFile(dr.Fs, pklFile, []byte(newContent), 0644)
-			if err != nil {
-				return err
-			}
+		// Write the updated content back to the file
+		err = afero.WriteFile(dr.Fs, pklFile, []byte(newContent), 0644)
+		if err != nil {
+			return err
 		}
 	}
 
