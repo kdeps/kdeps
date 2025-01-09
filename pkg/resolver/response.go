@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"kdeps/pkg/evaluator"
+	"kdeps/pkg/schema"
 	"kdeps/pkg/utils"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"github.com/alexellis/go-execute/v2"
 	"github.com/charmbracelet/log"
+	"github.com/google/uuid"
 	apiserverresponse "github.com/kdeps/schema/gen/api_server_response"
 	"github.com/spf13/afero"
 )
@@ -62,6 +65,7 @@ func (dr *DependencyResolver) buildResponseSections(apiResponseBlock apiserverre
 	dr.Logger.Debug("Building response sections from API response", "response", apiResponseBlock)
 
 	sections := []string{
+		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Document.pkl" as document`, schema.SchemaVersion),
 		fmt.Sprintf("success = %v", apiResponseBlock.GetSuccess()),
 		formatResponseData(apiResponseBlock.GetResponse()),
 		formatErrors(apiResponseBlock.GetErrors(), dr.Logger),
@@ -93,17 +97,103 @@ response {
 	return ""
 }
 
+// formatMap recursively formats a map[interface{}]interface{} for rendering.
+func formatMap(m map[interface{}]interface{}) string {
+	mappingParts := []string{"new Mapping {"}
+	for k, v := range m {
+		var keyStr, valueStr string
+		keyStr = strings.ReplaceAll(fmt.Sprintf("%v", k), `"`, `\"`)
+
+		// Handle nested maps and dynamic objects
+		valueStr = formatValue(v)
+
+		mappingParts = append(mappingParts, fmt.Sprintf(`    ["%s"] = %s`, keyStr, valueStr))
+	}
+	mappingParts = append(mappingParts, "}")
+	return strings.Join(mappingParts, "\n")
+}
+
+// formatValue handles formatting for various data types, including nested maps and dynamic objects.
+func formatValue(value interface{}) string {
+	switch v := value.(type) {
+	case map[string]interface{}:
+		// Convert map[string]interface{} to map[interface{}]interface{}
+		m := make(map[interface{}]interface{})
+		for key, val := range v {
+			m[key] = val
+		}
+		return formatMap(m)
+	case map[interface{}]interface{}:
+		return formatMap(v) // Recursively format nested maps
+	case nil:
+		return "null"
+	default:
+		// Check for dynamic struct-like objects
+		rv := reflect.ValueOf(v)
+		if rv.Kind() == reflect.Ptr && !rv.IsNil() {
+			return formatValue(rv.Elem().Interface()) // Dereference pointer
+		}
+		if rv.Kind() == reflect.Struct {
+			// Convert struct to map for formatting
+			structMap := structToMap(rv.Interface())
+			return formatMap(structMap)
+		}
+
+		// Handle standard types (e.g., strings, numbers)
+		if fmt.Sprintf("%v", v) == "" {
+			return "null"
+		}
+		return fmt.Sprintf(`
+"""
+%v
+"""
+`, v)
+	}
+}
+
+// structToMap converts a struct to a map[interface{}]interface{} using reflection.
+func structToMap(s interface{}) map[interface{}]interface{} {
+	result := make(map[interface{}]interface{})
+	val := reflect.ValueOf(s)
+	if val.Kind() == reflect.Ptr {
+		val = val.Elem() // Dereference if pointer
+	}
+	for i := 0; i < val.NumField(); i++ {
+		fieldName := val.Type().Field(i).Name
+		fieldValue := val.Field(i).Interface()
+		result[fieldName] = fieldValue
+	}
+	return result
+}
+
 // formatDataValue formats a single data value for inclusion in the response.
 func formatDataValue(value interface{}) string {
-	strVal, ok := value.(string)
-	if !ok {
-		strVal = fmt.Sprintf("%v", value)
+	// Generate UUID with underscores
+	uuidVal := strings.ReplaceAll(uuid.New().String(), "-", "_")
+
+	// Initialize the value string
+	var val string
+
+	// Check the value type
+	switch v := value.(type) {
+	case map[interface{}]interface{}, map[string]interface{}:
+		// Handle maps with interface{} or string keys
+		val = formatValue(v)
+	default:
+		// Use the helper function to format non-map types
+		val = formatValue(v)
 	}
+
+	// Return the formatted string
 	return fmt.Sprintf(`
-#"""
-%v
-"""#
-`, strVal)
+local jsonDocument_%s = %s
+local jsonDocumentType_%s = jsonDocument_%s is Mapping | Dynamic
+
+if (jsonDocumentType_%s)
+  document.jsonRenderDocument(jsonDocument_%s)
+else
+  document.jsonRenderDocument((if (document.jsonParser(jsonDocument_%s) != null) document.jsonParser(jsonDocument_%s) else jsonDocument_%s))
+`, uuidVal, val, uuidVal, uuidVal, uuidVal, uuidVal, uuidVal, uuidVal, uuidVal)
 }
 
 // formatErrors formats error messages with optional base64 decoding.
