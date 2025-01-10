@@ -8,8 +8,9 @@ Kdeps utilizes its custom graph library, [Kartographer](https://github.com/kdeps
 dependencies. Kartographer enables the traversal and resolution of dependent nodes, allowing Kdeps to
 orchestrate the execution order of resources.
 
-This capability makes Kdeps particularly well-suited for building RAG (Retrieval-Augmented Generation) AI agents that
-require chaining large language models (LLMs) and other components. It also allows reusing and remixing other AI agents.
+This capability makes Kdeps particularly well-suited for building context-aware RAG (Retrieval-Augmented Generation) AI
+agents that require chaining large language models (LLMs) and other components. It also allows reusing and remixing
+other AI agents.
 
 ### Defining Dependencies
 
