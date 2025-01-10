@@ -15,6 +15,9 @@ hero:
       text: Quickstart
       link: /getting-started/introduction/quickstart
     - theme: alt
+      text: Examples
+      link: https://github.com/kdeps/examples
+    - theme: alt
       text: Github
       link: https://github.com/kdeps/kdeps
 
@@ -36,6 +39,12 @@ features:
   - title: 📦 Install dependent Ubuntu packages from within the workflow configuration
   - title: 📜 Define custom Ubuntu repositories and PPAs in the workflow
   - title: 📈 RAG Graph-based workflow execution
+  - title: 🌐 OPENAPI and JSONAPI Compatible
+  - title: 🆓 Use free and open-source LLMs with no subscriptions
+  - title: 🖼️ Use Multimodal LLMs
+  - title: 🧠 Develop intelligent and context-aware APIs
+  - title: 🎨 Create AI image generator APIs
+  - title: 🗂️ Upload any documents or files for LLM processing
   - title: ⚡ Written in Golang
 ---
 
