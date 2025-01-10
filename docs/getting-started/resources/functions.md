@@ -2,7 +2,7 @@
 outline: deep
 ---
 
-# Functions
+# Resource Functions
 
 Each resource comes with built-in functions, all written in [Apple PKL](https://pkl-lang.org). This design provides the
 flexibility to extend and customize these functions to suit your specific needs.
@@ -18,6 +18,7 @@ Below is a list of functions available for each resource:
 | exec.env("id", "ENVVAR") | Fetches the value of a defined environment variable (`ENV_VAR`) from the specified `exec` resource in the PKL.               |
 | exec.stdout("id")        | Retrieves the standard output (`stdout`) of the shell execution for the specified `exec` resource ID.                        |
 | exec.exitCode("id")      | Fetches the exit code resulting from the shell execution of the specified `exec` resource ID.                                |
+| exec.file("id")          | Retrieves the file path where the stdout output was automatically saved during runtime.                                      |
 
 ## HTTP Client Resource Functions
 
@@ -26,6 +27,7 @@ Below is a list of functions available for each resource:
 | client.resource("id")                    | Retrieves the HTTP `client` resource for the specified ID, providing access to `method`, `url`, `data`, `headers`, and `response`. |
 | client.responseBody("id")                | Retrieves the body of the HTTP `client` response for the specified ID.                                                             |
 | client.responseHeader("id", "HEADER_ID") | Fetches the value of the specified header (`HEADER_ID`) from the HTTP `client` response for the given resource ID.                 |
+| client.file("id")                        | Retrieves the file path where the response body output was automatically saved during runtime.                                     |
 
 ## LLM Resource Functions
 
@@ -36,6 +38,7 @@ Below is a list of functions available for each resource:
 | llm.prompt("id")           | Retrieves the prompt sent to the LLM for the specified resource ID.                                                                         |
 | llm.jsonResponse("id")     | Retrieves the configuration of the `jsonResponse` for the specified resource ID.                                                            |
 | llm.jsonResponseKeys("id") | Fetches the configuration of `jsonResponseKeys` for the specified resource ID.                                                              |
+| llm.file("id")             | Retrieves the file path where the llm response output was automatically saved during runtime.                                               |
 
 ## Python Resource Functions
 
@@ -46,23 +49,4 @@ Below is a list of functions available for each resource:
 | python.env("id", "ENV_VAR") | Fetches the value of a defined environment variable (`ENV_VAR`) from the specified `python` resource in the PKL.                                   |
 | python.stdout("id")         | Retrieves the standard output (`stdout`) of the shell pythonution for the specified `python` resource ID.                                          |
 | python.exitCode("id")       | Fetches the exit code resulting from the shell pythonution of the specified `python` resource ID.                                                  |
-
-## API Request Functions
-
-> *Note:* The API Request is not a resource itself. However, the following functions provide tools for retrieving
-> detailed information about an API request.
-
-| **Function**                    | **Description**                                                                |
-|:--------------------------------|:-------------------------------------------------------------------------------|
-| request.data()                  | Retrieves the request body data.                                               |
-| request.param("id")             | Fetches the value of a specific HTTP parameter from the request.               |
-| request.header("id")            | Fetches the value of a specific HTTP header from the request.                  |
-| request.file("name")            | Accesses details of an uploaded file, including its `filepath` and `filetype`. |
-| request.filetype("name")        | Retrieves the MIME type of an uploaded file by its name.                       |
-| request.filepath("name")        | Retrieves the file path of an uploaded file by its name.                       |
-| request.filecount()             | Returns the total number of uploaded files in the request.                     |
-| request.files()                 | Retrieves a list of file paths for all uploaded files.                         |
-| request.filetypes()             | Retrieves a list of MIME types for all uploaded files.                         |
-| request.filesByType("mimetype") | Retrieves file paths of all uploaded files matching the specified MIME type.   |
-| request.path()                  | Retrieves the URI path of the API request.                                     |
-| request.method()                | Retrieves the HTTP method (e.g., GET, POST) of the API request.                |
+| python.file("id")           | Retrieves the file path where the python stdout output was automatically saved during runtime.                                                     |
