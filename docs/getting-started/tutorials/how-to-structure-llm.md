@@ -2,7 +2,7 @@
 outline: deep
 ---
 
-# Creating Structured LLM Response APIs
+# Creating an AI assisted Weather Forecaster API
 
 In this tutorial, we’ll explore how to design structured responses for your LLMs when building with Kdeps AI
 Agents. Structured JSON output is essential for creating reliable APIs, as it ensures data consistency, simplifies
@@ -27,10 +27,11 @@ applications.
 
 ## Setting Up Our AI Agent: `weather_forecast_ai`
 
-To begin, we will scaffold the resources for our project. We'll name our AI agent `weather_forecast_ai` and use the following command to generate the necessary files all at once:
+To begin, we will scaffold the resources for our project. We'll name our AI agent `weather_forecast_ai` and use the
+following command to generate the necessary files all at once:
 
 ```bash
-kdeps scaffold weather_forecast_ai workflow llm response client
+kdeps scaffold weather_forecast_ai workflow llm response client exec
 ```
 
 This command will create the following directory structure:
@@ -41,6 +42,7 @@ weather_forecast_ai
 ├── resources
 │   ├── client.pkl
 │   ├── llm.pkl
+│   ├── exec.pkl
 │   └── response.pkl
 └── workflow.pkl
 ```
@@ -85,23 +87,24 @@ In this step, we'll build our first Language Learning Model (LLM) to assist with
 
 ### Renaming and Duplicating Files
 
-First, let's rename the `resources/llm.pkl` file to `resources/llm_input_helper.pkl`:
+First, let's rename the `resources/llm.pkl` file to `resources/llm_input.pkl`:
 
 ```bash
 mv weather_forecast_ai/resources/llm.pkl \
-   weather_forecast_ai/resources/llm_input_helper.pkl
+   weather_forecast_ai/resources/llm_input.pkl
 ```
 
-Next, create a duplicate of this file, naming it `resources/llm_output_helper.pkl`. This will handle output preparation:
+Next, create a duplicate of this file, naming it `resources/llm_output.pkl`. This will handle output preparation:
 
 ```bash
-cp weather_forecast_ai/resources/llm_input_helper.pkl \
-   weather_forecast_ai/resources/llm_output_helper.pkl
+cp weather_forecast_ai/resources/llm_input.pkl \
+   weather_forecast_ai/resources/llm_output.pkl
 ```
 
 ### Choosing the Weather API
 
-We'll use [Open Mateo](https://open-mateo.com) for this project, as it offers free API access. If you prefer a different weather API, you'll need to obtain an API key, define it as `args` in the `workflow.pkl` file, and add the key to your `.env` file.
+We'll use [Open Mateo](https://open-mateo.com) for this project, as it offers free API access. If you use an API key,
+you'll need to define it as `args` in the `workflow.pkl` file, and add the key to your `.env` file.
 
 The following input data is required:
 
@@ -123,12 +126,12 @@ We'll use natural language queries to obtain weather information and pass these 
 https://localhost:3000/api/v1/forecast?q=What+is+the+weather+in+Amsterdam?
 ```
 
-### Updating `llm_input_helper.pkl`
+### Updating `llm_input.pkl`
 
-Open the `resources/llm_input_helper.pkl` file and update the resource details as follows:
+Open the `resources/llm_input.pkl` file and update the resource details as follows:
 
 ```diff
-id = "llmInputHelper"                                            // [!code ++]
+id = "llmInput"                                            // [!code ++]
 name = "AI Helper for Input"
 description = "An AI helper to parse input into structured data"
 ```
@@ -160,26 +163,64 @@ Key points:
 - **`@(request.param("q"))`**: This function extracts the query parameter with the ID `q`.
 - **Appended `_str` to Response Keys**: Adding `_str` enforces a typed structure for the LLM output.
 
-By following these steps, you'll have a structured and type-safe LLM for interacting with the Weather API.
+## Storing the LLM response to a JSON file
 
-Here’s an improved and rephrased version of your text:
+After we have generated the structured LLM output from the request params, we need to store it to JSON to parse the
+necessary data required for the HTTP Client resource.
 
----
+Since each resource can only execute a single dedicated task per run, another resource is required to record the JSON
+response to a file.
+
+In this, we will use the `exec` resource.
+
+### Editing `resources/exec.pkl`
+
+First, update the `resources/exec.pkl` file as follows:
+
+```diff
+id = "execResource"      // [!code ++]
+name = "Store LLM JSON response to a file"
+description = "This resource will store the LLM JSON response to a file for processing later"
+requires {
+    "llmInput"     // [!code ++]
+}
+```
+
+By defining `llmInput` as a dependency, this resource can access its outputs.
+
+### Creating the JSON file
+
+Let's say `/tmp/llm_input.json` is the name of the file, we need to create this file from the output of the `llmInput`.
+We also ensure that this file is recreated by deleting it first, so that we are sure that it's a fresh file, not a
+previously generated file that we might have reused.
+
+```diff
+exec {
+    command = """
+    rm -rf /tmp/llm_input.json
+    echo $LLM_INPUT > /tmp/llm_input.json
+    """
+    env {
+        ["LLM_INPUT"] = "@(llm.response("llmInput"))"
+    }
+```
 
 ## Creating an HTTP Client for the Weather API
 
-In this step, we will build the HTTP client responsible for interacting with the Weather API. Using the structured output (`longitude_str`, `latitude_str`, and `timezone_str`) from our previous LLM call, we’ll extract these values with PKL's internal JSON library.
+In this step, we will build the HTTP client responsible for interacting with the Weather API. Using the structured
+output (`longitude_str`, `latitude_str`, and `timezone_str`) from our previous LLM call, we’ll extract these values the
+built-in JSON parser.
 
 ### Editing `resources/client.pkl`
 
 First, update the `resources/client.pkl` file as follows:
 
 ```diff
-id = "httpWeatherClientResource"                                                   // [!code ++]
+id = "httpClient"                                                    // [!code ++]
 name = "HTTP Client for the Weather API"
 description = "This resource enables API requests to the Weather API."
 requires {
-    "llmInputHelper"                                                               // [!code ++]
+    "execResource"                                                   // [!code ++]
 }
 ```
 
@@ -187,20 +228,24 @@ By defining `llmInputHelper` as a dependency, this resource can access its outpu
 
 ### Adding a JSON Parser
 
-In the same file, add a JSON parser to extract the necessary values:
+In the same file, we use the built-in `jsonParser.parse(file)` to obtain the three values.
 
 ```diff
-import "pkl:json"                                                // [!code ++]
-local jsonParser = new json.Parser {}                            // [!code ++]
-local jsonData = """                                             // [!code ++]
-@(llm.response("llmInputHelper"))                                // [!code ++]
-"""                                                              // [!code ++]
-local latitude = "@(jsonParser.parse(jsonData).latitude_str)"    // [!code ++]
-local longitude = "@(jsonParser.parse(jsonData).longitude_str)"  // [!code ++]
-local timezone = "@(jsonParser.parse(jsonData).timezone_str)"    // [!code ++]
+local jsonData = """                                              // [!code ++]
+@(read?("file:/tmp/llm_input.json")?.text)                        // [!code ++]
+"""                                                               // [!code ++]
+local latitude = "@(jsonParser.parse(jsonData)?.latitude_str)"    // [!code ++]
+local longitude = "@(jsonParser.parse(jsonData)?.longitude_str)"  // [!code ++]
+local timezone = "@(jsonParser.parse(jsonData)?.timezone_str)"    // [!code ++]
 ```
 
-Here, the `jsonParser` object processes the structured output from `llmInputHelper`. The fields `latitude_str`, `longitude_str`, and `timezone_str` are parsed and stored in variables.
+Here, the `jsonParser` object processes the structured output from `llmInputHelper`. The fields `latitude_str`,
+`longitude_str`, and `timezone_str` are parsed and stored in variables.
+
+> **Important:**
+> Please note that we use the `?` between functions, which serves as the `null-safe` operator. During runtime, Kdeps
+> will first parse all PKL files to gather file metadata, then build and post-process the configurations and graphs. To
+> prevent the actual execution of the functions, ensure that the function call is `null-safe`.
 
 ### Defining the HTTP Client
 
