@@ -4,15 +4,15 @@ outline: deep
 
 # Promise Operator
 
-Kdeps employs the `"@()"` convention to defer the execution of resource functions to a later stage.
+Kdeps uses the `"@()"` post-execution template convention to defer the execution of resource functions to a later stage.
 
 Since Kdeps relies on a number of [Apple PKL](https://pkl-lang.org) functions, any function that depends on values
-generated during resource execution must be wrapped in this convention.
+generated during resource execution must be wrapped in this template convention.
 
 > *Note:* The `"@()"` operator must always be enclosed in double quotes. In Apple PKL, it is treated as a string, which is
 > later post-processed by Kdeps.
 
-Without the promise operator, such functions would execute prematurely, producing an incomplete or empty response.
+Without the promise operator, such functions would execute prematurely, causing an exception.
 
 The promise operator is commonly used in [Resources](../resources/resources.md). Below are examples of its applications:
 
