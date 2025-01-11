@@ -16,7 +16,7 @@ Below is a list of the global functions available for each resource:
 | **Function**                    | **Description**                                                                |
 |:--------------------------------|:-------------------------------------------------------------------------------|
 | request.data()                  | Retrieves the request body data.                                               |
-| request.param("id")             | Fetches the value of a specific HTTP parameter from the request.               |
+| request.params("id")             | Fetches the value of a specific HTTP parameter from the request.               |
 | request.header("id")            | Fetches the value of a specific HTTP header from the request.                  |
 | request.file("name")            | Accesses details of an uploaded file, including its `filepath` and `filetype`. |
 | request.filetype("name")        | Retrieves the MIME type of an uploaded file by its name.                       |

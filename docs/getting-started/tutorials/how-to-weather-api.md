@@ -146,7 +146,7 @@ chat {
     prompt = """
 Extract the longitude, latitude, and timezone             // [!code ++]
 from this text. An example of timezone is Asia/Manila.    // [!code ++]
-@(request.param("q"))?                                    // [!code ++]
+@(request.params("q"))?                                    // [!code ++]
 """
     jsonResponse = true                                   // [!code ++]
     jsonResponseKeys {
@@ -160,7 +160,7 @@ from this text. An example of timezone is Asia/Manila.    // [!code ++]
 
 Key points:
 
-- **`@(request.param("q"))`**: This function extracts the query parameter with the ID `q`.
+- **`@(request.params("q"))`**: This function extracts the query parameter with the ID `q`.
 - **Appended `_str` to Response Keys**: Adding `_str` enforces a typed structure for the LLM output.
 
 ## Storing the LLM response to a JSON file

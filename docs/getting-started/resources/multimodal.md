@@ -2,4 +2,57 @@
 outline: deep
 ---
 
-# Multi Modal LLM Models
+# Multi-Modal LLM Models
+
+Kdeps enables seamless interaction with multi-modal LLM models such as `llava` and `llama3.2-vision`. For a
+comprehensive list of supported multi-modal LLM models, refer to the [Ollama Vision](https://ollama.com/search?c=vision)
+models page.
+
+### Adding an LLM Model
+
+Before using an LLM model, you need to include it in the `workflow.pkl` file. For example:
+
+```apl
+models {
+    "llama3.3"
+    "llama3.2-vision"
+}
+```
+
+### Interacting with an LLM Model
+
+To interact with a model, you'll need to provide a prompt and a file. Below is an example of an LLM Resource that
+utilizes the `llama3.2-vision` model with a file uploaded via the API:
+
+```apl
+id = "llamaVision"
+chat {
+  model = "llama3.2-vision"
+  prompt = "Describe this image"
+  jsonResponse = true
+  jsonResponseKeys = {
+    "description_text"
+    "style_text"
+    "category_text"
+  }
+  files {
+    "@(request.files()[0])" // Uses the first uploaded file
+  }
+}
+```
+
+### Using Processed Image Data
+
+Once the image is processed, you can leverage its output in your resources. For example:
+
+```apl
+local jsonPath = "@(llm.file("llamaVision"))"
+local jsonData = "@(read?("\(jsonPath)")?.text)"
+
+local imageDescription = "@(document.jsonParser(jsonData)?.description_text)"
+local imageStyle = "@(document.jsonParser(jsonData)?.style_text)"
+local imageCategory = "@(document.jsonParser(jsonData)?.category_text)"
+```
+
+This example demonstrates how to extract key details like description, style, and category from the processed image data
+for further use in your workflow.
