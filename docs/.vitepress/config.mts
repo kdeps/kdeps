@@ -91,11 +91,25 @@ export default defineConfig({
         text: "Resources",
         items: [
           {
-            text: "Graph Dependency",
-            link: "/getting-started/resources/kartographer",
+            text: "Resources Overview",
+            link: "/getting-started/resources/resources",
+          },
+          { text: "Exec Resource", link: "/getting-started/resources/exec" },
+          {
+            text: "Python Resource",
+            link: "/getting-started/resources/python",
           },
           {
-            text: "Functions",
+            text: "HTTP Client Resource",
+            link: "/getting-started/resources/client",
+          },
+          { text: "LLM Resource", link: "/getting-started/resources/llm" },
+          {
+            text: "API Response Resource",
+            link: "/getting-started/resources/response",
+          },
+          {
+            text: "Resource Functions",
             link: "/getting-started/resources/functions",
             items: [
               {
@@ -114,11 +128,42 @@ export default defineConfig({
                 text: "Python",
                 link: "/getting-started/resources/functions#python-resource-functions",
               },
+            ],
+          },
+          {
+            text: "Global Functions",
+            link: "/getting-started/resources/global-functions",
+            items: [
               {
                 text: "API Request",
-                link: "/getting-started/resources/functions#api-request-functions",
+                link: "/getting-started/resources/global-functions#api-request-functions",
+              },
+              {
+                text: "Data Folder",
+                link: "/getting-started/resources/global-functions#data-folder-functions",
+              },
+              {
+                text: "JSON Document Parser",
+                link: "/getting-started/resources/global-functions#document-json-parsers",
+              },
+              {
+                text: "JSON, YAML and XML Document Generators",
+                link: "/getting-started/resources/global-functions#document-json-yaml-and-xml-generators",
+              },
+              {
+                text: "PKL Modules",
+                link: "/getting-started/resources/global-functions#pkl-modules",
               },
             ],
+          },
+        ],
+      },
+      {
+        text: "Reference",
+        items: [
+          {
+            text: "Graph Dependency",
+            link: "/getting-started/resources/kartographer",
           },
           {
             text: "Promise Operator",
@@ -131,24 +176,21 @@ export default defineConfig({
           },
           { text: "Data Folder", link: "/getting-started/resources/data" },
           { text: "File Uploads", link: "/getting-started/tutorials/files" },
-        ],
-      },
-      {
-        text: "Resource Types",
-        items: [
-          { text: "Exec Resource", link: "/getting-started/resources/exec" },
           {
-            text: "Python Resource",
-            link: "/getting-started/resources/python",
+            text: "Working with JSON",
+            link: "/getting-started/resources/json",
           },
           {
-            text: "HTTP Client Resource",
-            link: "/getting-started/resources/client",
+            text: "Reusing and Remixing AI Agents",
+            link: "/getting-started/resources/remix",
           },
-          { text: "LLM Resource", link: "/getting-started/resources/llm" },
           {
-            text: "API Response Resource",
-            link: "/getting-started/resources/response",
+            text: "Multi Modal LLM Models",
+            link: "/getting-started/resources/multimodal",
+          },
+          {
+            text: "AI Image Generators",
+            link: "/getting-started/resources/image-generators",
           },
         ],
       },
@@ -158,6 +200,10 @@ export default defineConfig({
           {
             text: "How to create structured LLM response APIs",
             link: "/getting-started/tutorials/how-to-structure-llm",
+          },
+          {
+            text: "How to create an AI assisted Weather Forecaster API",
+            link: "/getting-started/tutorials/how-to-weather-api",
           },
           { text: "How to cascade multiple LLM models" },
           { text: "How to create an AI-enhanced OCR" },
