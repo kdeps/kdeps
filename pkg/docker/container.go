@@ -27,7 +27,10 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 
 	tcpPort := fmt.Sprintf("%s/tcp", portNum)
 	hostConfig := &container.HostConfig{
-		Binds: []string{"kdeps:/root/.ollama"},
+		Binds: []string{
+			"ollama:/root/.ollama",
+			"kdeps:/root/.kdeps",
+		},
 		PortBindings: map[nat.Port][]nat.PortBinding{
 			nat.Port(tcpPort): {{HostIP: hostIP, HostPort: portNum}},
 		},
@@ -40,7 +43,10 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 	// Optional mode for API-based configuration
 	if !apiMode {
 		hostConfig = &container.HostConfig{
-			Binds: []string{"kdeps:/root/.ollama"},
+			Binds: []string{
+				"ollama:/root/.ollama",
+				"kdeps:/root/.kdeps",
+			},
 			RestartPolicy: container.RestartPolicy{
 				Name:              "on-failure",
 				MaximumRetryCount: 5,
