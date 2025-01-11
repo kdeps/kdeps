@@ -48,6 +48,7 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 		"pkl:xml":      {Alias: "", Check: false},
 		"pkl:yaml":     {Alias: "", Check: false},
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Document.pkl", schema.SchemaVersion): {Alias: "document", Check: false},
+		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Skip.pkl", schema.SchemaVersion):     {Alias: "skip", Check: false},
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Utils.pkl", schema.SchemaVersion):    {Alias: "utils", Check: false},
 		filepath.Join(dr.ActionDir, "/llm/"+dr.RequestId+"__llm_output.pkl"):                  {Alias: "llm", Check: true},
 		filepath.Join(dr.ActionDir, "/client/"+dr.RequestId+"__client_output.pkl"):            {Alias: "client", Check: true},
