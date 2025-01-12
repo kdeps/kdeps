@@ -44,8 +44,8 @@ jobs:
             minor=$((minor + 1))
           fi
 
-          NEXT_VERSION="${major}.${minor}.${patch}"
-          echo "NEXT_VERSION=${NEXT_VERSION}" >> $GITHUB_ENV
+          CURRENT_VERSION="${major}.${minor}.${patch}"
+          echo "CURRENT_VERSION=${CURRENT_VERSION}" >> $GITHUB_ENV
 
       # - name: Run tests
       #   run: make test
@@ -74,7 +74,7 @@ jobs:
               file_ext=".zip"
             fi
             if [ -f "./build/${GOOS}/${GOARCH}/${{ env.PROJECT_NAME }}${binary_ext}" ]; then
-              PACKAGE_NAME="${{ env.PROJECT_NAME }}_${{ env.NEXT_VERSION }}_${GOOS}_${GOARCH}${file_ext}"
+              PACKAGE_NAME="${{ env.PROJECT_NAME }}_${{ env.CURRENT_VERSION }}_${GOOS}_${GOARCH}${file_ext}"
               tar -czvf "$PACKAGE_NAME" -C ./build ./${GOOS}/${GOARCH}/
             else
               echo "Skipping packaging for ./${GOOS}/${GOARCH}/${{ env.PROJECT_NAME }}${binary_ext} as the binary does not exist."
@@ -89,8 +89,8 @@ jobs:
           PROJECT_NAME: ${{ env.PROJECT_NAME }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: "${{ env.NEXT_VERSION }}"
-          name: "Release ${{ env.NEXT_VERSION }}"
+          tag_name: "${{ env.CURRENT_VERSION }}"
+          name: "Release ${{ env.CURRENT_VERSION }}"
           files: |
               ./*.tar.gz
               ./*.zip
