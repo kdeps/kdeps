@@ -16,7 +16,7 @@ Below is a list of the global functions available for each resource:
 | **Function**                    | **Description**                                                                |
 |:--------------------------------|:-------------------------------------------------------------------------------|
 | request.data()                  | Retrieves the request body data.                                               |
-| request.params("id")             | Fetches the value of a specific HTTP parameter from the request.               |
+| request.params("id")            | Fetches the value of a specific HTTP parameter from the request.               |
 | request.header("id")            | Fetches the value of a specific HTTP header from the request.                  |
 | request.file("name")            | Accesses details of an uploaded file, including its `filepath` and `filetype`. |
 | request.filetype("name")        | Retrieves the MIME type of an uploaded file by its name.                       |
@@ -33,6 +33,14 @@ Below is a list of the global functions available for each resource:
 | **Function**                                    | **Description**                                                                                                                    |
 |:------------------------------------------------|:-----------------------------------------------------------------------------------------------------------------------------------|
 | data.filepath("agent_name/version", "filename") | Returns the file path of a stored file within the `data/` folder. Requires specifying the `agent_name/version` and the `filename`. |
+
+## Skip Condition Functions
+
+| **Function**                  | **Description**                                       |
+|:------------------------------|:------------------------------------------------------|
+| skip.ifFileExists("string")   | Returns true if file exists; false otherwise          |
+| skip.ifFolderExists("string") | Returns true if folder exists; false otherwise        |
+| skip.ifFileIsEmpty("string")  | Returns true if file is empty exists; false otherwise |
 
 ## Document JSON Parsers
 
