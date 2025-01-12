@@ -424,6 +424,8 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 
 	// TODO: Source this in a downloads.txt file
 	urls := []string{
+		"https://github.com/kdeps/kdeps/releases/download/0.1.0/kdeps-amd64",
+		"https://github.com/kdeps/kdeps/releases/download/0.1.0/kdeps-aarch64",
 		"https://github.com/apple/pkl/releases/download/0.27.1/pkl-linux-amd64",
 		"https://github.com/apple/pkl/releases/download/0.27.1/pkl-linux-aarch64",
 		"https://repo.anaconda.com/archive/Anaconda3-2024.10-1-Linux-x86_64.sh",
