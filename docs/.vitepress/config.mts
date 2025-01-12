@@ -151,6 +151,10 @@ export default defineConfig({
                 link: "/getting-started/resources/global-functions#document-json-yaml-and-xml-generators",
               },
               {
+                text: "Skip Condition Helpers",
+                link: "/getting-started/resources/global-functions#skip-condition-functions",
+              },
+              {
                 text: "PKL Modules",
                 link: "/getting-started/resources/global-functions#pkl-modules",
               },
@@ -198,31 +202,31 @@ export default defineConfig({
         text: "Tutorials",
         items: [
           {
-            text: "How to create structured LLM response APIs",
-            link: "/getting-started/tutorials/how-to-structure-llm",
-          },
-          {
             text: "How to create an AI assisted Weather Forecaster API",
             link: "/getting-started/tutorials/how-to-weather-api",
           },
-          { text: "How to cascade multiple LLM models" },
-          { text: "How to create an AI-enhanced OCR" },
-          { text: "How to reuse and extend an AI agent" },
-          { text: "How to use Anaconda in your AI agent" },
-          { text: "How to do image generation" },
-          { text: "How to create a recipe generator" },
-          { text: "How to create an automated JIRA filer" },
-          { text: "How to create an automated TODO creator" },
-          { text: "How to use Huggingface models" },
+//          {
+//            text: "How to create structured LLM response APIs",
+//            link: "/getting-started/tutorials/how-to-structure-llm",
+//          },
+//          { text: "How to use Huggingface models" },
+//          { text: "How to cascade multiple LLM models" },
+//          { text: "How to create an AI-enhanced OCR" },
+//          { text: "How to reuse and extend an AI agent" },
+//          { text: "How to use Anaconda in your AI agent" },
+//          { text: "How to do image generation" },
+//          { text: "How to create a recipe generator" },
+//          { text: "How to create an automated JIRA filer" },
+//          { text: "How to create an automated TODO creator" },
         ],
       },
-      {
-        text: "Maintenance",
-        items: [
-          { text: "Cleaning Docker Cache" },
-          { text: "Clearing the AI Agents Folder" },
-        ],
-      },
+//      {
+//        text: "Maintenance",
+//        items: [
+//          { text: "Cleaning Docker Cache" },
+//          { text: "Clearing the AI Agents Folder" },
+//        ],
+//      },
       {
         text: "Cloud Services",
         items: [

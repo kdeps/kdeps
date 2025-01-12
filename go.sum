@@ -37,6 +37,8 @@ github.com/charmbracelet/x/editor v0.1.0 h1:p69/dpvlwRTs9uYiPeAWruwsHqTFzHhTvQOd
 github.com/charmbracelet/x/editor v0.1.0/go.mod h1:oivrEbcP/AYt/Hpvk5pwDXXrQ933gQS6UzL6fxqAGSA=
 github.com/charmbracelet/x/exp/strings v0.0.0-20250109123447-9d5df1da7993 h1:HNwkU56Yh4koz/hboetpa+LUMZsm2XQSqKpxHH3nXy4=
 github.com/charmbracelet/x/exp/strings v0.0.0-20250109123447-9d5df1da7993/go.mod h1:pBhA0ybfXv6hDjQUZ7hk1lVxBiUbupdw5R31yPUViVQ=
+github.com/charmbracelet/x/exp/strings v0.0.0-20250112114943-1775be7e67ae h1:+A2SnWxtXhXkW0zcK+AbnRFsMSli46c5z0mI0R7MMYY=
+github.com/charmbracelet/x/exp/strings v0.0.0-20250112114943-1775be7e67ae/go.mod h1:pBhA0ybfXv6hDjQUZ7hk1lVxBiUbupdw5R31yPUViVQ=
 github.com/charmbracelet/x/term v0.2.1 h1:AQeHeLZ1OqSXhrAWpYUtZyX1T3zVxfpZuEQMIQaGIAQ=
 github.com/charmbracelet/x/term v0.2.1/go.mod h1:oQ4enTYFV7QN4m0i9mzHrViD7TQKvNEEkHUMCmsxdUg=
 github.com/containerd/log v0.1.0 h1:TCJt7ioM2cr/tfR8GPbGf9/VRAX8D2B4PjzCpfX540I=
@@ -113,6 +115,8 @@ github.com/kdeps/schema v0.1.43 h1:ia03UrkC2Oe8Pj2Lk6glmIu9XZD28gtmYt1WlMdYc1U=
 github.com/kdeps/schema v0.1.43/go.mod h1:ovks1qmUtREjcCREAwKnuD06WlKZ1QeqjsBhGn4nL8s=
 github.com/kdeps/schema v0.1.45 h1:dGahqdcinFGMISLiVdXV9SEP7rRhkzOEZMVF39PUgEY=
 github.com/kdeps/schema v0.1.45/go.mod h1:ovks1qmUtREjcCREAwKnuD06WlKZ1QeqjsBhGn4nL8s=
+github.com/kdeps/schema v0.1.46 h1:3H8ix5aPcEdk2Hy+dPKAH1MjWBUOig4bmmMK5XvMz7g=
+github.com/kdeps/schema v0.1.46/go.mod h1:ovks1qmUtREjcCREAwKnuD06WlKZ1QeqjsBhGn4nL8s=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/kr/pretty v0.2.1/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=
