@@ -83,7 +83,6 @@ jobs:
         working-directory: ${{ github.workspace }}
 
       - name: Create release
-        if: github.event.action == 'closed' && github.event.pull_request.merged == true
         id: create_release
         uses: softprops/action-gh-release@v2
         env:
