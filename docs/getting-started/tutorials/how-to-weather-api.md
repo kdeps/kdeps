@@ -8,7 +8,7 @@ This tutorial demonstrates how to connect to an external API using the HTTP clie
 LLM, and deliver structured JSON outputs. Using the [Open-Meteo API](https://open-meteo.com/) as an example, we’ll walk
 through creating consistent and reliable responses for integration into your applications.
 
-The example will use the [`apiServeMode`](./getting-started/configuration/workflow#api-server-settings), but the same approach can be adapted for [Lambda Mode](./getting-started/configuration/workflow#lambda-mode).
+The example will use the [`apiServeMode`](/getting-started/configuration/workflow#api-server-settings), but the same approach can be adapted for [Lambda Mode](/getting-started/configuration/workflow#lambda-mode).
 
 ## Getting Started
 

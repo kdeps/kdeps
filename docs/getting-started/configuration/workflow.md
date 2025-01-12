@@ -97,7 +97,7 @@ In this example:
 - The resource is skipped if the `skipCondition` evaluates to `true`.
 - The resource runs only when the request path equals `"/api/v1/items"`.
 
-For more details, refer to the [Skip Conditions](../resources/skipCondition.md) documentation.
+For more details, refer to the [Skip Conditions](/getting-started/resources/skip.md) documentation.
 
 #### Lambda Mode
 
