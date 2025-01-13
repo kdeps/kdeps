@@ -214,16 +214,20 @@ jobs:
         run: curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/refs/heads/main/install.sh | sh -s -- -d ${GITHUB_REF##*/}
       - name: Install pkl
         run: |
-          Invoke-WebRequest 'https://github.com/apple/pkl/releases/download/0.27.1/pkl-windows-amd64.exe' -OutFile C:/Users/runneradmin/.local/bin/pkl.exe
-          C:/Users/runneradmin/.local/bin/pkl.exe --version
-        shell: pwsh
+          curl -L -o /c/Users/runneradmin/.local/bin/pkl.exe 'https://github.com/apple/pkl/releases/download/0.27.1/pkl-windows-amd64.exe'
+          chmod +x /c/Users/runneradmin/.local/bin/pkl.exe
+          /c/Users/runneradmin/.local/bin/pkl.exe --version
+        shell: bash
+      - name: Create .kdeps.pkl configuration file
+        run: |
+          echo 'amends "package://schema.kdeps.com/core@0.1.46#/Kdeps.pkl"' > ~/.kdeps.pkl
+          pkl eval ~/.kdeps.pkl >> ~/.kdeps.pkl
+        shell: bash
       - name: Install winget
         uses: Cyberboss/install-winget@v1
       - name: Test Pipeline
         shell: bash
         run: /c/Users/runneradmin/.local/bin/kdeps.exe
-        env:
-          GITHUB_TOKEN: "secret"
 
   install-unix:
     runs-on: ubuntu-latest
@@ -253,10 +257,12 @@ jobs:
           fi
           chmod +x ~/.local/bin/pkl
           ~/.local/bin/pkl --version
+      - name: Create .kdeps.pkl configuration file
+        run: |
+          echo 'amends "package://schema.kdeps.com/core@0.1.46#/Kdeps.pkl"' > ~/.kdeps.pkl
+          pkl eval ~/.kdeps.pkl >> ~/.kdeps.pkl
       - name: Test Pipeline
         run: kdeps
-        env:
-          GITHUB_TOKEN: "secret"
 
   release:
     runs-on: ubuntu-latest

@@ -189,7 +189,7 @@ RUN apt-get update --fix-missing && apt-get install -y --no-install-recommends \
 `)
 
 	// Determine Architecture and Download pkl Binary
-	dockerFile.WriteString(fmt.Sprintf(`
+	dockerFile.WriteString(`
 # Determine the architecture and download the appropriate pkl binary
 RUN arch=$(uname -m) && \
     if [ "$arch" = "x86_64" ]; then \
@@ -199,17 +199,16 @@ RUN arch=$(uname -m) && \
     else \
 	echo "Unsupported architecture: $arch" && exit 1; \
     fi
-`))
+`)
 
 	// Package Section (Dynamic Content)
 	dockerFile.WriteString(pkgSection + "\n\n")
 
 	// Copy Workflow and Setup kdeps
 	dockerFile.WriteString(`
+RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/refs/heads/main/install.sh | sh -s -- -b /bin/ -d "latest"
 COPY workflow /agent/project
 COPY workflow /agent/workflow
-RUN mv /agent/workflow/kdeps /bin/kdeps
-RUN chmod +x /bin/kdeps
 `)
 
 	// Conditionally Install Anaconda and Additional Packages
