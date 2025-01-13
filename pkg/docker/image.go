@@ -9,14 +9,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"kdeps/pkg/archiver"
-	"kdeps/pkg/download"
-	"kdeps/pkg/schema"
-	"kdeps/pkg/workflow"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"kdeps/pkg/archiver"
+	"kdeps/pkg/download"
+	"kdeps/pkg/schema"
+	"kdeps/pkg/workflow"
 
 	"github.com/charmbracelet/log"
 	"github.com/docker/docker/api/types"
@@ -33,8 +34,8 @@ type BuildLine struct {
 }
 
 func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli *client.Client, runDir, kdepsDir string,
-	pkgProject *archiver.KdepsPackage, logger *log.Logger) (string, string, error) {
-
+	pkgProject *archiver.KdepsPackage, logger *log.Logger,
+) (string, string, error) {
 	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow, logger)
 	if err != nil {
 		return "", "", err
@@ -99,7 +100,6 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 
 		return nil
 	})
-
 	if err != nil {
 		return cName, containerName, err
 	}
@@ -164,6 +164,11 @@ ENV SCHEMA_VERSION=%s
 ENV OLLAMA_HOST=%s:%s
 ENV KDEPS_HOST=%s
 ENV DEBUG=1
+
+ARG GITHUB_TOKEN
+
+# Make sure GITHUB_TOKEN is set, otherwise exit with an error
+RUN if [ -z "$GITHUB_TOKEN" ]; then echo "Error: GITHUB_TOKEN is not set" >&2; exit 1; fi
 
 `, imageVersion, schemaVersion, hostIP, ollamaPortNum, kdepsHost))
 
@@ -422,14 +427,9 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion)
 	downloadDir := filepath.Join(kdepsDir, "downloads")
 
-	// TODO: Source this in a downloads.txt file
-	urls := []string{
-		"https://github.com/kdeps/kdeps/releases/download/0.1.0/kdeps-amd64",
-		"https://github.com/kdeps/kdeps/releases/download/0.1.0/kdeps-aarch64",
-		"https://github.com/apple/pkl/releases/download/0.27.1/pkl-linux-amd64",
-		"https://github.com/apple/pkl/releases/download/0.27.1/pkl-linux-aarch64",
-		"https://repo.anaconda.com/archive/Anaconda3-2024.10-1-Linux-x86_64.sh",
-		"https://repo.anaconda.com/archive/Anaconda3-2024.10-1-Linux-aarch64.sh",
+	urls, err := GenerateURLs()
+	if err != nil {
+		return "", false, "", "", "", err
 	}
 
 	err = download.DownloadFiles(fs, downloadDir, urls, logger)
@@ -445,7 +445,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	ollamaPortNum := generateUniqueOllamaPort(portNum)
 	dockerfileContent := generateDockerfile(
 		imageVersion,
-		schema.SchemaVersion,
+		schema.SchemaVersion(),
 		hostIP,
 		ollamaPortNum,
 		kdepsHost,
@@ -462,7 +462,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	// Write the Dockerfile to the run directory
 	resourceConfigurationFile := filepath.Join(runDir, "Dockerfile")
 	fmt.Println(resourceConfigurationFile)
-	err = afero.WriteFile(fs, resourceConfigurationFile, []byte(dockerfileContent), 0644)
+	err = afero.WriteFile(fs, resourceConfigurationFile, []byte(dockerfileContent), 0o644)
 	if err != nil {
 		return "", false, "", "", "", err
 	}
