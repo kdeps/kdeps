@@ -11,7 +11,6 @@ USER kdeps
 
 # Define build arguments
 ARG VERSION=latest
-ARG GITHUB_TOKEN=secret
 
 # Install kdeps
 RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/refs/heads/main/install.sh | sh -s -- -d ${VERSION}

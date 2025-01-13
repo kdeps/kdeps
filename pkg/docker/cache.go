@@ -5,17 +5,34 @@ import (
 	"io/ioutil"
 	"net/http"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 
+	"kdeps/pkg/schema"
 	"kdeps/pkg/utils"
 )
 
 // URLInfo represents information about a URL template and repository details.
 type URLInfo struct {
-	BaseURL    string // Base URL template with placeholders for version and architecture
-	Repo       string // Repository name, e.g., "kdeps/kdeps"
-	IsAnaconda bool   // Special handling for Anaconda URLs
+	BaseURL       string   // Base URL template with placeholders for version and architecture
+	Repo          string   // Repository name, e.g., "kdeps/kdeps"
+	IsAnaconda    bool     // Special handling for Anaconda URLs
+	Version       string   // Specific version or a placeholder "{latest}" for the latest version
+	Architectures []string // Architectures to include in the URLs
+}
+
+// GetCurrentArchitecture returns the architecture of the current machine.
+func GetCurrentArchitecture() string {
+	arch := runtime.GOARCH
+	switch arch {
+	case "amd64":
+		return "x86_64" // For Anaconda, maps "amd64" to "x86_64"
+	case "arm64":
+		return "aarch64" // For Anaconda and pkl, uses "aarch64"
+	default:
+		return arch
+	}
 }
 
 // CompareVersions compares two versions, returning true if v1 > v2.
@@ -52,28 +69,28 @@ func parseVersion(version string) []int {
 }
 
 // GetLatestAnacondaVersions fetches the latest Anaconda versions for both architectures.
-func GetLatestAnacondaVersions() (string, map[string]string, error) {
+func GetLatestAnacondaVersions() (map[string]string, map[string]string, error) {
 	archiveURL := "https://repo.anaconda.com/archive/"
 	resp, err := http.Get(archiveURL)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to fetch Anaconda archive: %w", err)
+		return nil, nil, fmt.Errorf("failed to fetch Anaconda archive: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return nil, nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
 	// Regex for extracting version and architecture from filenames.
 	re := regexp.MustCompile(`Anaconda3-(\d+\.\d+-\d+)-Linux-(x86_64|aarch64)\.sh`)
 	matches := re.FindAllStringSubmatch(string(body), -1)
 	if len(matches) == 0 {
-		return "", nil, fmt.Errorf("no Anaconda versions found")
+		return nil, nil, fmt.Errorf("no Anaconda versions found")
 	}
 
 	// Map to hold the latest version for each architecture.
@@ -97,39 +114,66 @@ func GetLatestAnacondaVersions() (string, map[string]string, error) {
 		}
 	}
 
-	return latestVersions["x86_64"], latestBuilds, nil
+	return latestVersions, latestBuilds, nil
 }
 
 func GenerateURLs() ([]string, error) {
 	urlInfos := []URLInfo{
-		{BaseURL: "https://github.com/apple/pkl/releases/download/{version}/pkl-linux-{arch}", Repo: "apple/pkl"},
-		{BaseURL: "https://repo.anaconda.com/archive/{build}", IsAnaconda: true},
+		{
+			BaseURL:       "https://github.com/kdeps/kdeps/releases/download/v{version}/kdeps-linux-{arch}",
+			Repo:          "kdeps/kdeps",
+			Version:       "0.1.0",
+			Architectures: []string{"amd64", "arm64"},
+		},
+		{
+			BaseURL:       "https://github.com/apple/pkl/releases/download/{version}/pkl-linux-{arch}",
+			Repo:          "apple/pkl",
+			Version:       "0.27.1",
+			Architectures: []string{"amd64", "aarch64"},
+		},
+		{
+			BaseURL:       "https://repo.anaconda.com/archive/Anaconda3-{version}-Linux-{arch}.sh",
+			IsAnaconda:    true,
+			Version:       "2024.10-1", // Default version when not using the latest
+			Architectures: []string{"x86_64", "aarch64"},
+		},
 	}
 
-	architectures := []string{"amd64", "aarch64"}
 	var urls []string
+	currentArch := GetCurrentArchitecture()
 
 	for _, info := range urlInfos {
 		if info.IsAnaconda {
-			_, builds, err := GetLatestAnacondaVersions()
-			if err != nil {
-				return nil, fmt.Errorf("failed to get Anaconda versions: %w", err)
+			// Anaconda URLs
+			version := info.Version
+			if schema.UseLatest {
+				latestVersions, _, err := GetLatestAnacondaVersions()
+				if err != nil {
+					return nil, fmt.Errorf("failed to get Anaconda versions: %w", err)
+				}
+				version = latestVersions[currentArch]
 			}
-
-			for _, build := range builds {
-				url := strings.ReplaceAll(info.BaseURL, "{build}", build)
-				urls = append(urls, url)
-			}
+			url := strings.ReplaceAll(info.BaseURL, "{version}", version)
+			url = strings.ReplaceAll(url, "{arch}", currentArch)
+			urls = append(urls, url)
 		} else {
-			latestVersion, err := utils.GetLatestGitHubRelease(info.Repo)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get latest version for %s: %w", info.Repo, err)
+			// Other repositories
+			version := info.Version
+			if schema.UseLatest {
+				latestVersion, err := utils.GetLatestGitHubRelease(info.Repo, "")
+				if err != nil {
+					return nil, fmt.Errorf("failed to get latest version for %s: %w", info.Repo, err)
+				}
+				version = latestVersion
 			}
 
-			for _, arch := range architectures {
-				url := strings.ReplaceAll(info.BaseURL, "{version}", latestVersion)
-				url = strings.ReplaceAll(url, "{arch}", arch)
-				urls = append(urls, url)
+			// Generate URLs for the current architecture
+			for _, arch := range info.Architectures {
+				if arch == currentArch || (arch == "arm64" && currentArch == "aarch64") {
+					url := strings.ReplaceAll(info.BaseURL, "{version}", version)
+					url = strings.ReplaceAll(url, "{arch}", arch)
+					urls = append(urls, url)
+				}
 			}
 		}
 	}
