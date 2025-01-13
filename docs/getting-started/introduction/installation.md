@@ -15,10 +15,9 @@ Kdeps requires three key components to operate effectively:
 
 All of these components must be installed to ensure Kdeps functions as intended.
 
-## Prerequisites
-
-Kdeps requires the `GITHUB_TOKEN` environment variable to be set for retrieving the latest schema version from the
-repository.
+> **Note:** When using the `--latest` flag, setting the `GITHUB_TOKEN` environment variable is optional but recommended
+> to fetch the latest schema version from the repository. Without the token, unauthenticated access will be attempted,
+> which may be subject to rate limiting.
 
 ## Kdeps CLI Installation Guide
 

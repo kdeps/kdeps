@@ -2,27 +2,32 @@ package schema
 
 import (
 	"fmt"
+	"kdeps/pkg/utils"
 	"os"
 	"sync"
-
-	"kdeps/pkg/utils"
 )
 
 var (
-	cachedVersion string
-	once          sync.Once
+	cachedVersion    string
+	once             sync.Once
+	specifiedVersion string = "0.1.46" // Default specified version
+	UseLatest        bool   = false
 )
 
-// SchemaVersion fetches and returns the latest schema version, using a cached value if available.
+// SchemaVersion fetches and returns the schema version based on the cmd.Latest flag.
 func SchemaVersion() string {
-	once.Do(func() {
-		var err error
-		cachedVersion, err = utils.GetLatestGitHubRelease("kdeps/schema")
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: Unable to fetch the latest schema version for 'kdeps/schema': %v\n", err)
-			os.Exit(1)
-		}
-	})
+	if UseLatest { // Reference the global Latest flag from cmd package
+		once.Do(func() {
+			var err error
+			cachedVersion, err = utils.GitHubReleaseFetcher("kdeps/schema", "")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: Unable to fetch the latest schema version for 'kdeps/schema': %v\n", err)
+				os.Exit(1)
+			}
+		})
+		return cachedVersion
+	}
 
-	return cachedVersion
+	// Use the specified version if not using the latest
+	return specifiedVersion
 }

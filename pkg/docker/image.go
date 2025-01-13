@@ -164,12 +164,6 @@ ENV SCHEMA_VERSION=%s
 ENV OLLAMA_HOST=%s:%s
 ENV KDEPS_HOST=%s
 ENV DEBUG=1
-
-ARG GITHUB_TOKEN
-
-# Make sure GITHUB_TOKEN is set, otherwise exit with an error
-RUN if [ -z "$GITHUB_TOKEN" ]; then echo "Error: GITHUB_TOKEN is not set" >&2; exit 1; fi
-
 `, imageVersion, schemaVersion, hostIP, ollamaPortNum, kdepsHost))
 
 	// Envs Section

@@ -31,7 +31,7 @@ func TestWriteCounter_PrintProgress(t *testing.T) {
 	counter := &WriteCounter{}
 	counter.Total = 1024
 
-	expectedOutput := "\r                                                  \rDownloading... 1.0 kB complete"
+	expectedOutput := "\r                                                  \rDownloading... 1.0 kB complete - "
 
 	// Capture the output of PrintProgress
 	r, w, err := os.Pipe()
