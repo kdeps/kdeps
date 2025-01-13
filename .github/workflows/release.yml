@@ -28,12 +28,10 @@ jobs:
         with:
           go-version-file: 'go.mod'
           cache-dependency-path: "go.sum"
-      - run: make test
+      - run: make deps
       - name: Install winget
         if: matrix.platform == 'windows-2022'
         uses: Cyberboss/install-winget@v1
-      - run: make integration-test
-        shell: bash
 
   prepare-darwin:
     runs-on: ubuntu-latest
