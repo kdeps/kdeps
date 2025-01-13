@@ -3,6 +3,11 @@ package resolver_test
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"testing"
+
 	"kdeps/pkg/archiver"
 	"kdeps/pkg/cfg"
 	"kdeps/pkg/docker"
@@ -10,10 +15,6 @@ import (
 	"kdeps/pkg/environment"
 	"kdeps/pkg/logging"
 	"kdeps/pkg/resolver"
-	"path/filepath"
-	"strconv"
-	"strings"
-	"testing"
 
 	"github.com/charmbracelet/log"
 	"github.com/cucumber/godog"
@@ -63,7 +64,6 @@ func TestFeatures(t *testing.T) {
 			ctx.Step(`^I load the workflow resources$`, iLoadTheWorkflowResources)
 			ctx.Step(`^I was able to see the "([^"]*)" top-down dependencies$`, iWasAbleToSeeTheTopdownDependencies)
 			// ctx.Step(`^an ai agent with "([^"]*)" resources that was configured differently$`, anAiAgentWithResources2)
-
 		},
 		Options: &godog.Options{
 			Format:   "pretty",
@@ -108,7 +108,7 @@ func anAiAgentWithResources(arg1 string) error {
 
 	dirPath = filepath.Join(homeDirPath, ".kdeps")
 
-	if err := testFs.MkdirAll(dirPath, 0777); err != nil {
+	if err := testFs.MkdirAll(dirPath, 0o777); err != nil {
 		return err
 	}
 
@@ -138,7 +138,7 @@ func anAiAgentWithResources(arg1 string) error {
 
 	systemConfigurationFile = filepath.Join(homeDirPath, ".kdeps.pkl")
 	// Write the heredoc content to the file
-	err = afero.WriteFile(testFs, systemConfigurationFile, []byte(systemConfigurationContent), 0644)
+	err = afero.WriteFile(testFs, systemConfigurationFile, []byte(systemConfigurationContent), 0o644)
 	if err != nil {
 		return err
 	}
@@ -211,35 +211,35 @@ settings {
 
 	filePath = filepath.Join(homeDirPath, "myAgentX1")
 
-	if err := testFs.MkdirAll(filePath, 0777); err != nil {
+	if err := testFs.MkdirAll(filePath, 0o777); err != nil {
 		return err
 	}
 
 	agentDir = filePath
 
 	workflowConfigurationFile = filepath.Join(filePath, "workflow.pkl")
-	err = afero.WriteFile(testFs, workflowConfigurationFile, []byte(workflowConfigurationContent), 0644)
+	err = afero.WriteFile(testFs, workflowConfigurationFile, []byte(workflowConfigurationContent), 0o644)
 	if err != nil {
 		return err
 	}
 
 	resourcesDir := filepath.Join(filePath, "resources")
-	if err := testFs.MkdirAll(resourcesDir, 0777); err != nil {
+	if err := testFs.MkdirAll(resourcesDir, 0o777); err != nil {
 		return err
 	}
 
 	apiDir := filepath.Join(filePath, "/actions/api/")
-	if err := testFs.MkdirAll(apiDir, 0777); err != nil {
+	if err := testFs.MkdirAll(apiDir, 0o777); err != nil {
 		return err
 	}
 
 	projectDir := filepath.Join(filePath, "/project/")
-	if err := testFs.MkdirAll(projectDir, 0777); err != nil {
+	if err := testFs.MkdirAll(projectDir, 0o777); err != nil {
 		return err
 	}
 
 	llmDir := filepath.Join(filePath, "/actions/llm/")
-	if err := testFs.MkdirAll(llmDir, 0777); err != nil {
+	if err := testFs.MkdirAll(llmDir, 0o777); err != nil {
 		return err
 	}
 
@@ -258,18 +258,18 @@ response
 `)
 
 	llmDirFile := filepath.Join(llmDir, "llm_output.pkl")
-	err = afero.WriteFile(testFs, llmDirFile, []byte(llmResponsesContent), 0644)
+	err = afero.WriteFile(testFs, llmDirFile, []byte(llmResponsesContent), 0o644)
 	if err != nil {
 		return err
 	}
 
 	clientDir := filepath.Join(filePath, "/actions/client/")
-	if err := testFs.MkdirAll(clientDir, 0777); err != nil {
+	if err := testFs.MkdirAll(clientDir, 0o777); err != nil {
 		return err
 	}
 
 	execDir := filepath.Join(filePath, "/actions/exec/")
-	if err := testFs.MkdirAll(execDir, 0777); err != nil {
+	if err := testFs.MkdirAll(execDir, 0o777); err != nil {
 		return err
 	}
 
@@ -319,7 +319,7 @@ run {
 		resourceConfigurationFile := filepath.Join(resourcesDir, fmt.Sprintf("resource%d.pkl", num))
 
 		// Write the file content using afero
-		err := afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0644)
+		err := afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0o644)
 		if err != nil {
 			return err
 		}

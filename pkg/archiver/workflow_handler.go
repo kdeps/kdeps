@@ -8,12 +8,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"kdeps/pkg/environment"
-	"kdeps/pkg/workflow"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"kdeps/pkg/enforcer"
+	"kdeps/pkg/environment"
+	"kdeps/pkg/workflow"
 
 	"github.com/charmbracelet/log"
 	pklWf "github.com/kdeps/schema/gen/workflow"
@@ -35,7 +37,7 @@ func PrepareRunDir(fs afero.Fs, wf pklWf.Workflow, kdepsDir, pkgFilePath string,
 	}
 
 	// Create the directory
-	if err := fs.MkdirAll(runDir, 0755); err != nil {
+	if err := fs.MkdirAll(runDir, 0o755); err != nil {
 		return "", err
 	}
 
@@ -159,7 +161,7 @@ func CompileWorkflow(fs afero.Fs, wf pklWf.Workflow, kdepsDir, projectDir string
 	}
 
 	// Recreate the folder
-	err = fs.MkdirAll(resourcesDir, 0755) // Create the folder with read-write-execute permissions
+	err = fs.MkdirAll(resourcesDir, 0o755) // Create the folder with read-write-execute permissions
 	if err != nil {
 		logger.Error("Failed to create resources directory", "path", resourcesDir, "error", err)
 		return "", err
@@ -199,12 +201,17 @@ func CompileWorkflow(fs afero.Fs, wf pklWf.Workflow, kdepsDir, projectDir string
 		return "", err
 	}
 
-	err = afero.WriteFile(fs, compiledFilePath, []byte(strings.Join(lines, "\n")), 0644)
+	err = afero.WriteFile(fs, compiledFilePath, []byte(strings.Join(lines, "\n")), 0o644)
 	if err != nil {
 		logger.Error("Failed to write compiled workflow file", "path", compiledFilePath, "error", err)
 		return "", err
 	}
 	logger.Debug("Compiled workflow file written", "path", compiledFilePath)
+
+	if err := enforcer.EnforcePklTemplateAmendsRules(fs, compiledFilePath, logger); err != nil {
+		logger.Error("Validation failed for .pkl file", "file", compiledFilePath, "error", err)
+		return "", err
+	}
 
 	compiledProjectDir := filepath.Dir(compiledFilePath)
 

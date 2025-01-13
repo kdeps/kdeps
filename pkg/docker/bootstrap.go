@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"kdeps/pkg/environment"
-	"kdeps/pkg/resolver"
-	"kdeps/pkg/workflow"
-
 	"path/filepath"
 	"strings"
 	"time"
+
+	"kdeps/pkg/environment"
+	"kdeps/pkg/resolver"
+	"kdeps/pkg/workflow"
 
 	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"
@@ -85,7 +85,7 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 			}
 		}
 
-		if err := fs.MkdirAll(apiServerPath, 0777); err != nil {
+		if err := fs.MkdirAll(apiServerPath, 0o777); err != nil {
 			return true, err
 		}
 

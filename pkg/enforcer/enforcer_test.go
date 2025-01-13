@@ -3,13 +3,14 @@ package enforcer
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
+	"strings"
+	"testing"
+
 	"kdeps/pkg/cfg"
 	"kdeps/pkg/environment"
 	"kdeps/pkg/evaluator"
 	"kdeps/pkg/logging"
-	"path/filepath"
-	"strings"
-	"testing"
 
 	"github.com/charmbracelet/log"
 	"github.com/cucumber/godog"
@@ -120,7 +121,6 @@ func weHaveABlankFile() error {
 
 func theHomeDirectoryIs(arg1 string) error {
 	tempDir, err := afero.TempDir(testFs, "", "")
-
 	if err != nil {
 		return err
 	}
@@ -132,7 +132,6 @@ func theHomeDirectoryIs(arg1 string) error {
 
 func theCurrentDirectoryIs(arg1 string) error {
 	tempDir, err := afero.TempDir(testFs, "", "")
-
 	if err != nil {
 		return err
 	}
@@ -258,7 +257,7 @@ func aFileExistsInThe(arg1, arg2 string) error {
 
 func anAgentFolderExistsInTheCurrentDirectory(arg1 string) error {
 	agentPath = currentDirPath + "/my-agent"
-	if err := testFs.MkdirAll(agentPath, 0755); err != nil {
+	if err := testFs.MkdirAll(agentPath, 0o755); err != nil {
 		return err
 	}
 	fmt.Printf("Agent path %s created!", agentPath)
@@ -281,7 +280,7 @@ func itHaveAWorkflowAmendsLineOnTopOfTheFile() error {
 func aFolderNamedExistsInThe(arg1, arg2 string) error {
 	agentPath = currentDirPath + "/my-agent"
 	subfolderPath := agentPath + "/" + arg1
-	if err := testFs.MkdirAll(subfolderPath, 0755); err != nil {
+	if err := testFs.MkdirAll(subfolderPath, 0o755); err != nil {
 		return err
 	}
 	fmt.Printf("Agent path %s created!", subfolderPath)

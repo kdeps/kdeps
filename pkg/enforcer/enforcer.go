@@ -45,14 +45,14 @@ func compareVersions(v1, v2 string, logger *log.Logger) (int, error) {
 }
 
 // EnforceSchemaURL checks if the "amends" line contains the correct schema.kdeps.com/core URL
-func EnforceSchemaURL(line string, logger *log.Logger) error {
+func EnforceSchemaURL(line, filePath string, logger *log.Logger) error {
 	if !strings.HasPrefix(line, "amends") {
-		logger.Error("The .pkl file does not start with 'amends'")
+		logger.Error("The .pkl file does not start with 'amends'", "file", filePath)
 		return errors.New("the pkl file does not start with 'amends'")
 	}
 
 	if !strings.Contains(line, "schema.kdeps.com/core") {
-		logger.Error("The .pkl file does not contain 'schema.kdeps.com/core'")
+		logger.Error("The .pkl file does not contain 'schema.kdeps.com/core'", "file", filePath)
 		return errors.New("the pkl file does not contain 'schema.kdeps.com/core'")
 	}
 
@@ -60,7 +60,7 @@ func EnforceSchemaURL(line string, logger *log.Logger) error {
 }
 
 // EnforcePklVersion extracts the version from the "amends" line and compares it with the provided schema version
-func EnforcePklVersion(line, schemaVersion string, logger *log.Logger) error {
+func EnforcePklVersion(line, filePath, schemaVersion string, logger *log.Logger) error {
 	start := strings.Index(line, "@")
 	end := strings.Index(line, "#")
 	if start == -1 || end == -1 || start >= end {
@@ -76,9 +76,9 @@ func EnforcePklVersion(line, schemaVersion string, logger *log.Logger) error {
 	}
 
 	if comparison == -1 {
-		logger.Warn("Version in amends line is lower than schema version. Please upgrade to latest schema version.", "version", version, "latestSchemaVersion", schemaVersion)
+		logger.Warn("Version in amends line is lower than schema version. Please upgrade to latest schema version.", "version", version, "latestSchemaVersion", schemaVersion, "file", filePath)
 	} else if comparison == 1 {
-		logger.Debug("Version in amends line is higher than schema version", "version", version, "schemaVersion", schemaVersion)
+		logger.Debug("Version in amends line is higher than schema version", "version", version, "schemaVersion", schemaVersion, "file", filePath)
 	}
 
 	return nil
@@ -328,12 +328,12 @@ func EnforcePklTemplateAmendsRules(fs afero.Fs, filePath string, logger *log.Log
 		}
 
 		// Validate the line in stages
-		if err := EnforceSchemaURL(line, logger); err != nil {
+		if err := EnforceSchemaURL(line, filePath, logger); err != nil {
 			logger.Error("Schema URL validation failed", "line", line, "error", err)
 			return err
 		}
 
-		if err := EnforcePklVersion(line, schema.SchemaVersion, logger); err != nil {
+		if err := EnforcePklVersion(line, filePath, schema.SchemaVersion(), logger); err != nil {
 			logger.Error("Version validation failed", "line", line, "error", err)
 			return err
 		}

@@ -5,17 +5,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"testing"
+
 	"kdeps/pkg/archiver"
 	"kdeps/pkg/cfg"
 	"kdeps/pkg/enforcer"
 	"kdeps/pkg/environment"
 	"kdeps/pkg/logging"
 	"kdeps/pkg/workflow"
-	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
-	"testing"
 
 	"github.com/charmbracelet/log"
 	"github.com/cucumber/godog"
@@ -117,7 +118,7 @@ dockerGPU = "%s"
 
 	systemConfigurationFile = filepath.Join(filePath, arg1)
 	// Write the heredoc content to the file
-	err = afero.WriteFile(testFs, systemConfigurationFile, []byte(systemConfigurationContent), 0644)
+	err = afero.WriteFile(testFs, systemConfigurationFile, []byte(systemConfigurationContent), 0o644)
 	if err != nil {
 		return err
 	}
@@ -200,20 +201,20 @@ settings {
 		filePath = filepath.Join(currentDirPath, arg1)
 	}
 
-	if err := testFs.MkdirAll(filePath, 0777); err != nil {
+	if err := testFs.MkdirAll(filePath, 0o777); err != nil {
 		return err
 	}
 
 	agentDir = filePath
 
 	workflowConfigurationFile = filepath.Join(filePath, "workflow.pkl")
-	err := afero.WriteFile(testFs, workflowConfigurationFile, []byte(workflowConfigurationContent), 0644)
+	err := afero.WriteFile(testFs, workflowConfigurationFile, []byte(workflowConfigurationContent), 0o644)
 	if err != nil {
 		return err
 	}
 
 	resourcesDir := filepath.Join(filePath, "resources")
-	if err := testFs.MkdirAll(resourcesDir, 0777); err != nil {
+	if err := testFs.MkdirAll(resourcesDir, 0o777); err != nil {
 		return err
 	}
 
@@ -225,13 +226,13 @@ description = "An action from agent %s"
 	`, arg1, arg1)
 
 	resourceConfigurationFile := filepath.Join(resourcesDir, fmt.Sprintf("%s.pkl", arg1))
-	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0644)
+	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0o644)
 	if err != nil {
 		return err
 	}
 
 	dataDir := filepath.Join(filePath, "data")
-	if err := testFs.MkdirAll(dataDir, 0777); err != nil {
+	if err := testFs.MkdirAll(dataDir, 0o777); err != nil {
 		return err
 	}
 
@@ -282,7 +283,7 @@ func directoryExistsInTheDirectory(arg1, arg2 string) error {
 		dirPath = filepath.Join(currentDirPath, arg1)
 	}
 
-	if err := testFs.MkdirAll(dirPath, 0777); err != nil {
+	if err := testFs.MkdirAll(dirPath, 0o777); err != nil {
 		return err
 	}
 
@@ -364,7 +365,6 @@ func itShouldCreateTheDockerfile(arg1, arg2, arg3 string) error {
 	}
 
 	return nil
-
 }
 
 func itShouldRunTheContainerBuildStepFor(arg1 string) error {
@@ -426,7 +426,6 @@ func theCommandShouldBeRunActionByDefault(arg1 string) error {
 	found, err := searchTextInFile(dockerfile, fmt.Sprintf(`CMD ["run", "%s"]`, arg1))
 	if err != nil {
 		return err
-
 	}
 
 	if !found {
@@ -441,7 +440,6 @@ func theDockerEntrypointShouldBe(arg1 string) error {
 	found, err := searchTextInFile(dockerfile, fmt.Sprintf(`ENTRYPOINT ["%s"]`, arg1))
 	if err != nil {
 		return err
-
 	}
 
 	if !found {
@@ -455,7 +453,6 @@ func itWillInstallTheModels(arg1 string) error {
 	found, err := searchTextInFile(workflowConfigurationFile, arg1)
 	if err != nil {
 		return err
-
 	}
 
 	if !found {

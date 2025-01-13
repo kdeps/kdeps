@@ -1,0 +1,99 @@
+run:
+  allow-parallel-runners: true
+
+issues:
+  exclude-dirs:
+    - vendor
+    - .git
+    - .idea
+    - dist
+    - .github
+    - resources
+    - bin
+    - internal/data
+  exclude-rules:
+    - path: (.+)_test.go
+      linters:
+        - gosec
+        - dupl
+
+linters:
+  disable:
+    - err113
+    - err113
+    - mnd
+    - wrapcheck
+    - funlen
+    - gochecknoglobals
+    - lll
+    - wsl
+    - thelper
+    - testpackage
+    - typecheck
+    - nlreturn
+    - nilnil
+    - varnamelen
+    - forcetypeassert
+    - exhaustruct
+    - gocognit
+    - tagliatelle
+    - forbidigo
+    - musttag
+    - interfacebloat
+    - cyclop
+    - tparallel
+    - depguard
+    - tagalign
+    - gocyclo
+    - exportloopref
+    - godox
+  presets:
+    - bugs
+    - comment
+    - complexity
+    - error
+    - import
+    - metalinter
+    - module
+    - performance
+    - sql
+    - style
+    - test
+    - unused
+linters-settings:
+  revive:
+    rules:
+      - name: unexported-return
+        disabled: true
+  maintidx:
+    under: 5
+
+  ireturn:
+    allow:
+      - anon
+      - error
+      - empty
+      - stdlib
+      - (or|er)$
+  goconst:
+    min-len: 5
+    min-occurrences: 5
+  nestif:
+    min-complexity: 10
+  testifylint:
+    enable:
+      - "bool-compare"
+      - "compares"
+      - "empty"
+      - "error-is-as"
+      - "error-nil"
+      - "expected-actual"
+      - "float-compare"
+      - "len"
+      - "suite-dont-use-pkg"
+      - "suite-extra-assert-call"
+      - "suite-thelper"
+
+  gosec:
+    excludes:
+      - G601

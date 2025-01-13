@@ -50,7 +50,7 @@ func ConvertToFilenameFriendly(input string) string {
 func CreateDirectories(fs afero.Fs, dirs []string) error {
 	for _, dir := range dirs {
 		// Use fs.MkdirAll to create the directory and its parents if they don't exist
-		err := fs.MkdirAll(dir, 0755)
+		err := fs.MkdirAll(dir, 0o755)
 		if err != nil {
 			return fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}

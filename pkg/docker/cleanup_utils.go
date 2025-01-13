@@ -3,11 +3,12 @@ package docker
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+
 	"kdeps/pkg/archiver"
 	"kdeps/pkg/environment"
 	"kdeps/pkg/utils"
-	"os"
-	"path/filepath"
 
 	"github.com/charmbracelet/log"
 	"github.com/docker/docker/api/types/container"

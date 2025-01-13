@@ -6,11 +6,12 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"kdeps/pkg/enforcer"
-	"kdeps/pkg/workflow"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"kdeps/pkg/enforcer"
+	"kdeps/pkg/workflow"
 
 	"github.com/charmbracelet/log"
 	pklWf "github.com/kdeps/schema/gen/workflow"
@@ -35,7 +36,7 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 	}
 
 	// Ensure the temporary directory exists
-	err = fs.MkdirAll(tempDir, 0777)
+	err = fs.MkdirAll(tempDir, 0o777)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temporary directory: %w", err)
 	}
@@ -74,13 +75,13 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 		switch header.Typeflag {
 		case tar.TypeDir:
 			// Create directories
-			err = fs.MkdirAll(targetPath, 0777)
+			err = fs.MkdirAll(targetPath, 0o777)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create directory: %w", err)
 			}
 		case tar.TypeReg:
 			// Create parent directories
-			err = fs.MkdirAll(parentDir, 0777)
+			err = fs.MkdirAll(parentDir, 0o777)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to create parent directories: %w", err)
 			}
@@ -99,7 +100,7 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 			}
 
 			// Set file permissions
-			err = fs.Chmod(targetPath, 0666)
+			err = fs.Chmod(targetPath, 0o666)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to set file permissions: %w", err)
 			}
@@ -127,7 +128,7 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 
 	// Copy the kdepsPackage to kdepsDir/packages
 	packageDir := filepath.Join(kdepsDir, "packages")
-	err = fs.MkdirAll(packageDir, 0777)
+	err = fs.MkdirAll(packageDir, 0o777)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create packages directory: %w", err)
 	}
@@ -192,7 +193,6 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 
 		return nil
 	})
-
 	if err != nil {
 		return nil, fmt.Errorf("Error populating KdepsPackage from directory walk: %w", err)
 	}
@@ -225,7 +225,7 @@ func PackageProject(fs afero.Fs, wf pklWf.Workflow, kdepsDir, compiledProjectDir
 	packageDir := fmt.Sprintf("%s/packages", kdepsDir)
 
 	if _, err := fs.Stat(packageDir); err != nil {
-		if err := fs.MkdirAll(packageDir, 0777); err != nil {
+		if err := fs.MkdirAll(packageDir, 0o777); err != nil {
 			return "", fmt.Errorf("error creating the system packages folder: %s", packageDir)
 		}
 	}
@@ -312,7 +312,6 @@ func PackageProject(fs afero.Fs, wf pklWf.Workflow, kdepsDir, compiledProjectDir
 
 		return nil
 	})
-
 	if err != nil {
 		logger.Error("Error packaging project", "error", err)
 		return "", fmt.Errorf("error packaging project: %w", err)

@@ -5,13 +5,14 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"kdeps/pkg/schema"
-	"kdeps/pkg/texteditor"
 	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
 	"time"
+
+	"kdeps/pkg/schema"
+	"kdeps/pkg/texteditor"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
@@ -24,8 +25,10 @@ import (
 //go:embed templates/*.pkl
 var templatesFS embed.FS
 
-var lightBlue = lipgloss.NewStyle().Foreground(lipgloss.Color("#6495ED")).Bold(true)
-var lightGreen = lipgloss.NewStyle().Foreground(lipgloss.Color("#90EE90")).Bold(true)
+var (
+	lightBlue  = lipgloss.NewStyle().Foreground(lipgloss.Color("#6495ED")).Bold(true)
+	lightGreen = lipgloss.NewStyle().Foreground(lipgloss.Color("#90EE90")).Bold(true)
+)
 
 func printWithDots(message string) {
 	fmt.Print(lightBlue.Render(message))
@@ -69,7 +72,7 @@ func createDirectory(fs afero.Fs, logger *log.Logger, path string) error {
 
 func createFile(fs afero.Fs, logger *log.Logger, path string, content string) error {
 	printWithDots(fmt.Sprintf("Creating file: %s", lightGreen.Render(path)))
-	if err := afero.WriteFile(fs, path, []byte(content), 0644); err != nil {
+	if err := afero.WriteFile(fs, path, []byte(content), 0o644); err != nil {
 		logger.Error(err)
 		return err
 	}
@@ -83,7 +86,7 @@ func generateWorkflowFile(fs afero.Fs, logger *log.Logger, mainDir, name string)
 
 	// Template data for dynamic replacement
 	templateData := map[string]string{
-		"Header": fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schema.SchemaVersion),
+		"Header": fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schema.SchemaVersion()),
 		"Name":   name,
 	}
 
@@ -125,7 +128,7 @@ func generateResourceFiles(fs afero.Fs, logger *log.Logger, mainDir, name string
 
 	// Common template data
 	templateData := map[string]string{
-		"Header": fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"`, schema.SchemaVersion),
+		"Header": fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"`, schema.SchemaVersion()),
 		"Name":   name,
 	}
 
@@ -176,7 +179,7 @@ func generateSpecificFile(fs afero.Fs, logger *log.Logger, mainDir, fileName, ag
 
 	templatePath := filepath.Join("templates", fileName)
 	templateData := map[string]string{
-		"Header": fmt.Sprintf(headerTemplate, schema.SchemaVersion),
+		"Header": fmt.Sprintf(headerTemplate, schema.SchemaVersion()),
 		"Name":   agentName,
 	}
 

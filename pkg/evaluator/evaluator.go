@@ -78,7 +78,6 @@ func CreateAndProcessPklFile(
 	processFunc func(fs afero.Fs, tmpFile string, headerSection string, logger *log.Logger) (string, error),
 	isExtension bool, // New parameter to control amends vs extends
 ) error {
-
 	// Create a temporary directory
 	tmpDir, err := afero.TempDir(fs, "", "")
 	if err != nil {
@@ -102,7 +101,7 @@ func CreateAndProcessPklFile(
 
 	// Prepare the sections with the relationship keyword and imports
 	// amends or extends "package://schema.kdeps.com/core@0.0.34#/Kdeps.pkl"
-	relationshipSection := fmt.Sprintf(`%s "package://schema.kdeps.com/core@%s#/%s"`, relationship, schema.SchemaVersion, pklTemplate)
+	relationshipSection := fmt.Sprintf(`%s "package://schema.kdeps.com/core@%s#/%s"`, relationship, schema.SchemaVersion(), pklTemplate)
 	fullSections := append([]string{relationshipSection}, sections...)
 
 	// Write sections to the temporary file
@@ -120,7 +119,7 @@ func CreateAndProcessPklFile(
 	}
 
 	// Write the processed content to the final file
-	err = afero.WriteFile(fs, finalFileName, []byte(processedContent), 0644)
+	err = afero.WriteFile(fs, finalFileName, []byte(processedContent), 0o644)
 	if err != nil {
 		logger.Error("Failed to write final file", "path", finalFileName, "error", err)
 		return fmt.Errorf("failed to write final file: %w", err)

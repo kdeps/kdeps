@@ -52,7 +52,6 @@ func getLatestVersion(directory string, logger *log.Logger) (string, error) {
 		}
 		return nil
 	})
-
 	if err != nil {
 		logger.Error("Error while walking the directory", "directory", directory, "error", err)
 		return "", err

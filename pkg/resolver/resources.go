@@ -2,9 +2,10 @@ package resolver
 
 import (
 	"fmt"
-	"kdeps/pkg/resource"
 	"os"
 	"path/filepath"
+
+	"kdeps/pkg/resource"
 
 	"github.com/spf13/afero"
 )
