@@ -221,7 +221,7 @@ jobs:
       - name: Create .kdeps.pkl configuration file
         run: |
           echo 'amends "package://schema.kdeps.com/core@0.1.46#/Kdeps.pkl"' > ~/.kdeps.pkl
-          /c/Users/runneradmin/.local/bin/pkl.exe eval ~/.kdeps.pkl >> ~/.kdeps.pkl
+          /c/Users/runneradmin/.local/bin/pkl.exe eval --allowed-modules "file:///c/Users/runneradmin/.kdeps.pkl,package://schema.kdeps.com/core@0.1.46#/Kdeps.pkl,package://pkg.pkl-lang.org/pkl-go/pkl.golang@0.5.0#/go.pkl" ~/.kdeps.pkl >> ~/.kdeps.pkl
         shell: bash
       - name: Install winget
         uses: Cyberboss/install-winget@v1
