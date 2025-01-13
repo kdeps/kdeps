@@ -1,36 +1,87 @@
-# This is an example .goreleaser.yml file with some sensible defaults.
-# Make sure to check the documentation at https://goreleaser.com
-
-# The lines below are called `modelines`. See `:help modeline`
-# Feel free to remove those if you don't want/need to use them.
-# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
-# vim: set ts=2 sw=2 tw=0 fo=cnqoj
-
 version: 2
-
 before:
   hooks:
-    # You may remove this if you don't use go modules.
     - go mod tidy
-    # you may remove this if you don't need go generate
-    - go generate ./...
-
 builds:
-  - env:
-      - CGO_ENABLED=0
+  - id: kdeps-darwin
+    binary: kdeps
+    ldflags:
+      - -s -w -X main.version={{ .Env.VERSION }} -X main.commit={{ .Env.COMMIT_SHA }}
+    main: ./
+    goarch:
+      - amd64
+      - arm64
+    goos:
+      - darwin
+    env:
+      - CC=o64-clang
+      - CXX=o64-clang++
+      - CGO_ENABLED=1
+    flags:
+      - -trimpath
+
+  - id: kdeps-linux-amd64
+    binary: kdeps
+    main: ./
+    env:
+      - CC=x86_64-linux-gnu-gcc
+      - CXX=x86_64-linux-gnu-g++
+      - CGO_ENABLED=1
+    goarch:
+      - amd64
     goos:
       - linux
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Env.VERSION }} -X main.commit={{ .Env.COMMIT_SHA }}
+  - id: kdeps-linux-arm64
+    binary: kdeps
+    main: ./
+    goarch:
+      - arm64
+    goos:
+      - linux
+    env:
+      - CC=aarch64-linux-gnu-gcc
+      - CXX=aarch64-linux-gnu-g++
+      - CGO_ENABLED=1
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Env.VERSION }} -X main.commit={{ .Env.COMMIT_SHA }}
+  - id: kdeps-windows-amd64
+    binary: kdeps
+    main: ./
+    goarch:
+      - amd64
+    goos:
       - windows
-      - darwin
+    env:
+      - CC=x86_64-w64-mingw32-gcc
+      - CXX=x86_64-w64-mingw32-g++
+      - CGO_ENABLED=1
+    ldflags:
+      - -s -w -X main.version={{ .Env.VERSION }} -X main.commit={{ .Env.COMMIT_SHA }}
+    flags:
+      - -trimpath
+      - -buildmode=exe
+
+release:
+  make_latest: false
+  prerelease: true
 
 archives:
   - format: tar.gz
-    # this name template makes the OS and Arch compatible with the results of `uname`.
+    builds:
+      - kdeps-linux-arm64
+      - kdeps-linux-amd64
+      - kdeps-darwin
+      - kdeps-windows-amd64
     name_template: >-
       {{ .ProjectName }}_
       {{- title .Os }}_
       {{- if eq .Arch "amd64" }}x86_64
-      {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
     # use zip for windows archives
@@ -45,9 +96,43 @@ changelog:
       - "^docs:"
       - "^test:"
 
-release:
-  footer: >-
+# .goreleaser.yaml
+brews:
+  - name: kdeps
 
-    ---
+    # Git author used to commit to the repository.
+    commit_author:
+      name: jjuliano
+      email: joelbryan.julianoe@gmail.com
 
-    Released by [GoReleaser](https://github.com/goreleaser/goreleaser).
+    # Folder inside the repository to put the formula.
+    directory: Formula
+
+    # The project name and current git tag are used in the format string.
+    #
+    # Templates: allowed
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+
+    # Your app's homepage.
+    homepage: "https://kdeps.com"
+    description: "Kdeps is a framework for creating dockerized AI Agent APIs"
+
+    dependencies:
+      - name: git
+
+    repository:
+      owner: kdeps
+      name: homebrew-tap
+
+nfpms:
+  - package_name: kdeps
+    homepage: https://kdeps.com
+    maintainer: Joel Bryan Juliano <joelbryan.juliano@gmail.com>
+    description: "Kdeps is a framework for creating dockerized AI Agent APIs"
+    vendor: Kdeps
+    license: Apache-2.0 license
+    formats:
+      - apk
+      - deb
+    dependencies:
+      - git

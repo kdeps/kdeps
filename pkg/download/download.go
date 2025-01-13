@@ -29,13 +29,13 @@ func (wc *WriteCounter) Write(p []byte) (int, error) {
 // PrintProgress displays the download progress in the terminal.
 func (wc WriteCounter) PrintProgress() {
 	fmt.Printf("\r%s", strings.Repeat(" ", 50)) // Clear the line
-	fmt.Printf("\rDownloading... %s complete", humanize.Bytes(wc.Total))
+	fmt.Printf("\rDownloading... %s complete - ", humanize.Bytes(wc.Total))
 }
 
 // Given a list of URLs, download it to a target.
 func DownloadFiles(fs afero.Fs, downloadDir string, urls []string, logger *log.Logger) error {
 	// Create the downloads directory if it doesn't exist
-	err := os.MkdirAll(downloadDir, 0755)
+	err := os.MkdirAll(downloadDir, 0o755)
 	if err != nil {
 		return fmt.Errorf("failed to create downloads directory: %w", err)
 	}

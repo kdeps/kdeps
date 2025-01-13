@@ -3,13 +3,14 @@ package resolver
 import (
 	"context"
 	"fmt"
-	"kdeps/pkg/evaluator"
-	"kdeps/pkg/schema"
-	"kdeps/pkg/utils"
 	"path/filepath"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"kdeps/pkg/evaluator"
+	"kdeps/pkg/schema"
+	"kdeps/pkg/utils"
 
 	"github.com/alexellis/go-execute/v2"
 	pklPython "github.com/kdeps/schema/gen/python"
@@ -180,7 +181,7 @@ func (dr *DependencyResolver) WritePythonStdoutToFile(resourceId string, pythonS
 		}
 
 		// Write the content to the file
-		err := afero.WriteFile(dr.Fs, outputFilePath, []byte(content), 0644)
+		err := afero.WriteFile(dr.Fs, outputFilePath, []byte(content), 0o644)
 		if err != nil {
 			return "", fmt.Errorf("failed to write Python Stdout to file for resource ID: %s: %w", resourceId, err)
 		}
@@ -265,7 +266,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceId string, newPython *pk
 
 	// Build the new content for the PKL file in the specified format
 	var pklContent strings.Builder
-	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Python.pkl\"\n\n", schema.SchemaVersion))
+	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Python.pkl\"\n\n", schema.SchemaVersion()))
 	pklContent.WriteString("resources {\n")
 
 	for id, resource := range existingResources {
@@ -305,13 +306,13 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceId string, newPython *pk
 	pklContent.WriteString("}\n")
 
 	// Write the new PKL content to the file using afero
-	err = afero.WriteFile(dr.Fs, pklPath, []byte(pklContent.String()), 0644)
+	err = afero.WriteFile(dr.Fs, pklPath, []byte(pklContent.String()), 0o644)
 	if err != nil {
 		return fmt.Errorf("failed to write to PKL file: %w", err)
 	}
 
 	// Evaluate the PKL file using EvalPkl
-	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, pklPath, fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Python.pkl\"", schema.SchemaVersion), dr.Logger)
+	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, pklPath, fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Python.pkl\"", schema.SchemaVersion()), dr.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to evaluate PKL file: %w", err)
 	}
@@ -321,7 +322,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceId string, newPython *pk
 	finalContent.WriteString(evaluatedContent)
 
 	// Write the final evaluated content back to the PKL file
-	err = afero.WriteFile(dr.Fs, pklPath, []byte(finalContent.String()), 0644)
+	err = afero.WriteFile(dr.Fs, pklPath, []byte(finalContent.String()), 0o644)
 	if err != nil {
 		return fmt.Errorf("failed to write evaluated content to PKL file: %w", err)
 	}

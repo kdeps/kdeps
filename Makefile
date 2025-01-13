@@ -1,68 +1,64 @@
-PROJECT_NAME := kdeps
-TEST_REPORT := test-report.txt
-COVERAGE_REPORT := coverage.txt
-SCHEMA_VERSION_FILE := SCHEMA_VERSION
-PACKAGE_LIST := ./...
-TARGETS := $(filter darwin/amd64 linux/amd64 windows/amd64 darwin/arm64 linux/arm64 windows/arm64, $(shell go tool dist list))
+NAME=kdeps
+BUILD_DIR ?= bin
+BUILD_SRC=.
 
-# Default target
-all: test
+NO_COLOR=\033[0m
+OK_COLOR=\033[32;01m
+ERROR_COLOR=\033[31;01m
+WARN_COLOR=\033[33;01m
+TELEMETRY_OPTOUT=1
+CURRENT_DIR=$(pwd)
+TELEMETRY_KEY=""
+FILES := $(wildcard *.yml *.txt *.py)
 
-# Run tests and generate a report with coverage
-test:
-	@echo "Running tests with coverage..."
-	@go test -v -coverprofile=$(COVERAGE_REPORT) $(PACKAGE_LIST) | tee $(TEST_REPORT)
+.PHONY: all clean test build tools format pre-commit tools-update
+all: clean deps test build
 
-# Get the latest schema version and append it to the SCHEMA_VERSION file
-schema_version:
-	@echo "Fetching latest schema version..."
-	@latest_tag=$$(curl --silent "https://api.github.com/repos/kdeps/schema/tags" | jq -r '.[0].name'); \
-	echo $$latest_tag | sed 's/v//g' > $(SCHEMA_VERSION_FILE); \
-	cat $(SCHEMA_VERSION_FILE)
+deps: tools
+	@printf "$(OK_COLOR)==> Installing dependencies$(NO_COLOR)\n"
+	@go mod tidy
 
-# Build for all targets
-build: schema_version
-	@rm -rf ./build; \
-	mkdir -p ./build; \
-	SCHEMA_VERSION=$$(cat $(SCHEMA_VERSION_FILE)); \
-	for target in $(TARGETS); do \
-		X_OS=$$(echo $$target | cut -d'/' -f1); \
-		X_ARCH=$$(echo $$target | cut -d'/' -f2); \
-		EXT=$$(if [ "$$X_OS" = "windows" ]; then echo ".exe"; else echo ""; fi); \
-		echo "Building for ./build/$$X_OS/$$X_ARCH/..."; \
-		mkdir -p ./build/$$X_OS/$$X_ARCH/ || { \
-			echo "Failed to create directory ./build/$$X_OS/$$X_ARCH/"; \
-			exit 1; \
-		}; \
-		GOOS=$$X_OS GOARCH=$$X_ARCH go build -ldflags "-X kdeps/pkg/schema.SchemaVersion=$$SCHEMA_VERSION" -o ./build/$$X_OS/$$X_ARCH/ $(PACKAGE_LIST) || { \
-			echo "Build failed for $$X_OS/$$X_ARCH"; \
-			exit 1; \
-		}; \
-		echo "Build succeeded for $$X_OS/$$X_ARCH"; \
-	done
+build: deps
+	@echo "$(OK_COLOR)==> Building the application...$(NO_COLOR)"
+	@CGO_ENABLED=1 go build -v -ldflags="-s -w -X main.Version=$(or $(tag), dev-$(shell git describe --tags --abbrev=0)) -o "$(BUILD_DIR)/$(NAME)" "$(BUILD_SRC)"
 
-# Clean up generated files
 clean:
-	@echo "Cleaning up..."
-	@rm -rf ./build $(TEST_REPORT) $(COVERAGE_REPORT) $(SCHEMA_VERSION_FILE)
+	@rm -rf ./bin
 
-# Run linting using golangci-lint (you need to have golangci-lint installed)
-lint:
-	@echo "Running linter..."
-	@golangci-lint run
+test: test-unit
 
-# Format code
-fmt:
-	@echo "Formatting code..."
-	@go fmt $(PACKAGE_LIST)
+test-unit:
+	@echo "$(OK_COLOR)==> Running the unit tests$(NO_COLOR)"
+	@go test -v -cover -timeout 10m ./...
 
-# Run vet
-vet:
-	@echo "Running vet..."
-	@go vet $(PACKAGE_LIST)
+format: tools
+	@echo "$(OK_COLOR)>> [go vet] running$(NO_COLOR)" & \
+	go vet ./... &
 
-# Display coverage in browser (you need to have go tool cover installed)
-coverage: test
-	@go tool cover -html=$(COVERAGE_REPORT)
+	@echo "$(OK_COLOR)>> [gofumpt] running$(NO_COLOR)" & \
+	gofumpt -w cmd pkg &
 
-.PHONY: all test build clean lint fmt vet coverage schema_version $(TARGETS)
+#	@echo "$(OK_COLOR)>> [golangci-lint] running$(NO_COLOR)" & \
+#	golangci-lint run --timeout 10m60s ./...  & \
+#	wait
+
+tools:
+	@if ! command -v gci > /dev/null ; then \
+		echo ">> [$@]: gci not found: installing"; \
+		go install github.com/daixiang0/gci@latest; \
+	fi
+
+	@if ! command -v gofumpt > /dev/null ; then \
+		echo ">> [$@]: gofumpt not found: installing"; \
+		go install mvdan.cc/gofumpt@latest; \
+	fi
+
+	@if ! command -v golangci-lint > /dev/null ; then \
+		echo ">> [$@]: golangci-lint not found: installing"; \
+		go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.63.2; \
+	fi
+
+tools-update:
+	go install github.com/daixiang0/gci@latest; \
+	go install mvdan.cc/gofumpt@latest; \
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.63.2;

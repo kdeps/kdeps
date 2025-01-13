@@ -19,7 +19,7 @@ func TestCheckConfig(t *testing.T) {
 	assert.NoError(t, err, "Expected no error when file does not exist")
 
 	// Test when file exists
-	afero.WriteFile(fs, configFilePath, []byte{}, 0644)
+	afero.WriteFile(fs, configFilePath, []byte{}, 0o644)
 	foundConfig, err := checkConfig(fs, baseDir)
 	assert.NoError(t, err, "Expected no error when file exists")
 	assert.Equal(t, configFilePath, foundConfig, "Expected correct file path")
@@ -35,13 +35,13 @@ func TestFindKdepsConfig(t *testing.T) {
 	assert.Empty(t, config, "Expected empty result when no config file exists")
 
 	// Test when kdeps.pkl exists in Pwd
-	afero.WriteFile(fs, filepath.Join(pwd, SystemConfigFileName), []byte{}, 0644)
+	afero.WriteFile(fs, filepath.Join(pwd, SystemConfigFileName), []byte{}, 0o644)
 	config = findKdepsConfig(fs, pwd, home)
 	assert.Equal(t, filepath.Join(pwd, SystemConfigFileName), config, "Expected config file from Pwd directory")
 
 	// Test when kdeps.pkl exists in Home and not in Pwd
 	fs = afero.NewMemMapFs() // Reset file system
-	afero.WriteFile(fs, filepath.Join(home, SystemConfigFileName), []byte{}, 0644)
+	afero.WriteFile(fs, filepath.Join(home, SystemConfigFileName), []byte{}, 0o644)
 	config = findKdepsConfig(fs, pwd, home)
 	assert.Equal(t, filepath.Join(home, SystemConfigFileName), config, "Expected config file from Home directory")
 }
@@ -55,7 +55,7 @@ func TestIsDockerEnvironment(t *testing.T) {
 	assert.False(t, isDocker, "Expected not to be in a Docker environment")
 
 	// Test when .dockerenv exists
-	afero.WriteFile(fs, filepath.Join(root, ".dockerenv"), []byte{}, 0644)
+	afero.WriteFile(fs, filepath.Join(root, ".dockerenv"), []byte{}, 0o644)
 	isDocker = isDockerEnvironment(fs, root)
 	assert.False(t, isDocker, "Expected false due to missing required Docker environment variables")
 

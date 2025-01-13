@@ -4,12 +4,13 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"kdeps/pkg/data"
-	"kdeps/pkg/schema"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"kdeps/pkg/data"
+	"kdeps/pkg/schema"
 
 	pklData "github.com/kdeps/schema/gen/data"
 	pklExec "github.com/kdeps/schema/gen/exec"
@@ -47,14 +48,14 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 		"pkl:shell":    {Alias: "", Check: false},
 		"pkl:xml":      {Alias: "", Check: false},
 		"pkl:yaml":     {Alias: "", Check: false},
-		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Document.pkl", schema.SchemaVersion): {Alias: "document", Check: false},
-		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Skip.pkl", schema.SchemaVersion):     {Alias: "skip", Check: false},
-		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Utils.pkl", schema.SchemaVersion):    {Alias: "utils", Check: false},
-		filepath.Join(dr.ActionDir, "/llm/"+dr.RequestId+"__llm_output.pkl"):                  {Alias: "llm", Check: true},
-		filepath.Join(dr.ActionDir, "/client/"+dr.RequestId+"__client_output.pkl"):            {Alias: "client", Check: true},
-		filepath.Join(dr.ActionDir, "/exec/"+dr.RequestId+"__exec_output.pkl"):                {Alias: "exec", Check: true},
-		filepath.Join(dr.ActionDir, "/python/"+dr.RequestId+"__python_output.pkl"):            {Alias: "python", Check: true},
-		filepath.Join(dr.ActionDir, "/data/"+dr.RequestId+"__data_output.pkl"):                {Alias: "data", Check: true},
+		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Document.pkl", schema.SchemaVersion()): {Alias: "document", Check: false},
+		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Skip.pkl", schema.SchemaVersion()):     {Alias: "skip", Check: false},
+		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Utils.pkl", schema.SchemaVersion()):    {Alias: "utils", Check: false},
+		filepath.Join(dr.ActionDir, "/llm/"+dr.RequestId+"__llm_output.pkl"):                    {Alias: "llm", Check: true},
+		filepath.Join(dr.ActionDir, "/client/"+dr.RequestId+"__client_output.pkl"):              {Alias: "client", Check: true},
+		filepath.Join(dr.ActionDir, "/exec/"+dr.RequestId+"__exec_output.pkl"):                  {Alias: "exec", Check: true},
+		filepath.Join(dr.ActionDir, "/python/"+dr.RequestId+"__python_output.pkl"):              {Alias: "python", Check: true},
+		filepath.Join(dr.ActionDir, "/data/"+dr.RequestId+"__data_output.pkl"):                  {Alias: "data", Check: true},
 		dr.RequestPklFile: {Alias: "request", Check: true},
 	}
 
@@ -99,7 +100,7 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 		newContent = re.ReplaceAllString(newContent, `\($1)`)
 
 		// Write the updated content back to the file
-		err = afero.WriteFile(dr.Fs, pklFile, []byte(newContent), 0644)
+		err = afero.WriteFile(dr.Fs, pklFile, []byte(newContent), 0o644)
 		if err != nil {
 			return err
 		}
@@ -119,7 +120,7 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 
 	for key, file := range files {
 		dir := filepath.Dir(file)
-		if err := dr.Fs.MkdirAll(dir, 0755); err != nil {
+		if err := dr.Fs.MkdirAll(dir, 0o755); err != nil {
 			return fmt.Errorf("failed to create directory for %s: %w", key, err)
 		}
 
@@ -138,7 +139,7 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 			defer f.Close()
 
 			// Use packageUrl in the header writing
-			packageUrl := fmt.Sprintf("package://schema.kdeps.com/core@%s#/", schema.SchemaVersion)
+			packageUrl := fmt.Sprintf("package://schema.kdeps.com/core@%s#/", schema.SchemaVersion())
 			writer := bufio.NewWriter(f)
 
 			var schemaFile, blockType string

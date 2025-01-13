@@ -52,7 +52,6 @@ func PopulateDataFileRegistry(fs afero.Fs, baseDir string) (*map[string]map[stri
 
 		return nil
 	})
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to walk through directory %s: %w", baseDir, err)
 	}

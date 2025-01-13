@@ -58,7 +58,6 @@ func MoveFolder(fs afero.Fs, src string, dest string) error {
 		// Remove the original file
 		return fs.Remove(path)
 	})
-
 	if err != nil {
 		return err
 	}
@@ -160,7 +159,8 @@ func CopyFile(fs afero.Fs, src, dst string, logger *log.Logger) error {
 }
 
 func CopyDataDir(fs afero.Fs, wf pklWf.Workflow, kdepsDir, projectDir, compiledProjectDir, agentName, agentVersion,
-	agentAction string, processWorkflows bool, logger *log.Logger) error {
+	agentAction string, processWorkflows bool, logger *log.Logger,
+) error {
 	var srcDir, destDir string
 
 	srcDir = filepath.Join(projectDir, "data")
@@ -280,7 +280,6 @@ func CopyDataDir(fs afero.Fs, wf pklWf.Workflow, kdepsDir, projectDir, compiledP
 
 		return nil
 	})
-
 	if err != nil {
 		logger.Error("Error copying directory", "srcDir", srcDir, "destDir", destDir, "error", err)
 		return err

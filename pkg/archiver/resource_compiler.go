@@ -4,11 +4,12 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"kdeps/pkg/enforcer"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"kdeps/pkg/enforcer"
 
 	"github.com/charmbracelet/log"
 	pklWf "github.com/kdeps/schema/gen/workflow"
@@ -40,7 +41,6 @@ func CompileResources(fs afero.Fs, wf pklWf.Workflow, resourcesDir string, proje
 		}
 		return nil
 	})
-
 	if err != nil {
 		logger.Error("Error compiling resources", "resourcesDir", resourcesDir, "projectDir", projectDir, "error", err)
 		return err
@@ -207,7 +207,7 @@ func processResourcePklFiles(fs afero.Fs, file string, wf pklWf.Workflow, resour
 		}
 
 		fname := fmt.Sprintf("%s_%s-%s.pkl", name, action, version)
-		err = afero.WriteFile(fs, filepath.Join(resourcesDir, fname), fileBuffer.Bytes(), os.FileMode(0644))
+		err = afero.WriteFile(fs, filepath.Join(resourcesDir, fname), fileBuffer.Bytes(), os.FileMode(0o644))
 		if err != nil {
 			logger.Error("Error writing file", "file", fname, "error", err)
 			return fmt.Errorf("error writing file: %w", err)
@@ -253,7 +253,7 @@ func writeProcessedFile(fs afero.Fs, fileBuffer *bytes.Buffer, resourcesDir, nam
 	filePath := filepath.Join(resourcesDir, fileName)
 
 	// Write the processed file
-	if err := afero.WriteFile(fs, filePath, fileBuffer.Bytes(), os.FileMode(0644)); err != nil {
+	if err := afero.WriteFile(fs, filePath, fileBuffer.Bytes(), os.FileMode(0o644)); err != nil {
 		return fmt.Errorf("Error writing processed file: %w", err)
 	}
 

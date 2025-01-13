@@ -3,10 +3,11 @@ package cfg
 import (
 	"errors"
 	"fmt"
-	"kdeps/pkg/environment"
-	"kdeps/pkg/logging"
 	"path/filepath"
 	"testing"
+
+	"kdeps/pkg/environment"
+	"kdeps/pkg/logging"
 
 	"github.com/charmbracelet/log"
 	"github.com/cucumber/godog"
@@ -167,7 +168,6 @@ func theConfigurationIsLoadedInTheHomeDirectory() error {
 
 func theCurrentDirectoryIs(arg1 string) error {
 	tempDir, err := afero.TempDir(testFs, "", "")
-
 	if err != nil {
 		return err
 	}
@@ -179,7 +179,6 @@ func theCurrentDirectoryIs(arg1 string) error {
 
 func theHomeDirectoryIs(arg1 string) error {
 	tempDir, err := afero.TempDir(testFs, "", "")
-
 	if err != nil {
 		return err
 	}

@@ -52,7 +52,7 @@ func TestAppendDataEntry(t *testing.T) {
 			name: "PKL file load failure",
 			setup: func(dr *resolver.DependencyResolver) *data.DataImpl {
 				dr.Context = &MockContext{}
-				afero.WriteFile(dr.Fs, filepath.Join(dr.ActionDir, "data", dr.RequestId+"__data_output.pkl"), []byte("invalid content"), 0644)
+				afero.WriteFile(dr.Fs, filepath.Join(dr.ActionDir, "data", dr.RequestId+"__data_output.pkl"), []byte("invalid content"), 0o644)
 				return nil
 			},
 			expectError:   true,

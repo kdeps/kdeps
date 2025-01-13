@@ -3,10 +3,11 @@ package resolver
 import (
 	"context"
 	"fmt"
-	"kdeps/pkg/environment"
-	"kdeps/pkg/utils"
 	"path/filepath"
 	"time"
+
+	"kdeps/pkg/environment"
+	"kdeps/pkg/utils"
 
 	"github.com/charmbracelet/log"
 	"github.com/google/uuid"

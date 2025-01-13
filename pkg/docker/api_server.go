@@ -6,15 +6,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"kdeps/pkg/environment"
-	"kdeps/pkg/evaluator"
-	"kdeps/pkg/resolver"
-	"kdeps/pkg/utils"
 	"net/http"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"kdeps/pkg/environment"
+	"kdeps/pkg/evaluator"
+	"kdeps/pkg/resolver"
+	"kdeps/pkg/utils"
 
 	"github.com/charmbracelet/log"
 	"github.com/gabriel-vasile/mimetype"
@@ -41,8 +42,8 @@ type DecodedResponse struct {
 // StartApiServerMode initializes and starts an API server based on the provided workflow configuration.
 // It validates the API server configuration, sets up routes, and starts the server on the configured port.
 func StartApiServerMode(fs afero.Fs, ctx context.Context, wfCfg pklWf.Workflow, environ *environment.Environment,
-	agentDir string, apiServerPath string, logger *log.Logger) error {
-
+	agentDir string, apiServerPath string, logger *log.Logger,
+) error {
 	// Extract workflow settings and validate API server configuration
 	wfSettings := wfCfg.GetSettings()
 	wfApiServer := wfSettings.ApiServer
@@ -74,8 +75,8 @@ func StartApiServerMode(fs afero.Fs, ctx context.Context, wfCfg pklWf.Workflow, 
 // setupRoutes configures HTTP routes for the API server based on the provided route configuration.
 // Each route is validated before being registered with the HTTP handler.
 func setupRoutes(fs afero.Fs, ctx context.Context, routes []*apiserver.APIServerRoutes, environ *environment.Environment,
-	agentDir string, apiServerPath string, logger *log.Logger) error {
-
+	agentDir string, apiServerPath string, logger *log.Logger,
+) error {
 	for _, route := range routes {
 		if route == nil || route.Path == "" {
 			logger.Error("Route configuration is invalid", "route", route)
@@ -92,8 +93,8 @@ func setupRoutes(fs afero.Fs, ctx context.Context, routes []*apiserver.APIServer
 // ApiServerHandler handles incoming HTTP requests for the configured routes.
 // It validates the HTTP method, processes the request data, and triggers workflow actions to generate responses.
 func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServerRoutes, env *environment.Environment,
-	agentDir string, apiServerPath string, logger *log.Logger) http.HandlerFunc {
-
+	agentDir string, apiServerPath string, logger *log.Logger,
+) http.HandlerFunc {
 	allowedMethods := route.Methods
 
 	dr, err := resolver.NewGraphResolver(fs, logger, ctx, env, agentDir)
@@ -194,13 +195,13 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 						}
 
 						// Create the directory if it does not exist
-						if err := fs.MkdirAll(filesPath, 0777); err != nil {
+						if err := fs.MkdirAll(filesPath, 0o777); err != nil {
 							http.Error(w, "Unable to create files directory", http.StatusInternalServerError)
 							return
 						}
 
 						// Write the file to the filesystem
-						err = afero.WriteFile(fs, filename, fileBytes, 0644)
+						err = afero.WriteFile(fs, filename, fileBytes, 0o644)
 						if err != nil {
 							http.Error(w, "Failed to save file", http.StatusInternalServerError)
 							return
@@ -229,13 +230,13 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 					}
 
 					// Create the directory if it does not exist
-					if err := fs.MkdirAll(filesPath, 0777); err != nil {
+					if err := fs.MkdirAll(filesPath, 0o777); err != nil {
 						http.Error(w, "Unable to create files directory", http.StatusInternalServerError)
 						return
 					}
 
 					// Write the file to the filesystem
-					err = afero.WriteFile(fs, filename, fileBytes, 0644)
+					err = afero.WriteFile(fs, filename, fileBytes, 0o644)
 					if err != nil {
 						http.Error(w, "Failed to save file", http.StatusInternalServerError)
 						return

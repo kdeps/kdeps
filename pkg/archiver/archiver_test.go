@@ -4,16 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"kdeps/pkg/enforcer"
-	"kdeps/pkg/environment"
-	"kdeps/pkg/logging"
-	"kdeps/pkg/resource"
-	"kdeps/pkg/workflow"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"testing"
+
+	"kdeps/pkg/enforcer"
+	"kdeps/pkg/environment"
+	"kdeps/pkg/logging"
+	"kdeps/pkg/resource"
+	"kdeps/pkg/workflow"
 
 	"github.com/charmbracelet/log"
 	"github.com/cucumber/godog"
@@ -110,7 +111,7 @@ func theSystemFolderExists(arg1 string) error {
 	kdepsDir = tempDir
 
 	packageDir = kdepsDir + "/packages"
-	if err := testFs.MkdirAll(packageDir, 0755); err != nil {
+	if err := testFs.MkdirAll(packageDir, 0o755); err != nil {
 		return err
 	}
 
@@ -264,12 +265,12 @@ func theWorkflowActionConfigurationWillBeRewrittenTo(arg1 string) error {
 
 func theResourcesAndDataFolderExists() error {
 	resourcesDir = filepath.Join(aiAgentDir, "resources")
-	if err := testFs.MkdirAll(resourcesDir, 0755); err != nil {
+	if err := testFs.MkdirAll(resourcesDir, 0o755); err != nil {
 		return err
 	}
 
 	dataDir = filepath.Join(aiAgentDir, "data")
-	if err := testFs.MkdirAll(dataDir, 0755); err != nil {
+	if err := testFs.MkdirAll(dataDir, 0o755); err != nil {
 		return err
 	}
 

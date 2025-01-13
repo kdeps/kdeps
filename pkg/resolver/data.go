@@ -2,11 +2,12 @@ package resolver
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
+
 	"kdeps/pkg/evaluator"
 	"kdeps/pkg/schema"
 	"kdeps/pkg/utils"
-	"path/filepath"
-	"strings"
 
 	pklData "github.com/kdeps/schema/gen/data"
 	"github.com/spf13/afero"
@@ -59,7 +60,7 @@ func (dr *DependencyResolver) AppendDataEntry(resourceId string, newData *pklDat
 
 	// Build the new PKL content
 	var pklContent strings.Builder
-	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Data.pkl\"\n\n", schema.SchemaVersion))
+	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Data.pkl\"\n\n", schema.SchemaVersion()))
 	pklContent.WriteString("files {\n")
 
 	for agentName, baseFileMap := range *existingFiles {
@@ -73,19 +74,19 @@ func (dr *DependencyResolver) AppendDataEntry(resourceId string, newData *pklDat
 	pklContent.WriteString("}\n")
 
 	// Write the new PKL content to the file using afero
-	err = afero.WriteFile(dr.Fs, pklPath, []byte(pklContent.String()), 0644)
+	err = afero.WriteFile(dr.Fs, pklPath, []byte(pklContent.String()), 0o644)
 	if err != nil {
 		return fmt.Errorf("failed to write to PKL file: %w", err)
 	}
 
 	// Evaluate the PKL file using EvalPkl
-	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, pklPath, fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Data.pkl\"", schema.SchemaVersion), dr.Logger)
+	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, pklPath, fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Data.pkl\"", schema.SchemaVersion()), dr.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to evaluate PKL file: %w", err)
 	}
 
 	// Rebuild the PKL content with the evaluated content
-	err = afero.WriteFile(dr.Fs, pklPath, []byte(evaluatedContent), 0644)
+	err = afero.WriteFile(dr.Fs, pklPath, []byte(evaluatedContent), 0o644)
 	if err != nil {
 		return fmt.Errorf("failed to write evaluated content to PKL file: %w", err)
 	}

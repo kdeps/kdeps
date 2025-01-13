@@ -3,10 +3,11 @@ package download
 import (
 	"bytes"
 	"io"
-	"kdeps/pkg/logging"
 	"net/http"
 	"os"
 	"testing"
+
+	"kdeps/pkg/logging"
 
 	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"

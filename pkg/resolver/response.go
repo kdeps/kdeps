@@ -3,12 +3,13 @@ package resolver
 import (
 	"context"
 	"fmt"
-	"kdeps/pkg/evaluator"
-	"kdeps/pkg/schema"
-	"kdeps/pkg/utils"
 	"path/filepath"
 	"reflect"
 	"strings"
+
+	"kdeps/pkg/evaluator"
+	"kdeps/pkg/schema"
+	"kdeps/pkg/utils"
 
 	"github.com/alexellis/go-execute/v2"
 	"github.com/charmbracelet/log"
@@ -65,7 +66,7 @@ func (dr *DependencyResolver) buildResponseSections(apiResponseBlock apiserverre
 	dr.Logger.Debug("Building response sections from API response", "response", apiResponseBlock)
 
 	sections := []string{
-		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Document.pkl" as document`, schema.SchemaVersion),
+		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Document.pkl" as document`, schema.SchemaVersion()),
 		fmt.Sprintf("success = %v", apiResponseBlock.GetSuccess()),
 		formatResponseData(apiResponseBlock.GetResponse()),
 		formatErrors(apiResponseBlock.GetErrors(), dr.Logger),
