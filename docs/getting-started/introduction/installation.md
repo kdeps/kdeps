@@ -6,11 +6,19 @@ outline: deep
 
 Kdeps requires three key components to operate effectively:
 
-- **Kdeps CLI Application**: The primary command-line interface for Kdeps. [Kdeps CLI GitHub Repository](https://github.com/kdeps/kdeps).
-- **Apple's PKL Programming Language**: A specialized programming language developed by Apple, which is integral to Kdeps. [Apple PKL Official WebsiteL](https://pkl-lang.org/index.html).
-- **Docker**: A powerful containerization tool used to build and manage AI Agent images and containers. [Docker Official Website](https://www.docker.com).
+- **Kdeps CLI Application**: The primary command-line interface for Kdeps. [Kdeps CLI GitHub
+  Repository](https://github.com/kdeps/kdeps).
+- **Apple's PKL Programming Language**: A specialized programming language developed by Apple, which is integral to
+  Kdeps. [Apple PKL Official WebsiteL](https://pkl-lang.org/index.html).
+- **Docker**: A powerful containerization tool used to build and manage AI Agent images and containers. [Docker Official
+  Website](https://www.docker.com).
 
 All of these components must be installed to ensure Kdeps functions as intended.
+
+## Prerequisites
+
+Kdeps requires the `GITHUB_TOKEN` environment variable to be set for retrieving the latest schema version from the
+repository.
 
 ## Kdeps CLI Installation Guide
 

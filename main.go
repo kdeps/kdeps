@@ -18,7 +18,18 @@ import (
 	"github.com/spf13/afero"
 )
 
+var (
+	version = "dev"
+	commit  = ""
+)
+
 func main() {
+	// Check if GITHUB_TOKEN exists in the environment
+	if token, exists := os.LookupEnv("GITHUB_TOKEN"); !exists || token == "" {
+		fmt.Fprintln(os.Stderr, "Error: GITHUB_TOKEN is not set")
+		os.Exit(1)
+	}
+
 	// Initialize filesystem and context
 	fs := afero.NewOsFs()
 	ctx, cancel := context.WithCancel(context.Background())
