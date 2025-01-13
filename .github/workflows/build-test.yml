@@ -46,7 +46,7 @@ jobs:
         with:
           go-version-file: 'go.mod'
           cache-dependency-path: "go.sum"
-      - run: make test
+      - run: make deps
 
 
   end2end:
@@ -67,7 +67,7 @@ jobs:
       - name: Install winget
         if: matrix.platform == 'windows-latest'
         uses: Cyberboss/install-winget@v1
-      - run: make test
+      - run: make deps
         shell: bash
 
   dockerBuild:
