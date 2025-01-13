@@ -120,12 +120,6 @@ func GetLatestAnacondaVersions() (map[string]string, map[string]string, error) {
 func GenerateURLs() ([]string, error) {
 	urlInfos := []URLInfo{
 		{
-			BaseURL:       "https://github.com/kdeps/kdeps/releases/download/v{version}/kdeps-linux-{arch}",
-			Repo:          "kdeps/kdeps",
-			Version:       "0.1.0",
-			Architectures: []string{"amd64", "arm64"},
-		},
-		{
 			BaseURL:       "https://github.com/apple/pkl/releases/download/{version}/pkl-linux-{arch}",
 			Repo:          "apple/pkl",
 			Version:       "0.27.1",

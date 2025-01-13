@@ -14,6 +14,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	v "kdeps/pkg/version"
+
 	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"
 )
@@ -24,11 +26,8 @@ var (
 )
 
 func main() {
-	// Check if GITHUB_TOKEN exists in the environment
-	if token, exists := os.LookupEnv("GITHUB_TOKEN"); !exists || token == "" {
-		fmt.Fprintln(os.Stderr, "Error: GITHUB_TOKEN is not set")
-		os.Exit(1)
-	}
+	v.Version = version
+	v.Commit = commit
 
 	// Initialize filesystem and context
 	fs := afero.NewOsFs()
