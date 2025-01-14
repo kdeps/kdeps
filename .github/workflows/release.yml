@@ -32,10 +32,11 @@ jobs:
           go-version-file: "go.mod"
           cache-dependency-path: "go.sum"
       - name: Install pkl on Linux
-        if: matrix.platform == 'ubuntu*'
+        if: startsWith(matrix.platform, 'ubuntu')
         run: |
           mkdir -p ~/.local/bin
           ARCH=$(uname -m)
+          echo "Detected architecture: $ARCH"
           if [ "$ARCH" = "aarch64" ]; then
             curl -L -o ~/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.27.1/pkl-linux-aarch64'
           elif [ "$ARCH" = "x86_64" ]; then
@@ -45,13 +46,15 @@ jobs:
           fi
           chmod +x ~/.local/bin/pkl
           echo "PATH=$HOME/.local/bin:$PATH" >> $GITHUB_ENV
+          export PATH=$HOME/.local/bin:$PATH
           pkl --version
         shell: bash
       - name: Install pkl on macOS
-        if: matrix.platform == 'macos*'
+        if: startsWith(matrix.platform, 'macos')
         run: |
           mkdir -p ~/.local/bin
           ARCH=$(uname -m)
+          echo "Detected architecture: $ARCH"
           if [ "$ARCH" = "aarch64" ]; then
             curl -L -o ~/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.27.1/pkl-macos-aarch64'
           elif [ "$ARCH" = "x86_64" ]; then
@@ -61,12 +64,18 @@ jobs:
           fi
           chmod +x ~/.local/bin/pkl
           echo "PATH=$HOME/.local/bin:$PATH" >> $GITHUB_ENV
+          export PATH=$HOME/.local/bin:$PATH
           pkl --version
         shell: bash
       - name: Install pkl on Windows
         if: matrix.platform == 'windows-latest'
         run: |
+          Write-Host "Downloading PKL..."
           Invoke-WebRequest 'https://github.com/apple/pkl/releases/download/0.27.1/pkl-windows-amd64.exe' -OutFile pkl.exe
+          if (!(Test-Path .\pkl.exe)) {
+              Write-Host "pkl.exe not found!"
+              exit 1
+          }
           echo "PATH=$env:GITHUB_WORKSPACE;$env:PATH" >> $env:GITHUB_ENV
           .\pkl.exe --version
         shell: pwsh
