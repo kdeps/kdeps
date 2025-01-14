@@ -54,6 +54,30 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 		}
 	}
 
+	// Adjust host configuration based on GPU type
+	switch gpu {
+	case "amd":
+		hostConfig.DeviceRequests = []container.DeviceRequest{
+			{
+				Capabilities: [][]string{{"gpu"}},
+			},
+		}
+		hostConfig.Devices = []container.DeviceMapping{
+			{PathOnHost: "/dev/kfd", PathInContainer: "/dev/kfd", CgroupPermissions: "rwm"},
+			{PathOnHost: "/dev/dri", PathInContainer: "/dev/dri", CgroupPermissions: "rwm"},
+		}
+	case "nvidia":
+		hostConfig.DeviceRequests = []container.DeviceRequest{
+			{
+				Capabilities: [][]string{{"gpu"}},
+				Count:        -1, // Use all available GPUs
+			},
+		}
+		hostConfig.Binds = append(hostConfig.Binds, "/nvidia:/root/.nvidia")
+	case "cpu":
+		// No additional configuration needed for CPU
+	}
+
 	// Check if the container already exists
 	containerNameWithGpu := fmt.Sprintf("%s-%s", cName, gpu)
 	containers, err := cli.ContainerList(ctx, container.ListOptions{All: true})
