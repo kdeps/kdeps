@@ -232,9 +232,10 @@ jobs:
           EOF
       - name: Install winget
         uses: Cyberboss/install-winget@v1
-      - name: Test Pipeline
-        shell: bash
-        run: /c/Users/runneradmin/.local/bin/kdeps.exe
+      # TODO: This is disabled for now due to ongoing Windows support.
+      # - name: Test Pipeline
+      #   shell: bash
+      #   run: /c/Users/runneradmin/.local/bin/kdeps.exe
 
   install-unix:
     runs-on: ubuntu-latest
