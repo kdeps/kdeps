@@ -210,7 +210,9 @@ docs/.vitepress/cache/
 
 # The build folder
 build/
+bin/
 
 # End of https://www.toptal.com/developers/gitignore/api/go,zsh,node
 # Added by goreleaser init:
 dist/
+
