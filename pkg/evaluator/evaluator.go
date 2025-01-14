@@ -17,12 +17,16 @@ import (
 
 // EnsurePklBinaryExists checks if the 'pkl' binary exists in the system PATH.
 func EnsurePklBinaryExists(logger *log.Logger) error {
-	binaryName := "pkl"
-	if _, err := exec.LookPath(binaryName); err != nil {
-		logger.Fatal("Apple PKL not found in PATH. Please install Apple PKL (see https://pkl-lang.org/main/current/pkl-cli/index.html#installation) for more details", "error", err)
-		os.Exit(1)
+	binaryNames := []string{"pkl", "pkl.exe"} // Support both Unix-like and Windows binary names
+	for _, binaryName := range binaryNames {
+		if _, err := exec.LookPath(binaryName); err == nil {
+			return nil // Found a valid binary, no error
+		}
 	}
-	return nil
+	// Log the error if none of the binaries were found
+	logger.Fatal("Apple PKL not found in PATH. Please install Apple PKL (see https://pkl-lang.org/main/current/pkl-cli/index.html#installation) for more details")
+	os.Exit(1)
+	return nil // Unreachable, but included for clarity
 }
 
 // EvalPkl evaluates the resource file at resourcePath using the 'pkl' binary.
