@@ -17,7 +17,9 @@ jobs:
     strategy:
       matrix:
         platform:
-          [ubuntu-24.04, ubuntu-22.04, macos-latest, macos-14, windows-2022]
+          # TODO: Enable windows tests once pkl on support on Windows platform is fixed
+          # [ubuntu-24.04, ubuntu-22.04, macos-latest, macos-14, windows-2022]
+          [ubuntu-24.04, ubuntu-22.04, macos-latest, macos-14]
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
@@ -29,7 +31,7 @@ jobs:
         with:
           go-version-file: "go.mod"
           cache-dependency-path: "go.sum"
-      - run: make deps
+      - run: make test
       - name: Install winget
         if: matrix.platform == 'windows-2022'
         uses: Cyberboss/install-winget@v1
