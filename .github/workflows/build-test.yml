@@ -59,8 +59,10 @@ jobs:
           fi
           chmod +x ~/.local/bin/pkl
           ~/.local/bin/pkl --version
+        shell: bash
       - name: Run the tests
         run: make test
+        shell: bash
 
 
 #   end2end:
