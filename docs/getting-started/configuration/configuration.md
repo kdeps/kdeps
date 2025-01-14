@@ -39,7 +39,7 @@ Specifies the type of GPU available for the Docker image. Supported values inclu
 ## KdepsDir
 
 The directory where Kdeps files are stored defaults to `.kdeps`. This folder contains subdirectories such as
-`.kdeps/agents` and `.kdeps/downloads`. The parent directory is determined by the `kdepsPath` configuration.
+`.kdeps/agents` and `.kdeps/cache`. The parent directory is determined by the `kdepsPath` configuration.
 
 ## KdepsPath
 

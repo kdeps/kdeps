@@ -174,8 +174,9 @@ ENV DEBUG=1
 
 	// Copy DownloadDir to local Downloads
 	dockerFile.WriteString(`
-COPY downloads /downloads
-RUN chmod +x /downloads/*
+COPY cache /cache
+RUN chmod +x /cache/pkl-linux*
+RUN chmod +x /cache/Anaconda3-Linux*
 `)
 
 	// Install Necessary Tools
@@ -193,9 +194,9 @@ RUN apt-get update --fix-missing && apt-get install -y --no-install-recommends \
 # Determine the architecture and download the appropriate pkl binary
 RUN arch=$(uname -m) && \
     if [ "$arch" = "x86_64" ]; then \
-	cp /downloads/pkl-linux-amd64 /usr/bin/pkl; \
+	cp /cache/pkl-linux-amd64 /usr/bin/pkl; \
     elif [ "$arch" = "aarch64" ]; then \
-	cp /downloads/pkl-linux-aarch64 /usr/bin/pkl; \
+	cp /cache/pkl-linux-aarch64 /usr/bin/pkl; \
     else \
 	echo "Unsupported architecture: $arch" && exit 1; \
     fi
@@ -215,9 +216,9 @@ COPY workflow /agent/workflow
 	if installAnaconda {
 		dockerFile.WriteString(`
 RUN arch=$(uname -m) && if [ "$arch" = "x86_64" ]; then \
-	cp /downloads/Anaconda3-2024.10-1-Linux-x86_64.sh /tmp/anaconda.sh; \
+	cp /cache/Anaconda3*x86_64.sh /tmp/anaconda.sh; \
     elif [ "$arch" = "aarch64" ]; then \
-	cp /downloads/Anaconda3-2024.10-1-Linux-aarch64.sh /tmp/anaconda.sh; \
+	cp /cache/Anaconda3*aarch64.sh /tmp/anaconda.sh; \
     else \
 	echo "Unsupported architecture: $arch" && exit 1; \
     fi
@@ -244,7 +245,7 @@ ENV PATH="/opt/conda/bin:$PATH"
 	// Cleanup
 	dockerFile.WriteString(`
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
-RUN rm -rf /downloads
+RUN rm -rf /cache
 `)
 
 	// Expose Port
@@ -259,19 +260,19 @@ ENTRYPOINT ["/bin/kdeps"]
 }
 
 func copyFilesToRunDir(fs afero.Fs, downloadDir, runDir string, logger *log.Logger) error {
-	// Ensure the runDir and downloads directory exist
-	downloadsDir := filepath.Join(runDir, "downloads")
+	// Ensure the runDir and cache directory exist
+	downloadsDir := filepath.Join(runDir, "cache")
 	err := fs.MkdirAll(downloadsDir, os.ModePerm)
 	if err != nil {
-		logger.Error("Failed to create downloads directory", "path", downloadsDir, "error", err)
-		return fmt.Errorf("failed to create downloads directory: %w", err)
+		logger.Error("Failed to create cache directory", "path", downloadsDir, "error", err)
+		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
 	// List files in the downloadDir
 	files, err := afero.ReadDir(fs, downloadDir)
 	if err != nil {
-		logger.Error("Failed to read download directory", "path", downloadDir, "error", err)
-		return fmt.Errorf("failed to read download directory: %w", err)
+		logger.Error("Failed to read cache directory", "path", downloadDir, "error", err)
+		return fmt.Errorf("failed to read cache directory: %w", err)
 	}
 
 	// Copy each file from downloadDir to downloadsDir
@@ -418,7 +419,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 
 	// Ensure the run directory and download dir exists
 	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion)
-	downloadDir := filepath.Join(kdepsDir, "downloads")
+	downloadDir := filepath.Join(kdepsDir, "cache")
 
 	urls, err := GenerateURLs()
 	if err != nil {
