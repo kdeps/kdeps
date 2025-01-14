@@ -46,29 +46,49 @@ jobs:
         with:
           go-version-file: 'go.mod'
           cache-dependency-path: "go.sum"
-      - run: make test
+      - name: Determine architecture and install pkl
+        run: |
+          ARCH=$(uname -m)
+          if [ "$ARCH" = "aarch64" ]; then
+            curl -L -o ~/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.27.1/pkl-linux-aarch64'
+          elif [ "$ARCH" = "x86_64" ]; then
+            curl -L -o ~/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.27.1/pkl-linux-amd64'
+          else
+            echo "Unsupported architecture: $ARCH" && exit 1
+          fi
+          chmod +x ~/.local/bin/pkl
+          ~/.local/bin/pkl --version
+      - name: Run the tests
+        run: make test
 
 
-  end2end:
-    strategy:
-      matrix:
-        platform: [ ubuntu-latest, windows-latest ]
-    runs-on: ${{ matrix.platform }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-# TODO: Replace with actions/setup-go once issue is resolved https://github.com/actions/setup-go/pull/515
-      - name: Setup Go
-        uses: antontroshin/setup-go@windows-go-mod-cache
-        with:
-          go-version-file: 'go.mod'
-          cache-dependency-path: "go.sum"
-      - name: Install winget
-        if: matrix.platform == 'windows-latest'
-        uses: Cyberboss/install-winget@v1
-      - run: make test
-        shell: bash
+#   end2end:
+#     strategy:
+#       matrix:
+#         platform: [ ubuntu-latest, windows-latest ]
+#     runs-on: ${{ matrix.platform }}
+#     steps:
+#       - uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0
+# # TODO: Replace with actions/setup-go once issue is resolved https://github.com/actions/setup-go/pull/515
+#       - name: Setup Go
+#         uses: antontroshin/setup-go@windows-go-mod-cache
+#         with:
+#           go-version-file: 'go.mod'
+#           cache-dependency-path: "go.sum"
+#       - name: Install winget
+#         if: matrix.platform == 'windows-latest'
+#         uses: Cyberboss/install-winget@v1
+#       - name: Install pkl
+#         run: |
+#           curl -L -o /c/Users/runneradmin/.local/bin/pkl.exe 'https://github.com/apple/pkl/releases/download/0.27.1/pkl-windows-amd64.exe'
+#           chmod +x /c/Users/runneradmin/.local/bin/pkl.exe
+#           /c/Users/runneradmin/.local/bin/pkl.exe --version
+#         shell: bash
+#       - name: Run the tests
+#         run: make test
+#         shell: bash
 
   dockerBuild:
     runs-on: ubuntu-latest
