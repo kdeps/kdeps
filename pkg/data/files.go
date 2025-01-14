@@ -17,16 +17,31 @@ func PopulateDataFileRegistry(fs afero.Fs, baseDir string) (*map[string]map[stri
 	files := make(map[string]map[string]string)
 	separator := string(filepath.Separator) // Use constant for clarity
 
+	// Check if the base directory exists
+	exists, err := afero.DirExists(fs, baseDir)
+	if err != nil {
+		return &files, fmt.Errorf("error checking existence of base directory %s: %w", baseDir, err)
+	}
+	if !exists {
+		// If the directory does not exist, return an empty registry
+		return &files, nil
+	}
+
 	// Walk through the base directory
-	err := afero.Walk(fs, baseDir, func(path string, info os.FileInfo, walkErr error) error {
+	err = afero.Walk(fs, baseDir, func(path string, info os.FileInfo, walkErr error) error {
 		if walkErr != nil {
-			return fmt.Errorf("error accessing path %s: %w", path, walkErr)
+			return nil // Ignore individual path errors, but continue walking
+		}
+
+		// Skip directories
+		if info.IsDir() {
+			return nil
 		}
 
 		// Get the relative path from the base directory
 		relPath, err := filepath.Rel(baseDir, path)
 		if err != nil {
-			return fmt.Errorf("failed to compute relative path for %s: %w", path, err)
+			return nil // Ignore errors in computing relative paths
 		}
 
 		// Split the relative path into components
@@ -52,8 +67,10 @@ func PopulateDataFileRegistry(fs afero.Fs, baseDir string) (*map[string]map[stri
 
 		return nil
 	})
+
+	// If walking fails entirely (e.g., directory read error), return an empty registry
 	if err != nil {
-		return nil, fmt.Errorf("failed to walk through directory %s: %w", baseDir, err)
+		return &files, nil
 	}
 
 	return &files, nil
