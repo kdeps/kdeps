@@ -48,6 +48,7 @@ jobs:
           cache-dependency-path: "go.sum"
       - name: Determine architecture and install pkl
         run: |
+          mkdir -p ~/.local/bin
           ARCH=$(uname -m)
           if [ "$ARCH" = "aarch64" ]; then
             curl -L -o ~/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.27.1/pkl-linux-aarch64'
