@@ -175,8 +175,8 @@ ENV DEBUG=1
 	// Copy DownloadDir to local Downloads
 	dockerFile.WriteString(`
 COPY cache /cache
-RUN chmod +x /cache/pkl-linux*
-RUN chmod +x /cache/Anaconda3-Linux*
+RUN chmod +x /cache/pkl*
+RUN chmod +x /cache/Anaconda3*
 `)
 
 	// Install Necessary Tools
