@@ -19,7 +19,7 @@ import (
 func EnsurePklBinaryExists(logger *log.Logger) error {
 	binaryNames := []string{"pkl", "pkl.exe"} // Support both Unix-like and Windows binary names
 	for _, binaryName := range binaryNames {
-		if _, err := exec.LookPath(binaryName); err == nil {
+		if path, _ := exec.LookPath(binaryName); path != "" {
 			return nil // Found a valid binary, no error
 		}
 	}
