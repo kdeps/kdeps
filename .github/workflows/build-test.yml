@@ -46,7 +46,31 @@ jobs:
         with:
           go-version-file: 'go.mod'
           cache-dependency-path: "go.sum"
-      - name: Determine architecture and install pkl
+name: Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # TODO: Replace with actions/setup-go once issue is resolved https://github.com/actions/setup-go/pull/515
+      - name: Setup Go
+        uses: antontroshin/setup-go@windows-go-mod-cache
+        with:
+          go-version-file: 'go.mod'
+          cache-dependency-path: "go.sum"
+      # Linux-specific steps
+      - name: Install pkl on Linux
+        if: matrix.platform == 'ubuntu-latest'
         run: |
           mkdir -p ~/.local/bin
           ARCH=$(uname -m)
@@ -58,12 +82,21 @@ jobs:
             echo "Unsupported architecture: $ARCH" && exit 1
           fi
           chmod +x ~/.local/bin/pkl
-          ~/.local/bin/pkl --version
+          echo "PATH=$HOME/.local/bin:$PATH" >> $GITHUB_ENV
+          pkl --version
         shell: bash
+      # Windows-specific steps
+      - name: Install pkl on Windows
+        if: matrix.platform == 'windows-latest'
+        run: |
+          Invoke-WebRequest 'https://github.com/apple/pkl/releases/download/0.27.1/pkl-windows-amd64.exe' -OutFile pkl.exe
+          echo "PATH=$env:GITHUB_WORKSPACE;$env:PATH" >> $env:GITHUB_ENV
+          .\pkl.exe --version
+        shell: pwsh
+      # Run tests
       - name: Run the tests
         run: make test
         shell: bash
-
 
 #   end2end:
 #     strategy:
