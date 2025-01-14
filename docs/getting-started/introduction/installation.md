@@ -15,9 +15,10 @@ Kdeps requires three key components to operate effectively:
 
 All of these components must be installed to ensure Kdeps functions as intended.
 
-> **Note:** When using the `--latest` flag, setting the `GITHUB_TOKEN` environment variable is optional but recommended
-> to fetch the latest schema version from the repository. Without the token, unauthenticated access will be attempted,
-> which may be subject to rate limiting.
+> **Note:** Using the `--latest` flag allows you to fetch the latest versions of the schema, Anaconda package, and PKL
+> binary from GitHub and the web. While setting the `GITHUB_TOKEN` environment variable is optional, it is highly
+> recommended. Without the token, the process will rely on unauthenticated access, which is subject to low rate limits
+> and may result in errors due to rate limit exhaustion.
 
 ## Kdeps CLI Installation Guide
 
@@ -42,7 +43,10 @@ wget -qO- https://raw.githubusercontent.com/kdeps/kdeps/refs/heads/main/install.
 ```
 
 > **Note for Windows Users:**
-> Ensure that the installation command is executed in either [Git Bash](https://git-scm.com/downloads/win) or a [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) terminal for proper functionality.
+> For optimal functionality, run the installation command using either [Git Bash](https://git-scm.com/downloads/win) or
+> a [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) terminal. Please note that while a Windows installer is
+> available, the platform has not been fully tested. We warmly welcome your [code
+> contributions](https://github.com/kdeps/kdeps/blob/main/CONTRIBUTING.md) to help improve Windows support.
 
 ---
 
