@@ -22,7 +22,9 @@ func NewRootCommand(fs afero.Fs, ctx context.Context, kdepsDir string, systemCfg
 Dockerized AI agent APIs ready to be deployed in any organization. It utilizes self-contained
 open-source LLM models that are orchestrated by a graph-based dependency workflow.`,
 	}
-	rootCmd.PersistentFlags().BoolVarP(&schema.UseLatest, "latest", "l", false, "Fetch and use the latest schema and libraries. Setting the GITHUB_TOKEN environment variable is optional but recommended to avoid rate limiting.")
+	rootCmd.PersistentFlags().BoolVarP(&schema.UseLatest, "latest", "l", false,
+		`Fetch and use the latest schema and libraries. It is recommended to set the GITHUB_TOKEN environment
+variable to prevent errors caused by rate limit exhaustion.`)
 	rootCmd.AddCommand(NewAgentCommand(fs, ctx, kdepsDir, logger))
 	rootCmd.AddCommand(NewScaffoldCommand(fs, logger))
 	rootCmd.AddCommand(NewAddCommand(fs, ctx, kdepsDir, logger))
