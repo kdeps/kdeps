@@ -215,8 +215,9 @@ jobs:
       - name: Install pkl
         run: |
           curl -L -o /c/Users/runneradmin/.local/bin/pkl.exe 'https://github.com/apple/pkl/releases/download/0.27.1/pkl-windows-amd64.exe'
-          chmod +x /c/Users/runneradmin/.local/bin/pkl.exe
-          /c/Users/runneradmin/.local/bin/pkl.exe --version
+          # TODO: Allow pkl.exe to be resolved in Windows
+          chmod +x /c/Users/runneradmin/.local/bin/pkl
+          /c/Users/runneradmin/.local/bin/pkl --version
         shell: bash
       - name: Create .kdeps.pkl configuration file
         shell: bash
