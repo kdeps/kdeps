@@ -80,6 +80,13 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 
 	// Check if the container already exists
 	containerNameWithGpu := fmt.Sprintf("%s-%s", cName, gpu)
+
+	// Generate Docker Compose file
+	err = GenerateDockerCompose(fs, cName, containerName, containerNameWithGpu, hostIP, portNum, gpu)
+	if err != nil {
+		return "", fmt.Errorf("error generating Docker Compose file: %w", err)
+	}
+
 	containers, err := cli.ContainerList(ctx, container.ListOptions{All: true})
 	if err != nil {
 		return "", fmt.Errorf("error listing containers: %w", err)
@@ -151,4 +158,73 @@ func loadEnvFile(fs afero.Fs, filename string) ([]string, error) {
 	}
 
 	return envSlice, nil
+}
+
+func GenerateDockerCompose(fs afero.Fs, cName, containerName, containerNameWithGpu, hostIP, portNum, gpu string) error {
+	var gpuConfig string
+
+	// GPU-specific configurations
+	switch gpu {
+	case "amd":
+		gpuConfig = `
+	deploy:
+	  resources:
+	    reservations:
+	      devices:
+		- capabilities:
+		    - gpu
+	devices:
+	  - "/dev/kfd:/dev/kfd:rwm"
+	  - "/dev/dri:/dev/dri:rwm"
+`
+	case "nvidia":
+		gpuConfig = `
+	deploy:
+	  resources:
+	    reservations:
+	      devices:
+		- capabilities:
+		    - gpu
+	volumes:
+	  - /nvidia:/root/.nvidia
+`
+	case "cpu":
+		gpuConfig = ""
+	default:
+		return fmt.Errorf("unsupported GPU type: %s", gpu)
+	}
+
+	// Compose file content
+	dockerComposeContent := fmt.Sprintf(`
+# This Docker Compose file runs the Kdeps AI Agent containerized service with GPU configurations.
+# To use it:
+# 1. Start the service with the command:
+#    docker-compose --file <filename> up -d
+# 3. The service will start with the specified GPU configuration
+#    and will be accessible on the configured host IP and port.
+
+version: '3.8'
+services:
+  %s:
+    image: %s
+    ports:
+      - "%s:%s"
+    restart: on-failure
+    volumes:
+      - ollama:/root/.ollama
+      - kdeps:/root/.kdeps
+%s
+volumes:
+  ollama:
+  kdeps:
+`, containerNameWithGpu, containerName, portNum, portNum, gpuConfig)
+
+	filePath := fmt.Sprintf("%s_docker-compose.yaml", cName)
+	err := afero.WriteFile(fs, filePath, []byte(dockerComposeContent), 0644)
+	if err != nil {
+		return fmt.Errorf("error writing Docker Compose file: %w", err)
+	}
+
+	fmt.Println("Docker Compose file generated successfully at:", filePath)
+	return nil
 }
