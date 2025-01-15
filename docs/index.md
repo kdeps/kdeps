@@ -5,7 +5,12 @@ layout: home
 hero:
   name: "Kdeps"
   text: "AI Agent Framework"
-  tagline: Kdeps is a multi-model AI agent framework that is optimized for creating purpose-built Dockerized RAG AI agents APIs ready to be deployed in the cloud.
+  tagline: |
+    Kdeps is a framework that reduces the complexity of building self-hosted APIs powered by open-source LLMs.
+
+    It packs everything an RAG AI Agent needs in a Dockerized image, that can be deployed on/off cloud anytime, anywhere.
+
+    It uses open-source LLMs, so there's no need to buy any AI services and subscriptions for your AI-powered APIs.
 
   actions:
     - theme: brand
