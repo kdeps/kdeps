@@ -182,7 +182,7 @@ func aSystemConfigurationIsDefined() error {
 }
 
 func itDoesNotHaveAConfigAmendsLineOnTopOfTheFile() error {
-	doc = fmt.Sprintf("%s", configValues)
+	doc = configValues
 
 	return nil
 }
@@ -267,7 +267,7 @@ func anAgentFolderExistsInTheCurrentDirectory(arg1 string) error {
 }
 
 func itDoesNotHaveAWorkflowAmendsLineOnTopOfTheFile() error {
-	doc = fmt.Sprintf("%s", workflowValues)
+	doc = workflowValues
 
 	return nil
 }
@@ -298,7 +298,7 @@ func itHaveAResourceAmendsLineOnTopOfTheFile() error {
 }
 
 func itDoesNotHaveAResourceAmendsLineOnTopOfTheFile() error {
-	doc = fmt.Sprintf("%s", resourceValues)
+	doc = resourceValues
 
 	return nil
 }

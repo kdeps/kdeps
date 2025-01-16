@@ -60,7 +60,7 @@ func promptForAgentName() (string, error) {
 }
 
 func createDirectory(fs afero.Fs, logger *log.Logger, path string) error {
-	printWithDots(fmt.Sprintf("Creating directory: %s", lightGreen.Render(path)))
+	printWithDots("Creating directory: " + lightGreen.Render(path))
 	if err := fs.MkdirAll(path, os.ModePerm); err != nil {
 		logger.Error(err)
 		return err
@@ -70,7 +70,7 @@ func createDirectory(fs afero.Fs, logger *log.Logger, path string) error {
 }
 
 func createFile(fs afero.Fs, logger *log.Logger, path string, content string) error {
-	printWithDots(fmt.Sprintf("Creating file: %s", lightGreen.Render(path)))
+	printWithDots("Creating file: " + lightGreen.Render(path))
 	if err := afero.WriteFile(fs, path, []byte(content), 0o644); err != nil {
 		logger.Error(err)
 		return err
@@ -235,7 +235,7 @@ func GenerateSpecificAgentFile(fs afero.Fs, logger *log.Logger, agentName, fileN
 		}
 	}
 
-	mainDir := fmt.Sprintf("./%s", name)
+	mainDir := "./" + name
 	if err := createDirectory(fs, logger, mainDir); err != nil {
 		logger.Error("Failed to create main directory: ", err)
 		return err
@@ -295,7 +295,7 @@ func GenerateAgent(fs afero.Fs, logger *log.Logger, agentName string) error {
 		}
 	}
 
-	mainDir := fmt.Sprintf("./%s", name)
+	mainDir := "./" + name
 	if err := createDirectory(fs, logger, mainDir); err != nil {
 		logger.Error("Failed to create main directory: ", err)
 		return err
@@ -331,7 +331,7 @@ func GenerateAgent(fs afero.Fs, logger *log.Logger, agentName string) error {
 	}
 
 	if openWorkflow {
-		workflowFilePath := fmt.Sprintf("%s/workflow.pkl", mainDir)
+		workflowFilePath := mainDir + "/workflow.pkl"
 		if err := texteditor.EditPkl(fs, workflowFilePath, logger); err != nil {
 			logger.Error("Failed to edit workflow file: ", err)
 			return fmt.Errorf("failed to edit workflow file: %w", err)

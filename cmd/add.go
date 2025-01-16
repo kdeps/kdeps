@@ -4,14 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kdeps/kdeps/pkg/archiver"
-
 	"github.com/charmbracelet/log"
+	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 )
 
-// NewAddCommand creates the 'add' command and passes the necessary dependencies
+// NewAddCommand creates the 'add' command and passes the necessary dependencies.
 func NewAddCommand(fs afero.Fs, ctx context.Context, kdepsDir string, logger *log.Logger) *cobra.Command {
 	return &cobra.Command{
 		Use:     "install [package]",

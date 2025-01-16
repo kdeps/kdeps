@@ -43,6 +43,7 @@ linters:
     - cyclop
     - tparallel
     - depguard
+    - ireturn
     - tagalign
     - gocyclo
     - exportloopref
@@ -68,13 +69,13 @@ linters-settings:
   maintidx:
     under: 5
 
-  ireturn:
-    allow:
-      - anon
-      - error
-      - empty
-      - stdlib
-      - (or|er)$
+  # ireturn:
+  #   allow:
+  #     - anon
+  #     - error
+  #     - empty
+  #     - stdlib
+  #     - (or|er)$
   goconst:
     min-len: 5
     min-occurrences: 5

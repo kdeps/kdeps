@@ -3,16 +3,15 @@ package cmd
 import (
 	"context"
 
+	"github.com/charmbracelet/log"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/schema"
-
-	"github.com/charmbracelet/log"
 	"github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 )
 
-// NewRootCommand returns the root command with all subcommands attached
+// NewRootCommand returns the root command with all subcommands attached.
 func NewRootCommand(fs afero.Fs, ctx context.Context, kdepsDir string, systemCfg *kdeps.Kdeps, env *environment.Environment, logger *log.Logger) *cobra.Command {
 	cobra.EnableCommandSorting = false
 	rootCmd := &cobra.Command{

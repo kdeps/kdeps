@@ -4,17 +4,16 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kdeps/kdeps/pkg/archiver"
-	"github.com/kdeps/kdeps/pkg/docker"
-
 	"github.com/charmbracelet/log"
 	"github.com/docker/docker/client"
+	"github.com/kdeps/kdeps/pkg/archiver"
+	"github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 )
 
-// NewBuildCommand creates the 'build' command and passes the necessary dependencies
+// NewBuildCommand creates the 'build' command and passes the necessary dependencies.
 func NewBuildCommand(fs afero.Fs, ctx context.Context, kdepsDir string, systemCfg *kdeps.Kdeps, logger *log.Logger) *cobra.Command {
 	return &cobra.Command{
 		Use:     "build [package]",

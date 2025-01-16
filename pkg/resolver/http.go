@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -13,7 +14,6 @@ import (
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
-
 	pklHttp "github.com/kdeps/schema/gen/http"
 	"github.com/spf13/afero"
 )
@@ -343,7 +343,7 @@ func (dr *DependencyResolver) DoRequest(client *pklHttp.ResourceHTTPClient) erro
 
 	// Validate method
 	if client.Method == "" {
-		return fmt.Errorf("HTTP method is required")
+		return errors.New("HTTP method is required")
 	}
 
 	// Append query parameters to the URL if present
@@ -369,7 +369,7 @@ func (dr *DependencyResolver) DoRequest(client *pklHttp.ResourceHTTPClient) erro
 		if client.Data == nil {
 			return fmt.Errorf("%s method requires data, but none provided", client.Method)
 		}
-		req, err = http.NewRequest(client.Method, client.Url, bytes.NewBuffer([]byte(fmt.Sprintf("%s", *client.Data))))
+		req, err = http.NewRequest(client.Method, client.Url, bytes.NewBufferString(fmt.Sprintf("%s", *client.Data)))
 	} else {
 		req, err = http.NewRequest(client.Method, client.Url, nil)
 	}

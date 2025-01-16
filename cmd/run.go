@@ -4,17 +4,16 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kdeps/kdeps/pkg/archiver"
-	"github.com/kdeps/kdeps/pkg/docker"
-
 	"github.com/charmbracelet/log"
 	"github.com/docker/docker/client"
+	"github.com/kdeps/kdeps/pkg/archiver"
+	"github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 )
 
-// NewRunCommand creates the 'run' command and passes the necessary dependencies
+// NewRunCommand creates the 'run' command and passes the necessary dependencies.
 func NewRunCommand(fs afero.Fs, ctx context.Context, kdepsDir string, systemCfg *kdeps.Kdeps, logger *log.Logger) *cobra.Command {
 	return &cobra.Command{
 		Use:     "run [package]",

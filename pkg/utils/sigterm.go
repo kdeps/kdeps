@@ -7,7 +7,7 @@ import (
 	"github.com/charmbracelet/log"
 )
 
-// sendSigterm sends a SIGTERM signal to the current process
+// sendSigterm sends a SIGTERM signal to the current process.
 func SendSigterm(logger *log.Logger) {
 	process, err := os.FindProcess(os.Getpid()) // Get the current process
 	if err != nil {

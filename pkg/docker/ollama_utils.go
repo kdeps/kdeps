@@ -12,7 +12,7 @@ import (
 	"github.com/charmbracelet/log"
 )
 
-// parseOLLAMAHost parses the OLLAMA_HOST environment variable into host and port
+// parseOLLAMAHost parses the OLLAMA_HOST environment variable into host and port.
 func parseOLLAMAHost(logger *log.Logger) (string, string, error) {
 	logger.Debug("Parsing OLLAMA_HOST environment variable")
 
@@ -25,7 +25,7 @@ func parseOLLAMAHost(logger *log.Logger) (string, string, error) {
 	host, port, err := net.SplitHostPort(hostEnv)
 	if err != nil {
 		logger.Error("Invalid OLLAMA_HOST", "format", err)
-		return "", "", fmt.Errorf("Invalid OLLAMA_HOST format: %v", err)
+		return "", "", fmt.Errorf("Invalid OLLAMA_HOST format: %w", err)
 	}
 
 	logger.Debug("Parsed OLLAMA_HOST", "host", host, "port", port)

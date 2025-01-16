@@ -6,14 +6,13 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/kdeps/kdeps/pkg/archiver"
-	"github.com/kdeps/kdeps/pkg/environment"
-	"github.com/kdeps/kdeps/pkg/utils"
-
 	"github.com/charmbracelet/log"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
+	"github.com/kdeps/kdeps/pkg/archiver"
+	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/spf13/afero"
 )
 
@@ -46,7 +45,7 @@ func CleanupDockerBuildImages(fs afero.Fs, ctx context.Context, cName string, cl
 	return nil
 }
 
-// Cleanup deletes /agent/action and /agent/workflow directories, then copies /agent/project to /agent/workflow
+// Cleanup deletes /agent/action and /agent/workflow directories, then copies /agent/project to /agent/workflow.
 func Cleanup(fs afero.Fs, environ *environment.Environment, logger *log.Logger) {
 	if environ.DockerMode != "1" {
 		return
@@ -64,7 +63,7 @@ func Cleanup(fs afero.Fs, environ *environment.Environment, logger *log.Logger) 
 			return err
 		}
 
-		logger.Debug(fmt.Sprintf("%s directory deleted", dir))
+		logger.Debug(dir + " directory deleted")
 		if err := CreateFlagFile(fs, flagFile); err != nil {
 			logger.Error(fmt.Sprintf("Unable to create flag file %s: %v", flagFile, err))
 			return err
@@ -100,7 +99,7 @@ func Cleanup(fs afero.Fs, environ *environment.Environment, logger *log.Logger) 
 
 		if info.IsDir() {
 			if err := fs.MkdirAll(targetPath, info.Mode()); err != nil {
-				return fmt.Errorf("failed to create directory %s: %v", targetPath, err)
+				return fmt.Errorf("failed to create directory %s: %w", targetPath, err)
 			}
 		} else {
 			// Copy the file from projectDir to workflowDir
@@ -126,7 +125,7 @@ func Cleanup(fs afero.Fs, environ *environment.Environment, logger *log.Logger) 
 	cleanupFlagFiles(fs, removedFiles, logger)
 }
 
-// cleanupFlagFiles removes the specified flag files
+// cleanupFlagFiles removes the specified flag files.
 func cleanupFlagFiles(fs afero.Fs, files []string, logger *log.Logger) {
 	for _, file := range files {
 		if err := fs.Remove(file); err != nil {

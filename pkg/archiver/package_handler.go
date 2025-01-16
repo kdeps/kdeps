@@ -10,10 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/charmbracelet/log"
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/workflow"
-
-	"github.com/charmbracelet/log"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 )
@@ -212,7 +211,7 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 	return kdeps, nil
 }
 
-// PackageProject compresses the contents of projectDir into a kdeps file in kdepsDir
+// PackageProject compresses the contents of projectDir into a kdeps file in kdepsDir.
 func PackageProject(fs afero.Fs, wf pklWf.Workflow, kdepsDir, compiledProjectDir string, logger *log.Logger) (string, error) {
 	// Enforce the folder structure
 	if err := enforcer.EnforceFolderStructure(fs, compiledProjectDir, logger); err != nil {
@@ -222,7 +221,7 @@ func PackageProject(fs afero.Fs, wf pklWf.Workflow, kdepsDir, compiledProjectDir
 
 	// Create the output filename for the package
 	outFile := fmt.Sprintf("%s-%s.kdeps", wf.GetName(), wf.GetVersion())
-	packageDir := fmt.Sprintf("%s/packages", kdepsDir)
+	packageDir := kdepsDir + "/packages"
 
 	if _, err := fs.Stat(packageDir); err != nil {
 		if err := fs.MkdirAll(packageDir, 0o777); err != nil {
@@ -324,14 +323,14 @@ func PackageProject(fs afero.Fs, wf pklWf.Workflow, kdepsDir, compiledProjectDir
 	return tarGzPath, nil
 }
 
-// Function to search for workflow.pkl file in a given folder
+// Function to search for workflow.pkl file in a given folder.
 func FindWorkflowFile(fs afero.Fs, folder string, logger *log.Logger) (string, error) {
 	fileName := "workflow.pkl"
 
 	// Check if the folder exists and is a directory
 	info, err := fs.Stat(folder)
 	if err != nil {
-		return "", fmt.Errorf("error accessing folder: %v", err)
+		return "", fmt.Errorf("error accessing folder: %w", err)
 	}
 	if !info.IsDir() {
 		return "", fmt.Errorf("the path provided is not a directory: %s", folder)
@@ -356,7 +355,7 @@ func FindWorkflowFile(fs afero.Fs, folder string, logger *log.Logger) (string, e
 	})
 
 	if err != nil && err != filepath.SkipDir {
-		return "", fmt.Errorf("error searching for file: %v", err)
+		return "", fmt.Errorf("error searching for file: %w", err)
 	}
 
 	if foundPath == "" {

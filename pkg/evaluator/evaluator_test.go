@@ -6,11 +6,10 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/log"
+	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/kdeps/kdeps/pkg/evaluator"
 )
 
 func TestCreateAndProcessPklFile(t *testing.T) {

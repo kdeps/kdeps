@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -79,7 +80,7 @@ func getResourceTimestamp(resourceId string, pklRes interface{}) (*uint32, error
 			return resource.Timestamp, nil
 		}
 	default:
-		return nil, fmt.Errorf("unknown PKL result type")
+		return nil, errors.New("unknown PKL result type")
 	}
 
 	// If the resource does not exist, return an error

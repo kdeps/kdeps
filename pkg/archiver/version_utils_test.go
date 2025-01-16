@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Test for compareVersions
+// Test for compareVersions.
 func TestCompareVersions(t *testing.T) {
 	logger := log.New(os.Stdout)
 
@@ -36,7 +36,7 @@ func TestCompareVersions(t *testing.T) {
 	}
 }
 
-// Test for getLatestVersion
+// Test for getLatestVersion.
 func TestGetLatestVersion(t *testing.T) {
 	logger := log.New(os.Stdout)
 

@@ -9,14 +9,13 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/kdeps/kdeps/pkg/enforcer"
-
 	"github.com/charmbracelet/log"
+	"github.com/kdeps/kdeps/pkg/enforcer"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 )
 
-// CompileResources processes .pkl files from the project directory and copies them to the resources directory
+// CompileResources processes .pkl files from the project directory and copies them to the resources directory.
 func CompileResources(fs afero.Fs, wf pklWf.Workflow, resourcesDir string, projectDir string, logger *log.Logger) error {
 	projectResourcesDir := filepath.Join(projectDir, "resources")
 
@@ -50,7 +49,7 @@ func CompileResources(fs afero.Fs, wf pklWf.Workflow, resourcesDir string, proje
 	return nil
 }
 
-// processResourcePklFiles processes a .pkl file and writes modifications to the resources directory
+// processResourcePklFiles processes a .pkl file and writes modifications to the resources directory.
 func processResourcePklFiles(fs afero.Fs, file string, wf pklWf.Workflow, resourcesDir string, logger *log.Logger) error {
 	name, version := wf.GetName(), wf.GetVersion()
 
@@ -173,7 +172,6 @@ func processResourcePklFiles(fs afero.Fs, file string, wf pklWf.Workflow, resour
 				}
 			}
 		}
-
 	}
 
 	// Write back to the file if modifications were made
@@ -272,7 +270,7 @@ func CheckAndValidatePklFiles(fs afero.Fs, projectResourcesDir string, logger *l
 	files, err := afero.ReadDir(fs, projectResourcesDir)
 	if err != nil {
 		logger.Error("Error reading resource directory", "error", err)
-		return fmt.Errorf("failed to read directory '%s': %v", projectResourcesDir, err)
+		return fmt.Errorf("failed to read directory '%s': %w", projectResourcesDir, err)
 	}
 
 	// Filter for .pkl files
@@ -294,7 +292,7 @@ func CheckAndValidatePklFiles(fs afero.Fs, projectResourcesDir string, logger *l
 		logger.Debug("Validating .pkl file", "file", pklFile)
 		if err := enforcer.EnforcePklTemplateAmendsRules(fs, pklFile, logger); err != nil {
 			logger.Error("Validation failed for .pkl file", "file", pklFile, "error", err)
-			return fmt.Errorf("validation failed for '%s': %v", pklFile, err)
+			return fmt.Errorf("validation failed for '%s': %w", pklFile, err)
 		}
 	}
 

@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-// Move a directory by copying and then deleting the original
+// Move a directory by copying and then deleting the original.
 func MoveFolder(fs afero.Fs, src string, dest string) error {
 	// Walk through the source directory and handle files and directories
 	err := afero.Walk(fs, src, func(path string, info os.FileInfo, err error) error {
@@ -93,7 +93,7 @@ func getFileMD5(fs afero.Fs, filePath string, length int) (string, error) {
 	return md5String[:length], nil
 }
 
-// Move the original file to a new name with MD5 and copy the latest file
+// Move the original file to a new name with MD5 and copy the latest file.
 func CopyFile(fs afero.Fs, src, dst string, logger *log.Logger) error {
 	// Check if the destination file exists
 	if _, err := fs.Stat(dst); err == nil {

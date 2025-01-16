@@ -25,7 +25,7 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 		Env:   envSlice, // Add the loaded environment variables (or nil)
 	}
 
-	tcpPort := fmt.Sprintf("%s/tcp", portNum)
+	tcpPort := portNum + "/tcp"
 	hostConfig := &container.HostConfig{
 		Binds: []string{
 			"ollama:/root/.ollama",
@@ -94,7 +94,7 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 
 	for _, resp := range containers {
 		for _, name := range resp.Names {
-			if name == fmt.Sprintf("/%s", containerNameWithGpu) {
+			if name == "/"+containerNameWithGpu {
 				// If the container exists, start it if it's not running
 				if resp.State != "running" {
 					err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{})
@@ -219,7 +219,7 @@ volumes:
   kdeps:
 `, containerNameWithGpu, containerName, portNum, portNum, gpuConfig)
 
-	filePath := fmt.Sprintf("%s_docker-compose.yaml", cName)
+	filePath := cName + "_docker-compose.yaml"
 	err := afero.WriteFile(fs, filePath, []byte(dockerComposeContent), 0o644)
 	if err != nil {
 		return fmt.Errorf("error writing Docker Compose file: %w", err)

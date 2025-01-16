@@ -7,11 +7,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/kdeps/kdeps/pkg/environment"
-	"github.com/kdeps/kdeps/pkg/logging"
-
 	"github.com/charmbracelet/log"
 	"github.com/cucumber/godog"
+	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 )
 
@@ -209,7 +208,7 @@ func theConfigurationFailsToLoadAnyConfiguration() error {
 
 	cfgFile, err := FindConfiguration(testFs, environ, logger)
 	if err != nil {
-		return errors.New(fmt.Sprintf("An error occurred while finding configuration: %s", err))
+		return fmt.Errorf("An error occurred while finding configuration: %w", err)
 	}
 	if cfgFile != "" {
 		return errors.New("expected not finding configuration file, but found")

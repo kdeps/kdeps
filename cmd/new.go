@@ -4,14 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kdeps/kdeps/pkg/template"
-
 	"github.com/charmbracelet/log"
+	"github.com/kdeps/kdeps/pkg/template"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 )
 
-// NewAgentCommand creates the 'new' command and passes the necessary dependencies
+// NewAgentCommand creates the 'new' command and passes the necessary dependencies.
 func NewAgentCommand(fs afero.Fs, ctx context.Context, kdepsDir string, logger *log.Logger) *cobra.Command {
 	newCmd := &cobra.Command{
 		Use:     "new [agentName]",

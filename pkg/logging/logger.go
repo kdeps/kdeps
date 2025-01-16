@@ -7,7 +7,7 @@ import (
 	"github.com/charmbracelet/log"
 )
 
-// Logger instance
+// Logger instance.
 var (
 	logger *log.Logger
 	once   sync.Once
@@ -66,7 +66,7 @@ func Fatal(msg interface{}, keyvals ...interface{}) {
 	logger.Fatal(msg, keyvals...)
 }
 
-// GetLogger returns the Logger instance
+// GetLogger returns the Logger instance.
 func GetLogger() *log.Logger {
 	ensureInitialized()
 	return logger

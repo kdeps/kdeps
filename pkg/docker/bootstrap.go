@@ -2,21 +2,19 @@ package docker
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/log"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/workflow"
-
-	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"
 )
 
-// BootstrapDockerSystem initializes the Docker system and pulls models after ollama server is ready
+// BootstrapDockerSystem initializes the Docker system and pulls models after ollama server is ready.
 func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environment.Environment, logger *log.Logger) (bool, error) {
 	var apiServerMode bool
 
@@ -37,12 +35,12 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 
 			dr, err := resolver.NewGraphResolver(fs, logger, ctx, env, "/agent")
 			if err != nil {
-				return false, errors.New(fmt.Sprintf("failed to create graph resolver: %s", err))
+				return false, fmt.Errorf("failed to create graph resolver: %w", err)
 			}
 
 			// Prepare workflow directory
 			if err := dr.PrepareWorkflowDir(); err != nil {
-				return false, errors.New(fmt.Sprintf("failed to prepare workflow directory: %s", err))
+				return false, fmt.Errorf("failed to prepare workflow directory: %w", err)
 			}
 		}
 
@@ -60,7 +58,7 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 
 		// Start ollama server in the background
 		if err := startOllamaServer(logger); err != nil {
-			return apiServerMode, fmt.Errorf("Failed to start ollama server: %v", err)
+			return apiServerMode, fmt.Errorf("Failed to start ollama server: %w", err)
 		}
 
 		// Wait for ollama server to be fully ready (using the parsed host and port)
@@ -81,7 +79,7 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 			stdout, stderr, exitCode, err := KdepsExec("ollama", []string{"pull", value}, logger)
 			if err != nil {
 				logger.Error("Error pulling model: ", value, " stdout: ", stdout, " stderr: ", stderr, " exitCode: ", exitCode, " err: ", err)
-				return apiServerMode, fmt.Errorf("Error pulling model %s: %s %s %d %v", value, stdout, stderr, exitCode, err)
+				return apiServerMode, fmt.Errorf("Error pulling model %s: %s %s %d %w", value, stdout, stderr, exitCode, err)
 			}
 		}
 
