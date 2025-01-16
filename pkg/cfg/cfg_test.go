@@ -1,6 +1,7 @@
 package cfg
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -20,6 +21,7 @@ var (
 	homeDirPath    string
 	testConfigFile string
 	fileThatExist  string
+	ctx            context.Context
 	logger         *log.Logger
 	testingT       *testing.T
 )
@@ -136,7 +138,7 @@ func theConfigurationIsLoadedInTheCurrentDirectory() error {
 		return err
 	}
 
-	if _, err := LoadConfiguration(testFs, cfgFile, logger); err != nil {
+	if _, err := LoadConfiguration(testFs, ctx, cfgFile, logger); err != nil {
 		return err
 	}
 
@@ -159,7 +161,7 @@ func theConfigurationIsLoadedInTheHomeDirectory() error {
 		return err
 	}
 
-	if _, err := LoadConfiguration(testFs, cfgFile, logger); err != nil {
+	if _, err := LoadConfiguration(testFs, ctx, cfgFile, logger); err != nil {
 		return err
 	}
 
@@ -233,7 +235,7 @@ func theConfigurationFileWillBeGeneratedTo(arg1 string) error {
 		return err
 	}
 
-	if _, err := LoadConfiguration(testFs, cfgFile, logger); err != nil {
+	if _, err := LoadConfiguration(testFs, ctx, cfgFile, logger); err != nil {
 		return err
 	}
 
@@ -270,7 +272,7 @@ func theConfigurationWillBeValidated() error {
 		return err
 	}
 
-	if _, err := ValidateConfiguration(testFs, environ, logger); err != nil {
+	if _, err := ValidateConfiguration(testFs, ctx, environ, logger); err != nil {
 		return err
 	}
 

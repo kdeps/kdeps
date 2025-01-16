@@ -146,7 +146,7 @@ func setupSignalHandler(cancelFunc context.CancelFunc, fs afero.Fs, env *environ
 		logger.Debug(fmt.Sprintf("Received signal: %v, initiating shutdown...", sig))
 		cancelFunc() // Cancel context to initiate shutdown
 		cleanup(fs, env, apiServerMode, logger)
-		if err = utils.WaitForFileReady(fs, "/.dockercleanup", logger); err != nil {
+		if err := utils.WaitForFileReady(fs, "/.dockercleanup", logger); err != nil {
 			logger.Error("Error occurred while waiting for file to be ready", "file", "/.dockercleanup")
 
 			return

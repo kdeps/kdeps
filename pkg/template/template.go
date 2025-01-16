@@ -11,12 +11,11 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/kdeps/kdeps/pkg/schema"
-	"github.com/kdeps/kdeps/pkg/texteditor"
-
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
+	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/texteditor"
 	"github.com/spf13/afero"
 )
 
