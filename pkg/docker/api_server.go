@@ -12,10 +12,10 @@ import (
 	"strconv"
 	"strings"
 
-	"kdeps/pkg/environment"
-	"kdeps/pkg/evaluator"
-	"kdeps/pkg/resolver"
-	"kdeps/pkg/utils"
+	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/evaluator"
+	"github.com/kdeps/kdeps/pkg/resolver"
+	"github.com/kdeps/kdeps/pkg/utils"
 
 	"github.com/charmbracelet/log"
 	"github.com/gabriel-vasile/mimetype"

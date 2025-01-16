@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"kdeps/pkg/schema"
-	"kdeps/pkg/utils"
+	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/utils"
 )
 
 // URLInfo represents information about a URL template and repository details.

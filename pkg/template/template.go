@@ -11,8 +11,8 @@ import (
 	"text/template"
 	"time"
 
-	"kdeps/pkg/schema"
-	"kdeps/pkg/texteditor"
+	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/texteditor"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"

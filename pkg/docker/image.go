@@ -14,10 +14,10 @@ import (
 	"strconv"
 	"strings"
 
-	"kdeps/pkg/archiver"
-	"kdeps/pkg/download"
-	"kdeps/pkg/schema"
-	"kdeps/pkg/workflow"
+	"github.com/kdeps/kdeps/pkg/archiver"
+	"github.com/kdeps/kdeps/pkg/download"
+	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/workflow"
 
 	"github.com/charmbracelet/log"
 	"github.com/docker/docker/api/types"

@@ -3,7 +3,7 @@ package schema
 import (
 	"testing"
 
-	"kdeps/pkg/utils"
+	"github.com/kdeps/kdeps/pkg/utils"
 
 	"github.com/stretchr/testify/assert"
 )

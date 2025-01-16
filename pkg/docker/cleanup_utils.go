@@ -6,9 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"kdeps/pkg/archiver"
-	"kdeps/pkg/environment"
-	"kdeps/pkg/utils"
+	"github.com/kdeps/kdeps/pkg/archiver"
+	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/utils"
 
 	"github.com/charmbracelet/log"
 	"github.com/docker/docker/api/types/container"

@@ -9,8 +9,8 @@ import (
 	"regexp"
 	"strings"
 
-	"kdeps/pkg/data"
-	"kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/data"
+	"github.com/kdeps/kdeps/pkg/schema"
 
 	pklData "github.com/kdeps/schema/gen/data"
 	pklExec "github.com/kdeps/schema/gen/exec"

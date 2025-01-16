@@ -3,8 +3,8 @@ package cmd
 import (
 	"context"
 
-	"kdeps/pkg/environment"
-	"kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/schema"
 
 	"github.com/charmbracelet/log"
 	"github.com/kdeps/schema/gen/kdeps"

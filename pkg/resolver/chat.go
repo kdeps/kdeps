@@ -9,9 +9,9 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"kdeps/pkg/evaluator"
-	"kdeps/pkg/schema"
-	"kdeps/pkg/utils"
+	"github.com/kdeps/kdeps/pkg/evaluator"
+	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/utils"
 
 	"github.com/gabriel-vasile/mimetype"
 	pklLLM "github.com/kdeps/schema/gen/llm"

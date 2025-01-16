@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"kdeps/pkg/archiver"
-	"kdeps/pkg/docker"
+	"github.com/kdeps/kdeps/pkg/archiver"
+	"github.com/kdeps/kdeps/pkg/docker"
 
 	"github.com/charmbracelet/log"
 	"github.com/docker/docker/client"

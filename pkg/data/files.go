@@ -67,7 +67,6 @@ func PopulateDataFileRegistry(fs afero.Fs, baseDir string) (*map[string]map[stri
 
 		return nil
 	})
-
 	// If walking fails entirely (e.g., directory read error), return an empty registry
 	if err != nil {
 		return &files, nil

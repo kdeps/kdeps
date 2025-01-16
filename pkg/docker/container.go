@@ -220,7 +220,7 @@ volumes:
 `, containerNameWithGpu, containerName, portNum, portNum, gpuConfig)
 
 	filePath := fmt.Sprintf("%s_docker-compose.yaml", cName)
-	err := afero.WriteFile(fs, filePath, []byte(dockerComposeContent), 0644)
+	err := afero.WriteFile(fs, filePath, []byte(dockerComposeContent), 0o644)
 	if err != nil {
 		return fmt.Errorf("error writing Docker Compose file: %w", err)
 	}

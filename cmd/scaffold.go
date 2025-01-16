@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"kdeps/pkg/template"
+	"github.com/kdeps/kdeps/pkg/template"
 
 	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"

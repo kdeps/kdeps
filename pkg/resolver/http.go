@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"kdeps/pkg/evaluator"
-	"kdeps/pkg/schema"
-	"kdeps/pkg/utils"
+	"github.com/kdeps/kdeps/pkg/evaluator"
+	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/utils"
 
 	pklHttp "github.com/kdeps/schema/gen/http"
 	"github.com/spf13/afero"
