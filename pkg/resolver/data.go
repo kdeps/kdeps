@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"kdeps/pkg/evaluator"
-	"kdeps/pkg/schema"
-	"kdeps/pkg/utils"
+	"github.com/kdeps/kdeps/pkg/evaluator"
+	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/utils"
 
 	pklData "github.com/kdeps/schema/gen/data"
 	"github.com/spf13/afero"

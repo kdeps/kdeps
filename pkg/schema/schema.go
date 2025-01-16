@@ -2,9 +2,10 @@ package schema
 
 import (
 	"fmt"
-	"kdeps/pkg/utils"
 	"os"
 	"sync"
+
+	"github.com/kdeps/kdeps/pkg/utils"
 )
 
 var (

@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"kdeps/pkg/resource"
+	"github.com/kdeps/kdeps/pkg/resource"
 
 	"github.com/spf13/afero"
 )

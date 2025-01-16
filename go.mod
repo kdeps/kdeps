@@ -1,4 +1,4 @@
-module kdeps
+module github.com/kdeps/kdeps
 
 go 1.23
 

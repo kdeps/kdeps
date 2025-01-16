@@ -11,12 +11,12 @@ import (
 	"strings"
 	"testing"
 
-	"kdeps/pkg/archiver"
-	"kdeps/pkg/cfg"
-	"kdeps/pkg/enforcer"
-	"kdeps/pkg/environment"
-	"kdeps/pkg/logging"
-	"kdeps/pkg/workflow"
+	"github.com/kdeps/kdeps/pkg/archiver"
+	"github.com/kdeps/kdeps/pkg/cfg"
+	"github.com/kdeps/kdeps/pkg/enforcer"
+	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/workflow"
 
 	"github.com/charmbracelet/log"
 	"github.com/cucumber/godog"

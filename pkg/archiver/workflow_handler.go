@@ -13,9 +13,9 @@ import (
 	"regexp"
 	"strings"
 
-	"kdeps/pkg/enforcer"
-	"kdeps/pkg/environment"
-	"kdeps/pkg/workflow"
+	"github.com/kdeps/kdeps/pkg/enforcer"
+	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/workflow"
 
 	"github.com/charmbracelet/log"
 	pklWf "github.com/kdeps/schema/gen/workflow"

@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"kdeps/pkg/cfg"
-	"kdeps/pkg/environment"
-	"kdeps/pkg/evaluator"
-	"kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/cfg"
+	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/evaluator"
+	"github.com/kdeps/kdeps/pkg/logging"
 
 	"github.com/charmbracelet/log"
 	"github.com/cucumber/godog"

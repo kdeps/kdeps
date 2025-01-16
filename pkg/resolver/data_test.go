@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"kdeps/pkg/logging"
-	"kdeps/pkg/resolver"
+	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/resolver"
 
 	"github.com/kdeps/schema/gen/data"
 	"github.com/spf13/afero"

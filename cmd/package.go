@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"kdeps/pkg/archiver"
-	"kdeps/pkg/environment"
-	"kdeps/pkg/workflow"
+	"github.com/kdeps/kdeps/pkg/archiver"
+	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/workflow"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"

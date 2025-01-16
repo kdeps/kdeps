@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/schema"
 
 	"github.com/alexellis/go-execute/v2"
 	"github.com/charmbracelet/log"

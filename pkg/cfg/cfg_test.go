@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"kdeps/pkg/environment"
-	"kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/logging"
 
 	"github.com/charmbracelet/log"
 	"github.com/cucumber/godog"

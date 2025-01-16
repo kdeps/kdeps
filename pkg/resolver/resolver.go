@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"kdeps/pkg/environment"
-	"kdeps/pkg/utils"
+	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/utils"
 
 	"github.com/charmbracelet/log"
 	"github.com/google/uuid"

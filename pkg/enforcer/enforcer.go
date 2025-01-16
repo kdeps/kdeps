@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/schema"
 
 	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"

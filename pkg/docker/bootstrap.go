@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"kdeps/pkg/environment"
-	"kdeps/pkg/resolver"
-	"kdeps/pkg/workflow"
+	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/resolver"
+	"github.com/kdeps/kdeps/pkg/workflow"
 
 	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"

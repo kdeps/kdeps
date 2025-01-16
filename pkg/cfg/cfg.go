@@ -7,10 +7,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"kdeps/pkg/environment"
-	"kdeps/pkg/evaluator"
-	"kdeps/pkg/schema"
-	"kdeps/pkg/texteditor"
+	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/evaluator"
+	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/texteditor"
 
 	"github.com/adrg/xdg"
 	"github.com/charmbracelet/huh"

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"kdeps/pkg/archiver"
+	"github.com/kdeps/kdeps/pkg/archiver"
 
 	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"

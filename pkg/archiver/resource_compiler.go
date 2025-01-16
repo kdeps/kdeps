@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"kdeps/pkg/enforcer"
+	"github.com/kdeps/kdeps/pkg/enforcer"
 
 	"github.com/charmbracelet/log"
 	pklWf "github.com/kdeps/schema/gen/workflow"

@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/logging"
 
 	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"

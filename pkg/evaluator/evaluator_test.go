@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"kdeps/pkg/evaluator"
+	"github.com/kdeps/kdeps/pkg/evaluator"
 )
 
 func TestCreateAndProcessPklFile(t *testing.T) {
