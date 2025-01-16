@@ -3,6 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/charmbracelet/log"
 	"github.com/kdeps/kdeps/cmd"
 	"github.com/kdeps/kdeps/pkg/cfg"
 	"github.com/kdeps/kdeps/pkg/docker"
@@ -10,13 +15,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/utils"
-	"os"
-	"os/signal"
-	"syscall"
-
 	v "github.com/kdeps/kdeps/pkg/version"
-
-	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"
 )
 
@@ -40,77 +39,91 @@ func main() {
 	env, err := setupEnvironment(fs)
 	if err != nil {
 		logger.Error("Failed to set up environment", "error", err)
-		os.Exit(1)
+		return
 	}
 
 	if env.DockerMode == "1" {
-		// Initialize Docker system
-		apiServerMode, err := docker.BootstrapDockerSystem(fs, ctx, env, logger)
-		if err != nil {
-			logger.Error("Error during Docker bootstrap", "error", err)
-			utils.SendSigterm(logger)
-		}
-
-		// Setup graceful shutdown handling
-		setupSignalHandler(cancel, fs, env, apiServerMode, logger)
-
-		// Run workflow or wait for shutdown
-		if !apiServerMode {
-			err = runGraphResolver(fs, ctx, env, apiServerMode, logger)
-			if err != nil {
-				logger.Error("Error running graph resolver", "error", err)
-				utils.SendSigterm(logger)
-			}
-		}
-
-		// Wait for shutdown signal
-		<-ctx.Done()
-		logger.Debug("Context canceled, shutting down gracefully...")
-		cleanup(fs, env, apiServerMode, logger)
+		handleDockerMode(fs, ctx, env, logger, cancel)
 	} else {
-		var cfgFile string
+		handleNonDockerMode(fs, ctx, env, logger)
+	}
+}
 
-		cfgFile, err = cfg.FindConfiguration(fs, env, logger)
+func handleDockerMode(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *log.Logger, cancel context.CancelFunc) {
+	// Initialize Docker system
+	apiServerMode, err := docker.BootstrapDockerSystem(fs, ctx, env, logger)
+	if err != nil {
+		logger.Error("Error during Docker bootstrap", "error", err)
+		utils.SendSigterm(logger)
+		return
+	}
+
+	// Setup graceful shutdown handling
+	setupSignalHandler(cancel, fs, env, apiServerMode, logger)
+
+	// Run workflow or wait for shutdown
+	if !apiServerMode {
+		if err := runGraphResolver(fs, ctx, env, apiServerMode, logger); err != nil {
+			logger.Error("Error running graph resolver", "error", err)
+			utils.SendSigterm(logger)
+			return
+		}
+	}
+
+	// Wait for shutdown signal
+	<-ctx.Done()
+	logger.Debug("Context canceled, shutting down gracefully...")
+	cleanup(fs, env, apiServerMode, logger)
+}
+
+func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *log.Logger) {
+	cfgFile, err := cfg.FindConfiguration(fs, env, logger)
+	if err != nil {
+		logger.Error("Error occurred finding configuration")
+	}
+
+	if cfgFile == "" {
+		cfgFile, err = cfg.GenerateConfiguration(fs, env, logger)
 		if err != nil {
-			logger.Error("Error occurred finding configuration")
+			logger.Fatal("Error occurred generating configuration", "error", err)
+			return
 		}
 
-		if cfgFile == "" {
-			cfgFile, err = cfg.GenerateConfiguration(fs, env, logger)
-			if err != nil {
-				logger.Fatal("Error occurred generating configuration", "error", err)
-				os.Exit(1)
-			}
+		logger.Info("Configuration file generated", "file", cfgFile)
 
-			cfgFile, err = cfg.EditConfiguration(fs, env, logger)
-			if err != nil {
-				logger.Error("Error occurred editing configuration")
-			}
-		}
-
-		cfgFile, err = cfg.ValidateConfiguration(fs, env, logger)
+		cfgFile, err = cfg.EditConfiguration(fs, env, logger)
 		if err != nil {
-			logger.Fatal("Error occurred validating configuration", "error", err)
-			os.Exit(1)
+			logger.Error("Error occurred editing configuration")
 		}
+	}
 
-		systemCfg, err := cfg.LoadConfiguration(fs, cfgFile, logger)
-		if err != nil {
-			logger.Error("Error occurred loading configuration")
-			os.Exit(1)
-		}
+	if cfgFile == "" {
+		return
+	}
 
-		kdepsDir, err := cfg.GetKdepsPath(*systemCfg)
-		if err != nil {
-			logger.Error("Error occurred while getting Kdeps system path")
-			os.Exit(1)
-		}
+	logger.Info("Configuration file ready", "file", cfgFile)
 
-		rootCmd := cmd.NewRootCommand(fs, ctx, kdepsDir, systemCfg, env, logger)
+	cfgFile, err = cfg.ValidateConfiguration(fs, ctx, env, logger)
+	if err != nil {
+		logger.Fatal("Error occurred validating configuration", "error", err)
+		return
+	}
 
-		if err := rootCmd.Execute(); err != nil {
-			log.Fatal(err)
-		}
+	systemCfg, err := cfg.LoadConfiguration(fs, ctx, cfgFile, logger)
+	if err != nil {
+		logger.Error("Error occurred loading configuration")
+		return
+	}
+
+	kdepsDir, err := cfg.GetKdepsPath(*systemCfg)
+	if err != nil {
+		logger.Error("Error occurred while getting Kdeps system path")
+		return
+	}
+
+	rootCmd := cmd.NewRootCommand(fs, ctx, kdepsDir, systemCfg, env, logger)
+	if err := rootCmd.Execute(); err != nil {
+		logger.Fatal(err)
 	}
 }
 
@@ -133,7 +146,11 @@ func setupSignalHandler(cancelFunc context.CancelFunc, fs afero.Fs, env *environ
 		logger.Debug(fmt.Sprintf("Received signal: %v, initiating shutdown...", sig))
 		cancelFunc() // Cancel context to initiate shutdown
 		cleanup(fs, env, apiServerMode, logger)
-		utils.WaitForFileReady(fs, "/.dockercleanup", logger)
+		if err = utils.WaitForFileReady(fs, "/.dockercleanup", logger); err != nil {
+			logger.Error("Error occurred while waiting for file to be ready", "file", "/.dockercleanup")
+
+			return
+		}
 		os.Exit(0)
 	}()
 }
