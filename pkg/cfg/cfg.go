@@ -7,14 +7,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/adrg/xdg"
+	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/log"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/texteditor"
-
-	"github.com/adrg/xdg"
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/log"
 	"github.com/kdeps/schema/gen/kdeps"
 	"github.com/kdeps/schema/gen/kdeps/path"
 	"github.com/spf13/afero"
@@ -107,7 +106,7 @@ func EditConfiguration(fs afero.Fs, env *environment.Environment, logger *log.Lo
 	return configFile, nil
 }
 
-func ValidateConfiguration(fs afero.Fs, env *environment.Environment, logger *log.Logger) (string, error) {
+func ValidateConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *log.Logger) (string, error) {
 	logger.Debug("Validating configuration...")
 
 	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
@@ -120,7 +119,7 @@ func ValidateConfiguration(fs afero.Fs, env *environment.Environment, logger *lo
 	return configFile, nil
 }
 
-func LoadConfiguration(fs afero.Fs, configFile string, logger *log.Logger) (*kdeps.Kdeps, error) {
+func LoadConfiguration(fs afero.Fs, ctx context.Context, configFile string, logger *log.Logger) (*kdeps.Kdeps, error) {
 	logger.Debug("Loading configuration", "config-file", configFile)
 
 	konfig, err := kdeps.LoadFromPath(context.Background(), configFile)

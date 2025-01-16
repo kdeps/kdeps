@@ -132,7 +132,7 @@ dockerGPU = "%s"
 		return err
 	}
 
-	syscfg, err := cfg.LoadConfiguration(testFs, systemConfigurationFile, logger)
+	syscfg, err := cfg.LoadConfiguration(testFs, ctx, systemConfigurationFile, logger)
 	if err != nil {
 		return err
 	}

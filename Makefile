@@ -38,9 +38,9 @@ format: tools
 	@echo "$(OK_COLOR)>> [gofumpt] running$(NO_COLOR)" & \
 	gofumpt -w cmd pkg &
 
-#	@echo "$(OK_COLOR)>> [golangci-lint] running$(NO_COLOR)" & \
-#	golangci-lint run --timeout 10m60s ./...  & \
-#	wait
+	@echo "$(OK_COLOR)>> [golangci-lint] running$(NO_COLOR)" & \
+	golangci-lint run --timeout 10m60s ./...  & \
+	wait
 
 tools:
 	@if ! command -v gci > /dev/null ; then \

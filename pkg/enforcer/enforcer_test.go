@@ -1,19 +1,19 @@
 package enforcer
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/log"
+	"github.com/cucumber/godog"
 	"github.com/kdeps/kdeps/pkg/cfg"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
-
-	"github.com/charmbracelet/log"
-	"github.com/cucumber/godog"
 	"github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 )
@@ -22,6 +22,7 @@ var (
 	testFs                = afero.NewOsFs()
 	homeDirPath           string
 	currentDirPath        string
+	ctx                   context.Context
 	systemConfiguration   *kdeps.Kdeps
 	fileThatExist         string
 	logger                *log.Logger
@@ -170,7 +171,7 @@ func aSystemConfigurationIsDefined() error {
 		return err
 	}
 
-	scfg, err := cfg.LoadConfiguration(testFs, cfgFile, logger)
+	scfg, err := cfg.LoadConfiguration(testFs, ctx, cfgFile, logger)
 	if err != nil {
 		return err
 	}
