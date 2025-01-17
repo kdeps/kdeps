@@ -9,13 +9,12 @@ import (
 
 	"github.com/kdeps/kdeps/pkg/logging"
 
-	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-var logger *log.Logger
+var logger *logging.Logger
 
 func TestWriteCounter_Write(t *testing.T) {
 	counter := &WriteCounter{}

@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/log"
 	"github.com/cucumber/godog"
 	"github.com/kdeps/kdeps/pkg/cfg"
 	"github.com/kdeps/kdeps/pkg/environment"
@@ -25,7 +24,7 @@ var (
 	ctx                   context.Context
 	systemConfiguration   *kdeps.Kdeps
 	fileThatExist         string
-	logger                *log.Logger
+	logger                *logging.Logger
 	agentPath             string
 	doc                   string
 	schemaVersionFilePath = "../../SCHEMA_VERSION"

@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/charmbracelet/log"
+	"github.com/kdeps/kdeps/pkg/logging"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 )
 
 // LoadWorkflow reads a workflow file and returns the parsed workflow object or an error.
-func LoadWorkflow(ctx context.Context, workflowFile string, logger *log.Logger) (pklWf.Workflow, error) {
+func LoadWorkflow(ctx context.Context, workflowFile string, logger *logging.Logger) (pklWf.Workflow, error) {
 	logger.Debug("Reading workflow file", "workflow-file", workflowFile)
 
 	wf, err := pklWf.LoadFromPath(ctx, workflowFile)

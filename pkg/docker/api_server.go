@@ -14,6 +14,7 @@ import (
 
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/evaluator"
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/utils"
 
@@ -42,7 +43,7 @@ type DecodedResponse struct {
 // StartApiServerMode initializes and starts an API server based on the provided workflow configuration.
 // It validates the API server configuration, sets up routes, and starts the server on the configured port.
 func StartApiServerMode(fs afero.Fs, ctx context.Context, wfCfg pklWf.Workflow, environ *environment.Environment,
-	agentDir string, apiServerPath string, logger *log.Logger,
+	agentDir string, apiServerPath string, logger *logging.Logger,
 ) error {
 	// Extract workflow settings and validate API server configuration
 	wfSettings := wfCfg.GetSettings()
@@ -75,7 +76,7 @@ func StartApiServerMode(fs afero.Fs, ctx context.Context, wfCfg pklWf.Workflow, 
 // setupRoutes configures HTTP routes for the API server based on the provided route configuration.
 // Each route is validated before being registered with the HTTP handler.
 func setupRoutes(fs afero.Fs, ctx context.Context, routes []*apiserver.APIServerRoutes, environ *environment.Environment,
-	agentDir string, apiServerPath string, logger *log.Logger,
+	agentDir string, apiServerPath string, logger *logging.Logger,
 ) error {
 	for _, route := range routes {
 		if route == nil || route.Path == "" {
@@ -93,7 +94,7 @@ func setupRoutes(fs afero.Fs, ctx context.Context, routes []*apiserver.APIServer
 // ApiServerHandler handles incoming HTTP requests for the configured routes.
 // It validates the HTTP method, processes the request data, and triggers workflow actions to generate responses.
 func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServerRoutes, env *environment.Environment,
-	agentDir string, apiServerPath string, logger *log.Logger,
+	agentDir string, apiServerPath string, logger *logging.Logger,
 ) http.HandlerFunc {
 	allowedMethods := route.Methods
 
@@ -383,7 +384,7 @@ func fixJSON(input string) string {
 	return input
 }
 
-func decodeResponseContent(content []byte, logger *log.Logger) ([]byte, error) {
+func decodeResponseContent(content []byte, logger *logging.Logger) ([]byte, error) {
 	var decodedResp DecodedResponse
 
 	// Unmarshal JSON content into DecodedResponse struct
@@ -446,7 +447,7 @@ func decodeResponseContent(content []byte, logger *log.Logger) ([]byte, error) {
 
 // cleanOldFiles removes any old response files or flags from previous API requests.
 // It ensures the environment is clean before processing new requests.
-func cleanOldFiles(fs afero.Fs, dr *resolver.DependencyResolver, logger *log.Logger) error {
+func cleanOldFiles(fs afero.Fs, dr *resolver.DependencyResolver, logger *logging.Logger) error {
 	if _, err := fs.Stat(dr.ResponseTargetFile); err == nil {
 		if err := fs.RemoveAll(dr.ResponseTargetFile); err != nil {
 			logger.Error("Unable to delete old response file", "response-target-file", dr.ResponseTargetFile)
@@ -500,7 +501,7 @@ func formatParams(params map[string][]string) string {
 
 // processWorkflow handles the execution of the workflow steps after the .pkl file is created.
 // It prepares the workflow directory, imports necessary files, and processes the actions defined in the workflow.
-func processWorkflow(dr *resolver.DependencyResolver, logger *log.Logger) (bool, error) {
+func processWorkflow(dr *resolver.DependencyResolver, logger *logging.Logger) (bool, error) {
 	if err := dr.PrepareWorkflowDir(); err != nil {
 		return false, err
 	}

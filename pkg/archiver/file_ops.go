@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/charmbracelet/log"
+	"github.com/kdeps/kdeps/pkg/logging"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 )
@@ -94,7 +94,7 @@ func getFileMD5(fs afero.Fs, filePath string, length int) (string, error) {
 }
 
 // Move the original file to a new name with MD5 and copy the latest file
-func CopyFile(fs afero.Fs, src, dst string, logger *log.Logger) error {
+func CopyFile(fs afero.Fs, src, dst string, logger *logging.Logger) error {
 	// Check if the destination file exists
 	if _, err := fs.Stat(dst); err == nil {
 		// Calculate MD5 for both source and destination files
@@ -159,7 +159,7 @@ func CopyFile(fs afero.Fs, src, dst string, logger *log.Logger) error {
 }
 
 func CopyDataDir(fs afero.Fs, wf pklWf.Workflow, kdepsDir, projectDir, compiledProjectDir, agentName, agentVersion,
-	agentAction string, processWorkflows bool, logger *log.Logger,
+	agentAction string, processWorkflows bool, logger *logging.Logger,
 ) error {
 	var srcDir, destDir string
 

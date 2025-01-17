@@ -7,9 +7,13 @@ import (
 	"github.com/charmbracelet/log"
 )
 
-// Logger instance
+// Logger is a wrapper around the log.Logger from the charmbracelet/log package.
+type Logger struct {
+	*log.Logger
+}
+
 var (
-	logger *log.Logger
+	logger *Logger
 	once   sync.Once
 )
 
@@ -17,22 +21,25 @@ var (
 func CreateLogger() {
 	once.Do(func() {
 		// Create a logger with default settings
-		logger = log.New(os.Stderr)
+		baseLogger := log.New(os.Stderr)
 
 		// Check if DEBUG environment variable is set to 1
 		if os.Getenv("DEBUG") == "1" {
 			// Set log options only when DEBUG is enabled
-			logger = log.NewWithOptions(os.Stderr, log.Options{
+			baseLogger = log.NewWithOptions(os.Stderr, log.Options{
 				ReportCaller:    true,
 				ReportTimestamp: true,
 				Prefix:          "kdeps",
 			})
 
-			logger.SetLevel(log.DebugLevel)
+			baseLogger.SetLevel(log.DebugLevel)
 		} else {
 			// Use InfoLevel for normal operation without special logging options
-			logger.SetLevel(log.InfoLevel)
+			baseLogger.SetLevel(log.InfoLevel)
 		}
+
+		// Wrap the base logger in the custom Logger type
+		logger = &Logger{Logger: baseLogger}
 	})
 }
 
@@ -66,10 +73,15 @@ func Fatal(msg interface{}, keyvals ...interface{}) {
 	logger.Fatal(msg, keyvals...)
 }
 
-// GetLogger returns the Logger instance
-func GetLogger() *log.Logger {
+// GetLogger returns the Logger instance.
+func GetLogger() *Logger {
 	ensureInitialized()
 	return logger
+}
+
+// UnderlyingLogger returns the underlying *log.Logger from the custom Logger.
+func (l *Logger) BaseLogger() *log.Logger {
+	return l.Logger
 }
 
 // ensureInitialized ensures the logger is initialized before use.

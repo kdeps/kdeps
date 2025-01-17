@@ -6,10 +6,10 @@ import (
 
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/workflow"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 )
@@ -23,7 +23,7 @@ var (
 )
 
 // NewPackageCommand creates the 'package' command and passes the necessary dependencies
-func NewPackageCommand(fs afero.Fs, ctx context.Context, kdepsDir string, env *environment.Environment, logger *log.Logger) *cobra.Command {
+func NewPackageCommand(fs afero.Fs, ctx context.Context, kdepsDir string, env *environment.Environment, logger *logging.Logger) *cobra.Command {
 	return &cobra.Command{
 		Use:     "package [agent-dir]",
 		Aliases: []string{"p"},

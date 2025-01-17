@@ -9,11 +9,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/charmbracelet/log"
+	"github.com/kdeps/kdeps/pkg/logging"
 )
 
 // parseOLLAMAHost parses the OLLAMA_HOST environment variable into host and port
-func parseOLLAMAHost(logger *log.Logger) (string, string, error) {
+func parseOLLAMAHost(logger *logging.Logger) (string, string, error) {
 	logger.Debug("Parsing OLLAMA_HOST environment variable")
 
 	hostEnv := os.Getenv("OLLAMA_HOST")

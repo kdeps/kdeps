@@ -29,7 +29,7 @@ var (
 	testFs                    = afero.NewOsFs()
 	testingT                  *testing.T
 	homeDirPath               string
-	logger                    *log.Logger
+	logger                    *logging.Logger
 	kdepsDir                  string
 	agentDir                  string
 	ctx                       context.Context

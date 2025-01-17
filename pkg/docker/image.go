@@ -16,10 +16,10 @@ import (
 
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/download"
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/workflow"
 
-	"github.com/charmbracelet/log"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
@@ -34,7 +34,7 @@ type BuildLine struct {
 }
 
 func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli *client.Client, runDir, kdepsDir string,
-	pkgProject *archiver.KdepsPackage, logger *log.Logger,
+	pkgProject *archiver.KdepsPackage, logger *logging.Logger,
 ) (string, string, error) {
 	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow, logger)
 	if err != nil {
@@ -259,7 +259,7 @@ ENTRYPOINT ["/bin/kdeps"]
 	return dockerFile.String()
 }
 
-func copyFilesToRunDir(fs afero.Fs, downloadDir, runDir string, logger *log.Logger) error {
+func copyFilesToRunDir(fs afero.Fs, downloadDir, runDir string, logger *logging.Logger) error {
 	// Ensure the runDir and cache directory exist
 	downloadsDir := filepath.Join(runDir, "cache")
 	err := fs.MkdirAll(downloadsDir, os.ModePerm)
@@ -305,7 +305,7 @@ func generateParamsSection(prefix string, items map[string]string) string {
 	return strings.Join(lines, "\n")
 }
 
-func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *log.Logger) (string, bool, string, string, string, error) {
+func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *logging.Logger) (string, bool, string, string, string, error) {
 	var portNum uint16 = 3000
 	var hostIP string = "127.0.0.1"
 

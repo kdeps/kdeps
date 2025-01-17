@@ -3,15 +3,15 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/template"
 
-	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 )
 
 // NewScaffoldCommand creates the 'scaffold' subcommand for generating specific agent files
-func NewScaffoldCommand(fs afero.Fs, logger *log.Logger) *cobra.Command {
+func NewScaffoldCommand(fs afero.Fs, logger *logging.Logger) *cobra.Command {
 	return &cobra.Command{
 		Use:   "scaffold [agentName] [fileNames...]",
 		Short: "Scaffold specific files for an agent",
