@@ -6,10 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/charmbracelet/log"
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 )
+
+var logger = logging.GetLogger()
 
 type errorFs struct {
 	afero.Fs
@@ -23,7 +25,6 @@ func TestWaitForFileReady(t *testing.T) {
 	t.Run("FileExists", func(t *testing.T) {
 		// Arrange
 		fs := afero.NewMemMapFs()
-		logger := log.New(os.Stderr)
 		filepath := "/testfile.txt"
 
 		// Create the file in the in-memory filesystem
@@ -40,7 +41,6 @@ func TestWaitForFileReady(t *testing.T) {
 	t.Run("FileDoesNotExist", func(t *testing.T) {
 		// Arrange
 		fs := afero.NewMemMapFs()
-		logger := log.New(os.Stderr)
 		filepath := "/nonexistent.txt"
 
 		// Act
@@ -57,7 +57,6 @@ func TestWaitForFileReady(t *testing.T) {
 	t.Run("ErrorCheckingFile", func(t *testing.T) {
 		// Arrange
 		fs := &errorFs{Fs: afero.NewMemMapFs()} // Wrap with error-inducing Fs
-		logger := log.New(os.Stderr)
 		filepath := "/cannotcreate.txt"
 
 		// Act

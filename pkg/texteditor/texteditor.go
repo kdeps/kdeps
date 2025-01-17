@@ -5,13 +5,13 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/charmbracelet/log"
 	"github.com/charmbracelet/x/editor"
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 )
 
 // EditPkl opens the file at filePath with the 'kdeps' editor if the file exists and has a .pkl extension.
-func EditPkl(fs afero.Fs, filePath string, logger *log.Logger) error {
+func EditPkl(fs afero.Fs, filePath string, logger *logging.Logger) error {
 	// Ensure the file has a .pkl extension
 	if filepath.Ext(filePath) != ".pkl" {
 		err := fmt.Sprintf("file '%s' does not have a .pkl extension", filePath)

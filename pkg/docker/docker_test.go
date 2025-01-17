@@ -18,7 +18,6 @@ import (
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/workflow"
 
-	"github.com/charmbracelet/log"
 	"github.com/cucumber/godog"
 	"github.com/docker/docker/client"
 	"github.com/kdeps/schema/gen/kdeps"
@@ -45,7 +44,7 @@ var (
 	currentDirPath            string
 	systemConfigurationFile   string
 	gpuType                   string
-	logger                    *log.Logger
+	logger                    *logging.Logger
 	environ                   *environment.Environment
 	cli                       *client.Client
 	systemConfiguration       *kdeps.Kdeps

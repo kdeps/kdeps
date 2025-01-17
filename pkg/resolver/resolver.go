@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/utils"
 
-	"github.com/charmbracelet/log"
 	"github.com/google/uuid"
 	"github.com/kdeps/kartographer/graph"
 	pklRes "github.com/kdeps/schema/gen/resource"
@@ -19,7 +19,7 @@ import (
 
 type DependencyResolver struct {
 	Fs                   afero.Fs
-	Logger               *log.Logger
+	Logger               *logging.Logger
 	Resources            []ResourceNodeEntry
 	ResourceDependencies map[string][]string
 	DependencyGraph      []string
@@ -45,7 +45,7 @@ type ResourceNodeEntry struct {
 	File string `pkl:"file"`
 }
 
-func NewGraphResolver(fs afero.Fs, logger *log.Logger, ctx context.Context, env *environment.Environment, agentDir string) (*DependencyResolver, error) {
+func NewGraphResolver(fs afero.Fs, logger *logging.Logger, ctx context.Context, env *environment.Environment, agentDir string) (*DependencyResolver, error) {
 	graphId := uuid.New().String()
 
 	var dataDir, actionDir, filesDir, projectDir, pklWfFile, pklWfParentFile string
@@ -132,7 +132,7 @@ func NewGraphResolver(fs afero.Fs, logger *log.Logger, ctx context.Context, env 
 		dependencyResolver.AnacondaInstalled = agentSettings.InstallAnaconda
 	}
 
-	dependencyResolver.Graph = graph.NewDependencyGraph(fs, logger, dependencyResolver.ResourceDependencies)
+	dependencyResolver.Graph = graph.NewDependencyGraph(fs, logger.BaseLogger(), dependencyResolver.ResourceDependencies)
 	if dependencyResolver.Graph == nil {
 		return nil, fmt.Errorf("failed to initialize dependency graph")
 	}

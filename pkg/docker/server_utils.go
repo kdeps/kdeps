@@ -7,11 +7,11 @@ import (
 	"time"
 
 	execute "github.com/alexellis/go-execute/v2"
-	"github.com/charmbracelet/log"
+	"github.com/kdeps/kdeps/pkg/logging"
 )
 
 // isServerReady checks if ollama server is ready by attempting to connect to the specified host and port
-func isServerReady(host string, port string, logger *log.Logger) bool {
+func isServerReady(host string, port string, logger *logging.Logger) bool {
 	logger.Debug("Checking if ollama server is ready", "host", host, "port", port)
 
 	timeout := time.Second
@@ -26,7 +26,7 @@ func isServerReady(host string, port string, logger *log.Logger) bool {
 }
 
 // waitForServer waits until ollama server is ready by polling the specified host and port
-func waitForServer(host string, port string, timeout time.Duration, logger *log.Logger) error {
+func waitForServer(host string, port string, timeout time.Duration, logger *logging.Logger) error {
 	logger.Debug("Waiting for ollama server to be ready...")
 
 	start := time.Now()
@@ -47,7 +47,7 @@ func waitForServer(host string, port string, timeout time.Duration, logger *log.
 }
 
 // startOllamaServer starts the ollama server command in the background using go-execute
-func startOllamaServer(logger *log.Logger) error {
+func startOllamaServer(logger *logging.Logger) error {
 	logger.Debug("Starting ollama server in the background...")
 
 	// Run ollama server in a background goroutine using go-execute

@@ -8,15 +8,15 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 
 	"github.com/alexellis/go-execute/v2"
-	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"
 )
 
 // EnsurePklBinaryExists checks if the 'pkl' binary exists in the system PATH.
-func EnsurePklBinaryExists(logger *log.Logger) error {
+func EnsurePklBinaryExists(logger *logging.Logger) error {
 	binaryNames := []string{"pkl", "pkl.exe"} // Support both Unix-like and Windows binary names
 	for _, binaryName := range binaryNames {
 		if _, err := exec.LookPath(binaryName); err == nil {
@@ -31,7 +31,7 @@ func EnsurePklBinaryExists(logger *log.Logger) error {
 
 // EvalPkl evaluates the resource file at resourcePath using the 'pkl' binary.
 // It expects the resourcePath to have a .pkl extension.
-func EvalPkl(fs afero.Fs, resourcePath string, headerSection string, logger *log.Logger) (string, error) {
+func EvalPkl(fs afero.Fs, resourcePath string, headerSection string, logger *logging.Logger) (string, error) {
 	// Validate that the file has a .pkl extension
 	if filepath.Ext(resourcePath) != ".pkl" {
 		errMsg := fmt.Sprintf("file '%s' must have a .pkl extension", resourcePath)
@@ -78,8 +78,8 @@ func CreateAndProcessPklFile(
 	sections []string,
 	finalFileName string,
 	pklTemplate string,
-	logger *log.Logger,
-	processFunc func(fs afero.Fs, tmpFile string, headerSection string, logger *log.Logger) (string, error),
+	logger *logging.Logger,
+	processFunc func(fs afero.Fs, tmpFile string, headerSection string, logger *logging.Logger) (string, error),
 	isExtension bool, // New parameter to control amends vs extends
 ) error {
 	// Create a temporary directory

@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/charmbracelet/log"
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestSendSigterm(t *testing.T) {
 	// Create a logger that outputs to os.Stderr for visibility in tests
-	logger := log.New(os.Stderr)
+	logging.CreateLogger()
 
 	// Create a channel to intercept the SIGTERM signal
 	sigChan := make(chan os.Signal, 1)
@@ -21,7 +21,7 @@ func TestSendSigterm(t *testing.T) {
 	defer signal.Stop(sigChan)
 
 	// Run SendSigterm in a goroutine to avoid blocking
-	go SendSigterm(logger)
+	go SendSigterm(logging.GetLogger())
 
 	// Wait for the signal to be sent
 	select {
