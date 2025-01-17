@@ -8,9 +8,9 @@ import (
 
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/utils"
 
-	"github.com/charmbracelet/log"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
@@ -47,7 +47,7 @@ func CleanupDockerBuildImages(fs afero.Fs, ctx context.Context, cName string, cl
 }
 
 // Cleanup deletes /agent/action and /agent/workflow directories, then copies /agent/project to /agent/workflow
-func Cleanup(fs afero.Fs, environ *environment.Environment, logger *log.Logger) {
+func Cleanup(fs afero.Fs, environ *environment.Environment, logger *logging.Logger) {
 	if environ.DockerMode != "1" {
 		return
 	}
@@ -127,7 +127,7 @@ func Cleanup(fs afero.Fs, environ *environment.Environment, logger *log.Logger) 
 }
 
 // cleanupFlagFiles removes the specified flag files
-func cleanupFlagFiles(fs afero.Fs, files []string, logger *log.Logger) {
+func cleanupFlagFiles(fs afero.Fs, files []string, logger *logging.Logger) {
 	for _, file := range files {
 		if err := fs.Remove(file); err != nil {
 			if os.IsNotExist(err) {

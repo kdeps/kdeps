@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/log"
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 )
 
-func WaitForFileReady(fs afero.Fs, filepath string, logger *log.Logger) error {
+func WaitForFileReady(fs afero.Fs, filepath string, logger *logging.Logger) error {
 	logger.Debug("Waiting for file to be ready...", "file", filepath)
 
 	ticker := time.NewTicker(500 * time.Millisecond)

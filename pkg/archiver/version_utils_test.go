@@ -5,13 +5,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/charmbracelet/log"
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/stretchr/testify/assert"
 )
 
 // Test for compareVersions
 func TestCompareVersions(t *testing.T) {
-	logger := log.New(os.Stdout)
+	logging.CreateLogger()
+	logger := logging.GetLogger()
 
 	tests := []struct {
 		name        string
@@ -38,7 +39,8 @@ func TestCompareVersions(t *testing.T) {
 
 // Test for getLatestVersion
 func TestGetLatestVersion(t *testing.T) {
-	logger := log.New(os.Stdout)
+	logging.CreateLogger()
+	logger := logging.GetLogger()
 
 	// Set up a temporary directory with versioned subdirectories
 	tempDir := t.TempDir()

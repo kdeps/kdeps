@@ -11,9 +11,9 @@ import (
 	"strings"
 
 	"github.com/kdeps/kdeps/pkg/enforcer"
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/workflow"
 
-	"github.com/charmbracelet/log"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 )
@@ -26,7 +26,7 @@ type KdepsPackage struct {
 	Data        map[string]map[string][]string `json:"data"`        // Data[agentName][version] -> slice of absolute file paths for a specific agent version
 }
 
-func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPackage string, logger *log.Logger) (*KdepsPackage, error) {
+func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPackage string, logger *logging.Logger) (*KdepsPackage, error) {
 	logger.Debug("Starting extraction of package", "package", kdepsPackage)
 
 	// Create a temporary directory for extraction
@@ -213,7 +213,7 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 }
 
 // PackageProject compresses the contents of projectDir into a kdeps file in kdepsDir
-func PackageProject(fs afero.Fs, wf pklWf.Workflow, kdepsDir, compiledProjectDir string, logger *log.Logger) (string, error) {
+func PackageProject(fs afero.Fs, wf pklWf.Workflow, kdepsDir, compiledProjectDir string, logger *logging.Logger) (string, error) {
 	// Enforce the folder structure
 	if err := enforcer.EnforceFolderStructure(fs, compiledProjectDir, logger); err != nil {
 		logger.Error("Failed to enforce folder structure", "error", err)
@@ -325,7 +325,7 @@ func PackageProject(fs afero.Fs, wf pklWf.Workflow, kdepsDir, compiledProjectDir
 }
 
 // Function to search for workflow.pkl file in a given folder
-func FindWorkflowFile(fs afero.Fs, folder string, logger *log.Logger) (string, error) {
+func FindWorkflowFile(fs afero.Fs, folder string, logger *logging.Logger) (string, error) {
 	fileName := "workflow.pkl"
 
 	// Check if the folder exists and is a directory

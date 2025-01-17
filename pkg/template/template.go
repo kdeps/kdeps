@@ -13,7 +13,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/log"
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/texteditor"
 	"github.com/spf13/afero"
@@ -59,7 +59,7 @@ func promptForAgentName() (string, error) {
 	return name, nil
 }
 
-func createDirectory(fs afero.Fs, logger *log.Logger, path string) error {
+func createDirectory(fs afero.Fs, logger *logging.Logger, path string) error {
 	printWithDots(fmt.Sprintf("Creating directory: %s", lightGreen.Render(path)))
 	if err := fs.MkdirAll(path, os.ModePerm); err != nil {
 		logger.Error(err)
@@ -69,7 +69,7 @@ func createDirectory(fs afero.Fs, logger *log.Logger, path string) error {
 	return nil
 }
 
-func createFile(fs afero.Fs, logger *log.Logger, path string, content string) error {
+func createFile(fs afero.Fs, logger *logging.Logger, path string, content string) error {
 	printWithDots(fmt.Sprintf("Creating file: %s", lightGreen.Render(path)))
 	if err := afero.WriteFile(fs, path, []byte(content), 0o644); err != nil {
 		logger.Error(err)
@@ -79,7 +79,7 @@ func createFile(fs afero.Fs, logger *log.Logger, path string, content string) er
 	return nil
 }
 
-func generateWorkflowFile(fs afero.Fs, logger *log.Logger, mainDir, name string) error {
+func generateWorkflowFile(fs afero.Fs, logger *logging.Logger, mainDir, name string) error {
 	templatePath := "templates/workflow.pkl"
 	outputPath := filepath.Join(mainDir, "workflow.pkl")
 
@@ -119,7 +119,7 @@ func loadTemplate(templatePath string, data map[string]string) (string, error) {
 	return output.String(), nil
 }
 
-func generateResourceFiles(fs afero.Fs, logger *log.Logger, mainDir, name string) error {
+func generateResourceFiles(fs afero.Fs, logger *logging.Logger, mainDir, name string) error {
 	resourceDir := filepath.Join(mainDir, "resources")
 	if err := createDirectory(fs, logger, resourceDir); err != nil {
 		return err
@@ -164,7 +164,7 @@ func generateResourceFiles(fs afero.Fs, logger *log.Logger, mainDir, name string
 	return nil
 }
 
-func generateSpecificFile(fs afero.Fs, logger *log.Logger, mainDir, fileName, agentName string) error {
+func generateSpecificFile(fs afero.Fs, logger *logging.Logger, mainDir, fileName, agentName string) error {
 	// Automatically add .pkl extension if not present
 	if !strings.HasSuffix(fileName, ".pkl") {
 		fileName += ".pkl"
@@ -218,7 +218,7 @@ func generateSpecificFile(fs afero.Fs, logger *log.Logger, mainDir, fileName, ag
 	return nil
 }
 
-func GenerateSpecificAgentFile(fs afero.Fs, logger *log.Logger, agentName, fileName string) error {
+func GenerateSpecificAgentFile(fs afero.Fs, logger *logging.Logger, agentName, fileName string) error {
 	var name string
 	var err error
 
@@ -278,7 +278,7 @@ func GenerateSpecificAgentFile(fs afero.Fs, logger *log.Logger, agentName, fileN
 	return nil
 }
 
-func GenerateAgent(fs afero.Fs, logger *log.Logger, agentName string) error {
+func GenerateAgent(fs afero.Fs, logger *logging.Logger, agentName string) error {
 	var name string
 	var err error
 

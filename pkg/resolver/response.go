@@ -8,11 +8,11 @@ import (
 	"strings"
 
 	"github.com/kdeps/kdeps/pkg/evaluator"
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
 
 	"github.com/alexellis/go-execute/v2"
-	"github.com/charmbracelet/log"
 	"github.com/google/uuid"
 	apiserverresponse "github.com/kdeps/schema/gen/api_server_response"
 	"github.com/spf13/afero"
@@ -198,7 +198,7 @@ else
 }
 
 // formatErrors formats error messages with optional base64 decoding.
-func formatErrors(errors *[]*apiserverresponse.APIServerErrorsBlock, logger *log.Logger) string {
+func formatErrors(errors *[]*apiserverresponse.APIServerErrorsBlock, logger *logging.Logger) string {
 	// If no errors, return an empty string (no errors block is created)
 	if errors == nil || len(*errors) == 0 {
 		return ""
@@ -227,7 +227,7 @@ func formatErrors(errors *[]*apiserverresponse.APIServerErrorsBlock, logger *log
 }
 
 // decodeErrorMessage attempts to base64 decode the error message.
-func decodeErrorMessage(message string, logger *log.Logger) string {
+func decodeErrorMessage(message string, logger *logging.Logger) string {
 	if message == "" {
 		return ""
 	}

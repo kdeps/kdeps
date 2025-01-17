@@ -9,15 +9,15 @@ import (
 	"time"
 
 	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/workflow"
 
-	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"
 )
 
 // BootstrapDockerSystem initializes the Docker system and pulls models after ollama server is ready
-func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environment.Environment, logger *log.Logger) (bool, error) {
+func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environment.Environment, logger *logging.Logger) (bool, error) {
 	var apiServerMode bool
 
 	if environ.DockerMode == "1" {

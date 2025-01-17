@@ -16,7 +16,6 @@ import (
 	"github.com/kdeps/kdeps/pkg/resource"
 	"github.com/kdeps/kdeps/pkg/workflow"
 
-	"github.com/charmbracelet/log"
 	"github.com/cucumber/godog"
 	"github.com/kr/pretty"
 	"github.com/spf13/afero"
@@ -27,7 +26,7 @@ var (
 	testingT           *testing.T
 	aiAgentDir         string
 	resourcesDir       string
-	logger             *log.Logger
+	logger             *logging.Logger
 	dataDir            string
 	workflowFile       string
 	resourceFile       string
