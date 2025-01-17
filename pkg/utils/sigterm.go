@@ -4,11 +4,11 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/charmbracelet/log"
+	"github.com/kdeps/kdeps/pkg/logging"
 )
 
 // sendSigterm sends a SIGTERM signal to the current process
-func SendSigterm(logger *log.Logger) {
+func SendSigterm(logger *logging.Logger) {
 	process, err := os.FindProcess(os.Getpid()) // Get the current process
 	if err != nil {
 		logger.Fatal("Failed to find process", "pid", err)

@@ -10,14 +10,14 @@ import (
 	"strings"
 
 	"github.com/kdeps/kdeps/pkg/enforcer"
+	"github.com/kdeps/kdeps/pkg/logging"
 
-	"github.com/charmbracelet/log"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 )
 
 // CompileResources processes .pkl files from the project directory and copies them to the resources directory
-func CompileResources(fs afero.Fs, wf pklWf.Workflow, resourcesDir string, projectDir string, logger *log.Logger) error {
+func CompileResources(fs afero.Fs, wf pklWf.Workflow, resourcesDir string, projectDir string, logger *logging.Logger) error {
 	projectResourcesDir := filepath.Join(projectDir, "resources")
 
 	if err := CheckAndValidatePklFiles(fs, projectResourcesDir, logger); err != nil {
@@ -51,7 +51,7 @@ func CompileResources(fs afero.Fs, wf pklWf.Workflow, resourcesDir string, proje
 }
 
 // processResourcePklFiles processes a .pkl file and writes modifications to the resources directory
-func processResourcePklFiles(fs afero.Fs, file string, wf pklWf.Workflow, resourcesDir string, logger *log.Logger) error {
+func processResourcePklFiles(fs afero.Fs, file string, wf pklWf.Workflow, resourcesDir string, logger *logging.Logger) error {
 	name, version := wf.GetName(), wf.GetVersion()
 
 	readFile, err := fs.Open(file)
@@ -224,7 +224,7 @@ func processResourcePklFiles(fs afero.Fs, file string, wf pklWf.Workflow, resour
 }
 
 // writeProcessedFile writes the processed .pkl content to the resources directory.
-func writeProcessedFile(fs afero.Fs, fileBuffer *bytes.Buffer, resourcesDir, name, action, version string, logger *log.Logger) error {
+func writeProcessedFile(fs afero.Fs, fileBuffer *bytes.Buffer, resourcesDir, name, action, version string, logger *logging.Logger) error {
 	// Check if the action is prefixed by an agent name (e.g., @abcAgent/fooBar4:2.0.0)
 	if strings.HasPrefix(action, "@") {
 		// Split by '/' to extract the agent name and action (e.g., @abcAgent/fooBar4:2.0.0 -> abcAgent, fooBar4:2.0.0)
@@ -261,7 +261,7 @@ func writeProcessedFile(fs afero.Fs, fileBuffer *bytes.Buffer, resourcesDir, nam
 	return nil
 }
 
-func CheckAndValidatePklFiles(fs afero.Fs, projectResourcesDir string, logger *log.Logger) error {
+func CheckAndValidatePklFiles(fs afero.Fs, projectResourcesDir string, logger *logging.Logger) error {
 	// Check if the project resources directory exists
 	if _, err := fs.Stat(projectResourcesDir); err != nil {
 		logger.Error("No resource directory found! Exiting!")

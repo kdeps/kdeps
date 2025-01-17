@@ -21,7 +21,6 @@ import (
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/workflow"
 
-	"github.com/charmbracelet/log"
 	"github.com/cucumber/godog"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
@@ -41,7 +40,7 @@ var (
 	hostPort                  string = "3000"
 	hostIP                    string = "127.0.0.1"
 	containerID               string
-	logger                    *log.Logger
+	logger                    *logging.Logger
 	runDir                    string
 	gpuType                   string
 	containerName             string

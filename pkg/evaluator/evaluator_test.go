@@ -2,26 +2,25 @@ package evaluator_test
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
-	"github.com/charmbracelet/log"
+	"github.com/kdeps/kdeps/pkg/evaluator"
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/kdeps/kdeps/pkg/evaluator"
 )
 
 func TestCreateAndProcessPklFile(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	logger := log.New(os.Stdout)
+	logging.CreateLogger()
+	logger := logging.GetLogger()
 
 	sections := []string{"section1", "section2"}
 	finalFileName := "/tmp/final.pkl"
 	pklTemplate := "Kdeps.pkl"
 
-	processFunc := func(fs afero.Fs, tmpFile string, headerSection string, logger *log.Logger) (string, error) {
+	processFunc := func(fs afero.Fs, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
 		content, err := afero.ReadFile(fs, tmpFile)
 		if err != nil {
 			return "", err

@@ -10,7 +10,6 @@ import (
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 
-	"github.com/charmbracelet/log"
 	"github.com/cucumber/godog"
 	"github.com/spf13/afero"
 )
@@ -22,7 +21,7 @@ var (
 	testConfigFile string
 	fileThatExist  string
 	ctx            context.Context
-	logger         *log.Logger
+	logger         *logging.Logger
 	testingT       *testing.T
 )
 

@@ -7,7 +7,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/charmbracelet/log"
 	"github.com/kdeps/kdeps/cmd"
 	"github.com/kdeps/kdeps/pkg/cfg"
 	"github.com/kdeps/kdeps/pkg/docker"
@@ -49,7 +48,7 @@ func main() {
 	}
 }
 
-func handleDockerMode(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *log.Logger, cancel context.CancelFunc) {
+func handleDockerMode(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger, cancel context.CancelFunc) {
 	// Initialize Docker system
 	apiServerMode, err := docker.BootstrapDockerSystem(fs, ctx, env, logger)
 	if err != nil {
@@ -76,7 +75,7 @@ func handleDockerMode(fs afero.Fs, ctx context.Context, env *environment.Environ
 	cleanup(fs, env, apiServerMode, logger)
 }
 
-func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *log.Logger) {
+func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) {
 	cfgFile, err := cfg.FindConfiguration(fs, env, logger)
 	if err != nil {
 		logger.Error("Error occurred finding configuration")
@@ -137,7 +136,7 @@ func setupEnvironment(fs afero.Fs) (*environment.Environment, error) {
 }
 
 // setupSignalHandler sets up a goroutine to handle OS signals for graceful shutdown.
-func setupSignalHandler(cancelFunc context.CancelFunc, fs afero.Fs, env *environment.Environment, apiServerMode bool, logger *log.Logger) {
+func setupSignalHandler(cancelFunc context.CancelFunc, fs afero.Fs, env *environment.Environment, apiServerMode bool, logger *logging.Logger) {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
@@ -156,7 +155,7 @@ func setupSignalHandler(cancelFunc context.CancelFunc, fs afero.Fs, env *environ
 }
 
 // runGraphResolver prepares and runs the graph resolver.
-func runGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment, apiServerMode bool, logger *log.Logger) error {
+func runGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment, apiServerMode bool, logger *logging.Logger) error {
 	dr, err := resolver.NewGraphResolver(fs, logger, ctx, env, "/agent")
 	if err != nil {
 		return fmt.Errorf("failed to create graph resolver: %w", err)
@@ -187,7 +186,7 @@ func runGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 }
 
 // cleanup performs any necessary cleanup tasks before shutting down.
-func cleanup(fs afero.Fs, env *environment.Environment, apiServerMode bool, logger *log.Logger) {
+func cleanup(fs afero.Fs, env *environment.Environment, apiServerMode bool, logger *logging.Logger) {
 	logger.Debug("Performing cleanup tasks...")
 
 	// Remove any old cleanup flags

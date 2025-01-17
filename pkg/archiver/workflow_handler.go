@@ -15,14 +15,14 @@ import (
 
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/workflow"
 
-	"github.com/charmbracelet/log"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 )
 
-func PrepareRunDir(fs afero.Fs, wf pklWf.Workflow, kdepsDir, pkgFilePath string, logger *log.Logger) (string, error) {
+func PrepareRunDir(fs afero.Fs, wf pklWf.Workflow, kdepsDir, pkgFilePath string, logger *logging.Logger) (string, error) {
 	agentName, agentVersion := wf.GetName(), wf.GetVersion()
 
 	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion+"/workflow")
@@ -116,7 +116,7 @@ func PrepareRunDir(fs afero.Fs, wf pklWf.Workflow, kdepsDir, pkgFilePath string,
 }
 
 // CompileWorkflow compiles a workflow file and updates the action field
-func CompileWorkflow(fs afero.Fs, wf pklWf.Workflow, kdepsDir, projectDir string, logger *log.Logger) (string, error) {
+func CompileWorkflow(fs afero.Fs, wf pklWf.Workflow, kdepsDir, projectDir string, logger *logging.Logger) (string, error) {
 	action := wf.GetAction()
 
 	if action == "" {
@@ -219,7 +219,7 @@ func CompileWorkflow(fs afero.Fs, wf pklWf.Workflow, kdepsDir, projectDir string
 }
 
 // CompileProject orchestrates the compilation and packaging of a project
-func CompileProject(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir string, projectDir string, env *environment.Environment, logger *log.Logger) (string, string, error) {
+func CompileProject(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir string, projectDir string, env *environment.Environment, logger *logging.Logger) (string, string, error) {
 	// Compile the workflow
 	compiledProjectDir, err := CompileWorkflow(fs, wf, kdepsDir, projectDir, logger)
 	if err != nil {
@@ -308,7 +308,7 @@ func CompileProject(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDi
 }
 
 // ProcessExternalWorkflows processes each workflow and copies directories as needed
-func ProcessExternalWorkflows(fs afero.Fs, wf pklWf.Workflow, kdepsDir, projectDir, compiledProjectDir string, logger *log.Logger) error {
+func ProcessExternalWorkflows(fs afero.Fs, wf pklWf.Workflow, kdepsDir, projectDir, compiledProjectDir string, logger *logging.Logger) error {
 	if wf.GetWorkflows() == nil {
 		logger.Debug("No external workflows to process")
 		return nil

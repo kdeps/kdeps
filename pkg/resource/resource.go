@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/charmbracelet/log"
+	"github.com/kdeps/kdeps/pkg/logging"
 	pklRes "github.com/kdeps/schema/gen/resource"
 )
 
 // LoadResource reads a resource file and returns the parsed resource object or an error.
-func LoadResource(ctx context.Context, resourceFile string, logger *log.Logger) (*pklRes.Resource, error) {
+func LoadResource(ctx context.Context, resourceFile string, logger *logging.Logger) (*pklRes.Resource, error) {
 	// Log additional info before reading the resource
 	logger.Debug("Reading resource file", "resource-file", resourceFile)
 

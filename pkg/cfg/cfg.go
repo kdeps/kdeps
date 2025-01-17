@@ -9,9 +9,9 @@ import (
 
 	"github.com/adrg/xdg"
 	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/log"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/evaluator"
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/texteditor"
 	"github.com/kdeps/schema/gen/kdeps"
@@ -19,7 +19,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-func FindConfiguration(fs afero.Fs, env *environment.Environment, logger *log.Logger) (string, error) {
+func FindConfiguration(fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 	logger.Debug("Finding configuration...")
 
 	// Ensure PKL binary exists before proceeding
@@ -45,7 +45,7 @@ func FindConfiguration(fs afero.Fs, env *environment.Environment, logger *log.Lo
 	return "", nil
 }
 
-func GenerateConfiguration(fs afero.Fs, env *environment.Environment, logger *log.Logger) (string, error) {
+func GenerateConfiguration(fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 	logger.Debug("Generating configuration...")
 
 	// Set configFile path in Home directory
@@ -87,7 +87,7 @@ func GenerateConfiguration(fs afero.Fs, env *environment.Environment, logger *lo
 	return configFile, nil
 }
 
-func EditConfiguration(fs afero.Fs, env *environment.Environment, logger *log.Logger) (string, error) {
+func EditConfiguration(fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 	logger.Debug("Editing configuration...")
 
 	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
@@ -106,7 +106,7 @@ func EditConfiguration(fs afero.Fs, env *environment.Environment, logger *log.Lo
 	return configFile, nil
 }
 
-func ValidateConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *log.Logger) (string, error) {
+func ValidateConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
 	logger.Debug("Validating configuration...")
 
 	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
@@ -119,7 +119,7 @@ func ValidateConfiguration(fs afero.Fs, ctx context.Context, env *environment.En
 	return configFile, nil
 }
 
-func LoadConfiguration(fs afero.Fs, ctx context.Context, configFile string, logger *log.Logger) (*kdeps.Kdeps, error) {
+func LoadConfiguration(fs afero.Fs, ctx context.Context, configFile string, logger *logging.Logger) (*kdeps.Kdeps, error) {
 	logger.Debug("Loading configuration", "config-file", configFile)
 
 	konfig, err := kdeps.LoadFromPath(context.Background(), configFile)
