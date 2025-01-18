@@ -57,11 +57,6 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 	// Adjust host configuration based on GPU type
 	switch gpu {
 	case "amd":
-		hostConfig.DeviceRequests = []container.DeviceRequest{
-			{
-				Capabilities: [][]string{{"gpu"}},
-			},
-		}
 		hostConfig.Devices = []container.DeviceMapping{
 			{PathOnHost: "/dev/kfd", PathInContainer: "/dev/kfd", CgroupPermissions: "rwm"},
 			{PathOnHost: "/dev/dri", PathInContainer: "/dev/dri", CgroupPermissions: "rwm"},
@@ -69,11 +64,11 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 	case "nvidia":
 		hostConfig.DeviceRequests = []container.DeviceRequest{
 			{
+				Driver:       "nvidia",
 				Capabilities: [][]string{{"gpu"}},
 				Count:        -1, // Use all available GPUs
 			},
 		}
-		hostConfig.Binds = append(hostConfig.Binds, "/nvidia:/root/.nvidia")
 	case "cpu":
 		// No additional configuration needed for CPU
 	}
@@ -167,15 +162,9 @@ func GenerateDockerCompose(fs afero.Fs, cName, containerName, containerNameWithG
 	switch gpu {
 	case "amd":
 		gpuConfig = `
-	deploy:
-	  resources:
-	    reservations:
-	      devices:
-		- capabilities:
-		    - gpu
 	devices:
-	  - "/dev/kfd:/dev/kfd:rwm"
-	  - "/dev/dri:/dev/dri:rwm"
+	  - /dev/kfd
+	  - /dev/dri
 `
 	case "nvidia":
 		gpuConfig = `
@@ -183,10 +172,9 @@ func GenerateDockerCompose(fs afero.Fs, cName, containerName, containerNameWithG
 	  resources:
 	    reservations:
 	      devices:
-		- capabilities:
-		    - gpu
-	volumes:
-	  - /nvidia:/root/.nvidia
+		- driver: nvidia
+		  count: all
+		  capabilities: [gpu]
 `
 	case "cpu":
 		gpuConfig = ""
@@ -200,7 +188,7 @@ func GenerateDockerCompose(fs afero.Fs, cName, containerName, containerNameWithG
 # To use it:
 # 1. Start the service with the command:
 #    docker-compose --file <filename> up -d
-# 3. The service will start with the specified GPU configuration
+# 2. The service will start with the specified GPU configuration
 #    and will be accessible on the configured host IP and port.
 
 version: '3.8'
@@ -216,10 +204,14 @@ services:
 %s
 volumes:
   ollama:
+    external:
+      name: ollama
   kdeps:
+    external:
+      name: kdeps
 `, containerNameWithGpu, containerName, portNum, portNum, gpuConfig)
 
-	filePath := fmt.Sprintf("%s_docker-compose.yaml", cName)
+	filePath := fmt.Sprintf("%s_docker-compose-%s.yaml", cName, gpu)
 	err := afero.WriteFile(fs, filePath, []byte(dockerComposeContent), 0o644)
 	if err != nil {
 		return fmt.Errorf("error writing Docker Compose file: %w", err)
