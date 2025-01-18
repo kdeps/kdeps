@@ -23,13 +23,16 @@ type URLInfo struct {
 }
 
 // GetCurrentArchitecture returns the architecture of the current machine.
-func GetCurrentArchitecture() string {
+func GetCurrentArchitecture(repo string) string {
 	arch := runtime.GOARCH
 	switch arch {
 	case "amd64":
-		return "x86_64" // For Anaconda, maps "amd64" to "x86_64"
+		if repo == "apple/pkl" {
+			return "amd64" // PKL uses "amd64"
+		}
+		return "x86_64" // Anaconda uses "x86_64"
 	case "arm64":
-		return "aarch64" // For Anaconda and pkl, uses "aarch64"
+		return "aarch64" // Both use "aarch64"
 	default:
 		return arch
 	}
@@ -128,17 +131,18 @@ func GenerateURLs() ([]string, error) {
 		{
 			BaseURL:       "https://repo.anaconda.com/archive/Anaconda3-{version}-Linux-{arch}.sh",
 			IsAnaconda:    true,
-			Version:       "2024.10-1", // Default version when not using the latest
+			Version:       "2024.10-1",
 			Architectures: []string{"x86_64", "aarch64"},
 		},
 	}
 
 	var urls []string
-	currentArch := GetCurrentArchitecture()
 
 	for _, info := range urlInfos {
+		currentArch := GetCurrentArchitecture(info.Repo) // Pass repo to get correct arch
+
 		if info.IsAnaconda {
-			// Anaconda URLs
+			// Handle Anaconda URLs
 			version := info.Version
 			if schema.UseLatest {
 				latestVersions, _, err := GetLatestAnacondaVersions()
@@ -146,12 +150,15 @@ func GenerateURLs() ([]string, error) {
 					return nil, fmt.Errorf("failed to get Anaconda versions: %w", err)
 				}
 				version = latestVersions[currentArch]
+				if version == "" {
+					return nil, fmt.Errorf("no latest version found for architecture: %s", currentArch)
+				}
 			}
 			url := strings.ReplaceAll(info.BaseURL, "{version}", version)
 			url = strings.ReplaceAll(url, "{arch}", currentArch)
 			urls = append(urls, url)
 		} else {
-			// Other repositories
+			// Handle other URLs (e.g., PKL)
 			version := info.Version
 			if schema.UseLatest {
 				latestVersion, err := utils.GetLatestGitHubRelease(info.Repo, "")
@@ -159,11 +166,13 @@ func GenerateURLs() ([]string, error) {
 					return nil, fmt.Errorf("failed to get latest version for %s: %w", info.Repo, err)
 				}
 				version = latestVersion
+				if version == "" {
+					return nil, fmt.Errorf("no latest version found for repo: %s", info.Repo)
+				}
 			}
 
-			// Generate URLs for the current architecture
 			for _, arch := range info.Architectures {
-				if arch == currentArch || (arch == "arm64" && currentArch == "aarch64") {
+				if arch == currentArch {
 					url := strings.ReplaceAll(info.BaseURL, "{version}", version)
 					url = strings.ReplaceAll(url, "{arch}", arch)
 					urls = append(urls, url)
