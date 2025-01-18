@@ -64,11 +64,11 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 	case "nvidia":
 		hostConfig.DeviceRequests = []container.DeviceRequest{
 			{
+				Driver:       "nvidia",
 				Capabilities: [][]string{{"gpu"}},
 				Count:        -1, // Use all available GPUs
 			},
 		}
-		hostConfig.Binds = append(hostConfig.Binds, "/nvidia:/root/.nvidia")
 	case "cpu":
 		// No additional configuration needed for CPU
 	}
