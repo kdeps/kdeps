@@ -177,10 +177,9 @@ func GenerateDockerCompose(fs afero.Fs, cName, containerName, containerNameWithG
 	  resources:
 	    reservations:
 	      devices:
-		- capabilities:
-		    - gpu
-	volumes:
-	  - /nvidia:/root/.nvidia
+		- driver: nvidia
+		  count: all
+		  capabilities: [gpu]
 `
 	case "cpu":
 		gpuConfig = ""
