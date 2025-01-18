@@ -167,15 +167,9 @@ func GenerateDockerCompose(fs afero.Fs, cName, containerName, containerNameWithG
 	switch gpu {
 	case "amd":
 		gpuConfig = `
-	deploy:
-	  resources:
-	    reservations:
-	      devices:
-		- capabilities:
-		    - gpu
 	devices:
-	  - "/dev/kfd:/dev/kfd:rwm"
-	  - "/dev/dri:/dev/dri:rwm"
+	  - /dev/kfd
+	  - /dev/dri
 `
 	case "nvidia":
 		gpuConfig = `
