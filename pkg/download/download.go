@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/charmbracelet/log"
 	"github.com/dustin/go-humanize"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
@@ -16,7 +15,9 @@ import (
 
 // WriteCounter tracks the total number of bytes written and prints download progress.
 type WriteCounter struct {
-	Total uint64
+	Total         uint64
+	LocalFilePath string
+	DownloadURL   string
 }
 
 // Write implements the io.Writer interface and updates the total byte count.
@@ -30,7 +31,7 @@ func (wc *WriteCounter) Write(p []byte) (int, error) {
 // PrintProgress displays the download progress in the terminal.
 func (wc WriteCounter) PrintProgress() {
 	fmt.Printf("\r%s", strings.Repeat(" ", 50)) // Clear the line
-	fmt.Printf("\rDownloading... %s complete - ", humanize.Bytes(wc.Total))
+	fmt.Printf("\rDownloading %s - %s complete ", wc.DownloadURL, humanize.Bytes(wc.Total))
 }
 
 // Given a list of URLs, download it to a target.
@@ -52,9 +53,9 @@ func DownloadFiles(fs afero.Fs, downloadDir string, urls []string, logger *loggi
 		// Download the file
 		err := DownloadFile(fs, url, localPath, logger)
 		if err != nil {
-			log.Printf("Failed to download %s: %v", url, err)
+			logger.Error("Failed to download", "url", url, "err", err)
 		} else {
-			log.Printf("Successfully downloaded %s", localPath)
+			logger.Info("Successfully downloaded", "url", url, "path", localPath)
 		}
 	}
 
@@ -112,10 +113,14 @@ func DownloadFile(fs afero.Fs, url, filePath string, logger *logging.Logger) err
 		errMsg := fmt.Sprintf("failed to download file: status code %d", resp.StatusCode)
 		logger.Error(errMsg, "url", url)
 		return fmt.Errorf(errMsg)
+
 	}
 
 	// Create a WriteCounter to track and display download progress
-	counter := &WriteCounter{}
+	counter := &WriteCounter{
+		LocalFilePath: filePath,
+		DownloadURL:   url,
+	}
 	if _, err = io.Copy(out, io.TeeReader(resp.Body, counter)); err != nil {
 		logger.Error("Failed to copy data", "error", err)
 		return fmt.Errorf("failed to copy data: %w", err)
