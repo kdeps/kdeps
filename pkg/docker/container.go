@@ -57,11 +57,6 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 	// Adjust host configuration based on GPU type
 	switch gpu {
 	case "amd":
-		hostConfig.DeviceRequests = []container.DeviceRequest{
-			{
-				Capabilities: [][]string{{"gpu"}},
-			},
-		}
 		hostConfig.Devices = []container.DeviceMapping{
 			{PathOnHost: "/dev/kfd", PathInContainer: "/dev/kfd", CgroupPermissions: "rwm"},
 			{PathOnHost: "/dev/dri", PathInContainer: "/dev/dri", CgroupPermissions: "rwm"},
