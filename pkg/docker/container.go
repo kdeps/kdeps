@@ -188,7 +188,7 @@ func GenerateDockerCompose(fs afero.Fs, cName, containerName, containerNameWithG
 # To use it:
 # 1. Start the service with the command:
 #    docker-compose --file <filename> up -d
-# 3. The service will start with the specified GPU configuration
+# 2. The service will start with the specified GPU configuration
 #    and will be accessible on the configured host IP and port.
 
 version: '3.8'
@@ -211,7 +211,7 @@ volumes:
       name: kdeps
 `, containerNameWithGpu, containerName, portNum, portNum, gpuConfig)
 
-	filePath := fmt.Sprintf("%s_docker-compose.yaml", cName)
+	filePath := fmt.Sprintf("%s_docker-compose-%s.yaml", cName, gpu)
 	err := afero.WriteFile(fs, filePath, []byte(dockerComposeContent), 0o644)
 	if err != nil {
 		return fmt.Errorf("error writing Docker Compose file: %w", err)
