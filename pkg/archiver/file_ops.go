@@ -110,7 +110,7 @@ func CopyFile(fs afero.Fs, src, dst string, logger *logging.Logger) error {
 
 		// If MD5 is the same, skip copying
 		if srcMD5 == dstMD5 {
-			fmt.Println("Files have the same MD5, skipping copy")
+			logger.Info("Files have the same MD5, skipping copy", "src", src, "dst", dst)
 			return nil
 		}
 
