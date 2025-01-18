@@ -209,7 +209,11 @@ services:
 %s
 volumes:
   ollama:
+    external:
+      name: ollama
   kdeps:
+    external:
+      name: kdeps
 `, containerNameWithGpu, containerName, portNum, portNum, gpuConfig)
 
 	filePath := fmt.Sprintf("%s_docker-compose.yaml", cName)
