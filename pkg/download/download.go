@@ -31,7 +31,7 @@ func (wc *WriteCounter) Write(p []byte) (int, error) {
 // PrintProgress displays the download progress in the terminal.
 func (wc WriteCounter) PrintProgress() {
 	fmt.Printf("\r%s", strings.Repeat(" ", 50)) // Clear the line
-	fmt.Printf("\rDownloading %s - %s complete", wc.DownloadURL, humanize.Bytes(wc.Total))
+	fmt.Printf("\rDownloading %s - %s complete ", wc.DownloadURL, humanize.Bytes(wc.Total))
 }
 
 // Given a list of URLs, download it to a target.
@@ -55,7 +55,7 @@ func DownloadFiles(fs afero.Fs, downloadDir string, urls []string, logger *loggi
 		if err != nil {
 			logger.Error("Failed to download", "url", url, "err", err)
 		} else {
-			logger.Info("\nSuccessfully downloaded", "url", url, "path", localPath)
+			logger.Info("Successfully downloaded", "url", url, "path", localPath)
 		}
 	}
 
