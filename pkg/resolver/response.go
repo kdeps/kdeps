@@ -30,7 +30,7 @@ func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverre
 	sections := dr.buildResponseSections(apiResponseBlock)
 	dr.Logger.Debug("Built response sections", "sections", sections)
 
-	if err := evaluator.CreateAndProcessPklFile(dr.Fs, sections, dr.ResponsePklFile, "APIServerResponse.pkl", dr.Logger, evaluator.EvalPkl, false); err != nil {
+	if err := evaluator.CreateAndProcessPklFile(dr.Fs, dr.Context, sections, dr.ResponsePklFile, "APIServerResponse.pkl", dr.Logger, evaluator.EvalPkl, false); err != nil {
 		dr.Logger.Error("Failed to create/process PKL file", "error", err)
 		return fmt.Errorf("failed to create/process PKL file: %w", err)
 	}

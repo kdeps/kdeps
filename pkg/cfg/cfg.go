@@ -23,7 +23,7 @@ func FindConfiguration(fs afero.Fs, ctx context.Context, env *environment.Enviro
 	logger.Debug("Finding configuration...")
 
 	// Ensure PKL binary exists before proceeding
-	if err := evaluator.EnsurePklBinaryExists(logger); err != nil {
+	if err := evaluator.EnsurePklBinaryExists(ctx, logger); err != nil {
 		return "", err
 	}
 
@@ -72,7 +72,7 @@ func GenerateConfiguration(fs afero.Fs, ctx context.Context, env *environment.En
 		url := fmt.Sprintf("package://schema.kdeps.com/core@%s#/Kdeps.pkl", schema.SchemaVersion())
 		headerSection := fmt.Sprintf("amends \"%s\"\n", url)
 
-		content, err := evaluator.EvalPkl(fs, url, headerSection, logger)
+		content, err := evaluator.EvalPkl(fs, ctx, url, headerSection, logger)
 		if err != nil {
 			return "", fmt.Errorf("failed to evaluate .pkl file: %w", err)
 		}
@@ -87,7 +87,7 @@ func GenerateConfiguration(fs afero.Fs, ctx context.Context, env *environment.En
 	return configFile, nil
 }
 
-func EditConfiguration(fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+func EditConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
 	logger.Debug("Editing configuration...")
 
 	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
@@ -95,7 +95,7 @@ func EditConfiguration(fs afero.Fs, env *environment.Environment, logger *loggin
 
 	if _, err := fs.Stat(configFile); err == nil {
 		if !skipPrompts {
-			if err := texteditor.EditPkl(fs, configFile, logger); err != nil {
+			if err := texteditor.EditPkl(fs, ctx, configFile, logger); err != nil {
 				return configFile, fmt.Errorf("failed to edit configuration file: %w", err)
 			}
 		}
@@ -111,7 +111,7 @@ func ValidateConfiguration(fs afero.Fs, ctx context.Context, env *environment.En
 
 	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
 
-	if _, err := evaluator.EvalPkl(fs, configFile, "", logger); err != nil {
+	if _, err := evaluator.EvalPkl(fs, ctx, configFile, "", logger); err != nil {
 		return configFile, fmt.Errorf("configuration validation failed: %w", err)
 	}
 
@@ -122,7 +122,7 @@ func ValidateConfiguration(fs afero.Fs, ctx context.Context, env *environment.En
 func LoadConfiguration(fs afero.Fs, ctx context.Context, configFile string, logger *logging.Logger) (*kdeps.Kdeps, error) {
 	logger.Debug("Loading configuration", "config-file", configFile)
 
-	konfig, err := kdeps.LoadFromPath(context.Background(), configFile)
+	konfig, err := kdeps.LoadFromPath(ctx, configFile)
 	if err != nil {
 		return nil, fmt.Errorf("error reading config file '%s': %w", configFile, err)
 	}
@@ -130,7 +130,7 @@ func LoadConfiguration(fs afero.Fs, ctx context.Context, configFile string, logg
 	return konfig, nil
 }
 
-func GetKdepsPath(kdepsCfg kdeps.Kdeps) (string, error) {
+func GetKdepsPath(ctx context.Context, kdepsCfg kdeps.Kdeps) (string, error) {
 	kdepsDir := kdepsCfg.KdepsDir
 	p := kdepsCfg.KdepsPath
 

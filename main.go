@@ -90,7 +90,7 @@ func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Envi
 
 		logger.Info("Configuration file generated", "file", cfgFile)
 
-		cfgFile, err = cfg.EditConfiguration(fs, env, logger)
+		cfgFile, err = cfg.EditConfiguration(fs, ctx, env, logger)
 		if err != nil {
 			logger.Error("Error occurred editing configuration")
 		}
@@ -114,7 +114,7 @@ func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Envi
 		return
 	}
 
-	kdepsDir, err := cfg.GetKdepsPath(*systemCfg)
+	kdepsDir, err := cfg.GetKdepsPath(ctx, *systemCfg)
 	if err != nil {
 		logger.Error("Error occurred while getting Kdeps system path")
 		return

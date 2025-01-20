@@ -1,6 +1,7 @@
 package texteditor
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,7 +12,7 @@ import (
 )
 
 // EditPkl opens the file at filePath with the 'kdeps' editor if the file exists and has a .pkl extension.
-func EditPkl(fs afero.Fs, filePath string, logger *logging.Logger) error {
+func EditPkl(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
 	// Ensure the file has a .pkl extension
 	if filepath.Ext(filePath) != ".pkl" {
 		err := fmt.Sprintf("file '%s' does not have a .pkl extension", filePath)

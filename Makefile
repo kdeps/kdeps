@@ -42,6 +42,11 @@ format: tools
 	golangci-lint run --timeout 10m60s ./...  & \
 	wait
 
+ci-fix: tools
+	@echo "$(OK_COLOR)>> [golangci-lint] running$(NO_COLOR) fix" & \
+	golangci-lint run --timeout 10m60s ./... --fix & \
+	wait
+
 tools:
 	@if ! command -v gci > /dev/null ; then \
 		echo ">> [$@]: gci not found: installing"; \
