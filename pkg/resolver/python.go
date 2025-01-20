@@ -312,7 +312,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceId string, newPython *pk
 	}
 
 	// Evaluate the PKL file using EvalPkl
-	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, pklPath, fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Python.pkl\"", schema.SchemaVersion()), dr.Logger)
+	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath, fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Python.pkl\"", schema.SchemaVersion()), dr.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to evaluate PKL file: %w", err)
 	}

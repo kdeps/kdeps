@@ -2,6 +2,7 @@ package template
 
 import (
 	"bytes"
+	"context"
 	"embed"
 	"errors"
 	"fmt"
@@ -45,7 +46,7 @@ func validateAgentName(agentName string) error {
 	return nil
 }
 
-func promptForAgentName() (string, error) {
+func promptForAgentName(ctx context.Context) (string, error) {
 	var name string
 	form := huh.NewInput().
 		Title("Configure Your AI Agent").
@@ -59,7 +60,7 @@ func promptForAgentName() (string, error) {
 	return name, nil
 }
 
-func createDirectory(fs afero.Fs, logger *logging.Logger, path string) error {
+func createDirectory(fs afero.Fs, ctx context.Context, logger *logging.Logger, path string) error {
 	printWithDots(fmt.Sprintf("Creating directory: %s", lightGreen.Render(path)))
 	if err := fs.MkdirAll(path, os.ModePerm); err != nil {
 		logger.Error(err)
@@ -69,7 +70,7 @@ func createDirectory(fs afero.Fs, logger *logging.Logger, path string) error {
 	return nil
 }
 
-func createFile(fs afero.Fs, logger *logging.Logger, path string, content string) error {
+func createFile(fs afero.Fs, ctx context.Context, logger *logging.Logger, path string, content string) error {
 	printWithDots(fmt.Sprintf("Creating file: %s", lightGreen.Render(path)))
 	if err := afero.WriteFile(fs, path, []byte(content), 0o644); err != nil {
 		logger.Error(err)
@@ -79,7 +80,7 @@ func createFile(fs afero.Fs, logger *logging.Logger, path string, content string
 	return nil
 }
 
-func generateWorkflowFile(fs afero.Fs, logger *logging.Logger, mainDir, name string) error {
+func generateWorkflowFile(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, name string) error {
 	templatePath := "templates/workflow.pkl"
 	outputPath := filepath.Join(mainDir, "workflow.pkl")
 
@@ -90,7 +91,7 @@ func generateWorkflowFile(fs afero.Fs, logger *logging.Logger, mainDir, name str
 	}
 
 	// Load and process the template
-	content, err := loadTemplate(templatePath, templateData)
+	content, err := loadTemplate(templatePath, ctx, templateData)
 	if err != nil {
 		logger.Error("Failed to load workflow template: ", err)
 		return err
@@ -99,7 +100,7 @@ func generateWorkflowFile(fs afero.Fs, logger *logging.Logger, mainDir, name str
 	return createFile(fs, logger, outputPath, content)
 }
 
-func loadTemplate(templatePath string, data map[string]string) (string, error) {
+func loadTemplate(ctx context.Context, templatePath string, data map[string]string) (string, error) {
 	// Load the template from the embedded FS
 	content, err := templatesFS.ReadFile(templatePath)
 	if err != nil {
@@ -119,9 +120,9 @@ func loadTemplate(templatePath string, data map[string]string) (string, error) {
 	return output.String(), nil
 }
 
-func generateResourceFiles(fs afero.Fs, logger *logging.Logger, mainDir, name string) error {
+func generateResourceFiles(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, name string) error {
 	resourceDir := filepath.Join(mainDir, "resources")
-	if err := createDirectory(fs, logger, resourceDir); err != nil {
+	if err := createDirectory(fs, ctx, logger, resourceDir); err != nil {
 		return err
 	}
 
@@ -149,7 +150,7 @@ func generateResourceFiles(fs afero.Fs, logger *logging.Logger, mainDir, name st
 		}
 
 		templatePath := filepath.Join("templates", file.Name())
-		content, err := loadTemplate(templatePath, templateData)
+		content, err := loadTemplate(templatePath, ctx, templateData)
 		if err != nil {
 			logger.Error("Failed to process template: ", err)
 			return err
@@ -164,7 +165,7 @@ func generateResourceFiles(fs afero.Fs, logger *logging.Logger, mainDir, name st
 	return nil
 }
 
-func generateSpecificFile(fs afero.Fs, logger *logging.Logger, mainDir, fileName, agentName string) error {
+func generateSpecificFile(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, fileName, agentName string) error {
 	// Automatically add .pkl extension if not present
 	if !strings.HasSuffix(fileName, ".pkl") {
 		fileName += ".pkl"
@@ -183,7 +184,7 @@ func generateSpecificFile(fs afero.Fs, logger *logging.Logger, mainDir, fileName
 	}
 
 	// Load the template
-	content, err := loadTemplate(templatePath, templateData)
+	content, err := loadTemplate(templatePath, ctx, templateData)
 	if err != nil {
 		logger.Error("Failed to load specific template: ", err)
 		return err
@@ -198,7 +199,7 @@ func generateSpecificFile(fs afero.Fs, logger *logging.Logger, mainDir, fileName
 	}
 
 	// Create the output directory if it doesn't exist
-	if err := createDirectory(fs, logger, outputDir); err != nil {
+	if err := createDirectory(fs, ctx, logger, outputDir); err != nil {
 		return err
 	}
 
@@ -210,7 +211,7 @@ func generateSpecificFile(fs afero.Fs, logger *logging.Logger, mainDir, fileName
 
 	// Create the data folder
 	dataDir := filepath.Join(mainDir, "data")
-	if err := createDirectory(fs, logger, dataDir); err != nil {
+	if err := createDirectory(fs, ctx, logger, dataDir); err != nil {
 		logger.Error("Failed to create data directory: ", err)
 		return err
 	}
@@ -218,7 +219,7 @@ func generateSpecificFile(fs afero.Fs, logger *logging.Logger, mainDir, fileName
 	return nil
 }
 
-func GenerateSpecificAgentFile(fs afero.Fs, logger *logging.Logger, agentName, fileName string) error {
+func GenerateSpecificAgentFile(fs afero.Fs, ctx context.Context, logger *logging.Logger, agentName, fileName string) error {
 	var name string
 	var err error
 
@@ -228,7 +229,7 @@ func GenerateSpecificAgentFile(fs afero.Fs, logger *logging.Logger, agentName, f
 		}
 		name = agentName
 	} else {
-		name, err = promptForAgentName()
+		name, err = promptForAgentName(ctx)
 		if err != nil {
 			logger.Error("Failed to prompt for agent name: ", err)
 			return err
@@ -236,7 +237,7 @@ func GenerateSpecificAgentFile(fs afero.Fs, logger *logging.Logger, agentName, f
 	}
 
 	mainDir := fmt.Sprintf("./%s", name)
-	if err := createDirectory(fs, logger, mainDir); err != nil {
+	if err := createDirectory(fs, ctx, logger, mainDir); err != nil {
 		logger.Error("Failed to create main directory: ", err)
 		return err
 	}
@@ -269,7 +270,7 @@ func GenerateSpecificAgentFile(fs afero.Fs, logger *logging.Logger, agentName, f
 			filePath = fmt.Sprintf("%s/resources/%s.pkl", mainDir, fileName)
 		}
 
-		if err := texteditor.EditPkl(fs, filePath, logger); err != nil {
+		if err := texteditor.EditPkl(fs, ctx, filePath, logger); err != nil {
 			logger.Error("Failed to edit file: ", err)
 			return fmt.Errorf("failed to edit file: %w", err)
 		}
@@ -278,7 +279,7 @@ func GenerateSpecificAgentFile(fs afero.Fs, logger *logging.Logger, agentName, f
 	return nil
 }
 
-func GenerateAgent(fs afero.Fs, logger *logging.Logger, agentName string) error {
+func GenerateAgent(fs afero.Fs, ctx context.Context, logger *logging.Logger, agentName string) error {
 	var name string
 	var err error
 
@@ -296,23 +297,23 @@ func GenerateAgent(fs afero.Fs, logger *logging.Logger, agentName string) error 
 	}
 
 	mainDir := fmt.Sprintf("./%s", name)
-	if err := createDirectory(fs, logger, mainDir); err != nil {
+	if err := createDirectory(fs, ctx, logger, mainDir); err != nil {
 		logger.Error("Failed to create main directory: ", err)
 		return err
 	}
-	if err := createDirectory(fs, logger, mainDir+"/resources"); err != nil {
+	if err := createDirectory(fs, ctx, logger, mainDir+"/resources"); err != nil {
 		logger.Error("Failed to create resources directory: ", err)
 		return err
 	}
-	if err := createDirectory(fs, logger, mainDir+"/data"); err != nil {
+	if err := createDirectory(fs, ctx, logger, mainDir+"/data"); err != nil {
 		logger.Error("Failed to create data directory: ", err)
 		return err
 	}
-	if err := generateWorkflowFile(fs, logger, mainDir, name); err != nil {
+	if err := generateWorkflowFile(fs, ctx, logger, mainDir, name); err != nil {
 		logger.Error("Failed to generate workflow file: ", err)
 		return err
 	}
-	if err := generateResourceFiles(fs, logger, mainDir, name); err != nil {
+	if err := generateResourceFiles(fs, ctx, logger, mainDir, name); err != nil {
 		logger.Error("Failed to generate resource files: ", err)
 		return err
 	}

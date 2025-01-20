@@ -1,6 +1,7 @@
 package environment
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,7 +10,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var (
+	ctx context.Context
+)
+
 func TestCheckConfig(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	baseDir := "/test"
 	configFilePath := filepath.Join(baseDir, SystemConfigFileName)
@@ -26,6 +33,8 @@ func TestCheckConfig(t *testing.T) {
 }
 
 func TestFindKdepsConfig(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	pwd := "/current"
 	home := "/home"
@@ -47,6 +56,8 @@ func TestFindKdepsConfig(t *testing.T) {
 }
 
 func TestIsDockerEnvironment(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	root := "/"
 
@@ -68,6 +79,8 @@ func TestIsDockerEnvironment(t *testing.T) {
 }
 
 func TestAllDockerEnvVarsSet(t *testing.T) {
+	t.Parallel()
+
 	// Ensure environment is clean
 	os.Unsetenv("SCHEMA_VERSION")
 	os.Unsetenv("OLLAMA_HOST")
@@ -89,6 +102,8 @@ func TestAllDockerEnvVarsSet(t *testing.T) {
 }
 
 func TestNewEnvironment(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 
 	// Test with provided environment
@@ -97,7 +112,7 @@ func TestNewEnvironment(t *testing.T) {
 		Home: "/home",
 		Pwd:  "/current",
 	}
-	env, err := NewEnvironment(fs, providedEnv)
+	env, err := NewEnvironment(fs, ctx, providedEnv)
 	assert.NoError(t, err, "Expected no error")
 	assert.Equal(t, providedEnv.Home, env.Home, "Expected Home directory to match")
 	assert.Equal(t, "1", env.NonInteractive, "Expected NonInteractive to be prioritized")
@@ -106,7 +121,7 @@ func TestNewEnvironment(t *testing.T) {
 	os.Setenv("ROOT_DIR", "/")
 	os.Setenv("HOME", "/home")
 	os.Setenv("PWD", "/current")
-	env, err = NewEnvironment(fs, nil)
+	env, err = NewEnvironment(fs, ctx, nil)
 	assert.NoError(t, err, "Expected no error")
 	assert.Equal(t, "/home", env.Home, "Expected Home directory to match")
 	assert.Equal(t, "/current", env.Pwd, "Expected Pwd to match")

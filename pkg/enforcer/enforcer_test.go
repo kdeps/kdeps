@@ -160,12 +160,12 @@ func aSystemConfigurationIsDefined() error {
 		NonInteractive: "1",
 	}
 
-	environ, err := environment.NewEnvironment(testFs, env)
+	environ, err := environment.NewEnvironment(testFs, ctx, env)
 	if err != nil {
 		return err
 	}
 
-	cfgFile, err := cfg.GenerateConfiguration(testFs, environ, logger)
+	cfgFile, err := cfg.GenerateConfiguration(testFs, ctx, environ, logger)
 	if err != nil {
 		return err
 	}

@@ -127,12 +127,12 @@ func theConfigurationIsLoadedInTheCurrentDirectory() error {
 		Pwd:  currentDirPath,
 	}
 
-	environ, err := environment.NewEnvironment(testFs, env)
+	environ, err := environment.NewEnvironment(testFs, ctx, env)
 	if err != nil {
 		return err
 	}
 
-	cfgFile, err := FindConfiguration(testFs, environ, logger)
+	cfgFile, err := FindConfiguration(testFs, ctx, environ, logger)
 	if err != nil {
 		return err
 	}
@@ -150,12 +150,12 @@ func theConfigurationIsLoadedInTheHomeDirectory() error {
 		Pwd:  "",
 	}
 
-	environ, err := environment.NewEnvironment(testFs, env)
+	environ, err := environment.NewEnvironment(testFs, ctx, env)
 	if err != nil {
 		return err
 	}
 
-	cfgFile, err := FindConfiguration(testFs, environ, logger)
+	cfgFile, err := FindConfiguration(testFs, ctx, environ, logger)
 	if err != nil {
 		return err
 	}
@@ -201,12 +201,12 @@ func theConfigurationFailsToLoadAnyConfiguration() error {
 		Pwd:  currentDirPath,
 	}
 
-	environ, err := environment.NewEnvironment(testFs, env)
+	environ, err := environment.NewEnvironment(testFs, ctx, env)
 	if err != nil {
 		return err
 	}
 
-	cfgFile, err := FindConfiguration(testFs, environ, logger)
+	cfgFile, err := FindConfiguration(testFs, ctx, environ, logger)
 	if err != nil {
 		return errors.New(fmt.Sprintf("An error occurred while finding configuration: %s", err))
 	}
@@ -224,12 +224,12 @@ func theConfigurationFileWillBeGeneratedTo(arg1 string) error {
 		NonInteractive: "1",
 	}
 
-	environ, err := environment.NewEnvironment(testFs, env)
+	environ, err := environment.NewEnvironment(testFs, ctx, env)
 	if err != nil {
 		return err
 	}
 
-	cfgFile, err := GenerateConfiguration(testFs, environ, logger)
+	cfgFile, err := GenerateConfiguration(testFs, ctx, environ, logger)
 	if err != nil {
 		return err
 	}
@@ -248,12 +248,12 @@ func theConfigurationWillBeEdited() error {
 		NonInteractive: "1",
 	}
 
-	environ, err := environment.NewEnvironment(testFs, env)
+	environ, err := environment.NewEnvironment(testFs, ctx, env)
 	if err != nil {
 		return err
 	}
 
-	if _, err := EditConfiguration(testFs, environ, logger); err != nil {
+	if _, err := EditConfiguration(testFs, ctx, environ, logger); err != nil {
 		return err
 	}
 
@@ -266,7 +266,7 @@ func theConfigurationWillBeValidated() error {
 		Pwd:  "",
 	}
 
-	environ, err := environment.NewEnvironment(testFs, env)
+	environ, err := environment.NewEnvironment(testFs, ctx, env)
 	if err != nil {
 		return err
 	}

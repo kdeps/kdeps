@@ -16,7 +16,7 @@ import (
 )
 
 // EnsurePklBinaryExists checks if the 'pkl' binary exists in the system PATH.
-func EnsurePklBinaryExists(logger *logging.Logger) error {
+func EnsurePklBinaryExists(ctx context.Context, logger *logging.Logger) error {
 	binaryNames := []string{"pkl", "pkl.exe"} // Support both Unix-like and Windows binary names
 	for _, binaryName := range binaryNames {
 		if _, err := exec.LookPath(binaryName); err == nil {
@@ -31,7 +31,7 @@ func EnsurePklBinaryExists(logger *logging.Logger) error {
 
 // EvalPkl evaluates the resource file at resourcePath using the 'pkl' binary.
 // It expects the resourcePath to have a .pkl extension.
-func EvalPkl(fs afero.Fs, resourcePath string, headerSection string, logger *logging.Logger) (string, error) {
+func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSection string, logger *logging.Logger) (string, error) {
 	// Validate that the file has a .pkl extension
 	if filepath.Ext(resourcePath) != ".pkl" {
 		errMsg := fmt.Sprintf("file '%s' must have a .pkl extension", resourcePath)
@@ -40,7 +40,7 @@ func EvalPkl(fs afero.Fs, resourcePath string, headerSection string, logger *log
 	}
 
 	// Ensure that the 'pkl' binary is available
-	if err := EnsurePklBinaryExists(logger); err != nil {
+	if err := EnsurePklBinaryExists(ctx, logger); err != nil {
 		return "", err
 	}
 
@@ -52,7 +52,7 @@ func EvalPkl(fs afero.Fs, resourcePath string, headerSection string, logger *log
 	}
 
 	// Execute the command
-	result, err := cmd.Execute(context.Background())
+	result, err := cmd.Execute(ctx)
 	if err != nil {
 		errMsg := "command execution failed"
 		logger.Error(errMsg, "error", err)
@@ -75,11 +75,12 @@ func EvalPkl(fs afero.Fs, resourcePath string, headerSection string, logger *log
 
 func CreateAndProcessPklFile(
 	fs afero.Fs,
+	ctx context.Context,
 	sections []string,
 	finalFileName string,
 	pklTemplate string,
 	logger *logging.Logger,
-	processFunc func(fs afero.Fs, tmpFile string, headerSection string, logger *logging.Logger) (string, error),
+	processFunc func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error),
 	isExtension bool, // New parameter to control amends vs extends
 ) error {
 	// Create a temporary directory
@@ -116,7 +117,7 @@ func CreateAndProcessPklFile(
 	}
 
 	// Process the temporary file using the provided function
-	processedContent, err := processFunc(fs, tmpFile.Name(), relationshipSection, logger)
+	processedContent, err := processFunc(fs, ctx, tmpFile.Name(), relationshipSection, logger)
 	if err != nil {
 		logger.Error("Failed to process temporary file", "path", tmpFile.Name(), "error", err)
 		return fmt.Errorf("failed to process temporary file: %w", err)
