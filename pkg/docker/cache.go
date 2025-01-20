@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -94,7 +95,7 @@ func GetLatestAnacondaVersions(ctx context.Context) (map[string]string, map[stri
 	re := regexp.MustCompile(`Anaconda3-(\d+\.\d+-\d+)-Linux-(x86_64|aarch64)\.sh`)
 	matches := re.FindAllStringSubmatch(string(body), -1)
 	if len(matches) == 0 {
-		return nil, nil, fmt.Errorf("no Anaconda versions found")
+		return nil, nil, errors.New("no Anaconda versions found")
 	}
 
 	// Map to hold the latest version for each architecture.

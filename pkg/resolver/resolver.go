@@ -2,16 +2,16 @@ package resolver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/kdeps/kartographer/graph"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/utils"
-
-	"github.com/google/uuid"
-	"github.com/kdeps/kartographer/graph"
 	pklRes "github.com/kdeps/schema/gen/resource"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
@@ -58,14 +58,14 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		// Check if "workflow.pkl" exists using afero.Exists
 		exists, err := afero.Exists(fs, pklWfFile)
 		if err != nil {
-			return nil, fmt.Errorf("error checking %s: %v", pklWfFile, err)
+			return nil, fmt.Errorf("error checking %s: %w", pklWfFile, err)
 		}
 
 		if !exists {
 			// If "workflow.pkl" doesn't exist, check for "../workflow.pkl"
 			existsParent, errParent := afero.Exists(fs, pklWfParentFile)
 			if errParent != nil {
-				return nil, fmt.Errorf("error checking %s: %v", pklWfParentFile, errParent)
+				return nil, fmt.Errorf("error checking %s: %w", pklWfParentFile, errParent)
 			}
 
 			if !existsParent {
@@ -94,7 +94,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 
 		// Create directories
 		if err := utils.CreateDirectories(fs, ctx, directories); err != nil {
-			return nil, fmt.Errorf("Error creating directory: %s", err)
+			return nil, fmt.Errorf("Error creating directory: %w", err)
 		} else {
 			logger.Debug("Directories created successfully")
 		}
@@ -134,7 +134,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 
 	dependencyResolver.Graph = graph.NewDependencyGraph(fs, logger.BaseLogger(), dependencyResolver.ResourceDependencies)
 	if dependencyResolver.Graph == nil {
-		return nil, fmt.Errorf("failed to initialize dependency graph")
+		return nil, errors.New("failed to initialize dependency graph")
 	}
 
 	return dependencyResolver, nil
@@ -275,7 +275,6 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 							dr.Logger.Error("Http client error:", res.Id)
 							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Http client timeout awaiting for output: %s - %s", res.Id, err), false)
 						}
-
 					}
 
 					// API Response

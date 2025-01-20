@@ -33,7 +33,7 @@ func TestSendSigterm(t *testing.T) {
 	}
 }
 
-// timeout provides a channel that sends a signal after 1 second to prevent hangs
+// timeout provides a channel that sends a signal after 1 second to prevent hangs.
 func timeout() <-chan struct{} {
 	ch := make(chan struct{})
 	go func() {

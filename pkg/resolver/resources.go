@@ -6,11 +6,10 @@ import (
 	"path/filepath"
 
 	"github.com/kdeps/kdeps/pkg/resource"
-
 	"github.com/spf13/afero"
 )
 
-// LoadResourceEntries loads .pkl resource files from the resources directory
+// LoadResourceEntries loads .pkl resource files from the resources directory.
 func (dr *DependencyResolver) LoadResourceEntries() error {
 	workflowDir := filepath.Join(dr.AgentDir, "resources")
 	var pklFiles []string
@@ -50,7 +49,7 @@ func (dr *DependencyResolver) LoadResourceEntries() error {
 	return nil
 }
 
-// handleFileImports handles dynamic and placeholder imports for a given file
+// handleFileImports handles dynamic and placeholder imports for a given file.
 func (dr *DependencyResolver) handleFileImports(path string) error {
 	// Prepend dynamic imports
 	if err := dr.PrependDynamicImports(path); err != nil {
@@ -65,7 +64,7 @@ func (dr *DependencyResolver) handleFileImports(path string) error {
 	return nil
 }
 
-// processPklFile processes an individual .pkl file and updates dependencies
+// processPklFile processes an individual .pkl file and updates dependencies.
 func (dr *DependencyResolver) processPklFile(file string) error {
 	// Load the resource file
 	pklRes, err := resource.LoadResource(dr.Context, file, dr.Logger)

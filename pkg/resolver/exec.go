@@ -7,11 +7,10 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/alexellis/go-execute/v2"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
-
-	"github.com/alexellis/go-execute/v2"
 	pklExec "github.com/kdeps/schema/gen/exec"
 	"github.com/spf13/afero"
 )

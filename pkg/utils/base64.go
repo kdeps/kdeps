@@ -6,7 +6,7 @@ import (
 	"unicode/utf8"
 )
 
-// Helper function to check if a string is already Base64 encoded
+// Helper function to check if a string is already Base64 encoded.
 func IsBase64Encoded(str string) bool {
 	// Return false for empty strings
 	if str == "" {
@@ -36,7 +36,7 @@ func IsBase64Encoded(str string) bool {
 	return utf8.Valid(decoded)
 }
 
-// Helper function to decode a Base64-encoded string
+// Helper function to decode a Base64-encoded string.
 func DecodeBase64String(encodedStr string) (string, error) {
 	if !IsBase64Encoded(encodedStr) {
 		return encodedStr, nil
@@ -48,7 +48,7 @@ func DecodeBase64String(encodedStr string) (string, error) {
 	return string(decodedBytes), nil
 }
 
-// Helper function to Base64 encode a string
+// Helper function to Base64 encode a string.
 func EncodeBase64String(data string) string {
 	return base64.StdEncoding.EncodeToString([]byte(data))
 }

@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -8,16 +9,15 @@ import (
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
-
 	pklData "github.com/kdeps/schema/gen/data"
 	"github.com/spf13/afero"
 )
 
-// AppendDataEntry appends a data entry to the existing files map
+// AppendDataEntry appends a data entry to the existing files map.
 func (dr *DependencyResolver) AppendDataEntry(resourceId string, newData *pklData.DataImpl) error {
 	// Ensure dr.Context is not nil
 	if dr.Context == nil {
-		return fmt.Errorf("context is nil")
+		return errors.New("context is nil")
 	}
 
 	// Define the path to the PKL file
@@ -31,7 +31,7 @@ func (dr *DependencyResolver) AppendDataEntry(resourceId string, newData *pklDat
 
 	// Safeguard against nil pointers
 	if pklRes == nil || pklRes.GetFiles() == nil {
-		return fmt.Errorf("PKL data or files map is nil")
+		return errors.New("PKL data or files map is nil")
 	}
 
 	// Get the existing files map
@@ -39,7 +39,7 @@ func (dr *DependencyResolver) AppendDataEntry(resourceId string, newData *pklDat
 
 	// Ensure newData is not nil
 	if newData == nil || newData.Files == nil {
-		return fmt.Errorf("new data or its files map is nil")
+		return errors.New("new data or its files map is nil")
 	}
 
 	// Merge new data into the existing files map

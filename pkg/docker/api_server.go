@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -12,26 +13,25 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/charmbracelet/log"
+	"github.com/gabriel-vasile/mimetype"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/utils"
-
-	"github.com/charmbracelet/log"
-	"github.com/gabriel-vasile/mimetype"
 	apiserver "github.com/kdeps/schema/gen/api_server"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 )
 
-// ErrorResponse defines the structure of each error
+// ErrorResponse defines the structure of each error.
 type ErrorResponse struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 }
 
-// DecodedResponse defines the overall response structure
+// DecodedResponse defines the overall response structure.
 type DecodedResponse struct {
 	Success  bool `json:"success"`
 	Response struct {
@@ -50,7 +50,7 @@ func StartApiServerMode(fs afero.Fs, ctx context.Context, wfCfg pklWf.Workflow, 
 	wfApiServer := wfSettings.ApiServer
 
 	if wfApiServer == nil {
-		return fmt.Errorf("API server configuration is missing")
+		return errors.New("API server configuration is missing")
 	}
 
 	// Format the server host and port
@@ -133,9 +133,9 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 			return
 		}
 
-		var filename string = ""
-		var filetype string = ""
-		var bodyData string = ""
+		var filename = ""
+		var filetype = ""
+		var bodyData = ""
 
 		fileMap := make(map[string]struct {
 			Filename string
@@ -338,7 +338,7 @@ filetype = "%s"
 	}
 }
 
-// Helper function to detect if a string is valid JSON
+// Helper function to detect if a string is valid JSON.
 func isJSON(str string) bool {
 	var js json.RawMessage
 	return json.Unmarshal([]byte(str), &js) == nil
@@ -480,7 +480,6 @@ func formatHeaders(headers map[string][]string) string {
 		for _, value := range values {
 			encodedValue := utils.EncodeBase64String(strings.TrimSpace(value))
 			headersLines = append(headersLines, fmt.Sprintf(`["%s"] = "%s"`, name, encodedValue))
-
 		}
 	}
 

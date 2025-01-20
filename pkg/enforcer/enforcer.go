@@ -12,14 +12,10 @@ import (
 
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
-
 	"github.com/spf13/afero"
 )
 
-// compareVersions compares two version strings and returns:
-// -1 if v1 < v2
-// 0 if v1 == v2
-// 1 if v1 > v2
+// 1 if v1 > v2.
 func compareVersions(v1, v2 string, logger *logging.Logger) (int, error) {
 	v1Parts := strings.Split(v1, ".")
 	v2Parts := strings.Split(v2, ".")
@@ -45,7 +41,7 @@ func compareVersions(v1, v2 string, logger *logging.Logger) (int, error) {
 	return 0, nil
 }
 
-// EnforceSchemaURL checks if the "amends" line contains the correct schema.kdeps.com/core URL
+// EnforceSchemaURL checks if the "amends" line contains the correct schema.kdeps.com/core URL.
 func EnforceSchemaURL(ctx context.Context, line, filePath string, logger *logging.Logger) error {
 	if !strings.HasPrefix(line, "amends") {
 		logger.Error("The .pkl file does not start with 'amends'", "file", filePath)
@@ -60,7 +56,7 @@ func EnforceSchemaURL(ctx context.Context, line, filePath string, logger *loggin
 	return nil
 }
 
-// EnforcePklVersion extracts the version from the "amends" line and compares it with the provided schema version
+// EnforcePklVersion extracts the version from the "amends" line and compares it with the provided schema version.
 func EnforcePklVersion(ctx context.Context, line, filePath, schemaVersion string, logger *logging.Logger) error {
 	start := strings.Index(line, "@")
 	end := strings.Index(line, "#")
@@ -85,7 +81,7 @@ func EnforcePklVersion(ctx context.Context, line, filePath, schemaVersion string
 	return nil
 }
 
-// Helper function to get the keys of a map as a slice of strings
+// Helper function to get the keys of a map as a slice of strings.
 func validPklFilesKeys(validPklFiles map[string]bool) []string {
 	keys := make([]string, 0, len(validPklFiles))
 	for k := range validPklFiles {
@@ -300,7 +296,7 @@ func enforceResourcesFolder(fs afero.Fs, ctx context.Context, resourcesPath stri
 	return nil
 }
 
-// EnforcePklTemplateAmendsRules combines the three validations (schema URL, version, and .pkl file)
+// EnforcePklTemplateAmendsRules combines the three validations (schema URL, version, and .pkl file).
 func EnforcePklTemplateAmendsRules(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
 	// Open the file containing the amends line
 	file, err := fs.Open(filePath)

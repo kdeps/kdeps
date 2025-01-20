@@ -9,11 +9,10 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/gabriel-vasile/mimetype"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
-
-	"github.com/gabriel-vasile/mimetype"
 	pklLLM "github.com/kdeps/schema/gen/llm"
 	"github.com/spf13/afero"
 	"github.com/tmc/langchaingo/llms"

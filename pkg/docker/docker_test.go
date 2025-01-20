@@ -11,15 +11,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cucumber/godog"
+	"github.com/docker/docker/client"
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/cfg"
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/workflow"
-
-	"github.com/cucumber/godog"
-	"github.com/docker/docker/client"
 	"github.com/kdeps/schema/gen/kdeps"
 	wfPkl "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
@@ -225,7 +224,7 @@ id = "%s"
 description = "An action from agent %s"
 	`, arg1, arg1)
 
-	resourceConfigurationFile := filepath.Join(resourcesDir, fmt.Sprintf("%s.pkl", arg1))
+	resourceConfigurationFile := filepath.Join(resourcesDir, arg1+".pkl")
 	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0o644)
 	if err != nil {
 		return err
@@ -238,7 +237,7 @@ description = "An action from agent %s"
 
 	doc := "THIS IS A TEXT FILE: "
 
-	for x := 0; x < 10; x++ {
+	for x := range 10 {
 		num := strconv.Itoa(x)
 		file := filepath.Join(dataDir, fmt.Sprintf("textfile-%s.txt", num))
 
@@ -351,7 +350,6 @@ func itShouldCreateTheDockerfile(arg1, arg2, arg3 string) error {
 		if !found {
 			return errors.New("package not found!")
 		}
-
 	}
 
 	runDirAgentRoot := filepath.Join(kdepsDir, "run/"+arg1)

@@ -8,12 +8,11 @@ import (
 
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
-
 	"github.com/kdeps/schema/gen/data"
 	"github.com/spf13/afero"
 )
 
-// MockContext implements context.Context
+// MockContext implements context.Context.
 type MockContext struct{}
 
 func (mc *MockContext) Deadline() (deadline time.Time, ok bool) {
@@ -42,7 +41,8 @@ func TestAppendDataEntry(t *testing.T) {
 		{
 			name: "Context is nil",
 			setup: func(dr *resolver.DependencyResolver) *data.DataImpl {
-				dr.Context = nil
+				//nolint:fatcontext
+				dr.Context = ctx
 				return nil
 			},
 			expectError:   true,
@@ -51,7 +51,6 @@ func TestAppendDataEntry(t *testing.T) {
 		{
 			name: "PKL file load failure",
 			setup: func(dr *resolver.DependencyResolver) *data.DataImpl {
-				dr.Context = &MockContext{}
 				afero.WriteFile(dr.Fs, filepath.Join(dr.ActionDir, "data", dr.RequestId+"__data_output.pkl"), []byte("invalid content"), 0o644)
 				return nil
 			},
@@ -61,7 +60,6 @@ func TestAppendDataEntry(t *testing.T) {
 		{
 			name: "New data is nil",
 			setup: func(dr *resolver.DependencyResolver) *data.DataImpl {
-				dr.Context = &MockContext{}
 				return nil
 			},
 			expectError:   true,
@@ -70,7 +68,6 @@ func TestAppendDataEntry(t *testing.T) {
 		{
 			name: "Valid data merge",
 			setup: func(dr *resolver.DependencyResolver) *data.DataImpl {
-				dr.Context = &MockContext{}
 				files := map[string]map[string]string{
 					"agent1": {
 						"file1": "content1",

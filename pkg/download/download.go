@@ -2,6 +2,7 @@ package download
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -113,8 +114,7 @@ func DownloadFile(fs afero.Fs, ctx context.Context, url, filePath string, logger
 	if resp.StatusCode != http.StatusOK {
 		errMsg := fmt.Sprintf("failed to download file: status code %d", resp.StatusCode)
 		logger.Error(errMsg, "url", url)
-		return fmt.Errorf(errMsg)
-
+		return errors.New(errMsg)
 	}
 
 	// Create a WriteCounter to track and display download progress

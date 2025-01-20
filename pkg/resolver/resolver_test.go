@@ -8,6 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/log"
+	"github.com/cucumber/godog"
+	"github.com/docker/docker/client"
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/cfg"
 	"github.com/kdeps/kdeps/pkg/docker"
@@ -15,10 +18,6 @@ import (
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
-
-	"github.com/charmbracelet/log"
-	"github.com/cucumber/godog"
-	"github.com/docker/docker/client"
 	"github.com/kdeps/schema/gen/kdeps"
 	pklRes "github.com/kdeps/schema/gen/resource"
 	wfPkl "github.com/kdeps/schema/gen/workflow"
@@ -172,10 +171,10 @@ func anAiAgentWithResources(arg1 string) error {
 		methodSection = "methods {\n" + strings.Join(methodLines, "\n") + "\n}"
 	} else {
 		// Single value case
-		methodSection = fmt.Sprintf(`
+		methodSection = `
 methods {
   "GET"
-}`)
+}`
 	}
 
 	workflowConfigurationContent := fmt.Sprintf(`
@@ -207,9 +206,7 @@ settings {
   }
 }
 `, methodSection, methodSection)
-	var filePath string
-
-	filePath = filepath.Join(homeDirPath, "myAgentX1")
+	var filePath = filepath.Join(homeDirPath, "myAgentX1")
 
 	if err := testFs.MkdirAll(filePath, 0o777); err != nil {
 		return err
@@ -243,7 +240,7 @@ settings {
 		return err
 	}
 
-	llmResponsesContent := fmt.Sprintf(`
+	llmResponsesContent := `
 amends "package://schema.kdeps.com/core@0.1.1#/LLM.pkl"
 
 chat {
@@ -255,7 +252,7 @@ response
 """
   }
 }
-`)
+`
 
 	llmDirFile := filepath.Join(llmDir, "llm_output.pkl")
 	err = afero.WriteFile(testFs, llmDirFile, []byte(llmResponsesContent), 0o644)
@@ -606,7 +603,7 @@ func iWasAbleToSeeTheTopdownDependencies(arg1 string) error {
 // description = "default action"
 // category = "category"
 // %s
-// `, num, num, requiresContent)
+// `, num, requiresContent)
 
 //		// Define the file path
 //		resourceConfigurationFile := filepath.Join(resourcesDir, fmt.Sprintf("resource%d.pkl", num))
