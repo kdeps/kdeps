@@ -35,7 +35,7 @@ func main() {
 	logger := logging.GetLogger()
 
 	// Setup environment
-	env, err := setupEnvironment(fs)
+	env, err := setupEnvironment(fs, ctx)
 	if err != nil {
 		logger.Error("Failed to set up environment", "error", err)
 		return
@@ -76,13 +76,13 @@ func handleDockerMode(fs afero.Fs, ctx context.Context, env *environment.Environ
 }
 
 func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) {
-	cfgFile, err := cfg.FindConfiguration(fs, env, logger)
+	cfgFile, err := cfg.FindConfiguration(fs, ctx, env, logger)
 	if err != nil {
 		logger.Error("Error occurred finding configuration")
 	}
 
 	if cfgFile == "" {
-		cfgFile, err = cfg.GenerateConfiguration(fs, env, logger)
+		cfgFile, err = cfg.GenerateConfiguration(fs, ctx, env, logger)
 		if err != nil {
 			logger.Fatal("Error occurred generating configuration", "error", err)
 			return
@@ -127,8 +127,8 @@ func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Envi
 }
 
 // setupEnvironment initializes the environment using the filesystem.
-func setupEnvironment(fs afero.Fs) (*environment.Environment, error) {
-	environ, err := environment.NewEnvironment(fs, nil)
+func setupEnvironment(fs afero.Fs, ctx context.Context) (*environment.Environment, error) {
+	environ, err := environment.NewEnvironment(fs, ctx, nil)
 	if err != nil {
 		return nil, err
 	}
