@@ -50,10 +50,11 @@ var (
 	systemConfiguration       *kdeps.Kdeps
 	workflowConfigurationFile string
 	workflowConfiguration     *wfPkl.Workflow
-	schemaVersionFilePath     = "../../SCHEMA_VERSION"
 )
 
 func TestFeatures(t *testing.T) {
+	t.Parallel()
+
 	suite := godog.TestSuite{
 		ScenarioInitializer: func(ctx *godog.ScenarioContext) {
 			ctx.Step(`^a "([^"]*)" system configuration file with dockerGPU "([^"]*)" and runMode "([^"]*)" is defined in the "([^"]*)" directory$`, aSystemConfigurationFile)
@@ -95,7 +96,7 @@ func aSystemConfigurationFile(arg1, arg2, arg3, arg4 string) error {
 		DockerMode:     "1",
 	}
 
-	environ, err := environment.NewEnvironment(testFs, env)
+	environ, err := environment.NewEnvironment(testFs, ctx, env)
 	if err != nil {
 		return err
 	}

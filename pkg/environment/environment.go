@@ -1,6 +1,7 @@
 package environment
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
@@ -26,6 +27,8 @@ func checkConfig(fs afero.Fs, baseDir string) (string, error) {
 	configFile := filepath.Join(baseDir, SystemConfigFileName)
 	if exists, err := afero.Exists(fs, configFile); err == nil && exists {
 		return configFile, nil
+	} else {
+		return "", err
 	}
 	return "", nil
 }
@@ -65,7 +68,7 @@ func allDockerEnvVarsSet() bool {
 }
 
 // NewEnvironment initializes and returns a new Environment based on provided or default settings.
-func NewEnvironment(fs afero.Fs, environ *Environment) (*Environment, error) {
+func NewEnvironment(fs afero.Fs, ctx context.Context, environ *Environment) (*Environment, error) {
 	if environ != nil {
 		// If an environment is provided, prioritize overriding configurations
 		kdepsConfigFile := findKdepsConfig(fs, environ.Pwd, environ.Home)

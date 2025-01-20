@@ -30,7 +30,7 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 
 		exists, err := afero.Exists(fs, agentWorkflow)
 		if !exists {
-			env, err := environment.NewEnvironment(fs, nil)
+			env, err := environment.NewEnvironment(fs, ctx, nil)
 			if err != nil {
 				return false, err
 			}

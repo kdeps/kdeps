@@ -19,7 +19,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-func FindConfiguration(fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+func FindConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
 	logger.Debug("Finding configuration...")
 
 	// Ensure PKL binary exists before proceeding
@@ -45,7 +45,7 @@ func FindConfiguration(fs afero.Fs, env *environment.Environment, logger *loggin
 	return "", nil
 }
 
-func GenerateConfiguration(fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+func GenerateConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
 	logger.Debug("Generating configuration...")
 
 	// Set configFile path in Home directory
