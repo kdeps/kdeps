@@ -86,18 +86,18 @@ func generateWorkflowFile(fs afero.Fs, ctx context.Context, logger *logging.Logg
 
 	// Template data for dynamic replacement
 	templateData := map[string]string{
-		"Header": fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schema.SchemaVersion()),
+		"Header": fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schema.SchemaVersion(ctx)),
 		"Name":   name,
 	}
 
 	// Load and process the template
-	content, err := loadTemplate(templatePath, ctx, templateData)
+	content, err := loadTemplate(ctx, templatePath, templateData)
 	if err != nil {
 		logger.Error("Failed to load workflow template: ", err)
 		return err
 	}
 
-	return createFile(fs, logger, outputPath, content)
+	return createFile(fs, ctx, logger, outputPath, content)
 }
 
 func loadTemplate(ctx context.Context, templatePath string, data map[string]string) (string, error) {
@@ -128,7 +128,7 @@ func generateResourceFiles(fs afero.Fs, ctx context.Context, logger *logging.Log
 
 	// Common template data
 	templateData := map[string]string{
-		"Header": fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"`, schema.SchemaVersion()),
+		"Header": fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"`, schema.SchemaVersion(ctx)),
 		"Name":   name,
 	}
 
@@ -150,14 +150,14 @@ func generateResourceFiles(fs afero.Fs, ctx context.Context, logger *logging.Log
 		}
 
 		templatePath := filepath.Join("templates", file.Name())
-		content, err := loadTemplate(templatePath, ctx, templateData)
+		content, err := loadTemplate(ctx, templatePath, templateData)
 		if err != nil {
 			logger.Error("Failed to process template: ", err)
 			return err
 		}
 
 		outputPath := filepath.Join(resourceDir, file.Name())
-		if err := createFile(fs, logger, outputPath, content); err != nil {
+		if err := createFile(fs, ctx, logger, outputPath, content); err != nil {
 			return err
 		}
 	}
@@ -179,12 +179,12 @@ func generateSpecificFile(fs afero.Fs, ctx context.Context, logger *logging.Logg
 
 	templatePath := filepath.Join("templates", fileName)
 	templateData := map[string]string{
-		"Header": fmt.Sprintf(headerTemplate, schema.SchemaVersion()),
+		"Header": fmt.Sprintf(headerTemplate, schema.SchemaVersion(ctx)),
 		"Name":   agentName,
 	}
 
 	// Load the template
-	content, err := loadTemplate(templatePath, ctx, templateData)
+	content, err := loadTemplate(ctx, templatePath, templateData)
 	if err != nil {
 		logger.Error("Failed to load specific template: ", err)
 		return err
@@ -205,7 +205,7 @@ func generateSpecificFile(fs afero.Fs, ctx context.Context, logger *logging.Logg
 
 	// Write the generated file
 	filePath := filepath.Join(outputDir, fileName)
-	if err := createFile(fs, logger, filePath, content); err != nil {
+	if err := createFile(fs, ctx, logger, filePath, content); err != nil {
 		return err
 	}
 
@@ -242,7 +242,7 @@ func GenerateSpecificAgentFile(fs afero.Fs, ctx context.Context, logger *logging
 		return err
 	}
 
-	if err := generateSpecificFile(fs, logger, mainDir, fileName, name); err != nil {
+	if err := generateSpecificFile(fs, ctx, logger, mainDir, fileName, name); err != nil {
 		logger.Error("Failed to generate specific file: ", err)
 		return err
 	}
@@ -289,7 +289,7 @@ func GenerateAgent(fs afero.Fs, ctx context.Context, logger *logging.Logger, age
 		}
 		name = agentName
 	} else {
-		name, err = promptForAgentName()
+		name, err = promptForAgentName(ctx)
 		if err != nil {
 			logger.Error("Failed to prompt for agent name: ", err)
 			return err
@@ -333,7 +333,7 @@ func GenerateAgent(fs afero.Fs, ctx context.Context, logger *logging.Logger, age
 
 	if openWorkflow {
 		workflowFilePath := fmt.Sprintf("%s/workflow.pkl", mainDir)
-		if err := texteditor.EditPkl(fs, workflowFilePath, logger); err != nil {
+		if err := texteditor.EditPkl(fs, ctx, workflowFilePath, logger); err != nil {
 			logger.Error("Failed to edit workflow file: ", err)
 			return fmt.Errorf("failed to edit workflow file: %w", err)
 		}

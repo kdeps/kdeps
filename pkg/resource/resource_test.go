@@ -115,7 +115,7 @@ func aKdepsContainerWithEndpointAPI(arg1, arg2, arg3 string) error {
 		NonInteractive: "1",
 	}
 
-	environ, err := environment.NewEnvironment(testFs, env)
+	environ, err := environment.NewEnvironment(testFs, ctx, env)
 	if err != nil {
 		return err
 	}
@@ -134,12 +134,12 @@ func aKdepsContainerWithEndpointAPI(arg1, arg2, arg3 string) error {
 		return err
 	}
 
-	systemConfigurationFile, err = cfg.FindConfiguration(testFs, environ, logger)
+	systemConfigurationFile, err = cfg.FindConfiguration(testFs, ctx, environ, logger)
 	if err != nil {
 		return err
 	}
 
-	if err = enforcer.EnforcePklTemplateAmendsRules(testFs, systemConfigurationFile, logger); err != nil {
+	if err = enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, systemConfigurationFile, logger); err != nil {
 		return err
 	}
 
@@ -397,7 +397,7 @@ run {
 		f.Close()
 	}
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowConfigurationFile, logger); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowConfigurationFile, logger); err != nil {
 		return err
 	}
 

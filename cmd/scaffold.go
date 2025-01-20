@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -11,7 +12,7 @@ import (
 )
 
 // NewScaffoldCommand creates the 'scaffold' subcommand for generating specific agent files
-func NewScaffoldCommand(fs afero.Fs, logger *logging.Logger) *cobra.Command {
+func NewScaffoldCommand(fs afero.Fs, ctx context.Context, logger *logging.Logger) *cobra.Command {
 	return &cobra.Command{
 		Use:   "scaffold [agentName] [fileNames...]",
 		Short: "Scaffold specific files for an agent",
@@ -21,7 +22,7 @@ func NewScaffoldCommand(fs afero.Fs, logger *logging.Logger) *cobra.Command {
 			fileNames := args[1:]
 
 			for _, fileName := range fileNames {
-				if err := template.GenerateSpecificAgentFile(fs, logger, agentName, fileName); err != nil {
+				if err := template.GenerateSpecificAgentFile(fs, ctx, logger, agentName, fileName); err != nil {
 					logger.Error("Error scaffolding file:", err)
 					fmt.Println("Error:", err)
 				} else {

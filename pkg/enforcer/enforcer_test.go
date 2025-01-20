@@ -21,7 +21,7 @@ var (
 	testFs                = afero.NewOsFs()
 	homeDirPath           string
 	currentDirPath        string
-	ctx                   context.Context
+	ctx                   = context.Background()
 	systemConfiguration   *kdeps.Kdeps
 	fileThatExist         string
 	logger                *logging.Logger
@@ -199,7 +199,7 @@ func itHaveAConfigAmendsLineOnTopOfTheFile() error {
 }
 
 func itIsAnInvalidAgent() error {
-	if err := EnforceFolderStructure(testFs, agentPath, logger); err == nil {
+	if err := EnforceFolderStructure(testFs, ctx, agentPath, logger); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 
@@ -207,7 +207,8 @@ func itIsAnInvalidAgent() error {
 }
 
 func itIsAValidAgent() error {
-	if err := EnforceFolderStructure(testFs, agentPath, logger); err != nil {
+
+	if err := EnforceFolderStructure(testFs, ctx, agentPath, logger); err != nil {
 		return err
 	}
 
@@ -215,7 +216,7 @@ func itIsAValidAgent() error {
 }
 
 func itIsAnInvalidPklFile() error {
-	if err := EnforcePklTemplateAmendsRules(testFs, fileThatExist, logger); err == nil {
+	if err := EnforcePklTemplateAmendsRules(testFs, ctx, fileThatExist, logger); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 
@@ -223,11 +224,11 @@ func itIsAnInvalidPklFile() error {
 }
 
 func itIsAValidPklFile() error {
-	if err := EnforcePklTemplateAmendsRules(testFs, fileThatExist, logger); err != nil {
+	if err := EnforcePklTemplateAmendsRules(testFs, ctx, fileThatExist, logger); err != nil {
 		return err
 	}
 
-	if _, err := evaluator.EvalPkl(testFs, fileThatExist, "", logger); err != nil {
+	if _, err := evaluator.EvalPkl(testFs, ctx, fileThatExist, "", logger); err != nil {
 		return err
 	}
 

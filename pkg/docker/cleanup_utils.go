@@ -47,7 +47,7 @@ func CleanupDockerBuildImages(fs afero.Fs, ctx context.Context, cName string, cl
 }
 
 // Cleanup deletes /agent/action and /agent/workflow directories, then copies /agent/project to /agent/workflow
-func Cleanup(fs afero.Fs, environ *environment.Environment, logger *logging.Logger) {
+func Cleanup(fs afero.Fs, ctx context.Context, environ *environment.Environment, logger *logging.Logger) {
 	if environ.DockerMode != "1" {
 		return
 	}
@@ -58,14 +58,14 @@ func Cleanup(fs afero.Fs, environ *environment.Environment, logger *logging.Logg
 	removedFiles := []string{"/.actiondir_removed", "/.dockercleanup"}
 
 	// Helper function to remove a directory and create a corresponding flag file
-	removeDirWithFlag := func(dir string, flagFile string) error {
+	removeDirWithFlag := func(ctx context.Context, dir string, flagFile string) error {
 		if err := fs.RemoveAll(dir); err != nil {
 			logger.Error(fmt.Sprintf("Error removing %s: %v", dir, err))
 			return err
 		}
 
 		logger.Debug(fmt.Sprintf("%s directory deleted", dir))
-		if err := CreateFlagFile(fs, flagFile); err != nil {
+		if err := CreateFlagFile(fs, ctx, flagFile); err != nil {
 			logger.Error(fmt.Sprintf("Unable to create flag file %s: %v", flagFile, err))
 			return err
 		}
@@ -73,13 +73,13 @@ func Cleanup(fs afero.Fs, environ *environment.Environment, logger *logging.Logg
 	}
 
 	// Remove action and workflow directories
-	if err := removeDirWithFlag(actionDir, removedFiles[0]); err != nil {
+	if err := removeDirWithFlag(ctx, actionDir, removedFiles[0]); err != nil {
 		return
 	}
 
 	// Wait for the cleanup flags to be ready
 	for _, flag := range removedFiles[:2] { // Correcting to wait for the first two files
-		if err := utils.WaitForFileReady(fs, flag, logger); err != nil {
+		if err := utils.WaitForFileReady(fs, ctx, flag, logger); err != nil {
 			logger.Error(fmt.Sprintf("Error waiting for flag %s: %v", flag, err))
 			return
 		}
@@ -104,7 +104,7 @@ func Cleanup(fs afero.Fs, environ *environment.Environment, logger *logging.Logg
 			}
 		} else {
 			// Copy the file from projectDir to workflowDir
-			if err := archiver.CopyFile(fs, path, targetPath, logger); err != nil {
+			if err := archiver.CopyFile(fs, ctx, path, targetPath, logger); err != nil {
 				return err
 			}
 		}
@@ -118,16 +118,16 @@ func Cleanup(fs afero.Fs, environ *environment.Environment, logger *logging.Logg
 	}
 
 	// Create final cleanup flag
-	if err := CreateFlagFile(fs, removedFiles[1]); err != nil {
+	if err := CreateFlagFile(fs, ctx, removedFiles[1]); err != nil {
 		logger.Error(fmt.Sprintf("Unable to create final cleanup flag: %v", err))
 	}
 
 	// Remove flag files
-	cleanupFlagFiles(fs, removedFiles, logger)
+	cleanupFlagFiles(fs, ctx, removedFiles, logger)
 }
 
 // cleanupFlagFiles removes the specified flag files
-func cleanupFlagFiles(fs afero.Fs, files []string, logger *logging.Logger) {
+func cleanupFlagFiles(fs afero.Fs, ctx context.Context, files []string, logger *logging.Logger) {
 	for _, file := range files {
 		if err := fs.Remove(file); err != nil {
 			if os.IsNotExist(err) {

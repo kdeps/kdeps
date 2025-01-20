@@ -35,7 +35,7 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 				return false, err
 			}
 
-			dr, err := resolver.NewGraphResolver(fs, logger, ctx, env, "/agent")
+			dr, err := resolver.NewGraphResolver(fs, ctx, env, "/agent", logger)
 			if err != nil {
 				return false, errors.New(fmt.Sprintf("failed to create graph resolver: %s", err))
 			}
@@ -53,7 +53,7 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 		}
 
 		// Parse OLLAMA_HOST to get the host and port
-		host, port, err := parseOLLAMAHost(logger)
+		host, port, err := parseOLLAMAHost(ctx, logger)
 		if err != nil {
 			return apiServerMode, err
 		}
@@ -103,7 +103,7 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 	return apiServerMode, nil
 }
 
-func CreateFlagFile(fs afero.Fs, filename string) error {
+func CreateFlagFile(fs afero.Fs, ctx context.Context, filename string) error {
 	// Check if file exists
 	if exists, err := afero.Exists(fs, filename); err != nil {
 		return err

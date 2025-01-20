@@ -69,7 +69,7 @@ func GenerateConfiguration(fs afero.Fs, ctx context.Context, env *environment.En
 		}
 
 		// Generate configuration
-		url := fmt.Sprintf("package://schema.kdeps.com/core@%s#/Kdeps.pkl", schema.SchemaVersion())
+		url := fmt.Sprintf("package://schema.kdeps.com/core@%s#/Kdeps.pkl", schema.SchemaVersion(ctx))
 		headerSection := fmt.Sprintf("amends \"%s\"\n", url)
 
 		content, err := evaluator.EvalPkl(fs, ctx, url, headerSection, logger)

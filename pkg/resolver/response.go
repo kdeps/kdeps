@@ -66,7 +66,7 @@ func (dr *DependencyResolver) buildResponseSections(apiResponseBlock apiserverre
 	dr.Logger.Debug("Building response sections from API response", "response", apiResponseBlock)
 
 	sections := []string{
-		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Document.pkl" as document`, schema.SchemaVersion()),
+		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Document.pkl" as document`, schema.SchemaVersion(dr.Context)),
 		fmt.Sprintf("success = %v", apiResponseBlock.GetSuccess()),
 		formatResponseData(apiResponseBlock.GetResponse()),
 		formatErrors(apiResponseBlock.GetErrors(), dr.Logger),
@@ -271,7 +271,7 @@ func (dr *DependencyResolver) EvalPklFormattedResponseFile() (string, error) {
 	}
 
 	// Check if the PKL binary exists
-	if err := evaluator.EnsurePklBinaryExists(dr.Logger); err != nil {
+	if err := evaluator.EnsurePklBinaryExists(dr.Context, dr.Logger); err != nil {
 		dr.Logger.Error("PKL binary not found", "error", err)
 		return "", err
 	}
