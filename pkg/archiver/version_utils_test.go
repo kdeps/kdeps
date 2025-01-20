@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Test for compareVersions
+// Test for compareVersions.
 func TestCompareVersions(t *testing.T) {
 	var ctx context.Context
 	logging.CreateLogger()
@@ -39,7 +39,7 @@ func TestCompareVersions(t *testing.T) {
 	}
 }
 
-// Test for getLatestVersion
+// Test for getLatestVersion.
 func TestGetLatestVersion(t *testing.T) {
 	var ctx context.Context
 	logging.CreateLogger()

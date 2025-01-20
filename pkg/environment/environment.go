@@ -30,7 +30,6 @@ func checkConfig(fs afero.Fs, ctx context.Context, baseDir string) (string, erro
 	} else {
 		return "", err
 	}
-	return "", nil
 }
 
 // findKdepsConfig searches for the .kdeps.pkl file in both the Pwd and Home directories.

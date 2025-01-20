@@ -7,7 +7,7 @@ import (
 	"github.com/kdeps/schema/gen/workflow"
 )
 
-// Handle the values inside the requires { ... } block
+// Handle the values inside the requires { ... } block.
 func handleRequiresBlock(blockContent string, wf workflow.Workflow) string {
 	name, version := wf.GetName(), wf.GetVersion()
 

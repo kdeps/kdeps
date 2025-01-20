@@ -2,6 +2,7 @@ package texteditor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,7 +18,7 @@ func EditPkl(fs afero.Fs, ctx context.Context, filePath string, logger *logging.
 	if filepath.Ext(filePath) != ".pkl" {
 		err := fmt.Sprintf("file '%s' does not have a .pkl extension", filePath)
 		logger.Error(err)
-		return fmt.Errorf(err)
+		return errors.New(err)
 	}
 
 	// Check if the file exists
@@ -25,11 +26,11 @@ func EditPkl(fs afero.Fs, ctx context.Context, filePath string, logger *logging.
 		if os.IsNotExist(err) {
 			errMsg := fmt.Sprintf("file '%s' does not exist", filePath)
 			logger.Error(errMsg)
-			return fmt.Errorf(errMsg)
+			return errors.New(errMsg)
 		}
 		errMsg := fmt.Sprintf("failed to stat file '%s': %v", filePath, err)
 		logger.Error(errMsg)
-		return fmt.Errorf(errMsg)
+		return errors.New(errMsg)
 	}
 
 	// Prepare the editor command
@@ -37,7 +38,7 @@ func EditPkl(fs afero.Fs, ctx context.Context, filePath string, logger *logging.
 	if err != nil {
 		errMsg := fmt.Sprintf("failed to create editor command: %v", err)
 		logger.Error(errMsg)
-		return fmt.Errorf(errMsg)
+		return errors.New(errMsg)
 	}
 
 	cmd.Stdin = os.Stdin
@@ -48,7 +49,7 @@ func EditPkl(fs afero.Fs, ctx context.Context, filePath string, logger *logging.
 	if err := cmd.Run(); err != nil {
 		errMsg := fmt.Sprintf("editor command failed: %v", err)
 		logger.Error(errMsg)
-		return fmt.Errorf(errMsg)
+		return errors.New(errMsg)
 	}
 
 	return nil

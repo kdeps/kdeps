@@ -4,17 +4,16 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/workflow"
-
-	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 )
 
-// Define styles using lipgloss
+// Define styles using lipgloss.
 var (
 	primaryStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("75"))
 	secondaryStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("211"))
@@ -22,7 +21,7 @@ var (
 	errorStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
 )
 
-// NewPackageCommand creates the 'package' command and passes the necessary dependencies
+// NewPackageCommand creates the 'package' command and passes the necessary dependencies.
 func NewPackageCommand(fs afero.Fs, ctx context.Context, kdepsDir string, env *environment.Environment, logger *logging.Logger) *cobra.Command {
 	return &cobra.Command{
 		Use:     "package [agent-dir]",

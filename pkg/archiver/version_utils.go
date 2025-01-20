@@ -2,7 +2,7 @@ package archiver
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"os"
 	"path/filepath"
 	"sort"
@@ -11,7 +11,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/logging"
 )
 
-// Function to compare version numbers
+// Function to compare version numbers.
 func compareVersions(ctx context.Context, versions []string, logger *logging.Logger) string {
 	logger.Debug("Comparing versions", "versions", versions)
 	sort.Slice(versions, func(i, j int) bool {
@@ -20,7 +20,7 @@ func compareVersions(ctx context.Context, versions []string, logger *logging.Log
 		v2 := strings.Split(versions[j], ".")
 
 		// Compare each part of the version (major, minor, patch)
-		for k := 0; k < len(v1); k++ {
+		for k := range v1 {
 			if v1[k] != v2[k] {
 				result := v1[k] > v2[k]
 				logger.Debug("Version comparison result", "v1", v1, "v2", v2, "result", result)
@@ -60,7 +60,7 @@ func getLatestVersion(ctx context.Context, directory string, logger *logging.Log
 
 	// Check if versions were found
 	if len(versions) == 0 {
-		err = fmt.Errorf("no versions found")
+		err = errors.New("no versions found")
 		logger.Warn("No versions found", "directory", directory)
 		return "", err
 	}

@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/kdeps/kdeps/pkg/data"
 	"github.com/kdeps/kdeps/pkg/schema"
-
 	pklData "github.com/kdeps/schema/gen/data"
 	pklExec "github.com/kdeps/schema/gen/exec"
 	pklHttp "github.com/kdeps/schema/gen/http"
@@ -167,7 +167,7 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 			}
 
 			// Write the block (resources or files)
-			if _, err := writer.WriteString(fmt.Sprintf("%s {\n}\n", blockType)); err != nil {
+			if _, err := writer.WriteString(blockType + " {\n}\n"); err != nil {
 				return fmt.Errorf("failed to write block for %s: %w", key, err)
 			}
 
@@ -249,7 +249,7 @@ func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
 	// Open the file using afero file system (dr.Fs)
 	file, err := dr.Fs.Open(filePath)
 	if err != nil {
-		return fmt.Errorf("could not open file: %v", err)
+		return fmt.Errorf("could not open file: %w", err)
 	}
 	defer file.Close()
 
@@ -269,11 +269,11 @@ func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("error reading file: %v", err)
+		return fmt.Errorf("error reading file: %w", err)
 	}
 
 	if actionId == "" {
-		return fmt.Errorf("action id not found in the file")
+		return errors.New("action id not found in the file")
 	}
 
 	// Create placeholder entries using the parsed actionId

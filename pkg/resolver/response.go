@@ -2,18 +2,18 @@ package resolver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"reflect"
 	"strings"
 
+	"github.com/alexellis/go-execute/v2"
+	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
-
-	"github.com/alexellis/go-execute/v2"
-	"github.com/google/uuid"
 	apiserverresponse "github.com/kdeps/schema/gen/api_server_response"
 	"github.com/spf13/afero"
 )
@@ -159,7 +159,7 @@ func structToMap(s interface{}) map[interface{}]interface{} {
 	if val.Kind() == reflect.Ptr {
 		val = val.Elem() // Dereference if pointer
 	}
-	for i := 0; i < val.NumField(); i++ {
+	for i := range val.NumField() {
 		fieldName := val.Type().Field(i).Name
 		fieldValue := val.Field(i).Interface()
 		result[fieldName] = fieldValue
@@ -293,7 +293,7 @@ func (dr *DependencyResolver) validatePklFileExtension() error {
 	if filepath.Ext(dr.ResponsePklFile) != ".pkl" {
 		errMsg := fmt.Sprintf("file '%s' must have a .pkl extension", dr.ResponsePklFile)
 		dr.Logger.Error(errMsg)
-		return fmt.Errorf(errMsg)
+		return errors.New(errMsg)
 	}
 	return nil
 }
@@ -339,7 +339,7 @@ func (dr *DependencyResolver) executePklEvalCommand() (execute.ExecResult, error
 	if result.ExitCode != 0 {
 		errMsg := fmt.Sprintf("Command failed with exit code %d: %s", result.ExitCode, result.Stderr)
 		dr.Logger.Error(errMsg)
-		return execute.ExecResult{}, fmt.Errorf(errMsg)
+		return execute.ExecResult{}, errors.New(errMsg)
 	}
 
 	dr.Logger.Debug("Command executed successfully", "stdout", result.Stdout)

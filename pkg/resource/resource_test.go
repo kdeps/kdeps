@@ -13,6 +13,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cucumber/godog"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/cfg"
 	"github.com/kdeps/kdeps/pkg/docker"
@@ -20,10 +23,6 @@ import (
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/workflow"
-
-	"github.com/cucumber/godog"
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/client"
 	"github.com/kdeps/schema/gen/kdeps"
 	wfPkl "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
@@ -192,9 +191,7 @@ settings {
   }
 }
 `, methodSection)
-	var filePath string
-
-	filePath = filepath.Join(homeDirPath, "myAgentX")
+	var filePath = filepath.Join(homeDirPath, "myAgentX")
 
 	if err := testFs.MkdirAll(filePath, 0o777); err != nil {
 		return err
@@ -388,7 +385,7 @@ run {
 
 	doc := "THIS IS A TEXT FILE: "
 
-	for x := 0; x < 10; x++ {
+	for x := range 10 {
 		num := strconv.Itoa(x)
 		file := filepath.Join(dataDir, fmt.Sprintf("textfile-%s.txt", num))
 
@@ -487,7 +484,7 @@ func iGETRequestToWithDataAndHeaderNameThatMapsTo(arg1, arg2, arg3, arg4 string)
 	reqBody := strings.NewReader(arg2)
 
 	// Create a new GET request
-	req, err := http.NewRequest("GET", baseURL, reqBody)
+	req, err := http.NewRequest(http.MethodGet, baseURL, reqBody)
 	if err != nil {
 		fmt.Println("Error creating request:", err)
 		return err

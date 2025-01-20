@@ -2,16 +2,16 @@ package evaluator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
+	"github.com/alexellis/go-execute/v2"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
-
-	"github.com/alexellis/go-execute/v2"
 	"github.com/spf13/afero"
 )
 
@@ -36,7 +36,7 @@ func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSectio
 	if filepath.Ext(resourcePath) != ".pkl" {
 		errMsg := fmt.Sprintf("file '%s' must have a .pkl extension", resourcePath)
 		logger.Error(errMsg)
-		return "", fmt.Errorf(errMsg)
+		return "", errors.New(errMsg)
 	}
 
 	// Ensure that the 'pkl' binary is available
@@ -63,7 +63,7 @@ func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSectio
 	if result.ExitCode != 0 {
 		errMsg := fmt.Sprintf("command failed with exit code %d: %s", result.ExitCode, result.Stderr)
 		logger.Error(errMsg)
-		return "", fmt.Errorf(errMsg)
+		return "", errors.New(errMsg)
 	}
 
 	// Format the result by prepending the headerSection to the command stdout

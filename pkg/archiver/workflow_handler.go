@@ -17,7 +17,6 @@ import (
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/workflow"
-
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 )
@@ -115,7 +114,7 @@ func PrepareRunDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir
 	return runDir, nil
 }
 
-// CompileWorkflow compiles a workflow file and updates the action field
+// CompileWorkflow compiles a workflow file and updates the action field.
 func CompileWorkflow(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, projectDir string, logger *logging.Logger) (string, error) {
 	action := wf.GetAction()
 
@@ -218,7 +217,7 @@ func CompileWorkflow(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsD
 	return compiledProjectDir, nil
 }
 
-// CompileProject orchestrates the compilation and packaging of a project
+// CompileProject orchestrates the compilation and packaging of a project.
 func CompileProject(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir string, projectDir string, env *environment.Environment, logger *logging.Logger) (string, string, error) {
 	// Compile the workflow
 	compiledProjectDir, err := CompileWorkflow(fs, ctx, wf, kdepsDir, projectDir, logger)
@@ -307,7 +306,7 @@ func CompileProject(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDi
 	return compiledProjectDir, packageFile, nil
 }
 
-// ProcessExternalWorkflows processes each workflow and copies directories as needed
+// ProcessExternalWorkflows processes each workflow and copies directories as needed.
 func ProcessExternalWorkflows(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, projectDir, compiledProjectDir string, logger *logging.Logger) error {
 	if wf.GetWorkflows() == nil {
 		logger.Debug("No external workflows to process")
@@ -340,7 +339,6 @@ func ProcessExternalWorkflows(fs afero.Fs, ctx context.Context, wf pklWf.Workflo
 					return err
 				}
 			}
-
 		} else {
 			// No version present, check if there is an action
 			agentAndAction := strings.SplitN(value, "/", 2)
