@@ -45,7 +45,7 @@ type ResourceNodeEntry struct {
 	File string `pkl:"file"`
 }
 
-func NewGraphResolver(fs afero.Fs, logger *logging.Logger, ctx context.Context, env *environment.Environment, agentDir string) (*DependencyResolver, error) {
+func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment, agentDir string, logger *logging.Logger) (*DependencyResolver, error) {
 	graphId := uuid.New().String()
 
 	var dataDir, actionDir, filesDir, projectDir, pklWfFile, pklWfParentFile string
@@ -93,7 +93,7 @@ func NewGraphResolver(fs afero.Fs, logger *logging.Logger, ctx context.Context, 
 		}
 
 		// Create directories
-		if err := utils.CreateDirectories(fs, directories); err != nil {
+		if err := utils.CreateDirectories(fs, ctx, directories); err != nil {
 			return nil, fmt.Errorf("Error creating directory: %s", err)
 		} else {
 			logger.Debug("Directories created successfully")

@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,8 @@ import (
 )
 
 func TestGetLatestGitHubRelease(t *testing.T) {
+	var ctx context.Context
+
 	// Mock GitHub API server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -18,7 +21,7 @@ func TestGetLatestGitHubRelease(t *testing.T) {
 	}))
 	defer server.Close()
 
-	result, err := GetLatestGitHubRelease("kdeps/schema", server.URL)
+	result, err := GetLatestGitHubRelease(ctx, "kdeps/schema", server.URL)
 	assert.NoError(t, err)
 	assert.Equal(t, "2.1.0", result)
 }

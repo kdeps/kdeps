@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -14,7 +15,7 @@ import (
 var GitHubReleaseFetcher = GetLatestGitHubRelease
 
 // GetLatestGitHubRelease fetches the latest release version from a GitHub repository.
-func GetLatestGitHubRelease(repo string, baseURL string) (string, error) {
+func GetLatestGitHubRelease(ctx context.Context, repo string, baseURL string) (string, error) {
 	if baseURL == "" {
 		baseURL = "https://api.github.com"
 	}

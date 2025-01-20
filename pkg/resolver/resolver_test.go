@@ -87,7 +87,7 @@ func anAiAgentWithResources(arg1 string) error {
 		return err
 	}
 
-	if err = docker.CreateFlagFile(testFs, filepath.Join(tmpRoot, ".dockerenv")); err != nil {
+	if err = docker.CreateFlagFile(testFs, ctx, filepath.Join(tmpRoot, ".dockerenv")); err != nil {
 		return err
 	}
 
@@ -122,7 +122,7 @@ func anAiAgentWithResources(arg1 string) error {
 		DockerMode:     "1",
 	}
 
-	env, err := environment.NewEnvironment(testFs, envStruct)
+	env, err := environment.NewEnvironment(testFs, ctx, envStruct)
 	if err != nil {
 		return err
 	}
@@ -143,12 +143,12 @@ func anAiAgentWithResources(arg1 string) error {
 		return err
 	}
 
-	systemConfigurationFile, err = cfg.FindConfiguration(testFs, environ, logger)
+	systemConfigurationFile, err = cfg.FindConfiguration(testFs, ctx, environ, logger)
 	if err != nil {
 		return err
 	}
 
-	if err = enforcer.EnforcePklTemplateAmendsRules(testFs, systemConfigurationFile, logger); err != nil {
+	if err = enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, systemConfigurationFile, logger); err != nil {
 		return err
 	}
 
@@ -396,7 +396,7 @@ func iLoadTheWorkflowResources() error {
 	logger := logging.GetLogger()
 	ctx = context.Background()
 
-	dr, err := resolver.NewGraphResolver(testFs, logger, ctx, environ, agentDir)
+	dr, err := resolver.NewGraphResolver(testFs, ctx, environ, agentDir, logger)
 	if err != nil {
 		log.Fatal(err)
 	}

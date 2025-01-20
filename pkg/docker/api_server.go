@@ -98,7 +98,7 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 ) http.HandlerFunc {
 	allowedMethods := route.Methods
 
-	dr, err := resolver.NewGraphResolver(fs, logger, ctx, env, agentDir)
+	dr, err := resolver.NewGraphResolver(fs, ctx, env, agentDir, logger)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -294,7 +294,7 @@ filetype = "%s"
 		sections := []string{urlSection, method, headerSection, dataSection, paramSection, fileSection}
 
 		// Create and process the .pkl request file
-		if err := evaluator.CreateAndProcessPklFile(dr.Fs, sections, dr.RequestPklFile, "APIServerRequest.pkl",
+		if err := evaluator.CreateAndProcessPklFile(dr.Fs, dr.Context, sections, dr.RequestPklFile, "APIServerRequest.pkl",
 			logger, evaluator.EvalPkl, true); err != nil {
 			http.Error(w, "Failed to process request file", http.StatusInternalServerError)
 			return
@@ -524,7 +524,7 @@ func processWorkflow(dr *resolver.DependencyResolver, logger *logging.Logger) (b
 	logger.Debug("Awaiting response...")
 
 	// Wait for the response file to be ready
-	if err := utils.WaitForFileReady(dr.Fs, dr.ResponseTargetFile, logger); err != nil {
+	if err := utils.WaitForFileReady(dr.Fs, dr.Context, dr.ResponseTargetFile, logger); err != nil {
 		return false, err
 	}
 

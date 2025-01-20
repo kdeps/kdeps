@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sync"
@@ -15,12 +16,12 @@ var (
 	UseLatest        bool   = false
 )
 
-// SchemaVersion fetches and returns the schema version based on the cmd.Latest flag.
-func SchemaVersion() string {
+// SchemaVersion(ctx) fetches and returns the schema version based on the cmd.Latest flag.
+func SchemaVersion(ctx context.Context) string {
 	if UseLatest { // Reference the global Latest flag from cmd package
 		once.Do(func() {
 			var err error
-			cachedVersion, err = utils.GitHubReleaseFetcher("kdeps/schema", "")
+			cachedVersion, err = utils.GitHubReleaseFetcher(ctx, "kdeps/schema", "")
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error: Unable to fetch the latest schema version for 'kdeps/schema': %v\n", err)
 				os.Exit(1)

@@ -2,6 +2,7 @@ package enforcer
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -45,7 +46,7 @@ func compareVersions(v1, v2 string, logger *logging.Logger) (int, error) {
 }
 
 // EnforceSchemaURL checks if the "amends" line contains the correct schema.kdeps.com/core URL
-func EnforceSchemaURL(line, filePath string, logger *logging.Logger) error {
+func EnforceSchemaURL(ctx context.Context, line, filePath string, logger *logging.Logger) error {
 	if !strings.HasPrefix(line, "amends") {
 		logger.Error("The .pkl file does not start with 'amends'", "file", filePath)
 		return errors.New("the pkl file does not start with 'amends'")
@@ -60,7 +61,7 @@ func EnforceSchemaURL(line, filePath string, logger *logging.Logger) error {
 }
 
 // EnforcePklVersion extracts the version from the "amends" line and compares it with the provided schema version
-func EnforcePklVersion(line, filePath, schemaVersion string, logger *logging.Logger) error {
+func EnforcePklVersion(ctx context.Context, line, filePath, schemaVersion string, logger *logging.Logger) error {
 	start := strings.Index(line, "@")
 	end := strings.Index(line, "#")
 	if start == -1 || end == -1 || start >= end {
@@ -76,7 +77,7 @@ func EnforcePklVersion(line, filePath, schemaVersion string, logger *logging.Log
 	}
 
 	if comparison == -1 {
-		logger.Warn("Version in amends line is lower than schema version. Please upgrade to latest schema version.", "version", version, "latestSchemaVersion", schemaVersion, "file", filePath)
+		logger.Warn("Version in amends line is lower than schema version. Please upgrade to latest schema version.", "version", version, "latestSchemaVersion(ctx)", schemaVersion, "file", filePath)
 	} else if comparison == 1 {
 		logger.Debug("Version in amends line is higher than schema version", "version", version, "schemaVersion", schemaVersion, "file", filePath)
 	}
@@ -93,7 +94,7 @@ func validPklFilesKeys(validPklFiles map[string]bool) []string {
 	return keys
 }
 
-func EnforcePklFilename(line string, filePath string, logger *logging.Logger) error {
+func EnforcePklFilename(ctx context.Context, line string, filePath string, logger *logging.Logger) error {
 	filename := strings.ToLower(filepath.Base(filePath))
 	start := strings.Index(line, "#/")
 	if start == -1 {
@@ -140,7 +141,7 @@ func EnforcePklFilename(line string, filePath string, logger *logging.Logger) er
 	return nil
 }
 
-func EnforceFolderStructure(fs afero.Fs, filePath string, logger *logging.Logger) error {
+func EnforceFolderStructure(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
 	expectedFile := "workflow.pkl"
 	expectedFolders := map[string]bool{
 		"resources": false,
@@ -191,7 +192,7 @@ func EnforceFolderStructure(fs afero.Fs, filePath string, logger *logging.Logger
 			expectedFolders[file.Name()] = true
 
 			if file.Name() == "resources" {
-				err := enforceResourcesFolder(fs, filepath.Join(absTargetDir, "resources"), logger)
+				err := enforceResourcesFolder(fs, ctx, filepath.Join(absTargetDir, "resources"), logger)
 				if err != nil {
 					return err
 				}
@@ -213,7 +214,7 @@ func EnforceFolderStructure(fs afero.Fs, filePath string, logger *logging.Logger
 	return nil
 }
 
-func EnforceResourceRunBlock(fs afero.Fs, file string, logger *logging.Logger) error {
+func EnforceResourceRunBlock(fs afero.Fs, ctx context.Context, file string, logger *logging.Logger) error {
 	// Load the .pkl file content as a string
 	pklData, err := afero.ReadFile(fs, file)
 	if err != nil {
@@ -265,7 +266,7 @@ func EnforceResourceRunBlock(fs afero.Fs, file string, logger *logging.Logger) e
 	return nil
 }
 
-func enforceResourcesFolder(fs afero.Fs, resourcesPath string, logger *logging.Logger) error {
+func enforceResourcesFolder(fs afero.Fs, ctx context.Context, resourcesPath string, logger *logging.Logger) error {
 	files, err := afero.ReadDir(fs, resourcesPath)
 	if err != nil {
 		logger.Error("Error reading resources folder", "path", resourcesPath, "error", err)
@@ -289,7 +290,7 @@ func enforceResourcesFolder(fs afero.Fs, resourcesPath string, logger *logging.L
 
 		if filepath.Ext(file.Name()) == ".pkl" {
 			fullFilePath := filepath.Join(resourcesPath, file.Name())
-			if err := EnforceResourceRunBlock(fs, fullFilePath, logger); err != nil {
+			if err := EnforceResourceRunBlock(fs, ctx, fullFilePath, logger); err != nil {
 				logger.Error("Failed to process .pkl file", "file", fullFilePath, "error", err)
 				return err
 			}
@@ -300,7 +301,7 @@ func enforceResourcesFolder(fs afero.Fs, resourcesPath string, logger *logging.L
 }
 
 // EnforcePklTemplateAmendsRules combines the three validations (schema URL, version, and .pkl file)
-func EnforcePklTemplateAmendsRules(fs afero.Fs, filePath string, logger *logging.Logger) error {
+func EnforcePklTemplateAmendsRules(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
 	// Open the file containing the amends line
 	file, err := fs.Open(filePath)
 	if err != nil {
@@ -328,17 +329,17 @@ func EnforcePklTemplateAmendsRules(fs afero.Fs, filePath string, logger *logging
 		}
 
 		// Validate the line in stages
-		if err := EnforceSchemaURL(line, filePath, logger); err != nil {
+		if err := EnforceSchemaURL(ctx, line, filePath, logger); err != nil {
 			logger.Error("Schema URL validation failed", "line", line, "error", err)
 			return err
 		}
 
-		if err := EnforcePklVersion(line, filePath, schema.SchemaVersion(), logger); err != nil {
+		if err := EnforcePklVersion(ctx, line, filePath, schema.SchemaVersion(ctx), logger); err != nil {
 			logger.Error("Version validation failed", "line", line, "error", err)
 			return err
 		}
 
-		if err := EnforcePklFilename(line, filePath, logger); err != nil {
+		if err := EnforcePklFilename(ctx, line, filePath, logger); err != nil {
 			logger.Error("Filename validation failed", "line", line, "error", err)
 			return err
 		}

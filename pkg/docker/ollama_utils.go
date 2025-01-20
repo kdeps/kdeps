@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -13,7 +14,7 @@ import (
 )
 
 // parseOLLAMAHost parses the OLLAMA_HOST environment variable into host and port
-func parseOLLAMAHost(logger *logging.Logger) (string, string, error) {
+func parseOLLAMAHost(ctx context.Context, logger *logging.Logger) (string, string, error) {
 	logger.Debug("Parsing OLLAMA_HOST environment variable")
 
 	hostEnv := os.Getenv("OLLAMA_HOST")
@@ -32,7 +33,7 @@ func parseOLLAMAHost(logger *logging.Logger) (string, string, error) {
 	return host, port, nil
 }
 
-func generateUniqueOllamaPort(existingPort uint16) string {
+func generateUniqueOllamaPort(ctx context.Context, existingPort uint16) string {
 	rand.Seed(time.Now().UnixNano())
 	minPort, maxPort := 11435, 65535
 

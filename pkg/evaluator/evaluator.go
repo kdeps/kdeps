@@ -106,7 +106,7 @@ func CreateAndProcessPklFile(
 
 	// Prepare the sections with the relationship keyword and imports
 	// amends or extends "package://schema.kdeps.com/core@0.0.34#/Kdeps.pkl"
-	relationshipSection := fmt.Sprintf(`%s "package://schema.kdeps.com/core@%s#/%s"`, relationship, schema.SchemaVersion(), pklTemplate)
+	relationshipSection := fmt.Sprintf(`%s "package://schema.kdeps.com/core@%s#/%s"`, relationship, schema.SchemaVersion(ctx), pklTemplate)
 	fullSections := append([]string{relationshipSection}, sections...)
 
 	// Write sections to the temporary file

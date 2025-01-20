@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -23,7 +24,7 @@ type URLInfo struct {
 }
 
 // GetCurrentArchitecture returns the architecture of the current machine.
-func GetCurrentArchitecture(repo string) string {
+func GetCurrentArchitecture(ctx context.Context, repo string) string {
 	arch := runtime.GOARCH
 	switch arch {
 	case "amd64":
@@ -39,9 +40,9 @@ func GetCurrentArchitecture(repo string) string {
 }
 
 // CompareVersions compares two versions, returning true if v1 > v2.
-func CompareVersions(v1, v2 string) bool {
-	parts1 := parseVersion(v1)
-	parts2 := parseVersion(v2)
+func CompareVersions(ctx context.Context, v1, v2 string) bool {
+	parts1 := parseVersion(ctx, v1)
+	parts2 := parseVersion(ctx, v2)
 
 	for i := 0; i < len(parts1) || i < len(parts2); i++ {
 		var p1, p2 int
@@ -59,7 +60,7 @@ func CompareVersions(v1, v2 string) bool {
 }
 
 // parseVersion parses a version string like "2024.10-1" into a slice of integers.
-func parseVersion(version string) []int {
+func parseVersion(ctx context.Context, version string) []int {
 	parts := strings.FieldsFunc(version, func(r rune) bool {
 		return r == '.' || r == '-'
 	})
@@ -72,7 +73,7 @@ func parseVersion(version string) []int {
 }
 
 // GetLatestAnacondaVersions fetches the latest Anaconda versions for both architectures.
-func GetLatestAnacondaVersions() (map[string]string, map[string]string, error) {
+func GetLatestAnacondaVersions(ctx context.Context) (map[string]string, map[string]string, error) {
 	archiveURL := "https://repo.anaconda.com/archive/"
 	resp, err := http.Get(archiveURL)
 	if err != nil {
@@ -111,7 +112,7 @@ func GetLatestAnacondaVersions() (map[string]string, map[string]string, error) {
 		arch := match[2]
 
 		// Compare and update the latest version for each architecture.
-		if latestVersions[arch] == "" || CompareVersions(version, latestVersions[arch]) {
+		if latestVersions[arch] == "" || CompareVersions(ctx, version, latestVersions[arch]) {
 			latestVersions[arch] = version
 			latestBuilds[arch] = match[0] // Full filename for the latest version and architecture.
 		}
@@ -120,7 +121,7 @@ func GetLatestAnacondaVersions() (map[string]string, map[string]string, error) {
 	return latestVersions, latestBuilds, nil
 }
 
-func GenerateURLs() ([]string, error) {
+func GenerateURLs(ctx context.Context) ([]string, error) {
 	urlInfos := []URLInfo{
 		{
 			BaseURL:       "https://github.com/apple/pkl/releases/download/{version}/pkl-linux-{arch}",
@@ -139,13 +140,13 @@ func GenerateURLs() ([]string, error) {
 	var urls []string
 
 	for _, info := range urlInfos {
-		currentArch := GetCurrentArchitecture(info.Repo) // Pass repo to get correct arch
+		currentArch := GetCurrentArchitecture(ctx, info.Repo) // Pass repo to get correct arch
 
 		if info.IsAnaconda {
 			// Handle Anaconda URLs
 			version := info.Version
 			if schema.UseLatest {
-				latestVersions, _, err := GetLatestAnacondaVersions()
+				latestVersions, _, err := GetLatestAnacondaVersions(ctx)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get Anaconda versions: %w", err)
 				}
@@ -161,7 +162,7 @@ func GenerateURLs() ([]string, error) {
 			// Handle other URLs (e.g., PKL)
 			version := info.Version
 			if schema.UseLatest {
-				latestVersion, err := utils.GetLatestGitHubRelease(info.Repo, "")
+				latestVersion, err := utils.GetLatestGitHubRelease(ctx, info.Repo, "")
 				if err != nil {
 					return nil, fmt.Errorf("failed to get latest version for %s: %w", info.Repo, err)
 				}

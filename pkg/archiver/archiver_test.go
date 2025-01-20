@@ -336,7 +336,7 @@ func theContentOfThatArchiveFileWillBeExtractedTo(arg1 string) error {
 }
 
 func thePklFilesIsValid() error {
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowFile, logger); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowFile, logger); err != nil {
 		return err
 	}
 
@@ -344,7 +344,7 @@ func thePklFilesIsValid() error {
 }
 
 func theProjectIsValid() error {
-	if err := enforcer.EnforceFolderStructure(testFs, workflowFile, logger); err != nil {
+	if err := enforcer.EnforceFolderStructure(testFs, ctx, workflowFile, logger); err != nil {
 		return err
 	}
 
@@ -357,7 +357,7 @@ func theProjectWillBeArchivedTo(arg1 string) error {
 		return err
 	}
 
-	fpath, err := PackageProject(testFs, wf, kdepsDir, aiAgentDir, logger)
+	fpath, err := PackageProject(testFs, ctx, wf, kdepsDir, aiAgentDir, logger)
 	if err != nil {
 		return err
 	}
@@ -409,7 +409,7 @@ func thePklFilesIsInvalid() error {
 
 	workflowFile = file
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowFile, logger); err == nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowFile, logger); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 
@@ -417,7 +417,7 @@ func thePklFilesIsInvalid() error {
 }
 
 func theProjectIsInvalid() error {
-	if err := enforcer.EnforceFolderStructure(testFs, workflowFile, logger); err == nil {
+	if err := enforcer.EnforceFolderStructure(testFs, ctx, workflowFile, logger); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 
@@ -430,7 +430,7 @@ func theProjectWillNotBeArchivedTo(arg1 string) error {
 		return err
 	}
 
-	fpath, err := PackageProject(testFs, wf, kdepsDir, aiAgentDir, logger)
+	fpath, err := PackageProject(testFs, ctx, wf, kdepsDir, aiAgentDir, logger)
 	if err == nil {
 		return errors.New("expected an error, but got nil")
 	}

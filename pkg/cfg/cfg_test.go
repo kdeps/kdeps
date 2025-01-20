@@ -20,7 +20,7 @@ var (
 	homeDirPath    string
 	testConfigFile string
 	fileThatExist  string
-	ctx            context.Context
+	ctx            = context.Background()
 	logger         *logging.Logger
 	testingT       *testing.T
 )

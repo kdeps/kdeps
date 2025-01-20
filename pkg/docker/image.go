@@ -127,7 +127,7 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 	defer response.Body.Close()
 
 	// Process and print the build output
-	err = printDockerBuildOutput(response.Body)
+	err = printDockerBuildOutput(ctx, response.Body)
 	if err != nil {
 		return cName, containerName, err
 	}
@@ -139,6 +139,7 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 
 // generateDockerfile constructs the Dockerfile content by appending multi-line blocks.
 func generateDockerfile(
+	ctx context.Context,
 	imageVersion,
 	schemaVersion,
 	hostIP,
@@ -259,7 +260,7 @@ ENTRYPOINT ["/bin/kdeps"]
 	return dockerFile.String()
 }
 
-func copyFilesToRunDir(fs afero.Fs, downloadDir, runDir string, logger *logging.Logger) error {
+func copyFilesToRunDir(fs afero.Fs, ctx context.Context, downloadDir, runDir string, logger *logging.Logger) error {
 	// Ensure the runDir and cache directory exist
 	downloadsDir := filepath.Join(runDir, "cache")
 	err := fs.MkdirAll(downloadsDir, os.ModePerm)
@@ -281,7 +282,7 @@ func copyFilesToRunDir(fs afero.Fs, downloadDir, runDir string, logger *logging.
 		destinationPath := filepath.Join(downloadsDir, file.Name())
 
 		// Copy the file content
-		err = archiver.CopyFile(fs, sourcePath, destinationPath, logger)
+		err = archiver.CopyFile(fs, ctx, sourcePath, destinationPath, logger)
 		if err != nil {
 			logger.Error("Failed to copy file", "source", sourcePath, "destination", destinationPath, "error", err)
 			return fmt.Errorf("failed to copy file: %w", err)
@@ -293,7 +294,7 @@ func copyFilesToRunDir(fs afero.Fs, downloadDir, runDir string, logger *logging.
 	return nil
 }
 
-func generateParamsSection(prefix string, items map[string]string) string {
+func generateParamsSection(ctx context.Context, prefix string, items map[string]string) string {
 	var lines []string
 	for key, value := range items {
 		line := fmt.Sprintf(`%s %s`, prefix, key)
@@ -352,11 +353,11 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	var argsSection, envsSection string
 
 	if dockerSettings.Args != nil {
-		argsSection = generateParamsSection("ARG", *argsList)
+		argsSection = generateParamsSection(ctx, "ARG", *argsList)
 	}
 
 	if dockerSettings.Env != nil {
-		envsSection = generateParamsSection("ENV", *envsList)
+		envsSection = generateParamsSection(ctx, "ENV", *envsList)
 	}
 
 	var pkgLines []string
@@ -421,25 +422,25 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion)
 	downloadDir := filepath.Join(kdepsDir, "cache")
 
-	urls, err := GenerateURLs()
+	urls, err := GenerateURLs(ctx)
 	if err != nil {
 		return "", false, "", "", "", err
 	}
 
-	err = download.DownloadFiles(fs, downloadDir, urls, logger)
+	err = download.DownloadFiles(fs, ctx, downloadDir, urls, logger)
 	if err != nil {
 		return "", false, "", "", "", err
 	}
 
-	err = copyFilesToRunDir(fs, downloadDir, runDir, logger)
+	err = copyFilesToRunDir(fs, ctx, downloadDir, runDir, logger)
 	if err != nil {
 		return "", false, "", "", "", err
 	}
 
-	ollamaPortNum := generateUniqueOllamaPort(portNum)
-	dockerfileContent := generateDockerfile(
+	ollamaPortNum := generateUniqueOllamaPort(ctx, portNum)
+	dockerfileContent := generateDockerfile(ctx,
 		imageVersion,
-		schema.SchemaVersion(),
+		schema.SchemaVersion(ctx),
 		hostIP,
 		ollamaPortNum,
 		kdepsHost,
@@ -465,7 +466,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 }
 
 // printDockerBuildOutput processes the Docker build logs and returns any error encountered during the build.
-func printDockerBuildOutput(rd io.Reader) error {
+func printDockerBuildOutput(ctx context.Context, rd io.Reader) error {
 	scanner := bufio.NewScanner(rd)
 	for scanner.Scan() {
 		line := scanner.Text()

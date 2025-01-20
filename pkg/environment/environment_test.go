@@ -22,12 +22,12 @@ func TestCheckConfig(t *testing.T) {
 	configFilePath := filepath.Join(baseDir, SystemConfigFileName)
 
 	// Test when file does not exist
-	_, err := checkConfig(fs, baseDir)
+	_, err := checkConfig(fs, ctx, baseDir)
 	assert.NoError(t, err, "Expected no error when file does not exist")
 
 	// Test when file exists
 	afero.WriteFile(fs, configFilePath, []byte{}, 0o644)
-	foundConfig, err := checkConfig(fs, baseDir)
+	foundConfig, err := checkConfig(fs, ctx, baseDir)
 	assert.NoError(t, err, "Expected no error when file exists")
 	assert.Equal(t, configFilePath, foundConfig, "Expected correct file path")
 }
@@ -40,18 +40,18 @@ func TestFindKdepsConfig(t *testing.T) {
 	home := "/home"
 
 	// Test when no kdeps.pkl file exists
-	config := findKdepsConfig(fs, pwd, home)
+	config := findKdepsConfig(fs, ctx, pwd, home)
 	assert.Empty(t, config, "Expected empty result when no config file exists")
 
 	// Test when kdeps.pkl exists in Pwd
 	afero.WriteFile(fs, filepath.Join(pwd, SystemConfigFileName), []byte{}, 0o644)
-	config = findKdepsConfig(fs, pwd, home)
+	config = findKdepsConfig(fs, ctx, pwd, home)
 	assert.Equal(t, filepath.Join(pwd, SystemConfigFileName), config, "Expected config file from Pwd directory")
 
 	// Test when kdeps.pkl exists in Home and not in Pwd
 	fs = afero.NewMemMapFs() // Reset file system
 	afero.WriteFile(fs, filepath.Join(home, SystemConfigFileName), []byte{}, 0o644)
-	config = findKdepsConfig(fs, pwd, home)
+	config = findKdepsConfig(fs, ctx, pwd, home)
 	assert.Equal(t, filepath.Join(home, SystemConfigFileName), config, "Expected config file from Home directory")
 }
 
@@ -62,19 +62,19 @@ func TestIsDockerEnvironment(t *testing.T) {
 	root := "/"
 
 	// Test when .dockerenv does not exist
-	isDocker := isDockerEnvironment(fs, root)
+	isDocker := isDockerEnvironment(fs, ctx, root)
 	assert.False(t, isDocker, "Expected not to be in a Docker environment")
 
 	// Test when .dockerenv exists
 	afero.WriteFile(fs, filepath.Join(root, ".dockerenv"), []byte{}, 0o644)
-	isDocker = isDockerEnvironment(fs, root)
+	isDocker = isDockerEnvironment(fs, ctx, root)
 	assert.False(t, isDocker, "Expected false due to missing required Docker environment variables")
 
 	// Test when required Docker environment variables are set
 	os.Setenv("SCHEMA_VERSION", "1.0")
 	os.Setenv("OLLAMA_HOST", "localhost")
 	os.Setenv("KDEPS_HOST", "localhost")
-	isDocker = isDockerEnvironment(fs, root)
+	isDocker = isDockerEnvironment(fs, ctx, root)
 	assert.True(t, isDocker, "Expected true when .dockerenv exists and required environment variables are set")
 }
 
@@ -87,13 +87,13 @@ func TestAllDockerEnvVarsSet(t *testing.T) {
 	os.Unsetenv("KDEPS_HOST")
 
 	// Test when no variables are set
-	assert.False(t, allDockerEnvVarsSet(), "Expected false when no variables are set")
+	assert.False(t, allDockerEnvVarsSet(ctx), "Expected false when no variables are set")
 
 	// Test when all variables are set
 	os.Setenv("SCHEMA_VERSION", "1.0")
 	os.Setenv("OLLAMA_HOST", "localhost")
 	os.Setenv("KDEPS_HOST", "localhost")
-	assert.True(t, allDockerEnvVarsSet(), "Expected true when all required variables are set")
+	assert.True(t, allDockerEnvVarsSet(ctx), "Expected true when all required variables are set")
 
 	// Clean up
 	os.Unsetenv("SCHEMA_VERSION")

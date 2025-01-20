@@ -26,7 +26,7 @@ open-source LLM models that are orchestrated by a graph-based dependency workflo
 		`Fetch and use the latest schema and libraries. It is recommended to set the GITHUB_TOKEN environment
 variable to prevent errors caused by rate limit exhaustion.`)
 	rootCmd.AddCommand(NewAgentCommand(fs, ctx, kdepsDir, logger))
-	rootCmd.AddCommand(NewScaffoldCommand(fs, logger))
+	rootCmd.AddCommand(NewScaffoldCommand(fs, ctx, logger))
 	rootCmd.AddCommand(NewAddCommand(fs, ctx, kdepsDir, logger))
 	rootCmd.AddCommand(NewPackageCommand(fs, ctx, kdepsDir, env, logger))
 	rootCmd.AddCommand(NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger))

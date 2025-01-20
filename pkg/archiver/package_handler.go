@@ -120,7 +120,7 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 
 	// Move the extracted files from the temporary directory to the permanent location
 	extractBasePath := filepath.Join(kdepsDir, "agents", agentName, agentVersion)
-	if err := MoveFolder(fs, tempDir, extractBasePath); err != nil {
+	if err := MoveFolder(fs, ctx, tempDir, extractBasePath); err != nil {
 		return nil, fmt.Errorf("Failed to move extracted package to kdeps system directory: %s", extractBasePath)
 	}
 
@@ -136,14 +136,14 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 	destinationFile := filepath.Join(packageDir, baseFilename)
 	sourceFile := kdepsPackage
 
-	err = CopyFile(fs, sourceFile, destinationFile, logger)
+	err = CopyFile(fs, ctx, sourceFile, destinationFile, logger)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to copy kdeps package to packages directory: %w", err)
 	}
 
 	kdepsPackage = destinationFile
 
-	_, err = PrepareRunDir(fs, wfConfig, kdepsDir, kdepsPackage, logger)
+	_, err = PrepareRunDir(fs, ctx, wfConfig, kdepsDir, kdepsPackage, logger)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to prepare runtime directory: %w", err)
 	}
@@ -198,7 +198,7 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 	}
 
 	// Get the MD5 hash of the file
-	md5Hash, err := getFileMD5(fs, kdepsPackage, 5)
+	md5Hash, err := getFileMD5(fs, ctx, kdepsPackage, 5)
 	if err != nil {
 		return nil, fmt.Errorf("Error calculating MD5: %w", err)
 	}
@@ -213,9 +213,9 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 }
 
 // PackageProject compresses the contents of projectDir into a kdeps file in kdepsDir
-func PackageProject(fs afero.Fs, wf pklWf.Workflow, kdepsDir, compiledProjectDir string, logger *logging.Logger) (string, error) {
+func PackageProject(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, compiledProjectDir string, logger *logging.Logger) (string, error) {
 	// Enforce the folder structure
-	if err := enforcer.EnforceFolderStructure(fs, compiledProjectDir, logger); err != nil {
+	if err := enforcer.EnforceFolderStructure(fs, ctx, compiledProjectDir, logger); err != nil {
 		logger.Error("Failed to enforce folder structure", "error", err)
 		return "", err
 	}

@@ -2,6 +2,7 @@ package download
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"os"
@@ -14,7 +15,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var logger *logging.Logger
+var (
+	logger *logging.Logger
+	ctx    context.Context
+)
 
 func TestWriteCounter_Write(t *testing.T) {
 	counter := &WriteCounter{}
@@ -73,7 +77,7 @@ func TestDownloadFile(t *testing.T) {
 	fs := afero.NewMemMapFs()
 
 	// Run the file download
-	err := DownloadFile(fs, "http://localhost:8080", "/testfile", logger)
+	err := DownloadFile(fs, ctx, "http://localhost:8080", "/testfile", logger)
 	require.NoError(t, err)
 
 	// Verify the downloaded content
@@ -87,7 +91,7 @@ func TestDownloadFile_FileCreationError(t *testing.T) {
 	fs := afero.NewMemMapFs()
 
 	// Invalid file path test case
-	err := DownloadFile(fs, "http://localhost:8080", "", logger)
+	err := DownloadFile(fs, ctx, "http://localhost:8080", "", logger)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid file path")
 }
@@ -96,6 +100,6 @@ func TestDownloadFile_HttpGetError(t *testing.T) {
 	fs := afero.NewMemMapFs()
 
 	// Trying to download a file from an invalid URL
-	err := DownloadFile(fs, "http://invalid-url", "/testfile", logger)
+	err := DownloadFile(fs, ctx, "http://invalid-url", "/testfile", logger)
 	assert.Error(t, err)
 }
