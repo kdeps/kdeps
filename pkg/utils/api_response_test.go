@@ -24,6 +24,10 @@ func TestNewAPIServerResponse(t *testing.T) {
 
 	t.Run("ResponseWithError", func(t *testing.T) {
 		t.Parallel()
+
+		// Reset persistentErrors before starting the test
+		persistentErrors = nil
+
 		response := NewAPIServerResponse(false, nil, 404, "Resource not found")
 
 		assert.False(t, response.Success, "Expected success to be false")
@@ -38,16 +42,20 @@ func TestNewAPIServerResponse(t *testing.T) {
 
 	t.Run("PersistentErrorStorage", func(t *testing.T) {
 		t.Parallel()
-		// Add another error
+
+		// Add the first error
+		NewAPIServerResponse(false, nil, 404, "Resource not found")
+
+		// Add the second error
 		NewAPIServerResponse(false, nil, 500, "Internal server error")
 
 		// Validate persistent errors
-		assert.Len(t, persistentErrors, 2, "Expected two errors in the persistentErrors slice")
-
-		// Validate the second error block
-		errorBlock := persistentErrors[1]
-		assert.Equal(t, 500, errorBlock.Code, "Expected error code to match")
-		assert.Equal(t, "Internal server error", errorBlock.Message, "Expected error message to match")
+		if assert.Len(t, persistentErrors, 2, "Expected two errors in the persistentErrors slice") {
+			// Validate the second error block
+			errorBlock := persistentErrors[1]
+			assert.Equal(t, 500, errorBlock.Code, "Expected error code to match")
+			assert.Equal(t, "Internal server error", errorBlock.Message, "Expected error message to match")
+		}
 	})
 
 	t.Run("ClearPersistentErrors", func(t *testing.T) {
