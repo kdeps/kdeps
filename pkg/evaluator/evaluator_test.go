@@ -32,6 +32,7 @@ func TestCreateAndProcessPklFile(t *testing.T) {
 	}
 
 	t.Run("CreateAndProcessAmends", func(t *testing.T) {
+		t.Parallel()
 		err := evaluator.CreateAndProcessPklFile(fs, ctx, sections, finalFileName, pklTemplate, logger, processFunc, false)
 		assert.NoError(t, err, "CreateAndProcessPklFile should not return an error")
 		content, err := afero.ReadFile(fs, finalFileName)
@@ -41,6 +42,7 @@ func TestCreateAndProcessPklFile(t *testing.T) {
 	})
 
 	t.Run("CreateAndProcessExtends", func(t *testing.T) {
+		t.Parallel()
 		err := evaluator.CreateAndProcessPklFile(fs, ctx, sections, finalFileName, pklTemplate, logger, processFunc, true)
 		assert.NoError(t, err, "CreateAndProcessPklFile should not return an error")
 		content, err := afero.ReadFile(fs, finalFileName)

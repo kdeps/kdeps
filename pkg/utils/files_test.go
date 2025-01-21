@@ -25,7 +25,9 @@ func (e *errorFs) Stat(name string) (os.FileInfo, error) {
 }
 
 func TestWaitForFileReady(t *testing.T) {
+	t.Parallel()
 	t.Run("FileExists", func(t *testing.T) {
+		t.Parallel()
 		// Arrange
 		fs := afero.NewMemMapFs()
 		filepath := "/testfile.txt"
@@ -42,6 +44,7 @@ func TestWaitForFileReady(t *testing.T) {
 	})
 
 	t.Run("FileDoesNotExist", func(t *testing.T) {
+		t.Parallel()
 		// Arrange
 		fs := afero.NewMemMapFs()
 		filepath := "/nonexistent.txt"
@@ -58,6 +61,7 @@ func TestWaitForFileReady(t *testing.T) {
 	})
 
 	t.Run("ErrorCheckingFile", func(t *testing.T) {
+		t.Parallel()
 		// Arrange
 		fs := &errorFs{Fs: afero.NewMemMapFs()} // Wrap with error-inducing Fs
 		filepath := "/cannotcreate.txt"

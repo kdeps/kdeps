@@ -11,6 +11,7 @@ import (
 )
 
 func TestGetLatestGitHubRelease(t *testing.T) {
+	t.Parallel()
 	var ctx context.Context
 
 	// Mock GitHub API server

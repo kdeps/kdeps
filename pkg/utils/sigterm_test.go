@@ -12,6 +12,7 @@ import (
 )
 
 func TestSendSigterm(t *testing.T) {
+	t.Parallel()
 	// Create a logger that outputs to os.Stderr for visibility in tests
 	logging.CreateLogger()
 
