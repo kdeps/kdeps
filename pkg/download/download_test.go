@@ -101,6 +101,7 @@ func TestDownloadFile_FileCreationError(t *testing.T) {
 
 func TestDownloadFile_HttpGetError(t *testing.T) {
 	t.Parallel()
+	logger = logging.GetLogger()
 	fs := afero.NewMemMapFs()
 
 	// Trying to download a file from an invalid URL
