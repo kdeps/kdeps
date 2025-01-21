@@ -7,10 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cucumber/godog"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
-
-	"github.com/cucumber/godog"
 	"github.com/spf13/afero"
 )
 
@@ -20,12 +19,13 @@ var (
 	homeDirPath    string
 	testConfigFile string
 	fileThatExist  string
-	ctx            context.Context
+	ctx            = context.Background()
 	logger         *logging.Logger
 	testingT       *testing.T
 )
 
 func TestFeatures(t *testing.T) {
+	t.Parallel()
 	suite := godog.TestSuite{
 		ScenarioInitializer: func(ctx *godog.ScenarioContext) {
 			ctx.Step(`^a file "([^"]*)" exists in the current directory$`, aFileExistsInTheCurrentDirectory)
@@ -127,12 +127,12 @@ func theConfigurationIsLoadedInTheCurrentDirectory() error {
 		Pwd:  currentDirPath,
 	}
 
-	environ, err := environment.NewEnvironment(testFs, env)
+	environ, err := environment.NewEnvironment(testFs, ctx, env)
 	if err != nil {
 		return err
 	}
 
-	cfgFile, err := FindConfiguration(testFs, environ, logger)
+	cfgFile, err := FindConfiguration(testFs, ctx, environ, logger)
 	if err != nil {
 		return err
 	}
@@ -150,12 +150,12 @@ func theConfigurationIsLoadedInTheHomeDirectory() error {
 		Pwd:  "",
 	}
 
-	environ, err := environment.NewEnvironment(testFs, env)
+	environ, err := environment.NewEnvironment(testFs, ctx, env)
 	if err != nil {
 		return err
 	}
 
-	cfgFile, err := FindConfiguration(testFs, environ, logger)
+	cfgFile, err := FindConfiguration(testFs, ctx, environ, logger)
 	if err != nil {
 		return err
 	}
@@ -201,14 +201,14 @@ func theConfigurationFailsToLoadAnyConfiguration() error {
 		Pwd:  currentDirPath,
 	}
 
-	environ, err := environment.NewEnvironment(testFs, env)
+	environ, err := environment.NewEnvironment(testFs, ctx, env)
 	if err != nil {
 		return err
 	}
 
-	cfgFile, err := FindConfiguration(testFs, environ, logger)
+	cfgFile, err := FindConfiguration(testFs, ctx, environ, logger)
 	if err != nil {
-		return errors.New(fmt.Sprintf("An error occurred while finding configuration: %s", err))
+		return fmt.Errorf("An error occurred while finding configuration: %w", err)
 	}
 	if cfgFile != "" {
 		return errors.New("expected not finding configuration file, but found")
@@ -224,12 +224,12 @@ func theConfigurationFileWillBeGeneratedTo(arg1 string) error {
 		NonInteractive: "1",
 	}
 
-	environ, err := environment.NewEnvironment(testFs, env)
+	environ, err := environment.NewEnvironment(testFs, ctx, env)
 	if err != nil {
 		return err
 	}
 
-	cfgFile, err := GenerateConfiguration(testFs, environ, logger)
+	cfgFile, err := GenerateConfiguration(testFs, ctx, environ, logger)
 	if err != nil {
 		return err
 	}
@@ -248,12 +248,12 @@ func theConfigurationWillBeEdited() error {
 		NonInteractive: "1",
 	}
 
-	environ, err := environment.NewEnvironment(testFs, env)
+	environ, err := environment.NewEnvironment(testFs, ctx, env)
 	if err != nil {
 		return err
 	}
 
-	if _, err := EditConfiguration(testFs, environ, logger); err != nil {
+	if _, err := EditConfiguration(testFs, ctx, environ, logger); err != nil {
 		return err
 	}
 
@@ -266,7 +266,7 @@ func theConfigurationWillBeValidated() error {
 		Pwd:  "",
 	}
 
-	environ, err := environment.NewEnvironment(testFs, env)
+	environ, err := environment.NewEnvironment(testFs, ctx, env)
 	if err != nil {
 		return err
 	}

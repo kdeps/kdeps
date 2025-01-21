@@ -12,6 +12,7 @@ import (
 )
 
 func TestSendSigterm(t *testing.T) {
+	t.Parallel()
 	// Create a logger that outputs to os.Stderr for visibility in tests
 	logging.CreateLogger()
 
@@ -33,7 +34,7 @@ func TestSendSigterm(t *testing.T) {
 	}
 }
 
-// timeout provides a channel that sends a signal after 1 second to prevent hangs
+// timeout provides a channel that sends a signal after 1 second to prevent hangs.
 func timeout() <-chan struct{} {
 	ch := make(chan struct{})
 	go func() {

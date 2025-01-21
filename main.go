@@ -35,7 +35,7 @@ func main() {
 	logger := logging.GetLogger()
 
 	// Setup environment
-	env, err := setupEnvironment(fs)
+	env, err := setupEnvironment(fs, ctx)
 	if err != nil {
 		logger.Error("Failed to set up environment", "error", err)
 		return
@@ -58,7 +58,7 @@ func handleDockerMode(fs afero.Fs, ctx context.Context, env *environment.Environ
 	}
 
 	// Setup graceful shutdown handling
-	setupSignalHandler(cancel, fs, env, apiServerMode, logger)
+	setupSignalHandler(fs, ctx, cancel, env, apiServerMode, logger)
 
 	// Run workflow or wait for shutdown
 	if !apiServerMode {
@@ -72,17 +72,17 @@ func handleDockerMode(fs afero.Fs, ctx context.Context, env *environment.Environ
 	// Wait for shutdown signal
 	<-ctx.Done()
 	logger.Debug("Context canceled, shutting down gracefully...")
-	cleanup(fs, env, apiServerMode, logger)
+	cleanup(fs, ctx, env, apiServerMode, logger)
 }
 
 func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) {
-	cfgFile, err := cfg.FindConfiguration(fs, env, logger)
+	cfgFile, err := cfg.FindConfiguration(fs, ctx, env, logger)
 	if err != nil {
 		logger.Error("Error occurred finding configuration")
 	}
 
 	if cfgFile == "" {
-		cfgFile, err = cfg.GenerateConfiguration(fs, env, logger)
+		cfgFile, err = cfg.GenerateConfiguration(fs, ctx, env, logger)
 		if err != nil {
 			logger.Fatal("Error occurred generating configuration", "error", err)
 			return
@@ -90,7 +90,7 @@ func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Envi
 
 		logger.Info("Configuration file generated", "file", cfgFile)
 
-		cfgFile, err = cfg.EditConfiguration(fs, env, logger)
+		cfgFile, err = cfg.EditConfiguration(fs, ctx, env, logger)
 		if err != nil {
 			logger.Error("Error occurred editing configuration")
 		}
@@ -114,7 +114,7 @@ func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Envi
 		return
 	}
 
-	kdepsDir, err := cfg.GetKdepsPath(*systemCfg)
+	kdepsDir, err := cfg.GetKdepsPath(ctx, *systemCfg)
 	if err != nil {
 		logger.Error("Error occurred while getting Kdeps system path")
 		return
@@ -127,8 +127,8 @@ func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Envi
 }
 
 // setupEnvironment initializes the environment using the filesystem.
-func setupEnvironment(fs afero.Fs) (*environment.Environment, error) {
-	environ, err := environment.NewEnvironment(fs, nil)
+func setupEnvironment(fs afero.Fs, ctx context.Context) (*environment.Environment, error) {
+	environ, err := environment.NewEnvironment(fs, ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +136,7 @@ func setupEnvironment(fs afero.Fs) (*environment.Environment, error) {
 }
 
 // setupSignalHandler sets up a goroutine to handle OS signals for graceful shutdown.
-func setupSignalHandler(cancelFunc context.CancelFunc, fs afero.Fs, env *environment.Environment, apiServerMode bool, logger *logging.Logger) {
+func setupSignalHandler(fs afero.Fs, ctx context.Context, cancelFunc context.CancelFunc, env *environment.Environment, apiServerMode bool, logger *logging.Logger) {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
@@ -144,8 +144,8 @@ func setupSignalHandler(cancelFunc context.CancelFunc, fs afero.Fs, env *environ
 		sig := <-sigs
 		logger.Debug(fmt.Sprintf("Received signal: %v, initiating shutdown...", sig))
 		cancelFunc() // Cancel context to initiate shutdown
-		cleanup(fs, env, apiServerMode, logger)
-		if err := utils.WaitForFileReady(fs, "/.dockercleanup", logger); err != nil {
+		cleanup(fs, ctx, env, apiServerMode, logger)
+		if err := utils.WaitForFileReady(fs, ctx, "/.dockercleanup", logger); err != nil {
 			logger.Error("Error occurred while waiting for file to be ready", "file", "/.dockercleanup")
 
 			return
@@ -156,7 +156,7 @@ func setupSignalHandler(cancelFunc context.CancelFunc, fs afero.Fs, env *environ
 
 // runGraphResolver prepares and runs the graph resolver.
 func runGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment, apiServerMode bool, logger *logging.Logger) error {
-	dr, err := resolver.NewGraphResolver(fs, logger, ctx, env, "/agent")
+	dr, err := resolver.NewGraphResolver(fs, ctx, env, "/agent", logger)
 	if err != nil {
 		return fmt.Errorf("failed to create graph resolver: %w", err)
 	}
@@ -178,15 +178,15 @@ func runGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		utils.SendSigterm(logger)
 	}
 
-	cleanup(fs, env, apiServerMode, logger)
+	cleanup(fs, ctx, env, apiServerMode, logger)
 
-	utils.WaitForFileReady(fs, "/.dockercleanup", logger)
+	utils.WaitForFileReady(fs, ctx, "/.dockercleanup", logger)
 
 	return nil
 }
 
 // cleanup performs any necessary cleanup tasks before shutting down.
-func cleanup(fs afero.Fs, env *environment.Environment, apiServerMode bool, logger *logging.Logger) {
+func cleanup(fs afero.Fs, ctx context.Context, env *environment.Environment, apiServerMode bool, logger *logging.Logger) {
 	logger.Debug("Performing cleanup tasks...")
 
 	// Remove any old cleanup flags
@@ -197,7 +197,7 @@ func cleanup(fs afero.Fs, env *environment.Environment, apiServerMode bool, logg
 	}
 
 	// Perform Docker cleanup
-	docker.Cleanup(fs, env, logger)
+	docker.Cleanup(fs, ctx, env, logger)
 
 	logger.Debug("Cleanup complete.")
 

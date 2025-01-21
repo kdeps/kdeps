@@ -2,21 +2,25 @@ package download
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"os"
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
-
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-var logger *logging.Logger
+var (
+	logger *logging.Logger
+	ctx    context.Context
+)
 
 func TestWriteCounter_Write(t *testing.T) {
+	t.Parallel()
 	counter := &WriteCounter{}
 	data := []byte("Hello, World!")
 	n, err := counter.Write(data)
@@ -27,6 +31,7 @@ func TestWriteCounter_Write(t *testing.T) {
 }
 
 func TestWriteCounter_PrintProgress(t *testing.T) {
+	t.Parallel()
 	counter := &WriteCounter{
 		DownloadURL: "example.com/file.txt",
 	}
@@ -58,6 +63,7 @@ func TestWriteCounter_PrintProgress(t *testing.T) {
 }
 
 func TestDownloadFile(t *testing.T) {
+	t.Parallel()
 	logger = logging.GetLogger()
 	// Mock a simple HTTP server to simulate file download
 	server := http.Server{
@@ -73,7 +79,7 @@ func TestDownloadFile(t *testing.T) {
 	fs := afero.NewMemMapFs()
 
 	// Run the file download
-	err := DownloadFile(fs, "http://localhost:8080", "/testfile", logger)
+	err := DownloadFile(fs, ctx, "http://localhost:8080", "/testfile", logger)
 	require.NoError(t, err)
 
 	// Verify the downloaded content
@@ -83,19 +89,21 @@ func TestDownloadFile(t *testing.T) {
 }
 
 func TestDownloadFile_FileCreationError(t *testing.T) {
+	t.Parallel()
 	logger = logging.GetLogger()
 	fs := afero.NewMemMapFs()
 
 	// Invalid file path test case
-	err := DownloadFile(fs, "http://localhost:8080", "", logger)
+	err := DownloadFile(fs, ctx, "http://localhost:8080", "", logger)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid file path")
 }
 
 func TestDownloadFile_HttpGetError(t *testing.T) {
+	t.Parallel()
 	fs := afero.NewMemMapFs()
 
 	// Trying to download a file from an invalid URL
-	err := DownloadFile(fs, "http://invalid-url", "/testfile", logger)
+	err := DownloadFile(fs, ctx, "http://invalid-url", "/testfile", logger)
 	assert.Error(t, err)
 }

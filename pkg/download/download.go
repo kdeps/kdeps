@@ -1,6 +1,8 @@
 package download
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -35,7 +37,7 @@ func (wc WriteCounter) PrintProgress() {
 }
 
 // Given a list of URLs, download it to a target.
-func DownloadFiles(fs afero.Fs, downloadDir string, urls []string, logger *logging.Logger) error {
+func DownloadFiles(fs afero.Fs, ctx context.Context, downloadDir string, urls []string, logger *logging.Logger) error {
 	// Create the downloads directory if it doesn't exist
 	err := os.MkdirAll(downloadDir, 0o755)
 	if err != nil {
@@ -51,7 +53,7 @@ func DownloadFiles(fs afero.Fs, downloadDir string, urls []string, logger *loggi
 		localPath := filepath.Join(downloadDir, fileName)
 
 		// Download the file
-		err := DownloadFile(fs, url, localPath, logger)
+		err := DownloadFile(fs, ctx, url, localPath, logger)
 		if err != nil {
 			logger.Error("Failed to download", "url", url, "err", err)
 		} else {
@@ -64,7 +66,7 @@ func DownloadFiles(fs afero.Fs, downloadDir string, urls []string, logger *loggi
 
 // DownloadFile downloads a file from the specified URL and saves it to the given path.
 // It skips the download if the file already exists and is non-empty.
-func DownloadFile(fs afero.Fs, url, filePath string, logger *logging.Logger) error {
+func DownloadFile(fs afero.Fs, ctx context.Context, url, filePath string, logger *logging.Logger) error {
 	logger.Debug("Checking if file exists", "destination", filePath)
 
 	if filePath == "" {
@@ -112,8 +114,7 @@ func DownloadFile(fs afero.Fs, url, filePath string, logger *logging.Logger) err
 	if resp.StatusCode != http.StatusOK {
 		errMsg := fmt.Sprintf("failed to download file: status code %d", resp.StatusCode)
 		logger.Error(errMsg, "url", url)
-		return fmt.Errorf(errMsg)
-
+		return errors.New(errMsg)
 	}
 
 	// Create a WriteCounter to track and display download progress

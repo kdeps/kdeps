@@ -10,13 +10,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cucumber/godog"
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resource"
 	"github.com/kdeps/kdeps/pkg/workflow"
-
-	"github.com/cucumber/godog"
 	"github.com/kr/pretty"
 	"github.com/spf13/afero"
 )
@@ -38,6 +37,7 @@ var (
 )
 
 func TestFeatures(t *testing.T) {
+	t.Parallel()
 	suite := godog.TestSuite{
 		ScenarioInitializer: func(ctx *godog.ScenarioContext) {
 			ctx.Step(`^a kdeps archive "([^"]*)" is opened$`, aKdepsArchiveIsOpened)
@@ -256,7 +256,7 @@ func theWorkflowActionConfigurationWillBeRewrittenTo(arg1 string) error {
 	}
 
 	if wf.GetAction() != arg1 {
-		return errors.New(fmt.Sprintf("%s = %s does not match!", wf.GetAction(), arg1))
+		return fmt.Errorf("%s = %s does not match!", wf.GetAction(), arg1)
 	}
 
 	return nil
@@ -336,7 +336,7 @@ func theContentOfThatArchiveFileWillBeExtractedTo(arg1 string) error {
 }
 
 func thePklFilesIsValid() error {
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowFile, logger); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowFile, logger); err != nil {
 		return err
 	}
 
@@ -344,7 +344,7 @@ func thePklFilesIsValid() error {
 }
 
 func theProjectIsValid() error {
-	if err := enforcer.EnforceFolderStructure(testFs, workflowFile, logger); err != nil {
+	if err := enforcer.EnforceFolderStructure(testFs, ctx, workflowFile, logger); err != nil {
 		return err
 	}
 
@@ -357,7 +357,7 @@ func theProjectWillBeArchivedTo(arg1 string) error {
 		return err
 	}
 
-	fpath, err := PackageProject(testFs, wf, kdepsDir, aiAgentDir, logger)
+	fpath, err := PackageProject(testFs, ctx, wf, kdepsDir, aiAgentDir, logger)
 	if err != nil {
 		return err
 	}
@@ -372,7 +372,7 @@ func theProjectWillBeArchivedTo(arg1 string) error {
 func theresADataFile() error {
 	doc := "THIS IS A TEXT FILE: "
 
-	for x := 0; x < 10; x++ {
+	for x := range 10 {
 		num := strconv.Itoa(x)
 		file := filepath.Join(dataDir, fmt.Sprintf("textfile-%s.txt", num))
 
@@ -409,7 +409,7 @@ func thePklFilesIsInvalid() error {
 
 	workflowFile = file
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowFile, logger); err == nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowFile, logger); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 
@@ -417,7 +417,7 @@ func thePklFilesIsInvalid() error {
 }
 
 func theProjectIsInvalid() error {
-	if err := enforcer.EnforceFolderStructure(testFs, workflowFile, logger); err == nil {
+	if err := enforcer.EnforceFolderStructure(testFs, ctx, workflowFile, logger); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 
@@ -430,7 +430,7 @@ func theProjectWillNotBeArchivedTo(arg1 string) error {
 		return err
 	}
 
-	fpath, err := PackageProject(testFs, wf, kdepsDir, aiAgentDir, logger)
+	fpath, err := PackageProject(testFs, ctx, wf, kdepsDir, aiAgentDir, logger)
 	if err == nil {
 		return errors.New("expected an error, but got nil")
 	}
@@ -526,15 +526,7 @@ func itHasAFileWithIdPropertyAndDependentOnWithRunBlockAndIsNotNull(arg1, arg2, 
 		var fieldLines []string
 		for _, value := range values {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
-			fieldLines = append(fieldLines, fmt.Sprintf(`%s {
-["key"] = """
-@(exec.stdout["anAction"])
-@(exec.stdin["anAction2"])
-@(exec.stderr["anAction2"])
-@(http.client["anAction3"].response)
-@(llm.chat["anAction4"].response)
-"""
-}`, value))
+			fieldLines = append(fieldLines, value+" {\n[\"key\"] = \"\"\"\n@(exec.stdout[\"anAction\"])\n@(exec.stdin[\"anAction2\"])\n@(exec.stderr[\"anAction2\"])\n@(http.client[\"anAction3\"].response)\n@(llm.chat[\"anAction4\"].response)\n\"\"\"\n}")
 		}
 		fieldSection = "run {\n" + strings.Join(fieldLines, "\n") + "\n}"
 	} else {
@@ -599,7 +591,7 @@ func itHasAFileWithIdPropertyAndDependentOnWithRunBlockAndIsNull(arg1, arg2, arg
 		var fieldLines []string
 		for _, value := range values {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
-			fieldLines = append(fieldLines, fmt.Sprintf(`%s=null`, value))
+			fieldLines = append(fieldLines, value+"=null")
 		}
 		fieldSection = "run {\n" + strings.Join(fieldLines, "\n") + "\n}"
 	} else {

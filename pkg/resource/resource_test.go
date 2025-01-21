@@ -13,6 +13,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cucumber/godog"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/cfg"
 	"github.com/kdeps/kdeps/pkg/docker"
@@ -20,10 +23,6 @@ import (
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/workflow"
-
-	"github.com/cucumber/godog"
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/client"
 	"github.com/kdeps/schema/gen/kdeps"
 	wfPkl "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
@@ -58,6 +57,7 @@ var (
 )
 
 func TestFeatures(t *testing.T) {
+	t.Parallel()
 	suite := godog.TestSuite{
 		ScenarioInitializer: func(ctx *godog.ScenarioContext) {
 			ctx.Step(`^a kdeps container with "([^"]*)" endpoint "([^"]*)" API and "([^"]*)"$`, aKdepsContainerWithEndpointAPI)
@@ -115,7 +115,7 @@ func aKdepsContainerWithEndpointAPI(arg1, arg2, arg3 string) error {
 		NonInteractive: "1",
 	}
 
-	environ, err := environment.NewEnvironment(testFs, env)
+	environ, err := environment.NewEnvironment(testFs, ctx, env)
 	if err != nil {
 		return err
 	}
@@ -134,12 +134,12 @@ func aKdepsContainerWithEndpointAPI(arg1, arg2, arg3 string) error {
 		return err
 	}
 
-	systemConfigurationFile, err = cfg.FindConfiguration(testFs, environ, logger)
+	systemConfigurationFile, err = cfg.FindConfiguration(testFs, ctx, environ, logger)
 	if err != nil {
 		return err
 	}
 
-	if err = enforcer.EnforcePklTemplateAmendsRules(testFs, systemConfigurationFile, logger); err != nil {
+	if err = enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, systemConfigurationFile, logger); err != nil {
 		return err
 	}
 
@@ -192,9 +192,7 @@ settings {
   }
 }
 `, methodSection)
-	var filePath string
-
-	filePath = filepath.Join(homeDirPath, "myAgentX")
+	filePath := filepath.Join(homeDirPath, "myAgentX")
 
 	if err := testFs.MkdirAll(filePath, 0o777); err != nil {
 		return err
@@ -388,7 +386,7 @@ run {
 
 	doc := "THIS IS A TEXT FILE: "
 
-	for x := 0; x < 10; x++ {
+	for x := range 10 {
 		num := strconv.Itoa(x)
 		file := filepath.Join(dataDir, fmt.Sprintf("textfile-%s.txt", num))
 
@@ -397,7 +395,7 @@ run {
 		f.Close()
 	}
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowConfigurationFile, logger); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowConfigurationFile, logger); err != nil {
 		return err
 	}
 
@@ -487,7 +485,7 @@ func iGETRequestToWithDataAndHeaderNameThatMapsTo(arg1, arg2, arg3, arg4 string)
 	reqBody := strings.NewReader(arg2)
 
 	// Create a new GET request
-	req, err := http.NewRequest("GET", baseURL, reqBody)
+	req, err := http.NewRequest(http.MethodGet, baseURL, reqBody)
 	if err != nil {
 		fmt.Println("Error creating request:", err)
 		return err

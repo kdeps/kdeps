@@ -6,13 +6,12 @@ import (
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
-
 	"github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 )
 
-// NewRootCommand returns the root command with all subcommands attached
+// NewRootCommand returns the root command with all subcommands attached.
 func NewRootCommand(fs afero.Fs, ctx context.Context, kdepsDir string, systemCfg *kdeps.Kdeps, env *environment.Environment, logger *logging.Logger) *cobra.Command {
 	cobra.EnableCommandSorting = false
 	rootCmd := &cobra.Command{
@@ -26,7 +25,7 @@ open-source LLM models that are orchestrated by a graph-based dependency workflo
 		`Fetch and use the latest schema and libraries. It is recommended to set the GITHUB_TOKEN environment
 variable to prevent errors caused by rate limit exhaustion.`)
 	rootCmd.AddCommand(NewAgentCommand(fs, ctx, kdepsDir, logger))
-	rootCmd.AddCommand(NewScaffoldCommand(fs, logger))
+	rootCmd.AddCommand(NewScaffoldCommand(fs, ctx, logger))
 	rootCmd.AddCommand(NewAddCommand(fs, ctx, kdepsDir, logger))
 	rootCmd.AddCommand(NewPackageCommand(fs, ctx, kdepsDir, env, logger))
 	rootCmd.AddCommand(NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger))

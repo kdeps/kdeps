@@ -21,7 +21,7 @@ var (
 	testFs                = afero.NewOsFs()
 	homeDirPath           string
 	currentDirPath        string
-	ctx                   context.Context
+	ctx                   = context.Background()
 	systemConfiguration   *kdeps.Kdeps
 	fileThatExist         string
 	logger                *logging.Logger
@@ -71,6 +71,7 @@ action = "helloWorld"
 )
 
 func TestFeatures(t *testing.T) {
+	t.Parallel()
 	suite := godog.TestSuite{
 		ScenarioInitializer: func(ctx *godog.ScenarioContext) {
 			// Configuration steps
@@ -160,12 +161,12 @@ func aSystemConfigurationIsDefined() error {
 		NonInteractive: "1",
 	}
 
-	environ, err := environment.NewEnvironment(testFs, env)
+	environ, err := environment.NewEnvironment(testFs, ctx, env)
 	if err != nil {
 		return err
 	}
 
-	cfgFile, err := cfg.GenerateConfiguration(testFs, environ, logger)
+	cfgFile, err := cfg.GenerateConfiguration(testFs, ctx, environ, logger)
 	if err != nil {
 		return err
 	}
@@ -181,7 +182,7 @@ func aSystemConfigurationIsDefined() error {
 }
 
 func itDoesNotHaveAConfigAmendsLineOnTopOfTheFile() error {
-	doc = fmt.Sprintf("%s", configValues)
+	doc = configValues
 
 	return nil
 }
@@ -199,7 +200,7 @@ func itHaveAConfigAmendsLineOnTopOfTheFile() error {
 }
 
 func itIsAnInvalidAgent() error {
-	if err := EnforceFolderStructure(testFs, agentPath, logger); err == nil {
+	if err := EnforceFolderStructure(testFs, ctx, agentPath, logger); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 
@@ -207,7 +208,7 @@ func itIsAnInvalidAgent() error {
 }
 
 func itIsAValidAgent() error {
-	if err := EnforceFolderStructure(testFs, agentPath, logger); err != nil {
+	if err := EnforceFolderStructure(testFs, ctx, agentPath, logger); err != nil {
 		return err
 	}
 
@@ -215,7 +216,7 @@ func itIsAValidAgent() error {
 }
 
 func itIsAnInvalidPklFile() error {
-	if err := EnforcePklTemplateAmendsRules(testFs, fileThatExist, logger); err == nil {
+	if err := EnforcePklTemplateAmendsRules(testFs, ctx, fileThatExist, logger); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 
@@ -223,11 +224,11 @@ func itIsAnInvalidPklFile() error {
 }
 
 func itIsAValidPklFile() error {
-	if err := EnforcePklTemplateAmendsRules(testFs, fileThatExist, logger); err != nil {
+	if err := EnforcePklTemplateAmendsRules(testFs, ctx, fileThatExist, logger); err != nil {
 		return err
 	}
 
-	if _, err := evaluator.EvalPkl(testFs, fileThatExist, "", logger); err != nil {
+	if _, err := evaluator.EvalPkl(testFs, ctx, fileThatExist, "", logger); err != nil {
 		return err
 	}
 
@@ -266,7 +267,7 @@ func anAgentFolderExistsInTheCurrentDirectory(arg1 string) error {
 }
 
 func itDoesNotHaveAWorkflowAmendsLineOnTopOfTheFile() error {
-	doc = fmt.Sprintf("%s", workflowValues)
+	doc = workflowValues
 
 	return nil
 }
@@ -297,7 +298,7 @@ func itHaveAResourceAmendsLineOnTopOfTheFile() error {
 }
 
 func itDoesNotHaveAResourceAmendsLineOnTopOfTheFile() error {
-	doc = fmt.Sprintf("%s", resourceValues)
+	doc = resourceValues
 
 	return nil
 }

@@ -1,7 +1,9 @@
 package utils
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -14,13 +16,13 @@ import (
 var GitHubReleaseFetcher = GetLatestGitHubRelease
 
 // GetLatestGitHubRelease fetches the latest release version from a GitHub repository.
-func GetLatestGitHubRelease(repo string, baseURL string) (string, error) {
+func GetLatestGitHubRelease(ctx context.Context, repo string, baseURL string) (string, error) {
 	if baseURL == "" {
 		baseURL = "https://api.github.com"
 	}
 	url := fmt.Sprintf("%s/repos/%s/releases/latest", baseURL, repo)
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
@@ -39,10 +41,10 @@ func GetLatestGitHubRelease(repo string, baseURL string) (string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusUnauthorized {
-		return "", fmt.Errorf("unauthorized: check your GITHUB_TOKEN")
+		return "", errors.New("unauthorized: check your GITHUB_TOKEN")
 	}
 	if resp.StatusCode == http.StatusForbidden {
-		return "", fmt.Errorf("rate limit exceeded: ensure your GITHUB_TOKEN has appropriate permissions")
+		return "", errors.New("rate limit exceeded: ensure your GITHUB_TOKEN has appropriate permissions")
 	}
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("unexpected status code: %d, response: %s", resp.StatusCode, http.StatusText(resp.StatusCode))

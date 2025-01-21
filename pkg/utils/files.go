@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
@@ -10,7 +11,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-func WaitForFileReady(fs afero.Fs, filepath string, logger *logging.Logger) error {
+func WaitForFileReady(fs afero.Fs, ctx context.Context, filepath string, logger *logging.Logger) error {
 	logger.Debug("Waiting for file to be ready...", "file", filepath)
 
 	ticker := time.NewTicker(500 * time.Millisecond)
@@ -47,7 +48,7 @@ func ConvertToFilenameFriendly(input string) string {
 	return strings.TrimPrefix(sanitized, "_")
 }
 
-func CreateDirectories(fs afero.Fs, dirs []string) error {
+func CreateDirectories(fs afero.Fs, ctx context.Context, dirs []string) error {
 	for _, dir := range dirs {
 		// Use fs.MkdirAll to create the directory and its parents if they don't exist
 		err := fs.MkdirAll(dir, 0o755)

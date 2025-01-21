@@ -11,15 +11,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cucumber/godog"
+	"github.com/docker/docker/client"
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/cfg"
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/workflow"
-
-	"github.com/cucumber/godog"
-	"github.com/docker/docker/client"
 	"github.com/kdeps/schema/gen/kdeps"
 	wfPkl "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
@@ -50,10 +49,11 @@ var (
 	systemConfiguration       *kdeps.Kdeps
 	workflowConfigurationFile string
 	workflowConfiguration     *wfPkl.Workflow
-	schemaVersionFilePath     = "../../SCHEMA_VERSION"
 )
 
 func TestFeatures(t *testing.T) {
+	t.Parallel()
+
 	suite := godog.TestSuite{
 		ScenarioInitializer: func(ctx *godog.ScenarioContext) {
 			ctx.Step(`^a "([^"]*)" system configuration file with dockerGPU "([^"]*)" and runMode "([^"]*)" is defined in the "([^"]*)" directory$`, aSystemConfigurationFile)
@@ -95,7 +95,7 @@ func aSystemConfigurationFile(arg1, arg2, arg3, arg4 string) error {
 		DockerMode:     "1",
 	}
 
-	environ, err := environment.NewEnvironment(testFs, env)
+	environ, err := environment.NewEnvironment(testFs, ctx, env)
 	if err != nil {
 		return err
 	}
@@ -122,12 +122,12 @@ dockerGPU = "%s"
 		return err
 	}
 
-	systemConfigurationFile, err := cfg.FindConfiguration(testFs, environ, logger)
+	systemConfigurationFile, err := cfg.FindConfiguration(testFs, ctx, environ, logger)
 	if err != nil {
 		return err
 	}
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, systemConfigurationFile, logger); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, systemConfigurationFile, logger); err != nil {
 		return err
 	}
 
@@ -224,7 +224,7 @@ id = "%s"
 description = "An action from agent %s"
 	`, arg1, arg1)
 
-	resourceConfigurationFile := filepath.Join(resourcesDir, fmt.Sprintf("%s.pkl", arg1))
+	resourceConfigurationFile := filepath.Join(resourcesDir, arg1+".pkl")
 	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0o644)
 	if err != nil {
 		return err
@@ -237,7 +237,7 @@ description = "An action from agent %s"
 
 	doc := "THIS IS A TEXT FILE: "
 
-	for x := 0; x < 10; x++ {
+	for x := range 10 {
 		num := strconv.Itoa(x)
 		file := filepath.Join(dataDir, fmt.Sprintf("textfile-%s.txt", num))
 
@@ -246,7 +246,7 @@ description = "An action from agent %s"
 		f.Close()
 	}
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowConfigurationFile, logger); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowConfigurationFile, logger); err != nil {
 		return err
 	}
 
@@ -350,7 +350,6 @@ func itShouldCreateTheDockerfile(arg1, arg2, arg3 string) error {
 		if !found {
 			return errors.New("package not found!")
 		}
-
 	}
 
 	runDirAgentRoot := filepath.Join(kdepsDir, "run/"+arg1)
