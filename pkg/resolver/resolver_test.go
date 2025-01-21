@@ -206,7 +206,7 @@ settings {
   }
 }
 `, methodSection, methodSection)
-	var filePath = filepath.Join(homeDirPath, "myAgentX1")
+	filePath := filepath.Join(homeDirPath, "myAgentX1")
 
 	if err := testFs.MkdirAll(filePath, 0o777); err != nil {
 		return err
