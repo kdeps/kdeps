@@ -1,6 +1,7 @@
 package archiver
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
@@ -14,8 +15,8 @@ import (
 	"github.com/spf13/afero"
 )
 
-// Move a directory by copying and then deleting the original
-func MoveFolder(fs afero.Fs, src string, dest string) error {
+// Move a directory by copying and then deleting the original.
+func MoveFolder(fs afero.Fs, ctx context.Context, src string, dest string) error {
 	// Walk through the source directory and handle files and directories
 	err := afero.Walk(fs, src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -66,7 +67,7 @@ func MoveFolder(fs afero.Fs, src string, dest string) error {
 	return fs.RemoveAll(src)
 }
 
-func getFileMD5(fs afero.Fs, filePath string, length int) (string, error) {
+func getFileMD5(fs afero.Fs, ctx context.Context, filePath string, length int) (string, error) {
 	// Open the file using afero's filesystem
 	file, err := fs.Open(filePath)
 	if err != nil {
@@ -93,17 +94,17 @@ func getFileMD5(fs afero.Fs, filePath string, length int) (string, error) {
 	return md5String[:length], nil
 }
 
-// Move the original file to a new name with MD5 and copy the latest file
-func CopyFile(fs afero.Fs, src, dst string, logger *logging.Logger) error {
+// Move the original file to a new name with MD5 and copy the latest file.
+func CopyFile(fs afero.Fs, ctx context.Context, src, dst string, logger *logging.Logger) error {
 	// Check if the destination file exists
 	if _, err := fs.Stat(dst); err == nil {
 		// Calculate MD5 for both source and destination files
-		srcMD5, err := getFileMD5(fs, src, 8)
+		srcMD5, err := getFileMD5(fs, ctx, src, 8)
 		if err != nil {
 			return fmt.Errorf("failed to calculate MD5 for source file: %w", err)
 		}
 
-		dstMD5, err := getFileMD5(fs, dst, 8)
+		dstMD5, err := getFileMD5(fs, ctx, dst, 8)
 		if err != nil {
 			return fmt.Errorf("failed to calculate MD5 for destination file: %w", err)
 		}
@@ -158,7 +159,7 @@ func CopyFile(fs afero.Fs, src, dst string, logger *logging.Logger) error {
 	return nil
 }
 
-func CopyDataDir(fs afero.Fs, wf pklWf.Workflow, kdepsDir, projectDir, compiledProjectDir, agentName, agentVersion,
+func CopyDataDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, projectDir, compiledProjectDir, agentName, agentVersion,
 	agentAction string, processWorkflows bool, logger *logging.Logger,
 ) error {
 	var srcDir, destDir string
@@ -168,7 +169,7 @@ func CopyDataDir(fs afero.Fs, wf pklWf.Workflow, kdepsDir, projectDir, compiledP
 
 	if processWorkflows {
 		// Helper function to copy resources
-		copyResources := func(src, dst string) error {
+		copyResources := func(ctx context.Context, src, dst string) error {
 			return afero.Walk(fs, src, func(path string, info os.FileInfo, walkErr error) error {
 				if walkErr != nil {
 					logger.Error("Error walking source directory", "path", src, "error", walkErr)
@@ -191,7 +192,7 @@ func CopyDataDir(fs afero.Fs, wf pklWf.Workflow, kdepsDir, projectDir, compiledP
 						return err
 					}
 				} else {
-					if err := CopyFile(fs, path, dstPath, logger); err != nil {
+					if err := CopyFile(fs, ctx, path, dstPath, logger); err != nil {
 						logger.Error("Failed to copy file", "src", path, "dst", dstPath, "error", err)
 						return err
 					}
@@ -208,7 +209,7 @@ func CopyDataDir(fs afero.Fs, wf pklWf.Workflow, kdepsDir, projectDir, compiledP
 			}
 
 			if exists {
-				version, err := getLatestVersion(agentVersionPath, logger)
+				version, err := getLatestVersion(ctx, agentVersionPath, logger)
 				if err != nil {
 					logger.Error("Failed to get latest agent version", "agentVersionPath", agentVersionPath, "error", err)
 					return err
@@ -229,7 +230,7 @@ func CopyDataDir(fs afero.Fs, wf pklWf.Workflow, kdepsDir, projectDir, compiledP
 		}
 
 		if exists {
-			if err := copyResources(src, dst); err != nil {
+			if err := copyResources(ctx, src, dst); err != nil {
 				logger.Error("Failed to copy resources", "src", src, "dst", dst, "error", err)
 				return err
 			}
@@ -272,7 +273,7 @@ func CopyDataDir(fs afero.Fs, wf pklWf.Workflow, kdepsDir, projectDir, compiledP
 			}
 		} else {
 			// If it's a file, copy the file
-			if err := CopyFile(fs, path, dstPath, logger); err != nil {
+			if err := CopyFile(fs, ctx, path, dstPath, logger); err != nil {
 				logger.Error("Failed to copy file", "src", path, "dst", dstPath, "error", err)
 				return err
 			}

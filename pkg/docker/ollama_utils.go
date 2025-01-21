@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -12,8 +13,8 @@ import (
 	"github.com/kdeps/kdeps/pkg/logging"
 )
 
-// parseOLLAMAHost parses the OLLAMA_HOST environment variable into host and port
-func parseOLLAMAHost(logger *logging.Logger) (string, string, error) {
+// parseOLLAMAHost parses the OLLAMA_HOST environment variable into host and port.
+func parseOLLAMAHost(ctx context.Context, logger *logging.Logger) (string, string, error) {
 	logger.Debug("Parsing OLLAMA_HOST environment variable")
 
 	hostEnv := os.Getenv("OLLAMA_HOST")
@@ -25,14 +26,14 @@ func parseOLLAMAHost(logger *logging.Logger) (string, string, error) {
 	host, port, err := net.SplitHostPort(hostEnv)
 	if err != nil {
 		logger.Error("Invalid OLLAMA_HOST", "format", err)
-		return "", "", fmt.Errorf("Invalid OLLAMA_HOST format: %v", err)
+		return "", "", fmt.Errorf("Invalid OLLAMA_HOST format: %w", err)
 	}
 
 	logger.Debug("Parsed OLLAMA_HOST", "host", host, "port", port)
 	return host, port, nil
 }
 
-func generateUniqueOllamaPort(existingPort uint16) string {
+func generateUniqueOllamaPort(ctx context.Context, existingPort uint16) string {
 	rand.Seed(time.Now().UnixNano())
 	minPort, maxPort := 11435, 65535
 

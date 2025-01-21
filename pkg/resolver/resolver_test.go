@@ -8,6 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/log"
+	"github.com/cucumber/godog"
+	"github.com/docker/docker/client"
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/cfg"
 	"github.com/kdeps/kdeps/pkg/docker"
@@ -15,10 +18,6 @@ import (
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
-
-	"github.com/charmbracelet/log"
-	"github.com/cucumber/godog"
-	"github.com/docker/docker/client"
 	"github.com/kdeps/schema/gen/kdeps"
 	pklRes "github.com/kdeps/schema/gen/resource"
 	wfPkl "github.com/kdeps/schema/gen/workflow"
@@ -57,6 +56,7 @@ var (
 )
 
 func TestFeatures(t *testing.T) {
+	t.Parallel()
 	suite := godog.TestSuite{
 		ScenarioInitializer: func(ctx *godog.ScenarioContext) {
 			ctx.Step(`^an ai agent with "([^"]*)" resources$`, anAiAgentWithResources)
@@ -87,7 +87,7 @@ func anAiAgentWithResources(arg1 string) error {
 		return err
 	}
 
-	if err = docker.CreateFlagFile(testFs, filepath.Join(tmpRoot, ".dockerenv")); err != nil {
+	if err = docker.CreateFlagFile(testFs, ctx, filepath.Join(tmpRoot, ".dockerenv")); err != nil {
 		return err
 	}
 
@@ -122,7 +122,7 @@ func anAiAgentWithResources(arg1 string) error {
 		DockerMode:     "1",
 	}
 
-	env, err := environment.NewEnvironment(testFs, envStruct)
+	env, err := environment.NewEnvironment(testFs, ctx, envStruct)
 	if err != nil {
 		return err
 	}
@@ -143,12 +143,12 @@ func anAiAgentWithResources(arg1 string) error {
 		return err
 	}
 
-	systemConfigurationFile, err = cfg.FindConfiguration(testFs, environ, logger)
+	systemConfigurationFile, err = cfg.FindConfiguration(testFs, ctx, environ, logger)
 	if err != nil {
 		return err
 	}
 
-	if err = enforcer.EnforcePklTemplateAmendsRules(testFs, systemConfigurationFile, logger); err != nil {
+	if err = enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, systemConfigurationFile, logger); err != nil {
 		return err
 	}
 
@@ -172,10 +172,10 @@ func anAiAgentWithResources(arg1 string) error {
 		methodSection = "methods {\n" + strings.Join(methodLines, "\n") + "\n}"
 	} else {
 		// Single value case
-		methodSection = fmt.Sprintf(`
+		methodSection = `
 methods {
   "GET"
-}`)
+}`
 	}
 
 	workflowConfigurationContent := fmt.Sprintf(`
@@ -207,9 +207,7 @@ settings {
   }
 }
 `, methodSection, methodSection)
-	var filePath string
-
-	filePath = filepath.Join(homeDirPath, "myAgentX1")
+	filePath := filepath.Join(homeDirPath, "myAgentX1")
 
 	if err := testFs.MkdirAll(filePath, 0o777); err != nil {
 		return err
@@ -243,7 +241,7 @@ settings {
 		return err
 	}
 
-	llmResponsesContent := fmt.Sprintf(`
+	llmResponsesContent := `
 amends "package://schema.kdeps.com/core@0.1.1#/LLM.pkl"
 
 chat {
@@ -255,7 +253,7 @@ response
 """
   }
 }
-`)
+`
 
 	llmDirFile := filepath.Join(llmDir, "llm_output.pkl")
 	err = afero.WriteFile(testFs, llmDirFile, []byte(llmResponsesContent), 0o644)
@@ -396,7 +394,7 @@ func iLoadTheWorkflowResources() error {
 	logger := logging.GetLogger()
 	ctx = context.Background()
 
-	dr, err := resolver.NewGraphResolver(testFs, logger, ctx, environ, agentDir)
+	dr, err := resolver.NewGraphResolver(testFs, ctx, environ, agentDir, logger)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -606,7 +604,7 @@ func iWasAbleToSeeTheTopdownDependencies(arg1 string) error {
 // description = "default action"
 // category = "category"
 // %s
-// `, num, num, requiresContent)
+// `, num, requiresContent)
 
 //		// Define the file path
 //		resourceConfigurationFile := filepath.Join(resourcesDir, fmt.Sprintf("resource%d.pkl", num))

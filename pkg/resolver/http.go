@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -13,7 +14,6 @@ import (
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
-
 	pklHttp "github.com/kdeps/schema/gen/http"
 	"github.com/spf13/afero"
 )
@@ -192,7 +192,7 @@ func (dr *DependencyResolver) AppendHttpEntry(resourceId string, newHttpClient *
 
 	// Build the new content for the PKL file in the specified format
 	var pklContent strings.Builder
-	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Http.pkl\"\n\n", schema.SchemaVersion()))
+	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Http.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
 	pklContent.WriteString("resources {\n")
 
 	for id, resource := range existingResources {
@@ -306,7 +306,7 @@ func (dr *DependencyResolver) AppendHttpEntry(resourceId string, newHttpClient *
 	}
 
 	// Evaluate the PKL file using EvalPkl
-	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, pklPath, fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Http.pkl\"\n\n", schema.SchemaVersion()), dr.Logger)
+	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath, fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Http.pkl\"\n\n", schema.SchemaVersion(dr.Context)), dr.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to evaluate PKL file: %w", err)
 	}
@@ -343,7 +343,7 @@ func (dr *DependencyResolver) DoRequest(client *pklHttp.ResourceHTTPClient) erro
 
 	// Validate method
 	if client.Method == "" {
-		return fmt.Errorf("HTTP method is required")
+		return errors.New("HTTP method is required")
 	}
 
 	// Append query parameters to the URL if present
@@ -369,7 +369,7 @@ func (dr *DependencyResolver) DoRequest(client *pklHttp.ResourceHTTPClient) erro
 		if client.Data == nil {
 			return fmt.Errorf("%s method requires data, but none provided", client.Method)
 		}
-		req, err = http.NewRequest(client.Method, client.Url, bytes.NewBuffer([]byte(fmt.Sprintf("%s", *client.Data))))
+		req, err = http.NewRequest(client.Method, client.Url, bytes.NewBufferString(fmt.Sprintf("%s", *client.Data)))
 	} else {
 		req, err = http.NewRequest(client.Method, client.Url, nil)
 	}

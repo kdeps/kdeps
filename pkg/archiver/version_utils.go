@@ -1,7 +1,8 @@
 package archiver
 
 import (
-	"fmt"
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"sort"
@@ -10,8 +11,8 @@ import (
 	"github.com/kdeps/kdeps/pkg/logging"
 )
 
-// Function to compare version numbers
-func compareVersions(versions []string, logger *logging.Logger) string {
+// Function to compare version numbers.
+func compareVersions(ctx context.Context, versions []string, logger *logging.Logger) string {
 	logger.Debug("Comparing versions", "versions", versions)
 	sort.Slice(versions, func(i, j int) bool {
 		// Split the version strings into parts
@@ -19,7 +20,7 @@ func compareVersions(versions []string, logger *logging.Logger) string {
 		v2 := strings.Split(versions[j], ".")
 
 		// Compare each part of the version (major, minor, patch)
-		for k := 0; k < len(v1); k++ {
+		for k := range v1 {
 			if v1[k] != v2[k] {
 				result := v1[k] > v2[k]
 				logger.Debug("Version comparison result", "v1", v1, "v2", v2, "result", result)
@@ -35,7 +36,7 @@ func compareVersions(versions []string, logger *logging.Logger) string {
 	return latestVersion
 }
 
-func getLatestVersion(directory string, logger *logging.Logger) (string, error) {
+func getLatestVersion(ctx context.Context, directory string, logger *logging.Logger) (string, error) {
 	var versions []string
 
 	// Walk through the directory to collect version names
@@ -59,12 +60,12 @@ func getLatestVersion(directory string, logger *logging.Logger) (string, error) 
 
 	// Check if versions were found
 	if len(versions) == 0 {
-		err = fmt.Errorf("no versions found")
+		err = errors.New("no versions found")
 		logger.Warn("No versions found", "directory", directory)
 		return "", err
 	}
 
 	// Find the latest version
-	latestVersion := compareVersions(versions, logger)
+	latestVersion := compareVersions(ctx, versions, logger)
 	return latestVersion, nil
 }

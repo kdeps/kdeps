@@ -1,6 +1,7 @@
 package evaluator_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -12,15 +13,17 @@ import (
 )
 
 func TestCreateAndProcessPklFile(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	logging.CreateLogger()
 	logger := logging.GetLogger()
-
+	var ctx context.Context
 	sections := []string{"section1", "section2"}
 	finalFileName := "/tmp/final.pkl"
 	pklTemplate := "Kdeps.pkl"
 
-	processFunc := func(fs afero.Fs, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
+	processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
 		content, err := afero.ReadFile(fs, tmpFile)
 		if err != nil {
 			return "", err
@@ -29,7 +32,8 @@ func TestCreateAndProcessPklFile(t *testing.T) {
 	}
 
 	t.Run("CreateAndProcessAmends", func(t *testing.T) {
-		err := evaluator.CreateAndProcessPklFile(fs, sections, finalFileName, pklTemplate, logger, processFunc, false)
+		t.Parallel()
+		err := evaluator.CreateAndProcessPklFile(fs, ctx, sections, finalFileName, pklTemplate, logger, processFunc, false)
 		assert.NoError(t, err, "CreateAndProcessPklFile should not return an error")
 		content, err := afero.ReadFile(fs, finalFileName)
 		require.NoError(t, err, "Final file should be created successfully")
@@ -38,7 +42,8 @@ func TestCreateAndProcessPklFile(t *testing.T) {
 	})
 
 	t.Run("CreateAndProcessExtends", func(t *testing.T) {
-		err := evaluator.CreateAndProcessPklFile(fs, sections, finalFileName, pklTemplate, logger, processFunc, true)
+		t.Parallel()
+		err := evaluator.CreateAndProcessPklFile(fs, ctx, sections, finalFileName, pklTemplate, logger, processFunc, true)
 		assert.NoError(t, err, "CreateAndProcessPklFile should not return an error")
 		content, err := afero.ReadFile(fs, finalFileName)
 		require.NoError(t, err, "Final file should be created successfully")

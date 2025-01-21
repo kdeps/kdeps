@@ -1,18 +1,16 @@
 package resolver
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
 	"time"
 	"unicode/utf8"
 
+	"github.com/alexellis/go-execute/v2"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
-
-	"github.com/alexellis/go-execute/v2"
 	pklExec "github.com/kdeps/schema/gen/exec"
 	"github.com/spf13/afero"
 )
@@ -124,7 +122,7 @@ func (dr *DependencyResolver) processExecBlock(actionId string, execBlock *pklEx
 	}
 
 	// Execute the command
-	result, err := cmd.Execute(context.Background())
+	result, err := cmd.Execute(dr.Context)
 	if err != nil {
 		return err
 	}
@@ -211,7 +209,7 @@ func (dr *DependencyResolver) AppendExecEntry(resourceId string, newExec *pklExe
 
 	// Build the new content for the PKL file in the specified format
 	var pklContent strings.Builder
-	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Exec.pkl\"\n\n", schema.SchemaVersion()))
+	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Exec.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
 	pklContent.WriteString("resources {\n")
 
 	for id, resource := range existingResources {
@@ -257,7 +255,7 @@ func (dr *DependencyResolver) AppendExecEntry(resourceId string, newExec *pklExe
 	}
 
 	// Evaluate the PKL file using EvalPkl
-	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, pklPath, fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Exec.pkl\"", schema.SchemaVersion()), dr.Logger)
+	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath, fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Exec.pkl\"", schema.SchemaVersion(dr.Context)), dr.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to evaluate PKL file: %w", err)
 	}

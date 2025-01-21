@@ -7,10 +7,13 @@ import (
 )
 
 func TestNewAPIServerResponse(t *testing.T) {
+	t.Parallel()
+
 	// Reset persistentErrors for a clean test state
 	persistentErrors = nil
 
 	t.Run("SuccessfulResponseWithoutErrors", func(t *testing.T) {
+		t.Parallel()
 		response := NewAPIServerResponse(true, []any{"data1", "data2"}, 0, "")
 
 		assert.True(t, response.Success, "Expected success to be true")
@@ -20,6 +23,7 @@ func TestNewAPIServerResponse(t *testing.T) {
 	})
 
 	t.Run("ResponseWithError", func(t *testing.T) {
+		t.Parallel()
 		response := NewAPIServerResponse(false, nil, 404, "Resource not found")
 
 		assert.False(t, response.Success, "Expected success to be false")
@@ -33,6 +37,7 @@ func TestNewAPIServerResponse(t *testing.T) {
 	})
 
 	t.Run("PersistentErrorStorage", func(t *testing.T) {
+		t.Parallel()
 		// Add another error
 		NewAPIServerResponse(false, nil, 500, "Internal server error")
 
@@ -46,6 +51,7 @@ func TestNewAPIServerResponse(t *testing.T) {
 	})
 
 	t.Run("ClearPersistentErrors", func(t *testing.T) {
+		t.Parallel()
 		// Manually clear persistentErrors
 		persistentErrors = nil
 

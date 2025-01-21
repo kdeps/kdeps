@@ -6,12 +6,11 @@ import (
 
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/logging"
-
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 )
 
-// NewAddCommand creates the 'add' command and passes the necessary dependencies
+// NewAddCommand creates the 'add' command and passes the necessary dependencies.
 func NewAddCommand(fs afero.Fs, ctx context.Context, kdepsDir string, logger *logging.Logger) *cobra.Command {
 	return &cobra.Command{
 		Use:     "install [package]",

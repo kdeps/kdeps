@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"errors"
 	"os"
 	"testing"
@@ -13,6 +14,8 @@ import (
 
 var logger = logging.GetLogger()
 
+var ctx context.Context
+
 type errorFs struct {
 	afero.Fs
 }
@@ -22,7 +25,9 @@ func (e *errorFs) Stat(name string) (os.FileInfo, error) {
 }
 
 func TestWaitForFileReady(t *testing.T) {
+	t.Parallel()
 	t.Run("FileExists", func(t *testing.T) {
+		t.Parallel()
 		// Arrange
 		fs := afero.NewMemMapFs()
 		filepath := "/testfile.txt"
@@ -32,13 +37,14 @@ func TestWaitForFileReady(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Act
-		err = WaitForFileReady(fs, filepath, logger)
+		err = WaitForFileReady(fs, ctx, filepath, logger)
 
 		// Assert
 		assert.NoError(t, err)
 	})
 
 	t.Run("FileDoesNotExist", func(t *testing.T) {
+		t.Parallel()
 		// Arrange
 		fs := afero.NewMemMapFs()
 		filepath := "/nonexistent.txt"
@@ -48,19 +54,20 @@ func TestWaitForFileReady(t *testing.T) {
 			time.Sleep(1 * time.Second)
 			fs.Create(filepath) // Create the file after a delay
 		}()
-		err := WaitForFileReady(fs, filepath, logger)
+		err := WaitForFileReady(fs, ctx, filepath, logger)
 
 		// Assert
 		assert.NoError(t, err)
 	})
 
 	t.Run("ErrorCheckingFile", func(t *testing.T) {
+		t.Parallel()
 		// Arrange
 		fs := &errorFs{Fs: afero.NewMemMapFs()} // Wrap with error-inducing Fs
 		filepath := "/cannotcreate.txt"
 
 		// Act
-		err := WaitForFileReady(fs, filepath, logger)
+		err := WaitForFileReady(fs, ctx, filepath, logger)
 
 		// Assert
 		assert.Error(t, err)

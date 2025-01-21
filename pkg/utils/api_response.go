@@ -4,7 +4,7 @@ import (
 	apiserverresponse "github.com/kdeps/schema/gen/api_server_response"
 )
 
-// Persistent slice to hold error blocks
+// Persistent slice to hold error blocks.
 var persistentErrors []*apiserverresponse.APIServerErrorsBlock
 
 func NewAPIServerResponse(success bool, data []any, errorCode int, errorMessage string) *apiserverresponse.APIServerResponseImpl {
