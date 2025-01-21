@@ -10,9 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var (
-	ctx context.Context
-)
+var ctx context.Context
 
 func TestCheckConfig(t *testing.T) {
 	t.Parallel()

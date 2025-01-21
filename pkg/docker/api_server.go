@@ -133,9 +133,9 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 			return
 		}
 
-		var filename = ""
-		var filetype = ""
-		var bodyData = ""
+		filename := ""
+		filetype := ""
+		bodyData := ""
 
 		fileMap := make(map[string]struct {
 			Filename string

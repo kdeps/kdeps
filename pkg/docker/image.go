@@ -307,7 +307,7 @@ func generateParamsSection(ctx context.Context, prefix string, items map[string]
 
 func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *logging.Logger) (string, bool, string, string, string, error) {
 	var portNum uint16 = 3000
-	var hostIP = "127.0.0.1"
+	hostIP := "127.0.0.1"
 
 	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow, logger)
 	if err != nil {
