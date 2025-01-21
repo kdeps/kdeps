@@ -20,7 +20,8 @@ func TestCreateAndProcessPklFile(t *testing.T) {
 	logger := logging.GetLogger()
 	var ctx context.Context
 	sections := []string{"section1", "section2"}
-	finalFileName := "/tmp/final.pkl"
+	amendsFileName := "/tmp/amends.pkl"
+	extendsFileName := "/tmp/extends.pkl"
 	pklTemplate := "Kdeps.pkl"
 
 	processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
@@ -33,9 +34,9 @@ func TestCreateAndProcessPklFile(t *testing.T) {
 
 	t.Run("CreateAndProcessAmends", func(t *testing.T) {
 		t.Parallel()
-		err := evaluator.CreateAndProcessPklFile(fs, ctx, sections, finalFileName, pklTemplate, logger, processFunc, false)
+		err := evaluator.CreateAndProcessPklFile(fs, ctx, sections, amendsFileName, pklTemplate, logger, processFunc, false)
 		assert.NoError(t, err, "CreateAndProcessPklFile should not return an error")
-		content, err := afero.ReadFile(fs, finalFileName)
+		content, err := afero.ReadFile(fs, amendsFileName)
 		require.NoError(t, err, "Final file should be created successfully")
 		assert.Contains(t, string(content), "amends", "Final file content should include 'amends'")
 		assert.Contains(t, string(content), sections[0], "Final file content should include section1")
@@ -43,9 +44,9 @@ func TestCreateAndProcessPklFile(t *testing.T) {
 
 	t.Run("CreateAndProcessExtends", func(t *testing.T) {
 		t.Parallel()
-		err := evaluator.CreateAndProcessPklFile(fs, ctx, sections, finalFileName, pklTemplate, logger, processFunc, true)
+		err := evaluator.CreateAndProcessPklFile(fs, ctx, sections, extendsFileName, pklTemplate, logger, processFunc, true)
 		assert.NoError(t, err, "CreateAndProcessPklFile should not return an error")
-		content, err := afero.ReadFile(fs, finalFileName)
+		content, err := afero.ReadFile(fs, extendsFileName)
 		require.NoError(t, err, "Final file should be created successfully")
 		assert.Contains(t, string(content), "extends", "Final file content should include 'extends'")
 		assert.Contains(t, string(content), sections[1], "Final file content should include section2")
