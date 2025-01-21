@@ -32,6 +32,8 @@ func (mc *MockContext) Value(key interface{}) interface{} {
 }
 
 func TestAppendDataEntry(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name          string
 		setup         func(dr *resolver.DependencyResolver) *data.DataImpl
@@ -84,6 +86,7 @@ func TestAppendDataEntry(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			dr := &resolver.DependencyResolver{
 				Fs:        afero.NewMemMapFs(),
 				Context:   &MockContext{},

@@ -20,6 +20,7 @@ var (
 )
 
 func TestWriteCounter_Write(t *testing.T) {
+	t.Parallel()
 	counter := &WriteCounter{}
 	data := []byte("Hello, World!")
 	n, err := counter.Write(data)
@@ -30,6 +31,7 @@ func TestWriteCounter_Write(t *testing.T) {
 }
 
 func TestWriteCounter_PrintProgress(t *testing.T) {
+	t.Parallel()
 	counter := &WriteCounter{
 		DownloadURL: "example.com/file.txt",
 	}
@@ -61,6 +63,7 @@ func TestWriteCounter_PrintProgress(t *testing.T) {
 }
 
 func TestDownloadFile(t *testing.T) {
+	t.Parallel()
 	logger = logging.GetLogger()
 	// Mock a simple HTTP server to simulate file download
 	server := http.Server{
@@ -86,6 +89,7 @@ func TestDownloadFile(t *testing.T) {
 }
 
 func TestDownloadFile_FileCreationError(t *testing.T) {
+	t.Parallel()
 	logger = logging.GetLogger()
 	fs := afero.NewMemMapFs()
 
@@ -96,6 +100,7 @@ func TestDownloadFile_FileCreationError(t *testing.T) {
 }
 
 func TestDownloadFile_HttpGetError(t *testing.T) {
+	t.Parallel()
 	fs := afero.NewMemMapFs()
 
 	// Trying to download a file from an invalid URL
