@@ -2,7 +2,7 @@ package environment
 
 import (
 	"context"
-	"os"
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -24,7 +24,10 @@ func TestCheckConfig(t *testing.T) {
 	assert.NoError(t, err, "Expected no error when file does not exist")
 
 	// Test when file exists
-	afero.WriteFile(fs, configFilePath, []byte{}, 0o644)
+	if err := afero.WriteFile(fs, configFilePath, []byte{}, 0o644); err != nil {
+		fmt.Println(err)
+	}
+
 	foundConfig, err := checkConfig(fs, ctx, baseDir)
 	assert.NoError(t, err, "Expected no error when file exists")
 	assert.Equal(t, configFilePath, foundConfig, "Expected correct file path")
@@ -42,20 +45,22 @@ func TestFindKdepsConfig(t *testing.T) {
 	assert.Empty(t, config, "Expected empty result when no config file exists")
 
 	// Test when kdeps.pkl exists in Pwd
-	afero.WriteFile(fs, filepath.Join(pwd, SystemConfigFileName), []byte{}, 0o644)
+	if err := afero.WriteFile(fs, filepath.Join(pwd, SystemConfigFileName), []byte{}, 0o644); err != nil {
+		fmt.Println(err)
+	}
 	config = findKdepsConfig(fs, ctx, pwd, home)
 	assert.Equal(t, filepath.Join(pwd, SystemConfigFileName), config, "Expected config file from Pwd directory")
 
 	// Test when kdeps.pkl exists in Home and not in Pwd
 	fs = afero.NewMemMapFs() // Reset file system
-	afero.WriteFile(fs, filepath.Join(home, SystemConfigFileName), []byte{}, 0o644)
+	if err := afero.WriteFile(fs, filepath.Join(home, SystemConfigFileName), []byte{}, 0o644); err != nil {
+		fmt.Println(err)
+	}
 	config = findKdepsConfig(fs, ctx, pwd, home)
 	assert.Equal(t, filepath.Join(home, SystemConfigFileName), config, "Expected config file from Home directory")
 }
 
 func TestIsDockerEnvironment(t *testing.T) {
-	t.Parallel()
-
 	fs := afero.NewMemMapFs()
 	root := "/"
 
@@ -64,44 +69,43 @@ func TestIsDockerEnvironment(t *testing.T) {
 	assert.False(t, isDocker, "Expected not to be in a Docker environment")
 
 	// Test when .dockerenv exists
-	afero.WriteFile(fs, filepath.Join(root, ".dockerenv"), []byte{}, 0o644)
+	if err := afero.WriteFile(fs, filepath.Join(root, ".dockerenv"), []byte{}, 0o644); err != nil {
+		fmt.Println(err)
+	}
+
 	isDocker = isDockerEnvironment(fs, ctx, root)
 	assert.False(t, isDocker, "Expected false due to missing required Docker environment variables")
 
 	// Test when required Docker environment variables are set
-	os.Setenv("SCHEMA_VERSION", "1.0")
-	os.Setenv("OLLAMA_HOST", "localhost")
-	os.Setenv("KDEPS_HOST", "localhost")
+	t.Setenv("SCHEMA_VERSION", "1.0")
+	t.Setenv("OLLAMA_HOST", "localhost")
+	t.Setenv("KDEPS_HOST", "localhost")
 	isDocker = isDockerEnvironment(fs, ctx, root)
 	assert.True(t, isDocker, "Expected true when .dockerenv exists and required environment variables are set")
 }
 
 func TestAllDockerEnvVarsSet(t *testing.T) {
-	t.Parallel()
-
 	// Ensure environment is clean
-	os.Unsetenv("SCHEMA_VERSION")
-	os.Unsetenv("OLLAMA_HOST")
-	os.Unsetenv("KDEPS_HOST")
+	t.Setenv("SCHEMA_VERSION", "")
+	t.Setenv("OLLAMA_HOST", "")
+	t.Setenv("KDEPS_HOST", "")
 
 	// Test when no variables are set
 	assert.False(t, allDockerEnvVarsSet(ctx), "Expected false when no variables are set")
 
 	// Test when all variables are set
-	os.Setenv("SCHEMA_VERSION", "1.0")
-	os.Setenv("OLLAMA_HOST", "localhost")
-	os.Setenv("KDEPS_HOST", "localhost")
+	t.Setenv("SCHEMA_VERSION", "1.0")
+	t.Setenv("OLLAMA_HOST", "localhost")
+	t.Setenv("KDEPS_HOST", "localhost")
 	assert.True(t, allDockerEnvVarsSet(ctx), "Expected true when all required variables are set")
 
 	// Clean up
-	os.Unsetenv("SCHEMA_VERSION")
-	os.Unsetenv("OLLAMA_HOST")
-	os.Unsetenv("KDEPS_HOST")
+	t.Setenv("SCHEMA_VERSION", "")
+	t.Setenv("OLLAMA_HOST", "")
+	t.Setenv("KDEPS_HOST", "")
 }
 
 func TestNewEnvironment(t *testing.T) {
-	t.Parallel()
-
 	fs := afero.NewMemMapFs()
 
 	// Test with provided environment
@@ -116,9 +120,9 @@ func TestNewEnvironment(t *testing.T) {
 	assert.Equal(t, "1", env.NonInteractive, "Expected NonInteractive to be prioritized")
 
 	// Test loading from default environment
-	os.Setenv("ROOT_DIR", "/")
-	os.Setenv("HOME", "/home")
-	os.Setenv("PWD", "/current")
+	t.Setenv("ROOT_DIR", "/")
+	t.Setenv("HOME", "/home")
+	t.Setenv("PWD", "/current")
 	env, err = NewEnvironment(fs, ctx, nil)
 	assert.NoError(t, err, "Expected no error")
 	assert.Equal(t, "/home", env.Home, "Expected Home directory to match")
