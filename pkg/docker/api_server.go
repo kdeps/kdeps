@@ -133,9 +133,7 @@ func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 			return
 		}
 
-		filename := ""
-		filetype := ""
-		bodyData := ""
+		var filename, filetype, bodyData string
 
 		fileMap := make(map[string]struct {
 			Filename string
@@ -334,7 +332,10 @@ filetype = "%s"
 		// Write the HTTP response with the appropriate content type
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write(decodedContent)
+		if _, err := w.Write(decodedContent); err != nil {
+			http.Error(w, "unexpected error writing content", http.StatusInternalServerError)
+			return
+		}
 	}
 }
 
@@ -557,7 +558,10 @@ func formatResponseJson(content []byte) []byte {
 	}
 
 	// Marshal the modified response back into JSON
-	modifiedContent, _ := json.MarshalIndent(response, "", "  ")
+	modifiedContent, err := json.MarshalIndent(response, "", "  ")
+	if err != nil {
+		return content
+	}
 
 	return modifiedContent
 }
