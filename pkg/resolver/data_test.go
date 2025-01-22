@@ -53,7 +53,9 @@ func TestAppendDataEntry(t *testing.T) {
 		{
 			name: "PKL file load failure",
 			setup: func(dr *resolver.DependencyResolver) *data.DataImpl {
-				afero.WriteFile(dr.Fs, filepath.Join(dr.ActionDir, "data", dr.RequestId+"__data_output.pkl"), []byte("invalid content"), 0o644)
+				if err := afero.WriteFile(dr.Fs, filepath.Join(dr.ActionDir, "data", dr.RequestId+"__data_output.pkl"), []byte("invalid content"), 0o644); err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
 				return nil
 			},
 			expectError:   true,

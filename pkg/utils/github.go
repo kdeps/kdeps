@@ -22,7 +22,7 @@ func GetLatestGitHubRelease(ctx context.Context, repo string, baseURL string) (s
 	}
 	url := fmt.Sprintf("%s/repos/%s/releases/latest", baseURL, repo)
 
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
