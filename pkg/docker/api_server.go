@@ -292,14 +292,14 @@ filetype = "%s"
 		sections := []string{urlSection, method, headerSection, dataSection, paramSection, fileSection}
 
 		// Create and process the .pkl request file
-		if err := evaluator.CreateAndProcessPklFile(dr.Fs, dr.Context, sections, dr.RequestPklFile, "APIServerRequest.pkl",
+		if err := evaluator.CreateAndProcessPklFile(dr.Fs, ctx, sections, dr.RequestPklFile, "APIServerRequest.pkl",
 			logger, evaluator.EvalPkl, true); err != nil {
 			http.Error(w, "Failed to process request file", http.StatusInternalServerError)
 			return
 		}
 
 		// Execute the workflow actions and generate the response
-		fatal, err := processWorkflow(dr, logger)
+		fatal, err := processWorkflow(ctx, dr, logger)
 		if err != nil {
 			http.Error(w, "Workflow processing failed", http.StatusInternalServerError)
 			return
@@ -501,7 +501,7 @@ func formatParams(params map[string][]string) string {
 
 // processWorkflow handles the execution of the workflow steps after the .pkl file is created.
 // It prepares the workflow directory, imports necessary files, and processes the actions defined in the workflow.
-func processWorkflow(dr *resolver.DependencyResolver, logger *logging.Logger) (bool, error) {
+func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver, logger *logging.Logger) (bool, error) {
 	if err := dr.PrepareWorkflowDir(); err != nil {
 		return false, err
 	}
@@ -524,7 +524,7 @@ func processWorkflow(dr *resolver.DependencyResolver, logger *logging.Logger) (b
 	logger.Debug("Awaiting response...")
 
 	// Wait for the response file to be ready
-	if err := utils.WaitForFileReady(dr.Fs, dr.Context, dr.ResponseTargetFile, logger); err != nil {
+	if err := utils.WaitForFileReady(dr.Fs, ctx, dr.ResponseTargetFile, logger); err != nil {
 		return false, err
 	}
 
