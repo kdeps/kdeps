@@ -10,8 +10,6 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/cucumber/godog"
-	"github.com/docker/docker/client"
-	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/cfg"
 	"github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/kdeps/pkg/enforcer"
@@ -20,7 +18,6 @@ import (
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/schema/gen/kdeps"
 	pklRes "github.com/kdeps/schema/gen/resource"
-	wfPkl "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 )
 
@@ -32,27 +29,14 @@ var (
 	kdepsDir                  string
 	agentDir                  string
 	ctx                       context.Context
-	packageFile               string
-	hostPort                  string = "3000"
-	hostIP                    string = "127.0.0.1"
-	containerID               string
-	runDir                    string
-	containerName             string
-	apiServerMode             bool
-	cName                     string
-	pkgProject                *archiver.KdepsPackage
-	compiledProjectDir        string
 	environ                   *environment.Environment
 	currentDirPath            string
 	systemConfigurationFile   string
-	cli                       *client.Client
 	systemConfiguration       *kdeps.Kdeps
 	visited                   map[string]bool
-	actionId                  string
+	actionID                  string
 	graphResolver             *resolver.DependencyResolver
 	workflowConfigurationFile string
-	workflowConfiguration     *wfPkl.Workflow
-	schemaVersionFilePath     = "../../SCHEMA_VERSION"
 )
 
 func TestFeatures(t *testing.T) {
@@ -327,10 +311,10 @@ run {
 }
 
 func eachResourceAreReloadedWhenOpened() error {
-	actionId = "helloWorld9"
+	actionID = "helloWorld9"
 	visited = make(map[string]bool)
 
-	stack := graphResolver.Graph.BuildDependencyStack(actionId, visited)
+	stack := graphResolver.Graph.BuildDependencyStack(actionID, visited)
 	for _, resNode := range stack {
 		for _, res := range graphResolver.Resources {
 			if res.Id == resNode {
@@ -410,10 +394,10 @@ func iWasAbleToSeeTheTopdownDependencies(arg1 string) error {
 		return err
 	}
 
-	actionId = "helloWorld9"
+	actionID = "helloWorld9"
 	visited = make(map[string]bool)
 	// Build the dependency stack
-	stack := graphResolver.Graph.BuildDependencyStack(actionId, visited)
+	stack := graphResolver.Graph.BuildDependencyStack(actionID, visited)
 
 	// Convert arg1 (string) to an integer for comparison with len(stack)
 	arg1Int, err := strconv.Atoi(arg1) // Convert string to int
