@@ -40,25 +40,25 @@ type DecodedResponse struct {
 	Errors []ErrorResponse `json:"errors"`
 }
 
-// StartApiServerMode initializes and starts an API server based on the provided workflow configuration.
+// StartAPIServerMode initializes and starts an API server based on the provided workflow configuration.
 // It validates the API server configuration, sets up routes, and starts the server on the configured port.
-func StartApiServerMode(fs afero.Fs, ctx context.Context, wfCfg pklWf.Workflow, environ *environment.Environment,
-	agentDir string, apiServerPath string, logger *logging.Logger,
+func StartAPIServerMode(fs afero.Fs, ctx context.Context, wfCfg pklWf.Workflow, environ *environment.Environment,
+	agentDir string, APIServerPath string, logger *logging.Logger,
 ) error {
 	// Extract workflow settings and validate API server configuration
 	wfSettings := wfCfg.GetSettings()
-	wfApiServer := wfSettings.ApiServer
+	wfAPIServer := wfSettings.APIServer
 
-	if wfApiServer == nil {
+	if wfAPIServer == nil {
 		return errors.New("API server configuration is missing")
 	}
 
 	// Format the server host and port
-	portNum := strconv.FormatUint(uint64(wfApiServer.PortNum), 10)
+	portNum := strconv.FormatUint(uint64(wfAPIServer.PortNum), 10)
 	hostPort := ":" + portNum
 
 	// Set up API routes as per the configuration
-	if err := setupRoutes(fs, ctx, wfApiServer.Routes, environ, agentDir, apiServerPath, logger); err != nil {
+	if err := setupRoutes(fs, ctx, wfAPIServer.Routes, environ, agentDir, APIServerPath, logger); err != nil {
 		return fmt.Errorf("failed to set up routes: %w", err)
 	}
 
@@ -76,7 +76,7 @@ func StartApiServerMode(fs afero.Fs, ctx context.Context, wfCfg pklWf.Workflow, 
 // setupRoutes configures HTTP routes for the API server based on the provided route configuration.
 // Each route is validated before being registered with the HTTP handler.
 func setupRoutes(fs afero.Fs, ctx context.Context, routes []*apiserver.APIServerRoutes, environ *environment.Environment,
-	agentDir string, apiServerPath string, logger *logging.Logger,
+	agentDir string, APIServerPath string, logger *logging.Logger,
 ) error {
 	for _, route := range routes {
 		if route == nil || route.Path == "" {
@@ -84,17 +84,17 @@ func setupRoutes(fs afero.Fs, ctx context.Context, routes []*apiserver.APIServer
 			continue
 		}
 
-		http.HandleFunc(route.Path, ApiServerHandler(fs, ctx, route, environ, agentDir, apiServerPath, logger))
+		http.HandleFunc(route.Path, APIServerHandler(fs, ctx, route, environ, agentDir, APIServerPath, logger))
 		logger.Printf("Route configured: %s", route.Path)
 	}
 
 	return nil
 }
 
-// ApiServerHandler handles incoming HTTP requests for the configured routes.
+// APIServerHandler handles incoming HTTP requests for the configured routes.
 // It validates the HTTP method, processes the request data, and triggers workflow actions to generate responses.
-func ApiServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServerRoutes, env *environment.Environment,
-	agentDir string, apiServerPath string, logger *logging.Logger,
+func APIServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServerRoutes, env *environment.Environment,
+	agentDir string, APIServerPath string, logger *logging.Logger,
 ) http.HandlerFunc {
 	allowedMethods := route.Methods
 
@@ -327,7 +327,7 @@ filetype = "%s"
 			return
 		}
 
-		decodedContent = formatResponseJson(decodedContent)
+		decodedContent = formatResponseJSON(decodedContent)
 
 		// Write the HTTP response with the appropriate content type
 		w.Header().Set("Content-Type", "application/json")
@@ -417,22 +417,22 @@ func decodeResponseContent(content []byte, logger *logging.Logger) ([]byte, erro
 				return matchNewlines.ReplaceAllString(s, "\\n")
 			}
 			re := regexp.MustCompile(`"[^"\\]*(?:\\[\s\S][^"\\]*)*"`)
-			invalidJson := re.ReplaceAllStringFunc(decodedData, escapeNewlines)
+			invalidJSON := re.ReplaceAllStringFunc(decodedData, escapeNewlines)
 
-			// Pass in the invalidJson to the fixJSON
-			fixedJson := fixJSON(invalidJson)
+			// Pass in the invalidJSON to the fixJSON
+			fixedJSON := fixJSON(invalidJSON)
 
 			// If the decoded data is JSON, pretty print it
-			if isJSON(fixedJson) {
+			if isJSON(fixedJSON) {
 				var prettyJSON bytes.Buffer
-				err := json.Indent(&prettyJSON, []byte(fixedJson), "", "  ")
+				err := json.Indent(&prettyJSON, []byte(fixedJSON), "", "  ")
 				if err == nil {
-					fixedJson = prettyJSON.String()
+					fixedJSON = prettyJSON.String()
 				}
 			}
 
 			// Assign the cleaned-up data back to the response
-			decodedResp.Response.Data[i] = fixedJson
+			decodedResp.Response.Data[i] = fixedJSON
 		}
 	}
 
@@ -531,9 +531,9 @@ func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver, logge
 	return fatal, nil
 }
 
-// formatResponseJson attempts to format the response content as JSON if required.
+// formatResponseJSON attempts to format the response content as JSON if required.
 // It unmarshals the content into a map, modifies the "data" field if necessary, and re-encodes it into a pretty-printed JSON string.
-func formatResponseJson(content []byte) []byte {
+func formatResponseJSON(content []byte) []byte {
 	var response map[string]interface{}
 
 	// Attempt to unmarshal the content into the response map

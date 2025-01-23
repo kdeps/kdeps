@@ -27,7 +27,7 @@ type DependencyResolver struct {
 	Context              context.Context
 	Graph                *graph.DependencyGraph
 	Workflow             pklWf.Workflow
-	RequestId            string
+	RequestID            string
 	RequestPklFile       string
 	ResponsePklFile      string
 	ResponseTargetFile   string
@@ -36,17 +36,17 @@ type DependencyResolver struct {
 	ActionDir            string
 	FilesDir             string
 	DataDir              string
-	ApiServerMode        bool
+	APIServerMode        bool
 	AnacondaInstalled    bool
 }
 
 type ResourceNodeEntry struct {
-	Id   string `pkl:"id"`
+	ID   string `pkl:"id"`
 	File string `pkl:"file"`
 }
 
 func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment, agentDir string, logger *logging.Logger) (*DependencyResolver, error) {
-	graphId := uuid.New().String()
+	graphID := uuid.New().String()
 
 	var dataDir, actionDir, filesDir, projectDir, pklWfFile, pklWfParentFile string
 
@@ -100,9 +100,9 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		}
 	}
 
-	requestPklFile := filepath.Join(actionDir, "/api/"+graphId+"__request.pkl")
-	responsePklFile := filepath.Join(actionDir, "/api/"+graphId+"__response.pkl")
-	responseTargetFile := filepath.Join(actionDir, "/api/"+graphId+"__response.json")
+	requestPklFile := filepath.Join(actionDir, "/api/"+graphID+"__request.pkl")
+	responsePklFile := filepath.Join(actionDir, "/api/"+graphID+"__response.pkl")
+	responseTargetFile := filepath.Join(actionDir, "/api/"+graphID+"__response.json")
 
 	dependencyResolver := &DependencyResolver{
 		Fs:                   fs,
@@ -114,7 +114,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		ActionDir:            actionDir,
 		FilesDir:             filesDir,
 		DataDir:              dataDir,
-		RequestId:            graphId,
+		RequestID:            graphID,
 		RequestPklFile:       requestPklFile,
 		ResponsePklFile:      responsePklFile,
 		ResponseTargetFile:   responseTargetFile,
@@ -127,7 +127,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	}
 	dependencyResolver.Workflow = workflowConfiguration
 	if workflowConfiguration.GetSettings() != nil {
-		dependencyResolver.ApiServerMode = workflowConfiguration.GetSettings().ApiServerMode
+		dependencyResolver.APIServerMode = workflowConfiguration.GetSettings().APIServerMode
 		agentSettings := workflowConfiguration.GetSettings().AgentSettings
 		dependencyResolver.AnacondaInstalled = agentSettings.InstallAnaconda
 	}
@@ -149,17 +149,17 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	// }()
 
 	visited := make(map[string]bool)
-	actionId := dr.Workflow.GetAction()
+	actionID := dr.Workflow.GetAction()
 	timeoutSeconds := 60 * time.Second
 	dr.Logger.Debug("Processing resources...")
 	if err := dr.LoadResourceEntries(); err != nil {
 		return dr.HandleAPIErrorResponse(500, err.Error(), true)
 	}
 
-	stack := dr.Graph.BuildDependencyStack(actionId, visited)
+	stack := dr.Graph.BuildDependencyStack(actionID, visited)
 	for _, resNode := range stack {
 		for _, res := range dr.Resources {
-			if res.Id == resNode {
+			if res.ID == resNode {
 				rsc, err := pklRes.LoadFromPath(dr.Context, res.File)
 				if err != nil {
 					return dr.HandleAPIErrorResponse(500, err.Error(), true)
@@ -170,7 +170,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 					// Check Skip Condition
 					if runBlock.SkipCondition != nil {
 						if utils.ShouldSkip(runBlock.SkipCondition) {
-							dr.Logger.Debug("Skip condition met, skipping:", res.Id)
+							dr.Logger.Debug("Skip condition met, skipping:", res.ID)
 							continue
 						}
 					}
@@ -178,108 +178,108 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 					// Handle Preflight Check
 					if runBlock.PreflightCheck != nil && runBlock.PreflightCheck.Validations != nil {
 						if !utils.AllConditionsMet(runBlock.PreflightCheck.Validations) {
-							dr.Logger.Error("Preflight check not met, failing:", res.Id)
+							dr.Logger.Error("Preflight check not met, failing:", res.ID)
 							if runBlock.PreflightCheck.Error != nil {
 								return dr.HandleAPIErrorResponse(
 									runBlock.PreflightCheck.Error.Code,
-									fmt.Sprintf("%s: %s", runBlock.PreflightCheck.Error.Message, res.Id), false)
+									fmt.Sprintf("%s: %s", runBlock.PreflightCheck.Error.Message, res.ID), false)
 							}
-							dr.Logger.Error("Preflight check not met, failing:", res.Id)
-							return dr.HandleAPIErrorResponse(500, "Preflight check failed for resource: "+res.Id, false)
+							dr.Logger.Error("Preflight check not met, failing:", res.ID)
+							return dr.HandleAPIErrorResponse(500, "Preflight check failed for resource: "+res.ID, false)
 						}
 					}
 
 					if runBlock.Exec != nil && runBlock.Exec.Command != "" {
-						timestamp, err := dr.GetCurrentTimestamp(res.Id, "exec")
+						timestamp, err := dr.GetCurrentTimestamp(res.ID, "exec")
 						if err != nil {
-							dr.Logger.Error("Exec error:", res.Id)
-							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Exec failed for resource: %s - %s", res.Id, err), false)
+							dr.Logger.Error("Exec error:", res.ID)
+							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Exec failed for resource: %s - %s", res.ID, err), false)
 						}
 
-						if err := dr.HandleExec(res.Id, runBlock.Exec); err != nil {
-							dr.Logger.Error("Exec error:", res.Id)
-							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Exec failed for resource: %s - %s", res.Id, err), false)
+						if err := dr.HandleExec(res.ID, runBlock.Exec); err != nil {
+							dr.Logger.Error("Exec error:", res.ID)
+							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Exec failed for resource: %s - %s", res.ID, err), false)
 						}
 
 						if runBlock.Exec.TimeoutSeconds != nil {
 							timeoutSeconds = time.Duration(*runBlock.Exec.TimeoutSeconds) * time.Second
 						}
 
-						if err := dr.WaitForTimestampChange(res.Id, timestamp, timeoutSeconds, "exec"); err != nil {
-							dr.Logger.Error("Exec error:", res.Id)
-							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Exec timeout awaiting for output: %s - %s", res.Id, err), false)
+						if err := dr.WaitForTimestampChange(res.ID, timestamp, timeoutSeconds, "exec"); err != nil {
+							dr.Logger.Error("Exec error:", res.ID)
+							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Exec timeout awaiting for output: %s - %s", res.ID, err), false)
 						}
 					}
 
 					if runBlock.Python != nil && runBlock.Python.Script != "" {
-						timestamp, err := dr.GetCurrentTimestamp(res.Id, "python")
+						timestamp, err := dr.GetCurrentTimestamp(res.ID, "python")
 						if err != nil {
-							dr.Logger.Error("Python error:", res.Id)
-							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Python script failed for resource: %s - %s", res.Id, err), false)
+							dr.Logger.Error("Python error:", res.ID)
+							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Python script failed for resource: %s - %s", res.ID, err), false)
 						}
 
-						if err := dr.HandlePython(res.Id, runBlock.Python); err != nil {
-							dr.Logger.Error("Python error:", res.Id)
-							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Python script failed for resource: %s - %s", res.Id, err), false)
+						if err := dr.HandlePython(res.ID, runBlock.Python); err != nil {
+							dr.Logger.Error("Python error:", res.ID)
+							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Python script failed for resource: %s - %s", res.ID, err), false)
 						}
 
 						if runBlock.Python.TimeoutSeconds != nil {
 							timeoutSeconds = time.Duration(*runBlock.Python.TimeoutSeconds) * time.Second
 						}
 
-						if err := dr.WaitForTimestampChange(res.Id, timestamp, timeoutSeconds, "python"); err != nil {
-							dr.Logger.Error("Python error:", res.Id)
-							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Python timeout awaiting for output: %s - %s", res.Id, err), false)
+						if err := dr.WaitForTimestampChange(res.ID, timestamp, timeoutSeconds, "python"); err != nil {
+							dr.Logger.Error("Python error:", res.ID)
+							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Python timeout awaiting for output: %s - %s", res.ID, err), false)
 						}
 					}
 
 					if runBlock.Chat != nil && runBlock.Chat.Model != "" && runBlock.Chat.Prompt != "" {
-						timestamp, err := dr.GetCurrentTimestamp(res.Id, "llm")
+						timestamp, err := dr.GetCurrentTimestamp(res.ID, "llm")
 						if err != nil {
-							dr.Logger.Error("LLM chat error:", res.Id)
-							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("LLM chat failed for resource: %s - %s", res.Id, err), false)
+							dr.Logger.Error("LLM chat error:", res.ID)
+							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("LLM chat failed for resource: %s - %s", res.ID, err), false)
 						}
 
-						if err := dr.HandleLLMChat(res.Id, runBlock.Chat); err != nil {
-							dr.Logger.Error("LLM chat error:", res.Id)
-							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("LLM chat failed for resource: %s - %s", res.Id, err), true)
+						if err := dr.HandleLLMChat(res.ID, runBlock.Chat); err != nil {
+							dr.Logger.Error("LLM chat error:", res.ID)
+							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("LLM chat failed for resource: %s - %s", res.ID, err), true)
 						}
 
 						if runBlock.Chat.TimeoutSeconds != nil {
 							timeoutSeconds = time.Duration(*runBlock.Chat.TimeoutSeconds) * time.Second
 						}
 
-						if err := dr.WaitForTimestampChange(res.Id, timestamp, timeoutSeconds, "llm"); err != nil {
-							dr.Logger.Error("LLM chat error:", res.Id)
-							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("LLM chat timeout awaiting for response: %s - %s", res.Id, err), false)
+						if err := dr.WaitForTimestampChange(res.ID, timestamp, timeoutSeconds, "llm"); err != nil {
+							dr.Logger.Error("LLM chat error:", res.ID)
+							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("LLM chat timeout awaiting for response: %s - %s", res.ID, err), false)
 						}
 					}
 
-					if runBlock.HttpClient != nil && runBlock.HttpClient.Method != "" && runBlock.HttpClient.Url != "" {
-						timestamp, err := dr.GetCurrentTimestamp(res.Id, "client")
+					if runBlock.HTTPClient != nil && runBlock.HTTPClient.Method != "" && runBlock.HTTPClient.Url != "" {
+						timestamp, err := dr.GetCurrentTimestamp(res.ID, "client")
 						if err != nil {
-							dr.Logger.Error("Http client error:", res.Id)
-							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Http client failed for resource: %s - %s", res.Id, err), false)
+							dr.Logger.Error("HTTP client error:", res.ID)
+							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("HTTP client failed for resource: %s - %s", res.ID, err), false)
 						}
 
-						if err := dr.HandleHttpClient(res.Id, runBlock.HttpClient); err != nil {
-							dr.Logger.Error("Http client error:", res.Id)
-							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Http client failed for resource: %s - %s", res.Id, err), false)
+						if err := dr.HandleHTTPClient(res.ID, runBlock.HTTPClient); err != nil {
+							dr.Logger.Error("HTTP client error:", res.ID)
+							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("HTTP client failed for resource: %s - %s", res.ID, err), false)
 						}
 
-						if runBlock.HttpClient.TimeoutSeconds != nil {
-							timeoutSeconds = time.Duration(*runBlock.HttpClient.TimeoutSeconds) * time.Second
+						if runBlock.HTTPClient.TimeoutSeconds != nil {
+							timeoutSeconds = time.Duration(*runBlock.HTTPClient.TimeoutSeconds) * time.Second
 						}
 
-						if err := dr.WaitForTimestampChange(res.Id, timestamp, timeoutSeconds, "client"); err != nil {
-							dr.Logger.Error("Http client error:", res.Id)
-							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Http client timeout awaiting for output: %s - %s", res.Id, err), false)
+						if err := dr.WaitForTimestampChange(res.ID, timestamp, timeoutSeconds, "client"); err != nil {
+							dr.Logger.Error("HTTP client error:", res.ID)
+							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("HTTP client timeout awaiting for output: %s - %s", res.ID, err), false)
 						}
 					}
 
 					// API Response
-					if dr.ApiServerMode && runBlock.ApiResponse != nil {
-						if err := dr.CreateResponsePklFile(*runBlock.ApiResponse); err != nil {
+					if dr.APIServerMode && runBlock.APIResponse != nil {
+						if err := dr.CreateResponsePklFile(*runBlock.APIResponse); err != nil {
 							return dr.HandleAPIErrorResponse(500, err.Error(), true)
 						}
 					}

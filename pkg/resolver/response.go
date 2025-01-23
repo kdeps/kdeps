@@ -19,15 +19,15 @@ import (
 )
 
 // CreateResponsePklFile generates a PKL file from the API response and processes it.
-func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverresponse.APIServerResponse) error {
-	dr.Logger.Debug("Starting CreateResponsePklFile", "response", apiResponseBlock)
+func (dr *DependencyResolver) CreateResponsePklFile(APIResponseBlock apiserverresponse.APIServerResponse) error {
+	dr.Logger.Debug("Starting CreateResponsePklFile", "response", APIResponseBlock)
 
 	if err := dr.ensureResponsePklFileNotExists(); err != nil {
 		dr.Logger.Error("Failed to ensure response PKL file does not exist", "error", err)
 		return err
 	}
 
-	sections := dr.buildResponseSections(apiResponseBlock)
+	sections := dr.buildResponseSections(APIResponseBlock)
 	dr.Logger.Debug("Built response sections", "sections", sections)
 
 	if err := evaluator.CreateAndProcessPklFile(dr.Fs, dr.Context, sections, dr.ResponsePklFile, "APIServerResponse.pkl", dr.Logger, evaluator.EvalPkl, false); err != nil {
@@ -62,14 +62,14 @@ func (dr *DependencyResolver) ensureResponsePklFileNotExists() error {
 }
 
 // buildResponseSections creates sections for the PKL file from the API response.
-func (dr *DependencyResolver) buildResponseSections(apiResponseBlock apiserverresponse.APIServerResponse) []string {
-	dr.Logger.Debug("Building response sections from API response", "response", apiResponseBlock)
+func (dr *DependencyResolver) buildResponseSections(APIResponseBlock apiserverresponse.APIServerResponse) []string {
+	dr.Logger.Debug("Building response sections from API response", "response", APIResponseBlock)
 
 	sections := []string{
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Document.pkl" as document`, schema.SchemaVersion(dr.Context)),
-		fmt.Sprintf("success = %v", apiResponseBlock.GetSuccess()),
-		formatResponseData(apiResponseBlock.GetResponse()),
-		formatErrors(apiResponseBlock.GetErrors(), dr.Logger),
+		fmt.Sprintf("success = %v", APIResponseBlock.GetSuccess()),
+		formatResponseData(APIResponseBlock.GetResponse()),
+		formatErrors(APIResponseBlock.GetErrors(), dr.Logger),
 	}
 
 	dr.Logger.Debug("Response sections built", "sections", sections)
@@ -350,7 +350,7 @@ func (dr *DependencyResolver) executePklEvalCommand() (execute.ExecResult, error
 func (dr *DependencyResolver) HandleAPIErrorResponse(code int, message string, fatal bool) (bool, error) {
 	dr.Logger.Debug("Handling API error response", "code", code, "message", message, "fatal", fatal)
 
-	if dr.ApiServerMode {
+	if dr.APIServerMode {
 		errorResponse := utils.NewAPIServerResponse(false, nil, code, message)
 		if err := dr.CreateResponsePklFile(errorResponse); err != nil {
 			dr.Logger.Error("Failed to create error response PKL file", "error", err)

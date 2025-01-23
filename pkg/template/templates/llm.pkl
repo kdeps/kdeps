@@ -1,6 +1,6 @@
 {{ .Header }}
 
-id = "llmResource"
+ID = "llmResource"
 name = "LLM Chat Resource"
 description = "This resource creates a LLM chat session."
 category = ""
@@ -47,11 +47,11 @@ run {
                 prompt = "Who is @(request.data())?"
 
                 // Specify if the LLM response should be a structured JSON
-                jsonResponse = true
+                JSONResponse = true
 
-                // If jsonResponse is true, then the structured JSON data will need to have the
+                // If JSONResponse is true, then the structured JSON data will need to have the
                 // following keys.
-                jsonResponseKeys {
+                JSONResponseKeys {
                         "first_name"
                         "last_name"
                         "parents"

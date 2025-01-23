@@ -14,21 +14,21 @@ import (
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
-	pklHttp "github.com/kdeps/schema/gen/http"
+	pklHTTP "github.com/kdeps/schema/gen/http"
 	"github.com/spf13/afero"
 )
 
-func (dr *DependencyResolver) HandleHttpClient(actionId string, httpBlock *pklHttp.ResourceHTTPClient) error {
+func (dr *DependencyResolver) HandleHTTPClient(actionID string, httpBlock *pklHTTP.ResourceHTTPClient) error {
 	go func() error {
 		// Decode Base64 encoded fields before processing
-		if err := dr.decodeHttpBlock(httpBlock); err != nil {
-			dr.Logger.Error("Failed to decode HTTP block", "actionId", actionId, "error", err)
+		if err := dr.decodeHTTPBlock(httpBlock); err != nil {
+			dr.Logger.Error("Failed to decode HTTP block", "actionID", actionID, "error", err)
 			return err
 		}
 
 		// Proceed with processing the decoded block
-		if err := dr.processHttpBlock(actionId, httpBlock); err != nil {
-			dr.Logger.Error("Failed to process HTTP block", "actionId", actionId, "error", err)
+		if err := dr.processHTTPBlock(actionID, httpBlock); err != nil {
+			dr.Logger.Error("Failed to process HTTP block", "actionID", actionID, "error", err)
 			return err
 		}
 
@@ -38,19 +38,19 @@ func (dr *DependencyResolver) HandleHttpClient(actionId string, httpBlock *pklHt
 	return nil
 }
 
-func (dr *DependencyResolver) processHttpBlock(actionId string, httpBlock *pklHttp.ResourceHTTPClient) error {
+func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHTTP.ResourceHTTPClient) error {
 	if err := dr.DoRequest(httpBlock); err != nil {
 		return err
 	}
 
-	if err := dr.AppendHttpEntry(actionId, httpBlock); err != nil {
+	if err := dr.AppendHTTPEntry(actionID, httpBlock); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (dr *DependencyResolver) decodeHttpBlock(httpBlock *pklHttp.ResourceHTTPClient) error {
+func (dr *DependencyResolver) decodeHTTPBlock(httpBlock *pklHTTP.ResourceHTTPClient) error {
 	// Check if the URL is Base64 encoded before decoding
 	if utils.IsBase64Encoded(httpBlock.Url) {
 		decodedUrl, err := utils.DecodeBase64String(httpBlock.Url)
@@ -123,11 +123,11 @@ func (dr *DependencyResolver) decodeHttpBlock(httpBlock *pklHttp.ResourceHTTPCli
 	return nil
 }
 
-func (dr *DependencyResolver) WriteResponseBodyToFile(resourceId string, responseBodyEncoded *string) (string, error) {
-	// Convert resourceId to be filename friendly
-	resourceIdFile := utils.ConvertToFilenameFriendly(resourceId)
+func (dr *DependencyResolver) WriteResponseBodyToFile(resourceID string, responseBodyEncoded *string) (string, error) {
+	// Convert resourceID to be filename friendly
+	resourceIDFile := utils.ConvertToFilenameFriendly(resourceID)
 	// Define the file path using the FilesDir and resource ID
-	outputFilePath := filepath.Join(dr.FilesDir, resourceIdFile)
+	outputFilePath := filepath.Join(dr.FilesDir, resourceIDFile)
 
 	// Ensure the ResponseBody is not nil
 	if responseBodyEncoded != nil {
@@ -137,7 +137,7 @@ func (dr *DependencyResolver) WriteResponseBodyToFile(resourceId string, respons
 			// Decode the Base64-encoded ResponseBody string
 			decodedResponseBody, err := utils.DecodeBase64String(*responseBodyEncoded)
 			if err != nil {
-				return "", fmt.Errorf("failed to decode Base64 string for resource ID: %s: %w", resourceId, err)
+				return "", fmt.Errorf("failed to decode Base64 string for resource ID: %s: %w", resourceID, err)
 			}
 			content = decodedResponseBody
 		} else {
@@ -148,7 +148,7 @@ func (dr *DependencyResolver) WriteResponseBodyToFile(resourceId string, respons
 		// Write the content to the file
 		err := afero.WriteFile(dr.Fs, outputFilePath, []byte(content), 0o644)
 		if err != nil {
-			return "", fmt.Errorf("failed to write ResponseBody to file for resource ID: %s: %w", resourceId, err)
+			return "", fmt.Errorf("failed to write ResponseBody to file for resource ID: %s: %w", resourceID, err)
 		}
 	} else {
 		return "", nil
@@ -157,15 +157,15 @@ func (dr *DependencyResolver) WriteResponseBodyToFile(resourceId string, respons
 	return outputFilePath, nil
 }
 
-func (dr *DependencyResolver) AppendHttpEntry(resourceId string, newHttpClient *pklHttp.ResourceHTTPClient) error {
+func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, newHTTPClient *pklHTTP.ResourceHTTPClient) error {
 	// Define the path to the PKL file
-	pklPath := filepath.Join(dr.ActionDir, "client/"+dr.RequestId+"__client_output.pkl")
+	pklPath := filepath.Join(dr.ActionDir, "client/"+dr.RequestID+"__client_output.pkl")
 
 	// Get the current timestamp
 	newTimestamp := uint32(time.Now().UnixNano())
 
 	// Load existing PKL data
-	pklRes, err := pklHttp.LoadFromPath(dr.Context, pklPath)
+	pklRes, err := pklHTTP.LoadFromPath(dr.Context, pklPath)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL file: %w", err)
 	}
@@ -174,25 +174,25 @@ func (dr *DependencyResolver) AppendHttpEntry(resourceId string, newHttpClient *
 
 	// Check if the URL is already Base64 encoded
 	var filePath, encodedUrl string
-	if utils.IsBase64Encoded(newHttpClient.Url) {
-		encodedUrl = newHttpClient.Url // Use the URL as it is if already Base64 encoded
+	if utils.IsBase64Encoded(newHTTPClient.Url) {
+		encodedUrl = newHTTPClient.Url // Use the URL as it is if already Base64 encoded
 	} else {
-		encodedUrl = utils.EncodeBase64String(newHttpClient.Url) // Otherwise, encode it
+		encodedUrl = utils.EncodeBase64String(newHTTPClient.Url) // Otherwise, encode it
 	}
 
-	existingResources[resourceId] = &pklHttp.ResourceHTTPClient{
-		Method:    newHttpClient.Method,
+	existingResources[resourceID] = &pklHTTP.ResourceHTTPClient{
+		Method:    newHTTPClient.Method,
 		Url:       encodedUrl, // Use either encoded or already Base64 URL
-		Data:      newHttpClient.Data,
-		Headers:   newHttpClient.Headers,
-		Response:  newHttpClient.Response,
+		Data:      newHTTPClient.Data,
+		Headers:   newHTTPClient.Headers,
+		Response:  newHTTPClient.Response,
 		File:      &filePath,
 		Timestamp: &newTimestamp,
 	}
 
 	// Build the new content for the PKL file in the specified format
 	var pklContent strings.Builder
-	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Http.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
+	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/HTTP.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
 	pklContent.WriteString("resources {\n")
 
 	for id, resource := range existingResources {
@@ -271,7 +271,7 @@ func (dr *DependencyResolver) AppendHttpEntry(resourceId string, newHttpClient *
 			}
 
 			if resource.Response.Body != nil {
-				filePath, err = dr.WriteResponseBodyToFile(resourceId, resource.Response.Body)
+				filePath, err = dr.WriteResponseBodyToFile(resourceID, resource.Response.Body)
 				if err != nil {
 					return fmt.Errorf("failed to write Response Body to file: %w", err)
 				}
@@ -306,7 +306,7 @@ func (dr *DependencyResolver) AppendHttpEntry(resourceId string, newHttpClient *
 	}
 
 	// Evaluate the PKL file using EvalPkl
-	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath, fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Http.pkl\"\n\n", schema.SchemaVersion(dr.Context)), dr.Logger)
+	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath, fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/HTTP.pkl\"\n\n", schema.SchemaVersion(dr.Context)), dr.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to evaluate PKL file: %w", err)
 	}
@@ -324,13 +324,13 @@ func (dr *DependencyResolver) AppendHttpEntry(resourceId string, newHttpClient *
 	return nil
 }
 
-func (dr *DependencyResolver) DoRequest(client *pklHttp.ResourceHTTPClient) error {
+func (dr *DependencyResolver) DoRequest(client *pklHTTP.ResourceHTTPClient) error {
 	// Create the HTTP client
 	timeoutSeconds := 30 // default timeout
 	if client.TimeoutSeconds != nil {
 		timeoutSeconds = *client.TimeoutSeconds
 	}
-	httpClient := &http.Client{
+	HTTPClient := &http.Client{
 		Timeout: time.Duration(timeoutSeconds) * time.Second,
 	}
 
@@ -387,7 +387,7 @@ func (dr *DependencyResolver) DoRequest(client *pklHttp.ResourceHTTPClient) erro
 	}
 
 	// Execute the request
-	resp, err := httpClient.Do(req)
+	resp, err := HTTPClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to execute request: %w", err)
 	}
@@ -401,7 +401,7 @@ func (dr *DependencyResolver) DoRequest(client *pklHttp.ResourceHTTPClient) erro
 
 	// Initialize response fields if necessary
 	if client.Response == nil {
-		client.Response = &pklHttp.ResponseBlock{}
+		client.Response = &pklHTTP.ResponseBlock{}
 	}
 	if client.Response.Body == nil {
 		client.Response.Body = new(string)

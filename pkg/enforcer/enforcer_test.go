@@ -13,32 +13,29 @@ import (
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 )
 
 var (
-	testFs                = afero.NewOsFs()
-	homeDirPath           string
-	currentDirPath        string
-	ctx                   = context.Background()
-	systemConfiguration   *kdeps.Kdeps
-	fileThatExist         string
-	logger                *logging.Logger
-	agentPath             string
-	doc                   string
-	schemaVersionFilePath = "../../SCHEMA_VERSION"
-	workflowAmendsLine    = `amends "package://schema.kdeps.com/core@0.0.32#/Workflow.pkl"`
-	configAmendsLine      = `amends "package://schema.kdeps.com/core@0.0.32#/Kdeps.pkl"`
-	resourceAmendsLine    = `amends "package://schema.kdeps.com/core@0.0.32#/Resource.pkl"`
-	resourceValues        = `
-id = "helloWorld"
-
-name = null
-description = null
-category = null
-requires = null
-run = null
+	testFs              = afero.NewOsFs()
+	homeDirPath         string
+	currentDirPath      string
+	ctx                 = context.Background()
+	systemConfiguration *kdeps.Kdeps
+	fileThatExist       string
+	logger              *logging.Logger
+	agentPath           string
+	doc                 string
+	workflowAmendsLine  = fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schema.SchemaVersion(ctx))
+	configAmendsLine    = fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Kdeps.pkl"`, schema.SchemaVersion(ctx))
+	resourceAmendsLine  = fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"`, schema.SchemaVersion(ctx))
+	resourceValues      = `
+ID = "helloWorld"
+name = "name"
+description = "description"
+category = "category"
 `
 	configValues = `
 runMode = "docker"
@@ -46,18 +43,15 @@ dockerGPU = "cpu"
 `
 	workflowValues = `
 settings {
-  apiServerMode = false
-  apiServerSettings {
-    serverPort = 3000
+  APIServerMode = false
+  APIServer {
+    portNum = 3000
     routes {
       new {
 	path = "/api"
 	methods {
 	  "POST"
 	}
-	requestParams = "ENV:API_SERVER_REQUEST_PARAMS"
-	request = "ENV:API_SERVER_REQUEST"
-	response = "ENV:API_SERVER_RESPONSE"
       }
     }
   }

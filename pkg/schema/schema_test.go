@@ -10,25 +10,38 @@ import (
 
 func TestSchemaVersion(t *testing.T) {
 	t.Parallel()
-	var ctx context.Context
+	ctx := context.Background()
+
+	const mockLockedVersion = "0.2.0" // Define the version once and reuse it
+	const mockVersion = "0.2.0"       // Define the version once and reuse it
+
+	// Save the original value of UseLatest to avoid test interference
+	originalUseLatest := UseLatest
+	defer func() { UseLatest = originalUseLatest }()
 
 	t.Run("returns specified version when UseLatest is false", func(t *testing.T) {
 		t.Parallel()
+
+		// Ensure UseLatest is set to false and mock behavior is consistent
 		UseLatest = false
 		result := SchemaVersion(ctx)
-		assert.Equal(t, "0.1.46", result, "expected the specified version to be returned")
+
+		assert.Equal(t, mockVersion, result, "expected the specified version to be returned when UseLatest is false")
 	})
 
 	t.Run("returns latest version when UseLatest is true", func(t *testing.T) {
 		t.Parallel()
-		// Mock GitHubReleaseFetcher to return a fixed version
+
+		// Mock GitHubReleaseFetcher to return a specific version for testing
+		originalFetcher := utils.GitHubReleaseFetcher
 		utils.GitHubReleaseFetcher = func(ctx context.Context, repo, baseURL string) (string, error) {
-			return "0.1.46", nil
+			return mockLockedVersion, nil // Use the reusable constant
 		}
-		defer func() { utils.GitHubReleaseFetcher = utils.GetLatestGitHubRelease }()
+		defer func() { utils.GitHubReleaseFetcher = originalFetcher }()
 
 		UseLatest = true
 		result := SchemaVersion(ctx)
-		assert.Equal(t, "0.1.46", result, "expected the latest version to be returned")
+
+		assert.Equal(t, mockLockedVersion, result, "expected the latest version to be returned when UseLatest is true")
 	})
 }

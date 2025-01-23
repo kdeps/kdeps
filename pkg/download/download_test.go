@@ -103,7 +103,7 @@ func TestDownloadFile_FileCreationError(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid file path")
 }
 
-func TestDownloadFile_HttpGetError(t *testing.T) {
+func TestDownloadFile_HTTPGetError(t *testing.T) {
 	t.Parallel()
 	logger = logging.GetLogger()
 	fs := afero.NewMemMapFs()

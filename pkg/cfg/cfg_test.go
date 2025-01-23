@@ -10,6 +10,7 @@ import (
 	"github.com/cucumber/godog"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/spf13/afero"
 )
 
@@ -17,7 +18,6 @@ var (
 	testFs         = afero.NewOsFs()
 	currentDirPath string
 	homeDirPath    string
-	testConfigFile string
 	fileThatExist  string
 	ctx            = context.Background()
 	logger         *logging.Logger
@@ -58,22 +58,12 @@ func TestFeatures(t *testing.T) {
 func aFileExistsInTheCurrentDirectory(arg1 string) error {
 	logger = logging.GetLogger()
 
-	doc := `
-amends "package://schema.kdeps.com/core@0.0.29#/Kdeps.pkl"
+	doc := fmt.Sprintf(`
+amends "package://schema.kdeps.com/core@%s#/Kdeps.pkl"
 
 runMode = "docker"
 dockerGPU = "cpu"
-llmSettings {
-  llmAPIKeys {
-    openai_api_key = null
-    mistral_api_key = null
-    huggingface_api_token = null
-    groq_api_key = null
-  }
-  llmFallbackBackend = "local"
-  llmFallbackModel = "llama3.2"
-}
-`
+`, schema.SchemaVersion(ctx))
 	file := filepath.Join(currentDirPath, arg1)
 
 	f, _ := testFs.Create(file)
@@ -88,22 +78,12 @@ llmSettings {
 }
 
 func aFileExistsInTheHomeDirectory(arg1 string) error {
-	doc := `
-amends "package://schema.kdeps.com/core@0.0.29#/Kdeps.pkl"
+	doc := fmt.Sprintf(`
+amends "package://schema.kdeps.com/core@%s#/Kdeps.pkl"
 
 runMode = "docker"
 dockerGPU = "cpu"
-llmSettings {
-  llmAPIKeys {
-    openai_api_key = null
-    mistral_api_key = null
-    huggingface_api_token = null
-    groq_api_key = null
-  }
-  llmFallbackBackend = "local"
-  llmFallbackModel = "llama3.2"
-}
-`
+`, schema.SchemaVersion(ctx))
 	file := filepath.Join(homeDirPath, arg1)
 
 	f, _ := testFs.Create(file)
