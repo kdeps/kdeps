@@ -27,26 +27,26 @@ func CompileResources(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, resou
 	// Walk through all files in the project directory
 	err := afero.Walk(fs, projectResourcesDir, func(file string, info os.FileInfo, err error) error {
 		if err != nil {
-			logger.Error("Error walking project resources directory", "path", projectResourcesDir, "error", err)
+			logger.Error("error walking project resources directory", "path", projectResourcesDir, "error", err)
 			return err
 		}
 
 		// Only process .pkl files
 		if filepath.Ext(file) == ".pkl" {
-			logger.Debug("Processing .pkl", "file", file)
+			logger.Debug("processing .pkl", "file", file)
 			if err := processResourcePklFiles(fs, ctx, file, wf, resourcesDir, logger); err != nil {
-				logger.Error("Failed to process .pkl file", "file", file, "error", err)
+				logger.Error("failed to process .pkl file", "file", file, "error", err)
 				return err
 			}
 		}
 		return nil
 	})
 	if err != nil {
-		logger.Error("Error compiling resources", "resourcesDir", resourcesDir, "projectDir", projectDir, "error", err)
+		logger.Error("error compiling resources", "resourcesDir", resourcesDir, "projectDir", projectDir, "error", err)
 		return err
 	}
 
-	logger.Debug("Resources compiled successfully", "resourcesDir", resourcesDir, "projectDir", projectDir)
+	logger.Debug("resources compiled successfully", "resourcesDir", resourcesDir, "projectDir", projectDir)
 	return nil
 }
 
@@ -56,7 +56,7 @@ func processResourcePklFiles(fs afero.Fs, ctx context.Context, file string, wf p
 
 	readFile, err := fs.Open(file)
 	if err != nil {
-		logger.Error("Failed to open file", "file", file, "error", err)
+		logger.Error("failed to open file", "file", file, "error", err)
 		return err
 	}
 	defer readFile.Close()
@@ -179,7 +179,7 @@ func processResourcePklFiles(fs afero.Fs, ctx context.Context, file string, wf p
 	if scanner.Err() == nil {
 		if action == "" {
 			err = fmt.Errorf("no valid action found in file: %s", file)
-			logger.Error("No valid action found in file", "file", file, "error", err)
+			logger.Error("no valid action found in file", "file", file, "error", err)
 			return err
 		}
 		// Check if the action is prefixed by an agent name (e.g., @abcAgent/fooBar4:2.0.0)
@@ -190,7 +190,7 @@ func processResourcePklFiles(fs afero.Fs, ctx context.Context, file string, wf p
 				name = parts[0][1:] // Update the name to the agent name (remove the '@')
 				action = parts[1]   // Update the action (e.g., fooBar4:2.0.0)
 			} else {
-				return fmt.Errorf("Invalid action format: %s", action)
+				return fmt.Errorf("invalid action format: %s", action)
 			}
 		}
 
@@ -201,76 +201,38 @@ func processResourcePklFiles(fs afero.Fs, ctx context.Context, file string, wf p
 				action = parts[0]  // Update the action to just the action name (e.g., fooBar4)
 				version = parts[1] // Update the version to the version from the action (e.g., 2.0.0)
 			} else {
-				return fmt.Errorf("Invalid action format: %s", action)
+				return fmt.Errorf("invalid action format: %s", action)
 			}
 		}
 
 		fname := fmt.Sprintf("%s_%s-%s.pkl", name, action, version)
 		err = afero.WriteFile(fs, filepath.Join(resourcesDir, fname), fileBuffer.Bytes(), os.FileMode(0o644))
 		if err != nil {
-			logger.Error("Error writing file", "file", fname, "error", err)
+			logger.Error("error writing file", "file", fname, "error", err)
 			return fmt.Errorf("error writing file: %w", err)
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		logger.Error("Error reading file", "file", file, "error", err)
+		logger.Error("error reading file", "file", file, "error", err)
 		return err
 	}
 
-	logger.Debug("Processed .pkl file", "file", file)
-	return nil
-}
-
-// writeProcessedFile writes the processed .pkl content to the resources directory.
-func writeProcessedFile(fs afero.Fs, ctx context.Context, fileBuffer *bytes.Buffer, resourcesDir, name, action, version string, logger *logging.Logger) error {
-	// Check if the action is prefixed by an agent name (e.g., @abcAgent/fooBar4:2.0.0)
-	if strings.HasPrefix(action, "@") {
-		// Split by '/' to extract the agent name and action (e.g., @abcAgent/fooBar4:2.0.0 -> abcAgent, fooBar4:2.0.0)
-		parts := strings.SplitN(action, "/", 2)
-		if len(parts) == 2 {
-			name = parts[0][1:] // Update the name to the agent name (remove the '@')
-			action = parts[1]   // Update the action (e.g., fooBar4:2.0.0)
-		} else {
-			return fmt.Errorf("Invalid action format: %s", action)
-		}
-	}
-
-	// Extract version from the action if it is present (e.g., fooBar4:2.0.0)
-	if strings.Contains(action, ":") {
-		parts := strings.SplitN(action, ":", 2)
-		if len(parts) == 2 {
-			action = parts[0]  // Update the action to just the action name (e.g., fooBar4)
-			version = parts[1] // Update the version to the version from the action (e.g., 2.0.0)
-		} else {
-			return fmt.Errorf("Invalid action format: %s", action)
-		}
-	}
-
-	// Construct the file name using the updated name, action, and version
-	fileName := fmt.Sprintf("%s_%s-%s.pkl", name, action, version)
-	filePath := filepath.Join(resourcesDir, fileName)
-
-	// Write the processed file
-	if err := afero.WriteFile(fs, filePath, fileBuffer.Bytes(), os.FileMode(0o644)); err != nil {
-		return fmt.Errorf("Error writing processed file: %w", err)
-	}
-
-	logger.Debug("Processed file written", "file", filePath)
+	logger.Debug("processed .pkl file", "file", file)
 	return nil
 }
 
 func CheckAndValidatePklFiles(fs afero.Fs, ctx context.Context, projectResourcesDir string, logger *logging.Logger) error {
 	// Check if the project resources directory exists
 	if _, err := fs.Stat(projectResourcesDir); err != nil {
-		logger.Error("No resource directory found! Exiting!")
-		return fmt.Errorf("AI agent needs to have at least 1 resource in the '%s' folder.", projectResourcesDir)
+		logger.Error("no resource directory found! Exiting!")
+		return fmt.Errorf("the AI agent needs to have at least 1 resource in the '%s' folder", projectResourcesDir)
 	}
 
 	// Get the list of files in the directory
 	files, err := afero.ReadDir(fs, projectResourcesDir)
 	if err != nil {
-		logger.Error("Error reading resource directory", "error", err)
+		logger.Error("error reading resource directory", "error", err)
 		return fmt.Errorf("failed to read directory '%s': %w", projectResourcesDir, err)
 	}
 
@@ -284,19 +246,19 @@ func CheckAndValidatePklFiles(fs afero.Fs, ctx context.Context, projectResources
 
 	// Exit if no .pkl files are found
 	if len(pklFiles) == 0 {
-		logger.Error("No .pkl files found in the directory! Exiting!")
-		return fmt.Errorf("No .pkl files found in the '%s' folder.", projectResourcesDir)
+		logger.Error("no .pkl files found in the directory! Exiting!")
+		return fmt.Errorf("no .pkl files found in the '%s' folder", projectResourcesDir)
 	}
 
 	// Validate each .pkl file
 	for _, pklFile := range pklFiles {
-		logger.Debug("Validating .pkl file", "file", pklFile)
+		logger.Debug("validating .pkl file", "file", pklFile)
 		if err := enforcer.EnforcePklTemplateAmendsRules(fs, ctx, pklFile, logger); err != nil {
-			logger.Error("Validation failed for .pkl file", "file", pklFile, "error", err)
+			logger.Error("validation failed for .pkl file", "file", pklFile, "error", err)
 			return fmt.Errorf("validation failed for '%s': %w", pklFile, err)
 		}
 	}
 
-	logger.Debug("All .pkl files validated successfully!")
+	logger.Debug("all .pkl files validated successfully!")
 	return nil
 }

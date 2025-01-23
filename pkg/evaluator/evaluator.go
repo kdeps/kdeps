@@ -24,7 +24,7 @@ func EnsurePklBinaryExists(ctx context.Context, logger *logging.Logger) error {
 		}
 	}
 	// Log the error if none of the binaries were found
-	logger.Fatal("Apple PKL not found in PATH. Please install Apple PKL (see https://pkl-lang.org/main/current/pkl-cli/index.html#installation) for more details")
+	logger.Fatal("apple PKL not found in PATH. Please install Apple PKL (see https://pkl-lang.org/main/current/pkl-cli/index.html#installation) for more details")
 	os.Exit(1)
 	return nil // Unreachable, but included for clarity
 }
@@ -86,14 +86,14 @@ func CreateAndProcessPklFile(
 	// Create a temporary directory
 	tmpDir, err := afero.TempDir(fs, "", "")
 	if err != nil {
-		logger.Error("Failed to create temporary directory", "path", tmpDir, "error", err)
+		logger.Error("failed to create temporary directory", "path", tmpDir, "error", err)
 		return fmt.Errorf("failed to create temporary directory: %w", err)
 	}
 
 	// Create a unique temporary file in the temporary directory
 	tmpFile, err := afero.TempFile(fs, tmpDir, "*.pkl") // This will create a unique temporary file
 	if err != nil {
-		logger.Error("Failed to create temporary file", "dir", tmpDir, "error", err)
+		logger.Error("failed to create temporary file", "dir", tmpDir, "error", err)
 		return fmt.Errorf("failed to create temporary file: %w", err)
 	}
 	defer tmpFile.Close()
@@ -111,21 +111,21 @@ func CreateAndProcessPklFile(
 	// Write sections to the temporary file
 	_, err = tmpFile.Write([]byte(strings.Join(fullSections, "\n")))
 	if err != nil {
-		logger.Error("Failed to write to temporary file", "path", tmpFile.Name(), "error", err)
+		logger.Error("failed to write to temporary file", "path", tmpFile.Name(), "error", err)
 		return fmt.Errorf("failed to write to temporary file: %w", err)
 	}
 
 	// Process the temporary file using the provided function
 	processedContent, err := processFunc(fs, ctx, tmpFile.Name(), relationshipSection, logger)
 	if err != nil {
-		logger.Error("Failed to process temporary file", "path", tmpFile.Name(), "error", err)
+		logger.Error("failed to process temporary file", "path", tmpFile.Name(), "error", err)
 		return fmt.Errorf("failed to process temporary file: %w", err)
 	}
 
 	// Write the processed content to the final file
 	err = afero.WriteFile(fs, finalFileName, []byte(processedContent), 0o644)
 	if err != nil {
-		logger.Error("Failed to write final file", "path", finalFileName, "error", err)
+		logger.Error("failed to write final file", "path", finalFileName, "error", err)
 		return fmt.Errorf("failed to write final file: %w", err)
 	}
 

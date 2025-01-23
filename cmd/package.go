@@ -15,10 +15,9 @@ import (
 
 // Define styles using lipgloss.
 var (
-	primaryStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("75"))
-	secondaryStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("211"))
-	successStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("76")).Bold(true)
-	errorStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
+	primaryStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("75"))
+	successStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("76")).Bold(true)
+	errorStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
 )
 
 // NewPackageCommand creates the 'package' command and passes the necessary dependencies.

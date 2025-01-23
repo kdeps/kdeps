@@ -385,7 +385,9 @@ func theresADataFile() error {
 		file := filepath.Join(dataDir, fmt.Sprintf("textfile-%s.txt", num))
 
 		f, _ := testFs.Create(file)
-		f.WriteString(doc + num)
+		if _, err := f.WriteString(doc + num); err != nil {
+			return err
+		}
 		f.Close()
 	}
 
@@ -412,7 +414,9 @@ func thePklFilesIsInvalid() error {
 	file := filepath.Join(aiAgentDir, "workflow1.pkl")
 
 	f, _ := testFs.Create(file)
-	f.WriteString(doc)
+	if _, err := f.WriteString(doc); err != nil {
+		return err
+	}
 	f.Close()
 
 	workflowFile = file
@@ -491,7 +495,9 @@ version = "%s"
 	file := filepath.Join(aiAgentDir, "workflow.pkl")
 
 	f, _ := testFs.Create(file)
-	f.WriteString(doc)
+	if _, err := f.WriteString(doc); err != nil {
+		return err
+	}
 	f.Close()
 
 	workflowFile = file
@@ -565,7 +571,9 @@ ID = "%s"
 	file := filepath.Join(resourcesDir, arg1)
 
 	f, _ := testFs.Create(file)
-	f.WriteString(doc)
+	if _, err := f.WriteString(doc); err != nil {
+		return err
+	}
 	f.Close()
 
 	resourceFile = file
@@ -622,7 +630,9 @@ ID = "%s"
 	file := filepath.Join(resourcesDir, arg1)
 
 	f, _ := testFs.Create(file)
-	f.WriteString(doc)
+	if _, err := f.WriteString(doc); err != nil {
+		return err
+	}
 	f.Close()
 
 	resourceFile = file

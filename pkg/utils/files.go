@@ -12,7 +12,7 @@ import (
 )
 
 func WaitForFileReady(fs afero.Fs, ctx context.Context, filepath string, logger *logging.Logger) error {
-	logger.Debug("Waiting for file to be ready...", "file", filepath)
+	logger.Debug("waiting for file to be ready...", "file", filepath)
 
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
@@ -29,7 +29,7 @@ func WaitForFileReady(fs afero.Fs, ctx context.Context, filepath string, logger 
 				return fmt.Errorf("error checking file %s: %w", filepath, err)
 			}
 			if exists {
-				logger.Debug("File is ready!", "file", filepath)
+				logger.Debug("file is ready!", "file", filepath)
 				return nil
 			}
 		case <-timeout:

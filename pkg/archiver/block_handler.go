@@ -13,7 +13,7 @@ func handleRequiresBlock(blockContent string, wf workflow.Workflow) string {
 
 	// Split the block by newline and process each line
 	lines := strings.Split(blockContent, "\n")
-	var modifiedLines []string
+	modifiedLines := make([]string, 0, len(lines)) // Preallocate the slice based on the number of lines
 
 	for _, line := range lines {
 		trimmedLine := strings.TrimSpace(line)

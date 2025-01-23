@@ -130,12 +130,12 @@ func cleanupFlagFiles(fs afero.Fs, ctx context.Context, files []string, logger *
 	for _, file := range files {
 		if err := fs.Remove(file); err != nil {
 			if os.IsNotExist(err) {
-				logger.Debugf("File %s does not exist, skipping", file)
+				logger.Debugf("file %s does not exist, skipping", file)
 			} else {
-				logger.Errorf("Error removing file %s: %v", file, err)
+				logger.Errorf("error removing file %s: %v", file, err)
 			}
 		} else {
-			logger.Debugf("Successfully removed file: %s", file)
+			logger.Debugf("successfully removed file: %s", file)
 		}
 	}
 }

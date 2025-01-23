@@ -15,21 +15,21 @@ import (
 
 // parseOLLAMAHost parses the OLLAMA_HOST environment variable into host and port.
 func parseOLLAMAHost(ctx context.Context, logger *logging.Logger) (string, string, error) {
-	logger.Debug("Parsing OLLAMA_HOST environment variable")
+	logger.Debug("parsing OLLAMA_HOST environment variable")
 
 	hostEnv := os.Getenv("OLLAMA_HOST")
 	if hostEnv == "" {
-		logger.Error("OLLAMA_HOST environment variable is not set")
+		logger.Error("oLLAMA_HOST environment variable is not set")
 		return "", "", errors.New("OLLAMA_HOST environment variable is not set")
 	}
 
 	host, port, err := net.SplitHostPort(hostEnv)
 	if err != nil {
-		logger.Error("Invalid OLLAMA_HOST", "format", err)
-		return "", "", fmt.Errorf("Invalid OLLAMA_HOST format: %w", err)
+		logger.Error("invalid OLLAMA_HOST", "format", err)
+		return "", "", fmt.Errorf("invalid OLLAMA_HOST format: %w", err)
 	}
 
-	logger.Debug("Parsed OLLAMA_HOST", "host", host, "port", port)
+	logger.Debug("parsed OLLAMA_HOST", "host", host, "port", port)
 	return host, port, nil
 }
 
