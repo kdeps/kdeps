@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -50,7 +50,7 @@ func GetLatestGitHubRelease(ctx context.Context, repo string, baseURL string) (s
 		return "", fmt.Errorf("unexpected status code: %d, response: %s", resp.StatusCode, http.StatusText(resp.StatusCode))
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("failed to read response body: %w", err)
 	}
