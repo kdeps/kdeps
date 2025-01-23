@@ -77,7 +77,9 @@ llmSettings {
 	file := filepath.Join(currentDirPath, arg1)
 
 	f, _ := testFs.Create(file)
-	f.WriteString(doc)
+	if _, err := f.WriteString(doc); err != nil {
+		return err
+	}
 	f.Close()
 
 	fileThatExist = file
@@ -105,7 +107,9 @@ llmSettings {
 	file := filepath.Join(homeDirPath, arg1)
 
 	f, _ := testFs.Create(file)
-	f.WriteString(doc)
+	if _, err := f.WriteString(doc); err != nil {
+		return err
+	}
 	f.Close()
 
 	fileThatExist = file

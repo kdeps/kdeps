@@ -146,7 +146,10 @@ func aFileExistsInTheCurrentDirectory(arg1 string) error {
 	file := filepath.Join(currentDirPath, arg1)
 
 	f, _ := testFs.Create(file)
-	f.WriteString(doc)
+	if _, err := f.WriteString(doc); err != nil {
+		return err
+	}
+
 	f.Close()
 
 	fileThatExist = file
@@ -248,7 +251,9 @@ func aFileExistsInThe(arg1, arg2 string) error {
 	fmt.Printf("Creating %s file!", file)
 
 	f, _ := testFs.Create(file)
-	f.WriteString(doc)
+	if _, err := f.WriteString(doc); err != nil {
+		return err
+	}
 	f.Close()
 
 	fileThatExist = file

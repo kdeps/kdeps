@@ -56,7 +56,9 @@ func TestWriteCounter_PrintProgress(t *testing.T) {
 	// Close the writer and read the output
 	w.Close()
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Error(err)
+	}
 
 	// Check the captured output
 	assert.Equal(t, expectedOutput, buf.String())
@@ -69,7 +71,9 @@ func TestDownloadFile(t *testing.T) {
 	server := http.Server{
 		Addr: ":8080",
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("Test file content"))
+			if _, err := w.Write([]byte("Test file content")); err != nil {
+				t.Error(err)
+			}
 		}),
 	}
 	go server.ListenAndServe()
