@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"path/filepath"
 	"regexp"
@@ -139,7 +139,7 @@ func APIServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 		// Handle logic based on HTTP methods
 		switch r.Method {
 		case http.MethodGet:
-			body, err := ioutil.ReadAll(r.Body)
+			body, err := io.ReadAll(r.Body)
 			if err != nil {
 				http.Error(w, "Failed to read request body", http.StatusBadRequest)
 			}
@@ -175,7 +175,7 @@ func APIServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 						defer file.Close()
 
 						// Read the file contents (Base64 encode if necessary)
-						fileBytes, err := ioutil.ReadAll(file)
+						fileBytes, err := io.ReadAll(file)
 						if err != nil {
 							http.Error(w, "Failed to read file content", http.StatusInternalServerError)
 							return
@@ -210,7 +210,7 @@ func APIServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 					// Handle single file upload
 					defer singleFile.Close()
 
-					fileBytes, err := ioutil.ReadAll(singleFile)
+					fileBytes, err := io.ReadAll(singleFile)
 					if err != nil {
 						http.Error(w, "Failed to read file content", http.StatusInternalServerError)
 						return
@@ -246,7 +246,7 @@ func APIServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 				}
 			} else {
 				// Handle regular form or raw data
-				body, err := ioutil.ReadAll(r.Body)
+				body, err := io.ReadAll(r.Body)
 				if err != nil {
 					http.Error(w, "Failed to read request body", http.StatusBadRequest)
 					return

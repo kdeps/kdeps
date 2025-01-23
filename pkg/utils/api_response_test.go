@@ -14,6 +14,10 @@ func TestNewAPIServerResponse(t *testing.T) {
 
 	t.Run("SuccessfulResponseWithoutErrors", func(t *testing.T) {
 		t.Parallel()
+
+		// Reset persistentErrors before starting the test
+		persistentErrors = nil
+
 		response := NewAPIServerResponse(true, []any{"data1", "data2"}, 0, "")
 
 		assert.True(t, response.Success, "Expected success to be true")
@@ -42,6 +46,9 @@ func TestNewAPIServerResponse(t *testing.T) {
 
 	t.Run("PersistentErrorStorage", func(t *testing.T) {
 		t.Parallel()
+
+		// Reset persistentErrors before starting the test
+		persistentErrors = nil
 
 		// Add the first error
 		NewAPIServerResponse(false, nil, 404, "Resource not found")
