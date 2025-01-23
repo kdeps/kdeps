@@ -209,7 +209,7 @@ func CopyDataDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, 
 			}
 
 			if exists {
-				version, err := getLatestVersion(ctx, agentVersionPath, logger)
+				version, err := getLatestVersion(agentVersionPath, logger)
 				if err != nil {
 					logger.Error("failed to get latest agent version", "agentVersionPath", agentVersionPath, "error", err)
 					return err

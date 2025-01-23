@@ -1,19 +1,18 @@
 package archiver
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Test for compareVersions.
 func TestCompareVersions(t *testing.T) {
 	t.Parallel()
-	var ctx context.Context
 	logging.CreateLogger()
 	logger := logging.GetLogger()
 
@@ -33,9 +32,9 @@ func TestCompareVersions(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			if test.expectPanic {
-				assert.Panics(t, func() { compareVersions(ctx, test.versions, logger) })
+				assert.Panics(t, func() { compareVersions(test.versions, logger) })
 			} else {
-				assert.Equal(t, test.expected, compareVersions(ctx, test.versions, logger))
+				assert.Equal(t, test.expected, compareVersions(test.versions, logger))
 			}
 		})
 	}
@@ -44,7 +43,6 @@ func TestCompareVersions(t *testing.T) {
 // Test for getLatestVersion.
 func TestGetLatestVersion(t *testing.T) {
 	t.Parallel()
-	var ctx context.Context
 	logging.CreateLogger()
 	logger := logging.GetLogger()
 
@@ -56,28 +54,28 @@ func TestGetLatestVersion(t *testing.T) {
 
 	for _, dir := range directories {
 		err := os.Mkdir(filepath.Join(tempDir, dir), os.ModePerm)
-		assert.NoError(t, err, "Failed to create test directory")
+		require.NoError(t, err, "Failed to create test directory")
 	}
 
 	t.Run("Valid directory with versions", func(t *testing.T) {
 		t.Parallel()
-		latestVersion, err := getLatestVersion(ctx, tempDir, logger)
-		assert.NoError(t, err, "Expected no error")
+		latestVersion, err := getLatestVersion(tempDir, logger)
+		require.NoError(t, err, "Expected no error")
 		assert.Equal(t, "2.3.0", latestVersion, "Expected latest version")
 	})
 
 	t.Run("Empty directory", func(t *testing.T) {
 		t.Parallel()
 		emptyDir := t.TempDir()
-		latestVersion, err := getLatestVersion(ctx, emptyDir, logger)
-		assert.Error(t, err, "Expected error for no versions found")
+		latestVersion, err := getLatestVersion(emptyDir, logger)
+		require.Error(t, err, "Expected error for no versions found")
 		assert.Equal(t, "", latestVersion, "Expected empty latest version")
 	})
 
 	t.Run("Invalid directory path", func(t *testing.T) {
 		t.Parallel()
-		latestVersion, err := getLatestVersion(ctx, "/invalid/path", logger)
-		assert.Error(t, err, "Expected error for invalid path")
+		latestVersion, err := getLatestVersion("/invalid/path", logger)
+		require.Error(t, err, "Expected error for invalid path")
 		assert.Equal(t, "", latestVersion, "Expected empty latest version")
 	})
 }

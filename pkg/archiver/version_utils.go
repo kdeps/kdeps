@@ -1,7 +1,6 @@
 package archiver
 
 import (
-	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -12,7 +11,7 @@ import (
 )
 
 // Function to compare version numbers.
-func compareVersions(ctx context.Context, versions []string, logger *logging.Logger) string {
+func compareVersions(versions []string, logger *logging.Logger) string {
 	logger.Debug("comparing versions", "versions", versions)
 	sort.Slice(versions, func(i, j int) bool {
 		// Split the version strings into parts
@@ -36,7 +35,7 @@ func compareVersions(ctx context.Context, versions []string, logger *logging.Log
 	return latestVersion
 }
 
-func getLatestVersion(ctx context.Context, directory string, logger *logging.Logger) (string, error) {
+func getLatestVersion(directory string, logger *logging.Logger) (string, error) {
 	var versions []string
 
 	// Walk through the directory to collect version names
@@ -66,6 +65,6 @@ func getLatestVersion(ctx context.Context, directory string, logger *logging.Log
 	}
 
 	// Find the latest version
-	latestVersion := compareVersions(ctx, versions, logger)
+	latestVersion := compareVersions(versions, logger)
 	return latestVersion, nil
 }

@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -28,10 +29,12 @@ func WaitForFileReady(fs afero.Fs, ctx context.Context, filepath string, logger 
 			if err != nil {
 				return fmt.Errorf("error checking file %s: %w", filepath, err)
 			}
+
 			if exists {
 				logger.Debug("file is ready!", "file", filepath)
 				return nil
 			}
+
 		case <-timeout:
 			return fmt.Errorf("timeout waiting for file %s", filepath)
 		}
@@ -57,4 +60,14 @@ func CreateDirectories(fs afero.Fs, ctx context.Context, dirs []string) error {
 		}
 	}
 	return nil
+}
+
+// Sanitize archive file pathing from "G305: Zip Slip vulnerability".
+func SanitizeArchivePath(d, t string) (string, error) {
+	v := filepath.Join(d, t)
+	if strings.HasPrefix(v, filepath.Clean(d)) {
+		return v, nil
+	}
+
+	return "", fmt.Errorf("%s: %s", "content filepath is tainted", t)
 }

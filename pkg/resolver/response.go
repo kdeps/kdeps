@@ -19,15 +19,15 @@ import (
 )
 
 // CreateResponsePklFile generates a PKL file from the API response and processes it.
-func (dr *DependencyResolver) CreateResponsePklFile(APIResponseBlock apiserverresponse.APIServerResponse) error {
-	dr.Logger.Debug("starting CreateResponsePklFile", "response", APIResponseBlock)
+func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverresponse.APIServerResponse) error {
+	dr.Logger.Debug("starting CreateResponsePklFile", "response", apiResponseBlock)
 
 	if err := dr.ensureResponsePklFileNotExists(); err != nil {
 		dr.Logger.Error("failed to ensure response PKL file does not exist", "error", err)
 		return err
 	}
 
-	sections := dr.buildResponseSections(APIResponseBlock)
+	sections := dr.buildResponseSections(apiResponseBlock)
 	dr.Logger.Debug("built response sections", "sections", sections)
 
 	if err := evaluator.CreateAndProcessPklFile(dr.Fs, dr.Context, sections, dr.ResponsePklFile, "APIServerResponse.pkl", dr.Logger, evaluator.EvalPkl, false); err != nil {
@@ -62,14 +62,14 @@ func (dr *DependencyResolver) ensureResponsePklFileNotExists() error {
 }
 
 // buildResponseSections creates sections for the PKL file from the API response.
-func (dr *DependencyResolver) buildResponseSections(APIResponseBlock apiserverresponse.APIServerResponse) []string {
-	dr.Logger.Debug("building response sections from API response", "response", APIResponseBlock)
+func (dr *DependencyResolver) buildResponseSections(apiResponseBlock apiserverresponse.APIServerResponse) []string {
+	dr.Logger.Debug("building response sections from API response", "response", apiResponseBlock)
 
 	sections := []string{
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Document.pkl" as document`, schema.SchemaVersion(dr.Context)),
-		fmt.Sprintf("success = %v", APIResponseBlock.GetSuccess()),
-		formatResponseData(APIResponseBlock.GetResponse()),
-		formatErrors(APIResponseBlock.GetErrors(), dr.Logger),
+		fmt.Sprintf("success = %v", apiResponseBlock.GetSuccess()),
+		formatResponseData(apiResponseBlock.GetResponse()),
+		formatErrors(apiResponseBlock.GetErrors(), dr.Logger),
 	}
 
 	dr.Logger.Debug("response sections built", "sections", sections)
@@ -82,20 +82,23 @@ func formatResponseData(response *apiserverresponse.APIServerResponseBlock) stri
 		return ""
 	}
 
-	var responseData []string
+	// Preallocate the slice to avoid reallocations.
+	responseData := make([]string, 0, len(response.Data))
 	for _, v := range response.Data {
 		responseData = append(responseData, formatDataValue(v))
 	}
 
-	if len(responseData) > 0 {
-		return fmt.Sprintf(`
+	// If there is data, format it; otherwise, return an empty string.
+	if len(responseData) == 0 {
+		return ""
+	}
+
+	return fmt.Sprintf(`
 response {
   data {
 %s
   }
 }`, strings.Join(responseData, "\n    "))
-	}
-	return ""
 }
 
 // formatMap recursively formats a map[interface{}]interface{} for rendering.

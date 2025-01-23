@@ -16,6 +16,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/kdeps/kdeps/pkg/workflow"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
@@ -67,7 +68,7 @@ func PrepareRunDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir
 	for {
 		// Get the next header in the tar file
 		header, err := tarReader.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break // End of archive
 		}
 		if err != nil {
@@ -76,7 +77,10 @@ func PrepareRunDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir
 		}
 
 		// Create the full path for the file to extract
-		target := filepath.Join(runDir, header.Name)
+		target, err := utils.SanitizeArchivePath(runDir, header.Name)
+		if err != nil {
+			return "", err
+		}
 
 		// Handle file types (file, directory, etc.)
 		switch header.Typeflag {
@@ -99,10 +103,16 @@ func PrepareRunDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir
 			}
 			defer outFile.Close()
 
-			// Copy file contents
-			if _, err := io.Copy(outFile, tarReader); err != nil {
-				logger.Error("error writing file: %v\n", err)
-				return "", err
+			// Copy the file contents
+			for {
+				_, err := io.CopyN(outFile, tarReader, 1024)
+				if err != nil {
+					if errors.Is(err, io.EOF) {
+						break
+					}
+					logger.Error("error writing file: %v\n", err)
+					return "", fmt.Errorf("failed to copy file: %w", err)
+				}
 			}
 		default:
 			logger.Error("unknown type: %v in %s\n", header.Typeflag, header.Name)
@@ -120,7 +130,7 @@ func CompileWorkflow(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsD
 
 	if action == "" {
 		logger.Error("no action specified in workflow!")
-		return "", errors.New("Action is required! Please specify the default action in the workflow!")
+		return "", errors.New("please specify the default action in the workflow")
 	}
 
 	var compiledAction string
@@ -233,7 +243,7 @@ func CompileProject(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDi
 		return "", "", err
 	}
 	if !exists {
-		err = errors.New("Compiled project directory does not exist!")
+		err = errors.New("compiled project directory does not exist")
 		logger.Error("compiled project directory does not exist", "path", compiledProjectDir)
 		return "", "", err
 	}
