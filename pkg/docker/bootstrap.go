@@ -27,6 +27,10 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 		agentWorkflow := filepath.Join(agentDir, "workflow/workflow.pkl")
 
 		exists, err := afero.Exists(fs, agentWorkflow)
+		if err != nil {
+			return false, err
+		}
+
 		if !exists {
 			env, err := environment.NewEnvironment(fs, ctx, nil)
 			if err != nil {
@@ -51,13 +55,13 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 		}
 
 		// Parse OLLAMA_HOST to get the host and port
-		host, port, err := parseOLLAMAHost(ctx, logger)
+		host, port, err := parseOLLAMAHost(logger)
 		if err != nil {
 			return APIServerMode, err
 		}
 
 		// Start ollama server in the background
-		if err := startOllamaServer(logger); err != nil {
+		if err := startOllamaServer(ctx, logger); err != nil {
 			return APIServerMode, fmt.Errorf("failed to start ollama server: %w", err)
 		}
 
@@ -76,7 +80,7 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 		for _, value := range modelList {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
 			logger.Debug("pulling", "model", value)
-			stdout, stderr, exitCode, err := KdepsExec("ollama", []string{"pull", value}, logger)
+			stdout, stderr, exitCode, err := KdepsExec(ctx, "ollama", []string{"pull", value}, logger)
 			if err != nil {
 				logger.Error("error pulling model: ", value, " stdout: ", stdout, " stderr: ", stderr, " exitCode: ", exitCode, " err: ", err)
 				return APIServerMode, fmt.Errorf("error pulling model %s: %s %s %d %w", value, stdout, stderr, exitCode, err)
@@ -87,6 +91,7 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 			return true, err
 		}
 
+		//nolint:errcheck
 		go func() error {
 			if err := StartAPIServerMode(fs, ctx, wfCfg, environ, agentDir, APIServerPath, logger); err != nil {
 				return err
@@ -114,7 +119,7 @@ func CreateFlagFile(fs afero.Fs, ctx context.Context, filename string) error {
 		defer file.Close()
 	} else {
 		// If the file exists, update its modification time to the current time
-		currentTime := time.Now().Local()
+		currentTime := time.Now().UTC()
 		if err := fs.Chtimes(filename, currentTime, currentTime); err != nil {
 			return err
 		}

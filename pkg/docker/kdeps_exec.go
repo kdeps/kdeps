@@ -9,7 +9,7 @@ import (
 )
 
 // KdepsExec executes a command and returns stdout, stderr, and the exit code using go-execute.
-func KdepsExec(command string, args []string, logger *logging.Logger) (string, string, int, error) {
+func KdepsExec(ctx context.Context, command string, args []string, logger *logging.Logger) (string, string, int, error) {
 	// Log the command being executed
 	logger.Debug("executing", "command", command, "args", args)
 
@@ -21,7 +21,7 @@ func KdepsExec(command string, args []string, logger *logging.Logger) (string, s
 	}
 
 	// Execute the command
-	res, err := cmd.Execute(context.Background())
+	res, err := cmd.Execute(ctx)
 	if err != nil {
 		logger.Error("command execution failed", "error", err)
 		return res.Stdout, res.Stderr, res.ExitCode, err

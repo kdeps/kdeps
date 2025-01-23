@@ -146,8 +146,8 @@ func loadEnvFile(fs afero.Fs, filename string) ([]string, error) {
 		return nil, fmt.Errorf("error parsing .env content: %w", err)
 	}
 
-	// Convert map to slice of strings in "key=value" format
-	var envSlice []string
+	// Preallocate the slice with the exact size of the map
+	envSlice := make([]string, 0, len(envMap))
 	for key, value := range envMap {
 		envSlice = append(envSlice, fmt.Sprintf("%s=%s", key, value))
 	}
