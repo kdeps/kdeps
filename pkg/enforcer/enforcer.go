@@ -219,19 +219,19 @@ func EnforceResourceRunBlock(fs afero.Fs, ctx context.Context, file string, logg
 	}
 	content := string(pklData)
 
-	// Regular expressions to match exec, python, chat, and httpClient, focusing only on the start
+	// Regular expressions to match exec, python, chat, and HTTPClient, focusing only on the start
 	execRegex := regexp.MustCompile(`(?i)[\s\n]*exec\s*{`)
 	pythonRegex := regexp.MustCompile(`(?i)[\s\n]*python\s*{`)
 	chatRegex := regexp.MustCompile(`(?i)[\s\n]*chat\s*{`)
-	httpClientRegex := regexp.MustCompile(`(?i)[\s\n]*httpClient\s*{`)
-	apiResponseRegex := regexp.MustCompile(`(?i)[\s\n]*apiResponse\s*{`)
+	HTTPClientRegex := regexp.MustCompile(`(?i)[\s\n]*HTTPClient\s*{`)
+	APIResponseRegex := regexp.MustCompile(`(?i)[\s\n]*APIResponse\s*{`)
 
 	// Check for matches
 	execMatch := execRegex.MatchString(content)
 	pythonMatch := pythonRegex.MatchString(content)
 	chatMatch := chatRegex.MatchString(content)
-	httpClientMatch := httpClientRegex.MatchString(content)
-	apiResponseMatch := apiResponseRegex.MatchString(content)
+	HTTPClientMatch := HTTPClientRegex.MatchString(content)
+	APIResponseMatch := APIResponseRegex.MatchString(content)
 
 	// Count how many are non-null
 	countNonNull := 0
@@ -244,16 +244,16 @@ func EnforceResourceRunBlock(fs afero.Fs, ctx context.Context, file string, logg
 	if chatMatch {
 		countNonNull++
 	}
-	if httpClientMatch {
+	if HTTPClientMatch {
 		countNonNull++
 	}
-	if apiResponseMatch {
+	if APIResponseMatch {
 		countNonNull++
 	}
 
 	// If more than one is non-null, return an error
 	if countNonNull > 1 {
-		errMsg := fmt.Sprintf("Error: resources can only contain one of 'apiResponse', 'exec', 'chat', 'python', or 'httpClient'. Please create a new dedicated resource for this action. Found %d in file: %s", countNonNull, file)
+		errMsg := fmt.Sprintf("Error: resources can only contain one of 'APIResponse', 'exec', 'chat', 'python', or 'HTTPClient'. Please create a new dedicated resource for this action. Found %d in file: %s", countNonNull, file)
 		logger.Error(errMsg)
 		return errors.New(errMsg)
 	}

@@ -106,7 +106,7 @@ func processResourcePklFiles(fs afero.Fs, ctx context.Context, file string, wf p
 			continue
 		}
 
-		// Check if the line matches the id = "value" pattern
+		// Check if the line matches the ID = "value" pattern
 		if idMatch := idPattern.FindStringSubmatch(line); idMatch != nil {
 			// Extract the action from the id
 			action = idMatch[1]

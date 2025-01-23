@@ -16,7 +16,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-func (dr *DependencyResolver) HandlePython(actionId string, pythonBlock *pklPython.ResourcePython) error {
+func (dr *DependencyResolver) HandlePython(actionID string, pythonBlock *pklPython.ResourcePython) error {
 	// Decode Script if it is Base64-encoded
 	if utf8.ValidString(pythonBlock.Script) && utils.IsBase64Encoded(pythonBlock.Script) {
 		decodedScript, err := utils.DecodeBase64String(pythonBlock.Script)
@@ -58,7 +58,7 @@ func (dr *DependencyResolver) HandlePython(actionId string, pythonBlock *pklPyth
 	}
 
 	go func() error {
-		err := dr.processPythonBlock(actionId, pythonBlock)
+		err := dr.processPythonBlock(actionID, pythonBlock)
 		if err != nil {
 			return err
 		}
@@ -69,7 +69,7 @@ func (dr *DependencyResolver) HandlePython(actionId string, pythonBlock *pklPyth
 	return nil
 }
 
-func (dr *DependencyResolver) processPythonBlock(actionId string, pythonBlock *pklPython.ResourcePython) error {
+func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *pklPython.ResourcePython) error {
 	if dr.AnacondaInstalled {
 		if *pythonBlock.CondaEnvironment != "" {
 			execCommand := execute.ExecTask{
@@ -135,7 +135,7 @@ func (dr *DependencyResolver) processPythonBlock(actionId string, pythonBlock *p
 	pythonBlock.Stderr = &result.Stderr
 
 	// Append the Python entry
-	if err := dr.AppendPythonEntry(actionId, pythonBlock); err != nil {
+	if err := dr.AppendPythonEntry(actionID, pythonBlock); err != nil {
 		return fmt.Errorf("failed to append Python entry: %w", err)
 	}
 
@@ -157,11 +157,11 @@ func (dr *DependencyResolver) processPythonBlock(actionId string, pythonBlock *p
 	return nil
 }
 
-func (dr *DependencyResolver) WritePythonStdoutToFile(resourceId string, pythonStdoutEncoded *string) (string, error) {
-	// Convert resourceId to be filename friendly
-	resourceIdFile := utils.ConvertToFilenameFriendly(resourceId)
+func (dr *DependencyResolver) WritePythonStdoutToFile(resourceID string, pythonStdoutEncoded *string) (string, error) {
+	// Convert resourceID to be filename friendly
+	resourceIDFile := utils.ConvertToFilenameFriendly(resourceID)
 	// Define the file path using the FilesDir and resource ID
-	outputFilePath := filepath.Join(dr.FilesDir, resourceIdFile)
+	outputFilePath := filepath.Join(dr.FilesDir, resourceIDFile)
 
 	// Ensure the ResponseBody is not nil
 	if pythonStdoutEncoded != nil {
@@ -171,7 +171,7 @@ func (dr *DependencyResolver) WritePythonStdoutToFile(resourceId string, pythonS
 			// Decode the Base64-encoded ResponseBody string
 			decodedResponseBody, err := utils.DecodeBase64String(*pythonStdoutEncoded)
 			if err != nil {
-				return "", fmt.Errorf("failed to decode Base64 string for resource ID: %s: %w", resourceId, err)
+				return "", fmt.Errorf("failed to decode Base64 string for resource ID: %s: %w", resourceID, err)
 			}
 			content = decodedResponseBody
 		} else {
@@ -182,7 +182,7 @@ func (dr *DependencyResolver) WritePythonStdoutToFile(resourceId string, pythonS
 		// Write the content to the file
 		err := afero.WriteFile(dr.Fs, outputFilePath, []byte(content), 0o644)
 		if err != nil {
-			return "", fmt.Errorf("failed to write Python Stdout to file for resource ID: %s: %w", resourceId, err)
+			return "", fmt.Errorf("failed to write Python Stdout to file for resource ID: %s: %w", resourceID, err)
 		}
 	} else {
 		return "", nil
@@ -191,9 +191,9 @@ func (dr *DependencyResolver) WritePythonStdoutToFile(resourceId string, pythonS
 	return outputFilePath, nil
 }
 
-func (dr *DependencyResolver) AppendPythonEntry(resourceId string, newPython *pklPython.ResourcePython) error {
+func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pklPython.ResourcePython) error {
 	// Define the path to the PKL file
-	pklPath := filepath.Join(dr.ActionDir, "python/"+dr.RequestId+"__python_output.pkl")
+	pklPath := filepath.Join(dr.ActionDir, "python/"+dr.RequestID+"__python_output.pkl")
 
 	// Get the current timestamp
 	newTimestamp := uint32(time.Now().UnixNano())
@@ -224,7 +224,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceId string, newPython *pk
 	}
 
 	if newPython.Stdout != nil {
-		filePath, err = dr.WritePythonStdoutToFile(resourceId, newPython.Stdout)
+		filePath, err = dr.WritePythonStdoutToFile(resourceID, newPython.Stdout)
 		if err != nil {
 			return fmt.Errorf("failed to write Python stdout to file: %w", err)
 		}
@@ -254,7 +254,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceId string, newPython *pk
 	}
 
 	// Create or update the ResourcePython entry
-	existingResources[resourceId] = &pklPython.ResourcePython{
+	existingResources[resourceID] = &pklPython.ResourcePython{
 		Env:       encodedEnv,
 		Script:    encodedScript,
 		Stderr:    &encodedStderr,

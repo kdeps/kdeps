@@ -14,7 +14,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/schema"
 	pklData "github.com/kdeps/schema/gen/data"
 	pklExec "github.com/kdeps/schema/gen/exec"
-	pklHttp "github.com/kdeps/schema/gen/http"
+	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
 	pklPython "github.com/kdeps/schema/gen/python"
 	"github.com/kdeps/schema/gen/utils"
@@ -51,11 +51,11 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Document.pkl", schema.SchemaVersion(dr.Context)): {Alias: "document", Check: false},
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Skip.pkl", schema.SchemaVersion(dr.Context)):     {Alias: "skip", Check: false},
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Utils.pkl", schema.SchemaVersion(dr.Context)):    {Alias: "utils", Check: false},
-		filepath.Join(dr.ActionDir, "/llm/"+dr.RequestId+"__llm_output.pkl"):                              {Alias: "llm", Check: true},
-		filepath.Join(dr.ActionDir, "/client/"+dr.RequestId+"__client_output.pkl"):                        {Alias: "client", Check: true},
-		filepath.Join(dr.ActionDir, "/exec/"+dr.RequestId+"__exec_output.pkl"):                            {Alias: "exec", Check: true},
-		filepath.Join(dr.ActionDir, "/python/"+dr.RequestId+"__python_output.pkl"):                        {Alias: "python", Check: true},
-		filepath.Join(dr.ActionDir, "/data/"+dr.RequestId+"__data_output.pkl"):                            {Alias: "data", Check: true},
+		filepath.Join(dr.ActionDir, "/llm/"+dr.RequestID+"__llm_output.pkl"):                              {Alias: "llm", Check: true},
+		filepath.Join(dr.ActionDir, "/client/"+dr.RequestID+"__client_output.pkl"):                        {Alias: "client", Check: true},
+		filepath.Join(dr.ActionDir, "/exec/"+dr.RequestID+"__exec_output.pkl"):                            {Alias: "exec", Check: true},
+		filepath.Join(dr.ActionDir, "/python/"+dr.RequestID+"__python_output.pkl"):                        {Alias: "python", Check: true},
+		filepath.Join(dr.ActionDir, "/data/"+dr.RequestID+"__data_output.pkl"):                            {Alias: "data", Check: true},
 		dr.RequestPklFile: {Alias: "request", Check: true},
 	}
 
@@ -111,11 +111,11 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 
 func (dr *DependencyResolver) PrepareImportFiles() error {
 	files := map[string]string{
-		"llm":    filepath.Join(dr.ActionDir, "/llm/"+dr.RequestId+"__llm_output.pkl"),
-		"client": filepath.Join(dr.ActionDir, "/client/"+dr.RequestId+"__client_output.pkl"),
-		"exec":   filepath.Join(dr.ActionDir, "/exec/"+dr.RequestId+"__exec_output.pkl"),
-		"python": filepath.Join(dr.ActionDir, "/python/"+dr.RequestId+"__python_output.pkl"),
-		"data":   filepath.Join(dr.ActionDir, "/data/"+dr.RequestId+"__data_output.pkl"),
+		"llm":    filepath.Join(dr.ActionDir, "/llm/"+dr.RequestID+"__llm_output.pkl"),
+		"client": filepath.Join(dr.ActionDir, "/client/"+dr.RequestID+"__client_output.pkl"),
+		"exec":   filepath.Join(dr.ActionDir, "/exec/"+dr.RequestID+"__exec_output.pkl"),
+		"python": filepath.Join(dr.ActionDir, "/python/"+dr.RequestID+"__python_output.pkl"),
+		"data":   filepath.Join(dr.ActionDir, "/data/"+dr.RequestID+"__data_output.pkl"),
 	}
 
 	for key, file := range files {
@@ -151,7 +151,7 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 				schemaFile = "Python.pkl"
 				blockType = "resources"
 			case "client":
-				schemaFile = "Http.pkl"
+				schemaFile = "HTTP.pkl"
 				blockType = "resources"
 			case "llm":
 				schemaFile = "LLM.pkl"
@@ -255,7 +255,7 @@ func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
 
 	// Use a regular expression to find the id in the file
 	re := regexp.MustCompile(`id\s*=\s*"([^"]+)"`)
-	var actionId string
+	var actionID string
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -263,7 +263,7 @@ func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
 		// Check if the line contains the id
 		matches := re.FindStringSubmatch(line)
 		if len(matches) > 1 {
-			actionId = matches[1]
+			actionID = matches[1]
 			break
 		}
 	}
@@ -272,11 +272,11 @@ func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
 		return fmt.Errorf("error reading file: %w", err)
 	}
 
-	if actionId == "" {
+	if actionID == "" {
 		return errors.New("action id not found in the file")
 	}
 
-	// Create placeholder entries using the parsed actionId
+	// Create placeholder entries using the parsed actionID
 	type DataImpl struct {
 		*utils.UtilsImpl
 
@@ -291,27 +291,27 @@ func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
 	llmChat := &pklLLM.ResourceChat{}
 	execCmd := &pklExec.ResourceExec{}
 	pythonCmd := &pklPython.ResourcePython{}
-	httpClient := &pklHttp.ResourceHTTPClient{
+	HTTPClient := &pklHTTP.ResourceHTTPClient{
 		Method: "GET",
 	}
 
-	if err := dr.AppendDataEntry(actionId, dataFiles); err != nil {
+	if err := dr.AppendDataEntry(actionID, dataFiles); err != nil {
 		return err
 	}
 
-	if err := dr.AppendChatEntry(actionId, llmChat); err != nil {
+	if err := dr.AppendChatEntry(actionID, llmChat); err != nil {
 		return err
 	}
 
-	if err := dr.AppendExecEntry(actionId, execCmd); err != nil {
+	if err := dr.AppendExecEntry(actionID, execCmd); err != nil {
 		return err
 	}
 
-	if err := dr.AppendHttpEntry(actionId, httpClient); err != nil {
+	if err := dr.AppendHTTPEntry(actionID, HTTPClient); err != nil {
 		return err
 	}
 
-	if err := dr.AppendPythonEntry(actionId, pythonCmd); err != nil {
+	if err := dr.AppendPythonEntry(actionID, pythonCmd); err != nil {
 		return err
 	}
 

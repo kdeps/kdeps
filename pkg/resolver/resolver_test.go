@@ -16,6 +16,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
+	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/schema/gen/kdeps"
 	pklRes "github.com/kdeps/schema/gen/resource"
 	"github.com/spf13/afero"
@@ -163,20 +164,20 @@ methods {
 	}
 
 	workflowConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.1.1#/Workflow.pkl"
+amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
 name = "myAIAgentAPI1"
 description = "AI Agent X API"
 action = "helloWorld9"
 settings {
-  apiServerMode = true
+  APIServerMode = true
   agentSettings {
     packages {}
     models {
       "tinydolphin"
     }
   }
-  apiServer {
+  APIServer {
     routes {
       new {
 	path = "/resource1"
@@ -190,7 +191,7 @@ settings {
     }
   }
 }
-`, methodSection, methodSection)
+`, schema.SchemaVersion(ctx), methodSection, methodSection)
 	filePath := filepath.Join(homeDirPath, "myAgentX1")
 
 	if err := testFs.MkdirAll(filePath, 0o777); err != nil {
@@ -225,8 +226,8 @@ settings {
 		return err
 	}
 
-	llmResponsesContent := `
-amends "package://schema.kdeps.com/core@0.1.1#/LLM.pkl"
+	llmResponsesContent := fmt.Sprintf(`
+amends "package://schema.kdeps.com/core@%s#/LLM.pkl"
 
 chat {
   ["Hello"] {
@@ -237,7 +238,7 @@ response
 """
   }
 }
-`
+`, schema.SchemaVersion(ctx))
 
 	llmDirFile := filepath.Join(llmDir, "llm_output.pkl")
 	err = afero.WriteFile(testFs, llmDirFile, []byte(llmResponsesContent), 0o644)
@@ -264,9 +265,9 @@ response
 	for num := totalResourcesInt; num >= 1; num-- {
 		// Define the content of the resource configuration file
 		resourceConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.1.0#/Resource.pkl"
+amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-id = "helloWorld%d"
+ID = "helloWorld%d"
 name = "default action %d"
 description = """
   default action
@@ -281,14 +282,14 @@ run {
     prompt = "who was "
   }
 }
-`, num, num, num-1)
+`, schema.SchemaVersion(ctx), num, num, num-1)
 
 		// Skip the "requires" for the first resource (num 1)
 		//		if num == 1 {
 		//			resourceConfigurationContent = fmt.Sprintf(`
 		// amends "package://schema.kdeps.com/core@0.1.0#/Resource.pkl"
 
-		// id = "helloWorld%d"
+		// ID = "helloWorld%d"
 		// name = "default action %d"
 		// description = "default action @(request.url)"
 		// category = "category"
@@ -317,8 +318,8 @@ func eachResourceAreReloadedWhenOpened() error {
 	stack := graphResolver.Graph.BuildDependencyStack(actionID, visited)
 	for _, resNode := range stack {
 		for _, res := range graphResolver.Resources {
-			if res.Id == resNode {
-				logger.Debug("Executing resource: ", res.Id)
+			if res.ID == resNode {
+				logger.Debug("Executing resource: ", res.ID)
 
 				rsc, err := pklRes.LoadFromPath(graphResolver.Context, res.File)
 				if err != nil {
@@ -334,7 +335,7 @@ func eachResourceAreReloadedWhenOpened() error {
 				//	// Check Skip Condition
 				//	if runBlock.SkipCondition != nil {
 				//		if resolver.ShouldSkip(runBlock.SkipCondition) {
-				//			logger.Debug("Skip condition met, skipping:", res.Id)
+				//			logger.Debug("Skip condition met, skipping:", res.ID)
 				//			continue
 				//		}
 				//	}
@@ -342,25 +343,25 @@ func eachResourceAreReloadedWhenOpened() error {
 				//	// Handle Preflight Check
 				//	if runBlock.PreflightCheck != nil && runBlock.PreflightCheck.Validations != nil {
 				//		if !resolver.AllConditionsMet(runBlock.PreflightCheck.Validations) {
-				//			logger.Error("Preflight check not met, failing:", res.Id)
+				//			logger.Error("Preflight check not met, failing:", res.ID)
 				//			if runBlock.PreflightCheck.Error != nil {
 				//				logger.Debug(err)
 
 				//				//	return graphResolver.HandleAPIErrorResponse(
 				//				//		runBlock.PreflightCheck.Error.Code,
-				//				//		fmt.Sprintf("%s: %s", runBlock.PreflightCheck.Error.Message, res.Id))
+				//				//		fmt.Sprintf("%s: %s", runBlock.PreflightCheck.Error.Message, res.ID))
 				//			}
 
 				//			// return graphResolver.HandleAPIErrorResponse(500, "Preflight
-				//			// check failed for resource: "+res.Id)
+				//			// check failed for resource: "+res.ID)
 				//			logger.Debug(err)
 
 				//		}
 				//	}
 
 				//	// API Response
-				//	if graphResolver.ApiServerMode && runBlock.ApiResponse != nil {
-				//		if err := graphResolver.CreateResponsePklFile(runBlock.ApiResponse); err != nil {
+				//	if graphResolver.APIServerMode && runBlock.APIResponse != nil {
+				//		if err := graphResolver.CreateResponsePklFile(runBlock.APIResponse); err != nil {
 				//			logger.Debug(err)
 
 				//			// return graphResolver.HandleAPIErrorResponse(500, err.Error())
@@ -514,14 +515,14 @@ func iWasAbleToSeeTheTopdownDependencies(arg1 string) error {
 // description = "AI Agent X API"
 // action = "helloWorld100"
 // settings {
-//   apiServerMode = true
+//   APIServerMode = true
 //   agentSettings {
 //     packages {}
 //     models {
 //       "tinydolphin"
 //     }
 //   }
-//   apiServer {
+//   APIServer {
 //     routes {
 //       new {
 //	path = "/resource1"
@@ -583,7 +584,7 @@ func iWasAbleToSeeTheTopdownDependencies(arg1 string) error {
 //		resourceConfigurationContent := fmt.Sprintf(`
 // amends "package://schema.kdeps.com/core@0.0.44#/Resource.pkl"
 
-// id = "helloWorld%d"
+// ID = "helloWorld%d"
 // name = "default action %d"
 // description = "default action"
 // category = "category"

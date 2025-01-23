@@ -1,6 +1,6 @@
 {{ .Header }}
 
-id = "pythonResource"
+ID = "pythonResource"
 name = "Python Resource"
 description = "This resource creates a python script session."
 category = ""

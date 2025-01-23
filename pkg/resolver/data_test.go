@@ -53,7 +53,7 @@ func TestAppendDataEntry(t *testing.T) {
 		{
 			name: "PKL file load failure",
 			setup: func(dr *resolver.DependencyResolver) *data.DataImpl {
-				if err := afero.WriteFile(dr.Fs, filepath.Join(dr.ActionDir, "data", dr.RequestId+"__data_output.pkl"), []byte("invalid content"), 0o644); err != nil {
+				if err := afero.WriteFile(dr.Fs, filepath.Join(dr.ActionDir, "data", dr.RequestID+"__data_output.pkl"), []byte("invalid content"), 0o644); err != nil {
 					t.Errorf("unexpected error: %v", err)
 				}
 				return nil
@@ -93,12 +93,12 @@ func TestAppendDataEntry(t *testing.T) {
 				Fs:        afero.NewMemMapFs(),
 				Context:   &MockContext{},
 				ActionDir: "action",
-				RequestId: "testRequestId",
+				RequestID: "testRequestID",
 				Logger:    logging.GetLogger(),
 			}
 
 			newData := test.setup(dr)
-			err := dr.AppendDataEntry("testResourceId", newData)
+			err := dr.AppendDataEntry("testResourceID", newData)
 
 			if test.expectError {
 				if err == nil || !strings.Contains(err.Error(), test.expectedError) {
@@ -110,7 +110,7 @@ func TestAppendDataEntry(t *testing.T) {
 				}
 
 				// Verify the written file exists
-				pklPath := filepath.Join(dr.ActionDir, "data", dr.RequestId+"__data_output.pkl")
+				pklPath := filepath.Join(dr.ActionDir, "data", dr.RequestID+"__data_output.pkl")
 				_, err := afero.ReadFile(dr.Fs, pklPath)
 				if err != nil {
 					t.Fatalf("file not written: %v", err)

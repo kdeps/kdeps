@@ -16,14 +16,14 @@ import (
 
 // BootstrapDockerSystem initializes the Docker system and pulls models after ollama server is ready.
 func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environment.Environment, logger *logging.Logger) (bool, error) {
-	var apiServerMode bool
+	var APIServerMode bool
 
 	if environ.DockerMode == "1" {
 		logger.Debug("Inside Docker environment. Proceeding with bootstrap.")
 		logger.Debug("Initializing Docker system")
 
 		agentDir := "/agent"
-		apiServerPath := filepath.Join(agentDir, "/actions/api")
+		APIServerPath := filepath.Join(agentDir, "/actions/api")
 		agentWorkflow := filepath.Join(agentDir, "workflow/workflow.pkl")
 
 		exists, err := afero.Exists(fs, agentWorkflow)
@@ -47,29 +47,29 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 		wfCfg, err := workflow.LoadWorkflow(ctx, agentWorkflow, logger)
 		if err != nil {
 			logger.Error("Error loading", "workflow", err)
-			return apiServerMode, err
+			return APIServerMode, err
 		}
 
 		// Parse OLLAMA_HOST to get the host and port
 		host, port, err := parseOLLAMAHost(ctx, logger)
 		if err != nil {
-			return apiServerMode, err
+			return APIServerMode, err
 		}
 
 		// Start ollama server in the background
 		if err := startOllamaServer(logger); err != nil {
-			return apiServerMode, fmt.Errorf("Failed to start ollama server: %w", err)
+			return APIServerMode, fmt.Errorf("Failed to start ollama server: %w", err)
 		}
 
 		// Wait for ollama server to be fully ready (using the parsed host and port)
 		err = waitForServer(host, port, 60*time.Second, logger)
 		if err != nil {
-			return apiServerMode, err
+			return APIServerMode, err
 		}
 
 		// Once ollama server is ready, proceed with pulling models
 		wfSettings := wfCfg.GetSettings()
-		apiServerMode = wfSettings.ApiServerMode
+		APIServerMode = wfSettings.APIServerMode
 
 		dockerSettings := *wfSettings.AgentSettings
 		modelList := dockerSettings.Models
@@ -79,16 +79,16 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 			stdout, stderr, exitCode, err := KdepsExec("ollama", []string{"pull", value}, logger)
 			if err != nil {
 				logger.Error("Error pulling model: ", value, " stdout: ", stdout, " stderr: ", stderr, " exitCode: ", exitCode, " err: ", err)
-				return apiServerMode, fmt.Errorf("Error pulling model %s: %s %s %d %w", value, stdout, stderr, exitCode, err)
+				return APIServerMode, fmt.Errorf("Error pulling model %s: %s %s %d %w", value, stdout, stderr, exitCode, err)
 			}
 		}
 
-		if err := fs.MkdirAll(apiServerPath, 0o777); err != nil {
+		if err := fs.MkdirAll(APIServerPath, 0o777); err != nil {
 			return true, err
 		}
 
 		go func() error {
-			if err := StartApiServerMode(fs, ctx, wfCfg, environ, agentDir, apiServerPath, logger); err != nil {
+			if err := StartAPIServerMode(fs, ctx, wfCfg, environ, agentDir, APIServerPath, logger); err != nil {
 				return err
 			}
 
@@ -98,7 +98,7 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 
 	logger.Debug("Docker system bootstrap completed.")
 
-	return apiServerMode, nil
+	return APIServerMode, nil
 }
 
 func CreateFlagFile(fs afero.Fs, ctx context.Context, filename string) error {

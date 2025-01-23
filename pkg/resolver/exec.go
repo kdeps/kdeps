@@ -15,7 +15,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-func (dr *DependencyResolver) HandleExec(actionId string, execBlock *pklExec.ResourceExec) error {
+func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.ResourceExec) error {
 	// Decode Command if it is Base64-encoded
 	if utf8.ValidString(execBlock.Command) && utils.IsBase64Encoded(execBlock.Command) {
 		decodedCommand, err := utils.DecodeBase64String(execBlock.Command)
@@ -57,7 +57,7 @@ func (dr *DependencyResolver) HandleExec(actionId string, execBlock *pklExec.Res
 	}
 
 	go func() error {
-		err := dr.processExecBlock(actionId, execBlock)
+		err := dr.processExecBlock(actionID, execBlock)
 		if err != nil {
 			return err
 		}
@@ -68,11 +68,11 @@ func (dr *DependencyResolver) HandleExec(actionId string, execBlock *pklExec.Res
 	return nil
 }
 
-func (dr *DependencyResolver) WriteStdoutToFile(resourceId string, stdoutEncoded *string) (string, error) {
-	// Convert resourceId to be filename friendly
-	resourceIdFile := utils.ConvertToFilenameFriendly(resourceId)
+func (dr *DependencyResolver) WriteStdoutToFile(resourceID string, stdoutEncoded *string) (string, error) {
+	// Convert resourceID to be filename friendly
+	resourceIDFile := utils.ConvertToFilenameFriendly(resourceID)
 	// Define the file path using the FilesDir and resource ID
-	outputFilePath := filepath.Join(dr.FilesDir, resourceIdFile)
+	outputFilePath := filepath.Join(dr.FilesDir, resourceIDFile)
 
 	// Ensure the Stdout is not nil
 	if stdoutEncoded != nil {
@@ -82,7 +82,7 @@ func (dr *DependencyResolver) WriteStdoutToFile(resourceId string, stdoutEncoded
 			// Decode the Base64-encoded Stdout string
 			decodedStdout, err := utils.DecodeBase64String(*stdoutEncoded)
 			if err != nil {
-				return "", fmt.Errorf("failed to decode Base64 string for resource ID: %s: %w", resourceId, err)
+				return "", fmt.Errorf("failed to decode Base64 string for resource ID: %s: %w", resourceID, err)
 			}
 			content = decodedStdout
 		} else {
@@ -93,7 +93,7 @@ func (dr *DependencyResolver) WriteStdoutToFile(resourceId string, stdoutEncoded
 		// Write the content to the file
 		err := afero.WriteFile(dr.Fs, outputFilePath, []byte(content), 0o644)
 		if err != nil {
-			return "", fmt.Errorf("failed to write Stdout to file for resource ID: %s: %w", resourceId, err)
+			return "", fmt.Errorf("failed to write Stdout to file for resource ID: %s: %w", resourceID, err)
 		}
 	} else {
 		return "", nil
@@ -102,7 +102,7 @@ func (dr *DependencyResolver) WriteStdoutToFile(resourceId string, stdoutEncoded
 	return outputFilePath, nil
 }
 
-func (dr *DependencyResolver) processExecBlock(actionId string, execBlock *pklExec.ResourceExec) error {
+func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklExec.ResourceExec) error {
 	var env []string
 	if execBlock.Env != nil {
 		for key, value := range *execBlock.Env {
@@ -130,16 +130,16 @@ func (dr *DependencyResolver) processExecBlock(actionId string, execBlock *pklEx
 	execBlock.Stdout = &result.Stdout
 	execBlock.Stderr = &result.Stderr
 
-	if err := dr.AppendExecEntry(actionId, execBlock); err != nil {
+	if err := dr.AppendExecEntry(actionID, execBlock); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (dr *DependencyResolver) AppendExecEntry(resourceId string, newExec *pklExec.ResourceExec) error {
+func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExec.ResourceExec) error {
 	// Define the path to the PKL file
-	pklPath := filepath.Join(dr.ActionDir, "exec/"+dr.RequestId+"__exec_output.pkl")
+	pklPath := filepath.Join(dr.ActionDir, "exec/"+dr.RequestID+"__exec_output.pkl")
 
 	// Get the current timestamp
 	newTimestamp := uint32(time.Now().UnixNano())
@@ -168,7 +168,7 @@ func (dr *DependencyResolver) AppendExecEntry(resourceId string, newExec *pklExe
 		}
 	}
 	if newExec.Stdout != nil {
-		filePath, err = dr.WriteStdoutToFile(resourceId, newExec.Stdout)
+		filePath, err = dr.WriteStdoutToFile(resourceID, newExec.Stdout)
 		if err != nil {
 			return fmt.Errorf("failed to write Stdout to file: %w", err)
 		}
@@ -198,7 +198,7 @@ func (dr *DependencyResolver) AppendExecEntry(resourceId string, newExec *pklExe
 	}
 
 	// Create or update the ResourceExec entry
-	existingResources[resourceId] = &pklExec.ResourceExec{
+	existingResources[resourceID] = &pklExec.ResourceExec{
 		Env:       encodedEnv,
 		Command:   encodedCommand,
 		Stderr:    &encodedStderr,

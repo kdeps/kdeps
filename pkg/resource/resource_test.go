@@ -22,6 +22,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/workflow"
 	"github.com/kdeps/schema/gen/kdeps"
 	wfPkl "github.com/kdeps/schema/gen/workflow"
@@ -43,7 +44,7 @@ var (
 	runDir                    string
 	gpuType                   string
 	containerName             string
-	apiServerMode             bool
+	APIServerMode             bool
 	cName                     string
 	pkgProject                *archiver.KdepsPackage
 	compiledProjectDir        string
@@ -169,20 +170,20 @@ methods {
 	}
 
 	workflowConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.1.9#/Workflow.pkl"
+amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
 name = "myAIAgentAPI"
 description = "AI Agent X API"
 action = "helloWorld"
 settings {
-  apiServerMode = true
+  APIServerMode = true
   agentSettings {
     packages {}
     models {
       "llama3.2"
     }
   }
-  apiServer {
+  APIServer {
     routes {
       new {
 	path = "/resource1"
@@ -191,7 +192,7 @@ settings {
     }
   }
 }
-`, methodSection)
+`, schema.SchemaVersion(ctx), methodSection)
 	filePath := filepath.Join(homeDirPath, "myAgentX")
 
 	if err := testFs.MkdirAll(filePath, 0o777); err != nil {
@@ -211,15 +212,15 @@ settings {
 		return err
 	}
 
-	resourceConfigurationContent := `
-amends "package://schema.kdeps.com/core@0.1.9#/Resource.pkl"
+	resourceConfigurationContent := fmt.Sprintf(`
+amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
 local llmResponse = "@(llm.response("action1"))"
 local execResponse = "@(exec.stdout("action2"))"
 local clientResponse = "@(client.responseBody("action3"))"
 local clientResponse2 = "@(client.responseBody("action4"))"
 
-id = "helloWorld"
+ID = "helloWorld"
 name = "default action"
 category = "kdepsdockerai"
 description = "this is a description for helloWorld @(request.params)"
@@ -237,7 +238,7 @@ run {
       1 + 1 == 2
     }
   }
-  apiResponse {
+  APIResponse {
     success = true
     response {
       data {
@@ -249,7 +250,7 @@ run {
     }
   }
 }
-`
+`, schema.SchemaVersion(ctx))
 
 	resourceConfigurationFile := filepath.Join(resourcesDir, "resource1.pkl")
 	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0o644)
@@ -257,12 +258,12 @@ run {
 		return err
 	}
 
-	resourceConfigurationContent = `
-amends "package://schema.kdeps.com/core@0.1.9#/Resource.pkl"
+	resourceConfigurationContent = fmt.Sprintf(`
+amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
 local clientResponse = "@(client.responseBody("action3"))"
 
-id = "action1"
+ID = "action1"
 category = "kdepsdockerai"
 description = "this is a description for action1 - @(request.url)"
 requires {
@@ -274,8 +275,8 @@ run {
   chat {
     model = "llama3.2"
     prompt = "@(request.data)"
-    jsonResponse = true
-    jsonResponseKeys {
+    JSONResponse = true
+    JSONResponseKeys {
       "translation"
       "uses"
       "synonyms"
@@ -290,7 +291,7 @@ run {
     }
   }
 }
-`
+`, schema.SchemaVersion(ctx))
 
 	resourceConfigurationFile = filepath.Join(resourcesDir, "resource2.pkl")
 	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0o644)
@@ -298,10 +299,10 @@ run {
 		return err
 	}
 
-	resourceConfigurationContent = `
-amends "package://schema.kdeps.com/core@0.1.9#/Resource.pkl"
+	resourceConfigurationContent = fmt.Sprintf(`
+amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-id = "action2"
+ID = "action2"
 category = "kdepsdockerai"
 description = "this is a description for action2 - @(request.method)"
 name = "default action"
@@ -318,7 +319,7 @@ run {
     command = "echo $RESPONSE"
   }
 }
-`
+`, schema.SchemaVersion(ctx))
 
 	resourceConfigurationFile = filepath.Join(resourcesDir, "resource3.pkl")
 	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0o644)
@@ -326,10 +327,10 @@ run {
 		return err
 	}
 
-	resourceConfigurationContent = `
-amends "package://schema.kdeps.com/core@0.1.9#/Resource.pkl"
+	resourceConfigurationContent = fmt.Sprintf(`
+amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-id = "action3"
+ID = "action3"
 category = "kdepsdockerai"
 description = "this is a description for action3 - @(request.url)"
 requires {
@@ -339,12 +340,12 @@ requires {
 }
 name = "default action"
 run {
-  httpClient {
+  HTTPClient {
     method = "GET"
     url = "https://dog.ceo/api/breeds/list/all"
   }
 }
-`
+`, schema.SchemaVersion(ctx))
 
 	resourceConfigurationFile = filepath.Join(resourcesDir, "resource4.pkl")
 	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0o644)
@@ -352,10 +353,10 @@ run {
 		return err
 	}
 
-	resourceConfigurationContent = `
-amends "package://schema.kdeps.com/core@0.1.9#/Resource.pkl"
+	resourceConfigurationContent = fmt.Sprintf(`
+amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-id = "action4"
+ID = "action4"
 category = "kdepsdockerai"
 description = "this is a description for action4 - @(request.url)"
 requires {
@@ -366,12 +367,12 @@ requires {
 }
 name = "default action"
 run {
-  httpClient {
+  HTTPClient {
     method = "GET"
     url = "https://google.com"
   }
 }
-`
+`, schema.SchemaVersion(ctx))
 
 	resourceConfigurationFile = filepath.Join(resourcesDir, "resource5.pkl")
 	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0o644)
@@ -431,7 +432,7 @@ run {
 	runDir = rd
 	hostPort = hPort
 	hostIP = hIP
-	apiServerMode = asm
+	APIServerMode = asm
 	gpuType = gpu
 
 	cl, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -453,7 +454,7 @@ run {
 		return err
 	}
 
-	dockerClientID, err := docker.CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, gpuType, apiServerMode, cli)
+	dockerClientID, err := docker.CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, gpuType, APIServerMode, cli)
 	if err != nil {
 		return err
 	}

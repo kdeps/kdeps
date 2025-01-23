@@ -320,12 +320,12 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	wfSettings := wfCfg.GetSettings()
 	dockerSettings := wfSettings.AgentSettings
 	gpuType := string(kdeps.DockerGPU)
-	apiServerMode := wfSettings.ApiServerMode
-	apiServer := wfSettings.ApiServer
+	APIServerMode := wfSettings.APIServerMode
+	APIServer := wfSettings.APIServer
 
-	if apiServer != nil {
-		portNum = apiServer.PortNum
-		hostIP = apiServer.HostIP
+	if APIServer != nil {
+		portNum = APIServer.PortNum
+		hostIP = APIServer.HostIP
 	}
 
 	pkgList := dockerSettings.Packages
@@ -340,7 +340,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	kdepsHost := fmt.Sprintf("%s:%s", hostIP, hostPort)
 	exposedPort := hostPort
 
-	if !apiServerMode {
+	if !APIServerMode {
 		exposedPort = ""
 	}
 
@@ -461,7 +461,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		return "", false, "", "", "", err
 	}
 
-	return runDir, apiServerMode, hostIP, hostPort, gpuType, nil
+	return runDir, APIServerMode, hostIP, hostPort, gpuType, nil
 }
 
 // printDockerBuildOutput processes the Docker build logs and returns any error encountered during the build.

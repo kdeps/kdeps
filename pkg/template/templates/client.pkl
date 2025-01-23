@@ -1,6 +1,6 @@
 {{ .Header }}
 
-id = "httpResource"
+ID = "httpResource"
 name = "HTTP Client"
 description = "This resource allows for making API requests using an HTTP client."
 category = ""
@@ -44,7 +44,7 @@ run {
         //
         // Note: Each resource is restricted to a single dedicated action. Combining multiple
         // actions within the same resource is not allowed.
-        httpClient {
+        HTTPClient {
                 method = "GET"  // Specifies the HTTP method to be used for the request.
                 url = ""        // The URL endpoint for the HTTP request.
                 data {
