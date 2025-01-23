@@ -42,8 +42,8 @@ func GetCurrentArchitecture(ctx context.Context, repo string) string {
 
 // CompareVersions compares two versions, returning true if v1 > v2.
 func CompareVersions(ctx context.Context, v1, v2 string) bool {
-	parts1 := parseVersion(ctx, v1)
-	parts2 := parseVersion(ctx, v2)
+	parts1 := parseVersion(v1)
+	parts2 := parseVersion(v2)
 
 	for i := 0; i < len(parts1) || i < len(parts2); i++ {
 		var p1, p2 int
@@ -61,7 +61,7 @@ func CompareVersions(ctx context.Context, v1, v2 string) bool {
 }
 
 // parseVersion parses a version string like "2024.10-1" into a slice of integers.
-func parseVersion(ctx context.Context, version string) []int {
+func parseVersion(version string) []int {
 	parts := strings.FieldsFunc(version, func(r rune) bool {
 		return r == '.' || r == '-'
 	})

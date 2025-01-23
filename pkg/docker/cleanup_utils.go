@@ -122,11 +122,11 @@ func Cleanup(fs afero.Fs, ctx context.Context, environ *environment.Environment,
 	}
 
 	// Remove flag files
-	cleanupFlagFiles(fs, ctx, removedFiles, logger)
+	cleanupFlagFiles(fs, removedFiles, logger)
 }
 
 // cleanupFlagFiles removes the specified flag files.
-func cleanupFlagFiles(fs afero.Fs, ctx context.Context, files []string, logger *logging.Logger) {
+func cleanupFlagFiles(fs afero.Fs, files []string, logger *logging.Logger) {
 	for _, file := range files {
 		if err := fs.Remove(file); err != nil {
 			if os.IsNotExist(err) {

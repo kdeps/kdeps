@@ -47,7 +47,7 @@ func waitForServer(host string, port string, timeout time.Duration, logger *logg
 }
 
 // startOllamaServer starts the ollama server command in the background using go-execute.
-func startOllamaServer(logger *logging.Logger) error {
+func startOllamaServer(ctx context.Context, logger *logging.Logger) error {
 	logger.Debug("starting ollama server in the background...")
 
 	// Run ollama server in a background goroutine using go-execute
@@ -59,7 +59,7 @@ func startOllamaServer(logger *logging.Logger) error {
 
 	// Start the command asynchronously
 	go func() {
-		_, err := cmd.Execute(context.Background())
+		_, err := cmd.Execute(ctx)
 		if err != nil {
 			logger.Error("error starting ollama server: ", err)
 		} else {

@@ -126,7 +126,7 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 	defer response.Body.Close()
 
 	// Process and print the build output
-	err = printDockerBuildOutput(ctx, response.Body)
+	err = printDockerBuildOutput(response.Body)
 	if err != nil {
 		return cName, containerName, err
 	}
@@ -138,7 +138,6 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 
 // generateDockerfile constructs the Dockerfile content by appending multi-line blocks.
 func generateDockerfile(
-	ctx context.Context,
 	imageVersion,
 	schemaVersion,
 	hostIP,
@@ -146,7 +145,6 @@ func generateDockerfile(
 	kdepsHost,
 	argsSection,
 	envsSection,
-	downloadDir,
 	pkgSection,
 	pythonPkgSection,
 	condaPkgSection,
@@ -293,7 +291,7 @@ func copyFilesToRunDir(fs afero.Fs, ctx context.Context, downloadDir, runDir str
 	return nil
 }
 
-func generateParamsSection(ctx context.Context, prefix string, items map[string]string) string {
+func generateParamsSection(prefix string, items map[string]string) string {
 	var lines []string
 	for key, value := range items {
 		line := fmt.Sprintf(`%s %s`, prefix, key)
@@ -352,11 +350,11 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	var argsSection, envsSection string
 
 	if dockerSettings.Args != nil {
-		argsSection = generateParamsSection(ctx, "ARG", *argsList)
+		argsSection = generateParamsSection("ARG", *argsList)
 	}
 
 	if dockerSettings.Env != nil {
-		envsSection = generateParamsSection(ctx, "ENV", *envsList)
+		envsSection = generateParamsSection("ENV", *envsList)
 	}
 
 	var pkgLines []string
@@ -436,8 +434,8 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		return "", false, "", "", "", err
 	}
 
-	ollamaPortNum := generateUniqueOllamaPort(ctx, portNum)
-	dockerfileContent := generateDockerfile(ctx,
+	ollamaPortNum := generateUniqueOllamaPort(portNum)
+	dockerfileContent := generateDockerfile(
 		imageVersion,
 		schema.SchemaVersion(ctx),
 		hostIP,
@@ -445,7 +443,6 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		kdepsHost,
 		argsSection,
 		envsSection,
-		downloadDir,
 		pkgSection,
 		pythonPkgSection,
 		condaPkgSection,
@@ -465,7 +462,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 }
 
 // printDockerBuildOutput processes the Docker build logs and returns any error encountered during the build.
-func printDockerBuildOutput(ctx context.Context, rd io.Reader) error {
+func printDockerBuildOutput(rd io.Reader) error {
 	scanner := bufio.NewScanner(rd)
 	for scanner.Scan() {
 		line := scanner.Text()
