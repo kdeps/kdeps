@@ -66,7 +66,7 @@ func StartAPIServerMode(fs afero.Fs, ctx context.Context, wfCfg pklWf.Workflow, 
 	logger.Printf("Starting API server on port %s", hostPort)
 	go func() {
 		if err := http.ListenAndServe(hostPort, nil); err != nil {
-			logger.Error("Failed to start API server", "error", err)
+			logger.Error("failed to start API server", "error", err)
 		}
 	}()
 
@@ -80,7 +80,7 @@ func setupRoutes(fs afero.Fs, ctx context.Context, routes []*apiserver.APIServer
 ) error {
 	for _, route := range routes {
 		if route == nil || route.Path == "" {
-			logger.Error("Route configuration is invalid", "route", route)
+			logger.Error("route configuration is invalid", "route", route)
 			continue
 		}
 
@@ -307,7 +307,7 @@ filetype = "%s"
 
 		// In certain error cases, Ollama needs to be restarted
 		if fatal {
-			logger.Fatal("A fatal server error occurred. Restarting the service.")
+			logger.Fatal("a fatal server error occurred. Restarting the service.")
 
 			// Send SIGTERM to gracefully shut down the server
 			utils.SendSigterm(logger)
@@ -391,7 +391,7 @@ func decodeResponseContent(content []byte, logger *logging.Logger) ([]byte, erro
 	// Unmarshal JSON content into DecodedResponse struct
 	err := json.Unmarshal(content, &decodedResp)
 	if err != nil {
-		logger.Error("Failed to unmarshal response content", "error", err)
+		logger.Error("failed to unmarshal response content", "error", err)
 		return nil, err
 	}
 
@@ -399,7 +399,7 @@ func decodeResponseContent(content []byte, logger *logging.Logger) ([]byte, erro
 	for i, encodedData := range decodedResp.Response.Data {
 		decodedData, err := utils.DecodeBase64String(encodedData)
 		if err != nil {
-			logger.Error("Failed to decode Base64 string", "data", encodedData)
+			logger.Error("failed to decode Base64 string", "data", encodedData)
 			decodedResp.Response.Data[i] = encodedData // Use original if decoding fails
 		} else {
 			// If the decoded string is still wrapped in extra quotes, handle unquoting
@@ -439,7 +439,7 @@ func decodeResponseContent(content []byte, logger *logging.Logger) ([]byte, erro
 	// Marshal the decoded response back to JSON
 	decodedContent, err := json.Marshal(decodedResp)
 	if err != nil {
-		logger.Error("Failed to marshal decoded response content", "error", err)
+		logger.Error("failed to marshal decoded response content", "error", err)
 		return nil, err
 	}
 
@@ -451,7 +451,7 @@ func decodeResponseContent(content []byte, logger *logging.Logger) ([]byte, erro
 func cleanOldFiles(fs afero.Fs, dr *resolver.DependencyResolver, logger *logging.Logger) error {
 	if _, err := fs.Stat(dr.ResponseTargetFile); err == nil {
 		if err := fs.RemoveAll(dr.ResponseTargetFile); err != nil {
-			logger.Error("Unable to delete old response file", "response-target-file", dr.ResponseTargetFile)
+			logger.Error("unable to delete old response file", "response-target-file", dr.ResponseTargetFile)
 			return err
 		}
 	}
@@ -521,7 +521,7 @@ func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver, logge
 		return true, err
 	}
 
-	logger.Debug("Awaiting response...")
+	logger.Debug("awaiting response...")
 
 	// Wait for the response file to be ready
 	if err := utils.WaitForFileReady(dr.Fs, ctx, dr.ResponseTargetFile, logger); err != nil {

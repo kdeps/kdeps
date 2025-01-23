@@ -264,14 +264,14 @@ func copyFilesToRunDir(fs afero.Fs, ctx context.Context, downloadDir, runDir str
 	downloadsDir := filepath.Join(runDir, "cache")
 	err := fs.MkdirAll(downloadsDir, os.ModePerm)
 	if err != nil {
-		logger.Error("Failed to create cache directory", "path", downloadsDir, "error", err)
+		logger.Error("failed to create cache directory", "path", downloadsDir, "error", err)
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
 	// List files in the downloadDir
 	files, err := afero.ReadDir(fs, downloadDir)
 	if err != nil {
-		logger.Error("Failed to read cache directory", "path", downloadDir, "error", err)
+		logger.Error("failed to read cache directory", "path", downloadDir, "error", err)
 		return fmt.Errorf("failed to read cache directory: %w", err)
 	}
 
@@ -283,11 +283,11 @@ func copyFilesToRunDir(fs afero.Fs, ctx context.Context, downloadDir, runDir str
 		// Copy the file content
 		err = archiver.CopyFile(fs, ctx, sourcePath, destinationPath, logger)
 		if err != nil {
-			logger.Error("Failed to copy file", "source", sourcePath, "destination", destinationPath, "error", err)
+			logger.Error("failed to copy file", "source", sourcePath, "destination", destinationPath, "error", err)
 			return fmt.Errorf("failed to copy file: %w", err)
 		}
 
-		logger.Info("File copied", "source", sourcePath, "destination", destinationPath)
+		logger.Info("file copied", "source", sourcePath, "destination", destinationPath)
 	}
 
 	return nil

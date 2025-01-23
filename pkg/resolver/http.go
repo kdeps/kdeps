@@ -22,13 +22,13 @@ func (dr *DependencyResolver) HandleHTTPClient(actionID string, httpBlock *pklHT
 	go func() error {
 		// Decode Base64 encoded fields before processing
 		if err := dr.decodeHTTPBlock(httpBlock); err != nil {
-			dr.Logger.Error("Failed to decode HTTP block", "actionID", actionID, "error", err)
+			dr.Logger.Error("failed to decode HTTP block", "actionID", actionID, "error", err)
 			return err
 		}
 
 		// Proceed with processing the decoded block
 		if err := dr.processHTTPBlock(actionID, httpBlock); err != nil {
-			dr.Logger.Error("Failed to process HTTP block", "actionID", actionID, "error", err)
+			dr.Logger.Error("failed to process HTTP block", "actionID", actionID, "error", err)
 			return err
 		}
 
@@ -74,7 +74,7 @@ func (dr *DependencyResolver) decodeHTTPBlock(httpBlock *pklHTTP.ResourceHTTPCli
 			} else {
 				// If not Base64 encoded, leave the value as it is
 				decodedHeaders[key] = value
-				dr.Logger.Debug("Header value is not Base64 encoded, skipping decoding", "header", key)
+				dr.Logger.Debug("header value is not Base64 encoded, skipping decoding", "header", key)
 			}
 		}
 		httpBlock.Headers = &decodedHeaders
@@ -94,7 +94,7 @@ func (dr *DependencyResolver) decodeHTTPBlock(httpBlock *pklHTTP.ResourceHTTPCli
 			} else {
 				// If not Base64 encoded, leave the value as it is
 				decodedParams[key] = value
-				dr.Logger.Debug("Param value is not Base64 encoded, skipping decoding", "params", key)
+				dr.Logger.Debug("param value is not Base64 encoded, skipping decoding", "params", key)
 			}
 		}
 		httpBlock.Params = &decodedParams
@@ -114,7 +114,7 @@ func (dr *DependencyResolver) decodeHTTPBlock(httpBlock *pklHTTP.ResourceHTTPCli
 			} else {
 				// If not Base64 encoded, leave the value as it is
 				decodedData[i] = v
-				dr.Logger.Debug("Data value is not Base64 encoded, skipping decoding", "index", i)
+				dr.Logger.Debug("data value is not Base64 encoded, skipping decoding", "index", i)
 			}
 		}
 		httpBlock.Data = &decodedData

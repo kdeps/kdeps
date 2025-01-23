@@ -319,7 +319,7 @@ func eachResourceAreReloadedWhenOpened() error {
 	for _, resNode := range stack {
 		for _, res := range graphResolver.Resources {
 			if res.ID == resNode {
-				logger.Debug("Executing resource: ", res.ID)
+				logger.Debug("executing resource: ", res.ID)
 
 				rsc, err := pklRes.LoadFromPath(graphResolver.Context, res.File)
 				if err != nil {
@@ -335,7 +335,7 @@ func eachResourceAreReloadedWhenOpened() error {
 				//	// Check Skip Condition
 				//	if runBlock.SkipCondition != nil {
 				//		if resolver.ShouldSkip(runBlock.SkipCondition) {
-				//			logger.Debug("Skip condition met, skipping:", res.ID)
+				//			logger.Debug("skip condition met, skipping:", res.ID)
 				//			continue
 				//		}
 				//	}
@@ -343,7 +343,7 @@ func eachResourceAreReloadedWhenOpened() error {
 				//	// Handle Preflight Check
 				//	if runBlock.PreflightCheck != nil && runBlock.PreflightCheck.Validations != nil {
 				//		if !resolver.AllConditionsMet(runBlock.PreflightCheck.Validations) {
-				//			logger.Error("Preflight check not met, failing:", res.ID)
+				//			logger.Error("preflight check not met, failing:", res.ID)
 				//			if runBlock.PreflightCheck.Error != nil {
 				//				logger.Debug(err)
 

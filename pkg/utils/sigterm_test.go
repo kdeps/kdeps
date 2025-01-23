@@ -30,7 +30,7 @@ func TestSendSigterm(t *testing.T) {
 		// Assert that the received signal is SIGTERM
 		assert.Equal(t, syscall.SIGTERM, sig, "Expected SIGTERM signal")
 	case <-timeout():
-		t.Fatal("Timed out waiting for SIGTERM signal")
+		t.Fatal("timed out waiting for SIGTERM signal")
 	}
 }
 

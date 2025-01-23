@@ -19,8 +19,8 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 	var APIServerMode bool
 
 	if environ.DockerMode == "1" {
-		logger.Debug("Inside Docker environment. Proceeding with bootstrap.")
-		logger.Debug("Initializing Docker system")
+		logger.Debug("inside Docker environment. Proceeding with bootstrap.")
+		logger.Debug("initializing Docker system")
 
 		agentDir := "/agent"
 		APIServerPath := filepath.Join(agentDir, "/actions/api")
@@ -46,7 +46,7 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 
 		wfCfg, err := workflow.LoadWorkflow(ctx, agentWorkflow, logger)
 		if err != nil {
-			logger.Error("Error loading", "workflow", err)
+			logger.Error("error loading", "workflow", err)
 			return APIServerMode, err
 		}
 
@@ -58,7 +58,7 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 
 		// Start ollama server in the background
 		if err := startOllamaServer(logger); err != nil {
-			return APIServerMode, fmt.Errorf("Failed to start ollama server: %w", err)
+			return APIServerMode, fmt.Errorf("failed to start ollama server: %w", err)
 		}
 
 		// Wait for ollama server to be fully ready (using the parsed host and port)
@@ -75,11 +75,11 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 		modelList := dockerSettings.Models
 		for _, value := range modelList {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
-			logger.Debug("Pulling", "model", value)
+			logger.Debug("pulling", "model", value)
 			stdout, stderr, exitCode, err := KdepsExec("ollama", []string{"pull", value}, logger)
 			if err != nil {
-				logger.Error("Error pulling model: ", value, " stdout: ", stdout, " stderr: ", stderr, " exitCode: ", exitCode, " err: ", err)
-				return APIServerMode, fmt.Errorf("Error pulling model %s: %s %s %d %w", value, stdout, stderr, exitCode, err)
+				logger.Error("error pulling model: ", value, " stdout: ", stdout, " stderr: ", stderr, " exitCode: ", exitCode, " err: ", err)
+				return APIServerMode, fmt.Errorf("error pulling model %s: %s %s %d %w", value, stdout, stderr, exitCode, err)
 			}
 		}
 
@@ -96,7 +96,7 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 		}()
 	}
 
-	logger.Debug("Docker system bootstrap completed.")
+	logger.Debug("docker system bootstrap completed.")
 
 	return APIServerMode, nil
 }

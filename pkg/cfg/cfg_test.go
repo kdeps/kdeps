@@ -192,7 +192,7 @@ func theConfigurationFailsToLoadAnyConfiguration() error {
 
 	cfgFile, err := FindConfiguration(testFs, ctx, environ, logger)
 	if err != nil {
-		return fmt.Errorf("An error occurred while finding configuration: %w", err)
+		return fmt.Errorf("an error occurred while finding configuration: %w", err)
 	}
 	if cfgFile != "" {
 		return errors.New("expected not finding configuration file, but found")

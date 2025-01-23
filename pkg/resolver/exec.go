@@ -112,7 +112,7 @@ func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklEx
 	}
 
 	// Log the command and environment variables
-	dr.Logger.Info("Executing command", "command", execBlock.Command, "env", env)
+	dr.Logger.Info("executing command", "command", execBlock.Command, "env", env)
 
 	cmd := execute.ExecTask{
 		Command:     execBlock.Command,

@@ -2,7 +2,7 @@ package archiver
 
 import (
 	"context"
-	"crypto/md5"
+	"crypto/md5" //nolint:gosec
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -16,7 +16,7 @@ import (
 )
 
 // Move a directory by copying and then deleting the original.
-func MoveFolder(fs afero.Fs, ctx context.Context, src string, dest string) error {
+func MoveFolder(fs afero.Fs, src string, dest string) error {
 	// Walk through the source directory and handle files and directories
 	err := afero.Walk(fs, src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -67,7 +67,7 @@ func MoveFolder(fs afero.Fs, ctx context.Context, src string, dest string) error
 	return fs.RemoveAll(src)
 }
 
-func getFileMD5(fs afero.Fs, ctx context.Context, filePath string, length int) (string, error) {
+func getFileMD5(fs afero.Fs, filePath string, length int) (string, error) {
 	// Open the file using afero's filesystem
 	file, err := fs.Open(filePath)
 	if err != nil {
@@ -76,7 +76,7 @@ func getFileMD5(fs afero.Fs, ctx context.Context, filePath string, length int) (
 	defer file.Close()
 
 	// Create an MD5 hash object
-	hash := md5.New()
+	hash := md5.New() //nolint:gosec
 
 	// Copy the file content into the hash
 	if _, err := io.Copy(hash, file); err != nil {
@@ -99,19 +99,19 @@ func CopyFile(fs afero.Fs, ctx context.Context, src, dst string, logger *logging
 	// Check if the destination file exists
 	if _, err := fs.Stat(dst); err == nil {
 		// Calculate MD5 for both source and destination files
-		srcMD5, err := getFileMD5(fs, ctx, src, 8)
+		srcMD5, err := getFileMD5(fs, src, 8)
 		if err != nil {
 			return fmt.Errorf("failed to calculate MD5 for source file: %w", err)
 		}
 
-		dstMD5, err := getFileMD5(fs, ctx, dst, 8)
+		dstMD5, err := getFileMD5(fs, dst, 8)
 		if err != nil {
 			return fmt.Errorf("failed to calculate MD5 for destination file: %w", err)
 		}
 
 		// If MD5 is the same, skip copying
 		if srcMD5 == dstMD5 {
-			logger.Info("Files have the same MD5, skipping copy", "src", src, "dst", dst)
+			logger.Info("files have the same MD5, skipping copy", "src", src, "dst", dst)
 			return nil
 		}
 
@@ -155,7 +155,7 @@ func CopyFile(fs afero.Fs, ctx context.Context, src, dst string, logger *logging
 		return fmt.Errorf("failed to change permissions on destination file: %w", err)
 	}
 
-	logger.Debug("File copied successfully:", "from", src, "to", dst)
+	logger.Debug("file copied successfully:", "from", src, "to", dst)
 	return nil
 }
 
@@ -172,14 +172,14 @@ func CopyDataDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, 
 		copyResources := func(ctx context.Context, src, dst string) error {
 			return afero.Walk(fs, src, func(path string, info os.FileInfo, walkErr error) error {
 				if walkErr != nil {
-					logger.Error("Error walking source directory", "path", src, "error", walkErr)
+					logger.Error("error walking source directory", "path", src, "error", walkErr)
 					return walkErr
 				}
 
 				// Determine the relative path for correct directory structure copying
 				relPath, err := filepath.Rel(src, path)
 				if err != nil {
-					logger.Error("Failed to get relative path", "path", path, "error", err)
+					logger.Error("failed to get relative path", "path", path, "error", err)
 					return err
 				}
 
@@ -188,12 +188,12 @@ func CopyDataDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, 
 
 				if info.IsDir() {
 					if err := fs.MkdirAll(dstPath, info.Mode()); err != nil {
-						logger.Error("Failed to create directory", "path", dstPath, "error", err)
+						logger.Error("failed to create directory", "path", dstPath, "error", err)
 						return err
 					}
 				} else {
 					if err := CopyFile(fs, ctx, path, dstPath, logger); err != nil {
-						logger.Error("Failed to copy file", "src", path, "dst", dstPath, "error", err)
+						logger.Error("failed to copy file", "src", path, "dst", dstPath, "error", err)
 						return err
 					}
 				}
@@ -211,7 +211,7 @@ func CopyDataDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, 
 			if exists {
 				version, err := getLatestVersion(ctx, agentVersionPath, logger)
 				if err != nil {
-					logger.Error("Failed to get latest agent version", "agentVersionPath", agentVersionPath, "error", err)
+					logger.Error("failed to get latest agent version", "agentVersionPath", agentVersionPath, "error", err)
 					return err
 				}
 				agentVersion = version
@@ -231,28 +231,28 @@ func CopyDataDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, 
 
 		if exists {
 			if err := copyResources(ctx, src, dst); err != nil {
-				logger.Error("Failed to copy resources", "src", src, "dst", dst, "error", err)
+				logger.Error("failed to copy resources", "src", src, "dst", dst, "error", err)
 				return err
 			}
 		}
 	}
 
 	if _, err := fs.Stat(srcDir); err != nil {
-		logger.Debug("No data found! Skipping!", "src", srcDir)
+		logger.Debug("no data found! Skipping!", "src", srcDir, "err", err)
 		return nil
 	}
 
 	// Final walk for data directory copying
 	err := afero.Walk(fs, srcDir, func(path string, info os.FileInfo, walkErr error) error {
 		if walkErr != nil {
-			logger.Error("Error walking source directory", "path", srcDir, "error", walkErr)
+			logger.Error("error walking source directory", "path", srcDir, "error", walkErr)
 			return walkErr
 		}
 
 		// Determine the relative path from the source directory
 		relPath, err := filepath.Rel(srcDir, path)
 		if err != nil {
-			logger.Error("Failed to get relative path", "path", path, "error", err)
+			logger.Error("failed to get relative path", "path", path, "error", err)
 			return err
 		}
 
@@ -268,13 +268,13 @@ func CopyDataDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, 
 		// If it's a directory, create the directory in the destination
 		if info.IsDir() {
 			if err := fs.MkdirAll(dstPath, info.Mode()); err != nil {
-				logger.Error("Failed to create directory", "path", dstPath, "error", err)
+				logger.Error("failed to create directory", "path", dstPath, "error", err)
 				return err
 			}
 		} else {
 			// If it's a file, copy the file
 			if err := CopyFile(fs, ctx, path, dstPath, logger); err != nil {
-				logger.Error("Failed to copy file", "src", path, "dst", dstPath, "error", err)
+				logger.Error("failed to copy file", "src", path, "dst", dstPath, "error", err)
 				return err
 			}
 		}
@@ -282,10 +282,10 @@ func CopyDataDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, 
 		return nil
 	})
 	if err != nil {
-		logger.Error("Error copying directory", "srcDir", srcDir, "destDir", destDir, "error", err)
+		logger.Error("error copying directory", "srcDir", srcDir, "destDir", destDir, "error", err)
 		return err
 	}
 
-	logger.Debug("Directory copied successfully", "srcDir", srcDir, "destDir", destDir)
+	logger.Debug("directory copied successfully", "srcDir", srcDir, "destDir", destDir)
 	return nil
 }

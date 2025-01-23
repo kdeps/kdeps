@@ -113,7 +113,7 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 	}
 
 	// Log the command and environment variables
-	dr.Logger.Info("Running python", "script", tmpFile.Name(), "env", env)
+	dr.Logger.Info("running python", "script", tmpFile.Name(), "env", env)
 
 	// Prepare the execution command
 	cmd := execute.ExecTask{

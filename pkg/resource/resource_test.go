@@ -546,22 +546,22 @@ func iShouldSeeAInTheFolder(arg1, arg2 string) error {
 	var output bytes.Buffer
 	_, err = io.Copy(&output, execAttachResp.Reader)
 	if err != nil {
-		logger.Fatal("Failed to read exec output: %v", err)
+		logger.Fatal("failed to read exec output: %v", err)
 		return err
 	}
 
 	// Check the command output
-	logger.Debug("Output from `ls /` command in container:\n%s", output.String())
+	logger.Debug("output from `ls /` command in container:\n%s", output.String())
 
 	// Optionally, inspect the exec result to check for success/failure
 	execInspect, err := cli.ContainerExecInspect(ctx, execID)
 	if err != nil {
-		logger.Fatal("Failed to inspect exec result: %v", err)
+		logger.Fatal("failed to inspect exec result: %v", err)
 		return err
 	}
 
 	if execInspect.ExitCode != 0 {
-		logger.Error("Command failed with exit code: %d", execInspect.ExitCode)
+		logger.Error("command failed with exit code: %d", execInspect.ExitCode)
 		return err
 	}
 
