@@ -167,6 +167,7 @@ func runGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	}
 
 	// Handle run action
+	//nolint:contextcheck
 	fatal, err := dr.HandleRunAction()
 	if err != nil {
 		return fmt.Errorf("failed to handle run action: %w", err)
@@ -180,7 +181,9 @@ func runGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 
 	cleanup(fs, ctx, env, apiServerMode, logger)
 
-	utils.WaitForFileReady(fs, ctx, "/.dockercleanup", logger)
+	if err := utils.WaitForFileReady(fs, ctx, "/.dockercleanup", logger); err != nil {
+		return fmt.Errorf("failed to wait for file to be ready: %w", err)
+	}
 
 	return nil
 }

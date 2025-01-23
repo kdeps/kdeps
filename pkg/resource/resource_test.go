@@ -391,7 +391,9 @@ run {
 		file := filepath.Join(dataDir, fmt.Sprintf("textfile-%s.txt", num))
 
 		f, _ := testFs.Create(file)
-		f.WriteString(doc + num)
+		if _, err := f.WriteString(doc + num); err != nil {
+			return err
+		}
 		f.Close()
 	}
 

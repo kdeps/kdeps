@@ -170,7 +170,10 @@ run {
 	file := filepath.Join(resourcesDir, arg1)
 
 	f, _ := testFs.Create(file)
-	f.WriteString(doc)
+	if _, err := f.WriteString(doc); err != nil {
+		return err
+	}
+
 	f.Close()
 
 	resourceFile = file
@@ -297,7 +300,9 @@ run {
 	file := filepath.Join(resourcesDir, arg1)
 
 	f, _ := testFs.Create(file)
-	f.WriteString(doc)
+	if _, err := f.WriteString(doc); err != nil {
+		return err
+	}
 	f.Close()
 
 	resourceFile = file

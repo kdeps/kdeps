@@ -52,9 +52,15 @@ func TestWaitForFileReady(t *testing.T) {
 		// Act
 		go func() {
 			time.Sleep(1 * time.Second)
-			fs.Create(filepath) // Create the file after a delay
+			_, err := fs.Create(filepath)
+			if err != nil {
+				t.Error(err)
+			}
 		}()
 		err := WaitForFileReady(fs, ctx, filepath, logger)
+		if err != nil {
+			t.Error(err)
+		}
 
 		// Assert
 		assert.NoError(t, err)
