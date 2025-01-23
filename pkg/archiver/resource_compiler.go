@@ -34,7 +34,7 @@ func CompileResources(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, resou
 		// Only process .pkl files
 		if filepath.Ext(file) == ".pkl" {
 			logger.Debug("processing .pkl", "file", file)
-			if err := processResourcePklFiles(fs, ctx, file, wf, resourcesDir, logger); err != nil {
+			if err := processResourcePklFiles(fs, file, wf, resourcesDir, logger); err != nil {
 				logger.Error("failed to process .pkl file", "file", file, "error", err)
 				return err
 			}
@@ -51,7 +51,7 @@ func CompileResources(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, resou
 }
 
 // processResourcePklFiles processes a .pkl file and writes modifications to the resources directory.
-func processResourcePklFiles(fs afero.Fs, ctx context.Context, file string, wf pklWf.Workflow, resourcesDir string, logger *logging.Logger) error {
+func processResourcePklFiles(fs afero.Fs, file string, wf pklWf.Workflow, resourcesDir string, logger *logging.Logger) error {
 	name, version := wf.GetName(), wf.GetVersion()
 
 	readFile, err := fs.Open(file)

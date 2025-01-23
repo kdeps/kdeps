@@ -13,6 +13,7 @@ import (
 
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/kdeps/kdeps/pkg/workflow"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
@@ -69,7 +70,7 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 		}
 
 		// Construct the full absolute path for the file in the temp directory
-		targetPath, err := SanitizeArchivePath(tempDir, header.Name)
+		targetPath, err := utils.SanitizeArchivePath(tempDir, header.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -219,16 +220,6 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 	logger.Debug("extraction and population completed successfully", "package", kdepsPackage)
 
 	return kdeps, nil
-}
-
-// Sanitize archive file pathing from "G305: Zip Slip vulnerability".
-func SanitizeArchivePath(d, t string) (string, error) {
-	v := filepath.Join(d, t)
-	if strings.HasPrefix(v, filepath.Clean(d)) {
-		return v, nil
-	}
-
-	return "", fmt.Errorf("%s: %s", "content filepath is tainted", t)
 }
 
 // PackageProject compresses the contents of projectDir into a kdeps file in kdepsDir.

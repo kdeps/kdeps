@@ -43,7 +43,7 @@ type DecodedResponse struct {
 // StartAPIServerMode initializes and starts an API server based on the provided workflow configuration.
 // It validates the API server configuration, sets up routes, and starts the server on the configured port.
 func StartAPIServerMode(fs afero.Fs, ctx context.Context, wfCfg pklWf.Workflow, environ *environment.Environment,
-	agentDir string, APIServerPath string, logger *logging.Logger,
+	agentDir string, apiServerPath string, logger *logging.Logger,
 ) error {
 	// Extract workflow settings and validate API server configuration
 	wfSettings := wfCfg.GetSettings()
@@ -58,9 +58,7 @@ func StartAPIServerMode(fs afero.Fs, ctx context.Context, wfCfg pklWf.Workflow, 
 	hostPort := ":" + portNum
 
 	// Set up API routes as per the configuration
-	if err := setupRoutes(fs, ctx, wfAPIServer.Routes, environ, agentDir, APIServerPath, logger); err != nil {
-		return fmt.Errorf("failed to set up routes: %w", err)
-	}
+	setupRoutes(fs, ctx, wfAPIServer.Routes, environ, agentDir, apiServerPath, logger)
 
 	// Start the API server asynchronously
 	logger.Printf("Starting API server on port %s", hostPort)
@@ -76,25 +74,23 @@ func StartAPIServerMode(fs afero.Fs, ctx context.Context, wfCfg pklWf.Workflow, 
 // setupRoutes configures HTTP routes for the API server based on the provided route configuration.
 // Each route is validated before being registered with the HTTP handler.
 func setupRoutes(fs afero.Fs, ctx context.Context, routes []*apiserver.APIServerRoutes, environ *environment.Environment,
-	agentDir string, APIServerPath string, logger *logging.Logger,
-) error {
+	agentDir string, apiServerPath string, logger *logging.Logger,
+) {
 	for _, route := range routes {
 		if route == nil || route.Path == "" {
 			logger.Error("route configuration is invalid", "route", route)
 			continue
 		}
 
-		http.HandleFunc(route.Path, APIServerHandler(fs, ctx, route, environ, agentDir, APIServerPath, logger))
+		http.HandleFunc(route.Path, APIServerHandler(fs, ctx, route, environ, agentDir, apiServerPath, logger))
 		logger.Printf("Route configured: %s", route.Path)
 	}
-
-	return nil
 }
 
 // APIServerHandler handles incoming HTTP requests for the configured routes.
 // It validates the HTTP method, processes the request data, and triggers workflow actions to generate responses.
 func APIServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServerRoutes, env *environment.Environment,
-	agentDir string, APIServerPath string, logger *logging.Logger,
+	agentDir string, apiServerPath string, logger *logging.Logger,
 ) http.HandlerFunc {
 	allowedMethods := route.Methods
 
@@ -163,6 +159,10 @@ func APIServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServ
 
 				files, multiFileExists := r.MultipartForm.File["file[]"]
 				singleFile, singleFileExists, err := r.FormFile("file")
+				if err != nil {
+					http.Error(w, "Unable to parse file", http.StatusInternalServerError)
+					return
+				}
 
 				if multiFileExists {
 					// Handle multiple file uploads
@@ -471,7 +471,7 @@ func validateMethod(r *http.Request, allowedMethods []string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf(`HTTP method "%s" not allowed!`, r.Method)
+	return "", fmt.Errorf(`HTTP method "%s" not allowed`, r.Method)
 }
 
 // formatHeaders formats the HTTP headers into a string representation for inclusion in the .pkl file.
@@ -502,6 +502,8 @@ func formatParams(params map[string][]string) string {
 // processWorkflow handles the execution of the workflow steps after the .pkl file is created.
 // It prepares the workflow directory, imports necessary files, and processes the actions defined in the workflow.
 func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver, logger *logging.Logger) (bool, error) {
+	dr.Context = ctx
+
 	if err := dr.PrepareWorkflowDir(); err != nil {
 		return false, err
 	}
@@ -510,11 +512,13 @@ func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver, logge
 		return false, err
 	}
 
+	//nolint:contextcheck // context already passed via dr.Context
 	fatal, err := dr.HandleRunAction()
 	if err != nil {
 		return fatal, err
 	}
 
+	//nolint:contextcheck // context already passed via dr.Context
 	stdout, err := dr.EvalPklFormattedResponseFile()
 	if err != nil {
 		logger.Fatal(fmt.Errorf(stdout, err))
