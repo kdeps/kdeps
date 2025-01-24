@@ -50,7 +50,7 @@ func StartAPIServerMode(fs afero.Fs, ctx context.Context, wfCfg pklWf.Workflow, 
 	wfAPIServer := wfSettings.APIServer
 
 	if wfAPIServer == nil {
-		return errors.New("API server configuration is missing")
+		return errors.New("the API server configuration is missing")
 	}
 
 	// Format the server host and port

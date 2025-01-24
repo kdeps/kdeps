@@ -116,7 +116,7 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 
 		choices := response.Choices
 		if len(choices) < 1 {
-			return errors.New("Empty response from model")
+			return errors.New("empty response from model")
 		}
 
 		completion = choices[0].Content

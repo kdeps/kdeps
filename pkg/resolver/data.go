@@ -31,7 +31,7 @@ func (dr *DependencyResolver) AppendDataEntry(resourceID string, newData *pklDat
 
 	// Safeguard against nil pointers
 	if pklRes == nil || pklRes.GetFiles() == nil {
-		return errors.New("PKL data or files map is nil")
+		return errors.New("the PKL data or files map is nil")
 	}
 
 	// Get the existing files map

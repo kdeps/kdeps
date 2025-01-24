@@ -292,7 +292,8 @@ func copyFilesToRunDir(fs afero.Fs, ctx context.Context, downloadDir, runDir str
 }
 
 func generateParamsSection(prefix string, items map[string]string) string {
-	var lines []string
+	lines := make([]string, 0, len(items))
+
 	for key, value := range items {
 		line := fmt.Sprintf(`%s %s`, prefix, key)
 		if value != "" {

@@ -343,7 +343,7 @@ func (dr *DependencyResolver) DoRequest(client *pklHTTP.ResourceHTTPClient) erro
 
 	// Validate method
 	if client.Method == "" {
-		return errors.New("HTTP method is required")
+		return errors.New("an HTTP method is required")
 	}
 
 	// Append query parameters to the URL if present
