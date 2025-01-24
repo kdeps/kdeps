@@ -271,7 +271,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 	for id, resource := range existingResources {
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
 		pklContent.WriteString(fmt.Sprintf("    script = \"%s\"\n", resource.Script))
-		pklContent.WriteString(fmt.Sprintf("    timeoutSeconds = %d\n", resource.TimeoutSeconds))
+		pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d\n", resource.TimeoutDuration))
 		pklContent.WriteString(fmt.Sprintf("    timestamp = %d\n", *resource.Timestamp))
 
 		// Write environment variables (if Env is not nil)

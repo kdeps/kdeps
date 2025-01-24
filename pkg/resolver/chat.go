@@ -251,7 +251,7 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 			pklContent.WriteString("    JSONResponseKeys {\"\"}\n")
 		}
 
-		pklContent.WriteString(fmt.Sprintf("    timeoutSeconds = %d\n", resource.TimeoutSeconds))
+		pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d\n", resource.TimeoutDuration))
 		pklContent.WriteString(fmt.Sprintf("    timestamp = %d\n", *resource.Timestamp))
 
 		// Dereference response to pass it correctly

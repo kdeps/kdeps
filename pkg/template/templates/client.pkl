@@ -55,6 +55,6 @@ run {
                         ["X-API-KEY"] = "@(request.header("X-API-KEY"))"  // Example header.
                 }
                 // Timeout duration in seconds. This specifies when to terminate the request.
-                timeoutSeconds = 60
+                timeoutDuration = 60
         }
 }

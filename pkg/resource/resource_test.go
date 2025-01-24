@@ -280,7 +280,7 @@ run {
       "synonyms"
       "antonyms"
     }
-    timeoutSeconds = 0
+    timeoutDuration = 0
   }
   preflightCheck {
     validations {
@@ -486,7 +486,7 @@ func iGETRequestToWithDataAndHeaderNameThatMapsTo(arg1, arg2, arg3, arg4 string)
 	reqBody := strings.NewReader(arg2)
 
 	// Create a new GET request
-	req, err := http.NewRequest(http.MethodGet, baseURL, reqBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL, reqBody)
 	if err != nil {
 		fmt.Println("Error creating request:", err)
 		return err
