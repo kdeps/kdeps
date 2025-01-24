@@ -56,14 +56,21 @@ func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.Res
 		}
 	}
 
-	go func() error {
-		err := dr.processExecBlock(actionID, execBlock)
-		if err != nil {
-			return err
-		}
+	errChan := make(chan error, 1) // Channel to capture the error
 
-		return nil
+	go func() {
+		if err := dr.processExecBlock(actionID, execBlock); err != nil {
+			errChan <- err // Send the error to the channel
+			return
+		}
+		errChan <- nil // Send a nil if no error occurred
 	}()
+
+	// Wait for the result from the goroutine
+	err := <-errChan
+	if err != nil {
+		return err // Return the error to the caller
+	}
 
 	return nil
 }

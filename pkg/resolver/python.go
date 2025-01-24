@@ -57,14 +57,21 @@ func (dr *DependencyResolver) HandlePython(actionID string, pythonBlock *pklPyth
 		}
 	}
 
-	go func() error {
-		err := dr.processPythonBlock(actionID, pythonBlock)
-		if err != nil {
-			return err
-		}
+	errChan := make(chan error, 1) // Channel to capture the error
 
-		return nil
+	go func() {
+		if err := dr.processPythonBlock(actionID, pythonBlock); err != nil {
+			errChan <- err // Send the error to the channel
+			return
+		}
+		errChan <- nil // Send a nil if no error occurred
 	}()
+
+	// Wait for the result from the goroutine
+	err := <-errChan
+	if err != nil {
+		return err // Return the error to the caller
+	}
 
 	return nil
 }

@@ -17,7 +17,6 @@ import (
 	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
 	pklPython "github.com/kdeps/schema/gen/python"
-	"github.com/kdeps/schema/gen/utils"
 	"github.com/spf13/afero"
 )
 
@@ -276,15 +275,11 @@ func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
 		return errors.New("action id not found in the file")
 	}
 
-	// Create placeholder entries using the parsed actionID
-	type DataImpl struct {
-		*utils.UtilsImpl
-
-		// Files in the data folder mapped with the agent name and version
-		Files *map[string]map[string]string `pkl:"files"`
+	dataFileList, err := data.PopulateDataFileRegistry(dr.Fs, dr.DataDir)
+	if err != nil {
+		return err
 	}
 
-	dataFileList, err := data.PopulateDataFileRegistry(dr.Fs, dr.DataDir)
 	dataFiles := &pklData.DataImpl{
 		Files: dataFileList,
 	}
