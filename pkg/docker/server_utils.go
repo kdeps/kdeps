@@ -38,7 +38,7 @@ func waitForServer(host string, port string, timeout time.Duration, logger *logg
 
 		if time.Since(start) > timeout {
 			logger.Error("timeout waiting for ollama server to be ready.", "host", host, "port", port)
-			return errors.New("Timeout waiting for ollama server to be ready")
+			return errors.New("timeout waiting for ollama server to be ready")
 		}
 
 		logger.Debug("server not yet ready. Retrying...")

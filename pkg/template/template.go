@@ -38,10 +38,10 @@ func printWithDots(message string) {
 
 func validateAgentName(agentName string) error {
 	if strings.TrimSpace(agentName) == "" {
-		return errors.New("Agent name cannot be empty or only whitespace. Please provide a valid name.")
+		return errors.New("agent name cannot be empty or only whitespace")
 	}
 	if strings.Contains(agentName, " ") {
-		return errors.New("Agent name cannot contain spaces. Please provide a valid name.")
+		return errors.New("agent name cannot contain spaces")
 	}
 	return nil
 }
