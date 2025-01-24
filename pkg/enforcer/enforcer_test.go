@@ -185,7 +185,7 @@ func itDoesNotHaveAConfigAmendsLineOnTopOfTheFile() error {
 }
 
 func itHaveAAmendsURLLineOnTopOfTheFile(arg1 string) error {
-	doc = strings.Replace(doc, "kdeps.com", arg1, -1)
+	doc = strings.ReplaceAll(doc, "kdeps.com", arg1)
 
 	return nil
 }

@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"context"
 	"errors"
 	"os"
 	"testing"
@@ -14,8 +13,6 @@ import (
 )
 
 var logger = logging.GetLogger()
-
-var ctx context.Context
 
 type errorFs struct {
 	afero.Fs
@@ -38,7 +35,7 @@ func TestWaitForFileReady(t *testing.T) {
 		require.NoError(t, err)
 
 		// Act
-		err = WaitForFileReady(fs, ctx, filepath, logger)
+		err = WaitForFileReady(fs, filepath, logger)
 
 		// Assert
 		require.NoError(t, err)
@@ -58,7 +55,7 @@ func TestWaitForFileReady(t *testing.T) {
 				t.Error(err)
 			}
 		}()
-		err := WaitForFileReady(fs, ctx, filepath, logger)
+		err := WaitForFileReady(fs, filepath, logger)
 		if err != nil {
 			t.Error(err)
 		}
@@ -74,7 +71,7 @@ func TestWaitForFileReady(t *testing.T) {
 		filepath := "/cannotcreate.txt"
 
 		// Act
-		err := WaitForFileReady(fs, ctx, filepath, logger)
+		err := WaitForFileReady(fs, filepath, logger)
 
 		// Assert
 		require.Error(t, err)
