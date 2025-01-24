@@ -3,7 +3,6 @@ package docker
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"time"
 
@@ -47,39 +46,27 @@ func waitForServer(host string, port string, timeout time.Duration, logger *logg
 	}
 }
 
-// startOllamaServer starts the ollama server command in the background using go-execute.
-func startOllamaServer(ctx context.Context, logger *logging.Logger) error {
+// startOllamaServer starts the ollama server in the background using go-execute.
+// Errors are logged in the background, and the function returns immediately.
+func startOllamaServer(ctx context.Context, logger *logging.Logger) {
 	logger.Debug("starting ollama server in the background...")
 
-	// Create a channel to receive errors from the goroutine
-	errCh := make(chan error, 1)
-
-	// Run ollama server in a background goroutine using go-execute
 	cmd := execute.ExecTask{
 		Command:     "ollama",
 		Args:        []string{"serve"},
 		StreamStdio: true,
 	}
 
-	// Start the command asynchronously
-	go func() {
+	// Run the command in a background goroutine
+	go func(ctx context.Context) {
+		// Execute the command and handle errors
 		_, err := cmd.Execute(ctx)
 		if err != nil {
-			// Send error to the channel
-			errCh <- fmt.Errorf("error starting ollama server: %w", err)
+			logger.Error("ollama server encountered an error: %v", err)
 		} else {
-			logger.Debug("ollama server exited.")
-			// Send nil to indicate no error
-			errCh <- nil
+			logger.Debug("ollama server exited cleanly.")
 		}
-	}()
-
-	// Wait for the goroutine to finish and get the error result
-	err := <-errCh
-	if err != nil {
-		return err // Return the error to the caller
-	}
+	}(ctx)
 
 	logger.Debug("ollama server started in the background.")
-	return nil
 }

@@ -19,7 +19,7 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 	var APIServerMode bool
 
 	if environ.DockerMode == "1" {
-		logger.Debug("inside Docker environment. Proceeding with bootstrap.")
+		logger.Debug("inside Docker environment")
 		logger.Debug("initializing Docker system")
 
 		agentDir := "/agent"
@@ -61,9 +61,7 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 		}
 
 		// Start ollama server in the background
-		if err := startOllamaServer(ctx, logger); err != nil {
-			return APIServerMode, fmt.Errorf("failed to start ollama server: %w", err)
-		}
+		go startOllamaServer(ctx, logger)
 
 		// Wait for ollama server to be fully ready (using the parsed host and port)
 		err = waitForServer(host, port, 60*time.Second, logger)
