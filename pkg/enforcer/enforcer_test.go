@@ -73,7 +73,7 @@ func TestFeatures(t *testing.T) {
 			ctx.Step(`^a file "([^"]*)" exists in the current directory$`, aFileExistsInTheCurrentDirectory)
 			ctx.Step(`^a system configuration is defined$`, aSystemConfigurationIsDefined)
 			ctx.Step(`^it does not have a config amends line on top of the file$`, itDoesNotHaveAConfigAmendsLineOnTopOfTheFile)
-			ctx.Step(`^it have a "([^"]*)" amends url line on top of the file$`, itHaveAAmendsUrlLineOnTopOfTheFile)
+			ctx.Step(`^it have a "([^"]*)" amends url line on top of the file$`, itHaveAAmendsURLLineOnTopOfTheFile)
 			ctx.Step(`^it have a config amends line on top of the file$`, itHaveAConfigAmendsLineOnTopOfTheFile)
 			ctx.Step(`^the current directory is "([^"]*)"$`, theCurrentDirectoryIs)
 			ctx.Step(`^the home directory is "([^"]*)"$`, theHomeDirectoryIs)
@@ -184,7 +184,7 @@ func itDoesNotHaveAConfigAmendsLineOnTopOfTheFile() error {
 	return nil
 }
 
-func itHaveAAmendsUrlLineOnTopOfTheFile(arg1 string) error {
+func itHaveAAmendsURLLineOnTopOfTheFile(arg1 string) error {
 	doc = strings.Replace(doc, "kdeps.com", arg1, -1)
 
 	return nil

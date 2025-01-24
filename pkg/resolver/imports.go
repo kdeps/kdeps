@@ -138,8 +138,8 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 			}
 			defer f.Close()
 
-			// Use packageUrl in the header writing
-			packageUrl := fmt.Sprintf("package://schema.kdeps.com/core@%s#/", schema.SchemaVersion(dr.Context))
+			// Use packageURL in the header writing
+			packageURL := fmt.Sprintf("package://schema.kdeps.com/core@%s#/", schema.SchemaVersion(dr.Context))
 			writer := bufio.NewWriter(f)
 
 			var schemaFile, blockType string
@@ -161,8 +161,8 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 				blockType = "files" // Special case for "data"
 			}
 
-			// Write header using packageUrl and schemaFile
-			if _, err := writer.WriteString(fmt.Sprintf("extends \"%s%s\"\n\n", packageUrl, schemaFile)); err != nil {
+			// Write header using packageURL and schemaFile
+			if _, err := writer.WriteString(fmt.Sprintf("extends \"%s%s\"\n\n", packageURL, schemaFile)); err != nil {
 				return fmt.Errorf("failed to write header for %s: %w", key, err)
 			}
 
