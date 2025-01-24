@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/cucumber/godog"
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/cfg"
@@ -521,7 +521,7 @@ func iShouldSeeABlankStandardTemplateInTheFolder(arg1, arg2 string) error {
 }
 
 func iShouldSeeAInTheFolder(arg1, arg2 string) error {
-	execConfig := types.ExecConfig{
+	execConfig := container.ExecOptions{
 		Cmd:          []string{"ls", arg2 + arg1},
 		AttachStdout: true,
 		AttachStderr: true,
@@ -534,7 +534,7 @@ func iShouldSeeAInTheFolder(arg1, arg2 string) error {
 	execID := execIDResp.ID
 
 	// Attach to the exec session to capture the output
-	execAttachResp, err := cli.ContainerExecAttach(ctx, execID, types.ExecStartCheck{})
+	execAttachResp, err := cli.ContainerExecAttach(ctx, execID, container.ExecStartOptions{})
 	if err != nil {
 		return err
 	}

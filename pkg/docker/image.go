@@ -136,6 +136,32 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 	return cName, containerName, nil
 }
 
+func checkDevBuildMode(fs afero.Fs, kdepsDir string, logger *logging.Logger) (bool, error) {
+	downloadDir := filepath.Join(kdepsDir, "cache")
+	kdepsBinaryFile := filepath.Join(downloadDir, "kdeps")
+
+	// Check if cache/kdeps exists and is a file
+	info, err := fs.Stat(kdepsBinaryFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// File does not exist
+			return false, nil
+		}
+		// Log unexpected errors and return
+		logger.Errorf("Error checking file %s: %v", kdepsBinaryFile, err)
+		return false, err
+	}
+
+	// Ensure it is a regular file
+	if !info.Mode().IsRegular() {
+		logger.Errorf("Expected a file at %s, but found something else", kdepsBinaryFile)
+		return false, nil
+	}
+
+	// File exists and is valid
+	return true, nil
+}
+
 // generateDockerfile constructs the Dockerfile content by appending multi-line blocks.
 func generateDockerfile(
 	imageVersion,
@@ -150,6 +176,7 @@ func generateDockerfile(
 	condaPkgSection,
 	exposedPort string,
 	installAnaconda bool,
+	devBuildMode bool,
 ) string {
 	var dockerFile strings.Builder
 
@@ -203,9 +230,20 @@ RUN arch=$(uname -m) && \
 	// Package Section (Dynamic Content)
 	dockerFile.WriteString(pkgSection + "\n\n")
 
-	// Copy Workflow and Setup kdeps
-	dockerFile.WriteString(`
+	// Setup kdeps
+	if devBuildMode {
+		dockerFile.WriteString(`
+RUN cp /cache/kdeps /bin/kdeps
+RUN chmod a+x /bin/kdeps
+`)
+	} else {
+		dockerFile.WriteString(`
 RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/refs/heads/main/install.sh | sh -s -- -b /bin/ -d "latest"
+`)
+	}
+
+	// Copy workflow
+	dockerFile.WriteString(`
 COPY workflow /agent/project
 COPY workflow /agent/workflow
 `)
@@ -436,6 +474,12 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	}
 
 	ollamaPortNum := generateUniqueOllamaPort(portNum)
+
+	devBuildMode, err := checkDevBuildMode(fs, kdepsDir, logger)
+	if err != nil {
+		return "", false, "", "", "", err
+	}
+
 	dockerfileContent := generateDockerfile(
 		imageVersion,
 		schema.SchemaVersion(ctx),
@@ -449,6 +493,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		condaPkgSection,
 		exposedPort,
 		installAnaconda,
+		devBuildMode,
 	)
 
 	// Write the Dockerfile to the run directory

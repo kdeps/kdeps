@@ -9,6 +9,8 @@ import (
 )
 
 // LoadWorkflow reads a workflow file and returns the parsed workflow object or an error.
+//
+//nolint:ireturn
 func LoadWorkflow(ctx context.Context, workflowFile string, logger *logging.Logger) (pklWf.Workflow, error) {
 	logger.Debug("reading workflow file", "workflow-file", workflowFile)
 

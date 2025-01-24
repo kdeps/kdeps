@@ -11,7 +11,7 @@ CURRENT_DIR=$(pwd)
 TELEMETRY_KEY=""
 FILES := $(wildcard *.yml *.txt *.py)
 
-.PHONY: all clean test build tools format pre-commit tools-update
+.PHONY: all clean test build tools format pre-commit tools-update dev-build
 all: clean deps test build
 
 deps: tools
@@ -21,6 +21,10 @@ deps: tools
 build: deps
 	@echo "$(OK_COLOR)==> Building the application...$(NO_COLOR)"
 	@CGO_ENABLED=1 go build -v -ldflags="-s -w -X main.Version=$(or $(tag),dev-$(shell git describe --tags --abbrev=0))" -o "$(BUILD_DIR)/$(NAME)" "$(BUILD_SRC)"
+
+dev-build: deps
+	@echo "$(OK_COLOR)==> Building the application for Linux...$(NO_COLOR)"
+	@GOOS=linux go build -v -ldflags="-s -w -X main.Version=$(or $(tag),dev-$(shell git describe --tags --abbrev=0))" -o "$(BUILD_DIR)/$(NAME)" "$(BUILD_SRC)"
 
 clean:
 	@rm -rf ./bin

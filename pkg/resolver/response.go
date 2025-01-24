@@ -190,13 +190,13 @@ func formatDataValue(value interface{}) string {
 
 	// Return the formatted string
 	return fmt.Sprintf(`
-local jsonDocument_%s = %s
-local jsonDocumentType_%s = jsonDocument_%s is Mapping | Dynamic
+local JSONDocument_%s = %s
+local JSONDocumentType_%s = JSONDocument_%s is Mapping | Dynamic
 
-if (jsonDocumentType_%s)
-  document.jsonRenderDocument(jsonDocument_%s)
+if (JSONDocumentType_%s)
+  document.JSONRenderDocument(JSONDocument_%s)
 else
-  document.jsonRenderDocument((if (document.jsonParser(jsonDocument_%s) != null) document.jsonParser(jsonDocument_%s) else jsonDocument_%s))
+  document.JSONRenderDocument((if (document.JSONParser(JSONDocument_%s) != null) document.JSONParser(JSONDocument_%s) else JSONDocument_%s))
 `, uuidVal, val, uuidVal, uuidVal, uuidVal, uuidVal, uuidVal, uuidVal, uuidVal)
 }
 
