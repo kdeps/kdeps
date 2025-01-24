@@ -31,7 +31,7 @@ func (wc *WriteCounter) Write(p []byte) (int, error) {
 }
 
 // PrintProgress displays the download progress in the terminal.
-func (wc WriteCounter) PrintProgress() {
+func (wc *WriteCounter) PrintProgress() {
 	fmt.Printf("\r%s", strings.Repeat(" ", 50)) // Clear the line
 	fmt.Printf("\rDownloading %s - %s complete ", wc.DownloadURL, humanize.Bytes(wc.Total))
 }
@@ -104,7 +104,7 @@ func DownloadFile(fs afero.Fs, ctx context.Context, url, filePath string, logger
 	defer out.Close()
 
 	// Perform the HTTP GET request
-	resp, err := http.Get(url)
+	resp, err := MakeGetRequest(ctx, url)
 	if err != nil {
 		logger.Error("failed to download file", "url", url, "error", err)
 		return fmt.Errorf("failed to download file: %w", err)
@@ -136,4 +136,18 @@ func DownloadFile(fs afero.Fs, ctx context.Context, url, filePath string, logger
 	}
 
 	return nil
+}
+
+func MakeGetRequest(ctx context.Context, uri string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return res, err
+	}
+
+	return res, nil
 }
