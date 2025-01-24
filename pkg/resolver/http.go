@@ -19,21 +19,31 @@ import (
 )
 
 func (dr *DependencyResolver) HandleHTTPClient(actionID string, httpBlock *pklHTTP.ResourceHTTPClient) error {
-	go func() error {
+	errChan := make(chan error, 1) // Channel to capture the error
+
+	go func() {
 		// Decode Base64 encoded fields before processing
 		if err := dr.decodeHTTPBlock(httpBlock); err != nil {
+			errChan <- err // Send the error to the channel
 			dr.Logger.Error("failed to decode HTTP block", "actionID", actionID, "error", err)
-			return err
+			return
 		}
 
 		// Proceed with processing the decoded block
 		if err := dr.processHTTPBlock(actionID, httpBlock); err != nil {
+			errChan <- err // Send the error to the channel
 			dr.Logger.Error("failed to process HTTP block", "actionID", actionID, "error", err)
-			return err
+			return
 		}
 
-		return nil
+		errChan <- nil // Send a nil if no error occurred
 	}()
+
+	// Wait for the result from the goroutine
+	err := <-errChan
+	if err != nil {
+		return err // Return the error to the caller
+	}
 
 	return nil
 }
