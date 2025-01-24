@@ -35,7 +35,7 @@ func main() {
 	logger := logging.GetLogger()
 
 	// Setup environment
-	env, err := setupEnvironment(fs, ctx)
+	env, err := setupEnvironment(fs)
 	if err != nil {
 		logger.Error("failed to set up environment", "error", err)
 		return
@@ -127,7 +127,7 @@ func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Envi
 }
 
 // setupEnvironment initializes the environment using the filesystem.
-func setupEnvironment(fs afero.Fs, ctx context.Context) (*environment.Environment, error) {
+func setupEnvironment(fs afero.Fs) (*environment.Environment, error) {
 	environ, err := environment.NewEnvironment(fs, nil)
 	if err != nil {
 		return nil, err
@@ -145,7 +145,7 @@ func setupSignalHandler(fs afero.Fs, ctx context.Context, cancelFunc context.Can
 		logger.Debug(fmt.Sprintf("Received signal: %v, initiating shutdown...", sig))
 		cancelFunc() // Cancel context to initiate shutdown
 		cleanup(fs, ctx, env, apiServerMode, logger)
-		if err := utils.WaitForFileReady(fs, ctx, "/.dockercleanup", logger); err != nil {
+		if err := utils.WaitForFileReady(fs, "/.dockercleanup", logger); err != nil {
 			logger.Error("error occurred while waiting for file to be ready", "file", "/.dockercleanup")
 
 			return
@@ -181,7 +181,7 @@ func runGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 
 	cleanup(fs, ctx, env, apiServerMode, logger)
 
-	if err := utils.WaitForFileReady(fs, ctx, "/.dockercleanup", logger); err != nil {
+	if err := utils.WaitForFileReady(fs, "/.dockercleanup", logger); err != nil {
 		return fmt.Errorf("failed to wait for file to be ready: %w", err)
 	}
 

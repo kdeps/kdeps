@@ -528,7 +528,7 @@ func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver, logge
 	logger.Debug("awaiting response...")
 
 	// Wait for the response file to be ready
-	if err := utils.WaitForFileReady(dr.Fs, ctx, dr.ResponseTargetFile, logger); err != nil {
+	if err := utils.WaitForFileReady(dr.Fs, dr.ResponseTargetFile, logger); err != nil {
 		return false, err
 	}
 

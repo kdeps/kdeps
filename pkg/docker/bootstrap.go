@@ -88,17 +88,25 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 		}
 
 		if err := fs.MkdirAll(APIServerPath, 0o777); err != nil {
-			return true, err
+			return APIServerMode, err
 		}
 
-		//nolint:errcheck
-		go func() error {
-			if err := StartAPIServerMode(fs, ctx, wfCfg, environ, agentDir, APIServerPath, logger); err != nil {
-				return err
-			}
+		errChan := make(chan error, 1) // Channel to capture the error
 
-			return nil
+		go func() {
+			if err := StartAPIServerMode(fs, ctx, wfCfg, environ, agentDir, APIServerPath, logger); err != nil {
+				errChan <- err // Send the error to the channel
+				return
+			}
+			errChan <- nil // Send a nil if no error occurred
 		}()
+
+		// Wait for the result from the goroutine
+		err = <-errChan
+		if err != nil {
+			// Return the error to the caller
+			return APIServerMode, err
+		}
 	}
 
 	logger.Debug("docker system bootstrap completed.")

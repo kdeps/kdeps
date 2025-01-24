@@ -78,7 +78,7 @@ func Cleanup(fs afero.Fs, ctx context.Context, environ *environment.Environment,
 
 	// Wait for the cleanup flags to be ready
 	for _, flag := range removedFiles[:2] { // Correcting to wait for the first two files
-		if err := utils.WaitForFileReady(fs, ctx, flag, logger); err != nil {
+		if err := utils.WaitForFileReady(fs, flag, logger); err != nil {
 			logger.Error(fmt.Sprintf("Error waiting for flag %s: %v", flag, err))
 			return
 		}

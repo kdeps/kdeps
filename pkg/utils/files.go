@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-func WaitForFileReady(fs afero.Fs, ctx context.Context, filepath string, logger *logging.Logger) error {
+func WaitForFileReady(fs afero.Fs, filepath string, logger *logging.Logger) error {
 	logger.Debug("waiting for file to be ready...", "file", filepath)
 
 	ticker := time.NewTicker(500 * time.Millisecond)
