@@ -150,7 +150,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 
 	visited := make(map[string]bool)
 	actionID := dr.Workflow.GetAction()
-	timeoutSeconds := 60 * time.Second
+	timeoutDuration := 60 * time.Second
 	dr.Logger.Debug("processing resources...")
 	if err := dr.LoadResourceEntries(); err != nil {
 		return dr.HandleAPIErrorResponse(500, err.Error(), true)
@@ -201,11 +201,11 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Exec failed for resource: %s - %s", res.ID, err), false)
 						}
 
-						if runBlock.Exec.TimeoutSeconds != nil {
-							timeoutSeconds = time.Duration(*runBlock.Exec.TimeoutSeconds) * time.Second
+						if runBlock.Exec.TimeoutDuration != nil {
+							timeoutDuration = time.Duration(*runBlock.Exec.TimeoutDuration) * time.Second
 						}
 
-						if err := dr.WaitForTimestampChange(res.ID, timestamp, timeoutSeconds, "exec"); err != nil {
+						if err := dr.WaitForTimestampChange(res.ID, timestamp, timeoutDuration, "exec"); err != nil {
 							dr.Logger.Error("exec error:", res.ID)
 							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Exec timeout awaiting for output: %s - %s", res.ID, err), false)
 						}
@@ -223,11 +223,11 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Python script failed for resource: %s - %s", res.ID, err), false)
 						}
 
-						if runBlock.Python.TimeoutSeconds != nil {
-							timeoutSeconds = time.Duration(*runBlock.Python.TimeoutSeconds) * time.Second
+						if runBlock.Python.TimeoutDuration != nil {
+							timeoutDuration = time.Duration(*runBlock.Python.TimeoutDuration) * time.Second
 						}
 
-						if err := dr.WaitForTimestampChange(res.ID, timestamp, timeoutSeconds, "python"); err != nil {
+						if err := dr.WaitForTimestampChange(res.ID, timestamp, timeoutDuration, "python"); err != nil {
 							dr.Logger.Error("python error:", res.ID)
 							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Python timeout awaiting for output: %s - %s", res.ID, err), false)
 						}
@@ -245,11 +245,11 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("LLM chat failed for resource: %s - %s", res.ID, err), true)
 						}
 
-						if runBlock.Chat.TimeoutSeconds != nil {
-							timeoutSeconds = time.Duration(*runBlock.Chat.TimeoutSeconds) * time.Second
+						if runBlock.Chat.TimeoutDuration != nil {
+							timeoutDuration = time.Duration(*runBlock.Chat.TimeoutDuration) * time.Second
 						}
 
-						if err := dr.WaitForTimestampChange(res.ID, timestamp, timeoutSeconds, "llm"); err != nil {
+						if err := dr.WaitForTimestampChange(res.ID, timestamp, timeoutDuration, "llm"); err != nil {
 							dr.Logger.Error("lLM chat error:", res.ID)
 							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("LLM chat timeout awaiting for response: %s - %s", res.ID, err), false)
 						}
@@ -267,11 +267,11 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("HTTP client failed for resource: %s - %s", res.ID, err), false)
 						}
 
-						if runBlock.HTTPClient.TimeoutSeconds != nil {
-							timeoutSeconds = time.Duration(*runBlock.HTTPClient.TimeoutSeconds) * time.Second
+						if runBlock.HTTPClient.TimeoutDuration != nil {
+							timeoutDuration = time.Duration(*runBlock.HTTPClient.TimeoutDuration) * time.Second
 						}
 
-						if err := dr.WaitForTimestampChange(res.ID, timestamp, timeoutSeconds, "client"); err != nil {
+						if err := dr.WaitForTimestampChange(res.ID, timestamp, timeoutDuration, "client"); err != nil {
 							dr.Logger.Error("hTTP client error:", res.ID)
 							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("HTTP client timeout awaiting for output: %s - %s", res.ID, err), false)
 						}

@@ -199,7 +199,7 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, newHTTPClient *
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
 		pklContent.WriteString(fmt.Sprintf("    method = \"%s\"\n", resource.Method))
 		pklContent.WriteString(fmt.Sprintf("    url = \"%s\"\n", resource.Url)) // Encoded or unchanged URL
-		pklContent.WriteString(fmt.Sprintf("    timeoutSeconds = %d\n", resource.TimeoutSeconds))
+		pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d\n", resource.TimeoutDuration))
 		pklContent.WriteString(fmt.Sprintf("    timestamp = %d\n", *resource.Timestamp))
 
 		// Base64 encode the data block
@@ -326,12 +326,12 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, newHTTPClient *
 
 func (dr *DependencyResolver) DoRequest(client *pklHTTP.ResourceHTTPClient) error {
 	// Create the HTTP client
-	timeoutSeconds := 30 // default timeout
-	if client.TimeoutSeconds != nil {
-		timeoutSeconds = *client.TimeoutSeconds
+	timeoutDuration := 30 // default timeout
+	if client.TimeoutDuration != nil {
+		timeoutDuration = *client.TimeoutDuration
 	}
 	HTTPClient := &http.Client{
-		Timeout: time.Duration(timeoutSeconds) * time.Second,
+		Timeout: time.Duration(timeoutDuration) * time.Second,
 	}
 
 	// Map of methods that can have a body (POST, PUT, PATCH)
@@ -369,9 +369,9 @@ func (dr *DependencyResolver) DoRequest(client *pklHTTP.ResourceHTTPClient) erro
 		if client.Data == nil {
 			return fmt.Errorf("%s method requires data, but none provided", client.Method)
 		}
-		req, err = http.NewRequest(client.Method, client.Url, bytes.NewBufferString(fmt.Sprintf("%s", *client.Data)))
+		req, err = http.NewRequestWithContext(dr.Context, client.Method, client.Url, bytes.NewBufferString(fmt.Sprintf("%s", *client.Data)))
 	} else {
-		req, err = http.NewRequest(client.Method, client.Url, nil)
+		req, err = http.NewRequestWithContext(dr.Context, client.Method, client.Url, nil)
 	}
 
 	// Handle error in request creation
