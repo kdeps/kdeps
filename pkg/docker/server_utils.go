@@ -3,6 +3,7 @@ package docker
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"time"
 
@@ -50,6 +51,9 @@ func waitForServer(host string, port string, timeout time.Duration, logger *logg
 func startOllamaServer(ctx context.Context, logger *logging.Logger) error {
 	logger.Debug("starting ollama server in the background...")
 
+	// Create a channel to receive errors from the goroutine
+	errCh := make(chan error, 1)
+
 	// Run ollama server in a background goroutine using go-execute
 	cmd := execute.ExecTask{
 		Command:     "ollama",
@@ -61,11 +65,20 @@ func startOllamaServer(ctx context.Context, logger *logging.Logger) error {
 	go func() {
 		_, err := cmd.Execute(ctx)
 		if err != nil {
-			logger.Error("error starting ollama server: ", err)
+			// Send error to the channel
+			errCh <- fmt.Errorf("error starting ollama server: %w", err)
 		} else {
 			logger.Debug("ollama server exited.")
+			// Send nil to indicate no error
+			errCh <- nil
 		}
 	}()
+
+	// Wait for the goroutine to finish and get the error result
+	err := <-errCh
+	if err != nil {
+		return err // Return the error to the caller
+	}
 
 	logger.Debug("ollama server started in the background.")
 	return nil

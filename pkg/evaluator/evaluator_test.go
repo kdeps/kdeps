@@ -35,7 +35,7 @@ func TestCreateAndProcessPklFile(t *testing.T) {
 	t.Run("CreateAndProcessAmends", func(t *testing.T) {
 		t.Parallel()
 		err := evaluator.CreateAndProcessPklFile(fs, ctx, sections, amendsFileName, pklTemplate, logger, processFunc, false)
-		assert.NoError(t, err, "CreateAndProcessPklFile should not return an error")
+		require.NoError(t, err, "CreateAndProcessPklFile should not return an error")
 		content, err := afero.ReadFile(fs, amendsFileName)
 		require.NoError(t, err, "Final file should be created successfully")
 		assert.Contains(t, string(content), "amends", "Final file content should include 'amends'")
@@ -45,7 +45,7 @@ func TestCreateAndProcessPklFile(t *testing.T) {
 	t.Run("CreateAndProcessExtends", func(t *testing.T) {
 		t.Parallel()
 		err := evaluator.CreateAndProcessPklFile(fs, ctx, sections, extendsFileName, pklTemplate, logger, processFunc, true)
-		assert.NoError(t, err, "CreateAndProcessPklFile should not return an error")
+		require.NoError(t, err, "CreateAndProcessPklFile should not return an error")
 		content, err := afero.ReadFile(fs, extendsFileName)
 		require.NoError(t, err, "Final file should be created successfully")
 		assert.Contains(t, string(content), "extends", "Final file content should include 'extends'")
