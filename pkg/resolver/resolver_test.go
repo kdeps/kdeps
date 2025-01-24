@@ -107,7 +107,7 @@ func anAiAgentWithResources(arg1 string) error {
 		DockerMode:     "1",
 	}
 
-	env, err := environment.NewEnvironment(testFs, ctx, envStruct)
+	env, err := environment.NewEnvironment(testFs, envStruct)
 	if err != nil {
 		return err
 	}

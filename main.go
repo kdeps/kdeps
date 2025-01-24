@@ -128,7 +128,7 @@ func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Envi
 
 // setupEnvironment initializes the environment using the filesystem.
 func setupEnvironment(fs afero.Fs, ctx context.Context) (*environment.Environment, error) {
-	environ, err := environment.NewEnvironment(fs, ctx, nil)
+	environ, err := environment.NewEnvironment(fs, nil)
 	if err != nil {
 		return nil, err
 	}

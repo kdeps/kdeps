@@ -96,7 +96,7 @@ func aSystemConfigurationFile(arg1, arg2, arg3, arg4 string) error {
 		DockerMode:     "1",
 	}
 
-	environ, err := environment.NewEnvironment(testFs, ctx, env)
+	environ, err := environment.NewEnvironment(testFs, env)
 	if err != nil {
 		return err
 	}

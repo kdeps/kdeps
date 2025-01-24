@@ -111,7 +111,7 @@ func theConfigurationIsLoadedInTheCurrentDirectory() error {
 		Pwd:  currentDirPath,
 	}
 
-	environ, err := environment.NewEnvironment(testFs, ctx, env)
+	environ, err := environment.NewEnvironment(testFs, env)
 	if err != nil {
 		return err
 	}
@@ -134,7 +134,7 @@ func theConfigurationIsLoadedInTheHomeDirectory() error {
 		Pwd:  "",
 	}
 
-	environ, err := environment.NewEnvironment(testFs, ctx, env)
+	environ, err := environment.NewEnvironment(testFs, env)
 	if err != nil {
 		return err
 	}
@@ -185,7 +185,7 @@ func theConfigurationFailsToLoadAnyConfiguration() error {
 		Pwd:  currentDirPath,
 	}
 
-	environ, err := environment.NewEnvironment(testFs, ctx, env)
+	environ, err := environment.NewEnvironment(testFs, env)
 	if err != nil {
 		return err
 	}
@@ -208,7 +208,7 @@ func theConfigurationFileWillBeGeneratedTo(arg1 string) error {
 		NonInteractive: "1",
 	}
 
-	environ, err := environment.NewEnvironment(testFs, ctx, env)
+	environ, err := environment.NewEnvironment(testFs, env)
 	if err != nil {
 		return err
 	}
@@ -232,7 +232,7 @@ func theConfigurationWillBeEdited() error {
 		NonInteractive: "1",
 	}
 
-	environ, err := environment.NewEnvironment(testFs, ctx, env)
+	environ, err := environment.NewEnvironment(testFs, env)
 	if err != nil {
 		return err
 	}
@@ -250,7 +250,7 @@ func theConfigurationWillBeValidated() error {
 		Pwd:  "",
 	}
 
-	environ, err := environment.NewEnvironment(testFs, ctx, env)
+	environ, err := environment.NewEnvironment(testFs, env)
 	if err != nil {
 		return err
 	}
