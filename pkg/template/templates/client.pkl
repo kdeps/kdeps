@@ -1,6 +1,6 @@
 {{ .Header }}
 
-ID = "httpResource"
+actionID = "httpResource"
 name = "HTTP Client"
 description = "This resource allows for making API requests using an HTTP client."
 category = ""

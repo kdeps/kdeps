@@ -126,7 +126,7 @@ func PrepareRunDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir
 
 // CompileWorkflow compiles a workflow file and updates the action field.
 func CompileWorkflow(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, projectDir string, logger *logging.Logger) (string, error) {
-	action := wf.GetAction()
+	action := wf.GetTargetActionID()
 
 	if action == "" {
 		logger.Error("no action specified in workflow!")
@@ -177,8 +177,8 @@ func CompileWorkflow(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsD
 	}
 	logger.Debug("created resources directory", "path", resourcesDir)
 
-	searchPattern := `action\s*=\s*".*"`
-	replaceLine := fmt.Sprintf("action = \"%s\"\n", compiledAction)
+	searchPattern := `targetActionID\s*=\s*".*"`
+	replaceLine := fmt.Sprintf("targetActionID = \"%s\"\n", compiledAction)
 
 	inputFile, err := fs.Open(filePath)
 	if err != nil {

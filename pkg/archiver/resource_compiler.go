@@ -65,7 +65,7 @@ func processResourcePklFiles(fs afero.Fs, file string, wf pklWf.Workflow, resour
 	scanner := bufio.NewScanner(readFile)
 
 	// Define regex patterns for exec, chat, client with actionID, and id replacement
-	idPattern := regexp.MustCompile(`(?i)^\s*id\s*=\s*"(.+)"`)
+	idPattern := regexp.MustCompile(`(?i)^\s*actionID\s*=\s*"(.+)"`)
 	// Pattern to capture lines like {resources, resource, responseBody, etc.} with actionID
 	actionIDPatterns := map[string]*regexp.Regexp{
 		"resources":      regexp.MustCompile(`(?i)(resources)\["(.+)"\]`),

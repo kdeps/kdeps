@@ -32,7 +32,7 @@ var (
 	configAmendsLine    = fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Kdeps.pkl"`, schema.SchemaVersion(ctx))
 	resourceAmendsLine  = fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"`, schema.SchemaVersion(ctx))
 	resourceValues      = `
-ID = "helloWorld"
+actionID = "helloWorld"
 name = "name"
 description = "description"
 category = "category"
@@ -59,7 +59,7 @@ settings {
 name = "myAgent"
 description = "My awesome AI Agent"
 version = "1.0.0"
-action = "helloWorld"
+targetActionID = "helloWorld"
 `
 	testingT *testing.T
 )

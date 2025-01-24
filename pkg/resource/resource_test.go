@@ -172,7 +172,7 @@ amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
 name = "myAIAgentAPI"
 description = "AI Agent X API"
-action = "helloWorld"
+targetActionID = "helloWorld"
 settings {
   APIServerMode = true
   agentSettings {
@@ -218,7 +218,7 @@ local execResponse = "@(exec.stdout("action2"))"
 local clientResponse = "@(client.responseBody("action3"))"
 local clientResponse2 = "@(client.responseBody("action4"))"
 
-ID = "helloWorld"
+actionID = "helloWorld"
 name = "default action"
 category = "kdepsdockerai"
 description = "this is a description for helloWorld @(request.params)"
@@ -261,7 +261,7 @@ amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
 local clientResponse = "@(client.responseBody("action3"))"
 
-ID = "action1"
+actionID = "action1"
 category = "kdepsdockerai"
 description = "this is a description for action1 - @(request.url)"
 requires {
@@ -300,7 +300,7 @@ run {
 	resourceConfigurationContent = fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-ID = "action2"
+actionID = "action2"
 category = "kdepsdockerai"
 description = "this is a description for action2 - @(request.method)"
 name = "default action"
@@ -328,7 +328,7 @@ run {
 	resourceConfigurationContent = fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-ID = "action3"
+actionID = "action3"
 category = "kdepsdockerai"
 description = "this is a description for action3 - @(request.url)"
 requires {
@@ -354,7 +354,7 @@ run {
 	resourceConfigurationContent = fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-ID = "action4"
+actionID = "action4"
 category = "kdepsdockerai"
 description = "this is a description for action4 - @(request.url)"
 requires {

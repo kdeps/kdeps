@@ -74,15 +74,15 @@ func (dr *DependencyResolver) processPklFile(file string) error {
 
 	// Append the resource to the list of resources
 	dr.Resources = append(dr.Resources, ResourceNodeEntry{
-		ID:   pklRes.ID,
-		File: file,
+		ActionID: pklRes.ActionID,
+		File:     file,
 	})
 
 	// Update resource dependencies
 	if pklRes.Requires != nil {
-		dr.ResourceDependencies[pklRes.ID] = *pklRes.Requires
+		dr.ResourceDependencies[pklRes.ActionID] = *pklRes.Requires
 	} else {
-		dr.ResourceDependencies[pklRes.ID] = nil
+		dr.ResourceDependencies[pklRes.ActionID] = nil
 	}
 
 	return nil

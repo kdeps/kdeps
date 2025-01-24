@@ -1,6 +1,6 @@
 {{ .Header }}
 
-ID = "llmResource"
+actionID = "llmResource"
 name = "LLM Chat Resource"
 description = "This resource creates a LLM chat session."
 category = ""

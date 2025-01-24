@@ -1,6 +1,6 @@
 {{ .Header }}
 
-ID = "execResource"
+actionID = "execResource"
 name = "Exec Resource"
 description = "This resource creates a shell session."
 category = ""

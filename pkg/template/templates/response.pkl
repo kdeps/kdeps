@@ -1,6 +1,6 @@
 {{ .Header }}
 
-ID = "responseResource"
+actionID = "responseResource"
 name = "API Response Resource"
 description = "This resource creates a API response."
 category = ""
