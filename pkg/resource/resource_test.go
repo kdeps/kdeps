@@ -65,7 +65,7 @@ func TestFeatures(t *testing.T) {
 			ctx.Step(`^I GET request to "([^"]*)" with data "([^"]*)" and header name "([^"]*)" that maps to "([^"]*)"$`, iGETRequestToWithDataAndHeaderNameThatMapsTo)
 			ctx.Step(`^I should see a blank standard template "([^"]*)" in the "([^"]*)" folder$`, iShouldSeeABlankStandardTemplateInTheFolder)
 			ctx.Step(`^I should see a "([^"]*)" in the "([^"]*)" folder$`, iShouldSeeAInTheFolder)
-			ctx.Step(`^I should see action "([^"]*)", url "([^"]*)", data "([^"]*)", headers "([^"]*)" with values "([^"]*)" and params "([^"]*)" that maps to "([^"]*)"$`, iShouldSeeActionUrlDataHeadersWithValuesAndParamsThatMapsTo)
+			ctx.Step(`^I should see action "([^"]*)", url "([^"]*)", data "([^"]*)", headers "([^"]*)" with values "([^"]*)" and params "([^"]*)" that maps to "([^"]*)"$`, iShouldSeeActionURLDataHeadersWithValuesAndParamsThatMapsTo)
 			ctx.Step(`^it should respond "([^"]*)" in "([^"]*)"$`, itShouldRespondIn)
 		},
 		Options: &godog.Options{
@@ -567,7 +567,7 @@ func iShouldSeeAInTheFolder(arg1, arg2 string) error {
 	return nil
 }
 
-func iShouldSeeActionUrlDataHeadersWithValuesAndParamsThatMapsTo(arg1, arg2, arg3, arg4, arg5, arg6, arg7 string) error {
+func iShouldSeeActionURLDataHeadersWithValuesAndParamsThatMapsTo(arg1, arg2, arg3, arg4, arg5, arg6, arg7 string) error {
 	return godog.ErrPending
 }
 

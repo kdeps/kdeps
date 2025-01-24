@@ -53,11 +53,11 @@ func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHT
 func (dr *DependencyResolver) decodeHTTPBlock(httpBlock *pklHTTP.ResourceHTTPClient) error {
 	// Check if the URL is Base64 encoded before decoding
 	if utils.IsBase64Encoded(httpBlock.Url) {
-		decodedUrl, err := utils.DecodeBase64String(httpBlock.Url)
+		decodedURL, err := utils.DecodeBase64String(httpBlock.Url)
 		if err != nil {
 			return fmt.Errorf("failed to decode URL: %w", err)
 		}
-		httpBlock.Url = decodedUrl
+		httpBlock.Url = decodedURL
 	}
 
 	// Decode the headers if they exist
@@ -173,16 +173,16 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, newHTTPClient *
 	existingResources := *pklRes.GetResources() // Dereference the pointer to get the map
 
 	// Check if the URL is already Base64 encoded
-	var filePath, encodedUrl string
+	var filePath, encodedURL string
 	if utils.IsBase64Encoded(newHTTPClient.Url) {
-		encodedUrl = newHTTPClient.Url // Use the URL as it is if already Base64 encoded
+		encodedURL = newHTTPClient.Url // Use the URL as it is if already Base64 encoded
 	} else {
-		encodedUrl = utils.EncodeBase64String(newHTTPClient.Url) // Otherwise, encode it
+		encodedURL = utils.EncodeBase64String(newHTTPClient.Url) // Otherwise, encode it
 	}
 
 	existingResources[resourceID] = &pklHTTP.ResourceHTTPClient{
 		Method:    newHTTPClient.Method,
-		Url:       encodedUrl, // Use either encoded or already Base64 URL
+		Url:       encodedURL, // Use either encoded or already Base64 URL
 		Data:      newHTTPClient.Data,
 		Headers:   newHTTPClient.Headers,
 		Response:  newHTTPClient.Response,
