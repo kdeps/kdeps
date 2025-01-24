@@ -3,6 +3,7 @@ package download
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -16,7 +17,7 @@ import (
 
 var (
 	logger *logging.Logger
-	ctx    context.Context
+	ctx    = context.Background()
 )
 
 func TestWriteCounter_Write(t *testing.T) {
@@ -67,6 +68,10 @@ func TestWriteCounter_PrintProgress(t *testing.T) {
 func TestDownloadFile(t *testing.T) {
 	t.Parallel()
 	logger = logging.GetLogger()
+
+	// Channel to capture errors from the HTTP server
+	serverErrChan := make(chan error, 1)
+
 	// Mock a simple HTTP server to simulate file download
 	server := http.Server{
 		Addr: ":8080",
@@ -76,8 +81,18 @@ func TestDownloadFile(t *testing.T) {
 			}
 		}),
 	}
-	go server.ListenAndServe()
-	defer server.Close()
+
+	// Start the server in a goroutine and capture errors
+	go func() {
+		err := server.ListenAndServe()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			serverErrChan <- err
+		}
+		close(serverErrChan)
+	}()
+	defer func() {
+		_ = server.Close() // Ensure the server is closed after the test
+	}()
 
 	// Use afero in-memory filesystem
 	fs := afero.NewMemMapFs()
@@ -90,6 +105,14 @@ func TestDownloadFile(t *testing.T) {
 	content, err := afero.ReadFile(fs, "/testfile")
 	require.NoError(t, err)
 	assert.Equal(t, "Test file content", string(content))
+
+	// Check for server errors
+	select {
+	case serverErr := <-serverErrChan:
+		require.NoError(t, serverErr, "unexpected error from HTTP server")
+	default:
+		// No errors from the server
+	}
 }
 
 func TestDownloadFile_FileCreationError(t *testing.T) {
@@ -99,7 +122,7 @@ func TestDownloadFile_FileCreationError(t *testing.T) {
 
 	// Invalid file path test case
 	err := DownloadFile(fs, ctx, "http://localhost:8080", "", logger)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid file path")
 }
 
@@ -110,5 +133,5 @@ func TestDownloadFile_HTTPGetError(t *testing.T) {
 
 	// Trying to download a file from an invalid URL
 	err := DownloadFile(fs, ctx, "http://invalid-url", "/testfile", logger)
-	assert.Error(t, err)
+	require.Error(t, err)
 }
