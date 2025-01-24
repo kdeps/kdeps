@@ -10,6 +10,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var logger = logging.GetLogger()
@@ -34,13 +35,13 @@ func TestWaitForFileReady(t *testing.T) {
 
 		// Create the file in the in-memory filesystem
 		_, err := fs.Create(filepath)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Act
 		err = WaitForFileReady(fs, ctx, filepath, logger)
 
 		// Assert
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("FileDoesNotExist", func(t *testing.T) {
@@ -63,7 +64,7 @@ func TestWaitForFileReady(t *testing.T) {
 		}
 
 		// Assert
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("ErrorCheckingFile", func(t *testing.T) {
@@ -76,7 +77,7 @@ func TestWaitForFileReady(t *testing.T) {
 		err := WaitForFileReady(fs, ctx, filepath, logger)
 
 		// Assert
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "error checking file")
 	})
 }

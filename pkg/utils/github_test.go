@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetLatestGitHubRelease(t *testing.T) {
@@ -22,6 +23,6 @@ func TestGetLatestGitHubRelease(t *testing.T) {
 	defer server.Close()
 
 	result, err := GetLatestGitHubRelease(context.Background(), "kdeps/schema", server.URL)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "2.1.0", result)
 }

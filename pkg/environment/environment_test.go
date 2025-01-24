@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var ctx context.Context
@@ -21,7 +22,7 @@ func TestCheckConfig(t *testing.T) {
 
 	// Test when file does not exist
 	_, err := checkConfig(fs, ctx, baseDir)
-	assert.NoError(t, err, "Expected no error when file does not exist")
+	require.NoError(t, err, "Expected no error when file does not exist")
 
 	// Test when file exists
 	if err := afero.WriteFile(fs, configFilePath, []byte{}, 0o644); err != nil {
@@ -29,7 +30,7 @@ func TestCheckConfig(t *testing.T) {
 	}
 
 	foundConfig, err := checkConfig(fs, ctx, baseDir)
-	assert.NoError(t, err, "Expected no error when file exists")
+	require.NoError(t, err, "Expected no error when file exists")
 	assert.Equal(t, configFilePath, foundConfig, "Expected correct file path")
 }
 
@@ -115,7 +116,7 @@ func TestNewEnvironment(t *testing.T) {
 		Pwd:  "/current",
 	}
 	env, err := NewEnvironment(fs, ctx, providedEnv)
-	assert.NoError(t, err, "Expected no error")
+	require.NoError(t, err, "Expected no error")
 	assert.Equal(t, providedEnv.Home, env.Home, "Expected Home directory to match")
 	assert.Equal(t, "1", env.NonInteractive, "Expected NonInteractive to be prioritized")
 
@@ -124,7 +125,7 @@ func TestNewEnvironment(t *testing.T) {
 	t.Setenv("HOME", "/home")
 	t.Setenv("PWD", "/current")
 	env, err = NewEnvironment(fs, ctx, nil)
-	assert.NoError(t, err, "Expected no error")
+	require.NoError(t, err, "Expected no error")
 	assert.Equal(t, "/home", env.Home, "Expected Home directory to match")
 	assert.Equal(t, "/current", env.Pwd, "Expected Pwd to match")
 }
