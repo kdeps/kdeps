@@ -32,7 +32,7 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 		}
 
 		if !exists {
-			env, err := environment.NewEnvironment(fs, ctx, nil)
+			env, err := environment.NewEnvironment(fs, nil)
 			if err != nil {
 				return false, err
 			}
