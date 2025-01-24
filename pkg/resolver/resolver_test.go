@@ -168,7 +168,7 @@ amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
 name = "myAIAgentAPI1"
 description = "AI Agent X API"
-action = "helloWorld9"
+targetActionID = "helloWorld9"
 settings {
   APIServerMode = true
   agentSettings {
@@ -267,7 +267,7 @@ response
 		resourceConfigurationContent := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-ID = "helloWorld%d"
+actionID = "helloWorld%d"
 name = "default action %d"
 description = """
   default action
@@ -289,7 +289,7 @@ run {
 		//			resourceConfigurationContent = fmt.Sprintf(`
 		// amends "package://schema.kdeps.com/core@0.1.0#/Resource.pkl"
 
-		// ID = "helloWorld%d"
+		// actionID = "helloWorld%d"
 		// name = "default action %d"
 		// description = "default action @(request.url)"
 		// category = "category"
@@ -318,8 +318,8 @@ func eachResourceAreReloadedWhenOpened() error {
 	stack := graphResolver.Graph.BuildDependencyStack(actionID, visited)
 	for _, resNode := range stack {
 		for _, res := range graphResolver.Resources {
-			if res.ID == resNode {
-				logger.Debug("executing resource: ", res.ID)
+			if res.ActionID == resNode {
+				logger.Debug("executing resource: ", res.ActionID)
 
 				rsc, err := pklRes.LoadFromPath(graphResolver.Context, res.File)
 				if err != nil {
@@ -335,7 +335,7 @@ func eachResourceAreReloadedWhenOpened() error {
 				//	// Check Skip Condition
 				//	if runBlock.SkipCondition != nil {
 				//		if resolver.ShouldSkip(runBlock.SkipCondition) {
-				//			logger.Debug("skip condition met, skipping:", res.ID)
+				//			logger.Debug("skip condition met, skipping:", res.ActionID)
 				//			continue
 				//		}
 				//	}
@@ -343,17 +343,17 @@ func eachResourceAreReloadedWhenOpened() error {
 				//	// Handle Preflight Check
 				//	if runBlock.PreflightCheck != nil && runBlock.PreflightCheck.Validations != nil {
 				//		if !resolver.AllConditionsMet(runBlock.PreflightCheck.Validations) {
-				//			logger.Error("preflight check not met, failing:", res.ID)
+				//			logger.Error("preflight check not met, failing:", res.ActionID)
 				//			if runBlock.PreflightCheck.Error != nil {
 				//				logger.Debug(err)
 
 				//				//	return graphResolver.HandleAPIErrorResponse(
 				//				//		runBlock.PreflightCheck.Error.Code,
-				//				//		fmt.Sprintf("%s: %s", runBlock.PreflightCheck.Error.Message, res.ID))
+				//				//		fmt.Sprintf("%s: %s", runBlock.PreflightCheck.Error.Message, res.ActionID))
 				//			}
 
 				//			// return graphResolver.HandleAPIErrorResponse(500, "Preflight
-				//			// check failed for resource: "+res.ID)
+				//			// check failed for resource: "+res.ActionID)
 				//			logger.Debug(err)
 
 				//		}
@@ -513,7 +513,7 @@ func iWasAbleToSeeTheTopdownDependencies(arg1 string) error {
 
 // name = "myAIAgentAPI2"
 // description = "AI Agent X API"
-// action = "helloWorld100"
+// targetActionID = "helloWorld100"
 // settings {
 //   APIServerMode = true
 //   agentSettings {
@@ -584,7 +584,7 @@ func iWasAbleToSeeTheTopdownDependencies(arg1 string) error {
 //		resourceConfigurationContent := fmt.Sprintf(`
 // amends "package://schema.kdeps.com/core@0.0.44#/Resource.pkl"
 
-// ID = "helloWorld%d"
+// actionID = "helloWorld%d"
 // name = "default action %d"
 // description = "default action"
 // category = "category"

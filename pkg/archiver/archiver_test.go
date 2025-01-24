@@ -152,7 +152,7 @@ func itHasAFileWithIDPropertyAndDependentOn(arg1, arg2, arg3 string) error {
 	doc := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-ID = "%s"
+actionID = "%s"
 %s
 run {
   exec {
@@ -218,7 +218,7 @@ func theResourceIDForWillBeAndDependency(arg1, arg2, arg3 string) error {
 		if err != nil {
 			return err
 		}
-		if res.ID != arg2 {
+		if res.ActionID != arg2 {
 			return errors.New("should be equal!")
 		}
 		found := false
@@ -245,7 +245,7 @@ func theResourceIDForWillBeRewrittenTo(arg1, arg2 string) error {
 			return err
 		}
 
-		if res.ID != arg2 {
+		if res.ActionID != arg2 {
 			return errors.New("should be equal!")
 		}
 	}
@@ -259,8 +259,8 @@ func theWorkflowActionConfigurationWillBeRewrittenTo(arg1 string) error {
 		return err
 	}
 
-	if wf.GetAction() != arg1 {
-		return fmt.Errorf("%s = %s does not match!", wf.GetAction(), arg1)
+	if wf.GetTargetActionID() != arg1 {
+		return fmt.Errorf("%s = %s does not match!", wf.GetTargetActionID(), arg1)
 	}
 
 	return nil
@@ -284,7 +284,7 @@ func itHasAFileWithNoDependencyWithIDProperty(arg1, arg2 string) error {
 	doc := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-ID = "%s"
+actionID = "%s"
 run {
   exec {
   ["key"] = """
@@ -315,7 +315,7 @@ func itHasAWorkflowFile(arg1, arg2, arg3 string) error {
 	doc := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
-action = "%s"
+targetActionID = "%s"
 name = "%s"
 description = "My awesome AI Agent"
 version = "%s"
@@ -409,7 +409,7 @@ func thePklFilesIsInvalid() error {
 	name = "invalid agent"
 	description = "a not valid configuration"
 	version = "five"
-	action = "hello World"
+	targetActionID = "hello World"
 	`
 	file := filepath.Join(aiAgentDir, "workflow1.pkl")
 
@@ -485,7 +485,7 @@ func itHasAWorkflowFileDependencies(arg1, arg2, arg3, arg4 string) error {
 	doc := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
-action = "%s"
+targetActionID = "%s"
 name = "%s"
 description = "My awesome AI Agent"
 version = "%s"
@@ -540,7 +540,7 @@ func itHasAFileWithIDPropertyAndDependentOnWithRunBlockAndIsNotNull(arg1, arg2, 
 		var fieldLines []string
 		for _, value := range values {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
-			fieldLines = append(fieldLines, value+" {\n[\"key\"] = \"\"\"\n@(exec.stdout[\"anAction\"])\n@(exec.stdin[\"anAction2\"])\n@(exec.stderr[\"anAction2\"])\n@(HTTP.client[\"anAction3\"].response)\n@(llm.chat[\"anAction4\"].response)\n\"\"\"\n}")
+			fieldLines = append(fieldLines, value+" {\n[\"key\"] = \"\"\"\n@(exec.stdout[\"anAction\"])\n@(exec.stdin[\"anAction2\"])\n@(exec.stderr[\"anAction2\"])\n@(http.client[\"anAction3\"].response)\n@(llm.chat[\"anAction4\"].response)\n\"\"\"\n}")
 		}
 		fieldSection = "run {\n" + strings.Join(fieldLines, "\n") + "\n}"
 	} else {
@@ -562,7 +562,7 @@ func itHasAFileWithIDPropertyAndDependentOnWithRunBlockAndIsNotNull(arg1, arg2, 
 	doc := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-ID = "%s"
+actionID = "%s"
 %s
 %s
 `, schema.SchemaVersion(ctx), arg2, requiresSection, fieldSection)
@@ -621,7 +621,7 @@ func itHasAFileWithIDPropertyAndDependentOnWithRunBlockAndIsNull(arg1, arg2, arg
 	doc := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-ID = "%s"
+actionID = "%s"
 %s
 %s
 `, schema.SchemaVersion(ctx), arg2, requiresSection, fieldSection)

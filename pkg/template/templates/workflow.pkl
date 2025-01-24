@@ -14,7 +14,7 @@ version = "1.0.0"
 
 // This section defines the default resource action that will be executed
 // when this API resource is called.
-action = "responseResource"
+targetActionID = "responseResource"
 
 // Specify any external resources to use in this AI Agent.
 // For example, you can refer to another agent with "@agentName".

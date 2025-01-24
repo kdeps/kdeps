@@ -183,7 +183,7 @@ amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
 name = "%s"
 description = "AI Agent X"
-action = "%s"
+targetActionID = "%s"
 settings {
   APIServerMode = false
   agentSettings {
@@ -221,7 +221,7 @@ settings {
 	resourceConfigurationContent := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-ID = "%s"
+actionID = "%s"
 description = "An action from agent %s"
 	`, schema.SchemaVersion(ctx), arg1, arg1)
 
