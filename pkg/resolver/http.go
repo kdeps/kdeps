@@ -16,6 +16,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklHTTP "github.com/kdeps/schema/gen/http"
 	"github.com/spf13/afero"
+	"github.com/zerjioang/time32"
 )
 
 func (dr *DependencyResolver) HandleHTTPClient(actionID string, httpBlock *pklHTTP.ResourceHTTPClient) error {
@@ -172,7 +173,7 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, newHTTPClient *
 	pklPath := filepath.Join(dr.ActionDir, "client/"+dr.RequestID+"__client_output.pkl")
 
 	// Get the current timestamp
-	newTimestamp := uint32(time.Now().UnixNano())
+	newTimestamp := uint32(time32.Epoch())
 
 	// Load existing PKL data
 	pklRes, err := pklHTTP.LoadFromPath(dr.Context, pklPath)
@@ -184,6 +185,12 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, newHTTPClient *
 
 	// Check if the URL is already Base64 encoded
 	var filePath, encodedURL string
+
+	// Convert resourceID to be filename friendly
+	resourceIDFile := utils.ConvertToFilenameFriendly(resourceID)
+	// Define the file path using the FilesDir and resource ID
+	filePath = filepath.Join(dr.FilesDir, resourceIDFile)
+
 	if utils.IsBase64Encoded(newHTTPClient.Url) {
 		encodedURL = newHTTPClient.Url // Use the URL as it is if already Base64 encoded
 	} else {
@@ -281,12 +288,10 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, newHTTPClient *
 			}
 
 			if resource.Response.Body != nil {
-				filePath, err = dr.WriteResponseBodyToFile(resourceID, resource.Response.Body)
+				_, err = dr.WriteResponseBodyToFile(resourceID, resource.Response.Body)
 				if err != nil {
 					return fmt.Errorf("failed to write Response Body to file: %w", err)
 				}
-
-				resource.File = &filePath
 
 				var encodedBody string
 				if utils.IsBase64Encoded(*resource.Response.Body) {
@@ -302,7 +307,7 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, newHTTPClient *
 			pklContent.WriteString("    response {\nheaders{[\"\"] = \"\"\n}\nbody=\"\"}\n")
 		}
 
-		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", filePath))
+		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *resource.File))
 
 		pklContent.WriteString("  }\n")
 	}
@@ -429,7 +434,8 @@ func (dr *DependencyResolver) DoRequest(client *pklHTTP.ResourceHTTPClient) erro
 	*client.Response.Headers = headersMap
 
 	// Store timestamp (seconds since Unix epoch)
-	timestamp := uint32(time.Now().Unix())
+	timestamp := uint32(time32.Epoch())
+
 	client.Timestamp = &timestamp
 
 	return nil

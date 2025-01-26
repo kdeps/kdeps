@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/gabriel-vasile/mimetype"
@@ -17,6 +16,7 @@ import (
 	"github.com/spf13/afero"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/ollama"
+	"github.com/zerjioang/time32"
 )
 
 func (dr *DependencyResolver) HandleLLMChat(actionID string, chatBlock *pklLLM.ResourceChat) error {
@@ -175,7 +175,7 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 	pklPath := filepath.Join(dr.ActionDir, "llm/"+dr.RequestID+"__llm_output.pkl")
 
 	// Get the current timestamp
-	newTimestamp := uint32(time.Now().UnixNano())
+	newTimestamp := uint32(time32.Epoch())
 
 	// Load existing PKL data
 	pklRes, err := pklLLM.LoadFromPath(dr.Context, pklPath)
@@ -198,8 +198,14 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 	}
 
 	var filePath, encodedResponse string
+
+	// Convert resourceID to be filename friendly
+	resourceIDFile := utils.ConvertToFilenameFriendly(resourceID)
+	// Define the file path using the FilesDir and resource ID
+	filePath = filepath.Join(dr.FilesDir, resourceIDFile)
+
 	if newChat.Response != nil {
-		filePath, err = dr.WriteResponseToFile(resourceID, newChat.Response)
+		_, err = dr.WriteResponseToFile(resourceID, newChat.Response)
 		if err != nil {
 			return fmt.Errorf("failed to write Response to file: %w", err)
 		}
@@ -261,7 +267,7 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 			pklContent.WriteString("    response = \"\"\n")
 		}
 
-		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", filePath))
+		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *resource.File))
 
 		pklContent.WriteString("  }\n")
 	}

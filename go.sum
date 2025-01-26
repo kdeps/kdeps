@@ -35,8 +35,8 @@ github.com/charmbracelet/x/ansi v0.7.0 h1:/QfFmiXOGGwN6fRbzvQaYp7fu1pkxpZ3qFBZWB
 github.com/charmbracelet/x/ansi v0.7.0/go.mod h1:KBUFw1la39nl0dLl10l5ORDAqGXaeurTQmwyyVKse/Q=
 github.com/charmbracelet/x/editor v0.1.0 h1:p69/dpvlwRTs9uYiPeAWruwsHqTFzHhTvQOd/WVSX98=
 github.com/charmbracelet/x/editor v0.1.0/go.mod h1:oivrEbcP/AYt/Hpvk5pwDXXrQ933gQS6UzL6fxqAGSA=
-github.com/charmbracelet/x/exp/strings v0.0.0-20250124185643-7598ce4d23fb h1:gjlTk8voFOABg2uzfI9wv7zxNnh6hr9aZ1ADQaEBiqY=
-github.com/charmbracelet/x/exp/strings v0.0.0-20250124185643-7598ce4d23fb/go.mod h1:pBhA0ybfXv6hDjQUZ7hk1lVxBiUbupdw5R31yPUViVQ=
+github.com/charmbracelet/x/exp/strings v0.0.0-20250124215903-081d4cf20230 h1:tdCM9hvm8RisHcyn/xh0rJ9WMoxHeuyNcOHVZIJe/dU=
+github.com/charmbracelet/x/exp/strings v0.0.0-20250124215903-081d4cf20230/go.mod h1:pBhA0ybfXv6hDjQUZ7hk1lVxBiUbupdw5R31yPUViVQ=
 github.com/charmbracelet/x/term v0.2.1 h1:AQeHeLZ1OqSXhrAWpYUtZyX1T3zVxfpZuEQMIQaGIAQ=
 github.com/charmbracelet/x/term v0.2.1/go.mod h1:oQ4enTYFV7QN4m0i9mzHrViD7TQKvNEEkHUMCmsxdUg=
 github.com/containerd/log v0.1.0 h1:TCJt7ioM2cr/tfR8GPbGf9/VRAX8D2B4PjzCpfX540I=
@@ -184,6 +184,8 @@ github.com/vmihailenco/tagparser/v2 v2.0.0 h1:y09buUbR+b5aycVFQs/g70pqKVZNBmxwAh
 github.com/vmihailenco/tagparser/v2 v2.0.0/go.mod h1:Wri+At7QHww0WTrCBeu4J6bNtoV6mEfg5OIWRZA9qds=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
+github.com/zerjioang/time32 v0.0.0-20211102104504-b756043b9843 h1:dIZPPzWOOn3cYndYeyWb2jksBneRxRHI/dbXQtmfrFw=
+github.com/zerjioang/time32 v0.0.0-20211102104504-b756043b9843/go.mod h1:sAmrbsWp/xHWkXRi2/iueMYZEmm4hF8elMhcTK0hmRg=
 go.opentelemetry.io/auto/sdk v1.1.0 h1:cH53jehLUN6UFLY71z+NDOiNJqDdPRaXzTel0sJySYA=
 go.opentelemetry.io/auto/sdk v1.1.0/go.mod h1:3wSPjt5PWp2RhlCcmmOial7AvC4DQqZb7a7wCow3W8A=
 go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.59.0 h1:CV7UdSGJt/Ao6Gp4CXckLxVRRsRgDHoI8XjbL3PDl8s=

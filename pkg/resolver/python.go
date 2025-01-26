@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/alexellis/go-execute/v2"
@@ -14,6 +13,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklPython "github.com/kdeps/schema/gen/python"
 	"github.com/spf13/afero"
+	"github.com/zerjioang/time32"
 )
 
 func (dr *DependencyResolver) HandlePython(actionID string, pythonBlock *pklPython.ResourcePython) error {
@@ -203,7 +203,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 	pklPath := filepath.Join(dr.ActionDir, "python/"+dr.RequestID+"__python_output.pkl")
 
 	// Get the current timestamp
-	newTimestamp := uint32(time.Now().UnixNano())
+	newTimestamp := uint32(time32.Epoch())
 
 	// Load existing PKL data
 	pklRes, err := pklPython.LoadFromPath(dr.Context, pklPath)
@@ -304,7 +304,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 			pklContent.WriteString("    stdout = \"\"\n")
 		}
 
-		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", filePath))
+		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *resource.File))
 
 		pklContent.WriteString("  }\n")
 	}
