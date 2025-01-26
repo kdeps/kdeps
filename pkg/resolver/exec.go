@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/alexellis/go-execute/v2"
@@ -13,6 +12,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklExec "github.com/kdeps/schema/gen/exec"
 	"github.com/spf13/afero"
+	"github.com/zerjioang/time32"
 )
 
 func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.ResourceExec) error {
@@ -149,7 +149,7 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 	pklPath := filepath.Join(dr.ActionDir, "exec/"+dr.RequestID+"__exec_output.pkl")
 
 	// Get the current timestamp
-	newTimestamp := uint32(time.Now().UnixNano())
+	newTimestamp := uint32(time32.Epoch())
 
 	// Load existing PKL data
 	pklRes, err := pklExec.LoadFromPath(dr.Context, pklPath)
@@ -167,6 +167,12 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 	}
 
 	var filePath, encodedStderr, encodedStdout string
+
+	// Convert resourceID to be filename friendly
+	resourceIDFile := utils.ConvertToFilenameFriendly(resourceID)
+	// Define the file path using the FilesDir and resource ID
+	filePath = filepath.Join(dr.FilesDir, resourceIDFile)
+
 	if newExec.Stderr != nil {
 		if !utils.IsBase64Encoded(*newExec.Stderr) {
 			encodedStderr = utils.EncodeBase64String(*newExec.Stderr)
@@ -175,7 +181,7 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 		}
 	}
 	if newExec.Stdout != nil {
-		filePath, err = dr.WriteStdoutToFile(resourceID, newExec.Stdout)
+		_, err = dr.WriteStdoutToFile(resourceID, newExec.Stdout)
 		if err != nil {
 			return fmt.Errorf("failed to write Stdout to file: %w", err)
 		}
@@ -248,7 +254,7 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 			pklContent.WriteString("    stdout = \"\"\n")
 		}
 
-		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", filePath))
+		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *resource.File))
 
 		pklContent.WriteString("  }\n")
 	}

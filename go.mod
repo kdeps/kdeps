@@ -26,6 +26,7 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.10.0
 	github.com/tmc/langchaingo v0.1.12
+	github.com/zerjioang/time32 v0.0.0-20211102104504-b756043b9843
 )
 
 require (
@@ -37,7 +38,7 @@ require (
 	github.com/charmbracelet/bubbles v0.20.0 // indirect
 	github.com/charmbracelet/bubbletea v1.2.4 // indirect
 	github.com/charmbracelet/x/ansi v0.7.0 // indirect
-	github.com/charmbracelet/x/exp/strings v0.0.0-20250124185643-7598ce4d23fb // indirect
+	github.com/charmbracelet/x/exp/strings v0.0.0-20250124215903-081d4cf20230 // indirect
 	github.com/charmbracelet/x/term v0.2.1 // indirect
 	github.com/cucumber/gherkin/go/v26 v26.2.0 // indirect
 	github.com/cucumber/messages/go/v21 v21.0.1 // indirect
