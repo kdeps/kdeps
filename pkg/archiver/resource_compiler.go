@@ -16,249 +16,215 @@ import (
 	"github.com/spf13/afero"
 )
 
-// CompileResources processes .pkl files from the project directory and copies them to the resources directory.
+var (
+	idPattern       = regexp.MustCompile(`(?i)^\s*actionID\s*=\s*"(.+)"`)
+	actionIDRegex   = regexp.MustCompile(`(?i)\b(resources|resource|responseBody|responseHeader|stderr|stdout|env|response|prompt|exitCode|file)\s*\(\s*"([^"]+)"\s*(?:,\s*"([^"]+)")?\s*\)`)
+	requiresPattern = regexp.MustCompile(`^\s*requires\s*{`)
+)
+
+// CompileResources processes .pkl files and copies them to resources directory.
 func CompileResources(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, resourcesDir string, projectDir string, logger *logging.Logger) error {
 	projectResourcesDir := filepath.Join(projectDir, "resources")
 
-	if err := CheckAndValidatePklFiles(fs, ctx, projectResourcesDir, logger); err != nil {
+	if err := ValidatePklResources(fs, ctx, projectResourcesDir, logger); err != nil {
 		return err
 	}
 
-	// Walk through all files in the project directory
-	err := afero.Walk(fs, projectResourcesDir, func(file string, info os.FileInfo, err error) error {
-		if err != nil {
-			logger.Error("error walking project resources directory", "path", projectResourcesDir, "error", err)
-			return err
-		}
-
-		// Only process .pkl files
-		if filepath.Ext(file) == ".pkl" {
-			logger.Debug("processing .pkl", "file", file)
-			if err := processResourcePklFiles(fs, file, wf, resourcesDir, logger); err != nil {
-				logger.Error("failed to process .pkl file", "file", file, "error", err)
-				return err
-			}
-		}
-		return nil
-	})
+	err := afero.Walk(fs, projectResourcesDir, pklFileProcessor(fs, wf, resourcesDir, logger))
 	if err != nil {
 		logger.Error("error compiling resources", "resourcesDir", resourcesDir, "projectDir", projectDir, "error", err)
-		return err
 	}
 
 	logger.Debug("resources compiled successfully", "resourcesDir", resourcesDir, "projectDir", projectDir)
-	return nil
+	return err
 }
 
-// processResourcePklFiles processes a .pkl file and writes modifications to the resources directory.
-func processResourcePklFiles(fs afero.Fs, file string, wf pklWf.Workflow, resourcesDir string, logger *logging.Logger) error {
-	name, version := wf.GetName(), wf.GetVersion()
-
-	readFile, err := fs.Open(file)
-	if err != nil {
-		logger.Error("failed to open file", "file", file, "error", err)
-		return err
-	}
-	defer readFile.Close()
-
-	var fileBuffer bytes.Buffer
-	scanner := bufio.NewScanner(readFile)
-
-	// Define regex patterns for exec, chat, client with actionID, and id replacement
-	idPattern := regexp.MustCompile(`(?i)^\s*actionID\s*=\s*"(.+)"`)
-	// Pattern to capture lines like {resources, resource, responseBody, etc.} with actionID
-	actionIDPatterns := map[string]*regexp.Regexp{
-		"resources":      regexp.MustCompile(`(?i)(resources)\["(.+)"\]`),
-		"resource":       regexp.MustCompile(`(?i)(resource)\("(.+)"\)`),
-		"responseBody":   regexp.MustCompile(`(?i)(responseBody)\("(.+)"\)`),
-		"responseHeader": regexp.MustCompile(`(?i)(responseHeader)\("(.+)",\s*"(.+)"\)`),
-		"stderr":         regexp.MustCompile(`(?i)(stderr)\("(.+)"\)`),
-		"stdout":         regexp.MustCompile(`(?i)(stdout)\("(.+)"\)`),
-		"env":            regexp.MustCompile(`(?i)(env)\("(.+)",\s*"(.+)"\)`),
-		"response":       regexp.MustCompile(`(?i)(response)\("(.+)"\)`),
-		"prompt":         regexp.MustCompile(`(?i)(prompt)\("(.+)"\)`),
-		"exitCode":       regexp.MustCompile(`(?i)(exitCode)\("(.+)"\)`),
-		"file":           regexp.MustCompile(`(?i)(file)\("(.+)"\)`),
-	}
-
-	inRequiresBlock := false
-	var requiresBlockBuffer bytes.Buffer
-	var action string
-
-	// Read file line by line
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		if inRequiresBlock {
-			// Check if we've reached the end of the requires { ... } block
-			if strings.TrimSpace(line) == "}" {
-				inRequiresBlock = false
-				// Process the accumulated requires block
-				modifiedBlock := handleRequiresBlock(requiresBlockBuffer.String(), wf)
-
-				// Write the modified block and the closing } line
-				fileBuffer.WriteString(modifiedBlock)
-				fileBuffer.WriteString(line + "\n")
-			} else {
-				// Continue accumulating the requires block lines
-				requiresBlockBuffer.WriteString(line + "\n")
-			}
-			continue
-		}
-
-		// Check if the line matches the ID = "value" pattern
-		if idMatch := idPattern.FindStringSubmatch(line); idMatch != nil {
-			// Extract the action from the id
-			action = idMatch[1]
-			// If action doesn't already start with "@", prefix and append name and version
-			if !strings.HasPrefix(action, "@") {
-				newLine := strings.ReplaceAll(line, action, fmt.Sprintf("@%s/%s:%s", name, action, version))
-				fileBuffer.WriteString(newLine + "\n")
-			} else {
-				fileBuffer.WriteString(line + "\n")
-			}
-		} else {
-			// Loop through the actionIDPatterns to find any matching line
-			matched := false
-			for patternName, pattern := range actionIDPatterns {
-				// Find all matches in the line for the current pattern
-				actionIDMatches := pattern.FindAllStringSubmatch(line, -1)
-				if len(actionIDMatches) > 0 {
-					matched = true
-					// Iterate over each match in the line
-					for _, actionIDMatch := range actionIDMatches {
-						if !strings.HasPrefix(actionIDMatch[2], "@") {
-							// Extract the block type (e.g., resource, responseBody) and the actionID
-							blockType := actionIDMatch[1]
-							field := actionIDMatch[2]
-							var modifiedField string
-
-							// Modify the field for patterns with one or two additional arguments
-							if patternName == "responseHeader" || patternName == "env" {
-								arg2 := actionIDMatch[3]
-								if !strings.HasPrefix(field, "@") {
-									modifiedField = fmt.Sprintf("%s(\"@%s/%s:%s\", \"%s\")", blockType, name, field, version, arg2)
-								} else {
-									modifiedField = line // leave unchanged if already starts with "@"
-								}
-							} else {
-								// Only modify if actionID does not already start with "@"
-								if !strings.HasPrefix(field, "@") {
-									modifiedField = fmt.Sprintf("%s(\"@%s/%s:%s\")", blockType, name, field, version)
-								} else {
-									modifiedField = line // leave unchanged if already starts with "@"
-								}
-							}
-
-							// Replace all occurrences of the original field with the modified one
-							line = strings.ReplaceAll(line, actionIDMatch[0], modifiedField)
-						}
-					}
-				}
-			}
-
-			if matched {
-				// Write the modified line after processing all matches
-				fileBuffer.WriteString(line + "\n")
-			} else {
-				// If no patterns matched, check if this is the start of a requires { block
-				if strings.HasPrefix(strings.TrimSpace(line), "requires {") {
-					// Start of a requires { ... } block, set flag to accumulate lines
-					inRequiresBlock = true
-					requiresBlockBuffer.Reset()                  // Clear previous block data if any
-					requiresBlockBuffer.WriteString(line + "\n") // Add the opening requires { line
-				} else {
-					// Write the line unchanged if no pattern matches
-					fileBuffer.WriteString(line + "\n")
-				}
-			}
-		}
-	}
-
-	// Write back to the file if modifications were made
-	if scanner.Err() == nil {
-		if action == "" {
-			err = fmt.Errorf("no valid action found in file: %s", file)
-			logger.Error("no valid action found in file", "file", file, "error", err)
+func pklFileProcessor(fs afero.Fs, wf pklWf.Workflow, resourcesDir string, logger *logging.Logger) filepath.WalkFunc {
+	return func(file string, info os.FileInfo, err error) error {
+		if err != nil || filepath.Ext(file) != ".pkl" || info.IsDir() {
 			return err
 		}
-		// Check if the action is prefixed by an agent name (e.g., @abcAgent/fooBar4:2.0.0)
-		if strings.HasPrefix(action, "@") {
-			// Split by '/' to extract the agent name and action (e.g., @abcAgent/fooBar4:2.0.0 -> abcAgent, fooBar4:2.0.0)
-			parts := strings.SplitN(action, "/", 2)
-			if len(parts) == 2 {
-				name = parts[0][1:] // Update the name to the agent name (remove the '@')
-				action = parts[1]   // Update the action (e.g., fooBar4:2.0.0)
-			} else {
-				return fmt.Errorf("invalid action format: %s", action)
-			}
-		}
 
-		// Extract version from the action if it is present (e.g., fooBar4:2.0.0)
-		if strings.Contains(action, ":") {
-			parts := strings.SplitN(action, ":", 2)
-			if len(parts) == 2 {
-				action = parts[0]  // Update the action to just the action name (e.g., fooBar4)
-				version = parts[1] // Update the version to the version from the action (e.g., 2.0.0)
-			} else {
-				return fmt.Errorf("invalid action format: %s", action)
-			}
+		logger.Debug("processing .pkl", "file", file)
+		if err := processPklFile(fs, file, wf, resourcesDir, logger); err != nil {
+			logger.Error("failed to process .pkl file", "file", file, "error", err)
 		}
+		return nil
+	}
+}
 
-		fname := fmt.Sprintf("%s_%s-%s.pkl", name, action, version)
-		err = afero.WriteFile(fs, filepath.Join(resourcesDir, fname), fileBuffer.Bytes(), os.FileMode(0o644))
-		if err != nil {
-			logger.Error("error writing file", "file", fname, "error", err)
-			return fmt.Errorf("error writing file: %w", err)
-		}
+func processPklFile(fs afero.Fs, file string, wf pklWf.Workflow, resourcesDir string, logger *logging.Logger) error {
+	fileBuffer, action, err := processFileContent(fs, file, wf, logger)
+	if err != nil || action == "" {
+		return fmt.Errorf("no valid action found in file: %s", file)
 	}
 
-	if err := scanner.Err(); err != nil {
-		logger.Error("error reading file", "file", file, "error", err)
-		return err
+	name, version := parseActionID(action, wf.GetName(), wf.GetVersion())
+	fname := fmt.Sprintf("%s_%s-%s.pkl", name, action, version)
+	targetPath := filepath.Join(resourcesDir, fname)
+
+	if err := afero.WriteFile(fs, targetPath, fileBuffer.Bytes(), 0o644); err != nil {
+		logger.Error("error writing file", "file", fname, "error", err)
+		return fmt.Errorf("error writing file: %w", err)
 	}
 
 	logger.Debug("processed .pkl file", "file", file)
 	return nil
 }
 
-func CheckAndValidatePklFiles(fs afero.Fs, ctx context.Context, projectResourcesDir string, logger *logging.Logger) error {
-	// Check if the project resources directory exists
-	if _, err := fs.Stat(projectResourcesDir); err != nil {
-		logger.Error("no resource directory found! Exiting!")
-		return fmt.Errorf("the AI agent needs to have at least 1 resource in the '%s' folder", projectResourcesDir)
-	}
-
-	// Get the list of files in the directory
-	files, err := afero.ReadDir(fs, projectResourcesDir)
+func processFileContent(fs afero.Fs, file string, wf pklWf.Workflow, logger *logging.Logger) (*bytes.Buffer, string, error) {
+	content, err := afero.ReadFile(fs, file)
 	if err != nil {
-		logger.Error("error reading resource directory", "error", err)
-		return fmt.Errorf("failed to read directory '%s': %w", projectResourcesDir, err)
+		logger.Error("failed to read file", "file", file, "error", err)
+		return nil, "", err
 	}
 
-	// Filter for .pkl files
-	var pklFiles []string
-	for _, file := range files {
-		if !file.IsDir() && filepath.Ext(file.Name()) == ".pkl" {
-			pklFiles = append(pklFiles, filepath.Join(projectResourcesDir, file.Name()))
+	var (
+		fileBuffer      bytes.Buffer
+		inRequiresBlock bool
+		requiresBuffer  bytes.Buffer
+		currentAction   string
+		requiresWritten bool // Tracks if a 'requires' block is already processed
+		scanner         = bufio.NewScanner(bytes.NewReader(content))
+		name            = wf.GetName()
+		version         = wf.GetVersion()
+	)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		if requiresPattern.MatchString(line) && requiresWritten {
+			continue // Skip redundant requires blocks
+		}
+
+		if handleRequiresSection(&line, &inRequiresBlock, wf, &requiresBuffer, &fileBuffer) {
+			if !inRequiresBlock {
+				requiresWritten = true // Mark requires block as written
+			}
+			continue
+		}
+
+		line, actionModified := processLine(line, name, version)
+		if actionModified != "" {
+			currentAction = actionModified
+		}
+		fileBuffer.WriteString(line + "\n")
+	}
+
+	if err := scanner.Err(); err != nil {
+		logger.Error("error reading file", "file", file, "error", err)
+		return nil, "", err
+	}
+
+	// Add any remaining `requires` block content
+	if requiresBuffer.Len() > 0 && !requiresWritten {
+		fileBuffer.WriteString(handleRequiresBlock(requiresBuffer.String(), wf))
+	}
+
+	return &fileBuffer, currentAction, nil
+}
+
+func handleRequiresSection(line *string, inBlock *bool, wf pklWf.Workflow, requiresBuf, fileBuf *bytes.Buffer) bool {
+	switch {
+	case *inBlock:
+		if strings.TrimSpace(*line) == "}" {
+			*inBlock = false
+			fileBuf.WriteString(handleRequiresBlock(requiresBuf.String(), wf))
+			requiresBuf.Reset() // Clear the buffer after processing
+			fileBuf.WriteString(*line + "\n")
+		} else {
+			requiresBuf.WriteString(*line + "\n")
+		}
+		return true
+	case requiresPattern.MatchString(*line):
+		// Skip if this requires block was already processed
+		if requiresBuf.Len() > 0 {
+			return true
+		}
+		*inBlock = true
+		requiresBuf.WriteString(*line + "\n")
+		return true
+	}
+	return false
+}
+
+func processLine(line, name, version string) (string, string) {
+	if idMatch := idPattern.FindStringSubmatch(line); idMatch != nil {
+		return processActionIDLine(line, idMatch[1], name, version), idMatch[1]
+	}
+	return processActionPatterns(line, name, version), ""
+}
+
+func processActionIDLine(line, action, name, version string) string {
+	if !strings.HasPrefix(action, "@") {
+		return strings.ReplaceAll(line, action, fmt.Sprintf("@%s/%s:%s", name, action, version))
+	}
+	return line
+}
+
+func processActionPatterns(line, name, version string) string {
+	return actionIDRegex.ReplaceAllStringFunc(line, func(match string) string {
+		parts := actionIDRegex.FindStringSubmatch(match)
+		if strings.HasPrefix(parts[2], "@") {
+			return match
+		}
+
+		newID := fmt.Sprintf("@%s/%s:%s", name, parts[2], version)
+		switch parts[1] {
+		case "responseHeader", "env":
+			return fmt.Sprintf("%s(\"%s\", \"%s\")", parts[1], newID, parts[3])
+		default:
+			return fmt.Sprintf("%s(\"%s\")", parts[1], newID)
+		}
+	})
+}
+
+func parseActionID(action, defaultName, defaultVersion string) (string, string) {
+	name, version := defaultName, defaultVersion
+	if strings.HasPrefix(action, "@") {
+		parts := strings.SplitN(action[1:], "/", 2)
+		if len(parts) > 1 {
+			name, action = parts[0], parts[1]
 		}
 	}
 
-	// Exit if no .pkl files are found
-	if len(pklFiles) == 0 {
-		logger.Error("no .pkl files found in the directory! Exiting!")
-		return fmt.Errorf("no .pkl files found in the '%s' folder", projectResourcesDir)
+	if versionParts := strings.SplitN(action, ":", 2); len(versionParts) > 1 {
+		_, version = versionParts[0], versionParts[1]
+	}
+	return name, version
+}
+
+func ValidatePklResources(fs afero.Fs, ctx context.Context, dir string, logger *logging.Logger) error {
+	if _, err := fs.Stat(dir); err != nil {
+		logger.Error("resource directory not found", "path", dir)
+		return fmt.Errorf("missing resource directory: %s", dir)
 	}
 
-	// Validate each .pkl file
-	for _, pklFile := range pklFiles {
-		logger.Debug("validating .pkl file", "file", pklFile)
-		if err := enforcer.EnforcePklTemplateAmendsRules(fs, ctx, pklFile, logger); err != nil {
-			logger.Error("validation failed for .pkl file", "file", pklFile, "error", err)
-			return fmt.Errorf("validation failed for '%s': %w", pklFile, err)
+	pklFiles, err := collectPklFiles(fs, dir)
+	if err != nil || len(pklFiles) == 0 {
+		logger.Error("no .pkl files found", "directory", dir)
+		return fmt.Errorf("no .pkl files in %s", dir)
+	}
+
+	for _, file := range pklFiles {
+		if err := enforcer.EnforcePklTemplateAmendsRules(fs, ctx, file, logger); err != nil {
+			return fmt.Errorf("validation failed for %s: %w", file, err)
 		}
 	}
-
-	logger.Debug("all .pkl files validated successfully!")
 	return nil
+}
+
+func collectPklFiles(fs afero.Fs, dir string) ([]string, error) {
+	files, err := afero.ReadDir(fs, dir)
+	if err != nil {
+		return nil, fmt.Errorf("error reading directory: %w", err)
+	}
+
+	var pklFiles []string
+	for _, f := range files {
+		if !f.IsDir() && filepath.Ext(f.Name()) == ".pkl" {
+			pklFiles = append(pklFiles, filepath.Join(dir, f.Name()))
+		}
+	}
+	return pklFiles, nil
 }
