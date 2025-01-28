@@ -1,15 +1,16 @@
 package logging
 
 import (
+	"bytes"
 	"os"
 	"sync"
 
 	"github.com/charmbracelet/log"
 )
 
-// Logger is a wrapper around the log.Logger from the charmbracelet/log package.
 type Logger struct {
 	*log.Logger
+	buffer *bytes.Buffer // Buffer to capture logs in tests
 }
 
 var (
@@ -17,30 +18,40 @@ var (
 	once   sync.Once
 )
 
-// CreateLogger sets up the logger. It must be called before using the logger.
 func CreateLogger() {
 	once.Do(func() {
-		// Create a logger with default settings
 		baseLogger := log.New(os.Stderr)
-
-		// Check if DEBUG environment variable is set to 1
 		if os.Getenv("DEBUG") == "1" {
-			// Set log options only when DEBUG is enabled
 			baseLogger = log.NewWithOptions(os.Stderr, log.Options{
 				ReportCaller:    true,
 				ReportTimestamp: true,
 				Prefix:          "kdeps",
 			})
-
 			baseLogger.SetLevel(log.DebugLevel)
 		} else {
-			// Use InfoLevel for normal operation without special logging options
 			baseLogger.SetLevel(log.InfoLevel)
 		}
-
-		// Wrap the base logger in the custom Logger type
 		logger = &Logger{Logger: baseLogger}
 	})
+}
+
+// NewTestLogger creates a logger that writes to a buffer for testing.
+func NewTestLogger() *Logger {
+	buf := new(bytes.Buffer)
+	baseLogger := log.New(buf)
+	baseLogger.SetLevel(log.DebugLevel)
+	return &Logger{
+		Logger: baseLogger,
+		buffer: buf,
+	}
+}
+
+// GetOutput returns the captured log output for test verification.
+func (l *Logger) GetOutput() string {
+	if l.buffer == nil {
+		return ""
+	}
+	return l.buffer.String()
 }
 
 // Debug logs debug messages if debug logging is enabled.

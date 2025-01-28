@@ -214,7 +214,7 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 	}
 
 	// Get the MD5 hash of the file
-	md5Hash, err := getFileMD5(fs, kdepsPackage, 5)
+	md5Hash, err := GetFileMD5(fs, kdepsPackage, 5)
 	if err != nil {
 		return nil, fmt.Errorf("error calculating MD5: %w", err)
 	}

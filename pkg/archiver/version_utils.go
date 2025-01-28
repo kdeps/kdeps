@@ -35,7 +35,7 @@ func compareVersions(versions []string, logger *logging.Logger) string {
 	return latestVersion
 }
 
-func getLatestVersion(directory string, logger *logging.Logger) (string, error) {
+var GetLatestVersion = func(directory string, logger *logging.Logger) (string, error) {
 	var versions []string
 
 	// Walk through the directory to collect version names
