@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -26,6 +27,7 @@ type DependencyResolver struct {
 	VisitedPaths         map[string]bool
 	Context              context.Context
 	Graph                *graph.DependencyGraph
+	Environment          *environment.Environment
 	Workflow             pklWf.Workflow
 	RequestID            string
 	RequestPklFile       string
@@ -45,10 +47,8 @@ type ResourceNodeEntry struct {
 	File     string `pkl:"file"`
 }
 
-func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment, agentDir string, logger *logging.Logger) (*DependencyResolver, error) {
-	graphID := uuid.New().String()
-
-	var dataDir, actionDir, filesDir, projectDir, pklWfFile, pklWfParentFile string
+func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment, agentDir, actionDir, graphID string, logger *logging.Logger) (*DependencyResolver, error) {
+	var dataDir, filesDir, projectDir, pklWfFile, pklWfParentFile string
 
 	if env.DockerMode == "1" {
 		agentDir = filepath.Join(agentDir, "/workflow/")
@@ -75,13 +75,11 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 			pklWfFile = pklWfParentFile
 			agentDir = filepath.Join(agentDir, "../")
 			projectDir = filepath.Join(agentDir, "/project/")
-			actionDir = filepath.Join(agentDir, "/actions")
 			dataDir = filepath.Join(projectDir, "/data/")
 			filesDir = filepath.Join(actionDir, "/files/")
 		} else {
 			projectDir = filepath.Join(agentDir, "../project/")
 			dataDir = filepath.Join(projectDir, "/data/")
-			actionDir = filepath.Join(agentDir, "../actions")
 			filesDir = filepath.Join(actionDir, "/files/")
 		}
 
@@ -95,8 +93,16 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		// Create directories
 		if err := utils.CreateDirectories(fs, ctx, directories); err != nil {
 			return nil, fmt.Errorf("error creating directory: %w", err)
-		} else {
-			logger.Debug("directories created successfully")
+		}
+
+		// List of files to create
+		files := []string{
+			filepath.Join(actionDir, graphID),
+		}
+
+		// Create stamp file
+		if err := utils.CreateFiles(fs, ctx, files); err != nil {
+			return nil, fmt.Errorf("error creating file: %w", err)
 		}
 	}
 
@@ -110,6 +116,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		Logger:               logger,
 		VisitedPaths:         make(map[string]bool),
 		Context:              ctx,
+		Environment:          env,
 		AgentDir:             agentDir,
 		ActionDir:            actionDir,
 		FilesDir:             filesDir,
@@ -147,11 +154,49 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	//		dr.HandleAPIErrorResponse(500, "Server panic occurred", true)
 	//	}
 	// }()
+	// Construct the path to the file
+	requestFilePath := filepath.Join(dr.ActionDir, dr.RequestID)
+
+	// Check if the file exists
+	if _, err := os.Stat(requestFilePath); os.IsNotExist(err) {
+		// File does not exist, generate a new graphID
+		graphID := uuid.New().String()
+
+		dr.Logger.Info("creating a new graph resolver ID", "requestID", graphID)
+
+		dr.RequestID = graphID
+
+		// List of files to create
+		files := []string{
+			filepath.Join(dr.ActionDir, dr.RequestID),
+		}
+
+		// Create stamp file
+		if err := utils.CreateFiles(dr.Fs, dr.Context, files); err != nil {
+			dr.Logger.Fatal("error creating stamp file for new request", "file", files[0], "err", err)
+		}
+
+		dr.RequestPklFile = filepath.Join(dr.ActionDir, "/api/"+dr.RequestID+"__request.pkl")
+		dr.ResponsePklFile = filepath.Join(dr.ActionDir, "/api/"+dr.RequestID+"__response.pkl")
+		dr.ResponseTargetFile = filepath.Join(dr.ActionDir, "/api/"+dr.RequestID+"__response.json")
+
+		if err := dr.PrepareWorkflowDir(); err != nil {
+			dr.Logger.Fatal("failed to prepare workflow directory", "err", err)
+		}
+
+		if err := dr.PrepareImportFiles(); err != nil {
+			dr.Logger.Fatal("failed to prepare import files", "err", err)
+		}
+	} else if err != nil {
+		// Handle other errors from os.Stat
+		dr.Logger.Fatalf("failed to check if file exists: %v", err)
+	}
 
 	visited := make(map[string]bool)
 	actionID := dr.Workflow.GetTargetActionID()
 	timeoutDuration := 60 * time.Second
 	dr.Logger.Debug("processing resources...")
+
 	if err := dr.LoadResourceEntries(); err != nil {
 		return dr.HandleAPIErrorResponse(500, err.Error(), true)
 	}
@@ -203,6 +248,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 
 						if runBlock.Exec.TimeoutDuration != nil {
 							timeoutDuration = time.Duration(*runBlock.Exec.TimeoutDuration) * time.Second
+							dr.Logger.Infof("Timeout duration for '%s' is set to '%.0f' seconds", res.ActionID, timeoutDuration.Seconds())
 						}
 
 						if err := dr.WaitForTimestampChange(res.ActionID, timestamp, timeoutDuration, "exec"); err != nil {
@@ -225,6 +271,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 
 						if runBlock.Python.TimeoutDuration != nil {
 							timeoutDuration = time.Duration(*runBlock.Python.TimeoutDuration) * time.Second
+							dr.Logger.Infof("Timeout duration for '%s' is set to '%.0f' seconds", res.ActionID, timeoutDuration.Seconds())
 						}
 
 						if err := dr.WaitForTimestampChange(res.ActionID, timestamp, timeoutDuration, "python"); err != nil {
@@ -247,6 +294,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 
 						if runBlock.Chat.TimeoutDuration != nil {
 							timeoutDuration = time.Duration(*runBlock.Chat.TimeoutDuration) * time.Second
+							dr.Logger.Infof("Timeout duration for '%s' is set to '%.0f' seconds", res.ActionID, timeoutDuration.Seconds())
 						}
 
 						if err := dr.WaitForTimestampChange(res.ActionID, timestamp, timeoutDuration, "llm"); err != nil {
@@ -258,21 +306,22 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 					if runBlock.HTTPClient != nil && runBlock.HTTPClient.Method != "" && runBlock.HTTPClient.Url != "" {
 						timestamp, err := dr.GetCurrentTimestamp(res.ActionID, "client")
 						if err != nil {
-							dr.Logger.Error("hTTP client error:", res.ActionID)
+							dr.Logger.Error("HTTP client error:", res.ActionID)
 							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("HTTP client failed for resource: %s - %s", res.ActionID, err), false)
 						}
 
 						if err := dr.HandleHTTPClient(res.ActionID, runBlock.HTTPClient); err != nil {
-							dr.Logger.Error("hTTP client error:", res.ActionID)
+							dr.Logger.Error("HTTP client error:", res.ActionID)
 							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("HTTP client failed for resource: %s - %s", res.ActionID, err), false)
 						}
 
 						if runBlock.HTTPClient.TimeoutDuration != nil {
 							timeoutDuration = time.Duration(*runBlock.HTTPClient.TimeoutDuration) * time.Second
+							dr.Logger.Infof("Timeout duration for '%s' is set to '%.0f' seconds", res.ActionID, timeoutDuration.Seconds())
 						}
 
 						if err := dr.WaitForTimestampChange(res.ActionID, timestamp, timeoutDuration, "client"); err != nil {
-							dr.Logger.Error("hTTP client error:", res.ActionID)
+							dr.Logger.Error("HTTP client error:", res.ActionID)
 							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("HTTP client timeout awaiting for output: %s - %s", res.ActionID, err), false)
 						}
 					}
@@ -286,6 +335,11 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 				}
 			}
 		}
+	}
+
+	if err := dr.Fs.RemoveAll(requestFilePath); err != nil {
+		dr.Logger.Error("failed to delete old requestID file", "file", requestFilePath, "error", err)
+		return false, err
 	}
 
 	dr.Logger.Debug("all resources finished processing")

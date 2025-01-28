@@ -98,6 +98,13 @@ func CreateAndProcessPklFile(
 	}
 	defer tmpFile.Close()
 
+	defer func() {
+		// Cleanup: Remove the temporary directory
+		if removeErr := fs.RemoveAll(tmpDir); removeErr != nil {
+			logger.Warn("failed to clean up temporary directory", "directory", tmpDir, "error", removeErr)
+		}
+	}()
+
 	// Choose "amends" or "extends" based on isExtension
 	relationship := "amends"
 	if isExtension {

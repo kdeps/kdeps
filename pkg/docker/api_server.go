@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/charmbracelet/log"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/evaluator"
@@ -43,7 +42,7 @@ type DecodedResponse struct {
 // StartAPIServerMode initializes and starts an API server based on the provided workflow configuration.
 // It validates the API server configuration, sets up routes, and starts the server on the configured port.
 func StartAPIServerMode(fs afero.Fs, ctx context.Context, wfCfg pklWf.Workflow, environ *environment.Environment,
-	agentDir string, apiServerPath string, logger *logging.Logger,
+	agentDir, apiServerPath, actionDir string, dr *resolver.DependencyResolver, logger *logging.Logger,
 ) error {
 	// Extract workflow settings and validate API server configuration
 	wfSettings := wfCfg.GetSettings()
@@ -58,7 +57,7 @@ func StartAPIServerMode(fs afero.Fs, ctx context.Context, wfCfg pklWf.Workflow, 
 	hostPort := ":" + portNum
 
 	// Set up API routes as per the configuration
-	setupRoutes(fs, ctx, wfAPIServer.Routes, environ, agentDir, apiServerPath, logger)
+	setupRoutes(fs, ctx, wfAPIServer.Routes, environ, agentDir, apiServerPath, actionDir, dr, logger)
 
 	// Start the API server asynchronously
 	logger.Printf("Starting API server on port %s", hostPort)
@@ -74,7 +73,7 @@ func StartAPIServerMode(fs afero.Fs, ctx context.Context, wfCfg pklWf.Workflow, 
 // setupRoutes configures HTTP routes for the API server based on the provided route configuration.
 // Each route is validated before being registered with the HTTP handler.
 func setupRoutes(fs afero.Fs, ctx context.Context, routes []*apiserver.APIServerRoutes, environ *environment.Environment,
-	agentDir string, apiServerPath string, logger *logging.Logger,
+	agentDir, apiServerPath, actionDir string, dr *resolver.DependencyResolver, logger *logging.Logger,
 ) {
 	for _, route := range routes {
 		if route == nil || route.Path == "" {
@@ -82,7 +81,7 @@ func setupRoutes(fs afero.Fs, ctx context.Context, routes []*apiserver.APIServer
 			continue
 		}
 
-		http.HandleFunc(route.Path, APIServerHandler(fs, ctx, route, environ, agentDir, apiServerPath, logger))
+		http.HandleFunc(route.Path, APIServerHandler(fs, ctx, route, environ, agentDir, apiServerPath, actionDir, dr, logger))
 		logger.Printf("Route configured: %s", route.Path)
 	}
 }
@@ -90,14 +89,9 @@ func setupRoutes(fs afero.Fs, ctx context.Context, routes []*apiserver.APIServer
 // APIServerHandler handles incoming HTTP requests for the configured routes.
 // It validates the HTTP method, processes the request data, and triggers workflow actions to generate responses.
 func APIServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServerRoutes, env *environment.Environment,
-	agentDir string, apiServerPath string, logger *logging.Logger,
+	agentDir, apiServerPath, actionDir string, dr *resolver.DependencyResolver, logger *logging.Logger,
 ) http.HandlerFunc {
 	allowedMethods := route.Methods
-
-	dr, err := resolver.NewGraphResolver(fs, ctx, env, agentDir, logger)
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Clean up old response files before handling the request
@@ -307,6 +301,11 @@ filetype = "%s"
 
 		// In certain error cases, Ollama needs to be restarted
 		if fatal {
+			// Cleanup: Remove the temporary directory
+			if removeErr := fs.RemoveAll(dr.ActionDir); removeErr != nil {
+				logger.Warn("failed to clean up temporary directory", "path", dr.ActionDir, "error", removeErr)
+			}
+
 			logger.Fatal("a fatal server error occurred. Restarting the service.")
 
 			// Send SIGTERM to gracefully shut down the server

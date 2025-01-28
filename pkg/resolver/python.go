@@ -166,7 +166,7 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 
 func (dr *DependencyResolver) WritePythonStdoutToFile(resourceID string, pythonStdoutEncoded *string) (string, error) {
 	// Convert resourceID to be filename friendly
-	resourceIDFile := utils.ConvertToFilenameFriendly(resourceID)
+	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
 	// Define the file path using the FilesDir and resource ID
 	outputFilePath := filepath.Join(dr.FilesDir, resourceIDFile)
 

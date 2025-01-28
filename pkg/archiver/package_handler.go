@@ -35,6 +35,12 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temporary directory for package extraction: %s", kdepsPackage)
 	}
+	defer func() {
+		// Cleanup: Remove the temporary directory
+		if removeErr := fs.RemoveAll(tempDir); removeErr != nil {
+			logger.Warn("failed to clean up temporary directory", "path", tempDir, "error", removeErr)
+		}
+	}()
 
 	// Ensure the temporary directory exists
 	err = fs.MkdirAll(tempDir, 0o777)
@@ -42,7 +48,7 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 		return nil, fmt.Errorf("failed to create temporary directory: %w", err)
 	}
 
-	// Open the.kdeps file
+	// Open the .kdeps file
 	file, err := fs.Open(kdepsPackage)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open .kdeps file: %w", err)

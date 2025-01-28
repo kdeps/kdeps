@@ -255,11 +255,11 @@ func (dr *DependencyResolver) EvalPklFormattedResponseFile() (string, error) {
 		return "", fmt.Errorf("failed to check if PKL file exists: %w", err)
 	}
 	if !exists {
-		dr.Logger.Error("pKL file does not exist", "file", dr.ResponsePklFile)
-		return "", fmt.Errorf("pKL file does not exist: %s", dr.ResponsePklFile)
+		dr.Logger.Error("PKL file does not exist", "file", dr.ResponsePklFile)
+		return "", fmt.Errorf("PKL file does not exist: %s", dr.ResponsePklFile)
 	}
 
-	dr.Logger.Debug("pKL file exists, proceeding with validation", "file", dr.ResponsePklFile)
+	dr.Logger.Debug("PKL file exists, proceeding with validation", "file", dr.ResponsePklFile)
 
 	// Validate the file extension
 	if err := dr.validatePklFileExtension(); err != nil {
@@ -275,7 +275,7 @@ func (dr *DependencyResolver) EvalPklFormattedResponseFile() (string, error) {
 
 	// Check if the PKL binary exists
 	if err := evaluator.EnsurePklBinaryExists(dr.Context, dr.Logger); err != nil {
-		dr.Logger.Error("pKL binary not found", "error", err)
+		dr.Logger.Error("PKL binary not found", "error", err)
 		return "", err
 	}
 
@@ -286,7 +286,7 @@ func (dr *DependencyResolver) EvalPklFormattedResponseFile() (string, error) {
 		return "", err
 	}
 
-	dr.Logger.Debug("pKL evaluation successful", "result", result.Stdout)
+	dr.Logger.Debug("PKL evaluation successful", "result", result.Stdout)
 	return result.Stdout, nil
 }
 

@@ -18,6 +18,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/workflow"
 	"github.com/kdeps/schema/gen/kdeps"
@@ -464,7 +465,12 @@ func itWillInstallTheModels(arg1 string) error {
 }
 
 func kdepsWillCheckThePresenceOfTheFile(arg1 string) error {
-	if _, err := BootstrapDockerSystem(testFs, ctx, environ, logger); err != nil {
+	dr, err := resolver.NewGraphResolver(testFs, ctx, environ, "/agent", "/tmp/action", "123", logger)
+	if err != nil {
+		return err
+	}
+
+	if _, err := BootstrapDockerSystem(testFs, ctx, environ, "/tmp/action", dr, logger); err != nil {
 		return err
 	}
 

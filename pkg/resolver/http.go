@@ -136,7 +136,7 @@ func (dr *DependencyResolver) decodeHTTPBlock(httpBlock *pklHTTP.ResourceHTTPCli
 
 func (dr *DependencyResolver) WriteResponseBodyToFile(resourceID string, responseBodyEncoded *string) (string, error) {
 	// Convert resourceID to be filename friendly
-	resourceIDFile := utils.ConvertToFilenameFriendly(resourceID)
+	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
 	// Define the file path using the FilesDir and resource ID
 	outputFilePath := filepath.Join(dr.FilesDir, resourceIDFile)
 
@@ -187,7 +187,7 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, newHTTPClient *
 	var filePath, encodedURL string
 
 	// Convert resourceID to be filename friendly
-	resourceIDFile := utils.ConvertToFilenameFriendly(resourceID)
+	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
 	// Define the file path using the FilesDir and resource ID
 	filePath = filepath.Join(dr.FilesDir, resourceIDFile)
 
