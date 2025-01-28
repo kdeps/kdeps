@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
+	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/cmd"
 	"github.com/kdeps/kdeps/pkg/cfg"
 	"github.com/kdeps/kdeps/pkg/docker"
@@ -37,20 +39,37 @@ func main() {
 	// Setup environment
 	env, err := setupEnvironment(fs)
 	if err != nil {
-		logger.Error("failed to set up environment", "error", err)
-		return
+		logger.Fatalf("failed to set up environment: %v", err)
+	}
+
+	// Get the system's temporary directory (cross-platform)
+	baseTempDir := os.TempDir()
+
+	// Define the desired subdirectory for actions
+	actionDir := filepath.Join(baseTempDir, "action")
+
+	// Ensure the action directory exists (creating it if necessary)
+	if err := fs.MkdirAll(actionDir, 0o777); err != nil {
+		logger.Fatalf("failed to create action directory: %s", err)
 	}
 
 	if env.DockerMode == "1" {
-		handleDockerMode(fs, ctx, env, logger, cancel)
+		graphID := uuid.New().String()
+
+		dr, err := resolver.NewGraphResolver(fs, ctx, env, "/agent", actionDir, graphID, logger)
+		if err != nil {
+			logger.Fatalf("failed to create graph resolver: %v", err)
+		}
+
+		handleDockerMode(fs, ctx, env, actionDir, dr, logger, cancel)
 	} else {
 		handleNonDockerMode(fs, ctx, env, logger)
 	}
 }
 
-func handleDockerMode(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger, cancel context.CancelFunc) {
+func handleDockerMode(fs afero.Fs, ctx context.Context, env *environment.Environment, actionDir string, dr *resolver.DependencyResolver, logger *logging.Logger, cancel context.CancelFunc) {
 	// Initialize Docker system
-	APIServerMode, err := docker.BootstrapDockerSystem(fs, ctx, env, logger)
+	apiServerMode, err := docker.BootstrapDockerSystem(fs, ctx, env, actionDir, dr, logger)
 	if err != nil {
 		logger.Error("error during Docker bootstrap", "error", err)
 		utils.SendSigterm(logger)
@@ -58,11 +77,11 @@ func handleDockerMode(fs afero.Fs, ctx context.Context, env *environment.Environ
 	}
 
 	// Setup graceful shutdown handling
-	setupSignalHandler(fs, ctx, cancel, env, APIServerMode, logger)
+	setupSignalHandler(fs, ctx, cancel, env, apiServerMode, logger)
 
 	// Run workflow or wait for shutdown
-	if !APIServerMode {
-		if err := runGraphResolver(fs, ctx, env, APIServerMode, logger); err != nil {
+	if !apiServerMode {
+		if err := runGraphResolverActions(fs, ctx, env, dr, apiServerMode, logger); err != nil {
 			logger.Error("error running graph resolver", "error", err)
 			utils.SendSigterm(logger)
 			return
@@ -72,7 +91,7 @@ func handleDockerMode(fs afero.Fs, ctx context.Context, env *environment.Environ
 	// Wait for shutdown signal
 	<-ctx.Done()
 	logger.Debug("context canceled, shutting down gracefully...")
-	cleanup(fs, ctx, env, APIServerMode, logger)
+	cleanup(fs, ctx, env, apiServerMode, logger)
 }
 
 func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) {
@@ -155,12 +174,7 @@ func setupSignalHandler(fs afero.Fs, ctx context.Context, cancelFunc context.Can
 }
 
 // runGraphResolver prepares and runs the graph resolver.
-func runGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment, apiServerMode bool, logger *logging.Logger) error {
-	dr, err := resolver.NewGraphResolver(fs, ctx, env, "/agent", logger)
-	if err != nil {
-		return fmt.Errorf("failed to create graph resolver: %w", err)
-	}
-
+func runGraphResolverActions(fs afero.Fs, ctx context.Context, env *environment.Environment, dr *resolver.DependencyResolver, apiServerMode bool, logger *logging.Logger) error {
 	// Prepare workflow directory
 	if err := dr.PrepareWorkflowDir(); err != nil {
 		return fmt.Errorf("failed to prepare workflow directory: %w", err)

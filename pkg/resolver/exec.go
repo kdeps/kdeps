@@ -77,7 +77,7 @@ func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.Res
 
 func (dr *DependencyResolver) WriteStdoutToFile(resourceID string, stdoutEncoded *string) (string, error) {
 	// Convert resourceID to be filename friendly
-	resourceIDFile := utils.ConvertToFilenameFriendly(resourceID)
+	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
 	// Define the file path using the FilesDir and resource ID
 	outputFilePath := filepath.Join(dr.FilesDir, resourceIDFile)
 
@@ -169,7 +169,7 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 	var filePath, encodedStderr, encodedStdout string
 
 	// Convert resourceID to be filename friendly
-	resourceIDFile := utils.ConvertToFilenameFriendly(resourceID)
+	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
 	// Define the file path using the FilesDir and resource ID
 	filePath = filepath.Join(dr.FilesDir, resourceIDFile)
 

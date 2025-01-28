@@ -379,7 +379,7 @@ func iLoadTheWorkflowResources() error {
 	logger := logging.GetLogger()
 	ctx = context.Background()
 
-	dr, err := resolver.NewGraphResolver(testFs, ctx, environ, agentDir, logger)
+	dr, err := resolver.NewGraphResolver(testFs, ctx, environ, agentDir, "/tmp/action", "123", logger)
 	if err != nil {
 		log.Fatal(err)
 	}

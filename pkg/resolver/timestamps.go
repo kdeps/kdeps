@@ -117,10 +117,16 @@ func (dr *DependencyResolver) WaitForTimestampChange(resourceID string, previous
 	startTime := time.Now()
 
 	for {
+		// Log the remaining timeout in microseconds
+		dr.Logger.Infof("Timeout remaining for '%s' is set to '%.0f' microseconds", resourceID, time.Since(startTime).Seconds()*1e6)
+
 		// Check if timeout has been exceeded
 		if timeout > 0 && time.Since(startTime) > timeout {
 			return fmt.Errorf("timeout exceeded while waiting for timestamp change for resource ID %s", resourceID)
 		}
+
+		// Measure iteration time
+		iterationStartTime := time.Now()
 
 		// Reload the PKL file and check the timestamp
 		pklRes, err := dr.loadPKLFile(resourceType, pklPath)
@@ -138,7 +144,10 @@ func (dr *DependencyResolver) WaitForTimestampChange(resourceID string, previous
 			return nil
 		}
 
+		// Log the time taken for this iteration
+		dr.Logger.Debugf("Iteration took %.2f microseconds", time.Since(iterationStartTime).Seconds()*1e6)
+
 		// Sleep before rechecking
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond) // Increased sleep duration
 	}
 }

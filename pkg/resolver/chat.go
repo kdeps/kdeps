@@ -138,7 +138,7 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 
 func (dr *DependencyResolver) WriteResponseToFile(resourceID string, responseEncoded *string) (string, error) {
 	// Convert resourceID to be filename friendly
-	resourceIDFile := utils.ConvertToFilenameFriendly(resourceID)
+	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
 	// Define the file path using the FilesDir and resource ID
 	outputFilePath := filepath.Join(dr.FilesDir, resourceIDFile)
 
@@ -200,7 +200,7 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 	var filePath, encodedResponse string
 
 	// Convert resourceID to be filename friendly
-	resourceIDFile := utils.ConvertToFilenameFriendly(resourceID)
+	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
 	// Define the file path using the FilesDir and resource ID
 	filePath = filepath.Join(dr.FilesDir, resourceIDFile)
 

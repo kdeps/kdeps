@@ -15,15 +15,15 @@ import (
 )
 
 // BootstrapDockerSystem initializes the Docker system and pulls models after ollama server is ready.
-func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environment.Environment, logger *logging.Logger) (bool, error) {
-	var APIServerMode bool
+func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environment.Environment, actionDir string, dr *resolver.DependencyResolver, logger *logging.Logger) (bool, error) {
+	var apiServerMode bool
 
 	if environ.DockerMode == "1" {
 		logger.Debug("inside Docker environment")
 		logger.Debug("initializing Docker system")
 
 		agentDir := "/agent"
-		APIServerPath := filepath.Join(agentDir, "/actions/api")
+		apiServerPath := filepath.Join(actionDir, "/api")
 		agentWorkflow := filepath.Join(agentDir, "workflow/workflow.pkl")
 
 		exists, err := afero.Exists(fs, agentWorkflow)
@@ -32,16 +32,6 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 		}
 
 		if !exists {
-			env, err := environment.NewEnvironment(fs, nil)
-			if err != nil {
-				return false, err
-			}
-
-			dr, err := resolver.NewGraphResolver(fs, ctx, env, "/agent", logger)
-			if err != nil {
-				return false, fmt.Errorf("failed to create graph resolver: %w", err)
-			}
-
 			// Prepare workflow directory
 			if err := dr.PrepareWorkflowDir(); err != nil {
 				return false, fmt.Errorf("failed to prepare workflow directory: %w", err)
@@ -51,13 +41,13 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 		wfCfg, err := workflow.LoadWorkflow(ctx, agentWorkflow, logger)
 		if err != nil {
 			logger.Error("error loading", "workflow", err)
-			return APIServerMode, err
+			return apiServerMode, err
 		}
 
 		// Parse OLLAMA_HOST to get the host and port
 		host, port, err := parseOLLAMAHost(logger)
 		if err != nil {
-			return APIServerMode, err
+			return apiServerMode, err
 		}
 
 		// Start ollama server in the background
@@ -66,12 +56,12 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 		// Wait for ollama server to be fully ready (using the parsed host and port)
 		err = waitForServer(host, port, 60*time.Second, logger)
 		if err != nil {
-			return APIServerMode, err
+			return apiServerMode, err
 		}
 
 		// Once ollama server is ready, proceed with pulling models
 		wfSettings := wfCfg.GetSettings()
-		APIServerMode = wfSettings.APIServerMode
+		apiServerMode = wfSettings.APIServerMode
 
 		dockerSettings := *wfSettings.AgentSettings
 		modelList := dockerSettings.Models
@@ -81,18 +71,18 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 			stdout, stderr, exitCode, err := KdepsExec(ctx, "ollama", []string{"pull", value}, logger)
 			if err != nil {
 				logger.Error("error pulling model: ", value, " stdout: ", stdout, " stderr: ", stderr, " exitCode: ", exitCode, " err: ", err)
-				return APIServerMode, fmt.Errorf("error pulling model %s: %s %s %d %w", value, stdout, stderr, exitCode, err)
+				return apiServerMode, fmt.Errorf("error pulling model %s: %s %s %d %w", value, stdout, stderr, exitCode, err)
 			}
 		}
 
-		if err := fs.MkdirAll(APIServerPath, 0o777); err != nil {
-			return APIServerMode, err
+		if err := fs.MkdirAll(apiServerPath, 0o777); err != nil {
+			return apiServerMode, err
 		}
 
 		errChan := make(chan error, 1) // Channel to capture the error
 
 		go func() {
-			if err := StartAPIServerMode(fs, ctx, wfCfg, environ, agentDir, APIServerPath, logger); err != nil {
+			if err := StartAPIServerMode(fs, ctx, wfCfg, environ, agentDir, apiServerPath, actionDir, dr, logger); err != nil {
 				errChan <- err // Send the error to the channel
 				return
 			}
@@ -103,13 +93,13 @@ func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environmen
 		err = <-errChan
 		if err != nil {
 			// Return the error to the caller
-			return APIServerMode, err
+			return apiServerMode, err
 		}
 	}
 
 	logger.Debug("docker system bootstrap completed.")
 
-	return APIServerMode, nil
+	return apiServerMode, nil
 }
 
 func CreateFlagFile(fs afero.Fs, ctx context.Context, filename string) error {
