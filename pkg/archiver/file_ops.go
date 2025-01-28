@@ -15,277 +15,241 @@ import (
 	"github.com/spf13/afero"
 )
 
-// Move a directory by copying and then deleting the original.
-func MoveFolder(fs afero.Fs, src string, dest string) error {
-	// Walk through the source directory and handle files and directories
+// MoveFolder moves a directory by copying its contents and then deleting the original.
+func MoveFolder(fs afero.Fs, src, dest string) error {
 	err := afero.Walk(fs, src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
-		// Get the relative path from the source directory
 		relPath, err := filepath.Rel(src, path)
 		if err != nil {
 			return err
 		}
 
-		// Construct the destination path
 		destPath := filepath.Join(dest, relPath)
 
-		// Check if the path is a directory
 		if info.IsDir() {
-			// Create the destination directory with the same permissions
 			return fs.MkdirAll(destPath, info.Mode())
 		}
 
-		// If it's a file, copy it to the destination
-		srcFile, err := fs.Open(path)
-		if err != nil {
-			return err
-		}
-		defer srcFile.Close()
-
-		destFile, err := fs.Create(destPath)
-		if err != nil {
-			return err
-		}
-		defer destFile.Close()
-
-		_, err = io.Copy(destFile, srcFile)
-		if err != nil {
+		if err := copyFile(fs, path, destPath); err != nil {
 			return err
 		}
 
-		// Remove the original file
 		return fs.Remove(path)
 	})
 	if err != nil {
 		return err
 	}
 
-	// Remove the source directory after everything is copied
 	return fs.RemoveAll(src)
 }
 
-func getFileMD5(fs afero.Fs, filePath string, length int) (string, error) {
-	// Open the file using afero's filesystem
+// copyFile copies a file from src to dst using the provided filesystem.
+func copyFile(fs afero.Fs, src, dst string) error {
+	srcFile, err := fs.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	destFile, err := fs.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, srcFile)
+	return err
+}
+
+// GetFileMD5 calculates the MD5 hash of a file and returns a truncated version.
+func GetFileMD5(fs afero.Fs, filePath string, length int) (string, error) {
 	file, err := fs.Open(filePath)
 	if err != nil {
 		return "", err
 	}
 	defer file.Close()
 
-	// Create an MD5 hash object
 	hash := md5.New() //nolint:gosec
-
-	// Copy the file content into the hash
 	if _, err := io.Copy(hash, file); err != nil {
 		return "", err
 	}
 
-	// Get the hash sum in bytes and convert to a hexadecimal string
 	hashInBytes := hash.Sum(nil)
 	md5String := hex.EncodeToString(hashInBytes)
 
-	// Return the shortened version of the hash (truncate to 'length')
 	if length > len(md5String) {
 		length = len(md5String)
 	}
 	return md5String[:length], nil
 }
 
-// Move the original file to a new name with MD5 and copy the latest file.
+// CopyFile copies a file from src to dst, handling existing files by creating backups.
 func CopyFile(fs afero.Fs, ctx context.Context, src, dst string, logger *logging.Logger) error {
-	// Check if the destination file exists
-	if _, err := fs.Stat(dst); err == nil {
-		// Calculate MD5 for both source and destination files
-		srcMD5, err := getFileMD5(fs, src, 8)
+	exists, err := afero.Exists(fs, dst)
+	if err != nil {
+		return fmt.Errorf("failed to check destination existence: %w", err)
+	}
+
+	if exists {
+		srcMD5, err := GetFileMD5(fs, src, 8)
 		if err != nil {
 			return fmt.Errorf("failed to calculate MD5 for source file: %w", err)
 		}
 
-		dstMD5, err := getFileMD5(fs, dst, 8)
+		dstMD5, err := GetFileMD5(fs, dst, 8)
 		if err != nil {
 			return fmt.Errorf("failed to calculate MD5 for destination file: %w", err)
 		}
 
-		// If MD5 is the same, skip copying
 		if srcMD5 == dstMD5 {
 			logger.Info("files have the same MD5, skipping copy", "src", src, "dst", dst)
 			return nil
 		}
 
-		// If MD5 is different, move the original destination file to a new name with MD5
-		ext := filepath.Ext(dst)
-		baseName := strings.TrimSuffix(filepath.Base(dst), ext)
-		newName := fmt.Sprintf("%s_%s%s", baseName, dstMD5, ext)
-		backupPath := filepath.Join(filepath.Dir(dst), newName)
-
-		fmt.Println("Moving existing file to:", backupPath)
+		backupPath := getBackupPath(dst, dstMD5)
+		logger.Debug("moving existing file to backup", "backupPath", backupPath)
 		if err := fs.Rename(dst, backupPath); err != nil {
-			return fmt.Errorf("failed to move file to new name: %w", err)
+			return fmt.Errorf("failed to move file to backup: %w", err)
 		}
 	}
 
-	// Open the source file
+	if err := performCopy(fs, src, dst); err != nil {
+		return err
+	}
+
+	if err := setPermissions(fs, src, dst); err != nil {
+		return err
+	}
+
+	logger.Debug("file copied successfully", "from", src, "to", dst)
+	return nil
+}
+
+func getBackupPath(dst, dstMD5 string) string {
+	ext := filepath.Ext(dst)
+	baseName := strings.TrimSuffix(filepath.Base(dst), ext)
+	return filepath.Join(filepath.Dir(dst), fmt.Sprintf("%s_%s%s", baseName, dstMD5, ext))
+}
+
+func performCopy(fs afero.Fs, src, dst string) error {
 	srcFile, err := fs.Open(src)
 	if err != nil {
 		return fmt.Errorf("failed to open source file: %w", err)
 	}
 	defer srcFile.Close()
 
-	// Create the destination file
 	dstFile, err := fs.Create(dst)
 	if err != nil {
 		return fmt.Errorf("failed to create destination file: %w", err)
 	}
 	defer dstFile.Close()
 
-	// Copy the file contents from src to dst
 	if _, err = io.Copy(dstFile, srcFile); err != nil {
 		return fmt.Errorf("failed to copy file contents: %w", err)
 	}
+	return nil
+}
 
-	// Optionally, you can copy the file permissions from the source
+func setPermissions(fs afero.Fs, src, dst string) error {
 	srcInfo, err := fs.Stat(src)
 	if err != nil {
 		return fmt.Errorf("failed to stat source file: %w", err)
 	}
+
 	if err = fs.Chmod(dst, srcInfo.Mode()); err != nil {
 		return fmt.Errorf("failed to change permissions on destination file: %w", err)
 	}
-
-	logger.Debug("file copied successfully:", "from", src, "to", dst)
 	return nil
 }
 
+// CopyDataDir copies data directories, handling workflows and resources.
 func CopyDataDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, projectDir, compiledProjectDir, agentName, agentVersion,
 	agentAction string, processWorkflows bool, logger *logging.Logger,
 ) error {
-	var srcDir, destDir string
-
-	srcDir = filepath.Join(projectDir, "data")
-	destDir = filepath.Join(compiledProjectDir, fmt.Sprintf("data/%s/%s", wf.GetName(), wf.GetVersion()))
+	srcDir := filepath.Join(projectDir, "data")
+	destDir := filepath.Join(compiledProjectDir, fmt.Sprintf("data/%s/%s", wf.GetName(), wf.GetVersion()))
 
 	if processWorkflows {
-		// Helper function to copy resources
-		copyResources := func(ctx context.Context, src, dst string) error {
-			return afero.Walk(fs, src, func(path string, info os.FileInfo, walkErr error) error {
-				if walkErr != nil {
-					logger.Error("error walking source directory", "path", src, "error", walkErr)
-					return walkErr
-				}
-
-				// Determine the relative path for correct directory structure copying
-				relPath, err := filepath.Rel(src, path)
-				if err != nil {
-					logger.Error("failed to get relative path", "path", path, "error", err)
-					return err
-				}
-
-				// Create the full destination path based on the relative path
-				dstPath := filepath.Join(dst, relPath)
-
-				if info.IsDir() {
-					if err := fs.MkdirAll(dstPath, info.Mode()); err != nil {
-						logger.Error("failed to create directory", "path", dstPath, "error", err)
-						return err
-					}
-				} else {
-					if err := CopyFile(fs, ctx, path, dstPath, logger); err != nil {
-						logger.Error("failed to copy file", "src", path, "dst", dstPath, "error", err)
-						return err
-					}
-				}
-				return nil
-			})
-		}
-
-		if agentVersion == "" {
-			agentVersionPath := filepath.Join(kdepsDir, "agents", agentName)
-			exists, err := afero.Exists(fs, agentVersionPath)
-			if err != nil {
-				return err
-			}
-
-			if exists {
-				version, err := getLatestVersion(agentVersionPath, logger)
-				if err != nil {
-					logger.Error("failed to get latest agent version", "agentVersionPath", agentVersionPath, "error", err)
-					return err
-				}
-				agentVersion = version
-			}
-		}
-
-		src := filepath.Join(kdepsDir, "agents", agentName, agentVersion, "resources")
-		dst := filepath.Join(compiledProjectDir, "resources")
-
-		srcDir = filepath.Join(kdepsDir, "agents", agentName, agentVersion, "data", agentName, agentVersion)
-		destDir = filepath.Join(compiledProjectDir, fmt.Sprintf("data/%s/%s", agentName, agentVersion))
-
-		exists, err := afero.Exists(fs, src)
+		newSrcDir, newDestDir, err := ResolveAgentVersionAndCopyResources(fs, ctx, kdepsDir, compiledProjectDir, agentName, agentVersion, logger)
 		if err != nil {
 			return err
 		}
-
-		if exists {
-			if err := copyResources(ctx, src, dst); err != nil {
-				logger.Error("failed to copy resources", "src", src, "dst", dst, "error", err)
-				return err
-			}
-		}
+		srcDir, destDir = newSrcDir, newDestDir
 	}
 
 	if _, err := fs.Stat(srcDir); err != nil {
-		logger.Debug("no data found! Skipping!", "src", srcDir, "err", err)
+		logger.Debug("no data found, skipping", "src", srcDir, "error", err)
 		return nil
 	}
 
-	// Final walk for data directory copying
-	err := afero.Walk(fs, srcDir, func(path string, info os.FileInfo, walkErr error) error {
+	return CopyDir(fs, ctx, srcDir, destDir, logger)
+}
+
+func ResolveAgentVersionAndCopyResources(fs afero.Fs, ctx context.Context, kdepsDir, compiledProjectDir, agentName, agentVersion string, logger *logging.Logger) (string, string, error) {
+	if agentVersion == "" {
+		agentVersionPath := filepath.Join(kdepsDir, "agents", agentName)
+		exists, err := afero.Exists(fs, agentVersionPath)
+		if err != nil {
+			return "", "", err
+		}
+		if exists {
+			version, err := GetLatestVersion(agentVersionPath, logger)
+			if err != nil {
+				logger.Error("failed to get latest agent version", "agentVersionPath", agentVersionPath, "error", err)
+				return "", "", err
+			}
+			agentVersion = version
+		}
+	}
+
+	src := filepath.Join(kdepsDir, "agents", agentName, agentVersion, "resources")
+	dst := filepath.Join(compiledProjectDir, "resources")
+
+	exists, err := afero.Exists(fs, src)
+	if err != nil {
+		return "", "", err
+	}
+	if exists {
+		if err := CopyDir(fs, ctx, src, dst, logger); err != nil {
+			logger.Error("failed to copy resources", "src", src, "dst", dst, "error", err)
+			return "", "", err
+		}
+	}
+
+	newSrcDir := filepath.Join(kdepsDir, "agents", agentName, agentVersion, "data", agentName, agentVersion)
+	newDestDir := filepath.Join(compiledProjectDir, fmt.Sprintf("data/%s/%s", agentName, agentVersion))
+	return newSrcDir, newDestDir, nil
+}
+
+func CopyDir(fs afero.Fs, ctx context.Context, srcDir, destDir string, logger *logging.Logger) error {
+	return afero.Walk(fs, srcDir, func(path string, info os.FileInfo, walkErr error) error {
 		if walkErr != nil {
 			logger.Error("error walking source directory", "path", srcDir, "error", walkErr)
 			return walkErr
 		}
 
-		// Determine the relative path from the source directory
 		relPath, err := filepath.Rel(srcDir, path)
 		if err != nil {
 			logger.Error("failed to get relative path", "path", path, "error", err)
 			return err
 		}
 
-		pathParts := strings.Split(relPath, string(os.PathSeparator))
-		if len(pathParts) >= 2 {
-			// Adjust destDir if agent data already exists from src path
-			destDir = filepath.Join(kdepsDir, "agents", wf.GetName(), wf.GetVersion(), "data")
-		}
-
-		// Create the destination path
 		dstPath := filepath.Join(destDir, relPath)
 
-		// If it's a directory, create the directory in the destination
 		if info.IsDir() {
 			if err := fs.MkdirAll(dstPath, info.Mode()); err != nil {
 				logger.Error("failed to create directory", "path", dstPath, "error", err)
 				return err
 			}
 		} else {
-			// If it's a file, copy the file
 			if err := CopyFile(fs, ctx, path, dstPath, logger); err != nil {
 				logger.Error("failed to copy file", "src", path, "dst", dstPath, "error", err)
 				return err
 			}
 		}
-
 		return nil
 	})
-	if err != nil {
-		logger.Error("error copying directory", "srcDir", srcDir, "destDir", destDir, "error", err)
-		return err
-	}
-
-	logger.Debug("directory copied successfully", "srcDir", srcDir, "destDir", destDir)
-	return nil
 }
