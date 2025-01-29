@@ -15,8 +15,8 @@ import (
 // MockContext implements context.Context.
 type MockContext struct{}
 
-func (mc *MockContext) Deadline() (deadline time.Time, ok bool) {
-	return
+func (mc *MockContext) Deadline() (time.Time, bool) {
+	return time.Now(), false
 }
 
 func (mc *MockContext) Done() <-chan struct{} {
