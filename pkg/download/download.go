@@ -37,7 +37,7 @@ func (wc *WriteCounter) PrintProgress() {
 }
 
 // Given a list of URLs, download it to a target.
-func DownloadFiles(fs afero.Fs, ctx context.Context, downloadDir string, urls []string, logger *logging.Logger) error {
+func DownloadFiles(fs afero.Fs, ctx context.Context, downloadDir string, urls []string, logger *logging.Logger, useLatest bool) error {
 	// Create the downloads directory if it doesn't exist
 	err := os.MkdirAll(downloadDir, 0o755)
 	if err != nil {
@@ -53,7 +53,7 @@ func DownloadFiles(fs afero.Fs, ctx context.Context, downloadDir string, urls []
 		localPath := filepath.Join(downloadDir, fileName)
 
 		// Download the file
-		err := DownloadFile(fs, ctx, url, localPath, logger)
+		err := DownloadFile(fs, ctx, url, localPath, logger, useLatest)
 		if err != nil {
 			logger.Error("failed to download", "url", url, "err", err)
 		} else {
@@ -65,8 +65,8 @@ func DownloadFiles(fs afero.Fs, ctx context.Context, downloadDir string, urls []
 }
 
 // DownloadFile downloads a file from the specified URL and saves it to the given path.
-// It skips the download if the file already exists and is non-empty.
-func DownloadFile(fs afero.Fs, ctx context.Context, url, filePath string, logger *logging.Logger) error {
+// If useLatest is true, it overwrites the destination file regardless of its existence.
+func DownloadFile(fs afero.Fs, ctx context.Context, url, filePath string, logger *logging.Logger, useLatest bool) error {
 	logger.Debug("checking if file exists", "destination", filePath)
 
 	if filePath == "" {
@@ -74,20 +74,23 @@ func DownloadFile(fs afero.Fs, ctx context.Context, url, filePath string, logger
 		return fmt.Errorf("invalid file path: %s", filePath)
 	}
 
-	// Check if the file already exists
-	if exists, err := afero.Exists(fs, filePath); err != nil {
-		logger.Error("error checking file existence", "file-path", filePath, "error", err)
-		return fmt.Errorf("error checking file existence: %w", err)
-	} else if exists {
-		// Check if the file is non-empty
-		info, err := fs.Stat(filePath)
-		if err != nil {
-			logger.Error("failed to stat file", "file-path", filePath, "error", err)
-			return fmt.Errorf("failed to stat file: %w", err)
-		}
-		if info.Size() > 0 {
-			logger.Debug("file already exists and is non-empty, skipping download", "file-path", filePath)
-			return nil
+	// Skip the existence check if useLatest is true
+	if !useLatest {
+		// Check if the file already exists
+		if exists, err := afero.Exists(fs, filePath); err != nil {
+			logger.Error("error checking file existence", "file-path", filePath, "error", err)
+			return fmt.Errorf("error checking file existence: %w", err)
+		} else if exists {
+			// Check if the file is non-empty
+			info, err := fs.Stat(filePath)
+			if err != nil {
+				logger.Error("failed to stat file", "file-path", filePath, "error", err)
+				return fmt.Errorf("failed to stat file: %w", err)
+			}
+			if info.Size() > 0 {
+				logger.Debug("file already exists and is non-empty, skipping download", "file-path", filePath)
+				return nil
+			}
 		}
 	}
 
