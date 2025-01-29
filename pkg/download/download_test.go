@@ -3,6 +3,7 @@ package download
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -16,7 +17,7 @@ import (
 
 var (
 	logger *logging.Logger
-	ctx    context.Context
+	ctx    = context.Background()
 )
 
 func TestWriteCounter_Write(t *testing.T) {
@@ -56,7 +57,9 @@ func TestWriteCounter_PrintProgress(t *testing.T) {
 	// Close the writer and read the output
 	w.Close()
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Error(err)
+	}
 
 	// Check the captured output
 	assert.Equal(t, expectedOutput, buf.String())
@@ -65,27 +68,51 @@ func TestWriteCounter_PrintProgress(t *testing.T) {
 func TestDownloadFile(t *testing.T) {
 	t.Parallel()
 	logger = logging.GetLogger()
+
+	// Channel to capture errors from the HTTP server
+	serverErrChan := make(chan error, 1)
+
 	// Mock a simple HTTP server to simulate file download
 	server := http.Server{
 		Addr: ":8080",
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("Test file content"))
+			if _, err := w.Write([]byte("Test file content")); err != nil {
+				t.Error(err)
+			}
 		}),
 	}
-	go server.ListenAndServe()
-	defer server.Close()
+
+	// Start the server in a goroutine and capture errors
+	go func() {
+		err := server.ListenAndServe()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			serverErrChan <- err
+		}
+		close(serverErrChan)
+	}()
+	defer func() {
+		_ = server.Close() // Ensure the server is closed after the test
+	}()
 
 	// Use afero in-memory filesystem
 	fs := afero.NewMemMapFs()
 
 	// Run the file download
-	err := DownloadFile(fs, ctx, "http://localhost:8080", "/testfile", logger)
+	err := DownloadFile(fs, ctx, "http://localhost:8080", "/testfile", logger, true)
 	require.NoError(t, err)
 
 	// Verify the downloaded content
 	content, err := afero.ReadFile(fs, "/testfile")
 	require.NoError(t, err)
 	assert.Equal(t, "Test file content", string(content))
+
+	// Check for server errors
+	select {
+	case serverErr := <-serverErrChan:
+		require.NoError(t, serverErr, "unexpected error from HTTP server")
+	default:
+		// No errors from the server
+	}
 }
 
 func TestDownloadFile_FileCreationError(t *testing.T) {
@@ -94,17 +121,17 @@ func TestDownloadFile_FileCreationError(t *testing.T) {
 	fs := afero.NewMemMapFs()
 
 	// Invalid file path test case
-	err := DownloadFile(fs, ctx, "http://localhost:8080", "", logger)
-	assert.Error(t, err)
+	err := DownloadFile(fs, ctx, "http://localhost:8080", "", logger, true)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid file path")
 }
 
-func TestDownloadFile_HttpGetError(t *testing.T) {
+func TestDownloadFile_HTTPGetError(t *testing.T) {
 	t.Parallel()
 	logger = logging.GetLogger()
 	fs := afero.NewMemMapFs()
 
 	// Trying to download a file from an invalid URL
-	err := DownloadFile(fs, ctx, "http://invalid-url", "/testfile", logger)
-	assert.Error(t, err)
+	err := DownloadFile(fs, ctx, "http://invalid-url", "/testfile", logger, true)
+	require.Error(t, err)
 }

@@ -17,7 +17,7 @@ func (dr *DependencyResolver) LoadResourceEntries() error {
 	// Walk through the workflowDir to find .pkl files
 	err := afero.Walk(dr.Fs, workflowDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			dr.Logger.Errorf("Error accessing path %s: %v", path, err)
+			dr.Logger.Errorf("error accessing path %s: %v", path, err)
 			return err
 		}
 
@@ -25,7 +25,7 @@ func (dr *DependencyResolver) LoadResourceEntries() error {
 		if !info.IsDir() && filepath.Ext(path) == ".pkl" {
 			// Handle dynamic and placeholder imports
 			if err := dr.handleFileImports(path); err != nil {
-				dr.Logger.Errorf("Error processing imports for file %s: %v", path, err)
+				dr.Logger.Errorf("error processing imports for file %s: %v", path, err)
 				return err
 			}
 
@@ -41,7 +41,7 @@ func (dr *DependencyResolver) LoadResourceEntries() error {
 	// Process all .pkl files found
 	for _, file := range pklFiles {
 		if err := dr.processPklFile(file); err != nil {
-			dr.Logger.Errorf("Error processing .pkl file %s: %v", file, err)
+			dr.Logger.Errorf("error processing .pkl file %s: %v", file, err)
 			return err
 		}
 	}
@@ -74,15 +74,15 @@ func (dr *DependencyResolver) processPklFile(file string) error {
 
 	// Append the resource to the list of resources
 	dr.Resources = append(dr.Resources, ResourceNodeEntry{
-		Id:   pklRes.Id,
-		File: file,
+		ActionID: pklRes.ActionID,
+		File:     file,
 	})
 
 	// Update resource dependencies
 	if pklRes.Requires != nil {
-		dr.ResourceDependencies[pklRes.Id] = *pklRes.Requires
+		dr.ResourceDependencies[pklRes.ActionID] = *pklRes.Requires
 	} else {
-		dr.ResourceDependencies[pklRes.Id] = nil
+		dr.ResourceDependencies[pklRes.ActionID] = nil
 	}
 
 	return nil

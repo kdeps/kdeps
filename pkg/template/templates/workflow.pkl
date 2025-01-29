@@ -14,7 +14,7 @@ version = "1.0.0"
 
 // This section defines the default resource action that will be executed
 // when this API resource is called.
-action = "responseResource"
+targetActionID = "responseResource"
 
 // Specify any external resources to use in this AI Agent.
 // For example, you can refer to another agent with "@agentName".
@@ -24,7 +24,7 @@ settings {
         // When set to false, the agent runs in standalone mode, executing once
         // when the Docker container starts and then stops after all resources
         // have been processed.
-        apiServerMode = true
+        APIServerMode = true
 
         // The API server block contains settings related to the API configuration.
         //
@@ -48,12 +48,12 @@ settings {
         //
         // For example, to use these in your resource, you can define a local variable like this:
         //
-        // local xApiHeader = "@(request.headers["X-API-HEADER"])"
-        // You can then retrieve the value with "@(xApiHeader)".
+        // local xAPIHeader = "@(request.headers["X-API-HEADER"])"
+        // You can then retrieve the value with "@(xAPIHeader)".
         //
         // The "@(...)" syntax enables lazy evaluation, ensuring that values are
         // retrieved only after the result is ready.
-        apiServer {
+        APIServer {
                 // Set the host IP address and port number for the AI Agent.
                 hostIP = "127.0.0.1"
                 portNum = 3000
@@ -118,7 +118,7 @@ settings {
                 }
 
                 // The Ollama image tag version to be used as a base Docker image for this AI agent.
-                ollamaImageTag = "0.5.4"
+                ollamaImageTag = "0.5.7"
 
                 // A mapping of build argument variable names.
                 args {}

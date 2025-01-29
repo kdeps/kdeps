@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/alexellis/go-execute/v2"
@@ -14,9 +13,10 @@ import (
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklPython "github.com/kdeps/schema/gen/python"
 	"github.com/spf13/afero"
+	"github.com/zerjioang/time32"
 )
 
-func (dr *DependencyResolver) HandlePython(actionId string, pythonBlock *pklPython.ResourcePython) error {
+func (dr *DependencyResolver) HandlePython(actionID string, pythonBlock *pklPython.ResourcePython) error {
 	// Decode Script if it is Base64-encoded
 	if utf8.ValidString(pythonBlock.Script) && utils.IsBase64Encoded(pythonBlock.Script) {
 		decodedScript, err := utils.DecodeBase64String(pythonBlock.Script)
@@ -57,19 +57,26 @@ func (dr *DependencyResolver) HandlePython(actionId string, pythonBlock *pklPyth
 		}
 	}
 
-	go func() error {
-		err := dr.processPythonBlock(actionId, pythonBlock)
-		if err != nil {
-			return err
-		}
+	errChan := make(chan error, 1) // Channel to capture the error
 
-		return nil
+	go func() {
+		if err := dr.processPythonBlock(actionID, pythonBlock); err != nil {
+			errChan <- err // Send the error to the channel
+			return
+		}
+		errChan <- nil // Send a nil if no error occurred
 	}()
+
+	// Wait for the result from the goroutine
+	err := <-errChan
+	if err != nil {
+		return err // Return the error to the caller
+	}
 
 	return nil
 }
 
-func (dr *DependencyResolver) processPythonBlock(actionId string, pythonBlock *pklPython.ResourcePython) error {
+func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *pklPython.ResourcePython) error {
 	if dr.AnacondaInstalled {
 		if *pythonBlock.CondaEnvironment != "" {
 			execCommand := execute.ExecTask{
@@ -113,7 +120,7 @@ func (dr *DependencyResolver) processPythonBlock(actionId string, pythonBlock *p
 	}
 
 	// Log the command and environment variables
-	dr.Logger.Info("Running python", "script", tmpFile.Name(), "env", env)
+	dr.Logger.Info("running python", "script", tmpFile.Name(), "env", env)
 
 	// Prepare the execution command
 	cmd := execute.ExecTask{
@@ -135,7 +142,7 @@ func (dr *DependencyResolver) processPythonBlock(actionId string, pythonBlock *p
 	pythonBlock.Stderr = &result.Stderr
 
 	// Append the Python entry
-	if err := dr.AppendPythonEntry(actionId, pythonBlock); err != nil {
+	if err := dr.AppendPythonEntry(actionID, pythonBlock); err != nil {
 		return fmt.Errorf("failed to append Python entry: %w", err)
 	}
 
@@ -157,11 +164,11 @@ func (dr *DependencyResolver) processPythonBlock(actionId string, pythonBlock *p
 	return nil
 }
 
-func (dr *DependencyResolver) WritePythonStdoutToFile(resourceId string, pythonStdoutEncoded *string) (string, error) {
-	// Convert resourceId to be filename friendly
-	resourceIdFile := utils.ConvertToFilenameFriendly(resourceId)
+func (dr *DependencyResolver) WritePythonStdoutToFile(resourceID string, pythonStdoutEncoded *string) (string, error) {
+	// Convert resourceID to be filename friendly
+	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
 	// Define the file path using the FilesDir and resource ID
-	outputFilePath := filepath.Join(dr.FilesDir, resourceIdFile)
+	outputFilePath := filepath.Join(dr.FilesDir, resourceIDFile)
 
 	// Ensure the ResponseBody is not nil
 	if pythonStdoutEncoded != nil {
@@ -171,7 +178,7 @@ func (dr *DependencyResolver) WritePythonStdoutToFile(resourceId string, pythonS
 			// Decode the Base64-encoded ResponseBody string
 			decodedResponseBody, err := utils.DecodeBase64String(*pythonStdoutEncoded)
 			if err != nil {
-				return "", fmt.Errorf("failed to decode Base64 string for resource ID: %s: %w", resourceId, err)
+				return "", fmt.Errorf("failed to decode Base64 string for resource ID: %s: %w", resourceID, err)
 			}
 			content = decodedResponseBody
 		} else {
@@ -182,7 +189,7 @@ func (dr *DependencyResolver) WritePythonStdoutToFile(resourceId string, pythonS
 		// Write the content to the file
 		err := afero.WriteFile(dr.Fs, outputFilePath, []byte(content), 0o644)
 		if err != nil {
-			return "", fmt.Errorf("failed to write Python Stdout to file for resource ID: %s: %w", resourceId, err)
+			return "", fmt.Errorf("failed to write Python Stdout to file for resource ID: %s: %w", resourceID, err)
 		}
 	} else {
 		return "", nil
@@ -191,12 +198,12 @@ func (dr *DependencyResolver) WritePythonStdoutToFile(resourceId string, pythonS
 	return outputFilePath, nil
 }
 
-func (dr *DependencyResolver) AppendPythonEntry(resourceId string, newPython *pklPython.ResourcePython) error {
+func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pklPython.ResourcePython) error {
 	// Define the path to the PKL file
-	pklPath := filepath.Join(dr.ActionDir, "python/"+dr.RequestId+"__python_output.pkl")
+	pklPath := filepath.Join(dr.ActionDir, "python/"+dr.RequestID+"__python_output.pkl")
 
 	// Get the current timestamp
-	newTimestamp := uint32(time.Now().UnixNano())
+	newTimestamp := uint32(time32.Epoch())
 
 	// Load existing PKL data
 	pklRes, err := pklPython.LoadFromPath(dr.Context, pklPath)
@@ -224,7 +231,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceId string, newPython *pk
 	}
 
 	if newPython.Stdout != nil {
-		filePath, err = dr.WritePythonStdoutToFile(resourceId, newPython.Stdout)
+		filePath, err = dr.WritePythonStdoutToFile(resourceID, newPython.Stdout)
 		if err != nil {
 			return fmt.Errorf("failed to write Python stdout to file: %w", err)
 		}
@@ -254,7 +261,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceId string, newPython *pk
 	}
 
 	// Create or update the ResourcePython entry
-	existingResources[resourceId] = &pklPython.ResourcePython{
+	existingResources[resourceID] = &pklPython.ResourcePython{
 		Env:       encodedEnv,
 		Script:    encodedScript,
 		Stderr:    &encodedStderr,
@@ -271,7 +278,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceId string, newPython *pk
 	for id, resource := range existingResources {
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
 		pklContent.WriteString(fmt.Sprintf("    script = \"%s\"\n", resource.Script))
-		pklContent.WriteString(fmt.Sprintf("    timeoutSeconds = %d\n", resource.TimeoutSeconds))
+		pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d\n", resource.TimeoutDuration))
 		pklContent.WriteString(fmt.Sprintf("    timestamp = %d\n", *resource.Timestamp))
 
 		// Write environment variables (if Env is not nil)
@@ -297,7 +304,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceId string, newPython *pk
 			pklContent.WriteString("    stdout = \"\"\n")
 		}
 
-		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", filePath))
+		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *resource.File))
 
 		pklContent.WriteString("  }\n")
 	}

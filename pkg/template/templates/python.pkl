@@ -1,6 +1,6 @@
 {{ .Header }}
 
-id = "pythonResource"
+actionID = "pythonResource"
 name = "Python Resource"
 description = "This resource creates a python script session."
 category = ""
@@ -69,6 +69,6 @@ if __name__ == "__main__":
                         ["ENVVAR"] = "XYZ"  // Example ENVVAR.
                 }
                 // Timeout duration in seconds. This specifies when to terminate the shell exec.
-                timeoutSeconds = 60
+                timeoutDuration = 60
         }
 }

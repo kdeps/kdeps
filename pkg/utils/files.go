@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -11,14 +12,14 @@ import (
 	"github.com/spf13/afero"
 )
 
-func WaitForFileReady(fs afero.Fs, ctx context.Context, filepath string, logger *logging.Logger) error {
-	logger.Debug("Waiting for file to be ready...", "file", filepath)
+func WaitForFileReady(fs afero.Fs, filepath string, logger *logging.Logger) error {
+	logger.Debug("waiting for file to be ready...", "file", filepath)
 
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 
 	// Introduce a timeout
-	timeout := time.After(10 * time.Second)
+	timeout := time.After(1 * time.Second)
 
 	for {
 		select {
@@ -28,24 +29,26 @@ func WaitForFileReady(fs afero.Fs, ctx context.Context, filepath string, logger 
 			if err != nil {
 				return fmt.Errorf("error checking file %s: %w", filepath, err)
 			}
+
 			if exists {
-				logger.Debug("File is ready!", "file", filepath)
+				logger.Debug("file is ready!", "file", filepath)
 				return nil
 			}
+
 		case <-timeout:
 			return fmt.Errorf("timeout waiting for file %s", filepath)
 		}
 	}
 }
 
-// ConvertToFilenameFriendly sanitizes a resource ID string to be filename-friendly.
-func ConvertToFilenameFriendly(input string) string {
+// GenerateResourceIDFilename sanitizes a resource ID string to be filename-friendly.
+func GenerateResourceIDFilename(input string, requestID string) string {
 	// Replace non-filename-friendly characters (@, /, :) with _
 	re := regexp.MustCompile(`[@/:]`)
 	sanitized := re.ReplaceAllString(input, "_")
 
 	// Remove leading "_" if present
-	return strings.TrimPrefix(sanitized, "_")
+	return strings.TrimPrefix(requestID+sanitized, "_")
 }
 
 func CreateDirectories(fs afero.Fs, ctx context.Context, dirs []string) error {
@@ -57,4 +60,31 @@ func CreateDirectories(fs afero.Fs, ctx context.Context, dirs []string) error {
 		}
 	}
 	return nil
+}
+
+func CreateFiles(fs afero.Fs, ctx context.Context, files []string) error {
+	for _, file := range files {
+		// Create the file and any necessary parent directories
+		f, err := fs.Create(file)
+		if err != nil {
+			return fmt.Errorf("failed to create file %s: %w", file, err)
+		}
+
+		// Close the file after creating it to ensure it’s properly written to disk
+		err = f.Close()
+		if err != nil {
+			return fmt.Errorf("failed to close file %s: %w", file, err)
+		}
+	}
+	return nil
+}
+
+// Sanitize archive file pathing from "G305: Zip Slip vulnerability".
+func SanitizeArchivePath(d, t string) (string, error) {
+	v := filepath.Join(d, t)
+	if strings.HasPrefix(v, filepath.Clean(d)) {
+		return v, nil
+	}
+
+	return "", fmt.Errorf("%s: %s", "content filepath is tainted", t)
 }

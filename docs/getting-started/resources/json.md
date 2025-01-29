@@ -5,7 +5,7 @@ outline: deep
 # Working with JSON
 
 Depending on your use case, you can use JSON anywhere in Kdeps. There are primary resources where you can use JSON,
-including the API Response Resource (which requires the `apiServerMode` to be enabled), the HTTP client resource, and
+including the API Response Resource (which requires the `APIServerMode` to be enabled), the HTTP client resource, and
 the LLM resource.
 
 Kdeps includes JSON helpers to parse and generate JSON documents that you can use in your resources.
@@ -43,14 +43,14 @@ clarity. This method allows you to define key-value pairs and incorporate them d
 the process straightforward and efficient.
 
 ```apl
-local jsonResponse = new Mapping {
+local JSONResponse = new Mapping {
     ["currentWeather"] = "@(llm.response("llmWeatherReport"))"
 }
 
 ...
 
 data {
-    jsonResponse
+    JSONResponse
 }
 
 ...
@@ -73,27 +73,27 @@ If you need to preprocess or consume a JSON document prior to a response, Kdeps 
 to create or parse JSON documents.
 
 
-#### Using the `jsonRenderDocument` Function
+#### Using the `JSONRenderDocument` Function
 
-The `document` function `jsonRenderDocument` takes a native PKL object and converts it into JSON. You may want to use
+The `document` function `JSONRenderDocument` takes a native PKL object and converts it into JSON. You may want to use
 this if you have consumers of the JSON object in other resource, then send this back to the api response resource.
 
 For example, if a `local` variable is declared to contain the JSON structure and content in native PKL types, you can
-pass it into the `jsonRenderDocument` function, and it will be converted into a JSON document as a `String`.
+pass it into the `JSONRenderDocument` function, and it will be converted into a JSON document as a `String`.
 
 ```apl
 local localWeather = new Mapping {
     ["currentWeather"] = "@(llm.response("llmWeatherReport"))"
 }
 
-local jsonResponse = """
-@(document.jsonRenderDocument(localWeather))
+local JSONResponse = """
+@(document.JSONRenderDocument(localWeather))
 """
 ```
 
 #### Directly Using a `String`
 
-You can create a JSON document response directly from a string. However, unlike using `jsonRenderDocument`, you are
+You can create a JSON document response directly from a string. However, unlike using `JSONRenderDocument`, you are
 responsible for ensuring that the string is a valid JSON document.
 
 Here’s an example of defining a JSON string:
@@ -110,20 +110,20 @@ This approach is particularly useful when working with static or semi-dynamic JS
 validation to avoid issues with malformed JSON.
 
 To further process the JSON response, you can:
-1. Use `jsonParserMapping` to convert it into a `Mapping` PKL object, which allows you to leverage the `Mapping` API for
+1. Use `JSONParserMapping` to convert it into a `Mapping` PKL object, which allows you to leverage the `Mapping` API for
    interacting with the JSON content.
-2. Use `jsonParser` to convert the string into a `Dynamic` PKL object.
+2. Use `JSONParser` to convert the string into a `Dynamic` PKL object.
 
-After parsing, you can pass the resulting object into `jsonRenderDocument` to produce a valid JSON document as a
+After parsing, you can pass the resulting object into `JSONRenderDocument` to produce a valid JSON document as a
 `String`.
 
 Here’s an example of parsing and re-rendering the JSON:
 
 ```apl
-local parsedJsonMapping = "@(document.jsonParserMapping(localWeather))"
+local parsedJsonMapping = "@(document.JSONParserMapping(localWeather))"
 
 local parsedJsonString = """
-@(document.jsonRenderDocument(parsedJsonMapping))
+@(document.JSONRenderDocument(parsedJsonMapping))
 """
 ```
 
@@ -132,7 +132,7 @@ structure and content.
 
 #### Using a Resource Output `file`
 
-Certain resources, such as the LLM Resource, can directly output JSON using the `jsonResponseKeys` configuration. For
+Certain resources, such as the LLM Resource, can directly output JSON using the `JSONResponseKeys` configuration. For
 other resources, you must ensure that their output is properly formatted as JSON.
 
 To retrieve the execution results, you can use the `file` function, which is available across all resource types. This
@@ -162,8 +162,8 @@ In this example:
 
 #### LLM Structured Output
 
-When `jsonResponse` is enabled, the LLM can produce a structured output in JSON format. To define the keys for the
-structured JSON response, list them in the `jsonResponseKeys` configuration.
+When `JSONResponse` is enabled, the LLM can produce a structured output in JSON format. To define the keys for the
+structured JSON response, list them in the `JSONResponseKeys` configuration.
 
 You can specify the expected data type for each key by including a type hint in the key name. Examples include:
 - `first_name_string` for a string value.
@@ -182,8 +182,8 @@ By combining type hints and prompt optimization, you can ensure the LLM produces
 
 ## Parsing JSON Strings
 
-To parse a JSON string, use the `jsonParser` function. This converts the string into a `Dynamic` PKL
-object. Alternatively, you can use `jsonParserMapping` to output a `Mapping` PKL object.
+To parse a JSON string, use the `JSONParser` function. This converts the string into a `Dynamic` PKL
+object. Alternatively, you can use `JSONParserMapping` to output a `Mapping` PKL object.
 
 Here’s an example:
 
@@ -193,16 +193,16 @@ local localWeatherJson = """
   "currentWeather": "@(llm.response("llmWeatherReport"))"
 }
 """
-local localWeather = "@(jsonParser(localWeatherJson))"
+local localWeather = "@(JSONParser(localWeatherJson))"
 local currentWeather = "@(localWeather?.currentWeather)"
 ```
 
 In this example:
 
-- `jsonParser` processes the `localWeatherJson` string and converts it into a `Dynamic` PKL object.
+- `JSONParser` processes the `localWeatherJson` string and converts it into a `Dynamic` PKL object.
 - The `currentWeather` value is then extracted from the parsed object using `localWeather?.currentWeather`.
 
-Similarly, if you use `jsonParserMapping`, the JSON string is converted into a `Mapping` PKL object, allowing you to
+Similarly, if you use `JSONParserMapping`, the JSON string is converted into a `Mapping` PKL object, allowing you to
 leverage the `Mapping` API for more structured and type-safe access to the data.
 
 Here’s an example:
@@ -213,10 +213,10 @@ local localWeatherJson = """
   "currentWeather": "@(llm.response("llmWeatherReport"))"
 }
 """
-local localWeather = "@(jsonParserMapping(localWeatherJson))"
+local localWeather = "@(JSONParserMapping(localWeatherJson))"
 local currentWeather = "@(localWeather.getOrNull("currentWeather"))"
 ```
 
 In this example:
-- `jsonParserMapping` transforms the `localWeatherJson` string into a `Mapping` PKL object.
+- `JSONParserMapping` transforms the `localWeatherJson` string into a `Mapping` PKL object.
 - The `Mapping` API's `getOrNull` method is used to access the `currentWeather` value.

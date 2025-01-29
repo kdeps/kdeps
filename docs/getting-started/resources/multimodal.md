@@ -25,12 +25,12 @@ To interact with a model, you'll need to provide a prompt and a file. Below is a
 utilizes the `llama3.2-vision` model with a file uploaded via the API:
 
 ```apl
-id = "llamaVision"
+actionID = "llamaVision"
 chat {
   model = "llama3.2-vision"
   prompt = "Describe this image"
-  jsonResponse = true
-  jsonResponseKeys = {
+  JSONResponse = true
+  JSONResponseKeys = {
     "description_text"
     "style_text"
     "category_text"
@@ -47,11 +47,11 @@ Once the image is processed, you can leverage its output in your resources. For 
 
 ```apl
 local jsonPath = "@(llm.file("llamaVision"))"
-local jsonData = "@(read?("\(jsonPath)")?.text)"
+local JSONData = "@(read?("\(jsonPath)")?.text)"
 
-local imageDescription = "@(document.jsonParser(jsonData)?.description_text)"
-local imageStyle = "@(document.jsonParser(jsonData)?.style_text)"
-local imageCategory = "@(document.jsonParser(jsonData)?.category_text)"
+local imageDescription = "@(document.JSONParser(JSONData)?.description_text)"
+local imageStyle = "@(document.JSONParser(JSONData)?.style_text)"
+local imageCategory = "@(document.JSONParser(JSONData)?.category_text)"
 ```
 
 This example demonstrates how to extract key details like description, style, and category from the processed image data

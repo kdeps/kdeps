@@ -69,17 +69,17 @@ comprehensive details, see the [`Workflow`](../configuration/workflow.md) docume
 
 ### Default Action
 
-The `workflow.pkl` file defines the workflow and settings for your AI agent. Within this file, you’ll find the `action`
+The `workflow.pkl` file defines the workflow and settings for your AI agent. Within this file, you’ll find the `targetActionID`
 configuration:
 
 ```apl
-action = "responseResource"
+targetActionID = "responseResource"
 ```
 
 Here, `responseResource` refers to the ID of the target resource file, located in `resources/response.pkl`:
 
 ```apl
-id = "responseResource"
+actionID = "responseResource"
 ```
 
 This resource will be executed as the default action whenever the AI agent runs.
@@ -90,8 +90,8 @@ The `workflow.pkl` file allows you to configure the AI agent to operate in API m
 configuration:
 
 ```apl
-apiServerMode = true
-apiServer {
+APIServerMode = true
+APIServer {
 ...
     portNum = 3000
     routes {
@@ -116,7 +116,7 @@ With these settings, you can interact with the API using `curl` or similar tools
 curl 'http://localhost:3000/api/v1/whois' -X GET
 ```
 
-If you set `apiServerMode` to `false`, the AI agent will bypass the API server and directly execute the default action,
+If you set `APIServerMode` to `false`, the AI agent will bypass the API server and directly execute the default action,
 exiting upon completion.
 
 ### LLM Models
@@ -180,7 +180,7 @@ Dependency](../resources/kartographer.md) documentation.
 Within the `resources/response.pkl`, you'll find the following structure:
 
 ```apl
-apiResponse {
+APIResponse {
     success = true
     response {
         data {
@@ -199,7 +199,7 @@ apiResponse {
 }
 ```
 
-The `apiResponse` directive is the structure that will be converted into a JSON response.
+The `APIResponse` directive is the structure that will be converted into a JSON response.
 
 The resulting JSON will generally look like this:
 
@@ -263,8 +263,8 @@ depend on other resource in order to function.
 chat {
     model = "llama3.1"
     prompt = "Who is @(request.data())?"
-    jsonResponse = true
-    jsonResponseKeys {
+    JSONResponse = true
+    JSONResponseKeys {
         "first_name"
         "last_name"
         "parents"
@@ -291,7 +291,7 @@ to the route configuration, the `curl` command can send request data using the `
 curl 'http://localhost:3000/api/v1/whois' -X GET -d "Neil Armstrong"
 ```
 
-Additionally, we have set `jsonResponse` to `true`, enabling the use of `jsonResponseKeys`. To ensure the output
+Additionally, we have set `JSONResponse` to `true`, enabling the use of `JSONResponseKeys`. To ensure the output
 conforms to specific data types, you can define the keys with their corresponding types. For example:
 `first_name__string`, `famous_quotes__array`, `details__markdown`, or `age__integer`.
 

@@ -18,6 +18,8 @@ import (
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/resolver"
+	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/workflow"
 	"github.com/kdeps/schema/gen/kdeps"
 	wfPkl "github.com/kdeps/schema/gen/workflow"
@@ -30,7 +32,7 @@ var (
 	homeDirPath               string
 	kdepsDir                  string
 	agentDir                  string
-	apiServerMode             bool
+	APIServerMode             bool
 	ctx                       context.Context
 	packageFile               string
 	hostPort                  string
@@ -95,17 +97,17 @@ func aSystemConfigurationFile(arg1, arg2, arg3, arg4 string) error {
 		DockerMode:     "1",
 	}
 
-	environ, err := environment.NewEnvironment(testFs, ctx, env)
+	environ, err := environment.NewEnvironment(testFs, env)
 	if err != nil {
 		return err
 	}
 
 	systemConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.41#/Kdeps.pkl"
+amends "package://schema.kdeps.com/core@%s#/Kdeps.pkl"
 
 runMode = "%s"
 dockerGPU = "%s"
-`, arg3, arg2)
+`, schema.SchemaVersion(ctx), arg3, arg2)
 
 	var filePath string
 
@@ -178,19 +180,19 @@ packages {
 	}
 
 	workflowConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.41#/Workflow.pkl"
+amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
 name = "%s"
 description = "AI Agent X"
-action = "%s"
+targetActionID = "%s"
 settings {
-  apiServerMode = false
+  APIServerMode = false
   agentSettings {
     %s
     %s
   }
 }
-`, arg1, arg1, pkgSection, modelSection)
+`, schema.SchemaVersion(ctx), arg1, arg1, pkgSection, modelSection)
 
 	var filePath string
 
@@ -218,11 +220,11 @@ settings {
 	}
 
 	resourceConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.41#/Resource.pkl"
+amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-id = "%s"
+actionID = "%s"
 description = "An action from agent %s"
-	`, arg1, arg1)
+	`, schema.SchemaVersion(ctx), arg1, arg1)
 
 	resourceConfigurationFile := filepath.Join(resourcesDir, arg1+".pkl")
 	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0o644)
@@ -242,7 +244,9 @@ description = "An action from agent %s"
 		file := filepath.Join(dataDir, fmt.Sprintf("textfile-%s.txt", num))
 
 		f, _ := testFs.Create(file)
-		f.WriteString(doc + num)
+		if _, err := f.WriteString(doc + num); err != nil {
+			return err
+		}
 		f.Close()
 	}
 
@@ -321,7 +325,7 @@ func itShouldCreateTheDockerfile(arg1, arg2, arg3 string) error {
 	runDir = rd
 	hostPort = hPort
 	hostIP = hIP
-	apiServerMode = asm
+	APIServerMode = asm
 	gpuType = gpu
 
 	dockerfile := filepath.Join(runDir, "Dockerfile")
@@ -389,7 +393,7 @@ func itShouldRunTheContainerBuildStepFor(arg1 string) error {
 }
 
 func itShouldStartTheContainer(arg1 string) error {
-	if _, err := CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, gpuType, apiServerMode, cli); err != nil {
+	if _, err := CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, gpuType, APIServerMode, cli); err != nil {
 		return err
 	}
 
@@ -461,7 +465,12 @@ func itWillInstallTheModels(arg1 string) error {
 }
 
 func kdepsWillCheckThePresenceOfTheFile(arg1 string) error {
-	if _, err := BootstrapDockerSystem(testFs, ctx, environ, logger); err != nil {
+	dr, err := resolver.NewGraphResolver(testFs, ctx, environ, "/agent", "/tmp/action", "123", logger)
+	if err != nil {
+		return err
+	}
+
+	if _, err := BootstrapDockerSystem(testFs, ctx, environ, "/tmp/action", dr, logger); err != nil {
 		return err
 	}
 
