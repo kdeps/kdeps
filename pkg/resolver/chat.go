@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/gabriel-vasile/mimetype"
@@ -17,9 +16,10 @@ import (
 	"github.com/spf13/afero"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/ollama"
+	"github.com/zerjioang/time32"
 )
 
-func (dr *DependencyResolver) HandleLLMChat(actionId string, chatBlock *pklLLM.ResourceChat) error {
+func (dr *DependencyResolver) HandleLLMChat(actionID string, chatBlock *pklLLM.ResourceChat) error {
 	// Decode Prompt if it is Base64-encoded
 	if utf8.ValidString(chatBlock.Prompt) && utils.IsBase64Encoded(chatBlock.Prompt) {
 		decodedPrompt, err := utils.DecodeBase64String(chatBlock.Prompt)
@@ -28,26 +28,26 @@ func (dr *DependencyResolver) HandleLLMChat(actionId string, chatBlock *pklLLM.R
 		}
 	}
 
-	// Decode the jsonResponseKeys field if it exists
-	if chatBlock.JsonResponseKeys != nil {
-		decodedJsonResponseKeys := make([]string, len(*chatBlock.JsonResponseKeys))
-		for i, v := range *chatBlock.JsonResponseKeys {
+	// Decode the JSONResponseKeys field if it exists
+	if chatBlock.JSONResponseKeys != nil {
+		decodedJSONResponseKeys := make([]string, len(*chatBlock.JSONResponseKeys))
+		for i, v := range *chatBlock.JSONResponseKeys {
 			// Check if the key value is Base64 encoded
 			if utils.IsBase64Encoded(v) {
 				decodedValue, err := utils.DecodeBase64String(v)
 				if err != nil {
 					return fmt.Errorf("failed to decode response key at index %d: %w", i, err)
 				}
-				decodedJsonResponseKeys[i] = decodedValue
+				decodedJSONResponseKeys[i] = decodedValue
 			} else {
 				// If not Base64 encoded, leave the value as it is
-				decodedJsonResponseKeys[i] = v
+				decodedJSONResponseKeys[i] = v
 			}
 		}
-		chatBlock.JsonResponseKeys = &decodedJsonResponseKeys
+		chatBlock.JSONResponseKeys = &decodedJSONResponseKeys
 	}
 
-	err := dr.processLLMChat(actionId, chatBlock)
+	err := dr.processLLMChat(actionID, chatBlock)
 	if err != nil {
 		return err
 	}
@@ -55,7 +55,7 @@ func (dr *DependencyResolver) HandleLLMChat(actionId string, chatBlock *pklLLM.R
 	return nil
 }
 
-func (dr *DependencyResolver) processLLMChat(actionId string, chatBlock *pklLLM.ResourceChat) error {
+func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.ResourceChat) error {
 	var completion string
 
 	llm, err := ollama.New(ollama.WithModel(chatBlock.Model))
@@ -63,14 +63,14 @@ func (dr *DependencyResolver) processLLMChat(actionId string, chatBlock *pklLLM.
 		return err
 	}
 
-	if chatBlock.JsonResponse != nil && *chatBlock.JsonResponse {
+	if chatBlock.JSONResponse != nil && *chatBlock.JSONResponse {
 		// Base system prompt asking for JSON format response
 		systemPrompt := "Respond in JSON format."
 
-		// Check if there are JsonResponseKeys to include in the prompt
-		if chatBlock.JsonResponseKeys != nil && len(*chatBlock.JsonResponseKeys) > 0 {
+		// Check if there are JSONResponseKeys to include in the prompt
+		if chatBlock.JSONResponseKeys != nil && len(*chatBlock.JSONResponseKeys) > 0 {
 			// Join the keys and append to the prompt
-			additionalKeys := strings.Join(*chatBlock.JsonResponseKeys, "`, `")
+			additionalKeys := strings.Join(*chatBlock.JSONResponseKeys, "`, `")
 			systemPrompt = fmt.Sprintf("Respond in JSON format, include `%s` in response keys.", additionalKeys)
 		}
 
@@ -116,7 +116,7 @@ func (dr *DependencyResolver) processLLMChat(actionId string, chatBlock *pklLLM.
 
 		choices := response.Choices
 		if len(choices) < 1 {
-			return errors.New("Empty response from model")
+			return errors.New("empty response from model")
 		}
 
 		completion = choices[0].Content
@@ -129,18 +129,18 @@ func (dr *DependencyResolver) processLLMChat(actionId string, chatBlock *pklLLM.
 
 	chatBlock.Response = &completion
 
-	if err := dr.AppendChatEntry(actionId, chatBlock); err != nil {
+	if err := dr.AppendChatEntry(actionID, chatBlock); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (dr *DependencyResolver) WriteResponseToFile(resourceId string, responseEncoded *string) (string, error) {
-	// Convert resourceId to be filename friendly
-	resourceIdFile := utils.ConvertToFilenameFriendly(resourceId)
+func (dr *DependencyResolver) WriteResponseToFile(resourceID string, responseEncoded *string) (string, error) {
+	// Convert resourceID to be filename friendly
+	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
 	// Define the file path using the FilesDir and resource ID
-	outputFilePath := filepath.Join(dr.FilesDir, resourceIdFile)
+	outputFilePath := filepath.Join(dr.FilesDir, resourceIDFile)
 
 	// Ensure the Response is not nil
 	if responseEncoded != nil {
@@ -150,7 +150,7 @@ func (dr *DependencyResolver) WriteResponseToFile(resourceId string, responseEnc
 			// Decode the Base64-encoded Response string
 			decodedResponse, err := utils.DecodeBase64String(*responseEncoded)
 			if err != nil {
-				return "", fmt.Errorf("failed to decode Base64 string for resource ID: %s: %w", resourceId, err)
+				return "", fmt.Errorf("failed to decode Base64 string for resource ID: %s: %w", resourceID, err)
 			}
 			content = decodedResponse
 		} else {
@@ -161,7 +161,7 @@ func (dr *DependencyResolver) WriteResponseToFile(resourceId string, responseEnc
 		// Write the content to the file
 		err := afero.WriteFile(dr.Fs, outputFilePath, []byte(content), 0o644)
 		if err != nil {
-			return "", fmt.Errorf("failed to write Response to file for resource ID: %s: %w", resourceId, err)
+			return "", fmt.Errorf("failed to write Response to file for resource ID: %s: %w", resourceID, err)
 		}
 	} else {
 		return "", nil
@@ -170,12 +170,12 @@ func (dr *DependencyResolver) WriteResponseToFile(resourceId string, responseEnc
 	return outputFilePath, nil
 }
 
-func (dr *DependencyResolver) AppendChatEntry(resourceId string, newChat *pklLLM.ResourceChat) error {
+func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM.ResourceChat) error {
 	// Define the path to the PKL file
-	pklPath := filepath.Join(dr.ActionDir, "llm/"+dr.RequestId+"__llm_output.pkl")
+	pklPath := filepath.Join(dr.ActionDir, "llm/"+dr.RequestID+"__llm_output.pkl")
 
 	// Get the current timestamp
-	newTimestamp := uint32(time.Now().UnixNano())
+	newTimestamp := uint32(time32.Epoch())
 
 	// Load existing PKL data
 	pklRes, err := pklLLM.LoadFromPath(dr.Context, pklPath)
@@ -198,8 +198,14 @@ func (dr *DependencyResolver) AppendChatEntry(resourceId string, newChat *pklLLM
 	}
 
 	var filePath, encodedResponse string
+
+	// Convert resourceID to be filename friendly
+	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
+	// Define the file path using the FilesDir and resource ID
+	filePath = filepath.Join(dr.FilesDir, resourceIDFile)
+
 	if newChat.Response != nil {
-		filePath, err = dr.WriteResponseToFile(resourceId, newChat.Response)
+		_, err = dr.WriteResponseToFile(resourceID, newChat.Response)
 		if err != nil {
 			return fmt.Errorf("failed to write Response to file: %w", err)
 		}
@@ -213,7 +219,7 @@ func (dr *DependencyResolver) AppendChatEntry(resourceId string, newChat *pklLLM
 	}
 
 	// Create or update the ResourceChat entry
-	existingResources[resourceId] = &pklLLM.ResourceChat{
+	existingResources[resourceID] = &pklLLM.ResourceChat{
 		Model:     encodedModel,
 		Prompt:    encodedPrompt,
 		Response:  &encodedResponse,
@@ -231,13 +237,13 @@ func (dr *DependencyResolver) AppendChatEntry(resourceId string, newChat *pklLLM
 		pklContent.WriteString(fmt.Sprintf("    model = \"%s\"\n", resource.Model))
 		pklContent.WriteString(fmt.Sprintf("    prompt = \"%s\"\n", resource.Prompt))
 
-		if resource.JsonResponse != nil {
-			pklContent.WriteString(fmt.Sprintf("    jsonResponse = %t\n", *resource.JsonResponse))
+		if resource.JSONResponse != nil {
+			pklContent.WriteString(fmt.Sprintf("    JSONResponse = %t\n", *resource.JSONResponse))
 		}
 
-		if resource.JsonResponseKeys != nil {
-			pklContent.WriteString("    jsonResponseKeys {\n")
-			for _, value := range *resource.JsonResponseKeys {
+		if resource.JSONResponseKeys != nil {
+			pklContent.WriteString("    JSONResponseKeys {\n")
+			for _, value := range *resource.JSONResponseKeys {
 				var encodedData string
 				if utils.IsBase64Encoded(value) {
 					encodedData = value // Use as it is if already Base64 encoded
@@ -248,10 +254,10 @@ func (dr *DependencyResolver) AppendChatEntry(resourceId string, newChat *pklLLM
 			}
 			pklContent.WriteString("    }\n")
 		} else {
-			pklContent.WriteString("    jsonResponseKeys {\"\"}\n")
+			pklContent.WriteString("    JSONResponseKeys {\"\"}\n")
 		}
 
-		pklContent.WriteString(fmt.Sprintf("    timeoutSeconds = %d\n", resource.TimeoutSeconds))
+		pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d\n", resource.TimeoutDuration))
 		pklContent.WriteString(fmt.Sprintf("    timestamp = %d\n", *resource.Timestamp))
 
 		// Dereference response to pass it correctly
@@ -261,7 +267,7 @@ func (dr *DependencyResolver) AppendChatEntry(resourceId string, newChat *pklLLM
 			pklContent.WriteString("    response = \"\"\n")
 		}
 
-		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", filePath))
+		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *resource.File))
 
 		pklContent.WriteString("  }\n")
 	}

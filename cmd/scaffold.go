@@ -22,7 +22,7 @@ func NewScaffoldCommand(fs afero.Fs, ctx context.Context, logger *logging.Logger
 
 			for _, fileName := range fileNames {
 				if err := template.GenerateSpecificAgentFile(fs, ctx, logger, agentName, fileName); err != nil {
-					logger.Error("Error scaffolding file:", err)
+					logger.Error("error scaffolding file:", err)
 					fmt.Println("Error:", err)
 				} else {
 					fmt.Printf("Successfully scaffolded file: %s\n", fileName)

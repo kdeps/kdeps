@@ -14,14 +14,14 @@ import (
 )
 
 // AppendDataEntry appends a data entry to the existing files map.
-func (dr *DependencyResolver) AppendDataEntry(resourceId string, newData *pklData.DataImpl) error {
+func (dr *DependencyResolver) AppendDataEntry(resourceID string, newData *pklData.DataImpl) error {
 	// Ensure dr.Context is not nil
 	if dr.Context == nil {
 		return errors.New("context is nil")
 	}
 
 	// Define the path to the PKL file
-	pklPath := filepath.Join(dr.ActionDir, "data/"+dr.RequestId+"__data_output.pkl")
+	pklPath := filepath.Join(dr.ActionDir, "data/"+dr.RequestID+"__data_output.pkl")
 
 	// Load existing PKL data
 	pklRes, err := pklData.LoadFromPath(dr.Context, pklPath)
@@ -31,7 +31,7 @@ func (dr *DependencyResolver) AppendDataEntry(resourceId string, newData *pklDat
 
 	// Safeguard against nil pointers
 	if pklRes == nil || pklRes.GetFiles() == nil {
-		return errors.New("PKL data or files map is nil")
+		return errors.New("the PKL data or files map is nil")
 	}
 
 	// Get the existing files map

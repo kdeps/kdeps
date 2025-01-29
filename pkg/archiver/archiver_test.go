@@ -15,6 +15,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resource"
+	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/workflow"
 	"github.com/kr/pretty"
 	"github.com/spf13/afero"
@@ -53,20 +54,20 @@ func TestFeatures(t *testing.T) {
 			ctx.Step(`^the project is invalid$`, theProjectIsInvalid)
 			ctx.Step(`^the project will not be archived to "([^"]*)"$`, theProjectWillNotBeArchivedTo)
 
-			ctx.Step(`^it has a "([^"]*)" file with id property "([^"]*)" and dependent on "([^"]*)"$`, itHasAFileWithIdPropertyAndDependentOn)
-			ctx.Step(`^it has a "([^"]*)" file with no dependency with id property "([^"]*)"$`, itHasAFileWithNoDependencyWithIdProperty)
+			ctx.Step(`^it has a "([^"]*)" file with id property "([^"]*)" and dependent on "([^"]*)"$`, itHasAFileWithIDPropertyAndDependentOn)
+			ctx.Step(`^it has a "([^"]*)" file with no dependency with id property "([^"]*)"$`, itHasAFileWithNoDependencyWithIDProperty)
 			ctx.Step(`^it will be stored to "([^"]*)"$`, itWillBeStoredTo)
 			ctx.Step(`^the project is compiled$`, theProjectIsCompiled)
-			ctx.Step(`^the resource id for "([^"]*)" will be "([^"]*)" and dependency "([^"]*)"$`, theResourceIdForWillBeAndDependency)
-			ctx.Step(`^the resource id for "([^"]*)" will be rewritten to "([^"]*)"$`, theResourceIdForWillBeRewrittenTo)
+			ctx.Step(`^the resource id for "([^"]*)" will be "([^"]*)" and dependency "([^"]*)"$`, theResourceIDForWillBeAndDependency)
+			ctx.Step(`^the resource id for "([^"]*)" will be rewritten to "([^"]*)"$`, theResourceIDForWillBeRewrittenTo)
 			ctx.Step(`^the workflow action configuration will be rewritten to "([^"]*)"$`, theWorkflowActionConfigurationWillBeRewrittenTo)
 			ctx.Step(`^the resources and data folder exists$`, theResourcesAndDataFolderExists)
 			ctx.Step(`^the data files will be copied to "([^"]*)"$`, theDataFilesWillBeCopiedTo)
 			ctx.Step(`^the package file "([^"]*)" will be created$`, thePackageFileWillBeCreated)
 			ctx.Step(`^it has a workflow file that has name property "([^"]*)" and version property "([^"]*)" and default action "([^"]*)" and workspaces "([^"]*)"$`, itHasAWorkflowFileDependencies)
 			ctx.Step(`^the resource file "([^"]*)" exists in the "([^"]*)" agent "([^"]*)"$`, theResourceFileExistsInTheAgent)
-			ctx.Step(`^it has a "([^"]*)" file with id property "([^"]*)" and dependent on "([^"]*)" with run block "([^"]*)" and is not null$`, itHasAFileWithIdPropertyAndDependentOnWithRunBlockAndIsNotNull)
-			ctx.Step(`^it has a "([^"]*)" file with id property "([^"]*)" and dependent on "([^"]*)" with run block "([^"]*)" and is null$`, itHasAFileWithIdPropertyAndDependentOnWithRunBlockAndIsNull)
+			ctx.Step(`^it has a "([^"]*)" file with id property "([^"]*)" and dependent on "([^"]*)" with run block "([^"]*)" and is not null$`, itHasAFileWithIDPropertyAndDependentOnWithRunBlockAndIsNotNull)
+			ctx.Step(`^it has a "([^"]*)" file with id property "([^"]*)" and dependent on "([^"]*)" with run block "([^"]*)" and is null$`, itHasAFileWithIDPropertyAndDependentOnWithRunBlockAndIsNull)
 		},
 		Options: &godog.Options{
 			Format:   "pretty",
@@ -128,7 +129,7 @@ func anAiAgentOnFolder(arg1 string) error {
 	return nil
 }
 
-func itHasAFileWithIdPropertyAndDependentOn(arg1, arg2, arg3 string) error {
+func itHasAFileWithIDPropertyAndDependentOn(arg1, arg2, arg3 string) error {
 	// Check if arg3 is a CSV (contains commas)
 	var requiresSection string
 	if strings.Contains(arg3, ",") {
@@ -149,9 +150,9 @@ func itHasAFileWithIdPropertyAndDependentOn(arg1, arg2, arg3 string) error {
 
 	// Create the document with the id and requires block
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.48#/Resource.pkl"
+amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-id = "%s"
+actionID = "%s"
 %s
 run {
   exec {
@@ -164,13 +165,16 @@ run {
 """
   }
 }
-`, arg2, requiresSection)
+`, schema.SchemaVersion(ctx), arg2, requiresSection)
 
 	// Write to the file
 	file := filepath.Join(resourcesDir, arg1)
 
 	f, _ := testFs.Create(file)
-	f.WriteString(doc)
+	if _, err := f.WriteString(doc); err != nil {
+		return err
+	}
+
 	f.Close()
 
 	resourceFile = file
@@ -207,15 +211,15 @@ func theProjectIsCompiled() error {
 	return nil
 }
 
-func theResourceIdForWillBeAndDependency(arg1, arg2, arg3 string) error {
+func theResourceIDForWillBeAndDependency(arg1, arg2, arg3 string) error {
 	resFile := filepath.Join(projectDir, "resources/"+arg1)
 	if _, err := testFs.Stat(resFile); err == nil {
 		res, err := resource.LoadResource(ctx, resFile, logger)
 		if err != nil {
 			return err
 		}
-		if res.Id != arg2 {
-			return errors.New("Should be equal!")
+		if res.ActionID != arg2 {
+			return errors.New("should be equal!")
 		}
 		found := false
 		for _, v := range *res.Requires {
@@ -226,14 +230,14 @@ func theResourceIdForWillBeAndDependency(arg1, arg2, arg3 string) error {
 		}
 
 		if !found {
-			return errors.New("Require found!")
+			return errors.New("require found!")
 		}
 	}
 
 	return nil
 }
 
-func theResourceIdForWillBeRewrittenTo(arg1, arg2 string) error {
+func theResourceIDForWillBeRewrittenTo(arg1, arg2 string) error {
 	resFile := filepath.Join(projectDir, "resources/"+arg1)
 	if _, err := testFs.Stat(resFile); err == nil {
 		res, err := resource.LoadResource(ctx, resFile, logger)
@@ -241,8 +245,8 @@ func theResourceIdForWillBeRewrittenTo(arg1, arg2 string) error {
 			return err
 		}
 
-		if res.Id != arg2 {
-			return errors.New("Should be equal!")
+		if res.ActionID != arg2 {
+			return errors.New("should be equal!")
 		}
 	}
 
@@ -255,8 +259,8 @@ func theWorkflowActionConfigurationWillBeRewrittenTo(arg1 string) error {
 		return err
 	}
 
-	if wf.GetAction() != arg1 {
-		return fmt.Errorf("%s = %s does not match!", wf.GetAction(), arg1)
+	if wf.GetTargetActionID() != arg1 {
+		return fmt.Errorf("%s = %s does not match!", wf.GetTargetActionID(), arg1)
 	}
 
 	return nil
@@ -276,11 +280,11 @@ func theResourcesAndDataFolderExists() error {
 	return nil
 }
 
-func itHasAFileWithNoDependencyWithIdProperty(arg1, arg2 string) error {
+func itHasAFileWithNoDependencyWithIDProperty(arg1, arg2 string) error {
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.48#/Resource.pkl"
+amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-id = "%s"
+actionID = "%s"
 run {
   exec {
   ["key"] = """
@@ -292,12 +296,14 @@ run {
 """
   }
 }
-`, arg2)
+`, schema.SchemaVersion(ctx), arg2)
 
 	file := filepath.Join(resourcesDir, arg1)
 
 	f, _ := testFs.Create(file)
-	f.WriteString(doc)
+	if _, err := f.WriteString(doc); err != nil {
+		return err
+	}
 	f.Close()
 
 	resourceFile = file
@@ -307,18 +313,20 @@ run {
 
 func itHasAWorkflowFile(arg1, arg2, arg3 string) error {
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.48#/Workflow.pkl"
+amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
-action = "%s"
+targetActionID = "%s"
 name = "%s"
 description = "My awesome AI Agent"
 version = "%s"
-`, arg3, arg1, arg2)
+`, schema.SchemaVersion(ctx), arg3, arg1, arg2)
 
 	file := filepath.Join(aiAgentDir, "workflow.pkl")
 
 	f, _ := testFs.Create(file)
-	f.WriteString(doc)
+	if _, err := f.WriteString(doc); err != nil {
+		return err
+	}
 	f.Close()
 
 	workflowFile = file
@@ -377,7 +385,9 @@ func theresADataFile() error {
 		file := filepath.Join(dataDir, fmt.Sprintf("textfile-%s.txt", num))
 
 		f, _ := testFs.Create(file)
-		f.WriteString(doc + num)
+		if _, err := f.WriteString(doc + num); err != nil {
+			return err
+		}
 		f.Close()
 	}
 
@@ -399,12 +409,14 @@ func thePklFilesIsInvalid() error {
 	name = "invalid agent"
 	description = "a not valid configuration"
 	version = "five"
-	action = "hello World"
+	targetActionID = "hello World"
 	`
 	file := filepath.Join(aiAgentDir, "workflow1.pkl")
 
 	f, _ := testFs.Create(file)
-	f.WriteString(doc)
+	if _, err := f.WriteString(doc); err != nil {
+		return err
+	}
 	f.Close()
 
 	workflowFile = file
@@ -471,19 +483,21 @@ func itHasAWorkflowFileDependencies(arg1, arg2, arg3, arg4 string) error {
 	}
 
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.48#/Workflow.pkl"
+amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
-action = "%s"
+targetActionID = "%s"
 name = "%s"
 description = "My awesome AI Agent"
 version = "%s"
 %s
-`, arg3, arg1, arg2, workflowsSection)
+`, schema.SchemaVersion(ctx), arg3, arg1, arg2, workflowsSection)
 
 	file := filepath.Join(aiAgentDir, "workflow.pkl")
 
 	f, _ := testFs.Create(file)
-	f.WriteString(doc)
+	if _, err := f.WriteString(doc); err != nil {
+		return err
+	}
 	f.Close()
 
 	workflowFile = file
@@ -500,7 +514,7 @@ func theResourceFileExistsInTheAgent(arg1, arg2, arg3 string) error {
 	return nil
 }
 
-func itHasAFileWithIdPropertyAndDependentOnWithRunBlockAndIsNotNull(arg1, arg2, arg3, arg4 string) error {
+func itHasAFileWithIDPropertyAndDependentOnWithRunBlockAndIsNotNull(arg1, arg2, arg3, arg4 string) error {
 	// Check if arg3 is a CSV (contains commas)
 	var requiresSection string
 	if strings.Contains(arg3, ",") {
@@ -546,18 +560,20 @@ func itHasAFileWithIdPropertyAndDependentOnWithRunBlockAndIsNotNull(arg1, arg2, 
 
 	// Create the document with the id and requires block
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.48#/Resource.pkl"
+amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-id = "%s"
+actionID = "%s"
 %s
 %s
-`, arg2, requiresSection, fieldSection)
+`, schema.SchemaVersion(ctx), arg2, requiresSection, fieldSection)
 
 	// Write to the file
 	file := filepath.Join(resourcesDir, arg1)
 
 	f, _ := testFs.Create(file)
-	f.WriteString(doc)
+	if _, err := f.WriteString(doc); err != nil {
+		return err
+	}
 	f.Close()
 
 	resourceFile = file
@@ -565,7 +581,7 @@ id = "%s"
 	return nil
 }
 
-func itHasAFileWithIdPropertyAndDependentOnWithRunBlockAndIsNull(arg1, arg2, arg3, arg4 string) error {
+func itHasAFileWithIDPropertyAndDependentOnWithRunBlockAndIsNull(arg1, arg2, arg3, arg4 string) error {
 	// Check if arg3 is a CSV (contains commas)
 	var requiresSection string
 	if strings.Contains(arg3, ",") {
@@ -603,18 +619,20 @@ func itHasAFileWithIdPropertyAndDependentOnWithRunBlockAndIsNull(arg1, arg2, arg
 
 	// Create the document with the id and requires block
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.0.48#/Resource.pkl"
+amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-id = "%s"
+actionID = "%s"
 %s
 %s
-`, arg2, requiresSection, fieldSection)
+`, schema.SchemaVersion(ctx), arg2, requiresSection, fieldSection)
 
 	// Write to the file
 	file := filepath.Join(resourcesDir, arg1)
 
 	f, _ := testFs.Create(file)
-	f.WriteString(doc)
+	if _, err := f.WriteString(doc); err != nil {
+		return err
+	}
 	f.Close()
 
 	resourceFile = file

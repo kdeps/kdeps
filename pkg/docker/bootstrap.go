@@ -11,113 +11,115 @@ import (
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/workflow"
+	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 )
 
-// BootstrapDockerSystem initializes the Docker system and pulls models after ollama server is ready.
-func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environment.Environment, logger *logging.Logger) (bool, error) {
-	var apiServerMode bool
-
-	if environ.DockerMode == "1" {
-		logger.Debug("Inside Docker environment. Proceeding with bootstrap.")
-		logger.Debug("Initializing Docker system")
-
-		agentDir := "/agent"
-		apiServerPath := filepath.Join(agentDir, "/actions/api")
-		agentWorkflow := filepath.Join(agentDir, "workflow/workflow.pkl")
-
-		exists, err := afero.Exists(fs, agentWorkflow)
-		if !exists {
-			env, err := environment.NewEnvironment(fs, ctx, nil)
-			if err != nil {
-				return false, err
-			}
-
-			dr, err := resolver.NewGraphResolver(fs, ctx, env, "/agent", logger)
-			if err != nil {
-				return false, fmt.Errorf("failed to create graph resolver: %w", err)
-			}
-
-			// Prepare workflow directory
-			if err := dr.PrepareWorkflowDir(); err != nil {
-				return false, fmt.Errorf("failed to prepare workflow directory: %w", err)
-			}
-		}
-
-		wfCfg, err := workflow.LoadWorkflow(ctx, agentWorkflow, logger)
-		if err != nil {
-			logger.Error("Error loading", "workflow", err)
-			return apiServerMode, err
-		}
-
-		// Parse OLLAMA_HOST to get the host and port
-		host, port, err := parseOLLAMAHost(ctx, logger)
-		if err != nil {
-			return apiServerMode, err
-		}
-
-		// Start ollama server in the background
-		if err := startOllamaServer(logger); err != nil {
-			return apiServerMode, fmt.Errorf("Failed to start ollama server: %w", err)
-		}
-
-		// Wait for ollama server to be fully ready (using the parsed host and port)
-		err = waitForServer(host, port, 60*time.Second, logger)
-		if err != nil {
-			return apiServerMode, err
-		}
-
-		// Once ollama server is ready, proceed with pulling models
-		wfSettings := wfCfg.GetSettings()
-		apiServerMode = wfSettings.ApiServerMode
-
-		dockerSettings := *wfSettings.AgentSettings
-		modelList := dockerSettings.Models
-		for _, value := range modelList {
-			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
-			logger.Debug("Pulling", "model", value)
-			stdout, stderr, exitCode, err := KdepsExec("ollama", []string{"pull", value}, logger)
-			if err != nil {
-				logger.Error("Error pulling model: ", value, " stdout: ", stdout, " stderr: ", stderr, " exitCode: ", exitCode, " err: ", err)
-				return apiServerMode, fmt.Errorf("Error pulling model %s: %s %s %d %w", value, stdout, stderr, exitCode, err)
-			}
-		}
-
-		if err := fs.MkdirAll(apiServerPath, 0o777); err != nil {
-			return true, err
-		}
-
-		go func() error {
-			if err := StartApiServerMode(fs, ctx, wfCfg, environ, agentDir, apiServerPath, logger); err != nil {
-				return err
-			}
-
-			return nil
-		}()
+func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environment.Environment, actionDir string, dr *resolver.DependencyResolver, logger *logging.Logger) (bool, error) {
+	if environ.DockerMode != "1" {
+		logger.Debug("docker system bootstrap completed.")
+		return false, nil
 	}
 
-	logger.Debug("Docker system bootstrap completed.")
+	logger.Debug("inside Docker environment\ninitializing Docker system")
 
+	apiServerMode, err := setupDockerEnvironment(fs, ctx, environ, actionDir, dr, logger)
+	if err != nil {
+		return apiServerMode, err
+	}
+
+	logger.Debug("docker system bootstrap completed.")
 	return apiServerMode, nil
 }
 
-func CreateFlagFile(fs afero.Fs, ctx context.Context, filename string) error {
-	// Check if file exists
-	if exists, err := afero.Exists(fs, filename); err != nil {
+func setupDockerEnvironment(fs afero.Fs, ctx context.Context, environ *environment.Environment, actionDir string, dr *resolver.DependencyResolver, logger *logging.Logger) (bool, error) {
+	const agentDir = "/agent"
+	apiServerPath := filepath.Join(actionDir, "/api")
+	agentWorkflow := filepath.Join(agentDir, "workflow/workflow.pkl")
+
+	if err := ensureWorkflowExists(fs, dr, agentWorkflow, logger); err != nil {
+		return false, err
+	}
+
+	wfCfg, err := workflow.LoadWorkflow(ctx, agentWorkflow, logger)
+	if err != nil {
+		logger.Error("error loading workflow", "error", err)
+		return false, err
+	}
+
+	host, port, err := parseOLLAMAHost(logger)
+	if err != nil {
+		return false, err
+	}
+
+	if err := startAndWaitForOllama(ctx, host, port, logger); err != nil {
+		return false, err
+	}
+
+	wfSettings := wfCfg.GetSettings()
+	if err := pullModels(ctx, wfSettings.AgentSettings.Models, logger); err != nil {
+		return wfSettings.APIServerMode, err
+	}
+
+	if err := fs.MkdirAll(apiServerPath, 0o777); err != nil {
+		return wfSettings.APIServerMode, err
+	}
+
+	return wfSettings.APIServerMode, startAPIServer(fs, ctx, wfCfg, environ, agentDir, apiServerPath, actionDir, dr, logger)
+}
+
+func ensureWorkflowExists(fs afero.Fs, dr *resolver.DependencyResolver, path string, logger *logging.Logger) error {
+	exists, err := afero.Exists(fs, path)
+	if err != nil || exists {
 		return err
-	} else if !exists {
-		// Create the file if it doesn't exist
-		file, err := fs.Create(filename)
+	}
+
+	logger.Debug("preparing workflow directory")
+	if err := dr.PrepareWorkflowDir(); err != nil {
+		return fmt.Errorf("failed to prepare workflow directory: %w", err)
+	}
+	return nil
+}
+
+func startAndWaitForOllama(ctx context.Context, host, port string, logger *logging.Logger) error {
+	go startOllamaServer(ctx, logger)
+	return waitForServer(host, port, 60*time.Second, logger)
+}
+
+func pullModels(ctx context.Context, models []string, logger *logging.Logger) error {
+	for _, model := range models {
+		model = strings.TrimSpace(model)
+		logger.Debug("pulling model", "model", model)
+
+		stdout, stderr, exitCode, err := KdepsExec(ctx, "ollama", []string{"pull", model}, logger)
 		if err != nil {
-			return err
-		}
-		defer file.Close()
-	} else {
-		// If the file exists, update its modification time to the current time
-		currentTime := time.Now().Local()
-		if err := fs.Chtimes(filename, currentTime, currentTime); err != nil {
-			return err
+			logger.Error("model pull failed", "model", model, "stdout", stdout, "stderr", stderr, "exitCode", exitCode, "error", err)
+			return fmt.Errorf("failed to pull model %s: %w", model, err)
 		}
 	}
 	return nil
+}
+
+func startAPIServer(fs afero.Fs, ctx context.Context, wfCfg pklWf.Workflow, environ *environment.Environment, agentDir, apiServerPath, actionDir string, dr *resolver.DependencyResolver, logger *logging.Logger) error {
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- StartAPIServerMode(fs, ctx, wfCfg, environ, agentDir, apiServerPath, actionDir, dr, logger)
+	}()
+
+	return <-errChan
+}
+
+func CreateFlagFile(fs afero.Fs, ctx context.Context, filename string) error {
+	if exists, err := afero.Exists(fs, filename); err != nil || exists {
+		return err
+	}
+
+	file, err := fs.Create(filename)
+	if err != nil {
+		return err
+	}
+	file.Close()
+
+	currentTime := time.Now().UTC()
+	return fs.Chtimes(filename, currentTime, currentTime)
 }

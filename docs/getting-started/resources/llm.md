@@ -39,10 +39,10 @@ chat {
     prompt = "Who is @(request.data())?"
 
     // Determines if the LLM response should be a structured JSON.
-    jsonResponse = true
+    JSONResponse = true
 
-    // If jsonResponse is true, the structured JSON will include the following keys:
-    jsonResponseKeys {
+    // If JSONResponse is true, the structured JSON will include the following keys:
+    JSONResponseKeys {
         "first_name"
         "last_name"
         "parents"
@@ -67,8 +67,8 @@ Key Elements of the `chat` Block
 - **`prompt`**: The input prompt sent to the model.
 - **`files`**: List all the files for use by the LLM model. This feature is particularly beneficial for vision-based
   LLM models.
-- **`jsonResponse`**: Indicates if the response should be structured as JSON.
-- **`jsonResponseKeys`**: Lists the required keys for the structured JSON response. To ensure the output conforms to
+- **`JSONResponse`**: Indicates if the response should be structured as JSON.
+- **`JSONResponseKeys`**: Lists the required keys for the structured JSON response. To ensure the output conforms to
   specific data types, you can define the keys with their corresponding types. For example: `first_name__string`,
   `famous_quotes__array`, `details__markdown`, or `age__integer`.
 - **`timeoutSeconds`**: Sets the execution timeout in seconds, after which the session is terminated.

@@ -13,32 +13,29 @@ import (
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 )
 
 var (
-	testFs                = afero.NewOsFs()
-	homeDirPath           string
-	currentDirPath        string
-	ctx                   = context.Background()
-	systemConfiguration   *kdeps.Kdeps
-	fileThatExist         string
-	logger                *logging.Logger
-	agentPath             string
-	doc                   string
-	schemaVersionFilePath = "../../SCHEMA_VERSION"
-	workflowAmendsLine    = `amends "package://schema.kdeps.com/core@0.0.32#/Workflow.pkl"`
-	configAmendsLine      = `amends "package://schema.kdeps.com/core@0.0.32#/Kdeps.pkl"`
-	resourceAmendsLine    = `amends "package://schema.kdeps.com/core@0.0.32#/Resource.pkl"`
-	resourceValues        = `
-id = "helloWorld"
-
-name = null
-description = null
-category = null
-requires = null
-run = null
+	testFs              = afero.NewOsFs()
+	homeDirPath         string
+	currentDirPath      string
+	ctx                 = context.Background()
+	systemConfiguration *kdeps.Kdeps
+	fileThatExist       string
+	logger              *logging.Logger
+	agentPath           string
+	doc                 string
+	workflowAmendsLine  = fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schema.SchemaVersion(ctx))
+	configAmendsLine    = fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Kdeps.pkl"`, schema.SchemaVersion(ctx))
+	resourceAmendsLine  = fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"`, schema.SchemaVersion(ctx))
+	resourceValues      = `
+actionID = "helloWorld"
+name = "name"
+description = "description"
+category = "category"
 `
 	configValues = `
 runMode = "docker"
@@ -46,18 +43,15 @@ dockerGPU = "cpu"
 `
 	workflowValues = `
 settings {
-  apiServerMode = false
-  apiServerSettings {
-    serverPort = 3000
+  APIServerMode = false
+  APIServer {
+    portNum = 3000
     routes {
       new {
 	path = "/api"
 	methods {
 	  "POST"
 	}
-	requestParams = "ENV:API_SERVER_REQUEST_PARAMS"
-	request = "ENV:API_SERVER_REQUEST"
-	response = "ENV:API_SERVER_RESPONSE"
       }
     }
   }
@@ -65,7 +59,7 @@ settings {
 name = "myAgent"
 description = "My awesome AI Agent"
 version = "1.0.0"
-action = "helloWorld"
+targetActionID = "helloWorld"
 `
 	testingT *testing.T
 )
@@ -79,7 +73,7 @@ func TestFeatures(t *testing.T) {
 			ctx.Step(`^a file "([^"]*)" exists in the current directory$`, aFileExistsInTheCurrentDirectory)
 			ctx.Step(`^a system configuration is defined$`, aSystemConfigurationIsDefined)
 			ctx.Step(`^it does not have a config amends line on top of the file$`, itDoesNotHaveAConfigAmendsLineOnTopOfTheFile)
-			ctx.Step(`^it have a "([^"]*)" amends url line on top of the file$`, itHaveAAmendsUrlLineOnTopOfTheFile)
+			ctx.Step(`^it have a "([^"]*)" amends url line on top of the file$`, itHaveAAmendsURLLineOnTopOfTheFile)
 			ctx.Step(`^it have a config amends line on top of the file$`, itHaveAConfigAmendsLineOnTopOfTheFile)
 			ctx.Step(`^the current directory is "([^"]*)"$`, theCurrentDirectoryIs)
 			ctx.Step(`^the home directory is "([^"]*)"$`, theHomeDirectoryIs)
@@ -146,7 +140,10 @@ func aFileExistsInTheCurrentDirectory(arg1 string) error {
 	file := filepath.Join(currentDirPath, arg1)
 
 	f, _ := testFs.Create(file)
-	f.WriteString(doc)
+	if _, err := f.WriteString(doc); err != nil {
+		return err
+	}
+
 	f.Close()
 
 	fileThatExist = file
@@ -161,7 +158,7 @@ func aSystemConfigurationIsDefined() error {
 		NonInteractive: "1",
 	}
 
-	environ, err := environment.NewEnvironment(testFs, ctx, env)
+	environ, err := environment.NewEnvironment(testFs, env)
 	if err != nil {
 		return err
 	}
@@ -187,8 +184,8 @@ func itDoesNotHaveAConfigAmendsLineOnTopOfTheFile() error {
 	return nil
 }
 
-func itHaveAAmendsUrlLineOnTopOfTheFile(arg1 string) error {
-	doc = strings.Replace(doc, "kdeps.com", arg1, -1)
+func itHaveAAmendsURLLineOnTopOfTheFile(arg1 string) error {
+	doc = strings.ReplaceAll(doc, "kdeps.com", arg1)
 
 	return nil
 }
@@ -248,7 +245,9 @@ func aFileExistsInThe(arg1, arg2 string) error {
 	fmt.Printf("Creating %s file!", file)
 
 	f, _ := testFs.Create(file)
-	f.WriteString(doc)
+	if _, err := f.WriteString(doc); err != nil {
+		return err
+	}
 	f.Close()
 
 	fileThatExist = file

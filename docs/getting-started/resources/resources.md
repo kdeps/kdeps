@@ -25,7 +25,7 @@ define the behavior, dependencies, and validation logic for each resource.
 ## Common Resource Configurations
 
 - **Metadata**:
-   - **`id`**: A unique identifier for the resource.
+   - **`actionID`**: A unique identifier for the resource.
    - **`name`**: A human-readable name for the resource.
    - **`description`**: A brief explanation of what the resource does.
    - **`category`**: A classification for organizing resources.

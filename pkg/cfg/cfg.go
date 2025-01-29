@@ -20,7 +20,7 @@ import (
 )
 
 func FindConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
-	logger.Debug("Finding configuration...")
+	logger.Debug("finding configuration...")
 
 	// Ensure PKL binary exists before proceeding
 	if err := evaluator.EnsurePklBinaryExists(ctx, logger); err != nil {
@@ -30,23 +30,23 @@ func FindConfiguration(fs afero.Fs, ctx context.Context, env *environment.Enviro
 	// Use the initialized environment's Pwd directory
 	configFilePwd := filepath.Join(env.Pwd, environment.SystemConfigFileName)
 	if _, err := fs.Stat(configFilePwd); err == nil {
-		logger.Debug("Configuration file found in Pwd directory", "config-file", configFilePwd)
+		logger.Debug("configuration file found in Pwd directory", "config-file", configFilePwd)
 		return configFilePwd, nil
 	}
 
 	// Use the initialized environment's Home directory
 	configFileHome := filepath.Join(env.Home, environment.SystemConfigFileName)
 	if _, err := fs.Stat(configFileHome); err == nil {
-		logger.Debug("Configuration file found in Home directory", "config-file", configFileHome)
+		logger.Debug("configuration file found in Home directory", "config-file", configFileHome)
 		return configFileHome, nil
 	}
 
-	logger.Warn("Configuration file not found", "config-file", environment.SystemConfigFileName)
+	logger.Warn("configuration file not found", "config-file", environment.SystemConfigFileName)
 	return "", nil
 }
 
 func GenerateConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
-	logger.Debug("Generating configuration...")
+	logger.Debug("generating configuration...")
 
 	// Set configFile path in Home directory
 	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
@@ -81,14 +81,14 @@ func GenerateConfiguration(fs afero.Fs, ctx context.Context, env *environment.En
 			return "", fmt.Errorf("failed to write to %s: %w", configFile, err)
 		}
 
-		logger.Debug("Configuration file generated", "config-file", configFile)
+		logger.Debug("configuration file generated", "config-file", configFile)
 	}
 
 	return configFile, nil
 }
 
 func EditConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
-	logger.Debug("Editing configuration...")
+	logger.Debug("editing configuration...")
 
 	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
 	skipPrompts := env.NonInteractive == "1"
@@ -100,14 +100,14 @@ func EditConfiguration(fs afero.Fs, ctx context.Context, env *environment.Enviro
 			}
 		}
 	} else {
-		logger.Warn("Configuration file does not exist", "config-file", configFile)
+		logger.Warn("configuration file does not exist", "config-file", configFile)
 	}
 
 	return configFile, nil
 }
 
 func ValidateConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
-	logger.Debug("Validating configuration...")
+	logger.Debug("validating configuration...")
 
 	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
 
@@ -115,12 +115,12 @@ func ValidateConfiguration(fs afero.Fs, ctx context.Context, env *environment.En
 		return configFile, fmt.Errorf("configuration validation failed: %w", err)
 	}
 
-	logger.Debug("Configuration validated successfully", "config-file", configFile)
+	logger.Debug("configuration validated successfully", "config-file", configFile)
 	return configFile, nil
 }
 
 func LoadConfiguration(fs afero.Fs, ctx context.Context, configFile string, logger *logging.Logger) (*kdeps.Kdeps, error) {
-	logger.Debug("Loading configuration", "config-file", configFile)
+	logger.Debug("loading configuration", "config-file", configFile)
 
 	konfig, err := kdeps.LoadFromPath(ctx, configFile)
 	if err != nil {

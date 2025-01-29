@@ -1,6 +1,6 @@
 {{ .Header }}
 
-id = "execResource"
+actionID = "execResource"
 name = "Exec Resource"
 description = "This resource creates a shell session."
 category = ""
@@ -60,6 +60,6 @@ run {
                         ["ENVVAR"] = "XYZ"  // Example ENVVAR.
                 }
                 // Timeout duration in seconds. This specifies when to terminate the shell exec.
-                timeoutSeconds = 60
+                timeoutDuration = 60
         }
 }

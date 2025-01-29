@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -14,7 +13,7 @@ import (
 	"time"
 
 	"github.com/cucumber/godog"
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/cfg"
@@ -22,6 +21,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/workflow"
 	"github.com/kdeps/schema/gen/kdeps"
 	wfPkl "github.com/kdeps/schema/gen/workflow"
@@ -43,7 +43,7 @@ var (
 	runDir                    string
 	gpuType                   string
 	containerName             string
-	apiServerMode             bool
+	APIServerMode             bool
 	cName                     string
 	pkgProject                *archiver.KdepsPackage
 	compiledProjectDir        string
@@ -53,7 +53,6 @@ var (
 	systemConfiguration       *kdeps.Kdeps
 	workflowConfigurationFile string
 	workflowConfiguration     *wfPkl.Workflow
-	schemaVersionFilePath     = "../../SCHEMA_VERSION"
 )
 
 func TestFeatures(t *testing.T) {
@@ -65,7 +64,7 @@ func TestFeatures(t *testing.T) {
 			ctx.Step(`^I GET request to "([^"]*)" with data "([^"]*)" and header name "([^"]*)" that maps to "([^"]*)"$`, iGETRequestToWithDataAndHeaderNameThatMapsTo)
 			ctx.Step(`^I should see a blank standard template "([^"]*)" in the "([^"]*)" folder$`, iShouldSeeABlankStandardTemplateInTheFolder)
 			ctx.Step(`^I should see a "([^"]*)" in the "([^"]*)" folder$`, iShouldSeeAInTheFolder)
-			ctx.Step(`^I should see action "([^"]*)", url "([^"]*)", data "([^"]*)", headers "([^"]*)" with values "([^"]*)" and params "([^"]*)" that maps to "([^"]*)"$`, iShouldSeeActionUrlDataHeadersWithValuesAndParamsThatMapsTo)
+			ctx.Step(`^I should see action "([^"]*)", url "([^"]*)", data "([^"]*)", headers "([^"]*)" with values "([^"]*)" and params "([^"]*)" that maps to "([^"]*)"$`, iShouldSeeActionURLDataHeadersWithValuesAndParamsThatMapsTo)
 			ctx.Step(`^it should respond "([^"]*)" in "([^"]*)"$`, itShouldRespondIn)
 		},
 		Options: &godog.Options{
@@ -115,7 +114,7 @@ func aKdepsContainerWithEndpointAPI(arg1, arg2, arg3 string) error {
 		NonInteractive: "1",
 	}
 
-	environ, err := environment.NewEnvironment(testFs, ctx, env)
+	environ, err := environment.NewEnvironment(testFs, env)
 	if err != nil {
 		return err
 	}
@@ -169,20 +168,20 @@ methods {
 	}
 
 	workflowConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.1.9#/Workflow.pkl"
+amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
 name = "myAIAgentAPI"
 description = "AI Agent X API"
-action = "helloWorld"
+targetActionID = "helloWorld"
 settings {
-  apiServerMode = true
+  APIServerMode = true
   agentSettings {
     packages {}
     models {
       "llama3.2"
     }
   }
-  apiServer {
+  APIServer {
     routes {
       new {
 	path = "/resource1"
@@ -191,7 +190,7 @@ settings {
     }
   }
 }
-`, methodSection)
+`, schema.SchemaVersion(ctx), methodSection)
 	filePath := filepath.Join(homeDirPath, "myAgentX")
 
 	if err := testFs.MkdirAll(filePath, 0o777); err != nil {
@@ -211,15 +210,15 @@ settings {
 		return err
 	}
 
-	resourceConfigurationContent := `
-amends "package://schema.kdeps.com/core@0.1.9#/Resource.pkl"
+	resourceConfigurationContent := fmt.Sprintf(`
+amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
 local llmResponse = "@(llm.response("action1"))"
 local execResponse = "@(exec.stdout("action2"))"
 local clientResponse = "@(client.responseBody("action3"))"
 local clientResponse2 = "@(client.responseBody("action4"))"
 
-id = "helloWorld"
+actionID = "helloWorld"
 name = "default action"
 category = "kdepsdockerai"
 description = "this is a description for helloWorld @(request.params)"
@@ -237,7 +236,7 @@ run {
       1 + 1 == 2
     }
   }
-  apiResponse {
+  APIResponse {
     success = true
     response {
       data {
@@ -249,7 +248,7 @@ run {
     }
   }
 }
-`
+`, schema.SchemaVersion(ctx))
 
 	resourceConfigurationFile := filepath.Join(resourcesDir, "resource1.pkl")
 	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0o644)
@@ -257,12 +256,12 @@ run {
 		return err
 	}
 
-	resourceConfigurationContent = `
-amends "package://schema.kdeps.com/core@0.1.9#/Resource.pkl"
+	resourceConfigurationContent = fmt.Sprintf(`
+amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
 local clientResponse = "@(client.responseBody("action3"))"
 
-id = "action1"
+actionID = "action1"
 category = "kdepsdockerai"
 description = "this is a description for action1 - @(request.url)"
 requires {
@@ -274,14 +273,14 @@ run {
   chat {
     model = "llama3.2"
     prompt = "@(request.data)"
-    jsonResponse = true
-    jsonResponseKeys {
+    JSONResponse = true
+    JSONResponseKeys {
       "translation"
       "uses"
       "synonyms"
       "antonyms"
     }
-    timeoutSeconds = 0
+    timeoutDuration = 0
   }
   preflightCheck {
     validations {
@@ -290,7 +289,7 @@ run {
     }
   }
 }
-`
+`, schema.SchemaVersion(ctx))
 
 	resourceConfigurationFile = filepath.Join(resourcesDir, "resource2.pkl")
 	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0o644)
@@ -298,10 +297,10 @@ run {
 		return err
 	}
 
-	resourceConfigurationContent = `
-amends "package://schema.kdeps.com/core@0.1.9#/Resource.pkl"
+	resourceConfigurationContent = fmt.Sprintf(`
+amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-id = "action2"
+actionID = "action2"
 category = "kdepsdockerai"
 description = "this is a description for action2 - @(request.method)"
 name = "default action"
@@ -318,7 +317,7 @@ run {
     command = "echo $RESPONSE"
   }
 }
-`
+`, schema.SchemaVersion(ctx))
 
 	resourceConfigurationFile = filepath.Join(resourcesDir, "resource3.pkl")
 	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0o644)
@@ -326,10 +325,10 @@ run {
 		return err
 	}
 
-	resourceConfigurationContent = `
-amends "package://schema.kdeps.com/core@0.1.9#/Resource.pkl"
+	resourceConfigurationContent = fmt.Sprintf(`
+amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-id = "action3"
+actionID = "action3"
 category = "kdepsdockerai"
 description = "this is a description for action3 - @(request.url)"
 requires {
@@ -339,12 +338,12 @@ requires {
 }
 name = "default action"
 run {
-  httpClient {
+  HTTPClient {
     method = "GET"
     url = "https://dog.ceo/api/breeds/list/all"
   }
 }
-`
+`, schema.SchemaVersion(ctx))
 
 	resourceConfigurationFile = filepath.Join(resourcesDir, "resource4.pkl")
 	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0o644)
@@ -352,10 +351,10 @@ run {
 		return err
 	}
 
-	resourceConfigurationContent = `
-amends "package://schema.kdeps.com/core@0.1.9#/Resource.pkl"
+	resourceConfigurationContent = fmt.Sprintf(`
+amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-id = "action4"
+actionID = "action4"
 category = "kdepsdockerai"
 description = "this is a description for action4 - @(request.url)"
 requires {
@@ -366,12 +365,12 @@ requires {
 }
 name = "default action"
 run {
-  httpClient {
+  HTTPClient {
     method = "GET"
     url = "https://google.com"
   }
 }
-`
+`, schema.SchemaVersion(ctx))
 
 	resourceConfigurationFile = filepath.Join(resourcesDir, "resource5.pkl")
 	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0o644)
@@ -391,7 +390,9 @@ run {
 		file := filepath.Join(dataDir, fmt.Sprintf("textfile-%s.txt", num))
 
 		f, _ := testFs.Create(file)
-		f.WriteString(doc + num)
+		if _, err := f.WriteString(doc + num); err != nil {
+			return err
+		}
 		f.Close()
 	}
 
@@ -429,7 +430,7 @@ run {
 	runDir = rd
 	hostPort = hPort
 	hostIP = hIP
-	apiServerMode = asm
+	APIServerMode = asm
 	gpuType = gpu
 
 	cl, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -451,7 +452,7 @@ run {
 		return err
 	}
 
-	dockerClientID, err := docker.CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, gpuType, apiServerMode, cli)
+	dockerClientID, err := docker.CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, gpuType, APIServerMode, cli)
 	if err != nil {
 		return err
 	}
@@ -485,7 +486,7 @@ func iGETRequestToWithDataAndHeaderNameThatMapsTo(arg1, arg2, arg3, arg4 string)
 	reqBody := strings.NewReader(arg2)
 
 	// Create a new GET request
-	req, err := http.NewRequest(http.MethodGet, baseURL, reqBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL, reqBody)
 	if err != nil {
 		fmt.Println("Error creating request:", err)
 		return err
@@ -503,7 +504,7 @@ func iGETRequestToWithDataAndHeaderNameThatMapsTo(arg1, arg2, arg3, arg4 string)
 	defer resp.Body.Close()
 
 	// Read the response body
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println("Error reading response body:", err)
 		return err
@@ -520,7 +521,7 @@ func iShouldSeeABlankStandardTemplateInTheFolder(arg1, arg2 string) error {
 }
 
 func iShouldSeeAInTheFolder(arg1, arg2 string) error {
-	execConfig := types.ExecConfig{
+	execConfig := container.ExecOptions{
 		Cmd:          []string{"ls", arg2 + arg1},
 		AttachStdout: true,
 		AttachStderr: true,
@@ -533,7 +534,7 @@ func iShouldSeeAInTheFolder(arg1, arg2 string) error {
 	execID := execIDResp.ID
 
 	// Attach to the exec session to capture the output
-	execAttachResp, err := cli.ContainerExecAttach(ctx, execID, types.ExecStartCheck{})
+	execAttachResp, err := cli.ContainerExecAttach(ctx, execID, container.ExecStartOptions{})
 	if err != nil {
 		return err
 	}
@@ -543,29 +544,29 @@ func iShouldSeeAInTheFolder(arg1, arg2 string) error {
 	var output bytes.Buffer
 	_, err = io.Copy(&output, execAttachResp.Reader)
 	if err != nil {
-		logger.Fatal("Failed to read exec output: %v", err)
+		logger.Fatal("failed to read exec output: %v", err)
 		return err
 	}
 
 	// Check the command output
-	logger.Debug("Output from `ls /` command in container:\n%s", output.String())
+	logger.Debug("output from `ls /` command in container:\n%s", output.String())
 
 	// Optionally, inspect the exec result to check for success/failure
 	execInspect, err := cli.ContainerExecInspect(ctx, execID)
 	if err != nil {
-		logger.Fatal("Failed to inspect exec result: %v", err)
+		logger.Fatal("failed to inspect exec result: %v", err)
 		return err
 	}
 
 	if execInspect.ExitCode != 0 {
-		logger.Error("Command failed with exit code: %d", execInspect.ExitCode)
+		logger.Error("command failed with exit code: %d", execInspect.ExitCode)
 		return err
 	}
 
 	return nil
 }
 
-func iShouldSeeActionUrlDataHeadersWithValuesAndParamsThatMapsTo(arg1, arg2, arg3, arg4, arg5, arg6, arg7 string) error {
+func iShouldSeeActionURLDataHeadersWithValuesAndParamsThatMapsTo(arg1, arg2, arg3, arg4, arg5, arg6, arg7 string) error {
 	return godog.ErrPending
 }
 

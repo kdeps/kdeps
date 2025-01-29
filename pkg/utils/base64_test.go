@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestIsBase64Encoded(t *testing.T) {
@@ -39,21 +40,21 @@ func TestDecodeBase64String(t *testing.T) {
 	t.Run("DecodeValidBase64String", func(t *testing.T) {
 		t.Parallel()
 		decoded, err := DecodeBase64String("U29tZSB2YWxpZCBzdHJpbmc=") // "Some valid string"
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "Some valid string", decoded)
 	})
 
 	t.Run("DecodeInvalidBase64String", func(t *testing.T) {
 		t.Parallel()
 		decoded, err := DecodeBase64String("InvalidString!!!")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "InvalidString!!!", decoded) // Should return the original string
 	})
 
 	t.Run("DecodeEmptyString", func(t *testing.T) {
 		t.Parallel()
 		decoded, err := DecodeBase64String("")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "", decoded)
 	})
 }
@@ -81,7 +82,7 @@ func TestRoundTripBase64Encoding(t *testing.T) {
 		encoded := EncodeBase64String(original)
 		decoded, err := DecodeBase64String(encoded)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, original, decoded)
 	})
 }

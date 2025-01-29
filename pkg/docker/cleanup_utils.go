@@ -78,7 +78,7 @@ func Cleanup(fs afero.Fs, ctx context.Context, environ *environment.Environment,
 
 	// Wait for the cleanup flags to be ready
 	for _, flag := range removedFiles[:2] { // Correcting to wait for the first two files
-		if err := utils.WaitForFileReady(fs, ctx, flag, logger); err != nil {
+		if err := utils.WaitForFileReady(fs, flag, logger); err != nil {
 			logger.Error(fmt.Sprintf("Error waiting for flag %s: %v", flag, err))
 			return
 		}
@@ -122,20 +122,20 @@ func Cleanup(fs afero.Fs, ctx context.Context, environ *environment.Environment,
 	}
 
 	// Remove flag files
-	cleanupFlagFiles(fs, ctx, removedFiles, logger)
+	cleanupFlagFiles(fs, removedFiles, logger)
 }
 
 // cleanupFlagFiles removes the specified flag files.
-func cleanupFlagFiles(fs afero.Fs, ctx context.Context, files []string, logger *logging.Logger) {
+func cleanupFlagFiles(fs afero.Fs, files []string, logger *logging.Logger) {
 	for _, file := range files {
 		if err := fs.Remove(file); err != nil {
 			if os.IsNotExist(err) {
-				logger.Debugf("File %s does not exist, skipping", file)
+				logger.Debugf("file %s does not exist, skipping", file)
 			} else {
-				logger.Errorf("Error removing file %s: %v", file, err)
+				logger.Errorf("error removing file %s: %v", file, err)
 			}
 		} else {
-			logger.Debugf("Successfully removed file: %s", file)
+			logger.Debugf("successfully removed file: %s", file)
 		}
 	}
 }

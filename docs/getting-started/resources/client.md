@@ -33,10 +33,10 @@ Configurations](../resources/resources#common-resource-configurations) documenta
 
 ## HTTP Client Block
 
-Within the file, you’ll find the `httpClient` block, which is structured as follows:
+Within the file, you’ll find the `HTTPClient` block, which is structured as follows:
 
 ```apl
-httpClient {
+HTTPClient {
     method = "GET"
     url = "https://www.google.com"
     data {}
@@ -47,7 +47,7 @@ httpClient {
 }
 ```
 
-Key elements of the `httpClient` block include:
+Key elements of the `HTTPClient` block include:
 
 - **`method`**: Specifies the HTTP verb to be used for this API call.
 - **`url`**: Defines the API endpoint.

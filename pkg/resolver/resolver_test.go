@@ -10,17 +10,15 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/cucumber/godog"
-	"github.com/docker/docker/client"
-	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/cfg"
 	"github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
+	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/schema/gen/kdeps"
 	pklRes "github.com/kdeps/schema/gen/resource"
-	wfPkl "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 )
 
@@ -32,27 +30,14 @@ var (
 	kdepsDir                  string
 	agentDir                  string
 	ctx                       context.Context
-	packageFile               string
-	hostPort                  string = "3000"
-	hostIP                    string = "127.0.0.1"
-	containerID               string
-	runDir                    string
-	containerName             string
-	apiServerMode             bool
-	cName                     string
-	pkgProject                *archiver.KdepsPackage
-	compiledProjectDir        string
 	environ                   *environment.Environment
 	currentDirPath            string
 	systemConfigurationFile   string
-	cli                       *client.Client
 	systemConfiguration       *kdeps.Kdeps
 	visited                   map[string]bool
-	actionId                  string
+	actionID                  string
 	graphResolver             *resolver.DependencyResolver
 	workflowConfigurationFile string
-	workflowConfiguration     *wfPkl.Workflow
-	schemaVersionFilePath     = "../../SCHEMA_VERSION"
 )
 
 func TestFeatures(t *testing.T) {
@@ -122,7 +107,7 @@ func anAiAgentWithResources(arg1 string) error {
 		DockerMode:     "1",
 	}
 
-	env, err := environment.NewEnvironment(testFs, ctx, envStruct)
+	env, err := environment.NewEnvironment(testFs, envStruct)
 	if err != nil {
 		return err
 	}
@@ -179,20 +164,20 @@ methods {
 	}
 
 	workflowConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.1.1#/Workflow.pkl"
+amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
 name = "myAIAgentAPI1"
 description = "AI Agent X API"
-action = "helloWorld9"
+targetActionID = "helloWorld9"
 settings {
-  apiServerMode = true
+  APIServerMode = true
   agentSettings {
     packages {}
     models {
       "tinydolphin"
     }
   }
-  apiServer {
+  APIServer {
     routes {
       new {
 	path = "/resource1"
@@ -206,7 +191,7 @@ settings {
     }
   }
 }
-`, methodSection, methodSection)
+`, schema.SchemaVersion(ctx), methodSection, methodSection)
 	filePath := filepath.Join(homeDirPath, "myAgentX1")
 
 	if err := testFs.MkdirAll(filePath, 0o777); err != nil {
@@ -241,8 +226,8 @@ settings {
 		return err
 	}
 
-	llmResponsesContent := `
-amends "package://schema.kdeps.com/core@0.1.1#/LLM.pkl"
+	llmResponsesContent := fmt.Sprintf(`
+amends "package://schema.kdeps.com/core@%s#/LLM.pkl"
 
 chat {
   ["Hello"] {
@@ -253,7 +238,7 @@ response
 """
   }
 }
-`
+`, schema.SchemaVersion(ctx))
 
 	llmDirFile := filepath.Join(llmDir, "llm_output.pkl")
 	err = afero.WriteFile(testFs, llmDirFile, []byte(llmResponsesContent), 0o644)
@@ -280,9 +265,9 @@ response
 	for num := totalResourcesInt; num >= 1; num-- {
 		// Define the content of the resource configuration file
 		resourceConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@0.1.0#/Resource.pkl"
+amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-id = "helloWorld%d"
+actionID = "helloWorld%d"
 name = "default action %d"
 description = """
   default action
@@ -297,14 +282,14 @@ run {
     prompt = "who was "
   }
 }
-`, num, num, num-1)
+`, schema.SchemaVersion(ctx), num, num, num-1)
 
 		// Skip the "requires" for the first resource (num 1)
 		//		if num == 1 {
 		//			resourceConfigurationContent = fmt.Sprintf(`
 		// amends "package://schema.kdeps.com/core@0.1.0#/Resource.pkl"
 
-		// id = "helloWorld%d"
+		// actionID = "helloWorld%d"
 		// name = "default action %d"
 		// description = "default action @(request.url)"
 		// category = "category"
@@ -327,14 +312,14 @@ run {
 }
 
 func eachResourceAreReloadedWhenOpened() error {
-	actionId = "helloWorld9"
+	actionID = "helloWorld9"
 	visited = make(map[string]bool)
 
-	stack := graphResolver.Graph.BuildDependencyStack(actionId, visited)
+	stack := graphResolver.Graph.BuildDependencyStack(actionID, visited)
 	for _, resNode := range stack {
 		for _, res := range graphResolver.Resources {
-			if res.Id == resNode {
-				logger.Debug("Executing resource: ", res.Id)
+			if res.ActionID == resNode {
+				logger.Debug("executing resource: ", res.ActionID)
 
 				rsc, err := pklRes.LoadFromPath(graphResolver.Context, res.File)
 				if err != nil {
@@ -350,7 +335,7 @@ func eachResourceAreReloadedWhenOpened() error {
 				//	// Check Skip Condition
 				//	if runBlock.SkipCondition != nil {
 				//		if resolver.ShouldSkip(runBlock.SkipCondition) {
-				//			logger.Debug("Skip condition met, skipping:", res.Id)
+				//			logger.Debug("skip condition met, skipping:", res.ActionID)
 				//			continue
 				//		}
 				//	}
@@ -358,25 +343,25 @@ func eachResourceAreReloadedWhenOpened() error {
 				//	// Handle Preflight Check
 				//	if runBlock.PreflightCheck != nil && runBlock.PreflightCheck.Validations != nil {
 				//		if !resolver.AllConditionsMet(runBlock.PreflightCheck.Validations) {
-				//			logger.Error("Preflight check not met, failing:", res.Id)
+				//			logger.Error("preflight check not met, failing:", res.ActionID)
 				//			if runBlock.PreflightCheck.Error != nil {
 				//				logger.Debug(err)
 
 				//				//	return graphResolver.HandleAPIErrorResponse(
 				//				//		runBlock.PreflightCheck.Error.Code,
-				//				//		fmt.Sprintf("%s: %s", runBlock.PreflightCheck.Error.Message, res.Id))
+				//				//		fmt.Sprintf("%s: %s", runBlock.PreflightCheck.Error.Message, res.ActionID))
 				//			}
 
 				//			// return graphResolver.HandleAPIErrorResponse(500, "Preflight
-				//			// check failed for resource: "+res.Id)
+				//			// check failed for resource: "+res.ActionID)
 				//			logger.Debug(err)
 
 				//		}
 				//	}
 
 				//	// API Response
-				//	if graphResolver.ApiServerMode && runBlock.ApiResponse != nil {
-				//		if err := graphResolver.CreateResponsePklFile(runBlock.ApiResponse); err != nil {
+				//	if graphResolver.APIServerMode && runBlock.APIResponse != nil {
+				//		if err := graphResolver.CreateResponsePklFile(runBlock.APIResponse); err != nil {
 				//			logger.Debug(err)
 
 				//			// return graphResolver.HandleAPIErrorResponse(500, err.Error())
@@ -394,7 +379,7 @@ func iLoadTheWorkflowResources() error {
 	logger := logging.GetLogger()
 	ctx = context.Background()
 
-	dr, err := resolver.NewGraphResolver(testFs, ctx, environ, agentDir, logger)
+	dr, err := resolver.NewGraphResolver(testFs, ctx, environ, agentDir, "/tmp/action", "123", logger)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -410,10 +395,10 @@ func iWasAbleToSeeTheTopdownDependencies(arg1 string) error {
 		return err
 	}
 
-	actionId = "helloWorld9"
+	actionID = "helloWorld9"
 	visited = make(map[string]bool)
 	// Build the dependency stack
-	stack := graphResolver.Graph.BuildDependencyStack(actionId, visited)
+	stack := graphResolver.Graph.BuildDependencyStack(actionID, visited)
 
 	// Convert arg1 (string) to an integer for comparison with len(stack)
 	arg1Int, err := strconv.Atoi(arg1) // Convert string to int
@@ -528,16 +513,16 @@ func iWasAbleToSeeTheTopdownDependencies(arg1 string) error {
 
 // name = "myAIAgentAPI2"
 // description = "AI Agent X API"
-// action = "helloWorld100"
+// targetActionID = "helloWorld100"
 // settings {
-//   apiServerMode = true
+//   APIServerMode = true
 //   agentSettings {
 //     packages {}
 //     models {
 //       "tinydolphin"
 //     }
 //   }
-//   apiServer {
+//   APIServer {
 //     routes {
 //       new {
 //	path = "/resource1"
@@ -599,7 +584,7 @@ func iWasAbleToSeeTheTopdownDependencies(arg1 string) error {
 //		resourceConfigurationContent := fmt.Sprintf(`
 // amends "package://schema.kdeps.com/core@0.0.44#/Resource.pkl"
 
-// id = "helloWorld%d"
+// actionID = "helloWorld%d"
 // name = "default action %d"
 // description = "default action"
 // category = "category"

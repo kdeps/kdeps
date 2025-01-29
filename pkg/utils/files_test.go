@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"context"
 	"errors"
 	"os"
 	"testing"
@@ -10,11 +9,10 @@ import (
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var logger = logging.GetLogger()
-
-var ctx context.Context
 
 type errorFs struct {
 	afero.Fs
@@ -34,13 +32,13 @@ func TestWaitForFileReady(t *testing.T) {
 
 		// Create the file in the in-memory filesystem
 		_, err := fs.Create(filepath)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Act
-		err = WaitForFileReady(fs, ctx, filepath, logger)
+		err = WaitForFileReady(fs, filepath, logger)
 
 		// Assert
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("FileDoesNotExist", func(t *testing.T) {
@@ -52,12 +50,18 @@ func TestWaitForFileReady(t *testing.T) {
 		// Act
 		go func() {
 			time.Sleep(1 * time.Second)
-			fs.Create(filepath) // Create the file after a delay
+			_, err := fs.Create(filepath)
+			if err != nil {
+				t.Error(err)
+			}
 		}()
-		err := WaitForFileReady(fs, ctx, filepath, logger)
+		err := WaitForFileReady(fs, filepath, logger)
+		if err != nil {
+			t.Error(err)
+		}
 
 		// Assert
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("ErrorCheckingFile", func(t *testing.T) {
@@ -67,10 +71,10 @@ func TestWaitForFileReady(t *testing.T) {
 		filepath := "/cannotcreate.txt"
 
 		// Act
-		err := WaitForFileReady(fs, ctx, filepath, logger)
+		err := WaitForFileReady(fs, filepath, logger)
 
 		// Assert
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "error checking file")
 	})
 }

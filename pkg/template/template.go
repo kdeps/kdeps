@@ -38,15 +38,15 @@ func printWithDots(message string) {
 
 func validateAgentName(agentName string) error {
 	if strings.TrimSpace(agentName) == "" {
-		return errors.New("Agent name cannot be empty or only whitespace. Please provide a valid name.")
+		return errors.New("agent name cannot be empty or only whitespace")
 	}
 	if strings.Contains(agentName, " ") {
-		return errors.New("Agent name cannot contain spaces. Please provide a valid name.")
+		return errors.New("agent name cannot contain spaces")
 	}
 	return nil
 }
 
-func promptForAgentName(ctx context.Context) (string, error) {
+func promptForAgentName() (string, error) {
 	var name string
 	form := huh.NewInput().
 		Title("Configure Your AI Agent").
@@ -60,7 +60,7 @@ func promptForAgentName(ctx context.Context) (string, error) {
 	return name, nil
 }
 
-func createDirectory(fs afero.Fs, ctx context.Context, logger *logging.Logger, path string) error {
+func createDirectory(fs afero.Fs, logger *logging.Logger, path string) error {
 	printWithDots("Creating directory: " + lightGreen.Render(path))
 	if err := fs.MkdirAll(path, os.ModePerm); err != nil {
 		logger.Error(err)
@@ -70,7 +70,7 @@ func createDirectory(fs afero.Fs, ctx context.Context, logger *logging.Logger, p
 	return nil
 }
 
-func createFile(fs afero.Fs, ctx context.Context, logger *logging.Logger, path string, content string) error {
+func createFile(fs afero.Fs, logger *logging.Logger, path string, content string) error {
 	printWithDots("Creating file: " + lightGreen.Render(path))
 	if err := afero.WriteFile(fs, path, []byte(content), 0o644); err != nil {
 		logger.Error(err)
@@ -91,16 +91,16 @@ func generateWorkflowFile(fs afero.Fs, ctx context.Context, logger *logging.Logg
 	}
 
 	// Load and process the template
-	content, err := loadTemplate(ctx, templatePath, templateData)
+	content, err := loadTemplate(templatePath, templateData)
 	if err != nil {
-		logger.Error("Failed to load workflow template: ", err)
+		logger.Error("failed to load workflow template: ", err)
 		return err
 	}
 
-	return createFile(fs, ctx, logger, outputPath, content)
+	return createFile(fs, logger, outputPath, content)
 }
 
-func loadTemplate(ctx context.Context, templatePath string, data map[string]string) (string, error) {
+func loadTemplate(templatePath string, data map[string]string) (string, error) {
 	// Load the template from the embedded FS
 	content, err := templatesFS.ReadFile(templatePath)
 	if err != nil {
@@ -122,7 +122,7 @@ func loadTemplate(ctx context.Context, templatePath string, data map[string]stri
 
 func generateResourceFiles(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, name string) error {
 	resourceDir := filepath.Join(mainDir, "resources")
-	if err := createDirectory(fs, ctx, logger, resourceDir); err != nil {
+	if err := createDirectory(fs, logger, resourceDir); err != nil {
 		return err
 	}
 
@@ -150,14 +150,14 @@ func generateResourceFiles(fs afero.Fs, ctx context.Context, logger *logging.Log
 		}
 
 		templatePath := filepath.Join("templates", file.Name())
-		content, err := loadTemplate(ctx, templatePath, templateData)
+		content, err := loadTemplate(templatePath, templateData)
 		if err != nil {
-			logger.Error("Failed to process template: ", err)
+			logger.Error("failed to process template: ", err)
 			return err
 		}
 
 		outputPath := filepath.Join(resourceDir, file.Name())
-		if err := createFile(fs, ctx, logger, outputPath, content); err != nil {
+		if err := createFile(fs, logger, outputPath, content); err != nil {
 			return err
 		}
 	}
@@ -184,9 +184,9 @@ func generateSpecificFile(fs afero.Fs, ctx context.Context, logger *logging.Logg
 	}
 
 	// Load the template
-	content, err := loadTemplate(ctx, templatePath, templateData)
+	content, err := loadTemplate(templatePath, templateData)
 	if err != nil {
-		logger.Error("Failed to load specific template: ", err)
+		logger.Error("failed to load specific template: ", err)
 		return err
 	}
 
@@ -199,20 +199,20 @@ func generateSpecificFile(fs afero.Fs, ctx context.Context, logger *logging.Logg
 	}
 
 	// Create the output directory if it doesn't exist
-	if err := createDirectory(fs, ctx, logger, outputDir); err != nil {
+	if err := createDirectory(fs, logger, outputDir); err != nil {
 		return err
 	}
 
 	// Write the generated file
 	filePath := filepath.Join(outputDir, fileName)
-	if err := createFile(fs, ctx, logger, filePath, content); err != nil {
+	if err := createFile(fs, logger, filePath, content); err != nil {
 		return err
 	}
 
 	// Create the data folder
 	dataDir := filepath.Join(mainDir, "data")
-	if err := createDirectory(fs, ctx, logger, dataDir); err != nil {
-		logger.Error("Failed to create data directory: ", err)
+	if err := createDirectory(fs, logger, dataDir); err != nil {
+		logger.Error("failed to create data directory: ", err)
 		return err
 	}
 
@@ -229,21 +229,21 @@ func GenerateSpecificAgentFile(fs afero.Fs, ctx context.Context, logger *logging
 		}
 		name = agentName
 	} else {
-		name, err = promptForAgentName(ctx)
+		name, err = promptForAgentName()
 		if err != nil {
-			logger.Error("Failed to prompt for agent name: ", err)
+			logger.Error("failed to prompt for agent name: ", err)
 			return err
 		}
 	}
 
 	mainDir := "./" + name
-	if err := createDirectory(fs, ctx, logger, mainDir); err != nil {
-		logger.Error("Failed to create main directory: ", err)
+	if err := createDirectory(fs, logger, mainDir); err != nil {
+		logger.Error("failed to create main directory: ", err)
 		return err
 	}
 
 	if err := generateSpecificFile(fs, ctx, logger, mainDir, fileName, name); err != nil {
-		logger.Error("Failed to generate specific file: ", err)
+		logger.Error("failed to generate specific file: ", err)
 		return err
 	}
 
@@ -256,7 +256,7 @@ func GenerateSpecificAgentFile(fs afero.Fs, ctx context.Context, logger *logging
 
 	err = editorForm.Run()
 	if err != nil {
-		logger.Error("Failed to display editor confirmation dialog: ", err)
+		logger.Error("failed to display editor confirmation dialog: ", err)
 		return err
 	}
 
@@ -271,7 +271,7 @@ func GenerateSpecificAgentFile(fs afero.Fs, ctx context.Context, logger *logging
 		}
 
 		if err := texteditor.EditPkl(fs, ctx, filePath, logger); err != nil {
-			logger.Error("Failed to edit file: ", err)
+			logger.Error("failed to edit file: ", err)
 			return fmt.Errorf("failed to edit file: %w", err)
 		}
 	}
@@ -289,32 +289,32 @@ func GenerateAgent(fs afero.Fs, ctx context.Context, logger *logging.Logger, age
 		}
 		name = agentName
 	} else {
-		name, err = promptForAgentName(ctx)
+		name, err = promptForAgentName()
 		if err != nil {
-			logger.Error("Failed to prompt for agent name: ", err)
+			logger.Error("failed to prompt for agent name: ", err)
 			return err
 		}
 	}
 
 	mainDir := "./" + name
-	if err := createDirectory(fs, ctx, logger, mainDir); err != nil {
-		logger.Error("Failed to create main directory: ", err)
+	if err := createDirectory(fs, logger, mainDir); err != nil {
+		logger.Error("failed to create main directory: ", err)
 		return err
 	}
-	if err := createDirectory(fs, ctx, logger, mainDir+"/resources"); err != nil {
-		logger.Error("Failed to create resources directory: ", err)
+	if err := createDirectory(fs, logger, mainDir+"/resources"); err != nil {
+		logger.Error("failed to create resources directory: ", err)
 		return err
 	}
-	if err := createDirectory(fs, ctx, logger, mainDir+"/data"); err != nil {
-		logger.Error("Failed to create data directory: ", err)
+	if err := createDirectory(fs, logger, mainDir+"/data"); err != nil {
+		logger.Error("failed to create data directory: ", err)
 		return err
 	}
 	if err := generateWorkflowFile(fs, ctx, logger, mainDir, name); err != nil {
-		logger.Error("Failed to generate workflow file: ", err)
+		logger.Error("failed to generate workflow file: ", err)
 		return err
 	}
 	if err := generateResourceFiles(fs, ctx, logger, mainDir, name); err != nil {
-		logger.Error("Failed to generate resource files: ", err)
+		logger.Error("failed to generate resource files: ", err)
 		return err
 	}
 
@@ -327,14 +327,14 @@ func GenerateAgent(fs afero.Fs, ctx context.Context, logger *logging.Logger, age
 
 	err = editorForm.Run()
 	if err != nil {
-		logger.Error("Failed to display editor confirmation dialog: ", err)
+		logger.Error("failed to display editor confirmation dialog: ", err)
 		return err
 	}
 
 	if openWorkflow {
 		workflowFilePath := mainDir + "/workflow.pkl"
 		if err := texteditor.EditPkl(fs, ctx, workflowFilePath, logger); err != nil {
-			logger.Error("Failed to edit workflow file: ", err)
+			logger.Error("failed to edit workflow file: ", err)
 			return fmt.Errorf("failed to edit workflow file: %w", err)
 		}
 	}

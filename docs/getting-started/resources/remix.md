@@ -58,8 +58,8 @@ local sortedItemsJsonPath = "@(llm.file("@conveyour_counting_ai/sortImageItemsLL
 local sortedItemsJsonData = "@(read?("\(sortedItemsJsonPath)")?.text)"
 
 local report = new Mapping {
-  ["fruit_count"] = "@(document.jsonParser(sortedItemsJsonData)?.fruit_count_integer)"
-  ["vegetable_count"] = "@(document.jsonParser(sortedItemsJsonData)?.vegetable_count_integer)"
-  ["stock_analysis_report"] = "@(document.jsonParser(stockAnalysisLLMReporter)?.report_markdown)"
+  ["fruit_count"] = "@(document.JSONParser(sortedItemsJsonData)?.fruit_count_integer)"
+  ["vegetable_count"] = "@(document.JSONParser(sortedItemsJsonData)?.vegetable_count_integer)"
+  ["stock_analysis_report"] = "@(document.JSONParser(stockAnalysisLLMReporter)?.report_markdown)"
 }
 ```
