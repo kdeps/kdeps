@@ -12,7 +12,7 @@ The `workflow.pkl` contains configuration about the AI Agent, namely:
 > kdeps uses the version for mapping the graph-based dependency workflow execution order. For this reason, the version
 > is *required*.
 
-- The `action` resource to be executed when running the AI agent. This is the ID of the resource.
+- The `targetActionID` resource to be executed when running the AI agent. This is the ID of the resource.
 - Existing AI agents `workflows` to be reused in this AI agent. The agent needed to be installed first via `kdeps
   install` command.
 
@@ -23,8 +23,8 @@ packages, and default LLM models.
 
 ```apl
 settings {
-    apiServerMode = true
-    apiServer {...}
+    APIServerMode = true
+    APIServer {...}
     agentSettings {...}
 }
 ```
@@ -33,10 +33,10 @@ settings {
 
 The `settings` block includes the following configurations:
 
-- **`apiServerMode`**: A boolean flag that enables or disables API server mode for the project. When set to `false`, the
+- **`APIServerMode`**: A boolean flag that enables or disables API server mode for the project. When set to `false`, the
   default action is executed directly, and the program exits upon completion.
 
-- **`apiServer`**: A configuration block that specifies API settings such as `hostIP`, `portNum`, and `routes`.
+- **`APIServer`**: A configuration block that specifies API settings such as `hostIP`, `portNum`, and `routes`.
 
 - **`agentSettings`**: A configuration block that includes settings for installing Anaconda, `condaPackages`,
   `pythonPackages`, custom or PPA Ubuntu `repositories`, Ubuntu `packages`, and Ollama LLM `models`.
@@ -44,8 +44,8 @@ The `settings` block includes the following configurations:
 
 ### API Server Settings
 
-The `apiServer` block defines API routing configurations for the AI agent. These settings are only applied when
-`apiServerMode` is set to `true`.
+The `APIServer` block defines API routing configurations for the AI agent. These settings are only applied when
+`APIServerMode` is set to `true`.
 
 - **`hostIP` and `portNum`**: Define the IP address and port for the Docker container. The default values are
   `"127.0.0.1"` for `hostIP` and `3000` for `portNum`.
@@ -78,7 +78,7 @@ routes {
 }
 ```
 
-Each route targets a single `action`, meaning every route points to the main action specified in the workflow
+Each route targets a single `targetActionID`, meaning every route points to the main action specified in the workflow
 configuration. If multiple routes are defined, you must use a `skipCondition` logic to specify which route a resource
 should target. See the [Workflow](#workflow) for more details.
 
@@ -101,7 +101,7 @@ For more details, refer to the [Skip Conditions](/getting-started/resources/skip
 
 #### Lambda Mode
 
-When the `apiServerMode` is set to `false` in the workflow configuration, the AI agent operates in a **single-execution
+When the `APIServerMode` is set to `false` in the workflow configuration, the AI agent operates in a **single-execution
 lambda mode**. In this mode, the AI agent is designed to execute a specific task or serve a particular purpose,
 completing its function in a single, self-contained execution cycle.
 
