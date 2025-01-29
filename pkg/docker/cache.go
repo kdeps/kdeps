@@ -44,7 +44,7 @@ func CompareVersions(ctx context.Context, v1, v2 string) bool {
 	p1, p2 := parseVersion(v1), parseVersion(v2)
 	maxLen := max(len(p1), len(p2))
 
-	for i := 0; i < maxLen; i++ {
+	for i := range maxLen {
 		n1, n2 := 0, 0
 		if i < len(p1) {
 			n1 = p1[i]
@@ -70,7 +70,13 @@ func parseVersion(v string) []int {
 }
 
 func GetLatestAnacondaVersions(ctx context.Context) (map[string]string, error) {
-	resp, err := http.Get("https://repo.anaconda.com/archive/")
+	client := &http.Client{}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://repo.anaconda.com/archive/", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch Anaconda archive: %w", err)
 	}
@@ -130,7 +136,7 @@ func GenerateURLs(ctx context.Context) ([]string, error) {
 			if schema.UseLatest {
 				versions, err := GetLatestAnacondaVersions(ctx)
 				if err != nil {
-					return nil, fmt.Errorf("Anaconda versions: %w", err)
+					return nil, fmt.Errorf("found Anaconda versions: %w", err)
 				}
 				if version = versions[currentArch]; version == "" {
 					return nil, fmt.Errorf("no Anaconda version for %s", currentArch)
