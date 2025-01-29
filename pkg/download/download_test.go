@@ -98,7 +98,7 @@ func TestDownloadFile(t *testing.T) {
 	fs := afero.NewMemMapFs()
 
 	// Run the file download
-	err := DownloadFile(fs, ctx, "http://localhost:8080", "/testfile", logger)
+	err := DownloadFile(fs, ctx, "http://localhost:8080", "/testfile", logger, true)
 	require.NoError(t, err)
 
 	// Verify the downloaded content
@@ -121,7 +121,7 @@ func TestDownloadFile_FileCreationError(t *testing.T) {
 	fs := afero.NewMemMapFs()
 
 	// Invalid file path test case
-	err := DownloadFile(fs, ctx, "http://localhost:8080", "", logger)
+	err := DownloadFile(fs, ctx, "http://localhost:8080", "", logger, true)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid file path")
 }
@@ -132,6 +132,6 @@ func TestDownloadFile_HTTPGetError(t *testing.T) {
 	fs := afero.NewMemMapFs()
 
 	// Trying to download a file from an invalid URL
-	err := DownloadFile(fs, ctx, "http://invalid-url", "/testfile", logger)
+	err := DownloadFile(fs, ctx, "http://invalid-url", "/testfile", logger, true)
 	require.Error(t, err)
 }
