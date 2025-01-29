@@ -46,15 +46,15 @@ Below is a list of the global functions available for each resource:
 
 | **Function**                         | **Description**                                             |
 |:-------------------------------------|:------------------------------------------------------------|
-| document.jsonParser("string")        | Parse a JSON `String` and returns a native `Dynamic` object |
-| document.jsonParserMapping("string") | Parse a JSON `String` and returns a native `Mapping` object |
+| document.JSONParser("string")        | Parse a JSON `String` and returns a native `Dynamic` object |
+| document.JSONParserMapping("string") | Parse a JSON `String` and returns a native `Mapping` object |
 
 ## Document JSON, YAML and XML Generators
 
 | **Function**            | **Description**                                      |
 |:------------------------|:-----------------------------------------------------|
-| document.jsonRenderDocument(Any) | Parse `Any` object and returns a JSON `String`       |
-| document.jsonRenderValue(Any)    | Parse `Any` object and returns a JSON `String` Value |
+| document.JSONRenderDocument(Any) | Parse `Any` object and returns a JSON `String`       |
+| document.JSONRenderValue(Any)    | Parse `Any` object and returns a JSON `String` Value |
 | document.yamlRenderDocument(Any) | Parse `Any` object and returns a Yaml `String`       |
 | document.yamlRenderValue(Any)    | Parse `Any` object and returns a Yaml `String` Value |
 | document.xmlRenderDocument(Any)  | Parse `Any` object and returns a XML `String`        |

@@ -34,10 +34,10 @@ Configurations](../resources/resources#common-resource-configurations) documenta
 
 ## API Response Block
 
-The file contains the `apiResponse` block, structured as follows:
+The file contains the `APIResponse` block, structured as follows:
 
 ```apl
-apiResponse {
+APIResponse {
     success = true
     response {
         data {
@@ -56,7 +56,7 @@ apiResponse {
 }
 ```
 
-Key Elements of the `apiResponse` Block:
+Key Elements of the `APIResponse` Block:
 
 - **`success`**: Indicates whether the response signifies a successful operation.
 - **`response`**: Populates the response `data` with outputs from resources such as `llm`, `python`, `exec`, or

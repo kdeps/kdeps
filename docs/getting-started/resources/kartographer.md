@@ -15,7 +15,7 @@ other AI agents.
 ### Defining Dependencies
 
 To construct a dependency graph, you must define resource dependencies in the resource's `requires`
-configuration. Additionally, the target node should be specified in the workflow's `action` parameter.
+configuration. Additionally, the target node should be specified in the workflow's `targetActionID` parameter.
 
 Here’s an example of how to define a resource’s dependencies using `requires`:
 
@@ -29,7 +29,7 @@ requires {
 
 ### Understanding Graph Dependencies
 
-When your workflow's `action` is set to a target, say `JSONResponder`, and your resources have defined dependencies.
+When your workflow's `targetActionID` is set to a target, say `JSONResponder`, and your resources have defined dependencies.
 
 Kartographer processes the graph by executing:
 

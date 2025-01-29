@@ -49,10 +49,10 @@ weather_forecast_ai
 
 ### Updating the `workflow.pkl` File
 
-Next, let's modify the `workflow.pkl` file by adding a new route to the `apiServer` block. Here's the updated configuration:
+Next, let's modify the `workflow.pkl` file by adding a new route to the `APIServer` block. Here's the updated configuration:
 
 ```diff
-apiServer {
+APIServer {
     hostIP = "127.0.0.1"
     portNum = 3000
 
@@ -131,7 +131,7 @@ http://localhost:3000/api/v1/forecast?q=What+is+the+weather+in+Amsterdam?
 Open the `resources/llm_input.pkl` file and update the resource details as follows:
 
 ```diff
-id = "llmInput"                                            // [!code ++]
+actionID = "llmInput"                                            // [!code ++]
 name = "AI Helper for Input"
 description = "An AI helper to parse input into structured data"
 ```
@@ -148,8 +148,8 @@ Extract the longitude, latitude, and timezone             // [!code ++]
 from this text. An example of timezone is Asia/Manila.    // [!code ++]
 @(request.params("q"))?                                    // [!code ++]
 """
-    jsonResponse = true                                   // [!code ++]
-    jsonResponseKeys {
+    JSONResponse = true                                   // [!code ++]
+    JSONResponseKeys {
         "longitude_str"                                   // [!code ++]
         "latitude_str"                                    // [!code ++]
         "timezone_str"                                    // [!code ++]
@@ -178,7 +178,7 @@ In this, we will use the `exec` resource.
 First, update the `resources/exec.pkl` file as follows:
 
 ```diff
-id = "execResource"                                       // [!code ++]
+actionID = "execResource"                                       // [!code ++]
 name = "Store LLM JSON response to a file"
 description = "This resource will store the LLM JSON response to a file for processing later"
 requires {
@@ -216,7 +216,7 @@ built-in JSON parser.
 First, update the `resources/client.pkl` file as follows:
 
 ```diff
-id = "httpClient"                                                    // [!code ++]
+actionID = "HTTPClient"                                                    // [!code ++]
 name = "HTTP Client for the Weather API"
 description = "This resource enables API requests to the Weather API."
 requires {
@@ -226,10 +226,10 @@ requires {
 
 ### Defining the HTTP Client
 
-Now, define the `httpClient` block to handle API calls:
+Now, define the `HTTPClient` block to handle API calls:
 
 ```diff
-httpClient {
+HTTPClient {
     method = "GET"                                                             // [!code ++]
     url = "https://api.open-meteo.com/v1/forecast"                             // [!code ++]
     params {
@@ -250,7 +250,7 @@ In the previous resource, we save the LLM output into the `/tmp/llm_input.json` 
 Here's how to define a `local` variable that contains the content of this file:
 
 ```diff
-local jsonData = """
+local JSONData = """
 @(read?("file:/tmp/llm_input.json")?.text)
 """
 ```
@@ -258,18 +258,18 @@ local jsonData = """
 Then let's add the remaining variables to the parameters, which we will parse from the JSON file.
 
 ```diff
-local jsonData = """                                                           // [!code ++]
+local JSONData = """                                                           // [!code ++]
 @(read?("file:/tmp/llm_input.json")?.text)                                     // [!code ++]
 """                                                                            // [!code ++]
 
-httpClient {
+HTTPClient {
     method = "GET"
     url = "https://api.open-meteo.com/v1/forecast"
     data {}
     params {
-        ["latitude" ] = "@(jsonParser.parse(jsonData)?.latitude_str)"           // [!code ++]
-        ["longitude"] = "@(jsonParser.parse(jsonData)?.longitude_str)"          // [!code ++]
-        ["timezone "] = "@(jsonParser.parse(jsonData)?.timezone_str)"           // [!code ++]
+        ["latitude" ] = "@(JSONParser.parse(JSONData)?.latitude_str)"           // [!code ++]
+        ["longitude"] = "@(JSONParser.parse(JSONData)?.longitude_str)"          // [!code ++]
+        ["timezone "] = "@(JSONParser.parse(JSONData)?.timezone_str)"           // [!code ++]
         ["current_weather"] = "true"
         ["forecast_days"] = "1"
         ["hourly"] = "temperature_2m,precipitation,wind_speed_10m"
@@ -277,7 +277,7 @@ httpClient {
     }
 ```
 
-We use the built-in `jsonParser.parse(file)` to obtain the three values from the JSON file.
+We use the built-in `JSONParser.parse(file)` to obtain the three values from the JSON file.
 The fields `latitude_str`, `longitude_str`, and `timezone_str` are parsed and added to the params.
 
 > **Important:**
@@ -294,11 +294,11 @@ With the JSON response from the Weather API in hand, let's format it into a user
 Open the `resources/llm_output.pkl` file and update the resource details as follows:
 
 ```diff
-id = "llmOutput"                                     // [!code ++]
+actionID = "llmOutput"                                     // [!code ++]
 name = "AI Helper for Output"
 description = "A resource to generate a polished output using LLM."
 requires {
-    "httpClient"                                     // [!code ++]
+    "HTTPClient"                                     // [!code ++]
 }
 ```
 
@@ -311,16 +311,16 @@ chat {
     model = "llama3.1"                                                      // [!code ++]
     prompt = """
 As if you're a weather reporter, present this response in an engaging way:  // [!code ++]
-@(client.responseBody("httpClient").base64Decoded)                          // [!code ++]
+@(client.responseBody("HTTPClient").base64Decoded)                          // [!code ++]
 """
-    jsonResponse = false                                                    // [!code ++]
+    JSONResponse = false                                                    // [!code ++]
 ...
 ```
 
 - **`model`**: Specifies the LLM version (`llama3.1`).
 - **`prompt`**: Instructs the model to generate an output resembling a weather reporter's announcement. The raw API
-response is passed via `@(client.responseBody("httpClient"))`.
-- **`jsonResponse = false`**: Indicates that the output should be plain text, formatted for readability, rather than
+response is passed via `@(client.responseBody("HTTPClient"))`.
+- **`JSONResponse = false`**: Indicates that the output should be plain text, formatted for readability, rather than
 structured JSON.
 
 This setup ensures that the output from the Weather API is transformed into an engaging and easy-to-understand
@@ -335,7 +335,7 @@ To complete the AI agent, we’ll incorporate a `response` resource that enables
 Edit the `resources/response.pkl` file as follows:
 
 ```diff
-id = "apiResponse"                                                                 // [!code ++]
+actionID = "APIResponse"                                                                 // [!code ++]
 name = "API Response Resource"
 description = "This resource provides a JSON response through the API."
 requires {
@@ -343,15 +343,15 @@ requires {
 }
 ```
 
-- **`id`**: Specifies the resource identifier as `weatherResponseResource`.
+- **`actionID`**: Specifies the resource identifier as `weatherResponseResource`.
 - **`requires`**: Declares `llmOutputHelper` as a dependency, ensuring access to its processed output.
 
-### Configuring the `apiResponse` Section
+### Configuring the `APIResponse` Section
 
-Update the `apiResponse` block to define the structure of the API response:
+Update the `APIResponse` block to define the structure of the API response:
 
 ```diff
-apiResponse {
+APIResponse {
     success = true                               // [!code ++]
     response {
         data {
@@ -371,10 +371,10 @@ To ensure proper execution, update the workflow to set the default action to `we
 
 #### Modifying `workflow.pkl`
 
-Open the `workflow.pkl` file and adjust the `action` field as follows:
+Open the `workflow.pkl` file and adjust the `targetActionID` field as follows:
 
 ```diff
-action = "weatherResponseResource" // [!code ++]
+targetActionID = "weatherResponseResource" // [!code ++]
 ```
 
 By integrating the `response` resource and updating the workflow, the AI agent can deliver polished JSON responses via

@@ -16,7 +16,7 @@ file. Optionally, add the `huggingface_hub` package if you plan to use gated mod
 
 Since no LLM models are required for this process, the `models` block can remain empty.
 
-We will also set the `action` to `apiResponseResource` and create a route `/api/v1/image_generator`.
+We will also set the `targetActionID` to `APIResponseResource` and create a route `/api/v1/image_generator`.
 
 Example `workflow.pkl` configuration:
 
@@ -26,7 +26,7 @@ version = "1.0.0"                          // [!code ++]
 ...
 settings {
   ...
-  apiServer {
+  APIServer {
     hostIP = "127.0.0.1"
     portNum = 3000
 
@@ -94,7 +94,7 @@ using the `request.params("q")` function.
 
 
 ```json
-id = "pythonResource"
+actionID = "pythonResource"
 
 python {
   local pythonScriptPath = "@(data.filepath("sd35api/1.0.0", "sd3_5.py"))" // [!code ++]
@@ -116,7 +116,7 @@ With the Python resource prepared, include it in the `requires` block of the API
 script is executed as part of the workflow.
 
 ```js
-id = "apiResponseResource"
+actionID = "APIResponseResource"
 requires {
   "pythonResource"                                                         // [!code ++]
 }
@@ -131,7 +131,7 @@ local responseJson = new Mapping {                                        // [!c
   ["file"] = "data:image/png;base64,\(generatedFileBase64)"               // [!code ++]
 }                                                                         // [!code ++]
 
-apiResponse {
+APIResponse {
 ...
   response {
     data {
@@ -216,7 +216,7 @@ downloads the model. Additionally, set the cache directory to `/root/.kdeps/`, a
 marker file (`/root/.kdeps/sd35-downloaded`) upon successful download.
 
 ```json
-id = "execResource"
+actionID = "execResource"
 ...
 exec {
     command = """
@@ -237,7 +237,7 @@ To ensure the `exec` script runs only when necessary, add a `skipCondition`. Thi
 the `/root/.kdeps/sd35-downloaded` file. If the file exists, the script will be skipped.
 
 ```json
-id = "execResource"
+actionID = "execResource"
 ...
 run {
     local stampFile = read?("file:/root/.kdeps/sd35-downloaded")?.base64?.isEmpty                // [!code ++]
