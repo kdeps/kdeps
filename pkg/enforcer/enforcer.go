@@ -43,7 +43,7 @@ func compareVersions(v1, v2 string, logger *logging.Logger) (int, error) {
 		maxLen = len(v2Parts)
 	}
 
-	for i := 0; i < maxLen; i++ {
+	for i := range maxLen {
 		var v1Part, v2Part int
 		var err error
 
