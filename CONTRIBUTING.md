@@ -27,13 +27,22 @@ We use Makefile to build the code, which contains a set of commands to lint, tes
 
 ### Building & running the code
 
-- To build the code, run `make build`.
+#### Host machine
+
+- To build the binary code, run `make build`.
 - The resulting binary will be placed in the `bin` directory.
 
 You can simply run it:
 ```sh
 ./bin/kdeps --help
 ```
+
+#### Docker machine
+
+- To build the binary code used by the Docker machine, run `make dev-build`.
+- The resulting binary will be placed in the `bin` directory.
+- The binary should be copied to `.kdeps/cache/` directory.
+- Running `kdeps run`, will install the binary inside the docker machine on build time.
 
 ### Testing
 
