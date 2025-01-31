@@ -47,18 +47,14 @@ func TestWaitForFileReady(t *testing.T) {
 		fs := afero.NewMemMapFs()
 		filepath := "/nonexistent.txt"
 
-		// Act
+		// Act - Create the file **earlier** to avoid race condition
 		go func() {
-			time.Sleep(1 * time.Second)
+			time.Sleep(200 * time.Millisecond) // Give WaitForFileReady some time to run
 			_, err := fs.Create(filepath)
-			if err != nil {
-				t.Error(err)
-			}
+			assert.NoError(t, err) // Fail test if file creation fails
 		}()
+
 		err := WaitForFileReady(fs, filepath, logger)
-		if err != nil {
-			t.Error(err)
-		}
 
 		// Assert
 		require.NoError(t, err)

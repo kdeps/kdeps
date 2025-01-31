@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -338,113 +337,6 @@ filetype = "%s"
 	}
 }
 
-// Helper function to detect if a string is valid JSON.
-func isJSON(str string) bool {
-	var js json.RawMessage
-	return json.Unmarshal([]byte(str), &js) == nil
-}
-
-func fixJSON(input string) string {
-	// Fix unescaped quotes in strings
-	reUnescapedQuotes := regexp.MustCompile(`([^\\])"([^,}\]\s])`)
-	input = reUnescapedQuotes.ReplaceAllString(input, `$1\"$2`)
-
-	// Remove trailing commas
-	reTrailingCommas := regexp.MustCompile(`,(\s*[}\]])`)
-	input = reTrailingCommas.ReplaceAllString(input, `$1`)
-
-	// Remove extra double quotes
-	reExtraQuotes := regexp.MustCompile(`\"{2,}`)
-	input = reExtraQuotes.ReplaceAllString(input, `\"`)
-
-	// Wrap unquoted keys
-	reUnquotedKeys := regexp.MustCompile(`\{\s*([a-zA-Z0-9_]+)\s*:`)
-	input = reUnquotedKeys.ReplaceAllString(input, `{"$1":`)
-
-	reUnquotedKeys2 := regexp.MustCompile(`\{|\s*,\s*([a-zA-Z0-9_]+)\s*:`)
-	input = reUnquotedKeys2.ReplaceAllStringFunc(input, func(match string) string {
-		if match[0] == ',' {
-			return `, "` + match[2:] + `"`
-		}
-		return match
-	})
-
-	// Remove trailing backslashes
-	reTrailingBackslashes := regexp.MustCompile(`\\+$`)
-	input = reTrailingBackslashes.ReplaceAllString(input, "")
-
-	// Remove backslashes escaping quotes
-	reEscapedQuotes2 := regexp.MustCompile(`\\+"`)
-	input = reEscapedQuotes2.ReplaceAllString(input, `"`)
-
-	// Remove trailing backslashes
-	reTrailingBackslashes2 := regexp.MustCompile(`\\+$`)
-	input = reTrailingBackslashes2.ReplaceAllString(input, "")
-
-	return input
-}
-
-func decodeResponseContent(content []byte, logger *logging.Logger) ([]byte, error) {
-	var decodedResp DecodedResponse
-
-	// Unmarshal JSON content into DecodedResponse struct
-	err := json.Unmarshal(content, &decodedResp)
-	if err != nil {
-		logger.Error("failed to unmarshal response content", "error", err)
-		return nil, err
-	}
-
-	// Decode Base64 strings in the Data field
-	for i, encodedData := range decodedResp.Response.Data {
-		decodedData, err := utils.DecodeBase64String(encodedData)
-		if err != nil {
-			logger.Error("failed to decode Base64 string", "data", encodedData)
-			decodedResp.Response.Data[i] = encodedData // Use original if decoding fails
-		} else {
-			// If the decoded string is still wrapped in extra quotes, handle unquoting
-			if strings.HasPrefix(decodedData, "\"") && strings.HasSuffix(decodedData, "\"") {
-				unquotedData, err := strconv.Unquote(decodedData)
-				if err == nil {
-					decodedData = unquotedData
-				}
-			}
-
-			// Clean up any remaining escape sequences (like \n or \") if present
-			// https://stackoverflow.com/questions/53776683/regex-find-newline-between-double-quotes-and-replace-with-space/53777149#53777149
-			matchNewlines := regexp.MustCompile(`[\r\n]`)
-			escapeNewlines := func(s string) string {
-				return matchNewlines.ReplaceAllString(s, "\\n")
-			}
-			re := regexp.MustCompile(`"[^"\\]*(?:\\[\s\S][^"\\]*)*"`)
-			invalidJSON := re.ReplaceAllStringFunc(decodedData, escapeNewlines)
-
-			// Pass in the invalidJSON to the fixJSON
-			fixedJSON := fixJSON(invalidJSON)
-
-			// If the decoded data is JSON, pretty print it
-			if isJSON(fixedJSON) {
-				var prettyJSON bytes.Buffer
-				err := json.Indent(&prettyJSON, []byte(fixedJSON), "", "  ")
-				if err == nil {
-					fixedJSON = prettyJSON.String()
-				}
-			}
-
-			// Assign the cleaned-up data back to the response
-			decodedResp.Response.Data[i] = fixedJSON
-		}
-	}
-
-	// Marshal the decoded response back to JSON
-	decodedContent, err := json.Marshal(decodedResp)
-	if err != nil {
-		logger.Error("failed to marshal decoded response content", "error", err)
-		return nil, err
-	}
-
-	return decodedContent, nil
-}
-
 // cleanOldFiles removes any old response files or flags from previous API requests.
 // It ensures the environment is clean before processing new requests.
 func cleanOldFiles(fs afero.Fs, dr *resolver.DependencyResolver, logger *logging.Logger) error {
@@ -532,6 +424,50 @@ func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver, logge
 	}
 
 	return fatal, nil
+}
+
+func decodeResponseContent(content []byte, logger *logging.Logger) ([]byte, error) {
+	var decodedResp DecodedResponse
+
+	// Unmarshal JSON content into DecodedResponse struct
+	err := json.Unmarshal(content, &decodedResp)
+	if err != nil {
+		logger.Error("failed to unmarshal response content", "error", err)
+		return nil, err
+	}
+
+	// Decode Base64 strings in the Data field
+	for i, encodedData := range decodedResp.Response.Data {
+		decodedData, err := utils.DecodeBase64String(encodedData)
+		if err != nil {
+			logger.Error("failed to decode Base64 string", "data", encodedData)
+			decodedResp.Response.Data[i] = encodedData // Use original if decoding fails
+		} else {
+			// Pass in the invalidJSON to the FixJSON
+			fixedJSON := utils.FixJSON(decodedData)
+
+			// If the decoded data is JSON, pretty print it
+			if utils.IsJSON(fixedJSON) {
+				var prettyJSON bytes.Buffer
+				err := json.Indent(&prettyJSON, []byte(fixedJSON), "", "  ")
+				if err == nil {
+					fixedJSON = prettyJSON.String()
+				}
+			}
+
+			// Assign the cleaned-up data back to the response
+			decodedResp.Response.Data[i] = fixedJSON
+		}
+	}
+
+	// Marshal the decoded response back to JSON
+	decodedContent, err := json.Marshal(decodedResp)
+	if err != nil {
+		logger.Error("failed to marshal decoded response content", "error", err)
+		return nil, err
+	}
+
+	return decodedContent, nil
 }
 
 // formatResponseJSON attempts to format the response content as JSON if required.
