@@ -52,3 +52,56 @@ func DecodeBase64String(encodedStr string) (string, error) {
 func EncodeBase64String(data string) string {
 	return base64.StdEncoding.EncodeToString([]byte(data))
 }
+
+func DecodeBase64IfNeeded(value string) (string, error) {
+	if IsBase64Encoded(value) {
+		return DecodeBase64String(value)
+	}
+	return value, nil
+}
+
+func EncodeValue(value string) string {
+	if !IsBase64Encoded(value) {
+		return EncodeBase64String(value)
+	}
+	return value
+}
+
+// handles optional string pointers (like Stderr/Stdout).
+func EncodeValuePtr(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	encoded := EncodeValue(*value)
+	return &encoded
+}
+
+func DecodeStringMap(src *map[string]string, fieldType string) (*map[string]string, error) {
+	if src == nil {
+		return nil, nil
+	}
+	decoded := make(map[string]string)
+	for k, v := range *src {
+		decodedVal, err := DecodeBase64IfNeeded(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode %s %s: %w", fieldType, k, err)
+		}
+		decoded[k] = decodedVal
+	}
+	return &decoded, nil
+}
+
+func DecodeStringSlice(src *[]string, fieldType string) (*[]string, error) {
+	if src == nil {
+		return nil, nil
+	}
+	decoded := make([]string, len(*src))
+	for i, v := range *src {
+		decodedVal, err := DecodeBase64IfNeeded(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode %s index %d: %w", fieldType, i, err)
+		}
+		decoded[i] = decodedVal
+	}
+	return &decoded, nil
+}
