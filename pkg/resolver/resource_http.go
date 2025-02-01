@@ -34,43 +34,6 @@ func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHT
 	return dr.AppendHTTPEntry(actionID, httpBlock)
 }
 
-func decodeStringMap(src *map[string]string, fieldType string) (*map[string]string, error) {
-	if src == nil {
-		return nil, nil
-	}
-	decoded := make(map[string]string)
-	for k, v := range *src {
-		decodedVal, err := decodeBase64IfNeeded(v)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode %s %s: %w", fieldType, k, err)
-		}
-		decoded[k] = decodedVal
-	}
-	return &decoded, nil
-}
-
-func decodeStringSlice(src *[]string, fieldType string) (*[]string, error) {
-	if src == nil {
-		return nil, nil
-	}
-	decoded := make([]string, len(*src))
-	for i, v := range *src {
-		decodedVal, err := decodeBase64IfNeeded(v)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode %s index %d: %w", fieldType, i, err)
-		}
-		decoded[i] = decodedVal
-	}
-	return &decoded, nil
-}
-
-func decodeBase64IfNeeded(value string) (string, error) {
-	if utils.IsBase64Encoded(value) {
-		return utils.DecodeBase64String(value)
-	}
-	return value, nil
-}
-
 func (dr *DependencyResolver) decodeHTTPBlock(httpBlock *pklHTTP.ResourceHTTPClient) error {
 	if utils.IsBase64Encoded(httpBlock.Url) {
 		decodedURL, err := utils.DecodeBase64String(httpBlock.Url)
@@ -81,17 +44,17 @@ func (dr *DependencyResolver) decodeHTTPBlock(httpBlock *pklHTTP.ResourceHTTPCli
 	}
 
 	var err error
-	httpBlock.Headers, err = decodeStringMap(httpBlock.Headers, "header")
+	httpBlock.Headers, err = utils.DecodeStringMap(httpBlock.Headers, "header")
 	if err != nil {
 		return err
 	}
 
-	httpBlock.Params, err = decodeStringMap(httpBlock.Params, "param")
+	httpBlock.Params, err = utils.DecodeStringMap(httpBlock.Params, "param")
 	if err != nil {
 		return err
 	}
 
-	httpBlock.Data, err = decodeStringSlice(httpBlock.Data, "data")
+	httpBlock.Data, err = utils.DecodeStringSlice(httpBlock.Data, "data")
 	return err
 }
 
@@ -103,7 +66,7 @@ func (dr *DependencyResolver) WriteResponseBodyToFile(resourceID string, respons
 	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
 	outputFilePath := filepath.Join(dr.FilesDir, resourceIDFile)
 
-	content, err := decodeBase64IfNeeded(*responseBodyEncoded)
+	content, err := utils.DecodeBase64IfNeeded(*responseBodyEncoded)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode response body: %w", err)
 	}
@@ -154,11 +117,11 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 		pklContent.WriteString(fmt.Sprintf("    timestamp = %d\n", *res.Timestamp))
 
 		pklContent.WriteString("    data ")
-		pklContent.WriteString(encodePklSlice(res.Data))
+		pklContent.WriteString(utils.EncodePklSlice(res.Data))
 		pklContent.WriteString("    headers ")
-		pklContent.WriteString(encodePklMap(res.Headers))
+		pklContent.WriteString(utils.EncodePklMap(res.Headers))
 		pklContent.WriteString("    params ")
-		pklContent.WriteString(encodePklMap(res.Params))
+		pklContent.WriteString(utils.EncodePklMap(res.Params))
 		pklContent.WriteString("    response {\n")
 		pklContent.WriteString(encodeResponseHeaders(res.Response))
 		pklContent.WriteString(encodeResponseBody(res.Response, dr, resourceID))
@@ -181,32 +144,6 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 	return afero.WriteFile(dr.Fs, pklPath, []byte(evaluatedContent), 0o644)
 }
 
-func encodePklMap(m *map[string]string) string {
-	if m == nil {
-		return "{[\"\"] = \"\"}\n"
-	}
-	var builder strings.Builder
-	builder.WriteString("{\n")
-	for k, v := range *m {
-		builder.WriteString(fmt.Sprintf("      [\"%s\"] = \"%s\"\n", k, encodeValue(v)))
-	}
-	builder.WriteString("    }\n")
-	return builder.String()
-}
-
-func encodePklSlice(s *[]string) string {
-	if s == nil {
-		return "{\"\"}\n"
-	}
-	var builder strings.Builder
-	builder.WriteString("{\n")
-	for _, v := range *s {
-		builder.WriteString(fmt.Sprintf("      \"%s\"\n", encodeValue(v)))
-	}
-	builder.WriteString("    }\n")
-	return builder.String()
-}
-
 func encodeResponseHeaders(response *pklHTTP.ResponseBlock) string {
 	if response == nil || response.Headers == nil {
 		return "    headers {[\"\"] = \"\"}\n"
@@ -214,7 +151,7 @@ func encodeResponseHeaders(response *pklHTTP.ResponseBlock) string {
 	var builder strings.Builder
 	builder.WriteString("    headers {\n")
 	for k, v := range *response.Headers {
-		builder.WriteString(fmt.Sprintf("      [\"%s\"] = #\"\"\"\n%s\n\"\"\"#\n", k, encodeValue(v)))
+		builder.WriteString(fmt.Sprintf("      [\"%s\"] = #\"\"\"\n%s\n\"\"\"#\n", k, utils.EncodeValue(v)))
 	}
 	builder.WriteString("    }\n")
 	return builder.String()
@@ -227,14 +164,7 @@ func encodeResponseBody(response *pklHTTP.ResponseBlock, dr *DependencyResolver,
 	if _, err := dr.WriteResponseBodyToFile(resourceID, response.Body); err != nil {
 		dr.Logger.Fatalf("unable to write HTTP response body to file for resource %s", resourceID)
 	}
-	return fmt.Sprintf("    body = #\"\"\"\n%s\n\"\"\"#\n", encodeValue(*response.Body))
-}
-
-func encodeValue(value string) string {
-	if !utils.IsBase64Encoded(value) {
-		return utils.EncodeBase64String(value)
-	}
-	return value
+	return fmt.Sprintf("    body = #\"\"\"\n%s\n\"\"\"#\n", utils.EncodeValue(*response.Body))
 }
 
 func (dr *DependencyResolver) DoRequest(client *pklHTTP.ResourceHTTPClient) error {
