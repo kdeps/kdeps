@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/alexellis/go-execute/v2"
 	"github.com/kdeps/kdeps/pkg/evaluator"
@@ -17,112 +16,68 @@ import (
 )
 
 func (dr *DependencyResolver) HandlePython(actionID string, pythonBlock *pklPython.ResourcePython) error {
-	// Decode Script if it is Base64-encoded
-	if utf8.ValidString(pythonBlock.Script) && utils.IsBase64Encoded(pythonBlock.Script) {
-		decodedScript, err := utils.DecodeBase64String(pythonBlock.Script)
-		if err == nil {
-			pythonBlock.Script = decodedScript
-		}
+	if err := dr.decodePythonBlock(pythonBlock); err != nil {
+		dr.Logger.Error("failed to decode python block", "actionID", actionID, "error", err)
+		return err
 	}
+	return dr.processPythonBlock(actionID, pythonBlock)
+}
 
-	// Decode Stderr if it is Base64-encoded
-	if pythonBlock.Stderr != nil && utf8.ValidString(*pythonBlock.Stderr) && utils.IsBase64Encoded(*pythonBlock.Stderr) {
-		decodedStderr, err := utils.DecodeBase64String(*pythonBlock.Stderr)
-		if err == nil {
-			pythonBlock.Stderr = &decodedStderr
-		}
-	}
-
-	// Decode Stdout if it is Base64-encoded
-	if pythonBlock.Stdout != nil && utf8.ValidString(*pythonBlock.Stdout) && utils.IsBase64Encoded(*pythonBlock.Stdout) {
-		decodedStdout, err := utils.DecodeBase64String(*pythonBlock.Stdout)
-		if err == nil {
-			pythonBlock.Stdout = &decodedStdout
-		}
-	}
-
-	// Decode Env map keys and values if they are Base64-encoded
-	if pythonBlock.Env != nil {
-		for key, value := range *pythonBlock.Env {
-			stringKey := key
-			decodedValue := value
-
-			// Decode value if it is Base64-encoded
-			if utf8.ValidString(value) && utils.IsBase64Encoded(value) {
-				decodedValue, _ = utils.DecodeBase64String(value)
-			}
-
-			// Update the map with the decoded values
-			(*pythonBlock.Env)[stringKey] = decodedValue
-		}
-	}
-
-	errChan := make(chan error, 1) // Channel to capture the error
-
-	go func() {
-		if err := dr.processPythonBlock(actionID, pythonBlock); err != nil {
-			errChan <- err // Send the error to the channel
-			return
-		}
-		errChan <- nil // Send a nil if no error occurred
-	}()
-
-	// Wait for the result from the goroutine
-	err := <-errChan
+func (dr *DependencyResolver) decodePythonBlock(pythonBlock *pklPython.ResourcePython) error {
+	// Decode Script
+	decodedScript, err := utils.DecodeBase64IfNeeded(pythonBlock.Script)
 	if err != nil {
-		return err // Return the error to the caller
+		return fmt.Errorf("failed to decode script: %w", err)
 	}
+	pythonBlock.Script = decodedScript
+
+	// Decode Stderr
+	if pythonBlock.Stderr != nil {
+		decodedStderr, err := utils.DecodeBase64IfNeeded(*pythonBlock.Stderr)
+		if err != nil {
+			return fmt.Errorf("failed to decode stderr: %w", err)
+		}
+		pythonBlock.Stderr = &decodedStderr
+	}
+
+	// Decode Stdout
+	if pythonBlock.Stdout != nil {
+		decodedStdout, err := utils.DecodeBase64IfNeeded(*pythonBlock.Stdout)
+		if err != nil {
+			return fmt.Errorf("failed to decode stdout: %w", err)
+		}
+		pythonBlock.Stdout = &decodedStdout
+	}
+
+	// Decode Env
+	decodedEnv, err := utils.DecodeStringMap(pythonBlock.Env, "env")
+	if err != nil {
+		return fmt.Errorf("failed to decode env: %w", err)
+	}
+	pythonBlock.Env = decodedEnv
 
 	return nil
 }
 
 func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *pklPython.ResourcePython) error {
-	if dr.AnacondaInstalled {
-		if *pythonBlock.CondaEnvironment != "" {
-			execCommand := execute.ExecTask{
-				Command:     "conda",
-				Args:        []string{"activate", "--name", *pythonBlock.CondaEnvironment},
-				Shell:       false,
-				StreamStdio: false,
-			}
-
-			if _, err := execCommand.Execute(context.Background()); err != nil {
-				return fmt.Errorf("execution failed for command '%s': %w", execCommand.Command, err)
-			}
+	if dr.AnacondaInstalled && pythonBlock.CondaEnvironment != nil && *pythonBlock.CondaEnvironment != "" {
+		if err := dr.activateCondaEnvironment(*pythonBlock.CondaEnvironment); err != nil {
+			return err
 		}
+		//nolint:errcheck
+		defer dr.deactivateCondaEnvironment()
 	}
 
-	var env []string
-	if pythonBlock.Env != nil {
-		for key, value := range *pythonBlock.Env {
-			// Append the environment variable in the desired format
-			env = append(env, fmt.Sprintf(`%s=%s`, key, value))
-		}
-	}
+	env := dr.formatPythonEnv(pythonBlock.Env)
 
-	// Create a temporary file using afero
-	tmpFile, err := afero.TempFile(dr.Fs, "", "script-*.py")
+	tmpFile, err := dr.createPythonTempFile(pythonBlock.Script)
 	if err != nil {
-		return fmt.Errorf("failed to create temporary file: %w", err)
+		return err
 	}
-	defer func() {
-		_ = dr.Fs.Remove(tmpFile.Name()) // Clean up the file after execution
-	}()
+	defer dr.cleanupTempFile(tmpFile.Name())
 
-	// Write the Python script to the temporary file
-	if _, err := tmpFile.Write([]byte(pythonBlock.Script)); err != nil {
-		return fmt.Errorf("failed to write script to temporary file: %w", err)
-	}
-
-	// Ensure the script is written and the file is closed
-	if err := tmpFile.Close(); err != nil {
-		return fmt.Errorf("failed to close temporary file: %w", err)
-	}
-
-	// Log the command and environment variables
 	dr.Logger.Info("running python", "script", tmpFile.Name(), "env", env)
 
-	// Prepare the execution command
 	cmd := execute.ExecTask{
 		Command:     "python3",
 		Args:        []string{tmpFile.Name()},
@@ -131,207 +86,192 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 		StreamStdio: false,
 	}
 
-	// Execute the command
 	result, err := cmd.Execute(context.Background())
 	if err != nil {
 		return fmt.Errorf("execution failed: %w", err)
 	}
 
-	// Capture stdout and stderr
 	pythonBlock.Stdout = &result.Stdout
 	pythonBlock.Stderr = &result.Stderr
 
-	// Append the Python entry
-	if err := dr.AppendPythonEntry(actionID, pythonBlock); err != nil {
-		return fmt.Errorf("failed to append Python entry: %w", err)
+	return dr.AppendPythonEntry(actionID, pythonBlock)
+}
+
+func (dr *DependencyResolver) activateCondaEnvironment(envName string) error {
+	execCommand := execute.ExecTask{
+		Command:     "conda",
+		Args:        []string{"activate", "--name", envName},
+		Shell:       false,
+		StreamStdio: false,
 	}
 
-	if dr.AnacondaInstalled {
-		if *pythonBlock.CondaEnvironment != "" {
-			execCommand := execute.ExecTask{
-				Command:     "conda",
-				Args:        []string{"deactivate"},
-				Shell:       false,
-				StreamStdio: false,
-			}
-
-			if _, err := execCommand.Execute(context.Background()); err != nil {
-				return fmt.Errorf("execution failed for command '%s': %w", execCommand.Command, err)
-			}
-		}
+	if _, err := execCommand.Execute(context.Background()); err != nil {
+		return fmt.Errorf("conda activate failed: %w", err)
 	}
-
 	return nil
 }
 
-func (dr *DependencyResolver) WritePythonStdoutToFile(resourceID string, pythonStdoutEncoded *string) (string, error) {
-	// Convert resourceID to be filename friendly
+func (dr *DependencyResolver) deactivateCondaEnvironment() error {
+	execCommand := execute.ExecTask{
+		Command:     "conda",
+		Args:        []string{"deactivate"},
+		Shell:       false,
+		StreamStdio: false,
+	}
+
+	if _, err := execCommand.Execute(context.Background()); err != nil {
+		return fmt.Errorf("conda deactivate failed: %w", err)
+	}
+	return nil
+}
+
+func (dr *DependencyResolver) formatPythonEnv(env *map[string]string) []string {
+	var formatted []string
+	if env != nil {
+		for k, v := range *env {
+			formatted = append(formatted, fmt.Sprintf("%s=%s", k, v))
+		}
+	}
+	return formatted
+}
+
+//nolint:ireturn
+func (dr *DependencyResolver) createPythonTempFile(script string) (afero.File, error) {
+	tmpFile, err := afero.TempFile(dr.Fs, "", "script-*.py")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp file: %w", err)
+	}
+
+	if _, err := tmpFile.Write([]byte(script)); err != nil {
+		return nil, fmt.Errorf("failed to write script: %w", err)
+	}
+
+	if err := tmpFile.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close temp file: %w", err)
+	}
+
+	return tmpFile, nil
+}
+
+func (dr *DependencyResolver) cleanupTempFile(name string) {
+	if err := dr.Fs.Remove(name); err != nil {
+		dr.Logger.Error("failed to clean up temp file", "path", name, "error", err)
+	}
+}
+
+func (dr *DependencyResolver) WritePythonStdoutToFile(resourceID string, stdoutEncoded *string) (string, error) {
+	if stdoutEncoded == nil {
+		return "", nil
+	}
+
+	content, err := utils.DecodeBase64IfNeeded(*stdoutEncoded)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode stdout: %w", err)
+	}
+
 	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
-	// Define the file path using the FilesDir and resource ID
 	outputFilePath := filepath.Join(dr.FilesDir, resourceIDFile)
 
-	// Ensure the ResponseBody is not nil
-	if pythonStdoutEncoded != nil {
-		// Prepare the content to write
-		var content string
-		if utils.IsBase64Encoded(*pythonStdoutEncoded) {
-			// Decode the Base64-encoded ResponseBody string
-			decodedResponseBody, err := utils.DecodeBase64String(*pythonStdoutEncoded)
-			if err != nil {
-				return "", fmt.Errorf("failed to decode Base64 string for resource ID: %s: %w", resourceID, err)
-			}
-			content = decodedResponseBody
-		} else {
-			// Use the ResponseBody content as-is if not Base64-encoded
-			content = *pythonStdoutEncoded
-		}
-
-		// Write the content to the file
-		err := afero.WriteFile(dr.Fs, outputFilePath, []byte(content), 0o644)
-		if err != nil {
-			return "", fmt.Errorf("failed to write Python Stdout to file for resource ID: %s: %w", resourceID, err)
-		}
-	} else {
-		return "", nil
+	if err := afero.WriteFile(dr.Fs, outputFilePath, []byte(content), 0o644); err != nil {
+		return "", fmt.Errorf("failed to write stdout to file: %w", err)
 	}
 
 	return outputFilePath, nil
 }
 
+//nolint:dupl
 func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pklPython.ResourcePython) error {
-	// Define the path to the PKL file
 	pklPath := filepath.Join(dr.ActionDir, "python/"+dr.RequestID+"__python_output.pkl")
-
-	// Get the current timestamp
 	newTimestamp := uint32(time32.Epoch())
 
-	// Load existing PKL data
 	pklRes, err := pklPython.LoadFromPath(dr.Context, pklPath)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL file: %w", err)
 	}
 
-	// Ensure pklRes.Resource is of type *map[string]*llm.ResourceChat
-	existingResources := *pklRes.GetResources() // Dereference the pointer to get the map
+	existingResources := *pklRes.GetResources()
 
-	// Check and Base64 encode Script, Stderr, Stdout if not already encoded
-	encodedScript := newPython.Script
-	if !utils.IsBase64Encoded(newPython.Script) {
-		encodedScript = utils.EncodeBase64String(newPython.Script)
-	}
-
-	var filePath, encodedStderr, encodedStdout string
-
-	if newPython.Stderr != nil {
-		if !utils.IsBase64Encoded(*newPython.Stderr) {
-			encodedStderr = utils.EncodeBase64String(*newPython.Stderr)
-		} else {
-			encodedStderr = *newPython.Stderr
-		}
-	}
-
+	var filePath string
 	if newPython.Stdout != nil {
 		filePath, err = dr.WritePythonStdoutToFile(resourceID, newPython.Stdout)
 		if err != nil {
-			return fmt.Errorf("failed to write Python stdout to file: %w", err)
+			return fmt.Errorf("failed to write stdout to file: %w", err)
 		}
 		newPython.File = &filePath
-
-		if !utils.IsBase64Encoded(*newPython.Stdout) {
-			encodedStdout = utils.EncodeBase64String(*newPython.Stdout)
-		} else {
-			encodedStdout = *newPython.Stdout
-		}
 	}
 
-	// Base64 encode the Env map (keys and values)
-	var encodedEnv *map[string]string
-	if newPython.Env != nil {
-		encodedEnvMap := make(map[string]string)
-		for key, value := range *newPython.Env {
-			stringKey := key
-			encodedValue := value
+	encodedScript := utils.EncodeValue(newPython.Script)
+	encodedEnv := dr.encodePythonEnv(newPython.Env)
+	encodedStderr, encodedStdout := dr.encodePythonOutputs(newPython.Stderr, newPython.Stdout)
 
-			if !utils.IsBase64Encoded(value) {
-				encodedValue = utils.EncodeBase64String(value)
-			}
-			encodedEnvMap[stringKey] = encodedValue
-		}
-		encodedEnv = &encodedEnvMap
-	}
-
-	// Create or update the ResourcePython entry
 	existingResources[resourceID] = &pklPython.ResourcePython{
 		Env:       encodedEnv,
 		Script:    encodedScript,
-		Stderr:    &encodedStderr,
-		Stdout:    &encodedStdout,
+		Stderr:    encodedStderr,
+		Stdout:    encodedStdout,
 		File:      &filePath,
 		Timestamp: &newTimestamp,
 	}
 
-	// Build the new content for the PKL file in the specified format
 	var pklContent strings.Builder
 	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Python.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
 	pklContent.WriteString("resources {\n")
 
-	for id, resource := range existingResources {
+	for id, res := range existingResources {
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
-		pklContent.WriteString(fmt.Sprintf("    script = \"%s\"\n", resource.Script))
-		pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d\n", resource.TimeoutDuration))
-		pklContent.WriteString(fmt.Sprintf("    timestamp = %d\n", *resource.Timestamp))
+		pklContent.WriteString(fmt.Sprintf("    script = \"%s\"\n", res.Script))
+		pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d\n", res.TimeoutDuration))
+		pklContent.WriteString(fmt.Sprintf("    timestamp = %d\n", *res.Timestamp))
 
-		// Write environment variables (if Env is not nil)
-		if resource.Env != nil {
-			pklContent.WriteString("    env {\n")
-			for key, value := range *resource.Env {
-				pklContent.WriteString(fmt.Sprintf("      [\"%s\"] = \"%s\"\n", key, value))
-			}
-			pklContent.WriteString("    }\n")
-		} else {
-			pklContent.WriteString("    env {[\"HELLO\"] = \"WORLD\"\n}\n")
-		}
+		pklContent.WriteString("    env ")
+		pklContent.WriteString(utils.EncodePklMap(res.Env))
 
-		// Dereference to pass Stderr and Stdout correctly
-		if resource.Stderr != nil {
-			pklContent.WriteString(fmt.Sprintf("    stderr = #\"\"\"\n%s\n\"\"\"#\n", *resource.Stderr))
-		} else {
-			pklContent.WriteString("    stderr = \"\"\n")
-		}
-		if resource.Stdout != nil {
-			pklContent.WriteString(fmt.Sprintf("    stdout = #\"\"\"\n%s\n\"\"\"#\n", *resource.Stdout))
-		} else {
-			pklContent.WriteString("    stdout = \"\"\n")
-		}
-
-		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *resource.File))
+		pklContent.WriteString(dr.encodePythonStderr(res.Stderr))
+		pklContent.WriteString(dr.encodePythonStdout(res.Stdout))
+		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *res.File))
 
 		pklContent.WriteString("  }\n")
 	}
-
 	pklContent.WriteString("}\n")
 
-	// Write the new PKL content to the file using afero
-	err = afero.WriteFile(dr.Fs, pklPath, []byte(pklContent.String()), 0o644)
-	if err != nil {
-		return fmt.Errorf("failed to write to PKL file: %w", err)
+	if err := afero.WriteFile(dr.Fs, pklPath, []byte(pklContent.String()), 0o644); err != nil {
+		return fmt.Errorf("failed to write PKL file: %w", err)
 	}
 
-	// Evaluate the PKL file using EvalPkl
-	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath, fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Python.pkl\"", schema.SchemaVersion(dr.Context)), dr.Logger)
+	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath,
+		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Python.pkl\"", schema.SchemaVersion(dr.Context)), dr.Logger)
 	if err != nil {
-		return fmt.Errorf("failed to evaluate PKL file: %w", err)
+		return fmt.Errorf("failed to evaluate PKL: %w", err)
 	}
 
-	// Rebuild the PKL content with the "extends" header and evaluated content
-	var finalContent strings.Builder
-	finalContent.WriteString(evaluatedContent)
+	return afero.WriteFile(dr.Fs, pklPath, []byte(evaluatedContent), 0o644)
+}
 
-	// Write the final evaluated content back to the PKL file
-	err = afero.WriteFile(dr.Fs, pklPath, []byte(finalContent.String()), 0o644)
-	if err != nil {
-		return fmt.Errorf("failed to write evaluated content to PKL file: %w", err)
+func (dr *DependencyResolver) encodePythonEnv(env *map[string]string) *map[string]string {
+	if env == nil {
+		return nil
 	}
+	encoded := make(map[string]string)
+	for k, v := range *env {
+		encoded[k] = utils.EncodeValue(v)
+	}
+	return &encoded
+}
 
-	return nil
+func (dr *DependencyResolver) encodePythonOutputs(stderr, stdout *string) (*string, *string) {
+	return utils.EncodeValuePtr(stderr), utils.EncodeValuePtr(stdout)
+}
+
+func (dr *DependencyResolver) encodePythonStderr(stderr *string) string {
+	if stderr == nil {
+		return "    stderr = \"\"\n"
+	}
+	return fmt.Sprintf("    stderr = #\"\"\"\n%s\n\"\"\"#\n", *stderr)
+}
+
+func (dr *DependencyResolver) encodePythonStdout(stdout *string) string {
+	if stdout == nil {
+		return "    stdout = \"\"\n"
+	}
+	return fmt.Sprintf("    stdout = #\"\"\"\n%s\n\"\"\"#\n", *stdout)
 }
