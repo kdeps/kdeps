@@ -106,6 +106,7 @@ func (dr *DependencyResolver) WriteStdoutToFile(resourceID string, stdoutEncoded
 	return outputFilePath, nil
 }
 
+//nolint:dupl
 func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExec.ResourceExec) error {
 	pklPath := filepath.Join(dr.ActionDir, "exec/"+dr.RequestID+"__exec_output.pkl")
 	newTimestamp := uint32(time32.Epoch())
