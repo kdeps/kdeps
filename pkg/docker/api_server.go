@@ -298,19 +298,6 @@ filetype = "%s"
 			return
 		}
 
-		// In certain error cases, Ollama needs to be restarted
-		if fatal {
-			// Cleanup: Remove the temporary directory
-			if removeErr := fs.RemoveAll(dr.ActionDir); removeErr != nil {
-				logger.Warn("failed to clean up temporary directory", "path", dr.ActionDir, "error", removeErr)
-			}
-
-			logger.Fatal("a fatal server error occurred. Restarting the service.")
-
-			// Send SIGTERM to gracefully shut down the server
-			utils.SendSigterm(logger)
-		}
-
 		// Read the raw response file (this is the undecoded data)
 		content, err := afero.ReadFile(dr.Fs, dr.ResponseTargetFile)
 		if err != nil {
@@ -333,6 +320,19 @@ filetype = "%s"
 		if _, err := w.Write(decodedContent); err != nil {
 			http.Error(w, "unexpected error writing content", http.StatusInternalServerError)
 			return
+		}
+
+		// In certain error cases, Ollama needs to be restarted
+		if fatal {
+			// Cleanup: Remove the temporary directory
+			if removeErr := fs.RemoveAll(dr.ActionDir); removeErr != nil {
+				logger.Warn("failed to clean up temporary directory", "path", dr.ActionDir, "error", removeErr)
+			}
+
+			dr.Logger.Error("a fatal server error occurred. Restarting the service.")
+
+			// Send SIGTERM to gracefully shut down the server
+			utils.SendSigterm(logger)
 		}
 	}
 }

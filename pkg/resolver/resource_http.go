@@ -20,11 +20,22 @@ import (
 )
 
 func (dr *DependencyResolver) HandleHTTPClient(actionID string, httpBlock *pklHTTP.ResourceHTTPClient) error {
+	// Synchronously decode the HTTP block.
 	if err := dr.decodeHTTPBlock(httpBlock); err != nil {
 		dr.Logger.Error("failed to decode HTTP block", "actionID", actionID, "error", err)
 		return err
 	}
-	return dr.processHTTPBlock(actionID, httpBlock)
+
+	// Process the HTTP block asynchronously in a goroutine.
+	go func(aID string, block *pklHTTP.ResourceHTTPClient) {
+		if err := dr.processHTTPBlock(aID, block); err != nil {
+			// Log the error; you can adjust error handling as needed.
+			dr.Logger.Error("failed to process HTTP block", "actionID", aID, "error", err)
+		}
+	}(actionID, httpBlock)
+
+	// Return immediately; the HTTP block is processed in the background.
+	return nil
 }
 
 func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHTTP.ResourceHTTPClient) error {
