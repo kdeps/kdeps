@@ -15,11 +15,22 @@ import (
 )
 
 func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.ResourceExec) error {
+	// Decode the exec block synchronously
 	if err := dr.decodeExecBlock(execBlock); err != nil {
 		dr.Logger.Error("failed to decode exec block", "actionID", actionID, "error", err)
 		return err
 	}
-	return dr.processExecBlock(actionID, execBlock)
+
+	// Run processExecBlock asynchronously in a goroutine
+	go func(aID string, block *pklExec.ResourceExec) {
+		if err := dr.processExecBlock(aID, block); err != nil {
+			// Log the error; consider additional error handling as needed.
+			dr.Logger.Error("failed to process exec block", "actionID", aID, "error", err)
+		}
+	}(actionID, execBlock)
+
+	// Return immediately; the exec block is being processed in the background.
+	return nil
 }
 
 func (dr *DependencyResolver) decodeExecBlock(execBlock *pklExec.ResourceExec) error {

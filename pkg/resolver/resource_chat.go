@@ -20,7 +20,7 @@ import (
 )
 
 func (dr *DependencyResolver) HandleLLMChat(actionID string, chatBlock *pklLLM.ResourceChat) error {
-	// Decode Prompt if it is Base64-encoded
+	// Decode Prompt if it is Base64-encoded.
 	if utf8.ValidString(chatBlock.Prompt) && utils.IsBase64Encoded(chatBlock.Prompt) {
 		decodedPrompt, err := utils.DecodeBase64String(chatBlock.Prompt)
 		if err == nil {
@@ -28,11 +28,11 @@ func (dr *DependencyResolver) HandleLLMChat(actionID string, chatBlock *pklLLM.R
 		}
 	}
 
-	// Decode the JSONResponseKeys field if it exists
+	// Decode the JSONResponseKeys field if it exists.
 	if chatBlock.JSONResponseKeys != nil {
 		decodedJSONResponseKeys := make([]string, len(*chatBlock.JSONResponseKeys))
 		for i, v := range *chatBlock.JSONResponseKeys {
-			// Check if the key value is Base64 encoded
+			// Check if the key value is Base64 encoded.
 			if utils.IsBase64Encoded(v) {
 				decodedValue, err := utils.DecodeBase64String(v)
 				if err != nil {
@@ -40,18 +40,22 @@ func (dr *DependencyResolver) HandleLLMChat(actionID string, chatBlock *pklLLM.R
 				}
 				decodedJSONResponseKeys[i] = decodedValue
 			} else {
-				// If not Base64 encoded, leave the value as it is
+				// If not Base64 encoded, leave the value as it is.
 				decodedJSONResponseKeys[i] = v
 			}
 		}
 		chatBlock.JSONResponseKeys = &decodedJSONResponseKeys
 	}
 
-	err := dr.processLLMChat(actionID, chatBlock)
-	if err != nil {
-		return err
-	}
+	// Process the LLM chat block asynchronously in a goroutine.
+	go func(aID string, block *pklLLM.ResourceChat) {
+		if err := dr.processLLMChat(aID, block); err != nil {
+			// Log the error; adjust handling as needed.
+			dr.Logger.Error("failed to process LLM chat", "actionID", aID, "error", err)
+		}
+	}(actionID, chatBlock)
 
+	// Return immediately while the processing continues in the background.
 	return nil
 }
 

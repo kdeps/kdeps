@@ -107,47 +107,53 @@ func (dr *DependencyResolver) GetCurrentTimestamp(resourceID, resourceType strin
 	return *timestamp, nil
 }
 
+// formatDuration converts a time.Duration into a human-friendly string.
+// It prints hours, minutes, and seconds when appropriate.
+func formatDuration(d time.Duration) string {
+	secondsTotal := int(d.Seconds())
+	hours := secondsTotal / 3600
+	minutes := (secondsTotal % 3600) / 60
+	seconds := secondsTotal % 60
+
+	switch {
+	case hours > 0:
+		return fmt.Sprintf("%dh %dm %ds", hours, minutes, seconds)
+	case minutes > 0:
+		return fmt.Sprintf("%dm %ds", minutes, seconds)
+	default:
+		return fmt.Sprintf("%ds", seconds)
+	}
+}
+
 // WaitForTimestampChange waits until the timestamp for the specified resourceID changes from the provided previous timestamp.
 func (dr *DependencyResolver) WaitForTimestampChange(resourceID string, previousTimestamp uint32, timeout time.Duration, resourceType string) error {
-	pklPath, err := dr.getResourceFilePath(resourceType)
-	if err != nil {
-		return err
-	}
-
 	startTime := time.Now()
+	lastSeenTimestamp := previousTimestamp
 
 	for {
-		// Log the remaining timeout in microseconds
-		dr.Logger.Infof("Timeout remaining for '%s' is set to '%.0f' microseconds", resourceID, time.Since(startTime).Seconds()*1e6)
+		elapsed := time.Since(startTime)
+		// Calculate remaining time correctly for logging
+		remaining := timeout - elapsed
+		formattedRemaining := formatDuration(remaining)
+		dr.Logger.Infof("action '%s' will timeout in '%s'", resourceID, formattedRemaining)
 
-		// Check if timeout has been exceeded
-		if timeout > 0 && time.Since(startTime) > timeout {
+		// Check if elapsed time meets or exceeds the timeout
+		if timeout > 0 && remaining < 0 {
 			return fmt.Errorf("timeout exceeded while waiting for timestamp change for resource ID %s", resourceID)
 		}
 
-		// Measure iteration time
-		iterationStartTime := time.Now()
-
-		// Reload the PKL file and check the timestamp
-		pklRes, err := dr.loadPKLFile(resourceType, pklPath)
+		currentTimestamp, err := dr.GetCurrentTimestamp(resourceID, resourceType)
 		if err != nil {
-			return fmt.Errorf("failed to reload %s PKL file: %w", resourceType, err)
+			return fmt.Errorf("failed to get current timestamp for resource %s: %w", resourceID, err)
 		}
 
-		timestamp, err := getResourceTimestamp(resourceID, pklRes)
-		if err != nil {
-			return err
-		}
-
-		// If the timestamp has changed, return successfully
-		if *timestamp != previousTimestamp {
+		if currentTimestamp != previousTimestamp && currentTimestamp == lastSeenTimestamp {
+			elapsedTime := time.Since(startTime)
+			dr.Logger.Infof("resource '%s' (type: %s) completed in %s", resourceID, resourceType, formatDuration(elapsedTime))
 			return nil
 		}
+		lastSeenTimestamp = currentTimestamp
 
-		// Log the time taken for this iteration
-		dr.Logger.Debugf("Iteration took %.2f microseconds", time.Since(iterationStartTime).Seconds()*1e6)
-
-		// Sleep before rechecking
-		time.Sleep(100 * time.Millisecond) // Increased sleep duration
+		time.Sleep(1000 * time.Millisecond)
 	}
 }
