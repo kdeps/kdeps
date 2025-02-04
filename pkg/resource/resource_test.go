@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -482,7 +483,7 @@ func iGETRequestToWithDataAndHeaderNameThatMapsTo(arg1, arg2, arg3, arg4 string)
 	time.Sleep(30 * time.Second)
 
 	// Base URL
-	baseURL := fmt.Sprintf("http://%s:%s%s", hostIP, hostPort, arg1)
+	baseURL := net.JoinHostPort(hostIP, hostPort) + arg1
 	reqBody := strings.NewReader(arg2)
 
 	// Create a new GET request
