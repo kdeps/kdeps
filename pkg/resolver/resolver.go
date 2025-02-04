@@ -26,7 +26,7 @@ type DependencyResolver struct {
 	ResourceDependencies map[string][]string
 	DependencyGraph      []string
 	VisitedPaths         map[string]bool
-	Context              context.Context
+	Context              context.Context //nolint:containedctx // TODO: move this context into function params
 	Graph                *graph.DependencyGraph
 	Environment          *environment.Environment
 	Workflow             pklWf.Workflow
