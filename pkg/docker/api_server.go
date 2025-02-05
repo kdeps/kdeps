@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -35,6 +36,67 @@ type DecodedResponse struct {
 		Data []string `json:"data"`
 	} `json:"response"`
 	Errors []ErrorResponse `json:"errors"`
+}
+
+type handlerError struct {
+	statusCode int
+	message    string
+}
+
+func (e *handlerError) Error() string {
+	return e.message
+}
+
+func handleMultipartForm(c *gin.Context, dr *resolver.DependencyResolver, fileMap map[string]struct{ Filename, Filetype string }) error {
+	form, err := c.MultipartForm()
+	if err != nil {
+		return &handlerError{http.StatusInternalServerError, "Unable to parse multipart form"}
+	}
+
+	// Handle multiple files from "file[]"
+	if files := form.File["file[]"]; len(files) > 0 {
+		for _, fileHeader := range files {
+			if err := processFile(fileHeader, dr, fileMap); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	// Handle single file from "file"
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		return &handlerError{http.StatusBadRequest, "No file uploaded"}
+	}
+	return processFile(fileHeader, dr, fileMap)
+}
+
+func processFile(fileHeader *multipart.FileHeader, dr *resolver.DependencyResolver, fileMap map[string]struct{ Filename, Filetype string }) error {
+	file, err := fileHeader.Open()
+	if err != nil {
+		return &handlerError{http.StatusInternalServerError, fmt.Sprintf("Unable to open file: %v", err)}
+	}
+	defer file.Close()
+
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		return &handlerError{http.StatusInternalServerError, "Failed to read file content"}
+	}
+
+	filetype := mimetype.Detect(fileBytes).String()
+	filesPath := filepath.Join(dr.ActionDir, "files")
+	filename := filepath.Join(filesPath, fileHeader.Filename)
+
+	if err := dr.Fs.MkdirAll(filesPath, 0o777); err != nil {
+		return &handlerError{http.StatusInternalServerError, "Unable to create files directory"}
+	}
+
+	if err := afero.WriteFile(dr.Fs, filename, fileBytes, 0o644); err != nil {
+		return &handlerError{http.StatusInternalServerError, "Failed to save file"}
+	}
+
+	fileMap[filename] = struct{ Filename, Filetype string }{filename, filetype}
+	return nil
 }
 
 // StartAPIServerMode initializes and starts an API server based on the provided workflow configuration.
@@ -124,11 +186,8 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, dr 
 			return
 		}
 
-		var filename, filetype, bodyData string
-		fileMap := make(map[string]struct {
-			Filename string
-			Filetype string
-		})
+		var bodyData string
+		fileMap := make(map[string]struct{ Filename, Filetype string })
 
 		switch c.Request.Method {
 		case http.MethodGet:
@@ -143,94 +202,17 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, dr 
 		case http.MethodPost, http.MethodPut, http.MethodPatch:
 			contentType := c.GetHeader("Content-Type")
 			if strings.Contains(contentType, "multipart/form-data") {
-				form, err := c.MultipartForm()
-				if err != nil {
-					c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Unable to parse multipart form"})
+				if err := handleMultipartForm(c, dr, fileMap); err != nil {
+					var he *handlerError
+					if errors.As(err, &he) {
+						c.AbortWithStatusJSON(he.statusCode, gin.H{"error": he.message})
+					} else {
+						c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					}
 					return
 				}
-
-				if files := form.File["file[]"]; len(files) > 0 {
-					for _, fileHeader := range files {
-						file, err := fileHeader.Open()
-						if err != nil {
-							c.AbortWithStatusJSON(http.StatusInternalServerError,
-								gin.H{"error": fmt.Sprintf("Unable to open file: %v", err)})
-							return
-						}
-						defer file.Close()
-
-						fileBytes, err := io.ReadAll(file)
-						if err != nil {
-							c.AbortWithStatusJSON(http.StatusInternalServerError,
-								gin.H{"error": "Failed to read file content"})
-							return
-						}
-
-						filetype = mimetype.Detect(fileBytes).String()
-						filesPath := filepath.Join(dr.ActionDir, "files/")
-						filename = filepath.Join(filesPath, fileHeader.Filename)
-
-						fileMap[filename] = struct {
-							Filename string
-							Filetype string
-						}{filename, filetype}
-
-						if err := dr.Fs.MkdirAll(filesPath, 0o777); err != nil {
-							c.AbortWithStatusJSON(http.StatusInternalServerError,
-								gin.H{"error": "Unable to create files directory"})
-							return
-						}
-
-						if err := afero.WriteFile(dr.Fs, filename, fileBytes, 0o644); err != nil {
-							c.AbortWithStatusJSON(http.StatusInternalServerError,
-								gin.H{"error": "Failed to save file"})
-							return
-						}
-					}
-				} else {
-					file, err := c.FormFile("file")
-					if err != nil {
-						c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "No file uploaded"})
-						return
-					}
-
-					src, err := file.Open()
-					if err != nil {
-						c.AbortWithStatusJSON(http.StatusInternalServerError,
-							gin.H{"error": fmt.Sprintf("Unable to open file: %v", err)})
-						return
-					}
-					defer src.Close()
-
-					fileBytes, err := io.ReadAll(src)
-					if err != nil {
-						c.AbortWithStatusJSON(http.StatusInternalServerError,
-							gin.H{"error": "Failed to read file content"})
-						return
-					}
-
-					filetype = mimetype.Detect(fileBytes).String()
-					filesPath := filepath.Join(dr.ActionDir, "files/")
-					filename = filepath.Join(filesPath, file.Filename)
-
-					fileMap[filename] = struct {
-						Filename string
-						Filetype string
-					}{filename, filetype}
-
-					if err := dr.Fs.MkdirAll(filesPath, 0o777); err != nil {
-						c.AbortWithStatusJSON(http.StatusInternalServerError,
-							gin.H{"error": "Unable to create files directory"})
-						return
-					}
-
-					if err := afero.WriteFile(dr.Fs, filename, fileBytes, 0o644); err != nil {
-						c.AbortWithStatusJSON(http.StatusInternalServerError,
-							gin.H{"error": "Failed to save file"})
-						return
-					}
-				}
 			} else {
+				// Read non-multipart body
 				body, err := io.ReadAll(c.Request.Body)
 				if err != nil {
 					c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Failed to read request body"})
