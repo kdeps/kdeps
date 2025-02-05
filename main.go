@@ -61,37 +61,37 @@ func main() {
 			logger.Fatalf("failed to create graph resolver: %v", err)
 		}
 
-		handleDockerMode(fs, ctx, env, actionDir, dr, logger, cancel)
+		handleDockerMode(ctx, dr, cancel)
 	} else {
 		handleNonDockerMode(fs, ctx, env, logger)
 	}
 }
 
-func handleDockerMode(fs afero.Fs, ctx context.Context, env *environment.Environment, actionDir string, dr *resolver.DependencyResolver, logger *logging.Logger, cancel context.CancelFunc) {
+func handleDockerMode(ctx context.Context, dr *resolver.DependencyResolver, cancel context.CancelFunc) {
 	// Initialize Docker system
-	apiServerMode, err := docker.BootstrapDockerSystem(fs, ctx, env, actionDir, dr, logger)
+	apiServerMode, err := docker.BootstrapDockerSystem(ctx, dr)
 	if err != nil {
-		logger.Error("error during Docker bootstrap", "error", err)
-		utils.SendSigterm(logger)
+		dr.Logger.Error("error during Docker bootstrap", "error", err)
+		utils.SendSigterm(dr.Logger)
 		return
 	}
 
 	// Setup graceful shutdown handling
-	setupSignalHandler(fs, ctx, cancel, env, apiServerMode, logger)
+	setupSignalHandler(dr.Fs, ctx, cancel, dr.Environment, apiServerMode, dr.Logger)
 
 	// Run workflow or wait for shutdown
 	if !apiServerMode {
-		if err := runGraphResolverActions(fs, ctx, env, dr, apiServerMode, logger); err != nil {
-			logger.Error("error running graph resolver", "error", err)
-			utils.SendSigterm(logger)
+		if err := runGraphResolverActions(ctx, dr, apiServerMode); err != nil {
+			dr.Logger.Error("error running graph resolver", "error", err)
+			utils.SendSigterm(dr.Logger)
 			return
 		}
 	}
 
 	// Wait for shutdown signal
 	<-ctx.Done()
-	logger.Debug("context canceled, shutting down gracefully...")
-	cleanup(fs, ctx, env, apiServerMode, logger)
+	dr.Logger.Debug("context canceled, shutting down gracefully...")
+	cleanup(dr.Fs, ctx, dr.Environment, apiServerMode, dr.Logger)
 }
 
 func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) {
@@ -174,7 +174,7 @@ func setupSignalHandler(fs afero.Fs, ctx context.Context, cancelFunc context.Can
 }
 
 // runGraphResolver prepares and runs the graph resolver.
-func runGraphResolverActions(fs afero.Fs, ctx context.Context, env *environment.Environment, dr *resolver.DependencyResolver, apiServerMode bool, logger *logging.Logger) error {
+func runGraphResolverActions(ctx context.Context, dr *resolver.DependencyResolver, apiServerMode bool) error {
 	// Prepare workflow directory
 	if err := dr.PrepareWorkflowDir(); err != nil {
 		return fmt.Errorf("failed to prepare workflow directory: %w", err)
@@ -190,12 +190,12 @@ func runGraphResolverActions(fs afero.Fs, ctx context.Context, env *environment.
 	// In certain error cases, Ollama needs to be restarted
 	if fatal {
 		dr.Logger.Fatal("fatal error occurred")
-		utils.SendSigterm(logger)
+		utils.SendSigterm(dr.Logger)
 	}
 
-	cleanup(fs, ctx, env, apiServerMode, logger)
+	cleanup(dr.Fs, ctx, dr.Environment, apiServerMode, dr.Logger)
 
-	if err := utils.WaitForFileReady(fs, "/.dockercleanup", logger); err != nil {
+	if err := utils.WaitForFileReady(dr.Fs, "/.dockercleanup", dr.Logger); err != nil {
 		return fmt.Errorf("failed to wait for file to be ready: %w", err)
 	}
 
