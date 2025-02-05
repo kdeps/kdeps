@@ -7,78 +7,55 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
-	"github.com/kdeps/kdeps/pkg/workflow"
-	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 )
 
-func BootstrapDockerSystem(fs afero.Fs, ctx context.Context, environ *environment.Environment, actionDir string, dr *resolver.DependencyResolver, logger *logging.Logger) (bool, error) {
-	if environ.DockerMode != "1" {
-		logger.Debug("docker system bootstrap completed.")
+func BootstrapDockerSystem(ctx context.Context, dr *resolver.DependencyResolver) (bool, error) {
+	if dr.Environment.DockerMode != "1" {
+		dr.Logger.Debug("docker system bootstrap completed.")
 		return false, nil
 	}
 
-	logger.Debug("inside Docker environment\ninitializing Docker system")
+	dr.Logger.Debug("inside Docker environment\ninitializing Docker system")
 
-	apiServerMode, err := setupDockerEnvironment(fs, ctx, environ, actionDir, dr, logger)
+	apiServerMode, err := setupDockerEnvironment(ctx, dr)
 	if err != nil {
 		return apiServerMode, err
 	}
 
-	logger.Debug("docker system bootstrap completed.")
+	dr.Logger.Debug("docker system bootstrap completed.")
 	return apiServerMode, nil
 }
 
-func setupDockerEnvironment(fs afero.Fs, ctx context.Context, environ *environment.Environment, actionDir string, dr *resolver.DependencyResolver, logger *logging.Logger) (bool, error) {
-	const agentDir = "/agent"
-	apiServerPath := filepath.Join(actionDir, "/api")
-	agentWorkflow := filepath.Join(agentDir, "workflow/workflow.pkl")
+func setupDockerEnvironment(ctx context.Context, dr *resolver.DependencyResolver) (bool, error) {
+	apiServerPath := filepath.Join(dr.ActionDir, "/api/")
 
-	if err := ensureWorkflowExists(fs, dr, agentWorkflow, logger); err != nil {
-		return false, err
-	}
-
-	wfCfg, err := workflow.LoadWorkflow(ctx, agentWorkflow, logger)
-	if err != nil {
-		logger.Error("error loading workflow", "error", err)
-		return false, err
-	}
-
-	host, port, err := parseOLLAMAHost(logger)
-	if err != nil {
-		return false, err
-	}
-
-	if err := startAndWaitForOllama(ctx, host, port, logger); err != nil {
-		return false, err
-	}
-
-	wfSettings := wfCfg.GetSettings()
-	if err := pullModels(ctx, wfSettings.AgentSettings.Models, logger); err != nil {
-		return wfSettings.APIServerMode, err
-	}
-
-	if err := fs.MkdirAll(apiServerPath, 0o777); err != nil {
-		return wfSettings.APIServerMode, err
-	}
-
-	return wfSettings.APIServerMode, startAPIServer(fs, ctx, wfCfg, environ, agentDir, apiServerPath, actionDir, dr, logger)
-}
-
-func ensureWorkflowExists(fs afero.Fs, dr *resolver.DependencyResolver, path string, logger *logging.Logger) error {
-	exists, err := afero.Exists(fs, path)
-	if err != nil || exists {
-		return err
-	}
-
-	logger.Debug("preparing workflow directory")
+	dr.Logger.Debug("preparing workflow directory")
 	if err := dr.PrepareWorkflowDir(); err != nil {
-		return fmt.Errorf("failed to prepare workflow directory: %w", err)
+		return false, fmt.Errorf("failed to prepare workflow directory: %w", err)
 	}
-	return nil
+
+	host, port, err := parseOLLAMAHost(dr.Logger)
+	if err != nil {
+		return false, err
+	}
+
+	if err := startAndWaitForOllama(ctx, host, port, dr.Logger); err != nil {
+		return false, err
+	}
+
+	wfSettings := dr.Workflow.GetSettings()
+	if err := pullModels(ctx, wfSettings.AgentSettings.Models, dr.Logger); err != nil {
+		return wfSettings.APIServerMode, err
+	}
+
+	if err := dr.Fs.MkdirAll(apiServerPath, 0o777); err != nil {
+		return wfSettings.APIServerMode, err
+	}
+
+	return wfSettings.APIServerMode, startAPIServer(ctx, dr)
 }
 
 func startAndWaitForOllama(ctx context.Context, host, port string, logger *logging.Logger) error {
@@ -100,10 +77,10 @@ func pullModels(ctx context.Context, models []string, logger *logging.Logger) er
 	return nil
 }
 
-func startAPIServer(fs afero.Fs, ctx context.Context, wfCfg pklWf.Workflow, environ *environment.Environment, agentDir, apiServerPath, actionDir string, dr *resolver.DependencyResolver, logger *logging.Logger) error {
+func startAPIServer(ctx context.Context, dr *resolver.DependencyResolver) error {
 	errChan := make(chan error, 1)
 	go func() {
-		errChan <- StartAPIServerMode(fs, ctx, wfCfg, environ, agentDir, apiServerPath, actionDir, dr, logger)
+		errChan <- StartAPIServerMode(ctx, dr)
 	}()
 
 	return <-errChan

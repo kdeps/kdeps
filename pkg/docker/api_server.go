@@ -7,19 +7,19 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/gabriel-vasile/mimetype"
-	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/gin-gonic/gin"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/utils"
 	apiserver "github.com/kdeps/schema/gen/api_server"
-	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 )
 
@@ -38,311 +38,260 @@ type DecodedResponse struct {
 	Errors []ErrorResponse `json:"errors"`
 }
 
+type handlerError struct {
+	statusCode int
+	message    string
+}
+
+func (e *handlerError) Error() string {
+	return e.message
+}
+
+func handleMultipartForm(c *gin.Context, dr *resolver.DependencyResolver, fileMap map[string]struct{ Filename, Filetype string }) error {
+	form, err := c.MultipartForm()
+	if err != nil {
+		return &handlerError{http.StatusInternalServerError, "Unable to parse multipart form"}
+	}
+
+	// Handle multiple files from "file[]"
+	if files := form.File["file[]"]; len(files) > 0 {
+		for _, fileHeader := range files {
+			if err := processFile(fileHeader, dr, fileMap); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	// Handle single file from "file"
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		return &handlerError{http.StatusBadRequest, "No file uploaded"}
+	}
+	return processFile(fileHeader, dr, fileMap)
+}
+
+func processFile(fileHeader *multipart.FileHeader, dr *resolver.DependencyResolver, fileMap map[string]struct{ Filename, Filetype string }) error {
+	file, err := fileHeader.Open()
+	if err != nil {
+		return &handlerError{http.StatusInternalServerError, fmt.Sprintf("Unable to open file: %v", err)}
+	}
+	defer file.Close()
+
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		return &handlerError{http.StatusInternalServerError, "Failed to read file content"}
+	}
+
+	filetype := mimetype.Detect(fileBytes).String()
+	filesPath := filepath.Join(dr.ActionDir, "files")
+	filename := filepath.Join(filesPath, fileHeader.Filename)
+
+	if err := dr.Fs.MkdirAll(filesPath, 0o777); err != nil {
+		return &handlerError{http.StatusInternalServerError, "Unable to create files directory"}
+	}
+
+	if err := afero.WriteFile(dr.Fs, filename, fileBytes, 0o644); err != nil {
+		return &handlerError{http.StatusInternalServerError, "Failed to save file"}
+	}
+
+	fileMap[filename] = struct{ Filename, Filetype string }{filename, filetype}
+	return nil
+}
+
 // StartAPIServerMode initializes and starts an API server based on the provided workflow configuration.
 // It validates the API server configuration, sets up routes, and starts the server on the configured port.
-func StartAPIServerMode(fs afero.Fs, ctx context.Context, wfCfg pklWf.Workflow, environ *environment.Environment,
-	agentDir, apiServerPath, actionDir string, dr *resolver.DependencyResolver, logger *logging.Logger,
-) error {
-	// Extract workflow settings and validate API server configuration
-	wfSettings := wfCfg.GetSettings()
+// StartAPIServerMode initializes and starts a Gin-based API server.
+func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) error {
+	wfSettings := dr.Workflow.GetSettings()
 	wfAPIServer := wfSettings.APIServer
 
 	if wfAPIServer == nil {
 		return errors.New("the API server configuration is missing")
 	}
 
-	// Format the server host and port
 	portNum := strconv.FormatUint(uint64(wfAPIServer.PortNum), 10)
 	hostPort := ":" + portNum
 
-	// Set up API routes as per the configuration
-	setupRoutes(fs, ctx, wfAPIServer.Routes, environ, agentDir, apiServerPath, actionDir, dr, logger)
+	router := gin.Default()
+	setupRoutes(router, ctx, wfAPIServer.Routes, dr)
 
-	// Start the API server asynchronously
-	logger.Printf("Starting API server on port %s", hostPort)
+	dr.Logger.Printf("Starting API server on port %s", hostPort)
 	go func() {
-		if err := http.ListenAndServe(hostPort, nil); err != nil {
-			logger.Error("failed to start API server", "error", err)
+		if err := router.Run(hostPort); err != nil {
+			dr.Logger.Error("failed to start API server", "error", err)
 		}
 	}()
 
 	return nil
 }
 
-// setupRoutes configures HTTP routes for the API server based on the provided route configuration.
-// Each route is validated before being registered with the HTTP handler.
-func setupRoutes(fs afero.Fs, ctx context.Context, routes []*apiserver.APIServerRoutes, environ *environment.Environment,
-	agentDir, apiServerPath, actionDir string, dr *resolver.DependencyResolver, logger *logging.Logger,
-) {
+func setupRoutes(router *gin.Engine, ctx context.Context, routes []*apiserver.APIServerRoutes, dr *resolver.DependencyResolver) {
 	for _, route := range routes {
 		if route == nil || route.Path == "" {
-			logger.Error("route configuration is invalid", "route", route)
+			dr.Logger.Error("route configuration is invalid", "route", route)
 			continue
 		}
 
-		http.HandleFunc(route.Path, APIServerHandler(fs, ctx, route, environ, agentDir, apiServerPath, actionDir, dr, logger))
-		logger.Printf("Route configured: %s", route.Path)
+		handler := APIServerHandler(ctx, route, dr)
+		for _, method := range route.Methods {
+			switch method {
+			case http.MethodGet:
+				router.GET(route.Path, handler)
+			case http.MethodPost:
+				router.POST(route.Path, handler)
+			case http.MethodPut:
+				router.PUT(route.Path, handler)
+			case http.MethodPatch:
+				router.PATCH(route.Path, handler)
+			case http.MethodDelete:
+				router.DELETE(route.Path, handler)
+			case http.MethodOptions:
+				router.OPTIONS(route.Path, handler)
+			case http.MethodHead:
+				router.HEAD(route.Path, handler)
+			default:
+				dr.Logger.Warn("Unsupported HTTP method in route configuration", "method", method)
+			}
+		}
+
+		dr.Logger.Printf("Route configured: %s", route.Path)
 	}
 }
 
-// APIServerHandler handles incoming HTTP requests for the configured routes.
-// It validates the HTTP method, processes the request data, and triggers workflow actions to generate responses.
-func APIServerHandler(fs afero.Fs, ctx context.Context, route *apiserver.APIServerRoutes, env *environment.Environment,
-	agentDir, apiServerPath, actionDir string, dr *resolver.DependencyResolver, logger *logging.Logger,
-) http.HandlerFunc {
+func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, dr *resolver.DependencyResolver) gin.HandlerFunc {
 	allowedMethods := route.Methods
 
-	return func(w http.ResponseWriter, r *http.Request) {
-		// Clean up old response files before handling the request
-		if err := cleanOldFiles(fs, dr, logger); err != nil {
-			http.Error(w, "Failed to clean old files", http.StatusInternalServerError)
+	return func(c *gin.Context) {
+		if err := cleanOldFiles(dr); err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to clean old files"})
 			return
 		}
 
-		// Validate HTTP method and prepare necessary sections for .pkl file creation
-		method, err := validateMethod(r, allowedMethods)
+		method, err := validateMethod(c.Request, allowedMethods)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		// Handle OPTIONS request
-		if r.Method == http.MethodOptions {
-			// List all the methods supported by this endpoint
-			w.Header().Set("Allow", "OPTIONS, GET, HEAD, POST, PUT, PATCH, DELETE")
-			w.WriteHeader(http.StatusNoContent)
+		if c.Request.Method == http.MethodOptions {
+			c.Header("Allow", "OPTIONS, GET, HEAD, POST, PUT, PATCH, DELETE")
+			c.Status(http.StatusNoContent)
 			return
 		}
 
-		// Handle HEAD request
-		if r.Method == http.MethodHead {
-			// Simulate a GET request, but only respond with headers
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
+		if c.Request.Method == http.MethodHead {
+			c.Header("Content-Type", "application/json")
+			c.Status(http.StatusOK)
 			return
 		}
 
-		var filename, filetype, bodyData string
+		var bodyData string
+		fileMap := make(map[string]struct{ Filename, Filetype string })
 
-		fileMap := make(map[string]struct {
-			Filename string
-			Filetype string
-		})
-
-		// Handle logic based on HTTP methods
-		switch r.Method {
+		switch c.Request.Method {
 		case http.MethodGet:
-			body, err := io.ReadAll(r.Body)
+			body, err := io.ReadAll(c.Request.Body)
 			if err != nil {
-				http.Error(w, "Failed to read request body", http.StatusBadRequest)
+				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Failed to read request body"})
+				return
 			}
-			defer r.Body.Close()
-
+			defer c.Request.Body.Close()
 			bodyData = string(body)
 
 		case http.MethodPost, http.MethodPut, http.MethodPatch:
-			contentType := r.Header.Get("Content-Type")
+			contentType := c.GetHeader("Content-Type")
 			if strings.Contains(contentType, "multipart/form-data") {
-				// Try to handle multiple files
-				err := r.ParseMultipartForm(10 << 20) // limit the size to 10MB, adjust as needed
-				if err != nil {
-					http.Error(w, "Unable to parse multipart form", http.StatusInternalServerError)
-					return
-				}
-
-				files, multiFileExists := r.MultipartForm.File["file[]"]
-				singleFile, singleFileExists, err := r.FormFile("file")
-				if err != nil {
-					http.Error(w, "Unable to parse file", http.StatusInternalServerError)
-					return
-				}
-
-				if multiFileExists {
-					// Handle multiple file uploads
-					for _, fileHeader := range files {
-						file, err := fileHeader.Open()
-						if err != nil {
-							http.Error(w, fmt.Sprintf("Unable to open file: %v", err), http.StatusInternalServerError)
-							return
-						}
-						defer file.Close()
-
-						// Read the file contents (Base64 encode if necessary)
-						fileBytes, err := io.ReadAll(file)
-						if err != nil {
-							http.Error(w, "Failed to read file content", http.StatusInternalServerError)
-							return
-						}
-
-						filetype = mimetype.Detect(fileBytes).String()
-						filesPath := filepath.Join(agentDir, "/actions/files/")
-						filename = filepath.Join(filesPath, fileHeader.Filename)
-
-						fileMap[filename] = struct {
-							Filename string
-							Filetype string
-						}{
-							Filename: filename,
-							Filetype: filetype,
-						}
-
-						// Create the directory if it does not exist
-						if err := fs.MkdirAll(filesPath, 0o777); err != nil {
-							http.Error(w, "Unable to create files directory", http.StatusInternalServerError)
-							return
-						}
-
-						// Write the file to the filesystem
-						err = afero.WriteFile(fs, filename, fileBytes, 0o644)
-						if err != nil {
-							http.Error(w, "Failed to save file", http.StatusInternalServerError)
-							return
-						}
+				if err := handleMultipartForm(c, dr, fileMap); err != nil {
+					var he *handlerError
+					if errors.As(err, &he) {
+						c.AbortWithStatusJSON(he.statusCode, gin.H{"error": he.message})
+					} else {
+						c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 					}
-				} else if singleFileExists != nil {
-					// Handle single file upload
-					defer singleFile.Close()
-
-					fileBytes, err := io.ReadAll(singleFile)
-					if err != nil {
-						http.Error(w, "Failed to read file content", http.StatusInternalServerError)
-						return
-					}
-
-					filetype = mimetype.Detect(fileBytes).String()
-					filesPath := filepath.Join(agentDir, "/actions/files/")
-					filename = filepath.Join(filesPath, singleFileExists.Filename)
-
-					fileMap[filename] = struct {
-						Filename string
-						Filetype string
-					}{
-						Filename: filename,
-						Filetype: filetype,
-					}
-
-					// Create the directory if it does not exist
-					if err := fs.MkdirAll(filesPath, 0o777); err != nil {
-						http.Error(w, "Unable to create files directory", http.StatusInternalServerError)
-						return
-					}
-
-					// Write the file to the filesystem
-					err = afero.WriteFile(fs, filename, fileBytes, 0o644)
-					if err != nil {
-						http.Error(w, "Failed to save file", http.StatusInternalServerError)
-						return
-					}
-				} else {
-					http.Error(w, "No file uploaded", http.StatusBadRequest)
 					return
 				}
 			} else {
-				// Handle regular form or raw data
-				body, err := io.ReadAll(r.Body)
+				// Read non-multipart body
+				body, err := io.ReadAll(c.Request.Body)
 				if err != nil {
-					http.Error(w, "Failed to read request body", http.StatusBadRequest)
+					c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Failed to read request body"})
 					return
 				}
-				defer r.Body.Close()
-
+				defer c.Request.Body.Close()
 				bodyData = string(body)
 			}
 
 		case http.MethodDelete:
 			bodyData = "Delete request received"
 		default:
-			http.Error(w, "Unsupported method", http.StatusMethodNotAllowed)
+			c.AbortWithStatusJSON(http.StatusMethodNotAllowed, gin.H{"error": "Unsupported method"})
 			return
 		}
 
-		// Prepare sections for the .pkl request file
-		urlSection := fmt.Sprintf(`path = "%s"`, r.URL.Path)
+		urlSection := fmt.Sprintf(`path = "%s"`, c.Request.URL.Path)
 		dataSection := fmt.Sprintf(`data = "%s"`, utils.EncodeBase64String(bodyData))
 
 		var sb strings.Builder
 		sb.WriteString("files {\n")
-
-		if len(fileMap) == 0 {
-			// If the map is empty, just add the closing brace
-			sb.WriteString("}\n")
-		} else {
-			for _, fileInfo := range fileMap {
-				fileBlock := fmt.Sprintf(`
-filepath = "%s"
-filetype = "%s"
+		for _, fileInfo := range fileMap {
+			fileBlock := fmt.Sprintf(`
+	filepath = "%s"
+	filetype = "%s"
 `, fileInfo.Filename, fileInfo.Filetype)
-				sb.WriteString(fmt.Sprintf("    [\"%s\"] {\n%s\n}\n", filepath.Base(fileInfo.Filename), fileBlock))
-			}
-			sb.WriteString("}\n")
+			sb.WriteString(fmt.Sprintf("    [\"%s\"] {\n%s\n}\n", filepath.Base(fileInfo.Filename), fileBlock))
 		}
-
+		sb.WriteString("}\n")
 		fileSection := sb.String()
-		paramSection := formatParams(r.URL.Query())
-		headerSection := formatHeaders(r.Header)
 
-		// Include filename and filetype in sections
+		paramSection := formatParams(c.Request.URL.Query())
+		headerSection := formatHeaders(c.Request.Header)
+
 		sections := []string{urlSection, method, headerSection, dataSection, paramSection, fileSection}
 
-		// Create and process the .pkl request file
-		if err := evaluator.CreateAndProcessPklFile(dr.Fs, ctx, sections, dr.RequestPklFile, "APIServerRequest.pkl",
-			logger, evaluator.EvalPkl, true); err != nil {
-			http.Error(w, "Failed to process request file", http.StatusInternalServerError)
+		if err := evaluator.CreateAndProcessPklFile(dr.Fs, ctx, sections, dr.RequestPklFile,
+			"APIServerRequest.pkl", dr.Logger, evaluator.EvalPkl, true); err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to process request file"})
 			return
 		}
 
-		// Execute the workflow actions and generate the response
-		fatal, err := processWorkflow(ctx, dr, logger)
+		fatal, err := processWorkflow(ctx, dr)
 		if err != nil {
-			http.Error(w, "Workflow processing failed", http.StatusInternalServerError)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Workflow processing failed"})
 			return
 		}
 
-		// Read the raw response file (this is the undecoded data)
 		content, err := afero.ReadFile(dr.Fs, dr.ResponseTargetFile)
 		if err != nil {
-			http.Error(w, "Failed to read response file", http.StatusInternalServerError)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response file"})
 			return
 		}
 
-		// Decode the Base64-encoded data in the content (if applicable)
-		decodedContent, err := decodeResponseContent(content, logger)
+		decodedContent, err := decodeResponseContent(content, dr.Logger)
 		if err != nil {
-			http.Error(w, "Failed to decode response content", http.StatusInternalServerError)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode response content"})
 			return
 		}
 
 		decodedContent = formatResponseJSON(decodedContent)
+		c.Data(http.StatusOK, "application/json", decodedContent)
 
-		// Write the HTTP response with the appropriate content type
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write(decodedContent); err != nil {
-			http.Error(w, "unexpected error writing content", http.StatusInternalServerError)
-			return
-		}
-
-		// In certain error cases, Ollama needs to be restarted
 		if fatal {
-			// Cleanup: Remove the temporary directory
-			if removeErr := fs.RemoveAll(dr.ActionDir); removeErr != nil {
-				logger.Warn("failed to clean up temporary directory", "path", dr.ActionDir, "error", removeErr)
+			if removeErr := dr.Fs.RemoveAll(dr.ActionDir); removeErr != nil {
+				dr.Logger.Warn("failed to clean up temporary directory", "path", dr.ActionDir, "error", removeErr)
 			}
-
 			dr.Logger.Error("a fatal server error occurred. Restarting the service.")
-
-			// Send SIGTERM to gracefully shut down the server
-			utils.SendSigterm(logger)
+			utils.SendSigterm(dr.Logger)
 		}
 	}
 }
 
 // cleanOldFiles removes any old response files or flags from previous API requests.
 // It ensures the environment is clean before processing new requests.
-func cleanOldFiles(fs afero.Fs, dr *resolver.DependencyResolver, logger *logging.Logger) error {
-	if _, err := fs.Stat(dr.ResponseTargetFile); err == nil {
-		if err := fs.RemoveAll(dr.ResponseTargetFile); err != nil {
-			logger.Error("unable to delete old response file", "response-target-file", dr.ResponseTargetFile)
+func cleanOldFiles(dr *resolver.DependencyResolver) error {
+	if _, err := dr.Fs.Stat(dr.ResponseTargetFile); err == nil {
+		if err := dr.Fs.RemoveAll(dr.ResponseTargetFile); err != nil {
+			dr.Logger.Error("unable to delete old response file", "response-target-file", dr.ResponseTargetFile)
 			return err
 		}
 	}
@@ -392,7 +341,7 @@ func formatParams(params map[string][]string) string {
 
 // processWorkflow handles the execution of the workflow steps after the .pkl file is created.
 // It prepares the workflow directory, imports necessary files, and processes the actions defined in the workflow.
-func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver, logger *logging.Logger) (bool, error) {
+func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver) (bool, error) {
 	dr.Context = ctx
 
 	if err := dr.PrepareWorkflowDir(); err != nil {
@@ -412,14 +361,14 @@ func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver, logge
 	//nolint:contextcheck // context already passed via dr.Context
 	stdout, err := dr.EvalPklFormattedResponseFile()
 	if err != nil {
-		logger.Fatal(fmt.Errorf(stdout, err))
+		dr.Logger.Fatal(fmt.Errorf(stdout, err))
 		return true, err
 	}
 
-	logger.Debug("awaiting response...")
+	dr.Logger.Debug("awaiting response...")
 
 	// Wait for the response file to be ready
-	if err := utils.WaitForFileReady(dr.Fs, dr.ResponseTargetFile, logger); err != nil {
+	if err := utils.WaitForFileReady(dr.Fs, dr.ResponseTargetFile, dr.Logger); err != nil {
 		return false, err
 	}
 
