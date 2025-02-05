@@ -470,7 +470,7 @@ func kdepsWillCheckThePresenceOfTheFile(arg1 string) error {
 		return err
 	}
 
-	if _, err := BootstrapDockerSystem(testFs, ctx, environ, "/tmp/action", dr, logger); err != nil {
+	if _, err := BootstrapDockerSystem(ctx, dr); err != nil {
 		return err
 	}
 
