@@ -358,7 +358,6 @@ func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver) (bool
 		return fatal, err
 	}
 
-	//nolint:contextcheck // context already passed via dr.Context
 	stdout, err := dr.EvalPklFormattedResponseFile()
 	if err != nil {
 		dr.Logger.Fatal(fmt.Errorf(stdout, err))
