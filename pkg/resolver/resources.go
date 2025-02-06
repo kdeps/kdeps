@@ -11,7 +11,7 @@ import (
 
 // LoadResourceEntries loads .pkl resource files from the resources directory.
 func (dr *DependencyResolver) LoadResourceEntries() error {
-	workflowDir := filepath.Join(dr.AgentDir, "resources")
+	workflowDir := filepath.Join(dr.WorkflowDir, "resources")
 	var pklFiles []string
 
 	// Walk through the workflowDir to find .pkl files

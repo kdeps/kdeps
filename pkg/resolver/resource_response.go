@@ -1,7 +1,6 @@
 package resolver
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -244,7 +243,7 @@ func (dr *DependencyResolver) executePklEvalCommand() (execute.ExecResult, error
 		StreamStdio: false,
 	}
 
-	result, err := cmd.Execute(context.Background())
+	result, err := cmd.Execute(dr.Context)
 	if err != nil {
 		return execute.ExecResult{}, fmt.Errorf("execute command: %w", err)
 	}

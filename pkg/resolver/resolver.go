@@ -35,6 +35,7 @@ type DependencyResolver struct {
 	ResponsePklFile      string
 	ResponseTargetFile   string
 	ProjectDir           string
+	WorkflowDir          string
 	AgentDir             string
 	ActionDir            string
 	FilesDir             string
@@ -49,61 +50,36 @@ type ResourceNodeEntry struct {
 }
 
 func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment, agentDir, actionDir, graphID string, logger *logging.Logger) (*DependencyResolver, error) {
-	var dataDir, filesDir, projectDir, pklWfFile, pklWfParentFile string
+	workflowDir := filepath.Join(agentDir, "/workflow/")
+	projectDir := filepath.Join(agentDir, "/project/")
+	pklWfFile := filepath.Join(workflowDir, "workflow.pkl")
 
-	if env.DockerMode == "1" {
-		agentDir = filepath.Join(agentDir, "/workflow/")
-		pklWfFile = filepath.Join(agentDir, "workflow.pkl")
-		pklWfParentFile = filepath.Join(agentDir, "../workflow.pkl")
+	exists, err := afero.Exists(fs, pklWfFile)
+	if err != nil || !exists {
+		return nil, fmt.Errorf("error checking %s: %w", pklWfFile, err)
+	}
 
-		// Check if "workflow.pkl" exists using afero.Exists
-		exists, err := afero.Exists(fs, pklWfFile)
-		if err != nil {
-			return nil, fmt.Errorf("error checking %s: %w", pklWfFile, err)
-		}
+	dataDir := filepath.Join(projectDir, "/data/")
+	filesDir := filepath.Join(actionDir, "/files/")
 
-		if !exists {
-			// If "workflow.pkl" doesn't exist, check for "../workflow.pkl"
-			existsParent, errParent := afero.Exists(fs, pklWfParentFile)
-			if errParent != nil {
-				return nil, fmt.Errorf("error checking %s: %w", pklWfParentFile, errParent)
-			}
+	directories := []string{
+		projectDir,
+		actionDir,
+		filesDir,
+	}
 
-			if !existsParent {
-				return nil, fmt.Errorf("neither %s nor %s exist", pklWfFile, pklWfParentFile)
-			}
+	// Create directories
+	if err := utils.CreateDirectories(fs, ctx, directories); err != nil {
+		return nil, fmt.Errorf("error creating directory: %w", err)
+	}
 
-			pklWfFile = pklWfParentFile
-			agentDir = filepath.Join(agentDir, "../")
-			projectDir = filepath.Join(agentDir, "/project/")
-			dataDir = filepath.Join(projectDir, "/data/")
-			filesDir = filepath.Join(actionDir, "/files/")
-		} else {
-			projectDir = filepath.Join(agentDir, "../project/")
-			dataDir = filepath.Join(projectDir, "/data/")
-			filesDir = filepath.Join(actionDir, "/files/")
-		}
+	// List of files to create (stamp file)
+	files := []string{
+		filepath.Join(actionDir, graphID),
+	}
 
-		// List of directories to create
-		directories := []string{
-			projectDir,
-			actionDir,
-			filesDir,
-		}
-
-		// Create directories
-		if err := utils.CreateDirectories(fs, ctx, directories); err != nil {
-			return nil, fmt.Errorf("error creating directory: %w", err)
-		}
-
-		// List of files to create (stamp file)
-		files := []string{
-			filepath.Join(actionDir, graphID),
-		}
-
-		if err := utils.CreateFiles(fs, ctx, files); err != nil {
-			return nil, fmt.Errorf("error creating file: %w", err)
-		}
+	if err := utils.CreateFiles(fs, ctx, files); err != nil {
+		return nil, fmt.Errorf("error creating file: %w", err)
 	}
 
 	requestPklFile := filepath.Join(actionDir, "/api/"+graphID+"__request.pkl")
@@ -117,6 +93,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		VisitedPaths:         make(map[string]bool),
 		Context:              ctx,
 		Environment:          env,
+		WorkflowDir:          workflowDir,
 		AgentDir:             agentDir,
 		ActionDir:            actionDir,
 		FilesDir:             filesDir,
