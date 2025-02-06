@@ -182,7 +182,7 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 
 func (dr *DependencyResolver) PrepareWorkflowDir() error {
 	src := dr.ProjectDir
-	dest := dr.AgentDir
+	dest := dr.WorkflowDir
 	fs := dr.Fs
 
 	// Check if the destination exists and remove it if it does

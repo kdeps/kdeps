@@ -97,7 +97,7 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 		StreamStdio: false,
 	}
 
-	result, err := cmd.Execute(context.Background())
+	result, err := cmd.Execute(dr.Context)
 	if err != nil {
 		return fmt.Errorf("execution failed: %w", err)
 	}
@@ -116,7 +116,7 @@ func (dr *DependencyResolver) activateCondaEnvironment(envName string) error {
 		StreamStdio: false,
 	}
 
-	if _, err := execCommand.Execute(context.Background()); err != nil {
+	if _, err := execCommand.Execute(dr.Context); err != nil {
 		return fmt.Errorf("conda activate failed: %w", err)
 	}
 	return nil
