@@ -92,6 +92,9 @@ func GetLogger() *Logger {
 
 // UnderlyingLogger returns the underlying *log.Logger from the custom Logger.
 func (l *Logger) BaseLogger() *log.Logger {
+	if l == nil || l.Logger == nil {
+		panic("logger not initialized")
+	}
 	return l.Logger
 }
 
@@ -99,5 +102,13 @@ func (l *Logger) BaseLogger() *log.Logger {
 func ensureInitialized() {
 	if logger == nil {
 		CreateLogger()
+	}
+}
+
+// Add this method to your Logger struct.
+func (l *Logger) With(keyvals ...interface{}) *Logger {
+	return &Logger{
+		Logger: l.Logger.With(keyvals...),
+		buffer: l.buffer,
 	}
 }
