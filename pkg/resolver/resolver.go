@@ -4,12 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"runtime"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/kdeps/kartographer/graph"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -148,46 +146,6 @@ func (dr *DependencyResolver) processResourceStep(resourceID, step string, timeo
 	return nil
 }
 
-// ensureRequestFileExists checks for the existence of the request stamp file and,
-// if not found, creates a new request by updating RequestID and preparing directories/files.
-func (dr *DependencyResolver) ensureRequestFileExists() error {
-	requestFilePath := filepath.Join(dr.ActionDir, dr.RequestID)
-	if _, err := os.Stat(requestFilePath); os.IsNotExist(err) {
-		// File does not exist, generate a new graphID
-		newGraphID := uuid.New().String()
-		dr.Logger.Info("creating a new graph resolver ID", "requestID", newGraphID)
-		dr.RequestID = newGraphID
-
-		stampFile := filepath.Join(dr.ActionDir, dr.RequestID)
-		if err := utils.CreateFiles(dr.Fs, dr.Context, []string{stampFile}); err != nil {
-			dr.Logger.Error("error creating stamp file for new request", "file", stampFile, "err", err)
-
-			return err
-		}
-
-		dr.RequestPklFile = filepath.Join(dr.ActionDir, "/api/"+dr.RequestID+"__request.pkl")
-		dr.ResponsePklFile = filepath.Join(dr.ActionDir, "/api/"+dr.RequestID+"__response.pkl")
-		dr.ResponseTargetFile = filepath.Join(dr.ActionDir, "/api/"+dr.RequestID+"__response.json")
-
-		if err := dr.PrepareWorkflowDir(); err != nil {
-			dr.Logger.Error("failed to prepare workflow directory", "err", err)
-
-			return err
-		}
-
-		if err := dr.PrepareImportFiles(); err != nil {
-			dr.Logger.Error("failed to prepare import files", "err", err)
-
-			return err
-		}
-	} else if err != nil {
-		dr.Logger.Errorf("failed to check if file exists: %v", err)
-
-		return err
-	}
-	return nil
-}
-
 // HandleRunAction is the main entry point to process resource run blocks.
 func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	// Recover from panics in this function.
@@ -200,11 +158,6 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 		}
 	}()
 
-	// Ensure a valid request file exists
-	if err := dr.ensureRequestFileExists(); err != nil {
-		// If ensureRequestFileExists fails, the logger would have already recorded the fatal error.
-		return false, err
-	}
 	requestFilePath := filepath.Join(dr.ActionDir, dr.RequestID)
 
 	visited := make(map[string]bool)
