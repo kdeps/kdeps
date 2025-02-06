@@ -15,6 +15,7 @@ import (
 
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
@@ -159,10 +160,20 @@ func setupRoutes(router *gin.Engine, ctx context.Context, routes []*apiserver.AP
 	}
 }
 
-func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, dr *resolver.DependencyResolver) gin.HandlerFunc {
+func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, baseDr *resolver.DependencyResolver) gin.HandlerFunc {
 	allowedMethods := route.Methods
 
 	return func(c *gin.Context) {
+		graphID := uuid.New().String()
+		baseLogger := logging.GetLogger()
+		logger := baseLogger.With("requestID", graphID) // Now returns *logging.Logger
+
+		dr, err := resolver.NewGraphResolver(baseDr.Fs, ctx, baseDr.Environment, baseDr.AgentDir, baseDr.ActionDir, graphID, logger)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to initialize resolver"})
+			return
+		}
+
 		if err := cleanOldFiles(dr); err != nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to clean old files"})
 			return
