@@ -35,8 +35,7 @@ func main() {
 	defer cancel() // Ensure context is canceled when main exits
 
 	graphID := uuid.New().String()
-	baseLogger := logging.GetLogger()
-	logger := baseLogger.With("requestID", graphID)
+	logger := logging.GetLogger()
 
 	// Setup environment
 	env, err := setupEnvironment(fs)
@@ -56,7 +55,7 @@ func main() {
 	}
 
 	if env.DockerMode == "1" {
-		dr, err := resolver.NewGraphResolver(fs, ctx, env, "/agent", actionDir, graphID, logger)
+		dr, err := resolver.NewGraphResolver(fs, ctx, env, "/agent", actionDir, graphID, logger.With("requestID", graphID))
 		if err != nil {
 			logger.Fatalf("failed to create graph resolver: %v", err)
 		}
