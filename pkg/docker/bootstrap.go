@@ -55,7 +55,11 @@ func setupDockerEnvironment(ctx context.Context, dr *resolver.DependencyResolver
 		return wfSettings.APIServerMode, err
 	}
 
-	return wfSettings.APIServerMode, startAPIServer(ctx, dr)
+	if wfSettings.APIServerMode {
+		return wfSettings.APIServerMode, startAPIServer(ctx, dr)
+	}
+
+	return false, nil
 }
 
 func startAndWaitForOllama(ctx context.Context, host, port string, logger *logging.Logger) error {
