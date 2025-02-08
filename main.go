@@ -74,8 +74,7 @@ func handleDockerMode(ctx context.Context, dr *resolver.DependencyResolver, canc
 		utils.SendSigterm(dr.Logger)
 		return
 	}
-
-	// Setup graceful shutdown handling
+	// Setup graceful shutdown handler
 	setupSignalHandler(dr.Fs, ctx, cancel, dr.Environment, apiServerMode, dr.Logger)
 
 	// Run workflow or wait for shutdown
@@ -177,6 +176,10 @@ func runGraphResolverActions(ctx context.Context, dr *resolver.DependencyResolve
 	// Prepare workflow directory
 	if err := dr.PrepareWorkflowDir(); err != nil {
 		return fmt.Errorf("failed to prepare workflow directory: %w", err)
+	}
+
+	if err := dr.PrepareImportFiles(); err != nil {
+		return fmt.Errorf("failed to prepare import files: %w", err)
 	}
 
 	// Handle run action
