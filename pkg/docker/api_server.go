@@ -106,6 +106,10 @@ func processFile(fileHeader *multipart.FileHeader, dr *resolver.DependencyResolv
 func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) error {
 	wfSettings := dr.Workflow.GetSettings()
 	wfAPIServer := wfSettings.APIServer
+	var wfTrustedProxies []string
+	if wfAPIServer.TrustedProxies != nil {
+		wfTrustedProxies = *wfAPIServer.TrustedProxies
+	}
 
 	if wfAPIServer == nil {
 		return errors.New("the API server configuration is missing")
@@ -115,6 +119,16 @@ func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 	hostPort := ":" + portNum
 
 	router := gin.Default()
+
+	if len(wfTrustedProxies) > 0 {
+		dr.Logger.Printf("Found trusted proxies %v", wfTrustedProxies)
+
+		router.ForwardedByClientIP = true
+		if err := router.SetTrustedProxies(wfTrustedProxies); err != nil {
+			return errors.New("unable to set trusted proxies")
+		}
+	}
+
 	setupRoutes(router, ctx, wfAPIServer.Routes, dr)
 
 	dr.Logger.Printf("Starting API server on port %s", hostPort)
