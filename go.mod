@@ -21,7 +21,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/kdeps/kartographer v0.0.0-20240808015651-b2afd5d97715
-	github.com/kdeps/schema v0.2.2
+	github.com/kdeps/schema v0.2.3
 	github.com/kr/pretty v0.3.1
 	github.com/spf13/afero v1.12.0
 	github.com/spf13/cobra v1.8.1
@@ -37,11 +37,11 @@ require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/bytedance/sonic v1.12.8 // indirect
 	github.com/bytedance/sonic/loader v0.2.3 // indirect
-	github.com/catppuccin/go v0.2.0 // indirect
+	github.com/catppuccin/go v0.3.0 // indirect
 	github.com/charmbracelet/bubbles v0.20.0 // indirect
 	github.com/charmbracelet/bubbletea v1.3.0 // indirect
 	github.com/charmbracelet/x/ansi v0.8.0 // indirect
-	github.com/charmbracelet/x/exp/strings v0.0.0-20250204215114-fc820b726db0 // indirect
+	github.com/charmbracelet/x/exp/strings v0.0.0-20250207233001-40534c389c2d // indirect
 	github.com/charmbracelet/x/term v0.2.1 // indirect
 	github.com/cloudwego/base64x v0.1.5 // indirect
 	github.com/cucumber/gherkin/go/v26 v26.2.0 // indirect
@@ -101,13 +101,13 @@ require (
 	go.opentelemetry.io/otel/metric v1.34.0 // indirect
 	go.opentelemetry.io/otel/trace v1.34.0 // indirect
 	golang.org/x/arch v0.14.0 // indirect
-	golang.org/x/crypto v0.32.0 // indirect
-	golang.org/x/exp v0.0.0-20250128182459-e0ece0dbea4c // indirect
+	golang.org/x/crypto v0.33.0 // indirect
+	golang.org/x/exp v0.0.0-20250207012021-f9890c6ad9f3 // indirect
 	golang.org/x/net v0.34.0 // indirect
 	golang.org/x/sync v0.11.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
-	google.golang.org/protobuf v1.36.4 // indirect
+	google.golang.org/protobuf v1.36.5 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.5.1 // indirect
 )

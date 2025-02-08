@@ -177,6 +177,7 @@ func generateDockerfile(
 	exposedPort string,
 	installAnaconda bool,
 	devBuildMode bool,
+	apiServerMode bool,
 ) string {
 	var dockerFile strings.Builder
 
@@ -285,7 +286,9 @@ RUN rm -rf /cache
 `)
 
 	// Expose Port
-	dockerFile.WriteString(fmt.Sprintf("EXPOSE %s\n\n", exposedPort))
+	if apiServerMode {
+		dockerFile.WriteString(fmt.Sprintf("EXPOSE %s\n\n", exposedPort))
+	}
 
 	// Entry Point and Command
 	dockerFile.WriteString(`
@@ -494,6 +497,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		exposedPort,
 		installAnaconda,
 		devBuildMode,
+		APIServerMode,
 	)
 
 	// Write the Dockerfile to the run directory
