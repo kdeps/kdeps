@@ -13,6 +13,8 @@ Below is a list of the global functions available for each resource:
 
 ## API Request Functions
 
+> *Note:* Request functions does not work on Lambda mode. Doing so will cause an exception on the AI Agents.
+
 | **Function**                    | **Description**                                                                |
 |:--------------------------------|:-------------------------------------------------------------------------------|
 | request.ID()                    | Retrieves the unique request UUID.                                             |
