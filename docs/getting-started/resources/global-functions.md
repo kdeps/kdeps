@@ -15,6 +15,8 @@ Below is a list of the global functions available for each resource:
 
 | **Function**                    | **Description**                                                                |
 |:--------------------------------|:-------------------------------------------------------------------------------|
+| request.ID()                    | Retrieves the unique request UUID.                                             |
+| request.IP()                    | Retrieves the client IP address.                                               |
 | request.data()                  | Retrieves the request body data.                                               |
 | request.params("id")            | Fetches the value of a specific HTTP parameter from the request.               |
 | request.header("id")            | Fetches the value of a specific HTTP header from the request.                  |
