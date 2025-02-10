@@ -50,6 +50,21 @@ The `APIServer` block defines API routing configurations for the AI agent. These
 - **`hostIP` and `portNum`**: Define the IP address and port for the Docker container. The default values are
   `"127.0.0.1"` for `hostIP` and `3000` for `portNum`.
 
+#### TrustedProxies
+
+The `trustedProxies` allows setting the allowable `X-Forwarded-For` header IPv4, IPv5, CIDR addresses, used to limit the
+trusted request using the service. You can obtain the client's IP address through `@(request.IP())`.
+
+Example:
+
+```apl
+trustedProxies {
+  "127.0.0.1"
+  "192.168.1.2"
+  "10.0.0.0/8"
+}
+```
+
 #### API Routes
 
 - **`routes`**: API paths can be configured within the `routes` block. Each route is defined using a `new` block,
