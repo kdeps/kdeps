@@ -1,59 +1,39 @@
 ---
-# https://vitepress.dev/reference/default-theme-home-page
-layout: home
-
-hero:
-  name: "Kdeps"
-  text: "AI Agent Framework"
-  tagline: |
-    Kdeps is a framework that reduces the complexity of building self-hosted APIs powered by open-source LLMs.
-
-    It packs everything an RAG AI Agent needs in a Dockerized image, that can be deployed on/off cloud anytime, anywhere.
-
-    It uses open-source LLMs, so there's no need to buy any AI services and subscriptions for your AI-powered APIs.
-
-  actions:
-    - theme: brand
-      text: Installation
-      link: /getting-started/introduction/installation
-    - theme: alt
-      text: Quickstart
-      link: /getting-started/introduction/quickstart
-    - theme: alt
-      text: Examples
-      link: https://github.com/kdeps/examples
-    - theme: alt
-      text: Github
-      link: https://github.com/kdeps/kdeps
-
-  image:
-    src: /demo.gif
-    alt: Kdeps
-
-
-features:
-  - title: 💡 Kdeps is easy, practical, and no-code
-  - title: 🚀 Run Kdeps in Lambda or API Mode
-  - title: 🤖 Use Multiple Open-Source LLMs
-  - title: 🐍 Run Python scripts in isolated environments using Anaconda
-  - title: 🖥️ Execute Custom Shell-Scripts
-  - title: 🧪 Anaconda Support
-  - title: 🔄 Share and Remix AI Agents
-  - title: 🌐 Interact with external HTTP APIs directly into the resource
-  - title: 📊 Generate structured outputs from LLMs
-  - title: 📦 Install dependent Ubuntu packages from within the workflow configuration
-  - title: 📜 Define custom Ubuntu repositories and PPAs in the workflow
-  - title: 📈 RAG Graph-based workflow execution
-  - title: 🌐 OPENAPI and JSONAPI Compatible
-  - title: 🆓 Use free and open-source LLMs with no subscriptions
-  - title: 🖼️ Use Multimodal LLMs
-  - title: 🧠 Develop intelligent and context-aware APIs
-  - title: 🎨 Create AI image generator APIs
-  - title: 🗂️ Upload any documents or files for LLM processing
-  - title: ⚡ Written in Golang
+outline: deep
 ---
 
+# What is Kdeps?
+
+Self-hosted AI Agent framework: Open-source LLMs + context-aware RAG workflow + Docker.
+
+If Ollama, RAG, Google Cloud and Docker had a lovechild, it would be Kdeps.
+
+Kdeps is packed with features:
+- 🚀 run in [Lambda](getting-started/configuration/workflow.md#lambda-mode) or [API Mode](getting-started/configuration/workflow.md#api-server-settings)
+- 🤖 use multiple open-source LLMs from [Ollama](getting-started/configuration/workflow.md#llm-models) and [Huggingface](https://github.com/kdeps/examples/tree/main/huggingface_imagegen_api)
+- 🐍 run Python in isolated environments using [Anaconda](getting-started/resources/python.md)
+- 🖼️ [multimodal](getting-started/resources/multimodal.md) LLMs ready
+- 💅 built-in [validation](getting-started/resources/validations.md) checks and [skip](getting-started/resources/skip.md) conditions
+- 🔄 [reusable](getting-started/resources/remix.md) AI Agents
+- 🖥️ run [shell-scripts](getting-started/resources/exec.md)
+- 🌐 make [API calls](getting-started/resources/client.md) from configuration
+- 📊 generate [structured outputs](getting-started/resources/llm.md#chat-block) from LLMs
+- 📦 install [Ubuntu packages](getting-started/configuration/workflow.md#ubuntu-packages) from configuration
+- 📜 define [Ubuntu repos or PPAs](getting-started/configuration/workflow.md#ubuntu-repositories)
+- 📈 context-aware [RAG workflow](getting-started/resources/kartographer.md)
+- 🗂️ upload any [documents or files](getting-started/tutorials/files.md) for LLM processing
+- ⚡ Written in Golang
+- 📦 [easy to install](getting-started/introduction/installation.md) and use
+
+I know, that's a lot. Let's dive into the details.
+
+You can get started with Kdeps [via installing it](getting-started/introduction/installation.md) with a single command.
+
+See the [examples](https://github.com/kdeps/examples).
+
 <script setup>
-import DefaultTheme from 'vitepress/theme';
-import '/public/custom.css';
+import { withBase } from 'vitepress'
+import { useSidebar } from 'vitepress/theme'
+
+const { sidebarGroups } = useSidebar()
 </script>
