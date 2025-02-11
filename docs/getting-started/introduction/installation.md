@@ -44,9 +44,7 @@ wget -qO- https://raw.githubusercontent.com/kdeps/kdeps/refs/heads/main/install.
 
 > **Note for Windows Users:**
 > For optimal functionality, run the installation command using either [Git Bash](https://git-scm.com/downloads/win) or
-> a [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) terminal. Please note that while a Windows installer is
-> available, the platform has not been fully tested. We warmly welcome your [code
-> contributions](https://github.com/kdeps/kdeps/blob/main/CONTRIBUTING.md) to help improve Windows support.
+> a [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) terminal.
 
 ---
 
