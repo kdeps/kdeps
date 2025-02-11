@@ -39,6 +39,20 @@ The file contains the `APIResponse` block, structured as follows:
 ```apl
 APIResponse {
     success = true
+    meta {
+        headers {
+            // ["X-Frame-Options"] = "DENY"
+            // ["Content-Security-Policy"] = "default-src 'self'; connect-src *; font-src *; script-src-elem * 'unsafe-inline'; img-src * data:; style-src * 'unsafe-inline';"
+            // ["X-XSS-Protection"] = "1; mode=block"
+            // ["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+            // ["Referrer-Policy"] = "strict-origin"
+            // ["X-Content-Type-Options"] = "nosniff"
+            // ["Permissions-Policy"] = "geolocation=(),midi=(),sync-xhr=(),microphone=(),camera=(),magnetometer=(),gyroscope=(),fullscreen=(self),payment=()"
+        }
+        properties {
+            // ["X-Custom-Properties"] = "value"
+        }
+    }
     response {
         data {
             "@(llm.response(\"llmResource\"))"
@@ -59,6 +73,7 @@ APIResponse {
 Key Elements of the `APIResponse` Block:
 
 - **`success`**: Indicates whether the response signifies a successful operation.
+- **`meta`**: Meta block includes the `custom response headers`, `custom response properties`, and `requestID`.
 - **`response`**: Populates the response `data` with outputs from resources such as `llm`, `python`, `exec`, or
   `client`.
 - **`errors`**: Defines custom error codes and messages to handle various error cases. Multiple errors can be defined

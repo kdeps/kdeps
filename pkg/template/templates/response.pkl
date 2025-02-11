@@ -41,6 +41,11 @@ run {
         //   "response": {
         //     "data": [],
         //   },
+        //   "meta": {
+        //     "requestID": "UUID-XXXX-XXXX-XXXX",
+        //     "headers": [],
+        //     "properties": [],
+        //   },
         //   "errors": [{
         //     "code": 0,
         //     "message": ""
@@ -49,6 +54,20 @@ run {
         //
         APIResponse {
                 success = true
+                meta {
+                        headers {
+                                // ["X-Frame-Options"] = "DENY"
+                                // ["Content-Security-Policy"] = "default-src 'self'; connect-src *; font-src *; script-src-elem * 'unsafe-inline'; img-src * data:; style-src * 'unsafe-inline';"
+                                // ["X-XSS-Protection"] = "1; mode=block"
+                                // ["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+                                // ["Referrer-Policy"] = "strict-origin"
+                                // ["X-Content-Type-Options"] = "nosniff"
+                                // ["Permissions-Policy"] = "geolocation=(),midi=(),sync-xhr=(),microphone=(),camera=(),magnetometer=(),gyroscope=(),fullscreen=(self),payment=()"
+                        }
+                        properties {
+                                // ["X-Custom-Properties"] = "value"
+                        }
+                }
                 response {
                         data {
                                 "@(llm.response("llmResource"))"
@@ -58,10 +77,10 @@ run {
                         }
                 }
                 errors {
-                        new {
-                                code = 0
-                                message = ""
-                        }
+                        // new {
+                        //         code = 0
+                        //         message = ""
+                        // }
                 }
         }
 }

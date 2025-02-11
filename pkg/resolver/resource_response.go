@@ -25,7 +25,7 @@ func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverre
 		return fmt.Errorf("ensure response PKL file does not exist: %w", err)
 	}
 
-	sections := dr.buildResponseSections(apiResponseBlock)
+	sections := dr.buildResponseSections(dr.RequestID, apiResponseBlock)
 	if err := evaluator.CreateAndProcessPklFile(dr.Fs, dr.Context, sections, dr.ResponsePklFile, "APIServerResponse.pkl", dr.Logger, evaluator.EvalPkl, false); err != nil {
 		return fmt.Errorf("create/process PKL file: %w", err)
 	}
@@ -49,10 +49,11 @@ func (dr *DependencyResolver) ensureResponsePklFileNotExists() error {
 	return nil
 }
 
-func (dr *DependencyResolver) buildResponseSections(apiResponseBlock apiserverresponse.APIServerResponse) []string {
+func (dr *DependencyResolver) buildResponseSections(requestID string, apiResponseBlock apiserverresponse.APIServerResponse) []string {
 	sections := []string{
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Document.pkl" as document`, schema.SchemaVersion(dr.Context)),
 		fmt.Sprintf("success = %v", apiResponseBlock.GetSuccess()),
+		formatResponseMeta(requestID, apiResponseBlock.GetMeta()),
 		formatResponseData(apiResponseBlock.GetResponse()),
 		formatErrors(apiResponseBlock.GetErrors(), dr.Logger),
 	}
@@ -79,6 +80,34 @@ response {
 %s
   }
 }`, strings.Join(responseData, "\n    "))
+}
+
+func formatResponseMeta(requestID string, meta *apiserverresponse.APIServerResponseMetaBlock) string {
+	if meta == nil || *meta.Headers == nil && *meta.Properties == nil {
+		return fmt.Sprintf(`
+meta {
+  requestID = "%s"
+}
+`, requestID)
+	}
+
+	responseMetaHeaders := utils.FormatResponseHeaders(*meta.Headers)
+	responseMetaProperties := utils.FormatResponseProperties(*meta.Properties)
+
+	if len(responseMetaHeaders) == 0 && len(responseMetaProperties) == 0 {
+		return fmt.Sprintf(`
+meta {
+  requestID = "%s"
+}
+`, requestID)
+	}
+
+	return fmt.Sprintf(`
+meta {
+  requestID = "%s"
+  %s
+  %s
+}`, requestID, responseMetaHeaders, responseMetaProperties)
 }
 
 func formatMap(m map[interface{}]interface{}) string {
