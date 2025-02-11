@@ -6,7 +6,7 @@ outline: deep
 
 Self-hosted AI Agent framework: Open-source LLMs + context-aware RAG workflow + Docker.
 
-If Ollama, RAG, Google Cloud and Docker had a lovechild, it would be Kdeps.
+If Ollama, RAG, API and Docker had a lovechild, it would be Kdeps.
 
 Kdeps is packed with features:
 - 🚀 run in [Lambda](getting-started/configuration/workflow.md#lambda-mode) or [API Mode](getting-started/configuration/workflow.md#api-server-settings)
