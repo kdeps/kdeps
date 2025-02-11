@@ -30,13 +30,24 @@ type ErrorResponse struct {
 	Message string `json:"message"`
 }
 
-// DecodedResponse defines the overall response structure.
-type DecodedResponse struct {
-	Success  bool `json:"success"`
-	Response struct {
-		Data []string `json:"data"`
-	} `json:"response"`
-	Errors []ErrorResponse `json:"errors"`
+// APIResponse defines the overall response structure.
+type APIResponse struct {
+	Success  bool            `json:"success"`
+	Response ResponseData    `json:"response"`
+	Meta     ResponseMeta    `json:"meta"`
+	Errors   []ErrorResponse `json:"errors,omitempty"`
+}
+
+// ResponseData encapsulates the data section of the response.
+type ResponseData struct {
+	Data []string `json:"data"`
+}
+
+// ResponseMeta contains metadata related to the API response.
+type ResponseMeta struct {
+	RequestID  string            `json:"requestID"`
+	Headers    map[string]string `json:"headers,omitempty"`
+	Properties map[string]string `json:"properties,omitempty"`
 }
 
 type handlerError struct {
@@ -183,7 +194,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 
 		dr, err := resolver.NewGraphResolver(baseDr.Fs, ctx, baseDr.Environment, baseDr.AgentDir, baseDr.ActionDir, graphID, logger)
 		if err != nil {
-			resp := DecodedResponse{
+			resp := APIResponse{
 				Success: false,
 				Errors: []ErrorResponse{
 					{
@@ -197,7 +208,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		}
 
 		if err := cleanOldFiles(dr); err != nil {
-			resp := DecodedResponse{
+			resp := APIResponse{
 				Success: false,
 				Errors: []ErrorResponse{
 					{
@@ -212,7 +223,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 
 		method, err := validateMethod(c.Request, allowedMethods)
 		if err != nil {
-			resp := DecodedResponse{
+			resp := APIResponse{
 				Success: false,
 				Errors: []ErrorResponse{
 					{
@@ -244,7 +255,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		case http.MethodGet:
 			body, err := io.ReadAll(c.Request.Body)
 			if err != nil {
-				resp := DecodedResponse{
+				resp := APIResponse{
 					Success: false,
 					Errors: []ErrorResponse{
 						{
@@ -265,7 +276,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 				if err := handleMultipartForm(c, dr, fileMap); err != nil {
 					var he *handlerError
 					if errors.As(err, &he) {
-						resp := DecodedResponse{
+						resp := APIResponse{
 							Success: false,
 							Errors: []ErrorResponse{
 								{
@@ -276,7 +287,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 						}
 						c.AbortWithStatusJSON(he.statusCode, resp)
 					} else {
-						resp := DecodedResponse{
+						resp := APIResponse{
 							Success: false,
 							Errors: []ErrorResponse{
 								{
@@ -293,7 +304,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 				// Read non-multipart body
 				body, err := io.ReadAll(c.Request.Body)
 				if err != nil {
-					resp := DecodedResponse{
+					resp := APIResponse{
 						Success: false,
 						Errors: []ErrorResponse{
 							{
@@ -312,7 +323,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		case http.MethodDelete:
 			bodyData = "Delete request received"
 		default:
-			resp := DecodedResponse{
+			resp := APIResponse{
 				Success: false,
 				Errors: []ErrorResponse{
 					{
@@ -342,14 +353,14 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		sb.WriteString("}\n")
 		fileSection := sb.String()
 
-		paramSection := formatParams(c.Request.URL.Query())
-		headerSection := formatHeaders(c.Request.Header)
+		paramSection := utils.FormatRequestParams(c.Request.URL.Query())
+		requestHeaderSection := utils.FormatRequestHeaders(c.Request.Header)
 
-		sections := []string{urlSection, clientIPSection, requestIDSection, method, headerSection, dataSection, paramSection, fileSection}
+		sections := []string{urlSection, clientIPSection, requestIDSection, method, requestHeaderSection, dataSection, paramSection, fileSection}
 
 		if err := evaluator.CreateAndProcessPklFile(dr.Fs, ctx, sections, dr.RequestPklFile,
 			"APIServerRequest.pkl", dr.Logger, evaluator.EvalPkl, true); err != nil {
-			resp := DecodedResponse{
+			resp := APIResponse{
 				Success: false,
 				Errors: []ErrorResponse{
 					{
@@ -364,7 +375,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 
 		fatal, err := processWorkflow(ctx, dr)
 		if err != nil {
-			resp := DecodedResponse{
+			resp := APIResponse{
 				Success: false,
 				Errors: []ErrorResponse{
 					{
@@ -379,7 +390,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 
 		content, err := afero.ReadFile(dr.Fs, dr.ResponseTargetFile)
 		if err != nil {
-			resp := DecodedResponse{
+			resp := APIResponse{
 				Success: false,
 				Errors: []ErrorResponse{
 					{
@@ -392,14 +403,35 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			return
 		}
 
-		decodedContent, err := decodeResponseContent(content, dr.Logger)
+		decodedResp, err := decodeResponseContent(content, dr.Logger)
 		if err != nil {
-			resp := DecodedResponse{
+			resp := APIResponse{
 				Success: false,
 				Errors: []ErrorResponse{
 					{
 						Code:    http.StatusInternalServerError,
 						Message: "Failed to decode response content",
+					},
+				},
+			}
+			c.AbortWithStatusJSON(http.StatusInternalServerError, resp)
+			return
+		}
+
+		if decodedResp.Meta.Headers != nil {
+			for key, value := range decodedResp.Meta.Headers {
+				c.Header(key, value)
+			}
+		}
+
+		decodedContent, err := json.Marshal(decodedResp)
+		if err != nil {
+			resp := APIResponse{
+				Success: false,
+				Errors: []ErrorResponse{
+					{
+						Code:    http.StatusInternalServerError,
+						Message: "Failed to marshal response content",
 					},
 				},
 			}
@@ -448,31 +480,6 @@ func validateMethod(r *http.Request, allowedMethods []string) (string, error) {
 	return "", fmt.Errorf(`HTTP method "%s" not allowed`, r.Method)
 }
 
-// formatHeaders formats the HTTP headers into a string representation for inclusion in the .pkl file.
-func formatHeaders(headers map[string][]string) string {
-	var headersLines []string
-	for name, values := range headers {
-		for _, value := range values {
-			encodedValue := utils.EncodeBase64String(strings.TrimSpace(value))
-			headersLines = append(headersLines, fmt.Sprintf(`["%s"] = "%s"`, name, encodedValue))
-		}
-	}
-
-	return "headers {\n" + strings.Join(headersLines, "\n") + "\n}"
-}
-
-// formatParams formats the query parameters into a string representation for inclusion in the .pkl file.
-func formatParams(params map[string][]string) string {
-	var paramsLines []string
-	for param, values := range params {
-		for _, value := range values {
-			encodedValue := utils.EncodeBase64String(strings.TrimSpace(value))
-			paramsLines = append(paramsLines, fmt.Sprintf(`["%s"] = "%s"`, param, encodedValue))
-		}
-	}
-	return "params {\n" + strings.Join(paramsLines, "\n") + "\n}"
-}
-
 // processWorkflow handles the execution of the workflow steps after the .pkl file is created.
 // It prepares the workflow directory, imports necessary files, and processes the actions defined in the workflow.
 func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver) (bool, error) {
@@ -508,10 +515,10 @@ func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver) (bool
 	return fatal, nil
 }
 
-func decodeResponseContent(content []byte, logger *logging.Logger) ([]byte, error) {
-	var decodedResp DecodedResponse
+func decodeResponseContent(content []byte, logger *logging.Logger) (*APIResponse, error) {
+	var decodedResp APIResponse
 
-	// Unmarshal JSON content into DecodedResponse struct
+	// Unmarshal JSON content into APIResponse struct
 	err := json.Unmarshal(content, &decodedResp)
 	if err != nil {
 		logger.Error("failed to unmarshal response content", "error", err)
@@ -525,10 +532,7 @@ func decodeResponseContent(content []byte, logger *logging.Logger) ([]byte, erro
 			logger.Error("failed to decode Base64 string", "data", encodedData)
 			decodedResp.Response.Data[i] = encodedData // Use original if decoding fails
 		} else {
-			// Pass in the invalidJSON to the FixJSON
 			fixedJSON := utils.FixJSON(decodedData)
-
-			// If the decoded data is JSON, pretty print it
 			if utils.IsJSON(fixedJSON) {
 				var prettyJSON bytes.Buffer
 				err := json.Indent(&prettyJSON, []byte(fixedJSON), "", "  ")
@@ -536,20 +540,11 @@ func decodeResponseContent(content []byte, logger *logging.Logger) ([]byte, erro
 					fixedJSON = prettyJSON.String()
 				}
 			}
-
-			// Assign the cleaned-up data back to the response
 			decodedResp.Response.Data[i] = fixedJSON
 		}
 	}
 
-	// Marshal the decoded response back to JSON
-	decodedContent, err := json.Marshal(decodedResp)
-	if err != nil {
-		logger.Error("failed to marshal decoded response content", "error", err)
-		return nil, err
-	}
-
-	return decodedContent, nil
+	return &decodedResp, nil
 }
 
 // formatResponseJSON attempts to format the response content as JSON if required.
