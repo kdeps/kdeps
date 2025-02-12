@@ -1,27 +1,30 @@
-Kdeps is a multi-model AI agent framework that is optimized for creating purpose-built
-Dockerized AI agent APIs ready to be deployed on/off cloud. It utilizes self-contained
-open-source LLM models that are orchestrated by a graph-based dependency workflow.
+# What is Kdeps?
 
-<img alt="Kdeps - Demo" src="/docs/public/demo.gif" />
+Self-hosted AI Agent framework: Open-source LLMs + context-aware RAG workflow + Docker.
+
+If Ollama, RAG, Google Cloud and Docker had a lovechild, it would be Kdeps.
+
+<img alt="Kdeps - Demo" src="/docs/public/overview.gif" />
 
 Kdeps is packed with features:
-  - 🚀 Run Kdeps in single-execution or API Mode
-  - 🤖 Use Multiple Open-Source LLMs
-  - 🐍 Run Python scripts in isolated environments using Anaconda
-  - 🖥️ Execute Custom Shell-Scripts
-  - 🧪 Anaconda Support
-  - 🔄 Share and Remix AI Agents
-  - 🌐 Interact with external HTTP APIs directly into the resource
-  - 📊 Generate structured outputs from LLMs
-  - 📦 Install dependent Ubuntu packages from within the workflow configuration
-  - 📜 Define custom Ubuntu repositories and PPAs in the workflow
-  - 📈 RAG Graph-based workflow execution
-  - ⚡ Written in Golang
+- 🚀 run in [Lambda](https://kdeps.github.io/kdeps/getting-started/configuration/workflow.html#lambda-mode) or [API Mode](https://kdeps.github.io/kdeps/getting-started/configuration/workflow.html#api-server-settings)
+- 🤖 use multiple open-source LLMs from [Ollama](https://kdeps.github.io/kdeps/getting-started/configuration/workflow.html#llm-models) and [Huggingface](https://github.com/kdeps/examples/tree/main/huggingface_imagegen_api)
+- 🐍 run Python in isolated environments using [Anaconda](https://kdeps.github.io/kdeps/getting-started/resources/python.html)
+- 🖼️ [multimodal](https://kdeps.github.io/kdeps/getting-started/resources/multimodal.html) LLMs ready
+- 💅 built-in [validation](https://kdeps.github.io/kdeps/getting-started/resources/validations.html) checks and [skip](https://kdeps.github.io/kdeps/getting-started/resources/skip.html) conditions
+- 🔄 [reusable](https://kdeps.github.io/kdeps/getting-started/resources/remix.html) AI Agents
+- 🖥️ run [shell-scripts](https://kdeps.github.io/kdeps/getting-started/resources/exec.html)
+- 🌐 make [API calls](https://kdeps.github.io/kdeps/getting-started/resources/client.html) from configuration
+- 📊 generate [structured outputs](https://kdeps.github.io/kdeps/getting-started/resources/llm.html#chat-block) from LLMs
+- 📦 install [Ubuntu packages](https://kdeps.github.io/kdeps/getting-started/configuration/workflow.html#ubuntu-packages) from configuration
+- 📜 define [Ubuntu repos or PPAs](https://kdeps.github.io/kdeps/getting-started/configuration/workflow.html#ubuntu-repositories)
+- 📈 context-aware [RAG workflow](https://kdeps.github.io/kdeps/getting-started/resources/kartographer.html)
+- 🗂️ upload any [documents or files](https://kdeps.github.io/kdeps/getting-started/tutorials/files.html) for LLM processing
+- ⚡ Written in Golang
+- 📦 [easy to install](https://kdeps.github.io/kdeps/getting-started/introduction/installation.html) and use
 
-## Installation
+I know, that's a lot. Let's dive into the details.
 
-Please see the installation instructions [here](https://kdeps.github.io/kdeps/getting-started/introduction/installation.html).
+You can get started with Kdeps [via installing it](https://kdeps.github.io/kdeps/getting-started/introduction/installation.html) with a single command.
 
-## Quickstart
-
-Take a look at our quickstart guide [here](https://kdeps.github.io/kdeps/getting-started/introduction/quickstart.html).
+See the [examples](https://github.com/kdeps/examples).
