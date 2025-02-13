@@ -1,8 +1,6 @@
 # What is Kdeps?
 
-Unified AI Agent Framework for everyone.
-
-Kdeps is a no-code framework for building self-hosted AI Agent framework.
+Kdeps is a no-code framework for building self-hosted RAG AI Agents powered by open-source LLMs.
 
 And...
 1. It uses open-source LLMs by default.
