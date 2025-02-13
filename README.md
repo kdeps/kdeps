@@ -2,12 +2,9 @@
 
 Kdeps is a no-code framework for building self-hosted RAG AI Agents powered by open-source LLMs.
 
-And...
 1. It uses open-source LLMs by default.
 2. Has a built-in context-aware RAG workflow system.
 3. Builds a Docker image of the AI Agent.
-
-If Ollama, RAG, API and Docker had a lovechild, it would be Kdeps.
 
 <img alt="Kdeps - Overview" src="/docs/public/overview.png" />
 
