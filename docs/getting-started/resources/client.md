@@ -43,7 +43,7 @@ HTTPClient {
     headers {
         ["X-API-KEY"] = "@(request.header("X-API-KEY"))"
     }
-    timeoutSeconds = 60
+    timeoutDuration = 60.s
 }
 ```
 
@@ -53,7 +53,7 @@ Key elements of the `HTTPClient` block include:
 - **`url`**: Defines the API endpoint.
 - **`data`**: Specifies all the request data to be submitted with this request.
 - **`headers`**: Specifies all the request headers to be submitted with this request.
-- **`timeoutSeconds`**: Determines the execution timeout in seconds, after which the request will be terminated.
+- **`timeoutDuration`**: Determines the exectuion timeout in s (seconds), min (minutes), etc., after which the request will be terminated.
 
 When the resource is executed, you can use client functions like `client.responseBody("id")` to access the response
 body. For further details, refer to the [HTTP Client

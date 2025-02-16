@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklHTTP "github.com/kdeps/schema/gen/http"
 	"github.com/spf13/afero"
-	"github.com/zerjioang/time32"
 )
 
 func (dr *DependencyResolver) HandleHTTPClient(actionID string, httpBlock *pklHTTP.ResourceHTTPClient) error {
@@ -90,14 +90,19 @@ func (dr *DependencyResolver) WriteResponseBodyToFile(resourceID string, respons
 
 func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP.ResourceHTTPClient) error {
 	pklPath := filepath.Join(dr.ActionDir, "client/"+dr.RequestID+"__client_output.pkl")
-	timestamp := uint32(time32.Epoch())
 
 	pklRes, err := pklHTTP.LoadFromPath(dr.Context, pklPath)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL: %w", err)
 	}
 
-	existingResources := *pklRes.GetResources()
+	resources := pklRes.GetResources()
+	if resources == nil {
+		emptyMap := make(map[string]*pklHTTP.ResourceHTTPClient)
+		resources = &emptyMap
+	}
+	existingResources := *resources
+
 	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
 	filePath := filepath.Join(dr.FilesDir, resourceIDFile)
 
@@ -106,14 +111,31 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 		encodedURL = utils.EncodeBase64String(encodedURL)
 	}
 
+	timeoutDuration := client.TimeoutDuration
+	if timeoutDuration == nil {
+		timeoutDuration = &pkl.Duration{
+			Value: 60,
+			Unit:  pkl.Second,
+		}
+	}
+
+	timestamp := client.Timestamp
+	if timestamp == nil {
+		timestamp = &pkl.Duration{
+			Value: float64(time.Now().Unix()),
+			Unit:  pkl.Nanosecond,
+		}
+	}
+
 	existingResources[resourceID] = &pklHTTP.ResourceHTTPClient{
-		Method:    client.Method,
-		Url:       encodedURL,
-		Data:      client.Data,
-		Headers:   client.Headers,
-		Response:  client.Response,
-		File:      &filePath,
-		Timestamp: &timestamp,
+		Method:          client.Method,
+		Url:             encodedURL,
+		Data:            client.Data,
+		Headers:         client.Headers,
+		Response:        client.Response,
+		File:            &filePath,
+		Timestamp:       timestamp,
+		TimeoutDuration: timeoutDuration,
 	}
 
 	var pklContent strings.Builder
@@ -124,8 +146,16 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
 		pklContent.WriteString(fmt.Sprintf("    method = \"%s\"\n", res.Method))
 		pklContent.WriteString(fmt.Sprintf("    url = \"%s\"\n", res.Url))
-		pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d\n", res.TimeoutDuration))
-		pklContent.WriteString(fmt.Sprintf("    timestamp = %d\n", *res.Timestamp))
+
+		if res.TimeoutDuration != nil {
+			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
+		} else {
+			pklContent.WriteString("    timeoutDuration = 60.s\n")
+		}
+
+		if res.Timestamp != nil {
+			pklContent.WriteString(fmt.Sprintf("    timestamp = %g.%s\n", res.Timestamp.Value, res.Timestamp.Unit.String()))
+		}
 
 		pklContent.WriteString("    data ")
 		pklContent.WriteString(utils.EncodePklSlice(res.Data))
@@ -179,23 +209,38 @@ func encodeResponseBody(response *pklHTTP.ResponseBlock, dr *DependencyResolver,
 }
 
 func (dr *DependencyResolver) DoRequest(client *pklHTTP.ResourceHTTPClient) error {
-	timeout := 30
-	if client.TimeoutDuration != nil {
-		timeout = *client.TimeoutDuration
+	// Validate required parameters
+	if client == nil {
+		return errors.New("nil HTTP client configuration")
 	}
-
-	httpClient := &http.Client{
-		Timeout: time.Duration(timeout) * time.Second,
-	}
-
 	if client.Method == "" {
 		return errors.New("HTTP method required")
 	}
+	if client.Url == "" {
+		return errors.New("URL cannot be empty")
+	}
 
+	// Configure timeout with proper duration handling
+	timeout := 30 * time.Second
+	if client.TimeoutDuration != nil {
+		timeout = client.TimeoutDuration.GoDuration()
+	}
+
+	httpClient := &http.Client{
+		Timeout: timeout,
+		Transport: &http.Transport{
+			DisableCompression: false,
+			DisableKeepAlives:  false,
+			MaxIdleConns:       10,
+			IdleConnTimeout:    90 * time.Second,
+		},
+	}
+
+	// Process query parameters
 	if client.Params != nil {
 		parsedURL, err := url.Parse(client.Url)
 		if err != nil {
-			return fmt.Errorf("invalid URL: %w", err)
+			return fmt.Errorf("invalid URL %q: %w", client.Url, err)
 		}
 		query := parsedURL.Query()
 		for k, v := range *client.Params {
@@ -205,56 +250,81 @@ func (dr *DependencyResolver) DoRequest(client *pklHTTP.ResourceHTTPClient) erro
 		client.Url = parsedURL.String()
 	}
 
+	// Handle request body
 	var reqBody io.Reader
 	if isMethodWithBody(client.Method) {
 		if client.Data == nil {
-			return fmt.Errorf("%s requires data body", client.Method)
+			return fmt.Errorf("HTTP %s requires request body", client.Method)
 		}
 		reqBody = bytes.NewBufferString(strings.Join(*client.Data, ""))
 	}
 
+	// Create HTTP request with context
 	req, err := http.NewRequestWithContext(dr.Context, client.Method, client.Url, reqBody)
 	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+		return fmt.Errorf("failed to create %s request to %q: %w",
+			client.Method, client.Url, err)
 	}
 
+	// Set headers
 	if client.Headers != nil {
 		for k, v := range *client.Headers {
 			req.Header.Set(k, v)
 		}
 	}
+	if req.Header.Get("User-Agent") == "" {
+		req.Header.Set("User-Agent", "pkl-http-client/1.0")
+	}
 
+	// Execute request
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
+		return fmt.Errorf("request to %q failed: %w", client.Url, err)
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	// Read response body with size limit
+	maxBodySize := int64(10 * 1024 * 1024) // 10MB
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBodySize))
 	if err != nil {
-		return fmt.Errorf("failed to read response: %w", err)
+		return fmt.Errorf("failed to read response body: %w", err)
 	}
 
+	// Initialize response object if needed
 	if client.Response == nil {
 		client.Response = &pklHTTP.ResponseBlock{}
 	}
-	client.Response.Body = &[]string{string(body)}[0]
 
+	// Store response data
+	bodyStr := string(body)
+	client.Response.Body = &bodyStr
+	// client.Response.StatusCode = resp.StatusCode
+
+	// Store response headers (only first values)
 	headers := make(map[string]string)
 	for k, v := range resp.Header {
-		headers[k] = v[0]
+		if len(v) > 0 {
+			headers[k] = v[0]
+		}
 	}
 	client.Response.Headers = &headers
-	ts := uint32(time32.Epoch())
-	client.Timestamp = &ts
+
+	// Set timestamp using proper type
+	timestamp := pkl.Duration{
+		Value: float64(time.Now().Unix()),
+		Unit:  pkl.Nanosecond,
+	}
+	client.Timestamp = &timestamp
 
 	return nil
 }
 
+// Helper function to check if HTTP method supports body.
 func isMethodWithBody(method string) bool {
-	switch method {
-	case "POST", "PUT", "PATCH":
+	switch strings.ToUpper(method) {
+	case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
 		return true
+	default:
+		return false
 	}
-	return false
 }
