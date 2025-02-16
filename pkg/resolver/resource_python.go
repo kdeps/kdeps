@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/alexellis/go-execute/v2"
+	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklPython "github.com/kdeps/schema/gen/python"
 	"github.com/spf13/afero"
-	"github.com/zerjioang/time32"
 )
 
 func (dr *DependencyResolver) HandlePython(actionID string, pythonBlock *pklPython.ResourcePython) error {
@@ -105,6 +106,12 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 	pythonBlock.Stdout = &result.Stdout
 	pythonBlock.Stderr = &result.Stderr
 
+	ts := pkl.Duration{
+		Value: float64(time.Now().Unix()),
+		Unit:  pkl.Nanosecond,
+	}
+	pythonBlock.Timestamp = &ts
+
 	return dr.AppendPythonEntry(actionID, pythonBlock)
 }
 
@@ -193,14 +200,18 @@ func (dr *DependencyResolver) WritePythonStdoutToFile(resourceID string, stdoutE
 //nolint:dupl
 func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pklPython.ResourcePython) error {
 	pklPath := filepath.Join(dr.ActionDir, "python/"+dr.RequestID+"__python_output.pkl")
-	newTimestamp := uint32(time32.Epoch())
 
 	pklRes, err := pklPython.LoadFromPath(dr.Context, pklPath)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL file: %w", err)
 	}
 
-	existingResources := *pklRes.GetResources()
+	resources := pklRes.GetResources()
+	if resources == nil {
+		emptyMap := make(map[string]*pklPython.ResourcePython)
+		resources = &emptyMap
+	}
+	existingResources := *resources
 
 	var filePath string
 	if newPython.Stdout != nil {
@@ -215,13 +226,27 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 	encodedEnv := dr.encodePythonEnv(newPython.Env)
 	encodedStderr, encodedStdout := dr.encodePythonOutputs(newPython.Stderr, newPython.Stdout)
 
+	timeoutDuration := newPython.TimeoutDuration
+	if timeoutDuration == nil {
+		timeoutDuration = &pkl.Duration{
+			Value: 60,
+			Unit:  pkl.Second,
+		}
+	}
+
+	timestamp := &pkl.Duration{
+		Value: float64(time.Now().Unix()),
+		Unit:  pkl.Nanosecond,
+	}
+
 	existingResources[resourceID] = &pklPython.ResourcePython{
-		Env:       encodedEnv,
-		Script:    encodedScript,
-		Stderr:    encodedStderr,
-		Stdout:    encodedStdout,
-		File:      &filePath,
-		Timestamp: &newTimestamp,
+		Env:             encodedEnv,
+		Script:          encodedScript,
+		Stderr:          encodedStderr,
+		Stdout:          encodedStdout,
+		File:            &filePath,
+		Timestamp:       timestamp,
+		TimeoutDuration: timeoutDuration,
 	}
 
 	var pklContent strings.Builder
@@ -231,8 +256,16 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 	for id, res := range existingResources {
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
 		pklContent.WriteString(fmt.Sprintf("    script = \"%s\"\n", res.Script))
-		pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d\n", res.TimeoutDuration))
-		pklContent.WriteString(fmt.Sprintf("    timestamp = %d\n", *res.Timestamp))
+
+		if res.TimeoutDuration != nil {
+			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
+		} else {
+			pklContent.WriteString("    timeoutDuration = 60.s\n")
+		}
+
+		if res.Timestamp != nil {
+			pklContent.WriteString(fmt.Sprintf("    timestamp = %g.%s\n", res.Timestamp.Value, res.Timestamp.Unit.String()))
+		}
 
 		pklContent.WriteString("    env ")
 		pklContent.WriteString(utils.EncodePklMap(res.Env))

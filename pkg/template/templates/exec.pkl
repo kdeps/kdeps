@@ -60,6 +60,6 @@ run {
                         ["ENVVAR"] = "XYZ"  // Example ENVVAR.
                 }
                 // Timeout duration in seconds. This specifies when to terminate the shell exec.
-                timeoutDuration = 60
+                timeoutDuration = 60.s
         }
 }

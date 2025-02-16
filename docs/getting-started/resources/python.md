@@ -48,7 +48,7 @@ python {
         ["ENVVAR"] = "XYZ"  // Example environment variable
     }
     // Specifies the timeout duration (in seconds) for script execution
-    timeoutSeconds = 60
+    timeoutDuration = 60.s
 
     // Specifies the Conda environment for isolation
     condaEnvironment = "my-conda-env"
@@ -59,7 +59,7 @@ Key elements of the `python` block include:
 
 - **`script`**: Specifies the Python script to execute, enclosed in triple double-quotes (`"""`) for multi-line support.
 - **`env`**: Defines environment variables to be available during execution.
-- **`timeoutSeconds`**: Determines the execution timeout in seconds, after which the script execution will be terminated.
+- **`timeoutDuration`**: Determines the exectuion timeout in s (seconds), min (minutes), etc., after which the script execution will be terminated.
 - **`condaEnvironment`**: Specifies the Conda environment to use, ensuring the script runs in an isolated environment
   with defined dependencies.
 

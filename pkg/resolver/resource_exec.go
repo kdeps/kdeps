@@ -4,14 +4,15 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/alexellis/go-execute/v2"
+	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklExec "github.com/kdeps/schema/gen/exec"
 	"github.com/spf13/afero"
-	"github.com/zerjioang/time32"
 )
 
 func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.ResourceExec) error {
@@ -94,6 +95,12 @@ func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklEx
 	execBlock.Stdout = &result.Stdout
 	execBlock.Stderr = &result.Stderr
 
+	ts := pkl.Duration{
+		Value: float64(time.Now().Unix()),
+		Unit:  pkl.Nanosecond,
+	}
+	execBlock.Timestamp = &ts
+
 	return dr.AppendExecEntry(actionID, execBlock)
 }
 
@@ -120,14 +127,18 @@ func (dr *DependencyResolver) WriteStdoutToFile(resourceID string, stdoutEncoded
 //nolint:dupl
 func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExec.ResourceExec) error {
 	pklPath := filepath.Join(dr.ActionDir, "exec/"+dr.RequestID+"__exec_output.pkl")
-	newTimestamp := uint32(time32.Epoch())
 
 	pklRes, err := pklExec.LoadFromPath(dr.Context, pklPath)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL file: %w", err)
 	}
 
-	existingResources := *pklRes.GetResources()
+	resources := pklRes.GetResources()
+	if resources == nil {
+		emptyMap := make(map[string]*pklExec.ResourceExec)
+		resources = &emptyMap
+	}
+	existingResources := *resources
 
 	// Prepare file path and write stdout to file
 	var filePath string
@@ -144,13 +155,22 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 	encodedEnv := dr.encodeExecEnv(newExec.Env)
 	encodedStderr, encodedStdout := dr.encodeExecOutputs(newExec.Stderr, newExec.Stdout)
 
+	timestamp := newExec.Timestamp
+	if timestamp == nil {
+		timestamp = &pkl.Duration{
+			Value: float64(time.Now().Unix()),
+			Unit:  pkl.Nanosecond,
+		}
+	}
+
 	existingResources[resourceID] = &pklExec.ResourceExec{
-		Env:       encodedEnv,
-		Command:   encodedCommand,
-		Stderr:    encodedStderr,
-		Stdout:    encodedStdout,
-		File:      &filePath,
-		Timestamp: &newTimestamp,
+		Env:             encodedEnv,
+		Command:         encodedCommand,
+		Stderr:          encodedStderr,
+		Stdout:          encodedStdout,
+		File:            &filePath,
+		Timestamp:       timestamp,
+		TimeoutDuration: newExec.TimeoutDuration,
 	}
 
 	var pklContent strings.Builder
@@ -160,8 +180,16 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 	for id, res := range existingResources {
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
 		pklContent.WriteString(fmt.Sprintf("    command = \"%s\"\n", res.Command))
-		pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d\n", res.TimeoutDuration))
-		pklContent.WriteString(fmt.Sprintf("    timestamp = %d\n", *res.Timestamp))
+
+		if res.TimeoutDuration != nil {
+			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
+		} else {
+			pklContent.WriteString("    timeoutDuration = 60.s\n")
+		}
+
+		if res.Timestamp != nil {
+			pklContent.WriteString(fmt.Sprintf("    timestamp = %g.%s\n", res.Timestamp.Value, res.Timestamp.Unit.String()))
+		}
 
 		pklContent.WriteString("    env ")
 		pklContent.WriteString(utils.EncodePklMap(res.Env))

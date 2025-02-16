@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/apple/pkl-go/pkl"
 	pklExec "github.com/kdeps/schema/gen/exec"
 	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
@@ -45,7 +46,7 @@ func (dr *DependencyResolver) loadPKLFile(resourceType, pklPath string) (interfa
 }
 
 // getResourceTimestamp retrieves the timestamp for a specific resource from the given PKL result.
-func getResourceTimestamp(resourceID string, pklRes interface{}) (*uint32, error) {
+func getResourceTimestamp(resourceID string, pklRes interface{}) (*pkl.Duration, error) {
 	switch res := pklRes.(type) {
 	case *pklExec.ExecImpl:
 		// ExecImpl resources are of type *ResourceExec
@@ -88,20 +89,20 @@ func getResourceTimestamp(resourceID string, pklRes interface{}) (*uint32, error
 }
 
 // GetCurrentTimestamp retrieves the current timestamp for the given resourceID and resourceType.
-func (dr *DependencyResolver) GetCurrentTimestamp(resourceID, resourceType string) (uint32, error) {
+func (dr *DependencyResolver) GetCurrentTimestamp(resourceID, resourceType string) (pkl.Duration, error) {
 	pklPath, err := dr.getResourceFilePath(resourceType)
 	if err != nil {
-		return 0, err
+		return pkl.Duration{}, err
 	}
 
 	pklRes, err := dr.loadPKLFile(resourceType, pklPath)
 	if err != nil {
-		return 0, fmt.Errorf("failed to load %s PKL file: %w", resourceType, err)
+		return pkl.Duration{}, fmt.Errorf("failed to load %s PKL file: %w", resourceType, err)
 	}
 
 	timestamp, err := getResourceTimestamp(resourceID, pklRes)
 	if err != nil {
-		return 0, err
+		return pkl.Duration{}, err
 	}
 
 	return *timestamp, nil
@@ -126,7 +127,7 @@ func formatDuration(d time.Duration) string {
 }
 
 // WaitForTimestampChange waits until the timestamp for the specified resourceID changes from the provided previous timestamp.
-func (dr *DependencyResolver) WaitForTimestampChange(resourceID string, previousTimestamp uint32, timeout time.Duration, resourceType string) error {
+func (dr *DependencyResolver) WaitForTimestampChange(resourceID string, previousTimestamp pkl.Duration, timeout time.Duration, resourceType string) error {
 	startTime := time.Now()
 	lastSeenTimestamp := previousTimestamp
 

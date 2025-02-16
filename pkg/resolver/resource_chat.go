@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
@@ -13,7 +15,6 @@ import (
 	"github.com/spf13/afero"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/ollama"
-	"github.com/zerjioang/time32"
 )
 
 func (dr *DependencyResolver) HandleLLMChat(actionID string, chatBlock *pklLLM.ResourceChat) error {
@@ -90,14 +91,18 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 
 func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM.ResourceChat) error {
 	pklPath := filepath.Join(dr.ActionDir, "llm/"+dr.RequestID+"__llm_output.pkl")
-	newTimestamp := uint32(time32.Epoch())
 
 	pklRes, err := pklLLM.LoadFromPath(dr.Context, pklPath)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL file: %w", err)
 	}
 
-	existingResources := *pklRes.GetResources()
+	resources := pklRes.GetResources()
+	if resources == nil {
+		emptyMap := make(map[string]*pklLLM.ResourceChat)
+		resources = &emptyMap
+	}
+	existingResources := *resources
 
 	var filePath string
 	if newChat.Response != nil {
@@ -113,6 +118,22 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 	encodedResponse := utils.EncodeValuePtr(newChat.Response)
 	encodedJSONResponseKeys := dr.encodeChatJSONResponseKeys(newChat.JSONResponseKeys)
 
+	timeoutDuration := newChat.TimeoutDuration
+	if timeoutDuration == nil {
+		timeoutDuration = &pkl.Duration{
+			Value: 60,
+			Unit:  pkl.Second,
+		}
+	}
+
+	timestamp := newChat.Timestamp
+	if timestamp == nil {
+		timestamp = &pkl.Duration{
+			Value: float64(time.Now().Unix()),
+			Unit:  pkl.Nanosecond,
+		}
+	}
+
 	existingResources[resourceID] = &pklLLM.ResourceChat{
 		Model:            encodedModel,
 		Prompt:           encodedPrompt,
@@ -120,8 +141,8 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 		JSONResponseKeys: encodedJSONResponseKeys,
 		Response:         encodedResponse,
 		File:             &filePath,
-		Timestamp:        &newTimestamp,
-		TimeoutDuration:  newChat.TimeoutDuration,
+		Timestamp:        timestamp,
+		TimeoutDuration:  timeoutDuration,
 	}
 
 	var pklContent strings.Builder
@@ -144,8 +165,15 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 			pklContent.WriteString("{}\n")
 		}
 
-		pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d\n", res.TimeoutDuration))
-		pklContent.WriteString(fmt.Sprintf("    timestamp = %d\n", *res.Timestamp))
+		if res.TimeoutDuration != nil {
+			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
+		} else {
+			pklContent.WriteString("    timeoutDuration = 60.s\n")
+		}
+
+		if res.Timestamp != nil {
+			pklContent.WriteString(fmt.Sprintf("    timestamp = %g.%s\n", res.Timestamp.Value, res.Timestamp.Unit.String()))
+		}
 
 		if res.Response != nil {
 			pklContent.WriteString(fmt.Sprintf("    response = #\"\"\"\n%s\n\"\"\"#\n", *res.Response))

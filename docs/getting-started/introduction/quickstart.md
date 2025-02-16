@@ -272,7 +272,7 @@ chat {
         "famous_quotes"
         "known_for"
     }
-    timeoutSeconds = 60
+    timeoutDuration = 60.s
 }
 ```
 

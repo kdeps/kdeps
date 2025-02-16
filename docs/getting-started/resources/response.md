@@ -78,4 +78,4 @@ Key Elements of the `APIResponse` Block:
   `client`.
 - **`errors`**: Defines custom error codes and messages to handle various error cases. Multiple errors can be defined
   and returned.
-- **`timeoutSeconds`**: Sets the timeout duration in seconds, after which the execution will be terminated.
+- **`timeoutDuration`**: Sets the timeout duration in seconds, after which the execution will be terminated.
