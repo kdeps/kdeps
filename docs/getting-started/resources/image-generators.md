@@ -227,7 +227,7 @@ exec {
     env {
         ["HF_TOKEN"] = "\(read("env:HF_TOKEN"))"                                                 // [!code ++]
     }
-    timeoutSeconds = 0
+    timeoutDuration = 0.s
 }
 ```
 

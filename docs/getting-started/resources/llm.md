@@ -57,7 +57,7 @@ chat {
     }
 
     // Timeout duration in seconds, specifying when to terminate the LLM session.
-    timeoutSeconds = 60
+    timeoutDuration = 60.s
 }
 ```
 
@@ -71,7 +71,7 @@ Key Elements of the `chat` Block
 - **`JSONResponseKeys`**: Lists the required keys for the structured JSON response. To ensure the output conforms to
   specific data types, you can define the keys with their corresponding types. For example: `first_name__string`,
   `famous_quotes__array`, `details__markdown`, or `age__integer`.
-- **`timeoutSeconds`**: Sets the execution timeout in seconds, after which the session is terminated.
+- **`timeoutDuration`**: Sets the exectuion timeout in s (seconds), min (minutes), etc., after which the session is terminated.
 
 When the resource is executed, you can leverage LLM functions like `llm.response("id")` to retrieve the generated
 response. For further details, refer to the [LLM Functions](../resources/functions.md#llm-resource-functions)

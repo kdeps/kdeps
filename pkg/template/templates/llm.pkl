@@ -66,6 +66,6 @@ run {
                 }
 
                 // Timeout duration in seconds. This specifies when to terminate the llm session.
-                timeoutDuration = 60
+                timeoutDuration = 60.s
         }
 }

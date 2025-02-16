@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kartographer/graph"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -124,7 +125,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 
 // processResourceStep consolidates the pattern of: get timestamp, run a handler, adjust timeout (if provided),
 // then wait for the timestamp change.
-func (dr *DependencyResolver) processResourceStep(resourceID, step string, timeoutPtr *int, handler func() error) error {
+func (dr *DependencyResolver) processResourceStep(resourceID, step string, timeoutPtr *pkl.Duration, handler func() error) error {
 	timestamp, err := dr.GetCurrentTimestamp(resourceID, step)
 	if err != nil {
 		return fmt.Errorf("%s error: %w", step, err)
@@ -132,7 +133,7 @@ func (dr *DependencyResolver) processResourceStep(resourceID, step string, timeo
 
 	timeout := 60 * time.Second
 	if timeoutPtr != nil {
-		timeout = time.Duration(*timeoutPtr) * time.Second
+		timeout = timeoutPtr.GoDuration()
 		dr.Logger.Infof("Timeout duration for '%s' is set to '%.0f' seconds", resourceID, timeout.Seconds())
 	}
 
