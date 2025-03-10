@@ -17,6 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/pkg/evaluator"
+	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/utils"
@@ -192,7 +193,9 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		baseLogger := logging.GetLogger()
 		logger := baseLogger.With("requestID", graphID) // Now returns *logging.Logger
 
-		dr, err := resolver.NewGraphResolver(baseDr.Fs, ctx, baseDr.Environment, baseDr.AgentDir, baseDr.ActionDir, graphID, logger)
+		ctx = ktx.UpdateContext(ctx, ktx.CtxKeyGraphID, graphID)
+
+		dr, err := resolver.NewGraphResolver(baseDr.Fs, ctx, baseDr.Environment, logger)
 		if err != nil {
 			resp := APIResponse{
 				Success: false,
