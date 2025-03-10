@@ -193,9 +193,9 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		baseLogger := logging.GetLogger()
 		logger := baseLogger.With("requestID", graphID) // Now returns *logging.Logger
 
-		ctx = ktx.UpdateContext(ctx, ktx.CtxKeyGraphID, graphID)
+		newCtx := ktx.UpdateContext(ctx, ktx.CtxKeyGraphID, graphID)
 
-		dr, err := resolver.NewGraphResolver(baseDr.Fs, ctx, baseDr.Environment, logger)
+		dr, err := resolver.NewGraphResolver(baseDr.Fs, newCtx, baseDr.Environment, logger)
 		if err != nil {
 			resp := APIResponse{
 				Success: false,
