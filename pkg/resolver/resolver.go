@@ -11,6 +11,7 @@ import (
 	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kartographer/graph"
 	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklRes "github.com/kdeps/schema/gen/resource"
@@ -48,7 +49,23 @@ type ResourceNodeEntry struct {
 	File     string `pkl:"file"`
 }
 
-func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment, agentDir, actionDir, graphID string, logger *logging.Logger) (*DependencyResolver, error) {
+func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (*DependencyResolver, error) {
+	var agentDir, graphID, actionDir string
+
+	contextKeys := map[*string]ktx.ContextKey{
+		&agentDir:  ktx.CtxKeyAgentDir,
+		&graphID:   ktx.CtxKeyGraphID,
+		&actionDir: ktx.CtxKeyActionDir,
+	}
+
+	for ptr, key := range contextKeys {
+		if value, found := ktx.ReadContext(ctx, key); found {
+			if strValue, ok := value.(string); ok {
+				*ptr = strValue
+			}
+		}
+	}
+
 	workflowDir := filepath.Join(agentDir, "/workflow/")
 	projectDir := filepath.Join(agentDir, "/project/")
 	pklWfFile := filepath.Join(workflowDir, "workflow.pkl")

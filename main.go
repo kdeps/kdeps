@@ -13,6 +13,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/cfg"
 	"github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/utils"
@@ -29,13 +30,14 @@ func main() {
 	v.Version = version
 	v.Commit = commit
 
-	// Initialize filesystem and context
+	logger := logging.GetLogger()
 	fs := afero.NewOsFs()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // Ensure context is canceled when main exits
 
 	graphID := uuid.New().String()
-	logger := logging.GetLogger()
+	actionDir := filepath.Join(os.TempDir(), "action")
+	agentDir := filepath.Join("/", "agent")
 
 	// Setup environment
 	env, err := setupEnvironment(fs)
@@ -43,19 +45,12 @@ func main() {
 		logger.Fatalf("failed to set up environment: %v", err)
 	}
 
-	// Get the system's temporary directory (cross-platform)
-	baseTempDir := os.TempDir()
-
-	// Define the desired subdirectory for actions
-	actionDir := filepath.Join(baseTempDir, "action")
-
-	// Ensure the action directory exists (creating it if necessary)
-	if err := fs.MkdirAll(actionDir, 0o777); err != nil {
-		logger.Fatalf("failed to create action directory: %s", err)
-	}
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, graphID)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, actionDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
 
 	if env.DockerMode == "1" {
-		dr, err := resolver.NewGraphResolver(fs, ctx, env, "/agent", actionDir, graphID, logger.With("requestID", graphID))
+		dr, err := resolver.NewGraphResolver(fs, ctx, env, logger.With("requestID", graphID))
 		if err != nil {
 			logger.Fatalf("failed to create graph resolver: %v", err)
 		}
