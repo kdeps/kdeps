@@ -116,7 +116,7 @@ func GenerateURLs(ctx context.Context) ([]string, error) {
 		{
 			BaseURL:       "https://github.com/apple/pkl/releases/download/{version}/pkl-linux-{arch}",
 			Repo:          "apple/pkl",
-			Version:       "0.27.2",
+			Version:       "0.28.1",
 			Architectures: []string{"amd64", "aarch64"},
 		},
 		{
