@@ -58,11 +58,11 @@ settings {
                 hostIP = "127.0.0.1"
                 portNum = 3000
 
-                /// A list of trusted proxies (IPv4, IPv6, or CIDR ranges).
-                /// If set, only requests passing through these proxies will have their `X-Forwarded-For`
-                /// header trusted.
-                /// If unset, all proxies—including potentially malicious ones—are considered trusted,
-                /// which may expose the server to IP spoofing and other attacks.
+                // A list of trusted proxies (IPv4, IPv6, or CIDR ranges).
+                // If set, only requests passing through these proxies will have their `X-Forwarded-For`
+                // header trusted.
+                // If unset, all proxies—including potentially malicious ones—are considered trusted,
+                // which may expose the server to IP spoofing and other attacks.
                 trustedProxies {}
 
                 // You can define multiple routes for this agent. Each route points to
@@ -118,14 +118,13 @@ settings {
                 // List the local Ollama LLM models that will be pre-installed.
                 // You can specify multiple models here.
                 models {
-                        "tinydolphin"
-                        "llama3.1"
+                        "llama3.2:1b"
                         // "llama3.2-vision"
                         // "llama3.2"
                 }
 
                 // The Ollama image tag version to be used as a base Docker image for this AI agent.
-                ollamaImageTag = "0.5.7"
+                ollamaImageTag = "0.6.5"
 
                 // A mapping of build argument variable names.
                 args {}

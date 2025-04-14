@@ -18,9 +18,9 @@ RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/refs/heads/main/ins
 # Determine architecture and install pkl accordingly
 RUN ARCH=$(uname -m) && \
     if [ "$ARCH" = "aarch64" ]; then \
-        curl -L -o /home/kdeps/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.27.2/pkl-linux-aarch64'; \
+        curl -L -o /home/kdeps/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.28.1/pkl-linux-aarch64'; \
     elif [ "$ARCH" = "x86_64" ]; then \
-        curl -L -o /home/kdeps/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.27.2/pkl-linux-amd64'; \
+        curl -L -o /home/kdeps/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.28.1/pkl-linux-amd64'; \
     else \
         echo "Unsupported architecture: $ARCH" && exit 1; \
     fi && \
