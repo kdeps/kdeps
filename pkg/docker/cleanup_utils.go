@@ -11,6 +11,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/spf13/afero"
@@ -51,10 +52,24 @@ func Cleanup(fs afero.Fs, ctx context.Context, environ *environment.Environment,
 		return
 	}
 
-	actionDir := "/agent/action"
+	var graphID, actionDir string
+
+	contextKeys := map[*string]ktx.ContextKey{
+		&graphID:   ktx.CtxKeyGraphID,
+		&actionDir: ktx.CtxKeyActionDir,
+	}
+
+	for ptr, key := range contextKeys {
+		if value, found := ktx.ReadContext(ctx, key); found {
+			if strValue, ok := value.(string); ok {
+				*ptr = strValue
+			}
+		}
+	}
+
 	workflowDir := "/agent/workflow"
 	projectDir := "/agent/project"
-	removedFiles := []string{"/.actiondir_removed", "/.dockercleanup"}
+	removedFiles := []string{filepath.Join("/tmp", ".actiondir_removed_"+graphID), filepath.Join(actionDir, ".dockercleanup_"+graphID)}
 
 	// Helper function to remove a directory and create a corresponding flag file
 	removeDirWithFlag := func(ctx context.Context, dir string, flagFile string) error {
