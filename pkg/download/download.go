@@ -22,6 +22,11 @@ type WriteCounter struct {
 	DownloadURL   string
 }
 
+type DownloadItem struct {
+	URL       string
+	LocalName string
+}
+
 // Write implements the io.Writer interface and updates the total byte count.
 func (wc *WriteCounter) Write(p []byte) (int, error) {
 	n := len(p)
@@ -37,27 +42,31 @@ func (wc *WriteCounter) PrintProgress() {
 }
 
 // Given a list of URLs, download it to a target.
-func DownloadFiles(fs afero.Fs, ctx context.Context, downloadDir string, urls []string, logger *logging.Logger, useLatest bool) error {
+func DownloadFiles(fs afero.Fs, ctx context.Context, downloadDir string, items []DownloadItem, logger *logging.Logger, useLatest bool) error {
 	// Create the downloads directory if it doesn't exist
 	err := os.MkdirAll(downloadDir, 0o755)
 	if err != nil {
 		return fmt.Errorf("failed to create downloads directory: %w", err)
 	}
 
-	// Iterate over each URL
-	for _, url := range urls {
-		// Extract the file name from the URL
-		fileName := filepath.Base(url)
+	for _, item := range items {
+		localPath := filepath.Join(downloadDir, item.LocalName)
 
-		// Define the local path to save the file
-		localPath := filepath.Join(downloadDir, fileName)
+		// If using "latest", remove any existing file to avoid stale downloads
+		if useLatest {
+			if err := fs.Remove(localPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+				logger.Warn("failed to remove existing file before re-downloading", "path", localPath, "err", err)
+			} else if err == nil {
+				logger.Debug("removed existing file for latest version", "path", localPath)
+			}
+		}
 
 		// Download the file
-		err := DownloadFile(fs, ctx, url, localPath, logger, useLatest)
+		err := DownloadFile(fs, ctx, item.URL, localPath, logger, useLatest)
 		if err != nil {
-			logger.Error("failed to download", "url", url, "err", err)
+			logger.Error("failed to download", "url", item.URL, "err", err)
 		} else {
-			logger.Info("successfully downloaded", "url", url, "path", localPath)
+			logger.Info("successfully downloaded", "url", item.URL, "path", localPath)
 		}
 	}
 
