@@ -157,8 +157,26 @@ func setupSignalHandler(fs afero.Fs, ctx context.Context, cancelFunc context.Can
 		logger.Debug(fmt.Sprintf("Received signal: %v, initiating shutdown...", sig))
 		cancelFunc() // Cancel context to initiate shutdown
 		cleanup(fs, ctx, env, apiServerMode, logger)
-		if err := utils.WaitForFileReady(fs, "/.dockercleanup", logger); err != nil {
-			logger.Error("error occurred while waiting for file to be ready", "file", "/.dockercleanup")
+
+		var graphID, actionDir string
+
+		contextKeys := map[*string]ktx.ContextKey{
+			&graphID:   ktx.CtxKeyGraphID,
+			&actionDir: ktx.CtxKeyActionDir,
+		}
+
+		for ptr, key := range contextKeys {
+			if value, found := ktx.ReadContext(ctx, key); found {
+				if strValue, ok := value.(string); ok {
+					*ptr = strValue
+				}
+			}
+		}
+
+		stampFile := filepath.Join(actionDir, ".dockercleanup_"+graphID)
+
+		if err := utils.WaitForFileReady(fs, stampFile, logger); err != nil {
+			logger.Error("error occurred while waiting for file to be ready", "file", stampFile)
 
 			return
 		}
