@@ -174,10 +174,13 @@ func generateDockerfile(
 	pkgSection,
 	pythonPkgSection,
 	condaPkgSection,
+	anacondaVersion,
+	pklVersion,
 	exposedPort string,
-	installAnaconda bool,
-	devBuildMode bool,
-	apiServerMode bool,
+	installAnaconda,
+	devBuildMode,
+	apiServerMode,
+	useLatest bool,
 ) string {
 	var dockerFile strings.Builder
 
@@ -190,6 +193,8 @@ ENV SCHEMA_VERSION=%s
 ENV OLLAMA_HOST=%s:%s
 ENV KDEPS_HOST=%s
 ENV DEBUG=1
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
 `, imageVersion, schemaVersion, hostIP, ollamaPortNum, kdepsHost))
 
 	// Envs Section
@@ -202,7 +207,7 @@ ENV DEBUG=1
 	dockerFile.WriteString(`
 COPY cache /cache
 RUN chmod +x /cache/pkl*
-RUN chmod +x /cache/Anaconda3*
+RUN chmod +x /cache/anaconda*
 `)
 
 	// Install Necessary Tools
@@ -215,18 +220,23 @@ RUN apt-get update --fix-missing && apt-get install -y --no-install-recommends \
 
 `)
 
+	if useLatest {
+		anacondaVersion = "latest"
+		pklVersion = "latest"
+	}
+
 	// Determine Architecture and Download pkl Binary
-	dockerFile.WriteString(`
+	dockerFile.WriteString(fmt.Sprintf(`
 # Determine the architecture and download the appropriate pkl binary
 RUN arch=$(uname -m) && \
     if [ "$arch" = "x86_64" ]; then \
-	cp /cache/pkl-linux-amd64 /usr/bin/pkl; \
+	cp /cache/pkl-linux-%s-amd64 /usr/bin/pkl; \
     elif [ "$arch" = "aarch64" ]; then \
-	cp /cache/pkl-linux-aarch64 /usr/bin/pkl; \
+	cp /cache/pkl-linux-%s-aarch64 /usr/bin/pkl; \
     else \
 	echo "Unsupported architecture: $arch" && exit 1; \
     fi
-`)
+`, pklVersion, pklVersion))
 
 	// Package Section (Dynamic Content)
 	dockerFile.WriteString(pkgSection + "\n\n")
@@ -251,15 +261,19 @@ COPY workflow /agent/workflow
 
 	// Conditionally Install Anaconda and Additional Packages
 	if installAnaconda {
-		dockerFile.WriteString(`
+		dockerFile.WriteString(fmt.Sprintf(`
 RUN arch=$(uname -m) && if [ "$arch" = "x86_64" ]; then \
-	cp /cache/Anaconda3*x86_64.sh /tmp/anaconda.sh; \
+	cp /cache/anaconda-linux-%s-x86_64.sh /tmp/anaconda.sh; \
     elif [ "$arch" = "aarch64" ]; then \
-	cp /cache/Anaconda3*aarch64.sh /tmp/anaconda.sh; \
+	cp /cache/anaconda-linux-%s-aarch64.sh /tmp/anaconda.sh; \
     else \
 	echo "Unsupported architecture: $arch" && exit 1; \
     fi
+`, anacondaVersion, anacondaVersion))
+	}
 
+	if installAnaconda {
+		dockerFile.WriteString(`
 RUN /bin/bash /tmp/anaconda.sh -b -p /opt/conda
 RUN ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh
 RUN find /opt/conda/ -follow -type f -name '*.a' -delete
@@ -270,7 +284,6 @@ RUN . /opt/conda/etc/profile.d/conda.sh && conda activate base
 
 RUN echo "export PATH=/opt/conda/bin:$PATH" >> /etc/environment
 ENV PATH="/opt/conda/bin:$PATH"
-
 `)
 		// Python Package Section (Dynamic Content)
 		dockerFile.WriteString(condaPkgSection + "\n\n")
@@ -348,6 +361,8 @@ func generateParamsSection(prefix string, items map[string]string) string {
 func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *logging.Logger) (string, bool, string, string, string, error) {
 	var portNum uint16 = 3000
 	hostIP := "127.0.0.1"
+	anacondaVersion := "2024.10-1"
+	pklVersion := "0.28.1"
 
 	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow, logger)
 	if err != nil {
@@ -461,12 +476,16 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion)
 	downloadDir := filepath.Join(kdepsDir, "cache")
 
-	urls, err := GenerateURLs(ctx)
+	items, err := GenerateURLs(ctx)
 	if err != nil {
 		return "", false, "", "", "", err
 	}
 
-	err = download.DownloadFiles(fs, ctx, downloadDir, urls, logger, schema.UseLatest)
+	for _, item := range items {
+		logger.Debug("will download", "url", item.URL, "localName", item.LocalName)
+	}
+
+	err = download.DownloadFiles(fs, ctx, downloadDir, items, logger, schema.UseLatest)
 	if err != nil {
 		return "", false, "", "", "", err
 	}
@@ -494,10 +513,13 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		pkgSection,
 		pythonPkgSection,
 		condaPkgSection,
+		anacondaVersion,
+		pklVersion,
 		exposedPort,
 		installAnaconda,
 		devBuildMode,
 		APIServerMode,
+		schema.UseLatest,
 	)
 
 	// Write the Dockerfile to the run directory
