@@ -176,6 +176,7 @@ func generateDockerfile(
 	condaPkgSection,
 	anacondaVersion,
 	pklVersion,
+	timezone,
 	exposedPort string,
 	installAnaconda,
 	devBuildMode,
@@ -193,8 +194,6 @@ ENV SCHEMA_VERSION=%s
 ENV OLLAMA_HOST=%s:%s
 ENV KDEPS_HOST=%s
 ENV DEBUG=1
-ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ=Etc/UTC
 `, imageVersion, schemaVersion, hostIP, ollamaPortNum, kdepsHost))
 
 	// Envs Section
@@ -209,6 +208,13 @@ COPY cache /cache
 RUN chmod +x /cache/pkl*
 RUN chmod +x /cache/anaconda*
 `)
+
+	// Timezone
+	dockerFile.WriteString(fmt.Sprintf(`
+ARG DEBIAN_FRONTEND=noninteractive
+ENV TZ=%s
+RUN apt-get install -y tzdata
+`, timezone))
 
 	// Install Necessary Tools
 	dockerFile.WriteString(`
@@ -390,6 +396,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	condaPkgList := dockerSettings.CondaPackages
 	argsList := dockerSettings.Args
 	envsList := dockerSettings.Env
+	timezone := dockerSettings.Timezone
 
 	hostPort := strconv.FormatUint(uint64(portNum), 10)
 	kdepsHost := fmt.Sprintf("%s:%s", hostIP, hostPort)
@@ -515,6 +522,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		condaPkgSection,
 		anacondaVersion,
 		pklVersion,
+		timezone,
 		exposedPort,
 		installAnaconda,
 		devBuildMode,
