@@ -130,6 +130,7 @@ This section contains the agent settings that will be used to build the agent's 
 
 ```apl
 agentSettings {
+    timezone = "Etc/UTC"
     installAnaconda = false
     condaPackages { ... }
     pythonPackages { ... }
@@ -141,6 +142,11 @@ agentSettings {
     args { ... }
 }
 ```
+
+#### Timezone Settings
+
+Configure the `timezone` setting with a valid tz database identifier (e.g., `America/New_York`) for the Docker image;
+see https://en.wikipedia.org/wiki/List_of_tz_database_time_zones for valid identifiers.
 
 #### Enabling Anaconda
 

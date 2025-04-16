@@ -8,6 +8,34 @@ requires {
         // Define the ID of any dependency resource that must be executed before this resource.
 }
 run {
+        // restrictToHTTPMethods specifies the HTTP methods required for the request.
+        // If none are specified, all HTTP methods are permitted. This restriction is only
+        // in effect when APIServerMode is enabled. If the request method is not in this list,
+        // the action will be skipped.
+        restrictToHTTPMethods {
+            "GET"
+        }
+
+        // restrictToRoutes specifies the URL paths required for the request.
+        // If none are specified, all routes are permitted. This restriction is only
+        // in effect when APIServerMode is enabled. If the request path is not in this list,
+        // the action will be skipped.
+        restrictToRoutes {
+            "/api/v1/whois"
+        }
+
+        // allowedHeaders specifies the permitted HTTP headers for the request.
+        // If none are specified, all headers are allowed. This restriction is only
+        // in effect when APIServerMode is enabled.
+        allowedHeaders {
+            // "X-API-KEY"
+        }
+
+        // allowedParams specifies the permitted query parameters for the request.
+        // If none are specified, all parameters are allowed. This restriction is only
+        // in effect when APIServerMode is enabled.
+        allowedParams {}
+
         skipCondition {
                 // Conditions under which the execution of this resource should be skipped.
                 // If any evaluated condition returns true, the resource execution will be bypassed.
@@ -52,7 +80,7 @@ run {
                 }
                 headers {
                         // Headers to be included in the HTTP request.
-                        ["X-API-KEY"] = "@(request.header("X-API-KEY"))"  // Example header.
+                        // ["X-API-KEY"] = "@(request.header("X-API-KEY"))"  // Example header.
                 }
                 // Timeout duration in seconds. This specifies when to terminate the request.
                 timeoutDuration = 60.s

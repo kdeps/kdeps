@@ -140,8 +140,8 @@ github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnr
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
 github.com/kdeps/kartographer v0.0.0-20240808015651-b2afd5d97715 h1:CxUIVGV6VdgZo62Q84pOVJwUa0ONNqJIH3/rvWsAiUs=
 github.com/kdeps/kartographer v0.0.0-20240808015651-b2afd5d97715/go.mod h1:DYSCAer2OsX5F3Jne82p4P1LCIu42DQFfL5ypZYcUbk=
-github.com/kdeps/schema v0.2.12 h1:jilrgh+ZzcNMiEqVAPkIlgvGZkfMu3KvI8FHp9U66Eg=
-github.com/kdeps/schema v0.2.12/go.mod h1:jcI+1Q8GAor+pW+RxPG9EJDM5Ji+GUORirTCSslfH0M=
+github.com/kdeps/schema v0.2.14 h1:awZB3x9orhgAl898sGx8gjmLQJ8Enxz9A9aZG89yesA=
+github.com/kdeps/schema v0.2.14/go.mod h1:jcI+1Q8GAor+pW+RxPG9EJDM5Ji+GUORirTCSslfH0M=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/klauspost/cpuid/v2 v2.0.9/go.mod h1:FInQzS24/EEf25PyTYn52gqo7WaD8xa0213Md/qVLRg=

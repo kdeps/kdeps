@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"time"
 
 	"github.com/apple/pkl-go/pkl"
+	"github.com/gin-gonic/gin"
 	"github.com/kdeps/kartographer/graph"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/ktx"
@@ -30,6 +32,7 @@ type DependencyResolver struct {
 	Graph                *graph.DependencyGraph
 	Environment          *environment.Environment
 	Workflow             pklWf.Workflow
+	Request              *gin.Context
 	RequestID            string
 	RequestPklFile       string
 	ResponsePklFile      string
@@ -49,7 +52,7 @@ type ResourceNodeEntry struct {
 	File     string `pkl:"file"`
 }
 
-func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (*DependencyResolver, error) {
+func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment, req *gin.Context, logger *logging.Logger) (*DependencyResolver, error) {
 	var agentDir, graphID, actionDir string
 
 	contextKeys := map[*string]ktx.ContextKey{
@@ -119,6 +122,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		ResponsePklFile:      responsePklFile,
 		ResponseTargetFile:   responseTargetFile,
 		ProjectDir:           projectDir,
+		Request:              req,
 	}
 
 	workflowConfiguration, err := pklWf.LoadFromPath(ctx, pklWfFile)
@@ -128,6 +132,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	dependencyResolver.Workflow = workflowConfiguration
 	if workflowConfiguration.GetSettings() != nil {
 		dependencyResolver.APIServerMode = workflowConfiguration.GetSettings().APIServerMode
+
 		agentSettings := workflowConfiguration.GetSettings().AgentSettings
 		dependencyResolver.AnacondaInstalled = agentSettings.InstallAnaconda
 	}
@@ -160,6 +165,68 @@ func (dr *DependencyResolver) processResourceStep(resourceID, step string, timeo
 
 	if err := dr.WaitForTimestampChange(resourceID, timestamp, timeout, step); err != nil {
 		return fmt.Errorf("%s timeout awaiting for output: %w", step, err)
+	}
+	return nil
+}
+
+// validateRequestParams checks if params in request.params("header_id") are in AllowedParams.
+func (dr *DependencyResolver) validateRequestParams(file string, allowedParams []string) error {
+	if len(allowedParams) == 0 {
+		return nil // Allow all if empty
+	}
+
+	re := regexp.MustCompile(`request\.params\("([^"]+)"\)`)
+	matches := re.FindAllStringSubmatch(file, -1)
+
+	for _, match := range matches {
+		param := match[1]
+		if !utils.ContainsStringInsensitive(allowedParams, param) {
+			return fmt.Errorf("param %s not in allowed params: %v", param, allowedParams)
+		}
+	}
+	return nil
+}
+
+// validateRequestHeaders checks if headers in request.header("header_id") are in AllowedHeaders.
+func (dr *DependencyResolver) validateRequestHeaders(file string, allowedHeaders []string) error {
+	if len(allowedHeaders) == 0 {
+		return nil // Allow all if empty
+	}
+
+	re := regexp.MustCompile(`request\.header\("([^"]+)"\)`)
+	matches := re.FindAllStringSubmatch(file, -1)
+
+	for _, match := range matches {
+		header := match[1]
+		if !utils.ContainsStringInsensitive(allowedHeaders, header) {
+			return fmt.Errorf("header %s not in allowed headers: %v", header, allowedHeaders)
+		}
+	}
+	return nil
+}
+
+// validateRequestPath checks if the actual request path is in AllowedRoutes.
+func (dr *DependencyResolver) validateRequestPath(req *gin.Context, allowedRoutes []string) error {
+	if len(allowedRoutes) == 0 {
+		return nil // Allow all if empty
+	}
+
+	actualPath := req.Request.URL.Path
+	if !utils.ContainsStringInsensitive(allowedRoutes, actualPath) {
+		return fmt.Errorf("path %s not in allowed routes: %v", actualPath, allowedRoutes)
+	}
+	return nil
+}
+
+// validateRequestMethod checks if the actual request method is in AllowedHTTPMethods.
+func (dr *DependencyResolver) validateRequestMethod(req *gin.Context, allowedMethods []string) error {
+	if len(allowedMethods) == 0 {
+		return nil // Allow all if empty
+	}
+
+	actualMethod := req.Request.Method
+	if !utils.ContainsStringInsensitive(allowedMethods, actualMethod) {
+		return fmt.Errorf("method %s not in allowed HTTP methods: %v", actualMethod, allowedMethods)
 	}
 	return nil
 }
@@ -204,6 +271,38 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			runBlock := rsc.Run
 			if runBlock == nil {
 				continue
+			}
+
+			if dr.APIServerMode {
+				// Read the resource file content for validation
+				fileContent, err := afero.ReadFile(dr.Fs, res.File)
+				if err != nil {
+					return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to read resource file %s: %v", res.File, err), true)
+				}
+
+				// Validate request.params
+				if err := dr.validateRequestParams(string(fileContent), *runBlock.AllowedParams); err != nil {
+					dr.Logger.Error("request params validation failed", "actionID", res.ActionID, "error", err)
+					return dr.HandleAPIErrorResponse(400, fmt.Sprintf("Request params validation failed for resource %s: %v", res.ActionID, err), false)
+				}
+
+				// Validate request.header
+				if err := dr.validateRequestHeaders(string(fileContent), *runBlock.AllowedHeaders); err != nil {
+					dr.Logger.Error("request headers validation failed", "actionID", res.ActionID, "error", err)
+					return dr.HandleAPIErrorResponse(400, fmt.Sprintf("Request headers validation failed for resource %s: %v", res.ActionID, err), false)
+				}
+
+				// Validate request.path
+				if err := dr.validateRequestPath(dr.Request, *runBlock.RestrictToRoutes); err != nil {
+					dr.Logger.Info("skipping due to request path validation not allowed", "actionID", res.ActionID, "error", err)
+					continue
+				}
+
+				// Validate request.method
+				if err := dr.validateRequestMethod(dr.Request, *runBlock.RestrictToHTTPMethods); err != nil {
+					dr.Logger.Info("skipping due to request method validation not allowed", "actionID", res.ActionID, "error", err)
+					continue
+				}
 			}
 
 			// Skip condition
