@@ -181,7 +181,7 @@ func (dr *DependencyResolver) validateRequestParams(file string, allowedParams [
 	for _, match := range matches {
 		param := match[1]
 		if !utils.ContainsStringInsensitive(allowedParams, param) {
-			return fmt.Errorf("param %s not in allowed params: %v", param, allowedParams)
+			return fmt.Errorf("param %s not in the allowed params", param)
 		}
 	}
 	return nil
@@ -199,7 +199,7 @@ func (dr *DependencyResolver) validateRequestHeaders(file string, allowedHeaders
 	for _, match := range matches {
 		header := match[1]
 		if !utils.ContainsStringInsensitive(allowedHeaders, header) {
-			return fmt.Errorf("header %s not in allowed headers: %v", header, allowedHeaders)
+			return fmt.Errorf("header %s not in the allowed headers", header)
 		}
 	}
 	return nil
@@ -213,7 +213,7 @@ func (dr *DependencyResolver) validateRequestPath(req *gin.Context, allowedRoute
 
 	actualPath := req.Request.URL.Path
 	if !utils.ContainsStringInsensitive(allowedRoutes, actualPath) {
-		return fmt.Errorf("path %s not in allowed routes: %v", actualPath, allowedRoutes)
+		return fmt.Errorf("path %s not in the allowed routes", actualPath)
 	}
 	return nil
 }
@@ -226,7 +226,7 @@ func (dr *DependencyResolver) validateRequestMethod(req *gin.Context, allowedMet
 
 	actualMethod := req.Request.Method
 	if !utils.ContainsStringInsensitive(allowedMethods, actualMethod) {
-		return fmt.Errorf("method %s not in allowed HTTP methods: %v", actualMethod, allowedMethods)
+		return fmt.Errorf("method %s not in the allowed HTTP methods", actualMethod)
 	}
 	return nil
 }
