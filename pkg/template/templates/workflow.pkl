@@ -82,6 +82,9 @@ settings {
         // This section contains the agent settings that will be used to build
         // the agent's Docker image.
         agentSettings {
+                // Sets the timezone (see the TZ Identifier here: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
+                timezone = "Etc/UTC"
+
                 // Specify if Anaconda will be installed (Warning: Docker image size will grow to ~20Gb)
                 installAnaconda = false
 
