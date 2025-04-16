@@ -29,7 +29,7 @@ If any of these fields are empty, all corresponding values are permitted (e.g., 
 
 Here’s an example of how to configure HTTP request validations:
 
-```pkl
+```apl
 run {
     // restrictToHTTPMethods specifies the HTTP methods required for the request.
     // If none are specified, all HTTP methods are permitted. This restriction is only
