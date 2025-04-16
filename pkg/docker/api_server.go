@@ -218,7 +218,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 
 		newCtx := ktx.UpdateContext(ctx, ktx.CtxKeyGraphID, graphID)
 
-		dr, err := resolver.NewGraphResolver(baseDr.Fs, newCtx, baseDr.Environment, logger)
+		dr, err := resolver.NewGraphResolver(baseDr.Fs, newCtx, baseDr.Environment, c, logger)
 		if err != nil {
 			resp := APIResponse{
 				Success: false,

@@ -50,7 +50,7 @@ func main() {
 	ctx = ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
 
 	if env.DockerMode == "1" {
-		dr, err := resolver.NewGraphResolver(fs, ctx, env, logger.With("requestID", graphID))
+		dr, err := resolver.NewGraphResolver(fs, ctx, env, nil, logger.With("requestID", graphID))
 		if err != nil {
 			logger.Fatalf("failed to create graph resolver: %v", err)
 		}
