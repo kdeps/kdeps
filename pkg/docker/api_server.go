@@ -129,6 +129,9 @@ func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 	portNum := strconv.FormatUint(uint64(wfAPIServer.PortNum), 10)
 	hostPort := ":" + portNum
 
+	// Create a semaphore channel to limit to 1 active connection
+	semaphore := make(chan struct{}, 1)
+
 	router := gin.Default()
 
 	if len(wfTrustedProxies) > 0 {
@@ -140,7 +143,7 @@ func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 		}
 	}
 
-	setupRoutes(router, ctx, wfAPIServer.Routes, dr)
+	setupRoutes(router, ctx, wfAPIServer.Routes, dr, semaphore)
 
 	dr.Logger.Printf("Starting API server on port %s", hostPort)
 	go func() {
@@ -152,14 +155,14 @@ func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 	return nil
 }
 
-func setupRoutes(router *gin.Engine, ctx context.Context, routes []*apiserver.APIServerRoutes, dr *resolver.DependencyResolver) {
+func setupRoutes(router *gin.Engine, ctx context.Context, routes []*apiserver.APIServerRoutes, dr *resolver.DependencyResolver, semaphore chan struct{}) {
 	for _, route := range routes {
 		if route == nil || route.Path == "" {
 			dr.Logger.Error("route configuration is invalid", "route", route)
 			continue
 		}
 
-		handler := APIServerHandler(ctx, route, dr)
+		handler := APIServerHandler(ctx, route, dr, semaphore)
 		for _, method := range route.Methods {
 			switch method {
 			case http.MethodGet:
@@ -185,10 +188,30 @@ func setupRoutes(router *gin.Engine, ctx context.Context, routes []*apiserver.AP
 	}
 }
 
-func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, baseDr *resolver.DependencyResolver) gin.HandlerFunc {
+func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, baseDr *resolver.DependencyResolver, semaphore chan struct{}) gin.HandlerFunc {
 	allowedMethods := route.Methods
 
 	return func(c *gin.Context) {
+		// Try to acquire the semaphore (non-blocking)
+		select {
+		case semaphore <- struct{}{}:
+			// Successfully acquired the semaphore
+			defer func() { <-semaphore }() // Release the semaphore when done
+		default:
+			// Semaphore is full, return 429 Too Many Requests
+			resp := APIResponse{
+				Success: false,
+				Errors: []ErrorResponse{
+					{
+						Code:    http.StatusTooManyRequests,
+						Message: "Only one active connection is allowed",
+					},
+				},
+			}
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, resp)
+			return
+		}
+
 		graphID := uuid.New().String()
 		baseLogger := logging.GetLogger()
 		logger := baseLogger.With("requestID", graphID) // Now returns *logging.Logger

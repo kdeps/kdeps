@@ -213,7 +213,6 @@ RUN chmod +x /cache/anaconda*
 	dockerFile.WriteString(fmt.Sprintf(`
 ARG DEBIAN_FRONTEND=noninteractive
 ENV TZ=%s
-RUN apt-get install -y tzdata
 `, timezone))
 
 	// Install Necessary Tools
