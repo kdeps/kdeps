@@ -43,6 +43,10 @@ export default defineConfig({
                     text: "API Routes",
                     link: "/getting-started/configuration/workflow#api-routes",
                   },
+                  {
+                    text: "CORS Configuration",
+                    link: "/getting-started/resources/cors"
+                  },
                 ],
               },
               {

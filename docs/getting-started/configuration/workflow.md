@@ -65,6 +65,34 @@ trustedProxies {
 }
 ```
 
+#### CORS Configuration
+
+The `CORS` block configures Cross-Origin Resource Sharing for the API server, controlling which origins, methods, and
+headers are allowed for cross-origin requests. It enables secure access from web applications hosted on different
+domains.
+
+Example:
+
+```pkl
+CORS {
+    enableCORS = true
+    allowOrigins = new {
+        "https://example.com"
+    }
+    allowMethods = new {
+        "GET"
+        "POST"
+    }
+    allowHeaders = new {
+        "Content-Type"
+        "Authorization"
+    }
+    allowCredentials = true
+    maxAge = 24.h
+}
+```
+
+See the [CORS Configuration](/getting-started/resources/cors.md) for more details.
 #### API Routes
 
 - **`routes`**: API paths can be configured within the `routes` block. Each route is defined using a `new` block,
@@ -72,7 +100,6 @@ trustedProxies {
    - **`path`**: The defined API endpoint, i.e. `"/api/v1/items"`.
    - **`methods`**: HTTP methods allowed for the route. Supported HTTP methods include: `GET`, `POST`, `PUT`, `PATCH`,
      `OPTIONS`, `DELETE`, and `HEAD`.
-
 
 Example:
 

@@ -77,6 +77,52 @@ settings {
                                 }
                         }
                 }
+
+                // Cross-Origin Resource Sharing (CORS) configuration
+                CORS {
+                        // Enables or disables CORS support
+                        enableCORS = false
+
+                        // List of allowed origin domains for CORS requests (e.g., "https://example.com")
+                        //
+                        // If unset, no origins are allowed unless CORS is disabled
+                        allowOrigins = new {
+                                "http://localhost:8080"
+                        }
+
+                        // List of HTTP methods allowed for CORS requests, validated by regex
+                        //
+                        // If unset, defaults to methods specified in the route configuration
+                        allowMethods = new {
+                                "GET"
+                                "POST"
+                                "PUT"
+                                "DELETE"
+                                "OPTIONS"
+                        }
+
+                        // List of request headers allowed in CORS requests (e.g., "Content-Type")
+                        //
+                        // If unset, no additional headers are allowed
+                        allowHeaders = new {
+                                "Origin"
+                                "Content-Type"
+                                "Authorization"
+                        }
+
+                        // List of response headers exposed to clients in CORS requests
+                        //
+                        // If unset, no headers are exposed beyond defaults
+                        exposeHeaders: new {
+                                "Content-Length"
+                        }
+
+                        // Allows credentials (e.g., cookies, HTTP authentication) in CORS requests
+                        allowCredentials = true
+
+                        // Maximum duration (in hours) for which CORS preflight responses can be cached
+                        maxAge = 12.h
+                }
         }
 
         // This section contains the agent settings that will be used to build
