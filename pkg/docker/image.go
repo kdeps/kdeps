@@ -365,7 +365,10 @@ func generateParamsSection(prefix string, items map[string]string) string {
 
 func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *logging.Logger) (string, bool, string, string, string, error) {
 	var portNum uint16 = 3000
+	var webPortNum uint16 = 8080
 	hostIP := "127.0.0.1"
+	// webHostIP := "127.0.0.1"
+
 	anacondaVersion := "2024.10-1"
 	pklVersion := "0.28.1"
 
@@ -388,6 +391,14 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		hostIP = APIServer.HostIP
 	}
 
+	webServerMode := wfSettings.WebServerMode
+	webServer := wfSettings.WebServer
+
+	if webServer != nil {
+		webPortNum = webServer.Port
+		// webHostIP = webServer.Host
+	}
+
 	pkgList := dockerSettings.Packages
 	repoList := dockerSettings.Repositories
 	pythonPkgList := dockerSettings.PythonPackages
@@ -399,10 +410,17 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 
 	hostPort := strconv.FormatUint(uint64(portNum), 10)
 	kdepsHost := fmt.Sprintf("%s:%s", hostIP, hostPort)
-	exposedPort := hostPort
+	exposedPort := ""
 
-	if !APIServerMode {
-		exposedPort = ""
+	if APIServerMode {
+		exposedPort = hostPort
+	}
+
+	if webServerMode {
+		if exposedPort != "" {
+			exposedPort += " "
+		}
+		exposedPort += strconv.Itoa(int(webPortNum))
 	}
 
 	imageVersion := dockerSettings.OllamaImageTag
