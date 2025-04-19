@@ -40,8 +40,40 @@ export default defineConfig({
                 link: "/getting-started/configuration/workflow#api-server-settings",
                 items: [
                   {
+                    text: "Trusted Proxies",
+                    link: "/getting-started/configuration/workflow#trustedproxies",
+                  },
+                  {
+                    text: "CORS Configuration",
+                    link: "/getting-started/configuration/workflow#cors-configuration",
+                  },
+                  {
                     text: "API Routes",
                     link: "/getting-started/configuration/workflow#api-routes",
+                  },
+                ],
+              },
+              {
+                text: "Web Server Settings",
+                link: "/getting-started/configuration/workflow#web-server-settings",
+                items: [
+                  {
+                    text: "Web Server",
+                    link: "/getting-started/configuration/workflow#webserver",
+                  },
+                  {
+                    text: "Web Server Routes",
+                    link: "/getting-started/configuration/workflow#web-server-routes",
+                    items: [
+                          {
+                                text: "Static",
+                                link: "/getting-started/configuration/workflow#static-file-serving",
+                          },
+                          {
+                                text: "Reverse-Proxy (Streamlit, Node.js, etc.)",
+                                link: "/getting-started/configuration/workflow#reverse-proxying",
+                          },
+                    ],
                   },
                 ],
               },
@@ -173,7 +205,7 @@ export default defineConfig({
             text: "Promise Operator",
             link: "/getting-started/resources/promise",
           },
-          { text: "HTTP Request Validations", link: "/getting-started/resources/http-request-validations" },
+          { text: "API Request Validations", link: "/getting-started/resources/api-request-validations" },
           { text: "Skip Conditions", link: "/getting-started/resources/skip" },
           {
             text: "Preflight Validations",

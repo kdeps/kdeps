@@ -423,7 +423,8 @@ run {
 
 	pkgProject = pkgP
 
-	rd, asm, hIP, hPort, gpu, err := docker.BuildDockerfile(testFs, ctx, systemConfiguration, kdepsDir, pkgProject, logger)
+	//nolint:dogsled
+	rd, asm, _, hIP, hPort, _, _, gpu, err := docker.BuildDockerfile(testFs, ctx, systemConfiguration, kdepsDir, pkgProject, logger)
 	if err != nil {
 		return err
 	}
@@ -453,7 +454,7 @@ run {
 		return err
 	}
 
-	dockerClientID, err := docker.CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, gpuType, APIServerMode, cli)
+	dockerClientID, err := docker.CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, "", "", gpuType, APIServerMode, false, cli)
 	if err != nil {
 		return err
 	}
