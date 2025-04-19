@@ -14,7 +14,7 @@ require (
 	github.com/charmbracelet/log v0.4.1
 	github.com/charmbracelet/x/editor v0.1.0
 	github.com/cucumber/godog v0.14.1
-	github.com/docker/docker v28.1.0+incompatible
+	github.com/docker/docker v28.1.1+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/gabriel-vasile/mimetype v1.4.9
@@ -23,7 +23,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/kdeps/kartographer v0.0.0-20240808015651-b2afd5d97715
-	github.com/kdeps/schema v0.2.16
+	github.com/kdeps/schema v0.2.17
 	github.com/kr/pretty v0.3.1
 	github.com/spf13/afero v1.14.0
 	github.com/spf13/cobra v1.9.1
@@ -78,6 +78,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
+	github.com/moby/sys/atomicwriter v0.1.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect

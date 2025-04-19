@@ -363,18 +363,18 @@ func generateParamsSection(prefix string, items map[string]string) string {
 	return strings.Join(lines, "\n")
 }
 
-func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *logging.Logger) (string, bool, string, string, string, error) {
+func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *logging.Logger) (string, bool, bool, string, string, string, string, string, error) {
 	var portNum uint16 = 3000
 	var webPortNum uint16 = 8080
 	hostIP := "127.0.0.1"
-	// webHostIP := "127.0.0.1"
+	webHostIP := "127.0.0.1"
 
 	anacondaVersion := "2024.10-1"
 	pklVersion := "0.28.1"
 
 	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow, logger)
 	if err != nil {
-		return "", false, "", "", "", err
+		return "", false, false, "", "", "", "", "", err
 	}
 
 	agentName := wfCfg.GetName()
@@ -395,8 +395,8 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	webServer := wfSettings.WebServer
 
 	if webServer != nil {
-		webPortNum = webServer.Port
-		// webHostIP = webServer.Host
+		webPortNum = webServer.PortNum
+		webHostIP = webServer.HostIP
 	}
 
 	pkgList := dockerSettings.Packages
@@ -409,6 +409,8 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	timezone := dockerSettings.Timezone
 
 	hostPort := strconv.FormatUint(uint64(portNum), 10)
+	webHostPort := strconv.FormatUint(uint64(webPortNum), 10)
+
 	kdepsHost := fmt.Sprintf("%s:%s", hostIP, hostPort)
 	exposedPort := ""
 
@@ -502,7 +504,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 
 	items, err := GenerateURLs(ctx)
 	if err != nil {
-		return "", false, "", "", "", err
+		return "", false, false, "", "", "", "", "", err
 	}
 
 	for _, item := range items {
@@ -511,19 +513,19 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 
 	err = download.DownloadFiles(fs, ctx, downloadDir, items, logger, schema.UseLatest)
 	if err != nil {
-		return "", false, "", "", "", err
+		return "", false, false, "", "", "", "", "", err
 	}
 
 	err = copyFilesToRunDir(fs, ctx, downloadDir, runDir, logger)
 	if err != nil {
-		return "", false, "", "", "", err
+		return "", false, false, "", "", "", "", "", err
 	}
 
 	ollamaPortNum := generateUniqueOllamaPort(portNum)
 
 	devBuildMode, err := checkDevBuildMode(fs, kdepsDir, logger)
 	if err != nil {
-		return "", false, "", "", "", err
+		return "", false, false, "", "", "", "", "", err
 	}
 
 	dockerfileContent := generateDockerfile(
@@ -552,10 +554,10 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	fmt.Println(resourceConfigurationFile)
 	err = afero.WriteFile(fs, resourceConfigurationFile, []byte(dockerfileContent), 0o644)
 	if err != nil {
-		return "", false, "", "", "", err
+		return "", false, false, "", "", "", "", "", err
 	}
 
-	return runDir, APIServerMode, hostIP, hostPort, gpuType, nil
+	return runDir, APIServerMode, webServerMode, hostIP, hostPort, webHostIP, webHostPort, gpuType, nil
 }
 
 // printDockerBuildOutput processes the Docker build logs and returns any error encountered during the build.

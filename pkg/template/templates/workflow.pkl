@@ -65,7 +65,7 @@ settings {
                 // which may expose the server to IP spoofing and other attacks.
                 trustedProxies {}
 
-                // You can define multiple routes for this agent. Each route points to
+                // You can define multiple API routes for this agent. Each API route points to
                 // the main action specified in the action setting, so you must define
                 // your skip condition on the resources appropriately.
                 routes {
@@ -79,7 +79,7 @@ settings {
                 }
 
                 // Cross-Origin Resource Sharing (CORS) configuration
-                CORS {
+                cors {
                         // Enables or disables CORS support
                         enableCORS = false
 
@@ -113,7 +113,7 @@ settings {
                         // List of response headers exposed to clients in CORS requests
                         //
                         // If unset, no headers are exposed beyond defaults
-                        exposeHeaders: new {
+                        exposeHeaders = new {
                                 "Content-Length"
                         }
 
@@ -122,6 +122,52 @@ settings {
 
                         // Maximum duration (in hours) for which CORS preflight responses can be cached
                         maxAge = 12.h
+                }
+        }
+
+        // Configures the web server for serving static files or reverse-proxying to a containerized app.
+        WebServerMode = false
+
+        // The Web server block contains settings related to the Webserver configuration.
+        WebServer {
+                // Host IP to listen on (e.g., "127.0.0.1" for local, "0.0.0.0" for all interfaces).
+                hostIP = "127.0.0.1"
+
+                // Port for the web server (1–65535).
+                portNum = 8080
+
+                // Trusted proxy IPs or CIDR ranges for X-Forwarded-For headers.
+                // Empty list trusts all proxies, risking IP spoofing. Recommended: specify trusted IPs (e.g., ["10.0.0.0/8"]).
+                trustedProxies {}
+
+                // Defines routes for static files or app proxying.
+                routes {
+                        new {
+                                // URL path prefix (e.g., "/web"). Required.
+                                path = "/web"
+
+                                // Server type: "static" (serves files) or "app" (reverse-proxies to container).
+                                //
+                                // serverType = "static"
+
+                                // Defines the base path to serve the web content, relative to /data/ folder.
+                                //
+                                // Example:
+                                //   - "/agentX/1.0.0/web"     → maps to /data/agentX/1.0.0/web
+                                //
+                                // During packaging (via `kdeps package`), the local directory /data/web/
+                                // is relocated to /data/<agentName>/<version>/web.
+                                //
+                                // publicPath = "/whois/1.0.0/web/"
+
+                                // Port for app proxying (1–65535). Required for serverType="app".
+                                //
+                                // appPort = 3000
+
+                                // Command to start the app (e.g., "npm start").
+                                //
+                                // command = "npm start"
+                        }
                 }
         }
 
