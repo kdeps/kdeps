@@ -4,36 +4,42 @@ outline: deep
 
 # What is Kdeps?
 
-Kdeps is a no-code framework for building self-hosted RAG AI Agents powered by open-source LLMs.
+Kdeps is an all-in-one AI framework for building Dockerized full-stack AI applications (FE and BE) that includes
+open-source LLM models out-of-the-box.
 
-1. It uses open-source LLMs by default.
-2. Has a built-in context-aware RAG workflow system.
-3. Builds a Docker image of the AI Agent.
+**It is the only AI framework that doesn't require you to write Python to build a full-stack AI app.**
 
-<img alt="Kdeps - Overview" src="/overview.png" />
+## Key Features
 
-Kdeps is packed with features:
-- 🚀 run in [Lambda](getting-started/configuration/workflow.md#lambda-mode) or [API Mode](getting-started/configuration/workflow.md#api-server-settings)
-- 🤖 use multiple open-source LLMs from [Ollama](getting-started/configuration/workflow.md#llm-models) and [Huggingface](https://github.com/kdeps/examples/tree/main/huggingface_imagegen_api)
-- 🐍 run Python in isolated environments using [Anaconda](getting-started/resources/python.md)
-- 🖼️ [multimodal](getting-started/resources/multimodal.md) LLMs ready
-- 💅 built-in [validation](getting-started/resources/validations.md) checks and [skip](getting-started/resources/skip.md) conditions
-- 🔄 [reusable](getting-started/resources/remix.md) AI Agents
-- 🖥️ run [shell-scripts](getting-started/resources/exec.md)
-- 🌐 make [API calls](getting-started/resources/client.md) from configuration
-- 📊 generate [structured outputs](getting-started/resources/llm.md#chat-block) from LLMs
-- 📦 install [Ubuntu packages](getting-started/configuration/workflow.md#ubuntu-packages) from configuration
-- 📜 define [Ubuntu repos or PPAs](getting-started/configuration/workflow.md#ubuntu-repositories)
-- 📈 context-aware [RAG workflow](getting-started/resources/kartographer.md)
-- 🗂️ upload any [documents or files](getting-started/tutorials/files.md) for LLM processing
-- ⚡ Written in Golang
-- 📦 [easy to install](getting-started/introduction/installation.md) and use
+Kdeps is loaded with features to streamline AI app development:
 
-I know, that's a lot. Let's dive into the details.
+- 🐳 Build [Dockerized full-stack AI apps](/getting-started/introduction/quickstart.md#quickstart) with [batteries included](/getting-started/configuration/workflow.md#ai-agent-settings).
+- 🔌 Create custom [AI APIs](/getting-started/configuration/workflow.md#api-server-settings) that serve [open-source LLMs](/getting-started/configuration/workflow.md#llm-models).
+- 🌐 Pair APIs with [frontend apps](/getting-started/configuration/workflow.md#web-server-settings) like Streamlit, NodeJS, and more.
+- 📁 Serve [static websites](/getting-started/configuration/workflow.md#static-file-serving) or [reverse-proxied apps](/getting-started/configuration/workflow.md#reverse-proxying).
+- 🔒 Configure [CORS rules](/getting-started/configuration/workflow.md#cors-configuration) directly in the workflow.
+- 🛡️ Set [trusted proxies](/getting-started/configuration/workflow.md#trustedproxies) for enhanced API and frontend security.
+- 🚀 Run in [Lambda mode](/getting-started/configuration/workflow.md#lambda-mode) or [API mode](/getting-started/configuration/workflow.md#api-server-settings).
+- 🤖 Leverage multiple open-source LLMs from [Ollama](/getting-started/configuration/workflow.md#llm-models) and [Huggingface](https://github.com/kdeps/examples/tree/main/huggingface_imagegen_api).
+- 🐍 Execute Python in isolated environments using [Anaconda](/getting-started/resources/python.md).
+- 🖼️ Support for [multimodal LLMs](/getting-started/resources/multimodal.md).
+- ✅ Built-in [API request validations](/getting-started/resources/api-request-validations.md#api-request-validations), [custom validation checks](/getting-started/resources/validations.md), and [skip conditions](/getting-started/resources/skip.md).
+- 🔄 Use [reusable AI agents](/getting-started/resources/remix.md) for flexible workflows.
+- 🖥️ Run [shell scripts](/getting-started/resources/exec.md) seamlessly.
+- 🌍 Make [API calls](/getting-started/resources/client.md) directly from configuration.
+- 📊 Generate [structured outputs](/getting-started/resources/llm.md#chat-block) from LLMs.
+- 📦 Install [Ubuntu packages](/getting-started/configuration/workflow.md#ubuntu-packages) via configuration.
+- 📜 Define [Ubuntu repositories or PPAs](/getting-started/configuration/workflow.md#ubuntu-repositories).
+- 📈 Enable context-aware [RAG workflows](/getting-started/resources/kartographer.md).
+- 🗂️ Upload [documents or files](/getting-started/tutorials/files.md) for LLM processing.
+- ⚡ Written in high-performance Golang.
+- 📥 [Easy to install](/getting-started/introduction/installation.md) and use with a single command.
 
-You can get started with Kdeps [via installing it](getting-started/introduction/installation.md) with a single command.
+## Getting Started
 
-See the [examples](https://github.com/kdeps/examples).
+Ready to explore Kdeps? Install it with a single command: [Installation Guide](/getting-started/introduction/installation.md).
+
+Check out practical [examples](https://github.com/kdeps/examples) to jumpstart your projects.
 
 <script setup>
 import { withBase } from 'vitepress'

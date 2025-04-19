@@ -53,12 +53,12 @@ The `run` block defines the execution logic for a resource, including conditiona
     - **`code`**: HTTP status code to return (e.g., `404`)
     - **`message`**: Error message included in the response
 
-- **`HTTP Request Validations`**
+- **`API Request Validations`**
   These validations are enforced only in `APIServerMode`. If any validation fails, the action is skipped
   entirely—meaning no further steps such as `Exec`, `Python`, `Chat`, or `HTTPClient` will run. If any field is left
   empty, it defaults to allowing all values for that category.
 
-  For more information, please visit [HTTP Request Validations](../resources/http-request-validations.md).
+  For more information, please visit [API Request Validations](../resources/api-request-validations.md).
 
   - **`restrictToHTTPMethods`**:
     Limits which HTTP methods (e.g., `GET`, `POST`) are allowed.

@@ -2,23 +2,21 @@
 outline: deep
 ---
 
-# HTTP Request Validations
+# API Request Validations
 
-HTTP request validations are a critical mechanism for ensuring that incoming HTTP requests meet specific criteria before a resource action is executed. These validations verify the request's HTTP method, URL path, headers, and query parameters against predefined restrictions.
+API request validations are a critical mechanism for ensuring that incoming API requests meet specific criteria before a resource action is executed. These validations verify the request's HTTP method, URL path, headers, and query parameters against predefined restrictions.
 
 These checks safeguard system integrity, enforce security policies, and streamline workflows by skipping actions that do not comply with the specified requirements. They are particularly relevant when operating in API server mode (`APIServerMode` enabled).
 
-HTTP request validations operate using an `AND` logic, meaning all specified conditions must be satisfied for the action to proceed. If any validation fails, the action is skipped, and a log entry is recorded to indicate the reason for skipping.
-
-## Why HTTP Request Validations Matter
+## Why API Request Validations Matter
 
 - **Enforce Request Compliance:** Validations ensure that only requests with permitted methods, paths, headers, and parameters are processed, reducing the risk of unauthorized or malformed requests.
 - **Early Action Skipping:** By validating requests before execution, non-compliant actions are skipped early, saving system resources and preventing unintended behavior.
 - **Improved Debugging:** When an action is skipped due to a validation failure, detailed log messages help diagnose the issue, such as identifying an invalid HTTP method or path.
 
-## Defining HTTP Request Validations
+## Defining API Request Validations
 
-HTTP request validations are defined in the `run` block of a resource configuration and are enforced only when `APIServerMode` is enabled. They consist of four key fields:
+API request validations are defined in the `run` block of a resource configuration and are enforced only when `APIServerMode` is enabled. They consist of four key fields:
 
 - `restrictToHTTPMethods`: Specifies the HTTP methods (e.g., `GET`, `POST`) required for the request.
 - `restrictToRoutes`: Specifies the URL paths (e.g., `/api/v1/whois`) required for the request.
@@ -27,7 +25,7 @@ HTTP request validations are defined in the `run` block of a resource configurat
 
 If any of these fields are empty, all corresponding values are permitted (e.g., an empty `restrictToHTTPMethods` allows all HTTP methods). If a validation fails, the action is skipped, and no further processing (e.g., `Exec`, `Python`, `Chat`, or `HTTPClient` steps) occurs for that action.
 
-Here’s an example of how to configure HTTP request validations:
+Here’s an example of how to configure API request validations:
 
 ```apl
 run {
@@ -121,6 +119,6 @@ The action is skipped at the first validation failure, and a log entry details t
 - **Use Specific Restrictions:** Define only the necessary HTTP methods and routes to minimize skipping and ensure intended behavior.
 - **Leverage Logging:** Review log messages for skipped actions to diagnose validation issues (e.g., incorrect method or path).
 - **Test Configurations:** Validate resource configurations in a test environment to ensure the correct methods, routes, headers, and parameters are permitted.
-- **Combine with Preflight Validations:** Use HTTP request validations alongside [Preflight Validations](#preflight-validations) for comprehensive checks, as they serve complementary purposes.
+- **Combine with Preflight Validations:** Use API request validations alongside [Preflight Validations](/getting-started/resources/validations.md) for comprehensive checks, as they serve complementary purposes.
 
-By incorporating HTTP request validations into your resources, you can enforce strict request compliance, enhance security, and streamline action execution in API-driven workflows.
+By incorporating API request validations into your resources, you can enforce strict request compliance, enhance security, and streamline action execution in API-driven workflows.

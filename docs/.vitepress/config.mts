@@ -205,7 +205,7 @@ export default defineConfig({
             text: "Promise Operator",
             link: "/getting-started/resources/promise",
           },
-          { text: "HTTP Request Validations", link: "/getting-started/resources/http-request-validations" },
+          { text: "API Request Validations", link: "/getting-started/resources/api-request-validations" },
           { text: "Skip Conditions", link: "/getting-started/resources/skip" },
           {
             text: "Preflight Validations",
