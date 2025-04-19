@@ -12,8 +12,10 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gabriel-vasile/mimetype"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/pkg/evaluator"
@@ -131,19 +133,11 @@ func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 
 	// Create a semaphore channel to limit to 1 active connection
 	semaphore := make(chan struct{}, 1)
-
 	router := gin.Default()
 
-	if len(wfTrustedProxies) > 0 {
-		dr.Logger.Printf("Found trusted proxies %v", wfTrustedProxies)
+	wfAPIServerCORS := wfAPIServer.Cors
 
-		router.ForwardedByClientIP = true
-		if err := router.SetTrustedProxies(wfTrustedProxies); err != nil {
-			return errors.New("unable to set trusted proxies")
-		}
-	}
-
-	setupRoutes(router, ctx, wfAPIServer.Routes, dr, semaphore)
+	setupRoutes(router, ctx, wfAPIServerCORS, wfTrustedProxies, wfAPIServer.Routes, dr, semaphore)
 
 	dr.Logger.Printf("Starting API server on port %s", hostPort)
 	go func() {
@@ -155,11 +149,51 @@ func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 	return nil
 }
 
-func setupRoutes(router *gin.Engine, ctx context.Context, routes []*apiserver.APIServerRoutes, dr *resolver.DependencyResolver, semaphore chan struct{}) {
+func setupRoutes(router *gin.Engine, ctx context.Context, wfAPIServerCORS *apiserver.CORS, wfTrustedProxies []string, routes []*apiserver.APIServerRoutes, dr *resolver.DependencyResolver, semaphore chan struct{}) {
 	for _, route := range routes {
 		if route == nil || route.Path == "" {
 			dr.Logger.Error("route configuration is invalid", "route", route)
 			continue
+		}
+
+		if wfAPIServerCORS != nil && wfAPIServerCORS.EnableCORS {
+			var allowOrigins, allowMethods, allowHeaders, exposeHeaders []string
+
+			if wfAPIServerCORS.AllowOrigins != nil {
+				allowOrigins = *wfAPIServerCORS.AllowOrigins
+			}
+			if wfAPIServerCORS.AllowMethods != nil {
+				allowMethods = *wfAPIServerCORS.AllowMethods
+			}
+			if wfAPIServerCORS.AllowHeaders != nil {
+				allowHeaders = *wfAPIServerCORS.AllowHeaders
+			}
+			if wfAPIServerCORS.ExposeHeaders != nil {
+				exposeHeaders = *wfAPIServerCORS.ExposeHeaders
+			}
+
+			router.Use(cors.New(cors.Config{
+				AllowOrigins:     allowOrigins,
+				AllowMethods:     allowMethods,
+				AllowHeaders:     allowHeaders,
+				ExposeHeaders:    exposeHeaders,
+				AllowCredentials: wfAPIServerCORS.AllowCredentials,
+				MaxAge: func() time.Duration {
+					if wfAPIServerCORS.MaxAge != nil {
+						return wfAPIServerCORS.MaxAge.GoDuration()
+					}
+					return 12 * time.Hour
+				}(),
+			}))
+		}
+
+		if len(wfTrustedProxies) > 0 {
+			dr.Logger.Printf("Found trusted proxies %v", wfTrustedProxies)
+
+			router.ForwardedByClientIP = true
+			if err := router.SetTrustedProxies(wfTrustedProxies); err != nil {
+				dr.Logger.Error("unable to set trusted proxies")
+			}
 		}
 
 		handler := APIServerHandler(ctx, route, dr, semaphore)

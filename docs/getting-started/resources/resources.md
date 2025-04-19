@@ -34,13 +34,40 @@ define the behavior, dependencies, and validation logic for each resource.
    - **`requires`**: Specifies the dependencies of the resource. This ensures the resource executes only after its
      dependencies are satisfied. See [Graph Dependency](../resources/kartographer.md) for more information.
 
-- **Execution Logic**:
-   - **`run`**: Defines the execution logic for the resource, including conditions that affect its behavior:
-     - **`skipCondition`**: Specifies conditions under which the resource execution is skipped. If any condition
-       evaluates to `true`, the resource will be bypassed. See [Skip Conditions](../resources/skip.md).
-     - **`preflightCheck`**: Performs a pre-execution validation and returns a custom error if the validation fails.
-       See [Preflight Validations](../resources/validations.md).
-       - **`validations`**: Contains validation logic. If any condition evaluates to `false`, an exception is triggered.
-       - **`error`**: Defines a custom error returned upon validation failure, with the following attributes:
-         - **`code`**: The HTTP error code to return (e.g., `404`).
-         - **`message`**: The HTTP error message included in the response.
+### **Execution Logic**
+
+The `run` block defines the execution logic for a resource, including conditional execution, validation checks, and request-level constraints. This section is relevant when `APIServerMode` is enabled.
+
+#### **Key Fields:**
+
+- **`skipCondition`**
+  Specifies one or more conditions under which the resource execution should be skipped. If any condition evaluates to `true`, the resource is bypassed.
+  See [Skip Conditions](../resources/skip.md).
+
+- **`preflightCheck`**
+  Performs validation before execution begins. If validation fails, execution is aborted and a custom error is returned.
+  See [Preflight Validations](../resources/validations.md).
+
+  - **`validations`**: A list of boolean expressions. If any expression evaluates to `false`, the check fails.
+  - **`error`**:
+    - **`code`**: HTTP status code to return (e.g., `404`)
+    - **`message`**: Error message included in the response
+
+- **`API Request Validations`**
+  These validations are enforced only in `APIServerMode`. If any validation fails, the action is skipped
+  entirely—meaning no further steps such as `Exec`, `Python`, `Chat`, or `HTTPClient` will run. If any field is left
+  empty, it defaults to allowing all values for that category.
+
+  For more information, please visit [API Request Validations](../resources/api-request-validations.md).
+
+  - **`restrictToHTTPMethods`**:
+    Limits which HTTP methods (e.g., `GET`, `POST`) are allowed.
+
+  - **`restrictToRoutes`**:
+    Limits which URL paths (e.g., `/api/v1/whois`) the request must match.
+
+  - **`allowedHeaders`**:
+    Specifies which HTTP headers are allowed in the request.
+
+  - **`allowedParams`**:
+    Specifies which query parameters are permitted in the request.
