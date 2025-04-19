@@ -86,14 +86,14 @@ settings {
                         // List of allowed origin domains for CORS requests (e.g., "https://example.com")
                         //
                         // If unset, no origins are allowed unless CORS is disabled
-                        allowOrigins = new {
+                        allowOrigins {
                                 "http://localhost:8080"
                         }
 
                         // List of HTTP methods allowed for CORS requests, validated by regex
                         //
                         // If unset, defaults to methods specified in the route configuration
-                        allowMethods = new {
+                        allowMethods {
                                 "GET"
                                 "POST"
                                 "PUT"
@@ -104,7 +104,7 @@ settings {
                         // List of request headers allowed in CORS requests (e.g., "Content-Type")
                         //
                         // If unset, no additional headers are allowed
-                        allowHeaders = new {
+                        allowHeaders {
                                 "Origin"
                                 "Content-Type"
                                 "Authorization"
@@ -113,7 +113,7 @@ settings {
                         // List of response headers exposed to clients in CORS requests
                         //
                         // If unset, no headers are exposed beyond defaults
-                        exposeHeaders = new {
+                        exposeHeaders {
                                 "Content-Length"
                         }
 
