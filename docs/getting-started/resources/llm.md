@@ -36,6 +36,7 @@ Within the file, you’ll find the `chat` block, structured as follows:
 ```apl
 chat {
     model = "tinydolphin" // Specifies the LLM model to use, defined in the workflow.
+    role = "user"
     prompt = "Who is @(request.data())?"
 
     // Determines if the LLM response should be a structured JSON.
@@ -64,6 +65,7 @@ chat {
 Key Elements of the `chat` Block
 
 - **`model`**: Specifies the LLM model to be used.
+- **`role`**: The role context for the prompt to be sent to the model. This can be `user`, `assistant` or `system`.
 - **`prompt`**: The input prompt sent to the model.
 - **`files`**: List all the files for use by the LLM model. This feature is particularly beneficial for vision-based
   LLM models.

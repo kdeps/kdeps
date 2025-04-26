@@ -224,7 +224,7 @@ enabling frontend integration with Kdeps' AI workflows.
 ##### Static File Serving
 
 - **`static`**: Serves files like HTML, CSS, or JS from a specified directory, ideal for hosting dashboards or
-  frontends. The `web` block with `serverType = "static"` defines the path and directory relative to `/data/`,
+  frontends. The block with `serverType = "static"` defines the path and directory relative to `/data/`,
   delivering files directly to clients.
 
 Example:
@@ -232,7 +232,7 @@ Example:
 ```apl
 WebServer {
     routes {
-        web {
+        new {
             path = "/dashboard"
             serverType = "static"
             publicPath = "/agentX/1.0.0/dashboard/"
@@ -246,18 +246,18 @@ This serves files from `/data/agentX/1.0.0/dashboard/` at `http://<host>:8080/da
 ##### Reverse Proxying
 
 - **`app`**: Forwards requests to a local web application (e.g., Streamlit, Node.js) running on a specified port. The
-  `web` block with `serverType = "app"` defines the path, port, and optional command to start the app, proxying client
+  block with `serverType = "app"` defines the path, port, and optional command to start the app, proxying client
   requests to the app’s server.
-
 
 Example:
 
 ```apl
 WebServer {
     routes {
-        web {
+        new {
             path = "/app"
             serverType = "app"
+            publicPath = "/agentX/1.0.0/streamlit-app/"
             appPort = 8501
             command = "streamlit run app.py"
         }
@@ -330,6 +330,8 @@ Python packages can also be installed even without Anaconda installed.
 ```apl
 pythonPackages {
     "diffusers[torch]"
+    "streamlit"
+    "openai-whisper"
 }
 ```
 
@@ -353,6 +355,8 @@ Specify the Ubuntu packages that should be pre-installed when building this imag
 packages {
     "tesseract-ocr"
     "poppler-utils"
+    "npm"
+    "ffmpeg"
 }
 ```
 
