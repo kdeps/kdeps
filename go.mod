@@ -23,7 +23,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/kdeps/kartographer v0.0.0-20240808015651-b2afd5d97715
-	github.com/kdeps/schema v0.2.17
+	github.com/kdeps/schema v0.2.18
 	github.com/kr/pretty v0.3.1
 	github.com/spf13/afero v1.14.0
 	github.com/spf13/cobra v1.9.1
@@ -40,10 +40,10 @@ require (
 	github.com/catppuccin/go v0.3.0 // indirect
 	github.com/charmbracelet/bubbles v0.21.0 // indirect
 	github.com/charmbracelet/bubbletea v1.3.4 // indirect
-	github.com/charmbracelet/colorprofile v0.3.0 // indirect
+	github.com/charmbracelet/colorprofile v0.3.1 // indirect
 	github.com/charmbracelet/x/ansi v0.8.0 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.13 // indirect
-	github.com/charmbracelet/x/exp/strings v0.0.0-20250417172821-98fd948af1b1 // indirect
+	github.com/charmbracelet/x/exp/strings v0.0.0-20250424195755-e256bf9b4ee5 // indirect
 	github.com/charmbracelet/x/term v0.2.1 // indirect
 	github.com/cloudwego/base64x v0.1.5 // indirect
 	github.com/cucumber/gherkin/go/v26 v26.2.0 // indirect
