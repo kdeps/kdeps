@@ -96,13 +96,15 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 		roleType := mapRoleToLLMMessageType(role)
 		prompt := utils.DerefString(chatBlock.Prompt)
 
-		if roleType == llms.ChatMessageTypeGeneric {
-			prompt = fmt.Sprintf("[%s]: %s", role, prompt)
-		}
-
 		content := []llms.MessageContent{
 			llms.TextParts(llms.ChatMessageTypeSystem, systemPrompt),
-			llms.TextParts(roleType, prompt),
+		}
+
+		if strings.TrimSpace(prompt) != "" {
+			if roleType == llms.ChatMessageTypeGeneric {
+				prompt = fmt.Sprintf("[%s]: %s", role, prompt)
+			}
+			content = append(content, llms.TextParts(roleType, prompt))
 		}
 
 		response, err := llm.GenerateContent(dr.Context, content, llms.WithJSONMode())
