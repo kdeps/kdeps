@@ -25,3 +25,10 @@ func ContainsStringInsensitive(slice []string, item string) bool {
 	}
 	return false
 }
+
+func DerefString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
