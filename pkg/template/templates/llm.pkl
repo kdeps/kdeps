@@ -72,8 +72,20 @@ run {
         // actions within the same resource is not allowed.
         chat {
                 model = "llama3.2:1b" // This LLM model needs to be defined in the workflow
-                role = "user" // This LLM role context for this prompt. Can be either "user", "assistant" or "system".
+
+                // The dedicated prompt and role can be sent to the LLM, or use the scenario block.
+                // This LLM role context for this prompt. For example, "user", "assistant" or "system".
+                // If none is provided, "human" will be used.
+                role = "user"
                 prompt = "Who is @(request.data())?"
+
+                // Scenario block can take multiple prompts and roles to be added to this LLM session.
+                scenario {
+                        new {
+                                role = "assistant"
+                                prompt = "You are a helpful and informative AI assistant that specializes in general knowledge."
+                        }
+                }
 
                 // Specify if the LLM response should be a structured JSON
                 JSONResponse = true

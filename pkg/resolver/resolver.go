@@ -344,13 +344,22 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			}
 
 			// Process Chat (LLM) step, if defined
-			if runBlock.Chat != nil && runBlock.Chat.Model != "" && runBlock.Chat.Prompt != nil {
+			if runBlock.Chat != nil && runBlock.Chat.Model != "" && (runBlock.Chat.Prompt != nil || runBlock.Chat.Scenario != nil) {
+				dr.Logger.Info("Processing LLM chat step", "actionID", res.ActionID, "hasPrompt", runBlock.Chat.Prompt != nil, "hasScenario", runBlock.Chat.Scenario != nil)
+				if runBlock.Chat.Scenario != nil {
+					dr.Logger.Info("Scenario present", "length", len(*runBlock.Chat.Scenario))
+				}
 				if err := dr.processResourceStep(res.ActionID, "llm", runBlock.Chat.TimeoutDuration, func() error {
 					return dr.HandleLLMChat(res.ActionID, runBlock.Chat)
 				}); err != nil {
-					dr.Logger.Error("lLM chat error:", res.ActionID)
+					dr.Logger.Error("LLM chat error", "actionID", res.ActionID, "error", err)
 					return dr.HandleAPIErrorResponse(500, fmt.Sprintf("LLM chat failed for resource: %s - %s", res.ActionID, err), true)
 				}
+			} else {
+				dr.Logger.Info("Skipping LLM chat step", "actionID", res.ActionID, "chatNil",
+					runBlock.Chat == nil, "modelEmpty", runBlock.Chat == nil || runBlock.Chat.Model == "",
+					"promptAndScenarioNil", runBlock.Chat != nil && runBlock.Chat.Prompt == nil &&
+						runBlock.Chat.Scenario == nil)
 			}
 
 			// Process HTTP Client step, if defined

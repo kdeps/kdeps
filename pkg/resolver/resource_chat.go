@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/evaluator"
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklLLM "github.com/kdeps/schema/gen/llm"
@@ -53,19 +55,47 @@ func (dr *DependencyResolver) decodeChatBlock(chatBlock *pklLLM.ResourceChat) er
 		chatBlock.JSONResponseKeys = decodedKeys
 	}
 
+	if chatBlock.Scenario != nil {
+		dr.Logger.Info("Decoding Scenario", "length", len(*chatBlock.Scenario))
+		decodedScenario := make([]*pklLLM.MultiChat, len(*chatBlock.Scenario))
+		for i, entry := range *chatBlock.Scenario {
+			if entry == nil {
+				dr.Logger.Info("Scenario entry is nil", "index", i)
+				decodedScenario[i] = nil
+				continue
+			}
+			decodedEntryRole, err := utils.DecodeBase64IfNeeded(utils.DerefString(entry.Role))
+			if err != nil {
+				return fmt.Errorf("failed to decode Scenario[%d].Role: %w", i, err)
+			}
+			decodedEntryPrompt, err := utils.DecodeBase64IfNeeded(utils.DerefString(entry.Prompt))
+			if err != nil {
+				return fmt.Errorf("failed to decode Scenario[%d].Prompt: %w", i, err)
+			}
+			dr.Logger.Info("Decoded Scenario entry", "index", i, "role", decodedEntryRole, "prompt", decodedEntryPrompt)
+			decodedScenario[i] = &pklLLM.MultiChat{
+				Role:   &decodedEntryRole,
+				Prompt: &decodedEntryPrompt,
+			}
+		}
+		chatBlock.Scenario = &decodedScenario
+	} else {
+		dr.Logger.Info("Scenario is nil")
+	}
+
 	return nil
 }
 
 // mapRoleToLLMMessageType maps user-defined roles to llms.ChatMessageType.
 func mapRoleToLLMMessageType(role string) llms.ChatMessageType {
 	switch strings.ToLower(strings.TrimSpace(role)) {
-	case "human":
+	case "human", "user", "person", "client":
 		return llms.ChatMessageTypeHuman
 	case "system":
 		return llms.ChatMessageTypeSystem
-	case "ai", "assistant":
+	case "ai", "assistant", "bot", "chatbot", "llm":
 		return llms.ChatMessageTypeAI
-	case "function":
+	case "function", "action":
 		return llms.ChatMessageTypeFunction
 	case "tool":
 		return llms.ChatMessageTypeTool
@@ -76,55 +106,138 @@ func mapRoleToLLMMessageType(role string) llms.ChatMessageType {
 }
 
 func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.ResourceChat) error {
-	var completion string
+	if chatBlock == nil {
+		return errors.New("chatBlock cannot be nil")
+	}
 
 	llm, err := ollama.New(ollama.WithModel(chatBlock.Model))
+	if err != nil {
+		return fmt.Errorf("failed to initialize LLM: %w", err)
+	}
+
+	completion, err := generateChatResponse(dr.Context, llm, chatBlock, dr.Logger)
 	if err != nil {
 		return err
 	}
 
-	if chatBlock.JSONResponse != nil && *chatBlock.JSONResponse {
-		systemPrompt := "Respond in JSON format."
-		if chatBlock.JSONResponseKeys != nil && len(*chatBlock.JSONResponseKeys) > 0 {
-			systemPrompt = fmt.Sprintf("Respond in JSON format, include `%s` in response keys.", strings.Join(*chatBlock.JSONResponseKeys, "`, `"))
-		}
+	chatBlock.Response = &completion
+	return dr.AppendChatEntry(actionID, chatBlock)
+}
 
-		role := utils.DerefString(chatBlock.Role)
-		if strings.TrimSpace(role) == "" {
-			role = "human"
-		}
-		roleType := mapRoleToLLMMessageType(role)
+func generateChatResponse(ctx context.Context, llm *ollama.LLM, chatBlock *pklLLM.ResourceChat, logger *logging.Logger) (string, error) {
+	if chatBlock.JSONResponse == nil || !*chatBlock.JSONResponse {
 		prompt := utils.DerefString(chatBlock.Prompt)
-
-		content := []llms.MessageContent{
-			llms.TextParts(llms.ChatMessageTypeSystem, systemPrompt),
+		if strings.TrimSpace(prompt) == "" {
+			return "", errors.New("prompt cannot be empty for non-JSON response")
 		}
+		logger.Info("Sending non-JSON prompt to LLM", "prompt", prompt)
+		return llm.Call(ctx, prompt)
+	}
 
-		if strings.TrimSpace(prompt) != "" {
-			if roleType == llms.ChatMessageTypeGeneric {
-				prompt = fmt.Sprintf("[%s]: %s", role, prompt)
+	// Estimate capacity for content slice
+	capacity := 1 // System prompt
+	if strings.TrimSpace(utils.DerefString(chatBlock.Prompt)) != "" {
+		capacity++ // Main prompt
+	}
+	if chatBlock.Scenario != nil {
+		capacity += len(*chatBlock.Scenario) // Safe: checked scenario != nil
+	}
+
+	// Pre-allocate content slice with estimated capacity
+	content := make([]llms.MessageContent, 0, capacity)
+
+	systemPrompt := buildSystemPrompt(chatBlock.JSONResponseKeys)
+	role, roleType := getRoleAndType(chatBlock.Role)
+	prompt := utils.DerefString(chatBlock.Prompt)
+
+	// Add system prompt
+	content = append(content, llms.MessageContent{
+		Role:  llms.ChatMessageTypeSystem,
+		Parts: []llms.ContentPart{llms.TextContent{Text: systemPrompt}},
+	})
+
+	if strings.TrimSpace(prompt) != "" {
+		if roleType == llms.ChatMessageTypeGeneric {
+			prompt = fmt.Sprintf("[%s]: %s", role, prompt)
+		}
+		content = append(content, llms.MessageContent{
+			Role:  roleType,
+			Parts: []llms.ContentPart{llms.TextContent{Text: prompt}},
+		})
+	}
+
+	content = append(content, processScenarioMessages(chatBlock.Scenario, logger)...)
+
+	// Log the content being sent to ollama
+	for i, msg := range content {
+		for _, part := range msg.Parts {
+			if textPart, ok := part.(llms.TextContent); ok {
+				logger.Info("Sending message to LLM", "index", i, "role", msg.Role, "content", textPart.Text)
 			}
-			content = append(content, llms.TextParts(roleType, prompt))
-		}
-
-		response, err := llm.GenerateContent(dr.Context, content, llms.WithJSONMode())
-		if err != nil {
-			return err
-		}
-
-		if len(response.Choices) == 0 {
-			return errors.New("empty response from model")
-		}
-		completion = response.Choices[0].Content
-	} else {
-		completion, err = llm.Call(dr.Context, utils.DerefString(chatBlock.Prompt))
-		if err != nil {
-			return err
 		}
 	}
 
-	chatBlock.Response = &completion
-	return dr.AppendChatEntry(actionID, chatBlock)
+	response, err := llm.GenerateContent(ctx, content, llms.WithJSONMode())
+	if err != nil {
+		logger.Error("Failed to generate JSON content", "error", err)
+		return "", fmt.Errorf("failed to generate JSON content: %w", err)
+	}
+	if len(response.Choices) == 0 {
+		logger.Error("Empty response from LLM")
+		return "", errors.New("empty response from model")
+	}
+	logger.Info("Received LLM response", "content", response.Choices[0].Content)
+	return response.Choices[0].Content, nil
+}
+
+func buildSystemPrompt(jsonResponseKeys *[]string) string {
+	if jsonResponseKeys != nil && len(*jsonResponseKeys) > 0 {
+		return fmt.Sprintf("Respond in JSON format, include `%s` in response keys.", strings.Join(*jsonResponseKeys, "`, `"))
+	}
+	return "Respond in JSON format."
+}
+
+func getRoleAndType(rolePtr *string) (string, llms.ChatMessageType) {
+	role := utils.DerefString(rolePtr)
+	if strings.TrimSpace(role) == "" {
+		role = "human"
+	}
+	return role, mapRoleToLLMMessageType(role)
+}
+
+func processScenarioMessages(scenario *[]*pklLLM.MultiChat, logger *logging.Logger) []llms.MessageContent {
+	// Return empty slice if scenario is nil
+	if scenario == nil {
+		logger.Info("No scenario messages to process")
+		return make([]llms.MessageContent, 0)
+	}
+
+	logger.Info("Processing scenario messages", "count", len(*scenario))
+	// Pre-allocate content with max possible size
+	content := make([]llms.MessageContent, 0, len(*scenario))
+
+	for i, entry := range *scenario {
+		if entry == nil {
+			logger.Info("Skipping nil scenario entry", "index", i)
+			continue
+		}
+		prompt := utils.DerefString(entry.Prompt)
+		if strings.TrimSpace(prompt) == "" {
+			logger.Info("Skipping empty scenario prompt", "index", i, "role", utils.DerefString(entry.Role))
+			continue
+		}
+		entryRole, entryType := getRoleAndType(entry.Role)
+		entryPrompt := prompt
+		if entryType == llms.ChatMessageTypeGeneric {
+			entryPrompt = fmt.Sprintf("[%s]: %s", entryRole, prompt)
+		}
+		logger.Info("Adding scenario message", "index", i, "role", entryRole, "prompt", entryPrompt)
+		content = append(content, llms.MessageContent{
+			Role:  entryType,
+			Parts: []llms.ContentPart{llms.TextContent{Text: entryPrompt}},
+		})
+	}
+	return content
 }
 
 func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM.ResourceChat) error {
@@ -149,6 +262,24 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 			return fmt.Errorf("failed to write response to file: %w", err)
 		}
 		newChat.File = &filePath
+	}
+
+	// Encode scenario entries
+	var encodedScenario *[]*pklLLM.MultiChat
+	if newChat.Scenario != nil {
+		encodedEntries := make([]*pklLLM.MultiChat, len(*newChat.Scenario))
+		for i, entry := range *newChat.Scenario {
+			if entry == nil {
+				continue
+			}
+			encodedRole := utils.EncodeValue(utils.DerefString(entry.Role))
+			encodedPrompt := utils.EncodeValue(utils.DerefString(entry.Prompt))
+			encodedEntries[i] = &pklLLM.MultiChat{
+				Role:   &encodedRole,
+				Prompt: &encodedPrompt,
+			}
+		}
+		encodedScenario = &encodedEntries
 	}
 
 	encodedModel := utils.EncodeValue(newChat.Model)
@@ -177,6 +308,7 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 		Model:            encodedModel,
 		Prompt:           &encodedPrompt,
 		Role:             &encodedRole,
+		Scenario:         encodedScenario,
 		JSONResponse:     newChat.JSONResponse,
 		JSONResponseKeys: encodedJSONResponseKeys,
 		Response:         encodedResponse,
@@ -203,6 +335,32 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 			pklContent.WriteString(fmt.Sprintf("    role = \"%s\"\n", *res.Role))
 		} else {
 			pklContent.WriteString("    role = \"\"\n")
+		}
+
+		// Add scenario
+		pklContent.WriteString("    scenario ")
+		if res.Scenario != nil && len(*res.Scenario) > 0 {
+			pklContent.WriteString("{\n")
+			for _, entry := range *res.Scenario {
+				if entry == nil {
+					continue
+				}
+				pklContent.WriteString("      new {\n")
+				if entry.Role != nil {
+					pklContent.WriteString(fmt.Sprintf("        role = \"%s\"\n", *entry.Role))
+				} else {
+					pklContent.WriteString("        role = \"\"\n")
+				}
+				if entry.Prompt != nil {
+					pklContent.WriteString(fmt.Sprintf("        prompt = \"%s\"\n", *entry.Prompt))
+				} else {
+					pklContent.WriteString("        prompt = \"\"\n")
+				}
+				pklContent.WriteString("      }\n")
+			}
+			pklContent.WriteString("    }\n")
+		} else {
+			pklContent.WriteString("{}\n")
 		}
 
 		if res.JSONResponse != nil {
