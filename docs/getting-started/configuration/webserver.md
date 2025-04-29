@@ -108,12 +108,12 @@ WebServer {
     trustedProxies { "192.168.1.0/24" }
 
     routes {
-        web {
+        new {
             path = "/dashboard"
             serverType = "static"
             publicPath = "/agentX/1.0.0/dashboard/"
         }
-        web {
+        new {
             path = "/app"
             serverType = "app"
             appPort = 8501
