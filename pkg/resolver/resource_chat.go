@@ -39,6 +39,12 @@ func (dr *DependencyResolver) decodeChatBlock(chatBlock *pklLLM.ResourceChat) er
 	}
 	chatBlock.Prompt = &decodedPrompt
 
+	decodedRole, err := utils.DecodeBase64IfNeeded(utils.DerefString(chatBlock.Role))
+	if err != nil {
+		return fmt.Errorf("failed to decode Role: %w", err)
+	}
+	chatBlock.Role = &decodedRole
+
 	if chatBlock.JSONResponseKeys != nil {
 		decodedKeys, err := utils.DecodeStringSlice(chatBlock.JSONResponseKeys, "JSONResponseKeys")
 		if err != nil {
@@ -48,6 +54,25 @@ func (dr *DependencyResolver) decodeChatBlock(chatBlock *pklLLM.ResourceChat) er
 	}
 
 	return nil
+}
+
+// mapRoleToLLMMessageType maps user-defined roles to llms.ChatMessageType.
+func mapRoleToLLMMessageType(role string) llms.ChatMessageType {
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "human":
+		return llms.ChatMessageTypeHuman
+	case "system":
+		return llms.ChatMessageTypeSystem
+	case "ai", "assistant":
+		return llms.ChatMessageTypeAI
+	case "function":
+		return llms.ChatMessageTypeFunction
+	case "tool":
+		return llms.ChatMessageTypeTool
+	default:
+		// fallback to generic
+		return llms.ChatMessageTypeGeneric
+	}
 }
 
 func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.ResourceChat) error {
@@ -64,9 +89,20 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 			systemPrompt = fmt.Sprintf("Respond in JSON format, include `%s` in response keys.", strings.Join(*chatBlock.JSONResponseKeys, "`, `"))
 		}
 
+		role := utils.DerefString(chatBlock.Role)
+		if strings.TrimSpace(role) == "" {
+			role = "human"
+		}
+		roleType := mapRoleToLLMMessageType(role)
+		prompt := utils.DerefString(chatBlock.Prompt)
+
+		if roleType == llms.ChatMessageTypeGeneric {
+			prompt = fmt.Sprintf("[%s]: %s", role, prompt)
+		}
+
 		content := []llms.MessageContent{
 			llms.TextParts(llms.ChatMessageTypeSystem, systemPrompt),
-			llms.TextParts(llms.ChatMessageTypeHuman, utils.DerefString(chatBlock.Prompt)),
+			llms.TextParts(roleType, prompt),
 		}
 
 		response, err := llm.GenerateContent(dr.Context, content, llms.WithJSONMode())
@@ -114,6 +150,7 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 	}
 
 	encodedModel := utils.EncodeValue(newChat.Model)
+	encodedRole := utils.EncodeValue(utils.DerefString(newChat.Role))
 	encodedPrompt := utils.EncodeValue(utils.DerefString(newChat.Prompt))
 	encodedResponse := utils.EncodeValuePtr(newChat.Response)
 	encodedJSONResponseKeys := dr.encodeChatJSONResponseKeys(newChat.JSONResponseKeys)
@@ -137,6 +174,7 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 	existingResources[resourceID] = &pklLLM.ResourceChat{
 		Model:            encodedModel,
 		Prompt:           &encodedPrompt,
+		Role:             &encodedRole,
 		JSONResponse:     newChat.JSONResponse,
 		JSONResponseKeys: encodedJSONResponseKeys,
 		Response:         encodedResponse,
@@ -152,7 +190,18 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 	for id, res := range existingResources {
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
 		pklContent.WriteString(fmt.Sprintf("    model = \"%s\"\n", res.Model))
-		pklContent.WriteString(fmt.Sprintf("    prompt = \"%s\"\n", *res.Prompt))
+
+		if res.Prompt != nil {
+			pklContent.WriteString(fmt.Sprintf("    prompt = \"%s\"\n", *res.Prompt))
+		} else {
+			pklContent.WriteString("    prompt = \"\"\n")
+		}
+
+		if res.Role != nil {
+			pklContent.WriteString(fmt.Sprintf("    role = \"%s\"\n", *res.Role))
+		} else {
+			pklContent.WriteString("    role = \"\"\n")
+		}
 
 		if res.JSONResponse != nil {
 			pklContent.WriteString(fmt.Sprintf("    JSONResponse = %t\n", *res.JSONResponse))
