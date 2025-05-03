@@ -222,6 +222,14 @@ export default defineConfig({
             link: "/getting-started/resources/remix",
           },
           {
+            text: "CORS Configuration",
+            link: "/getting-started/configuration/cors",
+          },
+          {
+            text: "Web Server",
+            link: "/getting-started/resources/webserver",
+          },
+          {
             text: "Multi Modal LLM Models",
             link: "/getting-started/resources/multimodal",
           },
