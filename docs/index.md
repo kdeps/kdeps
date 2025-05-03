@@ -7,8 +7,6 @@ outline: deep
 Kdeps is an all-in-one AI framework for building Dockerized full-stack AI applications (FE and BE) that includes
 open-source LLM models out-of-the-box.
 
-**It is the only AI framework that doesn't require you to write Python to build a full-stack AI app.**
-
 ## Key Features
 
 Kdeps is loaded with features to streamline AI app development:
