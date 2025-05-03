@@ -227,7 +227,7 @@ export default defineConfig({
           },
           {
             text: "Web Server",
-            link: "/getting-started/resources/webserver",
+            link: "/getting-started/configuration/webserver",
           },
           {
             text: "Multi Modal LLM Models",
