@@ -21,8 +21,8 @@ We will also set the `targetActionID` to `APIResponseResource` and create a rout
 Example `workflow.pkl` configuration:
 
 ```js
-name = "sd35api" // [!code ++]
-version = "1.0.0" // [!code ++]
+name = "sd35api"
+version = "1.0.0"
 ...
 settings {
   ...
@@ -32,7 +32,7 @@ settings {
 
     routes {
       new {
-        path = "/api/v1/image_generator" // [!code ++]
+        path = "/api/v1/image_generator"
         methods {
           "POST"
         }
@@ -43,9 +43,9 @@ settings {
   agentSettings {
     ...
     pythonPackages {
-      "torch" // [!code ++]
-      "diffusers" // [!code ++]
-      "huggingface_hub[cli]" // [!code ++]
+      "torch"
+      "diffusers"
+      "huggingface_hub[cli]"
     }
     ...
     models {}
@@ -97,14 +97,14 @@ using the `request.params("q")` function.
 actionID = "pythonResource"
 
 python {
-  local pythonScriptPath = "@(data.filepath("sd35api/1.0.0", "sd3_5.py"))" // [!code ++]
-  local pythonScript = "@(read?("\(pythonScriptPath)")?.text)" // [!code ++]
+  local pythonScriptPath = "@(data.filepath("sd35api/1.0.0", "sd3_5.py"))"
+  local pythonScript = "@(read?("\(pythonScriptPath)")?.text)"
 
-  script = """ // [!code ++]
-\(pythonScript) // [!code ++]
-""" // [!code ++]
+  script = """
+\(pythonScript)
+"""
   env {
-    ["PROMPT"] = "@(request.params("q"))" // [!code ++]
+    ["PROMPT"] = "@(request.params("q"))"
   }
 ...
 }
@@ -118,7 +118,7 @@ script is executed as part of the workflow.
 ```js
 actionID = "APIResponseResource"
 requires {
-  "pythonResource" // [!code ++]
+  "pythonResource"
 }
 ```
 
@@ -126,16 +126,16 @@ Finally, the generated image file (`/tmp/image.png`) can be encoded as a `base64
 response.
 
 ```json
-local generatedFileBase64 = "@(read("/tmp/image.png").base64)" // [!code ++]
-local responseJson = new Mapping { // [!code ++]
-  ["file"] = "data:image/png;base64,\(generatedFileBase64)" // [!code ++]
-} // [!code ++]
+local generatedFileBase64 = "@(read("/tmp/image.png").base64)"
+local responseJson = new Mapping {
+  ["file"] = "data:image/png;base64,\(generatedFileBase64)"
+}
 
 APIResponse {
 ...
   response {
     data {
-        responseJson // [!code ++]
+        responseJson
     }
   }
 }
@@ -194,11 +194,11 @@ agentSettings {
     pythonPackages {
         "torch"
         "diffusers"
-        "huggingface_hub[cli]" // [!code ++]
+        "huggingface_hub[cli]"
     }
     ...
     args {
-        ["HF_TOKEN"] = "secret" // [!code ++]
+        ["HF_TOKEN"] = "secret"
     }
 }
 ```
@@ -220,12 +220,12 @@ actionID = "execResource"
 ...
 exec {
     command = """
-    huggingface-cli login --token $HF_TOKEN // [!code ++]
-    huggingface-cli download stabilityai/stable-diffusion-3.5-large --cache-dir /root/.kdeps/ // [!code ++]
+    huggingface-cli login --token $HF_TOKEN
+    huggingface-cli download stabilityai/stable-diffusion-3.5-large --cache-dir /root/.kdeps/
     echo downloaded > /root/.kdeps/sd35-downloaded
     """
     env {
-        ["HF_TOKEN"] = "\(read("env:HF_TOKEN"))" // [!code ++]
+        ["HF_TOKEN"] = "\(read("env:HF_TOKEN"))"
     }
     timeoutDuration = 0.s
 }
@@ -240,10 +240,10 @@ the `/root/.kdeps/sd35-downloaded` file. If the file exists, the script will be 
 actionID = "execResource"
 ...
 run {
-    local stampFile = read?("file:/root/.kdeps/sd35-downloaded")?.base64?.isEmpty // [!code ++]
+    local stampFile = read?("file:/root/.kdeps/sd35-downloaded")?.base64?.isEmpty
 
     skipCondition {
-        stampFile != null || stampFile != false // [!code ++]
+        stampFile != null || stampFile != false
     }
 ...
 ```
