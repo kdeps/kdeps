@@ -15,6 +15,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/memory"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklRes "github.com/kdeps/schema/gen/resource"
 	pklWf "github.com/kdeps/schema/gen/workflow"
@@ -33,6 +34,7 @@ type DependencyResolver struct {
 	Environment          *environment.Environment
 	Workflow             pklWf.Workflow
 	Request              *gin.Context
+	MemoryReader         memory.PklResourceReader
 	RequestID            string
 	RequestPklFile       string
 	ResponsePklFile      string
@@ -135,6 +137,13 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 
 		agentSettings := workflowConfiguration.GetSettings().AgentSettings
 		dependencyResolver.AnacondaInstalled = agentSettings.InstallAnaconda
+		agentName := workflowConfiguration.GetName()
+		memoryDBPath := filepath.Join("/root/.kdeps", agentName+"_memory.db")
+		reader, err := memory.InitializeMemory(memoryDBPath)
+		if err != nil {
+			return nil, err
+		}
+		dependencyResolver.MemoryReader = reader
 	}
 
 	dependencyResolver.Graph = graph.NewDependencyGraph(fs, logger.BaseLogger(), dependencyResolver.ResourceDependencies)
