@@ -36,19 +36,20 @@ func (r PklResourceReader) ListElements(_ url.URL) ([]pkl.PathElement, error) {
 	return nil, nil
 }
 
-// Read retrieves or updates an item in the SQLite database based on the URI.
+// Read retrieves, sets, or clears items in the SQLite database based on the URI.
 func (r PklResourceReader) Read(uri url.URL) ([]byte, error) {
 	id := strings.TrimPrefix(uri.Path, "/")
-	if id == "" {
-		return nil, errors.New("invalid URI: no item ID provided")
-	}
-
 	query := uri.Query()
 	operation := query.Get("op")
-	if operation == "update" {
+
+	switch operation {
+	case "set":
+		if id == "" {
+			return nil, errors.New("invalid URI: no item ID provided for set operation")
+		}
 		newValue := query.Get("value")
 		if newValue == "" {
-			return nil, errors.New("update operation requires a value parameter")
+			return nil, errors.New("set operation requires a value parameter")
 		}
 
 		result, err := r.db.Exec(
@@ -56,30 +57,52 @@ func (r PklResourceReader) Read(uri url.URL) ([]byte, error) {
 			id, newValue,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to update item: %w", err)
+			return nil, fmt.Errorf("failed to set item: %w", err)
 		}
 
 		rowsAffected, err := result.RowsAffected()
 		if err != nil {
-			return nil, fmt.Errorf("failed to check update result: %w", err)
+			return nil, fmt.Errorf("failed to check set result: %w", err)
 		}
 		if rowsAffected == 0 {
-			return nil, fmt.Errorf("no item updated for ID %s", id)
+			return nil, fmt.Errorf("no item set for ID %s", id)
 		}
 
-		return []byte("Updated item " + id), nil
-	}
+		return []byte(newValue), nil
 
-	var value string
-	err := r.db.QueryRow("SELECT value FROM items WHERE id = ?", id).Scan(&value)
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("item with ID %s not found", id)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to read item: %w", err)
-	}
+	case "clear":
+		if id != "_" {
+			return nil, errors.New("invalid URI: clear operation requires path '/_'")
+		}
 
-	return []byte(value), nil
+		result, err := r.db.Exec("DELETE FROM items")
+		if err != nil {
+			return nil, fmt.Errorf("failed to clear items: %w", err)
+		}
+
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			return nil, fmt.Errorf("failed to check clear result: %w", err)
+		}
+
+		return []byte(fmt.Sprintf("Cleared %d items", rowsAffected)), nil
+
+	default: // getItem (no operation specified)
+		if id == "" {
+			return nil, errors.New("invalid URI: no item ID provided")
+		}
+
+		var value string
+		err := r.db.QueryRow("SELECT value FROM items WHERE id = ?", id).Scan(&value)
+		if err == sql.ErrNoRows {
+			return []byte(""), nil // Return empty string for not found
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to read item: %w", err)
+		}
+
+		return []byte(value), nil
+	}
 }
 
 // InitializeDatabase sets up the SQLite database and creates the items table.
