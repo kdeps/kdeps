@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -201,9 +202,14 @@ func (dr *DependencyResolver) WritePythonStdoutToFile(resourceID string, stdoutE
 func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pklPython.ResourcePython) error {
 	pklPath := filepath.Join(dr.ActionDir, "python/"+dr.RequestID+"__python_output.pkl")
 
-	pklRes, err := pklPython.LoadFromPath(dr.Context, pklPath)
+	res, err := dr.LoadResource(dr.Context, pklPath, PythonResource)
 	if err != nil {
-		return fmt.Errorf("failed to load PKL file: %w", err)
+		return fmt.Errorf("failed to load PKL: %w", err)
+	}
+
+	pklRes, ok := res.(*pklPython.PythonImpl)
+	if !ok {
+		return errors.New("failed to cast pklRes to *pklPython.Resource")
 	}
 
 	resources := pklRes.GetResources()

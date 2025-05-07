@@ -35,6 +35,7 @@ type DependencyResolver struct {
 	Workflow             pklWf.Workflow
 	Request              *gin.Context
 	MemoryReader         memory.PklResourceReader
+	AgentName            string
 	RequestID            string
 	RequestPklFile       string
 	ResponsePklFile      string
@@ -134,16 +135,9 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	dependencyResolver.Workflow = workflowConfiguration
 	if workflowConfiguration.GetSettings() != nil {
 		dependencyResolver.APIServerMode = workflowConfiguration.GetSettings().APIServerMode
-
 		agentSettings := workflowConfiguration.GetSettings().AgentSettings
 		dependencyResolver.AnacondaInstalled = agentSettings.InstallAnaconda
-		agentName := workflowConfiguration.GetName()
-		memoryDBPath := filepath.Join("/root/.kdeps", agentName+"_memory.db")
-		reader, err := memory.InitializeMemory(memoryDBPath)
-		if err != nil {
-			return nil, err
-		}
-		dependencyResolver.MemoryReader = reader
+		dependencyResolver.AgentName = workflowConfiguration.GetName()
 	}
 
 	dependencyResolver.Graph = graph.NewDependencyGraph(fs, logger.BaseLogger(), dependencyResolver.ResourceDependencies)
@@ -272,7 +266,16 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 				continue
 			}
 
-			rsc, err := pklRes.LoadFromPath(dr.Context, res.File)
+			resPkl, err := dr.LoadResource(dr.Context, res.File, Resource)
+			if err != nil {
+				return dr.HandleAPIErrorResponse(500, err.Error(), true)
+			}
+
+			rsc, ok := resPkl.(*pklRes.Resource)
+			if !ok {
+				return dr.HandleAPIErrorResponse(500, err.Error(), true)
+			}
+
 			if err != nil {
 				return dr.HandleAPIErrorResponse(500, err.Error(), true)
 			}
