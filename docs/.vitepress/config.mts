@@ -175,6 +175,10 @@ export default defineConfig({
                 link: "/getting-started/resources/global-functions#data-folder-functions",
               },
               {
+                text: "Memory Operations",
+                link: "/getting-started/resources/global-functions#memory-operation-functions",
+              },
+              {
                 text: "JSON Document Parser",
                 link: "/getting-started/resources/global-functions#document-json-parsers",
               },
@@ -211,6 +215,8 @@ export default defineConfig({
             text: "Preflight Validations",
             link: "/getting-started/resources/validations",
           },
+          { text: "Memory Operations", link: "/getting-started/resources/memory" },
+          { text: "Expr Block", link: "/getting-started/resources/expr" },
           { text: "Data Folder", link: "/getting-started/resources/data" },
           { text: "File Uploads", link: "/getting-started/tutorials/files" },
           {

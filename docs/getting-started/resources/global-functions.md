@@ -32,6 +32,18 @@ Below is a list of the global functions available for each resource:
 | request.path()                  | Retrieves the URI path of the API request.                                     |
 | request.method()                | Retrieves the HTTP method (e.g., GET, POST) of the API request.                |
 
+## Memory Operation Functions
+
+| **Function**                   | **Description**                                           |
+|:-------------------------------|:----------------------------------------------------------|
+| memory.getItem("key")          | Fetches the value of key from persistent AI Agent memory  |
+| memory.setItem("key", "value") | Stores the value of key to the persistent AI Agent memory |
+| memory.clear()                 | Clears all persistent memory (CAUTION!)                   |
+
+> *Note:* The `setItem` and `clear` are side-effecting functions—it performs an action but doesn't return a
+> meaningful value. That is why it is recommended to placed them inside an `expr` block: to ensure the expression is
+> evaluated for its effect.
+
 ## Data Folder Functions
 
 | **Function**                                    | **Description**                                                                                                                    |
