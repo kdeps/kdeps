@@ -41,6 +41,7 @@ run {
                 // If any evaluated condition returns true, the resource execution will be bypassed.
                 // "@(request.path)" != "/api/v1/whois" && "@(request.method)" != "GET"
         }
+
         preflightCheck {
                 validations {
                         // This section expects boolean validations.
@@ -52,6 +53,15 @@ run {
                         code = 404
                         message = "Header X-API-KEY not found in request!"
                 }
+        }
+
+        // The expr block is a dedicated resource for evaluating standard PKL expressions. It is primarily used to execute
+        // expressions that produce side effects, such as updating resources or triggering actions, but also supports
+        // general-purpose evaluation of any valid PKL expression, making it a versatile tool for inline logic and
+        // scripting within a configuration.
+        expr {
+                // "@(memory.setItem("foo", "bar"))"
+                // "@(memory.clear())"
         }
 
         // Initiates an HTTP client request for this resource.

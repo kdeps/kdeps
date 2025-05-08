@@ -21,6 +21,7 @@ Kdeps is loaded with features to streamline AI app development:
 - 🔄 Use [reusable AI agents](https://kdeps.com/getting-started/resources/remix.html) for flexible workflows.
 - 🖥️ Run [shell scripts](https://kdeps.com/getting-started/resources/exec.html) seamlessly.
 - 🌍 Make [API calls](https://kdeps.com/getting-started/resources/client.html) directly from configuration.
+- 💾 Manage state with [memory operations](https://kdeps.com/getting-started/resources/memory.html) to store, retrieve, and clear persistent data.
 - 📊 Generate [structured outputs](https://kdeps.com/getting-started/resources/llm.html#chat-block) from LLMs.
 - 📦 Install [Ubuntu packages](https://kdeps.com/getting-started/configuration/workflow.html#ubuntu-packages) via configuration.
 - 📜 Define [Ubuntu repositories or PPAs](https://kdeps.com/getting-started/configuration/workflow.html#ubuntu-repositories).

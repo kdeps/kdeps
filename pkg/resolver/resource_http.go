@@ -91,9 +91,14 @@ func (dr *DependencyResolver) WriteResponseBodyToFile(resourceID string, respons
 func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP.ResourceHTTPClient) error {
 	pklPath := filepath.Join(dr.ActionDir, "client/"+dr.RequestID+"__client_output.pkl")
 
-	pklRes, err := pklHTTP.LoadFromPath(dr.Context, pklPath)
+	res, err := dr.LoadResource(dr.Context, pklPath, HTTPResource)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL: %w", err)
+	}
+
+	pklRes, ok := res.(*pklHTTP.HTTPImpl)
+	if !ok {
+		return errors.New("failed to cast pklRes to *pklHTTP.Resource")
 	}
 
 	resources := pklRes.GetResources()

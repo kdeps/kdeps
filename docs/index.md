@@ -25,6 +25,7 @@ Kdeps is loaded with features to streamline AI app development:
 - 🔄 Use [reusable AI agents](/getting-started/resources/remix.md) for flexible workflows.
 - 🖥️ Run [shell scripts](/getting-started/resources/exec.md) seamlessly.
 - 🌍 Make [API calls](/getting-started/resources/client.md) directly from configuration.
+- 💾 Manage state with [memory operations](/getting-started/resources/memory.md) to store, retrieve, and clear persistent data.
 - 📊 Generate [structured outputs](/getting-started/resources/llm.md#chat-block) from LLMs.
 - 📦 Install [Ubuntu packages](/getting-started/configuration/workflow.md#ubuntu-packages) via configuration.
 - 📜 Define [Ubuntu repositories or PPAs](/getting-started/configuration/workflow.md#ubuntu-repositories).

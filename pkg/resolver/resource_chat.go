@@ -243,9 +243,14 @@ func processScenarioMessages(scenario *[]*pklLLM.MultiChat, logger *logging.Logg
 func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM.ResourceChat) error {
 	pklPath := filepath.Join(dr.ActionDir, "llm/"+dr.RequestID+"__llm_output.pkl")
 
-	pklRes, err := pklLLM.LoadFromPath(dr.Context, pklPath)
+	llmRes, err := dr.LoadResource(dr.Context, pklPath, LLMResource)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL file: %w", err)
+	}
+
+	pklRes, ok := llmRes.(*pklLLM.LLMImpl)
+	if !ok {
+		return errors.New("failed to cast pklRes to *pklLLM.Resource")
 	}
 
 	resources := pklRes.GetResources()

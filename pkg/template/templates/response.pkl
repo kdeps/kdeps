@@ -47,6 +47,7 @@ run {
                 // Conditions under which the execution of this resource should be skipped.
                 // If any evaluated condition returns true, the resource execution will be bypassed.
         }
+
         preflightCheck {
                 validations {
                         // This section expects boolean validations.
@@ -57,6 +58,15 @@ run {
                         code = 0
                         message = ""
                 }
+        }
+
+        // The expr block is a dedicated resource for evaluating standard PKL expressions. It is primarily used to execute
+        // expressions that produce side effects, such as updating resources or triggering actions, but also supports
+        // general-purpose evaluation of any valid PKL expression, making it a versatile tool for inline logic and
+        // scripting within a configuration.
+        expr {
+                // "@(memory.setItem("foo", "bar"))"
+                // "@(memory.clear())"
         }
 
         // Initializes an api response for this agent.
@@ -99,6 +109,7 @@ run {
                 response {
                         data {
                                 "@(llm.response("llmResource"))"
+                                // "@(memory.getItem("foo"))"
                                 // "@(python.stdout("pythonResource"))"
                                 // "@(exec.stdout("shellResource"))"
                                 // "@(client.responseBody("httpResource"))"
