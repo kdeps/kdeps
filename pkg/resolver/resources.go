@@ -126,6 +126,12 @@ func (dr *DependencyResolver) LoadResource(ctx context.Context, resourceFile str
 		options.ResourceReaders = []pkl.ResourceReader{
 			dr.MemoryReader,
 		}
+		options.AllowedResources = []string{
+			"memory:/",
+			"package://pkg.pkl-lang.org/pkl-pantry/pkl.experimental.uri@1.0.3",
+			"https://pkg.pkl-lang.org/pkl-pantry/pkl.experimental.uri@1.0.3",
+			"https://github.com/apple/pkl-pantry/releases/download/pkl.experimental.uri@1.0.3/pkl.experimental.uri@1.0.3.zip",
+		}
 	}
 
 	// Create evaluator with custom options
