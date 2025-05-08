@@ -15,7 +15,6 @@ import (
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/kdeps/kdeps/pkg/memory"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/utils"
 	v "github.com/kdeps/kdeps/pkg/version"
@@ -55,12 +54,6 @@ func main() {
 		if err != nil {
 			logger.Fatalf("failed to create graph resolver: %v", err)
 		}
-		memoryDBPath := filepath.Join("/root/.kdeps", dr.AgentName+"_memory.db")
-		reader, err := memory.InitializeMemory(memoryDBPath)
-		if err != nil {
-			logger.Fatalf("failed to initialize DB memory: %v", err)
-		}
-		dr.MemoryReader = reader
 
 		handleDockerMode(ctx, dr, cancel)
 	} else {

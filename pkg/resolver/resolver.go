@@ -34,7 +34,8 @@ type DependencyResolver struct {
 	Environment          *environment.Environment
 	Workflow             pklWf.Workflow
 	Request              *gin.Context
-	MemoryReader         memory.PklResourceReader
+	MemoryReader         *memory.PklResourceReader
+	MemoryDBPath         string
 	AgentName            string
 	RequestID            string
 	RequestPklFile       string
@@ -108,6 +109,27 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	responsePklFile := filepath.Join(actionDir, "/api/"+graphID+"__response.pkl")
 	responseTargetFile := filepath.Join(actionDir, "/api/"+graphID+"__response.json")
 
+	workflowConfiguration, err := pklWf.LoadFromPath(ctx, pklWfFile)
+	if err != nil {
+		return nil, err
+	}
+
+	var apiServerMode, installAnaconda bool
+	var agentName, memoryDBPath string
+
+	if workflowConfiguration.GetSettings() != nil {
+		apiServerMode = workflowConfiguration.GetSettings().APIServerMode
+		agentSettings := workflowConfiguration.GetSettings().AgentSettings
+		installAnaconda = agentSettings.InstallAnaconda
+		agentName = workflowConfiguration.GetName()
+	}
+
+	memoryDBPath = filepath.Join("/root/.kdeps", agentName+"_memory.db")
+	reader, err := memory.InitializeMemory(memoryDBPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize DB memory: %w", err)
+	}
+
 	dependencyResolver := &DependencyResolver{
 		Fs:                   fs,
 		ResourceDependencies: make(map[string][]string),
@@ -126,18 +148,12 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		ResponseTargetFile:   responseTargetFile,
 		ProjectDir:           projectDir,
 		Request:              req,
-	}
-
-	workflowConfiguration, err := pklWf.LoadFromPath(ctx, pklWfFile)
-	if err != nil {
-		return nil, err
-	}
-	dependencyResolver.Workflow = workflowConfiguration
-	if workflowConfiguration.GetSettings() != nil {
-		dependencyResolver.APIServerMode = workflowConfiguration.GetSettings().APIServerMode
-		agentSettings := workflowConfiguration.GetSettings().AgentSettings
-		dependencyResolver.AnacondaInstalled = agentSettings.InstallAnaconda
-		dependencyResolver.AgentName = workflowConfiguration.GetName()
+		Workflow:             workflowConfiguration,
+		APIServerMode:        apiServerMode,
+		AnacondaInstalled:    installAnaconda,
+		AgentName:            agentName,
+		MemoryDBPath:         memoryDBPath,
+		MemoryReader:         reader,
 	}
 
 	dependencyResolver.Graph = graph.NewDependencyGraph(fs, logger.BaseLogger(), dependencyResolver.ResourceDependencies)
