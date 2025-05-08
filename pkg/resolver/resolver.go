@@ -15,6 +15,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/memory"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklRes "github.com/kdeps/schema/gen/resource"
 	pklWf "github.com/kdeps/schema/gen/workflow"
@@ -33,6 +34,9 @@ type DependencyResolver struct {
 	Environment          *environment.Environment
 	Workflow             pklWf.Workflow
 	Request              *gin.Context
+	MemoryReader         *memory.PklResourceReader
+	MemoryDBPath         string
+	AgentName            string
 	RequestID            string
 	RequestPklFile       string
 	ResponsePklFile      string
@@ -105,6 +109,27 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	responsePklFile := filepath.Join(actionDir, "/api/"+graphID+"__response.pkl")
 	responseTargetFile := filepath.Join(actionDir, "/api/"+graphID+"__response.json")
 
+	workflowConfiguration, err := pklWf.LoadFromPath(ctx, pklWfFile)
+	if err != nil {
+		return nil, err
+	}
+
+	var apiServerMode, installAnaconda bool
+	var agentName, memoryDBPath string
+
+	if workflowConfiguration.GetSettings() != nil {
+		apiServerMode = workflowConfiguration.GetSettings().APIServerMode
+		agentSettings := workflowConfiguration.GetSettings().AgentSettings
+		installAnaconda = agentSettings.InstallAnaconda
+		agentName = workflowConfiguration.GetName()
+	}
+
+	memoryDBPath = filepath.Join("/root/.kdeps", agentName+"_memory.db")
+	reader, err := memory.InitializeMemory(memoryDBPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize DB memory: %w", err)
+	}
+
 	dependencyResolver := &DependencyResolver{
 		Fs:                   fs,
 		ResourceDependencies: make(map[string][]string),
@@ -123,18 +148,12 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		ResponseTargetFile:   responseTargetFile,
 		ProjectDir:           projectDir,
 		Request:              req,
-	}
-
-	workflowConfiguration, err := pklWf.LoadFromPath(ctx, pklWfFile)
-	if err != nil {
-		return nil, err
-	}
-	dependencyResolver.Workflow = workflowConfiguration
-	if workflowConfiguration.GetSettings() != nil {
-		dependencyResolver.APIServerMode = workflowConfiguration.GetSettings().APIServerMode
-
-		agentSettings := workflowConfiguration.GetSettings().AgentSettings
-		dependencyResolver.AnacondaInstalled = agentSettings.InstallAnaconda
+		Workflow:             workflowConfiguration,
+		APIServerMode:        apiServerMode,
+		AnacondaInstalled:    installAnaconda,
+		AgentName:            agentName,
+		MemoryDBPath:         memoryDBPath,
+		MemoryReader:         reader,
 	}
 
 	dependencyResolver.Graph = graph.NewDependencyGraph(fs, logger.BaseLogger(), dependencyResolver.ResourceDependencies)
@@ -263,7 +282,16 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 				continue
 			}
 
-			rsc, err := pklRes.LoadFromPath(dr.Context, res.File)
+			resPkl, err := dr.LoadResource(dr.Context, res.File, Resource)
+			if err != nil {
+				return dr.HandleAPIErrorResponse(500, err.Error(), true)
+			}
+
+			rsc, ok := resPkl.(*pklRes.Resource)
+			if !ok {
+				return dr.HandleAPIErrorResponse(500, err.Error(), true)
+			}
+
 			if err != nil {
 				return dr.HandleAPIErrorResponse(500, err.Error(), true)
 			}

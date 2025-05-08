@@ -221,8 +221,8 @@ ENV TZ=%s
 RUN apt-get update --fix-missing && apt-get install -y --no-install-recommends \
     bzip2 ca-certificates git subversion mercurial libglib2.0-0 \
     libsm6 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxinerama1 libxrandr2 libxrender1 \
-    gpg-agent openssh-client procps software-properties-common wget curl nano jq python3 python3-pip
-
+    gpg-agent openssh-client procps software-properties-common wget curl nano jq python3 python3-pip musl musl-dev \
+    musl-tools
 `)
 
 	if useLatest {

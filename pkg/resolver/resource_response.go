@@ -52,6 +52,7 @@ func (dr *DependencyResolver) ensureResponsePklFileNotExists() error {
 func (dr *DependencyResolver) buildResponseSections(requestID string, apiResponseBlock apiserverresponse.APIServerResponse) []string {
 	sections := []string{
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Document.pkl" as document`, schema.SchemaVersion(dr.Context)),
+		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Memory.pkl" as memory`, schema.SchemaVersion(dr.Context)),
 		fmt.Sprintf("success = %v", apiResponseBlock.GetSuccess()),
 		formatResponseMeta(requestID, apiResponseBlock.GetMeta()),
 		formatResponseData(apiResponseBlock.GetResponse()),

@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -128,9 +129,14 @@ func (dr *DependencyResolver) WriteStdoutToFile(resourceID string, stdoutEncoded
 func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExec.ResourceExec) error {
 	pklPath := filepath.Join(dr.ActionDir, "exec/"+dr.RequestID+"__exec_output.pkl")
 
-	pklRes, err := pklExec.LoadFromPath(dr.Context, pklPath)
+	res, err := dr.LoadResource(dr.Context, pklPath, ExecResource)
 	if err != nil {
-		return fmt.Errorf("failed to load PKL file: %w", err)
+		return fmt.Errorf("failed to load PKL: %w", err)
+	}
+
+	pklRes, ok := res.(*pklExec.ExecImpl)
+	if !ok {
+		return errors.New("failed to cast pklRes to *pklExec.ExecImpl")
 	}
 
 	resources := pklRes.GetResources()

@@ -24,7 +24,7 @@ build: deps
 
 dev-build: deps
 	@echo "$(OK_COLOR)==> Building the application for Linux...$(NO_COLOR)"
-	@GOOS=linux go build -v -ldflags="-s -w -X main.Version=$(or $(tag),dev-$(shell git describe --tags --abbrev=0))" -o "$(BUILD_DIR)/$(NAME)" "$(BUILD_SRC)"
+	@GOOS=linux GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-linux-musl-gcc go build -v -ldflags="-s -w -X main.Version=$(or $(tag),dev-$(shell git describe --tags --abbrev=0))" -o "$(BUILD_DIR)/$(NAME)" "$(BUILD_SRC)"
 
 clean:
 	@rm -rf ./bin
