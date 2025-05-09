@@ -4,10 +4,10 @@ outline: deep
 
 # Expr Block
 
-The `expr` is resource block for evaluating standard PKL expressions. It is primarily used to execute
+The `expr` block is space for evaluating standard PKL expressions. It is primarily used to execute
 expressions that produce side effects, such as updating resources or triggering actions, but also supports
-general-purpose evaluation of any valid PKL expression, making it a versatile tool for inline logic and scripting within
-a configuration.
+general-purpose evaluation of any valid PKL expression, making it a place for inline logic and
+scripting within a configuration.
 
 ## Overview of the `expr` Block
 
@@ -41,5 +41,4 @@ expr {
 }
 ```
 
-In this example, the memory store is updated to indicate an active status. The `memory.setItem` function is executed as
-a side effect, and no return value is required. This also applies to `memory.clear()`.
+In this example, the memory store is updated to indicate an active status. The `memory.setItem` function is executed as a side effect, and no return value is required. This also applies to `memory.clear()`.

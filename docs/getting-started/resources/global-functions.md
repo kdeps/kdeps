@@ -34,13 +34,18 @@ Below is a list of the global functions available for each resource:
 
 ## Memory Operation Functions
 
-| **Function**                   | **Description**                                           |
-|:-------------------------------|:----------------------------------------------------------|
-| memory.getItem("key")          | Fetches the value of key from persistent AI Agent memory  |
-| memory.setItem("key", "value") | Stores the value of key to the persistent AI Agent memory |
-| memory.clear()                 | Clears all persistent memory (CAUTION!)                   |
+| **Function**                    | **Description**                                   |
+|:--------------------------------|:--------------------------------------------------|
+| memory.getItem("key")           | Fetches the value of key from persistent memory   |
+| memory.deleteItem("key")        | Delete the memory item from the persistent memory |
+| memory.setItem("key", "value")  | Stores the value of key to the persistent memory  |
+| memory.clear()                  | Clears all persistent memory (CAUTION!)           |
+| session.getItem("key")          | Fetches the value of key from session memory      |
+| session.deleteItem("key")       | Delete the memory item from the session memory    |
+| session.setItem("key", "value") | Stores the value of key to the session memory     |
+| session.clear()                 | Clears all session memory (CAUTION!)              |
 
-> *Note:* The `setItem` and `clear` are side-effecting functions—it performs an action but doesn't return a
+> *Note:* The `setItem`, `deleteItem` and `clear` are side-effecting functions—it performs an action but doesn't return a
 > meaningful value. That is why it is recommended to placed them inside an `expr` block: to ensure the expression is
 > evaluated for its effect.
 

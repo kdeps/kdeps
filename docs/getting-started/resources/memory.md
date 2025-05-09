@@ -4,75 +4,158 @@ outline: deep
 
 # Memory Operations
 
-Memory operations provide a way to store, retrieve, and clear key-value pairs in a persistent memory store. These
-operations are useful for managing state or caching data across different executions or sessions.
+Memory operations store, retrieve, and clear key-value pairs in a persistent store, useful for state or data across executions. Session operations do the same but are temporary, lasting only for a single request (e.g., an API call or process).
 
-The memory operations include `getItem`, `setItem`, and `clear`, which allow you to interact with the memory store
-efficiently.
+Both provide `getItem`, `setItem`, `deleteItem`, and `clear` to manage string-based key-value pairs.
 
 ## Memory Operation Functions
 
-Below are the available memory operation functions, their purposes, and how to use them.
+These functions manage persistent data.
 
-### `getItem(id: String): String`
+### `memory.getItem(id: String): String`
 
-Retrieves the textual content of a memory item by its identifier.
+Gets a memory item by its ID.
 
 - **Parameters**:
-  - `id`: The identifier of the memory item.
-- **Returns**: The textual content of the memory entry, or an empty string if not found.
+  - `id`: The item’s key.
+- **Returns**: The item’s value or an empty string if not found.
 
-#### Example: Retrieving a Stored Value
+#### Example
 
 ```apl
-local taskContext = "@(memory.getItem("task_123_context"))"
+local context = "@(memory.getItem("task_123"))"
 ```
 
-In this example, the `getItem` function retrieves the `task_123_context` record item.
-> **Note:** Because Apple PKL uses late binding, the taskContext expression won’t be evaluated until it is actually
-> accessed—for example, when included in a response output or passed into an LLM prompt.
+Gets `task_123` value, evaluated when accessed due to late binding.
 
-### `setItem(id: String, value: String): String`
+### `memory.setItem(id: String, value: String): String`
 
-Sets or updates a memory item with a new value.
+Stores or updates a memory item.
 
 - **Parameters**:
-  - `id`: The identifier of the memory item.
+  - `id`: The item’s key.
   - `value`: The value to store.
-- **Returns**: The set value as confirmation.
+- **Returns**: The stored value.
 
-#### Example: Storing a Value
+#### Example
 
 ```apl
 expr {
-  taskId = "task_123"
-  result = "completed_successfully"
-  "@(memory.setItem(taskId, result))"
+  "@(memory.setItem("task_123", "done"))"
 }
 ```
 
-In this example, `memory.setItem` stores the value `"completed_successfully"` under the key `"task_123"` in memory.
+Stores `"done"` for `task_123`. Uses `expr` for side-effect.
 
-We use the `exp`r block because `setItem` is a side-effecting function—it performs an action but doesn't return a
-meaningful value. That is why it's placed inside an `expr` block: to ensure the expression is evaluated for its effect
-rather than for a result that would otherwise be ignored.
+### `memory.deleteItem(id: String): String`
 
-### `clear(): String`
+Deletes a memory item.
 
-Clears all memory items in the store.
+- **Parameters**:
+  - `id`: The item’s key.
+- **Returns**: The deleted value.
 
-- **Returns**: A confirmation message.
+### `memory.clear(): String`
 
-#### Example: Resetting All Stored Data
+Clears all memory items.
+
+- **Returns**: Confirmation message.
+
+#### Example
 
 ```apl
 clear()
 ```
 
-This example clears all memory items, resetting the memory store to an empty state. A confirmation message is returned.
+Resets memory store.
+
+## Session Operation Functions
+
+Session operations manage temporary data, scoped to a single request and cleared afterward. They mirror memory operations but are not persistent.
+
+### `session.getItem(id: String): String`
+
+Gets a session item by its ID.
+
+- **Parameters**:
+  - `id`: The item’s key.
+- **Returns**: The item’s value or an empty string if not found.
+
+#### Example
+
+```apl
+local temp = "@(session.getItem("req_789"))"
+```
+
+Gets `req_789` value, available only during the request.
+
+### `session.setItem(id: String, value: String): String`
+
+Stores a session item for the current request.
+
+- **Parameters**:
+  - `id`: The item’s key.
+  - `value`: The value to store.
+- **Returns**: The stored value.
+
+#### Example
+
+```apl
+expr {
+  "@(session.setItem("req_789", "temp_data"))"
+}
+```
+
+Stores `"temp_data"` for `req_789`, discarded after the request.
+
+### `session.deleteItem(id: String): String`
+
+Deletes a session item.
+
+- **Parameters**:
+  - `id`: The item’s key.
+- **Returns**: The deleted value.
+
+### `session.clear(): String`
+
+Clears all session items for the current request.
+
+- **Returns**: Confirmation message.
+
+#### Example
+
+```apl
+session.clear()
+```
+
+Clears session data for the request.
+
+## Memory vs. Session
+
+- **Persistence**:
+  - **Memory**: Persistent across requests or sessions (e.g., task state).
+  - **Session**: Temporary, cleared after the request (e.g., request-specific data).
+- **Use Cases**:
+  - **Memory**: Task results, cached data (e.g., `task_123`).
+  - **Session**: Temporary flags, request context (e.g., `req_789`).
+- **API**: Both use `getItem`, `setItem`, `deleteItem`, `clear` with identical signatures.
+
+#### Example
+
+```apl
+expr {
+  // Persistent task data
+  "@(memory.setItem("task_123", "done"))"
+  // Temporary request data
+  "@(session.setItem("req_789", "temp"))"
+}
+local task = "@(memory.getItem("task_123"))" // "done"
+local temp = "@(session.getItem("req_789"))" // "temp" (this request only)
+```
 
 ## Notes
 
-- The `getItem` and `setItem` functions operate on string-based key-value pairs.
-- The `clear` function removes all stored items, so use it cautiously to avoid unintended data loss.
-- Memory operations are synchronous and return immediately with the result or confirmation.
+- Both operate on string key-value pairs.
+- Use `memory` for data that lasts, `session` for request-only data.
+- `clear` in either removes all items, so use carefully.
+- Operations are synchronous, returning immediately.

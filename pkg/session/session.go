@@ -1,4 +1,4 @@
-package memory
+package session
 
 import (
 	"database/sql"
@@ -21,7 +21,7 @@ type PklResourceReader struct {
 
 // Scheme returns the URI scheme for this reader.
 func (r *PklResourceReader) Scheme() string {
-	return "memory"
+	return "session"
 }
 
 // IsGlobbable indicates whether the reader supports globbing (not needed here).
@@ -44,7 +44,7 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 	// Check if receiver is nil and initialize with fixed DBPath
 	if r == nil {
 		log.Printf("Warning: PklResourceReader is nil for URI: %s, initializing with DBPath", uri.String())
-		newReader, err := InitializeMemory(r.DBPath)
+		newReader, err := InitializeSession(r.DBPath)
 		if err != nil {
 			log.Printf("Failed to initialize PklResourceReader in Read: %v", err)
 			return nil, fmt.Errorf("failed to initialize PklResourceReader: %w", err)
@@ -233,8 +233,8 @@ func InitializeDatabase(dbPath string) (*sql.DB, error) {
 	return nil, fmt.Errorf("failed to initialize database after %d attempts", maxAttempts)
 }
 
-// InitializeMemory creates a new PklResourceReader with an initialized SQLite database.
-func InitializeMemory(dbPath string) (*PklResourceReader, error) {
+// InitializeSession creates a new PklResourceReader with an initialized SQLite database.
+func InitializeSession(dbPath string) (*PklResourceReader, error) {
 	db, err := InitializeDatabase(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("error initializing database: %w", err)
