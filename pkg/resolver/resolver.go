@@ -16,6 +16,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/memory"
+	"github.com/kdeps/kdeps/pkg/session"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklRes "github.com/kdeps/schema/gen/resource"
 	pklWf "github.com/kdeps/schema/gen/workflow"
@@ -36,6 +37,8 @@ type DependencyResolver struct {
 	Request              *gin.Context
 	MemoryReader         *memory.PklResourceReader
 	MemoryDBPath         string
+	SessionReader        *session.PklResourceReader
+	SessionDBPath        string
 	AgentName            string
 	RequestID            string
 	RequestPklFile       string
@@ -115,7 +118,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	}
 
 	var apiServerMode, installAnaconda bool
-	var agentName, memoryDBPath string
+	var agentName, memoryDBPath, sessionDBPath string
 
 	if workflowConfiguration.GetSettings() != nil {
 		apiServerMode = workflowConfiguration.GetSettings().APIServerMode
@@ -125,9 +128,17 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	}
 
 	memoryDBPath = filepath.Join("/root/.kdeps", agentName+"_memory.db")
-	reader, err := memory.InitializeMemory(memoryDBPath)
+	memoryReader, err := memory.InitializeMemory(memoryDBPath)
 	if err != nil {
+		memoryReader.DB.Close()
 		return nil, fmt.Errorf("failed to initialize DB memory: %w", err)
+	}
+
+	sessionDBPath = filepath.Join(actionDir, graphID+"_session.db")
+	sessionReader, err := session.InitializeSession(sessionDBPath)
+	if err != nil {
+		sessionReader.DB.Close()
+		return nil, fmt.Errorf("failed to initialize session DB: %w", err)
 	}
 
 	dependencyResolver := &DependencyResolver{
@@ -153,7 +164,9 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		AnacondaInstalled:    installAnaconda,
 		AgentName:            agentName,
 		MemoryDBPath:         memoryDBPath,
-		MemoryReader:         reader,
+		MemoryReader:         memoryReader,
+		SessionDBPath:        sessionDBPath,
+		SessionReader:        sessionReader,
 	}
 
 	dependencyResolver.Graph = graph.NewDependencyGraph(fs, logger.BaseLogger(), dependencyResolver.ResourceDependencies)
@@ -256,6 +269,16 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	defer func() {
 		if r := recover(); r != nil {
 			dr.Logger.Error("panic recovered in HandleRunAction", "panic", r)
+
+			// Close the DB
+			dr.MemoryReader.DB.Close()
+			dr.SessionReader.DB.Close()
+
+			// Remove the session DB file
+			if err := dr.Fs.RemoveAll(dr.SessionDBPath); err != nil {
+				dr.Logger.Error("failed to delete the SessionDB file", "file", dr.SessionDBPath, "error", err)
+			}
+
 			buf := make([]byte, 1<<16)
 			stackSize := runtime.Stack(buf, false)
 			dr.Logger.Error("stack trace", "stack", string(buf[:stackSize]))
@@ -409,9 +432,19 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 		}
 	}
 
+	// Close the DB
+	dr.MemoryReader.DB.Close()
+	dr.SessionReader.DB.Close()
+
 	// Remove the request stamp file
 	if err := dr.Fs.RemoveAll(requestFilePath); err != nil {
 		dr.Logger.Error("failed to delete old requestID file", "file", requestFilePath, "error", err)
+		return false, err
+	}
+
+	// Remove the session DB file
+	if err := dr.Fs.RemoveAll(dr.SessionDBPath); err != nil {
+		dr.Logger.Error("failed to delete the SessionDB file", "file", dr.SessionDBPath, "error", err)
 		return false, err
 	}
 
