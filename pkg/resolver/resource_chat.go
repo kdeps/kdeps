@@ -55,12 +55,12 @@ func (dr *DependencyResolver) HandleLLMChat(actionID string, chatBlock *pklLLM.R
 // decodeChatBlock decodes fields in the chat block, handling Base64 decoding where necessary.
 func (dr *DependencyResolver) decodeChatBlock(chatBlock *pklLLM.ResourceChat) error {
 	// Decode Prompt
-	if err := decodeField(&chatBlock.Prompt, "Prompt", utils.SafeDerefString); err != nil {
+	if err := decodeField(&chatBlock.Prompt, "Prompt", utils.SafeDerefString, ""); err != nil {
 		return err
 	}
 
 	// Decode Role
-	if err := decodeField(&chatBlock.Role, "Role", utils.SafeDerefString); err != nil {
+	if err := decodeField(&chatBlock.Role, "Role", utils.SafeDerefString, RoleHuman); err != nil {
 		return err
 	}
 
@@ -91,11 +91,12 @@ func (dr *DependencyResolver) decodeChatBlock(chatBlock *pklLLM.ResourceChat) er
 	return nil
 }
 
-// decodeField decodes a single field, handling Base64 if needed.
-func decodeField(field **string, fieldName string, deref func(*string) string) error {
+// decodeField decodes a single field, handling Base64 if needed, and uses a default value if the field is nil.
+func decodeField(field **string, fieldName string, deref func(*string) string, defaultValue string) error {
 	if field == nil || *field == nil {
-		return fmt.Errorf("field %s is nil", fieldName)
+		*field = &defaultValue
 	}
+	// Field is non-nil, proceed with decoding
 	decoded, err := utils.DecodeBase64IfNeeded(deref(*field))
 	if err != nil {
 		return fmt.Errorf("failed to decode %s: %w", fieldName, err)
@@ -201,21 +202,21 @@ func decodeToolEntry(entry *pklLLM.Tool, index int, logger *logging.Logger) (*pk
 
 	// Decode Name
 	if entry.Name != nil {
-		if err := decodeField(&decodedTool.Name, fmt.Sprintf("Tools[%d].Name", index), utils.SafeDerefString); err != nil {
+		if err := decodeField(&decodedTool.Name, fmt.Sprintf("Tools[%d].Name", index), utils.SafeDerefString, ""); err != nil {
 			return nil, err
 		}
 	}
 
 	// Decode Script
 	if entry.Script != nil {
-		if err := decodeField(&decodedTool.Script, fmt.Sprintf("Tools[%d].Script", index), utils.SafeDerefString); err != nil {
+		if err := decodeField(&decodedTool.Script, fmt.Sprintf("Tools[%d].Script", index), utils.SafeDerefString, ""); err != nil {
 			return nil, err
 		}
 	}
 
 	// Decode Description
 	if entry.Description != nil {
-		if err := decodeField(&decodedTool.Description, fmt.Sprintf("Tools[%d].Description", index), utils.SafeDerefString); err != nil {
+		if err := decodeField(&decodedTool.Description, fmt.Sprintf("Tools[%d].Description", index), utils.SafeDerefString, ""); err != nil {
 			return nil, err
 		}
 	}
@@ -244,14 +245,14 @@ func decodeToolParameters(params *map[string]*pklLLM.ToolProperties, index int, 
 
 		// Decode Type
 		if param.Type != nil {
-			if err := decodeField(&decodedParam.Type, fmt.Sprintf("Tools[%d].Parameters[%s].Type", index, paramName), utils.SafeDerefString); err != nil {
+			if err := decodeField(&decodedParam.Type, fmt.Sprintf("Tools[%d].Parameters[%s].Type", index, paramName), utils.SafeDerefString, ""); err != nil {
 				return nil, err
 			}
 		}
 
 		// Decode Description
 		if param.Description != nil {
-			if err := decodeField(&decodedParam.Description, fmt.Sprintf("Tools[%d].Parameters[%s].Description", index, paramName), utils.SafeDerefString); err != nil {
+			if err := decodeField(&decodedParam.Description, fmt.Sprintf("Tools[%d].Parameters[%s].Description", index, paramName), utils.SafeDerefString, ""); err != nil {
 				return nil, err
 			}
 		}
