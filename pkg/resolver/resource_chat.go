@@ -483,16 +483,45 @@ func generateAvailableTools(chatBlock *pklLLM.ResourceChat, logger *logging.Logg
 	return tools
 }
 
+// extractToolNames extracts tool names from a slice of llms.Tool for logging.
+func extractToolNames(tools []llms.Tool) []string {
+	names := make([]string, 0, len(tools))
+	for _, t := range tools {
+		if t.Function != nil {
+			names = append(names, t.Function.Name)
+		}
+	}
+	return names
+}
+
 // generateChatResponse generates a response from the LLM based on the chat block, executing tools via toolreader.
 func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, chatBlock *pklLLM.ResourceChat, toolreader *tool.PklResourceReader, logger *logging.Logger) (string, error) {
-	if chatBlock.JSONResponse == nil || !*chatBlock.JSONResponse {
-		prompt := utils.SafeDerefString(chatBlock.Prompt)
-		if strings.TrimSpace(prompt) == "" {
-			return "", errors.New("prompt cannot be empty for non-JSON response")
+	// Log chatBlock details for debugging
+	logger.Info("Processing chatBlock",
+		"model", chatBlock.Model,
+		"prompt", utils.SafeDerefString(chatBlock.Prompt),
+		"role", utils.SafeDerefString(chatBlock.Role),
+		"json_response", utils.SafeDerefBool(chatBlock.JSONResponse),
+		"json_response_keys", utils.SafeDerefSlice(chatBlock.JSONResponseKeys),
+		"tool_count", len(utils.SafeDerefSlice(chatBlock.Tools)),
+		"scenario_count", len(utils.SafeDerefSlice(chatBlock.Scenario)),
+		"file_count", len(utils.SafeDerefSlice(chatBlock.Files)))
+
+	// Log tool details
+	if chatBlock.Tools != nil {
+		for i, tool := range *chatBlock.Tools {
+			logger.Info("Tool details",
+				"index", i,
+				"name", utils.SafeDerefString(tool.Name),
+				"script", utils.SafeDerefString(tool.Script),
+				"description", utils.SafeDerefString(tool.Description),
+				"param_count", len(utils.SafeDerefMap(tool.Parameters)))
 		}
-		logger.Info("Sending non-JSON prompt to LLM", "prompt", prompt)
-		return llm.Call(ctx, prompt)
 	}
+
+	// Generate dynamic tools
+	availableTools := generateAvailableTools(chatBlock, logger)
+	logger.Info("Generated tools", "tool_count", len(availableTools), "tool_names", extractToolNames(availableTools))
 
 	// Estimate capacity for content slice and initialize message history
 	capacity := 1 // System prompt
@@ -509,6 +538,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 
 	// Build initial content
 	systemPrompt := buildSystemPrompt(chatBlock.JSONResponseKeys)
+	logger.Info("Generated system prompt", "content", systemPrompt)
 	role, roleType := getRoleAndType(chatBlock.Role)
 	prompt := utils.SafeDerefString(chatBlock.Prompt)
 
@@ -551,9 +581,6 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		}
 	}
 
-	// Generate dynamic tools from chatBlock.Tools
-	availableTools := generateAvailableTools(chatBlock, logger)
-
 	// Log content being sent
 	for i, msg := range messageHistory {
 		for _, part := range msg.Parts {
@@ -567,11 +594,14 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 	}
 
 	// First GenerateContent call with tools
-	opts := []llms.CallOption{llms.WithJSONMode()}
-	if len(availableTools) > 0 {
-		opts = append(opts, llms.WithTools(availableTools))
-		opts = append(opts, llms.WithToolChoice("auto"))
+	opts := []llms.CallOption{llms.WithModel(chatBlock.Model)}
+	if chatBlock.JSONResponse != nil && *chatBlock.JSONResponse {
+		opts = append(opts, llms.WithJSONMode())
 	}
+	if availableTools != nil {
+		opts = append(opts, llms.WithTools(availableTools))
+	}
+	logger.Info("Calling LLM with options", "json_mode", *chatBlock.JSONResponse, "tool_count", len(availableTools))
 	response, err := llm.GenerateContent(ctx, messageHistory, opts...)
 	if err != nil {
 		logger.Error("Failed to generate JSON content in first call", "error", err)
@@ -592,7 +622,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		assistantResponse.Parts = append(assistantResponse.Parts, tc)
 	}
 	messageHistory = append(messageHistory, assistantResponse)
-	logger.Info("Added AI response to history", "content", respChoice.Content)
+	logger.Info("Added AI response to history", "content", respChoice.Content, "tool_calls", len(respChoice.ToolCalls))
 
 	// Process tool calls if present
 	if len(respChoice.ToolCalls) > 0 {
@@ -601,15 +631,12 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 			logger.Error("Failed to process tool calls", "error", err)
 			return "", fmt.Errorf("failed to process tool calls: %w", err)
 		}
-	}
-
-	// If no tool calls, return the first response
-	if len(respChoice.ToolCalls) == 0 {
-		logger.Info("No tool calls in first response, returning content", "content", respChoice.Content)
-		return respChoice.Content, nil
+	} else {
+		logger.Info("No tool calls in first response, proceeding to second GenerateContent", "content", respChoice.Content)
 	}
 
 	// Second GenerateContent call with updated history
+	logger.Info("Calling second GenerateContent with updated history", "message_count", len(messageHistory))
 	response, err = llm.GenerateContent(ctx, messageHistory, opts...)
 	if err != nil {
 		logger.Error("Failed to generate JSON content in second call", "error", err)
@@ -622,7 +649,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 
 	// Log and return the final response
 	finalContent := response.Choices[0].Content
-	logger.Info("Received final LLM response after tool calls", "content", finalContent)
+	logger.Info("Received final LLM response", "content", finalContent)
 	return finalContent, nil
 }
 
@@ -677,11 +704,12 @@ func processToolCalls(toolCalls []llms.ToolCall, toolreader *tool.PklResourceRea
 
 		// Add tool response to history with explicit tool role
 		toolResponse := llms.MessageContent{
-			Role: llms.ChatMessageTypeTool,
+			Role: RoleTool,
 			Parts: []llms.ContentPart{
 				llms.ToolCallResponse{
-					Name:    tc.FunctionCall.Name,
-					Content: resultStr,
+					ToolCallID: tc.ID,
+					Name:       tc.FunctionCall.Name,
+					Content:    resultStr,
 				},
 			},
 		}
