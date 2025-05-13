@@ -2,8 +2,10 @@ package resolver
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -13,6 +15,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/tool"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklLLM "github.com/kdeps/schema/gen/llm"
 	"github.com/spf13/afero"
@@ -171,27 +174,35 @@ func decodeFiles(chatBlock *pklLLM.ResourceChat) error {
 	return nil
 }
 
-// decodeTools decodes the Tools field, handling nested parameters.
+// decodeTools decodes the Tools field, handling nested parameters and nil cases.
 func decodeTools(chatBlock *pklLLM.ResourceChat, logger *logging.Logger) error {
+	if chatBlock == nil {
+		logger.Error("chatBlock is nil in decodeTools")
+		return errors.New("chatBlock cannot be nil")
+	}
+
 	if chatBlock.Tools == nil {
-		logger.Info("Tools is nil")
+		logger.Info("Tools is nil, initializing empty slice")
+		emptyTools := make([]*pklLLM.Tool, 0)
+		chatBlock.Tools = &emptyTools
 		return nil
 	}
 
 	logger.Info("Decoding Tools", "length", len(*chatBlock.Tools))
-	decodedTools := make([]*pklLLM.Tool, len(*chatBlock.Tools))
+	decodedTools := make([]*pklLLM.Tool, 0, len(*chatBlock.Tools))
 	for i, entry := range *chatBlock.Tools {
 		if entry == nil {
-			logger.Info("Tools entry is nil", "index", i)
-			decodedTools[i] = nil
+			logger.Warn("Tools entry is nil", "index", i)
 			continue
 		}
+		logger.Debug("Processing tool entry", "index", i, "name", utils.SafeDerefString(entry.Name), "script", utils.SafeDerefString(entry.Script))
 		decodedTool, err := decodeToolEntry(entry, i, logger)
 		if err != nil {
+			logger.Error("Failed to decode tool entry", "index", i, "error", err)
 			return err
 		}
-		logger.Info("Decoded Tools entry", "index", i, "name", *decodedTool.Name)
-		decodedTools[i] = decodedTool
+		logger.Info("Decoded Tools entry", "index", i, "name", utils.SafeDerefString(decodedTool.Name))
+		decodedTools = append(decodedTools, decodedTool)
 	}
 	chatBlock.Tools = &decodedTools
 	return nil
@@ -199,13 +210,24 @@ func decodeTools(chatBlock *pklLLM.ResourceChat, logger *logging.Logger) error {
 
 // decodeToolEntry decodes a single Tool entry.
 func decodeToolEntry(entry *pklLLM.Tool, index int, logger *logging.Logger) (*pklLLM.Tool, error) {
+	if entry == nil {
+		logger.Error("Tool entry is nil", "index", index)
+		return nil, fmt.Errorf("tool entry at index %d is nil", index)
+	}
+
 	decodedTool := &pklLLM.Tool{}
+	logger.Debug("Decoding tool", "index", index, "raw_name", entry.Name, "raw_script", entry.Script)
 
 	// Decode Name
 	if entry.Name != nil {
 		if err := decodeField(&decodedTool.Name, fmt.Sprintf("Tools[%d].Name", index), utils.SafeDerefString, ""); err != nil {
 			return nil, err
 		}
+		logger.Debug("Decoded tool name", "index", index, "name", *decodedTool.Name)
+	} else {
+		logger.Warn("Tool name is nil", "index", index)
+		emptyName := ""
+		decodedTool.Name = &emptyName
 	}
 
 	// Decode Script
@@ -213,6 +235,11 @@ func decodeToolEntry(entry *pklLLM.Tool, index int, logger *logging.Logger) (*pk
 		if err := decodeField(&decodedTool.Script, fmt.Sprintf("Tools[%d].Script", index), utils.SafeDerefString, ""); err != nil {
 			return nil, err
 		}
+		logger.Debug("Decoded tool script", "index", index, "script_length", len(*decodedTool.Script))
+	} else {
+		logger.Warn("Tool script is nil", "index", index)
+		emptyScript := ""
+		decodedTool.Script = &emptyScript
 	}
 
 	// Decode Description
@@ -220,6 +247,11 @@ func decodeToolEntry(entry *pklLLM.Tool, index int, logger *logging.Logger) (*pk
 		if err := decodeField(&decodedTool.Description, fmt.Sprintf("Tools[%d].Description", index), utils.SafeDerefString, ""); err != nil {
 			return nil, err
 		}
+		logger.Debug("Decoded tool description", "index", index, "description", *decodedTool.Description)
+	} else {
+		logger.Warn("Tool description is nil", "index", index)
+		emptyDesc := ""
+		decodedTool.Description = &emptyDesc
 	}
 
 	// Decode Parameters
@@ -229,6 +261,11 @@ func decodeToolEntry(entry *pklLLM.Tool, index int, logger *logging.Logger) (*pk
 			return nil, err
 		}
 		decodedTool.Parameters = params
+		logger.Debug("Decoded tool parameters", "index", index, "param_count", len(*params))
+	} else {
+		logger.Warn("Tool parameters are nil", "index", index)
+		emptyParams := make(map[string]*pklLLM.ToolProperties)
+		decodedTool.Parameters = &emptyParams
 	}
 
 	return decodedTool, nil
@@ -292,7 +329,7 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 		return fmt.Errorf("failed to initialize LLM: %w", err)
 	}
 
-	completion, err := generateChatResponse(dr.Context, dr.Fs, llm, chatBlock, dr.Logger)
+	completion, err := generateChatResponse(dr.Context, dr.Fs, llm, chatBlock, dr.ToolReader, dr.Logger)
 	if err != nil {
 		return err
 	}
@@ -301,8 +338,95 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 	return dr.AppendChatEntry(actionID, chatBlock)
 }
 
-// generateChatResponse generates a response from the LLM based on the chat block.
-func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, chatBlock *pklLLM.ResourceChat, logger *logging.Logger) (string, error) {
+// generateAvailableTools creates a dynamic list of llms.Tool from chatBlock.Tools, designed for execution via dr.ToolReader.Read.
+func generateAvailableTools(chatBlock *pklLLM.ResourceChat, logger *logging.Logger) []llms.Tool {
+	if chatBlock == nil || chatBlock.Tools == nil || len(*chatBlock.Tools) == 0 {
+		logger.Info("No tools defined in chatBlock, returning empty availableTools")
+		return nil
+	}
+
+	logger.Debug("Generating available tools", "tool_count", len(*chatBlock.Tools))
+	tools := make([]llms.Tool, 0, len(*chatBlock.Tools))
+	for i, tool := range *chatBlock.Tools {
+		if tool == nil || tool.Name == nil || *tool.Name == "" {
+			logger.Warn("Skipping invalid tool entry", "index", i)
+			continue
+		}
+
+		name := *tool.Name
+		logger.Debug("Processing tool", "index", i, "name", name)
+		description := "Execute a script using PklResourceReader's run operation, storing output with the specified ID"
+		if tool.Description != nil && *tool.Description != "" {
+			description = *tool.Description
+		}
+
+		// Define parameters: id and script are required, params is optional
+		properties := map[string]any{
+			"id": map[string]any{
+				"type":        "string",
+				"description": "The unique identifier for the script output",
+			},
+			"script": map[string]any{
+				"type":        "string",
+				"description": "The inline script content or path to the script file",
+			},
+			"params": map[string]any{
+				"type":        "string",
+				"description": "Comma-separated parameters to pass to the script (optional)",
+			},
+		}
+		required := []string{"id", "script"}
+
+		// Add tool-specific parameters from pklLLM.Tool.Parameters
+		if tool.Parameters != nil {
+			for paramName, param := range *tool.Parameters {
+				if param == nil {
+					logger.Warn("Skipping nil parameter", "tool", name, "paramName", paramName)
+					continue
+				}
+				// Skip reserved parameter names
+				if paramName == "id" || paramName == "script" || paramName == "params" {
+					logger.Warn("Skipping parameter with reserved name", "tool", name, "paramName", paramName)
+					continue
+				}
+				paramType := "string"
+				if param.Type != nil && *param.Type != "" {
+					paramType = *param.Type
+				}
+				paramDesc := ""
+				if param.Description != nil {
+					paramDesc = *param.Description
+				}
+				properties[paramName] = map[string]any{
+					"type":        paramType,
+					"description": paramDesc,
+				}
+				if param.Required != nil && *param.Required {
+					required = append(required, paramName)
+				}
+			}
+		}
+
+		tools = append(tools, llms.Tool{
+			Type: "function",
+			Function: &llms.FunctionDefinition{
+				Name:        name,
+				Description: description,
+				Parameters: map[string]any{
+					"type":       "object",
+					"properties": properties,
+					"required":   required,
+				},
+			},
+		})
+		logger.Info("Added tool to availableTools", "name", name, "required_params", required)
+	}
+
+	return tools
+}
+
+// generateChatResponse generates a response from the LLM based on the chat block, executing tools via toolreader.
+func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, chatBlock *pklLLM.ResourceChat, toolreader *tool.PklResourceReader, logger *logging.Logger) (string, error) {
 	if chatBlock.JSONResponse == nil || !*chatBlock.JSONResponse {
 		prompt := utils.SafeDerefString(chatBlock.Prompt)
 		if strings.TrimSpace(prompt) == "" {
@@ -321,7 +445,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		capacity += len(*chatBlock.Scenario)
 	}
 	if chatBlock.Files != nil {
-		capacity += len(*chatBlock.Files) // Files as binary parts
+		capacity += len(*chatBlock.Files)
 	}
 
 	// Pre-allocate content slice
@@ -354,18 +478,13 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 	// Process files if present
 	if chatBlock.Files != nil && len(*chatBlock.Files) > 0 {
 		for i, filePath := range *chatBlock.Files {
-			// Read file content
 			fileBytes, err := afero.ReadFile(fs, filePath)
 			if err != nil {
 				logger.Error("Failed to read file", "index", i, "path", filePath, "error", err)
 				return "", fmt.Errorf("failed to read file %s: %w", filePath, err)
 			}
-
-			// Detect MIME type
 			fileType := mimetype.Detect(fileBytes).String()
 			logger.Info("Detected MIME type for file", "index", i, "path", filePath, "mimeType", fileType)
-
-			// Add file as binary part with MIME type
 			content = append(content, llms.MessageContent{
 				Role: roleType,
 				Parts: []llms.ContentPart{
@@ -374,6 +493,9 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 			})
 		}
 	}
+
+	// Generate dynamic tools from chatBlock.Tools
+	availableTools := generateAvailableTools(chatBlock, logger)
 
 	// Log content being sent
 	for i, msg := range content {
@@ -387,7 +509,13 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		}
 	}
 
-	response, err := llm.GenerateContent(ctx, content, llms.WithJSONMode())
+	// Pass tools to LLM if available
+	opts := []llms.CallOption{llms.WithJSONMode()}
+	if len(availableTools) > 0 {
+		opts = append(opts, llms.WithTools(availableTools))
+	}
+
+	response, err := llm.GenerateContent(ctx, content, opts...)
 	if err != nil {
 		logger.Error("Failed to generate JSON content", "error", err)
 		return "", fmt.Errorf("failed to generate JSON content: %w", err)
@@ -396,8 +524,117 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		logger.Error("Empty response from LLM")
 		return "", errors.New("empty response from model")
 	}
+
+	// Process tool calls if present
+	if result := processToolCalls(response.Choices[0].ToolCalls, toolreader, logger); result != "" {
+		return result, nil
+	}
+
 	logger.Info("Received LLM response", "content", response.Choices[0].Content)
 	return response.Choices[0].Content, nil
+}
+
+// processToolCalls processes tool calls and returns combined results or an empty string if none.
+func processToolCalls(toolCalls []llms.ToolCall, toolreader *tool.PklResourceReader, logger *logging.Logger) string {
+	if len(toolCalls) == 0 {
+		return ""
+	}
+
+	toolResults := make([]string, 0, len(toolCalls))
+	for _, tc := range toolCalls {
+		if tc.FunctionCall == nil || tc.FunctionCall.Name == "" {
+			logger.Warn("Skipping tool call with empty function name or nil FunctionCall")
+			continue
+		}
+		logger.Info("Processing tool call", "name", tc.FunctionCall.Name, "arguments", tc.FunctionCall.Arguments)
+
+		args, err := parseToolCallArgs(tc.FunctionCall.Arguments, logger)
+		if err != nil {
+			toolResults = append(toolResults, "Error: failed to parse arguments: "+err.Error())
+			continue
+		}
+
+		id, script, paramsStr, err := extractToolParams(args, tc.FunctionCall.Name, logger)
+		if err != nil {
+			toolResults = append(toolResults, err.Error())
+			continue
+		}
+
+		uri, err := buildToolURI(id, script, paramsStr)
+		if err != nil {
+			logger.Error("Failed to parse URI", "uri", uri, "error", err)
+			toolResults = append(toolResults, "Error: failed to parse URI: "+err.Error())
+			continue
+		}
+
+		result, err := toolreader.Read(*uri)
+		if err != nil {
+			logger.Error("Tool execution failed", "name", tc.FunctionCall.Name, "uri", uri.String(), "error", err)
+			toolResults = append(toolResults, "Error: "+err.Error())
+			continue
+		}
+
+		resultStr := string(result)
+		logger.Info("Tool execution succeeded", "name", tc.FunctionCall.Name, "result", resultStr)
+		toolResults = append(toolResults, resultStr)
+	}
+
+	if len(toolResults) == 0 {
+		return ""
+	}
+	return strings.Join(toolResults, "\n")
+}
+
+// parseToolCallArgs parses JSON arguments from a tool call.
+func parseToolCallArgs(arguments string, logger *logging.Logger) (map[string]interface{}, error) {
+	args := make(map[string]interface{})
+	if err := json.Unmarshal([]byte(arguments), &args); err != nil {
+		logger.Error("Failed to parse tool call arguments", "error", err)
+		return nil, err
+	}
+	return args, nil
+}
+
+// extractToolParams extracts and validates tool call parameters.
+func extractToolParams(args map[string]interface{}, toolName string, logger *logging.Logger) (string, string, string, error) {
+	id, ok := args["id"].(string)
+	if !ok || id == "" {
+		logger.Error("Tool call missing required 'id' parameter", "name", toolName)
+		return "", "", "", errors.New("Error: missing or invalid 'id' for " + toolName)
+	}
+
+	script, ok := args["script"].(string)
+	if !ok || script == "" {
+		logger.Error("Tool call missing required 'script' parameter", "name", toolName)
+		return "", "", "", errors.New("Error: missing or invalid 'script' for " + toolName)
+	}
+
+	var extraParams []string
+	if params, ok := args["params"].(string); ok && params != "" {
+		extraParams = append(extraParams, params)
+	}
+	for key, value := range args {
+		if key != "id" && key != "script" && key != "params" {
+			if strVal, ok := value.(string); ok {
+				extraParams = append(extraParams, strVal)
+			}
+		}
+	}
+	paramsStr := strings.Join(extraParams, ",")
+	return id, script, paramsStr, nil
+}
+
+// buildToolURI constructs the URI for tool execution.
+func buildToolURI(id, script, paramsStr string) (*url.URL, error) {
+	queryParams := url.Values{
+		"op":     []string{"run"},
+		"script": []string{script},
+	}
+	if paramsStr != "" {
+		queryParams.Add("params", paramsStr)
+	}
+	uriStr := "tool:/" + url.PathEscape(id) + "?" + queryParams.Encode()
+	return url.Parse(uriStr)
 }
 
 // buildSystemPrompt constructs the system prompt for JSON responses.
