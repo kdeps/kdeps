@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/apple/pkl-go/pkl"
+	"github.com/gabriel-vasile/mimetype"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
@@ -291,7 +292,7 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 		return fmt.Errorf("failed to initialize LLM: %w", err)
 	}
 
-	completion, err := generateChatResponse(dr.Context, llm, chatBlock, dr.Logger)
+	completion, err := generateChatResponse(dr.Context, dr.Fs, llm, chatBlock, dr.Logger)
 	if err != nil {
 		return err
 	}
@@ -301,7 +302,7 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 }
 
 // generateChatResponse generates a response from the LLM based on the chat block.
-func generateChatResponse(ctx context.Context, llm *ollama.LLM, chatBlock *pklLLM.ResourceChat, logger *logging.Logger) (string, error) {
+func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, chatBlock *pklLLM.ResourceChat, logger *logging.Logger) (string, error) {
 	if chatBlock.JSONResponse == nil || !*chatBlock.JSONResponse {
 		prompt := utils.SafeDerefString(chatBlock.Prompt)
 		if strings.TrimSpace(prompt) == "" {
@@ -319,6 +320,9 @@ func generateChatResponse(ctx context.Context, llm *ollama.LLM, chatBlock *pklLL
 	if chatBlock.Scenario != nil {
 		capacity += len(*chatBlock.Scenario)
 	}
+	if chatBlock.Files != nil {
+		capacity += len(*chatBlock.Files) // Files as binary parts
+	}
 
 	// Pre-allocate content slice
 	content := make([]llms.MessageContent, 0, capacity)
@@ -333,6 +337,7 @@ func generateChatResponse(ctx context.Context, llm *ollama.LLM, chatBlock *pklLL
 		Parts: []llms.ContentPart{llms.TextContent{Text: systemPrompt}},
 	})
 
+	// Add main prompt if present
 	if strings.TrimSpace(prompt) != "" {
 		if roleType == llms.ChatMessageTypeGeneric {
 			prompt = fmt.Sprintf("[%s]: %s", role, prompt)
@@ -343,13 +348,41 @@ func generateChatResponse(ctx context.Context, llm *ollama.LLM, chatBlock *pklLL
 		})
 	}
 
+	// Add scenario messages
 	content = append(content, processScenarioMessages(chatBlock.Scenario, logger)...)
+
+	// Process files if present
+	if chatBlock.Files != nil && len(*chatBlock.Files) > 0 {
+		for i, filePath := range *chatBlock.Files {
+			// Read file content
+			fileBytes, err := afero.ReadFile(fs, filePath)
+			if err != nil {
+				logger.Error("Failed to read file", "index", i, "path", filePath, "error", err)
+				return "", fmt.Errorf("failed to read file %s: %w", filePath, err)
+			}
+
+			// Detect MIME type
+			fileType := mimetype.Detect(fileBytes).String()
+			logger.Info("Detected MIME type for file", "index", i, "path", filePath, "mimeType", fileType)
+
+			// Add file as binary part with MIME type
+			content = append(content, llms.MessageContent{
+				Role: roleType,
+				Parts: []llms.ContentPart{
+					llms.BinaryPart(fileType, fileBytes),
+				},
+			})
+		}
+	}
 
 	// Log content being sent
 	for i, msg := range content {
 		for _, part := range msg.Parts {
-			if textPart, ok := part.(llms.TextContent); ok {
-				logger.Info("Sending message to LLM", "index", i, "role", msg.Role, "content", textPart.Text)
+			switch p := part.(type) {
+			case llms.TextContent:
+				logger.Info("Sending message to LLM", "index", i, "role", msg.Role, "content", p.Text)
+			case llms.BinaryContent:
+				logger.Info("Sending binary content to LLM", "index", i, "role", msg.Role, "mimeType", p.MIMEType)
 			}
 		}
 	}
