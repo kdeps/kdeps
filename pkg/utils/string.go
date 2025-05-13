@@ -26,7 +26,8 @@ func ContainsStringInsensitive(slice []string, item string) bool {
 	return false
 }
 
-func DerefString(s *string) string {
+// SafeDerefString safely dereferences a string pointer, returning an empty string if nil.
+func SafeDerefString(s *string) string {
 	if s == nil {
 		return ""
 	}
