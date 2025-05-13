@@ -494,7 +494,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		return llm.Call(ctx, prompt)
 	}
 
-	// Estimate capacity for content slice
+	// Estimate capacity for content slice and initialize message history
 	capacity := 1 // System prompt
 	if strings.TrimSpace(utils.SafeDerefString(chatBlock.Prompt)) != "" {
 		capacity++ // Main prompt
@@ -505,16 +505,15 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 	if chatBlock.Files != nil {
 		capacity += len(*chatBlock.Files)
 	}
+	messageHistory := make([]llms.MessageContent, 0, capacity+2) // +2 for potential AI and tool responses
 
-	// Pre-allocate content slice
-	content := make([]llms.MessageContent, 0, capacity)
-
+	// Build initial content
 	systemPrompt := buildSystemPrompt(chatBlock.JSONResponseKeys)
 	role, roleType := getRoleAndType(chatBlock.Role)
 	prompt := utils.SafeDerefString(chatBlock.Prompt)
 
 	// Add system prompt
-	content = append(content, llms.MessageContent{
+	messageHistory = append(messageHistory, llms.MessageContent{
 		Role:  llms.ChatMessageTypeSystem,
 		Parts: []llms.ContentPart{llms.TextContent{Text: systemPrompt}},
 	})
@@ -524,14 +523,14 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		if roleType == llms.ChatMessageTypeGeneric {
 			prompt = fmt.Sprintf("[%s]: %s", role, prompt)
 		}
-		content = append(content, llms.MessageContent{
+		messageHistory = append(messageHistory, llms.MessageContent{
 			Role:  roleType,
 			Parts: []llms.ContentPart{llms.TextContent{Text: prompt}},
 		})
 	}
 
 	// Add scenario messages
-	content = append(content, processScenarioMessages(chatBlock.Scenario, logger)...)
+	messageHistory = append(messageHistory, processScenarioMessages(chatBlock.Scenario, logger)...)
 
 	// Process files if present
 	if chatBlock.Files != nil && len(*chatBlock.Files) > 0 {
@@ -543,7 +542,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 			}
 			fileType := mimetype.Detect(fileBytes).String()
 			logger.Info("Detected MIME type for file", "index", i, "path", filePath, "mimeType", fileType)
-			content = append(content, llms.MessageContent{
+			messageHistory = append(messageHistory, llms.MessageContent{
 				Role: roleType,
 				Parts: []llms.ContentPart{
 					llms.BinaryPart(fileType, fileBytes),
@@ -556,7 +555,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 	availableTools := generateAvailableTools(chatBlock, logger)
 
 	// Log content being sent
-	for i, msg := range content {
+	for i, msg := range messageHistory {
 		for _, part := range msg.Parts {
 			switch p := part.(type) {
 			case llms.TextContent:
@@ -567,80 +566,141 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		}
 	}
 
-	// Pass tools to LLM if available
+	// First GenerateContent call with tools
 	opts := []llms.CallOption{llms.WithJSONMode()}
 	if len(availableTools) > 0 {
 		opts = append(opts, llms.WithTools(availableTools))
+		opts = append(opts, llms.WithToolChoice("auto"))
 	}
-
-	response, err := llm.GenerateContent(ctx, content, opts...)
+	response, err := llm.GenerateContent(ctx, messageHistory, opts...)
 	if err != nil {
-		logger.Error("Failed to generate JSON content", "error", err)
-		return "", fmt.Errorf("failed to generate JSON content: %w", err)
+		logger.Error("Failed to generate JSON content in first call", "error", err)
+		return "", fmt.Errorf("failed to generate JSON content in first call: %w", err)
 	}
 	if len(response.Choices) == 0 {
-		logger.Error("Empty response from LLM")
-		return "", errors.New("empty response from model")
+		logger.Error("Empty response from LLM in first call")
+		return "", errors.New("empty response from model in first call")
 	}
+
+	// Process first response and add to history
+	respChoice := response.Choices[0]
+	assistantResponse := llms.MessageContent{
+		Role:  llms.ChatMessageTypeAI,
+		Parts: []llms.ContentPart{llms.TextContent{Text: respChoice.Content}},
+	}
+	for _, tc := range respChoice.ToolCalls {
+		assistantResponse.Parts = append(assistantResponse.Parts, tc)
+	}
+	messageHistory = append(messageHistory, assistantResponse)
+	logger.Info("Added AI response to history", "content", respChoice.Content)
 
 	// Process tool calls if present
-	if result := processToolCalls(response.Choices[0].ToolCalls, toolreader, logger); result != "" {
-		return result, nil
+	if len(respChoice.ToolCalls) > 0 {
+		err = processToolCalls(respChoice.ToolCalls, toolreader, logger, &messageHistory)
+		if err != nil {
+			logger.Error("Failed to process tool calls", "error", err)
+			return "", fmt.Errorf("failed to process tool calls: %w", err)
+		}
 	}
 
-	logger.Info("Received LLM response", "content", response.Choices[0].Content)
-	return response.Choices[0].Content, nil
+	// If no tool calls, return the first response
+	if len(respChoice.ToolCalls) == 0 {
+		logger.Info("No tool calls in first response, returning content", "content", respChoice.Content)
+		return respChoice.Content, nil
+	}
+
+	// Second GenerateContent call with updated history
+	response, err = llm.GenerateContent(ctx, messageHistory, opts...)
+	if err != nil {
+		logger.Error("Failed to generate JSON content in second call", "error", err)
+		return "", fmt.Errorf("failed to generate JSON content in second call: %w", err)
+	}
+	if len(response.Choices) == 0 {
+		logger.Error("Empty response from LLM in second call")
+		return "", errors.New("empty response from model in second call")
+	}
+
+	// Log and return the final response
+	finalContent := response.Choices[0].Content
+	logger.Info("Received final LLM response after tool calls", "content", finalContent)
+	return finalContent, nil
 }
 
-// processToolCalls processes tool calls and returns combined results or an empty string if none.
-func processToolCalls(toolCalls []llms.ToolCall, toolreader *tool.PklResourceReader, logger *logging.Logger) string {
+// processToolCalls processes tool calls and appends results to messageHistory.
+func processToolCalls(toolCalls []llms.ToolCall, toolreader *tool.PklResourceReader, logger *logging.Logger, messageHistory *[]llms.MessageContent) error {
 	if len(toolCalls) == 0 {
-		return ""
+		logger.Info("No tool calls to process")
+		return nil
 	}
 
-	toolResults := make([]string, 0, len(toolCalls))
+	var errorMessages []string
+	successfulCalls := 0
+
 	for _, tc := range toolCalls {
 		if tc.FunctionCall == nil || tc.FunctionCall.Name == "" {
 			logger.Warn("Skipping tool call with empty function name or nil FunctionCall")
+			errorMessages = append(errorMessages, "invalid tool call: empty function name or nil FunctionCall")
 			continue
 		}
 		logger.Info("Processing tool call", "name", tc.FunctionCall.Name, "arguments", tc.FunctionCall.Arguments)
 
 		args, err := parseToolCallArgs(tc.FunctionCall.Arguments, logger)
 		if err != nil {
-			toolResults = append(toolResults, "Error: failed to parse arguments: "+err.Error())
+			logger.Error("Failed to parse tool call arguments", "name", tc.FunctionCall.Name, "error", err)
+			errorMessages = append(errorMessages, fmt.Sprintf("failed to parse arguments for tool %s: %v", tc.FunctionCall.Name, err))
 			continue
 		}
 
 		id, script, paramsStr, err := extractToolParams(args, tc.FunctionCall.Name, logger)
 		if err != nil {
-			toolResults = append(toolResults, err.Error())
+			logger.Error("Failed to extract tool parameters", "name", tc.FunctionCall.Name, "error", err)
+			errorMessages = append(errorMessages, fmt.Sprintf("failed to extract parameters for tool %s: %v", tc.FunctionCall.Name, err))
 			continue
 		}
 
 		uri, err := buildToolURI(id, script, paramsStr)
 		if err != nil {
-			logger.Error("Failed to parse URI", "uri", uri, "error", err)
-			toolResults = append(toolResults, "Error: failed to parse URI: "+err.Error())
+			logger.Error("Failed to parse URI", "name", tc.FunctionCall.Name, "uri", uri, "error", err)
+			errorMessages = append(errorMessages, fmt.Sprintf("failed to parse URI for tool %s: %v", tc.FunctionCall.Name, err))
 			continue
 		}
 
 		result, err := toolreader.Read(*uri)
 		if err != nil {
 			logger.Error("Tool execution failed", "name", tc.FunctionCall.Name, "uri", uri.String(), "error", err)
-			toolResults = append(toolResults, "Error: "+err.Error())
+			errorMessages = append(errorMessages, fmt.Sprintf("tool execution failed for %s: %v", tc.FunctionCall.Name, err))
 			continue
 		}
 
 		resultStr := string(result)
 		logger.Info("Tool execution succeeded", "name", tc.FunctionCall.Name, "result", resultStr)
-		toolResults = append(toolResults, resultStr)
+
+		// Add tool response to history with explicit tool role
+		toolResponse := llms.MessageContent{
+			Role: llms.ChatMessageTypeTool,
+			Parts: []llms.ContentPart{
+				llms.ToolCallResponse{
+					Name:    tc.FunctionCall.Name,
+					Content: resultStr,
+				},
+			},
+		}
+		*messageHistory = append(*messageHistory, toolResponse)
+		logger.Info("Added tool response to history", "name", tc.FunctionCall.Name, "content", resultStr)
+		successfulCalls++
 	}
 
-	if len(toolResults) == 0 {
-		return ""
+	if len(errorMessages) > 0 && successfulCalls == 0 {
+		logger.Error("All tool calls failed", "error_count", len(errorMessages))
+		return fmt.Errorf("all tool calls failed: %s", strings.Join(errorMessages, "; "))
+	} else if len(errorMessages) > 0 {
+		logger.Warn("Some tool calls failed", "error_count", len(errorMessages), "successful_calls", successfulCalls)
+		// Return nil if at least one tool call succeeded
+		return nil
 	}
-	return strings.Join(toolResults, "\n")
+
+	logger.Info("Processed tool calls", "successful_calls", successfulCalls)
+	return nil
 }
 
 // parseToolCallArgs parses JSON arguments from a tool call.
