@@ -423,32 +423,14 @@ func generateAvailableTools(chatBlock *pklLLM.ResourceChat, logger *logging.Logg
 		}
 
 		// Define base parameters
-		properties := map[string]any{
-			"id": map[string]any{
-				"type":        "string",
-				"description": "The unique identifier for the script output",
-			},
-			"script": map[string]any{
-				"type":        "string",
-				"description": "The inline script content or path to the script file",
-			},
-			"params": map[string]any{
-				"type":        "string",
-				"description": "Comma-separated parameters to pass to the script (optional)",
-			},
-		}
-		required := []string{"id", "script"}
+		properties := map[string]any{}
+		required := []string{"name"}
 
 		// Add tool-specific parameters from pklLLM.Tool.Parameters
 		if toolDef.Parameters != nil {
 			for paramName, param := range *toolDef.Parameters {
 				if param == nil {
 					logger.Warn("Skipping nil parameter", "tool", name, "paramName", paramName)
-					continue
-				}
-				// Skip reserved parameter names
-				if paramName == "id" || paramName == "script" || paramName == "params" {
-					logger.Warn("Skipping parameter with reserved name", "tool", name, "paramName", paramName)
 					continue
 				}
 
@@ -595,48 +577,42 @@ func constructToolCallsFromJSON(jsonContent string, logger *logging.Logger) ([]l
 }
 
 // extractToolParams extracts and validates tool call parameters.
-func extractToolParams(args map[string]interface{}, toolName string, logger *logging.Logger) (string, string, string, error) {
-	// Validate 'id' parameter, generate if missing
-	id, idOk := args["id"].(string)
-	if !idOk || id == "" {
-		id = fmt.Sprintf("generated_%s_%d", toolName, time.Now().UnixNano())
-		logger.Warn("Missing 'id' parameter, using generated ID", "name", toolName, "id", id)
-	}
+func extractToolParams(args map[string]interface{}, chatBlock *pklLLM.ResourceChat, toolName string, logger *logging.Logger) (string, string, string, error) {
+	var name, script string
 
-	// Validate script or file_path parameter
-	script, scriptOk := args["script"].(string)
-	filePath, filePathOk := args["file_path"].(string)
-	if !scriptOk && !filePathOk {
-		logger.Warn("Tool call missing 'script' or 'file_path' parameter, proceeding with empty script", "name", toolName)
-		script = ""
-	} else if filePathOk {
-		script = filePath // Use file_path as script if provided
-		logger.Info("Using 'file_path' as script", "name", toolName, "file_path", filePath)
-	}
+	for i, toolDef := range *chatBlock.Tools {
+		if toolDef == nil || toolDef.Name == nil || *toolDef.Name == "" {
+			logger.Warn("Skipping invalid tool entry", "index", i)
+			continue
+		}
 
-	// Collect additional parameters
-	var extraParams []string
-	if params, ok := args["params"].(string); ok && params != "" {
-		extraParams = append(extraParams, params)
-	}
+		if toolDef.Script == nil && *toolDef.Script == "" {
+			logger.Warn("Skipping invalid tool entry", "index", i)
+			continue
+		}
 
-	// Add any other parameters that aren't id/script/params/file_path
-	for key, value := range args {
-		if key != "id" && key != "script" && key != "params" && key != "file_path" {
-			if strVal, ok := value.(string); ok {
-				extraParams = append(extraParams, fmt.Sprintf("%s=%s", key, strVal))
-			}
+		if *toolDef.Name == toolName {
+			name = *toolDef.Name
+			script = *toolDef.Script
 		}
 	}
 
-	paramsStr := strings.Join(extraParams, ",")
+	// Collect parameters
+	var params []string
+	// Add any other parameters that aren't id/script/params/file_path
+	for _, value := range args {
+		if strVal, ok := value.(string); ok {
+			params = append(params, fmt.Sprintf("%s", strVal))
+		}
+	}
+
+	paramsStr := strings.Join(params, ",")
 	logger.Debug("Extracted tool parameters",
-		"tool", toolName,
-		"id", id,
+		"name", toolName,
 		"script", script,
 		"params", paramsStr)
 
-	return id, script, paramsStr, nil
+	return name, script, paramsStr, nil
 }
 
 // generateChatResponse generates a response from the LLM based on the chat block, executing tools via toolreader.
@@ -792,7 +768,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 	// Process tool calls if present
 	if len(toolCalls) > 0 {
 		logger.Info("Processing tool calls", "count", len(toolCalls))
-		err = processToolCalls(toolCalls, toolreader, logger, &messageHistory)
+		err = processToolCalls(toolCalls, toolreader, chatBlock, logger, &messageHistory)
 		if err != nil {
 			logger.Error("Failed to process tool calls", "error", err)
 			return "", fmt.Errorf("failed to process tool calls: %w", err)
@@ -840,7 +816,7 @@ func buildSystemPrompt(jsonResponse *bool, jsonResponseKeys *[]string, tools []l
 		sb.WriteString("Example format:\n")
 		sb.WriteString("[\n")
 		sb.WriteString("  {\n")
-		sb.WriteString("    \"name\": \"tool1\",\n")
+		sb.WriteString("    \"id\": \"tool1\",\n")
 		sb.WriteString("    \"arguments\": {\n")
 		sb.WriteString("      \"param1\": \"value1\",\n")
 		sb.WriteString("      \"param2\": \"value2\"\n")
@@ -857,7 +833,7 @@ func buildSystemPrompt(jsonResponse *bool, jsonResponseKeys *[]string, tools []l
 
 		for _, tool := range tools {
 			if tool.Function != nil {
-				sb.WriteString(fmt.Sprintf("- %s: %s\n", tool.Function.Name, tool.Function.Description))
+				sb.WriteString(fmt.Sprintf("- name: %s: %s\n", tool.Function.Name, tool.Function.Description))
 				if tool.Function.Parameters != nil {
 					if params, ok := tool.Function.Parameters.(map[string]interface{}); ok {
 						if props, ok := params["properties"].(map[string]interface{}); ok {
@@ -888,7 +864,7 @@ func buildSystemPrompt(jsonResponse *bool, jsonResponseKeys *[]string, tools []l
 }
 
 // processToolCalls processes tool calls and appends results to messageHistory.
-func processToolCalls(toolCalls []llms.ToolCall, toolreader *tool.PklResourceReader, logger *logging.Logger, messageHistory *[]llms.MessageContent) error {
+func processToolCalls(toolCalls []llms.ToolCall, toolreader *tool.PklResourceReader, chatBlock *pklLLM.ResourceChat, logger *logging.Logger, messageHistory *[]llms.MessageContent) error {
 	if len(toolCalls) == 0 {
 		logger.Info("No tool calls to process")
 		return nil
@@ -916,7 +892,7 @@ func processToolCalls(toolCalls []llms.ToolCall, toolreader *tool.PklResourceRea
 			continue
 		}
 
-		id, script, paramsStr, err := extractToolParams(args, tc.FunctionCall.Name, logger)
+		id, script, paramsStr, err := extractToolParams(args, chatBlock, tc.FunctionCall.Name, logger)
 		if err != nil {
 			logger.Error("Failed to extract tool parameters", "name", tc.FunctionCall.Name, "error", err)
 			errorMessages = append(errorMessages, fmt.Sprintf("failed to extract parameters for tool %s: %v", tc.FunctionCall.Name, err))
