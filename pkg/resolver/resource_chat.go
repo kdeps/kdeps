@@ -673,10 +673,13 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 			}
 			fileType := mimetype.Detect(fileBytes).String()
 			logger.Info("Detected MIME type for file", "index", i, "path", filePath, "mimeType", fileType)
+			// Instead of BinaryPart, encode file as Base64 in TextContent
+			base64Content := base64.StdEncoding.EncodeToString(fileBytes)
+			fileContent := fmt.Sprintf("File: %s\nMIME: %s\nContent: %s", filePath, fileType, base64Content)
 			messageHistory = append(messageHistory, llms.MessageContent{
 				Role: roleType,
 				Parts: []llms.ContentPart{
-					llms.BinaryPart(fileType, fileBytes),
+					llms.TextContent{Text: fileContent},
 				},
 			})
 		}
@@ -737,9 +740,10 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		"stop_reason", respChoice.StopReason)
 
 	// Process first response and add to history
-	assistantResponse := llms.MessageContent{
-		Role:  llms.ChatMessageTypeAI,
-		Parts: []llms.ContentPart{llms.TextContent{Text: respChoice.Content}},
+	// Combine content and tool calls into a single TextContent
+	var assistantParts []string
+	if respChoice.Content != "" {
+		assistantParts = append(assistantParts, respChoice.Content)
 	}
 
 	toolCalls := respChoice.ToolCalls
@@ -758,12 +762,32 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		toolCalls = constructedToolCalls
 	}
 
-	// Add ToolCalls to assistant response
+	// Serialize tool calls into strings
 	for _, tc := range toolCalls {
-		assistantResponse.Parts = append(assistantResponse.Parts, tc)
+		toolCallJSON, err := json.Marshal(map[string]interface{}{
+			"id":   tc.ID,
+			"type": tc.Type,
+			"function": map[string]interface{}{
+				"name":      tc.FunctionCall.Name,
+				"arguments": tc.FunctionCall.Arguments,
+			},
+		})
+		if err != nil {
+			logger.Error("Failed to serialize ToolCall to JSON", "tool_call_id", tc.ID, "error", err)
+			continue
+		}
+		assistantParts = append(assistantParts, fmt.Sprintf("ToolCall: %s", string(toolCallJSON)))
 	}
 
-	messageHistory = append(messageHistory, assistantResponse)
+	// Create assistant response with a single TextContent part
+	assistantContent := strings.Join(assistantParts, "\n")
+	if assistantContent != "" {
+		assistantResponse := llms.MessageContent{
+			Role:  llms.ChatMessageTypeAI,
+			Parts: []llms.ContentPart{llms.TextContent{Text: assistantContent}},
+		}
+		messageHistory = append(messageHistory, assistantResponse)
+	}
 
 	// Process tool calls if present
 	if len(toolCalls) > 0 {
@@ -812,23 +836,33 @@ func buildSystemPrompt(jsonResponse *bool, jsonResponseKeys *[]string, tools []l
 
 	// Tool usage instructions if tools are available
 	if len(tools) > 0 {
-		sb.WriteString("\n\nYou have access to the following tools. When using tools, respond STRICTLY with a JSON array where each element is a tool call object with 'name' and 'arguments' fields.\n\n")
-		sb.WriteString("Example format:\n")
+		sb.WriteString("\n\nYou have access to the following tools. When using tools, you MUST respond with a JSON array of tool call objects, each containing 'id', 'name', and 'arguments' fields, even if only one tool is used. If multiple tools are required, include all tool calls in the array.\n\n")
+		sb.WriteString("Example format for one or more tools:\n")
 		sb.WriteString("[\n")
 		sb.WriteString("  {\n")
 		sb.WriteString("    \"id\": \"tool1\",\n")
+		sb.WriteString("    \"name\": \"tool_name\",\n")
 		sb.WriteString("    \"arguments\": {\n")
 		sb.WriteString("      \"param1\": \"value1\",\n")
 		sb.WriteString("      \"param2\": \"value2\"\n")
 		sb.WriteString("    }\n")
+		sb.WriteString("  },\n")
+		sb.WriteString("  {\n")
+		sb.WriteString("    \"id\": \"tool2\",\n")
+		sb.WriteString("    \"name\": \"another_tool\",\n")
+		sb.WriteString("    \"arguments\": {\n")
+		sb.WriteString("      \"param3\": \"value3\"\n")
+		sb.WriteString("    }\n")
 		sb.WriteString("  }\n")
 		sb.WriteString("]\n\n")
 		sb.WriteString("Important rules:\n")
-		sb.WriteString("- Only respond with the JSON array when using tools\n")
+		sb.WriteString("- ALWAYS return a JSON array for tool calls, even for a single tool\n")
+		sb.WriteString("- If multiple tools are needed, include all in the array\n")
+		sb.WriteString("- Each tool call must include 'id', 'name', and 'arguments'\n")
 		sb.WriteString("- Include ALL required parameters for each tool\n")
-		sb.WriteString("- Tools will be executed in the order specified\n")
-		sb.WriteString("- Don't include any explanatory text with the JSON\n")
-		sb.WriteString("- If no tools are needed, respond normally with text\n\n")
+		sb.WriteString("- Tools will be executed in the order specified in the array\n")
+		sb.WriteString("- Do NOT include any explanatory text with the JSON array\n")
+		sb.WriteString("- If no tools are needed, respond normally with text or JSON as specified\n\n")
 		sb.WriteString("Available tools:\n")
 
 		for _, tool := range tools {
@@ -923,14 +957,23 @@ func processToolCalls(toolCalls []llms.ToolCall, toolreader *tool.PklResourceRea
 			"result_length", len(resultStr),
 			"result_preview", utils.TruncateString(resultStr, 100))
 
-		// Add tool response to history
+		// Add tool response to history as a single TextContent
+		toolResponseJSON, err := json.Marshal(map[string]interface{}{
+			"tool_call_id": tc.ID,
+			"name":         tc.FunctionCall.Name,
+			"content":      resultStr,
+		})
+		if err != nil {
+			logger.Error("Failed to serialize ToolCallResponse to JSON", "tool_call_id", tc.ID, "error", err)
+			errorMessages = append(errorMessages, fmt.Sprintf("failed to serialize ToolCallResponse for %s: %v", tc.FunctionCall.Name, err))
+			continue
+		}
+
 		toolResponse := llms.MessageContent{
 			Role: llms.ChatMessageTypeTool,
 			Parts: []llms.ContentPart{
-				llms.ToolCallResponse{
-					ToolCallID: tc.ID,
-					Name:       tc.FunctionCall.Name,
-					Content:    resultStr,
+				llms.TextContent{
+					Text: fmt.Sprintf("ToolCallResponse: %s", string(toolResponseJSON)),
 				},
 			},
 		}
