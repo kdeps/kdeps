@@ -574,9 +574,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 	}
 
 	// First GenerateContent call with tools
-	opts := []llms.CallOption{
-		llms.WithModel(chatBlock.Model),
-	}
+	opts := []llms.CallOption{}
 
 	if chatBlock.JSONResponse != nil && *chatBlock.JSONResponse {
 		opts = append(opts, llms.WithJSONMode())
@@ -586,7 +584,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		opts = append(opts,
 			llms.WithTools(availableTools),
 			llms.WithToolChoice("auto"), // Let model decide when to use tools
-			llms.WithTemperature(0.3))   // More deterministic output
+			llms.WithTemperature(0))     // More deterministic output
 	}
 
 	logger.Info("Calling LLM with options",
@@ -605,7 +603,24 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		return "", errors.New("no choices in LLM response")
 	}
 
-	respChoice := response.Choices[0]
+	var respChoice *llms.ContentChoice
+
+	if len(availableTools) > 0 {
+		for _, choice := range response.Choices {
+			if len(choice.ToolCalls) > 0 {
+				respChoice = choice
+				break
+			}
+		}
+		// If no choice with non-empty ToolCalls is found, fall back to Choices[0]
+		if respChoice == nil && len(response.Choices) > 0 {
+			respChoice = response.Choices[0]
+		}
+	} else if len(response.Choices) > 0 {
+		// If no tools are available, return Choices[0] if it exists
+		respChoice = response.Choices[0]
+	}
+
 	logger.Info("First LLM response",
 		"content", respChoice.Content,
 		"tool_calls", len(respChoice.ToolCalls),
