@@ -506,6 +506,139 @@ func extractToolNames(tools []llms.Tool) []string {
 	return names
 }
 
+// constructToolCallsFromJSON parses a JSON string into a slice of llms.ToolCall.
+// The JSON can be either an array of objects or a single object, each with "name" and "arguments" fields.
+// Returns an error if the JSON is invalid or no valid tool calls can be constructed.
+func constructToolCallsFromJSON(jsonContent string, logger *logging.Logger) ([]llms.ToolCall, error) {
+	if jsonContent == "" {
+		logger.Warn("JSON content is empty, returning empty ToolCalls")
+		return nil, nil
+	}
+
+	// Define structure for JSON tool call
+	type jsonToolCall struct {
+		Name      string                 `json:"name"`
+		Arguments map[string]interface{} `json:"arguments"`
+	}
+
+	var toolCalls []jsonToolCall
+	var singleCall jsonToolCall
+
+	// Try unmarshaling as an array first
+	err := json.Unmarshal([]byte(jsonContent), &toolCalls)
+	if err != nil {
+		// Try unmarshaling as a single object
+		if err := json.Unmarshal([]byte(jsonContent), &singleCall); err != nil {
+			logger.Error("Failed to unmarshal JSON content", "content", utils.TruncateString(jsonContent, 100), "error", err)
+			return nil, fmt.Errorf("failed to unmarshal JSON content: %w", err)
+		}
+		// Convert single object to array
+		toolCalls = []jsonToolCall{singleCall}
+	}
+
+	if len(toolCalls) == 0 {
+		logger.Info("No tool calls found in JSON content")
+		return nil, nil
+	}
+
+	result := make([]llms.ToolCall, 0, len(toolCalls))
+	var errors []string
+
+	for i, tc := range toolCalls {
+		if tc.Name == "" {
+			logger.Warn("Skipping tool call with empty name", "index", i)
+			errors = append(errors, fmt.Sprintf("tool call at index %d has empty name", i))
+			continue
+		}
+
+		if tc.Arguments == nil {
+			logger.Warn("Skipping tool call with nil arguments", "index", i, "name", tc.Name)
+			errors = append(errors, fmt.Sprintf("tool call %s at index %d has nil arguments", tc.Name, i))
+			continue
+		}
+
+		argsJSON, err := json.Marshal(tc.Arguments)
+		if err != nil {
+			logger.Error("Failed to marshal arguments for tool call", "index", i, "name", tc.Name, "error", err)
+			errors = append(errors, fmt.Sprintf("failed to marshal arguments for %s at index %d: %v", tc.Name, i, err))
+			continue
+		}
+
+		// Generate a unique ID using index
+		toolCallID := fmt.Sprintf("tc_%s_%d", tc.Name, i) // Consider github.com/google/uuid for production
+
+		result = append(result, llms.ToolCall{
+			ID:   toolCallID,
+			Type: "function",
+			FunctionCall: &llms.FunctionCall{
+				Name:      tc.Name,
+				Arguments: string(argsJSON),
+			},
+		})
+
+		logger.Info("Constructed tool call",
+			"index", i,
+			"id", toolCallID,
+			"name", tc.Name,
+			"arguments", utils.TruncateString(string(argsJSON), 100))
+	}
+
+	if len(errors) > 0 && len(result) == 0 {
+		logger.Error("All tool calls failed", "error_count", len(errors), "errors", errors)
+		return nil, fmt.Errorf("all tool calls failed: %s", strings.Join(errors, "; "))
+	} else if len(errors) > 0 {
+		logger.Warn("Some tool calls failed", "error_count", len(errors), "successful_calls", len(result), "errors", errors)
+	}
+
+	logger.Info("Constructed tool calls", "count", len(result))
+	return result, nil
+}
+
+// extractToolParams extracts and validates tool call parameters.
+func extractToolParams(args map[string]interface{}, toolName string, logger *logging.Logger) (string, string, string, error) {
+	// Validate 'id' parameter, generate if missing
+	id, idOk := args["id"].(string)
+	if !idOk || id == "" {
+		id = fmt.Sprintf("generated_%s_%d", toolName, time.Now().UnixNano())
+		logger.Warn("Missing 'id' parameter, using generated ID", "name", toolName, "id", id)
+	}
+
+	// Validate script or file_path parameter
+	script, scriptOk := args["script"].(string)
+	filePath, filePathOk := args["file_path"].(string)
+	if !scriptOk && !filePathOk {
+		logger.Warn("Tool call missing 'script' or 'file_path' parameter, proceeding with empty script", "name", toolName)
+		script = ""
+	} else if filePathOk {
+		script = filePath // Use file_path as script if provided
+		logger.Info("Using 'file_path' as script", "name", toolName, "file_path", filePath)
+	}
+
+	// Collect additional parameters
+	var extraParams []string
+	if params, ok := args["params"].(string); ok && params != "" {
+		extraParams = append(extraParams, params)
+	}
+
+	// Add any other parameters that aren't id/script/params/file_path
+	for key, value := range args {
+		if key != "id" && key != "script" && key != "params" && key != "file_path" {
+			if strVal, ok := value.(string); ok {
+				extraParams = append(extraParams, fmt.Sprintf("%s=%s", key, strVal))
+			}
+		}
+	}
+
+	paramsStr := strings.Join(extraParams, ",")
+	logger.Debug("Extracted tool parameters",
+		"tool", toolName,
+		"id", id,
+		"script", script,
+		"params", paramsStr)
+
+	return id, script, paramsStr, nil
+}
+
 // generateChatResponse generates a response from the LLM based on the chat block, executing tools via toolreader.
 func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, chatBlock *pklLLM.ResourceChat, toolreader *tool.PklResourceReader, logger *logging.Logger) (string, error) {
 	// Log chatBlock details for debugging
@@ -583,6 +716,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 	if len(availableTools) > 0 {
 		opts = append(opts,
 			llms.WithTools(availableTools),
+			llms.WithJSONMode(),
 			llms.WithToolChoice("auto"), // Let model decide when to use tools
 			llms.WithTemperature(0))     // More deterministic output
 	}
@@ -622,7 +756,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 	}
 
 	logger.Info("First LLM response",
-		"content", respChoice.Content,
+		"content", utils.TruncateString(respChoice.Content, 100),
 		"tool_calls", len(respChoice.ToolCalls),
 		"stop_reason", respChoice.StopReason)
 
@@ -632,16 +766,33 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		Parts: []llms.ContentPart{llms.TextContent{Text: respChoice.Content}},
 	}
 
-	for _, tc := range respChoice.ToolCalls {
+	toolCalls := respChoice.ToolCalls
+
+	// Check if ToolCalls is nil or empty and tools are available
+	if len(toolCalls) == 0 && len(availableTools) > 0 {
+		logger.Info("ToolCalls is nil or empty, attempting to construct ToolCalls from first GenerateContent call")
+
+		// Construct ToolCalls from JSON response
+		constructedToolCalls, err := constructToolCallsFromJSON(respChoice.Content, logger)
+		if err != nil {
+			logger.Error("Failed to construct ToolCalls from JSON", "error", err)
+			return "", fmt.Errorf("failed to construct ToolCalls from JSON: %w", err)
+		}
+
+		toolCalls = constructedToolCalls
+	}
+
+	// Add ToolCalls to assistant response
+	for _, tc := range toolCalls {
 		assistantResponse.Parts = append(assistantResponse.Parts, tc)
 	}
 
 	messageHistory = append(messageHistory, assistantResponse)
 
 	// Process tool calls if present
-	if len(respChoice.ToolCalls) > 0 {
-		logger.Info("Processing tool calls", "count", len(respChoice.ToolCalls))
-		err = processToolCalls(respChoice.ToolCalls, toolreader, logger, &messageHistory)
+	if len(toolCalls) > 0 {
+		logger.Info("Processing tool calls", "count", len(toolCalls))
+		err = processToolCalls(toolCalls, toolreader, logger, &messageHistory)
 		if err != nil {
 			logger.Error("Failed to process tool calls", "error", err)
 			return "", fmt.Errorf("failed to process tool calls: %w", err)
@@ -665,11 +816,11 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 
 	// Log and return the final response
 	finalContent := respChoice.Content
-	logger.Info("Received final LLM response", "content", finalContent)
+	logger.Info("Received final LLM response", "content", utils.TruncateString(finalContent, 100))
 	return finalContent, nil
 }
 
-// buildSystemPrompt constructs the system prompt with tool instructions.
+// buildSystemPrompt constructs the system prompt with strict JSON tool usage instructions.
 func buildSystemPrompt(jsonResponse *bool, jsonResponseKeys *[]string, tools []llms.Tool) string {
 	var sb strings.Builder
 
@@ -685,13 +836,52 @@ func buildSystemPrompt(jsonResponse *bool, jsonResponseKeys *[]string, tools []l
 
 	// Tool usage instructions if tools are available
 	if len(tools) > 0 {
-		sb.WriteString("\n\nYou have access to the following tools. Use them when appropriate:\n")
+		sb.WriteString("\n\nYou have access to the following tools. When using tools, respond STRICTLY with a JSON array where each element is a tool call object with 'name' and 'arguments' fields.\n\n")
+		sb.WriteString("Example format:\n")
+		sb.WriteString("[\n")
+		sb.WriteString("  {\n")
+		sb.WriteString("    \"name\": \"tool1\",\n")
+		sb.WriteString("    \"arguments\": {\n")
+		sb.WriteString("      \"param1\": \"value1\",\n")
+		sb.WriteString("      \"param2\": \"value2\"\n")
+		sb.WriteString("    }\n")
+		sb.WriteString("  }\n")
+		sb.WriteString("]\n\n")
+		sb.WriteString("Important rules:\n")
+		sb.WriteString("- Only respond with the JSON array when using tools\n")
+		sb.WriteString("- Include ALL required parameters for each tool\n")
+		sb.WriteString("- Tools will be executed in the order specified\n")
+		sb.WriteString("- Don't include any explanatory text with the JSON\n")
+		sb.WriteString("- If no tools are needed, respond normally with text\n\n")
+		sb.WriteString("Available tools:\n")
+
 		for _, tool := range tools {
 			if tool.Function != nil {
 				sb.WriteString(fmt.Sprintf("- %s: %s\n", tool.Function.Name, tool.Function.Description))
+				if tool.Function.Parameters != nil {
+					if params, ok := tool.Function.Parameters.(map[string]interface{}); ok {
+						if props, ok := params["properties"].(map[string]interface{}); ok {
+							for paramName, param := range props {
+								if paramMap, ok := param.(map[string]interface{}); ok {
+									desc := paramMap["description"].(string)
+									required := ""
+									if reqs, ok := params["required"].([]interface{}); ok {
+										for _, req := range reqs {
+											if req == paramName {
+												required = " (required)"
+												break
+											}
+										}
+									}
+									sb.WriteString(fmt.Sprintf("  - %s: %s%s\n", paramName, desc, required))
+								}
+							}
+						}
+					}
+				}
+				sb.WriteString("\n")
 			}
 		}
-		sb.WriteString("\nWhen using tools, provide all required parameters and be precise.")
 	}
 
 	return sb.String()
@@ -799,47 +989,6 @@ func parseToolCallArgs(arguments string, logger *logging.Logger) (map[string]int
 	}
 	logger.Debug("Parsed tool arguments", "args", args)
 	return args, nil
-}
-
-// extractToolParams extracts and validates tool call parameters.
-func extractToolParams(args map[string]interface{}, toolName string, logger *logging.Logger) (string, string, string, error) {
-	// Validate required 'id' parameter
-	id, ok := args["id"].(string)
-	if !ok || id == "" {
-		logger.Error("Tool call missing required 'id' parameter", "name", toolName)
-		return "", "", "", fmt.Errorf("missing or invalid 'id' parameter for tool %s", toolName)
-	}
-
-	// Validate required 'script' parameter
-	script, ok := args["script"].(string)
-	if !ok || script == "" {
-		logger.Error("Tool call missing required 'script' parameter", "name", toolName)
-		return "", "", "", fmt.Errorf("missing or invalid 'script' parameter for tool %s", toolName)
-	}
-
-	// Collect additional parameters
-	var extraParams []string
-	if params, ok := args["params"].(string); ok && params != "" {
-		extraParams = append(extraParams, params)
-	}
-
-	// Add any other parameters that aren't id/script/params
-	for key, value := range args {
-		if key != "id" && key != "script" && key != "params" {
-			if strVal, ok := value.(string); ok {
-				extraParams = append(extraParams, fmt.Sprintf("%s=%s", key, strVal))
-			}
-		}
-	}
-
-	paramsStr := strings.Join(extraParams, ",")
-	logger.Debug("Extracted tool parameters",
-		"tool", toolName,
-		"id", id,
-		"script_length", len(script),
-		"params", paramsStr)
-
-	return id, script, paramsStr, nil
 }
 
 // buildToolURI constructs the URI for tool execution.
