@@ -576,7 +576,6 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 	// First GenerateContent call with tools
 	opts := []llms.CallOption{
 		llms.WithModel(chatBlock.Model),
-		llms.WithTemperature(0.3), // More deterministic output
 	}
 
 	if chatBlock.JSONResponse != nil && *chatBlock.JSONResponse {
@@ -586,7 +585,8 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 	if len(availableTools) > 0 {
 		opts = append(opts,
 			llms.WithTools(availableTools),
-			llms.WithToolChoice("auto")) // Let model decide when to use tools
+			llms.WithToolChoice("auto"), // Let model decide when to use tools
+			llms.WithTemperature(0.3))   // More deterministic output
 	}
 
 	logger.Info("Calling LLM with options",
