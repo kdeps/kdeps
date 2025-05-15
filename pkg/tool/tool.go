@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -95,11 +96,16 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 
 		log.Printf("runScript processing id: %s, script: %s, params: %s", id, script, params)
 
-		// Parse parameters
+		// Decode URL-encoded params
 		var paramList []string
 		if params != "" {
-			// Split params by comma and trim whitespace
-			for _, p := range strings.Split(params, ",") {
+			decodedParams, err := url.QueryUnescape(params)
+			if err != nil {
+				log.Printf("runScript failed to decode params: %v", err)
+				return nil, fmt.Errorf("failed to decode params: %w", err)
+			}
+			// Split params by spaces and trim whitespace
+			for _, p := range strings.Split(decodedParams, " ") {
 				trimmed := strings.TrimSpace(p)
 				if trimmed != "" {
 					paramList = append(paramList, trimmed)
@@ -107,15 +113,41 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 			}
 		}
 
+		log.Printf("Parsed parameters: %v", paramList)
+
 		// Determine if script is a file path or inline script
 		var output []byte
 		var err error
 		if _, statErr := os.Stat(script); statErr == nil {
-			// Script is a file path; pass params as arguments
-			cmd := exec.Command(script, paramList...)
+			// Script is a file path; determine interpreter based on extension
+			log.Printf("Executing file-based script: %s", script)
+			extension := strings.ToLower(filepath.Ext(script))
+			var interpreter string
+			switch extension {
+			case ".py":
+				interpreter = "python3"
+			case ".ts":
+				interpreter = "ts-node"
+			case ".js":
+				interpreter = "node"
+			case ".rb":
+				interpreter = "ruby"
+			default:
+				interpreter = "sh"
+			}
+			log.Printf("Using interpreter: %s for script: %s", interpreter, script)
+			args := append([]string{script}, paramList...)
+			cmd := exec.Command(interpreter, args...)
 			output, err = cmd.CombinedOutput()
+			if err != nil {
+				if _, ok := err.(*exec.Error); ok {
+					log.Printf("Interpreter %s not found or inaccessible: %v", interpreter, err)
+					return nil, fmt.Errorf("interpreter %s not found or inaccessible: %w", interpreter, err)
+				}
+			}
 		} else {
 			// Script is inline; pass script as $1 and params as $2, $3, etc.
+			log.Printf("Executing inline script: %s", script)
 			args := append([]string{"-c", script, "_"}, paramList...)
 			cmd := exec.Command("sh", args...)
 			output, err = cmd.CombinedOutput()
@@ -179,7 +211,7 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		for rows.Next() {
 			var value string
 			var timestamp int64
-			if err := rows.Scan(&value, timestamp); err != nil {
+			if err := rows.Scan(&value, &timestamp); err != nil {
 				log.Printf("history failed to scan row: %v", err)
 				return nil, fmt.Errorf("failed to scan history row: %w", err)
 			}
