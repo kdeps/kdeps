@@ -267,7 +267,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 
 	// Track tool calls to prevent duplicates and looping
 	toolCallHistory := make(map[string]int)
-	const maxIterations = 3
+	const maxIterations = 2 // Reduced to prevent unnecessary iterations
 
 	// Process tool calls iteratively
 	for iteration := 0; len(toolCalls) > 0 && iteration < maxIterations; iteration++ {
@@ -283,7 +283,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		}
 
 		// Generate content with updated history
-		logger.Info("Calling GenerateContent", "iteration", iteration+1, "message_count", len(messageHistory))
+		logger.Debug("Message history before LLM call", "iteration", iteration+1, "history", messageHistory)
 		response, err = llm.GenerateContent(ctx, messageHistory, opts...)
 		if err != nil {
 			logger.Error("Failed to generate content", "iteration", iteration+1, "error", err)
@@ -314,9 +314,9 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 			"stop_reason", respChoice.StopReason,
 			"tool_names", extractToolNames(respChoice.ToolCalls))
 
-		// Terminate if LLM signals completion
-		if respChoice.StopReason == "stop" && len(respChoice.ToolCalls) == 0 {
-			logger.Info("LLM completed with stop reason", "iteration", iteration+1)
+		// Exit if no new tool calls or stop reason indicates completion
+		if len(respChoice.ToolCalls) == 0 || respChoice.StopReason == "stop" {
+			logger.Info("No new tool calls or LLM stopped, exiting loop", "iteration", iteration+1)
 			return respChoice.Content, nil
 		}
 
@@ -338,16 +338,21 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		// Check for repeated tool calls
 		for _, tc := range toolCalls {
 			if tc.FunctionCall != nil {
-				// Normalize arguments for consistent deduplication
-				argsJSON, err := json.Marshal(tc.FunctionCall.Arguments)
+				// Normalize arguments by sorting keys and removing whitespace
+				argsMap := make(map[string]interface{})
+				if err := json.Unmarshal([]byte(tc.FunctionCall.Arguments), &argsMap); err != nil {
+					logger.Warn("Failed to normalize tool arguments", "tool", tc.FunctionCall.Name, "error", err)
+					continue
+				}
+				normalizedArgs, err := json.Marshal(argsMap)
 				if err != nil {
 					logger.Warn("Failed to normalize tool arguments", "tool", tc.FunctionCall.Name, "error", err)
 					continue
 				}
-				toolKey := tc.FunctionCall.Name + ":" + string(argsJSON)
+				toolKey := tc.FunctionCall.Name + ":" + string(normalizedArgs)
 				toolCallHistory[toolKey]++
 				if toolCallHistory[toolKey] > 1 {
-					logger.Warn("Detected repeated tool call, breaking loop",
+					logger.Info("Detected repeated tool call, exiting loop",
 						"tool", tc.FunctionCall.Name,
 						"arguments", tc.FunctionCall.Arguments,
 						"count", toolCallHistory[toolKey])
@@ -751,6 +756,8 @@ func generateAvailableTools(chatBlock *pklLLM.ResourceChat, logger *logging.Logg
 
 	logger.Debug("Generating available tools", "tool_count", len(*chatBlock.Tools))
 	tools := make([]llms.Tool, 0, len(*chatBlock.Tools))
+	seenNames := make(map[string]struct{})
+
 	for i, toolDef := range *chatBlock.Tools {
 		if toolDef == nil || toolDef.Name == nil || *toolDef.Name == "" {
 			logger.Warn("Skipping invalid tool entry", "index", i)
@@ -758,6 +765,11 @@ func generateAvailableTools(chatBlock *pklLLM.ResourceChat, logger *logging.Logg
 		}
 
 		name := *toolDef.Name
+		if _, exists := seenNames[name]; exists {
+			logger.Warn("Duplicate tool name detected", "name", name, "index", i)
+			continue
+		}
+		seenNames[name] = struct{}{}
 		logger.Debug("Processing tool", "index", i, "name", name)
 
 		// Enhanced description with clear instructions
@@ -791,7 +803,7 @@ func generateAvailableTools(chatBlock *pklLLM.ResourceChat, logger *logging.Logg
 				}
 
 				properties[paramName] = map[string]any{
-					"typeAlles":   paramType,
+					"type":        paramType,
 					"description": paramDesc,
 				}
 
@@ -824,8 +836,6 @@ func generateAvailableTools(chatBlock *pklLLM.ResourceChat, logger *logging.Logg
 }
 
 // constructToolCallsFromJSON parses a JSON string into a slice of llms.ToolCall.
-// The JSON can be either an array of objects or a single object, each with "name" and "arguments" fields.
-// Returns an error if the JSON is invalid or no valid tool calls can be constructed.
 func constructToolCallsFromJSON(jsonContent string, logger *logging.Logger) ([]llms.ToolCall, error) {
 	if jsonContent == "" {
 		logger.Info("JSON content is empty, returning empty ToolCalls")
@@ -843,8 +853,8 @@ func constructToolCallsFromJSON(jsonContent string, logger *logging.Logger) ([]l
 	err := json.Unmarshal([]byte(jsonContent), &toolCalls)
 	if err != nil {
 		if err := json.Unmarshal([]byte(jsonContent), &singleCall); err != nil {
-			logger.Error("Failed to unmarshal JSON content", "content", utils.TruncateString(jsonContent, 100), "error", err)
-			return nil, fmt.Errorf("failed to unmarshal JSON content: %w", err)
+			logger.Warn("Failed to unmarshal JSON content as array or single object", "content", utils.TruncateString(jsonContent, 100), "error", err)
+			return nil, nil
 		}
 		toolCalls = []jsonToolCall{singleCall}
 	}
@@ -867,7 +877,7 @@ func constructToolCallsFromJSON(jsonContent string, logger *logging.Logger) ([]l
 
 		argsJSON, err := json.Marshal(tc.Arguments)
 		if err != nil {
-			logger.Error("Failed to marshal arguments", "index", i, "name", tc.Name, "error", err)
+			logger.Warn("Failed to marshal arguments", "index", i, "name", tc.Name, "error", err)
 			errors = append(errors, fmt.Sprintf("failed to marshal arguments for %s at index %d: %v", tc.Name, i, err))
 			continue
 		}
@@ -896,11 +906,9 @@ func constructToolCallsFromJSON(jsonContent string, logger *logging.Logger) ([]l
 			"arguments", utils.TruncateString(string(argsJSON), 100))
 	}
 
-	if len(errors) > 0 && len(result) == 0 {
-		logger.Error("All tool calls failed", "errors", errors)
-		return nil, fmt.Errorf("all tool calls failed: %s", strings.Join(errors, "; "))
-	} else if len(errors) > 0 {
-		logger.Warn("Some tool calls failed", "successful_calls", len(result), "errors", errors)
+	if len(result) == 0 && len(errors) > 0 {
+		logger.Warn("No valid tool calls constructed", "errors", errors)
+		return nil, nil
 	}
 
 	logger.Info("Constructed tool calls", "count", len(result))
@@ -1048,37 +1056,28 @@ func buildSystemPrompt(jsonResponse *bool, jsonResponseKeys *[]string, tools []l
 		}
 	}
 
-	// Tool usage instructions if tools are available
+	// Tool usage instructions
 	if len(tools) > 0 {
-		sb.WriteString("\n\nYou have access to the following tools. When using tools, you MUST respond with a JSON array of tool call objects, each containing 'name', and 'arguments' fields, even if only one tool is used. If multiple tools are required, include all tool calls in the array.\n\n")
-		sb.WriteString("Example format for one or more tools:\n")
+		sb.WriteString("\n\nYou have access to the following tools. Use tools only when necessary to fulfill the request. After tool execution, you will receive the results in the conversation history. Do NOT suggest the same tool again unless explicitly required by new user input. Once all necessary tools are executed, return the final response without additional tool calls.\n\n")
+		sb.WriteString("When using tools, respond with a JSON array of tool call objects, each containing 'name' and 'arguments' fields, even for a single tool:\n")
 		sb.WriteString("[\n")
 		sb.WriteString("  {\n")
 		sb.WriteString("    \"name\": \"tool1\",\n")
 		sb.WriteString("    \"arguments\": {\n")
-		sb.WriteString("      \"param1\": \"value1\",\n")
-		sb.WriteString("      \"param2\": \"value2\"\n")
-		sb.WriteString("    }\n")
-		sb.WriteString("  },\n")
-		sb.WriteString("  {\n")
-		sb.WriteString("    \"name\": \"tool2\",\n")
-		sb.WriteString("    \"arguments\": {\n")
-		sb.WriteString("      \"param3\": \"value3\"\n")
+		sb.WriteString("      \"param1\": \"value1\"\n")
 		sb.WriteString("    }\n")
 		sb.WriteString("  }\n")
 		sb.WriteString("]\n\n")
-		sb.WriteString("Important rules:\n")
-		sb.WriteString("- ALWAYS return a JSON array for tool calls, even for a single tool\n")
-		sb.WriteString("- If multiple tools are needed, include all in the array\n")
-		sb.WriteString("- Each tool call must include 'name', and 'arguments'\n")
-		sb.WriteString("- Include ALL required parameters for each tool\n")
-		sb.WriteString("- Tools will be executed in the order specified in the array\n")
-		sb.WriteString("- Do NOT include any explanatory text with the JSON array\n")
-		sb.WriteString("- If no tools are needed, respond normally with text or JSON as specified\n\n")
-		sb.WriteString("Available tools:")
+		sb.WriteString("Rules:\n")
+		sb.WriteString("- Return a JSON array for tool calls, even for one tool.\n")
+		sb.WriteString("- Include all required parameters.\n")
+		sb.WriteString("- Execute tools in the specified order.\n")
+		sb.WriteString("- After tool execution, return the final response without tool calls unless new tools are needed.\n")
+		sb.WriteString("- Do NOT include explanatory text with tool call JSON.\n")
+		sb.WriteString("\nAvailable tools:\n")
 		for _, tool := range tools {
 			if tool.Function != nil {
-				sb.WriteString(fmt.Sprintf("- name: %s: %s\n", tool.Function.Name, tool.Function.Description))
+				sb.WriteString(fmt.Sprintf("- %s: %s\n", tool.Function.Name, tool.Function.Description))
 				if tool.Function.Parameters != nil {
 					if params, ok := tool.Function.Parameters.(map[string]interface{}); ok {
 						if props, ok := params["properties"].(map[string]interface{}); ok {
@@ -1103,6 +1102,8 @@ func buildSystemPrompt(jsonResponse *bool, jsonResponseKeys *[]string, tools []l
 				sb.WriteString("\n")
 			}
 		}
+	} else {
+		sb.WriteString("No tools are available. Respond with the final answer directly.\n")
 	}
 
 	return sb.String()
@@ -1200,6 +1201,7 @@ func processToolCalls(toolCalls []llms.ToolCall, toolreader *tool.PklResourceRea
 			"tool_call_id": tc.ID,
 			"name":         tc.FunctionCall.Name,
 			"content":      resultStr,
+			"status":       "completed",
 		})
 		if err != nil {
 			logger.Error("Failed to serialize ToolCallResponse to JSON", "tool_call_id", tc.ID, "error", err)
