@@ -119,10 +119,13 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		"tool_count", len(availableTools),
 		"tool_names", extractToolNamesFromTools(availableTools))
 
-	// Build message history with enhanced system prompt
+	// Build message history
 	messageHistory := make([]llms.MessageContent, 0)
 
-	// Enhanced system prompt that explicitly encourages tool usage and termination
+	// Store tool outputs to influence subsequent calls
+	toolOutputs := make(map[string]string) // Key: tool_call_id, Value: output
+
+	// Build system prompt that encourages tool usage and considers previous outputs
 	systemPrompt := buildSystemPrompt(chatBlock.JSONResponse, chatBlock.JSONResponseKeys, availableTools)
 	logger.Info("Generated system prompt", "content", utils.TruncateString(systemPrompt, 200))
 
@@ -267,7 +270,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 
 	// Track tool calls to prevent duplicates and looping
 	toolCallHistory := make(map[string]int)
-	const maxIterations = 2 // Reduced to prevent unnecessary iterations
+	const maxIterations = 5 // Allow more iterations to process chained tool calls
 
 	// Process tool calls iteratively
 	for iteration := 0; len(toolCalls) > 0 && iteration < maxIterations; iteration++ {
@@ -276,10 +279,27 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 			"count", len(toolCalls),
 			"tool_names", extractToolNames(toolCalls))
 
-		err = processToolCalls(toolCalls, toolreader, chatBlock, logger, &messageHistory, prompt)
+		err = processToolCalls(toolCalls, toolreader, chatBlock, logger, &messageHistory, prompt, toolOutputs)
 		if err != nil {
 			logger.Error("Failed to process tool calls", "iteration", iteration+1, "error", err)
 			return "", fmt.Errorf("failed to process tool calls in iteration %d: %w", iteration+1, err)
+		}
+
+		// Include tool outputs in the system prompt for the next call
+		systemPrompt = buildSystemPrompt(chatBlock.JSONResponse, chatBlock.JSONResponseKeys, availableTools)
+		if len(toolOutputs) > 0 {
+			var toolOutputSummary strings.Builder
+			toolOutputSummary.WriteString("\nPrevious Tool Outputs:\n")
+			for toolID, output := range toolOutputs {
+				toolOutputSummary.WriteString(fmt.Sprintf("- ToolCall ID %s: %s\n", toolID, utils.TruncateString(output, 100)))
+			}
+			systemPrompt += toolOutputSummary.String()
+		}
+
+		// Update system message in history
+		messageHistory[0] = llms.MessageContent{
+			Role:  llms.ChatMessageTypeSystem,
+			Parts: []llms.ContentPart{llms.TextContent{Text: systemPrompt}},
 		}
 
 		// Generate content with updated history
@@ -338,7 +358,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		// Check for repeated tool calls
 		for _, tc := range toolCalls {
 			if tc.FunctionCall != nil {
-				// Normalize arguments by sorting keys and removing whitespace
+				// Normalize arguments
 				argsMap := make(map[string]interface{})
 				if err := json.Unmarshal([]byte(tc.FunctionCall.Arguments), &argsMap); err != nil {
 					logger.Warn("Failed to normalize tool arguments", "tool", tc.FunctionCall.Name, "error", err)
@@ -361,7 +381,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 			}
 		}
 
-		// Add response to history only if necessary
+		// Add response to history
 		assistantParts = []string{}
 		if respChoice.Content != "" {
 			assistantParts = append(assistantParts, respChoice.Content)
@@ -747,7 +767,7 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 	return dr.AppendChatEntry(actionID, chatBlock)
 }
 
-// generateAvailableTools creates a dynamic list of llms.Tool from chatBlock.Tools, designed for execution via dr.ToolReader.Read.
+// generateAvailableTools creates a dynamic list of llms.Tool from chatBlock.Tools.
 func generateAvailableTools(chatBlock *pklLLM.ResourceChat, logger *logging.Logger) []llms.Tool {
 	if chatBlock == nil || chatBlock.Tools == nil || len(*chatBlock.Tools) == 0 {
 		logger.Info("No tools defined in chatBlock, returning empty availableTools")
@@ -772,7 +792,6 @@ func generateAvailableTools(chatBlock *pklLLM.ResourceChat, logger *logging.Logg
 		seenNames[name] = struct{}{}
 		logger.Debug("Processing tool", "index", i, "name", name)
 
-		// Enhanced description with clear instructions
 		description := fmt.Sprintf("Execute the '%s' tool when you need to perform this specific action. ", name)
 		if toolDef.Description != nil && *toolDef.Description != "" {
 			description += *toolDef.Description
@@ -780,11 +799,9 @@ func generateAvailableTools(chatBlock *pklLLM.ResourceChat, logger *logging.Logg
 			description += "This tool executes the following script: " + utils.TruncateString(*toolDef.Script, 100)
 		}
 
-		// Define base parameters
 		properties := map[string]any{}
 		required := []string{"name"}
 
-		// Add tool-specific parameters from pklLLM.Tool.Parameters
 		if toolDef.Parameters != nil {
 			for paramName, param := range *toolDef.Parameters {
 				if param == nil {
@@ -925,7 +942,6 @@ func extractToolParams(args map[string]interface{}, chatBlock *pklLLM.ResourceCh
 	var name, script string
 	var toolParams *map[string]*pklLLM.ToolProperties
 
-	// Find the tool definition
 	for i, toolDef := range *chatBlock.Tools {
 		if toolDef == nil || toolDef.Name == nil || *toolDef.Name == "" {
 			logger.Warn("Skipping invalid tool entry", "index", i)
@@ -948,11 +964,9 @@ func extractToolParams(args map[string]interface{}, chatBlock *pklLLM.ResourceCh
 		return "", "", "", fmt.Errorf("tool %s not found or has invalid definition", toolName)
 	}
 
-	// Collect parameter values
 	var paramValues []string
 	var missingRequired []string
 
-	// Process defined parameters
 	if toolParams != nil {
 		for paramName, param := range *toolParams {
 			if param == nil {
@@ -971,11 +985,10 @@ func extractToolParams(args map[string]interface{}, chatBlock *pklLLM.ResourceCh
 		}
 	}
 
-	// Include additional parameters from args
 	for paramName, value := range args {
 		if toolParams != nil {
 			if _, exists := (*toolParams)[paramName]; exists {
-				continue // Already processed
+				continue
 			}
 		}
 		strVal := convertToString(value, paramName, toolName, logger)
@@ -988,7 +1001,6 @@ func extractToolParams(args map[string]interface{}, chatBlock *pklLLM.ResourceCh
 		logger.Warn("Missing required parameters", "tool", toolName, "parameters", missingRequired)
 	}
 
-	// Join parameters with spaces
 	paramsStr := strings.Join(paramValues, " ")
 	if paramsStr == "" {
 		logger.Warn("No parameters extracted for tool", "tool", toolName, "args", args)
@@ -1030,7 +1042,6 @@ func buildToolURI(id, script, paramsStr string) (*url.URL, error) {
 		"script": []string{script},
 	}
 	if paramsStr != "" {
-		// URL-encode the space-separated paramsStr
 		queryParams.Add("params", url.QueryEscape(paramsStr))
 	}
 
@@ -1046,7 +1057,6 @@ func buildToolURI(id, script, paramsStr string) (*url.URL, error) {
 func buildSystemPrompt(jsonResponse *bool, jsonResponseKeys *[]string, tools []llms.Tool) string {
 	var sb strings.Builder
 
-	// JSON response instructions
 	if jsonResponse != nil && *jsonResponse {
 		if jsonResponseKeys != nil && len(*jsonResponseKeys) > 0 {
 			sb.WriteString(fmt.Sprintf("Respond in JSON format, include `%s` in response keys. ",
@@ -1056,9 +1066,8 @@ func buildSystemPrompt(jsonResponse *bool, jsonResponseKeys *[]string, tools []l
 		}
 	}
 
-	// Tool usage instructions
 	if len(tools) > 0 {
-		sb.WriteString("\n\nYou have access to the following tools. Use tools only when necessary to fulfill the request. After tool execution, you will receive the results in the conversation history. Do NOT suggest the same tool again unless explicitly required by new user input. Once all necessary tools are executed, return the final response without additional tool calls.\n\n")
+		sb.WriteString("\n\nYou have access to the following tools. Use tools only when necessary to fulfill the request. Consider all previous tool outputs when deciding which tools to use next. After tool execution, you will receive the results in the conversation history. Do NOT suggest the same tool with identical parameters unless explicitly required by new user input. Once all necessary tools are executed, return the final response without additional tool calls.\n\n")
 		sb.WriteString("When using tools, respond with a JSON array of tool call objects, each containing 'name' and 'arguments' fields, even for a single tool:\n")
 		sb.WriteString("[\n")
 		sb.WriteString("  {\n")
@@ -1071,7 +1080,7 @@ func buildSystemPrompt(jsonResponse *bool, jsonResponseKeys *[]string, tools []l
 		sb.WriteString("Rules:\n")
 		sb.WriteString("- Return a JSON array for tool calls, even for one tool.\n")
 		sb.WriteString("- Include all required parameters.\n")
-		sb.WriteString("- Execute tools in the specified order.\n")
+		sb.WriteString("- Execute tools in the specified order, using previous tool outputs to inform parameters.\n")
 		sb.WriteString("- After tool execution, return the final response without tool calls unless new tools are needed.\n")
 		sb.WriteString("- Do NOT include explanatory text with tool call JSON.\n")
 		sb.WriteString("\nAvailable tools:\n")
@@ -1109,8 +1118,8 @@ func buildSystemPrompt(jsonResponse *bool, jsonResponseKeys *[]string, tools []l
 	return sb.String()
 }
 
-// processToolCalls processes tool calls, appends results to messageHistory, and includes conversational log.
-func processToolCalls(toolCalls []llms.ToolCall, toolreader *tool.PklResourceReader, chatBlock *pklLLM.ResourceChat, logger *logging.Logger, messageHistory *[]llms.MessageContent, originalPrompt string) error {
+// processToolCalls processes tool calls, appends results to messageHistory, and stores outputs.
+func processToolCalls(toolCalls []llms.ToolCall, toolreader *tool.PklResourceReader, chatBlock *pklLLM.ResourceChat, logger *logging.Logger, messageHistory *[]llms.MessageContent, originalPrompt string, toolOutputs map[string]string) error {
 	if len(toolCalls) == 0 {
 		logger.Info("No tool calls to process")
 		return nil
@@ -1119,7 +1128,7 @@ func processToolCalls(toolCalls []llms.ToolCall, toolreader *tool.PklResourceRea
 	var errorMessages []error
 	successfulCalls := 0
 
-	// Add original prompt to message history as the start of the conversation
+	// Add original prompt to message history
 	*messageHistory = append(*messageHistory, llms.MessageContent{
 		Role:  llms.ChatMessageTypeHuman,
 		Parts: []llms.ContentPart{llms.TextContent{Text: fmt.Sprintf("Original Prompt: %s", originalPrompt)}},
@@ -1189,6 +1198,9 @@ func processToolCalls(toolCalls []llms.ToolCall, toolreader *tool.PklResourceRea
 			"result_length", len(resultStr),
 			"result_preview", utils.TruncateString(resultStr, 100))
 
+		// Store tool output
+		toolOutputs[tc.ID] = resultStr
+
 		// Add tool execution message to history
 		toolExecutionMessage := fmt.Sprintf("Tool '%s' executed with arguments: %s\nOutput: %s", tc.FunctionCall.Name, tc.FunctionCall.Arguments, resultStr)
 		*messageHistory = append(*messageHistory, llms.MessageContent{
@@ -1196,7 +1208,7 @@ func processToolCalls(toolCalls []llms.ToolCall, toolreader *tool.PklResourceRea
 			Parts: []llms.ContentPart{llms.TextContent{Text: toolExecutionMessage}},
 		})
 
-		// Add tool response to history as a single TextContent
+		// Add tool response to history
 		toolResponseJSON, err := json.Marshal(map[string]interface{}{
 			"tool_call_id": tc.ID,
 			"name":         tc.FunctionCall.Name,
@@ -1320,14 +1332,11 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 		newChat.File = &filePath
 	}
 
-	// Encode newChat
 	encodedChat := encodeChat(newChat, dr.Logger)
 	existingResources[resourceID] = encodedChat
 
-	// Generate PKL content
 	pklContent := generatePklContent(existingResources, dr.Context, dr.Logger)
 
-	// Write and evaluate PKL file
 	if err := afero.WriteFile(dr.Fs, pklPath, []byte(pklContent), 0o644); err != nil {
 		return fmt.Errorf("failed to write PKL file: %w", err)
 	}
@@ -1343,7 +1352,6 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 
 // encodeChat encodes a ResourceChat for Pkl storage.
 func encodeChat(chat *pklLLM.ResourceChat, logger *logging.Logger) *pklLLM.ResourceChat {
-	// Encode Scenario
 	var encodedScenario *[]*pklLLM.MultiChat
 	if chat.Scenario != nil && len(*chat.Scenario) > 0 {
 		encodedEntries := make([]*pklLLM.MultiChat, 0, len(*chat.Scenario))
@@ -1375,14 +1383,12 @@ func encodeChat(chat *pklLLM.ResourceChat, logger *logging.Logger) *pklLLM.Resou
 		logger.Info("Scenario is nil or empty in encodeChat")
 	}
 
-	// Encode Tools
 	var encodedTools *[]*pklLLM.Tool
 	if chat.Tools != nil {
 		encodedEntries := encodeTools(chat.Tools)
 		encodedTools = &encodedEntries
 	}
 
-	// Encode Files
 	var encodedFiles *[]string
 	if chat.Files != nil {
 		encodedEntries := make([]string, len(*chat.Files))
@@ -1492,21 +1498,18 @@ func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.C
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
 		pklContent.WriteString(fmt.Sprintf("    model = %q\n", res.Model))
 
-		// Prompt with default
 		prompt := ""
 		if res.Prompt != nil {
 			prompt = *res.Prompt
 		}
 		pklContent.WriteString(fmt.Sprintf("    prompt = %q\n", prompt))
 
-		// Role with default
 		role := RoleHuman
 		if res.Role != nil && *res.Role != "" {
 			role = *res.Role
 		}
 		pklContent.WriteString(fmt.Sprintf("    role = %q\n", role))
 
-		// Scenario
 		pklContent.WriteString("    scenario ")
 		if res.Scenario != nil && len(*res.Scenario) > 0 {
 			logger.Info("Serializing scenario", "entry_count", len(*res.Scenario))
@@ -1536,17 +1539,14 @@ func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.C
 			pklContent.WriteString("{}\n")
 		}
 
-		// Tools
 		serializeTools(&pklContent, res.Tools)
 
-		// JSONResponse with default
 		jsonResponse := false
 		if res.JSONResponse != nil {
 			jsonResponse = *res.JSONResponse
 		}
 		pklContent.WriteString(fmt.Sprintf("    JSONResponse = %t\n", jsonResponse))
 
-		// JSONResponseKeys
 		pklContent.WriteString("    JSONResponseKeys ")
 		if res.JSONResponseKeys != nil && len(*res.JSONResponseKeys) > 0 {
 			pklContent.WriteString(utils.EncodePklSlice(res.JSONResponseKeys))
@@ -1554,7 +1554,6 @@ func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.C
 			pklContent.WriteString("{}\n")
 		}
 
-		// Files
 		pklContent.WriteString("    files ")
 		if res.Files != nil && len(*res.Files) > 0 {
 			pklContent.WriteString(utils.EncodePklSlice(res.Files))
@@ -1562,7 +1561,6 @@ func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.C
 			pklContent.WriteString("{}\n")
 		}
 
-		// TimeoutDuration with default
 		timeoutValue := 60.0
 		timeoutUnit := pkl.Second
 		if res.TimeoutDuration != nil {
@@ -1571,7 +1569,6 @@ func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.C
 		}
 		pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", timeoutValue, timeoutUnit.String()))
 
-		// Timestamp with default
 		timestampValue := float64(time.Now().Unix())
 		timestampUnit := pkl.Nanosecond
 		if res.Timestamp != nil {
@@ -1580,14 +1577,12 @@ func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.C
 		}
 		pklContent.WriteString(fmt.Sprintf("    timestamp = %g.%s\n", timestampValue, timestampUnit.String()))
 
-		// Response
 		if res.Response != nil {
 			pklContent.WriteString(fmt.Sprintf("    response = #\"\"\"\n%s\n\"\"\"#\n", *res.Response))
 		} else {
 			pklContent.WriteString("    response = \"\"\n")
 		}
 
-		// File
 		if res.File != nil {
 			pklContent.WriteString(fmt.Sprintf("    file = %q\n", *res.File))
 		} else {
