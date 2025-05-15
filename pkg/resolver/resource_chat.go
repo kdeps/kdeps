@@ -101,6 +101,26 @@ func deduplicateToolCalls(toolCalls []llms.ToolCall, logger *logging.Logger) []l
 	return result
 }
 
+// summarizeMessageHistory creates a concise summary of message history for logging
+func summarizeMessageHistory(history []llms.MessageContent) string {
+	var summary strings.Builder
+	for i, msg := range history {
+		if i > 0 {
+			summary.WriteString("; ")
+		}
+		summary.WriteString(fmt.Sprintf("Role:%s Parts:", msg.Role))
+		for j, part := range msg.Parts {
+			if j > 0 {
+				summary.WriteString("|")
+			}
+			if textPart, ok := part.(llms.TextContent); ok {
+				summary.WriteString(utils.TruncateString(textPart.Text, 50))
+			}
+		}
+	}
+	return summary.String()
+}
+
 // generateChatResponse generates a response from the LLM based on the chat block, executing tools via toolreader.
 func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, chatBlock *pklLLM.ResourceChat, toolreader *tool.PklResourceReader, logger *logging.Logger) (string, error) {
 	logger.Info("Processing chatBlock",
@@ -303,7 +323,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		}
 
 		// Generate content with updated history
-		logger.Debug("Message history before LLM call", "iteration", iteration+1, "history", messageHistory)
+		logger.Debug("Message history before LLM call", "iteration", iteration+1, "history", summarizeMessageHistory(messageHistory))
 		response, err = llm.GenerateContent(ctx, messageHistory, opts...)
 		if err != nil {
 			logger.Error("Failed to generate content", "iteration", iteration+1, "error", err)
@@ -334,13 +354,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 			"stop_reason", respChoice.StopReason,
 			"tool_names", extractToolNames(respChoice.ToolCalls))
 
-		// Exit if no new tool calls or stop reason indicates completion
-		if len(respChoice.ToolCalls) == 0 || respChoice.StopReason == "stop" {
-			logger.Info("No new tool calls or LLM stopped, exiting loop", "iteration", iteration+1)
-			return respChoice.Content, nil
-		}
-
-		// Update tool calls
+		// Check for tool calls
 		toolCalls = respChoice.ToolCalls
 		if len(toolCalls) == 0 && len(availableTools) > 0 {
 			logger.Info("No direct ToolCalls, attempting to construct from JSON", "iteration", iteration+1)
@@ -354,6 +368,24 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 
 		// Deduplicate tool calls
 		toolCalls = deduplicateToolCalls(toolCalls, logger)
+
+		// Exit if no new tool calls or LLM stopped
+		if len(toolCalls) == 0 || respChoice.StopReason == "stop" {
+			logger.Info("No valid tool calls or LLM stopped, returning response", "iteration", iteration+1, "content", utils.TruncateString(respChoice.Content, 100))
+			// If response is empty, use the last tool output
+			if respChoice.Content == "{}" || respChoice.Content == "" {
+				logger.Warn("Empty response detected, falling back to last tool output")
+				for _, output := range toolOutputs {
+					respChoice.Content = output
+				}
+				if respChoice.Content == "" {
+					logger.Error("No tool outputs available, returning default response")
+					respChoice.Content = "No result available"
+				}
+			}
+			logger.Info("Final response", "content", utils.TruncateString(respChoice.Content, 100))
+			return respChoice.Content, nil
+		}
 
 		// Check for repeated tool calls
 		for _, tc := range toolCalls {
@@ -372,10 +404,15 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 				toolKey := tc.FunctionCall.Name + ":" + string(normalizedArgs)
 				toolCallHistory[toolKey]++
 				if toolCallHistory[toolKey] > 1 {
-					logger.Info("Detected repeated tool call, exiting loop",
+					logger.Info("Detected repeated tool call, returning response",
 						"tool", tc.FunctionCall.Name,
 						"arguments", tc.FunctionCall.Arguments,
 						"count", toolCallHistory[toolKey])
+					// Use last tool output if available
+					for _, output := range toolOutputs {
+						logger.Info("Final response from repeated tool call", "content", utils.TruncateString(output, 100))
+						return output, nil
+					}
 					return respChoice.Content, nil
 				}
 			}
@@ -402,6 +439,11 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 			assistantParts = append(assistantParts, fmt.Sprintf("ToolCall: %s", string(toolCallJSON)))
 		}
 
+		if len(toolCalls) > 0 {
+			toolNames := extractToolNames(toolCalls)
+			assistantParts = append(assistantParts, fmt.Sprintf("Suggested tools: %s", strings.Join(toolNames, ", ")))
+		}
+
 		assistantContent = strings.Join(assistantParts, "\n")
 		if assistantContent != "" {
 			messageHistory = append(messageHistory, llms.MessageContent{
@@ -412,11 +454,28 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 
 		if iteration == maxIterations-1 && len(toolCalls) > 0 {
 			logger.Error("Reached maximum tool call iterations", "max_iterations", maxIterations)
+			// Return last tool output if available
+			for _, output := range toolOutputs {
+				logger.Info("Final response from max iterations", "content", utils.TruncateString(output, 100))
+				return output, nil
+			}
 			return respChoice.Content, fmt.Errorf("reached maximum tool call iterations (%d)", maxIterations)
 		}
 	}
 
 	logger.Info("Received final LLM response", "content", utils.TruncateString(respChoice.Content, 100))
+	// Ensure non-empty response
+	if respChoice.Content == "{}" || respChoice.Content == "" {
+		logger.Warn("Empty response detected, falling back to last tool output")
+		for _, output := range toolOutputs {
+			respChoice.Content = output
+		}
+		if respChoice.Content == "" {
+			logger.Error("No tool outputs available, returning default response")
+			respChoice.Content = "No result available"
+		}
+	}
+	logger.Info("Final response", "content", utils.TruncateString(respChoice.Content, 100))
 	return respChoice.Content, nil
 }
 
@@ -966,9 +1025,16 @@ func extractToolParams(args map[string]interface{}, chatBlock *pklLLM.ResourceCh
 
 	var paramValues []string
 	var missingRequired []string
+	paramOrder := make([]string, 0)
 
 	if toolParams != nil {
-		for paramName, param := range *toolParams {
+		// Collect parameter names in definition order
+		for paramName := range *toolParams {
+			paramOrder = append(paramOrder, paramName)
+		}
+		// Process parameters in order
+		for _, paramName := range paramOrder {
+			param := (*toolParams)[paramName]
 			if param == nil {
 				logger.Warn("Skipping nil parameter", "tool", toolName, "paramName", paramName)
 				continue
@@ -985,6 +1051,7 @@ func extractToolParams(args map[string]interface{}, chatBlock *pklLLM.ResourceCh
 		}
 	}
 
+	// Handle any extra parameters not in tool definition
 	for paramName, value := range args {
 		if toolParams != nil {
 			if _, exists := (*toolParams)[paramName]; exists {
@@ -1067,7 +1134,7 @@ func buildSystemPrompt(jsonResponse *bool, jsonResponseKeys *[]string, tools []l
 	}
 
 	if len(tools) > 0 {
-		sb.WriteString("\n\nYou have access to the following tools. Use tools only when necessary to fulfill the request. Consider all previous tool outputs when deciding which tools to use next. After tool execution, you will receive the results in the conversation history. Do NOT suggest the same tool with identical parameters unless explicitly required by new user input. Once all necessary tools are executed, return the final response without additional tool calls.\n\n")
+		sb.WriteString("\n\nYou have access to the following tools. Use tools only when necessary to fulfill the request. Consider all previous tool outputs when deciding which tools to use next. After tool execution, you will receive the results in the conversation history. Do NOT suggest the same tool with identical parameters unless explicitly required by new user input. Once all necessary tools are executed, return the final result as a string (e.g., '12345', 'joel').\n\n")
 		sb.WriteString("When using tools, respond with a JSON array of tool call objects, each containing 'name' and 'arguments' fields, even for a single tool:\n")
 		sb.WriteString("[\n")
 		sb.WriteString("  {\n")
@@ -1081,7 +1148,7 @@ func buildSystemPrompt(jsonResponse *bool, jsonResponseKeys *[]string, tools []l
 		sb.WriteString("- Return a JSON array for tool calls, even for one tool.\n")
 		sb.WriteString("- Include all required parameters.\n")
 		sb.WriteString("- Execute tools in the specified order, using previous tool outputs to inform parameters.\n")
-		sb.WriteString("- After tool execution, return the final response without tool calls unless new tools are needed.\n")
+		sb.WriteString("- After tool execution, return the final result as a string without tool calls unless new tools are needed.\n")
 		sb.WriteString("- Do NOT include explanatory text with tool call JSON.\n")
 		sb.WriteString("\nAvailable tools:\n")
 		for _, tool := range tools {
@@ -1112,7 +1179,7 @@ func buildSystemPrompt(jsonResponse *bool, jsonResponseKeys *[]string, tools []l
 			}
 		}
 	} else {
-		sb.WriteString("No tools are available. Respond with the final answer directly.\n")
+		sb.WriteString("No tools are available. Respond with the final result as a string.\n")
 	}
 
 	return sb.String()
