@@ -140,7 +140,8 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 			cmd := exec.Command(interpreter, args...)
 			output, err = cmd.CombinedOutput()
 			if err != nil {
-				if _, ok := err.(*exec.Error); ok {
+				var execErr *exec.Error
+				if errors.As(err, &execErr) {
 					log.Printf("Interpreter %s not found or inaccessible: %v", interpreter, err)
 					return nil, fmt.Errorf("interpreter %s not found or inaccessible: %w", interpreter, err)
 				}
