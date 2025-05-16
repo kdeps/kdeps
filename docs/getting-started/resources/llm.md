@@ -48,7 +48,7 @@ chat {
             role = "assistant"
             prompt = "You are a knowledgeable and supportive AI assistant with expertise in general information."
         }
-o        new {
+        new {
             role = "system"
             prompt = "Ensure responses are concise and accurate, prioritizing user satisfaction."
         }
@@ -97,7 +97,7 @@ o        new {
 - **`model`**: Specifies the LLM model to be used, as defined in the workflow configuration.
 - **`role`**: Defines the role context for the prompt, such as `user`, `assistant`, or `system`. Defaults to `human` if not specified.
 - **`prompt`**: The input query sent to the LLM for processing.
-- **`tools`**: Available tools for open-source LLMs to automatically use.
+- **`tools`**: Available tools for open-source LLMs to automatically use. See [Tools](../resources/tools) for more details.
 - **`scenario`**: Enables the inclusion of multiple prompts and roles to shape the LLM session's context. Each `new` block within `scenario` specifies a role (e.g., `assistant` or `system`) and a corresponding prompt to guide the LLM’s behavior or response.
 - **`files`**: Lists files to be processed by the LLM, particularly useful for vision-based LLM models.
 - **`JSONResponse`**: Indicates whether the LLM response should be formatted as structured JSON.
@@ -236,6 +236,8 @@ tools {
     }
 }
 ```
+
+For more information on tools, see [Tools](../resources/tools).
 
 ## Error Handling and Timeouts
 
