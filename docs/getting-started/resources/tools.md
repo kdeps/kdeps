@@ -174,7 +174,7 @@ The LLM selects and chains tools, structuring outputs as JSON. Prompts don’t n
 Run or get JSON results:
 ```apl
 local result = "@(tools.runScript("square_number_123", "<path_to_script>", "10"))"
-local output = "@(tools.getItem(\"square_number_123\"))"
+local output = "@(tools.getItem("square_number_123"))"
 ```
 
 ## How It’s Like MCP or A2A

@@ -189,7 +189,7 @@ tools {
 #### Key Elements of the `tools` Block
 
 - **`name`**: A unique identifier for the tool, used by the LLM to reference it.
-- **`script`She's the path to the script or executable that the tool runs, often using a dynamic filepath like `@(data.filepath("tools/1.0.0", "lookup.py"))`.
+- **`script`**: The path to the script or executable that the tool runs, often using a dynamic filepath like `@(data.filepath("tools/1.0.0", "lookup.py"))`.
 - **`description`**: A clear description of the tool’s purpose, helping the LLM decide when to use it.
 - **`parameters`**: Defines the input parameters the tool accepts, including:
   - `required`: Whether the parameter is mandatory (`true` or `false`).
