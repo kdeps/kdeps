@@ -32,6 +32,14 @@ Below is a list of the global functions available for each resource:
 | request.path()                  | Retrieves the URI path of the API request.                                     |
 | request.method()                | Retrieves the HTTP method (e.g., GET, POST) of the API request.                |
 
+## Manual LLM Tool Execution
+
+| **Function**                               | **Description**                                   |
+|:-------------------------------------------|:--------------------------------------------------|
+| tool.getItem("key")                        | Fetches the results of the tool execution of key  |
+| tool.runScript("key", "path", "arg1,arg2") | Execute the script with arguments                 |
+| tool.history("key")                        | Fetches the output history execution of the key   |
+
 ## Memory Operation Functions
 
 | **Function**                    | **Description**                                   |
