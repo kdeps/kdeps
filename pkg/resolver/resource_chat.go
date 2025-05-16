@@ -2,16 +2,23 @@ package resolver
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/apple/pkl-go/pkl"
+	"github.com/gabriel-vasile/mimetype"
+	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/tool"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklLLM "github.com/kdeps/schema/gen/llm"
 	"github.com/spf13/afero"
@@ -19,6 +26,24 @@ import (
 	"github.com/tmc/langchaingo/llms/ollama"
 )
 
+// Constants for role strings.
+const (
+	RoleHuman     = "human"
+	RoleUser      = "user"
+	RolePerson    = "person"
+	RoleClient    = "client"
+	RoleSystem    = "system"
+	RoleAI        = "ai"
+	RoleAssistant = "assistant"
+	RoleBot       = "bot"
+	RoleChatbot   = "chatbot"
+	RoleLLM       = "llm"
+	RoleFunction  = "function"
+	RoleAction    = "action"
+	RoleTool      = "tool"
+)
+
+// HandleLLMChat initiates asynchronous processing of an LLM chat interaction.
 func (dr *DependencyResolver) HandleLLMChat(actionID string, chatBlock *pklLLM.ResourceChat) error {
 	if err := dr.decodeChatBlock(chatBlock); err != nil {
 		dr.Logger.Error("failed to decode chat block", "actionID", actionID, "error", err)
@@ -34,19 +59,432 @@ func (dr *DependencyResolver) HandleLLMChat(actionID string, chatBlock *pklLLM.R
 	return nil
 }
 
+// extractToolNames extracts tool names from a slice of llms.ToolCall for logging.
+func extractToolNames(toolCalls []llms.ToolCall) []string {
+	names := make([]string, 0, len(toolCalls))
+	for _, tc := range toolCalls {
+		if tc.FunctionCall != nil && tc.FunctionCall.Name != "" {
+			names = append(names, tc.FunctionCall.Name)
+		}
+	}
+	return names
+}
+
+// extractToolNamesFromTools extracts tool names from a slice of llms.Tool for logging.
+func extractToolNamesFromTools(tools []llms.Tool) []string {
+	names := make([]string, 0, len(tools))
+	for _, t := range tools {
+		if t.Function != nil {
+			names = append(names, t.Function.Name)
+		}
+	}
+	return names
+}
+
+// deduplicateToolCalls removes duplicate tool calls based on name and arguments.
+func deduplicateToolCalls(toolCalls []llms.ToolCall, logger *logging.Logger) []llms.ToolCall {
+	seen := make(map[string]struct{})
+	result := make([]llms.ToolCall, 0, len(toolCalls))
+
+	for _, tc := range toolCalls {
+		if tc.FunctionCall == nil {
+			logger.Warn("Skipping tool call with nil FunctionCall")
+			continue
+		}
+		key := tc.FunctionCall.Name + ":" + tc.FunctionCall.Arguments
+		if _, exists := seen[key]; !exists {
+			seen[key] = struct{}{}
+			result = append(result, tc)
+		} else {
+			logger.Info("Removed duplicate tool call", "name", tc.FunctionCall.Name, "arguments", tc.FunctionCall.Arguments)
+		}
+	}
+	return result
+}
+
+// summarizeMessageHistory creates a concise summary of message history for logging.
+func summarizeMessageHistory(history []llms.MessageContent) string {
+	var summary strings.Builder
+	for i, msg := range history {
+		if i > 0 {
+			summary.WriteString("; ")
+		}
+		summary.WriteString("Role:" + string(msg.Role) + " Parts:")
+		for j, part := range msg.Parts {
+			if j > 0 {
+				summary.WriteString("|")
+			}
+			if textPart, ok := part.(llms.TextContent); ok {
+				summary.WriteString(utils.TruncateString(textPart.Text, 50))
+			}
+		}
+	}
+	return summary.String()
+}
+
+// generateChatResponse generates a response from the LLM based on the chat block, executing tools via toolreader.
+func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, chatBlock *pklLLM.ResourceChat, toolreader *tool.PklResourceReader, logger *logging.Logger) (string, error) {
+	logger.Info("Processing chatBlock",
+		"model", chatBlock.Model,
+		"prompt", utils.SafeDerefString(chatBlock.Prompt),
+		"role", utils.SafeDerefString(chatBlock.Role),
+		"json_response", utils.SafeDerefBool(chatBlock.JSONResponse),
+		"json_response_keys", utils.SafeDerefSlice(chatBlock.JSONResponseKeys),
+		"tool_count", len(utils.SafeDerefSlice(chatBlock.Tools)),
+		"scenario_count", len(utils.SafeDerefSlice(chatBlock.Scenario)),
+		"file_count", len(utils.SafeDerefSlice(chatBlock.Files)))
+
+	// Generate dynamic tools with enhanced logging
+	availableTools := generateAvailableTools(chatBlock, logger)
+	logger.Info("Generated tools",
+		"tool_count", len(availableTools),
+		"tool_names", extractToolNamesFromTools(availableTools))
+
+	// Build message history
+	messageHistory := make([]llms.MessageContent, 0)
+
+	// Store tool outputs to influence subsequent calls
+	toolOutputs := make(map[string]string) // Key: tool_call_id, Value: output
+
+	// Build system prompt that encourages tool usage and considers previous outputs
+	systemPrompt := buildSystemPrompt(chatBlock.JSONResponse, chatBlock.JSONResponseKeys, availableTools)
+	logger.Info("Generated system prompt", "content", utils.TruncateString(systemPrompt, 200))
+
+	messageHistory = append(messageHistory, llms.MessageContent{
+		Role:  llms.ChatMessageTypeSystem,
+		Parts: []llms.ContentPart{llms.TextContent{Text: systemPrompt}},
+	})
+
+	// Add main prompt if present
+	role, roleType := getRoleAndType(chatBlock.Role)
+	prompt := utils.SafeDerefString(chatBlock.Prompt)
+	if strings.TrimSpace(prompt) != "" {
+		if roleType == llms.ChatMessageTypeGeneric {
+			prompt = "[" + role + "]: " + prompt
+		}
+		messageHistory = append(messageHistory, llms.MessageContent{
+			Role:  roleType,
+			Parts: []llms.ContentPart{llms.TextContent{Text: prompt}},
+		})
+	}
+
+	// Add scenario messages
+	messageHistory = append(messageHistory, processScenarioMessages(chatBlock.Scenario, logger)...)
+
+	// Process files if present
+	if chatBlock.Files != nil && len(*chatBlock.Files) > 0 {
+		for i, filePath := range *chatBlock.Files {
+			fileBytes, err := afero.ReadFile(fs, filePath)
+			if err != nil {
+				logger.Error("Failed to read file", "index", i, "path", filePath, "error", err)
+				return "", fmt.Errorf("failed to read file %s: %w", filePath, err)
+			}
+			fileType := mimetype.Detect(fileBytes).String()
+			logger.Info("Detected MIME type for file", "index", i, "path", filePath, "mimeType", fileType)
+			base64Content := base64.StdEncoding.EncodeToString(fileBytes)
+			fileContent := "File: " + filePath + "\nMIME: " + fileType + "\nContent: " + base64Content
+			messageHistory = append(messageHistory, llms.MessageContent{
+				Role: roleType,
+				Parts: []llms.ContentPart{
+					llms.TextContent{Text: fileContent},
+				},
+			})
+		}
+	}
+
+	// Call options
+	opts := []llms.CallOption{}
+	if chatBlock.JSONResponse != nil && *chatBlock.JSONResponse {
+		opts = append(opts, llms.WithJSONMode())
+	}
+	if len(availableTools) > 0 {
+		opts = append(opts,
+			llms.WithTools(availableTools),
+			llms.WithJSONMode(),
+			llms.WithToolChoice("auto"))
+	}
+
+	logger.Info("Calling LLM with options",
+		"json_mode", utils.SafeDerefBool(chatBlock.JSONResponse),
+		"tool_count", len(availableTools))
+
+	// First GenerateContent call
+	response, err := llm.GenerateContent(ctx, messageHistory, opts...)
+	if err != nil {
+		logger.Error("Failed to generate content in first call", "error", err)
+		return "", fmt.Errorf("failed to generate content in first call: %w", err)
+	}
+
+	if len(response.Choices) == 0 {
+		logger.Error("No choices in LLM response")
+		return "", errors.New("no choices in LLM response")
+	}
+
+	// Select choice with tool calls, if any
+	var respChoice *llms.ContentChoice
+	if len(availableTools) > 0 {
+		for _, choice := range response.Choices {
+			if len(choice.ToolCalls) > 0 {
+				respChoice = choice
+				break
+			}
+		}
+	}
+	if respChoice == nil && len(response.Choices) > 0 {
+		respChoice = response.Choices[0]
+	}
+
+	logger.Info("First LLM response",
+		"content", utils.TruncateString(respChoice.Content, 100),
+		"tool_calls", len(respChoice.ToolCalls),
+		"stop_reason", respChoice.StopReason,
+		"tool_names", extractToolNames(respChoice.ToolCalls))
+
+	// Process first response
+	toolCalls := respChoice.ToolCalls
+	if len(toolCalls) == 0 && len(availableTools) > 0 {
+		logger.Info("No direct ToolCalls, attempting to construct from JSON")
+		constructedToolCalls := constructToolCallsFromJSON(respChoice.Content, logger)
+		toolCalls = constructedToolCalls
+	}
+
+	// Deduplicate tool calls
+	toolCalls = deduplicateToolCalls(toolCalls, logger)
+
+	// Add response to history
+	assistantParts := []string{}
+	if respChoice.Content != "" {
+		assistantParts = append(assistantParts, respChoice.Content)
+	}
+	for _, tc := range toolCalls {
+		toolCallJSON, err := json.Marshal(map[string]interface{}{
+			"id":   tc.ID,
+			"type": tc.Type,
+			"function": map[string]interface{}{
+				"name":      tc.FunctionCall.Name,
+				"arguments": tc.FunctionCall.Arguments,
+			},
+		})
+		if err != nil {
+			logger.Error("Failed to serialize ToolCall to JSON", "tool_call_id", tc.ID, "error", err)
+			continue
+		}
+		assistantParts = append(assistantParts, "ToolCall: "+string(toolCallJSON))
+	}
+
+	if len(toolCalls) > 0 {
+		toolNames := extractToolNames(toolCalls)
+		assistantParts = append(assistantParts, "Suggested tools: "+strings.Join(toolNames, ", "))
+	}
+
+	assistantContent := strings.Join(assistantParts, "\n")
+	if assistantContent != "" {
+		messageHistory = append(messageHistory, llms.MessageContent{
+			Role:  llms.ChatMessageTypeAI,
+			Parts: []llms.ContentPart{llms.TextContent{Text: assistantContent}},
+		})
+	}
+
+	// Track tool calls to prevent duplicates and looping
+	toolCallHistory := make(map[string]int)
+	const maxIterations = 5 // Allow more iterations to process chained tool calls
+
+	// Process tool calls iteratively
+	for iteration := 0; len(toolCalls) > 0 && iteration < maxIterations; iteration++ {
+		logger.Info("Processing tool calls",
+			"iteration", iteration+1,
+			"count", len(toolCalls),
+			"tool_names", extractToolNames(toolCalls))
+
+		err = processToolCalls(toolCalls, toolreader, chatBlock, logger, &messageHistory, prompt, toolOutputs)
+		if err != nil {
+			logger.Error("Failed to process tool calls", "iteration", iteration+1, "error", err)
+			return "", fmt.Errorf("failed to process tool calls in iteration %d: %w", iteration+1, err)
+		}
+
+		// Include tool outputs in the system prompt for the next call
+		systemPrompt = buildSystemPrompt(chatBlock.JSONResponse, chatBlock.JSONResponseKeys, availableTools)
+		if len(toolOutputs) > 0 {
+			var toolOutputSummary strings.Builder
+			toolOutputSummary.WriteString("\nPrevious Tool Outputs:\n")
+			for toolID, output := range toolOutputs {
+				toolOutputSummary.WriteString("- ToolCall ID " + toolID + ": " + utils.TruncateString(output, 100) + "\n")
+			}
+			systemPrompt += toolOutputSummary.String()
+		}
+
+		// Update system message in history
+		messageHistory[0] = llms.MessageContent{
+			Role:  llms.ChatMessageTypeSystem,
+			Parts: []llms.ContentPart{llms.TextContent{Text: systemPrompt}},
+		}
+
+		// Generate content with updated history
+		logger.Debug("Message history before LLM call", "iteration", iteration+1, "history", summarizeMessageHistory(messageHistory))
+		response, err = llm.GenerateContent(ctx, messageHistory, opts...)
+		if err != nil {
+			logger.Error("Failed to generate content", "iteration", iteration+1, "error", err)
+			return "", fmt.Errorf("failed to generate content in iteration %d: %w", iteration+1, err)
+		}
+
+		if len(response.Choices) == 0 {
+			logger.Error("No choices in LLM response", "iteration", iteration+1)
+			return "", errors.New("no choices in LLM response")
+		}
+
+		// Select choice with tool calls, if any
+		respChoice = nil
+		for _, choice := range response.Choices {
+			if len(choice.ToolCalls) > 0 {
+				respChoice = choice
+				break
+			}
+		}
+		if respChoice == nil && len(response.Choices) > 0 {
+			respChoice = response.Choices[0]
+		}
+
+		logger.Info("LLM response",
+			"iteration", iteration+1,
+			"content", utils.TruncateString(respChoice.Content, 100),
+			"tool_calls", len(respChoice.ToolCalls),
+			"stop_reason", respChoice.StopReason,
+			"tool_names", extractToolNames(respChoice.ToolCalls))
+
+		// Check for tool calls
+		toolCalls = respChoice.ToolCalls
+		if len(toolCalls) == 0 && len(availableTools) > 0 {
+			logger.Info("No direct ToolCalls, attempting to construct from JSON", "iteration", iteration+1)
+			constructedToolCalls := constructToolCallsFromJSON(respChoice.Content, logger)
+			toolCalls = constructedToolCalls
+		}
+
+		// Deduplicate tool calls
+		toolCalls = deduplicateToolCalls(toolCalls, logger)
+
+		// Exit if no new tool calls or LLM stopped
+		if len(toolCalls) == 0 || respChoice.StopReason == "stop" {
+			logger.Info("No valid tool calls or LLM stopped, returning response", "iteration", iteration+1, "content", utils.TruncateString(respChoice.Content, 100))
+			// If response is empty, use the last tool output
+			if respChoice.Content == "{}" || respChoice.Content == "" {
+				logger.Warn("Empty response detected, falling back to last tool output")
+				for _, output := range toolOutputs {
+					respChoice.Content = output
+				}
+				if respChoice.Content == "" {
+					logger.Error("No tool outputs available, returning default response")
+					respChoice.Content = "No result available"
+				}
+			}
+			logger.Info("Final response", "content", utils.TruncateString(respChoice.Content, 100))
+			return respChoice.Content, nil
+		}
+
+		// Check for repeated tool calls
+		for _, tc := range toolCalls {
+			if tc.FunctionCall != nil {
+				// Normalize arguments
+				argsMap := make(map[string]interface{})
+				if err := json.Unmarshal([]byte(tc.FunctionCall.Arguments), &argsMap); err != nil {
+					logger.Warn("Failed to normalize tool arguments", "tool", tc.FunctionCall.Name, "error", err)
+					continue
+				}
+				normalizedArgs, err := json.Marshal(argsMap)
+				if err != nil {
+					logger.Warn("Failed to normalize tool arguments", "tool", tc.FunctionCall.Name, "error", err)
+					continue
+				}
+				toolKey := tc.FunctionCall.Name + ":" + string(normalizedArgs)
+				toolCallHistory[toolKey]++
+				if toolCallHistory[toolKey] > 1 {
+					logger.Info("Detected repeated tool call, returning response",
+						"tool", tc.FunctionCall.Name,
+						"arguments", tc.FunctionCall.Arguments,
+						"count", toolCallHistory[toolKey])
+					// Use last tool output if available
+					for _, output := range toolOutputs {
+						logger.Info("Final response from repeated tool call", "content", utils.TruncateString(output, 100))
+						return output, nil
+					}
+					return respChoice.Content, nil
+				}
+			}
+		}
+
+		// Add response to history
+		assistantParts = []string{}
+		if respChoice.Content != "" {
+			assistantParts = append(assistantParts, respChoice.Content)
+		}
+		for _, tc := range toolCalls {
+			toolCallJSON, err := json.Marshal(map[string]interface{}{
+				"id":   tc.ID,
+				"type": tc.Type,
+				"function": map[string]interface{}{
+					"name":      tc.FunctionCall.Name,
+					"arguments": tc.FunctionCall.Arguments,
+				},
+			})
+			if err != nil {
+				logger.Error("Failed to serialize ToolCall to JSON", "tool_call_id", tc.ID, "error", err)
+				continue
+			}
+			assistantParts = append(assistantParts, "ToolCall: "+string(toolCallJSON))
+		}
+
+		if len(toolCalls) > 0 {
+			toolNames := extractToolNames(toolCalls)
+			assistantParts = append(assistantParts, "Suggested tools: "+strings.Join(toolNames, ", "))
+		}
+
+		assistantContent = strings.Join(assistantParts, "\n")
+		if assistantContent != "" {
+			messageHistory = append(messageHistory, llms.MessageContent{
+				Role:  llms.ChatMessageTypeAI,
+				Parts: []llms.ContentPart{llms.TextContent{Text: assistantContent}},
+			})
+		}
+
+		if iteration == maxIterations-1 && len(toolCalls) > 0 {
+			logger.Error("Reached maximum tool call iterations", "max_iterations", maxIterations)
+			// Return last tool output if available
+			for _, output := range toolOutputs {
+				logger.Info("Final response from max iterations", "content", utils.TruncateString(output, 100))
+				return output, nil
+			}
+			return respChoice.Content, fmt.Errorf("reached maximum tool call iterations (%d)", maxIterations)
+		}
+	}
+
+	logger.Info("Received final LLM response", "content", utils.TruncateString(respChoice.Content, 100))
+	// Ensure non-empty response
+	if respChoice.Content == "{}" || respChoice.Content == "" {
+		logger.Warn("Empty response detected, falling back to last tool output")
+		for _, output := range toolOutputs {
+			respChoice.Content = output
+		}
+		if respChoice.Content == "" {
+			logger.Error("No tool outputs available, returning default response")
+			respChoice.Content = "No result available"
+		}
+	}
+	logger.Info("Final response", "content", utils.TruncateString(respChoice.Content, 100))
+	return respChoice.Content, nil
+}
+
+// decodeChatBlock decodes fields in the chat block, handling Base64 decoding where necessary.
 func (dr *DependencyResolver) decodeChatBlock(chatBlock *pklLLM.ResourceChat) error {
-	decodedPrompt, err := utils.DecodeBase64IfNeeded(utils.DerefString(chatBlock.Prompt))
-	if err != nil {
-		return fmt.Errorf("failed to decode Prompt: %w", err)
+	// Decode Prompt
+	if err := decodeField(&chatBlock.Prompt, "Prompt", utils.SafeDerefString, ""); err != nil {
+		return err
 	}
-	chatBlock.Prompt = &decodedPrompt
 
-	decodedRole, err := utils.DecodeBase64IfNeeded(utils.DerefString(chatBlock.Role))
-	if err != nil {
-		return fmt.Errorf("failed to decode Role: %w", err)
+	// Decode Role
+	if err := decodeField(&chatBlock.Role, "Role", utils.SafeDerefString, RoleHuman); err != nil {
+		return err
 	}
-	chatBlock.Role = &decodedRole
 
+	// Decode JSONResponseKeys
 	if chatBlock.JSONResponseKeys != nil {
 		decodedKeys, err := utils.DecodeStringSlice(chatBlock.JSONResponseKeys, "JSONResponseKeys")
 		if err != nil {
@@ -55,56 +493,313 @@ func (dr *DependencyResolver) decodeChatBlock(chatBlock *pklLLM.ResourceChat) er
 		chatBlock.JSONResponseKeys = decodedKeys
 	}
 
-	if chatBlock.Scenario != nil {
-		dr.Logger.Info("Decoding Scenario", "length", len(*chatBlock.Scenario))
-		decodedScenario := make([]*pklLLM.MultiChat, len(*chatBlock.Scenario))
-		for i, entry := range *chatBlock.Scenario {
-			if entry == nil {
-				dr.Logger.Info("Scenario entry is nil", "index", i)
-				decodedScenario[i] = nil
-				continue
-			}
-			decodedEntryRole, err := utils.DecodeBase64IfNeeded(utils.DerefString(entry.Role))
-			if err != nil {
-				return fmt.Errorf("failed to decode Scenario[%d].Role: %w", i, err)
-			}
-			decodedEntryPrompt, err := utils.DecodeBase64IfNeeded(utils.DerefString(entry.Prompt))
-			if err != nil {
-				return fmt.Errorf("failed to decode Scenario[%d].Prompt: %w", i, err)
-			}
-			dr.Logger.Info("Decoded Scenario entry", "index", i, "role", decodedEntryRole, "prompt", decodedEntryPrompt)
-			decodedScenario[i] = &pklLLM.MultiChat{
-				Role:   &decodedEntryRole,
-				Prompt: &decodedEntryPrompt,
-			}
-		}
-		chatBlock.Scenario = &decodedScenario
-	} else {
-		dr.Logger.Info("Scenario is nil")
+	// Decode Scenario
+	if err := decodeScenario(chatBlock, dr.Logger); err != nil {
+		return err
+	}
+
+	// Decode Files
+	if err := decodeFiles(chatBlock); err != nil {
+		return err
+	}
+
+	// Decode Tools
+	if err := decodeTools(chatBlock, dr.Logger); err != nil {
+		return err
 	}
 
 	return nil
 }
 
+// decodeField decodes a single field, handling Base64 if needed, and uses a default value if the field is nil.
+func decodeField(field **string, fieldName string, deref func(*string) string, defaultValue string) error {
+	if field == nil || *field == nil {
+		*field = &defaultValue
+	}
+	original := deref(*field)
+	logger := logging.GetLogger()
+	logger.Debug("Decoding field", "fieldName", fieldName, "original", original)
+	decoded, err := utils.DecodeBase64IfNeeded(original)
+	if err != nil {
+		logger.Warn("Base64 decoding failed, using original value", "fieldName", fieldName, "error", err)
+		decoded = original
+	}
+	if decoded == "" && original != "" {
+		logger.Warn("Decoded value is empty, preserving original", "fieldName", fieldName, "original", original)
+		decoded = original
+	}
+	*field = &decoded
+	logger.Debug("Decoded field", "fieldName", fieldName, "decoded", decoded)
+	return nil
+}
+
+// isBase64 checks if a string is likely Base64-encoded.
+func isBase64(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	_, err := base64.StdEncoding.DecodeString(s)
+	return err == nil
+}
+
+// decodeScenario decodes the Scenario field, handling nil and empty cases.
+func decodeScenario(chatBlock *pklLLM.ResourceChat, logger *logging.Logger) error {
+	if chatBlock.Scenario == nil {
+		logger.Info("Scenario is nil, initializing empty slice")
+		emptyScenario := make([]*pklLLM.MultiChat, 0)
+		chatBlock.Scenario = &emptyScenario
+		return nil
+	}
+
+	logger.Info("Decoding Scenario", "length", len(*chatBlock.Scenario))
+	decodedScenario := make([]*pklLLM.MultiChat, 0, len(*chatBlock.Scenario))
+	for i, entry := range *chatBlock.Scenario {
+		if entry == nil {
+			logger.Warn("Scenario entry is nil", "index", i)
+			continue
+		}
+		decodedEntry := &pklLLM.MultiChat{}
+		if entry.Role != nil {
+			decodedRole, err := utils.DecodeBase64IfNeeded(utils.SafeDerefString(entry.Role))
+			if err != nil {
+				logger.Error("Failed to decode scenario role", "index", i, "error", err)
+				return err
+			}
+			decodedEntry.Role = &decodedRole
+		} else {
+			logger.Warn("Scenario role is nil", "index", i)
+			defaultRole := RoleHuman
+			decodedEntry.Role = &defaultRole
+		}
+		if entry.Prompt != nil {
+			decodedPrompt, err := utils.DecodeBase64IfNeeded(utils.SafeDerefString(entry.Prompt))
+			if err != nil {
+				logger.Error("Failed to decode scenario prompt", "index", i, "error", err)
+				return err
+			}
+			decodedEntry.Prompt = &decodedPrompt
+		} else {
+			logger.Warn("Scenario prompt is nil", "index", i)
+			emptyPrompt := ""
+			decodedEntry.Prompt = &emptyPrompt
+		}
+		logger.Info("Decoded Scenario entry", "index", i, "role", *decodedEntry.Role, "prompt", *decodedEntry.Prompt)
+		decodedScenario = append(decodedScenario, decodedEntry)
+	}
+	chatBlock.Scenario = &decodedScenario
+	return nil
+}
+
+// decodeFiles decodes the Files field, handling Base64 if needed.
+func decodeFiles(chatBlock *pklLLM.ResourceChat) error {
+	if chatBlock.Files == nil {
+		return nil
+	}
+	decodedFiles := make([]string, len(*chatBlock.Files))
+	for i, file := range *chatBlock.Files {
+		decodedFile, err := utils.DecodeBase64IfNeeded(file)
+		if err != nil {
+			return fmt.Errorf("failed to decode Files[%d]: %w", i, err)
+		}
+		decodedFiles[i] = decodedFile
+	}
+	chatBlock.Files = &decodedFiles
+	return nil
+}
+
+// decodeTools decodes the Tools field, handling nested parameters and nil cases.
+func decodeTools(chatBlock *pklLLM.ResourceChat, logger *logging.Logger) error {
+	if chatBlock == nil {
+		logger.Error("chatBlock is nil in decodeTools")
+		return errors.New("chatBlock cannot be nil")
+	}
+
+	if chatBlock.Tools == nil {
+		logger.Info("Tools is nil, initializing empty slice")
+		emptyTools := make([]*pklLLM.Tool, 0)
+		chatBlock.Tools = &emptyTools
+		return nil
+	}
+
+	logger.Info("Decoding Tools", "length", len(*chatBlock.Tools))
+	decodedTools := make([]*pklLLM.Tool, 0, len(*chatBlock.Tools))
+	var errs []error
+
+	for i, entry := range *chatBlock.Tools {
+		if entry == nil {
+			logger.Warn("Tools entry is nil", "index", i)
+			errs = append(errs, fmt.Errorf("tool entry at index %d is nil", i))
+			continue
+		}
+		logger.Debug("Processing tool entry", "index", i, "name", utils.SafeDerefString(entry.Name), "script", utils.SafeDerefString(entry.Script))
+		decodedTool, err := decodeToolEntry(entry, i, logger)
+		if err != nil {
+			logger.Error("Failed to decode tool entry", "index", i, "error", err)
+			errs = append(errs, err)
+			continue
+		}
+		logger.Info("Decoded Tools entry", "index", i, "name", utils.SafeDerefString(decodedTool.Name))
+		decodedTools = append(decodedTools, decodedTool)
+	}
+	chatBlock.Tools = &decodedTools
+
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+	return nil
+}
+
+// decodeToolEntry decodes a single Tool entry.
+func decodeToolEntry(entry *pklLLM.Tool, index int, logger *logging.Logger) (*pklLLM.Tool, error) {
+	if entry == nil {
+		logger.Error("Tool entry is nil", "index", index)
+		return nil, fmt.Errorf("tool entry at index %d is nil", index)
+	}
+
+	decodedTool := &pklLLM.Tool{}
+	logger.Debug("Decoding tool", "index", index, "raw_name", entry.Name, "raw_script", entry.Script)
+
+	// Decode Name
+	if entry.Name != nil {
+		nameStr := utils.SafeDerefString(entry.Name)
+		logger.Debug("Checking if name is Base64", "index", index, "name", nameStr, "isBase64", isBase64(nameStr))
+		if isBase64(nameStr) {
+			if err := decodeField(&decodedTool.Name, fmt.Sprintf("Tools[%d].Name", index), utils.SafeDerefString, ""); err != nil {
+				return nil, err
+			}
+		} else {
+			decodedTool.Name = entry.Name
+			logger.Debug("Preserving non-Base64 tool name", "index", index, "name", nameStr)
+		}
+	} else {
+		logger.Warn("Tool name is nil", "index", index)
+		emptyName := ""
+		decodedTool.Name = &emptyName
+	}
+
+	// Decode Script
+	if entry.Script != nil {
+		scriptStr := utils.SafeDerefString(entry.Script)
+		logger.Debug("Checking if script is Base64", "index", index, "script_length", len(scriptStr), "isBase64", isBase64(scriptStr))
+		if isBase64(scriptStr) {
+			if err := decodeField(&decodedTool.Script, fmt.Sprintf("Tools[%d].Script", index), utils.SafeDerefString, ""); err != nil {
+				return nil, err
+			}
+		} else {
+			decodedTool.Script = entry.Script
+			logger.Debug("Preserving non-Base64 tool script", "index", index, "script_length", len(scriptStr))
+		}
+	} else {
+		logger.Warn("Tool script is nil", "index", index)
+		emptyScript := ""
+		decodedTool.Script = &emptyScript
+	}
+
+	// Decode Description
+	if entry.Description != nil {
+		descStr := utils.SafeDerefString(entry.Description)
+		logger.Debug("Checking if description is Base64", "index", index, "description", descStr, "isBase64", isBase64(descStr))
+		if isBase64(descStr) {
+			if err := decodeField(&decodedTool.Description, fmt.Sprintf("Tools[%d].Description", index), utils.SafeDerefString, ""); err != nil {
+				return nil, err
+			}
+		} else {
+			decodedTool.Description = entry.Description
+			logger.Debug("Preserving non-Base64 tool description", "index", index, "description", descStr)
+		}
+	} else {
+		logger.Warn("Tool description is nil", "index", index)
+		emptyDesc := ""
+		decodedTool.Description = &emptyDesc
+	}
+
+	// Decode Parameters
+	if entry.Parameters != nil {
+		params, err := decodeToolParameters(entry.Parameters, index, logger)
+		if err != nil {
+			return nil, err
+		}
+		decodedTool.Parameters = params
+		logger.Debug("Decoded tool parameters", "index", index, "param_count", len(*params))
+	} else {
+		logger.Warn("Tool parameters are nil", "index", index)
+		emptyParams := make(map[string]*pklLLM.ToolProperties)
+		decodedTool.Parameters = &emptyParams
+	}
+
+	return decodedTool, nil
+}
+
+// decodeToolParameters decodes tool parameters.
+func decodeToolParameters(params *map[string]*pklLLM.ToolProperties, index int, logger *logging.Logger) (*map[string]*pklLLM.ToolProperties, error) {
+	decodedParams := make(map[string]*pklLLM.ToolProperties, len(*params))
+	for paramName, param := range *params {
+		if param == nil {
+			logger.Info("Tools parameter is nil", "index", index, "paramName", paramName)
+			continue
+		}
+		decodedParam := &pklLLM.ToolProperties{Required: param.Required}
+
+		// Decode Type
+		if param.Type != nil {
+			typeStr := utils.SafeDerefString(param.Type)
+			logger.Debug("Checking if parameter type is Base64", "index", index, "paramName", paramName, "type", typeStr, "isBase64", isBase64(typeStr))
+			if isBase64(typeStr) {
+				if err := decodeField(&decodedParam.Type, fmt.Sprintf("Tools[%d].Parameters[%s].Type", index, paramName), utils.SafeDerefString, ""); err != nil {
+					return nil, err
+				}
+			} else {
+				decodedParam.Type = param.Type
+				logger.Debug("Preserving non-Base64 parameter type", "index", index, "paramName", paramName, "type", typeStr)
+			}
+		} else {
+			logger.Warn("Parameter type is nil", "index", index, "paramName", paramName)
+			emptyType := ""
+			decodedParam.Type = &emptyType
+		}
+
+		// Decode Description
+		if param.Description != nil {
+			descStr := utils.SafeDerefString(param.Description)
+			logger.Debug("Checking if parameter description is Base64", "index", index, "paramName", paramName, "description", descStr, "isBase64", isBase64(descStr))
+			if isBase64(descStr) {
+				if err := decodeField(&decodedParam.Description, fmt.Sprintf("Tools[%d].Parameters[%s].Description", index, paramName), utils.SafeDerefString, ""); err != nil {
+					return nil, err
+				}
+			} else {
+				decodedParam.Description = param.Description
+				logger.Debug("Preserving non-Base64 parameter description", "index", index, "paramName", paramName, "description", descStr)
+			}
+		} else {
+			logger.Warn("Parameter description is nil", "index", index, "paramName", paramName)
+			emptyDesc := ""
+			decodedParam.Description = &emptyDesc
+		}
+
+		decodedParams[paramName] = decodedParam
+	}
+	return &decodedParams, nil
+}
+
 // mapRoleToLLMMessageType maps user-defined roles to llms.ChatMessageType.
 func mapRoleToLLMMessageType(role string) llms.ChatMessageType {
 	switch strings.ToLower(strings.TrimSpace(role)) {
-	case "human", "user", "person", "client":
+	case RoleHuman, RoleUser, RolePerson, RoleClient:
 		return llms.ChatMessageTypeHuman
-	case "system":
+	case RoleSystem:
 		return llms.ChatMessageTypeSystem
-	case "ai", "assistant", "bot", "chatbot", "llm":
+	case RoleAI, RoleAssistant, RoleBot, RoleChatbot, RoleLLM:
 		return llms.ChatMessageTypeAI
-	case "function", "action":
+	case RoleFunction, RoleAction:
 		return llms.ChatMessageTypeFunction
-	case "tool":
+	case RoleTool:
 		return llms.ChatMessageTypeTool
 	default:
-		// fallback to generic
 		return llms.ChatMessageTypeGeneric
 	}
 }
 
+// processLLMChat processes the LLM chat and saves the response.
 func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.ResourceChat) error {
 	if chatBlock == nil {
 		return errors.New("chatBlock cannot be nil")
@@ -115,7 +810,7 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 		return fmt.Errorf("failed to initialize LLM: %w", err)
 	}
 
-	completion, err := generateChatResponse(dr.Context, llm, chatBlock, dr.Logger)
+	completion, err := generateChatResponse(dr.Context, dr.Fs, llm, chatBlock, dr.ToolReader, dr.Logger)
 	if err != nil {
 		return err
 	}
@@ -124,96 +819,529 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 	return dr.AppendChatEntry(actionID, chatBlock)
 }
 
-func generateChatResponse(ctx context.Context, llm *ollama.LLM, chatBlock *pklLLM.ResourceChat, logger *logging.Logger) (string, error) {
-	if chatBlock.JSONResponse == nil || !*chatBlock.JSONResponse {
-		prompt := utils.DerefString(chatBlock.Prompt)
-		if strings.TrimSpace(prompt) == "" {
-			return "", errors.New("prompt cannot be empty for non-JSON response")
+// generateAvailableTools creates a dynamic list of llms.Tool from chatBlock.Tools.
+func generateAvailableTools(chatBlock *pklLLM.ResourceChat, logger *logging.Logger) []llms.Tool {
+	if chatBlock == nil || chatBlock.Tools == nil || len(*chatBlock.Tools) == 0 {
+		logger.Info("No tools defined in chatBlock, returning empty availableTools")
+		return nil
+	}
+
+	logger.Debug("Generating available tools", "tool_count", len(*chatBlock.Tools))
+	tools := make([]llms.Tool, 0, len(*chatBlock.Tools))
+	seenNames := make(map[string]struct{})
+
+	for i, toolDef := range *chatBlock.Tools {
+		if toolDef == nil || toolDef.Name == nil || *toolDef.Name == "" {
+			logger.Warn("Skipping invalid tool entry", "index", i)
+			continue
 		}
-		logger.Info("Sending non-JSON prompt to LLM", "prompt", prompt)
-		return llm.Call(ctx, prompt)
-	}
 
-	// Estimate capacity for content slice
-	capacity := 1 // System prompt
-	if strings.TrimSpace(utils.DerefString(chatBlock.Prompt)) != "" {
-		capacity++ // Main prompt
-	}
-	if chatBlock.Scenario != nil {
-		capacity += len(*chatBlock.Scenario) // Safe: checked scenario != nil
-	}
-
-	// Pre-allocate content slice with estimated capacity
-	content := make([]llms.MessageContent, 0, capacity)
-
-	systemPrompt := buildSystemPrompt(chatBlock.JSONResponseKeys)
-	role, roleType := getRoleAndType(chatBlock.Role)
-	prompt := utils.DerefString(chatBlock.Prompt)
-
-	// Add system prompt
-	content = append(content, llms.MessageContent{
-		Role:  llms.ChatMessageTypeSystem,
-		Parts: []llms.ContentPart{llms.TextContent{Text: systemPrompt}},
-	})
-
-	if strings.TrimSpace(prompt) != "" {
-		if roleType == llms.ChatMessageTypeGeneric {
-			prompt = fmt.Sprintf("[%s]: %s", role, prompt)
+		name := *toolDef.Name
+		if _, exists := seenNames[name]; exists {
+			logger.Warn("Duplicate tool name detected", "name", name, "index", i)
+			continue
 		}
-		content = append(content, llms.MessageContent{
-			Role:  roleType,
-			Parts: []llms.ContentPart{llms.TextContent{Text: prompt}},
+		seenNames[name] = struct{}{}
+		logger.Debug("Processing tool", "index", i, "name", name)
+
+		description := "Execute the '" + name + "' tool when you need to perform this specific action. "
+		if toolDef.Description != nil && *toolDef.Description != "" {
+			description += *toolDef.Description
+		} else if toolDef.Script != nil && *toolDef.Script != "" {
+			description += "This tool executes the following script: " + utils.TruncateString(*toolDef.Script, 100)
+		}
+
+		properties := map[string]any{}
+		required := []string{"name"}
+
+		if toolDef.Parameters != nil {
+			for paramName, param := range *toolDef.Parameters {
+				if param == nil {
+					logger.Warn("Skipping nil parameter", "tool", name, "paramName", paramName)
+					continue
+				}
+
+				paramType := "string"
+				if param.Type != nil && *param.Type != "" {
+					paramType = *param.Type
+				}
+
+				paramDesc := ""
+				if param.Description != nil {
+					paramDesc = *param.Description
+				}
+
+				properties[paramName] = map[string]any{
+					"type":        paramType,
+					"description": paramDesc,
+				}
+
+				if param.Required != nil && *param.Required {
+					required = append(required, paramName)
+				}
+			}
+		}
+
+		tools = append(tools, llms.Tool{
+			Type: "function",
+			Function: &llms.FunctionDefinition{
+				Name:        name,
+				Description: description,
+				Parameters: map[string]any{
+					"type":       "object",
+					"properties": properties,
+					"required":   required,
+				},
+			},
 		})
+		logger.Info("Added tool to availableTools",
+			"name", name,
+			"description", description,
+			"required_params", required,
+			"all_params", properties)
 	}
 
-	content = append(content, processScenarioMessages(chatBlock.Scenario, logger)...)
+	return tools
+}
 
-	// Log the content being sent to ollama
-	for i, msg := range content {
-		for _, part := range msg.Parts {
-			if textPart, ok := part.(llms.TextContent); ok {
-				logger.Info("Sending message to LLM", "index", i, "role", msg.Role, "content", textPart.Text)
+// constructToolCallsFromJSON parses a JSON string into a slice of llms.ToolCall.
+func constructToolCallsFromJSON(jsonContent string, logger *logging.Logger) []llms.ToolCall {
+	if jsonContent == "" {
+		logger.Info("JSON content is empty, returning empty ToolCalls")
+		return nil
+	}
+
+	type jsonToolCall struct {
+		Name      string                 `json:"name"`
+		Arguments map[string]interface{} `json:"arguments"`
+	}
+
+	var toolCalls []jsonToolCall
+	var singleCall jsonToolCall
+
+	err := json.Unmarshal([]byte(jsonContent), &toolCalls)
+	if err != nil {
+		if err := json.Unmarshal([]byte(jsonContent), &singleCall); err != nil {
+			logger.Warn("Failed to unmarshal JSON content as array or single object", "content", utils.TruncateString(jsonContent, 100), "error", err)
+			return nil
+		}
+		toolCalls = []jsonToolCall{singleCall}
+	}
+
+	if len(toolCalls) == 0 {
+		logger.Info("No tool calls found in JSON content")
+		return nil
+	}
+
+	result := make([]llms.ToolCall, 0, len(toolCalls))
+	seen := make(map[string]struct{})
+	var errors []string
+
+	for i, tc := range toolCalls {
+		if tc.Name == "" || tc.Arguments == nil {
+			logger.Warn("Skipping invalid tool call", "index", i, "name", tc.Name)
+			errors = append(errors, "tool call at index "+strconv.Itoa(i)+" has empty name or nil arguments")
+			continue
+		}
+
+		argsJSON, err := json.Marshal(tc.Arguments)
+		if err != nil {
+			logger.Warn("Failed to marshal arguments", "index", i, "name", tc.Name, "error", err)
+			errors = append(errors, "failed to marshal arguments for "+tc.Name+" at index "+strconv.Itoa(i)+": "+err.Error())
+			continue
+		}
+
+		key := tc.Name + ":" + string(argsJSON)
+		if _, exists := seen[key]; exists {
+			logger.Info("Skipping duplicate tool call in JSON", "name", tc.Name, "arguments", string(argsJSON))
+			continue
+		}
+		seen[key] = struct{}{}
+
+		toolCallID := uuid.New().String()
+		result = append(result, llms.ToolCall{
+			ID:   toolCallID,
+			Type: "function",
+			FunctionCall: &llms.FunctionCall{
+				Name:      tc.Name,
+				Arguments: string(argsJSON),
+			},
+		})
+
+		logger.Info("Constructed tool call",
+			"index", i,
+			"id", toolCallID,
+			"name", tc.Name,
+			"arguments", utils.TruncateString(string(argsJSON), 100))
+	}
+
+	if len(result) == 0 && len(errors) > 0 {
+		logger.Warn("No valid tool calls constructed", "errors", errors)
+		return nil
+	}
+
+	logger.Info("Constructed tool calls", "count", len(result))
+	return result
+}
+
+// extractToolParams extracts and validates tool call parameters.
+func extractToolParams(args map[string]interface{}, chatBlock *pklLLM.ResourceChat, toolName string, logger *logging.Logger) (string, string, string, error) {
+	if chatBlock.Tools == nil {
+		logger.Error("chatBlock.Tools is nil in extractToolParams")
+		return "", "", "", errors.New("tools field is nil")
+	}
+
+	var name, script string
+	var toolParams *map[string]*pklLLM.ToolProperties
+
+	for i, toolDef := range *chatBlock.Tools {
+		if toolDef == nil || toolDef.Name == nil || *toolDef.Name == "" {
+			logger.Warn("Skipping invalid tool entry", "index", i)
+			continue
+		}
+		if toolDef.Script == nil || *toolDef.Script == "" {
+			logger.Warn("Skipping invalid tool entry", "index", i)
+			continue
+		}
+		if *toolDef.Name == toolName {
+			name = *toolDef.Name
+			script = *toolDef.Script
+			toolParams = toolDef.Parameters
+			break
+		}
+	}
+
+	if name == "" || script == "" {
+		logger.Error("Tool not found or invalid", "toolName", toolName)
+		return "", "", "", fmt.Errorf("tool %s not found or has invalid definition", toolName)
+	}
+
+	var paramValues []string
+	var missingRequired []string
+	paramOrder := make([]string, 0)
+
+	if toolParams != nil {
+		// Collect parameter names in definition order
+		for paramName := range *toolParams {
+			paramOrder = append(paramOrder, paramName)
+		}
+		// Process parameters in order
+		for _, paramName := range paramOrder {
+			param := (*toolParams)[paramName]
+			if param == nil {
+				logger.Warn("Skipping nil parameter", "tool", toolName, "paramName", paramName)
+				continue
+			}
+
+			if value, exists := args[paramName]; exists {
+				strVal := convertToString(value, paramName, toolName, logger)
+				if strVal != "" {
+					paramValues = append(paramValues, strVal)
+				}
+			} else if param.Required != nil && *param.Required {
+				missingRequired = append(missingRequired, paramName)
 			}
 		}
 	}
 
-	response, err := llm.GenerateContent(ctx, content, llms.WithJSONMode())
+	// Handle any extra parameters not in tool definition
+	for paramName, value := range args {
+		if toolParams != nil {
+			if _, exists := (*toolParams)[paramName]; exists {
+				continue
+			}
+		}
+		strVal := convertToString(value, paramName, toolName, logger)
+		if strVal != "" {
+			paramValues = append(paramValues, strVal)
+		}
+	}
+
+	if len(missingRequired) > 0 {
+		logger.Warn("Missing required parameters", "tool", toolName, "parameters", missingRequired)
+	}
+
+	paramsStr := strings.Join(paramValues, " ")
+	if paramsStr == "" {
+		logger.Warn("No parameters extracted for tool", "tool", toolName, "args", args)
+	}
+
+	logger.Debug("Extracted tool parameters",
+		"name", toolName,
+		"script", script,
+		"params", paramsStr)
+
+	return name, script, paramsStr, nil
+}
+
+// convertToString converts a value to a string, handling different types.
+func convertToString(value interface{}, paramName, toolName string, logger *logging.Logger) string {
+	switch v := value.(type) {
+	case string:
+		return v
+	case float64:
+		return fmt.Sprintf("%v", v)
+	case bool:
+		return strconv.FormatBool(v)
+	case nil:
+		return ""
+	default:
+		jsonVal, err := json.Marshal(v)
+		if err != nil {
+			logger.Warn("Failed to serialize parameter", "tool", toolName, "paramName", paramName, "error", err)
+			return ""
+		}
+		return string(jsonVal)
+	}
+}
+
+// buildToolURI constructs the URI for tool execution.
+func buildToolURI(id, script, paramsStr string) (*url.URL, error) {
+	queryParams := url.Values{
+		"op":     []string{"run"},
+		"script": []string{script},
+	}
+	if paramsStr != "" {
+		queryParams.Add("params", url.QueryEscape(paramsStr))
+	}
+
+	uriStr := "tool:/" + url.PathEscape(id) + "?" + queryParams.Encode()
+	uri, err := url.Parse(uriStr)
 	if err != nil {
-		logger.Error("Failed to generate JSON content", "error", err)
-		return "", fmt.Errorf("failed to generate JSON content: %w", err)
+		return nil, fmt.Errorf("failed to parse tool URI: %w", err)
 	}
-	if len(response.Choices) == 0 {
-		logger.Error("Empty response from LLM")
-		return "", errors.New("empty response from model")
-	}
-	logger.Info("Received LLM response", "content", response.Choices[0].Content)
-	return response.Choices[0].Content, nil
+	return uri, nil
 }
 
-func buildSystemPrompt(jsonResponseKeys *[]string) string {
-	if jsonResponseKeys != nil && len(*jsonResponseKeys) > 0 {
-		return fmt.Sprintf("Respond in JSON format, include `%s` in response keys.", strings.Join(*jsonResponseKeys, "`, `"))
+// formatToolParameters formats tool parameters for the system prompt.
+func formatToolParameters(tool llms.Tool, sb *strings.Builder) {
+	if tool.Function == nil || tool.Function.Parameters == nil {
+		return
 	}
-	return "Respond in JSON format."
+	params, ok := tool.Function.Parameters.(map[string]interface{})
+	if !ok {
+		return
+	}
+	props, ok := params["properties"].(map[string]interface{})
+	if !ok {
+		return
+	}
+	for paramName, param := range props {
+		paramMap, ok := param.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		desc, _ := paramMap["description"].(string)
+		required := ""
+		if reqs, ok := params["required"].([]interface{}); ok {
+			for _, req := range reqs {
+				if req == paramName {
+					required = " (required)"
+					break
+				}
+			}
+		}
+		sb.WriteString("  - " + paramName + ": " + desc + required + "\n")
+	}
+	sb.WriteString("\n")
 }
 
+// buildSystemPrompt constructs the system prompt with strict JSON tool usage instructions.
+func buildSystemPrompt(jsonResponse *bool, jsonResponseKeys *[]string, tools []llms.Tool) string {
+	var sb strings.Builder
+
+	if jsonResponse != nil && *jsonResponse {
+		if jsonResponseKeys != nil && len(*jsonResponseKeys) > 0 {
+			sb.WriteString("Respond in JSON format, include `" + strings.Join(*jsonResponseKeys, "`, `") + "` in response keys. ")
+		} else {
+			sb.WriteString("Respond in JSON format. ")
+		}
+	}
+
+	if len(tools) == 0 {
+		sb.WriteString("No tools are available. Respond with the final result as a string.\n")
+		return sb.String()
+	}
+
+	sb.WriteString("\n\nYou have access to the following tools. Use tools only when necessary to fulfill the request. Consider all previous tool outputs when deciding which tools to use next. After tool execution, you will receive the results in the conversation history. Do NOT suggest the same tool with identical parameters unless explicitly required by new user input. Once all necessary tools are executed, return the final result as a string (e.g., '12345', 'joel').\n\n")
+	sb.WriteString("When using tools, respond with a JSON array of tool call objects, each containing 'name' and 'arguments' fields, even for a single tool:\n")
+	sb.WriteString("[\n  {\n    \"name\": \"tool1\",\n    \"arguments\": {\n      \"param1\": \"value1\"\n    }\n  }\n]\n\n")
+	sb.WriteString("Rules:\n")
+	sb.WriteString("- Return a JSON array for tool calls, even for one tool.\n")
+	sb.WriteString("- Include all required parameters.\n")
+	sb.WriteString("- Execute tools in the specified order, using previous tool outputs to inform parameters.\n")
+	sb.WriteString("- After tool execution, return the final result as a string without tool calls unless new tools are needed.\n")
+	sb.WriteString("- Do NOT include explanatory text with tool call JSON.\n")
+	sb.WriteString("\nAvailable tools:\n")
+	for _, tool := range tools {
+		if tool.Function != nil {
+			sb.WriteString("- " + tool.Function.Name + ": " + tool.Function.Description + "\n")
+			formatToolParameters(tool, &sb)
+		}
+	}
+
+	return sb.String()
+}
+
+// processToolCalls processes tool calls, appends results to messageHistory, and stores outputs.
+func processToolCalls(toolCalls []llms.ToolCall, toolreader *tool.PklResourceReader, chatBlock *pklLLM.ResourceChat, logger *logging.Logger, messageHistory *[]llms.MessageContent, originalPrompt string, toolOutputs map[string]string) error {
+	if len(toolCalls) == 0 {
+		logger.Info("No tool calls to process")
+		return nil
+	}
+
+	var errorMessages []error
+	successfulCalls := 0
+
+	// Add original prompt to message history
+	*messageHistory = append(*messageHistory, llms.MessageContent{
+		Role:  llms.ChatMessageTypeHuman,
+		Parts: []llms.ContentPart{llms.TextContent{Text: "Original Prompt: " + originalPrompt}},
+	})
+
+	// Add AI response with suggested tools
+	var toolNames []string
+	for _, tc := range toolCalls {
+		if tc.FunctionCall != nil {
+			toolNames = append(toolNames, tc.FunctionCall.Name)
+		}
+	}
+	if len(toolNames) > 0 {
+		*messageHistory = append(*messageHistory, llms.MessageContent{
+			Role:  llms.ChatMessageTypeAI,
+			Parts: []llms.ContentPart{llms.TextContent{Text: "AI Suggested Tools: " + strings.Join(toolNames, ", ")}},
+		})
+	}
+
+	for _, tc := range toolCalls {
+		if tc.FunctionCall == nil || tc.FunctionCall.Name == "" {
+			logger.Warn("Skipping tool call with empty function name or nil FunctionCall")
+			errorMessages = append(errorMessages, errors.New("invalid tool call: empty function name or nil FunctionCall"))
+			continue
+		}
+
+		logger.Info("Processing tool call",
+			"name", tc.FunctionCall.Name,
+			"arguments", tc.FunctionCall.Arguments,
+			"tool_call_id", tc.ID)
+
+		args, err := parseToolCallArgs(tc.FunctionCall.Arguments, logger)
+		if err != nil {
+			logger.Error("Failed to parse tool call arguments", "name", tc.FunctionCall.Name, "error", err)
+			errorMessages = append(errorMessages, fmt.Errorf("failed to parse arguments for tool %s: %w", tc.FunctionCall.Name, err))
+			continue
+		}
+
+		id, script, paramsStr, err := extractToolParams(args, chatBlock, tc.FunctionCall.Name, logger)
+		if err != nil {
+			logger.Error("Failed to extract tool parameters", "name", tc.FunctionCall.Name, "error", err)
+			errorMessages = append(errorMessages, fmt.Errorf("failed to extract parameters for tool %s: %w", tc.FunctionCall.Name, err))
+			continue
+		}
+
+		uri, err := buildToolURI(id, script, paramsStr)
+		if err != nil {
+			logger.Error("Failed to build tool URI", "name", tc.FunctionCall.Name, "error", err)
+			errorMessages = append(errorMessages, fmt.Errorf("failed to build URI for tool %s: %w", tc.FunctionCall.Name, err))
+			continue
+		}
+
+		logger.Info("Executing tool",
+			"name", tc.FunctionCall.Name,
+			"uri", uri.String())
+
+		result, err := toolreader.Read(*uri)
+		if err != nil {
+			logger.Error("Tool execution failed", "name", tc.FunctionCall.Name, "uri", uri.String(), "error", err)
+			errorMessages = append(errorMessages, fmt.Errorf("tool execution failed for %s: %w", tc.FunctionCall.Name, err))
+			continue
+		}
+
+		resultStr := string(result)
+		logger.Info("Tool execution succeeded",
+			"name", tc.FunctionCall.Name,
+			"result_length", len(resultStr),
+			"result_preview", utils.TruncateString(resultStr, 100))
+
+		// Store tool output
+		toolOutputs[tc.ID] = resultStr
+
+		// Add tool execution message to history
+		toolExecutionMessage := "Tool '" + tc.FunctionCall.Name + "' executed with arguments: " + tc.FunctionCall.Arguments + "\nOutput: " + resultStr
+		*messageHistory = append(*messageHistory, llms.MessageContent{
+			Role:  llms.ChatMessageTypeTool,
+			Parts: []llms.ContentPart{llms.TextContent{Text: toolExecutionMessage}},
+		})
+
+		// Add tool response to history
+		toolResponseJSON, err := json.Marshal(map[string]interface{}{
+			"tool_call_id": tc.ID,
+			"name":         tc.FunctionCall.Name,
+			"content":      resultStr,
+			"status":       "completed",
+		})
+		if err != nil {
+			logger.Error("Failed to serialize ToolCallResponse to JSON", "tool_call_id", tc.ID, "error", err)
+			errorMessages = append(errorMessages, fmt.Errorf("failed to serialize ToolCallResponse for %s: %w", tc.FunctionCall.Name, err))
+			continue
+		}
+
+		toolResponse := llms.MessageContent{
+			Role: llms.ChatMessageTypeTool,
+			Parts: []llms.ContentPart{
+				llms.TextContent{
+					Text: "ToolCallResponse: " + string(toolResponseJSON),
+				},
+			},
+		}
+		*messageHistory = append(*messageHistory, toolResponse)
+		successfulCalls++
+	}
+
+	if len(errorMessages) > 0 {
+		logger.Warn("Some tool calls failed",
+			"error_count", len(errorMessages),
+			"successful_calls", successfulCalls)
+		return errors.Join(errorMessages...)
+	}
+
+	logger.Info("Processed tool calls",
+		"total_calls", len(toolCalls),
+		"successful_calls", successfulCalls,
+		"failed_calls", len(errorMessages))
+	return nil
+}
+
+// parseToolCallArgs parses JSON arguments from a tool call.
+func parseToolCallArgs(arguments string, logger *logging.Logger) (map[string]interface{}, error) {
+	args := make(map[string]interface{})
+	if err := json.Unmarshal([]byte(arguments), &args); err != nil {
+		logger.Error("Failed to parse tool call arguments",
+			"arguments", arguments,
+			"error", err)
+		return nil, fmt.Errorf("failed to parse tool arguments: %w", err)
+	}
+	logger.Debug("Parsed tool arguments", "args", args)
+	return args, nil
+}
+
+// getRoleAndType retrieves the role and its corresponding message type.
 func getRoleAndType(rolePtr *string) (string, llms.ChatMessageType) {
-	role := utils.DerefString(rolePtr)
+	role := utils.SafeDerefString(rolePtr)
 	if strings.TrimSpace(role) == "" {
-		role = "human"
+		role = RoleHuman
 	}
 	return role, mapRoleToLLMMessageType(role)
 }
 
+// processScenarioMessages processes scenario entries into LLM messages.
 func processScenarioMessages(scenario *[]*pklLLM.MultiChat, logger *logging.Logger) []llms.MessageContent {
-	// Return empty slice if scenario is nil
 	if scenario == nil {
 		logger.Info("No scenario messages to process")
 		return make([]llms.MessageContent, 0)
 	}
 
 	logger.Info("Processing scenario messages", "count", len(*scenario))
-	// Pre-allocate content with max possible size
 	content := make([]llms.MessageContent, 0, len(*scenario))
 
 	for i, entry := range *scenario {
@@ -221,15 +1349,14 @@ func processScenarioMessages(scenario *[]*pklLLM.MultiChat, logger *logging.Logg
 			logger.Info("Skipping nil scenario entry", "index", i)
 			continue
 		}
-		prompt := utils.DerefString(entry.Prompt)
+		prompt := utils.SafeDerefString(entry.Prompt)
 		if strings.TrimSpace(prompt) == "" {
-			logger.Info("Skipping empty scenario prompt", "index", i, "role", utils.DerefString(entry.Role))
-			continue
+			logger.Info("Processing empty scenario prompt", "index", i, "role", utils.SafeDerefString(entry.Role))
 		}
 		entryRole, entryType := getRoleAndType(entry.Role)
 		entryPrompt := prompt
 		if entryType == llms.ChatMessageTypeGeneric {
-			entryPrompt = fmt.Sprintf("[%s]: %s", entryRole, prompt)
+			entryPrompt = "[" + entryRole + "]: " + prompt
 		}
 		logger.Info("Adding scenario message", "index", i, "role", entryRole, "prompt", entryPrompt)
 		content = append(content, llms.MessageContent{
@@ -240,6 +1367,7 @@ func processScenarioMessages(scenario *[]*pklLLM.MultiChat, logger *logging.Logg
 	return content
 }
 
+// AppendChatEntry appends a chat entry to the Pkl file.
 func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM.ResourceChat) error {
 	pklPath := filepath.Join(dr.ActionDir, "llm/"+dr.RequestID+"__llm_output.pkl")
 
@@ -269,138 +1397,12 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 		newChat.File = &filePath
 	}
 
-	// Encode scenario entries
-	var encodedScenario *[]*pklLLM.MultiChat
-	if newChat.Scenario != nil {
-		encodedEntries := make([]*pklLLM.MultiChat, len(*newChat.Scenario))
-		for i, entry := range *newChat.Scenario {
-			if entry == nil {
-				continue
-			}
-			encodedRole := utils.EncodeValue(utils.DerefString(entry.Role))
-			encodedPrompt := utils.EncodeValue(utils.DerefString(entry.Prompt))
-			encodedEntries[i] = &pklLLM.MultiChat{
-				Role:   &encodedRole,
-				Prompt: &encodedPrompt,
-			}
-		}
-		encodedScenario = &encodedEntries
-	}
+	encodedChat := encodeChat(newChat, dr.Logger)
+	existingResources[resourceID] = encodedChat
 
-	encodedModel := utils.EncodeValue(newChat.Model)
-	encodedRole := utils.EncodeValue(utils.DerefString(newChat.Role))
-	encodedPrompt := utils.EncodeValue(utils.DerefString(newChat.Prompt))
-	encodedResponse := utils.EncodeValuePtr(newChat.Response)
-	encodedJSONResponseKeys := dr.encodeChatJSONResponseKeys(newChat.JSONResponseKeys)
+	pklContent := generatePklContent(existingResources, dr.Context, dr.Logger)
 
-	timeoutDuration := newChat.TimeoutDuration
-	if timeoutDuration == nil {
-		timeoutDuration = &pkl.Duration{
-			Value: 60,
-			Unit:  pkl.Second,
-		}
-	}
-
-	timestamp := newChat.Timestamp
-	if timestamp == nil {
-		timestamp = &pkl.Duration{
-			Value: float64(time.Now().Unix()),
-			Unit:  pkl.Nanosecond,
-		}
-	}
-
-	existingResources[resourceID] = &pklLLM.ResourceChat{
-		Model:            encodedModel,
-		Prompt:           &encodedPrompt,
-		Role:             &encodedRole,
-		Scenario:         encodedScenario,
-		JSONResponse:     newChat.JSONResponse,
-		JSONResponseKeys: encodedJSONResponseKeys,
-		Response:         encodedResponse,
-		File:             &filePath,
-		Timestamp:        timestamp,
-		TimeoutDuration:  timeoutDuration,
-	}
-
-	var pklContent strings.Builder
-	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
-	pklContent.WriteString("resources {\n")
-
-	for id, res := range existingResources {
-		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
-		pklContent.WriteString(fmt.Sprintf("    model = \"%s\"\n", res.Model))
-
-		if res.Prompt != nil {
-			pklContent.WriteString(fmt.Sprintf("    prompt = \"%s\"\n", *res.Prompt))
-		} else {
-			pklContent.WriteString("    prompt = \"\"\n")
-		}
-
-		if res.Role != nil {
-			pklContent.WriteString(fmt.Sprintf("    role = \"%s\"\n", *res.Role))
-		} else {
-			pklContent.WriteString("    role = \"\"\n")
-		}
-
-		// Add scenario
-		pklContent.WriteString("    scenario ")
-		if res.Scenario != nil && len(*res.Scenario) > 0 {
-			pklContent.WriteString("{\n")
-			for _, entry := range *res.Scenario {
-				if entry == nil {
-					continue
-				}
-				pklContent.WriteString("      new {\n")
-				if entry.Role != nil {
-					pklContent.WriteString(fmt.Sprintf("        role = \"%s\"\n", *entry.Role))
-				} else {
-					pklContent.WriteString("        role = \"\"\n")
-				}
-				if entry.Prompt != nil {
-					pklContent.WriteString(fmt.Sprintf("        prompt = \"%s\"\n", *entry.Prompt))
-				} else {
-					pklContent.WriteString("        prompt = \"\"\n")
-				}
-				pklContent.WriteString("      }\n")
-			}
-			pklContent.WriteString("    }\n")
-		} else {
-			pklContent.WriteString("{}\n")
-		}
-
-		if res.JSONResponse != nil {
-			pklContent.WriteString(fmt.Sprintf("    JSONResponse = %t\n", *res.JSONResponse))
-		}
-
-		pklContent.WriteString("    JSONResponseKeys ")
-		if res.JSONResponseKeys != nil {
-			pklContent.WriteString(utils.EncodePklSlice(res.JSONResponseKeys))
-		} else {
-			pklContent.WriteString("{}\n")
-		}
-
-		if res.TimeoutDuration != nil {
-			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
-		} else {
-			pklContent.WriteString("    timeoutDuration = 60.s\n")
-		}
-
-		if res.Timestamp != nil {
-			pklContent.WriteString(fmt.Sprintf("    timestamp = %g.%s\n", res.Timestamp.Value, res.Timestamp.Unit.String()))
-		}
-
-		if res.Response != nil {
-			pklContent.WriteString(fmt.Sprintf("    response = #\"\"\"\n%s\n\"\"\"#\n", *res.Response))
-		} else {
-			pklContent.WriteString("    response = \"\"\n")
-		}
-
-		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *res.File))
-		pklContent.WriteString("  }\n")
-	}
-	pklContent.WriteString("}\n")
-
-	if err := afero.WriteFile(dr.Fs, pklPath, []byte(pklContent.String()), 0o644); err != nil {
+	if err := afero.WriteFile(dr.Fs, pklPath, []byte(pklContent), 0o644); err != nil {
 		return fmt.Errorf("failed to write PKL file: %w", err)
 	}
 
@@ -413,7 +1415,133 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 	return afero.WriteFile(dr.Fs, pklPath, []byte(evaluatedContent), 0o644)
 }
 
-func (dr *DependencyResolver) encodeChatJSONResponseKeys(keys *[]string) *[]string {
+// encodeChat encodes a ResourceChat for Pkl storage.
+func encodeChat(chat *pklLLM.ResourceChat, logger *logging.Logger) *pklLLM.ResourceChat {
+	var encodedScenario *[]*pklLLM.MultiChat
+	if chat.Scenario != nil && len(*chat.Scenario) > 0 {
+		encodedEntries := make([]*pklLLM.MultiChat, 0, len(*chat.Scenario))
+		for i, entry := range *chat.Scenario {
+			if entry == nil {
+				logger.Warn("Skipping nil scenario entry in encodeChat", "index", i)
+				continue
+			}
+			role := utils.SafeDerefString(entry.Role)
+			if role == "" {
+				role = RoleHuman
+				logger.Info("Setting default role for scenario entry", "index", i, "role", role)
+			}
+			prompt := utils.SafeDerefString(entry.Prompt)
+			logger.Info("Encoding scenario entry", "index", i, "role", role, "prompt", prompt)
+			encodedRole := utils.EncodeValue(role)
+			encodedPrompt := utils.EncodeValue(prompt)
+			encodedEntries = append(encodedEntries, &pklLLM.MultiChat{
+				Role:   &encodedRole,
+				Prompt: &encodedPrompt,
+			})
+		}
+		if len(encodedEntries) > 0 {
+			encodedScenario = &encodedEntries
+		} else {
+			logger.Warn("No valid scenario entries after encoding", "original_length", len(*chat.Scenario))
+		}
+	} else {
+		logger.Info("Scenario is nil or empty in encodeChat")
+	}
+
+	var encodedTools *[]*pklLLM.Tool
+	if chat.Tools != nil {
+		encodedEntries := encodeTools(chat.Tools)
+		encodedTools = &encodedEntries
+	}
+
+	var encodedFiles *[]string
+	if chat.Files != nil {
+		encodedEntries := make([]string, len(*chat.Files))
+		for i, file := range *chat.Files {
+			encodedEntries[i] = utils.EncodeValue(file)
+		}
+		encodedFiles = &encodedEntries
+	}
+
+	encodedModel := utils.EncodeValue(chat.Model)
+	encodedRole := utils.EncodeValue(utils.SafeDerefString(chat.Role))
+	encodedPrompt := utils.EncodeValue(utils.SafeDerefString(chat.Prompt))
+	encodedResponse := utils.EncodeValuePtr(chat.Response)
+	encodedJSONResponseKeys := encodeJSONResponseKeys(chat.JSONResponseKeys)
+
+	timeoutDuration := chat.TimeoutDuration
+	if timeoutDuration == nil {
+		timeoutDuration = &pkl.Duration{Value: 60, Unit: pkl.Second}
+	}
+
+	timestamp := chat.Timestamp
+	if timestamp == nil {
+		timestamp = &pkl.Duration{Value: float64(time.Now().Unix()), Unit: pkl.Nanosecond}
+	}
+
+	return &pklLLM.ResourceChat{
+		Model:            encodedModel,
+		Prompt:           &encodedPrompt,
+		Role:             &encodedRole,
+		Scenario:         encodedScenario,
+		Tools:            encodedTools,
+		JSONResponse:     chat.JSONResponse,
+		JSONResponseKeys: encodedJSONResponseKeys,
+		Response:         encodedResponse,
+		Files:            encodedFiles,
+		File:             chat.File,
+		Timestamp:        timestamp,
+		TimeoutDuration:  timeoutDuration,
+	}
+}
+
+// encodeTools encodes the Tools field.
+func encodeTools(tools *[]*pklLLM.Tool) []*pklLLM.Tool {
+	encodedEntries := make([]*pklLLM.Tool, len(*tools))
+	for i, entry := range *tools {
+		if entry == nil {
+			continue
+		}
+		encodedName := utils.EncodeValue(utils.SafeDerefString(entry.Name))
+		encodedScript := utils.EncodeValue(utils.SafeDerefString(entry.Script))
+		encodedDescription := utils.EncodeValue(utils.SafeDerefString(entry.Description))
+
+		var encodedParameters *map[string]*pklLLM.ToolProperties
+		if entry.Parameters != nil {
+			params := encodeToolParameters(entry.Parameters)
+			encodedParameters = params
+		}
+
+		encodedEntries[i] = &pklLLM.Tool{
+			Name:        &encodedName,
+			Script:      &encodedScript,
+			Description: &encodedDescription,
+			Parameters:  encodedParameters,
+		}
+	}
+	return encodedEntries
+}
+
+// encodeToolParameters encodes tool parameters.
+func encodeToolParameters(params *map[string]*pklLLM.ToolProperties) *map[string]*pklLLM.ToolProperties {
+	encodedParams := make(map[string]*pklLLM.ToolProperties, len(*params))
+	for paramName, param := range *params {
+		if param == nil {
+			continue
+		}
+		encodedType := utils.EncodeValue(utils.SafeDerefString(param.Type))
+		encodedDescription := utils.EncodeValue(utils.SafeDerefString(param.Description))
+		encodedParams[paramName] = &pklLLM.ToolProperties{
+			Required:    param.Required,
+			Type:        &encodedType,
+			Description: &encodedDescription,
+		}
+	}
+	return &encodedParams
+}
+
+// encodeJSONResponseKeys encodes JSON response keys.
+func encodeJSONResponseKeys(keys *[]string) *[]string {
 	if keys == nil {
 		return nil
 	}
@@ -424,6 +1552,179 @@ func (dr *DependencyResolver) encodeChatJSONResponseKeys(keys *[]string) *[]stri
 	return &encoded
 }
 
+// generatePklContent generates Pkl content from resources.
+func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.Context, logger *logging.Logger) string {
+	var pklContent strings.Builder
+	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"\n\n", schema.SchemaVersion(ctx)))
+	pklContent.WriteString("resources {\n")
+
+	for id, res := range resources {
+		logger.Info("Generating PKL for resource", "id", id)
+		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
+		pklContent.WriteString(fmt.Sprintf("    model = %q\n", res.Model))
+
+		prompt := ""
+		if res.Prompt != nil {
+			prompt = *res.Prompt
+		}
+		pklContent.WriteString(fmt.Sprintf("    prompt = %q\n", prompt))
+
+		role := RoleHuman
+		if res.Role != nil && *res.Role != "" {
+			role = *res.Role
+		}
+		pklContent.WriteString(fmt.Sprintf("    role = %q\n", role))
+
+		pklContent.WriteString("    scenario ")
+		if res.Scenario != nil && len(*res.Scenario) > 0 {
+			logger.Info("Serializing scenario", "entry_count", len(*res.Scenario))
+			pklContent.WriteString("{\n")
+			for i, entry := range *res.Scenario {
+				if entry == nil {
+					logger.Warn("Skipping nil scenario entry in generatePklContent", "index", i)
+					continue
+				}
+				pklContent.WriteString("      new {\n")
+				entryRole := RoleHuman
+				if entry.Role != nil && *entry.Role != "" {
+					entryRole = *entry.Role
+				}
+				pklContent.WriteString(fmt.Sprintf("        role = %q\n", entryRole))
+				entryPrompt := ""
+				if entry.Prompt != nil {
+					entryPrompt = *entry.Prompt
+				}
+				pklContent.WriteString(fmt.Sprintf("        prompt = %q\n", entryPrompt))
+				logger.Info("Serialized scenario entry", "index", i, "role", entryRole, "prompt", entryPrompt)
+				pklContent.WriteString("      }\n")
+			}
+			pklContent.WriteString("    }\n")
+		} else {
+			logger.Info("Scenario is nil or empty in generatePklContent")
+			pklContent.WriteString("{}\n")
+		}
+
+		serializeTools(&pklContent, res.Tools)
+
+		jsonResponse := false
+		if res.JSONResponse != nil {
+			jsonResponse = *res.JSONResponse
+		}
+		pklContent.WriteString(fmt.Sprintf("    JSONResponse = %t\n", jsonResponse))
+
+		pklContent.WriteString("    JSONResponseKeys ")
+		if res.JSONResponseKeys != nil && len(*res.JSONResponseKeys) > 0 {
+			pklContent.WriteString(utils.EncodePklSlice(res.JSONResponseKeys))
+		} else {
+			pklContent.WriteString("{}\n")
+		}
+
+		pklContent.WriteString("    files ")
+		if res.Files != nil && len(*res.Files) > 0 {
+			pklContent.WriteString(utils.EncodePklSlice(res.Files))
+		} else {
+			pklContent.WriteString("{}\n")
+		}
+
+		timeoutValue := 60.0
+		timeoutUnit := pkl.Second
+		if res.TimeoutDuration != nil {
+			timeoutValue = res.TimeoutDuration.Value
+			timeoutUnit = res.TimeoutDuration.Unit
+		}
+		pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", timeoutValue, timeoutUnit.String()))
+
+		timestampValue := float64(time.Now().Unix())
+		timestampUnit := pkl.Nanosecond
+		if res.Timestamp != nil {
+			timestampValue = res.Timestamp.Value
+			timestampUnit = res.Timestamp.Unit
+		}
+		pklContent.WriteString(fmt.Sprintf("    timestamp = %g.%s\n", timestampValue, timestampUnit.String()))
+
+		if res.Response != nil {
+			pklContent.WriteString(fmt.Sprintf("    response = #\"\"\"\n%s\n\"\"\"#\n", *res.Response))
+		} else {
+			pklContent.WriteString("    response = \"\"\n")
+		}
+
+		if res.File != nil {
+			pklContent.WriteString(fmt.Sprintf("    file = %q\n", *res.File))
+		} else {
+			pklContent.WriteString("    file = \"\"\n")
+		}
+
+		pklContent.WriteString("  }\n")
+	}
+	pklContent.WriteString("}\n")
+
+	return pklContent.String()
+}
+
+// serializeTools serializes the Tools field to Pkl format.
+func serializeTools(builder *strings.Builder, tools *[]*pklLLM.Tool) {
+	builder.WriteString("    tools ")
+	if tools == nil || len(*tools) == 0 {
+		builder.WriteString("{}\n")
+		return
+	}
+
+	builder.WriteString("{\n")
+	for _, entry := range *tools {
+		if entry == nil {
+			continue
+		}
+		builder.WriteString("      new {\n")
+		name := ""
+		if entry.Name != nil {
+			name = *entry.Name
+		}
+		builder.WriteString(fmt.Sprintf("        name = %q\n", name))
+		script := ""
+		if entry.Script != nil {
+			script = *entry.Script
+		}
+		builder.WriteString(fmt.Sprintf("        script = #\"\"\"\n%s\n\"\"\"#\n", script))
+		description := ""
+		if entry.Description != nil {
+			description = *entry.Description
+		}
+		builder.WriteString(fmt.Sprintf("        description = %q\n", description))
+		builder.WriteString("        parameters ")
+		if entry.Parameters != nil && len(*entry.Parameters) > 0 {
+			builder.WriteString("{\n")
+			for pname, param := range *entry.Parameters {
+				if param == nil {
+					continue
+				}
+				builder.WriteString(fmt.Sprintf("          [\"%s\"] {\n", pname))
+				required := false
+				if param.Required != nil {
+					required = *param.Required
+				}
+				builder.WriteString(fmt.Sprintf("            required = %t\n", required))
+				paramType := ""
+				if param.Type != nil {
+					paramType = *param.Type
+				}
+				builder.WriteString(fmt.Sprintf("            type = %q\n", paramType))
+				paramDescription := ""
+				if param.Description != nil {
+					paramDescription = *param.Description
+				}
+				builder.WriteString(fmt.Sprintf("            description = %q\n", paramDescription))
+				builder.WriteString("          }\n")
+			}
+			builder.WriteString("        }\n")
+		} else {
+			builder.WriteString("{}\n")
+		}
+		builder.WriteString("      }\n")
+	}
+	builder.WriteString("    }\n")
+}
+
+// WriteResponseToFile writes the LLM response to a file.
 func (dr *DependencyResolver) WriteResponseToFile(resourceID string, responseEncoded *string) (string, error) {
 	if responseEncoded == nil {
 		return "", nil
@@ -432,7 +1733,7 @@ func (dr *DependencyResolver) WriteResponseToFile(resourceID string, responseEnc
 	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
 	outputFilePath := filepath.Join(dr.FilesDir, resourceIDFile)
 
-	content, err := utils.DecodeBase64IfNeeded(utils.DerefString(responseEncoded))
+	content, err := utils.DecodeBase64IfNeeded(utils.SafeDerefString(responseEncoded))
 	if err != nil {
 		return "", fmt.Errorf("failed to decode response: %w", err)
 	}

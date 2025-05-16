@@ -17,6 +17,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/memory"
 	"github.com/kdeps/kdeps/pkg/session"
+	"github.com/kdeps/kdeps/pkg/tool"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklRes "github.com/kdeps/schema/gen/resource"
 	pklWf "github.com/kdeps/schema/gen/workflow"
@@ -39,6 +40,8 @@ type DependencyResolver struct {
 	MemoryDBPath         string
 	SessionReader        *session.PklResourceReader
 	SessionDBPath        string
+	ToolReader           *tool.PklResourceReader
+	ToolDBPath           string
 	AgentName            string
 	RequestID            string
 	RequestPklFile       string
@@ -118,7 +121,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	}
 
 	var apiServerMode, installAnaconda bool
-	var agentName, memoryDBPath, sessionDBPath string
+	var agentName, memoryDBPath, sessionDBPath, toolDBPath string
 
 	if workflowConfiguration.GetSettings() != nil {
 		apiServerMode = workflowConfiguration.GetSettings().APIServerMode
@@ -139,6 +142,13 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	if err != nil {
 		sessionReader.DB.Close()
 		return nil, fmt.Errorf("failed to initialize session DB: %w", err)
+	}
+
+	toolDBPath = filepath.Join(actionDir, graphID+"_tool.db")
+	toolReader, err := tool.InitializeTool(toolDBPath)
+	if err != nil {
+		toolReader.DB.Close()
+		return nil, fmt.Errorf("failed to initialize tool DB: %w", err)
 	}
 
 	dependencyResolver := &DependencyResolver{
@@ -167,6 +177,8 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		MemoryReader:         memoryReader,
 		SessionDBPath:        sessionDBPath,
 		SessionReader:        sessionReader,
+		ToolDBPath:           toolDBPath,
+		ToolReader:           toolReader,
 	}
 
 	dependencyResolver.Graph = graph.NewDependencyGraph(fs, logger.BaseLogger(), dependencyResolver.ResourceDependencies)
@@ -332,25 +344,41 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 				}
 
 				// Validate request.params
-				if err := dr.validateRequestParams(string(fileContent), *runBlock.AllowedParams); err != nil {
+				allowedParams := []string{}
+				if runBlock.AllowedParams != nil {
+					allowedParams = *runBlock.AllowedParams
+				}
+				if err := dr.validateRequestParams(string(fileContent), allowedParams); err != nil {
 					dr.Logger.Error("request params validation failed", "actionID", res.ActionID, "error", err)
 					return dr.HandleAPIErrorResponse(400, fmt.Sprintf("Request params validation failed for resource %s: %v", res.ActionID, err), false)
 				}
 
 				// Validate request.header
-				if err := dr.validateRequestHeaders(string(fileContent), *runBlock.AllowedHeaders); err != nil {
+				allowedHeaders := []string{}
+				if runBlock.AllowedHeaders != nil {
+					allowedHeaders = *runBlock.AllowedHeaders
+				}
+				if err := dr.validateRequestHeaders(string(fileContent), allowedHeaders); err != nil {
 					dr.Logger.Error("request headers validation failed", "actionID", res.ActionID, "error", err)
 					return dr.HandleAPIErrorResponse(400, fmt.Sprintf("Request headers validation failed for resource %s: %v", res.ActionID, err), false)
 				}
 
 				// Validate request.path
-				if err := dr.validateRequestPath(dr.Request, *runBlock.RestrictToRoutes); err != nil {
+				allowedRoutes := []string{}
+				if runBlock.RestrictToRoutes != nil {
+					allowedRoutes = *runBlock.RestrictToRoutes
+				}
+				if err := dr.validateRequestPath(dr.Request, allowedRoutes); err != nil {
 					dr.Logger.Info("skipping due to request path validation not allowed", "actionID", res.ActionID, "error", err)
 					continue
 				}
 
 				// Validate request.method
-				if err := dr.validateRequestMethod(dr.Request, *runBlock.RestrictToHTTPMethods); err != nil {
+				allowedMethods := []string{}
+				if runBlock.RestrictToHTTPMethods != nil {
+					allowedMethods = *runBlock.RestrictToHTTPMethods
+				}
+				if err := dr.validateRequestMethod(dr.Request, allowedMethods); err != nil {
 					dr.Logger.Info("skipping due to request method validation not allowed", "actionID", res.ActionID, "error", err)
 					continue
 				}
