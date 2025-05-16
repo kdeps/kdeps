@@ -50,8 +50,8 @@ run {
                 }
                 // Custom error message and code to be used if the preflight check fails.
                 error {
-                        code = 404
-                        message = "Header X-API-KEY not found in request!"
+                        // code = 404
+                        // message = "Header X-API-KEY not found in request!"
                 }
         }
 

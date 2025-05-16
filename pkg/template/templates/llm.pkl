@@ -49,8 +49,8 @@ run {
                 }
                 // Custom error message and code to be used if the preflight check fails.
                 error {
-                        code = 0
-                        message = ""
+                        // code = 0
+                        // message = ""
                 }
         }
 
@@ -88,7 +88,7 @@ run {
                 // This LLM role context for this prompt. For example, "user", "assistant" or "system".
                 // If none is provided, "human" will be used.
                 role = "user"
-                prompt = "Who is @(request.data())?"
+                prompt = "Who is @(request.params("q"))?"
 
                 // Scenario block can take multiple prompts and roles to be added to this LLM session.
                 scenario {
@@ -96,6 +96,23 @@ run {
                                 role = "assistant"
                                 prompt = "You are a helpful and informative AI assistant that specializes in general knowledge."
                         }
+                        // new {
+                        //         role = "system"
+                        //         prompt = "If you are unsure, please just lookup the DB."
+                        // }
+                }
+
+                // Tools block enables LLMs to autonomously execute scripts and chain outputs across multiple tool calls
+                // for complex workflows.
+                tools {
+                        // new {
+                        //     name = "lookup_db"
+                        //     script = "@(data.filepath(\"tools/1.0.0\", \"lookup.py\"))"
+                        //     description = "Queries a database for details about a historical figure"
+                        //     parameters {
+                        //         ["name"] { required = true; type = "string"; description = "Name of the historical figure to query" }
+                        //     }
+                        // }
                 }
 
                 // Specify if the LLM response should be a structured JSON

@@ -55,8 +55,8 @@ run {
                 }
                 // Custom error message and code to be used if the preflight check fails.
                 error {
-                        code = 0
-                        message = ""
+                        // code = 0
+                        // message = ""
                 }
         }
 
