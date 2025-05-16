@@ -5,7 +5,7 @@ open-source LLM models out-of-the-box.
 
 ## Key Features
 
-Kdeps is loaded with powerful features to streamline AI app development. Here are the top highlights, sorted by desirability:
+Kdeps is loaded with powerful features to streamline AI app development:
 
 - 🛠️ **Let LLMs run tools automatically (aka MCP or A2A) with [external tools and chained tool workflows](https://kdeps.com/getting-started/resources/llm.html#tools-configuration)** to enhance functionality through scripts and sequential tool pipelines.
 - 🧩 **Low-code/no-code capabilities for building [operational full-stack AI apps](https://kdeps.com/getting-started/configuration/workflow.html)**, enabling accessible development for non-technical users and production-ready applications.
