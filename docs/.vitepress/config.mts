@@ -201,6 +201,7 @@ export default defineConfig({
       {
         text: "Reference",
         items: [
+          { text: "Open-source LLM Tool Calling (aka MCP)", link: "/getting-started/resources/tools" },
           {
             text: "Graph Dependency",
             link: "/getting-started/resources/kartographer",
