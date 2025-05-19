@@ -50,11 +50,13 @@ run {
                         // All data files are mapped from 'data/file.txt' to 'data/<agentName>/<agentVersion>/file.txt'.
                         // read("file:/agent/workflow/data/%s/1.0.0/file.txt").text != "" && read("file:/agent/workflow/data/%s/1.0.0/file.txt").base64 != ""
                 }
-                // Custom error message and code to be used if the preflight check fails.
-                error {
-                        // code = 500
-                        // message = "Data file file.txt not found!"
-                }
+                //
+                // Custom error message and code to be returned immediately if the preflight check fails.
+                //
+                // error {
+                //         code = 0
+                //         message = ""
+                // }
         }
 
         // The expr block is space for evaluating standard PKL expressions. It is primarily used to execute

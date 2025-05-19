@@ -47,11 +47,13 @@ run {
                         // This section expects boolean validations.
                         // If any validation returns false, an exception will be thrown before proceeding to the next step.
                 }
-                // Custom error message and code to be used if the preflight check fails.
-                error {
-                        // code = 0
-                        // message = ""
-                }
+                //
+                // Custom error message and code to be returned immediately if the preflight check fails.
+                //
+                // error {
+                //         code = 0
+                //         message = ""
+                // }
         }
 
         // The expr block is space for evaluating standard PKL expressions. It is primarily used to execute
