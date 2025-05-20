@@ -533,15 +533,6 @@ func decodeField(field **string, fieldName string, deref func(*string) string, d
 	return nil
 }
 
-// isBase64 checks if a string is likely Base64-encoded.
-func isBase64(s string) bool {
-	if len(s) == 0 {
-		return false
-	}
-	_, err := base64.StdEncoding.DecodeString(s)
-	return err == nil
-}
-
 // decodeScenario decodes the Scenario field, handling nil and empty cases.
 func decodeScenario(chatBlock *pklLLM.ResourceChat, logger *logging.Logger) error {
 	if chatBlock.Scenario == nil {
@@ -662,8 +653,8 @@ func decodeToolEntry(entry *pklLLM.Tool, index int, logger *logging.Logger) (*pk
 	// Decode Name
 	if entry.Name != nil {
 		nameStr := utils.SafeDerefString(entry.Name)
-		logger.Debug("Checking if name is Base64", "index", index, "name", nameStr, "isBase64", isBase64(nameStr))
-		if isBase64(nameStr) {
+		logger.Debug("Checking if name is Base64", "index", index, "name", nameStr, "isBase64", utils.IsBase64Encoded(nameStr))
+		if utils.IsBase64Encoded(nameStr) {
 			if err := decodeField(&decodedTool.Name, fmt.Sprintf("Tools[%d].Name", index), utils.SafeDerefString, ""); err != nil {
 				return nil, err
 			}
@@ -680,8 +671,8 @@ func decodeToolEntry(entry *pklLLM.Tool, index int, logger *logging.Logger) (*pk
 	// Decode Script
 	if entry.Script != nil {
 		scriptStr := utils.SafeDerefString(entry.Script)
-		logger.Debug("Checking if script is Base64", "index", index, "script_length", len(scriptStr), "isBase64", isBase64(scriptStr))
-		if isBase64(scriptStr) {
+		logger.Debug("Checking if script is Base64", "index", index, "script_length", len(scriptStr), "isBase64", utils.IsBase64Encoded(scriptStr))
+		if utils.IsBase64Encoded(scriptStr) {
 			if err := decodeField(&decodedTool.Script, fmt.Sprintf("Tools[%d].Script", index), utils.SafeDerefString, ""); err != nil {
 				return nil, err
 			}
@@ -698,8 +689,8 @@ func decodeToolEntry(entry *pklLLM.Tool, index int, logger *logging.Logger) (*pk
 	// Decode Description
 	if entry.Description != nil {
 		descStr := utils.SafeDerefString(entry.Description)
-		logger.Debug("Checking if description is Base64", "index", index, "description", descStr, "isBase64", isBase64(descStr))
-		if isBase64(descStr) {
+		logger.Debug("Checking if description is Base64", "index", index, "description", descStr, "isBase64", utils.IsBase64Encoded(descStr))
+		if utils.IsBase64Encoded(descStr) {
 			if err := decodeField(&decodedTool.Description, fmt.Sprintf("Tools[%d].Description", index), utils.SafeDerefString, ""); err != nil {
 				return nil, err
 			}
@@ -743,8 +734,8 @@ func decodeToolParameters(params *map[string]*pklLLM.ToolProperties, index int, 
 		// Decode Type
 		if param.Type != nil {
 			typeStr := utils.SafeDerefString(param.Type)
-			logger.Debug("Checking if parameter type is Base64", "index", index, "paramName", paramName, "type", typeStr, "isBase64", isBase64(typeStr))
-			if isBase64(typeStr) {
+			logger.Debug("Checking if parameter type is Base64", "index", index, "paramName", paramName, "type", typeStr, "isBase64", utils.IsBase64Encoded(typeStr))
+			if utils.IsBase64Encoded(typeStr) {
 				if err := decodeField(&decodedParam.Type, fmt.Sprintf("Tools[%d].Parameters[%s].Type", index, paramName), utils.SafeDerefString, ""); err != nil {
 					return nil, err
 				}
@@ -761,8 +752,8 @@ func decodeToolParameters(params *map[string]*pklLLM.ToolProperties, index int, 
 		// Decode Description
 		if param.Description != nil {
 			descStr := utils.SafeDerefString(param.Description)
-			logger.Debug("Checking if parameter description is Base64", "index", index, "paramName", paramName, "description", descStr, "isBase64", isBase64(descStr))
-			if isBase64(descStr) {
+			logger.Debug("Checking if parameter description is Base64", "index", index, "paramName", paramName, "description", descStr, "isBase64", utils.IsBase64Encoded(descStr))
+			if utils.IsBase64Encoded(descStr) {
 				if err := decodeField(&decodedParam.Description, fmt.Sprintf("Tools[%d].Parameters[%s].Description", index, paramName), utils.SafeDerefString, ""); err != nil {
 					return nil, err
 				}
