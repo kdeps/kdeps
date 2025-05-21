@@ -130,7 +130,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		agentName = workflowConfiguration.GetName()
 	}
 
-	memoryDBPath = filepath.Join("/root/.kdeps", agentName+"_memory.db")
+	memoryDBPath = filepath.Join("/.kdeps/", agentName+"_memory.db")
 	memoryReader, err := memory.InitializeMemory(memoryDBPath)
 	if err != nil {
 		memoryReader.DB.Close()

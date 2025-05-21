@@ -51,7 +51,7 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 	hostConfig := &container.HostConfig{
 		Binds: []string{
 			"ollama:/root/.ollama",
-			"kdeps:/root/.kdeps",
+			"kdeps:/.kdeps",
 		},
 		PortBindings: portBindings,
 		RestartPolicy: container.RestartPolicy{
@@ -224,7 +224,7 @@ services:
 %s    restart: on-failure
     volumes:
       - ollama:/root/.ollama
-      - kdeps:/root/.kdeps
+      - kdeps:/.kdeps
 %s
 volumes:
   ollama:
