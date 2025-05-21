@@ -1,0 +1,225 @@
+package session
+
+import (
+	"net/url"
+	"testing"
+
+	_ "github.com/mattn/go-sqlite3"
+	"github.com/stretchr/testify/require"
+)
+
+func TestPklResourceReader(t *testing.T) {
+	t.Parallel()
+
+	dbPath := "file::memory:"
+	reader, err := InitializeSession(dbPath)
+	require.NoError(t, err)
+	defer reader.DB.Close()
+
+	t.Run("Scheme", func(t *testing.T) {
+		t.Parallel()
+		require.Equal(t, "session", reader.Scheme())
+	})
+
+	t.Run("IsGlobbable", func(t *testing.T) {
+		t.Parallel()
+		require.False(t, reader.IsGlobbable())
+	})
+
+	t.Run("HasHierarchicalUris", func(t *testing.T) {
+		t.Parallel()
+		require.False(t, reader.HasHierarchicalUris())
+	})
+
+	t.Run("ListElements", func(t *testing.T) {
+		t.Parallel()
+		uri, _ := url.Parse("session:///test")
+		elements, err := reader.ListElements(*uri)
+		require.NoError(t, err)
+		require.Nil(t, elements)
+	})
+
+	t.Run("Read_GetItem", func(t *testing.T) {
+		t.Parallel()
+		reader, err := InitializeSession("file::memory:")
+		require.NoError(t, err)
+		defer reader.DB.Close()
+
+		_, err = reader.DB.Exec("INSERT INTO items (id, value) VALUES (?, ?)", "test1", "value1")
+		require.NoError(t, err)
+
+		uri, _ := url.Parse("session:///test1")
+		data, err := reader.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte("value1"), data)
+
+		uri, _ = url.Parse("session:///nonexistent")
+		data, err = reader.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte(""), data)
+
+		uri, _ = url.Parse("session:///")
+		_, err = reader.Read(*uri)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "no item ID provided")
+	})
+
+	t.Run("Read_SetItem", func(t *testing.T) {
+		t.Parallel()
+		reader, err := InitializeSession("file::memory:")
+		require.NoError(t, err)
+		defer reader.DB.Close()
+
+		uri, _ := url.Parse("session:///test2?op=set&value=newvalue")
+		data, err := reader.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte("newvalue"), data)
+
+		var value string
+		err = reader.DB.QueryRow("SELECT value FROM items WHERE id = ?", "test2").Scan(&value)
+		require.NoError(t, err)
+		require.Equal(t, "newvalue", value)
+
+		uri, _ = url.Parse("session:///test3?op=set")
+		_, err = reader.Read(*uri)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "set operation requires a value parameter")
+
+		uri, _ = url.Parse("session:///?op=set&value=value")
+		_, err = reader.Read(*uri)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "no item ID provided for set operation")
+	})
+
+	t.Run("Read_DeleteItem", func(t *testing.T) {
+		t.Parallel()
+		reader, err := InitializeSession("file::memory:")
+		require.NoError(t, err)
+		defer reader.DB.Close()
+
+		_, err = reader.DB.Exec("INSERT INTO items (id, value) VALUES (?, ?)", "test4", "value4")
+		require.NoError(t, err)
+
+		uri, _ := url.Parse("session:///test4?op=delete")
+		data, err := reader.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte("Deleted 1 item(s)"), data)
+
+		var count int
+		err = reader.DB.QueryRow("SELECT COUNT(*) FROM items WHERE id = ?", "test4").Scan(&count)
+		require.NoError(t, err)
+		require.Equal(t, 0, count)
+
+		data, err = reader.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte("Deleted 0 item(s)"), data)
+
+		uri, _ = url.Parse("session:///?op=delete")
+		_, err = reader.Read(*uri)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "no item ID provided for delete operation")
+	})
+
+	t.Run("Read_Clear", func(t *testing.T) {
+		t.Parallel()
+		reader, err := InitializeSession("file::memory:")
+		require.NoError(t, err)
+		defer reader.DB.Close()
+
+		_, err = reader.DB.Exec("DELETE FROM items")
+		require.NoError(t, err, "Failed to clear table before test")
+
+		result, err := reader.DB.Exec("INSERT INTO items (id, value) VALUES (?, ?), (?, ?)",
+			"test5", "value5", "test6", "value6")
+		require.NoError(t, err, "Failed to insert test data")
+		rowsAffected, err := result.RowsAffected()
+		require.NoError(t, err, "Failed to check rows affected")
+		require.Equal(t, int64(2), rowsAffected, "Expected 2 rows to be inserted")
+
+		var count int
+		err = reader.DB.QueryRow("SELECT COUNT(*) FROM items").Scan(&count)
+		require.NoError(t, err, "Failed to count items")
+		require.Equal(t, 2, count, "Expected 2 items in table before clear")
+
+		uri, _ := url.Parse("session:///_?op=clear")
+		data, err := reader.Read(*uri)
+		require.NoError(t, err, "Clear operation failed")
+		require.Equal(t, []byte("Cleared 2 items"), data, "Unexpected response from clear")
+
+		err = reader.DB.QueryRow("SELECT COUNT(*) FROM items").Scan(&count)
+		require.NoError(t, err, "Failed to count items after clear")
+		require.Equal(t, 0, count, "Expected 0 items in table after clear")
+
+		uri, _ = url.Parse("session:///invalid?op=clear")
+		_, err = reader.Read(*uri)
+		require.Error(t, err, "Expected error for invalid clear path")
+		require.Contains(t, err.Error(), "clear operation requires path '/_'", "Unexpected error message")
+	})
+
+	t.Run("Read_NilReceiver", func(t *testing.T) {
+		t.Parallel()
+		nilReader := &PklResourceReader{DBPath: dbPath}
+		uri, _ := url.Parse("session:///test7?op=set&value=value7")
+		data, err := nilReader.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte("value7"), data)
+
+		var value string
+		err = nilReader.DB.QueryRow("SELECT value FROM items WHERE id = ?", "test7").Scan(&value)
+		require.NoError(t, err)
+		require.Equal(t, "value7", value)
+	})
+
+	t.Run("Read_NilDB", func(t *testing.T) {
+		t.Parallel()
+		reader := &PklResourceReader{DBPath: dbPath, DB: nil}
+		uri, _ := url.Parse("session:///test8?op=set&value=value8")
+		data, err := reader.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte("value8"), data)
+
+		var value string
+		err = reader.DB.QueryRow("SELECT value FROM items WHERE id = ?", "test8").Scan(&value)
+		require.NoError(t, err)
+		require.Equal(t, "value8", value)
+	})
+}
+
+func TestInitializeDatabase(t *testing.T) {
+	t.Parallel()
+
+	t.Run("SuccessfulInitialization", func(t *testing.T) {
+		t.Parallel()
+		db, err := InitializeDatabase("file::memory:")
+		require.NoError(t, err)
+		require.NotNil(t, db)
+		defer db.Close()
+
+		var name string
+		err = db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name='items'").Scan(&name)
+		require.NoError(t, err)
+		require.Equal(t, "items", name)
+	})
+
+	t.Run("InvalidPath", func(t *testing.T) {
+		t.Parallel()
+		db, err := InitializeDatabase("file::memory:?cache=invalid")
+		if err != nil {
+			if db != nil {
+				defer db.Close()
+				err = db.Ping()
+				require.NoError(t, err, "Expected database to be usable even with invalid cache parameter")
+			}
+		}
+	})
+}
+
+func TestInitializeSession(t *testing.T) {
+	t.Parallel()
+	reader, err := InitializeSession("file::memory:")
+	require.NoError(t, err)
+	require.NotNil(t, reader)
+	require.NotNil(t, reader.DB)
+	require.Equal(t, "file::memory:", reader.DBPath)
+	defer reader.DB.Close()
+}
