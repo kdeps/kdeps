@@ -233,6 +233,24 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		// Initialize errors slice to collect all errors
 		var errors []ErrorResponse
 
+		graphID := uuid.New().String()
+		baseLogger := logging.GetLogger()
+		logger := baseLogger.With("requestID", graphID)
+
+		// Helper function to create APIResponse with requestID
+		createErrorResponse := func(errs []ErrorResponse) APIResponse {
+			return APIResponse{
+				Success: false,
+				Response: ResponseData{
+					Data: nil,
+				},
+				Meta: ResponseMeta{
+					RequestID: graphID,
+				},
+				Errors: errs,
+			}
+		}
+
 		// Try to acquire the semaphore (non-blocking)
 		select {
 		case semaphore <- struct{}{}:
@@ -244,16 +262,9 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 				Code:    http.StatusTooManyRequests,
 				Message: "Only one active connection is allowed",
 			})
-			c.AbortWithStatusJSON(http.StatusTooManyRequests, APIResponse{
-				Success: false,
-				Errors:  errors,
-			})
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, createErrorResponse(errors))
 			return
 		}
-
-		graphID := uuid.New().String()
-		baseLogger := logging.GetLogger()
-		logger := baseLogger.With("requestID", graphID)
 
 		newCtx := ktx.UpdateContext(ctx, ktx.CtxKeyGraphID, graphID)
 
@@ -263,10 +274,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 				Code:    http.StatusInternalServerError,
 				Message: "Failed to initialize resolver",
 			})
-			c.AbortWithStatusJSON(http.StatusInternalServerError, APIResponse{
-				Success: false,
-				Errors:  errors,
-			})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
 			return
 		}
 
@@ -275,10 +283,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 				Code:    http.StatusInternalServerError,
 				Message: "Failed to clean old files",
 			})
-			c.AbortWithStatusJSON(http.StatusInternalServerError, APIResponse{
-				Success: false,
-				Errors:  errors,
-			})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
 			return
 		}
 
@@ -288,10 +293,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 				Code:    http.StatusBadRequest,
 				Message: err.Error(),
 			})
-			c.AbortWithStatusJSON(http.StatusBadRequest, APIResponse{
-				Success: false,
-				Errors:  errors,
-			})
+			c.AbortWithStatusJSON(http.StatusBadRequest, createErrorResponse(errors))
 			return
 		}
 
@@ -318,10 +320,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 					Code:    http.StatusBadRequest,
 					Message: "Failed to read request body",
 				})
-				c.AbortWithStatusJSON(http.StatusBadRequest, APIResponse{
-					Success: false,
-					Errors:  errors,
-				})
+				c.AbortWithStatusJSON(http.StatusBadRequest, createErrorResponse(errors))
 				return
 			}
 			defer c.Request.Body.Close()
@@ -337,19 +336,13 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 							Code:    he.statusCode,
 							Message: he.message,
 						})
-						c.AbortWithStatusJSON(he.statusCode, APIResponse{
-							Success: false,
-							Errors:  errors,
-						})
+						c.AbortWithStatusJSON(he.statusCode, createErrorResponse(errors))
 					} else {
 						errors = append(errors, ErrorResponse{
 							Code:    http.StatusInternalServerError,
 							Message: err.Error(),
 						})
-						c.AbortWithStatusJSON(http.StatusInternalServerError, APIResponse{
-							Success: false,
-							Errors:  errors,
-						})
+						c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
 					}
 					return
 				}
@@ -361,10 +354,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 						Code:    http.StatusBadRequest,
 						Message: "Failed to read request body",
 					})
-					c.AbortWithStatusJSON(http.StatusBadRequest, APIResponse{
-						Success: false,
-						Errors:  errors,
-					})
+					c.AbortWithStatusJSON(http.StatusBadRequest, createErrorResponse(errors))
 					return
 				}
 				defer c.Request.Body.Close()
@@ -378,10 +368,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 				Code:    http.StatusMethodNotAllowed,
 				Message: "Unsupported method",
 			})
-			c.AbortWithStatusJSON(http.StatusMethodNotAllowed, APIResponse{
-				Success: false,
-				Errors:  errors,
-			})
+			c.AbortWithStatusJSON(http.StatusMethodNotAllowed, createErrorResponse(errors))
 			return
 		}
 
@@ -413,10 +400,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 				Code:    http.StatusInternalServerError,
 				Message: "Failed to process request file",
 			})
-			c.AbortWithStatusJSON(http.StatusInternalServerError, APIResponse{
-				Success: false,
-				Errors:  errors,
-			})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
 			return
 		}
 
@@ -425,10 +409,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 				Code:    http.StatusInternalServerError,
 				Message: "Empty response received, possibly due to configuration issues. Please verify: 1. Allowed route paths and HTTP methods match the incoming request. 2. Skip validations that are skipping the required resource to produce the requests. 3. Timeout settings are sufficient for long-running processes (e.g., LLM operations).",
 			})
-			c.AbortWithStatusJSON(http.StatusInternalServerError, APIResponse{
-				Success: false,
-				Errors:  errors,
-			})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
 			return
 		}
 
@@ -438,10 +419,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 				Code:    http.StatusInternalServerError,
 				Message: "Failed to read response file",
 			})
-			c.AbortWithStatusJSON(http.StatusInternalServerError, APIResponse{
-				Success: false,
-				Errors:  errors,
-			})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
 			return
 		}
 
@@ -451,10 +429,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 				Code:    http.StatusInternalServerError,
 				Message: "Failed to decode response content",
 			})
-			c.AbortWithStatusJSON(http.StatusInternalServerError, APIResponse{
-				Success: false,
-				Errors:  errors,
-			})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
 			return
 		}
 
@@ -464,16 +439,16 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			}
 		}
 
+		// Ensure requestID is set in the response
+		decodedResp.Meta.RequestID = graphID
+
 		decodedContent, err := json.Marshal(decodedResp)
 		if err != nil {
 			errors = append(errors, ErrorResponse{
 				Code:    http.StatusInternalServerError,
 				Message: "Failed to marshal response content",
 			})
-			c.AbortWithStatusJSON(http.StatusInternalServerError, APIResponse{
-				Success: false,
-				Errors:  errors,
-			})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
 			return
 		}
 
