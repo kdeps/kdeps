@@ -212,8 +212,8 @@ kdeps scaffold sd35api exec
 ```
 
 In the `exec` resource, include a script that logs in to Hugging Face using the `HF_TOKEN` from the `.env` file and
-downloads the model. Additionally, set the cache directory to `/root/.kdeps/`, a shared folder for Kdeps, and create a
-marker file (`/root/.kdeps/sd35-downloaded`) upon successful download.
+downloads the model. Additionally, set the cache directory to `/.kdeps/`, a shared folder for Kdeps, and create a
+marker file (`/.kdeps/sd35-downloaded`) upon successful download.
 
 ```json
 actionID = "execResource"
@@ -221,8 +221,8 @@ actionID = "execResource"
 exec {
     command = """
     huggingface-cli login --token $HF_TOKEN
-    huggingface-cli download stabilityai/stable-diffusion-3.5-large --cache-dir /root/.kdeps/
-    echo downloaded > /root/.kdeps/sd35-downloaded
+    huggingface-cli download stabilityai/stable-diffusion-3.5-large --cache-dir /.kdeps/
+    echo downloaded > /.kdeps/sd35-downloaded
     """
     env {
         ["HF_TOKEN"] = "\(read("env:HF_TOKEN"))"
@@ -234,13 +234,13 @@ exec {
 ### Adding a `skipCondition`
 
 To ensure the `exec` script runs only when necessary, add a `skipCondition`. This condition checks for the existence of
-the `/root/.kdeps/sd35-downloaded` file. If the file exists, the script will be skipped.
+the `/.kdeps/sd35-downloaded` file. If the file exists, the script will be skipped.
 
 ```json
 actionID = "execResource"
 ...
 run {
-    local stampFile = read?("file:/root/.kdeps/sd35-downloaded")?.base64?.isEmpty
+    local stampFile = read?("file:/.kdeps/sd35-downloaded")?.base64?.isEmpty
 
     skipCondition {
         stampFile != null || stampFile != false
