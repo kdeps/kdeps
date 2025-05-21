@@ -2,7 +2,6 @@ package resolver
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -115,12 +114,12 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 			}
 			fileType := mimetype.Detect(fileBytes).String()
 			logger.Info("Detected MIME type for file", "index", i, "path", filePath, "mimeType", fileType)
-			base64Content := base64.StdEncoding.EncodeToString(fileBytes)
-			fileContent := "File: " + filePath + "\nMIME: " + fileType + "\nContent: " + base64Content
+
+			// Add binary content directly instead of base64-encoded text
 			messageHistory = append(messageHistory, llms.MessageContent{
 				Role: roleType,
 				Parts: []llms.ContentPart{
-					llms.TextContent{Text: fileContent},
+					llms.BinaryPart(fileType, fileBytes),
 				},
 			})
 		}
