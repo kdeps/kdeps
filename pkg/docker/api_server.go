@@ -62,6 +62,8 @@ func (e *handlerError) Error() string {
 	return e.message
 }
 
+// handleMultipartForm processes multipart form data and updates fileMap.
+// It returns a handlerError to be appended to the errors slice.
 func handleMultipartForm(c *gin.Context, dr *resolver.DependencyResolver, fileMap map[string]struct{ Filename, Filetype string }) error {
 	form, err := c.MultipartForm()
 	if err != nil {
@@ -86,6 +88,8 @@ func handleMultipartForm(c *gin.Context, dr *resolver.DependencyResolver, fileMa
 	return processFile(fileHeader, dr, fileMap)
 }
 
+// processFile processes an individual file and updates fileMap.
+// It returns a handlerError to be appended to the errors slice.
 func processFile(fileHeader *multipart.FileHeader, dr *resolver.DependencyResolver, fileMap map[string]struct{ Filename, Filetype string }) error {
 	file, err := fileHeader.Open()
 	if err != nil {
@@ -226,73 +230,68 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 	allowedMethods := route.Methods
 
 	return func(c *gin.Context) {
+		// Initialize errors slice to collect all errors
+		var errors []ErrorResponse
+
 		// Try to acquire the semaphore (non-blocking)
 		select {
 		case semaphore <- struct{}{}:
 			// Successfully acquired the semaphore
 			defer func() { <-semaphore }() // Release the semaphore when done
 		default:
-			// Semaphore is full, return 429 Too Many Requests
-			resp := APIResponse{
+			// Semaphore is full, append error
+			errors = append(errors, ErrorResponse{
+				Code:    http.StatusTooManyRequests,
+				Message: "Only one active connection is allowed",
+			})
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, APIResponse{
 				Success: false,
-				Errors: []ErrorResponse{
-					{
-						Code:    http.StatusTooManyRequests,
-						Message: "Only one active connection is allowed",
-					},
-				},
-			}
-			c.AbortWithStatusJSON(http.StatusTooManyRequests, resp)
+				Errors:  errors,
+			})
 			return
 		}
 
 		graphID := uuid.New().String()
 		baseLogger := logging.GetLogger()
-		logger := baseLogger.With("requestID", graphID) // Now returns *logging.Logger
+		logger := baseLogger.With("requestID", graphID)
 
 		newCtx := ktx.UpdateContext(ctx, ktx.CtxKeyGraphID, graphID)
 
 		dr, err := resolver.NewGraphResolver(baseDr.Fs, newCtx, baseDr.Environment, c, logger)
 		if err != nil {
-			resp := APIResponse{
+			errors = append(errors, ErrorResponse{
+				Code:    http.StatusInternalServerError,
+				Message: "Failed to initialize resolver",
+			})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, APIResponse{
 				Success: false,
-				Errors: []ErrorResponse{
-					{
-						Code:    http.StatusInternalServerError,
-						Message: "Failed to initialize resolver",
-					},
-				},
-			}
-			c.AbortWithStatusJSON(http.StatusInternalServerError, resp)
+				Errors:  errors,
+			})
 			return
 		}
 
 		if err := cleanOldFiles(dr); err != nil {
-			resp := APIResponse{
+			errors = append(errors, ErrorResponse{
+				Code:    http.StatusInternalServerError,
+				Message: "Failed to clean old files",
+			})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, APIResponse{
 				Success: false,
-				Errors: []ErrorResponse{
-					{
-						Code:    http.StatusInternalServerError,
-						Message: "Failed to clean old files",
-					},
-				},
-			}
-			c.AbortWithStatusJSON(http.StatusInternalServerError, resp)
+				Errors:  errors,
+			})
 			return
 		}
 
 		method, err := validateMethod(c.Request, allowedMethods)
 		if err != nil {
-			resp := APIResponse{
+			errors = append(errors, ErrorResponse{
+				Code:    http.StatusBadRequest,
+				Message: err.Error(),
+			})
+			c.AbortWithStatusJSON(http.StatusBadRequest, APIResponse{
 				Success: false,
-				Errors: []ErrorResponse{
-					{
-						Code:    http.StatusBadRequest,
-						Message: err.Error(),
-					},
-				},
-			}
-			c.AbortWithStatusJSON(http.StatusBadRequest, resp)
+				Errors:  errors,
+			})
 			return
 		}
 
@@ -315,16 +314,14 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		case http.MethodGet:
 			body, err := io.ReadAll(c.Request.Body)
 			if err != nil {
-				resp := APIResponse{
+				errors = append(errors, ErrorResponse{
+					Code:    http.StatusBadRequest,
+					Message: "Failed to read request body",
+				})
+				c.AbortWithStatusJSON(http.StatusBadRequest, APIResponse{
 					Success: false,
-					Errors: []ErrorResponse{
-						{
-							Code:    http.StatusBadRequest,
-							Message: "Failed to read request body",
-						},
-					},
-				}
-				c.AbortWithStatusJSON(http.StatusBadRequest, resp)
+					Errors:  errors,
+				})
 				return
 			}
 			defer c.Request.Body.Close()
@@ -334,29 +331,25 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			contentType := c.GetHeader("Content-Type")
 			if strings.Contains(contentType, "multipart/form-data") {
 				if err := handleMultipartForm(c, dr, fileMap); err != nil {
-					var he *handlerError
-					if errors.As(err, &he) {
-						resp := APIResponse{
+					//nolint:errorlint
+					if he, ok := err.(*handlerError); ok {
+						errors = append(errors, ErrorResponse{
+							Code:    he.statusCode,
+							Message: he.message,
+						})
+						c.AbortWithStatusJSON(he.statusCode, APIResponse{
 							Success: false,
-							Errors: []ErrorResponse{
-								{
-									Code:    he.statusCode,
-									Message: he.message,
-								},
-							},
-						}
-						c.AbortWithStatusJSON(he.statusCode, resp)
+							Errors:  errors,
+						})
 					} else {
-						resp := APIResponse{
+						errors = append(errors, ErrorResponse{
+							Code:    http.StatusInternalServerError,
+							Message: err.Error(),
+						})
+						c.AbortWithStatusJSON(http.StatusInternalServerError, APIResponse{
 							Success: false,
-							Errors: []ErrorResponse{
-								{
-									Code:    http.StatusInternalServerError,
-									Message: err.Error(),
-								},
-							},
-						}
-						c.AbortWithStatusJSON(http.StatusInternalServerError, resp)
+							Errors:  errors,
+						})
 					}
 					return
 				}
@@ -364,16 +357,14 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 				// Read non-multipart body
 				body, err := io.ReadAll(c.Request.Body)
 				if err != nil {
-					resp := APIResponse{
+					errors = append(errors, ErrorResponse{
+						Code:    http.StatusBadRequest,
+						Message: "Failed to read request body",
+					})
+					c.AbortWithStatusJSON(http.StatusBadRequest, APIResponse{
 						Success: false,
-						Errors: []ErrorResponse{
-							{
-								Code:    http.StatusBadRequest,
-								Message: "Failed to read request body",
-							},
-						},
-					}
-					c.AbortWithStatusJSON(http.StatusBadRequest, resp)
+						Errors:  errors,
+					})
 					return
 				}
 				defer c.Request.Body.Close()
@@ -383,16 +374,14 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		case http.MethodDelete:
 			bodyData = "Delete request received"
 		default:
-			resp := APIResponse{
+			errors = append(errors, ErrorResponse{
+				Code:    http.StatusMethodNotAllowed,
+				Message: "Unsupported method",
+			})
+			c.AbortWithStatusJSON(http.StatusMethodNotAllowed, APIResponse{
 				Success: false,
-				Errors: []ErrorResponse{
-					{
-						Code:    http.StatusMethodNotAllowed,
-						Message: "Unsupported method",
-					},
-				},
-			}
-			c.AbortWithStatusJSON(http.StatusMethodNotAllowed, resp)
+				Errors:  errors,
+			})
 			return
 		}
 
@@ -420,61 +409,52 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 
 		if err := evaluator.CreateAndProcessPklFile(dr.Fs, ctx, sections, dr.RequestPklFile,
 			"APIServerRequest.pkl", dr.Logger, evaluator.EvalPkl, true); err != nil {
-			resp := APIResponse{
+			errors = append(errors, ErrorResponse{
+				Code:    http.StatusInternalServerError,
+				Message: "Failed to process request file",
+			})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, APIResponse{
 				Success: false,
-				Errors: []ErrorResponse{
-					{
-						Code:    http.StatusInternalServerError,
-						Message: "Failed to process request file",
-					},
-				},
-			}
-			c.AbortWithStatusJSON(http.StatusInternalServerError, resp)
+				Errors:  errors,
+			})
 			return
 		}
 
-		fatal, err := processWorkflow(ctx, dr)
-		if err != nil {
-			resp := APIResponse{
+		if err := processWorkflow(ctx, dr); err != nil {
+			errors = append(errors, ErrorResponse{
+				Code:    http.StatusInternalServerError,
+				Message: "Empty response received, possibly due to configuration issues. Please verify: 1. Allowed route paths and HTTP methods match the incoming request. 2. Skip validations that are skipping the required resource to produce the requests. 3. Timeout settings are sufficient for long-running processes (e.g., LLM operations).",
+			})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, APIResponse{
 				Success: false,
-				Errors: []ErrorResponse{
-					{
-						Code:    http.StatusInternalServerError,
-						Message: "Workflow processing failed",
-					},
-				},
-			}
-			c.AbortWithStatusJSON(http.StatusInternalServerError, resp)
+				Errors:  errors,
+			})
 			return
 		}
 
 		content, err := afero.ReadFile(dr.Fs, dr.ResponseTargetFile)
 		if err != nil {
-			resp := APIResponse{
+			errors = append(errors, ErrorResponse{
+				Code:    http.StatusInternalServerError,
+				Message: "Failed to read response file",
+			})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, APIResponse{
 				Success: false,
-				Errors: []ErrorResponse{
-					{
-						Code:    http.StatusInternalServerError,
-						Message: "Failed to read response file",
-					},
-				},
-			}
-			c.AbortWithStatusJSON(http.StatusInternalServerError, resp)
+				Errors:  errors,
+			})
 			return
 		}
 
 		decodedResp, err := decodeResponseContent(content, dr.Logger)
 		if err != nil {
-			resp := APIResponse{
+			errors = append(errors, ErrorResponse{
+				Code:    http.StatusInternalServerError,
+				Message: "Failed to decode response content",
+			})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, APIResponse{
 				Success: false,
-				Errors: []ErrorResponse{
-					{
-						Code:    http.StatusInternalServerError,
-						Message: "Failed to decode response content",
-					},
-				},
-			}
-			c.AbortWithStatusJSON(http.StatusInternalServerError, resp)
+				Errors:  errors,
+			})
 			return
 		}
 
@@ -486,29 +466,19 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 
 		decodedContent, err := json.Marshal(decodedResp)
 		if err != nil {
-			resp := APIResponse{
+			errors = append(errors, ErrorResponse{
+				Code:    http.StatusInternalServerError,
+				Message: "Failed to marshal response content",
+			})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, APIResponse{
 				Success: false,
-				Errors: []ErrorResponse{
-					{
-						Code:    http.StatusInternalServerError,
-						Message: "Failed to marshal response content",
-					},
-				},
-			}
-			c.AbortWithStatusJSON(http.StatusInternalServerError, resp)
+				Errors:  errors,
+			})
 			return
 		}
 
 		decodedContent = formatResponseJSON(decodedContent)
 		c.Data(http.StatusOK, "application/json; charset=utf-8", decodedContent)
-
-		if fatal {
-			if removeErr := dr.Fs.RemoveAll(dr.ActionDir); removeErr != nil {
-				dr.Logger.Warn("failed to clean up temporary directory", "path", dr.ActionDir, "error", removeErr)
-			}
-			dr.Logger.Error("a fatal server error occurred. Restarting the service.")
-			utils.SendSigterm(dr.Logger)
-		}
 	}
 }
 
@@ -542,37 +512,36 @@ func validateMethod(r *http.Request, allowedMethods []string) (string, error) {
 
 // processWorkflow handles the execution of the workflow steps after the .pkl file is created.
 // It prepares the workflow directory, imports necessary files, and processes the actions defined in the workflow.
-func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver) (bool, error) {
+func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver) error {
 	dr.Context = ctx
 
 	if err := dr.PrepareWorkflowDir(); err != nil {
-		return false, err
+		return err
 	}
 
 	if err := dr.PrepareImportFiles(); err != nil {
-		return false, err
+		return err
 	}
 
 	//nolint:contextcheck // context already passed via dr.Context
-	fatal, err := dr.HandleRunAction()
-	if err != nil {
-		return fatal, err
+	if _, err := dr.HandleRunAction(); err != nil {
+		return err
 	}
 
 	stdout, err := dr.EvalPklFormattedResponseFile()
 	if err != nil {
-		dr.Logger.Fatal(fmt.Errorf(stdout, err))
-		return true, err
+		dr.Logger.Errorf("%s: %v", stdout, err)
+		return err
 	}
 
 	dr.Logger.Debug("awaiting response...")
 
 	// Wait for the response file to be ready
 	if err := utils.WaitForFileReady(dr.Fs, dr.ResponseTargetFile, dr.Logger); err != nil {
-		return false, err
+		return err
 	}
 
-	return fatal, nil
+	return nil
 }
 
 func decodeResponseContent(content []byte, logger *logging.Logger) (*APIResponse, error) {
