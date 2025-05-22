@@ -219,7 +219,7 @@ settings {
                 }
 
                 // The Ollama image tag version to be used as a base Docker image for this AI agent.
-                ollamaImageTag = "0.6.8"
+                ollamaImageTag = "0.7.0"
 
                 // A mapping of build argument variable names.
                 args {}
