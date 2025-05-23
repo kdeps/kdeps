@@ -36,7 +36,7 @@ Below is a list of the global functions available for each resource:
 
 | **Function**                               | **Description**                                   |
 |:-------------------------------------------|:--------------------------------------------------|
-| tool.getItem("key")                        | Fetches the results of the tool execution of key  |
+| tool.getOutput("key")                        | Fetches the results of the tool execution of key  |
 | tool.runScript("key", "path", "arg1,arg2") | Execute the script with arguments                 |
 | tool.history("key")                        | Fetches the output history execution of the key   |
 
@@ -44,16 +44,16 @@ Below is a list of the global functions available for each resource:
 
 | **Function**                    | **Description**                                   |
 |:--------------------------------|:--------------------------------------------------|
-| memory.getItem("key")           | Fetches the value of key from persistent memory   |
-| memory.deleteItem("key")        | Delete the memory item from the persistent memory |
-| memory.setItem("key", "value")  | Stores the value of key to the persistent memory  |
+| memory.getRecord("key")           | Fetches the value of key from persistent memory   |
+| memory.deleteRecord("key")        | Delete the memory item from the persistent memory |
+| memory.setRecord("key", "value")  | Stores the value of key to the persistent memory  |
 | memory.clear()                  | Clears all persistent memory (CAUTION!)           |
-| session.getItem("key")          | Fetches the value of key from session memory      |
-| session.deleteItem("key")       | Delete the memory item from the session memory    |
-| session.setItem("key", "value") | Stores the value of key to the session memory     |
+| session.getRecord("key")          | Fetches the value of key from session memory      |
+| session.deleteRecord("key")       | Delete the memory item from the session memory    |
+| session.setRecord("key", "value") | Stores the value of key to the session memory     |
 | session.clear()                 | Clears all session memory (CAUTION!)              |
 
-> *Note:* The `setItem`, `deleteItem` and `clear` are side-effecting functions—it performs an action but doesn't return a
+> *Note:* The `setRecord`, `deleteRecord` and `clear` are side-effecting functions—it performs an action but doesn't return a
 > meaningful value. That is why it is recommended to placed them inside an `expr` block: to ensure the expression is
 > evaluated for its effect.
 

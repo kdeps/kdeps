@@ -50,7 +50,7 @@ func TestPklResourceReader(t *testing.T) {
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
-		_, err = reader.DB.Exec("INSERT INTO items (id, value) VALUES (?, ?)", "test1", "output1")
+		_, err = reader.DB.Exec("INSERT INTO tools (id, value) VALUES (?, ?)", "test1", "output1")
 		require.NoError(t, err)
 
 		uri, _ := url.Parse("tool:///test1")
@@ -66,7 +66,7 @@ func TestPklResourceReader(t *testing.T) {
 		uri, _ = url.Parse("tool:///")
 		_, err = reader.Read(*uri)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "no item ID provided")
+		require.Contains(t, err.Error(), "no tool ID provided")
 	})
 
 	t.Run("Read_Run_FileScript", func(t *testing.T) {
@@ -86,7 +86,7 @@ func TestPklResourceReader(t *testing.T) {
 		require.NoError(t, err)
 		// Actual execution depends on system, so check DB storage
 		var value string
-		err = reader.DB.QueryRow("SELECT value FROM items WHERE id = ?", "test2").Scan(&value)
+		err = reader.DB.QueryRow("SELECT value FROM tools WHERE id = ?", "test2").Scan(&value)
 		require.NoError(t, err)
 		// Since we can't predict exact output without mocking exec, verify insertion
 		require.NotEmpty(t, value)
@@ -107,7 +107,7 @@ func TestPklResourceReader(t *testing.T) {
 		uri, _ = url.Parse("tool:///?op=run&script=script.sh")
 		_, err = reader.Read(*uri)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "no item ID provided for run operation")
+		require.Contains(t, err.Error(), "no tool ID provided for run operation")
 	})
 
 	t.Run("Read_Run_InlineScript", func(t *testing.T) {
@@ -121,7 +121,7 @@ func TestPklResourceReader(t *testing.T) {
 		require.NoError(t, err)
 		// Actual execution depends on system, so check DB storage
 		var value string
-		err = reader.DB.QueryRow("SELECT value FROM items WHERE id = ?", "test4").Scan(&value)
+		err = reader.DB.QueryRow("SELECT value FROM tools WHERE id = ?", "test4").Scan(&value)
 		require.NoError(t, err)
 		// Since we can't predict exact output without mocking exec, verify insertion
 		require.NotEmpty(t, value)
@@ -166,7 +166,7 @@ func TestPklResourceReader(t *testing.T) {
 		uri, _ = url.Parse("tool:///?op=history")
 		_, err = reader.Read(*uri)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "no item ID provided for history operation")
+		require.Contains(t, err.Error(), "no tool ID provided for history operation")
 	})
 
 	t.Run("Read_NilReceiver", func(t *testing.T) {
@@ -177,7 +177,7 @@ func TestPklResourceReader(t *testing.T) {
 		require.NoError(t, err)
 		// Actual execution depends on system, so check DB storage
 		var value string
-		err = nilReader.DB.QueryRow("SELECT value FROM items WHERE id = ?", "test7").Scan(&value)
+		err = nilReader.DB.QueryRow("SELECT value FROM tools WHERE id = ?", "test7").Scan(&value)
 		require.NoError(t, err)
 		require.NotEmpty(t, value)
 	})
@@ -189,7 +189,7 @@ func TestPklResourceReader(t *testing.T) {
 		_, err = reader.Read(*uri)
 		require.NoError(t, err)
 		var value string
-		err = reader.DB.QueryRow("SELECT value FROM items WHERE id = ?", "test8").Scan(&value)
+		err = reader.DB.QueryRow("SELECT value FROM tools WHERE id = ?", "test8").Scan(&value)
 		require.NoError(t, err)
 		require.NotEmpty(t, value)
 	})
@@ -206,9 +206,9 @@ func TestInitializeDatabase(t *testing.T) {
 		defer db.Close()
 
 		var name string
-		err = db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name='items'").Scan(&name)
+		err = db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name='tools'").Scan(&name)
 		require.NoError(t, err)
-		require.Equal(t, "items", name)
+		require.Equal(t, "tools", name)
 
 		err = db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name='history'").Scan(&name)
 		require.NoError(t, err)

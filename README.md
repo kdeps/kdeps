@@ -51,7 +51,7 @@ run {
   HTTPClient {
     method = "GET"
     url = "https://crm.example.com/api/ticket/@(request.data().ticket_id)"
-    headers { ["Authorization"] = "Bearer @(session.getItem('crm_token'))" }
+    headers { ["Authorization"] = "Bearer @(session.getRecord('crm_token'))" }
     timeoutDuration = 30.s
   }
 }
@@ -180,7 +180,7 @@ run {
   HTTPClient {
     method = "GET"
     url = "https://crm.example.com/api/ticket/@(request.data().ticket_id)"
-    headers { ["Authorization"] = "Bearer @(session.getItem('crm_token'))" }
+    headers { ["Authorization"] = "Bearer @(session.getRecord('crm_token'))" }
     timeoutDuration = 30.s
   }
 }
@@ -613,7 +613,7 @@ run {
     method = "POST"
     url = "https://dms.example.com/api/documents"
     data { "@(python.stdout('pythonResource'))" }
-    headers { ["Authorization"] = "Bearer @(session.getItem('dms_token'))" }
+    headers { ["Authorization"] = "Bearer @(session.getRecord('dms_token'))" }
     timeoutDuration = 30.s
   }
 }
@@ -689,9 +689,9 @@ settings {
 
 ```pkl
 expr {
-  "@(memory.setItem('user_data', request.data().data))"
+  "@(memory.setRecord('user_data', request.data().data))"
 }
-local user_data = "@(memory.getItem('user_data'))"
+local user_data = "@(memory.getRecord('user_data'))"
 ```
 </details>
 

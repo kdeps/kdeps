@@ -13,7 +13,7 @@ scripting within a configuration.
 
 The `expr` block is designed to evaluate PKL expressions in a straightforward manner. Its key uses include:
 
-- **Side-Effecting Operations**: Executing functions like `memory.setItem` that modify resources or state without
+- **Side-Effecting Operations**: Executing functions like `memory.setRecord` that modify resources or state without
   returning significant values.
 
 - **Inline Scripting**: Evaluating arbitrary PKL expressions to implement logic, assignments, or procedural tasks
@@ -37,8 +37,8 @@ The `expr` block is well-suited for operations that update state, such as settin
 
 ```apl
 expr {
-  "@(memory.setItem("status", "active"))"
+  "@(memory.setRecord("status", "active"))"
 }
 ```
 
-In this example, the memory store is updated to indicate an active status. The `memory.setItem` function is executed as a side effect, and no return value is required. This also applies to `memory.clear()`.
+In this example, the memory store is updated to indicate an active status. The `memory.setRecord` function is executed as a side effect, and no return value is required. This also applies to `memory.clear()`.

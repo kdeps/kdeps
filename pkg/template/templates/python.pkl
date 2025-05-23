@@ -64,9 +64,9 @@ run {
         // general-purpose evaluation of any valid PKL expression, making it a place for inline logic and
         // scripting within a configuration.
         expr {
-                // "@(memory.setItem("foo", "bar"))" // Persistent data
+                // "@(memory.setRecord("foo", "bar"))" // Persistent data
                 // "@(memory.clear())"
-                // "@(session.setItem("foo", "bar"))" // Temporary data only for this request
+                // "@(session.setRecord("foo", "bar"))" // Temporary data only for this request
         }
 
         // Initiates a shell session for executing commands within this resource. Any packages
