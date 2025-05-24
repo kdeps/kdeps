@@ -127,6 +127,7 @@ func (dr *DependencyResolver) LoadResource(ctx context.Context, resourceFile str
 			dr.MemoryReader,
 			dr.SessionReader,
 			dr.ToolReader,
+			dr.ItemReader,
 		}
 		options.AllowedModules = []string{".*"}
 		options.AllowedResources = []string{".*"}

@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/kdeps/kartographer/graph"
 	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/item"
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/memory"
@@ -42,6 +43,8 @@ type DependencyResolver struct {
 	SessionDBPath        string
 	ToolReader           *tool.PklResourceReader
 	ToolDBPath           string
+	ItemReader           *item.PklResourceReader
+	ItemDBPath           string
 	AgentName            string
 	RequestID            string
 	RequestPklFile       string
@@ -121,7 +124,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	}
 
 	var apiServerMode, installAnaconda bool
-	var agentName, memoryDBPath, sessionDBPath, toolDBPath string
+	var agentName, memoryDBPath, sessionDBPath, toolDBPath, itemDBPath string
 
 	if workflowConfiguration.GetSettings() != nil {
 		apiServerMode = workflowConfiguration.GetSettings().APIServerMode
@@ -149,6 +152,13 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	if err != nil {
 		toolReader.DB.Close()
 		return nil, fmt.Errorf("failed to initialize tool DB: %w", err)
+	}
+
+	itemDBPath = filepath.Join(actionDir, graphID+"_item.db")
+	itemReader, err := item.InitializeItem(itemDBPath, nil)
+	if err != nil {
+		itemReader.DB.Close()
+		return nil, fmt.Errorf("failed to initialize item DB: %w", err)
 	}
 
 	dependencyResolver := &DependencyResolver{
@@ -179,6 +189,8 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		SessionReader:        sessionReader,
 		ToolDBPath:           toolDBPath,
 		ToolReader:           toolReader,
+		ItemDBPath:           itemDBPath,
+		ItemReader:           itemReader,
 	}
 
 	dependencyResolver.Graph = graph.NewDependencyGraph(fs, logger.BaseLogger(), dependencyResolver.ResourceDependencies)
@@ -285,6 +297,8 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			// Close the DB
 			dr.MemoryReader.DB.Close()
 			dr.SessionReader.DB.Close()
+			dr.ToolReader.DB.Close()
+			dr.ItemReader.DB.Close()
 
 			// Remove the session DB file
 			if err := dr.Fs.RemoveAll(dr.SessionDBPath); err != nil {
@@ -307,6 +321,34 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 		return dr.HandleAPIErrorResponse(500, err.Error(), true)
 	}
 
+	// Reinitialize item database with Items from the target action's resource
+	for _, res := range dr.Resources {
+		if res.ActionID == actionID {
+			resPkl, err := dr.LoadResource(dr.Context, res.File, Resource)
+			if err != nil {
+				return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to load resource %s: %v", res.File, err), true)
+			}
+			rsc, ok := resPkl.(*pklRes.Resource)
+			if !ok {
+				return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to cast resource to *pklRes.Resource for file %s", res.File), true)
+			}
+			var items []string
+			if rsc.Items != nil && len(*rsc.Items) > 0 {
+				items = *rsc.Items
+			}
+			// Close existing item database
+			dr.ItemReader.DB.Close()
+			// Reinitialize item database with items
+			itemReader, err := item.InitializeItem(dr.ItemDBPath, items)
+			if err != nil {
+				return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to reinitialize item DB with items: %v", err), true)
+			}
+			dr.ItemReader = itemReader
+			dr.Logger.Info("reinitialized item database with items", "actionID", actionID, "itemCount", len(items))
+			break
+		}
+	}
+
 	// Build dependency stack for the target action
 	stack := dr.Graph.BuildDependencyStack(actionID, visited)
 
@@ -317,143 +359,28 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 				continue
 			}
 
+			// Load the resource using the correct Load function
 			resPkl, err := dr.LoadResource(dr.Context, res.File, Resource)
 			if err != nil {
 				return dr.HandleAPIErrorResponse(500, err.Error(), true)
 			}
 
+			// Explicitly type rsc as *pklRes.Resource
 			rsc, ok := resPkl.(*pklRes.Resource)
 			if !ok {
-				return dr.HandleAPIErrorResponse(500, err.Error(), true)
+				return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to cast resource to *pklRes.Resource for file %s", res.File), true)
 			}
 
-			if err != nil {
-				return dr.HandleAPIErrorResponse(500, err.Error(), true)
-			}
-
-			runBlock := rsc.Run
-			if runBlock == nil {
+			// Process runBlock (excluding APIResponse) once, as items are in the database
+			if proceed, err := dr.processRunBlock(res, rsc, nodeActionID); err != nil {
+				return false, err
+			} else if !proceed {
 				continue
 			}
 
-			if dr.APIServerMode {
-				// Read the resource file content for validation
-				fileContent, err := afero.ReadFile(dr.Fs, res.File)
-				if err != nil {
-					return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to read resource file %s: %v", res.File, err), true)
-				}
-
-				// Validate request.params
-				allowedParams := []string{}
-				if runBlock.AllowedParams != nil {
-					allowedParams = *runBlock.AllowedParams
-				}
-				if err := dr.validateRequestParams(string(fileContent), allowedParams); err != nil {
-					dr.Logger.Error("request params validation failed", "actionID", res.ActionID, "error", err)
-					return dr.HandleAPIErrorResponse(400, fmt.Sprintf("Request params validation failed for resource %s: %v", res.ActionID, err), false)
-				}
-
-				// Validate request.header
-				allowedHeaders := []string{}
-				if runBlock.AllowedHeaders != nil {
-					allowedHeaders = *runBlock.AllowedHeaders
-				}
-				if err := dr.validateRequestHeaders(string(fileContent), allowedHeaders); err != nil {
-					dr.Logger.Error("request headers validation failed", "actionID", res.ActionID, "error", err)
-					return dr.HandleAPIErrorResponse(400, fmt.Sprintf("Request headers validation failed for resource %s: %v", res.ActionID, err), false)
-				}
-
-				// Validate request.path
-				allowedRoutes := []string{}
-				if runBlock.RestrictToRoutes != nil {
-					allowedRoutes = *runBlock.RestrictToRoutes
-				}
-				if err := dr.validateRequestPath(dr.Request, allowedRoutes); err != nil {
-					dr.Logger.Info("skipping due to request path validation not allowed", "actionID", res.ActionID, "error", err)
-					continue
-				}
-
-				// Validate request.method
-				allowedMethods := []string{}
-				if runBlock.RestrictToHTTPMethods != nil {
-					allowedMethods = *runBlock.RestrictToHTTPMethods
-				}
-				if err := dr.validateRequestMethod(dr.Request, allowedMethods); err != nil {
-					dr.Logger.Info("skipping due to request method validation not allowed", "actionID", res.ActionID, "error", err)
-					continue
-				}
-			}
-
-			// Skip condition
-			if runBlock.SkipCondition != nil && utils.ShouldSkip(runBlock.SkipCondition) {
-				dr.Logger.Infof("skip condition met, skipping: %s", res.ActionID)
-				continue
-			}
-
-			// Preflight check
-			if runBlock.PreflightCheck != nil && runBlock.PreflightCheck.Validations != nil &&
-				!utils.AllConditionsMet(runBlock.PreflightCheck.Validations) {
-				dr.Logger.Error("preflight check not met, failing:", res.ActionID)
-				if runBlock.PreflightCheck.Error != nil {
-					return dr.HandleAPIErrorResponse(
-						runBlock.PreflightCheck.Error.Code,
-						fmt.Sprintf("%s: %s", runBlock.PreflightCheck.Error.Message, res.ActionID), false)
-				}
-				return dr.HandleAPIErrorResponse(500, "Preflight check failed for resource: "+res.ActionID, false)
-			}
-
-			// Process Exec step, if defined
-			if runBlock.Exec != nil && runBlock.Exec.Command != "" {
-				if err := dr.processResourceStep(res.ActionID, "exec", runBlock.Exec.TimeoutDuration, func() error {
-					return dr.HandleExec(res.ActionID, runBlock.Exec)
-				}); err != nil {
-					dr.Logger.Error("exec error:", res.ActionID)
-					return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Exec failed for resource: %s - %s", res.ActionID, err), false)
-				}
-			}
-
-			// Process Python step, if defined
-			if runBlock.Python != nil && runBlock.Python.Script != "" {
-				if err := dr.processResourceStep(res.ActionID, "python", runBlock.Python.TimeoutDuration, func() error {
-					return dr.HandlePython(res.ActionID, runBlock.Python)
-				}); err != nil {
-					dr.Logger.Error("python error:", res.ActionID)
-					return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Python script failed for resource: %s - %s", res.ActionID, err), false)
-				}
-			}
-
-			// Process Chat (LLM) step, if defined
-			if runBlock.Chat != nil && runBlock.Chat.Model != "" && (runBlock.Chat.Prompt != nil || runBlock.Chat.Scenario != nil) {
-				dr.Logger.Info("Processing LLM chat step", "actionID", res.ActionID, "hasPrompt", runBlock.Chat.Prompt != nil, "hasScenario", runBlock.Chat.Scenario != nil)
-				if runBlock.Chat.Scenario != nil {
-					dr.Logger.Info("Scenario present", "length", len(*runBlock.Chat.Scenario))
-				}
-				if err := dr.processResourceStep(res.ActionID, "llm", runBlock.Chat.TimeoutDuration, func() error {
-					return dr.HandleLLMChat(res.ActionID, runBlock.Chat)
-				}); err != nil {
-					dr.Logger.Error("LLM chat error", "actionID", res.ActionID, "error", err)
-					return dr.HandleAPIErrorResponse(500, fmt.Sprintf("LLM chat failed for resource: %s - %s", res.ActionID, err), true)
-				}
-			} else {
-				dr.Logger.Info("Skipping LLM chat step", "actionID", res.ActionID, "chatNil",
-					runBlock.Chat == nil, "modelEmpty", runBlock.Chat == nil || runBlock.Chat.Model == "",
-					"promptAndScenarioNil", runBlock.Chat != nil && runBlock.Chat.Prompt == nil &&
-						runBlock.Chat.Scenario == nil)
-			}
-
-			// Process HTTP Client step, if defined
-			if runBlock.HTTPClient != nil && runBlock.HTTPClient.Method != "" && runBlock.HTTPClient.Url != "" {
-				if err := dr.processResourceStep(res.ActionID, "client", runBlock.HTTPClient.TimeoutDuration, func() error {
-					return dr.HandleHTTPClient(res.ActionID, runBlock.HTTPClient)
-				}); err != nil {
-					dr.Logger.Error("HTTP client error:", res.ActionID)
-					return dr.HandleAPIErrorResponse(500, fmt.Sprintf("HTTP client failed for resource: %s - %s", res.ActionID, err), false)
-				}
-			}
-
-			// API Response
-			if dr.APIServerMode && runBlock.APIResponse != nil {
-				if err := dr.CreateResponsePklFile(*runBlock.APIResponse); err != nil {
+			// Process APIResponse once, outside the items loop
+			if dr.APIServerMode && rsc.Run != nil && rsc.Run.APIResponse != nil {
+				if err := dr.CreateResponsePklFile(*rsc.Run.APIResponse); err != nil {
 					return dr.HandleAPIErrorResponse(500, err.Error(), true)
 				}
 			}
@@ -463,6 +390,8 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	// Close the DB
 	dr.MemoryReader.DB.Close()
 	dr.SessionReader.DB.Close()
+	dr.ToolReader.DB.Close()
+	dr.ItemReader.DB.Close()
 
 	// Remove the request stamp file
 	if err := dr.Fs.RemoveAll(requestFilePath); err != nil {
@@ -478,4 +407,129 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 
 	dr.Logger.Debug("all resources finished processing")
 	return false, nil
+}
+
+// processRunBlock handles the runBlock processing for a resource, excluding APIResponse.
+func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes.Resource, actionID string) (bool, error) {
+	runBlock := rsc.Run
+	if runBlock == nil {
+		return false, nil
+	}
+
+	if dr.APIServerMode {
+		// Read the resource file content for validation
+		fileContent, err := afero.ReadFile(dr.Fs, res.File)
+		if err != nil {
+			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to read resource file %s: %v", res.File, err), true)
+		}
+
+		// Validate request.params
+		allowedParams := []string{}
+		if runBlock.AllowedParams != nil {
+			allowedParams = *runBlock.AllowedParams
+		}
+		if err := dr.validateRequestParams(string(fileContent), allowedParams); err != nil {
+			dr.Logger.Error("request params validation failed", "actionID", res.ActionID, "error", err)
+			return dr.HandleAPIErrorResponse(400, fmt.Sprintf("Request params validation failed for resource %s: %v", res.ActionID, err), false)
+		}
+
+		// Validate request.header
+		allowedHeaders := []string{}
+		if runBlock.AllowedHeaders != nil {
+			allowedHeaders = *runBlock.AllowedHeaders
+		}
+		if err := dr.validateRequestHeaders(string(fileContent), allowedHeaders); err != nil {
+			dr.Logger.Error("request headers validation failed", "actionID", res.ActionID, "error", err)
+			return dr.HandleAPIErrorResponse(400, fmt.Sprintf("Request headers validation failed for resource %s: %v", res.ActionID, err), false)
+		}
+
+		// Validate request.path
+		allowedRoutes := []string{}
+		if runBlock.RestrictToRoutes != nil {
+			allowedRoutes = *runBlock.RestrictToRoutes
+		}
+		if err := dr.validateRequestPath(dr.Request, allowedRoutes); err != nil {
+			dr.Logger.Info("skipping due to request path validation not allowed", "actionID", res.ActionID, "error", err)
+			return false, nil
+		}
+
+		// Validate request.method
+		allowedMethods := []string{}
+		if runBlock.RestrictToHTTPMethods != nil {
+			allowedMethods = *runBlock.RestrictToHTTPMethods
+		}
+		if err := dr.validateRequestMethod(dr.Request, allowedMethods); err != nil {
+			dr.Logger.Info("skipping due to request method validation not allowed", "actionID", res.ActionID, "error", err)
+			return false, nil
+		}
+	}
+
+	// Skip condition
+	if runBlock.SkipCondition != nil && utils.ShouldSkip(runBlock.SkipCondition) {
+		dr.Logger.Infof("skip condition met, skipping: %s", res.ActionID)
+		return false, nil
+	}
+
+	// Preflight check
+	if runBlock.PreflightCheck != nil && runBlock.PreflightCheck.Validations != nil &&
+		!utils.AllConditionsMet(runBlock.PreflightCheck.Validations) {
+		dr.Logger.Error("preflight check not met, failing:", res.ActionID)
+		if runBlock.PreflightCheck.Error != nil {
+			return dr.HandleAPIErrorResponse(
+				runBlock.PreflightCheck.Error.Code,
+				fmt.Sprintf("%s: %s", runBlock.PreflightCheck.Error.Message, res.ActionID), false)
+		}
+		return dr.HandleAPIErrorResponse(500, "Preflight check failed for resource: "+res.ActionID, false)
+	}
+
+	// Process Exec step, if defined
+	if runBlock.Exec != nil && runBlock.Exec.Command != "" {
+		if err := dr.processResourceStep(res.ActionID, "exec", runBlock.Exec.TimeoutDuration, func() error {
+			return dr.HandleExec(res.ActionID, runBlock.Exec)
+		}); err != nil {
+			dr.Logger.Error("exec error:", res.ActionID)
+			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Exec failed for resource: %s - %s", res.ActionID, err), false)
+		}
+	}
+
+	// Process Python step, if defined
+	if runBlock.Python != nil && runBlock.Python.Script != "" {
+		if err := dr.processResourceStep(res.ActionID, "python", runBlock.Python.TimeoutDuration, func() error {
+			return dr.HandlePython(res.ActionID, runBlock.Python)
+		}); err != nil {
+			dr.Logger.Error("python error:", res.ActionID)
+			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Python script failed for resource: %s - %s", res.ActionID, err), false)
+		}
+	}
+
+	// Process Chat (LLM) step, if defined
+	if runBlock.Chat != nil && runBlock.Chat.Model != "" && (runBlock.Chat.Prompt != nil || runBlock.Chat.Scenario != nil) {
+		dr.Logger.Info("Processing LLM chat step", "actionID", res.ActionID, "hasPrompt", runBlock.Chat.Prompt != nil, "hasScenario", runBlock.Chat.Scenario != nil)
+		if runBlock.Chat.Scenario != nil {
+			dr.Logger.Info("Scenario present", "length", len(*runBlock.Chat.Scenario))
+		}
+		if err := dr.processResourceStep(res.ActionID, "llm", runBlock.Chat.TimeoutDuration, func() error {
+			return dr.HandleLLMChat(res.ActionID, runBlock.Chat)
+		}); err != nil {
+			dr.Logger.Error("LLM chat error", "actionID", res.ActionID, "error", err)
+			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("LLM chat failed for resource: %s - %s", res.ActionID, err), true)
+		}
+	} else {
+		dr.Logger.Info("Skipping LLM chat step", "actionID", res.ActionID, "chatNil",
+			runBlock.Chat == nil, "modelEmpty", runBlock.Chat == nil || runBlock.Chat.Model == "",
+			"promptAndScenarioNil", runBlock.Chat != nil && runBlock.Chat.Prompt == nil &&
+				runBlock.Chat.Scenario == nil)
+	}
+
+	// Process HTTP Client step, if defined
+	if runBlock.HTTPClient != nil && runBlock.HTTPClient.Method != "" && runBlock.HTTPClient.Url != "" {
+		if err := dr.processResourceStep(res.ActionID, "client", runBlock.HTTPClient.TimeoutDuration, func() error {
+			return dr.HandleHTTPClient(res.ActionID, runBlock.HTTPClient)
+		}); err != nil {
+			dr.Logger.Error("HTTP client error:", res.ActionID)
+			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("HTTP client failed for resource: %s - %s", res.ActionID, err), false)
+		}
+	}
+
+	return true, nil
 }
