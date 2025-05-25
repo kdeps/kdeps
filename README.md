@@ -141,7 +141,6 @@ volumes:
   <summary>🖼️ Support for vision or multimodal LLMs</summary>
   Process text, images, and other data types in a single workflow with <a href="https://kdeps.com/getting-started/resources/multimodal.html">vision or multimodal LLMs</a>.
 
-
 ```pkl
 // workflow.pkl
 name = "visualTicketAnalyzer"
@@ -320,7 +319,6 @@ run {
   <summary>🛠️ Let LLMs run tools automatically (aka MCP or A2A)</summary>
   Enhance functionality through scripts and sequential tool pipelines with <a href="https://kdeps.com/getting-started/resources/llm.html#tools-configuration">external tools and chained tool workflows</a>.
 
-
 ```pkl
 // workflow.pkl
 name = "toolChainingAgent"
@@ -445,9 +443,89 @@ run {
 </details>
 
 <details>
+  <summary>🔄 Items iteration</summary>
+  Iterate over multiple items in a resource to process them sequentially, using <a href="https://kdeps.com/getting-started/resources/items.html">items iteration</a> with `item.current()`, `item.prev()`, and `item.next()`.
+
+```pkl
+// workflow.pkl
+name = "mtvScenarioGenerator"
+description = "Generates MTV video scenarios based on song lyrics."
+version = "1.0.0"
+targetActionID = "responseResource"
+settings {
+  APIServerMode = true
+  APIServer {
+    hostIP = "127.0.0.1"
+    portNum = 3000
+    routes {
+      new { path = "/api/v1/mtv-scenarios"; methods { "GET" } }
+    }
+    cors { enableCORS = true; allowOrigins { "http://localhost:8080" } }
+  }
+  agentSettings {
+    timezone = "Etc/UTC"
+    models { "llama3.2:1b" }
+    ollamaImageTag = "0.6.8"
+  }
+}
+```
+
+```pkl
+// resources/llm.pkl
+actionID = "llmResource"
+name = "MTV Scenario Generator"
+description = "Generates MTV video scenarios for song lyrics."
+items {
+  "A long, long time ago"
+  "I can still remember"
+  "How that music used to make me smile"
+  "And I knew if I had my chance"
+}
+run {
+  restrictToHTTPMethods { "GET" }
+  restrictToRoutes { "/api/v1/mtv-scenarios" }
+  skipCondition {
+    "@(item.current())" == "And I knew if I had my chance" // Skip this lyric
+  }
+  chat {
+    model = "llama3.2:1b"
+    role = "assistant"
+    prompt = """
+    Based on the lyric @(item.current()) from the song "American Pie," generate a suitable scenario for an MTV music video. The scenario should include a vivid setting, key visual elements, and a mood that matches the lyric's tone.
+    """
+    scenario {
+      new { role = "system"; prompt = "You are a creative director specializing in music video production." }
+    }
+    JSONResponse = true
+    JSONResponseKeys { "setting"; "visual_elements"; "mood" }
+    timeoutDuration = 60.s
+  }
+}
+```
+
+```pkl
+// resources/response.pkl
+actionID = "responseResource"
+name = "API Response"
+description = "Returns MTV video scenarios."
+requires { "llmResource" }
+run {
+  restrictToHTTPMethods { "GET" }
+  restrictToRoutes { "/api/v1/mtv-scenarios" }
+  APIResponse {
+    success = true
+    response {
+      data { "@(llm.response('llmResource'))" }
+    }
+    meta { headers { ["Content-Type"] = "application/json" } }
+  }
+}
+```
+</details>
+
+<details>
   <summary>🤖 Leverage multiple open-source LLMs</summary>
   Use LLMs from <a href="https://kdeps.com/getting-started/configuration/workflow.html#llm-models">Ollama</a> and <a href="https://github.com/kdeps/examples/tree/main/huggingface_imagegen_api">Huggingface</a> for diverse AI capabilities.
-
 
 ```pkl
 // workflow.pkl
@@ -466,7 +544,6 @@ models {
 <details>
   <summary>🗂️ Upload documents or files</summary>
   Process documents for LLM analysis, ideal for document analysis tasks, as shown in the <a href="https://kdeps.com/getting-started/tutorials/files.html">file upload tutorial</a>.
-
 
 ```pkl
 // workflow.pkl
@@ -629,7 +706,6 @@ run {
   <summary>✅ Built-in validations and checks</summary>
   Utilize <a href="https://kdeps.com/getting-started/resources/api-request-validations.html#api-request-validations">API request validations</a>, <a href="https://kdeps.com/getting-started/resources/validations.html">custom validation checks</a>, and <a href="https://kdeps.com/getting-started/resources/skip.html">skip conditions</a> for robust workflows.
 
-
 ```pkl
 restrictToHTTPMethods { "POST" }
 restrictToRoutes { "/api/v1/scan-document" }
@@ -686,7 +762,6 @@ settings {
   <summary>💾 Manage state with memory operations</summary>
   Store, retrieve, and clear persistent data using <a href="https://kdeps.com/getting-started/resources/memory.html">memory operations</a>.
 
-
 ```pkl
 expr {
   "@(memory.setRecord('user_data', request.data().data))"
@@ -698,7 +773,6 @@ local user_data = "@(memory.getRecord('user_data'))"
 <details>
   <summary>🔒 Configure CORS rules</summary>
   Set <a href="https://kdeps.com/getting-started/configuration/workflow.html#cors-configuration">CORS rules</a> directly in the workflow for secure API access.
-
 
 ```pkl
 // workflow.pkl
@@ -713,7 +787,6 @@ cors {
 <details>
   <summary>🛡️ Set trusted proxies</summary>
   Enhance API and frontend security with <a href="https://kdeps.com/getting-started/configuration/workflow.html#trustedproxies">trusted proxies</a>.
-
 
 ```pkl
 // workflow.pkl
@@ -795,7 +868,6 @@ brew install kdeps/tap/kdeps
 # Windows, Linux, and macOS
 curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/refs/heads/main/install.sh | sh
 ```
-
 </details>
 
 ## Getting Started
