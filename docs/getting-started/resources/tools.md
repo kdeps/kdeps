@@ -10,7 +10,7 @@ operations. It supports Python (`.py`), TypeScript (`.ts`), JavaScript (`.js`), 
 with: `.py` uses `python3`, `.ts` uses `ts-node`, `.js` uses `node`, `.rb` uses `ruby`, others use `sh`. The LLM can
 automatically pick and chain multiple tools based on a prompt, using one tool’s output as input for the next. With
 and `JSONResponseKeys`, tool outputs are structured as JSON for easier parsing. Tools are triggered via prompts or
-manually with `@(tools.getItem(id))`, `runScript`, or `history`. This is like Anthropic’s MCP or Google’s A2A but for
+manually with `@(tools.getRecord(id))`, `runScript`, or `history`. This is like Anthropic’s MCP or Google’s A2A but for
 open-source models only.
 
 
@@ -111,7 +111,7 @@ echo "$2" > "$1"
 
 ## Schema Functions
 
-- **getItem(id)**: Gets JSON output via `@(tools.getItem("id"))`. Returns text or empty string.
+- **getRecord(id)**: Gets JSON output via `@(tools.getRecord("id"))`. Returns text or empty string.
 - **runScript(id, script, params)**: Runs a script with comma-separated parameters, returns JSON output.
 - **history(id)**: Returns output history.
 
@@ -174,7 +174,7 @@ The LLM selects and chains tools, structuring outputs as JSON. Prompts don’t n
 Run or get JSON results:
 ```apl
 local result = "@(tools.runScript("square_number_123", "<path_to_script>", "10"))"
-local output = "@(tools.getItem("square_number_123"))"
+local output = "@(tools.getRecord("square_number_123"))"
 ```
 
 ## How It’s Like MCP or A2A
