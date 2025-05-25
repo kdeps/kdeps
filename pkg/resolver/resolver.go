@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -321,34 +322,6 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 		return dr.HandleAPIErrorResponse(500, err.Error(), true)
 	}
 
-	// Reinitialize item database with Items from the target action's resource
-	for _, res := range dr.Resources {
-		if res.ActionID == actionID {
-			resPkl, err := dr.LoadResource(dr.Context, res.File, Resource)
-			if err != nil {
-				return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to load resource %s: %v", res.File, err), true)
-			}
-			rsc, ok := resPkl.(*pklRes.Resource)
-			if !ok {
-				return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to cast resource to *pklRes.Resource for file %s", res.File), true)
-			}
-			var items []string
-			if rsc.Items != nil && len(*rsc.Items) > 0 {
-				items = *rsc.Items
-			}
-			// Close existing item database
-			dr.ItemReader.DB.Close()
-			// Reinitialize item database with items
-			itemReader, err := item.InitializeItem(dr.ItemDBPath, items)
-			if err != nil {
-				return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to reinitialize item DB with items: %v", err), true)
-			}
-			dr.ItemReader = itemReader
-			dr.Logger.Info("reinitialized item database with items", "actionID", actionID, "itemCount", len(items))
-			break
-		}
-	}
-
 	// Build dependency stack for the target action
 	stack := dr.Graph.BuildDependencyStack(actionID, visited)
 
@@ -371,11 +344,47 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 				return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to cast resource to *pklRes.Resource for file %s", res.File), true)
 			}
 
-			// Process runBlock (excluding APIResponse) once, as items are in the database
-			if proceed, err := dr.processRunBlock(res, rsc, nodeActionID); err != nil {
-				return false, err
-			} else if !proceed {
-				continue
+			// Reinitialize item database with items, if any
+			var items []string
+			if rsc.Items != nil && len(*rsc.Items) > 0 {
+				items = *rsc.Items
+				// Close existing item database
+				dr.ItemReader.DB.Close()
+				// Reinitialize item database with items
+				itemReader, err := item.InitializeItem(dr.ItemDBPath, items)
+				if err != nil {
+					return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to reinitialize item DB with items: %v", err), true)
+				}
+				dr.ItemReader = itemReader
+				dr.Logger.Info("reinitialized item database with items", "actionID", nodeActionID, "itemCount", len(items))
+			}
+
+			// Process run block: once if no items, or once per item
+			if len(items) == 0 {
+				dr.Logger.Info("no items specified, processing run block once", "actionID", res.ActionID)
+				if proceed, err := dr.processRunBlock(res, rsc, nodeActionID); err != nil {
+					return false, err
+				} else if !proceed {
+					continue
+				}
+			} else {
+				for _, itemValue := range items {
+					dr.Logger.Info("processing item", "actionID", res.ActionID, "item", itemValue)
+					// Set the current item in the database
+					query := url.Values{"op": []string{"set"}, "value": []string{itemValue}}
+					uri := url.URL{Scheme: "item", RawQuery: query.Encode()}
+					if _, err := dr.ItemReader.Read(uri); err != nil {
+						dr.Logger.Error("failed to set item", "item", itemValue, "error", err)
+						return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to set item %s: %v", itemValue, err), true)
+					}
+
+					// Process runBlock for the current item
+					if proceed, err := dr.processRunBlock(res, rsc, nodeActionID); err != nil {
+						return false, err
+					} else if !proceed {
+						continue
+					}
+				}
 			}
 
 			// Process APIResponse once, outside the items loop
