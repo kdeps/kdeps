@@ -207,9 +207,8 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 
 // ClearItemDB clears all contents of the item database.
 func (dr *DependencyResolver) ClearItemDB() error {
-	// Assuming ItemReader.DB is a *sql.DB (e.g., SQLite)
 	// Clear all records in the items table
-	_, err := dr.ItemReader.DB.Exec("DELETE FROM items") // Adjust table name based on schema
+	_, err := dr.ItemReader.DB.Exec("DELETE FROM items")
 	if err != nil {
 		return fmt.Errorf("failed to clear item database: %w", err)
 	}
@@ -347,7 +346,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 				continue
 			}
 
-			// Load the resource using the correct Load function
+			// Load the resource
 			resPkl, err := dr.LoadResource(dr.Context, res.File, Resource)
 			if err != nil {
 				return dr.HandleAPIErrorResponse(500, err.Error(), true)
@@ -391,6 +390,18 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 					if _, err := dr.ItemReader.Read(uri); err != nil {
 						dr.Logger.Error("failed to set item", "item", itemValue, "error", err)
 						return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to set item %s: %v", itemValue, err), true)
+					}
+
+					// reload the resource
+					resPkl, err = dr.LoadResource(dr.Context, res.File, Resource)
+					if err != nil {
+						return dr.HandleAPIErrorResponse(500, err.Error(), true)
+					}
+
+					// Explicitly type rsc as *pklRes.Resource
+					rsc, ok = resPkl.(*pklRes.Resource)
+					if !ok {
+						return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to cast resource to *pklRes.Resource for file %s", res.File), true)
 					}
 
 					// Process runBlock for the current item
