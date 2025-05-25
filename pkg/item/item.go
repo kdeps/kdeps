@@ -19,11 +19,6 @@ type PklResourceReader struct {
 	DBPath string // Store dbPath for reinitialization
 }
 
-// Scheme returns the URI scheme for this reader.
-func (r *PklResourceReader) Scheme() string {
-	return "item"
-}
-
 // IsGlobbable indicates whether the reader supports globbing (not supported here).
 func (r *PklResourceReader) IsGlobbable() bool {
 	return false
@@ -39,88 +34,12 @@ func (r *PklResourceReader) ListElements(_ url.URL) ([]pkl.PathElement, error) {
 	return nil, nil
 }
 
-// handleRollback logs and handles rollback errors, returning the primary error.
-func handleRollback(tx *sql.Tx, primaryErr error, logMsg string, args ...interface{}) error {
-	if rollbackErr := tx.Rollback(); rollbackErr != nil {
-		log.Printf("setRecord failed to rollback transaction: %v", rollbackErr)
-	}
-	log.Printf(logMsg, args...)
-	return fmt.Errorf("%s: %w", logMsg, primaryErr)
+// Scheme returns the URI scheme for this reader.
+func (r *PklResourceReader) Scheme() string {
+	return "item"
 }
 
-// getMostRecentID retrieves the ID of the most recent record.
-func (r *PklResourceReader) getMostRecentID() (string, error) {
-	var id string
-	err := r.DB.QueryRow("SELECT id FROM items ORDER BY id DESC LIMIT 1").Scan(&id)
-	if err == sql.ErrNoRows {
-		return "", nil // No records exist
-	}
-	if err != nil {
-		return "", fmt.Errorf("failed to get most recent ID: %w", err)
-	}
-	return id, nil
-}
-
-// updateAdjacentRecord updates a record (previous or next) with the given value using a query.
-func (r *PklResourceReader) updateAdjacentRecord(tx *sql.Tx, currentID, oldValue, query, direction string) error {
-	var adjID string
-	err := tx.QueryRow(query, currentID).Scan(&adjID)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil // No adjacent record, nothing to update
-	}
-	if err != nil {
-		return handleRollback(tx, err, "setRecord failed to find %s record for id: %s, error: %v", direction, currentID, err)
-	}
-
-	_, err = tx.Exec("UPDATE items SET value = ? WHERE id = ?", oldValue, adjID)
-	if err != nil {
-		return handleRollback(tx, err, "setRecord failed to update %s record for id: %s, error: %v", direction, adjID, err)
-	}
-
-	log.Printf("setRecord updated %s record id: %s with value: %s", direction, adjID, oldValue)
-	return nil
-}
-
-// updateAdjacentRecordByID updates a record by its ID with the given value, if the ID is non-empty.
-func (r *PklResourceReader) updateAdjacentRecordByID(tx *sql.Tx, adjID, oldValue, direction string) error {
-	if adjID == "" {
-		return nil // No ID provided, skip update
-	}
-
-	_, err := tx.Exec("UPDATE items SET value = ? WHERE id = ?", oldValue, adjID)
-	if err != nil {
-		return handleRollback(tx, err, "setRecord failed to update %s record for id: %s, error: %v", direction, adjID, err)
-	}
-
-	log.Printf("setRecord updated %s record id: %s with value: %s", direction, adjID, oldValue)
-	return nil
-}
-
-// updateAdjacentRecords handles updates for previous and next records, using refs if provided, else querying.
-func (r *PklResourceReader) updateAdjacentRecords(tx *sql.Tx, id, oldValue, prevID, nextID string) error {
-	if prevID != "" || nextID != "" {
-		// Use provided refs
-		if err := r.updateAdjacentRecordByID(tx, prevID, oldValue, "previous"); err != nil {
-			return err
-		}
-		if err := r.updateAdjacentRecordByID(tx, nextID, oldValue, "next"); err != nil {
-			return err
-		}
-	} else {
-		// Fall back to querying
-		if err := r.updateAdjacentRecord(tx, id, oldValue,
-			"SELECT id FROM items WHERE id < ? ORDER BY id DESC LIMIT 1", "previous"); err != nil {
-			return err
-		}
-		if err := r.updateAdjacentRecord(tx, id, oldValue,
-			"SELECT id FROM items WHERE id > ? ORDER BY id ASC LIMIT 1", "next"); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// fetchValues retrieves values from the items table and returns them as a JSON array.
+// fetchValues retrieves unique values from the items table and returns them as a JSON array.
 func (r *PklResourceReader) fetchValues(operation string) ([]byte, error) {
 	log.Printf("%s processing", operation)
 
@@ -131,6 +50,8 @@ func (r *PklResourceReader) fetchValues(operation string) ([]byte, error) {
 	}
 	defer rows.Close()
 
+	// Use a map to ensure uniqueness and a slice to maintain order
+	valueMap := make(map[string]struct{})
 	var values []string
 	for rows.Next() {
 		var value string
@@ -138,7 +59,10 @@ func (r *PklResourceReader) fetchValues(operation string) ([]byte, error) {
 			log.Printf("%s failed to scan row: %v", operation, err)
 			return nil, fmt.Errorf("failed to scan record value: %w", err)
 		}
-		values = append(values, value)
+		if _, exists := valueMap[value]; !exists {
+			valueMap[value] = struct{}{}
+			values = append(values, value)
+		}
 	}
 
 	if err := rows.Err(); err != nil {
@@ -161,41 +85,22 @@ func (r *PklResourceReader) fetchValues(operation string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to serialize record values: %w", err)
 	}
 
-	log.Printf("%s succeeded, found %d records", operation, len(values))
+	log.Printf("%s succeeded, found %d unique records", operation, len(values))
 	return result, nil
 }
 
 // Read handles operations for retrieving, navigating, listing, or setting item records.
 func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
-	// Handle nil receiver by initializing with DBPath
-	if r == nil {
-		log.Printf("Warning: PklResourceReader is nil for URI: %s, initializing with DBPath", uri.String())
-		newReader, err := InitializeItem(r.DBPath, nil)
-		if err != nil {
-			log.Printf("Failed to initialize PklResourceReader in Read: %v", err)
-			return nil, fmt.Errorf("failed to initialize PklResourceReader: %w", err)
-		}
-		r = newReader
-		log.Printf("Initialized PklResourceReader with DBPath")
-	}
-
 	// Initialize database if DB is nil
 	if r.DB == nil {
 		log.Printf("Database connection is nil, attempting to initialize with path: %s", r.DBPath)
-		maxAttempts := 5
-		for attempt := 1; attempt <= maxAttempts; attempt++ {
-			db, err := InitializeDatabase(r.DBPath, nil)
-			if err == nil {
-				r.DB = db
-				log.Printf("Database initialized successfully in Read on attempt %d", attempt)
-				break
-			}
-			log.Printf("Attempt %d: Failed to initialize database in Read: %v", attempt, err)
-			if attempt == maxAttempts {
-				return nil, fmt.Errorf("failed to initialize database after %d attempts: %w", maxAttempts, err)
-			}
-			time.Sleep(1 * time.Second)
+		db, err := InitializeDatabase(r.DBPath, nil)
+		if err != nil {
+			log.Printf("Failed to initialize database in Read: %v", err)
+			return nil, fmt.Errorf("failed to initialize database: %w", err)
 		}
+		r.DB = db
+		log.Printf("Database initialized successfully in Read")
 	}
 
 	query := uri.Query()
@@ -215,26 +120,6 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		id := time.Now().Format("20060102150405.999999")
 		log.Printf("setRecord processing id: %s, value: %s", id, newValue)
 
-		// Parse refs parameter for prev, current, next IDs
-		var prevID, refCurrentID, nextID string
-		isLoop := 0 // Default to false (0 in SQLite)
-		if refs := query.Get("refs"); refs != "" {
-			var refArray []string
-			if err := json.Unmarshal([]byte(refs), &refArray); err != nil {
-				log.Printf("setRecord failed to parse refs parameter: %v", err)
-				return nil, fmt.Errorf("setRecord failed to parse refs parameter: %w", err)
-			}
-			if len(refArray) != 3 {
-				log.Printf("setRecord failed: refs must contain exactly 3 elements")
-				return nil, errors.New("setRecord failed: refs must contain exactly 3 elements")
-			}
-			prevID, refCurrentID, nextID = refArray[0], refArray[1], refArray[2]
-			if refCurrentID == id {
-				isLoop = 1 // Set isLoop to true (1 in SQLite)
-			}
-			log.Printf("setRecord refs parsed: prev=%s, current=%s, next=%s, isLoop=%d", prevID, refCurrentID, nextID, isLoop)
-		}
-
 		// Start a transaction
 		tx, err := r.DB.Begin()
 		if err != nil {
@@ -242,43 +127,37 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 			return nil, fmt.Errorf("failed to start transaction: %w", err)
 		}
 
-		// Get current value (if it exists)
-		var oldValue string
-		err = tx.QueryRow("SELECT value FROM items WHERE id = ?", id).Scan(&oldValue)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return nil, handleRollback(tx, err, "setRecord failed to read current value for id: %s, error: %v", id, err)
-		}
-
-		// Set current record with isLoop flag
+		// Set current record
 		result, err := tx.Exec(
-			"INSERT OR REPLACE INTO items (id, value, isLoop) VALUES (?, ?, ?)",
-			id, newValue, isLoop,
+			"INSERT OR REPLACE INTO items (id, value) VALUES (?, ?)",
+			id, newValue,
 		)
 		if err != nil {
-			return nil, handleRollback(tx, err, "setRecord failed to execute SQL for current record: %v", err)
+			tx.Rollback()
+			log.Printf("setRecord failed to execute SQL for current record: %v", err)
+			return nil, fmt.Errorf("setRecord failed to execute SQL for current record: %w", err)
 		}
 
 		rowsAffected, err := result.RowsAffected()
 		if err != nil {
-			return nil, handleRollback(tx, err, "setRecord failed to check result for current record: %v", err)
+			tx.Rollback()
+			log.Printf("setRecord failed to check result for current record: %v", err)
+			return nil, fmt.Errorf("setRecord failed to check result for current record: %w", err)
 		}
 		if rowsAffected == 0 {
-			return nil, handleRollback(tx, fmt.Errorf("no record set for ID %s", id), "setRecord: no record set for ID %s", id)
-		}
-
-		// Update previous/next records if oldValue exists
-		if oldValue != "" {
-			if err := r.updateAdjacentRecords(tx, id, oldValue, prevID, nextID); err != nil {
-				return nil, err
-			}
+			tx.Rollback()
+			log.Printf("setRecord: no record set for ID %s", id)
+			return nil, fmt.Errorf("setRecord: no record set for ID %s", id)
 		}
 
 		// Commit transaction
 		if err := tx.Commit(); err != nil {
-			return nil, handleRollback(tx, err, "setRecord failed to commit transaction: %v", err)
+			tx.Rollback()
+			log.Printf("setRecord failed to commit transaction: %v", err)
+			return nil, fmt.Errorf("setRecord failed to commit transaction: %w", err)
 		}
 
-		log.Printf("setRecord succeeded for id: %s, value: %s, isLoop: %d", id, newValue, isLoop)
+		log.Printf("setRecord succeeded for id: %s, value: %s", id, newValue)
 		return []byte(newValue), nil
 
 	case "prev":
@@ -337,11 +216,8 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		log.Printf("nextRecord succeeded for id: %s, value: %s", currentID, value)
 		return []byte(value), nil
 
-	case "list":
-		return r.fetchValues("list")
-
-	case "values":
-		return r.fetchValues("values")
+	case "list", "values":
+		return r.fetchValues(operation)
 
 	case "current":
 		log.Printf("getRecord processing")
@@ -374,102 +250,85 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 	}
 }
 
-// InitializeDatabase sets up the SQLite database, creates the items table, and optionally populates it with initial items.
-func InitializeDatabase(dbPath string, items []string) (*sql.DB, error) {
-	const maxAttempts = 5
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		log.Printf("Attempt %d: Initializing SQLite database at %s", attempt, dbPath)
-		db, err := sql.Open("sqlite3", dbPath)
-		if err != nil {
-			log.Printf("Attempt %d: Failed to open database: %v", attempt, err)
-			if attempt == maxAttempts {
-				return nil, fmt.Errorf("failed to open database after %d attempts: %w", maxAttempts, err)
-			}
-			time.Sleep(1 * time.Second)
-			continue
-		}
-
-		// Verify connection
-		if err := db.Ping(); err != nil {
-			log.Printf("Attempt %d: Failed to ping database: %v", attempt, err)
-			db.Close()
-			if attempt == maxAttempts {
-				return nil, fmt.Errorf("failed to ping database after %d attempts: %w", maxAttempts, err)
-			}
-			time.Sleep(1 * time.Second)
-			continue
-		}
-
-		// Create items table with isLoop column
-		_, err = db.Exec(`
-			CREATE TABLE IF NOT EXISTS items (
-				id TEXT PRIMARY KEY,
-				value TEXT NOT NULL,
-				isLoop INTEGER DEFAULT 0
-			)
-		`)
-		if err != nil {
-			log.Printf("Attempt %d: Failed to create items table: %v", attempt, err)
-			db.Close()
-			if attempt == maxAttempts {
-				return nil, fmt.Errorf("failed to create items table after %d attempts: %w", maxAttempts, err)
-			}
-			time.Sleep(1 * time.Second)
-			continue
-		}
-
-		// If items are provided, insert them into the database
-		if len(items) > 0 {
-			tx, err := db.Begin()
-			if err != nil {
-				log.Printf("Attempt %d: Failed to start transaction for items initialization: %v", attempt, err)
-				db.Close()
-				if attempt == maxAttempts {
-					return nil, fmt.Errorf("failed to start transaction for items initialization: %w", err)
-				}
-				time.Sleep(1 * time.Second)
-				continue
-			}
-
-			for i, itemValue := range items {
-				// Generate a unique ID for each item (e.g., timestamp-based with index)
-				id := fmt.Sprintf("%s-%d", time.Now().Format("20060102150405.999999"), i)
-				_, err = tx.Exec(
-					"INSERT INTO items (id, value, isLoop) VALUES (?, ?, ?)",
-					id, itemValue, 0, // isLoop set to 0 for initial items
-				)
-				if err != nil {
-					tx.Rollback()
-					log.Printf("Attempt %d: Failed to insert item %s: %v", attempt, itemValue, err)
-					db.Close()
-					if attempt == maxAttempts {
-						return nil, fmt.Errorf("failed to insert item %s: %w", itemValue, err)
-					}
-					time.Sleep(1 * time.Second)
-					continue
-				}
-				log.Printf("Initialized item with id: %s, value: %s", id, itemValue)
-			}
-
-			if err := tx.Commit(); err != nil {
-				tx.Rollback()
-				log.Printf("Attempt %d: Failed to commit transaction for items initialization: %v", attempt, err)
-				db.Close()
-				if attempt == maxAttempts {
-					return nil, fmt.Errorf("failed to commit transaction for items initialization: %w", err)
-				}
-				time.Sleep(1 * time.Second)
-				continue
-			}
-		}
-
-		log.Printf("SQLite database initialized successfully at %s on attempt %d with %d items", dbPath, attempt, len(items))
-		return db, nil
+// getMostRecentID retrieves the ID of the most recent record.
+func (r *PklResourceReader) getMostRecentID() (string, error) {
+	var id string
+	err := r.DB.QueryRow("SELECT id FROM items ORDER BY id DESC LIMIT 1").Scan(&id)
+	if err == sql.ErrNoRows {
+		return "", nil // No records exist
 	}
-	return nil, fmt.Errorf("failed to initialize database after %d attempts", maxAttempts)
+	if err != nil {
+		return "", fmt.Errorf("failed to get most recent ID: %w", err)
+	}
+	return id, nil
 }
 
-// InitializeItem creates a new PklResourceReader with an initialized SQLite database, optionally populated with items.
+// InitializeDatabase sets up the SQLite database and creates the items table.
+func InitializeDatabase(dbPath string, items []string) (*sql.DB, error) {
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		log.Printf("Failed to open database: %v", err)
+		return nil, fmt.Errorf("failed to open database: %w", err)
+	}
+
+	// Verify connection
+	if err := db.Ping(); err != nil {
+		log.Printf("Failed to ping database: %v", err)
+		db.Close()
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
+
+	// Create items table
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS items (
+			id TEXT PRIMARY KEY,
+			value TEXT NOT NULL
+		)
+	`)
+	if err != nil {
+		log.Printf("Failed to create items table: %v", err)
+		db.Close()
+		return nil, fmt.Errorf("failed to create items table: %w", err)
+	}
+
+	// If items are provided, insert them into the database
+	if len(items) > 0 {
+		tx, err := db.Begin()
+		if err != nil {
+			log.Printf("Failed to start transaction for items initialization: %v", err)
+			db.Close()
+			return nil, fmt.Errorf("failed to start transaction for items initialization: %w", err)
+		}
+
+		for i, itemValue := range items {
+			// Generate a unique ID for each item
+			id := fmt.Sprintf("%s-%d", time.Now().Format("20060102150405.999999"), i)
+			_, err = tx.Exec(
+				"INSERT INTO items (id, value) VALUES (?, ?)",
+				id, itemValue,
+			)
+			if err != nil {
+				tx.Rollback()
+				log.Printf("Failed to insert item %s: %v", itemValue, err)
+				db.Close()
+				return nil, fmt.Errorf("failed to insert item %s: %w", itemValue, err)
+			}
+			log.Printf("Initialized item with id: %s, value: %s", id, itemValue)
+		}
+
+		if err := tx.Commit(); err != nil {
+			tx.Rollback()
+			log.Printf("Failed to commit transaction for items initialization: %v", err)
+			db.Close()
+			return nil, fmt.Errorf("failed to commit transaction for items initialization: %w", err)
+		}
+	}
+
+	log.Printf("SQLite database initialized successfully at %s with %d items", dbPath, len(items))
+	return db, nil
+}
+
+// InitializeItem creates a new PklResourceReader with an initialized SQLite database.
 func InitializeItem(dbPath string, items []string) (*PklResourceReader, error) {
 	db, err := InitializeDatabase(dbPath, items)
 	if err != nil {
