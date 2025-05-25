@@ -34,6 +34,10 @@ define the behavior, dependencies, and validation logic for each resource.
    - **`requires`**: Specifies the dependencies of the resource. This ensures the resource executes only after its
      dependencies are satisfied. See [Graph Dependency](../resources/kartographer.md) for more information.
 
+- **Multiple Items Iterations**:
+   - **`items`**: Specify multiple items to be iterated over in a loop. Values can be obtained via `item.current()`,
+     `item.prev()`, and `item.next()`.
+
 ### **Execution Logic**
 
 The `run` block defines the execution logic for a resource, including conditional execution, validation checks, and request-level constraints. This section is relevant when `APIServerMode` is enabled.

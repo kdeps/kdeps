@@ -84,8 +84,8 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 	switch operation {
 	case "run":
 		if id == "" {
-			log.Printf("runScript failed: no item ID provided")
-			return nil, errors.New("invalid URI: no item ID provided for run operation")
+			log.Printf("runScript failed: no tool ID provided")
+			return nil, errors.New("invalid URI: no tool ID provided for run operation")
 		}
 		script := query.Get("script")
 		if script == "" {
@@ -162,7 +162,7 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 
 		// Store the output in the database, overwriting any existing record
 		result, dbErr := r.DB.Exec(
-			"INSERT OR REPLACE INTO items (id, value) VALUES (?, ?)",
+			"INSERT OR REPLACE INTO tools (id, value) VALUES (?, ?)",
 			id, outputStr,
 		)
 		if dbErr != nil {
@@ -176,8 +176,8 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 			return nil, fmt.Errorf("failed to check run result: %w", dbErr)
 		}
 		if rowsAffected == 0 {
-			log.Printf("runScript: no item set for ID %s", id)
-			return nil, fmt.Errorf("no item set for ID %s", id)
+			log.Printf("runScript: no tool set for ID %s", id)
+			return nil, fmt.Errorf("no tool set for ID %s", id)
 		}
 
 		// Append to history table
@@ -195,8 +195,8 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 
 	case "history":
 		if id == "" {
-			log.Printf("history failed: no item ID provided")
-			return nil, errors.New("invalid URI: no item ID provided for history operation")
+			log.Printf("history failed: no tool ID provided")
+			return nil, errors.New("invalid URI: no tool ID provided for history operation")
 		}
 
 		log.Printf("history processing id: %s", id)
@@ -233,31 +233,31 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		log.Printf("history succeeded for id: %s, entries: %d", id, len(historyEntries))
 		return []byte(historyOutput), nil
 
-	default: // getItem (no operation specified)
+	default: // getRecord (no operation specified)
 		if id == "" {
-			log.Printf("getItem failed: no item ID provided")
-			return nil, errors.New("invalid URI: no item ID provided")
+			log.Printf("getRecord failed: no tool ID provided")
+			return nil, errors.New("invalid URI: no tool ID provided")
 		}
 
-		log.Printf("getItem processing id: %s", id)
+		log.Printf("getRecord processing id: %s", id)
 
 		var value string
-		err := r.DB.QueryRow("SELECT value FROM items WHERE id = ?", id).Scan(&value)
+		err := r.DB.QueryRow("SELECT value FROM tools WHERE id = ?", id).Scan(&value)
 		if err == sql.ErrNoRows {
-			log.Printf("getItem: no item found for id: %s", id)
+			log.Printf("getRecord: no tool found for id: %s", id)
 			return []byte(""), nil // Return empty string for not found
 		}
 		if err != nil {
-			log.Printf("getItem failed to read item for id: %s, error: %v", id, err)
-			return nil, fmt.Errorf("failed to read item: %w", err)
+			log.Printf("getRecord failed to read tool for id: %s, error: %v", id, err)
+			return nil, fmt.Errorf("failed to read tool: %w", err)
 		}
 
-		log.Printf("getItem succeeded for id: %s, value: %s", id, value)
+		log.Printf("getRecord succeeded for id: %s, value: %s", id, value)
 		return []byte(value), nil
 	}
 }
 
-// InitializeDatabase sets up the SQLite database and creates the items and history tables with retries.
+// InitializeDatabase sets up the SQLite database and creates the tools and history tables with retries.
 func InitializeDatabase(dbPath string) (*sql.DB, error) {
 	const maxAttempts = 5
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
@@ -283,18 +283,18 @@ func InitializeDatabase(dbPath string) (*sql.DB, error) {
 			continue
 		}
 
-		// Create items table
+		// Create tools table
 		_, err = db.Exec(`
-			CREATE TABLE IF NOT EXISTS items (
+			CREATE TABLE IF NOT EXISTS tools (
 				id TEXT PRIMARY KEY,
 				value TEXT NOT NULL
 			)
 		`)
 		if err != nil {
-			log.Printf("Attempt %d: Failed to create items table: %v", attempt, err)
+			log.Printf("Attempt %d: Failed to create tools table: %v", attempt, err)
 			db.Close()
 			if attempt == maxAttempts {
-				return nil, fmt.Errorf("failed to create items table after %d attempts: %w", maxAttempts, err)
+				return nil, fmt.Errorf("failed to create tools table after %d attempts: %w", maxAttempts, err)
 			}
 			time.Sleep(1 * time.Second)
 			continue

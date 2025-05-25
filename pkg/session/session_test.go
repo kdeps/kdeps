@@ -39,13 +39,13 @@ func TestPklResourceReader(t *testing.T) {
 		require.Nil(t, elements)
 	})
 
-	t.Run("Read_GetItem", func(t *testing.T) {
+	t.Run("Read_GetRecord", func(t *testing.T) {
 		t.Parallel()
 		reader, err := InitializeSession("file::memory:")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
-		_, err = reader.DB.Exec("INSERT INTO items (id, value) VALUES (?, ?)", "test1", "value1")
+		_, err = reader.DB.Exec("INSERT INTO records (id, value) VALUES (?, ?)", "test1", "value1")
 		require.NoError(t, err)
 
 		uri, _ := url.Parse("session:///test1")
@@ -61,10 +61,10 @@ func TestPklResourceReader(t *testing.T) {
 		uri, _ = url.Parse("session:///")
 		_, err = reader.Read(*uri)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "no item ID provided")
+		require.Contains(t, err.Error(), "no record ID provided")
 	})
 
-	t.Run("Read_SetItem", func(t *testing.T) {
+	t.Run("Read_SetRecord", func(t *testing.T) {
 		t.Parallel()
 		reader, err := InitializeSession("file::memory:")
 		require.NoError(t, err)
@@ -76,7 +76,7 @@ func TestPklResourceReader(t *testing.T) {
 		require.Equal(t, []byte("newvalue"), data)
 
 		var value string
-		err = reader.DB.QueryRow("SELECT value FROM items WHERE id = ?", "test2").Scan(&value)
+		err = reader.DB.QueryRow("SELECT value FROM records WHERE id = ?", "test2").Scan(&value)
 		require.NoError(t, err)
 		require.Equal(t, "newvalue", value)
 
@@ -88,36 +88,36 @@ func TestPklResourceReader(t *testing.T) {
 		uri, _ = url.Parse("session:///?op=set&value=value")
 		_, err = reader.Read(*uri)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "no item ID provided for set operation")
+		require.Contains(t, err.Error(), "no record ID provided for set operation")
 	})
 
-	t.Run("Read_DeleteItem", func(t *testing.T) {
+	t.Run("Read_DeleteRecord", func(t *testing.T) {
 		t.Parallel()
 		reader, err := InitializeSession("file::memory:")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
-		_, err = reader.DB.Exec("INSERT INTO items (id, value) VALUES (?, ?)", "test4", "value4")
+		_, err = reader.DB.Exec("INSERT INTO records (id, value) VALUES (?, ?)", "test4", "value4")
 		require.NoError(t, err)
 
 		uri, _ := url.Parse("session:///test4?op=delete")
 		data, err := reader.Read(*uri)
 		require.NoError(t, err)
-		require.Equal(t, []byte("Deleted 1 item(s)"), data)
+		require.Equal(t, []byte("Deleted 1 record(s)"), data)
 
 		var count int
-		err = reader.DB.QueryRow("SELECT COUNT(*) FROM items WHERE id = ?", "test4").Scan(&count)
+		err = reader.DB.QueryRow("SELECT COUNT(*) FROM records WHERE id = ?", "test4").Scan(&count)
 		require.NoError(t, err)
 		require.Equal(t, 0, count)
 
 		data, err = reader.Read(*uri)
 		require.NoError(t, err)
-		require.Equal(t, []byte("Deleted 0 item(s)"), data)
+		require.Equal(t, []byte("Deleted 0 record(s)"), data)
 
 		uri, _ = url.Parse("session:///?op=delete")
 		_, err = reader.Read(*uri)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "no item ID provided for delete operation")
+		require.Contains(t, err.Error(), "no record ID provided for delete operation")
 	})
 
 	t.Run("Read_Clear", func(t *testing.T) {
@@ -126,10 +126,10 @@ func TestPklResourceReader(t *testing.T) {
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
-		_, err = reader.DB.Exec("DELETE FROM items")
+		_, err = reader.DB.Exec("DELETE FROM records")
 		require.NoError(t, err, "Failed to clear table before test")
 
-		result, err := reader.DB.Exec("INSERT INTO items (id, value) VALUES (?, ?), (?, ?)",
+		result, err := reader.DB.Exec("INSERT INTO records (id, value) VALUES (?, ?), (?, ?)",
 			"test5", "value5", "test6", "value6")
 		require.NoError(t, err, "Failed to insert test data")
 		rowsAffected, err := result.RowsAffected()
@@ -137,18 +137,18 @@ func TestPklResourceReader(t *testing.T) {
 		require.Equal(t, int64(2), rowsAffected, "Expected 2 rows to be inserted")
 
 		var count int
-		err = reader.DB.QueryRow("SELECT COUNT(*) FROM items").Scan(&count)
-		require.NoError(t, err, "Failed to count items")
-		require.Equal(t, 2, count, "Expected 2 items in table before clear")
+		err = reader.DB.QueryRow("SELECT COUNT(*) FROM records").Scan(&count)
+		require.NoError(t, err, "Failed to count records")
+		require.Equal(t, 2, count, "Expected 2 records in table before clear")
 
 		uri, _ := url.Parse("session:///_?op=clear")
 		data, err := reader.Read(*uri)
 		require.NoError(t, err, "Clear operation failed")
-		require.Equal(t, []byte("Cleared 2 items"), data, "Unexpected response from clear")
+		require.Equal(t, []byte("Cleared 2 records"), data, "Unexpected response from clear")
 
-		err = reader.DB.QueryRow("SELECT COUNT(*) FROM items").Scan(&count)
-		require.NoError(t, err, "Failed to count items after clear")
-		require.Equal(t, 0, count, "Expected 0 items in table after clear")
+		err = reader.DB.QueryRow("SELECT COUNT(*) FROM records").Scan(&count)
+		require.NoError(t, err, "Failed to count records after clear")
+		require.Equal(t, 0, count, "Expected 0 records in table after clear")
 
 		uri, _ = url.Parse("session:///invalid?op=clear")
 		_, err = reader.Read(*uri)
@@ -165,7 +165,7 @@ func TestPklResourceReader(t *testing.T) {
 		require.Equal(t, []byte("value7"), data)
 
 		var value string
-		err = nilReader.DB.QueryRow("SELECT value FROM items WHERE id = ?", "test7").Scan(&value)
+		err = nilReader.DB.QueryRow("SELECT value FROM records WHERE id = ?", "test7").Scan(&value)
 		require.NoError(t, err)
 		require.Equal(t, "value7", value)
 	})
@@ -179,7 +179,7 @@ func TestPklResourceReader(t *testing.T) {
 		require.Equal(t, []byte("value8"), data)
 
 		var value string
-		err = reader.DB.QueryRow("SELECT value FROM items WHERE id = ?", "test8").Scan(&value)
+		err = reader.DB.QueryRow("SELECT value FROM records WHERE id = ?", "test8").Scan(&value)
 		require.NoError(t, err)
 		require.Equal(t, "value8", value)
 	})
@@ -196,9 +196,9 @@ func TestInitializeDatabase(t *testing.T) {
 		defer db.Close()
 
 		var name string
-		err = db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name='items'").Scan(&name)
+		err = db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name='records'").Scan(&name)
 		require.NoError(t, err)
-		require.Equal(t, "items", name)
+		require.Equal(t, "records", name)
 	})
 
 	t.Run("InvalidPath", func(t *testing.T) {

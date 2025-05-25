@@ -51,6 +51,7 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Memory.pkl", schema.SchemaVersion(dr.Context)):   {Alias: "memory", Check: false},
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Session.pkl", schema.SchemaVersion(dr.Context)):  {Alias: "session", Check: false},
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Tool.pkl", schema.SchemaVersion(dr.Context)):     {Alias: "tool", Check: false},
+		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Item.pkl", schema.SchemaVersion(dr.Context)):     {Alias: "item", Check: false},
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Skip.pkl", schema.SchemaVersion(dr.Context)):     {Alias: "skip", Check: false},
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Utils.pkl", schema.SchemaVersion(dr.Context)):    {Alias: "utils", Check: false},
 		filepath.Join(dr.ActionDir, "/llm/"+dr.RequestID+"__llm_output.pkl"):                              {Alias: "llm", Check: true},

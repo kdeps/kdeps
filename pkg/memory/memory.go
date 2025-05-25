@@ -39,7 +39,7 @@ func (r *PklResourceReader) ListElements(_ url.URL) ([]pkl.PathElement, error) {
 	return nil, nil
 }
 
-// Read retrieves, sets, deletes, or clears items in the SQLite database based on the URI.
+// Read retrieves, sets, deletes, or clears records in the SQLite database based on the URI.
 func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 	// Check if receiver is nil and initialize with fixed DBPath
 	if r == nil {
@@ -81,61 +81,61 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 	switch operation {
 	case "set":
 		if id == "" {
-			log.Printf("setItem failed: no item ID provided")
-			return nil, errors.New("invalid URI: no item ID provided for set operation")
+			log.Printf("setRecord failed: no record ID provided")
+			return nil, errors.New("invalid URI: no record ID provided for set operation")
 		}
 		newValue := query.Get("value")
 		if newValue == "" {
-			log.Printf("setItem failed: no value provided")
+			log.Printf("setRecord failed: no value provided")
 			return nil, errors.New("set operation requires a value parameter")
 		}
 
-		log.Printf("setItem processing id: %s, value: %s", id, newValue)
+		log.Printf("setRecord processing id: %s, value: %s", id, newValue)
 
 		result, err := r.DB.Exec(
-			"INSERT OR REPLACE INTO items (id, value) VALUES (?, ?)",
+			"INSERT OR REPLACE INTO records (id, value) VALUES (?, ?)",
 			id, newValue,
 		)
 		if err != nil {
-			log.Printf("setItem failed to execute SQL: %v", err)
-			return nil, fmt.Errorf("failed to set item: %w", err)
+			log.Printf("setRecord failed to execute SQL: %v", err)
+			return nil, fmt.Errorf("failed to set record: %w", err)
 		}
 
 		rowsAffected, err := result.RowsAffected()
 		if err != nil {
-			log.Printf("setItem failed to check result: %v", err)
+			log.Printf("setRecord failed to check result: %v", err)
 			return nil, fmt.Errorf("failed to check set result: %w", err)
 		}
 		if rowsAffected == 0 {
-			log.Printf("setItem: no item set for ID %s", id)
-			return nil, fmt.Errorf("no item set for ID %s", id)
+			log.Printf("setRecord: no record set for ID %s", id)
+			return nil, fmt.Errorf("no record set for ID %s", id)
 		}
 
-		log.Printf("setItem succeeded for id: %s, value: %s", id, newValue)
+		log.Printf("setRecord succeeded for id: %s, value: %s", id, newValue)
 		return []byte(newValue), nil
 
 	case "delete":
 		if id == "" {
-			log.Printf("deleteItem failed: no item ID provided")
-			return nil, errors.New("invalid URI: no item ID provided for delete operation")
+			log.Printf("deleteRecord failed: no record ID provided")
+			return nil, errors.New("invalid URI: no record ID provided for delete operation")
 		}
 
-		log.Printf("deleteItem processing id: %s", id)
+		log.Printf("deleteRecord processing id: %s", id)
 
-		result, err := r.DB.Exec("DELETE FROM items WHERE id = ?", id)
+		result, err := r.DB.Exec("DELETE FROM records WHERE id = ?", id)
 		if err != nil {
-			log.Printf("deleteItem failed to execute SQL: %v", err)
-			return nil, fmt.Errorf("failed to delete item: %w", err)
+			log.Printf("deleteRecord failed to execute SQL: %v", err)
+			return nil, fmt.Errorf("failed to delete record: %w", err)
 		}
 
 		rowsAffected, err := result.RowsAffected()
 		if err != nil {
-			log.Printf("deleteItem failed to check result: %v", err)
+			log.Printf("deleteRecord failed to check result: %v", err)
 			return nil, fmt.Errorf("failed to check delete result: %w", err)
 		}
 
-		log.Printf("deleteItem succeeded for id: %s, removed %d items", id, rowsAffected)
-		return []byte(fmt.Sprintf("Deleted %d item(s)", rowsAffected)), nil
+		log.Printf("deleteRecord succeeded for id: %s, removed %d records", id, rowsAffected)
+		return []byte(fmt.Sprintf("Deleted %d record(s)", rowsAffected)), nil
 
 	case "clear":
 		if id != "_" {
@@ -145,10 +145,10 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 
 		log.Printf("clear processing")
 
-		result, err := r.DB.Exec("DELETE FROM items")
+		result, err := r.DB.Exec("DELETE FROM records")
 		if err != nil {
 			log.Printf("clear failed to execute SQL: %v", err)
-			return nil, fmt.Errorf("failed to clear items: %w", err)
+			return nil, fmt.Errorf("failed to clear records: %w", err)
 		}
 
 		rowsAffected, err := result.RowsAffected()
@@ -157,34 +157,34 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 			return nil, fmt.Errorf("failed to check clear result: %w", err)
 		}
 
-		log.Printf("clear succeeded, removed %d items", rowsAffected)
-		return []byte(fmt.Sprintf("Cleared %d items", rowsAffected)), nil
+		log.Printf("clear succeeded, removed %d records", rowsAffected)
+		return []byte(fmt.Sprintf("Cleared %d records", rowsAffected)), nil
 
-	default: // getItem (no operation specified)
+	default: // getRecord (no operation specified)
 		if id == "" {
-			log.Printf("getItem failed: no item ID provided")
-			return nil, errors.New("invalid URI: no item ID provided")
+			log.Printf("getRecord failed: no record ID provided")
+			return nil, errors.New("invalid URI: no record ID provided")
 		}
 
-		log.Printf("getItem processing id: %s", id)
+		log.Printf("getRecord processing id: %s", id)
 
 		var value string
-		err := r.DB.QueryRow("SELECT value FROM items WHERE id = ?", id).Scan(&value)
+		err := r.DB.QueryRow("SELECT value FROM records WHERE id = ?", id).Scan(&value)
 		if err == sql.ErrNoRows {
-			log.Printf("getItem: no item found for id: %s", id)
+			log.Printf("getRecord: no record found for id: %s", id)
 			return []byte(""), nil // Return empty string for not found
 		}
 		if err != nil {
-			log.Printf("getItem failed to read item for id: %s, error: %v", id, err)
-			return nil, fmt.Errorf("failed to read item: %w", err)
+			log.Printf("getRecord failed to read record for id: %s, error: %v", id, err)
+			return nil, fmt.Errorf("failed to read record: %w", err)
 		}
 
-		log.Printf("getItem succeeded for id: %s, value: %s", id, value)
+		log.Printf("getRecord succeeded for id: %s, value: %s", id, value)
 		return []byte(value), nil
 	}
 }
 
-// InitializeDatabase sets up the SQLite database and creates the items table with retries.
+// InitializeDatabase sets up the SQLite database and creates the records table with retries.
 func InitializeDatabase(dbPath string) (*sql.DB, error) {
 	const maxAttempts = 5
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
@@ -210,18 +210,18 @@ func InitializeDatabase(dbPath string) (*sql.DB, error) {
 			continue
 		}
 
-		// Create items table
+		// Create records table
 		_, err = db.Exec(`
-			CREATE TABLE IF NOT EXISTS items (
+			CREATE TABLE IF NOT EXISTS records (
 				id TEXT PRIMARY KEY,
 				value TEXT NOT NULL
 			)
 		`)
 		if err != nil {
-			log.Printf("Attempt %d: Failed to create items table: %v", attempt, err)
+			log.Printf("Attempt %d: Failed to create records table: %v", attempt, err)
 			db.Close()
 			if attempt == maxAttempts {
-				return nil, fmt.Errorf("failed to create items table after %d attempts: %w", maxAttempts, err)
+				return nil, fmt.Errorf("failed to create records table after %d attempts: %w", maxAttempts, err)
 			}
 			time.Sleep(1 * time.Second)
 			continue

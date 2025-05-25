@@ -212,6 +212,7 @@ export default defineConfig({
           },
           { text: "API Request Validations", link: "/getting-started/resources/api-request-validations" },
           { text: "Skip Conditions", link: "/getting-started/resources/skip" },
+          { text: "Item Iterations", link: "/getting-started/resources/items" },
           {
             text: "Preflight Validations",
             link: "/getting-started/resources/validations",
