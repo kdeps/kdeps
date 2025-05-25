@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -59,6 +60,7 @@ type DependencyResolver struct {
 	DataDir              string
 	APIServerMode        bool
 	AnacondaInstalled    bool
+	FileRunCounter       map[string]int // Added to track run count per file
 }
 
 type ResourceNodeEntry struct {
@@ -192,6 +194,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		ToolReader:           toolReader,
 		ItemDBPath:           itemDBPath,
 		ItemReader:           itemReader,
+		FileRunCounter:       make(map[string]int), // Initialize the file run counter map
 	}
 
 	dependencyResolver.Graph = graph.NewDependencyGraph(fs, logger.BaseLogger(), dependencyResolver.ResourceDependencies)
@@ -362,7 +365,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			// Process run block: once if no items, or once per item
 			if len(items) == 0 {
 				dr.Logger.Info("no items specified, processing run block once", "actionID", res.ActionID)
-				if proceed, err := dr.processRunBlock(res, rsc, nodeActionID); err != nil {
+				if proceed, err := dr.processRunBlock(res, rsc, nodeActionID, false); err != nil {
 					return false, err
 				} else if !proceed {
 					continue
@@ -379,7 +382,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 					}
 
 					// Process runBlock for the current item
-					if proceed, err := dr.processRunBlock(res, rsc, nodeActionID); err != nil {
+					if proceed, err := dr.processRunBlock(res, rsc, nodeActionID, true); err != nil {
 						return false, err
 					} else if !proceed {
 						continue
@@ -414,15 +417,64 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 		return false, err
 	}
 
+	// Log the final file run counts
+	for file, count := range dr.FileRunCounter {
+		dr.Logger.Info("file run count", "file", file, "count", count)
+	}
+
 	dr.Logger.Debug("all resources finished processing")
 	return false, nil
 }
 
 // processRunBlock handles the runBlock processing for a resource, excluding APIResponse.
-func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes.Resource, actionID string) (bool, error) {
+func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes.Resource, actionID string, hasItems bool) (bool, error) {
+	// Increment the run counter for this file
+	dr.FileRunCounter[res.File]++
+	dr.Logger.Info("processing run block for file", "file", res.File, "runCount", dr.FileRunCounter[res.File], "actionID", actionID)
+
 	runBlock := rsc.Run
 	if runBlock == nil {
 		return false, nil
+	}
+
+	// When items are enabled, wait for the items database to have at least one item in the list
+	if hasItems {
+		const waitTimeout = 30 * time.Second
+		const pollInterval = 500 * time.Millisecond
+		deadline := time.Now().Add(waitTimeout)
+
+		dr.Logger.Info("Waiting for items database to have a non-empty list", "actionID", actionID)
+		for time.Now().Before(deadline) {
+			// Query the items database to retrieve the list
+			query := url.Values{"op": []string{"list"}}
+			uri := url.URL{Scheme: "item", RawQuery: query.Encode()}
+			result, err := dr.ItemReader.Read(uri)
+			if err != nil {
+				dr.Logger.Error("Failed to read list from items database", "actionID", actionID, "error", err)
+				return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Failed to read list from items database for resource %s: %v", actionID, err), true)
+			}
+			// Parse the []byte result as a JSON array
+			var items []string
+			if len(result) > 0 {
+				if err := json.Unmarshal(result, &items); err != nil {
+					dr.Logger.Error("Failed to parse items database result as JSON array", "actionID", actionID, "error", err)
+					return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Failed to parse items database result for resource %s: %v", actionID, err), true)
+				}
+			}
+			// Check if the list is non-empty
+			if len(items) > 0 {
+				dr.Logger.Info("Items database has a non-empty list", "actionID", actionID, "itemCount", len(items))
+				break
+			}
+			dr.Logger.Debug("Items database list is empty, retrying", "actionID", actionID)
+			time.Sleep(pollInterval)
+		}
+
+		// Check if we timed out
+		if time.Now().After(deadline) {
+			dr.Logger.Error("Timeout waiting for items database to have a non-empty list", "actionID", actionID)
+			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Timeout waiting for items database to have a non-empty list for resource %s", actionID), true)
+		}
 	}
 
 	if dr.APIServerMode {
