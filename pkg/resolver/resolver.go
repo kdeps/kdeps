@@ -355,7 +355,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			// Explicitly type rsc as *pklRes.Resource
 			rsc, ok := resPkl.(*pklRes.Resource)
 			if !ok {
-				return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to cast resource to *pklRes.Resource for file %s", res.File), true)
+				return dr.HandleAPIErrorResponse(500, "failed to cast resource to *pklRes.Resource for file "+res.File, true)
 			}
 
 			// Reinitialize item database with items, if any
@@ -376,7 +376,8 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			// Process run block: once if no items, or once per item
 			if len(items) == 0 {
 				dr.Logger.Info("no items specified, processing run block once", "actionID", res.ActionID)
-				if proceed, err := dr.processRunBlock(res, rsc, nodeActionID, false); err != nil {
+				proceed, err := dr.processRunBlock(res, rsc, nodeActionID, false)
+				if err != nil {
 					return false, err
 				} else if !proceed {
 					continue
@@ -401,14 +402,13 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 					// Explicitly type rsc as *pklRes.Resource
 					rsc, ok = resPkl.(*pklRes.Resource)
 					if !ok {
-						return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to cast resource to *pklRes.Resource for file %s", res.File), true)
+						return dr.HandleAPIErrorResponse(500, "failed to cast resource to *pklRes.Resource for file "+res.File, true)
 					}
 
 					// Process runBlock for the current item
-					if proceed, err := dr.processRunBlock(res, rsc, nodeActionID, true); err != nil {
+					_, err := dr.processRunBlock(res, rsc, nodeActionID, true)
+					if err != nil {
 						return false, err
-					} else if !proceed {
-						continue
 					}
 				}
 				// Clear the item database after processing all items
@@ -501,7 +501,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 		// Check if we timed out
 		if time.Now().After(deadline) {
 			dr.Logger.Error("Timeout waiting for items database to have a non-empty list", "actionID", actionID)
-			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Timeout waiting for items database to have a non-empty list for resource %s", actionID), true)
+			return dr.HandleAPIErrorResponse(500, "Timeout waiting for items database to have a non-empty list for resource "+actionID, true)
 		}
 	}
 

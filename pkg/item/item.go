@@ -133,26 +133,34 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 			id, newValue,
 		)
 		if err != nil {
-			tx.Rollback()
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				log.Printf("setRecord failed to rollback transaction: %v", rollbackErr)
+			}
 			log.Printf("setRecord failed to execute SQL for current record: %v", err)
 			return nil, fmt.Errorf("setRecord failed to execute SQL for current record: %w", err)
 		}
 
 		rowsAffected, err := result.RowsAffected()
 		if err != nil {
-			tx.Rollback()
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				log.Printf("setRecord failed to rollback transaction: %v", rollbackErr)
+			}
 			log.Printf("setRecord failed to check result for current record: %v", err)
 			return nil, fmt.Errorf("setRecord failed to check result for current record: %w", err)
 		}
 		if rowsAffected == 0 {
-			tx.Rollback()
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				log.Printf("setRecord failed to rollback transaction: %v", rollbackErr)
+			}
 			log.Printf("setRecord: no record set for ID %s", id)
 			return nil, fmt.Errorf("setRecord: no record set for ID %s", id)
 		}
 
 		// Commit transaction
 		if err := tx.Commit(); err != nil {
-			tx.Rollback()
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				log.Printf("setRecord failed to rollback transaction: %v", rollbackErr)
+			}
 			log.Printf("setRecord failed to commit transaction: %v", err)
 			return nil, fmt.Errorf("setRecord failed to commit transaction: %w", err)
 		}
@@ -176,7 +184,7 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		err = r.DB.QueryRow(`
 			SELECT value FROM items
 			WHERE id < ? ORDER BY id DESC LIMIT 1`, currentID).Scan(&value)
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			log.Printf("prevRecord: no previous record found for id: %s", currentID)
 			return []byte(""), nil
 		}
@@ -204,7 +212,7 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		err = r.DB.QueryRow(`
 			SELECT value FROM items
 			WHERE id > ? ORDER BY id ASC LIMIT 1`, currentID).Scan(&value)
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			log.Printf("nextRecord: no next record found for id: %s", currentID)
 			return []byte(""), nil
 		}
@@ -233,7 +241,7 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 
 		var value string
 		err = r.DB.QueryRow("SELECT value FROM items WHERE id = ?", currentID).Scan(&value)
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			log.Printf("getRecord: no record found for id: %s", currentID)
 			return []byte(""), nil
 		}
@@ -254,7 +262,7 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 func (r *PklResourceReader) getMostRecentID() (string, error) {
 	var id string
 	err := r.DB.QueryRow("SELECT id FROM items ORDER BY id DESC LIMIT 1").Scan(&id)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return "", nil // No records exist
 	}
 	if err != nil {
@@ -308,7 +316,9 @@ func InitializeDatabase(dbPath string, items []string) (*sql.DB, error) {
 				id, itemValue,
 			)
 			if err != nil {
-				tx.Rollback()
+				if rollbackErr := tx.Rollback(); rollbackErr != nil {
+					log.Printf("Failed to rollback transaction for item %s: %v", itemValue, rollbackErr)
+				}
 				log.Printf("Failed to insert item %s: %v", itemValue, err)
 				db.Close()
 				return nil, fmt.Errorf("failed to insert item %s: %w", itemValue, err)
@@ -317,7 +327,9 @@ func InitializeDatabase(dbPath string, items []string) (*sql.DB, error) {
 		}
 
 		if err := tx.Commit(); err != nil {
-			tx.Rollback()
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				log.Printf("Failed to rollback transaction for items initialization: %v", rollbackErr)
+			}
 			log.Printf("Failed to commit transaction for items initialization: %v", err)
 			db.Close()
 			return nil, fmt.Errorf("failed to commit transaction for items initialization: %w", err)
