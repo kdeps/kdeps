@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./docs/public/logo.png" width="500" />
+  <img src="./public/logo.png" width="500" />
 </p>
 
 Kdeps is an all-in-one AI framework for building Dockerized full-stack AI applications (FE and BE) that includes
