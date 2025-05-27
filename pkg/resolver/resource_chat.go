@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -40,14 +41,14 @@ const (
 )
 
 // HandleLLMChat initiates asynchronous processing of an LLM chat interaction.
-func (dr *DependencyResolver) HandleLLMChat(actionID string, chatBlock *pklLLM.ResourceChat) error {
+func (dr *DependencyResolver) HandleLLMChat(actionID string, chatBlock *pklLLM.ResourceChat, hasItems bool) error {
 	if err := dr.decodeChatBlock(chatBlock); err != nil {
 		dr.Logger.Error("failed to decode chat block", "actionID", actionID, "error", err)
 		return err
 	}
 
 	go func(aID string, block *pklLLM.ResourceChat) {
-		if err := dr.processLLMChat(aID, block); err != nil {
+		if err := dr.processLLMChat(aID, block, hasItems); err != nil {
 			dr.Logger.Error("failed to process LLM chat", "actionID", aID, "error", err)
 		}
 	}(actionID, chatBlock)
@@ -406,7 +407,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 }
 
 // processLLMChat processes the LLM chat and saves the response.
-func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.ResourceChat) error {
+func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.ResourceChat, hasItems bool) error {
 	if chatBlock == nil {
 		return errors.New("chatBlock cannot be nil")
 	}
@@ -422,11 +423,11 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 	}
 
 	chatBlock.Response = &completion
-	return dr.AppendChatEntry(actionID, chatBlock)
+	return dr.AppendChatEntry(actionID, chatBlock, hasItems)
 }
 
 // AppendChatEntry appends a chat entry to the Pkl file.
-func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM.ResourceChat) error {
+func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM.ResourceChat, hasItems bool) error {
 	pklPath := filepath.Join(dr.ActionDir, "llm/"+dr.RequestID+"__llm_output.pkl")
 
 	llmRes, err := dr.LoadResource(dr.Context, pklPath, LLMResource)
@@ -453,6 +454,16 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 			return fmt.Errorf("failed to write response to file: %w", err)
 		}
 		newChat.File = &filePath
+		if hasItems && *newChat.Response != "" {
+			dr.Logger.Info("hasItems enabled, storing stdout as item", "resourceID", resourceID)
+			itemValue := *newChat.Response
+			query := url.Values{"op": []string{"set"}, "value": []string{itemValue}}
+			uri := url.URL{Scheme: "item", RawQuery: query.Encode()}
+			if _, err := dr.ItemReader.Read(uri); err != nil {
+				dr.Logger.Error("failed to set item value", "item", utils.TruncateString(itemValue, 100), "error", err)
+				return fmt.Errorf("failed to set item: %w", err)
+			}
+		}
 	}
 
 	encodedChat := encodeChat(newChat, dr.Logger)

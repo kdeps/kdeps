@@ -3,6 +3,7 @@ package resolver
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -16,7 +17,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.ResourceExec) error {
+func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.ResourceExec, hasItems bool) error {
 	// Decode the exec block synchronously
 	if err := dr.decodeExecBlock(execBlock); err != nil {
 		dr.Logger.Error("failed to decode exec block", "actionID", actionID, "error", err)
@@ -25,7 +26,7 @@ func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.Res
 
 	// Run processExecBlock asynchronously in a goroutine
 	go func(aID string, block *pklExec.ResourceExec) {
-		if err := dr.processExecBlock(aID, block); err != nil {
+		if err := dr.processExecBlock(aID, block, hasItems); err != nil {
 			// Log the error; consider additional error handling as needed.
 			dr.Logger.Error("failed to process exec block", "actionID", aID, "error", err)
 		}
@@ -71,7 +72,7 @@ func (dr *DependencyResolver) decodeExecBlock(execBlock *pklExec.ResourceExec) e
 	return nil
 }
 
-func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklExec.ResourceExec) error {
+func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklExec.ResourceExec, hasItems bool) error {
 	var env []string
 	if execBlock.Env != nil {
 		for key, value := range *execBlock.Env {
@@ -102,7 +103,7 @@ func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklEx
 	}
 	execBlock.Timestamp = &ts
 
-	return dr.AppendExecEntry(actionID, execBlock)
+	return dr.AppendExecEntry(actionID, execBlock, hasItems)
 }
 
 func (dr *DependencyResolver) WriteStdoutToFile(resourceID string, stdoutEncoded *string) (string, error) {
@@ -126,7 +127,7 @@ func (dr *DependencyResolver) WriteStdoutToFile(resourceID string, stdoutEncoded
 }
 
 //nolint:dupl
-func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExec.ResourceExec) error {
+func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExec.ResourceExec, hasItems bool) error {
 	pklPath := filepath.Join(dr.ActionDir, "exec/"+dr.RequestID+"__exec_output.pkl")
 
 	res, err := dr.LoadResource(dr.Context, pklPath, ExecResource)
@@ -154,6 +155,16 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 			return fmt.Errorf("failed to write stdout to file: %w", err)
 		}
 		newExec.File = &filePath
+		if hasItems && *newExec.Stdout != "" {
+			dr.Logger.Info("hasItems enabled, storing stdout as item", "resourceID", resourceID)
+			itemValue := *newExec.Stdout
+			query := url.Values{"op": []string{"set"}, "value": []string{itemValue}}
+			uri := url.URL{Scheme: "item", RawQuery: query.Encode()}
+			if _, err := dr.ItemReader.Read(uri); err != nil {
+				dr.Logger.Error("failed to set item value", "item", utils.TruncateString(itemValue, 100), "error", err)
+				return fmt.Errorf("failed to set item: %w", err)
+			}
+		}
 	}
 
 	// Encode fields for PKL storage

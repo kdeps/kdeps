@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -17,7 +18,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-func (dr *DependencyResolver) HandlePython(actionID string, pythonBlock *pklPython.ResourcePython) error {
+func (dr *DependencyResolver) HandlePython(actionID string, pythonBlock *pklPython.ResourcePython, hasItems bool) error {
 	// Synchronously decode the python block.
 	if err := dr.decodePythonBlock(pythonBlock); err != nil {
 		dr.Logger.Error("failed to decode python block", "actionID", actionID, "error", err)
@@ -26,7 +27,7 @@ func (dr *DependencyResolver) HandlePython(actionID string, pythonBlock *pklPyth
 
 	// Process the python block asynchronously in a goroutine.
 	go func(aID string, block *pklPython.ResourcePython) {
-		if err := dr.processPythonBlock(aID, block); err != nil {
+		if err := dr.processPythonBlock(aID, block, hasItems); err != nil {
 			// Log the error; additional error handling can be added here if needed.
 			dr.Logger.Error("failed to process python block", "actionID", aID, "error", err)
 		}
@@ -72,7 +73,7 @@ func (dr *DependencyResolver) decodePythonBlock(pythonBlock *pklPython.ResourceP
 	return nil
 }
 
-func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *pklPython.ResourcePython) error {
+func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *pklPython.ResourcePython, hasItems bool) error {
 	if dr.AnacondaInstalled && pythonBlock.CondaEnvironment != nil && *pythonBlock.CondaEnvironment != "" {
 		if err := dr.activateCondaEnvironment(*pythonBlock.CondaEnvironment); err != nil {
 			return err
@@ -113,7 +114,7 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 	}
 	pythonBlock.Timestamp = &ts
 
-	return dr.AppendPythonEntry(actionID, pythonBlock)
+	return dr.AppendPythonEntry(actionID, pythonBlock, hasItems)
 }
 
 func (dr *DependencyResolver) activateCondaEnvironment(envName string) error {
@@ -199,7 +200,7 @@ func (dr *DependencyResolver) WritePythonStdoutToFile(resourceID string, stdoutE
 }
 
 //nolint:dupl
-func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pklPython.ResourcePython) error {
+func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pklPython.ResourcePython, hasItems bool) error {
 	pklPath := filepath.Join(dr.ActionDir, "python/"+dr.RequestID+"__python_output.pkl")
 
 	res, err := dr.LoadResource(dr.Context, pklPath, PythonResource)
@@ -226,6 +227,16 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 			return fmt.Errorf("failed to write stdout to file: %w", err)
 		}
 		newPython.File = &filePath
+		if hasItems {
+			dr.Logger.Info("hasItems enabled, storing stdout as item", "resourceID", resourceID)
+			itemValue := *newPython.Stdout
+			query := url.Values{"op": []string{"set"}, "value": []string{itemValue}}
+			uri := url.URL{Scheme: "item", RawQuery: query.Encode()}
+			if _, err := dr.ItemReader.Read(uri); err != nil {
+				dr.Logger.Error("failed to set item value", "item", utils.TruncateString(itemValue, 100), "error", err)
+				return fmt.Errorf("failed to set item: %w", err)
+			}
+		}
 	}
 
 	encodedScript := utils.EncodeValue(newPython.Script)

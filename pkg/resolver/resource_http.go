@@ -19,7 +19,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-func (dr *DependencyResolver) HandleHTTPClient(actionID string, httpBlock *pklHTTP.ResourceHTTPClient) error {
+func (dr *DependencyResolver) HandleHTTPClient(actionID string, httpBlock *pklHTTP.ResourceHTTPClient, hasItems bool) error {
 	// Synchronously decode the HTTP block.
 	if err := dr.decodeHTTPBlock(httpBlock); err != nil {
 		dr.Logger.Error("failed to decode HTTP block", "actionID", actionID, "error", err)
@@ -28,7 +28,7 @@ func (dr *DependencyResolver) HandleHTTPClient(actionID string, httpBlock *pklHT
 
 	// Process the HTTP block asynchronously in a goroutine.
 	go func(aID string, block *pklHTTP.ResourceHTTPClient) {
-		if err := dr.processHTTPBlock(aID, block); err != nil {
+		if err := dr.processHTTPBlock(aID, block, hasItems); err != nil {
 			// Log the error; you can adjust error handling as needed.
 			dr.Logger.Error("failed to process HTTP block", "actionID", aID, "error", err)
 		}
@@ -38,11 +38,11 @@ func (dr *DependencyResolver) HandleHTTPClient(actionID string, httpBlock *pklHT
 	return nil
 }
 
-func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHTTP.ResourceHTTPClient) error {
+func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHTTP.ResourceHTTPClient, hasItems bool) error {
 	if err := dr.DoRequest(httpBlock); err != nil {
 		return err
 	}
-	return dr.AppendHTTPEntry(actionID, httpBlock)
+	return dr.AppendHTTPEntry(actionID, httpBlock, hasItems)
 }
 
 func (dr *DependencyResolver) decodeHTTPBlock(httpBlock *pklHTTP.ResourceHTTPClient) error {
@@ -88,7 +88,7 @@ func (dr *DependencyResolver) WriteResponseBodyToFile(resourceID string, respons
 	return outputFilePath, nil
 }
 
-func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP.ResourceHTTPClient) error {
+func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP.ResourceHTTPClient, hasItems bool) error {
 	pklPath := filepath.Join(dr.ActionDir, "client/"+dr.RequestID+"__client_output.pkl")
 
 	res, err := dr.LoadResource(dr.Context, pklPath, HTTPResource)
@@ -129,6 +129,17 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 		timestamp = &pkl.Duration{
 			Value: float64(time.Now().Unix()),
 			Unit:  pkl.Nanosecond,
+		}
+	}
+
+	if hasItems && client.Response != nil && client.Response.Body != nil {
+		dr.Logger.Info("hasItems enabled, storing stdout as item", "resourceID", resourceID)
+		itemValue := *client.Response.Body // Dereference the Body (*string) to get string
+		query := url.Values{"op": []string{"set"}, "value": []string{itemValue}}
+		uri := url.URL{Scheme: "item", RawQuery: query.Encode()}
+		if _, err := dr.ItemReader.Read(uri); err != nil {
+			dr.Logger.Error("failed to set item value", "item", utils.TruncateString(itemValue, 100), "error", err)
+			return fmt.Errorf("failed to set item: %w", err)
 		}
 	}
 

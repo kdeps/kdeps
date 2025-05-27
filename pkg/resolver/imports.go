@@ -298,19 +298,19 @@ func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
 		return err
 	}
 
-	if err := dr.AppendChatEntry(actionID, llmChat); err != nil {
+	if err := dr.AppendChatEntry(actionID, llmChat, false); err != nil {
 		return err
 	}
 
-	if err := dr.AppendExecEntry(actionID, execCmd); err != nil {
+	if err := dr.AppendExecEntry(actionID, execCmd, false); err != nil {
 		return err
 	}
 
-	if err := dr.AppendHTTPEntry(actionID, HTTPClient); err != nil {
+	if err := dr.AppendHTTPEntry(actionID, HTTPClient, false); err != nil {
 		return err
 	}
 
-	if err := dr.AppendPythonEntry(actionID, pythonCmd); err != nil {
+	if err := dr.AppendPythonEntry(actionID, pythonCmd, false); err != nil {
 		return err
 	}
 

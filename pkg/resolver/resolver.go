@@ -375,7 +375,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			// Process run block: once if no items, or once per item
 			if len(items) == 0 {
 				dr.Logger.Info("no items specified, processing run block once", "actionID", res.ActionID)
-				proceed, err := dr.processRunBlock(res, rsc, nodeActionID)
+				proceed, err := dr.processRunBlock(res, rsc, nodeActionID, false)
 				if err != nil {
 					return false, err
 				} else if !proceed {
@@ -405,7 +405,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 					}
 
 					// Process runBlock for the current item
-					_, err := dr.processRunBlock(res, rsc, nodeActionID)
+					_, err := dr.processRunBlock(res, rsc, nodeActionID, true)
 					if err != nil {
 						return false, err
 					}
@@ -454,7 +454,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 }
 
 // processRunBlock handles the runBlock processing for a resource, excluding APIResponse.
-func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes.Resource, actionID string) (bool, error) {
+func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes.Resource, actionID string, hasItems bool) (bool, error) {
 	// Increment the run counter for this file
 	dr.FileRunCounter[res.File]++
 	dr.Logger.Info("processing run block for file", "file", res.File, "runCount", dr.FileRunCounter[res.File], "actionID", actionID)
@@ -533,7 +533,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 	// Process Exec step, if defined
 	if runBlock.Exec != nil && runBlock.Exec.Command != "" {
 		if err := dr.processResourceStep(res.ActionID, "exec", runBlock.Exec.TimeoutDuration, func() error {
-			return dr.HandleExec(res.ActionID, runBlock.Exec)
+			return dr.HandleExec(res.ActionID, runBlock.Exec, hasItems)
 		}); err != nil {
 			dr.Logger.Error("exec error:", res.ActionID)
 			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Exec failed for resource: %s - %s", res.ActionID, err), false)
@@ -543,7 +543,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 	// Process Python step, if defined
 	if runBlock.Python != nil && runBlock.Python.Script != "" {
 		if err := dr.processResourceStep(res.ActionID, "python", runBlock.Python.TimeoutDuration, func() error {
-			return dr.HandlePython(res.ActionID, runBlock.Python)
+			return dr.HandlePython(res.ActionID, runBlock.Python, hasItems)
 		}); err != nil {
 			dr.Logger.Error("python error:", res.ActionID)
 			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Python script failed for resource: %s - %s", res.ActionID, err), false)
@@ -557,7 +557,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 			dr.Logger.Info("Scenario present", "length", len(*runBlock.Chat.Scenario))
 		}
 		if err := dr.processResourceStep(res.ActionID, "llm", runBlock.Chat.TimeoutDuration, func() error {
-			return dr.HandleLLMChat(res.ActionID, runBlock.Chat)
+			return dr.HandleLLMChat(res.ActionID, runBlock.Chat, hasItems)
 		}); err != nil {
 			dr.Logger.Error("LLM chat error", "actionID", res.ActionID, "error", err)
 			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("LLM chat failed for resource: %s - %s", res.ActionID, err), true)
@@ -572,7 +572,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 	// Process HTTP Client step, if defined
 	if runBlock.HTTPClient != nil && runBlock.HTTPClient.Method != "" && runBlock.HTTPClient.Url != "" {
 		if err := dr.processResourceStep(res.ActionID, "client", runBlock.HTTPClient.TimeoutDuration, func() error {
-			return dr.HandleHTTPClient(res.ActionID, runBlock.HTTPClient)
+			return dr.HandleHTTPClient(res.ActionID, runBlock.HTTPClient, hasItems)
 		}); err != nil {
 			dr.Logger.Error("HTTP client error:", res.ActionID)
 			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("HTTP client failed for resource: %s - %s", res.ActionID, err), false)
