@@ -2,7 +2,6 @@ package resolver
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -376,7 +375,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			// Process run block: once if no items, or once per item
 			if len(items) == 0 {
 				dr.Logger.Info("no items specified, processing run block once", "actionID", res.ActionID)
-				proceed, err := dr.processRunBlock(res, rsc, nodeActionID, false)
+				proceed, err := dr.processRunBlock(res, rsc, nodeActionID)
 				if err != nil {
 					return false, err
 				} else if !proceed {
@@ -386,7 +385,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 				for _, itemValue := range items {
 					dr.Logger.Info("processing item", "actionID", res.ActionID, "item", itemValue)
 					// Set the current item in the database
-					query := url.Values{"op": []string{"set"}, "value": []string{itemValue}}
+					query := url.Values{"op": []string{"updateCurrent"}, "value": []string{itemValue}}
 					uri := url.URL{Scheme: "item", RawQuery: query.Encode()}
 					if _, err := dr.ItemReader.Read(uri); err != nil {
 						dr.Logger.Error("failed to set item", "item", itemValue, "error", err)
@@ -406,7 +405,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 					}
 
 					// Process runBlock for the current item
-					_, err := dr.processRunBlock(res, rsc, nodeActionID, true)
+					_, err := dr.processRunBlock(res, rsc, nodeActionID)
 					if err != nil {
 						return false, err
 					}
@@ -455,7 +454,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 }
 
 // processRunBlock handles the runBlock processing for a resource, excluding APIResponse.
-func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes.Resource, actionID string, hasItems bool) (bool, error) {
+func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes.Resource, actionID string) (bool, error) {
 	// Increment the run counter for this file
 	dr.FileRunCounter[res.File]++
 	dr.Logger.Info("processing run block for file", "file", res.File, "runCount", dr.FileRunCounter[res.File], "actionID", actionID)
@@ -463,46 +462,6 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 	runBlock := rsc.Run
 	if runBlock == nil {
 		return false, nil
-	}
-
-	// When items are enabled, wait for the items database to have at least one item in the list
-	if hasItems {
-		const waitTimeout = 30 * time.Second
-		const pollInterval = 500 * time.Millisecond
-		deadline := time.Now().Add(waitTimeout)
-
-		dr.Logger.Info("Waiting for items database to have a non-empty list", "actionID", actionID)
-		for time.Now().Before(deadline) {
-			// Query the items database to retrieve the list
-			query := url.Values{"op": []string{"list"}}
-			uri := url.URL{Scheme: "item", RawQuery: query.Encode()}
-			result, err := dr.ItemReader.Read(uri)
-			if err != nil {
-				dr.Logger.Error("Failed to read list from items database", "actionID", actionID, "error", err)
-				return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Failed to read list from items database for resource %s: %v", actionID, err), true)
-			}
-			// Parse the []byte result as a JSON array
-			var items []string
-			if len(result) > 0 {
-				if err := json.Unmarshal(result, &items); err != nil {
-					dr.Logger.Error("Failed to parse items database result as JSON array", "actionID", actionID, "error", err)
-					return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Failed to parse items database result for resource %s: %v", actionID, err), true)
-				}
-			}
-			// Check if the list is non-empty
-			if len(items) > 0 {
-				dr.Logger.Info("Items database has a non-empty list", "actionID", actionID, "itemCount", len(items))
-				break
-			}
-			dr.Logger.Debug("Items database list is empty, retrying", "actionID", actionID)
-			time.Sleep(pollInterval)
-		}
-
-		// Check if we timed out
-		if time.Now().After(deadline) {
-			dr.Logger.Error("Timeout waiting for items database to have a non-empty list", "actionID", actionID)
-			return dr.HandleAPIErrorResponse(500, "Timeout waiting for items database to have a non-empty list for resource "+actionID, true)
-		}
 	}
 
 	if dr.APIServerMode {
