@@ -13,7 +13,7 @@ func TestPklResourceReader(t *testing.T) {
 
 	// Use in-memory SQLite database for testing
 	dbPath := "file::memory:"
-	reader, err := InitializeItem(dbPath, nil)
+	reader, err := InitializeItem(dbPath, nil, "test123")
 	require.NoError(t, err)
 	defer reader.DB.Close()
 
@@ -24,12 +24,12 @@ func TestPklResourceReader(t *testing.T) {
 
 	t.Run("Read_GetRecord", func(t *testing.T) {
 		t.Parallel()
-		reader, err := InitializeItem("file::memory:", nil)
+		reader, err := InitializeItem("file::memory:", nil, "test123")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
 		// Insert a record
-		_, err = reader.DB.Exec("INSERT INTO items (id, value) VALUES (?, ?)", "20250101120000.000000", "value1")
+		_, err = reader.DB.Exec("INSERT INTO items (id, value, action_id) VALUES (?, ?, ?)", "20250101120000.000000", "value1", "test123")
 		require.NoError(t, err)
 
 		uri, _ := url.Parse("item:/_?op=current")
@@ -43,11 +43,19 @@ func TestPklResourceReader(t *testing.T) {
 		data, err = reader.Read(*uri)
 		require.NoError(t, err)
 		require.Equal(t, []byte(""), data)
+
+		// Test with empty actionID
+		readerEmpty, err := InitializeItem("file::memory:", nil, "")
+		require.NoError(t, err)
+		defer readerEmpty.DB.Close()
+		data, err = readerEmpty.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte(""), data)
 	})
 
 	t.Run("Read_UpdateCurrent", func(t *testing.T) {
 		t.Parallel()
-		reader, err := InitializeItem("file::memory:", nil)
+		reader, err := InitializeItem("file::memory:", nil, "test123")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
@@ -57,9 +65,10 @@ func TestPklResourceReader(t *testing.T) {
 		require.Equal(t, []byte("newvalue"), data)
 
 		// Find the most recent ID
-		var id string
-		err = reader.DB.QueryRow("SELECT id FROM items ORDER BY id DESC LIMIT 1").Scan(&id)
+		var id, actionID string
+		err = reader.DB.QueryRow("SELECT id, action_id FROM items ORDER BY id DESC LIMIT 1").Scan(&id, &actionID)
 		require.NoError(t, err)
+		require.Equal(t, "test123", actionID)
 
 		var value string
 		err = reader.DB.QueryRow("SELECT value FROM items WHERE id = ?", id).Scan(&value)
@@ -68,20 +77,28 @@ func TestPklResourceReader(t *testing.T) {
 
 		// Test missing value parameter
 		uri, _ = url.Parse("item:/_?op=updateCurrent")
-		_, err = reader.Read(*uri)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "set operation requires a value parameter")
+		data, err = reader.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte(""), data)
+
+		// Test with empty actionID
+		readerEmpty, err := InitializeItem("file::memory:", nil, "")
+		require.NoError(t, err)
+		defer readerEmpty.DB.Close()
+		data, err = readerEmpty.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte(""), data)
 	})
 
 	t.Run("Read_Set", func(t *testing.T) {
 		t.Parallel()
-		reader, err := InitializeItem("file::memory:", nil)
+		reader, err := InitializeItem("file::memory:", nil, "test123")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
 		// Insert a current item
 		currentID := "20250101120000.000000"
-		_, err = reader.DB.Exec("INSERT INTO items (id, value) VALUES (?, ?)", currentID, "item1")
+		_, err = reader.DB.Exec("INSERT INTO items (id, value, action_id) VALUES (?, ?, ?)", currentID, "item1", "test123")
 		require.NoError(t, err)
 
 		// Append first result value
@@ -97,15 +114,16 @@ func TestPklResourceReader(t *testing.T) {
 		require.Equal(t, []byte("result2"), data)
 
 		// Verify both results are stored
-		rows, err := reader.DB.Query("SELECT result_value FROM results WHERE item_id = ? ORDER BY created_at", currentID)
+		rows, err := reader.DB.Query("SELECT result_value, action_id FROM results WHERE item_id = ? ORDER BY created_at", currentID)
 		require.NoError(t, err)
 		defer rows.Close()
 
 		var values []string
 		for rows.Next() {
-			var value string
-			err := rows.Scan(&value)
+			var value, actionID string
+			err := rows.Scan(&value, &actionID)
 			require.NoError(t, err)
+			require.Equal(t, "test123", actionID)
 			values = append(values, value)
 		}
 		require.NoError(t, rows.Err())
@@ -113,45 +131,62 @@ func TestPklResourceReader(t *testing.T) {
 
 		// Test missing value parameter
 		uri, _ = url.Parse("item:/_?op=set")
-		_, err = reader.Read(*uri)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "set operation requires a value parameter")
+		data, err = reader.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte(""), data)
 
 		// Test with no current item
 		_, err = reader.DB.Exec("DELETE FROM items")
 		require.NoError(t, err)
 		uri, _ = url.Parse("item:/_?op=set&value=result3")
-		_, err = reader.Read(*uri)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "no current record exists")
+		data, err = reader.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte(""), data)
+
+		// Test with empty actionID
+		readerEmpty, err := InitializeItem("file::memory:", nil, "")
+		require.NoError(t, err)
+		defer readerEmpty.DB.Close()
+		_, err = readerEmpty.DB.Exec("INSERT INTO items (id, value, action_id) VALUES (?, ?, ?)", currentID, "item1", "")
+		require.NoError(t, err)
+		data, err = readerEmpty.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte("result3"), data)
+
+		// Test actionID mismatch
+		_, err = reader.DB.Exec("INSERT INTO items (id, value, action_id) VALUES (?, ?, ?)", currentID, "item1", "wrongID")
+		require.NoError(t, err)
+		data, err = reader.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte(""), data)
 	})
 
-	t.Run("Read_Results", func(t *testing.T) {
+	t.Run("Read_Values", func(t *testing.T) {
 		t.Parallel()
-		reader, err := InitializeItem("file::memory:", nil)
+		reader, err := InitializeItem("file::memory:", nil, "test123")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
 		// Insert items and results
 		_, err = reader.DB.Exec(`
-			INSERT INTO items (id, value) VALUES
-			('20250101120000.000000', 'item1'),
-			('20250101120001.000000', 'item2')
+			INSERT INTO items (id, value, action_id) VALUES
+			('20250101120000.000000', 'item1', 'test123'),
+			('20250101120001.000000', 'item2', 'test123')
 		`)
 		require.NoError(t, err)
 
 		_, err = reader.DB.Exec(`
-			INSERT INTO results (id, item_id, result_value, created_at) VALUES
-			('result1', '20250101120000.000000', 'result1', '2025-01-01T12:00:00Z'),
-			('result2', '20250101120000.000000', 'result2', '2025-01-01T12:00:01Z'),
-			('result3', '20250101120001.000000', 'result3', '2025-01-01T12:00:02Z')
+			INSERT INTO results (id, item_id, result_value, created_at, action_id) VALUES
+			('result1', '20250101120000.000000', 'result1', '2025-01-01T12:00:00Z', 'test123'),
+			('result2', '20250101120000.000000', 'result2', '2025-01-01T12:00:01Z', 'test123'),
+			('result3', '20250101120001.000000', 'result3', '2025-01-01T12:00:02Z', 'test123')
 		`)
 		require.NoError(t, err)
 
-		uri, _ := url.Parse("item:/_?op=results")
+		uri, _ := url.Parse("item:/test123?op=values")
 		data, err := reader.Read(*uri)
 		require.NoError(t, err)
-		require.Equal(t, []byte(`["result1","result2","result3"]`), data)
+		require.Equal(t, []byte(`["result1", "result2", "result3"]`), data)
 
 		// Test with no results
 		_, err = reader.DB.Exec("DELETE FROM results")
@@ -159,27 +194,49 @@ func TestPklResourceReader(t *testing.T) {
 		data, err = reader.Read(*uri)
 		require.NoError(t, err)
 		require.Equal(t, []byte("[]"), data)
+
+		// Test with missing actionID in URI
+		uri, _ = url.Parse("item:/?op=values")
+		data, err = reader.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte(""), data)
+	})
+
+	t.Run("Read_Values_DatabaseError", func(t *testing.T) {
+		t.Parallel()
+		reader, err := InitializeItem("file::memory:", nil, "test123")
+		require.NoError(t, err)
+		defer reader.DB.Close()
+
+		// Drop results table to simulate database error
+		_, err = reader.DB.Exec("DROP TABLE results")
+		require.NoError(t, err)
+
+		uri, _ := url.Parse("item:/test123?op=values")
+		data, err := reader.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte(""), data)
 	})
 
 	t.Run("Read_LastResult", func(t *testing.T) {
 		t.Parallel()
-		reader, err := InitializeItem("file::memory:", nil)
+		reader, err := InitializeItem("file::memory:", nil, "test123")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
 		// Insert items and results
 		_, err = reader.DB.Exec(`
-			INSERT INTO items (id, value) VALUES
-			('20250101120000.000000', 'item1'),
-			('20250101120001.000000', 'item2')
+			INSERT INTO items (id, value, action_id) VALUES
+			('20250101120000.000000', 'item1', 'test123'),
+			('20250101120001.000000', 'item2', 'test123')
 		`)
 		require.NoError(t, err)
 
 		_, err = reader.DB.Exec(`
-			INSERT INTO results (id, item_id, result_value, created_at) VALUES
-			('result1', '20250101120000.000000', 'result1', '2025-01-01T12:00:00Z'),
-			('result2', '20250101120000.000000', 'result2', '2025-01-01T12:00:01Z'),
-			('result3', '20250101120001.000000', 'result3', '2025-01-01T12:00:02Z')
+			INSERT INTO results (id, item_id, result_value, created_at, action_id) VALUES
+			('result1', '20250101120000.000000', 'result1', '2025-01-01T12:00:00Z', 'test123'),
+			('result2', '20250101120000.000000', 'result2', '2025-01-01T12:00:01Z', 'test123'),
+			('result3', '20250101120001.000000', 'result3', '2025-01-01T12:00:02Z', 'test123')
 		`)
 		require.NoError(t, err)
 
@@ -194,19 +251,27 @@ func TestPklResourceReader(t *testing.T) {
 		data, err = reader.Read(*uri)
 		require.NoError(t, err)
 		require.Equal(t, []byte(""), data)
+
+		// Test with empty actionID
+		readerEmpty, err := InitializeItem("file::memory:", nil, "")
+		require.NoError(t, err)
+		defer readerEmpty.DB.Close()
+		data, err = readerEmpty.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte(""), data)
 	})
 
 	t.Run("Read_PrevRecord", func(t *testing.T) {
 		t.Parallel()
-		reader, err := InitializeItem("file::memory:", nil)
+		reader, err := InitializeItem("file::memory:", nil, "test123")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
 		_, err = reader.DB.Exec(`
-			INSERT INTO items (id, value) VALUES
-			('20250101120000.000000', 'value1'),
-			('20250101120001.000000', 'value2'),
-			('20250101120002.000000', 'value3')
+			INSERT INTO items (id, value, action_id) VALUES
+			('20250101120000.000000', 'value1', 'test123'),
+			('20250101120001.000000', 'value2', 'test123'),
+			('20250101120002.000000', 'value3', 'test123')
 		`)
 		require.NoError(t, err)
 
@@ -221,19 +286,27 @@ func TestPklResourceReader(t *testing.T) {
 		data, err = reader.Read(*uri)
 		require.NoError(t, err)
 		require.Equal(t, []byte(""), data)
+
+		// Test with empty actionID
+		readerEmpty, err := InitializeItem("file::memory:", nil, "")
+		require.NoError(t, err)
+		defer readerEmpty.DB.Close()
+		data, err = readerEmpty.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte(""), data)
 	})
 
 	t.Run("Read_NextRecord", func(t *testing.T) {
 		t.Parallel()
-		reader, err := InitializeItem("file::memory:", nil)
+		reader, err := InitializeItem("file::memory:", nil, "test123")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
 		_, err = reader.DB.Exec(`
-			INSERT INTO items (id, value) VALUES
-			('20250101120000.000000', 'value1'),
-			('20250101120001.000000', 'value2'),
-			('20250101120002.000000', 'value3')
+			INSERT INTO items (id, value, action_id) VALUES
+			('20250101120000.000000', 'value1', 'test123'),
+			('20250101120001.000000', 'value2', 'test123'),
+			('20250101120002.000000', 'value3', 'test123')
 		`)
 		require.NoError(t, err)
 
@@ -245,7 +318,7 @@ func TestPklResourceReader(t *testing.T) {
 		// Test with only one record
 		_, err = reader.DB.Exec("DELETE FROM items")
 		require.NoError(t, err)
-		_, err = reader.DB.Exec("INSERT INTO items (id, value) VALUES (?, ?)", "20250101120000.000000", "value1")
+		_, err = reader.DB.Exec("INSERT INTO items (id, value, action_id) VALUES (?, ?, ?)", "20250101120000.000000", "value1", "test123")
 		require.NoError(t, err)
 
 		data, err = reader.Read(*uri)
@@ -258,62 +331,46 @@ func TestPklResourceReader(t *testing.T) {
 		data, err = reader.Read(*uri)
 		require.NoError(t, err)
 		require.Equal(t, []byte(""), data)
+
+		// Test with empty actionID
+		readerEmpty, err := InitializeItem("file::memory:", nil, "")
+		require.NoError(t, err)
+		defer readerEmpty.DB.Close()
+		data, err = readerEmpty.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte(""), data)
 	})
 
-	t.Run("Read_ListRecords", func(t *testing.T) {
+	t.Run("Read_InvalidOperation", func(t *testing.T) {
 		t.Parallel()
-		reader, err := InitializeItem("file::memory:", nil)
+		reader, err := InitializeItem("file::memory:", nil, "test123")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
-		// Insert items
-		_, err = reader.DB.Exec(`
-			INSERT INTO items (id, value) VALUES
-			('20250101120000.000000', 'item1'),
-			('20250101120001.000000', 'item2')
-		`)
-		require.NoError(t, err)
-
-		// Insert results
-		_, err = reader.DB.Exec(`
-			INSERT INTO results (id, item_id, result_value, created_at) VALUES
-			('result1', '20250101120000.000000', 'result1', '2025-01-01T12:00:00Z'),
-			('result2', '20250101120000.000000', 'result2', '2025-01-01T12:00:01Z'),
-			('result3', '20250101120001.000000', 'result3', '2025-01-01T12:00:02Z')
-		`)
-		require.NoError(t, err)
-
-		// Verify results
-		uri, _ := url.Parse("item:/_?op=results")
+		uri, _ := url.Parse("item:/_?op=invalid")
 		data, err := reader.Read(*uri)
 		require.NoError(t, err)
-		require.Equal(t, []byte(`["result1","result2","result3"]`), data)
-
-		// Test with no results
-		_, err = reader.DB.Exec("DELETE FROM results")
-		require.NoError(t, err)
-		data, err = reader.Read(*uri)
-		require.NoError(t, err)
-		require.Equal(t, []byte("[]"), data)
+		require.Equal(t, []byte(""), data)
 	})
 
 	t.Run("InitializeWithItems", func(t *testing.T) {
 		t.Parallel()
 		items := []string{"item1", "item2", "item1"} // Includes duplicate
-		reader, err := InitializeItem("file::memory:", items)
+		reader, err := InitializeItem("file::memory:", items, "test123")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
 		// Verify items were inserted
-		rows, err := reader.DB.Query("SELECT value FROM items ORDER BY id")
+		rows, err := reader.DB.Query("SELECT value, action_id FROM items ORDER BY id")
 		require.NoError(t, err)
 		defer rows.Close()
 
 		var values []string
 		for rows.Next() {
-			var value string
-			err := rows.Scan(&value)
+			var value, actionID string
+			err := rows.Scan(&value, &actionID)
 			require.NoError(t, err)
+			require.Equal(t, "", actionID) // Initial items have empty action_id
 			values = append(values, value)
 		}
 		require.NoError(t, rows.Err())
@@ -348,14 +405,22 @@ func TestInitializeDatabase(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "results", name)
 
-		// Verify results table schema
+		// Verify items table schema
 		var sql string
+		err = db.QueryRow("SELECT sql FROM sqlite_master WHERE type='table' AND name='items'").Scan(&sql)
+		require.NoError(t, err)
+		require.Contains(t, sql, "id TEXT PRIMARY KEY")
+		require.Contains(t, sql, "value TEXT NOT NULL")
+		require.Contains(t, sql, "action_id TEXT")
+
+		// Verify results table schema
 		err = db.QueryRow("SELECT sql FROM sqlite_master WHERE type='table' AND name='results'").Scan(&sql)
 		require.NoError(t, err)
 		require.Contains(t, sql, "id TEXT PRIMARY KEY")
 		require.Contains(t, sql, "item_id TEXT NOT NULL")
 		require.Contains(t, sql, "result_value TEXT NOT NULL")
 		require.Contains(t, sql, "created_at TIMESTAMP NOT NULL")
+		require.Contains(t, sql, "action_id TEXT")
 		require.Contains(t, sql, "FOREIGN KEY (item_id) REFERENCES items(id)")
 	})
 
@@ -368,15 +433,16 @@ func TestInitializeDatabase(t *testing.T) {
 		defer db.Close()
 
 		// Verify items were inserted
-		rows, err := db.Query("SELECT value FROM items ORDER BY id")
+		rows, err := db.Query("SELECT value, action_id FROM items ORDER BY id")
 		require.NoError(t, err)
 		defer rows.Close()
 
 		var values []string
 		for rows.Next() {
-			var value string
-			err := rows.Scan(&value)
+			var value, actionID string
+			err := rows.Scan(&value, &actionID)
 			require.NoError(t, err)
+			require.Equal(t, "", actionID) // Initial items have empty action_id
 			values = append(values, value)
 		}
 		require.NoError(t, rows.Err())
@@ -395,11 +461,12 @@ func TestInitializeItem(t *testing.T) {
 
 	t.Run("WithoutItems", func(t *testing.T) {
 		t.Parallel()
-		reader, err := InitializeItem("file::memory:", nil)
+		reader, err := InitializeItem("file::memory:", nil, "test123")
 		require.NoError(t, err)
 		require.NotNil(t, reader)
 		require.NotNil(t, reader.DB)
 		require.Equal(t, "file::memory:", reader.DBPath)
+		require.Equal(t, "test123", reader.ActionID)
 		defer reader.DB.Close()
 
 		// Verify empty database
@@ -412,23 +479,25 @@ func TestInitializeItem(t *testing.T) {
 	t.Run("WithItems", func(t *testing.T) {
 		t.Parallel()
 		items := []string{"item1", "item2", "item1"}
-		reader, err := InitializeItem("file::memory:", items)
+		reader, err := InitializeItem("file::memory:", items, "test123")
 		require.NoError(t, err)
 		require.NotNil(t, reader)
 		require.NotNil(t, reader.DB)
 		require.Equal(t, "file::memory:", reader.DBPath)
+		require.Equal(t, "test123", reader.ActionID)
 		defer reader.DB.Close()
 
 		// Verify items were inserted
-		rows, err := reader.DB.Query("SELECT value FROM items ORDER BY id")
+		rows, err := reader.DB.Query("SELECT value, action_id FROM items ORDER BY id")
 		require.NoError(t, err)
 		defer rows.Close()
 
 		var values []string
 		for rows.Next() {
-			var value string
-			err := rows.Scan(&value)
+			var value, actionID string
+			err := rows.Scan(&value, &actionID)
 			require.NoError(t, err)
+			require.Equal(t, "", actionID) // Initial items have empty action_id
 			values = append(values, value)
 		}
 		require.NoError(t, rows.Err())

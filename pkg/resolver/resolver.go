@@ -157,7 +157,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	}
 
 	itemDBPath = filepath.Join(actionDir, graphID+"_item.db")
-	itemReader, err := item.InitializeItem(itemDBPath, nil)
+	itemReader, err := item.InitializeItem(itemDBPath, nil, "")
 	if err != nil {
 		itemReader.DB.Close()
 		return nil, fmt.Errorf("failed to initialize item DB: %w", err)
@@ -202,17 +202,6 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	}
 
 	return dependencyResolver, nil
-}
-
-// ClearItemDB clears all contents of the item database.
-func (dr *DependencyResolver) ClearItemDB() error {
-	// Clear all records in the items table
-	_, err := dr.ItemReader.DB.Exec("DELETE FROM items")
-	if err != nil {
-		return fmt.Errorf("failed to clear item database: %w", err)
-	}
-	dr.Logger.Info("cleared item database", "path", dr.ItemDBPath)
-	return nil
 }
 
 // processResourceStep consolidates the pattern of: get timestamp, run a handler, adjust timeout (if provided),
@@ -363,8 +352,8 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 				items = *rsc.Items
 				// Close existing item database
 				dr.ItemReader.DB.Close()
-				// Reinitialize item database with items
-				itemReader, err := item.InitializeItem(dr.ItemDBPath, items)
+				// Reinitialize item database with items and actionID
+				itemReader, err := item.InitializeItem(dr.ItemDBPath, items, res.ActionID)
 				if err != nil {
 					return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to reinitialize item DB with items: %v", err), true)
 				}
@@ -409,11 +398,6 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 					if err != nil {
 						return false, err
 					}
-				}
-				// Clear the item database after processing all items
-				if err := dr.ClearItemDB(); err != nil {
-					dr.Logger.Error("failed to clear item database after iteration", "actionID", res.ActionID, "error", err)
-					return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to clear item database for resource %s: %v", res.ActionID, err), true)
 				}
 			}
 
