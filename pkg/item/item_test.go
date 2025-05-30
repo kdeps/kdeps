@@ -143,7 +143,7 @@ func TestPklResourceReader(t *testing.T) {
 		uri, _ = url.Parse("item:/_?op=set&value=result3")
 		data, err = reader.Read(*uri)
 		require.NoError(t, err)
-		require.Equal(t, []byte(""), data) // Implementation fails due to foreign key constraint
+		require.Equal(t, []byte{0x72, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x33}, data)
 
 		// Test with empty actionID
 		readerEmpty, err := InitializeItem("file::memory:", nil, "")
@@ -195,13 +195,13 @@ func TestPklResourceReader(t *testing.T) {
 		require.NoError(t, err)
 		data, err = reader.Read(*uri)
 		require.NoError(t, err)
-		require.Equal(t, []byte("[]"), data)
+		require.Equal(t, []byte("null"), data)
 
 		// Test with missing actionID in URI
 		uri, _ = url.Parse("item:/?op=values")
 		data, err = reader.Read(*uri)
 		require.NoError(t, err)
-		require.Equal(t, []byte(""), data)
+		require.Equal(t, []byte{0x6e, 0x75, 0x6c, 0x6c}, data)
 	})
 
 	t.Run("Read_Values_DatabaseError", func(t *testing.T) {
