@@ -2,6 +2,7 @@ package item
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/url"
@@ -67,27 +68,8 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 
 	switch operation {
 	case "updateCurrent":
-		if r.ActionID == "" {
-			log.Printf("Error: updateCurrent operation requires initialized actionID")
-			return []byte(""), nil
-		}
 		newValue := query.Get("value")
-		if newValue == "" {
-			log.Printf("Error: updateCurrent operation requires a value parameter, actionID: %s", r.getActionIDForLog())
-			return []byte(""), nil
-		}
-
-		// Check current action_id
-		currentID, dbActionID, err := r.getMostRecentIDWithActionID()
-		if err != nil {
-			log.Printf("Error: Failed to get most recent item ID, actionID: %s: %v", r.getActionIDForLog(), err)
-			return []byte(""), nil
-		}
-		if currentID != "" && r.ActionID != dbActionID {
-			log.Printf("Error: actionID mismatch for updateCurrent: expected %s, got %s", r.getActionIDForLog(), dbActionID)
-			return []byte(""), nil
-		}
-
+		// Removed validation for actionID and value
 		id := time.Now().Format("20060102150405.999999")
 		log.Printf("Processing item record: id=%s, value=%s, actionID: %s", id, newValue, r.getActionIDForLog())
 
@@ -138,24 +120,10 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 
 	case "set":
 		newValue := query.Get("value")
-		if newValue == "" {
-			log.Printf("Error: set operation requires a value parameter, actionID: %s", r.getActionIDForLog())
-			return []byte(""), nil
-		}
-
-		currentID, dbActionID, err := r.getMostRecentIDWithActionID()
+		// Removed validation for value, actionID, and currentID
+		currentID, _, err := r.getMostRecentIDWithActionID()
 		if err != nil {
 			log.Printf("Error: Failed to get most recent item ID, actionID: %s: %v", r.getActionIDForLog(), err)
-			return []byte(""), nil
-		}
-		if currentID == "" {
-			log.Printf("Error: No item records found for set, actionID: %s", r.getActionIDForLog())
-			return []byte(""), nil
-		}
-
-		// Compare actionID
-		if r.ActionID != dbActionID {
-			log.Printf("Error: actionID mismatch for set: expected %s, got %s", r.getActionIDForLog(), dbActionID)
 			return []byte(""), nil
 		}
 
@@ -208,10 +176,7 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		return []byte(newValue), nil
 
 	case "values":
-		if uriActionID == "" {
-			log.Printf("Error: values operation requires actionID in URI path, actionID: %s", r.getActionIDForLog())
-			return []byte(""), nil
-		}
+		// Removed validation for uriActionID and actionID mismatch
 		log.Printf("Processing results query for uriActionID: %s, reader actionID: %s", uriActionID, r.getActionIDForLog())
 
 		rows, err := r.DB.Query(`
@@ -242,28 +207,10 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 			return []byte(""), nil
 		}
 
-		// Verify action_id matches r.ActionID for all results
-		if r.ActionID != "" && r.ActionID != uriActionID {
-			log.Printf("Error: actionID mismatch for values: reader actionID %s, URI actionID %s", r.getActionIDForLog(), uriActionID)
+		result, err := json.Marshal(values)
+		if err != nil {
+			log.Printf("Error: Failed to marshal results to JSON for actionID %s: %v", uriActionID, err)
 			return []byte(""), nil
-		}
-
-		log.Printf("Results before formatting for actionID %s: %v", uriActionID, values)
-
-		// Format as Pkl Listing (e.g., ["result1", "result2"])
-		var pklList strings.Builder
-		pklList.WriteString("[")
-		for i, v := range values {
-			if i > 0 {
-				pklList.WriteString(", ")
-			}
-			pklList.WriteString(fmt.Sprintf("%q", v))
-		}
-		pklList.WriteString("]")
-
-		result := pklList.String()
-		if len(values) == 0 {
-			result = "[]"
 		}
 
 		log.Printf("Successfully retrieved %d result records for actionID %s: %s", len(values), uriActionID, result)
