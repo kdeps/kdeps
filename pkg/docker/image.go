@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/build"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/kdeps/kdeps/pkg/archiver"
@@ -109,7 +109,7 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 	}
 
 	// Docker build options
-	buildOptions := types.ImageBuildOptions{
+	buildOptions := build.ImageBuildOptions{
 		Tags:           []string{containerName}, // Image name and tag
 		Dockerfile:     "Dockerfile",            // The Dockerfile is in the root of the build context
 		Remove:         true,                    // Remove intermediate containers after a successful build
