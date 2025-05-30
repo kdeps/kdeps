@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
@@ -79,8 +80,15 @@ func (dr *DependencyResolver) AppendDataEntry(resourceID string, newData *pklDat
 		return fmt.Errorf("failed to write to PKL file: %w", err)
 	}
 
+	readers := []pkl.ResourceReader{
+		dr.MemoryReader,
+		dr.SessionReader,
+		dr.ToolReader,
+		dr.ItemReader,
+	}
+
 	// Evaluate the PKL file using EvalPkl
-	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath, fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Data.pkl\"", schema.SchemaVersion(dr.Context)), dr.Logger)
+	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath, fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Data.pkl\"", schema.SchemaVersion(dr.Context)), readers, dr.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to evaluate PKL file: %w", err)
 	}

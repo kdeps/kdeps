@@ -475,8 +475,15 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 		return fmt.Errorf("failed to write PKL file: %w", err)
 	}
 
+	readers := []pkl.ResourceReader{
+		dr.MemoryReader,
+		dr.SessionReader,
+		dr.ToolReader,
+		dr.ItemReader,
+	}
+
 	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath,
-		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"", schema.SchemaVersion(dr.Context)), dr.Logger)
+		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"", schema.SchemaVersion(dr.Context)), readers, dr.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to evaluate PKL file: %w", err)
 	}
@@ -487,7 +494,8 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 // generatePklContent generates Pkl content from resources.
 func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.Context, logger *logging.Logger) string {
 	var pklContent strings.Builder
-	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"\n\n", schema.SchemaVersion(ctx)))
+	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"\n", schema.SchemaVersion(ctx)))
+	pklContent.WriteString("import \"pkl:json\"\n\n")
 	pklContent.WriteString("resources {\n")
 
 	for id, res := range resources {
@@ -586,6 +594,7 @@ func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.C
 			pklContent.WriteString("    file = \"\"\n")
 		}
 
+		pklContent.WriteString(fmt.Sprintf("    itemValues = new Listing {...?(new json.Parser { useMapping = false }).parse(read(\"item:/%s?op=values\")?.text)}\n", id))
 		pklContent.WriteString("  }\n")
 	}
 	pklContent.WriteString("}\n")

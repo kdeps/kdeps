@@ -267,7 +267,8 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 	}
 
 	var pklContent strings.Builder
-	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Python.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
+	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Python.pkl\"\n", schema.SchemaVersion(dr.Context)))
+	pklContent.WriteString("import \"pkl:json\"\n\n")
 	pklContent.WriteString("resources {\n")
 
 	for id, res := range existingResources {
@@ -290,7 +291,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 		pklContent.WriteString(dr.encodePythonStderr(res.Stderr))
 		pklContent.WriteString(dr.encodePythonStdout(res.Stdout))
 		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *res.File))
-
+		pklContent.WriteString(fmt.Sprintf("    itemValues = new Listing {...?(new json.Parser { useMapping = false }).parse(read(\"item:/%s?op=values\")?.text)}\n", id))
 		pklContent.WriteString("  }\n")
 	}
 	pklContent.WriteString("}\n")
@@ -299,8 +300,15 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 		return fmt.Errorf("failed to write PKL file: %w", err)
 	}
 
+	readers := []pkl.ResourceReader{
+		dr.MemoryReader,
+		dr.SessionReader,
+		dr.ToolReader,
+		dr.ItemReader,
+	}
+
 	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath,
-		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Python.pkl\"", schema.SchemaVersion(dr.Context)), dr.Logger)
+		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Python.pkl\"", schema.SchemaVersion(dr.Context)), readers, dr.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to evaluate PKL: %w", err)
 	}

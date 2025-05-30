@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/apple/pkl-go/pkl"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -394,8 +395,15 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 
 		sections := []string{urlSection, clientIPSection, requestIDSection, method, requestHeaderSection, dataSection, paramSection, fileSection}
 
+		readers := []pkl.ResourceReader{
+			dr.MemoryReader,
+			dr.SessionReader,
+			dr.ToolReader,
+			dr.ItemReader,
+		}
+
 		if err := evaluator.CreateAndProcessPklFile(dr.Fs, ctx, sections, dr.RequestPklFile,
-			"APIServerRequest.pkl", dr.Logger, evaluator.EvalPkl, true); err != nil {
+			"APIServerRequest.pkl", readers, dr.Logger, evaluator.EvalPkl, true); err != nil {
 			errors = append(errors, ErrorResponse{
 				Code:    http.StatusInternalServerError,
 				Message: "Failed to process request file",

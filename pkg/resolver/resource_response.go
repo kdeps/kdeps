@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/alexellis/go-execute/v2"
+	"github.com/apple/pkl-go/pkl"
 	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -25,8 +26,15 @@ func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverre
 		return fmt.Errorf("ensure response PKL file does not exist: %w", err)
 	}
 
+	readers := []pkl.ResourceReader{
+		dr.MemoryReader,
+		dr.SessionReader,
+		dr.ToolReader,
+		dr.ItemReader,
+	}
+
 	sections := dr.buildResponseSections(dr.RequestID, apiResponseBlock)
-	if err := evaluator.CreateAndProcessPklFile(dr.Fs, dr.Context, sections, dr.ResponsePklFile, "APIServerResponse.pkl", dr.Logger, evaluator.EvalPkl, false); err != nil {
+	if err := evaluator.CreateAndProcessPklFile(dr.Fs, dr.Context, sections, dr.ResponsePklFile, "APIServerResponse.pkl", readers, dr.Logger, evaluator.EvalPkl, false); err != nil {
 		return fmt.Errorf("create/process PKL file: %w", err)
 	}
 
