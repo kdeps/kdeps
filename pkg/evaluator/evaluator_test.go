@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
@@ -24,7 +25,7 @@ func TestCreateAndProcessPklFile(t *testing.T) {
 	extendsFileName := "/tmp/extends.pkl"
 	pklTemplate := "Kdeps.pkl"
 
-	processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
+	processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, readers []pkl.ResourceReader, logger *logging.Logger) (string, error) {
 		content, err := afero.ReadFile(fs, tmpFile)
 		if err != nil {
 			return "", err
@@ -34,7 +35,7 @@ func TestCreateAndProcessPklFile(t *testing.T) {
 
 	t.Run("CreateAndProcessAmends", func(t *testing.T) {
 		t.Parallel()
-		err := evaluator.CreateAndProcessPklFile(fs, ctx, sections, amendsFileName, pklTemplate, logger, processFunc, false)
+		err := evaluator.CreateAndProcessPklFile(fs, ctx, sections, amendsFileName, pklTemplate, nil, logger, processFunc, false)
 		require.NoError(t, err, "CreateAndProcessPklFile should not return an error")
 		content, err := afero.ReadFile(fs, amendsFileName)
 		require.NoError(t, err, "Final file should be created successfully")
@@ -44,7 +45,7 @@ func TestCreateAndProcessPklFile(t *testing.T) {
 
 	t.Run("CreateAndProcessExtends", func(t *testing.T) {
 		t.Parallel()
-		err := evaluator.CreateAndProcessPklFile(fs, ctx, sections, extendsFileName, pklTemplate, logger, processFunc, true)
+		err := evaluator.CreateAndProcessPklFile(fs, ctx, sections, extendsFileName, pklTemplate, nil, logger, processFunc, true)
 		require.NoError(t, err, "CreateAndProcessPklFile should not return an error")
 		content, err := afero.ReadFile(fs, extendsFileName)
 		require.NoError(t, err, "Final file should be created successfully")

@@ -2,14 +2,14 @@ package evaluator
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
-	"github.com/alexellis/go-execute/v2"
+	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/spf13/afero"
@@ -29,45 +29,58 @@ func EnsurePklBinaryExists(ctx context.Context, logger *logging.Logger) error {
 	return nil // Unreachable, but included for clarity
 }
 
-// EvalPkl evaluates the resource file at resourcePath using the 'pkl' binary.
+// EvalPkl evaluates the resource file at resourcePath using the Pkl library.
 // It expects the resourcePath to have a .pkl extension.
-func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSection string, logger *logging.Logger) (string, error) {
+func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSection string, readers []pkl.ResourceReader, logger *logging.Logger) (string, error) {
 	// Validate that the file has a .pkl extension
 	if filepath.Ext(resourcePath) != ".pkl" {
 		errMsg := fmt.Sprintf("file '%s' must have a .pkl extension", resourcePath)
 		logger.Error(errMsg)
-		return "", errors.New(errMsg)
+		return "", fmt.Errorf("%s", errMsg)
 	}
 
-	// Ensure that the 'pkl' binary is available
-	if err := EnsurePklBinaryExists(ctx, logger); err != nil {
-		return "", err
+	// Create a ModuleSource using UriSource for paths with a protocol, FileSource for relative paths
+	var moduleSource *pkl.ModuleSource
+	parsedURL, err := url.Parse(resourcePath)
+	if err == nil && parsedURL.Scheme != "" {
+		// Has a protocol (e.g., file://, http://, https://)
+		moduleSource = pkl.UriSource(resourcePath)
+	} else {
+		// Absolute path without a protocol
+		moduleSource = pkl.FileSource(resourcePath)
 	}
 
-	// Prepare the command to evaluate the .pkl file
-	cmd := execute.ExecTask{
-		Command:     "pkl",
-		Args:        []string{"eval", resourcePath},
-		StreamStdio: false,
+	// Define an option function to configure EvaluatorOptions
+	opts := func(options *pkl.EvaluatorOptions) {
+		pkl.WithDefaultAllowedResources(options)
+		pkl.WithOsEnv(options)
+		pkl.WithDefaultAllowedModules(options)
+		pkl.WithDefaultCacheDir(options)
+		options.Logger = pkl.NoopLogger
+		options.ResourceReaders = readers
+		options.AllowedModules = []string{".*"}
+		options.AllowedResources = []string{".*"}
 	}
 
-	// Execute the command
-	result, err := cmd.Execute(ctx)
+	// Create evaluator with custom options
+	pklEvaluator, err := pkl.NewEvaluator(ctx, opts)
 	if err != nil {
-		errMsg := "command execution failed"
+		errMsg := "error creating evaluator"
 		logger.Error(errMsg, "error", err)
 		return "", fmt.Errorf("%s: %w", errMsg, err)
 	}
+	defer pklEvaluator.Close()
 
-	// Check for non-zero exit code
-	if result.ExitCode != 0 {
-		errMsg := fmt.Sprintf("command failed with exit code %d: %s", result.ExitCode, result.Stderr)
-		logger.Error(errMsg)
-		return "", errors.New(errMsg)
+	// Evaluate the Pkl file
+	result, err := pklEvaluator.EvaluateOutputText(ctx, moduleSource)
+	if err != nil {
+		errMsg := "failed to evaluate Pkl file"
+		logger.Error(errMsg, "error", err, "resourcePath", resourcePath)
+		return "", fmt.Errorf("%s: %w", errMsg, err)
 	}
 
-	// Format the result by prepending the headerSection to the command stdout
-	formattedResult := fmt.Sprintf("%s\n%s", headerSection, result.Stdout)
+	// Format the result by prepending the headerSection
+	formattedResult := fmt.Sprintf("%s\n%s", headerSection, result)
 
 	// Return the formatted result
 	return formattedResult, nil
@@ -79,8 +92,9 @@ func CreateAndProcessPklFile(
 	sections []string,
 	finalFileName string,
 	pklTemplate string,
+	readers []pkl.ResourceReader,
 	logger *logging.Logger,
-	processFunc func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error),
+	processFunc func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, readers []pkl.ResourceReader, logger *logging.Logger) (string, error),
 	isExtension bool, // New parameter to control amends vs extends
 ) error {
 	// Create a temporary directory
@@ -123,7 +137,7 @@ func CreateAndProcessPklFile(
 	}
 
 	// Process the temporary file using the provided function
-	processedContent, err := processFunc(fs, ctx, tmpFile.Name(), relationshipSection, logger)
+	processedContent, err := processFunc(fs, ctx, tmpFile.Name(), relationshipSection, readers, logger)
 	if err != nil {
 		logger.Error("failed to process temporary file", "path", tmpFile.Name(), "error", err)
 		return fmt.Errorf("failed to process temporary file: %w", err)
