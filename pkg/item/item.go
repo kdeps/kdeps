@@ -1,8 +1,10 @@
 package item
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/url"
@@ -40,8 +42,65 @@ func (r *PklResourceReader) Scheme() string {
 	return "item"
 }
 
+// getItemRecord retrieves an item record based on the specified operation ("prev", "next", or "current").
+func (r *PklResourceReader) getItemRecord(ctx context.Context, operation string) ([]byte, error) {
+	if r.ActionID == "" {
+		log.Printf("Error: %s operation requires initialized actionID", operation)
+		return []byte(""), nil
+	}
+	log.Printf("Processing %s item record query, actionID: %s", operation, r.getActionIDForLog())
+
+	currentID, dbActionID, err := r.getMostRecentIDWithActionID()
+	if err != nil {
+		log.Printf("Error: Failed to get most recent item ID, actionID: %s: %v", r.getActionIDForLog(), err)
+		return []byte(""), nil
+	}
+	if currentID == "" {
+		log.Printf("No item records found for %s query, actionID: %s", operation, r.getActionIDForLog())
+		return []byte(""), nil
+	}
+
+	if r.ActionID != dbActionID {
+		log.Printf("Error: actionID mismatch for %s: expected %s, got %s", operation, r.getActionIDForLog(), dbActionID)
+		return []byte(""), nil
+	}
+
+	var query string
+	switch operation {
+	case "prev":
+		query = `SELECT value, action_id FROM items WHERE id < ? AND action_id = ? ORDER BY id DESC LIMIT 1`
+	case "next":
+		query = `SELECT value, action_id FROM items WHERE id > ? AND action_id = ? ORDER BY id ASC LIMIT 1`
+	case "current":
+		query = `SELECT value, action_id FROM items WHERE id = ? AND action_id = ?`
+	default:
+		return []byte(""), fmt.Errorf("invalid operation: %s", operation)
+	}
+
+	var value, actionID string
+	err = r.DB.QueryRowContext(ctx, query, currentID, r.ActionID).Scan(&value, &actionID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		log.Printf("Error: Failed to read %s item record for id %s, actionID: %s: %v", operation, currentID, r.getActionIDForLog(), err)
+		return []byte(""), nil
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		log.Printf("No %s item record found for id: %s, actionID: %s", operation, currentID, r.getActionIDForLog())
+		return []byte(""), nil
+	}
+
+	if r.ActionID != actionID {
+		log.Printf("Error: actionID mismatch for %s: expected %s, got %s", operation, r.getActionIDForLog(), actionID)
+		return []byte(""), nil
+	}
+
+	log.Printf("Successfully retrieved %s item record: id=%s, value=%s, actionID: %s", operation, currentID, value, r.getActionIDForLog())
+	return []byte(value), nil
+}
+
 // Read handles operations for retrieving, navigating, listing, or setting item records.
 func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
+	ctx := context.Background()
+
 	// Initialize database if nil
 	if r.DB == nil {
 		log.Printf("Database connection is nil, attempting to initialize with path: %s", r.DBPath)
@@ -69,7 +128,6 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 	switch operation {
 	case "updateCurrent":
 		newValue := query.Get("value")
-		// Removed validation for actionID and value
 		id := time.Now().Format("20060102150405.999999")
 		log.Printf("Processing item record: id=%s, value=%s, actionID: %s", id, newValue, r.getActionIDForLog())
 
@@ -120,7 +178,6 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 
 	case "set":
 		newValue := query.Get("value")
-		// Removed validation for value, actionID, and currentID
 		currentID, _, err := r.getMostRecentIDWithActionID()
 		if err != nil {
 			log.Printf("Error: Failed to get most recent item ID, actionID: %s: %v", r.getActionIDForLog(), err)
@@ -176,10 +233,9 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		return []byte(newValue), nil
 
 	case "values":
-		// Removed validation for uriActionID and actionID mismatch
 		log.Printf("Processing results query for uriActionID: %s, reader actionID: %s", uriActionID, r.getActionIDForLog())
 
-		rows, err := r.DB.Query(`
+		rows, err := r.DB.QueryContext(ctx, `
 			SELECT r.result_value
 			FROM results r
 			JOIN items i ON r.item_id = i.id
@@ -214,7 +270,7 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		}
 
 		log.Printf("Successfully retrieved %d result records for actionID %s: %s", len(values), uriActionID, result)
-		return []byte(result), nil
+		return result, nil
 
 	case "lastResult":
 		if r.ActionID == "" {
@@ -224,7 +280,7 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		log.Printf("Processing last result query, actionID: %s", r.getActionIDForLog())
 
 		var value, actionID string
-		err := r.DB.QueryRow(`
+		err := r.DB.QueryRowContext(ctx, `
 			SELECT r.result_value, r.action_id
 			FROM results r
 			JOIN items i ON r.item_id = i.id
@@ -232,16 +288,15 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 			ORDER BY i.id DESC, r.created_at DESC
 			LIMIT 1
 		`, r.ActionID).Scan(&value, &actionID)
-		if err != nil && err != sql.ErrNoRows {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			log.Printf("Error: Failed to query last result, actionID: %s: %v", r.getActionIDForLog(), err)
 			return []byte(""), nil
 		}
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			log.Printf("No result found for lastResult, actionID: %s", r.getActionIDForLog())
 			return []byte(""), nil
 		}
 
-		// Verify action_id
 		if r.ActionID != actionID {
 			log.Printf("Error: actionID mismatch for lastResult: expected %s, got %s", r.getActionIDForLog(), actionID)
 			return []byte(""), nil
@@ -250,146 +305,8 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		log.Printf("Successfully retrieved last result: value=%s, actionID: %s", value, r.getActionIDForLog())
 		return []byte(value), nil
 
-	case "prev":
-		if r.ActionID == "" {
-			log.Printf("Error: prev operation requires initialized actionID")
-			return []byte(""), nil
-		}
-		log.Printf("Processing previous item record query, actionID: %s", r.getActionIDForLog())
-
-		currentID, dbActionID, err := r.getMostRecentIDWithActionID()
-		if err != nil {
-			log.Printf("Error: Failed to get most recent item ID, actionID: %s: %v", r.getActionIDForLog(), err)
-			return []byte(""), nil
-		}
-		if currentID == "" {
-			log.Printf("No item records found for prev query, actionID: %s", r.getActionIDForLog())
-			return []byte(""), nil
-		}
-
-		// Verify action_id
-		if r.ActionID != dbActionID {
-			log.Printf("Error: actionID mismatch for prev: expected %s, got %s", r.getActionIDForLog(), dbActionID)
-			return []byte(""), nil
-		}
-
-		var value, actionID string
-		err = r.DB.QueryRow(`
-			SELECT value, action_id
-			FROM items
-			WHERE id < ? AND action_id = ?
-			ORDER BY id DESC
-			LIMIT 1
-		`, currentID, r.ActionID).Scan(&value, &actionID)
-		if err != nil && err != sql.ErrNoRows {
-			log.Printf("Error: Failed to read previous item record for id %s, actionID: %s: %v", currentID, r.getActionIDForLog(), err)
-			return []byte(""), nil
-		}
-		if err == sql.ErrNoRows {
-			log.Printf("No previous item record found for id: %s, actionID: %s", currentID, r.getActionIDForLog())
-			return []byte(""), nil
-		}
-
-		// Verify action_id (redundant due to query filter, but included for consistency)
-		if r.ActionID != actionID {
-			log.Printf("Error: actionID mismatch for prev: expected %s, got %s", r.getActionIDForLog(), actionID)
-			return []byte(""), nil
-		}
-
-		log.Printf("Successfully retrieved previous item record: id=%s, value=%s, actionID: %s", currentID, value, r.getActionIDForLog())
-		return []byte(value), nil
-
-	case "next":
-		if r.ActionID == "" {
-			log.Printf("Error: next operation requires initialized actionID")
-			return []byte(""), nil
-		}
-		log.Printf("Processing next item record query, actionID: %s", r.getActionIDForLog())
-
-		currentID, dbActionID, err := r.getMostRecentIDWithActionID()
-		if err != nil {
-			log.Printf("Error: Failed to get most recent item ID, actionID: %s: %v", r.getActionIDForLog(), err)
-			return []byte(""), nil
-		}
-		if currentID == "" {
-			log.Printf("No item records found for next query, actionID: %s", r.getActionIDForLog())
-			return []byte(""), nil
-		}
-
-		// Verify action_id
-		if r.ActionID != dbActionID {
-			log.Printf("Error: actionID mismatch for next: expected %s, got %s", r.getActionIDForLog(), dbActionID)
-			return []byte(""), nil
-		}
-
-		var value, actionID string
-		err = r.DB.QueryRow(`
-			SELECT value, action_id
-			FROM items
-			WHERE id > ? AND action_id = ?
-			ORDER BY id ASC
-			LIMIT 1
-		`, currentID, r.ActionID).Scan(&value, &actionID)
-		if err != nil && err != sql.ErrNoRows {
-			log.Printf("Error: Failed to read next item record for id %s, actionID: %s: %v", currentID, r.getActionIDForLog(), err)
-			return []byte(""), nil
-		}
-		if err == sql.ErrNoRows {
-			log.Printf("No next item record found for id: %s, actionID: %s", currentID, r.getActionIDForLog())
-			return []byte(""), nil
-		}
-
-		// Verify action_id
-		if r.ActionID != actionID {
-			log.Printf("Error: actionID mismatch for next: expected %s, got %s", r.getActionIDForLog(), actionID)
-			return []byte(""), nil
-		}
-
-		log.Printf("Successfully retrieved next item record: id=%s, value=%s, actionID: %s", currentID, value, r.getActionIDForLog())
-		return []byte(value), nil
-
-	case "current":
-		if r.ActionID == "" {
-			log.Printf("Error: current operation requires initialized actionID")
-			return []byte(""), nil
-		}
-		log.Printf("Processing current item record query, actionID: %s", r.getActionIDForLog())
-
-		currentID, dbActionID, err := r.getMostRecentIDWithActionID()
-		if err != nil {
-			log.Printf("Error: Failed to get most recent item ID, actionID: %s: %v", r.getActionIDForLog(), err)
-			return []byte(""), nil
-		}
-		if currentID == "" {
-			log.Printf("No item records found for current query, actionID: %s", r.getActionIDForLog())
-			return []byte(""), nil
-		}
-
-		// Verify action_id
-		if r.ActionID != dbActionID {
-			log.Printf("Error: actionID mismatch for current: expected %s, got %s", r.getActionIDForLog(), dbActionID)
-			return []byte(""), nil
-		}
-
-		var value, actionID string
-		err = r.DB.QueryRow("SELECT value, action_id FROM items WHERE id = ? AND action_id = ?", currentID, r.ActionID).Scan(&value, &actionID)
-		if err != nil && err != sql.ErrNoRows {
-			log.Printf("Error: Failed to read item record for id %s, actionID: %s: %v", currentID, r.getActionIDForLog(), err)
-			return []byte(""), nil
-		}
-		if err == sql.ErrNoRows {
-			log.Printf("No item record found for id: %s, actionID: %s", currentID, r.getActionIDForLog())
-			return []byte(""), nil
-		}
-
-		// Verify action_id
-		if r.ActionID != actionID {
-			log.Printf("Error: actionID mismatch for current: expected %s, got %s", r.getActionIDForLog(), actionID)
-			return []byte(""), nil
-		}
-
-		log.Printf("Successfully retrieved current item record: id=%s, value=%s, actionID: %s", currentID, value, r.getActionIDForLog())
-		return []byte(value), nil
+	case "prev", "next", "current":
+		return r.getItemRecord(ctx, operation)
 
 	default:
 		log.Printf("Error: Invalid operation %s, actionID: %s", operation, r.getActionIDForLog())
@@ -409,10 +326,10 @@ func (r *PklResourceReader) getActionIDForLog() string {
 func (r *PklResourceReader) getMostRecentIDWithActionID() (string, string, error) {
 	var id, actionID string
 	err := r.DB.QueryRow("SELECT id, action_id FROM items ORDER BY id DESC LIMIT 1").Scan(&id, &actionID)
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return "", "", fmt.Errorf("failed to get most recent ID: %w", err)
 	}
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return "", "", nil // No records exist
 	}
 	return id, actionID, nil
