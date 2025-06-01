@@ -10,6 +10,7 @@ import (
 	"github.com/alexellis/go-execute/v2"
 	"github.com/apple/pkl-go/pkl"
 	"github.com/google/uuid"
+	"github.com/kaptinlin/jsonrepair"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
@@ -79,7 +80,19 @@ func formatResponseData(response *apiserverresponse.APIServerResponseBlock) stri
 
 	responseData := make([]string, 0, len(response.Data))
 	for _, v := range response.Data {
-		responseData = append(responseData, formatDataValue(v))
+		// Assert v is []byte
+		byteVal, ok := v.([]byte)
+		if !ok {
+			continue // skip if not a byte slice
+		}
+
+		// Repair the JSON string
+		repaired, err := jsonrepair.JSONRepair(string(byteVal))
+		if err != nil {
+			continue // skip malformed values that can't be repaired
+		}
+
+		responseData = append(responseData, formatDataValue(repaired))
 	}
 
 	if len(responseData) == 0 {
@@ -89,7 +102,7 @@ func formatResponseData(response *apiserverresponse.APIServerResponseBlock) stri
 	return fmt.Sprintf(`
 response {
   data {
-%s
+    %s
   }
 }`, strings.Join(responseData, "\n    "))
 }

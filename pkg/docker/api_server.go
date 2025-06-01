@@ -19,6 +19,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/kaptinlin/jsonrepair"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -564,32 +565,41 @@ func decodeResponseContent(content []byte, logger *logging.Logger) (*APIResponse
 func formatResponseJSON(content []byte) []byte {
 	var response map[string]interface{}
 
-	// Attempt to unmarshal the content into the response map
+	// Unmarshal the main response
 	if err := json.Unmarshal(content, &response); err != nil {
-		// Return the original content if unmarshalling fails
-		return content
+		return content // Return original if JSON is invalid
 	}
 
-	// Safely check if "response" is a map and if "data" exists and is an array
+	// Navigate to response["response"]["data"]
 	if responseField, ok := response["response"].(map[string]interface{}); ok {
 		if data, ok := responseField["data"].([]interface{}); ok {
 			for i, item := range data {
-				// Attempt to unmarshal each item in "data" if it's a string
-				if itemStr, isString := item.(string); isString {
+				if strItem, ok := item.(string); ok {
+					// Attempt to repair only this stringified JSON
+					repairedStr, err := jsonrepair.JSONRepair(strItem)
+					if err != nil {
+						continue // Skip if repair fails
+					}
+
+					// Try unmarshaling the repaired string
 					var obj map[string]interface{}
-					if err := json.Unmarshal([]byte(itemStr), &obj); err == nil {
-						data[i] = obj
+					if err := json.Unmarshal([]byte(repairedStr), &obj); err == nil {
+						data[i] = obj // Replace with parsed object
 					}
 				}
 			}
 		}
 	}
 
-	// Marshal the modified response back into JSON
-	modifiedContent, err := json.MarshalIndent(response, "", "  ")
+	// Marshal the updated JSON back to []byte
+	formatted, err := json.MarshalIndent(response, "", "  ")
 	if err != nil {
 		return content
 	}
 
-	return modifiedContent
+	if repairedStr, err := jsonrepair.JSONRepair(string(formatted)); err == nil {
+		return []byte(repairedStr)
+	}
+
+	return formatted
 }

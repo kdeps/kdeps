@@ -12,7 +12,7 @@ import (
 var (
 	cachedVersion    string
 	once             sync.Once
-	specifiedVersion string = "0.2.37" // Default specified version
+	specifiedVersion string = "0.2.38" // Default specified version
 	UseLatest        bool   = false
 )
 
