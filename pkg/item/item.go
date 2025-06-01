@@ -42,6 +42,20 @@ func (r *PklResourceReader) Scheme() string {
 	return "item"
 }
 
+// Close closes the database connection.
+func (r *PklResourceReader) Close() error {
+	if r.DB != nil {
+		err := r.DB.Close()
+		r.DB = nil
+		if err != nil {
+			log.Printf("Error closing database, actionID: %s: %v", r.getActionIDForLog(), err)
+			return fmt.Errorf("failed to close database: %w", err)
+		}
+		log.Printf("Database closed successfully, actionID: %s", r.getActionIDForLog())
+	}
+	return nil
+}
+
 // getItemRecord retrieves an item record based on the specified operation ("prev", "next", or "current").
 func (r *PklResourceReader) getItemRecord(ctx context.Context, operation string) ([]byte, error) {
 	if r.ActionID == "" {
@@ -74,7 +88,8 @@ func (r *PklResourceReader) getItemRecord(ctx context.Context, operation string)
 	case "current":
 		query = `SELECT value, action_id FROM items WHERE id = ? AND action_id = ?`
 	default:
-		return []byte(""), fmt.Errorf("invalid operation: %s", operation)
+		log.Printf("Error: invalid operation: %s, actionID: %s", operation, r.getActionIDForLog())
+		return []byte(""), nil
 	}
 
 	var value, actionID string
@@ -111,6 +126,19 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		}
 		r.DB = db
 		log.Printf("Database initialized successfully in Read, actionID: %s", r.getActionIDForLog())
+	}
+
+	// Verify that the database is still open
+	if err := r.DB.PingContext(ctx); err != nil {
+		log.Printf("Database connection is closed or invalid, actionID: %s: %v", r.getActionIDForLog(), err)
+		// Attempt to reinitialize
+		db, err := InitializeDatabase(r.DBPath, nil)
+		if err != nil {
+			log.Printf("Failed to reinitialize database in Read, actionID: %s: %v", r.getActionIDForLog(), err)
+			return []byte(""), nil
+		}
+		r.DB = db
+		log.Printf("Database reinitialized successfully in Read, actionID: %s", r.getActionIDForLog())
 	}
 
 	// Extract actionID from URI path (e.g., item:/{actionID} or item:/_)
@@ -324,10 +352,15 @@ func (r *PklResourceReader) getActionIDForLog() string {
 
 // getMostRecentIDWithActionID retrieves the ID and action_id of the most recent record.
 func (r *PklResourceReader) getMostRecentIDWithActionID() (string, string, error) {
+	if r.DB == nil {
+		log.Printf("Error: database connection is nil, actionID: %s", r.getActionIDForLog())
+		return "", "", nil
+	}
 	var id, actionID string
 	err := r.DB.QueryRow("SELECT id, action_id FROM items ORDER BY id DESC LIMIT 1").Scan(&id, &actionID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return "", "", fmt.Errorf("failed to get most recent ID: %w", err)
+		log.Printf("Error: failed to get most recent ID, actionID: %s: %v", r.getActionIDForLog(), err)
+		return "", "", nil
 	}
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", "", nil // No records exist
@@ -337,14 +370,15 @@ func (r *PklResourceReader) getMostRecentIDWithActionID() (string, string, error
 
 // InitializeDatabase sets up the SQLite database and creates the items and results tables.
 func InitializeDatabase(dbPath string, items []string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", dbPath)
+	log.Printf("Initializing database at path: %s", dbPath)
+	db, err := sql.Open("sqlite3", dbPath+"?_journal_mode=WAL")
 	if err != nil {
-		log.Printf("Error: Failed to open database: %v", err)
+		log.Printf("Error: Failed to open database at %s: %v", dbPath, err)
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
 	if err := db.Ping(); err != nil {
-		log.Printf("Error: Failed to ping database: %v", err)
+		log.Printf("Error: Failed to ping database at %s: %v", dbPath, err)
 		db.Close()
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
@@ -425,6 +459,7 @@ func InitializeDatabase(dbPath string, items []string) (*sql.DB, error) {
 func InitializeItem(dbPath string, items []string, actionID string) (*PklResourceReader, error) {
 	db, err := InitializeDatabase(dbPath, items)
 	if err != nil {
+		log.Printf("Error initializing database at %s: %v", dbPath, err)
 		return nil, fmt.Errorf("error initializing database: %w", err)
 	}
 	return &PklResourceReader{DB: db, DBPath: dbPath, ActionID: actionID}, nil
