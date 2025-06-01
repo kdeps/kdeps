@@ -80,19 +80,18 @@ func formatResponseData(response *apiserverresponse.APIServerResponseBlock) stri
 
 	responseData := make([]string, 0, len(response.Data))
 	for _, v := range response.Data {
+		val := v
 		// Assert v is []byte
-		byteVal, ok := v.([]byte)
-		if !ok {
-			continue // skip if not a byte slice
+		byteVal, ok := val.([]byte)
+		if ok {
+			// Repair the JSON string
+			repaired, err := jsonrepair.JSONRepair(string(byteVal))
+			if err == nil {
+				val = repaired
+			}
 		}
 
-		// Repair the JSON string
-		repaired, err := jsonrepair.JSONRepair(string(byteVal))
-		if err != nil {
-			continue // skip malformed values that can't be repaired
-		}
-
-		responseData = append(responseData, formatDataValue(repaired))
+		responseData = append(responseData, formatDataValue(val))
 	}
 
 	if len(responseData) == 0 {
