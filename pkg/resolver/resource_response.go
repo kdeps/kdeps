@@ -8,9 +8,7 @@ import (
 	"strings"
 
 	"github.com/alexellis/go-execute/v2"
-	"github.com/apple/pkl-go/pkl"
 	"github.com/google/uuid"
-	"github.com/kaptinlin/jsonrepair"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
@@ -27,15 +25,8 @@ func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverre
 		return fmt.Errorf("ensure response PKL file does not exist: %w", err)
 	}
 
-	readers := []pkl.ResourceReader{
-		dr.MemoryReader,
-		dr.SessionReader,
-		dr.ToolReader,
-		dr.ItemReader,
-	}
-
 	sections := dr.buildResponseSections(dr.RequestID, apiResponseBlock)
-	if err := evaluator.CreateAndProcessPklFile(dr.Fs, dr.Context, sections, dr.ResponsePklFile, "APIServerResponse.pkl", readers, dr.Logger, evaluator.EvalPkl, false); err != nil {
+	if err := evaluator.CreateAndProcessPklFile(dr.Fs, dr.Context, sections, dr.ResponsePklFile, "APIServerResponse.pkl", dr.EvaluatorOptions, dr.Logger, evaluator.EvalPkl, false); err != nil {
 		return fmt.Errorf("create/process PKL file: %w", err)
 	}
 
@@ -84,11 +75,7 @@ func formatResponseData(response *apiserverresponse.APIServerResponseBlock) stri
 		// Assert v is []byte
 		byteVal, ok := val.([]byte)
 		if ok {
-			// Repair the JSON string
-			repaired, err := jsonrepair.JSONRepair(string(byteVal))
-			if err == nil {
-				val = repaired
-			}
+			val = utils.FixJSON(string(byteVal))
 		}
 
 		responseData = append(responseData, formatDataValue(val))
@@ -134,6 +121,7 @@ meta {
 }`, requestID, responseMetaHeaders, responseMetaProperties)
 }
 
+// formatMap formats a map into the desired string representation
 func formatMap(m map[interface{}]interface{}) string {
 	mappingParts := []string{"new Mapping {"}
 	for k, v := range m {
@@ -145,6 +133,7 @@ func formatMap(m map[interface{}]interface{}) string {
 	return strings.Join(mappingParts, "\n")
 }
 
+// formatValue formats a value based on its type
 func formatValue(value interface{}) string {
 	switch v := value.(type) {
 	case map[string]interface{}:
@@ -165,21 +154,51 @@ func formatValue(value interface{}) string {
 		if rv.Kind() == reflect.Struct {
 			return formatMap(structToMap(rv.Interface()))
 		}
-		return fmt.Sprintf(`
+		if rv.Kind() == reflect.Slice {
+			return formatSlice(v, rv)
+		}
+		// Format the value as a string
+		valStrV := fmt.Sprintf("%v", v)
+		valStr := utils.FixJSON(valStrV)
+		// Check for commas, newlines, backslashes, or multiple lines
+		if strings.ContainsAny(valStr, ",\n\\") || strings.Count(valStr, "\n") > 0 {
+			return fmt.Sprintf(`
 """
 %v
-"""
-`, v)
+""".trim()
+`, valStr)
+		}
+
+		return fmt.Sprintf(`%v.trim()`, valStr)
 	}
 }
 
+// formatSlice formats a slice into a Listing string with semicolon-separated values
+func formatSlice(value interface{}, rv reflect.Value) string {
+	listingParts := []string{"new Listing {"}
+	length := rv.Len()
+	if length == 0 {
+		listingParts = append(listingParts, "}")
+		return strings.Join(listingParts, "\n")
+	}
+
+	for i := 0; i < length; i++ {
+		item := rv.Index(i).Interface()
+		itemStr := formatValue(item)
+		listingParts = append(listingParts, fmt.Sprintf("    \n%s\n", itemStr))
+	}
+	listingParts = append(listingParts, "}")
+	return strings.Join(listingParts, "\n")
+}
+
+// structToMap converts a struct to a map for formatting
 func structToMap(s interface{}) map[interface{}]interface{} {
 	result := make(map[interface{}]interface{})
 	val := reflect.ValueOf(s)
 	if val.Kind() == reflect.Ptr {
 		val = val.Elem()
 	}
-	for i := range val.NumField() {
+	for i := 0; i < val.NumField(); i++ {
 		fieldName := val.Type().Field(i).Name
 		fieldValue := val.Field(i).Interface()
 		result[fieldName] = fieldValue
@@ -192,12 +211,12 @@ func formatDataValue(value interface{}) string {
 	val := formatValue(value)
 	return fmt.Sprintf(`
 local JSONDocument_%s = %s
-local JSONDocumentType_%s = JSONDocument_%s is Mapping | Dynamic
+local JSONDocumentType_%s = JSONDocument_%s is Mapping | Dynamic | Listing
 
 if (JSONDocumentType_%s)
-  document.JSONRenderDocument(JSONDocument_%s)
+  document.JSONRenderDocument(JSONDocument_%s).trim()
 else
-  document.JSONRenderDocument((if (document.JSONParser(JSONDocument_%s) != null) document.JSONParser(JSONDocument_%s) else JSONDocument_%s))
+  document.JSONRenderDocument((if (document.JSONParser(JSONDocument_%s) != null) document.JSONParser(JSONDocument_%s) else JSONDocument_%s)).trim()
 `, uuidVal, val, uuidVal, uuidVal, uuidVal, uuidVal, uuidVal, uuidVal, uuidVal)
 }
 

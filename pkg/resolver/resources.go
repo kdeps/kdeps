@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/apple/pkl-go/pkl"
+	"github.com/kdeps/kdeps/pkg/schema"
 	pklExec "github.com/kdeps/schema/gen/exec"
 	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
@@ -43,7 +44,7 @@ func (dr *DependencyResolver) LoadResourceEntries() error {
 		if !info.IsDir() && filepath.Ext(path) == ".pkl" {
 			// Handle dynamic and placeholder imports
 			if err := dr.handleFileImports(path); err != nil {
-				dr.Logger.Errorf("error processing imports for file %s: %v", path, err)
+				dr.Logger.Errorf("error reading imports for file %s: %v", path, err)
 				return err
 			}
 
@@ -84,21 +85,22 @@ func (dr *DependencyResolver) handleFileImports(path string) error {
 
 // processPklFile processes an individual .pkl file and updates dependencies.
 func (dr *DependencyResolver) processPklFile(file string) error {
-	// Load the resource file
-	res, err := dr.LoadResource(dr.Context, file, Resource)
+	// Load the resource file, without outputting to a file
+	res, _, err := dr.LoadResource(dr.Context, file, Resource, false)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL file: %w", err)
 	}
 
 	pklRes, ok := res.(*pklResource.Resource)
 	if !ok {
-		return errors.New("failed to cast pklRes to *pklLLM.Resource")
+		return errors.New("failed to cast pklRes to *pklResource.Resource")
 	}
 
 	// Append the resource to the list of resources
 	dr.Resources = append(dr.Resources, ResourceNodeEntry{
-		ActionID: pklRes.ActionID,
-		File:     file,
+		ActionID:     pklRes.ActionID,
+		File:         file,
+		CompiledFile: "",
 	})
 
 	// Update resource dependencies
@@ -111,10 +113,30 @@ func (dr *DependencyResolver) processPklFile(file string) error {
 	return nil
 }
 
-// LoadResource reads a resource file and returns the parsed resource object or an error.
-func (dr *DependencyResolver) LoadResource(ctx context.Context, resourceFile string, resourceType ResourceType) (interface{}, error) {
+// LoadResource reads a resource file and returns the parsed resource object, optionally writing the output to a temporary Pkl file.
+// If outputToFile is true, the output is written to a temporary file with an 'amends' line prepended (using schema.SchemaVersion), and its path is returned; otherwise, an empty string is returned.
+func (dr *DependencyResolver) LoadResource(ctx context.Context, resourceFile string, resourceType ResourceType, outputToFile bool) (interface{}, string, error) {
 	// Log additional info before reading the resource
-	dr.Logger.Debug("reading resource file", "resource-file", resourceFile, "resource-type", resourceType)
+	dr.Logger.Debug("reading resource file", "resource-file", resourceFile, "resource-type", resourceType, "output-to-file", outputToFile)
+
+	// Resolve absolute path for the resource file
+	absResourceFile, err := filepath.Abs(resourceFile)
+	if err != nil {
+		dr.Logger.Error("failed to resolve absolute path", "resource-file", resourceFile, "error", err)
+		return nil, "", fmt.Errorf("failed to resolve absolute path for %s: %w", resourceFile, err)
+	}
+
+	var outputFileName string
+	if outputToFile {
+		// Create a temporary output file
+		outputFile, err := os.CreateTemp("", "pkl-*.pkl")
+		if err != nil {
+			dr.Logger.Error("failed to create temp file", "error", err)
+			return nil, "", fmt.Errorf("failed to create temp file: %w", err)
+		}
+		outputFileName = outputFile.Name()
+		outputFile.Close()
+	}
 
 	// Define an option function to configure EvaluatorOptions
 	opts := func(options *pkl.EvaluatorOptions) {
@@ -131,13 +153,14 @@ func (dr *DependencyResolver) LoadResource(ctx context.Context, resourceFile str
 		}
 		options.AllowedModules = []string{".*"}
 		options.AllowedResources = []string{".*"}
+		options.OutputFormat = "pcf" // Ensure Pkl output format
 	}
 
-	// Create evaluator with custom options
+	// Create evaluator
 	evaluator, err := pkl.NewEvaluator(ctx, opts)
 	if err != nil {
 		dr.Logger.Error("error creating evaluator", "error", err)
-		return nil, fmt.Errorf("error creating evaluator: %w", err)
+		return nil, "", fmt.Errorf("error creating evaluator: %w", err)
 	}
 	defer func() {
 		if cerr := evaluator.Close(); cerr != nil && err == nil {
@@ -147,55 +170,62 @@ func (dr *DependencyResolver) LoadResource(ctx context.Context, resourceFile str
 	}()
 
 	// Load the resource based on the resource type
-	source := pkl.FileSource(resourceFile)
+	source := pkl.FileSource(absResourceFile)
+	var res interface{}
 	switch resourceType {
 	case Resource:
-		res, err := pklResource.Load(ctx, evaluator, source)
+		res, err = pklResource.Load(ctx, evaluator, source)
 		if err != nil {
 			dr.Logger.Error("error reading resource file", "resource-file", resourceFile, "error", err)
-			return nil, fmt.Errorf("error reading resource file '%s': %w", resourceFile, err)
+			return nil, "", fmt.Errorf("error reading resource file '%s': %w", resourceFile, err)
 		}
-		dr.Logger.Debug("successfully loaded resource", "resource-file", resourceFile)
-		return res, nil
-
 	case ExecResource:
-		res, err := pklExec.Load(ctx, evaluator, source)
+		res, err = pklExec.Load(ctx, evaluator, source)
 		if err != nil {
 			dr.Logger.Error("error reading exec resource file", "resource-file", resourceFile, "error", err)
-			return nil, fmt.Errorf("error reading exec resource file '%s': %w", resourceFile, err)
+			return nil, "", fmt.Errorf("error reading exec resource file '%s': %w", resourceFile, err)
 		}
-		dr.Logger.Debug("successfully loaded exec resource", "resource-file", resourceFile)
-		return res, nil
-
 	case PythonResource:
-		res, err := pklPython.Load(ctx, evaluator, source)
+		res, err = pklPython.Load(ctx, evaluator, source)
 		if err != nil {
 			dr.Logger.Error("error reading python resource file", "resource-file", resourceFile, "error", err)
-			return nil, fmt.Errorf("error reading python resource file '%s': %w", resourceFile, err)
+			return nil, "", fmt.Errorf("error reading python resource file '%s': %w", resourceFile, err)
 		}
-		dr.Logger.Debug("successfully loaded python resource", "resource-file", resourceFile)
-		return res, nil
-
 	case LLMResource:
-		res, err := pklLLM.Load(ctx, evaluator, source)
+		res, err = pklLLM.Load(ctx, evaluator, source)
 		if err != nil {
 			dr.Logger.Error("error reading llm resource file", "resource-file", resourceFile, "error", err)
-			return nil, fmt.Errorf("error reading llm resource file '%s': %w", resourceFile, err)
+			return nil, "", fmt.Errorf("error reading llm resource file '%s': %w", resourceFile, err)
 		}
-		dr.Logger.Debug("successfully loaded llm resource", "resource-file", resourceFile)
-		return res, nil
-
 	case HTTPResource:
-		res, err := pklHTTP.Load(ctx, evaluator, source)
+		res, err = pklHTTP.Load(ctx, evaluator, source)
 		if err != nil {
 			dr.Logger.Error("error reading http resource file", "resource-file", resourceFile, "error", err)
-			return nil, fmt.Errorf("error reading http resource file '%s': %w", resourceFile, err)
+			return nil, "", fmt.Errorf("error reading http resource file '%s': %w", resourceFile, err)
 		}
-		dr.Logger.Debug("successfully loaded http resource", "resource-file", resourceFile)
-		return res, nil
-
 	default:
 		dr.Logger.Error("unknown resource type", "resource-type", resourceType)
-		return nil, fmt.Errorf("unknown resource type: %s", resourceType)
+		return nil, "", fmt.Errorf("unknown resource type: %s", resourceType)
 	}
+
+	// If outputToFile, write the output text to the temporary file with amends line
+	if outputToFile {
+		output, err := evaluator.EvaluateOutputText(ctx, source)
+		if err != nil {
+			dr.Logger.Error("error evaluating output text", "resource-file", resourceFile, "error", err)
+			return nil, "", fmt.Errorf("error evaluating output text for '%s': %w", resourceFile, err)
+		}
+		// Get schema version
+		version := schema.SchemaVersion(ctx)
+		// Prepend the amends line with the schema version
+		amendsLine := fmt.Sprintf("amends \"package://schema.kdeps.com/core@%s#/Resource.pkl\"\n\n", version)
+		outputContent := amendsLine + output
+		if err := os.WriteFile(outputFileName, []byte(outputContent), 0o644); err != nil {
+			dr.Logger.Error("failed to write to output file", "output-file", outputFileName, "error", err)
+			return nil, "", fmt.Errorf("failed to write to %s: %w", outputFileName, err)
+		}
+	}
+
+	dr.Logger.Debug("successfully loaded resource", "resource-file", resourceFile, "output-file", outputFileName)
+	return res, outputFileName, nil
 }

@@ -25,7 +25,7 @@ func TestCreateAndProcessPklFile(t *testing.T) {
 	extendsFileName := "/tmp/extends.pkl"
 	pklTemplate := "Kdeps.pkl"
 
-	processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, readers []pkl.ResourceReader, logger *logging.Logger) (string, error) {
+	processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, opts func(options *pkl.EvaluatorOptions), logger *logging.Logger) (string, error) {
 		content, err := afero.ReadFile(fs, tmpFile)
 		if err != nil {
 			return "", err

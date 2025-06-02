@@ -59,12 +59,14 @@ type DependencyResolver struct {
 	DataDir              string
 	APIServerMode        bool
 	AnacondaInstalled    bool
+	EvaluatorOptions     func(options *pkl.EvaluatorOptions)
 	FileRunCounter       map[string]int // Added to track run count per file
 }
 
 type ResourceNodeEntry struct {
-	ActionID string `pkl:"actionID"`
-	File     string `pkl:"file"`
+	ActionID     string `pkl:"actionID"`
+	File         string `pkl:"file"`
+	CompiledFile string `pkl:"compiledFile"`
 }
 
 func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment, req *gin.Context, logger *logging.Logger) (*DependencyResolver, error) {
@@ -163,6 +165,23 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		return nil, fmt.Errorf("failed to initialize item DB: %w", err)
 	}
 
+	opts := func(options *pkl.EvaluatorOptions) {
+		pkl.WithDefaultAllowedResources(options)
+		pkl.WithOsEnv(options)
+		pkl.WithDefaultAllowedModules(options)
+		pkl.WithDefaultCacheDir(options)
+		options.Logger = pkl.NoopLogger
+		options.ResourceReaders = []pkl.ResourceReader{
+			memoryReader,
+			sessionReader,
+			toolReader,
+			itemReader,
+		}
+		options.AllowedModules = []string{".*"}
+		options.AllowedResources = []string{".*"}
+		options.OutputFormat = "pcf"
+	}
+
 	dependencyResolver := &DependencyResolver{
 		Fs:                   fs,
 		ResourceDependencies: make(map[string][]string),
@@ -193,6 +212,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		ToolReader:           toolReader,
 		ItemDBPath:           itemDBPath,
 		ItemReader:           itemReader,
+		EvaluatorOptions:     opts,
 		FileRunCounter:       make(map[string]int), // Initialize the file run counter map
 	}
 
@@ -335,10 +355,11 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			}
 
 			// Load the resource
-			resPkl, err := dr.LoadResource(dr.Context, res.File, Resource)
+			resPkl, _, err := dr.LoadResource(dr.Context, res.File, Resource, false)
 			if err != nil {
 				return dr.HandleAPIErrorResponse(500, err.Error(), true)
 			}
+			res.CompiledFile = ""
 
 			// Explicitly type rsc as *pklRes.Resource
 			rsc, ok := resPkl.(*pklRes.Resource)
@@ -364,6 +385,20 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			// Process run block: once if no items, or once per item
 			if len(items) == 0 {
 				dr.Logger.Info("no items specified, processing run block once", "actionID", res.ActionID)
+
+				// Load the resource
+				resPkl, compiledFile, err := dr.LoadResource(dr.Context, res.File, Resource, true)
+				if err != nil {
+					return dr.HandleAPIErrorResponse(500, err.Error(), true)
+				}
+				res.CompiledFile = compiledFile
+
+				// Explicitly type rsc as *pklRes.Resource
+				rsc, ok = resPkl.(*pklRes.Resource)
+				if !ok {
+					return dr.HandleAPIErrorResponse(500, "failed to cast resource to *pklRes.Resource for file "+res.File, true)
+				}
+
 				proceed, err := dr.processRunBlock(res, rsc, nodeActionID, false)
 				if err != nil {
 					return false, err
@@ -379,18 +414,6 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 					if _, err := dr.ItemReader.Read(uri); err != nil {
 						dr.Logger.Error("failed to set item", "item", itemValue, "error", err)
 						return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to set item %s: %v", itemValue, err), true)
-					}
-
-					// reload the resource
-					resPkl, err = dr.LoadResource(dr.Context, res.File, Resource)
-					if err != nil {
-						return dr.HandleAPIErrorResponse(500, err.Error(), true)
-					}
-
-					// Explicitly type rsc as *pklRes.Resource
-					rsc, ok = resPkl.(*pklRes.Resource)
-					if !ok {
-						return dr.HandleAPIErrorResponse(500, "failed to cast resource to *pklRes.Resource for file "+res.File, true)
 					}
 
 					// Process runBlock for the current item
@@ -443,6 +466,24 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 	dr.FileRunCounter[res.File]++
 	dr.Logger.Info("processing run block for file", "file", res.File, "runCount", dr.FileRunCounter[res.File], "actionID", actionID)
 
+	currentFile := res.File
+
+	if res.CompiledFile != "" {
+		currentFile = res.CompiledFile
+	}
+
+	// reload the resource
+	resPkl, _, err := dr.LoadResource(dr.Context, currentFile, Resource, false)
+	if err != nil {
+		return dr.HandleAPIErrorResponse(500, err.Error(), true)
+	}
+
+	// Explicitly type rsc as *pklRes.Resource
+	rsc, ok := resPkl.(*pklRes.Resource)
+	if !ok {
+		return dr.HandleAPIErrorResponse(500, "failed to cast resource to *pklRes.Resource for file "+currentFile, true)
+	}
+
 	runBlock := rsc.Run
 	if runBlock == nil {
 		return false, nil
@@ -450,9 +491,9 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 
 	if dr.APIServerMode {
 		// Read the resource file content for validation
-		fileContent, err := afero.ReadFile(dr.Fs, res.File)
+		fileContent, err := afero.ReadFile(dr.Fs, currentFile)
 		if err != nil {
-			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to read resource file %s: %v", res.File, err), true)
+			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to read resource file %s: %v", currentFile, err), true)
 		}
 
 		// Validate request.params

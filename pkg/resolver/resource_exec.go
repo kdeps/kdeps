@@ -130,7 +130,7 @@ func (dr *DependencyResolver) WriteStdoutToFile(resourceID string, stdoutEncoded
 func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExec.ResourceExec, hasItems bool) error {
 	pklPath := filepath.Join(dr.ActionDir, "exec/"+dr.RequestID+"__exec_output.pkl")
 
-	res, err := dr.LoadResource(dr.Context, pklPath, ExecResource)
+	res, _, err := dr.LoadResource(dr.Context, pklPath, ExecResource, false)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL: %w", err)
 	}
@@ -224,15 +224,8 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 		return fmt.Errorf("failed to write PKL file: %w", err)
 	}
 
-	readers := []pkl.ResourceReader{
-		dr.MemoryReader,
-		dr.SessionReader,
-		dr.ToolReader,
-		dr.ItemReader,
-	}
-
 	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath,
-		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Exec.pkl\"", schema.SchemaVersion(dr.Context)), readers, dr.Logger)
+		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Exec.pkl\"", schema.SchemaVersion(dr.Context)), dr.EvaluatorOptions, dr.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to evaluate PKL: %w", err)
 	}

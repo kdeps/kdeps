@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/kaptinlin/jsonrepair"
 )
 
 func IsJSON(str string) bool {
@@ -37,6 +39,10 @@ func FixJSON(input string) string {
 		submatches := jsonRegexp.FindStringSubmatch(s)
 		return fmt.Sprintf(`"%s": "%s"%s`, submatches[1], strings.ReplaceAll(submatches[2], `"`, `\"`), submatches[3])
 	})
+
+	if repairedStr, err := jsonrepair.JSONRepair(fixed); err == nil {
+		return repairedStr
+	}
 
 	return fixed
 }

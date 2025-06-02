@@ -19,7 +19,6 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/kaptinlin/jsonrepair"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -396,15 +395,8 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 
 		sections := []string{urlSection, clientIPSection, requestIDSection, method, requestHeaderSection, dataSection, paramSection, fileSection}
 
-		readers := []pkl.ResourceReader{
-			dr.MemoryReader,
-			dr.SessionReader,
-			dr.ToolReader,
-			dr.ItemReader,
-		}
-
 		if err := evaluator.CreateAndProcessPklFile(dr.Fs, ctx, sections, dr.RequestPklFile,
-			"APIServerRequest.pkl", readers, dr.Logger, evaluator.EvalPkl, true); err != nil {
+			"APIServerRequest.pkl", dr.EvaluatorOptions, dr.Logger, evaluator.EvalPkl, true); err != nil {
 			errors = append(errors, ErrorResponse{
 				Code:    http.StatusInternalServerError,
 				Message: "Failed to process request file",
@@ -432,7 +424,18 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			return
 		}
 
-		decodedResp, err := decodeResponseContent(content, dr.Logger)
+		pklEvaluator, err := pkl.NewEvaluator(ctx, dr.EvaluatorOptions)
+		if err != nil {
+			errors = append(errors, ErrorResponse{
+				Code:    http.StatusInternalServerError,
+				Message: "Failed to create PKL evaluator",
+			})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
+			return
+		}
+		defer pklEvaluator.Close()
+
+		decodedResp, err := decodeResponseContent(content, dr.Logger, pklEvaluator, ctx)
 		if err != nil {
 			errors = append(errors, ErrorResponse{
 				Code:    http.StatusInternalServerError,
@@ -528,7 +531,8 @@ func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver) error
 	return nil
 }
 
-func decodeResponseContent(content []byte, logger *logging.Logger) (*APIResponse, error) {
+// decodeResponseContent decodes the response content, attempting to parse Base64-decoded data as PKL using the provided evaluator, falling back to JSON if PKL parsing fails.
+func decodeResponseContent(content []byte, logger *logging.Logger, pklEvaluator pkl.Evaluator, ctx context.Context) (*APIResponse, error) {
 	var decodedResp APIResponse
 
 	// Unmarshal JSON content into APIResponse struct
@@ -542,18 +546,46 @@ func decodeResponseContent(content []byte, logger *logging.Logger) (*APIResponse
 	for i, encodedData := range decodedResp.Response.Data {
 		decodedData, err := utils.DecodeBase64String(encodedData)
 		if err != nil {
-			logger.Error("failed to decode Base64 string", "data", encodedData)
+			logger.Error("failed to decode Base64 string", "data", encodedData, "error", err)
 			decodedResp.Response.Data[i] = encodedData // Use original if decoding fails
-		} else {
-			fixedJSON := utils.FixJSON(decodedData)
-			if utils.IsJSON(fixedJSON) {
-				var prettyJSON bytes.Buffer
-				err := json.Indent(&prettyJSON, []byte(fixedJSON), "", "  ")
-				if err == nil {
-					fixedJSON = prettyJSON.String()
-				}
+			continue
+		}
+
+		// Create a contextual logger for this data item
+		itemLogger := logger.With("data_index", i)
+
+		// Try to parse as PKL first using the provided evaluator
+		var pklResult interface{}
+		err = pklEvaluator.EvaluateExpression(ctx, pkl.TextSource(decodedData), "", &pklResult)
+		if err == nil {
+			// Successfully parsed as PKL, convert to JSON for consistency
+			jsonBytes, err := json.MarshalIndent(pklResult, "", "  ")
+			if err == nil {
+				itemLogger.Debug("parsed PKL and converted to JSON")
+				decodedResp.Response.Data[i] = string(jsonBytes)
+				continue
+			}
+			itemLogger.Warn("failed to convert PKL to JSON, using raw PKL output", "error", err)
+			decodedResp.Response.Data[i] = decodedData // Fallback to raw decoded data
+			continue
+		}
+		itemLogger.Debug("data is not a valid PKL expression, trying JSON", "error", err)
+
+		// Fallback to JSON processing
+		fixedJSON := utils.FixJSON(decodedData)
+		if utils.IsJSON(fixedJSON) {
+			var prettyJSON bytes.Buffer
+			err := json.Indent(&prettyJSON, []byte(fixedJSON), "", "  ")
+			if err == nil {
+				itemLogger.Debug("processed as JSON and pretty-printed")
+				fixedJSON = prettyJSON.String()
+			} else {
+				itemLogger.Warn("failed to pretty-print JSON", "error", err)
 			}
 			decodedResp.Response.Data[i] = fixedJSON
+		} else {
+			itemLogger.Warn("data is neither valid PKL nor JSON, using raw decoded data")
+			decodedResp.Response.Data[i] = decodedData
 		}
 	}
 
@@ -575,15 +607,9 @@ func formatResponseJSON(content []byte) []byte {
 		if data, ok := responseField["data"].([]interface{}); ok {
 			for i, item := range data {
 				if strItem, ok := item.(string); ok {
-					// Attempt to repair only this stringified JSON
-					repairedStr, err := jsonrepair.JSONRepair(strItem)
-					if err != nil {
-						continue // Skip if repair fails
-					}
-
-					// Try unmarshaling the repaired string
+					// Try unmarshaling the string
 					var obj map[string]interface{}
-					if err := json.Unmarshal([]byte(repairedStr), &obj); err == nil {
+					if err := json.Unmarshal([]byte(strItem), &obj); err == nil {
 						data[i] = obj // Replace with parsed object
 					}
 				}
@@ -595,10 +621,6 @@ func formatResponseJSON(content []byte) []byte {
 	formatted, err := json.MarshalIndent(response, "", "  ")
 	if err != nil {
 		return content
-	}
-
-	if repairedStr, err := jsonrepair.JSONRepair(string(formatted)); err == nil {
-		return []byte(repairedStr)
 	}
 
 	return formatted

@@ -91,7 +91,7 @@ func (dr *DependencyResolver) WriteResponseBodyToFile(resourceID string, respons
 func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP.ResourceHTTPClient, hasItems bool) error {
 	pklPath := filepath.Join(dr.ActionDir, "client/"+dr.RequestID+"__client_output.pkl")
 
-	res, err := dr.LoadResource(dr.Context, pklPath, HTTPResource)
+	res, _, err := dr.LoadResource(dr.Context, pklPath, HTTPResource, false)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL: %w", err)
 	}
@@ -194,15 +194,8 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 		return fmt.Errorf("failed to write PKL: %w", err)
 	}
 
-	readers := []pkl.ResourceReader{
-		dr.MemoryReader,
-		dr.SessionReader,
-		dr.ToolReader,
-		dr.ItemReader,
-	}
-
 	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath,
-		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/HTTP.pkl\"\n\n", schema.SchemaVersion(dr.Context)), readers, dr.Logger)
+		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/HTTP.pkl\"\n\n", schema.SchemaVersion(dr.Context)), dr.EvaluatorOptions, dr.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to evaluate PKL: %w", err)
 	}

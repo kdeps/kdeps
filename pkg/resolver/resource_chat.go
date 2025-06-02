@@ -430,7 +430,7 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM.ResourceChat, hasItems bool) error {
 	pklPath := filepath.Join(dr.ActionDir, "llm/"+dr.RequestID+"__llm_output.pkl")
 
-	llmRes, err := dr.LoadResource(dr.Context, pklPath, LLMResource)
+	llmRes, _, err := dr.LoadResource(dr.Context, pklPath, LLMResource, false)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL file: %w", err)
 	}
@@ -475,15 +475,8 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 		return fmt.Errorf("failed to write PKL file: %w", err)
 	}
 
-	readers := []pkl.ResourceReader{
-		dr.MemoryReader,
-		dr.SessionReader,
-		dr.ToolReader,
-		dr.ItemReader,
-	}
-
 	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath,
-		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"", schema.SchemaVersion(dr.Context)), readers, dr.Logger)
+		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"", schema.SchemaVersion(dr.Context)), dr.EvaluatorOptions, dr.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to evaluate PKL file: %w", err)
 	}
