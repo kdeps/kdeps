@@ -215,11 +215,12 @@ func (dr *DependencyResolver) LoadResource(ctx context.Context, resourceFile str
 			dr.Logger.Error("error evaluating output text", "resource-file", resourceFile, "error", err)
 			return nil, "", fmt.Errorf("error evaluating output text for '%s': %w", resourceFile, err)
 		}
-		// Get schema version
+		// // Get schema version
 		version := schema.SchemaVersion(ctx)
 		// Prepend the amends line with the schema version
 		amendsLine := fmt.Sprintf("amends \"package://schema.kdeps.com/core@%s#/Resource.pkl\"\n\n", version)
 		outputContent := amendsLine + output
+
 		if err := os.WriteFile(outputFileName, []byte(outputContent), 0o644); err != nil {
 			dr.Logger.Error("failed to write to output file", "output-file", outputFileName, "error", err)
 			return nil, "", fmt.Errorf("failed to write to %s: %w", outputFileName, err)

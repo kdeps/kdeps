@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/apple/pkl-go/pkl"
@@ -30,7 +31,7 @@ func EnsurePklBinaryExists(ctx context.Context, logger *logging.Logger) error {
 }
 
 // EvalPkl evaluates the resource file at resourcePath using the Pkl library.
-// It expects the resourcePath to have a .pkl extension.
+// If the file content is a quoted PKL code string like "new <Dynamic,Listing,Mapping,etc..> {...}", it removes the quotes and writes it to a temporary file for evaluation.
 func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSection string, opts func(options *pkl.EvaluatorOptions), logger *logging.Logger) (string, error) {
 	// Validate that the file has a .pkl extension
 	if filepath.Ext(resourcePath) != ".pkl" {
@@ -39,15 +40,63 @@ func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSectio
 		return "", fmt.Errorf("%s", errMsg)
 	}
 
+	// Read the file content
+	content, err := afero.ReadFile(fs, resourcePath)
+	if err != nil {
+		logger.Error("failed to read file", "resourcePath", resourcePath, "error", err)
+		return "", fmt.Errorf("error reading %s: %w", resourcePath, err)
+	}
+	contentStr := string(content)
+	logger.Debug("read file content", "resourcePath", resourcePath, "content", contentStr)
+
+	// Check if file content is a quoted PKL code string of the form "new <Dynamic,Listing,Mapping,etc..> {...}"
+	// where the block can span multiple lines
+	pklPattern := regexp.MustCompile(`(?s)^(?:\"|\')\s*new\s+(Dynamic|Listing|Mapping|[a-zA-Z][a-zA-Z0-9]*)\s*\{[\s\S]*?\}\s*(?:\"|\')$`)
+	dataToEvaluate := contentStr
+	evalPath := resourcePath // Default to original file path
+	if pklPattern.MatchString(contentStr) {
+		// Remove surrounding quotes
+		dataToEvaluate = strings.Trim(contentStr, "\"'")
+		logger.Debug("detected quoted PKL code pattern, removed quotes", "resourcePath", resourcePath, "original", contentStr, "modified", dataToEvaluate)
+
+		// Create a temporary file for the modified content
+		tempFile, err := afero.TempFile(fs, "", "pkl-*.pkl")
+		if err != nil {
+			logger.Error("failed to create temporary file", "error", err)
+			return "", fmt.Errorf("error creating temporary file: %w", err)
+		}
+		tempPath := tempFile.Name()
+		defer func() {
+			if err := fs.Remove(tempPath); err != nil {
+				logger.Warn("failed to remove temporary file", "tempPath", tempPath, "error", err)
+			}
+		}()
+
+		// Write the modified (unquoted) content to the temporary file
+		if _, err := tempFile.Write([]byte(dataToEvaluate)); err != nil {
+			logger.Error("failed to write modified PKL content to temporary file", "tempPath", tempPath, "error", err)
+			return "", fmt.Errorf("error writing modified content to %s: %w", tempPath, err)
+		}
+		if err := tempFile.Close(); err != nil {
+			logger.Error("failed to close temporary file", "tempPath", tempPath, "error", err)
+			return "", fmt.Errorf("error closing temporary file %s: %w", tempPath, err)
+		}
+		logger.Debug("successfully wrote modified PKL content to temporary file", "tempPath", tempPath)
+
+		evalPath = tempPath // Use temporary file for evaluation
+	} else {
+		logger.Debug("no quoted PKL pattern match", "resourcePath", resourcePath, "content", contentStr)
+	}
+
 	// Create a ModuleSource using UriSource for paths with a protocol, FileSource for relative paths
 	var moduleSource *pkl.ModuleSource
-	parsedURL, err := url.Parse(resourcePath)
+	parsedURL, err := url.Parse(evalPath)
 	if err == nil && parsedURL.Scheme != "" {
 		// Has a protocol (e.g., file://, http://, https://)
-		moduleSource = pkl.UriSource(resourcePath)
+		moduleSource = pkl.UriSource(evalPath)
 	} else {
 		// Absolute path without a protocol
-		moduleSource = pkl.FileSource(resourcePath)
+		moduleSource = pkl.FileSource(evalPath)
 	}
 
 	if opts == nil {
@@ -65,20 +114,28 @@ func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSectio
 
 	pklEvaluator, err := pkl.NewEvaluator(ctx, opts)
 	if err != nil {
-		logger.Error("Failed to create Pkl evaluator", "path", resourcePath, "error", err)
-		return "", fmt.Errorf("error creating evaluator for %s: %w", resourcePath, err)
+		logger.Error("failed to create Pkl evaluator", "resourcePath", resourcePath, "error", err)
+		return "", fmt.Errorf("error creating evaluator for %s: %w", evalPath, err)
 	}
 
 	// Evaluate the Pkl file
 	result, err := pklEvaluator.EvaluateOutputText(ctx, moduleSource)
 	if err != nil {
 		errMsg := "failed to evaluate Pkl file"
-		logger.Error(errMsg, "error", err, "resourcePath", resourcePath)
+		logger.Error(errMsg, "resourcePath", resourcePath, "evalPath", evalPath, "error", err)
 		return "", fmt.Errorf("%s: %w", errMsg, err)
 	}
 
 	// Format the result by prepending the headerSection
 	formattedResult := fmt.Sprintf("%s\n%s", headerSection, result)
+
+	// Write the formatted result to the original file
+	err = afero.WriteFile(fs, resourcePath, []byte(formattedResult), 0o644)
+	if err != nil {
+		logger.Error("failed to write formatted result to file", "resourcePath", resourcePath, "error", err)
+		return "", fmt.Errorf("error writing formatted result to %s: %w", resourcePath, err)
+	}
+	logger.Debug("successfully wrote formatted result to file", "resourcePath", resourcePath)
 
 	// Return the formatted result
 	return formattedResult, nil

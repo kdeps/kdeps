@@ -370,7 +370,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	webHostIP := "127.0.0.1"
 
 	anacondaVersion := "2024.10-1"
-	pklVersion := "0.28.1"
+	pklVersion := "0.28.2"
 
 	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow, logger)
 	if err != nil {

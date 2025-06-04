@@ -1,7 +1,6 @@
 package docker
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -531,7 +530,7 @@ func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver) error
 	return nil
 }
 
-// decodeResponseContent decodes the response content, attempting to parse Base64-decoded data as PKL using the provided evaluator, falling back to JSON if PKL parsing fails.
+// decodeResponseContent decodes the response content, using EvaluateString to parse Base64-decoded data.
 func decodeResponseContent(content []byte, logger *logging.Logger, pklEvaluator pkl.Evaluator, ctx context.Context) (*APIResponse, error) {
 	var decodedResp APIResponse
 
@@ -554,39 +553,16 @@ func decodeResponseContent(content []byte, logger *logging.Logger, pklEvaluator 
 		// Create a contextual logger for this data item
 		itemLogger := logger.With("data_index", i)
 
-		// Try to parse as PKL first using the provided evaluator
-		var pklResult interface{}
-		err = pklEvaluator.EvaluateExpression(ctx, pkl.TextSource(decodedData), "", &pklResult)
-		if err == nil {
-			// Successfully parsed as PKL, convert to JSON for consistency
-			jsonBytes, err := json.MarshalIndent(pklResult, "", "  ")
-			if err == nil {
-				itemLogger.Debug("parsed PKL and converted to JSON")
-				decodedResp.Response.Data[i] = string(jsonBytes)
-				continue
-			}
-			itemLogger.Warn("failed to convert PKL to JSON, using raw PKL output", "error", err)
-			decodedResp.Response.Data[i] = decodedData // Fallback to raw decoded data
+		// Use EvaluateString to process the decoded data
+		result, err := utils.EvaluateStringToJSON(decodedData, itemLogger, pklEvaluator, ctx)
+		if err != nil {
+			itemLogger.Warn("failed to evaluate data, using raw decoded data", "error", err)
+			decodedResp.Response.Data[i] = decodedData
 			continue
 		}
-		itemLogger.Debug("data is not a valid PKL expression, trying JSON", "error", err)
 
-		// Fallback to JSON processing
-		fixedJSON := utils.FixJSON(decodedData)
-		if utils.IsJSON(fixedJSON) {
-			var prettyJSON bytes.Buffer
-			err := json.Indent(&prettyJSON, []byte(fixedJSON), "", "  ")
-			if err == nil {
-				itemLogger.Debug("processed as JSON and pretty-printed")
-				fixedJSON = prettyJSON.String()
-			} else {
-				itemLogger.Warn("failed to pretty-print JSON", "error", err)
-			}
-			decodedResp.Response.Data[i] = fixedJSON
-		} else {
-			itemLogger.Warn("data is neither valid PKL nor JSON, using raw decoded data")
-			decodedResp.Response.Data[i] = decodedData
-		}
+		itemLogger.Debug("successfully evaluated data")
+		decodedResp.Response.Data[i] = result
 	}
 
 	return &decodedResp, nil
