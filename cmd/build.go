@@ -13,6 +13,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Function variables for dependency injection (for testing)
+var (
+	extractPackageFn           = archiver.ExtractPackage
+	buildDockerfileFn          = docker.BuildDockerfile
+	newDockerClientFn          = client.NewClientWithOpts
+	buildDockerImageFn         = docker.BuildDockerImage
+	cleanupDockerBuildImagesFn = docker.CleanupDockerBuildImages
+)
+
 // NewBuildCommand creates the 'build' command and passes the necessary dependencies.
 func NewBuildCommand(fs afero.Fs, ctx context.Context, kdepsDir string, systemCfg *kdeps.Kdeps, logger *logging.Logger) *cobra.Command {
 	return &cobra.Command{
@@ -24,24 +33,24 @@ func NewBuildCommand(fs afero.Fs, ctx context.Context, kdepsDir string, systemCf
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pkgFile := args[0]
 			// Use the passed dependencies
-			pkgProject, err := archiver.ExtractPackage(fs, ctx, kdepsDir, pkgFile, logger)
+			pkgProject, err := extractPackageFn(fs, ctx, kdepsDir, pkgFile, logger)
 			if err != nil {
 				return err
 			}
-			runDir, _, _, _, _, _, _, _, err := docker.BuildDockerfile(fs, ctx, systemCfg, kdepsDir, pkgProject, logger)
+			runDir, _, _, _, _, _, _, _, err := buildDockerfileFn(fs, ctx, systemCfg, kdepsDir, pkgProject, logger)
 			if err != nil {
 				return err
 			}
-			dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+			dockerClient, err := newDockerClientFn(client.FromEnv, client.WithAPIVersionNegotiation())
 			if err != nil {
 				return err
 			}
-			agentContainerName, agentContainerNameAndVersion, err := docker.BuildDockerImage(fs, ctx, systemCfg, dockerClient, runDir, kdepsDir, pkgProject, logger)
+			agentContainerName, agentContainerNameAndVersion, err := buildDockerImageFn(fs, ctx, systemCfg, dockerClient, runDir, kdepsDir, pkgProject, logger)
 			if err != nil {
 				return err
 			}
 
-			if err := docker.CleanupDockerBuildImages(fs, ctx, agentContainerName, dockerClient); err != nil {
+			if err := cleanupDockerBuildImagesFn(fs, ctx, agentContainerName, dockerClient); err != nil {
 				return err
 			}
 			fmt.Println("Kdeps AI Agent docker image created:", agentContainerNameAndVersion)

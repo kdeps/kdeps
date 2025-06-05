@@ -53,6 +53,7 @@ func GenerateResourceIDFilename(input string, requestID string) string {
 
 func CreateDirectories(fs afero.Fs, ctx context.Context, dirs []string) error {
 	for _, dir := range dirs {
+		fmt.Printf("Debug: Creating directory: %s\n", dir)
 		// Use fs.MkdirAll to create the directory and its parents if they don't exist
 		err := fs.MkdirAll(dir, 0o755)
 		if err != nil {
@@ -70,7 +71,7 @@ func CreateFiles(fs afero.Fs, ctx context.Context, files []string) error {
 			return fmt.Errorf("failed to create file %s: %w", file, err)
 		}
 
-		// Close the file after creating it to ensure it’s properly written to disk
+		// Close the file after creating it to ensure it's properly written to disk
 		err = f.Close()
 		if err != nil {
 			return fmt.Errorf("failed to close file %s: %w", file, err)

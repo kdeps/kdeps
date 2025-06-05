@@ -26,7 +26,7 @@ open-source LLM models that are orchestrated by a graph-based dependency workflo
 variable to prevent errors caused by rate limit exhaustion.`)
 	rootCmd.AddCommand(NewAgentCommand(fs, ctx, kdepsDir, logger))
 	rootCmd.AddCommand(NewScaffoldCommand(fs, ctx, logger))
-	rootCmd.AddCommand(NewAddCommand(fs, ctx, kdepsDir, logger))
+	rootCmd.AddCommand(NewInstallCommand(fs, ctx, kdepsDir, logger))
 	rootCmd.AddCommand(NewPackageCommand(fs, ctx, kdepsDir, env, logger))
 	rootCmd.AddCommand(NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger))
 	rootCmd.AddCommand(NewRunCommand(fs, ctx, kdepsDir, systemCfg, logger))

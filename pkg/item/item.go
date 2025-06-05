@@ -13,7 +13,13 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-// PklResourceReader implements the pkl.ResourceReader interface for the item scheme.
+// ItemReader is the interface for reading resources.
+type ItemReader interface {
+	pkl.ResourceReader
+	Read(uri url.URL) ([]byte, error)
+}
+
+// PklResourceReader implements the ItemReader interface for the item scheme.
 type PklResourceReader struct {
 	DB     *sql.DB
 	DBPath string // Store dbPath for reinitialization

@@ -10,8 +10,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewAddCommand creates the 'add' command and passes the necessary dependencies.
-func NewAddCommand(fs afero.Fs, ctx context.Context, kdepsDir string, logger *logging.Logger) *cobra.Command {
+// Allow override for testing.
+var extractPackage = archiver.ExtractPackage
+
+// runAdd contains the logic for installing an AI agent, factored out for testability.
+func runAdd(fs afero.Fs, ctx context.Context, kdepsDir, pkgFile string, logger *logging.Logger) error {
+	_, err := extractPackage(fs, ctx, kdepsDir, pkgFile, logger)
+	if err != nil {
+		return err
+	}
+	fmt.Println("AI agent installed locally:", pkgFile)
+	return nil
+}
+
+// NewInstallCommand creates the 'install' command and passes the necessary dependencies.
+func NewInstallCommand(fs afero.Fs, ctx context.Context, kdepsDir string, logger *logging.Logger) *cobra.Command {
 	return &cobra.Command{
 		Use:     "install [package]",
 		Aliases: []string{"i"},
@@ -19,14 +32,7 @@ func NewAddCommand(fs afero.Fs, ctx context.Context, kdepsDir string, logger *lo
 		Short:   "Install an AI agent locally",
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pkgFile := args[0]
-			// Use the passed dependencies
-			_, err := archiver.ExtractPackage(fs, ctx, kdepsDir, pkgFile, logger)
-			if err != nil {
-				return err
-			}
-			fmt.Println("AI agent installed locally:", pkgFile)
-			return nil
+			return runAdd(fs, ctx, kdepsDir, args[0], logger)
 		},
 	}
 }
