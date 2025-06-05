@@ -13,32 +13,37 @@ import (
 	pklPython "github.com/kdeps/schema/gen/python"
 )
 
-// getResourceFilePath returns the file path for a given resourceType.
-func (dr *DependencyResolver) getResourceFilePath(resourceType string) (string, error) {
-	files := map[string]string{
-		"llm":    filepath.Join(dr.ActionDir, "llm", dr.RequestID+"__llm_output.pkl"),
-		"client": filepath.Join(dr.ActionDir, "client", dr.RequestID+"__client_output.pkl"),
-		"exec":   filepath.Join(dr.ActionDir, "exec", dr.RequestID+"__exec_output.pkl"),
-		"python": filepath.Join(dr.ActionDir, "python", dr.RequestID+"__python_output.pkl"),
+// GetResourceFilePath returns the file path for a given resourceType.
+func (dr *DependencyResolver) GetResourceFilePath(resourceType ResourceType) (string, error) {
+	files := map[ResourceType]string{
+		LLMResource:    filepath.Join(dr.ActionDir, "llm", dr.RequestID+"__llm_output.pkl"),
+		HTTPResource:   filepath.Join(dr.ActionDir, "client", dr.RequestID+"__client_output.pkl"),
+		ExecResource:   filepath.Join(dr.ActionDir, "exec", dr.RequestID+"__exec_output.pkl"),
+		PythonResource: filepath.Join(dr.ActionDir, "python", dr.RequestID+"__python_output.pkl"),
 	}
 
 	pklPath, exists := files[resourceType]
 	if !exists {
-		return "", fmt.Errorf("invalid resourceType %s provided", resourceType)
+		return "", fmt.Errorf("unsupported resourceType %s provided", resourceType)
 	}
 	return pklPath, nil
 }
 
-// loadPKLFile loads and returns the PKL file based on resourceType.
-func (dr *DependencyResolver) loadPKLFile(resourceType, pklPath string) (interface{}, error) {
+// LoadPKLFile loads and returns the PKL file based on resourceType.
+func (dr *DependencyResolver) LoadPKLFile(resourceType ResourceType, pklPath string) (interface{}, error) {
+	// Use mock/test loader if set
+	if dr.LoadResourceFunc != nil {
+		return dr.LoadResourceFunc(dr.Context, pklPath, resourceType)
+	}
+
 	switch resourceType {
-	case "exec":
+	case ExecResource:
 		return pklExec.LoadFromPath(dr.Context, pklPath)
-	case "python":
+	case PythonResource:
 		return pklPython.LoadFromPath(dr.Context, pklPath)
-	case "llm":
+	case LLMResource:
 		return pklLLM.LoadFromPath(dr.Context, pklPath)
-	case "client":
+	case HTTPResource:
 		return pklHTTP.LoadFromPath(dr.Context, pklPath)
 	default:
 		return nil, fmt.Errorf("unsupported resourceType %s provided", resourceType)
@@ -89,15 +94,20 @@ func getResourceTimestamp(resourceID string, pklRes interface{}) (*pkl.Duration,
 }
 
 // GetCurrentTimestamp retrieves the current timestamp for the given resourceID and resourceType.
-func (dr *DependencyResolver) GetCurrentTimestamp(resourceID, resourceType string) (pkl.Duration, error) {
-	pklPath, err := dr.getResourceFilePath(resourceType)
+func (dr *DependencyResolver) GetCurrentTimestamp(resourceID string, resourceType ResourceType) (pkl.Duration, error) {
+	pklPath, err := dr.GetResourceFilePath(resourceType)
 	if err != nil {
 		return pkl.Duration{}, err
 	}
 
-	pklRes, err := dr.loadPKLFile(resourceType, pklPath)
+	var pklRes interface{}
+	if dr.LoadResourceFunc != nil {
+		pklRes, err = dr.LoadResourceFunc(dr.Context, pklPath, resourceType)
+	} else {
+		pklRes, err = dr.LoadPKLFile(resourceType, pklPath)
+	}
 	if err != nil {
-		return pkl.Duration{}, fmt.Errorf("failed to load %s PKL file: %w", resourceType, err)
+		return pkl.Duration{}, fmt.Errorf("failed to load %s PKL file: %w", resourceTypeGoName(resourceType), err)
 	}
 
 	timestamp, err := getResourceTimestamp(resourceID, pklRes)
@@ -106,6 +116,22 @@ func (dr *DependencyResolver) GetCurrentTimestamp(resourceID, resourceType strin
 	}
 
 	return *timestamp, nil
+}
+
+// resourceTypeGoName returns the Go constant name for a ResourceType.
+func resourceTypeGoName(resourceType ResourceType) string {
+	switch resourceType {
+	case ExecResource:
+		return "ExecResource"
+	case PythonResource:
+		return "PythonResource"
+	case LLMResource:
+		return "LLMResource"
+	case HTTPResource:
+		return "HTTPResource"
+	default:
+		return string(resourceType)
+	}
 }
 
 // formatDuration converts a time.Duration into a human-friendly string.
@@ -127,7 +153,7 @@ func formatDuration(d time.Duration) string {
 }
 
 // WaitForTimestampChange waits until the timestamp for the specified resourceID changes from the provided previous timestamp.
-func (dr *DependencyResolver) WaitForTimestampChange(resourceID string, previousTimestamp pkl.Duration, timeout time.Duration, resourceType string) error {
+func (dr *DependencyResolver) WaitForTimestampChange(resourceID string, previousTimestamp pkl.Duration, timeout time.Duration, resourceType ResourceType) error {
 	startTime := time.Now()
 	lastSeenTimestamp := previousTimestamp
 

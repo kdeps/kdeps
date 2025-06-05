@@ -3,21 +3,32 @@ package resolver_test
 import (
 	"context"
 	"fmt"
+	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/apple/pkl-go/pkl"
 	"github.com/charmbracelet/log"
 	"github.com/cucumber/godog"
+	"github.com/gin-gonic/gin"
 	"github.com/kdeps/kdeps/pkg/cfg"
 	"github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/utils"
+	pklExec "github.com/kdeps/schema/gen/exec"
+	pklHTTP "github.com/kdeps/schema/gen/http"
 	"github.com/kdeps/schema/gen/kdeps"
+	pklLLM "github.com/kdeps/schema/gen/llm"
+	pklPython "github.com/kdeps/schema/gen/python"
 	pklRes "github.com/kdeps/schema/gen/resource"
 	"github.com/spf13/afero"
 )
@@ -166,9 +177,9 @@ methods {
 	workflowConfigurationContent := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
-name = "myAIAgentAPI1"
+name = "TestWorkflow"
 description = "AI Agent X API"
-targetActionID = "helloWorld9"
+targetActionID = "TestAction"
 settings {
   APIServerMode = true
   agentSettings {
@@ -605,3 +616,1113 @@ func iWasAbleToSeeTheTopdownDependencies(arg1 string) error {
 
 //	return nil
 // }
+
+// Helper to set up context and directories for NewGraphResolver
+func setupResolverTestEnv(fs afero.Fs, agentDir, graphID, actionDir string) (context.Context, error) {
+	ctx := context.Background()
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, graphID)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, actionDir)
+
+	workflowDir := filepath.Join(agentDir, "workflow")
+	projectDir := filepath.Join(agentDir, "project")
+	filesDir := filepath.Join(actionDir, "files")
+	dirs := []string{workflowDir, projectDir, actionDir, filesDir}
+	for _, dir := range dirs {
+		if err := fs.MkdirAll(dir, 0o755); err != nil {
+			return nil, err
+		}
+	}
+	return nil, nil // ctx is not used by the caller
+}
+
+// MockPklLoader is a mock implementation of the Pkl loader for testing
+type MockPklLoader struct {
+	LoadFunc func(ctx context.Context, path string, resourceType resolver.ResourceType) (interface{}, error)
+}
+
+func (m *MockPklLoader) Load(ctx context.Context, path string, resourceType resolver.ResourceType) (interface{}, error) {
+	return m.LoadFunc(ctx, path, resourceType)
+}
+
+func setupTestResolver(t *testing.T) (*resolver.DependencyResolver, *MockPklLoader) {
+	// Create a temporary directory for testing
+	tempDir, err := os.MkdirTemp("", "test-resolver-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	t.Cleanup(func() {
+		os.RemoveAll(tempDir)
+	})
+
+	// Create necessary subdirectories
+	agentDir := filepath.Join(tempDir, "agent")
+	workflowDir := filepath.Join(tempDir, "workflow")
+	actionDir := filepath.Join(tempDir, "action")
+	filesDir := filepath.Join(tempDir, "files")
+
+	dirs := []string{agentDir, workflowDir, actionDir, filesDir}
+	if err := utils.CreateDirectories(afero.NewOsFs(), context.Background(), dirs); err != nil {
+		t.Fatalf("Failed to create directories: %v", err)
+	}
+
+	// Write a minimal valid workflow.pkl file
+	workflowSubdir := filepath.Join(agentDir, "workflow")
+	if err := os.MkdirAll(workflowSubdir, 0o755); err != nil {
+		t.Fatalf("Failed to create workflow subdir: %v", err)
+	}
+	workflowContent := `amends "package://schema.kdeps.com/core@0.2.30#/Workflow.pkl"
+name = "TestWorkflow"
+description = "Test workflow"
+version = "1.0.0"
+targetActionID = "TestAction"
+`
+	if err := os.WriteFile(filepath.Join(workflowSubdir, "workflow.pkl"), []byte(workflowContent), 0644); err != nil {
+		t.Fatalf("Failed to write workflow.pkl: %v", err)
+	}
+
+	// Set up environment
+	os.Setenv("KDEPS_DIR", tempDir)
+
+	// Create mock loader
+	mockLoader := &MockPklLoader{
+		LoadFunc: func(ctx context.Context, path string, resourceType resolver.ResourceType) (interface{}, error) {
+			// Return a fixed timestamp value for all resource types
+			timestamp := &pkl.Duration{
+				Value: 1234567890,
+				Unit:  pkl.Second,
+			}
+
+			switch resourceType {
+			case resolver.ExecResource:
+				return &pklExec.ExecImpl{
+					Resources: &map[string]*pklExec.ResourceExec{
+						"test-exec": {
+							Timestamp: timestamp,
+						},
+					},
+				}, nil
+			case resolver.PythonResource:
+				return &pklPython.PythonImpl{
+					Resources: &map[string]*pklPython.ResourcePython{
+						"test-python": {
+							Timestamp: timestamp,
+						},
+					},
+				}, nil
+			case resolver.LLMResource:
+				return &pklLLM.LLMImpl{
+					Resources: &map[string]*pklLLM.ResourceChat{
+						"test-llm": {
+							Timestamp: timestamp,
+						},
+					},
+				}, nil
+			case resolver.HTTPResource:
+				return &pklHTTP.HTTPImpl{
+					Resources: &map[string]*pklHTTP.ResourceHTTPClient{
+						"test-client": {
+							Timestamp: timestamp,
+						},
+					},
+				}, nil
+			default:
+				return nil, fmt.Errorf("unsupported resourceType %s provided", resourceType)
+			}
+		},
+	}
+
+	// Create a new resolver instance
+	fs := afero.NewOsFs()
+	ctx := context.Background()
+	env := &environment.Environment{
+		Root:           tempDir,
+		Home:           tempDir,
+		Pwd:            tempDir,
+		NonInteractive: "1",
+		DockerMode:     "1",
+	}
+	logger := logging.GetLogger()
+	req := &gin.Context{}
+
+	// Set up context with required values
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, "test-graph")
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, actionDir)
+
+	resolver, err := resolver.NewGraphResolver(fs, ctx, env, req, logger)
+	if err != nil {
+		t.Fatalf("Failed to create resolver: %v", err)
+	}
+	resolver.LoadResourceFunc = mockLoader.LoadFunc
+
+	return resolver, mockLoader
+}
+
+func TestNewGraphResolver(t *testing.T) {
+	tests := []struct {
+		name    string
+		setup   func(t *testing.T) (*resolver.DependencyResolver, error)
+		wantErr bool
+	}{
+		{
+			name: "successful_initialization",
+			setup: func(t *testing.T) (*resolver.DependencyResolver, error) {
+				_, resolver := setupTestWorkflow(t)
+				return resolver, nil
+			},
+			wantErr: false,
+		},
+		{
+			name: "missing_workflow_file",
+			setup: func(t *testing.T) (*resolver.DependencyResolver, error) {
+				fs := afero.NewOsFs()
+				ctx := context.Background()
+				env := &environment.Environment{
+					Root:           "/nonexistent",
+					Home:           "/nonexistent",
+					Pwd:            "/nonexistent",
+					NonInteractive: "1",
+					DockerMode:     "1",
+				}
+				logger := logging.GetLogger()
+				return resolver.NewGraphResolver(fs, ctx, env, nil, logger)
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resolver, err := tt.setup(t)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NewGraphResolver() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && resolver == nil {
+				t.Error("NewGraphResolver() returned nil resolver when no error expected")
+			}
+		})
+	}
+}
+
+func TestValidateRequestParams(t *testing.T) {
+	testDir, resolver := setupTestWorkflow(t)
+	defer os.RemoveAll(testDir)
+
+	tests := []struct {
+		name           string
+		fileContent    string
+		allowedParams  []string
+		expectedResult error
+	}{
+		{
+			name:           "valid_params",
+			fileContent:    "request.params(\"param1\") request.params(\"param2\")",
+			allowedParams:  []string{"param1", "param2"},
+			expectedResult: nil,
+		},
+		{
+			name:           "invalid_param",
+			fileContent:    "request.params(\"param1\") request.params(\"param3\")",
+			allowedParams:  []string{"param1", "param2"},
+			expectedResult: fmt.Errorf("invalid parameter: param3"),
+		},
+		{
+			name:           "empty_allowed_params",
+			fileContent:    "request.params(\"param1\")",
+			allowedParams:  []string{},
+			expectedResult: fmt.Errorf("no parameters allowed"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := resolver.ValidateRequestParams(tt.fileContent, tt.allowedParams)
+			if (result == nil) != (tt.expectedResult == nil) {
+				t.Errorf("ValidateRequestParams() = %v, want %v", result, tt.expectedResult)
+			}
+		})
+	}
+}
+
+func TestValidateRequestHeaders(t *testing.T) {
+	testDir, resolver := setupTestWorkflow(t)
+	defer os.RemoveAll(testDir)
+
+	tests := []struct {
+		name           string
+		fileContent    string
+		allowedHeaders []string
+		expectedResult error
+	}{
+		{
+			name:           "valid_headers",
+			fileContent:    "request.header(\"header1\") request.header(\"header2\")",
+			allowedHeaders: []string{"header1", "header2"},
+			expectedResult: nil,
+		},
+		{
+			name:           "invalid_header",
+			fileContent:    "request.header(\"header1\") request.header(\"header3\")",
+			allowedHeaders: []string{"header1", "header2"},
+			expectedResult: fmt.Errorf("invalid header: header3"),
+		},
+		{
+			name:           "empty_allowed_headers",
+			fileContent:    "request.header(\"header1\")",
+			allowedHeaders: []string{},
+			expectedResult: fmt.Errorf("no headers allowed"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := resolver.ValidateRequestHeaders(tt.fileContent, tt.allowedHeaders)
+			if (result == nil) != (tt.expectedResult == nil) {
+				t.Errorf("ValidateRequestHeaders() = %v, want %v", result, tt.expectedResult)
+			}
+		})
+	}
+}
+
+func TestValidateRequestPath(t *testing.T) {
+	testDir, resolver := setupTestWorkflow(t)
+	defer os.RemoveAll(testDir)
+
+	tests := []struct {
+		name           string
+		path           string
+		allowedPaths   []string
+		expectedResult error
+	}{
+		{
+			name:           "valid_path",
+			path:           "/resource1",
+			allowedPaths:   []string{"/resource1", "/resource2"},
+			expectedResult: nil,
+		},
+		{
+			name:           "invalid_path",
+			path:           "/resource3",
+			allowedPaths:   []string{"/resource1", "/resource2"},
+			expectedResult: fmt.Errorf("path /resource3 not in the allowed routes"),
+		},
+		{
+			name:           "empty_allowed_paths",
+			path:           "/resource1",
+			allowedPaths:   []string{},
+			expectedResult: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest("GET", tt.path, nil)
+			result := resolver.ValidateRequestPath(c, tt.allowedPaths)
+			if (result == nil) != (tt.expectedResult == nil) {
+				t.Errorf("ValidateRequestPath() = %v, want %v", result, tt.expectedResult)
+			}
+		})
+	}
+}
+
+func TestValidateRequestMethod(t *testing.T) {
+	testDir, resolver := setupTestWorkflow(t)
+	defer os.RemoveAll(testDir)
+
+	tests := []struct {
+		name           string
+		method         string
+		allowedMethods []string
+		expectedResult error
+	}{
+		{
+			name:           "valid_method",
+			method:         "GET",
+			allowedMethods: []string{"GET", "POST"},
+			expectedResult: nil,
+		},
+		{
+			name:           "invalid_method",
+			method:         "PUT",
+			allowedMethods: []string{"GET", "POST"},
+			expectedResult: fmt.Errorf("method PUT not in the allowed HTTP methods"),
+		},
+		{
+			name:           "empty_allowed_methods",
+			method:         "GET",
+			allowedMethods: []string{},
+			expectedResult: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest(tt.method, "/test", nil)
+			result := resolver.ValidateRequestMethod(c, tt.allowedMethods)
+			if (result == nil) != (tt.expectedResult == nil) {
+				t.Errorf("ValidateRequestMethod() = %v, want %v", result, tt.expectedResult)
+			}
+		})
+	}
+}
+
+func TestLoadResource(t *testing.T) {
+	tests := []struct {
+		name          string
+		resourceType  resolver.ResourceType
+		setup         func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader)
+		expectError   bool
+		expectedError string
+	}{
+		{
+			name:         "successful exec resource load",
+			resourceType: resolver.ExecResource,
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				mockLoader.LoadFunc = func(ctx context.Context, path string, resourceType resolver.ResourceType) (interface{}, error) {
+					return &pklExec.ExecImpl{}, nil
+				}
+				dr.LoadResourceFunc = mockLoader.Load
+			},
+			expectError: false,
+		},
+		{
+			name:         "successful python resource load",
+			resourceType: resolver.PythonResource,
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				mockLoader.LoadFunc = func(ctx context.Context, path string, resourceType resolver.ResourceType) (interface{}, error) {
+					return &pklPython.PythonImpl{}, nil
+				}
+				dr.LoadResourceFunc = mockLoader.Load
+			},
+			expectError: false,
+		},
+		{
+			name:         "successful llm resource load",
+			resourceType: resolver.LLMResource,
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				mockLoader.LoadFunc = func(ctx context.Context, path string, resourceType resolver.ResourceType) (interface{}, error) {
+					return &pklLLM.LLMImpl{}, nil
+				}
+				dr.LoadResourceFunc = mockLoader.Load
+			},
+			expectError: false,
+		},
+		{
+			name:         "successful http resource load",
+			resourceType: resolver.HTTPResource,
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				mockLoader.LoadFunc = func(ctx context.Context, path string, resourceType resolver.ResourceType) (interface{}, error) {
+					return &pklHTTP.HTTPImpl{
+						Resources: &map[string]*pklHTTP.ResourceHTTPClient{
+							"test-client": {
+								Timestamp: &pkl.Duration{
+									Value: 1234567890,
+									Unit:  pkl.Second,
+								},
+							},
+						},
+					}, nil
+				}
+				dr.LoadResourceFunc = mockLoader.Load
+			},
+			expectError: false,
+		},
+		{
+			name:         "load error",
+			resourceType: resolver.ExecResource,
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				mockLoader.LoadFunc = func(ctx context.Context, path string, resourceType resolver.ResourceType) (interface{}, error) {
+					return nil, fmt.Errorf("mock load error")
+				}
+				dr.LoadResourceFunc = mockLoader.Load
+			},
+			expectError:   true,
+			expectedError: "mock load error",
+		},
+		{
+			name:         "invalid resource type",
+			resourceType: resolver.ResourceType("invalid"),
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				dr.LoadResourceFunc = mockLoader.Load
+			},
+			expectError:   true,
+			expectedError: "unsupported resourceType",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dr, mockLoader := setupTestResolver(t)
+			tt.setup(dr, mockLoader)
+
+			// Test resource loading
+			_, err := dr.LoadResource(dr.Context, "/test/path", tt.resourceType)
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error but got none")
+				} else if !strings.Contains(err.Error(), tt.expectedError) {
+					t.Errorf("expected error containing %q, got %q", tt.expectedError, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestGetResourceFilePath(t *testing.T) {
+	tests := []struct {
+		name         string
+		resourceType resolver.ResourceType
+		expectError  bool
+	}{
+		{
+			name:         "valid llm type",
+			resourceType: resolver.LLMResource,
+			expectError:  false,
+		},
+		{
+			name:         "valid client type",
+			resourceType: resolver.HTTPResource,
+			expectError:  false,
+		},
+		{
+			name:         "valid exec type",
+			resourceType: resolver.ExecResource,
+			expectError:  false,
+		},
+		{
+			name:         "valid python type",
+			resourceType: resolver.PythonResource,
+			expectError:  false,
+		},
+		{
+			name:         "invalid type",
+			resourceType: resolver.ResourceType("invalid"),
+			expectError:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dr, _ := setupTestResolver(t)
+			dr.RequestID = "test123"
+
+			path, err := dr.GetResourceFilePath(tt.resourceType)
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error but got none")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+				// Verify the path structure without checking the exact temporary directory
+				expectedSuffix := fmt.Sprintf("%s/test123__%s_output.pkl", tt.resourceType, tt.resourceType)
+				if tt.resourceType == resolver.HTTPResource {
+					expectedSuffix = "client/test123__client_output.pkl"
+				}
+				if !strings.HasSuffix(path, expectedSuffix) {
+					t.Errorf("path %q does not end with expected suffix %q", path, expectedSuffix)
+				}
+			}
+		})
+	}
+}
+
+func TestLoadPKLFile(t *testing.T) {
+	tests := []struct {
+		name          string
+		resourceType  resolver.ResourceType
+		setup         func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader)
+		expectError   bool
+		expectedError string
+	}{
+		{
+			name:         "successful exec resource load",
+			resourceType: resolver.ExecResource,
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				mockLoader.LoadFunc = func(ctx context.Context, path string, resourceType resolver.ResourceType) (interface{}, error) {
+					return &pklExec.ExecImpl{}, nil
+				}
+				dr.LoadResourceFunc = mockLoader.Load
+			},
+			expectError: false,
+		},
+		{
+			name:         "successful python resource load",
+			resourceType: resolver.PythonResource,
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				mockLoader.LoadFunc = func(ctx context.Context, path string, resourceType resolver.ResourceType) (interface{}, error) {
+					return &pklPython.PythonImpl{}, nil
+				}
+				dr.LoadResourceFunc = mockLoader.Load
+			},
+			expectError: false,
+		},
+		{
+			name:         "successful llm resource load",
+			resourceType: resolver.LLMResource,
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				mockLoader.LoadFunc = func(ctx context.Context, path string, resourceType resolver.ResourceType) (interface{}, error) {
+					return &pklLLM.LLMImpl{}, nil
+				}
+				dr.LoadResourceFunc = mockLoader.Load
+			},
+			expectError: false,
+		},
+		{
+			name:         "successful client resource load",
+			resourceType: resolver.HTTPResource,
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				mockLoader.LoadFunc = func(ctx context.Context, path string, resourceType resolver.ResourceType) (interface{}, error) {
+					return &pklHTTP.HTTPImpl{
+						Resources: &map[string]*pklHTTP.ResourceHTTPClient{
+							"test-client": {
+								Timestamp: &pkl.Duration{
+									Value: 1234567890,
+									Unit:  pkl.Second,
+								},
+							},
+						},
+					}, nil
+				}
+				dr.LoadResourceFunc = mockLoader.Load
+			},
+			expectError: false,
+		},
+		{
+			name:         "load error",
+			resourceType: resolver.ExecResource,
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				mockLoader.LoadFunc = func(ctx context.Context, path string, resourceType resolver.ResourceType) (interface{}, error) {
+					return nil, fmt.Errorf("mock load error")
+				}
+				dr.LoadResourceFunc = mockLoader.Load
+			},
+			expectError:   true,
+			expectedError: "mock load error",
+		},
+		{
+			name:         "invalid resource type",
+			resourceType: resolver.ResourceType("invalid"),
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				dr.LoadResourceFunc = mockLoader.Load
+			},
+			expectError:   true,
+			expectedError: "unsupported resourceType",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dr, mockLoader := setupTestResolver(t)
+			tt.setup(dr, mockLoader)
+
+			// Get the actual path for the resource type
+			path, err := dr.GetResourceFilePath(tt.resourceType)
+			if err != nil {
+				if tt.expectError {
+					// If we expect an error, check the error message and return
+					if tt.expectedError != "" && !strings.Contains(err.Error(), tt.expectedError) {
+						t.Errorf("expected error containing %q, got %q", tt.expectedError, err.Error())
+					}
+					return
+				} else {
+					t.Fatalf("Failed to get resource file path: %v", err)
+				}
+			}
+
+			// Only create the directory and file if we are not testing invalid resource type
+			if !tt.expectError || (tt.expectError && tt.name == "load error") {
+				dir := filepath.Dir(path)
+				if err := dr.Fs.MkdirAll(dir, 0755); err != nil {
+					t.Fatalf("Failed to create directory: %v", err)
+				}
+
+				// Create an empty PKL file
+				if err := afero.WriteFile(dr.Fs, path, []byte(""), 0644); err != nil {
+					t.Fatalf("Failed to create PKL file: %v", err)
+				}
+			}
+
+			// Test PKL file loading
+			_, err = dr.LoadPKLFile(tt.resourceType, path)
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error but got none")
+				} else if tt.expectedError != "" && !strings.Contains(err.Error(), tt.expectedError) {
+					t.Errorf("expected error containing %q, got %q", tt.expectedError, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestGetCurrentTimestamp(t *testing.T) {
+	tests := []struct {
+		name          string
+		resourceID    string
+		resourceType  resolver.ResourceType
+		setup         func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader)
+		expectError   bool
+		expectedError string
+	}{
+		{
+			name:         "successful exec timestamp",
+			resourceID:   "test-exec",
+			resourceType: resolver.ExecResource,
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				mockLoader.LoadFunc = func(ctx context.Context, path string, resourceType resolver.ResourceType) (interface{}, error) {
+					return &pklExec.ExecImpl{
+						Resources: &map[string]*pklExec.ResourceExec{
+							"test-exec": {
+								Timestamp: &pkl.Duration{
+									Value: 1234567890,
+									Unit:  pkl.Second,
+								},
+							},
+						},
+					}, nil
+				}
+				dr.LoadResourceFunc = mockLoader.Load
+			},
+			expectError: false,
+		},
+		{
+			name:         "successful python timestamp",
+			resourceID:   "test-python",
+			resourceType: resolver.PythonResource,
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				mockLoader.LoadFunc = func(ctx context.Context, path string, resourceType resolver.ResourceType) (interface{}, error) {
+					return &pklPython.PythonImpl{
+						Resources: &map[string]*pklPython.ResourcePython{
+							"test-python": {
+								Timestamp: &pkl.Duration{
+									Value: 1234567890,
+									Unit:  pkl.Second,
+								},
+							},
+						},
+					}, nil
+				}
+				dr.LoadResourceFunc = mockLoader.Load
+			},
+			expectError: false,
+		},
+		{
+			name:         "successful llm timestamp",
+			resourceID:   "test-llm",
+			resourceType: resolver.LLMResource,
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				mockLoader.LoadFunc = func(ctx context.Context, path string, resourceType resolver.ResourceType) (interface{}, error) {
+					return &pklLLM.LLMImpl{
+						Resources: &map[string]*pklLLM.ResourceChat{
+							"test-llm": {
+								Timestamp: &pkl.Duration{
+									Value: 1234567890,
+									Unit:  pkl.Second,
+								},
+							},
+						},
+					}, nil
+				}
+				dr.LoadResourceFunc = mockLoader.Load
+			},
+			expectError: false,
+		},
+		{
+			name:         "successful client timestamp",
+			resourceID:   "test-client",
+			resourceType: resolver.HTTPResource,
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				mockLoader.LoadFunc = func(ctx context.Context, path string, resourceType resolver.ResourceType) (interface{}, error) {
+					return &pklHTTP.HTTPImpl{
+						Resources: &map[string]*pklHTTP.ResourceHTTPClient{
+							"test-client": {
+								Timestamp: &pkl.Duration{
+									Value: 1234567890,
+									Unit:  pkl.Second,
+								},
+							},
+						},
+					}, nil
+				}
+				dr.LoadResourceFunc = mockLoader.Load
+			},
+			expectError: false,
+		},
+		{
+			name:         "load error",
+			resourceID:   "test-exec",
+			resourceType: resolver.ExecResource,
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				mockLoader.LoadFunc = func(ctx context.Context, path string, resourceType resolver.ResourceType) (interface{}, error) {
+					return nil, fmt.Errorf("mock load error")
+				}
+				dr.LoadResourceFunc = mockLoader.Load
+			},
+			expectError:   true,
+			expectedError: "failed to load ExecResource PKL file: mock load error",
+		},
+		{
+			name:         "invalid resource type",
+			resourceID:   "test-invalid",
+			resourceType: resolver.ResourceType("invalid"),
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				dr.LoadResourceFunc = mockLoader.Load
+			},
+			expectError:   true,
+			expectedError: "unsupported resourceType",
+		},
+		{
+			name:         "resource not found",
+			resourceID:   "nonexistent",
+			resourceType: resolver.ExecResource,
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				mockLoader.LoadFunc = func(ctx context.Context, path string, resourceType resolver.ResourceType) (interface{}, error) {
+					return &pklExec.ExecImpl{
+						Resources: &map[string]*pklExec.ResourceExec{
+							"test-exec": {
+								Timestamp: &pkl.Duration{
+									Value: 1234567890,
+									Unit:  pkl.Second,
+								},
+							},
+						},
+					}, nil
+				}
+				dr.LoadResourceFunc = mockLoader.Load
+			},
+			expectError:   true,
+			expectedError: "resource ID nonexistent does not exist in the file",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dr, mockLoader := setupTestResolver(t)
+			tt.setup(dr, mockLoader)
+
+			// Test getting current timestamp
+			_, err := dr.GetCurrentTimestamp(tt.resourceID, tt.resourceType)
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error but got none")
+				} else if !strings.Contains(err.Error(), tt.expectedError) {
+					t.Errorf("expected error containing %q, got %q", tt.expectedError, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestProcessResourceStep(t *testing.T) {
+	tests := []struct {
+		name          string
+		resourceID    string
+		step          string
+		timeout       *pkl.Duration
+		setup         func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader)
+		handler       func() error
+		expectError   bool
+		expectedError string
+	}{
+		{
+			name:       "successful resource processing",
+			resourceID: "test-resource",
+			step:       "test-step",
+			timeout: &pkl.Duration{
+				Value: 30,
+				Unit:  pkl.Second,
+			},
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				// Mock timestamp retrieval
+				dr.GetCurrentTimestampFunc = func(resourceID, step string) (string, error) {
+					return "1234567890", nil
+				}
+				// Mock timestamp change wait
+				dr.WaitForTimestampChangeFunc = func(resourceID, timestamp string, timeout time.Duration, step string) error {
+					return nil
+				}
+			},
+			handler: func() error {
+				return nil
+			},
+			expectError: false,
+		},
+		{
+			name:       "timestamp retrieval error",
+			resourceID: "test-resource",
+			step:       "test-step",
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				dr.GetCurrentTimestampFunc = func(resourceID, step string) (string, error) {
+					return "", fmt.Errorf("timestamp retrieval error")
+				}
+			},
+			handler: func() error {
+				return nil
+			},
+			expectError:   true,
+			expectedError: "test-step error: timestamp retrieval error",
+		},
+		{
+			name:       "handler execution error",
+			resourceID: "test-resource",
+			step:       "test-step",
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				dr.GetCurrentTimestampFunc = func(resourceID, step string) (string, error) {
+					return "1234567890", nil
+				}
+			},
+			handler: func() error {
+				return fmt.Errorf("handler execution error")
+			},
+			expectError:   true,
+			expectedError: "test-step error: handler execution error",
+		},
+		{
+			name:       "timestamp change wait error",
+			resourceID: "test-resource",
+			step:       "test-step",
+			timeout: &pkl.Duration{
+				Value: 30,
+				Unit:  pkl.Second,
+			},
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				dr.GetCurrentTimestampFunc = func(resourceID, step string) (string, error) {
+					return "1234567890", nil
+				}
+				dr.WaitForTimestampChangeFunc = func(resourceID, timestamp string, timeout time.Duration, step string) error {
+					return fmt.Errorf("timestamp change wait error")
+				}
+			},
+			handler: func() error {
+				return nil
+			},
+			expectError:   true,
+			expectedError: "test-step timeout awaiting for output: timestamp change wait error",
+		},
+		{
+			name:       "default timeout",
+			resourceID: "test-resource",
+			step:       "test-step",
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				dr.GetCurrentTimestampFunc = func(resourceID, step string) (string, error) {
+					return "1234567890", nil
+				}
+				dr.WaitForTimestampChangeFunc = func(resourceID, timestamp string, timeout time.Duration, step string) error {
+					if timeout != 60*time.Second {
+						return fmt.Errorf("unexpected timeout duration: %v", timeout)
+					}
+					return nil
+				}
+			},
+			handler: func() error {
+				return nil
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dr, _ := setupTestResolver(t)
+			tt.setup(dr, nil)
+
+			err := dr.ProcessResourceStep(tt.resourceID, tt.step, tt.timeout, tt.handler)
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error but got none")
+				} else if !strings.Contains(err.Error(), tt.expectedError) {
+					t.Errorf("expected error containing %q, got %q", tt.expectedError, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestHandleExec(t *testing.T) {
+	tests := []struct {
+		name          string
+		actionID      string
+		execBlock     *pklExec.ResourceExec
+		setup         func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader)
+		expectError   bool
+		expectedError string
+	}{
+		{
+			name:     "successful exec handling",
+			actionID: "test-action",
+			execBlock: &pklExec.ResourceExec{
+				Command: "echo test",
+				Env: &map[string]string{
+					"TEST_ENV": "test_value",
+				},
+				Stdout: func() *string {
+					s := utils.EncodeValue("test output")
+					return &s
+				}(),
+				Stderr: func() *string {
+					s := utils.EncodeValue("")
+					return &s
+				}(),
+			},
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				// Mock successful decoding and processing
+				dr.DecodeExecBlockFunc = func(block *pklExec.ResourceExec) error {
+					return nil
+				}
+				dr.ProcessExecBlockFunc = func(actionID string, block *pklExec.ResourceExec) error {
+					return nil
+				}
+			},
+			expectError: false,
+		},
+		{
+			name:     "decode error",
+			actionID: "test-action",
+			execBlock: &pklExec.ResourceExec{
+				Command: "echo test",
+			},
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				dr.DecodeExecBlockFunc = func(block *pklExec.ResourceExec) error {
+					return fmt.Errorf("decode error")
+				}
+			},
+			expectError:   true,
+			expectedError: "decode error",
+		},
+		{
+			name:     "process error",
+			actionID: "test-action",
+			execBlock: &pklExec.ResourceExec{
+				Command: "echo test",
+			},
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				dr.DecodeExecBlockFunc = func(block *pklExec.ResourceExec) error {
+					return nil
+				}
+				dr.ProcessExecBlockFunc = func(actionID string, block *pklExec.ResourceExec) error {
+					return fmt.Errorf("process error")
+				}
+			},
+			expectError:   true,
+			expectedError: "process error",
+		},
+		{
+			name:      "nil exec block",
+			actionID:  "test-action",
+			execBlock: nil,
+			setup: func(dr *resolver.DependencyResolver, mockLoader *MockPklLoader) {
+				// No setup needed
+			},
+			expectError:   true,
+			expectedError: "nil exec block",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dr, mockLoader := setupTestResolver(t)
+			tt.setup(dr, mockLoader)
+
+			err := dr.HandleExec(tt.actionID, tt.execBlock)
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error but got none")
+				} else if !strings.Contains(err.Error(), tt.expectedError) {
+					t.Errorf("expected error containing %q, got %q", tt.expectedError, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func setupTestWorkflow(t *testing.T) (string, *resolver.DependencyResolver) {
+	// Create a temporary directory for the test
+	tmpDir, err := os.MkdirTemp("", "test-workflow-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+
+	// Set KDEPS_DIR environment variable
+	os.Setenv("KDEPS_DIR", tmpDir)
+
+	// Create a temporary .kdeps directory
+	// Create the agent directory structure
+	agentDir := filepath.Join(tmpDir, "agent")
+	if err := os.MkdirAll(agentDir, 0o755); err != nil {
+		t.Fatalf("Failed to create agent dir: %v", err)
+	}
+
+	// Create the workflow directory
+	workflowDir := filepath.Join(agentDir, "workflow")
+	if err := os.MkdirAll(workflowDir, 0o755); err != nil {
+		t.Fatalf("Failed to create workflow dir: %v", err)
+	}
+
+	// Write a minimal valid workflow.pkl file
+	workflowSubdir := filepath.Join(agentDir, "workflow")
+	if err := os.MkdirAll(workflowSubdir, 0o755); err != nil {
+		t.Fatalf("Failed to create workflow subdir: %v", err)
+	}
+	workflowContent := `amends "package://schema.kdeps.com/core@0.2.30#/Workflow.pkl"
+name = "TestWorkflow"
+description = "Test workflow"
+version = "1.0.0"
+targetActionID = "TestAction"
+`
+	if err := os.WriteFile(filepath.Join(workflowSubdir, "workflow.pkl"), []byte(workflowContent), 0644); err != nil {
+		t.Fatalf("Failed to write workflow.pkl: %v", err)
+	}
+
+	// Create test environment
+	fs := afero.NewOsFs()
+	ctx := context.Background()
+	env := &environment.Environment{
+		Root:           tmpDir,
+		Home:           tmpDir,
+		Pwd:            tmpDir,
+		NonInteractive: "1",
+		DockerMode:     "1",
+	}
+	logger := logging.GetLogger()
+
+	// Set up context with required values
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, "test-graph")
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, filepath.Join(agentDir, "action"))
+
+	// Create resolver
+	resolver, err := resolver.NewGraphResolver(fs, ctx, env, nil, logger)
+	if err != nil {
+		t.Fatalf("Failed to create resolver: %v", err)
+	}
+
+	return tmpDir, resolver
+}

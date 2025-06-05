@@ -17,25 +17,36 @@ import (
 )
 
 func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.ResourceExec) error {
+	if execBlock == nil {
+		return errors.New("nil exec block")
+	}
+
 	// Decode the exec block synchronously
-	if err := dr.decodeExecBlock(execBlock); err != nil {
+	if err := dr.DecodeExecBlockFunc(execBlock); err != nil {
 		dr.Logger.Error("failed to decode exec block", "actionID", actionID, "error", err)
 		return err
 	}
 
 	// Run processExecBlock asynchronously in a goroutine
+	errChan := make(chan error, 1)
 	go func(aID string, block *pklExec.ResourceExec) {
-		if err := dr.processExecBlock(aID, block); err != nil {
-			// Log the error; consider additional error handling as needed.
+		if err := dr.ProcessExecBlockFunc(aID, block); err != nil {
+			// Log the error and send it through the channel
 			dr.Logger.Error("failed to process exec block", "actionID", aID, "error", err)
+			errChan <- err
 		}
+		close(errChan)
 	}(actionID, execBlock)
 
-	// Return immediately; the exec block is being processed in the background.
+	// Wait for the first error or completion
+	if err := <-errChan; err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func (dr *DependencyResolver) decodeExecBlock(execBlock *pklExec.ResourceExec) error {
+func (dr *DependencyResolver) DecodeExecBlock(execBlock *pklExec.ResourceExec) error {
 	// Decode Command
 	decodedCommand, err := utils.DecodeBase64IfNeeded(execBlock.Command)
 	if err != nil {
@@ -71,7 +82,7 @@ func (dr *DependencyResolver) decodeExecBlock(execBlock *pklExec.ResourceExec) e
 	return nil
 }
 
-func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklExec.ResourceExec) error {
+func (dr *DependencyResolver) ProcessExecBlock(actionID string, execBlock *pklExec.ResourceExec) error {
 	var env []string
 	if execBlock.Env != nil {
 		for key, value := range *execBlock.Env {

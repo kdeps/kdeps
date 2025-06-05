@@ -19,14 +19,14 @@ import (
 
 func (dr *DependencyResolver) HandlePython(actionID string, pythonBlock *pklPython.ResourcePython) error {
 	// Synchronously decode the python block.
-	if err := dr.decodePythonBlock(pythonBlock); err != nil {
+	if err := dr.DecodePythonBlockFunc(pythonBlock); err != nil {
 		dr.Logger.Error("failed to decode python block", "actionID", actionID, "error", err)
 		return err
 	}
 
 	// Process the python block asynchronously in a goroutine.
 	go func(aID string, block *pklPython.ResourcePython) {
-		if err := dr.processPythonBlock(aID, block); err != nil {
+		if err := dr.ProcessPythonBlockFunc(aID, block); err != nil {
 			// Log the error; additional error handling can be added here if needed.
 			dr.Logger.Error("failed to process python block", "actionID", aID, "error", err)
 		}

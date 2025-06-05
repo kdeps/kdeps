@@ -41,22 +41,26 @@ const (
 
 // HandleLLMChat initiates asynchronous processing of an LLM chat interaction.
 func (dr *DependencyResolver) HandleLLMChat(actionID string, chatBlock *pklLLM.ResourceChat) error {
-	if err := dr.decodeChatBlock(chatBlock); err != nil {
+	// Synchronously decode the chat block.
+	if err := dr.DecodeLLMBlockFunc(chatBlock); err != nil {
 		dr.Logger.Error("failed to decode chat block", "actionID", actionID, "error", err)
 		return err
 	}
 
+	// Process the chat block asynchronously in a goroutine.
 	go func(aID string, block *pklLLM.ResourceChat) {
-		if err := dr.processLLMChat(aID, block); err != nil {
-			dr.Logger.Error("failed to process LLM chat", "actionID", aID, "error", err)
+		if err := dr.ProcessLLMBlockFunc(aID, block); err != nil {
+			// Log the error; you can adjust error handling as needed.
+			dr.Logger.Error("failed to process chat block", "actionID", aID, "error", err)
 		}
 	}(actionID, chatBlock)
 
+	// Return immediately; the chat block is processed in the background.
 	return nil
 }
 
 // generateChatResponse generates a response from the LLM based on the chat block, executing tools via toolreader.
-func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, chatBlock *pklLLM.ResourceChat, toolreader *tool.PklResourceReader, logger *logging.Logger) (string, error) {
+func generateChatResponse(ctx context.Context, fs afero.Fs, llm llms.Model, chatBlock *pklLLM.ResourceChat, toolreader *tool.PklResourceReader, logger *logging.Logger) (string, error) {
 	logger.Info("Processing chatBlock",
 		"model", chatBlock.Model,
 		"prompt", utils.SafeDerefString(chatBlock.Prompt),
@@ -411,9 +415,15 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 		return errors.New("chatBlock cannot be nil")
 	}
 
-	llm, err := ollama.New(ollama.WithModel(chatBlock.Model))
-	if err != nil {
-		return fmt.Errorf("failed to initialize LLM: %w", err)
+	var llm llms.Model
+	if dr.LLM != nil {
+		llm = dr.LLM
+	} else {
+		var err error
+		llm, err = ollama.New(ollama.WithModel(chatBlock.Model))
+		if err != nil {
+			return fmt.Errorf("failed to initialize LLM: %w", err)
+		}
 	}
 
 	completion, err := generateChatResponse(dr.Context, dr.Fs, llm, chatBlock, dr.ToolReader, dr.Logger)
@@ -427,22 +437,46 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 
 // AppendChatEntry appends a chat entry to the Pkl file.
 func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM.ResourceChat) error {
+	if resourceID == "" {
+		dr.Logger.Error("AppendChatEntry called with empty resourceID")
+		return errors.New("resourceID cannot be empty")
+	}
+	if newChat == nil {
+		dr.Logger.Error("AppendChatEntry called with nil newChat")
+		return errors.New("newChat cannot be nil")
+	}
+
 	pklPath := filepath.Join(dr.ActionDir, "llm/"+dr.RequestID+"__llm_output.pkl")
 
-	llmRes, err := dr.LoadResource(dr.Context, pklPath, LLMResource)
+	// Use injected LoadResourceFunc if set, otherwise default
+	loadResource := dr.LoadResourceFunc
+	if loadResource == nil {
+		loadResource = dr.LoadResource
+	}
+	llmRes, err := loadResource(dr.Context, pklPath, LLMResource)
 	if err != nil {
-		return fmt.Errorf("failed to load PKL file: %w", err)
+		if strings.Contains(err.Error(), "no such file or directory") {
+			dr.Logger.Warn("PKL file does not exist, initializing new resource map", "path", pklPath)
+			emptyMap := make(map[string]*pklLLM.ResourceChat)
+			llmRes = &pklLLM.LLMImpl{}
+			llmRes.(*pklLLM.LLMImpl).Resources = &emptyMap
+		} else {
+			return fmt.Errorf("failed to load PKL file: %w", err)
+		}
 	}
 
 	pklRes, ok := llmRes.(*pklLLM.LLMImpl)
 	if !ok {
-		return errors.New("failed to cast pklRes to *pklLLM.Resource")
+		dr.Logger.Error("failed to cast llmRes to *pklLLM.LLMImpl")
+		return errors.New("failed to cast pklRes to *pklLLM.LLMImpl")
 	}
 
 	resources := pklRes.GetResources()
 	if resources == nil {
+		dr.Logger.Warn("resources map is nil, initializing new map")
 		emptyMap := make(map[string]*pklLLM.ResourceChat)
 		resources = &emptyMap
+		pklRes.Resources = resources
 	}
 	existingResources := *resources
 
@@ -464,7 +498,12 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 		return fmt.Errorf("failed to write PKL file: %w", err)
 	}
 
-	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath,
+	// Use injected EvalPklFunc if set, otherwise default
+	evalPkl := dr.EvalPklFunc
+	if evalPkl == nil {
+		evalPkl = evaluator.EvalPkl
+	}
+	evaluatedContent, err := evalPkl(dr.Fs, dr.Context, pklPath,
 		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"", schema.SchemaVersion(dr.Context)), dr.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to evaluate PKL file: %w", err)
@@ -601,4 +640,63 @@ func (dr *DependencyResolver) WriteResponseToFile(resourceID string, responseEnc
 	}
 
 	return outputFilePath, nil
+}
+
+// GetChatHistory returns the chat history for a given resource ID.
+func (dr *DependencyResolver) GetChatHistory(resourceID string) ([]llms.MessageContent, error) {
+	// Define the path to the PKL file
+	pklPath := filepath.Join(dr.ActionDir, "llm", dr.RequestID+"__llm_output.pkl")
+
+	// Load existing PKL data
+	llmRes, err := dr.LoadResource(dr.Context, pklPath, LLMResource)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load PKL file: %w", err)
+	}
+
+	pklRes, ok := llmRes.(*pklLLM.LLMImpl)
+	if !ok {
+		return nil, errors.New("failed to cast pklRes to *pklLLM.LLMImpl")
+	}
+
+	// Get the resources
+	resources := pklRes.GetResources()
+	if resources == nil {
+		return nil, errors.New("resources is nil")
+	}
+
+	// Get the chat entry for the resource ID
+	chatEntry, exists := (*resources)[resourceID]
+	if !exists {
+		return nil, fmt.Errorf("no chat entry found for resource ID: %s", resourceID)
+	}
+
+	// Convert chat entry to MessageContent
+	messageHistory := make([]llms.MessageContent, 0)
+
+	// Add system message if present
+	if chatEntry.Role != nil && *chatEntry.Role == RoleSystem {
+		messageHistory = append(messageHistory, llms.MessageContent{
+			Role:  llms.ChatMessageTypeSystem,
+			Parts: []llms.ContentPart{llms.TextContent{Text: utils.SafeDerefString(chatEntry.Prompt)}},
+		})
+	}
+
+	// Add main message
+	_, roleType := getRoleAndType(chatEntry.Role)
+	if chatEntry.Prompt != nil {
+		messageHistory = append(messageHistory, llms.MessageContent{
+			Role:  roleType,
+			Parts: []llms.ContentPart{llms.TextContent{Text: *chatEntry.Prompt}},
+		})
+	}
+
+	// Add response if present
+	if chatEntry.Response != nil {
+		messageHistory = append(messageHistory, llms.MessageContent{
+			Role:  llms.ChatMessageTypeAI,
+			Parts: []llms.ContentPart{llms.TextContent{Text: *chatEntry.Response}},
+		})
+	}
+
+	return messageHistory, nil
 }

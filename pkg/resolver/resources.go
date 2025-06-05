@@ -113,6 +113,10 @@ func (dr *DependencyResolver) processPklFile(file string) error {
 
 // LoadResource reads a resource file and returns the parsed resource object or an error.
 func (dr *DependencyResolver) LoadResource(ctx context.Context, resourceFile string, resourceType ResourceType) (interface{}, error) {
+	// Use mock/test loader if set
+	if dr.LoadResourceFunc != nil {
+		return dr.LoadResourceFunc(ctx, resourceFile, resourceType)
+	}
 	// Log additional info before reading the resource
 	dr.Logger.Debug("reading resource file", "resource-file", resourceFile, "resource-type", resourceType)
 

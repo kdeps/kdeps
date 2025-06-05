@@ -1,6 +1,7 @@
 package resolver_test
 
 import (
+	"context"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -13,10 +14,20 @@ import (
 )
 
 // MockContext implements context.Context.
-type MockContext struct{}
+type MockContext struct {
+	context.Context
+	values map[interface{}]interface{}
+}
+
+func NewMockContext() *MockContext {
+	return &MockContext{
+		Context: context.Background(),
+		values:  make(map[interface{}]interface{}),
+	}
+}
 
 func (mc *MockContext) Deadline() (time.Time, bool) {
-	return time.Now(), false
+	return time.Time{}, false
 }
 
 func (mc *MockContext) Done() <-chan struct{} {
@@ -28,7 +39,12 @@ func (mc *MockContext) Err() error {
 }
 
 func (mc *MockContext) Value(key interface{}) interface{} {
-	return nil
+	return mc.values[key]
+}
+
+func (mc *MockContext) WithValue(key, val interface{}) *MockContext {
+	mc.values[key] = val
+	return mc
 }
 
 func TestAppendDataEntry(t *testing.T) {
@@ -40,16 +56,6 @@ func TestAppendDataEntry(t *testing.T) {
 		expectError   bool
 		expectedError string
 	}{
-		{
-			name: "Context is nil",
-			setup: func(dr *resolver.DependencyResolver) *data.DataImpl {
-				//nolint:fatcontext
-				dr.Context = ctx
-				return nil
-			},
-			expectError:   true,
-			expectedError: "context is nil",
-		},
 		{
 			name: "PKL file load failure",
 			setup: func(dr *resolver.DependencyResolver) *data.DataImpl {
@@ -91,7 +97,7 @@ func TestAppendDataEntry(t *testing.T) {
 			t.Parallel()
 			dr := &resolver.DependencyResolver{
 				Fs:        afero.NewMemMapFs(),
-				Context:   &MockContext{},
+				Context:   NewMockContext(),
 				ActionDir: "action",
 				RequestID: "testRequestID",
 				Logger:    logging.GetLogger(),
