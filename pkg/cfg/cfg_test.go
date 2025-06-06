@@ -281,8 +281,8 @@ func TestFindConfigurationUnit(t *testing.T) {
 		}
 
 		// Create config file in Pwd
-		fs.MkdirAll("/test/pwd", 0755)
-		afero.WriteFile(fs, "/test/pwd/.kdeps.pkl", []byte("test"), 0644)
+		fs.MkdirAll("/test/pwd", 0o755)
+		afero.WriteFile(fs, "/test/pwd/.kdeps.pkl", []byte("test"), 0o644)
 
 		result, err := FindConfiguration(fs, ctx, env, logger)
 		assert.NoError(t, err)
@@ -297,8 +297,8 @@ func TestFindConfigurationUnit(t *testing.T) {
 		}
 
 		// Create config file only in Home
-		fs.MkdirAll("/test/home", 0755)
-		afero.WriteFile(fs, "/test/home/.kdeps.pkl", []byte("test"), 0644)
+		fs.MkdirAll("/test/home", 0o755)
+		afero.WriteFile(fs, "/test/home/.kdeps.pkl", []byte("test"), 0o644)
 
 		result, err := FindConfiguration(fs, ctx, env, logger)
 		assert.NoError(t, err)
@@ -331,7 +331,7 @@ func TestGenerateConfigurationUnit(t *testing.T) {
 			NonInteractive: "1",
 		}
 
-		fs.MkdirAll("/test/home", 0755)
+		fs.MkdirAll("/test/home", 0o755)
 
 		result, err := GenerateConfiguration(fs, ctx, env, logger)
 		// This might fail due to evaluator.EvalPkl, but we test the path
@@ -349,8 +349,8 @@ func TestGenerateConfigurationUnit(t *testing.T) {
 			NonInteractive: "1",
 		}
 
-		fs.MkdirAll("/test/home", 0755)
-		afero.WriteFile(fs, "/test/home/.kdeps.pkl", []byte("existing"), 0644)
+		fs.MkdirAll("/test/home", 0o755)
+		afero.WriteFile(fs, "/test/home/.kdeps.pkl", []byte("existing"), 0o644)
 
 		result, err := GenerateConfiguration(fs, ctx, env, logger)
 		assert.NoError(t, err)
@@ -371,8 +371,8 @@ func TestEditConfigurationUnit(t *testing.T) {
 			NonInteractive: "1",
 		}
 
-		fs.MkdirAll("/test/home", 0755)
-		afero.WriteFile(fs, "/test/home/.kdeps.pkl", []byte("test"), 0644)
+		fs.MkdirAll("/test/home", 0o755)
+		afero.WriteFile(fs, "/test/home/.kdeps.pkl", []byte("test"), 0o644)
 
 		result, err := EditConfiguration(fs, ctx, env, logger)
 		assert.NoError(t, err)
@@ -386,7 +386,7 @@ func TestEditConfigurationUnit(t *testing.T) {
 			NonInteractive: "1",
 		}
 
-		fs.MkdirAll("/test/home", 0755)
+		fs.MkdirAll("/test/home", 0o755)
 
 		result, err := EditConfiguration(fs, ctx, env, logger)
 		assert.NoError(t, err)
@@ -406,8 +406,8 @@ func TestValidateConfigurationUnit(t *testing.T) {
 			Home: "/test/home",
 		}
 
-		fs.MkdirAll("/test/home", 0755)
-		afero.WriteFile(fs, "/test/home/.kdeps.pkl", []byte("invalid pkl"), 0644)
+		fs.MkdirAll("/test/home", 0o755)
+		afero.WriteFile(fs, "/test/home/.kdeps.pkl", []byte("invalid pkl"), 0o644)
 
 		result, err := ValidateConfiguration(fs, ctx, env, logger)
 		assert.Error(t, err)
@@ -424,7 +424,7 @@ func TestLoadConfigurationUnit(t *testing.T) {
 
 	t.Run("InvalidConfigFile", func(t *testing.T) {
 		fs := afero.NewMemMapFs()
-		afero.WriteFile(fs, "/test/invalid.pkl", []byte("invalid"), 0644)
+		afero.WriteFile(fs, "/test/invalid.pkl", []byte("invalid"), 0o644)
 
 		result, err := LoadConfiguration(fs, ctx, "/test/invalid.pkl", logger)
 		assert.Error(t, err)
@@ -526,8 +526,8 @@ func TestEditConfigurationAdditional(t *testing.T) {
 			NonInteractive: "", // Interactive mode
 		}
 
-		fs.MkdirAll("/test/home", 0755)
-		afero.WriteFile(fs, "/test/home/.kdeps.pkl", []byte("test"), 0644)
+		fs.MkdirAll("/test/home", 0o755)
+		afero.WriteFile(fs, "/test/home/.kdeps.pkl", []byte("test"), 0o644)
 
 		result, err := EditConfiguration(fs, ctx, env, logger)
 		// This might fail due to texteditor.EditPkl, but we test the path
@@ -551,7 +551,7 @@ func TestValidateConfigurationAdditional(t *testing.T) {
 			Home: "/test/home",
 		}
 
-		fs.MkdirAll("/test/home", 0755)
+		fs.MkdirAll("/test/home", 0o755)
 		// Create a valid-looking config that might pass validation
 		validConfig := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Kdeps.pkl"
@@ -559,7 +559,7 @@ amends "package://schema.kdeps.com/core@%s#/Kdeps.pkl"
 runMode = "docker"
 dockerGPU = "cpu"
 `, schema.SchemaVersion(ctx))
-		afero.WriteFile(fs, "/test/home/.kdeps.pkl", []byte(validConfig), 0644)
+		afero.WriteFile(fs, "/test/home/.kdeps.pkl", []byte(validConfig), 0o644)
 
 		result, err := ValidateConfiguration(fs, ctx, env, logger)
 		// This might still fail due to evaluator.EvalPkl dependencies, but we test the path
@@ -588,7 +588,7 @@ amends "package://schema.kdeps.com/core@%s#/Kdeps.pkl"
 runMode = "docker"
 dockerGPU = "cpu"
 `, schema.SchemaVersion(ctx))
-		afero.WriteFile(fs, "/test/valid.pkl", []byte(validConfig), 0644)
+		afero.WriteFile(fs, "/test/valid.pkl", []byte(validConfig), 0o644)
 
 		result, err := LoadConfiguration(fs, ctx, "/test/valid.pkl", logger)
 		// This might fail due to kdeps.LoadFromPath dependencies, but we test the code path

@@ -856,7 +856,7 @@ func TestFileGenerationEdgeCases(t *testing.T) {
 	t.Run("GenerateFileWithLongPath", func(t *testing.T) {
 		// Create a very long directory path
 		longPath := filepath.Join("test", strings.Repeat("a/", 50))
-		err := fs.MkdirAll(longPath, 0755)
+		err := fs.MkdirAll(longPath, 0o755)
 		require.NoError(t, err)
 
 		// Use a valid template name
@@ -880,7 +880,7 @@ func TestFileGenerationEdgeCases(t *testing.T) {
 	t.Run("GenerateFileWithSpecialCharacters", func(t *testing.T) {
 		// Create a directory with special characters
 		specialDir := filepath.Join("test", "special!@#$%^&*()")
-		err := fs.MkdirAll(specialDir, 0755)
+		err := fs.MkdirAll(specialDir, 0o755)
 		require.NoError(t, err)
 
 		// Use a valid template name
@@ -904,12 +904,12 @@ func TestFileGenerationEdgeCases(t *testing.T) {
 	t.Run("GenerateFileWithExistingContent", func(t *testing.T) {
 		// Create a test directory
 		testDir := filepath.Join("test", "existing")
-		err := fs.MkdirAll(testDir, 0755)
+		err := fs.MkdirAll(testDir, 0o755)
 		require.NoError(t, err)
 
 		// Create an existing file with some content
 		existingPath := filepath.Join(testDir, "workflow.pkl")
-		err = afero.WriteFile(fs, existingPath, []byte("existing content"), 0644)
+		err = afero.WriteFile(fs, existingPath, []byte("existing content"), 0o644)
 		require.NoError(t, err)
 
 		// Generate the file, overwriting the existing content
