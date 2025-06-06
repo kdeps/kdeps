@@ -122,14 +122,18 @@ func processFile(fileHeader *multipart.FileHeader, dr *resolver.DependencyResolv
 // It validates the API server configuration, sets up routes, and starts the server on the configured port.
 func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) error {
 	wfSettings := dr.Workflow.GetSettings()
+	if wfSettings == nil {
+		return errors.New("the API server configuration is missing")
+	}
+
 	wfAPIServer := wfSettings.APIServer
+	if wfAPIServer == nil {
+		return errors.New("the API server configuration is missing")
+	}
+
 	var wfTrustedProxies []string
 	if wfAPIServer.TrustedProxies != nil {
 		wfTrustedProxies = *wfAPIServer.TrustedProxies
-	}
-
-	if wfAPIServer == nil {
-		return errors.New("the API server configuration is missing")
 	}
 
 	portNum := strconv.FormatUint(uint64(wfAPIServer.PortNum), 10)
@@ -227,6 +231,29 @@ func setupRoutes(router *gin.Engine, ctx context.Context, wfAPIServerCORS *apise
 }
 
 func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, baseDr *resolver.DependencyResolver, semaphore chan struct{}) gin.HandlerFunc {
+	// Validate route parameter
+	if route == nil || route.Path == "" || len(route.Methods) == 0 {
+		baseDr.Logger.Error("invalid route configuration provided to APIServerHandler", "route", route)
+		return func(c *gin.Context) {
+			graphID := uuid.New().String()
+			c.AbortWithStatusJSON(http.StatusInternalServerError, APIResponse{
+				Success: false,
+				Response: ResponseData{
+					Data: nil,
+				},
+				Meta: ResponseMeta{
+					RequestID: graphID,
+				},
+				Errors: []ErrorResponse{
+					{
+						Code:    http.StatusInternalServerError,
+						Message: "Invalid route configuration",
+					},
+				},
+			})
+		}
+	}
+
 	allowedMethods := route.Methods
 
 	return func(c *gin.Context) {

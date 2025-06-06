@@ -44,7 +44,7 @@ func TestAppendDataEntry(t *testing.T) {
 			name: "Context is nil",
 			setup: func(dr *resolver.DependencyResolver) *data.DataImpl {
 				//nolint:fatcontext
-				dr.Context = ctx
+				dr.Context = nil
 				return nil
 			},
 			expectError:   true,
