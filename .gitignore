@@ -216,3 +216,5 @@ bin/
 # Added by goreleaser init:
 dist/
 
+coverage.html
+pkg/**/**/*.txt

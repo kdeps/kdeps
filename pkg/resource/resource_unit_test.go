@@ -43,7 +43,7 @@ run {
 `
 
 		resourceFile := filepath.Join(tmpDir, "test.pkl")
-		err = os.WriteFile(resourceFile, []byte(validContent), 0644)
+		err = os.WriteFile(resourceFile, []byte(validContent), 0o644)
 		require.NoError(t, err)
 
 		// Test LoadResource - this should load the resource successfully
@@ -77,7 +77,7 @@ run {
 		invalidContent := `invalid pkl content that will cause parsing error`
 
 		resourceFile := filepath.Join(tmpDir, "invalid.pkl")
-		err = os.WriteFile(resourceFile, []byte(invalidContent), 0644)
+		err = os.WriteFile(resourceFile, []byte(invalidContent), 0o644)
 		require.NoError(t, err)
 
 		_, err = LoadResource(ctx, resourceFile, logger)
@@ -102,7 +102,7 @@ run {
 		defer os.RemoveAll(tmpDir)
 
 		resourceFile := filepath.Join(tmpDir, "empty.pkl")
-		err = os.WriteFile(resourceFile, []byte(""), 0644)
+		err = os.WriteFile(resourceFile, []byte(""), 0o644)
 		require.NoError(t, err)
 
 		resource, err := LoadResource(ctx, resourceFile, logger)
@@ -163,7 +163,7 @@ run {
 `
 
 		resourceFile := filepath.Join(tmpDir, "test.pkl")
-		err = os.WriteFile(resourceFile, []byte(validContent), 0644)
+		err = os.WriteFile(resourceFile, []byte(validContent), 0o644)
 		require.NoError(t, err)
 
 		// This should test the successful debug logging path

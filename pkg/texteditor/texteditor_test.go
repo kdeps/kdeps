@@ -61,7 +61,7 @@ func TestEditPkl(t *testing.T) {
 		filePath := "/test/valid.pkl"
 		content := "test content"
 
-		err := afero.WriteFile(fs, filePath, []byte(content), 0644)
+		err := afero.WriteFile(fs, filePath, []byte(content), 0o644)
 		require.NoError(t, err)
 
 		// This will fail at the editor command execution stage since "kdeps" editor command doesn't exist
@@ -97,7 +97,7 @@ func TestEditPkl(t *testing.T) {
 
 				if tc.isValid {
 					// For valid files, create them first
-					err := afero.WriteFile(fs, tc.filePath, []byte("test content"), 0644)
+					err := afero.WriteFile(fs, tc.filePath, []byte("test content"), 0o644)
 					require.NoError(t, err)
 
 					err = EditPkl(fs, ctx, tc.filePath, logger)
@@ -132,5 +132,87 @@ func TestEditPkl(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "does not exist")
+	})
+}
+
+func TestEditPklAdditionalCoverage(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	t.Run("ValidPklFileWithDeepPath", func(t *testing.T) {
+		t.Parallel()
+
+		// Test with a deep path structure
+		filePath := "/deep/nested/path/to/file.pkl"
+		content := "test content for deep path"
+
+		// Create the directory structure and file
+		err := fs.MkdirAll("/deep/nested/path/to", 0o755)
+		require.NoError(t, err)
+
+		err = afero.WriteFile(fs, filePath, []byte(content), 0o644)
+		require.NoError(t, err)
+
+		err = EditPkl(fs, ctx, filePath, logger)
+
+		// Should get to the editor command stage and fail there
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "editor command failed")
+	})
+
+	t.Run("EmptyPklFile", func(t *testing.T) {
+		t.Parallel()
+
+		// Test with an empty .pkl file
+		filePath := "/test/empty.pkl"
+
+		err := afero.WriteFile(fs, filePath, []byte(""), 0o644)
+		require.NoError(t, err)
+
+		err = EditPkl(fs, ctx, filePath, logger)
+
+		// Should get to the editor command stage and fail there
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "editor command failed")
+	})
+
+	t.Run("PklFileWithSpecialCharacters", func(t *testing.T) {
+		t.Parallel()
+
+		// Test with a file path containing special characters
+		filePath := "/test/file-with_special.chars.pkl"
+		content := "content with special characters: @#$%^&*()"
+
+		err := afero.WriteFile(fs, filePath, []byte(content), 0o644)
+		require.NoError(t, err)
+
+		err = EditPkl(fs, ctx, filePath, logger)
+
+		// Should get to the editor command stage and fail there
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "editor command failed")
+	})
+
+	t.Run("RelativePathPklFile", func(t *testing.T) {
+		t.Parallel()
+
+		// Test with a relative path
+		filePath := "relative/path/file.pkl"
+		content := "content in relative path"
+
+		err := fs.MkdirAll("relative/path", 0o755)
+		require.NoError(t, err)
+
+		err = afero.WriteFile(fs, filePath, []byte(content), 0o644)
+		require.NoError(t, err)
+
+		err = EditPkl(fs, ctx, filePath, logger)
+
+		// Should get to the editor command stage and fail there
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "editor command failed")
 	})
 }

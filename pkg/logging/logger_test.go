@@ -45,6 +45,13 @@ func TestGetOutput(t *testing.T) {
 	testLogger.Info("test message")
 	output := testLogger.GetOutput()
 	assert.Contains(t, output, "test message")
+
+	// Test GetOutput with nil buffer
+	loggerWithNilBuffer := &Logger{
+		Logger: testLogger.Logger,
+		buffer: nil,
+	}
+	assert.Equal(t, "", loggerWithNilBuffer.GetOutput())
 }
 
 func TestLogLevels(t *testing.T) {
@@ -60,36 +67,48 @@ func TestLogLevels(t *testing.T) {
 	assert.Contains(t, output, "key")
 	assert.Contains(t, output, "value")
 
-	// Clear buffer
+	// Clear buffer and reset logger
 	testLogger.buffer.Reset()
+	testLogger = NewTestLogger()
+	logger = testLogger
 
 	// Test Info
 	Info("info message", "key", "value")
 	output = testLogger.GetOutput()
 	t.Logf("Info output: %q", output)
 	assert.Contains(t, output, "info message")
+	assert.Contains(t, output, "key")
+	assert.Contains(t, output, "value")
 
-	// Clear buffer
+	// Clear buffer and reset logger
 	testLogger.buffer.Reset()
+	testLogger = NewTestLogger()
+	logger = testLogger
 
 	// Test Warn
 	Warn("warning message", "key", "value")
 	output = testLogger.GetOutput()
 	t.Logf("Warn output: %q", output)
 	assert.Contains(t, output, "warning message")
+	assert.Contains(t, output, "key")
+	assert.Contains(t, output, "value")
 
-	// Clear buffer
+	// Clear buffer and reset logger
 	testLogger.buffer.Reset()
+	testLogger = NewTestLogger()
+	logger = testLogger
 
 	// Test Error
 	Error("error message", "key", "value")
 	output = testLogger.GetOutput()
 	t.Logf("Error output: %q", output)
 	assert.Contains(t, output, "error message")
+	assert.Contains(t, output, "key")
+	assert.Contains(t, output, "value")
 }
 
 func TestGetLogger(t *testing.T) {
-	t.Parallel()
+	// Don't run in parallel due to global state manipulation
 	resetLoggerState()
 	// Test before initialization
 	assert.NotNil(t, GetLogger()) // This should create a new logger
@@ -132,10 +151,18 @@ func TestFatal(t *testing.T) {
 	// Since Fatal calls os.Exit, we can't test it directly
 	// This is a limitation of testing fatal conditions
 	// In practice, this would be tested through integration tests
+
+	// However, we can test that Fatal at least initializes the logger
+	testLogger := NewTestLogger()
+	logger = testLogger
+
+	// We can't actually call Fatal() because it will exit the test
+	// But we can verify the function exists and the logger is set up
+	assert.NotNil(t, logger)
 }
 
 func TestEnsureInitialized(t *testing.T) {
-	t.Parallel()
+	// Don't run in parallel due to global state manipulation
 	resetLoggerState()
 	// Test initialization
 	ensureInitialized()

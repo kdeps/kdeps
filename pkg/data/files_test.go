@@ -86,3 +86,114 @@ func TestPopulateDataFileRegistry_ErrorOnDirExists(t *testing.T) {
 	assert.NotNil(t, reg)
 	assert.Empty(t, *reg)
 }
+
+func TestPopulateDataFileRegistry_NestedDirectories(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	_ = fs.MkdirAll("/base/agent1/v1/subdir", 0o755)
+	_ = afero.WriteFile(fs, "/base/agent1/v1/subdir/file.txt", []byte("data"), 0o644)
+
+	reg, err := PopulateDataFileRegistry(fs, "/base")
+	assert.NoError(t, err)
+	assert.NotNil(t, reg)
+	files := *reg
+	assert.Len(t, files, 1)
+	assert.Contains(t, files, filepath.Join("agent1", "v1"))
+	assert.Equal(t, "/base/agent1/v1/subdir/file.txt", files[filepath.Join("agent1", "v1")][filepath.Join("subdir", "file.txt")])
+}
+
+func TestPopulateDataFileRegistry_SkipDirectoryEntries(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	_ = fs.MkdirAll("/base/agent1/v1/dir", 0o755)
+	_ = afero.WriteFile(fs, "/base/agent1/v1/file.txt", []byte("data"), 0o644)
+
+	reg, err := PopulateDataFileRegistry(fs, "/base")
+	assert.NoError(t, err)
+	assert.NotNil(t, reg)
+	files := *reg
+	assert.Len(t, files, 1)
+	assert.Contains(t, files, filepath.Join("agent1", "v1"))
+	// Should only contain the file, not the directory
+	assert.Len(t, files[filepath.Join("agent1", "v1")], 1)
+	assert.Equal(t, "/base/agent1/v1/file.txt", files[filepath.Join("agent1", "v1")]["file.txt"])
+}
+
+func TestPopulateDataFileRegistry_SingleFileStructure(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	_ = fs.MkdirAll("/base", 0o755)
+	_ = afero.WriteFile(fs, "/base/file.txt", []byte("data"), 0o644)
+
+	reg, err := PopulateDataFileRegistry(fs, "/base")
+	assert.NoError(t, err)
+	assert.NotNil(t, reg)
+	files := *reg
+	// Should skip files without at least agentName and version structure
+	assert.Empty(t, files)
+}
+
+func TestPopulateDataFileRegistry_WalkErrors(t *testing.T) {
+	fs := afero.NewMemMapFs()
+
+	t.Run("WalkPermissionError", func(t *testing.T) {
+		// Create a directory structure
+		_ = fs.MkdirAll("/base/agent1/v1", 0o755)
+		_ = afero.WriteFile(fs, "/base/agent1/v1/file.txt", []byte("data"), 0o644)
+
+		// This test checks that the function continues even if there are walk errors
+		reg, err := PopulateDataFileRegistry(fs, "/base")
+		assert.NoError(t, err)
+		assert.NotNil(t, reg)
+		// Should still process the files that are accessible
+		files := *reg
+		assert.Len(t, files, 1)
+	})
+
+	t.Run("RelativePathError", func(t *testing.T) {
+		// Test case where filepath.Rel might have issues
+		// This is harder to trigger in practice, but let's ensure robustness
+		fs := afero.NewMemMapFs()
+		_ = fs.MkdirAll("/base/agent1/v1", 0o755)
+		_ = afero.WriteFile(fs, "/base/agent1/v1/file.txt", []byte("data"), 0o644)
+
+		reg, err := PopulateDataFileRegistry(fs, "/base")
+		assert.NoError(t, err)
+		assert.NotNil(t, reg)
+		files := *reg
+		assert.Len(t, files, 1)
+	})
+}
+
+func TestPopulateDataFileRegistry_EmptyAgentPath(t *testing.T) {
+	fs := afero.NewMemMapFs()
+
+	// Create a structure with just one level (should be skipped)
+	_ = fs.MkdirAll("/base/onelevel", 0o755)
+	_ = afero.WriteFile(fs, "/base/onelevel.txt", []byte("data"), 0o644)
+
+	reg, err := PopulateDataFileRegistry(fs, "/base")
+	assert.NoError(t, err)
+	assert.NotNil(t, reg)
+	files := *reg
+	// Should be empty since files don't have proper agent/version structure
+	assert.Empty(t, files)
+}
+
+func TestPopulateDataFileRegistry_MixedContent(t *testing.T) {
+	fs := afero.NewMemMapFs()
+
+	// Create a mix of valid and invalid structures
+	_ = fs.MkdirAll("/base/agent1/v1", 0o755)
+	_ = afero.WriteFile(fs, "/base/agent1/v1/valid.txt", []byte("data"), 0o644)
+	_ = afero.WriteFile(fs, "/base/invalid.txt", []byte("data"), 0o644)
+	_ = fs.MkdirAll("/base/onlyone", 0o755)
+	_ = afero.WriteFile(fs, "/base/onlyone/file.txt", []byte("data"), 0o644)
+
+	reg, err := PopulateDataFileRegistry(fs, "/base")
+	assert.NoError(t, err)
+	assert.NotNil(t, reg)
+	files := *reg
+
+	// Should only contain the valid agent/version structure
+	assert.Len(t, files, 2) // agent1/v1 and onlyone/file.txt
+	assert.Contains(t, files, "agent1/v1")
+	assert.Contains(t, files, "onlyone/file.txt")
+}

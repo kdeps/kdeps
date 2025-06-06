@@ -23,7 +23,7 @@ func TestLoadWorkflow(t *testing.T) {
 	t.Run("InvalidWorkflowFile", func(t *testing.T) {
 		// Create a temporary file with invalid PKL content
 		tmpFile := t.TempDir() + "/invalid.pkl"
-		err := os.WriteFile(tmpFile, []byte("invalid pkl content"), 0644)
+		err := os.WriteFile(tmpFile, []byte("invalid pkl content"), 0o644)
 		require.NoError(t, err)
 
 		_, err = LoadWorkflow(ctx, tmpFile, logger)
@@ -68,7 +68,7 @@ settings {
     ollamaImageTag = "0.6.8"
   }
 }`
-		err := os.WriteFile(tmpFile, []byte(validContent), 0644)
+		err := os.WriteFile(tmpFile, []byte(validContent), 0o644)
 		require.NoError(t, err)
 
 		wf, err := LoadWorkflow(ctx, tmpFile, logger)
