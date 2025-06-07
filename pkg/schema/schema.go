@@ -14,6 +14,8 @@ var (
 	once             sync.Once
 	specifiedVersion string = "0.2.30" // Default specified version
 	UseLatest        bool   = false
+	// Add exitFunc for testability
+	exitFunc = os.Exit
 )
 
 // SchemaVersion(ctx) fetches and returns the schema version based on the cmd.Latest flag.
@@ -24,7 +26,7 @@ func SchemaVersion(ctx context.Context) string {
 			cachedVersion, err = utils.GitHubReleaseFetcher(ctx, "kdeps/schema", "")
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error: Unable to fetch the latest schema version for 'kdeps/schema': %v\n", err)
-				os.Exit(1)
+				exitFunc(1)
 			}
 		})
 		return cachedVersion

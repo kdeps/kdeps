@@ -93,6 +93,9 @@ func NewEnvironment(fs afero.Fs, environ *Environment) (*Environment, error) {
 	}
 	environment.Extras = extras
 
+	// Ensure NonInteractive is set from the environment variable
+	environment.NonInteractive = os.Getenv("NON_INTERACTIVE")
+
 	// Find kdepsConfig file and check if running in Docker
 	kdepsConfigFile := findKdepsConfig(fs, environment.Pwd, environment.Home)
 	dockerMode := "0"
@@ -101,11 +104,12 @@ func NewEnvironment(fs afero.Fs, environ *Environment) (*Environment, error) {
 	}
 
 	return &Environment{
-		Root:        environment.Root,
-		Home:        environment.Home,
-		Pwd:         environment.Pwd,
-		KdepsConfig: kdepsConfigFile,
-		DockerMode:  dockerMode,
-		Extras:      environment.Extras,
+		Root:           environment.Root,
+		Home:           environment.Home,
+		Pwd:            environment.Pwd,
+		KdepsConfig:    kdepsConfigFile,
+		DockerMode:     dockerMode,
+		Extras:         environment.Extras,
+		NonInteractive: environment.NonInteractive,
 	}, nil
 }

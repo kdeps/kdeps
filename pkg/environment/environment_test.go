@@ -125,4 +125,91 @@ func TestNewEnvironment(t *testing.T) {
 	require.NoError(t, err, "Expected no error")
 	assert.Equal(t, "/home", env.Home, "Expected Home directory to match")
 	assert.Equal(t, "/current", env.Pwd, "Expected Pwd to match")
+
+	// Test with provided environment in Docker mode
+	fs.Create("/.dockerenv")
+	t.Setenv("SCHEMA_VERSION", "1.0")
+	t.Setenv("OLLAMA_HOST", "localhost")
+	t.Setenv("KDEPS_HOST", "localhost")
+
+	providedEnvDocker := &Environment{
+		Root: "/",
+		Home: "/home",
+		Pwd:  "/current",
+	}
+	env, err = NewEnvironment(fs, providedEnvDocker)
+	require.NoError(t, err, "Expected no error")
+	assert.Equal(t, "1", env.DockerMode, "Expected Docker mode to be detected")
+	assert.Equal(t, "1", env.NonInteractive, "Expected NonInteractive to be prioritized")
+
+	// Test loading from default environment in Docker mode
+	env, err = NewEnvironment(fs, nil)
+	require.NoError(t, err, "Expected no error")
+	assert.Equal(t, "1", env.DockerMode, "Expected Docker mode to be detected")
+
+	// Clean up environment variables
+	fs.Remove("/.dockerenv")
+	t.Setenv("SCHEMA_VERSION", "")
+	t.Setenv("OLLAMA_HOST", "")
+	t.Setenv("KDEPS_HOST", "")
+}
+
+func TestNewEnvironmentWithConfigFile(t *testing.T) {
+	fs := afero.NewMemMapFs()
+
+	// Create a config file in the home directory
+	homeDir := "/home"
+	configFile := filepath.Join(homeDir, SystemConfigFileName)
+	afero.WriteFile(fs, configFile, []byte{}, 0o644)
+
+	// Test with provided environment that finds the config file
+	providedEnv := &Environment{
+		Root: "/",
+		Home: homeDir,
+		Pwd:  "/current",
+	}
+	env, err := NewEnvironment(fs, providedEnv)
+	require.NoError(t, err, "Expected no error")
+	assert.Equal(t, configFile, env.KdepsConfig, "Expected config file to be found")
+
+	// Test with default environment that finds the config file
+	t.Setenv("ROOT_DIR", "/")
+	t.Setenv("HOME", homeDir)
+	t.Setenv("PWD", "/current")
+	env, err = NewEnvironment(fs, nil)
+	require.NoError(t, err, "Expected no error")
+	assert.Equal(t, configFile, env.KdepsConfig, "Expected config file to be found")
+}
+
+func TestNewEnvironmentEdgeCases(t *testing.T) {
+	fs := afero.NewMemMapFs()
+
+	t.Run("WithNonInteractiveDefault", func(t *testing.T) {
+		// Test the case where NonInteractive is not explicitly set in default environment
+		t.Setenv("ROOT_DIR", "/test")
+		t.Setenv("HOME", "/home")
+		t.Setenv("PWD", "/pwd")
+		t.Setenv("NON_INTERACTIVE", "") // Explicitly unset
+
+		env, err := NewEnvironment(fs, nil)
+		require.NoError(t, err, "Expected no error")
+		assert.Equal(t, "", env.NonInteractive, "Expected empty NON_INTERACTIVE value when not set")
+	})
+
+	t.Run("WithAllEnvironmentVariables", func(t *testing.T) {
+		// Test with all environment variables set
+		t.Setenv("ROOT_DIR", "/custom")
+		t.Setenv("HOME", "/custom/home")
+		t.Setenv("PWD", "/custom/pwd")
+		t.Setenv("KDEPS_CONFIG", "/custom/config.pkl")
+		t.Setenv("DOCKER_MODE", "1")
+		t.Setenv("NON_INTERACTIVE", "1")
+
+		env, err := NewEnvironment(fs, nil)
+		require.NoError(t, err, "Expected no error")
+		assert.Equal(t, "/custom", env.Root)
+		assert.Equal(t, "/custom/home", env.Home)
+		assert.Equal(t, "/custom/pwd", env.Pwd)
+		// Note: KDEPS_CONFIG env var is overridden by findKdepsConfig result
+	})
 }

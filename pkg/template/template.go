@@ -16,7 +16,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
-	"github.com/kdeps/kdeps/pkg/texteditor"
 	"github.com/spf13/afero"
 )
 
@@ -47,6 +46,11 @@ func validateAgentName(agentName string) error {
 }
 
 func promptForAgentName() (string, error) {
+	// Skip prompt if NON_INTERACTIVE=1
+	if os.Getenv("NON_INTERACTIVE") == "1" {
+		return "test-agent", nil
+	}
+
 	var name string
 	form := huh.NewInput().
 		Title("Configure Your AI Agent").
@@ -66,7 +70,9 @@ func createDirectory(fs afero.Fs, logger *logging.Logger, path string) error {
 		logger.Error(err)
 		return err
 	}
-	time.Sleep(80 * time.Millisecond)
+	if os.Getenv("NON_INTERACTIVE") != "1" {
+		time.Sleep(80 * time.Millisecond)
+	}
 	return nil
 }
 
@@ -76,11 +82,18 @@ func createFile(fs afero.Fs, logger *logging.Logger, path string, content string
 		logger.Error(err)
 		return err
 	}
-	time.Sleep(80 * time.Millisecond)
+	if os.Getenv("NON_INTERACTIVE") != "1" {
+		time.Sleep(80 * time.Millisecond)
+	}
 	return nil
 }
 
 func generateWorkflowFile(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, name string) error {
+	// Create the directory if it doesn't exist
+	if err := fs.MkdirAll(mainDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
 	templatePath := "templates/workflow.pkl"
 	outputPath := filepath.Join(mainDir, "workflow.pkl")
 
@@ -101,29 +114,43 @@ func generateWorkflowFile(fs afero.Fs, ctx context.Context, logger *logging.Logg
 }
 
 func loadTemplate(templatePath string, data map[string]string) (string, error) {
-	// Load the template from the embedded FS
+	// If TEMPLATE_DIR is set, load from disk instead of embedded FS
+	if dir := os.Getenv("TEMPLATE_DIR"); dir != "" {
+		path := filepath.Join(dir, filepath.Base(templatePath))
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return "", fmt.Errorf("failed to read template from disk: %w", err)
+		}
+		tmpl, err := template.New(filepath.Base(templatePath)).Parse(string(content))
+		if err != nil {
+			return "", fmt.Errorf("failed to parse template file: %w", err)
+		}
+		var output bytes.Buffer
+		if err := tmpl.Execute(&output, data); err != nil {
+			return "", fmt.Errorf("failed to execute template: %w", err)
+		}
+		return output.String(), nil
+	}
+	// Otherwise, use embedded FS
 	content, err := templatesFS.ReadFile(templatePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read embedded template: %w", err)
 	}
-
 	tmpl, err := template.New(filepath.Base(templatePath)).Parse(string(content))
 	if err != nil {
 		return "", fmt.Errorf("failed to parse template file: %w", err)
 	}
-
 	var output bytes.Buffer
 	if err := tmpl.Execute(&output, data); err != nil {
 		return "", fmt.Errorf("failed to execute template: %w", err)
 	}
-
 	return output.String(), nil
 }
 
 func generateResourceFiles(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, name string) error {
 	resourceDir := filepath.Join(mainDir, "resources")
-	if err := createDirectory(fs, logger, resourceDir); err != nil {
-		return err
+	if err := fs.MkdirAll(resourceDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create resources directory: %w", err)
 	}
 
 	// Common template data
@@ -199,144 +226,86 @@ func generateSpecificFile(fs afero.Fs, ctx context.Context, logger *logging.Logg
 	}
 
 	// Create the output directory if it doesn't exist
-	if err := createDirectory(fs, logger, outputDir); err != nil {
-		return err
+	if err := fs.MkdirAll(outputDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
-	// Write the generated file
-	filePath := filepath.Join(outputDir, fileName)
-	if err := createFile(fs, logger, filePath, content); err != nil {
-		return err
-	}
-
-	// Create the data folder
-	dataDir := filepath.Join(mainDir, "data")
-	if err := createDirectory(fs, logger, dataDir); err != nil {
-		logger.Error("failed to create data directory: ", err)
-		return err
-	}
-
-	return nil
+	outputPath := filepath.Join(outputDir, fileName)
+	return createFile(fs, logger, outputPath, content)
 }
 
-func GenerateSpecificAgentFile(fs afero.Fs, ctx context.Context, logger *logging.Logger, agentName, fileName string) error {
-	var name string
-	var err error
-
-	if agentName != "" {
-		if err := validateAgentName(agentName); err != nil {
-			return err
-		}
-		name = agentName
-	} else {
-		name, err = promptForAgentName()
-		if err != nil {
-			logger.Error("failed to prompt for agent name: ", err)
-			return err
-		}
+func GenerateSpecificAgentFile(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, agentName string) error {
+	// Create the directory if it doesn't exist
+	if err := fs.MkdirAll(mainDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	mainDir := "./" + name
-	if err := createDirectory(fs, logger, mainDir); err != nil {
-		logger.Error("failed to create main directory: ", err)
+	// Validate agent name
+	if err := validateAgentName(agentName); err != nil {
 		return err
 	}
 
-	if err := generateSpecificFile(fs, ctx, logger, mainDir, fileName, name); err != nil {
-		logger.Error("failed to generate specific file: ", err)
-		return err
+	// Determine the appropriate header based on the file name
+	headerTemplate := `amends "package://schema.kdeps.com/core@%s#/Resource.pkl"`
+	if strings.ToLower(agentName) == "workflow.pkl" {
+		headerTemplate = `amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`
 	}
 
-	var openFile bool
-	editorForm := huh.NewConfirm().
-		Title(fmt.Sprintf("Edit %s in Editor?", fileName)).
-		Affirmative("Yes").
-		Negative("No").
-		Value(&openFile)
+	templatePath := filepath.Join("templates", agentName+".pkl")
+	templateData := map[string]string{
+		"Header": fmt.Sprintf(headerTemplate, schema.SchemaVersion(ctx)),
+		"Name":   agentName,
+	}
 
-	err = editorForm.Run()
+	// Load the template
+	content, err := loadTemplate(templatePath, templateData)
 	if err != nil {
-		logger.Error("failed to display editor confirmation dialog: ", err)
+		logger.Error("failed to load specific template: ", err)
 		return err
 	}
 
-	if openFile {
-		var filePath string
-		if strings.ToLower(fileName) == "workflow" {
-			// Adjust path for workflows outside the resources folder
-			filePath = fmt.Sprintf("%s/%s.pkl", mainDir, fileName)
-		} else {
-			// Default path for other files in the resources folder
-			filePath = fmt.Sprintf("%s/resources/%s.pkl", mainDir, fileName)
-		}
-
-		if err := texteditor.EditPkl(fs, ctx, filePath, logger); err != nil {
-			logger.Error("failed to edit file: ", err)
-			return fmt.Errorf("failed to edit file: %w", err)
-		}
+	// Determine the output directory
+	var outputDir string
+	if strings.ToLower(agentName) == "workflow.pkl" {
+		outputDir = mainDir // Place workflow.pkl in the main directory
+	} else {
+		outputDir = filepath.Join(mainDir, "resources") // Place other files in the resources folder
 	}
 
-	return nil
+	// Create the output directory if it doesn't exist
+	if err := fs.MkdirAll(outputDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create output directory: %w", err)
+	}
+
+	outputPath := filepath.Join(outputDir, agentName+".pkl")
+	return createFile(fs, logger, outputPath, content)
 }
 
-func GenerateAgent(fs afero.Fs, ctx context.Context, logger *logging.Logger, agentName string) error {
-	var name string
-	var err error
-
-	if agentName != "" {
-		if err := validateAgentName(agentName); err != nil {
-			return err
-		}
-		name = agentName
-	} else {
-		name, err = promptForAgentName()
-		if err != nil {
-			logger.Error("failed to prompt for agent name: ", err)
-			return err
-		}
-	}
-
-	mainDir := "./" + name
-	if err := createDirectory(fs, logger, mainDir); err != nil {
-		logger.Error("failed to create main directory: ", err)
-		return err
-	}
-	if err := createDirectory(fs, logger, mainDir+"/resources"); err != nil {
-		logger.Error("failed to create resources directory: ", err)
-		return err
-	}
-	if err := createDirectory(fs, logger, mainDir+"/data"); err != nil {
-		logger.Error("failed to create data directory: ", err)
-		return err
-	}
-	if err := generateWorkflowFile(fs, ctx, logger, mainDir, name); err != nil {
-		logger.Error("failed to generate workflow file: ", err)
-		return err
-	}
-	if err := generateResourceFiles(fs, ctx, logger, mainDir, name); err != nil {
-		logger.Error("failed to generate resource files: ", err)
+func GenerateAgent(fs afero.Fs, ctx context.Context, logger *logging.Logger, baseDir, agentName string) error {
+	// Validate agent name
+	if err := validateAgentName(agentName); err != nil {
 		return err
 	}
 
-	var openWorkflow bool
-	editorForm := huh.NewConfirm().
-		Title("Edit the AI agent in Editor?").
-		Affirmative("Yes").
-		Negative("No").
-		Value(&openWorkflow)
+	// Create the main directory under baseDir
+	mainDir := filepath.Join(baseDir, agentName)
+	if err := fs.MkdirAll(mainDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create main directory: %w", err)
+	}
 
-	err = editorForm.Run()
-	if err != nil {
-		logger.Error("failed to display editor confirmation dialog: ", err)
+	// Generate workflow file
+	if err := generateWorkflowFile(fs, ctx, logger, mainDir, agentName); err != nil {
 		return err
 	}
 
-	if openWorkflow {
-		workflowFilePath := mainDir + "/workflow.pkl"
-		if err := texteditor.EditPkl(fs, ctx, workflowFilePath, logger); err != nil {
-			logger.Error("failed to edit workflow file: ", err)
-			return fmt.Errorf("failed to edit workflow file: %w", err)
-		}
+	// Generate resource files
+	if err := generateResourceFiles(fs, ctx, logger, mainDir, agentName); err != nil {
+		return err
+	}
+
+	// Generate the agent file
+	if err := GenerateSpecificAgentFile(fs, ctx, logger, mainDir, agentName); err != nil {
+		return err
 	}
 
 	return nil

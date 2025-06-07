@@ -24,7 +24,7 @@ func NewAgentCommand(fs afero.Fs, ctx context.Context, kdepsDir string, logger *
 			}
 
 			// Pass the agentName to GenerateAgent
-			if err := template.GenerateAgent(fs, ctx, logger, agentName); err != nil {
+			if err := template.GenerateAgent(fs, ctx, logger, "", agentName); err != nil {
 				fmt.Println("Error:", err)
 			}
 		},

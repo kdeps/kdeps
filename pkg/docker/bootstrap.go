@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,10 @@ import (
 )
 
 func BootstrapDockerSystem(ctx context.Context, dr *resolver.DependencyResolver) (bool, error) {
+	if dr.Logger == nil {
+		return false, errors.New("Bootstrapping Docker system failed")
+	}
+
 	if dr.Environment.DockerMode != "1" {
 		dr.Logger.Debug("docker system bootstrap completed.")
 		return false, nil

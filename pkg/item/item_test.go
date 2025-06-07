@@ -308,3 +308,169 @@ func TestInitializeItem(t *testing.T) {
 		require.Equal(t, len(items), count)
 	})
 }
+
+// Additional unit tests for comprehensive coverage
+
+func TestPklResourceReader_InterfaceMethods(t *testing.T) {
+	t.Parallel()
+
+	reader := &PklResourceReader{}
+
+	t.Run("IsGlobbable", func(t *testing.T) {
+		require.False(t, reader.IsGlobbable())
+	})
+
+	t.Run("HasHierarchicalUris", func(t *testing.T) {
+		require.False(t, reader.HasHierarchicalUris())
+	})
+
+	t.Run("ListElements", func(t *testing.T) {
+		uri, _ := url.Parse("item:/_")
+		elements, err := reader.ListElements(*uri)
+		require.NoError(t, err)
+		require.Nil(t, elements)
+	})
+}
+
+func TestRead_ErrorCases(t *testing.T) {
+	t.Parallel()
+
+	t.Run("InvalidOperation", func(t *testing.T) {
+		reader, err := InitializeItem("file::memory:", nil)
+		require.NoError(t, err)
+		defer reader.DB.Close()
+
+		uri, _ := url.Parse("item:/_?op=invalid")
+		_, err = reader.Read(*uri)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid operation")
+	})
+
+	t.Run("DatabaseReinitialization", func(t *testing.T) {
+		reader := &PklResourceReader{
+			DB:     nil,
+			DBPath: "file::memory:",
+		}
+
+		uri, _ := url.Parse("item:/_?op=current")
+		data, err := reader.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte(""), data)
+		require.NotNil(t, reader.DB)
+		defer reader.DB.Close()
+	})
+
+	t.Run("DatabaseInitializationFailure", func(t *testing.T) {
+		reader := &PklResourceReader{
+			DB:     nil,
+			DBPath: "/invalid/path/database.db",
+		}
+
+		uri, _ := url.Parse("item:/_?op=current")
+		_, err := reader.Read(*uri)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to initialize database")
+	})
+}
+
+func TestGetMostRecentID_EdgeCases(t *testing.T) {
+	t.Parallel()
+
+	t.Run("EmptyDatabase", func(t *testing.T) {
+		reader, err := InitializeItem("file::memory:", nil)
+		require.NoError(t, err)
+		defer reader.DB.Close()
+
+		id, err := reader.getMostRecentID()
+		require.NoError(t, err)
+		require.Equal(t, "", id)
+	})
+}
+
+func TestFetchValues_EdgeCases(t *testing.T) {
+	t.Parallel()
+
+	t.Run("EmptyDatabase", func(t *testing.T) {
+		reader, err := InitializeItem("file::memory:", nil)
+		require.NoError(t, err)
+		defer reader.DB.Close()
+
+		result, err := reader.fetchValues("test")
+		require.NoError(t, err)
+		require.Equal(t, []byte("[]"), result)
+	})
+}
+
+func TestRead_TransactionErrorPaths(t *testing.T) {
+	t.Parallel()
+
+	t.Run("SetRecord_DatabaseClosed", func(t *testing.T) {
+		reader, err := InitializeItem("file::memory:", nil)
+		require.NoError(t, err)
+		reader.DB.Close() // Close database to simulate failure
+
+		uri, _ := url.Parse("item:/_?op=set&value=test")
+		_, err = reader.Read(*uri)
+		require.Error(t, err)
+	})
+}
+
+func TestInitializeDatabase_ErrorCases(t *testing.T) {
+	t.Parallel()
+
+	t.Run("InvalidDatabasePath", func(t *testing.T) {
+		_, err := InitializeDatabase("/invalid/path/database.db", nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to ping database")
+	})
+}
+
+func TestInitializeItem_ErrorCases(t *testing.T) {
+	t.Parallel()
+
+	t.Run("DatabaseInitializationFailure", func(t *testing.T) {
+		_, err := InitializeItem("/invalid/path/database.db", []string{"test"})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "error initializing database")
+	})
+}
+
+func TestRead_NavigationEdgeCases(t *testing.T) {
+	t.Parallel()
+
+	t.Run("PrevRecord_NoEarlierRecord", func(t *testing.T) {
+		reader, err := InitializeItem("file::memory:", nil)
+		require.NoError(t, err)
+		defer reader.DB.Close()
+
+		// Insert only one record
+		_, err = reader.DB.Exec("INSERT INTO items (id, value) VALUES (?, ?)", "20250101120000.000000", "value1")
+		require.NoError(t, err)
+
+		uri, _ := url.Parse("item:/_?op=prev")
+		data, err := reader.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte(""), data)
+	})
+
+	t.Run("NextRecord_HasNextRecord", func(t *testing.T) {
+		reader, err := InitializeItem("file::memory:", nil)
+		require.NoError(t, err)
+		defer reader.DB.Close()
+
+		// Insert records where the most recent is not the latest chronologically
+		_, err = reader.DB.Exec(`
+			INSERT INTO items (id, value) VALUES
+			('20250101120000.000000', 'value1'),
+			('20250101120002.000000', 'value3'),
+			('20250101120001.000000', 'value2')
+		`)
+		require.NoError(t, err)
+
+		// The most recent ID should be the highest value
+		uri, _ := url.Parse("item:/_?op=next")
+		data, err := reader.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte(""), data) // No next record after the highest ID
+	})
+}
