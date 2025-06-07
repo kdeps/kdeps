@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/texteditor"
 	"github.com/kdeps/schema/gen/kdeps"
 	"github.com/kdeps/schema/gen/kdeps/path"
 	"github.com/spf13/afero"
@@ -26,6 +28,22 @@ var (
 	logger         *logging.Logger
 	testingT       *testing.T
 )
+
+func init() {
+	os.Setenv("NON_INTERACTIVE", "1")
+	// Save the original EditPkl function
+	originalEditPkl := texteditor.EditPkl
+	// Replace with mock for testing
+	texteditor.EditPkl = texteditor.MockEditPkl
+	// Restore original after tests
+	defer func() { texteditor.EditPkl = originalEditPkl }()
+}
+
+func setNonInteractive(t *testing.T) func() {
+	old := os.Getenv("NON_INTERACTIVE")
+	os.Setenv("NON_INTERACTIVE", "1")
+	return func() { os.Setenv("NON_INTERACTIVE", old) }
+}
 
 func TestFeatures(t *testing.T) {
 	t.Parallel()
@@ -598,4 +616,10 @@ dockerGPU = "cpu"
 			assert.NotNil(t, result)
 		}
 	})
+}
+
+func TestMain(m *testing.M) {
+	teardown := setNonInteractive(nil)
+	defer teardown()
+	os.Exit(m.Run())
 }

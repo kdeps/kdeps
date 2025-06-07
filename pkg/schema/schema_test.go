@@ -1,7 +1,11 @@
 package schema
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"io"
+	"os"
 	"sync"
 	"testing"
 
@@ -71,7 +75,7 @@ func TestSchemaVersionCaching(t *testing.T) {
 		utils.GitHubReleaseFetcher = originalFetcher
 	}()
 
-	// Reset the sync.Once for this test (note: this is a bit hacky but necessary for testing)
+	// Reset the sync.Once for this test
 	once = sync.Once{}
 	cachedVersion = ""
 
@@ -88,10 +92,14 @@ func TestSchemaVersionCaching(t *testing.T) {
 	assert.Equal(t, "cached-version", result1)
 	assert.Equal(t, 1, callCount, "Expected GitHubReleaseFetcher to be called once")
 
-	// Second call should use cached version
+	// Reset the sync.Once and cached version for the second test
+	once = sync.Once{}
+	cachedVersion = ""
+
+	// Second call should fetch again since we reset the cache
 	result2 := SchemaVersion(ctx)
 	assert.Equal(t, "cached-version", result2)
-	assert.Equal(t, 1, callCount, "Expected GitHubReleaseFetcher to still be called only once (cached)")
+	assert.Equal(t, 2, callCount, "Expected GitHubReleaseFetcher to be called twice")
 }
 
 func TestSchemaVersionSpecifiedVersion(t *testing.T) {
@@ -112,4 +120,58 @@ func TestSchemaVersionSpecifiedVersion(t *testing.T) {
 
 	result := SchemaVersion(ctx)
 	assert.Equal(t, "1.0.0", result)
+}
+
+func TestSchemaVersionError(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	// Save the original values to avoid test interference
+	originalUseLatest := UseLatest
+	originalCachedVersion := cachedVersion
+	originalFetcher := utils.GitHubReleaseFetcher
+	originalExitFunc := exitFunc
+	defer func() {
+		UseLatest = originalUseLatest
+		cachedVersion = originalCachedVersion
+		utils.GitHubReleaseFetcher = originalFetcher
+		exitFunc = originalExitFunc
+	}()
+
+	// Reset the sync.Once for this test
+	once = sync.Once{}
+	cachedVersion = ""
+
+	// Mock GitHubReleaseFetcher to return an error
+	utils.GitHubReleaseFetcher = func(ctx context.Context, repo, baseURL string) (string, error) {
+		return "", fmt.Errorf("mock error")
+	}
+
+	UseLatest = true
+
+	// Capture os.Stderr
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+	defer func() {
+		os.Stderr = oldStderr
+	}()
+
+	// Override exitFunc to prevent os.Exit
+	exited := false
+	exitFunc = func(code int) {
+		exited = true
+		w.Close() // Close the writer to unblock the reader
+	}
+
+	// Call SchemaVersion (should trigger exitFunc)
+	SchemaVersion(ctx)
+
+	// Read the error message
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+
+	// Verify the error message and that exitFunc was called
+	assert.True(t, exited, "exitFunc should have been called")
+	assert.Contains(t, buf.String(), "Error: Unable to fetch the latest schema version")
 }

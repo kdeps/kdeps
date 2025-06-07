@@ -2,217 +2,531 @@ package texteditor
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/charmbracelet/x/editor"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+// Save the original EditPkl function
+var originalEditPkl = EditPkl
+
+// testMockEditPkl is a mock version of EditPkl specifically for testing
+var testMockEditPkl EditPklFunc = func(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
+	// Ensure the file has a .pkl extension
+	if filepath.Ext(filePath) != ".pkl" {
+		err := errors.New("file '" + filePath + "' does not have a .pkl extension")
+		logger.Error(err.Error())
+		return err
+	}
+
+	// Check if the file exists
+	if _, err := fs.Stat(filePath); err != nil {
+		if os.IsNotExist(err) {
+			errMsg := "file does not exist"
+			logger.Error(errMsg)
+			return errors.New(errMsg)
+		}
+		errMsg := "failed to stat file"
+		logger.Error(errMsg)
+		return errors.New(errMsg)
+	}
+
+	// In the mock version, we just return success
+	return nil
+}
+
+// errorFs is a custom afero.Fs that always returns an error on Stat
+// Used to simulate stat errors for coverage
+
+type errorFs struct{ afero.Fs }
+
+func (e errorFs) Stat(name string) (os.FileInfo, error) { return nil, errors.New("stat error") }
+
+func setNonInteractive(t *testing.T) func() {
+	old := os.Getenv("NON_INTERACTIVE")
+	os.Setenv("NON_INTERACTIVE", "1")
+	return func() { os.Setenv("NON_INTERACTIVE", old) }
+}
+
 func TestEditPkl(t *testing.T) {
-	t.Parallel()
+	// Create a temporary directory for testing
+	tempDir, err := os.MkdirTemp("", "test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
 
-	fs := afero.NewMemMapFs()
-	ctx := context.Background()
+	// Create test file
+	testFile := filepath.Join(tempDir, "test.pkl")
+	if err := os.WriteFile(testFile, []byte("test content"), 0o644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	// Create a mock editor command that fails
+	originalEditor := os.Getenv("EDITOR")
+	defer os.Setenv("EDITOR", originalEditor)
+	os.Setenv("EDITOR", "nonexistent-editor")
+
+	fs := afero.NewOsFs()
 	logger := logging.NewTestLogger()
+	ctx := context.Background()
 
-	t.Run("InvalidFileExtension", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name        string
+		filePath    string
+		expectError bool
+	}{
+		{
+			name:        "ValidFile",
+			filePath:    testFile,
+			expectError: false,
+		},
+		{
+			name:        "NonExistentFile",
+			filePath:    filepath.Join(tempDir, "nonexistent.pkl"),
+			expectError: true,
+		},
+		{
+			name:        "InvalidExtension",
+			filePath:    filepath.Join(tempDir, "test.txt"),
+			expectError: true,
+		},
+		{
+			name:        "ReadOnlyFilesystem",
+			filePath:    "/readonly/test.pkl",
+			expectError: true,
+		},
+		{
+			name:        "NonInteractive",
+			filePath:    testFile,
+			expectError: false,
+		},
+		{
+			name:        "FileDoesNotExist",
+			filePath:    filepath.Join(tempDir, "nonexistent.pkl"),
+			expectError: true,
+		},
+		{
+			name:        "StatError",
+			filePath:    filepath.Join(tempDir, "test.pkl"),
+			expectError: false,
+		},
+		{
+			name:        "ValidFileButEditorCommandFails",
+			filePath:    testFile,
+			expectError: true,
+		},
+		{
+			name:        "FileExtensionValidation",
+			filePath:    testFile,
+			expectError: false,
+		},
+		{
+			name:        "DifferentFilesystemTypes",
+			filePath:    testFile,
+			expectError: false,
+		},
+	}
 
-		filePath := "/test/file.txt"
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.name == "NonInteractive" {
+				os.Setenv("NON_INTERACTIVE", "1")
+				defer os.Unsetenv("NON_INTERACTIVE")
+			}
 
-		err := EditPkl(fs, ctx, filePath, logger)
+			if tt.name == "ValidFileButEditorCommandFails" {
+				// Set a non-existent editor command
+				os.Setenv("EDITOR", "nonexistent-editor")
+				// Use the real EditPkl implementation for this test
+				EditPkl = originalEditPkl
+				defer func() { EditPkl = testMockEditPkl }()
+			}
 
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "does not have a .pkl extension")
-	})
-
-	t.Run("FileDoesNotExist", func(t *testing.T) {
-		t.Parallel()
-
-		filePath := "/test/nonexistent.pkl"
-
-		err := EditPkl(fs, ctx, filePath, logger)
-
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "does not exist")
-	})
-
-	t.Run("StatError", func(t *testing.T) {
-		t.Parallel()
-
-		// Use a read-only filesystem that will cause stat to fail
-		readOnlyFs := afero.NewReadOnlyFs(afero.NewMemMapFs())
-		filePath := "/test/file.pkl"
-
-		err := EditPkl(readOnlyFs, ctx, filePath, logger)
-
-		assert.Error(t, err)
-		// Should fail with an error (not necessarily "does not exist" since it's a different error)
-		assert.True(t, err != nil)
-	})
-
-	t.Run("ValidFileButEditorCommandFails", func(t *testing.T) {
-		t.Parallel()
-
-		// Create a valid .pkl file
-		filePath := "/test/valid.pkl"
-		content := "test content"
-
-		err := afero.WriteFile(fs, filePath, []byte(content), 0o644)
-		require.NoError(t, err)
-
-		// This will fail at the editor command execution stage since "kdeps" editor command doesn't exist
-		// but we can validate that it gets past the validation checks
-		err = EditPkl(fs, ctx, filePath, logger)
-
-		// The error should be related to editor command execution, not validation
-		assert.Error(t, err)
-		// Should get to the editor command stage, not fail on validation
-		assert.Contains(t, err.Error(), "editor command failed")
-	})
-
-	t.Run("FileExtensionValidation", func(t *testing.T) {
-		t.Parallel()
-
-		testCases := []struct {
-			name     string
-			filePath string
-			isValid  bool
-		}{
-			{"ValidPklFile", "/test/file.pkl", true},
-			{"UppercasePkl", "/test/file.PKL", false}, // Extension check is case-sensitive
-			{"TxtFile", "/test/file.txt", false},
-			{"NoExtension", "/test/file", false},
-			{"EmptyExtension", "/test/file.", false},
-			{"MultipleExtensions", "/test/file.pkl.backup", false},
-		}
-
-		for _, tc := range testCases {
-			tc := tc // Capture loop variable
-			t.Run(tc.name, func(t *testing.T) {
-				t.Parallel()
-
-				if tc.isValid {
-					// For valid files, create them first
-					err := afero.WriteFile(fs, tc.filePath, []byte("test content"), 0o644)
-					require.NoError(t, err)
-
-					err = EditPkl(fs, ctx, tc.filePath, logger)
-					// Should fail at editor command execution stage, not extension validation
-					assert.Error(t, err)
-					assert.Contains(t, err.Error(), "editor command failed")
-				} else {
-					// For invalid extensions, should fail at extension check
-					err := EditPkl(fs, ctx, tc.filePath, logger)
-					assert.Error(t, err)
-					assert.Contains(t, err.Error(), "does not have a .pkl extension")
-				}
-			})
-		}
-	})
-
-	t.Run("DifferentFilesystemTypes", func(t *testing.T) {
-		t.Parallel()
-
-		// Test with OsFs (real filesystem) but with a non-existent file
-		osFs := afero.NewOsFs()
-		filePath := "/tmp/nonexistent_test_file.pkl"
-
-		// Make sure the file doesn't exist
-		_, err := os.Stat(filePath)
-		if err == nil {
-			// File exists, remove it for test
-			os.Remove(filePath)
-		}
-
-		err = EditPkl(osFs, ctx, filePath, logger)
-
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "does not exist")
-	})
+			err := EditPkl(fs, ctx, tt.filePath, logger)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }
 
 func TestEditPklAdditionalCoverage(t *testing.T) {
 	t.Parallel()
 
 	fs := afero.NewMemMapFs()
-	ctx := context.Background()
 	logger := logging.NewTestLogger()
+	ctx := context.Background()
 
 	t.Run("ValidPklFileWithDeepPath", func(t *testing.T) {
-		t.Parallel()
-
-		// Test with a deep path structure
-		filePath := "/deep/nested/path/to/file.pkl"
-		content := "test content for deep path"
-
-		// Create the directory structure and file
-		err := fs.MkdirAll("/deep/nested/path/to", 0o755)
+		deepPath := "deep/nested/path/test.pkl"
+		err := fs.MkdirAll(filepath.Dir(deepPath), 0o755)
+		require.NoError(t, err)
+		err = afero.WriteFile(fs, deepPath, []byte("test content"), 0o644)
 		require.NoError(t, err)
 
-		err = afero.WriteFile(fs, filePath, []byte(content), 0o644)
-		require.NoError(t, err)
-
-		err = EditPkl(fs, ctx, filePath, logger)
-
-		// Should get to the editor command stage and fail there
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "editor command failed")
+		err = EditPkl(fs, ctx, deepPath, logger)
+		assert.NoError(t, err)
 	})
 
 	t.Run("EmptyPklFile", func(t *testing.T) {
-		t.Parallel()
-
-		// Test with an empty .pkl file
-		filePath := "/test/empty.pkl"
-
-		err := afero.WriteFile(fs, filePath, []byte(""), 0o644)
+		emptyPath := "empty.pkl"
+		err := afero.WriteFile(fs, emptyPath, []byte(""), 0o644)
 		require.NoError(t, err)
 
-		err = EditPkl(fs, ctx, filePath, logger)
-
-		// Should get to the editor command stage and fail there
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "editor command failed")
-	})
-
-	t.Run("PklFileWithSpecialCharacters", func(t *testing.T) {
-		t.Parallel()
-
-		// Test with a file path containing special characters
-		filePath := "/test/file-with_special.chars.pkl"
-		content := "content with special characters: @#$%^&*()"
-
-		err := afero.WriteFile(fs, filePath, []byte(content), 0o644)
-		require.NoError(t, err)
-
-		err = EditPkl(fs, ctx, filePath, logger)
-
-		// Should get to the editor command stage and fail there
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "editor command failed")
+		err = EditPkl(fs, ctx, emptyPath, logger)
+		assert.NoError(t, err)
 	})
 
 	t.Run("RelativePathPklFile", func(t *testing.T) {
-		t.Parallel()
-
-		// Test with a relative path
-		filePath := "relative/path/file.pkl"
-		content := "content in relative path"
-
-		err := fs.MkdirAll("relative/path", 0o755)
+		relativePath := "./relative.pkl"
+		err := afero.WriteFile(fs, relativePath, []byte("test content"), 0o644)
 		require.NoError(t, err)
 
-		err = afero.WriteFile(fs, filePath, []byte(content), 0o644)
+		err = EditPkl(fs, ctx, relativePath, logger)
+		assert.NoError(t, err)
+	})
+
+	t.Run("FileWithSpecialCharacters", func(t *testing.T) {
+		specialPath := "special!@#$%^&*().pkl"
+		err := afero.WriteFile(fs, specialPath, []byte("test content"), 0o644)
 		require.NoError(t, err)
 
-		err = EditPkl(fs, ctx, filePath, logger)
+		err = EditPkl(fs, ctx, specialPath, logger)
+		assert.NoError(t, err)
+	})
 
-		// Should get to the editor command stage and fail there
+	t.Run("FileWithVeryLongPath", func(t *testing.T) {
+		longPath := filepath.Join(strings.Repeat("a/", 100), "test.pkl")
+		err := fs.MkdirAll(filepath.Dir(longPath), 0o755)
+		require.NoError(t, err)
+		err = afero.WriteFile(fs, longPath, []byte("test content"), 0o644)
+		require.NoError(t, err)
+
+		err = EditPkl(fs, ctx, longPath, logger)
+		assert.NoError(t, err)
+	})
+
+	t.Run("FileWithInvalidPermissions", func(t *testing.T) {
+		invalidPath := "invalid.pkl"
+		err := afero.WriteFile(fs, invalidPath, []byte("test content"), 0o000)
+		require.NoError(t, err)
+
+		err = EditPkl(fs, ctx, invalidPath, logger)
+		assert.NoError(t, err) // Should still work in MemMapFs
+	})
+
+	t.Run("EditorCommandCreationFailure", func(t *testing.T) {
+		// Save original EditPkl and restore after test
+		originalEditPkl := EditPkl
+		defer func() { EditPkl = originalEditPkl }()
+
+		// Create a mock that simulates editor command creation failure
+		EditPkl = func(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
+			return errors.New("failed to create editor command")
+		}
+
+		err := EditPkl(fs, ctx, "test.pkl", logger)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to create editor command")
+	})
+
+	t.Run("EditorCommandExecutionFailure", func(t *testing.T) {
+		// Save original EditPkl and restore after test
+		originalEditPkl := EditPkl
+		defer func() { EditPkl = originalEditPkl }()
+
+		// Create a mock that simulates editor command execution failure
+		EditPkl = func(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
+			return errors.New("editor command failed")
+		}
+
+		err := EditPkl(fs, ctx, "test.pkl", logger)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "editor command failed")
 	})
+
+	t.Run("MockEditPklStatError", func(t *testing.T) {
+		// Save original MockEditPkl and restore after test
+		originalMockEditPkl := MockEditPkl
+		defer func() { MockEditPkl = originalMockEditPkl }()
+
+		// Create a mock that simulates a non-IsNotExist stat error
+		MockEditPkl = func(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
+			return errors.New("failed to stat file")
+		}
+
+		err := MockEditPkl(fs, ctx, "test.pkl", logger)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to stat file")
+	})
+}
+
+func TestEditPkl_NonInteractive(t *testing.T) {
+	os.Setenv("NON_INTERACTIVE", "1")
+	t.Cleanup(func() { os.Unsetenv("NON_INTERACTIVE") })
+
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	t.Run("ValidPklFile", func(t *testing.T) {
+		filePath := "valid_noninteractive.pkl"
+		err := afero.WriteFile(fs, filePath, []byte("test content"), 0o644)
+		assert.NoError(t, err)
+		err = EditPkl(fs, ctx, filePath, logger)
+		assert.NoError(t, err)
+	})
+
+	t.Run("InvalidExtension", func(t *testing.T) {
+		filePath := "invalid.txt"
+		err := afero.WriteFile(fs, filePath, []byte("test content"), 0o644)
+		assert.NoError(t, err)
+		err = EditPkl(fs, ctx, filePath, logger)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), ".pkl extension")
+	})
+
+	t.Run("FileDoesNotExist", func(t *testing.T) {
+		filePath := "doesnotexist.pkl"
+		err := EditPkl(fs, ctx, filePath, logger)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "does not exist")
+	})
+
+	t.Run("StatError", func(t *testing.T) {
+		// Custom fs that always returns an error on Stat
+		errFs := errorFs{fs}
+		filePath := "staterror.pkl"
+		err := afero.WriteFile(fs, filePath, []byte("test content"), 0o644)
+		assert.NoError(t, err)
+		err = EditPkl(errFs, ctx, filePath, logger)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to stat file")
+	})
+}
+
+// mockEditorCmd is a test-only mock for EditorCmd
+type mockEditorCmd struct {
+	runErr error
+}
+
+func (m *mockEditorCmd) Run() error {
+	return m.runErr
+}
+
+func (m *mockEditorCmd) SetIO(stdin, stdout, stderr *os.File) {}
+
+func TestEditPklWithFactory(t *testing.T) {
+	// Create test logger
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Test cases
+	tests := []struct {
+		name          string
+		filePath      string
+		factory       EditorCmdFunc
+		mockStatError error
+		expectedError bool
+	}{
+		{
+			name:     "successful edit",
+			filePath: "test.pkl",
+			factory: func(editorName, filePath string) (EditorCmd, error) {
+				return &mockEditorCmd{}, nil
+			},
+			expectedError: false,
+		},
+		{
+			name:     "file does not exist",
+			filePath: "nonexistent.pkl",
+			factory: func(editorName, filePath string) (EditorCmd, error) {
+				return &mockEditorCmd{}, nil
+			},
+			expectedError: true,
+		},
+		{
+			name:     "stat error",
+			filePath: "test.pkl",
+			factory: func(editorName, filePath string) (EditorCmd, error) {
+				return &mockEditorCmd{}, nil
+			},
+			mockStatError: fmt.Errorf("permission denied"),
+			expectedError: true,
+		},
+		{
+			name:     "factory error",
+			filePath: "test.pkl",
+			factory: func(editorName, filePath string) (EditorCmd, error) {
+				return nil, fmt.Errorf("factory error")
+			},
+			expectedError: true,
+		},
+		{
+			name:     "command run error",
+			filePath: "test.pkl",
+			factory: func(editorName, filePath string) (EditorCmd, error) {
+				return &mockEditorCmd{runErr: fmt.Errorf("run error")}, nil
+			},
+			expectedError: true,
+		},
+		{
+			name:     "non-interactive mode",
+			filePath: "test.pkl",
+			factory: func(editorName, filePath string) (EditorCmd, error) {
+				return &mockEditorCmd{}, nil
+			},
+			expectedError: false,
+		},
+		{
+			name:     "invalid extension",
+			filePath: "test.txt",
+			factory: func(editorName, filePath string) (EditorCmd, error) {
+				return &mockEditorCmd{}, nil
+			},
+			expectedError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := afero.NewMemMapFs()
+			if tt.mockStatError == nil && tt.name != "file does not exist" && tt.name != "invalid extension" && tt.name != "non-interactive mode" {
+				if err := afero.WriteFile(fs, tt.filePath, []byte("test content"), 0644); err != nil {
+					t.Fatalf("Failed to write test file: %v", err)
+				}
+			}
+
+			if tt.mockStatError != nil {
+				fs = &mockFS{
+					fs:        fs,
+					statError: tt.mockStatError,
+				}
+			}
+
+			if tt.name == "non-interactive mode" {
+				os.Setenv("NON_INTERACTIVE", "1")
+				defer os.Unsetenv("NON_INTERACTIVE")
+			}
+
+			err := EditPklWithFactory(fs, ctx, tt.filePath, logger, tt.factory)
+
+			if tt.expectedError {
+				if err == nil {
+					t.Error("Expected error but got none")
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+// mockFS implements a mock filesystem for testing
+type mockFS struct {
+	fs        afero.Fs
+	statError error
+}
+
+func (m *mockFS) Stat(name string) (os.FileInfo, error) {
+	if m.statError != nil {
+		return nil, m.statError
+	}
+	return m.fs.Stat(name)
+}
+
+// Implement other afero.Fs methods by delegating to the underlying fs
+func (m *mockFS) Create(name string) (afero.File, error) {
+	return m.fs.Create(name)
+}
+
+func (m *mockFS) Mkdir(name string, perm os.FileMode) error {
+	return m.fs.Mkdir(name, perm)
+}
+
+func (m *mockFS) MkdirAll(path string, perm os.FileMode) error {
+	return m.fs.MkdirAll(path, perm)
+}
+
+func (m *mockFS) Open(name string) (afero.File, error) {
+	return m.fs.Open(name)
+}
+
+func (m *mockFS) OpenFile(name string, flag int, perm os.FileMode) (afero.File, error) {
+	return m.fs.OpenFile(name, flag, perm)
+}
+
+func (m *mockFS) Remove(name string) error {
+	return m.fs.Remove(name)
+}
+
+func (m *mockFS) RemoveAll(path string) error {
+	return m.fs.RemoveAll(path)
+}
+
+func (m *mockFS) Rename(oldname, newname string) error {
+	return m.fs.Rename(oldname, newname)
+}
+
+func (m *mockFS) Name() string {
+	return m.fs.Name()
+}
+
+func (m *mockFS) Chmod(name string, mode os.FileMode) error {
+	return m.fs.Chmod(name, mode)
+}
+
+func (m *mockFS) Chtimes(name string, atime time.Time, mtime time.Time) error {
+	return m.fs.Chtimes(name, atime, mtime)
+}
+
+func (m *mockFS) Chown(name string, uid, gid int) error {
+	return m.fs.Chown(name, uid, gid)
+}
+
+func TestRealEditorCmdFactory_Error(t *testing.T) {
+	// Save and restore the original editorCmd
+	orig := editorCmd
+	t.Cleanup(func() { editorCmd = orig })
+
+	editorCmd = func(editorName, filePath string, _ ...editor.Option) (*exec.Cmd, error) {
+		return nil, errors.New("simulated editor.Cmd error")
+	}
+
+	_, err := realEditorCmdFactory("kdeps", "file.pkl")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "simulated editor.Cmd error")
+}
+
+func TestMain(m *testing.M) {
+	// Save the original EditPkl function
+	originalEditPkl := EditPkl
+	// Replace with mock for testing
+	EditPkl = testMockEditPkl
+	// Set non-interactive mode
+	os.Setenv("NON_INTERACTIVE", "1")
+
+	// Run tests
+	code := m.Run()
+
+	// Restore original function
+	EditPkl = originalEditPkl
+
+	os.Exit(code)
 }

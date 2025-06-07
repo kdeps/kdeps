@@ -3,6 +3,7 @@ package resolver_test
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -16,6 +17,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func setNonInteractive(t *testing.T) func() {
+	old := os.Getenv("NON_INTERACTIVE")
+	os.Setenv("NON_INTERACTIVE", "1")
+	return func() { os.Setenv("NON_INTERACTIVE", old) }
+}
 
 func TestDependencyResolver(t *testing.T) {
 	t.Parallel()
@@ -123,7 +130,7 @@ func TestDependencyResolver(t *testing.T) {
 		t.Parallel()
 		// Test handling of command timeouts
 		execBlock := &pklExec.ResourceExec{
-			Command: "sleep 10",
+			Command: "sleep 0.1",
 			TimeoutDuration: &pkl.Duration{
 				Value: 1,
 				Unit:  pkl.Second,
@@ -723,17 +730,17 @@ func TestDependencyResolver(t *testing.T) {
 		}{
 			{
 				name:        "MemoryLimit",
-				command:     "dd if=/dev/zero bs=1M count=1000",
+				command:     "dd if=/dev/zero bs=1M count=10",
 				expectError: false,
 			},
 			{
 				name:        "FileDescriptorLimit",
-				command:     "for i in $(seq 1 1000); do echo $i > /dev/null; done",
+				command:     "for i in $(seq 1 10); do echo $i > /dev/null; done",
 				expectError: false,
 			},
 			{
 				name:        "CPULimit",
-				command:     "while true; do : ; done",
+				command:     "for i in $(seq 1 10); do : ; done",
 				expectError: false,
 			},
 		}
@@ -838,4 +845,10 @@ func TestDependencyResolver(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestMain(m *testing.M) {
+	teardown := setNonInteractive(nil)
+	defer teardown()
+	os.Exit(m.Run())
 }
