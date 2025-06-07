@@ -2,7 +2,7 @@
   <img src="./docs/public/logo.png" width="500" />
 </p>
 
-[![Coverage](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml/badge.svg)](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml)
+[![coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/kdeps/${{ secrets.GIST_ID }}/raw/kdeps-go-coverage.json)](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml)
 
 Kdeps is an all-in-one AI framework for building Dockerized full-stack AI applications (FE and BE) that includes
 open-source LLM models out-of-the-box.

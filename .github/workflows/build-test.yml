@@ -75,8 +75,16 @@ jobs:
         shell: pwsh
       # Run tests
       - name: Run the tests
-        run: make test
+        run: |
+          go test -v -coverprofile=coverage.out -covermode=atomic ./... > test.out
+          go tool cover -func=coverage.out >> test.out
         shell: bash
+
+      - name: Generate badges
+        uses: gaelgirodon/ci-badges-action@v1
+        with:
+          gist-id: ${{ secrets.GIST_ID }}
+          token: ${{ secrets.GIST_TOKEN }}
 
 #   end2end:
 #     strategy:
