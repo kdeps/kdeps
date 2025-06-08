@@ -33,7 +33,7 @@ test: test-unit
 
 test-unit:
 	@echo "$(OK_COLOR)==> Running the unit tests$(NO_COLOR)"
-	@go test -v -cover -timeout 10m ./...
+	@NON_INTERACTIVE=1 go test -failfast -coverprofile=coverage.out ./... && go tool cover -func=coverage.out | cat
 
 format: tools
 	@echo "$(OK_COLOR)>> [go vet] running$(NO_COLOR)" & \
