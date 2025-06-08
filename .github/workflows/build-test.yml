@@ -76,8 +76,8 @@ jobs:
       # Run tests
       - name: Run the tests
         run: |
-          go test -v -coverprofile=coverage.out -covermode=atomic ./... > test.out
-          go tool cover -func=coverage.out >> test.out
+          go test -v -coverprofile=test.out -covermode=atomic ./...
+          go tool cover -func=test.out
         shell: bash
 
       - name: Generate badges
