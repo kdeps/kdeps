@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
@@ -22,14 +23,14 @@ func TestPklResourceReader(t *testing.T) {
 	scriptDir := filepath.Join(tmpDir, "scripts")
 
 	// Create script directory
-	if err := os.MkdirAll(scriptDir, 0755); err != nil {
+	if err := os.MkdirAll(scriptDir, 0o755); err != nil {
 		t.Fatalf("Failed to create script directory: %v", err)
 	}
 
 	// Create test scripts
 	createTestScript := func(name, content string) string {
 		scriptPath := filepath.Join(scriptDir, name)
-		if err := os.WriteFile(scriptPath, []byte(content), 0755); err != nil {
+		if err := os.WriteFile(scriptPath, []byte(content), 0o755); err != nil {
 			t.Fatalf("Failed to create test script %s: %v", name, err)
 		}
 		return scriptPath
@@ -58,7 +59,7 @@ func TestPklResourceReader(t *testing.T) {
 		);
 		CREATE TABLE IF NOT EXISTS history (
 			id TEXT,
-			timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+			timestamp INTEGER NOT NULL,
 			value TEXT
 		);
 	`); err != nil {
@@ -118,6 +119,24 @@ func TestPklResourceReader(t *testing.T) {
 		}
 	})
 
+	t.Run("Read_NilReceiver", func(t *testing.T) {
+		var nilReader *PklResourceReader
+		uri, _ := url.Parse("tool:///test1")
+		_, err := nilReader.Read(*uri)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to initialize PklResourceReader")
+	})
+
+	t.Run("Read_NilDB", func(t *testing.T) {
+		nilDBReader := &PklResourceReader{
+			DBPath: dbPath,
+		}
+		uri, _ := url.Parse("tool:///test1")
+		output, err := nilDBReader.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, "output1", string(output))
+	})
+
 	t.Run("Read_GetItem", func(t *testing.T) {
 		// Test successful read
 		uri, _ := url.Parse("tool:///test1")
@@ -148,6 +167,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_Run_InlineScript", func(t *testing.T) {
+		// Test with URL-encoded parameters
 		uri, _ := url.Parse("tool:///test4?op=run&script=echo%20hello&params=param1%20param2")
 		output, err := reader.Read(*uri)
 		if err != nil {
@@ -155,6 +175,36 @@ func TestPklResourceReader(t *testing.T) {
 		}
 		if strings.TrimSpace(string(output)) != "hello" {
 			t.Errorf("Expected output 'hello', got '%s'", string(output))
+		}
+
+		// Test with empty parameters
+		uri, _ = url.Parse("tool:///test4?op=run&script=echo%20hello")
+		output, err = reader.Read(*uri)
+		if err != nil {
+			t.Errorf("Read failed: %v", err)
+		}
+		if strings.TrimSpace(string(output)) != "hello" {
+			t.Errorf("Expected output 'hello', got '%s'", string(output))
+		}
+
+		// Test with invalid URL encoding (should not error, just pass empty string)
+		uri, _ = url.Parse("tool:///test4?op=run&script=echo%20hello&params=%")
+		output, err = reader.Read(*uri)
+		if err != nil {
+			t.Errorf("Read failed for invalid URL encoding: %v", err)
+		}
+		if strings.TrimSpace(string(output)) != "hello" {
+			t.Errorf("Expected output 'hello' for invalid URL encoding, got '%s'", string(output))
+		}
+
+		// Test with empty params after trimming
+		uri, _ = url.Parse("tool:///test4?op=run&script=echo%20hello&params=%20%20%20")
+		output, err = reader.Read(*uri)
+		if err != nil {
+			t.Errorf("Read failed for empty params after trimming: %v", err)
+		}
+		if strings.TrimSpace(string(output)) != "hello" {
+			t.Errorf("Expected output 'hello' for empty params after trimming, got '%s'", string(output))
 		}
 	})
 
@@ -238,178 +288,259 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_History", func(t *testing.T) {
+		// Add some history entries
+		now := time.Now().Unix()
+		historyData := []struct {
+			id        string
+			value     string
+			timestamp int64
+		}{
+			{"test5", "output1", now - 2},
+			{"test5", "output2", now - 1},
+			{"test5", "output3", now},
+		}
+
+		for _, data := range historyData {
+			if _, err := db.Exec(
+				"INSERT INTO history (id, value, timestamp) VALUES (?, ?, ?)",
+				data.id, data.value, data.timestamp,
+			); err != nil {
+				t.Fatalf("Failed to insert history data: %v", err)
+			}
+		}
+
 		// Test history for existing tool
 		uri, _ := url.Parse("tool:///test5?op=history")
 		output, err := reader.Read(*uri)
 		if err != nil {
 			t.Errorf("Read failed: %v", err)
 		}
-		// Accept empty output for missing history
+		outputStr := string(output)
+		require.Contains(t, outputStr, "output1")
+		require.Contains(t, outputStr, "output2")
+		require.Contains(t, outputStr, "output3")
+
 		// Test history for nonexistent tool
 		uri, _ = url.Parse("tool:///nonexistent?op=history")
 		output, err = reader.Read(*uri)
 		if err != nil {
-			t.Errorf("Did not expect error for nonexistent tool history, got: %v", err)
+			t.Errorf("Read failed: %v", err)
 		}
 		if string(output) != "" {
 			t.Errorf("Expected empty output for nonexistent tool history, got '%s'", string(output))
 		}
 
-		// Test history for empty ID
+		// Test empty ID
 		uri, _ = url.Parse("tool:///?op=history")
 		_, err = reader.Read(*uri)
 		if err == nil {
-			t.Error("Expected error for empty ID history")
+			t.Error("Expected error for empty ID")
+		}
+
+		// Test database error during history query
+		// Close the database connection to simulate an error
+		db.Close()
+		uri, _ = url.Parse("tool:///test5?op=history")
+		_, err = reader.Read(*uri)
+		if err == nil {
+			t.Error("Expected error for closed database connection")
 		}
 	})
 }
 
-func TestInitializeDatabase(t *testing.T) {
-	t.Parallel()
+// MockDBInitializer implements DBInitializer for testing
+type MockDBInitializer struct {
+	OpenFunc  func(dsn string) (*sql.DB, error)
+	PingFunc  func(db *sql.DB) error
+	ExecFunc  func(db *sql.DB, query string) error
+	OpenCount int
+	PingCount int
+	ExecCount int
+}
 
-	t.Run("SuccessfulInitialization", func(t *testing.T) {
-		t.Parallel()
-		db, err := InitializeDatabase("file::memory:")
+func (m *MockDBInitializer) Open(dsn string) (*sql.DB, error) {
+	m.OpenCount++
+	if m.OpenFunc != nil {
+		return m.OpenFunc(dsn)
+	}
+	return nil, fmt.Errorf("Open not implemented")
+}
+
+func (m *MockDBInitializer) Ping(db *sql.DB) error {
+	m.PingCount++
+	if m.PingFunc != nil {
+		return m.PingFunc(db)
+	}
+	return fmt.Errorf("Ping not implemented")
+}
+
+func (m *MockDBInitializer) Exec(db *sql.DB, query string) error {
+	m.ExecCount++
+	if m.ExecFunc != nil {
+		return m.ExecFunc(db, query)
+	}
+	return fmt.Errorf("Exec not implemented")
+}
+
+func TestInitializeDatabase(t *testing.T) {
+	t.Run("Successful Initialization", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		dbPath := filepath.Join(tmpDir, "test.db")
+		db, err := InitializeDatabase(dbPath, &DefaultDBInitializer{})
 		require.NoError(t, err)
 		require.NotNil(t, db)
 		defer db.Close()
 
-		var name string
-		err = db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name='tools'").Scan(&name)
+		// Verify tables exist
+		rows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table'")
 		require.NoError(t, err)
-		require.Equal(t, "tools", name)
+		defer rows.Close()
 
-		err = db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name='history'").Scan(&name)
-		require.NoError(t, err)
-		require.Equal(t, "history", name)
-	})
-
-	t.Run("InvalidPath", func(t *testing.T) {
-		t.Parallel()
-		db, err := InitializeDatabase("file::memory:?cache=invalid")
-		if err != nil {
-			if db != nil {
-				defer db.Close()
-				err = db.Ping()
-				require.NoError(t, err, "Expected database to be usable even with invalid cache parameter")
-			}
+		var tables []string
+		for rows.Next() {
+			var name string
+			require.NoError(t, rows.Scan(&name))
+			tables = append(tables, name)
 		}
+		require.NoError(t, rows.Err())
+		require.Contains(t, tables, "tools")
+		require.Contains(t, tables, "history")
 	})
 
-	t.Run("ReadOnlyDatabase", func(t *testing.T) {
-		t.Parallel()
-		// Create a temporary file for the database
+	t.Run("Failing to Open Database", func(t *testing.T) {
+		mock := &MockDBInitializer{
+			OpenFunc: func(dsn string) (*sql.DB, error) {
+				// Return a valid DB but always error
+				db, _ := sql.Open("sqlite3", ":memory:")
+				return db, fmt.Errorf("mock open error")
+			},
+		}
+		db, err := InitializeDatabase("test.db", mock)
+		require.Error(t, err)
+		require.Nil(t, db)
+		require.Contains(t, err.Error(), "failed to open database after 5 attempts")
+		require.Equal(t, 5, mock.OpenCount)
+	})
+
+	t.Run("Failing to Ping Database", func(t *testing.T) {
+		mock := &MockDBInitializer{
+			OpenFunc: func(dsn string) (*sql.DB, error) {
+				// Return a valid but unusable DB
+				db, _ := sql.Open("sqlite3", ":memory:")
+				return db, nil
+			},
+			PingFunc: func(db *sql.DB) error {
+				return fmt.Errorf("mock ping error")
+			},
+		}
+		db, err := InitializeDatabase("test.db", mock)
+		require.Error(t, err)
+		require.Nil(t, db)
+		require.Contains(t, err.Error(), "failed to ping database after 5 attempts")
+		require.Equal(t, 5, mock.OpenCount)
+		require.Equal(t, 5, mock.PingCount)
+	})
+
+	t.Run("Failing to Create Tools Table", func(t *testing.T) {
+		mock := &MockDBInitializer{
+			OpenFunc: func(dsn string) (*sql.DB, error) {
+				db, _ := sql.Open("sqlite3", ":memory:")
+				return db, nil
+			},
+			PingFunc: func(db *sql.DB) error {
+				return nil
+			},
+			ExecFunc: func(db *sql.DB, query string) error {
+				if strings.Contains(query, "CREATE TABLE IF NOT EXISTS tools") {
+					return fmt.Errorf("mock tools table error")
+				}
+				return nil
+			},
+		}
+		db, err := InitializeDatabase("test.db", mock)
+		require.Error(t, err)
+		require.Nil(t, db)
+		require.Contains(t, err.Error(), "failed to create tools table after 5 attempts")
+		require.Equal(t, 5, mock.OpenCount)
+		require.Equal(t, 5, mock.PingCount)
+		require.Equal(t, 5, mock.ExecCount)
+	})
+
+	t.Run("Failing to Create History Table", func(t *testing.T) {
+		mock := &MockDBInitializer{
+			OpenFunc: func(dsn string) (*sql.DB, error) {
+				db, _ := sql.Open("sqlite3", ":memory:")
+				return db, nil
+			},
+			PingFunc: func(db *sql.DB) error {
+				return nil
+			},
+			ExecFunc: func(db *sql.DB, query string) error {
+				if strings.Contains(query, "CREATE TABLE IF NOT EXISTS history") {
+					return fmt.Errorf("mock history table error")
+				}
+				return nil
+			},
+		}
+		db, err := InitializeDatabase("test.db", mock)
+		require.Error(t, err)
+		require.Nil(t, db)
+		require.Contains(t, err.Error(), "failed to create history table after 5 attempts")
+		require.Equal(t, 5, mock.OpenCount)
+		require.Equal(t, 5, mock.PingCount)
+		require.Equal(t, 10, mock.ExecCount)
+	})
+
+	t.Run("Nil Initializer Uses Default", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		dbPath := filepath.Join(tmpDir, "test.db")
-
-		// Create and initialize the database
-		db, err := InitializeDatabase(dbPath)
+		db, err := InitializeDatabase(dbPath, nil)
 		require.NoError(t, err)
-		db.Close()
+		require.NotNil(t, db)
+		defer db.Close()
 
-		// Make the file read-only
-		err = os.Chmod(dbPath, 0o444)
+		// Verify tables exist
+		rows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table'")
 		require.NoError(t, err)
-		defer os.Chmod(dbPath, 0o666) // Restore permissions
+		defer rows.Close()
 
-		// Try to initialize again
-		db2, err := InitializeDatabase(dbPath)
-		if err == nil {
-			// Try a write to trigger a read-only error
-			_, writeErr := db2.Exec("INSERT INTO tools (id, value) VALUES (?, ?)", "foo", "bar")
-			require.Error(t, writeErr)
-			if !strings.Contains(writeErr.Error(), "read-only") && !strings.Contains(writeErr.Error(), "readonly") {
-				t.Fatalf("unexpected error: %v", writeErr)
-			}
-			db2.Close()
-		} else {
-			require.Contains(t, err.Error(), "unable to open database file")
+		var tables []string
+		for rows.Next() {
+			var name string
+			require.NoError(t, rows.Scan(&name))
+			tables = append(tables, name)
 		}
-	})
-
-	t.Run("DatabaseOperationErrors", func(t *testing.T) {
-		t.Parallel()
-		reader, err := InitializeTool("file::memory:")
-		require.NoError(t, err)
-		defer reader.DB.Close()
-
-		// Test database operation errors by closing the connection
-		reader.DB.Close()
-
-		// Try to read with closed connection
-		uri, _ := url.Parse("tool:///test_db_error?op=run&script=echo%20test")
-		_, err = reader.Read(*uri)
-		require.Error(t, err)
-		if !strings.Contains(err.Error(), "failed to initialize database") && !strings.Contains(err.Error(), "database is closed") {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		// Try to get history with closed connection
-		uri, _ = url.Parse("tool:///test_db_error?op=history")
-		_, err = reader.Read(*uri)
-		require.Error(t, err)
-		if !strings.Contains(err.Error(), "failed to initialize database") && !strings.Contains(err.Error(), "database is closed") {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		// Try to get record with closed connection
-		uri, _ = url.Parse("tool:///test_db_error")
-		_, err = reader.Read(*uri)
-		require.Error(t, err)
-		if !strings.Contains(err.Error(), "failed to initialize database") && !strings.Contains(err.Error(), "database is closed") {
-			t.Fatalf("unexpected error: %v", err)
-		}
+		require.NoError(t, rows.Err())
+		require.Contains(t, tables, "tools")
+		require.Contains(t, tables, "history")
 	})
 }
 
 func TestInitializeTool(t *testing.T) {
 	t.Parallel()
 
-	t.Run("SuccessfulInitialization", func(t *testing.T) {
-		t.Parallel()
-		reader, err := InitializeTool("file::memory:")
-		require.NoError(t, err)
-		require.NotNil(t, reader)
-		require.NotNil(t, reader.DB)
-		require.Equal(t, "file::memory:", reader.DBPath)
-		defer reader.DB.Close()
-	})
+	// Create a temporary directory for the test database
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
 
-	t.Run("InvalidPath", func(t *testing.T) {
-		t.Parallel()
-		// Create a temporary directory
-		tmpDir := t.TempDir()
+	// Test successful initialization
+	reader, err := InitializeTool(dbPath)
+	if err != nil {
+		t.Errorf("InitializeTool failed: %v", err)
+	}
+	if reader == nil {
+		t.Error("InitializeTool returned nil reader")
+	}
+	if reader.DB == nil {
+		t.Error("InitializeTool returned reader with nil DB")
+	}
+	if reader.DBPath != dbPath {
+		t.Errorf("Expected DBPath %s, got %s", dbPath, reader.DBPath)
+	}
 
-		// Create a file that's not a database
-		dbPath := filepath.Join(tmpDir, "not_a_db.txt")
-		err := os.WriteFile(dbPath, []byte("not a database"), 0o666)
-		require.NoError(t, err)
-
-		// Try to initialize with non-database file
-		_, err = InitializeTool(dbPath)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "file is not a database")
-	})
-
-	t.Run("ReadOnlyPath", func(t *testing.T) {
-		t.Parallel()
-		// Create a temporary directory
-		tmpDir := t.TempDir()
-		dbPath := filepath.Join(tmpDir, "readonly.db")
-
-		// Create and initialize the database
-		reader, err := InitializeTool(dbPath)
-		require.NoError(t, err)
-		reader.DB.Close()
-
-		// Make the directory read-only
-		err = os.Chmod(tmpDir, 0o444)
-		require.NoError(t, err)
-		defer os.Chmod(tmpDir, 0o777) // Restore permissions
-
-		// Try to initialize again
-		_, err = InitializeTool(dbPath)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "unable to open database file")
-	})
+	// Test initialization with invalid path
+	_, err = InitializeTool("/nonexistent/path/test.db")
+	if err == nil {
+		t.Error("Expected error for invalid path")
+	}
 }

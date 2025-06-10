@@ -406,7 +406,7 @@ func TestEditPklWithFactory(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fs := afero.NewMemMapFs()
 			if tt.mockStatError == nil && tt.name != "file does not exist" && tt.name != "invalid extension" && tt.name != "non-interactive mode" {
-				if err := afero.WriteFile(fs, tt.filePath, []byte("test content"), 0644); err != nil {
+				if err := afero.WriteFile(fs, tt.filePath, []byte("test content"), 0o644); err != nil {
 					t.Fatalf("Failed to write test file: %v", err)
 				}
 			}

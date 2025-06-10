@@ -44,16 +44,10 @@ func (r *PklResourceReader) ListElements(_ url.URL) ([]pkl.PathElement, error) {
 
 // Read retrieves, runs, or retrieves history of script outputs in the SQLite database based on the URI.
 func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
-	// Check if receiver is nil and initialize with fixed DBPath
+	// Check if receiver is nil
 	if r == nil {
-		log.Printf("Warning: PklResourceReader is nil for URI: %s, initializing with DBPath", uri.String())
-		newReader, err := InitializeTool(r.DBPath)
-		if err != nil {
-			log.Printf("Failed to initialize PklResourceReader in Read: %v", err)
-			return nil, fmt.Errorf("failed to initialize PklResourceReader: %w", err)
-		}
-		r = newReader
-		log.Printf("Initialized PklResourceReader with DBPath")
+		log.Printf("Warning: PklResourceReader is nil for URI: %s", uri.String())
+		return nil, fmt.Errorf("failed to initialize PklResourceReader: receiver is nil")
 	}
 
 	// Check if db is nil and initialize with retries
@@ -61,7 +55,7 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		log.Printf("Database connection is nil, attempting to initialize with path: %s", r.DBPath)
 		maxAttempts := 5
 		for attempt := 1; attempt <= maxAttempts; attempt++ {
-			db, err := InitializeDatabase(r.DBPath)
+			db, err := InitializeDatabase(r.DBPath, nil)
 			if err == nil {
 				r.DB = db
 				log.Printf("Database initialized successfully in Read on attempt %d", attempt)
@@ -257,12 +251,39 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 	}
 }
 
+// DBInitializer defines the interface for database initialization operations
+type DBInitializer interface {
+	Open(dsn string) (*sql.DB, error)
+	Ping(db *sql.DB) error
+	Exec(db *sql.DB, query string) error
+}
+
+// DefaultDBInitializer implements DBInitializer using real database operations
+type DefaultDBInitializer struct{}
+
+func (d *DefaultDBInitializer) Open(dsn string) (*sql.DB, error) {
+	return sql.Open("sqlite3", dsn)
+}
+
+func (d *DefaultDBInitializer) Ping(db *sql.DB) error {
+	return db.Ping()
+}
+
+func (d *DefaultDBInitializer) Exec(db *sql.DB, query string) error {
+	_, err := db.Exec(query)
+	return err
+}
+
 // InitializeDatabase sets up the SQLite database and creates the tools and history tables with retries.
-func InitializeDatabase(dbPath string) (*sql.DB, error) {
+func InitializeDatabase(dbPath string, initializer DBInitializer) (*sql.DB, error) {
+	if initializer == nil {
+		initializer = &DefaultDBInitializer{}
+	}
+
 	const maxAttempts = 5
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		log.Printf("Attempt %d: Initializing SQLite database at %s", attempt, dbPath)
-		db, err := sql.Open("sqlite3", dbPath)
+		db, err := initializer.Open(dbPath)
 		if err != nil {
 			log.Printf("Attempt %d: Failed to open database: %v", attempt, err)
 			if attempt == maxAttempts {
@@ -273,7 +294,7 @@ func InitializeDatabase(dbPath string) (*sql.DB, error) {
 		}
 
 		// Verify connection
-		if err := db.Ping(); err != nil {
+		if err := initializer.Ping(db); err != nil {
 			log.Printf("Attempt %d: Failed to ping database: %v", attempt, err)
 			db.Close()
 			if attempt == maxAttempts {
@@ -284,13 +305,12 @@ func InitializeDatabase(dbPath string) (*sql.DB, error) {
 		}
 
 		// Create tools table
-		_, err = db.Exec(`
+		if err := initializer.Exec(db, `
 			CREATE TABLE IF NOT EXISTS tools (
 				id TEXT PRIMARY KEY,
 				value TEXT NOT NULL
 			)
-		`)
-		if err != nil {
+		`); err != nil {
 			log.Printf("Attempt %d: Failed to create tools table: %v", attempt, err)
 			db.Close()
 			if attempt == maxAttempts {
@@ -301,14 +321,13 @@ func InitializeDatabase(dbPath string) (*sql.DB, error) {
 		}
 
 		// Create history table
-		_, err = db.Exec(`
+		if err := initializer.Exec(db, `
 			CREATE TABLE IF NOT EXISTS history (
 				id TEXT NOT NULL,
 				value TEXT NOT NULL,
 				timestamp INTEGER NOT NULL
 			)
-		`)
-		if err != nil {
+		`); err != nil {
 			log.Printf("Attempt %d: Failed to create history table: %v", attempt, err)
 			db.Close()
 			if attempt == maxAttempts {
@@ -326,7 +345,7 @@ func InitializeDatabase(dbPath string) (*sql.DB, error) {
 
 // InitializeTool creates a new PklResourceReader with an initialized SQLite database.
 func InitializeTool(dbPath string) (*PklResourceReader, error) {
-	db, err := InitializeDatabase(dbPath)
+	db, err := InitializeDatabase(dbPath, &DefaultDBInitializer{})
 	if err != nil {
 		return nil, fmt.Errorf("error initializing database: %w", err)
 	}
