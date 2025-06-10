@@ -3,7 +3,6 @@ package template
 import (
 	"bytes"
 	"context"
-	"embed"
 	"errors"
 	"fmt"
 	"os"
@@ -16,13 +15,9 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/templates"
 	"github.com/spf13/afero"
 )
-
-// Embed the templates directory.
-//
-//go:embed templates/*.pkl
-var templatesFS embed.FS
 
 var (
 	lightBlue  = lipgloss.NewStyle().Foreground(lipgloss.Color("#6495ED")).Bold(true)
@@ -88,31 +83,6 @@ func createFile(fs afero.Fs, logger *logging.Logger, path string, content string
 	return nil
 }
 
-func generateWorkflowFile(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, name string) error {
-	// Create the directory if it doesn't exist
-	if err := fs.MkdirAll(mainDir, 0o755); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
-	}
-
-	templatePath := "templates/workflow.pkl"
-	outputPath := filepath.Join(mainDir, "workflow.pkl")
-
-	// Template data for dynamic replacement
-	templateData := map[string]string{
-		"Header": fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schema.SchemaVersion(ctx)),
-		"Name":   name,
-	}
-
-	// Load and process the template
-	content, err := loadTemplate(templatePath, templateData)
-	if err != nil {
-		logger.Error("failed to load workflow template: ", err)
-		return err
-	}
-
-	return createFile(fs, logger, outputPath, content)
-}
-
 func loadTemplate(templatePath string, data map[string]string) (string, error) {
 	// If TEMPLATE_DIR is set, load from disk instead of embedded FS
 	if dir := os.Getenv("TEMPLATE_DIR"); dir != "" {
@@ -131,8 +101,9 @@ func loadTemplate(templatePath string, data map[string]string) (string, error) {
 		}
 		return output.String(), nil
 	}
+
 	// Otherwise, use embedded FS
-	content, err := templatesFS.ReadFile(templatePath)
+	content, err := templates.TemplatesFS.ReadFile(filepath.Base(templatePath))
 	if err != nil {
 		return "", fmt.Errorf("failed to read embedded template: %w", err)
 	}
@@ -147,7 +118,44 @@ func loadTemplate(templatePath string, data map[string]string) (string, error) {
 	return output.String(), nil
 }
 
-func generateResourceFiles(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, name string) error {
+// GenerateWorkflowFile generates a workflow file for the agent.
+func GenerateWorkflowFile(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, name string) error {
+	// Validate agent name first
+	if err := validateAgentName(name); err != nil {
+		return err
+	}
+
+	// Create the directory if it doesn't exist
+	if err := fs.MkdirAll(mainDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	templatePath := "workflow.pkl"
+	outputPath := filepath.Join(mainDir, "workflow.pkl")
+
+	// Template data for dynamic replacement
+	templateData := map[string]string{
+		"Header": fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schema.SchemaVersion(ctx)),
+		"Name":   name,
+	}
+
+	// Load and process the template
+	content, err := loadTemplate(templatePath, templateData)
+	if err != nil {
+		logger.Error("failed to load workflow template: ", err)
+		return err
+	}
+
+	return createFile(fs, logger, outputPath, content)
+}
+
+// GenerateResourceFiles generates resource files for the agent.
+func GenerateResourceFiles(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, name string) error {
+	// Validate agent name first
+	if err := validateAgentName(name); err != nil {
+		return err
+	}
+
 	resourceDir := filepath.Join(mainDir, "resources")
 	if err := fs.MkdirAll(resourceDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create resources directory: %w", err)
@@ -160,7 +168,7 @@ func generateResourceFiles(fs afero.Fs, ctx context.Context, logger *logging.Log
 	}
 
 	// List all embedded template files
-	files, err := templatesFS.ReadDir("templates")
+	files, err := templates.TemplatesFS.ReadDir(".")
 	if err != nil {
 		return fmt.Errorf("failed to read embedded templates directory: %w", err)
 	}
@@ -176,7 +184,7 @@ func generateResourceFiles(fs afero.Fs, ctx context.Context, logger *logging.Log
 			continue
 		}
 
-		templatePath := filepath.Join("templates", file.Name())
+		templatePath := file.Name()
 		content, err := loadTemplate(templatePath, templateData)
 		if err != nil {
 			logger.Error("failed to process template: ", err)
@@ -192,66 +200,18 @@ func generateResourceFiles(fs afero.Fs, ctx context.Context, logger *logging.Log
 	return nil
 }
 
-func generateSpecificFile(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, fileName, agentName string) error {
-	// Automatically add .pkl extension if not present
-	if !strings.HasSuffix(fileName, ".pkl") {
-		fileName += ".pkl"
-	}
-
-	// Determine the appropriate header based on the file name
-	headerTemplate := `amends "package://schema.kdeps.com/core@%s#/Resource.pkl"`
-	if strings.ToLower(fileName) == "workflow.pkl" {
-		headerTemplate = `amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`
-	}
-
-	templatePath := filepath.Join("templates", fileName)
-	templateData := map[string]string{
-		"Header": fmt.Sprintf(headerTemplate, schema.SchemaVersion(ctx)),
-		"Name":   agentName,
-	}
-
-	// Load the template
-	content, err := loadTemplate(templatePath, templateData)
-	if err != nil {
-		logger.Error("failed to load specific template: ", err)
-		return err
-	}
-
-	// Determine the output directory
-	var outputDir string
-	if strings.ToLower(fileName) == "workflow.pkl" {
-		outputDir = mainDir // Place workflow.pkl in the main directory
-	} else {
-		outputDir = filepath.Join(mainDir, "resources") // Place other files in the resources folder
-	}
-
-	// Create the output directory if it doesn't exist
-	if err := fs.MkdirAll(outputDir, 0o755); err != nil {
-		return fmt.Errorf("failed to create output directory: %w", err)
-	}
-
-	outputPath := filepath.Join(outputDir, fileName)
-	return createFile(fs, logger, outputPath, content)
-}
-
 func GenerateSpecificAgentFile(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, agentName string) error {
-	// Create the directory if it doesn't exist
-	if err := fs.MkdirAll(mainDir, 0o755); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
-	}
-
 	// Validate agent name
 	if err := validateAgentName(agentName); err != nil {
 		return err
 	}
 
-	// Determine the appropriate header based on the file name
 	headerTemplate := `amends "package://schema.kdeps.com/core@%s#/Resource.pkl"`
 	if strings.ToLower(agentName) == "workflow.pkl" {
 		headerTemplate = `amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`
 	}
 
-	templatePath := filepath.Join("templates", agentName+".pkl")
+	templatePath := agentName + ".pkl"
 	templateData := map[string]string{
 		"Header": fmt.Sprintf(headerTemplate, schema.SchemaVersion(ctx)),
 		"Name":   agentName,
@@ -294,12 +254,12 @@ func GenerateAgent(fs afero.Fs, ctx context.Context, logger *logging.Logger, bas
 	}
 
 	// Generate workflow file
-	if err := generateWorkflowFile(fs, ctx, logger, mainDir, agentName); err != nil {
+	if err := GenerateWorkflowFile(fs, ctx, logger, mainDir, agentName); err != nil {
 		return err
 	}
 
 	// Generate resource files
-	if err := generateResourceFiles(fs, ctx, logger, mainDir, agentName); err != nil {
+	if err := GenerateResourceFiles(fs, ctx, logger, mainDir, agentName); err != nil {
 		return err
 	}
 
