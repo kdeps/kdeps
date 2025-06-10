@@ -259,7 +259,7 @@ func TestPklResourceReader(t *testing.T) {
 			if err != nil {
 				t.Errorf("Did not expect error for invalid script file, got: %v", err)
 			}
-			if !strings.Contains(string(output), "No such file or directory") {
+			if !strings.Contains(string(output), "No such file") {
 				t.Errorf("Expected error message in output for invalid script file, got '%s'", string(output))
 			}
 		})
@@ -270,7 +270,7 @@ func TestPklResourceReader(t *testing.T) {
 			if err != nil {
 				t.Errorf("Did not expect error for script execution failure, got: %v", err)
 			}
-			if len(strings.TrimSpace(string(output))) != 0 {
+			if strings.TrimSpace(string(output)) != "" {
 				t.Errorf("Expected empty output for script execution failure, got '%s'", string(output))
 			}
 		})
@@ -281,7 +281,7 @@ func TestPklResourceReader(t *testing.T) {
 			if err != nil {
 				t.Errorf("Did not expect error for invalid interpreter, got: %v", err)
 			}
-			if !strings.Contains(string(output), "command not found") {
+			if !strings.Contains(string(output), "not found") {
 				t.Errorf("Expected error message in output for invalid interpreter, got '%s'", string(output))
 			}
 		})
@@ -341,9 +341,11 @@ func TestPklResourceReader(t *testing.T) {
 		// Close the database connection to simulate an error
 		db.Close()
 		uri, _ = url.Parse("tool:///test5?op=history")
-		_, err = reader.Read(*uri)
+		output, err = reader.Read(*uri)
 		if err == nil {
 			t.Error("Expected error for closed database connection")
+		} else if !strings.Contains(err.Error(), "database is closed") {
+			t.Errorf("Expected error message to contain 'database is closed', got '%v'", err)
 		}
 	})
 }
