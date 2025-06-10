@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/url"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -112,7 +111,7 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		// Determine if script is a file path or inline script
 		var output []byte
 		var err error
-		if _, statErr := os.Stat(script); statErr == nil {
+		if filepath.Ext(script) != "" {
 			// Script is a file path; determine interpreter based on extension
 			log.Printf("Executing file-based script: %s", script)
 			extension := strings.ToLower(filepath.Ext(script))
@@ -136,6 +135,10 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 			if err != nil {
 				var execErr *exec.Error
 				if errors.As(err, &execErr) {
+					if execErr.Err == exec.ErrNotFound {
+						log.Printf("Interpreter %s not found: %v", interpreter, err)
+						return nil, fmt.Errorf("interpreter %s not found: %w", interpreter, err)
+					}
 					log.Printf("Interpreter %s not found or inaccessible: %v", interpreter, err)
 					return nil, fmt.Errorf("interpreter %s not found or inaccessible: %w", interpreter, err)
 				}
@@ -198,11 +201,11 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		rows, err := r.DB.Query("SELECT value, timestamp FROM history WHERE id = ? ORDER BY timestamp ASC", id)
 		if err != nil {
 			log.Printf("history failed to query: %v", err)
-			return nil, fmt.Errorf("failed to retrieve history: %w", err)
+			return nil, fmt.Errorf("failed to query history: %w", err)
 		}
 		defer rows.Close()
 
-		var historyEntries []string
+		var history []string
 		for rows.Next() {
 			var value string
 			var timestamp int64
@@ -210,24 +213,23 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 				log.Printf("history failed to scan row: %v", err)
 				return nil, fmt.Errorf("failed to scan history row: %w", err)
 			}
-			formattedTime := time.Unix(timestamp, 0).Format(time.RFC3339)
-			historyEntries = append(historyEntries, fmt.Sprintf("[%s] %s", formattedTime, value))
+			history = append(history, value)
 		}
 		if err := rows.Err(); err != nil {
-			log.Printf("history failed during row iteration: %v", err)
-			return nil, fmt.Errorf("failed during history iteration: %w", err)
+			log.Printf("history failed to iterate rows: %v", err)
+			return nil, fmt.Errorf("failed to iterate history rows: %w", err)
 		}
 
-		if len(historyEntries) == 0 {
+		if len(history) == 0 {
 			log.Printf("history: no entries found for id: %s", id)
 			return []byte(""), nil
 		}
 
-		historyOutput := strings.Join(historyEntries, "\n")
-		log.Printf("history succeeded for id: %s, entries: %d", id, len(historyEntries))
-		return []byte(historyOutput), nil
+		log.Printf("history succeeded for id: %s, entries: %d", id, len(history))
+		return []byte(strings.Join(history, "\n")), nil
 
-	default: // getRecord (no operation specified)
+	default:
+		// Get item operation
 		if id == "" {
 			log.Printf("getRecord failed: no tool ID provided")
 			return nil, errors.New("invalid URI: no tool ID provided")
@@ -239,11 +241,11 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		err := r.DB.QueryRow("SELECT value FROM tools WHERE id = ?", id).Scan(&value)
 		if err == sql.ErrNoRows {
 			log.Printf("getRecord: no tool found for id: %s", id)
-			return []byte(""), nil // Return empty string for not found
+			return []byte(""), nil
 		}
 		if err != nil {
-			log.Printf("getRecord failed to read tool for id: %s, error: %v", id, err)
-			return nil, fmt.Errorf("failed to read tool: %w", err)
+			log.Printf("getRecord failed: %v", err)
+			return nil, fmt.Errorf("failed to get tool record: %w", err)
 		}
 
 		log.Printf("getRecord succeeded for id: %s, value: %s", id, value)
