@@ -2,8 +2,7 @@ package docker
 
 import (
 	"context"
-	"net/http"
-	"net/http/httptest"
+	"runtime"
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/schema"
@@ -13,31 +12,37 @@ import (
 func TestGetCurrentArchitecture(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("DefaultMapping", func(t *testing.T) {
-		arch := GetCurrentArchitecture(ctx, "unknown")
-		assert.NotEmpty(t, arch)
-	})
+	var expected string
+	if archMap, ok := archMappings["apple/pkl"]; ok {
+		if mapped, exists := archMap[runtime.GOARCH]; exists {
+			expected = mapped
+		}
+	}
+	// Fallback to default mapping only if apple/pkl did not contain entry
+	if expected == "" {
+		if defaultMap, ok := archMappings["default"]; ok {
+			if mapped, exists := defaultMap[runtime.GOARCH]; exists {
+				expected = mapped
+			}
+		}
+	}
+	if expected == "" {
+		expected = runtime.GOARCH
+	}
 
-	t.Run("ApplePKLMapping", func(t *testing.T) {
-		arch := GetCurrentArchitecture(ctx, "apple/pkl")
-		assert.NotEmpty(t, arch)
-	})
+	arch := GetCurrentArchitecture(ctx, "apple/pkl")
+	assert.Equal(t, expected, arch)
 }
 
 func TestCompareVersions(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("Greater", func(t *testing.T) {
-		assert.True(t, CompareVersions(ctx, "2.0.0", "1.0.0"))
-	})
-
-	t.Run("Less", func(t *testing.T) {
-		assert.False(t, CompareVersions(ctx, "1.0.0", "2.0.0"))
-	})
-
-	t.Run("Equal", func(t *testing.T) {
-		assert.False(t, CompareVersions(ctx, "1.0.0", "1.0.0"))
-	})
+	assert.True(t, CompareVersions(ctx, "2.0.0", "1.9.9"))
+	assert.False(t, CompareVersions(ctx, "1.0.0", "1.0.0"))
+	assert.False(t, CompareVersions(ctx, "1.2.3", "1.2.4"))
+	// Mixed length versions
+	assert.True(t, CompareVersions(ctx, "1.2.3", "1.2"))
+	assert.False(t, CompareVersions(ctx, "1.2", "1.2.3"))
 }
 
 func TestParseVersion(t *testing.T) {
@@ -52,45 +57,26 @@ func TestParseVersion(t *testing.T) {
 	})
 }
 
-func TestGetLatestAnacondaVersions(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("Success", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte(`<a href="Anaconda3-2024.10-1-Linux-x86_64.sh">Anaconda3-2024.10-1-Linux-x86_64.sh</a>`))
-		}))
-		defer server.Close()
-
-		versions, err := GetLatestAnacondaVersions(ctx)
-		assert.NoError(t, err)
-		assert.NotEmpty(t, versions)
-	})
-
-	t.Run("NoVersions", func(t *testing.T) {
-		t.Skip("Skipping test that requires HTTP client mocking")
-	})
-}
-
 func TestBuildURL(t *testing.T) {
-	url := buildURL("https://example.com/{version}/{arch}", "1.0.0", "amd64")
-	assert.Equal(t, "https://example.com/1.0.0/amd64", url)
+	base := "https://example.com/download/{version}/app-{arch}"
+	url := buildURL(base, "1.0.0", "x86_64")
+	assert.Equal(t, "https://example.com/download/1.0.0/app-x86_64", url)
 }
 
-func TestGenerateURLs(t *testing.T) {
+func TestGenerateURLs_DefaultVersion(t *testing.T) {
+	// Ensure we are not in latest mode to avoid network calls
+	schemaUseLatestBackup := schema.UseLatest
+	schema.UseLatest = false
+	defer func() { schema.UseLatest = schemaUseLatestBackup }()
+
 	ctx := context.Background()
+	items, err := GenerateURLs(ctx)
+	assert.NoError(t, err)
+	assert.Greater(t, len(items), 0)
 
-	t.Run("Success", func(t *testing.T) {
-		items, err := GenerateURLs(ctx)
-		assert.NoError(t, err)
-		assert.NotEmpty(t, items)
-	})
-
-	t.Run("UseLatest", func(t *testing.T) {
-		schema.UseLatest = true
-		defer func() { schema.UseLatest = false }()
-
-		items, err := GenerateURLs(ctx)
-		assert.NoError(t, err)
-		assert.NotEmpty(t, items)
-	})
+	// verify each item has URL and LocalName populated
+	for _, item := range items {
+		assert.NotEmpty(t, item.URL)
+		assert.NotEmpty(t, item.LocalName)
+	}
 }

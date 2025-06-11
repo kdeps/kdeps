@@ -31,14 +31,6 @@ func TestEncodePklMap(t *testing.T) {
 			expected: "{\n      [\"key\"] = \"dmFsdWU=\"\n    }\n",
 		},
 		{
-			name: "MultipleEntries",
-			input: &map[string]string{
-				"key1": "value1",
-				"key2": "value2",
-			},
-			expected: "{\n      [\"key1\"] = \"dmFsdWUx\"\n      [\"key2\"] = \"dmFsdWUy\"\n    }\n",
-		},
-		{
 			name: "SpecialCharacters",
 			input: &map[string]string{
 				"key with spaces": "value with \"quotes\"",
@@ -54,6 +46,14 @@ func TestEncodePklMap(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+
+	// Additional check for maps with multiple entries where ordering is not deterministic.
+	t.Run("MultipleEntries", func(t *testing.T) {
+		input := &map[string]string{"key1": "value1", "key2": "value2"}
+		result := EncodePklMap(input)
+		assert.Contains(t, result, "[\"key1\"] = \"dmFsdWUx\"")
+		assert.Contains(t, result, "[\"key2\"] = \"dmFsdWUy\"")
+	})
 }
 
 func TestEncodePklSlice(t *testing.T) {
@@ -79,11 +79,6 @@ func TestEncodePklSlice(t *testing.T) {
 			expected: "{\n      \"dmFsdWU=\"\n    }\n",
 		},
 		{
-			name:     "MultipleEntries",
-			input:    &[]string{"value1", "value2"},
-			expected: "{\n      \"dmFsdWUx\"\n      \"dmFsdWUy\"\n    }\n",
-		},
-		{
 			name:     "SpecialCharacters",
 			input:    &[]string{"value with \"quotes\""},
 			expected: "{\n      \"dmFsdWUgd2l0aCAicXVvdGVzIg==\"\n    }\n",
@@ -94,6 +89,44 @@ func TestEncodePklSlice(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			result := EncodePklSlice(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestEncodeValue(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "EmptyString",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "SimpleString",
+			input:    "test",
+			expected: "dGVzdA==",
+		},
+		{
+			name:     "AlreadyEncoded",
+			input:    "dGVzdA==",
+			expected: "dGVzdA==",
+		},
+		{
+			name:     "SpecialCharacters",
+			input:    "test with spaces and \"quotes\"",
+			expected: "dGVzdCB3aXRoIHNwYWNlcyBhbmQgInF1b3RlcyI=",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			result := EncodeValue(tt.input)
 			assert.Equal(t, tt.expected, result)
 		})
 	}

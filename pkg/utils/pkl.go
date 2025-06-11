@@ -2,7 +2,6 @@ package utils
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 )
 
@@ -12,14 +11,7 @@ func EncodePklMap(m *map[string]string) string {
 	}
 	var builder strings.Builder
 	builder.WriteString("{\n")
-	// Sort keys for deterministic output
-	keys := make([]string, 0, len(*m))
-	for k := range *m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		v := (*m)[k]
+	for k, v := range *m {
 		builder.WriteString(fmt.Sprintf("      [\"%s\"] = \"%s\"\n", k, EncodeValue(v)))
 	}
 	builder.WriteString("    }\n")

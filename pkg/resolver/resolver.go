@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -47,6 +48,7 @@ type DependencyResolver struct {
 	ToolDBPath           string
 	ItemReader           *item.PklResourceReader
 	ItemDBPath           string
+	DBs                  []*sql.DB // collection of DB connections used by the resolver
 	AgentName            string
 	RequestID            string
 	RequestPklFile       string
@@ -194,7 +196,13 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		ToolReader:           toolReader,
 		ItemDBPath:           itemDBPath,
 		ItemReader:           itemReader,
-		FileRunCounter:       make(map[string]int), // Initialize the file run counter map
+		DBs: []*sql.DB{
+			memoryReader.DB,
+			sessionReader.DB,
+			toolReader.DB,
+			itemReader.DB,
+		},
+		FileRunCounter: make(map[string]int), // Initialize the file run counter map
 	}
 
 	dependencyResolver.Graph = graph.NewDependencyGraph(fs, logger.BaseLogger(), dependencyResolver.ResourceDependencies)

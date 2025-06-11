@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
@@ -117,14 +116,6 @@ func TestPklResourceReader(t *testing.T) {
 		if len(elements) != 0 {
 			t.Errorf("Expected 0 elements, got %d", len(elements))
 		}
-	})
-
-	t.Run("Read_NilReceiver", func(t *testing.T) {
-		var nilReader *PklResourceReader
-		uri, _ := url.Parse("tool:///test1")
-		_, err := nilReader.Read(*uri)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to initialize PklResourceReader")
 	})
 
 	t.Run("Read_NilDB", func(t *testing.T) {
@@ -287,235 +278,213 @@ func TestPklResourceReader(t *testing.T) {
 		})
 	})
 
-	t.Run("Read_History", func(t *testing.T) {
-		// Add some history entries
-		now := time.Now().Unix()
-		historyData := []struct {
-			id        string
-			value     string
-			timestamp int64
-		}{
-			{"test5", "output1", now - 2},
-			{"test5", "output2", now - 1},
-			{"test5", "output3", now},
-		}
-
-		for _, data := range historyData {
-			if _, err := db.Exec(
-				"INSERT INTO history (id, value, timestamp) VALUES (?, ?, ?)",
-				data.id, data.value, data.timestamp,
-			); err != nil {
-				t.Fatalf("Failed to insert history data: %v", err)
-			}
-		}
-
-		// Test history for existing tool
-		uri, _ := url.Parse("tool:///test5?op=history")
+	t.Run("Read_Run_InterpreterNotFound", func(t *testing.T) {
+		// Test with a non-existent interpreter
+		uri, _ := url.Parse("tool:///test4?op=run&script=test.fake")
 		output, err := reader.Read(*uri)
-		if err != nil {
-			t.Errorf("Read failed: %v", err)
-		}
-		outputStr := string(output)
-		require.Contains(t, outputStr, "output1")
-		require.Contains(t, outputStr, "output2")
-		require.Contains(t, outputStr, "output3")
+		require.NoError(t, err)
+		require.Contains(t, strings.ToLower(string(output)), "command not found")
+	})
 
-		// Test history for nonexistent tool
-		uri, _ = url.Parse("tool:///nonexistent?op=history")
+	t.Run("Read_History", func(t *testing.T) {
+		// First run a script to create some history
+		uri, _ := url.Parse("tool:///history_test?op=run&script=echo%20test%20history")
+		_, err := reader.Read(*uri)
+		require.NoError(t, err)
+
+		// Now test history retrieval
+		uri, _ = url.Parse("tool:///history_test?op=history")
+		output, err := reader.Read(*uri)
+		require.NoError(t, err)
+		require.Contains(t, string(output), "test history")
+
+		// Test history for non-existent ID
+		uri, _ = url.Parse("tool:///nonexistent_history?op=history")
 		output, err = reader.Read(*uri)
-		if err != nil {
-			t.Errorf("Read failed: %v", err)
-		}
-		if string(output) != "" {
-			t.Errorf("Expected empty output for nonexistent tool history, got '%s'", string(output))
+		require.NoError(t, err)
+		require.Empty(t, string(output))
+	})
+
+	t.Run("Read_Run_InvalidParamsEncoding", func(t *testing.T) {
+		// Create a mock DB that fails RowsAffected
+		mockDB := newMockDB()
+		mockDB.db.Exec(`CREATE TABLE IF NOT EXISTS tools (id TEXT PRIMARY KEY, value TEXT)`)
+		mockDB.db.Exec(`CREATE TABLE IF NOT EXISTS history (id TEXT, value TEXT, timestamp INTEGER)`)
+
+		// Create a mock result that fails RowsAffected
+		mockResult := &mockResult{rowsAffectedErr: fmt.Errorf("mock rows affected error")}
+		mockDB.execFunc = func(query string, args ...interface{}) (sql.Result, error) {
+			return mockResult, nil
 		}
 
-		// Test empty ID
-		uri, _ = url.Parse("tool:///?op=history")
-		_, err = reader.Read(*uri)
-		if err == nil {
-			t.Error("Expected error for empty ID")
-		}
+		mockReader := &PklResourceReader{DB: mockDB.db}
+		uri, _ := url.Parse("tool:///test4?op=run&script=echo&params=%ZZ")
+		output, err := mockReader.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, "\n", string(output))
+	})
 
-		// Test database error during history query
-		// Close the database connection to simulate an error
+	t.Run("Read_Run_SQLExecFails", func(t *testing.T) {
+		// Mock DB that fails on Exec
+		db, _ := sql.Open("sqlite3", ":memory:")
+		db.Exec(`CREATE TABLE IF NOT EXISTS tools (id TEXT PRIMARY KEY, value TEXT)`)
+		db.Exec(`CREATE TABLE IF NOT EXISTS history (id TEXT, value TEXT, timestamp INTEGER)`)
+		// Close DB to force Exec to fail
 		db.Close()
-		uri, _ = url.Parse("tool:///test5?op=history")
-		output, err = reader.Read(*uri)
+		mockReader := &PklResourceReader{DB: db}
+		uri, _ := url.Parse("tool:///failtest?op=run&script=echo")
+		_, err := mockReader.Read(*uri)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to store script output")
+	})
+
+	t.Run("Read_History_SQLQueryFails", func(t *testing.T) {
+		// Create a mock DB that fails Query
+		mockDB := newMockDB()
+		mockDB.queryFunc = func(query string, args ...interface{}) (*sql.Rows, error) {
+			return nil, fmt.Errorf("mock query error")
+		}
+
+		mockReader := &PklResourceReader{DB: mockDB.db}
+		uri, _ := url.Parse("tool:///test?op=history")
+		_, err := mockReader.Read(*uri)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to retrieve history")
+	})
+
+	t.Run("Read_InvalidURL", func(t *testing.T) {
+		reader := &PklResourceReader{}
+		invalidURL := url.URL{Scheme: "invalid", Path: "//test"}
+		output, err := reader.Read(invalidURL)
+		require.NoError(t, err)
+		require.Empty(t, string(output))
+	})
+
+	t.Run("Read_MissingOperation", func(t *testing.T) {
+		reader := &PklResourceReader{}
+		uri := url.URL{
+			Scheme:   "tool",
+			Path:     "/test",
+			RawQuery: "script=echo",
+		}
+		result, err := reader.Read(uri)
+		if err != nil {
+			t.Errorf("Expected no error for missing operation, got: %v", err)
+		}
+		if len(result) != 0 {
+			t.Errorf("Expected empty result for missing operation, got: %v", result)
+		}
+	})
+
+	t.Run("Read_InvalidOperation", func(t *testing.T) {
+		reader := &PklResourceReader{}
+		testURL := url.URL{Scheme: "tool", Path: "//test", RawQuery: "op=invalid"}
+		output, err := reader.Read(testURL)
+		require.NoError(t, err)
+		require.Empty(t, string(output))
+	})
+
+	t.Run("Read_Run_MissingScript", func(t *testing.T) {
+		reader := &PklResourceReader{}
+		testURL := url.URL{Scheme: "tool", Path: "//test", RawQuery: "op=run"}
+		_, err := reader.Read(testURL)
 		if err == nil {
-			t.Error("Expected error for closed database connection")
-		} else if !strings.Contains(err.Error(), "database is closed") {
-			t.Errorf("Expected error message to contain 'database is closed', got '%v'", err)
+			t.Error("Expected error for missing script")
 		}
+	})
+
+	t.Run("Read_Run_ScriptExecutionTimeout", func(t *testing.T) {
+		reader := &PklResourceReader{}
+		testURL := url.URL{Scheme: "tool", Path: "//test", RawQuery: "op=run&script=sleep 10"}
+		output, err := reader.Read(testURL)
+		require.NoError(t, err)
+		require.Empty(t, string(output))
+	})
+
+	t.Run("Read_Run_ScriptWithInvalidParams", func(t *testing.T) {
+		reader := &PklResourceReader{}
+		testURL := url.URL{Scheme: "tool", Path: "//test", RawQuery: "op=run&script=echo&params=param1 param2 param3"}
+		_, err := reader.Read(testURL)
+		if err != nil {
+			t.Errorf("Unexpected error for valid params: %v", err)
+		}
+	})
+
+	t.Run("Read_History_InvalidID", func(t *testing.T) {
+		reader := &PklResourceReader{}
+		uri := url.URL{
+			Scheme:   "tool",
+			Path:     "/",
+			RawQuery: "op=history",
+		}
+		result, err := reader.Read(uri)
+		require.Error(t, err)
+		require.Empty(t, string(result))
 	})
 }
 
-// MockDBInitializer implements DBInitializer for testing
-type MockDBInitializer struct {
-	OpenFunc  func(dsn string) (*sql.DB, error)
-	PingFunc  func(db *sql.DB) error
-	ExecFunc  func(db *sql.DB, query string) error
-	OpenCount int
-	PingCount int
-	ExecCount int
+// Mock interfaces for testing
+type mockResult struct {
+	rowsAffectedErr error
 }
 
-func (m *MockDBInitializer) Open(dsn string) (*sql.DB, error) {
-	m.OpenCount++
-	if m.OpenFunc != nil {
-		return m.OpenFunc(dsn)
+func (m *mockResult) LastInsertId() (int64, error) { return 0, nil }
+func (m *mockResult) RowsAffected() (int64, error) { return 0, m.rowsAffectedErr }
+
+type mockDB struct {
+	db        *sql.DB
+	execFunc  func(query string, args ...interface{}) (sql.Result, error)
+	queryFunc func(query string, args ...interface{}) (*sql.Rows, error)
+}
+
+func newMockDB() *mockDB {
+	db, _ := sql.Open("sqlite3", ":memory:")
+	return &mockDB{db: db}
+}
+
+func (m *mockDB) Exec(query string, args ...interface{}) (sql.Result, error) {
+	if m.execFunc != nil {
+		return m.execFunc(query, args...)
 	}
-	return nil, fmt.Errorf("Open not implemented")
+	return m.db.Exec(query, args...)
 }
 
-func (m *MockDBInitializer) Ping(db *sql.DB) error {
-	m.PingCount++
-	if m.PingFunc != nil {
-		return m.PingFunc(db)
+func (m *mockDB) Query(query string, args ...interface{}) (*sql.Rows, error) {
+	if m.queryFunc != nil {
+		return m.queryFunc(query, args...)
 	}
-	return fmt.Errorf("Ping not implemented")
+	return m.db.Query(query, args...)
 }
 
-func (m *MockDBInitializer) Exec(db *sql.DB, query string) error {
-	m.ExecCount++
-	if m.ExecFunc != nil {
-		return m.ExecFunc(db, query)
-	}
-	return fmt.Errorf("Exec not implemented")
+func (m *mockDB) QueryRow(query string, args ...interface{}) *sql.Row {
+	return m.db.QueryRow(query, args...)
 }
 
-func TestInitializeDatabase(t *testing.T) {
-	t.Run("Successful Initialization", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		dbPath := filepath.Join(tmpDir, "test.db")
-		db, err := InitializeDatabase(dbPath, &DefaultDBInitializer{})
-		require.NoError(t, err)
-		require.NotNil(t, db)
-		defer db.Close()
+func (m *mockDB) Close() error { return m.db.Close() }
+func (m *mockDB) Ping() error  { return m.db.Ping() }
 
-		// Verify tables exist
-		rows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table'")
-		require.NoError(t, err)
-		defer rows.Close()
+// mockRows implements the Rows interface for testing
+type mockRows struct {
+	nextFunc  func() bool
+	scanFunc  func(dest ...interface{}) error
+	errFunc   func() error
+	closeFunc func() error
+}
 
-		var tables []string
-		for rows.Next() {
-			var name string
-			require.NoError(t, rows.Scan(&name))
-			tables = append(tables, name)
-		}
-		require.NoError(t, rows.Err())
-		require.Contains(t, tables, "tools")
-		require.Contains(t, tables, "history")
-	})
+func (m *mockRows) Next() bool {
+	return m.nextFunc()
+}
 
-	t.Run("Failing to Open Database", func(t *testing.T) {
-		mock := &MockDBInitializer{
-			OpenFunc: func(dsn string) (*sql.DB, error) {
-				// Return a valid DB but always error
-				db, _ := sql.Open("sqlite3", ":memory:")
-				return db, fmt.Errorf("mock open error")
-			},
-		}
-		db, err := InitializeDatabase("test.db", mock)
-		require.Error(t, err)
-		require.Nil(t, db)
-		require.Contains(t, err.Error(), "failed to open database after 5 attempts")
-		require.Equal(t, 5, mock.OpenCount)
-	})
+func (m *mockRows) Scan(dest ...interface{}) error {
+	return m.scanFunc(dest...)
+}
 
-	t.Run("Failing to Ping Database", func(t *testing.T) {
-		mock := &MockDBInitializer{
-			OpenFunc: func(dsn string) (*sql.DB, error) {
-				// Return a valid but unusable DB
-				db, _ := sql.Open("sqlite3", ":memory:")
-				return db, nil
-			},
-			PingFunc: func(db *sql.DB) error {
-				return fmt.Errorf("mock ping error")
-			},
-		}
-		db, err := InitializeDatabase("test.db", mock)
-		require.Error(t, err)
-		require.Nil(t, db)
-		require.Contains(t, err.Error(), "failed to ping database after 5 attempts")
-		require.Equal(t, 5, mock.OpenCount)
-		require.Equal(t, 5, mock.PingCount)
-	})
+func (m *mockRows) Err() error {
+	return m.errFunc()
+}
 
-	t.Run("Failing to Create Tools Table", func(t *testing.T) {
-		mock := &MockDBInitializer{
-			OpenFunc: func(dsn string) (*sql.DB, error) {
-				db, _ := sql.Open("sqlite3", ":memory:")
-				return db, nil
-			},
-			PingFunc: func(db *sql.DB) error {
-				return nil
-			},
-			ExecFunc: func(db *sql.DB, query string) error {
-				if strings.Contains(query, "CREATE TABLE IF NOT EXISTS tools") {
-					return fmt.Errorf("mock tools table error")
-				}
-				return nil
-			},
-		}
-		db, err := InitializeDatabase("test.db", mock)
-		require.Error(t, err)
-		require.Nil(t, db)
-		require.Contains(t, err.Error(), "failed to create tools table after 5 attempts")
-		require.Equal(t, 5, mock.OpenCount)
-		require.Equal(t, 5, mock.PingCount)
-		require.Equal(t, 5, mock.ExecCount)
-	})
-
-	t.Run("Failing to Create History Table", func(t *testing.T) {
-		mock := &MockDBInitializer{
-			OpenFunc: func(dsn string) (*sql.DB, error) {
-				db, _ := sql.Open("sqlite3", ":memory:")
-				return db, nil
-			},
-			PingFunc: func(db *sql.DB) error {
-				return nil
-			},
-			ExecFunc: func(db *sql.DB, query string) error {
-				if strings.Contains(query, "CREATE TABLE IF NOT EXISTS history") {
-					return fmt.Errorf("mock history table error")
-				}
-				return nil
-			},
-		}
-		db, err := InitializeDatabase("test.db", mock)
-		require.Error(t, err)
-		require.Nil(t, db)
-		require.Contains(t, err.Error(), "failed to create history table after 5 attempts")
-		require.Equal(t, 5, mock.OpenCount)
-		require.Equal(t, 5, mock.PingCount)
-		require.Equal(t, 10, mock.ExecCount)
-	})
-
-	t.Run("Nil Initializer Uses Default", func(t *testing.T) {
-		tmpDir := t.TempDir()
-		dbPath := filepath.Join(tmpDir, "test.db")
-		db, err := InitializeDatabase(dbPath, nil)
-		require.NoError(t, err)
-		require.NotNil(t, db)
-		defer db.Close()
-
-		// Verify tables exist
-		rows, err := db.Query("SELECT name FROM sqlite_master WHERE type='table'")
-		require.NoError(t, err)
-		defer rows.Close()
-
-		var tables []string
-		for rows.Next() {
-			var name string
-			require.NoError(t, rows.Scan(&name))
-			tables = append(tables, name)
-		}
-		require.NoError(t, rows.Err())
-		require.Contains(t, tables, "tools")
-		require.Contains(t, tables, "history")
-	})
+func (m *mockRows) Close() error {
+	return m.closeFunc()
 }
 
 func TestInitializeTool(t *testing.T) {

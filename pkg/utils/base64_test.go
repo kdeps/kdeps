@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/base64"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -33,6 +34,19 @@ func TestIsBase64Encoded(t *testing.T) {
 		t.Parallel()
 		assert.False(t, IsBase64Encoded("////")) // Decodes to invalid UTF-8
 	})
+
+	// Empty string
+	assert.False(t, IsBase64Encoded(""))
+
+	// Invalid length
+	assert.False(t, IsBase64Encoded("abc"))
+
+	// Non base64 chars
+	assert.False(t, IsBase64Encoded("!!!!"))
+
+	// Valid base64
+	enc := base64.StdEncoding.EncodeToString([]byte("hello"))
+	assert.True(t, IsBase64Encoded(enc))
 }
 
 func TestDecodeBase64String(t *testing.T) {
@@ -57,6 +71,16 @@ func TestDecodeBase64String(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "", decoded)
 	})
+
+	enc := base64.StdEncoding.EncodeToString([]byte("world"))
+	dec, err := DecodeBase64String(enc)
+	assert.NoError(t, err)
+	assert.Equal(t, "world", dec)
+
+	// Non encoded input should be returned as-is
+	plain, err := DecodeBase64String("plain")
+	assert.NoError(t, err)
+	assert.Equal(t, "plain", plain)
 }
 
 func TestEncodeBase64String(t *testing.T) {
@@ -195,4 +219,35 @@ func TestDecodeStringSlice(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Equal(t, []string{"hello", "plain text", "world"}, *result)
+}
+
+func TestEncodeDecodeHelpers(t *testing.T) {
+	val := "sample"
+	encoded := EncodeValue(val)
+	// Should now be base64
+	assert.True(t, IsBase64Encoded(encoded))
+
+	decoded, err := DecodeBase64IfNeeded(encoded)
+	assert.NoError(t, err)
+	assert.Equal(t, val, decoded)
+
+	// pointer helpers
+	ptr := EncodeValuePtr(&val)
+	assert.NotNil(t, ptr)
+	assert.True(t, IsBase64Encoded(*ptr))
+}
+
+func TestDecodeCollections(t *testing.T) {
+	orig := "collect"
+	enc := EncodeBase64String(orig)
+
+	m := map[string]string{"k": enc}
+	decodedMap, err := DecodeStringMap(&m, "field")
+	assert.NoError(t, err)
+	assert.Equal(t, orig, (*decodedMap)["k"])
+
+	slice := []string{enc}
+	decodedSlice, err := DecodeStringSlice(&slice, "field")
+	assert.NoError(t, err)
+	assert.Equal(t, orig, (*decodedSlice)[0])
 }

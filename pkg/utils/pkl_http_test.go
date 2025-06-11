@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/base64"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -230,4 +231,42 @@ func TestFormatResponseProperties(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFormatRequestHeadersAndParams(t *testing.T) {
+	headers := map[string][]string{
+		"Content-Type": {"application/json"},
+	}
+	out := FormatRequestHeaders(headers)
+	encoded := EncodeBase64String("application/json")
+	assert.Contains(t, out, encoded)
+	assert.Contains(t, out, "Content-Type")
+
+	params := map[string][]string{"q": {"search"}}
+	out2 := FormatRequestParams(params)
+	encParam := EncodeBase64String("search")
+	assert.Contains(t, out2, encParam)
+	assert.Contains(t, out2, "q")
+}
+
+func TestFormatResponseHeadersAndProps(t *testing.T) {
+	hdr := map[string]string{"X-Rate": "10"}
+	out := FormatResponseHeaders(hdr)
+	assert.Contains(t, out, "X-Rate")
+	assert.Contains(t, out, "10")
+
+	props := map[string]string{"k": "v"}
+	outp := FormatResponseProperties(props)
+	assert.Contains(t, outp, "k")
+	assert.Contains(t, outp, "v")
+}
+
+func TestBase64EncodingHappens(t *testing.T) {
+	value := "trim "
+	hdr := map[string][]string{"H": {value}}
+	out := FormatRequestHeaders(hdr)
+	// Should contain base64 trimmed value not plain
+	assert.NotContains(t, out, value)
+	encoded := base64.StdEncoding.EncodeToString([]byte("trim"))
+	assert.Contains(t, out, encoded)
 }

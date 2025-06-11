@@ -500,7 +500,69 @@ func (m *mockFS) Chown(name string, uid, gid int) error {
 	return m.fs.Chown(name, uid, gid)
 }
 
-func TestRealEditorCmdFactory_Error(t *testing.T) {
+func TestEditPklWithFactory_NilFactory(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Create a test file
+	testFile := "test.pkl"
+	err := afero.WriteFile(fs, testFile, []byte("test content"), 0o644)
+	require.NoError(t, err)
+
+	// Test with nil factory
+	err = EditPklWithFactory(fs, ctx, testFile, logger, nil)
+	assert.Error(t, err)
+	if err != nil {
+		assert.True(t, strings.Contains(err.Error(), "failed to create editor command") || strings.Contains(err.Error(), "editor command failed"))
+	}
+}
+
+func TestEditPklWithFactory_PermissionDenied(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Create a test file with no permissions
+	testFile := "denied.pkl"
+	err := afero.WriteFile(fs, testFile, []byte("test content"), 0o000)
+	require.NoError(t, err)
+
+	// Use a mock factory that returns a fake command
+	factory := func(editorName, filePath string) (EditorCmd, error) {
+		return &mockEditorCmd{runErr: errors.New("permission denied")}, nil
+	}
+
+	err = EditPklWithFactory(fs, ctx, testFile, logger, factory)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "permission denied")
+}
+
+func TestEditPklWithFactory_EmptyFilePath(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	err := EditPklWithFactory(fs, ctx, "", logger, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "does not have a .pkl extension")
+}
+
+func TestEditPklWithFactory_NonPklExtension(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	testFile := "not_a_pkl.txt"
+	err := afero.WriteFile(fs, testFile, []byte("test content"), 0o644)
+	require.NoError(t, err)
+
+	err = EditPklWithFactory(fs, ctx, testFile, logger, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), ".pkl extension")
+}
+
+func TestRealEditorCmdFactory_InvalidEditor(t *testing.T) {
 	// Save and restore the original editorCmd
 	orig := editorCmd
 	t.Cleanup(func() { editorCmd = orig })
@@ -509,9 +571,44 @@ func TestRealEditorCmdFactory_Error(t *testing.T) {
 		return nil, errors.New("simulated editor.Cmd error")
 	}
 
-	_, err := realEditorCmdFactory("kdeps", "file.pkl")
+	cmd, err := realEditorCmdFactory("nonexistent-editor", "test.pkl")
+	assert.Nil(t, cmd)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "simulated editor.Cmd error")
+	if err != nil {
+		assert.Contains(t, err.Error(), "simulated editor.Cmd error")
+	}
+}
+
+func TestRealEditorCmdFactory_InvalidPath(t *testing.T) {
+	// Test with invalid file path
+	_, err := realEditorCmdFactory("vim", "/nonexistent/path/test.pkl")
+	assert.NoError(t, err) // Should not error, as the file doesn't need to exist
+}
+
+func TestRealEditorCmd_SetIO(t *testing.T) {
+	// Create a temporary file for testing
+	tempFile := "test.pkl"
+	fs := afero.NewMemMapFs()
+	err := afero.WriteFile(fs, tempFile, []byte("test content"), 0o644)
+	require.NoError(t, err)
+
+	// Create a real editor command
+	cmd, err := realEditorCmdFactory("vim", tempFile)
+	require.NoError(t, err)
+
+	// Test SetIO with nil files
+	cmd.SetIO(nil, nil, nil)
+	// Should not panic
+}
+
+func TestRealEditorCmd_Run(t *testing.T) {
+	t.Parallel()
+	cmd, err := realEditorCmdFactory("nonexistent_editor", "/tmp/test.pkl")
+	require.NoError(t, err)
+	require.NotNil(t, cmd)
+	err = cmd.Run()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "exit status 1")
 }
 
 func TestMain(m *testing.M) {

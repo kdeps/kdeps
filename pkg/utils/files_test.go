@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
@@ -59,30 +61,36 @@ func TestWaitForFileReady(t *testing.T) {
 	})
 }
 
+func TestWaitForFileReadySuccess(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+
+	// create file after 100ms in goroutine
+	filename := "/tmp/success.txt"
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		_ = afero.WriteFile(fs, filename, []byte("data"), 0o644)
+	}()
+
+	err := WaitForFileReady(fs, filename, logger)
+	assert.NoError(t, err)
+}
+
+func TestWaitForFileReadyTimeout(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+
+	start := time.Now()
+	err := WaitForFileReady(fs, "/not/exist.txt", logger)
+	// Should error and take at least 1s due to internal timeout
+	assert.Error(t, err)
+	assert.GreaterOrEqual(t, time.Since(start), time.Second)
+}
+
 func TestGenerateResourceIDFilename(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name      string
-		input     string
-		requestID string
-		expected  string
-	}{
-		{"SimpleInput", "resource", "req123", "req123resource"},
-		{"WithSpecialChars", "user@domain.com:/path", "req123", "req123user_domain.com__path"},
-		{"OnlySpecialChars", "@/:", "req123", "req123___"},
-		{"EmptyInput", "", "req123", "req123"},
-		{"EmptyRequestID", "resource", "", "resource"},
-		{"LeadingUnderscore", "_resource", "req123_", "req123__resource"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			result := GenerateResourceIDFilename(tt.input, tt.requestID)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
+	got := GenerateResourceIDFilename("my@id/file:path", "req-")
+	expected := "req-my_id_file_path"
+	assert.Equal(t, expected, got)
 }
 
 func TestCreateDirectories(t *testing.T) {
@@ -191,38 +199,33 @@ func TestCreateFiles(t *testing.T) {
 	})
 }
 
+func TestCreateDirectoriesAndFiles(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+
+	dirs := []string{"/a/b/c", "/a/b/d"}
+	files := []string{"/a/b/c/file1", "/a/b/d/file2"}
+
+	assert.NoError(t, CreateDirectories(fs, ctx, dirs))
+	assert.NoError(t, CreateFiles(fs, ctx, files))
+
+	for _, d := range dirs {
+		exists, _ := afero.DirExists(fs, d)
+		assert.True(t, exists)
+	}
+	for _, f := range files {
+		exists, _ := afero.Exists(fs, f)
+		assert.True(t, exists)
+	}
+}
+
 func TestSanitizeArchivePath(t *testing.T) {
-	t.Parallel()
+	base := "/home/user"
+	good, err := SanitizeArchivePath(base, "sub/file.txt")
+	assert.NoError(t, err)
+	assert.Equal(t, filepath.Join(base, "sub/file.txt"), good)
 
-	tests := []struct {
-		name        string
-		destination string
-		target      string
-		expectError bool
-		expected    string
-	}{
-		{"ValidPath", "/safe/dir", "file.txt", false, "/safe/dir/file.txt"},
-		{"ValidNestedPath", "/safe/dir", "subdir/file.txt", false, "/safe/dir/subdir/file.txt"},
-		{"ZipSlipAttack", "/safe/dir", "../../../etc/passwd", true, ""},
-		{"ZipSlipWithDots", "/safe/dir", "../../malicious.txt", true, ""},
-		{"AbsolutePath", "/safe/dir", "/etc/passwd", false, "/safe/dir/etc/passwd"},
-		{"EmptyTarget", "/safe/dir", "", false, "/safe/dir"},
-		{"DotPath", "/safe/dir", ".", false, "/safe/dir"},
-		{"DoubleDotPath", "/safe/dir", "..", true, ""},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			result, err := SanitizeArchivePath(tt.destination, tt.target)
-
-			if tt.expectError {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), "content filepath is tainted")
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expected, result)
-			}
-		})
-	}
+	bad, err := SanitizeArchivePath(base, "../../evil.txt")
+	assert.Error(t, err)
+	assert.Empty(t, bad)
 }

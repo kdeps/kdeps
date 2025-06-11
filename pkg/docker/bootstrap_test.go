@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/environment"
@@ -13,12 +14,15 @@ import (
 
 func TestBootstrapDockerSystem(t *testing.T) {
 	ctx := context.Background()
-	fs := afero.NewMemMapFs()
+	fs := afero.NewOsFs()
 	logger := logging.NewTestLogger()
+	tmpDir := t.TempDir()
+	actionDir := filepath.Join(tmpDir, "action")
+	_ = fs.MkdirAll(actionDir, 0o755)
 	dr := &resolver.DependencyResolver{
 		Fs:        fs,
 		Logger:    logger,
-		ActionDir: "/action",
+		ActionDir: actionDir,
 		Environment: &environment.Environment{
 			DockerMode: "1",
 		},

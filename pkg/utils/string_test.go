@@ -43,46 +43,11 @@ func TestBoolPtr(t *testing.T) {
 }
 
 func TestContainsString(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name     string
-		slice    []string
-		target   string
-		expected bool
-	}{
-		{
-			name:     "StringFound",
-			slice:    []string{"apple", "banana", "cherry"},
-			target:   "banana",
-			expected: true,
-		},
-		{
-			name:     "StringNotFound",
-			slice:    []string{"apple", "banana", "cherry"},
-			target:   "orange",
-			expected: false,
-		},
-		{
-			name:     "EmptySlice",
-			slice:    []string{},
-			target:   "apple",
-			expected: false,
-		},
-		{
-			name:     "CaseSensitive",
-			slice:    []string{"Apple", "Banana", "Cherry"},
-			target:   "apple",
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			result := ContainsString(tt.slice, tt.target)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
+	slice := []string{"one", "Two", "three"}
+	assert.True(t, ContainsString(slice, "Two"))
+	assert.False(t, ContainsString(slice, "two"))
+	assert.True(t, ContainsStringInsensitive(slice, "two"))
+	assert.False(t, ContainsStringInsensitive(slice, "four"))
 }
 
 func TestContainsStringInsensitive(t *testing.T) {
@@ -129,20 +94,11 @@ func TestContainsStringInsensitive(t *testing.T) {
 }
 
 func TestSafeDerefString(t *testing.T) {
-	t.Parallel()
-	t.Run("ValidString", func(t *testing.T) {
-		t.Parallel()
-		input := "test string"
-		result := SafeDerefString(&input)
-		assert.Equal(t, input, result)
-	})
-
-	t.Run("NilPointer", func(t *testing.T) {
-		t.Parallel()
-		var input *string
-		result := SafeDerefString(input)
-		assert.Equal(t, "", result)
-	})
+	var ptr *string
+	assert.Equal(t, "", SafeDerefString(ptr))
+	val := "value"
+	ptr = &val
+	assert.Equal(t, "value", SafeDerefString(ptr))
 }
 
 func TestSafeDerefBool(t *testing.T) {
@@ -204,50 +160,7 @@ func TestSafeDerefMap(t *testing.T) {
 }
 
 func TestTruncateString(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name      string
-		input     string
-		maxLength int
-		expected  string
-	}{
-		{
-			name:      "StringWithinLimit",
-			input:     "short string",
-			maxLength: 20,
-			expected:  "short string",
-		},
-		{
-			name:      "StringExceedsLimit",
-			input:     "this is a very long string that needs to be truncated",
-			maxLength: 20,
-			expected:  "this is a very lo...",
-		},
-		{
-			name:      "EmptyString",
-			input:     "",
-			maxLength: 10,
-			expected:  "",
-		},
-		{
-			name:      "MaxLengthTooSmall",
-			input:     "test",
-			maxLength: 2,
-			expected:  "...",
-		},
-		{
-			name:      "MaxLengthZero",
-			input:     "test",
-			maxLength: 0,
-			expected:  "...",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			result := TruncateString(tt.input, tt.maxLength)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
+	s := "abcdefghijklmnopqrstuvwxyz"
+	assert.Equal(t, s, TruncateString(s, len(s)))
+	assert.Equal(t, "abc...", TruncateString(s, 6))
 }

@@ -15,7 +15,6 @@ import (
 	pklExec "github.com/kdeps/schema/gen/exec"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func setNonInteractive(t *testing.T) func() {
@@ -26,24 +25,23 @@ func setNonInteractive(t *testing.T) func() {
 
 func TestDependencyResolver(t *testing.T) {
 	t.Parallel()
-	fs := afero.NewMemMapFs()
+	fs := afero.NewOsFs()
 	logger := logging.GetLogger()
 	ctx := context.Background()
 
-	// Create necessary directories
-	err := fs.MkdirAll("/tmp", 0o755)
-	require.NoError(t, err)
-	err = fs.MkdirAll("/files", 0o755)
-	require.NoError(t, err)
-	err = fs.MkdirAll("/action/exec", 0o755)
-	require.NoError(t, err)
+	baseDir := t.TempDir()
+	filesDir := filepath.Join(baseDir, "files")
+	actionDir := filepath.Join(baseDir, "action")
+
+	_ = fs.MkdirAll(filepath.Join(actionDir, "exec"), 0o755)
+	_ = fs.MkdirAll(filesDir, 0o755)
 
 	dr := &resolver.DependencyResolver{
 		Fs:        fs,
 		Logger:    logger,
 		Context:   ctx,
-		FilesDir:  "/files",
-		ActionDir: "/action",
+		FilesDir:  filesDir,
+		ActionDir: actionDir,
 		RequestID: "test-request",
 	}
 

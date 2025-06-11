@@ -3,10 +3,11 @@ package download
 import (
 	"bytes"
 	"context"
-	"errors"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -65,54 +66,56 @@ func TestWriteCounter_PrintProgress(t *testing.T) {
 	assert.Equal(t, expectedOutput, buf.String())
 }
 
-func TestDownloadFile(t *testing.T) {
+func TestDownloadFile_HTTPServer(t *testing.T) {
 	t.Parallel()
-	logger = logging.GetLogger()
+	logger := logging.NewTestLogger()
 
-	// Channel to capture errors from the HTTP server
-	serverErrChan := make(chan error, 1)
+	// Spin up an in-memory HTTP server
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, "content")
+	}))
+	defer ts.Close()
 
-	// Mock a simple HTTP server to simulate file download
-	server := http.Server{
-		Addr: ":8080",
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if _, err := w.Write([]byte("Test file content")); err != nil {
-				t.Error(err)
-			}
-		}),
-	}
-
-	// Start the server in a goroutine and capture errors
-	go func() {
-		err := server.ListenAndServe()
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			serverErrChan <- err
-		}
-		close(serverErrChan)
-	}()
-	defer func() {
-		_ = server.Close() // Ensure the server is closed after the test
-	}()
-
-	// Use afero in-memory filesystem
 	fs := afero.NewMemMapFs()
-
-	// Run the file download
-	err := DownloadFile(fs, ctx, "http://localhost:8080", "/testfile", logger, true)
+	err := DownloadFile(fs, context.Background(), ts.URL, "/file.dat", logger, true)
 	require.NoError(t, err)
 
-	// Verify the downloaded content
-	content, err := afero.ReadFile(fs, "/testfile")
-	require.NoError(t, err)
-	assert.Equal(t, "Test file content", string(content))
+	data, _ := afero.ReadFile(fs, "/file.dat")
+	assert.Equal(t, "content", string(data))
+}
 
-	// Check for server errors
-	select {
-	case serverErr := <-serverErrChan:
-		require.NoError(t, serverErr, "unexpected error from HTTP server")
-	default:
-		// No errors from the server
-	}
+func TestDownloadFile_StatusError(t *testing.T) {
+	t.Parallel()
+	logger := logging.NewTestLogger()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer ts.Close()
+
+	fs := afero.NewMemMapFs()
+	err := DownloadFile(fs, context.Background(), ts.URL, "/errfile", logger, true)
+	assert.Error(t, err)
+}
+
+func TestDownloadFiles_SkipExisting(t *testing.T) {
+	logger := logging.NewTestLogger()
+	fs := afero.NewMemMapFs()
+	dir := "/downloads"
+	// Pre-create file with content
+	_ = fs.MkdirAll(dir, 0o755)
+	_ = afero.WriteFile(fs, filepath.Join(dir, "f1"), []byte("old"), 0o644)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, "new")
+	}))
+	defer ts.Close()
+
+	items := []DownloadItem{{URL: ts.URL, LocalName: "f1"}}
+	// useLatest=true forces overwrite of existing file
+	_ = DownloadFiles(fs, context.Background(), dir, items, logger, true)
+	exists, _ := afero.Exists(fs, filepath.Join(dir, "f1"))
+	assert.True(t, exists)
 }
 
 func TestDownloadFile_FileCreationError(t *testing.T) {

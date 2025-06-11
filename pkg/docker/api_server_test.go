@@ -21,22 +21,23 @@ import (
 )
 
 func setupTestAPIServer(t *testing.T) (*resolver.DependencyResolver, *gin.Engine) {
-	fs := afero.NewMemMapFs()
+	tmpDir := t.TempDir()
+	fs := afero.NewOsFs()
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
 
-	// Create necessary directories
-	err := fs.MkdirAll("/tmp", 0o755)
-	require.NoError(t, err)
-	err = fs.MkdirAll("/files", 0o755)
-	require.NoError(t, err)
+	filesDir := filepath.Join(tmpDir, "files")
+	actionDir := filepath.Join(tmpDir, "action")
+
+	_ = fs.MkdirAll(filesDir, 0o755)
+	_ = fs.MkdirAll(actionDir, 0o755)
 
 	dr := &resolver.DependencyResolver{
 		Fs:        fs,
 		Logger:    logger,
 		Context:   ctx,
-		FilesDir:  "/files",
-		ActionDir: "/action",
+		FilesDir:  filesDir,
+		ActionDir: actionDir,
 	}
 
 	router := gin.Default()

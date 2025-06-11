@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -43,10 +44,16 @@ func (r *PklResourceReader) ListElements(_ url.URL) ([]pkl.PathElement, error) {
 
 // Read retrieves, runs, or retrieves history of script outputs in the SQLite database based on the URI.
 func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
-	// Check if receiver is nil
+	// Check if receiver is nil and initialize with fixed DBPath
 	if r == nil {
-		log.Printf("Warning: PklResourceReader is nil for URI: %s", uri.String())
-		return nil, fmt.Errorf("failed to initialize PklResourceReader: receiver is nil")
+		log.Printf("Warning: PklResourceReader is nil for URI: %s, initializing with DBPath", uri.String())
+		newReader, err := InitializeTool(r.DBPath)
+		if err != nil {
+			log.Printf("Failed to initialize PklResourceReader in Read: %v", err)
+			return nil, fmt.Errorf("failed to initialize PklResourceReader: %w", err)
+		}
+		r = newReader
+		log.Printf("Initialized PklResourceReader with DBPath")
 	}
 
 	// Check if db is nil and initialize with retries
@@ -54,7 +61,7 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		log.Printf("Database connection is nil, attempting to initialize with path: %s", r.DBPath)
 		maxAttempts := 5
 		for attempt := 1; attempt <= maxAttempts; attempt++ {
-			db, err := InitializeDatabase(r.DBPath, nil)
+			db, err := InitializeDatabase(r.DBPath)
 			if err == nil {
 				r.DB = db
 				log.Printf("Database initialized successfully in Read on attempt %d", attempt)
@@ -111,7 +118,7 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		// Determine if script is a file path or inline script
 		var output []byte
 		var err error
-		if filepath.Ext(script) != "" {
+		if _, statErr := os.Stat(script); statErr == nil {
 			// Script is a file path; determine interpreter based on extension
 			log.Printf("Executing file-based script: %s", script)
 			extension := strings.ToLower(filepath.Ext(script))
@@ -135,10 +142,6 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 			if err != nil {
 				var execErr *exec.Error
 				if errors.As(err, &execErr) {
-					if execErr.Err == exec.ErrNotFound {
-						log.Printf("Interpreter %s not found: %v", interpreter, err)
-						return nil, fmt.Errorf("interpreter %s not found: %w", interpreter, err)
-					}
 					log.Printf("Interpreter %s not found or inaccessible: %v", interpreter, err)
 					return nil, fmt.Errorf("interpreter %s not found or inaccessible: %w", interpreter, err)
 				}
@@ -201,11 +204,11 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		rows, err := r.DB.Query("SELECT value, timestamp FROM history WHERE id = ? ORDER BY timestamp ASC", id)
 		if err != nil {
 			log.Printf("history failed to query: %v", err)
-			return nil, fmt.Errorf("failed to query history: %w", err)
+			return nil, fmt.Errorf("failed to retrieve history: %w", err)
 		}
 		defer rows.Close()
 
-		var history []string
+		var historyEntries []string
 		for rows.Next() {
 			var value string
 			var timestamp int64
@@ -213,23 +216,24 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 				log.Printf("history failed to scan row: %v", err)
 				return nil, fmt.Errorf("failed to scan history row: %w", err)
 			}
-			history = append(history, value)
+			formattedTime := time.Unix(timestamp, 0).Format(time.RFC3339)
+			historyEntries = append(historyEntries, fmt.Sprintf("[%s] %s", formattedTime, value))
 		}
 		if err := rows.Err(); err != nil {
-			log.Printf("history failed to iterate rows: %v", err)
-			return nil, fmt.Errorf("failed to iterate history rows: %w", err)
+			log.Printf("history failed during row iteration: %v", err)
+			return nil, fmt.Errorf("failed during history iteration: %w", err)
 		}
 
-		if len(history) == 0 {
+		if len(historyEntries) == 0 {
 			log.Printf("history: no entries found for id: %s", id)
 			return []byte(""), nil
 		}
 
-		log.Printf("history succeeded for id: %s, entries: %d", id, len(history))
-		return []byte(strings.Join(history, "\n")), nil
+		historyOutput := strings.Join(historyEntries, "\n")
+		log.Printf("history succeeded for id: %s, entries: %d", id, len(historyEntries))
+		return []byte(historyOutput), nil
 
-	default:
-		// Get item operation
+	default: // getRecord (no operation specified)
 		if id == "" {
 			log.Printf("getRecord failed: no tool ID provided")
 			return nil, errors.New("invalid URI: no tool ID provided")
@@ -241,11 +245,11 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		err := r.DB.QueryRow("SELECT value FROM tools WHERE id = ?", id).Scan(&value)
 		if err == sql.ErrNoRows {
 			log.Printf("getRecord: no tool found for id: %s", id)
-			return []byte(""), nil
+			return []byte(""), nil // Return empty string for not found
 		}
 		if err != nil {
-			log.Printf("getRecord failed: %v", err)
-			return nil, fmt.Errorf("failed to get tool record: %w", err)
+			log.Printf("getRecord failed to read tool for id: %s, error: %v", id, err)
+			return nil, fmt.Errorf("failed to read tool: %w", err)
 		}
 
 		log.Printf("getRecord succeeded for id: %s, value: %s", id, value)
@@ -253,39 +257,12 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 	}
 }
 
-// DBInitializer defines the interface for database initialization operations
-type DBInitializer interface {
-	Open(dsn string) (*sql.DB, error)
-	Ping(db *sql.DB) error
-	Exec(db *sql.DB, query string) error
-}
-
-// DefaultDBInitializer implements DBInitializer using real database operations
-type DefaultDBInitializer struct{}
-
-func (d *DefaultDBInitializer) Open(dsn string) (*sql.DB, error) {
-	return sql.Open("sqlite3", dsn)
-}
-
-func (d *DefaultDBInitializer) Ping(db *sql.DB) error {
-	return db.Ping()
-}
-
-func (d *DefaultDBInitializer) Exec(db *sql.DB, query string) error {
-	_, err := db.Exec(query)
-	return err
-}
-
 // InitializeDatabase sets up the SQLite database and creates the tools and history tables with retries.
-func InitializeDatabase(dbPath string, initializer DBInitializer) (*sql.DB, error) {
-	if initializer == nil {
-		initializer = &DefaultDBInitializer{}
-	}
-
+func InitializeDatabase(dbPath string) (*sql.DB, error) {
 	const maxAttempts = 5
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		log.Printf("Attempt %d: Initializing SQLite database at %s", attempt, dbPath)
-		db, err := initializer.Open(dbPath)
+		db, err := sql.Open("sqlite3", dbPath)
 		if err != nil {
 			log.Printf("Attempt %d: Failed to open database: %v", attempt, err)
 			if attempt == maxAttempts {
@@ -296,7 +273,7 @@ func InitializeDatabase(dbPath string, initializer DBInitializer) (*sql.DB, erro
 		}
 
 		// Verify connection
-		if err := initializer.Ping(db); err != nil {
+		if err := db.Ping(); err != nil {
 			log.Printf("Attempt %d: Failed to ping database: %v", attempt, err)
 			db.Close()
 			if attempt == maxAttempts {
@@ -307,12 +284,13 @@ func InitializeDatabase(dbPath string, initializer DBInitializer) (*sql.DB, erro
 		}
 
 		// Create tools table
-		if err := initializer.Exec(db, `
+		_, err = db.Exec(`
 			CREATE TABLE IF NOT EXISTS tools (
 				id TEXT PRIMARY KEY,
 				value TEXT NOT NULL
 			)
-		`); err != nil {
+		`)
+		if err != nil {
 			log.Printf("Attempt %d: Failed to create tools table: %v", attempt, err)
 			db.Close()
 			if attempt == maxAttempts {
@@ -323,13 +301,14 @@ func InitializeDatabase(dbPath string, initializer DBInitializer) (*sql.DB, erro
 		}
 
 		// Create history table
-		if err := initializer.Exec(db, `
+		_, err = db.Exec(`
 			CREATE TABLE IF NOT EXISTS history (
 				id TEXT NOT NULL,
 				value TEXT NOT NULL,
 				timestamp INTEGER NOT NULL
 			)
-		`); err != nil {
+		`)
+		if err != nil {
 			log.Printf("Attempt %d: Failed to create history table: %v", attempt, err)
 			db.Close()
 			if attempt == maxAttempts {
@@ -347,7 +326,7 @@ func InitializeDatabase(dbPath string, initializer DBInitializer) (*sql.DB, erro
 
 // InitializeTool creates a new PklResourceReader with an initialized SQLite database.
 func InitializeTool(dbPath string) (*PklResourceReader, error) {
-	db, err := InitializeDatabase(dbPath, &DefaultDBInitializer{})
+	db, err := InitializeDatabase(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("error initializing database: %w", err)
 	}

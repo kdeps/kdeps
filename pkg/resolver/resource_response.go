@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -19,6 +20,14 @@ import (
 
 // CreateResponsePklFile generates a PKL file from the API response and processes it.
 func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverresponse.APIServerResponse) error {
+	if dr == nil || len(dr.DBs) == 0 || dr.DBs[0] == nil {
+		return fmt.Errorf("dependency resolver or database is nil")
+	}
+
+	if err := dr.DBs[0].PingContext(context.Background()); err != nil {
+		return fmt.Errorf("failed to ping database: %v", err)
+	}
+
 	dr.Logger.Debug("starting CreateResponsePklFile", "response", apiResponseBlock)
 
 	if err := dr.ensureResponsePklFileNotExists(); err != nil {

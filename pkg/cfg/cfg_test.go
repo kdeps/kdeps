@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/adrg/xdg"
 	"github.com/cucumber/godog"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -461,53 +462,72 @@ func TestLoadConfigurationUnit(t *testing.T) {
 
 func TestGetKdepsPath(t *testing.T) {
 	t.Parallel()
+	tests := []struct {
+		name     string
+		kdepsCfg kdeps.Kdeps
+		want     string
+		wantErr  bool
+	}{
+		{
+			name: "UserPath",
+			kdepsCfg: kdeps.Kdeps{
+				KdepsDir:  ".kdeps",
+				KdepsPath: path.User,
+			},
+			want:    filepath.Join(os.Getenv("HOME"), ".kdeps"),
+			wantErr: false,
+		},
+		{
+			name: "ProjectPath",
+			kdepsCfg: kdeps.Kdeps{
+				KdepsDir:  ".kdeps",
+				KdepsPath: path.Project,
+			},
+			want:    filepath.Join(os.Getenv("PWD"), ".kdeps"),
+			wantErr: false,
+		},
+		{
+			name: "XdgPath",
+			kdepsCfg: kdeps.Kdeps{
+				KdepsDir:  ".kdeps",
+				KdepsPath: path.Xdg,
+			},
+			want:    filepath.Join(xdg.ConfigHome, ".kdeps"),
+			wantErr: false,
+		},
+		{
+			name: "InvalidPath",
+			kdepsCfg: kdeps.Kdeps{
+				KdepsDir:  ".kdeps",
+				KdepsPath: "invalid",
+			},
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name: "EmptyKdepsDir",
+			kdepsCfg: kdeps.Kdeps{
+				KdepsDir:  "",
+				KdepsPath: path.User,
+			},
+			want:    filepath.Join(os.Getenv("HOME"), ""),
+			wantErr: false,
+		},
+	}
 
-	ctx := context.Background()
-
-	t.Run("UserPath", func(t *testing.T) {
-		cfg := kdeps.Kdeps{
-			KdepsDir:  ".kdeps",
-			KdepsPath: path.User,
-		}
-
-		result, err := GetKdepsPath(ctx, cfg)
-		assert.NoError(t, err)
-		assert.Contains(t, result, ".kdeps")
-	})
-
-	t.Run("ProjectPath", func(t *testing.T) {
-		cfg := kdeps.Kdeps{
-			KdepsDir:  ".kdeps",
-			KdepsPath: path.Project,
-		}
-
-		result, err := GetKdepsPath(ctx, cfg)
-		assert.NoError(t, err)
-		assert.Contains(t, result, ".kdeps")
-	})
-
-	t.Run("XdgPath", func(t *testing.T) {
-		cfg := kdeps.Kdeps{
-			KdepsDir:  ".kdeps",
-			KdepsPath: path.Xdg,
-		}
-
-		result, err := GetKdepsPath(ctx, cfg)
-		assert.NoError(t, err)
-		assert.Contains(t, result, ".kdeps")
-	})
-
-	t.Run("UnknownPath", func(t *testing.T) {
-		cfg := kdeps.Kdeps{
-			KdepsDir:  ".kdeps",
-			KdepsPath: "unknown",
-		}
-
-		result, err := GetKdepsPath(ctx, cfg)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "unknown path type")
-		assert.Equal(t, "", result)
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := GetKdepsPath(ctx, tt.kdepsCfg)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetKdepsPath() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && got != tt.want {
+				t.Errorf("GetKdepsPath() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
 func TestGenerateConfigurationAdditional(t *testing.T) {
