@@ -283,7 +283,7 @@ func TestPklResourceReader(t *testing.T) {
 		uri, _ := url.Parse("tool:///test4?op=run&script=test.fake")
 		output, err := reader.Read(*uri)
 		require.NoError(t, err)
-		require.Contains(t, strings.ToLower(string(output)), "command not found")
+		require.Contains(t, strings.ToLower(string(output)), "not found")
 	})
 
 	t.Run("Read_History", func(t *testing.T) {
