@@ -156,10 +156,6 @@ github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnr
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
 github.com/kdeps/kartographer v0.0.0-20240808015651-b2afd5d97715 h1:CxUIVGV6VdgZo62Q84pOVJwUa0ONNqJIH3/rvWsAiUs=
 github.com/kdeps/kartographer v0.0.0-20240808015651-b2afd5d97715/go.mod h1:DYSCAer2OsX5F3Jne82p4P1LCIu42DQFfL5ypZYcUbk=
-github.com/kdeps/schema v0.2.38 h1:hAxNQ1ZolKjoX6V39jebcsjYP2ZXdhmBRazGYSgVhv8=
-github.com/kdeps/schema v0.2.38/go.mod h1:jcI+1Q8GAor+pW+RxPG9EJDM5Ji+GUORirTCSslfH0M=
-github.com/kdeps/schema v0.2.39 h1:U63KWLNXV+KbmugVjGY7Kw9aIJgsXbnW2TQuSH2lsnQ=
-github.com/kdeps/schema v0.2.39/go.mod h1:jcI+1Q8GAor+pW+RxPG9EJDM5Ji+GUORirTCSslfH0M=
 github.com/kdeps/schema v0.2.40 h1:XLQd0X8LJobYf8TY0wA+2y+jc0sxb5RsQUFZqSZxClQ=
 github.com/kdeps/schema v0.2.40/go.mod h1:jcI+1Q8GAor+pW+RxPG9EJDM5Ji+GUORirTCSslfH0M=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=

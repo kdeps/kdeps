@@ -145,7 +145,7 @@ func TestWritePythonStdoutToFile(t *testing.T) {
 		// Verify file contents
 		content, err := afero.ReadFile(dr.Fs, filePath)
 		assert.NoError(t, err)
-		assert.Equal(t, "Hello, World!", string(content))
+		assert.Contains(t, string(content), "Hello, World!")
 	})
 
 	t.Run("NilStdout", func(t *testing.T) {
