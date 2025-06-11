@@ -250,7 +250,7 @@ func TestPklResourceReader(t *testing.T) {
 			if err != nil {
 				t.Errorf("Did not expect error for invalid script file, got: %v", err)
 			}
-			if !strings.Contains(string(output), "No such file") {
+			if !strings.Contains(string(output), "not found") {
 				t.Errorf("Expected error message in output for invalid script file, got '%s'", string(output))
 			}
 		})
