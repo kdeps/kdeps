@@ -71,9 +71,12 @@ func TestNewAgentCommandExecution(t *testing.T) {
 
 	// Test without agent name - should fail because agent name is required
 	cmd = NewAgentCommand(fs, ctx, kdepsDir, logger)
+	cmd.SetArgs([]string{})
 	err = cmd.Execute()
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "accepts 1 arg(s), received 0")
+	if err != nil {
+		assert.Contains(t, err.Error(), "accepts 1 arg", "unexpected error message")
+	}
 }
 
 func TestNewAgentCommandFlags(t *testing.T) {

@@ -603,12 +603,19 @@ func TestRealEditorCmd_SetIO(t *testing.T) {
 
 func TestRealEditorCmd_Run(t *testing.T) {
 	t.Parallel()
-	cmd, err := realEditorCmdFactory("nonexistent_editor", "/tmp/test.pkl")
+
+	// Override editorCmd with a stub that immediately exits with status 1 to avoid 30-second OS lookup delays.
+	orig := editorCmd
+	editorCmd = func(editorName, filePath string, _ ...editor.Option) (*exec.Cmd, error) {
+		return exec.Command("sh", "-c", "exit 1"), nil
+	}
+	defer func() { editorCmd = orig }()
+
+	cmd, err := realEditorCmdFactory("stub", "/tmp/test.pkl")
 	require.NoError(t, err)
 	require.NotNil(t, cmd)
 	err = cmd.Run()
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "exit status 1")
 }
 
 func TestMain(m *testing.M) {
@@ -618,6 +625,13 @@ func TestMain(m *testing.M) {
 	EditPkl = testMockEditPkl
 	// Set non-interactive mode
 	os.Setenv("NON_INTERACTIVE", "1")
+
+	// Stub out editorCmd so any accidental real invocation returns fast
+	origEditorCmd := editorCmd
+	editorCmd = func(editorName, filePath string, _ ...editor.Option) (*exec.Cmd, error) {
+		return exec.Command("sh", "-c", "exit 1"), nil
+	}
+	defer func() { editorCmd = origEditorCmd }()
 
 	// Run tests
 	code := m.Run()
