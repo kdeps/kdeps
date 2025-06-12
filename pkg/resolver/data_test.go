@@ -89,10 +89,15 @@ func TestAppendDataEntry(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
+			tmp := t.TempDir()
+			actionDir := filepath.Join(tmp, "action")
+			fs := afero.NewOsFs()
+			_ = fs.MkdirAll(filepath.Join(actionDir, "data"), 0o755)
+
 			dr := &resolver.DependencyResolver{
-				Fs:        afero.NewMemMapFs(),
+				Fs:        fs,
 				Context:   &MockContext{},
-				ActionDir: "action",
+				ActionDir: actionDir,
 				RequestID: "testRequestID",
 				Logger:    logging.GetLogger(),
 			}
