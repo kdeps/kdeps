@@ -8,9 +8,9 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/alexellis/go-execute/v2"
 	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/pkg/evaluator"
+	"github.com/kdeps/kdeps/pkg/kdepsexec"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
@@ -278,22 +278,29 @@ func (dr *DependencyResolver) ensureResponseTargetFileNotExists() error {
 	return nil
 }
 
-func (dr *DependencyResolver) executePklEvalCommand() (execute.ExecResult, error) {
-	cmd := execute.ExecTask{
-		Command:     "pkl",
-		Args:        []string{"eval", "--format", "json", "--output-path", dr.ResponseTargetFile, dr.ResponsePklFile},
-		StreamStdio: false,
-	}
-
-	result, err := cmd.Execute(dr.Context)
+func (dr *DependencyResolver) executePklEvalCommand() (kdepsexecStd struct {
+	Stdout, Stderr string
+	ExitCode       int
+}, err error) {
+	stdout, stderr, exitCode, err := kdepsexec.KdepsExec(
+		dr.Context,
+		"pkl",
+		[]string{"eval", "--format", "json", "--output-path", dr.ResponseTargetFile, dr.ResponsePklFile},
+		"",
+		false,
+		false,
+		dr.Logger,
+	)
 	if err != nil {
-		return execute.ExecResult{}, fmt.Errorf("execute command: %w", err)
+		return kdepsexecStd, err
 	}
-
-	if result.ExitCode != 0 {
-		return execute.ExecResult{}, fmt.Errorf("command failed with exit code %d: %s", result.ExitCode, result.Stderr)
+	if exitCode != 0 {
+		return kdepsexecStd, fmt.Errorf("command failed with exit code %d: %s", exitCode, stderr)
 	}
-	return result, nil
+	kdepsexecStd.Stdout = stdout
+	kdepsexecStd.Stderr = stderr
+	kdepsexecStd.ExitCode = exitCode
+	return kdepsexecStd, nil
 }
 
 // HandleAPIErrorResponse creates an error response PKL file.

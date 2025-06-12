@@ -39,7 +39,7 @@ func (dr *DependencyResolver) HandleHTTPClient(actionID string, httpBlock *pklHT
 }
 
 func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHTTP.ResourceHTTPClient) error {
-	if err := dr.DoRequest(httpBlock); err != nil {
+	if err := dr.DoRequestFn(httpBlock); err != nil {
 		return err
 	}
 	return dr.AppendHTTPEntry(actionID, httpBlock)
@@ -91,7 +91,7 @@ func (dr *DependencyResolver) WriteResponseBodyToFile(resourceID string, respons
 func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP.ResourceHTTPClient) error {
 	pklPath := filepath.Join(dr.ActionDir, "client/"+dr.RequestID+"__client_output.pkl")
 
-	res, err := dr.LoadResource(dr.Context, pklPath, HTTPResource)
+	res, err := dr.LoadResourceFn(dr.Context, pklPath, HTTPResource)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL: %w", err)
 	}

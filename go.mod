@@ -5,6 +5,7 @@ go 1.23.7
 toolchain go1.24.1
 
 require (
+	github.com/bouk/monkey v1.0.1 // indirect
 	github.com/Netflix/go-env v0.1.2
 	github.com/adrg/xdg v0.5.3
 	github.com/alexellis/go-execute/v2 v2.2.1

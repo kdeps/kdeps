@@ -33,7 +33,12 @@ func TestDependencyResolver(t *testing.T) {
 	filesDir := filepath.Join(baseDir, "files")
 	actionDir := filepath.Join(baseDir, "action")
 
-	_ = fs.MkdirAll(filepath.Join(actionDir, "exec"), 0o755)
+	execDir := filepath.Join(actionDir, "exec")
+	_ = fs.MkdirAll(execDir, 0o755)
+	// Pre-create empty exec output PKL so resolver tests can load it without error logs
+	execOutFile := filepath.Join(execDir, "test-request__exec_output.pkl")
+	_ = afero.WriteFile(fs, execOutFile, []byte("extends \"package://schema.kdeps.com/core@1.0.0#/Exec.pkl\"\nresources {\n}\n"), 0o644)
+
 	_ = fs.MkdirAll(filesDir, 0o755)
 
 	dr := &resolver.DependencyResolver{
@@ -82,7 +87,14 @@ func TestDependencyResolver(t *testing.T) {
 		tmpDir := filepath.Join(dr.ActionDir, "exec")
 		files, err := afero.ReadDir(dr.Fs, tmpDir)
 		assert.NoError(t, err)
-		assert.Empty(t, files)
+		// Allow the stub exec output file created during setup
+		var nonStubFiles []os.FileInfo
+		for _, f := range files {
+			if f.Name() != "test-request__exec_output.pkl" {
+				nonStubFiles = append(nonStubFiles, f)
+			}
+		}
+		assert.Empty(t, nonStubFiles)
 	})
 
 	t.Run("InvalidResourceID", func(t *testing.T) {
@@ -266,7 +278,14 @@ func TestDependencyResolver(t *testing.T) {
 		tmpDir := filepath.Join(dr.ActionDir, "exec")
 		files, err := afero.ReadDir(dr.Fs, tmpDir)
 		assert.NoError(t, err)
-		assert.Empty(t, files)
+		// Allow the stub exec output file created during setup
+		var nonStubFiles []os.FileInfo
+		for _, f := range files {
+			if f.Name() != "test-request__exec_output.pkl" {
+				nonStubFiles = append(nonStubFiles, f)
+			}
+		}
+		assert.Empty(t, nonStubFiles)
 	})
 
 	t.Run("LongRunningCommand", func(t *testing.T) {

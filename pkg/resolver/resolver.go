@@ -12,20 +12,25 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/alexellis/go-execute/v2"
 	"github.com/apple/pkl-go/pkl"
 	"github.com/gin-gonic/gin"
 	"github.com/kdeps/kartographer/graph"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/item"
+	"github.com/kdeps/kdeps/pkg/kdepsexec"
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/memory"
 	"github.com/kdeps/kdeps/pkg/session"
 	"github.com/kdeps/kdeps/pkg/tool"
 	"github.com/kdeps/kdeps/pkg/utils"
+	pklHTTP "github.com/kdeps/schema/gen/http"
+	pklLLM "github.com/kdeps/schema/gen/llm"
 	pklRes "github.com/kdeps/schema/gen/resource"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
+	"github.com/tmc/langchaingo/llms/ollama"
 )
 
 type DependencyResolver struct {
@@ -74,6 +79,20 @@ type DependencyResolver struct {
 	BuildDependencyStackFn func(string, map[string]bool) []string                                `json:"-"`
 	ProcessRunBlockFn      func(ResourceNodeEntry, *pklRes.Resource, string, bool) (bool, error) `json:"-"`
 	ClearItemDBFn          func() error                                                          `json:"-"`
+
+	// Chat / HTTP injection helpers
+	NewLLMFn               func(model string) (*ollama.LLM, error)                                                                                      `json:"-"`
+	GenerateChatResponseFn func(context.Context, afero.Fs, *ollama.LLM, *pklLLM.ResourceChat, *tool.PklResourceReader, *logging.Logger) (string, error) `json:"-"`
+
+	DoRequestFn func(*pklHTTP.ResourceHTTPClient) error `json:"-"`
+
+	// Python / Conda execution injector
+	ExecTaskRunnerFn func(context.Context, execute.ExecTask) (string, string, error) `json:"-"`
+
+	// Import handling injectors
+	PrependDynamicImportsFn func(string) error                              `json:"-"`
+	AddPlaceholderImportsFn func(string) error                              `json:"-"`
+	WalkFn                  func(afero.Fs, string, filepath.WalkFunc) error `json:"-"`
 }
 
 type ResourceNodeEntry struct {
@@ -216,21 +235,39 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		FileRunCounter: make(map[string]int), // Initialize the file run counter map
 	}
 
+	dependencyResolver.Graph = graph.NewDependencyGraph(fs, logger.BaseLogger(), dependencyResolver.ResourceDependencies)
+	if dependencyResolver.Graph == nil {
+		return nil, errors.New("failed to initialize dependency graph")
+	}
+
 	// Default injectable helpers
 	dependencyResolver.GetCurrentTimestampFn = dependencyResolver.GetCurrentTimestamp
 	dependencyResolver.WaitForTimestampChangeFn = dependencyResolver.WaitForTimestampChange
 
-	// Default injection for broader functions
+	// Default injection for broader functions (now that Graph is initialized)
 	dependencyResolver.LoadResourceEntriesFn = dependencyResolver.LoadResourceEntries
 	dependencyResolver.LoadResourceFn = dependencyResolver.LoadResource
 	dependencyResolver.BuildDependencyStackFn = dependencyResolver.Graph.BuildDependencyStack
 	dependencyResolver.ProcessRunBlockFn = dependencyResolver.processRunBlock
 	dependencyResolver.ClearItemDBFn = dependencyResolver.ClearItemDB
 
-	dependencyResolver.Graph = graph.NewDependencyGraph(fs, logger.BaseLogger(), dependencyResolver.ResourceDependencies)
-	if dependencyResolver.Graph == nil {
-		return nil, errors.New("failed to initialize dependency graph")
+	// Chat helpers
+	dependencyResolver.NewLLMFn = func(model string) (*ollama.LLM, error) {
+		return ollama.New(ollama.WithModel(model))
 	}
+	dependencyResolver.GenerateChatResponseFn = generateChatResponse
+	dependencyResolver.DoRequestFn = dependencyResolver.DoRequest
+
+	// Default Python/Conda runner
+	dependencyResolver.ExecTaskRunnerFn = func(ctx context.Context, task execute.ExecTask) (string, string, error) {
+		stdout, stderr, _, err := kdepsexec.RunExecTask(ctx, task, dependencyResolver.Logger, false)
+		return stdout, stderr, err
+	}
+
+	// Import helpers
+	dependencyResolver.PrependDynamicImportsFn = dependencyResolver.PrependDynamicImports
+	dependencyResolver.AddPlaceholderImportsFn = dependencyResolver.AddPlaceholderImports
+	dependencyResolver.WalkFn = afero.Walk
 
 	return dependencyResolver, nil
 }

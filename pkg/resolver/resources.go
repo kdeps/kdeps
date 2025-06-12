@@ -33,7 +33,12 @@ func (dr *DependencyResolver) LoadResourceEntries() error {
 	var pklFiles []string
 
 	// Walk through the workflowDir to find .pkl files
-	err := afero.Walk(dr.Fs, workflowDir, func(path string, info os.FileInfo, err error) error {
+	walkFn := dr.WalkFn
+	if walkFn == nil {
+		walkFn = afero.Walk
+	}
+
+	err := walkFn(dr.Fs, workflowDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			dr.Logger.Errorf("error accessing path %s: %v", path, err)
 			return err
@@ -70,12 +75,20 @@ func (dr *DependencyResolver) LoadResourceEntries() error {
 // handleFileImports handles dynamic and placeholder imports for a given file.
 func (dr *DependencyResolver) handleFileImports(path string) error {
 	// Prepend dynamic imports
-	if err := dr.PrependDynamicImports(path); err != nil {
+	if dr.PrependDynamicImportsFn != nil {
+		if err := dr.PrependDynamicImportsFn(path); err != nil {
+			return fmt.Errorf("failed to prepend dynamic imports for file %s: %w", path, err)
+		}
+	} else if err := dr.PrependDynamicImports(path); err != nil {
 		return fmt.Errorf("failed to prepend dynamic imports for file %s: %w", path, err)
 	}
 
 	// Add placeholder imports
-	if err := dr.AddPlaceholderImports(path); err != nil {
+	if dr.AddPlaceholderImportsFn != nil {
+		if err := dr.AddPlaceholderImportsFn(path); err != nil {
+			return fmt.Errorf("failed to add placeholder imports for file %s: %w", path, err)
+		}
+	} else if err := dr.AddPlaceholderImports(path); err != nil {
 		return fmt.Errorf("failed to add placeholder imports for file %s: %w", path, err)
 	}
 
@@ -85,7 +98,7 @@ func (dr *DependencyResolver) handleFileImports(path string) error {
 // processPklFile processes an individual .pkl file and updates dependencies.
 func (dr *DependencyResolver) processPklFile(file string) error {
 	// Load the resource file
-	res, err := dr.LoadResource(dr.Context, file, Resource)
+	res, err := dr.LoadResourceFn(dr.Context, file, Resource)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL file: %w", err)
 	}

@@ -11,6 +11,7 @@ import (
 	"github.com/alexellis/go-execute/v2"
 	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/evaluator"
+	"github.com/kdeps/kdeps/pkg/kdepsexec"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklPython "github.com/kdeps/schema/gen/python"
@@ -99,13 +100,19 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 		StreamStdio: false,
 	}
 
-	result, err := cmd.Execute(dr.Context)
-	if err != nil {
-		return fmt.Errorf("execution failed: %w", err)
+	var execStdout, execStderr string
+	var execErr error
+	if dr.ExecTaskRunnerFn != nil {
+		execStdout, execStderr, execErr = dr.ExecTaskRunnerFn(dr.Context, cmd)
+	} else {
+		execStdout, execStderr, _, execErr = kdepsexec.RunExecTask(dr.Context, cmd, dr.Logger, false)
+	}
+	if execErr != nil {
+		return fmt.Errorf("execution failed: %w", execErr)
 	}
 
-	pythonBlock.Stdout = &result.Stdout
-	pythonBlock.Stderr = &result.Stderr
+	pythonBlock.Stdout = &execStdout
+	pythonBlock.Stderr = &execStderr
 
 	ts := pkl.Duration{
 		Value: float64(time.Now().Unix()),
@@ -117,28 +124,46 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 }
 
 func (dr *DependencyResolver) activateCondaEnvironment(envName string) error {
-	execCommand := execute.ExecTask{
+	execTask := execute.ExecTask{
 		Command:     "conda",
 		Args:        []string{"activate", "--name", envName},
 		Shell:       false,
 		StreamStdio: false,
 	}
 
-	if _, err := execCommand.Execute(dr.Context); err != nil {
+	// Use injected runner if provided
+	if dr.ExecTaskRunnerFn != nil {
+		if _, _, err := dr.ExecTaskRunnerFn(dr.Context, execTask); err != nil {
+			return fmt.Errorf("conda activate failed: %w", err)
+		}
+		return nil
+	}
+
+	_, _, _, err := kdepsexec.RunExecTask(dr.Context, execTask, dr.Logger, false)
+	if err != nil {
 		return fmt.Errorf("conda activate failed: %w", err)
 	}
 	return nil
 }
 
 func (dr *DependencyResolver) deactivateCondaEnvironment() error {
-	execCommand := execute.ExecTask{
+	execTask := execute.ExecTask{
 		Command:     "conda",
 		Args:        []string{"deactivate"},
 		Shell:       false,
 		StreamStdio: false,
 	}
 
-	if _, err := execCommand.Execute(context.Background()); err != nil {
+	// Use injected runner if provided
+	if dr.ExecTaskRunnerFn != nil {
+		if _, _, err := dr.ExecTaskRunnerFn(context.Background(), execTask); err != nil {
+			return fmt.Errorf("conda deactivate failed: %w", err)
+		}
+		return nil
+	}
+
+	_, _, _, err := kdepsexec.RunExecTask(context.Background(), execTask, dr.Logger, false)
+	if err != nil {
 		return fmt.Errorf("conda deactivate failed: %w", err)
 	}
 	return nil

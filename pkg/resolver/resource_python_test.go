@@ -136,7 +136,7 @@ func TestWritePythonStdoutToFile(t *testing.T) {
 	t.Run("ValidStdout", func(t *testing.T) {
 		t.Parallel()
 		encodedStdout := "SGVsbG8sIFdvcmxkIQ==" // "Hello, World!"
-		resourceID := "test-resource"
+		resourceID := "test-resource-valid"
 
 		filePath, err := dr.WritePythonStdoutToFile(resourceID, &encodedStdout)
 		assert.NoError(t, err)
@@ -150,7 +150,7 @@ func TestWritePythonStdoutToFile(t *testing.T) {
 
 	t.Run("NilStdout", func(t *testing.T) {
 		t.Parallel()
-		filePath, err := dr.WritePythonStdoutToFile("test-resource", nil)
+		filePath, err := dr.WritePythonStdoutToFile("test-resource-nil", nil)
 		assert.NoError(t, err)
 		assert.Empty(t, filePath)
 	})
@@ -158,7 +158,7 @@ func TestWritePythonStdoutToFile(t *testing.T) {
 	t.Run("InvalidBase64", func(t *testing.T) {
 		t.Parallel()
 		invalidStdout := "invalid base64"
-		_, err := dr.WritePythonStdoutToFile("test-resource", &invalidStdout)
+		_, err := dr.WritePythonStdoutToFile("test-resource-invalid", &invalidStdout)
 		assert.NoError(t, err)
 	})
 }

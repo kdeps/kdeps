@@ -6,7 +6,7 @@ import (
 	"net"
 	"time"
 
-	execute "github.com/alexellis/go-execute/v2"
+	"github.com/kdeps/kdeps/pkg/kdepsexec"
 	"github.com/kdeps/kdeps/pkg/logging"
 )
 
@@ -51,22 +51,10 @@ func waitForServer(host string, port string, timeout time.Duration, logger *logg
 func startOllamaServer(ctx context.Context, logger *logging.Logger) {
 	logger.Debug("starting ollama server in the background...")
 
-	cmd := execute.ExecTask{
-		Command:     "ollama",
-		Args:        []string{"serve"},
-		StreamStdio: true,
+	_, _, _, err := kdepsexec.KdepsExec(ctx, "ollama", []string{"serve"}, "", false, true, logger)
+	if err != nil {
+		logger.Error("failed to start ollama server", "error", err)
 	}
-
-	// Run the command in a background goroutine
-	go func(ctx context.Context) {
-		// Execute the command and handle errors
-		_, err := cmd.Execute(ctx)
-		if err != nil {
-			logger.Error("ollama server encountered an error: %v", err)
-		} else {
-			logger.Debug("ollama server exited cleanly.")
-		}
-	}(ctx)
 
 	logger.Debug("ollama server started in the background.")
 }

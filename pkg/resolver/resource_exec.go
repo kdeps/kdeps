@@ -10,6 +10,7 @@ import (
 	"github.com/alexellis/go-execute/v2"
 	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/evaluator"
+	"github.com/kdeps/kdeps/pkg/kdepsexec"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklExec "github.com/kdeps/schema/gen/exec"
@@ -81,20 +82,27 @@ func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklEx
 
 	dr.Logger.Info("executing command", "command", execBlock.Command, "env", env)
 
-	cmd := execute.ExecTask{
+	task := execute.ExecTask{
 		Command:     execBlock.Command,
 		Shell:       true,
 		Env:         env,
 		StreamStdio: false,
 	}
 
-	result, err := cmd.Execute(dr.Context)
+	var stdout, stderr string
+	var err error
+	if dr.ExecTaskRunnerFn != nil {
+		stdout, stderr, err = dr.ExecTaskRunnerFn(dr.Context, task)
+	} else {
+		// fallback direct execution via kdepsexec
+		stdout, stderr, _, err = kdepsexec.RunExecTask(dr.Context, task, dr.Logger, false)
+	}
 	if err != nil {
 		return err
 	}
 
-	execBlock.Stdout = &result.Stdout
-	execBlock.Stderr = &result.Stderr
+	execBlock.Stdout = &stdout
+	execBlock.Stderr = &stderr
 
 	ts := pkl.Duration{
 		Value: float64(time.Now().Unix()),

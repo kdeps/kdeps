@@ -1,4 +1,4 @@
-package docker
+package kdepsexec
 
 import (
 	"context"
@@ -23,7 +23,6 @@ func TestKdepsExec(t *testing.T) {
 	})
 
 	t.Run("WithEnvFile", func(t *testing.T) {
-		// Create a temporary directory and .env file
 		tempDir, err := os.MkdirTemp("", "kdeps-test")
 		assert.NoError(t, err)
 		defer os.RemoveAll(tempDir)
