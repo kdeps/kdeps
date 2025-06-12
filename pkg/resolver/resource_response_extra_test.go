@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 )
@@ -41,4 +42,28 @@ func TestValidateAndEnsureResponseFiles(t *testing.T) {
 		exists, _ = afero.Exists(fs, dr.ResponseTargetFile)
 		require.False(t, exists)
 	})
+}
+
+func TestValidatePklFileExtension_Response(t *testing.T) {
+	dr := &DependencyResolver{ResponsePklFile: "resp.pkl"}
+	if err := dr.validatePklFileExtension(); err != nil {
+		t.Errorf("expected .pkl to validate, got %v", err)
+	}
+	dr.ResponsePklFile = "bad.txt"
+	if err := dr.validatePklFileExtension(); err == nil {
+		t.Errorf("expected error for non-pkl extension")
+	}
+}
+
+func TestDecodeErrorMessage_Handler(t *testing.T) {
+	logger := logging.GetLogger()
+	plain := "hello"
+	enc := utils.EncodeValue(plain)
+	if got := decodeErrorMessage(enc, logger); got != plain {
+		t.Errorf("expected decoded value, got %s", got)
+	}
+	// non-base64 string passes through
+	if got := decodeErrorMessage("not-encoded", logger); got != "not-encoded" {
+		t.Errorf("expected passthrough, got %s", got)
+	}
 }
