@@ -24,6 +24,22 @@ import (
 var (
 	version = "dev"
 	commit  = ""
+
+	// Function variables for dependency injection during tests.
+	newGraphResolverFn        = resolver.NewGraphResolver
+	bootstrapDockerSystemFn   = docker.BootstrapDockerSystem
+	runGraphResolverActionsFn = runGraphResolverActions
+
+	findConfigurationFn     = cfg.FindConfiguration
+	generateConfigurationFn = cfg.GenerateConfiguration
+	editConfigurationFn     = cfg.EditConfiguration
+	validateConfigurationFn = cfg.ValidateConfiguration
+	loadConfigurationFn     = cfg.LoadConfiguration
+	getKdepsPathFn          = cfg.GetKdepsPath
+
+	newRootCommandFn = cmd.NewRootCommand
+
+	cleanupFn = cleanup
 )
 
 func main() {
@@ -50,7 +66,7 @@ func main() {
 	ctx = ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
 
 	if env.DockerMode == "1" {
-		dr, err := resolver.NewGraphResolver(fs, ctx, env, nil, logger.With("requestID", graphID))
+		dr, err := newGraphResolverFn(fs, ctx, env, nil, logger.With("requestID", graphID))
 		if err != nil {
 			logger.Fatalf("failed to create graph resolver: %v", err)
 		}
@@ -63,7 +79,7 @@ func main() {
 
 func handleDockerMode(ctx context.Context, dr *resolver.DependencyResolver, cancel context.CancelFunc) {
 	// Initialize Docker system
-	apiServerMode, err := docker.BootstrapDockerSystem(ctx, dr)
+	apiServerMode, err := bootstrapDockerSystemFn(ctx, dr)
 	if err != nil {
 		dr.Logger.Error("error during Docker bootstrap", "error", err)
 		utils.SendSigterm(dr.Logger)
@@ -74,7 +90,7 @@ func handleDockerMode(ctx context.Context, dr *resolver.DependencyResolver, canc
 
 	// Run workflow or wait for shutdown
 	if !apiServerMode {
-		if err := runGraphResolverActions(ctx, dr, apiServerMode); err != nil {
+		if err := runGraphResolverActionsFn(ctx, dr, apiServerMode); err != nil {
 			dr.Logger.Error("error running graph resolver", "error", err)
 			utils.SendSigterm(dr.Logger)
 			return
@@ -84,17 +100,17 @@ func handleDockerMode(ctx context.Context, dr *resolver.DependencyResolver, canc
 	// Wait for shutdown signal
 	<-ctx.Done()
 	dr.Logger.Debug("context canceled, shutting down gracefully...")
-	cleanup(dr.Fs, ctx, dr.Environment, apiServerMode, dr.Logger)
+	cleanupFn(dr.Fs, ctx, dr.Environment, apiServerMode, dr.Logger)
 }
 
 func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) {
-	cfgFile, err := cfg.FindConfiguration(fs, ctx, env, logger)
+	cfgFile, err := findConfigurationFn(fs, ctx, env, logger)
 	if err != nil {
 		logger.Error("error occurred finding configuration")
 	}
 
 	if cfgFile == "" {
-		cfgFile, err = cfg.GenerateConfiguration(fs, ctx, env, logger)
+		cfgFile, err = generateConfigurationFn(fs, ctx, env, logger)
 		if err != nil {
 			logger.Fatal("error occurred generating configuration", "error", err)
 			return
@@ -102,7 +118,7 @@ func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Envi
 
 		logger.Info("configuration file generated", "file", cfgFile)
 
-		cfgFile, err = cfg.EditConfiguration(fs, ctx, env, logger)
+		cfgFile, err = editConfigurationFn(fs, ctx, env, logger)
 		if err != nil {
 			logger.Error("error occurred editing configuration")
 		}
@@ -114,25 +130,25 @@ func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Envi
 
 	logger.Info("configuration file ready", "file", cfgFile)
 
-	cfgFile, err = cfg.ValidateConfiguration(fs, ctx, env, logger)
+	cfgFile, err = validateConfigurationFn(fs, ctx, env, logger)
 	if err != nil {
 		logger.Fatal("error occurred validating configuration", "error", err)
 		return
 	}
 
-	systemCfg, err := cfg.LoadConfiguration(fs, ctx, cfgFile, logger)
+	systemCfg, err := loadConfigurationFn(fs, ctx, cfgFile, logger)
 	if err != nil {
 		logger.Error("error occurred loading configuration")
 		return
 	}
 
-	kdepsDir, err := cfg.GetKdepsPath(ctx, *systemCfg)
+	kdepsDir, err := getKdepsPathFn(ctx, *systemCfg)
 	if err != nil {
 		logger.Error("error occurred while getting Kdeps system path")
 		return
 	}
 
-	rootCmd := cmd.NewRootCommand(fs, ctx, kdepsDir, systemCfg, env, logger)
+	rootCmd := newRootCommandFn(fs, ctx, kdepsDir, systemCfg, env, logger)
 	if err := rootCmd.Execute(); err != nil {
 		logger.Fatal(err)
 	}
@@ -156,7 +172,7 @@ func setupSignalHandler(fs afero.Fs, ctx context.Context, cancelFunc context.Can
 		sig := <-sigs
 		logger.Debug(fmt.Sprintf("Received signal: %v, initiating shutdown...", sig))
 		cancelFunc() // Cancel context to initiate shutdown
-		cleanup(fs, ctx, env, apiServerMode, logger)
+		cleanupFn(fs, ctx, env, apiServerMode, logger)
 
 		var graphID, actionDir string
 
@@ -208,7 +224,7 @@ func runGraphResolverActions(ctx context.Context, dr *resolver.DependencyResolve
 		utils.SendSigterm(dr.Logger)
 	}
 
-	cleanup(dr.Fs, ctx, dr.Environment, apiServerMode, dr.Logger)
+	cleanupFn(dr.Fs, ctx, dr.Environment, apiServerMode, dr.Logger)
 
 	if err := utils.WaitForFileReady(dr.Fs, "/.dockercleanup", dr.Logger); err != nil {
 		return fmt.Errorf("failed to wait for file to be ready: %w", err)

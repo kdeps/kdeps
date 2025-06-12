@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"testing"
+	"time"
 
 	"github.com/apple/pkl-go/pkl"
 	pklExec "github.com/kdeps/schema/gen/exec"
@@ -56,5 +57,23 @@ func TestGetResourceTimestamp_Errors(t *testing.T) {
 	// unknown type
 	if _, err := getResourceTimestamp("id", 42); err == nil {
 		t.Errorf("expected error for unknown type")
+	}
+}
+
+func TestFormatDuration_Simple(t *testing.T) {
+	cases := []struct {
+		d        time.Duration
+		expected string
+	}{
+		{3 * time.Second, "3s"},
+		{2*time.Minute + 5*time.Second, "2m 5s"},
+		{1*time.Hour + 10*time.Minute + 30*time.Second, "1h 10m 30s"},
+		{0, "0s"},
+	}
+	for _, c := range cases {
+		got := formatDuration(c.d)
+		if got != c.expected {
+			t.Errorf("formatDuration(%v) = %q, want %q", c.d, got, c.expected)
+		}
 	}
 }

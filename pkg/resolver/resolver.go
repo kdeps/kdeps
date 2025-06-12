@@ -63,6 +63,17 @@ type DependencyResolver struct {
 	APIServerMode        bool
 	AnacondaInstalled    bool
 	FileRunCounter       map[string]int // Added to track run count per file
+
+	// Injectable helpers (overridable in tests)
+	GetCurrentTimestampFn    func(string, string) (pkl.Duration, error)              `json:"-"`
+	WaitForTimestampChangeFn func(string, pkl.Duration, time.Duration, string) error `json:"-"`
+
+	// Additional injectable helpers for broader unit testing
+	LoadResourceEntriesFn  func() error                                                          `json:"-"`
+	LoadResourceFn         func(context.Context, string, ResourceType) (interface{}, error)      `json:"-"`
+	BuildDependencyStackFn func(string, map[string]bool) []string                                `json:"-"`
+	ProcessRunBlockFn      func(ResourceNodeEntry, *pklRes.Resource, string, bool) (bool, error) `json:"-"`
+	ClearItemDBFn          func() error                                                          `json:"-"`
 }
 
 type ResourceNodeEntry struct {
@@ -205,6 +216,17 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		FileRunCounter: make(map[string]int), // Initialize the file run counter map
 	}
 
+	// Default injectable helpers
+	dependencyResolver.GetCurrentTimestampFn = dependencyResolver.GetCurrentTimestamp
+	dependencyResolver.WaitForTimestampChangeFn = dependencyResolver.WaitForTimestampChange
+
+	// Default injection for broader functions
+	dependencyResolver.LoadResourceEntriesFn = dependencyResolver.LoadResourceEntries
+	dependencyResolver.LoadResourceFn = dependencyResolver.LoadResource
+	dependencyResolver.BuildDependencyStackFn = dependencyResolver.Graph.BuildDependencyStack
+	dependencyResolver.ProcessRunBlockFn = dependencyResolver.processRunBlock
+	dependencyResolver.ClearItemDBFn = dependencyResolver.ClearItemDB
+
 	dependencyResolver.Graph = graph.NewDependencyGraph(fs, logger.BaseLogger(), dependencyResolver.ResourceDependencies)
 	if dependencyResolver.Graph == nil {
 		return nil, errors.New("failed to initialize dependency graph")
@@ -227,7 +249,7 @@ func (dr *DependencyResolver) ClearItemDB() error {
 // processResourceStep consolidates the pattern of: get timestamp, run a handler, adjust timeout (if provided),
 // then wait for the timestamp change.
 func (dr *DependencyResolver) processResourceStep(resourceID, step string, timeoutPtr *pkl.Duration, handler func() error) error {
-	timestamp, err := dr.GetCurrentTimestamp(resourceID, step)
+	timestamp, err := dr.GetCurrentTimestampFn(resourceID, step)
 	if err != nil {
 		return fmt.Errorf("%s error: %w", step, err)
 	}
@@ -242,7 +264,7 @@ func (dr *DependencyResolver) processResourceStep(resourceID, step string, timeo
 		return fmt.Errorf("%s error: %w", step, err)
 	}
 
-	if err := dr.WaitForTimestampChange(resourceID, timestamp, timeout, step); err != nil {
+	if err := dr.WaitForTimestampChangeFn(resourceID, timestamp, timeout, step); err != nil {
 		return fmt.Errorf("%s timeout awaiting for output: %w", step, err)
 	}
 	return nil
@@ -340,12 +362,12 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	actionID := dr.Workflow.GetTargetActionID()
 	dr.Logger.Debug("processing resources...")
 
-	if err := dr.LoadResourceEntries(); err != nil {
+	if err := dr.LoadResourceEntriesFn(); err != nil {
 		return dr.HandleAPIErrorResponse(500, err.Error(), true)
 	}
 
 	// Build dependency stack for the target action
-	stack := dr.Graph.BuildDependencyStack(actionID, visited)
+	stack := dr.BuildDependencyStackFn(actionID, visited)
 
 	// Process each resource in the dependency stack
 	for _, nodeActionID := range stack {
@@ -355,7 +377,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			}
 
 			// Load the resource
-			resPkl, err := dr.LoadResource(dr.Context, res.File, Resource)
+			resPkl, err := dr.LoadResourceFn(dr.Context, res.File, Resource)
 			if err != nil {
 				return dr.HandleAPIErrorResponse(500, err.Error(), true)
 			}
@@ -384,7 +406,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			// Process run block: once if no items, or once per item
 			if len(items) == 0 {
 				dr.Logger.Info("no items specified, processing run block once", "actionID", res.ActionID)
-				proceed, err := dr.processRunBlock(res, rsc, nodeActionID, false)
+				proceed, err := dr.ProcessRunBlockFn(res, rsc, nodeActionID, false)
 				if err != nil {
 					return false, err
 				} else if !proceed {
@@ -402,7 +424,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 					}
 
 					// reload the resource
-					resPkl, err = dr.LoadResource(dr.Context, res.File, Resource)
+					resPkl, err = dr.LoadResourceFn(dr.Context, res.File, Resource)
 					if err != nil {
 						return dr.HandleAPIErrorResponse(500, err.Error(), true)
 					}
@@ -414,13 +436,13 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 					}
 
 					// Process runBlock for the current item
-					_, err := dr.processRunBlock(res, rsc, nodeActionID, true)
+					_, err = dr.ProcessRunBlockFn(res, rsc, nodeActionID, true)
 					if err != nil {
 						return false, err
 					}
 				}
 				// Clear the item database after processing all items
-				if err := dr.ClearItemDB(); err != nil {
+				if err := dr.ClearItemDBFn(); err != nil {
 					dr.Logger.Error("failed to clear item database after iteration", "actionID", res.ActionID, "error", err)
 					return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to clear item database for resource %s: %v", res.ActionID, err), true)
 				}
