@@ -1,9 +1,7 @@
-package utils_test
+package utils
 
 import (
 	"testing"
-
-	"github.com/kdeps/kdeps/pkg/utils"
 )
 
 func TestFixJSON_EscapesAndWhitespace(t *testing.T) {
@@ -11,7 +9,7 @@ func TestFixJSON_EscapesAndWhitespace(t *testing.T) {
 	input := "{\n  \"msg\": \"Hello\nWorld\",\n  \"quote\": \"She said \"Hi\"\"\n}"
 	expected := "{\n\"msg\": \"Hello\\nWorld\",\n\"quote\": \"She said \\\"Hi\\\"\"\n}"
 
-	if got := utils.FixJSON(input); got != expected {
+	if got := FixJSON(input); got != expected {
 		t.Errorf("FixJSON mismatch\nwant: %s\n got: %s", expected, got)
 	}
 }

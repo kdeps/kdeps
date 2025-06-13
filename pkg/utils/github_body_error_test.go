@@ -1,12 +1,10 @@
-package utils_test
+package utils
 
 import (
 	"context"
 	"io"
 	"net/http"
 	"testing"
-
-	"github.com/kdeps/kdeps/pkg/utils"
 )
 
 type errBody struct{ first bool }
@@ -38,7 +36,7 @@ func TestGetLatestGitHubReleaseReadError(t *testing.T) {
 	})}
 	defer func() { http.DefaultClient = prevClient }()
 
-	_, err := utils.GetLatestGitHubRelease(context.Background(), "owner/repo", "https://api.github.com")
+	_, err := GetLatestGitHubRelease(context.Background(), "owner/repo", "https://api.github.com")
 	if err == nil {
 		t.Fatalf("expected error due to body read failure, got nil")
 	}

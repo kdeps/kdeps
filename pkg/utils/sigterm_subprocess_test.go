@@ -1,4 +1,4 @@
-package utils_test
+package utils
 
 import (
 	"os"
@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/kdeps/kdeps/pkg/utils"
 )
 
 func TestSendSigterm_Subprocess(t *testing.T) {
@@ -21,7 +20,7 @@ func TestSendSigterm_Subprocess(t *testing.T) {
 			<-sigCh
 			os.Exit(0) // graceful exit when signal received
 		}()
-		utils.SendSigterm(logging.NewTestLogger())
+		SendSigterm(logging.NewTestLogger())
 		// If SendSigterm failed to deliver, exit non-zero after timeout.
 		time.Sleep(500 * time.Millisecond)
 		os.Exit(2)

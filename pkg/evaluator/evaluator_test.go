@@ -1,17 +1,16 @@
-package evaluator_test
+package evaluator
 
 import (
 	"context"
 	"strings"
 	"testing"
 
-	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCreateAndProcessPklFile_Amends(t *testing.T) {
+func TestCreateAndProcessPklFile_AmendsInPkg(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
@@ -23,7 +22,7 @@ func TestCreateAndProcessPklFile_Amends(t *testing.T) {
 	final := "output_amends.pkl"
 	sections := []string{"section1", "section2"}
 
-	err := evaluator.CreateAndProcessPklFile(fs, context.Background(), sections, final, "template.pkl", logger, processFunc, false)
+	err := CreateAndProcessPklFile(fs, context.Background(), sections, final, "template.pkl", logger, processFunc, false)
 	assert.NoError(t, err)
 
 	// Verify final file exists and contains expected text
@@ -34,7 +33,7 @@ func TestCreateAndProcessPklFile_Amends(t *testing.T) {
 	assert.True(t, strings.Contains(data, "processed"))
 }
 
-func TestCreateAndProcessPklFile_Extends(t *testing.T) {
+func TestCreateAndProcessPklFile_ExtendsInPkg(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
@@ -43,7 +42,7 @@ func TestCreateAndProcessPklFile_Extends(t *testing.T) {
 	}
 
 	final := "output_extends.pkl"
-	err := evaluator.CreateAndProcessPklFile(fs, context.Background(), nil, final, "template.pkl", logger, processFunc, true)
+	err := CreateAndProcessPklFile(fs, context.Background(), nil, final, "template.pkl", logger, processFunc, true)
 	assert.NoError(t, err)
 
 	content, _ := afero.ReadFile(fs, final)
@@ -52,7 +51,7 @@ func TestCreateAndProcessPklFile_Extends(t *testing.T) {
 	assert.Contains(t, str, "result-extends")
 }
 
-func TestCreateAndProcessPklFile_ProcessError(t *testing.T) {
+func TestCreateAndProcessPklFile_ProcessErrorInPkg(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
@@ -60,6 +59,6 @@ func TestCreateAndProcessPklFile_ProcessError(t *testing.T) {
 		return "", assert.AnError
 	}
 
-	err := evaluator.CreateAndProcessPklFile(fs, context.Background(), nil, "file.pkl", "template.pkl", logger, processFunc, false)
+	err := CreateAndProcessPklFile(fs, context.Background(), nil, "file.pkl", "template.pkl", logger, processFunc, false)
 	assert.Error(t, err)
 }

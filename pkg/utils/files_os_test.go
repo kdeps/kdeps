@@ -1,4 +1,4 @@
-package utils_test
+package utils
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/spf13/afero"
 )
 
@@ -19,7 +18,7 @@ func TestCreateFilesErrorOsFs(t *testing.T) {
 	roFs := afero.NewReadOnlyFs(afero.NewOsFs())
 
 	files := []string{filepath.Join(tmpDir, "should_fail.txt")}
-	err := utils.CreateFiles(roFs, context.Background(), files)
+	err := CreateFiles(roFs, context.Background(), files)
 	if err == nil {
 		t.Fatalf("expected error when creating files on read-only fs, got nil")
 	}
@@ -40,7 +39,7 @@ func TestWaitForFileReadyOsFs(t *testing.T) {
 		f.Close()
 	}()
 
-	if err := utils.WaitForFileReady(osFs, filePath, logger); err != nil {
+	if err := WaitForFileReady(osFs, filePath, logger); err != nil {
 		t.Fatalf("WaitForFileReady returned error: %v", err)
 	}
 }
@@ -51,7 +50,7 @@ func TestCreateDirectoriesErrorOsFs(t *testing.T) {
 	roFs := afero.NewReadOnlyFs(afero.NewOsFs())
 
 	dirs := []string{filepath.Join(tmpDir, "subdir")}
-	if err := utils.CreateDirectories(roFs, context.Background(), dirs); err == nil {
+	if err := CreateDirectories(roFs, context.Background(), dirs); err == nil {
 		t.Fatalf("expected error when creating directory on read-only fs, got nil")
 	}
 }

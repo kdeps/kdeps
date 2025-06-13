@@ -1,4 +1,4 @@
-package utils_test
+package utils
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/spf13/afero"
 )
 
@@ -31,7 +30,7 @@ func TestCreateFilesCloseError(t *testing.T) {
 	fs := badCloseFs{afero.NewOsFs()}
 	files := []string{filepath.Join(tmpDir, "fail.txt")}
 
-	if err := utils.CreateFiles(fs, context.Background(), files); err == nil {
+	if err := CreateFiles(fs, context.Background(), files); err == nil {
 		t.Fatalf("expected close error but got nil")
 	}
 }

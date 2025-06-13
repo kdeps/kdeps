@@ -1,4 +1,4 @@
-package utils_test
+package utils
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/spf13/afero"
 )
 
@@ -32,12 +31,12 @@ func TestWaitForFileReadyHelper(t *testing.T) {
 		f.Close()
 	}()
 
-	if err := utils.WaitForFileReady(fs, fname, logger); err != nil {
+	if err := WaitForFileReady(fs, fname, logger); err != nil {
 		t.Fatalf("WaitForFileReady returned error: %v", err)
 	}
 
 	// Ensure timeout branch returns error when file never appears.
-	if err := utils.WaitForFileReady(fs, "/tmp/missing.txt", logger); err == nil {
+	if err := WaitForFileReady(fs, "/tmp/missing.txt", logger); err == nil {
 		t.Errorf("expected timeout error but got nil")
 	}
 }
@@ -47,7 +46,7 @@ func TestCreateDirectoriesAndFilesHelper(t *testing.T) {
 	ctx := context.Background()
 
 	dirs := []string{"/a/b", "/c/d/e"}
-	if err := utils.CreateDirectories(fs, ctx, dirs); err != nil {
+	if err := CreateDirectories(fs, ctx, dirs); err != nil {
 		t.Fatalf("CreateDirectories error: %v", err)
 	}
 	for _, d := range dirs {
@@ -58,7 +57,7 @@ func TestCreateDirectoriesAndFilesHelper(t *testing.T) {
 	}
 
 	files := []string{"/a/b/file.txt", "/c/d/e/other.txt"}
-	if err := utils.CreateFiles(fs, ctx, files); err != nil {
+	if err := CreateFiles(fs, ctx, files); err != nil {
 		t.Fatalf("CreateFiles error: %v", err)
 	}
 	for _, f := range files {
@@ -71,13 +70,13 @@ func TestCreateDirectoriesAndFilesHelper(t *testing.T) {
 
 func TestGenerateResourceIDFilenameAndSanitizeArchivePathHelper(t *testing.T) {
 	id := "abc/def:ghi@jkl"
-	got := utils.GenerateResourceIDFilename(id, "req-")
+	got := GenerateResourceIDFilename(id, "req-")
 	want := "req-abc_def_ghi_jkl"
 	if filepath.Base(got) != want {
 		t.Errorf("GenerateResourceIDFilename = %s, want %s", got, want)
 	}
 
-	good, err := utils.SanitizeArchivePath("/base", "sub/file.txt")
+	good, err := SanitizeArchivePath("/base", "sub/file.txt")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -86,7 +85,7 @@ func TestGenerateResourceIDFilenameAndSanitizeArchivePathHelper(t *testing.T) {
 		t.Errorf("SanitizeArchivePath = %s, want %s", good, expectedGood)
 	}
 
-	if _, err := utils.SanitizeArchivePath("/base", "../escape.txt"); err == nil {
+	if _, err := SanitizeArchivePath("/base", "../escape.txt"); err == nil {
 		t.Errorf("expected error for path escape, got nil")
 	}
 }
@@ -94,7 +93,7 @@ func TestGenerateResourceIDFilenameAndSanitizeArchivePathHelper(t *testing.T) {
 func TestWaitForFileReadyError(t *testing.T) {
 	fs := errFS{afero.NewMemMapFs()}
 	logger := logging.NewTestLogger()
-	if err := utils.WaitForFileReady(fs, "/any", logger); err == nil {
+	if err := WaitForFileReady(fs, "/any", logger); err == nil {
 		t.Errorf("expected error due to Stat failure, got nil")
 	}
 }

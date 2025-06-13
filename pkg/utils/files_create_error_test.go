@@ -1,4 +1,4 @@
-package utils_test
+package utils
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/spf13/afero"
 )
 
@@ -21,7 +20,7 @@ func TestCreateFiles_CreateError(t *testing.T) {
 	tmpDir := t.TempDir()
 	fs := failCreateFs{afero.NewOsFs()}
 	files := []string{filepath.Join(tmpDir, "cannot.txt")}
-	err := utils.CreateFiles(fs, context.Background(), files)
+	err := CreateFiles(fs, context.Background(), files)
 	if err == nil {
 		t.Fatalf("expected error from CreateFiles when underlying fs.Create fails")
 	}

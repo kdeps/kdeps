@@ -1,13 +1,14 @@
-package cmd_test
+package cmd
 
 import (
 	"context"
 	"testing"
 
-	"github.com/kdeps/kdeps/cmd"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/require"
 )
 
 // helper to execute a Cobra command and return the error.
@@ -26,9 +27,9 @@ func TestCommandConstructors_NoArgsError(t *testing.T) {
 		name string
 		cmd  *cobra.Command
 	}{
-		{"add", cmd.NewAddCommand(fs, ctx, dir, logger)},
-		{"build", cmd.NewBuildCommand(fs, ctx, dir, nil, logger)},
-		{"run", cmd.NewRunCommand(fs, ctx, dir, nil, logger)},
+		{"add", NewAddCommand(fs, ctx, dir, logger)},
+		{"build", NewBuildCommand(fs, ctx, dir, nil, logger)},
+		{"run", NewRunCommand(fs, ctx, dir, nil, logger)},
 	}
 
 	for _, tt := range tests {
@@ -44,7 +45,7 @@ func TestNewAgentCommand_Metadata(t *testing.T) {
 	dir := t.TempDir()
 	logger := logging.NewTestLogger()
 
-	c := cmd.NewAgentCommand(fs, ctx, dir, logger)
+	c := NewAgentCommand(fs, ctx, dir, logger)
 	if c.Use != "new [agentName]" {
 		t.Errorf("unexpected Use: %s", c.Use)
 	}
@@ -66,13 +67,37 @@ func TestBuildAndRunCommands_RunEErrorFast(t *testing.T) {
 
 	nonExist := "nonexistent.kdeps"
 
-	buildCmd := cmd.NewBuildCommand(fs, ctx, dir, nil, logger)
+	buildCmd := NewBuildCommand(fs, ctx, dir, nil, logger)
 	if err := execCommand(buildCmd, nonExist); err == nil {
 		t.Errorf("BuildCommand expected error for missing file, got nil")
 	}
 
-	runCmd := cmd.NewRunCommand(fs, ctx, dir, nil, logger)
+	runCmd := NewRunCommand(fs, ctx, dir, nil, logger)
 	if err := execCommand(runCmd, nonExist); err == nil {
 		t.Errorf("RunCommand expected error for missing file, got nil")
 	}
+}
+
+func TestNewBuildAndRunCommands_Basic(t *testing.T) {
+	logger := logging.NewTestLogger()
+	fs := afero.NewOsFs()
+	ctx := context.Background()
+	kdepsDir := t.TempDir()
+
+	sysCfg := &kdeps.Kdeps{}
+
+	buildCmd := NewBuildCommand(fs, ctx, kdepsDir, sysCfg, logger)
+	require.Equal(t, "build [package]", buildCmd.Use)
+	require.Len(t, buildCmd.Aliases, 1)
+
+	// Invoke RunE directly with a non-existent file; we expect an error but no panic.
+	err := buildCmd.RunE(buildCmd, []string{"missing.kdeps"})
+	require.Error(t, err)
+
+	runCmd := NewRunCommand(fs, ctx, kdepsDir, sysCfg, logger)
+	require.Equal(t, "run [package]", runCmd.Use)
+	require.Len(t, runCmd.Aliases, 1)
+
+	err = runCmd.RunE(runCmd, []string{"missing.kdeps"})
+	require.Error(t, err)
 }

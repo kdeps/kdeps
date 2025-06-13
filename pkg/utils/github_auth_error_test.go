@@ -1,12 +1,10 @@
-package utils_test
+package utils
 
 import (
 	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"github.com/kdeps/kdeps/pkg/utils"
 )
 
 func TestGetLatestGitHubRelease_AuthErrors(t *testing.T) {
@@ -20,7 +18,7 @@ func TestGetLatestGitHubRelease_AuthErrors(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(c.status)
 		}))
-		_, err := utils.GetLatestGitHubRelease(context.Background(), "owner/repo", srv.URL)
+		_, err := GetLatestGitHubRelease(context.Background(), "owner/repo", srv.URL)
 		if err == nil {
 			t.Errorf("expected error for status %d", c.status)
 		}

@@ -1,11 +1,9 @@
-package utils_test
+package utils
 
 import (
 	"encoding/base64"
 	"reflect"
 	"testing"
-
-	"github.com/kdeps/kdeps/pkg/utils"
 )
 
 func TestIsBase64Encoded(t *testing.T) {
@@ -21,7 +19,7 @@ func TestIsBase64Encoded(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := utils.IsBase64Encoded(tt.input)
+		got := IsBase64Encoded(tt.input)
 		if got != tt.want {
 			t.Errorf("IsBase64Encoded(%s) = %v, want %v", tt.name, got, tt.want)
 		}
@@ -30,12 +28,12 @@ func TestIsBase64Encoded(t *testing.T) {
 
 func TestEncodeDecodeRoundTrip(t *testing.T) {
 	original := "roundtrip value"
-	encoded := utils.EncodeBase64String(original)
-	if !utils.IsBase64Encoded(encoded) {
+	encoded := EncodeBase64String(original)
+	if !IsBase64Encoded(encoded) {
 		t.Fatalf("encoded value expected to be base64 but IsBase64Encoded returned false: %s", encoded)
 	}
 
-	decoded, err := utils.DecodeBase64String(encoded)
+	decoded, err := DecodeBase64String(encoded)
 	if err != nil {
 		t.Fatalf("DecodeBase64String returned error: %v", err)
 	}
@@ -45,7 +43,7 @@ func TestEncodeDecodeRoundTrip(t *testing.T) {
 }
 
 func TestDecodeBase64IfNeeded(t *testing.T) {
-	encoded := utils.EncodeBase64String("plain text")
+	encoded := EncodeBase64String("plain text")
 
 	tests := []struct {
 		name  string
@@ -57,7 +55,7 @@ func TestDecodeBase64IfNeeded(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got, err := utils.DecodeBase64IfNeeded(tt.input)
+		got, err := DecodeBase64IfNeeded(tt.input)
 		if err != nil {
 			t.Fatalf("%s: unexpected error: %v", tt.name, err)
 		}
@@ -67,11 +65,11 @@ func TestDecodeBase64IfNeeded(t *testing.T) {
 	}
 }
 
-func TestEncodeValue(t *testing.T) {
-	encoded := utils.EncodeValue("plain text")
-	encodedTwice := utils.EncodeValue(encoded)
+func TestEncodeValue_Base64Pkg(t *testing.T) {
+	encoded := EncodeValue("plain text")
+	encodedTwice := EncodeValue(encoded)
 
-	if !utils.IsBase64Encoded(encoded) {
+	if !IsBase64Encoded(encoded) {
 		t.Fatalf("EncodeValue did not encode plain text")
 	}
 	if encoded != encodedTwice {
@@ -79,18 +77,18 @@ func TestEncodeValue(t *testing.T) {
 	}
 }
 
-func TestEncodeValuePtr(t *testing.T) {
-	if got := utils.EncodeValuePtr(nil); got != nil {
+func TestEncodeValuePtr_Base64Pkg(t *testing.T) {
+	if got := EncodeValuePtr(nil); got != nil {
 		t.Errorf("EncodeValuePtr(nil) = %v, want nil", got)
 	}
 
 	original := "plain"
-	gotPtr := utils.EncodeValuePtr(&original)
+	gotPtr := EncodeValuePtr(&original)
 	if gotPtr == nil {
 		t.Fatalf("EncodeValuePtr returned nil for non-nil input pointer")
 	}
 
-	if !utils.IsBase64Encoded(*gotPtr) {
+	if !IsBase64Encoded(*gotPtr) {
 		t.Errorf("EncodeValuePtr did not encode the string, got %s", *gotPtr)
 	}
 	if original != "plain" {
@@ -99,10 +97,10 @@ func TestEncodeValuePtr(t *testing.T) {
 }
 
 func TestDecodeStringMapAndSlice(t *testing.T) {
-	encoded := utils.EncodeValue("value")
+	encoded := EncodeValue("value")
 
 	srcMap := map[string]string{"k": encoded}
-	decodedMap, err := utils.DecodeStringMap(&srcMap, "field")
+	decodedMap, err := DecodeStringMap(&srcMap, "field")
 	if err != nil {
 		t.Fatalf("DecodeStringMap error: %v", err)
 	}
@@ -112,7 +110,7 @@ func TestDecodeStringMapAndSlice(t *testing.T) {
 	}
 
 	srcSlice := []string{encoded, "plain"}
-	decodedSlice, err := utils.DecodeStringSlice(&srcSlice, "field")
+	decodedSlice, err := DecodeStringSlice(&srcSlice, "field")
 	if err != nil {
 		t.Fatalf("DecodeStringSlice error: %v", err)
 	}
