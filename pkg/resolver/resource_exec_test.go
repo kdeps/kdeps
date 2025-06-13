@@ -45,7 +45,7 @@ func TestHandleExec(t *testing.T) {
 	dr := setupTestExecResolver(t)
 
 	t.Run("SuccessfulExecution", func(t *testing.T) {
-	
+
 		execBlock := &exec.ResourceExec{
 			Command: "echo 'Hello, World!'",
 		}
@@ -55,7 +55,7 @@ func TestHandleExec(t *testing.T) {
 	})
 
 	t.Run("DecodeError", func(t *testing.T) {
-	
+
 		execBlock := &exec.ResourceExec{
 			Command: "invalid base64",
 		}
@@ -70,7 +70,7 @@ func TestDecodeExecBlock(t *testing.T) {
 	dr := setupTestExecResolver(t)
 
 	t.Run("ValidBase64Command", func(t *testing.T) {
-	
+
 		encodedCommand := "ZWNobyAnSGVsbG8sIFdvcmxkISc=" // "echo 'Hello, World!'"
 		execBlock := &exec.ResourceExec{
 			Command: encodedCommand,
@@ -82,7 +82,7 @@ func TestDecodeExecBlock(t *testing.T) {
 	})
 
 	t.Run("ValidBase64Env", func(t *testing.T) {
-	
+
 		env := map[string]string{
 			"TEST_KEY": "dGVzdF92YWx1ZQ==", // "test_value"
 		}
@@ -97,7 +97,7 @@ func TestDecodeExecBlock(t *testing.T) {
 	})
 
 	t.Run("InvalidBase64Command", func(t *testing.T) {
-	
+
 		execBlock := &exec.ResourceExec{
 			Command: "invalid base64",
 		}
@@ -112,7 +112,7 @@ func TestWriteStdoutToFile(t *testing.T) {
 	dr := setupTestExecResolver(t)
 
 	t.Run("ValidStdout", func(t *testing.T) {
-	
+
 		encodedStdout := "SGVsbG8sIFdvcmxkIQ==" // "Hello, World!"
 		resourceID := "test-resource"
 
@@ -127,14 +127,14 @@ func TestWriteStdoutToFile(t *testing.T) {
 	})
 
 	t.Run("NilStdout", func(t *testing.T) {
-	
+
 		filePath, err := dr.WriteStdoutToFile("test-resource", nil)
 		assert.NoError(t, err)
 		assert.Empty(t, filePath)
 	})
 
 	t.Run("InvalidBase64", func(t *testing.T) {
-	
+
 		invalidStdout := "invalid base64"
 		_, err := dr.WriteStdoutToFile("test-resource", &invalidStdout)
 		assert.NoError(t, err)
@@ -160,7 +160,6 @@ func skipIfPKLError(t *testing.T, err error) {
 
 func TestAppendExecEntry(t *testing.T) {
 
-
 	// Helper to create fresh resolver inside each sub-test
 	newResolver := func(t *testing.T) (*DependencyResolver, string) {
 		dr := setupTestExecResolver(t)
@@ -169,7 +168,7 @@ func TestAppendExecEntry(t *testing.T) {
 	}
 
 	t.Run("NewEntry", func(t *testing.T) {
-	
+
 		dr, pklPath := newResolver(t)
 
 		initialContent := fmt.Sprintf(`extends "package://schema.kdeps.com/core@%s#/Exec.pkl"
@@ -196,7 +195,7 @@ resources {
 	})
 
 	t.Run("ExistingEntry", func(t *testing.T) {
-	
+
 		dr, pklPath := newResolver(t)
 
 		initialContent := fmt.Sprintf(`extends "package://schema.kdeps.com/core@%s#/Exec.pkl"
@@ -233,7 +232,7 @@ func TestEncodeExecEnv(t *testing.T) {
 	dr := setupTestExecResolver(t)
 
 	t.Run("ValidEnv", func(t *testing.T) {
-	
+
 		env := map[string]string{
 			"KEY1": "value1",
 			"KEY2": "value2",
@@ -246,13 +245,13 @@ func TestEncodeExecEnv(t *testing.T) {
 	})
 
 	t.Run("NilEnv", func(t *testing.T) {
-	
+
 		encoded := dr.encodeExecEnv(nil)
 		assert.Nil(t, encoded)
 	})
 
 	t.Run("EmptyEnv", func(t *testing.T) {
-	
+
 		env := map[string]string{}
 		encoded := dr.encodeExecEnv(&env)
 		assert.NotNil(t, encoded)
@@ -265,7 +264,7 @@ func TestEncodeExecOutputs(t *testing.T) {
 	dr := setupTestExecResolver(t)
 
 	t.Run("ValidOutputs", func(t *testing.T) {
-	
+
 		stdout := "test output"
 		stderr := "test error"
 
@@ -277,7 +276,7 @@ func TestEncodeExecOutputs(t *testing.T) {
 	})
 
 	t.Run("NilOutputs", func(t *testing.T) {
-	
+
 		encodedStdout, encodedStderr := dr.encodeExecOutputs(nil, nil)
 		assert.Nil(t, encodedStdout)
 		assert.Nil(t, encodedStderr)

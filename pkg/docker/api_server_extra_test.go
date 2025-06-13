@@ -1,9 +1,11 @@
 package docker
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -12,17 +14,81 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidateMethodExtra(t *testing.T) {
-	r, _ := http.NewRequest(http.MethodPost, "http://example.com", nil)
-	allowed := []string{http.MethodGet, http.MethodPost}
-	out, err := validateMethod(r, allowed)
-	require.NoError(t, err)
-	require.Equal(t, `method = "POST"`, out)
+func TestValidateMethodExtra2(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	methodStr, err := validateMethod(req, []string{http.MethodGet, http.MethodPost})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if methodStr != `method = "POST"` {
+		t.Fatalf("unexpected method string: %s", methodStr)
+	}
 
-	// Disallowed method
-	r.Method = http.MethodDelete
-	_, err = validateMethod(r, allowed)
-	require.Error(t, err)
+	// invalid method
+	badReq := httptest.NewRequest("DELETE", "/", nil)
+	if _, err := validateMethod(badReq, []string{"GET"}); err == nil {
+		t.Fatalf("expected error for disallowed method")
+	}
+}
+
+func TestCleanOldFilesExtra2(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+
+	// create dummy response file
+	path := "/tmp/resp.json"
+	afero.WriteFile(fs, path, []byte("dummy"), 0o644)
+
+	dr := &resolver.DependencyResolver{
+		Fs:                 fs,
+		Logger:             logger,
+		ResponseTargetFile: path,
+	}
+
+	if err := cleanOldFiles(dr); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	exists, _ := afero.Exists(fs, path)
+	if exists {
+		t.Fatalf("file should have been removed")
+	}
+}
+
+func TestDecodeResponseContentExtra2(t *testing.T) {
+	logger := logging.NewTestLogger()
+
+	// prepare APIResponse with base64 encoded JSON data
+	apiResp := APIResponse{
+		Success: true,
+		Response: ResponseData{
+			Data: []string{base64.StdEncoding.EncodeToString([]byte(`{"foo":"bar"}`))},
+		},
+		Meta: ResponseMeta{
+			Headers: map[string]string{"X-Test": "yes"},
+		},
+	}
+	encoded, _ := json.Marshal(apiResp)
+
+	decResp, err := decodeResponseContent(encoded, logger)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(decResp.Response.Data) != 1 || decResp.Response.Data[0] != "{\n  \"foo\": \"bar\"\n}" {
+		t.Fatalf("unexpected decoded data: %+v", decResp.Response.Data)
+	}
+}
+
+func TestFormatResponseJSONExtra2(t *testing.T) {
+	// Response with data as JSON string
+	raw := []byte(`{"response":{"data":["{\"a\":1}"]}}`)
+	pretty := formatResponseJSON(raw)
+
+	// Should be pretty printed and data element should be object not string
+	if !bytes.Contains(pretty, []byte("\"a\": 1")) {
+		t.Fatalf("pretty output missing expected content: %s", string(pretty))
+	}
 }
 
 func TestFormatResponseJSONExtra(t *testing.T) {

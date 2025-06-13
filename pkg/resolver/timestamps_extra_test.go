@@ -95,3 +95,11 @@ func TestFormatDurationExtra(t *testing.T) {
 		}
 	}
 }
+
+func TestGetResourceFilePath_InvalidType(t *testing.T) {
+	dr := &DependencyResolver{}
+	_, err := dr.getResourceFilePath("unknown")
+	if err == nil {
+		t.Fatalf("expected error for invalid resource type")
+	}
+}

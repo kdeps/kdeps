@@ -64,7 +64,7 @@ func TestDependencyResolver(t *testing.T) {
 	}
 
 	t.Run("ConcurrentResourceLoading", func(t *testing.T) {
-	
+
 		// Test concurrent loading of multiple resources
 		done := make(chan bool)
 		for i := 0; i < 5; i++ {
@@ -86,7 +86,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("ResourceCleanup", func(t *testing.T) {
-	
+
 		// Test cleanup of temporary files
 		resourceID := "cleanup-test"
 		execBlock := &pklExec.ResourceExec{
@@ -111,7 +111,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("InvalidResourceID", func(t *testing.T) {
-	
+
 		// Test handling of invalid resource IDs
 		execBlock := &pklExec.ResourceExec{
 			Command: "echo 'test'",
@@ -122,7 +122,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("LargeCommandOutput", func(t *testing.T) {
-	
+
 		// Test handling of large command outputs
 		largeOutput := strings.Repeat("test output\n", 1000)
 		execBlock := &pklExec.ResourceExec{
@@ -134,7 +134,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("EnvironmentVariableInjection", func(t *testing.T) {
-	
+
 		// Test environment variable injection
 		env := map[string]string{
 			"TEST_VAR": "test_value",
@@ -150,7 +150,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("TimeoutHandling", func(t *testing.T) {
-	
+
 		// Test handling of command timeouts
 		execBlock := &pklExec.ResourceExec{
 			Command: "sleep 0.1",
@@ -168,7 +168,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("ConcurrentFileAccess", func(t *testing.T) {
-	
+
 		// Test concurrent access to output files
 		done := make(chan bool)
 		for i := 0; i < 3; i++ {
@@ -190,7 +190,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("ErrorHandling", func(t *testing.T) {
-	
+
 		// Test handling of invalid commands
 		execBlock := &pklExec.ResourceExec{
 			Command: "nonexistent_command",
@@ -204,7 +204,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("Base64Encoding", func(t *testing.T) {
-	
+
 		// Test handling of base64 encoded commands
 		encodedCommand := "ZWNobyAnSGVsbG8sIFdvcmxkISc=" // "echo 'Hello, World!'"
 		execBlock := &pklExec.ResourceExec{
@@ -216,7 +216,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("EnvironmentVariableEncoding", func(t *testing.T) {
-	
+
 		// Test handling of base64 encoded environment variables
 		env := map[string]string{
 			"TEST_VAR": "dGVzdF92YWx1ZQ==", // "test_value"
@@ -231,7 +231,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("FileOutputHandling", func(t *testing.T) {
-	
+
 		// Test handling of file output
 		execBlock := &pklExec.ResourceExec{
 			Command: "echo 'Test output' > test.txt",
@@ -252,7 +252,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("ConcurrentEnvironmentAccess", func(t *testing.T) {
-	
+
 		// Test concurrent access to environment variables
 		done := make(chan bool)
 		for i := 0; i < 3; i++ {
@@ -278,7 +278,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("ResourceCleanupOnError", func(t *testing.T) {
-	
+
 		// Test cleanup of resources when an error occurs
 		execBlock := &pklExec.ResourceExec{
 			Command: "nonexistent_command",
@@ -302,7 +302,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("LongRunningCommand", func(t *testing.T) {
-	
+
 		// Test handling of long-running commands
 		execBlock := &pklExec.ResourceExec{
 			Command: "sleep 2",
@@ -317,7 +317,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("CommandWithSpecialCharacters", func(t *testing.T) {
-	
+
 		// Test handling of commands with special characters
 		execBlock := &pklExec.ResourceExec{
 			Command: "echo 'Hello, World! @#$%^&*()'",
@@ -328,7 +328,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("EnvironmentVariableExpansion", func(t *testing.T) {
-	
+
 		// Test environment variable expansion in commands
 		env := map[string]string{
 			"VAR1": "value1",
@@ -344,7 +344,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("ResourceIDValidation", func(t *testing.T) {
-	
+
 		// Test validation of resource IDs
 		testCases := []struct {
 			resourceID string
@@ -372,7 +372,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("CommandOutputHandling", func(t *testing.T) {
-	
+
 		testCases := []struct {
 			name        string
 			command     string
@@ -398,7 +398,7 @@ func TestDependencyResolver(t *testing.T) {
 		for _, tc := range testCases {
 			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
-			
+
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
 				}
@@ -414,7 +414,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("CommandExecutionEdgeCases", func(t *testing.T) {
-	
+
 		testCases := []struct {
 			name        string
 			command     string
@@ -440,7 +440,7 @@ func TestDependencyResolver(t *testing.T) {
 		for _, tc := range testCases {
 			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
-			
+
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
 					TimeoutDuration: &pkl.Duration{
@@ -460,7 +460,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("ProcessManagement", func(t *testing.T) {
-	
+
 		testCases := []struct {
 			name        string
 			command     string
@@ -481,7 +481,7 @@ func TestDependencyResolver(t *testing.T) {
 		for _, tc := range testCases {
 			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
-			
+
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
 					TimeoutDuration: &pkl.Duration{
@@ -501,7 +501,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("SecurityScenarios", func(t *testing.T) {
-	
+
 		testCases := []struct {
 			name        string
 			command     string
@@ -532,7 +532,7 @@ func TestDependencyResolver(t *testing.T) {
 		for _, tc := range testCases {
 			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
-			
+
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
 				}
@@ -548,7 +548,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("ResourceManagement", func(t *testing.T) {
-	
+
 		testCases := []struct {
 			name        string
 			command     string
@@ -574,7 +574,7 @@ func TestDependencyResolver(t *testing.T) {
 		for _, tc := range testCases {
 			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
-			
+
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
 					TimeoutDuration: &pkl.Duration{
@@ -594,7 +594,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("ErrorHandlingEdgeCases", func(t *testing.T) {
-	
+
 		testCases := []struct {
 			name        string
 			command     string
@@ -610,7 +610,7 @@ func TestDependencyResolver(t *testing.T) {
 		for _, tc := range testCases {
 			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
-			
+
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
 				}
@@ -626,7 +626,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("InputValidation", func(t *testing.T) {
-	
+
 		testCases := []struct {
 			name        string
 			command     string
@@ -662,7 +662,7 @@ func TestDependencyResolver(t *testing.T) {
 		for _, tc := range testCases {
 			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
-			
+
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
 				}
@@ -678,7 +678,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("ComplexCommandScenarios", func(t *testing.T) {
-	
+
 		testCases := []struct {
 			name        string
 			command     string
@@ -699,7 +699,7 @@ func TestDependencyResolver(t *testing.T) {
 		for _, tc := range testCases {
 			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
-			
+
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
 				}
@@ -715,7 +715,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("ErrorRecovery", func(t *testing.T) {
-	
+
 		testCases := []struct {
 			name        string
 			command     string
@@ -736,7 +736,7 @@ func TestDependencyResolver(t *testing.T) {
 		for _, tc := range testCases {
 			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
-			
+
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
 				}
@@ -752,7 +752,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("ResourceLimits", func(t *testing.T) {
-	
+
 		testCases := []struct {
 			name        string
 			command     string
@@ -778,7 +778,7 @@ func TestDependencyResolver(t *testing.T) {
 		for _, tc := range testCases {
 			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
-			
+
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
 					TimeoutDuration: &pkl.Duration{
@@ -798,7 +798,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("SystemInteraction", func(t *testing.T) {
-	
+
 		testCases := []struct {
 			name        string
 			command     string
@@ -819,7 +819,7 @@ func TestDependencyResolver(t *testing.T) {
 		for _, tc := range testCases {
 			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
-			
+
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
 				}
@@ -835,7 +835,7 @@ func TestDependencyResolver(t *testing.T) {
 	})
 
 	t.Run("AdditionalEdgeCases", func(t *testing.T) {
-	
+
 		testCases := []struct {
 			name        string
 			command     string
@@ -861,7 +861,7 @@ func TestDependencyResolver(t *testing.T) {
 		for _, tc := range testCases {
 			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
-			
+
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
 				}

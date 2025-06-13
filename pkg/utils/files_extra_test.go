@@ -30,6 +30,22 @@ func TestWaitForFileReady_SuccessAndTimeout(t *testing.T) {
 	require.Less(t, time.Since(start), 1500*time.Millisecond)
 }
 
+func TestWaitForFileReady_Success(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	filename := "ready.txt"
+
+	// create file after small delay in goroutine
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		afero.WriteFile(fs, filename, []byte("ok"), 0o644)
+	}()
+
+	if err := WaitForFileReady(fs, filename, logger); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestGenerateResourceIDFilenameExtra(t *testing.T) {
 	cases := []struct {
 		id   string
