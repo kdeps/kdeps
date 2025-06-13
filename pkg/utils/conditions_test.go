@@ -7,7 +7,7 @@ import (
 )
 
 func TestShouldSkip(t *testing.T) {
-	t.Parallel()
+
 	t.Run("NoConditions", func(t *testing.T) {
 		conditions := []any{}
 		result := ShouldSkip(&conditions)
@@ -36,7 +36,7 @@ func TestShouldSkip(t *testing.T) {
 }
 
 func TestAllConditionsMet(t *testing.T) {
-	t.Parallel()
+
 	t.Run("NoConditions", func(t *testing.T) {
 		conditions := []any{}
 		assert.True(t, AllConditionsMet(&conditions))

@@ -210,7 +210,11 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 
 		pklContent.WriteString(dr.encodeExecStderr(res.Stderr))
 		pklContent.WriteString(dr.encodeExecStdout(res.Stdout))
-		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *res.File))
+		if res.File != nil {
+			pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *res.File))
+		} else {
+			pklContent.WriteString("    file = \"\"\n")
+		}
 
 		pklContent.WriteString("  }\n")
 	}

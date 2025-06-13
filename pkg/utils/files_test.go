@@ -24,12 +24,12 @@ func (e *errorFs) Stat(name string) (os.FileInfo, error) {
 }
 
 func TestWaitForFileReady(t *testing.T) {
-	t.Parallel()
+
 
 	logger := logging.NewTestLogger()
 
 	t.Run("FileExists", func(t *testing.T) {
-		t.Parallel()
+	
 		fs := afero.NewMemMapFs()
 		filepath := "/test/file.txt"
 
@@ -41,7 +41,7 @@ func TestWaitForFileReady(t *testing.T) {
 	})
 
 	t.Run("FileDoesNotExist", func(t *testing.T) {
-		t.Parallel()
+	
 		fs := afero.NewMemMapFs()
 		filepath := "/test/nonexistent.txt"
 
@@ -51,7 +51,7 @@ func TestWaitForFileReady(t *testing.T) {
 	})
 
 	t.Run("ErrorCheckingFile", func(t *testing.T) {
-		t.Parallel()
+	
 		// Use a filesystem that will cause an error when checking file existence
 		fs := afero.NewReadOnlyFs(afero.NewMemMapFs())
 		filepath := "/test/file.txt"
@@ -94,10 +94,10 @@ func TestGenerateResourceIDFilename(t *testing.T) {
 }
 
 func TestCreateDirectories(t *testing.T) {
-	t.Parallel()
+
 
 	t.Run("CreateSingleDirectory", func(t *testing.T) {
-		t.Parallel()
+	
 		fs := afero.NewMemMapFs()
 		ctx := context.Background()
 		dirs := []string{"/test/dir"}
@@ -110,7 +110,7 @@ func TestCreateDirectories(t *testing.T) {
 	})
 
 	t.Run("CreateMultipleDirectories", func(t *testing.T) {
-		t.Parallel()
+	
 		fs := afero.NewMemMapFs()
 		ctx := context.Background()
 		dirs := []string{"/test/dir1", "/test/dir2", "/nested/deep/dir"}
@@ -125,7 +125,7 @@ func TestCreateDirectories(t *testing.T) {
 	})
 
 	t.Run("EmptyDirectoriesList", func(t *testing.T) {
-		t.Parallel()
+	
 		fs := afero.NewMemMapFs()
 		ctx := context.Background()
 		dirs := []string{}
@@ -135,7 +135,7 @@ func TestCreateDirectories(t *testing.T) {
 	})
 
 	t.Run("FailToCreateDirectory", func(t *testing.T) {
-		t.Parallel()
+	
 		fs := afero.NewReadOnlyFs(afero.NewMemMapFs())
 		ctx := context.Background()
 		dirs := []string{"/test/dir"}
@@ -147,10 +147,10 @@ func TestCreateDirectories(t *testing.T) {
 }
 
 func TestCreateFiles(t *testing.T) {
-	t.Parallel()
+
 
 	t.Run("CreateSingleFile", func(t *testing.T) {
-		t.Parallel()
+	
 		fs := afero.NewMemMapFs()
 		ctx := context.Background()
 		files := []string{"/test/file.txt"}
@@ -163,7 +163,7 @@ func TestCreateFiles(t *testing.T) {
 	})
 
 	t.Run("CreateMultipleFiles", func(t *testing.T) {
-		t.Parallel()
+	
 		fs := afero.NewMemMapFs()
 		ctx := context.Background()
 		files := []string{"/test/file1.txt", "/test/file2.txt", "/nested/file.txt"}
@@ -178,7 +178,7 @@ func TestCreateFiles(t *testing.T) {
 	})
 
 	t.Run("EmptyFilesList", func(t *testing.T) {
-		t.Parallel()
+	
 		fs := afero.NewMemMapFs()
 		ctx := context.Background()
 		files := []string{}
@@ -188,7 +188,7 @@ func TestCreateFiles(t *testing.T) {
 	})
 
 	t.Run("FailToCreateFile", func(t *testing.T) {
-		t.Parallel()
+	
 		fs := afero.NewReadOnlyFs(afero.NewMemMapFs())
 		ctx := context.Background()
 		files := []string{"/test/file.txt"}

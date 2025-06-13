@@ -9,7 +9,7 @@ import (
 )
 
 func TestPklResourceReader(t *testing.T) {
-	t.Parallel()
+
 
 	// Use in-memory SQLite database for testing
 	dbPath := "file::memory:"
@@ -18,22 +18,22 @@ func TestPklResourceReader(t *testing.T) {
 	defer reader.DB.Close()
 
 	t.Run("Scheme", func(t *testing.T) {
-		t.Parallel()
+	
 		require.Equal(t, "memory", reader.Scheme())
 	})
 
 	t.Run("IsGlobbable", func(t *testing.T) {
-		t.Parallel()
+	
 		require.False(t, reader.IsGlobbable())
 	})
 
 	t.Run("HasHierarchicalUris", func(t *testing.T) {
-		t.Parallel()
+	
 		require.False(t, reader.HasHierarchicalUris())
 	})
 
 	t.Run("ListElements", func(t *testing.T) {
-		t.Parallel()
+	
 		uri, _ := url.Parse("memory:///test")
 		elements, err := reader.ListElements(*uri)
 		require.NoError(t, err)
@@ -41,7 +41,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_GetRecord", func(t *testing.T) {
-		t.Parallel()
+	
 		reader, err := InitializeMemory("file::memory:")
 		require.NoError(t, err)
 		defer reader.DB.Close()
@@ -66,7 +66,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_SetRecord", func(t *testing.T) {
-		t.Parallel()
+	
 		reader, err := InitializeMemory("file::memory:")
 		require.NoError(t, err)
 		defer reader.DB.Close()
@@ -93,7 +93,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_DeleteRecord", func(t *testing.T) {
-		t.Parallel()
+	
 		reader, err := InitializeMemory("file::memory:")
 		require.NoError(t, err)
 		defer reader.DB.Close()
@@ -122,7 +122,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_Clear", func(t *testing.T) {
-		t.Parallel()
+	
 		reader, err := InitializeMemory("file::memory:")
 		require.NoError(t, err)
 		defer reader.DB.Close()
@@ -164,7 +164,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_NilReceiver", func(t *testing.T) {
-		t.Parallel()
+	
 		nilReader := &PklResourceReader{DBPath: dbPath}
 		uri, _ := url.Parse("memory:///test7?op=set&value=value7")
 		data, err := nilReader.Read(*uri)
@@ -178,7 +178,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_NilDB", func(t *testing.T) {
-		t.Parallel()
+	
 		reader := &PklResourceReader{DBPath: dbPath, DB: nil}
 		uri, _ := url.Parse("memory:///test8?op=set&value=value8")
 		data, err := reader.Read(*uri)
@@ -193,10 +193,10 @@ func TestPklResourceReader(t *testing.T) {
 }
 
 func TestInitializeDatabase(t *testing.T) {
-	t.Parallel()
+
 
 	t.Run("SuccessfulInitialization", func(t *testing.T) {
-		t.Parallel()
+	
 		db, err := InitializeDatabase("file::memory:")
 		require.NoError(t, err)
 		require.NotNil(t, db)
@@ -209,7 +209,7 @@ func TestInitializeDatabase(t *testing.T) {
 	})
 
 	t.Run("InvalidPath", func(t *testing.T) {
-		t.Parallel()
+	
 		db, err := InitializeDatabase("file::memory:?cache=invalid")
 		if err != nil {
 			if db != nil {
@@ -222,7 +222,7 @@ func TestInitializeDatabase(t *testing.T) {
 }
 
 func TestInitializeMemory(t *testing.T) {
-	t.Parallel()
+
 	reader, err := InitializeMemory("file::memory:")
 	require.NoError(t, err)
 	require.NotNil(t, reader)

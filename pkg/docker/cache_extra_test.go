@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -56,4 +58,80 @@ func TestBuildURLExtended(t *testing.T) {
 	base := "https://example.com/download/{version}/file-{arch}.tar.gz"
 	url := buildURL(base, "1.0.0", "x86_64")
 	require.Equal(t, "https://example.com/download/1.0.0/file-x86_64.tar.gz", url)
+}
+
+func TestParseVersionExtra(t *testing.T) {
+	cases := []struct {
+		in   string
+		want []int
+	}{
+		{"1.2.3", []int{1, 2, 3}},
+		{"2.0.0-alpha", []int{2, 0, 0, 0}},
+		{"2024.10-1", []int{2024, 10, 1}},
+	}
+	for _, c := range cases {
+		got := parseVersion(c.in)
+		if !reflect.DeepEqual(got, c.want) {
+			t.Fatalf("parseVersion(%s)=%v want %v", c.in, got, c.want)
+		}
+	}
+}
+
+func TestCompareVersionsExtra(t *testing.T) {
+	ctx := context.Background()
+	if !CompareVersions(ctx, "1.2.3", "1.2.0") {
+		t.Fatalf("expected 1.2.3 to be greater than 1.2.0")
+	}
+	if CompareVersions(ctx, "1.2.0", "1.2.3") {
+		t.Fatalf("expected 1.2.0 to be less than 1.2.3")
+	}
+	if CompareVersions(ctx, "1.2.3", "1.2.3") {
+		t.Fatalf("expected equal versions to return false")
+	}
+}
+
+// TestGetCurrentArchitectureExtra verifies mapping for default and specific repos.
+func TestGetCurrentArchitectureExtra(t *testing.T) {
+	ctx := context.Background()
+	goarch := runtime.GOARCH
+
+	// Default mapping: "amd64"->"x86_64", "arm64"->"aarch64", else identity
+	var expectedDefault string
+	switch goarch {
+	case "amd64":
+		expectedDefault = "x86_64"
+	case "arm64":
+		expectedDefault = "aarch64"
+	default:
+		expectedDefault = goarch
+	}
+	gotDefault := GetCurrentArchitecture(ctx, "unknown/repo")
+	if gotDefault != expectedDefault {
+		t.Errorf("GetCurrentArchitecture default: got %s, want %s", gotDefault, expectedDefault)
+	}
+
+	// Specific mapping for apple/pkl: "amd64"->"amd64", "arm64"->"aarch64"
+	var expectedApple string
+	switch goarch {
+	case "amd64":
+		expectedApple = "amd64"
+	case "arm64":
+		expectedApple = "aarch64"
+	default:
+		expectedApple = goarch
+	}
+	gotApple := GetCurrentArchitecture(ctx, "apple/pkl")
+	if gotApple != expectedApple {
+		t.Errorf("GetCurrentArchitecture apple/pkl: got %s, want %s", gotApple, expectedApple)
+	}
+}
+
+// TestBuildURLExtra verifies that buildURL replaces placeholders in the base URL.
+func TestBuildURLExtra(t *testing.T) {
+	baseURL := "https://example.com/{version}/file-{arch}.bin"
+	url := buildURL(baseURL, "1.2.3", "x86_64")
+	want := "https://example.com/1.2.3/file-x86_64.bin"
+	if url != want {
+		t.Errorf("buildURL() = %s, want %s", url, want)
+	}
 }

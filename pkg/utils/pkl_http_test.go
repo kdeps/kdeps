@@ -8,7 +8,7 @@ import (
 )
 
 func TestFormatRequestHeaders(t *testing.T) {
-	t.Parallel()
+
 	tests := []struct {
 		name     string
 		input    map[string][]string
@@ -52,7 +52,7 @@ func TestFormatRequestHeaders(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+		
 			result := FormatRequestHeaders(tt.input)
 			if tt.name == "MultipleHeaders" {
 				// Since map iteration order is not guaranteed, check that both lines are present
@@ -68,7 +68,7 @@ func TestFormatRequestHeaders(t *testing.T) {
 }
 
 func TestFormatRequestParams(t *testing.T) {
-	t.Parallel()
+
 	tests := []struct {
 		name     string
 		input    map[string][]string
@@ -112,7 +112,7 @@ func TestFormatRequestParams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+		
 			result := FormatRequestParams(tt.input)
 			if tt.name == "MultipleParams" {
 				// Since map iteration order is not guaranteed, check that both lines are present
@@ -128,7 +128,7 @@ func TestFormatRequestParams(t *testing.T) {
 }
 
 func TestFormatResponseHeaders(t *testing.T) {
-	t.Parallel()
+
 	tests := []struct {
 		name     string
 		input    map[string]string
@@ -165,7 +165,7 @@ func TestFormatResponseHeaders(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+		
 			result := FormatResponseHeaders(tt.input)
 			if tt.name == "MultipleHeaders" {
 				// Since map iteration order is not guaranteed, check that both lines are present
@@ -181,7 +181,7 @@ func TestFormatResponseHeaders(t *testing.T) {
 }
 
 func TestFormatResponseProperties(t *testing.T) {
-	t.Parallel()
+
 	tests := []struct {
 		name     string
 		input    map[string]string
@@ -218,7 +218,7 @@ func TestFormatResponseProperties(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+		
 			result := FormatResponseProperties(tt.input)
 			if tt.name == "MultipleProperties" {
 				// Since map iteration order is not guaranteed, check that both lines are present

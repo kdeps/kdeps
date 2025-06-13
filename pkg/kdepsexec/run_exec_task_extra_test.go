@@ -10,7 +10,7 @@ import (
 )
 
 func TestRunExecTask_Foreground(t *testing.T) {
-	t.Parallel()
+
 	logger := logging.GetLogger()
 	ctx := context.Background()
 
@@ -28,7 +28,7 @@ func TestRunExecTask_Foreground(t *testing.T) {
 }
 
 func TestRunExecTask_ShellMode(t *testing.T) {
-	t.Parallel()
+
 	logger := logging.GetLogger()
 	ctx := context.Background()
 
@@ -43,7 +43,7 @@ func TestRunExecTask_ShellMode(t *testing.T) {
 }
 
 func TestRunExecTask_Background(t *testing.T) {
-	t.Parallel()
+
 	logger := logging.GetLogger()
 	ctx := context.Background()
 

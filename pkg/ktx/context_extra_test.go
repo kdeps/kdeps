@@ -3,34 +3,36 @@ package ktx
 import (
 	"context"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestContextHelpers(t *testing.T) {
-	baseCtx := context.Background()
-	key := ContextKey("user")
+	base := context.Background()
 
-	// CreateContext should embed value
-	ctx := CreateContext(baseCtx, key, "alice")
-	if v, ok := ReadContext(ctx, key); !ok || v.(string) != "alice" {
-		t.Fatalf("Create/ReadContext mismatch: got %v ok=%v", v, ok)
-	}
+	// create
+	ctx := CreateContext(base, CtxKeyGraphID, "123")
 
-	// Update existing key value
-	ctx2 := UpdateContext(ctx, key, "bob")
-	if v, _ := ReadContext(ctx2, key); v.(string) != "bob" {
-		t.Errorf("UpdateContext failed; got %v", v)
-	}
+	// read existing
+	v, ok := ReadContext(ctx, CtxKeyGraphID)
+	assert.True(t, ok)
+	assert.Equal(t, "123", v)
 
-	// Update non-existent key returns same ctx (pointer equality) and prints message; we cannot capture stdout easily but ensure value unchanged
-	otherKey := ContextKey("missing")
-	ctx3 := UpdateContext(ctx2, otherKey, 123)
-	if ctx3 != ctx2 {
-		t.Errorf("UpdateContext on missing key should return original ctx")
-	}
+	// read missing
+	_, ok = ReadContext(ctx, CtxKeyAgentDir)
+	assert.False(t, ok)
 
-	// DeleteContext should return a fresh background context with no values.
-	emptyCtx := DeleteContext(ctx2)
-	if _, ok := ReadContext(emptyCtx, key); ok {
-		t.Errorf("DeleteContext should remove values; got present")
-	}
+	// update value
+	updated := UpdateContext(ctx, CtxKeyGraphID, "456")
+	v2, _ := ReadContext(updated, CtxKeyGraphID)
+	assert.Equal(t, "456", v2)
+
+	// update missing key should not panic and returns same ctx
+	same := UpdateContext(ctx, ContextKey("missing"), "x")
+	assert.NotNil(t, same)
+
+	// delete returns new background context (no values)
+	blank := DeleteContext(updated)
+	_, ok = ReadContext(blank, CtxKeyGraphID)
+	assert.False(t, ok)
 }

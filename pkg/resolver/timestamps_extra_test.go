@@ -77,3 +77,21 @@ func TestFormatDuration_Simple(t *testing.T) {
 		}
 	}
 }
+
+func TestFormatDurationExtra(t *testing.T) {
+	cases := []struct {
+		dur  time.Duration
+		want string
+	}{
+		{time.Second * 5, "5s"},
+		{time.Minute*2 + time.Second*10, "2m 10s"},
+		{time.Hour*1 + time.Minute*3 + time.Second*4, "1h 3m 4s"},
+	}
+
+	for _, c := range cases {
+		got := formatDuration(c.dur)
+		if got != c.want {
+			t.Errorf("formatDuration(%v) = %s, want %s", c.dur, got, c.want)
+		}
+	}
+}

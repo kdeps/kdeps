@@ -7,7 +7,7 @@ import (
 )
 
 func TestEncodePklMap(t *testing.T) {
-	t.Parallel()
+
 	tests := []struct {
 		name     string
 		input    *map[string]string
@@ -41,7 +41,7 @@ func TestEncodePklMap(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+		
 			result := EncodePklMap(tt.input)
 			assert.Equal(t, tt.expected, result)
 		})
@@ -57,7 +57,7 @@ func TestEncodePklMap(t *testing.T) {
 }
 
 func TestEncodePklSlice(t *testing.T) {
-	t.Parallel()
+
 	tests := []struct {
 		name     string
 		input    *[]string
@@ -87,7 +87,7 @@ func TestEncodePklSlice(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+		
 			result := EncodePklSlice(tt.input)
 			assert.Equal(t, tt.expected, result)
 		})
@@ -95,7 +95,7 @@ func TestEncodePklSlice(t *testing.T) {
 }
 
 func TestEncodeValue(t *testing.T) {
-	t.Parallel()
+
 	tests := []struct {
 		name     string
 		input    string
@@ -125,7 +125,7 @@ func TestEncodeValue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+		
 			result := EncodeValue(tt.input)
 			assert.Equal(t, tt.expected, result)
 		})

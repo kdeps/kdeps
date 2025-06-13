@@ -9,29 +9,29 @@ import (
 )
 
 func TestIsBase64Encoded(t *testing.T) {
-	t.Parallel()
+
 	t.Run("ValidBase64String", func(t *testing.T) {
-		t.Parallel()
+	
 		assert.True(t, IsBase64Encoded("U29tZSB2YWxpZCBzdHJpbmc=")) // "Some valid string"
 	})
 
 	t.Run("InvalidBase64String", func(t *testing.T) {
-		t.Parallel()
+	
 		assert.False(t, IsBase64Encoded("InvalidString!!!"))
 	})
 
 	t.Run("EmptyString", func(t *testing.T) {
-		t.Parallel()
+	
 		assert.False(t, IsBase64Encoded(""))
 	})
 
 	t.Run("NonBase64Characters", func(t *testing.T) {
-		t.Parallel()
+	
 		assert.False(t, IsBase64Encoded("Hello@World"))
 	})
 
 	t.Run("ValidBase64ButInvalidUTF8", func(t *testing.T) {
-		t.Parallel()
+	
 		assert.False(t, IsBase64Encoded("////")) // Decodes to invalid UTF-8
 	})
 
@@ -50,23 +50,23 @@ func TestIsBase64Encoded(t *testing.T) {
 }
 
 func TestDecodeBase64String(t *testing.T) {
-	t.Parallel()
+
 	t.Run("DecodeValidBase64String", func(t *testing.T) {
-		t.Parallel()
+	
 		decoded, err := DecodeBase64String("U29tZSB2YWxpZCBzdHJpbmc=") // "Some valid string"
 		require.NoError(t, err)
 		assert.Equal(t, "Some valid string", decoded)
 	})
 
 	t.Run("DecodeInvalidBase64String", func(t *testing.T) {
-		t.Parallel()
+	
 		decoded, err := DecodeBase64String("InvalidString!!!")
 		require.NoError(t, err)
 		assert.Equal(t, "InvalidString!!!", decoded) // Should return the original string
 	})
 
 	t.Run("DecodeEmptyString", func(t *testing.T) {
-		t.Parallel()
+	
 		decoded, err := DecodeBase64String("")
 		require.NoError(t, err)
 		assert.Equal(t, "", decoded)
@@ -84,22 +84,22 @@ func TestDecodeBase64String(t *testing.T) {
 }
 
 func TestEncodeBase64String(t *testing.T) {
-	t.Parallel()
+
 	t.Run("EncodeString", func(t *testing.T) {
-		t.Parallel()
+	
 		encoded := EncodeBase64String("Some valid string")
 		assert.Equal(t, "U29tZSB2YWxpZCBzdHJpbmc=", encoded)
 	})
 
 	t.Run("EncodeEmptyString", func(t *testing.T) {
-		t.Parallel()
+	
 		encoded := EncodeBase64String("")
 		assert.Equal(t, "", encoded)
 	})
 }
 
 func TestRoundTripBase64Encoding(t *testing.T) {
-	t.Parallel()
+
 	tests := []struct {
 		name  string
 		input string
@@ -109,7 +109,7 @@ func TestRoundTripBase64Encoding(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+		
 			encoded := EncodeBase64String(tt.input)
 			decoded, err := DecodeBase64String(encoded)
 			assert.NoError(t, err)
@@ -119,7 +119,7 @@ func TestRoundTripBase64Encoding(t *testing.T) {
 }
 
 func TestDecodeBase64IfNeeded(t *testing.T) {
-	t.Parallel()
+
 	tests := []struct {
 		name     string
 		input    string
@@ -133,7 +133,7 @@ func TestDecodeBase64IfNeeded(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+		
 			result, err := DecodeBase64IfNeeded(tt.input)
 			if tt.hasError {
 				assert.Error(t, err)
@@ -146,7 +146,7 @@ func TestDecodeBase64IfNeeded(t *testing.T) {
 }
 
 func TestEncodeValuePtr(t *testing.T) {
-	t.Parallel()
+
 
 	// Test with nil pointer
 	result := EncodeValuePtr(nil)
@@ -166,7 +166,7 @@ func TestEncodeValuePtr(t *testing.T) {
 }
 
 func TestDecodeStringMap(t *testing.T) {
-	t.Parallel()
+
 
 	// Test with nil map
 	result, err := DecodeStringMap(nil, "test")
@@ -195,7 +195,7 @@ func TestDecodeStringMap(t *testing.T) {
 }
 
 func TestDecodeStringSlice(t *testing.T) {
-	t.Parallel()
+
 
 	// Test with nil slice
 	result, err := DecodeStringSlice(nil, "test")

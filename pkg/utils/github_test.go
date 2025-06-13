@@ -13,7 +13,7 @@ import (
 )
 
 func TestGetLatestGitHubRelease(t *testing.T) {
-	t.Parallel()
+
 
 	// Mock GitHub API server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

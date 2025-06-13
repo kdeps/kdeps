@@ -13,7 +13,7 @@ import (
 
 // Test that activate/deactivate use the injected ExecTaskRunnerFn and succeed.
 func TestCondaEnvironmentExecutionInjectedSuccess(t *testing.T) {
-	t.Parallel()
+
 
 	var activateCalled, deactivateCalled bool
 
@@ -42,7 +42,7 @@ func TestCondaEnvironmentExecutionInjectedSuccess(t *testing.T) {
 
 // Test that errors from injected runner are propagated.
 func TestCondaEnvironmentExecutionInjectedFailure(t *testing.T) {
-	t.Parallel()
+
 
 	expectedErr := errors.New("conda failure")
 	dr := &DependencyResolver{
@@ -61,7 +61,7 @@ func TestCondaEnvironmentExecutionInjectedFailure(t *testing.T) {
 
 // Test that handleFileImports uses injected import helpers.
 func TestHandleFileImportsUsesInjection(t *testing.T) {
-	t.Parallel()
+
 
 	var prependCalled, placeholderCalled bool
 

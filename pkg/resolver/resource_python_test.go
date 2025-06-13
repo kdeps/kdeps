@@ -63,11 +63,11 @@ func setupTestResolver(t *testing.T) *DependencyResolver {
 }
 
 func TestHandlePython(t *testing.T) {
-	t.Parallel()
+
 	dr := setupTestResolver(t)
 
 	t.Run("SuccessfulExecution", func(t *testing.T) {
-		t.Parallel()
+	
 		pythonBlock := &python.ResourcePython{
 			Script: "print('Hello, World!')",
 		}
@@ -77,7 +77,7 @@ func TestHandlePython(t *testing.T) {
 	})
 
 	t.Run("DecodeError", func(t *testing.T) {
-		t.Parallel()
+	
 		pythonBlock := &python.ResourcePython{
 			Script: "invalid base64",
 		}
@@ -88,11 +88,11 @@ func TestHandlePython(t *testing.T) {
 }
 
 func TestDecodePythonBlock(t *testing.T) {
-	t.Parallel()
+
 	dr := setupTestResolver(t)
 
 	t.Run("ValidBase64Script", func(t *testing.T) {
-		t.Parallel()
+	
 		encodedScript := "cHJpbnQoJ0hlbGxvLCBXb3JsZCEnKQ==" // "print('Hello, World!')"
 		pythonBlock := &python.ResourcePython{
 			Script: encodedScript,
@@ -104,7 +104,7 @@ func TestDecodePythonBlock(t *testing.T) {
 	})
 
 	t.Run("ValidBase64Env", func(t *testing.T) {
-		t.Parallel()
+	
 		env := map[string]string{
 			"TEST_KEY": "dGVzdF92YWx1ZQ==", // "test_value"
 		}
@@ -119,7 +119,7 @@ func TestDecodePythonBlock(t *testing.T) {
 	})
 
 	t.Run("InvalidBase64Script", func(t *testing.T) {
-		t.Parallel()
+	
 		pythonBlock := &python.ResourcePython{
 			Script: "invalid base64",
 		}
@@ -130,11 +130,11 @@ func TestDecodePythonBlock(t *testing.T) {
 }
 
 func TestWritePythonStdoutToFile(t *testing.T) {
-	t.Parallel()
+
 	dr := setupTestResolver(t)
 
 	t.Run("ValidStdout", func(t *testing.T) {
-		t.Parallel()
+	
 		encodedStdout := "SGVsbG8sIFdvcmxkIQ==" // "Hello, World!"
 		resourceID := "test-resource-valid"
 
@@ -149,14 +149,14 @@ func TestWritePythonStdoutToFile(t *testing.T) {
 	})
 
 	t.Run("NilStdout", func(t *testing.T) {
-		t.Parallel()
+	
 		filePath, err := dr.WritePythonStdoutToFile("test-resource-nil", nil)
 		assert.NoError(t, err)
 		assert.Empty(t, filePath)
 	})
 
 	t.Run("InvalidBase64", func(t *testing.T) {
-		t.Parallel()
+	
 		invalidStdout := "invalid base64"
 		_, err := dr.WritePythonStdoutToFile("test-resource-invalid", &invalidStdout)
 		assert.NoError(t, err)
@@ -164,11 +164,11 @@ func TestWritePythonStdoutToFile(t *testing.T) {
 }
 
 func TestFormatPythonEnv(t *testing.T) {
-	t.Parallel()
+
 	dr := setupTestResolver(t)
 
 	t.Run("ValidEnv", func(t *testing.T) {
-		t.Parallel()
+	
 		env := map[string]string{
 			"KEY1": "value1",
 			"KEY2": "value2",
@@ -181,13 +181,13 @@ func TestFormatPythonEnv(t *testing.T) {
 	})
 
 	t.Run("NilEnv", func(t *testing.T) {
-		t.Parallel()
+	
 		formatted := dr.formatPythonEnv(nil)
 		assert.Empty(t, formatted)
 	})
 
 	t.Run("EmptyEnv", func(t *testing.T) {
-		t.Parallel()
+	
 		env := map[string]string{}
 		formatted := dr.formatPythonEnv(&env)
 		assert.Empty(t, formatted)
@@ -195,11 +195,11 @@ func TestFormatPythonEnv(t *testing.T) {
 }
 
 func TestCreatePythonTempFile(t *testing.T) {
-	t.Parallel()
+
 	dr := setupTestResolver(t)
 
 	t.Run("ValidScript", func(t *testing.T) {
-		t.Parallel()
+	
 		script := "print('test')"
 
 		file, err := dr.createPythonTempFile(script)
@@ -216,7 +216,7 @@ func TestCreatePythonTempFile(t *testing.T) {
 	})
 
 	t.Run("EmptyScript", func(t *testing.T) {
-		t.Parallel()
+	
 		file, err := dr.createPythonTempFile("")
 		assert.NoError(t, err)
 		assert.NotNil(t, file)
@@ -232,11 +232,11 @@ func TestCreatePythonTempFile(t *testing.T) {
 }
 
 func TestCleanupTempFile(t *testing.T) {
-	t.Parallel()
+
 	dr := setupTestResolver(t)
 
 	t.Run("ExistingFile", func(t *testing.T) {
-		t.Parallel()
+	
 		// Create a temporary file
 		file, err := dr.Fs.Create("/tmp/test-file.txt")
 		require.NoError(t, err)
@@ -252,7 +252,7 @@ func TestCleanupTempFile(t *testing.T) {
 	})
 
 	t.Run("NonExistentFile", func(t *testing.T) {
-		t.Parallel()
+	
 		// Attempt to cleanup non-existent file
 		dr.cleanupTempFile("/tmp/non-existent.txt")
 		// Should not panic or error

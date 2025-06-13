@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/kdeps/schema/gen/exec"
 	"github.com/spf13/afero"
@@ -39,11 +41,11 @@ func setupTestExecResolver(t *testing.T) *DependencyResolver {
 }
 
 func TestHandleExec(t *testing.T) {
-	t.Parallel()
+
 	dr := setupTestExecResolver(t)
 
 	t.Run("SuccessfulExecution", func(t *testing.T) {
-		t.Parallel()
+	
 		execBlock := &exec.ResourceExec{
 			Command: "echo 'Hello, World!'",
 		}
@@ -53,7 +55,7 @@ func TestHandleExec(t *testing.T) {
 	})
 
 	t.Run("DecodeError", func(t *testing.T) {
-		t.Parallel()
+	
 		execBlock := &exec.ResourceExec{
 			Command: "invalid base64",
 		}
@@ -64,11 +66,11 @@ func TestHandleExec(t *testing.T) {
 }
 
 func TestDecodeExecBlock(t *testing.T) {
-	t.Parallel()
+
 	dr := setupTestExecResolver(t)
 
 	t.Run("ValidBase64Command", func(t *testing.T) {
-		t.Parallel()
+	
 		encodedCommand := "ZWNobyAnSGVsbG8sIFdvcmxkISc=" // "echo 'Hello, World!'"
 		execBlock := &exec.ResourceExec{
 			Command: encodedCommand,
@@ -80,7 +82,7 @@ func TestDecodeExecBlock(t *testing.T) {
 	})
 
 	t.Run("ValidBase64Env", func(t *testing.T) {
-		t.Parallel()
+	
 		env := map[string]string{
 			"TEST_KEY": "dGVzdF92YWx1ZQ==", // "test_value"
 		}
@@ -95,7 +97,7 @@ func TestDecodeExecBlock(t *testing.T) {
 	})
 
 	t.Run("InvalidBase64Command", func(t *testing.T) {
-		t.Parallel()
+	
 		execBlock := &exec.ResourceExec{
 			Command: "invalid base64",
 		}
@@ -106,11 +108,11 @@ func TestDecodeExecBlock(t *testing.T) {
 }
 
 func TestWriteStdoutToFile(t *testing.T) {
-	t.Parallel()
+
 	dr := setupTestExecResolver(t)
 
 	t.Run("ValidStdout", func(t *testing.T) {
-		t.Parallel()
+	
 		encodedStdout := "SGVsbG8sIFdvcmxkIQ==" // "Hello, World!"
 		resourceID := "test-resource"
 
@@ -125,14 +127,14 @@ func TestWriteStdoutToFile(t *testing.T) {
 	})
 
 	t.Run("NilStdout", func(t *testing.T) {
-		t.Parallel()
+	
 		filePath, err := dr.WriteStdoutToFile("test-resource", nil)
 		assert.NoError(t, err)
 		assert.Empty(t, filePath)
 	})
 
 	t.Run("InvalidBase64", func(t *testing.T) {
-		t.Parallel()
+	
 		invalidStdout := "invalid base64"
 		_, err := dr.WriteStdoutToFile("test-resource", &invalidStdout)
 		assert.NoError(t, err)
@@ -157,87 +159,81 @@ func skipIfPKLError(t *testing.T, err error) {
 }
 
 func TestAppendExecEntry(t *testing.T) {
-	t.Parallel()
-	dr := setupTestExecResolver(t)
+
+
+	// Helper to create fresh resolver inside each sub-test
+	newResolver := func(t *testing.T) (*DependencyResolver, string) {
+		dr := setupTestExecResolver(t)
+		pklPath := filepath.Join(dr.ActionDir, "exec/"+dr.RequestID+"__exec_output.pkl")
+		return dr, pklPath
+	}
 
 	t.Run("NewEntry", func(t *testing.T) {
-		t.Parallel()
-		// Create initial PKL file
-		pklPath := filepath.Join(dr.ActionDir, "exec/"+dr.RequestID+"__exec_output.pkl")
-		initialContent := `extends "package://schema.kdeps.com/core@1.0.0#/Exec.pkl"
+	
+		dr, pklPath := newResolver(t)
+
+		initialContent := fmt.Sprintf(`extends "package://schema.kdeps.com/core@%s#/Exec.pkl"
 
 resources {
-}`
-		err := afero.WriteFile(dr.Fs, pklPath, []byte(initialContent), 0o644)
-		require.NoError(t, err)
+}`, schema.SchemaVersion(dr.Context))
+		require.NoError(t, afero.WriteFile(dr.Fs, pklPath, []byte(initialContent), 0o644))
 
-		// Create new exec entry
 		newExec := &exec.ResourceExec{
-			Command: "echo 'test'",
-			Stdout:  utils.StringPtr("test output"),
-			Timestamp: &pkl.Duration{
-				Value: float64(time.Now().Unix()),
-				Unit:  pkl.Nanosecond,
-			},
+			Command:   "echo 'test'",
+			Stdout:    utils.StringPtr("test output"),
+			Timestamp: &pkl.Duration{Value: float64(time.Now().Unix()), Unit: pkl.Nanosecond},
 		}
 
-		err = dr.AppendExecEntry("test-resource", newExec)
+		err := dr.AppendExecEntry("test-resource", newExec)
 		skipIfPKLError(t, err)
 		assert.NoError(t, err)
 
-		// Verify PKL file was updated
 		content, err := afero.ReadFile(dr.Fs, pklPath)
 		skipIfPKLError(t, err)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Contains(t, string(content), "test-resource")
-		assert.Contains(t, string(content), "echo 'test'")
+		assert.Contains(t, string(content), "ZWNobyAndGVzdCc=")
 	})
 
 	t.Run("ExistingEntry", func(t *testing.T) {
-		t.Parallel()
-		// Create initial PKL file with existing entry
-		pklPath := filepath.Join(dr.ActionDir, "exec/"+dr.RequestID+"__exec_output.pkl")
-		initialContent := `extends "package://schema.kdeps.com/core@1.0.0#/Exec.pkl"
+	
+		dr, pklPath := newResolver(t)
+
+		initialContent := fmt.Sprintf(`extends "package://schema.kdeps.com/core@%s#/Exec.pkl"
 
 resources {
   ["existing-resource"] {
     command = "echo 'old'"
     timestamp = 1234567890.ns
   }
-}`
-		err := afero.WriteFile(dr.Fs, pklPath, []byte(initialContent), 0o644)
-		require.NoError(t, err)
+}`, schema.SchemaVersion(dr.Context))
+		require.NoError(t, afero.WriteFile(dr.Fs, pklPath, []byte(initialContent), 0o644))
 
-		// Create new exec entry
 		newExec := &exec.ResourceExec{
-			Command: "echo 'new'",
-			Stdout:  utils.StringPtr("new output"),
-			Timestamp: &pkl.Duration{
-				Value: float64(time.Now().Unix()),
-				Unit:  pkl.Nanosecond,
-			},
+			Command:   "echo 'new'",
+			Stdout:    utils.StringPtr("new output"),
+			Timestamp: &pkl.Duration{Value: float64(time.Now().Unix()), Unit: pkl.Nanosecond},
 		}
 
-		err = dr.AppendExecEntry("existing-resource", newExec)
+		err := dr.AppendExecEntry("existing-resource", newExec)
 		skipIfPKLError(t, err)
 		assert.NoError(t, err)
 
-		// Verify PKL file was updated
 		content, err := afero.ReadFile(dr.Fs, pklPath)
 		skipIfPKLError(t, err)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Contains(t, string(content), "existing-resource")
-		assert.Contains(t, string(content), "echo 'new'")
+		assert.Contains(t, string(content), "ZWNobyAnbmV3Jw==")
 		assert.NotContains(t, string(content), "echo 'old'")
 	})
 }
 
 func TestEncodeExecEnv(t *testing.T) {
-	t.Parallel()
+
 	dr := setupTestExecResolver(t)
 
 	t.Run("ValidEnv", func(t *testing.T) {
-		t.Parallel()
+	
 		env := map[string]string{
 			"KEY1": "value1",
 			"KEY2": "value2",
@@ -250,13 +246,13 @@ func TestEncodeExecEnv(t *testing.T) {
 	})
 
 	t.Run("NilEnv", func(t *testing.T) {
-		t.Parallel()
+	
 		encoded := dr.encodeExecEnv(nil)
 		assert.Nil(t, encoded)
 	})
 
 	t.Run("EmptyEnv", func(t *testing.T) {
-		t.Parallel()
+	
 		env := map[string]string{}
 		encoded := dr.encodeExecEnv(&env)
 		assert.NotNil(t, encoded)
@@ -265,11 +261,11 @@ func TestEncodeExecEnv(t *testing.T) {
 }
 
 func TestEncodeExecOutputs(t *testing.T) {
-	t.Parallel()
+
 	dr := setupTestExecResolver(t)
 
 	t.Run("ValidOutputs", func(t *testing.T) {
-		t.Parallel()
+	
 		stdout := "test output"
 		stderr := "test error"
 
@@ -281,7 +277,7 @@ func TestEncodeExecOutputs(t *testing.T) {
 	})
 
 	t.Run("NilOutputs", func(t *testing.T) {
-		t.Parallel()
+	
 		encodedStdout, encodedStderr := dr.encodeExecOutputs(nil, nil)
 		assert.Nil(t, encodedStdout)
 		assert.Nil(t, encodedStderr)

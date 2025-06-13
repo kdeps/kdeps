@@ -30,7 +30,7 @@ func TestCreateLogger(t *testing.T) {
 }
 
 func TestNewTestLogger(t *testing.T) {
-	t.Parallel()
+
 	testLogger := NewTestLogger()
 	assert.NotNil(t, testLogger)
 	assert.NotNil(t, testLogger.Logger)
@@ -38,7 +38,7 @@ func TestNewTestLogger(t *testing.T) {
 }
 
 func TestGetOutput(t *testing.T) {
-	t.Parallel()
+
 	testLogger := NewTestLogger()
 	assert.Equal(t, "", testLogger.GetOutput())
 
@@ -55,7 +55,7 @@ func TestGetOutput(t *testing.T) {
 }
 
 func TestLogLevels(t *testing.T) {
-	t.Parallel()
+
 	testLogger := NewTestLogger()
 	logger = testLogger
 
@@ -122,7 +122,7 @@ func TestGetLogger(t *testing.T) {
 }
 
 func TestBaseLogger(t *testing.T) {
-	t.Parallel()
+
 	testLogger := NewTestLogger()
 	assert.NotNil(t, testLogger.BaseLogger())
 
@@ -134,7 +134,7 @@ func TestBaseLogger(t *testing.T) {
 }
 
 func TestWith(t *testing.T) {
-	t.Parallel()
+
 	testLogger := NewTestLogger()
 	newLogger := testLogger.With("key", "value")
 	assert.NotNil(t, newLogger)
@@ -147,7 +147,7 @@ func TestWith(t *testing.T) {
 }
 
 func TestFatal(t *testing.T) {
-	t.Parallel()
+
 	// Since Fatal calls os.Exit, we can't test it directly
 	// This is a limitation of testing fatal conditions
 	// In practice, this would be tested through integration tests

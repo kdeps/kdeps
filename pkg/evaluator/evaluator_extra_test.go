@@ -2,9 +2,11 @@ package evaluator
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -64,6 +66,15 @@ func TestEvalPkl_WithDummyBinary(t *testing.T) {
 	require.Contains(t, output, header)
 }
 
+func TestEvalPkl_InvalidExtension(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	// Should error when file does not have .pkl extension
+	_, err := EvalPkl(fs, context.Background(), "file.txt", "header", logger)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), ".pkl extension")
+}
+
 func TestCreateAndProcessPklFile_Basic(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
@@ -89,4 +100,46 @@ func TestCreateAndProcessPklFile_Basic(t *testing.T) {
 	// ensure both sections exist
 	require.Contains(t, string(content), "section1")
 	require.Contains(t, string(content), "section2")
+}
+
+func TestCreateAndProcessPklFile_Simple(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+	finalPath := "/out/result.pkl"
+	sections := []string{"sec1", "sec2"}
+	// processFunc writes content combining headerSection and sections
+	var receivedHeader string
+	processFunc := func(f afero.Fs, c context.Context, tmpFile string, headerSection string, l *logging.Logger) (string, error) {
+		receivedHeader = headerSection
+		return headerSection + "-processed", nil
+	}
+
+	err := CreateAndProcessPklFile(fs, ctx, sections, finalPath, "Template.pkl", logger, processFunc, false)
+	require.NoError(t, err)
+	// Verify output file exists with expected content
+	data, err := afero.ReadFile(fs, finalPath)
+	require.NoError(t, err)
+	require.Equal(t, receivedHeader+"-processed", string(data))
+}
+
+func TestCreateAndProcessPklFile_Extends(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+	finalPath := "result_ext.pkl"
+	sections := []string{"alpha"}
+	// processFunc checks that headerSection starts with 'extends'
+	processFunc := func(f afero.Fs, c context.Context, tmpFile string, headerSection string, l *logging.Logger) (string, error) {
+		if !strings.HasPrefix(headerSection, "extends") {
+			return "", errors.New("unexpected header")
+		}
+		return "ok", nil
+	}
+
+	err := CreateAndProcessPklFile(fs, ctx, sections, finalPath, "Template.pkl", logger, processFunc, true)
+	require.NoError(t, err)
+	data, err := afero.ReadFile(fs, finalPath)
+	require.NoError(t, err)
+	require.Equal(t, "ok", string(data))
 }

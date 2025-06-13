@@ -12,7 +12,7 @@ import (
 )
 
 func TestLoadResource(t *testing.T) {
-	t.Parallel()
+
 
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
@@ -121,7 +121,7 @@ run {
 
 // Test helper to ensure the logging calls work correctly
 func TestLoadResourceLogging(t *testing.T) {
-	t.Parallel()
+
 
 	ctx := context.Background()
 	logger := logging.NewTestLogger()

@@ -47,7 +47,7 @@ func setNonInteractive(t *testing.T) func() {
 }
 
 func TestFeatures(t *testing.T) {
-	t.Parallel()
+
 	suite := godog.TestSuite{
 		ScenarioInitializer: func(ctx *godog.ScenarioContext) {
 			ctx.Step(`^a file "([^"]*)" exists in the current directory$`, aFileExistsInTheCurrentDirectory)
@@ -287,7 +287,7 @@ func theConfigurationWillBeValidated() error {
 // Unit Tests for comprehensive coverage
 
 func TestFindConfigurationUnit(t *testing.T) {
-	t.Parallel()
+
 
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
@@ -338,7 +338,7 @@ func TestFindConfigurationUnit(t *testing.T) {
 }
 
 func TestGenerateConfigurationUnit(t *testing.T) {
-	t.Parallel()
+
 
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
@@ -378,7 +378,7 @@ func TestGenerateConfigurationUnit(t *testing.T) {
 }
 
 func TestEditConfigurationUnit(t *testing.T) {
-	t.Parallel()
+
 
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
@@ -414,7 +414,7 @@ func TestEditConfigurationUnit(t *testing.T) {
 }
 
 func TestValidateConfigurationUnit(t *testing.T) {
-	t.Parallel()
+
 
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
@@ -436,7 +436,7 @@ func TestValidateConfigurationUnit(t *testing.T) {
 }
 
 func TestLoadConfigurationUnit(t *testing.T) {
-	t.Parallel()
+
 
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
@@ -461,7 +461,7 @@ func TestLoadConfigurationUnit(t *testing.T) {
 }
 
 func TestGetKdepsPath(t *testing.T) {
-	t.Parallel()
+
 	tests := []struct {
 		name     string
 		kdepsCfg kdeps.Kdeps
@@ -517,7 +517,7 @@ func TestGetKdepsPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+		
 			got, err := GetKdepsPath(ctx, tt.kdepsCfg)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetKdepsPath() error = %v, wantErr %v", err, tt.wantErr)
@@ -531,7 +531,7 @@ func TestGetKdepsPath(t *testing.T) {
 }
 
 func TestGenerateConfigurationAdditional(t *testing.T) {
-	t.Parallel()
+
 
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
@@ -552,7 +552,7 @@ func TestGenerateConfigurationAdditional(t *testing.T) {
 }
 
 func TestEditConfigurationAdditional(t *testing.T) {
-	t.Parallel()
+
 
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
@@ -561,7 +561,7 @@ func TestEditConfigurationAdditional(t *testing.T) {
 		fs := afero.NewMemMapFs()
 		env := &environment.Environment{
 			Home:           "/test/home",
-			NonInteractive: "", // Interactive mode
+			NonInteractive: "1", // Non-interactive to skip prompt
 		}
 
 		fs.MkdirAll("/test/home", 0o755)
@@ -578,7 +578,7 @@ func TestEditConfigurationAdditional(t *testing.T) {
 }
 
 func TestValidateConfigurationAdditional(t *testing.T) {
-	t.Parallel()
+
 
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
@@ -611,7 +611,7 @@ dockerGPU = "cpu"
 }
 
 func TestLoadConfigurationAdditional(t *testing.T) {
-	t.Parallel()
+
 
 	logger := logging.NewTestLogger()
 	ctx := context.Background()

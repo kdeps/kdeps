@@ -13,7 +13,7 @@ import (
 )
 
 func TestMoveFolder(t *testing.T) {
-	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	// Create source directory and files
 	srcDir := "/src"
@@ -45,7 +45,7 @@ func TestMoveFolder(t *testing.T) {
 }
 
 func TestCopyFile(t *testing.T) {
-	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	// Create source file
 	srcFile := "/src/file.txt"
@@ -63,7 +63,7 @@ func TestCopyFile(t *testing.T) {
 }
 
 func TestGetFileMD5(t *testing.T) {
-	t.Parallel()
+
 
 	// Arrange: Use an in-memory filesystem to isolate the test environment
 	fs := afero.NewMemMapFs()
@@ -93,7 +93,7 @@ func TestGetFileMD5(t *testing.T) {
 }
 
 func TestCopyDir(t *testing.T) {
-	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	srcDir := "/src"
 	destDir := "/dest"

@@ -22,7 +22,7 @@ var (
 )
 
 func TestWriteCounter_Write(t *testing.T) {
-	t.Parallel()
+
 	counter := &WriteCounter{}
 	data := []byte("Hello, World!")
 	n, err := counter.Write(data)
@@ -33,7 +33,7 @@ func TestWriteCounter_Write(t *testing.T) {
 }
 
 func TestWriteCounter_PrintProgress(t *testing.T) {
-	t.Parallel()
+
 	counter := &WriteCounter{
 		DownloadURL: "example.com/file.txt",
 	}
@@ -67,7 +67,7 @@ func TestWriteCounter_PrintProgress(t *testing.T) {
 }
 
 func TestDownloadFile_HTTPServer(t *testing.T) {
-	t.Parallel()
+
 	logger := logging.NewTestLogger()
 
 	// Spin up an in-memory HTTP server
@@ -85,7 +85,7 @@ func TestDownloadFile_HTTPServer(t *testing.T) {
 }
 
 func TestDownloadFile_StatusError(t *testing.T) {
-	t.Parallel()
+
 	logger := logging.NewTestLogger()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -119,7 +119,7 @@ func TestDownloadFiles_SkipExisting(t *testing.T) {
 }
 
 func TestDownloadFile_FileCreationError(t *testing.T) {
-	t.Parallel()
+
 	logger = logging.GetLogger()
 	fs := afero.NewMemMapFs()
 
@@ -130,7 +130,7 @@ func TestDownloadFile_FileCreationError(t *testing.T) {
 }
 
 func TestDownloadFile_HTTPGetError(t *testing.T) {
-	t.Parallel()
+
 	logger = logging.GetLogger()
 	fs := afero.NewMemMapFs()
 

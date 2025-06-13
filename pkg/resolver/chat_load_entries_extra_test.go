@@ -17,7 +17,7 @@ import (
 )
 
 func TestGenerateChatResponseBasic(t *testing.T) {
-	t.Parallel()
+
 
 	// Create stub HTTP client to satisfy Ollama client without network
 	httpClient := &http.Client{
@@ -58,7 +58,7 @@ func TestGenerateChatResponseBasic(t *testing.T) {
 }
 
 func TestLoadResourceEntriesInjected(t *testing.T) {
-	t.Parallel()
+
 
 	fs := afero.NewMemMapFs()
 	logger := logging.GetLogger()

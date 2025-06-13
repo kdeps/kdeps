@@ -82,3 +82,29 @@ func TestStartWebServerWrapper_Success(t *testing.T) { //nolint:paralleltest
 	err := startWebServer(ctx, dr)
 	require.NoError(t, err)
 }
+
+func TestCreateFlagFileExtra(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	filename := "flag.txt"
+	// Create new flag file
+	err := CreateFlagFile(fs, context.Background(), filename)
+	require.NoError(t, err)
+	exists, err := afero.Exists(fs, filename)
+	require.NoError(t, err)
+	require.True(t, exists)
+
+	// Record modification time
+	fi, err := fs.Stat(filename)
+	require.NoError(t, err)
+	mt1 := fi.ModTime()
+
+	// Wait to ensure time difference if updated
+	time.Sleep(1 * time.Millisecond)
+
+	// Call again on existing file, should not alter modtime and return no error
+	err = CreateFlagFile(fs, context.Background(), filename)
+	require.NoError(t, err)
+	fi2, err := fs.Stat(filename)
+	require.NoError(t, err)
+	require.Equal(t, mt1, fi2.ModTime())
+}
