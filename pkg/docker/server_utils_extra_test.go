@@ -62,3 +62,38 @@ func TestWaitForServerTimeout(t *testing.T) {
 		t.Errorf("waitForServer duration out of expected bounds: %v", duration)
 	}
 }
+
+func TestIsServerReadyListener(t *testing.T) {
+	logger := logging.NewTestLogger()
+
+	// Start a temporary TCP listener to simulate ready server
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to listen: %v", err)
+	}
+	addr := ln.Addr().(*net.TCPAddr)
+	portStr := strconv.Itoa(addr.Port)
+
+	if !isServerReady("127.0.0.1", portStr, logger) {
+		t.Fatalf("expected server to be ready on open port")
+	}
+	ln.Close()
+
+	// After closing listener, readiness should fail
+	if isServerReady("127.0.0.1", portStr, logger) {
+		t.Fatalf("expected server NOT ready after listener closed")
+	}
+}
+
+func TestWaitForServerTimeoutShort(t *testing.T) {
+	logger := logging.NewTestLogger()
+	port := "65534" // unlikely to be in use
+	start := time.Now()
+	err := waitForServer("127.0.0.1", port, 1500*time.Millisecond, logger)
+	if err == nil {
+		t.Fatalf("expected timeout error")
+	}
+	if time.Since(start) < 1500*time.Millisecond {
+		t.Fatalf("waitForServer returned too early")
+	}
+}

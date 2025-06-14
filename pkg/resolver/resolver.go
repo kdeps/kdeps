@@ -7,9 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"time"
 
 	"github.com/alexellis/go-execute/v2"
@@ -22,6 +24,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/memory"
+	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/session"
 	"github.com/kdeps/kdeps/pkg/tool"
 	"github.com/kdeps/kdeps/pkg/utils"
@@ -68,6 +71,7 @@ type DependencyResolver struct {
 	APIServerMode        bool
 	AnacondaInstalled    bool
 	FileRunCounter       map[string]int // Added to track run count per file
+	DefaultTimeoutSec    int            // default timeout value in seconds
 
 	// Injectable helpers (overridable in tests)
 	GetCurrentTimestampFn    func(string, string) (pkl.Duration, error)              `json:"-"`
@@ -233,6 +237,14 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 			itemReader.DB,
 		},
 		FileRunCounter: make(map[string]int), // Initialize the file run counter map
+		DefaultTimeoutSec: func() int {
+			if v, ok := os.LookupEnv("TIMEOUT"); ok {
+				if i, err := strconv.Atoi(v); err == nil {
+					return i // could be 0 (unlimited) or positive override
+				}
+			}
+			return -1 // absent -> sentinel to allow PKL/default fallback
+		}(),
 	}
 
 	dependencyResolver.Graph = graph.NewDependencyGraph(fs, logger.BaseLogger(), dependencyResolver.ResourceDependencies)
@@ -291,10 +303,16 @@ func (dr *DependencyResolver) processResourceStep(resourceID, step string, timeo
 		return fmt.Errorf("%s error: %w", step, err)
 	}
 
-	timeout := 60 * time.Second
-	if timeoutPtr != nil {
+	var timeout time.Duration
+	switch {
+	case dr.DefaultTimeoutSec > 0: // positive value overrides everything
+		timeout = time.Duration(dr.DefaultTimeoutSec) * time.Second
+	case dr.DefaultTimeoutSec == 0: // 0 => unlimited
+		timeout = 0
+	case timeoutPtr != nil: // negative or unset – fall back to resource value
 		timeout = timeoutPtr.GoDuration()
-		dr.Logger.Infof("Timeout duration for '%s' is set to '%.0f' seconds", resourceID, timeout.Seconds())
+	default:
+		timeout = 60 * time.Second
 	}
 
 	if err := handler(); err != nil {
@@ -397,7 +415,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 
 	visited := make(map[string]bool)
 	actionID := dr.Workflow.GetTargetActionID()
-	dr.Logger.Debug("processing resources...")
+	dr.Logger.Debug(messages.MsgProcessingResources)
 
 	if err := dr.LoadResourceEntriesFn(); err != nil {
 		return dr.HandleAPIErrorResponse(500, err.Error(), true)
@@ -517,7 +535,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 		dr.Logger.Info("file run count", "file", file, "count", count)
 	}
 
-	dr.Logger.Debug("all resources finished processing")
+	dr.Logger.Debug(messages.MsgAllResourcesProcessed)
 	return false, nil
 }
 
@@ -561,7 +579,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 				dr.Logger.Info("Items database has a non-empty list", "actionID", actionID, "itemCount", len(items))
 				break
 			}
-			dr.Logger.Debug("Items database list is empty, retrying", "actionID", actionID)
+			dr.Logger.Debug(messages.MsgItemsDBEmptyRetry, "actionID", actionID)
 			time.Sleep(pollInterval)
 		}
 

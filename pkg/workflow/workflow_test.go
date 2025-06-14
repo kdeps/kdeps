@@ -65,7 +65,7 @@ settings {
     models {
       "llama3.2:1b"
     }
-    ollamaImageTag = "0.6.8"
+    ollamaImageTag = "0.8.0"
   }
 }`
 		err := os.WriteFile(tmpFile, []byte(validContent), 0o644)

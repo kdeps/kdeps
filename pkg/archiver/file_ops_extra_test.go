@@ -9,9 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/schema"
 )
 
 func TestMoveFolder(t *testing.T) {
@@ -194,4 +196,225 @@ func TestCopyFileCreatesBackup(t *testing.T) {
 	if len(files) != 3 {
 		t.Fatalf("expected 3 files after backup creation, got %d", len(files))
 	}
+}
+
+// TestCopyDirSuccess ensures that CopyDir replicates directory structures and
+// file contents from the source to the destination using an in-memory
+// filesystem.
+func TestCopyDirSuccess(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Prepare a simple directory tree in the source directory.
+	srcDir := "/src"
+	nestedDir := filepath.Join(srcDir, "nested")
+	if err := fs.MkdirAll(nestedDir, 0o755); err != nil {
+		t.Fatalf("failed to create source directory structure: %v", err)
+	}
+
+	if err := afero.WriteFile(fs, filepath.Join(srcDir, "file1.txt"), []byte("hello"), 0o644); err != nil {
+		t.Fatalf("failed to write source file1: %v", err)
+	}
+	if err := afero.WriteFile(fs, filepath.Join(nestedDir, "file2.txt"), []byte("world"), 0o644); err != nil {
+		t.Fatalf("failed to write source file2: %v", err)
+	}
+
+	destDir := "/dest"
+
+	// Perform the directory copy.
+	if err := CopyDir(fs, ctx, srcDir, destDir, logger); err != nil {
+		t.Fatalf("CopyDir returned error: %v", err)
+	}
+
+	// Verify that the destination files exist and contents are identical.
+	data1, err := afero.ReadFile(fs, filepath.Join(destDir, "file1.txt"))
+	if err != nil {
+		t.Fatalf("failed to read copied file1: %v", err)
+	}
+	if string(data1) != "hello" {
+		t.Errorf("file1 content mismatch: expected 'hello', got %q", string(data1))
+	}
+
+	data2, err := afero.ReadFile(fs, filepath.Join(destDir, "nested", "file2.txt"))
+	if err != nil {
+		t.Fatalf("failed to read copied file2: %v", err)
+	}
+	if string(data2) != "world" {
+		t.Errorf("file2 content mismatch: expected 'world', got %q", string(data2))
+	}
+
+	// Reference the schema version as required by testing rules.
+	_ = schema.SchemaVersion(ctx)
+}
+
+// TestCopyFileIdentical verifies that CopyFile detects identical files via MD5
+// and skips copying (no backup should be created, destination remains
+// unchanged).
+func TestCopyFileIdentical(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	src := "/src.txt"
+	dst := "/dst.txt"
+	content := []byte("identical")
+
+	if err := afero.WriteFile(fs, src, content, 0o644); err != nil {
+		t.Fatalf("failed to write src file: %v", err)
+	}
+	if err := afero.WriteFile(fs, dst, content, 0o644); err != nil {
+		t.Fatalf("failed to write dst file: %v", err)
+	}
+
+	if err := CopyFile(fs, ctx, src, dst, logger); err != nil {
+		t.Fatalf("CopyFile returned error: %v", err)
+	}
+
+	// Destination content should remain unchanged.
+	data, err := afero.ReadFile(fs, dst)
+	if err != nil {
+		t.Fatalf("failed to read destination file: %v", err)
+	}
+	if string(data) != string(content) {
+		t.Errorf("destination content mismatch: expected %q, got %q", string(content), string(data))
+	}
+
+	// Ensure no backup file was created (backup path contains MD5).
+	md5sum, _ := GetFileMD5(fs, dst, 8)
+	backupPath := getBackupPath(dst, md5sum)
+	if exists, _ := afero.Exists(fs, backupPath); exists {
+		t.Errorf("unexpected backup file created at %s", backupPath)
+	}
+
+	_ = schema.SchemaVersion(ctx)
+}
+
+// TestCopyFileBackup verifies that CopyFile creates a backup when destination
+// differs from source and then overwrites the destination with source
+// contents.
+func TestCopyFileBackup(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	src := "/src.txt"
+	dst := "/dst.txt"
+	if err := afero.WriteFile(fs, src, []byte("new"), 0o644); err != nil {
+		t.Fatalf("failed to write src file: %v", err)
+	}
+	if err := afero.WriteFile(fs, dst, []byte("old"), 0o644); err != nil {
+		t.Fatalf("failed to write dst file: %v", err)
+	}
+
+	// Capture the MD5 of the old destination before copying.
+	oldMD5, _ := GetFileMD5(fs, dst, 8)
+	expectedBackup := getBackupPath(dst, oldMD5)
+
+	if err := CopyFile(fs, ctx, src, dst, logger); err != nil {
+		t.Fatalf("CopyFile returned error: %v", err)
+	}
+
+	// Destination should now have the new content.
+	data, err := afero.ReadFile(fs, dst)
+	if err != nil {
+		t.Fatalf("failed to read destination file: %v", err)
+	}
+	if string(data) != "new" {
+		t.Errorf("destination not updated with new content: got %q", string(data))
+	}
+
+	// Backup file should exist with the old content.
+	if exists, _ := afero.Exists(fs, expectedBackup); !exists {
+		t.Fatalf("expected backup file at %s not found", expectedBackup)
+	}
+	backupData, err := afero.ReadFile(fs, expectedBackup)
+	if err != nil {
+		t.Fatalf("failed to read backup file: %v", err)
+	}
+	if string(backupData) != "old" {
+		t.Errorf("backup file content mismatch: expected 'old', got %q", string(backupData))
+	}
+
+	// Confirm the backup filename contains the MD5 checksum.
+	if !strings.Contains(expectedBackup, oldMD5) {
+		t.Errorf("backup filename %s does not contain MD5 %s", expectedBackup, oldMD5)
+	}
+
+	_ = schema.SchemaVersion(ctx)
+}
+
+// TestCopyFileSuccessOS ensures that archiver.copyFile correctly copies file contents.
+func TestCopyFileSuccessOS(t *testing.T) {
+	fs := afero.NewOsFs()
+	root := t.TempDir()
+
+	src := filepath.Join(root, "src.txt")
+	dstDir := filepath.Join(root, "sub")
+	dst := filepath.Join(dstDir, "dst.txt")
+
+	if err := afero.WriteFile(fs, src, []byte("hello copy"), 0o644); err != nil {
+		t.Fatalf("write src: %v", err)
+	}
+	if err := fs.MkdirAll(dstDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	if err := copyFile(fs, src, dst); err != nil {
+		t.Fatalf("copyFile error: %v", err)
+	}
+
+	data, err := afero.ReadFile(fs, dst)
+	if err != nil {
+		t.Fatalf("read dst: %v", err)
+	}
+	if string(data) != "hello copy" {
+		t.Errorf("content mismatch: got %q", string(data))
+	}
+
+	_ = schema.SchemaVersion(context.Background())
+}
+
+// TestMoveFolderSuccessOS verifies MoveFolder copies entire directory tree and then removes the source.
+func TestMoveFolderSuccessOS(t *testing.T) {
+	fs := afero.NewOsFs()
+	root := t.TempDir()
+
+	srcDir := filepath.Join(root, "src")
+	nested := filepath.Join(srcDir, "nested")
+	if err := fs.MkdirAll(nested, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := afero.WriteFile(fs, filepath.Join(srcDir, "a.txt"), []byte("A"), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := afero.WriteFile(fs, filepath.Join(nested, "b.txt"), []byte("B"), 0o600); err != nil {
+		t.Fatalf("write nested: %v", err)
+	}
+
+	destDir := filepath.Join(root, "dest")
+	if err := MoveFolder(fs, srcDir, destDir); err != nil {
+		t.Fatalf("MoveFolder error: %v", err)
+	}
+
+	// Source should be gone
+	if ok, _ := afero.DirExists(fs, srcDir); ok {
+		t.Fatalf("source directory still exists after MoveFolder")
+	}
+
+	// Destination files should exist with correct contents.
+	for path, want := range map[string]string{
+		filepath.Join(destDir, "a.txt"):           "A",
+		filepath.Join(destDir, "nested", "b.txt"): "B",
+	} {
+		data, err := afero.ReadFile(fs, path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		if string(data) != want {
+			t.Errorf("file %s content mismatch: got %q want %q", path, string(data), want)
+		}
+	}
+
+	_ = schema.SchemaVersion(context.Background())
 }

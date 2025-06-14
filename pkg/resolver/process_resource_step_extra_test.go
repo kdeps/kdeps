@@ -12,7 +12,7 @@ import (
 // TestProcessResourceStep_Success verifies that the happy-path executes the handler
 // and waits for the timestamp change without returning an error.
 func TestProcessResourceStep_Success(t *testing.T) {
-	dr := &DependencyResolver{Logger: logging.NewTestLogger()}
+	dr := &DependencyResolver{Logger: logging.NewTestLogger(), DefaultTimeoutSec: -1}
 
 	calledGet := false
 	calledWait := false
@@ -44,7 +44,7 @@ func TestProcessResourceStep_Success(t *testing.T) {
 
 // TestProcessResourceStep_HandlerErr ensures that an error from the handler is propagated.
 func TestProcessResourceStep_HandlerErr(t *testing.T) {
-	dr := &DependencyResolver{Logger: logging.NewTestLogger()}
+	dr := &DependencyResolver{Logger: logging.NewTestLogger(), DefaultTimeoutSec: -1}
 	handlerErr := errors.New("boom")
 
 	dr.GetCurrentTimestampFn = func(resourceID, step string) (pkl.Duration, error) {
@@ -62,7 +62,7 @@ func TestProcessResourceStep_HandlerErr(t *testing.T) {
 
 // TestProcessResourceStep_WaitErr ensures that an error from the wait helper is propagated.
 func TestProcessResourceStep_WaitErr(t *testing.T) {
-	dr := &DependencyResolver{Logger: logging.NewTestLogger()}
+	dr := &DependencyResolver{Logger: logging.NewTestLogger(), DefaultTimeoutSec: -1}
 	waitErr := errors.New("timeout")
 
 	dr.GetCurrentTimestampFn = func(resourceID, step string) (pkl.Duration, error) {
@@ -80,7 +80,7 @@ func TestProcessResourceStep_WaitErr(t *testing.T) {
 
 // TestProcessResourceStep_CustomTimeout verifies that the timeout value from the Pkl duration is used.
 func TestProcessResourceStep_CustomTimeout(t *testing.T) {
-	dr := &DependencyResolver{Logger: logging.NewTestLogger()}
+	dr := &DependencyResolver{Logger: logging.NewTestLogger(), DefaultTimeoutSec: -1}
 	customDur := &pkl.Duration{Value: 5, Unit: pkl.Second} // 5 seconds
 
 	dr.GetCurrentTimestampFn = func(resourceID, step string) (pkl.Duration, error) {

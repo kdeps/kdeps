@@ -21,6 +21,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/utils"
 	apiserver "github.com/kdeps/schema/gen/api_server"
@@ -425,7 +426,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			"APIServerRequest.pkl", dr.Logger, evaluator.EvalPkl, true); err != nil {
 			errors = append(errors, ErrorResponse{
 				Code:    http.StatusInternalServerError,
-				Message: "Failed to process request file",
+				Message: messages.ErrProcessRequestFile,
 			})
 			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
 			return
@@ -434,7 +435,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		if err := processWorkflow(ctx, dr); err != nil {
 			errors = append(errors, ErrorResponse{
 				Code:    http.StatusInternalServerError,
-				Message: "Empty response received, possibly due to configuration issues. Please verify: 1. Allowed route paths and HTTP methods match the incoming request. 2. Skip validations that are skipping the required resource to produce the requests. 3. Timeout settings are sufficient for long-running processes (e.g., LLM operations).",
+				Message: messages.ErrEmptyResponse,
 			})
 			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
 			return
@@ -444,7 +445,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		if err != nil {
 			errors = append(errors, ErrorResponse{
 				Code:    http.StatusInternalServerError,
-				Message: "Failed to read response file",
+				Message: messages.ErrReadResponseFile,
 			})
 			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
 			return
@@ -454,7 +455,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		if err != nil {
 			errors = append(errors, ErrorResponse{
 				Code:    http.StatusInternalServerError,
-				Message: "Failed to decode response content",
+				Message: messages.ErrDecodeResponseContent,
 			})
 			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
 			return
@@ -473,7 +474,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		if err != nil {
 			errors = append(errors, ErrorResponse{
 				Code:    http.StatusInternalServerError,
-				Message: "Failed to marshal response content",
+				Message: messages.ErrMarshalResponseContent,
 			})
 			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
 			return
@@ -536,7 +537,7 @@ func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver) error
 		return err
 	}
 
-	dr.Logger.Debug("awaiting response...")
+	dr.Logger.Debug(messages.MsgAwaitingResponse)
 
 	// Wait for the response file to be ready
 	if err := utils.WaitForFileReady(dr.Fs, dr.ResponseTargetFile, dr.Logger); err != nil {
@@ -552,7 +553,7 @@ func decodeResponseContent(content []byte, logger *logging.Logger) (*APIResponse
 	// Unmarshal JSON content into APIResponse struct
 	err := json.Unmarshal(content, &decodedResp)
 	if err != nil {
-		logger.Error("failed to unmarshal response content", "error", err)
+		logger.Error(messages.ErrUnmarshalRespContent, "error", err)
 		return nil, err
 	}
 
@@ -560,7 +561,7 @@ func decodeResponseContent(content []byte, logger *logging.Logger) (*APIResponse
 	for i, encodedData := range decodedResp.Response.Data {
 		decodedData, err := utils.DecodeBase64String(encodedData)
 		if err != nil {
-			logger.Error("failed to decode Base64 string", "data", encodedData)
+			logger.Error(messages.ErrDecodeBase64String, "data", encodedData)
 			decodedResp.Response.Data[i] = encodedData // Use original if decoding fails
 		} else {
 			fixedJSON := utils.FixJSON(decodedData)

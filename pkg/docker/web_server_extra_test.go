@@ -48,3 +48,20 @@ func handleAppRequestWrapper(hostIP string, route *webserver.WebServerRoutes, lo
 		handleAppRequest(c, hostIP, route, logger)
 	}
 }
+
+// TestLogDirectoryContents ensures no panic and logs for empty/filled dir.
+func TestLogDirectoryContentsNoPanic(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	dr := &resolver.DependencyResolver{Fs: fs, Logger: logger}
+
+	// Case 1: directory missing – should just log an error and continue.
+	logDirectoryContents(dr, "/not-exist", logger)
+
+	// Case 2: directory with files – should iterate entries.
+	_ = fs.MkdirAll("/data", 0o755)
+	_ = afero.WriteFile(fs, "/data/hello.txt", []byte("hi"), 0o644)
+	logDirectoryContents(dr, "/data", logger)
+}
+
+// Second misconfiguration scenario (empty host) is covered via TestHandleAppRequest_Misconfiguration.

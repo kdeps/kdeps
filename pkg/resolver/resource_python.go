@@ -259,10 +259,11 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 
 	timeoutDuration := newPython.TimeoutDuration
 	if timeoutDuration == nil {
-		timeoutDuration = &pkl.Duration{
-			Value: 60,
-			Unit:  pkl.Second,
+		sec := dr.DefaultTimeoutSec
+		if sec <= 0 {
+			sec = 60
 		}
+		timeoutDuration = &pkl.Duration{Value: float64(sec), Unit: pkl.Second}
 	}
 
 	timestamp := &pkl.Duration{
@@ -291,7 +292,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 		if res.TimeoutDuration != nil {
 			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
 		} else {
-			pklContent.WriteString("    timeoutDuration = 60.s\n")
+			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d.s\n", dr.DefaultTimeoutSec))
 		}
 
 		if res.Timestamp != nil {

@@ -146,3 +146,5 @@ func TestDownloadFileUseLatest(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "new", string(data))
 }
+
+// Additional wrapper tests are present in other *_test.go files to avoid name collisions.

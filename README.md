@@ -14,11 +14,11 @@ open-source LLM models out-of-the-box.
 
 ## Key Features
 
-Kdeps is loaded with powerful features to streamline AI app development:
+Kdeps is loaded with features to streamline full-stack AI app development:
 
 <details>
   <summary>🧩 Low-code/no-code capabilities</summary>
-  Build <a href="https://kdeps.com/getting-started/configuration/workflow.html">operational full-stack AI apps</a>, enabling accessible development for non-technical users and production-ready applications.
+  Build <a href="https://kdeps.com/getting-started/configuration/workflow.html">operational full-stack AI apps</a>, enabling accessible development for non-technical users.
 
 ```pkl
 // workflow.pkl

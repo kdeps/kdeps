@@ -198,7 +198,7 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 		if res.TimeoutDuration != nil {
 			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
 		} else {
-			pklContent.WriteString("    timeoutDuration = 60.s\n")
+			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d.s\n", dr.DefaultTimeoutSec))
 		}
 
 		if res.Timestamp != nil {
