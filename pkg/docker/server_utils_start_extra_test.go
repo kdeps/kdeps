@@ -2,10 +2,14 @@ package docker
 
 import (
 	"context"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/messages"
 )
 
 // TestStartOllamaServerReturn ensures the helper returns immediately even when the underlying command is missing.
@@ -37,5 +41,36 @@ func TestStartOllamaServer_NoBinary(t *testing.T) {
 	// background goroutine. Use a generous threshold to avoid flakes.
 	if elapsed > 100*time.Millisecond {
 		t.Fatalf("startOllamaServer took too long: %v", elapsed)
+	}
+}
+
+// TestStartOllamaServerBackground verifies that the helper kicks off the background task and logs as expected.
+func TestStartOllamaServerBackground(t *testing.T) {
+	// Create a temporary directory that will hold a dummy `ollama` executable.
+	tmpDir := t.TempDir()
+	dummy := filepath.Join(tmpDir, "ollama")
+	if err := os.WriteFile(dummy, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatalf("failed to write dummy executable: %v", err)
+	}
+
+	// Prepend the temp dir to PATH so it's discovered by exec.LookPath.
+	oldPath := os.Getenv("PATH")
+	_ = os.Setenv("PATH", tmpDir+string(os.PathListSeparator)+oldPath)
+	t.Cleanup(func() { _ = os.Setenv("PATH", oldPath) })
+
+	logger := logging.NewTestLogger()
+
+	// Call the function under test; it should return immediately.
+	startOllamaServer(context.Background(), logger)
+
+	// Allow some time for the goroutine in KdepsExec to start and finish.
+	time.Sleep(150 * time.Millisecond)
+
+	output := logger.GetOutput()
+	if !strings.Contains(output, messages.MsgStartOllamaBackground) {
+		t.Errorf("expected log %q not found. logs: %s", messages.MsgStartOllamaBackground, output)
+	}
+	if !strings.Contains(output, "background command started") {
+		t.Errorf("expected background start log not found. logs: %s", output)
 	}
 }

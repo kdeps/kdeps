@@ -29,11 +29,22 @@ dev-build: deps
 clean:
 	@rm -rf ./bin
 
-test: test-unit
+test: test-coverage 
 
-test-unit:
-	@echo "$(OK_COLOR)==> Running the unit tests$(NO_COLOR)"
-	@NON_INTERACTIVE=1 go test -failfast -short -coverprofile=coverage.out ./... && go tool cover -func=coverage.out | cat
+test-coverage:
+	@echo "$(OK_COLOR)==> Running the unit tests with coverage$(NO_COLOR)"
+	@NON_INTERACTIVE=1 go test -failfast -short -coverprofile=coverage.out ./...
+	@echo "$(OK_COLOR)==> Coverage report:$(NO_COLOR)"
+	@go tool cover -func=coverage.out | tee coverage.txt
+	@COVERAGE=$$(grep total: coverage.txt | awk '{print $$3}' | sed 's/%//'); \
+	REQUIRED=100.0; \
+	if (( $$(echo $$COVERAGE '<' $$REQUIRED | bc -l) )); then \
+	    echo "Coverage $$COVERAGE% is below required $$REQUIRED%"; \
+	    exit 1; \
+	else \
+	    echo "Coverage requirement met: $$COVERAGE%"; \
+	fi
+	@rm coverage.txt
 
 format: tools
 	@echo "$(OK_COLOR)>> [go vet] running$(NO_COLOR)" & \

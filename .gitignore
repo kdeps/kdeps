@@ -220,4 +220,5 @@ coverage.html
 pkg/**/**/*.txt
 pkg/**/**/*.yaml
 pkg/**/**/*.cover
-
+pkg/**/**/*.cov
+*.cov

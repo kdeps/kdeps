@@ -79,3 +79,31 @@ func TestCleanupFlagFilesExtra(t *testing.T) {
 		require.False(t, exists, "file %s should be removed (or not exist)", f)
 	}
 }
+
+func TestCleanupFlagFiles_RemovesExisting(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+
+	f1 := "/file1.flag"
+	f2 := "/file2.flag"
+
+	// create files
+	_ = afero.WriteFile(fs, f1, []byte("x"), 0o644)
+	_ = afero.WriteFile(fs, f2, []byte("y"), 0o644)
+
+	cleanupFlagFiles(fs, []string{f1, f2}, logger)
+
+	for _, p := range []string{f1, f2} {
+		if exists, _ := afero.Exists(fs, p); exists {
+			t.Fatalf("expected %s to be removed", p)
+		}
+	}
+}
+
+func TestCleanupFlagFiles_NonExistent(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+
+	// Call with files that don't exist; should not panic or error.
+	cleanupFlagFiles(fs, []string{"/missing1", "/missing2"}, logger)
+}

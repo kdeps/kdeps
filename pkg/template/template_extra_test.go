@@ -132,3 +132,75 @@ func TestGenerateResourceFilesExtra(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, exists)
 }
+
+func TestValidateAgentNameSimple(t *testing.T) {
+	cases := []struct {
+		name    string
+		wantErr bool
+	}{
+		{"", true},
+		{"foo bar", true},
+		{"valid", false},
+	}
+
+	for _, c := range cases {
+		err := validateAgentName(c.name)
+		if c.wantErr && err == nil {
+			t.Fatalf("expected error for %q, got nil", c.name)
+		}
+		if !c.wantErr && err != nil {
+			t.Fatalf("unexpected error for %q: %v", c.name, err)
+		}
+	}
+}
+
+func TestLoadTemplateEmbeddedBasic(t *testing.T) {
+	data := map[string]string{
+		"Header": "header-line",
+		"Name":   "myagent",
+	}
+	out, err := loadTemplate("workflow.pkl", data)
+	if err != nil {
+		t.Fatalf("loadTemplate error: %v", err)
+	}
+	if len(out) == 0 {
+		t.Fatalf("expected non-empty output")
+	}
+	if !contains(out, "header-line") || !contains(out, "myagent") {
+		t.Fatalf("output does not contain expected replacements: %s", out)
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && (contains(s[1:], substr) || s[:len(substr)] == substr))
+}
+
+func TestGenerateAgentEndToEndExtra(t *testing.T) {
+	// Ensure non-interactive to avoid slow sleeps.
+	old := os.Getenv("NON_INTERACTIVE")
+	_ = os.Setenv("NON_INTERACTIVE", "1")
+	defer os.Setenv("NON_INTERACTIVE", old)
+
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	baseDir := "/tmp"
+	agentName := "client" // corresponds to existing embedded template client.pkl
+
+	if err := GenerateAgent(fs, ctx, logger, baseDir, agentName); err != nil {
+		t.Fatalf("GenerateAgent error: %v", err)
+	}
+
+	// Verify that workflow file was created
+	wfPath := baseDir + "/" + agentName + "/workflow.pkl"
+	if ok, _ := afero.Exists(fs, wfPath); !ok {
+		t.Fatalf("expected workflow.pkl to exist at %s", wfPath)
+	}
+
+	// Verify that at least one resource file exists
+	resPath := baseDir + "/" + agentName + "/resources/client.pkl"
+	if ok, _ := afero.Exists(fs, resPath); !ok {
+		t.Fatalf("expected resource file %s to exist", resPath)
+	}
+}
