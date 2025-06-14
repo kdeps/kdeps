@@ -12,7 +12,7 @@ import (
 
 // Test for compareVersions.
 func TestCompareVersions(t *testing.T) {
-	t.Parallel()
+
 	logging.CreateLogger()
 	logger := logging.GetLogger()
 
@@ -30,7 +30,7 @@ func TestCompareVersions(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
+		
 			if test.expectPanic {
 				assert.Panics(t, func() { compareVersions(test.versions, logger) })
 			} else {
@@ -42,7 +42,7 @@ func TestCompareVersions(t *testing.T) {
 
 // Test for GetLatestVersion.
 func TestGetLatestVersion(t *testing.T) {
-	t.Parallel()
+
 	logging.CreateLogger()
 	logger := logging.GetLogger()
 
@@ -58,14 +58,14 @@ func TestGetLatestVersion(t *testing.T) {
 	}
 
 	t.Run("Valid directory with versions", func(t *testing.T) {
-		t.Parallel()
+	
 		latestVersion, err := GetLatestVersion(tempDir, logger)
 		require.NoError(t, err, "Expected no error")
 		assert.Equal(t, "2.3.0", latestVersion, "Expected latest version")
 	})
 
 	t.Run("Empty directory", func(t *testing.T) {
-		t.Parallel()
+	
 		emptyDir := t.TempDir()
 		latestVersion, err := GetLatestVersion(emptyDir, logger)
 		require.Error(t, err, "Expected error for no versions found")
@@ -73,7 +73,7 @@ func TestGetLatestVersion(t *testing.T) {
 	})
 
 	t.Run("Invalid directory path", func(t *testing.T) {
-		t.Parallel()
+	
 		latestVersion, err := GetLatestVersion("/invalid/path", logger)
 		require.Error(t, err, "Expected error for invalid path")
 		assert.Equal(t, "", latestVersion, "Expected empty latest version")

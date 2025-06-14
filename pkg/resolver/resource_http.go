@@ -39,7 +39,7 @@ func (dr *DependencyResolver) HandleHTTPClient(actionID string, httpBlock *pklHT
 }
 
 func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHTTP.ResourceHTTPClient) error {
-	if err := dr.DoRequest(httpBlock); err != nil {
+	if err := dr.DoRequestFn(httpBlock); err != nil {
 		return err
 	}
 	return dr.AppendHTTPEntry(actionID, httpBlock)
@@ -91,7 +91,7 @@ func (dr *DependencyResolver) WriteResponseBodyToFile(resourceID string, respons
 func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP.ResourceHTTPClient) error {
 	pklPath := filepath.Join(dr.ActionDir, "client/"+dr.RequestID+"__client_output.pkl")
 
-	res, err := dr.LoadResource(dr.Context, pklPath, HTTPResource)
+	res, err := dr.LoadResourceFn(dr.Context, pklPath, HTTPResource)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL: %w", err)
 	}
@@ -116,14 +116,6 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 		encodedURL = utils.EncodeBase64String(encodedURL)
 	}
 
-	timeoutDuration := client.TimeoutDuration
-	if timeoutDuration == nil {
-		timeoutDuration = &pkl.Duration{
-			Value: 60,
-			Unit:  pkl.Second,
-		}
-	}
-
 	timestamp := client.Timestamp
 	if timestamp == nil {
 		timestamp = &pkl.Duration{
@@ -140,7 +132,7 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 		Response:        client.Response,
 		File:            &filePath,
 		Timestamp:       timestamp,
-		TimeoutDuration: timeoutDuration,
+		TimeoutDuration: client.TimeoutDuration,
 	}
 
 	var pklContent strings.Builder
@@ -155,7 +147,7 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 		if res.TimeoutDuration != nil {
 			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
 		} else {
-			pklContent.WriteString("    timeoutDuration = 60.s\n")
+			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d.s\n", dr.DefaultTimeoutSec))
 		}
 
 		if res.Timestamp != nil {
@@ -226,13 +218,19 @@ func (dr *DependencyResolver) DoRequest(client *pklHTTP.ResourceHTTPClient) erro
 	}
 
 	// Configure timeout with proper duration handling
-	timeout := 30 * time.Second
-	if client.TimeoutDuration != nil {
-		timeout = client.TimeoutDuration.GoDuration()
-	}
-
 	httpClient := &http.Client{
-		Timeout: timeout,
+		Timeout: func() time.Duration {
+			switch {
+			case dr.DefaultTimeoutSec > 0:
+				return time.Duration(dr.DefaultTimeoutSec) * time.Second
+			case dr.DefaultTimeoutSec == 0:
+				return 0 // unlimited
+			case client.TimeoutDuration != nil:
+				return client.TimeoutDuration.GoDuration()
+			default:
+				return 30 * time.Second
+			}
+		}(),
 		Transport: &http.Transport{
 			DisableCompression: false,
 			DisableKeepAlives:  false,

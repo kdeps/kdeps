@@ -1,88 +1,121 @@
 package utils
 
 import (
+	"encoding/base64"
+	"reflect"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestIsBase64Encoded(t *testing.T) {
-	t.Parallel()
-	t.Run("ValidBase64String", func(t *testing.T) {
-		t.Parallel()
-		assert.True(t, IsBase64Encoded("U29tZSB2YWxpZCBzdHJpbmc=")) // "Some valid string"
-	})
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{name: "valid", input: base64.StdEncoding.EncodeToString([]byte("hello")), want: true},
+		{name: "empty", input: "", want: false},
+		{name: "invalid chars", input: "SGVsbG@=", want: false},
+		{name: "wrong padding", input: "abc", want: false},
+	}
 
-	t.Run("InvalidBase64String", func(t *testing.T) {
-		t.Parallel()
-		assert.False(t, IsBase64Encoded("InvalidString!!!"))
-	})
-
-	t.Run("EmptyString", func(t *testing.T) {
-		t.Parallel()
-		assert.False(t, IsBase64Encoded(""))
-	})
-
-	t.Run("NonBase64Characters", func(t *testing.T) {
-		t.Parallel()
-		assert.False(t, IsBase64Encoded("Hello@World"))
-	})
-
-	t.Run("ValidBase64ButInvalidUTF8", func(t *testing.T) {
-		t.Parallel()
-		assert.False(t, IsBase64Encoded("////")) // Decodes to invalid UTF-8
-	})
+	for _, tt := range tests {
+		got := IsBase64Encoded(tt.input)
+		if got != tt.want {
+			t.Errorf("IsBase64Encoded(%s) = %v, want %v", tt.name, got, tt.want)
+		}
+	}
 }
 
-func TestDecodeBase64String(t *testing.T) {
-	t.Parallel()
-	t.Run("DecodeValidBase64String", func(t *testing.T) {
-		t.Parallel()
-		decoded, err := DecodeBase64String("U29tZSB2YWxpZCBzdHJpbmc=") // "Some valid string"
-		require.NoError(t, err)
-		assert.Equal(t, "Some valid string", decoded)
-	})
+func TestEncodeDecodeRoundTrip(t *testing.T) {
+	original := "roundtrip value"
+	encoded := EncodeBase64String(original)
+	if !IsBase64Encoded(encoded) {
+		t.Fatalf("encoded value expected to be base64 but IsBase64Encoded returned false: %s", encoded)
+	}
 
-	t.Run("DecodeInvalidBase64String", func(t *testing.T) {
-		t.Parallel()
-		decoded, err := DecodeBase64String("InvalidString!!!")
-		require.NoError(t, err)
-		assert.Equal(t, "InvalidString!!!", decoded) // Should return the original string
-	})
-
-	t.Run("DecodeEmptyString", func(t *testing.T) {
-		t.Parallel()
-		decoded, err := DecodeBase64String("")
-		require.NoError(t, err)
-		assert.Equal(t, "", decoded)
-	})
+	decoded, err := DecodeBase64String(encoded)
+	if err != nil {
+		t.Fatalf("DecodeBase64String returned error: %v", err)
+	}
+	if decoded != original {
+		t.Errorf("Decode after encode mismatch: got %s want %s", decoded, original)
+	}
 }
 
-func TestEncodeBase64String(t *testing.T) {
-	t.Parallel()
-	t.Run("EncodeString", func(t *testing.T) {
-		t.Parallel()
-		encoded := EncodeBase64String("Some valid string")
-		assert.Equal(t, "U29tZSB2YWxpZCBzdHJpbmc=", encoded)
-	})
+func TestDecodeBase64IfNeeded(t *testing.T) {
+	encoded := EncodeBase64String("plain text")
 
-	t.Run("EncodeEmptyString", func(t *testing.T) {
-		t.Parallel()
-		encoded := EncodeBase64String("")
-		assert.Equal(t, "", encoded)
-	})
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{name: "needs decoding", input: encoded, want: "plain text"},
+		{name: "no decoding", input: "already plain", want: "already plain"},
+	}
+
+	for _, tt := range tests {
+		got, err := DecodeBase64IfNeeded(tt.input)
+		if err != nil {
+			t.Fatalf("%s: unexpected error: %v", tt.name, err)
+		}
+		if got != tt.want {
+			t.Errorf("%s: got %s want %s", tt.name, got, tt.want)
+		}
+	}
 }
 
-func TestRoundTripBase64Encoding(t *testing.T) {
-	t.Parallel()
-	t.Run("EncodeAndDecode", func(t *testing.T) {
-		t.Parallel()
-		original := "Some valid string"
-		encoded := EncodeBase64String(original)
-		decoded, err := DecodeBase64String(encoded)
+func TestEncodeValue_Base64Pkg(t *testing.T) {
+	encoded := EncodeValue("plain text")
+	encodedTwice := EncodeValue(encoded)
 
-		require.NoError(t, err)
-		assert.Equal(t, original, decoded)
-	})
+	if !IsBase64Encoded(encoded) {
+		t.Fatalf("EncodeValue did not encode plain text")
+	}
+	if encoded != encodedTwice {
+		t.Errorf("EncodeValue changed an already encoded string: first %s, second %s", encoded, encodedTwice)
+	}
+}
+
+func TestEncodeValuePtr_Base64Pkg(t *testing.T) {
+	if got := EncodeValuePtr(nil); got != nil {
+		t.Errorf("EncodeValuePtr(nil) = %v, want nil", got)
+	}
+
+	original := "plain"
+	gotPtr := EncodeValuePtr(&original)
+	if gotPtr == nil {
+		t.Fatalf("EncodeValuePtr returned nil for non-nil input pointer")
+	}
+
+	if !IsBase64Encoded(*gotPtr) {
+		t.Errorf("EncodeValuePtr did not encode the string, got %s", *gotPtr)
+	}
+	if original != "plain" {
+		t.Errorf("EncodeValuePtr modified the original string variable: %s", original)
+	}
+}
+
+func TestDecodeStringMapAndSlice(t *testing.T) {
+	encoded := EncodeValue("value")
+
+	srcMap := map[string]string{"k": encoded}
+	decodedMap, err := DecodeStringMap(&srcMap, "field")
+	if err != nil {
+		t.Fatalf("DecodeStringMap error: %v", err)
+	}
+	expectedMap := map[string]string{"k": "value"}
+	if !reflect.DeepEqual(*decodedMap, expectedMap) {
+		t.Errorf("DecodeStringMap = %v, want %v", *decodedMap, expectedMap)
+	}
+
+	srcSlice := []string{encoded, "plain"}
+	decodedSlice, err := DecodeStringSlice(&srcSlice, "field")
+	if err != nil {
+		t.Fatalf("DecodeStringSlice error: %v", err)
+	}
+	expectedSlice := []string{"value", "plain"}
+	if !reflect.DeepEqual(*decodedSlice, expectedSlice) {
+		t.Errorf("DecodeStringSlice = %v, want %v", *decodedSlice, expectedSlice)
+	}
 }

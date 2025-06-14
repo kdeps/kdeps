@@ -1,4 +1,4 @@
-package docker
+package kdepsexec
 
 import (
 	"context"
@@ -76,4 +76,23 @@ func KdepsExec(
 
 	logger.Info("command executed successfully", "code", result.ExitCode)
 	return result.Stdout, result.Stderr, result.ExitCode, nil
+}
+
+// RunExecTask executes a given execute.ExecTask using the same semantics as KdepsExec.
+// It allows existing code that already constructs ExecTask structs to delegate the execution here,
+// satisfying the project rule that all execution flows through the kdepsexec package.
+func RunExecTask(ctx context.Context, task execute.ExecTask, logger *logging.Logger, background bool) (string, string, int, error) {
+	// Map fields to KdepsExec call.
+	workingDir := task.Cwd
+	command := task.Command
+	args := task.Args
+
+	// If Shell flag is true, execute via "sh -c <command>" for portability.
+	if task.Shell {
+		args = []string{"-c", command}
+		command = "sh"
+	}
+
+	stdout, stderr, exitCode, err := KdepsExec(ctx, command, args, workingDir, false, background, logger)
+	return stdout, stderr, exitCode, err
 }

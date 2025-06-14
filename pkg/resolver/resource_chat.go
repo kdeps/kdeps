@@ -411,12 +411,12 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 		return errors.New("chatBlock cannot be nil")
 	}
 
-	llm, err := ollama.New(ollama.WithModel(chatBlock.Model))
+	llm, err := dr.NewLLMFn(chatBlock.Model)
 	if err != nil {
 		return fmt.Errorf("failed to initialize LLM: %w", err)
 	}
 
-	completion, err := generateChatResponse(dr.Context, dr.Fs, llm, chatBlock, dr.ToolReader, dr.Logger)
+	completion, err := dr.GenerateChatResponseFn(dr.Context, dr.Fs, llm, chatBlock, dr.ToolReader, dr.Logger)
 	if err != nil {
 		return err
 	}
@@ -429,7 +429,7 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM.ResourceChat) error {
 	pklPath := filepath.Join(dr.ActionDir, "llm/"+dr.RequestID+"__llm_output.pkl")
 
-	llmRes, err := dr.LoadResource(dr.Context, pklPath, LLMResource)
+	llmRes, err := dr.LoadResourceFn(dr.Context, pklPath, LLMResource)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL file: %w", err)
 	}

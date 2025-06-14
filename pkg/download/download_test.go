@@ -3,10 +3,11 @@ package download
 import (
 	"bytes"
 	"context"
-	"errors"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -21,7 +22,7 @@ var (
 )
 
 func TestWriteCounter_Write(t *testing.T) {
-	t.Parallel()
+
 	counter := &WriteCounter{}
 	data := []byte("Hello, World!")
 	n, err := counter.Write(data)
@@ -32,7 +33,7 @@ func TestWriteCounter_Write(t *testing.T) {
 }
 
 func TestWriteCounter_PrintProgress(t *testing.T) {
-	t.Parallel()
+
 	counter := &WriteCounter{
 		DownloadURL: "example.com/file.txt",
 	}
@@ -65,58 +66,60 @@ func TestWriteCounter_PrintProgress(t *testing.T) {
 	assert.Equal(t, expectedOutput, buf.String())
 }
 
-func TestDownloadFile(t *testing.T) {
-	t.Parallel()
-	logger = logging.GetLogger()
+func TestDownloadFile_HTTPServer(t *testing.T) {
 
-	// Channel to capture errors from the HTTP server
-	serverErrChan := make(chan error, 1)
+	logger := logging.NewTestLogger()
 
-	// Mock a simple HTTP server to simulate file download
-	server := http.Server{
-		Addr: ":8080",
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if _, err := w.Write([]byte("Test file content")); err != nil {
-				t.Error(err)
-			}
-		}),
-	}
+	// Spin up an in-memory HTTP server
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, "content")
+	}))
+	defer ts.Close()
 
-	// Start the server in a goroutine and capture errors
-	go func() {
-		err := server.ListenAndServe()
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			serverErrChan <- err
-		}
-		close(serverErrChan)
-	}()
-	defer func() {
-		_ = server.Close() // Ensure the server is closed after the test
-	}()
-
-	// Use afero in-memory filesystem
 	fs := afero.NewMemMapFs()
-
-	// Run the file download
-	err := DownloadFile(fs, ctx, "http://localhost:8080", "/testfile", logger, true)
+	err := DownloadFile(fs, context.Background(), ts.URL, "/file.dat", logger, true)
 	require.NoError(t, err)
 
-	// Verify the downloaded content
-	content, err := afero.ReadFile(fs, "/testfile")
-	require.NoError(t, err)
-	assert.Equal(t, "Test file content", string(content))
+	data, _ := afero.ReadFile(fs, "/file.dat")
+	assert.Equal(t, "content", string(data))
+}
 
-	// Check for server errors
-	select {
-	case serverErr := <-serverErrChan:
-		require.NoError(t, serverErr, "unexpected error from HTTP server")
-	default:
-		// No errors from the server
-	}
+func TestDownloadFile_StatusError(t *testing.T) {
+
+	logger := logging.NewTestLogger()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer ts.Close()
+
+	fs := afero.NewMemMapFs()
+	err := DownloadFile(fs, context.Background(), ts.URL, "/errfile", logger, true)
+	assert.Error(t, err)
+}
+
+func TestDownloadFiles_SkipExisting(t *testing.T) {
+	logger := logging.NewTestLogger()
+	fs := afero.NewMemMapFs()
+	dir := "/downloads"
+	// Pre-create file with content
+	_ = fs.MkdirAll(dir, 0o755)
+	_ = afero.WriteFile(fs, filepath.Join(dir, "f1"), []byte("old"), 0o644)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, "new")
+	}))
+	defer ts.Close()
+
+	items := []DownloadItem{{URL: ts.URL, LocalName: "f1"}}
+	// useLatest=true forces overwrite of existing file
+	_ = DownloadFiles(fs, context.Background(), dir, items, logger, true)
+	exists, _ := afero.Exists(fs, filepath.Join(dir, "f1"))
+	assert.True(t, exists)
 }
 
 func TestDownloadFile_FileCreationError(t *testing.T) {
-	t.Parallel()
+
 	logger = logging.GetLogger()
 	fs := afero.NewMemMapFs()
 
@@ -127,11 +130,106 @@ func TestDownloadFile_FileCreationError(t *testing.T) {
 }
 
 func TestDownloadFile_HTTPGetError(t *testing.T) {
-	t.Parallel()
+
 	logger = logging.GetLogger()
 	fs := afero.NewMemMapFs()
 
 	// Trying to download a file from an invalid URL
 	err := DownloadFile(fs, ctx, "http://invalid-url", "/testfile", logger, true)
 	require.Error(t, err)
+}
+
+func newTestSetup() (afero.Fs, context.Context, *logging.Logger) {
+	return afero.NewMemMapFs(), context.Background(), logging.NewTestLogger()
+}
+
+func TestDownloadFileSuccessAndSkip(t *testing.T) {
+	fs, ctx, logger := newTestSetup()
+
+	// Fake server serving content
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("hello"))
+	}))
+	defer srv.Close()
+
+	dest := "/tmp/file.txt"
+	// Ensure directory exists
+	_ = fs.MkdirAll(filepath.Dir(dest), 0o755)
+
+	// 1) successful download
+	if err := DownloadFile(fs, ctx, srv.URL, dest, logger, false); err != nil {
+		t.Fatalf("DownloadFile returned error: %v", err)
+	}
+
+	// Verify file content
+	data, _ := afero.ReadFile(fs, dest)
+	if string(data) != "hello" {
+		t.Errorf("unexpected file content: %s", string(data))
+	}
+
+	// 2) call again with useLatest=false  should skip because file exists and non-empty
+	if err := DownloadFile(fs, ctx, srv.URL, dest, logger, false); err != nil {
+		t.Fatalf("second DownloadFile error: %v", err)
+	}
+
+	// 3) call with useLatest=true  should overwrite (simulate by serving different content)
+	srv.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("new"))
+	})
+	if err := DownloadFile(fs, ctx, srv.URL, dest, logger, true); err != nil {
+		t.Fatalf("DownloadFile with latest error: %v", err)
+	}
+	data, _ = afero.ReadFile(fs, dest)
+	if string(data) != "new" {
+		t.Errorf("file not overwritten with latest: %s", string(data))
+	}
+}
+
+func TestDownloadFileHTTPErrorAndBadPath(t *testing.T) {
+	fs, ctx, logger := newTestSetup()
+
+	// Server returns 404
+	srv := httptest.NewServer(http.NotFoundHandler())
+	defer srv.Close()
+
+	dest := "/tmp/err.txt"
+	_ = fs.MkdirAll(filepath.Dir(dest), 0o755)
+
+	if err := DownloadFile(fs, ctx, srv.URL, dest, logger, false); err == nil {
+		t.Errorf("expected error on non-200 status, got nil")
+	}
+
+	// Empty path should error immediately
+	if err := DownloadFile(fs, ctx, srv.URL, "", logger, false); err == nil {
+		t.Errorf("expected error on empty destination path, got nil")
+	}
+}
+
+func TestDownloadFilesWrapper(t *testing.T) {
+	// Use the OS filesystem with a temp directory because DownloadFiles creates dirs via os.MkdirAll.
+	dir := filepath.Join(t.TempDir(), "downloads")
+	fs := afero.NewOsFs()
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	// server returns simple content
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("x"))
+	}))
+	defer srv.Close()
+
+	items := []DownloadItem{{URL: srv.URL, LocalName: "x.txt"}}
+
+	if err := DownloadFiles(fs, ctx, dir, items, logger, false); err != nil {
+		t.Fatalf("DownloadFiles error: %v", err)
+	}
+
+	// Ensure file exists
+	content, err := afero.ReadFile(fs, filepath.Join(dir, "x.txt"))
+	if err != nil {
+		t.Fatalf("file not found: %v", err)
+	}
+	if string(content) != "x" {
+		t.Errorf("unexpected content: %s", string(content))
+	}
 }
