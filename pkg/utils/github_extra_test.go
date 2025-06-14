@@ -1,4 +1,4 @@
-package utils
+package utils_test
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,7 +24,7 @@ func TestGetLatestGitHubReleaseExtra(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	v, err := GetLatestGitHubRelease(ctx, "owner/repo", ts.URL)
+	v, err := utils.GetLatestGitHubRelease(ctx, "owner/repo", ts.URL)
 	require.NoError(t, err)
 	require.Equal(t, "1.2.3", v)
 
@@ -31,7 +33,7 @@ func TestGetLatestGitHubReleaseExtra(t *testing.T) {
 		w.WriteHeader(http.StatusUnauthorized)
 	}))
 	defer ts401.Close()
-	_, err = GetLatestGitHubRelease(ctx, "owner/repo", ts401.URL)
+	_, err = utils.GetLatestGitHubRelease(ctx, "owner/repo", ts401.URL)
 	require.Error(t, err)
 
 	// Non-OK generic error path
@@ -39,7 +41,7 @@ func TestGetLatestGitHubReleaseExtra(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer ts500.Close()
-	_, err = GetLatestGitHubRelease(ctx, "owner/repo", ts500.URL)
+	_, err = utils.GetLatestGitHubRelease(ctx, "owner/repo", ts500.URL)
 	require.Error(t, err)
 
 	// Forbidden path (rate limit)
@@ -47,7 +49,7 @@ func TestGetLatestGitHubReleaseExtra(t *testing.T) {
 		w.WriteHeader(http.StatusForbidden)
 	}))
 	defer ts403.Close()
-	_, err = GetLatestGitHubRelease(ctx, "owner/repo", ts403.URL)
+	_, err = utils.GetLatestGitHubRelease(ctx, "owner/repo", ts403.URL)
 	require.Error(t, err)
 
 	// Malformed JSON path – should error on JSON parse
@@ -56,7 +58,7 @@ func TestGetLatestGitHubReleaseExtra(t *testing.T) {
 		_, _ = w.Write([]byte(`{ "tag_name": 123 }`)) // tag_name not string
 	}))
 	defer tsBadJSON.Close()
-	_, err = GetLatestGitHubRelease(ctx, "owner/repo", tsBadJSON.URL)
+	_, err = utils.GetLatestGitHubRelease(ctx, "owner/repo", tsBadJSON.URL)
 	require.Error(t, err)
 }
 
@@ -111,7 +113,7 @@ func TestGetLatestGitHubReleaseWithToken(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	ver, err := GetLatestGitHubRelease(ctx, "owner/repo", srv.URL)
+	ver, err := utils.GetLatestGitHubRelease(ctx, "owner/repo", srv.URL)
 	require.NoError(t, err)
 	assert.Equal(t, "9.9.9", ver)
 }
@@ -119,7 +121,55 @@ func TestGetLatestGitHubReleaseWithToken(t *testing.T) {
 // TestGetLatestGitHubReleaseInvalidURL ensures that malformed URLs trigger an error
 func TestGetLatestGitHubReleaseInvalidURL(t *testing.T) {
 	ctx := context.Background()
-	ver, err := GetLatestGitHubRelease(ctx, "owner/repo", "://bad url")
+	ver, err := utils.GetLatestGitHubRelease(ctx, "owner/repo", "://bad url")
 	require.Error(t, err)
 	assert.Empty(t, ver)
+}
+
+// TestGetLatestGitHubRelease_Success verifies the helper parses tag names and
+// strips the leading 'v'.
+func TestGetLatestGitHubRelease_Success(t *testing.T) {
+	// Spin up mock GitHub API endpoint.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"tag_name":"v1.2.3"}`))
+	}))
+	defer srv.Close()
+
+	ctx := context.Background()
+	version, err := utils.GetLatestGitHubRelease(ctx, "octocat/Hello-World", srv.URL)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if version != "1.2.3" {
+		t.Fatalf("unexpected version: %s", version)
+	}
+
+	_ = schema.SchemaVersion(ctx)
+}
+
+// TestGetLatestGitHubRelease_Errors checks status-code error branches.
+func TestGetLatestGitHubRelease_Errors(t *testing.T) {
+	tests := []struct {
+		code int
+	}{
+		{http.StatusUnauthorized},
+		{http.StatusForbidden},
+		{http.StatusTeapot}, // arbitrary non-200
+	}
+
+	ctx := context.Background()
+
+	for _, tc := range tests {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(tc.code)
+		}))
+		version, err := utils.GetLatestGitHubRelease(ctx, "octocat/Hello-World", srv.URL)
+		srv.Close()
+		if err == nil {
+			t.Fatalf("expected error for status %d, got version %s", tc.code, version)
+		}
+	}
+
+	_ = schema.SchemaVersion(ctx)
 }

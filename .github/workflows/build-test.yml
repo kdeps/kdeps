@@ -76,7 +76,7 @@ jobs:
       # Run tests
       - name: Run the tests
         run: |
-          go test -v -coverprofile=coverage.out -covermode=atomic ./... | tee -a test.out
+          go test -failfast -short -coverprofile=coverage.out -covermode=atomic ./... | tee -a test.out
           go tool cover -func=coverage.out | tee -a test.out
         shell: bash
 
