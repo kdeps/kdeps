@@ -32,7 +32,7 @@ func (mc *MockContext) Value(key interface{}) interface{} {
 }
 
 func TestAppendDataEntry(t *testing.T) {
-	t.Parallel()
+
 
 	tests := []struct {
 		name          string
@@ -44,7 +44,7 @@ func TestAppendDataEntry(t *testing.T) {
 			name: "Context is nil",
 			setup: func(dr *resolver.DependencyResolver) *data.DataImpl {
 				//nolint:fatcontext
-				dr.Context = ctx
+				dr.Context = nil
 				return nil
 			},
 			expectError:   true,
@@ -88,11 +88,16 @@ func TestAppendDataEntry(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
+		
+			tmp := t.TempDir()
+			actionDir := filepath.Join(tmp, "action")
+			fs := afero.NewOsFs()
+			_ = fs.MkdirAll(filepath.Join(actionDir, "data"), 0o755)
+
 			dr := &resolver.DependencyResolver{
-				Fs:        afero.NewMemMapFs(),
+				Fs:        fs,
 				Context:   &MockContext{},
-				ActionDir: "action",
+				ActionDir: actionDir,
 				RequestID: "testRequestID",
 				Logger:    logging.GetLogger(),
 			}

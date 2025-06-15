@@ -1,19 +1,18 @@
-package archiver_test
+package archiver
 
 import (
 	"context"
 	"path/filepath"
 	"testing"
 
-	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestMoveFolder(t *testing.T) {
-	t.Parallel()
+func TestMoveFolderMainPkg(t *testing.T) {
+
 	fs := afero.NewMemMapFs()
 	// Create source directory and files
 	srcDir := "/src"
@@ -22,7 +21,7 @@ func TestMoveFolder(t *testing.T) {
 	_ = afero.WriteFile(fs, filepath.Join(srcDir, "file1.txt"), []byte("content1"), 0o644)
 	_ = afero.WriteFile(fs, filepath.Join(srcDir, "file2.txt"), []byte("content2"), 0o644)
 
-	err := archiver.MoveFolder(fs, srcDir, destDir)
+	err := MoveFolder(fs, srcDir, destDir)
 	require.NoError(t, err)
 
 	// Assert source directory no longer exists
@@ -44,8 +43,8 @@ func TestMoveFolder(t *testing.T) {
 	assert.Equal(t, "content2", string(content))
 }
 
-func TestCopyFile(t *testing.T) {
-	t.Parallel()
+func TestCopyFileMainPkg(t *testing.T) {
+
 	fs := afero.NewMemMapFs()
 	// Create source file
 	srcFile := "/src/file.txt"
@@ -53,7 +52,7 @@ func TestCopyFile(t *testing.T) {
 	_ = fs.MkdirAll(filepath.Dir(srcFile), 0o755)
 	_ = afero.WriteFile(fs, srcFile, []byte("file content"), 0o644)
 
-	err := archiver.CopyFile(fs, context.Background(), srcFile, destFile, logging.GetLogger())
+	err := CopyFile(fs, context.Background(), srcFile, destFile, logging.GetLogger())
 	require.NoError(t, err)
 
 	// Assert destination file exists and content matches
@@ -62,8 +61,7 @@ func TestCopyFile(t *testing.T) {
 	assert.Equal(t, "file content", string(content))
 }
 
-func TestGetFileMD5(t *testing.T) {
-	t.Parallel()
+func TestGetFileMD5MainPkg(t *testing.T) {
 
 	// Arrange: Use an in-memory filesystem to isolate the test environment
 	fs := afero.NewMemMapFs()
@@ -76,7 +74,7 @@ func TestGetFileMD5(t *testing.T) {
 	require.NoError(t, err, "failed to write test file")
 
 	// Act: Calculate the MD5 hash of the file
-	hash, err := archiver.GetFileMD5(fs, filePath, 8)
+	hash, err := GetFileMD5(fs, filePath, 8)
 
 	// Assert: Validate the hash and ensure no errors occurred
 	require.NoError(t, err, "failed to calculate MD5 hash")
@@ -92,8 +90,8 @@ func TestGetFileMD5(t *testing.T) {
 	assert.Equal(t, testContent, content, "file content mismatch")
 }
 
-func TestCopyDir(t *testing.T) {
-	t.Parallel()
+func TestCopyDirMainPkg(t *testing.T) {
+
 	fs := afero.NewMemMapFs()
 	srcDir := "/src"
 	destDir := "/dest"
@@ -102,7 +100,7 @@ func TestCopyDir(t *testing.T) {
 	_ = afero.WriteFile(fs, filepath.Join(srcDir, "file1.txt"), []byte("content1"), 0o644)
 	_ = afero.WriteFile(fs, filepath.Join(srcDir, "file2.txt"), []byte("content2"), 0o644)
 
-	err := archiver.CopyDir(fs, context.Background(), srcDir, destDir, logging.GetLogger())
+	err := CopyDir(fs, context.Background(), srcDir, destDir, logging.GetLogger())
 	require.NoError(t, err)
 
 	// Assert destination directory and files exist

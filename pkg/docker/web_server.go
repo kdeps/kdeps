@@ -13,6 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	webserver "github.com/kdeps/schema/gen/web_server"
 	"github.com/kdeps/schema/gen/web_server/webservertype"
@@ -89,8 +90,8 @@ func WebServerHandler(ctx context.Context, hostIP string, route *webserver.WebSe
 		case webservertype.App:
 			handleAppRequest(c, hostIP, route, logger)
 		default:
-			logger.Error("unsupported server type", "type", route.ServerType)
-			c.String(http.StatusInternalServerError, "500: Unsupported server type")
+			logger.Error(messages.ErrUnsupportedServerType, "type", route.ServerType)
+			c.String(http.StatusInternalServerError, messages.RespUnsupportedServerType)
 		}
 	}
 }
@@ -102,7 +103,7 @@ func logDirectoryContents(dr *resolver.DependencyResolver, fullPath string, logg
 		return
 	}
 	for _, entry := range entries {
-		logger.Debug("found file", "name", entry.Name(), "isDir", entry.IsDir())
+		logger.Debug(messages.MsgLogDirFoundFile, "name", entry.Name(), "isDir", entry.IsDir())
 	}
 }
 
@@ -131,15 +132,15 @@ func handleStaticRequest(c *gin.Context, fullPath string, route *webserver.WebSe
 func handleAppRequest(c *gin.Context, hostIP string, route *webserver.WebServerRoutes, logger *logging.Logger) {
 	portNum := strconv.FormatUint(uint64(*route.AppPort), 10)
 	if hostIP == "" || portNum == "" {
-		logger.Error("proxy host or port not configured", "host", hostIP, "port", portNum)
-		c.String(http.StatusInternalServerError, "500: Proxy host or port not configured")
+		logger.Error(messages.ErrProxyHostPortMissing, "host", hostIP, "port", portNum)
+		c.String(http.StatusInternalServerError, messages.RespProxyHostPortMissing)
 		return
 	}
 
 	targetURL, err := url.Parse("http://" + net.JoinHostPort(hostIP, portNum))
 	if err != nil {
-		logger.Error("invalid proxy URL", "host", hostIP, "port", portNum, "error", err)
-		c.String(http.StatusInternalServerError, "500: Invalid proxy URL")
+		logger.Error(messages.ErrInvalidProxyURL, "host", hostIP, "port", portNum, "error", err)
+		c.String(http.StatusInternalServerError, messages.RespInvalidProxyURL)
 		return
 	}
 
@@ -159,12 +160,12 @@ func handleAppRequest(c *gin.Context, hostIP string, route *webserver.WebServerR
 				req.Header.Add(key, value)
 			}
 		}
-		logger.Debug("proxying request", "url", req.URL.String())
+		logger.Debug(messages.MsgProxyingRequest, "url", req.URL.String())
 	}
 
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-		logger.Error("failed to proxy request", "url", r.URL.String(), "error", err)
-		c.String(http.StatusBadGateway, "502: Failed to reach app server")
+		logger.Error(messages.ErrFailedProxyRequest, "url", r.URL.String(), "error", err)
+		c.String(http.StatusBadGateway, messages.RespFailedReachApp)
 	}
 
 	proxy.ServeHTTP(c.Writer, c.Request)
