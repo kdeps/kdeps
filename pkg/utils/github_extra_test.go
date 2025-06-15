@@ -173,3 +173,41 @@ func TestGetLatestGitHubRelease_Errors(t *testing.T) {
 
 	_ = schema.SchemaVersion(ctx)
 }
+
+func TestGetLatestGitHubRelease_MockServer2(t *testing.T) {
+	// Successful path
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := struct {
+			Tag string `json:"tag_name"`
+		}{Tag: "v1.2.3"}
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer ts.Close()
+
+	ctx := context.Background()
+	ver, err := utils.GetLatestGitHubRelease(ctx, "org/repo", ts.URL)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ver != "1.2.3" {
+		t.Fatalf("expected 1.2.3 got %s", ver)
+	}
+
+	// Unauthorized path
+	u401 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer u401.Close()
+	if _, err := utils.GetLatestGitHubRelease(ctx, "org/repo", u401.URL); err == nil {
+		t.Fatalf("expected unauthorized error")
+	}
+
+	// Non-200 path
+	u500 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer u500.Close()
+	if _, err := utils.GetLatestGitHubRelease(ctx, "org/repo", u500.URL); err == nil {
+		t.Fatalf("expected error for 500 status")
+	}
+}

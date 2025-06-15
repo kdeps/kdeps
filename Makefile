@@ -33,7 +33,14 @@ test: test-coverage
 
 test-coverage:
 	@echo "$(OK_COLOR)==> Running the unit tests with coverage$(NO_COLOR)"
-	@NON_INTERACTIVE=1 go test -failfast -short -coverprofile=coverage.out ./...
+	@# Raw coverage profile can be corrupted by package summary lines when running on multiple packages.
+	@# Capture to an intermediate file and strip any lines that do not conform to the expected
+	@# `<path>.go:<startLine>.<startCol>,<endLine>.<endCol> <numberOfStatements> <count>` format or the
+	@# initial `mode:` header. This keeps the profile consumable by `go tool cover`.
+	@NON_INTERACTIVE=1 go test -failfast -short -coverprofile=coverage_raw.out ./...
+	@# Keep the first "mode:" header and all lines ending with ".go:" information, dropping package summary rows.
+	@{ head -n1 coverage_raw.out; grep -E "^[[:alnum:]/._-]+\\.go:" coverage_raw.out; } > coverage.out
+	@rm coverage_raw.out
 	@echo "$(OK_COLOR)==> Coverage report:$(NO_COLOR)"
 	@go tool cover -func=coverage.out | tee coverage.txt
 	@COVERAGE=$$(grep total: coverage.txt | awk '{print $$3}' | sed 's/%//'); \

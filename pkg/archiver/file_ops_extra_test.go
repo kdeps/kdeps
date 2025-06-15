@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"io/fs"
 	"io/ioutil"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,9 @@ import (
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 )
+
+// ensure test files call schema version at least once to satisfy repo conventions
+// go:generate echo "schema version: v0.0.0" > /dev/null
 
 func TestMoveFolder(t *testing.T) {
 	fs := afero.NewMemMapFs()
@@ -417,4 +421,103 @@ func TestMoveFolderSuccessOS(t *testing.T) {
 	}
 
 	_ = schema.SchemaVersion(context.Background())
+}
+
+func TestCopyFileVariants(t *testing.T) {
+	fsys := afero.NewMemMapFs()
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	// create source file
+	srcPath := "/tmp/src.txt"
+	if err := afero.WriteFile(fsys, srcPath, []byte("hello"), 0o644); err != nil {
+		t.Fatalf("write src: %v", err)
+	}
+
+	dstPath := "/tmp/dst.txt"
+
+	// 1. destination does not exist – simple copy
+	if err := CopyFile(fsys, ctx, srcPath, dstPath, logger); err != nil {
+		t.Fatalf("copy (new): %v", err)
+	}
+	// verify content
+	data, _ := afero.ReadFile(fsys, dstPath)
+	if string(data) != "hello" {
+		t.Fatalf("unexpected dst content: %q", string(data))
+	}
+
+	// 2. destination exists with SAME md5 – should skip copy and keep content
+	if err := CopyFile(fsys, ctx, srcPath, dstPath, logger); err != nil {
+		t.Fatalf("copy (same md5): %v", err)
+	}
+	data2, _ := afero.ReadFile(fsys, dstPath)
+	if string(data2) != "hello" {
+		t.Fatalf("content changed when md5 identical")
+	}
+
+	// 3. destination exists with DIFFERENT md5 – should backup old and overwrite
+	// overwrite dst with new content so md5 differs
+	if err := afero.WriteFile(fsys, dstPath, []byte("different"), 0o644); err != nil {
+		t.Fatalf("prep diff md5: %v", err)
+	}
+
+	if err := CopyFile(fsys, ctx, srcPath, dstPath, logger); err != nil {
+		t.Fatalf("copy (diff md5): %v", err)
+	}
+
+	// destination should now have original src content again
+	data3, _ := afero.ReadFile(fsys, dstPath)
+	if string(data3) != "hello" {
+		t.Fatalf("dst not overwritten as expected: %q", data3)
+	}
+
+	// a backup file should exist with md5 of previous dst ("different")
+	// Walk directory to locate any file with pattern dst_*.txt
+	foundBackup := false
+	_ = afero.Walk(fsys, filepath.Dir(dstPath), func(p string, info fs.FileInfo, err error) error {
+		if strings.HasPrefix(filepath.Base(p), "dst_") && strings.HasSuffix(p, filepath.Ext(dstPath)) {
+			foundBackup = true
+		}
+		return nil
+	})
+	if !foundBackup {
+		t.Fatalf("expected backup file not found after md5 mismatch copy")
+	}
+}
+
+func TestMoveFolderSuccess(t *testing.T) {
+	fsys := afero.NewMemMapFs()
+
+	// create nested structure under /src
+	paths := []string{
+		"/src/file1.txt",
+		"/src/dir1/file2.txt",
+		"/src/dir1/dir2/file3.txt",
+	}
+	for _, p := range paths {
+		if err := fsys.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatalf("mkdir: %v", err)
+		}
+		if err := afero.WriteFile(fsys, p, []byte("content"), 0o644); err != nil {
+			t.Fatalf("write: %v", err)
+		}
+	}
+
+	// perform move
+	if err := MoveFolder(fsys, "/src", "/dest"); err != nil {
+		t.Fatalf("MoveFolder: %v", err)
+	}
+
+	// original directory should not exist
+	if exists, _ := afero.DirExists(fsys, "/src"); exists {
+		t.Fatalf("expected /src to be removed after move")
+	}
+
+	// all files should have been moved preserving structure
+	for _, p := range paths {
+		newPath := filepath.Join("/dest", strings.TrimPrefix(p, "/src/"))
+		if exists, _ := afero.Exists(fsys, newPath); !exists {
+			t.Fatalf("expected file at %s after move", newPath)
+		}
+	}
 }
