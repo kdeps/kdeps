@@ -76,7 +76,7 @@ jobs:
       # Run tests
       - name: Run the tests
         run: |
-          go test -short -coverprofile=coverage.out -covermode=atomic ./... | tee -a test.out
+          go test -short -v -coverprofile=coverage.out -covermode=atomic ./... | tee -a test.out
           go tool cover -func=coverage.out | tee -a test.out
           grep -E "^[[:alnum:]/._-]+\.go:" coverage.out >> test.out
         shell: bash
