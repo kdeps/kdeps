@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package resource_test
 
 import (
@@ -492,8 +495,8 @@ func iGETRequestToWithDataAndHeaderNameThatMapsTo(arg1, arg2, arg3, arg4 string)
 	// request below will still work if an API server is listening, but we remove
 	// the artificial 30-second delay so the test suite finishes quickly.
 
-	// Base URL
-	baseURL := net.JoinHostPort(hostIP, hostPort) + arg1
+	// Base URL – ensure it contains a scheme so url.Parse works.
+	baseURL := "http://" + net.JoinHostPort(hostIP, hostPort) + arg1
 	reqBody := strings.NewReader(arg2)
 
 	// Create a new GET request

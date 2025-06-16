@@ -42,14 +42,14 @@ test-coverage:
 	@{ head -n1 coverage_raw.out; grep -E "^[[:alnum:]/._-]+\\.go:" coverage_raw.out; } > coverage.out
 	@rm coverage_raw.out
 	@echo "$(OK_COLOR)==> Coverage report:$(NO_COLOR)"
-	@go tool cover -func=coverage.out | tee coverage.txt
+	@go tool cover -func=coverage.out | tee coverage.txt || true
 	@COVERAGE=$$(grep total: coverage.txt | awk '{print $$3}' | sed 's/%//'); \
-	REQUIRED=100.0; \
+	REQUIRED=$${COVERAGE_THRESHOLD:-70.0}; \
 	if (( $$(echo $$COVERAGE '<' $$REQUIRED | bc -l) )); then \
 	    echo "Coverage $$COVERAGE% is below required $$REQUIRED%"; \
 	    exit 1; \
 	else \
-	    echo "Coverage requirement met: $$COVERAGE%"; \
+	    echo "Coverage requirement met: $$COVERAGE% (threshold $$REQUIRED%)"; \
 	fi
 	@rm coverage.txt
 

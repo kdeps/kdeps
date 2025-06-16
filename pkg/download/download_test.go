@@ -233,3 +233,104 @@ func TestDownloadFilesWrapper(t *testing.T) {
 		t.Errorf("unexpected content: %s", string(content))
 	}
 }
+
+// createTestServer returns a httptest.Server that serves the provided body with status 200.
+func createTestServer(body string, status int) *httptest.Server {
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte(body))
+	})
+	return httptest.NewServer(h)
+}
+
+func TestDownloadFile_SuccessUnit(t *testing.T) {
+	srv := createTestServer("hello", http.StatusOK)
+	defer srv.Close()
+
+	mem := afero.NewMemMapFs()
+	tmpDir := t.TempDir()
+	dst := filepath.Join(tmpDir, "file.txt")
+
+	err := DownloadFile(mem, context.Background(), srv.URL, dst, logging.NewTestLogger(), false)
+	assert.NoError(t, err)
+
+	data, err := afero.ReadFile(mem, dst)
+	assert.NoError(t, err)
+	assert.Equal(t, "hello", string(data))
+}
+
+func TestDownloadFile_StatusErrorUnit(t *testing.T) {
+	srv := createTestServer("bad", http.StatusInternalServerError)
+	defer srv.Close()
+
+	mem := afero.NewMemMapFs()
+	tmpDir := t.TempDir()
+	dst := filepath.Join(tmpDir, "err.txt")
+
+	err := DownloadFile(mem, context.Background(), srv.URL, dst, logging.NewTestLogger(), false)
+	assert.Error(t, err)
+}
+
+func TestDownloadFile_ExistingSkipUnit(t *testing.T) {
+	srv := createTestServer("new", http.StatusOK)
+	defer srv.Close()
+
+	mem := afero.NewMemMapFs()
+	tmpDir := t.TempDir()
+	dst := filepath.Join(tmpDir, "skip.txt")
+
+	// Pre-create file with content
+	assert.NoError(t, afero.WriteFile(mem, dst, []byte("old"), 0o644))
+
+	err := DownloadFile(mem, context.Background(), srv.URL, dst, logging.NewTestLogger(), false)
+	assert.NoError(t, err)
+
+	data, _ := afero.ReadFile(mem, dst)
+	assert.Equal(t, "old", string(data)) // should not overwrite
+}
+
+func TestDownloadFile_OverwriteWithLatestUnit(t *testing.T) {
+	srv := createTestServer("fresh", http.StatusOK)
+	defer srv.Close()
+
+	mem := afero.NewMemMapFs()
+	tmpDir := t.TempDir()
+	dst := filepath.Join(tmpDir, "latest.txt")
+
+	// Pre-create file with stale content
+	assert.NoError(t, afero.WriteFile(mem, dst, []byte("stale"), 0o644))
+
+	err := DownloadFile(mem, context.Background(), srv.URL, dst, logging.NewTestLogger(), true)
+	assert.NoError(t, err)
+
+	data, _ := afero.ReadFile(mem, dst)
+	assert.Equal(t, "fresh", string(data)) // should overwrite
+}
+
+func TestDownloadFiles_MultipleUnit(t *testing.T) {
+	srv1 := createTestServer("one", http.StatusOK)
+	defer srv1.Close()
+	srv2 := createTestServer("two", http.StatusOK)
+	defer srv2.Close()
+
+	tmpDir := t.TempDir()
+	mem := afero.NewOsFs() // DownloadFiles uses os.MkdirAll; use real fs under tmpDir
+
+	items := []DownloadItem{
+		{URL: srv1.URL, LocalName: "a.txt"},
+		{URL: srv2.URL, LocalName: "b.txt"},
+	}
+
+	err := DownloadFiles(mem, context.Background(), tmpDir, items, logging.NewTestLogger(), false)
+	assert.NoError(t, err)
+
+	for _, n := range []string{"a.txt", "b.txt"} {
+		path := filepath.Join(tmpDir, n)
+		info, err := mem.Stat(path)
+		assert.NoError(t, err)
+		assert.NotZero(t, info.Size())
+	}
+
+	// Cleanup tmpDir to avoid clutter; ignore errors.
+	_ = os.RemoveAll(tmpDir)
+}
