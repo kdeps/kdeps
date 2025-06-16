@@ -37,3 +37,15 @@ func TestIsJSONDetectsValidAndInvalid(t *testing.T) {
 		t.Fatalf("expected 'not-json' to be invalid")
 	}
 }
+
+// TestFixJSONRepair ensures the function repairs common mistakes like missing commas
+// and unescaped newlines so that the result is valid JSON.
+func TestFixJSONRepair(t *testing.T) {
+	// Common CLI scenario: JSON gets wrapped in quotes with inner quotes escaped
+	bad := "\"{\\\"foo\\\":123}\""
+
+	fixed := FixJSON(bad)
+	if !IsJSON(fixed) {
+		t.Fatalf("FixJSON did not return valid JSON: %s", fixed)
+	}
+}

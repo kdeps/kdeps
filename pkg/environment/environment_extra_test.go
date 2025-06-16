@@ -1,7 +1,9 @@
 package environment
 
 import (
+	"context"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/schema"
@@ -87,5 +89,55 @@ func TestNewEnvironment_Override(t *testing.T) {
 	}
 	if env.TimeoutSec != 30 {
 		t.Fatalf("expected TimeoutSec propagated")
+	}
+}
+
+// TestHelperFunctions covers checkConfig, findKdepsConfig and isDockerEnvironment.
+func TestHelperFunctions(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	_ = ctx // reference to context not used but keeps rule: we call schema elsewhere not needed here.
+
+	// create temp pwd and home
+	pwd := "/work"
+	home := "/home/user"
+	if err := fs.MkdirAll(pwd, 0755); err != nil {
+		t.Fatalf(err.Error())
+	}
+	if err := fs.MkdirAll(home, 0755); err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	// no config yet
+	if got := findKdepsConfig(fs, pwd, home); got != "" {
+		t.Fatalf("expected empty, got %s", got)
+	}
+
+	// add config to home
+	cfgPath := filepath.Join(home, SystemConfigFileName)
+	afero.WriteFile(fs, cfgPath, []byte("dummy"), 0644)
+
+	if got := findKdepsConfig(fs, pwd, home); got != cfgPath {
+		t.Fatalf("expected %s got %s", cfgPath, got)
+	}
+
+	// isDockerEnvironment false by default
+	if isDockerEnvironment(fs, "/") {
+		t.Fatalf("expected not docker env")
+	}
+
+	// create /.dockerenv and set required env vars
+	afero.WriteFile(fs, "/.dockerenv", []byte(""), 0644)
+	os.Setenv("SCHEMA_VERSION", "1")
+	os.Setenv("OLLAMA_HOST", "x")
+	os.Setenv("KDEPS_HOST", "y")
+	defer func() {
+		os.Unsetenv("SCHEMA_VERSION")
+		os.Unsetenv("OLLAMA_HOST")
+		os.Unsetenv("KDEPS_HOST")
+	}()
+
+	if !isDockerEnvironment(fs, "/") {
+		t.Fatalf("expected docker environment")
 	}
 }

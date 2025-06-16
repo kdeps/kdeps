@@ -107,3 +107,63 @@ func TestCleanupFlagFiles_NonExistent(t *testing.T) {
 	// Call with files that don't exist; should not panic or error.
 	cleanupFlagFiles(fs, []string{"/missing1", "/missing2"}, logger)
 }
+
+type stubPruneClient struct {
+	containers  []types.Container
+	removedIDs  []string
+	pruneCalled bool
+	removeErr   error
+}
+
+func (s *stubPruneClient) ContainerList(_ context.Context, _ container.ListOptions) ([]types.Container, error) {
+	return s.containers, nil
+}
+
+func (s *stubPruneClient) ContainerRemove(_ context.Context, id string, _ container.RemoveOptions) error {
+	if s.removeErr != nil {
+		return s.removeErr
+	}
+	s.removedIDs = append(s.removedIDs, id)
+	return nil
+}
+
+func (s *stubPruneClient) ImagesPrune(_ context.Context, _ filters.Args) (image.PruneReport, error) {
+	s.pruneCalled = true
+	return image.PruneReport{}, nil
+}
+
+func TestCleanupDockerBuildImages_RemovesMatchAndPrunes(t *testing.T) {
+	cli := &stubPruneClient{
+		containers: []types.Container{{ID: "abc", Names: []string{"/target"}}},
+	}
+
+	if err := CleanupDockerBuildImages(nil, context.Background(), "target", cli); err != nil {
+		t.Fatalf("CleanupDockerBuildImages error: %v", err)
+	}
+
+	if len(cli.removedIDs) != 1 || cli.removedIDs[0] != "abc" {
+		t.Fatalf("container not removed as expected: %+v", cli.removedIDs)
+	}
+	if !cli.pruneCalled {
+		t.Fatalf("ImagesPrune not called")
+	}
+}
+
+func TestCleanupFlagFilesRemoveAllExtra(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+
+	// Create two dummy files
+	paths := []string{"/tmp/flag1", "/tmp/flag2"}
+	for _, p := range paths {
+		afero.WriteFile(fs, p, []byte("x"), 0o644)
+	}
+
+	cleanupFlagFiles(fs, paths, logger)
+
+	for _, p := range paths {
+		if exists, _ := afero.Exists(fs, p); exists {
+			t.Fatalf("file %s still exists after cleanup", p)
+		}
+	}
+}

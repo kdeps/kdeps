@@ -35,3 +35,11 @@ func TestOverrideVersionValues(t *testing.T) {
 	// restore
 	Version, Commit = origVer, origCommit
 }
+
+func TestVersionVars(t *testing.T) {
+	if Version == "" {
+		t.Fatalf("Version should not be empty")
+	}
+	// Commit may be empty in dev builds but accessing it should not panic.
+	_ = Commit
+}

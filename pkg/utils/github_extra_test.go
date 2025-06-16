@@ -1,8 +1,10 @@
 package utils_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,6 +14,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type ghRoundTrip func(*http.Request) (*http.Response, error)
+
+func (f ghRoundTrip) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func mockResp(code int, body string) *http.Response {
+	return &http.Response{StatusCode: code, Header: make(http.Header), Body: ioutil.NopCloser(bytes.NewBufferString(body))}
+}
 
 func TestGetLatestGitHubReleaseExtra(t *testing.T) {
 	ctx := context.Background()
@@ -129,50 +139,51 @@ func TestGetLatestGitHubReleaseInvalidURL(t *testing.T) {
 // TestGetLatestGitHubRelease_Success verifies the helper parses tag names and
 // strips the leading 'v'.
 func TestGetLatestGitHubRelease_Success(t *testing.T) {
-	// Spin up mock GitHub API endpoint.
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"tag_name":"v1.2.3"}`))
-	}))
-	defer srv.Close()
+	payload := `{"tag_name":"v1.2.3"}`
+	old := http.DefaultClient.Transport
+	http.DefaultClient.Transport = ghRoundTrip(func(r *http.Request) (*http.Response, error) {
+		return mockResp(http.StatusOK, payload), nil
+	})
+	defer func() { http.DefaultClient.Transport = old }()
 
-	ctx := context.Background()
-	version, err := utils.GetLatestGitHubRelease(ctx, "octocat/Hello-World", srv.URL)
+	ver, err := utils.GetLatestGitHubRelease(context.Background(), "owner/repo", "https://api.github.com")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if version != "1.2.3" {
-		t.Fatalf("unexpected version: %s", version)
+	if ver != "1.2.3" {
+		t.Fatalf("expected 1.2.3, got %s", ver)
 	}
 
-	_ = schema.SchemaVersion(ctx)
+	_ = schema.SchemaVersion(context.Background())
 }
 
 // TestGetLatestGitHubRelease_Errors checks status-code error branches.
 func TestGetLatestGitHubRelease_Errors(t *testing.T) {
-	tests := []struct {
-		code int
+	cases := []struct {
+		status int
+		expect string
 	}{
-		{http.StatusUnauthorized},
-		{http.StatusForbidden},
-		{http.StatusTeapot}, // arbitrary non-200
+		{http.StatusUnauthorized, "unauthorized"},
+		{http.StatusForbidden, "rate limit"},
+		{http.StatusNotFound, "unexpected status code"},
 	}
 
-	ctx := context.Background()
-
-	for _, tc := range tests {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(tc.code)
-		}))
-		version, err := utils.GetLatestGitHubRelease(ctx, "octocat/Hello-World", srv.URL)
-		srv.Close()
-		if err == nil {
-			t.Fatalf("expected error for status %d, got version %s", tc.code, version)
+	for _, c := range cases {
+		old := http.DefaultClient.Transport
+		http.DefaultClient.Transport = ghRoundTrip(func(r *http.Request) (*http.Response, error) {
+			return mockResp(c.status, "{}"), nil
+		})
+		_, err := utils.GetLatestGitHubRelease(context.Background(), "owner/repo", "https://api.github.com")
+		if err == nil || !contains(err.Error(), c.expect) {
+			t.Fatalf("status %d expected error containing %q, got %v", c.status, c.expect, err)
 		}
+		http.DefaultClient.Transport = old
 	}
 
-	_ = schema.SchemaVersion(ctx)
+	_ = schema.SchemaVersion(context.Background())
 }
+
+func contains(s, substr string) bool { return bytes.Contains([]byte(s), []byte(substr)) }
 
 func TestGetLatestGitHubRelease_MockServer2(t *testing.T) {
 	// Successful path

@@ -5,6 +5,7 @@ go 1.23.7
 toolchain go1.24.1
 
 require (
+	bou.ke/monkey v1.0.2
 	github.com/Netflix/go-env v0.1.2
 	github.com/adrg/xdg v0.5.3
 	github.com/alexellis/go-execute/v2 v2.2.1
@@ -98,7 +99,7 @@ require (
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
-	github.com/ugorji/go/codec v1.2.14 // indirect
+	github.com/ugorji/go/codec v1.3.0 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect

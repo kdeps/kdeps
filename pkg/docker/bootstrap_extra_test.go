@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/schema/gen/project"
@@ -107,4 +108,63 @@ func TestCreateFlagFileExtra(t *testing.T) {
 	fi2, err := fs.Stat(filename)
 	require.NoError(t, err)
 	require.Equal(t, mt1, fi2.ModTime())
+}
+
+// minimalDependencyResolver returns a DependencyResolver with only fields
+// required by BootstrapDockerSystem when DockerMode != "1" (fast-path).
+func minimalDependencyResolver(fs afero.Fs) *resolver.DependencyResolver {
+	return &resolver.DependencyResolver{
+		Fs:          fs,
+		Environment: &environment.Environment{DockerMode: "0"},
+		Logger:      logging.NewTestLogger(),
+	}
+}
+
+func TestBootstrapDockerSystem_NonDockerMode2(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	dr := minimalDependencyResolver(fs)
+
+	apiMode, err := BootstrapDockerSystem(context.Background(), dr)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if apiMode {
+		t.Fatalf("expected apiMode=false for non-docker environment")
+	}
+}
+
+func TestBootstrapDockerSystem_NilLogger2(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	dr := &resolver.DependencyResolver{
+		Fs:          fs,
+		Environment: &environment.Environment{DockerMode: "0"},
+		Logger:      nil,
+	}
+	if _, err := BootstrapDockerSystem(context.Background(), dr); err == nil {
+		t.Fatalf("expected error when logger is nil")
+	}
+}
+
+func TestCreateFlagFileAgain(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	filename := "/tmp/test.flag"
+
+	// First creation should succeed
+	if err := CreateFlagFile(fs, context.Background(), filename); err != nil {
+		t.Fatalf("unexpected error creating flag file: %v", err)
+	}
+
+	// Verify file exists and timestamps are recent
+	info, err := fs.Stat(filename)
+	if err != nil {
+		t.Fatalf("stat failed: %v", err)
+	}
+	if time.Since(info.ModTime()) > time.Minute {
+		t.Fatalf("unexpected mod time: %v", info.ModTime())
+	}
+
+	// Second call should not error (file already exists)
+	if err := CreateFlagFile(fs, context.Background(), filename); err != nil {
+		t.Fatalf("expected nil error when flag already exists, got: %v", err)
+	}
 }
