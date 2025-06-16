@@ -14,7 +14,6 @@ const (
 // Test CreateContext and ReadContext.
 func TestCreateAndReadContext(t *testing.T) {
 
-
 	ctx := context.Background()
 
 	// Create context with values.
@@ -33,7 +32,6 @@ func TestCreateAndReadContext(t *testing.T) {
 
 // Test UpdateContext.
 func TestUpdateContext(t *testing.T) {
-
 
 	ctx := context.Background()
 	ctx = CreateContext(ctx, TestKey1, "InitialValue")
@@ -55,7 +53,6 @@ func TestUpdateContext(t *testing.T) {
 
 // Test DeleteContext.
 func TestDeleteContext(t *testing.T) {
-
 
 	ctx := context.Background()
 	ctx = CreateContext(ctx, TestKey1, "ToBeDeleted")

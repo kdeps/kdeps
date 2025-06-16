@@ -33,7 +33,6 @@ func (mc *MockContext) Value(key interface{}) interface{} {
 
 func TestAppendDataEntry(t *testing.T) {
 
-
 	tests := []struct {
 		name          string
 		setup         func(dr *resolver.DependencyResolver) *data.DataImpl
@@ -88,7 +87,7 @@ func TestAppendDataEntry(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-		
+
 			tmp := t.TempDir()
 			actionDir := filepath.Join(tmp, "action")
 			fs := afero.NewOsFs()

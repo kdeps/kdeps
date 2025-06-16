@@ -12,7 +12,6 @@ import (
 
 func TestValidateMethodMore(t *testing.T) {
 
-
 	// allowed only GET & POST
 	allowed := []string{http.MethodGet, http.MethodPost}
 

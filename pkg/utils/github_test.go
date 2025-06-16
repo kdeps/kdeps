@@ -14,7 +14,6 @@ import (
 
 func TestGetLatestGitHubRelease(t *testing.T) {
 
-
 	// Mock GitHub API server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

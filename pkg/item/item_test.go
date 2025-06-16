@@ -10,7 +10,6 @@ import (
 
 func TestPklResourceReader(t *testing.T) {
 
-
 	// Use in-memory SQLite database for testing
 	dbPath := "file::memory:"
 	reader, err := InitializeItem(dbPath, nil)
@@ -18,12 +17,12 @@ func TestPklResourceReader(t *testing.T) {
 	defer reader.DB.Close()
 
 	t.Run("Scheme", func(t *testing.T) {
-	
+
 		require.Equal(t, "item", reader.Scheme())
 	})
 
 	t.Run("Read_GetRecord", func(t *testing.T) {
-	
+
 		reader, err := InitializeItem("file::memory:", nil)
 		require.NoError(t, err)
 		defer reader.DB.Close()
@@ -46,7 +45,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_SetRecord", func(t *testing.T) {
-	
+
 		reader, err := InitializeItem("file::memory:", nil)
 		require.NoError(t, err)
 		defer reader.DB.Close()
@@ -74,7 +73,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_PrevRecord", func(t *testing.T) {
-	
+
 		reader, err := InitializeItem("file::memory:", nil)
 		require.NoError(t, err)
 		defer reader.DB.Close()
@@ -101,7 +100,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_NextRecord", func(t *testing.T) {
-	
+
 		reader, err := InitializeItem("file::memory:", nil)
 		require.NoError(t, err)
 		defer reader.DB.Close()
@@ -138,7 +137,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_ListRecords", func(t *testing.T) {
-	
+
 		reader, err := InitializeItem("file::memory:", nil)
 		require.NoError(t, err)
 		defer reader.DB.Close()
@@ -164,7 +163,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_Values", func(t *testing.T) {
-	
+
 		reader, err := InitializeItem("file::memory:", nil)
 		require.NoError(t, err)
 		defer reader.DB.Close()
@@ -190,7 +189,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("InitializeWithItems", func(t *testing.T) {
-	
+
 		items := []string{"item1", "item2", "item1"} // Includes duplicate
 		reader, err := InitializeItem("file::memory:", items)
 		require.NoError(t, err)
@@ -212,9 +211,8 @@ func TestPklResourceReader(t *testing.T) {
 
 func TestInitializeDatabase(t *testing.T) {
 
-
 	t.Run("SuccessfulInitialization", func(t *testing.T) {
-	
+
 		db, err := InitializeDatabase("file::memory:", []string{})
 		require.NoError(t, err)
 		require.NotNil(t, db)
@@ -227,7 +225,7 @@ func TestInitializeDatabase(t *testing.T) {
 	})
 
 	t.Run("InitializationWithItems", func(t *testing.T) {
-	
+
 		items := []string{"test1", "test2", "test1"}
 		db, err := InitializeDatabase("file::memory:", items)
 		require.NoError(t, err)
@@ -259,9 +257,8 @@ func TestInitializeDatabase(t *testing.T) {
 
 func TestInitializeItem(t *testing.T) {
 
-
 	t.Run("WithoutItems", func(t *testing.T) {
-	
+
 		reader, err := InitializeItem("file::memory:", nil)
 		require.NoError(t, err)
 		require.NotNil(t, reader)
@@ -277,7 +274,7 @@ func TestInitializeItem(t *testing.T) {
 	})
 
 	t.Run("WithItems", func(t *testing.T) {
-	
+
 		items := []string{"item1", "item2", "item1"}
 		reader, err := InitializeItem("file::memory:", items)
 		require.NoError(t, err)
@@ -313,7 +310,6 @@ func TestInitializeItem(t *testing.T) {
 
 func TestPklResourceReader_InterfaceMethods(t *testing.T) {
 
-
 	reader := &PklResourceReader{}
 
 	t.Run("IsGlobbable", func(t *testing.T) {
@@ -333,7 +329,6 @@ func TestPklResourceReader_InterfaceMethods(t *testing.T) {
 }
 
 func TestRead_ErrorCases(t *testing.T) {
-
 
 	t.Run("InvalidOperation", func(t *testing.T) {
 		reader, err := InitializeItem("file::memory:", nil)
@@ -375,7 +370,6 @@ func TestRead_ErrorCases(t *testing.T) {
 
 func TestGetMostRecentID_EdgeCases(t *testing.T) {
 
-
 	t.Run("EmptyDatabase", func(t *testing.T) {
 		reader, err := InitializeItem("file::memory:", nil)
 		require.NoError(t, err)
@@ -388,7 +382,6 @@ func TestGetMostRecentID_EdgeCases(t *testing.T) {
 }
 
 func TestFetchValues_EdgeCases(t *testing.T) {
-
 
 	t.Run("EmptyDatabase", func(t *testing.T) {
 		reader, err := InitializeItem("file::memory:", nil)
@@ -403,7 +396,6 @@ func TestFetchValues_EdgeCases(t *testing.T) {
 
 func TestRead_TransactionErrorPaths(t *testing.T) {
 
-
 	t.Run("SetRecord_DatabaseClosed", func(t *testing.T) {
 		reader, err := InitializeItem("file::memory:", nil)
 		require.NoError(t, err)
@@ -417,7 +409,6 @@ func TestRead_TransactionErrorPaths(t *testing.T) {
 
 func TestInitializeDatabase_ErrorCases(t *testing.T) {
 
-
 	t.Run("InvalidDatabasePath", func(t *testing.T) {
 		_, err := InitializeDatabase("/invalid/path/database.db", nil)
 		require.Error(t, err)
@@ -427,7 +418,6 @@ func TestInitializeDatabase_ErrorCases(t *testing.T) {
 
 func TestInitializeItem_ErrorCases(t *testing.T) {
 
-
 	t.Run("DatabaseInitializationFailure", func(t *testing.T) {
 		_, err := InitializeItem("/invalid/path/database.db", []string{"test"})
 		require.Error(t, err)
@@ -436,7 +426,6 @@ func TestInitializeItem_ErrorCases(t *testing.T) {
 }
 
 func TestRead_NavigationEdgeCases(t *testing.T) {
-
 
 	t.Run("PrevRecord_NoEarlierRecord", func(t *testing.T) {
 		reader, err := InitializeItem("file::memory:", nil)

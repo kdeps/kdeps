@@ -15,7 +15,6 @@ import (
 
 func TestPklResourceReader(t *testing.T) {
 
-
 	// Create a temporary directory for test files
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
@@ -488,7 +487,6 @@ func (m *mockRows) Close() error {
 }
 
 func TestInitializeTool(t *testing.T) {
-
 
 	// Create a temporary directory for the test database
 	tmpDir := t.TempDir()

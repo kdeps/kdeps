@@ -5,7 +5,6 @@ go 1.23.7
 toolchain go1.24.1
 
 require (
-	bou.ke/monkey v1.0.2
 	github.com/Netflix/go-env v0.1.2
 	github.com/adrg/xdg v0.5.3
 	github.com/alexellis/go-execute/v2 v2.2.1
@@ -31,6 +30,7 @@ require (
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
 	github.com/tmc/langchaingo v0.1.13
+	go.opentelemetry.io/otel/sdk v1.36.0
 )
 
 require (

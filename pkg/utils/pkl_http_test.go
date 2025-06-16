@@ -52,7 +52,7 @@ func TestFormatRequestHeaders(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-		
+
 			result := FormatRequestHeaders(tt.input)
 			if tt.name == "MultipleHeaders" {
 				// Since map iteration order is not guaranteed, check that both lines are present
@@ -112,7 +112,7 @@ func TestFormatRequestParams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-		
+
 			result := FormatRequestParams(tt.input)
 			if tt.name == "MultipleParams" {
 				// Since map iteration order is not guaranteed, check that both lines are present
@@ -165,7 +165,7 @@ func TestFormatResponseHeaders(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-		
+
 			result := FormatResponseHeaders(tt.input)
 			if tt.name == "MultipleHeaders" {
 				// Since map iteration order is not guaranteed, check that both lines are present
@@ -218,7 +218,7 @@ func TestFormatResponseProperties(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-		
+
 			result := FormatResponseProperties(tt.input)
 			if tt.name == "MultipleProperties" {
 				// Since map iteration order is not guaranteed, check that both lines are present

@@ -70,7 +70,6 @@ func TestValidateAgentName(t *testing.T) {
 
 func TestCreateDirectory(t *testing.T) {
 
-
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 	tempDir, err := afero.TempDir(fs, "", "test")
@@ -117,7 +116,6 @@ func TestCreateDirectory(t *testing.T) {
 }
 
 func TestCreateFile(t *testing.T) {
-
 
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
@@ -196,7 +194,6 @@ func TestLoadTemplate(t *testing.T) {
 }
 
 func TestTemplateLoadingEdgeCases(t *testing.T) {
-
 
 	t.Run("TemplateWithEmptyData", func(t *testing.T) {
 		templatePath := "templates/workflow.pkl"
@@ -380,7 +377,6 @@ func TestPrintWithDots(t *testing.T) {
 }
 
 func TestSchemaVersionInTemplates(t *testing.T) {
-
 
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()

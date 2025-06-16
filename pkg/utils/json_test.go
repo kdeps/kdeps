@@ -6,7 +6,6 @@ import (
 
 func TestIsJSON(t *testing.T) {
 
-
 	tests := []struct {
 		name  string
 		input string
@@ -46,7 +45,6 @@ func TestIsJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-		
 
 			got := IsJSON(tt.input)
 			if got != tt.want {
@@ -57,7 +55,6 @@ func TestIsJSON(t *testing.T) {
 }
 
 func TestFixJSON(t *testing.T) {
-
 
 	tests := []struct {
 		name  string
@@ -98,7 +95,6 @@ func TestFixJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-		
 
 			got := FixJSON(tt.input)
 			if got != tt.want {

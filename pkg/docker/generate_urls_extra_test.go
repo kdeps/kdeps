@@ -21,4 +21,4 @@ func TestGenerateURLs(t *testing.T) {
 			t.Errorf("item fields should not be empty: %+v", itm)
 		}
 	}
-} 
+}

@@ -12,7 +12,6 @@ import (
 
 func TestCheckConfig(t *testing.T) {
 
-
 	fs := afero.NewMemMapFs()
 	baseDir := "/test"
 	configFilePath := filepath.Join(baseDir, SystemConfigFileName)
@@ -32,7 +31,6 @@ func TestCheckConfig(t *testing.T) {
 }
 
 func TestFindKdepsConfig(t *testing.T) {
-
 
 	fs := afero.NewMemMapFs()
 	pwd := "/current"

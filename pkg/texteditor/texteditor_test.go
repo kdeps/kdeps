@@ -166,7 +166,6 @@ func TestEditPkl(t *testing.T) {
 
 func TestEditPklAdditionalCoverage(t *testing.T) {
 
-
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
@@ -602,7 +601,6 @@ func TestRealEditorCmd_SetIO(t *testing.T) {
 }
 
 func TestRealEditorCmd_Run(t *testing.T) {
-
 
 	// Override editorCmd with a stub that immediately exits with status 1 to avoid 30-second OS lookup delays.
 	orig := editorCmd

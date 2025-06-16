@@ -6,9 +6,14 @@ import (
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+
+	// The following imports are required for stubbing the functions used in handleNonDockerMode
+	"github.com/kdeps/schema/gen/kdeps"
+	"github.com/spf13/cobra"
 )
 
 func TestSetupEnvironment(t *testing.T) {
@@ -68,4 +73,62 @@ func TestCleanup(t *testing.T) {
 	// Check that the cleanup flag file was removed
 	_, err := fs.Stat("/.dockercleanup")
 	assert.True(t, os.IsNotExist(err))
+}
+
+// TestHandleNonDockerMode_Stubbed exercises the main.handleNonDockerMode logic using stubbed dependency
+// functions so that we avoid any heavy external interactions while still executing most of the
+// code paths. This substantially increases coverage for the main package.
+func TestHandleNonDockerMode_Stubbed(t *testing.T) {
+	// Prepare a memory backed filesystem and minimal context / environment
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, "test-graph")
+	env := &environment.Environment{Home: "/home", Pwd: "/pwd"}
+	logger := logging.NewTestLogger()
+
+	// Save originals to restore after the test to avoid side-effects on other tests
+	origFind := findConfigurationFn
+	origGenerate := generateConfigurationFn
+	origEdit := editConfigurationFn
+	origValidate := validateConfigurationFn
+	origLoad := loadConfigurationFn
+	origGetPath := getKdepsPathFn
+	origNewRoot := newRootCommandFn
+	defer func() {
+		findConfigurationFn = origFind
+		generateConfigurationFn = origGenerate
+		editConfigurationFn = origEdit
+		validateConfigurationFn = origValidate
+		loadConfigurationFn = origLoad
+		getKdepsPathFn = origGetPath
+		newRootCommandFn = origNewRoot
+	}()
+
+	// Stub all external dependency functions so that they succeed quickly.
+	findConfigurationFn = func(_ afero.Fs, _ context.Context, _ *environment.Environment, _ *logging.Logger) (string, error) {
+		return "", nil // trigger configuration generation path
+	}
+	generateConfigurationFn = func(_ afero.Fs, _ context.Context, _ *environment.Environment, _ *logging.Logger) (string, error) {
+		return "/home/.kdeps.pkl", nil
+	}
+	editConfigurationFn = func(_ afero.Fs, _ context.Context, _ *environment.Environment, _ *logging.Logger) (string, error) {
+		return "/home/.kdeps.pkl", nil
+	}
+	validateConfigurationFn = func(_ afero.Fs, _ context.Context, _ *environment.Environment, _ *logging.Logger) (string, error) {
+		return "/home/.kdeps.pkl", nil
+	}
+	loadConfigurationFn = func(_ afero.Fs, _ context.Context, _ string, _ *logging.Logger) (*kdeps.Kdeps, error) {
+		return &kdeps.Kdeps{}, nil
+	}
+	getKdepsPathFn = func(_ context.Context, _ kdeps.Kdeps) (string, error) {
+		return "/kdeps", nil
+	}
+	newRootCommandFn = func(_ afero.Fs, _ context.Context, _ string, _ *kdeps.Kdeps, _ *environment.Environment, _ *logging.Logger) *cobra.Command {
+		return &cobra.Command{Run: func(cmd *cobra.Command, args []string) {}}
+	}
+
+	// Execute the function under test – if any of our stubs return an unexpected error the
+	// function itself will log.Fatal / log.Error. The absence of panics or fatal exits is our
+	// success criteria here.
+	handleNonDockerMode(fs, ctx, env, logger)
 }

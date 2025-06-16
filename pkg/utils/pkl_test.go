@@ -41,7 +41,7 @@ func TestEncodePklMap(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-		
+
 			result := EncodePklMap(tt.input)
 			assert.Equal(t, tt.expected, result)
 		})
@@ -87,7 +87,7 @@ func TestEncodePklSlice(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-		
+
 			result := EncodePklSlice(tt.input)
 			assert.Equal(t, tt.expected, result)
 		})
@@ -125,7 +125,7 @@ func TestEncodeValue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-		
+
 			result := EncodeValue(tt.input)
 			assert.Equal(t, tt.expected, result)
 		})

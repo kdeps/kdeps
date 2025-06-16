@@ -288,7 +288,6 @@ func theConfigurationWillBeValidated() error {
 
 func TestFindConfigurationUnit(t *testing.T) {
 
-
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
 
@@ -339,7 +338,6 @@ func TestFindConfigurationUnit(t *testing.T) {
 
 func TestGenerateConfigurationUnit(t *testing.T) {
 
-
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
 
@@ -379,7 +377,6 @@ func TestGenerateConfigurationUnit(t *testing.T) {
 
 func TestEditConfigurationUnit(t *testing.T) {
 
-
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
 
@@ -415,7 +412,6 @@ func TestEditConfigurationUnit(t *testing.T) {
 
 func TestValidateConfigurationUnit(t *testing.T) {
 
-
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
 
@@ -436,7 +432,6 @@ func TestValidateConfigurationUnit(t *testing.T) {
 }
 
 func TestLoadConfigurationUnit(t *testing.T) {
-
 
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
@@ -517,7 +512,7 @@ func TestGetKdepsPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-		
+
 			got, err := GetKdepsPath(ctx, tt.kdepsCfg)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetKdepsPath() error = %v, wantErr %v", err, tt.wantErr)
@@ -531,7 +526,6 @@ func TestGetKdepsPath(t *testing.T) {
 }
 
 func TestGenerateConfigurationAdditional(t *testing.T) {
-
 
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
@@ -552,7 +546,6 @@ func TestGenerateConfigurationAdditional(t *testing.T) {
 }
 
 func TestEditConfigurationAdditional(t *testing.T) {
-
 
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
@@ -578,7 +571,6 @@ func TestEditConfigurationAdditional(t *testing.T) {
 }
 
 func TestValidateConfigurationAdditional(t *testing.T) {
-
 
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
@@ -611,7 +603,6 @@ dockerGPU = "cpu"
 }
 
 func TestLoadConfigurationAdditional(t *testing.T) {
-
 
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
