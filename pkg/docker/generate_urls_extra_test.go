@@ -22,3 +22,19 @@ func TestGenerateURLs(t *testing.T) {
 		}
 	}
 }
+
+func TestGenerateURLsDefaultExtra(t *testing.T) {
+	ctx := context.Background()
+	items, err := GenerateURLs(ctx)
+	if err != nil {
+		t.Fatalf("GenerateURLs returned error: %v", err)
+	}
+	if len(items) == 0 {
+		t.Fatalf("expected at least one download item")
+	}
+	for _, it := range items {
+		if it.URL == "" || it.LocalName == "" {
+			t.Fatalf("invalid item %+v", it)
+		}
+	}
+}
