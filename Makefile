@@ -35,7 +35,7 @@ test-coverage:
 	@echo "$(OK_COLOR)==> Running the unit tests with coverage$(NO_COLOR)"
 	@NON_INTERACTIVE=1 go test -failfast -short -coverprofile=coverage_raw.out ./... | tee coverage.txt || true
 	@if [ -f coverage_raw.out ]; then \
-		{ head -n1 coverage_raw.out; grep -E "^[[:alnum:]/._-]+\\.go:" coverage_raw.out; } > coverage.out; \
+		{ head -n1 coverage_raw.out; grep -aE "^[[:alnum:]/._-]+\\.go:" coverage_raw.out; } > coverage.out; \
 		rm coverage_raw.out; \
 	fi
 	@echo "$(OK_COLOR)==> Coverage report:$(NO_COLOR)"
