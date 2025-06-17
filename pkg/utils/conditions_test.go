@@ -62,3 +62,29 @@ func TestAllConditionsMet(t *testing.T) {
 		assert.False(t, AllConditionsMet(&conditions))
 	})
 }
+
+func TestShouldSkipAndAllConditionsMet(t *testing.T) {
+	cases := []struct {
+		name       string
+		input      []interface{}
+		wantSkip   bool
+		wantAllMet bool
+	}{
+		{"all bool true", []interface{}{true, true}, true, true},
+		{"mixed true string", []interface{}{false, "true"}, true, false},
+		{"all false", []interface{}{false, false}, false, false},
+		{"all string true", []interface{}{"true", "true"}, true, true},
+		{"mixed false", []interface{}{true, "false"}, true, false},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			if got := ShouldSkip(&tc.input); got != tc.wantSkip {
+				t.Fatalf("ShouldSkip(%v) = %v, want %v", tc.input, got, tc.wantSkip)
+			}
+			if got := AllConditionsMet(&tc.input); got != tc.wantAllMet {
+				t.Fatalf("AllConditionsMet(%v) = %v, want %v", tc.input, got, tc.wantAllMet)
+			}
+		})
+	}
+}

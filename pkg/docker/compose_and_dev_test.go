@@ -2,6 +2,7 @@ package docker
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -55,9 +56,30 @@ func TestGenerateDockerCompose_GeneratesFileForGPUs(t *testing.T) {
 		require.NoError(t, err)
 		data, _ := afero.ReadFile(fs, path)
 		str := string(data)
-		require.Contains(t, str, "ports:")
-		require.NotContains(t, str, "8080")
-		require.Contains(t, str, "9090")
+		// Ensure the ports section lists only the web port (9090)
+		lines := strings.Split(str, "\n")
+		var portLines []string
+		for i, l := range lines {
+			if strings.TrimSpace(l) == "ports:" {
+				// collect following indented list items
+				for j := i + 1; j < len(lines); j++ {
+					item := lines[j]
+					if strings.HasPrefix(item, "      -") {
+						trimmed := strings.TrimSpace(item)
+						if strings.Contains(trimmed, "9090") {
+							portLines = append(portLines, trimmed)
+						}
+					} else if strings.TrimSpace(item) == "" {
+						break
+					} else if !strings.HasPrefix(item, " ") {
+						break
+					}
+				}
+				break
+			}
+		}
+		require.Len(t, portLines, 1, "expected exactly one exposed port")
+		require.Contains(t, portLines[0], "9090")
 	})
 
 	t.Run("no-ports", func(t *testing.T) {

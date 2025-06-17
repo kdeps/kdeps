@@ -19,3 +19,31 @@ func TestFixJSONComplexInputExtra(t *testing.T) {
 		t.Fatalf("FixJSON returned empty string")
 	}
 }
+
+// Additional table-driven tests to exercise more branches inside FixJSON.
+func TestFixJSONVariants(t *testing.T) {
+	cases := []string{
+		// Interior unescaped quote that should be escaped.
+		`{"key": "value with "quote" inside"}`,
+		// Raw newline inside a string literal (includes actual newline char).
+		`{"line": "first
+second"}`,
+		// Carriage return inside string.
+		"{\"line\": \"a\r\"}",
+		// Already valid JSON (should remain unchanged).
+		`{"simple": true}`,
+	}
+
+	for _, in := range cases {
+		out := FixJSON(in)
+		if out == "" {
+			t.Fatalf("FixJSON returned empty for input %q", in)
+		}
+		// We don't require output to be fully valid JSON for malformed inputs, only non-empty.
+
+		// For inputs that are already valid JSON, the output should still be valid JSON.
+		if IsJSON(in) && !IsJSON(out) {
+			t.Fatalf("expected valid JSON for input %q, got %q", in, out)
+		}
+	}
+}

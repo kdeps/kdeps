@@ -35,7 +35,7 @@ func TestConditionsHelpers(t *testing.T) {
 	})
 }
 
-func TestPKLHTTPFormatters(t *testing.T) {
+func TestPKLHTTPFormattersMisc(t *testing.T) {
 	headers := map[string][]string{
 		"X-Test": {"val1", "val2"},
 	}

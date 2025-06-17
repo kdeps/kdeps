@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	"github.com/docker/docker/api/types"
@@ -47,20 +48,31 @@ func TestCleanupDockerBuildImagesUnit(t *testing.T) {
 	assert.True(t, cli.pruned)
 }
 
-func TestCleanupFlagFilesUnit(t *testing.T) {
-	fs := afero.NewOsFs()
+func TestCleanupFlagFilesMemFS(t *testing.T) {
+	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
-	tmpDir := t.TempDir()
-	f1 := tmpDir + "/flag1"
-	f2 := tmpDir + "/flag2"
-	assert.NoError(t, afero.WriteFile(fs, f1, []byte("x"), 0o644))
-	assert.NoError(t, afero.WriteFile(fs, f2, []byte("x"), 0o644))
+	// Create two temp files to be cleaned.
+	dir := t.TempDir()
+	file1 := filepath.Join(dir, "flag1")
+	file2 := filepath.Join(dir, "flag2")
+	if err := afero.WriteFile(fs, file1, []byte("ok"), 0o644); err != nil {
+		t.Fatalf("failed to write file1: %v", err)
+	}
+	if err := afero.WriteFile(fs, file2, []byte("ok"), 0o644); err != nil {
+		t.Fatalf("failed to write file2: %v", err)
+	}
 
-	cleanupFlagFiles(fs, []string{f1, f2}, logger)
+	// Call cleanupFlagFiles and ensure files are removed without error.
+	cleanupFlagFiles(fs, []string{file1, file2}, logger)
 
-	// files should be gone
-	exists1, _ := afero.Exists(fs, f1)
-	exists2, _ := afero.Exists(fs, f2)
-	assert.False(t, exists1 || exists2)
+	for _, f := range []string{file1, file2} {
+		exists, _ := afero.Exists(fs, f)
+		if exists {
+			t.Fatalf("expected %s to be removed", f)
+		}
+	}
+
+	// Calling cleanupFlagFiles again should hit the os.IsNotExist branch and not fail.
+	cleanupFlagFiles(fs, []string{file1, file2}, logger)
 }
