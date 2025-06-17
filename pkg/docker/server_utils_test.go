@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/charmbracelet/log"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/stretchr/testify/assert"
 )
@@ -51,10 +52,15 @@ func TestWaitForServer(t *testing.T) {
 }
 
 func TestStartOllamaServer(t *testing.T) {
-	logger := logging.GetLogger()
 	ctx := context.Background()
+	// Initialize a proper logger to avoid nil pointer dereference
+	baseLogger := log.New(nil)
+	logger := &logging.Logger{Logger: baseLogger}
 
-	// This test is more of a smoke test since we can't easily mock the command execution
+	// Simply call the function to ensure it doesn't panic
+	// Since it runs in background, we can't easily check the result
 	startOllamaServer(ctx, logger)
-	// No assertions, just ensure it doesn't panic
+
+	// If we reach here without panic, the test passes
+	t.Log("startOllamaServer called without panic")
 }

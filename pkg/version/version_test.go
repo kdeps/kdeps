@@ -30,3 +30,11 @@ func TestVersionVariables(t *testing.T) {
 	assert.Equal(t, "dev", Version)
 	assert.Equal(t, "", Commit)
 }
+
+func TestVersion(t *testing.T) {
+	// Test case 1: Check if version string is not empty
+	if Version == "" {
+		t.Errorf("Version string is empty, expected a non-empty version")
+	}
+	t.Log("Version string test passed")
+}

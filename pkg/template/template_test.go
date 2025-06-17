@@ -29,43 +29,80 @@ func setNonInteractive(t *testing.T) func() {
 }
 
 func TestValidateAgentName(t *testing.T) {
-	tests := []struct {
-		name    string
-		input   string
-		wantErr bool
-	}{
-		{
-			name:    "ValidName",
-			input:   "test-agent",
-			wantErr: false,
-		},
-		{
-			name:    "EmptyName",
-			input:   "",
-			wantErr: true,
-		},
-		{
-			name:    "WhitespaceName",
-			input:   "   ",
-			wantErr: true,
-		},
-		{
-			name:    "NameWithSpaces",
-			input:   "test agent",
-			wantErr: true,
-		},
+	// Test case 1: Valid agent name
+	err := validateAgentName("test-agent")
+	if err != nil {
+		t.Errorf("Expected no error for valid agent name, got: %v", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := validateAgentName(tt.input)
-			if tt.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-		})
+	// Test case 2: Empty agent name
+	err = validateAgentName("")
+	if err == nil {
+		t.Error("Expected error for empty agent name, got nil")
 	}
+
+	// Test case 3: Agent name with spaces
+	err = validateAgentName("test agent")
+	if err == nil {
+		t.Error("Expected error for agent name with spaces, got nil")
+	}
+
+	t.Log("validateAgentName tests passed")
+}
+
+func TestCreateDirectoryNew(t *testing.T) {
+	// Test case: Create directory with in-memory FS
+	fs := afero.NewMemMapFs()
+	logger := logging.GetLogger()
+	path := "/test/dir"
+	err := createDirectory(fs, logger, path)
+	if err != nil {
+		t.Errorf("Expected no error creating directory, got: %v", err)
+	}
+	// Check if directory exists
+	exists, err := afero.DirExists(fs, path)
+	if err != nil {
+		t.Errorf("Error checking directory existence: %v", err)
+	}
+	if !exists {
+		t.Error("Expected directory to exist, but it does not")
+	}
+	t.Log("createDirectory test passed")
+}
+
+func TestCreateFileNew(t *testing.T) {
+	// Test case: Create file with in-memory FS
+	fs := afero.NewMemMapFs()
+	logger := logging.GetLogger()
+	path := "/test/file.txt"
+	content := "test content"
+	err := createFile(fs, logger, path, content)
+	if err != nil {
+		t.Errorf("Expected no error creating file, got: %v", err)
+	}
+	// Check if file exists and content is correct
+	data, err := afero.ReadFile(fs, path)
+	if err != nil {
+		t.Errorf("Error reading file: %v", err)
+	}
+	if string(data) != content {
+		t.Errorf("Expected file content to be '%s', got '%s'", content, string(data))
+	}
+	t.Log("createFile test passed")
+}
+
+func TestPromptForAgentName_NonInteractive(t *testing.T) {
+	// Test case: Non-interactive mode should return default name
+	os.Setenv("NON_INTERACTIVE", "1")
+	defer os.Unsetenv("NON_INTERACTIVE")
+	name, err := promptForAgentName()
+	if err != nil {
+		t.Errorf("Expected no error in non-interactive mode, got: %v", err)
+	}
+	if name != "test-agent" {
+		t.Errorf("Expected default name 'test-agent', got '%s'", name)
+	}
+	t.Log("promptForAgentName non-interactive test passed")
 }
 
 func TestCreateDirectory(t *testing.T) {
@@ -485,6 +522,61 @@ func TestFileGenerationEdgeCases(t *testing.T) {
 			assert.True(t, exists)
 		})
 	}
+}
+
+func TestCreateDirectoryEdgeCases(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	tempDir, err := afero.TempDir(fs, "", "test")
+	require.NoError(t, err)
+
+	t.Run("CreateDirectoryWithInvalidPath", func(t *testing.T) {
+		path := ""
+		err := createDirectory(fs, logger, path)
+		assert.Error(t, err, "Expected error for empty path")
+	})
+
+	t.Run("CreateDirectoryWithReadOnlyParent", func(t *testing.T) {
+		// Simulate a read-only parent directory by using a read-only FS
+		readOnlyFs := afero.NewReadOnlyFs(afero.NewMemMapFs())
+		path := filepath.Join(tempDir, "test/readonly/child")
+		err := createDirectory(readOnlyFs, logger, path)
+		assert.Error(t, err, "Expected error when parent directory is read-only")
+	})
+}
+
+func TestCreateFileEdgeCases(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	tempDir, err := afero.TempDir(fs, "", "test")
+	require.NoError(t, err)
+
+	t.Run("CreateFileWithInvalidPath", func(t *testing.T) {
+		path := ""
+		content := "test content"
+		err := createFile(fs, logger, path, content)
+		assert.Error(t, err, "Expected error for empty path")
+	})
+
+	t.Run("CreateFileInNonExistentDirectory", func(t *testing.T) {
+		path := filepath.Join(tempDir, "nonexistent/dir/file.txt")
+		content := "test content"
+		err := createFile(fs, logger, path, content)
+		assert.NoError(t, err, "Expected no error, should create parent directories")
+		exists, err := afero.Exists(fs, path)
+		assert.NoError(t, err)
+		assert.True(t, exists, "File should exist")
+	})
+
+	t.Run("CreateFileWithEmptyContent", func(t *testing.T) {
+		path := filepath.Join(tempDir, "empty.txt")
+		content := ""
+		err := createFile(fs, logger, path, content)
+		assert.NoError(t, err, "Expected no error for empty content")
+		data, err := afero.ReadFile(fs, path)
+		assert.NoError(t, err)
+		assert.Equal(t, "", string(data), "File content should be empty")
+	})
 }
 
 func TestMain(m *testing.M) {

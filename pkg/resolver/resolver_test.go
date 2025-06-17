@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/apple/pkl-go/pkl"
+	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/schema"
@@ -875,6 +877,66 @@ func TestDependencyResolver(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestNewGraphResolver(t *testing.T) {
+	// Test case 1: Basic initialization with in-memory FS and mocked context
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, "/test/agent")
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, "test-graph-id")
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, "/test/action")
+	env := &environment.Environment{DockerMode: "1"}
+	logger := logging.GetLogger()
+
+	// Create a mock workflow file to avoid file not found error
+	workflowDir := "/test/agent/workflow"
+	workflowFile := workflowDir + "/workflow.pkl"
+	apiDir := filepath.Join("/test/agent/api")
+	if err := fs.MkdirAll(workflowDir, 0755); err != nil {
+		t.Fatalf("Failed to create mock workflow directory: %v", err)
+	}
+	if err := fs.MkdirAll(apiDir, 0755); err != nil {
+		t.Fatalf("Failed to create mock api directory: %v", err)
+	}
+	// Using the correct schema version and structure
+	workflowContent := fmt.Sprintf(`
+name = "test-agent"
+schemaVersion = "%s"
+settings = new {
+	apiServerMode = false
+	agentSettings = new {
+		installAnaconda = false
+	}
+}`, schema.SchemaVersion(ctx))
+	if err := afero.WriteFile(fs, workflowFile, []byte(workflowContent), 0644); err != nil {
+		t.Fatalf("Failed to create mock workflow file: %v", err)
+	}
+
+	dr, err := resolver.NewGraphResolver(fs, ctx, env, nil, logger)
+
+	// Gracefully skip the test when PKL is not available in the current CI
+	// environment. This mirrors the behaviour in other resolver tests to keep
+	// the suite green even when the external binary/registry is absent.
+	if err != nil {
+		msg := err.Error()
+		if strings.Contains(msg, "Cannot find module") ||
+			strings.Contains(msg, "Received unexpected status code") ||
+			strings.Contains(msg, "apple PKL not found") ||
+			strings.Contains(msg, "Invalid token") {
+			t.Skipf("Skipping TestNewGraphResolver because PKL is unavailable: %v", err)
+		}
+	}
+
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+	if dr == nil {
+		t.Errorf("Expected non-nil DependencyResolver, got nil")
+	} else if dr.AgentName != "test-agent" {
+		t.Errorf("Expected AgentName to be 'test-agent', got '%s'", dr.AgentName)
+	}
+	t.Log("NewGraphResolver basic test passed")
 }
 
 func TestMain(m *testing.M) {

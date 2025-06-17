@@ -60,6 +60,11 @@ func promptForAgentName() (string, error) {
 }
 
 func createDirectory(fs afero.Fs, logger *logging.Logger, path string) error {
+	if path == "" {
+		err := errors.New("directory path cannot be empty")
+		logger.Error(err)
+		return err
+	}
 	printWithDots("Creating directory: " + lightGreen.Render(path))
 	if err := fs.MkdirAll(path, os.ModePerm); err != nil {
 		logger.Error(err)
@@ -72,6 +77,9 @@ func createDirectory(fs afero.Fs, logger *logging.Logger, path string) error {
 }
 
 func createFile(fs afero.Fs, logger *logging.Logger, path string, content string) error {
+	if path == "" {
+		return fmt.Errorf("file path cannot be empty")
+	}
 	printWithDots("Creating file: " + lightGreen.Render(path))
 	if err := afero.WriteFile(fs, path, []byte(content), 0o644); err != nil {
 		logger.Error(err)

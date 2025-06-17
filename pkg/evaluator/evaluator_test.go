@@ -62,3 +62,18 @@ func TestCreateAndProcessPklFile_ProcessErrorInPkg(t *testing.T) {
 	err := CreateAndProcessPklFile(fs, context.Background(), nil, "file.pkl", "template.pkl", logger, processFunc, false)
 	assert.Error(t, err)
 }
+
+func TestEnsurePklBinaryExists(t *testing.T) {
+	// Since mocking exec.LookPath directly is not possible, we can't easily test the binary lookup
+	// Instead, we'll note that this test is limited and may need environment setup or alternative mocking
+	// For now, we'll run the function as is, acknowledging it depends on the actual PATH
+	ctx := context.Background()
+	logger := logging.GetLogger()
+	// This test will pass if 'pkl' is in PATH, fail with Fatal if not
+	// We can't control the environment fully in this context
+	err := EnsurePklBinaryExists(ctx, logger)
+	if err != nil {
+		t.Errorf("Expected no error if binary is in PATH, got: %v", err)
+	}
+	t.Log("EnsurePklBinaryExists test passed (dependent on PATH)")
+}

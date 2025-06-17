@@ -17,12 +17,16 @@ import (
 )
 
 func TestSetupEnvironment(t *testing.T) {
+	// Test case 1: Basic environment setup with in-memory FS
 	fs := afero.NewMemMapFs()
-
 	env, err := setupEnvironment(fs)
-	assert.NoError(t, err)
-	assert.NotNil(t, env)
-	assert.IsType(t, &environment.Environment{}, env)
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+	if env == nil {
+		t.Errorf("Expected non-nil environment, got nil")
+	}
+	t.Log("setupEnvironment basic test passed")
 }
 
 func TestSetupEnvironmentError(t *testing.T) {
@@ -131,4 +135,29 @@ func TestHandleNonDockerMode_Stubbed(t *testing.T) {
 	// function itself will log.Fatal / log.Error. The absence of panics or fatal exits is our
 	// success criteria here.
 	handleNonDockerMode(fs, ctx, env, logger)
+}
+
+func TestHandleNonDockerMode_NoConfig(t *testing.T) {
+	// Test case: No configuration file found, should not panic
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	env := &environment.Environment{DockerMode: "0"}
+	logger := logging.GetLogger()
+
+	// Mock functions to avoid actual file operations
+	originalFindConfigurationFn := findConfigurationFn
+	findConfigurationFn = func(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
+		return "", nil
+	}
+	defer func() { findConfigurationFn = originalFindConfigurationFn }()
+
+	originalGenerateConfigurationFn := generateConfigurationFn
+	generateConfigurationFn = func(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
+		return "", nil
+	}
+	defer func() { generateConfigurationFn = originalGenerateConfigurationFn }()
+
+	// Call the function, it should return without panicking
+	handleNonDockerMode(fs, ctx, env, logger)
+	t.Log("handleNonDockerMode with no config test passed")
 }

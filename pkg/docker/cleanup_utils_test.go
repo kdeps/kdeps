@@ -5,6 +5,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/charmbracelet/log"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -234,17 +235,44 @@ func TestCleanup(t *testing.T) {
 
 func TestCleanupFlagFiles(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	logger := logging.NewTestLogger() // Mock logger
+	baseLogger := log.New(nil)
+	logger := &logging.Logger{Logger: baseLogger}
 
-	t.Run("FilesExist", func(t *testing.T) {
-		_ = afero.WriteFile(fs, "/tmp/flag1", []byte(""), 0o644)
-		_ = afero.WriteFile(fs, "/tmp/flag2", []byte(""), 0o644)
-		cleanupFlagFiles(fs, []string{"/tmp/flag1", "/tmp/flag2"}, logger)
-		// No assertions, just ensure it doesn't panic
-	})
+	// Test case 1: No files to remove
+	files := []string{}
+	cleanupFlagFiles(fs, files, logger)
+	t.Log("cleanupFlagFiles with no files test passed")
 
-	t.Run("FilesDoNotExist", func(t *testing.T) {
-		cleanupFlagFiles(fs, []string{"/tmp/nonexistent1", "/tmp/nonexistent2"}, logger)
-		// No assertions, just ensure it doesn't panic
-	})
+	// Test case 2: Remove existing file
+	filePath := "/test/flag1"
+	err := afero.WriteFile(fs, filePath, []byte("test"), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+	files = []string{filePath}
+	cleanupFlagFiles(fs, files, logger)
+	_, err = afero.ReadFile(fs, filePath)
+	if err == nil {
+		t.Errorf("Expected file to be removed, but it still exists")
+	}
+	t.Log("cleanupFlagFiles with existing file test passed")
+
+	// Test case 3: Attempt to remove non-existing file
+	files = []string{"/test/nonexistent"}
+	cleanupFlagFiles(fs, files, logger)
+	t.Log("cleanupFlagFiles with non-existing file test passed")
+
+	// Test case 4: Multiple files, some existing, some not
+	filePath2 := "/test/flag2"
+	err = afero.WriteFile(fs, filePath2, []byte("test2"), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create second test file: %v", err)
+	}
+	files = []string{filePath2, "/test/nonexistent2"}
+	cleanupFlagFiles(fs, files, logger)
+	_, err = afero.ReadFile(fs, filePath2)
+	if err == nil {
+		t.Errorf("Expected second file to be removed, but it still exists")
+	}
+	t.Log("cleanupFlagFiles with multiple files test passed")
 }
