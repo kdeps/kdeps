@@ -1,4 +1,4 @@
-package resolver_test
+package resolver
 
 import (
 	"path/filepath"
@@ -6,8 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"encoding/base64"
+
 	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/kdeps/kdeps/pkg/resolver"
+	apiserverresponse "github.com/kdeps/schema/gen/api_server_response"
 	"github.com/kdeps/schema/gen/data"
 	"github.com/spf13/afero"
 )
@@ -35,13 +37,13 @@ func TestAppendDataEntry(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		setup         func(dr *resolver.DependencyResolver) *data.DataImpl
+		setup         func(dr *DependencyResolver) *data.DataImpl
 		expectError   bool
 		expectedError string
 	}{
 		{
 			name: "Context is nil",
-			setup: func(dr *resolver.DependencyResolver) *data.DataImpl {
+			setup: func(dr *DependencyResolver) *data.DataImpl {
 				//nolint:fatcontext
 				dr.Context = nil
 				return nil
@@ -51,7 +53,7 @@ func TestAppendDataEntry(t *testing.T) {
 		},
 		{
 			name: "PKL file load failure",
-			setup: func(dr *resolver.DependencyResolver) *data.DataImpl {
+			setup: func(dr *DependencyResolver) *data.DataImpl {
 				if err := afero.WriteFile(dr.Fs, filepath.Join(dr.ActionDir, "data", dr.RequestID+"__data_output.pkl"), []byte("invalid content"), 0o644); err != nil {
 					t.Errorf("unexpected error: %v", err)
 				}
@@ -62,7 +64,7 @@ func TestAppendDataEntry(t *testing.T) {
 		},
 		{
 			name: "New data is nil",
-			setup: func(dr *resolver.DependencyResolver) *data.DataImpl {
+			setup: func(dr *DependencyResolver) *data.DataImpl {
 				return nil
 			},
 			expectError:   true,
@@ -70,7 +72,7 @@ func TestAppendDataEntry(t *testing.T) {
 		},
 		{
 			name: "Valid data merge",
-			setup: func(dr *resolver.DependencyResolver) *data.DataImpl {
+			setup: func(dr *DependencyResolver) *data.DataImpl {
 				files := map[string]map[string]string{
 					"agent1": {
 						"file1": "content1",
@@ -93,7 +95,7 @@ func TestAppendDataEntry(t *testing.T) {
 			fs := afero.NewOsFs()
 			_ = fs.MkdirAll(filepath.Join(actionDir, "data"), 0o755)
 
-			dr := &resolver.DependencyResolver{
+			dr := &DependencyResolver{
 				Fs:        fs,
 				Context:   &MockContext{},
 				ActionDir: actionDir,
@@ -121,5 +123,56 @@ func TestAppendDataEntry(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestFormatDataValue(t *testing.T) {
+	// Simple string value should embed JSONRenderDocument lines
+	out := formatDataValue("hello")
+	if !strings.Contains(out, "JSONRenderDocument") {
+		t.Errorf("expected JSONRenderDocument in output, got %s", out)
+	}
+
+	// Map value path should still produce block
+	m := map[string]interface{}{"k": "v"}
+	out2 := formatDataValue(m)
+	if !strings.Contains(out2, "k") {
+		t.Errorf("map key lost in formatting: %s", out2)
+	}
+}
+
+func TestFormatErrorsMultiple(t *testing.T) {
+	logger := logging.NewTestLogger()
+	msg := base64.StdEncoding.EncodeToString([]byte("decoded msg"))
+	errorsSlice := &[]*apiserverresponse.APIServerErrorsBlock{
+		{Code: 400, Message: "bad"},
+		{Code: 500, Message: msg},
+	}
+	out := formatErrors(errorsSlice, logger)
+	if !strings.Contains(out, "code = 400") || !strings.Contains(out, "code = 500") {
+		t.Errorf("codes missing: %s", out)
+	}
+	if !strings.Contains(out, "decoded msg") {
+		t.Errorf("base64 not decoded: %s", out)
+	}
+}
+
+// TestFormatValueVariantsBasic exercises several branches of the reflection-based
+// formatValue helper to bump coverage and guard against panics when handling
+// diverse inputs.
+func TestFormatValueVariantsBasic(t *testing.T) {
+	type custom struct{ X string }
+
+	variants := []interface{}{
+		nil,
+		map[string]interface{}{"k": "v"},
+		custom{X: "val"},
+	}
+
+	for _, v := range variants {
+		out := formatValue(v)
+		if out == "" {
+			t.Errorf("formatValue produced empty output for %+v", v)
+		}
 	}
 }

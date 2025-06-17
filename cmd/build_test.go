@@ -209,3 +209,38 @@ run {
 	err = cmd.Execute()
 	assert.Error(t, err) // Should fail due to docker client initialization
 }
+
+func TestNewBuildCommand_MetadataAndErrorPath(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+
+	cmd := NewBuildCommand(fs, ctx, "/tmp/kdeps", nil, logging.NewTestLogger())
+
+	// Verify metadata
+	assert.Equal(t, "build [package]", cmd.Use)
+	assert.Contains(t, cmd.Short, "dockerized")
+
+	// Execute with missing arg should error due to cobra Args check
+	err := cmd.Execute()
+	assert.Error(t, err)
+
+	// Provide non-existent file – RunE should propagate ExtractPackage error.
+	cmd.SetArgs([]string{"nonexistent.kdeps"})
+	err = cmd.Execute()
+	assert.Error(t, err)
+}
+
+func TestNewBuildCommandMetadata(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	cmd := NewBuildCommand(fs, context.Background(), "/kdeps", nil, logging.NewTestLogger())
+
+	if cmd.Use != "build [package]" {
+		t.Fatalf("unexpected Use: %s", cmd.Use)
+	}
+	if len(cmd.Aliases) == 0 || cmd.Aliases[0] != "b" {
+		t.Fatalf("expected alias 'b'")
+	}
+	if cmd.Short == "" {
+		t.Fatalf("Short description should not be empty")
+	}
+}

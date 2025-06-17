@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"bytes"
+
 	"github.com/cucumber/godog"
 	"github.com/docker/docker/client"
 	"github.com/kdeps/kdeps/pkg/archiver"
@@ -864,4 +866,17 @@ func PackageProject(fs afero.Fs, ctx context.Context, wf wfPkl.Workflow, kdepsDi
 	}
 
 	return packageFile, nil
+}
+
+func TestPrintDockerBuildOutputSimple(t *testing.T) {
+	successLog := bytes.NewBufferString(`{"stream":"Step 1/2 : FROM alpine\n"}\n{"stream":" ---> 123abc\n"}\n`)
+	if err := printDockerBuildOutput(successLog); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Error case should propagate the message
+	errBuf := bytes.NewBufferString(`{"error":"build failed"}`)
+	if err := printDockerBuildOutput(errBuf); err == nil {
+		t.Fatalf("expected error not returned")
+	}
 }

@@ -3,9 +3,16 @@ package resolver
 import (
 	"testing"
 
+	"context"
+	"encoding/base64"
+	"strings"
+
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/utils"
+	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
+	"github.com/spf13/afero"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEncodeChat_AllFields(t *testing.T) {
@@ -117,5 +124,102 @@ func TestEncodeJSONResponseKeys_Nil(t *testing.T) {
 	enc := encodeJSONResponseKeys(&keys)
 	if (*enc)[0] != utils.EncodeValue("k1") {
 		t.Errorf("key not encoded: %s", (*enc)[0])
+	}
+}
+
+func TestEncodeExecHelpers(t *testing.T) {
+	dr := &DependencyResolver{}
+
+	t.Run("ExecEnv_Nil", func(t *testing.T) {
+		require.Nil(t, dr.encodeExecEnv(nil))
+	})
+
+	t.Run("ExecEnv_Encode", func(t *testing.T) {
+		env := map[string]string{"KEY": "value"}
+		enc := dr.encodeExecEnv(&env)
+		require.NotNil(t, enc)
+		require.Equal(t, "dmFsdWU=", (*enc)["KEY"])
+	})
+
+	t.Run("ExecOutputs", func(t *testing.T) {
+		stderr := "err"
+		stdout := "out"
+		es, eo := dr.encodeExecOutputs(&stderr, &stdout)
+		require.Equal(t, "ZXJy", *es)
+		require.Equal(t, "b3V0", *eo)
+	})
+
+	t.Run("ExecOutputs_Nil", func(t *testing.T) {
+		es, eo := dr.encodeExecOutputs(nil, nil)
+		require.Nil(t, es)
+		require.Nil(t, eo)
+	})
+
+	t.Run("EncodeStderr", func(t *testing.T) {
+		txt := "oops"
+		s := dr.encodeExecStderr(&txt)
+		require.Contains(t, s, txt)
+		require.Contains(t, s, "stderr = #\"\"\"")
+	})
+
+	t.Run("EncodeStderr_Nil", func(t *testing.T) {
+		require.Equal(t, "    stderr = \"\"\n", dr.encodeExecStderr(nil))
+	})
+
+	t.Run("EncodeStdout", func(t *testing.T) {
+		txt := "yay"
+		s := dr.encodeExecStdout(&txt)
+		require.Contains(t, s, txt)
+		require.Contains(t, s, "stdout = #\"\"\"")
+	})
+
+	t.Run("EncodeStdout_Nil", func(t *testing.T) {
+		require.Equal(t, "    stdout = \"\"\n", dr.encodeExecStdout(nil))
+	})
+}
+
+func newMemResolver() *DependencyResolver {
+	fs := afero.NewMemMapFs()
+	fs.MkdirAll("/files", 0o755) // nolint:errcheck
+	return &DependencyResolver{
+		Fs:        fs,
+		FilesDir:  "/files",
+		ActionDir: "/action",
+		RequestID: "req1",
+		Context:   context.Background(),
+		Logger:    logging.NewTestLogger(),
+	}
+}
+
+func TestEncodeResponseHeadersAndBody(t *testing.T) {
+	dr := newMemResolver()
+
+	body := "hello"
+	hdrs := map[string]string{"X-Test": "val"}
+	resp := &pklHTTP.ResponseBlock{
+		Headers: &hdrs,
+		Body:    &body,
+	}
+
+	// Test headers
+	headersStr := encodeResponseHeaders(resp)
+	if !strings.Contains(headersStr, "X-Test") {
+		t.Fatalf("expected header name in output, got %s", headersStr)
+	}
+
+	// Test body encoding & file writing
+	bodyStr := encodeResponseBody(resp, dr, "res1")
+	encoded := base64.StdEncoding.EncodeToString([]byte(body))
+	if !strings.Contains(bodyStr, encoded) {
+		t.Fatalf("expected encoded body in output, got %s", bodyStr)
+	}
+	// The file should be created with decoded content
+	files, _ := afero.ReadDir(dr.Fs, dr.FilesDir)
+	if len(files) == 0 {
+		t.Fatalf("expected file to be written in %s", dr.FilesDir)
+	}
+	content, _ := afero.ReadFile(dr.Fs, dr.FilesDir+"/"+files[0].Name())
+	if string(content) != body {
+		t.Fatalf("expected file content %q, got %q", body, string(content))
 	}
 }

@@ -164,3 +164,50 @@ func TestTruncateString(t *testing.T) {
 	assert.Equal(t, s, TruncateString(s, len(s)))
 	assert.Equal(t, "abc...", TruncateString(s, 6))
 }
+
+func TestContainsStringInsensitiveExtra(t *testing.T) {
+	slice := []string{"Hello", "World"}
+	if !ContainsStringInsensitive(slice, "hello") {
+		t.Fatalf("expected to find 'hello' case-insensitively")
+	}
+	if ContainsStringInsensitive(slice, "missing") {
+		t.Fatalf("did not expect to find 'missing'")
+	}
+}
+
+func TestPointerHelpers(t *testing.T) {
+	s := "test"
+	if *StringPtr(s) != "test" {
+		t.Fatalf("StringPtr failed")
+	}
+	b := false
+	if *BoolPtr(b) != false {
+		t.Fatalf("BoolPtr failed")
+	}
+}
+
+func TestStringHelpers(t *testing.T) {
+	slice := []string{"apple", "Banana", "cherry"}
+
+	if !ContainsString(slice, "Banana") {
+		t.Fatalf("expected exact match present")
+	}
+	if ContainsString(slice, "banana") {
+		t.Fatalf("ContainsString should be case sensitive")
+	}
+	if !ContainsStringInsensitive(slice, "banana") {
+		t.Fatalf("expected case-insensitive match")
+	}
+
+	// Ptr helpers
+	s := "foo"
+	sptr := StringPtr(s)
+	if *sptr != s {
+		t.Fatalf("StringPtr failed")
+	}
+	b := true
+	bptr := BoolPtr(b)
+	if *bptr != b {
+		t.Fatalf("BoolPtr failed")
+	}
+}

@@ -4,9 +4,13 @@ import (
 	"context"
 	"testing"
 
+	"path/filepath"
+	"strings"
+
 	"github.com/docker/docker/client"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLoadEnvFile(t *testing.T) {
@@ -83,4 +87,71 @@ func TestCreateDockerContainer(t *testing.T) {
 		// Consider mocking the Docker client for more reliable testing
 		t.Skip("Skipping test that requires Docker daemon")
 	})
+}
+
+func TestLoadEnvFile_VariousCases(t *testing.T) {
+	fs := afero.NewOsFs()
+	dir := t.TempDir()
+
+	t.Run("file-missing", func(t *testing.T) {
+		envs, err := loadEnvFile(fs, filepath.Join(dir, "missing.env"))
+		require.NoError(t, err)
+		require.Nil(t, envs)
+	})
+
+	t.Run("valid-env", func(t *testing.T) {
+		path := filepath.Join(dir, "good.env")
+		content := "FOO=bar\nHELLO=world\n"
+		require.NoError(t, afero.WriteFile(fs, path, []byte(content), 0o644))
+
+		envs, err := loadEnvFile(fs, path)
+		require.NoError(t, err)
+		// Convert slice to joined string for easier contains checks irrespective of order.
+		joined := strings.Join(envs, ",")
+		require.Contains(t, joined, "FOO=bar")
+		require.Contains(t, joined, "HELLO=world")
+	})
+}
+
+func TestLoadEnvFileMissingAndSuccess(t *testing.T) {
+	fs := afero.NewOsFs()
+	// Case 1: file missing returns nil slice, no error
+	envs, err := loadEnvFile(fs, "/tmp/not_existing.env")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if envs != nil {
+		t.Fatalf("expected nil slice for missing file, got %v", envs)
+	}
+
+	// Case 2: valid .env file parsed
+	tmpDir, _ := afero.TempDir(fs, "", "env")
+	fname := tmpDir + "/.env"
+	content := "FOO=bar\nHELLO=world"
+	_ = afero.WriteFile(fs, fname, []byte(content), 0o644)
+
+	envs, err = loadEnvFile(fs, fname)
+	if err != nil {
+		t.Fatalf("loadEnvFile error: %v", err)
+	}
+	if len(envs) != 2 {
+		t.Fatalf("expected 2 env vars, got %d", len(envs))
+	}
+	joined := strings.Join(envs, ",")
+	if !strings.Contains(joined, "FOO=bar") || !strings.Contains(joined, "HELLO=world") {
+		t.Fatalf("parsed env slice missing values: %v", envs)
+	}
+}
+
+func TestGenerateDockerComposeCPU(t *testing.T) {
+	fs := afero.NewOsFs()
+	err := GenerateDockerCompose(fs, "agent", "image:tag", "agent-cpu", "127.0.0.1", "5000", "", "", true, false, "cpu")
+	if err != nil {
+		t.Fatalf("GenerateDockerCompose error: %v", err)
+	}
+	expected := "agent_docker-compose-cpu.yaml"
+	exists, _ := afero.Exists(fs, expected)
+	if !exists {
+		t.Fatalf("expected compose file %s", expected)
+	}
 }

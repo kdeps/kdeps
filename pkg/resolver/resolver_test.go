@@ -1,4 +1,4 @@
-package resolver_test
+package resolver
 
 import (
 	"context"
@@ -13,11 +13,12 @@ import (
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/schema"
+	pklData "github.com/kdeps/schema/gen/data"
 	pklExec "github.com/kdeps/schema/gen/exec"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func setNonInteractive(t *testing.T) func() {
@@ -46,7 +47,7 @@ func TestDependencyResolver(t *testing.T) {
 
 	_ = fs.MkdirAll(filesDir, 0o755)
 
-	dr := &resolver.DependencyResolver{
+	dr := &DependencyResolver{
 		Fs:        fs,
 		Logger:    logger,
 		Context:   ctx,
@@ -56,9 +57,9 @@ func TestDependencyResolver(t *testing.T) {
 	}
 
 	// Stub LoadResourceFn to avoid remote network calls and use in-memory exec impl
-	dr.LoadResourceFn = func(ctx context.Context, path string, rt resolver.ResourceType) (interface{}, error) {
+	dr.LoadResourceFn = func(ctx context.Context, path string, rt ResourceType) (interface{}, error) {
 		switch rt {
-		case resolver.ExecResource:
+		case ExecResource:
 			return &pklExec.ExecImpl{}, nil
 		default:
 			return nil, fmt.Errorf("unsupported resource type in stub: %v", rt)
@@ -913,7 +914,7 @@ settings = new {
 		t.Fatalf("Failed to create mock workflow file: %v", err)
 	}
 
-	dr, err := resolver.NewGraphResolver(fs, ctx, env, nil, logger)
+	dr, err := NewGraphResolver(fs, ctx, env, nil, logger)
 
 	// Gracefully skip the test when PKL is not available in the current CI
 	// environment. This mirrors the behaviour in other resolver tests to keep
@@ -943,4 +944,17 @@ func TestMain(m *testing.M) {
 	teardown := setNonInteractive(nil)
 	defer teardown()
 	os.Exit(m.Run())
+}
+
+func TestAppendDataEntry_ContextNil(t *testing.T) {
+	dr := &DependencyResolver{
+		Fs:        afero.NewMemMapFs(),
+		Logger:    logging.NewTestLogger(),
+		ActionDir: "/tmp",
+		RequestID: "req",
+		// Context is nil
+	}
+	err := dr.AppendDataEntry("id", &pklData.DataImpl{})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "context is nil")
 }
