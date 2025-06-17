@@ -2,12 +2,6 @@ package docker
 
 import (
 	"context"
-	"path/filepath"
-	"testing"
-
-	"net"
-	"time"
-
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
@@ -16,6 +10,12 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"net"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/kdeps/kdeps/pkg/schema"
 )
 
 func TestBootstrapDockerSystem(t *testing.T) {
@@ -308,5 +308,69 @@ func TestCreateFlagFileAgain(t *testing.T) {
 	// Second call should not error (file already exists)
 	if err := CreateFlagFile(fs, context.Background(), filename); err != nil {
 		t.Fatalf("expected nil error when flag already exists, got: %v", err)
+	}
+}
+
+func TestCreateFlagFile_ReadOnlyFs(t *testing.T) {
+	fs := afero.NewOsFs()
+	tmpDir, err := afero.TempDir(fs, "", "roflag")
+	if err != nil {
+		t.Fatalf("TempDir: %v", err)
+	}
+
+	ro := afero.NewReadOnlyFs(fs)
+	flagPath := filepath.Join(tmpDir, "flag.txt")
+
+	// Attempting to create a new file on read-only FS should error.
+	if err := CreateFlagFile(ro, context.Background(), flagPath); err == nil {
+		t.Fatalf("expected error when creating flag file on read-only fs")
+	}
+
+	// Reference schema version (requirement in tests)
+	_ = schema.SchemaVersion(context.Background())
+}
+
+func TestCreateFlagFile_NewFile(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	filename := "test_flag_file"
+
+	if err := CreateFlagFile(fs, ctx, filename); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	exists, _ := afero.Exists(fs, filename)
+	if !exists {
+		t.Fatalf("expected flag file to be created")
+	}
+
+	// Check timestamps roughly current (within 2 seconds)
+	info, _ := fs.Stat(filename)
+	if time.Since(info.ModTime()) > 2*time.Second {
+		t.Fatalf("mod time too old: %v", info.ModTime())
+	}
+}
+
+func TestCreateFlagFile_FileAlreadyExists(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	filename := "existing_flag"
+
+	// pre-create file
+	afero.WriteFile(fs, filename, []byte{}, 0o644)
+
+	if err := CreateFlagFile(fs, ctx, filename); err != nil {
+		t.Fatalf("expected no error when file already exists, got: %v", err)
+	}
+}
+
+func TestPullModels_Error(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	// Provide some dummy model names; expect error as 'ollama' binary likely unavailable
+	err := pullModels(ctx, []string{"nonexistent-model-1"}, logger)
+	if err == nil {
+		t.Fatalf("expected error when pulling models with missing binary")
 	}
 }

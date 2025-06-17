@@ -2,18 +2,11 @@ package docker
 
 import (
 	"bytes"
-	"encoding/base64"
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
-	"testing"
-
 	"context"
 	"database/sql"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
-	"mime/multipart"
-	"path/filepath"
-
 	"github.com/apple/pkl-go/pkl"
 	"github.com/gin-gonic/gin"
 	"github.com/kdeps/kdeps/pkg/environment"
@@ -31,6 +24,13 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"mime/multipart"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"testing"
+
+	"github.com/kdeps/kdeps/pkg/utils"
 )
 
 func TestValidateMethodExtra2(t *testing.T) {
@@ -870,4 +870,251 @@ func TestCleanOldFilesMore(t *testing.T) {
 	// second call with file absent should still succeed
 	err = cleanOldFiles(dr)
 	assert.NoError(t, err)
+}
+
+// TestCleanOldFiles ensures that the helper deletes the ResponseTargetFile when it exists
+// and returns nil when the file is absent. Both branches of the conditional are exercised.
+func TestCleanOldFilesMemFS(t *testing.T) {
+	mem := afero.NewMemMapFs()
+	dr := &resolver.DependencyResolver{
+		Fs:                 mem,
+		ResponseTargetFile: "/tmp/response.json",
+		Logger:             logging.NewTestLogger(),
+		Context:            context.Background(),
+	}
+
+	// Branch 1: File exists and should be removed without error.
+	if err := afero.WriteFile(mem, dr.ResponseTargetFile, []byte("data"), 0o644); err != nil {
+		t.Fatalf("failed to seed response file: %v", err)
+	}
+	if err := cleanOldFiles(dr); err != nil {
+		t.Fatalf("cleanOldFiles returned error for existing file: %v", err)
+	}
+	if exists, _ := afero.Exists(mem, dr.ResponseTargetFile); exists {
+		t.Fatalf("expected response file to be removed")
+	}
+
+	// Branch 2: File does not exist – function should still return nil (no error).
+	if err := cleanOldFiles(dr); err != nil {
+		t.Fatalf("cleanOldFiles returned error when file absent: %v", err)
+	}
+}
+
+// TestCleanOldFilesRemoveError exercises the branch where RemoveAll returns an
+// error. It uses a read-only filesystem wrapper so the delete fails without
+// depending on OS-specific permissions.
+func TestCleanOldFilesRemoveError(t *testing.T) {
+	mem := afero.NewMemMapFs()
+	target := "/tmp/response.json"
+	if err := afero.WriteFile(mem, target, []byte("data"), 0o644); err != nil {
+		t.Fatalf("write seed file: %v", err)
+	}
+
+	dr := &resolver.DependencyResolver{
+		Fs:                 afero.NewReadOnlyFs(mem), // makes RemoveAll fail
+		ResponseTargetFile: target,
+		Logger:             logging.NewTestLogger(),
+		Context:            context.Background(),
+	}
+
+	if err := cleanOldFiles(dr); err == nil {
+		t.Fatalf("expected error from RemoveAll, got nil")
+	}
+}
+
+func TestFormatResponseJSON_NestedData(t *testing.T) {
+	// Build a response where data[0] is a JSON string
+	payload := APIResponse{
+		Success:  true,
+		Response: ResponseData{Data: []string{`{"foo":123}`}},
+		Meta:     ResponseMeta{RequestID: "id"},
+	}
+	raw, _ := json.Marshal(payload)
+	pretty := formatResponseJSON(raw)
+
+	// The nested JSON should have been parsed → data[0] becomes an object not string
+	var out map[string]interface{}
+	if err := json.Unmarshal(pretty, &out); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	resp, ok := out["response"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("missing response field")
+	}
+	dataArr, ok := resp["data"].([]interface{})
+	if !ok || len(dataArr) != 1 {
+		t.Fatalf("unexpected data field: %v", resp["data"])
+	}
+	first, ok := dataArr[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("data[0] still a string after formatting")
+	}
+	if val, ok := first["foo"].(float64); !ok || val != 123 {
+		t.Fatalf("nested JSON not preserved: %v", first)
+	}
+}
+
+func TestCleanOldFilesUnique(t *testing.T) {
+	fs := afero.NewOsFs()
+	tmpDir, _ := afero.TempDir(fs, "", "clean")
+	target := tmpDir + "/resp.json"
+	_ = afero.WriteFile(fs, target, []byte("data"), 0o644)
+
+	dr := &resolver.DependencyResolver{Fs: fs, Logger: logging.NewTestLogger(), ResponseTargetFile: target}
+	if err := cleanOldFiles(dr); err != nil {
+		t.Fatalf("cleanOldFiles error: %v", err)
+	}
+	if exists, _ := afero.Exists(fs, target); exists {
+		t.Fatalf("file still exists after cleanOldFiles")
+	}
+}
+
+// TestFormatResponseJSONInlineData ensures that when the "data" field contains
+// string elements that are themselves valid JSON objects, formatResponseJSON
+// converts those elements into embedded objects within the final JSON.
+func TestFormatResponseJSONInlineData(t *testing.T) {
+	raw := []byte(`{"response": {"data": ["{\"foo\": \"bar\"}", "plain text"]}}`)
+
+	pretty := formatResponseJSON(raw)
+
+	if !bytes.Contains(pretty, []byte("\"foo\": \"bar\"")) {
+		t.Fatalf("expected pretty JSON to contain inlined object, got %s", string(pretty))
+	}
+}
+
+func TestValidateMethodSimple(t *testing.T) {
+	req, _ := http.NewRequest("POST", "http://example.com", nil)
+	methodStr, err := validateMethod(req, []string{"GET", "POST"})
+	if err != nil {
+		t.Fatalf("validateMethod unexpected error: %v", err)
+	}
+	if methodStr != `method = "POST"` {
+		t.Fatalf("unexpected method string: %s", methodStr)
+	}
+
+	// Unsupported method should error
+	req.Method = "DELETE"
+	if _, err := validateMethod(req, []string{"GET", "POST"}); err == nil {
+		t.Fatalf("expected error for unsupported method")
+	}
+}
+
+func TestCleanOldFilesMem(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+
+	// Prepare dependency resolver stub with in-mem fs
+	dr := &resolver.DependencyResolver{Fs: fs, Logger: logger, ResponseTargetFile: "/tmp/old_resp.txt"}
+	// Create dummy file
+	afero.WriteFile(fs, dr.ResponseTargetFile, []byte("old"), 0o666)
+
+	if err := cleanOldFiles(dr); err != nil {
+		t.Fatalf("cleanOldFiles returned error: %v", err)
+	}
+	if exists, _ := afero.Exists(fs, dr.ResponseTargetFile); exists {
+		t.Fatalf("file still exists after cleanOldFiles")
+	}
+}
+
+func TestDecodeAndFormatResponseSimple(t *testing.T) {
+	logger := logging.NewTestLogger()
+
+	// Build sample APIResponse JSON with base64 encoded data
+	sample := APIResponse{
+		Success:  true,
+		Response: ResponseData{Data: []string{utils.EncodeBase64String(`{"foo":"bar"}`)}},
+		Meta:     ResponseMeta{RequestID: "abc123"},
+	}
+	raw, _ := json.Marshal(sample)
+
+	decoded, err := decodeResponseContent(raw, logger)
+	if err != nil {
+		t.Fatalf("decodeResponseContent error: %v", err)
+	}
+	if len(decoded.Response.Data) != 1 || decoded.Response.Data[0] != "{\n  \"foo\": \"bar\"\n}" {
+		t.Fatalf("decodeResponseContent did not prettify JSON: %v", decoded.Response.Data)
+	}
+
+	// Marshal decoded struct then format
+	marshaled, _ := json.Marshal(decoded)
+	formatted := formatResponseJSON(marshaled)
+	if !bytes.Contains(formatted, []byte("foo")) {
+		t.Fatalf("formatResponseJSON missing field")
+	}
+}
+
+func TestDecodeResponseContent_Success(t *testing.T) {
+	logger := logging.NewTestLogger()
+
+	// Prepare an APIResponse JSON with base64-encoded JSON payload in data.
+	inner := `{"hello":"world"}`
+	encoded := base64.StdEncoding.EncodeToString([]byte(inner))
+
+	raw := APIResponse{
+		Success: true,
+		Response: ResponseData{
+			Data: []string{encoded},
+		},
+		Meta: ResponseMeta{
+			RequestID: "abc",
+		},
+	}
+
+	rawBytes, err := json.Marshal(raw)
+	assert.NoError(t, err)
+
+	decoded, err := decodeResponseContent(rawBytes, logger)
+	assert.NoError(t, err)
+	assert.Equal(t, "abc", decoded.Meta.RequestID)
+	assert.Contains(t, decoded.Response.Data[0], "\"hello\": \"world\"")
+}
+
+func TestDecodeResponseContent_InvalidJSON(t *testing.T) {
+	logger := logging.NewTestLogger()
+	_, err := decodeResponseContent([]byte(`not-json`), logger)
+	assert.Error(t, err)
+}
+
+func TestFormatResponseJSONPretty(t *testing.T) {
+	// Create a response that will be decodable by formatResponseJSON
+	inner := map[string]string{"foo": "bar"}
+	innerBytes, _ := json.Marshal(inner)
+
+	resp := map[string]interface{}{
+		"response": map[string]interface{}{
+			"data": []interface{}{string(innerBytes)},
+		},
+	}
+	bytesIn, _ := json.Marshal(resp)
+
+	pretty := formatResponseJSON(bytesIn)
+
+	// The formatted JSON should contain nested object without quotes around keys
+	assert.Contains(t, string(pretty), "\"foo\": \"bar\"")
+}
+
+// TestValidateMethodDefaultGET verifies that when the incoming request has an
+// empty Method field validateMethod substitutes "GET" and returns the correct
+// formatted string without error.
+func TestValidateMethodDefaultGET(t *testing.T) {
+	req := &http.Request{}
+
+	got, err := validateMethod(req, []string{"GET"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := `method = "GET"`
+	if got != want {
+		t.Fatalf("unexpected result: got %q want %q", got, want)
+	}
+}
+
+// TestValidateMethodNotAllowed verifies that validateMethod returns an error
+// when an HTTP method that is not in the allowed list is provided.
+func TestValidateMethodNotAllowed(t *testing.T) {
+	req := &http.Request{Method: "POST"}
+
+	if _, err := validateMethod(req, []string{"GET"}); err == nil {
+		t.Fatalf("expected method not allowed error, got nil")
+	}
 }

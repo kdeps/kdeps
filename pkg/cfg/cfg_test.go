@@ -4,10 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
-	"testing"
-
 	"github.com/adrg/xdg"
 	"github.com/cucumber/godog"
 	"github.com/kdeps/kdeps/pkg/environment"
@@ -18,6 +14,12 @@ import (
 	"github.com/kdeps/schema/gen/kdeps/path"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"os"
+	"path/filepath"
+	"testing"
+
+	kpath "github.com/kdeps/schema/gen/kdeps/path"
+	"runtime"
 )
 
 var (
@@ -633,4 +635,157 @@ func TestMain(m *testing.M) {
 	teardown := setNonInteractive(nil)
 	defer teardown()
 	os.Exit(m.Run())
+}
+
+// helper to construct minimal config
+func newKdepsCfg(dir string, p path.Path) kdeps.Kdeps {
+	return kdeps.Kdeps{
+		KdepsDir:  dir,
+		KdepsPath: p,
+	}
+}
+
+func TestGetKdepsPathUser(t *testing.T) {
+	cfg := newKdepsCfg(".kdeps", path.User)
+	got, err := GetKdepsPath(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	home, _ := os.UserHomeDir()
+	want := filepath.Join(home, ".kdeps")
+	if got != want {
+		t.Fatalf("want %s got %s", want, got)
+	}
+}
+
+func TestGetKdepsPathProject(t *testing.T) {
+	cfg := newKdepsCfg("kd", path.Project)
+	cwd, _ := os.Getwd()
+	got, err := GetKdepsPath(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("error: %v", err)
+	}
+	want := filepath.Join(cwd, "kd")
+	if got != want {
+		t.Fatalf("want %s got %s", want, got)
+	}
+}
+
+func TestGetKdepsPathXDG(t *testing.T) {
+	cfg := newKdepsCfg("store", path.Xdg)
+	got, err := GetKdepsPath(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	// do not assert exact path; just ensure ends with /store
+	if filepath.Base(got) != "store" {
+		t.Fatalf("unexpected path %s", got)
+	}
+}
+
+func TestGetKdepsPathUnknown(t *testing.T) {
+	// Provide invalid path using numeric constant outside defined ones.
+	type customPath string
+	bad := newKdepsCfg("dir", path.Path("bogus"))
+	if _, err := GetKdepsPath(context.Background(), bad); err == nil {
+		t.Fatalf("expected error for unknown path type")
+	}
+}
+
+func TestGetKdepsPathVariants(t *testing.T) {
+	ctx := context.Background()
+
+	tmpHome := t.TempDir()
+	if err := os.Setenv("HOME", tmpHome); err != nil {
+		t.Fatalf("setenv: %v", err)
+	}
+
+	tmpProject := t.TempDir()
+	if err := os.Chdir(tmpProject); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+
+	dirName := "kdeps-system"
+	build := func(p path.Path) kdeps.Kdeps {
+		return kdeps.Kdeps{KdepsDir: dirName, KdepsPath: p}
+	}
+
+	cases := []struct {
+		name    string
+		cfg     kdeps.Kdeps
+		want    string
+		wantErr bool
+	}{
+		{"user", build(path.User), filepath.Join(tmpHome, dirName), false},
+		{"project", build(path.Project), filepath.Join(tmpProject, dirName), false},
+		{"xdg", build(path.Xdg), filepath.Join(os.Getenv("XDG_CONFIG_HOME"), dirName), false},
+		{"unknown", build("weird"), "", true},
+	}
+
+	for _, c := range cases {
+		got, err := GetKdepsPath(ctx, c.cfg)
+		if c.wantErr {
+			if err == nil {
+				t.Fatalf("%s: expected error", c.name)
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatalf("%s: unexpected error: %v", c.name, err)
+		}
+		if filepath.Base(got) != dirName {
+			t.Fatalf("%s: expected path ending with %s, got %s", c.name, dirName, got)
+		}
+	}
+
+	// Restore cwd for other tests on Windows.
+	if runtime.GOOS == "windows" {
+		_ = os.Chdir("\\")
+	}
+}
+
+func TestGetKdepsPathCases(t *testing.T) {
+	tmpProject := t.TempDir()
+	// Change working directory so path.Project branch produces deterministic path.
+	oldWd, _ := os.Getwd()
+	_ = os.Chdir(tmpProject)
+	defer os.Chdir(oldWd)
+
+	cases := []struct {
+		name      string
+		cfg       kdeps.Kdeps
+		expectFn  func() string
+		expectErr bool
+	}{
+		{
+			"user path", kdeps.Kdeps{KdepsDir: "mykdeps", KdepsPath: kpath.User}, func() string {
+				home, _ := os.UserHomeDir()
+				return filepath.Join(home, "mykdeps")
+			}, false,
+		},
+		{
+			"project path", kdeps.Kdeps{KdepsDir: "mykdeps", KdepsPath: kpath.Project}, func() string {
+				cwd, _ := os.Getwd()
+				return filepath.Join(cwd, "mykdeps")
+			}, false,
+		},
+		{
+			"xdg path", kdeps.Kdeps{KdepsDir: "mykdeps", KdepsPath: kpath.Xdg}, func() string {
+				return filepath.Join(xdg.ConfigHome, "mykdeps")
+			}, false,
+		},
+		{
+			"unknown", kdeps.Kdeps{KdepsDir: "abc", KdepsPath: "bogus"}, nil, true,
+		},
+	}
+
+	for _, tc := range cases {
+		got, err := GetKdepsPath(context.Background(), tc.cfg)
+		if tc.expectErr {
+			assert.Error(t, err, tc.name)
+			continue
+		}
+		assert.NoError(t, err, tc.name)
+		assert.Equal(t, tc.expectFn(), got, tc.name)
+	}
 }

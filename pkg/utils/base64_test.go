@@ -2,8 +2,11 @@ package utils
 
 import (
 	"encoding/base64"
+	"errors"
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestIsBase64Encoded(t *testing.T) {
@@ -387,4 +390,97 @@ func TestDecodeStringHelpers_Branches(t *testing.T) {
 	if err != nil || (*ds)[0] != badVal {
 		t.Fatalf("unexpected result for non-base64 slice: %v err %v", ds, err)
 	}
+}
+
+// TestDecodeStringHelpersErrorPaths exercises the error returns when values are malformed base64.
+func TestDecodeStringHelpersErrorPaths(t *testing.T) {
+	bad := "!!!notbase64!!!"
+
+	m := map[string]string{"x": bad}
+	mm, err := DecodeStringMap(&m, "hdr")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if (*mm)["x"] != bad {
+		t.Fatalf("value altered unexpectedly")
+	}
+
+	s := []string{bad}
+	ss, err := DecodeStringSlice(&s, "arr")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if (*ss)[0] != bad {
+		t.Fatalf("slice value altered unexpectedly")
+	}
+}
+
+func TestTruncateString_EdgeCases(t *testing.T) {
+	require.Equal(t, "short", TruncateString("short", 10))
+	require.Equal(t, "...", TruncateString("longstring", 2))
+	require.Equal(t, "longer", TruncateString("longer", 6))
+}
+
+func TestAllConditionsMet_Various(t *testing.T) {
+	t.Run("AllTrueBool", func(t *testing.T) {
+		conds := []interface{}{true, true}
+		require.True(t, AllConditionsMet(&conds))
+	})
+
+	t.Run("AllTrueString", func(t *testing.T) {
+		conds := []interface{}{"true", "TRUE"}
+		require.True(t, AllConditionsMet(&conds))
+	})
+
+	t.Run("MixedFalse", func(t *testing.T) {
+		conds := []interface{}{true, "false"}
+		require.False(t, AllConditionsMet(&conds))
+	})
+
+	t.Run("UnsupportedType", func(t *testing.T) {
+		conds := []interface{}{errors.New("oops")}
+		require.False(t, AllConditionsMet(&conds))
+	})
+}
+
+func TestIsBase64Encoded_DecodeFunctions(t *testing.T) {
+	original := "hello world"
+	encoded := EncodeBase64String(original)
+
+	// Positive path
+	require.True(t, IsBase64Encoded(encoded))
+	decoded, err := DecodeBase64String(encoded)
+	require.NoError(t, err)
+	require.Equal(t, original, decoded)
+
+	// Negative path: not base64
+	invalid := "not@@base64!"
+	require.False(t, IsBase64Encoded(invalid))
+	same, err := DecodeBase64String(invalid)
+	require.NoError(t, err)
+	require.Equal(t, invalid, same)
+}
+
+func TestDecodeStringHelpers_ErrorPaths(t *testing.T) {
+	// Map with one bad base64 value
+	badVal := "###" // definitely invalid
+	m := map[string]string{"good": EncodeBase64String("ok"), "bad": badVal}
+	decodedMap, err := DecodeStringMap(&m, "field")
+	require.NoError(t, err)
+	require.NotNil(t, decodedMap)
+
+	// Slice with bad value
+	s := []string{EncodeBase64String("x"), badVal}
+	decodedSlice, err := DecodeStringSlice(&s, "slice")
+	require.NoError(t, err)
+	require.NotNil(t, decodedSlice)
+
+	// Map/slice with nil pointer should return nil, no error
+	mh, err := DecodeStringMap(nil, "field")
+	require.NoError(t, err)
+	require.Nil(t, mh)
+
+	sh, err := DecodeStringSlice(nil, "slice")
+	require.NoError(t, err)
+	require.Nil(t, sh)
 }

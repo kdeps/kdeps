@@ -12,6 +12,8 @@ import (
 	"flag"
 	"fmt"
 	"go/format"
+	"go/parser"
+	"go/token"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -52,6 +54,30 @@ func mergeTestsInDir(dir string) error {
 		return err
 	}
 
+	// Build symbol -> production file map for this directory to help
+	// map "*_extra_test.go" files to the correct base file even when the
+	// filename prefixes differ (e.g., current_architecture_extra_test.go
+	// targets cache.go).
+	symToFile := map[string]string{}
+	filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		src, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+		fset := token.NewFileSet()
+		af, err := parser.ParseFile(fset, "", src, parser.ParseComments)
+		if err != nil {
+			return nil
+		}
+		for name := range af.Scope.Objects {
+			symToFile[name] = path
+		}
+		return nil
+	})
+
 	// map[prefix] -> list of files
 	groups := make(map[string][]string)
 	for _, e := range entries {
@@ -63,8 +89,26 @@ func mergeTestsInDir(dir string) error {
 		if err != nil {
 			continue
 		}
-		prefix := strings.SplitN(name, "_", 2)[0]
-		key := pkgName + "::" + prefix
+
+		// Attempt to map via symbol matching for *_extra_test.go variants
+		basePrefix := strings.TrimSuffix(name, "_test.go")
+		basePrefix = strings.Split(basePrefix, "_extra")[0]
+
+		// Default mapping key
+		key := pkgName + "::" + basePrefix
+
+		if strings.Contains(name, "_extra_test.go") || strings.Contains(name, "_additional_test.go") || strings.Contains(name, "_more_test.go") || strings.Contains(name, "_simple_test.go") {
+			// Inspect test file for referenced symbols
+			src, _ := os.ReadFile(filepath.Join(dir, name))
+			for sym, prod := range symToFile {
+				if bytes.Contains(src, []byte(sym+"(")) {
+					prodBase := strings.TrimSuffix(filepath.Base(prod), ".go")
+					key = pkgName + "::" + prodBase
+					break
+				}
+			}
+		}
+
 		groups[key] = append(groups[key], filepath.Join(dir, name))
 	}
 

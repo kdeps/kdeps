@@ -4,10 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
-	"strings"
-	"testing"
-
 	"github.com/cucumber/godog"
 	"github.com/kdeps/kdeps/pkg/cfg"
 	"github.com/kdeps/kdeps/pkg/environment"
@@ -17,6 +13,11 @@ import (
 	"github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -507,5 +508,57 @@ func TestEnforceResourceRunBlock(t *testing.T) {
 
 	if err := EnforceResourceRunBlock(fs, context.Background(), fileMulti, logging.NewTestLogger()); err == nil {
 		t.Fatalf("expected error for multiple run blocks, got nil")
+	}
+}
+
+func TestCompareVersions(t *testing.T) {
+	logger := logging.NewTestLogger()
+
+	tests := []struct {
+		name     string
+		v1, v2   string
+		expected int
+		wantErr  bool
+	}{
+		{"equal versions", "1.2.3", "1.2.3", 0, false},
+		{"v1 greater patch", "1.2.4", "1.2.3", 1, false},
+		{"v1 greater minor", "1.3.0", "1.2.9", 1, false},
+		{"v1 less major", "1.2.3", "2.0.0", -1, false},
+		{"different length v1 longer", "1.2.3.1", "1.2.3", 1, false},
+		{"different length v2 longer", "1.2", "1.2.0.1", -1, false},
+		{"invalid v1 format", "1.2.x", "1.2.0", 0, true},
+		{"invalid v2 format", "1.2.0", "1.2.x", 0, true},
+	}
+
+	for _, tc := range tests {
+		tc := tc // capture
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := compareVersions(tc.v1, tc.v2, logger)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestCompareVersionsAdditional(t *testing.T) {
+	logger := logging.NewTestLogger()
+	tests := []struct {
+		name   string
+		v1, v2 string
+		want   int
+	}{
+		{"equal", "1.2.3", "1.2.3", 0},
+		{"v1< v2", "0.9", "1.0", -1},
+		{"v1>v2", "2.0", "1.5", 1},
+		{"different lengths", "1.2.3", "1.2", 1},
+	}
+	for _, tc := range tests {
+		got, err := compareVersions(tc.v1, tc.v2, logger)
+		assert.NoError(t, err)
+		assert.Equal(t, tc.want, got, tc.name)
 	}
 }

@@ -2,13 +2,12 @@ package main
 
 import (
 	"context"
-	"testing"
-
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	schemaK "github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
+	"testing"
 )
 
 // TestHandleNonDockerMode_GenerateFlow exercises the path where no config exists and it must be generated.
@@ -109,4 +108,15 @@ func TestHandleNonDockerMode_ExistingConfig(t *testing.T) {
 
 	// Execute
 	handleNonDockerMode(fs, ctx, env, logger)
+}
+
+func TestSetupEnvironmentSuccess(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	env, err := setupEnvironment(fs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if env == nil {
+		t.Fatalf("expected non-nil environment")
+	}
 }
