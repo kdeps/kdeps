@@ -4,6 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"path/filepath"
+	"strings"
+	"testing"
+
 	"github.com/charmbracelet/log"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
@@ -14,14 +21,8 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"path/filepath"
-	"strings"
-	"testing"
 
 	"github.com/kdeps/kdeps/pkg/utils"
-	"io"
-	"io/ioutil"
-	"net/http"
 )
 
 func setupTestImage(t *testing.T) (afero.Fs, *logging.Logger, *archiver.KdepsPackage) {
@@ -379,8 +380,8 @@ func TestBuildDockerImageNew(t *testing.T) {
 	}
 
 	// Create dummy directories in memory FS
-	fs.MkdirAll(runDir, 0755)
-	fs.MkdirAll(kdepsDir, 0755)
+	fs.MkdirAll(runDir, 0o755)
+	fs.MkdirAll(kdepsDir, 0o755)
 
 	// Call the function under test with a type assertion or conversion if needed
 	// Note: This will likely still fail if BuildDockerImage strictly requires *client.Client
@@ -421,12 +422,11 @@ func TestBuildDockerImageImageExists(t *testing.T) {
 	}
 
 	// Create dummy directories in memory FS
-	fs.MkdirAll(runDir, 0755)
-	fs.MkdirAll(kdepsDir, 0755)
+	fs.MkdirAll(runDir, 0o755)
+	fs.MkdirAll(kdepsDir, 0o755)
 
 	// Call the function under test with nil to avoid type mismatch
 	cName, containerName, err := BuildDockerImage(fs, ctx, kdeps, nil, runDir, kdepsDir, pkgProject, logger)
-
 	if err != nil {
 		t.Logf("Expected error due to mocked dependencies: %v", err)
 	}
@@ -563,20 +563,19 @@ func TestBuildDockerfileContent(t *testing.T) {
 	}
 
 	// Create dummy directories in memory FS
-	fs.MkdirAll(kdepsDir, 0755)
-	fs.MkdirAll("/test/kdeps/cache", 0755)
-	fs.MkdirAll("/test/kdeps/run/test/1.0", 0755)
+	fs.MkdirAll(kdepsDir, 0o755)
+	fs.MkdirAll("/test/kdeps/cache", 0o755)
+	fs.MkdirAll("/test/kdeps/run/test/1.0", 0o755)
 
 	// Create a dummy workflow file to avoid module not found error
 	workflowPath := "/test/kdeps/testWorkflow"
 	dummyWorkflowContent := `name = "test"
 version = "1.0"
 `
-	afero.WriteFile(fs, workflowPath, []byte(dummyWorkflowContent), 0644)
+	afero.WriteFile(fs, workflowPath, []byte(dummyWorkflowContent), 0o644)
 
 	// Call the function under test
 	runDir, apiServerMode, webServerMode, hostIP, hostPort, webHostIP, webHostPort, gpuType, err := BuildDockerfile(fs, ctx, kdeps, kdepsDir, pkgProject, logger)
-
 	if err != nil {
 		// Gracefully skip when PKL or workflow dependency is unavailable in CI
 		if strings.Contains(err.Error(), "Cannot find module") {

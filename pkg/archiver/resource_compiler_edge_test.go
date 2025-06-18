@@ -1,11 +1,10 @@
 package archiver
 
 import (
-	"strings"
-	"testing"
-
 	"context"
 	"path/filepath"
+	"strings"
+	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/schema/gen/project"

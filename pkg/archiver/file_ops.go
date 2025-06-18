@@ -2,7 +2,7 @@ package archiver
 
 import (
 	"context"
-	"crypto/md5" //nolint:gosec
+	"crypto/md5" 
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -73,7 +73,7 @@ func GetFileMD5(fs afero.Fs, filePath string, length int) (string, error) {
 	}
 	defer file.Close()
 
-	hash := md5.New() //nolint:gosec
+	hash := md5.New() 
 	if _, err := io.Copy(hash, file); err != nil {
 		return "", err
 	}

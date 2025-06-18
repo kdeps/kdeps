@@ -31,12 +31,12 @@ func TestNewAddCommandExecution(t *testing.T) {
 
 	// Create test directory
 	testDir := filepath.Join("/test")
-	err := fs.MkdirAll(testDir, 0755)
+	err := fs.MkdirAll(testDir, 0o755)
 	assert.NoError(t, err)
 
 	// Create test package file
 	agentKdepsPath := filepath.Join(testDir, "agent.kdeps")
-	err = afero.WriteFile(fs, agentKdepsPath, []byte("test package"), 0644)
+	err = afero.WriteFile(fs, agentKdepsPath, []byte("test package"), 0o644)
 	assert.NoError(t, err)
 
 	// Test error case - no arguments
@@ -66,29 +66,29 @@ func TestNewAddCommandValidPackage(t *testing.T) {
 	// Create test directory
 	testDir := filepath.Join("/test")
 	validAgentDir := filepath.Join(testDir, "valid-agent")
-	err := fs.MkdirAll(validAgentDir, 0755)
+	err := fs.MkdirAll(validAgentDir, 0o755)
 	assert.NoError(t, err)
 
 	// Create test package file with valid structure
 	workflowPath := filepath.Join(validAgentDir, "workflow.pkl")
-	err = afero.WriteFile(fs, workflowPath, []byte("name: test\nversion: 1.0.0"), 0644)
+	err = afero.WriteFile(fs, workflowPath, []byte("name: test\nversion: 1.0.0"), 0o644)
 	assert.NoError(t, err)
 
 	// Create resources directory and add required resources
 	resourcesDir := filepath.Join(validAgentDir, "resources")
-	err = fs.MkdirAll(resourcesDir, 0755)
+	err = fs.MkdirAll(resourcesDir, 0o755)
 	assert.NoError(t, err)
 
 	// Create all required resource files
 	requiredResources := []string{"client.pkl", "exec.pkl", "llm.pkl", "python.pkl", "response.pkl"}
 	for _, resource := range requiredResources {
 		resourcePath := filepath.Join(resourcesDir, resource)
-		err = afero.WriteFile(fs, resourcePath, []byte("resource content"), 0644)
+		err = afero.WriteFile(fs, resourcePath, []byte("resource content"), 0o644)
 		assert.NoError(t, err)
 	}
 
 	validKdepsPath := filepath.Join(testDir, "valid-agent.kdeps")
-	err = afero.WriteFile(fs, validKdepsPath, []byte("valid package"), 0644)
+	err = afero.WriteFile(fs, validKdepsPath, []byte("valid package"), 0o644)
 	assert.NoError(t, err)
 
 	cmd := NewAddCommand(fs, ctx, kdepsDir, logger)

@@ -3,16 +3,17 @@ package template
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/texteditor"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"os"
-	"path/filepath"
-	"strings"
-	"testing"
 )
 
 // Save the original EditPkl function
@@ -105,7 +106,6 @@ func TestPromptForAgentName_NonInteractive(t *testing.T) {
 }
 
 func TestCreateDirectory(t *testing.T) {
-
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 	tempDir, err := afero.TempDir(fs, "", "test")
@@ -152,7 +152,6 @@ func TestCreateDirectory(t *testing.T) {
 }
 
 func TestCreateFile(t *testing.T) {
-
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 	tempDir, err := afero.TempDir(fs, "", "test")
@@ -230,7 +229,6 @@ func TestLoadTemplate(t *testing.T) {
 }
 
 func TestTemplateLoadingEdgeCases(t *testing.T) {
-
 	t.Run("TemplateWithEmptyData", func(t *testing.T) {
 		templatePath := "templates/workflow.pkl"
 		data := map[string]string{}
@@ -413,7 +411,6 @@ func TestPrintWithDots(t *testing.T) {
 }
 
 func TestSchemaVersionInTemplates(t *testing.T) {
-
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
@@ -644,7 +641,7 @@ func TestLoadTemplateFromDiskExtra(t *testing.T) {
 	// Write a simple template file
 	templateName := "foo.tmpl"
 	content := "Hello {{.Name}}"
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, templateName), []byte(content), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, templateName), []byte(content), 0o644))
 
 	out, err := loadTemplate(templateName, map[string]string{"Name": "Bob"})
 	require.NoError(t, err)
@@ -667,7 +664,7 @@ func TestGenerateWorkflowFileExtra(t *testing.T) {
 	os.Setenv("TEMPLATE_DIR", tmpDir)
 	defer os.Unsetenv("TEMPLATE_DIR")
 	tmplPath := filepath.Join(tmpDir, "workflow.pkl")
-	require.NoError(t, os.WriteFile(tmplPath, []byte("X:{{.Name}}"), 0644))
+	require.NoError(t, os.WriteFile(tmplPath, []byte("X:{{.Name}}"), 0o644))
 
 	// Successful generation
 	mainDir := "agentdir"
@@ -698,7 +695,7 @@ func TestGenerateResourceFilesExtra(t *testing.T) {
 	for _, name := range templateFiles {
 		path := filepath.Join(tmpDir, name)
 		content := fmt.Sprintf("CONTENT:%s:{{.Name}}", name)
-		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+		require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
 	}
 
 	mainDir := "agentdir2"

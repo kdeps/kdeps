@@ -2,25 +2,27 @@ package archiver
 
 import (
 	"context"
-	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/spf13/afero"
-	"path/filepath"
-	"testing"
-
-	"crypto/md5" //nolint:gosec
 	"encoding/hex"
 	"errors"
+	"io"
+	"io/fs"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"testing"
+
+	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/spf13/afero"
+
+	"crypto/md5" 
+
 	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/schema"
 	pklProject "github.com/kdeps/schema/gen/project"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"io"
-	"io/fs"
-	"io/ioutil"
-	"os"
-	"runtime"
-	"strings"
 )
 
 func TestCopyDirSimpleSuccess(t *testing.T) {
@@ -787,8 +789,8 @@ func TestSetPermissionsErrorPaths(t *testing.T) {
 
 func TestMoveFolder(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	_ = fs.MkdirAll("/src/a/b", 0755)
-	_ = afero.WriteFile(fs, "/src/a/b/file.txt", []byte("content"), 0644)
+	_ = fs.MkdirAll("/src/a/b", 0o755)
+	_ = afero.WriteFile(fs, "/src/a/b/file.txt", []byte("content"), 0o644)
 	require.NoError(t, MoveFolder(fs, "/src", "/dest"))
 	exists, err := afero.DirExists(fs, "/src")
 	require.NoError(t, err)
@@ -801,7 +803,7 @@ func TestMoveFolder(t *testing.T) {
 func TestGetFileMD5(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	content := []byte("hello world")
-	_ = afero.WriteFile(fs, "/file.txt", content, 0644)
+	_ = afero.WriteFile(fs, "/file.txt", content, 0o644)
 	md5short, err := GetFileMD5(fs, "/file.txt", 8)
 	require.NoError(t, err)
 	sum := md5.Sum(content)
@@ -820,7 +822,7 @@ func TestGetFileMD5(t *testing.T) {
 func TestCopyFile_NoExist(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
-	_ = afero.WriteFile(fs, "/src.txt", []byte("data"), 0644)
+	_ = afero.WriteFile(fs, "/src.txt", []byte("data"), 0o644)
 	require.NoError(t, CopyFile(fs, context.Background(), "/src.txt", "/dst.txt", logger))
 	data, err := afero.ReadFile(fs, "/dst.txt")
 	require.NoError(t, err)
@@ -831,8 +833,8 @@ func TestCopyFile_ExistsSameMD5(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 	content := []byte("data")
-	_ = afero.WriteFile(fs, "/src.txt", content, 0644)
-	_ = afero.WriteFile(fs, "/dst.txt", content, 0644)
+	_ = afero.WriteFile(fs, "/src.txt", content, 0o644)
+	_ = afero.WriteFile(fs, "/dst.txt", content, 0o644)
 	require.NoError(t, CopyFile(fs, context.Background(), "/src.txt", "/dst.txt", logger))
 	data, err := afero.ReadFile(fs, "/dst.txt")
 	require.NoError(t, err)
@@ -847,8 +849,8 @@ func TestCopyFile_ExistsSameMD5(t *testing.T) {
 func TestCopyFile_ExistsDifferentMD5(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
-	_ = afero.WriteFile(fs, "/src.txt", []byte("src"), 0644)
-	_ = afero.WriteFile(fs, "/dst.txt", []byte("dst"), 0644)
+	_ = afero.WriteFile(fs, "/src.txt", []byte("src"), 0o644)
+	_ = afero.WriteFile(fs, "/dst.txt", []byte("dst"), 0o644)
 	require.NoError(t, CopyFile(fs, context.Background(), "/src.txt", "/dst.txt", logger))
 	data, err := afero.ReadFile(fs, "/dst.txt")
 	require.NoError(t, err)
@@ -907,7 +909,7 @@ func TestMoveFolderAndGetFileMD5(t *testing.T) {
 		t.Fatalf("GetFileMD5 error: %v", err)
 	}
 
-	h := md5.Sum(content) //nolint:gosec
+	h := md5.Sum(content) 
 	expectedHash := hex.EncodeToString(h[:])[:8]
 	if gotHash != expectedHash {
 		t.Fatalf("md5 mismatch: got %s want %s", gotHash, expectedHash)
@@ -1440,7 +1442,7 @@ func TestGetFileMD5Edges(t *testing.T) {
 	// Full length (32 chars) hash check.
 	got, err := GetFileMD5(fs, filePath, 32)
 	require.NoError(t, err)
-	h := md5.Sum(content) //nolint:gosec
+	h := md5.Sum(content) 
 	expected := hex.EncodeToString(h[:])
 	require.Equal(t, expected, got)
 
@@ -1492,7 +1494,7 @@ func TestGetFileMD5SuccessAndError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetFileMD5 error: %v", err)
 	}
-	h := md5.Sum(data) //nolint:gosec
+	h := md5.Sum(data) 
 	expected := hex.EncodeToString(h[:])[:8]
 	if got != expected {
 		t.Fatalf("hash mismatch: got %s want %s", got, expected)
@@ -1964,7 +1966,7 @@ func TestMoveFolderAndGetFileMD5Small(t *testing.T) {
 		t.Fatalf("GetFileMD5 error: %v", err)
 	}
 
-	h := md5.New() //nolint:gosec
+	h := md5.New() 
 	_, _ = io.WriteString(h, string(data))
 	wantFull := hex.EncodeToString(h.Sum(nil))
 	want := wantFull[:6]
@@ -2037,7 +2039,7 @@ func TestGetFileMD5AndCopyFileSuccess(t *testing.T) {
 	}
 
 	// Calculate expected MD5 manually (full hash then slice len 8)
-	hash := md5.Sum(content) //nolint:gosec
+	hash := md5.Sum(content) 
 	wantMD5 := hex.EncodeToString(hash[:])[:8]
 
 	gotMD5, err := GetFileMD5(fs, srcPath, 8)
@@ -2076,7 +2078,6 @@ func TestGetFileMD5AndCopyFileSuccess(t *testing.T) {
 }
 
 func TestMoveFolderMainPkg(t *testing.T) {
-
 	fs := afero.NewMemMapFs()
 	// Create source directory and files
 	srcDir := "/src"
@@ -2108,7 +2109,6 @@ func TestMoveFolderMainPkg(t *testing.T) {
 }
 
 func TestCopyFileMainPkg(t *testing.T) {
-
 	fs := afero.NewMemMapFs()
 	// Create source file
 	srcFile := "/src/file.txt"
@@ -2126,7 +2126,6 @@ func TestCopyFileMainPkg(t *testing.T) {
 }
 
 func TestGetFileMD5MainPkg(t *testing.T) {
-
 	// Arrange: Use an in-memory filesystem to isolate the test environment
 	fs := afero.NewMemMapFs()
 	filePath := "/file.txt"
@@ -2155,7 +2154,6 @@ func TestGetFileMD5MainPkg(t *testing.T) {
 }
 
 func TestCopyDirMainPkg(t *testing.T) {
-
 	fs := afero.NewMemMapFs()
 	srcDir := "/src"
 	destDir := "/dest"

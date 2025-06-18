@@ -1,11 +1,10 @@
 package resolver
 
 import (
-	"testing"
-
 	"context"
 	"encoding/base64"
 	"strings"
+	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/utils"

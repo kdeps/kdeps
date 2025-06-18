@@ -2,11 +2,10 @@ package resolver
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"errors"
 
 	"github.com/kdeps/kdeps/pkg/logging"
 	pklRes "github.com/kdeps/schema/gen/resource"

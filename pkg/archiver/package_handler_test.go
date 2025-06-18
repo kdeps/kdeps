@@ -4,14 +4,15 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
-	"github.com/kdeps/kdeps/pkg/logging"
-	pklProj "github.com/kdeps/schema/gen/project"
-	pklProject "github.com/kdeps/schema/gen/project"
-	"github.com/spf13/afero"
 	"io"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/kdeps/kdeps/pkg/logging"
+	pklProj "github.com/kdeps/schema/gen/project"
+	pklProject "github.com/kdeps/schema/gen/project"
+	"github.com/spf13/afero"
 )
 
 // minimal workflow stub satisfying the two getters used by PackageProject.

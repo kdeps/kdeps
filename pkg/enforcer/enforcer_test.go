@@ -4,6 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
+	"strings"
+	"testing"
+
 	"github.com/cucumber/godog"
 	"github.com/kdeps/kdeps/pkg/cfg"
 	"github.com/kdeps/kdeps/pkg/environment"
@@ -13,9 +17,6 @@ import (
 	"github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
-	"path/filepath"
-	"strings"
-	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -67,7 +68,6 @@ targetActionID = "helloWorld"
 )
 
 func TestFeatures(t *testing.T) {
-
 	suite := godog.TestSuite{
 		ScenarioInitializer: func(ctx *godog.ScenarioContext) {
 			// Configuration steps

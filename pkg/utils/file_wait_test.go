@@ -1,10 +1,11 @@
 package utils
 
 import (
-	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/spf13/afero"
 	"testing"
 	"time"
+
+	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/spf13/afero"
 )
 
 func TestWaitForFileReadySuccess(t *testing.T) {

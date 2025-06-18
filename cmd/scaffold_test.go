@@ -1,13 +1,12 @@
 package cmd
 
 import (
-	"context"
-	"path/filepath"
-	"testing"
-
 	"bytes"
+	"context"
 	"io"
 	"os"
+	"path/filepath"
+	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
@@ -33,7 +32,7 @@ func TestNewScaffoldCommandNoFiles(t *testing.T) {
 
 	// Create test directory
 	testAgentDir := filepath.Join("test-agent")
-	err := fs.MkdirAll(testAgentDir, 0755)
+	err := fs.MkdirAll(testAgentDir, 0o755)
 	assert.NoError(t, err)
 
 	cmd := NewScaffoldCommand(fs, ctx, logger)
@@ -49,7 +48,7 @@ func TestNewScaffoldCommandValidResources(t *testing.T) {
 
 	// Create test directory
 	testAgentDir := filepath.Join("test-agent")
-	err := fs.MkdirAll(testAgentDir, 0755)
+	err := fs.MkdirAll(testAgentDir, 0o755)
 	assert.NoError(t, err)
 
 	validResources := []string{"client", "exec", "llm", "python", "response"}
@@ -75,7 +74,7 @@ func TestNewScaffoldCommandInvalidResources(t *testing.T) {
 
 	// Create test directory
 	testAgentDir := filepath.Join("test-agent")
-	err := fs.MkdirAll(testAgentDir, 0755)
+	err := fs.MkdirAll(testAgentDir, 0o755)
 	assert.NoError(t, err)
 
 	cmd := NewScaffoldCommand(fs, ctx, logger)
@@ -97,7 +96,7 @@ func TestNewScaffoldCommandMultipleResources(t *testing.T) {
 
 	// Create test directory
 	testAgentDir := filepath.Join("test-agent")
-	err := fs.MkdirAll(testAgentDir, 0755)
+	err := fs.MkdirAll(testAgentDir, 0o755)
 	assert.NoError(t, err)
 
 	cmd := NewScaffoldCommand(fs, ctx, logger)

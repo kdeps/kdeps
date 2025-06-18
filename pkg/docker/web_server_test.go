@@ -1,13 +1,12 @@
 package docker
 
 import (
-	"net/http/httptest"
-	"testing"
-
 	"context"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"path/filepath"
+	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"

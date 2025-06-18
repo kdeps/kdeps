@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"testing"
-
 	"strings"
+	"testing"
 
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -27,7 +26,7 @@ func TestNewPackageCommandExecution(t *testing.T) {
 
 	// Create a temporary directory for the test files
 	testAgentDir := filepath.Join(t.TempDir(), "agent")
-	err := fs.MkdirAll(testAgentDir, 0755)
+	err := fs.MkdirAll(testAgentDir, 0o755)
 	require.NoError(t, err)
 
 	workflowContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
@@ -75,12 +74,12 @@ settings {
 }`, schema.SchemaVersion(ctx))
 
 	workflowPath := filepath.Join(testAgentDir, "workflow.pkl")
-	err = afero.WriteFile(fs, workflowPath, []byte(workflowContent), 0644)
+	err = afero.WriteFile(fs, workflowPath, []byte(workflowContent), 0o644)
 	require.NoError(t, err)
 
 	// Create resources directory and add test resources
 	resourcesDir := filepath.Join(testAgentDir, "resources")
-	err = fs.MkdirAll(resourcesDir, 0755)
+	err = fs.MkdirAll(resourcesDir, 0o755)
 	require.NoError(t, err)
 
 	resourceContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
@@ -96,7 +95,7 @@ run {
 	requiredResources := []string{"client.pkl", "exec.pkl", "llm.pkl", "python.pkl", "response.pkl"}
 	for _, resource := range requiredResources {
 		resourcePath := filepath.Join(resourcesDir, resource)
-		err = afero.WriteFile(fs, resourcePath, []byte(resourceContent), 0644)
+		err = afero.WriteFile(fs, resourcePath, []byte(resourceContent), 0o644)
 		require.NoError(t, err)
 	}
 

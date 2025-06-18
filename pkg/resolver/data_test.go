@@ -1,12 +1,11 @@
 package resolver
 
 import (
+	"encoding/base64"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
-
-	"encoding/base64"
 
 	"github.com/kdeps/kdeps/pkg/logging"
 	apiserverresponse "github.com/kdeps/schema/gen/api_server_response"
@@ -34,7 +33,6 @@ func (mc *MockContext) Value(key interface{}) interface{} {
 }
 
 func TestAppendDataEntry(t *testing.T) {
-
 	tests := []struct {
 		name          string
 		setup         func(dr *DependencyResolver) *data.DataImpl
@@ -44,7 +42,7 @@ func TestAppendDataEntry(t *testing.T) {
 		{
 			name: "Context is nil",
 			setup: func(dr *DependencyResolver) *data.DataImpl {
-				//nolint:fatcontext
+				
 				dr.Context = nil
 				return nil
 			},
@@ -89,7 +87,6 @@ func TestAppendDataEntry(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-
 			tmp := t.TempDir()
 			actionDir := filepath.Join(tmp, "action")
 			fs := afero.NewOsFs()

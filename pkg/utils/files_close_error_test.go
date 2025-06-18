@@ -3,11 +3,10 @@ package utils
 import (
 	"context"
 	"errors"
-	"path/filepath"
-	"testing"
-
 	"os"
+	"path/filepath"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -348,7 +347,6 @@ func TestCreateDirectoriesErrorOsFs(t *testing.T) {
 // TestGenerateResourceIDFilename verifies that non-filename characters are replaced
 // and the requestID is correctly prepended.
 func TestGenerateResourceIDFilename(t *testing.T) {
-
 	cases := []struct {
 		reqID string
 		in    string
@@ -370,7 +368,6 @@ func TestGenerateResourceIDFilename(t *testing.T) {
 // TestSanitizeArchivePath ensures that paths outside the destination return an error
 // while valid ones pass.
 func TestSanitizeArchivePath(t *testing.T) {
-
 	okPath, err := SanitizeArchivePath("/safe", "file.txt")
 	assert.NoError(t, err)
 	assert.Equal(t, filepath.Join("/safe", "file.txt"), okPath)
@@ -382,7 +379,6 @@ func TestSanitizeArchivePath(t *testing.T) {
 
 // TestCreateDirectoriesAndFiles uses an in-memory FS to verify helpers.
 func TestCreateDirectoriesAndFiles(t *testing.T) {
-
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
 
@@ -406,7 +402,6 @@ func TestCreateDirectoriesAndFiles(t *testing.T) {
 
 // TestWaitForFileReady covers both success and timeout branches.
 func TestWaitForFileReady(t *testing.T) {
-
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 	const filename = "/ready.txt"

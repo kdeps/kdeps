@@ -59,6 +59,7 @@ func (s statErrorFs) Open(name string) (afero.File, error)         { return s.Fs
 func (s statErrorFs) OpenFile(name string, flag int, perm os.FileMode) (afero.File, error) {
 	return s.Fs.OpenFile(name, flag, perm)
 }
+
 func (s statErrorFs) Stat(name string) (os.FileInfo, error) {
 	// Only return error for files, not directories
 	if strings.HasSuffix(name, ".txt") {

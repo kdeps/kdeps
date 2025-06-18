@@ -7,6 +7,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"testing"
+
 	"github.com/apple/pkl-go/pkl"
 	"github.com/gin-gonic/gin"
 	"github.com/kdeps/kdeps/pkg/environment"
@@ -24,11 +30,6 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"mime/multipart"
-	"net/http"
-	"net/http/httptest"
-	"path/filepath"
-	"testing"
 
 	"github.com/kdeps/kdeps/pkg/utils"
 )
@@ -131,7 +132,7 @@ func TestCleanOldFilesExtra(t *testing.T) {
 	dr := &resolver.DependencyResolver{Fs: fs, Logger: logging.NewTestLogger(), ResponseTargetFile: "old.json"}
 
 	// Case where file exists
-	require.NoError(t, afero.WriteFile(fs, dr.ResponseTargetFile, []byte("x"), 0644))
+	require.NoError(t, afero.WriteFile(fs, dr.ResponseTargetFile, []byte("x"), 0o644))
 	require.NoError(t, cleanOldFiles(dr))
 	exists, _ := afero.Exists(fs, dr.ResponseTargetFile)
 	require.False(t, exists)
@@ -374,7 +375,7 @@ func TestCleanOldFiles(t *testing.T) {
 
 	// Create a test response file
 	responseFile := filepath.Join(tmpDir, "response.json")
-	err = afero.WriteFile(fs, responseFile, []byte("test response"), 0644)
+	err = afero.WriteFile(fs, responseFile, []byte("test response"), 0o644)
 	require.NoError(t, err)
 
 	// Create a DependencyResolver with the test filesystem
@@ -824,7 +825,6 @@ func TestDecodeResponseContentFormattingUtilsExtra(t *testing.T) {
 }
 
 func TestValidateMethodMore(t *testing.T) {
-
 	// allowed only GET & POST
 	allowed := []string{http.MethodGet, http.MethodPost}
 
@@ -847,13 +847,12 @@ func TestValidateMethodMore(t *testing.T) {
 }
 
 func TestCleanOldFilesMore(t *testing.T) {
-
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
 	// create dummy response file
 	const respPath = "/tmp/response.json"
-	_ = afero.WriteFile(fs, respPath, []byte("old"), 0644)
+	_ = afero.WriteFile(fs, respPath, []byte("old"), 0o644)
 
 	dr := &resolver.DependencyResolver{
 		Fs:                 fs,

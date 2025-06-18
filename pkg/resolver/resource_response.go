@@ -281,7 +281,8 @@ func (dr *DependencyResolver) ensureResponseTargetFileNotExists() error {
 func (dr *DependencyResolver) executePklEvalCommand() (kdepsexecStd struct {
 	Stdout, Stderr string
 	ExitCode       int
-}, err error) {
+}, err error,
+) {
 	stdout, stderr, exitCode, err := kdepsexec.KdepsExec(
 		dr.Context,
 		"pkl",

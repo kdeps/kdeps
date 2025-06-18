@@ -2,15 +2,16 @@ package docker
 
 import (
 	"context"
-	"github.com/docker/docker/client"
-	"github.com/spf13/afero"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/docker/docker/client"
+	"github.com/spf13/afero"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	crand "crypto/rand"
 	"github.com/kdeps/kdeps/pkg/logging"

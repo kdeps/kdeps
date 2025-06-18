@@ -78,7 +78,7 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 		if err := dr.activateCondaEnvironment(*pythonBlock.CondaEnvironment); err != nil {
 			return err
 		}
-		//nolint:errcheck
+		
 		defer dr.deactivateCondaEnvironment()
 	}
 
@@ -179,7 +179,7 @@ func (dr *DependencyResolver) formatPythonEnv(env *map[string]string) []string {
 	return formatted
 }
 
-//nolint:ireturn
+
 func (dr *DependencyResolver) createPythonTempFile(script string) (afero.File, error) {
 	tmpFile, err := afero.TempFile(dr.Fs, "", "script-*.py")
 	if err != nil {
@@ -223,7 +223,7 @@ func (dr *DependencyResolver) WritePythonStdoutToFile(resourceID string, stdoutE
 	return outputFilePath, nil
 }
 
-//nolint:dupl
+
 func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pklPython.ResourcePython) error {
 	pklPath := filepath.Join(dr.ActionDir, "python/"+dr.RequestID+"__python_output.pkl")
 

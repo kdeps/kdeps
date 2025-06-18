@@ -3,6 +3,15 @@ package docker
 import (
 	"context"
 	"errors"
+	"io"
+	"net"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/charmbracelet/log"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -15,17 +24,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"io"
-	"net"
-	"os"
-	"path/filepath"
-	"testing"
-	"time"
 
 	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/schema"
-	"strconv"
-	"strings"
 )
 
 type mockPruneClient struct {
@@ -44,6 +45,7 @@ func (m *mockPruneClient) ContainerList(ctx context.Context, opts container.List
 		{ID: "def", Names: []string{"/other"}},
 	}, nil
 }
+
 func (m *mockPruneClient) ContainerRemove(ctx context.Context, id string, opts container.RemoveOptions) error {
 	if m.removeErr != nil {
 		return m.removeErr
@@ -51,6 +53,7 @@ func (m *mockPruneClient) ContainerRemove(ctx context.Context, id string, opts c
 	m.removed = append(m.removed, id)
 	return nil
 }
+
 func (m *mockPruneClient) ImagesPrune(ctx context.Context, f filters.Args) (image.PruneReport, error) {
 	if m.pruneErr != nil {
 		return image.PruneReport{}, m.pruneErr
@@ -249,8 +252,8 @@ func TestCleanupFlagFilesExtra(t *testing.T) {
 
 	// Create two files and leave one missing to exercise both paths
 	files := []string{"/tmp/f1", "/tmp/f2", "/tmp/missing"}
-	require.NoError(t, afero.WriteFile(fs, files[0], []byte("x"), 0644))
-	require.NoError(t, afero.WriteFile(fs, files[1], []byte("y"), 0644))
+	require.NoError(t, afero.WriteFile(fs, files[0], []byte("x"), 0o644))
+	require.NoError(t, afero.WriteFile(fs, files[1], []byte("y"), 0o644))
 
 	cleanupFlagFiles(fs, files, logger)
 
@@ -468,6 +471,7 @@ type stubDockerClient struct {
 func (s *stubDockerClient) ContainerList(ctx context.Context, opts container.ListOptions) ([]types.Container, error) {
 	return s.containers, nil
 }
+
 func (s *stubDockerClient) ContainerRemove(ctx context.Context, id string, opts container.RemoveOptions) error {
 	// simulate successful removal by deleting from slice
 	for i, c := range s.containers {
@@ -478,6 +482,7 @@ func (s *stubDockerClient) ContainerRemove(ctx context.Context, id string, opts 
 	}
 	return nil
 }
+
 func (s *stubDockerClient) ImagesPrune(ctx context.Context, f filters.Args) (image.PruneReport, error) {
 	s.pruned = true
 	return image.PruneReport{}, nil
@@ -732,7 +737,7 @@ func TestCleanupFlagFiles(t *testing.T) {
 
 	// Test case 2: Remove existing file
 	filePath := "/test/flag1"
-	err := afero.WriteFile(fs, filePath, []byte("test"), 0644)
+	err := afero.WriteFile(fs, filePath, []byte("test"), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
@@ -751,7 +756,7 @@ func TestCleanupFlagFiles(t *testing.T) {
 
 	// Test case 4: Multiple files, some existing, some not
 	filePath2 := "/test/flag2"
-	err = afero.WriteFile(fs, filePath2, []byte("test2"), 0644)
+	err = afero.WriteFile(fs, filePath2, []byte("test2"), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create second test file: %v", err)
 	}

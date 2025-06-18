@@ -3,13 +3,14 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"testing"
+
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
-	"path/filepath"
-	"testing"
 
 	"github.com/kdeps/kdeps/pkg/environment"
 	kdCfg "github.com/kdeps/schema/gen/kdeps"
@@ -38,12 +39,12 @@ func TestNewBuildCommandExecution(t *testing.T) {
 
 	// Create test directory
 	testDir := filepath.Join("/test")
-	err := fs.MkdirAll(testDir, 0755)
+	err := fs.MkdirAll(testDir, 0o755)
 	assert.NoError(t, err)
 
 	// Create a valid workflow file
 	validAgentDir := filepath.Join(testDir, "valid-agent")
-	err = fs.MkdirAll(validAgentDir, 0755)
+	err = fs.MkdirAll(validAgentDir, 0o755)
 	assert.NoError(t, err)
 
 	workflowContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
@@ -79,12 +80,12 @@ settings {
 }`, schema.SchemaVersion(ctx))
 
 	workflowPath := filepath.Join(validAgentDir, "workflow.pkl")
-	err = afero.WriteFile(fs, workflowPath, []byte(workflowContent), 0644)
+	err = afero.WriteFile(fs, workflowPath, []byte(workflowContent), 0o644)
 	assert.NoError(t, err)
 
 	// Create resources directory and add required resources
 	resourcesDir := filepath.Join(validAgentDir, "resources")
-	err = fs.MkdirAll(resourcesDir, 0755)
+	err = fs.MkdirAll(resourcesDir, 0o755)
 	assert.NoError(t, err)
 
 	resourceContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
@@ -100,13 +101,13 @@ run {
 	requiredResources := []string{"client.pkl", "exec.pkl", "llm.pkl", "python.pkl", "response.pkl"}
 	for _, resource := range requiredResources {
 		resourcePath := filepath.Join(resourcesDir, resource)
-		err = afero.WriteFile(fs, resourcePath, []byte(resourceContent), 0644)
+		err = afero.WriteFile(fs, resourcePath, []byte(resourceContent), 0o644)
 		assert.NoError(t, err)
 	}
 
 	// Create a valid .kdeps file
 	validKdepsPath := filepath.Join(testDir, "valid-agent.kdeps")
-	err = afero.WriteFile(fs, validKdepsPath, []byte("valid package"), 0644)
+	err = afero.WriteFile(fs, validKdepsPath, []byte("valid package"), 0o644)
 	assert.NoError(t, err)
 
 	// Test error case - no arguments
@@ -122,7 +123,7 @@ run {
 
 	// Test error case - invalid package content
 	invalidKdepsPath := filepath.Join(testDir, "invalid.kdeps")
-	err = afero.WriteFile(fs, invalidKdepsPath, []byte("invalid package"), 0644)
+	err = afero.WriteFile(fs, invalidKdepsPath, []byte("invalid package"), 0o644)
 	assert.NoError(t, err)
 	cmd = NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger)
 	cmd.SetArgs([]string{invalidKdepsPath})
@@ -140,7 +141,7 @@ func TestNewBuildCommandDockerErrors(t *testing.T) {
 	// Create test directory
 	testDir := filepath.Join("/test")
 	validAgentDir := filepath.Join(testDir, "valid-agent")
-	err := fs.MkdirAll(validAgentDir, 0755)
+	err := fs.MkdirAll(validAgentDir, 0o755)
 	assert.NoError(t, err)
 
 	workflowContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
@@ -176,12 +177,12 @@ settings {
 }`, schema.SchemaVersion(ctx))
 
 	workflowPath := filepath.Join(validAgentDir, "workflow.pkl")
-	err = afero.WriteFile(fs, workflowPath, []byte(workflowContent), 0644)
+	err = afero.WriteFile(fs, workflowPath, []byte(workflowContent), 0o644)
 	assert.NoError(t, err)
 
 	// Create resources directory and add required resources
 	resourcesDir := filepath.Join(validAgentDir, "resources")
-	err = fs.MkdirAll(resourcesDir, 0755)
+	err = fs.MkdirAll(resourcesDir, 0o755)
 	assert.NoError(t, err)
 
 	resourceContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
@@ -197,13 +198,13 @@ run {
 	requiredResources := []string{"client.pkl", "exec.pkl", "llm.pkl", "python.pkl", "response.pkl"}
 	for _, resource := range requiredResources {
 		resourcePath := filepath.Join(resourcesDir, resource)
-		err = afero.WriteFile(fs, resourcePath, []byte(resourceContent), 0644)
+		err = afero.WriteFile(fs, resourcePath, []byte(resourceContent), 0o644)
 		assert.NoError(t, err)
 	}
 
 	// Create a valid .kdeps file
 	validKdepsPath := filepath.Join(testDir, "valid-agent.kdeps")
-	err = afero.WriteFile(fs, validKdepsPath, []byte("valid package"), 0644)
+	err = afero.WriteFile(fs, validKdepsPath, []byte("valid package"), 0o644)
 	assert.NoError(t, err)
 
 	cmd := NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger)

@@ -3,15 +3,16 @@ package evaluator
 import (
 	"context"
 	"errors"
-	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/spf13/afero"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/spf13/afero"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCreateAndProcessPklFile_AmendsInPkg(t *testing.T) {

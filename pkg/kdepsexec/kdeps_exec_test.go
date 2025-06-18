@@ -2,11 +2,12 @@ package kdepsexec
 
 import (
 	"context"
-	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/stretchr/testify/assert"
 
 	execute "github.com/alexellis/go-execute/v2"
 )
@@ -57,7 +58,6 @@ func TestKdepsExec(t *testing.T) {
 }
 
 func TestRunExecTask_Foreground(t *testing.T) {
-
 	logger := logging.GetLogger()
 	ctx := context.Background()
 
@@ -75,7 +75,6 @@ func TestRunExecTask_Foreground(t *testing.T) {
 }
 
 func TestRunExecTask_ShellMode(t *testing.T) {
-
 	logger := logging.GetLogger()
 	ctx := context.Background()
 
@@ -90,7 +89,6 @@ func TestRunExecTask_ShellMode(t *testing.T) {
 }
 
 func TestRunExecTask_Background(t *testing.T) {
-
 	logger := logging.GetLogger()
 	ctx := context.Background()
 

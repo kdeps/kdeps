@@ -1,16 +1,14 @@
 package utils
 
 import (
-	"testing"
-
 	"encoding/base64"
 	"strings"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestEncodePklMap(t *testing.T) {
-
 	tests := []struct {
 		name     string
 		input    *map[string]string
@@ -44,7 +42,6 @@ func TestEncodePklMap(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			result := EncodePklMap(tt.input)
 			assert.Equal(t, tt.expected, result)
 		})
@@ -60,7 +57,6 @@ func TestEncodePklMap(t *testing.T) {
 }
 
 func TestEncodePklSlice(t *testing.T) {
-
 	tests := []struct {
 		name     string
 		input    *[]string
@@ -90,7 +86,6 @@ func TestEncodePklSlice(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			result := EncodePklSlice(tt.input)
 			assert.Equal(t, tt.expected, result)
 		})
@@ -98,7 +93,6 @@ func TestEncodePklSlice(t *testing.T) {
 }
 
 func TestEncodeValue(t *testing.T) {
-
 	tests := []struct {
 		name     string
 		input    string
@@ -128,7 +122,6 @@ func TestEncodeValue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			result := EncodeValue(tt.input)
 			assert.Equal(t, tt.expected, result)
 		})
@@ -213,7 +206,6 @@ func TestPKLHTTPFormattersAdditional(t *testing.T) {
 }
 
 func TestFormatRequestHeaders(t *testing.T) {
-
 	tests := []struct {
 		name     string
 		input    map[string][]string
@@ -257,7 +249,6 @@ func TestFormatRequestHeaders(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			result := FormatRequestHeaders(tt.input)
 			if tt.name == "MultipleHeaders" {
 				// Since map iteration order is not guaranteed, check that both lines are present
@@ -273,7 +264,6 @@ func TestFormatRequestHeaders(t *testing.T) {
 }
 
 func TestFormatRequestParams(t *testing.T) {
-
 	tests := []struct {
 		name     string
 		input    map[string][]string
@@ -317,7 +307,6 @@ func TestFormatRequestParams(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			result := FormatRequestParams(tt.input)
 			if tt.name == "MultipleParams" {
 				// Since map iteration order is not guaranteed, check that both lines are present
@@ -333,7 +322,6 @@ func TestFormatRequestParams(t *testing.T) {
 }
 
 func TestFormatResponseHeaders(t *testing.T) {
-
 	tests := []struct {
 		name     string
 		input    map[string]string
@@ -370,7 +358,6 @@ func TestFormatResponseHeaders(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			result := FormatResponseHeaders(tt.input)
 			if tt.name == "MultipleHeaders" {
 				// Since map iteration order is not guaranteed, check that both lines are present
@@ -386,7 +373,6 @@ func TestFormatResponseHeaders(t *testing.T) {
 }
 
 func TestFormatResponseProperties(t *testing.T) {
-
 	tests := []struct {
 		name     string
 		input    map[string]string
@@ -423,7 +409,6 @@ func TestFormatResponseProperties(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			result := FormatResponseProperties(tt.input)
 			if tt.name == "MultipleProperties" {
 				// Since map iteration order is not guaranteed, check that both lines are present

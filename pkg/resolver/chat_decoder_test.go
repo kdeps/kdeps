@@ -1,8 +1,6 @@
 package resolver
 
 import (
-	"testing"
-
 	"context"
 	"encoding/base64"
 	"io"
@@ -11,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -312,7 +311,6 @@ func TestHandleHTTPClient(t *testing.T) {
 }
 
 func TestGenerateChatResponseBasic(t *testing.T) {
-
 	// Create stub HTTP client to satisfy Ollama client without network
 	httpClient := &http.Client{
 		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
@@ -352,7 +350,6 @@ func TestGenerateChatResponseBasic(t *testing.T) {
 }
 
 func TestLoadResourceEntriesInjected(t *testing.T) {
-
 	fs := afero.NewMemMapFs()
 	logger := logging.GetLogger()
 

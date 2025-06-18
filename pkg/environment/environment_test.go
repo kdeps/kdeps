@@ -1,12 +1,11 @@
 package environment
 
 import (
+	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
-
-	"context"
-	"os"
 
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/spf13/afero"
@@ -15,7 +14,6 @@ import (
 )
 
 func TestCheckConfig(t *testing.T) {
-
 	fs := afero.NewMemMapFs()
 	baseDir := "/test"
 	configFilePath := filepath.Join(baseDir, SystemConfigFileName)
@@ -35,7 +33,6 @@ func TestCheckConfig(t *testing.T) {
 }
 
 func TestFindKdepsConfig(t *testing.T) {
-
 	fs := afero.NewMemMapFs()
 	pwd := "/current"
 	home := "/home"
@@ -247,8 +244,8 @@ func TestNewEnvironment_Provided_NoConfig_NoDocker(t *testing.T) {
 
 func TestNewEnvironment_Provided_ConfigInPwd(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	_ = fs.MkdirAll("/pwd", 0755)
-	_ = afero.WriteFile(fs, "/pwd/.kdeps.pkl", []byte(""), 0644)
+	_ = fs.MkdirAll("/pwd", 0o755)
+	_ = afero.WriteFile(fs, "/pwd/.kdeps.pkl", []byte(""), 0o644)
 	envIn := &Environment{Root: "/", Pwd: "/pwd", Home: "/home"}
 	newEnv, err := NewEnvironment(fs, envIn)
 	assert.NoError(t, err)
@@ -257,8 +254,8 @@ func TestNewEnvironment_Provided_ConfigInPwd(t *testing.T) {
 
 func TestNewEnvironment_Provided_ConfigInHomeOnly(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	_ = fs.MkdirAll("/home", 0755)
-	_ = afero.WriteFile(fs, "/home/.kdeps.pkl", []byte(""), 0644)
+	_ = fs.MkdirAll("/home", 0o755)
+	_ = afero.WriteFile(fs, "/home/.kdeps.pkl", []byte(""), 0o644)
 	envIn := &Environment{Root: "/", Pwd: "/pwd", Home: "/home"}
 	newEnv, err := NewEnvironment(fs, envIn)
 	assert.NoError(t, err)
@@ -321,10 +318,10 @@ func TestHelperFunctions(t *testing.T) {
 	// create temp pwd and home
 	pwd := "/work"
 	home := "/home/user"
-	if err := fs.MkdirAll(pwd, 0755); err != nil {
+	if err := fs.MkdirAll(pwd, 0o755); err != nil {
 		t.Fatalf(err.Error())
 	}
-	if err := fs.MkdirAll(home, 0755); err != nil {
+	if err := fs.MkdirAll(home, 0o755); err != nil {
 		t.Fatalf(err.Error())
 	}
 
@@ -335,7 +332,7 @@ func TestHelperFunctions(t *testing.T) {
 
 	// add config to home
 	cfgPath := filepath.Join(home, SystemConfigFileName)
-	afero.WriteFile(fs, cfgPath, []byte("dummy"), 0644)
+	afero.WriteFile(fs, cfgPath, []byte("dummy"), 0o644)
 
 	if got := findKdepsConfig(fs, pwd, home); got != cfgPath {
 		t.Fatalf("expected %s got %s", cfgPath, got)
@@ -347,7 +344,7 @@ func TestHelperFunctions(t *testing.T) {
 	}
 
 	// create /.dockerenv and set required env vars
-	afero.WriteFile(fs, "/.dockerenv", []byte(""), 0644)
+	afero.WriteFile(fs, "/.dockerenv", []byte(""), 0o644)
 	os.Setenv("SCHEMA_VERSION", "1")
 	os.Setenv("OLLAMA_HOST", "x")
 	os.Setenv("KDEPS_HOST", "y")

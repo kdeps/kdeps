@@ -2,6 +2,11 @@ package docker
 
 import (
 	"context"
+	"net"
+	"path/filepath"
+	"testing"
+	"time"
+
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
@@ -10,10 +15,6 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"net"
-	"path/filepath"
-	"testing"
-	"time"
 
 	"github.com/kdeps/kdeps/pkg/schema"
 )
@@ -179,7 +180,7 @@ func TestStartAndWaitForOllamaReady(t *testing.T) {
 // TestStartAPIServerWrapper_Error ensures that the startAPIServer helper
 // forwards the error coming from StartAPIServerMode when the API server
 // is not properly configured (i.e., workflow settings are missing).
-func TestStartAPIServerWrapper_Error(t *testing.T) { //nolint:paralleltest
+func TestStartAPIServerWrapper_Error(t *testing.T) { 
 	mw := &MockWorkflow{} // GetSettings will return nil ➜ configuration missing
 
 	dr := &resolver.DependencyResolver{
@@ -199,7 +200,7 @@ func TestStartAPIServerWrapper_Error(t *testing.T) { //nolint:paralleltest
 // TestStartWebServerWrapper_Success verifies that the startWebServer helper
 // returns nil when the underlying StartWebServerMode succeeds with a minimal
 // (but valid) WebServer configuration.
-func TestStartWebServerWrapper_Success(t *testing.T) { //nolint:paralleltest
+func TestStartWebServerWrapper_Success(t *testing.T) { 
 	portNum := uint16(0) // Ask gin to use any free port
 
 	settings := &project.Settings{

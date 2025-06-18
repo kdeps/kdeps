@@ -13,7 +13,6 @@ import (
 
 // Test that activate/deactivate use the injected ExecTaskRunnerFn and succeed.
 func TestCondaEnvironmentExecutionInjectedSuccess(t *testing.T) {
-
 	var activateCalled, deactivateCalled bool
 
 	dr := &DependencyResolver{
@@ -41,7 +40,6 @@ func TestCondaEnvironmentExecutionInjectedSuccess(t *testing.T) {
 
 // Test that errors from injected runner are propagated.
 func TestCondaEnvironmentExecutionInjectedFailure(t *testing.T) {
-
 	expectedErr := errors.New("conda failure")
 	dr := &DependencyResolver{
 		Fs:      afero.NewMemMapFs(),
@@ -59,7 +57,6 @@ func TestCondaEnvironmentExecutionInjectedFailure(t *testing.T) {
 
 // Test that handleFileImports uses injected import helpers.
 func TestHandleFileImportsUsesInjection(t *testing.T) {
-
 	var prependCalled, placeholderCalled bool
 
 	dr := &DependencyResolver{

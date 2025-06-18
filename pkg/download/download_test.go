@@ -3,17 +3,18 @@ package download
 import (
 	"bytes"
 	"context"
-	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/kdeps/kdeps/pkg/schema"
-	"github.com/spf13/afero"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/spf13/afero"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -22,7 +23,6 @@ var (
 )
 
 func TestWriteCounter_Write(t *testing.T) {
-
 	counter := &WriteCounter{}
 	data := []byte("Hello, World!")
 	n, err := counter.Write(data)
@@ -33,7 +33,6 @@ func TestWriteCounter_Write(t *testing.T) {
 }
 
 func TestWriteCounter_PrintProgress(t *testing.T) {
-
 	counter := &WriteCounter{
 		DownloadURL: "example.com/file.txt",
 	}
@@ -67,7 +66,6 @@ func TestWriteCounter_PrintProgress(t *testing.T) {
 }
 
 func TestDownloadFile_HTTPServer(t *testing.T) {
-
 	logger := logging.NewTestLogger()
 
 	// Spin up an in-memory HTTP server
@@ -85,7 +83,6 @@ func TestDownloadFile_HTTPServer(t *testing.T) {
 }
 
 func TestDownloadFile_StatusError(t *testing.T) {
-
 	logger := logging.NewTestLogger()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -119,7 +116,6 @@ func TestDownloadFiles_SkipExisting(t *testing.T) {
 }
 
 func TestDownloadFile_FileCreationError(t *testing.T) {
-
 	logger = logging.GetLogger()
 	fs := afero.NewMemMapFs()
 
@@ -130,7 +126,6 @@ func TestDownloadFile_FileCreationError(t *testing.T) {
 }
 
 func TestDownloadFile_HTTPGetError(t *testing.T) {
-
 	logger = logging.GetLogger()
 	fs := afero.NewMemMapFs()
 
@@ -438,7 +433,7 @@ func TestDownloadFileSkipExisting(t *testing.T) {
 	ctx := context.Background()
 	// create existing file with content
 	path := "existing.txt"
-	require.NoError(t, afero.WriteFile(fs, path, []byte("old"), 0644))
+	require.NoError(t, afero.WriteFile(fs, path, []byte("old"), 0o644))
 	// DownloadFile should skip and leave content unchanged
 	err := DownloadFile(fs, ctx, "http://unused", path, logger, false)
 	require.NoError(t, err)
@@ -454,7 +449,7 @@ func TestDownloadFileUseLatest(t *testing.T) {
 	ctx := context.Background()
 	// create existing file with content
 	path := "file.dat"
-	require.NoError(t, afero.WriteFile(fs, path, []byte("old"), 0644))
+	require.NoError(t, afero.WriteFile(fs, path, []byte("old"), 0o644))
 	// Setup test server for new content
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("new"))

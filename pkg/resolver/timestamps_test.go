@@ -110,7 +110,7 @@ func TestWaitForTimestampChange(t *testing.T) {
 		"/test/action/client",
 	}
 	for _, dir := range dirs {
-		err := fs.MkdirAll(dir, 0755)
+		err := fs.MkdirAll(dir, 0o755)
 		assert.NoError(t, err)
 	}
 

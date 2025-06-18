@@ -2,6 +2,7 @@ package docker
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -10,8 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-
-	"bytes"
 
 	"github.com/cucumber/godog"
 	"github.com/docker/docker/client"
@@ -64,7 +63,6 @@ var (
 )
 
 func TestFeatures(t *testing.T) {
-
 	suite := godog.TestSuite{
 		ScenarioInitializer: func(ctx *godog.ScenarioContext) {
 			ctx.Step(`^a "([^"]*)" system configuration file with dockerGPU "([^"]*)" and runMode "([^"]*)" is defined in the "([^"]*)" directory$`, aSystemConfigurationFile)
@@ -344,7 +342,7 @@ func searchTextInFile(filePath string, searchText string) (bool, error) {
 }
 
 func itShouldCreateTheDockerfile(arg1, arg2, arg3 string) error {
-	//nolint:dogsled
+	
 	rd, asm, _, hIP, hPort, _, _, gpu, err := BuildDockerfile(testFs, ctx, systemConfiguration, kdepsDir, pkgProject, logger)
 	if err != nil {
 		return err

@@ -38,7 +38,6 @@ var (
 )
 
 func TestFeatures(t *testing.T) {
-
 	suite := godog.TestSuite{
 		ScenarioInitializer: func(ctx *godog.ScenarioContext) {
 			ctx.Step(`^a kdeps archive "([^"]*)" is opened$`, aKdepsArchiveIsOpened)

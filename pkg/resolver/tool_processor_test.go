@@ -1,10 +1,9 @@
 package resolver
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
-
-	"encoding/json"
 
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/utils"

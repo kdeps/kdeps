@@ -2,12 +2,11 @@ package resolver
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -340,17 +339,17 @@ func TestPrependDynamicImportsExtra(t *testing.T) {
 	for _, f := range folders {
 		p := filepath.Join(dr.ActionDir, f, dr.RequestID+"__"+f+"_output.pkl")
 		require.NoError(t, fs.MkdirAll(filepath.Dir(p), 0o755))
-		require.NoError(t, afero.WriteFile(fs, p, []byte(""), 0644))
+		require.NoError(t, afero.WriteFile(fs, p, []byte(""), 0o644))
 	}
 	// Also the request pkl file itself counted with alias "request" (Check=true)
 	dr.RequestPklFile = filepath.Join(dr.ActionDir, "req.pkl")
 	require.NoError(t, fs.MkdirAll(filepath.Dir(dr.RequestPklFile), 0o755))
-	require.NoError(t, afero.WriteFile(fs, dr.RequestPklFile, []byte(""), 0644))
+	require.NoError(t, afero.WriteFile(fs, dr.RequestPklFile, []byte(""), 0o644))
 
 	// Create test file with only amends line
 	testPkl := filepath.Join(dr.ActionDir, "test.pkl")
 	content := "amends \"something\"\n"
-	require.NoError(t, afero.WriteFile(fs, testPkl, []byte(content), 0644))
+	require.NoError(t, afero.WriteFile(fs, testPkl, []byte(content), 0o644))
 
 	// Call function
 	require.NoError(t, dr.PrependDynamicImports(testPkl))

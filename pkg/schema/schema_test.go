@@ -3,9 +3,8 @@ package schema
 import (
 	"context"
 	"errors"
-	"testing"
-
 	"sync"
+	"testing"
 
 	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/stretchr/testify/assert"

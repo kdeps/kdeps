@@ -1,18 +1,17 @@
 package utils_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"testing"
-
-	"bytes"
-	"encoding/json"
-	"io/ioutil"
 	"os"
 	"strings"
+	"testing"
 
 	"github.com/kdeps/kdeps/pkg/schema"
 	utilspkg "github.com/kdeps/kdeps/pkg/utils"
@@ -24,7 +23,6 @@ import (
 var GetLatestGitHubRelease = utilspkg.GetLatestGitHubRelease
 
 func TestGetLatestGitHubRelease(t *testing.T) {
-
 	// Mock GitHub API server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

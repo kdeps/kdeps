@@ -10,12 +10,11 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
-
-	"os"
 
 	"github.com/cucumber/godog"
 	"github.com/docker/docker/api/types/container"
@@ -441,7 +440,7 @@ run {
 
 	pkgProject = pkgP
 
-	//nolint:dogsled
+	
 	rd, asm, _, hIP, hPort, _, _, gpu, err := docker.BuildDockerfile(testFs, ctx, systemConfiguration, kdepsDir, pkgProject, logger)
 	if err != nil {
 		return err
@@ -649,7 +648,6 @@ func itShouldRespondIn(arg1, arg2 string) error {
 }
 
 func TestLoadResource(t *testing.T) {
-
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
@@ -757,7 +755,6 @@ run {
 
 // Test helper to ensure the logging calls work correctly
 func TestLoadResourceLogging(t *testing.T) {
-
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 

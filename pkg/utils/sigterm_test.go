@@ -2,19 +2,17 @@ package utils
 
 import (
 	"os"
+	"os/exec"
 	"os/signal"
 	"syscall"
 	"testing"
 	"time"
-
-	"os/exec"
 
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestSendSigterm(t *testing.T) {
-
 	// Create a logger that outputs to os.Stderr for visibility in tests
 	logging.CreateLogger()
 
