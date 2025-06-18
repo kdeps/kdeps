@@ -2,16 +2,23 @@
   <img src="./docs/public/logo.png" width="500" />
 </p>
 
+![version](https://img.shields.io/github/v/tag/kdeps/kdeps?style=flat-square&label=version)
+![license](https://img.shields.io/github/license/kdeps/kdeps?style=flat-square)
+![build](https://img.shields.io/github/actions/workflow/status/kdeps/kdeps/build-test.yml?branch=main&style=flat-square)
+[![Go Report Card](https://goreportcard.com/badge/github.com/kdeps/kdeps)](https://goreportcard.com/report/github.com/kdeps/kdeps)
+[![tests](https://img.shields.io/endpoint?style=flat-square&url=https://gist.githubusercontent.com/jjuliano/ce695f832cd51d014ae6d37353311c59/raw/kdeps-go-tests.json)](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml)
+[![coverage](https://img.shields.io/endpoint?style=flat-square&url=https://gist.githubusercontent.com/jjuliano/ce695f832cd51d014ae6d37353311c59/raw/kdeps-go-coverage.json)](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml)
+
 Kdeps is an all-in-one AI framework for building Dockerized full-stack AI applications (FE and BE) that includes
 open-source LLM models out-of-the-box.
 
 ## Key Features
 
-Kdeps is loaded with powerful features to streamline AI app development:
+Kdeps is loaded with features to streamline full-stack AI app development:
 
 <details>
   <summary>🧩 Low-code/no-code capabilities</summary>
-  Build <a href="https://kdeps.com/getting-started/configuration/workflow.html">operational full-stack AI apps</a>, enabling accessible development for non-technical users and production-ready applications.
+  Build <a href="https://kdeps.com/getting-started/configuration/workflow.html">operational full-stack AI apps</a>, enabling accessible development for non-technical users.
 
 ```pkl
 // workflow.pkl

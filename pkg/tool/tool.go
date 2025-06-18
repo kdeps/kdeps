@@ -1,18 +1,20 @@
 package tool
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"log"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/apple/pkl-go/pkl"
+	"github.com/kdeps/kdeps/pkg/kdepsexec"
+	"github.com/kdeps/kdeps/pkg/logging"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -136,22 +138,19 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 				interpreter = "sh"
 			}
 			log.Printf("Using interpreter: %s for script: %s", interpreter, script)
+			logger := logging.GetLogger()
 			args := append([]string{script}, paramList...)
-			cmd := exec.Command(interpreter, args...)
-			output, err = cmd.CombinedOutput()
-			if err != nil {
-				var execErr *exec.Error
-				if errors.As(err, &execErr) {
-					log.Printf("Interpreter %s not found or inaccessible: %v", interpreter, err)
-					return nil, fmt.Errorf("interpreter %s not found or inaccessible: %w", interpreter, err)
-				}
-			}
+			out, errStr, _, errExec := kdepsexec.KdepsExec(context.Background(), interpreter, args, "", false, false, logger)
+			output = []byte(out + errStr)
+			err = errExec
 		} else {
 			// Script is inline; pass script as $1 and params as $2, $3, etc.
 			log.Printf("Executing inline script: %s", script)
-			args := append([]string{"-c", script, "_"}, paramList...)
-			cmd := exec.Command("sh", args...)
-			output, err = cmd.CombinedOutput()
+			logger := logging.GetLogger()
+			args := append([]string{"-c", script}, paramList...)
+			out, errStr, _, errExec := kdepsexec.KdepsExec(context.Background(), "sh", args, "", false, false, logger)
+			output = []byte(out + errStr)
+			err = errExec
 		}
 
 		outputStr := string(output)

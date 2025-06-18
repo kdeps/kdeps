@@ -2,29 +2,38 @@ package resolver
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"time"
 
+	"github.com/alexellis/go-execute/v2"
 	"github.com/apple/pkl-go/pkl"
 	"github.com/gin-gonic/gin"
 	"github.com/kdeps/kartographer/graph"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/item"
+	"github.com/kdeps/kdeps/pkg/kdepsexec"
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/memory"
+	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/session"
 	"github.com/kdeps/kdeps/pkg/tool"
 	"github.com/kdeps/kdeps/pkg/utils"
+	pklHTTP "github.com/kdeps/schema/gen/http"
+	pklLLM "github.com/kdeps/schema/gen/llm"
 	pklRes "github.com/kdeps/schema/gen/resource"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
+	"github.com/tmc/langchaingo/llms/ollama"
 )
 
 type DependencyResolver struct {
@@ -34,7 +43,7 @@ type DependencyResolver struct {
 	ResourceDependencies map[string][]string
 	DependencyGraph      []string
 	VisitedPaths         map[string]bool
-	Context              context.Context //nolint:containedctx // TODO: move this context into function params
+	Context              context.Context  // TODO: move this context into function params
 	Graph                *graph.DependencyGraph
 	Environment          *environment.Environment
 	Workflow             pklWf.Workflow
@@ -47,6 +56,7 @@ type DependencyResolver struct {
 	ToolDBPath           string
 	ItemReader           *item.PklResourceReader
 	ItemDBPath           string
+	DBs                  []*sql.DB // collection of DB connections used by the resolver
 	AgentName            string
 	RequestID            string
 	RequestPklFile       string
@@ -61,6 +71,32 @@ type DependencyResolver struct {
 	APIServerMode        bool
 	AnacondaInstalled    bool
 	FileRunCounter       map[string]int // Added to track run count per file
+	DefaultTimeoutSec    int            // default timeout value in seconds
+
+	// Injectable helpers (overridable in tests)
+	GetCurrentTimestampFn    func(string, string) (pkl.Duration, error)              `json:"-"`
+	WaitForTimestampChangeFn func(string, pkl.Duration, time.Duration, string) error `json:"-"`
+
+	// Additional injectable helpers for broader unit testing
+	LoadResourceEntriesFn  func() error                                                          `json:"-"`
+	LoadResourceFn         func(context.Context, string, ResourceType) (interface{}, error)      `json:"-"`
+	BuildDependencyStackFn func(string, map[string]bool) []string                                `json:"-"`
+	ProcessRunBlockFn      func(ResourceNodeEntry, *pklRes.Resource, string, bool) (bool, error) `json:"-"`
+	ClearItemDBFn          func() error                                                          `json:"-"`
+
+	// Chat / HTTP injection helpers
+	NewLLMFn               func(model string) (*ollama.LLM, error)                                                                                      `json:"-"`
+	GenerateChatResponseFn func(context.Context, afero.Fs, *ollama.LLM, *pklLLM.ResourceChat, *tool.PklResourceReader, *logging.Logger) (string, error) `json:"-"`
+
+	DoRequestFn func(*pklHTTP.ResourceHTTPClient) error `json:"-"`
+
+	// Python / Conda execution injector
+	ExecTaskRunnerFn func(context.Context, execute.ExecTask) (string, string, error) `json:"-"`
+
+	// Import handling injectors
+	PrependDynamicImportsFn func(string) error                              `json:"-"`
+	AddPlaceholderImportsFn func(string) error                              `json:"-"`
+	WalkFn                  func(afero.Fs, string, filepath.WalkFunc) error `json:"-"`
 }
 
 type ResourceNodeEntry struct {
@@ -194,13 +230,56 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		ToolReader:           toolReader,
 		ItemDBPath:           itemDBPath,
 		ItemReader:           itemReader,
-		FileRunCounter:       make(map[string]int), // Initialize the file run counter map
+		DBs: []*sql.DB{
+			memoryReader.DB,
+			sessionReader.DB,
+			toolReader.DB,
+			itemReader.DB,
+		},
+		FileRunCounter: make(map[string]int), // Initialize the file run counter map
+		DefaultTimeoutSec: func() int {
+			if v, ok := os.LookupEnv("TIMEOUT"); ok {
+				if i, err := strconv.Atoi(v); err == nil {
+					return i // could be 0 (unlimited) or positive override
+				}
+			}
+			return -1 // absent -> sentinel to allow PKL/default fallback
+		}(),
 	}
 
 	dependencyResolver.Graph = graph.NewDependencyGraph(fs, logger.BaseLogger(), dependencyResolver.ResourceDependencies)
 	if dependencyResolver.Graph == nil {
 		return nil, errors.New("failed to initialize dependency graph")
 	}
+
+	// Default injectable helpers
+	dependencyResolver.GetCurrentTimestampFn = dependencyResolver.GetCurrentTimestamp
+	dependencyResolver.WaitForTimestampChangeFn = dependencyResolver.WaitForTimestampChange
+
+	// Default injection for broader functions (now that Graph is initialized)
+	dependencyResolver.LoadResourceEntriesFn = dependencyResolver.LoadResourceEntries
+	dependencyResolver.LoadResourceFn = dependencyResolver.LoadResource
+	dependencyResolver.BuildDependencyStackFn = dependencyResolver.Graph.BuildDependencyStack
+	dependencyResolver.ProcessRunBlockFn = dependencyResolver.processRunBlock
+	dependencyResolver.ClearItemDBFn = dependencyResolver.ClearItemDB
+
+	// Chat helpers
+	dependencyResolver.NewLLMFn = func(model string) (*ollama.LLM, error) {
+		return ollama.New(ollama.WithModel(model))
+	}
+	dependencyResolver.GenerateChatResponseFn = generateChatResponse
+	dependencyResolver.DoRequestFn = dependencyResolver.DoRequest
+
+	// Default Python/Conda runner
+	dependencyResolver.ExecTaskRunnerFn = func(ctx context.Context, task execute.ExecTask) (string, string, error) {
+		stdout, stderr, _, err := kdepsexec.RunExecTask(ctx, task, dependencyResolver.Logger, false)
+		return stdout, stderr, err
+	}
+
+	// Import helpers
+	dependencyResolver.PrependDynamicImportsFn = dependencyResolver.PrependDynamicImports
+	dependencyResolver.AddPlaceholderImportsFn = dependencyResolver.AddPlaceholderImports
+	dependencyResolver.WalkFn = afero.Walk
 
 	return dependencyResolver, nil
 }
@@ -219,22 +298,28 @@ func (dr *DependencyResolver) ClearItemDB() error {
 // processResourceStep consolidates the pattern of: get timestamp, run a handler, adjust timeout (if provided),
 // then wait for the timestamp change.
 func (dr *DependencyResolver) processResourceStep(resourceID, step string, timeoutPtr *pkl.Duration, handler func() error) error {
-	timestamp, err := dr.GetCurrentTimestamp(resourceID, step)
+	timestamp, err := dr.GetCurrentTimestampFn(resourceID, step)
 	if err != nil {
 		return fmt.Errorf("%s error: %w", step, err)
 	}
 
-	timeout := 60 * time.Second
-	if timeoutPtr != nil {
+	var timeout time.Duration
+	switch {
+	case dr.DefaultTimeoutSec > 0: // positive value overrides everything
+		timeout = time.Duration(dr.DefaultTimeoutSec) * time.Second
+	case dr.DefaultTimeoutSec == 0: // 0 => unlimited
+		timeout = 0
+	case timeoutPtr != nil: // negative or unset – fall back to resource value
 		timeout = timeoutPtr.GoDuration()
-		dr.Logger.Infof("Timeout duration for '%s' is set to '%.0f' seconds", resourceID, timeout.Seconds())
+	default:
+		timeout = 60 * time.Second
 	}
 
 	if err := handler(); err != nil {
 		return fmt.Errorf("%s error: %w", step, err)
 	}
 
-	if err := dr.WaitForTimestampChange(resourceID, timestamp, timeout, step); err != nil {
+	if err := dr.WaitForTimestampChangeFn(resourceID, timestamp, timeout, step); err != nil {
 		return fmt.Errorf("%s timeout awaiting for output: %w", step, err)
 	}
 	return nil
@@ -330,14 +415,14 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 
 	visited := make(map[string]bool)
 	actionID := dr.Workflow.GetTargetActionID()
-	dr.Logger.Debug("processing resources...")
+	dr.Logger.Debug(messages.MsgProcessingResources)
 
-	if err := dr.LoadResourceEntries(); err != nil {
+	if err := dr.LoadResourceEntriesFn(); err != nil {
 		return dr.HandleAPIErrorResponse(500, err.Error(), true)
 	}
 
 	// Build dependency stack for the target action
-	stack := dr.Graph.BuildDependencyStack(actionID, visited)
+	stack := dr.BuildDependencyStackFn(actionID, visited)
 
 	// Process each resource in the dependency stack
 	for _, nodeActionID := range stack {
@@ -347,7 +432,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			}
 
 			// Load the resource
-			resPkl, err := dr.LoadResource(dr.Context, res.File, Resource)
+			resPkl, err := dr.LoadResourceFn(dr.Context, res.File, Resource)
 			if err != nil {
 				return dr.HandleAPIErrorResponse(500, err.Error(), true)
 			}
@@ -376,7 +461,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			// Process run block: once if no items, or once per item
 			if len(items) == 0 {
 				dr.Logger.Info("no items specified, processing run block once", "actionID", res.ActionID)
-				proceed, err := dr.processRunBlock(res, rsc, nodeActionID, false)
+				proceed, err := dr.ProcessRunBlockFn(res, rsc, nodeActionID, false)
 				if err != nil {
 					return false, err
 				} else if !proceed {
@@ -394,7 +479,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 					}
 
 					// reload the resource
-					resPkl, err = dr.LoadResource(dr.Context, res.File, Resource)
+					resPkl, err = dr.LoadResourceFn(dr.Context, res.File, Resource)
 					if err != nil {
 						return dr.HandleAPIErrorResponse(500, err.Error(), true)
 					}
@@ -406,13 +491,13 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 					}
 
 					// Process runBlock for the current item
-					_, err := dr.processRunBlock(res, rsc, nodeActionID, true)
+					_, err = dr.ProcessRunBlockFn(res, rsc, nodeActionID, true)
 					if err != nil {
 						return false, err
 					}
 				}
 				// Clear the item database after processing all items
-				if err := dr.ClearItemDB(); err != nil {
+				if err := dr.ClearItemDBFn(); err != nil {
 					dr.Logger.Error("failed to clear item database after iteration", "actionID", res.ActionID, "error", err)
 					return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to clear item database for resource %s: %v", res.ActionID, err), true)
 				}
@@ -450,7 +535,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 		dr.Logger.Info("file run count", "file", file, "count", count)
 	}
 
-	dr.Logger.Debug("all resources finished processing")
+	dr.Logger.Debug(messages.MsgAllResourcesProcessed)
 	return false, nil
 }
 
@@ -494,7 +579,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 				dr.Logger.Info("Items database has a non-empty list", "actionID", actionID, "itemCount", len(items))
 				break
 			}
-			dr.Logger.Debug("Items database list is empty, retrying", "actionID", actionID)
+			dr.Logger.Debug(messages.MsgItemsDBEmptyRetry, "actionID", actionID)
 			time.Sleep(pollInterval)
 		}
 
