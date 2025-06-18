@@ -15,6 +15,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/kdeps/kdeps/pkg/workflow"
 	pklWf "github.com/kdeps/schema/gen/workflow"
@@ -103,7 +104,7 @@ func PrepareRunDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir
 		}
 	}
 
-	logger.Debug("extraction in runtime folder completed!", runDir)
+	logger.Debug(messages.MsgExtractionRuntimeDone, runDir)
 	return runDir, nil
 }
 
@@ -128,10 +129,10 @@ func CompileWorkflow(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsD
 		return "", err
 	} else if exists {
 		if err := fs.RemoveAll(agentDir); err != nil {
-			logger.Error("failed to remove agent directory", "path", agentDir, "error", err)
+			logger.Error(messages.MsgRemovedAgentDirectory, "path", agentDir, "error", err)
 			return "", err
 		}
-		logger.Debug("removed existing agent directory", "path", agentDir)
+		logger.Debug(messages.MsgRemovedAgentDirectory, "path", agentDir)
 	}
 
 	if err := fs.MkdirAll(resourcesDir, 0o755); err != nil {

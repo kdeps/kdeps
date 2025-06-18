@@ -18,35 +18,35 @@ issues:
         - dupl
 
 linters:
-  disable:
-    - err113
-    - err113
-    - mnd
-    - wrapcheck
-    - funlen
-    - gochecknoglobals
-    - lll
-    - wsl
-    - thelper
-    - testpackage
-    - typecheck
-    - nlreturn
-    - nilnil
-    - varnamelen
-    - forcetypeassert
-    - exhaustruct
-    - gocognit
-    - tagliatelle
-    - forbidigo
-    - musttag
-    - interfacebloat
-    - cyclop
-    - tparallel
-    - depguard
-    - tagalign
-    - gocyclo
-    - exportloopref
-    - godox
+  # disable:
+  #   - err113
+  #   - err113
+  #   - mnd
+  #   - wrapcheck
+  #   - funlen
+  #   - gochecknoglobals
+  #   - lll
+  #   - wsl
+  #   - thelper
+  #   - testpackage
+  #   - typecheck
+  #   - nlreturn
+  #   - nilnil
+  #   - varnamelen
+  #   - forcetypeassert
+  #   - exhaustruct
+  #   - gocognit
+  #   - tagliatelle
+  #   - forbidigo
+  #   - musttag
+  #   - interfacebloat
+  #   - cyclop
+  #   - tparallel
+  #   - depguard
+  #   - tagalign
+  #   - gocyclo
+  #   - exportloopref
+  #   - godox
   presets:
     - bugs
     - comment
