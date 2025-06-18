@@ -4,16 +4,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/kdeps/kdeps/pkg/schema"
-	"github.com/kdeps/kdeps/pkg/utils"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/utils"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetCurrentArchitectureDup(t *testing.T) {
@@ -755,24 +756,15 @@ func TestCompareVersionsAndParse(t *testing.T) {
 	}
 }
 
-func TestGenerateURLsStatic(t *testing.T) {
-	// schema.UseLatest is false by default – exercise happy-path generation.
-	ctx := context.Background()
-	urls, err := GenerateURLs(ctx)
-	if err != nil {
-		t.Fatalf("GenerateURLs unexpected error: %v", err)
-	}
-	if len(urls) == 0 {
-		t.Fatalf("expected at least one URL item")
-	}
-
-	for _, it := range urls {
-		if it.LocalName == "" {
-			t.Fatalf("expected LocalName for item %+v", it)
-		}
-		if !strings.HasPrefix(it.URL, "http") {
-			t.Fatalf("URL should start with http: %s", it.URL)
-		}
+func TestGenerateURLsStaticQuick(t *testing.T) {
+	schema.UseLatest = false
+	items, err := GenerateURLs(context.Background())
+	assert.NoError(t, err)
+	assert.NotEmpty(t, items)
+	// Ensure each local name contains arch or version placeholders replaced
+	for _, it := range items {
+		assert.NotContains(t, it.LocalName, "{", "template placeholders should be resolved")
+		assert.NotEmpty(t, it.URL)
 	}
 }
 
@@ -1150,5 +1142,39 @@ func TestGetCurrentArchitectureMappingNew(t *testing.T) {
 	expected := map[string]string{"amd64": "x86_64", "arm64": "aarch64"}
 	if got := expected[runtime.GOARCH]; arch2 != got {
 		t.Fatalf("expected %s, got %s", got, arch2)
+	}
+}
+
+func TestCompareVersionsOrderBasic(t *testing.T) {
+	ctx := context.Background()
+	if !CompareVersions(ctx, "2.0.0", "1.9.9") {
+		t.Fatalf("expected 2.0.0 to be greater than 1.9.9")
+	}
+	if CompareVersions(ctx, "1.0.0", "1.0.0") {
+		t.Fatalf("equal versions should return false")
+	}
+}
+
+func TestBuildURLTemplate(t *testing.T) {
+	out := buildURL("https://x/{version}/{arch}", "v1", "amd64")
+	if out != "https://x/v1/amd64" {
+		t.Fatalf("unexpected url %s", out)
+	}
+}
+
+func TestGenerateURLsStatic(t *testing.T) {
+	ctx := context.Background()
+	items, err := GenerateURLs(ctx)
+	if err != nil {
+		t.Fatalf("GenerateURLs unexpected error: %v", err)
+	}
+	if len(items) == 0 {
+		t.Fatalf("expected some download items")
+	}
+	// Ensure placeholders were substituted.
+	for _, it := range items {
+		if strings.Contains(it.URL, "{version}") || strings.Contains(it.URL, "{arch}") {
+			t.Fatalf("placeholders not replaced in %s", it.URL)
+		}
 	}
 }
