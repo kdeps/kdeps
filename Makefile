@@ -79,7 +79,7 @@ tools:
 
 	@if ! command -v golangci-lint > /dev/null ; then \
 		echo ">> [$@]: golangci-lint not found: installing"; \
-		go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.63.2; \
+		go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest; \
 	fi
 
 tools-update:
