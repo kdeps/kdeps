@@ -85,4 +85,4 @@ tools:
 tools-update:
 	go install github.com/daixiang0/gci@latest; \
 	go install mvdan.cc/gofumpt@latest; \
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.63.2;
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest;
