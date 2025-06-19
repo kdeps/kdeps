@@ -1,4 +1,4 @@
-package texteditor
+package texteditor_test
 
 import (
 	"context"

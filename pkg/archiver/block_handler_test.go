@@ -1,4 +1,4 @@
-package archiver
+package archiver_test
 
 import (
 	"strings"

@@ -1,4 +1,4 @@
-package download
+package download_test
 
 import (
 	"bytes"

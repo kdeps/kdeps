@@ -1,4 +1,4 @@
-package enforcer
+package enforcer_test
 
 import (
 	"context"

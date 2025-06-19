@@ -1,4 +1,4 @@
-package ktx
+package ktx_test
 
 import (
 	"context"

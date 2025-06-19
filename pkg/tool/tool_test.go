@@ -1,4 +1,4 @@
-package tool
+package tool_test
 
 import (
 	"database/sql"

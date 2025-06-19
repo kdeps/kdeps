@@ -1,4 +1,4 @@
-package data
+package data_test
 
 import (
 	"errors"

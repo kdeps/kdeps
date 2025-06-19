@@ -1,4 +1,4 @@
-package cfg
+package cfg_test
 
 import (
 	"context"

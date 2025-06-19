@@ -1,4 +1,4 @@
-package kdepsexec
+package kdepsexec_test
 
 import (
 	"context"

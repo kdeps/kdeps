@@ -1,4 +1,4 @@
-package session
+package session_test
 
 import (
 	"fmt"

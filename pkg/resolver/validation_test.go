@@ -1,4 +1,4 @@
-package resolver
+package resolver_test
 
 import (
 	"net/http/httptest"
