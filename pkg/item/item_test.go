@@ -1,10 +1,16 @@
 package item_test
 
 import (
+	"database/sql"
 	"net/url"
+	"path/filepath"
+	"strings"
 	"testing"
 
+	. "github.com/kdeps/kdeps/pkg/item"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/spf13/afero"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -201,26 +207,48 @@ func TestPklResourceReader(t *testing.T) {
 }
 
 func TestInitializeDatabase(t *testing.T) {
-	t.Run("SuccessfulInitialization", func(t *testing.T) {
-		db, err := InitializeDatabase("file::memory:", []string{})
+	fs := afero.NewOsFs()
+	tmpDir, err := afero.TempDir(fs, "", "item-db")
+	require.NoError(t, err)
+	defer fs.RemoveAll(tmpDir)
+
+	t.Run("EmptyDatabase", func(t *testing.T) {
+		// Test creating an empty database
+		dbPath := filepath.Join(tmpDir, "empty.db")
+		db, err := InitializeDatabase(dbPath, nil)
 		require.NoError(t, err)
-		require.NotNil(t, db)
 		defer db.Close()
 
-		var name string
-		err = db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name='items'").Scan(&name)
+		// Verify the database was created and is accessible
+		err = db.Ping()
 		require.NoError(t, err)
-		require.Equal(t, "items", name)
+
+		// Verify the items table exists
+		var count int
+		err = db.QueryRow("SELECT COUNT(*) FROM items").Scan(&count)
+		require.NoError(t, err)
+		require.Equal(t, 0, count)
 	})
 
-	t.Run("InitializationWithItems", func(t *testing.T) {
-		items := []string{"test1", "test2", "test1"}
-		db, err := InitializeDatabase("file::memory:", items)
+	t.Run("DatabaseWithItems", func(t *testing.T) {
+		// Test creating a database with initial items
+		dbPath := filepath.Join(tmpDir, "with-items.db")
+		items := []string{"item1", "item2", "item3"}
+		db, err := InitializeDatabase(dbPath, items)
 		require.NoError(t, err)
-		require.NotNil(t, db)
 		defer db.Close()
 
-		// Verify items were inserted
+		// Verify the database was created and is accessible
+		err = db.Ping()
+		require.NoError(t, err)
+
+		// Verify all items were inserted
+		var count int
+		err = db.QueryRow("SELECT COUNT(*) FROM items").Scan(&count)
+		require.NoError(t, err)
+		require.Equal(t, 3, count)
+
+		// Verify the items have the expected values
 		rows, err := db.Query("SELECT value FROM items ORDER BY id")
 		require.NoError(t, err)
 		defer rows.Close()
@@ -228,66 +256,81 @@ func TestInitializeDatabase(t *testing.T) {
 		var values []string
 		for rows.Next() {
 			var value string
-			err := rows.Scan(&value)
+			err = rows.Scan(&value)
 			require.NoError(t, err)
 			values = append(values, value)
 		}
 		require.NoError(t, rows.Err())
-		require.Equal(t, []string{"test1", "test2", "test1"}, values) // Includes duplicates in DB
+		require.Equal(t, items, values)
+	})
 
-		// Verify record count
-		var count int
-		err = db.QueryRow("SELECT COUNT(*) FROM items").Scan(&count)
+	t.Run("DatabaseAlreadyExists", func(t *testing.T) {
+		// Test that the function works when the database already exists
+		dbPath := filepath.Join(tmpDir, "existing.db")
+
+		// Create the database first
+		db1, err := InitializeDatabase(dbPath, []string{"initial"})
 		require.NoError(t, err)
-		require.Equal(t, len(items), count)
+		db1.Close()
+
+		// Initialize again with different items
+		db2, err := InitializeDatabase(dbPath, []string{"new1", "new2"})
+		require.NoError(t, err)
+		defer db2.Close()
+
+		// Verify the new items were added (table should have 3 items total)
+		var count int
+		err = db2.QueryRow("SELECT COUNT(*) FROM items").Scan(&count)
+		require.NoError(t, err)
+		require.Equal(t, 3, count)
+	})
+
+	t.Run("InvalidDatabasePath", func(t *testing.T) {
+		// Test with an invalid database path (directory doesn't exist)
+		invalidPath := filepath.Join(tmpDir, "nonexistent", "db.sqlite")
+		_, err := InitializeDatabase(invalidPath, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to ping database")
 	})
 }
 
 func TestInitializeItem(t *testing.T) {
-	t.Run("WithoutItems", func(t *testing.T) {
-		reader, err := InitializeItem("file::memory:", nil)
+	fs := afero.NewOsFs()
+	tmpDir, err := afero.TempDir(fs, "", "item-init")
+	require.NoError(t, err)
+	defer fs.RemoveAll(tmpDir)
+
+	t.Run("SuccessfulInitialization", func(t *testing.T) {
+		// Test successful initialization
+		dbPath := filepath.Join(tmpDir, "item.db")
+		items := []string{"test1", "test2"}
+
+		reader, err := InitializeItem(dbPath, items)
 		require.NoError(t, err)
-		require.NotNil(t, reader)
-		require.NotNil(t, reader.DB)
-		require.Equal(t, "file::memory:", reader.DBPath)
 		defer reader.DB.Close()
 
-		// Verify empty database
-		var count int
-		err = reader.DB.QueryRow("SELECT COUNT(*) FROM items").Scan(&count)
-		require.NoError(t, err)
-		require.Equal(t, 0, count)
-	})
-
-	t.Run("WithItems", func(t *testing.T) {
-		items := []string{"item1", "item2", "item1"}
-		reader, err := InitializeItem("file::memory:", items)
-		require.NoError(t, err)
+		// Verify the reader was created correctly
 		require.NotNil(t, reader)
+		require.Equal(t, dbPath, reader.DBPath)
 		require.NotNil(t, reader.DB)
-		require.Equal(t, "file::memory:", reader.DBPath)
-		defer reader.DB.Close()
+
+		// Verify the database is accessible
+		err = reader.DB.Ping()
+		require.NoError(t, err)
 
 		// Verify items were inserted
-		rows, err := reader.DB.Query("SELECT value FROM items ORDER BY id")
-		require.NoError(t, err)
-		defer rows.Close()
-
-		var values []string
-		for rows.Next() {
-			var value string
-			err := rows.Scan(&value)
-			require.NoError(t, err)
-			values = append(values, value)
-		}
-		require.NoError(t, rows.Err())
-		require.Equal(t, []string{"item1", "item2", "item1"}, values)
-
-		// Verify record count
 		var count int
 		err = reader.DB.QueryRow("SELECT COUNT(*) FROM items").Scan(&count)
 		require.NoError(t, err)
-		require.Equal(t, len(items), count)
+		require.Equal(t, 2, count)
+	})
+
+	t.Run("DatabaseInitializationError", func(t *testing.T) {
+		// Test when database initialization fails
+		invalidPath := filepath.Join(tmpDir, "nonexistent", "db.sqlite")
+		_, err := InitializeItem(invalidPath, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "error initializing database")
 	})
 }
 
@@ -357,7 +400,7 @@ func TestGetMostRecentID_EdgeCases(t *testing.T) {
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
-		id, err := reader.getMostRecentID()
+		id, err := reader.GetMostRecentID()
 		require.NoError(t, err)
 		require.Equal(t, "", id)
 	})
@@ -369,7 +412,7 @@ func TestFetchValues_EdgeCases(t *testing.T) {
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
-		result, err := reader.fetchValues("test")
+		result, err := reader.FetchValues("test")
 		require.NoError(t, err)
 		require.Equal(t, []byte("[]"), result)
 	})
@@ -439,4 +482,281 @@ func TestRead_NavigationEdgeCases(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, []byte(""), data) // No next record after the highest ID
 	})
+}
+
+func TestRead_SetRecord_CommitFailure(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	require.NoError(t, err)
+	_, err = db.Exec("CREATE TABLE items (id TEXT PRIMARY KEY, value TEXT)")
+	require.NoError(t, err)
+	reader := &PklResourceReader{DB: db, DBPath: ":memory:"}
+
+	// Close DB to force commit failure
+	db.Close()
+
+	uri, _ := url.Parse("item:/_?op=set&value=failcommit")
+	_, err = reader.Read(*uri)
+	require.Error(t, err)
+	// Error should mention database is closed
+	require.Contains(t, err.Error(), "database is closed")
+}
+
+func TestFetchValues_EmptyDatabase(t *testing.T) {
+	fs := afero.NewOsFs()
+	tmpDir, err := afero.TempDir(fs, "", "fetch-values-empty")
+	require.NoError(t, err)
+	defer fs.RemoveAll(tmpDir)
+
+	dbPath := filepath.Join(tmpDir, "test.db")
+	reader, err := InitializeItem(dbPath, nil)
+	require.NoError(t, err)
+	defer reader.DB.Close()
+
+	result, err := reader.FetchValues("test")
+	require.NoError(t, err)
+	require.Equal(t, "[]", string(result))
+}
+
+func TestFetchValues_WithData(t *testing.T) {
+	fs := afero.NewOsFs()
+	tmpDir, err := afero.TempDir(fs, "", "fetch-values-data")
+	require.NoError(t, err)
+	defer fs.RemoveAll(tmpDir)
+
+	dbPath := filepath.Join(tmpDir, "test.db")
+	items := []string{"item1", "item2", "item1"} // Duplicate to test uniqueness
+	reader, err := InitializeItem(dbPath, items)
+	require.NoError(t, err)
+	defer reader.DB.Close()
+
+	result, err := reader.FetchValues("test")
+	require.NoError(t, err)
+	require.Contains(t, string(result), "item1")
+	require.Contains(t, string(result), "item2")
+}
+
+func TestFetchValues_DatabaseError(t *testing.T) {
+	fs := afero.NewOsFs()
+	tmpDir, err := afero.TempDir(fs, "", "fetch-values-error")
+	require.NoError(t, err)
+	defer fs.RemoveAll(tmpDir)
+
+	dbPath := filepath.Join(tmpDir, "test.db")
+	reader, err := InitializeItem(dbPath, nil)
+	require.NoError(t, err)
+	reader.DB.Close() // Close to cause error
+
+	_, err = reader.FetchValues("test")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to list records")
+}
+
+func TestInitializeDatabase_InvalidPath(t *testing.T) {
+	fs := afero.NewOsFs()
+	tmpDir, err := afero.TempDir(fs, "", "init-db-invalid")
+	require.NoError(t, err)
+	defer fs.RemoveAll(tmpDir)
+
+	// Use an invalid path that can't be created
+	invalidPath := filepath.Join(tmpDir, "nonexistent", "dir", "test.db")
+	_, err = InitializeDatabase(invalidPath, nil)
+	require.Error(t, err)
+	// Accept either error message
+	if !(strings.Contains(err.Error(), "failed to open database") || strings.Contains(err.Error(), "failed to ping database")) {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestInitializeDatabase_WithItems(t *testing.T) {
+	fs := afero.NewOsFs()
+	tmpDir, err := afero.TempDir(fs, "", "init-db-items")
+	require.NoError(t, err)
+	defer fs.RemoveAll(tmpDir)
+
+	dbPath := filepath.Join(tmpDir, "test.db")
+	items := []string{"test1", "test2", "test3"}
+	db, err := InitializeDatabase(dbPath, items)
+	require.NoError(t, err)
+	defer db.Close()
+
+	// Verify items were inserted
+	var count int
+	err = db.QueryRow("SELECT COUNT(*) FROM items").Scan(&count)
+	require.NoError(t, err)
+	require.Equal(t, len(items), count)
+}
+
+func TestInitializeDatabase_TransactionError(t *testing.T) {
+	fs := afero.NewOsFs()
+	tmpDir, err := afero.TempDir(fs, "", "init-db-tx-error")
+	require.NoError(t, err)
+	defer fs.RemoveAll(tmpDir)
+
+	dbPath := filepath.Join(tmpDir, "test.db")
+	reader, err := InitializeItem(dbPath, nil)
+	require.NoError(t, err)
+
+	// Close the database to simulate a transaction error
+	reader.DB.Close()
+
+	// Try to read from the closed database
+	testURL, _ := url.Parse("item:/_?op=set&value=test")
+	_, err = reader.Read(*testURL)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "database is closed")
+}
+
+func TestRead_InvalidOperation(t *testing.T) {
+	fs := afero.NewOsFs()
+	tmpDir, err := afero.TempDir(fs, "", "read-invalid-op")
+	require.NoError(t, err)
+	defer fs.RemoveAll(tmpDir)
+
+	dbPath := filepath.Join(tmpDir, "test.db")
+	reader, err := InitializeItem(dbPath, nil)
+	require.NoError(t, err)
+	defer reader.DB.Close()
+
+	uri, _ := url.Parse("item:/?op=invalid")
+	_, err = reader.Read(*uri)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid operation")
+}
+
+func TestRead_SetOperation_NoValue(t *testing.T) {
+	fs := afero.NewOsFs()
+	tmpDir, err := afero.TempDir(fs, "", "read-set-no-value")
+	require.NoError(t, err)
+	defer fs.RemoveAll(tmpDir)
+
+	dbPath := filepath.Join(tmpDir, "test.db")
+	reader, err := InitializeItem(dbPath, nil)
+	require.NoError(t, err)
+	defer reader.DB.Close()
+
+	uri, _ := url.Parse("item:/?op=set")
+	_, err = reader.Read(*uri)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "set operation requires a value parameter")
+}
+
+func TestRead_SetOperation_Success(t *testing.T) {
+	fs := afero.NewOsFs()
+	tmpDir, err := afero.TempDir(fs, "", "read-set-success")
+	require.NoError(t, err)
+	defer fs.RemoveAll(tmpDir)
+
+	dbPath := filepath.Join(tmpDir, "test.db")
+	reader, err := InitializeItem(dbPath, nil)
+	require.NoError(t, err)
+	defer reader.DB.Close()
+
+	uri, _ := url.Parse("item:/?op=set&value=testvalue")
+	result, err := reader.Read(*uri)
+	require.NoError(t, err)
+	require.Equal(t, "testvalue", string(result))
+}
+
+func TestRead_CurrentOperation_NoRecords(t *testing.T) {
+	fs := afero.NewOsFs()
+	tmpDir, err := afero.TempDir(fs, "", "read-current-empty")
+	require.NoError(t, err)
+	defer fs.RemoveAll(tmpDir)
+
+	dbPath := filepath.Join(tmpDir, "test.db")
+	reader, err := InitializeItem(dbPath, nil)
+	require.NoError(t, err)
+	defer reader.DB.Close()
+
+	uri, _ := url.Parse("item:/?op=current")
+	result, err := reader.Read(*uri)
+	require.NoError(t, err)
+	require.Equal(t, "", string(result))
+}
+
+func TestRead_CurrentOperation_WithRecords(t *testing.T) {
+	fs := afero.NewOsFs()
+	tmpDir, err := afero.TempDir(fs, "", "read-current-with-data")
+	require.NoError(t, err)
+	defer fs.RemoveAll(tmpDir)
+
+	dbPath := filepath.Join(tmpDir, "test.db")
+	items := []string{"item1", "item2"}
+	reader, err := InitializeItem(dbPath, items)
+	require.NoError(t, err)
+	defer reader.DB.Close()
+
+	uri, _ := url.Parse("item:/?op=current")
+	result, err := reader.Read(*uri)
+	require.NoError(t, err)
+	require.Equal(t, "item2", string(result)) // Should return the most recent
+}
+
+func TestRead_PrevNextOperations(t *testing.T) {
+	fs := afero.NewOsFs()
+	tmpDir, err := afero.TempDir(fs, "", "read-prev-next")
+	require.NoError(t, err)
+	defer fs.RemoveAll(tmpDir)
+
+	dbPath := filepath.Join(tmpDir, "test.db")
+	items := []string{"item1", "item2", "item3"}
+	reader, err := InitializeItem(dbPath, items)
+	require.NoError(t, err)
+	defer reader.DB.Close()
+
+	// Test prev operation
+	uri, _ := url.Parse("item:/?op=prev")
+	result, err := reader.Read(*uri)
+	require.NoError(t, err)
+	require.Equal(t, "item2", string(result)) // Should return previous to most recent
+
+	// Test next operation (should be empty since we're at the end)
+	uri, _ = url.Parse("item:/?op=next")
+	result, err = reader.Read(*uri)
+	require.NoError(t, err)
+	require.Equal(t, "", string(result))
+}
+
+func TestRead_ListValuesOperations(t *testing.T) {
+	fs := afero.NewOsFs()
+	tmpDir, err := afero.TempDir(fs, "", "read-list-values")
+	require.NoError(t, err)
+	defer fs.RemoveAll(tmpDir)
+
+	dbPath := filepath.Join(tmpDir, "test.db")
+	items := []string{"item1", "item2"}
+	reader, err := InitializeItem(dbPath, items)
+	require.NoError(t, err)
+	defer reader.DB.Close()
+
+	// Test list operation
+	uri, _ := url.Parse("item:/?op=list")
+	result, err := reader.Read(*uri)
+	require.NoError(t, err)
+	require.Contains(t, string(result), "item1")
+	require.Contains(t, string(result), "item2")
+
+	// Test values operation
+	uri, _ = url.Parse("item:/?op=values")
+	result, err = reader.Read(*uri)
+	require.NoError(t, err)
+	require.Contains(t, string(result), "item1")
+	require.Contains(t, string(result), "item2")
+}
+
+func TestRead_DatabaseReinitialization(t *testing.T) {
+	fs := afero.NewOsFs()
+	tmpDir, err := afero.TempDir(fs, "", "read-reinit")
+	require.NoError(t, err)
+	defer fs.RemoveAll(tmpDir)
+
+	dbPath := filepath.Join(tmpDir, "test.db")
+	reader := &PklResourceReader{DBPath: dbPath} // DB is nil
+
+	uri, _ := url.Parse("item:/?op=current")
+	result, err := reader.Read(*uri)
+	require.NoError(t, err)
+	require.Equal(t, "", string(result))
+	require.NotNil(t, reader.DB)
+	defer reader.DB.Close()
 }

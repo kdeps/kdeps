@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
@@ -73,7 +74,7 @@ func TestPullModels(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	t.Run("EmptyModels", func(t *testing.T) {
-		err := pullModels(ctx, []string{}, logger)
+		err := PullModels(ctx, []string{}, logger)
 		assert.NoError(t, err)
 	})
 
@@ -172,7 +173,7 @@ func TestStartAndWaitForOllamaReady(t *testing.T) {
 	defer cancel()
 
 	logger := logging.NewTestLogger()
-	if err := startAndWaitForOllama(ctx, "127.0.0.1", portStr, logger); err != nil {
+	if err := StartAndWaitForOllama(ctx, "127.0.0.1", portStr, logger); err != nil {
 		t.Errorf("expected nil error when server already ready, got %v", err)
 	}
 }
@@ -192,7 +193,7 @@ func TestStartAPIServerWrapper_Error(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	err := startAPIServer(ctx, dr)
+	err := StartAPIServer(ctx, dr)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "configuration is missing")
 }
@@ -223,7 +224,7 @@ func TestStartWebServerWrapper_Success(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	err := startWebServer(ctx, dr)
+	err := StartWebServer(ctx, dr)
 	require.NoError(t, err)
 }
 
@@ -370,7 +371,7 @@ func TestPullModels_Error(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Provide some dummy model names; expect error as 'ollama' binary likely unavailable
-	err := pullModels(ctx, []string{"nonexistent-model-1"}, logger)
+	err := PullModels(ctx, []string{"nonexistent-model-1"}, logger)
 	if err == nil {
 		t.Fatalf("expected error when pulling models with missing binary")
 	}

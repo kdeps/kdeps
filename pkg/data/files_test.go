@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kdeps/kdeps/pkg/data"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 )
@@ -75,7 +76,7 @@ func (s statErrorFs) Chtimes(name string, atime, mtime time.Time) error {
 
 func TestPopulateDataFileRegistry_BaseDirDoesNotExist(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	reg, err := PopulateDataFileRegistry(fs, "/not-exist")
+	reg, err := data.PopulateDataFileRegistry(fs, "/not-exist")
 	assert.NoError(t, err)
 	assert.NotNil(t, reg)
 	assert.Empty(t, *reg)
@@ -84,7 +85,7 @@ func TestPopulateDataFileRegistry_BaseDirDoesNotExist(t *testing.T) {
 func TestPopulateDataFileRegistry_EmptyBaseDir(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	_ = fs.MkdirAll("/base", 0o755)
-	reg, err := PopulateDataFileRegistry(fs, "/base")
+	reg, err := data.PopulateDataFileRegistry(fs, "/base")
 	assert.NoError(t, err)
 	assert.NotNil(t, reg)
 	assert.Empty(t, *reg)
@@ -98,7 +99,7 @@ func TestPopulateDataFileRegistry_WithFiles(t *testing.T) {
 	_ = fs.MkdirAll("/base/agent2/v2", 0o755)
 	_ = afero.WriteFile(fs, "/base/agent2/v2/file3.txt", []byte("data3"), 0o644)
 
-	reg, err := PopulateDataFileRegistry(fs, "/base")
+	reg, err := data.PopulateDataFileRegistry(fs, "/base")
 	assert.NoError(t, err)
 	assert.NotNil(t, reg)
 	files := *reg
@@ -114,7 +115,7 @@ func TestPopulateDataFileRegistry_SkipInvalidStructure(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	_ = fs.MkdirAll("/base/agent1", 0o755)
 	_ = afero.WriteFile(fs, "/base/agent1/file.txt", []byte("data"), 0o644)
-	reg, err := PopulateDataFileRegistry(fs, "/base")
+	reg, err := data.PopulateDataFileRegistry(fs, "/base")
 	assert.NoError(t, err)
 	assert.NotNil(t, reg)
 	files := *reg
@@ -125,7 +126,7 @@ func TestPopulateDataFileRegistry_SkipInvalidStructure(t *testing.T) {
 
 func TestPopulateDataFileRegistry_ErrorOnDirExists(t *testing.T) {
 	efs := errorFs{afero.NewMemMapFs()}
-	reg, err := PopulateDataFileRegistry(efs, "/base")
+	reg, err := data.PopulateDataFileRegistry(efs, "/base")
 	assert.Error(t, err)
 	assert.NotNil(t, reg)
 	assert.Empty(t, *reg)
@@ -136,7 +137,7 @@ func TestPopulateDataFileRegistry_NestedDirectories(t *testing.T) {
 	_ = fs.MkdirAll("/base/agent1/v1/subdir", 0o755)
 	_ = afero.WriteFile(fs, "/base/agent1/v1/subdir/file.txt", []byte("data"), 0o644)
 
-	reg, err := PopulateDataFileRegistry(fs, "/base")
+	reg, err := data.PopulateDataFileRegistry(fs, "/base")
 	assert.NoError(t, err)
 	assert.NotNil(t, reg)
 	files := *reg
@@ -150,7 +151,7 @@ func TestPopulateDataFileRegistry_SkipDirectoryEntries(t *testing.T) {
 	_ = fs.MkdirAll("/base/agent1/v1/dir", 0o755)
 	_ = afero.WriteFile(fs, "/base/agent1/v1/file.txt", []byte("data"), 0o644)
 
-	reg, err := PopulateDataFileRegistry(fs, "/base")
+	reg, err := data.PopulateDataFileRegistry(fs, "/base")
 	assert.NoError(t, err)
 	assert.NotNil(t, reg)
 	files := *reg
@@ -166,7 +167,7 @@ func TestPopulateDataFileRegistry_SingleFileStructure(t *testing.T) {
 	_ = fs.MkdirAll("/base", 0o755)
 	_ = afero.WriteFile(fs, "/base/file.txt", []byte("data"), 0o644)
 
-	reg, err := PopulateDataFileRegistry(fs, "/base")
+	reg, err := data.PopulateDataFileRegistry(fs, "/base")
 	assert.NoError(t, err)
 	assert.NotNil(t, reg)
 	files := *reg
@@ -183,7 +184,7 @@ func TestPopulateDataFileRegistry_WalkErrors(t *testing.T) {
 		_ = afero.WriteFile(fs, "/base/agent1/v1/file.txt", []byte("data"), 0o644)
 
 		// This test checks that the function continues even if there are walk errors
-		reg, err := PopulateDataFileRegistry(fs, "/base")
+		reg, err := data.PopulateDataFileRegistry(fs, "/base")
 		assert.NoError(t, err)
 		assert.NotNil(t, reg)
 		// Should still process the files that are accessible
@@ -198,7 +199,7 @@ func TestPopulateDataFileRegistry_WalkErrors(t *testing.T) {
 		_ = fs.MkdirAll("/base/agent1/v1", 0o755)
 		_ = afero.WriteFile(fs, "/base/agent1/v1/file.txt", []byte("data"), 0o644)
 
-		reg, err := PopulateDataFileRegistry(fs, "/base")
+		reg, err := data.PopulateDataFileRegistry(fs, "/base")
 		assert.NoError(t, err)
 		assert.NotNil(t, reg)
 		files := *reg
@@ -213,7 +214,7 @@ func TestPopulateDataFileRegistry_EmptyAgentPath(t *testing.T) {
 	_ = fs.MkdirAll("/base/onelevel", 0o755)
 	_ = afero.WriteFile(fs, "/base/onelevel.txt", []byte("data"), 0o644)
 
-	reg, err := PopulateDataFileRegistry(fs, "/base")
+	reg, err := data.PopulateDataFileRegistry(fs, "/base")
 	assert.NoError(t, err)
 	assert.NotNil(t, reg)
 	files := *reg
@@ -231,7 +232,7 @@ func TestPopulateDataFileRegistry_MixedContent(t *testing.T) {
 	_ = fs.MkdirAll("/base/onlyone", 0o755)
 	_ = afero.WriteFile(fs, "/base/onlyone/file.txt", []byte("data"), 0o644)
 
-	reg, err := PopulateDataFileRegistry(fs, "/base")
+	reg, err := data.PopulateDataFileRegistry(fs, "/base")
 	assert.NoError(t, err)
 	assert.NotNil(t, reg)
 	files := *reg
@@ -245,7 +246,7 @@ func TestPopulateDataFileRegistry_MixedContent(t *testing.T) {
 func TestPopulateDataFileRegistry_ErrorConditions(t *testing.T) {
 	t.Run("DirExistsError", func(t *testing.T) {
 		efs := errorFs{afero.NewMemMapFs()}
-		reg, err := PopulateDataFileRegistry(efs, "/base")
+		reg, err := data.PopulateDataFileRegistry(efs, "/base")
 		assert.Error(t, err)
 		assert.NotNil(t, reg)
 		assert.Empty(t, *reg)
@@ -258,7 +259,7 @@ func TestPopulateDataFileRegistry_ErrorConditions(t *testing.T) {
 		_ = afero.WriteFile(fs, "/base/agent1/v1/file.txt", []byte("data"), 0o644)
 
 		wefs := walkErrorFs{fs}
-		reg, err := PopulateDataFileRegistry(wefs, "/base")
+		reg, err := data.PopulateDataFileRegistry(wefs, "/base")
 		assert.NoError(t, err) // Walk errors are ignored
 		assert.NotNil(t, reg)
 		// Since we can't actually inject a walk error, we verify that the function
@@ -273,7 +274,7 @@ func TestPopulateDataFileRegistry_ErrorConditions(t *testing.T) {
 		_ = afero.WriteFile(fs, "/base/agent1/v1/file.txt", []byte("data"), 0o644)
 
 		sefs := statErrorFs{fs}
-		reg, err := PopulateDataFileRegistry(sefs, "/base")
+		reg, err := data.PopulateDataFileRegistry(sefs, "/base")
 		assert.NoError(t, err) // Relative path errors are ignored
 		assert.NotNil(t, reg)
 		// The file should be skipped due to stat error, but the directory structure

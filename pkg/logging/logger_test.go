@@ -3,43 +3,38 @@ package logging_test
 import (
 	"os"
 	"os/exec"
-	"reflect"
 	"testing"
 
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/stretchr/testify/assert"
 )
 
-// resetLoggerState resets the logger and once for testing purposes.
+// resetLoggerState resets the logger for testing using the provided helper.
 func resetLoggerState() {
-	logger = nil
-	// Reset sync.Once using reflection (for testing only)
-	onceVal := reflect.ValueOf(&once).Elem()
-	onceVal.Set(reflect.Zero(onceVal.Type()))
+	logging.ResetForTest()
 }
 
 func TestCreateLogger(t *testing.T) {
 	resetLoggerState()
 	// Test normal logger creation
-	CreateLogger()
-	assert.NotNil(t, logger)
-	assert.NotNil(t, logger.Logger)
+	logging.CreateLogger()
+	assert.NotNil(t, logging.GetLogger())
 
 	resetLoggerState()
 	t.Setenv("DEBUG", "1")
-	CreateLogger()
-	assert.NotNil(t, logger)
-	assert.NotNil(t, logger.Logger)
+	logging.CreateLogger()
+	assert.NotNil(t, logging.GetLogger())
 }
 
 func TestNewTestLogger(t *testing.T) {
-	testLogger := NewTestLogger()
+	testLogger := logging.NewTestLogger()
 	assert.NotNil(t, testLogger)
 	assert.NotNil(t, testLogger.Logger)
-	assert.NotNil(t, testLogger.buffer)
+	assert.NotNil(t, testLogger.Buffer)
 }
 
 func TestGetOutput(t *testing.T) {
-	testLogger := NewTestLogger()
+	testLogger := logging.NewTestLogger()
 	assert.Equal(t, "", testLogger.GetOutput())
 
 	testLogger.Info("test message")
@@ -47,19 +42,24 @@ func TestGetOutput(t *testing.T) {
 	assert.Contains(t, output, "test message")
 
 	// Test GetOutput with nil buffer
-	loggerWithNilBuffer := &Logger{
+	loggerWithNilBuffer := &logging.Logger{
 		Logger: testLogger.Logger,
-		buffer: nil,
+		Buffer: nil,
 	}
 	assert.Equal(t, "", loggerWithNilBuffer.GetOutput())
 }
 
 func TestLogLevels(t *testing.T) {
-	testLogger := NewTestLogger()
-	logger = testLogger
+	testLogger := logging.NewTestLogger()
+	// Override global logger in package for test
+	logging.ResetForTest()
+	// Use reflection not needed; rely on TestLogger via package-level function
+	// but we can set it through CreateLogger? simpler: set global variable via function not exported; instead call package private variable? can't.
+	// We'll skip capturing internal logger; instead call package functions that use GetLogger's underlying logger.
+	logging.SetTestLogger(testLogger)
 
 	// Test Debug
-	Debug("debug message", "key", "value")
+	logging.Debug("debug message", "key", "value")
 	output := testLogger.GetOutput()
 	t.Logf("Debug output: %q", output)
 	assert.Contains(t, output, "debug message")
@@ -67,12 +67,12 @@ func TestLogLevels(t *testing.T) {
 	assert.Contains(t, output, "value")
 
 	// Clear buffer and reset logger
-	testLogger.buffer.Reset()
-	testLogger = NewTestLogger()
-	logger = testLogger
+	testLogger.Buffer.Reset()
+	testLogger = logging.NewTestLogger()
+	logging.SetTestLogger(testLogger)
 
 	// Test Info
-	Info("info message", "key", "value")
+	logging.Info("info message", "key", "value")
 	output = testLogger.GetOutput()
 	t.Logf("Info output: %q", output)
 	assert.Contains(t, output, "info message")
@@ -80,12 +80,12 @@ func TestLogLevels(t *testing.T) {
 	assert.Contains(t, output, "value")
 
 	// Clear buffer and reset logger
-	testLogger.buffer.Reset()
-	testLogger = NewTestLogger()
-	logger = testLogger
+	testLogger.Buffer.Reset()
+	testLogger = logging.NewTestLogger()
+	logging.SetTestLogger(testLogger)
 
 	// Test Warn
-	Warn("warning message", "key", "value")
+	logging.Warn("warning message", "key", "value")
 	output = testLogger.GetOutput()
 	t.Logf("Warn output: %q", output)
 	assert.Contains(t, output, "warning message")
@@ -93,12 +93,12 @@ func TestLogLevels(t *testing.T) {
 	assert.Contains(t, output, "value")
 
 	// Clear buffer and reset logger
-	testLogger.buffer.Reset()
-	testLogger = NewTestLogger()
-	logger = testLogger
+	testLogger.Buffer.Reset()
+	testLogger = logging.NewTestLogger()
+	logging.SetTestLogger(testLogger)
 
 	// Test Error
-	Error("error message", "key", "value")
+	logging.Error("error message", "key", "value")
 	output = testLogger.GetOutput()
 	t.Logf("Error output: %q", output)
 	assert.Contains(t, output, "error message")
@@ -110,37 +110,37 @@ func TestGetLogger(t *testing.T) {
 	// Don't run in parallel due to global state manipulation
 	resetLoggerState()
 	// Test before initialization
-	assert.NotNil(t, GetLogger()) // This should create a new logger
+	assert.NotNil(t, logging.GetLogger()) // This should create a new logger
 
 	// Test after initialization
-	assert.NotNil(t, GetLogger())
+	assert.NotNil(t, logging.GetLogger())
 
 	resetLoggerState()
 	// Test with nil logger
-	assert.NotNil(t, GetLogger())
+	assert.NotNil(t, logging.GetLogger())
 }
 
 func TestBaseLogger(t *testing.T) {
-	testLogger := NewTestLogger()
+	testLogger := logging.NewTestLogger()
 	assert.NotNil(t, testLogger.BaseLogger())
 
 	// Test panic case
-	var nilLogger *Logger
+	var nilLogger *logging.Logger
 	assert.Panics(t, func() {
 		nilLogger.BaseLogger()
 	})
 }
 
 func TestWith(t *testing.T) {
-	testLogger := NewTestLogger()
+	testLogger := logging.NewTestLogger()
 	newLogger := testLogger.With("key", "value")
 	assert.NotNil(t, newLogger)
-	assert.Equal(t, testLogger.buffer, newLogger.buffer)
+	assert.Equal(t, testLogger.Buffer, newLogger.Buffer)
 
 	// Test with multiple key-value pairs
 	newLogger = testLogger.With("key1", "value1", "key2", "value2")
 	assert.NotNil(t, newLogger)
-	assert.Equal(t, testLogger.buffer, newLogger.buffer)
+	assert.Equal(t, testLogger.Buffer, newLogger.Buffer)
 }
 
 func TestFatal(t *testing.T) {
@@ -149,29 +149,29 @@ func TestFatal(t *testing.T) {
 	// In practice, this would be tested through integration tests
 
 	// However, we can test that Fatal at least initializes the logger
-	testLogger := NewTestLogger()
-	logger = testLogger
+	testLogger := logging.NewTestLogger()
+	logging.SetTestLogger(testLogger)
 
 	// We can't actually call Fatal() because it will exit the test
 	// But we can verify the function exists and the logger is set up
-	assert.NotNil(t, logger)
+	assert.NotNil(t, logging.GetLogger())
 }
 
 func TestEnsureInitialized(t *testing.T) {
 	// Don't run in parallel due to global state manipulation
 	resetLoggerState()
 	// Test initialization
-	ensureInitialized()
-	assert.NotNil(t, logger)
+	logging.EnsureInitialized()
+	assert.NotNil(t, logging.GetLogger())
 
 	// Test that subsequent calls don't change the logger
-	originalLogger := logger
-	ensureInitialized()
-	assert.Equal(t, originalLogger, logger)
+	originalLogger := logging.GetLogger()
+	logging.EnsureInitialized()
+	assert.Equal(t, originalLogger, logging.GetLogger())
 }
 
 func TestLoggerWithAndOutput(t *testing.T) {
-	base := NewTestLogger()
+	base := logging.NewTestLogger()
 	child := base.With("k", "v")
 	child.Info("hello")
 
@@ -183,9 +183,9 @@ func TestLoggerWithAndOutput(t *testing.T) {
 func TestFatal_Subprocess(t *testing.T) {
 	if os.Getenv("LOG_FATAL_CHILD") == "1" {
 		// In child process: call Fatal which should exit.
-		testLogger := NewTestLogger()
-		logger = testLogger
-		Fatal("fatal message", "key", "value")
+		testLogger := logging.NewTestLogger()
+		logging.SetTestLogger(testLogger)
+		logging.Fatal("fatal message", "key", "value")
 		return
 	}
 

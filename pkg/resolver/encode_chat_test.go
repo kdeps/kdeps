@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	. "github.com/kdeps/kdeps/pkg/resolver"
+
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklHTTP "github.com/kdeps/schema/gen/http"
@@ -56,7 +58,7 @@ func TestEncodeChat_AllFields(t *testing.T) {
 		// leave Timestamp/Timeout nil so encodeChat will populate defaults
 	}
 
-	encoded := encodeChat(chat, logger)
+	encoded := EncodeChat(chat, logger)
 
 	// Basic top-level encodings
 	if encoded.Model != utils.EncodeValue(model) {
@@ -115,12 +117,12 @@ func TestEncodeChat_AllFields(t *testing.T) {
 }
 
 func TestEncodeJSONResponseKeys_Nil(t *testing.T) {
-	if encodeJSONResponseKeys(nil) != nil {
+	if EncodeJSONResponseKeys(nil) != nil {
 		t.Errorf("expected nil when keys nil")
 	}
 
 	keys := []string{"k1"}
-	enc := encodeJSONResponseKeys(&keys)
+	enc := EncodeJSONResponseKeys(&keys)
 	if (*enc)[0] != utils.EncodeValue("k1") {
 		t.Errorf("key not encoded: %s", (*enc)[0])
 	}
@@ -130,50 +132,50 @@ func TestEncodeExecHelpers(t *testing.T) {
 	dr := &DependencyResolver{}
 
 	t.Run("ExecEnv_Nil", func(t *testing.T) {
-		require.Nil(t, dr.encodeExecEnv(nil))
+		require.Nil(t, dr.EncodeExecEnv(nil))
 	})
 
 	t.Run("ExecEnv_Encode", func(t *testing.T) {
 		env := map[string]string{"KEY": "value"}
-		enc := dr.encodeExecEnv(&env)
-		require.NotNil(t, enc)
-		require.Equal(t, "dmFsdWU=", (*enc)["KEY"])
+		got := dr.EncodeExecEnv(&env)
+		require.NotNil(t, got)
+		require.Equal(t, "dmFsdWU=", (*got)["KEY"])
 	})
 
 	t.Run("ExecOutputs", func(t *testing.T) {
 		stderr := "err"
 		stdout := "out"
-		es, eo := dr.encodeExecOutputs(&stderr, &stdout)
-		require.Equal(t, "ZXJy", *es)
-		require.Equal(t, "b3V0", *eo)
+		gotStderr, gotStdout := dr.EncodeExecOutputs(&stderr, &stdout)
+		require.Equal(t, "ZXJy", *gotStderr)
+		require.Equal(t, "b3V0", *gotStdout)
 	})
 
 	t.Run("ExecOutputs_Nil", func(t *testing.T) {
-		es, eo := dr.encodeExecOutputs(nil, nil)
-		require.Nil(t, es)
-		require.Nil(t, eo)
+		gotStderr, gotStdout := dr.EncodeExecOutputs(nil, nil)
+		require.Nil(t, gotStderr)
+		require.Nil(t, gotStdout)
 	})
 
 	t.Run("EncodeStderr", func(t *testing.T) {
 		txt := "oops"
-		s := dr.encodeExecStderr(&txt)
-		require.Contains(t, s, txt)
-		require.Contains(t, s, "stderr = #\"\"\"")
+		got := dr.EncodeExecStderr(&txt)
+		require.Contains(t, got, txt)
+		require.Contains(t, got, "stderr = #\"\"\"")
 	})
 
 	t.Run("EncodeStderr_Nil", func(t *testing.T) {
-		require.Equal(t, "    stderr = \"\"\n", dr.encodeExecStderr(nil))
+		require.Equal(t, "    stderr = \"\"\n", dr.EncodeExecStderr(nil))
 	})
 
 	t.Run("EncodeStdout", func(t *testing.T) {
 		txt := "yay"
-		s := dr.encodeExecStdout(&txt)
-		require.Contains(t, s, txt)
-		require.Contains(t, s, "stdout = #\"\"\"")
+		got := dr.EncodeExecStdout(&txt)
+		require.Contains(t, got, txt)
+		require.Contains(t, got, "stdout = #\"\"\"")
 	})
 
 	t.Run("EncodeStdout_Nil", func(t *testing.T) {
-		require.Equal(t, "    stdout = \"\"\n", dr.encodeExecStdout(nil))
+		require.Equal(t, "    stdout = \"\"\n", dr.EncodeExecStdout(nil))
 	})
 }
 
@@ -201,13 +203,13 @@ func TestEncodeResponseHeadersAndBody(t *testing.T) {
 	}
 
 	// Test headers
-	headersStr := encodeResponseHeaders(resp)
+	headersStr := EncodeResponseHeaders(resp)
 	if !strings.Contains(headersStr, "X-Test") {
 		t.Fatalf("expected header name in output, got %s", headersStr)
 	}
 
 	// Test body encoding & file writing
-	bodyStr := encodeResponseBody(resp, dr, "res1")
+	bodyStr := EncodeResponseBody(resp, dr, "res1")
 	encoded := base64.StdEncoding.EncodeToString([]byte(body))
 	if !strings.Contains(bodyStr, encoded) {
 		t.Fatalf("expected encoded body in output, got %s", bodyStr)

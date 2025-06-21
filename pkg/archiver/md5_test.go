@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-func TestGetFileMD5(t *testing.T) {
+func TestGetFileMD5Simple(t *testing.T) {
 	memFs := afero.NewMemMapFs()
 
 	// Write a simple file.

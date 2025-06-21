@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/kdeps/kdeps/pkg/resolver"
+
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/tool"
 	"github.com/kdeps/kdeps/pkg/utils"
@@ -20,6 +22,7 @@ import (
 	pklRes "github.com/kdeps/schema/gen/resource"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/ollama"
 )
@@ -95,8 +98,8 @@ func TestDecodeChatBlock_AllFields(t *testing.T) {
 	chat, original := buildEncodedChat()
 	dr := &DependencyResolver{Logger: logging.GetLogger()}
 
-	if err := dr.decodeChatBlock(chat); err != nil {
-		t.Fatalf("decodeChatBlock error: %v", err)
+	if err := dr.DecodeChatBlock(chat); err != nil {
+		t.Fatalf("DecodeChatBlock error: %v", err)
 	}
 
 	// Validate prompt & role.
@@ -157,8 +160,8 @@ func TestDecodeChatBlock_AllFields(t *testing.T) {
 func TestDecodeScenario_Nil(t *testing.T) {
 	chat := &pklLLM.ResourceChat{Scenario: nil}
 	logger := logging.GetLogger()
-	if err := decodeScenario(chat, logger); err != nil {
-		t.Fatalf("decodeScenario nil case error: %v", err)
+	if err := DecodeScenario(chat, logger); err != nil {
+		t.Fatalf("DecodeScenario nil case error: %v", err)
 	}
 	if chat.Scenario == nil || len(*chat.Scenario) != 0 {
 		t.Errorf("expected empty scenario slice after decode")
@@ -167,7 +170,7 @@ func TestDecodeScenario_Nil(t *testing.T) {
 
 func TestEncodeJSONResponseKeys(t *testing.T) {
 	keys := []string{"one", "two"}
-	encoded := encodeJSONResponseKeys(&keys)
+	encoded := EncodeJSONResponseKeys(&keys)
 	if encoded == nil || len(*encoded) != 2 {
 		t.Fatalf("expected 2 encoded keys")
 	}
@@ -183,8 +186,8 @@ func TestDecodeField_Base64(t *testing.T) {
 	original := "hello world"
 	b64 := base64.StdEncoding.EncodeToString([]byte(original))
 	ptr := &b64
-	if err := decodeField(&ptr, "testField", utils.SafeDerefString, ""); err != nil {
-		t.Fatalf("decodeField returned error: %v", err)
+	if err := DecodeField(&ptr, "testField", utils.SafeDerefString, ""); err != nil {
+		t.Fatalf("DecodeField returned error: %v", err)
 	}
 	if utils.SafeDerefString(ptr) != original {
 		t.Errorf("decodeField did not decode correctly: got %s", utils.SafeDerefString(ptr))
@@ -194,8 +197,8 @@ func TestDecodeField_Base64(t *testing.T) {
 func TestDecodeField_NonBase64(t *testing.T) {
 	val := "plain value"
 	ptr := &val
-	if err := decodeField(&ptr, "testField", utils.SafeDerefString, "default"); err != nil {
-		t.Fatalf("decodeField returned error: %v", err)
+	if err := DecodeField(&ptr, "testField", utils.SafeDerefString, "default"); err != nil {
+		t.Fatalf("DecodeField returned error: %v", err)
 	}
 	if utils.SafeDerefString(ptr) != val {
 		t.Errorf("expected field to remain unchanged, got %s", utils.SafeDerefString(ptr))
@@ -344,9 +347,51 @@ func TestGenerateChatResponseBasic(t *testing.T) {
 		Role:   &role,
 	}
 
-	resp, err := generateChatResponse(ctx, fs, llm, chatBlock, nil, logger)
+	resp, err := GenerateChatResponse(ctx, fs, llm, chatBlock, nil, logger)
 	assert.NoError(t, err)
 	assert.Equal(t, "stub-response", resp)
+}
+
+func TestGenerateChatResponseFileError(t *testing.T) {
+	// Create stub HTTP client to satisfy Ollama client without network
+	httpClient := &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			// Return NDJSON single line with completed message
+			body := `{"message":{"content":"stub-response"},"done":true}` + "\n"
+			resp := &http.Response{
+				StatusCode: 200,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader(body)),
+			}
+			resp.Header.Set("Content-Type", "application/x-ndjson")
+			return resp, nil
+		}),
+	}
+
+	llm, errNew := ollama.New(
+		ollama.WithHTTPClient(httpClient),
+		ollama.WithServerURL("http://stub"),
+	)
+	assert.NoError(t, errNew)
+
+	fs := afero.NewMemMapFs()
+	logger := logging.GetLogger()
+	ctx := context.Background()
+
+	prompt := "Hello"
+	role := "user"
+	files := []string{"/nonexistent/file.txt"}
+	chatBlock := &pklLLM.ResourceChat{
+		Model:  "test-model",
+		Prompt: &prompt,
+		Role:   &role,
+		Files:  &files,
+	}
+
+	// This should fail because the file doesn't exist
+	_, err := GenerateChatResponse(ctx, fs, llm, chatBlock, nil, logger)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read file")
 }
 
 func TestLoadResourceEntriesInjected(t *testing.T) {
@@ -418,8 +463,8 @@ func TestProcessToolCalls_Success(t *testing.T) {
 	history := []llms.MessageContent{}
 	outputs := map[string]string{}
 
-	if err := processToolCalls([]llms.ToolCall{call}, reader, chat, logger, &history, "prompt", outputs); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := ProcessToolCalls([]llms.ToolCall{call}, reader, chat, logger, &history, "prompt", outputs); err != nil {
+		t.Fatalf("ProcessToolCalls error: %v", err)
 	}
 	if _, ok := outputs["1"]; !ok {
 		t.Errorf("tool output missing: %v", outputs)
@@ -443,7 +488,7 @@ func TestProcessToolCalls_Error(t *testing.T) {
 	chat := &pklLLM.ResourceChat{}
 	badCall := llms.ToolCall{} // missing FunctionCall leading to error path
 
-	err := processToolCalls([]llms.ToolCall{badCall}, reader, chat, logger, &[]llms.MessageContent{}, "", map[string]string{})
+	err := ProcessToolCalls([]llms.ToolCall{badCall}, reader, chat, logger, &[]llms.MessageContent{}, "", map[string]string{})
 	if err == nil || !strings.Contains(err.Error(), "invalid tool call") {
 		t.Logf("error returned: %v", err)
 	}
@@ -452,7 +497,7 @@ func TestProcessToolCalls_Error(t *testing.T) {
 func TestParseToolCallArgs(t *testing.T) {
 	logger := logging.GetLogger()
 	input := `{"a": 1, "b": "val"}`
-	args, err := parseToolCallArgs(input, logger)
+	args, err := ParseToolCallArgs(input, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -461,7 +506,7 @@ func TestParseToolCallArgs(t *testing.T) {
 	}
 
 	// Invalid JSON should error
-	if _, err := parseToolCallArgs("not-json", logger); err == nil {
+	if _, err := ParseToolCallArgs("not-json", logger); err == nil {
 		t.Errorf("expected error for invalid json")
 	}
 }
@@ -472,7 +517,7 @@ func TestDeduplicateToolCalls(t *testing.T) {
 	tc2 := llms.ToolCall{ID: "2", Type: "function", FunctionCall: &llms.FunctionCall{Name: "echo", Arguments: "{}"}}
 	tc3 := llms.ToolCall{ID: "3", Type: "function", FunctionCall: &llms.FunctionCall{Name: "sum", Arguments: "{}"}}
 
-	dedup := deduplicateToolCalls([]llms.ToolCall{tc1, tc2, tc3}, logger)
+	dedup := DeduplicateToolCalls([]llms.ToolCall{tc1, tc2, tc3}, logger)
 	if len(dedup) != 2 {
 		t.Errorf("expected 2 unique calls, got %d", len(dedup))
 	}
@@ -483,7 +528,7 @@ func TestExtractToolNames(t *testing.T) {
 		{FunctionCall: &llms.FunctionCall{Name: "one"}},
 		{FunctionCall: &llms.FunctionCall{Name: "two"}},
 	}
-	names := extractToolNames(calls)
+	names := ExtractToolNames(calls)
 	if len(names) != 2 || names[0] != "one" || names[1] != "two" {
 		t.Errorf("extractToolNames mismatch: %v", names)
 	}
@@ -500,7 +545,7 @@ func TestEncodeToolsAndParams(t *testing.T) {
 	params := map[string]*pklLLM.ToolProperties{"v": {Required: &req, Type: &ptype, Description: &pdesc}}
 	tools := []*pklLLM.Tool{{Name: &name, Script: &script, Description: &desc, Parameters: &params}}
 
-	encoded := encodeTools(&tools)
+	encoded := EncodeTools(&tools)
 	if len(encoded) != 1 {
 		t.Fatalf("expected 1 encoded tool")
 	}
@@ -513,7 +558,7 @@ func TestEncodeToolsAndParams(t *testing.T) {
 	}
 
 	// encodeToolParameters directly
-	ep := encodeToolParameters(&params)
+	ep := EncodeToolParameters(&params)
 	if (*ep)["v"].Required == nil || *(*ep)["v"].Required != true {
 		t.Errorf("required flag lost in encoding")
 	}
@@ -533,7 +578,7 @@ func TestGenerateAvailableTools(t *testing.T) {
 	tools := []*pklLLM.Tool{{Name: &name, Script: &script, Description: &desc, Parameters: &params}}
 	chat.Tools = &tools
 
-	avail := generateAvailableTools(chat, logger)
+	avail := GenerateAvailableTools(chat, logger)
 	if len(avail) != 1 {
 		t.Fatalf("expected 1 tool, got %d", len(avail))
 	}
@@ -546,13 +591,13 @@ func TestConstructToolCallsFromJSON(t *testing.T) {
 	logger := logging.GetLogger()
 	// Array form
 	jsonStr := `[{"name": "echo", "arguments": {"msg": "hi"}}]`
-	calls := constructToolCallsFromJSON(jsonStr, logger)
+	calls := ConstructToolCallsFromJSON(jsonStr, logger)
 	if len(calls) != 1 || calls[0].FunctionCall.Name != "echo" {
 		t.Errorf("unexpected calls parsed: %v", calls)
 	}
 	// Single object form
 	single := `{"name":"sum","arguments": {"a":1}}`
-	calls2 := constructToolCallsFromJSON(single, logger)
+	calls2 := ConstructToolCallsFromJSON(single, logger)
 	if len(calls2) != 1 || calls2[0].FunctionCall.Name != "sum" {
 		t.Errorf("single object parse failed: %v", calls2)
 	}
@@ -562,7 +607,7 @@ func TestBuildToolURIAndConvertParams(t *testing.T) {
 	id := "tool1"
 	script := "echo"
 	params := "a+b"
-	uri, err := buildToolURI(id, script, params)
+	uri, err := BuildToolURI(id, script, params)
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
@@ -587,7 +632,7 @@ func TestBuildToolURIAndConvertParams(t *testing.T) {
 
 	// convertToolParamsToString
 	logger := logging.GetLogger()
-	out := convertToolParamsToString([]interface{}{1, "x"}, "arg", "tool", logger)
+	out := ConvertToolParamsToString([]interface{}{1, "x"}, "arg", "tool", logger)
 	if out == "" {
 		t.Errorf("expected param conversion not empty")
 	}
@@ -609,7 +654,7 @@ func TestExtractToolParams(t *testing.T) {
 	chat := &pklLLM.ResourceChat{Tools: &tools}
 
 	args := map[string]interface{}{"val": "hi"}
-	n, s, pv, err := extractToolParams(args, chat, "echo", logger)
+	n, s, pv, err := ExtractToolParams(args, chat, "echo", logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -621,13 +666,13 @@ func TestExtractToolParams(t *testing.T) {
 	}
 
 	// Missing required param should still succeed but warn.
-	_, _, _, err2 := extractToolParams(map[string]interface{}{}, chat, "echo", logger)
+	_, _, _, err2 := ExtractToolParams(map[string]interface{}{}, chat, "echo", logger)
 	if err2 != nil {
 		t.Fatalf("expected no error on missing required, got: %v", err2)
 	}
 
 	// Nonexistent tool
-	_, _, _, err3 := extractToolParams(args, chat, "nope", logger)
+	_, _, _, err3 := ExtractToolParams(args, chat, "nope", logger)
 	if err3 == nil {
 		t.Errorf("expected error for missing tool")
 	}
@@ -639,7 +684,7 @@ func TestExtractToolNamesFromTools(t *testing.T) {
 		{Function: &llms.FunctionDefinition{Name: name1}},
 		{Function: &llms.FunctionDefinition{Name: name2}},
 	}
-	got := extractToolNamesFromTools(tools)
+	got := ExtractToolNamesFromTools(tools)
 	if len(got) != 2 || got[0] != name1 || got[1] != name2 {
 		t.Fatalf("unexpected names: %v", got)
 	}
@@ -668,7 +713,7 @@ func TestSerializeTools(t *testing.T) {
 	}}
 
 	var sb strings.Builder
-	serializeTools(&sb, &entries)
+	SerializeTools(&sb, &entries)
 	out := sb.String()
 
 	if !strings.Contains(out, "tools {") || !strings.Contains(out, "name = \""+name+"\"") {
@@ -680,4 +725,117 @@ func TestSerializeTools(t *testing.T) {
 	if !strings.Contains(out, "parameters") {
 		t.Errorf("parameters missing: %s", out)
 	}
+}
+
+func TestDecodeToolParameters(t *testing.T) {
+	logger := logging.NewTestLogger()
+
+	t.Run("NilParameter", func(t *testing.T) {
+		params := map[string]*pklLLM.ToolProperties{
+			"nilParam": nil,
+		}
+
+		decoded, err := DecodeToolParameters(&params, 0, logger)
+		require.NoError(t, err)
+		require.NotNil(t, decoded)
+
+		// Nil parameters should be skipped
+		_, exists := (*decoded)["nilParam"]
+		require.False(t, exists)
+	})
+
+	t.Run("NonBase64Parameters", func(t *testing.T) {
+		// Parameters that are not Base64 encoded should be preserved
+		plainType := "number"
+		plainDesc := "plain description"
+		required := false
+
+		params := map[string]*pklLLM.ToolProperties{
+			"plainParam": {
+				Type:        &plainType,
+				Description: &plainDesc,
+				Required:    &required,
+			},
+		}
+
+		decoded, err := DecodeToolParameters(&params, 0, logger)
+		require.NoError(t, err)
+		require.NotNil(t, decoded)
+
+		param := (*decoded)["plainParam"]
+		require.NotNil(t, param)
+		require.Equal(t, "number", utils.SafeDerefString(param.Type))
+		require.Equal(t, "plain description", utils.SafeDerefString(param.Description))
+		require.False(t, *param.Required)
+	})
+
+	t.Run("NilTypeAndDescription", func(t *testing.T) {
+		required := true
+		params := map[string]*pklLLM.ToolProperties{
+			"nilFields": {
+				Type:        nil,
+				Description: nil,
+				Required:    &required,
+			},
+		}
+
+		decoded, err := DecodeToolParameters(&params, 0, logger)
+		require.NoError(t, err)
+		require.NotNil(t, decoded)
+
+		param := (*decoded)["nilFields"]
+		require.NotNil(t, param)
+		require.Equal(t, "", utils.SafeDerefString(param.Type))
+		require.Equal(t, "", utils.SafeDerefString(param.Description))
+		require.True(t, *param.Required)
+	})
+
+	t.Run("EmptyParameters", func(t *testing.T) {
+		params := map[string]*pklLLM.ToolProperties{}
+
+		decoded, err := DecodeToolParameters(&params, 0, logger)
+		require.NoError(t, err)
+		require.NotNil(t, decoded)
+		require.Empty(t, *decoded)
+	})
+
+	t.Run("MultipleParameters", func(t *testing.T) {
+		// Test with multiple parameters
+		type1 := "string"
+		desc1 := "first param"
+		required1 := true
+		type2 := "number"
+		desc2 := "second param"
+		required2 := false
+
+		params := map[string]*pklLLM.ToolProperties{
+			"param1": {
+				Type:        &type1,
+				Description: &desc1,
+				Required:    &required1,
+			},
+			"param2": {
+				Type:        &type2,
+				Description: &desc2,
+				Required:    &required2,
+			},
+		}
+
+		decoded, err := DecodeToolParameters(&params, 0, logger)
+		require.NoError(t, err)
+		require.NotNil(t, decoded)
+		require.Len(t, *decoded, 2)
+
+		param1 := (*decoded)["param1"]
+		require.NotNil(t, param1)
+		require.Equal(t, "string", utils.SafeDerefString(param1.Type))
+		require.Equal(t, "first param", utils.SafeDerefString(param1.Description))
+		require.True(t, *param1.Required)
+
+		param2 := (*decoded)["param2"]
+		require.NotNil(t, param2)
+		require.Equal(t, "number", utils.SafeDerefString(param2.Type))
+		require.Equal(t, "second param", utils.SafeDerefString(param2.Description))
+		require.False(t, *param2.Required)
+	})
 }

@@ -39,7 +39,8 @@ var (
 
 	newRootCommandFn = cmd.NewRootCommand
 
-	cleanupFn = cleanup
+	ctx, cancel = context.WithCancel(context.Background())
+	cleanupFn   = cleanup
 )
 
 func main() {
@@ -48,12 +49,12 @@ func main() {
 
 	logger := logging.GetLogger()
 	fs := afero.NewOsFs()
-	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // Ensure context is canceled when main exits
 
 	graphID := uuid.New().String()
 	actionDir := filepath.Join(os.TempDir(), "action")
 	agentDir := filepath.Join("/", "agent")
+	sharedDir := filepath.Join("/", ".kdeps")
 
 	// Setup environment
 	env, err := setupEnvironment(fs)
@@ -62,10 +63,12 @@ func main() {
 	}
 
 	ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, graphID)
-	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, actionDir)
-	ctx = ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
 
 	if env.DockerMode == "1" {
+		ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, actionDir)
+		ctx = ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
+		ctx = ktx.CreateContext(ctx, ktx.CtxKeySharedDir, sharedDir)
+
 		dr, err := newGraphResolverFn(fs, ctx, env, nil, logger.With("requestID", graphID))
 		if err != nil {
 			logger.Fatalf("failed to create graph resolver: %v", err)
@@ -212,7 +215,7 @@ func runGraphResolverActions(ctx context.Context, dr *resolver.DependencyResolve
 	}
 
 	// Handle run action
-	
+
 	fatal, err := dr.HandleRunAction()
 	if err != nil {
 		return fmt.Errorf("failed to handle run action: %w", err)

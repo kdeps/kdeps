@@ -57,6 +57,25 @@ func DecodeBase64IfNeeded(value string) (string, error) {
 	if IsBase64Encoded(value) {
 		return DecodeBase64String(value)
 	}
+	// Check if the string looks like it might be base64 but is invalid
+	if len(value) > 0 && len(value)%4 == 0 {
+		// Check if it contains only base64 characters but fails to decode
+		allBase64Chars := true
+		for _, char := range value {
+			if !(('A' <= char && char <= 'Z') || ('a' <= char && char <= 'z') ||
+				('0' <= char && char <= '9') || char == '+' || char == '/' || char == '=') {
+				allBase64Chars = false
+				break
+			}
+		}
+		if allBase64Chars {
+			// Try to decode it - if it fails, it's invalid base64
+			_, err := base64.StdEncoding.DecodeString(value)
+			if err != nil {
+				return "", fmt.Errorf("invalid base64 string: %w", err)
+			}
+		}
+	}
 	return value, nil
 }
 

@@ -43,9 +43,11 @@ func NewRunCommand(fs afero.Fs, ctx context.Context, kdepsDir string, systemCfg 
 			if err := docker.CleanupDockerBuildImages(fs, ctx, agentContainerName, dockerClient); err != nil {
 				return err
 			}
+			// Use the adapter to match our DockerClient interface
+			dockerClientAdapter := docker.NewDockerClientAdapter(dockerClient)
 			containerID, err := docker.CreateDockerContainer(fs, ctx, agentContainerName,
 				agentContainerNameAndVersion, hostIP, hostPort, webHostIP, webHostNum, gpuType,
-				APIServerMode, WebServerMode, dockerClient)
+				APIServerMode, WebServerMode, dockerClientAdapter)
 			if err != nil {
 				return err
 			}

@@ -1,27 +1,28 @@
 package utils_test
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"github.com/kdeps/kdeps/pkg/utils"
+)
 
 func TestFormatRequestAndResponseHelpers(t *testing.T) {
 	hdrs := map[string][]string{"X-Token": {"abc123"}}
-	out := FormatRequestHeaders(hdrs)
-	if !contains(out, "headers") {
+	out := utils.FormatRequestHeaders(hdrs)
+	if !strings.Contains(out, "headers") {
 		t.Fatalf("expected headers block, got %s", out)
 	}
 
 	params := map[string][]string{"q": {"search"}}
-	p := FormatRequestParams(params)
-	if !contains(p, "params") {
+	p := utils.FormatRequestParams(params)
+	if !strings.Contains(p, "params") {
 		t.Fatalf("expected params block")
 	}
 
 	rh := map[string]string{"Content-Type": "application/json"}
-	resp := FormatResponseHeaders(rh)
-	if !contains(resp, "headers") {
+	resp := utils.FormatResponseHeaders(rh)
+	if !strings.Contains(resp, "headers") {
 		t.Fatalf("expected response headers block")
 	}
-}
-
-func contains(s, sub string) bool {
-	return len(s) >= len(sub) && (s == sub || len(s) > 0 && (s[0:len(sub)] == sub || contains(s[1:], sub)))
 }

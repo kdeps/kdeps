@@ -6,6 +6,7 @@ import (
 	"sync"
 	"testing"
 
+	. "github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/stretchr/testify/assert"
 )
@@ -20,13 +21,13 @@ func TestSchemaVersion(t *testing.T) {
 	t.Run("returns specified version when UseLatest is false", func(t *testing.T) {
 		UseLatest = false
 		result := SchemaVersion(ctx)
-		assert.Equal(t, specifiedVersion, result, "expected specified version")
+		assert.Equal(t, SpecifiedVersion, result, "expected specified version")
 	})
 
 	t.Run("caches and returns latest version when UseLatest is true", func(t *testing.T) {
 		UseLatest = true
 		// Clear any existing cache
-		versionCache.Delete("version")
+		VersionCache.Delete("version")
 
 		// First call should fetch and cache
 		result1 := SchemaVersion(ctx)
@@ -37,7 +38,7 @@ func TestSchemaVersion(t *testing.T) {
 		assert.Equal(t, result1, result2, "expected cached version")
 
 		// Verify it's in cache
-		cached, ok := versionCache.Load("version")
+		cached, ok := VersionCache.Load("version")
 		assert.True(t, ok, "expected version to be cached")
 		assert.Equal(t, result1, cached.(string), "cached version mismatch")
 	})
@@ -48,7 +49,7 @@ func TestSchemaVersionSpecifiedVersion(t *testing.T) {
 	UseLatest = false
 
 	result := SchemaVersion(ctx)
-	assert.Equal(t, specifiedVersion, result, "expected specified version")
+	assert.Equal(t, SpecifiedVersion, result, "expected specified version")
 }
 
 func TestSchemaVersionCaching(t *testing.T) {
@@ -56,7 +57,7 @@ func TestSchemaVersionCaching(t *testing.T) {
 	UseLatest = true
 
 	// Clear any existing cache
-	versionCache.Delete("version")
+	VersionCache.Delete("version")
 
 	// First call should fetch and cache
 	result1 := SchemaVersion(ctx)
@@ -67,7 +68,7 @@ func TestSchemaVersionCaching(t *testing.T) {
 	assert.Equal(t, result1, result2, "expected cached version")
 
 	// Verify it's in cache
-	cached, ok := versionCache.Load("version")
+	cached, ok := VersionCache.Load("version")
 	assert.True(t, ok, "expected version to be cached")
 	assert.Equal(t, result1, cached.(string), "cached version mismatch")
 }
@@ -77,18 +78,18 @@ func TestSchemaVersionErrorHandling(t *testing.T) {
 
 	// Save original values
 	originalUseLatest := UseLatest
-	originalExitFunc := exitFunc
+	originalExitFunc := ExitFunc
 	defer func() {
 		UseLatest = originalUseLatest
-		exitFunc = originalExitFunc
+		ExitFunc = originalExitFunc
 	}()
 
 	UseLatest = true
-	versionCache.Delete("version")
+	VersionCache.Delete("version")
 
 	// Mock exitFunc to prevent actual exit
 	exitCalled := false
-	exitFunc = func(code int) {
+	ExitFunc = func(code int) {
 		exitCalled = true
 	}
 
@@ -117,7 +118,7 @@ func TestSchemaVersionCachedValue(t *testing.T) {
 
 	// Pre-populate cache
 	testVersion := "1.2.3"
-	versionCache.Store("version", testVersion)
+	VersionCache.Store("version", testVersion)
 
 	// Call SchemaVersion
 	result := SchemaVersion(ctx)
@@ -130,14 +131,14 @@ func TestSchemaVersionCachedValue(t *testing.T) {
 func TestSchemaVersionSpecified(t *testing.T) {
 	// Preserve global state and restore afterwards
 	origLatest := UseLatest
-	origSpecified := specifiedVersion
+	origSpecified := SpecifiedVersion
 	defer func() {
 		UseLatest = origLatest
-		specifiedVersion = origSpecified
+		SpecifiedVersion = origSpecified
 	}()
 
 	UseLatest = false
-	specifiedVersion = "9.9.9"
+	SpecifiedVersion = "9.9.9"
 
 	ver := SchemaVersion(context.Background())
 	assert.Equal(t, "9.9.9", ver)
@@ -151,7 +152,7 @@ func TestSchemaVersionLatestSuccess(t *testing.T) {
 	defer func() {
 		UseLatest = origLatest
 		utils.GitHubReleaseFetcher = origFetcher
-		versionCache.Delete("version")
+		VersionCache.Delete("version")
 	}()
 
 	UseLatest = true
@@ -172,11 +173,11 @@ func TestSchemaVersionLatestSuccess(t *testing.T) {
 func TestSchemaVersionLatestFailure(t *testing.T) {
 	origLatest := UseLatest
 	origFetcher := utils.GitHubReleaseFetcher
-	origExit := exitFunc
+	origExit := ExitFunc
 	defer func() {
 		UseLatest = origLatest
 		utils.GitHubReleaseFetcher = origFetcher
-		exitFunc = origExit
+		ExitFunc = origExit
 	}()
 
 	UseLatest = true
@@ -185,7 +186,7 @@ func TestSchemaVersionLatestFailure(t *testing.T) {
 	}
 
 	var code int
-	exitFunc = func(c int) { code = c }
+	ExitFunc = func(c int) { code = c }
 
 	SchemaVersion(context.Background())
 	assert.Equal(t, 1, code)
@@ -197,11 +198,11 @@ func TestSchemaVersionLatestFailure(t *testing.T) {
 func TestSchemaVersionSpecifiedExtra(t *testing.T) {
 	// Ensure we start from a clean slate.
 	UseLatest = false
-	versionCache = sync.Map{}
+	VersionCache = sync.Map{}
 
 	got := SchemaVersion(context.Background())
-	if got != specifiedVersion {
-		t.Fatalf("expected specifiedVersion %s, got %s", specifiedVersion, got)
+	if got != SpecifiedVersion {
+		t.Fatalf("expected specifiedVersion %s, got %s", SpecifiedVersion, got)
 	}
 }
 
@@ -220,7 +221,7 @@ func TestSchemaVersionLatestCachingExtra(t *testing.T) {
 
 	// Activate latest mode and clear cache.
 	UseLatest = true
-	versionCache = sync.Map{}
+	VersionCache = sync.Map{}
 
 	ctx := context.Background()
 	first := SchemaVersion(ctx)

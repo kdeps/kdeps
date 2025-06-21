@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
+	. "github.com/kdeps/kdeps/pkg/resource"
 )
 
 // TestLoadResource_FileNotFound verifies that LoadResource returns an error when

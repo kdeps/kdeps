@@ -7,13 +7,15 @@ import (
 	"strings"
 	"testing"
 
+	. "github.com/kdeps/kdeps/pkg/resolver"
+
 	"github.com/kdeps/kdeps/pkg/logging"
 	pklRes "github.com/kdeps/schema/gen/resource"
 	"github.com/spf13/afero"
 )
 
 // TestLoadResourceEntries verifies that .pkl files inside the workflow resources directory
-// are discovered and passed through processPklFile, using a stubbed LoadResourceFn so that
+// are discovered and passed through ProcessPklFile, using a stubbed LoadResourceFn so that
 // no actual Pkl evaluation is required.
 func TestLoadResourceEntries(t *testing.T) {
 	fs := afero.NewMemMapFs()
@@ -56,11 +58,11 @@ func TestLoadResourceEntries(t *testing.T) {
 		return &pklRes.Resource{ActionID: id}, nil
 	}
 
-	// Manually invoke processPklFile for each dummy file instead of walking the directory
+	// Manually invoke ProcessPklFile for each dummy file instead of walking the directory
 	for _, f := range files {
 		p := filepath.Join(resourcesDir, f)
-		if err := dr.processPklFile(p); err != nil {
-			t.Fatalf("processPklFile returned error for %s: %v", p, err)
+		if err := dr.ProcessPklFile(p); err != nil {
+			t.Fatalf("ProcessPklFile returned error for %s: %v", p, err)
 		}
 	}
 
@@ -100,7 +102,7 @@ func TestHandleFileImports_DelegatesToInjectedFns(t *testing.T) {
 		return nil
 	}
 
-	if err := dr.handleFileImports(argPath); err != nil {
+	if err := dr.HandleFileImports(argPath); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -116,7 +118,7 @@ func TestHandleFileImports_PropagatesError(t *testing.T) {
 		return errors.New("boom")
 	}
 
-	if err := dr.handleFileImports("file.pkl"); err == nil {
+	if err := dr.HandleFileImports("file.pkl"); err == nil {
 		t.Fatal("expected error but got nil")
 	}
 }

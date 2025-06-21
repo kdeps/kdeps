@@ -3,6 +3,8 @@ package utils_test
 import (
 	"testing"
 
+	. "github.com/kdeps/kdeps/pkg/utils"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -145,6 +147,14 @@ func TestTruncateString(t *testing.T) {
 	s := "abcdefghijklmnopqrstuvwxyz"
 	assert.Equal(t, s, TruncateString(s, len(s)))
 	assert.Equal(t, "abc...", TruncateString(s, 6))
+}
+
+func TestTruncateString_ShortMaxLength(t *testing.T) {
+	input := "abcdef"
+	result := TruncateString(input, 2)
+	if result != "..." {
+		t.Errorf("expected '...', got %q", result)
+	}
 }
 
 func TestContainsStringInsensitiveExtra(t *testing.T) {

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	. "github.com/kdeps/kdeps/pkg/kdepsexec"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/stretchr/testify/assert"
 

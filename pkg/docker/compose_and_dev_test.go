@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	. "github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
@@ -98,7 +99,7 @@ func TestCheckDevBuildMode_Variants(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Case: file missing → dev mode false
-	dev, err := checkDevBuildMode(fs, kdepsDir, logger)
+	dev, err := CheckDevBuildMode(fs, kdepsDir, logger)
 	require.NoError(t, err)
 	require.False(t, dev)
 
@@ -108,7 +109,7 @@ func TestCheckDevBuildMode_Variants(t *testing.T) {
 	filePath := filepath.Join(cacheDir, "kdeps")
 	require.NoError(t, afero.WriteFile(fs, filePath, []byte("bin"), 0o644))
 
-	dev, err = checkDevBuildMode(fs, kdepsDir, logger)
+	dev, err = CheckDevBuildMode(fs, kdepsDir, logger)
 	require.NoError(t, err)
 	require.True(t, dev)
 
@@ -116,7 +117,7 @@ func TestCheckDevBuildMode_Variants(t *testing.T) {
 	require.NoError(t, fs.Remove(filePath))
 	require.NoError(t, fs.MkdirAll(filePath, 0o755))
 
-	dev, err = checkDevBuildMode(fs, kdepsDir, logger)
+	dev, err = CheckDevBuildMode(fs, kdepsDir, logger)
 	require.NoError(t, err)
 	require.False(t, dev)
 }

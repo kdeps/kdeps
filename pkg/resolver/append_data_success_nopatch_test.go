@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	. "github.com/kdeps/kdeps/pkg/resolver"
+
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	pklData "github.com/kdeps/schema/gen/data"

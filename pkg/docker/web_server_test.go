@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	. "github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/schema"
@@ -38,7 +39,9 @@ func TestHandleAppRequest_Misconfiguration(t *testing.T) {
 	}
 
 	// hostIP is empty -> should trigger error branch and return 500
-	handler := handleAppRequestWrapper("", route, dr.Logger)
+	handler := func(c *gin.Context) {
+		HandleAppRequest(c, "", route, dr.Logger)
+	}
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -51,13 +54,6 @@ func TestHandleAppRequest_Misconfiguration(t *testing.T) {
 	}
 }
 
-// helper to expose handleAppRequest (unexported) via closure
-func handleAppRequestWrapper(hostIP string, route *webserver.WebServerRoutes, logger *logging.Logger) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		handleAppRequest(c, hostIP, route, logger)
-	}
-}
-
 // TestLogDirectoryContents ensures no panic and logs for empty/filled dir.
 func TestLogDirectoryContentsNoPanic(t *testing.T) {
 	fs := afero.NewMemMapFs()
@@ -65,12 +61,12 @@ func TestLogDirectoryContentsNoPanic(t *testing.T) {
 	dr := &resolver.DependencyResolver{Fs: fs, Logger: logger}
 
 	// Case 1: directory missing – should just log an error and continue.
-	logDirectoryContents(dr, "/not-exist", logger)
+	LogDirectoryContents(dr, "/not-exist", logger)
 
 	// Case 2: directory with files – should iterate entries.
 	_ = fs.MkdirAll("/data", 0o755)
 	_ = afero.WriteFile(fs, "/data/hello.txt", []byte("hi"), 0o644)
-	logDirectoryContents(dr, "/data", logger)
+	LogDirectoryContents(dr, "/data", logger)
 }
 
 // Second misconfiguration scenario (empty host) is covered via TestHandleAppRequest_Misconfiguration.
@@ -103,14 +99,14 @@ func TestWebServerHandler_Static(t *testing.T) {
 		ServerType: webservertype.Static,
 	}
 
-	handler := WebServerHandler(context.Background(), "", route, dr)
+	handler := WebServerHandler(context.Background(), "", route, dr) //nolint:bodyclose
 
 	req := httptest.NewRequest(http.MethodGet, "/public/hello.txt", nil)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request = req
 
-	handler(c)
+	handler(c) //nolint:bodyclose
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", w.Code)
@@ -141,7 +137,6 @@ func TestWebServerHandler_AppError(t *testing.T) {
 	}
 
 	handler := WebServerHandler(context.Background(), "", route, dr)
-
 	req := httptest.NewRequest(http.MethodGet, "/proxy/x", nil)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -180,7 +175,7 @@ func TestHandleAppRequest_BadGateway(t *testing.T) {
 
 	// Build handler closure using wrapper from earlier helper pattern
 	handler := func(c *gin.Context) {
-		handleAppRequest(c, "127.0.0.1", route, logger)
+		HandleAppRequest(c, "127.0.0.1", route, logger)
 	}
 
 	rec := httptest.NewRecorder()
@@ -240,7 +235,7 @@ func TestHandleStaticRequest_Static(t *testing.T) {
 	ctx.Request = httptest.NewRequest("GET", "/static/index.txt", nil)
 
 	// Invoke static handler directly
-	handleStaticRequest(ctx, filepath.Join(dataDir, route.PublicPath), route)
+	HandleStaticRequest(ctx, filepath.Join(dataDir, route.PublicPath), route)
 
 	if w.Code != 200 {
 		t.Fatalf("expected 200, got %d", w.Code)
@@ -634,7 +629,7 @@ func TestSetupWebRoutes(t *testing.T) {
 			},
 		}
 
-		setupWebRoutes(router, ctx, "localhost", []string{"127.0.0.1"}, routes, dr)
+		SetupWebRoutes(router, ctx, "localhost", []string{"127.0.0.1"}, routes, dr)
 	})
 
 	t.Run("NilRoute", func(t *testing.T) {
@@ -648,7 +643,7 @@ func TestSetupWebRoutes(t *testing.T) {
 
 		routes := []*webserver.WebServerRoutes{nil}
 
-		setupWebRoutes(router, ctx, "localhost", nil, routes, dr)
+		SetupWebRoutes(router, ctx, "localhost", nil, routes, dr)
 	})
 
 	t.Run("EmptyPath", func(t *testing.T) {
@@ -668,7 +663,7 @@ func TestSetupWebRoutes(t *testing.T) {
 			},
 		}
 
-		setupWebRoutes(router, ctx, "localhost", nil, routes, dr)
+		SetupWebRoutes(router, ctx, "localhost", nil, routes, dr)
 	})
 
 	t.Run("InvalidTrustedProxies", func(t *testing.T) {
@@ -689,7 +684,7 @@ func TestSetupWebRoutes(t *testing.T) {
 		}
 
 		// Invalid IP address that will cause SetTrustedProxies to fail
-		setupWebRoutes(router, ctx, "localhost", []string{"invalid.ip"}, routes, dr)
+		SetupWebRoutes(router, ctx, "localhost", []string{"invalid.ip"}, routes, dr)
 	})
 
 	t.Run("NilRouter", func(t *testing.T) {
@@ -710,7 +705,7 @@ func TestSetupWebRoutes(t *testing.T) {
 
 		// Should panic when router is nil
 		assert.Panics(t, func() {
-			setupWebRoutes(nil, ctx, "localhost", nil, routes, dr)
+			SetupWebRoutes(nil, ctx, "localhost", nil, routes, dr)
 		})
 	})
 
@@ -731,7 +726,7 @@ func TestSetupWebRoutes(t *testing.T) {
 		}
 
 		// Should not panic
-		setupWebRoutes(router, nil, "localhost", nil, routes, dr)
+		SetupWebRoutes(router, nil, "localhost", nil, routes, dr)
 	})
 
 	t.Run("NilRoutes", func(t *testing.T) {
@@ -746,7 +741,7 @@ func TestSetupWebRoutes(t *testing.T) {
 		router := gin.Default()
 
 		// Call setupWebRoutes with nil routes
-		setupWebRoutes(router, context.Background(), "localhost", nil, nil, mockResolver)
+		SetupWebRoutes(router, context.Background(), "localhost", nil, nil, mockResolver)
 		// Should not panic
 	})
 
@@ -771,7 +766,7 @@ func TestSetupWebRoutes(t *testing.T) {
 		}
 
 		// Call setupWebRoutes with invalid trusted proxy
-		setupWebRoutes(router, context.Background(), "localhost", []string{"invalid-ip"}, routes, mockResolver)
+		SetupWebRoutes(router, context.Background(), "localhost", []string{"invalid-ip"}, routes, mockResolver)
 		// Should not panic and should log error
 	})
 
@@ -797,7 +792,7 @@ func TestSetupWebRoutes(t *testing.T) {
 		ctx := context.Background()
 
 		// Call function with invalid trusted proxies
-		setupWebRoutes(router, ctx, "localhost", []string{"invalid-proxy"}, []*webserver.WebServerRoutes{route}, dr)
+		SetupWebRoutes(router, ctx, "localhost", []string{"invalid-proxy"}, []*webserver.WebServerRoutes{route}, dr)
 	})
 }
 
@@ -1004,7 +999,7 @@ func TestLogDirectoryContents(t *testing.T) {
 		}
 
 		// Call logDirectoryContents with non-existent directory
-		logDirectoryContents(mockResolver, "/tmp/nonexistent", mockResolver.Logger)
+		LogDirectoryContents(mockResolver, "/tmp/nonexistent", mockResolver.Logger)
 		// Should not panic and should log error
 	})
 
@@ -1021,7 +1016,7 @@ func TestLogDirectoryContents(t *testing.T) {
 		require.NoError(t, err)
 
 		// Call logDirectoryContents with empty directory
-		logDirectoryContents(mockResolver, "/tmp/empty", mockResolver.Logger)
+		LogDirectoryContents(mockResolver, "/tmp/empty", mockResolver.Logger)
 		// Should not panic and should log empty directory
 	})
 }
@@ -1041,7 +1036,7 @@ func TestStartAppCommand(t *testing.T) {
 		logger := logging.NewTestLogger()
 
 		// Call startAppCommand with invalid command
-		startAppCommand(context.Background(), route, "/tmp", logger)
+		StartAppCommand(context.Background(), route, "/tmp", logger)
 		// Should not panic and should log error
 	})
 
@@ -1058,7 +1053,7 @@ func TestStartAppCommand(t *testing.T) {
 		logger := logging.NewTestLogger()
 
 		// Call startAppCommand with nil command
-		startAppCommand(context.Background(), route, "/tmp", logger)
+		StartAppCommand(context.Background(), route, "/tmp", logger)
 		// Should not panic and should not log error
 	})
 }

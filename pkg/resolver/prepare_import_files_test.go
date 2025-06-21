@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	. "github.com/kdeps/kdeps/pkg/resolver"
+
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 )

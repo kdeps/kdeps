@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/kdeps/kdeps/pkg/resolver"
+
 	"github.com/kdeps/kdeps/pkg/logging"
 	apiserverresponse "github.com/kdeps/schema/gen/api_server_response"
 	"github.com/kdeps/schema/gen/data"
@@ -124,14 +126,14 @@ func TestAppendDataEntry(t *testing.T) {
 
 func TestFormatDataValue(t *testing.T) {
 	// Simple string value should embed JSONRenderDocument lines
-	out := formatDataValue("hello")
+	out := FormatDataValue("hello")
 	if !strings.Contains(out, "JSONRenderDocument") {
 		t.Errorf("expected JSONRenderDocument in output, got %s", out)
 	}
 
 	// Map value path should still produce block
 	m := map[string]interface{}{"k": "v"}
-	out2 := formatDataValue(m)
+	out2 := FormatDataValue(m)
 	if !strings.Contains(out2, "k") {
 		t.Errorf("map key lost in formatting: %s", out2)
 	}
@@ -144,7 +146,7 @@ func TestFormatErrorsMultiple(t *testing.T) {
 		{Code: 400, Message: "bad"},
 		{Code: 500, Message: msg},
 	}
-	out := formatErrors(errorsSlice, logger)
+	out := FormatErrors(errorsSlice, logger)
 	if !strings.Contains(out, "code = 400") || !strings.Contains(out, "code = 500") {
 		t.Errorf("codes missing: %s", out)
 	}

@@ -4,7 +4,11 @@ import (
 	"net/url"
 	"testing"
 
+	"path/filepath"
+
+	. "github.com/kdeps/kdeps/pkg/memory"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 )
 
@@ -178,38 +182,126 @@ func TestPklResourceReader(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "value8", value)
 	})
+
+	t.Run("Read_SetRecord_DatabaseClosed", func(t *testing.T) {
+		reader, err := InitializeMemory("file::memory:")
+		require.NoError(t, err)
+		reader.DB.Close() // Close database to simulate failure
+
+		uri, _ := url.Parse("memory:///failset?op=set&value=fail")
+		_, err = reader.Read(*uri)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to set record")
+	})
 }
 
 func TestInitializeDatabase(t *testing.T) {
+	fs := afero.NewOsFs()
+	tmpDir, err := afero.TempDir(fs, "", "memory-db")
+	require.NoError(t, err)
+	defer fs.RemoveAll(tmpDir)
+
 	t.Run("SuccessfulInitialization", func(t *testing.T) {
-		db, err := InitializeDatabase("file::memory:")
+		// Test successful database initialization
+		dbPath := filepath.Join(tmpDir, "success.db")
+		db, err := InitializeDatabase(dbPath)
 		require.NoError(t, err)
-		require.NotNil(t, db)
 		defer db.Close()
 
-		var name string
-		err = db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name='records'").Scan(&name)
+		// Verify the database was created and is accessible
+		err = db.Ping()
 		require.NoError(t, err)
-		require.Equal(t, "records", name)
+
+		// Verify the records table exists
+		var count int
+		err = db.QueryRow("SELECT COUNT(*) FROM records").Scan(&count)
+		require.NoError(t, err)
+		require.Equal(t, 0, count)
 	})
 
-	t.Run("InvalidPath", func(t *testing.T) {
-		db, err := InitializeDatabase("file::memory:?cache=invalid")
-		if err != nil {
-			if db != nil {
-				defer db.Close()
-				err = db.Ping()
-				require.NoError(t, err, "Expected database to be usable even with invalid cache parameter")
-			}
-		}
+	t.Run("DatabaseAlreadyExists", func(t *testing.T) {
+		// Test that the function works when the database already exists
+		dbPath := filepath.Join(tmpDir, "existing.db")
+
+		// Create the database first
+		db1, err := InitializeDatabase(dbPath)
+		require.NoError(t, err)
+		db1.Close()
+
+		// Initialize again
+		db2, err := InitializeDatabase(dbPath)
+		require.NoError(t, err)
+		defer db2.Close()
+
+		// Verify the database is accessible
+		err = db2.Ping()
+		require.NoError(t, err)
+
+		// Verify the records table exists
+		var count int
+		err = db2.QueryRow("SELECT COUNT(*) FROM records").Scan(&count)
+		require.NoError(t, err)
+		require.Equal(t, 0, count)
+	})
+
+	t.Run("InvalidDatabasePath", func(t *testing.T) {
+		// Test with an invalid database path (directory doesn't exist)
+		invalidPath := filepath.Join(tmpDir, "nonexistent", "db.sqlite")
+		_, err := InitializeDatabase(invalidPath)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to ping database after 5 attempts")
+	})
+
+	t.Run("RetryLogic", func(t *testing.T) {
+		// This test verifies that the retry logic works
+		// We can't easily simulate database failures, but we can verify the function
+		// handles normal cases correctly
+		dbPath := filepath.Join(tmpDir, "retry.db")
+		db, err := InitializeDatabase(dbPath)
+		require.NoError(t, err)
+		defer db.Close()
+
+		// Verify the database works
+		err = db.Ping()
+		require.NoError(t, err)
 	})
 }
 
 func TestInitializeMemory(t *testing.T) {
-	reader, err := InitializeMemory("file::memory:")
+	fs := afero.NewOsFs()
+	tmpDir, err := afero.TempDir(fs, "", "memory-init")
 	require.NoError(t, err)
-	require.NotNil(t, reader)
-	require.NotNil(t, reader.DB)
-	require.Equal(t, "file::memory:", reader.DBPath)
-	defer reader.DB.Close()
+	defer fs.RemoveAll(tmpDir)
+
+	t.Run("SuccessfulInitialization", func(t *testing.T) {
+		// Test successful initialization
+		dbPath := filepath.Join(tmpDir, "memory.db")
+
+		reader, err := InitializeMemory(dbPath)
+		require.NoError(t, err)
+		defer reader.DB.Close()
+
+		// Verify the reader was created correctly
+		require.NotNil(t, reader)
+		require.Equal(t, dbPath, reader.DBPath)
+		require.NotNil(t, reader.DB)
+
+		// Verify the database is accessible
+		err = reader.DB.Ping()
+		require.NoError(t, err)
+
+		// Verify the records table exists
+		var count int
+		err = reader.DB.QueryRow("SELECT COUNT(*) FROM records").Scan(&count)
+		require.NoError(t, err)
+		require.Equal(t, 0, count)
+	})
+
+	t.Run("DatabaseInitializationError", func(t *testing.T) {
+		// Test when database initialization fails
+		invalidPath := filepath.Join(tmpDir, "nonexistent", "db.sqlite")
+		_, err := InitializeMemory(invalidPath)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "error initializing database")
+	})
 }

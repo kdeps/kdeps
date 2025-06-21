@@ -17,6 +17,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
+	. "github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -92,7 +93,7 @@ func TestCleanupFlagFilesSimple(t *testing.T) {
 		}
 	}
 
-	cleanupFlagFiles(fs, files, logger)
+	CleanupFlagFiles(fs, files, logger)
 
 	// Verify they are removed
 	for _, f := range files {
@@ -177,12 +178,12 @@ func TestCreateFlagFileAndCleanup(t *testing.T) {
 	}
 
 	logger := logging.NewTestLogger()
-	cleanupFlagFiles(fs, []string{flag1, flag2}, logger)
+	CleanupFlagFiles(fs, []string{flag1, flag2}, logger)
 
 	// Confirm they are removed.
 	for _, p := range []string{flag1, flag2} {
 		if ok, _ := afero.Exists(fs, p); ok {
-			t.Fatalf("expected %s to be removed by cleanupFlagFiles", p)
+			t.Fatalf("expected %s to be removed by CleanupFlagFiles", p)
 		}
 	}
 
@@ -255,7 +256,7 @@ func TestCleanupFlagFilesExtra(t *testing.T) {
 	require.NoError(t, afero.WriteFile(fs, files[0], []byte("x"), 0o644))
 	require.NoError(t, afero.WriteFile(fs, files[1], []byte("y"), 0o644))
 
-	cleanupFlagFiles(fs, files, logger)
+	CleanupFlagFiles(fs, files, logger)
 
 	for _, f := range files {
 		exists, _ := afero.Exists(fs, f)
@@ -274,7 +275,7 @@ func TestCleanupFlagFiles_RemovesExisting(t *testing.T) {
 	_ = afero.WriteFile(fs, f1, []byte("x"), 0o644)
 	_ = afero.WriteFile(fs, f2, []byte("y"), 0o644)
 
-	cleanupFlagFiles(fs, []string{f1, f2}, logger)
+	CleanupFlagFiles(fs, []string{f1, f2}, logger)
 
 	for _, p := range []string{f1, f2} {
 		if exists, _ := afero.Exists(fs, p); exists {
@@ -288,7 +289,7 @@ func TestCleanupFlagFiles_NonExistent(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Call with files that don't exist; should not panic or error.
-	cleanupFlagFiles(fs, []string{"/missing1", "/missing2"}, logger)
+	CleanupFlagFiles(fs, []string{"/missing1", "/missing2"}, logger)
 }
 
 type stubPruneClient struct {
@@ -342,7 +343,7 @@ func TestCleanupFlagFilesRemoveAllExtra(t *testing.T) {
 		afero.WriteFile(fs, p, []byte("x"), 0o644)
 	}
 
-	cleanupFlagFiles(fs, paths, logger)
+	CleanupFlagFiles(fs, paths, logger)
 
 	for _, p := range paths {
 		if exists, _ := afero.Exists(fs, p); exists {
@@ -406,7 +407,7 @@ func TestCleanupFlagFilesAdditional(t *testing.T) {
 	// flag2 intentionally does NOT exist to hit the non-existence branch.
 	flag2 := filepath.Join(tmpDir, "flag2")
 
-	cleanupFlagFiles(fs, []string{flag1, flag2}, logger)
+	CleanupFlagFiles(fs, []string{flag1, flag2}, logger)
 
 	// Verify flag1 has been deleted and flag2 still does not exist.
 	_, err := fs.Stat(flag1)
@@ -732,7 +733,7 @@ func TestCleanupFlagFiles(t *testing.T) {
 
 	// Test case 1: No files to remove
 	files := []string{}
-	cleanupFlagFiles(fs, files, logger)
+	CleanupFlagFiles(fs, files, logger)
 	t.Log("cleanupFlagFiles with no files test passed")
 
 	// Test case 2: Remove existing file
@@ -742,7 +743,7 @@ func TestCleanupFlagFiles(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 	files = []string{filePath}
-	cleanupFlagFiles(fs, files, logger)
+	CleanupFlagFiles(fs, files, logger)
 	_, err = afero.ReadFile(fs, filePath)
 	if err == nil {
 		t.Errorf("Expected file to be removed, but it still exists")
@@ -751,7 +752,7 @@ func TestCleanupFlagFiles(t *testing.T) {
 
 	// Test case 3: Attempt to remove non-existing file
 	files = []string{"/test/nonexistent"}
-	cleanupFlagFiles(fs, files, logger)
+	CleanupFlagFiles(fs, files, logger)
 	t.Log("cleanupFlagFiles with non-existing file test passed")
 
 	// Test case 4: Multiple files, some existing, some not
@@ -761,7 +762,7 @@ func TestCleanupFlagFiles(t *testing.T) {
 		t.Fatalf("Failed to create second test file: %v", err)
 	}
 	files = []string{filePath2, "/test/nonexistent2"}
-	cleanupFlagFiles(fs, files, logger)
+	CleanupFlagFiles(fs, files, logger)
 	_, err = afero.ReadFile(fs, filePath2)
 	if err == nil {
 		t.Errorf("Expected second file to be removed, but it still exists")
@@ -819,7 +820,7 @@ func TestCleanupFlagFilesMemFS(t *testing.T) {
 	}
 
 	// Call cleanupFlagFiles and ensure files are removed without error.
-	cleanupFlagFiles(fs, []string{file1, file2}, logger)
+	CleanupFlagFiles(fs, []string{file1, file2}, logger)
 
 	for _, f := range []string{file1, file2} {
 		exists, _ := afero.Exists(fs, f)
@@ -829,7 +830,7 @@ func TestCleanupFlagFilesMemFS(t *testing.T) {
 	}
 
 	// Calling cleanupFlagFiles again should hit the os.IsNotExist branch and not fail.
-	cleanupFlagFiles(fs, []string{file1, file2}, logger)
+	CleanupFlagFiles(fs, []string{file1, file2}, logger)
 }
 
 func TestServerReadyHelpers(t *testing.T) {
@@ -841,22 +842,22 @@ func TestServerReadyHelpers(t *testing.T) {
 	host, port, _ := net.SplitHostPort(ln.Addr().String())
 
 	t.Run("isServerReady_true", func(t *testing.T) {
-		assert.True(t, isServerReady(host, port, logger))
+		assert.True(t, IsServerReady(host, port, logger))
 	})
 
 	t.Run("waitForServer_success", func(t *testing.T) {
-		assert.NoError(t, waitForServer(host, port, 2*time.Second, logger))
+		assert.NoError(t, WaitForServer(host, port, 2*time.Second, logger))
 	})
 
 	// close listener to make port unavailable
 	_ = ln.Close()
 
 	t.Run("isServerReady_false", func(t *testing.T) {
-		assert.False(t, isServerReady(host, port, logger))
+		assert.False(t, IsServerReady(host, port, logger))
 	})
 
 	t.Run("waitForServer_timeout", func(t *testing.T) {
-		err := waitForServer(host, port, 1500*time.Millisecond, logger)
+		err := WaitForServer(host, port, 1500*time.Millisecond, logger)
 		assert.Error(t, err)
 	})
 }
@@ -874,19 +875,19 @@ func TestIsServerReady_Extra(t *testing.T) {
 
 	_, port, _ := net.SplitHostPort(ln.Addr().String())
 
-	if !isServerReady("127.0.0.1", port, logger) {
+	if !IsServerReady("127.0.0.1", port, logger) {
 		t.Fatalf("server should be reported as ready on open port")
 	}
 
 	// pick an arbitrary high port unlikely to be used (and different)
-	if isServerReady("127.0.0.1", "65535", logger) {
+	if IsServerReady("127.0.0.1", "65535", logger) {
 		t.Fatalf("server should not be ready on closed port")
 	}
 
 	schema.SchemaVersion(context.Background()) // maintain convention
 }
 
-// TestWaitForServerQuickSuccess ensures waitForServer returns quickly when the
+// TestWaitForServerQuickSuccess ensures WaitForServer returns quickly when the
 // port is already open.
 func TestWaitForServerQuickSuccess(t *testing.T) {
 	logger := logging.NewTestLogger()
@@ -899,11 +900,11 @@ func TestWaitForServerQuickSuccess(t *testing.T) {
 	_, port, _ := net.SplitHostPort(ln.Addr().String())
 
 	start := time.Now()
-	if err := waitForServer("127.0.0.1", port, 500*time.Millisecond, logger); err != nil {
-		t.Fatalf("waitForServer returned error: %v", err)
+	if err := WaitForServer("127.0.0.1", port, 500*time.Millisecond, logger); err != nil {
+		t.Fatalf("WaitForServer returned error: %v", err)
 	}
 	if elapsed := time.Since(start); elapsed > 100*time.Millisecond {
-		t.Fatalf("waitForServer took too long: %v", elapsed)
+		t.Fatalf("WaitForServer took too long: %v", elapsed)
 	}
 
 	schema.SchemaVersion(context.Background())
@@ -924,33 +925,29 @@ func TestIsServerReadyAndWaitForServerExtra(t *testing.T) {
 	host, port, _ := net.SplitHostPort(ln.Addr().String())
 
 	// Expect server to be reported as ready.
-	if !isServerReady(host, port, logger) {
+	if !IsServerReady(host, port, logger) {
 		t.Fatalf("expected server to be ready")
 	}
 
-	// waitForServer should return quickly for an already-ready server.
-	if err := waitForServer(host, port, 2*time.Second, logger); err != nil {
-		t.Fatalf("waitForServer returned error: %v", err)
+	// WaitForServer should return quickly for an already-ready server.
+	if err := WaitForServer(host, port, 2*time.Second, logger); err != nil {
+		t.Fatalf("WaitForServer returned error: %v", err)
 	}
 
 	// Close listener to test timeout path.
 	ln.Close()
 
 	start := time.Now()
-	err = waitForServer(host, port, 1*time.Second, logger)
+	err = WaitForServer(host, port, 1*time.Second, logger)
 	if err == nil {
 		t.Fatalf("expected timeout error, got nil")
 	}
 	if time.Since(start) < 1*time.Second {
-		t.Fatalf("waitForServer returned too quickly, expected it to wait for timeout")
+		t.Fatalf("WaitForServer returned too quickly, expected it to wait for timeout")
 	}
 
 	// Context compile-time check to ensure startOllamaServer callable without panic.
-	// We cannot execute it because it would attempt to run an external binary, but we
-	// can at least ensure it does not panic when invoked with a canceled context.
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	startOllamaServer(ctx, logger)
+	StartOllamaServer(context.Background(), logger)
 }
 
 func TestIsServerReadyAndWaitForServer(t *testing.T) {
@@ -967,13 +964,13 @@ func TestIsServerReadyAndWaitForServer(t *testing.T) {
 	host, port, _ := strings.Cut(addr, ":")
 
 	// isServerReady should return true.
-	if ready := isServerReady(host, port, logger); !ready {
+	if ready := IsServerReady(host, port, logger); !ready {
 		t.Errorf("expected server to be ready on %s:%s", host, port)
 	}
 
 	// waitForServer should return quickly because it's already ready.
-	if err := waitForServer(host, port, 3*time.Second, logger); err != nil {
-		t.Errorf("waitForServer returned error: %v", err)
+	if err := WaitForServer(host, port, 3*time.Second, logger); err != nil {
+		t.Errorf("WaitForServer returned error: %v", err)
 	}
 
 	// Close the listener to test negative case quickly with isServerReady
@@ -981,7 +978,7 @@ func TestIsServerReadyAndWaitForServer(t *testing.T) {
 	// Choose a port unlikely to be in use (listener just closed)
 	pInt, _ := strconv.Atoi(port)
 	unavailablePort := strconv.Itoa(pInt)
-	if ready := isServerReady(host, unavailablePort, logger); ready {
+	if ready := IsServerReady(host, unavailablePort, logger); ready {
 		t.Errorf("expected server NOT to be ready on closed port %s", unavailablePort)
 	}
 }
@@ -994,7 +991,7 @@ func TestWaitForServerTimeout(t *testing.T) {
 	port := "65000"
 
 	start := time.Now()
-	err := waitForServer(host, port, 1500*time.Millisecond, logger)
+	err := WaitForServer(host, port, 1500*time.Millisecond, logger)
 	duration := time.Since(start)
 
 	if err == nil {
@@ -1002,7 +999,7 @@ func TestWaitForServerTimeout(t *testing.T) {
 	}
 	// Ensure it respected the timeout (±500ms)
 	if duration < time.Second || duration > 3*time.Second {
-		t.Errorf("waitForServer duration out of expected bounds: %v", duration)
+		t.Errorf("WaitForServer duration out of expected bounds: %v", duration)
 	}
 }
 
@@ -1017,13 +1014,13 @@ func TestIsServerReadyListener(t *testing.T) {
 	addr := ln.Addr().(*net.TCPAddr)
 	portStr := strconv.Itoa(addr.Port)
 
-	if !isServerReady("127.0.0.1", portStr, logger) {
+	if !IsServerReady("127.0.0.1", portStr, logger) {
 		t.Fatalf("expected server to be ready on open port")
 	}
 	ln.Close()
 
 	// After closing listener, readiness should fail
-	if isServerReady("127.0.0.1", portStr, logger) {
+	if IsServerReady("127.0.0.1", portStr, logger) {
 		t.Fatalf("expected server NOT ready after listener closed")
 	}
 }
@@ -1032,12 +1029,12 @@ func TestWaitForServerTimeoutShort(t *testing.T) {
 	logger := logging.NewTestLogger()
 	port := "65534" // unlikely to be in use
 	start := time.Now()
-	err := waitForServer("127.0.0.1", port, 1500*time.Millisecond, logger)
+	err := WaitForServer("127.0.0.1", port, 1500*time.Millisecond, logger)
 	if err == nil {
 		t.Fatalf("expected timeout error")
 	}
 	if time.Since(start) < 1500*time.Millisecond {
-		t.Fatalf("waitForServer returned too early")
+		t.Fatalf("WaitForServer returned too early")
 	}
 }
 
@@ -1052,14 +1049,14 @@ func TestIsServerReadyVariants(t *testing.T) {
 	defer ln.Close()
 	host, port, _ := net.SplitHostPort(ln.Addr().String())
 
-	if ok := isServerReady(host, port, logger); !ok {
+	if ok := IsServerReady(host, port, logger); !ok {
 		t.Fatalf("expected server to be ready")
 	}
 
 	// Close listener to make port unavailable.
 	ln.Close()
 
-	if ok := isServerReady(host, port, logger); ok {
+	if ok := IsServerReady(host, port, logger); ok {
 		t.Fatalf("expected server to be NOT ready after close")
 	}
 }
@@ -1077,34 +1074,34 @@ func TestIsServerReadyAndWaitForServerSimple(t *testing.T) {
 	host, portStr, _ := net.SplitHostPort(ln.Addr().String())
 
 	// Positive case for isServerReady
-	if !isServerReady(host, portStr, logger) {
+	if !IsServerReady(host, portStr, logger) {
 		t.Fatalf("expected server to be ready on open port")
 	}
 
-	// Positive case for waitForServer with short timeout
-	if err := waitForServer(host, portStr, 2*time.Second, logger); err != nil {
-		t.Fatalf("waitForServer unexpectedly failed: %v", err)
+	// Positive case for WaitForServer with short timeout
+	if err := WaitForServer(host, portStr, 2*time.Second, logger); err != nil {
+		t.Fatalf("WaitForServer unexpectedly failed: %v", err)
 	}
 
 	// Close listener to test negative path
 	ln.Close()
 
 	// Now port should be closed; isServerReady should return false
-	if isServerReady(host, portStr, logger) {
+	if IsServerReady(host, portStr, logger) {
 		t.Fatalf("expected server not ready after listener closed")
 	}
 
-	// waitForServer should timeout quickly
+	// WaitForServer should timeout quickly
 	timeout := 1500 * time.Millisecond
 	start := time.Now()
-	err = waitForServer(host, portStr, timeout, logger)
+	err = WaitForServer(host, portStr, timeout, logger)
 	if err == nil {
 		t.Fatalf("expected timeout error, got nil")
 	}
 	elapsed := time.Since(start)
 	// Ensure we waited at least 'timeout' but not excessively more (allow 1s margin)
 	if elapsed < timeout || elapsed > timeout+time.Second {
-		t.Fatalf("waitForServer elapsed time unexpected: %s (timeout %s)", elapsed, timeout)
+		t.Fatalf("WaitForServer elapsed time unexpected: %s (timeout %s)", elapsed, timeout)
 	}
 }
 
@@ -1115,9 +1112,9 @@ func TestStartOllamaServerReturn(t *testing.T) {
 	defer cancel()
 
 	start := time.Now()
-	startOllamaServer(ctx, logger)
+	StartOllamaServer(ctx, logger)
 	if time.Since(start) > 200*time.Millisecond {
-		t.Fatalf("startOllamaServer took too long to return")
+		t.Fatalf("StartOllamaServer took too long to return")
 	}
 }
 
@@ -1130,13 +1127,13 @@ func TestStartOllamaServer_NoBinary(t *testing.T) {
 	defer cancel()
 
 	start := time.Now()
-	startOllamaServer(ctx, logging.NewTestLogger())
+	StartOllamaServer(ctx, logging.NewTestLogger())
 	elapsed := time.Since(start)
 
 	// The function should return almost instantly because it only launches the
 	// background goroutine. Use a generous threshold to avoid flakes.
 	if elapsed > 100*time.Millisecond {
-		t.Fatalf("startOllamaServer took too long: %v", elapsed)
+		t.Fatalf("StartOllamaServer took too long: %v", elapsed)
 	}
 }
 
@@ -1157,7 +1154,7 @@ func TestStartOllamaServerBackground(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Call the function under test; it should return immediately.
-	startOllamaServer(context.Background(), logger)
+	StartOllamaServer(context.Background(), logger)
 
 	// Allow some time for the goroutine in KdepsExec to start and finish.
 	time.Sleep(150 * time.Millisecond)
@@ -1177,7 +1174,7 @@ func TestStartOllamaServerSimple(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Call function under test; it should return immediately and not panic.
-	startOllamaServer(ctx, logger)
+	StartOllamaServer(ctx, logger)
 
 	// Give the background goroutine a brief moment to run and fail gracefully.
 	time.Sleep(10 * time.Millisecond)
@@ -1189,7 +1186,7 @@ func TestCheckDevBuildModeVariants(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Case 1: file missing -> expect false
-	ok, err := checkDevBuildMode(fs, kdepsDir, logger)
+	ok, err := CheckDevBuildMode(fs, kdepsDir, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1202,7 +1199,7 @@ func TestCheckDevBuildModeVariants(t *testing.T) {
 	_ = fs.MkdirAll(filepath.Dir(cacheFile), 0o755)
 	_ = afero.WriteFile(fs, cacheFile, []byte("bin"), 0o755)
 
-	ok, err = checkDevBuildMode(fs, kdepsDir, logger)
+	ok, err = CheckDevBuildMode(fs, kdepsDir, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1217,7 +1214,7 @@ func TestStartOllamaServerStubbed(t *testing.T) {
 	defer cancel()
 
 	// Function should return immediately and not panic.
-	startOllamaServer(ctx, logger)
+	StartOllamaServer(ctx, logger)
 }
 
 func TestIsServerReady(t *testing.T) {
@@ -1230,12 +1227,12 @@ func TestIsServerReady(t *testing.T) {
 		defer listener.Close()
 
 		host, port, _ := net.SplitHostPort(listener.Addr().String())
-		ready := isServerReady(host, port, logger)
+		ready := IsServerReady(host, port, logger)
 		assert.True(t, ready)
 	})
 
 	t.Run("ServerNotReady", func(t *testing.T) {
-		ready := isServerReady("127.0.0.1", "99999", logger)
+		ready := IsServerReady("127.0.0.1", "99999", logger)
 		assert.False(t, ready)
 	})
 }
@@ -1249,12 +1246,12 @@ func TestWaitForServer(t *testing.T) {
 		defer listener.Close()
 
 		host, port, _ := net.SplitHostPort(listener.Addr().String())
-		err = waitForServer(host, port, 2*time.Second, logger)
+		err = WaitForServer(host, port, 2*time.Second, logger)
 		assert.NoError(t, err)
 	})
 
 	t.Run("Timeout", func(t *testing.T) {
-		err := waitForServer("127.0.0.1", "99999", 1*time.Second, logger)
+		err := WaitForServer("127.0.0.1", "99999", 1*time.Second, logger)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "timeout")
 	})
@@ -1268,10 +1265,10 @@ func TestStartOllamaServer(t *testing.T) {
 
 	// Simply call the function to ensure it doesn't panic
 	// Since it runs in background, we can't easily check the result
-	startOllamaServer(ctx, logger)
+	StartOllamaServer(ctx, logger)
 
 	// If we reach here without panic, the test passes
-	t.Log("startOllamaServer called without panic")
+	t.Log("StartOllamaServer called without panic")
 }
 
 func TestWaitForServerSuccess(t *testing.T) {
@@ -1285,8 +1282,8 @@ func TestWaitForServerSuccess(t *testing.T) {
 
 	host, port, _ := net.SplitHostPort(ln.Addr().String())
 
-	if err := waitForServer(host, port, 2*time.Second, logger); err != nil {
-		t.Fatalf("waitForServer returned error: %v", err)
+	if err := WaitForServer(host, port, 2*time.Second, logger); err != nil {
+		t.Fatalf("WaitForServer returned error: %v", err)
 	}
 }
 
@@ -1304,22 +1301,22 @@ func TestWaitForServerReadyAndTimeout(t *testing.T) {
 
 	// Ready case: should return quickly.
 	start := time.Now()
-	if err := waitForServer(host, portStr, 2*time.Second, logger); err != nil {
+	if err := WaitForServer(host, portStr, 2*time.Second, logger); err != nil {
 		t.Fatalf("expected server to be ready, got error: %v", err)
 	}
 	if time.Since(start) > time.Second {
-		t.Fatalf("waitForServer took too long for ready case")
+		t.Fatalf("WaitForServer took too long for ready case")
 	}
 
 	// Timeout case: use a different unused port.
 	unusedPort := strconv.Itoa(60000)
 	start = time.Now()
-	err = waitForServer(host, unusedPort, 1*time.Second, logger)
+	err = WaitForServer(host, unusedPort, 1*time.Second, logger)
 	if err == nil {
 		t.Fatalf("expected timeout error for unopened port")
 	}
 	if time.Since(start) < 900*time.Millisecond {
-		t.Fatalf("waitForServer returned too quickly on timeout path")
+		t.Fatalf("WaitForServer returned too quickly on timeout path")
 	}
 }
 
@@ -1328,7 +1325,7 @@ func TestParseOLLAMAHostVariants(t *testing.T) {
 
 	// Success path.
 	_ = os.Setenv("OLLAMA_HOST", "0.0.0.0:12345")
-	host, port, err := parseOLLAMAHost(logger)
+	host, port, err := ParseOLLAMAHost(logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1338,13 +1335,13 @@ func TestParseOLLAMAHostVariants(t *testing.T) {
 
 	// Invalid format path.
 	_ = os.Setenv("OLLAMA_HOST", "badformat")
-	if _, _, err := parseOLLAMAHost(logger); err == nil {
+	if _, _, err := ParseOLLAMAHost(logger); err == nil {
 		t.Fatalf("expected error for invalid format")
 	}
 
 	// Missing var path.
 	_ = os.Unsetenv("OLLAMA_HOST")
-	if _, _, err := parseOLLAMAHost(logger); err == nil {
+	if _, _, err := ParseOLLAMAHost(logger); err == nil {
 		t.Fatalf("expected error when OLLAMA_HOST unset")
 	}
 }

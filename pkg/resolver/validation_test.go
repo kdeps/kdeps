@@ -4,6 +4,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	. "github.com/kdeps/kdeps/pkg/resolver"
+
 	"github.com/gin-gonic/gin"
 	"github.com/kdeps/kdeps/pkg/logging"
 )
@@ -20,11 +22,11 @@ func TestValidateRequestParams(t *testing.T) {
 	fileContent := `request.params("id")\nrequest.params("page")`
 
 	// Allowed case
-	if err := dr.validateRequestParams(fileContent, []string{"id", "page"}); err != nil {
+	if err := dr.ValidateRequestParams(fileContent, []string{"id", "page"}); err != nil {
 		t.Errorf("unexpected error for allowed params: %v", err)
 	}
 	// Disallowed case
-	if err := dr.validateRequestParams(fileContent, []string{"id"}); err == nil {
+	if err := dr.ValidateRequestParams(fileContent, []string{"id"}); err == nil {
 		t.Errorf("expected error for disallowed param, got nil")
 	}
 }
@@ -33,10 +35,10 @@ func TestValidateRequestHeaders(t *testing.T) {
 	dr := newValidationTestResolver()
 	fileContent := `request.header("Authorization")\nrequest.header("X-Custom")`
 
-	if err := dr.validateRequestHeaders(fileContent, []string{"Authorization", "X-Custom"}); err != nil {
+	if err := dr.ValidateRequestHeaders(fileContent, []string{"Authorization", "X-Custom"}); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if err := dr.validateRequestHeaders(fileContent, []string{"Authorization"}); err == nil {
+	if err := dr.ValidateRequestHeaders(fileContent, []string{"Authorization"}); err == nil {
 		t.Errorf("expected error for header not allowed")
 	}
 }
@@ -49,20 +51,20 @@ func TestValidateRequestPathAndMethod(t *testing.T) {
 	c.Request = httptest.NewRequest("GET", "/api/resource", nil)
 
 	// Path allowed
-	if err := dr.validateRequestPath(c, []string{"/api/resource", "/foo"}); err != nil {
+	if err := dr.ValidateRequestPath(c, []string{"/api/resource", "/foo"}); err != nil {
 		t.Errorf("unexpected path error: %v", err)
 	}
 	// Path not allowed
-	if err := dr.validateRequestPath(c, []string{"/foo"}); err == nil {
+	if err := dr.ValidateRequestPath(c, []string{"/foo"}); err == nil {
 		t.Errorf("expected path validation error, got nil")
 	}
 
 	// Method allowed
-	if err := dr.validateRequestMethod(c, []string{"GET", "POST"}); err != nil {
+	if err := dr.ValidateRequestMethod(c, []string{"GET", "POST"}); err != nil {
 		t.Errorf("unexpected method error: %v", err)
 	}
 	// Method not allowed
-	if err := dr.validateRequestMethod(c, []string{"POST"}); err == nil {
+	if err := dr.ValidateRequestMethod(c, []string{"POST"}); err == nil {
 		t.Errorf("expected method validation error, got nil")
 	}
 }
@@ -73,11 +75,11 @@ func TestValidationFunctions_EmptyAllowedLists(t *testing.T) {
 	fileContent := `request.params("id")\nrequest.header("Auth")`
 
 	// Empty allowed slices should permit everything (return nil)
-	if err := dr.validateRequestParams(fileContent, nil); err != nil {
-		t.Fatalf("validateRequestParams unexpected error: %v", err)
+	if err := dr.ValidateRequestParams(fileContent, nil); err != nil {
+		t.Fatalf("ValidateRequestParams unexpected error: %v", err)
 	}
-	if err := dr.validateRequestHeaders(fileContent, nil); err != nil {
-		t.Fatalf("validateRequestHeaders unexpected error: %v", err)
+	if err := dr.ValidateRequestHeaders(fileContent, nil); err != nil {
+		t.Fatalf("ValidateRequestHeaders unexpected error: %v", err)
 	}
 
 	gin.SetMode(gin.TestMode)
@@ -85,10 +87,10 @@ func TestValidationFunctions_EmptyAllowedLists(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest("PATCH", "/any/path", nil)
 
-	if err := dr.validateRequestPath(c, nil); err != nil {
-		t.Fatalf("validateRequestPath unexpected error: %v", err)
+	if err := dr.ValidateRequestPath(c, nil); err != nil {
+		t.Fatalf("ValidateRequestPath unexpected error: %v", err)
 	}
-	if err := dr.validateRequestMethod(c, nil); err != nil {
-		t.Fatalf("validateRequestMethod unexpected error: %v", err)
+	if err := dr.ValidateRequestMethod(c, nil); err != nil {
+		t.Fatalf("ValidateRequestMethod unexpected error: %v", err)
 	}
 }

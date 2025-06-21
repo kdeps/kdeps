@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	. "github.com/kdeps/kdeps/pkg/archiver"
 	pklProject "github.com/kdeps/schema/gen/project"
 	"github.com/stretchr/testify/require"
 )
@@ -40,7 +41,7 @@ func TestHandleRequiresBlock(t *testing.T) {
 		"    unquoted",            // unquoted retains verbatim
 	}, "\n")
 
-	got := handleRequiresBlock(input, wf)
+	got := HandleRequiresBlock(input, wf)
 	lines := strings.Split(got, "\n")
 
 	require.Equal(t, "", lines[0], "blank line must stay blank")

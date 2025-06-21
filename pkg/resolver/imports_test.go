@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	. "github.com/kdeps/kdeps/pkg/resolver"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/pkg/environment"
@@ -16,6 +18,7 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/kdeps/kdeps/pkg/ktx"
 )
 
 func newTestResolver() *DependencyResolver {
@@ -130,7 +133,19 @@ func TestNewGraphResolver_Minimal(t *testing.T) {
 		t.Fatalf("env err: %v", err)
 	}
 
-	dr, err := NewGraphResolver(fs, context.Background(), env, nil, logger)
+	// Create temporary directories for testing
+	tmpDir := t.TempDir()
+	agentDir := filepath.Join(tmpDir, "agent")
+	actionDir := filepath.Join(tmpDir, "action")
+	sharedDir := filepath.Join(tmpDir, ".kdeps")
+	
+	ctx := context.Background()
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, "test-graph-id")
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, actionDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeySharedDir, sharedDir)
+
+	dr, err := NewGraphResolver(fs, ctx, env, nil, logger)
 	if err == nil {
 		// If resolver succeeded, sanity-check key fields
 		if dr.Graph == nil || dr.FileRunCounter == nil {

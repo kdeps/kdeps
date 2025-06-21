@@ -66,15 +66,8 @@ func (r *realEditorCmd) SetIO(stdin, stdout, stderr *os.File) {
 	r.cmd.Stderr = stderr
 }
 
-var editorCmd = editor.Cmd
-
-func realEditorCmdFactory(editorName, filePath string) (EditorCmd, error) {
-	cmd, err := editorCmd(editorName, filePath)
-	if err != nil {
-		return nil, err
-	}
-	return &realEditorCmd{cmd: cmd}, nil
-}
+// EditorCmdFactory is a wrapper around editor.Cmd to allow tests to stub the underlying command factory.
+var EditorCmdFactory = editor.Cmd
 
 // EditPkl is the function that opens the file at filePath with the 'kdeps' editor
 func EditPklWithFactory(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger, factory EditorCmdFunc) error {
@@ -101,7 +94,7 @@ func EditPklWithFactory(fs afero.Fs, ctx context.Context, filePath string, logge
 	}
 
 	if factory == nil {
-		factory = realEditorCmdFactory
+		factory = RealEditorCmdFactory
 	}
 
 	edCmd, err := factory("kdeps", filePath)
@@ -125,4 +118,14 @@ func EditPklWithFactory(fs afero.Fs, ctx context.Context, filePath string, logge
 // For backward compatibility
 var EditPkl EditPklFunc = func(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
 	return EditPklWithFactory(fs, ctx, filePath, logger, nil)
+}
+
+// RealEditorCmdFactory creates an EditorCmd using the underlying charmbracelet/x/editor helper. It is exported so that
+// callers ‒ including tests in the texteditor_test package ‒ can reference it directly.
+func RealEditorCmdFactory(editorName, filePath string) (EditorCmd, error) {
+	cmd, err := EditorCmdFactory(editorName, filePath)
+	if err != nil {
+		return nil, err
+	}
+	return &realEditorCmd{cmd: cmd}, nil
 }

@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	. "github.com/kdeps/kdeps/pkg/resolver"
+
 	"github.com/spf13/afero"
 )
 

@@ -19,8 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Bridge exported functions so previous unqualified references still work.
-var GetLatestGitHubRelease = utilspkg.GetLatestGitHubRelease
+// utilspkg alias import provides explicit qualification without dot-import conflicts.
 
 func TestGetLatestGitHubRelease(t *testing.T) {
 	// Mock GitHub API server
@@ -31,7 +30,7 @@ func TestGetLatestGitHubRelease(t *testing.T) {
 	}))
 	defer server.Close()
 
-	result, err := GetLatestGitHubRelease(context.Background(), "kdeps/schema", server.URL)
+	result, err := utilspkg.GetLatestGitHubRelease(context.Background(), "kdeps/schema", server.URL)
 	require.NoError(t, err)
 	assert.Equal(t, "2.1.0", result)
 }
@@ -45,7 +44,7 @@ func TestGetLatestGitHubReleaseSuccess(t *testing.T) {
 	defer srv.Close()
 
 	ctx := context.Background()
-	ver, err := GetLatestGitHubRelease(ctx, "owner/repo", srv.URL)
+	ver, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", srv.URL)
 	assert.NoError(t, err)
 	assert.Equal(t, "1.2.3", ver)
 }
@@ -58,7 +57,7 @@ func TestGetLatestGitHubReleaseError(t *testing.T) {
 	defer srv.Close()
 
 	ctx := context.Background()
-	ver, err := GetLatestGitHubRelease(ctx, "owner/repo", srv.URL)
+	ver, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", srv.URL)
 	assert.Error(t, err)
 	assert.Empty(t, ver)
 }
@@ -84,7 +83,7 @@ func TestGetLatestGitHubReleaseVarious(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		http.DefaultTransport = mockStatusTransport{status: http.StatusOK}
-		ver, err := GetLatestGitHubRelease(ctx, "owner/repo", "https://api.github.com")
+		ver, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", "https://api.github.com")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -95,21 +94,21 @@ func TestGetLatestGitHubReleaseVarious(t *testing.T) {
 
 	t.Run("Unauthorized", func(t *testing.T) {
 		http.DefaultTransport = mockStatusTransport{status: http.StatusUnauthorized}
-		if _, err := GetLatestGitHubRelease(ctx, "owner/repo", ""); err == nil {
+		if _, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", ""); err == nil {
 			t.Fatalf("expected unauthorized error")
 		}
 	})
 
 	t.Run("Forbidden", func(t *testing.T) {
 		http.DefaultTransport = mockStatusTransport{status: http.StatusForbidden}
-		if _, err := GetLatestGitHubRelease(ctx, "owner/repo", ""); err == nil {
+		if _, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", ""); err == nil {
 			t.Fatalf("expected forbidden error")
 		}
 	})
 
 	t.Run("UnexpectedStatus", func(t *testing.T) {
 		http.DefaultTransport = mockStatusTransport{status: http.StatusInternalServerError}
-		if _, err := GetLatestGitHubRelease(ctx, "owner/repo", ""); err == nil {
+		if _, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", ""); err == nil {
 			t.Fatalf("expected error for 500 status")
 		}
 	})
@@ -119,7 +118,7 @@ func TestGetLatestGitHubReleaseVarious(t *testing.T) {
 		http.DefaultTransport = mockStatusTransport{status: http.StatusOK}
 		os.Setenv("GITHUB_TOKEN", "dummy")
 		defer os.Unsetenv("GITHUB_TOKEN")
-		if _, err := GetLatestGitHubRelease(ctx, "owner/repo", ""); err != nil {
+		if _, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", ""); err != nil {
 			t.Fatalf("unexpected err with token: %v", err)
 		}
 	})
@@ -136,7 +135,7 @@ func TestGetLatestGitHubRelease_AuthErrors(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(c.status)
 		}))
-		_, err := GetLatestGitHubRelease(context.Background(), "owner/repo", srv.URL)
+		_, err := utilspkg.GetLatestGitHubRelease(context.Background(), "owner/repo", srv.URL)
 		if err == nil {
 			t.Errorf("expected error for status %d", c.status)
 		}
@@ -173,7 +172,7 @@ func TestGetLatestGitHubReleaseReadError(t *testing.T) {
 	})}
 	defer func() { http.DefaultClient = prevClient }()
 
-	_, err := GetLatestGitHubRelease(context.Background(), "owner/repo", "https://api.github.com")
+	_, err := utilspkg.GetLatestGitHubRelease(context.Background(), "owner/repo", "https://api.github.com")
 	if err == nil {
 		t.Fatalf("expected error due to body read failure, got nil")
 	}
@@ -187,7 +186,7 @@ func TestGetLatestGitHubReleaseUnauthorizedExtra(t *testing.T) {
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
-	_, err := GetLatestGitHubRelease(context.Background(), "owner/repo", server.URL)
+	_, err := utilspkg.GetLatestGitHubRelease(context.Background(), "owner/repo", server.URL)
 	if err == nil {
 		t.Fatalf("expected error for unauthorized response, got nil")
 	}
@@ -213,7 +212,7 @@ func TestGetLatestGitHubRelease_DefaultBaseURL(t *testing.T) {
 	http.DefaultClient = &http.Client{Transport: staticResponseRoundTripper{}}
 	defer func() { http.DefaultClient = prev }()
 
-	ver, err := GetLatestGitHubRelease(context.Background(), "kdeps/schema", "")
+	ver, err := utilspkg.GetLatestGitHubRelease(context.Background(), "kdeps/schema", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -293,7 +292,7 @@ func TestGetLatestGitHubReleaseMore(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		ver, err := GetLatestGitHubRelease(ctx, "kdeps/schema", srv.URL)
+		ver, err := utilspkg.GetLatestGitHubRelease(ctx, "kdeps/schema", srv.URL)
 		if expectErr {
 			assert.Error(t, err)
 		} else {
@@ -437,7 +436,7 @@ func TestGetLatestGitHubRelease_Success_Alt(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	ver, err := GetLatestGitHubRelease(context.Background(), "dummy/repo", ts.URL)
+	ver, err := utilspkg.GetLatestGitHubRelease(context.Background(), "dummy/repo", ts.URL)
 	assert.NoError(t, err)
 	assert.Equal(t, "2.3.4", ver)
 }
@@ -455,7 +454,7 @@ func TestGetLatestGitHubRelease_Errors_Alt(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(tc.status)
 		}))
-		ver, err := GetLatestGitHubRelease(context.Background(), "dummy/repo", ts.URL)
+		ver, err := utilspkg.GetLatestGitHubRelease(context.Background(), "dummy/repo", ts.URL)
 		assert.Error(t, err)
 		assert.Empty(t, ver)
 		assert.Contains(t, err.Error(), tc.wantErr)

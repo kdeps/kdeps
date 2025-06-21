@@ -39,8 +39,8 @@ func (r *PklResourceReader) Scheme() string {
 	return "item"
 }
 
-// fetchValues retrieves unique values from the items table and returns them as a JSON array.
-func (r *PklResourceReader) fetchValues(operation string) ([]byte, error) {
+// FetchValues retrieves unique values from the items table and returns them as a JSON array.
+func (r *PklResourceReader) FetchValues(operation string) ([]byte, error) {
 	log.Printf("%s processing", operation)
 
 	rows, err := r.DB.Query("SELECT value FROM items ORDER BY id")
@@ -171,7 +171,7 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 	case "prev":
 		log.Printf("prevRecord processing")
 
-		currentID, err := r.getMostRecentID()
+		currentID, err := r.GetMostRecentID()
 		if err != nil {
 			return nil, err
 		}
@@ -199,7 +199,7 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 	case "next":
 		log.Printf("nextRecord processing")
 
-		currentID, err := r.getMostRecentID()
+		currentID, err := r.GetMostRecentID()
 		if err != nil {
 			return nil, err
 		}
@@ -225,12 +225,12 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		return []byte(value), nil
 
 	case "list", "values":
-		return r.fetchValues(operation)
+		return r.FetchValues(operation)
 
 	case "current":
 		log.Printf("getRecord processing")
 
-		currentID, err := r.getMostRecentID()
+		currentID, err := r.GetMostRecentID()
 		if err != nil {
 			return nil, err
 		}
@@ -258,8 +258,8 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 	}
 }
 
-// getMostRecentID retrieves the ID of the most recent record.
-func (r *PklResourceReader) getMostRecentID() (string, error) {
+// GetMostRecentID retrieves the ID of the most recent record.
+func (r *PklResourceReader) GetMostRecentID() (string, error) {
 	var id string
 	err := r.DB.QueryRow("SELECT id FROM items ORDER BY id DESC LIMIT 1").Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {

@@ -12,7 +12,7 @@ import (
 )
 
 // Function to compare version numbers.
-func compareVersions(versions []string, logger *logging.Logger) string {
+func CompareVersions(versions []string, logger *logging.Logger) string {
 	logger.Debug(messages.MsgComparingVersions, "versions", versions)
 	sort.Slice(versions, func(i, j int) bool {
 		// Split the version strings into parts
@@ -66,6 +66,6 @@ var GetLatestVersion = func(directory string, logger *logging.Logger) (string, e
 	}
 
 	// Find the latest version
-	latestVersion := compareVersions(versions, logger)
+	latestVersion := CompareVersions(versions, logger)
 	return latestVersion, nil
 }

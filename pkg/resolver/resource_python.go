@@ -20,7 +20,7 @@ import (
 
 func (dr *DependencyResolver) HandlePython(actionID string, pythonBlock *pklPython.ResourcePython) error {
 	// Synchronously decode the python block.
-	if err := dr.decodePythonBlock(pythonBlock); err != nil {
+	if err := dr.DecodePythonBlock(pythonBlock); err != nil {
 		dr.Logger.Error("failed to decode python block", "actionID", actionID, "error", err)
 		return err
 	}
@@ -37,7 +37,7 @@ func (dr *DependencyResolver) HandlePython(actionID string, pythonBlock *pklPyth
 	return nil
 }
 
-func (dr *DependencyResolver) decodePythonBlock(pythonBlock *pklPython.ResourcePython) error {
+func (dr *DependencyResolver) DecodePythonBlock(pythonBlock *pklPython.ResourcePython) error {
 	// Decode Script
 	decodedScript, err := utils.DecodeBase64IfNeeded(pythonBlock.Script)
 	if err != nil {
@@ -75,20 +75,20 @@ func (dr *DependencyResolver) decodePythonBlock(pythonBlock *pklPython.ResourceP
 
 func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *pklPython.ResourcePython) error {
 	if dr.AnacondaInstalled && pythonBlock.CondaEnvironment != nil && *pythonBlock.CondaEnvironment != "" {
-		if err := dr.activateCondaEnvironment(*pythonBlock.CondaEnvironment); err != nil {
+		if err := dr.ActivateCondaEnvironment(*pythonBlock.CondaEnvironment); err != nil {
 			return err
 		}
 
-		defer dr.deactivateCondaEnvironment()
+		defer dr.DeactivateCondaEnvironment()
 	}
 
-	env := dr.formatPythonEnv(pythonBlock.Env)
+	env := dr.FormatPythonEnv(pythonBlock.Env)
 
-	tmpFile, err := dr.createPythonTempFile(pythonBlock.Script)
+	tmpFile, err := dr.CreatePythonTempFile(pythonBlock.Script)
 	if err != nil {
 		return err
 	}
-	defer dr.cleanupTempFile(tmpFile.Name())
+	defer dr.CleanupTempFile(tmpFile.Name())
 
 	dr.Logger.Info("running python", "script", tmpFile.Name(), "env", env)
 
@@ -123,7 +123,7 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 	return dr.AppendPythonEntry(actionID, pythonBlock)
 }
 
-func (dr *DependencyResolver) activateCondaEnvironment(envName string) error {
+func (dr *DependencyResolver) ActivateCondaEnvironment(envName string) error {
 	execTask := execute.ExecTask{
 		Command:     "conda",
 		Args:        []string{"activate", "--name", envName},
@@ -146,7 +146,7 @@ func (dr *DependencyResolver) activateCondaEnvironment(envName string) error {
 	return nil
 }
 
-func (dr *DependencyResolver) deactivateCondaEnvironment() error {
+func (dr *DependencyResolver) DeactivateCondaEnvironment() error {
 	execTask := execute.ExecTask{
 		Command:     "conda",
 		Args:        []string{"deactivate"},
@@ -169,7 +169,7 @@ func (dr *DependencyResolver) deactivateCondaEnvironment() error {
 	return nil
 }
 
-func (dr *DependencyResolver) formatPythonEnv(env *map[string]string) []string {
+func (dr *DependencyResolver) FormatPythonEnv(env *map[string]string) []string {
 	var formatted []string
 	if env != nil {
 		for k, v := range *env {
@@ -179,7 +179,7 @@ func (dr *DependencyResolver) formatPythonEnv(env *map[string]string) []string {
 	return formatted
 }
 
-func (dr *DependencyResolver) createPythonTempFile(script string) (afero.File, error) {
+func (dr *DependencyResolver) CreatePythonTempFile(script string) (afero.File, error) {
 	tmpFile, err := afero.TempFile(dr.Fs, "", "script-*.py")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp file: %w", err)
@@ -196,7 +196,7 @@ func (dr *DependencyResolver) createPythonTempFile(script string) (afero.File, e
 	return tmpFile, nil
 }
 
-func (dr *DependencyResolver) cleanupTempFile(name string) {
+func (dr *DependencyResolver) CleanupTempFile(name string) {
 	if err := dr.Fs.Remove(name); err != nil {
 		dr.Logger.Error("failed to clean up temp file", "path", name, "error", err)
 	}
@@ -252,8 +252,8 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 	}
 
 	encodedScript := utils.EncodeValue(newPython.Script)
-	encodedEnv := dr.encodePythonEnv(newPython.Env)
-	encodedStderr, encodedStdout := dr.encodePythonOutputs(newPython.Stderr, newPython.Stdout)
+	encodedEnv := dr.EncodePythonEnv(newPython.Env)
+	encodedStderr, encodedStdout := dr.EncodePythonOutputs(newPython.Stderr, newPython.Stdout)
 
 	timeoutDuration := newPython.TimeoutDuration
 	if timeoutDuration == nil {
@@ -300,8 +300,8 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 		pklContent.WriteString("    env ")
 		pklContent.WriteString(utils.EncodePklMap(res.Env))
 
-		pklContent.WriteString(dr.encodePythonStderr(res.Stderr))
-		pklContent.WriteString(dr.encodePythonStdout(res.Stdout))
+		pklContent.WriteString(dr.EncodePythonStderr(res.Stderr))
+		pklContent.WriteString(dr.EncodePythonStdout(res.Stdout))
 		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *res.File))
 
 		pklContent.WriteString("  }\n")
@@ -321,7 +321,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 	return afero.WriteFile(dr.Fs, pklPath, []byte(evaluatedContent), 0o644)
 }
 
-func (dr *DependencyResolver) encodePythonEnv(env *map[string]string) *map[string]string {
+func (dr *DependencyResolver) EncodePythonEnv(env *map[string]string) *map[string]string {
 	if env == nil {
 		return nil
 	}
@@ -332,18 +332,18 @@ func (dr *DependencyResolver) encodePythonEnv(env *map[string]string) *map[strin
 	return &encoded
 }
 
-func (dr *DependencyResolver) encodePythonOutputs(stderr, stdout *string) (*string, *string) {
+func (dr *DependencyResolver) EncodePythonOutputs(stderr, stdout *string) (*string, *string) {
 	return utils.EncodeValuePtr(stderr), utils.EncodeValuePtr(stdout)
 }
 
-func (dr *DependencyResolver) encodePythonStderr(stderr *string) string {
+func (dr *DependencyResolver) EncodePythonStderr(stderr *string) string {
 	if stderr == nil {
 		return "    stderr = \"\"\n"
 	}
 	return fmt.Sprintf("    stderr = #\"\"\"\n%s\n\"\"\"#\n", *stderr)
 }
 
-func (dr *DependencyResolver) encodePythonStdout(stdout *string) string {
+func (dr *DependencyResolver) EncodePythonStdout(stdout *string) string {
 	if stdout == nil {
 		return "    stdout = \"\"\n"
 	}

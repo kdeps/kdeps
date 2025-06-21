@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	. "github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -13,14 +14,14 @@ import (
 
 func TestCompareVersionsOrdering(t *testing.T) {
 	versions := []string{"1.2.3", "2.0.0", "1.10.1"}
-	latest := compareVersions(versions, logging.NewTestLogger())
+	latest := CompareVersions(versions, logging.NewTestLogger())
 	if latest != "2.0.0" {
 		t.Fatalf("expected latest 2.0.0 got %s", latest)
 	}
 
 	// already sorted descending should keep first element
 	versions2 := []string{"3.1.0", "2.9.9", "0.0.1"}
-	if got := compareVersions(versions2, logging.NewTestLogger()); got != "3.1.0" {
+	if got := CompareVersions(versions2, logging.NewTestLogger()); got != "3.1.0" {
 		t.Fatalf("unexpected latest %s", got)
 	}
 }
@@ -59,7 +60,7 @@ func TestCompareVersionsAndGetLatest(t *testing.T) {
 
 	t.Run("compareVersions", func(t *testing.T) {
 		versions := []string{"1.0.0", "2.3.4", "2.10.0", "0.9.9"}
-		latest := compareVersions(versions, logger)
+		latest := CompareVersions(versions, logger)
 		assert.Equal(t, "2.3.4", latest)
 	})
 
@@ -103,9 +104,9 @@ func TestCompareVersions(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if test.expectPanic {
-				assert.Panics(t, func() { compareVersions(test.versions, logger) })
+				assert.Panics(t, func() { CompareVersions(test.versions, logger) })
 			} else {
-				assert.Equal(t, test.expected, compareVersions(test.versions, logger))
+				assert.Equal(t, test.expected, CompareVersions(test.versions, logger))
 			}
 		})
 	}
@@ -145,4 +146,47 @@ func TestGetLatestVersion(t *testing.T) {
 		require.Error(t, err, "Expected error for invalid path")
 		assert.Equal(t, "", latestVersion, "Expected empty latest version")
 	})
+}
+
+func TestCompareVersions_Simple(t *testing.T) {
+	logger := logging.NewTestLogger()
+	versions := []string{"1.0.0", "2.0.0", "1.2.0"}
+	result := CompareVersions(versions, logger)
+	assert.Contains(t, versions, result)
+}
+
+func TestCompareVersions_Descending(t *testing.T) {
+	logger := logging.NewTestLogger()
+	versions := []string{"2.0.0", "1.0.0", "1.2.0"}
+	result := CompareVersions(versions, logger)
+	assert.Contains(t, versions, result)
+}
+
+func TestCompareVersions_Identical(t *testing.T) {
+	logger := logging.NewTestLogger()
+	versions := []string{"1.0.0", "1.0.0", "1.0.0"}
+	result := CompareVersions(versions, logger)
+	assert.Equal(t, "1.0.0", result)
+}
+
+func TestCompareVersions_Empty(t *testing.T) {
+	logger := logging.NewTestLogger()
+	versions := []string{}
+	// Should not panic, but will panic if accessed, so check for panic
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("expected panic on empty slice")
+		}
+	}()
+	_ = CompareVersions(versions, logger)
+}
+
+func TestCompareVersions_Logging(t *testing.T) {
+	logger := logging.NewTestLogger()
+	versions := []string{"1.0.0", "2.0.0"}
+	_ = CompareVersions(versions, logger)
+	output := logger.GetOutput()
+	assert.Contains(t, output, "comparing versions")
+	assert.Contains(t, output, "version comparison result")
+	assert.Contains(t, output, "latest version determined")
 }

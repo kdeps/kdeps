@@ -12,12 +12,15 @@ import (
 	"strings"
 	"testing"
 
+	. "github.com/kdeps/kdeps/pkg/docker"
+
 	"github.com/cucumber/godog"
 	"github.com/docker/docker/client"
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/cfg"
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/schema"
@@ -113,6 +116,21 @@ func TestFeatures(t *testing.T) {
 
 func aSystemConfigurationFile(arg1, arg2, arg3, arg4 string) error {
 	ctx = context.Background()
+
+	// Create temporary directories for testing
+	tmpDir, err := afero.TempDir(testFs, "", "test-config")
+	if err != nil {
+		return err
+	}
+	agentDir := filepath.Join(tmpDir, "agent")
+	actionDir := filepath.Join(tmpDir, "action")
+	sharedDir := filepath.Join(tmpDir, ".kdeps")
+
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, "test-graph-id")
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, actionDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeySharedDir, sharedDir)
+
 	logger = logging.GetLogger()
 
 	env := &environment.Environment{
@@ -418,7 +436,8 @@ func itShouldRunTheContainerBuildStepFor(arg1 string) error {
 }
 
 func itShouldStartTheContainer(arg1 string) error {
-	if _, err := CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, "", "", gpuType, APIServerMode, false, cli); err != nil {
+	dockerClientAdapter := NewDockerClientAdapter(cli)
+	if _, err := CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, "", "", gpuType, APIServerMode, false, dockerClientAdapter); err != nil {
 		return err
 	}
 
@@ -867,13 +886,13 @@ func PackageProject(fs afero.Fs, ctx context.Context, wf wfPkl.Workflow, kdepsDi
 
 func TestPrintDockerBuildOutputSimple(t *testing.T) {
 	successLog := bytes.NewBufferString(`{"stream":"Step 1/2 : FROM alpine\n"}\n{"stream":" ---> 123abc\n"}\n`)
-	if err := printDockerBuildOutput(successLog); err != nil {
+	if err := PrintDockerBuildOutput(successLog); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	// Error case should propagate the message
 	errBuf := bytes.NewBufferString(`{"error":"build failed"}`)
-	if err := printDockerBuildOutput(errBuf); err == nil {
+	if err := PrintDockerBuildOutput(errBuf); err == nil {
 		t.Fatalf("expected error not returned")
 	}
 }

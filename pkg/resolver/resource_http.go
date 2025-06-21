@@ -21,7 +21,7 @@ import (
 
 func (dr *DependencyResolver) HandleHTTPClient(actionID string, httpBlock *pklHTTP.ResourceHTTPClient) error {
 	// Synchronously decode the HTTP block.
-	if err := dr.decodeHTTPBlock(httpBlock); err != nil {
+	if err := dr.DecodeHTTPBlock(httpBlock); err != nil {
 		dr.Logger.Error("failed to decode HTTP block", "actionID", actionID, "error", err)
 		return err
 	}
@@ -45,7 +45,7 @@ func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHT
 	return dr.AppendHTTPEntry(actionID, httpBlock)
 }
 
-func (dr *DependencyResolver) decodeHTTPBlock(httpBlock *pklHTTP.ResourceHTTPClient) error {
+func (dr *DependencyResolver) DecodeHTTPBlock(httpBlock *pklHTTP.ResourceHTTPClient) error {
 	if utils.IsBase64Encoded(httpBlock.Url) {
 		decodedURL, err := utils.DecodeBase64String(httpBlock.Url)
 		if err != nil {
@@ -161,8 +161,8 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 		pklContent.WriteString("    params ")
 		pklContent.WriteString(utils.EncodePklMap(res.Params))
 		pklContent.WriteString("    response {\n")
-		pklContent.WriteString(encodeResponseHeaders(res.Response))
-		pklContent.WriteString(encodeResponseBody(res.Response, dr, resourceID))
+		pklContent.WriteString(EncodeResponseHeaders(res.Response))
+		pklContent.WriteString(EncodeResponseBody(res.Response, dr, resourceID))
 		pklContent.WriteString("    }\n")
 		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *res.File))
 		pklContent.WriteString("  }\n")
@@ -182,7 +182,7 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 	return afero.WriteFile(dr.Fs, pklPath, []byte(evaluatedContent), 0o644)
 }
 
-func encodeResponseHeaders(response *pklHTTP.ResponseBlock) string {
+func EncodeResponseHeaders(response *pklHTTP.ResponseBlock) string {
 	if response == nil || response.Headers == nil {
 		return "    headers {[\"\"] = \"\"}\n"
 	}
@@ -195,7 +195,7 @@ func encodeResponseHeaders(response *pklHTTP.ResponseBlock) string {
 	return builder.String()
 }
 
-func encodeResponseBody(response *pklHTTP.ResponseBlock, dr *DependencyResolver, resourceID string) string {
+func EncodeResponseBody(response *pklHTTP.ResponseBlock, dr *DependencyResolver, resourceID string) string {
 	if response == nil || response.Body == nil {
 		return "    body=\"\"\n"
 	}
@@ -255,7 +255,7 @@ func (dr *DependencyResolver) DoRequest(client *pklHTTP.ResourceHTTPClient) erro
 
 	// Handle request body
 	var reqBody io.Reader
-	if isMethodWithBody(client.Method) {
+	if IsMethodWithBody(client.Method) {
 		if client.Data == nil {
 			return fmt.Errorf("HTTP %s requires request body", client.Method)
 		}
@@ -323,7 +323,7 @@ func (dr *DependencyResolver) DoRequest(client *pklHTTP.ResourceHTTPClient) erro
 }
 
 // Helper function to check if HTTP method supports body.
-func isMethodWithBody(method string) bool {
+func IsMethodWithBody(method string) bool {
 	switch strings.ToUpper(method) {
 	case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
 		return true

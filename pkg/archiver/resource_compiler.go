@@ -31,7 +31,7 @@ func CompileResources(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, resou
 		return err
 	}
 
-	err := afero.Walk(fs, projectResourcesDir, pklFileProcessor(fs, wf, resourcesDir, logger))
+	err := afero.Walk(fs, projectResourcesDir, PklFileProcessor(fs, wf, resourcesDir, logger))
 	if err != nil {
 		logger.Error("error compiling resources", "resourcesDir", resourcesDir, "projectDir", projectDir, "error", err)
 	}
@@ -40,27 +40,27 @@ func CompileResources(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, resou
 	return err
 }
 
-func pklFileProcessor(fs afero.Fs, wf pklWf.Workflow, resourcesDir string, logger *logging.Logger) filepath.WalkFunc {
+func PklFileProcessor(fs afero.Fs, wf pklWf.Workflow, resourcesDir string, logger *logging.Logger) filepath.WalkFunc {
 	return func(file string, info os.FileInfo, err error) error {
 		if err != nil || filepath.Ext(file) != ".pkl" || info.IsDir() {
 			return err
 		}
 
 		logger.Debug(messages.MsgProcessingPkl, "file", file)
-		if err := processPklFile(fs, file, wf, resourcesDir, logger); err != nil {
+		if err := ProcessPklFile(fs, file, wf, resourcesDir, logger); err != nil {
 			logger.Error("failed to process .pkl file", "file", file, "error", err)
 		}
 		return nil
 	}
 }
 
-func processPklFile(fs afero.Fs, file string, wf pklWf.Workflow, resourcesDir string, logger *logging.Logger) error {
-	fileBuffer, action, err := processFileContent(fs, file, wf, logger)
+func ProcessPklFile(fs afero.Fs, file string, wf pklWf.Workflow, resourcesDir string, logger *logging.Logger) error {
+	fileBuffer, action, err := ProcessFileContent(fs, file, wf, logger)
 	if err != nil || action == "" {
 		return fmt.Errorf("no valid action found in file: %s", file)
 	}
 
-	name, version := parseActionID(action, wf.GetName(), wf.GetVersion())
+	name, version := ParseActionID(action, wf.GetName(), wf.GetVersion())
 	fname := fmt.Sprintf("%s_%s-%s.pkl", name, action, version)
 	targetPath := filepath.Join(resourcesDir, fname)
 
@@ -73,7 +73,7 @@ func processPklFile(fs afero.Fs, file string, wf pklWf.Workflow, resourcesDir st
 	return nil
 }
 
-func processFileContent(fs afero.Fs, file string, wf pklWf.Workflow, logger *logging.Logger) (*bytes.Buffer, string, error) {
+func ProcessFileContent(fs afero.Fs, file string, wf pklWf.Workflow, logger *logging.Logger) (*bytes.Buffer, string, error) {
 	content, err := afero.ReadFile(fs, file)
 	if err != nil {
 		logger.Error("failed to read file", "file", file, "error", err)
@@ -86,6 +86,7 @@ func processFileContent(fs afero.Fs, file string, wf pklWf.Workflow, logger *log
 		requiresBuffer  bytes.Buffer
 		currentAction   string
 		requiresWritten bool // Tracks if a 'requires' block is already processed
+		skippingBlock   bool // Tracks if we're currently skipping a redundant requires block
 		scanner         = bufio.NewScanner(bytes.NewReader(content))
 		name            = wf.GetName()
 		version         = wf.GetVersion()
@@ -94,18 +95,28 @@ func processFileContent(fs afero.Fs, file string, wf pklWf.Workflow, logger *log
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		if requiresPattern.MatchString(line) && requiresWritten {
-			continue // Skip redundant requires blocks
+		// If we're skipping a redundant requires block, only look for the closing brace
+		if skippingBlock {
+			if strings.TrimSpace(line) == "}" {
+				skippingBlock = false
+			}
+			continue
 		}
 
-		if handleRequiresSection(&line, &inRequiresBlock, wf, &requiresBuffer, &fileBuffer) {
+		// Check if this is a redundant requires block
+		if requiresPattern.MatchString(line) && requiresWritten {
+			skippingBlock = true
+			continue
+		}
+
+		if HandleRequiresSection(&line, &inRequiresBlock, wf, &requiresBuffer, &fileBuffer) {
 			if !inRequiresBlock {
 				requiresWritten = true // Mark requires block as written
 			}
 			continue
 		}
 
-		line, actionModified := processLine(line, name, version)
+		line, actionModified := ProcessLine(line, name, version)
 		if actionModified != "" {
 			currentAction = actionModified
 		}
@@ -119,18 +130,18 @@ func processFileContent(fs afero.Fs, file string, wf pklWf.Workflow, logger *log
 
 	// Add any remaining `requires` block content
 	if requiresBuffer.Len() > 0 && !requiresWritten {
-		fileBuffer.WriteString(handleRequiresBlock(requiresBuffer.String(), wf))
+		fileBuffer.WriteString(HandleRequiresBlock(requiresBuffer.String(), wf))
 	}
 
 	return &fileBuffer, currentAction, nil
 }
 
-func handleRequiresSection(line *string, inBlock *bool, wf pklWf.Workflow, requiresBuf, fileBuf *bytes.Buffer) bool {
+func HandleRequiresSection(line *string, inBlock *bool, wf pklWf.Workflow, requiresBuf, fileBuf *bytes.Buffer) bool {
 	switch {
 	case *inBlock:
 		if strings.TrimSpace(*line) == "}" {
 			*inBlock = false
-			fileBuf.WriteString(handleRequiresBlock(requiresBuf.String(), wf))
+			fileBuf.WriteString(HandleRequiresBlock(requiresBuf.String(), wf))
 			requiresBuf.Reset() // Clear the buffer after processing
 			fileBuf.WriteString(*line + "\n")
 		} else {
@@ -149,21 +160,21 @@ func handleRequiresSection(line *string, inBlock *bool, wf pklWf.Workflow, requi
 	return false
 }
 
-func processLine(line, name, version string) (string, string) {
+func ProcessLine(line, name, version string) (string, string) {
 	if idMatch := idPattern.FindStringSubmatch(line); idMatch != nil {
-		return processActionIDLine(line, idMatch[1], name, version), idMatch[1]
+		return ProcessActionIDLine(line, idMatch[1], name, version), idMatch[1]
 	}
-	return processActionPatterns(line, name, version), ""
+	return ProcessActionPatterns(line, name, version), ""
 }
 
-func processActionIDLine(line, action, name, version string) string {
+func ProcessActionIDLine(line, action, name, version string) string {
 	if !strings.HasPrefix(action, "@") {
 		return strings.ReplaceAll(line, action, fmt.Sprintf("@%s/%s:%s", name, action, version))
 	}
 	return line
 }
 
-func processActionPatterns(line, name, version string) string {
+func ProcessActionPatterns(line, name, version string) string {
 	return actionIDRegex.ReplaceAllStringFunc(line, func(match string) string {
 		parts := actionIDRegex.FindStringSubmatch(match)
 		if strings.HasPrefix(parts[2], "@") {
@@ -180,7 +191,7 @@ func processActionPatterns(line, name, version string) string {
 	})
 }
 
-func parseActionID(action, defaultName, defaultVersion string) (string, string) {
+func ParseActionID(action, defaultName, defaultVersion string) (string, string) {
 	name, version := defaultName, defaultVersion
 	if strings.HasPrefix(action, "@") {
 		parts := strings.SplitN(action[1:], "/", 2)
@@ -201,7 +212,7 @@ func ValidatePklResources(fs afero.Fs, ctx context.Context, dir string, logger *
 		return fmt.Errorf("missing resource directory: %s", dir)
 	}
 
-	pklFiles, err := collectPklFiles(fs, dir)
+	pklFiles, err := CollectPklFiles(fs, dir)
 	if err != nil || len(pklFiles) == 0 {
 		logger.Error("no .pkl files found", "directory", dir)
 		return fmt.Errorf("no .pkl files in %s", dir)
@@ -215,7 +226,7 @@ func ValidatePklResources(fs afero.Fs, ctx context.Context, dir string, logger *
 	return nil
 }
 
-func collectPklFiles(fs afero.Fs, dir string) ([]string, error) {
+func CollectPklFiles(fs afero.Fs, dir string) ([]string, error) {
 	files, err := afero.ReadDir(fs, dir)
 	if err != nil {
 		return nil, fmt.Errorf("error reading directory: %w", err)

@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	. "github.com/kdeps/kdeps/pkg/resolver"
+
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	pklPython "github.com/kdeps/schema/gen/python"
@@ -16,7 +18,7 @@ func TestEncodePythonEnv(t *testing.T) {
 	dr := &DependencyResolver{Logger: logging.GetLogger()}
 
 	env := map[string]string{"A": "alpha", "B": "beta"}
-	encoded := dr.encodePythonEnv(&env)
+	encoded := dr.EncodePythonEnv(&env)
 	if encoded == nil || len(*encoded) != 2 {
 		t.Fatalf("expected 2 encoded entries")
 	}
@@ -29,13 +31,13 @@ func TestEncodePythonOutputs(t *testing.T) {
 	dr := &DependencyResolver{}
 	stderr := "some err"
 	stdout := "some out"
-	e1, e2 := dr.encodePythonOutputs(&stderr, &stdout)
+	e1, e2 := dr.EncodePythonOutputs(&stderr, &stdout)
 	if *e1 == stderr || *e2 == stdout {
 		t.Errorf("outputs not encoded: %s %s", *e1, *e2)
 	}
 
 	// nil pass-through
-	n1, n2 := dr.encodePythonOutputs(nil, nil)
+	n1, n2 := dr.EncodePythonOutputs(nil, nil)
 	if n1 != nil || n2 != nil {
 		t.Errorf("expected nil return for nil inputs")
 	}
@@ -44,11 +46,11 @@ func TestEncodePythonOutputs(t *testing.T) {
 func TestEncodePythonStderrStdoutFormatting(t *testing.T) {
 	dr := &DependencyResolver{}
 	msg := "line1\nline2"
-	got := dr.encodePythonStderr(&msg)
+	got := dr.EncodePythonStderr(&msg)
 	if len(got) == 0 || got[0] != ' ' {
 		t.Errorf("unexpected format: %s", got)
 	}
-	got2 := dr.encodePythonStdout(nil)
+	got2 := dr.EncodePythonStdout(nil)
 	if got2 != "    stdout = \"\"\n" {
 		t.Errorf("unexpected default stdout: %s", got2)
 	}

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	kdx "github.com/kdeps/kdeps/pkg/kdepsexec"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/resolver"
@@ -36,7 +37,7 @@ func StartWebServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 
 	router := gin.Default()
 
-	setupWebRoutes(router, ctx, hostIP, wfTrustedProxies, wfWebServer.Routes, dr)
+	SetupWebRoutes(router, ctx, hostIP, wfTrustedProxies, wfWebServer.Routes, dr)
 
 	dr.Logger.Printf("Starting Web server on port %s", hostPort)
 
@@ -49,14 +50,14 @@ func StartWebServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 	return nil
 }
 
-func setupWebRoutes(router *gin.Engine, ctx context.Context, hostIP string, wfTrustedProxies []string, routes []*webserver.WebServerRoutes, dr *resolver.DependencyResolver) {
+func SetupWebRoutes(router *gin.Engine, ctx context.Context, hostIP string, wfTrustedProxies []string, routes []*webserver.WebServerRoutes, dr *resolver.DependencyResolver) {
 	for _, route := range routes {
 		if route == nil || route.Path == "" {
 			dr.Logger.Error("route configuration is invalid", "route", route)
 			continue
 		}
 
-		handler := WebServerHandler(ctx, hostIP, route, dr)
+		handler := WebServerHandler(ctx, hostIP, route, dr) //nolint:bodyclose
 
 		if len(wfTrustedProxies) > 0 {
 			dr.Logger.Printf("Found trusted proxies %v", wfTrustedProxies)
@@ -78,17 +79,17 @@ func WebServerHandler(ctx context.Context, hostIP string, route *webserver.WebSe
 	fullPath := filepath.Join(dr.DataDir, route.PublicPath)
 
 	// Log directory contents for debugging
-	logDirectoryContents(dr, fullPath, logger)
+	LogDirectoryContents(dr, fullPath, logger)
 
 	// Start app command if needed
-	startAppCommand(ctx, route, fullPath, logger)
+	StartAppCommand(ctx, route, fullPath, logger)
 
 	return func(c *gin.Context) {
 		switch route.ServerType {
 		case webservertype.Static:
-			handleStaticRequest(c, fullPath, route)
+			HandleStaticRequest(c, fullPath, route)
 		case webservertype.App:
-			handleAppRequest(c, hostIP, route, logger)
+			HandleAppRequest(c, hostIP, route, logger)
 		default:
 			logger.Error(messages.ErrUnsupportedServerType, "type", route.ServerType)
 			c.String(http.StatusInternalServerError, messages.RespUnsupportedServerType)
@@ -96,7 +97,7 @@ func WebServerHandler(ctx context.Context, hostIP string, route *webserver.WebSe
 	}
 }
 
-func logDirectoryContents(dr *resolver.DependencyResolver, fullPath string, logger *logging.Logger) {
+func LogDirectoryContents(dr *resolver.DependencyResolver, fullPath string, logger *logging.Logger) {
 	entries, err := afero.ReadDir(dr.Fs, fullPath)
 	if err != nil {
 		logger.Error("failed to read directory", "path", fullPath, "error", err)
@@ -107,9 +108,9 @@ func logDirectoryContents(dr *resolver.DependencyResolver, fullPath string, logg
 	}
 }
 
-func startAppCommand(ctx context.Context, route *webserver.WebServerRoutes, fullPath string, logger *logging.Logger) {
+func StartAppCommand(ctx context.Context, route *webserver.WebServerRoutes, fullPath string, logger *logging.Logger) {
 	if route.ServerType == webservertype.App && route.Command != nil {
-		_, _, _, err := KdepsExec(
+		_, _, _, err := kdx.KdepsExec(
 			ctx,
 			"sh", []string{"-c", *route.Command},
 			fullPath,
@@ -123,13 +124,13 @@ func startAppCommand(ctx context.Context, route *webserver.WebServerRoutes, full
 	}
 }
 
-func handleStaticRequest(c *gin.Context, fullPath string, route *webserver.WebServerRoutes) {
+func HandleStaticRequest(c *gin.Context, fullPath string, route *webserver.WebServerRoutes) {
 	// Use the standard file server, stripping the route prefix
 	fileServer := http.StripPrefix(route.Path, http.FileServer(http.Dir(fullPath)))
 	fileServer.ServeHTTP(c.Writer, c.Request)
 }
 
-func handleAppRequest(c *gin.Context, hostIP string, route *webserver.WebServerRoutes, logger *logging.Logger) {
+func HandleAppRequest(c *gin.Context, hostIP string, route *webserver.WebServerRoutes, logger *logging.Logger) {
 	portNum := strconv.FormatUint(uint64(*route.AppPort), 10)
 	if hostIP == "" || portNum == "" {
 		logger.Error(messages.ErrProxyHostPortMissing, "host", hostIP, "port", portNum)

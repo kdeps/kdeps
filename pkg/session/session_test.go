@@ -7,19 +7,20 @@ import (
 	"testing"
 	"time"
 
+	sessionpkg "github.com/kdeps/kdeps/pkg/session"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPklResourceReader(t *testing.T) {
 	// Use in-memory database for faster tests
-	db, err := InitializeDatabase(":memory:")
+	db, err := sessionpkg.InitializeDatabase(":memory:")
 	if err != nil {
 		t.Fatalf("failed to initialize in-memory database: %v", err)
 	}
 
 	// Initialize session with in-memory database
-	s := &PklResourceReader{DB: db, DBPath: ":memory:"}
+	s := &sessionpkg.PklResourceReader{DB: db, DBPath: ":memory:"}
 
 	t.Run("Scheme", func(t *testing.T) {
 		require.Equal(t, "session", s.Scheme())
@@ -144,7 +145,7 @@ func TestPklResourceReader(t *testing.T) {
 
 func TestInitializeDatabase(t *testing.T) {
 	t.Run("SuccessfulInitialization", func(t *testing.T) {
-		db, err := InitializeDatabase("file::memory:")
+		db, err := sessionpkg.InitializeDatabase("file::memory:")
 		require.NoError(t, err)
 		require.NotNil(t, db)
 
@@ -155,7 +156,7 @@ func TestInitializeDatabase(t *testing.T) {
 	})
 
 	t.Run("InvalidPath", func(t *testing.T) {
-		db, err := InitializeDatabase("file::memory:?cache=invalid")
+		db, err := sessionpkg.InitializeDatabase("file::memory:?cache=invalid")
 		if err != nil {
 			if db != nil {
 				err = db.Ping()
@@ -166,7 +167,7 @@ func TestInitializeDatabase(t *testing.T) {
 }
 
 func TestInitializeSession(t *testing.T) {
-	reader, err := InitializeSession("file::memory:")
+	reader, err := sessionpkg.InitializeSession("file::memory:")
 	require.NoError(t, err)
 	require.NotNil(t, reader)
 	require.NotNil(t, reader.DB)
@@ -177,7 +178,7 @@ func TestInitializeDatabase_RetryLogic(t *testing.T) {
 	t.Run("RetryOnPingFailure", func(t *testing.T) {
 		// Use a file path that will cause ping to fail initially
 		dbPath := "file::memory:?mode=ro"
-		db, err := InitializeDatabase(dbPath)
+		db, err := sessionpkg.InitializeDatabase(dbPath)
 		require.Error(t, err)
 		require.Nil(t, db)
 		require.Contains(t, err.Error(), "failed to create records table after 5 attempts")
@@ -186,7 +187,7 @@ func TestInitializeDatabase_RetryLogic(t *testing.T) {
 	t.Run("RetryOnTableCreationFailure", func(t *testing.T) {
 		// Use a file path that will cause table creation to fail initially
 		dbPath := "file::memory:?mode=ro"
-		db, err := InitializeDatabase(dbPath)
+		db, err := sessionpkg.InitializeDatabase(dbPath)
 		require.Error(t, err)
 		require.Nil(t, db)
 		require.Contains(t, err.Error(), "failed to create records table after 5 attempts")
@@ -195,14 +196,14 @@ func TestInitializeDatabase_RetryLogic(t *testing.T) {
 
 func TestInitializeSession_ErrorCases(t *testing.T) {
 	t.Run("InvalidDBPath", func(t *testing.T) {
-		reader, err := InitializeSession("invalid://path")
+		reader, err := sessionpkg.InitializeSession("invalid://path")
 		require.Error(t, err)
 		require.Nil(t, reader)
 		require.Contains(t, err.Error(), "error initializing database")
 	})
 
 	t.Run("NilDBPath", func(t *testing.T) {
-		reader, err := InitializeSession("")
+		reader, err := sessionpkg.InitializeSession("")
 		require.NoError(t, err)
 		require.NotNil(t, reader)
 	})
@@ -210,9 +211,8 @@ func TestInitializeSession_ErrorCases(t *testing.T) {
 
 func TestPklResourceReader_Read_EdgeCases(t *testing.T) {
 	t.Run("InvalidURIScheme", func(t *testing.T) {
-		reader, err := InitializeSession(":memory:")
+		reader, err := sessionpkg.InitializeSession(":memory:")
 		require.NoError(t, err)
-		defer reader.Close()
 
 		uri := url.URL{Scheme: "invalid", Path: "/test"}
 		result, err := reader.Read(uri)
@@ -222,9 +222,8 @@ func TestPklResourceReader_Read_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("SQLExecutionError", func(t *testing.T) {
-		reader, err := InitializeSession(":memory:")
+		reader, err := sessionpkg.InitializeSession(":memory:")
 		require.NoError(t, err)
-		defer reader.Close()
 
 		// Close the database to simulate an error
 		require.NoError(t, reader.DB.Close())
@@ -239,9 +238,8 @@ func TestPklResourceReader_Read_EdgeCases(t *testing.T) {
 
 	t.Run("ConcurrentAccess", func(t *testing.T) {
 		tempFile := filepath.Join(t.TempDir(), "concurrent.db")
-		reader, err := InitializeSession(tempFile)
+		reader, err := sessionpkg.InitializeSession(tempFile)
 		require.NoError(t, err)
-		defer reader.Close()
 
 		// Create the records table
 		_, err = reader.DB.Exec("CREATE TABLE IF NOT EXISTS records (id TEXT PRIMARY KEY, value TEXT)")
@@ -287,9 +285,8 @@ func TestPklResourceReader_Read_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("InvalidOperation", func(t *testing.T) {
-		reader, err := InitializeSession(":memory:")
+		reader, err := sessionpkg.InitializeSession(":memory:")
 		require.NoError(t, err)
-		defer reader.Close()
 
 		// Test with an invalid operation
 		uri := url.URL{Scheme: "session", Path: "/test?operation=invalid"}
@@ -297,13 +294,4 @@ func TestPklResourceReader_Read_EdgeCases(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, result)
 	})
-}
-
-// Close is a helper method available only in test builds to simplify resource cleanup.
-// It closes the underlying *sql.DB if it is non-nil.
-func (r *PklResourceReader) Close() error {
-	if r == nil || r.DB == nil {
-		return nil
-	}
-	return r.DB.Close()
 }

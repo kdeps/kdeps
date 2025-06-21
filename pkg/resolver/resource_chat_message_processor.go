@@ -10,7 +10,7 @@ import (
 )
 
 // summarizeMessageHistory creates a concise summary of message history for logging.
-func summarizeMessageHistory(history []llms.MessageContent) string {
+func SummarizeMessageHistory(history []llms.MessageContent) string {
 	var summary strings.Builder
 	for i, msg := range history {
 		if i > 0 {
@@ -30,7 +30,7 @@ func summarizeMessageHistory(history []llms.MessageContent) string {
 }
 
 // buildSystemPrompt constructs the system prompt with strict JSON tool usage instructions.
-func buildSystemPrompt(jsonResponse *bool, jsonResponseKeys *[]string, tools []llms.Tool) string {
+func BuildSystemPrompt(jsonResponse *bool, jsonResponseKeys *[]string, tools []llms.Tool) string {
 	var sb strings.Builder
 
 	if jsonResponse != nil && *jsonResponse {
@@ -59,7 +59,7 @@ func buildSystemPrompt(jsonResponse *bool, jsonResponseKeys *[]string, tools []l
 	for _, tool := range tools {
 		if tool.Function != nil {
 			sb.WriteString("- " + tool.Function.Name + ": " + tool.Function.Description + "\n")
-			formatToolParameters(tool, &sb)
+			FormatToolParameters(tool, &sb)
 		}
 	}
 
@@ -67,16 +67,16 @@ func buildSystemPrompt(jsonResponse *bool, jsonResponseKeys *[]string, tools []l
 }
 
 // getRoleAndType retrieves the role and its corresponding message type.
-func getRoleAndType(rolePtr *string) (string, llms.ChatMessageType) {
+func GetRoleAndType(rolePtr *string) (string, llms.ChatMessageType) {
 	role := utils.SafeDerefString(rolePtr)
 	if strings.TrimSpace(role) == "" {
 		role = RoleHuman
 	}
-	return role, mapRoleToLLMMessageType(role)
+	return role, MapRoleToLLMMessageType(role)
 }
 
 // processScenarioMessages processes scenario entries into LLM messages.
-func processScenarioMessages(scenario *[]*pklLLM.MultiChat, logger *logging.Logger) []llms.MessageContent {
+func ProcessScenarioMessages(scenario *[]*pklLLM.MultiChat, logger *logging.Logger) []llms.MessageContent {
 	if scenario == nil {
 		logger.Info("No scenario messages to process")
 		return make([]llms.MessageContent, 0)
@@ -94,7 +94,7 @@ func processScenarioMessages(scenario *[]*pklLLM.MultiChat, logger *logging.Logg
 		if strings.TrimSpace(prompt) == "" {
 			logger.Info("Processing empty scenario prompt", "index", i, "role", utils.SafeDerefString(entry.Role))
 		}
-		entryRole, entryType := getRoleAndType(entry.Role)
+		entryRole, entryType := GetRoleAndType(entry.Role)
 		entryPrompt := prompt
 		if entryType == llms.ChatMessageTypeGeneric {
 			entryPrompt = "[" + entryRole + "]: " + prompt
@@ -109,7 +109,7 @@ func processScenarioMessages(scenario *[]*pklLLM.MultiChat, logger *logging.Logg
 }
 
 // mapRoleToLLMMessageType maps user-defined roles to llms.ChatMessageType.
-func mapRoleToLLMMessageType(role string) llms.ChatMessageType {
+func MapRoleToLLMMessageType(role string) llms.ChatMessageType {
 	switch strings.ToLower(strings.TrimSpace(role)) {
 	case RoleHuman, RoleUser, RolePerson, RoleClient:
 		return llms.ChatMessageTypeHuman

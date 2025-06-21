@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/kdeps/kdeps/pkg/resolver"
+
 	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/logging"
 	pklRes "github.com/kdeps/schema/gen/resource"
@@ -31,7 +33,7 @@ func TestProcessResourceStep_Success(t *testing.T) {
 		return nil
 	}
 
-	err := dr.processResourceStep("resA", "exec", nil, func() error {
+	err := dr.ProcessResourceStep("resA", "exec", nil, func() error {
 		calledHandler = true
 		return nil
 	})
@@ -55,7 +57,7 @@ func TestProcessResourceStep_HandlerErr(t *testing.T) {
 		return nil
 	}
 
-	err := dr.processResourceStep("resA", "python", nil, func() error { return handlerErr })
+	err := dr.ProcessResourceStep("resA", "python", nil, func() error { return handlerErr })
 	if err == nil || !errors.Is(err, handlerErr) {
 		t.Fatalf("expected handler error to propagate, got %v", err)
 	}
@@ -73,7 +75,7 @@ func TestProcessResourceStep_WaitErr(t *testing.T) {
 		return waitErr
 	}
 
-	err := dr.processResourceStep("resA", "llm", nil, func() error { return nil })
+	err := dr.ProcessResourceStep("resA", "llm", nil, func() error { return nil })
 	if err == nil || !errors.Is(err, waitErr) {
 		t.Fatalf("expected wait error to propagate, got %v", err)
 	}
@@ -97,7 +99,7 @@ func TestProcessResourceStep_CustomTimeout(t *testing.T) {
 		return nil
 	}
 
-	if err := dr.processResourceStep("resA", "exec", customDur, func() error { return nil }); err != nil {
+	if err := dr.ProcessResourceStep("resA", "exec", customDur, func() error { return nil }); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !waited {
@@ -117,7 +119,7 @@ func TestProcessRunBlock_NoRunBlock(t *testing.T) {
 	resEntry := ResourceNodeEntry{ActionID: "act1", File: "foo.pkl"}
 	rsc := &pklRes.Resource{} // Run is nil by default
 
-	proceed, err := dr.processRunBlock(resEntry, rsc, "act1", false)
+	proceed, err := dr.ProcessRunBlock(resEntry, rsc, "act1", false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

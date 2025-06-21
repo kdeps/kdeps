@@ -13,8 +13,8 @@ import (
 	pklPython "github.com/kdeps/schema/gen/python"
 )
 
-// getResourceFilePath returns the file path for a given resourceType.
-func (dr *DependencyResolver) getResourceFilePath(resourceType string) (string, error) {
+// GetResourceFilePath returns the file path for a given resourceType.
+func (dr *DependencyResolver) GetResourceFilePath(resourceType string) (string, error) {
 	files := map[string]string{
 		"llm":    filepath.Join(dr.ActionDir, "llm", dr.RequestID+"__llm_output.pkl"),
 		"client": filepath.Join(dr.ActionDir, "client", dr.RequestID+"__client_output.pkl"),
@@ -46,7 +46,7 @@ func (dr *DependencyResolver) loadPKLFile(resourceType, pklPath string) (interfa
 }
 
 // getResourceTimestamp retrieves the timestamp for a specific resource from the given PKL result.
-func getResourceTimestamp(resourceID string, pklRes interface{}) (*pkl.Duration, error) {
+func GetResourceTimestamp(resourceID string, pklRes interface{}) (*pkl.Duration, error) {
 	switch res := pklRes.(type) {
 	case *pklExec.ExecImpl:
 		// ExecImpl resources are of type *ResourceExec
@@ -90,7 +90,7 @@ func getResourceTimestamp(resourceID string, pklRes interface{}) (*pkl.Duration,
 
 // GetCurrentTimestamp retrieves the current timestamp for the given resourceID and resourceType.
 func (dr *DependencyResolver) GetCurrentTimestamp(resourceID, resourceType string) (pkl.Duration, error) {
-	pklPath, err := dr.getResourceFilePath(resourceType)
+	pklPath, err := dr.GetResourceFilePath(resourceType)
 	if err != nil {
 		return pkl.Duration{}, err
 	}
@@ -100,7 +100,7 @@ func (dr *DependencyResolver) GetCurrentTimestamp(resourceID, resourceType strin
 		return pkl.Duration{}, fmt.Errorf("failed to load %s PKL file: %w", resourceType, err)
 	}
 
-	timestamp, err := getResourceTimestamp(resourceID, pklRes)
+	timestamp, err := GetResourceTimestamp(resourceID, pklRes)
 	if err != nil {
 		return pkl.Duration{}, err
 	}
@@ -110,7 +110,7 @@ func (dr *DependencyResolver) GetCurrentTimestamp(resourceID, resourceType strin
 
 // formatDuration converts a time.Duration into a human-friendly string.
 // It prints hours, minutes, and seconds when appropriate.
-func formatDuration(d time.Duration) string {
+func FormatDuration(d time.Duration) string {
 	secondsTotal := int(d.Seconds())
 	hours := secondsTotal / 3600
 	minutes := (secondsTotal % 3600) / 60
@@ -135,7 +135,7 @@ func (dr *DependencyResolver) WaitForTimestampChange(resourceID string, previous
 		elapsed := time.Since(startTime)
 		// Calculate remaining time correctly for logging
 		remaining := timeout - elapsed
-		formattedRemaining := formatDuration(remaining)
+		formattedRemaining := FormatDuration(remaining)
 		dr.Logger.Infof("action '%s' will timeout in '%s'", resourceID, formattedRemaining)
 
 		// Check if elapsed time meets or exceeds the timeout
@@ -150,7 +150,7 @@ func (dr *DependencyResolver) WaitForTimestampChange(resourceID string, previous
 
 		if currentTimestamp != previousTimestamp && currentTimestamp == lastSeenTimestamp {
 			elapsedTime := time.Since(startTime)
-			dr.Logger.Infof("resource '%s' (type: %s) completed in %s", resourceID, resourceType, formatDuration(elapsedTime))
+			dr.Logger.Infof("resource '%s' (type: %s) completed in %s", resourceID, resourceType, FormatDuration(elapsedTime))
 			return nil
 		}
 		lastSeenTimestamp = currentTimestamp

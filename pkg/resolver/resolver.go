@@ -25,9 +25,11 @@ import (
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/memory"
 	"github.com/kdeps/kdeps/pkg/messages"
+	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/session"
 	"github.com/kdeps/kdeps/pkg/tool"
 	"github.com/kdeps/kdeps/pkg/utils"
+	apiserverresponse "github.com/kdeps/schema/gen/api_server_response"
 	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
 	pklRes "github.com/kdeps/schema/gen/resource"
@@ -105,12 +107,13 @@ type ResourceNodeEntry struct {
 }
 
 func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment, req *gin.Context, logger *logging.Logger) (*DependencyResolver, error) {
-	var agentDir, graphID, actionDir string
+	var agentDir, graphID, actionDir, kdepsDir string
 
 	contextKeys := map[*string]ktx.ContextKey{
 		&agentDir:  ktx.CtxKeyAgentDir,
 		&graphID:   ktx.CtxKeyGraphID,
 		&actionDir: ktx.CtxKeyActionDir,
+		&kdepsDir:  ktx.CtxKeySharedDir,
 	}
 
 	for ptr, key := range contextKeys {
@@ -172,7 +175,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		agentName = workflowConfiguration.GetName()
 	}
 
-	memoryDBPath = filepath.Join("/.kdeps/", agentName+"_memory.db")
+	memoryDBPath = filepath.Join(kdepsDir, agentName+"_memory.db")
 	memoryReader, err := memory.InitializeMemory(memoryDBPath)
 	if err != nil {
 		memoryReader.DB.Close()
@@ -260,14 +263,14 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	dependencyResolver.LoadResourceEntriesFn = dependencyResolver.LoadResourceEntries
 	dependencyResolver.LoadResourceFn = dependencyResolver.LoadResource
 	dependencyResolver.BuildDependencyStackFn = dependencyResolver.Graph.BuildDependencyStack
-	dependencyResolver.ProcessRunBlockFn = dependencyResolver.processRunBlock
+	dependencyResolver.ProcessRunBlockFn = dependencyResolver.ProcessRunBlock
 	dependencyResolver.ClearItemDBFn = dependencyResolver.ClearItemDB
 
 	// Chat helpers
 	dependencyResolver.NewLLMFn = func(model string) (*ollama.LLM, error) {
 		return ollama.New(ollama.WithModel(model))
 	}
-	dependencyResolver.GenerateChatResponseFn = generateChatResponse
+	dependencyResolver.GenerateChatResponseFn = GenerateChatResponse
 	dependencyResolver.DoRequestFn = dependencyResolver.DoRequest
 
 	// Default Python/Conda runner
@@ -295,9 +298,9 @@ func (dr *DependencyResolver) ClearItemDB() error {
 	return nil
 }
 
-// processResourceStep consolidates the pattern of: get timestamp, run a handler, adjust timeout (if provided),
+// ProcessResourceStep consolidates the pattern of: get timestamp, run a handler, adjust timeout (if provided),
 // then wait for the timestamp change.
-func (dr *DependencyResolver) processResourceStep(resourceID, step string, timeoutPtr *pkl.Duration, handler func() error) error {
+func (dr *DependencyResolver) ProcessResourceStep(resourceID, step string, timeoutPtr *pkl.Duration, handler func() error) error {
 	timestamp, err := dr.GetCurrentTimestampFn(resourceID, step)
 	if err != nil {
 		return fmt.Errorf("%s error: %w", step, err)
@@ -325,8 +328,8 @@ func (dr *DependencyResolver) processResourceStep(resourceID, step string, timeo
 	return nil
 }
 
-// validateRequestParams checks if params in request.params("header_id") are in AllowedParams.
-func (dr *DependencyResolver) validateRequestParams(file string, allowedParams []string) error {
+// ValidateRequestParams checks if params in request.params("header_id") are in AllowedParams.
+func (dr *DependencyResolver) ValidateRequestParams(file string, allowedParams []string) error {
 	if len(allowedParams) == 0 {
 		return nil // Allow all if empty
 	}
@@ -343,8 +346,8 @@ func (dr *DependencyResolver) validateRequestParams(file string, allowedParams [
 	return nil
 }
 
-// validateRequestHeaders checks if headers in request.header("header_id") are in AllowedHeaders.
-func (dr *DependencyResolver) validateRequestHeaders(file string, allowedHeaders []string) error {
+// ValidateRequestHeaders checks if headers in request.header("header_id") are in AllowedHeaders.
+func (dr *DependencyResolver) ValidateRequestHeaders(file string, allowedHeaders []string) error {
 	if len(allowedHeaders) == 0 {
 		return nil // Allow all if empty
 	}
@@ -361,8 +364,8 @@ func (dr *DependencyResolver) validateRequestHeaders(file string, allowedHeaders
 	return nil
 }
 
-// validateRequestPath checks if the actual request path is in AllowedRoutes.
-func (dr *DependencyResolver) validateRequestPath(req *gin.Context, allowedRoutes []string) error {
+// ValidateRequestPath checks if the actual request path is in AllowedRoutes.
+func (dr *DependencyResolver) ValidateRequestPath(req *gin.Context, allowedRoutes []string) error {
 	if len(allowedRoutes) == 0 {
 		return nil // Allow all if empty
 	}
@@ -374,8 +377,8 @@ func (dr *DependencyResolver) validateRequestPath(req *gin.Context, allowedRoute
 	return nil
 }
 
-// validateRequestMethod checks if the actual request method is in AllowedHTTPMethods.
-func (dr *DependencyResolver) validateRequestMethod(req *gin.Context, allowedMethods []string) error {
+// ValidateRequestMethod checks if the actual request method is in AllowedHTTPMethods.
+func (dr *DependencyResolver) ValidateRequestMethod(req *gin.Context, allowedMethods []string) error {
 	if len(allowedMethods) == 0 {
 		return nil // Allow all if empty
 	}
@@ -539,8 +542,8 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	return false, nil
 }
 
-// processRunBlock handles the runBlock processing for a resource, excluding APIResponse.
-func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes.Resource, actionID string, hasItems bool) (bool, error) {
+// ProcessRunBlock handles the runBlock processing for a resource, excluding APIResponse.
+func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes.Resource, actionID string, hasItems bool) (bool, error) {
 	// Increment the run counter for this file
 	dr.FileRunCounter[res.File]++
 	dr.Logger.Info("processing run block for file", "file", res.File, "runCount", dr.FileRunCounter[res.File], "actionID", actionID)
@@ -602,7 +605,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 		if runBlock.AllowedParams != nil {
 			allowedParams = *runBlock.AllowedParams
 		}
-		if err := dr.validateRequestParams(string(fileContent), allowedParams); err != nil {
+		if err := dr.ValidateRequestParams(string(fileContent), allowedParams); err != nil {
 			dr.Logger.Error("request params validation failed", "actionID", res.ActionID, "error", err)
 			return dr.HandleAPIErrorResponse(400, fmt.Sprintf("Request params validation failed for resource %s: %v", res.ActionID, err), false)
 		}
@@ -612,7 +615,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 		if runBlock.AllowedHeaders != nil {
 			allowedHeaders = *runBlock.AllowedHeaders
 		}
-		if err := dr.validateRequestHeaders(string(fileContent), allowedHeaders); err != nil {
+		if err := dr.ValidateRequestHeaders(string(fileContent), allowedHeaders); err != nil {
 			dr.Logger.Error("request headers validation failed", "actionID", res.ActionID, "error", err)
 			return dr.HandleAPIErrorResponse(400, fmt.Sprintf("Request headers validation failed for resource %s: %v", res.ActionID, err), false)
 		}
@@ -622,7 +625,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 		if runBlock.RestrictToRoutes != nil {
 			allowedRoutes = *runBlock.RestrictToRoutes
 		}
-		if err := dr.validateRequestPath(dr.Request, allowedRoutes); err != nil {
+		if err := dr.ValidateRequestPath(dr.Request, allowedRoutes); err != nil {
 			dr.Logger.Info("skipping due to request path validation not allowed", "actionID", res.ActionID, "error", err)
 			return false, nil
 		}
@@ -632,7 +635,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 		if runBlock.RestrictToHTTPMethods != nil {
 			allowedMethods = *runBlock.RestrictToHTTPMethods
 		}
-		if err := dr.validateRequestMethod(dr.Request, allowedMethods); err != nil {
+		if err := dr.ValidateRequestMethod(dr.Request, allowedMethods); err != nil {
 			dr.Logger.Info("skipping due to request method validation not allowed", "actionID", res.ActionID, "error", err)
 			return false, nil
 		}
@@ -658,7 +661,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 
 	// Process Exec step, if defined
 	if runBlock.Exec != nil && runBlock.Exec.Command != "" {
-		if err := dr.processResourceStep(res.ActionID, "exec", runBlock.Exec.TimeoutDuration, func() error {
+		if err := dr.ProcessResourceStep(res.ActionID, "exec", runBlock.Exec.TimeoutDuration, func() error {
 			return dr.HandleExec(res.ActionID, runBlock.Exec)
 		}); err != nil {
 			dr.Logger.Error("exec error:", res.ActionID)
@@ -668,7 +671,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 
 	// Process Python step, if defined
 	if runBlock.Python != nil && runBlock.Python.Script != "" {
-		if err := dr.processResourceStep(res.ActionID, "python", runBlock.Python.TimeoutDuration, func() error {
+		if err := dr.ProcessResourceStep(res.ActionID, "python", runBlock.Python.TimeoutDuration, func() error {
 			return dr.HandlePython(res.ActionID, runBlock.Python)
 		}); err != nil {
 			dr.Logger.Error("python error:", res.ActionID)
@@ -682,7 +685,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 		if runBlock.Chat.Scenario != nil {
 			dr.Logger.Info("Scenario present", "length", len(*runBlock.Chat.Scenario))
 		}
-		if err := dr.processResourceStep(res.ActionID, "llm", runBlock.Chat.TimeoutDuration, func() error {
+		if err := dr.ProcessResourceStep(res.ActionID, "llm", runBlock.Chat.TimeoutDuration, func() error {
 			return dr.HandleLLMChat(res.ActionID, runBlock.Chat)
 		}); err != nil {
 			dr.Logger.Error("LLM chat error", "actionID", res.ActionID, "error", err)
@@ -697,7 +700,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 
 	// Process HTTP Client step, if defined
 	if runBlock.HTTPClient != nil && runBlock.HTTPClient.Method != "" && runBlock.HTTPClient.Url != "" {
-		if err := dr.processResourceStep(res.ActionID, "client", runBlock.HTTPClient.TimeoutDuration, func() error {
+		if err := dr.ProcessResourceStep(res.ActionID, "client", runBlock.HTTPClient.TimeoutDuration, func() error {
 			return dr.HandleHTTPClient(res.ActionID, runBlock.HTTPClient)
 		}); err != nil {
 			dr.Logger.Error("HTTP client error:", res.ActionID)
@@ -706,4 +709,91 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 	}
 
 	return true, nil
+}
+
+func (dr *DependencyResolver) ExecutePklEvalCommand() (kdepsexecStd struct {
+	Stdout, Stderr string
+	ExitCode       int
+}, err error) {
+	stdout, stderr, exitCode, err := kdepsexec.KdepsExec(
+		dr.Context,
+		"pkl",
+		[]string{"eval", "--format", "json", "--output-path", dr.ResponseTargetFile, dr.ResponsePklFile},
+		"",
+		false,
+		false,
+		dr.Logger,
+	)
+	if err != nil {
+		return kdepsexecStd, err
+	}
+	if exitCode != 0 {
+		return kdepsexecStd, fmt.Errorf("command failed with exit code %d: %s", exitCode, stderr)
+	}
+	kdepsexecStd.Stdout = stdout
+	kdepsexecStd.Stderr = stderr
+	kdepsexecStd.ExitCode = exitCode
+	return kdepsexecStd, nil
+}
+
+func (dr *DependencyResolver) ValidatePklFileExtension() error {
+	if filepath.Ext(dr.ResponsePklFile) != ".pkl" {
+		return errors.New("file must have .pkl extension")
+	}
+	return nil
+}
+
+func (dr *DependencyResolver) EnsureResponseTargetFileNotExists() error {
+	exists, err := afero.Exists(dr.Fs, dr.ResponseTargetFile)
+	if err != nil {
+		return fmt.Errorf("check target file existence: %w", err)
+	}
+
+	if exists {
+		if err := dr.Fs.RemoveAll(dr.ResponseTargetFile); err != nil {
+			return fmt.Errorf("remove target file: %w", err)
+		}
+	}
+	return nil
+}
+
+func (dr *DependencyResolver) EnsureResponsePklFileNotExists() error {
+	exists, err := afero.Exists(dr.Fs, dr.ResponsePklFile)
+	if err != nil {
+		return fmt.Errorf("check file existence: %w", err)
+	}
+
+	if exists {
+		if err := dr.Fs.RemoveAll(dr.ResponsePklFile); err != nil {
+			return fmt.Errorf("delete old response file: %w", err)
+		}
+		dr.Logger.Debug("old response PKL file deleted", "file", dr.ResponsePklFile)
+	}
+	return nil
+}
+
+func (dr *DependencyResolver) BuildResponseSections(requestID string, apiResponseBlock apiserverresponse.APIServerResponse) []string {
+	sections := []string{
+		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Document.pkl" as document`, schema.SchemaVersion(dr.Context)),
+		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Memory.pkl" as memory`, schema.SchemaVersion(dr.Context)),
+		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Session.pkl" as session`, schema.SchemaVersion(dr.Context)),
+		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Tool.pkl" as tool`, schema.SchemaVersion(dr.Context)),
+		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Item.pkl" as item`, schema.SchemaVersion(dr.Context)),
+		fmt.Sprintf("success = %v", apiResponseBlock.GetSuccess()),
+		FormatResponseMeta(requestID, apiResponseBlock.GetMeta()),
+		FormatResponseData(apiResponseBlock.GetResponse()),
+		FormatErrors(apiResponseBlock.GetErrors(), dr.Logger),
+	}
+	return sections
+}
+
+// HandleAPIErrorResponse creates an error response PKL file.
+func (dr *DependencyResolver) HandleAPIErrorResponse(code int, message string, fatal bool) (bool, error) {
+	if dr.APIServerMode {
+		errorResponse := utils.NewAPIServerResponse(false, nil, code, message)
+		if err := dr.CreateResponsePklFile(errorResponse); err != nil {
+			return fatal, fmt.Errorf("create error response: %w", err)
+		}
+	}
+	return fatal, nil
 }

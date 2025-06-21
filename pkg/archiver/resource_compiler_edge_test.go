@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	. "github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/schema/gen/project"
 	pklWf "github.com/kdeps/schema/gen/workflow"
@@ -41,7 +42,7 @@ var (
 func TestHandleRequiresBlockEdge(t *testing.T) {
 	wf := stubWf{}
 	in := "\"data\"\n\"@other/act\"\n\"@agent/act:4.5.6\"\n\"\""
-	out := handleRequiresBlock(in, wf)
+	out := HandleRequiresBlock(in, wf)
 	if !strings.Contains(out, "@agent/data:1.2.3") {
 		t.Fatalf("expected namespaced data, got %s", out)
 	}
@@ -55,26 +56,26 @@ func TestHandleRequiresBlockEdge(t *testing.T) {
 
 func TestProcessActionPatternsEdge(t *testing.T) {
 	line := `responseBody("someID")`
-	got := processActionPatterns(line, "agent", "0.1.0")
+	got := ProcessActionPatterns(line, "agent", "0.1.0")
 	if !strings.Contains(got, "@agent/someID:0.1.0") {
 		t.Fatalf("unexpected transform: %s", got)
 	}
 
 	orig := `response("@other/x:2.0.0")`
-	if res := processActionPatterns(orig, "agent", "0.1.0"); res != orig {
+	if res := ProcessActionPatterns(orig, "agent", "0.1.0"); res != orig {
 		t.Fatalf("already qualified IDs should stay untouched")
 	}
 }
 
 func TestProcessActionIDLineEdge(t *testing.T) {
-	got := processActionIDLine("myAction", "myAction", "agent", "2.0.0")
+	got := ProcessActionIDLine("myAction", "myAction", "agent", "2.0.0")
 	if !strings.Contains(got, "@agent/myAction:2.0.0") {
 		t.Fatalf("expected namespaced id, got %s", got)
 	}
 
 	// Already namespaced should remain unchanged.
 	original := "call @other/that:1.1.1"
-	if res := processActionIDLine(original, "@other/that:1.1.1", "agent", "2.0.0"); res != original {
+	if res := ProcessActionIDLine(original, "@other/that:1.1.1", "agent", "2.0.0"); res != original {
 		t.Fatalf("should not modify already namespaced string")
 	}
 }
@@ -115,7 +116,7 @@ func TestCollectPklFiles(t *testing.T) {
 	_ = afero.WriteFile(fs, filepath.Join(dir, "a.pkl"), []byte("x"), 0o644)
 	_ = afero.WriteFile(fs, filepath.Join(dir, "b.txt"), []byte("y"), 0o644)
 
-	files, err := collectPklFiles(fs, dir)
+	files, err := CollectPklFiles(fs, dir)
 	if err != nil {
 		t.Fatalf("collectPklFiles error: %v", err)
 	}

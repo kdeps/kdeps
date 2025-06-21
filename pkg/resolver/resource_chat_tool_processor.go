@@ -17,7 +17,7 @@ import (
 )
 
 // generateAvailableTools creates a dynamic list of llms.Tool from chatBlock.Tools.
-func generateAvailableTools(chatBlock *pklLLM.ResourceChat, logger *logging.Logger) []llms.Tool {
+func GenerateAvailableTools(chatBlock *pklLLM.ResourceChat, logger *logging.Logger) []llms.Tool {
 	if chatBlock == nil || chatBlock.Tools == nil || len(*chatBlock.Tools) == 0 {
 		logger.Info("No tools defined in chatBlock, returning empty availableTools")
 		return nil
@@ -102,7 +102,7 @@ func generateAvailableTools(chatBlock *pklLLM.ResourceChat, logger *logging.Logg
 }
 
 // constructToolCallsFromJSON parses a JSON string into a slice of llms.ToolCall.
-func constructToolCallsFromJSON(jsonContent string, logger *logging.Logger) []llms.ToolCall {
+func ConstructToolCallsFromJSON(jsonContent string, logger *logging.Logger) []llms.ToolCall {
 	if jsonContent == "" {
 		logger.Info("JSON content is empty, returning empty ToolCalls")
 		return nil
@@ -182,7 +182,7 @@ func constructToolCallsFromJSON(jsonContent string, logger *logging.Logger) []ll
 }
 
 // extractToolParams extracts and validates tool call parameters.
-func extractToolParams(args map[string]interface{}, chatBlock *pklLLM.ResourceChat, toolName string, logger *logging.Logger) (string, string, string, error) {
+func ExtractToolParams(args map[string]interface{}, chatBlock *pklLLM.ResourceChat, toolName string, logger *logging.Logger) (string, string, string, error) {
 	if chatBlock.Tools == nil {
 		logger.Error("chatBlock.Tools is nil in extractToolParams")
 		return "", "", "", errors.New("tools field is nil")
@@ -231,7 +231,7 @@ func extractToolParams(args map[string]interface{}, chatBlock *pklLLM.ResourceCh
 			}
 
 			if value, exists := args[paramName]; exists {
-				strVal := convertToolParamsToString(value, paramName, toolName, logger)
+				strVal := ConvertToolParamsToString(value, paramName, toolName, logger)
 				if strVal != "" {
 					paramValues = append(paramValues, strVal)
 				}
@@ -248,7 +248,7 @@ func extractToolParams(args map[string]interface{}, chatBlock *pklLLM.ResourceCh
 				continue
 			}
 		}
-		strVal := convertToolParamsToString(value, paramName, toolName, logger)
+		strVal := ConvertToolParamsToString(value, paramName, toolName, logger)
 		if strVal != "" {
 			paramValues = append(paramValues, strVal)
 		}
@@ -272,7 +272,7 @@ func extractToolParams(args map[string]interface{}, chatBlock *pklLLM.ResourceCh
 }
 
 // buildToolURI constructs the URI for tool execution.
-func buildToolURI(id, script, paramsStr string) (*url.URL, error) {
+func BuildToolURI(id, script, paramsStr string) (*url.URL, error) {
 	queryParams := url.Values{
 		"op":     []string{"run"},
 		"script": []string{script},
@@ -290,7 +290,7 @@ func buildToolURI(id, script, paramsStr string) (*url.URL, error) {
 }
 
 // formatToolParameters formats tool parameters for the system prompt.
-func formatToolParameters(tool llms.Tool, sb *strings.Builder) {
+func FormatToolParameters(tool llms.Tool, sb *strings.Builder) {
 	if tool.Function == nil || tool.Function.Parameters == nil {
 		return
 	}
@@ -323,7 +323,7 @@ func formatToolParameters(tool llms.Tool, sb *strings.Builder) {
 }
 
 // processToolCalls processes tool calls, appends results to messageHistory, and stores outputs.
-func processToolCalls(toolCalls []llms.ToolCall, toolreader *tool.PklResourceReader, chatBlock *pklLLM.ResourceChat, logger *logging.Logger, messageHistory *[]llms.MessageContent, originalPrompt string, toolOutputs map[string]string) error {
+func ProcessToolCalls(toolCalls []llms.ToolCall, toolreader *tool.PklResourceReader, chatBlock *pklLLM.ResourceChat, logger *logging.Logger, messageHistory *[]llms.MessageContent, originalPrompt string, toolOutputs map[string]string) error {
 	if len(toolCalls) == 0 {
 		logger.Info("No tool calls to process")
 		return nil
@@ -364,21 +364,21 @@ func processToolCalls(toolCalls []llms.ToolCall, toolreader *tool.PklResourceRea
 			"arguments", tc.FunctionCall.Arguments,
 			"tool_call_id", tc.ID)
 
-		args, err := parseToolCallArgs(tc.FunctionCall.Arguments, logger)
+		args, err := ParseToolCallArgs(tc.FunctionCall.Arguments, logger)
 		if err != nil {
 			logger.Error("Failed to parse tool call arguments", "name", tc.FunctionCall.Name, "error", err)
 			errorMessages = append(errorMessages, fmt.Errorf("failed to parse arguments for tool %s: %w", tc.FunctionCall.Name, err))
 			continue
 		}
 
-		id, script, paramsStr, err := extractToolParams(args, chatBlock, tc.FunctionCall.Name, logger)
+		id, script, paramsStr, err := ExtractToolParams(args, chatBlock, tc.FunctionCall.Name, logger)
 		if err != nil {
 			logger.Error("Failed to extract tool parameters", "name", tc.FunctionCall.Name, "error", err)
 			errorMessages = append(errorMessages, fmt.Errorf("failed to extract parameters for tool %s: %w", tc.FunctionCall.Name, err))
 			continue
 		}
 
-		uri, err := buildToolURI(id, script, paramsStr)
+		uri, err := BuildToolURI(id, script, paramsStr)
 		if err != nil {
 			logger.Error("Failed to build tool URI", "name", tc.FunctionCall.Name, "error", err)
 			errorMessages = append(errorMessages, fmt.Errorf("failed to build URI for tool %s: %w", tc.FunctionCall.Name, err))
@@ -452,7 +452,7 @@ func processToolCalls(toolCalls []llms.ToolCall, toolreader *tool.PklResourceRea
 }
 
 // parseToolCallArgs parses JSON arguments from a tool call.
-func parseToolCallArgs(arguments string, logger *logging.Logger) (map[string]interface{}, error) {
+func ParseToolCallArgs(arguments string, logger *logging.Logger) (map[string]interface{}, error) {
 	args := make(map[string]interface{})
 	if err := json.Unmarshal([]byte(arguments), &args); err != nil {
 		logger.Error("Failed to parse tool call arguments",
@@ -465,7 +465,7 @@ func parseToolCallArgs(arguments string, logger *logging.Logger) (map[string]int
 }
 
 // encodeTools encodes the Tools field.
-func encodeTools(tools *[]*pklLLM.Tool) []*pklLLM.Tool {
+func EncodeTools(tools *[]*pklLLM.Tool) []*pklLLM.Tool {
 	encodedEntries := make([]*pklLLM.Tool, len(*tools))
 	for i, entry := range *tools {
 		if entry == nil {
@@ -477,7 +477,7 @@ func encodeTools(tools *[]*pklLLM.Tool) []*pklLLM.Tool {
 
 		var encodedParameters *map[string]*pklLLM.ToolProperties
 		if entry.Parameters != nil {
-			params := encodeToolParameters(entry.Parameters)
+			params := EncodeToolParameters(entry.Parameters)
 			encodedParameters = params
 		}
 
@@ -492,7 +492,7 @@ func encodeTools(tools *[]*pklLLM.Tool) []*pklLLM.Tool {
 }
 
 // encodeToolParameters encodes tool parameters.
-func encodeToolParameters(params *map[string]*pklLLM.ToolProperties) *map[string]*pklLLM.ToolProperties {
+func EncodeToolParameters(params *map[string]*pklLLM.ToolProperties) *map[string]*pklLLM.ToolProperties {
 	encodedParams := make(map[string]*pklLLM.ToolProperties, len(*params))
 	for paramName, param := range *params {
 		if param == nil {
@@ -510,7 +510,7 @@ func encodeToolParameters(params *map[string]*pklLLM.ToolProperties) *map[string
 }
 
 // extractToolNames extracts tool names from a slice of llms.ToolCall for logging.
-func extractToolNames(toolCalls []llms.ToolCall) []string {
+func ExtractToolNames(toolCalls []llms.ToolCall) []string {
 	names := make([]string, 0, len(toolCalls))
 	for _, tc := range toolCalls {
 		if tc.FunctionCall != nil && tc.FunctionCall.Name != "" {
@@ -521,7 +521,7 @@ func extractToolNames(toolCalls []llms.ToolCall) []string {
 }
 
 // extractToolNamesFromTools extracts tool names from a slice of llms.Tool for logging.
-func extractToolNamesFromTools(tools []llms.Tool) []string {
+func ExtractToolNamesFromTools(tools []llms.Tool) []string {
 	names := make([]string, 0, len(tools))
 	for _, t := range tools {
 		if t.Function != nil {
@@ -532,7 +532,7 @@ func extractToolNamesFromTools(tools []llms.Tool) []string {
 }
 
 // deduplicateToolCalls removes duplicate tool calls based on name and arguments.
-func deduplicateToolCalls(toolCalls []llms.ToolCall, logger *logging.Logger) []llms.ToolCall {
+func DeduplicateToolCalls(toolCalls []llms.ToolCall, logger *logging.Logger) []llms.ToolCall {
 	seen := make(map[string]struct{})
 	result := make([]llms.ToolCall, 0, len(toolCalls))
 
@@ -553,7 +553,7 @@ func deduplicateToolCalls(toolCalls []llms.ToolCall, logger *logging.Logger) []l
 }
 
 // convertToolParamsToString converts a value to a string, handling different types.
-func convertToolParamsToString(value interface{}, paramName, toolName string, logger *logging.Logger) string {
+func ConvertToolParamsToString(value interface{}, paramName, toolName string, logger *logging.Logger) string {
 	switch v := value.(type) {
 	case string:
 		return v
@@ -574,7 +574,7 @@ func convertToolParamsToString(value interface{}, paramName, toolName string, lo
 }
 
 // serializeTools serializes the Tools field to Pkl format.
-func serializeTools(builder *strings.Builder, tools *[]*pklLLM.Tool) {
+func SerializeTools(builder *strings.Builder, tools *[]*pklLLM.Tool) {
 	builder.WriteString("    tools ")
 	if tools == nil || len(*tools) == 0 {
 		builder.WriteString("{}\n")

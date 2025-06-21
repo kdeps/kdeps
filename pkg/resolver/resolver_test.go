@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/kdeps/kdeps/pkg/resolver"
+
 	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/ktx"
@@ -839,19 +841,31 @@ func TestDependencyResolver(t *testing.T) {
 }
 
 func TestNewGraphResolver(t *testing.T) {
-	// Test case 1: Basic initialization with in-memory FS and mocked context
-	fs := afero.NewMemMapFs()
+	// Test case 1: Basic initialization with real FS and mocked context
+	fs := afero.NewOsFs()
 	ctx := context.Background()
-	ctx = ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, "/test/agent")
+
+	// Create temporary directories for testing
+	tmpDir := t.TempDir()
+	agentDir := filepath.Join(tmpDir, "agent")
+	actionDir := filepath.Join(tmpDir, "action")
+	sharedDir := filepath.Join(tmpDir, ".kdeps")
+
+	if err := fs.MkdirAll(sharedDir, 0o755); err != nil {
+		t.Fatalf("Failed to create sharedDir: %v", err)
+	}
+
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
 	ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, "test-graph-id")
-	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, "/test/action")
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, actionDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeySharedDir, sharedDir)
 	env := &environment.Environment{DockerMode: "1"}
 	logger := logging.GetLogger()
 
 	// Create a mock workflow file to avoid file not found error
-	workflowDir := "/test/agent/workflow"
-	workflowFile := workflowDir + "/workflow.pkl"
-	apiDir := filepath.Join("/test/agent/api")
+	workflowDir := filepath.Join(agentDir, "workflow")
+	workflowFile := filepath.Join(workflowDir, "workflow.pkl")
+	apiDir := filepath.Join(agentDir, "api")
 	if err := fs.MkdirAll(workflowDir, 0o755); err != nil {
 		t.Fatalf("Failed to create mock workflow directory: %v", err)
 	}
@@ -860,10 +874,14 @@ func TestNewGraphResolver(t *testing.T) {
 	}
 	// Using the correct schema version and structure
 	workflowContent := fmt.Sprintf(`
-name = "test-agent"
-schemaVersion = "%s"
+amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
+
+name = "testagent"
+description = "Test agent for unit testing"
+version = "0.1.0"
+targetActionID = "run"
 settings = new {
-	apiServerMode = false
+	APIServerMode = false
 	agentSettings = new {
 		installAnaconda = false
 	}
@@ -881,7 +899,8 @@ settings = new {
 		if strings.Contains(msg, "Cannot find module") ||
 			strings.Contains(msg, "Received unexpected status code") ||
 			strings.Contains(msg, "apple PKL not found") ||
-			strings.Contains(msg, "Invalid token") {
+			strings.Contains(msg, "Invalid token") ||
+			strings.Contains(msg, "pkl: command not found") {
 			t.Skipf("Skipping TestNewGraphResolver because PKL is unavailable: %v", err)
 		}
 	}
@@ -891,8 +910,8 @@ settings = new {
 	}
 	if dr == nil {
 		t.Errorf("Expected non-nil DependencyResolver, got nil")
-	} else if dr.AgentName != "test-agent" {
-		t.Errorf("Expected AgentName to be 'test-agent', got '%s'", dr.AgentName)
+	} else if dr.AgentName != "testagent" {
+		t.Errorf("Expected AgentName to be 'testagent', got '%s'", dr.AgentName)
 	}
 	t.Log("NewGraphResolver basic test passed")
 }

@@ -16,6 +16,8 @@ import (
 	"strings"
 	"testing"
 
+	. "github.com/kdeps/kdeps/pkg/resource"
+
 	"github.com/cucumber/godog"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"

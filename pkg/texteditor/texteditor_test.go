@@ -13,6 +13,7 @@ import (
 
 	"github.com/charmbracelet/x/editor"
 	"github.com/kdeps/kdeps/pkg/logging"
+	. "github.com/kdeps/kdeps/pkg/texteditor"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -562,14 +563,14 @@ func TestEditPklWithFactory_NonPklExtension(t *testing.T) {
 
 func TestRealEditorCmdFactory_InvalidEditor(t *testing.T) {
 	// Save and restore the original editorCmd
-	orig := editorCmd
-	t.Cleanup(func() { editorCmd = orig })
+	orig := EditorCmdFactory
+	t.Cleanup(func() { EditorCmdFactory = orig })
 
-	editorCmd = func(editorName, filePath string, _ ...editor.Option) (*exec.Cmd, error) {
+	EditorCmdFactory = func(editorName, filePath string, _ ...editor.Option) (*exec.Cmd, error) {
 		return nil, errors.New("simulated editor.Cmd error")
 	}
 
-	cmd, err := realEditorCmdFactory("nonexistent-editor", "test.pkl")
+	cmd, err := RealEditorCmdFactory("nonexistent-editor", "test.pkl")
 	assert.Nil(t, cmd)
 	assert.Error(t, err)
 	if err != nil {
@@ -579,7 +580,7 @@ func TestRealEditorCmdFactory_InvalidEditor(t *testing.T) {
 
 func TestRealEditorCmdFactory_InvalidPath(t *testing.T) {
 	// Test with invalid file path
-	_, err := realEditorCmdFactory("vim", "/nonexistent/path/test.pkl")
+	_, err := RealEditorCmdFactory("vim", "/nonexistent/path/test.pkl")
 	assert.NoError(t, err) // Should not error, as the file doesn't need to exist
 }
 
@@ -591,7 +592,7 @@ func TestRealEditorCmd_SetIO(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a real editor command
-	cmd, err := realEditorCmdFactory("vim", tempFile)
+	cmd, err := RealEditorCmdFactory("vim", tempFile)
 	require.NoError(t, err)
 
 	// Test SetIO with nil files
@@ -601,13 +602,13 @@ func TestRealEditorCmd_SetIO(t *testing.T) {
 
 func TestRealEditorCmd_Run(t *testing.T) {
 	// Override editorCmd with a stub that immediately exits with status 1 to avoid 30-second OS lookup delays.
-	orig := editorCmd
-	editorCmd = func(editorName, filePath string, _ ...editor.Option) (*exec.Cmd, error) {
+	orig := EditorCmdFactory
+	EditorCmdFactory = func(editorName, filePath string, _ ...editor.Option) (*exec.Cmd, error) {
 		return exec.Command("sh", "-c", "exit 1"), nil
 	}
-	defer func() { editorCmd = orig }()
+	defer func() { EditorCmdFactory = orig }()
 
-	cmd, err := realEditorCmdFactory("stub", "/tmp/test.pkl")
+	cmd, err := RealEditorCmdFactory("stub", "/tmp/test.pkl")
 	require.NoError(t, err)
 	require.NotNil(t, cmd)
 	err = cmd.Run()
@@ -623,11 +624,11 @@ func TestMain(m *testing.M) {
 	os.Setenv("NON_INTERACTIVE", "1")
 
 	// Stub out editorCmd so any accidental real invocation returns fast
-	origEditorCmd := editorCmd
-	editorCmd = func(editorName, filePath string, _ ...editor.Option) (*exec.Cmd, error) {
+	origEditorCmd := EditorCmdFactory
+	EditorCmdFactory = func(editorName, filePath string, _ ...editor.Option) (*exec.Cmd, error) {
 		return exec.Command("sh", "-c", "exit 1"), nil
 	}
-	defer func() { editorCmd = origEditorCmd }()
+	defer func() { EditorCmdFactory = origEditorCmd }()
 
 	// Run tests
 	code := m.Run()

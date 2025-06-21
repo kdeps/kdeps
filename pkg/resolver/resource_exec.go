@@ -19,7 +19,7 @@ import (
 
 func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.ResourceExec) error {
 	// Decode the exec block synchronously
-	if err := dr.decodeExecBlock(execBlock); err != nil {
+	if err := dr.DecodeExecBlock(execBlock); err != nil {
 		dr.Logger.Error("failed to decode exec block", "actionID", actionID, "error", err)
 		return err
 	}
@@ -36,7 +36,7 @@ func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.Res
 	return nil
 }
 
-func (dr *DependencyResolver) decodeExecBlock(execBlock *pklExec.ResourceExec) error {
+func (dr *DependencyResolver) DecodeExecBlock(execBlock *pklExec.ResourceExec) error {
 	// Decode Command
 	decodedCommand, err := utils.DecodeBase64IfNeeded(execBlock.Command)
 	if err != nil {
@@ -165,8 +165,8 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 
 	// Encode fields for PKL storage
 	encodedCommand := utils.EncodeValue(newExec.Command)
-	encodedEnv := dr.encodeExecEnv(newExec.Env)
-	encodedStderr, encodedStdout := dr.encodeExecOutputs(newExec.Stderr, newExec.Stdout)
+	encodedEnv := dr.EncodeExecEnv(newExec.Env)
+	encodedStderr, encodedStdout := dr.EncodeExecOutputs(newExec.Stderr, newExec.Stdout)
 
 	timestamp := newExec.Timestamp
 	if timestamp == nil {
@@ -207,8 +207,8 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 		pklContent.WriteString("    env ")
 		pklContent.WriteString(utils.EncodePklMap(res.Env))
 
-		pklContent.WriteString(dr.encodeExecStderr(res.Stderr))
-		pklContent.WriteString(dr.encodeExecStdout(res.Stdout))
+		pklContent.WriteString(dr.EncodeExecStderr(res.Stderr))
+		pklContent.WriteString(dr.EncodeExecStdout(res.Stdout))
 		if res.File != nil {
 			pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *res.File))
 		} else {
@@ -232,7 +232,7 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 	return afero.WriteFile(dr.Fs, pklPath, []byte(evaluatedContent), 0o644)
 }
 
-func (dr *DependencyResolver) encodeExecEnv(env *map[string]string) *map[string]string {
+func (dr *DependencyResolver) EncodeExecEnv(env *map[string]string) *map[string]string {
 	if env == nil {
 		return nil
 	}
@@ -243,18 +243,18 @@ func (dr *DependencyResolver) encodeExecEnv(env *map[string]string) *map[string]
 	return &encoded
 }
 
-func (dr *DependencyResolver) encodeExecOutputs(stderr, stdout *string) (*string, *string) {
+func (dr *DependencyResolver) EncodeExecOutputs(stderr, stdout *string) (*string, *string) {
 	return utils.EncodeValuePtr(stderr), utils.EncodeValuePtr(stdout)
 }
 
-func (dr *DependencyResolver) encodeExecStderr(stderr *string) string {
+func (dr *DependencyResolver) EncodeExecStderr(stderr *string) string {
 	if stderr == nil {
 		return "    stderr = \"\"\n"
 	}
 	return fmt.Sprintf("    stderr = #\"\"\"\n%s\n\"\"\"#\n", *stderr)
 }
 
-func (dr *DependencyResolver) encodeExecStdout(stdout *string) string {
+func (dr *DependencyResolver) EncodeExecStdout(stdout *string) string {
 	if stdout == nil {
 		return "    stdout = \"\"\n"
 	}

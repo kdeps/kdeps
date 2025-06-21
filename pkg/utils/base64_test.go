@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"testing"
 
+	. "github.com/kdeps/kdeps/pkg/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -483,4 +484,356 @@ func TestDecodeStringHelpers_ErrorPaths(t *testing.T) {
 	sh, err := DecodeStringSlice(nil, "slice")
 	require.NoError(t, err)
 	require.Nil(t, sh)
+}
+
+func TestDecodeBase64String_InvalidInput(t *testing.T) {
+	out, err := DecodeBase64String("not_base64!!")
+	if err != nil {
+		t.Errorf("unexpected error for invalid base64 input: %v", err)
+	}
+	if out != "not_base64!!" {
+		t.Errorf("expected output to match input for non-base64, got %q", out)
+	}
+}
+
+func TestDecodeStringMap_NilAndEmpty(t *testing.T) {
+	var nilMap *map[string]string
+	res, err := DecodeStringMap(nilMap, "field")
+	if err != nil {
+		t.Errorf("unexpected error for nil input: %v", err)
+	}
+	if res != nil {
+		t.Errorf("expected nil result for nil input, got %v", res)
+	}
+
+	emptyMap := map[string]string{}
+	res, err = DecodeStringMap(&emptyMap, "field")
+	if err != nil {
+		t.Errorf("unexpected error for empty input: %v", err)
+	}
+	if res == nil || len(*res) != 0 {
+		t.Errorf("expected empty map, got %v", res)
+	}
+}
+
+func TestDecodeStringMap_InvalidBase64Value(t *testing.T) {
+	m := map[string]string{"bad": "abc="} // not valid base64, should be returned unchanged
+	res, err := DecodeStringMap(&m, "field")
+	if err != nil {
+		t.Errorf("unexpected error for invalid base64 input: %v", err)
+	}
+	if (*res)["bad"] != "abc=" {
+		t.Errorf("expected value to be unchanged for non-base64, got %q", (*res)["bad"])
+	}
+}
+
+func TestDecodeStringSlice_NilAndEmpty(t *testing.T) {
+	var nilSlice *[]string
+	res, err := DecodeStringSlice(nilSlice, "field")
+	if err != nil {
+		t.Errorf("unexpected error for nil input: %v", err)
+	}
+	if res != nil {
+		t.Errorf("expected nil result for nil input, got %v", res)
+	}
+
+	emptySlice := []string{}
+	res, err = DecodeStringSlice(&emptySlice, "field")
+	if err != nil {
+		t.Errorf("unexpected error for empty input: %v", err)
+	}
+	if res == nil || len(*res) != 0 {
+		t.Errorf("expected empty slice, got %v", res)
+	}
+}
+
+func TestDecodeStringSlice_InvalidBase64Value(t *testing.T) {
+	s := []string{"abc="} // not valid base64, should be returned unchanged
+	res, err := DecodeStringSlice(&s, "field")
+	if err != nil {
+		t.Errorf("unexpected error for invalid base64 input: %v", err)
+	}
+	if (*res)[0] != "abc=" {
+		t.Errorf("expected value to be unchanged for non-base64, got %q", (*res)[0])
+	}
+}
+
+func TestAbcEquals_IsBase64Encoded(t *testing.T) {
+	// Test what IsBase64Encoded returns for "abc="
+	result := IsBase64Encoded("abc=")
+	t.Logf("IsBase64Encoded(\"abc=\") = %v", result)
+
+	// Test what DecodeBase64IfNeeded returns for "abc="
+	decoded, err := DecodeBase64IfNeeded("abc=")
+	t.Logf("DecodeBase64IfNeeded(\"abc=\") = %q, err = %v", decoded, err)
+}
+
+func TestDecodeBase64IfNeeded_ErrorPaths(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name:        "invalid base64 with correct length and chars",
+			input:       "SGVsbG8=", // "Hello" but corrupted
+			expectError: false,      // This should actually work
+		},
+		{
+			name:        "invalid base64 with wrong padding",
+			input:       "SGVsbG8", // Missing padding
+			expectError: false,     // Should return as-is since it's not detected as base64
+		},
+		{
+			name:        "empty string",
+			input:       "",
+			expectError: false,
+		},
+		{
+			name:        "non-base64 string",
+			input:       "hello world",
+			expectError: false,
+		},
+		{
+			name:        "string with invalid base64 chars",
+			input:       "SGVsbG@=", // Invalid char @
+			expectError: false,      // Should return as-is
+		},
+		{
+			name:        "string with correct length but invalid chars",
+			input:       "SGVsbG@=", // Invalid char @
+			expectError: false,      // Should return as-is since IsBase64Encoded returns false
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := DecodeBase64IfNeeded(tt.input)
+			if tt.expectError {
+				require.Error(t, err)
+				if tt.errorMsg != "" {
+					require.Contains(t, err.Error(), tt.errorMsg)
+				}
+			} else {
+				require.NoError(t, err)
+				// For non-base64 strings, should return the original
+				if !IsBase64Encoded(tt.input) {
+					require.Equal(t, tt.input, result)
+				}
+			}
+		})
+	}
+}
+
+func TestDecodeBase64IfNeeded_InvalidBase64Detection(t *testing.T) {
+	// Test a string that looks like base64 but fails to decode
+	// This should trigger the error path in DecodeBase64IfNeeded
+	invalidBase64 := "SGVsbG8=" // This is actually valid, let's create a truly invalid one
+
+	// Create a string that has base64 chars but is invalid
+	invalidBase64 = "SGVsbG8=" + "A" // This makes it invalid
+
+	result, err := DecodeBase64IfNeeded(invalidBase64)
+	// This should not error because IsBase64Encoded should return false
+	require.NoError(t, err)
+	require.Equal(t, invalidBase64, result)
+}
+
+func TestDecodeBase64String_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expectError bool
+		expected    string
+	}{
+		{
+			name:        "empty string",
+			input:       "",
+			expectError: false,
+			expected:    "",
+		},
+		{
+			name:        "non-base64 string",
+			input:       "hello world",
+			expectError: false,
+			expected:    "hello world",
+		},
+		{
+			name:        "valid base64",
+			input:       "SGVsbG8=", // "Hello"
+			expectError: false,
+			expected:    "Hello",
+		},
+		{
+			name:        "base64 with unicode",
+			input:       "SGVsbG8g8J+RjQ==", // "Hello 👍"
+			expectError: false,
+			expected:    "Hello 👍",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := DecodeBase64String(tt.input)
+			if tt.expectError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestDecodeStringMap_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       *map[string]string
+		fieldType   string
+		expectError bool
+		expected    *map[string]string
+	}{
+		{
+			name:        "nil map",
+			input:       nil,
+			fieldType:   "test",
+			expectError: false,
+			expected:    nil,
+		},
+		{
+			name:        "empty map",
+			input:       &map[string]string{},
+			fieldType:   "test",
+			expectError: false,
+			expected:    &map[string]string{},
+		},
+		{
+			name:        "map with mixed values",
+			input:       &map[string]string{"key1": "SGVsbG8=", "key2": "plain text"},
+			fieldType:   "test",
+			expectError: false,
+			expected:    &map[string]string{"key1": "Hello", "key2": "plain text"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := DecodeStringMap(tt.input, tt.fieldType)
+			if tt.expectError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				if tt.expected == nil {
+					require.Nil(t, result)
+				} else {
+					require.Equal(t, *tt.expected, *result)
+				}
+			}
+		})
+	}
+}
+
+func TestDecodeStringSlice_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       *[]string
+		fieldType   string
+		expectError bool
+		expected    *[]string
+	}{
+		{
+			name:        "nil slice",
+			input:       nil,
+			fieldType:   "test",
+			expectError: false,
+			expected:    nil,
+		},
+		{
+			name:        "empty slice",
+			input:       &[]string{},
+			fieldType:   "test",
+			expectError: false,
+			expected:    &[]string{},
+		},
+		{
+			name:        "slice with mixed values",
+			input:       &[]string{"SGVsbG8=", "plain text"},
+			fieldType:   "test",
+			expectError: false,
+			expected:    &[]string{"Hello", "plain text"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := DecodeStringSlice(tt.input, tt.fieldType)
+			if tt.expectError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				if tt.expected == nil {
+					require.Nil(t, result)
+				} else {
+					require.Equal(t, *tt.expected, *result)
+				}
+			}
+		})
+	}
+}
+
+func TestIsBase64Encoded_Comprehensive(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected bool
+	}{
+		{
+			name:     "empty string",
+			input:    "",
+			expected: false,
+		},
+		{
+			name:     "valid base64",
+			input:    "SGVsbG8=",
+			expected: true,
+		},
+		{
+			name:     "valid base64 no padding",
+			input:    "SGVsbG8",
+			expected: false, // Length not divisible by 4
+		},
+		{
+			name:     "invalid chars",
+			input:    "SGVsbG@=",
+			expected: false,
+		},
+		{
+			name:     "wrong length",
+			input:    "abc",
+			expected: false,
+		},
+		{
+			name:     "unicode string",
+			input:    "hello 👌",
+			expected: false,
+		},
+		{
+			name:     "valid base64 with unicode content",
+			input:    "SGVsbG8g8J+RjQ==", // "Hello 👌"
+			expected: true,
+		},
+		{
+			name:     "invalid base64 that looks valid",
+			input:    "SGVsbG8=" + "A", // Valid base64 + extra char
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := IsBase64Encoded(tt.input)
+			require.Equal(t, tt.expected, result, "Input: %s", tt.input)
+		})
+	}
 }

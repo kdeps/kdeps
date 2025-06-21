@@ -34,7 +34,7 @@ var validPklFiles = map[string]pklFileInfo{
 	"Resource.pkl": {},
 }
 
-func compareVersions(v1, v2 string, logger *logging.Logger) (int, error) {
+func CompareVersions(v1, v2 string, logger *logging.Logger) (int, error) {
 	v1Parts := strings.Split(v1, ".")
 	v2Parts := strings.Split(v2, ".")
 
@@ -99,7 +99,7 @@ func EnforcePklVersion(ctx context.Context, line, filePath, schemaVersion string
 	}
 
 	version := line[start+1 : end]
-	comparison, err := compareVersions(version, schemaVersion, logger)
+	comparison, err := CompareVersions(version, schemaVersion, logger)
 	if err != nil {
 		logger.Error("version comparison error", "error", err)
 		return err
@@ -192,7 +192,7 @@ func EnforceFolderStructure(fs afero.Fs, ctx context.Context, filePath string, l
 			expectedFolders[file.Name()] = true
 
 			if file.Name() == "resources" {
-				if err := enforceResourcesFolder(fs, ctx, filepath.Join(absTargetDir, "resources"), logger); err != nil {
+				if err := EnforceResourcesFolder(fs, ctx, filepath.Join(absTargetDir, "resources"), logger); err != nil {
 					return err
 				}
 			}
@@ -235,7 +235,7 @@ func EnforceResourceRunBlock(fs afero.Fs, ctx context.Context, file string, logg
 	return nil
 }
 
-func enforceResourcesFolder(fs afero.Fs, ctx context.Context, resourcesPath string, logger *logging.Logger) error {
+func EnforceResourcesFolder(fs afero.Fs, ctx context.Context, resourcesPath string, logger *logging.Logger) error {
 	files, err := afero.ReadDir(fs, resourcesPath)
 	if err != nil {
 		logger.Error("error reading resources folder", "path", resourcesPath, "error", err)

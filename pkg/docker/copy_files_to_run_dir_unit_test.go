@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	. "github.com/kdeps/kdeps/pkg/docker"
+
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -24,7 +26,10 @@ func TestCopyFilesToRunDirUnit(t *testing.T) {
 		assert.NoError(t, afero.WriteFile(fs, downloadDir+"/"+f, []byte(f), 0o644))
 	}
 
-	assert.NoError(t, copyFilesToRunDir(fs, ctx, downloadDir, runDir, logger))
+	err := CopyFilesToRunDir(fs, ctx, downloadDir, runDir, logger)
+	if err != nil {
+		t.Fatalf("copyFilesToRunDir failed: %v", err)
+	}
 
 	// verify files copied into runDir/cache
 	for _, f := range files {

@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	. "github.com/kdeps/kdeps/pkg/utils"
+
 	"github.com/stretchr/testify/assert"
 )
 

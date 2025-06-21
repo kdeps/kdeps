@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	. "github.com/kdeps/kdeps/pkg/resolver"
+
 	"github.com/kdeps/kdeps/pkg/item"
 	"github.com/kdeps/kdeps/pkg/logging"
 	_ "github.com/mattn/go-sqlite3"

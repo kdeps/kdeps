@@ -47,7 +47,7 @@ func (dr *DependencyResolver) LoadResourceEntries() error {
 		// Check if the file has a .pkl extension
 		if !info.IsDir() && filepath.Ext(path) == ".pkl" {
 			// Handle dynamic and placeholder imports
-			if err := dr.handleFileImports(path); err != nil {
+			if err := dr.HandleFileImports(path); err != nil {
 				dr.Logger.Errorf("error processing imports for file %s: %v", path, err)
 				return err
 			}
@@ -63,7 +63,7 @@ func (dr *DependencyResolver) LoadResourceEntries() error {
 
 	// Process all .pkl files found
 	for _, file := range pklFiles {
-		if err := dr.processPklFile(file); err != nil {
+		if err := dr.ProcessPklFile(file); err != nil {
 			dr.Logger.Errorf("error processing .pkl file %s: %v", file, err)
 			return err
 		}
@@ -72,8 +72,8 @@ func (dr *DependencyResolver) LoadResourceEntries() error {
 	return nil
 }
 
-// handleFileImports handles dynamic and placeholder imports for a given file.
-func (dr *DependencyResolver) handleFileImports(path string) error {
+// HandleFileImports handles dynamic and placeholder imports for a given file.
+func (dr *DependencyResolver) HandleFileImports(path string) error {
 	// Prepend dynamic imports
 	if dr.PrependDynamicImportsFn != nil {
 		if err := dr.PrependDynamicImportsFn(path); err != nil {
@@ -95,8 +95,8 @@ func (dr *DependencyResolver) handleFileImports(path string) error {
 	return nil
 }
 
-// processPklFile processes an individual .pkl file and updates dependencies.
-func (dr *DependencyResolver) processPklFile(file string) error {
+// ProcessPklFile processes an individual .pkl file and updates dependencies.
+func (dr *DependencyResolver) ProcessPklFile(file string) error {
 	// Load the resource file
 	res, err := dr.LoadResourceFn(dr.Context, file, Resource)
 	if err != nil {
