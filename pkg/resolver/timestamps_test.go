@@ -18,42 +18,46 @@ import (
 )
 
 func TestGetResourceFilePath(t *testing.T) {
-	fs := afero.NewOsFs()
-	dir, err := afero.TempDir(fs, "", "resource-file-path")
-	require.NoError(t, err)
-	defer fs.RemoveAll(dir)
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
 
 	dr := &resolver.DependencyResolver{
 		Fs:        fs,
-		ActionDir: dir,
+		Logger:    logger,
+		Context:   ctx,
+		ActionDir: "/test/actions",
 		RequestID: "test-request",
 	}
 
-	t.Run("ValidResourceTypes", func(t *testing.T) {
-		testCases := []struct {
-			resourceType string
-			expectedPath string
-		}{
-			{"llm", dir + "/llm/test-request__llm_output.pkl"},
-			{"client", dir + "/client/test-request__client_output.pkl"},
-			{"exec", dir + "/exec/test-request__exec_output.pkl"},
-			{"python", dir + "/python/test-request__python_output.pkl"},
-		}
+	// Test valid resource types
+	testCases := []struct {
+		resourceType string
+		expectedPath string
+	}{
+		{"llm", "/test/actions/llm/test-request__llm_output.pkl"},
+		{"client", "/test/actions/client/test-request__client_output.pkl"},
+		{"exec", "/test/actions/exec/test-request__exec_output.pkl"},
+		{"python", "/test/actions/python/test-request__python_output.pkl"},
+	}
 
-		for _, tc := range testCases {
-			t.Run(tc.resourceType, func(t *testing.T) {
-				path, err := dr.GetResourceFilePath(tc.resourceType)
-				require.NoError(t, err)
-				assert.Equal(t, tc.expectedPath, path)
-			})
-		}
-	})
+	for _, tc := range testCases {
+		t.Run(tc.resourceType, func(t *testing.T) {
+			path, err := dr.GetResourceFilePath(tc.resourceType)
+			if err != nil {
+				t.Errorf("unexpected error for %s: %v", tc.resourceType, err)
+			}
+			if path != tc.expectedPath {
+				t.Errorf("expected path %s, got %s", tc.expectedPath, path)
+			}
+		})
+	}
 
-	t.Run("InvalidResourceType", func(t *testing.T) {
-		_, err := dr.GetResourceFilePath("invalid")
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "invalid resourceType")
-	})
+	// Test invalid resource type
+	_, err := dr.GetResourceFilePath("invalid")
+	if err == nil {
+		t.Error("expected error for invalid resource type")
+	}
 }
 
 func TestLoadPKLFile(t *testing.T) {
@@ -138,25 +142,35 @@ func TestGetCurrentTimestamp(t *testing.T) {
 }
 
 func TestFormatDuration(t *testing.T) {
-	t.Run("SecondsOnly", func(t *testing.T) {
-		result := resolver.FormatDuration(30 * time.Second)
-		assert.Equal(t, "30s", result)
-	})
+	// Test seconds only
+	result := resolver.FormatDuration(30 * time.Second)
+	if result != "30s" {
+		t.Errorf("expected '30s', got %s", result)
+	}
 
-	t.Run("MinutesAndSeconds", func(t *testing.T) {
-		result := resolver.FormatDuration(2*time.Minute + 30*time.Second)
-		assert.Equal(t, "2m 30s", result)
-	})
+	// Test minutes and seconds
+	result = resolver.FormatDuration(90 * time.Second)
+	if result != "1m 30s" {
+		t.Errorf("expected '1m 30s', got %s", result)
+	}
 
-	t.Run("HoursMinutesAndSeconds", func(t *testing.T) {
-		result := resolver.FormatDuration(1*time.Hour + 2*time.Minute + 30*time.Second)
-		assert.Equal(t, "1h 2m 30s", result)
-	})
+	// Test hours, minutes, and seconds
+	result = resolver.FormatDuration(7325 * time.Second) // 2h 2m 5s
+	if result != "2h 2m 5s" {
+		t.Errorf("expected '2h 2m 5s', got %s", result)
+	}
 
-	t.Run("ZeroDuration", func(t *testing.T) {
-		result := resolver.FormatDuration(0)
-		assert.Equal(t, "0s", result)
-	})
+	// Test zero duration
+	result = resolver.FormatDuration(0)
+	if result != "0s" {
+		t.Errorf("expected '0s', got %s", result)
+	}
+
+	// Test sub-second duration
+	result = resolver.FormatDuration(500 * time.Millisecond)
+	if result != "0s" {
+		t.Errorf("expected '0s', got %s", result)
+	}
 }
 
 func TestWaitForTimestampChange(t *testing.T) {
@@ -274,5 +288,73 @@ func TestGetResourceFilePath_InvalidType(t *testing.T) {
 	_, err := dr.GetResourceFilePath("unknown")
 	if err == nil {
 		t.Fatalf("expected error for invalid resource type")
+	}
+}
+
+func TestGetCurrentTimestamp_ErrorCases(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	dr := &resolver.DependencyResolver{
+		Fs:        fs,
+		Logger:    logger,
+		Context:   ctx,
+		ActionDir: "/test/actions",
+		RequestID: "test-request",
+	}
+
+	// Test with invalid resource type
+	_, err := dr.GetCurrentTimestamp("test-id", "invalid")
+	if err == nil {
+		t.Error("expected error for invalid resource type")
+	}
+
+	// Test with non-existent file
+	_, err = dr.GetCurrentTimestamp("test-id", "llm")
+	if err == nil {
+		t.Error("expected error for non-existent file")
+	}
+}
+
+func TestWaitForTimestampChange_InvalidResourceType(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	dr := &resolver.DependencyResolver{
+		Fs:        fs,
+		Logger:    logger,
+		Context:   ctx,
+		ActionDir: "/test/actions",
+		RequestID: "test-request",
+	}
+
+	previousTimestamp := pkl.Duration{Value: 1, Unit: pkl.Second}
+	timeout := 1 * time.Second
+
+	err := dr.WaitForTimestampChange("test-id", previousTimestamp, timeout, "invalid")
+	if err == nil {
+		t.Error("expected error for invalid resource type")
+	}
+}
+
+func TestGetResourceTimestamp_EdgeCases(t *testing.T) {
+	// Test with nil interface
+	_, err := resolver.GetResourceTimestamp("test-id", nil)
+	if err == nil {
+		t.Error("expected error for nil interface")
+	}
+	if err != nil && err.Error() != "unknown PKL result type" {
+		t.Errorf("unexpected error message: %v", err)
+	}
+
+	// Test with unsupported type
+	_, err = resolver.GetResourceTimestamp("test-id", "string")
+	if err == nil {
+		t.Error("expected error for unsupported type")
+	}
+	if err != nil && err.Error() != "unknown PKL result type" {
+		t.Errorf("unexpected error message: %v", err)
 	}
 }

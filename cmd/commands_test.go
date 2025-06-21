@@ -280,3 +280,143 @@ func TestNewPackageAndScaffoldMetadata(t *testing.T) {
 		t.Fatalf("unexpected scaffold Use: %s", scaffoldCmd.Use)
 	}
 }
+
+// TestCommandExecution_Smoke tests that each command's RunE function can be called
+// without panicking, using stubbed dependencies to avoid side effects.
+func TestCommandExecution_Smoke(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	systemCfg := &kdeps.Kdeps{}
+	env := &environment.Environment{}
+	logger := logging.NewTestLogger()
+
+	// Create a minimal test package file
+	testPkgPath := "/tmp/test.kdeps"
+	if err := afero.WriteFile(fs, testPkgPath, []byte("test package"), 0644); err != nil {
+		t.Fatalf("failed to create test package: %v", err)
+	}
+
+	tests := []struct {
+		name string
+		cmd  *cobra.Command
+		args []string
+	}{
+		{
+			name: "add command",
+			cmd:  NewAddCommand(fs, ctx, kdepsDir, logger),
+			args: []string{testPkgPath},
+		},
+		{
+			name: "build command",
+			cmd:  NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger),
+			args: []string{testPkgPath},
+		},
+		{
+			name: "new command",
+			cmd:  NewAgentCommand(fs, ctx, kdepsDir, logger),
+			args: []string{"test-agent"},
+		},
+		{
+			name: "package command",
+			cmd:  NewPackageCommand(fs, ctx, kdepsDir, env, logger),
+			args: []string{"/tmp/agent-dir"},
+		},
+		{
+			name: "run command",
+			cmd:  NewRunCommand(fs, ctx, kdepsDir, systemCfg, logger),
+			args: []string{testPkgPath},
+		},
+		{
+			name: "scaffold command",
+			cmd:  NewScaffoldCommand(fs, ctx, logger),
+			args: []string{"test-agent", "file1.pkl", "file2.pkl"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Set up the command with test arguments
+			tt.cmd.SetArgs(tt.args)
+
+			// Execute the command - it will likely fail due to missing dependencies,
+			// but we're testing that it doesn't panic and handles errors gracefully
+			err := tt.cmd.Execute()
+
+			// We expect errors since we're not providing real dependencies,
+			// but the command should not panic
+			if err == nil {
+				t.Logf("%s executed successfully (unexpected but acceptable)", tt.name)
+			} else {
+				t.Logf("%s failed as expected: %v", tt.name, err)
+			}
+		})
+	}
+}
+
+// TestCommandValidation tests that commands properly validate their arguments
+func TestCommandValidation(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	systemCfg := &kdeps.Kdeps{}
+	env := &environment.Environment{}
+	logger := logging.NewTestLogger()
+
+	tests := []struct {
+		name    string
+		cmd     *cobra.Command
+		args    []string
+		wantErr bool
+	}{
+		{
+			name:    "add command missing args",
+			cmd:     NewAddCommand(fs, ctx, kdepsDir, logger),
+			args:    []string{},
+			wantErr: true,
+		},
+		{
+			name:    "build command missing args",
+			cmd:     NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger),
+			args:    []string{},
+			wantErr: true,
+		},
+		{
+			name:    "new command missing args",
+			cmd:     NewAgentCommand(fs, ctx, kdepsDir, logger),
+			args:    []string{},
+			wantErr: true,
+		},
+		{
+			name:    "package command missing args",
+			cmd:     NewPackageCommand(fs, ctx, kdepsDir, env, logger),
+			args:    []string{},
+			wantErr: true,
+		},
+		{
+			name:    "run command missing args",
+			cmd:     NewRunCommand(fs, ctx, kdepsDir, systemCfg, logger),
+			args:    []string{},
+			wantErr: true,
+		},
+		{
+			name:    "scaffold command missing args",
+			cmd:     NewScaffoldCommand(fs, ctx, logger),
+			args:    []string{},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.cmd.SetArgs(tt.args)
+			err := tt.cmd.Execute()
+
+			if tt.wantErr && err == nil {
+				t.Errorf("%s expected error for missing args, got nil", tt.name)
+			} else if !tt.wantErr && err != nil {
+				t.Errorf("%s unexpected error: %v", tt.name, err)
+			}
+		})
+	}
+}
