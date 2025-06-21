@@ -2,12 +2,15 @@ package resolver_test
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	apiserverresponse "github.com/kdeps/schema/gen/api_server_response"
 	"github.com/spf13/afero"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFormatResponseData_Comprehensive(t *testing.T) {
@@ -348,15 +351,19 @@ func TestDependencyResolver_EnsureResponsePklFileNotExists(t *testing.T) {
 }
 
 func TestDependencyResolver_EvalPklFormattedResponseFile(t *testing.T) {
-	fs := afero.NewMemMapFs()
+	fs := afero.NewOsFs()
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
+
+	// Create a temporary directory for PKL files
+	tmpDir := t.TempDir()
+	responseFile := filepath.Join(tmpDir, "response.pkl")
 
 	dr := &resolver.DependencyResolver{
 		Fs:              fs,
 		Logger:          logger,
 		Context:         ctx,
-		ResponsePklFile: "/test/response.pkl",
+		ResponsePklFile: responseFile,
 	}
 
 	// Test when file doesn't exist
@@ -366,15 +373,341 @@ func TestDependencyResolver_EvalPklFormattedResponseFile(t *testing.T) {
 	}
 
 	// Test with invalid file extension
-	dr.ResponsePklFile = "/test/response.txt"
+	invalidFile := filepath.Join(tmpDir, "response.txt")
 	testContent := []byte("test content")
-	err = afero.WriteFile(fs, "/test/response.txt", testContent, 0644)
+	err = afero.WriteFile(fs, invalidFile, testContent, 0644)
 	if err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
+	dr.ResponsePklFile = invalidFile
 	_, err = dr.EvalPklFormattedResponseFile()
 	if err == nil {
 		t.Error("expected error for invalid file extension")
 	}
+}
+
+func TestEnsureResponsePklFileNotExists_Additional(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	t.Run("FileDoesNotExist", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		responseFile := filepath.Join(tmpDir, "response.pkl")
+
+		resolver := &resolver.DependencyResolver{
+			Fs:              fs,
+			Logger:          logger,
+			Context:         ctx,
+			ResponsePklFile: responseFile,
+		}
+
+		err := resolver.EnsureResponsePklFileNotExists()
+		assert.NoError(t, err)
+	})
+
+	t.Run("FileExistsAndDeleted", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		responseFile := filepath.Join(tmpDir, "response.pkl")
+
+		resolver := &resolver.DependencyResolver{
+			Fs:              fs,
+			Logger:          logger,
+			Context:         ctx,
+			ResponsePklFile: responseFile,
+		}
+
+		// Create the file first
+		err := afero.WriteFile(fs, responseFile, []byte("test content"), 0o644)
+		require.NoError(t, err)
+
+		// Verify file exists
+		exists, err := afero.Exists(fs, responseFile)
+		require.NoError(t, err)
+		assert.True(t, exists)
+
+		// Call the function
+		err = resolver.EnsureResponsePklFileNotExists()
+		assert.NoError(t, err)
+
+		// Verify file was deleted
+		exists, err = afero.Exists(fs, responseFile)
+		require.NoError(t, err)
+		assert.False(t, exists)
+	})
+
+	t.Run("FileExistsButDeleteFails", func(t *testing.T) {
+		// Use a read-only filesystem to simulate delete failure
+		baseFs := afero.NewOsFs()
+		roFs := afero.NewReadOnlyFs(baseFs)
+		tmpDir := t.TempDir()
+		responseFile := filepath.Join(tmpDir, "response.pkl")
+
+		resolver := &resolver.DependencyResolver{
+			Fs:              roFs,
+			Logger:          logger,
+			Context:         ctx,
+			ResponsePklFile: responseFile,
+		}
+
+		// Create the file in the base filesystem
+		err := afero.WriteFile(baseFs, responseFile, []byte("test content"), 0o644)
+		require.NoError(t, err)
+
+		// Call the function - should fail to delete due to read-only filesystem
+		err = resolver.EnsureResponsePklFileNotExists()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "delete old response file")
+	})
+}
+
+func TestFormatResponseData_EdgeCases(t *testing.T) {
+	t.Run("NilResponse", func(t *testing.T) {
+		result := resolver.FormatResponseData(nil)
+		assert.Empty(t, result)
+	})
+
+	t.Run("NilData", func(t *testing.T) {
+		response := &apiserverresponse.APIServerResponseBlock{
+			Data: nil,
+		}
+		result := resolver.FormatResponseData(response)
+		assert.Empty(t, result)
+	})
+
+	t.Run("EmptyData", func(t *testing.T) {
+		response := &apiserverresponse.APIServerResponseBlock{
+			Data: []interface{}{},
+		}
+		result := resolver.FormatResponseData(response)
+		assert.Empty(t, result)
+	})
+
+	t.Run("SingleDataItem", func(t *testing.T) {
+		data := []interface{}{"test value"}
+		response := &apiserverresponse.APIServerResponseBlock{
+			Data: data,
+		}
+		result := resolver.FormatResponseData(response)
+		assert.Contains(t, result, "response")
+		assert.Contains(t, result, "data")
+		assert.Contains(t, result, "test value")
+	})
+}
+
+func TestFormatResponseMeta_EdgeCases(t *testing.T) {
+	t.Run("NilMeta", func(t *testing.T) {
+		result := resolver.FormatResponseMeta("test-request", nil)
+		assert.Contains(t, result, "requestID = \"test-request\"")
+		assert.NotContains(t, result, "headers")
+		assert.NotContains(t, result, "properties")
+	})
+
+	t.Run("NilHeadersAndProperties", func(t *testing.T) {
+		meta := &apiserverresponse.APIServerResponseMetaBlock{
+			Headers:    nil,
+			Properties: nil,
+		}
+		result := resolver.FormatResponseMeta("test-request", meta)
+		assert.Contains(t, result, "requestID = \"test-request\"")
+		assert.NotContains(t, result, "headers")
+		assert.NotContains(t, result, "properties")
+	})
+
+	t.Run("EmptyHeadersAndProperties", func(t *testing.T) {
+		emptyHeaders := map[string]string{}
+		emptyProperties := map[string]string{}
+		meta := &apiserverresponse.APIServerResponseMetaBlock{
+			Headers:    &emptyHeaders,
+			Properties: &emptyProperties,
+		}
+		result := resolver.FormatResponseMeta("test-request", meta)
+		assert.Contains(t, result, "requestID = \"test-request\"")
+		assert.NotContains(t, result, "headers")
+		assert.NotContains(t, result, "properties")
+	})
+}
+
+func TestFormatMap_EdgeCases(t *testing.T) {
+	t.Run("EmptyMap", func(t *testing.T) {
+		result := resolver.FormatMap(map[interface{}]interface{}{})
+		assert.Contains(t, result, "new Mapping {")
+		assert.Contains(t, result, "}")
+	})
+
+	t.Run("MapWithSpecialCharacters", func(t *testing.T) {
+		m := map[interface{}]interface{}{
+			"key\"with\"quotes":   "value",
+			"key\nwith\nnewlines": "value",
+		}
+		result := resolver.FormatMap(m)
+		assert.Contains(t, result, "new Mapping {")
+		assert.Contains(t, result, "key\\\"with\\\"quotes")
+		assert.Contains(t, result, "key\nwith\nnewlines")
+	})
+}
+
+func TestFormatValue_EdgeCases(t *testing.T) {
+	t.Run("NilValue", func(t *testing.T) {
+		result := resolver.FormatValue(nil)
+		assert.Equal(t, "null", result)
+	})
+
+	t.Run("StringValue", func(t *testing.T) {
+		result := resolver.FormatValue("test string")
+		assert.Contains(t, result, "\"\"\"")
+		assert.Contains(t, result, "test string")
+	})
+
+	t.Run("IntValue", func(t *testing.T) {
+		result := resolver.FormatValue(42)
+		assert.Contains(t, result, "\"\"\"")
+		assert.Contains(t, result, "42")
+	})
+
+	t.Run("PointerToValue", func(t *testing.T) {
+		value := "test"
+		ptr := &value
+		result := resolver.FormatValue(ptr)
+		assert.Contains(t, result, "test")
+	})
+
+	t.Run("NilPointer", func(t *testing.T) {
+		var ptr *string
+		result := resolver.FormatValue(ptr)
+		// The actual output formats nil pointers as <nil> in triple quotes
+		assert.Contains(t, result, "<nil>")
+		assert.Contains(t, result, "\"\"\"")
+	})
+}
+
+func TestStructToMap_EdgeCases(t *testing.T) {
+	t.Run("PointerToStruct", func(t *testing.T) {
+		type TestStruct struct {
+			Field1 string
+			Field2 int
+		}
+		value := TestStruct{Field1: "test", Field2: 42}
+		ptr := &value
+
+		result := resolver.StructToMap(ptr)
+		assert.Equal(t, "test", result["Field1"])
+		assert.Equal(t, 42, result["Field2"])
+	})
+
+	t.Run("StructWithDifferentTypes", func(t *testing.T) {
+		type TestStruct struct {
+			StringField string
+			IntField    int
+			BoolField   bool
+			FloatField  float64
+		}
+		value := TestStruct{
+			StringField: "test",
+			IntField:    42,
+			BoolField:   true,
+			FloatField:  3.14,
+		}
+
+		result := resolver.StructToMap(value)
+		assert.Equal(t, "test", result["StringField"])
+		assert.Equal(t, 42, result["IntField"])
+		assert.Equal(t, true, result["BoolField"])
+		assert.Equal(t, 3.14, result["FloatField"])
+	})
+}
+
+func TestFormatErrors_EdgeCases(t *testing.T) {
+	logger := logging.NewTestLogger()
+
+	t.Run("NilErrors", func(t *testing.T) {
+		result := resolver.FormatErrors(nil, logger)
+		assert.Empty(t, result)
+	})
+
+	t.Run("EmptyErrorsSlice", func(t *testing.T) {
+		errors := []*apiserverresponse.APIServerErrorsBlock{}
+		result := resolver.FormatErrors(&errors, logger)
+		assert.Empty(t, result)
+	})
+
+	t.Run("NilErrorInSlice", func(t *testing.T) {
+		errors := []*apiserverresponse.APIServerErrorsBlock{nil}
+		result := resolver.FormatErrors(&errors, logger)
+		assert.Empty(t, result)
+	})
+
+	t.Run("ErrorWithEmptyMessage", func(t *testing.T) {
+		errors := []*apiserverresponse.APIServerErrorsBlock{
+			{
+				Code:    500,
+				Message: "",
+			},
+		}
+		result := resolver.FormatErrors(&errors, logger)
+		assert.Contains(t, result, "code = 500")
+		assert.Contains(t, result, "message = #\"\"\"")
+	})
+}
+
+func TestDecodeErrorMessage_EdgeCases(t *testing.T) {
+	logger := logging.NewTestLogger()
+
+	t.Run("EmptyMessage", func(t *testing.T) {
+		result := resolver.DecodeErrorMessage("", logger)
+		assert.Empty(t, result)
+	})
+
+	t.Run("NonBase64Message", func(t *testing.T) {
+		result := resolver.DecodeErrorMessage("plain text message", logger)
+		assert.Equal(t, "plain text message", result)
+	})
+
+	t.Run("InvalidBase64Message", func(t *testing.T) {
+		result := resolver.DecodeErrorMessage("invalid-base64!", logger)
+		assert.Equal(t, "invalid-base64!", result)
+	})
+}
+
+func TestEvalPklFormattedResponseFile_EdgeCases(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	t.Run("FileDoesNotExist", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		responseFile := filepath.Join(tmpDir, "response.pkl")
+
+		resolver := &resolver.DependencyResolver{
+			Fs:              fs,
+			Logger:          logger,
+			Context:         ctx,
+			ResponsePklFile: responseFile,
+		}
+
+		_, err := resolver.EvalPklFormattedResponseFile()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "PKL file does not exist")
+	})
+
+	t.Run("InvalidFileExtension", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		invalidFile := filepath.Join(tmpDir, "response.txt") // Wrong extension
+
+		resolver := &resolver.DependencyResolver{
+			Fs:              fs,
+			Logger:          logger,
+			Context:         ctx,
+			ResponsePklFile: invalidFile,
+		}
+
+		// Create the file
+		err := afero.WriteFile(fs, invalidFile, []byte("test"), 0o644)
+		require.NoError(t, err)
+
+		_, err = resolver.EvalPklFormattedResponseFile()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "file must have .pkl extension")
+	})
 }

@@ -76,7 +76,7 @@ response {
 }
 
 func FormatResponseMeta(requestID string, meta *apiserverresponse.APIServerResponseMetaBlock) string {
-	if meta == nil || *meta.Headers == nil && *meta.Properties == nil {
+	if meta == nil || (meta.Headers == nil && meta.Properties == nil) {
 		return fmt.Sprintf(`
 meta {
   requestID = "%s"
@@ -84,8 +84,15 @@ meta {
 `, requestID)
 	}
 
-	responseMetaHeaders := utils.FormatResponseHeaders(*meta.Headers)
-	responseMetaProperties := utils.FormatResponseProperties(*meta.Properties)
+	var responseMetaHeaders string
+	var responseMetaProperties string
+
+	if meta.Headers != nil && len(*meta.Headers) > 0 {
+		responseMetaHeaders = utils.FormatResponseHeaders(*meta.Headers)
+	}
+	if meta.Properties != nil && len(*meta.Properties) > 0 {
+		responseMetaProperties = utils.FormatResponseProperties(*meta.Properties)
+	}
 
 	if len(responseMetaHeaders) == 0 && len(responseMetaProperties) == 0 {
 		return fmt.Sprintf(`
@@ -100,7 +107,8 @@ meta {
   requestID = "%s"
   %s
   %s
-}`, requestID, responseMetaHeaders, responseMetaProperties)
+}`,
+		requestID, responseMetaHeaders, responseMetaProperties)
 }
 
 func FormatMap(m map[interface{}]interface{}) string {
