@@ -153,3 +153,149 @@ func TestNewPackageCommand_MetadataAndArgs(t *testing.T) {
 		t.Fatal("expected error for missing args")
 	}
 }
+
+// TestNewPackageCommand_RunE tests the RunE function directly to improve coverage
+func TestNewPackageCommand_RunE(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	env := &environment.Environment{}
+	logger := logging.NewTestLogger()
+
+	cmd := NewPackageCommand(fs, ctx, kdepsDir, env, logger)
+
+	// Test with non-existent directory
+	err := cmd.RunE(cmd, []string{"/does/not/exist"})
+	assert.Error(t, err, "expected error from RunE due to missing directory")
+}
+
+// TestNewPackageCommand_RunE_FindWorkflowFileError tests the error path when FindWorkflowFile fails
+func TestNewPackageCommand_RunE_FindWorkflowFileError(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	env := &environment.Environment{}
+	logger := logging.NewTestLogger()
+
+	// Create a directory without a workflow file
+	testDir := filepath.Join("/test")
+	err := fs.MkdirAll(testDir, 0o755)
+	assert.NoError(t, err)
+
+	cmd := NewPackageCommand(fs, ctx, kdepsDir, env, logger)
+	err = cmd.RunE(cmd, []string{testDir})
+	assert.Error(t, err, "expected error when FindWorkflowFile fails")
+}
+
+// TestNewPackageCommand_RunE_LoadWorkflowError tests the error path when LoadWorkflow fails
+func TestNewPackageCommand_RunE_LoadWorkflowError(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	env := &environment.Environment{}
+	logger := logging.NewTestLogger()
+
+	// Create a directory with an invalid workflow file
+	testDir := filepath.Join("/test")
+	err := fs.MkdirAll(testDir, 0o755)
+	assert.NoError(t, err)
+
+	// Create an invalid workflow file
+	workflowPath := filepath.Join(testDir, "workflow.pkl")
+	err = afero.WriteFile(fs, workflowPath, []byte("invalid workflow content"), 0o644)
+	assert.NoError(t, err)
+
+	cmd := NewPackageCommand(fs, ctx, kdepsDir, env, logger)
+	err = cmd.RunE(cmd, []string{testDir})
+	assert.Error(t, err, "expected error when LoadWorkflow fails")
+}
+
+// TestNewPackageCommand_RunE_CompileProjectError tests the error path when CompileProject fails
+func TestNewPackageCommand_RunE_CompileProjectError(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	env := &environment.Environment{}
+	logger := logging.NewTestLogger()
+
+	// Create a directory with a valid workflow file but missing resources
+	testDir := filepath.Join("/test")
+	err := fs.MkdirAll(testDir, 0o755)
+	assert.NoError(t, err)
+
+	// Create a minimal valid workflow file
+	workflowContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
+
+name = "testagent"
+description = "Test Agent"
+version = "1.0.0"
+targetActionID = "testAction"
+
+workflows {}
+
+settings {
+	APIServerMode = true
+	APIServer {
+		hostIP = "127.0.0.1"
+		portNum = 3000
+		routes {
+			new {
+				path = "/api/v1/test"
+				methods {
+					"GET"
+				}
+			}
+		}
+	}
+	agentSettings {
+		timezone = "Etc/UTC"
+		models {
+			"llama3.2:1b"
+		}
+		ollamaImageTag = "0.6.8"
+	}
+}`, schema.SchemaVersion(ctx))
+
+	workflowPath := filepath.Join(testDir, "workflow.pkl")
+	err = afero.WriteFile(fs, workflowPath, []byte(workflowContent), 0o644)
+	assert.NoError(t, err)
+
+	cmd := NewPackageCommand(fs, ctx, kdepsDir, env, logger)
+	err = cmd.RunE(cmd, []string{testDir})
+	assert.Error(t, err, "expected error when CompileProject fails due to missing resources")
+}
+
+// TestNewPackageCommand_Constructor tests the command constructor
+func TestNewPackageCommand_Constructor(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	env := &environment.Environment{}
+	logger := logging.NewTestLogger()
+
+	cmd := NewPackageCommand(fs, ctx, kdepsDir, env, logger)
+	assert.NotNil(t, cmd)
+	assert.Equal(t, "package [agent-dir]", cmd.Use)
+	assert.Equal(t, []string{"p"}, cmd.Aliases)
+	assert.Equal(t, "Package an AI agent to .kdeps file", cmd.Short)
+	assert.Equal(t, "$ kdeps package ./myAgent/", cmd.Example)
+}
+
+// TestNewPackageCommand_ErrorStyling tests that error messages are properly styled
+func TestNewPackageCommand_ErrorStyling(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	env := &environment.Environment{}
+	logger := logging.NewTestLogger()
+
+	cmd := NewPackageCommand(fs, ctx, kdepsDir, env, logger)
+
+	// Test with non-existent directory to trigger error styling
+	err := cmd.RunE(cmd, []string{"/does/not/exist"})
+	assert.Error(t, err)
+
+	// Check that the error message contains styling (errorStyle.Render)
+	errMsg := err.Error()
+	assert.Contains(t, errMsg, "Error finding workflow file")
+}

@@ -934,3 +934,158 @@ func TestAppendDataEntry_ContextNil(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "context is nil")
 }
+
+func TestProcessResourceStep(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+
+	dr := &DependencyResolver{
+		Fs:                fs,
+		Logger:            logger,
+		DefaultTimeoutSec: 30,
+	}
+
+	// Mock the timestamp functions
+	dr.GetCurrentTimestampFn = func(resourceID, step string) (pkl.Duration, error) {
+		return pkl.Duration{Value: 1000, Unit: pkl.Millisecond}, nil
+	}
+
+	dr.WaitForTimestampChangeFn = func(resourceID string, timestamp pkl.Duration, timeout time.Duration, step string) error {
+		return nil
+	}
+
+	// Test successful execution
+	handlerCalled := false
+	handler := func() error {
+		handlerCalled = true
+		return nil
+	}
+
+	err := dr.ProcessResourceStep("test-resource", "test-step", nil, handler)
+	require.NoError(t, err)
+	require.True(t, handlerCalled)
+}
+
+func TestProcessResourceStep_HandlerError(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+
+	dr := &DependencyResolver{
+		Fs:                fs,
+		Logger:            logger,
+		DefaultTimeoutSec: 30,
+	}
+
+	// Mock the timestamp functions
+	dr.GetCurrentTimestampFn = func(resourceID, step string) (pkl.Duration, error) {
+		return pkl.Duration{Value: 1000, Unit: pkl.Millisecond}, nil
+	}
+
+	// Test handler error
+	handler := func() error {
+		return fmt.Errorf("handler error")
+	}
+
+	err := dr.ProcessResourceStep("test-resource", "test-step", nil, handler)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "test-step error")
+	require.Contains(t, err.Error(), "handler error")
+}
+
+func TestProcessResourceStep_TimestampError(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+
+	dr := &DependencyResolver{
+		Fs:                fs,
+		Logger:            logger,
+		DefaultTimeoutSec: 30,
+	}
+
+	// Mock timestamp function to return error
+	dr.GetCurrentTimestampFn = func(resourceID, step string) (pkl.Duration, error) {
+		return pkl.Duration{}, fmt.Errorf("timestamp error")
+	}
+
+	handler := func() error {
+		return nil
+	}
+
+	err := dr.ProcessResourceStep("test-resource", "test-step", nil, handler)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "test-step error")
+	require.Contains(t, err.Error(), "timestamp error")
+}
+
+func TestProcessResourceStep_WaitTimeoutError(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+
+	dr := &DependencyResolver{
+		Fs:                fs,
+		Logger:            logger,
+		DefaultTimeoutSec: 30,
+	}
+
+	// Mock the timestamp functions
+	dr.GetCurrentTimestampFn = func(resourceID, step string) (pkl.Duration, error) {
+		return pkl.Duration{Value: 1000, Unit: pkl.Millisecond}, nil
+	}
+
+	dr.WaitForTimestampChangeFn = func(resourceID string, timestamp pkl.Duration, timeout time.Duration, step string) error {
+		return fmt.Errorf("timeout error")
+	}
+
+	handler := func() error {
+		return nil
+	}
+
+	err := dr.ProcessResourceStep("test-resource", "test-step", nil, handler)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "test-step timeout awaiting for output")
+	require.Contains(t, err.Error(), "timeout error")
+}
+
+func TestProcessResourceStep_TimeoutLogic(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+
+	dr := &DependencyResolver{
+		Fs:     fs,
+		Logger: logger,
+	}
+
+	// Mock the timestamp functions
+	dr.GetCurrentTimestampFn = func(resourceID, step string) (pkl.Duration, error) {
+		return pkl.Duration{Value: 1000, Unit: pkl.Millisecond}, nil
+	}
+
+	dr.WaitForTimestampChangeFn = func(resourceID string, timestamp pkl.Duration, timeout time.Duration, step string) error {
+		return nil
+	}
+
+	handler := func() error {
+		return nil
+	}
+
+	// Test with positive DefaultTimeoutSec
+	dr.DefaultTimeoutSec = 60
+	err := dr.ProcessResourceStep("test-resource", "test-step", nil, handler)
+	require.NoError(t, err)
+
+	// Test with zero DefaultTimeoutSec (unlimited)
+	dr.DefaultTimeoutSec = 0
+	err = dr.ProcessResourceStep("test-resource", "test-step", nil, handler)
+	require.NoError(t, err)
+
+	// Test with negative DefaultTimeoutSec and timeoutPtr
+	dr.DefaultTimeoutSec = -1
+	timeoutPtr := &pkl.Duration{Value: 30, Unit: pkl.Second}
+	err = dr.ProcessResourceStep("test-resource", "test-step", timeoutPtr, handler)
+	require.NoError(t, err)
+
+	// Test with negative DefaultTimeoutSec and nil timeoutPtr (should use default 60s)
+	dr.DefaultTimeoutSec = -1
+	err = dr.ProcessResourceStep("test-resource", "test-step", nil, handler)
+	require.NoError(t, err)
+}

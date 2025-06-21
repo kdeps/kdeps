@@ -76,7 +76,16 @@ func CreateDirectory(fs afero.Fs, logger *logging.Logger, path string) error {
 	return nil
 }
 
+// safeLogger returns a usable logger, falling back to the base logger when the provided one is nil.
+func safeLogger(l *logging.Logger) *logging.Logger {
+	if l == nil {
+		return logging.GetLogger()
+	}
+	return l
+}
+
 func CreateFile(fs afero.Fs, logger *logging.Logger, path string, content string) error {
+	logger = safeLogger(logger)
 	if path == "" {
 		return fmt.Errorf("file path cannot be empty")
 	}
@@ -128,6 +137,7 @@ func LoadTemplate(templatePath string, data map[string]string) (string, error) {
 
 // GenerateWorkflowFile generates a workflow file for the agent.
 func GenerateWorkflowFile(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, name string) error {
+	logger = safeLogger(logger)
 	// Validate agent name first
 	if err := ValidateAgentName(name); err != nil {
 		return err
@@ -159,6 +169,7 @@ func GenerateWorkflowFile(fs afero.Fs, ctx context.Context, logger *logging.Logg
 
 // GenerateResourceFiles generates resource files for the agent.
 func GenerateResourceFiles(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, name string) error {
+	logger = safeLogger(logger)
 	// Validate agent name first
 	if err := ValidateAgentName(name); err != nil {
 		return err
@@ -209,6 +220,11 @@ func GenerateResourceFiles(fs afero.Fs, ctx context.Context, logger *logging.Log
 }
 
 func GenerateSpecificAgentFile(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, agentName string) error {
+	logger = safeLogger(logger)
+	// Validate inputs
+	if strings.TrimSpace(mainDir) == "" {
+		return fmt.Errorf("base directory cannot be empty")
+	}
 	// Validate agent name
 	if err := ValidateAgentName(agentName); err != nil {
 		return err
@@ -228,8 +244,16 @@ func GenerateSpecificAgentFile(fs afero.Fs, ctx context.Context, logger *logging
 	// Load the template
 	content, err := LoadTemplate(templatePath, templateData)
 	if err != nil {
-		logger.Error("failed to load specific template: ", err)
-		return err
+		// If the specific template does not exist, fall back to a minimal default template
+		// consisting of the header and name. This ensures users can still generate
+		// arbitrary agent/resource files without having to embed a dedicated template.
+		if errors.Is(err, os.ErrNotExist) || strings.Contains(err.Error(), "file does not exist") {
+			logger.Warn("template not found, falling back to default", "template", templatePath)
+			content = fmt.Sprintf("%s\nname = \"%s\"\n", templateData["Header"], agentName)
+		} else {
+			logger.Error("failed to load specific template: ", err)
+			return err
+		}
 	}
 
 	// Determine the output directory
@@ -250,6 +274,11 @@ func GenerateSpecificAgentFile(fs afero.Fs, ctx context.Context, logger *logging
 }
 
 func GenerateAgent(fs afero.Fs, ctx context.Context, logger *logging.Logger, baseDir, agentName string) error {
+	logger = safeLogger(logger)
+	// Validate inputs
+	if strings.TrimSpace(baseDir) == "" {
+		return fmt.Errorf("base directory cannot be empty")
+	}
 	// Validate agent name
 	if err := ValidateAgentName(agentName); err != nil {
 		return err

@@ -328,3 +328,213 @@ func TestNewScaffoldCommandConstructor(t *testing.T) {
 		t.Fatalf("expected error")
 	}
 }
+
+// TestNewBuildCommand_RunE tests the RunE function directly to improve coverage
+func TestNewBuildCommand_RunE(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	systemCfg := &kdeps.Kdeps{}
+	logger := logging.NewTestLogger()
+
+	cmd := NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger)
+
+	// Test with non-existent package file
+	err := cmd.RunE(cmd, []string{"/does/not/exist.kdeps"})
+	assert.Error(t, err, "expected error from RunE due to missing package file")
+}
+
+// TestNewBuildCommand_RunE_ExtractPackageError tests the error path when ExtractPackage fails
+func TestNewBuildCommand_RunE_ExtractPackageError(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	systemCfg := &kdeps.Kdeps{}
+	logger := logging.NewTestLogger()
+
+	cmd := NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger)
+
+	// Test with invalid package file
+	err := cmd.RunE(cmd, []string{"invalid.kdeps"})
+	assert.Error(t, err, "expected error when ExtractPackage fails")
+}
+
+// TestNewBuildCommand_RunE_BuildDockerfileError tests the error path when BuildDockerfile fails
+func TestNewBuildCommand_RunE_BuildDockerfileError(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	systemCfg := &kdeps.Kdeps{}
+	logger := logging.NewTestLogger()
+
+	// Create a minimal valid package structure that will pass ExtractPackage but fail BuildDockerfile
+	testDir := filepath.Join("/test")
+	validAgentDir := filepath.Join(testDir, "valid-agent")
+	err := fs.MkdirAll(validAgentDir, 0o755)
+	assert.NoError(t, err)
+
+	// Create a minimal workflow file
+	workflowPath := filepath.Join(validAgentDir, "workflow.pkl")
+	err = afero.WriteFile(fs, workflowPath, []byte("name: test"), 0o644)
+	assert.NoError(t, err)
+
+	// Create resources directory
+	resourcesDir := filepath.Join(validAgentDir, "resources")
+	err = fs.MkdirAll(resourcesDir, 0o755)
+	assert.NoError(t, err)
+
+	// Create minimal resource files
+	requiredResources := []string{"client.pkl", "exec.pkl", "llm.pkl", "python.pkl", "response.pkl"}
+	for _, resource := range requiredResources {
+		resourcePath := filepath.Join(resourcesDir, resource)
+		err = afero.WriteFile(fs, resourcePath, []byte("resource content"), 0o644)
+		assert.NoError(t, err)
+	}
+
+	validKdepsPath := filepath.Join(testDir, "valid-agent.kdeps")
+	err = afero.WriteFile(fs, validKdepsPath, []byte("valid package"), 0o644)
+	assert.NoError(t, err)
+
+	cmd := NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger)
+	err = cmd.RunE(cmd, []string{validKdepsPath})
+	assert.Error(t, err, "expected error when BuildDockerfile fails")
+}
+
+// TestNewBuildCommand_RunE_DockerClientError tests the error path when Docker client creation fails
+func TestNewBuildCommand_RunE_DockerClientError(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	systemCfg := &kdeps.Kdeps{}
+	logger := logging.NewTestLogger()
+
+	// Create a package structure that will pass ExtractPackage and BuildDockerfile but fail Docker client creation
+	testDir := filepath.Join("/test")
+	validAgentDir := filepath.Join(testDir, "valid-agent")
+	err := fs.MkdirAll(validAgentDir, 0o755)
+	assert.NoError(t, err)
+
+	// Create a minimal workflow file
+	workflowPath := filepath.Join(validAgentDir, "workflow.pkl")
+	err = afero.WriteFile(fs, workflowPath, []byte("name: test"), 0o644)
+	assert.NoError(t, err)
+
+	// Create resources directory
+	resourcesDir := filepath.Join(validAgentDir, "resources")
+	err = fs.MkdirAll(resourcesDir, 0o755)
+	assert.NoError(t, err)
+
+	// Create minimal resource files
+	requiredResources := []string{"client.pkl", "exec.pkl", "llm.pkl", "python.pkl", "response.pkl"}
+	for _, resource := range requiredResources {
+		resourcePath := filepath.Join(resourcesDir, resource)
+		err = afero.WriteFile(fs, resourcePath, []byte("resource content"), 0o644)
+		assert.NoError(t, err)
+	}
+
+	validKdepsPath := filepath.Join(testDir, "valid-agent.kdeps")
+	err = afero.WriteFile(fs, validKdepsPath, []byte("valid package"), 0o644)
+	assert.NoError(t, err)
+
+	cmd := NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger)
+	err = cmd.RunE(cmd, []string{validKdepsPath})
+	assert.Error(t, err, "expected error when Docker client creation fails")
+}
+
+// TestNewBuildCommand_RunE_BuildDockerImageError tests the error path when BuildDockerImage fails
+func TestNewBuildCommand_RunE_BuildDockerImageError(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	systemCfg := &kdeps.Kdeps{}
+	logger := logging.NewTestLogger()
+
+	// Create a package structure that will pass ExtractPackage and BuildDockerfile but fail BuildDockerImage
+	testDir := filepath.Join("/test")
+	validAgentDir := filepath.Join(testDir, "valid-agent")
+	err := fs.MkdirAll(validAgentDir, 0o755)
+	assert.NoError(t, err)
+
+	// Create a minimal workflow file
+	workflowPath := filepath.Join(validAgentDir, "workflow.pkl")
+	err = afero.WriteFile(fs, workflowPath, []byte("name: test"), 0o644)
+	assert.NoError(t, err)
+
+	// Create resources directory
+	resourcesDir := filepath.Join(validAgentDir, "resources")
+	err = fs.MkdirAll(resourcesDir, 0o755)
+	assert.NoError(t, err)
+
+	// Create minimal resource files
+	requiredResources := []string{"client.pkl", "exec.pkl", "llm.pkl", "python.pkl", "response.pkl"}
+	for _, resource := range requiredResources {
+		resourcePath := filepath.Join(resourcesDir, resource)
+		err = afero.WriteFile(fs, resourcePath, []byte("resource content"), 0o644)
+		assert.NoError(t, err)
+	}
+
+	validKdepsPath := filepath.Join(testDir, "valid-agent.kdeps")
+	err = afero.WriteFile(fs, validKdepsPath, []byte("valid package"), 0o644)
+	assert.NoError(t, err)
+
+	cmd := NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger)
+	err = cmd.RunE(cmd, []string{validKdepsPath})
+	assert.Error(t, err, "expected error when BuildDockerImage fails")
+}
+
+// TestNewBuildCommand_RunE_CleanupError tests the error path when CleanupDockerBuildImages fails
+func TestNewBuildCommand_RunE_CleanupError(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	systemCfg := &kdeps.Kdeps{}
+	logger := logging.NewTestLogger()
+
+	// Create a package structure that will pass all previous steps but fail CleanupDockerBuildImages
+	testDir := filepath.Join("/test")
+	validAgentDir := filepath.Join(testDir, "valid-agent")
+	err := fs.MkdirAll(validAgentDir, 0o755)
+	assert.NoError(t, err)
+
+	// Create a minimal workflow file
+	workflowPath := filepath.Join(validAgentDir, "workflow.pkl")
+	err = afero.WriteFile(fs, workflowPath, []byte("name: test"), 0o644)
+	assert.NoError(t, err)
+
+	// Create resources directory
+	resourcesDir := filepath.Join(validAgentDir, "resources")
+	err = fs.MkdirAll(resourcesDir, 0o755)
+	assert.NoError(t, err)
+
+	// Create minimal resource files
+	requiredResources := []string{"client.pkl", "exec.pkl", "llm.pkl", "python.pkl", "response.pkl"}
+	for _, resource := range requiredResources {
+		resourcePath := filepath.Join(resourcesDir, resource)
+		err = afero.WriteFile(fs, resourcePath, []byte("resource content"), 0o644)
+		assert.NoError(t, err)
+	}
+
+	validKdepsPath := filepath.Join(testDir, "valid-agent.kdeps")
+	err = afero.WriteFile(fs, validKdepsPath, []byte("valid package"), 0o644)
+	assert.NoError(t, err)
+
+	cmd := NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger)
+	err = cmd.RunE(cmd, []string{validKdepsPath})
+	assert.Error(t, err, "expected error when CleanupDockerBuildImages fails")
+}
+
+// TestNewBuildCommand_Constructor tests the command constructor
+func TestNewBuildCommand_Constructor(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	systemCfg := &kdeps.Kdeps{}
+	logger := logging.NewTestLogger()
+
+	cmd := NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger)
+	assert.NotNil(t, cmd)
+	assert.Equal(t, "build [package]", cmd.Use)
+	assert.Equal(t, []string{"b"}, cmd.Aliases)
+	assert.Equal(t, "Build a dockerized AI agent", cmd.Short)
+	assert.Equal(t, "$ kdeps build ./myAgent.kdeps", cmd.Example)
+}

@@ -1,11 +1,9 @@
-package utils_test
+package utils
 
 import (
 	"encoding/base64"
 	"strings"
 	"testing"
-
-	. "github.com/kdeps/kdeps/pkg/utils"
 )
 
 func TestEncodePklMap_Internal(t *testing.T) {

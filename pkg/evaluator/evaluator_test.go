@@ -629,3 +629,182 @@ output {
 		require.Contains(t, result, "test output")
 	})
 }
+
+// TestCreateAndProcessPklFile_WriteFileFailure tests when writing the final file fails
+func TestCreateAndProcessPklFile_WriteFileFailure(t *testing.T) {
+	fs := afero.NewOsFs()
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	// Create a processFunc that returns content
+	processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
+		return "processed content", nil
+	}
+
+	// Try to write to a directory that doesn't exist (should fail)
+	err := CreateAndProcessPklFile(fs, ctx, []string{"section"}, "/nonexistent/dir/final.pkl", "Template.pkl", logger, processFunc, false)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to write final file")
+}
+
+// TestCreateAndProcessPklFile_EmptySections tests with empty sections slice
+func TestCreateAndProcessPklFile_EmptySections(t *testing.T) {
+	fs := afero.NewOsFs()
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
+		return "processed", nil
+	}
+
+	// Test with empty sections
+	err := CreateAndProcessPklFile(fs, ctx, []string{}, "final.pkl", "Template.pkl", logger, processFunc, false)
+	require.NoError(t, err)
+
+	// Verify the final file exists and contains the processed content
+	content, err := afero.ReadFile(fs, "final.pkl")
+	require.NoError(t, err)
+	require.Contains(t, string(content), "processed")
+}
+
+// TestCreateAndProcessPklFile_NilSections tests with nil sections slice
+func TestCreateAndProcessPklFile_NilSections(t *testing.T) {
+	fs := afero.NewOsFs()
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
+		return "processed", nil
+	}
+
+	// Test with nil sections
+	err := CreateAndProcessPklFile(fs, ctx, nil, "final.pkl", "Template.pkl", logger, processFunc, false)
+	require.NoError(t, err)
+
+	// Verify the final file exists and contains the processed content
+	content, err := afero.ReadFile(fs, "final.pkl")
+	require.NoError(t, err)
+	require.Contains(t, string(content), "processed")
+}
+
+// TestCreateAndProcessPklFile_ProcessFuncReturnsEmpty tests when processFunc returns empty string
+func TestCreateAndProcessPklFile_ProcessFuncReturnsEmpty(t *testing.T) {
+	fs := afero.NewOsFs()
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	// Create a processFunc that returns empty string
+	emptyProcessFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
+		return "", nil
+	}
+
+	err := CreateAndProcessPklFile(fs, ctx, []string{"section"}, "final.pkl", "Template.pkl", logger, emptyProcessFunc, false)
+	require.NoError(t, err)
+
+	// Verify the final file exists and is empty
+	content, err := afero.ReadFile(fs, "final.pkl")
+	require.NoError(t, err)
+	require.Empty(t, string(content))
+}
+
+// TestCreateAndProcessPklFile_TempDirCreationFailure tests when temporary directory creation fails
+func TestCreateAndProcessPklFile_TempDirCreationFailure(t *testing.T) {
+	t.Skip("Cannot simulate temp dir creation failure without refactoring production code to use FS interface for TempDir")
+}
+
+// tempDirErrorFs is a filesystem that fails on TempDir
+type tempDirErrorFs struct {
+	afero.Fs
+}
+
+func (t *tempDirErrorFs) TempDir(dir, prefix string) (string, error) {
+	return "", errors.New("temp dir creation failed")
+}
+
+// TestCreateAndProcessPklFile_TempFileCreationFailure tests when temporary file creation fails
+func TestCreateAndProcessPklFile_TempFileCreationFailure(t *testing.T) {
+	t.Skip("Cannot simulate temp file creation failure without refactoring production code to use FS interface for TempFile")
+}
+
+// tempFileErrorFs is a filesystem that fails on TempFile
+type tempFileErrorFs struct {
+	afero.Fs
+}
+
+func (t *tempFileErrorFs) TempFile(dir, prefix string) (afero.File, error) {
+	return nil, errors.New("temp file creation failed")
+}
+
+// TestCreateAndProcessPklFile_WithSchemaVersion tests that schema version is included correctly
+func TestCreateAndProcessPklFile_WithSchemaVersion(t *testing.T) {
+	fs := afero.NewOsFs()
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
+		// Read the temp file to verify it contains the schema version
+		content, err := afero.ReadFile(fs, tmpFile)
+		if err != nil {
+			return "", err
+		}
+		contentStr := string(content)
+		if !strings.Contains(contentStr, schema.SchemaVersion(ctx)) {
+			return "", errors.New("schema version not found in temp file")
+		}
+		return "processed with schema version", nil
+	}
+
+	err := CreateAndProcessPklFile(fs, ctx, []string{"section"}, "final.pkl", "Template.pkl", logger, processFunc, false)
+	require.NoError(t, err)
+
+	// Verify the final file contains the processed content
+	content, err := afero.ReadFile(fs, "final.pkl")
+	require.NoError(t, err)
+	require.Contains(t, string(content), "processed with schema version")
+}
+
+// TestCreateAndProcessPklFile_ExtendsRelationship tests the extends relationship
+func TestCreateAndProcessPklFile_ExtendsRelationship(t *testing.T) {
+	fs := afero.NewOsFs()
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
+		// Verify the header section contains "extends"
+		if !strings.Contains(headerSection, "extends") {
+			return "", errors.New("header section should contain 'extends'")
+		}
+		return "processed with extends", nil
+	}
+
+	err := CreateAndProcessPklFile(fs, ctx, []string{"section"}, "final.pkl", "Template.pkl", logger, processFunc, true)
+	require.NoError(t, err)
+
+	// Verify the final file contains the processed content
+	content, err := afero.ReadFile(fs, "final.pkl")
+	require.NoError(t, err)
+	require.Contains(t, string(content), "processed with extends")
+}
+
+// TestCreateAndProcessPklFile_AmendsRelationship tests the amends relationship
+func TestCreateAndProcessPklFile_AmendsRelationship(t *testing.T) {
+	fs := afero.NewOsFs()
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
+		// Verify the header section contains "amends"
+		if !strings.Contains(headerSection, "amends") {
+			return "", errors.New("header section should contain 'amends'")
+		}
+		return "processed with amends", nil
+	}
+
+	err := CreateAndProcessPklFile(fs, ctx, []string{"section"}, "final.pkl", "Template.pkl", logger, processFunc, false)
+	require.NoError(t, err)
+
+	// Verify the final file contains the processed content
+	content, err := afero.ReadFile(fs, "final.pkl")
+	require.NoError(t, err)
+	require.Contains(t, string(content), "processed with amends")
+}

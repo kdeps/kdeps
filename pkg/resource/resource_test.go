@@ -806,3 +806,70 @@ run {
 		assert.NotNil(t, resource)
 	})
 }
+
+func TestLoadResource_WhitespaceOnlyFile(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+	fs := afero.NewOsFs()
+	tmpDir := t.TempDir()
+	file := filepath.Join(tmpDir, "whitespace.pkl")
+	require.NoError(t, afero.WriteFile(fs, file, []byte("   \n\t  "), 0o644))
+	resource, err := LoadResource(ctx, file, logger)
+	if err != nil {
+		assert.Contains(t, err.Error(), "error reading resource file")
+		assert.Nil(t, resource)
+	} else {
+		assert.NotNil(t, resource)
+	}
+}
+
+func TestLoadResource_AmendsHeaderOnly(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+	fs := afero.NewOsFs()
+	tmpDir := t.TempDir()
+	file := filepath.Join(tmpDir, "headeronly.pkl")
+	header := fmt.Sprintf("amends \"package://schema.kdeps.com/core@%s#/Resource.pkl\"\n", schema.SchemaVersion(ctx))
+	require.NoError(t, afero.WriteFile(fs, file, []byte(header), 0o644))
+	resource, err := LoadResource(ctx, file, logger)
+	if err != nil {
+		assert.Contains(t, err.Error(), "error reading resource file")
+		assert.Nil(t, resource)
+	} else {
+		assert.NotNil(t, resource)
+	}
+}
+
+func TestLoadResource_HeaderNoActionID(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+	fs := afero.NewOsFs()
+	tmpDir := t.TempDir()
+	file := filepath.Join(tmpDir, "noactionid.pkl")
+	header := fmt.Sprintf("amends \"package://schema.kdeps.com/core@%s#/Resource.pkl\"\nname = \"Test\"\n", schema.SchemaVersion(ctx))
+	require.NoError(t, afero.WriteFile(fs, file, []byte(header), 0o644))
+	resource, err := LoadResource(ctx, file, logger)
+	if err != nil {
+		assert.Contains(t, err.Error(), "error reading resource file")
+		assert.Nil(t, resource)
+	} else {
+		assert.NotNil(t, resource)
+	}
+}
+
+func TestLoadResource_HeaderActionIDInvalidRun(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+	fs := afero.NewOsFs()
+	tmpDir := t.TempDir()
+	file := filepath.Join(tmpDir, "invalidrun.pkl")
+	header := fmt.Sprintf("amends \"package://schema.kdeps.com/core@%s#/Resource.pkl\"\nactionID = \"test\"\nrun { invalid block }\n", schema.SchemaVersion(ctx))
+	require.NoError(t, afero.WriteFile(fs, file, []byte(header), 0o644))
+	resource, err := LoadResource(ctx, file, logger)
+	if err != nil {
+		assert.Contains(t, err.Error(), "error reading resource file")
+		assert.Nil(t, resource)
+	} else {
+		assert.NotNil(t, resource)
+	}
+}

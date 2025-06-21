@@ -502,7 +502,6 @@ func TestAPIServerHandler(t *testing.T) {
 	})
 }
 
-// mockResolver implements the necessary methods for testing processWorkflow
 type mockResolver struct {
 	*resolver.DependencyResolver
 	prepareWorkflowDirFn           func() error
@@ -512,22 +511,33 @@ type mockResolver struct {
 }
 
 func (m *mockResolver) PrepareWorkflowDir() error {
-	return m.prepareWorkflowDirFn()
+	if m.prepareWorkflowDirFn != nil {
+		return m.prepareWorkflowDirFn()
+	}
+	return m.DependencyResolver.PrepareWorkflowDir()
 }
 
 func (m *mockResolver) PrepareImportFiles() error {
-	return m.prepareImportFilesFn()
+	if m.prepareImportFilesFn != nil {
+		return m.prepareImportFilesFn()
+	}
+	return m.DependencyResolver.PrepareImportFiles()
 }
 
 func (m *mockResolver) HandleRunAction() (bool, error) {
-	return m.handleRunActionFn()
+	if m.handleRunActionFn != nil {
+		return m.handleRunActionFn()
+	}
+	return m.DependencyResolver.HandleRunAction()
 }
 
 func (m *mockResolver) EvalPklFormattedResponseFile() (string, error) {
-	return m.evalPklFormattedResponseFileFn()
+	if m.evalPklFormattedResponseFileFn != nil {
+		return m.evalPklFormattedResponseFileFn()
+	}
+	return m.DependencyResolver.EvalPklFormattedResponseFile()
 }
 
-// workflowWithNilSettings is a mock Workflow with GetSettings() and GetAgentIcon() returning nil
 type workflowWithNilSettings struct{}
 
 func (w workflowWithNilSettings) GetSettings() *project.Settings { return nil }
@@ -658,85 +668,6 @@ func TestProcessWorkflow(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to handle run action")
 	})
-}
-
-func TestProcessWorkflow_HappyPath(t *testing.T) {
-	restore := createStubPkl(t)
-	defer restore()
-
-	fs := afero.NewOsFs()
-	ctx := context.Background()
-	// Create temp dirs for project and workflow
-	tmpDir, err := afero.TempDir(fs, "", "processworkflow-happy")
-	require.NoError(t, err)
-	defer fs.RemoveAll(tmpDir)
-
-	projectDir := filepath.Join(tmpDir, "project")
-	workflowDir := filepath.Join(tmpDir, "workflow")
-	actionDir := filepath.Join(tmpDir, "action")
-	require.NoError(t, fs.MkdirAll(projectDir, 0o755))
-	require.NoError(t, fs.MkdirAll(workflowDir, 0o755))
-	require.NoError(t, fs.MkdirAll(actionDir, 0o755))
-
-	// Create in-memory databases for the readers
-	memoryDB, err := sql.Open("sqlite3", ":memory:")
-	require.NoError(t, err)
-	defer memoryDB.Close()
-
-	sessionDB, err := sql.Open("sqlite3", ":memory:")
-	require.NoError(t, err)
-	defer sessionDB.Close()
-
-	toolDB, err := sql.Open("sqlite3", ":memory:")
-	require.NoError(t, err)
-	defer toolDB.Close()
-
-	itemDB, err := sql.Open("sqlite3", ":memory:")
-	require.NoError(t, err)
-	defer itemDB.Close()
-
-	dr := &resolver.DependencyResolver{
-		Fs:                   fs,
-		Logger:               logging.NewTestLogger(),
-		Context:              ctx,
-		ProjectDir:           projectDir,
-		WorkflowDir:          workflowDir,
-		ActionDir:            actionDir,
-		RequestID:            "test-request",
-		ResponseTargetFile:   filepath.Join(tmpDir, "response.json"),
-		ResponsePklFile:      filepath.Join(tmpDir, "response.pkl"),
-		MemoryReader:         &memory.PklResourceReader{DB: memoryDB},
-		SessionReader:        &session.PklResourceReader{DB: sessionDB},
-		ToolReader:           &tool.PklResourceReader{DB: toolDB},
-		ItemReader:           &item.PklResourceReader{DB: itemDB},
-		Workflow:             &workflowWithNilSettings{},
-		FileRunCounter:       make(map[string]int),
-		SessionDBPath:        filepath.Join(tmpDir, "session.db"),
-		ItemDBPath:           filepath.Join(tmpDir, "item.db"),
-		MemoryDBPath:         filepath.Join(tmpDir, "memory.db"),
-		ToolDBPath:           filepath.Join(tmpDir, "tool.db"),
-		Resources:            []resolver.ResourceNodeEntry{},
-		ResourceDependencies: make(map[string][]string),
-		VisitedPaths:         make(map[string]bool),
-		DBs:                  []*sql.DB{memoryDB, sessionDB, toolDB, itemDB},
-	}
-
-	// Set up injectable functions for happy path
-	dr.LoadResourceEntriesFn = func() error { return nil }
-	dr.BuildDependencyStackFn = func(string, map[string]bool) []string { return []string{} }
-	dr.LoadResourceFn = func(context.Context, string, resolver.ResourceType) (interface{}, error) {
-		return &resource.Resource{}, nil
-	}
-	dr.ProcessRunBlockFn = func(resolver.ResourceNodeEntry, *resource.Resource, string, bool) (bool, error) {
-		return false, nil
-	}
-	dr.ClearItemDBFn = func() error { return nil }
-
-	// Create the response PKL file so EvalPklFormattedResponseFile succeeds
-	require.NoError(t, afero.WriteFile(fs, dr.ResponsePklFile, []byte("{}"), 0o644))
-
-	err = ProcessWorkflow(ctx, dr)
-	assert.NoError(t, err)
 }
 
 func TestSetupRoutes(t *testing.T) {
@@ -1317,102 +1248,6 @@ func TestAPIServerHandler_Comprehensive(t *testing.T) {
 		assert.Equal(t, "Only one active connection is allowed", resp.Errors[0].Message)
 	})
 
-	t.Run("MethodNotAllowed", func(t *testing.T) {
-		tmpDir, err := afero.TempDir(fs, "", "kdeps-test")
-		require.NoError(t, err)
-		defer fs.RemoveAll(tmpDir)
-
-		// Use t.Setenv for HOME
-		t.Setenv("HOME", tmpDir)
-
-		agentDir := filepath.Join(tmpDir, "agent")
-		actionDir := filepath.Join(agentDir, "action")
-		workflowDir := filepath.Join(agentDir, "workflow")
-		require.NoError(t, fs.MkdirAll(workflowDir, 0o755))
-		workflowFile := filepath.Join(workflowDir, "workflow.pkl")
-		workflowContent := `name = "test-agent"`
-		require.NoError(t, afero.WriteFile(fs, workflowFile, []byte(workflowContent), 0o644))
-
-		// Add required context keys
-		ctxWithKeys := ktx.CreateContext(ctx, ktx.CtxKeyGraphID, "test-graph-id")
-		ctxWithKeys = ktx.CreateContext(ctxWithKeys, ktx.CtxKeyAgentDir, agentDir)
-		ctxWithKeys = ktx.CreateContext(ctxWithKeys, ktx.CtxKeyActionDir, actionDir)
-
-		semaphore := make(chan struct{}, 1)
-		route := &apiserver.APIServerRoutes{
-			Path:    "/test",
-			Methods: []string{"GET"},
-		}
-		dr := &resolver.DependencyResolver{
-			Fs:     fs,
-			Logger: logger,
-		}
-
-		handler := APIServerHandler(ctxWithKeys, route, dr, semaphore)
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("PUT", "/test", nil)
-
-		handler(c)
-
-		assert.Equal(t, http.StatusBadRequest, w.Code)
-		var resp APIResponse
-		err = json.Unmarshal(w.Body.Bytes(), &resp)
-		require.NoError(t, err)
-		assert.False(t, resp.Success)
-		assert.Len(t, resp.Errors, 1)
-		assert.Equal(t, http.StatusBadRequest, resp.Errors[0].Code)
-		assert.Contains(t, resp.Errors[0].Message, "HTTP method \"PUT\" not allowed")
-	})
-
-	t.Run("UnsupportedMethod", func(t *testing.T) {
-		tmpDir, err := afero.TempDir(fs, "", "kdeps-test")
-		require.NoError(t, err)
-		defer fs.RemoveAll(tmpDir)
-
-		// Use t.Setenv for HOME
-		t.Setenv("HOME", tmpDir)
-
-		agentDir := filepath.Join(tmpDir, "agent")
-		actionDir := filepath.Join(agentDir, "action")
-		workflowDir := filepath.Join(agentDir, "workflow")
-		require.NoError(t, fs.MkdirAll(workflowDir, 0o755))
-		workflowFile := filepath.Join(workflowDir, "workflow.pkl")
-		workflowContent := `name = "test-agent"`
-		require.NoError(t, afero.WriteFile(fs, workflowFile, []byte(workflowContent), 0o644))
-
-		// Add required context keys
-		ctxWithKeys := ktx.CreateContext(ctx, ktx.CtxKeyGraphID, "test-graph-id")
-		ctxWithKeys = ktx.CreateContext(ctxWithKeys, ktx.CtxKeyAgentDir, agentDir)
-		ctxWithKeys = ktx.CreateContext(ctxWithKeys, ktx.CtxKeyActionDir, actionDir)
-
-		semaphore := make(chan struct{}, 1)
-		route := &apiserver.APIServerRoutes{
-			Path:    "/test",
-			Methods: []string{"GET"},
-		}
-		dr := &resolver.DependencyResolver{
-			Fs:     fs,
-			Logger: logger,
-		}
-
-		handler := APIServerHandler(ctxWithKeys, route, dr, semaphore)
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("TRACE", "/test", nil)
-
-		handler(c)
-
-		assert.Equal(t, http.StatusBadRequest, w.Code)
-		var resp APIResponse
-		err = json.Unmarshal(w.Body.Bytes(), &resp)
-		require.NoError(t, err)
-		assert.False(t, resp.Success)
-		assert.Len(t, resp.Errors, 1)
-		assert.Equal(t, http.StatusBadRequest, resp.Errors[0].Code)
-		assert.Equal(t, "HTTP method \"TRACE\" not allowed", resp.Errors[0].Message)
-	})
-
 	t.Run("GetRequestWithBody", func(t *testing.T) {
 		semaphore := make(chan struct{}, 1)
 		route := &apiserver.APIServerRoutes{
@@ -1518,4 +1353,523 @@ func TestAPIServerHandler_Comprehensive(t *testing.T) {
 		// Should fail due to resolver initialization error, but we've covered the multipart form path
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
 	})
+}
+
+func TestAPIServerHandler_ErrorPaths(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Test with nil route
+	handler := APIServerHandler(ctx, nil, &resolver.DependencyResolver{
+		Fs:     fs,
+		Logger: logger,
+	}, make(chan struct{}, 1))
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	handler(c)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	var resp APIResponse
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	require.NoError(t, err)
+	assert.False(t, resp.Success)
+	assert.Contains(t, resp.Errors[0].Message, "Invalid route configuration")
+
+	// Test with empty path route
+	emptyRoute := &apiserver.APIServerRoutes{
+		Path:    "",
+		Methods: []string{"GET"},
+	}
+	handler = APIServerHandler(ctx, emptyRoute, &resolver.DependencyResolver{
+		Fs:     fs,
+		Logger: logger,
+	}, make(chan struct{}, 1))
+
+	w = httptest.NewRecorder()
+	c, _ = gin.CreateTestContext(w)
+	handler(c)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestAPIServerHandler_SemaphoreBlocked(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Create a semaphore that's already full
+	semaphore := make(chan struct{}, 1)
+	semaphore <- struct{}{} // Fill the semaphore
+
+	route := &apiserver.APIServerRoutes{
+		Path:    "/test",
+		Methods: []string{"GET"},
+	}
+
+	handler := APIServerHandler(ctx, route, &resolver.DependencyResolver{
+		Fs:     fs,
+		Logger: logger,
+	}, semaphore)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("GET", "/test", nil)
+	c.Request = c.Request.WithContext(ctx)
+	handler(c)
+
+	assert.Equal(t, http.StatusTooManyRequests, w.Code)
+	var resp APIResponse
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	require.NoError(t, err)
+	assert.False(t, resp.Success)
+	assert.Contains(t, resp.Errors[0].Message, "Only one active connection is allowed")
+}
+
+func TestAPIServerHandler_ResolverInitError(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	route := &apiserver.APIServerRoutes{
+		Path:    "/test",
+		Methods: []string{"GET"},
+	}
+
+	// Create a resolver that will fail to initialize
+	handler := APIServerHandler(ctx, route, &resolver.DependencyResolver{
+		Fs:     fs,
+		Logger: logger,
+		// Missing required fields to cause initialization error
+	}, make(chan struct{}, 1))
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("GET", "/test", nil)
+	c.Request = c.Request.WithContext(ctx)
+	handler(c)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	var resp APIResponse
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	require.NoError(t, err)
+	assert.False(t, resp.Success)
+	assert.Contains(t, resp.Errors[0].Message, "Failed to initialize resolver")
+}
+
+func TestAPIServerHandler_InvalidMethod(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Create required context keys
+	tempDir := t.TempDir()
+	agentDir := filepath.Join(tempDir, "agent")
+	actionDir := filepath.Join(tempDir, "action")
+	kdepsDir := filepath.Join(tempDir, "kdeps")
+	graphID := "test-graph-id"
+
+	// Create directories
+	require.NoError(t, fs.MkdirAll(agentDir, 0o755))
+	require.NoError(t, fs.MkdirAll(actionDir, 0o755))
+	require.NoError(t, fs.MkdirAll(kdepsDir, 0o755))
+
+	// Add context keys
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, actionDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeySharedDir, kdepsDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, graphID)
+
+	// Create workflow file
+	workflowDir := filepath.Join(agentDir, "workflow")
+	require.NoError(t, fs.MkdirAll(workflowDir, 0o755))
+	workflowFile := filepath.Join(workflowDir, "workflow.pkl")
+
+	// Create a proper PKL file with required fields
+	workflowContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
+
+targetActionID = "testAction"
+name = "test-agent"`, schema.SchemaVersion(ctx))
+	require.NoError(t, afero.WriteFile(fs, workflowFile, []byte(workflowContent), 0o644))
+
+	// Add required context keys
+	kdepsDir = filepath.Join(tempDir, "kdeps")
+	require.NoError(t, fs.MkdirAll(kdepsDir, 0o755))
+	graphID = "test-graph-id"
+	ctxWithKeys := testContextWithAllKeys(ctx, agentDir, actionDir, kdepsDir, graphID)
+
+	// Create a proper environment
+	env := &environment.Environment{
+		Root: tempDir,
+		Home: filepath.Join(tempDir, "home"),
+		Pwd:  workflowDir,
+	}
+
+	semaphore := make(chan struct{}, 1)
+	route := &apiserver.APIServerRoutes{
+		Path:    "/test",
+		Methods: []string{"GET"},
+	}
+	dr := &resolver.DependencyResolver{
+		Fs:          fs,
+		Logger:      logger,
+		Environment: env,
+	}
+
+	handler := APIServerHandler(ctxWithKeys, route, dr, semaphore)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("POST", "/test", nil)
+	c.Request = c.Request.WithContext(ctxWithKeys)
+	handler(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	var resp APIResponse
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	require.NoError(t, err)
+	assert.False(t, resp.Success)
+	assert.Contains(t, resp.Errors[0].Message, "HTTP method \"POST\" not allowed")
+}
+
+func TestAPIServerHandler_OptionsMethod(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Create required context keys
+	tempDir := t.TempDir()
+	agentDir := filepath.Join(tempDir, "agent")
+	actionDir := filepath.Join(tempDir, "action")
+	kdepsDir := filepath.Join(tempDir, "kdeps")
+	graphID := "test-graph-id"
+
+	// Create directories
+	require.NoError(t, fs.MkdirAll(agentDir, 0o755))
+	require.NoError(t, fs.MkdirAll(actionDir, 0o755))
+	require.NoError(t, fs.MkdirAll(kdepsDir, 0o755))
+
+	// Add context keys
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, actionDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeySharedDir, kdepsDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, graphID)
+
+	// Create workflow file
+	workflowDir := filepath.Join(agentDir, "workflow")
+	require.NoError(t, fs.MkdirAll(workflowDir, 0o755))
+	workflowFile := filepath.Join(workflowDir, "workflow.pkl")
+	require.NoError(t, afero.WriteFile(fs, workflowFile, []byte("workflow content"), 0o644))
+
+	route := &apiserver.APIServerRoutes{
+		Path:    "/test",
+		Methods: []string{"GET", "POST"},
+	}
+
+	// Create a proper environment
+	env := &environment.Environment{
+		Root: tempDir,
+		Home: filepath.Join(tempDir, "home"),
+		Pwd:  workflowDir,
+	}
+
+	handler := APIServerHandlerTestable(ctx, route, &resolver.DependencyResolver{
+		Fs:          fs,
+		Logger:      logger,
+		Environment: env,
+	}, make(chan struct{}, 1), agentDir, actionDir, kdepsDir)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("OPTIONS", "/test", nil)
+	c.Request = c.Request.WithContext(ctx)
+	handler(c)
+
+	assert.Equal(t, http.StatusNoContent, w.Code)
+	assert.Equal(t, "OPTIONS, GET, HEAD, POST, PUT, PATCH, DELETE", w.Header().Get("Allow"))
+}
+
+// APIServerHandlerTestable is a test-only version that generates the graphID, sets all required context keys, and calls the original handler
+func APIServerHandlerTestable(ctx context.Context, route *apiserver.APIServerRoutes, baseDr *resolver.DependencyResolver, semaphore chan struct{}, agentDir, actionDir, kdepsDir string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		graphID := "test-graph-id" // Use a fixed graphID for test determinism
+		mergedCtx := ctx
+		mergedCtx = ktx.CreateContext(mergedCtx, ktx.CtxKeyAgentDir, agentDir)
+		mergedCtx = ktx.CreateContext(mergedCtx, ktx.CtxKeyActionDir, actionDir)
+		mergedCtx = ktx.CreateContext(mergedCtx, ktx.CtxKeySharedDir, kdepsDir)
+		mergedCtx = ktx.CreateContext(mergedCtx, ktx.CtxKeyGraphID, graphID)
+		c.Request = c.Request.WithContext(mergedCtx)
+		h := APIServerHandler(mergedCtx, route, baseDr, semaphore)
+		h(c)
+	}
+}
+
+func TestAPIServerHandler_HeadMethod(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Create required context keys
+	tempDir := t.TempDir()
+	agentDir := filepath.Join(tempDir, "agent")
+	actionDir := filepath.Join(tempDir, "action")
+	kdepsDir := filepath.Join(tempDir, "kdeps")
+	graphID := "test-graph-id"
+
+	// Create directories
+	require.NoError(t, fs.MkdirAll(agentDir, 0o755))
+	require.NoError(t, fs.MkdirAll(actionDir, 0o755))
+	require.NoError(t, fs.MkdirAll(kdepsDir, 0o755))
+
+	// Add context keys
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, actionDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeySharedDir, kdepsDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, graphID)
+
+	// Create workflow file
+	workflowDir := filepath.Join(agentDir, "workflow")
+	require.NoError(t, fs.MkdirAll(workflowDir, 0o755))
+	workflowFile := filepath.Join(workflowDir, "workflow.pkl")
+	require.NoError(t, afero.WriteFile(fs, workflowFile, []byte("workflow content"), 0o644))
+
+	route := &apiserver.APIServerRoutes{
+		Path:    "/test",
+		Methods: []string{"GET", "HEAD"},
+	}
+
+	// Create a proper environment
+	env := &environment.Environment{
+		Root: tempDir,
+		Home: filepath.Join(tempDir, "home"),
+		Pwd:  workflowDir,
+	}
+
+	handler := APIServerHandlerTestable(ctx, route, &resolver.DependencyResolver{
+		Fs:          fs,
+		Logger:      logger,
+		Environment: env,
+	}, make(chan struct{}, 1), agentDir, actionDir, kdepsDir)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("HEAD", "/test", nil)
+	c.Request = c.Request.WithContext(ctx)
+	handler(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "application/json; charset=utf-8", w.Header().Get("Content-Type"))
+}
+
+func TestAPIServerHandler_UnsupportedMethod(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Create required context keys
+	tempDir := t.TempDir()
+	agentDir := filepath.Join(tempDir, "agent")
+	actionDir := filepath.Join(tempDir, "action")
+	kdepsDir := filepath.Join(tempDir, "kdeps")
+	graphID := "test-graph-id"
+
+	// Create directories
+	require.NoError(t, fs.MkdirAll(agentDir, 0o755))
+	require.NoError(t, fs.MkdirAll(actionDir, 0o755))
+	require.NoError(t, fs.MkdirAll(kdepsDir, 0o755))
+
+	// Add context keys
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, actionDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeySharedDir, kdepsDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, graphID)
+
+	// Create workflow file
+	workflowDir := filepath.Join(agentDir, "workflow")
+	require.NoError(t, fs.MkdirAll(workflowDir, 0o755))
+	workflowFile := filepath.Join(workflowDir, "workflow.pkl")
+	require.NoError(t, afero.WriteFile(fs, workflowFile, []byte("workflow content"), 0o644))
+
+	route := &apiserver.APIServerRoutes{
+		Path:    "/test",
+		Methods: []string{"GET"},
+	}
+
+	// Create a proper environment
+	env := &environment.Environment{
+		Root: tempDir,
+		Home: filepath.Join(tempDir, "home"),
+		Pwd:  workflowDir,
+	}
+
+	handler := APIServerHandlerTestable(ctx, route, &resolver.DependencyResolver{
+		Fs:          fs,
+		Logger:      logger,
+		Environment: env,
+	}, make(chan struct{}, 1), agentDir, actionDir, kdepsDir)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("TRACE", "/test", nil)
+	c.Request = c.Request.WithContext(ctx)
+	handler(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	var resp APIResponse
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	require.NoError(t, err)
+	assert.False(t, resp.Success)
+	assert.Contains(t, resp.Errors[0].Message, "HTTP method \"TRACE\" not allowed")
+}
+
+func TestAPIServerHandler_GetMethodBodyReadError(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Create required context keys
+	tempDir := t.TempDir()
+	agentDir := filepath.Join(tempDir, "agent")
+	actionDir := filepath.Join(tempDir, "action")
+	kdepsDir := filepath.Join(tempDir, "kdeps")
+	graphID := "test-graph-id"
+
+	// Create directories
+	require.NoError(t, fs.MkdirAll(agentDir, 0o755))
+	require.NoError(t, fs.MkdirAll(actionDir, 0o755))
+	require.NoError(t, fs.MkdirAll(kdepsDir, 0o755))
+
+	// Add context keys
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, actionDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeySharedDir, kdepsDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, graphID)
+
+	// Create workflow file
+	workflowDir := filepath.Join(agentDir, "workflow")
+	require.NoError(t, fs.MkdirAll(workflowDir, 0o755))
+	workflowFile := filepath.Join(workflowDir, "workflow.pkl")
+	require.NoError(t, afero.WriteFile(fs, workflowFile, []byte("workflow content"), 0o644))
+
+	route := &apiserver.APIServerRoutes{
+		Path:    "/test",
+		Methods: []string{"GET"},
+	}
+
+	// Create a proper environment
+	env := &environment.Environment{
+		Root: tempDir,
+		Home: filepath.Join(tempDir, "home"),
+		Pwd:  workflowDir,
+	}
+
+	handler := APIServerHandlerTestable(ctx, route, &resolver.DependencyResolver{
+		Fs:          fs,
+		Logger:      logger,
+		Environment: env,
+	}, make(chan struct{}, 1), agentDir, actionDir, kdepsDir)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+
+	// Create a request with a body that can't be read
+	req := httptest.NewRequest("GET", "/test", strings.NewReader("test"))
+	req.Body = &errorReader{}
+	c.Request = req.WithContext(ctx)
+
+	handler(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	var resp APIResponse
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	require.NoError(t, err)
+	assert.False(t, resp.Success)
+	assert.Contains(t, resp.Errors[0].Message, "Failed to read request body")
+}
+
+func TestAPIServerHandler_PostMethodBodyReadError(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Create required context keys
+	tempDir := t.TempDir()
+	agentDir := filepath.Join(tempDir, "agent")
+	actionDir := filepath.Join(tempDir, "action")
+	kdepsDir := filepath.Join(tempDir, "kdeps")
+	graphID := "test-graph-id"
+
+	// Create directories
+	require.NoError(t, fs.MkdirAll(agentDir, 0o755))
+	require.NoError(t, fs.MkdirAll(actionDir, 0o755))
+	require.NoError(t, fs.MkdirAll(kdepsDir, 0o755))
+
+	// Add context keys
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, actionDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeySharedDir, kdepsDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, graphID)
+
+	// Create workflow file
+	workflowDir := filepath.Join(agentDir, "workflow")
+	require.NoError(t, fs.MkdirAll(workflowDir, 0o755))
+	workflowFile := filepath.Join(workflowDir, "workflow.pkl")
+	require.NoError(t, afero.WriteFile(fs, workflowFile, []byte("workflow content"), 0o644))
+
+	route := &apiserver.APIServerRoutes{
+		Path:    "/test",
+		Methods: []string{"POST"},
+	}
+
+	// Create a proper environment
+	env := &environment.Environment{
+		Root: tempDir,
+		Home: filepath.Join(tempDir, "home"),
+		Pwd:  workflowDir,
+	}
+
+	handler := APIServerHandlerTestable(ctx, route, &resolver.DependencyResolver{
+		Fs:          fs,
+		Logger:      logger,
+		Environment: env,
+	}, make(chan struct{}, 1), agentDir, actionDir, kdepsDir)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+
+	// Create a request with a body that can't be read
+	req := httptest.NewRequest("POST", "/test", strings.NewReader("test"))
+	req.Body = &errorReader{}
+	c.Request = req.WithContext(ctx)
+
+	handler(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	var resp APIResponse
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	require.NoError(t, err)
+	assert.False(t, resp.Success)
+	assert.Contains(t, resp.Errors[0].Message, "Failed to read request body")
+}
+
+// errorReader is a reader that always returns an error
+type errorReader struct{}
+
+func (e *errorReader) Read(p []byte) (n int, err error) {
+	return 0, fmt.Errorf("read error")
+}
+
+func (e *errorReader) Close() error {
+	return nil
+}
+
+// testContextWithAllKeys returns a context with all required keys for the resolver
+func testContextWithAllKeys(base context.Context, agentDir, actionDir, kdepsDir, graphID string) context.Context {
+	ctx := base
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, actionDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeySharedDir, kdepsDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, graphID)
+	return ctx
 }

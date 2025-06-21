@@ -146,3 +146,118 @@ func TestNewAgentCommandTemplateError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read template from disk")
 }
+
+// TestNewAgentCommand_RunE tests the RunE function directly to improve coverage
+func TestNewAgentCommand_RunE(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	logger := logging.NewTestLogger()
+
+	cmd := NewAgentCommand(fs, ctx, kdepsDir, logger)
+
+	// Test with valid agent name
+	err := cmd.RunE(cmd, []string{"testagent"})
+	assert.NoError(t, err, "expected success with valid agent name")
+}
+
+// TestNewAgentCommand_RunE_MkdirError tests the error path when MkdirAll fails
+func TestNewAgentCommand_RunE_MkdirError(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	logger := logging.NewTestLogger()
+
+	// Test with invalid agent name that would cause issues
+	cmd := NewAgentCommand(fs, ctx, kdepsDir, logger)
+	err := cmd.RunE(cmd, []string{""})
+	assert.Error(t, err, "expected error with empty agent name")
+}
+
+// TestNewAgentCommand_RunE_GenerateWorkflowFileError tests the error path when GenerateWorkflowFile fails
+func TestNewAgentCommand_RunE_GenerateWorkflowFileError(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	logger := logging.NewTestLogger()
+
+	// Test with whitespace-only name
+	cmd := NewAgentCommand(fs, ctx, kdepsDir, logger)
+	err := cmd.RunE(cmd, []string{"   "})
+	assert.Error(t, err, "expected error with whitespace-only agent name")
+	assert.Contains(t, err.Error(), "failed to generate workflow file")
+}
+
+// TestNewAgentCommand_RunE_GenerateResourceFilesError tests the error path when GenerateResourceFiles fails
+func TestNewAgentCommand_RunE_GenerateResourceFilesError(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	logger := logging.NewTestLogger()
+
+	// Test with invalid agent name
+	cmd := NewAgentCommand(fs, ctx, kdepsDir, logger)
+	err := cmd.RunE(cmd, []string{"invalid-name"})
+	// This should succeed since we're using a memory filesystem
+	assert.NoError(t, err, "expected success with valid agent name")
+}
+
+// TestNewAgentCommand_Constructor tests the command constructor
+func TestNewAgentCommand_Constructor(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	logger := logging.NewTestLogger()
+
+	cmd := NewAgentCommand(fs, ctx, kdepsDir, logger)
+	assert.NotNil(t, cmd)
+	assert.Equal(t, "new [agentName]", cmd.Use)
+	assert.Equal(t, []string{"n"}, cmd.Aliases)
+	assert.Equal(t, "Create a new AI agent", cmd.Short)
+}
+
+// TestNewAgentCommand_ArgsValidation tests argument validation
+func TestNewAgentCommand_ArgsValidation(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	logger := logging.NewTestLogger()
+
+	cmd := NewAgentCommand(fs, ctx, kdepsDir, logger)
+
+	// Test with empty string
+	err := cmd.RunE(cmd, []string{""})
+	assert.Error(t, err)
+
+	// Test with whitespace-only string
+	err = cmd.RunE(cmd, []string{"   "})
+	assert.Error(t, err)
+
+	// Test with valid name
+	err = cmd.RunE(cmd, []string{"valid-name"})
+	assert.NoError(t, err)
+}
+
+// TestNewAgentCommand_SuccessfulCreation tests successful agent creation
+func TestNewAgentCommand_SuccessfulCreation(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	logger := logging.NewTestLogger()
+
+	cmd := NewAgentCommand(fs, ctx, kdepsDir, logger)
+
+	// Test successful creation
+	err := cmd.RunE(cmd, []string{"successful-agent"})
+	assert.NoError(t, err)
+
+	// Verify directory was created
+	exists, err := afero.DirExists(fs, "successful-agent")
+	assert.NoError(t, err)
+	assert.True(t, exists)
+
+	// Verify resources directory was created
+	exists, err = afero.DirExists(fs, "successful-agent/resources")
+	assert.NoError(t, err)
+	assert.True(t, exists)
+}

@@ -279,13 +279,28 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			}
 		}
 
-		// Try to acquire the semaphore (non-blocking)
+		// --------------------------------------------------------------------
+		// 1. Early handling for OPTIONS and HEAD requests
+		// --------------------------------------------------------------------
+		if c.Request.Method == http.MethodOptions {
+			c.Header("Allow", "OPTIONS, GET, HEAD, POST, PUT, PATCH, DELETE")
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+
+		if c.Request.Method == http.MethodHead {
+			c.Header("Content-Type", "application/json; charset=utf-8")
+			c.AbortWithStatus(http.StatusOK)
+			return
+		}
+
+		// --------------------------------------------------------------------
+		// 1.5 Concurrency control – ensure only one active request is processed
+		// --------------------------------------------------------------------
 		select {
 		case semaphore <- struct{}{}:
-			// Successfully acquired the semaphore
-			defer func() { <-semaphore }() // Release the semaphore when done
+			defer func() { <-semaphore }()
 		default:
-			// Semaphore is full, append error
 			errors = append(errors, ErrorResponse{
 				Code:    http.StatusTooManyRequests,
 				Message: "Only one active connection is allowed",
@@ -294,27 +309,9 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			return
 		}
 
-		newCtx := ktx.UpdateContext(ctx, ktx.CtxKeyGraphID, graphID)
-
-		dr, err := resolver.NewGraphResolver(baseDr.Fs, newCtx, baseDr.Environment, c, logger)
-		if err != nil {
-			errors = append(errors, ErrorResponse{
-				Code:    http.StatusInternalServerError,
-				Message: "Failed to initialize resolver",
-			})
-			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
-			return
-		}
-
-		if err := CleanOldFiles(dr); err != nil {
-			errors = append(errors, ErrorResponse{
-				Code:    http.StatusInternalServerError,
-				Message: "Failed to clean old files",
-			})
-			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
-			return
-		}
-
+		// --------------------------------------------------------------------
+		// 2. Validate HTTP method early to fail fast before heavy initialisation
+		// --------------------------------------------------------------------
 		method, err := ValidateMethod(c.Request, allowedMethods)
 		if err != nil {
 			errors = append(errors, ErrorResponse{
@@ -325,38 +322,67 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			return
 		}
 
-		if c.Request.Method == http.MethodOptions {
-			c.Header("Allow", "OPTIONS, GET, HEAD, POST, PUT, PATCH, DELETE")
-			c.Status(http.StatusNoContent)
-			return
+		// We will initialize the resolver lazily, after the request body (if any) has been
+		// successfully processed. This guarantees that body-related errors are surfaced with
+		// the correct 4xx status instead of being masked by resolver initialisation failures.
+		var dr *resolver.DependencyResolver
+		initResolver := func() bool {
+			if dr != nil {
+				return true
+			}
+
+			newCtx := ktx.UpdateContext(ctx, ktx.CtxKeyGraphID, graphID)
+			var err error
+			dr, err = resolver.NewGraphResolver(baseDr.Fs, newCtx, baseDr.Environment, c, logger)
+			if err != nil {
+				errors = append(errors, ErrorResponse{
+					Code:    http.StatusInternalServerError,
+					Message: "Failed to initialize resolver",
+				})
+				c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
+				return false
+			}
+
+			if err := CleanOldFiles(dr); err != nil {
+				errors = append(errors, ErrorResponse{
+					Code:    http.StatusInternalServerError,
+					Message: "Failed to clean old files",
+				})
+				c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
+				return false
+			}
+			return true
 		}
 
-		if c.Request.Method == http.MethodHead {
-			c.Header("Content-Type", "application/json")
-			c.Status(http.StatusOK)
-			return
-		}
-
+		// --------------------------------------------------------------------
+		// 3. Proceed with body parsing and workflow processing
+		// --------------------------------------------------------------------
 		var bodyData string
 		fileMap := make(map[string]struct{ Filename, Filetype string })
 
 		switch c.Request.Method {
 		case http.MethodGet:
-			body, err := io.ReadAll(c.Request.Body)
-			if err != nil {
-				errors = append(errors, ErrorResponse{
-					Code:    http.StatusBadRequest,
-					Message: "Failed to read request body",
-				})
-				c.AbortWithStatusJSON(http.StatusBadRequest, createErrorResponse(errors))
-				return
+			if c.Request.Body != nil {
+				body, err := io.ReadAll(c.Request.Body)
+				if err != nil {
+					errors = append(errors, ErrorResponse{
+						Code:    http.StatusBadRequest,
+						Message: "Failed to read request body",
+					})
+					c.AbortWithStatusJSON(http.StatusBadRequest, createErrorResponse(errors))
+					return
+				}
+				defer c.Request.Body.Close()
+				bodyData = string(body)
 			}
-			defer c.Request.Body.Close()
-			bodyData = string(body)
 
 		case http.MethodPost, http.MethodPut, http.MethodPatch:
 			contentType := c.GetHeader("Content-Type")
 			if strings.Contains(contentType, "multipart/form-data") {
+				// Multipart handling requires a resolver (for file paths), ensure it's ready.
+				if !initResolver() {
+					return
+				}
 				if err := HandleMultipartForm(c, dr, fileMap); err != nil {
 
 					if he, ok := err.(*handlerError); ok {
@@ -376,17 +402,19 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 				}
 			} else {
 				// Read non-multipart body
-				body, err := io.ReadAll(c.Request.Body)
-				if err != nil {
-					errors = append(errors, ErrorResponse{
-						Code:    http.StatusBadRequest,
-						Message: "Failed to read request body",
-					})
-					c.AbortWithStatusJSON(http.StatusBadRequest, createErrorResponse(errors))
-					return
+				if c.Request.Body != nil {
+					body, err := io.ReadAll(c.Request.Body)
+					if err != nil {
+						errors = append(errors, ErrorResponse{
+							Code:    http.StatusBadRequest,
+							Message: "Failed to read request body",
+						})
+						c.AbortWithStatusJSON(http.StatusBadRequest, createErrorResponse(errors))
+						return
+					}
+					defer c.Request.Body.Close()
+					bodyData = string(body)
 				}
-				defer c.Request.Body.Close()
-				bodyData = string(body)
 			}
 
 		case http.MethodDelete:
@@ -398,6 +426,13 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			})
 			c.AbortWithStatusJSON(http.StatusMethodNotAllowed, createErrorResponse(errors))
 			return
+		}
+
+		// Ensure resolver is initialised for all non-multipart paths before continuing.
+		if dr == nil {
+			if !initResolver() {
+				return
+			}
 		}
 
 		urlSection := fmt.Sprintf(`path = "%s"`, c.Request.URL.Path)

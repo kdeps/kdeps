@@ -305,3 +305,44 @@ func TestInitializeMemory(t *testing.T) {
 		require.Contains(t, err.Error(), "error initializing database")
 	})
 }
+
+func TestInitializeDatabase_InvalidPath(t *testing.T) {
+	// Try to open a database at an invalid path
+	db, err := InitializeDatabase("/invalid/path/to/db.sqlite")
+	require.Error(t, err)
+	require.Nil(t, db)
+}
+
+func TestInitializeDatabase_PermissionDenied(t *testing.T) {
+	fs := afero.NewOsFs()
+	tmpDir, err := afero.TempDir(fs, "", "memory-db-perm")
+	require.NoError(t, err)
+	defer fs.RemoveAll(tmpDir)
+
+	// Create a read-only directory
+	readOnlyDir := filepath.Join(tmpDir, "readonly")
+	err = fs.MkdirAll(readOnlyDir, 0o400)
+	require.NoError(t, err)
+
+	// Try to create a database file in the read-only directory
+	dbPath := filepath.Join(readOnlyDir, "test.db")
+	db, err := InitializeDatabase(dbPath)
+	require.Error(t, err)
+	require.Nil(t, db)
+}
+
+func TestInitializeMemory_InvalidPath(t *testing.T) {
+	reader, err := InitializeMemory("/invalid/path/to/db.sqlite")
+	require.Error(t, err)
+	require.Nil(t, reader)
+}
+
+func TestInitializeDatabase_TransactionFailure(t *testing.T) {
+	// Use a closed DB to simulate transaction failure
+	db, err := InitializeDatabase("file::memory:")
+	require.NoError(t, err)
+	db.Close()
+	// Try to use the closed DB
+	_, err = db.Exec("INSERT INTO records (id, value) VALUES (?, ?)", "fail", "fail")
+	require.Error(t, err)
+}

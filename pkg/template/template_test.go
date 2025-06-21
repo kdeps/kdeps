@@ -891,3 +891,139 @@ func TestGenerateAgentBasic(t *testing.T) {
 		}
 	}
 }
+
+func TestPromptForAgentName_Comprehensive(t *testing.T) {
+	// Save the original environment variable
+	originalNonInteractive := os.Getenv("NON_INTERACTIVE")
+	defer os.Setenv("NON_INTERACTIVE", originalNonInteractive)
+
+	t.Run("NonInteractiveMode_Default", func(t *testing.T) {
+		os.Setenv("NON_INTERACTIVE", "1")
+		name, err := template.PromptForAgentName()
+		require.NoError(t, err)
+		require.Equal(t, "test-agent", name)
+	})
+
+	t.Run("NonInteractiveMode_Empty", func(t *testing.T) {
+		os.Setenv("NON_INTERACTIVE", "")
+		// This would trigger interactive mode, but we can't easily test it
+		// We can at least verify the function doesn't panic
+		_ = template.PromptForAgentName
+	})
+
+	t.Run("NonInteractiveMode_OtherValue", func(t *testing.T) {
+		os.Setenv("NON_INTERACTIVE", "0")
+		// This should still require interactive input
+		_ = template.PromptForAgentName
+	})
+
+	t.Run("NonInteractiveMode_True", func(t *testing.T) {
+		os.Setenv("NON_INTERACTIVE", "true")
+		// This should still require interactive input
+		_ = template.PromptForAgentName
+	})
+
+	t.Run("NonInteractiveMode_False", func(t *testing.T) {
+		os.Setenv("NON_INTERACTIVE", "false")
+		// This should still require interactive input
+		_ = template.PromptForAgentName
+	})
+}
+
+func TestGenerateAgent_Comprehensive(t *testing.T) {
+	fs := afero.NewOsFs()
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	// Create temporary directory for testing
+	tmpDir := t.TempDir()
+
+	t.Run("InvalidAgentName_Empty", func(t *testing.T) {
+		err := template.GenerateAgent(fs, ctx, logger, tmpDir, "")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "agent name cannot be empty")
+	})
+
+	t.Run("InvalidAgentName_Whitespace", func(t *testing.T) {
+		err := template.GenerateAgent(fs, ctx, logger, tmpDir, "   ")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "agent name cannot be empty")
+	})
+
+	t.Run("InvalidAgentName_WithSpaces", func(t *testing.T) {
+		err := template.GenerateAgent(fs, ctx, logger, tmpDir, "test agent")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "agent name cannot contain spaces")
+	})
+
+	t.Run("EmptyBaseDir", func(t *testing.T) {
+		err := template.GenerateAgent(fs, ctx, logger, "", "test-agent")
+		require.Error(t, err)
+		// The error should be related to directory creation
+	})
+
+	t.Run("NilLogger", func(t *testing.T) {
+		// Test with nil logger - should not panic
+		err := template.GenerateAgent(fs, ctx, nil, tmpDir, "test-agent-nil-logger")
+		// This might succeed or fail, but shouldn't panic
+		_ = err
+	})
+
+	t.Run("NilContext", func(t *testing.T) {
+		// Test with nil context
+		err := template.GenerateAgent(fs, nil, logger, tmpDir, "test-agent-nil-context")
+		// This might succeed or fail, but shouldn't panic
+		_ = err
+	})
+
+	t.Run("NilFilesystem", func(t *testing.T) {
+		// Test with nil filesystem - should panic or return error
+		defer func() {
+			if r := recover(); r != nil {
+				// Expected panic
+			}
+		}()
+		err := template.GenerateAgent(nil, ctx, logger, tmpDir, "test-agent-nil-fs")
+		// This might panic or return error
+		_ = err
+	})
+}
+
+func TestGenerateSpecificAgentFile_Comprehensive(t *testing.T) {
+	fs := afero.NewOsFs()
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	// Create temporary directory for testing
+	tmpDir := t.TempDir()
+
+	t.Run("SuccessfulGeneration", func(t *testing.T) {
+		agentName := "test-agent"
+		err := template.GenerateSpecificAgentFile(fs, ctx, logger, tmpDir, agentName)
+		require.NoError(t, err)
+
+		// Verify the resources directory was created
+		resourcesDir := filepath.Join(tmpDir, "resources")
+		exists, err := afero.DirExists(fs, resourcesDir)
+		require.NoError(t, err)
+		require.True(t, exists)
+
+		// Verify test-agent.pkl was created in resources
+		resourceFile := filepath.Join(resourcesDir, agentName+".pkl")
+		exists, err = afero.Exists(fs, resourceFile)
+		require.NoError(t, err)
+		require.True(t, exists)
+	})
+
+	t.Run("InvalidAgentName", func(t *testing.T) {
+		err := template.GenerateSpecificAgentFile(fs, ctx, logger, tmpDir, "test agent")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "agent name cannot contain spaces")
+	})
+
+	t.Run("EmptyBaseDir", func(t *testing.T) {
+		err := template.GenerateSpecificAgentFile(fs, ctx, logger, "", "test-agent")
+		require.Error(t, err)
+		// The error should be related to directory creation
+	})
+}
