@@ -12,6 +12,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Injectable functions for testability
+var (
+	// Subcommand creation functions
+	NewAgentCommandFn    = NewAgentCommand
+	NewScaffoldCommandFn = NewScaffoldCommand
+	NewAddCommandFn      = NewAddCommand
+	NewPackageCommandFn  = NewPackageCommand
+	NewBuildCommandFn    = NewBuildCommand
+	NewRunCommandFn      = NewRunCommand
+)
+
 // NewRootCommand returns the root command with all subcommands attached.
 func NewRootCommand(fs afero.Fs, ctx context.Context, kdepsDir string, systemCfg *kdeps.Kdeps, env *environment.Environment, logger *logging.Logger) *cobra.Command {
 	cobra.EnableCommandSorting = false
@@ -26,12 +37,12 @@ open-source LLM models that are orchestrated by a graph-based dependency workflo
 	rootCmd.PersistentFlags().BoolVarP(&schema.UseLatest, "latest", "l", false,
 		`Fetch and use the latest schema and libraries. It is recommended to set the GITHUB_TOKEN environment
 variable to prevent errors caused by rate limit exhaustion.`)
-	rootCmd.AddCommand(NewAgentCommand(fs, ctx, kdepsDir, logger))
-	rootCmd.AddCommand(NewScaffoldCommand(fs, ctx, logger))
-	rootCmd.AddCommand(NewAddCommand(fs, ctx, kdepsDir, logger))
-	rootCmd.AddCommand(NewPackageCommand(fs, ctx, kdepsDir, env, logger))
-	rootCmd.AddCommand(NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger))
-	rootCmd.AddCommand(NewRunCommand(fs, ctx, kdepsDir, systemCfg, logger))
+	rootCmd.AddCommand(NewAgentCommandFn(fs, ctx, kdepsDir, logger))
+	rootCmd.AddCommand(NewScaffoldCommandFn(fs, ctx, logger))
+	rootCmd.AddCommand(NewAddCommandFn(fs, ctx, kdepsDir, logger))
+	rootCmd.AddCommand(NewPackageCommandFn(fs, ctx, kdepsDir, env, logger))
+	rootCmd.AddCommand(NewBuildCommandFn(fs, ctx, kdepsDir, systemCfg, logger))
+	rootCmd.AddCommand(NewRunCommandFn(fs, ctx, kdepsDir, systemCfg, logger))
 
 	return rootCmd
 }

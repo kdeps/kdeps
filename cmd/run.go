@@ -2,11 +2,7 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/docker/docker/client"
-	"github.com/kdeps/kdeps/pkg/archiver"
-	"github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
@@ -24,34 +20,34 @@ func NewRunCommand(fs afero.Fs, ctx context.Context, kdepsDir string, systemCfg 
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pkgFile := args[0]
 			// Add your logic to run the docker container here
-			pkgProject, err := archiver.ExtractPackage(fs, ctx, kdepsDir, pkgFile, logger)
+			pkgProject, err := ExtractPackageFn(fs, ctx, kdepsDir, pkgFile, logger)
 			if err != nil {
 				return err
 			}
-			runDir, APIServerMode, WebServerMode, hostIP, hostPort, webHostIP, webHostNum, gpuType, err := docker.BuildDockerfile(fs, ctx, systemCfg, kdepsDir, pkgProject, logger)
+			runDir, APIServerMode, WebServerMode, hostIP, hostPort, webHostIP, webHostNum, gpuType, err := BuildDockerfileFn(fs, ctx, systemCfg, kdepsDir, pkgProject, logger)
 			if err != nil {
 				return err
 			}
-			dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+			dockerClient, err := NewDockerClientFn()
 			if err != nil {
 				return err
 			}
-			agentContainerName, agentContainerNameAndVersion, err := docker.BuildDockerImage(fs, ctx, systemCfg, dockerClient, runDir, kdepsDir, pkgProject, logger)
+			agentContainerName, agentContainerNameAndVersion, err := BuildDockerImageFn(fs, ctx, systemCfg, dockerClient, runDir, kdepsDir, pkgProject, logger)
 			if err != nil {
 				return err
 			}
-			if err := docker.CleanupDockerBuildImages(fs, ctx, agentContainerName, dockerClient); err != nil {
+			if err := CleanupDockerBuildImagesFn(fs, ctx, agentContainerName, dockerClient); err != nil {
 				return err
 			}
 			// Use the adapter to match our DockerClient interface
-			dockerClientAdapter := docker.NewDockerClientAdapter(dockerClient)
-			containerID, err := docker.CreateDockerContainer(fs, ctx, agentContainerName,
+			dockerClientAdapter := NewDockerClientAdapterFn(dockerClient)
+			containerID, err := CreateDockerContainerFn(fs, ctx, agentContainerName,
 				agentContainerNameAndVersion, hostIP, hostPort, webHostIP, webHostNum, gpuType,
 				APIServerMode, WebServerMode, dockerClientAdapter)
 			if err != nil {
 				return err
 			}
-			fmt.Println("Kdeps AI Agent docker container created:", containerID)
+			PrintlnFn("Kdeps AI Agent docker container created:", containerID)
 			return nil
 		},
 	}

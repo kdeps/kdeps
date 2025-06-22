@@ -1089,3 +1089,398 @@ func TestProcessResourceStep_TimeoutLogic(t *testing.T) {
 	err = dr.ProcessResourceStep("test-resource", "test-step", nil, handler)
 	require.NoError(t, err)
 }
+
+func TestNewGraphResolver_ErrorCases(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	env := &environment.Environment{}
+	logger := logging.NewTestSafeLogger()
+
+	t.Run("MissingWorkflowFile", func(t *testing.T) {
+		// Test when workflow.pkl doesn't exist
+		tmpDir := "/tmp"
+		agentDir := filepath.Join(tmpDir, "agent")
+		actionDir := filepath.Join(tmpDir, "action")
+		sharedDir := filepath.Join(tmpDir, ".kdeps")
+
+		ctx := ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
+		ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, "test-graph")
+		ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, actionDir)
+		ctx = ktx.CreateContext(ctx, ktx.CtxKeySharedDir, sharedDir)
+
+		dr, err := NewGraphResolver(fs, ctx, env, nil, logger)
+		assert.Error(t, err)
+		assert.Nil(t, dr)
+		assert.Contains(t, err.Error(), "error checking")
+	})
+
+	t.Run("DirectoryCreationError", func(t *testing.T) {
+		// Create a read-only filesystem to trigger directory creation errors
+		tmpDir := "/tmp"
+		agentDir := filepath.Join(tmpDir, "agent")
+		actionDir := filepath.Join(tmpDir, "action")
+		sharedDir := filepath.Join(tmpDir, ".kdeps")
+
+		ctx := ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
+		ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, "test-graph")
+		ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, actionDir)
+		ctx = ktx.CreateContext(ctx, ktx.CtxKeySharedDir, sharedDir)
+
+		// Create workflow file in a temporary filesystem first
+		tempFs := afero.NewMemMapFs()
+		workflowDir := filepath.Join(agentDir, "workflow")
+		workflowFile := filepath.Join(workflowDir, "workflow.pkl")
+		_ = tempFs.MkdirAll(workflowDir, 0o755)
+		_ = afero.WriteFile(tempFs, workflowFile, []byte(`name = "test"`), 0o644)
+
+		// Use read-only filesystem which should fail on directory creation
+		readOnlyFs := afero.NewReadOnlyFs(tempFs)
+
+		dr, err := NewGraphResolver(readOnlyFs, ctx, env, nil, logger)
+		assert.Error(t, err)
+		assert.Nil(t, dr)
+		// The error might be about creating directories or files
+		assert.True(t, strings.Contains(err.Error(), "error creating directory") ||
+			strings.Contains(err.Error(), "operation not permitted") ||
+			strings.Contains(err.Error(), "read-only"))
+	})
+
+	t.Run("FileCreationError", func(t *testing.T) {
+		// Skip this test as it's hard to trigger file creation error without hitting PKL validation
+		t.Skip("File creation error test is complex to set up without PKL interference")
+	})
+
+	t.Run("MemoryInitializationError", func(t *testing.T) {
+		// Skip this test as it's hard to trigger memory init error without hitting PKL validation
+		t.Skip("Memory initialization error test is complex to set up without PKL interference")
+	})
+
+	t.Run("InvalidWorkflowFile", func(t *testing.T) {
+		// Test with invalid PKL content
+		tmpDir := "/tmp"
+		agentDir := filepath.Join(tmpDir, "agent")
+		actionDir := filepath.Join(tmpDir, "action")
+		sharedDir := filepath.Join(tmpDir, ".kdeps")
+
+		ctx := ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
+		ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, "test-graph")
+		ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, actionDir)
+		ctx = ktx.CreateContext(ctx, ktx.CtxKeySharedDir, sharedDir)
+
+		// Create workflow file with invalid content
+		workflowDir := filepath.Join(agentDir, "workflow")
+		workflowFile := filepath.Join(workflowDir, "workflow.pkl")
+		_ = fs.MkdirAll(workflowDir, 0o755)
+		_ = afero.WriteFile(fs, workflowFile, []byte("invalid pkl content {{{"), 0o644)
+
+		dr, err := NewGraphResolver(fs, ctx, env, nil, logger)
+		assert.Error(t, err)
+		assert.Nil(t, dr)
+	})
+
+	t.Run("MissingContextKeys", func(t *testing.T) {
+		// Test with missing context keys
+		emptyCtx := context.Background()
+
+		dr, err := NewGraphResolver(fs, emptyCtx, env, nil, logger)
+		assert.Error(t, err)
+		assert.Nil(t, dr)
+	})
+}
+
+func TestNewGraphResolver_SuccessWithSettings(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	env := &environment.Environment{}
+	logger := logging.NewTestSafeLogger()
+
+	tmpDir := "/tmp"
+	agentDir := filepath.Join(tmpDir, "agent")
+	actionDir := filepath.Join(tmpDir, "action")
+	sharedDir := filepath.Join(tmpDir, ".kdeps")
+
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, "test-graph")
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, actionDir)
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeySharedDir, sharedDir)
+
+	// Create workflow file with settings
+	workflowDir := filepath.Join(agentDir, "workflow")
+	workflowFile := filepath.Join(workflowDir, "workflow.pkl")
+	_ = fs.MkdirAll(workflowDir, 0o755)
+	workflowContent := fmt.Sprintf(`
+amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
+name = "testagent"
+version = "1.0.0"
+targetActionID = "run"
+settings = new {
+	APIServerMode = true
+	agentSettings = new {
+		installAnaconda = true
+	}
+}
+`, schema.SchemaVersion(ctx))
+	_ = afero.WriteFile(fs, workflowFile, []byte(workflowContent), 0o644)
+
+	dr, err := NewGraphResolver(fs, ctx, env, nil, logger)
+
+	// Skip if PKL is not available
+	if err != nil && (strings.Contains(err.Error(), "Cannot find module") ||
+		strings.Contains(err.Error(), "pkl: command not found") ||
+		strings.Contains(err.Error(), "apple PKL not found")) {
+		t.Skip("PKL not available")
+	}
+
+	assert.NoError(t, err)
+	assert.NotNil(t, dr)
+	assert.Equal(t, "testagent", dr.AgentName)
+	assert.True(t, dr.APIServerMode)
+	assert.True(t, dr.AnacondaInstalled)
+}
+
+func TestClearItemDB_ErrorCase(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestSafeLogger()
+
+	dr := &DependencyResolver{
+		Fs:         fs,
+		Logger:     logger,
+		ItemReader: nil, // Nil reader to trigger error
+		ItemDBPath: "/tmp/test_item.db",
+	}
+
+	// Test ClearItemDB with nil reader (should panic or error)
+	defer func() {
+		if r := recover(); r != nil {
+			// Expected panic due to nil ItemReader
+			assert.Contains(t, fmt.Sprintf("%v", r), "nil pointer")
+		}
+	}()
+
+	err := dr.ClearItemDB()
+	// If we reach here without panic, it should be an error
+	assert.Error(t, err)
+}
+
+func TestAppendDataEntry_Success(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestSafeLogger()
+	ctx := context.Background()
+
+	tmpDir := t.TempDir()
+	actionDir := filepath.Join(tmpDir, "action")
+
+	dr := &DependencyResolver{
+		Fs:        fs,
+		Logger:    logger,
+		Context:   ctx,
+		ActionDir: actionDir,
+		RequestID: "req",
+	}
+
+	// Create the data directory and initial PKL file
+	dataDir := filepath.Join(dr.ActionDir, "data")
+	_ = fs.MkdirAll(dataDir, 0o755)
+
+	// Create initial PKL file that AppendDataEntry expects
+	outputFile := filepath.Join(dataDir, "req__data_output.pkl")
+	schemaVer := schema.SchemaVersion(ctx)
+	initialContent := fmt.Sprintf(`extends "package://schema.kdeps.com/core@%s#/Data.pkl"
+
+files {}
+`, schemaVer)
+	_ = afero.WriteFile(fs, outputFile, []byte(initialContent), 0o644)
+
+	// Test successful data entry append with correct type
+	files := map[string]map[string]string{
+		"agent1": {
+			"test.txt": "dGVzdCBjb250ZW50", // base64 encoded "test content"
+		},
+	}
+	dataImpl := &pklData.DataImpl{
+		Files: &files,
+	}
+
+	err := dr.AppendDataEntry("test-id", dataImpl)
+
+	// Skip if PKL is not available
+	if err != nil && (strings.Contains(err.Error(), "Cannot find module") ||
+		strings.Contains(err.Error(), "pkl: command not found") ||
+		strings.Contains(err.Error(), "apple PKL not found")) {
+		t.Skip("PKL not available")
+	}
+
+	assert.NoError(t, err)
+
+	// Verify file still exists (it should be updated, not just created)
+	exists, err := afero.Exists(fs, outputFile)
+	assert.NoError(t, err)
+	assert.True(t, exists)
+}
+
+func TestPrepareWorkflowDir_Success(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestSafeLogger()
+
+	// Create source directory with files
+	projectDir := "/tmp/project"
+	workflowDir := "/tmp/workflow"
+
+	_ = fs.MkdirAll(projectDir, 0o755)
+	_ = afero.WriteFile(fs, filepath.Join(projectDir, "test.txt"), []byte("test content"), 0o644)
+
+	subDir := filepath.Join(projectDir, "subdir")
+	_ = fs.MkdirAll(subDir, 0o755)
+	_ = afero.WriteFile(fs, filepath.Join(subDir, "sub.txt"), []byte("sub content"), 0o644)
+
+	dr := &DependencyResolver{
+		Fs:          fs,
+		Logger:      logger,
+		ProjectDir:  projectDir,
+		WorkflowDir: workflowDir,
+	}
+
+	err := dr.PrepareWorkflowDir()
+	assert.NoError(t, err)
+
+	// Verify files were copied
+	exists, err := afero.Exists(fs, filepath.Join(workflowDir, "test.txt"))
+	assert.NoError(t, err)
+	assert.True(t, exists)
+
+	exists, err = afero.Exists(fs, filepath.Join(workflowDir, "subdir", "sub.txt"))
+	assert.NoError(t, err)
+	assert.True(t, exists)
+}
+
+func TestPrepareWorkflowDir_ErrorCases(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestSafeLogger()
+
+	t.Run("SourceDirNotExists", func(t *testing.T) {
+		dr := &DependencyResolver{
+			Fs:          fs,
+			Logger:      logger,
+			ProjectDir:  "/nonexistent",
+			WorkflowDir: "/tmp/workflow",
+		}
+
+		err := dr.PrepareWorkflowDir()
+		assert.Error(t, err)
+	})
+
+	t.Run("RemoveDestinationError", func(t *testing.T) {
+		// Create a read-only filesystem to trigger removal error
+		readOnlyFs := afero.NewReadOnlyFs(fs)
+
+		projectDir := "/tmp/project"
+		workflowDir := "/tmp/workflow"
+
+		// Create source in writable fs first
+		_ = fs.MkdirAll(projectDir, 0o755)
+		_ = afero.WriteFile(fs, filepath.Join(projectDir, "test.txt"), []byte("test"), 0o644)
+
+		// Create destination in writable fs first
+		_ = fs.MkdirAll(workflowDir, 0o755)
+
+		dr := &DependencyResolver{
+			Fs:          readOnlyFs,
+			Logger:      logger,
+			ProjectDir:  projectDir,
+			WorkflowDir: workflowDir,
+		}
+
+		err := dr.PrepareWorkflowDir()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to remove existing destination")
+	})
+}
+
+func TestPrepareImportFiles_Success(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestSafeLogger()
+	ctx := context.Background()
+
+	dr := &DependencyResolver{
+		Fs:        fs,
+		Logger:    logger,
+		Context:   ctx,
+		ActionDir: "/tmp/action",
+		RequestID: "test-req",
+	}
+
+	err := dr.PrepareImportFiles()
+	assert.NoError(t, err)
+
+	// Verify placeholder files were created
+	expectedFiles := []string{
+		"/tmp/action/exec/test-req__exec_output.pkl",
+		"/tmp/action/client/test-req__client_output.pkl",
+		"/tmp/action/llm/test-req__llm_output.pkl",
+		"/tmp/action/python/test-req__python_output.pkl",
+		"/tmp/action/data/test-req__data_output.pkl",
+	}
+
+	for _, file := range expectedFiles {
+		exists, err := afero.Exists(fs, file)
+		assert.NoError(t, err)
+		assert.True(t, exists, "File should exist: %s", file)
+
+		// Verify file content
+		content, err := afero.ReadFile(fs, file)
+		assert.NoError(t, err)
+		assert.Contains(t, string(content), "extends")
+		assert.Contains(t, string(content), "schema.kdeps.com")
+	}
+}
+
+func TestPrepareImportFiles_FileAlreadyExists(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestSafeLogger()
+	ctx := context.Background()
+
+	dr := &DependencyResolver{
+		Fs:        fs,
+		Logger:    logger,
+		Context:   ctx,
+		ActionDir: "/tmp/action",
+		RequestID: "test-req",
+	}
+
+	// Pre-create one of the files
+	execFile := "/tmp/action/exec/test-req__exec_output.pkl"
+	_ = fs.MkdirAll(filepath.Dir(execFile), 0o755)
+	_ = afero.WriteFile(fs, execFile, []byte("existing content"), 0o644)
+
+	err := dr.PrepareImportFiles()
+	assert.NoError(t, err)
+
+	// Verify existing file was not overwritten
+	content, err := afero.ReadFile(fs, execFile)
+	assert.NoError(t, err)
+	assert.Equal(t, "existing content", string(content))
+
+	// Verify other files were still created
+	clientFile := "/tmp/action/client/test-req__client_output.pkl"
+	exists, err := afero.Exists(fs, clientFile)
+	assert.NoError(t, err)
+	assert.True(t, exists)
+}
+
+func TestPrepareImportFiles_DirectoryCreationError(t *testing.T) {
+	readOnlyFs := afero.NewReadOnlyFs(afero.NewMemMapFs())
+	logger := logging.NewTestSafeLogger()
+	ctx := context.Background()
+
+	dr := &DependencyResolver{
+		Fs:        readOnlyFs,
+		Logger:    logger,
+		Context:   ctx,
+		ActionDir: "/tmp/action",
+		RequestID: "test-req",
+	}
+
+	err := dr.PrepareImportFiles()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create directory")
+}

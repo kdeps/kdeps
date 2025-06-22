@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -15,12 +16,15 @@ import (
 	. "github.com/kdeps/kdeps/pkg/docker"
 
 	"github.com/charmbracelet/log"
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	kdCfg "github.com/kdeps/schema/gen/kdeps"
+	"github.com/kdeps/schema/gen/project"
+	"github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1520,4 +1524,319 @@ targetActionID = "testAction"`
 		// The function should handle WriteFile errors gracefully
 		t.Logf("BuildDockerfile WriteFile test result: %v", err)
 	})
+}
+
+// stubWf implements the workflow.Workflow interface with minimal logic needed for tests.
+type stubWf struct{}
+
+func (stubWf) GetName() string                { return "test-agent" }
+func (stubWf) GetDescription() string         { return "" }
+func (stubWf) GetWebsite() *string            { return nil }
+func (stubWf) GetAuthors() *[]string          { return nil }
+func (stubWf) GetDocumentation() *string      { return nil }
+func (stubWf) GetRepository() *string         { return nil }
+func (stubWf) GetHeroImage() *string          { return nil }
+func (stubWf) GetAgentIcon() *string          { return nil }
+func (stubWf) GetVersion() string             { return "1.0.0" }
+func (stubWf) GetTargetActionID() string      { return "" }
+func (stubWf) GetWorkflows() []string         { return nil }
+func (stubWf) GetSettings() *project.Settings { return nil }
+
+func TestBuildDockerImage_LoadWorkflowError(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdeps := &kdCfg.Kdeps{}
+	cli := &client.Client{}
+	runDir := "/tmp/run"
+	kdepsDir := "/tmp/kdeps"
+	pkgProject := &archiver.KdepsPackage{}
+	logger := logging.NewTestSafeLogger()
+
+	// Mock LoadWorkflow to return error
+	origLoadWorkflow := LoadWorkflowFn
+	LoadWorkflowFn = func(ctx context.Context, workflowFile string, logger *logging.Logger) (workflow.Workflow, error) {
+		return nil, errors.New("workflow load failed")
+	}
+	defer func() { LoadWorkflowFn = origLoadWorkflow }()
+
+	cName, containerName, err := BuildDockerImage(fs, ctx, kdeps, cli, runDir, kdepsDir, pkgProject, logger)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "workflow load failed")
+	assert.Empty(t, cName)
+	assert.Empty(t, containerName)
+}
+
+func TestBuildDockerImage_ImageListError(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdeps := &kdCfg.Kdeps{}
+	cli := &client.Client{}
+	runDir := "/tmp/run"
+	kdepsDir := "/tmp/kdeps"
+	pkgProject := &archiver.KdepsPackage{}
+	logger := logging.NewTestSafeLogger()
+
+	// Mock LoadWorkflow to succeed
+	origLoadWorkflow := LoadWorkflowFn
+	LoadWorkflowFn = func(ctx context.Context, workflowFile string, logger *logging.Logger) (workflow.Workflow, error) {
+		return stubWf{}, nil
+	}
+	defer func() { LoadWorkflowFn = origLoadWorkflow }()
+
+	// Mock ImageList to return error
+	origImageList := ImageListFn
+	ImageListFn = func(cli *client.Client, ctx context.Context, options image.ListOptions) ([]image.Summary, error) {
+		return nil, errors.New("image list failed")
+	}
+	defer func() { ImageListFn = origImageList }()
+
+	cName, containerName, err := BuildDockerImage(fs, ctx, kdeps, cli, runDir, kdepsDir, pkgProject, logger)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "error listing images")
+	assert.Empty(t, cName)
+	assert.Empty(t, containerName)
+}
+
+func TestBuildDockerImage_ImageAlreadyExists(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdeps := &kdCfg.Kdeps{}
+	cli := &client.Client{}
+	runDir := "/tmp/run"
+	kdepsDir := "/tmp/kdeps"
+	pkgProject := &archiver.KdepsPackage{}
+	logger := logging.NewTestSafeLogger()
+
+	// Mock LoadWorkflow to succeed
+	origLoadWorkflow := LoadWorkflowFn
+	LoadWorkflowFn = func(ctx context.Context, workflowFile string, logger *logging.Logger) (workflow.Workflow, error) {
+		return stubWf{}, nil
+	}
+	defer func() { LoadWorkflowFn = origLoadWorkflow }()
+
+	// Mock ImageList to return existing image
+	origImageList := ImageListFn
+	ImageListFn = func(cli *client.Client, ctx context.Context, options image.ListOptions) ([]image.Summary, error) {
+		return []image.Summary{
+			{
+				RepoTags: []string{"kdeps-test-agent:1.0.0"},
+			},
+		}, nil
+	}
+	defer func() { ImageListFn = origImageList }()
+
+	// Capture output
+	var capturedOutput string
+	origPrintln := PrintlnFn
+	PrintlnFn = func(a ...interface{}) (int, error) {
+		capturedOutput = a[0].(string) + ": " + a[1].(string)
+		return 0, nil
+	}
+	defer func() { PrintlnFn = origPrintln }()
+
+	cName, containerName, err := BuildDockerImage(fs, ctx, kdeps, cli, runDir, kdepsDir, pkgProject, logger)
+	assert.NoError(t, err)
+	assert.Equal(t, "kdeps-test-agent", cName)
+	assert.Equal(t, "kdeps-test-agent:1.0.0", containerName)
+	assert.Equal(t, "Image already exists:: kdeps-test-agent:1.0.0", capturedOutput)
+}
+
+func TestBuildDockerImage_WalkError(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdeps := &kdCfg.Kdeps{}
+	cli := &client.Client{}
+	runDir := "/tmp/run"
+	kdepsDir := "/tmp/kdeps"
+	pkgProject := &archiver.KdepsPackage{}
+	logger := logging.NewTestSafeLogger()
+
+	// Mock LoadWorkflow to succeed
+	origLoadWorkflow := LoadWorkflowFn
+	LoadWorkflowFn = func(ctx context.Context, workflowFile string, logger *logging.Logger) (workflow.Workflow, error) {
+		return stubWf{}, nil
+	}
+	defer func() { LoadWorkflowFn = origLoadWorkflow }()
+
+	// Mock ImageList to return no existing images
+	origImageList := ImageListFn
+	ImageListFn = func(cli *client.Client, ctx context.Context, options image.ListOptions) ([]image.Summary, error) {
+		return []image.Summary{}, nil
+	}
+	defer func() { ImageListFn = origImageList }()
+
+	// Mock Walk to return error
+	origWalk := WalkFn
+	WalkFn = func(fs afero.Fs, root string, walkFn filepath.WalkFunc) error {
+		return errors.New("walk failed")
+	}
+	defer func() { WalkFn = origWalk }()
+
+	cName, containerName, err := BuildDockerImage(fs, ctx, kdeps, cli, runDir, kdepsDir, pkgProject, logger)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "walk failed")
+	assert.NotEmpty(t, cName)
+	assert.NotEmpty(t, containerName)
+}
+
+func TestBuildDockerImage_ImageBuildError(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdeps := &kdCfg.Kdeps{}
+	cli := &client.Client{}
+	runDir := "/tmp/run"
+	kdepsDir := "/tmp/kdeps"
+	pkgProject := &archiver.KdepsPackage{}
+	logger := logging.NewTestSafeLogger()
+
+	// Mock LoadWorkflow to succeed
+	origLoadWorkflow := LoadWorkflowFn
+	LoadWorkflowFn = func(ctx context.Context, workflowFile string, logger *logging.Logger) (workflow.Workflow, error) {
+		return stubWf{}, nil
+	}
+	defer func() { LoadWorkflowFn = origLoadWorkflow }()
+
+	// Mock ImageList to return no existing images
+	origImageList := ImageListFn
+	ImageListFn = func(cli *client.Client, ctx context.Context, options image.ListOptions) ([]image.Summary, error) {
+		return []image.Summary{}, nil
+	}
+	defer func() { ImageListFn = origImageList }()
+
+	// Mock Walk to succeed
+	origWalk := WalkFn
+	WalkFn = func(fs afero.Fs, root string, walkFn filepath.WalkFunc) error {
+		return nil
+	}
+	defer func() { WalkFn = origWalk }()
+
+	// Mock ImageBuild to return error
+	origImageBuild := ImageBuildFn
+	ImageBuildFn = func(cli *client.Client, ctx context.Context, context io.Reader, options types.ImageBuildOptions) (types.ImageBuildResponse, error) {
+		return types.ImageBuildResponse{}, errors.New("image build failed")
+	}
+	defer func() { ImageBuildFn = origImageBuild }()
+
+	cName, containerName, err := BuildDockerImage(fs, ctx, kdeps, cli, runDir, kdepsDir, pkgProject, logger)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "image build failed")
+	assert.NotEmpty(t, cName)
+	assert.NotEmpty(t, containerName)
+}
+
+func TestBuildDockerImage_PrintDockerBuildOutputError(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdeps := &kdCfg.Kdeps{}
+	cli := &client.Client{}
+	runDir := "/tmp/run"
+	kdepsDir := "/tmp/kdeps"
+	pkgProject := &archiver.KdepsPackage{}
+	logger := logging.NewTestSafeLogger()
+
+	// Mock LoadWorkflow to succeed
+	origLoadWorkflow := LoadWorkflowFn
+	LoadWorkflowFn = func(ctx context.Context, workflowFile string, logger *logging.Logger) (workflow.Workflow, error) {
+		return stubWf{}, nil
+	}
+	defer func() { LoadWorkflowFn = origLoadWorkflow }()
+
+	// Mock ImageList to return no existing images
+	origImageList := ImageListFn
+	ImageListFn = func(cli *client.Client, ctx context.Context, options image.ListOptions) ([]image.Summary, error) {
+		return []image.Summary{}, nil
+	}
+	defer func() { ImageListFn = origImageList }()
+
+	// Mock Walk to succeed
+	origWalk := WalkFn
+	WalkFn = func(fs afero.Fs, root string, walkFn filepath.WalkFunc) error {
+		return nil
+	}
+	defer func() { WalkFn = origWalk }()
+
+	// Mock ImageBuild to succeed
+	origImageBuild := ImageBuildFn
+	ImageBuildFn = func(cli *client.Client, ctx context.Context, context io.Reader, options types.ImageBuildOptions) (types.ImageBuildResponse, error) {
+		return types.ImageBuildResponse{
+			Body: io.NopCloser(strings.NewReader("build output")),
+		}, nil
+	}
+	defer func() { ImageBuildFn = origImageBuild }()
+
+	// Mock PrintDockerBuildOutput to return error
+	origPrintDockerBuildOutput := PrintDockerBuildOutputFn
+	PrintDockerBuildOutputFn = func(rd io.Reader) error {
+		return errors.New("print build output failed")
+	}
+	defer func() { PrintDockerBuildOutputFn = origPrintDockerBuildOutput }()
+
+	cName, containerName, err := BuildDockerImage(fs, ctx, kdeps, cli, runDir, kdepsDir, pkgProject, logger)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "print build output failed")
+	assert.NotEmpty(t, cName)
+	assert.NotEmpty(t, containerName)
+}
+
+func TestBuildDockerImage_Success(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdeps := &kdCfg.Kdeps{}
+	cli := &client.Client{}
+	runDir := "/tmp/run"
+	kdepsDir := "/tmp/kdeps"
+	pkgProject := &archiver.KdepsPackage{}
+	logger := logging.NewTestSafeLogger()
+
+	// Mock LoadWorkflow to succeed
+	origLoadWorkflow := LoadWorkflowFn
+	LoadWorkflowFn = func(ctx context.Context, workflowFile string, logger *logging.Logger) (workflow.Workflow, error) {
+		return stubWf{}, nil
+	}
+	defer func() { LoadWorkflowFn = origLoadWorkflow }()
+
+	// Mock ImageList to return no existing images
+	origImageList := ImageListFn
+	ImageListFn = func(cli *client.Client, ctx context.Context, options image.ListOptions) ([]image.Summary, error) {
+		return []image.Summary{}, nil
+	}
+	defer func() { ImageListFn = origImageList }()
+
+	// Mock Walk to succeed
+	origWalk := WalkFn
+	WalkFn = func(fs afero.Fs, root string, walkFn filepath.WalkFunc) error {
+		return nil
+	}
+	defer func() { WalkFn = origWalk }()
+
+	// Mock ImageBuild to succeed
+	origImageBuild := ImageBuildFn
+	ImageBuildFn = func(cli *client.Client, ctx context.Context, context io.Reader, options types.ImageBuildOptions) (types.ImageBuildResponse, error) {
+		return types.ImageBuildResponse{
+			Body: io.NopCloser(strings.NewReader("build output")),
+		}, nil
+	}
+	defer func() { ImageBuildFn = origImageBuild }()
+
+	// Mock PrintDockerBuildOutput to succeed
+	origPrintDockerBuildOutput := PrintDockerBuildOutputFn
+	PrintDockerBuildOutputFn = func(rd io.Reader) error {
+		return nil
+	}
+	defer func() { PrintDockerBuildOutputFn = origPrintDockerBuildOutput }()
+
+	// Capture output
+	var capturedOutput string
+	origPrintln := PrintlnFn
+	PrintlnFn = func(a ...interface{}) (int, error) {
+		capturedOutput = a[0].(string)
+		return 0, nil
+	}
+	defer func() { PrintlnFn = origPrintln }()
+
+	cName, containerName, err := BuildDockerImage(fs, ctx, kdeps, cli, runDir, kdepsDir, pkgProject, logger)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, cName)
+	assert.NotEmpty(t, containerName)
+	assert.Equal(t, "Docker image build completed successfully!", capturedOutput)
 }

@@ -2,12 +2,9 @@ package cmd
 
 import (
 	"context"
-	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/kdeps/kdeps/pkg/template"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 )
@@ -30,12 +27,12 @@ func NewScaffoldCommand(fs afero.Fs, ctx context.Context, logger *logging.Logger
 
 			// If no file names provided, show available resources
 			if len(fileNames) == 0 {
-				fmt.Println("Available resources:")
-				fmt.Println("  - client: HTTP client for making API calls")
-				fmt.Println("  - exec: Execute shell commands and scripts")
-				fmt.Println("  - llm: Large Language Model interaction")
-				fmt.Println("  - python: Run Python scripts")
-				fmt.Println("  - response: API response handling")
+				PrintlnFn("Available resources:")
+				PrintlnFn("  - client: HTTP client for making API calls")
+				PrintlnFn("  - exec: Execute shell commands and scripts")
+				PrintlnFn("  - llm: Large Language Model interaction")
+				PrintlnFn("  - python: Run Python scripts")
+				PrintlnFn("  - response: API response handling")
 				return
 			}
 
@@ -57,23 +54,23 @@ func NewScaffoldCommand(fs afero.Fs, ctx context.Context, logger *logging.Logger
 					continue
 				}
 
-				if err := template.GenerateSpecificAgentFile(fs, ctx, logger, agentName, resourceName); err != nil {
+				if err := GenerateSpecificAgentFileFn(fs, ctx, logger, agentName, resourceName); err != nil {
 					logger.Error("error scaffolding file:", err)
-					fmt.Println(errorStyle.Render("Error:"), err)
+					PrintlnFn(errorStyle.Render("Error:"), err)
 				} else {
-					fmt.Println(successStyle.Render("Successfully scaffolded file:"), primaryStyle.Render(filepath.Join(agentName, "resources", resourceName+".pkl")))
+					PrintlnFn(successStyle.Render("Successfully scaffolded file:"), primaryStyle.Render(JoinPathFn(agentName, "resources", resourceName+".pkl")))
 				}
 			}
 
 			// If there were invalid resources, show them and the available options
 			if len(invalidResources) > 0 {
-				fmt.Println("\nInvalid resource(s):", strings.Join(invalidResources, ", "))
-				fmt.Println("\nAvailable resources:")
-				fmt.Println("  - client: HTTP client for making API calls")
-				fmt.Println("  - exec: Execute shell commands and scripts")
-				fmt.Println("  - llm: Large Language Model interaction")
-				fmt.Println("  - python: Run Python scripts")
-				fmt.Println("  - response: API response handling")
+				PrintlnFn("\nInvalid resource(s):", JoinFn(invalidResources, ", "))
+				PrintlnFn("\nAvailable resources:")
+				PrintlnFn("  - client: HTTP client for making API calls")
+				PrintlnFn("  - exec: Execute shell commands and scripts")
+				PrintlnFn("  - llm: Large Language Model interaction")
+				PrintlnFn("  - python: Run Python scripts")
+				PrintlnFn("  - response: API response handling")
 			}
 		},
 	}

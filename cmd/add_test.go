@@ -153,3 +153,60 @@ func TestNewAddCommandRunE(t *testing.T) {
 		t.Fatalf("expected error due to missing package file, got nil")
 	}
 }
+
+func TestNewAddCommand_Structure(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/test/kdeps"
+	logger := logging.NewTestLogger()
+
+	cmd := NewAddCommand(fs, ctx, kdepsDir, logger)
+
+	if cmd.Use != "install [package]" {
+		t.Errorf("expected Use 'install [package]', got %q", cmd.Use)
+	}
+	if len(cmd.Aliases) != 1 || cmd.Aliases[0] != "i" {
+		t.Errorf("expected Aliases ['i'], got %v", cmd.Aliases)
+	}
+	if cmd.Short != "Install an AI agent locally" {
+		t.Errorf("expected Short 'Install an AI agent locally', got %q", cmd.Short)
+	}
+	if cmd.Example != "$ kdeps install ./myAgent.kdeps" {
+		t.Errorf("expected Example, got %q", cmd.Example)
+	}
+}
+
+func TestNewAddCommand_ArgsValidation(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/test/kdeps"
+	logger := logging.NewTestLogger()
+
+	cmd := NewAddCommand(fs, ctx, kdepsDir, logger)
+
+	// No arguments should error
+	err := cmd.Args(cmd, []string{})
+	if err == nil {
+		t.Error("expected error when no arguments provided")
+	}
+
+	// One argument should pass
+	err = cmd.Args(cmd, []string{"test.kdeps"})
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestNewAddCommand_RunE_ErrorPath(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/test/kdeps"
+	logger := logging.NewTestLogger()
+
+	cmd := NewAddCommand(fs, ctx, kdepsDir, logger)
+	cmd.SetArgs([]string{"nonexistent.kdeps"})
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("expected error for nonexistent package file")
+	}
+}

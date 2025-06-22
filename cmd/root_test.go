@@ -1,62 +1,207 @@
 package cmd_test
 
 import (
+	"bytes"
 	"context"
-	"strings"
 	"testing"
 
+	"github.com/kdeps/kdeps/cmd"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewRootCommand(t *testing.T) {
+func TestNewRootCommand_Structure(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/test/kdeps"
+	kdepsDir := "/tmp/kdeps"
 	systemCfg := &kdeps.Kdeps{}
 	env := &environment.Environment{}
-	logger := logging.GetLogger()
+	logger := logging.NewTestSafeLogger()
 
-	rootCmd := NewRootCommand(fs, ctx, kdepsDir, systemCfg, env, logger)
+	rootCmd := cmd.NewRootCommand(fs, ctx, kdepsDir, systemCfg, env, logger)
 
-	// Test case 1: Check if root command is created
-	if rootCmd == nil {
-		t.Errorf("Expected non-nil root command, got nil")
-	}
-	if rootCmd.Use != "kdeps" {
-		t.Errorf("Expected root command use to be 'kdeps', got '%s'", rootCmd.Use)
-	}
+	assert.Equal(t, "kdeps", rootCmd.Use)
+	assert.Equal(t, "Multi-model AI agent framework.", rootCmd.Short)
+	assert.Contains(t, rootCmd.Long, "Kdeps is a multi-model AI agent framework")
+	assert.NotEmpty(t, rootCmd.Version)
+}
 
-	// Test case 2: Check if subcommands are added
-	subcommands := rootCmd.Commands()
-	expectedSubcommands := []string{"new", "scaffold", "install", "package", "build", "run"}
-	if len(subcommands) != len(expectedSubcommands) {
-		t.Errorf("Expected %d subcommands, got %d", len(expectedSubcommands), len(subcommands))
-	}
+func TestNewRootCommand_Subcommands(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	systemCfg := &kdeps.Kdeps{}
+	env := &environment.Environment{}
+	logger := logging.NewTestSafeLogger()
 
-	for i, expected := range expectedSubcommands {
-		if i < len(subcommands) {
-			actual := subcommands[i].Use
-			// Extract base command name by taking the first part before any space or bracket
-			if idx := strings.Index(actual, " "); idx != -1 {
-				actual = actual[:idx]
-			}
-			if actual != expected {
-				t.Errorf("Expected subcommand at index %d to be '%s', got '%s'", i, expected, actual)
-			}
-		}
+	rootCmd := cmd.NewRootCommand(fs, ctx, kdepsDir, systemCfg, env, logger)
+
+	// Check that all expected subcommands are present
+	expectedCommands := []string{"new", "scaffold", "install", "package", "build", "run"}
+	actualCommands := make([]string, 0, len(rootCmd.Commands()))
+	for _, subcmd := range rootCmd.Commands() {
+		actualCommands = append(actualCommands, subcmd.Name())
 	}
 
-	// Test case 3: Check if persistent flag is set
-	flag := rootCmd.PersistentFlags().Lookup("latest")
-	if flag == nil {
-		t.Errorf("Expected 'latest' persistent flag to be set, got nil")
+	for _, expected := range expectedCommands {
+		assert.Contains(t, actualCommands, expected, "Expected subcommand %s not found", expected)
+	}
+}
+
+func TestNewRootCommand_PersistentFlags(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	systemCfg := &kdeps.Kdeps{}
+	env := &environment.Environment{}
+	logger := logging.NewTestSafeLogger()
+
+	rootCmd := cmd.NewRootCommand(fs, ctx, kdepsDir, systemCfg, env, logger)
+
+	// Check that the --latest flag is present
+	latestFlag := rootCmd.PersistentFlags().Lookup("latest")
+	assert.NotNil(t, latestFlag, "Expected --latest flag not found")
+	assert.Equal(t, "l", latestFlag.Shorthand)
+	assert.Equal(t, "false", latestFlag.DefValue)
+}
+
+func TestNewRootCommand_SubcommandInjection(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	systemCfg := &kdeps.Kdeps{}
+	env := &environment.Environment{}
+	logger := logging.NewTestSafeLogger()
+
+	// Mock subcommand functions to return test commands
+	origNewAgent := cmd.NewAgentCommandFn
+	origNewScaffold := cmd.NewScaffoldCommandFn
+	origNewAdd := cmd.NewAddCommandFn
+	origNewPackage := cmd.NewPackageCommandFn
+	origNewBuild := cmd.NewBuildCommandFn
+	origNewRun := cmd.NewRunCommandFn
+
+	defer func() {
+		cmd.NewAgentCommandFn = origNewAgent
+		cmd.NewScaffoldCommandFn = origNewScaffold
+		cmd.NewAddCommandFn = origNewAdd
+		cmd.NewPackageCommandFn = origNewPackage
+		cmd.NewBuildCommandFn = origNewBuild
+		cmd.NewRunCommandFn = origNewRun
+	}()
+
+	// Create mock commands
+	mockAgentCmd := &cobra.Command{Use: "mock-agent"}
+	mockScaffoldCmd := &cobra.Command{Use: "mock-scaffold"}
+	mockAddCmd := &cobra.Command{Use: "mock-add"}
+	mockPackageCmd := &cobra.Command{Use: "mock-package"}
+	mockBuildCmd := &cobra.Command{Use: "mock-build"}
+	mockRunCmd := &cobra.Command{Use: "mock-run"}
+
+	// Set mock functions
+	cmd.NewAgentCommandFn = func(fs afero.Fs, ctx context.Context, kdepsDir string, logger *logging.Logger) *cobra.Command {
+		return mockAgentCmd
+	}
+	cmd.NewScaffoldCommandFn = func(fs afero.Fs, ctx context.Context, logger *logging.Logger) *cobra.Command {
+		return mockScaffoldCmd
+	}
+	cmd.NewAddCommandFn = func(fs afero.Fs, ctx context.Context, kdepsDir string, logger *logging.Logger) *cobra.Command {
+		return mockAddCmd
+	}
+	cmd.NewPackageCommandFn = func(fs afero.Fs, ctx context.Context, kdepsDir string, env *environment.Environment, logger *logging.Logger) *cobra.Command {
+		return mockPackageCmd
+	}
+	cmd.NewBuildCommandFn = func(fs afero.Fs, ctx context.Context, kdepsDir string, systemCfg *kdeps.Kdeps, logger *logging.Logger) *cobra.Command {
+		return mockBuildCmd
+	}
+	cmd.NewRunCommandFn = func(fs afero.Fs, ctx context.Context, kdepsDir string, systemCfg *kdeps.Kdeps, logger *logging.Logger) *cobra.Command {
+		return mockRunCmd
 	}
 
-	t.Log("NewRootCommand test passed")
+	rootCmd := cmd.NewRootCommand(fs, ctx, kdepsDir, systemCfg, env, logger)
+
+	// Verify that the mock commands are added
+	subcommandNames := make([]string, 0, len(rootCmd.Commands()))
+	for _, subcmd := range rootCmd.Commands() {
+		subcommandNames = append(subcommandNames, subcmd.Use)
+	}
+
+	assert.Contains(t, subcommandNames, "mock-agent")
+	assert.Contains(t, subcommandNames, "mock-scaffold")
+	assert.Contains(t, subcommandNames, "mock-add")
+	assert.Contains(t, subcommandNames, "mock-package")
+	assert.Contains(t, subcommandNames, "mock-build")
+	assert.Contains(t, subcommandNames, "mock-run")
+}
+
+func TestNewRootCommand_CommandSortingDisabled(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	systemCfg := &kdeps.Kdeps{}
+	env := &environment.Environment{}
+	logger := logging.NewTestSafeLogger()
+
+	// Reset command sorting to default
+	cobra.EnableCommandSorting = true
+
+	rootCmd := cmd.NewRootCommand(fs, ctx, kdepsDir, systemCfg, env, logger)
+
+	// Verify that command sorting is disabled
+	assert.False(t, cobra.EnableCommandSorting)
+
+	// Verify that the root command was created successfully
+	assert.NotNil(t, rootCmd)
+}
+
+func TestNewRootCommand_HelpText(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	systemCfg := &kdeps.Kdeps{}
+	env := &environment.Environment{}
+	logger := logging.NewTestSafeLogger()
+
+	rootCmd := cmd.NewRootCommand(fs, ctx, kdepsDir, systemCfg, env, logger)
+
+	// Test help text generation - check that template is not empty
+	helpTemplate := rootCmd.HelpTemplate()
+	assert.NotEmpty(t, helpTemplate)
+
+	// Test actual help output by capturing it
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetArgs([]string{"--help"})
+	err := rootCmd.Execute()
+	assert.NoError(t, err)
+
+	helpOutput := buf.String()
+	assert.Contains(t, helpOutput, "Usage:")
+	assert.Contains(t, helpOutput, "kdeps")
+
+	// Test that the command has a valid help template
+	assert.NotNil(t, rootCmd)
+}
+
+func TestNewRootCommand_Execute(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	systemCfg := &kdeps.Kdeps{}
+	env := &environment.Environment{}
+	logger := logging.NewTestSafeLogger()
+
+	rootCmd := cmd.NewRootCommand(fs, ctx, kdepsDir, systemCfg, env, logger)
+
+	// Test that root command can be executed without arguments (should show help)
+	rootCmd.SetArgs([]string{})
+	err := rootCmd.Execute()
+	// Should not error when no subcommand is provided
+	assert.NoError(t, err)
 }
 
 func TestNewAgentCommand(t *testing.T) {

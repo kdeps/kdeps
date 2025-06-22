@@ -26,6 +26,37 @@ import (
 	"github.com/spf13/afero"
 )
 
+// Injectable functions for testability
+var (
+	// Workflow functions
+	LoadWorkflowFn = workflow.LoadWorkflow
+
+	// Docker client functions
+	ImageListFn = func(cli *client.Client, ctx context.Context, options image.ListOptions) ([]image.Summary, error) {
+		return cli.ImageList(ctx, options)
+	}
+	ImageBuildFn = func(cli *client.Client, ctx context.Context, context io.Reader, options types.ImageBuildOptions) (types.ImageBuildResponse, error) {
+		return cli.ImageBuild(ctx, context, options)
+	}
+
+	// File system operations
+	WalkFn = afero.Walk
+	OpenFn = func(fs afero.Fs, name string) (afero.File, error) {
+		return fs.Open(name)
+	}
+
+	// Tar operations
+	NewTarWriterFn = func(w io.Writer) *tar.Writer {
+		return tar.NewWriter(w)
+	}
+	FileInfoHeaderFn = tar.FileInfoHeader
+	CopyFn           = io.Copy
+
+	// Output functions
+	PrintlnFn                = fmt.Println
+	PrintDockerBuildOutputFn = PrintDockerBuildOutput
+)
+
 // BuildLine struct is used to unmarshal Docker build log lines from the response.
 type BuildLine struct {
 	Stream string `json:"stream"`
@@ -35,7 +66,7 @@ type BuildLine struct {
 func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli *client.Client, runDir, kdepsDir string,
 	pkgProject *archiver.KdepsPackage, logger *logging.Logger,
 ) (string, string, error) {
-	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow, logger)
+	wfCfg, err := LoadWorkflowFn(ctx, pkgProject.Workflow, logger)
 	if err != nil {
 		return "", "", err
 	}
@@ -47,7 +78,7 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 	containerName := strings.Join([]string{cName, agentVersion}, ":")
 
 	// Check if the Docker image already exists
-	images, err := cli.ImageList(ctx, image.ListOptions{})
+	images, err := ImageListFn(cli, ctx, image.ListOptions{})
 	if err != nil {
 		return "", "", fmt.Errorf("error listing images: %w", err)
 	}
@@ -55,7 +86,7 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 	for _, image := range images {
 		for _, tag := range image.RepoTags {
 			if tag == containerName {
-				fmt.Println("Image already exists:", containerName)
+				PrintlnFn("Image already exists:", containerName)
 				return cName, containerName, nil
 			}
 		}
@@ -63,15 +94,15 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 
 	// Create a tar archive of the run directory to use as the Docker build context
 	tarBuffer := new(bytes.Buffer)
-	tw := tar.NewWriter(tarBuffer)
+	tw := NewTarWriterFn(tarBuffer)
 
-	err = afero.Walk(fs, runDir, func(file string, info os.FileInfo, err error) error {
+	err = WalkFn(fs, runDir, func(file string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
 		// Create tar header
-		header, err := tar.FileInfoHeader(info, info.Name())
+		header, err := FileInfoHeaderFn(info, info.Name())
 		if err != nil {
 			return err
 		}
@@ -86,13 +117,13 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 		}
 
 		if !info.IsDir() {
-			fileReader, err := fs.Open(file)
+			fileReader, err := OpenFn(fs, file)
 			if err != nil {
 				return err
 			}
 			defer fileReader.Close()
 
-			if _, err := io.Copy(tw, fileReader); err != nil {
+			if _, err := CopyFn(tw, fileReader); err != nil {
 				return err
 			}
 		}
@@ -119,19 +150,19 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 	}
 
 	// Build the Docker image
-	response, err := cli.ImageBuild(ctx, tarBuffer, buildOptions)
+	response, err := ImageBuildFn(cli, ctx, tarBuffer, buildOptions)
 	if err != nil {
 		return cName, containerName, err
 	}
 	defer response.Body.Close()
 
 	// Process and print the build output
-	err = PrintDockerBuildOutput(response.Body)
+	err = PrintDockerBuildOutputFn(response.Body)
 	if err != nil {
 		return cName, containerName, err
 	}
 
-	fmt.Println("Docker image build completed successfully!")
+	PrintlnFn("Docker image build completed successfully!")
 
 	return cName, containerName, nil
 }
@@ -372,7 +403,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	anacondaVersion := "2024.10-1"
 	pklVersion := "0.28.1"
 
-	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow, logger)
+	wfCfg, err := LoadWorkflowFn(ctx, pkgProject.Workflow, logger)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
 	}

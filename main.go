@@ -41,6 +41,9 @@ var (
 
 	ctx, cancel = context.WithCancel(context.Background())
 	cleanupFn   = cleanup
+
+	// Exit function for dependency injection during tests
+	exitFn = os.Exit
 )
 
 func main() {
@@ -199,7 +202,7 @@ func setupSignalHandler(fs afero.Fs, ctx context.Context, cancelFunc context.Can
 
 			return
 		}
-		os.Exit(0)
+		exitFn(0)
 	}()
 }
 
@@ -253,6 +256,6 @@ func cleanup(fs afero.Fs, ctx context.Context, env *environment.Environment, api
 	logger.Debug("cleanup complete.")
 
 	if !apiServerMode {
-		os.Exit(0)
+		exitFn(0)
 	}
 }

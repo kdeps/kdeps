@@ -1,10 +1,12 @@
 package logging_test
 
 import (
+	"bytes"
 	"os"
 	"os/exec"
 	"testing"
 
+	"github.com/charmbracelet/log"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/stretchr/testify/assert"
 )
@@ -204,4 +206,177 @@ func TestFatal_Subprocess(t *testing.T) {
 
 	// The buffer used by Fatal may not flush to combined output, so we skip
 	// validating exact message content.
+}
+
+func TestNewTestSafeLogger(t *testing.T) {
+	logger := logging.NewTestSafeLogger()
+	assert.NotNil(t, logger)
+	assert.NotNil(t, logger.Buffer)
+	assert.NotNil(t, logger.Logger)
+	assert.NotNil(t, logger.FatalFn)
+
+	// Test that FatalFn is a no-op (doesn't call os.Exit)
+	logger.FatalFn(1) // Should not exit
+
+	// Test that it can log without issues
+	logger.Info("test message")
+	output := logger.GetOutput()
+	assert.Contains(t, output, "test message")
+}
+
+func TestLoggerFatalf(t *testing.T) {
+	logger := logging.NewTestSafeLogger()
+
+	// Test Fatalf with formatting
+	logger.Fatalf("test %s message", "formatted")
+
+	// Should log the error message but not exit due to no-op FatalFn
+	output := logger.GetOutput()
+	assert.Contains(t, output, "test formatted message")
+}
+
+func TestLoggerFatalfWithNilFatalFn(t *testing.T) {
+	logger := logging.NewTestSafeLogger()
+	logger.FatalFn = nil // Set to nil to test nil check
+
+	// Should not panic when FatalFn is nil
+	logger.Fatalf("test message")
+
+	// Should still log the error message
+	output := logger.GetOutput()
+	assert.Contains(t, output, "test message")
+}
+
+func TestLoggerFatalMethod(t *testing.T) {
+	logger := logging.NewTestSafeLogger()
+
+	// Test Fatal method
+	logger.Fatal("fatal message", "key", "value")
+
+	// Should log the error message but not exit due to no-op FatalFn
+	output := logger.GetOutput()
+	assert.Contains(t, output, "fatal message")
+	assert.Contains(t, output, "key")
+	assert.Contains(t, output, "value")
+}
+
+func TestLoggerFatalMethodWithNilFatalFn(t *testing.T) {
+	logger := logging.NewTestSafeLogger()
+	logger.FatalFn = nil // Set to nil to test nil check
+
+	// Should not panic when FatalFn is nil
+	logger.Fatal("fatal message")
+
+	// Should still log the error message
+	output := logger.GetOutput()
+	assert.Contains(t, output, "fatal message")
+}
+
+func TestGetOutputWithNilBuffer(t *testing.T) {
+	logger := &logging.Logger{
+		Logger:  log.New(os.Stderr),
+		Buffer:  nil,
+		FatalFn: os.Exit,
+	}
+
+	// Should return empty string when buffer is nil
+	output := logger.GetOutput()
+	assert.Equal(t, "", output)
+}
+
+func TestBaseLoggerPanic(t *testing.T) {
+	// Test panic when logger is nil
+	assert.Panics(t, func() {
+		var logger *logging.Logger
+		logger.BaseLogger()
+	})
+
+	// Test panic when underlying logger is nil
+	logger := &logging.Logger{
+		Logger:  nil,
+		Buffer:  new(bytes.Buffer),
+		FatalFn: os.Exit,
+	}
+	assert.Panics(t, func() {
+		logger.BaseLogger()
+	})
+}
+
+func TestWithMethod(t *testing.T) {
+	logger := logging.NewTestSafeLogger()
+
+	// Test With method
+	newLogger := logger.With("key", "value")
+	assert.NotNil(t, newLogger)
+	assert.Equal(t, logger.Buffer, newLogger.Buffer)
+	// Don't compare FatalFn as function comparison is not allowed in Go
+	assert.NotEqual(t, logger.Logger, newLogger.Logger) // Should be different due to With
+}
+
+func TestCreateLoggerWithDebugEnv(t *testing.T) {
+	// Set DEBUG environment variable
+	os.Setenv("DEBUG", "1")
+	defer os.Unsetenv("DEBUG")
+
+	// Reset logger state
+	logging.ResetForTest()
+
+	// Create logger
+	logging.CreateLogger()
+
+	// Get logger and verify it's created
+	logger := logging.GetLogger()
+	assert.NotNil(t, logger)
+	assert.NotNil(t, logger.Logger)
+	// Do not compare functions (ExitFn)
+}
+
+func TestCreateLoggerWithoutDebugEnv(t *testing.T) {
+	// Ensure DEBUG is not set
+	os.Unsetenv("DEBUG")
+
+	// Reset logger state
+	logging.ResetForTest()
+
+	// Create logger
+	logging.CreateLogger()
+
+	// Get logger and verify it's created
+	logger := logging.GetLogger()
+	assert.NotNil(t, logger)
+	assert.NotNil(t, logger.Logger)
+	// Do not compare functions (ExitFn)
+}
+
+func TestEnsureInitializedCreatesLogger(t *testing.T) {
+	// Reset logger state
+	logging.ResetForTest()
+
+	// Ensure logger is nil initially
+	logging.ResetForTest() // Double reset to ensure nil state
+
+	// Call EnsureInitialized
+	logging.EnsureInitialized()
+
+	// Verify logger is created
+	assert.NotNil(t, logging.GetLogger())
+}
+
+func TestSetTestLogger(t *testing.T) {
+	// Reset logger state
+	logging.ResetForTest()
+
+	// Create a test logger
+	testLogger := logging.NewTestSafeLogger()
+
+	// Set it as the global logger
+	logging.SetTestLogger(testLogger)
+
+	// Verify it's set
+	assert.Equal(t, testLogger, logging.GetLogger())
+
+	// Test that global functions use the test logger
+	logging.Info("test message")
+	output := testLogger.GetOutput()
+	assert.Contains(t, output, "test message")
 }

@@ -3,26 +3,256 @@ package cmd_test
 import (
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/kdeps/kdeps/cmd"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewScaffoldCommandFlags(t *testing.T) {
+func TestNewScaffoldCommand_Structure(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	logger := logging.NewTestLogger()
+	logger := logging.NewTestSafeLogger()
 
-	cmd := NewScaffoldCommand(fs, ctx, logger)
-	assert.Equal(t, "scaffold [agentName] [fileNames...]", cmd.Use)
-	assert.Equal(t, "Scaffold specific files for an agent", cmd.Short)
-	assert.Contains(t, cmd.Long, "Available resources:")
+	command := cmd.NewScaffoldCommand(fs, ctx, logger)
+
+	assert.Equal(t, "scaffold [agentName] [fileNames...]", command.Use)
+	assert.Equal(t, "Scaffold specific files for an agent", command.Short)
+	assert.Contains(t, command.Long, "Scaffold specific files for an agent")
+}
+
+func TestNewScaffoldCommand_NoFileNames(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	logger := logging.NewTestSafeLogger()
+
+	command := cmd.NewScaffoldCommand(fs, ctx, logger)
+
+	// Capture output
+	var capturedOutput []string
+	origPrintln := cmd.PrintlnFn
+	cmd.PrintlnFn = func(a ...interface{}) (int, error) {
+		capturedOutput = append(capturedOutput, a[0].(string))
+		return 0, nil
+	}
+	defer func() { cmd.PrintlnFn = origPrintln }()
+
+	// Test with only agent name (no file names)
+	command.SetArgs([]string{"test-agent"})
+	err := command.Execute()
+	assert.NoError(t, err)
+
+	// Verify that available resources are shown
+	assert.Contains(t, capturedOutput, "Available resources:")
+	assert.Contains(t, capturedOutput, "  - client: HTTP client for making API calls")
+	assert.Contains(t, capturedOutput, "  - exec: Execute shell commands and scripts")
+	assert.Contains(t, capturedOutput, "  - llm: Large Language Model interaction")
+	assert.Contains(t, capturedOutput, "  - python: Run Python scripts")
+	assert.Contains(t, capturedOutput, "  - response: API response handling")
+}
+
+func TestNewScaffoldCommand_ValidResources(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	logger := logging.NewTestSafeLogger()
+
+	command := cmd.NewScaffoldCommand(fs, ctx, logger)
+
+	// Mock GenerateSpecificAgentFile to succeed
+	origGenerateFile := cmd.GenerateSpecificAgentFileFn
+	cmd.GenerateSpecificAgentFileFn = func(fs afero.Fs, ctx context.Context, logger *logging.Logger, agentName, resourceName string) error {
+		return nil
+	}
+	defer func() { cmd.GenerateSpecificAgentFileFn = origGenerateFile }()
+
+	// Capture output
+	var capturedOutput []string
+	origPrintln := cmd.PrintlnFn
+	cmd.PrintlnFn = func(a ...interface{}) (int, error) {
+		if len(a) >= 2 {
+			capturedOutput = append(capturedOutput, a[0].(string)+" "+a[1].(string))
+		}
+		return 0, nil
+	}
+	defer func() { cmd.PrintlnFn = origPrintln }()
+
+	// Test with valid resources
+	command.SetArgs([]string{"test-agent", "client", "exec"})
+	err := command.Execute()
+	assert.NoError(t, err)
+
+	// Verify success messages
+	assert.Contains(t, capturedOutput, "Successfully scaffolded file: test-agent/resources/client.pkl")
+	assert.Contains(t, capturedOutput, "Successfully scaffolded file: test-agent/resources/exec.pkl")
+}
+
+func TestNewScaffoldCommand_InvalidResources(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	logger := logging.NewTestSafeLogger()
+
+	command := cmd.NewScaffoldCommand(fs, ctx, logger)
+
+	// Capture output
+	var capturedOutput []string
+	origPrintln := cmd.PrintlnFn
+	cmd.PrintlnFn = func(a ...interface{}) (int, error) {
+		// Join all arguments to capture the full line
+		var parts []string
+		for _, arg := range a {
+			parts = append(parts, fmt.Sprintf("%v", arg))
+		}
+		capturedOutput = append(capturedOutput, strings.Join(parts, " "))
+		return 0, nil
+	}
+	defer func() { cmd.PrintlnFn = origPrintln }()
+
+	// Test with invalid resources
+	command.SetArgs([]string{"test-agent", "invalid", "also-invalid"})
+	err := command.Execute()
+	assert.NoError(t, err)
+
+	// Verify error messages
+	assert.Contains(t, capturedOutput, "\nInvalid resource(s): invalid, also-invalid")
+	assert.Contains(t, capturedOutput, "\nAvailable resources:")
+}
+
+func TestNewScaffoldCommand_MixedValidAndInvalid(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	logger := logging.NewTestSafeLogger()
+
+	command := cmd.NewScaffoldCommand(fs, ctx, logger)
+
+	// Mock GenerateSpecificAgentFile to succeed for valid resources
+	origGenerateFile := cmd.GenerateSpecificAgentFileFn
+	cmd.GenerateSpecificAgentFileFn = func(fs afero.Fs, ctx context.Context, logger *logging.Logger, agentName, resourceName string) error {
+		return nil
+	}
+	defer func() { cmd.GenerateSpecificAgentFileFn = origGenerateFile }()
+
+	// Capture output
+	var capturedOutput []string
+	origPrintln := cmd.PrintlnFn
+	cmd.PrintlnFn = func(a ...interface{}) (int, error) {
+		// Join all arguments to capture the full line
+		var parts []string
+		for _, arg := range a {
+			parts = append(parts, fmt.Sprintf("%v", arg))
+		}
+		capturedOutput = append(capturedOutput, strings.Join(parts, " "))
+		return 0, nil
+	}
+	defer func() { cmd.PrintlnFn = origPrintln }()
+
+	// Test with mixed valid and invalid resources
+	command.SetArgs([]string{"test-agent", "client", "invalid", "exec"})
+	err := command.Execute()
+	assert.NoError(t, err)
+
+	// Verify success messages for valid resources
+	assert.Contains(t, capturedOutput, "Successfully scaffolded file: test-agent/resources/client.pkl")
+	assert.Contains(t, capturedOutput, "Successfully scaffolded file: test-agent/resources/exec.pkl")
+
+	// Verify error messages for invalid resources
+	assert.Contains(t, capturedOutput, "\nInvalid resource(s): invalid")
+}
+
+func TestNewScaffoldCommand_GenerateFileError(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	logger := logging.NewTestSafeLogger()
+
+	command := cmd.NewScaffoldCommand(fs, ctx, logger)
+
+	// Mock GenerateSpecificAgentFile to return error
+	origGenerateFile := cmd.GenerateSpecificAgentFileFn
+	cmd.GenerateSpecificAgentFileFn = func(fs afero.Fs, ctx context.Context, logger *logging.Logger, agentName, resourceName string) error {
+		return errors.New("generation failed")
+	}
+	defer func() { cmd.GenerateSpecificAgentFileFn = origGenerateFile }()
+
+	// Capture output
+	var capturedOutput []string
+	origPrintln := cmd.PrintlnFn
+	cmd.PrintlnFn = func(a ...interface{}) (int, error) {
+		// Join all arguments to capture the full line
+		var parts []string
+		for _, arg := range a {
+			parts = append(parts, fmt.Sprintf("%v", arg))
+		}
+		capturedOutput = append(capturedOutput, strings.Join(parts, " "))
+		return 0, nil
+	}
+	defer func() { cmd.PrintlnFn = origPrintln }()
+
+	// Test with valid resource that fails generation
+	command.SetArgs([]string{"test-agent", "client"})
+	err := command.Execute()
+	assert.NoError(t, err)
+
+	// Verify error message
+	assert.Contains(t, capturedOutput, "Error: generation failed")
+}
+
+func TestNewScaffoldCommand_WithPklExtension(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	logger := logging.NewTestSafeLogger()
+
+	command := cmd.NewScaffoldCommand(fs, ctx, logger)
+
+	// Mock GenerateSpecificAgentFile to succeed
+	origGenerateFile := cmd.GenerateSpecificAgentFileFn
+	cmd.GenerateSpecificAgentFileFn = func(fs afero.Fs, ctx context.Context, logger *logging.Logger, agentName, resourceName string) error {
+		return nil
+	}
+	defer func() { cmd.GenerateSpecificAgentFileFn = origGenerateFile }()
+
+	// Capture output
+	var capturedOutput []string
+	origPrintln := cmd.PrintlnFn
+	cmd.PrintlnFn = func(a ...interface{}) (int, error) {
+		// Join all arguments to capture the full line
+		var parts []string
+		for _, arg := range a {
+			parts = append(parts, fmt.Sprintf("%v", arg))
+		}
+		capturedOutput = append(capturedOutput, strings.Join(parts, " "))
+		return 0, nil
+	}
+	defer func() { cmd.PrintlnFn = origPrintln }()
+
+	// Test with .pkl extension
+	command.SetArgs([]string{"test-agent", "client.pkl"})
+	err := command.Execute()
+	assert.NoError(t, err)
+
+	// Verify success message (extension should be stripped)
+	assert.Contains(t, capturedOutput, "Successfully scaffolded file: test-agent/resources/client.pkl")
+}
+
+func TestNewScaffoldCommand_ArgumentValidation(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	logger := logging.NewTestSafeLogger()
+
+	command := cmd.NewScaffoldCommand(fs, ctx, logger)
+
+	// Test with no arguments (should fail validation)
+	command.SetArgs([]string{})
+	err := command.Execute()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "requires at least 1 arg")
 }
 
 func TestNewScaffoldCommandNoFiles(t *testing.T) {
@@ -35,7 +265,7 @@ func TestNewScaffoldCommandNoFiles(t *testing.T) {
 	err := fs.MkdirAll(testAgentDir, 0o755)
 	assert.NoError(t, err)
 
-	cmd := NewScaffoldCommand(fs, ctx, logger)
+	cmd := cmd.NewScaffoldCommand(fs, ctx, logger)
 	cmd.SetArgs([]string{testAgentDir})
 	err = cmd.Execute()
 	assert.NoError(t, err)
@@ -54,7 +284,7 @@ func TestNewScaffoldCommandValidResources(t *testing.T) {
 	validResources := []string{"client", "exec", "llm", "python", "response"}
 
 	for _, resource := range validResources {
-		cmd := NewScaffoldCommand(fs, ctx, logger)
+		cmd := cmd.NewScaffoldCommand(fs, ctx, logger)
 		cmd.SetArgs([]string{testAgentDir, resource})
 		err := cmd.Execute()
 		assert.NoError(t, err)
@@ -77,7 +307,7 @@ func TestNewScaffoldCommandInvalidResources(t *testing.T) {
 	err := fs.MkdirAll(testAgentDir, 0o755)
 	assert.NoError(t, err)
 
-	cmd := NewScaffoldCommand(fs, ctx, logger)
+	cmd := cmd.NewScaffoldCommand(fs, ctx, logger)
 	cmd.SetArgs([]string{testAgentDir, "invalid-resource"})
 	err = cmd.Execute()
 	assert.NoError(t, err) // Command doesn't return error for invalid resources
@@ -99,7 +329,7 @@ func TestNewScaffoldCommandMultipleResources(t *testing.T) {
 	err := fs.MkdirAll(testAgentDir, 0o755)
 	assert.NoError(t, err)
 
-	cmd := NewScaffoldCommand(fs, ctx, logger)
+	cmd := cmd.NewScaffoldCommand(fs, ctx, logger)
 	cmd.SetArgs([]string{testAgentDir, "client", "exec", "invalid-resource"})
 	err = cmd.Execute()
 	assert.NoError(t, err)
@@ -127,7 +357,7 @@ func TestNewScaffoldCommandNoArgs(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	cmd := NewScaffoldCommand(fs, ctx, logger)
+	cmd := cmd.NewScaffoldCommand(fs, ctx, logger)
 	err := cmd.Execute()
 	assert.Error(t, err) // Should fail due to missing required argument
 }
@@ -137,7 +367,7 @@ func TestNewScaffoldCommand_ListResources(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	cmd := NewScaffoldCommand(fs, ctx, logger)
+	cmd := cmd.NewScaffoldCommand(fs, ctx, logger)
 
 	// Just ensure it completes without panic when no resource names are supplied.
 	cmd.Run(cmd, []string{"myagent"})
@@ -148,7 +378,7 @@ func TestNewScaffoldCommand_InvalidResource(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	cmd := NewScaffoldCommand(fs, ctx, logger)
+	cmd := cmd.NewScaffoldCommand(fs, ctx, logger)
 	cmd.Run(cmd, []string{"agent", "unknown"}) // should handle gracefully without panic
 }
 
@@ -159,7 +389,7 @@ func TestNewScaffoldCommand_GenerateFile(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	cmd := NewScaffoldCommand(fs, ctx, logger)
+	cmd := cmd.NewScaffoldCommand(fs, ctx, logger)
 
 	cmd.Run(cmd, []string{"agentx", "client"})
 
@@ -199,7 +429,7 @@ func TestScaffoldCommand_Happy(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	cmd := NewScaffoldCommand(fs, ctx, logger)
+	cmd := cmd.NewScaffoldCommand(fs, ctx, logger)
 
 	agent := "myagent"
 	args := []string{agent, "client", "exec"}
@@ -231,7 +461,7 @@ func TestScaffoldCommand_InvalidResource(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	cmd := NewScaffoldCommand(fs, ctx, logger)
+	cmd := cmd.NewScaffoldCommand(fs, ctx, logger)
 	agent := "badagent"
 
 	buf, restore := captureOutput()

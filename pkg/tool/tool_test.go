@@ -778,3 +778,22 @@ func TestInitializeDatabase_ErrorPaths(t *testing.T) {
 		db.Close()
 	})
 }
+
+func TestPklResourceReader_InterfaceMethods(t *testing.T) {
+	reader := &PklResourceReader{}
+
+	// Test Scheme method
+	assert.Equal(t, "tool", reader.Scheme())
+
+	// Test IsGlobbable method
+	assert.False(t, reader.IsGlobbable())
+
+	// Test HasHierarchicalUris method
+	assert.False(t, reader.HasHierarchicalUris())
+
+	// Test ListElements method
+	uri, _ := url.Parse("tool://test")
+	elements, err := reader.ListElements(*uri)
+	assert.NoError(t, err)
+	assert.Nil(t, elements)
+}
