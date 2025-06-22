@@ -1,9 +1,7 @@
-package utils_test
+package utils
 
 import (
 	"testing"
-
-	. "github.com/kdeps/kdeps/pkg/utils"
 )
 
 func TestIsJSON_Internal(t *testing.T) {

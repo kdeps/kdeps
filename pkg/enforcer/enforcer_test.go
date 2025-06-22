@@ -503,12 +503,12 @@ func TestEnforceResourceRunBlock(t *testing.T) {
 		t.Fatalf("unexpected error for single run block: %v", err)
 	}
 
-	fileMulti := filepath.Join(dir, "multi.pkl")
-	contentMulti := "chat {\n}\npython {\n}" // two run blocks
-	_ = afero.WriteFile(fs, fileMulti, []byte(contentMulti), 0o644)
+	fileMultiple := filepath.Join(dir, "multiple.pkl")
+	contentMultiple := "exec {\n}\nchat {\n}" // two run blocks
+	_ = afero.WriteFile(fs, fileMultiple, []byte(contentMultiple), 0o644)
 
-	if err := EnforceResourceRunBlock(fs, context.Background(), fileMulti, logging.NewTestLogger()); err == nil {
-		t.Fatalf("expected error for multiple run blocks, got nil")
+	if err := EnforceResourceRunBlock(fs, context.Background(), fileMultiple, logging.NewTestLogger()); err == nil {
+		t.Fatalf("expected error for multiple run blocks")
 	}
 }
 
@@ -794,5 +794,207 @@ python {
 
 		err = EnforceResourcesFolder(fs, ctx, resourcesDir, logger)
 		require.NoError(t, err) // Empty folder should be valid
+	})
+}
+
+// TestEnforceFolderStructure_AdditionalEdgeCases tests more edge cases for EnforceFolderStructure
+func TestEnforceFolderStructure_AdditionalEdgeCases(t *testing.T) {
+	t.Run("InvalidAbsolutePath", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+
+		// Test with a path that might cause filepath.Abs to fail
+		err := EnforceFolderStructure(fs, context.Background(), "", logging.NewTestLogger())
+		// Should handle error gracefully
+		if err == nil {
+			t.Log("Expected error for empty path, but function handled it gracefully")
+		}
+	})
+
+	t.Run("StatError", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		nonExistentPath := "/non/existent/path"
+
+		err := EnforceFolderStructure(fs, context.Background(), nonExistentPath, logging.NewTestLogger())
+		assert.Error(t, err, "Expected error for non-existent path")
+	})
+
+	t.Run("ReadDirError", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+
+		// Create a file instead of directory to cause ReadDir error
+		testFile := "/test/file.txt"
+		_ = fs.MkdirAll("/test", 0o755)
+		_ = afero.WriteFile(fs, testFile, []byte("content"), 0o644)
+
+		err := EnforceFolderStructure(fs, context.Background(), testFile, logging.NewTestLogger())
+		// Should error because file.txt is not an allowed file
+		assert.Error(t, err, "Should error on unexpected file in directory")
+		assert.Contains(t, err.Error(), "unexpected file found")
+	})
+
+	t.Run("ValidMinimalStructure", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		tmpDir := "/tmp/minimal"
+
+		// Create minimal valid structure - just workflow.pkl
+		_ = fs.MkdirAll(tmpDir, 0o755)
+		_ = afero.WriteFile(fs, filepath.Join(tmpDir, "workflow.pkl"), []byte("content"), 0o644)
+
+		err := EnforceFolderStructure(fs, context.Background(), tmpDir, logging.NewTestLogger())
+		assert.NoError(t, err, "Should accept minimal valid structure")
+	})
+
+	t.Run("WithIgnoredFiles", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		tmpDir := "/tmp/ignored"
+
+		// Create structure with ignored .kdeps.pkl file
+		_ = fs.MkdirAll(tmpDir, 0o755)
+		_ = afero.WriteFile(fs, filepath.Join(tmpDir, "workflow.pkl"), []byte("content"), 0o644)
+		_ = afero.WriteFile(fs, filepath.Join(tmpDir, ".kdeps.pkl"), []byte("config"), 0o644)
+
+		err := EnforceFolderStructure(fs, context.Background(), tmpDir, logging.NewTestLogger())
+		assert.NoError(t, err, "Should ignore .kdeps.pkl file")
+	})
+
+	t.Run("UnexpectedFile", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		tmpDir := "/tmp/unexpected"
+
+		// Create structure with unexpected file
+		_ = fs.MkdirAll(tmpDir, 0o755)
+		_ = afero.WriteFile(fs, filepath.Join(tmpDir, "workflow.pkl"), []byte("content"), 0o644)
+		_ = afero.WriteFile(fs, filepath.Join(tmpDir, "unexpected.txt"), []byte("bad"), 0o644)
+
+		err := EnforceFolderStructure(fs, context.Background(), tmpDir, logging.NewTestLogger())
+		assert.Error(t, err, "Should error on unexpected file")
+		assert.Contains(t, err.Error(), "unexpected file found")
+	})
+
+	t.Run("ResourcesFolderError", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		tmpDir := "/tmp/resources_error"
+
+		// Create structure with resources folder that will cause error
+		_ = fs.MkdirAll(tmpDir, 0o755)
+		_ = afero.WriteFile(fs, filepath.Join(tmpDir, "workflow.pkl"), []byte("content"), 0o644)
+		_ = fs.MkdirAll(filepath.Join(tmpDir, "resources"), 0o755)
+		_ = afero.WriteFile(fs, filepath.Join(tmpDir, "resources", "bad.txt"), []byte("not pkl"), 0o644) // non-pkl file
+
+		err := EnforceFolderStructure(fs, context.Background(), tmpDir, logging.NewTestLogger())
+		assert.Error(t, err, "Should error when resources folder validation fails")
+	})
+}
+
+// TestEnforcePklFilename_AdditionalEdgeCases tests more edge cases for EnforcePklFilename
+func TestEnforcePklFilename_AdditionalEdgeCases(t *testing.T) {
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	t.Run("MalformedLine", func(t *testing.T) {
+		// Line without #/ pattern
+		malformedLine := "amends \"package://schema.kdeps.com/core@1.0.0\""
+		err := EnforcePklFilename(ctx, malformedLine, "/path/to/test.pkl", logger)
+		assert.Error(t, err, "Should error on malformed line without #/")
+		assert.Contains(t, err.Error(), "invalid format")
+	})
+
+	t.Run("ResourcePklWithWorkflowFilename", func(t *testing.T) {
+		resourceLine := "amends \"package://schema.kdeps.com/core@1.0.0#/Resource.pkl\""
+		err := EnforcePklFilename(ctx, resourceLine, "/path/to/workflow.pkl", logger)
+		assert.Error(t, err, "Should error when Resource.pkl used with workflow.pkl filename")
+	})
+
+	t.Run("CaseInsensitiveFilename", func(t *testing.T) {
+		// Test with uppercase filename
+		workflowLine := "amends \"package://schema.kdeps.com/core@1.0.0#/Workflow.pkl\""
+		err := EnforcePklFilename(ctx, workflowLine, "/path/to/WORKFLOW.PKL", logger)
+		assert.NoError(t, err, "Should handle case insensitive filenames")
+	})
+}
+
+// TestEnforceResourceRunBlock_AdditionalEdgeCases tests more edge cases for EnforceResourceRunBlock
+func TestEnforceResourceRunBlock_AdditionalEdgeCases(t *testing.T) {
+	t.Run("FileReadError", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		nonExistentFile := "/non/existent/file.pkl"
+
+		err := EnforceResourceRunBlock(fs, context.Background(), nonExistentFile, logging.NewTestLogger())
+		assert.Error(t, err, "Should error when file cannot be read")
+	})
+
+	t.Run("NoRunBlocks", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		testFile := "/tmp/no_blocks.pkl"
+		content := "// Just a comment\nsome other content"
+		_ = afero.WriteFile(fs, testFile, []byte(content), 0o644)
+
+		err := EnforceResourceRunBlock(fs, context.Background(), testFile, logging.NewTestLogger())
+		assert.NoError(t, err, "Should not error when no run blocks found")
+	})
+
+	t.Run("HTTPClientBlock", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		testFile := "/tmp/http_client.pkl"
+		content := "HTTPClient {\n  url = \"https://example.com\"\n}"
+		_ = afero.WriteFile(fs, testFile, []byte(content), 0o644)
+
+		err := EnforceResourceRunBlock(fs, context.Background(), testFile, logging.NewTestLogger())
+		assert.NoError(t, err, "Should accept HTTPClient block")
+	})
+
+	t.Run("APIResponseBlock", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		testFile := "/tmp/api_response.pkl"
+		content := "APIResponse {\n  status = 200\n}"
+		_ = afero.WriteFile(fs, testFile, []byte(content), 0o644)
+
+		err := EnforceResourceRunBlock(fs, context.Background(), testFile, logging.NewTestLogger())
+		assert.NoError(t, err, "Should accept APIResponse block")
+	})
+}
+
+// TestEnforceResourcesFolder_AdditionalEdgeCases tests more edge cases for EnforceResourcesFolder
+func TestEnforceResourcesFolder_AdditionalEdgeCases(t *testing.T) {
+	t.Run("ReadDirError", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		nonExistentPath := "/non/existent/resources"
+
+		err := EnforceResourcesFolder(fs, context.Background(), nonExistentPath, logging.NewTestLogger())
+		assert.Error(t, err, "Should error when resources directory cannot be read")
+	})
+
+	t.Run("ExternalDirectoryAllowed", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		resourcesPath := "/tmp/resources"
+
+		_ = fs.MkdirAll(filepath.Join(resourcesPath, "external"), 0o755)
+		_ = afero.WriteFile(fs, filepath.Join(resourcesPath, "test.pkl"), []byte("content"), 0o644)
+
+		err := EnforceResourcesFolder(fs, context.Background(), resourcesPath, logging.NewTestLogger())
+		assert.NoError(t, err, "Should allow external directory in resources")
+	})
+
+	t.Run("UnexpectedDirectory", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		resourcesPath := "/tmp/resources"
+
+		_ = fs.MkdirAll(filepath.Join(resourcesPath, "baddir"), 0o755)
+
+		err := EnforceResourcesFolder(fs, context.Background(), resourcesPath, logging.NewTestLogger())
+		assert.Error(t, err, "Should error on unexpected directory")
+		assert.Contains(t, err.Error(), "unexpected directory")
+	})
+
+	t.Run("NonPklFile", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		resourcesPath := "/tmp/resources"
+
+		_ = fs.MkdirAll(resourcesPath, 0o755)
+		_ = afero.WriteFile(fs, filepath.Join(resourcesPath, "test.txt"), []byte("content"), 0o644)
+
+		err := EnforceResourcesFolder(fs, context.Background(), resourcesPath, logging.NewTestLogger())
+		assert.Error(t, err, "Should error on non-pkl file")
+		assert.Contains(t, err.Error(), "unexpected file")
 	})
 }

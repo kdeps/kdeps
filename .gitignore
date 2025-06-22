@@ -226,3 +226,5 @@ pkg/**/**/*.pkl
 *.pkl
 *.db
 *.backup
+*.html
+*.txt

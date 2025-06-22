@@ -44,6 +44,7 @@ var (
 	OpenFn = func(fs afero.Fs, name string) (afero.File, error) {
 		return fs.Open(name)
 	}
+	WriteFileFn = afero.WriteFile
 
 	// Tar operations
 	NewTarWriterFn = func(w io.Writer) *tar.Writer {
@@ -51,6 +52,15 @@ var (
 	}
 	FileInfoHeaderFn = tar.FileInfoHeader
 	CopyFn           = io.Copy
+
+	// Docker-specific functions
+	GenerateURLsFn  = GenerateURLs
+	DownloadFilesFn = func(fs afero.Fs, ctx context.Context, downloadDir string, items []download.DownloadItem, logger *logging.Logger, useLatest bool) error {
+		return download.DownloadFiles(fs, ctx, downloadDir, items, logger, useLatest)
+	}
+	GenerateUniqueOllamaPortFn = GenerateUniqueOllamaPort
+	CheckDevBuildModeFn        = CheckDevBuildMode
+	CopyFilesToRunDirFn        = CopyFilesToRunDir
 
 	// Output functions
 	PrintlnFn                = fmt.Println
@@ -533,7 +543,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion)
 	downloadDir := filepath.Join(kdepsDir, "cache")
 
-	items, err := GenerateURLs(ctx)
+	items, err := GenerateURLsFn(ctx)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
 	}
@@ -542,19 +552,19 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		logger.Debug("will download", "url", item.URL, "localName", item.LocalName)
 	}
 
-	err = download.DownloadFiles(fs, ctx, downloadDir, items, logger, schema.UseLatest)
+	err = DownloadFilesFn(fs, ctx, downloadDir, items, logger, schema.UseLatest)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
 	}
 
-	err = CopyFilesToRunDir(fs, ctx, downloadDir, runDir, logger)
+	err = CopyFilesToRunDirFn(fs, ctx, downloadDir, runDir, logger)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
 	}
 
-	ollamaPortNum := GenerateUniqueOllamaPort(portNum)
+	ollamaPortNum := GenerateUniqueOllamaPortFn(portNum)
 
-	devBuildMode, err := CheckDevBuildMode(fs, kdepsDir, logger)
+	devBuildMode, err := CheckDevBuildModeFn(fs, kdepsDir, logger)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
 	}
@@ -583,7 +593,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	// Write the Dockerfile to the run directory
 	resourceConfigurationFile := filepath.Join(runDir, "Dockerfile")
 	fmt.Println(resourceConfigurationFile)
-	err = afero.WriteFile(fs, resourceConfigurationFile, []byte(dockerfileContent), 0o644)
+	err = WriteFileFn(fs, resourceConfigurationFile, []byte(dockerfileContent), 0o644)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
 	}

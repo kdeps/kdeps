@@ -5,7 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/kdeps/kdeps/pkg/archiver"
+	. "github.com/kdeps/kdeps/pkg/archiver"
+	archiver "github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -24,7 +25,7 @@ func TestCopyFileSimple_NewDestination(t *testing.T) {
 	assert.NoError(t, afero.WriteFile(fs, src, content, 0o644))
 
 	// Test copying to new destination
-	assert.NoError(t, archiver.CopyFileSimple(fs, src, dst))
+	assert.NoError(t, CopyFileSimple(fs, src, dst))
 
 	// Verify content
 	data, err := afero.ReadFile(fs, dst)
@@ -50,7 +51,7 @@ func TestCopyFileSimple_DestinationExistsDifferentMD5(t *testing.T) {
 	assert.NoError(t, afero.WriteFile(fs, dst, dstContent, 0o644))
 
 	// Test copying when destination exists with different MD5
-	assert.NoError(t, archiver.CopyFileSimple(fs, src, dst))
+	assert.NoError(t, CopyFileSimple(fs, src, dst))
 
 	// Verify content was updated
 	data, err := afero.ReadFile(fs, dst)
@@ -78,7 +79,7 @@ func TestCopyFileSimple_DestinationExistsSameMD5(t *testing.T) {
 	assert.NoError(t, afero.WriteFile(fs, dst, content, 0o644))
 
 	// Test copying when destination exists with same MD5
-	assert.NoError(t, archiver.CopyFileSimple(fs, src, dst))
+	assert.NoError(t, CopyFileSimple(fs, src, dst))
 
 	// Verify content remains the same
 	data, err := afero.ReadFile(fs, dst)
@@ -101,7 +102,7 @@ func TestCopyFileSimple_SourceNotFound(t *testing.T) {
 	dst := filepath.Join(dir, "dst.txt")
 
 	// Test copying from non-existent source
-	err = archiver.CopyFileSimple(fs, src, dst)
+	err = CopyFileSimple(fs, src, dst)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to open source file")
 }
@@ -118,7 +119,7 @@ func TestCopyFileSimple_DestinationDirectoryNotFound(t *testing.T) {
 	assert.NoError(t, afero.WriteFile(fs, src, content, 0o644))
 
 	// Test copying to non-existent directory
-	err = archiver.CopyFileSimple(fs, src, dst)
+	err = CopyFileSimple(fs, src, dst)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to create destination file")
 }
@@ -134,7 +135,7 @@ func TestCopyFile(t *testing.T) {
 	dst := filepath.Join(dir, "dst.txt")
 	content := []byte("copy file content")
 	assert.NoError(t, afero.WriteFile(fs, src, content, 0o644))
-	assert.NoError(t, archiver.CopyFile(fs, ctx, src, dst, logger))
+	assert.NoError(t, CopyFile(fs, ctx, src, dst, logger))
 	data, err := afero.ReadFile(fs, dst)
 	assert.NoError(t, err)
 	assert.Equal(t, content, data)
@@ -156,7 +157,7 @@ func TestCopyDataDir(t *testing.T) {
 	file := filepath.Join(dataDir, "data.txt")
 	assert.NoError(t, afero.WriteFile(fs, file, []byte("data dir content"), 0o644))
 	wf := stubWf{}
-	err = archiver.CopyDataDir(fs, ctx, wf, "/tmp/kdeps", tmpProject, tmpCompiled, wf.GetName(), wf.GetVersion(), "", false, logger)
+	err = CopyDataDir(fs, ctx, wf, "/tmp/kdeps", tmpProject, tmpCompiled, wf.GetName(), wf.GetVersion(), "", false, logger)
 	assert.NoError(t, err)
 	_, err = fs.Stat(filepath.Join(tmpCompiled, "data", wf.GetName(), wf.GetVersion(), "data.txt"))
 	assert.NoError(t, err)
@@ -174,7 +175,7 @@ func TestCopyDir(t *testing.T) {
 	defer fs.RemoveAll(dst)
 	file := filepath.Join(src, "file.txt")
 	assert.NoError(t, afero.WriteFile(fs, file, []byte("dir content"), 0o644))
-	assert.NoError(t, archiver.CopyDir(fs, ctx, src, dst, logger))
+	assert.NoError(t, CopyDir(fs, ctx, src, dst, logger))
 	_, err = fs.Stat(filepath.Join(dst, "file.txt"))
 	assert.NoError(t, err)
 }
@@ -190,7 +191,7 @@ func TestCopyDir_SourceDirectoryNotFound(t *testing.T) {
 	defer fs.RemoveAll(destDir)
 
 	// Test with non-existent source directory
-	err = archiver.CopyDir(fs, ctx, "/nonexistent/source", destDir, logger)
+	err = CopyDir(fs, ctx, "/nonexistent/source", destDir, logger)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no such file or directory")
 }
@@ -211,7 +212,7 @@ func TestCopyDir_EmptyDirectory(t *testing.T) {
 	defer fs.RemoveAll(destDir)
 
 	// Test copying empty directory
-	err = archiver.CopyDir(fs, ctx, srcDir, destDir, logger)
+	err = CopyDir(fs, ctx, srcDir, destDir, logger)
 	assert.NoError(t, err)
 
 	// Verify destination directory was created
@@ -243,7 +244,7 @@ func TestCopyDir_WithFiles(t *testing.T) {
 	defer fs.RemoveAll(destDir)
 
 	// Test copying directory with files
-	err = archiver.CopyDir(fs, ctx, srcDir, destDir, logger)
+	err = CopyDir(fs, ctx, srcDir, destDir, logger)
 	assert.NoError(t, err)
 
 	// Verify files were copied
@@ -299,7 +300,7 @@ func TestCopyDir_WithSubdirectories(t *testing.T) {
 	defer fs.RemoveAll(destDir)
 
 	// Test copying directory with subdirectories
-	err = archiver.CopyDir(fs, ctx, srcDir, destDir, logger)
+	err = CopyDir(fs, ctx, srcDir, destDir, logger)
 	assert.NoError(t, err)
 
 	// Verify directory structure was copied
@@ -365,7 +366,7 @@ func TestCopyDir_ExistingDestination(t *testing.T) {
 	assert.NoError(t, afero.WriteFile(fs, filepath.Join(destDir, "test.txt"), destFileContent, 0o644))
 
 	// Test copying to existing destination (should create backup)
-	err = archiver.CopyDir(fs, ctx, srcDir, destDir, logger)
+	err = CopyDir(fs, ctx, srcDir, destDir, logger)
 	assert.NoError(t, err)
 
 	// Verify new file was copied
@@ -435,7 +436,7 @@ func TestCopyDir_ComplexStructure(t *testing.T) {
 	defer fs.RemoveAll(destDir)
 
 	// Test copying complex structure
-	err = archiver.CopyDir(fs, ctx, srcDir, destDir, logger)
+	err = CopyDir(fs, ctx, srcDir, destDir, logger)
 	assert.NoError(t, err)
 
 	// Verify all directories and files were copied
@@ -483,7 +484,7 @@ func TestCopyDataDir_NoDataDir(t *testing.T) {
 	assert.NoError(t, err)
 	defer fs.RemoveAll(compiledProjectDir)
 
-	err = archiver.CopyDataDir(fs, ctx, wf, kdepsDir, projectDir, compiledProjectDir, "", "", "", false, logger)
+	err = CopyDataDir(fs, ctx, wf, kdepsDir, projectDir, compiledProjectDir, "", "", "", false, logger)
 	assert.NoError(t, err)
 }
 
@@ -514,7 +515,7 @@ func TestCopyDataDir_CopyDirError(t *testing.T) {
 	// Use a read-only filesystem to cause CopyDir to fail
 	readOnlyFs := afero.NewReadOnlyFs(fs)
 
-	err = archiver.CopyDataDir(readOnlyFs, ctx, wf, kdepsDir, projectDir, compiledProjectDir, "", "", "", false, logger)
+	err = CopyDataDir(readOnlyFs, ctx, wf, kdepsDir, projectDir, compiledProjectDir, "", "", "", false, logger)
 	assert.Error(t, err)
 }
 

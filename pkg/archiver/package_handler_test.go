@@ -909,3 +909,427 @@ func (e *errorFs) Chmod(name string, mode os.FileMode) error {
 	}
 	return e.Fs.Chmod(name, mode)
 }
+
+// errorFsConditional for failing on specific file stat calls
+type errorFsConditional struct {
+	afero.Fs
+	failOnPath string
+}
+
+func (e *errorFsConditional) Stat(name string) (os.FileInfo, error) {
+	if name == e.failOnPath {
+		return nil, fmt.Errorf("stat error on specific file")
+	}
+	return e.Fs.Stat(name)
+}
+
+// Additional PackageProject edge case tests to increase coverage
+
+func TestPackageProject_PackageDirStatError(t *testing.T) {
+	base := afero.NewOsFs()
+	// When stat fails, it triggers mkdirAll, so we need to fail mkdirAll
+	fs := &errorFs{base, "mkdirAll"}
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	// Create temp directories
+	kdepsDir, err := afero.TempDir(base, "", "kdeps")
+	assert.NoError(t, err)
+	defer base.RemoveAll(kdepsDir)
+
+	compiledProjectDir, err := afero.TempDir(base, "", "compiled")
+	assert.NoError(t, err)
+	defer base.RemoveAll(compiledProjectDir)
+
+	// Create minimal project structure
+	assert.NoError(t, base.MkdirAll(filepath.Join(compiledProjectDir, "resources"), 0o755))
+	workflowContent := `targetActionID = "testAction"`
+	assert.NoError(t, afero.WriteFile(base, filepath.Join(compiledProjectDir, "workflow.pkl"), []byte(workflowContent), 0o644))
+
+	wf := stubWf{}
+
+	// The Stat call fails, triggering MkdirAll which also fails
+	_, err = PackageProject(fs, ctx, wf, kdepsDir, compiledProjectDir, logger)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "error creating the system packages folder")
+}
+
+// TestPackageProject_PackageDirCreateError is covered by TestPackageProject_PackageDirStatError
+
+func TestPackageProject_ExistsCheckError(t *testing.T) {
+	base := afero.NewOsFs()
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	// Create temp directories
+	kdepsDir, err := afero.TempDir(base, "", "kdeps")
+	assert.NoError(t, err)
+	defer base.RemoveAll(kdepsDir)
+
+	compiledProjectDir, err := afero.TempDir(base, "", "compiled")
+	assert.NoError(t, err)
+	defer base.RemoveAll(compiledProjectDir)
+
+	// Create project structure with packages directory already existing
+	packageDir := filepath.Join(kdepsDir, "packages")
+	assert.NoError(t, base.MkdirAll(packageDir, 0o755))
+	assert.NoError(t, base.MkdirAll(filepath.Join(compiledProjectDir, "resources"), 0o755))
+	workflowContent := `targetActionID = "testAction"`
+	assert.NoError(t, afero.WriteFile(base, filepath.Join(compiledProjectDir, "workflow.pkl"), []byte(workflowContent), 0o644))
+
+	wf := stubWf{}
+
+	// Create a more sophisticated errorFs that fails on specific file stat calls
+	fs := &errorFsConditional{base, filepath.Join(packageDir, fmt.Sprintf("%s-%s.kdeps", wf.GetName(), wf.GetVersion()))}
+
+	// afero.Exists should fail when checking if existing package file exists
+	_, err = PackageProject(fs, ctx, wf, kdepsDir, compiledProjectDir, logger)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "error checking if package exists")
+}
+
+func TestPackageProject_RemoveExistingError(t *testing.T) {
+	base := afero.NewOsFs()
+	fs := &errorFs{base, "remove"}
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	// Create temp directories
+	kdepsDir, err := afero.TempDir(base, "", "kdeps")
+	assert.NoError(t, err)
+	defer base.RemoveAll(kdepsDir)
+
+	compiledProjectDir, err := afero.TempDir(base, "", "compiled")
+	assert.NoError(t, err)
+	defer base.RemoveAll(compiledProjectDir)
+
+	// Create project structure and existing package file
+	packageDir := filepath.Join(kdepsDir, "packages")
+	assert.NoError(t, base.MkdirAll(packageDir, 0o755))
+	assert.NoError(t, base.MkdirAll(filepath.Join(compiledProjectDir, "resources"), 0o755))
+	workflowContent := `targetActionID = "testAction"`
+	assert.NoError(t, afero.WriteFile(base, filepath.Join(compiledProjectDir, "workflow.pkl"), []byte(workflowContent), 0o644))
+
+	wf := stubWf{}
+	existingPackage := filepath.Join(packageDir, fmt.Sprintf("%s-%s.kdeps", wf.GetName(), wf.GetVersion()))
+	assert.NoError(t, afero.WriteFile(base, existingPackage, []byte("old package"), 0o644))
+
+	// fs.Remove should fail when trying to remove existing package
+	_, err = PackageProject(fs, ctx, wf, kdepsDir, compiledProjectDir, logger)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to remove existing package file")
+}
+
+func TestPackageProject_CreateFileError(t *testing.T) {
+	base := afero.NewOsFs()
+	fs := &errorFs{base, "create"}
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	// Create temp directories
+	kdepsDir, err := afero.TempDir(base, "", "kdeps")
+	assert.NoError(t, err)
+	defer base.RemoveAll(kdepsDir)
+
+	compiledProjectDir, err := afero.TempDir(base, "", "compiled")
+	assert.NoError(t, err)
+	defer base.RemoveAll(compiledProjectDir)
+
+	// Create project structure
+	packageDir := filepath.Join(kdepsDir, "packages")
+	assert.NoError(t, base.MkdirAll(packageDir, 0o755))
+	assert.NoError(t, base.MkdirAll(filepath.Join(compiledProjectDir, "resources"), 0o755))
+	workflowContent := `targetActionID = "testAction"`
+	assert.NoError(t, afero.WriteFile(base, filepath.Join(compiledProjectDir, "workflow.pkl"), []byte(workflowContent), 0o644))
+
+	wf := stubWf{}
+
+	// fs.Create should fail when creating the new package file
+	_, err = PackageProject(fs, ctx, wf, kdepsDir, compiledProjectDir, logger)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create package file")
+}
+
+func TestPackageProject_FileOpenDuringWalkError(t *testing.T) {
+	base := afero.NewOsFs()
+	// The afero.Walk function opens files for reading during packaging
+	fs := &errorFs{base, "open"}
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	// Create temp directories
+	kdepsDir, err := afero.TempDir(base, "", "kdeps")
+	assert.NoError(t, err)
+	defer base.RemoveAll(kdepsDir)
+
+	compiledProjectDir, err := afero.TempDir(base, "", "compiled")
+	assert.NoError(t, err)
+	defer base.RemoveAll(compiledProjectDir)
+
+	// Create project structure - but we won't be able to create the package file due to the Open error
+	packageDir := filepath.Join(kdepsDir, "packages")
+	assert.NoError(t, base.MkdirAll(packageDir, 0o755))
+	assert.NoError(t, base.MkdirAll(filepath.Join(compiledProjectDir, "resources"), 0o755))
+	workflowContent := `targetActionID = "testAction"`
+	assert.NoError(t, afero.WriteFile(base, filepath.Join(compiledProjectDir, "workflow.pkl"), []byte(workflowContent), 0o644))
+
+	wf := stubWf{}
+
+	// This should fail when trying to open files during the packaging process
+	_, err = PackageProject(fs, ctx, wf, kdepsDir, compiledProjectDir, logger)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "open error")
+}
+
+// Additional tests for ExtractPackage error paths to increase coverage
+
+func TestExtractPackage_OpenFileError(t *testing.T) {
+	base := afero.NewOsFs()
+	fs := &errorFs{base, "open"}
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	kdepsDir, err := afero.TempDir(base, "", "kdeps")
+	assert.NoError(t, err)
+	defer base.RemoveAll(kdepsDir)
+
+	// Create a package file
+	kdepsPackage := createValidKdepsPackage(base, "test-agent", "1.0.0", false, false)
+	defer base.Remove(kdepsPackage)
+
+	// fs.Open should fail when opening the package file
+	_, err = ExtractPackage(fs, ctx, kdepsDir, kdepsPackage, logger)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to open .kdeps file")
+}
+
+func TestExtractPackage_MkdirAllError(t *testing.T) {
+	base := afero.NewOsFs()
+	fs := &errorFs{base, "mkdirAll"}
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	kdepsDir, err := afero.TempDir(base, "", "kdeps")
+	assert.NoError(t, err)
+	defer base.RemoveAll(kdepsDir)
+
+	// Create a package file
+	kdepsPackage := createValidKdepsPackage(base, "test-agent", "1.0.0", false, false)
+	defer base.Remove(kdepsPackage)
+
+	// fs.MkdirAll should fail when creating temporary directory
+	_, err = ExtractPackage(fs, ctx, kdepsDir, kdepsPackage, logger)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create temporary directory")
+}
+
+func TestExtractPackage_ChmodError(t *testing.T) {
+	base := afero.NewOsFs()
+	fs := &errorFs{base, "chmod"}
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	kdepsDir, err := afero.TempDir(base, "", "kdeps")
+	assert.NoError(t, err)
+	defer base.RemoveAll(kdepsDir)
+
+	// Create a package file
+	kdepsPackage := createValidKdepsPackage(base, "test-agent", "1.0.0", false, false)
+	defer base.Remove(kdepsPackage)
+
+	// fs.Chmod should fail when setting file permissions after extraction
+	_, err = ExtractPackage(fs, ctx, kdepsDir, kdepsPackage, logger)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to set file permissions")
+}
+
+// TestPackageProject_WalkRelPathError tests when filepath.Rel fails during walk
+func TestPackageProject_WalkRelPathError(t *testing.T) {
+	fs := afero.NewOsFs()
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	// Create temp directories
+	kdepsDir, err := afero.TempDir(fs, "", "kdeps")
+	assert.NoError(t, err)
+	defer fs.RemoveAll(kdepsDir)
+
+	// Use an invalid compiledProjectDir that doesn't exist
+	// This will cause issues during Walk when trying to get relative paths
+	compiledProjectDir := "/this/path/does/not/exist"
+
+	wf := stubWf{}
+
+	// Should fail during walk
+	_, err = PackageProject(fs, ctx, wf, kdepsDir, compiledProjectDir, logger)
+	assert.Error(t, err)
+}
+
+// TestPackageProject_EnforcerError tests when enforcer.EnforceFolderStructure fails
+func TestPackageProject_EnforcerError(t *testing.T) {
+	fs := afero.NewOsFs()
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	// Create temp directories
+	kdepsDir, err := afero.TempDir(fs, "", "kdeps")
+	assert.NoError(t, err)
+	defer fs.RemoveAll(kdepsDir)
+
+	compiledProjectDir, err := afero.TempDir(fs, "", "compiled")
+	assert.NoError(t, err)
+	defer fs.RemoveAll(compiledProjectDir)
+
+	// Create an improper project structure - resources as a file instead of directory
+	assert.NoError(t, afero.WriteFile(fs, filepath.Join(compiledProjectDir, "resources"), []byte("should be a directory"), 0o644))
+	workflowContent := `targetActionID = "testAction"`
+	assert.NoError(t, afero.WriteFile(fs, filepath.Join(compiledProjectDir, "workflow.pkl"), []byte(workflowContent), 0o644))
+
+	wf := stubWf{}
+
+	// Should fail during enforcement
+	_, err = PackageProject(fs, ctx, wf, kdepsDir, compiledProjectDir, logger)
+	assert.Error(t, err)
+}
+
+// errorFsWrite simulates write errors
+type errorFsWrite struct {
+	afero.Fs
+	failOnWrite bool
+}
+
+type errorFile struct {
+	afero.File
+	failOnWrite bool
+}
+
+func (e *errorFsWrite) Create(name string) (afero.File, error) {
+	f, err := e.Fs.Create(name)
+	if err != nil {
+		return nil, err
+	}
+	return &errorFile{File: f, failOnWrite: e.failOnWrite}, nil
+}
+
+func (e *errorFile) Write(p []byte) (n int, err error) {
+	if e.failOnWrite {
+		return 0, fmt.Errorf("write error")
+	}
+	return e.File.Write(p)
+}
+
+// TestPackageProject_WriteErrors tests write errors during tar creation
+func TestPackageProject_WriteErrors(t *testing.T) {
+	base := afero.NewOsFs()
+	fs := &errorFsWrite{Fs: base, failOnWrite: true}
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	// Create temp directories
+	kdepsDir, err := afero.TempDir(base, "", "kdeps")
+	assert.NoError(t, err)
+	defer base.RemoveAll(kdepsDir)
+
+	compiledProjectDir, err := afero.TempDir(base, "", "compiled")
+	assert.NoError(t, err)
+	defer base.RemoveAll(compiledProjectDir)
+
+	// Create project structure
+	packageDir := filepath.Join(kdepsDir, "packages")
+	assert.NoError(t, base.MkdirAll(packageDir, 0o755))
+	assert.NoError(t, base.MkdirAll(filepath.Join(compiledProjectDir, "resources"), 0o755))
+	workflowContent := `targetActionID = "testAction"`
+	assert.NoError(t, afero.WriteFile(base, filepath.Join(compiledProjectDir, "workflow.pkl"), []byte(workflowContent), 0o644))
+	assert.NoError(t, afero.WriteFile(base, filepath.Join(compiledProjectDir, "resources", "test.pkl"), []byte("content"), 0o644))
+
+	wf := stubWf{}
+
+	// Should fail when writing to tar
+	_, err = PackageProject(fs, ctx, wf, kdepsDir, compiledProjectDir, logger)
+	assert.Error(t, err)
+}
+
+// TestExtractPackage_CreateFileError tests file creation error during extraction
+func TestExtractPackage_CreateFileError(t *testing.T) {
+	base := afero.NewOsFs()
+	fs := &errorFs{base, "create"}
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	kdepsDir, err := afero.TempDir(base, "", "kdeps")
+	assert.NoError(t, err)
+	defer base.RemoveAll(kdepsDir)
+
+	// Create a valid package
+	kdepsPackage := createValidKdepsPackage(base, "test-agent", "1.0.0", false, false)
+	defer base.Remove(kdepsPackage)
+
+	// Should fail when creating extracted files
+	_, err = ExtractPackage(fs, ctx, kdepsDir, kdepsPackage, logger)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create file")
+}
+
+// TestExtractPackage_SanitizePathError tests when SanitizeArchivePath fails
+func TestExtractPackage_SanitizePathError(t *testing.T) {
+	fs := afero.NewOsFs()
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	kdepsDir, err := afero.TempDir(fs, "", "kdeps")
+	assert.NoError(t, err)
+	defer fs.RemoveAll(kdepsDir)
+
+	// Create a package with path traversal attempts
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gw)
+
+	// Add a file with path traversal
+	header := &tar.Header{
+		Name: "../../../etc/passwd",
+		Mode: 0o644,
+		Size: 10,
+	}
+	tw.WriteHeader(header)
+	tw.Write([]byte("malicious"))
+
+	tw.Close()
+	gw.Close()
+
+	// Write to temp file
+	tempFile, _ := afero.TempFile(fs, "", "malicious.kdeps")
+	tempFile.Write(buf.Bytes())
+	tempFile.Close()
+
+	// Should fail due to path traversal
+	_, err = ExtractPackage(fs, ctx, kdepsDir, tempFile.Name(), logger)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "content filepath is tainted")
+
+	fs.Remove(tempFile.Name())
+}
+
+// TestFindWorkflowFile_SkipDirBehavior tests that SkipDir is handled correctly
+func TestFindWorkflowFile_SkipDirBehavior(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+
+	// Create temp directory with workflow.pkl in root
+	tempDir, err := afero.TempDir(fs, "", "skipdir-test")
+	assert.NoError(t, err)
+	defer fs.RemoveAll(tempDir)
+
+	workflowFile := filepath.Join(tempDir, "workflow.pkl")
+	assert.NoError(t, afero.WriteFile(fs, workflowFile, []byte("root workflow"), 0o644))
+
+	// Create a subdirectory with another workflow.pkl that should be skipped
+	subDir := filepath.Join(tempDir, "subdir")
+	assert.NoError(t, fs.MkdirAll(subDir, 0o755))
+	assert.NoError(t, afero.WriteFile(fs, filepath.Join(subDir, "workflow.pkl"), []byte("sub workflow"), 0o644))
+
+	// Should find the root one and skip subdirectories
+	result, err := FindWorkflowFile(fs, tempDir, logger)
+	assert.NoError(t, err)
+	assert.Equal(t, workflowFile, result)
+}

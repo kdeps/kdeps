@@ -9,6 +9,14 @@ import (
 	"github.com/spf13/afero"
 )
 
+// Injectable function declarations for better testability
+var (
+	DirExistsFunc    = afero.DirExists
+	WalkFunc         = afero.Walk
+	FilepathRelFunc  = filepath.Rel
+	FilepathJoinFunc = filepath.Join
+)
+
 // PopulateDataFileRegistry populates a registry of files categorized by agentName/version.
 // It returns a map where the key is "agentName/version", and the value is another map
 // mapping relative paths within the version directory to their full paths.
@@ -18,7 +26,7 @@ func PopulateDataFileRegistry(fs afero.Fs, baseDir string) (*map[string]map[stri
 	separator := string(filepath.Separator) // Use constant for clarity
 
 	// Check if the base directory exists
-	exists, err := afero.DirExists(fs, baseDir)
+	exists, err := DirExistsFunc(fs, baseDir)
 	if err != nil {
 		return &files, fmt.Errorf("error checking existence of base directory %s: %w", baseDir, err)
 	}
@@ -28,7 +36,7 @@ func PopulateDataFileRegistry(fs afero.Fs, baseDir string) (*map[string]map[stri
 	}
 
 	// Walk through the base directory
-	err = afero.Walk(fs, baseDir, func(path string, info os.FileInfo, walkErr error) error {
+	err = WalkFunc(fs, baseDir, func(path string, info os.FileInfo, walkErr error) error {
 		if walkErr != nil {
 			return nil // Ignore individual path errors, but continue walking
 		}
@@ -39,7 +47,7 @@ func PopulateDataFileRegistry(fs afero.Fs, baseDir string) (*map[string]map[stri
 		}
 
 		// Get the relative path from the base directory
-		relPath, err := filepath.Rel(baseDir, path)
+		relPath, err := FilepathRelFunc(baseDir, path)
 		if err != nil {
 			return nil // Ignore errors in computing relative paths
 		}
@@ -52,7 +60,7 @@ func PopulateDataFileRegistry(fs afero.Fs, baseDir string) (*map[string]map[stri
 		}
 
 		// Extract agent name and version
-		agentName := filepath.Join(parts[0], parts[1])
+		agentName := FilepathJoinFunc(parts[0], parts[1])
 
 		// Construct the key (relative path within the version directory)
 		key := strings.Join(parts[2:], separator)

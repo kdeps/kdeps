@@ -33,22 +33,23 @@ test: test-coverage
 
 test-coverage:
 	@echo "$(OK_COLOR)==> Running the unit tests with coverage$(NO_COLOR)"
-	@NON_INTERACTIVE=1 go test -failfast -short -coverprofile=coverage_raw.out ./... | tee coverage.txt || true
-	@if [ -f coverage_raw.out ]; then \
-		{ head -n1 coverage_raw.out; grep -aE "^[[:alnum:]/._-]+\\.go:" coverage_raw.out; } > coverage.out; \
-		rm coverage_raw.out; \
-	fi
-	@echo "$(OK_COLOR)==> Coverage report:$(NO_COLOR)"
-	@go tool cover -func=coverage.out | tee coverage.txt || true
-	@COVERAGE=$$(grep total: coverage.txt | awk '{print $$3}' | sed 's/%//'); \
+	@TIMESTAMP=$$(date +%s); \
+	NON_INTERACTIVE=1 go test -failfast -short -coverprofile=coverage_raw_$$TIMESTAMP.out ./... | tee coverage_$$TIMESTAMP.txt || true; \
+	if [ -f coverage_raw_$$TIMESTAMP.out ]; then \
+		{ head -n1 coverage_raw_$$TIMESTAMP.out; grep -aE "^[[:alnum:]/._-]+\\.go:" coverage_raw_$$TIMESTAMP.out; } > coverage_$$TIMESTAMP.out; \
+		rm coverage_raw_$$TIMESTAMP.out; \
+	fi; \
+	echo "$(OK_COLOR)==> Coverage report:$(NO_COLOR)"; \
+	go tool cover -func=coverage_$$TIMESTAMP.out | tee coverage_$$TIMESTAMP.txt || true; \
+	COVERAGE=$$(grep total: coverage_$$TIMESTAMP.txt | awk '{print $$3}' | sed 's/%//'); \
 	REQUIRED=$${COVERAGE_THRESHOLD:-70.0}; \
 	if (( $$(echo $$COVERAGE '<' $$REQUIRED | bc -l) )); then \
 	    echo "Coverage $$COVERAGE% is below required $$REQUIRED%"; \
 	    exit 1; \
 	else \
 	    echo "Coverage requirement met: $$COVERAGE% (threshold $$REQUIRED%)"; \
-	fi
-	@rm coverage.txt
+	fi; \
+	rm coverage_$$TIMESTAMP.txt
 
 format: tools
 	@echo "$(OK_COLOR)>> [go vet] running$(NO_COLOR)" & \

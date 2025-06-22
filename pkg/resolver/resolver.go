@@ -99,6 +99,15 @@ type DependencyResolver struct {
 	PrependDynamicImportsFn func(string) error                              `json:"-"`
 	AddPlaceholderImportsFn func(string) error                              `json:"-"`
 	WalkFn                  func(afero.Fs, string, filepath.WalkFunc) error `json:"-"`
+
+	// ProcessRunBlock injectable dependencies
+	TimeNowFn                func() time.Time                       `json:"-"`
+	TimeSleepFn              func(time.Duration)                    `json:"-"`
+	JSONUnmarshalFn          func([]byte, interface{}) error        `json:"-"`
+	ReadFileFn               func(afero.Fs, string) ([]byte, error) `json:"-"`
+	ShouldSkipFn             func(*[]interface{}) bool              `json:"-"`
+	AllConditionsMetFn       func(*[]interface{}) bool              `json:"-"`
+	HandleAPIErrorResponseFn func(int, string, bool) (bool, error)  `json:"-"`
 }
 
 type ResourceNodeEntry struct {
@@ -283,6 +292,15 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	dependencyResolver.PrependDynamicImportsFn = dependencyResolver.PrependDynamicImports
 	dependencyResolver.AddPlaceholderImportsFn = dependencyResolver.AddPlaceholderImports
 	dependencyResolver.WalkFn = afero.Walk
+
+	// ProcessRunBlock helpers
+	dependencyResolver.TimeNowFn = time.Now
+	dependencyResolver.TimeSleepFn = time.Sleep
+	dependencyResolver.JSONUnmarshalFn = json.Unmarshal
+	dependencyResolver.ReadFileFn = afero.ReadFile
+	dependencyResolver.ShouldSkipFn = utils.ShouldSkip
+	dependencyResolver.AllConditionsMetFn = utils.AllConditionsMet
+	dependencyResolver.HandleAPIErrorResponseFn = dependencyResolver.HandleAPIErrorResponse
 
 	return dependencyResolver, nil
 }
@@ -557,24 +575,24 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 	if hasItems {
 		const waitTimeout = 30 * time.Second
 		const pollInterval = 500 * time.Millisecond
-		deadline := time.Now().Add(waitTimeout)
+		deadline := dr.TimeNowFn().Add(waitTimeout)
 
 		dr.Logger.Info("Waiting for items database to have a non-empty list", "actionID", actionID)
-		for time.Now().Before(deadline) {
+		for dr.TimeNowFn().Before(deadline) {
 			// Query the items database to retrieve the list
 			query := url.Values{"op": []string{"list"}}
 			uri := url.URL{Scheme: "item", RawQuery: query.Encode()}
 			result, err := dr.ItemReader.Read(uri)
 			if err != nil {
 				dr.Logger.Error("Failed to read list from items database", "actionID", actionID, "error", err)
-				return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Failed to read list from items database for resource %s: %v", actionID, err), true)
+				return dr.HandleAPIErrorResponseFn(500, fmt.Sprintf("Failed to read list from items database for resource %s: %v", actionID, err), true)
 			}
 			// Parse the []byte result as a JSON array
 			var items []string
 			if len(result) > 0 {
-				if err := json.Unmarshal(result, &items); err != nil {
+				if err := dr.JSONUnmarshalFn(result, &items); err != nil {
 					dr.Logger.Error("Failed to parse items database result as JSON array", "actionID", actionID, "error", err)
-					return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Failed to parse items database result for resource %s: %v", actionID, err), true)
+					return dr.HandleAPIErrorResponseFn(500, fmt.Sprintf("Failed to parse items database result for resource %s: %v", actionID, err), true)
 				}
 			}
 			// Check if the list is non-empty
@@ -583,21 +601,21 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 				break
 			}
 			dr.Logger.Debug(messages.MsgItemsDBEmptyRetry, "actionID", actionID)
-			time.Sleep(pollInterval)
+			dr.TimeSleepFn(pollInterval)
 		}
 
 		// Check if we timed out
-		if time.Now().After(deadline) {
+		if dr.TimeNowFn().After(deadline) {
 			dr.Logger.Error("Timeout waiting for items database to have a non-empty list", "actionID", actionID)
-			return dr.HandleAPIErrorResponse(500, "Timeout waiting for items database to have a non-empty list for resource "+actionID, true)
+			return dr.HandleAPIErrorResponseFn(500, "Timeout waiting for items database to have a non-empty list for resource "+actionID, true)
 		}
 	}
 
 	if dr.APIServerMode {
 		// Read the resource file content for validation
-		fileContent, err := afero.ReadFile(dr.Fs, res.File)
+		fileContent, err := dr.ReadFileFn(dr.Fs, res.File)
 		if err != nil {
-			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to read resource file %s: %v", res.File, err), true)
+			return dr.HandleAPIErrorResponseFn(500, fmt.Sprintf("failed to read resource file %s: %v", res.File, err), true)
 		}
 
 		// Validate request.params
@@ -607,7 +625,7 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 		}
 		if err := dr.ValidateRequestParams(string(fileContent), allowedParams); err != nil {
 			dr.Logger.Error("request params validation failed", "actionID", res.ActionID, "error", err)
-			return dr.HandleAPIErrorResponse(400, fmt.Sprintf("Request params validation failed for resource %s: %v", res.ActionID, err), false)
+			return dr.HandleAPIErrorResponseFn(400, fmt.Sprintf("Request params validation failed for resource %s: %v", res.ActionID, err), false)
 		}
 
 		// Validate request.header
@@ -617,7 +635,7 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 		}
 		if err := dr.ValidateRequestHeaders(string(fileContent), allowedHeaders); err != nil {
 			dr.Logger.Error("request headers validation failed", "actionID", res.ActionID, "error", err)
-			return dr.HandleAPIErrorResponse(400, fmt.Sprintf("Request headers validation failed for resource %s: %v", res.ActionID, err), false)
+			return dr.HandleAPIErrorResponseFn(400, fmt.Sprintf("Request headers validation failed for resource %s: %v", res.ActionID, err), false)
 		}
 
 		// Validate request.path
@@ -642,21 +660,21 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 	}
 
 	// Skip condition
-	if runBlock.SkipCondition != nil && utils.ShouldSkip(runBlock.SkipCondition) {
+	if runBlock.SkipCondition != nil && dr.ShouldSkipFn(runBlock.SkipCondition) {
 		dr.Logger.Infof("skip condition met, skipping: %s", res.ActionID)
 		return false, nil
 	}
 
 	// Preflight check
 	if runBlock.PreflightCheck != nil && runBlock.PreflightCheck.Validations != nil &&
-		!utils.AllConditionsMet(runBlock.PreflightCheck.Validations) {
+		!dr.AllConditionsMetFn(runBlock.PreflightCheck.Validations) {
 		dr.Logger.Error("preflight check not met, failing:", res.ActionID)
 		if runBlock.PreflightCheck.Error != nil {
-			return dr.HandleAPIErrorResponse(
+			return dr.HandleAPIErrorResponseFn(
 				runBlock.PreflightCheck.Error.Code,
 				fmt.Sprintf("%s: %s", runBlock.PreflightCheck.Error.Message, res.ActionID), false)
 		}
-		return dr.HandleAPIErrorResponse(500, "Preflight check failed for resource: "+res.ActionID, false)
+		return dr.HandleAPIErrorResponseFn(500, "Preflight check failed for resource: "+res.ActionID, false)
 	}
 
 	// Process Exec step, if defined
@@ -665,7 +683,7 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 			return dr.HandleExec(res.ActionID, runBlock.Exec)
 		}); err != nil {
 			dr.Logger.Error("exec error:", res.ActionID)
-			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Exec failed for resource: %s - %s", res.ActionID, err), false)
+			return dr.HandleAPIErrorResponseFn(500, fmt.Sprintf("Exec failed for resource: %s - %s", res.ActionID, err), false)
 		}
 	}
 
@@ -675,7 +693,7 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 			return dr.HandlePython(res.ActionID, runBlock.Python)
 		}); err != nil {
 			dr.Logger.Error("python error:", res.ActionID)
-			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Python script failed for resource: %s - %s", res.ActionID, err), false)
+			return dr.HandleAPIErrorResponseFn(500, fmt.Sprintf("Python script failed for resource: %s - %s", res.ActionID, err), false)
 		}
 	}
 
@@ -689,7 +707,7 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 			return dr.HandleLLMChat(res.ActionID, runBlock.Chat)
 		}); err != nil {
 			dr.Logger.Error("LLM chat error", "actionID", res.ActionID, "error", err)
-			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("LLM chat failed for resource: %s - %s", res.ActionID, err), true)
+			return dr.HandleAPIErrorResponseFn(500, fmt.Sprintf("LLM chat failed for resource: %s - %s", res.ActionID, err), true)
 		}
 	} else {
 		dr.Logger.Info("Skipping LLM chat step", "actionID", res.ActionID, "chatNil",
@@ -704,7 +722,7 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 			return dr.HandleHTTPClient(res.ActionID, runBlock.HTTPClient)
 		}); err != nil {
 			dr.Logger.Error("HTTP client error:", res.ActionID)
-			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("HTTP client failed for resource: %s - %s", res.ActionID, err), false)
+			return dr.HandleAPIErrorResponseFn(500, fmt.Sprintf("HTTP client failed for resource: %s - %s", res.ActionID, err), false)
 		}
 	}
 
