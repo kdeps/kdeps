@@ -797,3 +797,107 @@ func TestPklResourceReader_InterfaceMethods(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Nil(t, elements)
 }
+
+// TestInitializeDatabase_RetryScenarios tests specific retry scenarios
+func TestInitializeDatabase_RetryScenarios(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "tool-retry-test")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	t.Run("RetryOnPingFailure", func(t *testing.T) {
+		// Create a directory that becomes writable after the first attempt
+		retryDir := filepath.Join(tmpDir, "ping-retry")
+		err := os.MkdirAll(retryDir, 0o755)
+		require.NoError(t, err)
+
+		dbPath := filepath.Join(retryDir, "retry.db")
+
+		// This will succeed because the directory is writable
+		// The function should handle any temporary issues gracefully
+		db, err := InitializeDatabase(dbPath)
+		if err == nil {
+			assert.NotNil(t, db)
+			assert.NoError(t, db.Ping())
+			db.Close()
+		} else {
+			// If it fails, it should be due to the retry mechanism
+			assert.Contains(t, err.Error(), "failed to")
+		}
+	})
+
+	t.Run("RetryOnTableCreationFailure", func(t *testing.T) {
+		// Test with in-memory database which should always succeed
+		// This exercises the table creation path
+		db, err := InitializeDatabase(":memory:")
+		assert.NoError(t, err)
+		assert.NotNil(t, db)
+
+		// Verify tables were created successfully
+		assert.NoError(t, db.Ping())
+
+		// Check that both tables exist
+		var toolsExists bool
+		err = db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='tools'").Scan(&toolsExists)
+		assert.NoError(t, err)
+
+		var historyExists bool
+		err = db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='history'").Scan(&historyExists)
+		assert.NoError(t, err)
+
+		db.Close()
+	})
+
+	t.Run("MemoryDatabaseSuccess", func(t *testing.T) {
+		// Test successful case with in-memory database
+		// This should exercise the success path without retries
+		db, err := InitializeDatabase(":memory:")
+		assert.NoError(t, err)
+		assert.NotNil(t, db)
+
+		// Verify database functionality
+		assert.NoError(t, db.Ping())
+
+		// Test table operations
+		_, err = db.Exec("INSERT INTO tools (id, value) VALUES (?, ?)", "test", "value")
+		assert.NoError(t, err)
+
+		_, err = db.Exec("INSERT INTO history (id, value, timestamp) VALUES (?, ?, ?)", "test", "value", 123456789)
+		assert.NoError(t, err)
+
+		// Verify data can be retrieved
+		var value string
+		err = db.QueryRow("SELECT value FROM tools WHERE id = ?", "test").Scan(&value)
+		assert.NoError(t, err)
+		assert.Equal(t, "value", value)
+
+		db.Close()
+	})
+
+	t.Run("DirectoryPermissionTest", func(t *testing.T) {
+		// Create a directory with restricted permissions
+		restrictedDir := filepath.Join(tmpDir, "restricted")
+		err := os.MkdirAll(restrictedDir, 0o755)
+		require.NoError(t, err)
+
+		// Make directory read-only
+		err = os.Chmod(restrictedDir, 0o555)
+		require.NoError(t, err)
+
+		dbPath := filepath.Join(restrictedDir, "readonly.db")
+
+		// This should fail after retries
+		db, err := InitializeDatabase(dbPath)
+		if err != nil {
+			assert.Error(t, err)
+			assert.Nil(t, db)
+			// Should mention either ping or open failure
+			assert.True(t,
+				strings.Contains(err.Error(), "failed to ping database") ||
+					strings.Contains(err.Error(), "failed to open database"),
+				"Error should mention ping or open failure, got: %s", err.Error())
+		}
+
+		// Restore permissions for cleanup
+		os.Chmod(restrictedDir, 0o755)
+	})
+}

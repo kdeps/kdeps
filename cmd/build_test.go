@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/docker/docker/client"
@@ -769,56 +770,205 @@ func TestNewBuildCommand_CleanupError(t *testing.T) {
 	assert.Contains(t, err.Error(), "cleanup failed")
 }
 
+// TestNewBuildCommand_Success tests the RunE function with mocked dependencies for success path
 func TestNewBuildCommand_Success(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
 	kdepsDir := "/tmp/kdeps"
 	systemCfg := &kdeps.Kdeps{}
-	logger := logging.NewTestSafeLogger()
+	logger := logging.NewTestLogger()
 
-	command := cmd.NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger)
+	// Create test directory structure
+	testDir := filepath.Join("/test")
+	validAgentDir := filepath.Join(testDir, "valid-agent")
+	err := fs.MkdirAll(validAgentDir, 0o755)
+	assert.NoError(t, err)
 
-	// Mock all functions to succeed
-	origExtractPackage := cmd.ExtractPackageFn
-	cmd.ExtractPackageFn = func(fs afero.Fs, ctx context.Context, kdepsDir, pkgFile string, logger *logging.Logger) (*archiver.KdepsPackage, error) {
-		return &archiver.KdepsPackage{}, nil
+	// Create a valid .kdeps file
+	validKdepsPath := filepath.Join(testDir, "valid-agent.kdeps")
+	err = afero.WriteFile(fs, validKdepsPath, []byte("valid package"), 0o644)
+	assert.NoError(t, err)
+
+	// Save original functions
+	oldExtractPackageFn := cmd.ExtractPackageFn
+	oldBuildDockerfileFn := cmd.BuildDockerfileFn
+	oldNewDockerClientFn := cmd.NewDockerClientFn
+	oldBuildDockerImageFn := cmd.BuildDockerImageFn
+	oldCleanupDockerBuildImagesFn := cmd.CleanupDockerBuildImagesFn
+	oldPrintlnFn := cmd.PrintlnFn
+
+	// Restore functions after test
+	defer func() {
+		cmd.ExtractPackageFn = oldExtractPackageFn
+		cmd.BuildDockerfileFn = oldBuildDockerfileFn
+		cmd.NewDockerClientFn = oldNewDockerClientFn
+		cmd.BuildDockerImageFn = oldBuildDockerImageFn
+		cmd.CleanupDockerBuildImagesFn = oldCleanupDockerBuildImagesFn
+		cmd.PrintlnFn = oldPrintlnFn
+	}()
+
+	// Mock all the functions with correct signatures
+	cmd.ExtractPackageFn = func(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPackage string, logger *logging.Logger) (*archiver.KdepsPackage, error) {
+		return &archiver.KdepsPackage{
+			PkgFilePath: validKdepsPath,
+			Workflow:    filepath.Join(validAgentDir, "workflow.pkl"),
+			Resources:   []string{},
+			Data:        make(map[string]map[string][]string),
+			Md5sum:      "test-checksum",
+		}, nil
 	}
-	defer func() { cmd.ExtractPackageFn = origExtractPackage }()
 
-	origBuildDockerfile := cmd.BuildDockerfileFn
-	cmd.BuildDockerfileFn = func(fs afero.Fs, ctx context.Context, systemCfg *kdeps.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *logging.Logger) (string, bool, bool, string, string, string, string, string, error) {
-		return "/tmp/run", false, false, "127.0.0.1", "8080", "127.0.0.1", "3000", "cpu", nil
+	cmd.BuildDockerfileFn = func(fs afero.Fs, ctx context.Context, kdeps *kdeps.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *logging.Logger) (string, bool, bool, string, string, string, string, string, error) {
+		return "/tmp/rundir", false, false, "127.0.0.1", "8080", "127.0.0.1", "3000", "cpu", nil
 	}
-	defer func() { cmd.BuildDockerfileFn = origBuildDockerfile }()
 
-	origNewDockerClient := cmd.NewDockerClientFn
 	cmd.NewDockerClientFn = func() (*client.Client, error) {
 		return &client.Client{}, nil
 	}
-	defer func() { cmd.NewDockerClientFn = origNewDockerClient }()
 
-	origBuildDockerImage := cmd.BuildDockerImageFn
-	cmd.BuildDockerImageFn = func(fs afero.Fs, ctx context.Context, systemCfg *kdeps.Kdeps, dockerClient *client.Client, runDir, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *logging.Logger) (string, string, error) {
-		return "test-container", "test-container:latest", nil
+	cmd.BuildDockerImageFn = func(fs afero.Fs, ctx context.Context, kdeps *kdeps.Kdeps, cli *client.Client, runDir string, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *logging.Logger) (string, string, error) {
+		return "test-agent", "test-agent:1.0.0", nil
 	}
-	defer func() { cmd.BuildDockerImageFn = origBuildDockerImage }()
 
-	origCleanup := cmd.CleanupDockerBuildImagesFn
 	cmd.CleanupDockerBuildImagesFn = func(fs afero.Fs, ctx context.Context, agentContainerName string, dockerClient docker.DockerPruneClient) error {
 		return nil
 	}
-	defer func() { cmd.CleanupDockerBuildImagesFn = origCleanup }()
 
-	// Capture output
-	var capturedOutput string
-	origPrintln := cmd.PrintlnFn
-	cmd.PrintlnFn = func(a ...interface{}) (int, error) {
-		capturedOutput = a[0].(string) + ": " + a[1].(string)
-		return 0, nil
+	var printedMessage string
+	cmd.PrintlnFn = func(a ...interface{}) (n int, err error) {
+		// Simulate fmt.Println behavior which adds spaces between arguments
+		printedMessage = fmt.Sprintln(a...)
+		// Remove the trailing newline that Sprintln adds
+		printedMessage = strings.TrimSuffix(printedMessage, "\n")
+		return len(printedMessage), nil
 	}
-	defer func() { cmd.PrintlnFn = origPrintln }()
 
-	err := command.RunE(command, []string{"test.kdeps"})
+	// Test successful execution
+	buildCmd := cmd.NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger)
+	buildCmd.SetArgs([]string{validKdepsPath})
+	err = buildCmd.Execute()
 	assert.NoError(t, err)
-	assert.Equal(t, "Kdeps AI Agent docker image created:: test-container:latest", capturedOutput)
+	assert.Equal(t, "Kdeps AI Agent docker image created: test-agent:1.0.0", printedMessage)
+}
+
+// TestNewBuildCommand_AllErrorPaths tests all error paths to ensure 100% coverage
+func TestNewBuildCommand_AllErrorPaths(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	systemCfg := &kdeps.Kdeps{}
+	logger := logging.NewTestLogger()
+
+	// Create a valid .kdeps file
+	validKdepsPath := filepath.Join("/test", "valid-agent.kdeps")
+	err := fs.MkdirAll(filepath.Dir(validKdepsPath), 0o755)
+	assert.NoError(t, err)
+	err = afero.WriteFile(fs, validKdepsPath, []byte("valid package"), 0o644)
+	assert.NoError(t, err)
+
+	// Save original functions
+	oldExtractPackageFn := cmd.ExtractPackageFn
+	oldBuildDockerfileFn := cmd.BuildDockerfileFn
+	oldNewDockerClientFn := cmd.NewDockerClientFn
+	oldBuildDockerImageFn := cmd.BuildDockerImageFn
+	oldCleanupDockerBuildImagesFn := cmd.CleanupDockerBuildImagesFn
+
+	// Restore functions after test
+	defer func() {
+		cmd.ExtractPackageFn = oldExtractPackageFn
+		cmd.BuildDockerfileFn = oldBuildDockerfileFn
+		cmd.NewDockerClientFn = oldNewDockerClientFn
+		cmd.BuildDockerImageFn = oldBuildDockerImageFn
+		cmd.CleanupDockerBuildImagesFn = oldCleanupDockerBuildImagesFn
+	}()
+
+	t.Run("ExtractPackage error", func(t *testing.T) {
+		cmd.ExtractPackageFn = func(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPackage string, logger *logging.Logger) (*archiver.KdepsPackage, error) {
+			return nil, errors.New("extract error")
+		}
+
+		buildCmd := cmd.NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger)
+		buildCmd.SetArgs([]string{validKdepsPath})
+		err := buildCmd.Execute()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "extract error")
+	})
+
+	t.Run("BuildDockerfile error", func(t *testing.T) {
+		cmd.ExtractPackageFn = func(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPackage string, logger *logging.Logger) (*archiver.KdepsPackage, error) {
+			return &archiver.KdepsPackage{}, nil
+		}
+		cmd.BuildDockerfileFn = func(fs afero.Fs, ctx context.Context, kdeps *kdeps.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *logging.Logger) (string, bool, bool, string, string, string, string, string, error) {
+			return "", false, false, "", "", "", "", "", errors.New("dockerfile error")
+		}
+
+		buildCmd := cmd.NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger)
+		buildCmd.SetArgs([]string{validKdepsPath})
+		err := buildCmd.Execute()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "dockerfile error")
+	})
+
+	t.Run("NewDockerClient error", func(t *testing.T) {
+		cmd.ExtractPackageFn = func(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPackage string, logger *logging.Logger) (*archiver.KdepsPackage, error) {
+			return &archiver.KdepsPackage{}, nil
+		}
+		cmd.BuildDockerfileFn = func(fs afero.Fs, ctx context.Context, kdeps *kdeps.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *logging.Logger) (string, bool, bool, string, string, string, string, string, error) {
+			return "/tmp/rundir", false, false, "", "", "", "", "", nil
+		}
+		cmd.NewDockerClientFn = func() (*client.Client, error) {
+			return nil, errors.New("docker client error")
+		}
+
+		buildCmd := cmd.NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger)
+		buildCmd.SetArgs([]string{validKdepsPath})
+		err := buildCmd.Execute()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "docker client error")
+	})
+
+	t.Run("BuildDockerImage error", func(t *testing.T) {
+		cmd.ExtractPackageFn = func(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPackage string, logger *logging.Logger) (*archiver.KdepsPackage, error) {
+			return &archiver.KdepsPackage{}, nil
+		}
+		cmd.BuildDockerfileFn = func(fs afero.Fs, ctx context.Context, kdeps *kdeps.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *logging.Logger) (string, bool, bool, string, string, string, string, string, error) {
+			return "/tmp/rundir", false, false, "", "", "", "", "", nil
+		}
+		cmd.NewDockerClientFn = func() (*client.Client, error) {
+			return &client.Client{}, nil
+		}
+		cmd.BuildDockerImageFn = func(fs afero.Fs, ctx context.Context, kdeps *kdeps.Kdeps, cli *client.Client, runDir string, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *logging.Logger) (string, string, error) {
+			return "", "", errors.New("build image error")
+		}
+
+		buildCmd := cmd.NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger)
+		buildCmd.SetArgs([]string{validKdepsPath})
+		err := buildCmd.Execute()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "build image error")
+	})
+
+	t.Run("CleanupDockerBuildImages error", func(t *testing.T) {
+		cmd.ExtractPackageFn = func(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPackage string, logger *logging.Logger) (*archiver.KdepsPackage, error) {
+			return &archiver.KdepsPackage{}, nil
+		}
+		cmd.BuildDockerfileFn = func(fs afero.Fs, ctx context.Context, kdeps *kdeps.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *logging.Logger) (string, bool, bool, string, string, string, string, string, error) {
+			return "/tmp/rundir", false, false, "", "", "", "", "", nil
+		}
+		cmd.NewDockerClientFn = func() (*client.Client, error) {
+			return &client.Client{}, nil
+		}
+		cmd.BuildDockerImageFn = func(fs afero.Fs, ctx context.Context, kdeps *kdeps.Kdeps, cli *client.Client, runDir string, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *logging.Logger) (string, string, error) {
+			return "test-agent", "test-agent:1.0.0", nil
+		}
+		cmd.CleanupDockerBuildImagesFn = func(fs afero.Fs, ctx context.Context, agentContainerName string, dockerClient docker.DockerPruneClient) error {
+			return errors.New("cleanup error")
+		}
+
+		buildCmd := cmd.NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger)
+		buildCmd.SetArgs([]string{validKdepsPath})
+		err := buildCmd.Execute()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "cleanup error")
+	})
 }
