@@ -791,3 +791,44 @@ func TestBusServiceEdgeCases(t *testing.T) {
 		}
 	})
 }
+
+// TestStartBusServerSuccess tests the successful path of StartBusServer
+func TestStartBusServerSuccess(t *testing.T) {
+	logger := logging.NewTestLogger()
+
+	// Save original functions
+	originalRegister := rpcRegisterFunc
+	originalListen := netListenFunc
+	originalAccept := rpcAcceptFunc
+	defer func() {
+		rpcRegisterFunc = originalRegister
+		netListenFunc = originalListen
+		rpcAcceptFunc = originalAccept
+	}()
+
+	// Find an available port
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Failed to find available port: %v", err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	listener.Close()
+
+	// Mock the functions for success path
+	rpcRegisterFunc = func(rcvr interface{}) error {
+		return nil // Success
+	}
+	netListenFunc = func(network, address string) (net.Listener, error) {
+		return net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	}
+	rpcAcceptFunc = func(lis net.Listener) {
+		// Mock accept - just close the listener to simulate completion
+		lis.Close()
+	}
+
+	// Test the function - should complete successfully
+	err = StartBusServer(logger)
+	if err != nil {
+		t.Errorf("StartBusServer should succeed, got error: %v", err)
+	}
+}

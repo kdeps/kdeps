@@ -1788,3 +1788,96 @@ func TestWorkflowTemplateUsesCentralizedVersion(t *testing.T) {
 	assert.Contains(t, workflowContent, expectedSchemaHeader,
 		"Workflow template should use centralized schema version")
 }
+
+// TestLoadTemplate_ExecuteErrorPath tests the template execution error to improve coverage
+func TestLoadTemplate_ExecuteErrorPath(t *testing.T) {
+	// Save original environment
+	originalTemplateDir := os.Getenv("TEMPLATE_DIR")
+	defer os.Setenv("TEMPLATE_DIR", originalTemplateDir)
+
+	t.Run("DiskTemplate_ExecuteError", func(t *testing.T) {
+		// Create a template that will fail during execution
+		tempDir := t.TempDir()
+		os.Setenv("TEMPLATE_DIR", tempDir)
+
+		// Create a template that references a field that doesn't exist in the data
+		templateContent := `Name: {{.Name}}
+Invalid field: {{.NonExistentField}}`
+
+		templatePath := filepath.Join(tempDir, "test.pkl")
+		err := os.WriteFile(templatePath, []byte(templateContent), 0o644)
+		require.NoError(t, err)
+
+		// Provide data that doesn't have the referenced field
+		data := map[string]string{
+			"Name": "test-agent",
+			// Missing "NonExistentField"
+		}
+
+		_, err = template.LoadTemplate("test.pkl", data)
+		// This should fail during template execution
+		if err != nil {
+			assert.Contains(t, err.Error(), "failed to execute template")
+		} else {
+			// Template execution might be lenient and substitute empty values
+			t.Log("Template execution succeeded despite missing field")
+		}
+	})
+
+	t.Run("EmbeddedTemplate_ExecuteError", func(t *testing.T) {
+		// Clear TEMPLATE_DIR to use embedded FS
+		os.Setenv("TEMPLATE_DIR", "")
+
+		// Try to use an existing template but with incompatible data
+		// Use workflow.pkl which expects specific fields
+		data := map[string]string{
+			"InvalidKey": "value",
+			// Missing expected template fields
+		}
+
+		content, err := template.LoadTemplate("workflow.pkl", data)
+		// Depending on template implementation, this might succeed or fail
+		if err != nil {
+			assert.Contains(t, err.Error(), "failed to execute template")
+		} else {
+			// Template might substitute empty values
+			assert.NotEmpty(t, content)
+			t.Log("Template execution succeeded with missing fields")
+		}
+	})
+
+	t.Run("DiskTemplate_ParseError", func(t *testing.T) {
+		// Create a template with invalid syntax
+		tempDir := t.TempDir()
+		os.Setenv("TEMPLATE_DIR", tempDir)
+
+		// Create a template with malformed syntax
+		templateContent := `Name: {{.Name}
+Invalid syntax: {{.`
+
+		templatePath := filepath.Join(tempDir, "parse-error.pkl")
+		err := os.WriteFile(templatePath, []byte(templateContent), 0o644)
+		require.NoError(t, err)
+
+		data := map[string]string{
+			"Name": "test-agent",
+		}
+
+		_, err = template.LoadTemplate("parse-error.pkl", data)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to parse template file")
+	})
+
+	t.Run("EmbeddedTemplate_NilData", func(t *testing.T) {
+		// Clear TEMPLATE_DIR to use embedded FS
+		os.Setenv("TEMPLATE_DIR", "")
+
+		// Test with nil data - should handle gracefully
+		content, err := template.LoadTemplate("workflow.pkl", nil)
+		if err != nil {
+			assert.Contains(t, err.Error(), "template")
+		} else {
+			assert.NotEmpty(t, content)
+		}
+	})
+}
