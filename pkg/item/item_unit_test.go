@@ -1,7 +1,10 @@
 package item
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -332,24 +335,28 @@ func TestPklResourceReader_FetchValues_Unit(t *testing.T) {
 // TestPklResourceReader_GetMostRecentID_Unit tests the GetMostRecentID method
 func TestPklResourceReader_GetMostRecentID_Unit(t *testing.T) {
 	tests := []struct {
-		name       string
-		setupItems []string
-		expectID   bool // Whether we expect an ID to be returned
+		name        string
+		setupItems  []string
+		expectError bool
+		expectedID  string
 	}{
 		{
-			name:       "empty database",
-			setupItems: []string{},
-			expectID:   false,
+			name:        "empty database",
+			setupItems:  []string{},
+			expectError: false,
+			expectedID:  "",
 		},
 		{
-			name:       "database with items",
-			setupItems: []string{"item1", "item2"},
-			expectID:   true,
+			name:        "single item",
+			setupItems:  []string{"single"},
+			expectError: false,
+			expectedID:  "", // Will be generated during test
 		},
 		{
-			name:       "database with single item",
-			setupItems: []string{"single"},
-			expectID:   true,
+			name:        "multiple items",
+			setupItems:  []string{"first", "second", "third"},
+			expectError: false,
+			expectedID:  "", // Will be the most recent ID
 		},
 	}
 
@@ -366,12 +373,15 @@ func TestPklResourceReader_GetMostRecentID_Unit(t *testing.T) {
 
 			id, err := reader.GetMostRecentID()
 
-			assert.NoError(t, err)
-
-			if tt.expectID {
-				assert.NotEmpty(t, id)
+			if tt.expectError {
+				assert.Error(t, err)
 			} else {
-				assert.Empty(t, id)
+				assert.NoError(t, err)
+				if len(tt.setupItems) == 0 {
+					assert.Equal(t, "", id)
+				} else {
+					assert.NotEqual(t, "", id) // Should have some ID
+				}
 			}
 		})
 	}
@@ -451,5 +461,424 @@ func TestPklResourceReader_Read_EdgeCases_Unit(t *testing.T) {
 		result, err := emptyReader.Read(*parsedURL)
 		assert.NoError(t, err)
 		assert.Equal(t, []byte(""), result)
+	})
+}
+
+// TestPklResourceReader_ErrorCases_Unit tests various error cases
+func TestPklResourceReader_ErrorCases_Unit(t *testing.T) {
+	t.Run("FetchValues_ClosedDatabase", func(t *testing.T) {
+		db, err := InitializeDatabase(":memory:", []string{"test"})
+		require.NoError(t, err)
+
+		reader := &PklResourceReader{
+			DB:     db,
+			DBPath: ":memory:",
+		}
+
+		// Close the database to simulate an error
+		db.Close()
+
+		_, err = reader.FetchValues("test_operation")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to list records")
+	})
+
+	t.Run("Read_DatabaseReinitialization_InvalidPath", func(t *testing.T) {
+		reader := &PklResourceReader{
+			DB:     nil,
+			DBPath: "/invalid/path/database.db",
+		}
+
+		parsedURL, err := url.Parse("item:?op=current")
+		require.NoError(t, err)
+
+		_, err = reader.Read(*parsedURL)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to initialize database")
+	})
+
+	t.Run("Read_SetOperation_DatabaseInsertError", func(t *testing.T) {
+		db, err := InitializeDatabase(":memory:", nil)
+		require.NoError(t, err)
+
+		reader := &PklResourceReader{
+			DB:     db,
+			DBPath: ":memory:",
+		}
+
+		// Close the database to simulate insertion error
+		db.Close()
+
+		parsedURL, err := url.Parse("item:?op=set&value=test")
+		require.NoError(t, err)
+
+		_, err = reader.Read(*parsedURL)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to start transaction")
+	})
+
+	t.Run("Read_CurrentOperation_QueryError", func(t *testing.T) {
+		db, err := InitializeDatabase(":memory:", []string{"test"})
+		require.NoError(t, err)
+
+		reader := &PklResourceReader{
+			DB:     db,
+			DBPath: ":memory:",
+		}
+
+		// Close the database to simulate query error
+		db.Close()
+
+		parsedURL, err := url.Parse("item:?op=current")
+		require.NoError(t, err)
+
+		_, err = reader.Read(*parsedURL)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to get most recent ID")
+	})
+
+	t.Run("Read_ListOperation_QueryError", func(t *testing.T) {
+		db, err := InitializeDatabase(":memory:", []string{"test"})
+		require.NoError(t, err)
+
+		reader := &PklResourceReader{
+			DB:     db,
+			DBPath: ":memory:",
+		}
+
+		// Close the database to simulate query error
+		db.Close()
+
+		parsedURL, err := url.Parse("item:?op=list")
+		require.NoError(t, err)
+
+		_, err = reader.Read(*parsedURL)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to list records")
+	})
+
+	t.Run("Read_ValuesOperation_QueryError", func(t *testing.T) {
+		db, err := InitializeDatabase(":memory:", []string{"test"})
+		require.NoError(t, err)
+
+		reader := &PklResourceReader{
+			DB:     db,
+			DBPath: ":memory:",
+		}
+
+		// Close the database to simulate query error
+		db.Close()
+
+		parsedURL, err := url.Parse("item:?op=values")
+		require.NoError(t, err)
+
+		_, err = reader.Read(*parsedURL)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to list records")
+	})
+
+	t.Run("Read_PrevOperation_QueryError", func(t *testing.T) {
+		db, err := InitializeDatabase(":memory:", []string{"test"})
+		require.NoError(t, err)
+
+		reader := &PklResourceReader{
+			DB:     db,
+			DBPath: ":memory:",
+		}
+
+		// Close the database to simulate query error
+		db.Close()
+
+		parsedURL, err := url.Parse("item:?op=prev")
+		require.NoError(t, err)
+
+		_, err = reader.Read(*parsedURL)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to get most recent ID")
+	})
+
+	t.Run("GetMostRecentID_QueryError", func(t *testing.T) {
+		db, err := InitializeDatabase(":memory:", []string{"test"})
+		require.NoError(t, err)
+
+		reader := &PklResourceReader{
+			DB:     db,
+			DBPath: ":memory:",
+		}
+
+		// Close the database to simulate query error
+		db.Close()
+
+		_, err = reader.GetMostRecentID()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to get most recent ID")
+	})
+}
+
+// TestInitializeDatabase_TransactionErrors_Unit tests transaction-related error paths
+func TestInitializeDatabase_TransactionErrors_Unit(t *testing.T) {
+	t.Run("EmptyItemsArray", func(t *testing.T) {
+		// Test with empty items array (should succeed without creating transaction)
+		db, err := InitializeDatabase(":memory:", []string{})
+		assert.NoError(t, err)
+		assert.NotNil(t, db)
+		defer db.Close()
+
+		// Verify no items in database
+		var count int
+		err = db.QueryRow("SELECT COUNT(*) FROM items").Scan(&count)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, count)
+	})
+
+	t.Run("NilItemsArray", func(t *testing.T) {
+		// Test with nil items array (should succeed without creating transaction)
+		db, err := InitializeDatabase(":memory:", nil)
+		assert.NoError(t, err)
+		assert.NotNil(t, db)
+		defer db.Close()
+
+		// Verify no items in database
+		var count int
+		err = db.QueryRow("SELECT COUNT(*) FROM items").Scan(&count)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, count)
+	})
+
+	t.Run("LargeItemsArray", func(t *testing.T) {
+		// Test with a large number of items to ensure transaction handling works
+		items := make([]string, 1000)
+		for i := 0; i < 1000; i++ {
+			items[i] = fmt.Sprintf("item_%d", i)
+		}
+
+		db, err := InitializeDatabase(":memory:", items)
+		assert.NoError(t, err)
+		assert.NotNil(t, db)
+		defer db.Close()
+
+		// Verify all items were inserted
+		var count int
+		err = db.QueryRow("SELECT COUNT(*) FROM items").Scan(&count)
+		assert.NoError(t, err)
+		assert.Equal(t, 1000, count)
+	})
+
+	t.Run("ItemsWithSpecialCharacters", func(t *testing.T) {
+		// Test with items containing special characters
+		items := []string{
+			"item with spaces",
+			"item'with'quotes",
+			`item"with"double"quotes`,
+			"item\nwith\nnewlines",
+			"item\twith\ttabs",
+			"item;with;semicolons",
+			"item--with--dashes",
+			"item/*with*/comments",
+		}
+
+		db, err := InitializeDatabase(":memory:", items)
+		assert.NoError(t, err)
+		assert.NotNil(t, db)
+		defer db.Close()
+
+		// Verify all items were inserted
+		var count int
+		err = db.QueryRow("SELECT COUNT(*) FROM items").Scan(&count)
+		assert.NoError(t, err)
+		assert.Equal(t, len(items), count)
+
+		// Verify content integrity
+		rows, err := db.Query("SELECT value FROM items ORDER BY id")
+		assert.NoError(t, err)
+		defer rows.Close()
+
+		var retrievedItems []string
+		for rows.Next() {
+			var value string
+			err = rows.Scan(&value)
+			assert.NoError(t, err)
+			retrievedItems = append(retrievedItems, value)
+		}
+
+		assert.Equal(t, items, retrievedItems)
+	})
+}
+
+// TestRead_EdgeCases_Unit tests edge cases in Read operations
+func TestRead_EdgeCases_Unit(t *testing.T) {
+	t.Run("SetOperation_EmptyValue", func(t *testing.T) {
+		db, err := InitializeDatabase(":memory:", nil)
+		require.NoError(t, err)
+		defer db.Close()
+
+		reader := &PklResourceReader{
+			DB:     db,
+			DBPath: ":memory:",
+		}
+
+		parsedURL, err := url.Parse("item:?op=set&value=")
+		require.NoError(t, err)
+
+		_, err = reader.Read(*parsedURL)
+		// This should fail because empty value is not allowed
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "set operation requires a value parameter")
+	})
+
+	t.Run("SetOperation_LongValue", func(t *testing.T) {
+		db, err := InitializeDatabase(":memory:", nil)
+		require.NoError(t, err)
+		defer db.Close()
+
+		reader := &PklResourceReader{
+			DB:     db,
+			DBPath: ":memory:",
+		}
+
+		// Create a very long value
+		longValue := strings.Repeat("a", 10000)
+		parsedURL, err := url.Parse("item:?op=set&value=" + url.QueryEscape(longValue))
+		require.NoError(t, err)
+
+		result, err := reader.Read(*parsedURL)
+		assert.NoError(t, err)
+		assert.Equal(t, []byte(longValue), result)
+	})
+
+	t.Run("SetOperation_SpecialCharacters", func(t *testing.T) {
+		db, err := InitializeDatabase(":memory:", nil)
+		require.NoError(t, err)
+		defer db.Close()
+
+		reader := &PklResourceReader{
+			DB:     db,
+			DBPath: ":memory:",
+		}
+
+		specialValue := "value with spaces & special chars: !@#$%^&*()+=[]{}|;:,.<>?"
+		parsedURL, err := url.Parse("item:?op=set&value=" + url.QueryEscape(specialValue))
+		require.NoError(t, err)
+
+		result, err := reader.Read(*parsedURL)
+		assert.NoError(t, err)
+		assert.Equal(t, []byte(specialValue), result)
+	})
+
+	t.Run("NextOperation_WithMultipleRecords", func(t *testing.T) {
+		// Test next operation behavior with specific record ordering
+		db, err := InitializeDatabase(":memory:", []string{"first", "second", "third"})
+		require.NoError(t, err)
+		defer db.Close()
+
+		reader := &PklResourceReader{
+			DB:     db,
+			DBPath: ":memory:",
+		}
+
+		// Get the most recent ID first
+		mostRecentID, err := reader.GetMostRecentID()
+		require.NoError(t, err)
+		require.NotEmpty(t, mostRecentID)
+
+		// Try next operation - should return empty since most recent is the last
+		parsedURL, err := url.Parse("item:?op=next")
+		require.NoError(t, err)
+
+		result, err := reader.Read(*parsedURL)
+		assert.NoError(t, err)
+		assert.Equal(t, []byte(""), result)
+	})
+
+	t.Run("PrevOperation_WithMultipleRecords", func(t *testing.T) {
+		// Test prev operation behavior with specific record ordering
+		db, err := InitializeDatabase(":memory:", []string{"first", "second", "third"})
+		require.NoError(t, err)
+		defer db.Close()
+
+		reader := &PklResourceReader{
+			DB:     db,
+			DBPath: ":memory:",
+		}
+
+		// Try prev operation - should return second to last record
+		parsedURL, err := url.Parse("item:?op=prev")
+		require.NoError(t, err)
+
+		result, err := reader.Read(*parsedURL)
+		assert.NoError(t, err)
+		// Should return second to last value
+		assert.Contains(t, string(result), "second")
+	})
+}
+
+// TestFetchValues_DetailedEdgeCases_Unit tests detailed edge cases for FetchValues
+func TestFetchValues_DetailedEdgeCases_Unit(t *testing.T) {
+	t.Run("FetchValues_EmptyStringValues", func(t *testing.T) {
+		db, err := InitializeDatabase(":memory:", []string{"", "nonempty", ""})
+		require.NoError(t, err)
+		defer db.Close()
+
+		reader := &PklResourceReader{
+			DB:     db,
+			DBPath: ":memory:",
+		}
+
+		result, err := reader.FetchValues("test_operation")
+		assert.NoError(t, err)
+
+		// Should include empty string as a unique value
+		assert.Contains(t, string(result), `""`)
+		assert.Contains(t, string(result), `"nonempty"`)
+	})
+
+	t.Run("FetchValues_UnicodeValues", func(t *testing.T) {
+		unicodeItems := []string{"hello", "世界", "🌍", "café", "naïve"}
+		db, err := InitializeDatabase(":memory:", unicodeItems)
+		require.NoError(t, err)
+		defer db.Close()
+
+		reader := &PklResourceReader{
+			DB:     db,
+			DBPath: ":memory:",
+		}
+
+		result, err := reader.FetchValues("test_unicode")
+		assert.NoError(t, err)
+
+		// Verify all unicode strings are preserved
+		resultStr := string(result)
+		assert.Contains(t, resultStr, "世界")
+		assert.Contains(t, resultStr, "🌍")
+		assert.Contains(t, resultStr, "café")
+		assert.Contains(t, resultStr, "naïve")
+	})
+
+	t.Run("FetchValues_JSONSpecialCharacters", func(t *testing.T) {
+		// Items that need JSON escaping
+		specialItems := []string{
+			`item"with"quotes`,
+			"item\nwith\nnewlines",
+			"item\twith\ttabs",
+			"item\\with\\backslashes",
+			"item/with/slashes",
+		}
+		db, err := InitializeDatabase(":memory:", specialItems)
+		require.NoError(t, err)
+		defer db.Close()
+
+		reader := &PklResourceReader{
+			DB:     db,
+			DBPath: ":memory:",
+		}
+
+		result, err := reader.FetchValues("test_json_special")
+		assert.NoError(t, err)
+
+		// Verify result is valid JSON
+		var parsedResult []string
+		err = json.Unmarshal(result, &parsedResult)
+		assert.NoError(t, err)
+		assert.Equal(t, len(specialItems), len(parsedResult))
 	})
 }

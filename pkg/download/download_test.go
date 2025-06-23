@@ -754,15 +754,17 @@ func TestDownloadFile_ContextCancelled(t *testing.T) {
 	logger := logging.NewTestLogger()
 	ctx, cancel := context.WithCancel(context.Background())
 
+	// Cancel context immediately before making the request
+	cancel()
+
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Cancel context during request
-		cancel()
 		_, _ = w.Write([]byte("content"))
 	}))
 	defer srv.Close()
 
 	err := DownloadFile(fs, ctx, srv.URL, "/test.txt", logger, false)
 	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "context canceled")
 }
 
 // TestDownloadFile_EmptyFilePath tests the empty file path validation
@@ -782,9 +784,11 @@ func TestDownloadFile_EmptyFilePath(t *testing.T) {
 func TestDownloadFile_HTTPClientError(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
-	ctx := context.Background()
+	// Use a timeout context to prevent hanging
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	// Use a URL that will cause http.Client.Do() to fail
+	// Use a URL that will cause http.Client.Do() to fail quickly
 	// This simulates network connectivity issues
 	invalidURL := "http://192.0.2.0:1234/nonexistent" // RFC5737 documentation IP
 	dest := "/tmp/file.txt"
