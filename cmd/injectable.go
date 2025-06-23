@@ -30,6 +30,8 @@ var (
 
 	// Template functions
 	GenerateSpecificAgentFileFn = template.GenerateSpecificAgentFile
+	GenerateWorkflowFileFn      = template.GenerateWorkflowFile
+	GenerateResourceFilesFn     = template.GenerateResourceFiles
 
 	// String and file operations
 	JoinFn     = strings.Join

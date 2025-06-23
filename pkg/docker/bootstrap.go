@@ -14,6 +14,20 @@ import (
 	"github.com/spf13/afero"
 )
 
+// Injectable functions for testability
+var (
+	ParseOLLAMAHostFn       = ParseOLLAMAHost
+	StartAndWaitForOllamaFn = StartAndWaitForOllama
+	PullModelsFn            = PullModels
+	StartAPIServerFn        = StartAPIServer
+	StartWebServerFn        = StartWebServer
+	StartOllamaServerFn     = StartOllamaServer
+	WaitForServerFn         = WaitForServer
+	KdepsExecFn             = kdx.KdepsExec
+	StartAPIServerModeFn    = StartAPIServerMode
+	StartWebServerModeFn    = StartWebServerMode
+)
+
 func BootstrapDockerSystem(ctx context.Context, dr *resolver.DependencyResolver) (bool, error) {
 	if dr.Logger == nil {
 		return false, errors.New("Bootstrapping Docker system failed")
@@ -43,17 +57,17 @@ func SetupDockerEnvironment(ctx context.Context, dr *resolver.DependencyResolver
 		return false, fmt.Errorf("failed to prepare workflow directory: %w", err)
 	}
 
-	host, port, err := ParseOLLAMAHost(dr.Logger)
+	host, port, err := ParseOLLAMAHostFn(dr.Logger)
 	if err != nil {
 		return false, fmt.Errorf("failed to parse OLLAMA host: %w", err)
 	}
 
-	if err := StartAndWaitForOllama(ctx, host, port, dr.Logger); err != nil {
+	if err := StartAndWaitForOllamaFn(ctx, host, port, dr.Logger); err != nil {
 		return false, fmt.Errorf("OLLAMA service startup failed: %w", err)
 	}
 
 	wfSettings := dr.Workflow.GetSettings()
-	if err := PullModels(ctx, wfSettings.AgentSettings.Models, dr.Logger); err != nil {
+	if err := PullModelsFn(ctx, wfSettings.AgentSettings.Models, dr.Logger); err != nil {
 		return wfSettings.APIServerMode || wfSettings.WebServerMode, fmt.Errorf("failed to pull models: %w", err)
 	}
 
@@ -68,7 +82,7 @@ func SetupDockerEnvironment(ctx context.Context, dr *resolver.DependencyResolver
 	if wfSettings.APIServerMode {
 		go func() {
 			dr.Logger.Info("starting API server")
-			errChan <- StartAPIServer(ctx, dr)
+			errChan <- StartAPIServerFn(ctx, dr)
 		}()
 	}
 
@@ -76,7 +90,7 @@ func SetupDockerEnvironment(ctx context.Context, dr *resolver.DependencyResolver
 	if wfSettings.WebServerMode {
 		go func() {
 			dr.Logger.Info("starting Web server")
-			errChan <- StartWebServer(ctx, dr)
+			errChan <- StartWebServerFn(ctx, dr)
 		}()
 	}
 
@@ -91,8 +105,8 @@ func SetupDockerEnvironment(ctx context.Context, dr *resolver.DependencyResolver
 }
 
 func StartAndWaitForOllama(ctx context.Context, host, port string, logger *logging.Logger) error {
-	go StartOllamaServer(ctx, logger)
-	return WaitForServer(host, port, 60*time.Second, logger)
+	go StartOllamaServerFn(ctx, logger)
+	return WaitForServerFn(host, port, 60*time.Second, logger)
 }
 
 func PullModels(ctx context.Context, models []string, logger *logging.Logger) error {
@@ -100,7 +114,7 @@ func PullModels(ctx context.Context, models []string, logger *logging.Logger) er
 		model = strings.TrimSpace(model)
 		logger.Debug("pulling model", "model", model)
 
-		stdout, stderr, exitCode, err := kdx.KdepsExec(
+		stdout, stderr, exitCode, err := KdepsExecFn(
 			ctx,
 			"ollama",
 			[]string{"pull", model},
@@ -120,7 +134,7 @@ func PullModels(ctx context.Context, models []string, logger *logging.Logger) er
 func StartAPIServer(ctx context.Context, dr *resolver.DependencyResolver) error {
 	errChan := make(chan error, 1)
 	go func() {
-		errChan <- StartAPIServerMode(ctx, dr)
+		errChan <- StartAPIServerModeFn(ctx, dr)
 	}()
 
 	return <-errChan
@@ -129,7 +143,7 @@ func StartAPIServer(ctx context.Context, dr *resolver.DependencyResolver) error 
 func StartWebServer(ctx context.Context, dr *resolver.DependencyResolver) error {
 	errChan := make(chan error, 1)
 	go func() {
-		errChan <- StartWebServerMode(ctx, dr)
+		errChan <- StartWebServerModeFn(ctx, dr)
 	}()
 
 	return <-errChan
