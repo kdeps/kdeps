@@ -358,3 +358,67 @@ func TestGetResourceTimestamp_EdgeCases(t *testing.T) {
 		t.Errorf("unexpected error message: %v", err)
 	}
 }
+
+// TestGetCurrentTimestamp_FocusedCoverage ensures GetCurrentTimestamp gets coverage
+func TestGetCurrentTimestamp_FocusedCoverage(t *testing.T) {
+	dr := &resolver.DependencyResolver{
+		ActionDir: "/test/actions",
+		RequestID: "test-req",
+		Context:   context.Background(),
+		Logger:    logging.NewTestLogger(),
+	}
+
+	// Test 1: Invalid resource type to trigger GetResourceFilePath error
+	_, err := dr.GetCurrentTimestamp("resource-id", "invalid")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid resourceType")
+
+	// Test 2: Valid resource types to trigger loadPKLFile error
+	validTypes := []string{"llm", "client", "exec", "python"}
+	for _, resourceType := range validTypes {
+		_, err := dr.GetCurrentTimestamp("resource-id", resourceType)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to load")
+	}
+}
+
+// TestProcessResourceStep_GetCurrentTimestamp tests GetCurrentTimestamp through ProcessResourceStep
+func TestProcessResourceStep_GetCurrentTimestamp(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	dr := &resolver.DependencyResolver{
+		Fs:        fs,
+		Logger:    logger,
+		Context:   ctx,
+		ActionDir: "/test/actions",
+		RequestID: "test-req",
+	}
+
+	// Initialize injectable functions to point to actual methods (like NewGraphResolver does)
+	dr.GetCurrentTimestampFn = dr.GetCurrentTimestamp
+	dr.WaitForTimestampChangeFn = dr.WaitForTimestampChange
+
+	t.Run("ProcessResourceStep_InvalidResourceType", func(t *testing.T) {
+		// This will call GetCurrentTimestampFn which points to GetCurrentTimestamp method
+		err := dr.ProcessResourceStep("test-resource", "invalid-type", nil, func() error {
+			return nil
+		})
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid-type error")
+		assert.Contains(t, err.Error(), "invalid resourceType")
+	})
+
+	t.Run("ProcessResourceStep_ValidResourceType", func(t *testing.T) {
+		// This will call GetCurrentTimestampFn which points to GetCurrentTimestamp method
+		err := dr.ProcessResourceStep("test-resource", "llm", nil, func() error {
+			return nil
+		})
+
+		assert.Error(t, err) // Expected to fail since no PKL file exists
+		assert.Contains(t, err.Error(), "llm error")
+		assert.Contains(t, err.Error(), "failed to load")
+	})
+}

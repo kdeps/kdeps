@@ -609,3 +609,46 @@ func (m *mockFileInfo) Mode() os.FileMode  { return m.mode }
 func (m *mockFileInfo) ModTime() time.Time { return m.mtime }
 func (m *mockFileInfo) IsDir() bool        { return m.isDir }
 func (m *mockFileInfo) Sys() interface{}   { return nil }
+
+// TestPopulateDataFileRegistry_WalkFuncCompleteFailure tests the scenario where WalkFunc itself fails entirely
+func TestPopulateDataFileRegistry_WalkFuncCompleteFailure(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	_ = fs.MkdirAll("/base/agent1/v1", 0o755)
+	_ = afero.WriteFile(fs, "/base/agent1/v1/file.txt", []byte("data"), 0o644)
+
+	// Save original WalkFunc
+	originalWalkFunc := data.WalkFunc
+	defer func() { data.WalkFunc = originalWalkFunc }()
+
+	// Replace WalkFunc with one that always returns an error
+	data.WalkFunc = func(fs afero.Fs, root string, walkFn filepath.WalkFunc) error {
+		return errors.New("walk function completely failed")
+	}
+
+	reg, err := data.PopulateDataFileRegistry(fs, "/base")
+	assert.NoError(t, err) // Should not return error even when walk fails
+	assert.NotNil(t, reg)
+	assert.Empty(t, *reg) // Should return empty registry when walk fails entirely
+}
+
+// TestPopulateDataFileRegistry_FilepathRelCompleteFailure tests the scenario where FilepathRelFunc always fails
+func TestPopulateDataFileRegistry_FilepathRelCompleteFailure(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	_ = fs.MkdirAll("/base/agent1/v1", 0o755)
+	_ = afero.WriteFile(fs, "/base/agent1/v1/file.txt", []byte("data"), 0o644)
+
+	// Save original FilepathRelFunc
+	originalFilepathRelFunc := data.FilepathRelFunc
+	defer func() { data.FilepathRelFunc = originalFilepathRelFunc }()
+
+	// Replace FilepathRelFunc with one that always returns an error
+	data.FilepathRelFunc = func(basepath, targpath string) (string, error) {
+		return "", errors.New("filepath.Rel failed")
+	}
+
+	reg, err := data.PopulateDataFileRegistry(fs, "/base")
+	assert.NoError(t, err)
+	assert.NotNil(t, reg)
+	// Files should be skipped due to filepath.Rel errors, but registry should exist
+	assert.Empty(t, *reg)
+}

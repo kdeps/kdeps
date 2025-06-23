@@ -1,6 +1,7 @@
 package archiver_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/schema/gen/project"
 	pklProject "github.com/kdeps/schema/gen/project"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -1005,4 +1007,101 @@ run = null`
 	compiledDir, err := archiver.CompileWorkflow(fs, ctx, wf, dir, dir, logger)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, compiledDir)
+}
+
+// testStubWf implements the workflow interface for testing HandleRequiresSection
+type testStubWf struct{}
+
+func (testStubWf) GetName() string                { return "test-agent" }
+func (testStubWf) GetVersion() string             { return "1.0.0" }
+func (testStubWf) GetDescription() string         { return "" }
+func (testStubWf) GetWebsite() *string            { return nil }
+func (testStubWf) GetAuthors() *[]string          { return nil }
+func (testStubWf) GetDocumentation() *string      { return nil }
+func (testStubWf) GetRepository() *string         { return nil }
+func (testStubWf) GetHeroImage() *string          { return nil }
+func (testStubWf) GetAgentIcon() *string          { return nil }
+func (testStubWf) GetTargetActionID() string      { return "" }
+func (testStubWf) GetWorkflows() []string         { return nil }
+func (testStubWf) GetSettings() *project.Settings { return nil }
+
+// TestHandleRequiresSection tests the HandleRequiresSection function directly
+func TestHandleRequiresSection(t *testing.T) {
+	mockWf := testStubWf{}
+
+	t.Run("RequiresBlockSkipWhenBufferNotEmpty", func(t *testing.T) {
+		// Test the skip logic when requiresBuf already has content
+		line := "requires {"
+		inBlock := false
+		requiresBuf := &bytes.Buffer{}
+		fileBuf := &bytes.Buffer{}
+
+		// Add some content to requiresBuf to simulate existing content
+		requiresBuf.WriteString("previous content\n")
+
+		// This should trigger the skip logic (lines 151-153)
+		result := archiver.HandleRequiresSection(&line, &inBlock, mockWf, requiresBuf, fileBuf)
+
+		assert.True(t, result, "Should return true when skipping duplicate requires block")
+		assert.False(t, inBlock, "Should not set inBlock to true when skipping")
+		assert.Contains(t, requiresBuf.String(), "previous content", "Should preserve existing buffer content")
+	})
+
+	t.Run("RequiresBlockStart", func(t *testing.T) {
+		// Test normal requires block start
+		line := "requires {"
+		inBlock := false
+		requiresBuf := &bytes.Buffer{}
+		fileBuf := &bytes.Buffer{}
+
+		result := archiver.HandleRequiresSection(&line, &inBlock, mockWf, requiresBuf, fileBuf)
+
+		assert.True(t, result, "Should return true when starting requires block")
+		assert.True(t, inBlock, "Should set inBlock to true")
+		assert.Contains(t, requiresBuf.String(), "requires {", "Should add requires line to buffer")
+	})
+
+	t.Run("RequiresBlockEnd", func(t *testing.T) {
+		// Test requires block end
+		line := "}"
+		inBlock := true
+		requiresBuf := &bytes.Buffer{}
+		fileBuf := &bytes.Buffer{}
+
+		// Add some content to requires buffer
+		requiresBuf.WriteString("requires {\n  some content\n")
+
+		result := archiver.HandleRequiresSection(&line, &inBlock, mockWf, requiresBuf, fileBuf)
+
+		assert.True(t, result, "Should return true when ending requires block")
+		assert.False(t, inBlock, "Should set inBlock to false")
+		assert.Contains(t, fileBuf.String(), "}", "Should add closing brace to file buffer")
+	})
+
+	t.Run("RequiresBlockContent", func(t *testing.T) {
+		// Test content within requires block
+		line := "  some requires content"
+		inBlock := true
+		requiresBuf := &bytes.Buffer{}
+		fileBuf := &bytes.Buffer{}
+
+		result := archiver.HandleRequiresSection(&line, &inBlock, mockWf, requiresBuf, fileBuf)
+
+		assert.True(t, result, "Should return true when processing requires content")
+		assert.True(t, inBlock, "Should remain in requires block")
+		assert.Contains(t, requiresBuf.String(), "some requires content", "Should add content to requires buffer")
+	})
+
+	t.Run("NonRequiresLine", func(t *testing.T) {
+		// Test non-requires line
+		line := "someOtherLine = \"value\""
+		inBlock := false
+		requiresBuf := &bytes.Buffer{}
+		fileBuf := &bytes.Buffer{}
+
+		result := archiver.HandleRequiresSection(&line, &inBlock, mockWf, requiresBuf, fileBuf)
+
+		assert.False(t, result, "Should return false for non-requires lines")
+		assert.False(t, inBlock, "Should not change inBlock state")
+	})
 }

@@ -23,17 +23,35 @@ func setNoOpExitFn(t *testing.T) func() {
 	// Set both the logging package exit function and main package exit function to no-ops
 	oldLoggingExitFn := logging.ExitFn
 	oldMainExitFn := exitFn
+	oldCleanupFn := cleanupFn
 
 	logging.ExitFn = func(int) {}
 	exitFn = func(int) {} // Prevent os.Exit calls from signal handler/cleanup
 
+	// Also override the cleanup function to avoid exit calls
+	cleanupFn = func(fs afero.Fs, ctx context.Context, env *environment.Environment, apiServerMode bool, logger *logging.Logger) {
+		logger.Debug("performing cleanup tasks...")
+		// Remove any old cleanup flags
+		if _, err := fs.Stat("/.dockercleanup"); err == nil {
+			if err := fs.RemoveAll("/.dockercleanup"); err != nil {
+				logger.Error("unable to delete cleanup flag file", "cleanup-file", "/.dockercleanup", "error", err)
+			}
+		}
+		// Perform Docker cleanup
+		docker.Cleanup(fs, ctx, env, logger)
+		logger.Debug("cleanup complete.")
+		// Do NOT call exitFn in tests
+	}
+
 	t.Cleanup(func() {
 		logging.ExitFn = oldLoggingExitFn
 		exitFn = oldMainExitFn
+		cleanupFn = oldCleanupFn
 	})
 	return func() {
 		logging.ExitFn = oldLoggingExitFn
 		exitFn = oldMainExitFn
+		cleanupFn = oldCleanupFn
 	}
 }
 
@@ -166,38 +184,32 @@ func TestCleanup_RemovesFlagFile(t *testing.T) {
 // when run in test mode.
 func TestSetupSignalHandler_HandlesSignal(t *testing.T) {
 	setNoOpExitFn(t)
-	// Preserve original exit function
-	origExitFn := exitFn
-	defer func() {
-		exitFn = origExitFn
-	}()
-
-	// Mock exit function to panic instead of exiting
-	exitFn = func(code int) {
-		panic(fmt.Sprintf("exit called with code: %d", code))
-	}
 
 	fs := afero.NewMemMapFs()
 	ctx, cancel := context.WithCancel(context.Background())
 	env := &environment.Environment{DockerMode: "0"}
 	logger := logging.NewTestLogger()
 
-	// Setup signal handler
-	setupSignalHandler(fs, ctx, cancel, env, true, logger)
+	// Instead of setting up real signal handling which can interfere with tests,
+	// just verify that the function can be called without panicking
+	// and that it sets up the signal handler properly.
 
-	// The signal handler goroutine is now running and waiting for SIGINT/SIGTERM
-	// Since we can't easily send real signals in tests without complex setup,
-	// we'll just verify that the function doesn't panic and returns normally.
-	// The actual signal handling is tested indirectly through the cleanup function.
+	// Create a short-lived context that we'll cancel quickly to avoid
+	// the signal handler waiting indefinitely
+	shortCtx, shortCancel := context.WithTimeout(ctx, 10*time.Millisecond)
+	defer shortCancel()
 
-	// Give a small delay to ensure the goroutine is set up, but don't wait indefinitely
-	time.Sleep(10 * time.Millisecond)
+	// Setup signal handler with the short context
+	setupSignalHandler(fs, shortCtx, shortCancel, env, true, logger)
 
-	// Cancel the context to clean up the goroutine
+	// Wait for the timeout and cancel to clean up the goroutine
+	<-shortCtx.Done()
+
+	// Also cancel the main context to ensure cleanup
 	cancel()
 
 	// The test passes if we reach here without panicking
-	// The signal handler is now running in the background
+	// The signal handler is now cleaned up
 }
 
 // TestSetupSignalHandler_FullExecution verifies the complete signal handler

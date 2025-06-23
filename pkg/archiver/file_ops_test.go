@@ -2,7 +2,9 @@ package archiver_test
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	. "github.com/kdeps/kdeps/pkg/archiver"
@@ -997,4 +999,59 @@ func TestCopyDir_Success(t *testing.T) {
 	assert.True(t, exists)
 	exists, _ = afero.Exists(fs, destSubFilePath)
 	assert.True(t, exists)
+}
+
+// TestPerformCopy_IOCopyError tests the io.Copy error path in PerformCopy
+func TestPerformCopy_IOCopyError(t *testing.T) {
+	fs := afero.NewMemMapFs()
+
+	// Create source file with content
+	src := "/src.txt"
+	if err := afero.WriteFile(fs, src, []byte("test content"), 0644); err != nil {
+		t.Fatalf("failed to create source file: %v", err)
+	}
+
+	// Create a destination file that will cause io.Copy to fail
+	// by creating a file that can't be written to (simulate disk full, etc.)
+	dst := "/dst.txt"
+
+	// Create a mock filesystem that will fail on io.Copy operations
+	mockFS := &mockFailingFS{
+		Fs:          fs,
+		failOnWrite: true,
+	}
+
+	err := archiver.PerformCopy(mockFS, src, dst)
+	if err == nil {
+		t.Fatal("expected error from PerformCopy with failing io.Copy, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to copy file contents") {
+		t.Fatalf("expected 'failed to copy file contents' error, got: %v", err)
+	}
+}
+
+// mockFailingFS is a mock filesystem that can simulate write failures
+type mockFailingFS struct {
+	afero.Fs
+	failOnWrite bool
+}
+
+func (m *mockFailingFS) Create(name string) (afero.File, error) {
+	if m.failOnWrite {
+		return &mockFailingFile{}, nil
+	}
+	return m.Fs.Create(name)
+}
+
+// mockFailingFile simulates a file that fails on write operations
+type mockFailingFile struct {
+	afero.File
+}
+
+func (m *mockFailingFile) Write(p []byte) (n int, err error) {
+	return 0, fmt.Errorf("simulated write failure")
+}
+
+func (m *mockFailingFile) Close() error {
+	return nil
 }

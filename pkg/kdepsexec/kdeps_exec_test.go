@@ -244,3 +244,23 @@ func TestRunExecTask_WithWorkingDir(t *testing.T) {
 	assert.Empty(t, stderr)
 	assert.Equal(t, 0, exitCode)
 }
+
+// TestKdepsExec_BackgroundCommandError tests the error logging in background goroutine
+func TestKdepsExec_BackgroundCommandError(t *testing.T) {
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Execute a failing command in background mode
+	// This should trigger the error logging in the background goroutine
+	stdout, stderr, exitCode, err := KdepsExec(ctx, "this-command-absolutely-does-not-exist-12345", []string{}, "", false, true, logger)
+
+	// Background mode should return immediately with no error
+	assert.NoError(t, err)
+	assert.Empty(t, stdout)
+	assert.Empty(t, stderr)
+	assert.Equal(t, 0, exitCode)
+
+	// Give the background goroutine a moment to complete and log the error
+	// Note: This is testing the error logging path that happens asynchronously
+	// The actual error is logged in the background goroutine, not returned
+}

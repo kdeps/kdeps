@@ -413,3 +413,14 @@ func TestCreateDockerContainer_ErrorBranches(t *testing.T) {
 		assert.Contains(t, err.Error(), "start error")
 	})
 }
+
+// TestGenerateDockerCompose_WriteFileError tests the WriteFile error path
+func TestGenerateDockerCompose_WriteFileError(t *testing.T) {
+	// Use a read-only filesystem to trigger WriteFile error
+	fs := afero.NewReadOnlyFs(afero.NewMemMapFs())
+
+	err := GenerateDockerCompose(fs, "test", "image", "test-cpu", "127.0.0.1", "8080", "", "", true, false, "cpu")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "error writing Docker Compose file")
+}

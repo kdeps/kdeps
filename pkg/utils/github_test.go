@@ -461,3 +461,84 @@ func TestGetLatestGitHubRelease_Errors_Alt(t *testing.T) {
 		ts.Close()
 	}
 }
+
+// TestGetLatestGitHubRelease_NewRequestError tests error path when http.NewRequestWithContext fails
+func TestGetLatestGitHubRelease_NewRequestError(t *testing.T) {
+	// Create a context that's already cancelled to potentially trigger NewRequestWithContext error
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	// Try with an invalid URL that might cause NewRequestWithContext to fail
+	_, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", "://invalid-url")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to create request")
+}
+
+// TestGetLatestGitHubRelease_JSONUnmarshalError tests error path when json.Unmarshal fails
+func TestGetLatestGitHubRelease_JSONUnmarshalError(t *testing.T) {
+	// Create a server that returns invalid JSON
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		// Return malformed JSON that will fail unmarshaling
+		fmt.Fprintln(w, `{"tag_name": 123, "invalid": }`) // Invalid JSON syntax
+	}))
+	defer server.Close()
+
+	_, err := utilspkg.GetLatestGitHubRelease(context.Background(), "owner/repo", server.URL)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to parse JSON response")
+}
+
+// TestGetLatestGitHubRelease_InvalidJSONStructure tests case where JSON is valid but doesn't match expected structure
+func TestGetLatestGitHubRelease_InvalidJSONStructure(t *testing.T) {
+	// Create a server that returns valid JSON but wrong structure
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		// Return JSON without the expected "tag_name" field
+		fmt.Fprintln(w, `{"release_name": "v1.2.3"}`)
+	}))
+	defer server.Close()
+
+	result, err := utilspkg.GetLatestGitHubRelease(context.Background(), "owner/repo", server.URL)
+	require.NoError(t, err)
+	// Should return empty string when tag_name is missing
+	require.Equal(t, "", result)
+}
+
+// TestGetLatestGitHubRelease_ReadAllError tests the io.ReadAll error path
+func TestGetLatestGitHubRelease_ReadAllError(t *testing.T) {
+	// Create a server that returns a response but closes the connection during read
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", "100") // Set a content length
+		w.WriteHeader(http.StatusOK)
+		// Write partial content then close abruptly to cause ReadAll to fail
+		w.Write([]byte("partial"))
+		// Force close the connection to simulate a network error during ReadAll
+		if hijacker, ok := w.(http.Hijacker); ok {
+			conn, _, _ := hijacker.Hijack()
+			conn.Close()
+		}
+	}))
+	defer server.Close()
+
+	ctx := context.Background()
+	_, err := utilspkg.GetLatestGitHubRelease(ctx, "test/repo", server.URL)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to read response body")
+}
+
+// TestGetLatestGitHubRelease_DefaultBaseURL tests the default baseURL assignment
+func TestGetLatestGitHubRelease_DefaultBaseURLAssignment(t *testing.T) {
+	ctx := context.Background()
+	
+	// Test with empty baseURL to trigger the default assignment
+	// This will attempt to call the real GitHub API but should fail quickly
+	_, err := utilspkg.GetLatestGitHubRelease(ctx, "nonexistent/repo-that-does-not-exist-12345", "")
+	
+	// We expect this to fail since we're calling the real API with a fake repo
+	require.Error(t, err)
+	// The error should indicate a real API call was made with the default baseURL
+	require.Contains(t, strings.ToLower(err.Error()), "status code")
+}
