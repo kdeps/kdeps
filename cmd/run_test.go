@@ -8,6 +8,7 @@ import (
 
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
+	versionpkg "github.com/kdeps/kdeps/pkg/version"
 	"github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -104,9 +105,9 @@ settings {
 		models {
 			"llama3.2:1b"
 		}
-		ollamaImageTag = "0.6.8"
+		ollamaImageTag = "%s"
 	}
-}`, schema.SchemaVersion(ctx))
+}`, schema.SchemaVersion(ctx), versionpkg.DefaultOllamaImageTag)
 
 	workflowPath := filepath.Join(validAgentDir, "workflow.pkl")
 	err = afero.WriteFile(fs, workflowPath, []byte(workflowContent), 0o644)

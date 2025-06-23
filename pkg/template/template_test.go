@@ -12,6 +12,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/schema"
 	template "github.com/kdeps/kdeps/pkg/template"
 	"github.com/kdeps/kdeps/pkg/texteditor"
+	versionpkg "github.com/kdeps/kdeps/pkg/version"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1299,4 +1300,185 @@ func TestGenerateSpecificAgentFile_Comprehensive(t *testing.T) {
 		require.Error(t, err)
 		// The error should be related to directory creation
 	})
+}
+
+func TestLoadDockerfileTemplate(t *testing.T) {
+	// Create test data that matches DockerfileData structure from docker package
+	type DockerfileData struct {
+		ImageVersion     string
+		SchemaVersion    string
+		HostIP           string
+		OllamaPortNum    string
+		KdepsHost        string
+		ArgsSection      string
+		EnvsSection      string
+		PkgSection       string
+		PythonPkgSection string
+		CondaPkgSection  string
+		AnacondaVersion  string
+		PklVersion       string
+		Timezone         string
+		ExposedPort      string
+		InstallAnaconda  bool
+		DevBuildMode     bool
+		ApiServerMode    bool
+		UseLatest        bool
+	}
+
+	t.Run("DockerfileTemplateWithData", func(t *testing.T) {
+		data := DockerfileData{
+			ImageVersion:     versionpkg.DefaultOllamaImageTag,
+			SchemaVersion:    versionpkg.SchemaVersion,
+			HostIP:           "127.0.0.1",
+			OllamaPortNum:    "11434",
+			KdepsHost:        "127.0.0.1:3000",
+			ArgsSection:      "ARG TEST=value",
+			EnvsSection:      "ENV CUSTOM=test",
+			PkgSection:       "RUN apt-get install -y curl",
+			PythonPkgSection: "RUN pip install numpy",
+			CondaPkgSection:  "RUN conda install pandas",
+			AnacondaVersion:  versionpkg.AnacondaVersion,
+			PklVersion:       versionpkg.PklVersion,
+			Timezone:         "UTC",
+			ExposedPort:      "3000",
+			InstallAnaconda:  true,
+			DevBuildMode:     false,
+			ApiServerMode:    true,
+			UseLatest:        false,
+		}
+
+		result, err := template.LoadDockerfileTemplate("Dockerfile", data)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, result)
+
+		// Verify key template substitutions
+		assert.Contains(t, result, "FROM ollama/ollama:"+versionpkg.DefaultOllamaImageTag)
+		assert.Contains(t, result, "ENV SCHEMA_VERSION="+versionpkg.SchemaVersion)
+		assert.Contains(t, result, "ENV OLLAMA_HOST=127.0.0.1:11434")
+		assert.Contains(t, result, "ENV KDEPS_HOST=127.0.0.1:3000")
+		assert.Contains(t, result, "ARG TEST=value")
+		assert.Contains(t, result, "ENV CUSTOM=test")
+		assert.Contains(t, result, "RUN apt-get install -y curl")
+		assert.Contains(t, result, "RUN pip install numpy")
+		assert.Contains(t, result, "RUN conda install pandas")
+		assert.Contains(t, result, "ENV TZ=UTC")
+		assert.Contains(t, result, "EXPOSE 3000")
+		assert.Contains(t, result, "ENTRYPOINT [\"/bin/kdeps\"]")
+
+		// Verify conditional sections
+		assert.Contains(t, result, "RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/refs/heads/main/install.sh") // DevBuildMode=false
+		assert.Contains(t, result, "RUN /bin/bash /tmp/anaconda.sh -b -p /opt/conda")                                         // InstallAnaconda=true
+
+		// Verify that Anaconda cache permissions ARE set when InstallAnaconda=true
+		assert.Contains(t, result, "chmod +x /cache/anaconda*") // InstallAnaconda=true
+	})
+
+	t.Run("DockerfileTemplateDevBuildMode", func(t *testing.T) {
+		data := DockerfileData{
+			ImageVersion:     versionpkg.DefaultOllamaImageTag,
+			SchemaVersion:    versionpkg.SchemaVersion,
+			HostIP:           "127.0.0.1",
+			OllamaPortNum:    "11434",
+			KdepsHost:        "127.0.0.1:3000",
+			ArgsSection:      "",
+			EnvsSection:      "",
+			PkgSection:       "",
+			PythonPkgSection: "",
+			CondaPkgSection:  "",
+			AnacondaVersion:  versionpkg.AnacondaVersion,
+			PklVersion:       versionpkg.PklVersion,
+			Timezone:         "UTC",
+			ExposedPort:      "",
+			InstallAnaconda:  false,
+			DevBuildMode:     true, // Testing dev build mode
+			ApiServerMode:    false,
+			UseLatest:        false,
+		}
+
+		result, err := template.LoadDockerfileTemplate("Dockerfile", data)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, result)
+
+		// Verify dev build mode behavior
+		assert.Contains(t, result, "RUN cp /cache/kdeps /bin/kdeps")    // DevBuildMode=true
+		assert.NotContains(t, result, "EXPOSE")                         // ApiServerMode=false
+		assert.NotContains(t, result, "RUN /bin/bash /tmp/anaconda.sh") // InstallAnaconda=false
+
+		// Verify that Anaconda cache permissions are NOT set when InstallAnaconda=false
+		assert.NotContains(t, result, "chmod +x /cache/anaconda*") // InstallAnaconda=false
+	})
+
+	t.Run("DockerfileTemplateWithoutAnaconda", func(t *testing.T) {
+		data := DockerfileData{
+			ImageVersion:     "latest",
+			SchemaVersion:    "1.0.0",
+			HostIP:           "127.0.0.1",
+			OllamaPortNum:    "11434",
+			KdepsHost:        "127.0.0.1:3000",
+			ArgsSection:      "",
+			EnvsSection:      "",
+			PkgSection:       "",
+			PythonPkgSection: "",
+			CondaPkgSection:  "",
+			AnacondaVersion:  "2024.10-1",
+			PklVersion:       "0.28.1",
+			Timezone:         "UTC",
+			ExposedPort:      "",
+			InstallAnaconda:  false, // Testing without Anaconda
+			DevBuildMode:     false,
+			ApiServerMode:    false,
+			UseLatest:        false,
+		}
+
+		result, err := template.LoadDockerfileTemplate("Dockerfile", data)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, result)
+
+		// Verify that Anaconda-related commands are NOT present
+		assert.NotContains(t, result, "chmod +x /cache/anaconda*")      // InstallAnaconda=false
+		assert.NotContains(t, result, "RUN /bin/bash /tmp/anaconda.sh") // InstallAnaconda=false
+		assert.NotContains(t, result, "/opt/conda")                     // InstallAnaconda=false
+
+		// But PKL should still be there
+		assert.Contains(t, result, "chmod +x /cache/pkl*")
+	})
+
+	t.Run("LoadDockerfileTemplateNonExistentTemplate", func(t *testing.T) {
+		data := map[string]string{"test": "value"}
+
+		result, err := template.LoadDockerfileTemplate("nonexistent.tmpl", data)
+		assert.Error(t, err)
+		assert.Empty(t, result)
+	})
+}
+
+func TestWorkflowTemplateUsesCentralizedVersion(t *testing.T) {
+	ctx := context.Background()
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+
+	// Generate a workflow file
+	err := template.GenerateWorkflowFile(fs, ctx, logger, "/test", "test-agent")
+	assert.NoError(t, err)
+
+	// Read the generated workflow file
+	content, err := afero.ReadFile(fs, "/test/workflow.pkl")
+	assert.NoError(t, err)
+
+	workflowContent := string(content)
+
+	// Verify it contains the centralized Ollama image tag
+	expectedImageTag := fmt.Sprintf(`ollamaImageTag = "%s"`, versionpkg.DefaultOllamaImageTag)
+	assert.Contains(t, workflowContent, expectedImageTag,
+		"Workflow template should use centralized Ollama image tag")
+
+	// Verify it doesn't contain the old hardcoded version
+	assert.NotContains(t, workflowContent, `ollamaImageTag = "0.7.0"`,
+		"Workflow template should not contain old hardcoded version")
+
+	// Also verify it contains the schema version
+	expectedSchemaHeader := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`,
+		versionpkg.SchemaVersion)
+	assert.Contains(t, workflowContent, expectedSchemaHeader,
+		"Workflow template should use centralized schema version")
 }

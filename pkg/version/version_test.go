@@ -79,3 +79,34 @@ func TestVersionVars(t *testing.T) {
 	// Commit may be empty in dev builds but accessing it should not panic.
 	_ = Commit
 }
+
+func TestVersionConstants(t *testing.T) {
+	t.Run("ExternalToolVersions", func(t *testing.T) {
+		assert.NotEmpty(t, PklVersion, "PklVersion should not be empty")
+		assert.NotEmpty(t, AnacondaVersion, "AnacondaVersion should not be empty")
+		assert.NotEmpty(t, SchemaVersion, "SchemaVersion should not be empty")
+
+		// Verify expected format
+		assert.Contains(t, PklVersion, ".", "PklVersion should contain version dots")
+		assert.Contains(t, AnacondaVersion, ".", "AnacondaVersion should contain version dots")
+		assert.Contains(t, SchemaVersion, ".", "SchemaVersion should contain version dots")
+	})
+
+	t.Run("DockerImageTags", func(t *testing.T) {
+		assert.NotEmpty(t, DefaultOllamaImageTag, "DefaultOllamaImageTag should not be empty")
+		assert.Equal(t, "latest", LatestTag, "LatestTag should be 'latest'")
+		assert.Equal(t, "latest", LatestVersionPlaceholder, "LatestVersionPlaceholder should be 'latest'")
+
+		// Verify expected format
+		assert.Contains(t, DefaultOllamaImageTag, ".", "DefaultOllamaImageTag should contain version dots")
+	})
+
+	t.Run("VersionConsistency", func(t *testing.T) {
+		// Verify that version constants are actually being used in the codebase
+		// by checking they have reasonable values
+		assert.Equal(t, "0.28.1", PklVersion, "PklVersion should match expected value")
+		assert.Equal(t, "2024.10-1", AnacondaVersion, "AnacondaVersion should match expected value")
+		assert.Equal(t, "0.2.30", SchemaVersion, "SchemaVersion should match expected value")
+		assert.Equal(t, "0.6.8", DefaultOllamaImageTag, "DefaultOllamaImageTag should match expected value")
+	})
+}

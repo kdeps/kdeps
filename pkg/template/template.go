@@ -15,6 +15,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
+	versionpkg "github.com/kdeps/kdeps/pkg/version"
 	"github.com/kdeps/kdeps/templates"
 	"github.com/spf13/afero"
 )
@@ -135,6 +136,42 @@ func LoadTemplate(templatePath string, data map[string]string) (string, error) {
 	return output.String(), nil
 }
 
+// LoadDockerfileTemplate loads and executes a template with any data type (generalized version of LoadTemplate)
+func LoadDockerfileTemplate(templatePath string, data interface{}) (string, error) {
+	// If TEMPLATE_DIR is set, load from disk instead of embedded FS
+	if dir := os.Getenv("TEMPLATE_DIR"); dir != "" {
+		path := filepath.Join(dir, filepath.Base(templatePath))
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return "", fmt.Errorf("failed to read template from disk: %w", err)
+		}
+		tmpl, err := template.New(filepath.Base(templatePath)).Parse(string(content))
+		if err != nil {
+			return "", fmt.Errorf("failed to parse template file: %w", err)
+		}
+		var output bytes.Buffer
+		if err := tmpl.Execute(&output, data); err != nil {
+			return "", fmt.Errorf("failed to execute template: %w", err)
+		}
+		return output.String(), nil
+	}
+
+	// Otherwise, use embedded FS
+	content, err := templates.TemplatesFS.ReadFile(filepath.Base(templatePath))
+	if err != nil {
+		return "", fmt.Errorf("failed to read embedded template: %w", err)
+	}
+	tmpl, err := template.New(filepath.Base(templatePath)).Parse(string(content))
+	if err != nil {
+		return "", fmt.Errorf("failed to parse template file: %w", err)
+	}
+	var output bytes.Buffer
+	if err := tmpl.Execute(&output, data); err != nil {
+		return "", fmt.Errorf("failed to execute template: %w", err)
+	}
+	return output.String(), nil
+}
+
 // GenerateWorkflowFile generates a workflow file for the agent.
 func GenerateWorkflowFile(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, name string) error {
 	logger = safeLogger(logger)
@@ -153,8 +190,9 @@ func GenerateWorkflowFile(fs afero.Fs, ctx context.Context, logger *logging.Logg
 
 	// Template data for dynamic replacement
 	templateData := map[string]string{
-		"Header": fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schema.SchemaVersion(ctx)),
-		"Name":   name,
+		"Header":         fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schema.SchemaVersion(ctx)),
+		"Name":           name,
+		"OllamaImageTag": versionpkg.DefaultOllamaImageTag,
 	}
 
 	// Load and process the template

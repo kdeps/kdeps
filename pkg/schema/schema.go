@@ -7,12 +7,13 @@ import (
 	"sync"
 
 	"github.com/kdeps/kdeps/pkg/utils"
+	versionpkg "github.com/kdeps/kdeps/pkg/version"
 )
 
 var (
 	VersionCache     sync.Map
-	SpecifiedVersion string = "0.2.30" // Default specified version
 	UseLatest        bool   = false
+	SpecifiedVersion string = versionpkg.SchemaVersion // Default specified version
 	// Add ExitFunc for testability
 	ExitFunc = os.Exit
 )

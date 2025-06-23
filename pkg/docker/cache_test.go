@@ -1179,3 +1179,117 @@ func TestGenerateURLsStatic(t *testing.T) {
 		}
 	}
 }
+
+func TestGenerateURLsWithOptions(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("WithAnaconda", func(t *testing.T) {
+		items, err := GenerateURLsWithOptions(ctx, true)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, items)
+
+		// Should have both PKL and Anaconda
+		hasPickle := false
+		hasAnaconda := false
+		for _, item := range items {
+			if strings.Contains(item.LocalName, "pkl") {
+				hasPickle = true
+			}
+			if strings.Contains(item.LocalName, "anaconda") {
+				hasAnaconda = true
+			}
+		}
+		assert.True(t, hasPickle, "Should include PKL downloads")
+		assert.True(t, hasAnaconda, "Should include Anaconda downloads when enabled")
+	})
+
+	t.Run("WithoutAnaconda", func(t *testing.T) {
+		items, err := GenerateURLsWithOptions(ctx, false)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, items)
+
+		// Should have only PKL, no Anaconda
+		hasPickle := false
+		hasAnaconda := false
+		for _, item := range items {
+			if strings.Contains(item.LocalName, "pkl") {
+				hasPickle = true
+			}
+			if strings.Contains(item.LocalName, "anaconda") {
+				hasAnaconda = true
+			}
+		}
+		assert.True(t, hasPickle, "Should include PKL downloads")
+		assert.False(t, hasAnaconda, "Should NOT include Anaconda downloads when disabled")
+	})
+
+	t.Run("BackwardCompatibility", func(t *testing.T) {
+		// Test that the original GenerateURLs function still works and includes Anaconda by default
+		itemsOriginal, err := GenerateURLs(ctx)
+		assert.NoError(t, err)
+
+		itemsWithAnaconda, err := GenerateURLsWithOptions(ctx, true)
+		assert.NoError(t, err)
+
+		// Both should be identical (backward compatibility)
+		assert.Equal(t, len(itemsOriginal), len(itemsWithAnaconda))
+
+		// Both should include Anaconda
+		hasAnacondaOriginal := false
+		hasAnacondaWithOptions := false
+		for _, item := range itemsOriginal {
+			if strings.Contains(item.LocalName, "anaconda") {
+				hasAnacondaOriginal = true
+				break
+			}
+		}
+		for _, item := range itemsWithAnaconda {
+			if strings.Contains(item.LocalName, "anaconda") {
+				hasAnacondaWithOptions = true
+				break
+			}
+		}
+		assert.True(t, hasAnacondaOriginal, "Original function should include Anaconda")
+		assert.True(t, hasAnacondaWithOptions, "WithOptions(true) should include Anaconda")
+	})
+}
+
+func TestConditionalAnacondaDownloadOptimization(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("DemonstrationOfOptimization", func(t *testing.T) {
+		// Get download items with Anaconda enabled
+		withAnaconda, err := GenerateURLsWithOptions(ctx, true)
+		assert.NoError(t, err)
+
+		// Get download items with Anaconda disabled
+		withoutAnaconda, err := GenerateURLsWithOptions(ctx, false)
+		assert.NoError(t, err)
+
+		// Should have fewer items when Anaconda is disabled
+		assert.Greater(t, len(withAnaconda), len(withoutAnaconda),
+			"Should have fewer download items when Anaconda is disabled")
+
+		// Calculate the difference
+		difference := len(withAnaconda) - len(withoutAnaconda)
+
+		// The difference should be exactly the Anaconda files (at least 1, typically 1 per architecture)
+		assert.GreaterOrEqual(t, difference, 1,
+			"Should save at least 1 download when Anaconda is disabled")
+
+		// Log the optimization for visibility
+		t.Logf("✅ Optimization working: %d fewer downloads when Anaconda is disabled", difference)
+		t.Logf("   - With Anaconda: %d downloads", len(withAnaconda))
+		t.Logf("   - Without Anaconda: %d downloads", len(withoutAnaconda))
+
+		// List what's being downloaded in each case
+		t.Logf("   Downloads with Anaconda:")
+		for _, item := range withAnaconda {
+			t.Logf("     - %s", item.LocalName)
+		}
+		t.Logf("   Downloads without Anaconda:")
+		for _, item := range withoutAnaconda {
+			t.Logf("     - %s", item.LocalName)
+		}
+	})
+}
