@@ -1103,3 +1103,175 @@ func TestEnforceFolderStructure_PartialMissingFoldersWarning(t *testing.T) {
 
 	// This exercises the warning path for missing "data" folder specifically
 }
+
+// TestEnforceFolderStructure_AdditionalCoverage provides comprehensive error coverage
+func TestEnforceFolderStructure_AdditionalCoverage(t *testing.T) {
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	t.Run("NonExistentPath", func(t *testing.T) {
+		fsys := afero.NewMemMapFs()
+		nonExistentPath := "/non/existent/path"
+
+		err := EnforceFolderStructure(fsys, ctx, nonExistentPath, logger)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "file does not exist")
+	})
+
+	t.Run("UnreadableDirectory", func(t *testing.T) {
+		fsys := afero.NewMemMapFs()
+		// Create a file instead of directory to trigger directory read error
+		testFile := "/test.pkl"
+		err := afero.WriteFile(fsys, testFile, []byte("content"), 0o644)
+		require.NoError(t, err)
+
+		// This should fail because the file doesn't match expected workflow.pkl
+		err = EnforceFolderStructure(fsys, ctx, testFile, logger)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unexpected file found")
+	})
+
+	t.Run("UnexpectedFileInRoot", func(t *testing.T) {
+		fsys := afero.NewMemMapFs()
+		tmpDir := "/tmp/test"
+
+		// Create required structure plus an unexpected file
+		createFiles(t, fsys, []string{
+			filepath.Join(tmpDir, "workflow.pkl"),
+			filepath.Join(tmpDir, "unexpected.txt"),
+			filepath.Join(tmpDir, "resources", "foo.pkl"),
+		})
+
+		err := EnforceFolderStructure(fsys, ctx, tmpDir, logger)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unexpected file found: unexpected.txt")
+	})
+
+	t.Run("EnforceResourcesFolderError", func(t *testing.T) {
+		fsys := afero.NewMemMapFs()
+		tmpDir := "/tmp/test"
+
+		// Create structure but with invalid content in resources folder
+		createFiles(t, fsys, []string{
+			filepath.Join(tmpDir, "workflow.pkl"),
+			filepath.Join(tmpDir, "resources", "invalid.txt"), // invalid file extension
+		})
+
+		err := EnforceFolderStructure(fsys, ctx, tmpDir, logger)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unexpected file found in resources folder")
+	})
+
+	t.Run("MissingAllExpectedFolders", func(t *testing.T) {
+		fsys := afero.NewMemMapFs()
+		tmpDir := "/tmp/test"
+
+		// Create only the workflow file, missing both expected folders
+		createFiles(t, fsys, []string{
+			filepath.Join(tmpDir, "workflow.pkl"),
+		})
+
+		err := EnforceFolderStructure(fsys, ctx, tmpDir, logger)
+		require.NoError(t, err) // Should not error, just warnings
+	})
+
+	t.Run("DirectoryAsTarget", func(t *testing.T) {
+		fsys := afero.NewMemMapFs()
+		tmpDir := "/tmp/test"
+
+		// Create valid structure
+		createFiles(t, fsys, []string{
+			filepath.Join(tmpDir, "workflow.pkl"),
+			filepath.Join(tmpDir, "resources", "foo.pkl"),
+			filepath.Join(tmpDir, "data", "test.txt"),
+		})
+
+		// Test targeting the directory directly instead of a file in it
+		err := EnforceFolderStructure(fsys, ctx, tmpDir, logger)
+		require.NoError(t, err)
+	})
+
+	t.Run("WithKdepsFile", func(t *testing.T) {
+		fsys := afero.NewMemMapFs()
+		tmpDir := "/tmp/test"
+
+		// Create structure with .kdeps.pkl file (should be ignored)
+		createFiles(t, fsys, []string{
+			filepath.Join(tmpDir, "workflow.pkl"),
+			filepath.Join(tmpDir, ".kdeps.pkl"),
+			filepath.Join(tmpDir, "resources", "foo.pkl"),
+			filepath.Join(tmpDir, "data", "test.txt"),
+		})
+
+		err := EnforceFolderStructure(fsys, ctx, tmpDir, logger)
+		require.NoError(t, err)
+	})
+
+	t.Run("ExternalFolderInResources", func(t *testing.T) {
+		fsys := afero.NewMemMapFs()
+		tmpDir := "/tmp/test"
+
+		// Create structure with external folder in resources (should be allowed)
+		createFiles(t, fsys, []string{
+			filepath.Join(tmpDir, "workflow.pkl"),
+			filepath.Join(tmpDir, "resources", "foo.pkl"),
+			filepath.Join(tmpDir, "resources", "external", "bar.pkl"),
+		})
+
+		err := EnforceFolderStructure(fsys, ctx, tmpDir, logger)
+		require.NoError(t, err)
+	})
+}
+
+// TestEnforceResourcesFolder_ReadDirError tests error when reading resources directory fails
+func TestEnforceResourcesFolder_ReadDirError(t *testing.T) {
+	fsys := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Try to enforce on a non-existent resources path
+	nonExistentPath := "/non/existent/resources"
+
+	err := EnforceResourcesFolder(fsys, ctx, nonExistentPath, logger)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "file does not exist")
+}
+
+// TestEnforceResourceRunBlock_ReadFileError tests error when reading pkl file fails
+func TestEnforceResourceRunBlock_ReadFileError(t *testing.T) {
+	fsys := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Try to read a non-existent file
+	nonExistentFile := "/non/existent/file.pkl"
+
+	err := EnforceResourceRunBlock(fsys, ctx, nonExistentFile, logger)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "file does not exist")
+}
+
+// TestEnforceResourceRunBlock_MultipleRunBlocks tests error when multiple run blocks exist
+func TestEnforceResourceRunBlock_MultipleRunBlocks(t *testing.T) {
+	fsys := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	tmpFile := "/tmp/multiple.pkl"
+	// Content with multiple run blocks
+	content := `
+chat {
+    message = "test"
+}
+exec {
+    command = "echo hello"
+}
+`
+
+	err := afero.WriteFile(fsys, tmpFile, []byte(content), 0o644)
+	require.NoError(t, err)
+
+	err = EnforceResourceRunBlock(fsys, ctx, tmpFile, logger)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "resources can only contain one run block type")
+}
