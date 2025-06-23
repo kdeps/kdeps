@@ -1,6 +1,8 @@
 package bus
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -107,4 +109,206 @@ func TestWaitForEventsError(t *testing.T) {
 	if err.Error() != "nil client provided" {
 		t.Errorf("Expected 'nil client provided' error, got: %v", err)
 	}
+}
+
+// TestWaitForEventsComprehensiveErrorPaths tests all error scenarios in WaitForEvents
+func TestWaitForEventsComprehensiveErrorPaths(t *testing.T) {
+	logger := logging.NewTestLogger()
+
+	t.Run("NilClient", func(t *testing.T) {
+		err := WaitForEvents(nil, logger, func(event Event) bool { return false })
+		if err == nil {
+			t.Errorf("Expected error on nil client, got nil")
+		}
+		if err.Error() != "nil client provided" {
+			t.Errorf("Expected 'nil client provided' error, got: %v", err)
+		}
+	})
+
+	t.Run("SubscribeCallError", func(t *testing.T) {
+		// Create a mock client that will fail on Subscribe call
+		mockClient := &mockRPCClient{
+			callResponses: map[string]callResponse{
+				"BusService.Subscribe": {
+					err: fmt.Errorf("connection failed"),
+				},
+			},
+		}
+
+		err := WaitForEvents(mockClient, logger, func(event Event) bool { return false })
+		if err == nil {
+			t.Errorf("Expected subscribe error, got nil")
+		}
+		if !strings.Contains(err.Error(), "failed to subscribe to bus") {
+			t.Errorf("Expected subscribe error, got: %v", err)
+		}
+	})
+
+	t.Run("SubscribeResponseError", func(t *testing.T) {
+		// Create a mock client that returns an error in the response
+		mockClient := &mockRPCClient{
+			callResponses: map[string]callResponse{
+				"BusService.Subscribe": {
+					response: &SubscribeResponse{
+						ID:    "",
+						Error: "subscription failed",
+					},
+				},
+			},
+		}
+
+		err := WaitForEvents(mockClient, logger, func(event Event) bool { return false })
+		if err == nil {
+			t.Errorf("Expected subscription error, got nil")
+		}
+		if !strings.Contains(err.Error(), "subscription error") {
+			t.Errorf("Expected subscription error, got: %v", err)
+		}
+	})
+
+	t.Run("GetEventCallError", func(t *testing.T) {
+		// Create a mock client that succeeds on Subscribe but fails on GetEvent
+		mockClient := &mockRPCClient{
+			callResponses: map[string]callResponse{
+				"BusService.Subscribe": {
+					response: &SubscribeResponse{
+						ID:    "test-sub",
+						Error: "",
+					},
+				},
+				"BusService.GetEvent": {
+					err: fmt.Errorf("get event failed"),
+				},
+			},
+		}
+
+		err := WaitForEvents(mockClient, logger, func(event Event) bool { return false })
+		if err == nil {
+			t.Errorf("Expected get event error, got nil")
+		}
+		if !strings.Contains(err.Error(), "failed to get event from bus") {
+			t.Errorf("Expected get event error, got: %v", err)
+		}
+	})
+
+	t.Run("EventHandlerReturnsTrue", func(t *testing.T) {
+		// Create a mock client that returns events
+		mockClient := &mockRPCClient{
+			callResponses: map[string]callResponse{
+				"BusService.Subscribe": {
+					response: &SubscribeResponse{
+						ID:    "test-sub",
+						Error: "",
+					},
+				},
+				"BusService.GetEvent": {
+					response: &EventResponse{
+						Event: Event{Type: "test", Payload: "payload"},
+						Error: "",
+					},
+				},
+			},
+		}
+
+		handlerCalled := false
+		err := WaitForEvents(mockClient, logger, func(event Event) bool {
+			handlerCalled = true
+			return true // This should cause the function to return nil
+		})
+
+		if err != nil {
+			t.Errorf("Expected nil error when handler returns true, got: %v", err)
+		}
+		if !handlerCalled {
+			t.Errorf("Expected handler to be called")
+		}
+	})
+
+	t.Run("EventHandlerReturnsFalse", func(t *testing.T) {
+		// Create a mock client that returns events then timeout
+		callCount := 0
+		mockClient := &mockRPCClient{
+			callFunc: func(serviceMethod string, args interface{}, reply interface{}) error {
+				if serviceMethod == "BusService.Subscribe" {
+					resp := reply.(*SubscribeResponse)
+					resp.ID = "test-sub"
+					resp.Error = ""
+					return nil
+				}
+				if serviceMethod == "BusService.GetEvent" {
+					callCount++
+					if callCount == 1 {
+						// First call returns an event
+						resp := reply.(*EventResponse)
+						resp.Event = Event{Type: "test", Payload: "payload"}
+						resp.Error = ""
+						return nil
+					}
+					// Subsequent calls return "no events available" to simulate waiting
+					resp := reply.(*EventResponse)
+					resp.Error = "no events available"
+					return nil
+				}
+				return fmt.Errorf("unknown method: %s", serviceMethod)
+			},
+		}
+
+		handlerCallCount := 0
+		err := WaitForEvents(mockClient, logger, func(event Event) bool {
+			handlerCallCount++
+			return false // Keep waiting, should eventually timeout
+		})
+
+		if err == nil {
+			t.Errorf("Expected timeout error, got nil")
+		}
+		if !strings.Contains(err.Error(), "timeout waiting for events") {
+			t.Errorf("Expected timeout error, got: %v", err)
+		}
+		if handlerCallCount != 1 {
+			t.Errorf("Expected handler to be called once, got %d calls", handlerCallCount)
+		}
+	})
+}
+
+// mockRPCClient is a mock implementation of rpc.Client for testing
+type mockRPCClient struct {
+	callResponses map[string]callResponse
+	callFunc      func(serviceMethod string, args interface{}, reply interface{}) error
+}
+
+type callResponse struct {
+	response interface{}
+	err      error
+}
+
+func (m *mockRPCClient) Call(serviceMethod string, args interface{}, reply interface{}) error {
+	if m.callFunc != nil {
+		return m.callFunc(serviceMethod, args, reply)
+	}
+
+	if resp, ok := m.callResponses[serviceMethod]; ok {
+		if resp.err != nil {
+			return resp.err
+		}
+		if resp.response != nil {
+			// Copy the response to the reply parameter
+			switch r := reply.(type) {
+			case *SubscribeResponse:
+				if sr, ok := resp.response.(*SubscribeResponse); ok {
+					*r = *sr
+				}
+			case *EventResponse:
+				if er, ok := resp.response.(*EventResponse); ok {
+					*r = *er
+				}
+			}
+		}
+		return nil
+	}
+	return fmt.Errorf("no mock response for method: %s", serviceMethod)
+}
+
+func (m *mockRPCClient) Close() error {
+	return nil
 }

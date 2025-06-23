@@ -14,6 +14,13 @@ import (
 var globalBusService *BusService
 var globalBusLock sync.Mutex
 
+// Injectable functions for testing
+var (
+	rpcRegisterFunc = rpc.Register
+	netListenFunc   = net.Listen
+	rpcAcceptFunc   = rpc.Accept
+)
+
 type BusService struct {
 	logger *logging.Logger
 	subs   map[string]chan Event // Map of subscription ID to event channel
@@ -92,15 +99,15 @@ func StartBusServer(logger *logging.Logger) error {
 		logger: logger,
 		subs:   make(map[string]chan Event),
 	}
-	if err := rpc.Register(service); err != nil {
+	if err := rpcRegisterFunc(service); err != nil {
 		return fmt.Errorf("failed to register RPC service: %w", err)
 	}
-	listener, err := net.Listen("tcp", "127.0.0.1:12345")
+	listener, err := netListenFunc("tcp", "127.0.0.1:12345")
 	if err != nil {
 		return fmt.Errorf("failed to listen on 127.0.0.1:12345: %w", err)
 	}
 	logger.Info("Message Bus RPC server started on 127.0.0.1:12345")
-	rpc.Accept(listener)
+	rpcAcceptFunc(listener)
 	return nil
 }
 
@@ -110,17 +117,17 @@ func StartBusServerBackground(logger *logging.Logger) (*BusService, error) {
 		logger: logger,
 		subs:   make(map[string]chan Event),
 	}
-	if err := rpc.Register(service); err != nil {
+	if err := rpcRegisterFunc(service); err != nil {
 		return nil, fmt.Errorf("failed to register RPC service: %w", err)
 	}
-	listener, err := net.Listen("tcp", "127.0.0.1:12345")
+	listener, err := netListenFunc("tcp", "127.0.0.1:12345")
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen on 127.0.0.1:12345: %w", err)
 	}
 	logger.Info("Message Bus RPC server started on 127.0.0.1:12345")
 
 	// Start accepting connections in background
-	go rpc.Accept(listener)
+	go rpcAcceptFunc(listener)
 
 	return service, nil
 }

@@ -12,8 +12,14 @@ import (
 // busAddr is the address the client connects to; configurable for testing.
 var busAddr = "127.0.0.1:12345"
 
+// RPCClient interface for dependency injection and testing
+type RPCClient interface {
+	Call(serviceMethod string, args interface{}, reply interface{}) error
+	Close() error
+}
+
 // WaitForEvents listens to the message bus for events.
-func WaitForEvents(client *rpc.Client, logger *logging.Logger, eventHandler func(Event) bool) error {
+func WaitForEvents(client RPCClient, logger *logging.Logger, eventHandler func(Event) bool) error {
 	if client == nil {
 		return errors.New("nil client provided")
 	}
@@ -59,7 +65,7 @@ func WaitForEvents(client *rpc.Client, logger *logging.Logger, eventHandler func
 }
 
 // StartBusClient initializes and returns an RPC client to connect to the bus.
-func StartBusClient() (*rpc.Client, error) {
+func StartBusClient() (RPCClient, error) {
 	client, err := rpc.Dial("tcp", busAddr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to bus RPC server at %s: %w", busAddr, err)
