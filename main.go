@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/cmd"
+	"github.com/kdeps/kdeps/pkg/bus"
 	"github.com/kdeps/kdeps/pkg/cfg"
 	"github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/kdeps/pkg/environment"
@@ -84,6 +85,16 @@ func main() {
 }
 
 func handleDockerMode(ctx context.Context, dr *resolver.DependencyResolver, cancel context.CancelFunc) {
+	// Start the message bus server
+	busService, err := bus.StartBusServerBackground(dr.Logger)
+	if err != nil {
+		dr.Logger.Error("failed to start message bus server", "error", err)
+		utils.SendSigterm(dr.Logger)
+		return
+	}
+	bus.SetGlobalBusService(busService)
+	dr.Logger.Info("Message bus server started successfully")
+
 	// Initialize Docker system
 	apiServerMode, err := bootstrapDockerSystemFn(ctx, dr)
 	if err != nil {
@@ -180,28 +191,35 @@ func setupSignalHandler(fs afero.Fs, ctx context.Context, cancelFunc context.Can
 		cancelFunc() // Cancel context to initiate shutdown
 		cleanupFn(fs, ctx, env, apiServerMode, logger)
 
-		var graphID, actionDir string
-
-		contextKeys := map[*string]ktx.ContextKey{
-			&graphID:   ktx.CtxKeyGraphID,
-			&actionDir: ktx.CtxKeyActionDir,
-		}
-
-		for ptr, key := range contextKeys {
-			if value, found := ktx.ReadContext(ctx, key); found {
-				if strValue, ok := value.(string); ok {
-					*ptr = strValue
-				}
+		var graphID string
+		if value, found := ktx.ReadContext(ctx, ktx.CtxKeyGraphID); found {
+			if strValue, ok := value.(string); ok {
+				graphID = strValue
 			}
 		}
 
-		stampFile := filepath.Join(actionDir, ".dockercleanup_"+graphID)
-
-		if err := utils.WaitForFileReady(fs, stampFile, logger); err != nil {
-			logger.Error("error occurred while waiting for file to be ready", "file", stampFile)
-
+		// Wait for cleanup completion event via message bus instead of stamp file
+		client, err := bus.StartBusClient()
+		if err != nil {
+			logger.Error("failed to connect to message bus for cleanup coordination", "error", err)
+			exitFn(1)
 			return
 		}
+		defer client.Close()
+
+		// Wait for dockercleanup event
+		err = bus.WaitForEvents(client, logger, func(event bus.Event) bool {
+			if event.Type == "dockercleanup" && event.Payload == graphID {
+				logger.Debug("Received dockercleanup event", "graphID", graphID)
+				return true // Stop waiting
+			}
+			return false // Continue waiting
+		})
+
+		if err != nil {
+			logger.Error("error waiting for cleanup event", "error", err)
+		}
+
 		exitFn(0)
 	}()
 }
@@ -232,9 +250,16 @@ func runGraphResolverActions(ctx context.Context, dr *resolver.DependencyResolve
 
 	cleanupFn(dr.Fs, ctx, dr.Environment, apiServerMode, dr.Logger)
 
-	if err := utils.WaitForFileReady(dr.Fs, "/.dockercleanup", dr.Logger); err != nil {
-		return fmt.Errorf("failed to wait for file to be ready: %w", err)
+	// Publish cleanup completion event instead of creating stamp file
+	var graphID string
+	if value, found := ktx.ReadContext(ctx, ktx.CtxKeyGraphID); found {
+		if strValue, ok := value.(string); ok {
+			graphID = strValue
+		}
 	}
+
+	bus.PublishGlobalEvent("dockercleanup", graphID)
+	dr.Logger.Debug("Published dockercleanup completion event", "graphID", graphID)
 
 	return nil
 }
@@ -252,6 +277,17 @@ func cleanup(fs afero.Fs, ctx context.Context, env *environment.Environment, api
 
 	// Perform Docker cleanup
 	docker.Cleanup(fs, ctx, env, logger)
+
+	// Publish cleanup completion event instead of creating stamp file
+	var graphID string
+	if value, found := ktx.ReadContext(ctx, ktx.CtxKeyGraphID); found {
+		if strValue, ok := value.(string); ok {
+			graphID = strValue
+		}
+	}
+
+	bus.PublishGlobalEvent("cleanup_completed", graphID)
+	logger.Debug("Published cleanup completion event", "graphID", graphID)
 
 	logger.Debug("cleanup complete.")
 

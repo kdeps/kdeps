@@ -10,6 +10,10 @@ import (
 	"github.com/kdeps/kdeps/pkg/logging"
 )
 
+// Global bus service instance
+var globalBusService *BusService
+var globalBusLock sync.Mutex
+
 type BusService struct {
 	logger *logging.Logger
 	subs   map[string]chan Event // Map of subscription ID to event channel
@@ -98,4 +102,53 @@ func StartBusServer(logger *logging.Logger) error {
 	logger.Info("Message Bus RPC server started on 127.0.0.1:12345")
 	rpc.Accept(listener)
 	return nil
+}
+
+// StartBusServerBackground starts the bus server in a background goroutine and returns the service instance
+func StartBusServerBackground(logger *logging.Logger) (*BusService, error) {
+	service := &BusService{
+		logger: logger,
+		subs:   make(map[string]chan Event),
+	}
+	if err := rpc.Register(service); err != nil {
+		return nil, fmt.Errorf("failed to register RPC service: %w", err)
+	}
+	listener, err := net.Listen("tcp", "127.0.0.1:12345")
+	if err != nil {
+		return nil, fmt.Errorf("failed to listen on 127.0.0.1:12345: %w", err)
+	}
+	logger.Info("Message Bus RPC server started on 127.0.0.1:12345")
+
+	// Start accepting connections in background
+	go rpc.Accept(listener)
+
+	return service, nil
+}
+
+// SetGlobalBusService sets the global bus service instance
+func SetGlobalBusService(service *BusService) {
+	globalBusLock.Lock()
+	defer globalBusLock.Unlock()
+	globalBusService = service
+}
+
+// GetGlobalBusService returns the global bus service instance
+func GetGlobalBusService() *BusService {
+	globalBusLock.Lock()
+	defer globalBusLock.Unlock()
+	return globalBusService
+}
+
+// PublishGlobalEvent publishes an event to the global bus service if available
+func PublishGlobalEvent(eventType, payload string) {
+	globalBusLock.Lock()
+	service := globalBusService
+	globalBusLock.Unlock()
+
+	if service != nil {
+		service.PublishEvent(Event{
+			Type:    eventType,
+			Payload: payload,
+		})
+	}
 }

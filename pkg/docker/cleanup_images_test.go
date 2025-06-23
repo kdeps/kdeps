@@ -352,9 +352,9 @@ func TestCleanupFlagFilesRemoveAllExtra(t *testing.T) {
 	}
 }
 
-// TestCleanupDockerMode_Timeout ensures that Cleanup enters DockerMode branch,
-// removes the actionDir, and returns after WaitForFileReady timeout without panic.
-func TestCleanupDockerMode_Timeout(t *testing.T) {
+// TestCleanupDockerMode_Quick ensures that Cleanup enters DockerMode branch,
+// removes the actionDir, and returns quickly with message bus events (no more stamp file timeouts).
+func TestCleanupDockerMode_Quick(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
@@ -381,10 +381,12 @@ func TestCleanupDockerMode_Timeout(t *testing.T) {
 	env := &environment.Environment{DockerMode: "1"}
 
 	start := time.Now()
-	Cleanup(fs, ctx, env, logger) // should block ~1s due to WaitForFileReady timeout
+	Cleanup(fs, ctx, env, logger) // should complete quickly with message bus events
 	elapsed := time.Since(start)
-	if elapsed < time.Second {
-		t.Fatalf("expected at least 1s wait, got %v", elapsed)
+
+	// With message bus, cleanup should complete much faster than before (no 1s timeout)
+	if elapsed > 100*time.Millisecond {
+		t.Fatalf("expected quick cleanup with message bus, but took %v", elapsed)
 	}
 
 	// Verify actionDir has been removed.
@@ -420,9 +422,8 @@ func TestCleanupFlagFilesAdditional(t *testing.T) {
 }
 
 // TestCleanupEndToEnd exercises the happy-path of the high-level Cleanup
-// function, covering directory removals, flag-file creation and the project →
-// workflow copy.  The in-memory filesystem allows us to use absolute paths
-// without touching the real host filesystem.
+// function, covering directory removals and the project → workflow copy.
+// The in-memory filesystem allows us to use absolute paths without touching the real host filesystem.
 func TestCleanupEndToEnd(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
@@ -439,10 +440,6 @@ func TestCleanupEndToEnd(t *testing.T) {
 
 	// Create the action directory so that Cleanup can delete it.
 	assert.NoError(t, fs.MkdirAll(actionDir, 0o755))
-
-	// Pre-create the second flag file so that WaitForFileReady does not time out.
-	preFlag := filepath.Join(actionDir, ".dockercleanup_"+graphID)
-	assert.NoError(t, afero.WriteFile(fs, preFlag, []byte("flag"), 0o644))
 
 	// Create a dummy project directory with a single file that should be copied
 	// to the workflow directory by Cleanup.

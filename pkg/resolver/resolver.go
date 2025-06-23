@@ -18,6 +18,7 @@ import (
 	"github.com/apple/pkl-go/pkl"
 	"github.com/gin-gonic/gin"
 	"github.com/kdeps/kartographer/graph"
+	"github.com/kdeps/kdeps/pkg/bus"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/item"
 	"github.com/kdeps/kdeps/pkg/kdepsexec"
@@ -156,14 +157,9 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		return nil, fmt.Errorf("error creating directory: %w", err)
 	}
 
-	// List of files to create (stamp file)
-	files := []string{
-		filepath.Join(actionDir, graphID),
-	}
-
-	if err := utils.CreateFiles(fs, ctx, files); err != nil {
-		return nil, fmt.Errorf("error creating file: %w", err)
-	}
+	// Publish resolver ready event instead of creating stamp file
+	bus.PublishGlobalEvent("resolver_ready", graphID)
+	logger.Debug("Published resolver ready event", "graphID", graphID)
 
 	requestPklFile := filepath.Join(actionDir, "/api/"+graphID+"__request.pkl")
 	responsePklFile := filepath.Join(actionDir, "/api/"+graphID+"__response.pkl")
@@ -432,8 +428,6 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 		}
 	}()
 
-	requestFilePath := filepath.Join(dr.ActionDir, dr.RequestID)
-
 	visited := make(map[string]bool)
 	actionID := dr.Workflow.GetTargetActionID()
 	dr.Logger.Debug(messages.MsgProcessingResources)
@@ -539,11 +533,9 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	dr.ToolReader.DB.Close()
 	dr.ItemReader.DB.Close()
 
-	// Remove the request stamp file
-	if err := dr.Fs.RemoveAll(requestFilePath); err != nil {
-		dr.Logger.Error("failed to delete old requestID file", "file", requestFilePath, "error", err)
-		return false, err
-	}
+	// Publish action completed event instead of removing stamp file
+	bus.PublishGlobalEvent("action_completed", dr.RequestID)
+	dr.Logger.Debug("Published action completed event", "requestID", dr.RequestID)
 
 	// Remove the session DB file
 	if err := dr.Fs.RemoveAll(dr.SessionDBPath); err != nil {

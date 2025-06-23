@@ -11,10 +11,10 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
 	"github.com/kdeps/kdeps/pkg/archiver"
+	"github.com/kdeps/kdeps/pkg/bus"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/spf13/afero"
 )
 
@@ -77,34 +77,23 @@ func Cleanup(fs afero.Fs, ctx context.Context, environ *environment.Environment,
 
 	workflowDir := "/agent/workflow"
 	projectDir := "/agent/project"
-	removedFiles := []string{filepath.Join("/tmp", ".actiondir_removed_"+graphID), filepath.Join(actionDir, ".dockercleanup_"+graphID)}
 
-	// Helper function to remove a directory and create a corresponding flag file
-	removeDirWithFlag := func(ctx context.Context, dir string, flagFile string) error {
+	// Helper function to remove a directory and publish an event
+	removeDirWithEvent := func(ctx context.Context, dir string, eventType string) error {
 		if err := fs.RemoveAll(dir); err != nil {
 			logger.Error(fmt.Sprintf("Error removing %s: %v", dir, err))
 			return err
 		}
 
 		logger.Debug(dir + " directory deleted")
-		if err := CreateFlagFile(fs, ctx, flagFile); err != nil {
-			logger.Error(fmt.Sprintf("Unable to create flag file %s: %v", flagFile, err))
-			return err
-		}
+		bus.PublishGlobalEvent(eventType, graphID)
+		logger.Debug(fmt.Sprintf("Published %s event", eventType), "graphID", graphID)
 		return nil
 	}
 
-	// Remove action and workflow directories
-	if err := removeDirWithFlag(ctx, actionDir, removedFiles[0]); err != nil {
+	// Remove action directory and publish event
+	if err := removeDirWithEvent(ctx, actionDir, "actiondir_removed"); err != nil {
 		return
-	}
-
-	// Wait for the cleanup flags to be ready
-	for _, flag := range removedFiles[:2] { // Correcting to wait for the first two files
-		if err := utils.WaitForFileReady(fs, flag, logger); err != nil {
-			logger.Error(fmt.Sprintf("Error waiting for flag %s: %v", flag, err))
-			return
-		}
 	}
 
 	// Copy /agent/project to /agent/workflow
@@ -139,13 +128,9 @@ func Cleanup(fs afero.Fs, ctx context.Context, environ *environment.Environment,
 		logger.Debug(fmt.Sprintf("Copied %s to %s for next run", projectDir, workflowDir))
 	}
 
-	// Create final cleanup flag
-	if err := CreateFlagFile(fs, ctx, removedFiles[1]); err != nil {
-		logger.Error(fmt.Sprintf("Unable to create final cleanup flag: %v", err))
-	}
-
-	// Remove flag files
-	CleanupFlagFiles(fs, removedFiles, logger)
+	// Publish final dockercleanup event instead of creating flag file
+	bus.PublishGlobalEvent("dockercleanup", graphID)
+	logger.Debug("Published dockercleanup event", "graphID", graphID)
 }
 
 // CleanupFlagFiles removes the specified flag files.
