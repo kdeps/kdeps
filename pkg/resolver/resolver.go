@@ -732,7 +732,8 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 func (dr *DependencyResolver) ExecutePklEvalCommand() (kdepsexecStd struct {
 	Stdout, Stderr string
 	ExitCode       int
-}, err error) {
+}, err error,
+) {
 	stdout, stderr, exitCode, err := kdepsexec.KdepsExec(
 		dr.Context,
 		"pkl",

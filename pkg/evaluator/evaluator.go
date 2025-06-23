@@ -15,23 +15,59 @@ import (
 	"github.com/spf13/afero"
 )
 
-// EnsurePklBinaryExists checks if the 'pkl' binary exists in the system PATH.
-func EnsurePklBinaryExists(ctx context.Context, logger *logging.Logger) error {
+// PklBinaryChecker provides injectable dependencies for checking pkl binary existence
+type PklBinaryChecker struct {
+	LookPathFn func(string) (string, error)
+	ExitFn     func(int)
+}
+
+// NewPklBinaryChecker creates a PklBinaryChecker with default implementations
+func NewPklBinaryChecker() *PklBinaryChecker {
+	return &PklBinaryChecker{
+		LookPathFn: exec.LookPath,
+		ExitFn:     os.Exit,
+	}
+}
+
+// Global checker for backward compatibility
+var defaultChecker = NewPklBinaryChecker()
+
+// EnsurePklBinaryExistsWithChecker checks if the 'pkl' binary exists using the provided checker
+func (c *PklBinaryChecker) EnsurePklBinaryExists(ctx context.Context, logger *logging.Logger) error {
 	binaryNames := []string{"pkl", "pkl.exe"} // Support both Unix-like and Windows binary names
 	for _, binaryName := range binaryNames {
-		if _, err := exec.LookPath(binaryName); err == nil {
+		if _, err := c.LookPathFn(binaryName); err == nil {
 			return nil // Found a valid binary, no error
 		}
 	}
 	// Log the error if none of the binaries were found
 	logger.Fatal("apple PKL not found in PATH. Please install Apple PKL (see https://pkl-lang.org/main/current/pkl-cli/index.html#installation) for more details")
-	os.Exit(1)
-	return nil // Unreachable, but included for clarity
+	c.ExitFn(1)
+	return errors.New("pkl binary not found in PATH") // This line is reachable when ExitFn is mocked
+}
+
+// EnsurePklBinaryExists checks if the 'pkl' binary exists in the system PATH.
+func EnsurePklBinaryExists(ctx context.Context, logger *logging.Logger) error {
+	return defaultChecker.EnsurePklBinaryExists(ctx, logger)
+}
+
+// EvalPklWithDependencies evaluates the resource file with injectable dependencies
+type PklEvaluator struct {
+	EnsurePklBinaryExistsFn func(context.Context, *logging.Logger) error
+	KdepsExecFn             func(context.Context, string, []string, string, bool, bool, *logging.Logger) (string, string, int, error)
+}
+
+// NewPklEvaluator creates a PklEvaluator with default implementations
+func NewPklEvaluator() *PklEvaluator {
+	return &PklEvaluator{
+		EnsurePklBinaryExistsFn: EnsurePklBinaryExists,
+		KdepsExecFn:             kdepsexec.KdepsExec,
+	}
 }
 
 // EvalPkl evaluates the resource file at resourcePath using the 'pkl' binary.
 // It expects the resourcePath to have a .pkl extension.
-func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSection string, logger *logging.Logger) (string, error) {
+func (e *PklEvaluator) EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSection string, logger *logging.Logger) (string, error) {
 	// Validate that the file has a .pkl extension
 	if filepath.Ext(resourcePath) != ".pkl" {
 		errMsg := fmt.Sprintf("file '%s' must have a .pkl extension", resourcePath)
@@ -40,11 +76,11 @@ func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSectio
 	}
 
 	// Ensure that the 'pkl' binary is available
-	if err := EnsurePklBinaryExists(ctx, logger); err != nil {
+	if err := e.EnsurePklBinaryExistsFn(ctx, logger); err != nil {
 		return "", err
 	}
 
-	stdout, stderr, exitCode, err := kdepsexec.KdepsExec(ctx, "pkl", []string{"eval", resourcePath}, "", false, false, logger)
+	stdout, stderr, exitCode, err := e.KdepsExecFn(ctx, "pkl", []string{"eval", resourcePath}, "", false, false, logger)
 	if err != nil {
 		logger.Error("command execution failed", "stderr", stderr, "error", err)
 		return "", err
@@ -59,6 +95,15 @@ func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSectio
 	formattedResult := fmt.Sprintf("%s\n%s", headerSection, stdout)
 
 	return formattedResult, nil
+}
+
+// Global evaluator for backward compatibility
+var defaultEvaluator = NewPklEvaluator()
+
+// EvalPkl evaluates the resource file at resourcePath using the 'pkl' binary.
+// It expects the resourcePath to have a .pkl extension.
+func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSection string, logger *logging.Logger) (string, error) {
+	return defaultEvaluator.EvalPkl(fs, ctx, resourcePath, headerSection, logger)
 }
 
 func CreateAndProcessPklFile(

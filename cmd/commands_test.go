@@ -293,7 +293,7 @@ func TestCommandExecution_Smoke(t *testing.T) {
 
 	// Create a minimal test package file
 	testPkgPath := "/tmp/test.kdeps"
-	if err := afero.WriteFile(fs, testPkgPath, []byte("test package"), 0644); err != nil {
+	if err := afero.WriteFile(fs, testPkgPath, []byte("test package"), 0o644); err != nil {
 		t.Fatalf("failed to create test package: %v", err)
 	}
 

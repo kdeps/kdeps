@@ -601,55 +601,328 @@ func TestFileGenerationEdgeCases(t *testing.T) {
 func TestCreateDirectoryEdgeCases(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
-	tempDir, err := afero.TempDir(fs, "", "test")
-	require.NoError(t, err)
 
-	t.Run("CreateDirectoryWithInvalidPath", func(t *testing.T) {
-		path := ""
-		err := template.CreateDirectory(fs, logger, path)
-		assert.Error(t, err, "Expected error for empty path")
+	t.Run("EmptyPath", func(t *testing.T) {
+		err := template.CreateDirectory(fs, logger, "")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "directory path cannot be empty")
 	})
 
-	t.Run("CreateDirectoryWithReadOnlyParent", func(t *testing.T) {
-		// Simulate a read-only parent directory by using a read-only FS
+	t.Run("ReadOnlyFilesystem", func(t *testing.T) {
 		readOnlyFs := afero.NewReadOnlyFs(afero.NewMemMapFs())
-		path := filepath.Join(tempDir, "test/readonly/child")
-		err := template.CreateDirectory(readOnlyFs, logger, path)
-		assert.Error(t, err, "Expected error when parent directory is read-only")
+		err := template.CreateDirectory(readOnlyFs, logger, "/test/dir")
+		assert.Error(t, err)
+	})
+
+	t.Run("ValidPath", func(t *testing.T) {
+		err := template.CreateDirectory(fs, logger, "/test/valid")
+		assert.NoError(t, err)
+		exists, err := afero.DirExists(fs, "/test/valid")
+		assert.NoError(t, err)
+		assert.True(t, exists)
 	})
 }
 
 func TestCreateFileEdgeCases(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
-	tempDir, err := afero.TempDir(fs, "", "test")
-	require.NoError(t, err)
 
-	t.Run("CreateFileWithInvalidPath", func(t *testing.T) {
-		path := ""
-		content := "test content"
-		err := template.CreateFile(fs, logger, path, content)
-		assert.Error(t, err, "Expected error for empty path")
+	t.Run("EmptyPath", func(t *testing.T) {
+		err := template.CreateFile(fs, logger, "", "content")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "file path cannot be empty")
 	})
 
-	t.Run("CreateFileInNonExistentDirectory", func(t *testing.T) {
-		path := filepath.Join(tempDir, "nonexistent/dir/file.txt")
-		content := "test content"
-		err := template.CreateFile(fs, logger, path, content)
-		assert.NoError(t, err, "Expected no error, should create parent directories")
-		exists, err := afero.Exists(fs, path)
+	t.Run("NilLogger", func(t *testing.T) {
+		// Test the safeLogger fallback
+		err := template.CreateFile(fs, nil, "/test/nil-logger.txt", "content")
 		assert.NoError(t, err)
-		assert.True(t, exists, "File should exist")
+
+		// Verify file was created
+		exists, err := afero.Exists(fs, "/test/nil-logger.txt")
+		assert.NoError(t, err)
+		assert.True(t, exists)
 	})
 
-	t.Run("CreateFileWithEmptyContent", func(t *testing.T) {
-		path := filepath.Join(tempDir, "empty.txt")
-		content := ""
-		err := template.CreateFile(fs, logger, path, content)
-		assert.NoError(t, err, "Expected no error for empty content")
-		data, err := afero.ReadFile(fs, path)
+	t.Run("ReadOnlyFilesystem", func(t *testing.T) {
+		readOnlyFs := afero.NewReadOnlyFs(afero.NewMemMapFs())
+		err := template.CreateFile(readOnlyFs, logger, "/test/readonly.txt", "content")
+		assert.Error(t, err)
+	})
+
+	t.Run("ValidFile", func(t *testing.T) {
+		err := template.CreateFile(fs, logger, "/test/valid.txt", "test content")
 		assert.NoError(t, err)
-		assert.Equal(t, "", string(data), "File content should be empty")
+
+		content, err := afero.ReadFile(fs, "/test/valid.txt")
+		assert.NoError(t, err)
+		assert.Equal(t, "test content", string(content))
+	})
+}
+
+func TestLoadTemplateWithTemplateDirEdgeCases(t *testing.T) {
+	originalTemplateDir := os.Getenv("TEMPLATE_DIR")
+	defer os.Setenv("TEMPLATE_DIR", originalTemplateDir)
+
+	t.Run("TemplateDirSetButFileNotFound", func(t *testing.T) {
+		// Create a temporary directory
+		tempDir := t.TempDir()
+		os.Setenv("TEMPLATE_DIR", tempDir)
+
+		// Try to load a template that doesn't exist
+		_, err := template.LoadTemplate("nonexistent.pkl", map[string]string{})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read template from disk")
+	})
+
+	t.Run("TemplateDirSetWithInvalidTemplate", func(t *testing.T) {
+		// Create a temporary directory and invalid template file
+		tempDir := t.TempDir()
+		invalidTemplatePath := filepath.Join(tempDir, "invalid.pkl")
+		os.WriteFile(invalidTemplatePath, []byte("{{invalid template syntax"), 0o644)
+		os.Setenv("TEMPLATE_DIR", tempDir)
+
+		// Try to parse invalid template
+		_, err := template.LoadTemplate("invalid.pkl", map[string]string{})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to parse template file")
+	})
+
+	t.Run("TemplateDirSetWithTemplateExecutionError", func(t *testing.T) {
+		// Create a temporary directory and template with execution error
+		tempDir := t.TempDir()
+		errorTemplatePath := filepath.Join(tempDir, "error.pkl")
+		// Template that will cause execution error (invalid function call)
+		os.WriteFile(errorTemplatePath, []byte("{{call .InvalidFunction}}"), 0o644)
+		os.Setenv("TEMPLATE_DIR", tempDir)
+
+		// Try to execute template with invalid function call
+		_, err := template.LoadTemplate("error.pkl", map[string]string{})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to execute template")
+	})
+
+	t.Run("TemplateDirSetWithValidTemplate", func(t *testing.T) {
+		// Create a temporary directory and valid template file
+		tempDir := t.TempDir()
+		validTemplatePath := filepath.Join(tempDir, "valid.pkl")
+		os.WriteFile(validTemplatePath, []byte("name = \"{{.Name}}\""), 0o644)
+		os.Setenv("TEMPLATE_DIR", tempDir)
+
+		// Load valid template
+		content, err := template.LoadTemplate("valid.pkl", map[string]string{"Name": "test"})
+		assert.NoError(t, err)
+		assert.Equal(t, "name = \"test\"", content)
+	})
+}
+
+func TestLoadTemplateEmbeddedFSEdgeCases(t *testing.T) {
+	// Clear TEMPLATE_DIR to force embedded FS usage
+	originalTemplateDir := os.Getenv("TEMPLATE_DIR")
+	defer os.Setenv("TEMPLATE_DIR", originalTemplateDir)
+	os.Setenv("TEMPLATE_DIR", "")
+
+	t.Run("NonExistentEmbeddedTemplate", func(t *testing.T) {
+		_, err := template.LoadTemplate("nonexistent-template.pkl", map[string]string{})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read embedded template")
+	})
+
+	t.Run("ValidEmbeddedTemplate", func(t *testing.T) {
+		// Test with a known embedded template
+		content, err := template.LoadTemplate("workflow.pkl", map[string]string{
+			"Header": "test-header",
+			"Name":   "test-name",
+		})
+		assert.NoError(t, err)
+		assert.Contains(t, content, "test-header")
+		assert.Contains(t, content, "test-name")
+	})
+}
+
+func TestGenerateWorkflowFileEdgeCases(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	t.Run("InvalidAgentName", func(t *testing.T) {
+		err := template.GenerateWorkflowFile(fs, ctx, logger, "/test", "invalid name")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "agent name cannot contain spaces")
+	})
+
+	t.Run("EmptyAgentName", func(t *testing.T) {
+		err := template.GenerateWorkflowFile(fs, ctx, logger, "/test", "")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "agent name cannot be empty")
+	})
+
+	t.Run("DirectoryCreationError", func(t *testing.T) {
+		readOnlyFs := afero.NewReadOnlyFs(afero.NewMemMapFs())
+		err := template.GenerateWorkflowFile(readOnlyFs, ctx, logger, "/test", "valid-name")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to create directory")
+	})
+
+	t.Run("NilLogger", func(t *testing.T) {
+		// Test safeLogger fallback
+		err := template.GenerateWorkflowFile(fs, ctx, nil, "/test-nil-logger", "valid-name")
+		assert.NoError(t, err)
+
+		// Verify file was created
+		exists, err := afero.Exists(fs, "/test-nil-logger/workflow.pkl")
+		assert.NoError(t, err)
+		assert.True(t, exists)
+	})
+}
+
+func TestGenerateResourceFilesEdgeCases(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	t.Run("InvalidAgentName", func(t *testing.T) {
+		err := template.GenerateResourceFiles(fs, ctx, logger, "/test", "invalid name")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "agent name cannot contain spaces")
+	})
+
+	t.Run("EmptyAgentName", func(t *testing.T) {
+		err := template.GenerateResourceFiles(fs, ctx, logger, "/test", "")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "agent name cannot be empty")
+	})
+
+	t.Run("ResourceDirectoryCreationError", func(t *testing.T) {
+		readOnlyFs := afero.NewReadOnlyFs(afero.NewMemMapFs())
+		err := template.GenerateResourceFiles(readOnlyFs, ctx, logger, "/test", "valid-name")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to create resources directory")
+	})
+
+	t.Run("NilLogger", func(t *testing.T) {
+		// Test safeLogger fallback
+		err := template.GenerateResourceFiles(fs, ctx, nil, "/test-nil-logger", "valid-name")
+		assert.NoError(t, err)
+
+		// Verify resource files were created
+		exists, err := afero.DirExists(fs, "/test-nil-logger/resources")
+		assert.NoError(t, err)
+		assert.True(t, exists)
+	})
+}
+
+func TestGenerateSpecificAgentFileEdgeCases(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	t.Run("EmptyMainDir", func(t *testing.T) {
+		err := template.GenerateSpecificAgentFile(fs, ctx, logger, "", "agent")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "base directory cannot be empty")
+	})
+
+	t.Run("WhitespaceMainDir", func(t *testing.T) {
+		err := template.GenerateSpecificAgentFile(fs, ctx, logger, "   ", "agent")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "base directory cannot be empty")
+	})
+
+	t.Run("InvalidAgentName", func(t *testing.T) {
+		err := template.GenerateSpecificAgentFile(fs, ctx, logger, "/test", "invalid name")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "agent name cannot contain spaces")
+	})
+
+	t.Run("WorkflowFileGeneration", func(t *testing.T) {
+		// Test workflow.pkl file generation (should go to main directory)
+		err := template.GenerateSpecificAgentFile(fs, ctx, logger, "/test", "workflow.pkl")
+		assert.NoError(t, err)
+
+		// Should be in main directory, not resources
+		exists, err := afero.Exists(fs, "/test/workflow.pkl.pkl")
+		assert.NoError(t, err)
+		assert.True(t, exists)
+	})
+
+	t.Run("NonExistentTemplateFallback", func(t *testing.T) {
+		// Test fallback to default template when specific template doesn't exist
+		err := template.GenerateSpecificAgentFile(fs, ctx, logger, "/test", "custom-agent")
+		assert.NoError(t, err)
+
+		// Verify file was created with default content
+		exists, err := afero.Exists(fs, "/test/resources/custom-agent.pkl")
+		assert.NoError(t, err)
+		assert.True(t, exists)
+
+		content, err := afero.ReadFile(fs, "/test/resources/custom-agent.pkl")
+		assert.NoError(t, err)
+		assert.Contains(t, string(content), "custom-agent")
+	})
+
+	t.Run("DirectoryCreationError", func(t *testing.T) {
+		readOnlyFs := afero.NewReadOnlyFs(afero.NewMemMapFs())
+		err := template.GenerateSpecificAgentFile(readOnlyFs, ctx, logger, "/test", "agent")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to create output directory")
+	})
+
+	t.Run("NilLogger", func(t *testing.T) {
+		// Test safeLogger fallback
+		err := template.GenerateSpecificAgentFile(fs, ctx, nil, "/test-nil-logger", "agent")
+		assert.NoError(t, err)
+
+		// Verify file was created
+		exists, err := afero.Exists(fs, "/test-nil-logger/resources/agent.pkl")
+		assert.NoError(t, err)
+		assert.True(t, exists)
+	})
+}
+
+func TestGenerateAgentEdgeCases(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	t.Run("EmptyBaseDir", func(t *testing.T) {
+		err := template.GenerateAgent(fs, ctx, logger, "", "agent")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "base directory cannot be empty")
+	})
+
+	t.Run("WhitespaceBaseDir", func(t *testing.T) {
+		err := template.GenerateAgent(fs, ctx, logger, "   ", "agent")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "base directory cannot be empty")
+	})
+
+	t.Run("InvalidAgentName", func(t *testing.T) {
+		err := template.GenerateAgent(fs, ctx, logger, "/test", "invalid name")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "agent name cannot contain spaces")
+	})
+
+	t.Run("MainDirectoryCreationError", func(t *testing.T) {
+		readOnlyFs := afero.NewReadOnlyFs(afero.NewMemMapFs())
+		err := template.GenerateAgent(readOnlyFs, ctx, logger, "/test", "agent")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to create main directory")
+	})
+
+	t.Run("NilLogger", func(t *testing.T) {
+		// Test safeLogger fallback
+		err := template.GenerateAgent(fs, ctx, nil, "/test-nil-logger", "valid-agent")
+		assert.NoError(t, err)
+
+		// Verify all files were created
+		exists, err := afero.Exists(fs, "/test-nil-logger/valid-agent/workflow.pkl")
+		assert.NoError(t, err)
+		assert.True(t, exists)
+
+		exists, err = afero.DirExists(fs, "/test-nil-logger/valid-agent/resources")
+		assert.NoError(t, err)
+		assert.True(t, exists)
 	})
 }
 

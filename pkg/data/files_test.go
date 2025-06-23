@@ -591,7 +591,6 @@ func TestPopulateDataFileRegistry_InjectableFunctions(t *testing.T) {
 		assert.NotNil(t, reg)
 		assert.Empty(t, *reg) // Should skip files that cause callback errors
 	})
-
 }
 
 // mockFileInfo implements os.FileInfo for testing

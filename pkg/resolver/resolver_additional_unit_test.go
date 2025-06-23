@@ -119,7 +119,7 @@ func TestDependencyResolver_ensureResponsePklFileNotExists_Unit(t *testing.T) {
 			name: "file exists and gets removed - success",
 			setupFS: func(fs afero.Fs, filepath string) {
 				// Create the file
-				afero.WriteFile(fs, filepath, []byte("existing content"), 0644)
+				afero.WriteFile(fs, filepath, []byte("existing content"), 0o644)
 			},
 			expectError: false,
 		},
@@ -127,7 +127,7 @@ func TestDependencyResolver_ensureResponsePklFileNotExists_Unit(t *testing.T) {
 			name: "directory with same name exists",
 			setupFS: func(fs afero.Fs, filepath string) {
 				// Create a directory with the same name
-				fs.MkdirAll(filepath, 0755)
+				fs.MkdirAll(filepath, 0o755)
 			},
 			expectError: false, // RemoveAll should handle directories too
 		},

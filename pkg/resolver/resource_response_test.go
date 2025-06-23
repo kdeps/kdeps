@@ -330,7 +330,7 @@ func TestDependencyResolver_EnsureResponsePklFileNotExists(t *testing.T) {
 
 	// Test when file exists
 	testContent := []byte("test content")
-	err = afero.WriteFile(fs, "/test/response.pkl", testContent, 0644)
+	err = afero.WriteFile(fs, "/test/response.pkl", testContent, 0o644)
 	if err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
@@ -375,7 +375,7 @@ func TestDependencyResolver_EvalPklFormattedResponseFile(t *testing.T) {
 	// Test with invalid file extension
 	invalidFile := filepath.Join(tmpDir, "response.txt")
 	testContent := []byte("test content")
-	err = afero.WriteFile(fs, invalidFile, testContent, 0644)
+	err = afero.WriteFile(fs, invalidFile, testContent, 0o644)
 	if err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}

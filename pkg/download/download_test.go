@@ -921,7 +921,7 @@ func TestDownloadFile_ComprehensiveCoverage(t *testing.T) {
 		// Create a filesystem with an existing file first
 		baseFs := afero.NewMemMapFs()
 		filePath := "/test/existing.txt"
-		err := afero.WriteFile(baseFs, filePath, []byte("existing"), 0644)
+		err := afero.WriteFile(baseFs, filePath, []byte("existing"), 0o644)
 		require.NoError(t, err)
 
 		// Create a mock filesystem that returns error on Stat (but not on Exists)
@@ -1009,7 +1009,7 @@ func TestDownloadFiles_ComprehensiveCoverage(t *testing.T) {
 		filePath := filepath.Join(downloadDir, "test.txt")
 
 		// Create an existing file directly in the real filesystem
-		err := os.WriteFile(filePath, []byte("existing"), 0644)
+		err := os.WriteFile(filePath, []byte("existing"), 0o644)
 		require.NoError(t, err)
 
 		// Create a mock server
@@ -1036,7 +1036,7 @@ func TestDownloadFiles_ComprehensiveCoverage(t *testing.T) {
 		filePath := filepath.Join(downloadDir, "test.txt")
 
 		// Create an existing file directly in the real filesystem
-		err := os.WriteFile(filePath, []byte("existing"), 0644)
+		err := os.WriteFile(filePath, []byte("existing"), 0o644)
 		require.NoError(t, err)
 
 		// Create a mock server

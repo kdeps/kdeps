@@ -1007,7 +1007,7 @@ func TestPerformCopy_IOCopyError(t *testing.T) {
 
 	// Create source file with content
 	src := "/src.txt"
-	if err := afero.WriteFile(fs, src, []byte("test content"), 0644); err != nil {
+	if err := afero.WriteFile(fs, src, []byte("test content"), 0o644); err != nil {
 		t.Fatalf("failed to create source file: %v", err)
 	}
 

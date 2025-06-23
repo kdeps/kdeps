@@ -1007,7 +1007,7 @@ func TestEnforcePklTemplateAmendsRules_ActualScannerError(t *testing.T) {
 
 	// Create a file with content that might cause scanner issues
 	filePath := "/test/scanner_error.pkl"
-	err := fs.MkdirAll("/test", 0755)
+	err := fs.MkdirAll("/test", 0o755)
 	require.NoError(t, err)
 
 	// Create content with very long lines that might cause scanner buffer issues
@@ -1016,7 +1016,7 @@ func TestEnforcePklTemplateAmendsRules_ActualScannerError(t *testing.T) {
 	malformedContent := longContent + "amends \"package://schema.kdeps.com/core@" +
 		schema.SchemaVersion(ctx) + "#/Workflow.pkl\"\n"
 
-	err = afero.WriteFile(fs, filePath, []byte(malformedContent), 0644)
+	err = afero.WriteFile(fs, filePath, []byte(malformedContent), 0o644)
 	require.NoError(t, err)
 
 	// This might trigger scanner.Err() if the buffer handling has issues
@@ -1040,14 +1040,14 @@ func TestEnforceFolderStructure_EnforceResourcesFolderError(t *testing.T) {
 	workflowFile := filepath.Join(agentDir, "workflow.pkl")
 	invalidFile := filepath.Join(resourcesDir, "invalid.txt") // Non-.pkl file
 
-	err := fs.MkdirAll(resourcesDir, 0755)
+	err := fs.MkdirAll(resourcesDir, 0o755)
 	require.NoError(t, err)
 
-	err = afero.WriteFile(fs, workflowFile, []byte("content"), 0644)
+	err = afero.WriteFile(fs, workflowFile, []byte("content"), 0o644)
 	require.NoError(t, err)
 
 	// Create a file that will cause EnforceResourcesFolder to fail
-	err = afero.WriteFile(fs, invalidFile, []byte("invalid content"), 0644)
+	err = afero.WriteFile(fs, invalidFile, []byte("invalid content"), 0o644)
 	require.NoError(t, err)
 
 	// This should fail when EnforceResourcesFolder is called on the resources directory
@@ -1066,10 +1066,10 @@ func TestEnforceFolderStructure_AllMissingFoldersWarning(t *testing.T) {
 	agentDir := "/test/my-agent"
 	workflowFile := filepath.Join(agentDir, "workflow.pkl")
 
-	err := fs.MkdirAll(agentDir, 0755)
+	err := fs.MkdirAll(agentDir, 0o755)
 	require.NoError(t, err)
 
-	err = afero.WriteFile(fs, workflowFile, []byte("content"), 0644)
+	err = afero.WriteFile(fs, workflowFile, []byte("content"), 0o644)
 	require.NoError(t, err)
 
 	// Should succeed but generate warnings for missing folders
@@ -1091,10 +1091,10 @@ func TestEnforceFolderStructure_PartialMissingFoldersWarning(t *testing.T) {
 	resourcesDir := filepath.Join(agentDir, "resources")
 	workflowFile := filepath.Join(agentDir, "workflow.pkl")
 
-	err := fs.MkdirAll(resourcesDir, 0755)
+	err := fs.MkdirAll(resourcesDir, 0o755)
 	require.NoError(t, err)
 
-	err = afero.WriteFile(fs, workflowFile, []byte("content"), 0644)
+	err = afero.WriteFile(fs, workflowFile, []byte("content"), 0o644)
 	require.NoError(t, err)
 
 	// Should succeed but generate warning for missing data folder

@@ -532,13 +532,58 @@ func TestGetLatestGitHubRelease_ReadAllError(t *testing.T) {
 // TestGetLatestGitHubRelease_DefaultBaseURL tests the default baseURL assignment
 func TestGetLatestGitHubRelease_DefaultBaseURLAssignment(t *testing.T) {
 	ctx := context.Background()
-	
+
 	// Test with empty baseURL to trigger the default assignment
 	// This will attempt to call the real GitHub API but should fail quickly
 	_, err := utilspkg.GetLatestGitHubRelease(ctx, "nonexistent/repo-that-does-not-exist-12345", "")
-	
+
 	// We expect this to fail since we're calling the real API with a fake repo
 	require.Error(t, err)
 	// The error should indicate a real API call was made with the default baseURL
-	require.Contains(t, strings.ToLower(err.Error()), "status code")
+	// It could be either rate limit or status code error
+	errorMsg := strings.ToLower(err.Error())
+	require.True(t, strings.Contains(errorMsg, "status code") || strings.Contains(errorMsg, "rate limit"),
+		"Expected error to contain 'status code' or 'rate limit', got: %s", err.Error())
+}
+
+// TestGetLatestGitHubRelease_NoTokenWarning tests the stderr warning when GITHUB_TOKEN is not set
+func TestGetLatestGitHubRelease_NoTokenWarning(t *testing.T) {
+	// Ensure GITHUB_TOKEN is not set for this test
+	originalToken := os.Getenv("GITHUB_TOKEN")
+	os.Unsetenv("GITHUB_TOKEN")
+	defer func() {
+		if originalToken != "" {
+			os.Setenv("GITHUB_TOKEN", originalToken)
+		}
+	}()
+
+	// Capture stderr output
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	// Create test server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, `{"tag_name": "v1.0.0"}`)
+	}))
+	defer server.Close()
+
+	// Call function - this should trigger the warning
+	_, err := utilspkg.GetLatestGitHubRelease(context.Background(), "owner/repo", server.URL)
+	require.NoError(t, err)
+
+	// Restore stderr and read captured output
+	w.Close()
+	os.Stderr = oldStderr
+
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	r.Close()
+
+	// Verify the warning was printed
+	captured := buf.String()
+	require.Contains(t, captured, "Warning: GITHUB_TOKEN is not set")
+	require.Contains(t, captured, "using unauthenticated requests with limited rate")
 }

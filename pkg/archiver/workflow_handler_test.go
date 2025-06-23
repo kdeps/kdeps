@@ -335,6 +335,34 @@ func TestCompileWorkflow_WriteFileError(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestCompileWorkflow_EnforcerValidationError(t *testing.T) {
+	fs := afero.NewOsFs()
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	// Create temp directories
+	kdepsDir, err := afero.TempDir(fs, "", "kdeps")
+	assert.NoError(t, err)
+	defer fs.RemoveAll(kdepsDir)
+
+	projectDir, err := afero.TempDir(fs, "", "project")
+	assert.NoError(t, err)
+	defer fs.RemoveAll(projectDir)
+
+	// Create workflow file with invalid amends line that will fail validation
+	workflowContent := `invalid amends line that will not pass enforcer validation
+targetActionID = "testAction"`
+	assert.NoError(t, afero.WriteFile(fs, filepath.Join(projectDir, "workflow.pkl"), []byte(workflowContent), 0o644))
+
+	wf := stubWfWithAtPrefix{}
+
+	// Test enforcer validation error
+	compiledDir, err := archiver.CompileWorkflow(fs, ctx, wf, kdepsDir, projectDir, logger)
+	assert.Error(t, err)
+	assert.Empty(t, compiledDir)
+	assert.Contains(t, err.Error(), "schema URL validation failed")
+}
+
 func TestPrepareRunDir_ExistsError(t *testing.T) {
 	base := afero.NewOsFs()
 	fs := &errorFs{base, "exists"}

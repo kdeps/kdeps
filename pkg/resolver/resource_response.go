@@ -53,6 +53,7 @@ func (dr *DependencyResolver) ensureResponsePklFileNotExists() error {
 	}
 	return nil
 }
+
 func FormatResponseData(response *apiserverresponse.APIServerResponseBlock) string {
 	if response == nil || response.Data == nil {
 		return ""

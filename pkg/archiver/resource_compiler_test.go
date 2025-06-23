@@ -709,9 +709,11 @@ func (m *mockWriteFailFs) Name() string { return m.base.Name() }
 func (m *mockWriteFailFs) Create(name string) (afero.File, error) {
 	return nil, fmt.Errorf("write not allowed")
 }
+
 func (m *mockWriteFailFs) Mkdir(name string, perm os.FileMode) error {
 	return fmt.Errorf("write not allowed")
 }
+
 func (m *mockWriteFailFs) MkdirAll(path string, perm os.FileMode) error {
 	return fmt.Errorf("write not allowed")
 }
@@ -731,9 +733,11 @@ func (m *mockWriteFailFs) Stat(name string) (os.FileInfo, error) { return m.base
 func (m *mockWriteFailFs) Chmod(name string, mode os.FileMode) error {
 	return fmt.Errorf("write not allowed")
 }
+
 func (m *mockWriteFailFs) Chown(name string, uid, gid int) error {
 	return fmt.Errorf("write not allowed")
 }
+
 func (m *mockWriteFailFs) Chtimes(name string, atime time.Time, mtime time.Time) error {
 	return fmt.Errorf("write not allowed")
 }

@@ -21,7 +21,7 @@ func TestIsBase64Encoded(t *testing.T) {
 	}{
 		{name: "valid", input: base64.StdEncoding.EncodeToString([]byte("hello")), want: true},
 		{name: "empty", input: "", want: false},
-		{name: "invalid chars", input: "SGVsbG@=", want: false},
+		{name: "invalid chars", input: "SGVsb@=", want: false},
 		{name: "wrong padding", input: "abc", want: false},
 	}
 
@@ -1161,7 +1161,7 @@ func TestDecodeBase64IfNeeded_ActualInvalidBase64(t *testing.T) {
 // where IsBase64Encoded returns true but DecodeString fails
 func TestDecodeBase64String_ImpossibleErrorCase(t *testing.T) {
 	// This test tries to find an edge case where IsBase64Encoded passes
-	// but DecodeString fails. This is theoretically very difficult.
+	// but DecodeBase64String fails. This is theoretically very difficult.
 
 	// Test with various edge cases that might slip through IsBase64Encoded validation
 	testCases := []string{
@@ -1240,4 +1240,74 @@ func TestDecodeBase64String_ActualInvalidBase64(t *testing.T) {
 			}
 		}
 	}
+}
+
+// TestDecodeBase64String_ErrorPathAttempt attempts to trigger the error path in DecodeBase64String
+func TestDecodeBase64String_ErrorPathAttempt(t *testing.T) {
+	// We need a string that passes IsBase64Encoded but fails DecodeString
+	// This is extremely difficult since IsBase64Encoded calls DecodeString internally
+	// One theoretical edge case might be empty decoded content that becomes invalid
+
+	// Test malformed base64 that might pass initial checks but fail later
+	testCases := []string{
+		"====",     // All padding
+		"A===",     // Invalid padding
+		"AA==",     // Valid padding but minimal content
+		"AAAA====", // Too much padding
+	}
+
+	for _, testCase := range testCases {
+		decoded, err := DecodeBase64String(testCase)
+		// If IsBase64Encoded returns false, DecodeBase64String should return the original string unchanged
+		if !IsBase64Encoded(testCase) {
+			require.NoError(t, err)
+			require.Equal(t, testCase, decoded)
+		} else {
+			// If IsBase64Encoded returns true, DecodeBase64String should succeed
+			// The error path is extremely difficult to trigger due to the validation in IsBase64Encoded
+			require.NoError(t, err)
+		}
+	}
+}
+
+// TestDecodeBase64String_ForceCoverageErrorPath attempts to test the theoretical error path
+func TestDecodeBase64String_ForceCoverageErrorPath(t *testing.T) {
+	// This test acknowledges that the error path in DecodeBase64String is virtually unreachable
+	// due to the validation logic in IsBase64Encoded. The error handling exists for safety
+	// but is extremely difficult to trigger in practice.
+
+	// We'll test with edge cases but acknowledge that the error path may be unreachable
+	edgeCases := []string{
+		"",     // empty string
+		"A",    // too short
+		"AB",   // still too short
+		"ABC",  // not multiple of 4
+		"ABCD", // minimal valid length, should decode fine
+		"!@#$", // invalid characters
+		"AB==", // valid format, should decode fine
+	}
+
+	for _, testCase := range edgeCases {
+		result, err := DecodeBase64String(testCase)
+
+		// All calls should succeed since either:
+		// 1. IsBase64Encoded returns false -> returns original string unchanged
+		// 2. IsBase64Encoded returns true -> DecodeString should succeed
+		require.NoError(t, err)
+
+		// Verify expected behavior
+		if IsBase64Encoded(testCase) {
+			// Should be properly decoded
+			decoded, decodeErr := base64.StdEncoding.DecodeString(testCase)
+			require.NoError(t, decodeErr)
+			require.Equal(t, string(decoded), result)
+		} else {
+			// Should return original string unchanged
+			require.Equal(t, testCase, result)
+		}
+	}
+
+	// Note: The error path `return "", fmt.Errorf("failed to decode Base64 string: %w", err)`
+	// is included for defensive programming but is virtually unreachable due to
+	// the comprehensive validation in IsBase64Encoded()
 }

@@ -4,10 +4,9 @@ import (
 	"database/sql"
 	"fmt"
 	"net/url"
+	"path/filepath"
 	"testing"
 	"time"
-
-	"path/filepath"
 
 	. "github.com/kdeps/kdeps/pkg/memory"
 	_ "github.com/mattn/go-sqlite3"

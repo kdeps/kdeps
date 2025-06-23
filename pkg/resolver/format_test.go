@@ -34,8 +34,6 @@ import (
 	"github.com/tmc/langchaingo/llms"
 )
 
-const ()
-
 // Alias recently-exported functions so older test code remains unchanged.
 var (
 	formatMap               = FormatMap

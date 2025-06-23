@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -117,8 +116,8 @@ func TestSetupDockerEnvironment_Unit(t *testing.T) {
 				logger := logging.NewTestLogger()
 
 				// Create necessary directories for PrepareWorkflowDir to succeed
-				fs.MkdirAll("/agent/workflow", 0755)
-				fs.MkdirAll("/agent/project", 0755)
+				fs.MkdirAll("/agent/workflow", 0o755)
+				fs.MkdirAll("/agent/project", 0o755)
 
 				return &resolver.DependencyResolver{
 					Fs:         fs,
@@ -178,9 +177,9 @@ func TestSetupDockerEnvironment_EdgeCases(t *testing.T) {
 
 		projectDir := "/agent/project"
 		workflowDir := "/agent/workflow"
-		fs.MkdirAll(projectDir, 0755)
-		fs.MkdirAll(workflowDir, 0755)
-		afero.WriteFile(fs, filepath.Join(projectDir, "test.txt"), []byte("test"), 0644)
+		fs.MkdirAll(projectDir, 0o755)
+		fs.MkdirAll(workflowDir, 0o755)
+		afero.WriteFile(fs, filepath.Join(projectDir, "test.txt"), []byte("test"), 0o644)
 
 		dr := &resolver.DependencyResolver{
 			Fs:          fs,
@@ -206,9 +205,9 @@ func TestSetupDockerEnvironment_EdgeCases(t *testing.T) {
 		baseFs := afero.NewMemMapFs()
 		projectDir := "/agent/project"
 		workflowDir := "/agent/workflow"
-		baseFs.MkdirAll(projectDir, 0755)
-		baseFs.MkdirAll(workflowDir, 0755)
-		afero.WriteFile(baseFs, filepath.Join(projectDir, "test.txt"), []byte("test"), 0644)
+		baseFs.MkdirAll(projectDir, 0o755)
+		baseFs.MkdirAll(workflowDir, 0o755)
+		afero.WriteFile(baseFs, filepath.Join(projectDir, "test.txt"), []byte("test"), 0o644)
 
 		// Use read-only filesystem to cause MkdirAll to fail
 		fs := afero.NewReadOnlyFs(baseFs)
@@ -235,9 +234,9 @@ func TestSetupDockerEnvironment_EdgeCases(t *testing.T) {
 
 		projectDir := "/agent/project"
 		workflowDir := "/agent/workflow"
-		fs.MkdirAll(projectDir, 0755)
-		fs.MkdirAll(workflowDir, 0755)
-		afero.WriteFile(fs, filepath.Join(projectDir, "test.txt"), []byte("test"), 0644)
+		fs.MkdirAll(projectDir, 0o755)
+		fs.MkdirAll(workflowDir, 0o755)
+		afero.WriteFile(fs, filepath.Join(projectDir, "test.txt"), []byte("test"), 0o644)
 
 		dr := &resolver.DependencyResolver{
 			Fs:          fs,
@@ -259,9 +258,9 @@ func TestSetupDockerEnvironment_EdgeCases(t *testing.T) {
 
 		projectDir := "/agent/project"
 		workflowDir := "/agent/workflow"
-		fs.MkdirAll(projectDir, 0755)
-		fs.MkdirAll(workflowDir, 0755)
-		afero.WriteFile(fs, filepath.Join(projectDir, "test.txt"), []byte("test"), 0644)
+		fs.MkdirAll(projectDir, 0o755)
+		fs.MkdirAll(workflowDir, 0o755)
+		afero.WriteFile(fs, filepath.Join(projectDir, "test.txt"), []byte("test"), 0o644)
 
 		dr := &resolver.DependencyResolver{
 			Fs:          fs,
@@ -505,12 +504,12 @@ func TestCleanup_Unit(t *testing.T) {
 			name: "Docker mode with proper setup",
 			setupFS: func(fs afero.Fs) {
 				// Create necessary directories and files
-				fs.MkdirAll("/agent/project", 0755)
-				fs.MkdirAll("/agent/workflow", 0755)
-				fs.MkdirAll("/tmp/action", 0755)
+				fs.MkdirAll("/agent/project", 0o755)
+				fs.MkdirAll("/agent/workflow", 0o755)
+				fs.MkdirAll("/tmp/action", 0o755)
 
 				// Create a test file in project to copy
-				afero.WriteFile(fs, "/agent/project/test.txt", []byte("test content"), 0644)
+				afero.WriteFile(fs, "/agent/project/test.txt", []byte("test content"), 0o644)
 			},
 			dockerMode: "1",
 			contextSetup: func() context.Context {
@@ -564,9 +563,9 @@ func TestCopyFilesToRunDir_Unit(t *testing.T) {
 		{
 			name: "Successful copy",
 			setupFS: func(fs afero.Fs, downloadDir string) {
-				fs.MkdirAll(downloadDir, 0755)
-				afero.WriteFile(fs, filepath.Join(downloadDir, "file1.txt"), []byte("content1"), 0644)
-				afero.WriteFile(fs, filepath.Join(downloadDir, "file2.txt"), []byte("content2"), 0644)
+				fs.MkdirAll(downloadDir, 0o755)
+				afero.WriteFile(fs, filepath.Join(downloadDir, "file1.txt"), []byte("content1"), 0o644)
+				afero.WriteFile(fs, filepath.Join(downloadDir, "file2.txt"), []byte("content2"), 0o644)
 			},
 			expectError: false,
 			expectFiles: []string{"file1.txt", "file2.txt"},
@@ -582,7 +581,7 @@ func TestCopyFilesToRunDir_Unit(t *testing.T) {
 		{
 			name: "Empty download directory",
 			setupFS: func(fs afero.Fs, downloadDir string) {
-				fs.MkdirAll(downloadDir, 0755)
+				fs.MkdirAll(downloadDir, 0o755)
 				// Create empty directory
 			},
 			expectError: false,
@@ -636,8 +635,8 @@ func TestCheckDevBuildMode_Unit(t *testing.T) {
 			name: "Kdeps binary exists",
 			setupFS: func(fs afero.Fs, kdepsDir string) {
 				downloadDir := filepath.Join(kdepsDir, "cache")
-				fs.MkdirAll(downloadDir, 0755)
-				afero.WriteFile(fs, filepath.Join(downloadDir, "kdeps"), []byte("binary"), 0755)
+				fs.MkdirAll(downloadDir, 0o755)
+				afero.WriteFile(fs, filepath.Join(downloadDir, "kdeps"), []byte("binary"), 0o755)
 			},
 			expectMode:  true,
 			expectError: false,
@@ -645,7 +644,7 @@ func TestCheckDevBuildMode_Unit(t *testing.T) {
 		{
 			name: "Kdeps binary doesn't exist",
 			setupFS: func(fs afero.Fs, kdepsDir string) {
-				fs.MkdirAll(filepath.Join(kdepsDir, "cache"), 0755)
+				fs.MkdirAll(filepath.Join(kdepsDir, "cache"), 0o755)
 				// Don't create the kdeps file
 			},
 			expectMode:  false,
@@ -655,7 +654,7 @@ func TestCheckDevBuildMode_Unit(t *testing.T) {
 			name: "Kdeps path is directory not file",
 			setupFS: func(fs afero.Fs, kdepsDir string) {
 				kdepsPath := filepath.Join(kdepsDir, "cache", "kdeps")
-				fs.MkdirAll(kdepsPath, 0755) // Create as directory
+				fs.MkdirAll(kdepsPath, 0o755) // Create as directory
 			},
 			expectMode:  false,
 			expectError: false,

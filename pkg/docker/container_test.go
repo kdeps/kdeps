@@ -2,6 +2,7 @@ package docker_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -14,8 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	crand "crypto/rand"
-
-	"errors"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -386,6 +385,7 @@ type mockDockerClient struct {
 func (m *mockDockerClient) ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, platform interface{}, containerName string) (container.CreateResponse, error) {
 	return container.CreateResponse{}, m.containerCreateErr
 }
+
 func (m *mockDockerClient) ContainerStart(ctx context.Context, containerID string, options container.StartOptions) error {
 	return m.containerStartErr
 }

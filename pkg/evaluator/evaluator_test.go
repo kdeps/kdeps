@@ -765,46 +765,328 @@ func TestCreateAndProcessPklFile_WithSchemaVersion(t *testing.T) {
 
 // TestCreateAndProcessPklFile_ExtendsRelationship tests the extends relationship
 func TestCreateAndProcessPklFile_ExtendsRelationship(t *testing.T) {
-	fs := afero.NewOsFs()
-	ctx := context.Background()
+	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
+	ctx := context.Background()
+	finalPath := "/out/extends_test.pkl"
+	sections := []string{"testValue = 42"}
 
 	processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
-		// Verify the header section contains "extends"
+		// Verify that the headerSection uses 'extends'
 		if !strings.Contains(headerSection, "extends") {
-			return "", errors.New("header section should contain 'extends'")
+			return "", fmt.Errorf("expected 'extends' in header, got: %s", headerSection)
 		}
-		return "processed with extends", nil
+		return headerSection + "\nprocessed_extends", nil
 	}
 
-	err := CreateAndProcessPklFile(fs, ctx, []string{"section"}, "final.pkl", "Template.pkl", logger, processFunc, true)
-	require.NoError(t, err)
+	err := CreateAndProcessPklFile(fs, ctx, sections, finalPath, "TestTemplate.pkl", logger, processFunc, true)
+	assert.NoError(t, err)
 
-	// Verify the final file contains the processed content
-	content, err := afero.ReadFile(fs, "final.pkl")
-	require.NoError(t, err)
-	require.Contains(t, string(content), "processed with extends")
+	content, err := afero.ReadFile(fs, finalPath)
+	assert.NoError(t, err)
+	assert.Contains(t, string(content), "extends")
+	assert.Contains(t, string(content), "processed_extends")
 }
 
 // TestCreateAndProcessPklFile_AmendsRelationship tests the amends relationship
 func TestCreateAndProcessPklFile_AmendsRelationship(t *testing.T) {
-	fs := afero.NewOsFs()
-	ctx := context.Background()
+	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
+	ctx := context.Background()
+	finalPath := "/out/amends_test.pkl"
+	sections := []string{"testValue = 42"}
 
 	processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
-		// Verify the header section contains "amends"
+		// Verify that the headerSection uses 'amends'
 		if !strings.Contains(headerSection, "amends") {
-			return "", errors.New("header section should contain 'amends'")
+			return "", fmt.Errorf("expected 'amends' in header, got: %s", headerSection)
 		}
-		return "processed with amends", nil
+		return headerSection + "\nprocessed_amends", nil
 	}
 
-	err := CreateAndProcessPklFile(fs, ctx, []string{"section"}, "final.pkl", "Template.pkl", logger, processFunc, false)
-	require.NoError(t, err)
+	err := CreateAndProcessPklFile(fs, ctx, sections, finalPath, "TestTemplate.pkl", logger, processFunc, false)
+	assert.NoError(t, err)
 
-	// Verify the final file contains the processed content
-	content, err := afero.ReadFile(fs, "final.pkl")
-	require.NoError(t, err)
-	require.Contains(t, string(content), "processed with amends")
+	content, err := afero.ReadFile(fs, finalPath)
+	assert.NoError(t, err)
+	assert.Contains(t, string(content), "amends")
+	assert.Contains(t, string(content), "processed_amends")
+}
+
+func TestEvalPkl_ComprehensiveErrorCases(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	t.Run("InvalidExtension", func(t *testing.T) {
+		_, err := EvalPkl(fs, ctx, "file.txt", "header", logger)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), ".pkl extension")
+	})
+
+	t.Run("EmptyExtension", func(t *testing.T) {
+		_, err := EvalPkl(fs, ctx, "file", "header", logger)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), ".pkl extension")
+	})
+
+	t.Run("JsonExtension", func(t *testing.T) {
+		_, err := EvalPkl(fs, ctx, "config.json", "header", logger)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), ".pkl extension")
+	})
+
+	t.Run("YamlExtension", func(t *testing.T) {
+		_, err := EvalPkl(fs, ctx, "config.yaml", "header", logger)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), ".pkl extension")
+	})
+
+	t.Run("DotPklInMiddle", func(t *testing.T) {
+		_, err := EvalPkl(fs, ctx, "file.pkl.backup", "header", logger)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), ".pkl extension")
+	})
+}
+
+func TestEvalPkl_BinaryExistsButExecutionFails(t *testing.T) {
+	// This test requires setting up a dummy binary that fails
+	// For now, test the error path when EnsurePklBinaryExists would fail
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Test with valid extension but assume pkl binary check would fail
+	// Since we can't easily mock os.Exit(1), we test the validation first
+	_, err := EvalPkl(fs, ctx, "valid.pkl", "header", logger)
+	// This will either succeed if pkl is installed, or fail during binary check
+	// The important part is that we're exercising the EnsurePklBinaryExists code path
+	if err != nil {
+		// If pkl is not installed, this is expected
+		t.Logf("pkl binary not available, which is expected in CI environments")
+	}
+}
+
+func TestCreateAndProcessPklFile_EdgeCases(t *testing.T) {
+	t.Run("LargeNumberOfSections", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		logger := logging.NewTestLogger()
+		ctx := context.Background()
+
+		// Create many sections to test handling of large content
+		sections := make([]string, 100)
+		for i := 0; i < 100; i++ {
+			sections[i] = fmt.Sprintf("section%d = %d", i, i)
+		}
+
+		processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
+			// Read the temp file to verify all sections were written
+			content, err := afero.ReadFile(fs, tmpFile)
+			if err != nil {
+				return "", err
+			}
+
+			// Verify first and last sections are present
+			contentStr := string(content)
+			if !strings.Contains(contentStr, "section0 = 0") {
+				return "", fmt.Errorf("first section not found")
+			}
+			if !strings.Contains(contentStr, "section99 = 99") {
+				return "", fmt.Errorf("last section not found")
+			}
+
+			return headerSection + "\nprocessed_large", nil
+		}
+
+		err := CreateAndProcessPklFile(fs, ctx, sections, "/out/large.pkl", "Template.pkl", logger, processFunc, false)
+		assert.NoError(t, err)
+	})
+
+	t.Run("EmptyStringSections", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		logger := logging.NewTestLogger()
+		ctx := context.Background()
+
+		sections := []string{"", "valid = true", "", "another = false", ""}
+
+		processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
+			content, err := afero.ReadFile(fs, tmpFile)
+			if err != nil {
+				return "", err
+			}
+
+			// Verify valid sections are present
+			contentStr := string(content)
+			if !strings.Contains(contentStr, "valid = true") {
+				return "", fmt.Errorf("valid section not found")
+			}
+			if !strings.Contains(contentStr, "another = false") {
+				return "", fmt.Errorf("another section not found")
+			}
+
+			return headerSection + "\nprocessed_empty", nil
+		}
+
+		err := CreateAndProcessPklFile(fs, ctx, sections, "/out/empty.pkl", "Template.pkl", logger, processFunc, false)
+		assert.NoError(t, err)
+	})
+
+	t.Run("SpecialCharactersInSections", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		logger := logging.NewTestLogger()
+		ctx := context.Background()
+
+		sections := []string{
+			"unicode = \"测试 unicode\"",
+			"special = \"!@#$%^&*()\"",
+			"quotes = \"\\\"escaped quotes\\\"\"",
+			"newlines = \"line1\\nline2\"",
+		}
+
+		processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
+			content, err := afero.ReadFile(fs, tmpFile)
+			if err != nil {
+				return "", err
+			}
+
+			contentStr := string(content)
+			// Verify special characters are preserved
+			assert.Contains(t, contentStr, "测试 unicode")
+			assert.Contains(t, contentStr, "!@#$%^&*()")
+
+			return headerSection + "\nprocessed_special", nil
+		}
+
+		err := CreateAndProcessPklFile(fs, ctx, sections, "/out/special.pkl", "Template.pkl", logger, processFunc, false)
+		assert.NoError(t, err)
+	})
+
+	t.Run("VeryLongTemplateName", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		logger := logging.NewTestLogger()
+		ctx := context.Background()
+
+		// Test with very long template name
+		longTemplate := strings.Repeat("VeryLongTemplateName", 10) + ".pkl"
+
+		processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
+			// Verify the long template name is in the header
+			if !strings.Contains(headerSection, longTemplate) {
+				return "", fmt.Errorf("long template name not found in header")
+			}
+			return headerSection + "\nprocessed_long", nil
+		}
+
+		err := CreateAndProcessPklFile(fs, ctx, []string{"test = true"}, "/out/long.pkl", longTemplate, logger, processFunc, false)
+		assert.NoError(t, err)
+	})
+}
+
+func TestCreateAndProcessPklFile_FilesystemEdgeCases(t *testing.T) {
+	t.Run("TempDirCreationError", func(t *testing.T) {
+		// CreateAndProcessPklFile uses afero.TempDir directly, not through the FS interface
+		// This makes it difficult to mock TempDir failures without refactoring the production code
+		// For comprehensive coverage, we document that this path exists but is hard to test
+		t.Skip("Cannot simulate temp dir creation failure - CreateAndProcessPklFile uses afero.TempDir directly")
+	})
+
+	t.Run("TempFileCreationError", func(t *testing.T) {
+		// CreateAndProcessPklFile uses afero.TempFile directly, not through the FS interface
+		// This makes it difficult to mock TempFile failures without refactoring the production code
+		// For comprehensive coverage, we document that this path exists but is hard to test
+		t.Skip("Cannot simulate temp file creation failure - CreateAndProcessPklFile uses afero.TempFile directly")
+	})
+
+	t.Run("ProcessFuncError", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		logger := logging.NewTestLogger()
+		ctx := context.Background()
+
+		processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
+			return "", fmt.Errorf("processing failed for testing")
+		}
+
+		err := CreateAndProcessPklFile(fs, ctx, []string{"test = true"}, "/out/test.pkl", "Template.pkl", logger, processFunc, false)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to process temporary file")
+	})
+
+	t.Run("FinalFileWriteError", func(t *testing.T) {
+		// CreateAndProcessPklFile uses afero.WriteFile directly, not through the FS interface
+		// This makes it difficult to mock WriteFile failures without refactoring the production code
+		// For comprehensive coverage, we document that this path exists but is hard to test
+		t.Skip("Cannot simulate final file write failure - CreateAndProcessPklFile uses afero.WriteFile directly")
+	})
+}
+
+func TestEnsurePklBinaryExists_EdgeCases(t *testing.T) {
+	t.Run("WithPklExeOnWindows", func(t *testing.T) {
+		// Skip if not on Windows since this test is Windows-specific
+		if runtime.GOOS != "windows" {
+			t.Skip("Skipping Windows-specific test on non-Windows platform")
+		}
+
+		logger := logging.NewTestLogger()
+		tmpDir := t.TempDir()
+
+		// Create pkl.exe instead of pkl
+		dummyPkl := filepath.Join(tmpDir, "pkl.exe")
+		err := os.WriteFile(dummyPkl, []byte("@echo off\nexit 0"), 0o755)
+		require.NoError(t, err)
+
+		// Prepend to PATH
+		oldPath := os.Getenv("PATH")
+		os.Setenv("PATH", tmpDir+string(os.PathListSeparator)+oldPath)
+		t.Cleanup(func() { os.Setenv("PATH", oldPath) })
+
+		err = EnsurePklBinaryExists(context.Background(), logger)
+		assert.NoError(t, err)
+	})
+
+	t.Run("WithRegularPklOnUnix", func(t *testing.T) {
+		// Skip if on Windows since this test is Unix-specific
+		if runtime.GOOS == "windows" {
+			t.Skip("Skipping Unix-specific test on Windows platform")
+		}
+
+		logger := logging.NewTestLogger()
+		tmpDir := t.TempDir()
+
+		// Create pkl (no .exe)
+		dummyPkl := filepath.Join(tmpDir, "pkl")
+		err := os.WriteFile(dummyPkl, []byte("#!/bin/sh\nexit 0"), 0o755)
+		require.NoError(t, err)
+
+		// Prepend to PATH
+		oldPath := os.Getenv("PATH")
+		os.Setenv("PATH", tmpDir+string(os.PathListSeparator)+oldPath)
+		t.Cleanup(func() { os.Setenv("PATH", oldPath) })
+
+		err = EnsurePklBinaryExists(context.Background(), logger)
+		assert.NoError(t, err)
+	})
+
+	t.Run("NoBinaryFoundInPath", func(t *testing.T) {
+		// This test is complex because EnsurePklBinaryExists calls os.Exit(1)
+		// We can't easily test the failure case without refactoring the function
+		// For comprehensive coverage, we document that this path exists but is hard to test
+
+		// Clear PATH to ensure no pkl binary is found
+		oldPath := os.Getenv("PATH")
+		os.Setenv("PATH", "/nonexistent/path")
+		t.Cleanup(func() { os.Setenv("PATH", oldPath) })
+
+		// Note: This would call os.Exit(1) which terminates the test process
+		// In a real scenario, we would refactor EnsurePklBinaryExists to return an error
+		// instead of calling os.Exit(1) directly, which would make it testable
+
+		// For now, we skip this test to avoid terminating the test suite
+		t.Skip("Cannot test os.Exit(1) path without refactoring EnsurePklBinaryExists")
+
+		// If we could test it, it would look like:
+		// logger := logging.NewTestLogger()
+		// err := EnsurePklBinaryExists(context.Background(), logger)
+		// assert.Error(t, err)
+		// assert.Contains(t, err.Error(), "apple PKL not found in PATH")
+	})
 }

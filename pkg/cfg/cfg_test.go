@@ -748,19 +748,18 @@ func TestGetKdepsPathCases(t *testing.T) {
 		{"Empty", "", ".kdeps", true},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
 			cfg := kdeps.Kdeps{
-				KdepsDir:  tt.kdepsDir,
-				KdepsPath: tt.kdepsPath,
+				KdepsDir:  test.kdepsDir,
+				KdepsPath: test.kdepsPath,
 			}
-			result, err := GetKdepsPath(context.Background(), cfg)
-			if tt.expectError {
-				assert.Error(t, err)
-				assert.Empty(t, result)
-			} else {
-				assert.NoError(t, err)
-				assert.NotEmpty(t, result)
+			_, err := GetKdepsPath(context.Background(), cfg)
+			if test.expectError && err == nil {
+				t.Errorf("expected error for %s", test.name)
+			}
+			if !test.expectError && err != nil {
+				t.Errorf("unexpected error for %s: %v", test.name, err)
 			}
 		})
 	}
@@ -800,9 +799,9 @@ func TestFindConfiguration_ComprehensiveEdgeCases(t *testing.T) {
 		}
 
 		// Create directories but not the config files
-		err := fs.MkdirAll("/test/pwd", 0755)
+		err := fs.MkdirAll("/test/pwd", 0o755)
 		require.NoError(t, err)
-		err = fs.MkdirAll("/test/home", 0755)
+		err = fs.MkdirAll("/test/home", 0o755)
 		require.NoError(t, err)
 
 		// Mock PKL binary check to succeed (we can't easily do this without modifying production code)

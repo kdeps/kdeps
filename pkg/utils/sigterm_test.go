@@ -112,7 +112,6 @@ func TestSendSigterm_InjectableFunctions(t *testing.T) {
 		cmd := exec.Command(os.Args[0], "-test.run=TestSendSigterm_InjectableFunctions/SignalSuccess")
 		cmd.Env = append(os.Environ(), "TEST_SIGNAL_SUCCESS=1")
 		err := cmd.Run()
-
 		// Expect zero exit for successful case
 		if err != nil {
 			t.Fatalf("expected subprocess to exit successfully, got: %v", err)

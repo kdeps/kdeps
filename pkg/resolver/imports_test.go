@@ -13,12 +13,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/kdeps/kdeps/pkg/ktx"
 )
 
 func newTestResolver() *DependencyResolver {
@@ -138,7 +138,7 @@ func TestNewGraphResolver_Minimal(t *testing.T) {
 	agentDir := filepath.Join(tmpDir, "agent")
 	actionDir := filepath.Join(tmpDir, "action")
 	sharedDir := filepath.Join(tmpDir, ".kdeps")
-	
+
 	ctx := context.Background()
 	ctx = ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
 	ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, "test-graph-id")
