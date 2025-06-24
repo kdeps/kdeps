@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/logging"
 	apiserverresponse "github.com/kdeps/schema/gen/api_server_response"
 	"github.com/spf13/afero"
@@ -95,7 +96,7 @@ func TestDecodeErrorMessage_Unit(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			logger := logging.NewTestLogger()
-			result := DecodeErrorMessage(tt.message, logger)
+			result := decodeErrorMessage(tt.message, logger)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -287,7 +288,7 @@ func TestFormatValue_Unit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := FormatValue(tt.value)
+			result := formatValue(tt.value)
 			assert.NotEmpty(t, result)
 
 			for _, expectedContent := range tt.contains {
@@ -358,7 +359,7 @@ func TestFormatErrors_Unit(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			logger := logging.NewTestLogger()
-			result := FormatErrors(tt.errors, logger)
+			result := formatErrors(tt.errors, logger)
 
 			if len(tt.expected) == 0 {
 				assert.Empty(t, result)
@@ -418,7 +419,7 @@ func TestFormatResponseMeta_Unit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := FormatResponseMeta(tt.requestID, tt.meta)
+			result := formatResponseMeta(tt.requestID, tt.meta)
 			assert.NotEmpty(t, result)
 
 			for _, expected := range tt.contains {
@@ -468,7 +469,11 @@ func TestFormatResponseData_Unit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := FormatResponseData(tt.response)
+			logger := logging.NewTestLogger()
+			ctx := context.Background()
+			evaluator, _ := pkl.NewEvaluator(ctx, func(options *pkl.EvaluatorOptions) {})
+			defer evaluator.Close()
+			result := formatResponseData(ctx, tt.response, logger, evaluator)
 
 			if tt.expected == "" {
 				assert.Empty(t, result)
