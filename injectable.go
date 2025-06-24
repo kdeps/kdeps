@@ -38,6 +38,17 @@ var (
 	// Resolver functions
 	NewGraphResolverFn = resolver.NewGraphResolver
 
+	// Resolver method functions for better testability
+	PrepareWorkflowDirFn = func(dr *resolver.DependencyResolver) error {
+		return dr.PrepareWorkflowDir()
+	}
+	PrepareImportFilesFn = func(dr *resolver.DependencyResolver) error {
+		return dr.PrepareImportFiles()
+	}
+	HandleRunActionFn = func(dr *resolver.DependencyResolver) (bool, error) {
+		return dr.HandleRunAction()
+	}
+
 	// Docker functions
 	BootstrapDockerSystemFn = docker.BootstrapDockerSystem
 	DockerCleanupFn         = docker.Cleanup
@@ -55,6 +66,11 @@ var (
 
 	// Signal handling functions
 	SetupSignalHandlerFn = setupSignalHandler
+
+	// Main function helpers for better testability
+	SetupEnvironmentFn    = setupEnvironment
+	HandleDockerModeFn    = handleDockerMode
+	HandleNonDockerModeFn = handleNonDockerMode
 
 	// Signal channel creation
 	MakeSignalChanFn = func() chan os.Signal {

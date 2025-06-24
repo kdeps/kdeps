@@ -44,7 +44,7 @@ func main() {
 	sharedDir := filepath.Join("/", ".kdeps")
 
 	// Setup environment
-	env, err := setupEnvironment(fs)
+	env, err := SetupEnvironmentFn(fs)
 	if err != nil {
 		logger.Fatalf("failed to set up environment: %v", err)
 	}
@@ -61,9 +61,9 @@ func main() {
 			logger.Fatalf("failed to create graph resolver: %v", err)
 		}
 
-		handleDockerMode(ctx, dr, cancel)
+		HandleDockerModeFn(ctx, dr, cancel)
 	} else {
-		handleNonDockerMode(fs, ctx, env, logger)
+		HandleNonDockerModeFn(fs, ctx, env, logger)
 	}
 }
 
@@ -210,17 +210,16 @@ func setupSignalHandler(fs afero.Fs, ctx context.Context, cancelFunc context.Can
 // runGraphResolver prepares and runs the graph resolver.
 func runGraphResolverActions(ctx context.Context, dr *resolver.DependencyResolver, apiServerMode bool) error {
 	// Prepare workflow directory
-	if err := dr.PrepareWorkflowDir(); err != nil {
+	if err := PrepareWorkflowDirFn(dr); err != nil {
 		return fmt.Errorf("failed to prepare workflow directory: %w", err)
 	}
 
-	if err := dr.PrepareImportFiles(); err != nil {
+	if err := PrepareImportFilesFn(dr); err != nil {
 		return fmt.Errorf("failed to prepare import files: %w", err)
 	}
 
 	// Handle run action
-
-	fatal, err := dr.HandleRunAction()
+	fatal, err := HandleRunActionFn(dr)
 	if err != nil {
 		return fmt.Errorf("failed to handle run action: %w", err)
 	}

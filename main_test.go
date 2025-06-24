@@ -2074,9 +2074,10 @@ func TestCleanup_FullCoverage(t *testing.T) {
 	}
 
 	tests := []struct {
-		name          string
-		apiServerMode bool
-		createOldFlag bool
+		name            string
+		apiServerMode   bool
+		createOldFlag   bool
+		removeFileError bool
 	}{
 		{
 			name:          "API server mode",
@@ -2091,6 +2092,12 @@ func TestCleanup_FullCoverage(t *testing.T) {
 			name:          "Non-API server mode without old flag",
 			apiServerMode: false,
 			createOldFlag: false,
+		},
+		{
+			name:            "File removal error case",
+			apiServerMode:   false,
+			createOldFlag:   true,
+			removeFileError: true,
 		},
 	}
 
@@ -2108,6 +2115,11 @@ func TestCleanup_FullCoverage(t *testing.T) {
 			// Create old cleanup flag if needed
 			if tt.createOldFlag {
 				afero.WriteFile(fs, "/.dockercleanup", []byte("test"), 0644)
+
+				// Create a read-only filesystem to simulate removal error
+				if tt.removeFileError {
+					fs = &readOnlyFs{Fs: fs}
+				}
 			}
 
 			// Call cleanup
@@ -2131,7 +2143,7 @@ func TestCleanup_FullCoverage(t *testing.T) {
 			}
 
 			// Verify old flag file is removed
-			if tt.createOldFlag {
+			if tt.createOldFlag && !tt.removeFileError {
 				exists, _ := afero.Exists(fs, "/.dockercleanup")
 				if exists {
 					t.Error("Expected old cleanup flag to be removed")
@@ -2141,48 +2153,136 @@ func TestCleanup_FullCoverage(t *testing.T) {
 	}
 }
 
-// TestRunGraphResolverActions_CoverageImprovement exercises runGraphResolverActions to improve coverage
-func TestRunGraphResolverActions_CoverageImprovement(t *testing.T) {
+// readOnlyFs is a helper to simulate file removal errors
+type readOnlyFs struct {
+	afero.Fs
+}
+
+func (r *readOnlyFs) RemoveAll(path string) error {
+	return fmt.Errorf("read-only filesystem")
+}
+
+// TestRunGraphResolverActions_ComprehensiveCoverage tests all code paths in runGraphResolverActions for 100% coverage
+func TestRunGraphResolverActions_ComprehensiveCoverage(t *testing.T) {
 	setNoOpExitFn(t)
 
-	// Test with different context scenarios to exercise code paths
 	tests := []struct {
-		name       string
-		hasGraphID bool
+		name                  string
+		prepareWorkflowDirErr error
+		prepareImportFilesErr error
+		handleRunActionFatal  bool
+		handleRunActionErr    error
+		hasGraphID            bool
+		expectError           bool
+		expectSendSigterm     bool
+		expectCleanup         bool
+		expectPublishEvent    bool
 	}{
 		{
-			name:       "With GraphID context",
-			hasGraphID: true,
+			name:               "Success path with graphID",
+			hasGraphID:         true,
+			expectError:        false,
+			expectSendSigterm:  false,
+			expectCleanup:      true,
+			expectPublishEvent: true,
 		},
 		{
-			name:       "Without GraphID context",
-			hasGraphID: false,
+			name:               "Success path without graphID",
+			hasGraphID:         false,
+			expectError:        false,
+			expectSendSigterm:  false,
+			expectCleanup:      true,
+			expectPublishEvent: true,
+		},
+		{
+			name:                  "PrepareWorkflowDir error",
+			prepareWorkflowDirErr: fmt.Errorf("workflow dir error"),
+			expectError:           true,
+			expectSendSigterm:     false,
+			expectCleanup:         false,
+			expectPublishEvent:    false,
+		},
+		{
+			name:                  "PrepareImportFiles error",
+			prepareImportFilesErr: fmt.Errorf("import files error"),
+			expectError:           true,
+			expectSendSigterm:     false,
+			expectCleanup:         false,
+			expectPublishEvent:    false,
+		},
+		{
+			name:               "HandleRunAction error",
+			handleRunActionErr: fmt.Errorf("run action error"),
+			expectError:        true,
+			expectSendSigterm:  false,
+			expectCleanup:      false,
+			expectPublishEvent: false,
+		},
+		{
+			name:                 "HandleRunAction fatal - continues execution",
+			handleRunActionFatal: true,
+			hasGraphID:           true,
+			expectError:          false,
+			expectSendSigterm:    true,
+			expectCleanup:        true,
+			expectPublishEvent:   true,
+		},
+		{
+			name:                 "HandleRunAction fatal without graphID",
+			handleRunActionFatal: true,
+			hasGraphID:           false,
+			expectError:          false,
+			expectSendSigterm:    true,
+			expectCleanup:        true,
+			expectPublishEvent:   true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Preserve original functions
+			origPrepareWorkflowDir := PrepareWorkflowDirFn
+			origPrepareImportFiles := PrepareImportFilesFn
+			origHandleRunAction := HandleRunActionFn
 			origCleanup := cleanupFn
 			origPublishEvent := PublishGlobalEventFn
 			origSendSigterm := SendSigtermFn
 			defer func() {
+				PrepareWorkflowDirFn = origPrepareWorkflowDir
+				PrepareImportFilesFn = origPrepareImportFiles
+				HandleRunActionFn = origHandleRunAction
 				cleanupFn = origCleanup
 				PublishGlobalEventFn = origPublishEvent
 				SendSigtermFn = origSendSigterm
 			}()
 
-			// Mock functions to avoid side effects
+			// Track function calls
+			cleanupCalled := false
+			publishEventCalled := false
+			sendSigtermCalled := false
+
+			// Mock resolver method functions
+			PrepareWorkflowDirFn = func(dr *resolver.DependencyResolver) error {
+				return tt.prepareWorkflowDirErr
+			}
+			PrepareImportFilesFn = func(dr *resolver.DependencyResolver) error {
+				return tt.prepareImportFilesErr
+			}
+			HandleRunActionFn = func(dr *resolver.DependencyResolver) (bool, error) {
+				return tt.handleRunActionFatal, tt.handleRunActionErr
+			}
+
+			// Mock other functions
 			cleanupFn = func(fs afero.Fs, ctx context.Context, env *environment.Environment, apiServerMode bool, logger *logging.Logger) {
-				// Do nothing
+				cleanupCalled = true
 			}
 
 			PublishGlobalEventFn = func(eventType string, payload string) {
-				// Do nothing
+				publishEventCalled = true
 			}
 
 			SendSigtermFn = func(logger *logging.Logger) {
-				// Do nothing
+				sendSigtermCalled = true
 			}
 
 			fs := afero.NewMemMapFs()
@@ -2193,7 +2293,7 @@ func TestRunGraphResolverActions_CoverageImprovement(t *testing.T) {
 			logger := logging.NewTestLogger()
 			env := &environment.Environment{DockerMode: "0"}
 
-			// Create resolver - this will fail but will exercise code paths
+			// Create resolver
 			mockResolver := &resolver.DependencyResolver{
 				Fs:          fs,
 				Logger:      logger,
@@ -2201,23 +2301,236 @@ func TestRunGraphResolverActions_CoverageImprovement(t *testing.T) {
 				Environment: env,
 			}
 
-			// Call the function - we expect it to fail but it exercises the code
+			// Call the function
 			err := runGraphResolverActions(ctx, mockResolver, false)
 
-			// We expect an error because the resolver methods will fail
-			if err == nil {
-				t.Log("Function unexpectedly succeeded")
-			} else {
-				t.Logf("Function failed as expected: %v", err)
+			// Verify error expectation
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
 			}
 
-			// Test with API server mode true as well
-			err = runGraphResolverActions(ctx, mockResolver, true)
-			if err == nil {
-				t.Log("Function with API server mode unexpectedly succeeded")
-			} else {
-				t.Logf("Function with API server mode failed as expected: %v", err)
+			// Verify function calls
+			if tt.expectCleanup && !cleanupCalled {
+				t.Error("Expected cleanup to be called")
 			}
+			if !tt.expectCleanup && cleanupCalled {
+				t.Error("Expected cleanup NOT to be called")
+			}
+
+			if tt.expectPublishEvent && !publishEventCalled {
+				t.Error("Expected PublishGlobalEvent to be called")
+			}
+			if !tt.expectPublishEvent && publishEventCalled {
+				t.Error("Expected PublishGlobalEvent NOT to be called")
+			}
+
+			if tt.expectSendSigterm && !sendSigtermCalled {
+				t.Error("Expected SendSigterm to be called")
+			}
+			if !tt.expectSendSigterm && sendSigtermCalled {
+				t.Error("Expected SendSigterm NOT to be called")
+			}
+		})
+	}
+}
+
+// TestSetupEnvironment_ComprehensiveCoverage tests setupEnvironment function for better coverage
+func TestSetupEnvironment_ComprehensiveCoverage(t *testing.T) {
+	// Preserve original function
+	origNewEnvironment := NewEnvironmentFn
+	defer func() {
+		NewEnvironmentFn = origNewEnvironment
+	}()
+
+	tests := []struct {
+		name         string
+		envErr       error
+		expectError  bool
+		expectResult bool
+	}{
+		{
+			name:         "Success case",
+			envErr:       nil,
+			expectError:  false,
+			expectResult: true,
+		},
+		{
+			name:         "NewEnvironment error",
+			envErr:       fmt.Errorf("environment creation failed"),
+			expectError:  true,
+			expectResult: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Mock NewEnvironmentFn
+			NewEnvironmentFn = func(fs afero.Fs, environ *environment.Environment) (*environment.Environment, error) {
+				if tt.envErr != nil {
+					return nil, tt.envErr
+				}
+				return &environment.Environment{DockerMode: "0"}, nil
+			}
+
+			fs := afero.NewMemMapFs()
+			env, err := setupEnvironment(fs)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+			if tt.expectResult && env == nil {
+				t.Error("Expected environment but got nil")
+			}
+			if !tt.expectResult && env != nil {
+				t.Error("Expected nil environment but got result")
+			}
+		})
+	}
+}
+
+// TestSetupSignalHandler_AdditionalCoverage tests additional paths in setupSignalHandler for 100% coverage
+func TestSetupSignalHandler_AdditionalCoverage(t *testing.T) {
+	setNoOpExitFn(t)
+
+	tests := []struct {
+		name            string
+		hasGraphID      bool
+		graphIDIsString bool
+		apiServerMode   bool
+		busClientError  error
+		waitEventsError error
+		expectExit      bool
+	}{
+		{
+			name:            "No graphID in context",
+			hasGraphID:      false,
+			graphIDIsString: false,
+			apiServerMode:   false,
+			expectExit:      true, // Always exits
+		},
+		{
+			name:            "GraphID not a string",
+			hasGraphID:      true,
+			graphIDIsString: false,
+			apiServerMode:   false,
+			expectExit:      true, // Always exits
+		},
+		{
+			name:            "GraphID is string, bus client error",
+			hasGraphID:      true,
+			graphIDIsString: true,
+			apiServerMode:   false,
+			busClientError:  fmt.Errorf("bus client failed"),
+			expectExit:      true, // Exits due to error, then also at end
+		},
+		{
+			name:            "GraphID is string, wait events error",
+			hasGraphID:      true,
+			graphIDIsString: true,
+			apiServerMode:   false,
+			waitEventsError: fmt.Errorf("wait events failed"),
+			expectExit:      true, // Still exits at the end
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Preserve original functions
+			origMakeChan := MakeSignalChanFn
+			origStartClient := StartBusClientFn
+			origWaitEvents := WaitForEventsFn
+			origCleanup := cleanupFn
+			origExit := exitFn
+			defer func() {
+				MakeSignalChanFn = origMakeChan
+				StartBusClientFn = origStartClient
+				WaitForEventsFn = origWaitEvents
+				cleanupFn = origCleanup
+				exitFn = origExit
+			}()
+
+			// Track exit calls
+			exitCalled := false
+			exitCode := -1
+
+			// Create a signal channel
+			sigChan := make(chan os.Signal, 1)
+			MakeSignalChanFn = func() chan os.Signal {
+				return sigChan
+			}
+
+			// Mock bus client
+			StartBusClientFn = func() (bus.RPCClient, error) {
+				if tt.busClientError != nil {
+					return nil, tt.busClientError
+				}
+				return &mockRPCClient{}, nil
+			}
+
+			// Mock wait events
+			WaitForEventsFn = func(client bus.RPCClient, logger *logging.Logger, callback func(bus.Event) bool) error {
+				if tt.waitEventsError != nil {
+					return tt.waitEventsError
+				}
+				// Simulate finding the event
+				return nil
+			}
+
+			// Mock cleanup
+			cleanupFn = func(fs afero.Fs, ctx context.Context, env *environment.Environment, apiServerMode bool, logger *logging.Logger) {
+				// Do nothing
+			}
+
+			// Mock exit
+			exitFn = func(code int) {
+				exitCalled = true
+				exitCode = code
+			}
+
+			fs := afero.NewMemMapFs()
+			ctx, cancel := context.WithCancel(context.Background())
+
+			// Setup context based on test case
+			if tt.hasGraphID {
+				if tt.graphIDIsString {
+					ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, "test-graph-id")
+				} else {
+					// Add a non-string value to test type assertion failure
+					ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, 12345)
+				}
+			}
+
+			env := &environment.Environment{DockerMode: "0"}
+			logger := logging.NewTestLogger()
+
+			// Setup signal handler
+			setupSignalHandler(fs, ctx, cancel, env, tt.apiServerMode, logger)
+
+			// Test signal handling by sending SIGINT
+			sigChan <- syscall.SIGINT
+
+			// Give goroutine time to process
+			time.Sleep(100 * time.Millisecond)
+
+			// Verify exit behavior
+			if tt.expectExit && !exitCalled {
+				t.Error("Expected exit to be called")
+			}
+			if !tt.expectExit && exitCalled {
+				t.Errorf("Expected exit NOT to be called, but it was called with code %d", exitCode)
+			}
+
+			// Cancel context to stop any running goroutines
+			cancel()
+
+			// Give time for goroutines to finish
+			time.Sleep(50 * time.Millisecond)
 		})
 	}
 }
