@@ -108,6 +108,57 @@ func TestProcessResourceStep_CustomTimeout(t *testing.T) {
 	}
 }
 
+// TestProcessResourceStep_DefaultTimeoutPositive verifies that positive DefaultTimeoutSec overrides everything
+func TestProcessResourceStep_DefaultTimeoutPositive(t *testing.T) {
+	dr := &DependencyResolver{Logger: logging.NewTestLogger(), DefaultTimeoutSec: 30}
+	customDur := &pkl.Duration{Value: 5, Unit: pkl.Second} // 5 seconds (should be ignored)
+
+	dr.GetCurrentTimestampFn = func(resourceID, step string) (pkl.Duration, error) {
+		return pkl.Duration{Value: 0, Unit: pkl.Second}, nil
+	}
+
+	waited := false
+	dr.WaitForTimestampChangeFn = func(resourceID string, ts pkl.Duration, timeout time.Duration, step string) error {
+		waited = true
+		if timeout != 30*time.Second {
+			t.Fatalf("expected timeout 30s (from DefaultTimeoutSec), got %v", timeout)
+		}
+		return nil
+	}
+
+	if err := dr.ProcessResourceStep("resA", "exec", customDur, func() error { return nil }); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !waited {
+		t.Fatal("WaitForTimestampChangeFn not invoked")
+	}
+}
+
+// TestProcessResourceStep_DefaultTimeoutZero verifies that zero DefaultTimeoutSec means unlimited
+func TestProcessResourceStep_DefaultTimeoutZero(t *testing.T) {
+	dr := &DependencyResolver{Logger: logging.NewTestLogger(), DefaultTimeoutSec: 0}
+
+	dr.GetCurrentTimestampFn = func(resourceID, step string) (pkl.Duration, error) {
+		return pkl.Duration{Value: 0, Unit: pkl.Second}, nil
+	}
+
+	waited := false
+	dr.WaitForTimestampChangeFn = func(resourceID string, ts pkl.Duration, timeout time.Duration, step string) error {
+		waited = true
+		if timeout != 0 {
+			t.Fatalf("expected unlimited timeout (0), got %v", timeout)
+		}
+		return nil
+	}
+
+	if err := dr.ProcessResourceStep("resA", "exec", nil, func() error { return nil }); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !waited {
+		t.Fatal("WaitForTimestampChangeFn not invoked")
+	}
+}
+
 // TestProcessRunBlock_NoRunBlock verifies that when Run is nil the function returns without error
 // but still increments the FileRunCounter.
 func TestProcessRunBlock_NoRunBlock(t *testing.T) {
@@ -223,34 +274,38 @@ func TestProcessRunBlock_APIServerMode_FileReadError(t *testing.T) {
 	}
 }
 
-// TestProcessRunBlock_ProcessResourceStepErrors tests various ProcessResourceStep error scenarios
-func TestProcessRunBlock_ProcessResourceStepErrors(t *testing.T) {
-	t.Run("GetCurrentTimestampError", func(t *testing.T) {
-		dr := &DependencyResolver{
-			Logger:         logging.NewTestLogger(),
-			FileRunCounter: make(map[string]int),
-			APIServerMode:  false,
-		}
+// TestProcessRunBlock_PreflightCheckError tests preflight check error handling
+func TestProcessRunBlock_PreflightCheckError(t *testing.T) {
+	dr := &DependencyResolver{
+		Logger:         logging.NewTestLogger(),
+		FileRunCounter: make(map[string]int),
+		APIServerMode:  false,
+	}
 
-		// Mock GetCurrentTimestamp to return error
-		dr.GetCurrentTimestampFn = func(resourceID, step string) (pkl.Duration, error) {
-			return pkl.Duration{}, errors.New("timestamp error")
-		}
+	dr.AllConditionsMetFn = func(validations *[]interface{}) bool {
+		return false // preflight check fails
+	}
 
-		dr.HandleAPIErrorResponseFn = func(code int, message string, fatal bool) (bool, error) {
-			return fatal, errors.New("timestamp error")
+	dr.HandleAPIErrorResponseFn = func(code int, message string, fatal bool) (bool, error) {
+		if code != 500 {
+			t.Fatalf("expected error code 500, got %d", code)
 		}
+		return fatal, errors.New("preflight check failed")
+	}
 
-		resEntry := ResourceNodeEntry{ActionID: "testAction", File: "test.pkl"}
-		// Create a run block with a simple field to trigger ProcessResourceStep
-		runBlock := &pklRes.ResourceAction{}
-		rsc := &pklRes.Resource{Run: runBlock}
+	resEntry := ResourceNodeEntry{ActionID: "testAction", File: "test.pkl"}
+	validations := []interface{}{"validation1"}
+	preflightCheck := &pklRes.ValidationCheck{
+		Validations: &validations,
+	}
+	runBlock := &pklRes.ResourceAction{PreflightCheck: preflightCheck}
+	rsc := &pklRes.Resource{Run: runBlock}
 
-		proceed, err := dr.ProcessRunBlock(resEntry, rsc, "testAction", false)
-		// Since we can't easily trigger ProcessResourceStep without complex setup,
-		// this test verifies the basic error handling structure is in place
-		if err != nil && proceed {
-			t.Fatalf("expected proceed=false on error, got true")
-		}
-	})
+	proceed, err := dr.ProcessRunBlock(resEntry, rsc, "testAction", false)
+	if err == nil {
+		t.Fatalf("expected preflight check error, got nil")
+	}
+	if proceed {
+		t.Fatalf("expected proceed=false for preflight check failure, got true")
+	}
 }

@@ -11,8 +11,10 @@ import (
 )
 
 // Global bus service instance
-var globalBusService *BusService
-var globalBusLock sync.Mutex
+var (
+	globalBusService *BusService
+	globalBusLock    sync.Mutex
+)
 
 // Injectable functions for testing
 var (

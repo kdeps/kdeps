@@ -226,7 +226,6 @@ func TestWaitForEventsComprehensiveErrorPaths(t *testing.T) {
 			handlerCalled = true
 			return true // This should cause the function to return nil
 		})
-
 		if err != nil {
 			t.Errorf("Expected nil error when handler returns true, got: %v", err)
 		}

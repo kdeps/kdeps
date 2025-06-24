@@ -587,3 +587,109 @@ func TestGetLatestGitHubRelease_NoTokenWarning(t *testing.T) {
 	require.Contains(t, captured, "Warning: GITHUB_TOKEN is not set")
 	require.Contains(t, captured, "using unauthenticated requests with limited rate")
 }
+
+// TestGetLatestGitHubRelease_RequestCreationError tests the http.NewRequestWithContext error path
+func TestGetLatestGitHubRelease_RequestCreationError(t *testing.T) {
+	ctx := context.Background()
+
+	// Use an invalid URL that will cause http.NewRequestWithContext to fail
+	invalidURL := "http://[::1]:namedport" // Invalid URL format
+
+	// Mock the baseURL to include the invalid URL
+	_, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", invalidURL)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to create request")
+}
+
+// TestGetLatestGitHubRelease_NoTokenStderrWarning tests the stderr warning output when no GITHUB_TOKEN is set
+func TestGetLatestGitHubRelease_NoTokenStderrWarning(t *testing.T) {
+	// Unset any existing GITHUB_TOKEN
+	originalToken := os.Getenv("GITHUB_TOKEN")
+	os.Unsetenv("GITHUB_TOKEN")
+	defer func() {
+		if originalToken != "" {
+			os.Setenv("GITHUB_TOKEN", originalToken)
+		}
+	}()
+
+	// Capture stderr output
+	r, w, _ := os.Pipe()
+	originalStderr := os.Stderr
+	os.Stderr = w
+	defer func() { os.Stderr = originalStderr }()
+
+	// Create a server that responds successfully
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, `{"tag_name": "v1.2.3"}`)
+	}))
+	defer server.Close()
+
+	// Make the call - this should write a warning to stderr
+	_, err := utilspkg.GetLatestGitHubRelease(context.Background(), "owner/repo", server.URL)
+	require.NoError(t, err)
+
+	// Close the write end and read the captured stderr
+	w.Close()
+	output := make([]byte, 1024)
+	n, _ := r.Read(output)
+	stderrOutput := string(output[:n])
+
+	// Verify the warning message was printed
+	require.Contains(t, stderrOutput, "Warning: GITHUB_TOKEN is not set")
+	require.Contains(t, stderrOutput, "using unauthenticated requests with limited rate")
+}
+
+// TestGetLatestGitHubRelease_NetworkError tests network-level errors
+func TestGetLatestGitHubRelease_NetworkError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately to simulate network timeout
+
+	_, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", "https://api.github.com")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "request failed")
+}
+
+// TestGetLatestGitHubRelease_MalformedJSON tests JSON parsing error path
+func TestGetLatestGitHubRelease_MalformedJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		// Return malformed JSON
+		fmt.Fprintln(w, `{"tag_name": "v1.2.3"`) // Missing closing brace
+	}))
+	defer server.Close()
+
+	_, err := utilspkg.GetLatestGitHubRelease(context.Background(), "owner/repo", server.URL)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to parse JSON response")
+}
+
+// TestGetLatestGitHubRelease_EmptyTagName tests when tag_name is empty
+func TestGetLatestGitHubRelease_EmptyTagName(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, `{"tag_name": ""}`) // Empty tag_name
+	}))
+	defer server.Close()
+
+	result, err := utilspkg.GetLatestGitHubRelease(context.Background(), "owner/repo", server.URL)
+	require.NoError(t, err)
+	require.Equal(t, "", result) // Should return empty string
+}
+
+// TestGetLatestGitHubRelease_TagNameWithoutV tests tag_name without 'v' prefix
+func TestGetLatestGitHubRelease_TagNameWithoutV(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, `{"tag_name": "1.2.3"}`) // No 'v' prefix
+	}))
+	defer server.Close()
+
+	result, err := utilspkg.GetLatestGitHubRelease(context.Background(), "owner/repo", server.URL)
+	require.NoError(t, err)
+	require.Equal(t, "1.2.3", result) // Should return without modification
+}
