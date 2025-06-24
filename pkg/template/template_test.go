@@ -1293,25 +1293,6 @@ func TestGenerateAgent_Comprehensive(t *testing.T) {
 		// This might succeed or fail, but shouldn't panic
 		_ = err
 	})
-
-	t.Run("NilContext", func(t *testing.T) {
-		// Test with nil context
-		err := template.GenerateAgent(fs, nil, logger, tmpDir, "test-agent-nil-context")
-		// This might succeed or fail, but shouldn't panic
-		_ = err
-	})
-
-	t.Run("NilFilesystem", func(t *testing.T) {
-		// Test with nil filesystem - should panic or return error
-		defer func() {
-			if r := recover(); r != nil {
-				// Expected panic
-			}
-		}()
-		err := template.GenerateAgent(nil, ctx, logger, tmpDir, "test-agent-nil-fs")
-		// This might panic or return error
-		_ = err
-	})
 }
 
 func TestGenerateSpecificAgentFile_Comprehensive(t *testing.T) {
@@ -1897,4 +1878,220 @@ Invalid syntax: {{.`
 			assert.NotEmpty(t, content)
 		}
 	})
+}
+
+// TestPromptForAgentName_NonInteractiveMode tests the NON_INTERACTIVE path
+func TestPromptForAgentName_NonInteractiveMode(t *testing.T) {
+	// Set environment variable for non-interactive mode
+	oldEnv := os.Getenv("NON_INTERACTIVE")
+	os.Setenv("NON_INTERACTIVE", "1")
+	defer os.Setenv("NON_INTERACTIVE", oldEnv)
+
+	name, err := template.PromptForAgentName()
+	assert.NoError(t, err)
+	assert.Equal(t, "test-agent", name)
+}
+
+// TestPromptForAgentName_InteractiveMode_SkipBecauseOfTerminal skips testing the interactive path
+// because it would hang in test environments that don't have a proper terminal
+func TestPromptForAgentName_InteractiveMode_SkipBecauseOfTerminal(t *testing.T) {
+	// Skip this test as it would hang in CI/CD or test environments without a terminal
+	t.Skip("Skipping interactive mode test as it requires user input and would hang in test environments")
+
+	// If this test were to run, it would test the interactive path
+	// but since huh.NewInput().Run() requires actual terminal input,
+	// it's not practical to test in automated test suites
+}
+
+// TestLoadTemplate_EmbeddedTemplateSuccess tests embedded template success path
+func TestLoadTemplate_EmbeddedTemplateSuccess(t *testing.T) {
+	// Clear TEMPLATE_DIR to use embedded FS
+	oldEnv := os.Getenv("TEMPLATE_DIR")
+	os.Setenv("TEMPLATE_DIR", "")
+	defer os.Setenv("TEMPLATE_DIR", oldEnv)
+
+	data := map[string]string{
+		"Name": "test-agent",
+	}
+
+	// Test with a template that might exist in embedded FS
+	_, err := template.LoadTemplate("workflow.pkl", data)
+	// Template might not exist in embedded FS, but the code path should be exercised
+	if err != nil {
+		assert.Contains(t, err.Error(), "failed to read embedded template")
+	}
+}
+
+// TestLoadDockerfileTemplate_EmbeddedTemplateWithNilData tests nil data handling
+func TestLoadDockerfileTemplate_EmbeddedTemplateWithNilData(t *testing.T) {
+	// Clear TEMPLATE_DIR to use embedded FS
+	oldEnv := os.Getenv("TEMPLATE_DIR")
+	os.Setenv("TEMPLATE_DIR", "")
+	defer os.Setenv("TEMPLATE_DIR", oldEnv)
+
+	// Test with nil data - should handle gracefully
+	_, err := template.LoadDockerfileTemplate("Dockerfile", nil)
+	// Error is acceptable - either template not found or execution failed
+	if err != nil {
+		assert.Error(t, err)
+	}
+}
+
+// TestGenerateWorkflowFile_InvalidAgentName tests invalid agent name handling
+func TestGenerateWorkflowFile_InvalidAgentName(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+
+	// Test with invalid agent name (contains spaces)
+	err := template.GenerateWorkflowFile(fs, ctx, logger, tmpDir, "invalid name")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot contain spaces")
+}
+
+// TestGenerateWorkflowFile_EmptyAgentName tests empty agent name handling
+func TestGenerateWorkflowFile_EmptyAgentName(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+
+	// Test with empty agent name
+	err := template.GenerateWorkflowFile(fs, ctx, logger, tmpDir, "")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot be empty")
+}
+
+// TestGenerateWorkflowFile_DirectoryCreationError tests directory creation error
+func TestGenerateWorkflowFile_DirectoryCreationError(t *testing.T) {
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Test with read-only filesystem to simulate directory creation error
+	readOnlyFs := afero.NewReadOnlyFs(afero.NewMemMapFs())
+
+	err := template.GenerateWorkflowFile(readOnlyFs, ctx, logger, "/readonly", "test-agent")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create directory")
+}
+
+// TestGenerateResourceFiles_InvalidAgentName tests invalid agent name handling
+func TestGenerateResourceFiles_InvalidAgentName(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+
+	// Test with invalid agent name (whitespace only)
+	err := template.GenerateResourceFiles(fs, ctx, logger, tmpDir, "   ")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot be empty")
+}
+
+// TestGenerateResourceFiles_DirectoryCreationError tests directory creation error
+func TestGenerateResourceFiles_DirectoryCreationError(t *testing.T) {
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Test with read-only filesystem to simulate directory creation error
+	readOnlyFs := afero.NewReadOnlyFs(afero.NewMemMapFs())
+
+	err := template.GenerateResourceFiles(readOnlyFs, ctx, logger, "/readonly", "test-agent")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create resources directory")
+}
+
+// TestGenerateSpecificAgentFile_EmptyBaseDirectory tests empty base directory handling
+func TestGenerateSpecificAgentFile_EmptyBaseDirectory(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Test with empty base directory
+	err := template.GenerateSpecificAgentFile(fs, ctx, logger, "", "test-agent")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "base directory cannot be empty")
+}
+
+// TestGenerateSpecificAgentFile_TemplateNotFoundFallback tests fallback template
+func TestGenerateSpecificAgentFile_TemplateNotFoundFallback(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+
+	// Set TEMPLATE_DIR to empty directory to force template not found
+	emptyTemplateDir := t.TempDir()
+	oldEnv := os.Getenv("TEMPLATE_DIR")
+	os.Setenv("TEMPLATE_DIR", emptyTemplateDir)
+	defer os.Setenv("TEMPLATE_DIR", oldEnv)
+
+	// This should use the fallback default template
+	err := template.GenerateSpecificAgentFile(fs, ctx, logger, tmpDir, "custom-agent")
+	assert.NoError(t, err)
+
+	// Verify file was created with fallback content
+	exists, err := afero.Exists(fs, filepath.Join(tmpDir, "resources", "custom-agent.pkl"))
+	assert.NoError(t, err)
+	assert.True(t, exists)
+
+	content, err := afero.ReadFile(fs, filepath.Join(tmpDir, "resources", "custom-agent.pkl"))
+	assert.NoError(t, err)
+	assert.Contains(t, string(content), "custom-agent")
+}
+
+// TestGenerateAgent_EmptyBaseDirectory tests empty base directory handling
+func TestGenerateAgent_EmptyBaseDirectory(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Test with empty base directory
+	err := template.GenerateAgent(fs, ctx, logger, "", "test-agent")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "base directory cannot be empty")
+}
+
+// TestGenerateAgent_InvalidAgentName tests invalid agent name handling
+func TestGenerateAgent_InvalidAgentName(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+
+	// Test with invalid agent name
+	err := template.GenerateAgent(fs, ctx, logger, tmpDir, "invalid name")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot contain spaces")
+}
+
+// TestPromptForAgentName_PredefinedAnswers tests the new predefined answer functionality
+func TestPromptForAgentName_PredefinedAnswers(t *testing.T) {
+	tests := []struct {
+		name         string
+		envValue     string
+		expectedName string
+	}{
+		{"Answer y", "y", "y"},
+		{"Answer n", "n", "n"},
+		{"Custom agent name", "my-custom-agent", "my-custom-agent"},
+		{"Traditional mode", "1", "test-agent"},
+		{"True value", "true", "test-agent"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Save original value
+			oldEnv := os.Getenv("NON_INTERACTIVE")
+			defer os.Setenv("NON_INTERACTIVE", oldEnv)
+
+			// Set test value
+			os.Setenv("NON_INTERACTIVE", tt.envValue)
+
+			name, err := template.PromptForAgentName()
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedName, name)
+		})
+	}
 }

@@ -20,14 +20,6 @@ import (
 var (
 	version = "dev"
 	commit  = ""
-
-	// Global context and cancel for dependency injection
-	ctx, cancel = ContextWithCancelFn(context.Background())
-
-	// Function variables for dependency injection during tests
-	runGraphResolverActionsFn = runGraphResolverActions
-	cleanupFn                 = cleanup
-	exitFn                    = OsExitFn // Use injectable function
 )
 
 func main() {
@@ -36,6 +28,9 @@ func main() {
 
 	logger := logging.GetLogger()
 	fs := NewOsFsFn()
+
+	// Global context and cancel for dependency injection
+	ctx, cancel = ContextWithCancelFn(context.Background())
 	defer cancel() // Ensure context is canceled when main exits
 
 	graphID := uuid.New().String()

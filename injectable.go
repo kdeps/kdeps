@@ -82,6 +82,17 @@ var (
 
 	// Afero filesystem
 	NewOsFsFn = afero.NewOsFs
+
+	// Function variables for dependency injection during tests
+	runGraphResolverActionsFn = runGraphResolverActions // Reference to graph resolver actions function
+	exitFn                    = OsExitFn                // Reference to the injectable exit function
+	cleanupFn                 = cleanup                 // Reference to the cleanup function
+)
+
+// Global context and cancel for testing - these are set by main() and used by tests
+var (
+	ctx    context.Context
+	cancel context.CancelFunc
 )
 
 // SignalNotifyWrapper wraps signal.Notify for easier mocking

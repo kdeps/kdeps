@@ -15,6 +15,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/utils"
 	versionpkg "github.com/kdeps/kdeps/pkg/version"
 	"github.com/kdeps/kdeps/templates"
 	"github.com/spf13/afero"
@@ -42,8 +43,15 @@ func ValidateAgentName(agentName string) error {
 }
 
 func PromptForAgentName() (string, error) {
-	// Skip prompt if NON_INTERACTIVE=1
-	if os.Getenv("NON_INTERACTIVE") == "1" {
+	config := utils.ParseNonInteractive()
+
+	// Skip prompt if in non-interactive mode
+	if config.IsNonInteractive {
+		if config.PredefinedAnswer != "" {
+			// Use predefined answer if provided
+			return config.PredefinedAnswer, nil
+		}
+		// Default behavior for non-interactive mode
 		return "test-agent", nil
 	}
 
@@ -71,7 +79,7 @@ func CreateDirectory(fs afero.Fs, logger *logging.Logger, path string) error {
 		logger.Error(err)
 		return err
 	}
-	if os.Getenv("NON_INTERACTIVE") != "1" {
+	if !utils.IsNonInteractive() {
 		time.Sleep(80 * time.Millisecond)
 	}
 	return nil
@@ -95,7 +103,7 @@ func CreateFile(fs afero.Fs, logger *logging.Logger, path string, content string
 		logger.Error(err)
 		return err
 	}
-	if os.Getenv("NON_INTERACTIVE") != "1" {
+	if !utils.IsNonInteractive() {
 		time.Sleep(80 * time.Millisecond)
 	}
 	return nil

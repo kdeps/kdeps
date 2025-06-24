@@ -10,6 +10,7 @@ import (
 
 	"github.com/charmbracelet/x/editor"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/spf13/afero"
 )
 
@@ -71,8 +72,8 @@ var EditorCmdFactory = editor.Cmd
 
 // EditPkl is the function that opens the file at filePath with the 'kdeps' editor
 func EditPklWithFactory(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger, factory EditorCmdFunc) error {
-	if os.Getenv("NON_INTERACTIVE") == "1" {
-		logger.Info("NON_INTERACTIVE=1, skipping editor")
+	if utils.IsNonInteractive() {
+		logger.Info("NON_INTERACTIVE mode detected, skipping editor")
 		return nil
 	}
 

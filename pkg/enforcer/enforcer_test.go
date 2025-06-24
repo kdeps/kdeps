@@ -1348,3 +1348,63 @@ func TestEnforceFolderStructure_CompleteCoverage(t *testing.T) {
 		}
 	})
 }
+
+// TestEnforceFolderStructure_DebugLogPath tests the debug log path for ignored files
+func TestEnforceFolderStructure_DebugLogPath(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Create structure with ignored file to trigger debug log
+	tmpDir := "/tmp/debug"
+	createFiles(t, fs, []string{
+		filepath.Join(tmpDir, "workflow.pkl"),
+		filepath.Join(tmpDir, ".kdeps.pkl"), // This should trigger debug log
+	})
+
+	err := EnforceFolderStructure(fs, ctx, tmpDir, logger)
+	require.NoError(t, err)
+
+	// The debug log path should be exercised when .kdeps.pkl is found
+}
+
+// TestEnforceFolderStructure_UnexpectedFolderEdgeCase tests specific unexpected folder scenario
+func TestEnforceFolderStructure_UnexpectedFolderEdgeCase(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	tmpDir := "/tmp/unexpected_folder"
+
+	// Create structure with an unexpected folder
+	err := fs.MkdirAll(filepath.Join(tmpDir, "unexpected_folder"), 0o755)
+	require.NoError(t, err)
+
+	createFiles(t, fs, []string{
+		filepath.Join(tmpDir, "workflow.pkl"),
+	})
+
+	err = EnforceFolderStructure(fs, ctx, tmpDir, logger)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unexpected folder found: unexpected_folder")
+}
+
+// TestEnforceFolderStructure_DataFolderOnly tests when only data folder exists
+func TestEnforceFolderStructure_DataFolderOnly(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	tmpDir := "/tmp/data_only"
+
+	// Create structure with only data folder (missing resources)
+	createFiles(t, fs, []string{
+		filepath.Join(tmpDir, "workflow.pkl"),
+		filepath.Join(tmpDir, "data", "sample.txt"),
+	})
+
+	err := EnforceFolderStructure(fs, ctx, tmpDir, logger)
+	require.NoError(t, err)
+
+	// This should exercise the warning path for missing "resources" folder specifically
+}

@@ -96,10 +96,21 @@ func TestBusService(t *testing.T) {
 		subID := subResp.ID
 
 		testEvent := Event{Type: "test", Payload: "test payload"}
-		go func() {
-			time.Sleep(50 * time.Millisecond) // Brief delay to allow subscription setup
-			testService.PublishEvent(testEvent)
-		}()
+
+		// Check if testService is available (when we created our own server)
+		// If not, use the global bus service or create a mock scenario
+		if testService != nil {
+			go func() {
+				time.Sleep(50 * time.Millisecond) // Brief delay to allow subscription setup
+				testService.PublishEvent(testEvent)
+			}()
+		} else {
+			// When reusing an existing server, use global event publishing
+			go func() {
+				time.Sleep(50 * time.Millisecond) // Brief delay to allow subscription setup
+				PublishGlobalEvent(testEvent.Type, testEvent.Payload)
+			}()
+		}
 
 		var eventResp EventResponse
 		err = client.Call("BusService.GetEvent", EventRequest{ID: subID}, &eventResp)
