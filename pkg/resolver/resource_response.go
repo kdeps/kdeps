@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"strings"
 
 	"github.com/alexellis/go-execute/v2"

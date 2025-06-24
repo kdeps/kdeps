@@ -521,7 +521,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		return "", false, false, "", "", "", "", "", err
 	}
 
-	ollamaPortNum := generateUniqueOllamaPort(portNum)
+	ollamaPortNum := GenerateUniqueOllamaPort(portNum)
 
 	devBuildMode, err := checkDevBuildMode(fs, kdepsDir, logger)
 	if err != nil {
