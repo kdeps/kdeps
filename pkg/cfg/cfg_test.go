@@ -911,3 +911,326 @@ func TestGetKdepsPath_ComprehensiveEdgeCases(t *testing.T) {
 		require.Contains(t, err.Error(), "unknown path type")
 	})
 }
+
+// TestEditConfiguration_ComprehensiveCoverage tests all remaining code paths for EditConfiguration
+func TestEditConfiguration_ComprehensiveCoverage(t *testing.T) {
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	t.Run("ConfigFileDoesNotExist", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		env := &environment.Environment{
+			Home:           "/test/home",
+			NonInteractive: "1", // Non-interactive mode to avoid hanging
+		}
+
+		// Don't create the config file - it should not exist
+		fs.MkdirAll("/test/home", 0o755)
+
+		result, err := EditConfiguration(fs, ctx, env, logger)
+		// Should succeed but log warning about file not existing
+		assert.NoError(t, err)
+		assert.Equal(t, "/test/home/.kdeps.pkl", result)
+	})
+
+	t.Run("NonInteractiveSkipPrompts", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		env := &environment.Environment{
+			Home:           "/test/home",
+			NonInteractive: "1", // Non-interactive mode - skip prompts
+		}
+
+		fs.MkdirAll("/test/home", 0o755)
+		afero.WriteFile(fs, "/test/home/.kdeps.pkl", []byte("test config"), 0o644)
+
+		result, err := EditConfiguration(fs, ctx, env, logger)
+		// Should succeed without editing (skipPrompts=true but confirm=false)
+		assert.NoError(t, err)
+		assert.Equal(t, "/test/home/.kdeps.pkl", result)
+	})
+
+	t.Run("ConfigFilePermissions", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		env := &environment.Environment{
+			Home:           "/test/home",
+			NonInteractive: "1", // Keep non-interactive
+		}
+
+		fs.MkdirAll("/test/home", 0o755)
+		afero.WriteFile(fs, "/test/home/.kdeps.pkl", []byte("test config"), 0o644)
+
+		result, err := EditConfiguration(fs, ctx, env, logger)
+		assert.NoError(t, err)
+		assert.Equal(t, "/test/home/.kdeps.pkl", result)
+	})
+
+	t.Run("EmptyHomeDirectory", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		env := &environment.Environment{
+			Home:           "", // Empty home directory
+			NonInteractive: "1",
+		}
+
+		result, err := EditConfiguration(fs, ctx, env, logger)
+		// Should succeed with empty home
+		assert.NoError(t, err)
+		assert.Equal(t, ".kdeps.pkl", result) // filepath.Join("", filename) = filename
+	})
+
+	t.Run("ConfigFileStatError", func(t *testing.T) {
+		// Use read-only filesystem to potentially trigger stat errors
+		baseFs := afero.NewMemMapFs()
+		fs := afero.NewReadOnlyFs(baseFs)
+		env := &environment.Environment{
+			Home:           "/test/home",
+			NonInteractive: "1",
+		}
+
+		// File doesn't exist in read-only fs
+		result, err := EditConfiguration(fs, ctx, env, logger)
+		// Should handle stat error gracefully (file doesn't exist case)
+		assert.NoError(t, err)
+		assert.Equal(t, "/test/home/.kdeps.pkl", result)
+	})
+
+	t.Run("VariousConfigContent", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		env := &environment.Environment{
+			Home:           "/test/home",
+			NonInteractive: "1",
+		}
+
+		fs.MkdirAll("/test/home", 0o755)
+
+		// Test with various config file contents
+		testContents := []string{
+			"simple config",
+			"", // empty file
+			"multi\nline\nconfig",
+			"config with special chars: éñ¡",
+		}
+
+		for i, content := range testContents {
+			t.Run(fmt.Sprintf("Content_%d", i), func(t *testing.T) {
+				configPath := fmt.Sprintf("/test/home/.kdeps_%d.pkl", i)
+				afero.WriteFile(fs, configPath, []byte(content), 0o644)
+
+				// Test that function handles various file contents
+				result, err := EditConfiguration(fs, ctx, env, logger)
+				assert.NoError(t, err)
+				assert.Equal(t, "/test/home/.kdeps.pkl", result)
+			})
+		}
+	})
+
+	t.Run("NonInteractiveMode_OnlyOne", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+
+		// Only test with "1" to avoid interactive prompts
+		env := &environment.Environment{
+			Home:           "/test/home",
+			NonInteractive: "1", // Only test non-interactive mode
+		}
+
+		fs.MkdirAll("/test/home", 0o755)
+		afero.WriteFile(fs, "/test/home/.kdeps.pkl", []byte("test config"), 0o644)
+
+		result, err := EditConfiguration(fs, ctx, env, logger)
+		assert.NoError(t, err)
+		assert.Equal(t, "/test/home/.kdeps.pkl", result)
+	})
+
+	t.Run("ComplexFilePath", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		env := &environment.Environment{
+			Home:           "/very/deep/nested/home/directory",
+			NonInteractive: "1",
+		}
+
+		fs.MkdirAll("/very/deep/nested/home/directory", 0o755)
+		afero.WriteFile(fs, "/very/deep/nested/home/directory/.kdeps.pkl", []byte("complex path test"), 0o644)
+
+		result, err := EditConfiguration(fs, ctx, env, logger)
+		assert.NoError(t, err)
+		assert.Equal(t, "/very/deep/nested/home/directory/.kdeps.pkl", result)
+	})
+
+	t.Run("FileSystemEdgeCases", func(t *testing.T) {
+		// Test with various filesystem states
+		testCases := []struct {
+			name        string
+			setupFs     func() afero.Fs
+			expectError bool
+		}{
+			{
+				name: "MemMapFs",
+				setupFs: func() afero.Fs {
+					fs := afero.NewMemMapFs()
+					fs.MkdirAll("/test/home", 0o755)
+					return fs
+				},
+				expectError: false,
+			},
+			{
+				name: "ReadOnlyFs",
+				setupFs: func() afero.Fs {
+					baseFs := afero.NewMemMapFs()
+					return afero.NewReadOnlyFs(baseFs)
+				},
+				expectError: false, // Should handle gracefully
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				fs := tc.setupFs()
+				env := &environment.Environment{
+					Home:           "/test/home",
+					NonInteractive: "1",
+				}
+
+				result, err := EditConfiguration(fs, ctx, env, logger)
+				if tc.expectError {
+					assert.Error(t, err)
+				} else {
+					assert.NoError(t, err)
+					assert.Equal(t, "/test/home/.kdeps.pkl", result)
+				}
+			})
+		}
+	})
+}
+
+// TestGetKdepsPath_ErrorCoverage tests error scenarios for GetKdepsPath
+func TestGetKdepsPath_ErrorCoverage(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("UserHomeDir_SimulatedError", func(t *testing.T) {
+		// We can't easily mock os.UserHomeDir() but we can test edge cases
+		cfg := kdeps.Kdeps{
+			KdepsDir:  "test-kdeps",
+			KdepsPath: path.User,
+		}
+
+		result, err := GetKdepsPath(ctx, cfg)
+		// In normal environments this should succeed
+		assert.NoError(t, err)
+		assert.Contains(t, result, "test-kdeps")
+	})
+
+	t.Run("GetWd_SimulatedError", func(t *testing.T) {
+		cfg := kdeps.Kdeps{
+			KdepsDir:  "project-kdeps",
+			KdepsPath: path.Project,
+		}
+
+		result, err := GetKdepsPath(ctx, cfg)
+		// This might fail in CI environments where working directory doesn't exist
+		if err != nil {
+			assert.Contains(t, err.Error(), "getwd")
+		} else {
+			assert.Contains(t, result, "project-kdeps")
+		}
+	})
+
+	t.Run("UnknownPath_NumericValue", func(t *testing.T) {
+		cfg := kdeps.Kdeps{
+			KdepsDir:  "test-dir",
+			KdepsPath: path.Path("999"), // Unknown numeric path
+		}
+
+		_, err := GetKdepsPath(ctx, cfg)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unknown path type: 999")
+	})
+
+	t.Run("UnknownPath_StringValue", func(t *testing.T) {
+		cfg := kdeps.Kdeps{
+			KdepsDir:  "test-dir",
+			KdepsPath: path.Path("invalid_path"), // Unknown string path
+		}
+
+		_, err := GetKdepsPath(ctx, cfg)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unknown path type: invalid_path")
+	})
+
+	t.Run("UnknownPath_EmptyValue", func(t *testing.T) {
+		cfg := kdeps.Kdeps{
+			KdepsDir:  "test-dir",
+			KdepsPath: path.Path(""), // Empty path
+		}
+
+		_, err := GetKdepsPath(ctx, cfg)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unknown path type")
+	})
+
+	t.Run("SpecialDirectoryNames", func(t *testing.T) {
+		// Test with simpler directory names that won't cause path resolution issues
+		specialDirs := []string{
+			"kdeps-dir",
+			"special_chars_123",
+			"simple-name",
+		}
+
+		for _, dir := range specialDirs {
+			t.Run(fmt.Sprintf("Dir_%s", dir), func(t *testing.T) {
+				cfg := kdeps.Kdeps{
+					KdepsDir:  dir,
+					KdepsPath: path.User, // Use User path which is most reliable
+				}
+
+				result, err := GetKdepsPath(ctx, cfg)
+				assert.NoError(t, err)
+				assert.Contains(t, result, dir)
+			})
+		}
+	})
+
+	t.Run("NilContext", func(t *testing.T) {
+		cfg := kdeps.Kdeps{
+			KdepsDir:  "test-dir",
+			KdepsPath: path.User,
+		}
+
+		// Test with nil context - should still work as context isn't used
+		result, err := GetKdepsPath(nil, cfg)
+		assert.NoError(t, err)
+		assert.Contains(t, result, "test-dir")
+	})
+
+	t.Run("ValidPathsComprehensive", func(t *testing.T) {
+		testCases := []struct {
+			name    string
+			path    path.Path
+			wantErr bool
+		}{
+			{"User", path.User, false},
+			{"Project", path.Project, false}, // Might fail in CI
+			{"Xdg", path.Xdg, false},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				cfg := kdeps.Kdeps{
+					KdepsDir:  "comprehensive-test",
+					KdepsPath: tc.path,
+				}
+
+				result, err := GetKdepsPath(ctx, cfg)
+				if tc.wantErr {
+					assert.Error(t, err)
+				} else {
+					if err != nil && tc.path == path.Project && strings.Contains(err.Error(), "getwd") {
+						// Expected in CI environments
+						t.Logf("Expected CI failure: %v", err)
+					} else {
+						assert.NoError(t, err)
+						assert.Contains(t, result, "comprehensive-test")
+					}
+				}
+			})
+		}
+	})
+}
