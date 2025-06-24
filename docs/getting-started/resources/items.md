@@ -37,7 +37,7 @@ run {
         "/api/v1/lyrics"
     }
     // Process the current lyric line (e.g., store, analyze, or pass to another system)
-    local result = item.current()
+    local result = "@(item.current())""
 }
 ```
 
@@ -103,10 +103,10 @@ items {
 
 run {
     skipCondition {
-        item.current() == "How that music used to make me smile" // Skip this lyric
+        "@(item.current())" == "How that music used to make me smile" // Skip this lyric
     }
     // Process the current lyric (e.g., pass to a system or store)
-    local result = item.current()
+    local result = "@(item.current())"
 }
 ```
 
@@ -124,7 +124,7 @@ items {
 }
 
 run {
-    local content = read?(item.current())?.text
+    local content = "@(read?(item.current())?.text)"
     // Process the file content (e.g., validate, transform, or store)
 }
 ```
@@ -162,7 +162,7 @@ run {
         "/api/v1/mtv-scenarios"
     }
     skipCondition {
-        item.current() == "And I knew if I had my chance" // Skip this lyric
+        "@(item.current())" == "And I knew if I had my chance" // Skip this lyric
     }
     chat {
         model = "llama3.2:1b"

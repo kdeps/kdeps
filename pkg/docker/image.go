@@ -14,60 +14,16 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/build"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/download"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
-	"github.com/kdeps/kdeps/pkg/template"
-	versionpkg "github.com/kdeps/kdeps/pkg/version"
 	"github.com/kdeps/kdeps/pkg/workflow"
 	kdCfg "github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
-)
-
-// Injectable functions for testability
-var (
-	// Workflow functions
-	LoadWorkflowFn = workflow.LoadWorkflow
-
-	// Docker client functions
-	ImageListFn = func(cli *client.Client, ctx context.Context, options image.ListOptions) ([]image.Summary, error) {
-		return cli.ImageList(ctx, options)
-	}
-	ImageBuildFn = func(cli *client.Client, ctx context.Context, context io.Reader, options types.ImageBuildOptions) (types.ImageBuildResponse, error) {
-		return cli.ImageBuild(ctx, context, options)
-	}
-
-	// File system operations
-	WalkFn = afero.Walk
-	OpenFn = func(fs afero.Fs, name string) (afero.File, error) {
-		return fs.Open(name)
-	}
-	WriteFileFn = afero.WriteFile
-
-	// Tar operations
-	NewTarWriterFn = func(w io.Writer) *tar.Writer {
-		return tar.NewWriter(w)
-	}
-	FileInfoHeaderFn = tar.FileInfoHeader
-	CopyFn           = io.Copy
-
-	// Docker-specific functions
-	GenerateURLsFn            = GenerateURLs
-	GenerateURLsWithOptionsFn = GenerateURLsWithOptions
-	DownloadFilesFn           = func(fs afero.Fs, ctx context.Context, downloadDir string, items []download.DownloadItem, logger *logging.Logger, useLatest bool) error {
-		return download.DownloadFiles(fs, ctx, downloadDir, items, logger, useLatest)
-	}
-	GenerateUniqueOllamaPortFn = GenerateUniqueOllamaPort
-	CheckDevBuildModeFn        = CheckDevBuildMode
-	CopyFilesToRunDirFn        = CopyFilesToRunDir
-
-	// Output functions
-	PrintlnFn                = fmt.Println
-	PrintDockerBuildOutputFn = PrintDockerBuildOutput
 )
 
 // BuildLine struct is used to unmarshal Docker build log lines from the response.
@@ -79,7 +35,7 @@ type BuildLine struct {
 func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli *client.Client, runDir, kdepsDir string,
 	pkgProject *archiver.KdepsPackage, logger *logging.Logger,
 ) (string, string, error) {
-	wfCfg, err := LoadWorkflowFn(ctx, pkgProject.Workflow, logger)
+	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow, logger)
 	if err != nil {
 		return "", "", err
 	}
@@ -91,7 +47,7 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 	containerName := strings.Join([]string{cName, agentVersion}, ":")
 
 	// Check if the Docker image already exists
-	images, err := ImageListFn(cli, ctx, image.ListOptions{})
+	images, err := cli.ImageList(ctx, image.ListOptions{})
 	if err != nil {
 		return "", "", fmt.Errorf("error listing images: %w", err)
 	}
@@ -99,7 +55,7 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 	for _, image := range images {
 		for _, tag := range image.RepoTags {
 			if tag == containerName {
-				PrintlnFn("Image already exists:", containerName)
+				fmt.Println("Image already exists:", containerName)
 				return cName, containerName, nil
 			}
 		}
@@ -107,15 +63,15 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 
 	// Create a tar archive of the run directory to use as the Docker build context
 	tarBuffer := new(bytes.Buffer)
-	tw := NewTarWriterFn(tarBuffer)
+	tw := tar.NewWriter(tarBuffer)
 
-	err = WalkFn(fs, runDir, func(file string, info os.FileInfo, err error) error {
+	err = afero.Walk(fs, runDir, func(file string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
 		// Create tar header
-		header, err := FileInfoHeaderFn(info, info.Name())
+		header, err := tar.FileInfoHeader(info, info.Name())
 		if err != nil {
 			return err
 		}
@@ -130,13 +86,13 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 		}
 
 		if !info.IsDir() {
-			fileReader, err := OpenFn(fs, file)
+			fileReader, err := fs.Open(file)
 			if err != nil {
 				return err
 			}
 			defer fileReader.Close()
 
-			if _, err := CopyFn(tw, fileReader); err != nil {
+			if _, err := io.Copy(tw, fileReader); err != nil {
 				return err
 			}
 		}
@@ -153,7 +109,7 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 	}
 
 	// Docker build options
-	buildOptions := types.ImageBuildOptions{
+	buildOptions := build.ImageBuildOptions{
 		Tags:           []string{containerName}, // Image name and tag
 		Dockerfile:     "Dockerfile",            // The Dockerfile is in the root of the build context
 		Remove:         true,                    // Remove intermediate containers after a successful build
@@ -163,24 +119,24 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 	}
 
 	// Build the Docker image
-	response, err := ImageBuildFn(cli, ctx, tarBuffer, buildOptions)
+	response, err := cli.ImageBuild(ctx, tarBuffer, buildOptions)
 	if err != nil {
 		return cName, containerName, err
 	}
 	defer response.Body.Close()
 
 	// Process and print the build output
-	err = PrintDockerBuildOutputFn(response.Body)
+	err = printDockerBuildOutput(response.Body)
 	if err != nil {
 		return cName, containerName, err
 	}
 
-	PrintlnFn("Docker image build completed successfully!")
+	fmt.Println("Docker image build completed successfully!")
 
 	return cName, containerName, nil
 }
 
-func CheckDevBuildMode(fs afero.Fs, kdepsDir string, logger *logging.Logger) (bool, error) {
+func checkDevBuildMode(fs afero.Fs, kdepsDir string, logger *logging.Logger) (bool, error) {
 	downloadDir := filepath.Join(kdepsDir, "cache")
 	kdepsBinaryFile := filepath.Join(downloadDir, "kdeps")
 
@@ -206,30 +162,8 @@ func CheckDevBuildMode(fs afero.Fs, kdepsDir string, logger *logging.Logger) (bo
 	return true, nil
 }
 
-// DockerfileData holds all the template variables for Dockerfile generation
-type DockerfileData struct {
-	ImageVersion     string
-	SchemaVersion    string
-	HostIP           string
-	OllamaPortNum    string
-	KdepsHost        string
-	ArgsSection      string
-	EnvsSection      string
-	PkgSection       string
-	PythonPkgSection string
-	CondaPkgSection  string
-	AnacondaVersion  string
-	PklVersion       string
-	Timezone         string
-	ExposedPort      string
-	InstallAnaconda  bool
-	DevBuildMode     bool
-	ApiServerMode    bool
-	UseLatest        bool
-}
-
-// GenerateDockerfile constructs the Dockerfile content using a template.
-func GenerateDockerfile(
+// generateDockerfile constructs the Dockerfile content by appending multi-line blocks.
+func generateDockerfile(
 	imageVersion,
 	schemaVersion,
 	hostIP,
@@ -249,49 +183,140 @@ func GenerateDockerfile(
 	apiServerMode,
 	useLatest bool,
 ) string {
-	// Handle version updates for useLatest
+	var dockerFile strings.Builder
+
+	// Base Image and Environment Variables
+	dockerFile.WriteString(fmt.Sprintf(`
+# syntax=docker.io/docker/dockerfile:1
+FROM ollama/ollama:%s
+
+ENV SCHEMA_VERSION=%s
+ENV OLLAMA_HOST=%s:%s
+ENV KDEPS_HOST=%s
+ENV DEBUG=1
+`, imageVersion, schemaVersion, hostIP, ollamaPortNum, kdepsHost))
+
+	// Envs Section
+	dockerFile.WriteString(envsSection + "\n\n")
+
+	// Args Section
+	dockerFile.WriteString(argsSection + "\n\n")
+
+	// Copy DownloadDir to local Downloads
+	dockerFile.WriteString(`
+COPY cache /cache
+RUN chmod +x /cache/pkl*
+RUN chmod +x /cache/anaconda*
+`)
+
+	// Timezone
+	dockerFile.WriteString(fmt.Sprintf(`
+ARG DEBIAN_FRONTEND=noninteractive
+ENV TZ=%s
+`, timezone))
+
+	// Install Necessary Tools
+	dockerFile.WriteString(`
+# Install necessary tools
+RUN apt-get update --fix-missing && apt-get install -y --no-install-recommends \
+    bzip2 ca-certificates git subversion mercurial libglib2.0-0 \
+    libsm6 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxinerama1 libxrandr2 libxrender1 \
+    gpg-agent openssh-client procps software-properties-common wget curl nano jq python3 python3-pip musl musl-dev \
+    musl-tools
+`)
+
 	if useLatest {
-		anacondaVersion = versionpkg.LatestVersionPlaceholder
-		pklVersion = versionpkg.LatestVersionPlaceholder
+		anacondaVersion = "latest"
+		pklVersion = "latest"
+	}
+
+	// Determine Architecture and Download pkl Binary
+	dockerFile.WriteString(fmt.Sprintf(`
+# Determine the architecture and download the appropriate pkl binary
+RUN arch=$(uname -m) && \
+    if [ "$arch" = "x86_64" ]; then \
+	cp /cache/pkl-linux-%s-amd64 /usr/bin/pkl; \
+    elif [ "$arch" = "aarch64" ]; then \
+	cp /cache/pkl-linux-%s-aarch64 /usr/bin/pkl; \
+    else \
+	echo "Unsupported architecture: $arch" && exit 1; \
+    fi
+`, pklVersion, pklVersion))
+
+	// Package Section (Dynamic Content)
+	dockerFile.WriteString(pkgSection + "\n\n")
+
+	// Setup kdeps
+	if devBuildMode {
+		dockerFile.WriteString(`
+RUN cp /cache/kdeps /bin/kdeps
+RUN chmod a+x /bin/kdeps
+`)
 	} else {
-		anacondaVersion = versionpkg.AnacondaVersion
-		pklVersion = versionpkg.PklVersion
+		dockerFile.WriteString(`
+RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/refs/heads/main/install.sh | sh -s -- -b /bin/ -d "latest"
+`)
 	}
 
-	// Create template data
-	data := DockerfileData{
-		ImageVersion:     imageVersion,
-		SchemaVersion:    schemaVersion,
-		HostIP:           hostIP,
-		OllamaPortNum:    ollamaPortNum,
-		KdepsHost:        kdepsHost,
-		ArgsSection:      argsSection,
-		EnvsSection:      envsSection,
-		PkgSection:       pkgSection,
-		PythonPkgSection: pythonPkgSection,
-		CondaPkgSection:  condaPkgSection,
-		AnacondaVersion:  anacondaVersion,
-		PklVersion:       pklVersion,
-		Timezone:         timezone,
-		ExposedPort:      exposedPort,
-		InstallAnaconda:  installAnaconda,
-		DevBuildMode:     devBuildMode,
-		ApiServerMode:    apiServerMode,
-		UseLatest:        useLatest,
+	// Copy workflow
+	dockerFile.WriteString(`
+COPY workflow /agent/project
+COPY workflow /agent/workflow
+`)
+
+	// Conditionally Install Anaconda and Additional Packages
+	if installAnaconda {
+		dockerFile.WriteString(fmt.Sprintf(`
+RUN arch=$(uname -m) && if [ "$arch" = "x86_64" ]; then \
+	cp /cache/anaconda-linux-%s-x86_64.sh /tmp/anaconda.sh; \
+    elif [ "$arch" = "aarch64" ]; then \
+	cp /cache/anaconda-linux-%s-aarch64.sh /tmp/anaconda.sh; \
+    else \
+	echo "Unsupported architecture: $arch" && exit 1; \
+    fi
+`, anacondaVersion, anacondaVersion))
 	}
 
-	// Use the template system to generate the Dockerfile
-	content, err := template.LoadDockerfileTemplate("Dockerfile", data)
-	if err != nil {
-		// Fallback to empty string for backward compatibility
-		// In practice, this error should be handled by the caller
-		return ""
+	if installAnaconda {
+		dockerFile.WriteString(`
+RUN /bin/bash /tmp/anaconda.sh -b -p /opt/conda
+RUN ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh
+RUN find /opt/conda/ -follow -type f -name '*.a' -delete
+RUN find /opt/conda/ -follow -type f -name '*.js.map' -delete
+RUN /opt/conda/bin/conda clean -afy
+RUN rm /tmp/anaconda.sh
+RUN . /opt/conda/etc/profile.d/conda.sh && conda activate base
+
+RUN echo "export PATH=/opt/conda/bin:$PATH" >> /etc/environment
+ENV PATH="/opt/conda/bin:$PATH"
+`)
+		// Python Package Section (Dynamic Content)
+		dockerFile.WriteString(condaPkgSection + "\n\n")
 	}
 
-	return content
+	// Python Package Section (Dynamic Content)
+	dockerFile.WriteString(pythonPkgSection + "\n\n")
+
+	// Cleanup
+	dockerFile.WriteString(`
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN rm -rf /cache
+`)
+
+	// Expose Port
+	if apiServerMode {
+		dockerFile.WriteString(fmt.Sprintf("EXPOSE %s\n\n", exposedPort))
+	}
+
+	// Entry Point and Command
+	dockerFile.WriteString(`
+ENTRYPOINT ["/bin/kdeps"]
+`)
+
+	return dockerFile.String()
 }
 
-func CopyFilesToRunDir(fs afero.Fs, ctx context.Context, downloadDir, runDir string, logger *logging.Logger) error {
+func copyFilesToRunDir(fs afero.Fs, ctx context.Context, downloadDir, runDir string, logger *logging.Logger) error {
 	// Ensure the runDir and cache directory exist
 	downloadsDir := filepath.Join(runDir, "cache")
 	err := fs.MkdirAll(downloadsDir, os.ModePerm)
@@ -325,7 +350,7 @@ func CopyFilesToRunDir(fs afero.Fs, ctx context.Context, downloadDir, runDir str
 	return nil
 }
 
-func GenerateParamsSection(prefix string, items map[string]string) string {
+func generateParamsSection(prefix string, items map[string]string) string {
 	lines := make([]string, 0, len(items))
 
 	for key, value := range items {
@@ -344,10 +369,10 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	hostIP := "127.0.0.1"
 	webHostIP := "127.0.0.1"
 
-	anacondaVersion := versionpkg.AnacondaVersion
-	pklVersion := versionpkg.PklVersion
+	anacondaVersion := "2024.10-1"
+	pklVersion := "0.28.2"
 
-	wfCfg, err := LoadWorkflowFn(ctx, pkgProject.Workflow, logger)
+	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow, logger)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
 	}
@@ -408,11 +433,11 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	var argsSection, envsSection string
 
 	if dockerSettings.Args != nil {
-		argsSection = GenerateParamsSection("ARG", *argsList)
+		argsSection = generateParamsSection("ARG", *argsList)
 	}
 
 	if dockerSettings.Env != nil {
-		envsSection = GenerateParamsSection("ENV", *envsList)
+		envsSection = generateParamsSection("ENV", *envsList)
 	}
 
 	var pkgLines []string
@@ -477,8 +502,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion)
 	downloadDir := filepath.Join(kdepsDir, "cache")
 
-	// Generate URLs conditionally based on whether Anaconda is enabled
-	items, err := GenerateURLsWithOptionsFn(ctx, installAnaconda)
+	items, err := GenerateURLs(ctx)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
 	}
@@ -487,24 +511,24 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		logger.Debug("will download", "url", item.URL, "localName", item.LocalName)
 	}
 
-	err = DownloadFilesFn(fs, ctx, downloadDir, items, logger, schema.UseLatest)
+	err = download.DownloadFiles(fs, ctx, downloadDir, items, logger, schema.UseLatest)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
 	}
 
-	err = CopyFilesToRunDirFn(fs, ctx, downloadDir, runDir, logger)
+	err = copyFilesToRunDir(fs, ctx, downloadDir, runDir, logger)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
 	}
 
-	ollamaPortNum := GenerateUniqueOllamaPortFn(portNum)
+	ollamaPortNum := generateUniqueOllamaPort(portNum)
 
-	devBuildMode, err := CheckDevBuildModeFn(fs, kdepsDir, logger)
+	devBuildMode, err := checkDevBuildMode(fs, kdepsDir, logger)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
 	}
 
-	dockerfileContent := GenerateDockerfile(
+	dockerfileContent := generateDockerfile(
 		imageVersion,
 		schema.SchemaVersion(ctx),
 		hostIP,
@@ -528,7 +552,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	// Write the Dockerfile to the run directory
 	resourceConfigurationFile := filepath.Join(runDir, "Dockerfile")
 	fmt.Println(resourceConfigurationFile)
-	err = WriteFileFn(fs, resourceConfigurationFile, []byte(dockerfileContent), 0o644)
+	err = afero.WriteFile(fs, resourceConfigurationFile, []byte(dockerfileContent), 0o644)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
 	}
@@ -537,7 +561,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 }
 
 // printDockerBuildOutput processes the Docker build logs and returns any error encountered during the build.
-func PrintDockerBuildOutput(rd io.Reader) error {
+func printDockerBuildOutput(rd io.Reader) error {
 	scanner := bufio.NewScanner(rd)
 	for scanner.Scan() {
 		line := scanner.Text()

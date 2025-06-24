@@ -22,7 +22,7 @@ require (
 	github.com/gin-gonic/gin v1.10.1
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
-	github.com/kdeps/kartographer v0.0.0-20240808015651-b2afd5d97715
+	github.com/kaptinlin/jsonrepair v0.1.1
 	github.com/kdeps/schema v0.2.40
 	github.com/kr/pretty v0.3.1
 	github.com/mattn/go-sqlite3 v1.14.28

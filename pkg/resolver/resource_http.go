@@ -19,16 +19,16 @@ import (
 	"github.com/spf13/afero"
 )
 
-func (dr *DependencyResolver) HandleHTTPClient(actionID string, httpBlock *pklHTTP.ResourceHTTPClient) error {
+func (dr *DependencyResolver) HandleHTTPClient(actionID string, httpBlock *pklHTTP.ResourceHTTPClient, hasItems bool) error {
 	// Synchronously decode the HTTP block.
-	if err := dr.DecodeHTTPBlock(httpBlock); err != nil {
+	if err := dr.decodeHTTPBlock(httpBlock); err != nil {
 		dr.Logger.Error("failed to decode HTTP block", "actionID", actionID, "error", err)
 		return err
 	}
 
 	// Process the HTTP block asynchronously in a goroutine.
 	go func(aID string, block *pklHTTP.ResourceHTTPClient) {
-		if err := dr.processHTTPBlock(aID, block); err != nil {
+		if err := dr.processHTTPBlock(aID, block, hasItems); err != nil {
 			// Log the error; you can adjust error handling as needed.
 			dr.Logger.Error("failed to process HTTP block", "actionID", aID, "error", err)
 		}
@@ -38,14 +38,14 @@ func (dr *DependencyResolver) HandleHTTPClient(actionID string, httpBlock *pklHT
 	return nil
 }
 
-func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHTTP.ResourceHTTPClient) error {
-	if err := dr.DoRequestFn(httpBlock); err != nil {
+func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHTTP.ResourceHTTPClient, hasItems bool) error {
+	if err := dr.DoRequest(httpBlock); err != nil {
 		return err
 	}
-	return dr.AppendHTTPEntry(actionID, httpBlock)
+	return dr.AppendHTTPEntry(actionID, httpBlock, hasItems)
 }
 
-func (dr *DependencyResolver) DecodeHTTPBlock(httpBlock *pklHTTP.ResourceHTTPClient) error {
+func (dr *DependencyResolver) decodeHTTPBlock(httpBlock *pklHTTP.ResourceHTTPClient) error {
 	if utils.IsBase64Encoded(httpBlock.Url) {
 		decodedURL, err := utils.DecodeBase64String(httpBlock.Url)
 		if err != nil {
@@ -88,10 +88,10 @@ func (dr *DependencyResolver) WriteResponseBodyToFile(resourceID string, respons
 	return outputFilePath, nil
 }
 
-func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP.ResourceHTTPClient) error {
+func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP.ResourceHTTPClient, hasItems bool) error {
 	pklPath := filepath.Join(dr.ActionDir, "client/"+dr.RequestID+"__client_output.pkl")
 
-	res, err := dr.LoadResourceFn(dr.Context, pklPath, HTTPResource)
+	res, _, err := dr.LoadResource(dr.Context, pklPath, HTTPResource, false)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL: %w", err)
 	}
@@ -116,11 +116,30 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 		encodedURL = utils.EncodeBase64String(encodedURL)
 	}
 
+	timeoutDuration := client.TimeoutDuration
+	if timeoutDuration == nil {
+		timeoutDuration = &pkl.Duration{
+			Value: 60,
+			Unit:  pkl.Second,
+		}
+	}
+
 	timestamp := client.Timestamp
 	if timestamp == nil {
 		timestamp = &pkl.Duration{
 			Value: float64(time.Now().Unix()),
 			Unit:  pkl.Nanosecond,
+		}
+	}
+
+	if hasItems && client.Response != nil && client.Response.Body != nil {
+		dr.Logger.Info("hasItems enabled, storing stdout as item", "resourceID", resourceID)
+		itemValue := *client.Response.Body // Dereference the Body (*string) to get string
+		query := url.Values{"op": []string{"set"}, "value": []string{itemValue}}
+		uri := url.URL{Scheme: "item", RawQuery: query.Encode()}
+		if _, err := dr.ItemReader.Read(uri); err != nil {
+			dr.Logger.Error("failed to set item value", "item", utils.TruncateString(itemValue, 100), "error", err)
+			return fmt.Errorf("failed to set item: %w", err)
 		}
 	}
 
@@ -132,11 +151,12 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 		Response:        client.Response,
 		File:            &filePath,
 		Timestamp:       timestamp,
-		TimeoutDuration: client.TimeoutDuration,
+		TimeoutDuration: timeoutDuration,
 	}
 
 	var pklContent strings.Builder
-	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/HTTP.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
+	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/HTTP.pkl\"\n", schema.SchemaVersion(dr.Context)))
+	pklContent.WriteString("import \"pkl:json\"\n\n")
 	pklContent.WriteString("resources {\n")
 
 	for id, res := range existingResources {
@@ -147,7 +167,7 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 		if res.TimeoutDuration != nil {
 			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
 		} else {
-			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d.s\n", dr.DefaultTimeoutSec))
+			pklContent.WriteString("    timeoutDuration = 60.s\n")
 		}
 
 		if res.Timestamp != nil {
@@ -161,10 +181,11 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 		pklContent.WriteString("    params ")
 		pklContent.WriteString(utils.EncodePklMap(res.Params))
 		pklContent.WriteString("    response {\n")
-		pklContent.WriteString(EncodeResponseHeaders(res.Response))
-		pklContent.WriteString(EncodeResponseBody(res.Response, dr, resourceID))
+		pklContent.WriteString(encodeResponseHeaders(res.Response))
+		pklContent.WriteString(encodeResponseBody(res.Response, dr, resourceID))
 		pklContent.WriteString("    }\n")
 		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *res.File))
+		pklContent.WriteString(fmt.Sprintf("    itemValues = new Listing {...?(new json.Parser { useMapping = false }).parse(read(\"item:/%s?op=values\")?.text)}\n", id))
 		pklContent.WriteString("  }\n")
 	}
 	pklContent.WriteString("}\n")
@@ -174,7 +195,7 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 	}
 
 	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath,
-		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/HTTP.pkl\"\n\n", schema.SchemaVersion(dr.Context)), dr.Logger)
+		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/HTTP.pkl\"\n\n", schema.SchemaVersion(dr.Context)), dr.EvaluatorOptions, dr.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to evaluate PKL: %w", err)
 	}
@@ -182,7 +203,7 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 	return afero.WriteFile(dr.Fs, pklPath, []byte(evaluatedContent), 0o644)
 }
 
-func EncodeResponseHeaders(response *pklHTTP.ResponseBlock) string {
+func encodeResponseHeaders(response *pklHTTP.ResponseBlock) string {
 	if response == nil || response.Headers == nil {
 		return "    headers {[\"\"] = \"\"}\n"
 	}
@@ -195,7 +216,7 @@ func EncodeResponseHeaders(response *pklHTTP.ResponseBlock) string {
 	return builder.String()
 }
 
-func EncodeResponseBody(response *pklHTTP.ResponseBlock, dr *DependencyResolver, resourceID string) string {
+func encodeResponseBody(response *pklHTTP.ResponseBlock, dr *DependencyResolver, resourceID string) string {
 	if response == nil || response.Body == nil {
 		return "    body=\"\"\n"
 	}
@@ -218,19 +239,13 @@ func (dr *DependencyResolver) DoRequest(client *pklHTTP.ResourceHTTPClient) erro
 	}
 
 	// Configure timeout with proper duration handling
+	timeout := 30 * time.Second
+	if client.TimeoutDuration != nil {
+		timeout = client.TimeoutDuration.GoDuration()
+	}
+
 	httpClient := &http.Client{
-		Timeout: func() time.Duration {
-			switch {
-			case dr.DefaultTimeoutSec > 0:
-				return time.Duration(dr.DefaultTimeoutSec) * time.Second
-			case dr.DefaultTimeoutSec == 0:
-				return 0 // unlimited
-			case client.TimeoutDuration != nil:
-				return client.TimeoutDuration.GoDuration()
-			default:
-				return 30 * time.Second
-			}
-		}(),
+		Timeout: timeout,
 		Transport: &http.Transport{
 			DisableCompression: false,
 			DisableKeepAlives:  false,
@@ -255,7 +270,7 @@ func (dr *DependencyResolver) DoRequest(client *pklHTTP.ResourceHTTPClient) erro
 
 	// Handle request body
 	var reqBody io.Reader
-	if IsMethodWithBody(client.Method) {
+	if isMethodWithBody(client.Method) {
 		if client.Data == nil {
 			return fmt.Errorf("HTTP %s requires request body", client.Method)
 		}
@@ -323,7 +338,7 @@ func (dr *DependencyResolver) DoRequest(client *pklHTTP.ResourceHTTPClient) erro
 }
 
 // Helper function to check if HTTP method supports body.
-func IsMethodWithBody(method string) bool {
+func isMethodWithBody(method string) bool {
 	switch strings.ToUpper(method) {
 	case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
 		return true

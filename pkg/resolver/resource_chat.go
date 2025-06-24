@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -40,14 +41,14 @@ const (
 )
 
 // HandleLLMChat initiates asynchronous processing of an LLM chat interaction.
-func (dr *DependencyResolver) HandleLLMChat(actionID string, chatBlock *pklLLM.ResourceChat) error {
-	if err := dr.DecodeChatBlock(chatBlock); err != nil {
+func (dr *DependencyResolver) HandleLLMChat(actionID string, chatBlock *pklLLM.ResourceChat, hasItems bool) error {
+	if err := dr.decodeChatBlock(chatBlock); err != nil {
 		dr.Logger.Error("failed to decode chat block", "actionID", actionID, "error", err)
 		return err
 	}
 
 	go func(aID string, block *pklLLM.ResourceChat) {
-		if err := dr.processLLMChat(aID, block); err != nil {
+		if err := dr.processLLMChat(aID, block, hasItems); err != nil {
 			dr.Logger.Error("failed to process LLM chat", "actionID", aID, "error", err)
 		}
 	}(actionID, chatBlock)
@@ -56,7 +57,7 @@ func (dr *DependencyResolver) HandleLLMChat(actionID string, chatBlock *pklLLM.R
 }
 
 // generateChatResponse generates a response from the LLM based on the chat block, executing tools via toolreader.
-func GenerateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, chatBlock *pklLLM.ResourceChat, toolreader *tool.PklResourceReader, logger *logging.Logger) (string, error) {
+func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, chatBlock *pklLLM.ResourceChat, toolreader *tool.PklResourceReader, logger *logging.Logger) (string, error) {
 	logger.Info("Processing chatBlock",
 		"model", chatBlock.Model,
 		"prompt", utils.SafeDerefString(chatBlock.Prompt),
@@ -68,10 +69,10 @@ func GenerateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		"file_count", len(utils.SafeDerefSlice(chatBlock.Files)))
 
 	// Generate dynamic tools with enhanced logging
-	availableTools := GenerateAvailableTools(chatBlock, logger)
+	availableTools := generateAvailableTools(chatBlock, logger)
 	logger.Info("Generated tools",
 		"tool_count", len(availableTools),
-		"tool_names", ExtractToolNamesFromTools(availableTools))
+		"tool_names", extractToolNamesFromTools(availableTools))
 
 	// Build message history
 	messageHistory := make([]llms.MessageContent, 0)
@@ -80,7 +81,7 @@ func GenerateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 	toolOutputs := make(map[string]string) // Key: tool_call_id, Value: output
 
 	// Build system prompt that encourages tool usage and considers previous outputs
-	systemPrompt := BuildSystemPrompt(chatBlock.JSONResponse, chatBlock.JSONResponseKeys, availableTools)
+	systemPrompt := buildSystemPrompt(chatBlock.JSONResponse, chatBlock.JSONResponseKeys, availableTools)
 	logger.Info("Generated system prompt", "content", utils.TruncateString(systemPrompt, 200))
 
 	messageHistory = append(messageHistory, llms.MessageContent{
@@ -89,7 +90,7 @@ func GenerateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 	})
 
 	// Add main prompt if present
-	role, roleType := GetRoleAndType(chatBlock.Role)
+	role, roleType := getRoleAndType(chatBlock.Role)
 	prompt := utils.SafeDerefString(chatBlock.Prompt)
 	if strings.TrimSpace(prompt) != "" {
 		if roleType == llms.ChatMessageTypeGeneric {
@@ -102,7 +103,7 @@ func GenerateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 	}
 
 	// Add scenario messages
-	messageHistory = append(messageHistory, ProcessScenarioMessages(chatBlock.Scenario, logger)...)
+	messageHistory = append(messageHistory, processScenarioMessages(chatBlock.Scenario, logger)...)
 
 	// Process files if present
 	if chatBlock.Files != nil && len(*chatBlock.Files) > 0 {
@@ -171,18 +172,18 @@ func GenerateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		"content", utils.TruncateString(respChoice.Content, 100),
 		"tool_calls", len(respChoice.ToolCalls),
 		"stop_reason", respChoice.StopReason,
-		"tool_names", ExtractToolNames(respChoice.ToolCalls))
+		"tool_names", extractToolNames(respChoice.ToolCalls))
 
 	// Process first response
 	toolCalls := respChoice.ToolCalls
 	if len(toolCalls) == 0 && len(availableTools) > 0 {
 		logger.Info("No direct ToolCalls, attempting to construct from JSON")
-		constructedToolCalls := ConstructToolCallsFromJSON(respChoice.Content, logger)
+		constructedToolCalls := constructToolCallsFromJSON(respChoice.Content, logger)
 		toolCalls = constructedToolCalls
 	}
 
 	// Deduplicate tool calls
-	toolCalls = DeduplicateToolCalls(toolCalls, logger)
+	toolCalls = deduplicateToolCalls(toolCalls, logger)
 
 	// Add response to history
 	assistantParts := []string{}
@@ -206,7 +207,7 @@ func GenerateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 	}
 
 	if len(toolCalls) > 0 {
-		toolNames := ExtractToolNames(toolCalls)
+		toolNames := extractToolNames(toolCalls)
 		assistantParts = append(assistantParts, "Suggested tools: "+strings.Join(toolNames, ", "))
 	}
 
@@ -227,16 +228,16 @@ func GenerateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		logger.Info("Processing tool calls",
 			"iteration", iteration+1,
 			"count", len(toolCalls),
-			"tool_names", ExtractToolNames(toolCalls))
+			"tool_names", extractToolNames(toolCalls))
 
-		err = ProcessToolCalls(toolCalls, toolreader, chatBlock, logger, &messageHistory, prompt, toolOutputs)
+		err = processToolCalls(toolCalls, toolreader, chatBlock, logger, &messageHistory, prompt, toolOutputs)
 		if err != nil {
 			logger.Error("Failed to process tool calls", "iteration", iteration+1, "error", err)
 			return "", fmt.Errorf("failed to process tool calls in iteration %d: %w", iteration+1, err)
 		}
 
 		// Include tool outputs in the system prompt for the next call
-		systemPrompt = BuildSystemPrompt(chatBlock.JSONResponse, chatBlock.JSONResponseKeys, availableTools)
+		systemPrompt = buildSystemPrompt(chatBlock.JSONResponse, chatBlock.JSONResponseKeys, availableTools)
 		if len(toolOutputs) > 0 {
 			var toolOutputSummary strings.Builder
 			toolOutputSummary.WriteString("\nPrevious Tool Outputs:\n")
@@ -253,7 +254,7 @@ func GenerateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		}
 
 		// Generate content with updated history
-		logger.Debug("Message history before LLM call", "iteration", iteration+1, "history", SummarizeMessageHistory(messageHistory))
+		logger.Debug("Message history before LLM call", "iteration", iteration+1, "history", summarizeMessageHistory(messageHistory))
 		response, err = llm.GenerateContent(ctx, messageHistory, opts...)
 		if err != nil {
 			logger.Error("Failed to generate content", "iteration", iteration+1, "error", err)
@@ -282,18 +283,18 @@ func GenerateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 			"content", utils.TruncateString(respChoice.Content, 100),
 			"tool_calls", len(respChoice.ToolCalls),
 			"stop_reason", respChoice.StopReason,
-			"tool_names", ExtractToolNames(respChoice.ToolCalls))
+			"tool_names", extractToolNames(respChoice.ToolCalls))
 
 		// Check for tool calls
 		toolCalls = respChoice.ToolCalls
 		if len(toolCalls) == 0 && len(availableTools) > 0 {
 			logger.Info("No direct ToolCalls, attempting to construct from JSON", "iteration", iteration+1)
-			constructedToolCalls := ConstructToolCallsFromJSON(respChoice.Content, logger)
+			constructedToolCalls := constructToolCallsFromJSON(respChoice.Content, logger)
 			toolCalls = constructedToolCalls
 		}
 
 		// Deduplicate tool calls
-		toolCalls = DeduplicateToolCalls(toolCalls, logger)
+		toolCalls = deduplicateToolCalls(toolCalls, logger)
 
 		// Exit if no new tool calls or LLM stopped
 		if len(toolCalls) == 0 || respChoice.StopReason == "stop" {
@@ -366,7 +367,7 @@ func GenerateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		}
 
 		if len(toolCalls) > 0 {
-			toolNames := ExtractToolNames(toolCalls)
+			toolNames := extractToolNames(toolCalls)
 			assistantParts = append(assistantParts, "Suggested tools: "+strings.Join(toolNames, ", "))
 		}
 
@@ -406,30 +407,30 @@ func GenerateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 }
 
 // processLLMChat processes the LLM chat and saves the response.
-func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.ResourceChat) error {
+func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.ResourceChat, hasItems bool) error {
 	if chatBlock == nil {
 		return errors.New("chatBlock cannot be nil")
 	}
 
-	llm, err := dr.NewLLMFn(chatBlock.Model)
+	llm, err := ollama.New(ollama.WithModel(chatBlock.Model))
 	if err != nil {
 		return fmt.Errorf("failed to initialize LLM: %w", err)
 	}
 
-	completion, err := dr.GenerateChatResponseFn(dr.Context, dr.Fs, llm, chatBlock, dr.ToolReader, dr.Logger)
+	completion, err := generateChatResponse(dr.Context, dr.Fs, llm, chatBlock, dr.ToolReader, dr.Logger)
 	if err != nil {
 		return err
 	}
 
 	chatBlock.Response = &completion
-	return dr.AppendChatEntry(actionID, chatBlock)
+	return dr.AppendChatEntry(actionID, chatBlock, hasItems)
 }
 
 // AppendChatEntry appends a chat entry to the Pkl file.
-func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM.ResourceChat) error {
+func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM.ResourceChat, hasItems bool) error {
 	pklPath := filepath.Join(dr.ActionDir, "llm/"+dr.RequestID+"__llm_output.pkl")
 
-	llmRes, err := dr.LoadResourceFn(dr.Context, pklPath, LLMResource)
+	llmRes, _, err := dr.LoadResource(dr.Context, pklPath, LLMResource, false)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL file: %w", err)
 	}
@@ -453,19 +454,29 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 			return fmt.Errorf("failed to write response to file: %w", err)
 		}
 		newChat.File = &filePath
+		if hasItems && *newChat.Response != "" {
+			dr.Logger.Info("hasItems enabled, storing stdout as item", "resourceID", resourceID)
+			itemValue := *newChat.Response
+			query := url.Values{"op": []string{"set"}, "value": []string{itemValue}}
+			uri := url.URL{Scheme: "item", RawQuery: query.Encode()}
+			if _, err := dr.ItemReader.Read(uri); err != nil {
+				dr.Logger.Error("failed to set item value", "item", utils.TruncateString(itemValue, 100), "error", err)
+				return fmt.Errorf("failed to set item: %w", err)
+			}
+		}
 	}
 
-	encodedChat := EncodeChat(newChat, dr.Logger)
+	encodedChat := encodeChat(newChat, dr.Logger)
 	existingResources[resourceID] = encodedChat
 
-	pklContent := GeneratePklContent(existingResources, dr.Context, dr.Logger)
+	pklContent := generatePklContent(existingResources, dr.Context, dr.Logger)
 
 	if err := afero.WriteFile(dr.Fs, pklPath, []byte(pklContent), 0o644); err != nil {
 		return fmt.Errorf("failed to write PKL file: %w", err)
 	}
 
 	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath,
-		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"", schema.SchemaVersion(dr.Context)), dr.Logger)
+		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"", schema.SchemaVersion(dr.Context)), dr.EvaluatorOptions, dr.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to evaluate PKL file: %w", err)
 	}
@@ -474,9 +485,10 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 }
 
 // generatePklContent generates Pkl content from resources.
-func GeneratePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.Context, logger *logging.Logger) string {
+func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.Context, logger *logging.Logger) string {
 	var pklContent strings.Builder
-	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"\n\n", schema.SchemaVersion(ctx)))
+	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"\n", schema.SchemaVersion(ctx)))
+	pklContent.WriteString("import \"pkl:json\"\n\n")
 	pklContent.WriteString("resources {\n")
 
 	for id, res := range resources {
@@ -525,7 +537,7 @@ func GeneratePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.C
 			pklContent.WriteString("{}\n")
 		}
 
-		SerializeTools(&pklContent, res.Tools)
+		serializeTools(&pklContent, res.Tools)
 
 		jsonResponse := false
 		if res.JSONResponse != nil {
@@ -575,6 +587,7 @@ func GeneratePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.C
 			pklContent.WriteString("    file = \"\"\n")
 		}
 
+		pklContent.WriteString(fmt.Sprintf("    itemValues = new Listing {...?(new json.Parser { useMapping = false }).parse(read(\"item:/%s?op=values\")?.text)}\n", id))
 		pklContent.WriteString("  }\n")
 	}
 	pklContent.WriteString("}\n")

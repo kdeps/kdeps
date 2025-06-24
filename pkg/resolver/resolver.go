@@ -2,41 +2,28 @@ package resolver
 
 import (
 	"context"
-	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
-	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"strconv"
 	"time"
 
-	"github.com/alexellis/go-execute/v2"
 	"github.com/apple/pkl-go/pkl"
 	"github.com/gin-gonic/gin"
 	"github.com/kdeps/kartographer/graph"
-	"github.com/kdeps/kdeps/pkg/bus"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/item"
-	"github.com/kdeps/kdeps/pkg/kdepsexec"
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/memory"
-	"github.com/kdeps/kdeps/pkg/messages"
-	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/session"
 	"github.com/kdeps/kdeps/pkg/tool"
 	"github.com/kdeps/kdeps/pkg/utils"
-	apiserverresponse "github.com/kdeps/schema/gen/api_server_response"
-	pklHTTP "github.com/kdeps/schema/gen/http"
-	pklLLM "github.com/kdeps/schema/gen/llm"
 	pklRes "github.com/kdeps/schema/gen/resource"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
-	"github.com/tmc/langchaingo/llms/ollama"
 )
 
 type DependencyResolver struct {
@@ -46,7 +33,7 @@ type DependencyResolver struct {
 	ResourceDependencies map[string][]string
 	DependencyGraph      []string
 	VisitedPaths         map[string]bool
-	Context              context.Context // TODO: move this context into function params
+	Context              context.Context //nolint:containedctx // TODO: move this context into function params
 	Graph                *graph.DependencyGraph
 	Environment          *environment.Environment
 	Workflow             pklWf.Workflow
@@ -59,7 +46,6 @@ type DependencyResolver struct {
 	ToolDBPath           string
 	ItemReader           *item.PklResourceReader
 	ItemDBPath           string
-	DBs                  []*sql.DB // collection of DB connections used by the resolver
 	AgentName            string
 	RequestID            string
 	RequestPklFile       string
@@ -73,57 +59,23 @@ type DependencyResolver struct {
 	DataDir              string
 	APIServerMode        bool
 	AnacondaInstalled    bool
+	EvaluatorOptions     func(options *pkl.EvaluatorOptions)
 	FileRunCounter       map[string]int // Added to track run count per file
-	DefaultTimeoutSec    int            // default timeout value in seconds
-
-	// Injectable helpers (overridable in tests)
-	GetCurrentTimestampFn    func(string, string) (pkl.Duration, error)              `json:"-"`
-	WaitForTimestampChangeFn func(string, pkl.Duration, time.Duration, string) error `json:"-"`
-
-	// Additional injectable helpers for broader unit testing
-	LoadResourceEntriesFn  func() error                                                          `json:"-"`
-	LoadResourceFn         func(context.Context, string, ResourceType) (interface{}, error)      `json:"-"`
-	BuildDependencyStackFn func(string, map[string]bool) []string                                `json:"-"`
-	ProcessRunBlockFn      func(ResourceNodeEntry, *pklRes.Resource, string, bool) (bool, error) `json:"-"`
-	ClearItemDBFn          func() error                                                          `json:"-"`
-
-	// Chat / HTTP injection helpers
-	NewLLMFn               func(model string) (*ollama.LLM, error)                                                                                      `json:"-"`
-	GenerateChatResponseFn func(context.Context, afero.Fs, *ollama.LLM, *pklLLM.ResourceChat, *tool.PklResourceReader, *logging.Logger) (string, error) `json:"-"`
-
-	DoRequestFn func(*pklHTTP.ResourceHTTPClient) error `json:"-"`
-
-	// Python / Conda execution injector
-	ExecTaskRunnerFn func(context.Context, execute.ExecTask) (string, string, error) `json:"-"`
-
-	// Import handling injectors
-	PrependDynamicImportsFn func(string) error                              `json:"-"`
-	AddPlaceholderImportsFn func(string) error                              `json:"-"`
-	WalkFn                  func(afero.Fs, string, filepath.WalkFunc) error `json:"-"`
-
-	// ProcessRunBlock injectable dependencies
-	TimeNowFn                func() time.Time                       `json:"-"`
-	TimeSleepFn              func(time.Duration)                    `json:"-"`
-	JSONUnmarshalFn          func([]byte, interface{}) error        `json:"-"`
-	ReadFileFn               func(afero.Fs, string) ([]byte, error) `json:"-"`
-	ShouldSkipFn             func(*[]interface{}) bool              `json:"-"`
-	AllConditionsMetFn       func(*[]interface{}) bool              `json:"-"`
-	HandleAPIErrorResponseFn func(int, string, bool) (bool, error)  `json:"-"`
 }
 
 type ResourceNodeEntry struct {
-	ActionID string `pkl:"actionID"`
-	File     string `pkl:"file"`
+	ActionID     string `pkl:"actionID"`
+	File         string `pkl:"file"`
+	CompiledFile string `pkl:"compiledFile"`
 }
 
 func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment, req *gin.Context, logger *logging.Logger) (*DependencyResolver, error) {
-	var agentDir, graphID, actionDir, kdepsDir string
+	var agentDir, graphID, actionDir string
 
 	contextKeys := map[*string]ktx.ContextKey{
 		&agentDir:  ktx.CtxKeyAgentDir,
 		&graphID:   ktx.CtxKeyGraphID,
 		&actionDir: ktx.CtxKeyActionDir,
-		&kdepsDir:  ktx.CtxKeySharedDir,
 	}
 
 	for ptr, key := range contextKeys {
@@ -157,9 +109,14 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		return nil, fmt.Errorf("error creating directory: %w", err)
 	}
 
-	// Publish resolver ready event instead of creating stamp file
-	bus.PublishGlobalEvent("resolver_ready", graphID)
-	logger.Debug("Published resolver ready event", "graphID", graphID)
+	// List of files to create (stamp file)
+	files := []string{
+		filepath.Join(actionDir, graphID),
+	}
+
+	if err := utils.CreateFiles(fs, ctx, files); err != nil {
+		return nil, fmt.Errorf("error creating file: %w", err)
+	}
 
 	requestPklFile := filepath.Join(actionDir, "/api/"+graphID+"__request.pkl")
 	responsePklFile := filepath.Join(actionDir, "/api/"+graphID+"__response.pkl")
@@ -180,7 +137,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		agentName = workflowConfiguration.GetName()
 	}
 
-	memoryDBPath = filepath.Join(kdepsDir, agentName+"_memory.db")
+	memoryDBPath = filepath.Join("/.kdeps/", agentName+"_memory.db")
 	memoryReader, err := memory.InitializeMemory(memoryDBPath)
 	if err != nil {
 		memoryReader.DB.Close()
@@ -202,10 +159,27 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	}
 
 	itemDBPath = filepath.Join(actionDir, graphID+"_item.db")
-	itemReader, err := item.InitializeItem(itemDBPath, nil)
+	itemReader, err := item.InitializeItem(itemDBPath, nil, "")
 	if err != nil {
 		itemReader.DB.Close()
 		return nil, fmt.Errorf("failed to initialize item DB: %w", err)
+	}
+
+	opts := func(options *pkl.EvaluatorOptions) {
+		pkl.WithDefaultAllowedResources(options)
+		pkl.WithOsEnv(options)
+		pkl.WithDefaultAllowedModules(options)
+		pkl.WithDefaultCacheDir(options)
+		options.Logger = pkl.NoopLogger
+		options.ResourceReaders = []pkl.ResourceReader{
+			memoryReader,
+			sessionReader,
+			toolReader,
+			itemReader,
+		}
+		options.AllowedModules = []string{".*"}
+		options.AllowedResources = []string{".*"}
+		options.OutputFormat = "pcf"
 	}
 
 	dependencyResolver := &DependencyResolver{
@@ -238,21 +212,8 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		ToolReader:           toolReader,
 		ItemDBPath:           itemDBPath,
 		ItemReader:           itemReader,
-		DBs: []*sql.DB{
-			memoryReader.DB,
-			sessionReader.DB,
-			toolReader.DB,
-			itemReader.DB,
-		},
-		FileRunCounter: make(map[string]int), // Initialize the file run counter map
-		DefaultTimeoutSec: func() int {
-			if v, ok := os.LookupEnv("TIMEOUT"); ok {
-				if i, err := strconv.Atoi(v); err == nil {
-					return i // could be 0 (unlimited) or positive override
-				}
-			}
-			return -1 // absent -> sentinel to allow PKL/default fallback
-		}(),
+		EvaluatorOptions:     opts,
+		FileRunCounter:       make(map[string]int), // Initialize the file run counter map
 	}
 
 	dependencyResolver.Graph = graph.NewDependencyGraph(fs, logger.BaseLogger(), dependencyResolver.ResourceDependencies)
@@ -260,90 +221,35 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		return nil, errors.New("failed to initialize dependency graph")
 	}
 
-	// Default injectable helpers
-	dependencyResolver.GetCurrentTimestampFn = dependencyResolver.GetCurrentTimestamp
-	dependencyResolver.WaitForTimestampChangeFn = dependencyResolver.WaitForTimestampChange
-
-	// Default injection for broader functions (now that Graph is initialized)
-	dependencyResolver.LoadResourceEntriesFn = dependencyResolver.LoadResourceEntries
-	dependencyResolver.LoadResourceFn = dependencyResolver.LoadResource
-	dependencyResolver.BuildDependencyStackFn = dependencyResolver.Graph.BuildDependencyStack
-	dependencyResolver.ProcessRunBlockFn = dependencyResolver.ProcessRunBlock
-	dependencyResolver.ClearItemDBFn = dependencyResolver.ClearItemDB
-
-	// Chat helpers
-	dependencyResolver.NewLLMFn = func(model string) (*ollama.LLM, error) {
-		return ollama.New(ollama.WithModel(model))
-	}
-	dependencyResolver.GenerateChatResponseFn = GenerateChatResponse
-	dependencyResolver.DoRequestFn = dependencyResolver.DoRequest
-
-	// Default Python/Conda runner
-	dependencyResolver.ExecTaskRunnerFn = func(ctx context.Context, task execute.ExecTask) (string, string, error) {
-		stdout, stderr, _, err := kdepsexec.RunExecTask(ctx, task, dependencyResolver.Logger, false)
-		return stdout, stderr, err
-	}
-
-	// Import helpers
-	dependencyResolver.PrependDynamicImportsFn = dependencyResolver.PrependDynamicImports
-	dependencyResolver.AddPlaceholderImportsFn = dependencyResolver.AddPlaceholderImports
-	dependencyResolver.WalkFn = afero.Walk
-
-	// ProcessRunBlock helpers
-	dependencyResolver.TimeNowFn = time.Now
-	dependencyResolver.TimeSleepFn = time.Sleep
-	dependencyResolver.JSONUnmarshalFn = json.Unmarshal
-	dependencyResolver.ReadFileFn = afero.ReadFile
-	dependencyResolver.ShouldSkipFn = utils.ShouldSkip
-	dependencyResolver.AllConditionsMetFn = utils.AllConditionsMet
-	dependencyResolver.HandleAPIErrorResponseFn = dependencyResolver.HandleAPIErrorResponse
-
 	return dependencyResolver, nil
 }
 
-// ClearItemDB clears all contents of the item database.
-func (dr *DependencyResolver) ClearItemDB() error {
-	// Clear all records in the items table
-	_, err := dr.ItemReader.DB.Exec("DELETE FROM items")
-	if err != nil {
-		return fmt.Errorf("failed to clear item database: %w", err)
-	}
-	dr.Logger.Info("cleared item database", "path", dr.ItemDBPath)
-	return nil
-}
-
-// ProcessResourceStep consolidates the pattern of: get timestamp, run a handler, adjust timeout (if provided),
+// processResourceStep consolidates the pattern of: get timestamp, run a handler, adjust timeout (if provided),
 // then wait for the timestamp change.
-func (dr *DependencyResolver) ProcessResourceStep(resourceID, step string, timeoutPtr *pkl.Duration, handler func() error) error {
-	timestamp, err := dr.GetCurrentTimestampFn(resourceID, step)
+func (dr *DependencyResolver) processResourceStep(resourceID, step string, timeoutPtr *pkl.Duration, handler func() error) error {
+	timestamp, err := dr.GetCurrentTimestamp(resourceID, step)
 	if err != nil {
 		return fmt.Errorf("%s error: %w", step, err)
 	}
 
-	var timeout time.Duration
-	switch {
-	case dr.DefaultTimeoutSec > 0: // positive value overrides everything
-		timeout = time.Duration(dr.DefaultTimeoutSec) * time.Second
-	case dr.DefaultTimeoutSec == 0: // 0 => unlimited
-		timeout = 0
-	case timeoutPtr != nil: // negative or unset – fall back to resource value
+	timeout := 60 * time.Second
+	if timeoutPtr != nil {
 		timeout = timeoutPtr.GoDuration()
-	default:
-		timeout = 60 * time.Second
+		dr.Logger.Infof("Timeout duration for '%s' is set to '%.0f' seconds", resourceID, timeout.Seconds())
 	}
 
 	if err := handler(); err != nil {
 		return fmt.Errorf("%s error: %w", step, err)
 	}
 
-	if err := dr.WaitForTimestampChangeFn(resourceID, timestamp, timeout, step); err != nil {
+	if err := dr.WaitForTimestampChange(resourceID, timestamp, timeout, step); err != nil {
 		return fmt.Errorf("%s timeout awaiting for output: %w", step, err)
 	}
 	return nil
 }
 
-// ValidateRequestParams checks if params in request.params("header_id") are in AllowedParams.
-func (dr *DependencyResolver) ValidateRequestParams(file string, allowedParams []string) error {
+// validateRequestParams checks if params in request.params("header_id") are in AllowedParams.
+func (dr *DependencyResolver) validateRequestParams(file string, allowedParams []string) error {
 	if len(allowedParams) == 0 {
 		return nil // Allow all if empty
 	}
@@ -360,8 +266,8 @@ func (dr *DependencyResolver) ValidateRequestParams(file string, allowedParams [
 	return nil
 }
 
-// ValidateRequestHeaders checks if headers in request.header("header_id") are in AllowedHeaders.
-func (dr *DependencyResolver) ValidateRequestHeaders(file string, allowedHeaders []string) error {
+// validateRequestHeaders checks if headers in request.header("header_id") are in AllowedHeaders.
+func (dr *DependencyResolver) validateRequestHeaders(file string, allowedHeaders []string) error {
 	if len(allowedHeaders) == 0 {
 		return nil // Allow all if empty
 	}
@@ -378,8 +284,8 @@ func (dr *DependencyResolver) ValidateRequestHeaders(file string, allowedHeaders
 	return nil
 }
 
-// ValidateRequestPath checks if the actual request path is in AllowedRoutes.
-func (dr *DependencyResolver) ValidateRequestPath(req *gin.Context, allowedRoutes []string) error {
+// validateRequestPath checks if the actual request path is in AllowedRoutes.
+func (dr *DependencyResolver) validateRequestPath(req *gin.Context, allowedRoutes []string) error {
 	if len(allowedRoutes) == 0 {
 		return nil // Allow all if empty
 	}
@@ -391,8 +297,8 @@ func (dr *DependencyResolver) ValidateRequestPath(req *gin.Context, allowedRoute
 	return nil
 }
 
-// ValidateRequestMethod checks if the actual request method is in AllowedHTTPMethods.
-func (dr *DependencyResolver) ValidateRequestMethod(req *gin.Context, allowedMethods []string) error {
+// validateRequestMethod checks if the actual request method is in AllowedHTTPMethods.
+func (dr *DependencyResolver) validateRequestMethod(req *gin.Context, allowedMethods []string) error {
 	if len(allowedMethods) == 0 {
 		return nil // Allow all if empty
 	}
@@ -428,16 +334,18 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 		}
 	}()
 
+	requestFilePath := filepath.Join(dr.ActionDir, dr.RequestID)
+
 	visited := make(map[string]bool)
 	actionID := dr.Workflow.GetTargetActionID()
-	dr.Logger.Debug(messages.MsgProcessingResources)
+	dr.Logger.Debug("processing resources...")
 
-	if err := dr.LoadResourceEntriesFn(); err != nil {
+	if err := dr.LoadResourceEntries(); err != nil {
 		return dr.HandleAPIErrorResponse(500, err.Error(), true)
 	}
 
 	// Build dependency stack for the target action
-	stack := dr.BuildDependencyStackFn(actionID, visited)
+	stack := dr.Graph.BuildDependencyStack(actionID, visited)
 
 	// Process each resource in the dependency stack
 	for _, nodeActionID := range stack {
@@ -447,10 +355,11 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			}
 
 			// Load the resource
-			resPkl, err := dr.LoadResourceFn(dr.Context, res.File, Resource)
+			resPkl, _, err := dr.LoadResource(dr.Context, res.File, Resource, false)
 			if err != nil {
 				return dr.HandleAPIErrorResponse(500, err.Error(), true)
 			}
+			res.CompiledFile = ""
 
 			// Explicitly type rsc as *pklRes.Resource
 			rsc, ok := resPkl.(*pklRes.Resource)
@@ -464,8 +373,8 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 				items = *rsc.Items
 				// Close existing item database
 				dr.ItemReader.DB.Close()
-				// Reinitialize item database with items
-				itemReader, err := item.InitializeItem(dr.ItemDBPath, items)
+				// Reinitialize item database with items and actionID
+				itemReader, err := item.InitializeItem(dr.ItemDBPath, items, res.ActionID)
 				if err != nil {
 					return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to reinitialize item DB with items: %v", err), true)
 				}
@@ -476,7 +385,21 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			// Process run block: once if no items, or once per item
 			if len(items) == 0 {
 				dr.Logger.Info("no items specified, processing run block once", "actionID", res.ActionID)
-				proceed, err := dr.ProcessRunBlockFn(res, rsc, nodeActionID, false)
+
+				// Load the resource
+				resPkl, compiledFile, err := dr.LoadResource(dr.Context, res.File, Resource, true)
+				if err != nil {
+					return dr.HandleAPIErrorResponse(500, err.Error(), true)
+				}
+				res.CompiledFile = compiledFile
+
+				// Explicitly type rsc as *pklRes.Resource
+				rsc, ok = resPkl.(*pklRes.Resource)
+				if !ok {
+					return dr.HandleAPIErrorResponse(500, "failed to cast resource to *pklRes.Resource for file "+res.File, true)
+				}
+
+				proceed, err := dr.processRunBlock(res, rsc, nodeActionID, false)
 				if err != nil {
 					return false, err
 				} else if !proceed {
@@ -486,35 +409,18 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 				for _, itemValue := range items {
 					dr.Logger.Info("processing item", "actionID", res.ActionID, "item", itemValue)
 					// Set the current item in the database
-					query := url.Values{"op": []string{"set"}, "value": []string{itemValue}}
+					query := url.Values{"op": []string{"updateCurrent"}, "value": []string{itemValue}}
 					uri := url.URL{Scheme: "item", RawQuery: query.Encode()}
 					if _, err := dr.ItemReader.Read(uri); err != nil {
 						dr.Logger.Error("failed to set item", "item", itemValue, "error", err)
 						return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to set item %s: %v", itemValue, err), true)
 					}
 
-					// reload the resource
-					resPkl, err = dr.LoadResourceFn(dr.Context, res.File, Resource)
-					if err != nil {
-						return dr.HandleAPIErrorResponse(500, err.Error(), true)
-					}
-
-					// Explicitly type rsc as *pklRes.Resource
-					rsc, ok = resPkl.(*pklRes.Resource)
-					if !ok {
-						return dr.HandleAPIErrorResponse(500, "failed to cast resource to *pklRes.Resource for file "+res.File, true)
-					}
-
 					// Process runBlock for the current item
-					_, err = dr.ProcessRunBlockFn(res, rsc, nodeActionID, true)
+					_, err := dr.processRunBlock(res, rsc, nodeActionID, true)
 					if err != nil {
 						return false, err
 					}
-				}
-				// Clear the item database after processing all items
-				if err := dr.ClearItemDBFn(); err != nil {
-					dr.Logger.Error("failed to clear item database after iteration", "actionID", res.ActionID, "error", err)
-					return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to clear item database for resource %s: %v", res.ActionID, err), true)
 				}
 			}
 
@@ -533,9 +439,11 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	dr.ToolReader.DB.Close()
 	dr.ItemReader.DB.Close()
 
-	// Publish action completed event instead of removing stamp file
-	bus.PublishGlobalEvent("action_completed", dr.RequestID)
-	dr.Logger.Debug("Published action completed event", "requestID", dr.RequestID)
+	// Remove the request stamp file
+	if err := dr.Fs.RemoveAll(requestFilePath); err != nil {
+		dr.Logger.Error("failed to delete old requestID file", "file", requestFilePath, "error", err)
+		return false, err
+	}
 
 	// Remove the session DB file
 	if err := dr.Fs.RemoveAll(dr.SessionDBPath); err != nil {
@@ -548,66 +456,44 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 		dr.Logger.Info("file run count", "file", file, "count", count)
 	}
 
-	dr.Logger.Debug(messages.MsgAllResourcesProcessed)
+	dr.Logger.Debug("all resources finished processing")
 	return false, nil
 }
 
-// ProcessRunBlock handles the runBlock processing for a resource, excluding APIResponse.
-func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes.Resource, actionID string, hasItems bool) (bool, error) {
+// processRunBlock handles the runBlock processing for a resource, excluding APIResponse.
+func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes.Resource, actionID string, hasItems bool) (bool, error) {
 	// Increment the run counter for this file
 	dr.FileRunCounter[res.File]++
 	dr.Logger.Info("processing run block for file", "file", res.File, "runCount", dr.FileRunCounter[res.File], "actionID", actionID)
+
+	currentFile := res.File
+
+	if res.CompiledFile != "" {
+		currentFile = res.CompiledFile
+	}
+
+	// reload the resource
+	resPkl, _, err := dr.LoadResource(dr.Context, currentFile, Resource, false)
+	if err != nil {
+		return dr.HandleAPIErrorResponse(500, err.Error(), true)
+	}
+
+	// Explicitly type rsc as *pklRes.Resource
+	rsc, ok := resPkl.(*pklRes.Resource)
+	if !ok {
+		return dr.HandleAPIErrorResponse(500, "failed to cast resource to *pklRes.Resource for file "+currentFile, true)
+	}
 
 	runBlock := rsc.Run
 	if runBlock == nil {
 		return false, nil
 	}
 
-	// When items are enabled, wait for the items database to have at least one item in the list
-	if hasItems {
-		const waitTimeout = 30 * time.Second
-		const pollInterval = 500 * time.Millisecond
-		deadline := dr.TimeNowFn().Add(waitTimeout)
-
-		dr.Logger.Info("Waiting for items database to have a non-empty list", "actionID", actionID)
-		for dr.TimeNowFn().Before(deadline) {
-			// Query the items database to retrieve the list
-			query := url.Values{"op": []string{"list"}}
-			uri := url.URL{Scheme: "item", RawQuery: query.Encode()}
-			result, err := dr.ItemReader.Read(uri)
-			if err != nil {
-				dr.Logger.Error("Failed to read list from items database", "actionID", actionID, "error", err)
-				return dr.HandleAPIErrorResponseFn(500, fmt.Sprintf("Failed to read list from items database for resource %s: %v", actionID, err), true)
-			}
-			// Parse the []byte result as a JSON array
-			var items []string
-			if len(result) > 0 {
-				if err := dr.JSONUnmarshalFn(result, &items); err != nil {
-					dr.Logger.Error("Failed to parse items database result as JSON array", "actionID", actionID, "error", err)
-					return dr.HandleAPIErrorResponseFn(500, fmt.Sprintf("Failed to parse items database result for resource %s: %v", actionID, err), true)
-				}
-			}
-			// Check if the list is non-empty
-			if len(items) > 0 {
-				dr.Logger.Info("Items database has a non-empty list", "actionID", actionID, "itemCount", len(items))
-				break
-			}
-			dr.Logger.Debug(messages.MsgItemsDBEmptyRetry, "actionID", actionID)
-			dr.TimeSleepFn(pollInterval)
-		}
-
-		// Check if we timed out
-		if dr.TimeNowFn().After(deadline) {
-			dr.Logger.Error("Timeout waiting for items database to have a non-empty list", "actionID", actionID)
-			return dr.HandleAPIErrorResponseFn(500, "Timeout waiting for items database to have a non-empty list for resource "+actionID, true)
-		}
-	}
-
 	if dr.APIServerMode {
 		// Read the resource file content for validation
-		fileContent, err := dr.ReadFileFn(dr.Fs, res.File)
+		fileContent, err := afero.ReadFile(dr.Fs, currentFile)
 		if err != nil {
-			return dr.HandleAPIErrorResponseFn(500, fmt.Sprintf("failed to read resource file %s: %v", res.File, err), true)
+			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to read resource file %s: %v", currentFile, err), true)
 		}
 
 		// Validate request.params
@@ -615,9 +501,9 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 		if runBlock.AllowedParams != nil {
 			allowedParams = *runBlock.AllowedParams
 		}
-		if err := dr.ValidateRequestParams(string(fileContent), allowedParams); err != nil {
+		if err := dr.validateRequestParams(string(fileContent), allowedParams); err != nil {
 			dr.Logger.Error("request params validation failed", "actionID", res.ActionID, "error", err)
-			return dr.HandleAPIErrorResponseFn(400, fmt.Sprintf("Request params validation failed for resource %s: %v", res.ActionID, err), false)
+			return dr.HandleAPIErrorResponse(400, fmt.Sprintf("Request params validation failed for resource %s: %v", res.ActionID, err), false)
 		}
 
 		// Validate request.header
@@ -625,9 +511,9 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 		if runBlock.AllowedHeaders != nil {
 			allowedHeaders = *runBlock.AllowedHeaders
 		}
-		if err := dr.ValidateRequestHeaders(string(fileContent), allowedHeaders); err != nil {
+		if err := dr.validateRequestHeaders(string(fileContent), allowedHeaders); err != nil {
 			dr.Logger.Error("request headers validation failed", "actionID", res.ActionID, "error", err)
-			return dr.HandleAPIErrorResponseFn(400, fmt.Sprintf("Request headers validation failed for resource %s: %v", res.ActionID, err), false)
+			return dr.HandleAPIErrorResponse(400, fmt.Sprintf("Request headers validation failed for resource %s: %v", res.ActionID, err), false)
 		}
 
 		// Validate request.path
@@ -635,7 +521,7 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 		if runBlock.RestrictToRoutes != nil {
 			allowedRoutes = *runBlock.RestrictToRoutes
 		}
-		if err := dr.ValidateRequestPath(dr.Request, allowedRoutes); err != nil {
+		if err := dr.validateRequestPath(dr.Request, allowedRoutes); err != nil {
 			dr.Logger.Info("skipping due to request path validation not allowed", "actionID", res.ActionID, "error", err)
 			return false, nil
 		}
@@ -645,47 +531,47 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 		if runBlock.RestrictToHTTPMethods != nil {
 			allowedMethods = *runBlock.RestrictToHTTPMethods
 		}
-		if err := dr.ValidateRequestMethod(dr.Request, allowedMethods); err != nil {
+		if err := dr.validateRequestMethod(dr.Request, allowedMethods); err != nil {
 			dr.Logger.Info("skipping due to request method validation not allowed", "actionID", res.ActionID, "error", err)
 			return false, nil
 		}
 	}
 
 	// Skip condition
-	if runBlock.SkipCondition != nil && dr.ShouldSkipFn(runBlock.SkipCondition) {
+	if runBlock.SkipCondition != nil && utils.ShouldSkip(runBlock.SkipCondition) {
 		dr.Logger.Infof("skip condition met, skipping: %s", res.ActionID)
 		return false, nil
 	}
 
 	// Preflight check
 	if runBlock.PreflightCheck != nil && runBlock.PreflightCheck.Validations != nil &&
-		!dr.AllConditionsMetFn(runBlock.PreflightCheck.Validations) {
+		!utils.AllConditionsMet(runBlock.PreflightCheck.Validations) {
 		dr.Logger.Error("preflight check not met, failing:", res.ActionID)
 		if runBlock.PreflightCheck.Error != nil {
-			return dr.HandleAPIErrorResponseFn(
+			return dr.HandleAPIErrorResponse(
 				runBlock.PreflightCheck.Error.Code,
 				fmt.Sprintf("%s: %s", runBlock.PreflightCheck.Error.Message, res.ActionID), false)
 		}
-		return dr.HandleAPIErrorResponseFn(500, "Preflight check failed for resource: "+res.ActionID, false)
+		return dr.HandleAPIErrorResponse(500, "Preflight check failed for resource: "+res.ActionID, false)
 	}
 
 	// Process Exec step, if defined
 	if runBlock.Exec != nil && runBlock.Exec.Command != "" {
-		if err := dr.ProcessResourceStep(res.ActionID, "exec", runBlock.Exec.TimeoutDuration, func() error {
-			return dr.HandleExec(res.ActionID, runBlock.Exec)
+		if err := dr.processResourceStep(res.ActionID, "exec", runBlock.Exec.TimeoutDuration, func() error {
+			return dr.HandleExec(res.ActionID, runBlock.Exec, hasItems)
 		}); err != nil {
 			dr.Logger.Error("exec error:", res.ActionID)
-			return dr.HandleAPIErrorResponseFn(500, fmt.Sprintf("Exec failed for resource: %s - %s", res.ActionID, err), false)
+			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Exec failed for resource: %s - %s", res.ActionID, err), false)
 		}
 	}
 
 	// Process Python step, if defined
 	if runBlock.Python != nil && runBlock.Python.Script != "" {
-		if err := dr.ProcessResourceStep(res.ActionID, "python", runBlock.Python.TimeoutDuration, func() error {
-			return dr.HandlePython(res.ActionID, runBlock.Python)
+		if err := dr.processResourceStep(res.ActionID, "python", runBlock.Python.TimeoutDuration, func() error {
+			return dr.HandlePython(res.ActionID, runBlock.Python, hasItems)
 		}); err != nil {
 			dr.Logger.Error("python error:", res.ActionID)
-			return dr.HandleAPIErrorResponseFn(500, fmt.Sprintf("Python script failed for resource: %s - %s", res.ActionID, err), false)
+			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Python script failed for resource: %s - %s", res.ActionID, err), false)
 		}
 	}
 
@@ -695,11 +581,11 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 		if runBlock.Chat.Scenario != nil {
 			dr.Logger.Info("Scenario present", "length", len(*runBlock.Chat.Scenario))
 		}
-		if err := dr.ProcessResourceStep(res.ActionID, "llm", runBlock.Chat.TimeoutDuration, func() error {
-			return dr.HandleLLMChat(res.ActionID, runBlock.Chat)
+		if err := dr.processResourceStep(res.ActionID, "llm", runBlock.Chat.TimeoutDuration, func() error {
+			return dr.HandleLLMChat(res.ActionID, runBlock.Chat, hasItems)
 		}); err != nil {
 			dr.Logger.Error("LLM chat error", "actionID", res.ActionID, "error", err)
-			return dr.HandleAPIErrorResponseFn(500, fmt.Sprintf("LLM chat failed for resource: %s - %s", res.ActionID, err), true)
+			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("LLM chat failed for resource: %s - %s", res.ActionID, err), true)
 		}
 	} else {
 		dr.Logger.Info("Skipping LLM chat step", "actionID", res.ActionID, "chatNil",
@@ -710,101 +596,13 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 
 	// Process HTTP Client step, if defined
 	if runBlock.HTTPClient != nil && runBlock.HTTPClient.Method != "" && runBlock.HTTPClient.Url != "" {
-		if err := dr.ProcessResourceStep(res.ActionID, "client", runBlock.HTTPClient.TimeoutDuration, func() error {
-			return dr.HandleHTTPClient(res.ActionID, runBlock.HTTPClient)
+		if err := dr.processResourceStep(res.ActionID, "client", runBlock.HTTPClient.TimeoutDuration, func() error {
+			return dr.HandleHTTPClient(res.ActionID, runBlock.HTTPClient, hasItems)
 		}); err != nil {
 			dr.Logger.Error("HTTP client error:", res.ActionID)
-			return dr.HandleAPIErrorResponseFn(500, fmt.Sprintf("HTTP client failed for resource: %s - %s", res.ActionID, err), false)
+			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("HTTP client failed for resource: %s - %s", res.ActionID, err), false)
 		}
 	}
 
 	return true, nil
-}
-
-func (dr *DependencyResolver) ExecutePklEvalCommand() (kdepsexecStd struct {
-	Stdout, Stderr string
-	ExitCode       int
-}, err error,
-) {
-	stdout, stderr, exitCode, err := kdepsexec.KdepsExec(
-		dr.Context,
-		"pkl",
-		[]string{"eval", "--format", "json", "--output-path", dr.ResponseTargetFile, dr.ResponsePklFile},
-		"",
-		false,
-		false,
-		dr.Logger,
-	)
-	if err != nil {
-		return kdepsexecStd, err
-	}
-	if exitCode != 0 {
-		return kdepsexecStd, fmt.Errorf("command failed with exit code %d: %s", exitCode, stderr)
-	}
-	kdepsexecStd.Stdout = stdout
-	kdepsexecStd.Stderr = stderr
-	kdepsexecStd.ExitCode = exitCode
-	return kdepsexecStd, nil
-}
-
-func (dr *DependencyResolver) ValidatePklFileExtension() error {
-	if filepath.Ext(dr.ResponsePklFile) != ".pkl" {
-		return errors.New("file must have .pkl extension")
-	}
-	return nil
-}
-
-func (dr *DependencyResolver) EnsureResponseTargetFileNotExists() error {
-	exists, err := afero.Exists(dr.Fs, dr.ResponseTargetFile)
-	if err != nil {
-		return fmt.Errorf("check target file existence: %w", err)
-	}
-
-	if exists {
-		if err := dr.Fs.RemoveAll(dr.ResponseTargetFile); err != nil {
-			return fmt.Errorf("remove target file: %w", err)
-		}
-	}
-	return nil
-}
-
-func (dr *DependencyResolver) EnsureResponsePklFileNotExists() error {
-	exists, err := afero.Exists(dr.Fs, dr.ResponsePklFile)
-	if err != nil {
-		return fmt.Errorf("check file existence: %w", err)
-	}
-
-	if exists {
-		if err := dr.Fs.RemoveAll(dr.ResponsePklFile); err != nil {
-			return fmt.Errorf("delete old response file: %w", err)
-		}
-		dr.Logger.Debug("old response PKL file deleted", "file", dr.ResponsePklFile)
-	}
-	return nil
-}
-
-func (dr *DependencyResolver) BuildResponseSections(requestID string, apiResponseBlock apiserverresponse.APIServerResponse) []string {
-	sections := []string{
-		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Document.pkl" as document`, schema.SchemaVersion(dr.Context)),
-		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Memory.pkl" as memory`, schema.SchemaVersion(dr.Context)),
-		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Session.pkl" as session`, schema.SchemaVersion(dr.Context)),
-		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Tool.pkl" as tool`, schema.SchemaVersion(dr.Context)),
-		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Item.pkl" as item`, schema.SchemaVersion(dr.Context)),
-		fmt.Sprintf("success = %v", apiResponseBlock.GetSuccess()),
-		FormatResponseMeta(requestID, apiResponseBlock.GetMeta()),
-		FormatResponseData(apiResponseBlock.GetResponse()),
-		FormatErrors(apiResponseBlock.GetErrors(), dr.Logger),
-	}
-	return sections
-}
-
-// HandleAPIErrorResponse creates an error response PKL file.
-func (dr *DependencyResolver) HandleAPIErrorResponse(code int, message string, fatal bool) (bool, error) {
-	if dr.APIServerMode {
-		errorResponse := utils.NewAPIServerResponse(false, nil, code, message)
-		if err := dr.CreateResponsePklFile(errorResponse); err != nil {
-			return fatal, fmt.Errorf("create error response: %w", err)
-		}
-	}
-	return fatal, nil
 }
