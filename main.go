@@ -4,20 +4,15 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"syscall"
 
 	"github.com/google/uuid"
-	"github.com/kdeps/kdeps/cmd"
 	"github.com/kdeps/kdeps/pkg/bus"
-	"github.com/kdeps/kdeps/pkg/cfg"
-	"github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
-	"github.com/kdeps/kdeps/pkg/utils"
 	v "github.com/kdeps/kdeps/pkg/version"
 	"github.com/spf13/afero"
 )
@@ -26,25 +21,13 @@ var (
 	version = "dev"
 	commit  = ""
 
-	// Function variables for dependency injection during tests.
-	newGraphResolverFn        = resolver.NewGraphResolver
-	bootstrapDockerSystemFn   = docker.BootstrapDockerSystem
+	// Global context and cancel for dependency injection
+	ctx, cancel = ContextWithCancelFn(context.Background())
+
+	// Function variables for dependency injection during tests
 	runGraphResolverActionsFn = runGraphResolverActions
-
-	findConfigurationFn     = cfg.FindConfiguration
-	generateConfigurationFn = cfg.GenerateConfiguration
-	editConfigurationFn     = cfg.EditConfiguration
-	validateConfigurationFn = cfg.ValidateConfiguration
-	loadConfigurationFn     = cfg.LoadConfiguration
-	getKdepsPathFn          = cfg.GetKdepsPath
-
-	newRootCommandFn = cmd.NewRootCommand
-
-	ctx, cancel = context.WithCancel(context.Background())
-	cleanupFn   = cleanup
-
-	// Exit function for dependency injection during tests
-	exitFn = os.Exit
+	cleanupFn                 = cleanup
+	exitFn                    = OsExitFn // Use injectable function
 )
 
 func main() {
@@ -52,7 +35,7 @@ func main() {
 	v.Commit = commit
 
 	logger := logging.GetLogger()
-	fs := afero.NewOsFs()
+	fs := NewOsFsFn()
 	defer cancel() // Ensure context is canceled when main exits
 
 	graphID := uuid.New().String()
@@ -73,7 +56,7 @@ func main() {
 		ctx = ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
 		ctx = ktx.CreateContext(ctx, ktx.CtxKeySharedDir, sharedDir)
 
-		dr, err := newGraphResolverFn(fs, ctx, env, nil, logger.With("requestID", graphID))
+		dr, err := NewGraphResolverFn(fs, ctx, env, nil, logger.With("requestID", graphID))
 		if err != nil {
 			logger.Fatalf("failed to create graph resolver: %v", err)
 		}
@@ -86,30 +69,30 @@ func main() {
 
 func handleDockerMode(ctx context.Context, dr *resolver.DependencyResolver, cancel context.CancelFunc) {
 	// Start the message bus server
-	busService, err := bus.StartBusServerBackground(dr.Logger)
+	busService, err := StartBusServerBackgroundFn(dr.Logger)
 	if err != nil {
 		dr.Logger.Error("failed to start message bus server", "error", err)
-		utils.SendSigterm(dr.Logger)
+		SendSigtermFn(dr.Logger)
 		return
 	}
-	bus.SetGlobalBusService(busService)
+	SetGlobalBusServiceFn(busService)
 	dr.Logger.Info("Message bus server started successfully")
 
 	// Initialize Docker system
-	apiServerMode, err := bootstrapDockerSystemFn(ctx, dr)
+	apiServerMode, err := BootstrapDockerSystemFn(ctx, dr)
 	if err != nil {
 		dr.Logger.Error("error during Docker bootstrap", "error", err)
-		utils.SendSigterm(dr.Logger)
+		SendSigtermFn(dr.Logger)
 		return
 	}
 	// Setup graceful shutdown handler
-	setupSignalHandler(dr.Fs, ctx, cancel, dr.Environment, apiServerMode, dr.Logger)
+	SetupSignalHandlerFn(dr.Fs, ctx, cancel, dr.Environment, apiServerMode, dr.Logger)
 
 	// Run workflow or wait for shutdown
 	if !apiServerMode {
 		if err := runGraphResolverActionsFn(ctx, dr, apiServerMode); err != nil {
 			dr.Logger.Error("error running graph resolver", "error", err)
-			utils.SendSigterm(dr.Logger)
+			SendSigtermFn(dr.Logger)
 			return
 		}
 	}
@@ -121,13 +104,13 @@ func handleDockerMode(ctx context.Context, dr *resolver.DependencyResolver, canc
 }
 
 func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) {
-	cfgFile, err := findConfigurationFn(fs, ctx, env, logger)
+	cfgFile, err := FindConfigurationFn(fs, ctx, env, logger)
 	if err != nil {
 		logger.Error("error occurred finding configuration")
 	}
 
 	if cfgFile == "" {
-		cfgFile, err = generateConfigurationFn(fs, ctx, env, logger)
+		cfgFile, err = GenerateConfigurationFn(fs, ctx, env, logger)
 		if err != nil {
 			logger.Fatal("error occurred generating configuration", "error", err)
 			return
@@ -135,7 +118,7 @@ func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Envi
 
 		logger.Info("configuration file generated", "file", cfgFile)
 
-		cfgFile, err = editConfigurationFn(fs, ctx, env, logger)
+		cfgFile, err = EditConfigurationFn(fs, ctx, env, logger)
 		if err != nil {
 			logger.Error("error occurred editing configuration")
 		}
@@ -147,25 +130,25 @@ func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Envi
 
 	logger.Info("configuration file ready", "file", cfgFile)
 
-	cfgFile, err = validateConfigurationFn(fs, ctx, env, logger)
+	cfgFile, err = ValidateConfigurationFn(fs, ctx, env, logger)
 	if err != nil {
 		logger.Fatal("error occurred validating configuration", "error", err)
 		return
 	}
 
-	systemCfg, err := loadConfigurationFn(fs, ctx, cfgFile, logger)
+	systemCfg, err := LoadConfigurationFn(fs, ctx, cfgFile, logger)
 	if err != nil {
 		logger.Error("error occurred loading configuration")
 		return
 	}
 
-	kdepsDir, err := getKdepsPathFn(ctx, *systemCfg)
+	kdepsDir, err := GetKdepsPathFn(ctx, *systemCfg)
 	if err != nil {
 		logger.Error("error occurred while getting Kdeps system path")
 		return
 	}
 
-	rootCmd := newRootCommandFn(fs, ctx, kdepsDir, systemCfg, env, logger)
+	rootCmd := NewRootCommandFn(fs, ctx, kdepsDir, systemCfg, env, logger)
 	if err := rootCmd.Execute(); err != nil {
 		logger.Fatal(err)
 	}
@@ -173,7 +156,7 @@ func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Envi
 
 // setupEnvironment initializes the environment using the filesystem.
 func setupEnvironment(fs afero.Fs) (*environment.Environment, error) {
-	environ, err := environment.NewEnvironment(fs, nil)
+	environ, err := NewEnvironmentFn(fs, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -182,8 +165,8 @@ func setupEnvironment(fs afero.Fs) (*environment.Environment, error) {
 
 // setupSignalHandler sets up a goroutine to handle OS signals for graceful shutdown.
 func setupSignalHandler(fs afero.Fs, ctx context.Context, cancelFunc context.CancelFunc, env *environment.Environment, apiServerMode bool, logger *logging.Logger) {
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	sigs := MakeSignalChanFn()
+	SignalNotifyWrapper(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
 		sig := <-sigs
@@ -199,7 +182,7 @@ func setupSignalHandler(fs afero.Fs, ctx context.Context, cancelFunc context.Can
 		}
 
 		// Wait for cleanup completion event via message bus instead of stamp file
-		client, err := bus.StartBusClient()
+		client, err := StartBusClientFn()
 		if err != nil {
 			logger.Error("failed to connect to message bus for cleanup coordination", "error", err)
 			exitFn(1)
@@ -208,7 +191,7 @@ func setupSignalHandler(fs afero.Fs, ctx context.Context, cancelFunc context.Can
 		defer client.Close()
 
 		// Wait for dockercleanup event
-		err = bus.WaitForEvents(client, logger, func(event bus.Event) bool {
+		err = WaitForEventsFn(client, logger, func(event bus.Event) bool {
 			if event.Type == "dockercleanup" && event.Payload == graphID {
 				logger.Debug("Received dockercleanup event", "graphID", graphID)
 				return true // Stop waiting
@@ -245,7 +228,7 @@ func runGraphResolverActions(ctx context.Context, dr *resolver.DependencyResolve
 	// In certain error cases, Ollama needs to be restarted
 	if fatal {
 		dr.Logger.Fatal("fatal error occurred")
-		utils.SendSigterm(dr.Logger)
+		SendSigtermFn(dr.Logger)
 	}
 
 	cleanupFn(dr.Fs, ctx, dr.Environment, apiServerMode, dr.Logger)
@@ -258,7 +241,7 @@ func runGraphResolverActions(ctx context.Context, dr *resolver.DependencyResolve
 		}
 	}
 
-	bus.PublishGlobalEvent("dockercleanup", graphID)
+	PublishGlobalEventFn("dockercleanup", graphID)
 	dr.Logger.Debug("Published dockercleanup completion event", "graphID", graphID)
 
 	return nil
@@ -276,7 +259,7 @@ func cleanup(fs afero.Fs, ctx context.Context, env *environment.Environment, api
 	}
 
 	// Perform Docker cleanup
-	docker.Cleanup(fs, ctx, env, logger)
+	DockerCleanupFn(fs, ctx, env, logger)
 
 	// Publish cleanup completion event instead of creating stamp file
 	var graphID string
@@ -286,7 +269,7 @@ func cleanup(fs afero.Fs, ctx context.Context, env *environment.Environment, api
 		}
 	}
 
-	bus.PublishGlobalEvent("cleanup_completed", graphID)
+	PublishGlobalEventFn("cleanup_completed", graphID)
 	logger.Debug("Published cleanup completion event", "graphID", graphID)
 
 	logger.Debug("cleanup complete.")

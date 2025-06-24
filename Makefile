@@ -49,7 +49,7 @@ test-coverage:
 	else \
 	    echo "Coverage requirement met: $$COVERAGE% (threshold $$REQUIRED%)"; \
 	fi; \
-	rm coverage_$$TIMESTAMP.txt
+	rm coverage_$$TIMESTAMP.txt coverage_$$TIMESTAMP.out 2> /dev/null
 
 format: tools
 	@echo "$(OK_COLOR)>> [go vet] running$(NO_COLOR)" & \
