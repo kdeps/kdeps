@@ -9,9 +9,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kdeps/kdeps/cmd"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
+	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -309,7 +311,7 @@ func TestNewPackageCommand_SimpleMockSuccess(t *testing.T) {
 	env := &environment.Environment{}
 	logger := logging.NewTestLogger()
 
-	// Create a valid workflow file  
+	// Create a valid workflow file
 	testDir := "/test/agent"
 	workflowFile := "/test/agent/workflow.pkl"
 	err := fs.MkdirAll(testDir, 0o755)
@@ -347,7 +349,7 @@ settings {
 actionID = "testAction"
 run { exec { test = "echo 'test'" } }`, schema.SchemaVersion(ctx))
 
-	// Create all required resource files  
+	// Create all required resource files
 	requiredResources := []string{"client.pkl", "exec.pkl", "llm.pkl", "python.pkl", "response.pkl"}
 	for _, resource := range requiredResources {
 		resourcePath := filepath.Join(resourcesDir, resource)
@@ -358,10 +360,10 @@ run { exec { test = "echo 'test'" } }`, schema.SchemaVersion(ctx))
 	// Test the actual NewPackageCommand execution
 	cmd := NewPackageCommand(fs, ctx, kdepsDir, env, logger)
 	cmd.SetArgs([]string{testDir})
-	
+
 	// Capture output to avoid printing during test
 	cmd.SetOut(io.Discard)
-	
+
 	err = cmd.Execute()
 	// This may fail due to compilation complexity, but should exercise more code paths
 	if err != nil {
@@ -369,4 +371,56 @@ run { exec { test = "echo 'test'" } }`, schema.SchemaVersion(ctx))
 	} else {
 		t.Logf("Command succeeded - excellent!")
 	}
+}
+
+// TestNewPackageCommand_SuccessWithMocks tests the successful execution path with mocked dependencies
+func TestNewPackageCommand_SuccessWithMocks(t *testing.T) {
+	// Preserve original functions
+	origFindWorkflowFile := cmd.FindWorkflowFileFn
+	origLoadWorkflow := cmd.LoadWorkflowFn
+	origCompileProject := cmd.CompileProjectFn
+	origPrintlnPackage := cmd.PrintlnPackageFn
+	defer func() {
+		cmd.FindWorkflowFileFn = origFindWorkflowFile
+		cmd.LoadWorkflowFn = origLoadWorkflow
+		cmd.CompileProjectFn = origCompileProject
+		cmd.PrintlnPackageFn = origPrintlnPackage
+	}()
+
+	// Track if PrintlnPackageFn was called
+	printlnCalled := false
+
+	// Mock the functions
+	cmd.FindWorkflowFileFn = func(fs afero.Fs, agentDir string, logger *logging.Logger) (string, error) {
+		return "/test/workflow.pkl", nil
+	}
+
+	cmd.LoadWorkflowFn = func(ctx context.Context, workflowFile string, logger *logging.Logger) (pklWf.Workflow, error) {
+		// Return nil as Workflow is an interface
+		return nil, nil
+	}
+
+	cmd.CompileProjectFn = func(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir string, projectDir string, env *environment.Environment, logger *logging.Logger) (string, string, error) {
+		return "", "", nil
+	}
+
+	cmd.PrintlnPackageFn = func(a ...interface{}) (n int, err error) {
+		printlnCalled = true
+		return 0, nil
+	}
+
+	// Create command and execute
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	env := &environment.Environment{}
+	logger := logging.NewTestLogger()
+
+	command := cmd.NewPackageCommand(fs, ctx, kdepsDir, env, logger)
+	command.SetArgs([]string{"/test/agent"})
+	command.SetOut(io.Discard)
+
+	err := command.Execute()
+	assert.NoError(t, err)
+	assert.True(t, printlnCalled, "Expected PrintlnPackageFn to be called")
 }

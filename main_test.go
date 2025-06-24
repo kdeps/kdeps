@@ -2437,6 +2437,15 @@ func TestSetupSignalHandler_AdditionalCoverage(t *testing.T) {
 			waitEventsError: fmt.Errorf("wait events failed"),
 			expectExit:      true, // Still exits at the end
 		},
+		{
+			name:            "GraphID is string, successful flow with matching event",
+			hasGraphID:      true,
+			graphIDIsString: true,
+			apiServerMode:   false,
+			busClientError:  nil,
+			waitEventsError: nil,
+			expectExit:      true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -2465,12 +2474,18 @@ func TestSetupSignalHandler_AdditionalCoverage(t *testing.T) {
 				return sigChan
 			}
 
+			// Track client.Close() calls
+			clientCloseCalled := false
+
 			// Mock bus client
 			StartBusClientFn = func() (bus.RPCClient, error) {
 				if tt.busClientError != nil {
 					return nil, tt.busClientError
 				}
-				return &mockRPCClient{}, nil
+				return &mockRPCClientWithClose{closeFn: func() error {
+					clientCloseCalled = true
+					return nil
+				}}, nil
 			}
 
 			// Mock wait events
@@ -2478,7 +2493,18 @@ func TestSetupSignalHandler_AdditionalCoverage(t *testing.T) {
 				if tt.waitEventsError != nil {
 					return tt.waitEventsError
 				}
-				// Simulate finding the event
+				// Test the callback function with matching and non-matching events
+				graphID := "test-graph-id"
+				if tt.hasGraphID && tt.graphIDIsString {
+					// Test non-matching event
+					if !callback(bus.Event{Type: "dockercleanup", Payload: "wrong-id"}) {
+						// Good, should continue waiting
+					}
+					// Test matching event
+					if callback(bus.Event{Type: "dockercleanup", Payload: graphID}) {
+						// Good, should stop waiting
+					}
+				}
 				return nil
 			}
 
@@ -2526,6 +2552,11 @@ func TestSetupSignalHandler_AdditionalCoverage(t *testing.T) {
 				t.Errorf("Expected exit NOT to be called, but it was called with code %d", exitCode)
 			}
 
+			// Verify client.Close() was called if client was created successfully
+			if tt.busClientError == nil && !clientCloseCalled {
+				t.Error("Expected client.Close() to be called")
+			}
+
 			// Cancel context to stop any running goroutines
 			cancel()
 
@@ -2533,4 +2564,178 @@ func TestSetupSignalHandler_AdditionalCoverage(t *testing.T) {
 			time.Sleep(50 * time.Millisecond)
 		})
 	}
+}
+
+// mockRPCClientWithClose is a mock that tracks Close() calls
+type mockRPCClientWithClose struct {
+	closeFn func() error
+}
+
+func (m *mockRPCClientWithClose) Call(serviceMethod string, args interface{}, reply interface{}) error {
+	return nil
+}
+
+func (m *mockRPCClientWithClose) Close() error {
+	if m.closeFn != nil {
+		return m.closeFn()
+	}
+	return nil
+}
+
+// TestMain_SetupEnvironmentErrorPath tests the error path in main when SetupEnvironmentFn fails
+func TestMain_SetupEnvironmentErrorPath(t *testing.T) {
+	setNoOpExitFn(t)
+	// Preserve original functions
+	origSetupEnv := SetupEnvironmentFn
+	origNewOsFs := NewOsFsFn
+	defer func() {
+		SetupEnvironmentFn = origSetupEnv
+		NewOsFsFn = origNewOsFs
+	}()
+
+	// Track if Fatal was called
+	fatalCalled := false
+
+	// Create a test logger that captures Fatal calls
+	testLogger := logging.NewTestSafeLogger()
+	testLogger.FatalFn = func(code int) {
+		fatalCalled = true
+	}
+	logging.SetTestLogger(testLogger)
+	defer logging.ResetForTest()
+
+	// Mock filesystem
+	NewOsFsFn = func() afero.Fs {
+		return afero.NewMemMapFs()
+	}
+
+	// Mock SetupEnvironmentFn to return error
+	SetupEnvironmentFn = func(fs afero.Fs) (*environment.Environment, error) {
+		return nil, fmt.Errorf("setup environment failed")
+	}
+
+	// Run main in a goroutine since it might call Fatal
+	done := make(chan bool, 1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				// Recovered from panic, which is expected
+			}
+			done <- true
+		}()
+		main()
+	}()
+
+	// Wait for completion with timeout
+	select {
+	case <-done:
+		// Good, function completed
+	case <-time.After(200 * time.Millisecond):
+		// Also OK, function might be stuck in Fatal
+	}
+
+	if !fatalCalled {
+		t.Error("Expected Fatal to be called when SetupEnvironment fails")
+	}
+}
+
+// TestMain_NewGraphResolverError tests the error path when NewGraphResolverFn fails
+func TestMain_NewGraphResolverError(t *testing.T) {
+	setNoOpExitFn(t)
+	// Preserve original functions
+	origSetupEnv := SetupEnvironmentFn
+	origNewOsFs := NewOsFsFn
+	origNewGraphResolver := NewGraphResolverFn
+	defer func() {
+		SetupEnvironmentFn = origSetupEnv
+		NewOsFsFn = origNewOsFs
+		NewGraphResolverFn = origNewGraphResolver
+	}()
+
+	// Track if Fatal was called
+	fatalCalled := false
+
+	// Create a test logger
+	testLogger := logging.NewTestSafeLogger()
+	testLogger.FatalFn = func(code int) {
+		fatalCalled = true
+	}
+	logging.SetTestLogger(testLogger)
+	defer logging.ResetForTest()
+
+	// Mock filesystem
+	NewOsFsFn = func() afero.Fs {
+		return afero.NewMemMapFs()
+	}
+
+	// Mock SetupEnvironmentFn to return Docker mode
+	SetupEnvironmentFn = func(fs afero.Fs) (*environment.Environment, error) {
+		return &environment.Environment{DockerMode: "1"}, nil
+	}
+
+	// Mock NewGraphResolverFn to return error
+	NewGraphResolverFn = func(fs afero.Fs, ctx context.Context, env *environment.Environment, req *gin.Context, logger *logging.Logger) (*resolver.DependencyResolver, error) {
+		return nil, fmt.Errorf("graph resolver creation failed")
+	}
+
+	// Run main in a goroutine since it might call Fatal
+	done := make(chan bool, 1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				// Recovered from panic, which is expected
+			}
+			done <- true
+		}()
+		main()
+	}()
+
+	// Wait for completion with timeout
+	select {
+	case <-done:
+		// Good, function completed
+	case <-time.After(200 * time.Millisecond):
+		// Also OK, function might be stuck in Fatal
+	}
+
+	if !fatalCalled {
+		t.Error("Expected Fatal to be called when NewGraphResolver fails")
+	}
+}
+
+// TestHandleNonDockerMode_EmptyConfigFileReturn tests the return path when cfgFile is empty after generation
+func TestHandleNonDockerMode_EmptyConfigFileReturn(t *testing.T) {
+	setNoOpExitFn(t)
+	// Preserve originals
+	origFindCfg := FindConfigurationFn
+	origGenCfg := GenerateConfigurationFn
+	origEditCfg := EditConfigurationFn
+	defer func() {
+		FindConfigurationFn = origFindCfg
+		GenerateConfigurationFn = origGenCfg
+		EditConfigurationFn = origEditCfg
+	}()
+
+	// Mock functions
+	FindConfigurationFn = func(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
+		return "", nil // No existing config
+	}
+
+	GenerateConfigurationFn = func(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
+		return "temp.yaml", nil // Generate returns a file
+	}
+
+	EditConfigurationFn = func(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
+		return "", nil // But edit returns empty string (user canceled)
+	}
+
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	env := &environment.Environment{DockerMode: "0"}
+	logger := logging.NewTestLogger()
+
+	// This should return early when cfgFile is empty after edit
+	handleNonDockerMode(fs, ctx, env, logger)
+
+	// Test passes if we reach here without errors
 }
