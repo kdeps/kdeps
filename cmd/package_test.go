@@ -423,4 +423,10 @@ func TestNewPackageCommand_SuccessWithMocks(t *testing.T) {
 	err := command.Execute()
 	assert.NoError(t, err)
 	assert.True(t, printlnCalled, "Expected PrintlnPackageFn to be called")
+
+	// Also test the cmd constructor has proper configuration
+	assert.Equal(t, "package [agent-dir]", command.Use)
+	assert.Equal(t, []string{"p"}, command.Aliases)
+	assert.Equal(t, "Package an AI agent to .kdeps file", command.Short)
+	assert.Equal(t, "$ kdeps package ./myAgent/", command.Example)
 }

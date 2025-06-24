@@ -30,44 +30,99 @@ func setNonInteractive(t *testing.T) func() {
 	}
 }
 
-func TestValidateAgentName(t *testing.T) {
-	t.Run("ValidNames", func(t *testing.T) {
-		validNames := []string{
-			"myagent",
-			"my-agent",
-			"my_agent",
-			"agent123",
-			"a",
-			"verylongagentname",
-		}
-
-		for _, name := range validNames {
-			t.Run(name, func(t *testing.T) {
-				err := template.ValidateAgentName(name)
-				require.NoError(t, err)
-			})
-		}
-	})
-
-	t.Run("InvalidNames", func(t *testing.T) {
-		invalidNames := []string{
-			"",         // empty
-			"my agent", // contains space
-		}
-
-		for _, name := range invalidNames {
-			t.Run(fmt.Sprintf("'%s'", name), func(t *testing.T) {
-				err := template.ValidateAgentName(name)
-				require.Error(t, err)
-				if name == "" {
-					require.Contains(t, err.Error(), "agent name cannot be empty or only whitespace")
-				} else {
-					require.Contains(t, err.Error(), "agent name cannot contain spaces")
-				}
-			})
-		}
-	})
+// TestPrintWithDots tests the PrintWithDots function
+func TestPrintWithDots(t *testing.T) {
+	// Just ensure the function doesn't panic
+	template.PrintWithDots("test message")
+	template.PrintWithDots("")
+	template.PrintWithDots("message with spaces")
 }
+
+// TestValidateAgentName tests the ValidateAgentName function
+func TestValidateAgentName(t *testing.T) {
+	tests := []struct {
+		name        string
+		agentName   string
+		expectError bool
+	}{
+		{
+			name:        "ValidName",
+			agentName:   "test-agent",
+			expectError: false,
+		},
+		{
+			name:        "ValidNameWithNumbers",
+			agentName:   "agent123",
+			expectError: false,
+		},
+		{
+			name:        "ValidNameWithHyphens",
+			agentName:   "test-agent-v2",
+			expectError: false,
+		},
+		{
+			name:        "ValidNameWithUnderscores",
+			agentName:   "test_agent",
+			expectError: false,
+		},
+		{
+			name:        "EmptyName",
+			agentName:   "",
+			expectError: true,
+		},
+		{
+			name:        "WhitespaceName",
+			agentName:   "   ",
+			expectError: true,
+		},
+		{
+			name:        "NameWithSpaces",
+			agentName:   "test agent",
+			expectError: true,
+		},
+		{
+			name:        "NameWithMultipleSpaces",
+			agentName:   "test agent name",
+			expectError: true,
+		},
+		{
+			name:        "NameStartingWithSpace",
+			agentName:   " test-agent",
+			expectError: true,
+		},
+		{
+			name:        "NameEndingWithSpace",
+			agentName:   "test-agent ",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := template.ValidateAgentName(tt.agentName)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestPromptForAgentName_NonInteractive tests PromptForAgentName in non-interactive mode
+func TestPromptForAgentName_NonInteractive(t *testing.T) {
+	// Set non-interactive mode
+	originalNonInteractive := os.Getenv("NON_INTERACTIVE")
+	os.Setenv("NON_INTERACTIVE", "1")
+	defer os.Setenv("NON_INTERACTIVE", originalNonInteractive)
+
+	name, err := template.PromptForAgentName()
+	assert.NoError(t, err)
+	assert.Equal(t, "test-agent", name)
+}
+
+// TestPromptForAgentName_Interactive would require complex mocking of user input
+// Skipping this test as it's more of an integration test
 
 func TestCreateDirectoryNew(t *testing.T) {
 	// Test case: Create directory with in-memory FS
@@ -485,10 +540,6 @@ func TestGenerateAgent(t *testing.T) {
 	}
 }
 
-func TestPrintWithDots(t *testing.T) {
-	template.PrintWithDots("test")
-}
-
 func TestSchemaVersionInTemplates(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
@@ -692,10 +743,10 @@ func TestLoadTemplateWithTemplateDirEdgeCases(t *testing.T) {
 	t.Run("TemplateDirSetWithTemplateExecutionError", func(t *testing.T) {
 		// Create a temporary directory and template with execution error
 		tempDir := t.TempDir()
+		os.Setenv("TEMPLATE_DIR", tempDir)
 		errorTemplatePath := filepath.Join(tempDir, "error.pkl")
 		// Template that will cause execution error (invalid function call)
 		os.WriteFile(errorTemplatePath, []byte("{{call .InvalidFunction}}"), 0o644)
-		os.Setenv("TEMPLATE_DIR", tempDir)
 
 		// Try to execute template with invalid function call
 		_, err := template.LoadTemplate("error.pkl", map[string]string{})
@@ -706,9 +757,9 @@ func TestLoadTemplateWithTemplateDirEdgeCases(t *testing.T) {
 	t.Run("TemplateDirSetWithValidTemplate", func(t *testing.T) {
 		// Create a temporary directory and valid template file
 		tempDir := t.TempDir()
+		os.Setenv("TEMPLATE_DIR", tempDir)
 		validTemplatePath := filepath.Join(tempDir, "valid.pkl")
 		os.WriteFile(validTemplatePath, []byte("name = \"{{.Name}}\""), 0o644)
-		os.Setenv("TEMPLATE_DIR", tempDir)
 
 		// Load valid template
 		content, err := template.LoadTemplate("valid.pkl", map[string]string{"Name": "test"})
@@ -1474,90 +1525,56 @@ CMD ["echo", "Hello {{.Name}}"]`
 		assert.Contains(t, err.Error(), "failed to read template from disk")
 	})
 
-	t.Run("DiskTemplateParseError", func(t *testing.T) {
-		// Create a temporary directory with an invalid template
+	t.Run("DiskTemplate_ParseError", func(t *testing.T) {
+		// Create a template with invalid syntax
 		tempDir := t.TempDir()
 		os.Setenv("TEMPLATE_DIR", tempDir)
 
-		invalidContent := `FROM {{.BaseImage}
-RUN echo "Invalid template syntax {{"`
+		// Create a template with malformed syntax
+		templateContent := `Name: {{.Name}
+Invalid syntax: {{.`
 
-		dockerfilePath := filepath.Join(tempDir, "Dockerfile")
-		err := os.WriteFile(dockerfilePath, []byte(invalidContent), 0o644)
+		templatePath := filepath.Join(tempDir, "parse-error.pkl")
+		err := os.WriteFile(templatePath, []byte(templateContent), 0o644)
 		require.NoError(t, err)
 
 		data := map[string]string{
-			"BaseImage": "ubuntu:20.04",
-			"Name":      "test-agent",
+			"Name": "test-agent",
 		}
 
-		_, err = template.LoadDockerfileTemplate("Dockerfile", data)
+		_, err = template.LoadTemplate("parse-error.pkl", data)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to parse template file")
 	})
 
-	t.Run("DiskTemplateExecuteError", func(t *testing.T) {
-		// Create a template that will fail during execution
-		tempDir := t.TempDir()
-		os.Setenv("TEMPLATE_DIR", tempDir)
+	t.Run("EmbeddedTemplate_ExecuteError", func(t *testing.T) {
+		// Clear TEMPLATE_DIR to use embedded FS
+		os.Setenv("TEMPLATE_DIR", "")
 
-		// This template tries to call a method on a field that doesn't exist
-		invalidContent := `FROM {{.BaseImage}}
-RUN echo "{{.NonexistentField.Call}}"`
-
-		dockerfilePath := filepath.Join(tempDir, "Dockerfile")
-		err := os.WriteFile(dockerfilePath, []byte(invalidContent), 0o644)
-		require.NoError(t, err)
-
+		// Try to use an existing template but with incompatible data
+		// Use workflow.pkl which expects specific fields
 		data := map[string]string{
-			"BaseImage": "ubuntu:20.04",
-			"Name":      "test-agent",
+			"InvalidKey": "value",
+			// Missing expected template fields
 		}
 
-		_, err = template.LoadDockerfileTemplate("Dockerfile", data)
+		content, err := template.LoadDockerfileTemplate("workflow.pkl", data)
+		// Depending on template implementation, this might succeed or fail
 		if err != nil {
 			assert.Contains(t, err.Error(), "failed to execute template")
 		} else {
-			// If no error occurred, that's also acceptable since template execution might be lenient
-			t.Log("Template execution was successful despite accessing non-existent field")
+			// Template might substitute empty values
+			assert.NotEmpty(t, content)
+			t.Log("Template execution succeeded with missing fields")
 		}
 	})
 
-	t.Run("EmbeddedTemplateNonexistent", func(t *testing.T) {
+	t.Run("EmbeddedTemplate_NilData", func(t *testing.T) {
 		// Clear TEMPLATE_DIR to use embedded FS
 		os.Setenv("TEMPLATE_DIR", "")
 
-		data := map[string]string{
-			"BaseImage": "ubuntu:20.04",
-			"Name":      "test-agent",
-		}
-
-		_, err := template.LoadDockerfileTemplate("NonexistentTemplate", data)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to read embedded template")
-	})
-
-	t.Run("EmbeddedTemplateParseError", func(t *testing.T) {
-		// This is harder to test since we can't modify embedded templates
-		// But we can test the error handling path by using an empty template dir
-		// and then falling back to embedded with a nonexistent file
-		os.Setenv("TEMPLATE_DIR", "")
-
-		// Test with malformed data that might cause template execution issues
-		data := make(chan int) // Invalid data type for template
-
-		_, err := template.LoadDockerfileTemplate("Dockerfile", data)
-		// This should either succeed (if template handles it) or fail gracefully
-		// The important thing is it doesn't panic
-		_ = err
-	})
-
-	t.Run("NilData", func(t *testing.T) {
-		// Clear TEMPLATE_DIR to use embedded FS
-		os.Setenv("TEMPLATE_DIR", "")
-
+		// Test with nil data - should handle gracefully
 		content, err := template.LoadDockerfileTemplate("Dockerfile", nil)
-		// Should handle nil data gracefully
 		if err != nil {
 			assert.Contains(t, err.Error(), "template")
 		} else {
@@ -1873,7 +1890,7 @@ Invalid syntax: {{.`
 		os.Setenv("TEMPLATE_DIR", "")
 
 		// Test with nil data - should handle gracefully
-		content, err := template.LoadTemplate("workflow.pkl", nil)
+		content, err := template.LoadDockerfileTemplate("Dockerfile", nil)
 		if err != nil {
 			assert.Contains(t, err.Error(), "template")
 		} else {

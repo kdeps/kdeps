@@ -486,7 +486,7 @@ func TestCreateAndProcessPklFile_Success(t *testing.T) {
 	assert.Contains(t, string(content), "processed")
 }
 
-// errorFs is a stub FS that returns errors for specific operations
+// errorFs is a filesystem that fails for specific operations
 // mode can be: tempDir, tempFile, write, writeFile
 
 type errorFs struct {
@@ -1089,4 +1089,176 @@ func TestEnsurePklBinaryExists_EdgeCases(t *testing.T) {
 		// assert.Error(t, err)
 		// assert.Contains(t, err.Error(), "apple PKL not found in PATH")
 	})
+}
+
+// TestNewPklBinaryChecker tests the constructor function
+func TestNewPklBinaryChecker(t *testing.T) {
+	checker := NewPklBinaryChecker()
+	assert.NotNil(t, checker)
+	assert.NotNil(t, checker.LookPathFn)
+	assert.NotNil(t, checker.ExitFn)
+}
+
+// TestNewPklEvaluator tests the constructor function
+func TestNewPklEvaluator(t *testing.T) {
+	evaluator := NewPklEvaluator()
+	assert.NotNil(t, evaluator)
+	assert.NotNil(t, evaluator.EnsurePklBinaryExistsFn)
+	assert.NotNil(t, evaluator.KdepsExecFn)
+}
+
+// TestPklBinaryChecker_EnsurePklBinaryExists tests the method with dependency injection
+func TestPklBinaryChecker_EnsurePklBinaryExists(t *testing.T) {
+	t.Run("Success - pkl found", func(t *testing.T) {
+		checker := &PklBinaryChecker{
+			LookPathFn: func(file string) (string, error) {
+				if file == "pkl" || file == "pkl.exe" {
+					return "/usr/local/bin/pkl", nil
+				}
+				return "", fmt.Errorf("executable file not found in $PATH")
+			},
+			ExitFn: func(code int) {
+				t.Error("ExitFn should not be called when binary is found")
+			},
+		}
+
+		err := checker.EnsurePklBinaryExists(context.Background(), logging.NewTestLogger())
+		assert.NoError(t, err)
+	})
+
+	t.Run("Error - pkl not found", func(t *testing.T) {
+		exitCalled := false
+		exitCode := -1
+
+		checker := &PklBinaryChecker{
+			LookPathFn: func(file string) (string, error) {
+				return "", fmt.Errorf("executable file not found in $PATH")
+			},
+			ExitFn: func(code int) {
+				exitCalled = true
+				exitCode = code
+			},
+		}
+
+		logger := logging.NewTestSafeLogger()
+		err := checker.EnsurePklBinaryExists(context.Background(), logger)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "pkl binary not found in PATH")
+		assert.True(t, exitCalled)
+		assert.Equal(t, 1, exitCode)
+	})
+
+	t.Run("Error - only pkl.exe not found", func(t *testing.T) {
+		checker := &PklBinaryChecker{
+			LookPathFn: func(file string) (string, error) {
+				if file == "pkl" {
+					return "", fmt.Errorf("executable file not found in $PATH")
+				}
+				if file == "pkl.exe" {
+					return "", fmt.Errorf("executable file not found in $PATH")
+				}
+				return "", fmt.Errorf("unexpected file: %s", file)
+			},
+			ExitFn: func(code int) {
+				// Expected to be called
+			},
+		}
+
+		err := checker.EnsurePklBinaryExists(context.Background(), logging.NewTestSafeLogger())
+		assert.Error(t, err)
+	})
+}
+
+// TestPklEvaluator_EvalPkl tests the method with dependency injection
+func TestPklEvaluator_EvalPkl(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		evaluator := &PklEvaluator{
+			EnsurePklBinaryExistsFn: func(ctx context.Context, logger *logging.Logger) error {
+				return nil // Binary exists
+			},
+			KdepsExecFn: func(ctx context.Context, command string, args []string, workingDir string, enableLogging bool, handleOutput bool, logger *logging.Logger) (string, string, int, error) {
+				assert.Equal(t, "pkl", command)
+				assert.Equal(t, []string{"eval", "test.pkl"}, args)
+				return "output content", "", 0, nil
+			},
+		}
+
+		fs := afero.NewMemMapFs()
+		result, err := evaluator.EvalPkl(fs, context.Background(), "test.pkl", "header", logging.NewTestLogger())
+		assert.NoError(t, err)
+		assert.Contains(t, result, "header")
+		assert.Contains(t, result, "output content")
+	})
+
+	t.Run("Invalid extension", func(t *testing.T) {
+		evaluator := NewPklEvaluator()
+		fs := afero.NewMemMapFs()
+
+		_, err := evaluator.EvalPkl(fs, context.Background(), "test.txt", "header", logging.NewTestLogger())
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), ".pkl extension")
+	})
+
+	t.Run("Binary check fails", func(t *testing.T) {
+		evaluator := &PklEvaluator{
+			EnsurePklBinaryExistsFn: func(ctx context.Context, logger *logging.Logger) error {
+				return fmt.Errorf("binary not found")
+			},
+			KdepsExecFn: func(ctx context.Context, command string, args []string, workingDir string, enableLogging bool, handleOutput bool, logger *logging.Logger) (string, string, int, error) {
+				t.Error("KdepsExecFn should not be called when binary check fails")
+				return "", "", 1, nil
+			},
+		}
+
+		fs := afero.NewMemMapFs()
+		_, err := evaluator.EvalPkl(fs, context.Background(), "test.pkl", "header", logging.NewTestLogger())
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "binary not found")
+	})
+
+	t.Run("Execution fails", func(t *testing.T) {
+		evaluator := &PklEvaluator{
+			EnsurePklBinaryExistsFn: func(ctx context.Context, logger *logging.Logger) error {
+				return nil
+			},
+			KdepsExecFn: func(ctx context.Context, command string, args []string, workingDir string, enableLogging bool, handleOutput bool, logger *logging.Logger) (string, string, int, error) {
+				return "", "execution error", 0, fmt.Errorf("exec failed")
+			},
+		}
+
+		fs := afero.NewMemMapFs()
+		_, err := evaluator.EvalPkl(fs, context.Background(), "test.pkl", "header", logging.NewTestLogger())
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "exec failed")
+	})
+
+	t.Run("Non-zero exit code", func(t *testing.T) {
+		evaluator := &PklEvaluator{
+			EnsurePklBinaryExistsFn: func(ctx context.Context, logger *logging.Logger) error {
+				return nil
+			},
+			KdepsExecFn: func(ctx context.Context, command string, args []string, workingDir string, enableLogging bool, handleOutput bool, logger *logging.Logger) (string, string, int, error) {
+				return "", "command failed", 1, nil
+			},
+		}
+
+		fs := afero.NewMemMapFs()
+		_, err := evaluator.EvalPkl(fs, context.Background(), "test.pkl", "header", logging.NewTestLogger())
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "command failed with exit code 1")
+	})
+}
+
+// TestCreateAndProcessPklFile_TempDirError tests the error path when temp dir creation fails
+func TestCreateAndProcessPklFile_TempDirError(t *testing.T) {
+	// Skip this test since afero.TempDir is a function, not a method on the filesystem
+	// and cannot be easily mocked without refactoring the production code
+	t.Skip("Cannot mock afero.TempDir function - it's not a method on the filesystem interface")
+}
+
+// TestCreateAndProcessPklFile_WriteToTempFileError tests error when writing to temp file fails
+func TestCreateAndProcessPklFile_WriteToTempFileError(t *testing.T) {
+	// Skip this test since the file Write method would need more complex mocking
+	// The production code calls Write on the file returned by TempFile
+	t.Skip("Complex mocking required for file Write operations")
 }
