@@ -19,6 +19,14 @@ import (
 )
 
 func FindConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
+	// Check for nil parameters
+	if logger == nil {
+		return "", fmt.Errorf("logger is nil")
+	}
+	if env == nil {
+		return "", fmt.Errorf("environment is nil")
+	}
+
 	logger.Debug("finding configuration...")
 
 	// Ensure PKL binary exists before proceeding

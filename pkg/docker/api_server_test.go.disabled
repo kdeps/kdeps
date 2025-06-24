@@ -1,4 +1,4 @@
-package docker_test
+package docker
 
 import (
 	"bytes"
@@ -19,7 +19,6 @@ import (
 
 	"github.com/apple/pkl-go/pkl"
 	"github.com/gin-gonic/gin"
-	. "github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/item"
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -82,7 +81,7 @@ fi
 
 func TestValidateMethodExtra2(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/", nil)
-	methodStr, err := ValidateMethod(req, []string{http.MethodGet, http.MethodPost})
+	methodStr, err := validateMethod(req, []string{http.MethodGet, http.MethodPost})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -92,7 +91,7 @@ func TestValidateMethodExtra2(t *testing.T) {
 
 	// invalid method
 	badReq := httptest.NewRequest("DELETE", "/", nil)
-	if _, err := ValidateMethod(badReq, []string{"GET"}); err == nil {
+	if _, err := validateMethod(badReq, []string{"GET"}); err == nil {
 		t.Fatalf("expected error for disallowed method")
 	}
 }
@@ -111,7 +110,7 @@ func TestCleanOldFilesExtra2(t *testing.T) {
 		ResponseTargetFile: path,
 	}
 
-	if err := CleanOldFiles(dr); err != nil {
+	if err := cleanOldFiles(dr); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -136,7 +135,7 @@ func TestDecodeResponseContentExtra2(t *testing.T) {
 	}
 	encoded, _ := json.Marshal(apiResp)
 
-	decResp, err := DecodeResponseContent(encoded, logger)
+	decResp, err := decodeResponseContent(encoded, logger, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -149,7 +148,7 @@ func TestDecodeResponseContentExtra2(t *testing.T) {
 func TestFormatResponseJSONExtra2(t *testing.T) {
 	// Response with data as JSON string
 	raw := []byte(`{"response":{"data":["{\"a\":1}"]}}`)
-	pretty := FormatResponseJSON(raw)
+	pretty := formatResponseJSON(raw)
 
 	// Should be pretty printed and data element should be object not string
 	if !bytes.Contains(pretty, []byte("\"a\": 1")) {
@@ -167,7 +166,7 @@ func TestFormatResponseJSONExtra(t *testing.T) {
 		},
 	}
 	raw, _ := json.Marshal(resp)
-	pretty := FormatResponseJSON(raw)
+	pretty := formatResponseJSON(raw)
 
 	// It should now be pretty-printed and contain nested object without quotes
 	require.Contains(t, string(pretty), "\"foo\": \"bar\"")
@@ -179,12 +178,12 @@ func TestCleanOldFilesExtra(t *testing.T) {
 
 	// Case where file exists
 	require.NoError(t, afero.WriteFile(fs, dr.ResponseTargetFile, []byte("x"), 0o644))
-	require.NoError(t, CleanOldFiles(dr))
+	require.NoError(t, cleanOldFiles(dr))
 	exists, _ := afero.Exists(fs, dr.ResponseTargetFile)
 	require.False(t, exists)
 
 	// Case where file does not exist should be no-op
-	require.NoError(t, CleanOldFiles(dr))
+	require.NoError(t, cleanOldFiles(dr))
 }
 
 func TestDecodeResponseContentExtra(t *testing.T) {
@@ -198,7 +197,7 @@ func TestDecodeResponseContentExtra(t *testing.T) {
 	raw, _ := json.Marshal(respStruct)
 
 	logger := logging.NewTestLogger()
-	out, err := DecodeResponseContent(raw, logger)
+	out, err := decodeResponseContent(raw, logger, nil, nil)
 	require.NoError(t, err)
 	require.Len(t, out.Response.Data, 1)
 	require.JSONEq(t, dataJSON, out.Response.Data[0])
@@ -207,7 +206,7 @@ func TestDecodeResponseContentExtra(t *testing.T) {
 func TestFormatResponseJSONFormatTest(t *testing.T) {
 	// Input where first element is JSON string and second is plain string.
 	in := []byte(`{"response":{"data":["{\"x\":1}","plain"]}}`)
-	out := FormatResponseJSON(in)
+	out := formatResponseJSON(in)
 	// The output should still be valid JSON and contain "x": 1 without escaped quotes.
 	if !json.Valid(out) {
 		t.Fatalf("output not valid JSON: %s", string(out))
@@ -227,7 +226,7 @@ func setupTestAPIServer(t *testing.T) (*resolver.DependencyResolver, *logging.Lo
 	return dr, logger
 }
 
-func TestHandleMultipartForm(t *testing.T) {
+func TesthandleMultipartForm(t *testing.T) {
 	dr, _ := setupTestAPIServer(t)
 
 	t.Run("ValidMultipartForm", func(t *testing.T) {
@@ -245,7 +244,7 @@ func TestHandleMultipartForm(t *testing.T) {
 		c.Request.Header.Set("Content-Type", writer.FormDataContentType())
 
 		fileMap := make(map[string]struct{ Filename, Filetype string })
-		err = HandleMultipartForm(c, dr, fileMap)
+		err = handleMultipartForm(c, dr, fileMap)
 		assert.NoError(t, err)
 		assert.Len(t, fileMap, 1)
 	})
@@ -257,7 +256,7 @@ func TestHandleMultipartForm(t *testing.T) {
 		c.Request.Header.Set("Content-Type", "text/plain")
 
 		fileMap := make(map[string]struct{ Filename, Filetype string })
-		err := HandleMultipartForm(c, dr, fileMap)
+		err := handleMultipartForm(c, dr, fileMap)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "Unable to parse multipart form")
 	})
@@ -274,13 +273,13 @@ func TestHandleMultipartForm(t *testing.T) {
 		c.Request.Header.Set("Content-Type", writer.FormDataContentType())
 
 		fileMap := make(map[string]struct{ Filename, Filetype string })
-		err := HandleMultipartForm(c, dr, fileMap)
+		err := handleMultipartForm(c, dr, fileMap)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "No file uploaded")
 	})
 }
 
-func TestProcessFile(t *testing.T) {
+func TestprocessFile(t *testing.T) {
 	dr, _ := setupTestAPIServer(t)
 	fileMap := make(map[string]struct{ Filename, Filetype string })
 
@@ -300,36 +299,36 @@ func TestProcessFile(t *testing.T) {
 		_, fileHeader, err := c.Request.FormFile("file")
 		require.NoError(t, err)
 
-		err = ProcessFile(fileHeader, dr, fileMap)
+		err = processFile(fileHeader, dr, fileMap)
 		assert.NoError(t, err)
 		assert.Len(t, fileMap, 1)
 	})
 }
 
-func TestValidateMethod(t *testing.T) {
+func TestvalidateMethod(t *testing.T) {
 	t.Run("ValidMethod", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/", nil)
-		method, err := ValidateMethod(req, []string{"GET", "POST"})
+		method, err := validateMethod(req, []string{"GET", "POST"})
 		assert.NoError(t, err)
 		assert.Equal(t, "method = \"GET\"", method)
 	})
 
 	t.Run("InvalidMethod", func(t *testing.T) {
 		req := httptest.NewRequest("PUT", "/", nil)
-		_, err := ValidateMethod(req, []string{"GET", "POST"})
+		_, err := validateMethod(req, []string{"GET", "POST"})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "HTTP method \"PUT\" not allowed")
 	})
 
 	t.Run("EmptyMethodDefaultsToGet", func(t *testing.T) {
 		req := httptest.NewRequest("", "/", nil)
-		method, err := ValidateMethod(req, []string{"GET", "POST"})
+		method, err := validateMethod(req, []string{"GET", "POST"})
 		assert.NoError(t, err)
 		assert.Equal(t, "method = \"GET\"", method)
 	})
 }
 
-func TestDecodeResponseContent(t *testing.T) {
+func TestdecodeResponseContent(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	t.Run("ValidJSON", func(t *testing.T) {
@@ -345,7 +344,7 @@ func TestDecodeResponseContent(t *testing.T) {
 		content, err := json.Marshal(response)
 		require.NoError(t, err)
 
-		decoded, err := DecodeResponseContent(content, logger)
+		decoded, err := decodeResponseContent(content, logger, nil, nil)
 		assert.NoError(t, err)
 		assert.True(t, decoded.Success)
 		assert.Equal(t, "123", decoded.Meta.RequestID)
@@ -353,19 +352,19 @@ func TestDecodeResponseContent(t *testing.T) {
 
 	t.Run("InvalidJSON", func(t *testing.T) {
 		content := []byte("invalid json")
-		_, err := DecodeResponseContent(content, logger)
+		_, err := decodeResponseContent(content, logger, nil, nil)
 		assert.Error(t, err)
 	})
 
 	t.Run("EmptyResponse", func(t *testing.T) {
 		content := []byte("{}")
-		decoded, err := DecodeResponseContent(content, logger)
+		decoded, err := decodeResponseContent(content, logger, nil, nil)
 		assert.NoError(t, err)
 		assert.False(t, decoded.Success)
 	})
 }
 
-func TestFormatResponseJSON(t *testing.T) {
+func TestformatResponseJSON(t *testing.T) {
 	t.Run("ValidResponse", func(t *testing.T) {
 		response := APIResponse{
 			Success: true,
@@ -379,7 +378,7 @@ func TestFormatResponseJSON(t *testing.T) {
 		content, err := json.Marshal(response)
 		require.NoError(t, err)
 
-		formatted := FormatResponseJSON(content)
+		formatted := formatResponseJSON(content)
 		var decoded APIResponse
 		err = json.Unmarshal(formatted, &decoded)
 		require.NoError(t, err)
@@ -403,7 +402,7 @@ func TestFormatResponseJSON(t *testing.T) {
 		content, err := json.Marshal(response)
 		require.NoError(t, err)
 
-		formatted := FormatResponseJSON(content)
+		formatted := formatResponseJSON(content)
 		var decoded APIResponse
 		err = json.Unmarshal(formatted, &decoded)
 		require.NoError(t, err)
@@ -412,7 +411,7 @@ func TestFormatResponseJSON(t *testing.T) {
 	})
 }
 
-func TestCleanOldFiles(t *testing.T) {
+func TestcleanOldFiles(t *testing.T) {
 	// Create a temporary directory using afero
 	fs := afero.NewOsFs()
 	tmpDir, err := afero.TempDir(fs, "", "test-cleanup")
@@ -432,7 +431,7 @@ func TestCleanOldFiles(t *testing.T) {
 	}
 
 	t.Run("FileExists", func(t *testing.T) {
-		err := CleanOldFiles(dr)
+		err := cleanOldFiles(dr)
 		require.NoError(t, err)
 
 		// Verify file was removed
@@ -449,7 +448,7 @@ func TestCleanOldFiles(t *testing.T) {
 			ResponseTargetFile: filepath.Join(tmpDir, "nonexistent.json"),
 		}
 
-		err := CleanOldFiles(dr)
+		err := cleanOldFiles(dr)
 		assert.NoError(t, err)
 	})
 }
@@ -805,19 +804,19 @@ func TestValidateMethodUtilsExtra(t *testing.T) {
 	_ = schema.SchemaVersion(nil)
 
 	req, _ := http.NewRequest(http.MethodGet, "http://example.com", nil)
-	got, err := ValidateMethod(req, []string{http.MethodGet, http.MethodPost})
+	got, err := validateMethod(req, []string{http.MethodGet, http.MethodPost})
 	if err != nil || got != `method = "GET"` {
 		t.Fatalf("expected valid GET, got %q err %v", got, err)
 	}
 
 	reqEmpty, _ := http.NewRequest("", "http://example.com", nil)
-	got2, err2 := ValidateMethod(reqEmpty, []string{http.MethodGet})
+	got2, err2 := validateMethod(reqEmpty, []string{http.MethodGet})
 	if err2 != nil || got2 != `method = "GET"` {
 		t.Fatalf("default method failed: %q err %v", got2, err2)
 	}
 
 	reqBad, _ := http.NewRequest(http.MethodDelete, "http://example.com", nil)
-	if _, err := ValidateMethod(reqBad, []string{http.MethodGet}); err == nil {
+	if _, err := validateMethod(reqBad, []string{http.MethodGet}); err == nil {
 		t.Fatalf("expected error for disallowed method")
 	}
 }
@@ -834,7 +833,7 @@ func TestDecodeResponseContentUtilsExtra(t *testing.T) {
 	}
 	data, _ := json.Marshal(raw)
 	logger := logging.NewTestLogger()
-	decoded, err := DecodeResponseContent(data, logger)
+	decoded, err := decodeResponseContent(data, logger, nil, nil)
 	if err != nil {
 		t.Fatalf("decode error: %v", err)
 	}
@@ -861,7 +860,7 @@ func TestDecodeResponseContentFormattingUtilsExtra(t *testing.T) {
 	}
 
 	logger := logging.NewTestLogger()
-	decoded, err := DecodeResponseContent(raw, logger)
+	decoded, err := decodeResponseContent(raw, logger, nil, nil)
 	if err != nil {
 		t.Fatalf("decodeResponseContent error: %v", err)
 	}
@@ -885,19 +884,19 @@ func TestValidateMethodMore(t *testing.T) {
 	allowed := []string{http.MethodGet, http.MethodPost}
 
 	req, _ := http.NewRequest(http.MethodPost, "/", nil)
-	out, err := ValidateMethod(req, allowed)
+	out, err := validateMethod(req, allowed)
 	assert.NoError(t, err)
 	assert.Equal(t, `method = "POST"`, out)
 
 	// default empty method becomes GET and passes
 	req2, _ := http.NewRequest("", "/", nil)
-	out, err = ValidateMethod(req2, allowed)
+	out, err = validateMethod(req2, allowed)
 	assert.NoError(t, err)
 	assert.Equal(t, `method = "GET"`, out)
 
 	// invalid method
 	req3, _ := http.NewRequest(http.MethodPut, "/", nil)
-	out, err = ValidateMethod(req3, allowed)
+	out, err = validateMethod(req3, allowed)
 	assert.Error(t, err)
 	assert.Empty(t, out)
 }
@@ -917,13 +916,13 @@ func TestCleanOldFilesMore(t *testing.T) {
 	}
 
 	// should remove existing file
-	err := CleanOldFiles(dr)
+	err := cleanOldFiles(dr)
 	assert.NoError(t, err)
 	exist, _ := afero.Exists(fs, respPath)
 	assert.False(t, exist)
 
 	// second call with file absent should still succeed
-	err = CleanOldFiles(dr)
+	err = cleanOldFiles(dr)
 	assert.NoError(t, err)
 }
 
@@ -942,7 +941,7 @@ func TestCleanOldFilesMemFS(t *testing.T) {
 	if err := afero.WriteFile(mem, dr.ResponseTargetFile, []byte("data"), 0o644); err != nil {
 		t.Fatalf("failed to seed response file: %v", err)
 	}
-	if err := CleanOldFiles(dr); err != nil {
+	if err := cleanOldFiles(dr); err != nil {
 		t.Fatalf("cleanOldFiles returned error for existing file: %v", err)
 	}
 	if exists, _ := afero.Exists(mem, dr.ResponseTargetFile); exists {
@@ -950,7 +949,7 @@ func TestCleanOldFilesMemFS(t *testing.T) {
 	}
 
 	// Branch 2: File does not exist – function should still return nil (no error).
-	if err := CleanOldFiles(dr); err != nil {
+	if err := cleanOldFiles(dr); err != nil {
 		t.Fatalf("cleanOldFiles returned error when file absent: %v", err)
 	}
 }
@@ -972,7 +971,7 @@ func TestCleanOldFilesRemoveError(t *testing.T) {
 		Context:            context.Background(),
 	}
 
-	if err := CleanOldFiles(dr); err == nil {
+	if err := cleanOldFiles(dr); err == nil {
 		t.Fatalf("expected error from RemoveAll, got nil")
 	}
 }
@@ -985,7 +984,7 @@ func TestFormatResponseJSON_NestedData(t *testing.T) {
 		Meta:     ResponseMeta{RequestID: "id"},
 	}
 	raw, _ := json.Marshal(payload)
-	pretty := FormatResponseJSON(raw)
+	pretty := formatResponseJSON(raw)
 
 	// The nested JSON should have been parsed → data[0] becomes an object not string
 	var out map[string]interface{}
@@ -1016,7 +1015,7 @@ func TestCleanOldFilesUnique(t *testing.T) {
 	_ = afero.WriteFile(fs, target, []byte("data"), 0o644)
 
 	dr := &resolver.DependencyResolver{Fs: fs, Logger: logging.NewTestLogger(), ResponseTargetFile: target}
-	if err := CleanOldFiles(dr); err != nil {
+	if err := cleanOldFiles(dr); err != nil {
 		t.Fatalf("cleanOldFiles error: %v", err)
 	}
 	if exists, _ := afero.Exists(fs, target); exists {
@@ -1030,7 +1029,7 @@ func TestCleanOldFilesUnique(t *testing.T) {
 func TestFormatResponseJSONInlineData(t *testing.T) {
 	raw := []byte(`{"response": {"data": ["{\"foo\": \"bar\"}", "plain text"]}}`)
 
-	pretty := FormatResponseJSON(raw)
+	pretty := formatResponseJSON(raw)
 
 	if !bytes.Contains(pretty, []byte("\"foo\": \"bar\"")) {
 		t.Fatalf("expected pretty JSON to contain inlined object, got %s", string(pretty))
@@ -1039,7 +1038,7 @@ func TestFormatResponseJSONInlineData(t *testing.T) {
 
 func TestValidateMethodSimple(t *testing.T) {
 	req, _ := http.NewRequest("POST", "http://example.com", nil)
-	methodStr, err := ValidateMethod(req, []string{"GET", "POST"})
+	methodStr, err := validateMethod(req, []string{"GET", "POST"})
 	if err != nil {
 		t.Fatalf("validateMethod unexpected error: %v", err)
 	}
@@ -1049,7 +1048,7 @@ func TestValidateMethodSimple(t *testing.T) {
 
 	// Unsupported method should error
 	req.Method = "DELETE"
-	if _, err := ValidateMethod(req, []string{"GET", "POST"}); err == nil {
+	if _, err := validateMethod(req, []string{"GET", "POST"}); err == nil {
 		t.Fatalf("expected error for unsupported method")
 	}
 }
@@ -1063,7 +1062,7 @@ func TestCleanOldFilesMem(t *testing.T) {
 	// Create dummy file
 	afero.WriteFile(fs, dr.ResponseTargetFile, []byte("old"), 0o666)
 
-	if err := CleanOldFiles(dr); err != nil {
+	if err := cleanOldFiles(dr); err != nil {
 		t.Fatalf("cleanOldFiles returned error: %v", err)
 	}
 	if exists, _ := afero.Exists(fs, dr.ResponseTargetFile); exists {
@@ -1082,7 +1081,7 @@ func TestDecodeAndFormatResponseSimple(t *testing.T) {
 	}
 	raw, _ := json.Marshal(sample)
 
-	decoded, err := DecodeResponseContent(raw, logger)
+	decoded, err := decodeResponseContent(raw, logger, nil, nil)
 	if err != nil {
 		t.Fatalf("decodeResponseContent error: %v", err)
 	}
@@ -1092,7 +1091,7 @@ func TestDecodeAndFormatResponseSimple(t *testing.T) {
 
 	// Marshal decoded struct then format
 	marshaled, _ := json.Marshal(decoded)
-	formatted := FormatResponseJSON(marshaled)
+	formatted := formatResponseJSON(marshaled)
 	if !bytes.Contains(formatted, []byte("foo")) {
 		t.Fatalf("formatResponseJSON missing field")
 	}
@@ -1118,7 +1117,7 @@ func TestDecodeResponseContent_Success(t *testing.T) {
 	rawBytes, err := json.Marshal(raw)
 	assert.NoError(t, err)
 
-	decoded, err := DecodeResponseContent(rawBytes, logger)
+	decoded, err := decodeResponseContent(rawBytes, logger, nil, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, "abc", decoded.Meta.RequestID)
 	assert.Contains(t, decoded.Response.Data[0], "\"hello\": \"world\"")
@@ -1126,7 +1125,7 @@ func TestDecodeResponseContent_Success(t *testing.T) {
 
 func TestDecodeResponseContent_InvalidJSON(t *testing.T) {
 	logger := logging.NewTestLogger()
-	_, err := DecodeResponseContent([]byte(`not-json`), logger)
+	_, err := decodeResponseContent([]byte(`not-json`), logger, nil, nil)
 	assert.Error(t, err)
 }
 
@@ -1142,7 +1141,7 @@ func TestFormatResponseJSONPretty(t *testing.T) {
 	}
 	bytesIn, _ := json.Marshal(resp)
 
-	pretty := FormatResponseJSON(bytesIn)
+	pretty := formatResponseJSON(bytesIn)
 
 	// The formatted JSON should contain nested object without quotes around keys
 	assert.Contains(t, string(pretty), "\"foo\": \"bar\"")
@@ -1154,7 +1153,7 @@ func TestFormatResponseJSONPretty(t *testing.T) {
 func TestValidateMethodDefaultGET(t *testing.T) {
 	req := &http.Request{}
 
-	got, err := ValidateMethod(req, []string{"GET"})
+	got, err := validateMethod(req, []string{"GET"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1169,7 +1168,7 @@ func TestValidateMethodDefaultGET(t *testing.T) {
 func TestValidateMethodNotAllowed(t *testing.T) {
 	req := &http.Request{Method: "POST"}
 
-	if _, err := ValidateMethod(req, []string{"GET"}); err == nil {
+	if _, err := validateMethod(req, []string{"GET"}); err == nil {
 		t.Fatalf("expected method not allowed error, got nil")
 	}
 }

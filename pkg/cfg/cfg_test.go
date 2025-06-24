@@ -133,6 +133,8 @@ func theConfigurationFileIs(arg1 string) error {
 }
 
 func theConfigurationIsLoadedInTheCurrentDirectory() error {
+	logger = logging.GetLogger()
+
 	env := &environment.Environment{
 		Home: "",
 		Pwd:  currentDirPath,
@@ -156,6 +158,8 @@ func theConfigurationIsLoadedInTheCurrentDirectory() error {
 }
 
 func theConfigurationIsLoadedInTheHomeDirectory() error {
+	logger = logging.GetLogger()
+
 	env := &environment.Environment{
 		Home: homeDirPath,
 		Pwd:  "",
@@ -207,6 +211,8 @@ func aFileDoesNotExistsInTheHomeOrCurrentDirectory(arg1 string) error {
 }
 
 func theConfigurationFailsToLoadAnyConfiguration() error {
+	logger = logging.GetLogger()
+
 	env := &environment.Environment{
 		Home: homeDirPath,
 		Pwd:  currentDirPath,
@@ -229,6 +235,8 @@ func theConfigurationFailsToLoadAnyConfiguration() error {
 }
 
 func theConfigurationFileWillBeGeneratedTo(arg1 string) error {
+	logger = logging.GetLogger()
+
 	env := &environment.Environment{
 		Home:           homeDirPath,
 		Pwd:            "",
@@ -253,6 +261,8 @@ func theConfigurationFileWillBeGeneratedTo(arg1 string) error {
 }
 
 func theConfigurationWillBeEdited() error {
+	logger = logging.GetLogger()
+
 	env := &environment.Environment{
 		Home:           homeDirPath,
 		Pwd:            "",
@@ -272,6 +282,8 @@ func theConfigurationWillBeEdited() error {
 }
 
 func theConfigurationWillBeValidated() error {
+	logger = logging.GetLogger()
+
 	env := &environment.Environment{
 		Home: homeDirPath,
 		Pwd:  "",
