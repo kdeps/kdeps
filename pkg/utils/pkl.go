@@ -13,60 +13,57 @@ import (
 
 func EncodePklMap(m *map[string]string) string {
 	if m == nil {
-		return "{}\n"
+		return "{}"
 	}
 	var builder strings.Builder
-	builder.WriteString("{\n")
+	builder.WriteString("{")
+	first := true
 	for k, v := range *m {
-		builder.WriteString(fmt.Sprintf("      [\"%s\"] = \"%s\"\n", k, EncodeValue(v)))
+		if !first {
+			builder.WriteString(";")
+		}
+		builder.WriteString(fmt.Sprintf(`["%s"]="%s"`, k, EncodeValue(v)))
+		first = false
 	}
-	builder.WriteString("    }\n")
+	builder.WriteString("}")
 	return builder.String()
 }
 
 func EncodePklSlice(s *[]string) string {
 	if s == nil {
-		return "{}\n"
+		return "{}"
 	}
 	var builder strings.Builder
-	builder.WriteString("{\n")
+	builder.WriteString("{")
+	first := true
 	for _, v := range *s {
-		builder.WriteString(fmt.Sprintf("      \"%s\"\n", EncodeValue(v)))
+		if !first {
+			builder.WriteString(";")
+		}
+		builder.WriteString(fmt.Sprintf(`"%s"`, EncodeValue(v)))
+		first = false
 	}
-	builder.WriteString("    }\n")
+	builder.WriteString("}")
 	return builder.String()
 }
 
-// EvaluateString evaluates a string as PKL or JSON, returning a JSON string.
+// EvaluateStringToJSON processes a string as JSON, returning a formatted JSON string.
+// PKL evaluation has been removed for simplicity.
 func EvaluateStringToJSON(input string, logger *logging.Logger, pklEvaluator pkl.Evaluator, ctx context.Context) (string, error) {
-	// Try to parse as PKL first
-	var pklResult interface{}
-	err := pklEvaluator.EvaluateExpression(ctx, pkl.TextSource(input), "", &pklResult)
-	if err == nil {
-		// Successfully parsed as PKL, convert to JSON
-		jsonBytes, err := json.MarshalIndent(pklResult, "", "  ")
-		if err == nil {
-			logger.Info("parsed PKL and converted to JSON")
-			return string(jsonBytes), nil
-		}
-		logger.Error(err, "failed to convert PKL to JSON, using raw input")
-		return input, nil // Fallback to raw input
-	}
-	logger.Info("input is not a valid PKL expression, trying JSON", "error", err)
-
-	// Fallback to JSON processing
+	// Process as JSON without complex PKL re-parsing
 	fixedJSON := FixJSON(input)
 	if IsJSON(fixedJSON) {
-		var prettyJSON bytes.Buffer
-		err := json.Indent(&prettyJSON, []byte(fixedJSON), "", "  ")
+		// Use compact JSON instead of pretty-printed
+		var compactJSON bytes.Buffer
+		err := json.Compact(&compactJSON, []byte(fixedJSON))
 		if err == nil {
-			logger.Info("processed as JSON and pretty-printed")
-			return prettyJSON.String(), nil
+			logger.Debug("processed as JSON and compacted")
+			return compactJSON.String(), nil
 		}
-		logger.Error(err, "failed to pretty-print JSON")
+		logger.Warn("failed to compact JSON", "error", err)
 		return fixedJSON, nil
 	}
 
-	logger.Error(nil, "input is neither valid PKL nor JSON, returning raw input")
+	logger.Debug("input is not valid JSON, returning raw input")
 	return input, nil
 }

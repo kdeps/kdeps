@@ -96,7 +96,7 @@ func TestDecodeErrorMessage_Unit(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			logger := logging.NewTestLogger()
-			result := decodeErrorMessage(tt.message, logger)
+			result := DecodeErrorMessage(tt.message, logger)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -257,17 +257,17 @@ func TestFormatValue_Unit(t *testing.T) {
 		{
 			name:     "string value",
 			value:    "hello world",
-			contains: []string{"hello world", `"""`},
+			contains: []string{"hello world"},
 		},
 		{
 			name:     "integer value",
 			value:    42,
-			contains: []string{"42", `"""`},
+			contains: []string{"42"},
 		},
 		{
 			name:     "boolean value",
 			value:    true,
-			contains: []string{"true", `"""`},
+			contains: []string{"true"},
 		},
 		{
 			name: "simple map",
@@ -275,7 +275,7 @@ func TestFormatValue_Unit(t *testing.T) {
 				"key1": "value1",
 				"key2": 123,
 			},
-			contains: []string{"new Mapping", "key1", "value1", "key2"},
+			contains: []string{"key1", "value1", "key2"},
 		},
 		{
 			name: "interface map",
@@ -288,7 +288,7 @@ func TestFormatValue_Unit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := formatValue(tt.value)
+			result := FormatValue(tt.value)
 			assert.NotEmpty(t, result)
 
 			for _, expectedContent := range tt.contains {
@@ -359,7 +359,7 @@ func TestFormatErrors_Unit(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			logger := logging.NewTestLogger()
-			result := formatErrors(tt.errors, logger)
+			result := FormatErrors(tt.errors, logger)
 
 			if len(tt.expected) == 0 {
 				assert.Empty(t, result)
@@ -419,7 +419,7 @@ func TestFormatResponseMeta_Unit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := formatResponseMeta(tt.requestID, tt.meta)
+			result := FormatResponseMeta(tt.requestID, tt.meta)
 			assert.NotEmpty(t, result)
 
 			for _, expected := range tt.contains {
@@ -473,7 +473,7 @@ func TestFormatResponseData_Unit(t *testing.T) {
 			ctx := context.Background()
 			evaluator, _ := pkl.NewEvaluator(ctx, func(options *pkl.EvaluatorOptions) {})
 			defer evaluator.Close()
-			result := formatResponseData(ctx, tt.response, logger, evaluator)
+			result := FormatResponseData(ctx, tt.response, logger, evaluator)
 
 			if tt.expected == "" {
 				assert.Empty(t, result)

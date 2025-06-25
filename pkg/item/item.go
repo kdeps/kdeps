@@ -368,7 +368,7 @@ func (r *PklResourceReader) getMostRecentIDWithActionID() (string, string, error
 	return id, actionID, nil
 }
 
-// InitializeDatabase sets up the SQLite database and creates the items and results tables.
+// InitializeDatabase initializes the database
 func InitializeDatabase(dbPath string, items []string) (*sql.DB, error) {
 	log.Printf("Initializing database at path: %s", dbPath)
 	db, err := sql.Open("sqlite3", dbPath+"?_journal_mode=WAL")
@@ -455,7 +455,7 @@ func InitializeDatabase(dbPath string, items []string) (*sql.DB, error) {
 	return db, nil
 }
 
-// InitializeItem creates a new PklResourceReader with an initialized SQLite database.
+// InitializeItem initializes an item
 func InitializeItem(dbPath string, items []string, actionID string) (*PklResourceReader, error) {
 	db, err := InitializeDatabase(dbPath, items)
 	if err != nil {

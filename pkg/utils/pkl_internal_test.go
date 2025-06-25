@@ -12,8 +12,8 @@ func TestEncodePklMap_Internal(t *testing.T) {
 	if !strings.Contains(out, "foo") || !strings.Contains(out, base64.StdEncoding.EncodeToString([]byte("bar"))) {
 		t.Fatalf("EncodePklMap did not encode as expected: %s", out)
 	}
-	if got := EncodePklMap(nil); got != "{}\n" {
-		t.Fatalf("EncodePklMap(nil) = %q, want {}\\n", got)
+	if got := EncodePklMap(nil); got != "{}" {
+		t.Fatalf("EncodePklMap(nil) = %q, want {}", got)
 	}
 }
 
@@ -23,15 +23,15 @@ func TestEncodePklSlice_Internal(t *testing.T) {
 	if !strings.Contains(out, base64.StdEncoding.EncodeToString([]byte("baz"))) {
 		t.Fatalf("EncodePklSlice did not encode as expected: %s", out)
 	}
-	if got := EncodePklSlice(nil); got != "{}\n" {
-		t.Fatalf("EncodePklSlice(nil) = %q, want {}\\n", got)
+	if got := EncodePklSlice(nil); got != "{}" {
+		t.Fatalf("EncodePklSlice(nil) = %q, want {}", got)
 	}
 }
 
 func TestFormatRequestHeaders_Internal(t *testing.T) {
 	headers := map[string][]string{"X": {"val"}}
 	out := FormatRequestHeaders(headers)
-	if !strings.Contains(out, "headers {") || !strings.Contains(out, "X") {
+	if !strings.Contains(out, "headers{") || !strings.Contains(out, "X") {
 		t.Fatalf("FormatRequestHeaders missing header name: %s", out)
 	}
 	if !strings.Contains(out, base64.StdEncoding.EncodeToString([]byte("val"))) {
@@ -42,7 +42,7 @@ func TestFormatRequestHeaders_Internal(t *testing.T) {
 func TestFormatRequestParams_Internal(t *testing.T) {
 	params := map[string][]string{"q": {"search"}}
 	out := FormatRequestParams(params)
-	if !strings.Contains(out, "params {") || !strings.Contains(out, "q") {
+	if !strings.Contains(out, "params{") || !strings.Contains(out, "q") {
 		t.Fatalf("FormatRequestParams missing param name: %s", out)
 	}
 	if !strings.Contains(out, base64.StdEncoding.EncodeToString([]byte("search"))) {

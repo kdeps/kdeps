@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	"github.com/kdeps/kdeps/pkg/version"
 )
 
 // createStubPkl creates a dummy executable named `pkl` that prints JSON and exits 0.
@@ -16,26 +18,25 @@ func createStubPkl(t *testing.T) (stubDir string, cleanup func()) {
 		exeName = "pkl.bat"
 	}
 	stubPath := filepath.Join(dir, exeName)
-	script := `#!/bin/sh
-	output_path=
-	prev=
-	for arg in "$@"; do
-	if [ "$prev" = "--output-path" ]; then
-		output_path="$arg"
-		break
-	fi
-	prev="$arg"
-	done
-	json='{"hello":"world"}'
-	# emit JSON to stdout
-	echo "$json"
-	# if --output-path was supplied, also write JSON to that file
-	if [ -n "$output_path" ]; then
-	echo "$json" > "$output_path"
-	fi
-	`
+	script := `#!/bin/bash
+echo "Pkl ` + version.PklVersion + ` (test environment)"
+echo "  Available subcommands:"
+echo "    eval    Evaluate a Pkl module"
+echo "    test    Run tests for a Pkl module"
+echo "    repl    Start a Pkl REPL"
+`
 	if runtime.GOOS == "windows" {
-		script = "@echo {\"hello\":\"world\"}\r\n"
+		script = `@echo off
+if "%1"=="--version" (
+    echo Pkl ` + version.PklVersion + ` (test environment)
+    exit /b 0
+)
+if "%1"=="eval" (
+    echo {"hello":"world"}
+    exit /b 0
+)
+echo {"hello":"world"}
+`
 	}
 	if err := os.WriteFile(stubPath, []byte(script), 0o755); err != nil {
 		t.Fatalf("failed to write stub: %v", err)

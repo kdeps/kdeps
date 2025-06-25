@@ -14,6 +14,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/download"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
+	"github.com/kdeps/kdeps/pkg/version"
 )
 
 type URLInfo struct {
@@ -25,16 +26,17 @@ type URLInfo struct {
 	LocalNameTemplate string
 }
 
-var archMappings = map[string]map[string]string{
+var ArchMappings = map[string]map[string]string{
 	"apple/pkl": {"amd64": "amd64", "arm64": "aarch64"},
 	"default":   {"amd64": "x86_64", "arm64": "aarch64"},
 }
 
+// GetCurrentArchitecture gets the current system architecture
 func GetCurrentArchitecture(ctx context.Context, repo string) string {
 	goArch := runtime.GOARCH
-	mapping, ok := archMappings[repo]
+	mapping, ok := ArchMappings[repo]
 	if !ok {
-		mapping = archMappings["default"]
+		mapping = ArchMappings["default"]
 	}
 	if arch, ok := mapping[goArch]; ok {
 		return arch
@@ -42,8 +44,9 @@ func GetCurrentArchitecture(ctx context.Context, repo string) string {
 	return goArch
 }
 
+// CompareVersions compares two version strings
 func CompareVersions(ctx context.Context, v1, v2 string) bool {
-	p1, p2 := parseVersion(v1), parseVersion(v2)
+	p1, p2 := ParseVersion(v1), ParseVersion(v2)
 	maxLen := max(len(p1), len(p2))
 
 	for i := range maxLen {
@@ -61,7 +64,8 @@ func CompareVersions(ctx context.Context, v1, v2 string) bool {
 	return false
 }
 
-func parseVersion(v string) []int {
+// ParseVersion parses a version string into a slice of integers
+func ParseVersion(v string) []int {
 	parts := strings.FieldsFunc(v, func(r rune) bool { return r == '.' || r == '-' })
 	res := make([]int, len(parts))
 	for i, p := range parts {
@@ -71,6 +75,7 @@ func parseVersion(v string) []int {
 	return res
 }
 
+// GetLatestAnacondaVersions gets the latest Anaconda versions
 func GetLatestAnacondaVersions(ctx context.Context) (map[string]string, error) {
 	client := &http.Client{}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://repo.anaconda.com/archive/", nil)
@@ -109,26 +114,37 @@ func GetLatestAnacondaVersions(ctx context.Context) (map[string]string, error) {
 	return versions, nil
 }
 
-func buildURL(baseURL, version, arch string) string {
+// BuildURL builds a download URL
+func BuildURL(baseURL, version, arch string) string {
 	return strings.NewReplacer("{version}", version, "{arch}", arch).Replace(baseURL)
 }
 
+// GenerateURLs generates download URLs
 func GenerateURLs(ctx context.Context) ([]download.DownloadItem, error) {
+	return GenerateURLsWithOptions(ctx, true)
+}
+
+// GenerateURLsWithOptions generates download URLs with options
+func GenerateURLsWithOptions(ctx context.Context, includeAnaconda bool) ([]download.DownloadItem, error) {
 	urlInfos := []URLInfo{
 		{
-			BaseURL:           "https://github.com/apple/pkl/releases/download/{version}/pkl-linux-{arch}",
+			BaseURL:           "https://github.com/apple/pkl/releases/download",
 			Repo:              "apple/pkl",
-			Version:           "0.28.2",
+			IsAnaconda:        false,
+			Version:           version.PklVersion,
 			Architectures:     []string{"amd64", "aarch64"},
 			LocalNameTemplate: "pkl-linux-{version}-{arch}",
 		},
-		{
+	}
+
+	if includeAnaconda {
+		urlInfos = append(urlInfos, URLInfo{
 			BaseURL:           "https://repo.anaconda.com/archive/Anaconda3-{version}-Linux-{arch}.sh",
 			IsAnaconda:        true,
-			Version:           "2024.10-1",
+			Version:           version.AnacondaVersion,
 			Architectures:     []string{"x86_64", "aarch64"},
 			LocalNameTemplate: "anaconda-linux-{version}-{arch}.sh",
-		},
+		})
 	}
 
 	var items []download.DownloadItem
@@ -153,7 +169,7 @@ func GenerateURLs(ctx context.Context) ([]download.DownloadItem, error) {
 		}
 
 		if utils.ContainsString(info.Architectures, currentArch) {
-			url := buildURL(info.BaseURL, version, currentArch)
+			url := BuildURL(info.BaseURL, version, currentArch)
 
 			localVersion := version
 			if schema.UseLatest {

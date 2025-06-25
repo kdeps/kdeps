@@ -42,23 +42,23 @@ func TestPKLHTTPFormattersMisc(t *testing.T) {
 	}
 	formattedHeaders := FormatRequestHeaders(headers)
 	// Expect outer block and encoded inner values
-	assert.True(t, strings.HasPrefix(formattedHeaders, "headers {"))
+	assert.True(t, strings.HasPrefix(formattedHeaders, "headers{"))
 	assert.Contains(t, formattedHeaders, EncodeBase64String("val1"))
 	assert.Contains(t, formattedHeaders, EncodeBase64String("val2"))
 
 	params := map[string][]string{"q": {" go ", "lang"}}
 	formattedParams := FormatRequestParams(params)
-	assert.True(t, strings.HasPrefix(formattedParams, "params {"))
+	assert.True(t, strings.HasPrefix(formattedParams, "params{"))
 	assert.Contains(t, formattedParams, EncodeBase64String("go")) // Trimmed
 
 	respHeaders := map[string]string{"Content-Type": "application/json"}
 	formattedRespHeaders := FormatResponseHeaders(respHeaders)
-	assert.True(t, strings.HasPrefix(formattedRespHeaders, "headers {"))
+	assert.True(t, strings.HasPrefix(formattedRespHeaders, "headers{"))
 	assert.Contains(t, formattedRespHeaders, "application/json")
 
 	props := map[string]string{"duration": "120"}
 	formattedProps := FormatResponseProperties(props)
-	assert.True(t, strings.HasPrefix(formattedProps, "properties {"))
+	assert.True(t, strings.HasPrefix(formattedProps, "properties{"))
 	assert.Contains(t, formattedProps, "120")
 }
 

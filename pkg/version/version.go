@@ -15,7 +15,7 @@ const (
 	AnacondaVersion = "2024.10-1"
 
 	// Schema version for kdeps core
-	SchemaVersion = "0.2.30"
+	SchemaVersion = "0.2.40"
 )
 
 // Docker image tags

@@ -90,4 +90,10 @@ const (
 	// Utils files messages
 	MsgWaitingForFileReady = "waiting for file to be ready..."
 	MsgFileIsReady         = "file is ready!"
+
+	// Additional server startup messages
+	MsgStartAPIServerBackground = "starting API server in the background..."
+	MsgStartWebServerBackground = "starting Web server in the background..."
+	MsgStartAPIServerOnPort     = "starting API server on port %s"
+	MsgStartWebServerOnPort     = "starting Web server on port %s"
 )

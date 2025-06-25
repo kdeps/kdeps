@@ -26,7 +26,7 @@ func main() {
 	v.Version = version
 	v.Commit = commit
 
-	logger := logging.GetLogger()
+	logger := GetLoggerFn()
 	fs := NewOsFsFn()
 
 	// Global context and cancel for dependency injection
@@ -39,7 +39,7 @@ func main() {
 	sharedDir := filepath.Join("/", ".kdeps")
 
 	// Setup environment
-	env, err := SetupEnvironmentFn(fs)
+	env, err := SetupEnvironment(fs)
 	if err != nil {
 		logger.Fatalf("failed to set up environment: %v", err)
 	}
@@ -56,13 +56,13 @@ func main() {
 			logger.Fatalf("failed to create graph resolver: %v", err)
 		}
 
-		HandleDockerModeFn(ctx, dr, cancel)
+		HandleDockerMode(ctx, dr, cancel)
 	} else {
-		HandleNonDockerModeFn(fs, ctx, env, logger)
+		HandleNonDockerMode(fs, ctx, env, logger)
 	}
 }
 
-func handleDockerMode(ctx context.Context, dr *resolver.DependencyResolver, cancel context.CancelFunc) {
+func HandleDockerMode(ctx context.Context, dr *resolver.DependencyResolver, cancel context.CancelFunc) {
 	// Start the message bus server
 	busService, err := StartBusServerBackgroundFn(dr.Logger)
 	if err != nil {
@@ -85,7 +85,7 @@ func handleDockerMode(ctx context.Context, dr *resolver.DependencyResolver, canc
 
 	// Run workflow or wait for shutdown
 	if !apiServerMode {
-		if err := runGraphResolverActionsFn(ctx, dr, apiServerMode); err != nil {
+		if err := RunGraphResolverActionsFn(ctx, dr, apiServerMode); err != nil {
 			dr.Logger.Error("error running graph resolver", "error", err)
 			SendSigtermFn(dr.Logger)
 			return
@@ -98,7 +98,7 @@ func handleDockerMode(ctx context.Context, dr *resolver.DependencyResolver, canc
 	cleanupFn(dr.Fs, ctx, dr.Environment, apiServerMode, dr.Logger)
 }
 
-func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) {
+func HandleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) {
 	cfgFile, err := FindConfigurationFn(fs, ctx, env, logger)
 	if err != nil {
 		logger.Error("error occurred finding configuration")
@@ -149,8 +149,8 @@ func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Envi
 	}
 }
 
-// setupEnvironment initializes the environment using the filesystem.
-func setupEnvironment(fs afero.Fs) (*environment.Environment, error) {
+// SetupEnvironment initializes the environment using the filesystem.
+func SetupEnvironment(fs afero.Fs) (*environment.Environment, error) {
 	environ, err := NewEnvironmentFn(fs, nil)
 	if err != nil {
 		return nil, err
@@ -158,8 +158,8 @@ func setupEnvironment(fs afero.Fs) (*environment.Environment, error) {
 	return environ, nil
 }
 
-// setupSignalHandler sets up a goroutine to handle OS signals for graceful shutdown.
-func setupSignalHandler(fs afero.Fs, ctx context.Context, cancelFunc context.CancelFunc, env *environment.Environment, apiServerMode bool, logger *logging.Logger) {
+// SetupSignalHandler sets up a goroutine to handle OS signals for graceful shutdown.
+func SetupSignalHandler(fs afero.Fs, ctx context.Context, cancelFunc context.CancelFunc, env *environment.Environment, apiServerMode bool, logger *logging.Logger) {
 	sigs := MakeSignalChanFn()
 	SignalNotifyWrapper(sigs, syscall.SIGINT, syscall.SIGTERM)
 
@@ -202,8 +202,8 @@ func setupSignalHandler(fs afero.Fs, ctx context.Context, cancelFunc context.Can
 	}()
 }
 
-// runGraphResolver prepares and runs the graph resolver.
-func runGraphResolverActions(ctx context.Context, dr *resolver.DependencyResolver, apiServerMode bool) error {
+// RunGraphResolverActions prepares and runs the graph resolver.
+func RunGraphResolverActions(ctx context.Context, dr *resolver.DependencyResolver, apiServerMode bool) error {
 	// Prepare workflow directory
 	if err := PrepareWorkflowDirFn(dr); err != nil {
 		return fmt.Errorf("failed to prepare workflow directory: %w", err)
@@ -241,8 +241,8 @@ func runGraphResolverActions(ctx context.Context, dr *resolver.DependencyResolve
 	return nil
 }
 
-// cleanup performs any necessary cleanup tasks before shutting down.
-func cleanup(fs afero.Fs, ctx context.Context, env *environment.Environment, apiServerMode bool, logger *logging.Logger) {
+// Cleanup performs any necessary cleanup tasks before shutting down.
+func Cleanup(fs afero.Fs, ctx context.Context, env *environment.Environment, apiServerMode bool, logger *logging.Logger) {
 	logger.Debug("performing cleanup tasks...")
 
 	// Remove any old cleanup flags

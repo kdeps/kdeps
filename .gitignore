@@ -230,3 +230,4 @@ pkg/**/**/*.pkl
 *.txt
 temp_end
 temp_main
+./kdeps

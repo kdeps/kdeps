@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/apple/pkl-go/pkl"
@@ -16,22 +15,59 @@ import (
 	"github.com/spf13/afero"
 )
 
+// Injectable function declarations for better testability
+var (
+	// ExecLookPathFunc allows injection of executable lookup
+	ExecLookPathFunc = func(file string) (string, error) {
+		return exec.LookPath(file)
+	}
+
+	// OsExitFunc allows injection of os.Exit for testing
+	OsExitFunc = func(code int) {
+		os.Exit(code)
+	}
+
+	// NewPklEvaluatorFunc allows injection of PKL evaluator creation
+	NewPklEvaluatorFunc = func(ctx context.Context, opts func(options *pkl.EvaluatorOptions)) (pkl.Evaluator, error) {
+		return pkl.NewEvaluator(ctx, opts)
+	}
+
+	// AferoTempFileFunc allows injection of temporary file creation
+	AferoTempFileFunc = func(fs afero.Fs, dir, pattern string) (afero.File, error) {
+		return afero.TempFile(fs, dir, pattern)
+	}
+
+	// AferoTempDirFunc allows injection of temporary directory creation
+	AferoTempDirFunc = func(fs afero.Fs, dir, prefix string) (string, error) {
+		return afero.TempDir(fs, dir, prefix)
+	}
+
+	// AferoReadFileFunc allows injection of file reading
+	AferoReadFileFunc = func(fs afero.Fs, filename string) ([]byte, error) {
+		return afero.ReadFile(fs, filename)
+	}
+
+	// AferoWriteFileFunc allows injection of file writing
+	AferoWriteFileFunc = func(fs afero.Fs, filename string, data []byte, perm os.FileMode) error {
+		return afero.WriteFile(fs, filename, data, perm)
+	}
+)
+
 // EnsurePklBinaryExists checks if the 'pkl' binary exists in the system PATH.
 func EnsurePklBinaryExists(ctx context.Context, logger *logging.Logger) error {
 	binaryNames := []string{"pkl", "pkl.exe"} // Support both Unix-like and Windows binary names
 	for _, binaryName := range binaryNames {
-		if _, err := exec.LookPath(binaryName); err == nil {
+		if _, err := ExecLookPathFunc(binaryName); err == nil {
 			return nil // Found a valid binary, no error
 		}
 	}
 	// Log the error if none of the binaries were found
 	logger.Fatal("apple PKL not found in PATH. Please install Apple PKL (see https://pkl-lang.org/main/current/pkl-cli/index.html#installation) for more details")
-	os.Exit(1)
+	OsExitFunc(1)
 	return nil // Unreachable, but included for clarity
 }
 
 // EvalPkl evaluates the resource file at resourcePath using the Pkl library.
-// If the file content is a quoted PKL code string like "new <Dynamic,Listing,Mapping,etc..> {...}", it removes the quotes and writes it to a temporary file for evaluation.
 func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSection string, opts func(options *pkl.EvaluatorOptions), logger *logging.Logger) (string, error) {
 	// Validate that the file has a .pkl extension
 	if filepath.Ext(resourcePath) != ".pkl" {
@@ -40,53 +76,9 @@ func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSectio
 		return "", fmt.Errorf("%s", errMsg)
 	}
 
-	// Read the file content
-	content, err := afero.ReadFile(fs, resourcePath)
-	if err != nil {
-		logger.Error("failed to read file", "resourcePath", resourcePath, "error", err)
-		return "", fmt.Errorf("error reading %s: %w", resourcePath, err)
-	}
-	contentStr := string(content)
-	logger.Debug("read file content", "resourcePath", resourcePath, "content", contentStr)
-
-	// Check if file content is a quoted PKL code string of the form "new <Dynamic,Listing,Mapping,etc..> {...}"
-	// where the block can span multiple lines
-	pklPattern := regexp.MustCompile(`(?s)^(?:\"|\')\s*new\s+(Dynamic|Listing|Mapping|[a-zA-Z][a-zA-Z0-9]*)\s*\{[\s\S]*?\}\s*(?:\"|\')$`)
-	dataToEvaluate := contentStr
-	evalPath := resourcePath // Default to original file path
-	if pklPattern.MatchString(contentStr) {
-		// Remove surrounding quotes
-		dataToEvaluate = strings.Trim(contentStr, "\"'")
-		logger.Debug("detected quoted PKL code pattern, removed quotes", "resourcePath", resourcePath, "original", contentStr, "modified", dataToEvaluate)
-
-		// Create a temporary file for the modified content
-		tempFile, err := afero.TempFile(fs, "", "pkl-*.pkl")
-		if err != nil {
-			logger.Error("failed to create temporary file", "error", err)
-			return "", fmt.Errorf("error creating temporary file: %w", err)
-		}
-		tempPath := tempFile.Name()
-		defer func() {
-			if err := fs.Remove(tempPath); err != nil {
-				logger.Warn("failed to remove temporary file", "tempPath", tempPath, "error", err)
-			}
-		}()
-
-		// Write the modified (unquoted) content to the temporary file
-		if _, err := tempFile.Write([]byte(dataToEvaluate)); err != nil {
-			logger.Error("failed to write modified PKL content to temporary file", "tempPath", tempPath, "error", err)
-			return "", fmt.Errorf("error writing modified content to %s: %w", tempPath, err)
-		}
-		if err := tempFile.Close(); err != nil {
-			logger.Error("failed to close temporary file", "tempPath", tempPath, "error", err)
-			return "", fmt.Errorf("error closing temporary file %s: %w", tempPath, err)
-		}
-		logger.Debug("successfully wrote modified PKL content to temporary file", "tempPath", tempPath)
-
-		evalPath = tempPath // Use temporary file for evaluation
-	} else {
-		logger.Debug("no quoted PKL pattern match", "resourcePath", resourcePath, "content", contentStr)
-	}
+	// Use the resource path directly for evaluation
+	evalPath := resourcePath
+	logger.Debug("evaluating PKL file", "resourcePath", resourcePath)
 
 	// Create a ModuleSource using UriSource for paths with a protocol, FileSource for relative paths
 	var moduleSource *pkl.ModuleSource
@@ -112,7 +104,7 @@ func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSectio
 		}
 	}
 
-	pklEvaluator, err := pkl.NewEvaluator(ctx, opts)
+	pklEvaluator, err := NewPklEvaluatorFunc(ctx, opts)
 	if err != nil {
 		logger.Error("failed to create Pkl evaluator", "resourcePath", resourcePath, "error", err)
 		return "", fmt.Errorf("error creating evaluator for %s: %w", evalPath, err)
@@ -129,13 +121,18 @@ func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSectio
 	// Format the result by prepending the headerSection
 	formattedResult := fmt.Sprintf("%s\n%s", headerSection, result)
 
-	// Write the formatted result to the original file
-	err = afero.WriteFile(fs, resourcePath, []byte(formattedResult), 0o644)
-	if err != nil {
-		logger.Error("failed to write formatted result to file", "resourcePath", resourcePath, "error", err)
-		return "", fmt.Errorf("error writing formatted result to %s: %w", resourcePath, err)
+	// Only write back to file for local files, not package URIs
+	if !strings.HasPrefix(resourcePath, "package://") {
+		// Write the formatted result to the original file
+		err = AferoWriteFileFunc(fs, resourcePath, []byte(formattedResult), 0o644)
+		if err != nil {
+			logger.Error("failed to write formatted result to file", "resourcePath", resourcePath, "error", err)
+			return "", fmt.Errorf("error writing formatted result to %s: %w", resourcePath, err)
+		}
+		logger.Debug("successfully wrote formatted result to file", "resourcePath", resourcePath)
+	} else {
+		logger.Debug("skipping file write for package URI", "resourcePath", resourcePath)
 	}
-	logger.Debug("successfully wrote formatted result to file", "resourcePath", resourcePath)
 
 	// Return the formatted result
 	return formattedResult, nil
@@ -153,26 +150,19 @@ func CreateAndProcessPklFile(
 	isExtension bool, // New parameter to control amends vs extends
 ) error {
 	// Create a temporary directory
-	tmpDir, err := afero.TempDir(fs, "", "")
+	tmpDir, err := AferoTempDirFunc(fs, "", "")
 	if err != nil {
 		logger.Error("failed to create temporary directory", "path", tmpDir, "error", err)
 		return fmt.Errorf("failed to create temporary directory: %w", err)
 	}
 
 	// Create a unique temporary file in the temporary directory
-	tmpFile, err := afero.TempFile(fs, tmpDir, "*.pkl") // This will create a unique temporary file
+	tmpFile, err := AferoTempFileFunc(fs, tmpDir, "*.pkl") // This will create a unique temporary file
 	if err != nil {
 		logger.Error("failed to create temporary file", "dir", tmpDir, "error", err)
 		return fmt.Errorf("failed to create temporary file: %w", err)
 	}
 	defer tmpFile.Close()
-
-	// defer func() {
-	//	// Cleanup: Remove the temporary directory
-	//	if removeErr := fs.RemoveAll(tmpDir); removeErr != nil {
-	//		logger.Warn("failed to clean up temporary directory", "directory", tmpDir, "error", removeErr)
-	//	}
-	// }()
 
 	// Choose "amends" or "extends" based on isExtension
 	relationship := "amends"
@@ -199,7 +189,7 @@ func CreateAndProcessPklFile(
 	}
 
 	// Write the processed content to the final file
-	err = afero.WriteFile(fs, finalFileName, []byte(processedContent), 0o644)
+	err = AferoWriteFileFunc(fs, finalFileName, []byte(processedContent), 0o644)
 	if err != nil {
 		logger.Error("failed to write final file", "path", finalFileName, "error", err)
 		return fmt.Errorf("failed to write final file: %w", err)

@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -63,14 +64,15 @@ func (dr *DependencyResolver) buildResponseSections(ctx context.Context, logger 
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Tool.pkl" as tool`, schema.SchemaVersion(dr.Context)),
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Item.pkl" as item`, schema.SchemaVersion(dr.Context)),
 		fmt.Sprintf("success = %v", apiResponseBlock.GetSuccess()),
-		formatResponseMeta(requestID, apiResponseBlock.GetMeta()),
-		formatResponseData(ctx, apiResponseBlock.GetResponse(), logger, pklEvaluator),
-		formatErrors(apiResponseBlock.GetErrors(), dr.Logger),
+		FormatResponseMeta(requestID, apiResponseBlock.GetMeta()),
+		FormatResponseData(ctx, apiResponseBlock.GetResponse(), logger, pklEvaluator),
+		FormatErrors(apiResponseBlock.GetErrors(), dr.Logger),
 	}
 	return sections
 }
 
-func formatResponseData(ctx context.Context, response *apiserverresponse.APIServerResponseBlock, logger *logging.Logger, pklEvaluator pkl.Evaluator) string {
+// FormatResponseData formats response data
+func FormatResponseData(ctx context.Context, response *apiserverresponse.APIServerResponseBlock, logger *logging.Logger, pklEvaluator pkl.Evaluator) string {
 	if response == nil || response.Data == nil {
 		return ""
 	}
@@ -83,7 +85,7 @@ func formatResponseData(ctx context.Context, response *apiserverresponse.APIServ
 			val = utils.FixJSON(string(byteVal))
 		}
 
-		responseData = append(responseData, formatDataValue(ctx, val, logger, pklEvaluator))
+		responseData = append(responseData, FormatDataValue(ctx, val, logger, pklEvaluator))
 	}
 
 	if len(responseData) == 0 {
@@ -98,8 +100,9 @@ response {
 }`, strings.Join(responseData, "\n    "))
 }
 
-func formatResponseMeta(requestID string, meta *apiserverresponse.APIServerResponseMetaBlock) string {
-	if meta == nil || *meta.Headers == nil && *meta.Properties == nil {
+// FormatResponseMeta formats response metadata
+func FormatResponseMeta(requestID string, meta *apiserverresponse.APIServerResponseMetaBlock) string {
+	if meta == nil || (meta.Headers == nil && meta.Properties == nil) {
 		return fmt.Sprintf(`
 meta {
   requestID = "%s"
@@ -107,8 +110,13 @@ meta {
 `, requestID)
 	}
 
-	responseMetaHeaders := utils.FormatResponseHeaders(*meta.Headers)
-	responseMetaProperties := utils.FormatResponseProperties(*meta.Properties)
+	var responseMetaHeaders, responseMetaProperties string
+	if meta.Headers != nil {
+		responseMetaHeaders = utils.FormatResponseHeaders(*meta.Headers)
+	}
+	if meta.Properties != nil {
+		responseMetaProperties = utils.FormatResponseProperties(*meta.Properties)
+	}
 
 	if len(responseMetaHeaders) == 0 && len(responseMetaProperties) == 0 {
 		return fmt.Sprintf(`
@@ -126,51 +134,76 @@ meta {
 }`, requestID, responseMetaHeaders, responseMetaProperties)
 }
 
-// formatMap formats a map into the desired string representation
-func formatMap(m map[interface{}]interface{}) string {
+// FormatMap formats a map
+func FormatMap(m map[interface{}]interface{}) string {
 	mappingParts := []string{"new Mapping {"}
 	for k, v := range m {
 		keyStr := strings.ReplaceAll(fmt.Sprintf("%v", k), `"`, `\"`)
-		valueStr := formatValue(v)
+		valueStr := FormatValue(v)
 		mappingParts = append(mappingParts, fmt.Sprintf(`    ["%s"] = "%s"`, keyStr, valueStr))
 	}
 	mappingParts = append(mappingParts, "}")
 	return strings.Join(mappingParts, "\n")
 }
 
-// formatValue formats a value based on its type
-func formatValue(value interface{}) string {
+// FormatValue formats any value
+func FormatValue(value interface{}) string {
 	switch v := value.(type) {
 	case map[string]interface{}:
-		m := make(map[interface{}]interface{})
-		for key, val := range v {
-			m[key] = val
+		// Convert map to JSON string and escape it for PKL
+		jsonBytes, err := json.Marshal(v)
+		if err != nil {
+			// Fallback to mapping format if JSON marshal fails
+			m := make(map[interface{}]interface{})
+			for key, val := range v {
+				m[key] = val
+			}
+			return FormatMap(m)
 		}
-		return formatMap(m)
+		jsonStr := string(jsonBytes)
+		// Properly escape the JSON string for PKL
+		escapedVal := strings.ReplaceAll(jsonStr, `\`, `\\`)
+		escapedVal = strings.ReplaceAll(escapedVal, `"`, `\"`)
+		return fmt.Sprintf(`"%s"`, escapedVal)
 	case map[interface{}]interface{}:
-		return formatMap(v)
+		return FormatMap(v)
+	case []interface{}:
+		// Convert slice to JSON string and escape it for PKL
+		jsonBytes, err := json.Marshal(v)
+		if err != nil {
+			// Fallback to listing format if JSON marshal fails
+			return FormatSlice(v, reflect.ValueOf(v))
+		}
+		jsonStr := string(jsonBytes)
+		// Properly escape the JSON string for PKL
+		escapedVal := strings.ReplaceAll(jsonStr, `\`, `\\`)
+		escapedVal = strings.ReplaceAll(escapedVal, `"`, `\"`)
+		return fmt.Sprintf(`"%s"`, escapedVal)
 	case nil:
 		return "null"
 	default:
 		rv := reflect.ValueOf(v)
 		if rv.Kind() == reflect.Ptr && !rv.IsNil() {
-			return formatValue(rv.Elem().Interface())
+			return FormatValue(rv.Elem().Interface())
 		}
 		if rv.Kind() == reflect.Struct {
-			return formatMap(structToMap(rv.Interface()))
+			return FormatMap(StructToMap(rv.Interface()))
 		}
 		if rv.Kind() == reflect.Slice {
-			return formatSlice(v, rv)
+			return FormatSlice(v, rv)
 		}
-		// Format the value as a string
+		// Format the value as a properly escaped string for primitive types
 		valStrV := fmt.Sprintf("%v", v)
 		valStr := utils.FixJSON(valStrV)
-		return fmt.Sprintf(`%v`, valStr)
+		// Properly escape the string for PKL
+		escapedVal := strings.ReplaceAll(valStr, `\`, `\\`)
+		escapedVal = strings.ReplaceAll(escapedVal, `"`, `\"`)
+		return fmt.Sprintf(`"%s"`, escapedVal)
 	}
 }
 
-// formatSlice formats a slice into a Listing string with semicolon-separated values
-func formatSlice(value interface{}, rv reflect.Value) string {
+// FormatSlice formats a slice
+func FormatSlice(value interface{}, rv reflect.Value) string {
 	listingParts := []string{"new Listing {"}
 	length := rv.Len()
 	if length == 0 {
@@ -180,15 +213,16 @@ func formatSlice(value interface{}, rv reflect.Value) string {
 
 	for i := 0; i < length; i++ {
 		item := rv.Index(i).Interface()
-		itemStr := formatValue(item)
-		listingParts = append(listingParts, fmt.Sprintf("    \n\"\"\"\n%s\n\"\"\"\n", itemStr))
+		itemStr := FormatValue(item)
+		// Use properly escaped values instead of triple quotes
+		listingParts = append(listingParts, fmt.Sprintf("    %s", itemStr))
 	}
 	listingParts = append(listingParts, "}")
 	return strings.Join(listingParts, "\n")
 }
 
-// structToMap converts a struct to a map for formatting
-func structToMap(s interface{}) map[interface{}]interface{} {
+// StructToMap converts struct to map
+func StructToMap(s interface{}) map[interface{}]interface{} {
 	result := make(map[interface{}]interface{})
 	val := reflect.ValueOf(s)
 	if val.Kind() == reflect.Ptr {
@@ -202,23 +236,19 @@ func structToMap(s interface{}) map[interface{}]interface{} {
 	return result
 }
 
-func formatDataValue(ctx context.Context, value interface{}, logger *logging.Logger, pklEvaluator pkl.Evaluator) string {
-	jsonStr, _ := utils.EvaluateStringToJSON(formatValue(value), logger, pklEvaluator, ctx)
+// FormatDataValue formats data values
+func FormatDataValue(ctx context.Context, value interface{}, logger *logging.Logger, pklEvaluator pkl.Evaluator) string {
+	formattedValue := FormatValue(value)
 
-	// Fallback: Check for escaped double quote (\") or unescaped double quote (")
-	if strings.Contains(jsonStr, "\\\"") {
-		return fmt.Sprintf(`"%s"`, jsonStr)
-	} else if strings.Contains(jsonStr, "\"") {
-		return strings.TrimSpace(fmt.Sprintf(`"""
-%s
-"""`, jsonStr))
-	}
+	// Simply escape the value for PKL without complex re-parsing
+	escapedValue := strings.ReplaceAll(formattedValue, `\`, `\\`)
+	escapedValue = strings.ReplaceAll(escapedValue, `"`, `\"`)
 
-	// Default case: use single quotes
-	return fmt.Sprintf(`"%s"`, jsonStr)
+	return fmt.Sprintf(`"%s"`, escapedValue)
 }
 
-func formatErrors(errors *[]*apiserverresponse.APIServerErrorsBlock, logger *logging.Logger) string {
+// FormatErrors formats error messages
+func FormatErrors(errors *[]*apiserverresponse.APIServerErrorsBlock, logger *logging.Logger) string {
 	if errors == nil || len(*errors) == 0 {
 		return ""
 	}
@@ -226,7 +256,7 @@ func formatErrors(errors *[]*apiserverresponse.APIServerErrorsBlock, logger *log
 	var newBlocks string
 	for _, err := range *errors {
 		if err != nil {
-			decodedMessage := decodeErrorMessage(err.Message, logger)
+			decodedMessage := DecodeErrorMessage(err.Message, logger)
 			newBlocks += fmt.Sprintf(`
   new {
     code = %d
@@ -244,7 +274,8 @@ func formatErrors(errors *[]*apiserverresponse.APIServerErrorsBlock, logger *log
 	return ""
 }
 
-func decodeErrorMessage(message string, logger *logging.Logger) string {
+// DecodeErrorMessage decodes error messages
+func DecodeErrorMessage(message string, logger *logging.Logger) string {
 	if message == "" {
 		return ""
 	}

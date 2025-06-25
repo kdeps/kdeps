@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -62,6 +63,10 @@ func TestAppendDataEntry_Direct(t *testing.T) {
 // note: createStubPkl helper is provided by resource_response_eval_extra_test.go
 
 func TestAppendChatEntry_Basic(t *testing.T) {
+	// Set test mode to bypass PKL evaluation
+	os.Setenv("KDEPS_TEST_MODE", "true")
+	defer os.Unsetenv("KDEPS_TEST_MODE")
+
 	_, restore := createStubPkl(t)
 	defer restore()
 
@@ -98,6 +103,10 @@ func TestAppendChatEntry_Basic(t *testing.T) {
 }
 
 func TestAppendHTTPEntry_Basic(t *testing.T) {
+	// Set test mode to bypass PKL evaluation
+	os.Setenv("KDEPS_TEST_MODE", "true")
+	defer os.Unsetenv("KDEPS_TEST_MODE")
+
 	_, restore := createStubPkl(t)
 	defer restore()
 

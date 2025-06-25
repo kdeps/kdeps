@@ -7,13 +7,13 @@ import (
 	"sync"
 
 	"github.com/kdeps/kdeps/pkg/utils"
+	"github.com/kdeps/kdeps/pkg/version"
 )
 
 var (
-	cachedVersion    string
-	once             sync.Once
-	specifiedVersion string = "0.2.40" // Default specified version
-	UseLatest        bool   = false
+	cachedVersion string
+	once          sync.Once
+	UseLatest     bool = false
 )
 
 // SchemaVersion(ctx) fetches and returns the schema version based on the cmd.Latest flag.
@@ -30,6 +30,6 @@ func SchemaVersion(ctx context.Context) string {
 		return cachedVersion
 	}
 
-	// Use the specified version if not using the latest
-	return specifiedVersion
+	// Use the centralized version from pkg/version instead of hardcoded string
+	return version.SchemaVersion
 }

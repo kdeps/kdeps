@@ -1362,13 +1362,13 @@ func TestLoadDockerfileTemplate(t *testing.T) {
 			ApiServerMode    bool
 			ExposedPort      string
 		}{
-			ImageVersion:     "0.9.2",
+			ImageVersion:     versionpkg.DefaultOllamaImageTag,
 			SchemaVersion:    schema.SchemaVersion(context.Background()),
 			HostIP:           "localhost",
 			OllamaPortNum:    "11434",
 			KdepsHost:        "localhost",
 			Timezone:         "UTC",
-			PklVersion:       "0.28.2",
+			PklVersion:       versionpkg.PklVersion,
 			EnvsSection:      "",
 			ArgsSection:      "",
 			InstallAnaconda:  false,
@@ -1384,7 +1384,7 @@ func TestLoadDockerfileTemplate(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotEmpty(t, content)
 		// The template should contain the Ollama image version
-		assert.Contains(t, content, "ollama/ollama:0.9.2")
+		assert.Contains(t, content, "ollama/ollama:"+versionpkg.DefaultOllamaImageTag) // Use centralized version
 	})
 
 	t.Run("EmbeddedTemplateWithComplexData", func(t *testing.T) {
@@ -1434,7 +1434,7 @@ func TestLoadDockerfileTemplate(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotEmpty(t, content)
 		// Basic validation that template was processed correctly
-		assert.Contains(t, content, "ollama/ollama:0.9.2")
+		assert.Contains(t, content, "ollama/ollama:"+versionpkg.DefaultOllamaImageTag)
 		assert.Contains(t, content, "ENV CUSTOM_VAR=value")
 		assert.Contains(t, content, "ARG CUSTOM_ARG=default")
 		assert.Contains(t, content, "EXPOSE 3000")

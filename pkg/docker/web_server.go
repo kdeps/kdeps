@@ -39,7 +39,7 @@ func StartWebServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 
 	SetupWebRoutes(router, ctx, hostIP, wfTrustedProxies, wfWebServer.Routes, dr)
 
-	dr.Logger.Printf("Starting Web server on port %s", hostPort)
+	dr.Logger.Printf(messages.MsgStartWebServerOnPort, hostPort)
 
 	go func() {
 		if err := router.Run(hostPort); err != nil {

@@ -327,24 +327,53 @@ func TestStartBusServerRaceCondition(t *testing.T) {
 
 	logger := logging.NewTestLogger()
 
-	// Test concurrent access to avoid race conditions
+	// Save original functions
+	originalRegister := rpcRegisterFunc
+	originalListen := netListenFunc
+	originalAccept := rpcAcceptFunc
+	defer func() {
+		rpcRegisterFunc = originalRegister
+		netListenFunc = originalListen
+		rpcAcceptFunc = originalAccept
+	}()
+
+	// Mock functions to prevent actual network calls and hanging
+	rpcRegisterFunc = func(rcvr interface{}) error {
+		return fmt.Errorf("service already registered") // Fail quickly
+	}
+	netListenFunc = func(network, address string) (net.Listener, error) {
+		return nil, fmt.Errorf("address already in use") // Fail quickly
+	}
+	rpcAcceptFunc = func(lis net.Listener) {
+		// Do nothing to avoid hanging
+	}
+
+	// Test concurrent access to avoid race conditions with timeout
 	done := make(chan bool, 2)
+	timeout := time.After(5 * time.Second)
 
 	go func() {
 		defer func() { done <- true }()
-		// This will likely fail due to port conflict, but shouldn't race
+		// This will fail quickly due to mocked functions
 		StartBusServer(logger)
 	}()
 
 	go func() {
 		defer func() { done <- true }()
-		// This will also likely fail due to port conflict, but shouldn't race
+		// This will also fail quickly due to mocked functions
 		StartBusServer(logger)
 	}()
 
-	// Wait for both goroutines to complete
-	<-done
-	<-done
+	// Wait for both goroutines to complete or timeout
+	completed := 0
+	for completed < 2 {
+		select {
+		case <-done:
+			completed++
+		case <-timeout:
+			t.Fatalf("Test timed out waiting for goroutines to complete")
+		}
+	}
 }
 
 // TestBusServicePublishEventConcurrency tests concurrent event publishing

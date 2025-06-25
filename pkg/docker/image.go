@@ -21,10 +21,14 @@ import (
 	"github.com/kdeps/kdeps/pkg/download"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/version"
 	"github.com/kdeps/kdeps/pkg/workflow"
 	kdCfg "github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 )
+
+// LoadWorkflowFn is a function variable for loading workflows (for testing purposes)
+var LoadWorkflowFn = workflow.LoadWorkflow
 
 // BuildLine struct is used to unmarshal Docker build log lines from the response.
 type BuildLine struct {
@@ -35,7 +39,7 @@ type BuildLine struct {
 func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli *client.Client, runDir, kdepsDir string,
 	pkgProject *archiver.KdepsPackage, logger *logging.Logger,
 ) (string, string, error) {
-	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow, logger)
+	wfCfg, err := LoadWorkflowFn(ctx, pkgProject.Workflow, logger)
 	if err != nil {
 		return "", "", err
 	}
@@ -126,7 +130,7 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 	defer response.Body.Close()
 
 	// Process and print the build output
-	err = printDockerBuildOutput(response.Body)
+	err = PrintDockerBuildOutput(response.Body)
 	if err != nil {
 		return cName, containerName, err
 	}
@@ -136,7 +140,7 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 	return cName, containerName, nil
 }
 
-func checkDevBuildMode(fs afero.Fs, kdepsDir string, logger *logging.Logger) (bool, error) {
+func CheckDevBuildMode(fs afero.Fs, kdepsDir string, logger *logging.Logger) (bool, error) {
 	downloadDir := filepath.Join(kdepsDir, "cache")
 	kdepsBinaryFile := filepath.Join(downloadDir, "kdeps")
 
@@ -163,7 +167,7 @@ func checkDevBuildMode(fs afero.Fs, kdepsDir string, logger *logging.Logger) (bo
 }
 
 // generateDockerfile constructs the Dockerfile content by appending multi-line blocks.
-func generateDockerfile(
+func GenerateDockerfile(
 	imageVersion,
 	schemaVersion,
 	hostIP,
@@ -206,7 +210,13 @@ ENV DEBUG=1
 	dockerFile.WriteString(`
 COPY cache /cache
 RUN chmod +x /cache/pkl*
-RUN chmod +x /cache/anaconda*
+`)
+	if installAnaconda {
+		dockerFile.WriteString(`RUN chmod +x /cache/anaconda*
+`)
+	}
+	
+	dockerFile.WriteString(`
 `)
 
 	// Timezone
@@ -316,7 +326,7 @@ ENTRYPOINT ["/bin/kdeps"]
 	return dockerFile.String()
 }
 
-func copyFilesToRunDir(fs afero.Fs, ctx context.Context, downloadDir, runDir string, logger *logging.Logger) error {
+func CopyFilesToRunDir(fs afero.Fs, ctx context.Context, downloadDir, runDir string, logger *logging.Logger) error {
 	// Ensure the runDir and cache directory exist
 	downloadsDir := filepath.Join(runDir, "cache")
 	err := fs.MkdirAll(downloadsDir, os.ModePerm)
@@ -350,7 +360,7 @@ func copyFilesToRunDir(fs afero.Fs, ctx context.Context, downloadDir, runDir str
 	return nil
 }
 
-func generateParamsSection(prefix string, items map[string]string) string {
+func GenerateParamsSection(prefix string, items map[string]string) string {
 	lines := make([]string, 0, len(items))
 
 	for key, value := range items {
@@ -369,10 +379,12 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	hostIP := "127.0.0.1"
 	webHostIP := "127.0.0.1"
 
-	anacondaVersion := "2024.10-1"
-	pklVersion := "0.28.2"
+	// Use centralized PKL version from pkg/version instead of hardcoded string
+	pklVersion := version.PklVersion
 
-	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow, logger)
+	anacondaVersion := version.AnacondaVersion // Use centralized version
+
+	wfCfg, err := LoadWorkflowFn(ctx, pkgProject.Workflow, logger)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
 	}
@@ -433,11 +445,11 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	var argsSection, envsSection string
 
 	if dockerSettings.Args != nil {
-		argsSection = generateParamsSection("ARG", *argsList)
+		argsSection = GenerateParamsSection("ARG", *argsList)
 	}
 
 	if dockerSettings.Env != nil {
-		envsSection = generateParamsSection("ENV", *envsList)
+		envsSection = GenerateParamsSection("ENV", *envsList)
 	}
 
 	var pkgLines []string
@@ -502,7 +514,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion)
 	downloadDir := filepath.Join(kdepsDir, "cache")
 
-	items, err := GenerateURLs(ctx)
+	items, err := GenerateURLsWithOptions(ctx, installAnaconda)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
 	}
@@ -516,19 +528,19 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		return "", false, false, "", "", "", "", "", err
 	}
 
-	err = copyFilesToRunDir(fs, ctx, downloadDir, runDir, logger)
+	err = CopyFilesToRunDir(fs, ctx, downloadDir, runDir, logger)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
 	}
 
 	ollamaPortNum := GenerateUniqueOllamaPort(portNum)
 
-	devBuildMode, err := checkDevBuildMode(fs, kdepsDir, logger)
+	devBuildMode, err := CheckDevBuildMode(fs, kdepsDir, logger)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
 	}
 
-	dockerfileContent := generateDockerfile(
+	dockerfileContent := GenerateDockerfile(
 		imageVersion,
 		schema.SchemaVersion(ctx),
 		hostIP,
@@ -561,7 +573,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 }
 
 // printDockerBuildOutput processes the Docker build logs and returns any error encountered during the build.
-func printDockerBuildOutput(rd io.Reader) error {
+func PrintDockerBuildOutput(rd io.Reader) error {
 	scanner := bufio.NewScanner(rd)
 	for scanner.Scan() {
 		line := scanner.Text()

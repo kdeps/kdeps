@@ -10,6 +10,7 @@ import (
 
 	kdx "github.com/kdeps/kdeps/pkg/kdepsexec"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/spf13/afero"
 )
@@ -81,7 +82,7 @@ func SetupDockerEnvironment(ctx context.Context, dr *resolver.DependencyResolver
 	// Start API server
 	if wfSettings.APIServerMode {
 		go func() {
-			dr.Logger.Info("starting API server")
+			dr.Logger.Info(messages.MsgStartAPIServerBackground)
 			errChan <- StartAPIServerFn(ctx, dr)
 		}()
 	}
@@ -89,7 +90,7 @@ func SetupDockerEnvironment(ctx context.Context, dr *resolver.DependencyResolver
 	// Start Web server
 	if wfSettings.WebServerMode {
 		go func() {
-			dr.Logger.Info("starting Web server")
+			dr.Logger.Info(messages.MsgStartWebServerBackground)
 			errChan <- StartWebServerFn(ctx, dr)
 		}()
 	}

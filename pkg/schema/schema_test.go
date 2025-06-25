@@ -12,8 +12,8 @@ func TestSchemaVersion(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 
-	const mockLockedVersion = "0.2.40" // Define the version once and reuse it
-	const mockVersion = "0.2.40"       // Define the version once and reuse it
+	const mockLockedVersion = "0.2.40" // Updated to match actual version
+	const mockVersion = "0.2.40"       // Updated to match actual version
 
 	// Save the original value of UseLatest to avoid test interference
 	originalUseLatest := UseLatest
