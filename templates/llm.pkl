@@ -68,14 +68,42 @@ run {
 
         // Initializes a chat session with the LLM for this resource.
         //
-        // This resource offers the following helper functions:
+        // The LLM resource provides the following helper functions for accessing SQLite-stored resources:
         //
+        // New SQLite-based resource access (recommended):
+        // - "@(read("resource://llm/ResourceID").response)"        // Get LLM response
+        // - "@(read("resource://llm/ResourceID").prompt)"          // Get LLM prompt
+        // - "@(read("resource://llm/ResourceID").model)"           // Get LLM model used
+        // - "@(read("resource://llm/ResourceID").role)"            // Get LLM role
+        // - "@(read("resource://llm/ResourceID").scenario)"        // Get LLM scenario
+        // - "@(read("resource://llm/ResourceID").tools)"           // Get LLM tools used
+        // - "@(read("resource://llm/ResourceID").files)"           // Get files processed
+        // - "@(read("resource://exec/ResourceID").stdout)"         // Get exec stdout
+        // - "@(read("resource://exec/ResourceID").command)"        // Get exec command
+        // - "@(read("resource://python/ResourceID").script)"       // Get Python script
+        // - "@(read("resource://python/ResourceID").stdout)"       // Get Python output
+        // - "@(read("resource://http/ResourceID").response.body)"  // Get HTTP response body
+        // - "@(read("resource://http/ResourceID").response.headers)" // Get HTTP response headers
+        // - "@(read("resource://data/ResourceID").files)"          // Get data files mapping
+        //
+        // List all resources of a type:
+        // - "@(read("resource://llm/_?op=list"))"                  // List all llm resources
+        // - "@(read("resource://exec/_?op=list"))"                 // List all exec resources
+        // - "@(read("resource://python/_?op=list"))"               // List all python resources
+        // - "@(read("resource://http/_?op=list"))"                 // List all http resources
+        // - "@(read("resource://data/_?op=list"))"                 // List all data resources
+        //
+        // Delete specific resources:
+        // - "@(read("resource://llm/ResourceID?op=delete"))"       // Delete specific llm resource
+        // - "@(read("resource://exec/_?op=clear"))"                // Clear all exec resources
+        //
+        // Legacy file-based helper functions (deprecated, use SQLite resource access above):
         // - "@(llm.response("ResourceID"))"
         // - "@(llm.prompt("ResourceID"))"
         //
         // To use these in your resource, you can define a local variable as follows:
         //
-        // local llmResponse = "@(llm.response("ResourceID"))"
+        // local llmResponse = "@(read("resource://llm/previousLLMResource").response)"
         // You can then access the value with "@(llmResponse)".
         //
         // The "@(...)" syntax enables lazy evaluation, ensuring that values are

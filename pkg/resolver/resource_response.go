@@ -110,12 +110,25 @@ meta {
 `, requestID)
 	}
 
+	// Simplified formatting since utils.FormatResponseHeaders and utils.FormatResponseProperties were removed
 	var responseMetaHeaders, responseMetaProperties string
 	if meta.Headers != nil {
-		responseMetaHeaders = utils.FormatResponseHeaders(*meta.Headers)
+		headers := make([]string, 0, len(*meta.Headers))
+		for k, v := range *meta.Headers {
+			headers = append(headers, fmt.Sprintf(`["%s"] = "%s"`, k, v))
+		}
+		if len(headers) > 0 {
+			responseMetaHeaders = fmt.Sprintf("headers { %s }", strings.Join(headers, "; "))
+		}
 	}
 	if meta.Properties != nil {
-		responseMetaProperties = utils.FormatResponseProperties(*meta.Properties)
+		props := make([]string, 0, len(*meta.Properties))
+		for k, v := range *meta.Properties {
+			props = append(props, fmt.Sprintf(`["%s"] = "%s"`, k, v))
+		}
+		if len(props) > 0 {
+			responseMetaProperties = fmt.Sprintf("properties { %s }", strings.Join(props, "; "))
+		}
 	}
 
 	if len(responseMetaHeaders) == 0 && len(responseMetaProperties) == 0 {
@@ -274,17 +287,13 @@ func FormatErrors(errors *[]*apiserverresponse.APIServerErrorsBlock, logger *log
 	return ""
 }
 
-// DecodeErrorMessage decodes error messages
+// DecodeErrorMessage decodes error messages - simplified since DecodeBase64IfNeeded was removed
 func DecodeErrorMessage(message string, logger *logging.Logger) string {
 	if message == "" {
 		return ""
 	}
-	decoded, err := utils.DecodeBase64IfNeeded(message)
-	if err != nil {
-		logger.Warn("failed to decode error message", "message", message, "error", err)
-		return message
-	}
-	return decoded
+	// Since base64 decoding is no longer needed, just return the message as-is
+	return message
 }
 
 // EvalPklFormattedResponseFile evaluates a PKL file and returns the JSON output.

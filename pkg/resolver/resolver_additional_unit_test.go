@@ -82,9 +82,9 @@ func TestDecodeErrorMessage_Unit(t *testing.T) {
 			expected: "This is a plain error message",
 		},
 		{
-			name:     "base64 encoded message",
+			name:     "base64 encoded message (no longer decoded)",
 			message:  "VGhpcyBpcyBhIGJhc2U2NCBlbmNvZGVkIG1lc3NhZ2U=", // "This is a base64 encoded message"
-			expected: "This is a base64 encoded message",
+			expected: "VGhpcyBpcyBhIGJhc2U2NCBlbmNvZGVkIG1lc3NhZ2U=", // Now returns original
 		},
 		{
 			name:     "invalid base64 (will return original)",

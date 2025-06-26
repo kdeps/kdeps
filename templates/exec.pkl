@@ -72,8 +72,34 @@ run {
         // Initiates a shell session for executing commands within this resource. Any packages
         // defined in the workflow are accessible here.
         //
-        // The exec resource provides the following helper functions:
+        // The exec resource provides the following helper functions for accessing SQLite-stored resources:
         //
+        // New SQLite-based resource access (recommended):
+        // - "@(read("resource://exec/ResourceID").stdout)"         // Get stdout from exec resource
+        // - "@(read("resource://exec/ResourceID").stderr)"         // Get stderr from exec resource  
+        // - "@(read("resource://exec/ResourceID").command)"        // Get original command
+        // - "@(read("resource://exec/ResourceID").env)"            // Get environment variables
+        // - "@(read("resource://exec/ResourceID").file)"           // Get associated file path
+        // - "@(read("resource://python/ResourceID").script)"       // Get Python script
+        // - "@(read("resource://python/ResourceID").stdout)"       // Get Python stdout
+        // - "@(read("resource://http/ResourceID").response.body)"  // Get HTTP response body
+        // - "@(read("resource://http/ResourceID").response.headers)" // Get HTTP response headers
+        // - "@(read("resource://llm/ResourceID").response)"        // Get LLM response
+        // - "@(read("resource://llm/ResourceID").prompt)"          // Get LLM prompt
+        // - "@(read("resource://data/ResourceID").files)"          // Get data files mapping
+        //
+        // List all resources of a type:
+        // - "@(read("resource://exec/_?op=list"))"                 // List all exec resources
+        // - "@(read("resource://python/_?op=list"))"               // List all python resources
+        // - "@(read("resource://http/_?op=list"))"                 // List all http resources
+        // - "@(read("resource://llm/_?op=list"))"                  // List all llm resources
+        // - "@(read("resource://data/_?op=list"))"                 // List all data resources
+        //
+        // Delete specific resources:
+        // - "@(read("resource://exec/ResourceID?op=delete"))"      // Delete specific exec resource
+        // - "@(read("resource://python/_?op=clear"))"              // Clear all python resources
+        //
+        // Legacy file-based helper functions (deprecated, use SQLite resource access above):
         // - "@(exec.resource("ResourceID"))"
         // - "@(exec.stderr("ResourceID"))"
         // - "@(exec.stdout("ResourceID"))"
@@ -81,8 +107,8 @@ run {
         //
         // To use these in your resource, you can define a local variable like this:
         //
-        // local successExec = "@(exec.exitCode("ResourceID"))"
-        // You can then reference the value using "@(successExec)".
+        // local previousStdout = "@(read("resource://exec/previousExecResource").stdout)"
+        // You can then reference the value using "@(previousStdout)".
         //
         // If you need to access a file in your resource, you can use PKL's read("file") API like this:
         // "@(read("file"))".
@@ -99,6 +125,8 @@ run {
                 env {
                         // Environment variables that would be accessible inside the shell
                         ["ENVVAR"] = "XYZ"  // Example ENVVAR.
+                        // Example: Reference output from previous resource
+                        // ["PREV_RESULT"] = "@(read("resource://exec/previousCommand").stdout)"
                 }
                 // Timeout duration in seconds. This specifies when to terminate the shell exec.
                 timeoutDuration = 60.s

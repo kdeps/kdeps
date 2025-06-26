@@ -13,6 +13,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
+	"github.com/kdeps/kdeps/pkg/resource"
 	v "github.com/kdeps/kdeps/pkg/version"
 	"github.com/spf13/afero"
 )
@@ -21,6 +22,68 @@ var (
 	version = "dev"
 	commit  = ""
 )
+
+func init() {
+	// Initialize resource storage injectable functions
+	InitializeResourceFunc = func(dbPath string, requestID string) (interface{}, error) {
+		return resource.InitializeResource(dbPath, requestID)
+	}
+
+	StoreExecResourceFunc = func(reader interface{}, res interface{}) error {
+		if r, ok := reader.(*resource.PklResourceReader); ok {
+			if execRes, ok := res.(*resource.ExecResource); ok {
+				return r.StoreExecResource(execRes)
+			}
+		}
+		return fmt.Errorf("invalid resource types for exec storage")
+	}
+
+	StorePythonResourceFunc = func(reader interface{}, res interface{}) error {
+		if r, ok := reader.(*resource.PklResourceReader); ok {
+			if pythonRes, ok := res.(*resource.PythonResource); ok {
+				return r.StorePythonResource(pythonRes)
+			}
+		}
+		return fmt.Errorf("invalid resource types for python storage")
+	}
+
+	StoreHTTPResourceFunc = func(reader interface{}, res interface{}) error {
+		if r, ok := reader.(*resource.PklResourceReader); ok {
+			if httpRes, ok := res.(*resource.HTTPResource); ok {
+				return r.StoreHTTPResource(httpRes)
+			}
+		}
+		return fmt.Errorf("invalid resource types for http storage")
+	}
+
+	StoreLLMResourceFunc = func(reader interface{}, res interface{}) error {
+		if r, ok := reader.(*resource.PklResourceReader); ok {
+			if llmRes, ok := res.(*resource.LLMResource); ok {
+				return r.StoreLLMResource(llmRes)
+			}
+		}
+		return fmt.Errorf("invalid resource types for llm storage")
+	}
+
+	StoreDataResourceFunc = func(reader interface{}, res interface{}) error {
+		if r, ok := reader.(*resource.PklResourceReader); ok {
+			if dataRes, ok := res.(*resource.DataResource); ok {
+				return r.StoreDataResource(dataRes)
+			}
+		}
+		return fmt.Errorf("invalid resource types for data storage")
+	}
+
+	// Set the injections in the resolver package
+	resolver.SetResourceInjections(
+		InitializeResourceFunc,
+		StoreExecResourceFunc,
+		StorePythonResourceFunc,
+		StoreHTTPResourceFunc,
+		StoreLLMResourceFunc,
+		StoreDataResourceFunc,
+	)
+}
 
 func main() {
 	v.Version = version

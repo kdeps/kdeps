@@ -1,8 +1,8 @@
 {{ .Header }}
 
 actionID = "responseResource"
-name = "API Response Resource"
-description = "This resource creates a API response."
+name = "Response Resource"
+description = "This resource handles API response processing and data formatting."
 category = ""
 
 // Define the ID of any dependency resource that must be executed before this resource.
@@ -21,6 +21,7 @@ run {
         // the action will be skipped.
         restrictToHTTPMethods {
             "GET"
+            "POST"
         }
 
         // restrictToRoutes specifies the URL paths required for the request.
@@ -28,14 +29,14 @@ run {
         // in effect when APIServerMode is enabled. If the request path is not in this list,
         // the action will be skipped.
         restrictToRoutes {
-            "/api/v1/whois"
+            "/api/v1/process"
         }
 
         // allowedHeaders specifies the permitted HTTP headers for the request.
         // If none are specified, all headers are allowed. This restriction is only
         // in effect when APIServerMode is enabled.
         allowedHeaders {
-            // "X-API-KEY"
+            // "Authorization"
         }
 
         // allowedParams specifies the permitted query parameters for the request.
@@ -72,57 +73,65 @@ run {
                 // "@(session.setRecord("foo", "bar"))" // Temporary data only for this request
         }
 
-        // Initializes an api response for this agent.
+        // Response processing and data aggregation using SQLite-stored resources.
         //
-        // This resource action is straightforward. It
-        // creates a JSON response with the following shape
+        // The response resource provides comprehensive access to all SQLite-stored resources:
         //
-        // {
-        //   "success": true,
-        //   "response": {
-        //     "data": [],
-        //   },
-        //   "meta": {
-        //     "requestID": "UUID-XXXX-XXXX-XXXX",
-        //     "headers": [],
-        //     "properties": [],
-        //   },
-        //   "errors": [{
-        //     "code": 0,
-        //     "message": ""
-        //   }]
-        // }
+        // SQLite-based resource access (recommended):
+        // - "@(read("resource://exec/ResourceID").stdout)"         // Get exec stdout
+        // - "@(read("resource://exec/ResourceID").stderr)"         // Get exec stderr  
+        // - "@(read("resource://exec/ResourceID").command)"        // Get exec command
+        // - "@(read("resource://python/ResourceID").script)"       // Get Python script
+        // - "@(read("resource://python/ResourceID").stdout)"       // Get Python stdout
+        // - "@(read("resource://python/ResourceID").stderr)"       // Get Python stderr
+        // - "@(read("resource://http/ResourceID").response.body)"  // Get HTTP response body
+        // - "@(read("resource://http/ResourceID").response.headers)" // Get HTTP response headers
+        // - "@(read("resource://http/ResourceID").method)"         // Get HTTP method
+        // - "@(read("resource://http/ResourceID").url)"            // Get HTTP URL
+        // - "@(read("resource://llm/ResourceID").response)"        // Get LLM response
+        // - "@(read("resource://llm/ResourceID").prompt)"          // Get LLM prompt
+        // - "@(read("resource://llm/ResourceID").model)"           // Get LLM model
+        // - "@(read("resource://data/ResourceID").files)"          // Get data files mapping
         //
-        APIResponse {
+        // List all resources of a type:
+        // - "@(read("resource://exec/_?op=list"))"                 // List all exec resources
+        // - "@(read("resource://python/_?op=list"))"               // List all python resources
+        // - "@(read("resource://http/_?op=list"))"                 // List all http resources
+        // - "@(read("resource://llm/_?op=list"))"                  // List all llm resources
+        // - "@(read("resource://data/_?op=list"))"                 // List all data resources
+        //
+        // Delete specific resources:
+        // - "@(read("resource://exec/ResourceID?op=delete"))"      // Delete specific exec resource
+        // - "@(read("resource://python/_?op=clear"))"              // Clear all python resources
+        //
+        // Example usage for response aggregation:
+        // local apiData = "@(read("resource://http/apiCall").response.body)"
+        // local processedData = "@(read("resource://python/dataProcessor").stdout)"
+        // local llmSummary = "@(read("resource://llm/summarizer").response)"
+        //
+        // You can then use these variables in your response:
+        // - response.data = "@(apiData)"
+        // - response.summary = "@(llmSummary)"
+        // - response.processed = "@(processedData)"
+        //
+        // The "@(...)" syntax enables lazy evaluation, ensuring that values are
+        // retrieved only after the result is ready.
+        //
+        // Note: Each resource is restricted to a single dedicated action. Combining multiple
+        // actions within the same resource is not allowed.
+        
+        // Example response structure
+        response {
                 success = true
+                data {
+                        // Example aggregating data from multiple sources
+                        // api_result = "@(read("resource://http/apiCall").response.body)"
+                        // processed_output = "@(read("resource://python/dataProcessor").stdout)"
+                        // ai_summary = "@(read("resource://llm/summarizer").response)"
+                }
                 meta {
-                        headers {
-                                // ["X-Frame-Options"] = "DENY"
-                                // ["Content-Security-Policy"] = "default-src 'self'; connect-src *; font-src *; script-src-elem * 'unsafe-inline'; img-src * data:; style-src * 'unsafe-inline';"
-                                // ["X-XSS-Protection"] = "1; mode=block"
-                                // ["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
-                                // ["Referrer-Policy"] = "strict-origin"
-                                // ["X-Content-Type-Options"] = "nosniff"
-                                // ["Permissions-Policy"] = "geolocation=(),midi=(),sync-xhr=(),microphone=(),camera=(),magnetometer=(),gyroscope=(),fullscreen=(self),payment=()"
-                        }
-                        properties {
-                                // ["X-Custom-Properties"] = "value"
-                        }
-                }
-                response {
-                        data {
-                                "@(llm.response("llmResource"))"
-                                // "@(memory.getRecord("foo"))"
-                                // "@(python.stdout("pythonResource"))"
-                                // "@(exec.stdout("shellResource"))"
-                                // "@(client.responseBody("httpResource"))"
-                        }
-                }
-                errors {
-                        // new {
-                        //         code = 0
-                        //         message = ""
-                        // }
+                        timestamp = "@(utils.timestamp())"
+                        request_id = "@(request.id())"
                 }
         }
 }

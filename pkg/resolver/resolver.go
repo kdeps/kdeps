@@ -27,6 +27,33 @@ import (
 	"github.com/spf13/afero"
 )
 
+// Injected functions for resource storage (will be set from main package)
+var (
+	InitializeResourceFunc  func(dbPath string, requestID string) (interface{}, error)
+	StoreExecResourceFunc   func(reader interface{}, res interface{}) error
+	StorePythonResourceFunc func(reader interface{}, res interface{}) error
+	StoreHTTPResourceFunc   func(reader interface{}, res interface{}) error
+	StoreLLMResourceFunc    func(reader interface{}, res interface{}) error
+	StoreDataResourceFunc   func(reader interface{}, res interface{}) error
+)
+
+// SetResourceInjections allows the main package to set the resource storage functions
+func SetResourceInjections(
+	initFunc func(dbPath string, requestID string) (interface{}, error),
+	storeExecFunc func(reader interface{}, res interface{}) error,
+	storePythonFunc func(reader interface{}, res interface{}) error,
+	storeHTTPFunc func(reader interface{}, res interface{}) error,
+	storeLLMFunc func(reader interface{}, res interface{}) error,
+	storeDataFunc func(reader interface{}, res interface{}) error,
+) {
+	InitializeResourceFunc = initFunc
+	StoreExecResourceFunc = storeExecFunc
+	StorePythonResourceFunc = storePythonFunc
+	StoreHTTPResourceFunc = storeHTTPFunc
+	StoreLLMResourceFunc = storeLLMFunc
+	StoreDataResourceFunc = storeDataFunc
+}
+
 type DependencyResolver struct {
 	Fs                   afero.Fs
 	Logger               *logging.Logger
@@ -47,6 +74,8 @@ type DependencyResolver struct {
 	ToolDBPath           string
 	ItemReader           *item.PklResourceReader
 	ItemDBPath           string
+	ResourceReader       interface{} // Uses generic interface for resource storage
+	ResourceDBPath       string
 	AgentName            string
 	RequestID            string
 	RequestPklFile       string
@@ -160,6 +189,13 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		return nil, fmt.Errorf("failed to initialize item DB: %w", err)
 	}
 
+	// Initialize resource database (in-memory for now, could be file-based in the future)
+	resourceDBPath := ":memory:"
+	resourceReader, err := InitializeResourceFunc(resourceDBPath, graphID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize resource DB: %w", err)
+	}
+
 	opts := func(options *pkl.EvaluatorOptions) {
 		pkl.WithDefaultAllowedResources(options)
 		pkl.WithOsEnv(options)
@@ -207,6 +243,8 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		ToolReader:           toolReader,
 		ItemDBPath:           itemDBPath,
 		ItemReader:           itemReader,
+		ResourceDBPath:       resourceDBPath,
+		ResourceReader:       resourceReader,
 		EvaluatorOptions:     opts,
 		FileRunCounter:       make(map[string]int), // Initialize the file run counter map
 	}

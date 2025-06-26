@@ -54,11 +54,11 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Item.pkl", schema.SchemaVersion(dr.Context)):     {Alias: "item", Check: false},
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Skip.pkl", schema.SchemaVersion(dr.Context)):     {Alias: "skip", Check: false},
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Utils.pkl", schema.SchemaVersion(dr.Context)):    {Alias: "utils", Check: false},
-		filepath.Join(dr.ActionDir, "llm", dr.RequestID+"__llm_output.pkl"):                              {Alias: "llm", Check: true},
-		filepath.Join(dr.ActionDir, "client", dr.RequestID+"__client_output.pkl"):                        {Alias: "client", Check: true},
-		filepath.Join(dr.ActionDir, "exec", dr.RequestID+"__exec_output.pkl"):                            {Alias: "exec", Check: true},
-		filepath.Join(dr.ActionDir, "python", dr.RequestID+"__python_output.pkl"):                        {Alias: "python", Check: true},
-		filepath.Join(dr.ActionDir, "data", dr.RequestID+"__data_output.pkl"):                            {Alias: "data", Check: true},
+		filepath.Join(dr.ActionDir, "llm", dr.RequestID+"__llm_output.pkl"):                               {Alias: "llm", Check: true},
+		filepath.Join(dr.ActionDir, "client", dr.RequestID+"__client_output.pkl"):                         {Alias: "client", Check: true},
+		filepath.Join(dr.ActionDir, "exec", dr.RequestID+"__exec_output.pkl"):                             {Alias: "exec", Check: true},
+		filepath.Join(dr.ActionDir, "python", dr.RequestID+"__python_output.pkl"):                         {Alias: "python", Check: true},
+		filepath.Join(dr.ActionDir, "data", dr.RequestID+"__data_output.pkl"):                             {Alias: "data", Check: true},
 		dr.RequestPklFile: {Alias: "request", Check: true},
 	}
 
@@ -294,23 +294,23 @@ func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
 		Method: "GET",
 	}
 
-	if err := dr.AppendDataEntry(actionID, dataFiles); err != nil {
+	if err := dr.StoreDataResource(actionID, dataFiles, false); err != nil {
 		return err
 	}
 
-	if err := dr.AppendChatEntry(actionID, llmChat, false); err != nil {
+	if err := dr.StoreLLMResource(actionID, llmChat, false); err != nil {
 		return err
 	}
 
-	if err := dr.AppendExecEntry(actionID, execCmd, false); err != nil {
+	if err := dr.StoreExecResource(actionID, execCmd, false); err != nil {
 		return err
 	}
 
-	if err := dr.AppendHTTPEntry(actionID, HTTPClient, false); err != nil {
+	if err := dr.StoreHTTPResource(actionID, HTTPClient, false); err != nil {
 		return err
 	}
 
-	if err := dr.AppendPythonEntry(actionID, pythonCmd, false); err != nil {
+	if err := dr.StorePythonResource(actionID, pythonCmd, false); err != nil {
 		return err
 	}
 

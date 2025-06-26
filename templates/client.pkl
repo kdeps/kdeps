@@ -69,16 +69,45 @@ run {
 
         // Initiates an HTTP client request for this resource.
         //
-        // The HTTP resource provides the following helper functions:
+        // The HTTP resource provides the following helper functions for accessing SQLite-stored resources:
         //
+        // New SQLite-based resource access (recommended):
+        // - "@(read("resource://http/ResourceID").response.body)"  // Get HTTP response body
+        // - "@(read("resource://http/ResourceID").response.headers)" // Get HTTP response headers
+        // - "@(read("resource://http/ResourceID").method)"         // Get HTTP method used
+        // - "@(read("resource://http/ResourceID").url)"            // Get HTTP URL
+        // - "@(read("resource://http/ResourceID").headers)"        // Get request headers
+        // - "@(read("resource://http/ResourceID").data)"           // Get request data
+        // - "@(read("resource://http/ResourceID").params)"         // Get request parameters
+        // - "@(read("resource://http/ResourceID").file)"           // Get associated file path
+        // - "@(read("resource://exec/ResourceID").stdout)"         // Get exec stdout
+        // - "@(read("resource://exec/ResourceID").command)"        // Get exec command
+        // - "@(read("resource://python/ResourceID").script)"       // Get Python script
+        // - "@(read("resource://python/ResourceID").stdout)"       // Get Python output
+        // - "@(read("resource://llm/ResourceID").response)"        // Get LLM response
+        // - "@(read("resource://llm/ResourceID").prompt)"          // Get LLM prompt
+        // - "@(read("resource://data/ResourceID").files)"          // Get data files mapping
+        //
+        // List all resources of a type:
+        // - "@(read("resource://http/_?op=list"))"                 // List all http resources
+        // - "@(read("resource://exec/_?op=list"))"                 // List all exec resources
+        // - "@(read("resource://python/_?op=list"))"               // List all python resources
+        // - "@(read("resource://llm/_?op=list"))"                  // List all llm resources
+        // - "@(read("resource://data/_?op=list"))"                 // List all data resources
+        //
+        // Delete specific resources:
+        // - "@(read("resource://http/ResourceID?op=delete"))"      // Delete specific http resource
+        // - "@(read("resource://exec/_?op=clear"))"                // Clear all exec resources
+        //
+        // Legacy file-based helper functions (deprecated, use SQLite resource access above):
         // - "@(client.resource("ResourceID"))"
         // - "@(client.responseBody("ResourceID"))"
         // - "@(client.responseHeader("ResourceID", "HEADER"))"
         //
         // For example, to use these in your resource, you can define a local variable like this:
         //
-        // local bearerToken = "@(client.responseHeader("ResourceID", "Bearer"))"
-        // You can then access the value using "@(bearerToken)".
+        // local apiResponse = "@(read("resource://http/previousApiCall").response.body)"
+        // You can then access the value using "@(apiResponse)".
         //
         // The "@(...)" syntax enables lazy evaluation, ensuring that values are
         // retrieved only after the result is ready.

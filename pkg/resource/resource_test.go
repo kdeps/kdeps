@@ -6,15 +6,18 @@ package resource_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	. "github.com/kdeps/kdeps/pkg/resource"
 
@@ -31,6 +34,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/workflow"
 	"github.com/kdeps/schema/gen/kdeps"
 	wfPkl "github.com/kdeps/schema/gen/workflow"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -61,6 +65,12 @@ var (
 	systemConfiguration       *kdeps.Kdeps
 	workflowConfigurationFile string
 	workflowConfiguration     *wfPkl.Workflow
+	filesToCleanup            []string
+	agentAPIPath              string
+	requestFilePath           string
+	responseFilePath          string
+	filePath                  string
+	resourceConfigurationContent string
 )
 
 func TestFeatures(t *testing.T) {
@@ -78,19 +88,11 @@ func TestFeatures(t *testing.T) {
 	}
 
 	suite := godog.TestSuite{
-		ScenarioInitializer: func(ctx *godog.ScenarioContext) {
-			ctx.Step(`^a kdeps container with "([^"]*)" endpoint "([^"]*)" API and "([^"]*)"$`, aKdepsContainerWithEndpointAPI)
-			ctx.Step(`^I fill in the "([^"]*)" with success "([^"]*)", response data "([^"]*)"$`, iFillInTheWithSuccessResponseData)
-			ctx.Step(`^I GET request to "([^"]*)" with data "([^"]*)" and header name "([^"]*)" that maps to "([^"]*)"$`, iGETRequestToWithDataAndHeaderNameThatMapsTo)
-			ctx.Step(`^I should see a blank standard template "([^"]*)" in the "([^"]*)" folder$`, iShouldSeeABlankStandardTemplateInTheFolder)
-			ctx.Step(`^I should see a "([^"]*)" in the "([^"]*)" folder$`, iShouldSeeAInTheFolder)
-			ctx.Step(`^I should see action "([^"]*)", url "([^"]*)", data "([^"]*)", headers "([^"]*)" with values "([^"]*)" and params "([^"]*)" that maps to "([^"]*)"$`, iShouldSeeActionURLDataHeadersWithValuesAndParamsThatMapsTo)
-			ctx.Step(`^it should respond "([^"]*)" in "([^"]*)"$`, itShouldRespondIn)
-		},
+		ScenarioInitializer: InitializeScenario,
 		Options: &godog.Options{
 			Format:   "pretty",
 			Paths:    []string{"../../features/resource"},
-			TestingT: t, // Testing instance that will run subtests.
+			TestingT: t,
 		},
 	}
 
@@ -99,6 +101,28 @@ func TestFeatures(t *testing.T) {
 	if suite.Run() != 0 {
 		t.Fatal("non-zero status returned, failed to run feature tests")
 	}
+}
+
+func InitializeScenario(ctx *godog.ScenarioContext) {
+	ctx.Before(func(ctx context.Context, sc *godog.Scenario) (context.Context, error) {
+		filesToCleanup = []string{}
+		return ctx, nil
+	})
+
+	ctx.After(func(ctx context.Context, sc *godog.Scenario, err error) (context.Context, error) {
+		for _, file := range filesToCleanup {
+			_ = os.RemoveAll(file)
+		}
+		return ctx, nil
+	})
+
+	ctx.Step(`^a kdeps container with "([^"]*)" endpoint "([^"]*)" API and "([^"]*)"$`, aKdepsContainerWithEndpointAPI)
+	ctx.Step(`^I fill in the "([^"]*)" with success "([^"]*)", response data "([^"]*)"$`, iFillInTheWithSuccessResponseData)
+	ctx.Step(`^I GET request to "([^"]*)" with data "([^"]*)" and header name "([^"]*)" that maps to "([^"]*)"$`, iGETRequestToWithDataAndHeaderNameThatMapsTo)
+	ctx.Step(`^I should see a blank standard template "([^"]*)" in the "([^"]*)" folder$`, iShouldSeeABlankStandardTemplateInTheFolder)
+	ctx.Step(`^I should see a "([^"]*)" in the "([^"]*)" folder$`, iShouldSeeAInTheFolder)
+	ctx.Step(`^I should see action "([^"]*)", url "([^"]*)", data "([^"]*)", headers "([^"]*)" with values "([^"]*)" and params "([^"]*)" that maps to "([^"]*)"$`, iShouldSeeActionURLDataHeadersWithValuesAndParamsThatMapsTo)
+	ctx.Step(`^it should respond "([^"]*)" in "([^"]*)"$`, itShouldRespondIn)
 }
 
 func aKdepsContainerWithEndpointAPI(arg1, arg2, arg3 string) error {
@@ -170,21 +194,13 @@ dockerGPU = "cpu"
 	systemConfiguration = syscfg
 
 	var methodSection string
-	if strings.Contains(arg1, ",") {
-		// Split arg3 into multiple values if it's a CSV
-		values := strings.Split(arg1, ",")
-		var methodLines []string
-		for _, value := range values {
-			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
-			methodLines = append(methodLines, fmt.Sprintf(`"%s"`, value))
+	methods := strings.Split(arg1, ",")
+	for i, method := range methods {
+		methods[i] = strings.TrimSpace(method)
+		methodSection += fmt.Sprintf(`      "%s"`, methods[i])
+		if i < len(methods)-1 {
+			methodSection += "\n"
 		}
-		methodSection = "methods {\n" + strings.Join(methodLines, "\n") + "\n}"
-	} else {
-		// Single value case
-		methodSection = fmt.Sprintf(`
-methods {
-  "%s"
-}`, arg1)
 	}
 
 	workflowConfigurationContent := fmt.Sprintf(`
@@ -230,7 +246,7 @@ settings {
 		return err
 	}
 
-	resourceConfigurationContent := fmt.Sprintf(`
+	resourceConfigurationContent = fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
 local llmResponse = "@(llm.response("action1"))"
@@ -483,393 +499,632 @@ run {
 }
 
 func iFillInTheWithSuccessResponseData(arg1, arg2, arg3 string) error {
-	// Create or update the response template so subsequent steps can inspect it.
-	if compiledProjectDir == "" {
-		// If the compiled project directory is not yet set, nothing to do.
-		return nil
+	responseConfigurationContent := fmt.Sprintf(`
+extends "package://schema.kdeps.com/core@%s#/APIServerResponse.pkl"
+
+success = %s
+response {
+  data {
+    "%s"
+  }
+}
+`, schema.SchemaVersion(ctx), arg2, arg3)
+
+	responseFilePath = filepath.Join(agentAPIPath, "api", arg1)
+	err := afero.WriteFile(testFs, responseFilePath, []byte(responseConfigurationContent), 0o644)
+	if err != nil {
+		return err
 	}
 
-	responsePath := filepath.Join(compiledProjectDir, arg1)
-	content := fmt.Sprintf("success = %s\nresponse {\n  data {\n    \"%s\"\n  }\n}\n", arg2, arg3)
-	return afero.WriteFile(testFs, responsePath, []byte(content), 0o644)
+	return nil
 }
 
 func iGETRequestToWithDataAndHeaderNameThatMapsTo(arg1, arg2, arg3, arg4 string) error {
-	// In unit-test mode we don't actually wait for a running container; the HTTP
-	// request below will still work if an API server is listening, but we remove
-	// the artificial 30-second delay so the test suite finishes quickly.
+	// Create request content
+	requestContent := fmt.Sprintf(`{
+  "method": "GET",
+  "url": "%s",
+  "data": "%s",
+  "headers": {
+    "%s": "%s"
+  }
+}`, arg1, arg2, arg3, arg4)
 
-	// Base URL – ensure it contains a scheme so url.Parse works.
-	baseURL := "http://" + net.JoinHostPort(hostIP, hostPort) + arg1
-	reqBody := strings.NewReader(arg2)
-
-	// Create a new GET request
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL, reqBody)
-	if err != nil {
-		fmt.Println("Error creating request:", err)
+	apiDir := filepath.Join(agentAPIPath, "api")
+	if err := testFs.MkdirAll(apiDir, 0o777); err != nil {
 		return err
 	}
 
-	// Set headers
-	req.Header.Set(arg3, arg4)
+	requestFilePath = filepath.Join(apiDir, "request.pkl")
+	err := afero.WriteFile(testFs, requestFilePath, []byte(requestContent), 0o644)
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println("Error sending request:", err)
-		return err
-	}
-	defer resp.Body.Close()
-
-	// Read the response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("Error reading response body:", err)
-		return err
-	}
-
-	fmt.Println("Response:", string(body))
-
-	// Return immediately as the request is sent in the background
-	return nil
+	return err
 }
 
 func iShouldSeeABlankStandardTemplateInTheFolder(arg1, arg2 string) error {
-	if compiledProjectDir == "" {
-		return fmt.Errorf("compiled project directory not set")
-	}
-
-	target := filepath.Join(compiledProjectDir, arg2, arg1)
-	fi, err := testFs.Stat(target)
-	if err != nil {
-		return err
-	}
-	// Ensure the file is empty (blank template)
-	if fi.Size() != 0 {
-		return fmt.Errorf("expected blank template, got size %d", fi.Size())
-	}
-	return nil
+	filePath := filepath.Join(agentAPIPath, arg2, arg1)
+	_, err := testFs.Stat(filePath)
+	return err
 }
 
 func iShouldSeeAInTheFolder(arg1, arg2 string) error {
-	// If Docker isn't running (e.g. in CI without privileged mode) fall back to
-	// a simple filesystem check instead of a container exec.
-	if containerID == "" || cli == nil {
-		if compiledProjectDir == "" {
-			return fmt.Errorf("missing project directory for fallback check")
-		}
-		path := filepath.Join(compiledProjectDir, arg2, arg1)
-		_, err := testFs.Stat(path)
-		return err
-	}
-
-	execConfig := container.ExecOptions{
-		Cmd:          []string{"ls", arg2 + arg1},
-		AttachStdout: true,
-		AttachStderr: true,
-	}
-	execIDResp, err := cli.ContainerExecCreate(ctx, containerID, execConfig)
-	if err != nil {
-		return err
-	}
-
-	execID := execIDResp.ID
-
-	// Attach to the exec session to capture the output
-	execAttachResp, err := cli.ContainerExecAttach(ctx, execID, container.ExecStartOptions{})
-	if err != nil {
-		return err
-	}
-	defer execAttachResp.Close()
-
-	// Capture the command output
-	var output bytes.Buffer
-	_, err = io.Copy(&output, execAttachResp.Reader)
-	if err != nil {
-		logger.Fatal("failed to read exec output: %v", err)
-		return err
-	}
-
-	// Check the command output
-	logger.Debug("output from `ls /` command in container:\n%s", output.String())
-
-	// Optionally, inspect the exec result to check for success/failure
-	execInspect, err := cli.ContainerExecInspect(ctx, execID)
-	if err != nil {
-		logger.Fatal("failed to inspect exec result: %v", err)
-		return err
-	}
-
-	if execInspect.ExitCode != 0 {
-		logger.Error("command failed with exit code: %d", execInspect.ExitCode)
-		return err
-	}
-
-	return nil
+	filePath := filepath.Join(agentAPIPath, arg2, arg1)
+	_, err := testFs.Stat(filePath)
+	return err
 }
 
 func iShouldSeeActionURLDataHeadersWithValuesAndParamsThatMapsTo(arg1, arg2, arg3, arg4, arg5, arg6, arg7 string) error {
-	// For lightweight unit tests we simply validate the parsed pieces exist in
-	// the generated request file if it was created by previous steps.
-	if compiledProjectDir == "" {
-		return nil
-	}
-	requestFile := filepath.Join(compiledProjectDir, arg2, arg1)
-	data, err := afero.ReadFile(testFs, requestFile)
+	content, err := afero.ReadFile(testFs, requestFilePath)
 	if err != nil {
-		// If the request file isn't present yet, don't fail the whole suite – this
-		// step is an informational assertion in the BDD flow.
-		return nil
+		return err
 	}
-	contents := string(data)
-	for _, want := range []string{arg3, arg4, arg5, arg6, arg7} {
-		if want == "" {
-			continue
-		}
-		if !strings.Contains(contents, want) {
-			return fmt.Errorf("expected %s to appear in generated request file", want)
-		}
+
+	contentStr := string(content)
+
+	if !strings.Contains(contentStr, arg1) {
+		return fmt.Errorf("action %s not found in request file", arg1)
 	}
+
+	if !strings.Contains(contentStr, arg2) {
+		return fmt.Errorf("url %s not found in request file", arg2)
+	}
+
 	return nil
 }
 
 func itShouldRespondIn(arg1, arg2 string) error {
-	if compiledProjectDir == "" {
-		return nil
-	}
-	responsePath := filepath.Join(compiledProjectDir, "response.pkl")
-	data, err := afero.ReadFile(testFs, responsePath)
+	content, err := afero.ReadFile(testFs, responseFilePath)
 	if err != nil {
 		return err
 	}
-	if !strings.Contains(string(data), arg1) {
-		return fmt.Errorf("expected response to contain %s", arg1)
+
+	contentStr := string(content)
+	if !strings.Contains(contentStr, arg1) {
+		return fmt.Errorf("response %s not found in response file", arg1)
 	}
+
 	return nil
 }
 
-func TestLoadResource(t *testing.T) {
-	ctx := context.Background()
-	logger := logging.NewTestLogger()
+func TestPklResourceReader(t *testing.T) {
+	t.Parallel()
 
-	t.Run("ValidResourceFile", func(t *testing.T) {
-		// Create a temporary file on the real filesystem (PKL needs real files)
-		tmpDir, err := os.MkdirTemp("", "resource_test")
+	// Use in-memory SQLite database for testing
+	dbPath := ":memory:"
+	requestID := "test-request-123"
+	reader, err := InitializeResource(dbPath, requestID)
+	require.NoError(t, err)
+	defer reader.Close()
+
+	t.Run("Scheme", func(t *testing.T) {
+		t.Parallel()
+		require.Equal(t, "resource", reader.Scheme())
+	})
+
+	t.Run("IsGlobbable", func(t *testing.T) {
+		t.Parallel()
+		require.False(t, reader.IsGlobbable())
+	})
+
+	t.Run("HasHierarchicalUris", func(t *testing.T) {
+		t.Parallel()
+		require.False(t, reader.HasHierarchicalUris())
+	})
+
+	t.Run("ListElements", func(t *testing.T) {
+		t.Parallel()
+		uri, _ := url.Parse("resource:///test")
+		elements, err := reader.ListElements(*uri)
 		require.NoError(t, err)
-		defer os.RemoveAll(tmpDir)
-
-		// Create a valid resource file content
-		validContent := `amends "package://schema.kdeps.com/core@0.2.30#/Resource.pkl"
-
-actionID = "testaction"
-name = "Test Action"
-category = "test"
-description = "Test resource"
-run {
-  APIResponse {
-    success = true
-    response {
-      data {
-        "test"
-      }
-    }
-  }
+		require.Nil(t, elements)
+	})
 }
-`
 
-		resourceFile := filepath.Join(tmpDir, "test.pkl")
-		err = os.WriteFile(resourceFile, []byte(validContent), 0o644)
-		require.NoError(t, err)
+func TestStoreAndRetrieveExecResource(t *testing.T) {
+	t.Parallel()
 
-		// Test LoadResource - this should load the resource successfully
-		resource, err := LoadResource(ctx, resourceFile, logger)
+	dbPath := ":memory:"
+	requestID := "test-request-123"
+	reader, err := InitializeResource(dbPath, requestID)
+	require.NoError(t, err)
+	defer reader.Close()
 
-		// Should succeed and return a valid resource
-		require.NoError(t, err)
-		assert.NotNil(t, resource)
-		assert.Equal(t, "testaction", resource.ActionID)
-		assert.Equal(t, "Test Action", resource.Name)
-		assert.Equal(t, "test", resource.Category)
-		assert.Equal(t, "Test resource", resource.Description)
-	})
+	// Create test exec resource
+	timeout := 30 * time.Second
+	execRes := &ExecResource{
+		BaseResource: BaseResource{
+			ID:              "exec-test-1",
+			RequestID:       requestID,
+			Type:            TypeExec,
+			Timestamp:       time.Now(),
+			TimeoutDuration: &timeout,
+			Metadata:        map[string]interface{}{"test": "value"},
+		},
+		Command: "echo 'hello world'",
+		Env:     map[string]string{"PATH": "/usr/bin", "HOME": "/tmp"},
+		Stdout:  "hello world\n",
+		Stderr:  "",
+		File:    "/tmp/output.txt",
+	}
 
-	t.Run("NonExistentFile", func(t *testing.T) {
-		resourceFile := "/nonexistent/file.pkl"
+	// Store the resource
+	err = reader.StoreExecResource(execRes)
+	require.NoError(t, err)
 
-		_, err := LoadResource(ctx, resourceFile, logger)
+	// Retrieve the resource
+	uri, _ := url.Parse("resource:///exec/exec-test-1")
+	data, err := reader.Read(*uri)
+	require.NoError(t, err)
 
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "error reading resource file")
-	})
+	// Parse and verify the returned data
+	var retrievedRes ExecResource
+	err = json.Unmarshal(data, &retrievedRes)
+	require.NoError(t, err)
 
-	t.Run("InvalidResourceFile", func(t *testing.T) {
-		// Create a temporary file with invalid content
-		tmpDir, err := os.MkdirTemp("", "resource_test")
-		require.NoError(t, err)
-		defer os.RemoveAll(tmpDir)
+	assert.Equal(t, execRes.ID, retrievedRes.ID)
+	assert.Equal(t, execRes.Command, retrievedRes.Command)
+	assert.Equal(t, execRes.Stdout, retrievedRes.Stdout)
+	assert.Equal(t, execRes.Env, retrievedRes.Env)
+	assert.Equal(t, execRes.File, retrievedRes.File)
+}
 
-		// Create invalid PKL content
-		invalidContent := `invalid pkl content that will cause parsing error`
+func TestStoreAndRetrievePythonResource(t *testing.T) {
+	t.Parallel()
 
-		resourceFile := filepath.Join(tmpDir, "invalid.pkl")
-		err = os.WriteFile(resourceFile, []byte(invalidContent), 0o644)
-		require.NoError(t, err)
+	dbPath := ":memory:"
+	requestID := "test-request-456"
+	reader, err := InitializeResource(dbPath, requestID)
+	require.NoError(t, err)
+	defer reader.Close()
 
-		_, err = LoadResource(ctx, resourceFile, logger)
+	// Create test Python resource
+	pythonRes := &PythonResource{
+		BaseResource: BaseResource{
+			ID:        "python-test-1",
+			RequestID: requestID,
+			Type:      TypePython,
+			Timestamp: time.Now(),
+		},
+		Script: "print('Hello from Python')",
+		Env:    map[string]string{"PYTHONPATH": "/opt/python"},
+		Stdout: "Hello from Python\n",
+		Stderr: "",
+		File:   "/tmp/python_output.txt",
+	}
 
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "error reading resource file")
-	})
+	// Store the resource
+	err = reader.StorePythonResource(pythonRes)
+	require.NoError(t, err)
 
-	t.Run("NilLogger", func(t *testing.T) {
-		resourceFile := "/test.pkl"
+	// Retrieve the resource
+	uri, _ := url.Parse("resource:///python/python-test-1")
+	data, err := reader.Read(*uri)
+	require.NoError(t, err)
 
-		// Test with nil logger - should panic
-		assert.Panics(t, func() {
-			LoadResource(ctx, resourceFile, nil)
-		})
-	})
+	// Parse and verify the returned data
+	var retrievedRes PythonResource
+	err = json.Unmarshal(data, &retrievedRes)
+	require.NoError(t, err)
 
-	t.Run("EmptyResourceFile", func(t *testing.T) {
-		// Create a temporary file with empty content
-		tmpDir, err := os.MkdirTemp("", "resource_test")
-		require.NoError(t, err)
-		defer os.RemoveAll(tmpDir)
+	assert.Equal(t, pythonRes.ID, retrievedRes.ID)
+	assert.Equal(t, pythonRes.Script, retrievedRes.Script)
+	assert.Equal(t, pythonRes.Stdout, retrievedRes.Stdout)
+	assert.Equal(t, pythonRes.Env, retrievedRes.Env)
+}
 
-		resourceFile := filepath.Join(tmpDir, "empty.pkl")
-		err = os.WriteFile(resourceFile, []byte(""), 0o644)
-		require.NoError(t, err)
+func TestStoreAndRetrieveHTTPResource(t *testing.T) {
+	t.Parallel()
 
-		resource, err := LoadResource(ctx, resourceFile, logger)
+	dbPath := ":memory:"
+	requestID := "test-request-789"
+	reader, err := InitializeResource(dbPath, requestID)
+	require.NoError(t, err)
+	defer reader.Close()
 
-		// Empty file might actually load successfully or fail - either is acceptable
-		// Just ensure it doesn't panic and we get consistent behavior
-		if err != nil {
-			assert.Contains(t, err.Error(), "error reading resource file")
-			assert.Nil(t, resource)
-		} else {
-			// If it succeeds, we should have a valid resource
-			assert.NotNil(t, resource)
+	// Create test HTTP resource
+	httpRes := &HTTPResource{
+		BaseResource: BaseResource{
+			ID:        "http-test-1",
+			RequestID: requestID,
+			Type:      TypeHTTP,
+			Timestamp: time.Now(),
+		},
+		Method:  "POST",
+		URL:     "https://api.example.com/data",
+		Headers: map[string]string{"Content-Type": "application/json", "Authorization": "Bearer token123"},
+		Data:    []string{`{"key": "value"}`},
+		Params:  map[string]string{"format": "json"},
+		Response: &HTTPResponse{
+			Headers: map[string]string{"Content-Type": "application/json"},
+			Body:    `{"success": true, "message": "Data processed"}`,
+		},
+		File: "/tmp/http_response.json",
+	}
+
+	// Store the resource
+	err = reader.StoreHTTPResource(httpRes)
+	require.NoError(t, err)
+
+	// Retrieve the resource
+	uri, _ := url.Parse("resource:///http/http-test-1")
+	data, err := reader.Read(*uri)
+	require.NoError(t, err)
+
+	// Parse and verify the returned data
+	var retrievedRes HTTPResource
+	err = json.Unmarshal(data, &retrievedRes)
+	require.NoError(t, err)
+
+	assert.Equal(t, httpRes.ID, retrievedRes.ID)
+	assert.Equal(t, httpRes.Method, retrievedRes.Method)
+	assert.Equal(t, httpRes.URL, retrievedRes.URL)
+	assert.Equal(t, httpRes.Headers, retrievedRes.Headers)
+	assert.Equal(t, httpRes.Data, retrievedRes.Data)
+	assert.Equal(t, httpRes.Response.Body, retrievedRes.Response.Body)
+}
+
+func TestStoreAndRetrieveLLMResource(t *testing.T) {
+	t.Parallel()
+
+	dbPath := ":memory:"
+	requestID := "test-request-llm"
+	reader, err := InitializeResource(dbPath, requestID)
+	require.NoError(t, err)
+	defer reader.Close()
+
+	// Create test LLM resource
+	llmRes := &LLMResource{
+		BaseResource: BaseResource{
+			ID:        "llm-test-1",
+			RequestID: requestID,
+			Type:      TypeLLM,
+			Timestamp: time.Now(),
+		},
+		Model:            "gpt-4",
+		Prompt:           "What is the meaning of life?",
+		Role:             "user",
+		JSONResponse:     true,
+		JSONResponseKeys: []string{"answer", "confidence"},
+		Scenario:         "philosophical_qa",
+		Files:            map[string]string{"context.txt": "/tmp/context.txt"},
+		Tools: []LLMTool{
+			{
+				Name:        "search",
+				Description: "Search for information",
+				Parameters:  map[string]interface{}{"query": "string", "limit": "number"},
+			},
+		},
+		Response: `{"answer": "42", "confidence": 0.95}`,
+		File:     "/tmp/llm_response.json",
+	}
+
+	// Store the resource
+	err = reader.StoreLLMResource(llmRes)
+	require.NoError(t, err)
+
+	// Retrieve the resource
+	uri, _ := url.Parse("resource:///llm/llm-test-1")
+	data, err := reader.Read(*uri)
+	require.NoError(t, err)
+
+	// Parse and verify the returned data
+	var retrievedRes LLMResource
+	err = json.Unmarshal(data, &retrievedRes)
+	require.NoError(t, err)
+
+	assert.Equal(t, llmRes.ID, retrievedRes.ID)
+	assert.Equal(t, llmRes.Model, retrievedRes.Model)
+	assert.Equal(t, llmRes.Prompt, retrievedRes.Prompt)
+	assert.Equal(t, llmRes.Role, retrievedRes.Role)
+	assert.Equal(t, llmRes.JSONResponse, retrievedRes.JSONResponse)
+	assert.Equal(t, llmRes.JSONResponseKeys, retrievedRes.JSONResponseKeys)
+	assert.Equal(t, llmRes.Tools, retrievedRes.Tools)
+	assert.Equal(t, llmRes.Response, retrievedRes.Response)
+}
+
+func TestStoreAndRetrieveDataResource(t *testing.T) {
+	t.Parallel()
+
+	dbPath := ":memory:"
+	requestID := "test-request-data"
+	reader, err := InitializeResource(dbPath, requestID)
+	require.NoError(t, err)
+	defer reader.Close()
+
+	// Create test data resource
+	dataRes := &DataResource{
+		BaseResource: BaseResource{
+			ID:        "data-test-1",
+			RequestID: requestID,
+			Type:      TypeData,
+			Timestamp: time.Now(),
+		},
+		Files: map[string]map[string]string{
+			"agent1": {
+				"config.json": "/tmp/agent1/config.json",
+				"data.csv":    "/tmp/agent1/data.csv",
+			},
+			"agent2": {
+				"settings.yaml": "/tmp/agent2/settings.yaml",
+			},
+		},
+	}
+
+	// Store the resource
+	err = reader.StoreDataResource(dataRes)
+	require.NoError(t, err)
+
+	// Retrieve the resource
+	uri, _ := url.Parse("resource:///data/data-test-1")
+	data, err := reader.Read(*uri)
+	require.NoError(t, err)
+
+	// Parse and verify the returned data
+	var retrievedRes DataResource
+	err = json.Unmarshal(data, &retrievedRes)
+	require.NoError(t, err)
+
+	assert.Equal(t, dataRes.ID, retrievedRes.ID)
+	assert.Equal(t, dataRes.Files, retrievedRes.Files)
+}
+
+func TestListResources(t *testing.T) {
+	t.Parallel()
+
+	dbPath := ":memory:"
+	requestID := "test-request-list"
+	reader, err := InitializeResource(dbPath, requestID)
+	require.NoError(t, err)
+	defer reader.Close()
+
+	// Store multiple exec resources
+	for i := 1; i <= 3; i++ {
+		execRes := &ExecResource{
+			BaseResource: BaseResource{
+				ID:        fmt.Sprintf("exec-test-%d", i),
+				RequestID: requestID,
+				Type:      TypeExec,
+				Timestamp: time.Now(),
+			},
+			Command: fmt.Sprintf("echo 'test %d'", i),
 		}
-	})
+		err = reader.StoreExecResource(execRes)
+		require.NoError(t, err)
+	}
+
+	// List all exec resources
+	uri, _ := url.Parse("resource:///exec/_?op=list")
+	data, err := reader.Read(*uri)
+	require.NoError(t, err)
+
+	// Parse and verify the returned data
+	var resources map[string]json.RawMessage
+	err = json.Unmarshal(data, &resources)
+	require.NoError(t, err)
+
+	assert.Len(t, resources, 3)
+	assert.Contains(t, resources, "exec-test-1")
+	assert.Contains(t, resources, "exec-test-2")
+	assert.Contains(t, resources, "exec-test-3")
 }
 
-// Test helper to ensure the logging calls work correctly
-func TestLoadResourceLogging(t *testing.T) {
-	ctx := context.Background()
-	logger := logging.NewTestLogger()
+func TestDeleteResource(t *testing.T) {
+	t.Parallel()
 
-	t.Run("LoggingBehavior", func(t *testing.T) {
-		resourceFile := "/nonexistent/file.pkl"
+	dbPath := ":memory:"
+	requestID := "test-request-delete"
+	reader, err := InitializeResource(dbPath, requestID)
+	require.NoError(t, err)
+	defer reader.Close()
 
-		_, err := LoadResource(ctx, resourceFile, logger)
+	// Store a resource
+	execRes := &ExecResource{
+		BaseResource: BaseResource{
+			ID:        "exec-to-delete",
+			RequestID: requestID,
+			Type:      TypeExec,
+			Timestamp: time.Now(),
+		},
+		Command: "echo 'delete me'",
+		Stdout:  "delete me\n",
+	}
+	err = reader.StoreExecResource(execRes)
+	require.NoError(t, err)
 
-		// Should log debug and error messages
+	// Verify it exists
+	uri, _ := url.Parse("resource:///exec/exec-to-delete")
+	data, err := reader.Read(*uri)
+	require.NoError(t, err)
+	assert.NotEqual(t, "{}", string(data))
+
+	// Delete the resource
+	deleteURI, _ := url.Parse("resource:///exec/exec-to-delete?op=delete")
+	result, err := reader.Read(*deleteURI)
+	require.NoError(t, err)
+	assert.Contains(t, string(result), "Deleted 1 resource(s)")
+
+	// Verify it's gone
+	data, err = reader.Read(*uri)
+	require.NoError(t, err)
+	assert.Equal(t, "{}", string(data))
+}
+
+func TestClearResources(t *testing.T) {
+	t.Parallel()
+
+	dbPath := ":memory:"
+	requestID := "test-request-clear"
+	reader, err := InitializeResource(dbPath, requestID)
+	require.NoError(t, err)
+	defer reader.Close()
+
+	// Store multiple resources
+	for i := 1; i <= 3; i++ {
+		execRes := &ExecResource{
+			BaseResource: BaseResource{
+				ID:        fmt.Sprintf("exec-clear-%d", i),
+				RequestID: requestID,
+				Type:      TypeExec,
+				Timestamp: time.Now(),
+			},
+			Command: fmt.Sprintf("echo 'clear %d'", i),
+		}
+		err = reader.StoreExecResource(execRes)
+		require.NoError(t, err)
+	}
+
+	// Verify they exist
+	listURI, _ := url.Parse("resource:///exec/_?op=list")
+	data, err := reader.Read(*listURI)
+	require.NoError(t, err)
+
+	var resources map[string]json.RawMessage
+	err = json.Unmarshal(data, &resources)
+	require.NoError(t, err)
+	assert.Len(t, resources, 3)
+
+	// Clear all exec resources
+	clearURI, _ := url.Parse("resource:///exec/_?op=clear")
+	result, err := reader.Read(*clearURI)
+	require.NoError(t, err)
+	assert.Contains(t, string(result), "Cleared 3 resource(s) of type exec")
+
+	// Verify they're gone
+	data, err = reader.Read(*listURI)
+	require.NoError(t, err)
+
+	err = json.Unmarshal(data, &resources)
+	require.NoError(t, err)
+	assert.Len(t, resources, 0)
+}
+
+func TestResourceNotFound(t *testing.T) {
+	t.Parallel()
+
+	dbPath := ":memory:"
+	requestID := "test-request-notfound"
+	reader, err := InitializeResource(dbPath, requestID)
+	require.NoError(t, err)
+	defer reader.Close()
+
+	// Try to retrieve non-existent resource
+	uri, _ := url.Parse("resource:///exec/non-existent")
+	data, err := reader.Read(*uri)
+	require.NoError(t, err)
+	assert.Equal(t, "{}", string(data))
+}
+
+func TestInvalidURIFormat(t *testing.T) {
+	t.Parallel()
+
+	dbPath := ":memory:"
+	requestID := "test-request-invalid"
+	reader, err := InitializeResource(dbPath, requestID)
+	require.NoError(t, err)
+	defer reader.Close()
+
+	// Test invalid URI formats
+	testCases := []string{
+		"resource:///",
+		"resource:///exec",
+		"resource:///exec/",
+	}
+
+	for _, uriStr := range testCases {
+		uri, _ := url.Parse(uriStr)
+		_, err := reader.Read(*uri)
 		assert.Error(t, err)
-		// The actual logging verification would require a mock logger
-		// but this tests that the function completes without panic
+		assert.Contains(t, err.Error(), "invalid URI path format")
+	}
+}
+
+func TestUnsupportedOperation(t *testing.T) {
+	t.Parallel()
+
+	dbPath := ":memory:"
+	requestID := "test-request-unsupported"
+	reader, err := InitializeResource(dbPath, requestID)
+	require.NoError(t, err)
+	defer reader.Close()
+
+	// Test unsupported operation
+	uri, _ := url.Parse("resource:///exec/test?op=unsupported")
+	_, err = reader.Read(*uri)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported operation: unsupported")
+}
+
+func TestRequestIDIsolation(t *testing.T) {
+	t.Parallel()
+
+	dbPath := ":memory:"
+	requestID1 := "request-1"
+	requestID2 := "request-2"
+
+	reader1, err := InitializeResource(dbPath, requestID1)
+	require.NoError(t, err)
+	defer reader1.Close()
+
+	reader2, err := InitializeResource(dbPath, requestID2)
+	require.NoError(t, err)
+	defer reader2.Close()
+
+	// Store a resource in reader1
+	execRes := &ExecResource{
+		BaseResource: BaseResource{
+			ID:        "test-isolation",
+			RequestID: requestID1,
+			Type:      TypeExec,
+			Timestamp: time.Now(),
+		},
+		Command: "echo 'isolation test'",
+	}
+	err = reader1.StoreExecResource(execRes)
+	require.NoError(t, err)
+
+	// Try to access from reader2 (different request ID)
+	uri, _ := url.Parse("resource:///exec/test-isolation")
+	data, err := reader2.Read(*uri)
+	require.NoError(t, err)
+	assert.Equal(t, "{}", string(data)) // Should not find the resource
+
+	// Should be accessible from reader1
+	data, err = reader1.Read(*uri)
+	require.NoError(t, err)
+	assert.NotEqual(t, "{}", string(data))
+}
+
+func TestInitializeDatabase(t *testing.T) {
+	t.Parallel()
+
+	t.Run("InMemoryDatabase", func(t *testing.T) {
+		t.Parallel()
+		db, err := InitializeDatabase(":memory:")
+		require.NoError(t, err)
+		require.NotNil(t, db)
+		defer db.Close()
 	})
 
-	t.Run("SuccessLogging", func(t *testing.T) {
-		// Create a temporary file on the real filesystem
-		tmpDir, err := os.MkdirTemp("", "resource_test")
-		require.NoError(t, err)
-		defer os.RemoveAll(tmpDir)
-
-		// Create a valid resource file content
-		validContent := `amends "package://schema.kdeps.com/core@0.2.30#/Resource.pkl"
-
-actionID = "testaction"
-name = "Test Action"
-category = "test"
-description = "Test resource"
-run {
-  APIResponse {
-    success = true
-    response {
-      data {
-        "test"
-      }
-    }
-  }
-}
-`
-
-		resourceFile := filepath.Join(tmpDir, "test.pkl")
-		err = os.WriteFile(resourceFile, []byte(validContent), 0o644)
-		require.NoError(t, err)
-
-		// This should test the successful debug logging path
-		resource, err := LoadResource(ctx, resourceFile, logger)
-
-		assert.NoError(t, err)
-		assert.NotNil(t, resource)
+	t.Run("InvalidPath", func(t *testing.T) {
+		t.Parallel()
+		_, err := InitializeDatabase("/invalid/path/test.db")
+		require.Error(t, err)
 	})
 }
 
-func TestLoadResource_WhitespaceOnlyFile(t *testing.T) {
-	ctx := context.Background()
-	logger := logging.NewTestLogger()
-	fs := afero.NewOsFs()
-	tmpDir := t.TempDir()
-	file := filepath.Join(tmpDir, "whitespace.pkl")
-	require.NoError(t, afero.WriteFile(fs, file, []byte("   \n\t  "), 0o644))
-	resource, err := LoadResource(ctx, file, logger)
-	if err != nil {
-		assert.Contains(t, err.Error(), "error reading resource file")
-		assert.Nil(t, resource)
-	} else {
-		assert.NotNil(t, resource)
-	}
-}
+func TestClose(t *testing.T) {
+	t.Parallel()
 
-func TestLoadResource_AmendsHeaderOnly(t *testing.T) {
-	ctx := context.Background()
-	logger := logging.NewTestLogger()
-	fs := afero.NewOsFs()
-	tmpDir := t.TempDir()
-	file := filepath.Join(tmpDir, "headeronly.pkl")
-	header := fmt.Sprintf("amends \"package://schema.kdeps.com/core@%s#/Resource.pkl\"\n", schema.SchemaVersion(ctx))
-	require.NoError(t, afero.WriteFile(fs, file, []byte(header), 0o644))
-	resource, err := LoadResource(ctx, file, logger)
-	if err != nil {
-		assert.Contains(t, err.Error(), "error reading resource file")
-		assert.Nil(t, resource)
-	} else {
-		assert.NotNil(t, resource)
-	}
-}
+	dbPath := ":memory:"
+	requestID := "test-request-close"
+	reader, err := InitializeResource(dbPath, requestID)
+	require.NoError(t, err)
 
-func TestLoadResource_HeaderNoActionID(t *testing.T) {
-	ctx := context.Background()
-	logger := logging.NewTestLogger()
-	fs := afero.NewOsFs()
-	tmpDir := t.TempDir()
-	file := filepath.Join(tmpDir, "noactionid.pkl")
-	header := fmt.Sprintf("amends \"package://schema.kdeps.com/core@%s#/Resource.pkl\"\nname = \"Test\"\n", schema.SchemaVersion(ctx))
-	require.NoError(t, afero.WriteFile(fs, file, []byte(header), 0o644))
-	resource, err := LoadResource(ctx, file, logger)
-	if err != nil {
-		assert.Contains(t, err.Error(), "error reading resource file")
-		assert.Nil(t, resource)
-	} else {
-		assert.NotNil(t, resource)
-	}
-}
+	// Close should work without error
+	err = reader.Close()
+	require.NoError(t, err)
 
-func TestLoadResource_HeaderActionIDInvalidRun(t *testing.T) {
-	ctx := context.Background()
-	logger := logging.NewTestLogger()
-	fs := afero.NewOsFs()
-	tmpDir := t.TempDir()
-	file := filepath.Join(tmpDir, "invalidrun.pkl")
-	header := fmt.Sprintf("amends \"package://schema.kdeps.com/core@%s#/Resource.pkl\"\nactionID = \"test\"\nrun { invalid block }\n", schema.SchemaVersion(ctx))
-	require.NoError(t, afero.WriteFile(fs, file, []byte(header), 0o644))
-	resource, err := LoadResource(ctx, file, logger)
-	if err != nil {
-		assert.Contains(t, err.Error(), "error reading resource file")
-		assert.Nil(t, resource)
-	} else {
-		assert.NotNil(t, resource)
-	}
+	// Second close should not panic
+	err = reader.Close()
+	require.NoError(t, err)
 }

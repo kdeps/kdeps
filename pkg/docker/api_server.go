@@ -383,7 +383,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		urlSection := fmt.Sprintf(`path = "%s"`, c.Request.URL.Path)
 		clientIPSection := fmt.Sprintf(`IP = "%s"`, c.ClientIP())
 		requestIDSection := fmt.Sprintf(`ID = "%s"`, graphID)
-		dataSection := fmt.Sprintf(`data = "%s"`, utils.EncodeBase64String(bodyData))
+		dataSection := fmt.Sprintf(`data = "%s"`, bodyData)
 
 		var sb strings.Builder
 		sb.WriteString("files {\n")
@@ -397,8 +397,8 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		sb.WriteString("}\n")
 		fileSection := sb.String()
 
-		paramSection := utils.FormatRequestParams(c.Request.URL.Query())
-		requestHeaderSection := utils.FormatRequestHeaders(c.Request.Header)
+		paramSection := formatRequestParams(c.Request.URL.Query())
+		requestHeaderSection := formatRequestHeaders(c.Request.Header)
 
 		sections := []string{urlSection, clientIPSection, requestIDSection, method, requestHeaderSection, dataSection, paramSection, fileSection}
 
@@ -535,7 +535,7 @@ func ProcessWorkflow(ctx context.Context, dr *resolver.DependencyResolver) error
 	return nil
 }
 
-// DecodeResponseContent decodes response content
+// DecodeResponseContent decodes response content - simplified since DecodeBase64String was removed
 func DecodeResponseContent(content []byte, logger *logging.Logger, pklEvaluator pkl.Evaluator, ctx context.Context) (*APIResponse, error) {
 	var decodedResp APIResponse
 
@@ -546,20 +546,37 @@ func DecodeResponseContent(content []byte, logger *logging.Logger, pklEvaluator 
 		return nil, err
 	}
 
-	// Decode Base64 strings in the Data field
-	for i, encodedData := range decodedResp.Response.Data {
-		decodedData, err := utils.DecodeBase64String(encodedData)
-		if err != nil {
-			logger.Error("failed to decode Base64 string", "data", encodedData, "error", err)
-			decodedResp.Response.Data[i] = encodedData // Use original if decoding fails
-			continue
-		}
-
-		// Simply use the decoded data without complex PKL re-parsing
-		decodedResp.Response.Data[i] = decodedData
-	}
+	// Since base64 decoding is no longer needed, just use the data as-is
+	// No need to decode Base64 strings anymore
 
 	return &decodedResp, nil
+}
+
+// Helper functions to replace the removed utils functions
+func formatRequestParams(params map[string][]string) string {
+	if len(params) == 0 {
+		return "params{}"
+	}
+	var paramsLines []string
+	for param, values := range params {
+		for _, value := range values {
+			paramsLines = append(paramsLines, fmt.Sprintf(`["%s"]="%s"`, param, value))
+		}
+	}
+	return "params{" + strings.Join(paramsLines, ";") + "}"
+}
+
+func formatRequestHeaders(headers map[string][]string) string {
+	if len(headers) == 0 {
+		return "headers{}"
+	}
+	var headersLines []string
+	for name, values := range headers {
+		for _, value := range values {
+			headersLines = append(headersLines, fmt.Sprintf(`["%s"]="%s"`, name, value))
+		}
+	}
+	return "headers{" + strings.Join(headersLines, ";") + "}"
 }
 
 // FormatResponseJSON formats response as JSON

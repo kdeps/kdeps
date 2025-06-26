@@ -162,6 +162,45 @@ var (
 	}
 )
 
+// Resource storage operations
+var (
+	// InitializeResourceFunc allows injection of resource storage initialization
+	InitializeResourceFunc = func(dbPath string, requestID string) (interface{}, error) {
+		// Will be set to actual implementation
+		return nil, nil
+	}
+
+	// StoreExecResourceFunc allows injection of exec resource storage
+	StoreExecResourceFunc = func(reader interface{}, resource interface{}) error {
+		// Will be set to actual implementation
+		return nil
+	}
+
+	// StorePythonResourceFunc allows injection of Python resource storage
+	StorePythonResourceFunc = func(reader interface{}, resource interface{}) error {
+		// Will be set to actual implementation
+		return nil
+	}
+
+	// StoreHTTPResourceFunc allows injection of HTTP resource storage
+	StoreHTTPResourceFunc = func(reader interface{}, resource interface{}) error {
+		// Will be set to actual implementation
+		return nil
+	}
+
+	// StoreLLMResourceFunc allows injection of LLM resource storage
+	StoreLLMResourceFunc = func(reader interface{}, resource interface{}) error {
+		// Will be set to actual implementation
+		return nil
+	}
+
+	// StoreDataResourceFunc allows injection of data resource storage
+	StoreDataResourceFunc = func(reader interface{}, resource interface{}) error {
+		// Will be set to actual implementation
+		return nil
+	}
+)
+
 // OS operations
 var (
 	// ExecLookPathFunc allows injection of executable lookup
