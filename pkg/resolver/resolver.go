@@ -13,6 +13,7 @@ import (
 	"github.com/apple/pkl-go/pkl"
 	"github.com/gin-gonic/gin"
 	"github.com/kdeps/kartographer/graph"
+	"github.com/kdeps/kdeps/pkg/bus"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/item"
 	"github.com/kdeps/kdeps/pkg/ktx"
@@ -86,8 +87,8 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		}
 	}
 
-	workflowDir := filepath.Join(agentDir, "/workflow/")
-	projectDir := filepath.Join(agentDir, "/project/")
+	workflowDir := filepath.Join(agentDir, "workflow")
+	projectDir := filepath.Join(agentDir, "project")
 	pklWfFile := filepath.Join(workflowDir, "workflow.pkl")
 
 	exists, err := afero.Exists(fs, pklWfFile)
@@ -95,8 +96,8 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		return nil, fmt.Errorf("error checking %s: %w", pklWfFile, err)
 	}
 
-	dataDir := filepath.Join(projectDir, "/data/")
-	filesDir := filepath.Join(actionDir, "/files/")
+	dataDir := filepath.Join(projectDir, "data")
+	filesDir := filepath.Join(actionDir, "files")
 
 	directories := []string{
 		projectDir,
@@ -109,18 +110,11 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		return nil, fmt.Errorf("error creating directory: %w", err)
 	}
 
-	// List of files to create (stamp file)
-	files := []string{
-		filepath.Join(actionDir, graphID),
-	}
+	// Note: No longer creating request stamp files - using bus messaging for coordination
 
-	if err := utils.CreateFiles(fs, ctx, files); err != nil {
-		return nil, fmt.Errorf("error creating file: %w", err)
-	}
-
-	requestPklFile := filepath.Join(actionDir, "/api/"+graphID+"__request.pkl")
-	responsePklFile := filepath.Join(actionDir, "/api/"+graphID+"__response.pkl")
-	responseTargetFile := filepath.Join(actionDir, "/api/"+graphID+"__response.json")
+	requestPklFile := filepath.Join(actionDir, "api", graphID+"__request.pkl")
+	responsePklFile := filepath.Join(actionDir, "api", graphID+"__response.pkl")
+	responseTargetFile := filepath.Join(actionDir, "api", graphID+"__response.json")
 
 	workflowConfiguration, err := pklWf.LoadFromPath(ctx, pklWfFile)
 	if err != nil {
@@ -137,28 +131,29 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		agentName = workflowConfiguration.GetName()
 	}
 
-	memoryDBPath = filepath.Join("/.kdeps/", agentName+"_memory.db")
+	memoryDBPath = filepath.Join(filepath.FromSlash("/.kdeps"), agentName+"_memory.db")
 	memoryReader, err := memory.InitializeMemory(memoryDBPath)
 	if err != nil {
 		memoryReader.DB.Close()
 		return nil, fmt.Errorf("failed to initialize DB memory: %w", err)
 	}
 
-	sessionDBPath = filepath.Join(actionDir, graphID+"_session.db")
+	// Use in-memory databases for session, tool, and item (only memory uses file-based DB)
+	sessionDBPath = ":memory:"
 	sessionReader, err := session.InitializeSession(sessionDBPath)
 	if err != nil {
 		sessionReader.DB.Close()
 		return nil, fmt.Errorf("failed to initialize session DB: %w", err)
 	}
 
-	toolDBPath = filepath.Join(actionDir, graphID+"_tool.db")
+	toolDBPath = ":memory:"
 	toolReader, err := tool.InitializeTool(toolDBPath)
 	if err != nil {
 		toolReader.DB.Close()
 		return nil, fmt.Errorf("failed to initialize tool DB: %w", err)
 	}
 
-	itemDBPath = filepath.Join(actionDir, graphID+"_item.db")
+	itemDBPath = ":memory:"
 	itemReader, err := item.InitializeItem(itemDBPath, nil, "")
 	if err != nil {
 		itemReader.DB.Close()
@@ -323,10 +318,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			dr.ToolReader.DB.Close()
 			dr.ItemReader.DB.Close()
 
-			// Remove the session DB file
-			if err := dr.Fs.RemoveAll(dr.SessionDBPath); err != nil {
-				dr.Logger.Error("failed to delete the SessionDB file", "file", dr.SessionDBPath, "error", err)
-			}
+			// Note: Session, tool, and item DBs are now in-memory, no files to delete
 
 			buf := make([]byte, 1<<16)
 			stackSize := runtime.Stack(buf, false)
@@ -334,11 +326,13 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 		}
 	}()
 
-	requestFilePath := filepath.Join(dr.ActionDir, dr.RequestID)
-
 	visited := make(map[string]bool)
 	actionID := dr.Workflow.GetTargetActionID()
 	dr.Logger.Debug("processing resources...")
+
+	// Publish request started event via bus messaging (replaces stamp file creation)
+	bus.PublishGlobalEvent("request_started", dr.RequestID)
+	dr.Logger.Debug("Published request started event", "requestID", dr.RequestID)
 
 	if err := dr.LoadResourceEntries(); err != nil {
 		return dr.HandleAPIErrorResponse(500, err.Error(), true)
@@ -439,17 +433,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	dr.ToolReader.DB.Close()
 	dr.ItemReader.DB.Close()
 
-	// Remove the request stamp file
-	if err := dr.Fs.RemoveAll(requestFilePath); err != nil {
-		dr.Logger.Error("failed to delete old requestID file", "file", requestFilePath, "error", err)
-		return false, err
-	}
-
-	// Remove the session DB file
-	if err := dr.Fs.RemoveAll(dr.SessionDBPath); err != nil {
-		dr.Logger.Error("failed to delete the SessionDB file", "file", dr.SessionDBPath, "error", err)
-		return false, err
-	}
+	// Note: No longer using request stamp files - coordination handled via bus messaging
 
 	// Log the final file run counts
 	for file, count := range dr.FileRunCounter {

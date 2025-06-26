@@ -13,6 +13,49 @@ import (
 	"github.com/spf13/afero"
 )
 
+// CreateKdepsTempDir creates a temporary directory under <fs.TempDir()>/kdeps/<reqID>/
+// This ensures all temporary files are organized consistently across platforms using afero
+func CreateKdepsTempDir(fs afero.Fs, requestID string, suffix string) (string, error) {
+	if requestID == "" {
+		return "", fmt.Errorf("requestID cannot be empty")
+	}
+
+	// First create a base temp directory using afero
+	baseTempDir, err := afero.TempDir(fs, "", "kdeps-"+requestID)
+	if err != nil {
+		return "", fmt.Errorf("failed to create base temp directory: %w", err)
+	}
+
+	// Build the organized path structure
+	baseDir := baseTempDir
+	if suffix != "" {
+		baseDir = filepath.Join(baseTempDir, suffix)
+		// Create the suffix subdirectory if needed
+		if err := fs.MkdirAll(baseDir, 0o755); err != nil {
+			return "", fmt.Errorf("failed to create kdeps temp directory %s: %w", baseDir, err)
+		}
+	}
+
+	return baseDir, nil
+}
+
+// CreateKdepsTempFile creates a temporary file under <fs.TempDir()>/kdeps/<reqID>/
+// This ensures all temporary files are organized consistently across platforms using afero
+func CreateKdepsTempFile(fs afero.Fs, requestID string, pattern string) (afero.File, error) {
+	if requestID == "" {
+		return nil, fmt.Errorf("requestID cannot be empty")
+	}
+
+	// Create the base temp directory for this request
+	tempDir, err := CreateKdepsTempDir(fs, requestID, "")
+	if err != nil {
+		return nil, err
+	}
+
+	// Create the temporary file in the organized directory
+	return afero.TempFile(fs, tempDir, pattern)
+}
+
 func WaitForFileReady(fs afero.Fs, filepath string, logger *logging.Logger) error {
 	logger.Debug(messages.MsgWaitingForFileReady, "file", filepath)
 

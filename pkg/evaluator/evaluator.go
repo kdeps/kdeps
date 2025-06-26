@@ -12,6 +12,7 @@ import (
 	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/spf13/afero"
 )
 
@@ -40,6 +41,16 @@ var (
 	// AferoTempDirFunc allows injection of temporary directory creation
 	AferoTempDirFunc = func(fs afero.Fs, dir, prefix string) (string, error) {
 		return afero.TempDir(fs, dir, prefix)
+	}
+
+	// CreateKdepsTempDirFunc allows injection of organized kdeps temporary directory creation
+	CreateKdepsTempDirFunc = func(fs afero.Fs, requestID string, suffix string) (string, error) {
+		return utils.CreateKdepsTempDir(fs, requestID, suffix)
+	}
+
+	// CreateKdepsTempFileFunc allows injection of organized kdeps temporary file creation
+	CreateKdepsTempFileFunc = func(fs afero.Fs, requestID string, pattern string) (afero.File, error) {
+		return utils.CreateKdepsTempFile(fs, requestID, pattern)
 	}
 
 	// AferoReadFileFunc allows injection of file reading
@@ -147,17 +158,36 @@ func CreateAndProcessPklFile(
 	opts func(options *pkl.EvaluatorOptions),
 	logger *logging.Logger,
 	processFunc func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, opts func(options *pkl.EvaluatorOptions), logger *logging.Logger) (string, error),
-	isExtension bool, // New parameter to control amends vs extends
+	isExtension bool, // Parameter to control amends vs extends
+	requestID string, // Parameter for organized temporary file creation
 ) error {
-	// Create a temporary directory
-	tmpDir, err := AferoTempDirFunc(fs, "", "")
+	// Create a temporary directory using organized structure
+	var tmpDir string
+	var err error
+
+	if requestID != "" {
+		// Use organized temp directory structure for kdeps
+		tmpDir, err = CreateKdepsTempDirFunc(fs, requestID, "pkl-eval")
+	} else {
+		// Fallback to regular temp directory
+		tmpDir, err = AferoTempDirFunc(fs, "", "")
+	}
+
 	if err != nil {
 		logger.Error("failed to create temporary directory", "path", tmpDir, "error", err)
 		return fmt.Errorf("failed to create temporary directory: %w", err)
 	}
 
 	// Create a unique temporary file in the temporary directory
-	tmpFile, err := AferoTempFileFunc(fs, tmpDir, "*.pkl") // This will create a unique temporary file
+	var tmpFile afero.File
+	if requestID != "" {
+		// Use organized temp file creation
+		tmpFile, err = CreateKdepsTempFileFunc(fs, requestID, "pkl-eval-*.pkl")
+	} else {
+		// Fallback to regular temp file creation
+		tmpFile, err = AferoTempFileFunc(fs, tmpDir, "*.pkl")
+	}
+
 	if err != nil {
 		logger.Error("failed to create temporary file", "dir", tmpDir, "error", err)
 		return fmt.Errorf("failed to create temporary file: %w", err)

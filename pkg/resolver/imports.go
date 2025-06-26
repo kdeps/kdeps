@@ -54,11 +54,11 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Item.pkl", schema.SchemaVersion(dr.Context)):     {Alias: "item", Check: false},
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Skip.pkl", schema.SchemaVersion(dr.Context)):     {Alias: "skip", Check: false},
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Utils.pkl", schema.SchemaVersion(dr.Context)):    {Alias: "utils", Check: false},
-		filepath.Join(dr.ActionDir, "/llm/"+dr.RequestID+"__llm_output.pkl"):                              {Alias: "llm", Check: true},
-		filepath.Join(dr.ActionDir, "/client/"+dr.RequestID+"__client_output.pkl"):                        {Alias: "client", Check: true},
-		filepath.Join(dr.ActionDir, "/exec/"+dr.RequestID+"__exec_output.pkl"):                            {Alias: "exec", Check: true},
-		filepath.Join(dr.ActionDir, "/python/"+dr.RequestID+"__python_output.pkl"):                        {Alias: "python", Check: true},
-		filepath.Join(dr.ActionDir, "/data/"+dr.RequestID+"__data_output.pkl"):                            {Alias: "data", Check: true},
+		filepath.Join(dr.ActionDir, "llm", dr.RequestID+"__llm_output.pkl"):                              {Alias: "llm", Check: true},
+		filepath.Join(dr.ActionDir, "client", dr.RequestID+"__client_output.pkl"):                        {Alias: "client", Check: true},
+		filepath.Join(dr.ActionDir, "exec", dr.RequestID+"__exec_output.pkl"):                            {Alias: "exec", Check: true},
+		filepath.Join(dr.ActionDir, "python", dr.RequestID+"__python_output.pkl"):                        {Alias: "python", Check: true},
+		filepath.Join(dr.ActionDir, "data", dr.RequestID+"__data_output.pkl"):                            {Alias: "data", Check: true},
 		dr.RequestPklFile: {Alias: "request", Check: true},
 	}
 
@@ -114,11 +114,11 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 
 func (dr *DependencyResolver) PrepareImportFiles() error {
 	files := map[string]string{
-		"llm":    filepath.Join(dr.ActionDir, "/llm/"+dr.RequestID+"__llm_output.pkl"),
-		"client": filepath.Join(dr.ActionDir, "/client/"+dr.RequestID+"__client_output.pkl"),
-		"exec":   filepath.Join(dr.ActionDir, "/exec/"+dr.RequestID+"__exec_output.pkl"),
-		"python": filepath.Join(dr.ActionDir, "/python/"+dr.RequestID+"__python_output.pkl"),
-		"data":   filepath.Join(dr.ActionDir, "/data/"+dr.RequestID+"__data_output.pkl"),
+		"llm":    filepath.Join(dr.ActionDir, "llm", dr.RequestID+"__llm_output.pkl"),
+		"client": filepath.Join(dr.ActionDir, "client", dr.RequestID+"__client_output.pkl"),
+		"exec":   filepath.Join(dr.ActionDir, "exec", dr.RequestID+"__exec_output.pkl"),
+		"python": filepath.Join(dr.ActionDir, "python", dr.RequestID+"__python_output.pkl"),
+		"data":   filepath.Join(dr.ActionDir, "data", dr.RequestID+"__data_output.pkl"),
 	}
 
 	for key, file := range files {

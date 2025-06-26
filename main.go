@@ -34,12 +34,12 @@ func main() {
 	defer cancel() // Ensure context is canceled when main exits
 
 	graphID := uuid.New().String()
-	actionDir := filepath.Join(os.TempDir(), "action")
-	agentDir := filepath.Join("/", "agent")
-	sharedDir := filepath.Join("/", ".kdeps")
+	actionDir := filepath.Join(os.TempDir(), "kdeps", graphID)
+	agentDir := filepath.FromSlash("/agent")
+	sharedDir := filepath.FromSlash("/.kdeps")
 
 	// Setup environment
-	env, err := SetupEnvironment(fs)
+	env, err := SetupEnvironmentFn(fs)
 	if err != nil {
 		logger.Fatalf("failed to set up environment: %v", err)
 	}

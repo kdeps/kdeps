@@ -2632,7 +2632,7 @@ func (m *mockRPCClientWithClose) Close() error {
 }
 
 // TestMain_SetupEnvironmentErrorPath tests the error path in main when SetupEnvironmentFn fails
-func TestMain_SetupEnvironmentErrorPath_DISABLED(t *testing.T) {
+func TestMain_SetupEnvironmentErrorPath(t *testing.T) {
 	setNoOpExitFn(t)
 	// Preserve original functions
 	origSetupEnv := SetupEnvironmentFn

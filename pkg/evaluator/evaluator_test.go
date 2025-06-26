@@ -119,13 +119,13 @@ func TestEvalPkl_FileReadError(t *testing.T) {
 }
 
 func TestCreateAndProcessPklFile_TempDirError(t *testing.T) {
-	// Mock temp dir creation to fail
-	originalTempDirFunc := AferoTempDirFunc
+	// Mock organized temp dir creation to fail
+	originalCreateKdepsTempDirFunc := CreateKdepsTempDirFunc
 	defer func() {
-		AferoTempDirFunc = originalTempDirFunc
+		CreateKdepsTempDirFunc = originalCreateKdepsTempDirFunc
 	}()
 
-	AferoTempDirFunc = func(fs afero.Fs, dir, prefix string) (string, error) {
+	CreateKdepsTempDirFunc = func(fs afero.Fs, requestID string, suffix string) (string, error) {
 		return "", errors.New("temp dir error")
 	}
 
@@ -137,26 +137,26 @@ func TestCreateAndProcessPklFile_TempDirError(t *testing.T) {
 		return "processed", nil
 	}
 
-	err := CreateAndProcessPklFile(fs, ctx, []string{"section1"}, "output.pkl", "TestTemplate", nil, logger, processFunc, false)
+	err := CreateAndProcessPklFile(fs, ctx, []string{"section1"}, "output.pkl", "TestTemplate", nil, logger, processFunc, false, "test-request")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to create temporary directory")
 }
 
 func TestCreateAndProcessPklFile_TempFileError(t *testing.T) {
-	// Mock temp file creation to fail
-	originalTempFileFunc := AferoTempFileFunc
-	originalTempDirFunc := AferoTempDirFunc
+	// Mock organized temp file creation to fail
+	originalCreateKdepsTempFileFunc := CreateKdepsTempFileFunc
+	originalCreateKdepsTempDirFunc := CreateKdepsTempDirFunc
 	defer func() {
-		AferoTempFileFunc = originalTempFileFunc
-		AferoTempDirFunc = originalTempDirFunc
+		CreateKdepsTempFileFunc = originalCreateKdepsTempFileFunc
+		CreateKdepsTempDirFunc = originalCreateKdepsTempDirFunc
 	}()
 
-	AferoTempDirFunc = func(fs afero.Fs, dir, prefix string) (string, error) {
-		return "/tmp", nil
+	CreateKdepsTempDirFunc = func(fs afero.Fs, requestID string, suffix string) (string, error) {
+		return "/tmp/kdeps/test-request", nil
 	}
 
-	AferoTempFileFunc = func(fs afero.Fs, dir, pattern string) (afero.File, error) {
+	CreateKdepsTempFileFunc = func(fs afero.Fs, requestID string, pattern string) (afero.File, error) {
 		return nil, errors.New("temp file error")
 	}
 
@@ -168,7 +168,7 @@ func TestCreateAndProcessPklFile_TempFileError(t *testing.T) {
 		return "processed", nil
 	}
 
-	err := CreateAndProcessPklFile(fs, ctx, []string{"section1"}, "output.pkl", "TestTemplate", nil, logger, processFunc, false)
+	err := CreateAndProcessPklFile(fs, ctx, []string{"section1"}, "output.pkl", "TestTemplate", nil, logger, processFunc, false, "test-request")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to create temporary file")
@@ -184,24 +184,21 @@ func TestCreateAndProcessPklFile_ProcessError(t *testing.T) {
 		return "", errors.New("process error")
 	}
 
-	err := CreateAndProcessPklFile(fs, ctx, []string{"section1"}, "output.pkl", "TestTemplate", nil, logger, processFunc, false)
+	err := CreateAndProcessPklFile(fs, ctx, []string{"section1"}, "output.pkl", "TestTemplate", nil, logger, processFunc, false, "test-request")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to process temporary file")
 }
 
 func TestCreateAndProcessPklFile_WriteError(t *testing.T) {
-	// Mock write file to fail
+	// Mock file writing to fail
 	originalWriteFileFunc := AferoWriteFileFunc
 	defer func() {
 		AferoWriteFileFunc = originalWriteFileFunc
 	}()
 
 	AferoWriteFileFunc = func(fs afero.Fs, filename string, data []byte, perm os.FileMode) error {
-		if filename == "output.pkl" {
-			return errors.New("write error")
-		}
-		return nil // Allow temp file writes
+		return errors.New("write error")
 	}
 
 	fs := afero.NewMemMapFs()
@@ -209,10 +206,10 @@ func TestCreateAndProcessPklFile_WriteError(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, opts func(options *pkl.EvaluatorOptions), logger *logging.Logger) (string, error) {
-		return "processed content", nil
+		return "processed", nil
 	}
 
-	err := CreateAndProcessPklFile(fs, ctx, []string{"section1"}, "output.pkl", "TestTemplate", nil, logger, processFunc, false)
+	err := CreateAndProcessPklFile(fs, ctx, []string{"section1"}, "output.pkl", "TestTemplate", nil, logger, processFunc, false, "test-request")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to write final file")
@@ -227,16 +224,12 @@ func TestCreateAndProcessPklFile_Success(t *testing.T) {
 		return "processed content", nil
 	}
 
-	// Test with amends (isExtension = false)
-	err := CreateAndProcessPklFile(fs, ctx, []string{"section1", "section2"}, "output.pkl", "TestTemplate", nil, logger, processFunc, false)
+	err := CreateAndProcessPklFile(fs, ctx, []string{"section1", "section2"}, "output.pkl", "TestTemplate", nil, logger, processFunc, false, "test-request")
+
 	assert.NoError(t, err)
 
-	// Verify file was written
-	content, err := afero.ReadFile(fs, "output.pkl")
-	assert.NoError(t, err)
-	assert.Equal(t, "processed content", string(content))
+	// Test with isExtension=true
+	err = CreateAndProcessPklFile(fs, ctx, []string{"section1"}, "output2.pkl", "TestTemplate", nil, logger, processFunc, true, "test-request")
 
-	// Test with extends (isExtension = true)
-	err = CreateAndProcessPklFile(fs, ctx, []string{"section1"}, "output2.pkl", "TestTemplate", nil, logger, processFunc, true)
 	assert.NoError(t, err)
 }

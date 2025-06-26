@@ -150,6 +150,16 @@ var (
 	AferoWriteFileFunc = func(fs afero.Fs, filename string, data []byte, perm os.FileMode) error {
 		return afero.WriteFile(fs, filename, data, perm)
 	}
+
+	// CreateKdepsTempDirFunc allows injection of organized kdeps temporary directory creation
+	CreateKdepsTempDirFunc = func(fs afero.Fs, requestID string, suffix string) (string, error) {
+		return utils.CreateKdepsTempDir(fs, requestID, suffix)
+	}
+
+	// CreateKdepsTempFileFunc allows injection of organized kdeps temporary file creation
+	CreateKdepsTempFileFunc = func(fs afero.Fs, requestID string, pattern string) (afero.File, error) {
+		return utils.CreateKdepsTempFile(fs, requestID, pattern)
+	}
 )
 
 // OS operations

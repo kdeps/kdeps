@@ -403,7 +403,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		sections := []string{urlSection, clientIPSection, requestIDSection, method, requestHeaderSection, dataSection, paramSection, fileSection}
 
 		if err := evaluator.CreateAndProcessPklFile(dr.Fs, ctx, sections, dr.RequestPklFile,
-			"APIServerRequest.pkl", dr.EvaluatorOptions, dr.Logger, evaluator.EvalPkl, true); err != nil {
+			"APIServerRequest.pkl", dr.EvaluatorOptions, dr.Logger, evaluator.EvalPkl, true, graphID); err != nil {
 			errors = append(errors, ErrorResponse{
 				Code:    http.StatusInternalServerError,
 				Message: "Failed to process request file",
