@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -11,14 +12,13 @@ import (
 	"github.com/alexellis/go-execute/v2"
 	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/evaluator"
-	"github.com/kdeps/kdeps/pkg/kdepsexec"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklPython "github.com/kdeps/schema/gen/python"
 	"github.com/spf13/afero"
 )
 
-func (dr *DependencyResolver) HandlePython(actionID string, pythonBlock *pklPython.ResourcePython) error {
+func (dr *DependencyResolver) HandlePython(actionID string, pythonBlock *pklPython.ResourcePython, hasItems bool) error {
 	// Synchronously decode the python block.
 	if err := dr.decodePythonBlock(pythonBlock); err != nil {
 		dr.Logger.Error("failed to decode python block", "actionID", actionID, "error", err)
@@ -27,7 +27,7 @@ func (dr *DependencyResolver) HandlePython(actionID string, pythonBlock *pklPyth
 
 	// Process the python block asynchronously in a goroutine.
 	go func(aID string, block *pklPython.ResourcePython) {
-		if err := dr.processPythonBlock(aID, block); err != nil {
+		if err := dr.processPythonBlock(aID, block, hasItems); err != nil {
 			// Log the error; additional error handling can be added here if needed.
 			dr.Logger.Error("failed to process python block", "actionID", aID, "error", err)
 		}
@@ -73,12 +73,12 @@ func (dr *DependencyResolver) decodePythonBlock(pythonBlock *pklPython.ResourceP
 	return nil
 }
 
-func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *pklPython.ResourcePython) error {
+func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *pklPython.ResourcePython, hasItems bool) error {
 	if dr.AnacondaInstalled && pythonBlock.CondaEnvironment != nil && *pythonBlock.CondaEnvironment != "" {
 		if err := dr.activateCondaEnvironment(*pythonBlock.CondaEnvironment); err != nil {
 			return err
 		}
-		
+		//nolint:errcheck
 		defer dr.deactivateCondaEnvironment()
 	}
 
@@ -100,19 +100,13 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 		StreamStdio: false,
 	}
 
-	var execStdout, execStderr string
-	var execErr error
-	if dr.ExecTaskRunnerFn != nil {
-		execStdout, execStderr, execErr = dr.ExecTaskRunnerFn(dr.Context, cmd)
-	} else {
-		execStdout, execStderr, _, execErr = kdepsexec.RunExecTask(dr.Context, cmd, dr.Logger, false)
-	}
-	if execErr != nil {
-		return fmt.Errorf("execution failed: %w", execErr)
+	result, err := cmd.Execute(dr.Context)
+	if err != nil {
+		return fmt.Errorf("execution failed: %w", err)
 	}
 
-	pythonBlock.Stdout = &execStdout
-	pythonBlock.Stderr = &execStderr
+	pythonBlock.Stdout = &result.Stdout
+	pythonBlock.Stderr = &result.Stderr
 
 	ts := pkl.Duration{
 		Value: float64(time.Now().Unix()),
@@ -120,50 +114,32 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 	}
 	pythonBlock.Timestamp = &ts
 
-	return dr.AppendPythonEntry(actionID, pythonBlock)
+	return dr.AppendPythonEntry(actionID, pythonBlock, hasItems)
 }
 
 func (dr *DependencyResolver) activateCondaEnvironment(envName string) error {
-	execTask := execute.ExecTask{
+	execCommand := execute.ExecTask{
 		Command:     "conda",
 		Args:        []string{"activate", "--name", envName},
 		Shell:       false,
 		StreamStdio: false,
 	}
 
-	// Use injected runner if provided
-	if dr.ExecTaskRunnerFn != nil {
-		if _, _, err := dr.ExecTaskRunnerFn(dr.Context, execTask); err != nil {
-			return fmt.Errorf("conda activate failed: %w", err)
-		}
-		return nil
-	}
-
-	_, _, _, err := kdepsexec.RunExecTask(dr.Context, execTask, dr.Logger, false)
-	if err != nil {
+	if _, err := execCommand.Execute(dr.Context); err != nil {
 		return fmt.Errorf("conda activate failed: %w", err)
 	}
 	return nil
 }
 
 func (dr *DependencyResolver) deactivateCondaEnvironment() error {
-	execTask := execute.ExecTask{
+	execCommand := execute.ExecTask{
 		Command:     "conda",
 		Args:        []string{"deactivate"},
 		Shell:       false,
 		StreamStdio: false,
 	}
 
-	// Use injected runner if provided
-	if dr.ExecTaskRunnerFn != nil {
-		if _, _, err := dr.ExecTaskRunnerFn(context.Background(), execTask); err != nil {
-			return fmt.Errorf("conda deactivate failed: %w", err)
-		}
-		return nil
-	}
-
-	_, _, _, err := kdepsexec.RunExecTask(context.Background(), execTask, dr.Logger, false)
-	if err != nil {
+	if _, err := execCommand.Execute(context.Background()); err != nil {
 		return fmt.Errorf("conda deactivate failed: %w", err)
 	}
 	return nil
@@ -179,7 +155,7 @@ func (dr *DependencyResolver) formatPythonEnv(env *map[string]string) []string {
 	return formatted
 }
 
-
+//nolint:ireturn
 func (dr *DependencyResolver) createPythonTempFile(script string) (afero.File, error) {
 	tmpFile, err := afero.TempFile(dr.Fs, "", "script-*.py")
 	if err != nil {
@@ -223,11 +199,11 @@ func (dr *DependencyResolver) WritePythonStdoutToFile(resourceID string, stdoutE
 	return outputFilePath, nil
 }
 
-
-func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pklPython.ResourcePython) error {
+//nolint:dupl
+func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pklPython.ResourcePython, hasItems bool) error {
 	pklPath := filepath.Join(dr.ActionDir, "python/"+dr.RequestID+"__python_output.pkl")
 
-	res, err := dr.LoadResource(dr.Context, pklPath, PythonResource)
+	res, _, err := dr.LoadResource(dr.Context, pklPath, PythonResource, false)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL: %w", err)
 	}
@@ -251,6 +227,16 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 			return fmt.Errorf("failed to write stdout to file: %w", err)
 		}
 		newPython.File = &filePath
+		if hasItems {
+			dr.Logger.Info("hasItems enabled, storing stdout as item", "resourceID", resourceID)
+			itemValue := *newPython.Stdout
+			query := url.Values{"op": []string{"set"}, "value": []string{itemValue}}
+			uri := url.URL{Scheme: "item", RawQuery: query.Encode()}
+			if _, err := dr.ItemReader.Read(uri); err != nil {
+				dr.Logger.Error("failed to set item value", "item", utils.TruncateString(itemValue, 100), "error", err)
+				return fmt.Errorf("failed to set item: %w", err)
+			}
+		}
 	}
 
 	encodedScript := utils.EncodeValue(newPython.Script)
@@ -259,11 +245,10 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 
 	timeoutDuration := newPython.TimeoutDuration
 	if timeoutDuration == nil {
-		sec := dr.DefaultTimeoutSec
-		if sec <= 0 {
-			sec = 60
+		timeoutDuration = &pkl.Duration{
+			Value: 60,
+			Unit:  pkl.Second,
 		}
-		timeoutDuration = &pkl.Duration{Value: float64(sec), Unit: pkl.Second}
 	}
 
 	timestamp := &pkl.Duration{
@@ -282,7 +267,8 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 	}
 
 	var pklContent strings.Builder
-	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Python.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
+	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Python.pkl\"\n", schema.SchemaVersion(dr.Context)))
+	pklContent.WriteString("import \"pkl:json\"\n\n")
 	pklContent.WriteString("resources {\n")
 
 	for id, res := range existingResources {
@@ -292,7 +278,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 		if res.TimeoutDuration != nil {
 			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
 		} else {
-			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d.s\n", dr.DefaultTimeoutSec))
+			pklContent.WriteString("    timeoutDuration = 60.s\n")
 		}
 
 		if res.Timestamp != nil {
@@ -305,7 +291,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 		pklContent.WriteString(dr.encodePythonStderr(res.Stderr))
 		pklContent.WriteString(dr.encodePythonStdout(res.Stdout))
 		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *res.File))
-
+		pklContent.WriteString(fmt.Sprintf("    itemValues = new Listing {...?(new json.Parser { useMapping = false }).parse(read(\"item:/%s?op=values\")?.text)}\n", id))
 		pklContent.WriteString("  }\n")
 	}
 	pklContent.WriteString("}\n")
@@ -315,7 +301,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 	}
 
 	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath,
-		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Python.pkl\"", schema.SchemaVersion(dr.Context)), dr.Logger)
+		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Python.pkl\"", schema.SchemaVersion(dr.Context)), dr.EvaluatorOptions, dr.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to evaluate PKL: %w", err)
 	}

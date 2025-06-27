@@ -6,18 +6,26 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/client"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/go-connections/nat"
 	"github.com/joho/godotenv"
 	"github.com/spf13/afero"
 )
 
+// DockerClient is an interface for Docker client methods used by CreateDockerContainer.
+type DockerClient interface {
+	ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, platform interface{}, containerName string) (container.CreateResponse, error)
+	ContainerStart(ctx context.Context, containerID string, options container.StartOptions) error
+	ContainerList(ctx context.Context, options container.ListOptions) ([]types.Container, error)
+}
+
 func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerName, hostIP, portNum, webHostIP,
-	webPortNum, gpu string, apiMode, webMode bool, cli *client.Client,
+	webPortNum, gpu string, apiMode, webMode bool, cli DockerClient,
 ) (string, error) {
 	// Load environment variables from .env file (if it exists)
-	envSlice, err := loadEnvFile(fs, ".env")
+	envSlice, err := LoadEnvFile(fs, ".env")
 	if err != nil {
 		fmt.Println("Error loading .env file, proceeding without it:", err)
 	}
@@ -129,7 +137,7 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 	return resp.ID, nil
 }
 
-func loadEnvFile(fs afero.Fs, filename string) ([]string, error) {
+func LoadEnvFile(fs afero.Fs, filename string) ([]string, error) {
 	// Check if the file exists
 	exists, err := afero.Exists(fs, filename)
 	if err != nil {

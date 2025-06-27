@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/kaptinlin/jsonrepair"
 )
 
 func IsJSON(str string) bool {
@@ -99,6 +101,10 @@ func FixJSON(input string) string {
 
 	// 4. Strip leading indentation spaces to normalise formatting.
 	fixed = regexp.MustCompile(`(?m)^\s+`).ReplaceAllString(fixed, "")
+
+	if repairedStr, err := jsonrepair.JSONRepair(fixed); err == nil {
+		return repairedStr
+	}
 
 	return fixed
 }

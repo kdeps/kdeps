@@ -11,11 +11,14 @@ func FormatRequestHeaders(headers map[string][]string) string {
 	for name, values := range headers {
 		for _, value := range values {
 			encodedValue := EncodeBase64String(strings.TrimSpace(value))
-			headersLines = append(headersLines, fmt.Sprintf(`["%s"] = "%s"`, name, encodedValue))
+			headersLines = append(headersLines, fmt.Sprintf(`["%s"]="%s"`, name, encodedValue))
 		}
 	}
 
-	return "headers {\n" + strings.Join(headersLines, "\n") + "\n}"
+	if len(headersLines) == 0 {
+		return "headers{}"
+	}
+	return "headers{" + strings.Join(headersLines, ";") + "}"
 }
 
 // FormatRequestParams formats the query parameters into a string representation for inclusion in the .pkl file.
@@ -24,10 +27,13 @@ func FormatRequestParams(params map[string][]string) string {
 	for param, values := range params {
 		for _, value := range values {
 			encodedValue := EncodeBase64String(strings.TrimSpace(value))
-			paramsLines = append(paramsLines, fmt.Sprintf(`["%s"] = "%s"`, param, encodedValue))
+			paramsLines = append(paramsLines, fmt.Sprintf(`["%s"]="%s"`, param, encodedValue))
 		}
 	}
-	return "params {\n" + strings.Join(paramsLines, "\n") + "\n}"
+	if len(paramsLines) == 0 {
+		return "params{}"
+	}
+	return "params{" + strings.Join(paramsLines, ";") + "}"
 }
 
 // FormatResponseHeaders formats the HTTP headers into a string representation for inclusion in the .pkl file.
@@ -35,10 +41,13 @@ func FormatResponseHeaders(headers map[string]string) string {
 	headersLines := make([]string, 0, len(headers))
 
 	for name, value := range headers {
-		headersLines = append(headersLines, fmt.Sprintf(`["%s"] = "%s"`, name, strings.TrimSpace(value)))
+		headersLines = append(headersLines, fmt.Sprintf(`["%s"]="%s"`, name, strings.TrimSpace(value)))
 	}
 
-	return "headers {\n" + strings.Join(headersLines, "\n") + "\n}"
+	if len(headersLines) == 0 {
+		return "headers{}"
+	}
+	return "headers{" + strings.Join(headersLines, ";") + "}"
 }
 
 // FormatResponseProperties formats the HTTP properties into a string representation for inclusion in the .pkl file.
@@ -46,8 +55,11 @@ func FormatResponseProperties(properties map[string]string) string {
 	propertiesLines := make([]string, 0, len(properties))
 
 	for name, value := range properties {
-		propertiesLines = append(propertiesLines, fmt.Sprintf(`["%s"] = "%s"`, name, strings.TrimSpace(value)))
+		propertiesLines = append(propertiesLines, fmt.Sprintf(`["%s"]="%s"`, name, strings.TrimSpace(value)))
 	}
 
-	return "properties {\n" + strings.Join(propertiesLines, "\n") + "\n}"
+	if len(propertiesLines) == 0 {
+		return "properties{}"
+	}
+	return "properties{" + strings.Join(propertiesLines, ";") + "}"
 }

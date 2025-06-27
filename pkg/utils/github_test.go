@@ -19,8 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Bridge exported functions so previous unqualified references still work.
-var GetLatestGitHubRelease = utilspkg.GetLatestGitHubRelease
+// utilspkg alias import provides explicit qualification without dot-import conflicts.
 
 func TestGetLatestGitHubRelease(t *testing.T) {
 	// Mock GitHub API server
@@ -31,7 +30,7 @@ func TestGetLatestGitHubRelease(t *testing.T) {
 	}))
 	defer server.Close()
 
-	result, err := GetLatestGitHubRelease(context.Background(), "kdeps/schema", server.URL)
+	result, err := utilspkg.GetLatestGitHubRelease(context.Background(), "kdeps/schema", server.URL)
 	require.NoError(t, err)
 	assert.Equal(t, "2.1.0", result)
 }
@@ -45,7 +44,7 @@ func TestGetLatestGitHubReleaseSuccess(t *testing.T) {
 	defer srv.Close()
 
 	ctx := context.Background()
-	ver, err := GetLatestGitHubRelease(ctx, "owner/repo", srv.URL)
+	ver, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", srv.URL)
 	assert.NoError(t, err)
 	assert.Equal(t, "1.2.3", ver)
 }
@@ -58,7 +57,7 @@ func TestGetLatestGitHubReleaseError(t *testing.T) {
 	defer srv.Close()
 
 	ctx := context.Background()
-	ver, err := GetLatestGitHubRelease(ctx, "owner/repo", srv.URL)
+	ver, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", srv.URL)
 	assert.Error(t, err)
 	assert.Empty(t, ver)
 }
@@ -84,7 +83,7 @@ func TestGetLatestGitHubReleaseVarious(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		http.DefaultTransport = mockStatusTransport{status: http.StatusOK}
-		ver, err := GetLatestGitHubRelease(ctx, "owner/repo", "https://api.github.com")
+		ver, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", "https://api.github.com")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -95,21 +94,21 @@ func TestGetLatestGitHubReleaseVarious(t *testing.T) {
 
 	t.Run("Unauthorized", func(t *testing.T) {
 		http.DefaultTransport = mockStatusTransport{status: http.StatusUnauthorized}
-		if _, err := GetLatestGitHubRelease(ctx, "owner/repo", ""); err == nil {
+		if _, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", ""); err == nil {
 			t.Fatalf("expected unauthorized error")
 		}
 	})
 
 	t.Run("Forbidden", func(t *testing.T) {
 		http.DefaultTransport = mockStatusTransport{status: http.StatusForbidden}
-		if _, err := GetLatestGitHubRelease(ctx, "owner/repo", ""); err == nil {
+		if _, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", ""); err == nil {
 			t.Fatalf("expected forbidden error")
 		}
 	})
 
 	t.Run("UnexpectedStatus", func(t *testing.T) {
 		http.DefaultTransport = mockStatusTransport{status: http.StatusInternalServerError}
-		if _, err := GetLatestGitHubRelease(ctx, "owner/repo", ""); err == nil {
+		if _, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", ""); err == nil {
 			t.Fatalf("expected error for 500 status")
 		}
 	})
@@ -119,7 +118,7 @@ func TestGetLatestGitHubReleaseVarious(t *testing.T) {
 		http.DefaultTransport = mockStatusTransport{status: http.StatusOK}
 		os.Setenv("GITHUB_TOKEN", "dummy")
 		defer os.Unsetenv("GITHUB_TOKEN")
-		if _, err := GetLatestGitHubRelease(ctx, "owner/repo", ""); err != nil {
+		if _, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", ""); err != nil {
 			t.Fatalf("unexpected err with token: %v", err)
 		}
 	})
@@ -136,7 +135,7 @@ func TestGetLatestGitHubRelease_AuthErrors(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(c.status)
 		}))
-		_, err := GetLatestGitHubRelease(context.Background(), "owner/repo", srv.URL)
+		_, err := utilspkg.GetLatestGitHubRelease(context.Background(), "owner/repo", srv.URL)
 		if err == nil {
 			t.Errorf("expected error for status %d", c.status)
 		}
@@ -173,7 +172,7 @@ func TestGetLatestGitHubReleaseReadError(t *testing.T) {
 	})}
 	defer func() { http.DefaultClient = prevClient }()
 
-	_, err := GetLatestGitHubRelease(context.Background(), "owner/repo", "https://api.github.com")
+	_, err := utilspkg.GetLatestGitHubRelease(context.Background(), "owner/repo", "https://api.github.com")
 	if err == nil {
 		t.Fatalf("expected error due to body read failure, got nil")
 	}
@@ -187,7 +186,7 @@ func TestGetLatestGitHubReleaseUnauthorizedExtra(t *testing.T) {
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
-	_, err := GetLatestGitHubRelease(context.Background(), "owner/repo", server.URL)
+	_, err := utilspkg.GetLatestGitHubRelease(context.Background(), "owner/repo", server.URL)
 	if err == nil {
 		t.Fatalf("expected error for unauthorized response, got nil")
 	}
@@ -213,7 +212,7 @@ func TestGetLatestGitHubRelease_DefaultBaseURL(t *testing.T) {
 	http.DefaultClient = &http.Client{Transport: staticResponseRoundTripper{}}
 	defer func() { http.DefaultClient = prev }()
 
-	ver, err := GetLatestGitHubRelease(context.Background(), "kdeps/schema", "")
+	ver, err := utilspkg.GetLatestGitHubRelease(context.Background(), "kdeps/schema", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -293,7 +292,7 @@ func TestGetLatestGitHubReleaseMore(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		ver, err := GetLatestGitHubRelease(ctx, "kdeps/schema", srv.URL)
+		ver, err := utilspkg.GetLatestGitHubRelease(ctx, "kdeps/schema", srv.URL)
 		if expectErr {
 			assert.Error(t, err)
 		} else {
@@ -437,7 +436,7 @@ func TestGetLatestGitHubRelease_Success_Alt(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	ver, err := GetLatestGitHubRelease(context.Background(), "dummy/repo", ts.URL)
+	ver, err := utilspkg.GetLatestGitHubRelease(context.Background(), "dummy/repo", ts.URL)
 	assert.NoError(t, err)
 	assert.Equal(t, "2.3.4", ver)
 }
@@ -455,10 +454,242 @@ func TestGetLatestGitHubRelease_Errors_Alt(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(tc.status)
 		}))
-		ver, err := GetLatestGitHubRelease(context.Background(), "dummy/repo", ts.URL)
+		ver, err := utilspkg.GetLatestGitHubRelease(context.Background(), "dummy/repo", ts.URL)
 		assert.Error(t, err)
 		assert.Empty(t, ver)
 		assert.Contains(t, err.Error(), tc.wantErr)
 		ts.Close()
 	}
+}
+
+// TestGetLatestGitHubRelease_NewRequestError tests error path when http.NewRequestWithContext fails
+func TestGetLatestGitHubRelease_NewRequestError(t *testing.T) {
+	// Create a context that's already cancelled to potentially trigger NewRequestWithContext error
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	// Try with an invalid URL that might cause NewRequestWithContext to fail
+	_, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", "://invalid-url")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to create request")
+}
+
+// TestGetLatestGitHubRelease_JSONUnmarshalError tests error path when json.Unmarshal fails
+func TestGetLatestGitHubRelease_JSONUnmarshalError(t *testing.T) {
+	// Create a server that returns invalid JSON
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		// Return malformed JSON that will fail unmarshaling
+		fmt.Fprintln(w, `{"tag_name": 123, "invalid": }`) // Invalid JSON syntax
+	}))
+	defer server.Close()
+
+	_, err := utilspkg.GetLatestGitHubRelease(context.Background(), "owner/repo", server.URL)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to parse JSON response")
+}
+
+// TestGetLatestGitHubRelease_InvalidJSONStructure tests case where JSON is valid but doesn't match expected structure
+func TestGetLatestGitHubRelease_InvalidJSONStructure(t *testing.T) {
+	// Create a server that returns valid JSON but wrong structure
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		// Return JSON without the expected "tag_name" field
+		fmt.Fprintln(w, `{"release_name": "v1.2.3"}`)
+	}))
+	defer server.Close()
+
+	result, err := utilspkg.GetLatestGitHubRelease(context.Background(), "owner/repo", server.URL)
+	require.NoError(t, err)
+	// Should return empty string when tag_name is missing
+	require.Equal(t, "", result)
+}
+
+// TestGetLatestGitHubRelease_ReadAllError tests the io.ReadAll error path
+func TestGetLatestGitHubRelease_ReadAllError(t *testing.T) {
+	// Create a server that returns a response but closes the connection during read
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", "100") // Set a content length
+		w.WriteHeader(http.StatusOK)
+		// Write partial content then close abruptly to cause ReadAll to fail
+		w.Write([]byte("partial"))
+		// Force close the connection to simulate a network error during ReadAll
+		if hijacker, ok := w.(http.Hijacker); ok {
+			conn, _, _ := hijacker.Hijack()
+			conn.Close()
+		}
+	}))
+	defer server.Close()
+
+	ctx := context.Background()
+	_, err := utilspkg.GetLatestGitHubRelease(ctx, "test/repo", server.URL)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to read response body")
+}
+
+// TestGetLatestGitHubRelease_DefaultBaseURL tests the default baseURL assignment
+func TestGetLatestGitHubRelease_DefaultBaseURLAssignment(t *testing.T) {
+	ctx := context.Background()
+
+	// Test with empty baseURL to trigger the default assignment
+	// This will attempt to call the real GitHub API but should fail quickly
+	_, err := utilspkg.GetLatestGitHubRelease(ctx, "nonexistent/repo-that-does-not-exist-12345", "")
+
+	// We expect this to fail since we're calling the real API with a fake repo
+	require.Error(t, err)
+	// The error should indicate a real API call was made with the default baseURL
+	// It could be either rate limit or status code error
+	errorMsg := strings.ToLower(err.Error())
+	require.True(t, strings.Contains(errorMsg, "status code") || strings.Contains(errorMsg, "rate limit"),
+		"Expected error to contain 'status code' or 'rate limit', got: %s", err.Error())
+}
+
+// TestGetLatestGitHubRelease_NoTokenWarning tests the stderr warning when GITHUB_TOKEN is not set
+func TestGetLatestGitHubRelease_NoTokenWarning(t *testing.T) {
+	// Ensure GITHUB_TOKEN is not set for this test
+	originalToken := os.Getenv("GITHUB_TOKEN")
+	os.Unsetenv("GITHUB_TOKEN")
+	defer func() {
+		if originalToken != "" {
+			os.Setenv("GITHUB_TOKEN", originalToken)
+		}
+	}()
+
+	// Capture stderr output
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	// Create test server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, `{"tag_name": "v1.0.0"}`)
+	}))
+	defer server.Close()
+
+	// Call function - this should trigger the warning
+	_, err := utilspkg.GetLatestGitHubRelease(context.Background(), "owner/repo", server.URL)
+	require.NoError(t, err)
+
+	// Restore stderr and read captured output
+	w.Close()
+	os.Stderr = oldStderr
+
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	r.Close()
+
+	// Verify the warning was printed
+	captured := buf.String()
+	require.Contains(t, captured, "Warning: GITHUB_TOKEN is not set")
+	require.Contains(t, captured, "using unauthenticated requests with limited rate")
+}
+
+// TestGetLatestGitHubRelease_RequestCreationError tests the http.NewRequestWithContext error path
+func TestGetLatestGitHubRelease_RequestCreationError(t *testing.T) {
+	ctx := context.Background()
+
+	// Use an invalid URL that will cause http.NewRequestWithContext to fail
+	invalidURL := "http://[::1]:namedport" // Invalid URL format
+
+	// Mock the baseURL to include the invalid URL
+	_, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", invalidURL)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to create request")
+}
+
+// TestGetLatestGitHubRelease_NoTokenStderrWarning tests the stderr warning output when no GITHUB_TOKEN is set
+func TestGetLatestGitHubRelease_NoTokenStderrWarning(t *testing.T) {
+	// Unset any existing GITHUB_TOKEN
+	originalToken := os.Getenv("GITHUB_TOKEN")
+	os.Unsetenv("GITHUB_TOKEN")
+	defer func() {
+		if originalToken != "" {
+			os.Setenv("GITHUB_TOKEN", originalToken)
+		}
+	}()
+
+	// Capture stderr output
+	r, w, _ := os.Pipe()
+	originalStderr := os.Stderr
+	os.Stderr = w
+	defer func() { os.Stderr = originalStderr }()
+
+	// Create a server that responds successfully
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, `{"tag_name": "v1.2.3"}`)
+	}))
+	defer server.Close()
+
+	// Make the call - this should write a warning to stderr
+	_, err := utilspkg.GetLatestGitHubRelease(context.Background(), "owner/repo", server.URL)
+	require.NoError(t, err)
+
+	// Close the write end and read the captured stderr
+	w.Close()
+	output := make([]byte, 1024)
+	n, _ := r.Read(output)
+	stderrOutput := string(output[:n])
+
+	// Verify the warning message was printed
+	require.Contains(t, stderrOutput, "Warning: GITHUB_TOKEN is not set")
+	require.Contains(t, stderrOutput, "using unauthenticated requests with limited rate")
+}
+
+// TestGetLatestGitHubRelease_NetworkError tests network-level errors
+func TestGetLatestGitHubRelease_NetworkError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately to simulate network timeout
+
+	_, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", "https://api.github.com")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "request failed")
+}
+
+// TestGetLatestGitHubRelease_MalformedJSON tests JSON parsing error path
+func TestGetLatestGitHubRelease_MalformedJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		// Return malformed JSON
+		fmt.Fprintln(w, `{"tag_name": "v1.2.3"`) // Missing closing brace
+	}))
+	defer server.Close()
+
+	_, err := utilspkg.GetLatestGitHubRelease(context.Background(), "owner/repo", server.URL)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to parse JSON response")
+}
+
+// TestGetLatestGitHubRelease_EmptyTagName tests when tag_name is empty
+func TestGetLatestGitHubRelease_EmptyTagName(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, `{"tag_name": ""}`) // Empty tag_name
+	}))
+	defer server.Close()
+
+	result, err := utilspkg.GetLatestGitHubRelease(context.Background(), "owner/repo", server.URL)
+	require.NoError(t, err)
+	require.Equal(t, "", result) // Should return empty string
+}
+
+// TestGetLatestGitHubRelease_TagNameWithoutV tests tag_name without 'v' prefix
+func TestGetLatestGitHubRelease_TagNameWithoutV(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, `{"tag_name": "1.2.3"}`) // No 'v' prefix
+	}))
+	defer server.Close()
+
+	result, err := utilspkg.GetLatestGitHubRelease(context.Background(), "owner/repo", server.URL)
+	require.NoError(t, err)
+	require.Equal(t, "1.2.3", result) // Should return without modification
 }

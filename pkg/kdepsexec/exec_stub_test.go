@@ -1,10 +1,12 @@
 //go:build test
 // +build test
 
-package kdepsexec
+package kdepsexec_test
 
 import (
 	"context"
+
+	. "github.com/kdeps/kdeps/pkg/kdepsexec"
 
 	"github.com/kdeps/kdeps/pkg/logging"
 )

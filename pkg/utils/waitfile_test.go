@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-func TestWaitForFileReady_Success(t *testing.T) {
+func TestWaitForFileReady_SuccessBasic(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	dir := t.TempDir()
 	file := filepath.Join(dir, "flag")
@@ -49,7 +49,7 @@ func TestWaitForFileReady_Timeout(t *testing.T) {
 	_ = schema.SchemaVersion(context.Background())
 }
 
-func TestGenerateResourceIDFilename(t *testing.T) {
+func TestGenerateResourceIDFilenameBasic(t *testing.T) {
 	got := utils.GenerateResourceIDFilename("@foo/bar:baz", "req-")
 	expected := "req-_foo_bar_baz"
 	if got != expected {

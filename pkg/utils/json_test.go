@@ -1,9 +1,11 @@
-package utils
+package utils_test
 
 import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	. "github.com/kdeps/kdeps/pkg/utils"
 )
 
 func TestIsJSON(t *testing.T) {

@@ -8,7 +8,7 @@ import (
 )
 
 // Handle the values inside the requires { ... } block.
-func handleRequiresBlock(blockContent string, wf workflow.Workflow) string {
+func HandleRequiresBlock(blockContent string, wf workflow.Workflow) string {
 	name, version := wf.GetName(), wf.GetVersion()
 
 	// Split the block by newline and process each line

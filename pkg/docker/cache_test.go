@@ -1,4 +1,4 @@
-package docker
+package docker_test
 
 import (
 	"bytes"
@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	. "github.com/kdeps/kdeps/pkg/docker" // dot import to access tested identifiers
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/stretchr/testify/assert"
@@ -21,14 +22,14 @@ func TestGetCurrentArchitectureDup(t *testing.T) {
 	ctx := context.Background()
 
 	var expected string
-	if archMap, ok := archMappings["apple/pkl"]; ok {
+	if archMap, ok := ArchMappings["apple/pkl"]; ok {
 		if mapped, exists := archMap[runtime.GOARCH]; exists {
 			expected = mapped
 		}
 	}
 	// Fallback to default mapping only if apple/pkl did not contain entry
 	if expected == "" {
-		if defaultMap, ok := archMappings["default"]; ok {
+		if defaultMap, ok := ArchMappings["default"]; ok {
 			if mapped, exists := defaultMap[runtime.GOARCH]; exists {
 				expected = mapped
 			}
@@ -55,19 +56,19 @@ func TestCompareVersionsDup(t *testing.T) {
 
 func TestParseVersion(t *testing.T) {
 	t.Run("Simple", func(t *testing.T) {
-		parts := parseVersion("1.2.3")
+		parts := ParseVersion("1.2.3")
 		assert.Equal(t, []int{1, 2, 3}, parts)
 	})
 
 	t.Run("WithHyphen", func(t *testing.T) {
-		parts := parseVersion("1-2-3")
+		parts := ParseVersion("1-2-3")
 		assert.Equal(t, []int{1, 2, 3}, parts)
 	})
 }
 
 func TestBuildURL(t *testing.T) {
 	base := "https://example.com/download/{version}/app-{arch}"
-	url := buildURL(base, "1.0.0", "x86_64")
+	url := BuildURL(base, "1.0.0", "x86_64")
 	assert.Equal(t, "https://example.com/download/1.0.0/app-x86_64", url)
 }
 
@@ -285,7 +286,7 @@ func TestGetCurrentArchitectureMapping(t *testing.T) {
 }
 
 func TestParseVersionParts(t *testing.T) {
-	got := parseVersion("1.2.3")
+	got := ParseVersion("1.2.3")
 	want := []int{1, 2, 3}
 	if len(got) != len(want) {
 		t.Fatalf("expected length %d, got %d", len(want), len(got))
@@ -320,7 +321,7 @@ func TestCompareVersionsEdge(t *testing.T) {
 
 func TestBuildURLReplacer(t *testing.T) {
 	base := "https://example.com/{version}/{arch}/download"
-	url := buildURL(base, "1.0.0", "x86_64")
+	url := BuildURL(base, "1.0.0", "x86_64")
 	expected := "https://example.com/1.0.0/x86_64/download"
 	if url != expected {
 		t.Fatalf("buildURL mismatch: got %s, want %s", url, expected)
@@ -354,9 +355,9 @@ func TestGetCurrentArchitectureMappingExtra(t *testing.T) {
 	arch := GetCurrentArchitecture(ctx, repo)
 	// Validate against mapping table.
 	goArch := runtime.GOARCH
-	expected := archMappings[repo][goArch]
+	expected := ArchMappings[repo][goArch]
 	if expected == "" {
-		expected = archMappings["default"][goArch]
+		expected = ArchMappings["default"][goArch]
 		if expected == "" {
 			expected = goArch
 		}
@@ -387,7 +388,7 @@ func TestCompareVersionsExtra(t *testing.T) {
 }
 
 func TestBuildURLExtra(t *testing.T) {
-	url := buildURL("https://example.com/{version}/bin-{arch}", "v1.0", "x86_64")
+	url := BuildURL("https://example.com/{version}/bin-{arch}", "v1.0", "x86_64")
 	expected := "https://example.com/v1.0/bin-x86_64"
 	if url != expected {
 		t.Fatalf("expected %s, got %s", expected, url)
@@ -617,7 +618,7 @@ func TestBuildURLAndArchMappingLow(t *testing.T) {
 	_ = schema.SchemaVersion(context.Background())
 
 	base := "https://example.com/{version}/{arch}/binary"
-	url := buildURL(base, "1.2.3", "x86_64")
+	url := BuildURL(base, "1.2.3", "x86_64")
 	want := "https://example.com/1.2.3/x86_64/binary"
 	if url != want {
 		t.Fatalf("buildURL mismatch: got %s want %s", url, want)
@@ -627,7 +628,7 @@ func TestBuildURLAndArchMappingLow(t *testing.T) {
 	ctx := context.Background()
 	got := GetCurrentArchitecture(ctx, "unknown/repo")
 	var expect string
-	if m, ok := archMappings["default"]; ok {
+	if m, ok := ArchMappings["default"]; ok {
 		if v, ok2 := m[arch]; ok2 {
 			expect = v
 		} else {
@@ -701,7 +702,7 @@ func TestBuildURLAndArchMapping(t *testing.T) {
 
 	// Verify buildURL replaces tokens correctly.
 	input := "https://example.com/{version}/{arch}"
-	got := buildURL(input, "v1", "x86_64")
+	got := BuildURL(input, "v1", "x86_64")
 	want := "https://example.com/v1/x86_64"
 	if got != want {
 		t.Fatalf("buildURL mismatch: got %s want %s", got, want)
@@ -750,7 +751,7 @@ func TestCompareVersionsAndParse(t *testing.T) {
 	}
 
 	// parseVersion edge validation
-	parts := parseVersion("10.20.3-alpha")
+	parts := ParseVersion("10.20.3-alpha")
 	if len(parts) < 3 || parts[0] != 10 || parts[1] != 20 {
 		t.Fatalf("parseVersion unexpected result: %v", parts)
 	}
@@ -799,7 +800,7 @@ func TestGetCurrentArchitectureAdditional(t *testing.T) {
 	// arm64 maps to aarch64 for apple/pkl mapping, verify deterministically
 	fakeCtx := context.Background()
 	expectedDefault := runtime.GOARCH
-	if mapping, ok := archMappings["default"]; ok {
+	if mapping, ok := ArchMappings["default"]; ok {
 		if mapped, ok2 := mapping[runtime.GOARCH]; ok2 {
 			expectedDefault = mapped
 		}
@@ -812,7 +813,7 @@ func TestGetCurrentArchitectureAdditional(t *testing.T) {
 
 func TestBuildURLAdditional(t *testing.T) {
 	base := "https://example.com/{version}/{arch}/bin"
-	out := buildURL(base, "v1.0.0", "x86_64")
+	out := BuildURL(base, "v1.0.0", "x86_64")
 	expected := "https://example.com/v1.0.0/x86_64/bin"
 	if out != expected {
 		t.Fatalf("buildURL mismatch got %s want %s", out, expected)
@@ -880,7 +881,7 @@ func TestGetCurrentArchitectureMappingCov(t *testing.T) {
 
 func TestBuildURLTemplateSubstitution(t *testing.T) {
 	base := "https://example.com/download/{version}/bin-{arch}"
-	url := buildURL(base, "v1.2.3", "x86_64")
+	url := BuildURL(base, "v1.2.3", "x86_64")
 	expected := "https://example.com/download/v1.2.3/bin-x86_64"
 	if url != expected {
 		t.Fatalf("buildURL produced %s, want %s", url, expected)
@@ -952,7 +953,7 @@ func TestCompareAndParseVersion(t *testing.T) {
 	// equal
 	assert.False(t, CompareVersions(ctx, "1.0.0", "1.0.0"))
 
-	got := parseVersion("1.2.3-alpha")
+	got := ParseVersion("1.2.3-alpha")
 	assert.Equal(t, []int{1, 2, 3, 0}, got, "non numeric suffixed parts become 0")
 }
 
@@ -1058,7 +1059,7 @@ func TestGetLatestAnacondaVersions_NetworkError(t *testing.T) {
 // TestBuildURLPlaceholders verifies placeholder interpolation.
 func TestBuildURLPlaceholders(t *testing.T) {
 	base := "https://repo/{version}/file-{arch}.sh"
-	got := buildURL(base, "v2.0", "x86_64")
+	got := BuildURL(base, "v2.0", "x86_64")
 	want := "https://repo/v2.0/file-x86_64.sh"
 	if got != want {
 		t.Fatalf("buildURL returned %s, want %s", got, want)
@@ -1156,7 +1157,7 @@ func TestCompareVersionsOrderBasic(t *testing.T) {
 }
 
 func TestBuildURLTemplate(t *testing.T) {
-	out := buildURL("https://x/{version}/{arch}", "v1", "amd64")
+	out := BuildURL("https://x/{version}/{arch}", "v1", "amd64")
 	if out != "https://x/v1/amd64" {
 		t.Fatalf("unexpected url %s", out)
 	}
@@ -1177,4 +1178,118 @@ func TestGenerateURLsStatic(t *testing.T) {
 			t.Fatalf("placeholders not replaced in %s", it.URL)
 		}
 	}
+}
+
+func TestGenerateURLsWithOptions(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("WithAnaconda", func(t *testing.T) {
+		items, err := GenerateURLsWithOptions(ctx, true)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, items)
+
+		// Should have both PKL and Anaconda
+		hasPickle := false
+		hasAnaconda := false
+		for _, item := range items {
+			if strings.Contains(item.LocalName, "pkl") {
+				hasPickle = true
+			}
+			if strings.Contains(item.LocalName, "anaconda") {
+				hasAnaconda = true
+			}
+		}
+		assert.True(t, hasPickle, "Should include PKL downloads")
+		assert.True(t, hasAnaconda, "Should include Anaconda downloads when enabled")
+	})
+
+	t.Run("WithoutAnaconda", func(t *testing.T) {
+		items, err := GenerateURLsWithOptions(ctx, false)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, items)
+
+		// Should have only PKL, no Anaconda
+		hasPickle := false
+		hasAnaconda := false
+		for _, item := range items {
+			if strings.Contains(item.LocalName, "pkl") {
+				hasPickle = true
+			}
+			if strings.Contains(item.LocalName, "anaconda") {
+				hasAnaconda = true
+			}
+		}
+		assert.True(t, hasPickle, "Should include PKL downloads")
+		assert.False(t, hasAnaconda, "Should NOT include Anaconda downloads when disabled")
+	})
+
+	t.Run("BackwardCompatibility", func(t *testing.T) {
+		// Test that the original GenerateURLs function still works and includes Anaconda by default
+		itemsOriginal, err := GenerateURLs(ctx)
+		assert.NoError(t, err)
+
+		itemsWithAnaconda, err := GenerateURLsWithOptions(ctx, true)
+		assert.NoError(t, err)
+
+		// Both should be identical (backward compatibility)
+		assert.Equal(t, len(itemsOriginal), len(itemsWithAnaconda))
+
+		// Both should include Anaconda
+		hasAnacondaOriginal := false
+		hasAnacondaWithOptions := false
+		for _, item := range itemsOriginal {
+			if strings.Contains(item.LocalName, "anaconda") {
+				hasAnacondaOriginal = true
+				break
+			}
+		}
+		for _, item := range itemsWithAnaconda {
+			if strings.Contains(item.LocalName, "anaconda") {
+				hasAnacondaWithOptions = true
+				break
+			}
+		}
+		assert.True(t, hasAnacondaOriginal, "Original function should include Anaconda")
+		assert.True(t, hasAnacondaWithOptions, "WithOptions(true) should include Anaconda")
+	})
+}
+
+func TestConditionalAnacondaDownloadOptimization(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("DemonstrationOfOptimization", func(t *testing.T) {
+		// Get download items with Anaconda enabled
+		withAnaconda, err := GenerateURLsWithOptions(ctx, true)
+		assert.NoError(t, err)
+
+		// Get download items with Anaconda disabled
+		withoutAnaconda, err := GenerateURLsWithOptions(ctx, false)
+		assert.NoError(t, err)
+
+		// Should have fewer items when Anaconda is disabled
+		assert.Greater(t, len(withAnaconda), len(withoutAnaconda),
+			"Should have fewer download items when Anaconda is disabled")
+
+		// Calculate the difference
+		difference := len(withAnaconda) - len(withoutAnaconda)
+
+		// The difference should be exactly the Anaconda files (at least 1, typically 1 per architecture)
+		assert.GreaterOrEqual(t, difference, 1,
+			"Should save at least 1 download when Anaconda is disabled")
+
+		// Log the optimization for visibility
+		t.Logf("✅ Optimization working: %d fewer downloads when Anaconda is disabled", difference)
+		t.Logf("   - With Anaconda: %d downloads", len(withAnaconda))
+		t.Logf("   - Without Anaconda: %d downloads", len(withoutAnaconda))
+
+		// List what's being downloaded in each case
+		t.Logf("   Downloads with Anaconda:")
+		for _, item := range withAnaconda {
+			t.Logf("     - %s", item.LocalName)
+		}
+		t.Logf("   Downloads without Anaconda:")
+		for _, item := range withoutAnaconda {
+			t.Logf("     - %s", item.LocalName)
+		}
+	})
 }

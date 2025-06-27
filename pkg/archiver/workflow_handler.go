@@ -22,6 +22,15 @@ import (
 	"github.com/spf13/afero"
 )
 
+// Function variables for testing - can be monkey-patched in tests
+var (
+	CompileResourcesFunc         = CompileResources
+	CopyDataDirFunc              = CopyDataDir
+	ProcessExternalWorkflowsFunc = ProcessExternalWorkflows
+	PackageProjectFunc           = PackageProject
+	CopyFileFunc                 = CopyFile
+)
+
 func PrepareRunDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, pkgFilePath string, logger *logging.Logger) (string, error) {
 	agentName, agentVersion := wf.GetName(), wf.GetVersion()
 	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion+"/workflow")
@@ -183,19 +192,19 @@ func CompileProject(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDi
 	}
 
 	resourcesDir := filepath.Join(compiledProjectDir, "resources")
-	if err := CompileResources(fs, ctx, newWorkflow, resourcesDir, projectDir, logger); err != nil {
+	if err := CompileResourcesFunc(fs, ctx, newWorkflow, resourcesDir, projectDir, logger); err != nil {
 		return "", "", fmt.Errorf("failed to compile resources: %w", err)
 	}
 
-	if err := CopyDataDir(fs, ctx, newWorkflow, kdepsDir, projectDir, compiledProjectDir, "", "", "", false, logger); err != nil {
+	if err := CopyDataDirFunc(fs, ctx, newWorkflow, kdepsDir, projectDir, compiledProjectDir, "", "", "", false, logger); err != nil {
 		return "", "", fmt.Errorf("failed to copy project: %w", err)
 	}
 
-	if err := ProcessExternalWorkflows(fs, ctx, newWorkflow, kdepsDir, projectDir, compiledProjectDir, logger); err != nil {
+	if err := ProcessExternalWorkflowsFunc(fs, ctx, newWorkflow, kdepsDir, projectDir, compiledProjectDir, logger); err != nil {
 		return "", "", fmt.Errorf("failed to process workflows: %w", err)
 	}
 
-	packageFile, err := PackageProject(fs, ctx, newWorkflow, kdepsDir, compiledProjectDir, logger)
+	packageFile, err := PackageProjectFunc(fs, ctx, newWorkflow, kdepsDir, compiledProjectDir, logger)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to package project: %w", err)
 	}
@@ -205,7 +214,7 @@ func CompileProject(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDi
 	}
 
 	cwdPackage := filepath.Join(env.Pwd, filepath.Base(packageFile))
-	if err := CopyFile(fs, ctx, packageFile, cwdPackage, logger); err != nil {
+	if err := CopyFileFunc(fs, ctx, packageFile, cwdPackage, logger); err != nil {
 		return "", "", err
 	}
 
@@ -213,7 +222,7 @@ func CompileProject(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDi
 	return compiledProjectDir, packageFile, nil
 }
 
-func parseWorkflowValue(value string) (string, string, string) {
+func ParseWorkflowValue(value string) (string, string, string) {
 	var agent, version, action string
 
 	value = strings.TrimPrefix(value, "@")
@@ -240,7 +249,7 @@ func ProcessExternalWorkflows(fs afero.Fs, ctx context.Context, wf pklWf.Workflo
 	}
 
 	for _, value := range wf.GetWorkflows() {
-		agent, version, action := parseWorkflowValue(value)
+		agent, version, action := ParseWorkflowValue(value)
 		err := CopyDataDir(fs, ctx, wf, kdepsDir, projectDir, compiledProjectDir, agent, version, action, true, logger)
 		if err != nil {
 			logger.Error("failed to process workflow", "agent", agent, "version", version, "action", action, "error", err)

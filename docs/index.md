@@ -491,7 +491,7 @@ run {
     model = "llama3.2:1b"
     role = "assistant"
     prompt = """
-    Based on the lyric @(item.current()) from the song "American Pie," generate a suitable scenario for an MTV music video. The scenario should include a vivid setting, key visual elements, and a mood that matches the lyric's tone.
+    Based on the lyric "@(item.current())" from the song "American Pie," generate a suitable scenario for an MTV music video. The scenario should include a vivid setting, key visual elements, and a mood that matches the lyric's tone.
     """
     scenario {
       new { role = "system"; prompt = "You are a creative director specializing in music video production." }

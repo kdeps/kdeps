@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -62,6 +63,10 @@ func TestAppendDataEntry_Direct(t *testing.T) {
 // note: createStubPkl helper is provided by resource_response_eval_extra_test.go
 
 func TestAppendChatEntry_Basic(t *testing.T) {
+	// Set test mode to bypass PKL evaluation
+	os.Setenv("KDEPS_TEST_MODE", "true")
+	defer os.Unsetenv("KDEPS_TEST_MODE")
+
 	_, restore := createStubPkl(t)
 	defer restore()
 
@@ -75,11 +80,6 @@ func TestAppendChatEntry_Basic(t *testing.T) {
 		ActionDir: "/action",
 		FilesDir:  "/files",
 		RequestID: "req1",
-		LoadResourceFn: func(_ context.Context, path string, _ ResourceType) (interface{}, error) {
-			// Return empty LLMImpl so AppendChatEntry has a map to update
-			empty := make(map[string]*pklLLM.ResourceChat)
-			return &pklLLM.LLMImpl{Resources: &empty}, nil
-		},
 	}
 
 	// Create dirs in memfs that AppendChatEntry expects
@@ -91,7 +91,7 @@ func TestAppendChatEntry_Basic(t *testing.T) {
 		Prompt: ptr("hello"),
 	}
 
-	if err := dr.AppendChatEntry("resA", chat); err != nil {
+	if err := dr.AppendChatEntry("resA", chat, false); err != nil {
 		t.Fatalf("AppendChatEntry returned error: %v", err)
 	}
 
@@ -103,6 +103,10 @@ func TestAppendChatEntry_Basic(t *testing.T) {
 }
 
 func TestAppendHTTPEntry_Basic(t *testing.T) {
+	// Set test mode to bypass PKL evaluation
+	os.Setenv("KDEPS_TEST_MODE", "true")
+	defer os.Unsetenv("KDEPS_TEST_MODE")
+
 	_, restore := createStubPkl(t)
 	defer restore()
 
@@ -116,10 +120,6 @@ func TestAppendHTTPEntry_Basic(t *testing.T) {
 		ActionDir: "/action",
 		FilesDir:  "/files",
 		RequestID: "req1",
-		LoadResourceFn: func(_ context.Context, path string, _ ResourceType) (interface{}, error) {
-			empty := make(map[string]*pklHTTP.ResourceHTTPClient)
-			return &pklHTTP.HTTPImpl{Resources: &empty}, nil
-		},
 	}
 	_ = fs.MkdirAll(filepath.Join(dr.ActionDir, "client"), 0o755)
 	_ = fs.MkdirAll(dr.FilesDir, 0o755)
@@ -129,7 +129,7 @@ func TestAppendHTTPEntry_Basic(t *testing.T) {
 		Url:    "aHR0cHM6Ly93d3cuZXhhbXBsZS5jb20=", // base64 of https://www.example.com
 	}
 
-	if err := dr.AppendHTTPEntry("httpRes", client); err != nil {
+	if err := dr.AppendHTTPEntry("httpRes", client, false); err != nil {
 		t.Fatalf("AppendHTTPEntry returned error: %v", err)
 	}
 

@@ -1,8 +1,9 @@
-package utils
+package utils_test
 
 import (
 	"testing"
 
+	. "github.com/kdeps/kdeps/pkg/utils"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -22,7 +22,7 @@ import (
 )
 
 // helper to read file content as lines
-func readLines(path string) ([]string, error) {
+func ReadLines(path string) ([]string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -37,7 +37,7 @@ func readLines(path string) ([]string, error) {
 }
 
 // write formatted Go source to file
-func writeFormatted(path string, src []byte) error {
+func WriteFormatted(path string, src []byte) error {
 	formatted, err := format.Source(src)
 	if err != nil {
 		// if formatting fails, write unformatted for debugging
@@ -48,7 +48,7 @@ func writeFormatted(path string, src []byte) error {
 
 // mergeTestsInDir merges test files with the same prefix (before the first "_")
 // into a single *_test.go file.
-func mergeTestsInDir(dir string) error {
+func MergeTestsInDir(dir string) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err
@@ -279,7 +279,7 @@ func mergeTestsInDir(dir string) error {
 	return nil
 }
 
-func contains(slice []string, val string) bool {
+func Contains(slice []string, val string) bool {
 	for _, s := range slice {
 		if s == val {
 			return true
@@ -288,7 +288,7 @@ func contains(slice []string, val string) bool {
 	return false
 }
 
-func insertImport(lines []string, importEnd int, imp string) []string {
+func InsertImport(lines []string, importEnd int, imp string) []string {
 	// insert imp before importEnd line index
 	lines = append(lines, "") // extend slice
 	copy(lines[importEnd+1:], lines[importEnd:])
@@ -296,7 +296,7 @@ func insertImport(lines []string, importEnd int, imp string) []string {
 	return lines
 }
 
-func main() {
+func Main() {
 	dirFlag := flag.String("dir", ".", "root directory to process")
 	flag.Parse()
 
@@ -315,7 +315,7 @@ func main() {
 }
 
 // detectPackage returns the package clause of a Go file.
-func detectPackage(path string) (string, error) {
+func DetectPackage(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return "", err
@@ -331,7 +331,7 @@ func detectPackage(path string) (string, error) {
 	return "", fmt.Errorf("package not found")
 }
 
-func modulePath() string {
+func ModulePath() string {
 	data, err := os.ReadFile(filepath.Join(workRoot(), "go.mod"))
 	if err != nil {
 		return ""
@@ -345,7 +345,7 @@ func modulePath() string {
 	return ""
 }
 
-func workRoot() string {
+func WorkRoot() string {
 	wd, _ := os.Getwd()
 	return wd
 }

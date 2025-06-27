@@ -184,7 +184,7 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 	}
 }
 
-// InitializeDatabase sets up the SQLite database and creates the records table with retries.
+// InitializeDatabase initializes the database for session
 func InitializeDatabase(dbPath string) (*sql.DB, error) {
 	const maxAttempts = 5
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
@@ -233,7 +233,7 @@ func InitializeDatabase(dbPath string) (*sql.DB, error) {
 	return nil, fmt.Errorf("failed to initialize database after %d attempts", maxAttempts)
 }
 
-// InitializeSession creates a new PklResourceReader with an initialized SQLite database.
+// InitializeSession initializes a session
 func InitializeSession(dbPath string) (*PklResourceReader, error) {
 	db, err := InitializeDatabase(dbPath)
 	if err != nil {

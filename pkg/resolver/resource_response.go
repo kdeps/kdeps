@@ -2,15 +2,16 @@ package resolver
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
 	"reflect"
 	"strings"
 
-	"github.com/google/uuid"
+	"github.com/alexellis/go-execute/v2"
+	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/evaluator"
-	"github.com/kdeps/kdeps/pkg/kdepsexec"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
@@ -20,22 +21,19 @@ import (
 
 // CreateResponsePklFile generates a PKL file from the API response and processes it.
 func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverresponse.APIServerResponse) error {
-	if dr == nil || len(dr.DBs) == 0 || dr.DBs[0] == nil {
-		return fmt.Errorf("dependency resolver or database is nil")
-	}
-
-	if err := dr.DBs[0].PingContext(context.Background()); err != nil {
-		return fmt.Errorf("failed to ping database: %v", err)
-	}
-
 	dr.Logger.Debug("starting CreateResponsePklFile", "response", apiResponseBlock)
 
 	if err := dr.ensureResponsePklFileNotExists(); err != nil {
 		return fmt.Errorf("ensure response PKL file does not exist: %w", err)
 	}
 
-	sections := dr.buildResponseSections(dr.RequestID, apiResponseBlock)
-	if err := evaluator.CreateAndProcessPklFile(dr.Fs, dr.Context, sections, dr.ResponsePklFile, "APIServerResponse.pkl", dr.Logger, evaluator.EvalPkl, false); err != nil {
+	pklEvaluator, err := pkl.NewEvaluator(dr.Context, dr.EvaluatorOptions)
+	if err != nil {
+		return errors.New("Failed to create PKL evaluator")
+	}
+
+	sections := dr.buildResponseSections(dr.Context, dr.Logger, pklEvaluator, dr.RequestID, apiResponseBlock)
+	if err := evaluator.CreateAndProcessPklFile(dr.Fs, dr.Context, sections, dr.ResponsePklFile, "APIServerResponse.pkl", dr.EvaluatorOptions, dr.Logger, evaluator.EvalPkl, false, dr.RequestID); err != nil {
 		return fmt.Errorf("create/process PKL file: %w", err)
 	}
 
@@ -58,7 +56,7 @@ func (dr *DependencyResolver) ensureResponsePklFileNotExists() error {
 	return nil
 }
 
-func (dr *DependencyResolver) buildResponseSections(requestID string, apiResponseBlock apiserverresponse.APIServerResponse) []string {
+func (dr *DependencyResolver) buildResponseSections(ctx context.Context, logger *logging.Logger, pklEvaluator pkl.Evaluator, requestID string, apiResponseBlock apiserverresponse.APIServerResponse) []string {
 	sections := []string{
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Document.pkl" as document`, schema.SchemaVersion(dr.Context)),
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Memory.pkl" as memory`, schema.SchemaVersion(dr.Context)),
@@ -66,21 +64,28 @@ func (dr *DependencyResolver) buildResponseSections(requestID string, apiRespons
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Tool.pkl" as tool`, schema.SchemaVersion(dr.Context)),
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Item.pkl" as item`, schema.SchemaVersion(dr.Context)),
 		fmt.Sprintf("success = %v", apiResponseBlock.GetSuccess()),
-		formatResponseMeta(requestID, apiResponseBlock.GetMeta()),
-		formatResponseData(apiResponseBlock.GetResponse()),
-		formatErrors(apiResponseBlock.GetErrors(), dr.Logger),
+		FormatResponseMeta(requestID, apiResponseBlock.GetMeta()),
+		FormatResponseData(ctx, apiResponseBlock.GetResponse(), logger, pklEvaluator),
+		FormatErrors(apiResponseBlock.GetErrors(), dr.Logger),
 	}
 	return sections
 }
 
-func formatResponseData(response *apiserverresponse.APIServerResponseBlock) string {
+// FormatResponseData formats response data
+func FormatResponseData(ctx context.Context, response *apiserverresponse.APIServerResponseBlock, logger *logging.Logger, pklEvaluator pkl.Evaluator) string {
 	if response == nil || response.Data == nil {
 		return ""
 	}
 
 	responseData := make([]string, 0, len(response.Data))
 	for _, v := range response.Data {
-		responseData = append(responseData, formatDataValue(v))
+		val := v
+		// Assert v is []byte
+		if byteVal, ok := val.([]byte); ok {
+			val = utils.FixJSON(string(byteVal))
+		}
+
+		responseData = append(responseData, FormatDataValue(ctx, val, logger, pklEvaluator))
 	}
 
 	if len(responseData) == 0 {
@@ -90,13 +95,14 @@ func formatResponseData(response *apiserverresponse.APIServerResponseBlock) stri
 	return fmt.Sprintf(`
 response {
   data {
-%s
+    %s
   }
 }`, strings.Join(responseData, "\n    "))
 }
 
-func formatResponseMeta(requestID string, meta *apiserverresponse.APIServerResponseMetaBlock) string {
-	if meta == nil || *meta.Headers == nil && *meta.Properties == nil {
+// FormatResponseMeta formats response metadata
+func FormatResponseMeta(requestID string, meta *apiserverresponse.APIServerResponseMetaBlock) string {
+	if meta == nil || (meta.Headers == nil && meta.Properties == nil) {
 		return fmt.Sprintf(`
 meta {
   requestID = "%s"
@@ -104,8 +110,13 @@ meta {
 `, requestID)
 	}
 
-	responseMetaHeaders := utils.FormatResponseHeaders(*meta.Headers)
-	responseMetaProperties := utils.FormatResponseProperties(*meta.Properties)
+	var responseMetaHeaders, responseMetaProperties string
+	if meta.Headers != nil {
+		responseMetaHeaders = utils.FormatResponseHeaders(*meta.Headers)
+	}
+	if meta.Properties != nil {
+		responseMetaProperties = utils.FormatResponseProperties(*meta.Properties)
+	}
 
 	if len(responseMetaHeaders) == 0 && len(responseMetaProperties) == 0 {
 		return fmt.Sprintf(`
@@ -123,52 +134,101 @@ meta {
 }`, requestID, responseMetaHeaders, responseMetaProperties)
 }
 
-func formatMap(m map[interface{}]interface{}) string {
+// FormatMap formats a map
+func FormatMap(m map[interface{}]interface{}) string {
 	mappingParts := []string{"new Mapping {"}
 	for k, v := range m {
 		keyStr := strings.ReplaceAll(fmt.Sprintf("%v", k), `"`, `\"`)
-		valueStr := formatValue(v)
-		mappingParts = append(mappingParts, fmt.Sprintf(`    ["%s"] = %s`, keyStr, valueStr))
+		valueStr := FormatValue(v)
+		mappingParts = append(mappingParts, fmt.Sprintf(`    ["%s"] = "%s"`, keyStr, valueStr))
 	}
 	mappingParts = append(mappingParts, "}")
 	return strings.Join(mappingParts, "\n")
 }
 
-func formatValue(value interface{}) string {
+// FormatValue formats any value
+func FormatValue(value interface{}) string {
 	switch v := value.(type) {
 	case map[string]interface{}:
-		m := make(map[interface{}]interface{})
-		for key, val := range v {
-			m[key] = val
+		// Convert map to JSON string and escape it for PKL
+		jsonBytes, err := json.Marshal(v)
+		if err != nil {
+			// Fallback to mapping format if JSON marshal fails
+			m := make(map[interface{}]interface{})
+			for key, val := range v {
+				m[key] = val
+			}
+			return FormatMap(m)
 		}
-		return formatMap(m)
+		jsonStr := string(jsonBytes)
+		// Properly escape the JSON string for PKL
+		escapedVal := strings.ReplaceAll(jsonStr, `\`, `\\`)
+		escapedVal = strings.ReplaceAll(escapedVal, `"`, `\"`)
+		return fmt.Sprintf(`"%s"`, escapedVal)
 	case map[interface{}]interface{}:
-		return formatMap(v)
+		return FormatMap(v)
+	case []interface{}:
+		// Convert slice to JSON string and escape it for PKL
+		jsonBytes, err := json.Marshal(v)
+		if err != nil {
+			// Fallback to listing format if JSON marshal fails
+			return FormatSlice(v, reflect.ValueOf(v))
+		}
+		jsonStr := string(jsonBytes)
+		// Properly escape the JSON string for PKL
+		escapedVal := strings.ReplaceAll(jsonStr, `\`, `\\`)
+		escapedVal = strings.ReplaceAll(escapedVal, `"`, `\"`)
+		return fmt.Sprintf(`"%s"`, escapedVal)
 	case nil:
 		return "null"
 	default:
 		rv := reflect.ValueOf(v)
 		if rv.Kind() == reflect.Ptr && !rv.IsNil() {
-			return formatValue(rv.Elem().Interface())
+			return FormatValue(rv.Elem().Interface())
 		}
 		if rv.Kind() == reflect.Struct {
-			return formatMap(structToMap(rv.Interface()))
+			return FormatMap(StructToMap(rv.Interface()))
 		}
-		return fmt.Sprintf(`
-"""
-%v
-"""
-`, v)
+		if rv.Kind() == reflect.Slice {
+			return FormatSlice(v, rv)
+		}
+		// Format the value as a properly escaped string for primitive types
+		valStrV := fmt.Sprintf("%v", v)
+		valStr := utils.FixJSON(valStrV)
+		// Properly escape the string for PKL
+		escapedVal := strings.ReplaceAll(valStr, `\`, `\\`)
+		escapedVal = strings.ReplaceAll(escapedVal, `"`, `\"`)
+		return fmt.Sprintf(`"%s"`, escapedVal)
 	}
 }
 
-func structToMap(s interface{}) map[interface{}]interface{} {
+// FormatSlice formats a slice
+func FormatSlice(value interface{}, rv reflect.Value) string {
+	listingParts := []string{"new Listing {"}
+	length := rv.Len()
+	if length == 0 {
+		listingParts = append(listingParts, "}")
+		return strings.Join(listingParts, "\n")
+	}
+
+	for i := 0; i < length; i++ {
+		item := rv.Index(i).Interface()
+		itemStr := FormatValue(item)
+		// Use properly escaped values instead of triple quotes
+		listingParts = append(listingParts, fmt.Sprintf("    %s", itemStr))
+	}
+	listingParts = append(listingParts, "}")
+	return strings.Join(listingParts, "\n")
+}
+
+// StructToMap converts struct to map
+func StructToMap(s interface{}) map[interface{}]interface{} {
 	result := make(map[interface{}]interface{})
 	val := reflect.ValueOf(s)
 	if val.Kind() == reflect.Ptr {
 		val = val.Elem()
 	}
-	for i := range val.NumField() {
+	for i := 0; i < val.NumField(); i++ {
 		fieldName := val.Type().Field(i).Name
 		fieldValue := val.Field(i).Interface()
 		result[fieldName] = fieldValue
@@ -176,21 +236,19 @@ func structToMap(s interface{}) map[interface{}]interface{} {
 	return result
 }
 
-func formatDataValue(value interface{}) string {
-	uuidVal := strings.ReplaceAll(uuid.New().String(), "-", "_")
-	val := formatValue(value)
-	return fmt.Sprintf(`
-local JSONDocument_%s = %s
-local JSONDocumentType_%s = JSONDocument_%s is Mapping | Dynamic
+// FormatDataValue formats data values
+func FormatDataValue(ctx context.Context, value interface{}, logger *logging.Logger, pklEvaluator pkl.Evaluator) string {
+	formattedValue := FormatValue(value)
 
-if (JSONDocumentType_%s)
-  document.JSONRenderDocument(JSONDocument_%s)
-else
-  document.JSONRenderDocument((if (document.JSONParser(JSONDocument_%s) != null) document.JSONParser(JSONDocument_%s) else JSONDocument_%s))
-`, uuidVal, val, uuidVal, uuidVal, uuidVal, uuidVal, uuidVal, uuidVal, uuidVal)
+	// Simply escape the value for PKL without complex re-parsing
+	escapedValue := strings.ReplaceAll(formattedValue, `\`, `\\`)
+	escapedValue = strings.ReplaceAll(escapedValue, `"`, `\"`)
+
+	return fmt.Sprintf(`"%s"`, escapedValue)
 }
 
-func formatErrors(errors *[]*apiserverresponse.APIServerErrorsBlock, logger *logging.Logger) string {
+// FormatErrors formats error messages
+func FormatErrors(errors *[]*apiserverresponse.APIServerErrorsBlock, logger *logging.Logger) string {
 	if errors == nil || len(*errors) == 0 {
 		return ""
 	}
@@ -198,7 +256,7 @@ func formatErrors(errors *[]*apiserverresponse.APIServerErrorsBlock, logger *log
 	var newBlocks string
 	for _, err := range *errors {
 		if err != nil {
-			decodedMessage := decodeErrorMessage(err.Message, logger)
+			decodedMessage := DecodeErrorMessage(err.Message, logger)
 			newBlocks += fmt.Sprintf(`
   new {
     code = %d
@@ -216,7 +274,8 @@ func formatErrors(errors *[]*apiserverresponse.APIServerErrorsBlock, logger *log
 	return ""
 }
 
-func decodeErrorMessage(message string, logger *logging.Logger) string {
+// DecodeErrorMessage decodes error messages
+func DecodeErrorMessage(message string, logger *logging.Logger) string {
 	if message == "" {
 		return ""
 	}
@@ -278,30 +337,22 @@ func (dr *DependencyResolver) ensureResponseTargetFileNotExists() error {
 	return nil
 }
 
-func (dr *DependencyResolver) executePklEvalCommand() (kdepsexecStd struct {
-	Stdout, Stderr string
-	ExitCode       int
-}, err error,
-) {
-	stdout, stderr, exitCode, err := kdepsexec.KdepsExec(
-		dr.Context,
-		"pkl",
-		[]string{"eval", "--format", "json", "--output-path", dr.ResponseTargetFile, dr.ResponsePklFile},
-		"",
-		false,
-		false,
-		dr.Logger,
-	)
+func (dr *DependencyResolver) executePklEvalCommand() (execute.ExecResult, error) {
+	cmd := execute.ExecTask{
+		Command:     "pkl",
+		Args:        []string{"eval", "--format", "json", "--output-path", dr.ResponseTargetFile, dr.ResponsePklFile},
+		StreamStdio: false,
+	}
+
+	result, err := cmd.Execute(dr.Context)
 	if err != nil {
-		return kdepsexecStd, err
+		return execute.ExecResult{}, fmt.Errorf("execute command: %w", err)
 	}
-	if exitCode != 0 {
-		return kdepsexecStd, fmt.Errorf("command failed with exit code %d: %s", exitCode, stderr)
+
+	if result.ExitCode != 0 {
+		return execute.ExecResult{}, fmt.Errorf("command failed with exit code %d: %s", result.ExitCode, result.Stderr)
 	}
-	kdepsexecStd.Stdout = stdout
-	kdepsexecStd.Stderr = stderr
-	kdepsexecStd.ExitCode = exitCode
-	return kdepsexecStd, nil
+	return result, nil
 }
 
 // HandleAPIErrorResponse creates an error response PKL file.

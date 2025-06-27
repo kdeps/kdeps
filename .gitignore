@@ -221,4 +221,15 @@ pkg/**/**/*.txt
 pkg/**/**/*.yaml
 pkg/**/**/*.cover
 pkg/**/**/*.cov
+pkg/**/**/*.pkl
 *.cov
+*.pkl
+*.db
+*.backup
+*.html
+*.txt
+temp_end
+temp_main
+./kdeps
+kdeps
+pkg/resolver/test-requesttest-resource

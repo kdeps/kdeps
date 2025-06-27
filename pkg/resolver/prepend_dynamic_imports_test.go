@@ -1,10 +1,12 @@
-package resolver
+package resolver_test
 
 import (
 	"context"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	. "github.com/kdeps/kdeps/pkg/resolver"
 
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"

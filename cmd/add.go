@@ -2,9 +2,7 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
@@ -21,11 +19,11 @@ func NewAddCommand(fs afero.Fs, ctx context.Context, kdepsDir string, logger *lo
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pkgFile := args[0]
 			// Use the passed dependencies
-			_, err := archiver.ExtractPackage(fs, ctx, kdepsDir, pkgFile, logger)
+			_, err := ExtractPackageFn(fs, ctx, kdepsDir, pkgFile, logger)
 			if err != nil {
 				return err
 			}
-			fmt.Println("AI agent installed locally:", pkgFile)
+			PrintlnFn("AI agent installed locally:", pkgFile)
 			return nil
 		},
 	}

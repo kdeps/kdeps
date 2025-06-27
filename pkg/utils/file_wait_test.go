@@ -1,10 +1,11 @@
-package utils
+package utils_test
 
 import (
 	"testing"
 	"time"
 
 	"github.com/kdeps/kdeps/pkg/logging"
+	. "github.com/kdeps/kdeps/pkg/utils"
 	"github.com/spf13/afero"
 )
 

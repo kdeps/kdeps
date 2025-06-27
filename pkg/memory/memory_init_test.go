@@ -1,10 +1,11 @@
-package memory
+package memory_test
 
 import (
 	"net/url"
 	"os"
 	"testing"
 
+	. "github.com/kdeps/kdeps/pkg/memory"
 	"github.com/stretchr/testify/require"
 )
 

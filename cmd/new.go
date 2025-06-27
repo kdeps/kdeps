@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/kdeps/kdeps/pkg/template"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 )
@@ -27,12 +26,12 @@ func NewAgentCommand(fs afero.Fs, ctx context.Context, kdepsDir string, logger *
 			}
 
 			// Generate workflow file
-			if err := template.GenerateWorkflowFile(fs, ctx, logger, mainDir, agentName); err != nil {
+			if err := GenerateWorkflowFileFn(fs, ctx, logger, mainDir, agentName); err != nil {
 				return fmt.Errorf("failed to generate workflow file: %w", err)
 			}
 
 			// Generate resource files
-			if err := template.GenerateResourceFiles(fs, ctx, logger, mainDir, agentName); err != nil {
+			if err := GenerateResourceFilesFn(fs, ctx, logger, mainDir, agentName); err != nil {
 				return fmt.Errorf("failed to generate resource files: %w", err)
 			}
 
