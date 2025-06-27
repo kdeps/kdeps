@@ -232,3 +232,4 @@ temp_end
 temp_main
 ./kdeps
 kdeps
+pkg/resolver/test-requesttest-resource
