@@ -48,6 +48,10 @@ func TestEnsurePklBinaryExists(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Reset evaluator state for clean testing
+			ResetEvaluatorForTest()
+			defer ResetEvaluatorForTest()
+
 			// Setup mocks
 			tt.setupMocks()
 
@@ -62,7 +66,7 @@ func TestEnsurePklBinaryExists(t *testing.T) {
 			}()
 
 			ctx := context.Background()
-			logger := logging.NewTestLogger()
+			logger := logging.NewTestSafeLogger()
 
 			if tt.expectExit {
 				// Expect panic from mocked os.Exit
@@ -81,9 +85,17 @@ func TestEnsurePklBinaryExists(t *testing.T) {
 }
 
 func TestEvalPkl_InvalidExtension(t *testing.T) {
+	// Reset evaluator state and skip binary check for testing
+	ResetEvaluatorForTest()
+	defer ResetEvaluatorForTest()
+
+	originalSkip := SkipBinaryCheck
+	SkipBinaryCheck = true
+	defer func() { SkipBinaryCheck = originalSkip }()
+
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	logger := logging.NewTestLogger()
+	logger := logging.NewTestSafeLogger()
 
 	_, err := EvalPkl(fs, ctx, "test.txt", "header", nil, logger)
 
@@ -92,9 +104,17 @@ func TestEvalPkl_InvalidExtension(t *testing.T) {
 }
 
 func TestEvalPkl_PackageURI(t *testing.T) {
+	// Reset evaluator state and skip binary check for testing
+	ResetEvaluatorForTest()
+	defer ResetEvaluatorForTest()
+
+	originalSkip := SkipBinaryCheck
+	SkipBinaryCheck = true
+	defer func() { SkipBinaryCheck = originalSkip }()
+
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	logger := logging.NewTestLogger()
+	logger := logging.NewTestSafeLogger()
 
 	// This test will likely fail due to PKL evaluation, but it tests the package URI detection logic
 	_, err := EvalPkl(fs, ctx, "package://example.com/test.pkl", "header", nil, logger)
@@ -106,10 +126,18 @@ func TestEvalPkl_PackageURI(t *testing.T) {
 }
 
 func TestEvalPkl_FileReadError(t *testing.T) {
+	// Reset evaluator state and skip binary check for testing
+	ResetEvaluatorForTest()
+	defer ResetEvaluatorForTest()
+
+	originalSkip := SkipBinaryCheck
+	SkipBinaryCheck = true
+	defer func() { SkipBinaryCheck = originalSkip }()
+
 	// Test with read-only filesystem to trigger file read error
 	fs := afero.NewReadOnlyFs(afero.NewMemMapFs())
 	ctx := context.Background()
-	logger := logging.NewTestLogger()
+	logger := logging.NewTestSafeLogger()
 
 	// This should handle the file read error gracefully
 	_, err := EvalPkl(fs, ctx, "nonexistent.pkl", "header", nil, logger)
@@ -119,6 +147,10 @@ func TestEvalPkl_FileReadError(t *testing.T) {
 }
 
 func TestCreateAndProcessPklFile_TempDirError(t *testing.T) {
+	// Reset evaluator state for testing
+	ResetEvaluatorForTest()
+	defer ResetEvaluatorForTest()
+
 	// Mock organized temp dir creation to fail
 	originalCreateKdepsTempDirFunc := CreateKdepsTempDirFunc
 	defer func() {
@@ -131,7 +163,7 @@ func TestCreateAndProcessPklFile_TempDirError(t *testing.T) {
 
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	logger := logging.NewTestLogger()
+	logger := logging.NewTestSafeLogger()
 
 	processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, opts func(options *pkl.EvaluatorOptions), logger *logging.Logger) (string, error) {
 		return "processed", nil
@@ -144,6 +176,10 @@ func TestCreateAndProcessPklFile_TempDirError(t *testing.T) {
 }
 
 func TestCreateAndProcessPklFile_TempFileError(t *testing.T) {
+	// Reset evaluator state for testing
+	ResetEvaluatorForTest()
+	defer ResetEvaluatorForTest()
+
 	// Mock organized temp file creation to fail
 	originalCreateKdepsTempFileFunc := CreateKdepsTempFileFunc
 	originalCreateKdepsTempDirFunc := CreateKdepsTempDirFunc
@@ -162,7 +198,7 @@ func TestCreateAndProcessPklFile_TempFileError(t *testing.T) {
 
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	logger := logging.NewTestLogger()
+	logger := logging.NewTestSafeLogger()
 
 	processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, opts func(options *pkl.EvaluatorOptions), logger *logging.Logger) (string, error) {
 		return "processed", nil
@@ -175,9 +211,13 @@ func TestCreateAndProcessPklFile_TempFileError(t *testing.T) {
 }
 
 func TestCreateAndProcessPklFile_ProcessError(t *testing.T) {
+	// Reset evaluator state for testing
+	ResetEvaluatorForTest()
+	defer ResetEvaluatorForTest()
+
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	logger := logging.NewTestLogger()
+	logger := logging.NewTestSafeLogger()
 
 	// Process function that returns an error
 	processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, opts func(options *pkl.EvaluatorOptions), logger *logging.Logger) (string, error) {
@@ -191,6 +231,10 @@ func TestCreateAndProcessPklFile_ProcessError(t *testing.T) {
 }
 
 func TestCreateAndProcessPklFile_WriteError(t *testing.T) {
+	// Reset evaluator state for testing
+	ResetEvaluatorForTest()
+	defer ResetEvaluatorForTest()
+
 	// Mock file writing to fail
 	originalWriteFileFunc := AferoWriteFileFunc
 	defer func() {
@@ -203,7 +247,7 @@ func TestCreateAndProcessPklFile_WriteError(t *testing.T) {
 
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	logger := logging.NewTestLogger()
+	logger := logging.NewTestSafeLogger()
 
 	processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, opts func(options *pkl.EvaluatorOptions), logger *logging.Logger) (string, error) {
 		return "processed", nil
@@ -216,9 +260,13 @@ func TestCreateAndProcessPklFile_WriteError(t *testing.T) {
 }
 
 func TestCreateAndProcessPklFile_Success(t *testing.T) {
+	// Reset evaluator state for testing
+	ResetEvaluatorForTest()
+	defer ResetEvaluatorForTest()
+
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	logger := logging.NewTestLogger()
+	logger := logging.NewTestSafeLogger()
 
 	processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, opts func(options *pkl.EvaluatorOptions), logger *logging.Logger) (string, error) {
 		return "processed content", nil

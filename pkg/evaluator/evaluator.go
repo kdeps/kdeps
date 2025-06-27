@@ -8,12 +8,22 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/spf13/afero"
+)
+
+// Singleton pkl evaluator to ensure only one instance is used
+var (
+	globalEvaluator  pkl.Evaluator
+	evaluatorMutex   sync.Mutex
+	evaluatorOnce    sync.Once
+	binaryCheckDone  bool
+	binaryCheckMutex sync.Mutex
 )
 
 // Injectable function declarations for better testability
@@ -62,23 +72,103 @@ var (
 	AferoWriteFileFunc = func(fs afero.Fs, filename string, data []byte, perm os.FileMode) error {
 		return afero.WriteFile(fs, filename, data, perm)
 	}
+
+	// SkipBinaryCheck allows skipping the binary check for testing
+	SkipBinaryCheck = false
 )
 
+// ResetEvaluatorForTest resets the global evaluator state for testing
+func ResetEvaluatorForTest() {
+	evaluatorMutex.Lock()
+	defer evaluatorMutex.Unlock()
+
+	if globalEvaluator != nil {
+		globalEvaluator.Close()
+		globalEvaluator = nil
+	}
+	evaluatorOnce = sync.Once{}
+	binaryCheckDone = false
+}
+
 // EnsurePklBinaryExists checks if the 'pkl' binary exists in the system PATH.
+// This is now lazy and only checked when needed.
 func EnsurePklBinaryExists(ctx context.Context, logger *logging.Logger) error {
+	binaryCheckMutex.Lock()
+	defer binaryCheckMutex.Unlock()
+
+	// Skip binary check if explicitly disabled (for testing)
+	if SkipBinaryCheck {
+		logger.Debug("skipping pkl binary check (disabled for testing)")
+		binaryCheckDone = true
+		return nil
+	}
+
+	// Only check once
+	if binaryCheckDone {
+		return nil
+	}
+
 	binaryNames := []string{"pkl", "pkl.exe"} // Support both Unix-like and Windows binary names
 	for _, binaryName := range binaryNames {
 		if _, err := ExecLookPathFunc(binaryName); err == nil {
+			binaryCheckDone = true
+			logger.Debug("found pkl binary", "binary", binaryName)
 			return nil // Found a valid binary, no error
 		}
 	}
+
 	// Log the error if none of the binaries were found
 	logger.Fatal("apple PKL not found in PATH. Please install Apple PKL (see https://pkl-lang.org/main/current/pkl-cli/index.html#installation) for more details")
 	OsExitFunc(1)
 	return nil // Unreachable, but included for clarity
 }
 
-// EvalPkl evaluates the resource file at resourcePath using the Pkl library.
+// GetOrCreatePklEvaluator returns the singleton pkl evaluator, creating it if necessary
+func GetOrCreatePklEvaluator(ctx context.Context, opts func(options *pkl.EvaluatorOptions), logger *logging.Logger) (pkl.Evaluator, error) {
+	evaluatorMutex.Lock()
+	defer evaluatorMutex.Unlock()
+
+	// Create evaluator only once
+	var err error
+	evaluatorOnce.Do(func() {
+		// Ensure binary exists before creating evaluator (unless skipped)
+		if !SkipBinaryCheck {
+			if binErr := EnsurePklBinaryExists(ctx, logger); binErr != nil {
+				err = binErr
+				return
+			}
+		}
+
+		// Set default options if none provided
+		if opts == nil {
+			opts = func(options *pkl.EvaluatorOptions) {
+				pkl.WithDefaultAllowedResources(options)
+				pkl.WithOsEnv(options)
+				pkl.WithDefaultAllowedModules(options)
+				pkl.WithDefaultCacheDir(options)
+				options.Logger = pkl.NoopLogger
+				options.AllowedModules = []string{".*"}
+				options.AllowedResources = []string{".*"}
+				options.OutputFormat = "pcf"
+			}
+		}
+
+		globalEvaluator, err = NewPklEvaluatorFunc(ctx, opts)
+		if err != nil {
+			logger.Error("failed to create singleton Pkl evaluator", "error", err)
+		} else {
+			logger.Debug("created singleton pkl evaluator")
+		}
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return globalEvaluator, nil
+}
+
+// EvalPkl evaluates the resource file at resourcePath using the singleton Pkl evaluator.
 func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSection string, opts func(options *pkl.EvaluatorOptions), logger *logging.Logger) (string, error) {
 	// Validate that the file has a .pkl extension
 	if filepath.Ext(resourcePath) != ".pkl" {
@@ -102,23 +192,10 @@ func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSectio
 		moduleSource = pkl.FileSource(evalPath)
 	}
 
-	if opts == nil {
-		opts = func(options *pkl.EvaluatorOptions) {
-			pkl.WithDefaultAllowedResources(options)
-			pkl.WithOsEnv(options)
-			pkl.WithDefaultAllowedModules(options)
-			pkl.WithDefaultCacheDir(options)
-			options.Logger = pkl.NoopLogger
-			options.AllowedModules = []string{".*"}
-			options.AllowedResources = []string{".*"}
-			options.OutputFormat = "pcf"
-		}
-	}
-
-	pklEvaluator, err := NewPklEvaluatorFunc(ctx, opts)
+	// Get or create the singleton evaluator
+	pklEvaluator, err := GetOrCreatePklEvaluator(ctx, opts, logger)
 	if err != nil {
-		logger.Error("failed to create Pkl evaluator", "resourcePath", resourcePath, "error", err)
-		return "", fmt.Errorf("error creating evaluator for %s: %w", evalPath, err)
+		return "", fmt.Errorf("error getting pkl evaluator for %s: %w", evalPath, err)
 	}
 
 	// Evaluate the Pkl file

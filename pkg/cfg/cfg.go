@@ -29,10 +29,7 @@ func FindConfiguration(fs afero.Fs, ctx context.Context, env *environment.Enviro
 
 	logger.Debug("finding configuration...")
 
-	// Ensure PKL binary exists before proceeding
-	if err := evaluator.EnsurePklBinaryExists(ctx, logger); err != nil {
-		return "", err
-	}
+	// PKL binary check is now handled lazily by the singleton evaluator when needed
 
 	// Use the initialized environment's Pwd directory
 	configFilePwd := filepath.Join(env.Pwd, environment.SystemConfigFileName)
