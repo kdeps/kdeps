@@ -280,6 +280,18 @@ func (dr *DependencyResolver) executePklEvalCommand() (execute.ExecResult, error
 	if result.ExitCode != 0 {
 		return execute.ExecResult{}, fmt.Errorf("command failed with exit code %d: %s", result.ExitCode, result.Stderr)
 	}
+
+	// Signal that the response file is ready via bus
+	if dr.BusManager != nil {
+		if err := dr.BusManager.SignalFileReady(dr.ResponseTargetFile, "response_file", map[string]interface{}{
+			"request_id": dr.RequestID,
+			"file_type":  "response_target",
+		}); err != nil {
+			dr.Logger.Warn("Failed to signal response file ready via bus", "file", dr.ResponseTargetFile, "error", err)
+			// Continue execution even if bus signaling fails - don't break the workflow
+		}
+	}
+
 	return result, nil
 }
 

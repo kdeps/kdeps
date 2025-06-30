@@ -74,6 +74,16 @@ func (dr *DependencyResolver) decodePythonBlock(pythonBlock *pklPython.ResourceP
 func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *pklPython.ResourcePython) error {
 	if dr.AnacondaInstalled && pythonBlock.CondaEnvironment != nil && *pythonBlock.CondaEnvironment != "" {
 		if err := dr.activateCondaEnvironment(*pythonBlock.CondaEnvironment); err != nil {
+			// Signal failure via bus service
+			if dr.BusManager != nil {
+				busErr := dr.BusManager.SignalResourceCompletion(actionID, "python", "failed", map[string]interface{}{
+					"error":            err.Error(),
+					"condaEnvironment": *pythonBlock.CondaEnvironment,
+				})
+				if busErr != nil {
+					dr.Logger.Warn("Failed to signal python conda failure via bus", "actionID", actionID, "error", busErr)
+				}
+			}
 			return err
 		}
 		//nolint:errcheck
@@ -84,6 +94,16 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 
 	tmpFile, err := dr.createPythonTempFile(pythonBlock.Script)
 	if err != nil {
+		// Signal failure via bus service
+		if dr.BusManager != nil {
+			busErr := dr.BusManager.SignalResourceCompletion(actionID, "python", "failed", map[string]interface{}{
+				"error": err.Error(),
+				"stage": "temp_file_creation",
+			})
+			if busErr != nil {
+				dr.Logger.Warn("Failed to signal python temp file failure via bus", "actionID", actionID, "error", busErr)
+			}
+		}
 		return err
 	}
 	defer dr.cleanupTempFile(tmpFile.Name())
@@ -100,6 +120,16 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 
 	result, err := cmd.Execute(dr.Context)
 	if err != nil {
+		// Signal failure via bus service
+		if dr.BusManager != nil {
+			busErr := dr.BusManager.SignalResourceCompletion(actionID, "python", "failed", map[string]interface{}{
+				"error":  err.Error(),
+				"script": tmpFile.Name(),
+			})
+			if busErr != nil {
+				dr.Logger.Warn("Failed to signal python execution failure via bus", "actionID", actionID, "error", busErr)
+			}
+		}
 		return fmt.Errorf("execution failed: %w", err)
 	}
 
@@ -112,7 +142,26 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 	}
 	pythonBlock.Timestamp = &ts
 
-	return dr.AppendPythonEntry(actionID, pythonBlock)
+	appendErr := dr.AppendPythonEntry(actionID, pythonBlock)
+
+	// Signal completion via bus service
+	if dr.BusManager != nil {
+		status := "completed"
+		data := map[string]interface{}{
+			"script": tmpFile.Name(),
+		}
+		if appendErr != nil {
+			status = "failed"
+			data["error"] = appendErr.Error()
+		}
+
+		busErr := dr.BusManager.SignalResourceCompletion(actionID, "python", status, data)
+		if busErr != nil {
+			dr.Logger.Warn("Failed to signal python completion via bus", "actionID", actionID, "error", busErr)
+		}
+	}
+
+	return appendErr
 }
 
 func (dr *DependencyResolver) activateCondaEnvironment(envName string) error {

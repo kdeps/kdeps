@@ -157,10 +157,24 @@ func setupSignalHandler(fs afero.Fs, ctx context.Context, cancelFunc context.Can
 		logger.Debug(fmt.Sprintf("Received signal: %v, initiating shutdown...", sig))
 		cancelFunc() // Cancel context to initiate shutdown
 		cleanup(fs, ctx, env, apiServerMode, logger)
-		if err := utils.WaitForFileReady(fs, "/.dockercleanup", logger); err != nil {
-			logger.Error("error occurred while waiting for file to be ready", "file", "/.dockercleanup")
 
-			return
+		// Use bus-based cleanup waiting with fallback to file-based approach
+		busManager, err := utils.NewBusIPCManager(logger)
+		if err != nil {
+			logger.Debug("Bus not available for signal handler, using file-based cleanup waiting", "error", err)
+			if err := utils.WaitForFileReady(fs, "/.dockercleanup", logger); err != nil {
+				logger.Error("error occurred while waiting for file to be ready", "file", "/.dockercleanup")
+				return
+			}
+		} else {
+			defer busManager.Close()
+			if err := busManager.WaitForCleanup(10); err != nil {
+				logger.Warn("Failed to wait for cleanup signal via bus, falling back to file-based approach", "error", err)
+				if err := utils.WaitForFileReady(fs, "/.dockercleanup", logger); err != nil {
+					logger.Error("error occurred while waiting for file to be ready", "file", "/.dockercleanup")
+					return
+				}
+			}
 		}
 		os.Exit(0)
 	}()
@@ -192,8 +206,20 @@ func runGraphResolverActions(ctx context.Context, dr *resolver.DependencyResolve
 
 	cleanup(dr.Fs, ctx, dr.Environment, apiServerMode, dr.Logger)
 
-	if err := utils.WaitForFileReady(dr.Fs, "/.dockercleanup", dr.Logger); err != nil {
-		return fmt.Errorf("failed to wait for file to be ready: %w", err)
+	// Use bus-based cleanup signaling instead of file-based approach
+	if dr.BusManager != nil {
+		if err := dr.BusManager.WaitForCleanup(10); err != nil {
+			dr.Logger.Warn("Failed to wait for cleanup signal via bus, falling back to file-based approach", "error", err)
+			// Fallback to file-based approach
+			if err := utils.WaitForFileReady(dr.Fs, "/.dockercleanup", dr.Logger); err != nil {
+				return fmt.Errorf("failed to wait for file to be ready: %w", err)
+			}
+		}
+	} else {
+		// Fallback to file-based approach
+		if err := utils.WaitForFileReady(dr.Fs, "/.dockercleanup", dr.Logger); err != nil {
+			return fmt.Errorf("failed to wait for file to be ready: %w", err)
+		}
 	}
 
 	return nil

@@ -58,6 +58,102 @@ func WaitForEvents(client *rpc.Client, logger *logging.Logger, eventHandler func
 	}
 }
 
+// SignalResourceCompletion signals that a resource has completed
+func SignalResourceCompletion(client *rpc.Client, resourceID, status string, data map[string]interface{}) error {
+	if client == nil {
+		return errors.New("nil client provided")
+	}
+
+	req := SignalCompletionRequest{
+		ResourceID: resourceID,
+		Status:     status,
+		Data:       data,
+	}
+
+	var resp SignalCompletionResponse
+	err := client.Call("BusService.SignalCompletion", req, &resp)
+	if err != nil {
+		return fmt.Errorf("failed to signal completion: %w", err)
+	}
+	if resp.Error != "" {
+		return fmt.Errorf("completion signal error: %s", resp.Error)
+	}
+	if !resp.Success {
+		return errors.New("completion signal failed")
+	}
+	return nil
+}
+
+// WaitForResourceCompletion waits for a resource to complete
+func WaitForResourceCompletion(client *rpc.Client, resourceID string, timeoutSeconds int64) (*ResourceState, error) {
+	if client == nil {
+		return nil, errors.New("nil client provided")
+	}
+
+	req := WaitForCompletionRequest{
+		ResourceID: resourceID,
+		Timeout:    timeoutSeconds,
+	}
+
+	var resp WaitForCompletionResponse
+	err := client.Call("BusService.WaitForCompletion", req, &resp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to wait for completion: %w", err)
+	}
+	if resp.Error != "" {
+		return nil, fmt.Errorf("wait for completion error: %s", resp.Error)
+	}
+	if !resp.Success {
+		return nil, errors.New("wait for completion failed")
+	}
+
+	return &ResourceState{
+		ResourceID: resourceID,
+		Status:     resp.Status,
+		Data:       resp.Data,
+	}, nil
+}
+
+// PublishEvent publishes an event to the bus
+func PublishEvent(client *rpc.Client, eventType, payload, resourceID string, data map[string]interface{}) error {
+	if client == nil {
+		return errors.New("nil client provided")
+	}
+
+	event := Event{
+		Type:       eventType,
+		Payload:    payload,
+		ResourceID: resourceID,
+		Data:       data,
+		Timestamp:  time.Now().Unix(),
+	}
+
+	req := PublishEventRequest{Event: event}
+	var resp PublishEventResponse
+	err := client.Call("BusService.PublishEvent", req, &resp)
+	if err != nil {
+		return fmt.Errorf("failed to publish event: %w", err)
+	}
+	if resp.Error != "" {
+		return fmt.Errorf("publish event error: %s", resp.Error)
+	}
+	if !resp.Success {
+		return errors.New("publish event failed")
+	}
+	return nil
+}
+
+// WaitForCleanupSignal waits for cleanup signal instead of file-based approach
+func WaitForCleanupSignal(client *rpc.Client, logger *logging.Logger, timeoutSeconds int64) error {
+	return WaitForEvents(client, logger, func(event Event) bool {
+		if event.Type == "cleanup" || event.Type == "dockercleanup" {
+			logger.Info("Cleanup signal received via bus", "payload", event.Payload)
+			return true
+		}
+		return false
+	})
+}
+
 // StartBusClient initializes and returns an RPC client to connect to the bus.
 func StartBusClient() (*rpc.Client, error) {
 	client, err := rpc.Dial("tcp", busAddr)

@@ -89,6 +89,16 @@ func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklEx
 
 	result, err := cmd.Execute(dr.Context)
 	if err != nil {
+		// Signal failure via bus service
+		if dr.BusManager != nil {
+			busErr := dr.BusManager.SignalResourceCompletion(actionID, "exec", "failed", map[string]interface{}{
+				"error":   err.Error(),
+				"command": execBlock.Command,
+			})
+			if busErr != nil {
+				dr.Logger.Warn("Failed to signal exec failure via bus", "actionID", actionID, "error", busErr)
+			}
+		}
 		return err
 	}
 
@@ -101,7 +111,26 @@ func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklEx
 	}
 	execBlock.Timestamp = &ts
 
-	return dr.AppendExecEntry(actionID, execBlock)
+	appendErr := dr.AppendExecEntry(actionID, execBlock)
+
+	// Signal completion via bus service
+	if dr.BusManager != nil {
+		status := "completed"
+		data := map[string]interface{}{
+			"command": execBlock.Command,
+		}
+		if appendErr != nil {
+			status = "failed"
+			data["error"] = appendErr.Error()
+		}
+
+		busErr := dr.BusManager.SignalResourceCompletion(actionID, "exec", status, data)
+		if busErr != nil {
+			dr.Logger.Warn("Failed to signal exec completion via bus", "actionID", actionID, "error", busErr)
+		}
+	}
+
+	return appendErr
 }
 
 func (dr *DependencyResolver) WriteStdoutToFile(resourceID string, stdoutEncoded *string) (string, error) {

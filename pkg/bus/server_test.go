@@ -96,7 +96,9 @@ func TestBusService(t *testing.T) {
 		testEvent := Event{Type: "test", Payload: "test payload"}
 		go func() {
 			time.Sleep(50 * time.Millisecond) // Brief delay to allow subscription setup
-			testService.PublishEvent(testEvent)
+			req := PublishEventRequest{Event: testEvent}
+			var resp PublishEventResponse
+			testService.PublishEvent(req, &resp)
 		}()
 
 		var eventResp EventResponse
@@ -107,8 +109,8 @@ func TestBusService(t *testing.T) {
 		if eventResp.Error != "" {
 			t.Errorf("GetEvent returned error: %s", eventResp.Error)
 		}
-		if eventResp.Event != testEvent {
-			t.Errorf("Expected event %v, got %v", testEvent, eventResp.Event)
+		if eventResp.Event.Type != testEvent.Type || eventResp.Event.Payload != testEvent.Payload {
+			t.Errorf("Expected event %+v, got %+v", testEvent, eventResp.Event)
 		}
 	})
 

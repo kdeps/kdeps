@@ -42,6 +42,7 @@ type DependencyResolver struct {
 	DataDir              string
 	APIServerMode        bool
 	AnacondaInstalled    bool
+	BusManager           *utils.BusIPCManager
 }
 
 type ResourceNodeEntry struct {
@@ -89,13 +90,26 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		return nil, fmt.Errorf("error creating directory: %w", err)
 	}
 
-	// List of files to create (stamp file)
+	// Initialize bus manager for IPC communication
+	busManager, err := utils.NewBusIPCManager(logger)
+	if err != nil {
+		logger.Warn("Failed to initialize bus manager, falling back to file-based messaging", "error", err)
+		busManager = nil
+	}
+
+	// List of files to create (stamp file) - now with bus signaling
 	files := []string{
 		filepath.Join(actionDir, graphID),
 	}
 
-	if err := utils.CreateFiles(fs, ctx, files); err != nil {
-		return nil, fmt.Errorf("error creating file: %w", err)
+	if busManager != nil {
+		if err := utils.CreateFilesWithBusSignal(fs, busManager, files); err != nil {
+			return nil, fmt.Errorf("error creating file with bus signal: %w", err)
+		}
+	} else {
+		if err := utils.CreateFiles(fs, ctx, files); err != nil {
+			return nil, fmt.Errorf("error creating file: %w", err)
+		}
 	}
 
 	requestPklFile := filepath.Join(actionDir, "/api/"+graphID+"__request.pkl")
@@ -119,6 +133,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		ResponsePklFile:      responsePklFile,
 		ResponseTargetFile:   responseTargetFile,
 		ProjectDir:           projectDir,
+		BusManager:           busManager,
 	}
 
 	workflowConfiguration, err := pklWf.LoadFromPath(ctx, pklWfFile)
@@ -141,31 +156,85 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 }
 
 // processResourceStep consolidates the pattern of: get timestamp, run a handler, adjust timeout (if provided),
-// then wait for the timestamp change.
+// then wait for the timestamp change. Now uses bus IPC instead of timestamp-based waiting.
 func (dr *DependencyResolver) processResourceStep(resourceID, step string, timeoutPtr *pkl.Duration, handler func() error) error {
-	timestamp, err := dr.GetCurrentTimestamp(resourceID, step)
-	if err != nil {
-		return fmt.Errorf("%s error: %w", step, err)
-	}
-
 	timeout := 60 * time.Second
 	if timeoutPtr != nil {
 		timeout = timeoutPtr.GoDuration()
 		dr.Logger.Infof("Timeout duration for '%s' is set to '%.0f' seconds", resourceID, timeout.Seconds())
 	}
 
-	if err := handler(); err != nil {
-		return fmt.Errorf("%s error: %w", step, err)
-	}
+	// If bus manager is available, use bus-based IPC
+	if dr.BusManager != nil {
+		if err := handler(); err != nil {
+			// Signal failure via bus
+			if busErr := dr.BusManager.SignalResourceCompletion(resourceID, step, "failed", map[string]interface{}{
+				"error": err.Error(),
+			}); busErr != nil {
+				dr.Logger.Warn("Failed to signal resource failure via bus", "resourceID", resourceID, "error", busErr)
+			}
+			return fmt.Errorf("%s error: %w", step, err)
+		}
 
-	if err := dr.WaitForTimestampChange(resourceID, timestamp, timeout, step); err != nil {
-		return fmt.Errorf("%s timeout awaiting for output: %w", step, err)
+		// Wait for completion signal via bus
+		timeoutSeconds := int64(timeout.Seconds())
+		if err := dr.BusManager.WaitForResourceCompletion(resourceID, timeoutSeconds); err != nil {
+			return fmt.Errorf("%s timeout awaiting for output: %w", step, err)
+		}
+		return nil
+	} else {
+		// Fallback to timestamp-based approach
+		timestamp, err := dr.GetCurrentTimestamp(resourceID, step)
+		if err != nil {
+			return fmt.Errorf("%s error: %w", step, err)
+		}
+
+		if err := handler(); err != nil {
+			return fmt.Errorf("%s error: %w", step, err)
+		}
+
+		if err := dr.WaitForTimestampChange(resourceID, timestamp, timeout, step); err != nil {
+			return fmt.Errorf("%s timeout awaiting for output: %w", step, err)
+		}
+		return nil
+	}
+}
+
+// Close properly closes the bus manager connection
+func (dr *DependencyResolver) Close() error {
+	if dr.BusManager != nil {
+		return dr.BusManager.Close()
 	}
 	return nil
 }
 
+// WaitForResponseFile waits for the response file to be ready using bus or file-based approach
+func (dr *DependencyResolver) WaitForResponseFile() error {
+	// Use bus-based waiting first, fallback to file-based
+	if dr.BusManager != nil {
+		if err := dr.BusManager.WaitForFileReady(dr.ResponseTargetFile, 30); err != nil {
+			dr.Logger.Debug("Bus-based response file wait failed, falling back to file-based approach", "error", err)
+			// Fallback to file waiting
+			return utils.WaitForFileReady(dr.Fs, dr.ResponseTargetFile, dr.Logger)
+		}
+		return nil
+	} else {
+		// Fallback to file-based approach
+		return utils.WaitForFileReady(dr.Fs, dr.ResponseTargetFile, dr.Logger)
+	}
+}
+
 // HandleRunAction is the main entry point to process resource run blocks.
 func (dr *DependencyResolver) HandleRunAction() (bool, error) {
+	// Ensure proper cleanup of bus connections
+	defer func() {
+		if dr.BusManager != nil {
+			if err := dr.BusManager.Close(); err != nil {
+				dr.Logger.Warn("Failed to close bus manager", "error", err)
+			}
+		}
+	}()
+
 	// Recover from panics in this function.
 	defer func() {
 		if r := recover(); r != nil {
@@ -273,7 +342,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 		}
 	}
 
-	// Remove the request stamp file
+	// Remove the request stamp file (keeping this for backwards compatibility)
 	if err := dr.Fs.RemoveAll(requestFilePath); err != nil {
 		dr.Logger.Error("failed to delete old requestID file", "file", requestFilePath, "error", err)
 		return false, err

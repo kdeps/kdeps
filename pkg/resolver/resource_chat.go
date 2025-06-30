@@ -55,6 +55,17 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 
 	llm, err := ollama.New(ollama.WithModel(chatBlock.Model))
 	if err != nil {
+		// Signal failure via bus service
+		if dr.BusManager != nil {
+			busErr := dr.BusManager.SignalResourceCompletion(actionID, "llm", "failed", map[string]interface{}{
+				"error": err.Error(),
+				"model": chatBlock.Model,
+				"stage": "llm_initialization",
+			})
+			if busErr != nil {
+				dr.Logger.Warn("Failed to signal LLM initialization failure via bus", "actionID", actionID, "error", busErr)
+			}
+		}
 		return err
 	}
 
@@ -71,22 +82,79 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 
 		response, err := llm.GenerateContent(dr.Context, content, llms.WithJSONMode())
 		if err != nil {
+			// Signal failure via bus service
+			if dr.BusManager != nil {
+				busErr := dr.BusManager.SignalResourceCompletion(actionID, "llm", "failed", map[string]interface{}{
+					"error":    err.Error(),
+					"model":    chatBlock.Model,
+					"prompt":   chatBlock.Prompt,
+					"jsonMode": true,
+				})
+				if busErr != nil {
+					dr.Logger.Warn("Failed to signal LLM JSON generation failure via bus", "actionID", actionID, "error", busErr)
+				}
+			}
 			return err
 		}
 
 		if len(response.Choices) == 0 {
-			return errors.New("empty response from model")
+			err := errors.New("empty response from model")
+			// Signal failure via bus service
+			if dr.BusManager != nil {
+				busErr := dr.BusManager.SignalResourceCompletion(actionID, "llm", "failed", map[string]interface{}{
+					"error":    err.Error(),
+					"model":    chatBlock.Model,
+					"jsonMode": true,
+				})
+				if busErr != nil {
+					dr.Logger.Warn("Failed to signal LLM empty response failure via bus", "actionID", actionID, "error", busErr)
+				}
+			}
+			return err
 		}
 		completion = response.Choices[0].Content
 	} else {
 		completion, err = llm.Call(dr.Context, chatBlock.Prompt)
 		if err != nil {
+			// Signal failure via bus service
+			if dr.BusManager != nil {
+				busErr := dr.BusManager.SignalResourceCompletion(actionID, "llm", "failed", map[string]interface{}{
+					"error":  err.Error(),
+					"model":  chatBlock.Model,
+					"prompt": chatBlock.Prompt,
+				})
+				if busErr != nil {
+					dr.Logger.Warn("Failed to signal LLM call failure via bus", "actionID", actionID, "error", busErr)
+				}
+			}
 			return err
 		}
 	}
 
 	chatBlock.Response = &completion
-	return dr.AppendChatEntry(actionID, chatBlock)
+	appendErr := dr.AppendChatEntry(actionID, chatBlock)
+
+	// Signal completion via bus service
+	if dr.BusManager != nil {
+		status := "completed"
+		data := map[string]interface{}{
+			"model":  chatBlock.Model,
+			"prompt": chatBlock.Prompt,
+		}
+		if appendErr != nil {
+			status = "failed"
+			data["error"] = appendErr.Error()
+		} else {
+			data["response"] = completion
+		}
+
+		busErr := dr.BusManager.SignalResourceCompletion(actionID, "llm", status, data)
+		if busErr != nil {
+			dr.Logger.Warn("Failed to signal LLM completion via bus", "actionID", actionID, "error", busErr)
+		}
+	}
+
+	return appendErr
 }
 
 func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM.ResourceChat) error {

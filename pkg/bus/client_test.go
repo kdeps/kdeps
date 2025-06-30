@@ -29,9 +29,13 @@ func TestClient(t *testing.T) {
 		// Publish events with slight delays.
 		go func() {
 			time.Sleep(100 * time.Millisecond)
-			testService.PublishEvent(Event{Type: "progress", Payload: "Working"})
+			req1 := PublishEventRequest{Event: Event{Type: "progress", Payload: "Working"}}
+			var resp1 PublishEventResponse
+			testService.PublishEvent(req1, &resp1)
 			time.Sleep(100 * time.Millisecond)
-			testService.PublishEvent(Event{Type: "ready", Payload: "Done"})
+			req2 := PublishEventRequest{Event: Event{Type: "ready", Payload: "Done"}}
+			var resp2 PublishEventResponse
+			testService.PublishEvent(req2, &resp2)
 		}()
 
 		// Handler to process events.

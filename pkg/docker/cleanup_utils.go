@@ -11,6 +11,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/spf13/afero"
@@ -46,46 +47,122 @@ func CleanupDockerBuildImages(fs afero.Fs, ctx context.Context, cName string, cl
 }
 
 // Cleanup deletes /agent/action and /agent/workflow directories, then copies /agent/project to /agent/workflow.
-func Cleanup(fs afero.Fs, ctx context.Context, environ *environment.Environment, logger *logging.Logger) {
-	if environ.DockerMode != "1" {
+func Cleanup(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) {
+	actionDirValue, actionExists := ktx.ReadContext(ctx, ktx.CtxKeyActionDir)
+	agentDirValue, agentExists := ktx.ReadContext(ctx, ktx.CtxKeyAgentDir)
+
+	if !actionExists || !agentExists {
+		logger.Warn("Missing directory context, skipping cleanup")
 		return
 	}
 
-	actionDir := "/agent/action"
-	workflowDir := "/agent/workflow"
-	projectDir := "/agent/project"
+	actionDir, actionOk := actionDirValue.(string)
+	agentDir, agentOk := agentDirValue.(string)
+
+	if !actionOk || !agentOk || actionDir == "" || agentDir == "" {
+		logger.Warn("Invalid directory context types, skipping cleanup")
+		return
+	}
+
+	projectDir := filepath.Join(agentDir, "/project")
+	workflowDir := filepath.Join(agentDir, "/workflow")
+
 	removedFiles := []string{"/.actiondir_removed", "/.dockercleanup"}
 
-	// Helper function to remove a directory and create a corresponding flag file
-	removeDirWithFlag := func(ctx context.Context, dir string, flagFile string) error {
+	// Initialize bus manager for cleanup signaling
+	busManager, err := utils.NewBusIPCManager(logger)
+	if err != nil {
+		logger.Warn("Bus not available, using file-based cleanup signaling", "error", err)
+		busManager = nil
+	}
+	defer func() {
+		if busManager != nil {
+			busManager.Close()
+		}
+	}()
+
+	// Helper function to remove a directory and signal via bus or create flag file
+	removeDirWithSignal := func(ctx context.Context, dir string, flagFile string, signalType string) error {
 		if err := fs.RemoveAll(dir); err != nil {
 			logger.Error(fmt.Sprintf("Error removing %s: %v", dir, err))
 			return err
 		}
 
 		logger.Debug(dir + " directory deleted")
-		if err := CreateFlagFile(fs, ctx, flagFile); err != nil {
-			logger.Error(fmt.Sprintf("Unable to create flag file %s: %v", flagFile, err))
-			return err
+
+		if busManager != nil {
+			// Signal via bus
+			if err := busManager.SignalCleanup(signalType, fmt.Sprintf("Directory %s removed", dir), map[string]interface{}{
+				"directory": dir,
+				"operation": "remove",
+			}); err != nil {
+				logger.Warn("Failed to signal cleanup via bus, creating flag file", "error", err)
+				// Fallback to file creation
+				if err := CreateFlagFile(fs, ctx, flagFile); err != nil {
+					logger.Error(fmt.Sprintf("Unable to create flag file %s: %v", flagFile, err))
+					return err
+				}
+			}
+		} else {
+			// Fallback to file creation
+			if err := CreateFlagFile(fs, ctx, flagFile); err != nil {
+				logger.Error(fmt.Sprintf("Unable to create flag file %s: %v", flagFile, err))
+				return err
+			}
 		}
 		return nil
 	}
 
 	// Remove action and workflow directories
-	if err := removeDirWithFlag(ctx, actionDir, removedFiles[0]); err != nil {
+	if err := removeDirWithSignal(ctx, actionDir, removedFiles[0], "action"); err != nil {
 		return
 	}
 
-	// Wait for the cleanup flags to be ready
-	for _, flag := range removedFiles[:2] { // Correcting to wait for the first two files
-		if err := utils.WaitForFileReady(fs, flag, logger); err != nil {
-			logger.Error(fmt.Sprintf("Error waiting for flag %s: %v", flag, err))
+	// Signal docker cleanup completion
+	if busManager != nil {
+		if err := busManager.SignalCleanup("docker", "Docker cleanup completed", map[string]interface{}{
+			"operation": "cleanup_complete",
+		}); err != nil {
+			logger.Warn("Failed to signal docker cleanup completion via bus, creating flag file", "error", err)
+			// Fallback to file creation
+			if err := CreateFlagFile(fs, ctx, removedFiles[1]); err != nil {
+				logger.Error(fmt.Sprintf("Unable to create flag file %s: %v", removedFiles[1], err))
+				return
+			}
+		}
+	} else {
+		// Fallback to file creation
+		if err := CreateFlagFile(fs, ctx, removedFiles[1]); err != nil {
+			logger.Error(fmt.Sprintf("Unable to create flag file %s: %v", removedFiles[1], err))
 			return
 		}
 	}
 
+	// Wait for cleanup signals or files - prioritize bus over files
+	if busManager != nil {
+		// Wait for cleanup signals via bus with short timeout
+		if err := busManager.WaitForCleanup(3); err != nil {
+			logger.Debug("Bus cleanup wait failed, falling back to file waiting", "error", err)
+			// Fallback to file waiting
+			for _, flag := range removedFiles[:2] {
+				if err := utils.WaitForFileReady(fs, flag, logger); err != nil {
+					logger.Error(fmt.Sprintf("Error waiting for flag %s: %v", flag, err))
+					return
+				}
+			}
+		}
+	} else {
+		// Wait for the cleanup flags to be ready
+		for _, flag := range removedFiles[:2] {
+			if err := utils.WaitForFileReady(fs, flag, logger); err != nil {
+				logger.Error(fmt.Sprintf("Error waiting for flag %s: %v", flag, err))
+				return
+			}
+		}
+	}
+
 	// Copy /agent/project to /agent/workflow
-	err := afero.Walk(fs, projectDir, func(path string, info os.FileInfo, err error) error {
+	err = afero.Walk(fs, projectDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -107,22 +184,13 @@ func Cleanup(fs afero.Fs, ctx context.Context, environ *environment.Environment,
 				return err
 			}
 		}
+
 		return nil
 	})
 
 	if err != nil {
-		logger.Error(fmt.Sprintf("Error copying %s to %s: %v", projectDir, workflowDir, err))
-	} else {
-		logger.Debug(fmt.Sprintf("Copied %s to %s for next run", projectDir, workflowDir))
+		logger.Error("Error copying project directory to workflow directory", "error", err)
 	}
-
-	// Create final cleanup flag
-	if err := CreateFlagFile(fs, ctx, removedFiles[1]); err != nil {
-		logger.Error(fmt.Sprintf("Unable to create final cleanup flag: %v", err))
-	}
-
-	// Remove flag files
-	cleanupFlagFiles(fs, removedFiles, logger)
 }
 
 // cleanupFlagFiles removes the specified flag files.

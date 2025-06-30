@@ -29,7 +29,17 @@ func (dr *DependencyResolver) HandleHTTPClient(actionID string, httpBlock *pklHT
 	// Process the HTTP block asynchronously in a goroutine.
 	go func(aID string, block *pklHTTP.ResourceHTTPClient) {
 		if err := dr.processHTTPBlock(aID, block); err != nil {
-			// Log the error; you can adjust error handling as needed.
+			// Signal failure via bus
+			if dr.BusManager != nil {
+				busErr := dr.BusManager.SignalResourceCompletion(aID, "client", "failed", map[string]interface{}{
+					"error":  err.Error(),
+					"url":    block.Url,
+					"method": block.Method,
+				})
+				if busErr != nil {
+					dr.Logger.Warn("Failed to signal HTTP client failure via bus", "actionID", aID, "error", busErr)
+				}
+			}
 			dr.Logger.Error("failed to process HTTP block", "actionID", aID, "error", err)
 		}
 	}(actionID, httpBlock)
@@ -40,9 +50,41 @@ func (dr *DependencyResolver) HandleHTTPClient(actionID string, httpBlock *pklHT
 
 func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHTTP.ResourceHTTPClient) error {
 	if err := dr.DoRequest(httpBlock); err != nil {
+		// Signal failure via bus
+		if dr.BusManager != nil {
+			busErr := dr.BusManager.SignalResourceCompletion(actionID, "client", "failed", map[string]interface{}{
+				"error":  err.Error(),
+				"url":    httpBlock.Url,
+				"method": httpBlock.Method,
+			})
+			if busErr != nil {
+				dr.Logger.Warn("Failed to signal HTTP client request failure via bus", "actionID", actionID, "error", busErr)
+			}
+		}
 		return err
 	}
-	return dr.AppendHTTPEntry(actionID, httpBlock)
+
+	appendErr := dr.AppendHTTPEntry(actionID, httpBlock)
+
+	// Signal completion via bus
+	if dr.BusManager != nil {
+		status := "completed"
+		data := map[string]interface{}{
+			"url":    httpBlock.Url,
+			"method": httpBlock.Method,
+		}
+		if appendErr != nil {
+			status = "failed"
+			data["error"] = appendErr.Error()
+		}
+
+		busErr := dr.BusManager.SignalResourceCompletion(actionID, "client", status, data)
+		if busErr != nil {
+			dr.Logger.Warn("Failed to signal HTTP client completion via bus", "actionID", actionID, "error", busErr)
+		}
+	}
+
+	return appendErr
 }
 
 func (dr *DependencyResolver) decodeHTTPBlock(httpBlock *pklHTTP.ResourceHTTPClient) error {
