@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/alexellis/go-execute/v2"
 	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/evaluator"
+	"github.com/kdeps/kdeps/pkg/kdepsexec"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklPython "github.com/kdeps/schema/gen/python"
@@ -74,19 +76,9 @@ func (dr *DependencyResolver) decodePythonBlock(pythonBlock *pklPython.ResourceP
 func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *pklPython.ResourcePython) error {
 	if dr.AnacondaInstalled && pythonBlock.CondaEnvironment != nil && *pythonBlock.CondaEnvironment != "" {
 		if err := dr.activateCondaEnvironment(*pythonBlock.CondaEnvironment); err != nil {
-			// Signal failure via bus service
-			if dr.BusManager != nil {
-				busErr := dr.BusManager.SignalResourceCompletion(actionID, "python", "failed", map[string]interface{}{
-					"error":            err.Error(),
-					"condaEnvironment": *pythonBlock.CondaEnvironment,
-				})
-				if busErr != nil {
-					dr.Logger.Warn("Failed to signal python conda failure via bus", "actionID", actionID, "error", busErr)
-				}
-			}
 			return err
 		}
-		//nolint:errcheck
+
 		defer dr.deactivateCondaEnvironment()
 	}
 
@@ -94,16 +86,6 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 
 	tmpFile, err := dr.createPythonTempFile(pythonBlock.Script)
 	if err != nil {
-		// Signal failure via bus service
-		if dr.BusManager != nil {
-			busErr := dr.BusManager.SignalResourceCompletion(actionID, "python", "failed", map[string]interface{}{
-				"error": err.Error(),
-				"stage": "temp_file_creation",
-			})
-			if busErr != nil {
-				dr.Logger.Warn("Failed to signal python temp file failure via bus", "actionID", actionID, "error", busErr)
-			}
-		}
 		return err
 	}
 	defer dr.cleanupTempFile(tmpFile.Name())
@@ -118,23 +100,19 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 		StreamStdio: false,
 	}
 
-	result, err := cmd.Execute(dr.Context)
-	if err != nil {
-		// Signal failure via bus service
-		if dr.BusManager != nil {
-			busErr := dr.BusManager.SignalResourceCompletion(actionID, "python", "failed", map[string]interface{}{
-				"error":  err.Error(),
-				"script": tmpFile.Name(),
-			})
-			if busErr != nil {
-				dr.Logger.Warn("Failed to signal python execution failure via bus", "actionID", actionID, "error", busErr)
-			}
-		}
-		return fmt.Errorf("execution failed: %w", err)
+	var execStdout, execStderr string
+	var execErr error
+	if dr.ExecTaskRunnerFn != nil {
+		execStdout, execStderr, execErr = dr.ExecTaskRunnerFn(dr.Context, cmd)
+	} else {
+		execStdout, execStderr, _, execErr = kdepsexec.RunExecTask(dr.Context, cmd, dr.Logger, false)
+	}
+	if execErr != nil {
+		return fmt.Errorf("execution failed: %w", execErr)
 	}
 
-	pythonBlock.Stdout = &result.Stdout
-	pythonBlock.Stderr = &result.Stderr
+	pythonBlock.Stdout = &execStdout
+	pythonBlock.Stderr = &execStderr
 
 	ts := pkl.Duration{
 		Value: float64(time.Now().Unix()),
@@ -142,51 +120,50 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 	}
 	pythonBlock.Timestamp = &ts
 
-	appendErr := dr.AppendPythonEntry(actionID, pythonBlock)
-
-	// Signal completion via bus service
-	if dr.BusManager != nil {
-		status := "completed"
-		data := map[string]interface{}{
-			"script": tmpFile.Name(),
-		}
-		if appendErr != nil {
-			status = "failed"
-			data["error"] = appendErr.Error()
-		}
-
-		busErr := dr.BusManager.SignalResourceCompletion(actionID, "python", status, data)
-		if busErr != nil {
-			dr.Logger.Warn("Failed to signal python completion via bus", "actionID", actionID, "error", busErr)
-		}
-	}
-
-	return appendErr
+	return dr.AppendPythonEntry(actionID, pythonBlock)
 }
 
 func (dr *DependencyResolver) activateCondaEnvironment(envName string) error {
-	execCommand := execute.ExecTask{
+	execTask := execute.ExecTask{
 		Command:     "conda",
 		Args:        []string{"activate", "--name", envName},
 		Shell:       false,
 		StreamStdio: false,
 	}
 
-	if _, err := execCommand.Execute(dr.Context); err != nil {
+	// Use injected runner if provided
+	if dr.ExecTaskRunnerFn != nil {
+		if _, _, err := dr.ExecTaskRunnerFn(dr.Context, execTask); err != nil {
+			return fmt.Errorf("conda activate failed: %w", err)
+		}
+		return nil
+	}
+
+	_, _, _, err := kdepsexec.RunExecTask(dr.Context, execTask, dr.Logger, false)
+	if err != nil {
 		return fmt.Errorf("conda activate failed: %w", err)
 	}
 	return nil
 }
 
 func (dr *DependencyResolver) deactivateCondaEnvironment() error {
-	execCommand := execute.ExecTask{
+	execTask := execute.ExecTask{
 		Command:     "conda",
 		Args:        []string{"deactivate"},
 		Shell:       false,
 		StreamStdio: false,
 	}
 
-	if _, err := execCommand.Execute(context.Background()); err != nil {
+	// Use injected runner if provided
+	if dr.ExecTaskRunnerFn != nil {
+		if _, _, err := dr.ExecTaskRunnerFn(context.Background(), execTask); err != nil {
+			return fmt.Errorf("conda deactivate failed: %w", err)
+		}
+		return nil
+	}
+
+	_, _, _, err := kdepsexec.RunExecTask(context.Background(), execTask, dr.Logger, false)
+	if err != nil {
 		return fmt.Errorf("conda deactivate failed: %w", err)
 	}
 	return nil
@@ -202,7 +179,6 @@ func (dr *DependencyResolver) formatPythonEnv(env *map[string]string) []string {
 	return formatted
 }
 
-//nolint:ireturn
 func (dr *DependencyResolver) createPythonTempFile(script string) (afero.File, error) {
 	tmpFile, err := afero.TempFile(dr.Fs, "", "script-*.py")
 	if err != nil {
@@ -246,13 +222,17 @@ func (dr *DependencyResolver) WritePythonStdoutToFile(resourceID string, stdoutE
 	return outputFilePath, nil
 }
 
-//nolint:dupl
 func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pklPython.ResourcePython) error {
 	pklPath := filepath.Join(dr.ActionDir, "python/"+dr.RequestID+"__python_output.pkl")
 
-	pklRes, err := pklPython.LoadFromPath(dr.Context, pklPath)
+	res, err := dr.LoadResource(dr.Context, pklPath, PythonResource)
 	if err != nil {
-		return fmt.Errorf("failed to load PKL file: %w", err)
+		return fmt.Errorf("failed to load PKL: %w", err)
+	}
+
+	pklRes, ok := res.(*pklPython.PythonImpl)
+	if !ok {
+		return errors.New("failed to cast pklRes to *pklPython.Resource")
 	}
 
 	resources := pklRes.GetResources()
@@ -277,10 +257,11 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 
 	timeoutDuration := newPython.TimeoutDuration
 	if timeoutDuration == nil {
-		timeoutDuration = &pkl.Duration{
-			Value: 60,
-			Unit:  pkl.Second,
+		sec := dr.DefaultTimeoutSec
+		if sec <= 0 {
+			sec = 60
 		}
+		timeoutDuration = &pkl.Duration{Value: float64(sec), Unit: pkl.Second}
 	}
 
 	timestamp := &pkl.Duration{
@@ -309,7 +290,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 		if res.TimeoutDuration != nil {
 			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
 		} else {
-			pklContent.WriteString("    timeoutDuration = 60.s\n")
+			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d.s\n", dr.DefaultTimeoutSec))
 		}
 
 		if res.Timestamp != nil {

@@ -1,0 +1,230 @@
+{{ .Header }}
+
+name = "{{ .Name }}"
+description = "My AI Agent"
+website = ""
+authors {}
+documentation = ""
+repository = ""
+heroImage = ""
+agentIcon = ""
+
+// Version is Required
+version = "1.0.0"
+
+// This section defines the default resource action that will be executed
+// when this API resource is called.
+targetActionID = "responseResource"
+
+// Specify any external resources to use in this AI Agent.
+// For example, you can refer to another agent with "@agentName".
+workflows {}
+
+settings {
+        // When set to false, the agent runs in standalone mode, executing once
+        // when the Docker container starts and then stops after all resources
+        // have been processed.
+        APIServerMode = true
+
+        // The API server block contains settings related to the API configuration.
+        //
+        // You can access the incoming request details using the following helper functions:
+        //
+        // - "@(request.path())"
+        // - "@(request.method())"
+        // - "@(request.headers("HEADER"))"
+        // - "@(request.data())"
+        // - "@(request.params("PARAMS"))"
+        //
+        // And use the following functions for file upload related functions
+        //
+        // - "@(request.file("FILENAME"))"
+        // - "@(request.filetype("FILENAME"))"
+        // - "@(request.filepath("FILENAME"))"
+        // - "@(request.filecount())"
+        // - "@(request.files())"
+        // - "@(request.filetypes())"
+        // - "@(request.filesByType("image/jpeg"))"
+        //
+        // For example, to use these in your resource, you can define a local variable like this:
+        //
+        // local xAPIHeader = "@(request.headers["X-API-HEADER"])"
+        // You can then retrieve the value with "@(xAPIHeader)".
+        //
+        // The "@(...)" syntax enables lazy evaluation, ensuring that values are
+        // retrieved only after the result is ready.
+        APIServer {
+                // Set the host IP address and port number for the AI Agent.
+                hostIP = "127.0.0.1"
+                portNum = 3000
+
+                // A list of trusted proxies (IPv4, IPv6, or CIDR ranges).
+                // If set, only requests passing through these proxies will have their `X-Forwarded-For`
+                // header trusted.
+                // If unset, all proxies—including potentially malicious ones—are considered trusted,
+                // which may expose the server to IP spoofing and other attacks.
+                trustedProxies {}
+
+                // You can define multiple API routes for this agent. Each API route points to
+                // the main action specified in the action setting, so you must define
+                // your skip condition on the resources appropriately.
+                routes {
+                        new {
+                                path = "/api/v1/whois"
+                                methods {
+                                        "GET" // Allows retrieving data
+                                        "POST" // Allows submitting data
+                                }
+                        }
+                }
+
+                // Cross-Origin Resource Sharing (CORS) configuration
+                cors {
+                        // Enables or disables CORS support
+                        enableCORS = false
+
+                        // List of allowed origin domains for CORS requests (e.g., "https://example.com")
+                        //
+                        // If unset, no origins are allowed unless CORS is disabled
+                        allowOrigins {
+                                "http://localhost:8080"
+                        }
+
+                        // List of HTTP methods allowed for CORS requests, validated by regex
+                        //
+                        // If unset, defaults to methods specified in the route configuration
+                        allowMethods {
+                                "GET"
+                                "POST"
+                                "PUT"
+                                "DELETE"
+                                "OPTIONS"
+                        }
+
+                        // List of request headers allowed in CORS requests (e.g., "Content-Type")
+                        //
+                        // If unset, no additional headers are allowed
+                        allowHeaders {
+                                "Origin"
+                                "Content-Type"
+                                "Authorization"
+                        }
+
+                        // List of response headers exposed to clients in CORS requests
+                        //
+                        // If unset, no headers are exposed beyond defaults
+                        exposeHeaders {
+                                "Content-Length"
+                        }
+
+                        // Allows credentials (e.g., cookies, HTTP authentication) in CORS requests
+                        allowCredentials = true
+
+                        // Maximum duration (in hours) for which CORS preflight responses can be cached
+                        maxAge = 12.h
+                }
+        }
+
+        // Configures the web server for serving static files or reverse-proxying to a containerized app.
+        WebServerMode = false
+
+        // The Web server block contains settings related to the Webserver configuration.
+        WebServer {
+                // Host IP to listen on (e.g., "127.0.0.1" for local, "0.0.0.0" for all interfaces).
+                hostIP = "127.0.0.1"
+
+                // Port for the web server (1–65535).
+                portNum = 8080
+
+                // Trusted proxy IPs or CIDR ranges for X-Forwarded-For headers.
+                // Empty list trusts all proxies, risking IP spoofing. Recommended: specify trusted IPs (e.g., ["10.0.0.0/8"]).
+                trustedProxies {}
+
+                // Defines routes for static files or app proxying.
+                routes {
+                        new {
+                                // URL path prefix (e.g., "/web"). Required.
+                                path = "/web"
+
+                                // Server type: "static" (serves files) or "app" (reverse-proxies to container).
+                                //
+                                // serverType = "static"
+
+                                // Defines the base path to serve the web content, relative to /data/ folder.
+                                //
+                                // Example:
+                                //   - "/agentX/1.0.0/web"     → maps to /data/agentX/1.0.0/web
+                                //
+                                // During packaging (via `kdeps package`), the local directory /data/web/
+                                // is relocated to /data/<agentName>/<version>/web.
+                                //
+                                // publicPath = "/whois/1.0.0/web/"
+
+                                // Port for app proxying (1–65535). Required for serverType="app".
+                                //
+                                // appPort = 3000
+
+                                // Command to start the app (e.g., "npm start").
+                                //
+                                // command = "npm start"
+                        }
+                }
+        }
+
+        // This section contains the agent settings that will be used to build
+        // the agent's Docker image.
+        agentSettings {
+                // Sets the timezone (see the TZ Identifier here: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
+                timezone = "Etc/UTC"
+
+                // Specify if Anaconda will be installed (Warning: Docker image size will grow to ~20Gb)
+                installAnaconda = false
+
+                // Conda packages to be installed if installAnaconda is true
+                condaPackages {
+                        // The environment is defined here.
+                        // ["base"] {
+                        // Mapped to the conda channel and package name
+                        //     ["main"] = "pip diffusers numpy"
+                        //     ["pytorch"] = "pytorch"
+                        //     ["conda-forge"] = "tensorflow pandas keras transformers"
+                        // }
+                }
+
+                // List of preinstalled Python packages.
+                pythonPackages {
+                        // "diffusers[torch]"
+                        // "huggingface_hub"
+                }
+
+                // Specify the custom Ubuntu repo or PPA repos that would contain the packages available
+                // for this image.
+                repositories {
+                        // "ppa:alex-p/tesseract-ocr-devel"
+                }
+
+                // Specify the Ubuntu packages that should be pre-installed when
+                // building this image.
+                packages {
+                        // "tesseract-ocr"
+                        // "poppler-utils"
+                }
+
+                // List the local Ollama LLM models that will be pre-installed.
+                // You can specify multiple models here.
+                models {
+                        "llama3.2:1b"
+                        // "llama3.2-vision"
+                        // "llama3.2"
+                }
+
+                // The Ollama image tag version to be used as a base Docker image for this AI agent.
+                ollamaImageTag = "0.7.0"
+
+                // A mapping of build argument variable names.
+                args {}
+
+                // A mapping of environment variable names for the build that persist in both the image and the container.
+                env {}
+        }
+}
