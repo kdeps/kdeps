@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/utils"
+	"github.com/kdeps/kdeps/pkg/version"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -20,7 +21,7 @@ func TestSchemaVersion(t *testing.T) {
 	t.Run("returns specified version when UseLatest is false", func(t *testing.T) {
 		UseLatest = false
 		result := SchemaVersion(ctx)
-		assert.Equal(t, specifiedVersion, result, "expected specified version")
+		assert.Equal(t, version.DefaultSchemaVersion, result, "expected default schema version")
 	})
 
 	t.Run("caches and returns latest version when UseLatest is true", func(t *testing.T) {
@@ -48,7 +49,7 @@ func TestSchemaVersionSpecifiedVersion(t *testing.T) {
 	UseLatest = false
 
 	result := SchemaVersion(ctx)
-	assert.Equal(t, specifiedVersion, result, "expected specified version")
+	assert.Equal(t, version.DefaultSchemaVersion, result, "expected default schema version")
 }
 
 func TestSchemaVersionCaching(t *testing.T) {
@@ -126,21 +127,18 @@ func TestSchemaVersionCachedValue(t *testing.T) {
 	assert.Equal(t, testVersion, result, "expected cached version to be used")
 }
 
-// TestSchemaVersionSpecified ensures the function returns the hard-coded version when UseLatest is false.
+// TestSchemaVersionSpecified ensures the function returns the default schema version when UseLatest is false.
 func TestSchemaVersionSpecified(t *testing.T) {
 	// Preserve global state and restore afterwards
 	origLatest := UseLatest
-	origSpecified := specifiedVersion
 	defer func() {
 		UseLatest = origLatest
-		specifiedVersion = origSpecified
 	}()
 
 	UseLatest = false
-	specifiedVersion = "9.9.9"
 
 	ver := SchemaVersion(context.Background())
-	assert.Equal(t, "9.9.9", ver)
+	assert.Equal(t, version.DefaultSchemaVersion, ver)
 }
 
 // TestSchemaVersionLatestSuccess exercises the successful latest-fetch path.
@@ -192,7 +190,7 @@ func TestSchemaVersionLatestFailure(t *testing.T) {
 }
 
 // TestSchemaVersionSpecified verifies that when UseLatest is false the
-// function returns the compile-time specifiedVersion without making any
+// function returns the compile-time default schema version without making any
 // external fetch calls.
 func TestSchemaVersionSpecifiedExtra(t *testing.T) {
 	// Ensure we start from a clean slate.
@@ -200,8 +198,8 @@ func TestSchemaVersionSpecifiedExtra(t *testing.T) {
 	versionCache = sync.Map{}
 
 	got := SchemaVersion(context.Background())
-	if got != specifiedVersion {
-		t.Fatalf("expected specifiedVersion %s, got %s", specifiedVersion, got)
+	if got != version.DefaultSchemaVersion {
+		t.Fatalf("expected DefaultSchemaVersion %s, got %s", version.DefaultSchemaVersion, got)
 	}
 }
 

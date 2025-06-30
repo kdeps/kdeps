@@ -32,6 +32,7 @@ variable to prevent errors caused by rate limit exhaustion.`)
 	rootCmd.AddCommand(NewPackageCommand(fs, ctx, kdepsDir, env, logger))
 	rootCmd.AddCommand(NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger))
 	rootCmd.AddCommand(NewRunCommand(fs, ctx, kdepsDir, systemCfg, logger))
+	rootCmd.AddCommand(UpgradeCommand(fs, ctx, kdepsDir, logger))
 
 	return rootCmd
 }
