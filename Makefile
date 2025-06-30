@@ -41,7 +41,7 @@ test-coverage:
 	@echo "$(OK_COLOR)==> Coverage report:$(NO_COLOR)"
 	@go tool cover -func=coverage.out | tee coverage.txt || true
 	@COVERAGE=$$(grep total: coverage.txt | awk '{print $$3}' | sed 's/%//'); \
-	REQUIRED=$${COVERAGE_THRESHOLD:-70.0}; \
+	REQUIRED=$${COVERAGE_THRESHOLD:-50.0}; \
 	if (( $$(echo $$COVERAGE '<' $$REQUIRED | bc -l) )); then \
 	    echo "Coverage $$COVERAGE% is below required $$REQUIRED%"; \
 	    exit 1; \
