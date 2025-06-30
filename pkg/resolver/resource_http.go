@@ -29,17 +29,7 @@ func (dr *DependencyResolver) HandleHTTPClient(actionID string, httpBlock *pklHT
 	// Process the HTTP block asynchronously in a goroutine.
 	go func(aID string, block *pklHTTP.ResourceHTTPClient) {
 		if err := dr.processHTTPBlock(aID, block); err != nil {
-			// Signal failure via bus
-			if dr.BusManager != nil {
-				busErr := dr.BusManager.SignalResourceCompletion(aID, "client", "failed", map[string]interface{}{
-					"error":  err.Error(),
-					"url":    block.Url,
-					"method": block.Method,
-				})
-				if busErr != nil {
-					dr.Logger.Warn("Failed to signal HTTP client failure via bus", "actionID", aID, "error", busErr)
-				}
-			}
+			// Log the error; you can adjust error handling as needed.
 			dr.Logger.Error("failed to process HTTP block", "actionID", aID, "error", err)
 		}
 	}(actionID, httpBlock)
@@ -49,42 +39,10 @@ func (dr *DependencyResolver) HandleHTTPClient(actionID string, httpBlock *pklHT
 }
 
 func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHTTP.ResourceHTTPClient) error {
-	if err := dr.DoRequest(httpBlock); err != nil {
-		// Signal failure via bus
-		if dr.BusManager != nil {
-			busErr := dr.BusManager.SignalResourceCompletion(actionID, "client", "failed", map[string]interface{}{
-				"error":  err.Error(),
-				"url":    httpBlock.Url,
-				"method": httpBlock.Method,
-			})
-			if busErr != nil {
-				dr.Logger.Warn("Failed to signal HTTP client request failure via bus", "actionID", actionID, "error", busErr)
-			}
-		}
+	if err := dr.DoRequestFn(httpBlock); err != nil {
 		return err
 	}
-
-	appendErr := dr.AppendHTTPEntry(actionID, httpBlock)
-
-	// Signal completion via bus
-	if dr.BusManager != nil {
-		status := "completed"
-		data := map[string]interface{}{
-			"url":    httpBlock.Url,
-			"method": httpBlock.Method,
-		}
-		if appendErr != nil {
-			status = "failed"
-			data["error"] = appendErr.Error()
-		}
-
-		busErr := dr.BusManager.SignalResourceCompletion(actionID, "client", status, data)
-		if busErr != nil {
-			dr.Logger.Warn("Failed to signal HTTP client completion via bus", "actionID", actionID, "error", busErr)
-		}
-	}
-
-	return appendErr
+	return dr.AppendHTTPEntry(actionID, httpBlock)
 }
 
 func (dr *DependencyResolver) decodeHTTPBlock(httpBlock *pklHTTP.ResourceHTTPClient) error {
@@ -133,9 +91,14 @@ func (dr *DependencyResolver) WriteResponseBodyToFile(resourceID string, respons
 func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP.ResourceHTTPClient) error {
 	pklPath := filepath.Join(dr.ActionDir, "client/"+dr.RequestID+"__client_output.pkl")
 
-	pklRes, err := pklHTTP.LoadFromPath(dr.Context, pklPath)
+	res, err := dr.LoadResourceFn(dr.Context, pklPath, HTTPResource)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL: %w", err)
+	}
+
+	pklRes, ok := res.(*pklHTTP.HTTPImpl)
+	if !ok {
+		return errors.New("failed to cast pklRes to *pklHTTP.Resource")
 	}
 
 	resources := pklRes.GetResources()
@@ -151,14 +114,6 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 	encodedURL := client.Url
 	if !utils.IsBase64Encoded(encodedURL) {
 		encodedURL = utils.EncodeBase64String(encodedURL)
-	}
-
-	timeoutDuration := client.TimeoutDuration
-	if timeoutDuration == nil {
-		timeoutDuration = &pkl.Duration{
-			Value: 60,
-			Unit:  pkl.Second,
-		}
 	}
 
 	timestamp := client.Timestamp
@@ -177,7 +132,7 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 		Response:        client.Response,
 		File:            &filePath,
 		Timestamp:       timestamp,
-		TimeoutDuration: timeoutDuration,
+		TimeoutDuration: client.TimeoutDuration,
 	}
 
 	var pklContent strings.Builder
@@ -192,7 +147,7 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 		if res.TimeoutDuration != nil {
 			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
 		} else {
-			pklContent.WriteString("    timeoutDuration = 60.s\n")
+			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d.s\n", dr.DefaultTimeoutSec))
 		}
 
 		if res.Timestamp != nil {
@@ -263,13 +218,19 @@ func (dr *DependencyResolver) DoRequest(client *pklHTTP.ResourceHTTPClient) erro
 	}
 
 	// Configure timeout with proper duration handling
-	timeout := 30 * time.Second
-	if client.TimeoutDuration != nil {
-		timeout = client.TimeoutDuration.GoDuration()
-	}
-
 	httpClient := &http.Client{
-		Timeout: timeout,
+		Timeout: func() time.Duration {
+			switch {
+			case dr.DefaultTimeoutSec > 0:
+				return time.Duration(dr.DefaultTimeoutSec) * time.Second
+			case dr.DefaultTimeoutSec == 0:
+				return 0 // unlimited
+			case client.TimeoutDuration != nil:
+				return client.TimeoutDuration.GoDuration()
+			default:
+				return 30 * time.Second
+			}
+		}(),
 		Transport: &http.Transport{
 			DisableCompression: false,
 			DisableKeepAlives:  false,

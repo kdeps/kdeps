@@ -32,6 +32,39 @@ Below is a list of the global functions available for each resource:
 | request.path()                  | Retrieves the URI path of the API request.                                     |
 | request.method()                | Retrieves the HTTP method (e.g., GET, POST) of the API request.                |
 
+## Item Loop Interaction
+
+| **Function**   | **Description**                       |
+|:---------------|:--------------------------------------|
+| item.current() | Fetches the current item in the loop  |
+| item.prev()    | Fetches the previous item in the loop |
+| item.next()    | Fetches the next item in the loop     |
+
+## Manual LLM Tool Execution
+
+| **Function**                               | **Description**                                  |
+|:-------------------------------------------|:-------------------------------------------------|
+| tool.getOutput("key")                      | Fetches the results of the tool execution of key |
+| tool.runScript("key", "path", "arg1,arg2") | Execute the script with arguments                |
+| tool.history("key")                        | Fetches the output history execution of the key  |
+
+## Memory Operation Functions
+
+| **Function**                      | **Description**                                   |
+|:----------------------------------|:--------------------------------------------------|
+| memory.getRecord("key")           | Fetches the value of key from persistent memory   |
+| memory.deleteRecord("key")        | Delete the memory item from the persistent memory |
+| memory.setRecord("key", "value")  | Stores the value of key to the persistent memory  |
+| memory.clear()                    | Clears all persistent memory (CAUTION!)           |
+| session.getRecord("key")          | Fetches the value of key from session memory      |
+| session.deleteRecord("key")       | Delete the memory item from the session memory    |
+| session.setRecord("key", "value") | Stores the value of key to the session memory     |
+| session.clear()                   | Clears all session memory (CAUTION!)              |
+
+> *Note:* The `setRecord`, `deleteRecord` and `clear` are side-effecting functions—it performs an action but doesn't return a
+> meaningful value. That is why it is recommended to placed them inside an `expr` block: to ensure the expression is
+> evaluated for its effect.
+
 ## Data Folder Functions
 
 | **Function**                                    | **Description**                                                                                                                    |
@@ -55,8 +88,8 @@ Below is a list of the global functions available for each resource:
 
 ## Document JSON, YAML and XML Generators
 
-| **Function**            | **Description**                                      |
-|:------------------------|:-----------------------------------------------------|
+| **Function**                     | **Description**                                      |
+|:---------------------------------|:-----------------------------------------------------|
 | document.JSONRenderDocument(Any) | Parse `Any` object and returns a JSON `String`       |
 | document.JSONRenderValue(Any)    | Parse `Any` object and returns a JSON `String` Value |
 | document.yamlRenderDocument(Any) | Parse `Any` object and returns a Yaml `String`       |

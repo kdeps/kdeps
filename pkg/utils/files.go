@@ -9,11 +9,12 @@ import (
 	"time"
 
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/spf13/afero"
 )
 
 func WaitForFileReady(fs afero.Fs, filepath string, logger *logging.Logger) error {
-	logger.Debug("waiting for file to be ready...", "file", filepath)
+	logger.Debug(messages.MsgWaitingForFileReady, "file", filepath)
 
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
@@ -31,7 +32,7 @@ func WaitForFileReady(fs afero.Fs, filepath string, logger *logging.Logger) erro
 			}
 
 			if exists {
-				logger.Debug("file is ready!", "file", filepath)
+				logger.Debug(messages.MsgFileIsReady, "file", filepath)
 				return nil
 			}
 
@@ -70,7 +71,7 @@ func CreateFiles(fs afero.Fs, ctx context.Context, files []string) error {
 			return fmt.Errorf("failed to create file %s: %w", file, err)
 		}
 
-		// Close the file after creating it to ensure it’s properly written to disk
+		// Close the file after creating it to ensure it's properly written to disk
 		err = f.Close()
 		if err != nil {
 			return fmt.Errorf("failed to close file %s: %w", file, err)

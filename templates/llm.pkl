@@ -1,0 +1,142 @@
+{{ .Header }}
+
+actionID = "llmResource"
+name = "LLM Chat Resource"
+description = "This resource creates a LLM chat session."
+category = ""
+requires {
+        // Define the ID of any dependency resource that must be executed before this resource.
+        // For example "@aiChatResource1"
+}
+run {
+        // restrictToHTTPMethods specifies the HTTP methods required for the request.
+        // If none are specified, all HTTP methods are permitted. This restriction is only
+        // in effect when APIServerMode is enabled. If the request method is not in this list,
+        // the action will be skipped.
+        restrictToHTTPMethods {
+            "GET"
+        }
+
+        // restrictToRoutes specifies the URL paths required for the request.
+        // If none are specified, all routes are permitted. This restriction is only
+        // in effect when APIServerMode is enabled. If the request path is not in this list,
+        // the action will be skipped.
+        restrictToRoutes {
+            "/api/v1/whois"
+        }
+
+        // allowedHeaders specifies the permitted HTTP headers for the request.
+        // If none are specified, all headers are allowed. This restriction is only
+        // in effect when APIServerMode is enabled.
+        allowedHeaders {
+            // "X-API-KEY"
+        }
+
+        // allowedParams specifies the permitted query parameters for the request.
+        // If none are specified, all parameters are allowed. This restriction is only
+        // in effect when APIServerMode is enabled.
+        allowedParams {}
+
+        skipCondition {
+                // Conditions under which the execution of this resource should be skipped.
+                // If any evaluated condition returns true, the resource execution will be bypassed.
+        }
+
+        preflightCheck {
+                validations {
+                        // This section expects boolean validations.
+                        // If any validation returns false, an exception will be thrown before proceeding to the next step.
+                }
+                //
+                // Custom error message and code to be returned immediately if the preflight check fails.
+                //
+                // error {
+                //         code = 0
+                //         message = ""
+                // }
+        }
+
+        // The expr block is space for evaluating standard PKL expressions. It is primarily used to execute
+        // expressions that produce side effects, such as updating resources or triggering actions, but also supports
+        // general-purpose evaluation of any valid PKL expression, making it a place for inline logic and
+        // scripting within a configuration.
+        expr {
+                // "@(memory.setRecord("foo", "bar"))" // Persistent data
+                // "@(memory.clear())"
+                // "@(session.setRecord("foo", "bar"))" // Temporary data only for this request
+        }
+
+        // Initializes a chat session with the LLM for this resource.
+        //
+        // This resource offers the following helper functions:
+        //
+        // - "@(llm.response("ResourceID"))"
+        // - "@(llm.prompt("ResourceID"))"
+        //
+        // To use these in your resource, you can define a local variable as follows:
+        //
+        // local llmResponse = "@(llm.response("ResourceID"))"
+        // You can then access the value with "@(llmResponse)".
+        //
+        // The "@(...)" syntax enables lazy evaluation, ensuring that values are
+        // retrieved only after the result is ready.
+        //
+        // Note: Each resource is restricted to a single dedicated action. Combining multiple
+        // actions within the same resource is not allowed.
+        chat {
+                model = "llama3.2:1b" // This LLM model needs to be defined in the workflow
+
+                // The dedicated prompt and role can be sent to the LLM, or use the scenario block.
+                // This LLM role context for this prompt. For example, "user", "assistant" or "system".
+                // If none is provided, "human" will be used.
+                role = "user"
+                prompt = "Who is @(request.params("q"))?"
+
+                // Scenario block can take multiple prompts and roles to be added to this LLM session.
+                scenario {
+                        new {
+                                role = "assistant"
+                                prompt = "You are a helpful and informative AI assistant that specializes in general knowledge."
+                        }
+                        // new {
+                        //         role = "system"
+                        //         prompt = "If you are unsure, please just lookup the DB."
+                        // }
+                }
+
+                // Tools block enables LLMs to autonomously execute scripts and chain outputs across multiple tool calls
+                // for complex workflows.
+                tools {
+                        // new {
+                        //     name = "lookup_db"
+                        //     script = "@(data.filepath(\"tools/1.0.0\", \"lookup.py\"))"
+                        //     description = "Queries a database for details about a historical figure"
+                        //     parameters {
+                        //         ["name"] { required = true; type = "string"; description = "Name of the historical figure to query" }
+                        //     }
+                        // }
+                }
+
+                // Specify if the LLM response should be a structured JSON
+                JSONResponse = true
+
+                // If JSONResponse is true, then the structured JSON data will need to have the
+                // following keys.
+                JSONResponseKeys {
+                        "first_name"
+                        "last_name"
+                        "parents"
+                        "address"
+                        "famous_quotes"
+                        "known_for"
+                }
+
+                // Specify the files that this LLM will process.
+                files {
+                        // "@(request.files()[0])"
+                }
+
+                // Timeout duration in seconds. This specifies when to terminate the llm session.
+                timeoutDuration = 60.s
+        }
+}

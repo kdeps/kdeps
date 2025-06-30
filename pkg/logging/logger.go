@@ -40,6 +40,7 @@ func NewTestLogger() *Logger {
 	buf := new(bytes.Buffer)
 	baseLogger := log.New(buf)
 	baseLogger.SetLevel(log.DebugLevel)
+	baseLogger.SetFormatter(log.TextFormatter)
 	return &Logger{
 		Logger: baseLogger,
 		buffer: buf,

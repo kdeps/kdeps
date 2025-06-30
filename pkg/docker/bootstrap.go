@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,10 @@ import (
 )
 
 func BootstrapDockerSystem(ctx context.Context, dr *resolver.DependencyResolver) (bool, error) {
+	if dr.Logger == nil {
+		return false, errors.New("Bootstrapping Docker system failed")
+	}
+
 	if dr.Environment.DockerMode != "1" {
 		dr.Logger.Debug("docker system bootstrap completed.")
 		return false, nil
@@ -30,7 +35,7 @@ func BootstrapDockerSystem(ctx context.Context, dr *resolver.DependencyResolver)
 }
 
 func setupDockerEnvironment(ctx context.Context, dr *resolver.DependencyResolver) (bool, error) {
-	apiServerPath := filepath.Join(dr.ActionDir, "/api/")
+	apiServerPath := filepath.Join(dr.ActionDir, "api") // fixed path
 
 	dr.Logger.Debug("preparing workflow directory")
 	if err := dr.PrepareWorkflowDir(); err != nil {
@@ -39,27 +44,49 @@ func setupDockerEnvironment(ctx context.Context, dr *resolver.DependencyResolver
 
 	host, port, err := parseOLLAMAHost(dr.Logger)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to parse OLLAMA host: %w", err)
 	}
 
 	if err := startAndWaitForOllama(ctx, host, port, dr.Logger); err != nil {
-		return false, err
+		return false, fmt.Errorf("OLLAMA service startup failed: %w", err)
 	}
 
 	wfSettings := dr.Workflow.GetSettings()
 	if err := pullModels(ctx, wfSettings.AgentSettings.Models, dr.Logger); err != nil {
-		return wfSettings.APIServerMode, err
+		return wfSettings.APIServerMode || wfSettings.WebServerMode, fmt.Errorf("failed to pull models: %w", err)
 	}
 
 	if err := dr.Fs.MkdirAll(apiServerPath, 0o777); err != nil {
-		return wfSettings.APIServerMode, err
+		return wfSettings.APIServerMode || wfSettings.WebServerMode, fmt.Errorf("failed to create API server path: %w", err)
 	}
 
+	anyMode := wfSettings.APIServerMode || wfSettings.WebServerMode
+	errChan := make(chan error, 2)
+
+	// Start API server
 	if wfSettings.APIServerMode {
-		return wfSettings.APIServerMode, startAPIServer(ctx, dr)
+		go func() {
+			dr.Logger.Info("starting API server")
+			errChan <- startAPIServer(ctx, dr)
+		}()
 	}
 
-	return false, nil
+	// Start Web server
+	if wfSettings.WebServerMode {
+		go func() {
+			dr.Logger.Info("starting Web server")
+			errChan <- startWebServer(ctx, dr)
+		}()
+	}
+
+	// Wait for one to fail (or both to return nil)
+	for range cap(errChan) {
+		if err := <-errChan; err != nil {
+			return anyMode, fmt.Errorf("server startup error: %w", err)
+		}
+	}
+
+	return anyMode, nil
 }
 
 func startAndWaitForOllama(ctx context.Context, host, port string, logger *logging.Logger) error {
@@ -72,7 +99,15 @@ func pullModels(ctx context.Context, models []string, logger *logging.Logger) er
 		model = strings.TrimSpace(model)
 		logger.Debug("pulling model", "model", model)
 
-		stdout, stderr, exitCode, err := KdepsExec(ctx, "ollama", []string{"pull", model}, logger)
+		stdout, stderr, exitCode, err := KdepsExec(
+			ctx,
+			"ollama",
+			[]string{"pull", model},
+			"",
+			false,
+			false,
+			logger,
+		)
 		if err != nil {
 			logger.Error("model pull failed", "model", model, "stdout", stdout, "stderr", stderr, "exitCode", exitCode, "error", err)
 			return fmt.Errorf("failed to pull model %s: %w", model, err)
@@ -85,6 +120,15 @@ func startAPIServer(ctx context.Context, dr *resolver.DependencyResolver) error 
 	errChan := make(chan error, 1)
 	go func() {
 		errChan <- StartAPIServerMode(ctx, dr)
+	}()
+
+	return <-errChan
+}
+
+func startWebServer(ctx context.Context, dr *resolver.DependencyResolver) error {
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- StartWebServerMode(ctx, dr)
 	}()
 
 	return <-errChan

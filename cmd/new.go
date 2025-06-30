@@ -12,23 +12,33 @@ import (
 
 // NewAgentCommand creates the 'new' command and passes the necessary dependencies.
 func NewAgentCommand(fs afero.Fs, ctx context.Context, kdepsDir string, logger *logging.Logger) *cobra.Command {
-	newCmd := &cobra.Command{
+	cmd := &cobra.Command{
 		Use:     "new [agentName]",
 		Aliases: []string{"n"},
 		Short:   "Create a new AI agent",
-		Args:    cobra.MaximumNArgs(1), // Allow at most one argument (agentName)
-		Run: func(cmd *cobra.Command, args []string) {
-			var agentName string
-			if len(args) > 0 {
-				agentName = args[0]
+		Args:    cobra.ExactArgs(1), // Require exactly one argument (agentName)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			agentName := args[0]
+
+			// Create the main directory under baseDir
+			mainDir := agentName
+			if err := fs.MkdirAll(mainDir, 0o755); err != nil {
+				return fmt.Errorf("failed to create main directory: %w", err)
 			}
 
-			// Pass the agentName to GenerateAgent
-			if err := template.GenerateAgent(fs, ctx, logger, agentName); err != nil {
-				fmt.Println("Error:", err)
+			// Generate workflow file
+			if err := template.GenerateWorkflowFile(fs, ctx, logger, mainDir, agentName); err != nil {
+				return fmt.Errorf("failed to generate workflow file: %w", err)
 			}
+
+			// Generate resource files
+			if err := template.GenerateResourceFiles(fs, ctx, logger, mainDir, agentName); err != nil {
+				return fmt.Errorf("failed to generate resource files: %w", err)
+			}
+
+			return nil
 		},
 	}
 
-	return newCmd
+	return cmd
 }
