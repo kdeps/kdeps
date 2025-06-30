@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -57,22 +58,22 @@ func TestDefaultVersionValues(t *testing.T) {
 	// Test that they follow expected version format patterns
 	semverPattern := `^\d+\.\d+\.\d+$`
 	dateVersionPattern := `^\d{4}\.\d{2}-\d+$`
-	
+
 	// Schema version should follow semantic versioning
 	assert.Regexp(t, regexp.MustCompile(semverPattern), DefaultSchemaVersion, "DefaultSchemaVersion should follow semantic versioning")
 	assert.Regexp(t, regexp.MustCompile(semverPattern), MinimumSchemaVersion, "MinimumSchemaVersion should follow semantic versioning")
-	
+
 	// Anaconda version should follow date-based versioning
 	assert.Regexp(t, regexp.MustCompile(dateVersionPattern), DefaultAnacondaVersion, "DefaultAnacondaVersion should follow date-based versioning")
-	
+
 	// PKL version should follow semantic versioning
 	assert.Regexp(t, regexp.MustCompile(semverPattern), DefaultPklVersion, "DefaultPklVersion should follow semantic versioning")
-	
+
 	// Ollama image tag should follow semantic versioning
 	assert.Regexp(t, regexp.MustCompile(semverPattern), DefaultOllamaImageTag, "DefaultOllamaImageTag should follow semantic versioning")
-	
-	// Default schema version should be >= minimum
-	cmp, err := CompareVersions(DefaultSchemaVersion, MinimumSchemaVersion)
+
+	// Default schema version should be >= minimum using utils.CompareVersions
+	cmp, err := utils.CompareVersions(DefaultSchemaVersion, MinimumSchemaVersion)
 	assert.NoError(t, err)
 	assert.GreaterOrEqual(t, cmp, 0, "DefaultSchemaVersion should be >= MinimumSchemaVersion")
 }
@@ -99,91 +100,4 @@ func TestVersionVars(t *testing.T) {
 	}
 	// Commit may be empty in dev builds but accessing it should not panic.
 	_ = Commit
-}
-
-func TestCompareVersions(t *testing.T) {
-	tests := []struct {
-		name     string
-		v1       string
-		v2       string
-		expected int
-		hasError bool
-	}{
-		{"equal versions", "1.2.3", "1.2.3", 0, false},
-		{"v1 greater major", "2.0.0", "1.9.9", 1, false},
-		{"v1 less major", "1.0.0", "2.0.0", -1, false},
-		{"v1 greater minor", "1.2.0", "1.1.9", 1, false},
-		{"v1 less minor", "1.1.0", "1.2.0", -1, false},
-		{"v1 greater patch", "1.2.3", "1.2.2", 1, false},
-		{"v1 less patch", "1.2.2", "1.2.3", -1, false},
-		{"invalid v1", "1.2", "1.2.3", 0, true},
-		{"invalid v2", "1.2.3", "1.2", 0, true},
-		{"non-numeric v1", "1.a.3", "1.2.3", 0, true},
-		{"non-numeric v2", "1.2.3", "1.b.3", 0, true},
-		{"negative version", "-1.2.3", "1.2.3", 0, true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := CompareVersions(tt.v1, tt.v2)
-			
-			if tt.hasError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expected, result)
-			}
-		})
-	}
-}
-
-func TestValidateSchemaVersion(t *testing.T) {
-	tests := []struct {
-		name     string
-		version  string
-		hasError bool
-	}{
-		{"valid current version", DefaultSchemaVersion, false},
-		{"valid minimum version", MinimumSchemaVersion, false},
-		{"valid higher version", "1.0.0", false},
-		{"below minimum", "0.1.9", true},
-		{"empty version", "", true},
-		{"invalid format", "1.2", true},
-		{"non-numeric", "1.a.3", true},
-		{"negative version", "-1.0.0", true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateSchemaVersion(tt.version)
-			
-			if tt.hasError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
-}
-
-func TestIsSchemaVersionSupported(t *testing.T) {
-	tests := []struct {
-		name      string
-		version   string
-		supported bool
-	}{
-		{"current version", DefaultSchemaVersion, true},
-		{"minimum version", MinimumSchemaVersion, true},
-		{"higher version", "1.0.0", true},
-		{"below minimum", "0.1.9", false},
-		{"empty version", "", false},
-		{"invalid format", "1.2", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := IsSchemaVersionSupported(tt.version)
-			assert.Equal(t, tt.supported, result)
-		})
-	}
 }

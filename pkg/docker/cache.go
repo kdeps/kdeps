@@ -14,6 +14,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/download"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
+	"github.com/kdeps/kdeps/pkg/version"
 )
 
 type URLInfo struct {
@@ -118,7 +119,7 @@ func GenerateURLs(ctx context.Context, installAnaconda bool) ([]download.Downloa
 		{
 			BaseURL:           "https://github.com/apple/pkl/releases/download/{version}/pkl-linux-{arch}",
 			Repo:              "apple/pkl",
-			Version:           "0.28.1",
+			Version:           version.DefaultPklVersion,
 			Architectures:     []string{"amd64", "aarch64"},
 			LocalNameTemplate: "pkl-linux-{version}-{arch}",
 		},
@@ -129,7 +130,7 @@ func GenerateURLs(ctx context.Context, installAnaconda bool) ([]download.Downloa
 		urlInfos = append(urlInfos, URLInfo{
 			BaseURL:           "https://repo.anaconda.com/archive/Anaconda3-{version}-Linux-{arch}.sh",
 			IsAnaconda:        true,
-			Version:           "2024.10-1",
+			Version:           version.DefaultAnacondaVersion,
 			Architectures:     []string{"x86_64", "aarch64"},
 			LocalNameTemplate: "anaconda-linux-{version}-{arch}.sh",
 		})
@@ -159,6 +160,7 @@ func GenerateURLs(ctx context.Context, installAnaconda bool) ([]download.Downloa
 		if utils.ContainsString(info.Architectures, currentArch) {
 			url := buildURL(info.BaseURL, version, currentArch)
 
+			// Use "latest" in local filenames when UseLatest is true to match Dockerfile template expectations
 			localVersion := version
 			if schema.UseLatest {
 				localVersion = "latest"

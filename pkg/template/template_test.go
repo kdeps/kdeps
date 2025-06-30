@@ -11,6 +11,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/texteditor"
+	"github.com/kdeps/kdeps/pkg/version"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -833,4 +834,86 @@ func TestGenerateAgentBasic(t *testing.T) {
 			t.Errorf("expected file %s to be generated", path)
 		}
 	}
+}
+
+func TestGenerateDockerfileFromTemplate(t *testing.T) {
+	templateData := map[string]interface{}{
+		"ImageVersion":     "latest",
+		"SchemaVersion":    "1.0.0",
+		"HostIP":           "127.0.0.1",
+		"OllamaPortNum":    "11434",
+		"KdepsHost":        "127.0.0.1:3000",
+		"ArgsSection":      "ARG TEST=value",
+		"EnvsSection":      "ENV CUSTOM=test",
+		"PkgSection":       "RUN apt-get install -y git",
+		"PythonPkgSection": "RUN pip install numpy",
+		"CondaPkgSection":  "RUN conda install pytorch",
+		"AnacondaVersion":  version.DefaultAnacondaVersion,
+		"PklVersion":       version.DefaultPklVersion,
+		"KdepsVersion":     version.DefaultKdepsInstallVersion,
+		"Timezone":         "UTC",
+		"ExposedPort":      "8080",
+		"InstallAnaconda":  true,
+		"DevBuildMode":     false,
+		"ApiServerMode":    true,
+	}
+
+	content, err := GenerateDockerfileFromTemplate(templateData)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, content)
+
+	// Verify key components are present
+	assert.Contains(t, content, "FROM ollama/ollama:latest")
+	assert.Contains(t, content, "ENV SCHEMA_VERSION=1.0.0")
+	assert.Contains(t, content, "ENV OLLAMA_HOST=127.0.0.1:11434")
+	assert.Contains(t, content, "ENV KDEPS_HOST=127.0.0.1:3000")
+	assert.Contains(t, content, "ARG TEST=value")
+	assert.Contains(t, content, "ENV CUSTOM=test")
+	assert.Contains(t, content, "RUN apt-get install -y git")
+	assert.Contains(t, content, "RUN pip install numpy")
+	assert.Contains(t, content, "RUN conda install pytorch")
+	assert.Contains(t, content, "ENV TZ=UTC")
+	assert.Contains(t, content, "EXPOSE 8080")
+	assert.Contains(t, content, "ENTRYPOINT [\"/bin/kdeps\"]")
+
+	// Verify conditional logic
+	assert.Contains(t, content, "anaconda-linux-"+version.DefaultAnacondaVersion)           // Anaconda should be installed
+	assert.Contains(t, content, "curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps") // Production mode
+}
+
+func TestGenerateDockerfileFromTemplate_DevMode(t *testing.T) {
+	templateData := map[string]interface{}{
+		"ImageVersion":     "latest",
+		"SchemaVersion":    "1.0.0",
+		"HostIP":           "127.0.0.1",
+		"OllamaPortNum":    "11434",
+		"KdepsHost":        "127.0.0.1:3000",
+		"ArgsSection":      "",
+		"EnvsSection":      "",
+		"PkgSection":       "",
+		"PythonPkgSection": "",
+		"CondaPkgSection":  "",
+		"AnacondaVersion":  version.DefaultAnacondaVersion,
+		"PklVersion":       version.DefaultPklVersion,
+		"KdepsVersion":     version.DefaultKdepsInstallVersion,
+		"Timezone":         "UTC",
+		"ExposedPort":      "",
+		"InstallAnaconda":  false,
+		"DevBuildMode":     true,
+		"ApiServerMode":    false,
+	}
+
+	content, err := GenerateDockerfileFromTemplate(templateData)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, content)
+
+	// Verify dev mode specific content
+	assert.Contains(t, content, "RUN cp /cache/kdeps /bin/kdeps")
+	assert.Contains(t, content, "RUN chmod a+x /bin/kdeps")
+
+	// Verify API server mode is off
+	assert.NotContains(t, content, "EXPOSE")
+
+	// Verify Anaconda is not installed
+	assert.NotContains(t, content, "anaconda-linux")
 }
