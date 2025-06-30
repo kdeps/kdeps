@@ -2,6 +2,7 @@ package cfg
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -49,10 +50,25 @@ func GenerateConfiguration(fs afero.Fs, ctx context.Context, env *environment.En
 
 	// Set configFile path in Home directory
 	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
+	skipPrompts := env.NonInteractive == "1"
 
-	// Always create the configuration file if it doesn't exist
 	if _, err := fs.Stat(configFile); err != nil {
-		// Generate configuration without asking the user for confirmation
+		var confirm bool
+		if !skipPrompts {
+			if err := huh.Run(
+				huh.NewConfirm().
+					Title("Configuration file not found. Do you want to generate one?").
+					Description("The configuration will be validated using the `pkl` package.").
+					Value(&confirm),
+			); err != nil {
+				return "", fmt.Errorf("could not create a configuration file: %w", err)
+			}
+			if !confirm {
+				return "", errors.New("aborted by user")
+			}
+		}
+
+		// Generate configuration
 		url := fmt.Sprintf("package://schema.kdeps.com/core@%s#/Kdeps.pkl", schema.SchemaVersion(ctx))
 		headerSection := fmt.Sprintf("amends \"%s\"\n", url)
 
@@ -78,25 +94,9 @@ func EditConfiguration(fs afero.Fs, ctx context.Context, env *environment.Enviro
 	skipPrompts := env.NonInteractive == "1"
 
 	if _, err := fs.Stat(configFile); err == nil {
-		var confirm bool
 		if !skipPrompts {
-			if err := huh.Run(
-				huh.NewConfirm().
-					Title("Do you want to edit the configuration file now?").
-					Description("This will open the file in your default text editor.").
-					Value(&confirm),
-			); err != nil {
-				return configFile, fmt.Errorf("could not prompt for editing configuration file: %w", err)
-			}
-		}
-
-		if confirm || skipPrompts {
-			// In non-interactive mode (skipPrompts) we skip the prompt; in that case, we follow previous behavior and DO NOT edit automatically.
-			// Only edit automatically if user explicitly confirmed.
-			if confirm {
-				if err := texteditor.EditPkl(fs, ctx, configFile, logger); err != nil {
-					return configFile, fmt.Errorf("failed to edit configuration file: %w", err)
-				}
+			if err := texteditor.EditPkl(fs, ctx, configFile, logger); err != nil {
+				return configFile, fmt.Errorf("failed to edit configuration file: %w", err)
 			}
 		}
 	} else {

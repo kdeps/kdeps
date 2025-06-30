@@ -12,7 +12,6 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/spf13/afero"
 )
 
@@ -21,11 +20,6 @@ type WriteCounter struct {
 	Total         uint64
 	LocalFilePath string
 	DownloadURL   string
-}
-
-type DownloadItem struct {
-	URL       string
-	LocalName string
 }
 
 // Write implements the io.Writer interface and updates the total byte count.
@@ -43,31 +37,27 @@ func (wc *WriteCounter) PrintProgress() {
 }
 
 // Given a list of URLs, download it to a target.
-func DownloadFiles(fs afero.Fs, ctx context.Context, downloadDir string, items []DownloadItem, logger *logging.Logger, useLatest bool) error {
+func DownloadFiles(fs afero.Fs, ctx context.Context, downloadDir string, urls []string, logger *logging.Logger, useLatest bool) error {
 	// Create the downloads directory if it doesn't exist
 	err := os.MkdirAll(downloadDir, 0o755)
 	if err != nil {
 		return fmt.Errorf("failed to create downloads directory: %w", err)
 	}
 
-	for _, item := range items {
-		localPath := filepath.Join(downloadDir, item.LocalName)
+	// Iterate over each URL
+	for _, url := range urls {
+		// Extract the file name from the URL
+		fileName := filepath.Base(url)
 
-		// If using "latest", remove any existing file to avoid stale downloads
-		if useLatest {
-			if err := fs.Remove(localPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-				logger.Warn("failed to remove existing file before re-downloading", "path", localPath, "err", err)
-			} else if err == nil {
-				logger.Debug(messages.MsgRemovedExistingLatestFile, "path", localPath)
-			}
-		}
+		// Define the local path to save the file
+		localPath := filepath.Join(downloadDir, fileName)
 
 		// Download the file
-		err := DownloadFile(fs, ctx, item.URL, localPath, logger, useLatest)
+		err := DownloadFile(fs, ctx, url, localPath, logger, useLatest)
 		if err != nil {
-			logger.Error("failed to download", "url", item.URL, "err", err)
+			logger.Error("failed to download", "url", url, "err", err)
 		} else {
-			logger.Info("successfully downloaded", "url", item.URL, "path", localPath)
+			logger.Info("successfully downloaded", "url", url, "path", localPath)
 		}
 	}
 
@@ -77,7 +67,7 @@ func DownloadFiles(fs afero.Fs, ctx context.Context, downloadDir string, items [
 // DownloadFile downloads a file from the specified URL and saves it to the given path.
 // If useLatest is true, it overwrites the destination file regardless of its existence.
 func DownloadFile(fs afero.Fs, ctx context.Context, url, filePath string, logger *logging.Logger, useLatest bool) error {
-	logger.Debug(messages.MsgCheckingFileExistsDownload, "destination", filePath)
+	logger.Debug("checking if file exists", "destination", filePath)
 
 	if filePath == "" {
 		logger.Error("invalid file path provided", "file-path", filePath)
@@ -98,13 +88,13 @@ func DownloadFile(fs afero.Fs, ctx context.Context, url, filePath string, logger
 				return fmt.Errorf("failed to stat file: %w", err)
 			}
 			if info.Size() > 0 {
-				logger.Debug(messages.MsgFileAlreadyExistsSkipping, "file-path", filePath)
+				logger.Debug("file already exists and is non-empty, skipping download", "file-path", filePath)
 				return nil
 			}
 		}
 	}
 
-	logger.Debug(messages.MsgStartingFileDownload, "url", url, "destination", filePath)
+	logger.Debug("starting file download", "url", url, "destination", filePath)
 
 	tmpFilePath := filePath + ".tmp"
 
@@ -140,7 +130,7 @@ func DownloadFile(fs afero.Fs, ctx context.Context, url, filePath string, logger
 		return fmt.Errorf("failed to copy data: %w", err)
 	}
 
-	logger.Debug(messages.MsgDownloadComplete, "url", url, "file-path", filePath)
+	logger.Debug("download complete", "url", url, "file-path", filePath)
 
 	// Rename the temporary file to the final destination
 	if err = fs.Rename(tmpFilePath, filePath); err != nil {

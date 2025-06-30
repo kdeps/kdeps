@@ -24,31 +24,16 @@ build: deps
 
 dev-build: deps
 	@echo "$(OK_COLOR)==> Building the application for Linux...$(NO_COLOR)"
-	@GOOS=linux GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-linux-musl-gcc go build -v -ldflags="-s -w -X main.Version=$(or $(tag),dev-$(shell git describe --tags --abbrev=0))" -o "$(BUILD_DIR)/$(NAME)" "$(BUILD_SRC)"
+	@GOOS=linux go build -v -ldflags="-s -w -X main.Version=$(or $(tag),dev-$(shell git describe --tags --abbrev=0))" -o "$(BUILD_DIR)/$(NAME)" "$(BUILD_SRC)"
 
 clean:
 	@rm -rf ./bin
 
-test: test-coverage 
+test: test-unit
 
-test-coverage:
-	@echo "$(OK_COLOR)==> Running the unit tests with coverage$(NO_COLOR)"
-	@NON_INTERACTIVE=1 go test -failfast -short -coverprofile=coverage_raw.out ./... | tee coverage.txt || true
-	@if [ -f coverage_raw.out ]; then \
-		{ head -n1 coverage_raw.out; grep -aE "^[[:alnum:]/._-]+\\.go:" coverage_raw.out; } > coverage.out; \
-		rm coverage_raw.out; \
-	fi
-	@echo "$(OK_COLOR)==> Coverage report:$(NO_COLOR)"
-	@go tool cover -func=coverage.out | tee coverage.txt || true
-	@COVERAGE=$$(grep total: coverage.txt | awk '{print $$3}' | sed 's/%//'); \
-	REQUIRED=$${COVERAGE_THRESHOLD:-50.0}; \
-	if (( $$(echo $$COVERAGE '<' $$REQUIRED | bc -l) )); then \
-	    echo "Coverage $$COVERAGE% is below required $$REQUIRED%"; \
-	    exit 1; \
-	else \
-	    echo "Coverage requirement met: $$COVERAGE% (threshold $$REQUIRED%)"; \
-	fi
-	@rm coverage.txt
+test-unit:
+	@echo "$(OK_COLOR)==> Running the unit tests$(NO_COLOR)"
+	@go test -v -cover -timeout 10m ./...
 
 format: tools
 	@echo "$(OK_COLOR)>> [go vet] running$(NO_COLOR)" & \
@@ -79,10 +64,10 @@ tools:
 
 	@if ! command -v golangci-lint > /dev/null ; then \
 		echo ">> [$@]: golangci-lint not found: installing"; \
-		go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest; \
+		go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.63.2; \
 	fi
 
 tools-update:
 	go install github.com/daixiang0/gci@latest; \
 	go install mvdan.cc/gofumpt@latest; \
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest;
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.63.2;

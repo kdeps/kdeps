@@ -13,7 +13,6 @@ import (
 
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/kdeps/kdeps/pkg/workflow"
 	pklWf "github.com/kdeps/schema/gen/workflow"
@@ -29,7 +28,7 @@ type KdepsPackage struct {
 }
 
 func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPackage string, logger *logging.Logger) (*KdepsPackage, error) {
-	logger.Debug(messages.MsgStartingExtractionPkg, "package", kdepsPackage)
+	logger.Debug("starting extraction of package", "package", kdepsPackage)
 
 	// Create a temporary directory for extraction
 	tempDir, err := afero.TempDir(fs, "", "kdeps")
@@ -224,7 +223,7 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 	kdeps.PkgFilePath = kdepsPackage
 	kdeps.Md5sum = md5Hash
 
-	logger.Debug(messages.MsgExtractionCompleted, "package", kdepsPackage)
+	logger.Debug("extraction and population completed successfully", "package", kdepsPackage)
 
 	return kdeps, nil
 }
@@ -335,7 +334,7 @@ func PackageProject(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDi
 	}
 
 	// Log successful packaging
-	logger.Debug(messages.MsgProjectPackaged, "path", tarGzPath)
+	logger.Debug("project packaged successfully", "path", tarGzPath)
 
 	// Return the path to the generated.kdeps file
 	return tarGzPath, nil
@@ -365,7 +364,7 @@ func FindWorkflowFile(fs afero.Fs, folder string, logger *logging.Logger) (strin
 
 		// If it's a file and the name matches, capture the path
 		if !info.IsDir() && info.Name() == fileName {
-			logger.Debug(fmt.Sprintf(messages.MsgFoundFileInFolder, fileName, folder))
+			logger.Debug("found file %s in folder %s", fileName, folder)
 			foundPath = path
 			return filepath.SkipDir // Stop walking once the file is found
 		}
@@ -380,6 +379,6 @@ func FindWorkflowFile(fs afero.Fs, folder string, logger *logging.Logger) (strin
 		return "", fmt.Errorf("%s not found in folder: %s", fileName, folder)
 	}
 
-	logger.Debug(fmt.Sprintf(messages.MsgReturningFoundFilePath, foundPath))
+	logger.Debug("returning found file path: %s", foundPath)
 	return foundPath, nil
 }

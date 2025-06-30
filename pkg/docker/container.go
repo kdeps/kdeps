@@ -3,7 +3,6 @@ package docker
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/docker/docker/api/types/container"
@@ -13,21 +12,11 @@ import (
 	"github.com/spf13/afero"
 )
 
-func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerName, hostIP, portNum, webHostIP,
-	webPortNum, gpu string, apiMode, webMode bool, cli *client.Client,
-) (string, error) {
+func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerName, hostIP, portNum, gpu string, apiMode bool, cli *client.Client) (string, error) {
 	// Load environment variables from .env file (if it exists)
 	envSlice, err := loadEnvFile(fs, ".env")
 	if err != nil {
 		fmt.Println("Error loading .env file, proceeding without it:", err)
-	}
-
-	// Validate port numbers based on modes
-	if apiMode && portNum == "" {
-		return "", errors.New("portNum must be non-empty when apiMode is true")
-	}
-	if webMode && webPortNum == "" {
-		return "", errors.New("webPortNum must be non-empty when webMode is true")
 	}
 
 	// Configure the Docker container
@@ -36,28 +25,33 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 		Env:   envSlice, // Add the loaded environment variables (or nil)
 	}
 
-	// Set up port bindings based on apiMode and webMode independently
-	portBindings := map[nat.Port][]nat.PortBinding{}
-	if apiMode && hostIP != "" && portNum != "" {
-		tcpPort := portNum + "/tcp"
-		portBindings[nat.Port(tcpPort)] = []nat.PortBinding{{HostIP: hostIP, HostPort: portNum}}
-	}
-	if webMode && webHostIP != "" && webPortNum != "" {
-		webTCPPort := webPortNum + "/tcp"
-		portBindings[nat.Port(webTCPPort)] = []nat.PortBinding{{HostIP: webHostIP, HostPort: webPortNum}}
-	}
-
-	// Initialize hostConfig with default settings
+	tcpPort := portNum + "/tcp"
 	hostConfig := &container.HostConfig{
 		Binds: []string{
 			"ollama:/root/.ollama",
-			"kdeps:/.kdeps",
+			"kdeps:/root/.kdeps",
 		},
-		PortBindings: portBindings,
+		PortBindings: map[nat.Port][]nat.PortBinding{
+			nat.Port(tcpPort): {{HostIP: hostIP, HostPort: portNum}},
+		},
 		RestartPolicy: container.RestartPolicy{
-			Name:              "on-failure",
-			MaximumRetryCount: 5,
+			Name:              "on-failure", // Restart the container only on failure
+			MaximumRetryCount: 5,            // Optionally specify the max retry count
 		},
+	}
+
+	// Optional mode for API-based configuration
+	if !apiMode {
+		hostConfig = &container.HostConfig{
+			Binds: []string{
+				"ollama:/root/.ollama",
+				"kdeps:/root/.kdeps",
+			},
+			RestartPolicy: container.RestartPolicy{
+				Name:              "on-failure",
+				MaximumRetryCount: 5,
+			},
+		}
 	}
 
 	// Adjust host configuration based on GPU type
@@ -83,7 +77,7 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 	containerNameWithGpu := fmt.Sprintf("%s-%s", cName, gpu)
 
 	// Generate Docker Compose file
-	err = GenerateDockerCompose(fs, cName, containerName, containerNameWithGpu, hostIP, portNum, webHostIP, webPortNum, apiMode, webMode, gpu)
+	err = GenerateDockerCompose(fs, cName, containerName, containerNameWithGpu, hostIP, portNum, gpu)
 	if err != nil {
 		return "", fmt.Errorf("error generating Docker Compose file: %w", err)
 	}
@@ -93,9 +87,7 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 		return "", fmt.Errorf("error listing containers: %w", err)
 	}
 
-	// Use integer range over slice directly (Go 1.22+)
-	for i := range containers {
-		resp := containers[i]
+	for _, resp := range containers {
 		for _, name := range resp.Names {
 			if name == "/"+containerNameWithGpu {
 				// If the container exists, start it if it's not running
@@ -163,7 +155,7 @@ func loadEnvFile(fs afero.Fs, filename string) ([]string, error) {
 	return envSlice, nil
 }
 
-func GenerateDockerCompose(fs afero.Fs, cName, containerName, containerNameWithGpu, hostIP, portNum, webHostIP, webPortNum string, apiMode, webMode bool, gpu string) error {
+func GenerateDockerCompose(fs afero.Fs, cName, containerName, containerNameWithGpu, hostIP, portNum, gpu string) error {
 	var gpuConfig string
 
 	// GPU-specific configurations
@@ -190,24 +182,6 @@ func GenerateDockerCompose(fs afero.Fs, cName, containerName, containerNameWithG
 		return fmt.Errorf("unsupported GPU type: %s", gpu)
 	}
 
-	// Build ports section based on apiMode and webMode independently
-	var ports []string
-	if apiMode && hostIP != "" && portNum != "" {
-		ports = append(ports, fmt.Sprintf("%s:%s", hostIP, portNum))
-	}
-	if webMode && webHostIP != "" && webPortNum != "" {
-		ports = append(ports, fmt.Sprintf("%s:%s", webHostIP, webPortNum))
-	}
-
-	// Format ports section for YAML
-	var portsSection string
-	if len(ports) > 0 {
-		portsSection = "    ports:\n"
-		for _, port := range ports {
-			portsSection += fmt.Sprintf("      - \"%s\"\n", port)
-		}
-	}
-
 	// Compose file content
 	dockerComposeContent := fmt.Sprintf(`
 # This Docker Compose file runs the Kdeps AI Agent containerized service with GPU configurations.
@@ -221,10 +195,12 @@ version: '3.8'
 services:
   %s:
     image: %s
-%s    restart: on-failure
+    ports:
+      - "%s:%s"
+    restart: on-failure
     volumes:
       - ollama:/root/.ollama
-      - kdeps:/.kdeps
+      - kdeps:/root/.kdeps
 %s
 volumes:
   ollama:
@@ -233,7 +209,7 @@ volumes:
   kdeps:
     external:
       name: kdeps
-`, containerNameWithGpu, containerName, portsSection, gpuConfig)
+`, containerNameWithGpu, containerName, portNum, portNum, gpuConfig)
 
 	filePath := fmt.Sprintf("%s_docker-compose-%s.yaml", cName, gpu)
 	err := afero.WriteFile(fs, filePath, []byte(dockerComposeContent), 0o644)

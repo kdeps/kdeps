@@ -2,7 +2,6 @@ package docker
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -52,17 +51,11 @@ var (
 	systemConfiguration       *kdeps.Kdeps
 	workflowConfigurationFile string
 	workflowConfiguration     *wfPkl.Workflow
-	packageDir                string
-	aiAgentDir                string
-	resourceFile              string
-	workflowFile              string
-	lastCreatedPackage        string
-	resourcesDir              string
-	dataDir                   string
-	projectDir                string
 )
 
 func TestFeatures(t *testing.T) {
+	t.Parallel()
+
 	suite := godog.TestSuite{
 		ScenarioInitializer: func(ctx *godog.ScenarioContext) {
 			ctx.Step(`^a "([^"]*)" system configuration file with dockerGPU "([^"]*)" and runMode "([^"]*)" is defined in the "([^"]*)" directory$`, aSystemConfigurationFile)
@@ -78,24 +71,6 @@ func TestFeatures(t *testing.T) {
 			ctx.Step(`^the Docker entrypoint should be "([^"]*)"$`, theDockerEntrypointShouldBe)
 			ctx.Step(`^it will install the model "([^"]*)" defined in the workflow configuration$`, itWillInstallTheModels)
 			ctx.Step(`^kdeps will check the presence of the "([^"]*)" file$`, kdepsWillCheckThePresenceOfTheFile)
-			ctx.Step(`^the system folder exists "([^"]*)"$`, theSystemFolderExists)
-			ctx.Step(`^an ai-agent is present on folder "([^"]*)"$`, anAiAgentOnFolder)
-			ctx.Step(`^it has a file with ID property and dependent on "([^"]*)" "([^"]*)" "([^"]*)"$`, itHasAFileWithIDPropertyAndDependentOn)
-			ctx.Step(`^it will be stored to "([^"]*)"$`, itWillBeStoredTo)
-			ctx.Step(`^it has a file with no dependency with ID property "([^"]*)" "([^"]*)"$`, itHasAFileWithNoDependencyWithIDProperty)
-			ctx.Step(`^it has a workflow file "([^"]*)" "([^"]*)" "([^"]*)"$`, itHasAWorkflowFile)
-			ctx.Step(`^the content of that archive file will be extracted to "([^"]*)"$`, theContentOfThatArchiveFileWillBeExtractedTo)
-			ctx.Step(`^the pkl files is valid$`, thePklFilesIsValid)
-			ctx.Step(`^the project is valid$`, theProjectIsValid)
-			ctx.Step(`^the project will be archived to "([^"]*)"$`, theProjectWillBeArchivedTo)
-			ctx.Step(`^there's a data file$`, theresADataFile)
-			ctx.Step(`^the data files will be copied to "([^"]*)"$`, theDataFilesWillBeCopiedTo)
-			ctx.Step(`^the pkl files is invalid$`, thePklFilesIsInvalid)
-			ctx.Step(`^the project is invalid$`, theProjectIsInvalid)
-			ctx.Step(`^the project will not be archived to "([^"]*)"$`, theProjectWillNotBeArchivedTo)
-			ctx.Step(`^the package file will be created "([^"]*)"$`, thePackageFileWillBeCreated)
-			ctx.Step(`^it has a workflow file dependencies "([^"]*)" "([^"]*)" "([^"]*)" "([^"]*)"$`, itHasAWorkflowFileDependencies)
-			ctx.Step(`^the resource file exists in the agent "([^"]*)" "([^"]*)" "([^"]*)"$`, theResourceFileExistsInTheAgent)
 		},
 		Options: &godog.Options{
 			Format:   "pretty",
@@ -342,7 +317,7 @@ func searchTextInFile(filePath string, searchText string) (bool, error) {
 }
 
 func itShouldCreateTheDockerfile(arg1, arg2, arg3 string) error {
-	rd, asm, _, hIP, hPort, _, _, gpu, err := BuildDockerfile(testFs, ctx, systemConfiguration, kdepsDir, pkgProject, logger)
+	rd, asm, hIP, hPort, gpu, err := BuildDockerfile(testFs, ctx, systemConfiguration, kdepsDir, pkgProject, logger)
 	if err != nil {
 		return err
 	}
@@ -418,7 +393,7 @@ func itShouldRunTheContainerBuildStepFor(arg1 string) error {
 }
 
 func itShouldStartTheContainer(arg1 string) error {
-	if _, err := CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, "", "", gpuType, APIServerMode, false, cli); err != nil {
+	if _, err := CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, gpuType, APIServerMode, cli); err != nil {
 		return err
 	}
 
@@ -490,7 +465,7 @@ func itWillInstallTheModels(arg1 string) error {
 }
 
 func kdepsWillCheckThePresenceOfTheFile(arg1 string) error {
-	dr, err := resolver.NewGraphResolver(testFs, ctx, environ, nil, logger)
+	dr, err := resolver.NewGraphResolver(testFs, ctx, environ, logger)
 	if err != nil {
 		return err
 	}
@@ -500,380 +475,4 @@ func kdepsWillCheckThePresenceOfTheFile(arg1 string) error {
 	}
 
 	return nil
-}
-
-func theSystemFolderExists(arg1 string) error {
-	logger = logging.GetLogger()
-	tempDir, err := afero.TempDir(testFs, "", arg1)
-	if err != nil {
-		return err
-	}
-
-	kdepsDir = tempDir
-
-	packageDir = filepath.Join(kdepsDir, "packages")
-	if err := testFs.MkdirAll(packageDir, 0o755); err != nil {
-		return err
-	}
-
-	// Create resources directory
-	resourcesDir = filepath.Join(kdepsDir, "resources")
-	if err := testFs.MkdirAll(resourcesDir, 0o755); err != nil {
-		return err
-	}
-
-	// Create data directory
-	dataDir = filepath.Join(kdepsDir, "data")
-	if err := testFs.MkdirAll(dataDir, 0o755); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func anAiAgentOnFolder(arg1 string) error {
-	tempDir, err := afero.TempDir(testFs, "", arg1)
-	if err != nil {
-		return err
-	}
-
-	aiAgentDir = tempDir
-
-	return nil
-}
-
-func itHasAFileWithIDPropertyAndDependentOn(arg1, arg2, arg3 string) error {
-	// Check if arg3 is a CSV (contains commas)
-	var requiresSection string
-	if strings.Contains(arg3, ",") {
-		// Split arg3 into multiple values if it's a CSV
-		values := strings.Split(arg3, ",")
-		var requiresLines []string
-		for _, value := range values {
-			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
-			requiresLines = append(requiresLines, fmt.Sprintf(`  "%s"`, value))
-		}
-		requiresSection = "requires {\n" + strings.Join(requiresLines, "\n") + "\n}"
-	} else {
-		// Single value case
-		requiresSection = fmt.Sprintf(`requires {
-  "%s"
-}`, arg3)
-	}
-
-	// Create the document with the id and requires block
-	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
-
-actionID = "%s"
-%s
-run {
-  exec {
-  ["key"] = """
-@(exec.stdout["anAction"])
-@(exec.stdin["anAction2"])
-@(exec.stderr["anAction2"])
-@(http.client["anAction3"].response)
-@(llm.chat["anAction4"].response)
-"""
-  }
-}
-`, schema.SchemaVersion(ctx), arg2, requiresSection)
-
-	// Write to the file
-	file := filepath.Join(resourcesDir, arg1)
-
-	f, _ := testFs.Create(file)
-	if _, err := f.WriteString(doc); err != nil {
-		return err
-	}
-
-	f.Close()
-
-	resourceFile = file
-
-	return nil
-}
-
-func itWillBeStoredTo(arg1 string) error {
-	workflowFile = filepath.Join(kdepsDir, arg1)
-
-	if _, err := testFs.Stat(workflowFile); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func itHasAFileWithNoDependencyWithIDProperty(arg1, arg2 string) error {
-	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
-
-actionID = "%s"
-run {
-  exec {
-  ["key"] = """
-@(exec.stdout["anAction"])
-@(exec.stdin["anAction2"])
-@(exec.stderr["anAction2"])
-@(http.client["anAction3"].response)
-@(llm.chat["anAction4"].response)
-"""
-  }
-}
-`, schema.SchemaVersion(ctx), arg2)
-
-	file := filepath.Join(resourcesDir, arg1)
-
-	f, _ := testFs.Create(file)
-	if _, err := f.WriteString(doc); err != nil {
-		return err
-	}
-	f.Close()
-
-	resourceFile = file
-
-	return nil
-}
-
-func itHasAWorkflowFile(arg1, arg2, arg3 string) error {
-	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
-
-targetActionID = "%s"
-name = "%s"
-description = "My awesome AI Agent"
-version = "%s"
-`, schema.SchemaVersion(ctx), arg3, arg1, arg2)
-
-	file := filepath.Join(aiAgentDir, "workflow.pkl")
-
-	f, _ := testFs.Create(file)
-	if _, err := f.WriteString(doc); err != nil {
-		return err
-	}
-	f.Close()
-
-	workflowFile = file
-
-	return nil
-}
-
-func theContentOfThatArchiveFileWillBeExtractedTo(arg1 string) error {
-	fpath := filepath.Join(kdepsDir, arg1)
-	if _, err := testFs.Stat(fpath); err != nil {
-		return errors.New("there should be an agent dir present, but none was found")
-	}
-
-	return nil
-}
-
-func thePklFilesIsValid() error {
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowFile, logger); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func theProjectIsValid() error {
-	if err := enforcer.EnforceFolderStructure(testFs, ctx, workflowFile, logger); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func theProjectWillBeArchivedTo(arg1 string) error {
-	_, err := workflow.LoadWorkflow(ctx, workflowFile, logger)
-	if err != nil {
-		return err
-	}
-
-	fpath, err := PackageProject(testFs, ctx, *workflowConfiguration, kdepsDir, aiAgentDir, logger)
-	if err != nil {
-		return err
-	}
-
-	if _, err := testFs.Stat(fpath); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func theresADataFile() error {
-	doc := "THIS IS A TEXT FILE: "
-
-	for x := range 10 {
-		num := strconv.Itoa(x)
-		file := filepath.Join(dataDir, fmt.Sprintf("textfile-%s.txt", num))
-
-		f, _ := testFs.Create(file)
-		if _, err := f.WriteString(doc + num); err != nil {
-			return err
-		}
-		f.Close()
-	}
-
-	return nil
-}
-
-func theDataFilesWillBeCopiedTo(arg1 string) error {
-	file := filepath.Join(kdepsDir, arg1+"/textfile-1.txt")
-
-	if _, err := testFs.Stat(file); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func thePklFilesIsInvalid() error {
-	doc := `
-	name = "invalid agent"
-	description = "a not valid configuration"
-	version = "five"
-	targetActionID = "hello World"
-	`
-	file := filepath.Join(aiAgentDir, "workflow1.pkl")
-
-	f, _ := testFs.Create(file)
-	if _, err := f.WriteString(doc); err != nil {
-		return err
-	}
-	f.Close()
-
-	workflowFile = file
-
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowFile, logger); err == nil {
-		return errors.New("expected an error, but got nil")
-	}
-
-	return nil
-}
-
-func theProjectIsInvalid() error {
-	if err := enforcer.EnforceFolderStructure(testFs, ctx, workflowFile, logger); err == nil {
-		return errors.New("expected an error, but got nil")
-	}
-
-	return nil
-}
-
-func theProjectWillNotBeArchivedTo(arg1 string) error {
-	_, err := workflow.LoadWorkflow(ctx, workflowFile, logger)
-	if err != nil {
-		return err
-	}
-
-	fpath, err := PackageProject(testFs, ctx, *workflowConfiguration, kdepsDir, aiAgentDir, logger)
-	if err == nil {
-		return errors.New("expected an error, but got nil")
-	}
-
-	if _, err := testFs.Stat(fpath); err == nil {
-		return errors.New("expected an error, but got nil")
-	}
-
-	return nil
-}
-
-func thePackageFileWillBeCreated(arg1 string) error {
-	fpath := filepath.Join(packageDir, arg1)
-	if _, err := testFs.Stat(fpath); err != nil {
-		return errors.New("expected a package, but got none")
-	}
-	lastCreatedPackage = fpath
-
-	return nil
-}
-
-func itHasAWorkflowFileDependencies(arg1, arg2, arg3, arg4 string) error {
-	var workflowsSection string
-	if strings.Contains(arg4, ",") {
-		// Split arg3 into multiple values if it's a CSV
-		values := strings.Split(arg4, ",")
-		var workflowsLines []string
-		for _, value := range values {
-			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
-			workflowsLines = append(workflowsLines, fmt.Sprintf(`  "%s"`, value))
-		}
-		workflowsSection = "workflows {\n" + strings.Join(workflowsLines, "\n") + "\n}"
-	} else {
-		// Single value case
-		workflowsSection = fmt.Sprintf(`workflows {
-  "%s"
-}`, arg4)
-	}
-
-	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
-
-targetActionID = "%s"
-name = "%s"
-description = "My awesome AI Agent"
-version = "%s"
-%s
-`, schema.SchemaVersion(ctx), arg3, arg1, arg2, workflowsSection)
-
-	file := filepath.Join(aiAgentDir, "workflow.pkl")
-
-	f, _ := testFs.Create(file)
-	if _, err := f.WriteString(doc); err != nil {
-		return err
-	}
-	f.Close()
-
-	workflowFile = file
-
-	return nil
-}
-
-func theResourceFileExistsInTheAgent(arg1, arg2, arg3 string) error {
-	fpath := filepath.Join(kdepsDir, "agents/"+arg2+"/1.0.0/resources/"+arg1)
-	if _, err := testFs.Stat(fpath); err != nil {
-		return errors.New("expected a package, but got none")
-	}
-
-	return nil
-}
-
-// PackageProject is a helper function to package a project
-func PackageProject(fs afero.Fs, ctx context.Context, wf wfPkl.Workflow, kdepsDir, aiAgentDir string, logger *logging.Logger) (string, error) {
-	// Create package directory if it doesn't exist
-	packageDir := filepath.Join(kdepsDir, "packages")
-	if err := fs.MkdirAll(packageDir, 0o755); err != nil {
-		return "", err
-	}
-
-	// Create package file path
-	packageFile := filepath.Join(packageDir, fmt.Sprintf("%s-%s.tar.gz", wf.GetName(), wf.GetVersion()))
-
-	// Create package file
-	file, err := fs.Create(packageFile)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-
-	// Write package content
-	if _, err := file.WriteString("package content"); err != nil {
-		return "", err
-	}
-
-	return packageFile, nil
-}
-
-func TestPrintDockerBuildOutputSimple(t *testing.T) {
-	successLog := bytes.NewBufferString(`{"stream":"Step 1/2 : FROM alpine\n"}\n{"stream":" ---> 123abc\n"}\n`)
-	if err := printDockerBuildOutput(successLog); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// Error case should propagate the message
-	errBuf := bytes.NewBufferString(`{"error":"build failed"}`)
-	if err := printDockerBuildOutput(errBuf); err == nil {
-		t.Fatalf("expected error not returned")
-	}
 }

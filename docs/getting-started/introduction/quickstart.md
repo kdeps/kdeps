@@ -279,6 +279,11 @@ chat {
 The `model` we use here is the same model that we define in the `workflow.pkl`. If you want to use multiple LLMs. You
 need to create new `llm` resource file to use the defined LLM model there.
 
+> *Note:*
+> Kdeps executes resource in a top-down queue manner. By design, Kdeps does not allow multiple resource actions to be
+> executed in a single resource file. If you need to perform a new resource action, you have to create a new resource
+> file with a unique ID, then define it as a dependency.
+
 In the `prompt`, we use the function `@(request.data())`, which inserts the request data into the prompt. Referring back
 to the route configuration, the `curl` command can send request data using the `-d` flag, as shown:
 
@@ -288,7 +293,7 @@ curl 'http://localhost:3000/api/v1/whois' -X GET -d "Neil Armstrong"
 
 Additionally, we have set `JSONResponse` to `true`, enabling the use of `JSONResponseKeys`. To ensure the output
 conforms to specific data types, you can define the keys with their corresponding types. For example:
-`first_name__string`, `famous_quotes__array`, `details__string`, or `age__integer`.
+`first_name__string`, `famous_quotes__array`, `details__markdown`, or `age__integer`.
 
 > **Important:**
 > To accomplish defining the corresponding data types to keys, you'll need to adjust your LLM model, as the default
@@ -299,6 +304,10 @@ conforms to specific data types, you can define the keys with their correspondin
 
 After finalizing our AI agent, we can then proceed on packaging the AI agent. Packaged AI agents are single file that
 ends in `.kdeps` extension. With a single file, we can distribute it, reuse, sell and remix it in your AI agents.
+
+> *Note:*
+> At the moment, Kdeps does not have the capability to upload the `.kdeps` file. This is planned in the future, along
+> with the marketplace for AI agents, and an online dashboard to testing, debugging and deploying AI agents.
 
 To package an AI agent, simply run with `package` specifying the folder.
 

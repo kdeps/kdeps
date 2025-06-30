@@ -55,9 +55,9 @@ jobs:
           mkdir -p ~/.local/bin
           ARCH=$(uname -m)
           if [ "$ARCH" = "aarch64" ]; then
-            curl -L -o ~/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.28.1/pkl-linux-aarch64'
+            curl -L -o ~/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.27.2/pkl-linux-aarch64'
           elif [ "$ARCH" = "x86_64" ]; then
-            curl -L -o ~/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.28.1/pkl-linux-amd64'
+            curl -L -o ~/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.27.2/pkl-linux-amd64'
           else
             echo "Unsupported architecture: $ARCH" && exit 1
           fi
@@ -69,23 +69,14 @@ jobs:
       - name: Install pkl on Windows
         if: matrix.platform == 'windows-latest'
         run: |
-          Invoke-WebRequest 'https://github.com/apple/pkl/releases/download/0.28.1/pkl-windows-amd64.exe' -OutFile pkl.exe
+          Invoke-WebRequest 'https://github.com/apple/pkl/releases/download/0.27.2/pkl-windows-amd64.exe' -OutFile pkl.exe
           echo "PATH=$env:GITHUB_WORKSPACE;$env:PATH" >> $env:GITHUB_ENV
           .\pkl.exe --version
         shell: pwsh
       # Run tests
       - name: Run the tests
-        run: |
-          go test -short -v -coverprofile=coverage.out -covermode=atomic ./... | tee -a test.out
-          go tool cover -func=coverage.out | tee -a test.out
-          grep -E "^[[:alnum:]/._-]+\.go:" coverage.out >> test.out
+        run: make test
         shell: bash
-
-      - name: Generate badges
-        uses: gaelgirodon/ci-badges-action@v1
-        with:
-          gist-id: ${{ secrets.GIST_ID }}
-          token: ${{ secrets.GIST_TOKEN }}
 
 #   end2end:
 #     strategy:
@@ -107,7 +98,7 @@ jobs:
 #         uses: Cyberboss/install-winget@v1
 #       - name: Install pkl
 #         run: |
-#           curl -L -o /c/Users/runneradmin/.local/bin/pkl.exe 'https://github.com/apple/pkl/releases/download/0.28.1/pkl-windows-amd64.exe'
+#           curl -L -o /c/Users/runneradmin/.local/bin/pkl.exe 'https://github.com/apple/pkl/releases/download/0.27.2/pkl-windows-amd64.exe'
 #           chmod +x /c/Users/runneradmin/.local/bin/pkl.exe
 #           /c/Users/runneradmin/.local/bin/pkl.exe --version
 #         shell: bash

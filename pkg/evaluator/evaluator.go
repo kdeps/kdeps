@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kdeps/kdeps/pkg/kdepsexec"
+	"github.com/alexellis/go-execute/v2"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/spf13/afero"
@@ -44,20 +44,32 @@ func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSectio
 		return "", err
 	}
 
-	stdout, stderr, exitCode, err := kdepsexec.KdepsExec(ctx, "pkl", []string{"eval", resourcePath}, "", false, false, logger)
-	if err != nil {
-		logger.Error("command execution failed", "stderr", stderr, "error", err)
-		return "", err
+	// Prepare the command to evaluate the .pkl file
+	cmd := execute.ExecTask{
+		Command:     "pkl",
+		Args:        []string{"eval", resourcePath},
+		StreamStdio: false,
 	}
 
-	if exitCode != 0 {
-		errMsg := fmt.Sprintf("command failed with exit code %d: %s", exitCode, stderr)
+	// Execute the command
+	result, err := cmd.Execute(ctx)
+	if err != nil {
+		errMsg := "command execution failed"
+		logger.Error(errMsg, "error", err)
+		return "", fmt.Errorf("%s: %w", errMsg, err)
+	}
+
+	// Check for non-zero exit code
+	if result.ExitCode != 0 {
+		errMsg := fmt.Sprintf("command failed with exit code %d: %s", result.ExitCode, result.Stderr)
 		logger.Error(errMsg)
 		return "", errors.New(errMsg)
 	}
 
-	formattedResult := fmt.Sprintf("%s\n%s", headerSection, stdout)
+	// Format the result by prepending the headerSection to the command stdout
+	formattedResult := fmt.Sprintf("%s\n%s", headerSection, result.Stdout)
 
+	// Return the formatted result
 	return formattedResult, nil
 }
 

@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding/json"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -13,92 +14,29 @@ func IsJSON(str string) bool {
 }
 
 func FixJSON(input string) string {
-	// 1. Remove surrounding quotes if present (common when reading from CLI args)
+	// If the decoded string is still wrapped in extra quotes, handle unquoting
 	if strings.HasPrefix(input, "\"") && strings.HasSuffix(input, "\"") {
-		if unquoted, err := strconv.Unquote(input); err == nil {
-			input = unquoted
+		unquotedData, err := strconv.Unquote(input)
+		if err == nil {
+			input = unquotedData
 		}
 	}
 
-	// 2. Fast-path: if the string is already valid JSON leave it untouched.
-	if IsJSON(input) {
-		return input
+	// Clean up any remaining escape sequences (like \n or \") if present
+	// https://stackoverflow.com/questions/53776683/regex-find-newline-between-double-quotes-and-replace-with-space/53777149#53777149
+	matchNewlines := regexp.MustCompile(`[\r\n]`)
+	escapeNewlines := func(s string) string {
+		return matchNewlines.ReplaceAllString(s, "\\n")
 	}
+	re := regexp.MustCompile(`"[^"\\]*(?:\\[\s\S][^"\\]*)*"`)
+	input = re.ReplaceAllStringFunc(input, escapeNewlines)
 
-	// 3. Stream through the bytes and repair string tokens.
-	//    Rules applied while we are INSIDE a string literal:
-	//      • unescaped `"`  → `\"`
-	//      • raw newlines    → `\n`
-	//      • raw carriage return → `\r`
-	//    All other bytes are copied verbatim.
-
-	var b strings.Builder
-	inString := false   // Currently inside a JSON string literal
-	escapeNext := false // The previous byte was a backslash
-
-	for i := 0; i < len(input); i++ {
-		ch := input[i]
-
-		if inString {
-			if escapeNext {
-				// Previous character was a backslash – copy current byte verbatim.
-				b.WriteByte(ch)
-				escapeNext = false
-				continue
-			}
-
-			switch ch {
-			case '\\':
-				// If the next character is a quote, duplicate the backslash to ensure it is escaped once.
-				if i+1 < len(input) && input[i+1] == '"' {
-					b.WriteString("\\\\") // write two backslashes
-				} else {
-					b.WriteByte(ch)
-				}
-				escapeNext = true
-			case '"':
-				// Determine if this quote should terminate the string or be escaped.
-				// If the following rune indicates end of value (comma, brace, bracket, whitespace, newline),
-				// treat as terminator; otherwise treat as interior quote and escape it.
-				isEnd := false
-				if j := i + 1; j >= len(input) {
-					isEnd = true
-				} else {
-					next := input[i+1]
-					switch next {
-					case ' ', '\t', '\r', '\n', ',', ':', '}', ']':
-						isEnd = true
-					}
-				}
-				if isEnd {
-					b.WriteByte(ch)
-					inString = false
-				} else {
-					// interior quote – escape it
-					b.WriteByte('\\')
-					b.WriteByte('"')
-				}
-			case '\n':
-				b.WriteString("\\n")
-			case '\r':
-				b.WriteString("\\r")
-			default:
-				b.WriteByte(ch)
-			}
-			continue
-		}
-
-		// Currently NOT in a string literal.
-		if ch == '"' {
-			inString = true
-		}
-		b.WriteByte(ch)
-	}
-
-	fixed := b.String()
-
-	// 4. Strip leading indentation spaces to normalise formatting.
-	fixed = regexp.MustCompile(`(?m)^\s+`).ReplaceAllString(fixed, "")
+	// https://www.reddit.com/r/golang/comments/14lkgw4/repairing_malformed_json_in_go/
+	jsonRegexp := regexp.MustCompile(`(?m:^\s*"([^"]*)"\s*:\s*"(.*?)"\s*(,?)\s*$)`)
+	fixed := jsonRegexp.ReplaceAllStringFunc(input, func(s string) string {
+		submatches := jsonRegexp.FindStringSubmatch(s)
+		return fmt.Sprintf(`"%s": "%s"%s`, submatches[1], strings.ReplaceAll(submatches[2], `"`, `\"`), submatches[3])
+	})
 
 	return fixed
 }
