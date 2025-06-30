@@ -7,12 +7,12 @@ import (
 	"sync"
 
 	"github.com/kdeps/kdeps/pkg/utils"
+	"github.com/kdeps/kdeps/pkg/version"
 )
 
 var (
-	versionCache     sync.Map
-	specifiedVersion string = "0.2.30" // Default specified version
-	UseLatest        bool   = false
+	versionCache sync.Map
+	UseLatest    bool = false
 	// Add exitFunc for testability
 	exitFunc = os.Exit
 )
@@ -26,17 +26,17 @@ func SchemaVersion(ctx context.Context) string {
 		}
 
 		// If not in cache, fetch it
-		version, err := utils.GitHubReleaseFetcher(ctx, "kdeps/schema", "")
+		schemaVersion, err := utils.GitHubReleaseFetcher(ctx, "kdeps/schema", "")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: Unable to fetch the latest schema version for 'kdeps/schema': %v\n", err)
 			exitFunc(1)
 		}
 
 		// Store in cache
-		versionCache.Store("version", version)
-		return version
+		versionCache.Store("version", schemaVersion)
+		return schemaVersion
 	}
 
-	// Use the specified version if not using the latest
-	return specifiedVersion
+	// Use the centralized default schema version
+	return version.DefaultSchemaVersion
 }

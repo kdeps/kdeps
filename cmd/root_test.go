@@ -32,7 +32,7 @@ func TestNewRootCommand(t *testing.T) {
 
 	// Test case 2: Check if subcommands are added
 	subcommands := rootCmd.Commands()
-	expectedSubcommands := []string{"new", "scaffold", "install", "package", "build", "run"}
+	expectedSubcommands := []string{"new", "scaffold", "install", "package", "build", "run", "upgrade"}
 	if len(subcommands) != len(expectedSubcommands) {
 		t.Errorf("Expected %d subcommands, got %d", len(expectedSubcommands), len(subcommands))
 	}

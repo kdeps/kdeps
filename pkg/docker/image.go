@@ -21,6 +21,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/download"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/version"
 	"github.com/kdeps/kdeps/pkg/workflow"
 	kdCfg "github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
@@ -369,8 +370,8 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	hostIP := "127.0.0.1"
 	webHostIP := "127.0.0.1"
 
-	anacondaVersion := "2024.10-1"
-	pklVersion := "0.28.1"
+	anacondaVersion := version.DefaultAnacondaVersion
+	pklVersion := version.DefaultPklVersion
 
 	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow, logger)
 	if err != nil {
