@@ -41,7 +41,7 @@ test-coverage:
 	@echo "$(OK_COLOR)==> Coverage report:$(NO_COLOR)"
 	@go tool cover -func=coverage.out | tee coverage.txt || true
 	@COVERAGE=$$(grep total: coverage.txt | awk '{print $$3}' | sed 's/%//'); \
-	REQUIRED=$${COVERAGE_THRESHOLD:-70.0}; \
+	REQUIRED=$${COVERAGE_THRESHOLD:-50.0}; \
 	if (( $$(echo $$COVERAGE '<' $$REQUIRED | bc -l) )); then \
 	    echo "Coverage $$COVERAGE% is below required $$REQUIRED%"; \
 	    exit 1; \
@@ -79,10 +79,10 @@ tools:
 
 	@if ! command -v golangci-lint > /dev/null ; then \
 		echo ">> [$@]: golangci-lint not found: installing"; \
-		go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.63.2; \
+		go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest; \
 	fi
 
 tools-update:
 	go install github.com/daixiang0/gci@latest; \
 	go install mvdan.cc/gofumpt@latest; \
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.63.2;
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest;

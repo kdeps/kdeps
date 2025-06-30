@@ -358,7 +358,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			contentType := c.GetHeader("Content-Type")
 			if strings.Contains(contentType, "multipart/form-data") {
 				if err := handleMultipartForm(c, dr, fileMap); err != nil {
-					
+
 					if he, ok := err.(*handlerError); ok {
 						errors = append(errors, ErrorResponse{
 							Code:    he.statusCode,
@@ -526,7 +526,7 @@ func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver) error
 		return err
 	}
 
-	 // context already passed via dr.Context
+	// context already passed via dr.Context
 	if _, err := dr.HandleRunAction(); err != nil {
 		return err
 	}

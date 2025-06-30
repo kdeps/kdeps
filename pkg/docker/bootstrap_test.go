@@ -180,7 +180,7 @@ func TestStartAndWaitForOllamaReady(t *testing.T) {
 // TestStartAPIServerWrapper_Error ensures that the startAPIServer helper
 // forwards the error coming from StartAPIServerMode when the API server
 // is not properly configured (i.e., workflow settings are missing).
-func TestStartAPIServerWrapper_Error(t *testing.T) { 
+func TestStartAPIServerWrapper_Error(t *testing.T) {
 	mw := &MockWorkflow{} // GetSettings will return nil ➜ configuration missing
 
 	dr := &resolver.DependencyResolver{
@@ -200,7 +200,7 @@ func TestStartAPIServerWrapper_Error(t *testing.T) {
 // TestStartWebServerWrapper_Success verifies that the startWebServer helper
 // returns nil when the underlying StartWebServerMode succeeds with a minimal
 // (but valid) WebServer configuration.
-func TestStartWebServerWrapper_Success(t *testing.T) { 
+func TestStartWebServerWrapper_Success(t *testing.T) {
 	portNum := uint16(0) // Ask gin to use any free port
 
 	settings := &project.Settings{

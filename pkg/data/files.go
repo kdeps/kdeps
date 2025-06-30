@@ -30,7 +30,6 @@ func PopulateDataFileRegistry(fs afero.Fs, baseDir string) (*map[string]map[stri
 	// Walk through the base directory
 	err = afero.Walk(fs, baseDir, func(path string, info os.FileInfo, walkErr error) error {
 		if walkErr != nil {
-			
 			return nil // Ignore individual path errors, but continue walking
 		}
 
@@ -42,7 +41,6 @@ func PopulateDataFileRegistry(fs afero.Fs, baseDir string) (*map[string]map[stri
 		// Get the relative path from the base directory
 		relPath, err := filepath.Rel(baseDir, path)
 		if err != nil {
-			
 			return nil // Ignore errors in computing relative paths
 		}
 
@@ -71,7 +69,6 @@ func PopulateDataFileRegistry(fs afero.Fs, baseDir string) (*map[string]map[stri
 	})
 	// If walking fails entirely (e.g., directory read error), return an empty registry
 	if err != nil {
-		
 		return &files, nil
 	}
 
