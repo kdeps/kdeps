@@ -78,7 +78,7 @@ func TestGenerateURLs_DefaultVersion(t *testing.T) {
 	defer func() { schema.UseLatest = schemaUseLatestBackup }()
 
 	ctx := context.Background()
-	items, err := GenerateURLs(ctx)
+	items, err := GenerateURLs(ctx, true)
 	assert.NoError(t, err)
 	assert.Greater(t, len(items), 0)
 
@@ -400,7 +400,7 @@ func TestGenerateURLs_NoLatest(t *testing.T) {
 	schema.UseLatest = false
 	defer func() { schema.UseLatest = originalLatest }()
 
-	items, err := GenerateURLs(ctx)
+	items, err := GenerateURLs(ctx, true)
 	require.NoError(t, err)
 	// Expect 2 items for supported architectures (pkl + anaconda) relevant to current arch
 	require.Len(t, items, 2)
@@ -437,7 +437,7 @@ func TestGenerateURLsLatestMode(t *testing.T) {
 	defer func() { http.DefaultTransport = origTransport }()
 
 	ctx := context.Background()
-	items, err := GenerateURLs(ctx)
+	items, err := GenerateURLs(ctx, true)
 	if err != nil {
 		t.Fatalf("GenerateURLs latest failed: %v", err)
 	}
@@ -462,7 +462,7 @@ func TestGenerateURLsBasic(t *testing.T) {
 	// Ensure deterministic behaviour
 	schema.UseLatest = false
 
-	items, err := GenerateURLs(ctx)
+	items, err := GenerateURLs(ctx, true)
 	if err != nil {
 		t.Fatalf("GenerateURLs returned error: %v", err)
 	}
@@ -511,7 +511,7 @@ func TestGenerateURLs_UseLatestWithStubsLow(t *testing.T) {
 	schema.UseLatest = true
 	defer func() { schema.UseLatest = false }()
 
-	items, err := GenerateURLs(context.Background())
+	items, err := GenerateURLs(context.Background(), true)
 	if err != nil {
 		t.Fatalf("GenerateURLs error: %v", err)
 	}
@@ -565,7 +565,7 @@ func TestGenerateURLs_UseLatest(t *testing.T) {
 	// Intercept Anaconda archive request.
 	http.DefaultTransport = mockTransport{}
 
-	items, err := GenerateURLs(context.Background())
+	items, err := GenerateURLs(context.Background(), true)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, items)
 
@@ -643,7 +643,7 @@ func TestGenerateURLs_NoLatestLow(t *testing.T) {
 	// Ensure UseLatest is false for deterministic output
 	schema.UseLatest = false
 	ctx := context.Background()
-	urls, err := GenerateURLs(ctx)
+	urls, err := GenerateURLs(ctx, true)
 	if err != nil {
 		t.Fatalf("GenerateURLs error: %v", err)
 	}
@@ -672,7 +672,7 @@ func TestGenerateURLsDefault(t *testing.T) {
 	schema.UseLatest = false
 	defer func() { schema.UseLatest = original }()
 
-	items, err := GenerateURLs(ctx)
+	items, err := GenerateURLs(ctx, true)
 	if err != nil {
 		t.Fatalf("GenerateURLs returned error: %v", err)
 	}
@@ -758,7 +758,7 @@ func TestCompareVersionsAndParse(t *testing.T) {
 
 func TestGenerateURLsStaticQuick(t *testing.T) {
 	schema.UseLatest = false
-	items, err := GenerateURLs(context.Background())
+	items, err := GenerateURLs(context.Background(), true)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, items)
 	// Ensure each local name contains arch or version placeholders replaced
@@ -958,7 +958,7 @@ func TestCompareAndParseVersion(t *testing.T) {
 
 func TestGenerateURLs_Static(t *testing.T) {
 	schema.UseLatest = false
-	items, err := GenerateURLs(context.Background())
+	items, err := GenerateURLs(context.Background(), true)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, items)
 	// Ensure each local name contains arch or version placeholders replaced
@@ -1164,7 +1164,7 @@ func TestBuildURLTemplate(t *testing.T) {
 
 func TestGenerateURLsStatic(t *testing.T) {
 	ctx := context.Background()
-	items, err := GenerateURLs(ctx)
+	items, err := GenerateURLs(ctx, true)
 	if err != nil {
 		t.Fatalf("GenerateURLs unexpected error: %v", err)
 	}
@@ -1177,4 +1177,23 @@ func TestGenerateURLsStatic(t *testing.T) {
 			t.Fatalf("placeholders not replaced in %s", it.URL)
 		}
 	}
+}
+
+func TestGenerateURLs_NoAnaconda(t *testing.T) {
+	ctx := context.Background()
+	originalLatest := schema.UseLatest
+	schema.UseLatest = false
+	defer func() { schema.UseLatest = originalLatest }()
+
+	items, err := GenerateURLs(ctx, false) // installAnaconda = false
+	require.NoError(t, err)
+	// Expect only 1 item (pkl) since anaconda should be excluded
+	require.Len(t, items, 1)
+
+	// Verify the single item is pkl, not anaconda
+	item := items[0]
+	require.Contains(t, item.URL, "pkl")
+	require.NotContains(t, item.URL, "anaconda")
+	require.Contains(t, item.LocalName, "pkl")
+	require.NotContains(t, item.LocalName, "anaconda")
 }

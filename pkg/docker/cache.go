@@ -113,7 +113,7 @@ func buildURL(baseURL, version, arch string) string {
 	return strings.NewReplacer("{version}", version, "{arch}", arch).Replace(baseURL)
 }
 
-func GenerateURLs(ctx context.Context) ([]download.DownloadItem, error) {
+func GenerateURLs(ctx context.Context, installAnaconda bool) ([]download.DownloadItem, error) {
 	urlInfos := []URLInfo{
 		{
 			BaseURL:           "https://github.com/apple/pkl/releases/download/{version}/pkl-linux-{arch}",
@@ -122,13 +122,17 @@ func GenerateURLs(ctx context.Context) ([]download.DownloadItem, error) {
 			Architectures:     []string{"amd64", "aarch64"},
 			LocalNameTemplate: "pkl-linux-{version}-{arch}",
 		},
-		{
+	}
+
+	// Only include anaconda if it should be installed
+	if installAnaconda {
+		urlInfos = append(urlInfos, URLInfo{
 			BaseURL:           "https://repo.anaconda.com/archive/Anaconda3-{version}-Linux-{arch}.sh",
 			IsAnaconda:        true,
 			Version:           "2024.10-1",
 			Architectures:     []string{"x86_64", "aarch64"},
 			LocalNameTemplate: "anaconda-linux-{version}-{arch}.sh",
-		},
+		})
 	}
 
 	var items []download.DownloadItem

@@ -502,7 +502,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion)
 	downloadDir := filepath.Join(kdepsDir, "cache")
 
-	items, err := GenerateURLs(ctx)
+	items, err := GenerateURLs(ctx, installAnaconda)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
 	}
