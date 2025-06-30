@@ -15,6 +15,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/version"
 	"github.com/kdeps/kdeps/templates"
 	"github.com/spf13/afero"
 )
@@ -143,8 +144,9 @@ func GenerateWorkflowFile(fs afero.Fs, ctx context.Context, logger *logging.Logg
 
 	// Template data for dynamic replacement
 	templateData := map[string]string{
-		"Header": fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schema.SchemaVersion(ctx)),
-		"Name":   name,
+		"Header":         fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schema.SchemaVersion(ctx)),
+		"Name":           name,
+		"OllamaImageTag": version.DefaultOllamaImageTag,
 	}
 
 	// Load and process the template
@@ -221,8 +223,9 @@ func GenerateSpecificAgentFile(fs afero.Fs, ctx context.Context, logger *logging
 
 	templatePath := agentName + ".pkl"
 	templateData := map[string]string{
-		"Header": fmt.Sprintf(headerTemplate, schema.SchemaVersion(ctx)),
-		"Name":   agentName,
+		"Header":         fmt.Sprintf(headerTemplate, schema.SchemaVersion(ctx)),
+		"Name":           agentName,
+		"OllamaImageTag": version.DefaultOllamaImageTag,
 	}
 
 	// Load the template
