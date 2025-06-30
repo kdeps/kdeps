@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/kdeps/kdeps/pkg/version"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
@@ -48,7 +49,7 @@ Examples:
 			}
 
 			// Validate target version
-			if err := version.ValidateSchemaVersion(targetVersion); err != nil {
+			if err := utils.ValidateSchemaVersion(targetVersion, version.MinimumSchemaVersion); err != nil {
 				return fmt.Errorf("invalid target version: %w", err)
 			}
 
@@ -175,7 +176,7 @@ func upgradeSchemaVersionInContent(content, targetVersion string, logger *loggin
 				}
 
 				// Validate current version format (if it's a valid version)
-				if err := version.ValidateSchemaVersion(currentVersion); err != nil {
+				if err := utils.ValidateSchemaVersion(currentVersion, version.MinimumSchemaVersion); err != nil {
 					logger.Debug("skipping invalid current version", "version", currentVersion, "error", err)
 					continue
 				}

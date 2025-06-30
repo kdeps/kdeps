@@ -449,6 +449,7 @@ func TestGenerateURLsLatestMode(t *testing.T) {
 		if it.LocalName == "" {
 			t.Fatalf("missing LocalName")
 		}
+		// When UseLatest=true, filenames should contain "latest" to match Dockerfile template expectations
 		if !contains(it.LocalName, "latest") {
 			t.Fatalf("LocalName should reference latest: %s", it.LocalName)
 		}
@@ -519,6 +520,7 @@ func TestGenerateURLs_UseLatestWithStubsLow(t *testing.T) {
 		t.Fatalf("expected non-empty items")
 	}
 	for _, it := range items {
+		// When UseLatest=true, filenames should contain "latest" to match Dockerfile template expectations
 		if !strings.Contains(it.LocalName, "latest") {
 			t.Fatalf("expected LocalName to contain latest, got %s", it.LocalName)
 		}

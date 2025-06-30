@@ -281,3 +281,39 @@ func GenerateAgent(fs afero.Fs, ctx context.Context, logger *logging.Logger, bas
 
 	return nil
 }
+
+// GenerateDockerfileFromTemplate generates a Dockerfile using the template system.
+func GenerateDockerfileFromTemplate(templateData map[string]interface{}) (string, error) {
+	// If TEMPLATE_DIR is set, load from disk instead of embedded FS
+	if dir := os.Getenv("TEMPLATE_DIR"); dir != "" {
+		path := filepath.Join(dir, "dockerfile.template")
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return "", fmt.Errorf("failed to read dockerfile template from disk: %w", err)
+		}
+		tmpl, err := template.New("dockerfile.template").Parse(string(content))
+		if err != nil {
+			return "", fmt.Errorf("failed to parse dockerfile template file: %w", err)
+		}
+		var output bytes.Buffer
+		if err := tmpl.Execute(&output, templateData); err != nil {
+			return "", fmt.Errorf("failed to execute dockerfile template: %w", err)
+		}
+		return output.String(), nil
+	}
+
+	// Otherwise, use embedded FS
+	content, err := templates.TemplatesFS.ReadFile("dockerfile.template")
+	if err != nil {
+		return "", fmt.Errorf("failed to read embedded dockerfile template: %w", err)
+	}
+	tmpl, err := template.New("dockerfile.template").Parse(string(content))
+	if err != nil {
+		return "", fmt.Errorf("failed to parse dockerfile template file: %w", err)
+	}
+	var output bytes.Buffer
+	if err := tmpl.Execute(&output, templateData); err != nil {
+		return "", fmt.Errorf("failed to execute dockerfile template: %w", err)
+	}
+	return output.String(), nil
+}

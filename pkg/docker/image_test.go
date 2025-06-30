@@ -17,6 +17,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/version"
 	kdCfg "github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -24,6 +25,54 @@ import (
 
 	"github.com/kdeps/kdeps/pkg/utils"
 )
+
+// generateDockerfile is a wrapper function for tests to maintain compatibility
+// with the old function signature while using the new template system.
+func generateDockerfile(
+	imageVersion,
+	schemaVersion,
+	hostIP,
+	ollamaPortNum,
+	kdepsHost,
+	argsSection,
+	envsSection,
+	pkgSection,
+	pythonPkgSection,
+	condaPkgSection,
+	anacondaVersion,
+	pklVersion,
+	timezone,
+	exposedPort string,
+	installAnaconda,
+	devBuildMode,
+	apiServerMode,
+	useLatest bool,
+) string {
+	result, err := generateDockerfileFromTemplate(
+		imageVersion,
+		schemaVersion,
+		hostIP,
+		ollamaPortNum,
+		kdepsHost,
+		argsSection,
+		envsSection,
+		pkgSection,
+		pythonPkgSection,
+		condaPkgSection,
+		anacondaVersion,
+		pklVersion,
+		timezone,
+		exposedPort,
+		installAnaconda,
+		devBuildMode,
+		apiServerMode,
+		useLatest,
+	)
+	if err != nil {
+		panic(err.Error())
+	}
+	return result
+}
 
 func setupTestImage(t *testing.T) (afero.Fs, *logging.Logger, *archiver.KdepsPackage) {
 	fs := afero.NewMemMapFs()
@@ -288,24 +337,24 @@ func TestGenerateDockerfile_Minimal(t *testing.T) {
 	schemaVersion := schema.SchemaVersion(context.Background())
 
 	df := generateDockerfile(
-		"1.0",            // imageVersion
-		schemaVersion,    // schemaVersion
-		"127.0.0.1",      // hostIP
-		"11435",          // ollamaPort
-		"127.0.0.1:3000", // kdepsHost
-		"",               // argsSection
-		"",               // envsSection
-		"",               // pkgSection
-		"",               // pythonPkgSection
-		"",               // condaPkgSection
-		"2024.10-1",      // anacondaVersion
-		"0.28.1",         // pklVersion
-		"UTC",            // timezone
-		"",               // exposedPort
-		false,            // installAnaconda
-		false,            // devBuildMode
-		false,            // apiServerMode
-		false,            // useLatest
+		"1.0",                          // imageVersion
+		schemaVersion,                  // schemaVersion
+		"127.0.0.1",                    // hostIP
+		"11435",                        // ollamaPort
+		"127.0.0.1:3000",               // kdepsHost
+		"",                             // argsSection
+		"",                             // envsSection
+		"",                             // pkgSection
+		"",                             // pythonPkgSection
+		"",                             // condaPkgSection
+		version.DefaultAnacondaVersion, // anacondaVersion
+		version.DefaultPklVersion,      // pklVersion
+		"UTC",                          // timezone
+		"",                             // exposedPort
+		false,                          // installAnaconda
+		false,                          // devBuildMode
+		false,                          // apiServerMode
+		false,                          // useLatest
 	)
 
 	// Quick smoke-test assertions.

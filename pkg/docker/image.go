@@ -21,6 +21,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/download"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/template"
 	"github.com/kdeps/kdeps/pkg/version"
 	"github.com/kdeps/kdeps/pkg/workflow"
 	kdCfg "github.com/kdeps/schema/gen/kdeps"
@@ -163,8 +164,8 @@ func checkDevBuildMode(fs afero.Fs, kdepsDir string, logger *logging.Logger) (bo
 	return true, nil
 }
 
-// generateDockerfile constructs the Dockerfile content by appending multi-line blocks.
-func generateDockerfile(
+// generateDockerfileFromTemplate constructs the Dockerfile content using templates.
+func generateDockerfileFromTemplate(
 	imageVersion,
 	schemaVersion,
 	hostIP,
@@ -183,138 +184,34 @@ func generateDockerfile(
 	devBuildMode,
 	apiServerMode,
 	useLatest bool,
-) string {
-	var dockerFile strings.Builder
-
-	// Base Image and Environment Variables
-	dockerFile.WriteString(fmt.Sprintf(`
-# syntax=docker.io/docker/dockerfile:1
-FROM ollama/ollama:%s
-
-ENV SCHEMA_VERSION=%s
-ENV OLLAMA_HOST=%s:%s
-ENV KDEPS_HOST=%s
-ENV DEBUG=1
-`, imageVersion, schemaVersion, hostIP, ollamaPortNum, kdepsHost))
-
-	// Envs Section
-	dockerFile.WriteString(envsSection + "\n\n")
-
-	// Args Section
-	dockerFile.WriteString(argsSection + "\n\n")
-
-	// Copy DownloadDir to local Downloads
-	dockerFile.WriteString(`
-COPY cache /cache
-RUN chmod +x /cache/pkl*
-RUN chmod +x /cache/anaconda*
-`)
-
-	// Timezone
-	dockerFile.WriteString(fmt.Sprintf(`
-ARG DEBIAN_FRONTEND=noninteractive
-ENV TZ=%s
-`, timezone))
-
-	// Install Necessary Tools
-	dockerFile.WriteString(`
-# Install necessary tools
-RUN apt-get update --fix-missing && apt-get install -y --no-install-recommends \
-    bzip2 ca-certificates git subversion mercurial libglib2.0-0 \
-    libsm6 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxinerama1 libxrandr2 libxrender1 \
-    gpg-agent openssh-client procps software-properties-common wget curl nano jq python3 python3-pip musl musl-dev \
-    musl-tools
-`)
-
+) (string, error) {
 	if useLatest {
 		anacondaVersion = "latest"
 		pklVersion = "latest"
 	}
 
-	// Determine Architecture and Download pkl Binary
-	dockerFile.WriteString(fmt.Sprintf(`
-# Determine the architecture and download the appropriate pkl binary
-RUN arch=$(uname -m) && \
-    if [ "$arch" = "x86_64" ]; then \
-	cp /cache/pkl-linux-%s-amd64 /usr/bin/pkl; \
-    elif [ "$arch" = "aarch64" ]; then \
-	cp /cache/pkl-linux-%s-aarch64 /usr/bin/pkl; \
-    else \
-	echo "Unsupported architecture: $arch" && exit 1; \
-    fi
-`, pklVersion, pklVersion))
-
-	// Package Section (Dynamic Content)
-	dockerFile.WriteString(pkgSection + "\n\n")
-
-	// Setup kdeps
-	if devBuildMode {
-		dockerFile.WriteString(`
-RUN cp /cache/kdeps /bin/kdeps
-RUN chmod a+x /bin/kdeps
-`)
-	} else {
-		dockerFile.WriteString(`
-RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/refs/heads/main/install.sh | sh -s -- -b /bin/ -d "latest"
-`)
+	templateData := map[string]interface{}{
+		"ImageVersion":     imageVersion,
+		"SchemaVersion":    schemaVersion,
+		"HostIP":           hostIP,
+		"OllamaPortNum":    ollamaPortNum,
+		"KdepsHost":        kdepsHost,
+		"ArgsSection":      argsSection,
+		"EnvsSection":      envsSection,
+		"PkgSection":       pkgSection,
+		"PythonPkgSection": pythonPkgSection,
+		"CondaPkgSection":  condaPkgSection,
+		"AnacondaVersion":  anacondaVersion,
+		"PklVersion":       pklVersion,
+		"KdepsVersion":     version.DefaultKdepsInstallVersion,
+		"Timezone":         timezone,
+		"ExposedPort":      exposedPort,
+		"InstallAnaconda":  installAnaconda,
+		"DevBuildMode":     devBuildMode,
+		"ApiServerMode":    apiServerMode,
 	}
 
-	// Copy workflow
-	dockerFile.WriteString(`
-COPY workflow /agent/project
-COPY workflow /agent/workflow
-`)
-
-	// Conditionally Install Anaconda and Additional Packages
-	if installAnaconda {
-		dockerFile.WriteString(fmt.Sprintf(`
-RUN arch=$(uname -m) && if [ "$arch" = "x86_64" ]; then \
-	cp /cache/anaconda-linux-%s-x86_64.sh /tmp/anaconda.sh; \
-    elif [ "$arch" = "aarch64" ]; then \
-	cp /cache/anaconda-linux-%s-aarch64.sh /tmp/anaconda.sh; \
-    else \
-	echo "Unsupported architecture: $arch" && exit 1; \
-    fi
-`, anacondaVersion, anacondaVersion))
-	}
-
-	if installAnaconda {
-		dockerFile.WriteString(`
-RUN /bin/bash /tmp/anaconda.sh -b -p /opt/conda
-RUN ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh
-RUN find /opt/conda/ -follow -type f -name '*.a' -delete
-RUN find /opt/conda/ -follow -type f -name '*.js.map' -delete
-RUN /opt/conda/bin/conda clean -afy
-RUN rm /tmp/anaconda.sh
-RUN . /opt/conda/etc/profile.d/conda.sh && conda activate base
-
-RUN echo "export PATH=/opt/conda/bin:$PATH" >> /etc/environment
-ENV PATH="/opt/conda/bin:$PATH"
-`)
-		// Python Package Section (Dynamic Content)
-		dockerFile.WriteString(condaPkgSection + "\n\n")
-	}
-
-	// Python Package Section (Dynamic Content)
-	dockerFile.WriteString(pythonPkgSection + "\n\n")
-
-	// Cleanup
-	dockerFile.WriteString(`
-RUN apt-get clean && rm -rf /var/lib/apt/lists/*
-RUN rm -rf /cache
-`)
-
-	// Expose Port
-	if apiServerMode {
-		dockerFile.WriteString(fmt.Sprintf("EXPOSE %s\n\n", exposedPort))
-	}
-
-	// Entry Point and Command
-	dockerFile.WriteString(`
-ENTRYPOINT ["/bin/kdeps"]
-`)
-
-	return dockerFile.String()
+	return template.GenerateDockerfileFromTemplate(templateData)
 }
 
 func copyFilesToRunDir(fs afero.Fs, ctx context.Context, downloadDir, runDir string, logger *logging.Logger) error {
@@ -529,7 +426,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		return "", false, false, "", "", "", "", "", err
 	}
 
-	dockerfileContent := generateDockerfile(
+	dockerfileContent, err := generateDockerfileFromTemplate(
 		imageVersion,
 		schema.SchemaVersion(ctx),
 		hostIP,
@@ -549,6 +446,9 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		APIServerMode,
 		schema.UseLatest,
 	)
+	if err != nil {
+		return "", false, false, "", "", "", "", "", err
+	}
 
 	// Write the Dockerfile to the run directory
 	resourceConfigurationFile := filepath.Join(runDir, "Dockerfile")
