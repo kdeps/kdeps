@@ -6,5 +6,5 @@ import (
 
 // Embed the templates directory.
 //
-//go:embed *.pkl
+//go:embed *.pkl *.template
 var TemplatesFS embed.FS
