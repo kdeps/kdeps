@@ -174,10 +174,14 @@ func generateDockerfile(
 	pkgSection,
 	pythonPkgSection,
 	condaPkgSection,
+	anacondaVersion,
+	pklVersion,
+	timezone,
 	exposedPort string,
-	installAnaconda bool,
-	devBuildMode bool,
-	apiServerMode bool,
+	installAnaconda,
+	devBuildMode,
+	apiServerMode,
+	useLatest bool,
 ) string {
 	var dockerFile strings.Builder
 
@@ -202,8 +206,14 @@ ENV DEBUG=1
 	dockerFile.WriteString(`
 COPY cache /cache
 RUN chmod +x /cache/pkl*
-RUN chmod +x /cache/Anaconda3*
+RUN chmod +x /cache/anaconda*
 `)
+
+	// Timezone
+	dockerFile.WriteString(fmt.Sprintf(`
+ARG DEBIAN_FRONTEND=noninteractive
+ENV TZ=%s
+`, timezone))
 
 	// Install Necessary Tools
 	dockerFile.WriteString(`
@@ -211,22 +221,27 @@ RUN chmod +x /cache/Anaconda3*
 RUN apt-get update --fix-missing && apt-get install -y --no-install-recommends \
     bzip2 ca-certificates git subversion mercurial libglib2.0-0 \
     libsm6 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxinerama1 libxrandr2 libxrender1 \
-    gpg-agent openssh-client procps software-properties-common wget curl nano jq python3 python3-pip
-
+    gpg-agent openssh-client procps software-properties-common wget curl nano jq python3 python3-pip musl musl-dev \
+    musl-tools
 `)
 
+	if useLatest {
+		anacondaVersion = "latest"
+		pklVersion = "latest"
+	}
+
 	// Determine Architecture and Download pkl Binary
-	dockerFile.WriteString(`
+	dockerFile.WriteString(fmt.Sprintf(`
 # Determine the architecture and download the appropriate pkl binary
 RUN arch=$(uname -m) && \
     if [ "$arch" = "x86_64" ]; then \
-	cp /cache/pkl-linux-amd64 /usr/bin/pkl; \
+	cp /cache/pkl-linux-%s-amd64 /usr/bin/pkl; \
     elif [ "$arch" = "aarch64" ]; then \
-	cp /cache/pkl-linux-aarch64 /usr/bin/pkl; \
+	cp /cache/pkl-linux-%s-aarch64 /usr/bin/pkl; \
     else \
 	echo "Unsupported architecture: $arch" && exit 1; \
     fi
-`)
+`, pklVersion, pklVersion))
 
 	// Package Section (Dynamic Content)
 	dockerFile.WriteString(pkgSection + "\n\n")
@@ -251,15 +266,19 @@ COPY workflow /agent/workflow
 
 	// Conditionally Install Anaconda and Additional Packages
 	if installAnaconda {
-		dockerFile.WriteString(`
+		dockerFile.WriteString(fmt.Sprintf(`
 RUN arch=$(uname -m) && if [ "$arch" = "x86_64" ]; then \
-	cp /cache/Anaconda3*x86_64.sh /tmp/anaconda.sh; \
+	cp /cache/anaconda-linux-%s-x86_64.sh /tmp/anaconda.sh; \
     elif [ "$arch" = "aarch64" ]; then \
-	cp /cache/Anaconda3*aarch64.sh /tmp/anaconda.sh; \
+	cp /cache/anaconda-linux-%s-aarch64.sh /tmp/anaconda.sh; \
     else \
 	echo "Unsupported architecture: $arch" && exit 1; \
     fi
+`, anacondaVersion, anacondaVersion))
+	}
 
+	if installAnaconda {
+		dockerFile.WriteString(`
 RUN /bin/bash /tmp/anaconda.sh -b -p /opt/conda
 RUN ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh
 RUN find /opt/conda/ -follow -type f -name '*.a' -delete
@@ -270,7 +289,6 @@ RUN . /opt/conda/etc/profile.d/conda.sh && conda activate base
 
 RUN echo "export PATH=/opt/conda/bin:$PATH" >> /etc/environment
 ENV PATH="/opt/conda/bin:$PATH"
-
 `)
 		// Python Package Section (Dynamic Content)
 		dockerFile.WriteString(condaPkgSection + "\n\n")
@@ -345,13 +363,18 @@ func generateParamsSection(prefix string, items map[string]string) string {
 	return strings.Join(lines, "\n")
 }
 
-func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *logging.Logger) (string, bool, string, string, string, error) {
+func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *logging.Logger) (string, bool, bool, string, string, string, string, string, error) {
 	var portNum uint16 = 3000
+	var webPortNum uint16 = 8080
 	hostIP := "127.0.0.1"
+	webHostIP := "127.0.0.1"
+
+	anacondaVersion := "2024.10-1"
+	pklVersion := "0.28.1"
 
 	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow, logger)
 	if err != nil {
-		return "", false, "", "", "", err
+		return "", false, false, "", "", "", "", "", err
 	}
 
 	agentName := wfCfg.GetName()
@@ -368,6 +391,14 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		hostIP = APIServer.HostIP
 	}
 
+	webServerMode := wfSettings.WebServerMode
+	webServer := wfSettings.WebServer
+
+	if webServer != nil {
+		webPortNum = webServer.PortNum
+		webHostIP = webServer.HostIP
+	}
+
 	pkgList := dockerSettings.Packages
 	repoList := dockerSettings.Repositories
 	pythonPkgList := dockerSettings.PythonPackages
@@ -375,13 +406,23 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	condaPkgList := dockerSettings.CondaPackages
 	argsList := dockerSettings.Args
 	envsList := dockerSettings.Env
+	timezone := dockerSettings.Timezone
 
 	hostPort := strconv.FormatUint(uint64(portNum), 10)
-	kdepsHost := fmt.Sprintf("%s:%s", hostIP, hostPort)
-	exposedPort := hostPort
+	webHostPort := strconv.FormatUint(uint64(webPortNum), 10)
 
-	if !APIServerMode {
-		exposedPort = ""
+	kdepsHost := fmt.Sprintf("%s:%s", hostIP, hostPort)
+	exposedPort := ""
+
+	if APIServerMode {
+		exposedPort = hostPort
+	}
+
+	if webServerMode {
+		if exposedPort != "" {
+			exposedPort += " "
+		}
+		exposedPort += strconv.Itoa(int(webPortNum))
 	}
 
 	imageVersion := dockerSettings.OllamaImageTag
@@ -461,26 +502,30 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion)
 	downloadDir := filepath.Join(kdepsDir, "cache")
 
-	urls, err := GenerateURLs(ctx)
+	items, err := GenerateURLs(ctx, installAnaconda)
 	if err != nil {
-		return "", false, "", "", "", err
+		return "", false, false, "", "", "", "", "", err
 	}
 
-	err = download.DownloadFiles(fs, ctx, downloadDir, urls, logger, schema.UseLatest)
+	for _, item := range items {
+		logger.Debug("will download", "url", item.URL, "localName", item.LocalName)
+	}
+
+	err = download.DownloadFiles(fs, ctx, downloadDir, items, logger, schema.UseLatest)
 	if err != nil {
-		return "", false, "", "", "", err
+		return "", false, false, "", "", "", "", "", err
 	}
 
 	err = copyFilesToRunDir(fs, ctx, downloadDir, runDir, logger)
 	if err != nil {
-		return "", false, "", "", "", err
+		return "", false, false, "", "", "", "", "", err
 	}
 
 	ollamaPortNum := generateUniqueOllamaPort(portNum)
 
 	devBuildMode, err := checkDevBuildMode(fs, kdepsDir, logger)
 	if err != nil {
-		return "", false, "", "", "", err
+		return "", false, false, "", "", "", "", "", err
 	}
 
 	dockerfileContent := generateDockerfile(
@@ -494,10 +539,14 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		pkgSection,
 		pythonPkgSection,
 		condaPkgSection,
+		anacondaVersion,
+		pklVersion,
+		timezone,
 		exposedPort,
 		installAnaconda,
 		devBuildMode,
 		APIServerMode,
+		schema.UseLatest,
 	)
 
 	// Write the Dockerfile to the run directory
@@ -505,10 +554,10 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	fmt.Println(resourceConfigurationFile)
 	err = afero.WriteFile(fs, resourceConfigurationFile, []byte(dockerfileContent), 0o644)
 	if err != nil {
-		return "", false, "", "", "", err
+		return "", false, false, "", "", "", "", "", err
 	}
 
-	return runDir, APIServerMode, hostIP, hostPort, gpuType, nil
+	return runDir, APIServerMode, webServerMode, hostIP, hostPort, webHostIP, webHostPort, gpuType, nil
 }
 
 // printDockerBuildOutput processes the Docker build logs and returns any error encountered during the build.

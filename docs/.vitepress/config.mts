@@ -40,8 +40,40 @@ export default defineConfig({
                 link: "/getting-started/configuration/workflow#api-server-settings",
                 items: [
                   {
+                    text: "Trusted Proxies",
+                    link: "/getting-started/configuration/workflow#trustedproxies",
+                  },
+                  {
+                    text: "CORS Configuration",
+                    link: "/getting-started/configuration/workflow#cors-configuration",
+                  },
+                  {
                     text: "API Routes",
                     link: "/getting-started/configuration/workflow#api-routes",
+                  },
+                ],
+              },
+              {
+                text: "Web Server Settings",
+                link: "/getting-started/configuration/workflow#web-server-settings",
+                items: [
+                  {
+                    text: "Web Server",
+                    link: "/getting-started/configuration/workflow#webserver",
+                  },
+                  {
+                    text: "Web Server Routes",
+                    link: "/getting-started/configuration/workflow#web-server-routes",
+                    items: [
+                          {
+                                text: "Static",
+                                link: "/getting-started/configuration/workflow#static-file-serving",
+                          },
+                          {
+                                text: "Reverse-Proxy (Streamlit, Node.js, etc.)",
+                                link: "/getting-started/configuration/workflow#reverse-proxying",
+                          },
+                    ],
                   },
                 ],
               },
@@ -143,6 +175,10 @@ export default defineConfig({
                 link: "/getting-started/resources/global-functions#data-folder-functions",
               },
               {
+                text: "Memory Operations",
+                link: "/getting-started/resources/global-functions#memory-operation-functions",
+              },
+              {
                 text: "JSON Document Parser",
                 link: "/getting-started/resources/global-functions#document-json-parsers",
               },
@@ -165,6 +201,7 @@ export default defineConfig({
       {
         text: "Reference",
         items: [
+          { text: "Open-source LLM Tool Calling (aka MCP)", link: "/getting-started/resources/tools" },
           {
             text: "Graph Dependency",
             link: "/getting-started/resources/kartographer",
@@ -173,11 +210,15 @@ export default defineConfig({
             text: "Promise Operator",
             link: "/getting-started/resources/promise",
           },
+          { text: "API Request Validations", link: "/getting-started/resources/api-request-validations" },
           { text: "Skip Conditions", link: "/getting-started/resources/skip" },
+          { text: "Item Iterations", link: "/getting-started/resources/items" },
           {
             text: "Preflight Validations",
             link: "/getting-started/resources/validations",
           },
+          { text: "Memory Operations", link: "/getting-started/resources/memory" },
+          { text: "Expr Block", link: "/getting-started/resources/expr" },
           { text: "Data Folder", link: "/getting-started/resources/data" },
           { text: "File Uploads", link: "/getting-started/tutorials/files" },
           {
@@ -187,6 +228,14 @@ export default defineConfig({
           {
             text: "Reusing and Remixing AI Agents",
             link: "/getting-started/resources/remix",
+          },
+          {
+            text: "CORS Configuration",
+            link: "/getting-started/configuration/cors",
+          },
+          {
+            text: "Web Server",
+            link: "/getting-started/configuration/webserver",
           },
           {
             text: "Multi Modal LLM Models",

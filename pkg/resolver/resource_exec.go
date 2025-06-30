@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"github.com/alexellis/go-execute/v2"
 	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/evaluator"
+	"github.com/kdeps/kdeps/pkg/kdepsexec"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklExec "github.com/kdeps/schema/gen/exec"
@@ -80,30 +82,27 @@ func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklEx
 
 	dr.Logger.Info("executing command", "command", execBlock.Command, "env", env)
 
-	cmd := execute.ExecTask{
+	task := execute.ExecTask{
 		Command:     execBlock.Command,
 		Shell:       true,
 		Env:         env,
 		StreamStdio: false,
 	}
 
-	result, err := cmd.Execute(dr.Context)
+	var stdout, stderr string
+	var err error
+	if dr.ExecTaskRunnerFn != nil {
+		stdout, stderr, err = dr.ExecTaskRunnerFn(dr.Context, task)
+	} else {
+		// fallback direct execution via kdepsexec
+		stdout, stderr, _, err = kdepsexec.RunExecTask(dr.Context, task, dr.Logger, false)
+	}
 	if err != nil {
-		// Signal failure via bus service
-		if dr.BusManager != nil {
-			busErr := dr.BusManager.SignalResourceCompletion(actionID, "exec", "failed", map[string]interface{}{
-				"error":   err.Error(),
-				"command": execBlock.Command,
-			})
-			if busErr != nil {
-				dr.Logger.Warn("Failed to signal exec failure via bus", "actionID", actionID, "error", busErr)
-			}
-		}
 		return err
 	}
 
-	execBlock.Stdout = &result.Stdout
-	execBlock.Stderr = &result.Stderr
+	execBlock.Stdout = &stdout
+	execBlock.Stderr = &stderr
 
 	ts := pkl.Duration{
 		Value: float64(time.Now().Unix()),
@@ -111,26 +110,7 @@ func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklEx
 	}
 	execBlock.Timestamp = &ts
 
-	appendErr := dr.AppendExecEntry(actionID, execBlock)
-
-	// Signal completion via bus service
-	if dr.BusManager != nil {
-		status := "completed"
-		data := map[string]interface{}{
-			"command": execBlock.Command,
-		}
-		if appendErr != nil {
-			status = "failed"
-			data["error"] = appendErr.Error()
-		}
-
-		busErr := dr.BusManager.SignalResourceCompletion(actionID, "exec", status, data)
-		if busErr != nil {
-			dr.Logger.Warn("Failed to signal exec completion via bus", "actionID", actionID, "error", busErr)
-		}
-	}
-
-	return appendErr
+	return dr.AppendExecEntry(actionID, execBlock)
 }
 
 func (dr *DependencyResolver) WriteStdoutToFile(resourceID string, stdoutEncoded *string) (string, error) {
@@ -153,13 +133,17 @@ func (dr *DependencyResolver) WriteStdoutToFile(resourceID string, stdoutEncoded
 	return outputFilePath, nil
 }
 
-//nolint:dupl
 func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExec.ResourceExec) error {
 	pklPath := filepath.Join(dr.ActionDir, "exec/"+dr.RequestID+"__exec_output.pkl")
 
-	pklRes, err := pklExec.LoadFromPath(dr.Context, pklPath)
+	res, err := dr.LoadResource(dr.Context, pklPath, ExecResource)
 	if err != nil {
-		return fmt.Errorf("failed to load PKL file: %w", err)
+		return fmt.Errorf("failed to load PKL: %w", err)
+	}
+
+	pklRes, ok := res.(*pklExec.ExecImpl)
+	if !ok {
+		return errors.New("failed to cast pklRes to *pklExec.ExecImpl")
 	}
 
 	resources := pklRes.GetResources()
@@ -213,7 +197,7 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 		if res.TimeoutDuration != nil {
 			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
 		} else {
-			pklContent.WriteString("    timeoutDuration = 60.s\n")
+			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d.s\n", dr.DefaultTimeoutSec))
 		}
 
 		if res.Timestamp != nil {
@@ -225,7 +209,11 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 
 		pklContent.WriteString(dr.encodeExecStderr(res.Stderr))
 		pklContent.WriteString(dr.encodeExecStdout(res.Stdout))
-		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *res.File))
+		if res.File != nil {
+			pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *res.File))
+		} else {
+			pklContent.WriteString("    file = \"\"\n")
+		}
 
 		pklContent.WriteString("  }\n")
 	}

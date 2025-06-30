@@ -11,16 +11,18 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kdeps/kdeps/pkg/download"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
 )
 
 type URLInfo struct {
-	BaseURL       string
-	Repo          string
-	IsAnaconda    bool
-	Version       string
-	Architectures []string
+	BaseURL           string
+	Repo              string
+	IsAnaconda        bool
+	Version           string
+	Architectures     []string
+	LocalNameTemplate string
 }
 
 var archMappings = map[string]map[string]string{
@@ -111,52 +113,71 @@ func buildURL(baseURL, version, arch string) string {
 	return strings.NewReplacer("{version}", version, "{arch}", arch).Replace(baseURL)
 }
 
-func GenerateURLs(ctx context.Context) ([]string, error) {
+func GenerateURLs(ctx context.Context, installAnaconda bool) ([]download.DownloadItem, error) {
 	urlInfos := []URLInfo{
 		{
-			BaseURL:       "https://github.com/apple/pkl/releases/download/{version}/pkl-linux-{arch}",
-			Repo:          "apple/pkl",
-			Version:       "0.27.2",
-			Architectures: []string{"amd64", "aarch64"},
-		},
-		{
-			BaseURL:       "https://repo.anaconda.com/archive/Anaconda3-{version}-Linux-{arch}.sh",
-			IsAnaconda:    true,
-			Version:       "2024.10-1",
-			Architectures: []string{"x86_64", "aarch64"},
+			BaseURL:           "https://github.com/apple/pkl/releases/download/{version}/pkl-linux-{arch}",
+			Repo:              "apple/pkl",
+			Version:           "0.28.1",
+			Architectures:     []string{"amd64", "aarch64"},
+			LocalNameTemplate: "pkl-linux-{version}-{arch}",
 		},
 	}
 
-	var urls []string
+	// Only include anaconda if it should be installed
+	if installAnaconda {
+		urlInfos = append(urlInfos, URLInfo{
+			BaseURL:           "https://repo.anaconda.com/archive/Anaconda3-{version}-Linux-{arch}.sh",
+			IsAnaconda:        true,
+			Version:           "2024.10-1",
+			Architectures:     []string{"x86_64", "aarch64"},
+			LocalNameTemplate: "anaconda-linux-{version}-{arch}.sh",
+		})
+	}
+
+	var items []download.DownloadItem
 	for _, info := range urlInfos {
 		currentArch := GetCurrentArchitecture(ctx, info.Repo)
 		version := info.Version
 
-		if info.IsAnaconda {
-			if schema.UseLatest {
-				versions, err := GetLatestAnacondaVersions(ctx)
-				if err != nil {
-					return nil, fmt.Errorf("found Anaconda versions: %w", err)
-				}
-				if version = versions[currentArch]; version == "" {
-					return nil, fmt.Errorf("no Anaconda version for %s", currentArch)
-				}
+		if info.IsAnaconda && schema.UseLatest {
+			versions, err := GetLatestAnacondaVersions(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get Anaconda versions: %w", err)
 			}
-			urls = append(urls, buildURL(info.BaseURL, version, currentArch))
-			continue
-		}
-
-		if schema.UseLatest {
+			if version = versions[currentArch]; version == "" {
+				return nil, fmt.Errorf("no Anaconda version for %s", currentArch)
+			}
+		} else if schema.UseLatest {
 			latest, err := utils.GetLatestGitHubRelease(ctx, info.Repo, "")
 			if err != nil {
-				return nil, fmt.Errorf("GitHub release for %s: %w", info.Repo, err)
+				return nil, fmt.Errorf("failed to get latest GitHub release: %w", err)
 			}
 			version = latest
 		}
 
 		if utils.ContainsString(info.Architectures, currentArch) {
-			urls = append(urls, buildURL(info.BaseURL, version, currentArch))
+			url := buildURL(info.BaseURL, version, currentArch)
+
+			localVersion := version
+			if schema.UseLatest {
+				localVersion = "latest"
+			}
+
+			var localName string
+			if info.LocalNameTemplate != "" {
+				localName = strings.NewReplacer(
+					"{version}", localVersion,
+					"{arch}", currentArch,
+				).Replace(info.LocalNameTemplate)
+			}
+
+			items = append(items, download.DownloadItem{
+				URL:       url,       // full URL with actual version
+				LocalName: localName, // friendly/stable name like "anaconda-latest-aarch64.sh"
+			})
 		}
 	}
-	return urls, nil
+
+	return items, nil
 }
