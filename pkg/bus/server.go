@@ -1,6 +1,7 @@
 package bus
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/rpc"
@@ -18,6 +19,10 @@ type BusService struct {
 	// Add storage for resource states and completion tracking
 	resourceStates map[string]ResourceState
 	completions    map[string]bool
+	// Add health monitoring
+	healthChecker *HealthChecker
+	ctx           context.Context
+	cancel        context.CancelFunc
 }
 
 type Event struct {
@@ -85,6 +90,14 @@ type PublishEventResponse struct {
 	Error   string
 }
 
+// Health check RPC methods
+type HealthCheckRequest struct{}
+
+type HealthCheckResponse struct {
+	Status HealthStatus
+	Error  string
+}
+
 func (s *BusService) Subscribe(req SubscribeRequest, resp *SubscribeResponse) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -94,21 +107,41 @@ func (s *BusService) Subscribe(req SubscribeRequest, resp *SubscribeResponse) er
 	s.subs[id] = make(chan Event, 10) // Buffered to prevent blocking
 	resp.ID = id
 	s.logger.Info("Client subscribed", "id", id)
+
+	// Record metrics
+	if s.healthChecker != nil {
+		s.healthChecker.RecordConnection()
+	}
+
 	return nil
 }
 
 func (s *BusService) GetEvent(req EventRequest, resp *EventResponse) error {
+	start := time.Now()
+	defer func() {
+		if s.healthChecker != nil {
+			s.healthChecker.UpdateLatency(time.Since(start))
+			s.healthChecker.RecordEventProcessed()
+		}
+	}()
+
 	s.mu.Lock()
 	ch, ok := s.subs[req.ID]
 	s.mu.Unlock()
 	if !ok {
 		resp.Error = "invalid subscription ID"
+		if s.healthChecker != nil {
+			s.healthChecker.RecordError()
+		}
 		return nil
 	}
 	select {
 	case event := <-ch:
 		resp.Event = event
 		s.logger.Debug("Delivering event to client", "id", req.ID, "type", event.Type, "payload", event.Payload)
+		if s.healthChecker != nil {
+			s.healthChecker.RecordMessageDelivered()
+		}
 	case <-time.After(5 * time.Second):
 		resp.Error = "no events available"
 	}
@@ -141,6 +174,12 @@ func (s *BusService) SignalCompletion(req SignalCompletionRequest, resp *SignalC
 
 	resp.Success = true
 	s.logger.Info("Resource completion signaled", "resourceID", req.ResourceID, "status", req.Status)
+
+	// Record metrics
+	if s.healthChecker != nil {
+		s.healthChecker.RecordResourceCompletion()
+	}
+
 	return nil
 }
 
@@ -167,6 +206,9 @@ func (s *BusService) WaitForCompletion(req WaitForCompletionRequest, resp *WaitF
 		if time.Since(start) > timeout {
 			resp.Error = fmt.Sprintf("timeout waiting for resource %s to complete", req.ResourceID)
 			s.logger.Warn("Timeout waiting for resource completion", "resourceID", req.ResourceID)
+			if s.healthChecker != nil {
+				s.healthChecker.RecordError()
+			}
 			return nil
 		}
 
@@ -178,6 +220,22 @@ func (s *BusService) WaitForCompletion(req WaitForCompletionRequest, resp *WaitF
 func (s *BusService) PublishEvent(req PublishEventRequest, resp *PublishEventResponse) error {
 	s.publishEventInternal(req.Event)
 	resp.Success = true
+
+	// Record metrics
+	if s.healthChecker != nil {
+		s.healthChecker.RecordMessagePublished()
+	}
+
+	return nil
+}
+
+// HealthCheck returns current health status
+func (s *BusService) HealthCheck(req HealthCheckRequest, resp *HealthCheckResponse) error {
+	if s.healthChecker != nil {
+		resp.Status = s.healthChecker.GetHealth()
+	} else {
+		resp.Error = "health checker not available"
+	}
 	return nil
 }
 
@@ -196,6 +254,9 @@ func (s *BusService) publishEventInternal(event Event) {
 			s.logger.Debug("Sent event to subscriber", "id", id)
 		default:
 			s.logger.Warn("Subscriber channel full", "id", id)
+			if s.healthChecker != nil {
+				s.healthChecker.RecordError()
+			}
 		}
 	}
 }
@@ -205,21 +266,70 @@ func (s *BusService) PublishEventLegacy(event Event) {
 	s.publishEventInternal(event)
 }
 
+// Shutdown gracefully shuts down the bus service
+func (s *BusService) Shutdown() {
+	if s.cancel != nil {
+		s.cancel()
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Close all subscriber channels
+	for id, ch := range s.subs {
+		close(ch)
+		s.logger.Debug("Closed subscriber channel", "id", id)
+		if s.healthChecker != nil {
+			s.healthChecker.RecordDisconnection()
+		}
+	}
+
+	s.logger.Info("Bus service shutdown completed")
+}
+
 func StartBusServer(logger *logging.Logger) error {
+	return StartBusServerWithContext(context.Background(), logger)
+}
+
+func StartBusServerWithContext(ctx context.Context, logger *logging.Logger) error {
+	busCtx, cancel := context.WithCancel(ctx)
+
+	// Initialize health checker
+	healthChecker := NewHealthChecker(logger, 30*time.Second)
+	healthChecker.Start(busCtx)
+
 	service := &BusService{
 		logger:         logger,
 		subs:           make(map[string]chan Event),
 		resourceStates: make(map[string]ResourceState),
 		completions:    make(map[string]bool),
+		healthChecker:  healthChecker,
+		ctx:            busCtx,
+		cancel:         cancel,
 	}
+
 	if err := rpc.Register(service); err != nil {
+		cancel()
 		return fmt.Errorf("failed to register RPC service: %w", err)
 	}
+
 	listener, err := net.Listen("tcp", "127.0.0.1:12345")
 	if err != nil {
+		cancel()
 		return fmt.Errorf("failed to listen on 127.0.0.1:12345: %w", err)
 	}
+
 	logger.Info("Message Bus RPC server started on 127.0.0.1:12345")
+
+	// Handle graceful shutdown
+	go func() {
+		<-busCtx.Done()
+		logger.Info("Shutting down bus server...")
+		listener.Close()
+		service.Shutdown()
+	}()
+
+	// Start accepting connections
 	rpc.Accept(listener)
 	return nil
 }

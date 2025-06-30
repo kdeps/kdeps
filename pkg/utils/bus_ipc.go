@@ -12,27 +12,40 @@ import (
 
 // BusIPCManager manages IPC communication through the bus service
 type BusIPCManager struct {
-	client *rpc.Client
-	logger *logging.Logger
+	resilientClient *bus.ResilientClient
+	logger          *logging.Logger
 }
 
-// NewBusIPCManager creates a new bus IPC manager
+// NewBusIPCManager creates a new bus IPC manager with resilient client
 func NewBusIPCManager(logger *logging.Logger) (*BusIPCManager, error) {
-	client, err := bus.StartBusClient()
+	resilientClient, err := bus.NewResilientClient(logger)
 	if err != nil {
-		return nil, fmt.Errorf("failed to start bus client: %w", err)
+		return nil, fmt.Errorf("failed to create resilient bus client: %w", err)
 	}
 
 	return &BusIPCManager{
-		client: client,
-		logger: logger,
+		resilientClient: resilientClient,
+		logger:          logger,
+	}, nil
+}
+
+// NewBusIPCManagerWithConfig creates a bus IPC manager with custom configuration
+func NewBusIPCManagerWithConfig(logger *logging.Logger, poolSize int, retryConfig bus.RetryConfig) (*BusIPCManager, error) {
+	resilientClient, err := bus.NewResilientClientWithConfig(logger, poolSize, retryConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create resilient bus client: %w", err)
+	}
+
+	return &BusIPCManager{
+		resilientClient: resilientClient,
+		logger:          logger,
 	}, nil
 }
 
 // Close closes the bus connection
 func (b *BusIPCManager) Close() error {
-	if b.client != nil {
-		return b.client.Close()
+	if b.resilientClient != nil {
+		return b.resilientClient.Close()
 	}
 	return nil
 }
@@ -44,12 +57,12 @@ func (b *BusIPCManager) SignalResourceCompletion(resourceID, resourceType, statu
 	}
 	data["resourceType"] = resourceType
 
-	return bus.SignalResourceCompletion(b.client, resourceID, status, data)
+	return b.resilientClient.SignalResourceCompletion(resourceID, status, data)
 }
 
 // WaitForResourceCompletion replaces WaitForTimestampChange
 func (b *BusIPCManager) WaitForResourceCompletion(resourceID string, timeoutSeconds int64) error {
-	state, err := bus.WaitForResourceCompletion(b.client, resourceID, timeoutSeconds)
+	state, err := b.resilientClient.WaitForResourceCompletion(resourceID, timeoutSeconds)
 	if err != nil {
 		return err
 	}
@@ -69,12 +82,12 @@ func (b *BusIPCManager) SignalCleanup(cleanupType, message string, data map[stri
 		eventType = "dockercleanup"
 	}
 
-	return bus.PublishEvent(b.client, eventType, message, "", data)
+	return b.resilientClient.PublishEvent(eventType, message, "", data)
 }
 
 // WaitForCleanup replaces WaitForFileReady for cleanup files
 func (b *BusIPCManager) WaitForCleanup(timeoutSeconds int64) error {
-	return bus.WaitForCleanupSignal(b.client, b.logger, timeoutSeconds)
+	return b.resilientClient.WaitForCleanupSignal(timeoutSeconds)
 }
 
 // SignalFileReady replaces file creation for signaling
@@ -85,7 +98,7 @@ func (b *BusIPCManager) SignalFileReady(filepath, operation string, data map[str
 	data["filepath"] = filepath
 	data["operation"] = operation
 
-	return bus.PublishEvent(b.client, "file_ready", fmt.Sprintf("File %s ready for %s", filepath, operation), filepath, data)
+	return b.resilientClient.PublishEvent("file_ready", fmt.Sprintf("File %s ready for %s", filepath, operation), filepath, data)
 }
 
 // WaitForFileReady replaces the file-based WaitForFileReady function
@@ -97,20 +110,37 @@ func (b *BusIPCManager) WaitForFileReady(filepath string, timeoutSeconds int64) 
 
 	b.logger.Debug("Waiting for file ready signal via bus", "file", filepath)
 
+	// Use resilient client with built-in retry and circuit breaking
 	start := time.Now()
-	return bus.WaitForEvents(b.client, b.logger, func(event bus.Event) bool {
+	return b.resilientClient.ExecuteWithRetry(func(client *rpc.Client) error {
 		if time.Since(start) > timeout {
-			return true // Stop and let timeout be handled by WaitForEvents
+			return fmt.Errorf("timeout waiting for file %s", filepath)
 		}
 
-		if event.Type == "file_ready" {
-			if eventFilepath, ok := event.Data["filepath"].(string); ok && eventFilepath == filepath {
-				b.logger.Info("File ready signal received via bus", "file", filepath)
-				return true
+		return bus.WaitForEvents(client, b.logger, func(event bus.Event) bool {
+			if time.Since(start) > timeout {
+				return true // Stop and let timeout be handled
 			}
-		}
-		return false
+
+			if event.Type == "file_ready" {
+				if eventFilepath, ok := event.Data["filepath"].(string); ok && eventFilepath == filepath {
+					b.logger.Info("File ready signal received via bus", "file", filepath)
+					return true
+				}
+			}
+			return false
+		})
 	})
+}
+
+// HealthCheck performs a health check on the bus service
+func (b *BusIPCManager) HealthCheck() (*bus.HealthStatus, error) {
+	return b.resilientClient.HealthCheck()
+}
+
+// GetMetrics returns bus client metrics for monitoring
+func (b *BusIPCManager) GetMetrics() map[string]interface{} {
+	return b.resilientClient.GetMetrics()
 }
 
 // Legacy wrapper functions for backwards compatibility

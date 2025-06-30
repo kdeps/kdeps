@@ -33,11 +33,13 @@ func (dr *DependencyResolver) HandleLLMChat(actionID string, chatBlock *pklLLM.R
 }
 
 func (dr *DependencyResolver) decodeChatBlock(chatBlock *pklLLM.ResourceChat) error {
-	decodedPrompt, err := utils.DecodeBase64IfNeeded(chatBlock.Prompt)
-	if err != nil {
-		return fmt.Errorf("failed to decode Prompt: %w", err)
+	if chatBlock.Prompt != nil {
+		decodedPrompt, err := utils.DecodeBase64IfNeeded(*chatBlock.Prompt)
+		if err != nil {
+			return fmt.Errorf("failed to decode Prompt: %w", err)
+		}
+		chatBlock.Prompt = &decodedPrompt
 	}
-	chatBlock.Prompt = decodedPrompt
 
 	if chatBlock.JSONResponseKeys != nil {
 		decodedKeys, err := utils.DecodeStringSlice(chatBlock.JSONResponseKeys, "JSONResponseKeys")
@@ -77,7 +79,7 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 
 		content := []llms.MessageContent{
 			llms.TextParts(llms.ChatMessageTypeSystem, systemPrompt),
-			llms.TextParts(llms.ChatMessageTypeHuman, chatBlock.Prompt),
+			llms.TextParts(llms.ChatMessageTypeHuman, *chatBlock.Prompt),
 		}
 
 		response, err := llm.GenerateContent(dr.Context, content, llms.WithJSONMode())
@@ -114,7 +116,7 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 		}
 		completion = response.Choices[0].Content
 	} else {
-		completion, err = llm.Call(dr.Context, chatBlock.Prompt)
+		completion, err = llm.Call(dr.Context, *chatBlock.Prompt)
 		if err != nil {
 			// Signal failure via bus service
 			if dr.BusManager != nil {
@@ -182,7 +184,7 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 	}
 
 	encodedModel := utils.EncodeValue(newChat.Model)
-	encodedPrompt := utils.EncodeValue(newChat.Prompt)
+	encodedPrompt := utils.EncodeValuePtr(newChat.Prompt)
 	encodedResponse := utils.EncodeValuePtr(newChat.Response)
 	encodedJSONResponseKeys := dr.encodeChatJSONResponseKeys(newChat.JSONResponseKeys)
 

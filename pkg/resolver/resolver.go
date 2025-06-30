@@ -314,7 +314,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			}
 
 			// Process Chat (LLM) step, if defined
-			if runBlock.Chat != nil && runBlock.Chat.Model != "" && runBlock.Chat.Prompt != "" {
+			if runBlock.Chat != nil && runBlock.Chat.Model != "" && runBlock.Chat.Prompt != nil && *runBlock.Chat.Prompt != "" {
 				if err := dr.processResourceStep(res.ActionID, "llm", runBlock.Chat.TimeoutDuration, func() error {
 					return dr.HandleLLMChat(res.ActionID, runBlock.Chat)
 				}); err != nil {
