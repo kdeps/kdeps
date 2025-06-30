@@ -42,7 +42,6 @@ func TestAppendDataEntry(t *testing.T) {
 		{
 			name: "Context is nil",
 			setup: func(dr *DependencyResolver) *data.DataImpl {
-				
 				dr.Context = nil
 				return nil
 			},

@@ -440,7 +440,6 @@ run {
 
 	pkgProject = pkgP
 
-	
 	rd, asm, _, hIP, hPort, _, _, gpu, err := docker.BuildDockerfile(testFs, ctx, systemConfiguration, kdepsDir, pkgProject, logger)
 	if err != nil {
 		return err

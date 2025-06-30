@@ -2,6 +2,7 @@ package archiver
 
 import (
 	"context"
+	"crypto/md5"
 	"encoding/hex"
 	"errors"
 	"io"
@@ -15,8 +16,6 @@ import (
 
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
-
-	"crypto/md5" 
 
 	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/schema"
@@ -909,7 +908,7 @@ func TestMoveFolderAndGetFileMD5(t *testing.T) {
 		t.Fatalf("GetFileMD5 error: %v", err)
 	}
 
-	h := md5.Sum(content) 
+	h := md5.Sum(content)
 	expectedHash := hex.EncodeToString(h[:])[:8]
 	if gotHash != expectedHash {
 		t.Fatalf("md5 mismatch: got %s want %s", gotHash, expectedHash)
@@ -1442,7 +1441,7 @@ func TestGetFileMD5Edges(t *testing.T) {
 	// Full length (32 chars) hash check.
 	got, err := GetFileMD5(fs, filePath, 32)
 	require.NoError(t, err)
-	h := md5.Sum(content) 
+	h := md5.Sum(content)
 	expected := hex.EncodeToString(h[:])
 	require.Equal(t, expected, got)
 
@@ -1494,7 +1493,7 @@ func TestGetFileMD5SuccessAndError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetFileMD5 error: %v", err)
 	}
-	h := md5.Sum(data) 
+	h := md5.Sum(data)
 	expected := hex.EncodeToString(h[:])[:8]
 	if got != expected {
 		t.Fatalf("hash mismatch: got %s want %s", got, expected)
@@ -1966,7 +1965,7 @@ func TestMoveFolderAndGetFileMD5Small(t *testing.T) {
 		t.Fatalf("GetFileMD5 error: %v", err)
 	}
 
-	h := md5.New() 
+	h := md5.New()
 	_, _ = io.WriteString(h, string(data))
 	wantFull := hex.EncodeToString(h.Sum(nil))
 	want := wantFull[:6]
@@ -2039,7 +2038,7 @@ func TestGetFileMD5AndCopyFileSuccess(t *testing.T) {
 	}
 
 	// Calculate expected MD5 manually (full hash then slice len 8)
-	hash := md5.Sum(content) 
+	hash := md5.Sum(content)
 	wantMD5 := hex.EncodeToString(hash[:])[:8]
 
 	gotMD5, err := GetFileMD5(fs, srcPath, 8)

@@ -342,7 +342,6 @@ func searchTextInFile(filePath string, searchText string) (bool, error) {
 }
 
 func itShouldCreateTheDockerfile(arg1, arg2, arg3 string) error {
-	
 	rd, asm, _, hIP, hPort, _, _, gpu, err := BuildDockerfile(testFs, ctx, systemConfiguration, kdepsDir, pkgProject, logger)
 	if err != nil {
 		return err

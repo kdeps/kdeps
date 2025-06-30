@@ -1272,7 +1272,7 @@ func TestGenerateURLsHappyPath(t *testing.T) {
 	// Ensure the package-level flag is in the expected default state.
 	schema.UseLatest = false
 
-	items, err := GenerateURLs(ctx)
+	items, err := GenerateURLs(ctx, true)
 	if err != nil {
 		t.Fatalf("GenerateURLs returned error: %v", err)
 	}
@@ -1322,7 +1322,7 @@ func TestGenerateURLs_GitHubError(t *testing.T) {
 		return origTransport.RoundTrip(r)
 	})
 
-	if _, err := GenerateURLs(ctx); err == nil {
+	if _, err := GenerateURLs(ctx, true); err == nil {
 		t.Fatalf("expected error when GitHub API returns forbidden")
 	}
 }
@@ -1358,7 +1358,7 @@ func TestGenerateURLs_AnacondaError(t *testing.T) {
 		return origTransport.RoundTrip(r)
 	})
 
-	if _, err := GenerateURLs(ctx); err == nil {
+	if _, err := GenerateURLs(ctx, true); err == nil {
 		t.Fatalf("expected error when Anaconda version fetch fails")
 	}
 }
@@ -1366,7 +1366,7 @@ func TestGenerateURLs_AnacondaError(t *testing.T) {
 func TestGenerateURLs(t *testing.T) {
 	ctx := context.Background()
 
-	items, err := GenerateURLs(ctx)
+	items, err := GenerateURLs(ctx, true)
 	if err != nil {
 		t.Fatalf("unexpected error generating urls: %v", err)
 	}
@@ -1383,7 +1383,7 @@ func TestGenerateURLs(t *testing.T) {
 
 func TestGenerateURLsDefaultExtra(t *testing.T) {
 	ctx := context.Background()
-	items, err := GenerateURLs(ctx)
+	items, err := GenerateURLs(ctx, true)
 	if err != nil {
 		t.Fatalf("GenerateURLs returned error: %v", err)
 	}
@@ -1432,7 +1432,7 @@ func TestGenerateURLsUseLatest(t *testing.T) {
 	defer func() { schema.UseLatest = origLatest }()
 
 	ctx := context.Background()
-	items, err := GenerateURLs(ctx)
+	items, err := GenerateURLs(ctx, true)
 	if err != nil {
 		t.Fatalf("GenerateURLs returned error: %v", err)
 	}
@@ -1465,7 +1465,7 @@ func TestGenerateURLsLatestUsesFetcher(t *testing.T) {
 		return "0.99.0", nil
 	}
 
-	items, err := GenerateURLs(ctx)
+	items, err := GenerateURLs(ctx, true)
 	if err != nil {
 		t.Fatalf("GenerateURLs error: %v", err)
 	}
@@ -1527,4 +1527,35 @@ func TestPrintDockerBuildOutput_NonJSONLines(t *testing.T) {
 
 	err := printDockerBuildOutput(&buf)
 	assert.NoError(t, err)
+}
+
+func TestGenerateDockerfile_NoAnacondaInstall(t *testing.T) {
+	dockerfile := generateDockerfile(
+		"latest",         // imageVersion
+		"1.0",            // schemaVersion
+		"127.0.0.1",      // hostIP
+		"11434",          // ollamaPortNum
+		"127.0.0.1:3000", // kdepsHost
+		"",               // argsSection
+		"",               // envsSection
+		"",               // pkgSection
+		"",               // pythonPkgSection
+		"",               // condaPkgSection
+		"2024.10-1",      // anacondaVersion
+		"0.28.1",         // pklVersion
+		"UTC",            // timezone
+		"",               // exposedPort
+		false,            // installAnaconda = false
+		false,            // devBuildMode
+		false,            // apiServerMode
+		false,            // useLatest
+	)
+
+	// Should NOT contain anaconda installation commands
+	assert.NotContains(t, dockerfile, "anaconda-linux", "dockerfile should not contain anaconda installation when installAnaconda is false")
+	assert.NotContains(t, dockerfile, "/tmp/anaconda.sh", "dockerfile should not contain anaconda script references when installAnaconda is false")
+	assert.NotContains(t, dockerfile, "/opt/conda", "dockerfile should not contain conda references when installAnaconda is false")
+
+	// Should still contain pkl installation
+	assert.Contains(t, dockerfile, "pkl-linux", "dockerfile should still contain pkl installation")
 }
