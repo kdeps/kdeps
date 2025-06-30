@@ -1,16 +1,15 @@
 package resolver
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
 	"reflect"
 	"strings"
 
+	"github.com/alexellis/go-execute/v2"
 	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/pkg/evaluator"
-	"github.com/kdeps/kdeps/pkg/kdepsexec"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
@@ -20,14 +19,6 @@ import (
 
 // CreateResponsePklFile generates a PKL file from the API response and processes it.
 func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverresponse.APIServerResponse) error {
-	if dr == nil || len(dr.DBs) == 0 || dr.DBs[0] == nil {
-		return fmt.Errorf("dependency resolver or database is nil")
-	}
-
-	if err := dr.DBs[0].PingContext(context.Background()); err != nil {
-		return fmt.Errorf("failed to ping database: %v", err)
-	}
-
 	dr.Logger.Debug("starting CreateResponsePklFile", "response", apiResponseBlock)
 
 	if err := dr.ensureResponsePklFileNotExists(); err != nil {
@@ -61,10 +52,6 @@ func (dr *DependencyResolver) ensureResponsePklFileNotExists() error {
 func (dr *DependencyResolver) buildResponseSections(requestID string, apiResponseBlock apiserverresponse.APIServerResponse) []string {
 	sections := []string{
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Document.pkl" as document`, schema.SchemaVersion(dr.Context)),
-		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Memory.pkl" as memory`, schema.SchemaVersion(dr.Context)),
-		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Session.pkl" as session`, schema.SchemaVersion(dr.Context)),
-		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Tool.pkl" as tool`, schema.SchemaVersion(dr.Context)),
-		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Item.pkl" as item`, schema.SchemaVersion(dr.Context)),
 		fmt.Sprintf("success = %v", apiResponseBlock.GetSuccess()),
 		formatResponseMeta(requestID, apiResponseBlock.GetMeta()),
 		formatResponseData(apiResponseBlock.GetResponse()),
@@ -278,30 +265,34 @@ func (dr *DependencyResolver) ensureResponseTargetFileNotExists() error {
 	return nil
 }
 
-func (dr *DependencyResolver) executePklEvalCommand() (kdepsexecStd struct {
-	Stdout, Stderr string
-	ExitCode       int
-}, err error,
-) {
-	stdout, stderr, exitCode, err := kdepsexec.KdepsExec(
-		dr.Context,
-		"pkl",
-		[]string{"eval", "--format", "json", "--output-path", dr.ResponseTargetFile, dr.ResponsePklFile},
-		"",
-		false,
-		false,
-		dr.Logger,
-	)
+func (dr *DependencyResolver) executePklEvalCommand() (execute.ExecResult, error) {
+	cmd := execute.ExecTask{
+		Command:     "pkl",
+		Args:        []string{"eval", "--format", "json", "--output-path", dr.ResponseTargetFile, dr.ResponsePklFile},
+		StreamStdio: false,
+	}
+
+	result, err := cmd.Execute(dr.Context)
 	if err != nil {
-		return kdepsexecStd, err
+		return execute.ExecResult{}, fmt.Errorf("execute command: %w", err)
 	}
-	if exitCode != 0 {
-		return kdepsexecStd, fmt.Errorf("command failed with exit code %d: %s", exitCode, stderr)
+
+	if result.ExitCode != 0 {
+		return execute.ExecResult{}, fmt.Errorf("command failed with exit code %d: %s", result.ExitCode, result.Stderr)
 	}
-	kdepsexecStd.Stdout = stdout
-	kdepsexecStd.Stderr = stderr
-	kdepsexecStd.ExitCode = exitCode
-	return kdepsexecStd, nil
+
+	// Signal that the response file is ready via bus
+	if dr.BusManager != nil {
+		if err := dr.BusManager.SignalFileReady(dr.ResponseTargetFile, "response_file", map[string]interface{}{
+			"request_id": dr.RequestID,
+			"file_type":  "response_target",
+		}); err != nil {
+			dr.Logger.Warn("Failed to signal response file ready via bus", "file", dr.ResponseTargetFile, "error", err)
+			// Continue execution even if bus signaling fails - don't break the workflow
+		}
+	}
+
+	return result, nil
 }
 
 // HandleAPIErrorResponse creates an error response PKL file.

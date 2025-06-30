@@ -12,7 +12,6 @@ import (
 
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/kdeps/kdeps/pkg/messages"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 )
@@ -36,7 +35,7 @@ func CompileResources(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, resou
 		logger.Error("error compiling resources", "resourcesDir", resourcesDir, "projectDir", projectDir, "error", err)
 	}
 
-	logger.Debug(messages.MsgResourcesCompiled, "resourcesDir", resourcesDir, "projectDir", projectDir)
+	logger.Debug("resources compiled successfully", "resourcesDir", resourcesDir, "projectDir", projectDir)
 	return err
 }
 
@@ -46,7 +45,7 @@ func pklFileProcessor(fs afero.Fs, wf pklWf.Workflow, resourcesDir string, logge
 			return err
 		}
 
-		logger.Debug(messages.MsgProcessingPkl, "file", file)
+		logger.Debug("processing .pkl", "file", file)
 		if err := processPklFile(fs, file, wf, resourcesDir, logger); err != nil {
 			logger.Error("failed to process .pkl file", "file", file, "error", err)
 		}
@@ -69,7 +68,7 @@ func processPklFile(fs afero.Fs, file string, wf pklWf.Workflow, resourcesDir st
 		return fmt.Errorf("error writing file: %w", err)
 	}
 
-	logger.Debug(messages.MsgProcessedPklFile, "file", file)
+	logger.Debug("processed .pkl file", "file", file)
 	return nil
 }
 

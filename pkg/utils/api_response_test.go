@@ -7,10 +7,14 @@ import (
 )
 
 func TestNewAPIServerResponse(t *testing.T) {
+	t.Parallel()
+
 	// Reset persistentErrors for a clean test state
 	persistentErrors = nil
 
 	t.Run("SuccessfulResponseWithoutErrors", func(t *testing.T) {
+		t.Parallel()
+
 		// Reset persistentErrors before starting the test
 		persistentErrors = nil
 
@@ -23,6 +27,8 @@ func TestNewAPIServerResponse(t *testing.T) {
 	})
 
 	t.Run("ResponseWithError", func(t *testing.T) {
+		t.Parallel()
+
 		// Reset persistentErrors before starting the test
 		persistentErrors = nil
 
@@ -39,6 +45,8 @@ func TestNewAPIServerResponse(t *testing.T) {
 	})
 
 	t.Run("PersistentErrorStorage", func(t *testing.T) {
+		t.Parallel()
+
 		// Reset persistentErrors before starting the test
 		persistentErrors = nil
 
@@ -58,6 +66,7 @@ func TestNewAPIServerResponse(t *testing.T) {
 	})
 
 	t.Run("ClearPersistentErrors", func(t *testing.T) {
+		t.Parallel()
 		// Manually clear persistentErrors
 		persistentErrors = nil
 

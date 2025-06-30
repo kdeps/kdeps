@@ -8,12 +8,11 @@ import (
 	"strings"
 
 	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/kdeps/kdeps/pkg/messages"
 )
 
 // Function to compare version numbers.
 func compareVersions(versions []string, logger *logging.Logger) string {
-	logger.Debug(messages.MsgComparingVersions, "versions", versions)
+	logger.Debug("comparing versions", "versions", versions)
 	sort.Slice(versions, func(i, j int) bool {
 		// Split the version strings into parts
 		v1 := strings.Split(versions[i], ".")
@@ -23,7 +22,7 @@ func compareVersions(versions []string, logger *logging.Logger) string {
 		for k := range v1 {
 			if v1[k] != v2[k] {
 				result := v1[k] > v2[k]
-				logger.Debug(messages.MsgVersionComparisonResult, "v1", v1, "v2", v2, "result", result)
+				logger.Debug("version comparison result", "v1", v1, "v2", v2, "result", result)
 				return result
 			}
 		}
@@ -32,7 +31,7 @@ func compareVersions(versions []string, logger *logging.Logger) string {
 
 	// Return the first version (which will be the latest after sorting)
 	latestVersion := versions[0]
-	logger.Debug(messages.MsgLatestVersionDetermined, "version", latestVersion)
+	logger.Debug("latest version determined", "version", latestVersion)
 	return latestVersion
 }
 
@@ -49,7 +48,7 @@ var GetLatestVersion = func(directory string, logger *logging.Logger) (string, e
 		// Collect directory names that match the version pattern
 		if info.IsDir() && strings.Count(info.Name(), ".") == 2 {
 			versions = append(versions, info.Name())
-			logger.Debug(messages.MsgFoundVersionDirectory, "directory", info.Name())
+			logger.Debug("found version directory", "directory", info.Name())
 		}
 		return nil
 	})

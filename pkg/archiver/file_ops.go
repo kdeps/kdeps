@@ -2,7 +2,7 @@ package archiver
 
 import (
 	"context"
-	"crypto/md5"
+	"crypto/md5" //nolint:gosec
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/kdeps/kdeps/pkg/messages"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 )
@@ -73,7 +72,7 @@ func GetFileMD5(fs afero.Fs, filePath string, length int) (string, error) {
 	}
 	defer file.Close()
 
-	hash := md5.New()
+	hash := md5.New() //nolint:gosec
 	if _, err := io.Copy(hash, file); err != nil {
 		return "", err
 	}
@@ -111,7 +110,7 @@ func CopyFile(fs afero.Fs, ctx context.Context, src, dst string, logger *logging
 		}
 
 		backupPath := getBackupPath(dst, dstMD5)
-		logger.Debug(messages.MsgMovingExistingToBackup, "backupPath", backupPath)
+		logger.Debug("moving existing file to backup", "backupPath", backupPath)
 		if err := fs.Rename(dst, backupPath); err != nil {
 			return fmt.Errorf("failed to move file to backup: %w", err)
 		}
@@ -125,7 +124,7 @@ func CopyFile(fs afero.Fs, ctx context.Context, src, dst string, logger *logging
 		return err
 	}
 
-	logger.Debug(messages.MsgFileCopiedSuccessfully, "from", src, "to", dst)
+	logger.Debug("file copied successfully", "from", src, "to", dst)
 	return nil
 }
 
@@ -182,7 +181,7 @@ func CopyDataDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, 
 	}
 
 	if _, err := fs.Stat(srcDir); err != nil {
-		logger.Debug(messages.MsgNoDataFoundSkipping, "src", srcDir, "error", err)
+		logger.Debug("no data found, skipping", "src", srcDir, "error", err)
 		return nil
 	}
 

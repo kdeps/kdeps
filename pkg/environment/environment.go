@@ -18,7 +18,6 @@ type Environment struct {
 	KdepsConfig    string `env:"KDEPS_CONFIG,default=$HOME/.kdeps.pkl"`
 	DockerMode     string `env:"DOCKER_MODE,default=0"`
 	NonInteractive string `env:"NON_INTERACTIVE,default=0"`
-	TimeoutSec     int    `env:"TIMEOUT,default=60"`
 	Extras         env.EnvSet
 }
 
@@ -83,7 +82,6 @@ func NewEnvironment(fs afero.Fs, environ *Environment) (*Environment, error) {
 			KdepsConfig:    kdepsConfigFile,
 			NonInteractive: "1", // Prioritize non-interactive mode for overridden environments
 			DockerMode:     dockerMode,
-			TimeoutSec:     environ.TimeoutSec,
 		}, nil
 	}
 
@@ -95,9 +93,6 @@ func NewEnvironment(fs afero.Fs, environ *Environment) (*Environment, error) {
 	}
 	environment.Extras = extras
 
-	// Ensure NonInteractive is set from the environment variable
-	environment.NonInteractive = os.Getenv("NON_INTERACTIVE")
-
 	// Find kdepsConfig file and check if running in Docker
 	kdepsConfigFile := findKdepsConfig(fs, environment.Pwd, environment.Home)
 	dockerMode := "0"
@@ -106,13 +101,11 @@ func NewEnvironment(fs afero.Fs, environ *Environment) (*Environment, error) {
 	}
 
 	return &Environment{
-		Root:           environment.Root,
-		Home:           environment.Home,
-		Pwd:            environment.Pwd,
-		KdepsConfig:    kdepsConfigFile,
-		DockerMode:     dockerMode,
-		Extras:         environment.Extras,
-		NonInteractive: environment.NonInteractive,
-		TimeoutSec:     environment.TimeoutSec,
+		Root:        environment.Root,
+		Home:        environment.Home,
+		Pwd:         environment.Pwd,
+		KdepsConfig: kdepsConfigFile,
+		DockerMode:  dockerMode,
+		Extras:      environment.Extras,
 	}, nil
 }

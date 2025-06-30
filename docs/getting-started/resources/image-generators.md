@@ -21,8 +21,8 @@ We will also set the `targetActionID` to `APIResponseResource` and create a rout
 Example `workflow.pkl` configuration:
 
 ```js
-name = "sd35api"
-version = "1.0.0"
+name = "sd35api"                           // [!code ++]
+version = "1.0.0"                          // [!code ++]
 ...
 settings {
   ...
@@ -32,7 +32,7 @@ settings {
 
     routes {
       new {
-        path = "/api/v1/image_generator"
+        path = "/api/v1/image_generator"  // [!code ++]
         methods {
           "POST"
         }
@@ -43,9 +43,9 @@ settings {
   agentSettings {
     ...
     pythonPackages {
-      "torch"
-      "diffusers"
-      "huggingface_hub[cli]"
+      "torch"                             // [!code ++]
+      "diffusers"                         // [!code ++]
+      "huggingface_hub[cli]"              // [!code ++]
     }
     ...
     models {}
@@ -97,14 +97,14 @@ using the `request.params("q")` function.
 actionID = "pythonResource"
 
 python {
-  local pythonScriptPath = "@(data.filepath("sd35api/1.0.0", "sd3_5.py"))"
-  local pythonScript = "@(read?("\(pythonScriptPath)")?.text)"
+  local pythonScriptPath = "@(data.filepath("sd35api/1.0.0", "sd3_5.py"))" // [!code ++]
+  local pythonScript = "@(read?("\(pythonScriptPath)")?.text)"             // [!code ++]
 
-  script = """
-\(pythonScript)
-"""
+  script = """                                                             // [!code ++]
+\(pythonScript)                                                            // [!code ++]
+"""                                                                        // [!code ++]
   env {
-    ["PROMPT"] = "@(request.params("q"))"
+    ["PROMPT"] = "@(request.params("q"))"                                  // [!code ++]
   }
 ...
 }
@@ -118,7 +118,7 @@ script is executed as part of the workflow.
 ```js
 actionID = "APIResponseResource"
 requires {
-  "pythonResource"
+  "pythonResource"                                                         // [!code ++]
 }
 ```
 
@@ -126,16 +126,16 @@ Finally, the generated image file (`/tmp/image.png`) can be encoded as a `base64
 response.
 
 ```json
-local generatedFileBase64 = "@(read("/tmp/image.png").base64)"
-local responseJson = new Mapping {
-  ["file"] = "data:image/png;base64,\(generatedFileBase64)"
-}
+local generatedFileBase64 = "@(read("/tmp/image.png").base64)"            // [!code ++]
+local responseJson = new Mapping {                                        // [!code ++]
+  ["file"] = "data:image/png;base64,\(generatedFileBase64)"               // [!code ++]
+}                                                                         // [!code ++]
 
 APIResponse {
 ...
   response {
     data {
-        responseJson
+        responseJson                                                      // [!code ++]
     }
   }
 }
@@ -194,11 +194,11 @@ agentSettings {
     pythonPackages {
         "torch"
         "diffusers"
-        "huggingface_hub[cli]"
+        "huggingface_hub[cli]"            // [!code ++]
     }
     ...
     args {
-        ["HF_TOKEN"] = "secret"
+        ["HF_TOKEN"] = "secret"           // [!code ++]
     }
 }
 ```
@@ -212,20 +212,20 @@ kdeps scaffold sd35api exec
 ```
 
 In the `exec` resource, include a script that logs in to Hugging Face using the `HF_TOKEN` from the `.env` file and
-downloads the model. Additionally, set the cache directory to `/.kdeps/`, a shared folder for Kdeps, and create a
-marker file (`/.kdeps/sd35-downloaded`) upon successful download.
+downloads the model. Additionally, set the cache directory to `/root/.kdeps/`, a shared folder for Kdeps, and create a
+marker file (`/root/.kdeps/sd35-downloaded`) upon successful download.
 
 ```json
 actionID = "execResource"
 ...
 exec {
     command = """
-    huggingface-cli login --token $HF_TOKEN
-    huggingface-cli download stabilityai/stable-diffusion-3.5-large --cache-dir /.kdeps/
-    echo downloaded > /.kdeps/sd35-downloaded
+    huggingface-cli login --token $HF_TOKEN                                                      // [!code ++]
+    huggingface-cli download stabilityai/stable-diffusion-3.5-large --cache-dir /root/.kdeps/    // [!code ++]
+    echo downloaded > /root/.kdeps/sd35-downloaded
     """
     env {
-        ["HF_TOKEN"] = "\(read("env:HF_TOKEN"))"
+        ["HF_TOKEN"] = "\(read("env:HF_TOKEN"))"                                                 // [!code ++]
     }
     timeoutDuration = 0.s
 }
@@ -234,16 +234,16 @@ exec {
 ### Adding a `skipCondition`
 
 To ensure the `exec` script runs only when necessary, add a `skipCondition`. This condition checks for the existence of
-the `/.kdeps/sd35-downloaded` file. If the file exists, the script will be skipped.
+the `/root/.kdeps/sd35-downloaded` file. If the file exists, the script will be skipped.
 
 ```json
 actionID = "execResource"
 ...
 run {
-    local stampFile = read?("file:/.kdeps/sd35-downloaded")?.base64?.isEmpty
+    local stampFile = read?("file:/root/.kdeps/sd35-downloaded")?.base64?.isEmpty                // [!code ++]
 
     skipCondition {
-        stampFile != null || stampFile != false
+        stampFile != null || stampFile != false                                                  // [!code ++]
     }
 ...
 ```

@@ -34,7 +34,7 @@ The mode of execution for Kdeps, defaulting to `docker`.
 Specifies the type of GPU available for the Docker image. Supported values include `nvidia`, `amd`, or `cpu`. The default is set to `cpu`.
 
 > **Note:**
-> The Docker image will use the specified GPU type, so it's important to set this correctly if you're building an image for a specific GPU.
+> The Docker image will use the specified GPU type, so it’s important to set this correctly if you’re building an image for a specific GPU.
 
 ## KdepsDir
 
@@ -48,20 +48,3 @@ The path where Kdeps configurations are stored defaulting to `user`, and it supp
 - `user` refers to the `$HOME/.kdeps` directory.
 - `project` refers to the current working directory of the project, e.g., `$HOME/Projects/aiagentx/.kdeps`.
 - `xdg` refers to the XDG directory path, e.g., `$XDGPATH/.kdeps`.
-
-## TIMEOUT (environment variable)
-
-If you add `TIMEOUT=<seconds>` to your local `.env` file, Kdeps will use that value as the global default timeout for exec, HTTP-client, chat or Python steps **and will override any `timeoutDuration` already set in the PKL**.
-
-* `TIMEOUT=<n>` (n > 0) → wait up to *n* seconds.
-* `TIMEOUT=0` → **unlimited** (no timeout at all).
-* Absent → falls back to 60 s.
-
-Example:
-
-```bash
-# .env or shell
-TIMEOUT=120  # Kdeps will wait up to 120 s by default
-```
-
-Handy for slow machines or high-latency networks.

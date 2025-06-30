@@ -12,16 +12,13 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gabriel-vasile/mimetype"
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/utils"
 	apiserver "github.com/kdeps/schema/gen/api_server"
@@ -63,8 +60,6 @@ func (e *handlerError) Error() string {
 	return e.message
 }
 
-// handleMultipartForm processes multipart form data and updates fileMap.
-// It returns a handlerError to be appended to the errors slice.
 func handleMultipartForm(c *gin.Context, dr *resolver.DependencyResolver, fileMap map[string]struct{ Filename, Filetype string }) error {
 	form, err := c.MultipartForm()
 	if err != nil {
@@ -89,8 +84,6 @@ func handleMultipartForm(c *gin.Context, dr *resolver.DependencyResolver, fileMa
 	return processFile(fileHeader, dr, fileMap)
 }
 
-// processFile processes an individual file and updates fileMap.
-// It returns a handlerError to be appended to the errors slice.
 func processFile(fileHeader *multipart.FileHeader, dr *resolver.DependencyResolver, fileMap map[string]struct{ Filename, Filetype string }) error {
 	file, err := fileHeader.Open()
 	if err != nil {
@@ -123,30 +116,31 @@ func processFile(fileHeader *multipart.FileHeader, dr *resolver.DependencyResolv
 // It validates the API server configuration, sets up routes, and starts the server on the configured port.
 func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) error {
 	wfSettings := dr.Workflow.GetSettings()
-	if wfSettings == nil {
-		return errors.New("the API server configuration is missing")
-	}
-
 	wfAPIServer := wfSettings.APIServer
-	if wfAPIServer == nil {
-		return errors.New("the API server configuration is missing")
-	}
-
 	var wfTrustedProxies []string
 	if wfAPIServer.TrustedProxies != nil {
 		wfTrustedProxies = *wfAPIServer.TrustedProxies
 	}
 
+	if wfAPIServer == nil {
+		return errors.New("the API server configuration is missing")
+	}
+
 	portNum := strconv.FormatUint(uint64(wfAPIServer.PortNum), 10)
 	hostPort := ":" + portNum
 
-	// Create a semaphore channel to limit to 1 active connection
-	semaphore := make(chan struct{}, 1)
 	router := gin.Default()
 
-	wfAPIServerCORS := wfAPIServer.Cors
+	if len(wfTrustedProxies) > 0 {
+		dr.Logger.Printf("Found trusted proxies %v", wfTrustedProxies)
 
-	setupRoutes(router, ctx, wfAPIServerCORS, wfTrustedProxies, wfAPIServer.Routes, dr, semaphore)
+		router.ForwardedByClientIP = true
+		if err := router.SetTrustedProxies(wfTrustedProxies); err != nil {
+			return errors.New("unable to set trusted proxies")
+		}
+	}
+
+	setupRoutes(router, ctx, wfAPIServer.Routes, dr)
 
 	dr.Logger.Printf("Starting API server on port %s", hostPort)
 	go func() {
@@ -158,54 +152,14 @@ func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 	return nil
 }
 
-func setupRoutes(router *gin.Engine, ctx context.Context, wfAPIServerCORS *apiserver.CORS, wfTrustedProxies []string, routes []*apiserver.APIServerRoutes, dr *resolver.DependencyResolver, semaphore chan struct{}) {
+func setupRoutes(router *gin.Engine, ctx context.Context, routes []*apiserver.APIServerRoutes, dr *resolver.DependencyResolver) {
 	for _, route := range routes {
 		if route == nil || route.Path == "" {
 			dr.Logger.Error("route configuration is invalid", "route", route)
 			continue
 		}
 
-		if wfAPIServerCORS != nil && wfAPIServerCORS.EnableCORS {
-			var allowOrigins, allowMethods, allowHeaders, exposeHeaders []string
-
-			if wfAPIServerCORS.AllowOrigins != nil {
-				allowOrigins = *wfAPIServerCORS.AllowOrigins
-			}
-			if wfAPIServerCORS.AllowMethods != nil {
-				allowMethods = *wfAPIServerCORS.AllowMethods
-			}
-			if wfAPIServerCORS.AllowHeaders != nil {
-				allowHeaders = *wfAPIServerCORS.AllowHeaders
-			}
-			if wfAPIServerCORS.ExposeHeaders != nil {
-				exposeHeaders = *wfAPIServerCORS.ExposeHeaders
-			}
-
-			router.Use(cors.New(cors.Config{
-				AllowOrigins:     allowOrigins,
-				AllowMethods:     allowMethods,
-				AllowHeaders:     allowHeaders,
-				ExposeHeaders:    exposeHeaders,
-				AllowCredentials: wfAPIServerCORS.AllowCredentials,
-				MaxAge: func() time.Duration {
-					if wfAPIServerCORS.MaxAge != nil {
-						return wfAPIServerCORS.MaxAge.GoDuration()
-					}
-					return 12 * time.Hour
-				}(),
-			}))
-		}
-
-		if len(wfTrustedProxies) > 0 {
-			dr.Logger.Printf("Found trusted proxies %v", wfTrustedProxies)
-
-			router.ForwardedByClientIP = true
-			if err := router.SetTrustedProxies(wfTrustedProxies); err != nil {
-				dr.Logger.Error("unable to set trusted proxies")
-			}
-		}
-
-		handler := APIServerHandler(ctx, route, dr, semaphore)
+		handler := APIServerHandler(ctx, route, dr)
 		for _, method := range route.Methods {
 			switch method {
 			case http.MethodGet:
@@ -231,97 +185,57 @@ func setupRoutes(router *gin.Engine, ctx context.Context, wfAPIServerCORS *apise
 	}
 }
 
-func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, baseDr *resolver.DependencyResolver, semaphore chan struct{}) gin.HandlerFunc {
-	// Validate route parameter
-	if route == nil || route.Path == "" || len(route.Methods) == 0 {
-		baseDr.Logger.Error("invalid route configuration provided to APIServerHandler", "route", route)
-		return func(c *gin.Context) {
-			graphID := uuid.New().String()
-			c.AbortWithStatusJSON(http.StatusInternalServerError, APIResponse{
-				Success: false,
-				Response: ResponseData{
-					Data: nil,
-				},
-				Meta: ResponseMeta{
-					RequestID: graphID,
-				},
-				Errors: []ErrorResponse{
-					{
-						Code:    http.StatusInternalServerError,
-						Message: "Invalid route configuration",
-					},
-				},
-			})
-		}
-	}
-
+func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, baseDr *resolver.DependencyResolver) gin.HandlerFunc {
 	allowedMethods := route.Methods
 
 	return func(c *gin.Context) {
-		// Initialize errors slice to collect all errors
-		var errors []ErrorResponse
-
 		graphID := uuid.New().String()
 		baseLogger := logging.GetLogger()
-		logger := baseLogger.With("requestID", graphID)
-
-		// Helper function to create APIResponse with requestID
-		createErrorResponse := func(errs []ErrorResponse) APIResponse {
-			return APIResponse{
-				Success: false,
-				Response: ResponseData{
-					Data: nil,
-				},
-				Meta: ResponseMeta{
-					RequestID: graphID,
-				},
-				Errors: errs,
-			}
-		}
-
-		// Try to acquire the semaphore (non-blocking)
-		select {
-		case semaphore <- struct{}{}:
-			// Successfully acquired the semaphore
-			defer func() { <-semaphore }() // Release the semaphore when done
-		default:
-			// Semaphore is full, append error
-			errors = append(errors, ErrorResponse{
-				Code:    http.StatusTooManyRequests,
-				Message: "Only one active connection is allowed",
-			})
-			c.AbortWithStatusJSON(http.StatusTooManyRequests, createErrorResponse(errors))
-			return
-		}
+		logger := baseLogger.With("requestID", graphID) // Now returns *logging.Logger
 
 		newCtx := ktx.UpdateContext(ctx, ktx.CtxKeyGraphID, graphID)
 
-		dr, err := resolver.NewGraphResolver(baseDr.Fs, newCtx, baseDr.Environment, c, logger)
+		dr, err := resolver.NewGraphResolver(baseDr.Fs, newCtx, baseDr.Environment, logger)
 		if err != nil {
-			errors = append(errors, ErrorResponse{
-				Code:    http.StatusInternalServerError,
-				Message: "Failed to initialize resolver",
-			})
-			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
+			resp := APIResponse{
+				Success: false,
+				Errors: []ErrorResponse{
+					{
+						Code:    http.StatusInternalServerError,
+						Message: "Failed to initialize resolver",
+					},
+				},
+			}
+			c.AbortWithStatusJSON(http.StatusInternalServerError, resp)
 			return
 		}
 
 		if err := cleanOldFiles(dr); err != nil {
-			errors = append(errors, ErrorResponse{
-				Code:    http.StatusInternalServerError,
-				Message: "Failed to clean old files",
-			})
-			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
+			resp := APIResponse{
+				Success: false,
+				Errors: []ErrorResponse{
+					{
+						Code:    http.StatusInternalServerError,
+						Message: "Failed to clean old files",
+					},
+				},
+			}
+			c.AbortWithStatusJSON(http.StatusInternalServerError, resp)
 			return
 		}
 
 		method, err := validateMethod(c.Request, allowedMethods)
 		if err != nil {
-			errors = append(errors, ErrorResponse{
-				Code:    http.StatusBadRequest,
-				Message: err.Error(),
-			})
-			c.AbortWithStatusJSON(http.StatusBadRequest, createErrorResponse(errors))
+			resp := APIResponse{
+				Success: false,
+				Errors: []ErrorResponse{
+					{
+						Code:    http.StatusBadRequest,
+						Message: err.Error(),
+					},
+				},
+			}
+			c.AbortWithStatusJSON(http.StatusBadRequest, resp)
 			return
 		}
 
@@ -344,11 +258,16 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		case http.MethodGet:
 			body, err := io.ReadAll(c.Request.Body)
 			if err != nil {
-				errors = append(errors, ErrorResponse{
-					Code:    http.StatusBadRequest,
-					Message: "Failed to read request body",
-				})
-				c.AbortWithStatusJSON(http.StatusBadRequest, createErrorResponse(errors))
+				resp := APIResponse{
+					Success: false,
+					Errors: []ErrorResponse{
+						{
+							Code:    http.StatusBadRequest,
+							Message: "Failed to read request body",
+						},
+					},
+				}
+				c.AbortWithStatusJSON(http.StatusBadRequest, resp)
 				return
 			}
 			defer c.Request.Body.Close()
@@ -358,19 +277,29 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			contentType := c.GetHeader("Content-Type")
 			if strings.Contains(contentType, "multipart/form-data") {
 				if err := handleMultipartForm(c, dr, fileMap); err != nil {
-
-					if he, ok := err.(*handlerError); ok {
-						errors = append(errors, ErrorResponse{
-							Code:    he.statusCode,
-							Message: he.message,
-						})
-						c.AbortWithStatusJSON(he.statusCode, createErrorResponse(errors))
+					var he *handlerError
+					if errors.As(err, &he) {
+						resp := APIResponse{
+							Success: false,
+							Errors: []ErrorResponse{
+								{
+									Code:    he.statusCode,
+									Message: he.message,
+								},
+							},
+						}
+						c.AbortWithStatusJSON(he.statusCode, resp)
 					} else {
-						errors = append(errors, ErrorResponse{
-							Code:    http.StatusInternalServerError,
-							Message: err.Error(),
-						})
-						c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
+						resp := APIResponse{
+							Success: false,
+							Errors: []ErrorResponse{
+								{
+									Code:    http.StatusInternalServerError,
+									Message: err.Error(),
+								},
+							},
+						}
+						c.AbortWithStatusJSON(http.StatusInternalServerError, resp)
 					}
 					return
 				}
@@ -378,11 +307,16 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 				// Read non-multipart body
 				body, err := io.ReadAll(c.Request.Body)
 				if err != nil {
-					errors = append(errors, ErrorResponse{
-						Code:    http.StatusBadRequest,
-						Message: "Failed to read request body",
-					})
-					c.AbortWithStatusJSON(http.StatusBadRequest, createErrorResponse(errors))
+					resp := APIResponse{
+						Success: false,
+						Errors: []ErrorResponse{
+							{
+								Code:    http.StatusBadRequest,
+								Message: "Failed to read request body",
+							},
+						},
+					}
+					c.AbortWithStatusJSON(http.StatusBadRequest, resp)
 					return
 				}
 				defer c.Request.Body.Close()
@@ -392,11 +326,16 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		case http.MethodDelete:
 			bodyData = "Delete request received"
 		default:
-			errors = append(errors, ErrorResponse{
-				Code:    http.StatusMethodNotAllowed,
-				Message: "Unsupported method",
-			})
-			c.AbortWithStatusJSON(http.StatusMethodNotAllowed, createErrorResponse(errors))
+			resp := APIResponse{
+				Success: false,
+				Errors: []ErrorResponse{
+					{
+						Code:    http.StatusMethodNotAllowed,
+						Message: "Unsupported method",
+					},
+				},
+			}
+			c.AbortWithStatusJSON(http.StatusMethodNotAllowed, resp)
 			return
 		}
 
@@ -424,40 +363,61 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 
 		if err := evaluator.CreateAndProcessPklFile(dr.Fs, ctx, sections, dr.RequestPklFile,
 			"APIServerRequest.pkl", dr.Logger, evaluator.EvalPkl, true); err != nil {
-			errors = append(errors, ErrorResponse{
-				Code:    http.StatusInternalServerError,
-				Message: messages.ErrProcessRequestFile,
-			})
-			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
+			resp := APIResponse{
+				Success: false,
+				Errors: []ErrorResponse{
+					{
+						Code:    http.StatusInternalServerError,
+						Message: "Failed to process request file",
+					},
+				},
+			}
+			c.AbortWithStatusJSON(http.StatusInternalServerError, resp)
 			return
 		}
 
-		if err := processWorkflow(ctx, dr); err != nil {
-			errors = append(errors, ErrorResponse{
-				Code:    http.StatusInternalServerError,
-				Message: messages.ErrEmptyResponse,
-			})
-			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
+		fatal, err := processWorkflow(ctx, dr)
+		if err != nil {
+			resp := APIResponse{
+				Success: false,
+				Errors: []ErrorResponse{
+					{
+						Code:    http.StatusInternalServerError,
+						Message: "Workflow processing failed",
+					},
+				},
+			}
+			c.AbortWithStatusJSON(http.StatusInternalServerError, resp)
 			return
 		}
 
 		content, err := afero.ReadFile(dr.Fs, dr.ResponseTargetFile)
 		if err != nil {
-			errors = append(errors, ErrorResponse{
-				Code:    http.StatusInternalServerError,
-				Message: messages.ErrReadResponseFile,
-			})
-			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
+			resp := APIResponse{
+				Success: false,
+				Errors: []ErrorResponse{
+					{
+						Code:    http.StatusInternalServerError,
+						Message: "Failed to read response file",
+					},
+				},
+			}
+			c.AbortWithStatusJSON(http.StatusInternalServerError, resp)
 			return
 		}
 
 		decodedResp, err := decodeResponseContent(content, dr.Logger)
 		if err != nil {
-			errors = append(errors, ErrorResponse{
-				Code:    http.StatusInternalServerError,
-				Message: messages.ErrDecodeResponseContent,
-			})
-			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
+			resp := APIResponse{
+				Success: false,
+				Errors: []ErrorResponse{
+					{
+						Code:    http.StatusInternalServerError,
+						Message: "Failed to decode response content",
+					},
+				},
+			}
+			c.AbortWithStatusJSON(http.StatusInternalServerError, resp)
 			return
 		}
 
@@ -467,21 +427,31 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			}
 		}
 
-		// Ensure requestID is set in the response
-		decodedResp.Meta.RequestID = graphID
-
 		decodedContent, err := json.Marshal(decodedResp)
 		if err != nil {
-			errors = append(errors, ErrorResponse{
-				Code:    http.StatusInternalServerError,
-				Message: messages.ErrMarshalResponseContent,
-			})
-			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
+			resp := APIResponse{
+				Success: false,
+				Errors: []ErrorResponse{
+					{
+						Code:    http.StatusInternalServerError,
+						Message: "Failed to marshal response content",
+					},
+				},
+			}
+			c.AbortWithStatusJSON(http.StatusInternalServerError, resp)
 			return
 		}
 
 		decodedContent = formatResponseJSON(decodedContent)
 		c.Data(http.StatusOK, "application/json; charset=utf-8", decodedContent)
+
+		if fatal {
+			if removeErr := dr.Fs.RemoveAll(dr.ActionDir); removeErr != nil {
+				dr.Logger.Warn("failed to clean up temporary directory", "path", dr.ActionDir, "error", removeErr)
+			}
+			dr.Logger.Error("a fatal server error occurred. Restarting the service.")
+			utils.SendSigterm(dr.Logger)
+		}
 	}
 }
 
@@ -515,36 +485,37 @@ func validateMethod(r *http.Request, allowedMethods []string) (string, error) {
 
 // processWorkflow handles the execution of the workflow steps after the .pkl file is created.
 // It prepares the workflow directory, imports necessary files, and processes the actions defined in the workflow.
-func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver) error {
+func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver) (bool, error) {
 	dr.Context = ctx
 
 	if err := dr.PrepareWorkflowDir(); err != nil {
-		return err
+		return false, err
 	}
 
 	if err := dr.PrepareImportFiles(); err != nil {
-		return err
+		return false, err
 	}
 
-	// context already passed via dr.Context
-	if _, err := dr.HandleRunAction(); err != nil {
-		return err
+	//nolint:contextcheck // context already passed via dr.Context
+	fatal, err := dr.HandleRunAction()
+	if err != nil {
+		return fatal, err
 	}
 
 	stdout, err := dr.EvalPklFormattedResponseFile()
 	if err != nil {
-		dr.Logger.Errorf("%s: %v", stdout, err)
-		return err
+		dr.Logger.Fatal(fmt.Errorf(stdout, err))
+		return true, err
 	}
 
-	dr.Logger.Debug(messages.MsgAwaitingResponse)
+	dr.Logger.Debug("awaiting response...")
 
 	// Wait for the response file to be ready
-	if err := utils.WaitForFileReady(dr.Fs, dr.ResponseTargetFile, dr.Logger); err != nil {
-		return err
+	if err := dr.WaitForResponseFile(); err != nil {
+		return false, err
 	}
 
-	return nil
+	return fatal, nil
 }
 
 func decodeResponseContent(content []byte, logger *logging.Logger) (*APIResponse, error) {
@@ -553,7 +524,7 @@ func decodeResponseContent(content []byte, logger *logging.Logger) (*APIResponse
 	// Unmarshal JSON content into APIResponse struct
 	err := json.Unmarshal(content, &decodedResp)
 	if err != nil {
-		logger.Error(messages.ErrUnmarshalRespContent, "error", err)
+		logger.Error("failed to unmarshal response content", "error", err)
 		return nil, err
 	}
 
@@ -561,7 +532,7 @@ func decodeResponseContent(content []byte, logger *logging.Logger) (*APIResponse
 	for i, encodedData := range decodedResp.Response.Data {
 		decodedData, err := utils.DecodeBase64String(encodedData)
 		if err != nil {
-			logger.Error(messages.ErrDecodeBase64String, "data", encodedData)
+			logger.Error("failed to decode Base64 string", "data", encodedData)
 			decodedResp.Response.Data[i] = encodedData // Use original if decoding fails
 		} else {
 			fixedJSON := utils.FixJSON(decodedData)

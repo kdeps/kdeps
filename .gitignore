@@ -216,9 +216,4 @@ bin/
 # Added by goreleaser init:
 dist/
 
-coverage.html
-pkg/**/**/*.txt
-pkg/**/**/*.yaml
-pkg/**/**/*.cover
-pkg/**/**/*.cov
-*.cov
+kdeps

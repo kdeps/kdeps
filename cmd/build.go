@@ -28,7 +28,7 @@ func NewBuildCommand(fs afero.Fs, ctx context.Context, kdepsDir string, systemCf
 			if err != nil {
 				return err
 			}
-			runDir, _, _, _, _, _, _, _, err := docker.BuildDockerfile(fs, ctx, systemCfg, kdepsDir, pkgProject, logger)
+			runDir, _, _, _, _, err := docker.BuildDockerfile(fs, ctx, systemCfg, kdepsDir, pkgProject, logger)
 			if err != nil {
 				return err
 			}

@@ -28,7 +28,7 @@ func NewRunCommand(fs afero.Fs, ctx context.Context, kdepsDir string, systemCfg 
 			if err != nil {
 				return err
 			}
-			runDir, APIServerMode, WebServerMode, hostIP, hostPort, webHostIP, webHostNum, gpuType, err := docker.BuildDockerfile(fs, ctx, systemCfg, kdepsDir, pkgProject, logger)
+			runDir, APIServerMode, hostIP, hostPort, gpuType, err := docker.BuildDockerfile(fs, ctx, systemCfg, kdepsDir, pkgProject, logger)
 			if err != nil {
 				return err
 			}
@@ -43,9 +43,7 @@ func NewRunCommand(fs afero.Fs, ctx context.Context, kdepsDir string, systemCfg 
 			if err := docker.CleanupDockerBuildImages(fs, ctx, agentContainerName, dockerClient); err != nil {
 				return err
 			}
-			containerID, err := docker.CreateDockerContainer(fs, ctx, agentContainerName,
-				agentContainerNameAndVersion, hostIP, hostPort, webHostIP, webHostNum, gpuType,
-				APIServerMode, WebServerMode, dockerClient)
+			containerID, err := docker.CreateDockerContainer(fs, ctx, agentContainerName, agentContainerNameAndVersion, hostIP, hostPort, gpuType, APIServerMode, dockerClient)
 			if err != nil {
 				return err
 			}

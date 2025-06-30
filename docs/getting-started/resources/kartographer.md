@@ -45,8 +45,3 @@ within the same workflow. This avoids complex dependency problems such as circul
 resource, it should be under a unique ID, as shown below:
 
 `LLMResourceJSON -> PythonResource -> LLMResourceJSON2 -> JSONResponder`
-
-> *Note:*
-> Kdeps executes resource in a top-down queue manner. By design, Kdeps does not allow multiple resource actions to be
-> executed in a single resource file. If you need to perform a new resource action, you have to create a new resource
-> file with a unique ID, then define it as a dependency.
