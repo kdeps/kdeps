@@ -29,9 +29,15 @@ func TestMain(m *testing.M) {
 		if err != nil {
 			logger.Warn("Failed to start test server on 127.0.0.1:12345: %v", err)
 		} else {
+			// Initialize health checker
+			healthChecker := NewHealthChecker(logger, 30*time.Second)
+
 			service := &BusService{
-				logger: logger,
-				subs:   make(map[string]chan Event),
+				logger:         logger,
+				subs:           make(map[string]chan Event),
+				resourceStates: make(map[string]ResourceState),
+				completions:    make(map[string]bool),
+				healthChecker:  healthChecker,
 			}
 			if err := rpc.Register(service); err != nil {
 				logger.Fatal("Failed to register service: %v", err)

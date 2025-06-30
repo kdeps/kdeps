@@ -86,10 +86,14 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 		if err != nil {
 			// Signal failure via bus service
 			if dr.BusManager != nil {
+				promptStr := ""
+				if chatBlock.Prompt != nil {
+					promptStr = *chatBlock.Prompt
+				}
 				busErr := dr.BusManager.SignalResourceCompletion(actionID, "llm", "failed", map[string]interface{}{
 					"error":    err.Error(),
 					"model":    chatBlock.Model,
-					"prompt":   chatBlock.Prompt,
+					"prompt":   promptStr,
 					"jsonMode": true,
 				})
 				if busErr != nil {
@@ -120,10 +124,14 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 		if err != nil {
 			// Signal failure via bus service
 			if dr.BusManager != nil {
+				promptStr := ""
+				if chatBlock.Prompt != nil {
+					promptStr = *chatBlock.Prompt
+				}
 				busErr := dr.BusManager.SignalResourceCompletion(actionID, "llm", "failed", map[string]interface{}{
 					"error":  err.Error(),
 					"model":  chatBlock.Model,
-					"prompt": chatBlock.Prompt,
+					"prompt": promptStr,
 				})
 				if busErr != nil {
 					dr.Logger.Warn("Failed to signal LLM call failure via bus", "actionID", actionID, "error", busErr)
@@ -139,9 +147,13 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 	// Signal completion via bus service
 	if dr.BusManager != nil {
 		status := "completed"
+		promptStr := ""
+		if chatBlock.Prompt != nil {
+			promptStr = *chatBlock.Prompt
+		}
 		data := map[string]interface{}{
 			"model":  chatBlock.Model,
-			"prompt": chatBlock.Prompt,
+			"prompt": promptStr,
 		}
 		if appendErr != nil {
 			status = "failed"
@@ -222,7 +234,11 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 	for id, res := range existingResources {
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
 		pklContent.WriteString(fmt.Sprintf("    model = \"%s\"\n", res.Model))
-		pklContent.WriteString(fmt.Sprintf("    prompt = \"%s\"\n", res.Prompt))
+		promptStr := ""
+		if res.Prompt != nil {
+			promptStr = *res.Prompt
+		}
+		pklContent.WriteString(fmt.Sprintf("    prompt = \"%s\"\n", promptStr))
 
 		if res.JSONResponse != nil {
 			pklContent.WriteString(fmt.Sprintf("    JSONResponse = %t\n", *res.JSONResponse))
