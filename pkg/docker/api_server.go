@@ -30,8 +30,9 @@ import (
 
 // ErrorResponse defines the structure of each error.
 type ErrorResponse struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
+	Code     int    `json:"code"`
+	Message  string `json:"message"`
+	ActionID string `json:"actionId,omitempty"`
 }
 
 // APIResponse defines the overall response structure.
@@ -237,7 +238,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		baseDr.Logger.Error("invalid route configuration provided to APIServerHandler", "route", route)
 		return func(c *gin.Context) {
 			graphID := uuid.New().String()
-			c.AbortWithStatusJSON(http.StatusInternalServerError, APIResponse{
+			response := APIResponse{
 				Success: false,
 				Response: ResponseData{
 					Data: nil,
@@ -247,11 +248,20 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 				},
 				Errors: []ErrorResponse{
 					{
-						Code:    http.StatusInternalServerError,
-						Message: "Invalid route configuration",
+						Code:     http.StatusInternalServerError,
+						Message:  "Invalid route configuration",
+						ActionID: "unknown", // No action context available for route configuration errors
 					},
 				},
-			})
+			}
+			jsonBytes, err := json.MarshalIndent(response, "", "  ")
+			if err != nil {
+				c.AbortWithStatusJSON(http.StatusInternalServerError, response)
+				return
+			}
+			c.Header("Content-Type", "application/json; charset=utf-8")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			c.Writer.Write(jsonBytes)
 		}
 	}
 
@@ -264,6 +274,11 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		graphID := uuid.New().String()
 		baseLogger := logging.GetLogger()
 		logger := baseLogger.With("requestID", graphID)
+
+		// Ensure cleanup of request-specific errors when request completes
+		defer func() {
+			utils.ClearRequestErrors(graphID)
+		}()
 
 		// Helper function to create APIResponse with requestID
 		createErrorResponse := func(errs []ErrorResponse) APIResponse {
@@ -279,6 +294,48 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			}
 		}
 
+		// Helper function to add unique errors (prevents duplicates)
+		// Action ID will be added after resolver is created
+		addUniqueError := func(errs *[]ErrorResponse, code int, message, actionID string) {
+			// Skip empty messages
+			if message == "" {
+				return
+			}
+
+			// Use "unknown" if actionID is empty
+			if actionID == "" {
+				actionID = "unknown"
+			}
+
+			// Check if error already exists (same message, code, and actionID)
+			for _, existingError := range *errs {
+				if existingError.Message == message && existingError.Code == code && existingError.ActionID == actionID {
+					return // Skip duplicate
+				}
+			}
+
+			// Add new unique error
+			*errs = append(*errs, ErrorResponse{
+				Code:     code,
+				Message:  message,
+				ActionID: actionID,
+			})
+		}
+
+		// Helper function to send properly formatted JSON error responses
+		sendErrorResponse := func(statusCode int, errs []ErrorResponse) {
+			response := createErrorResponse(errs)
+			jsonBytes, err := json.MarshalIndent(response, "", "  ")
+			if err != nil {
+				// Fallback to non-indented JSON if marshal fails
+				c.AbortWithStatusJSON(statusCode, response)
+				return
+			}
+			c.Header("Content-Type", "application/json; charset=utf-8")
+			c.AbortWithStatus(statusCode)
+			c.Writer.Write(jsonBytes)
+		}
+
 		// Try to acquire the semaphore (non-blocking)
 		select {
 		case semaphore <- struct{}{}:
@@ -286,11 +343,8 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			defer func() { <-semaphore }() // Release the semaphore when done
 		default:
 			// Semaphore is full, append error
-			errors = append(errors, ErrorResponse{
-				Code:    http.StatusTooManyRequests,
-				Message: "Only one active connection is allowed",
-			})
-			c.AbortWithStatusJSON(http.StatusTooManyRequests, createErrorResponse(errors))
+			addUniqueError(&errors, http.StatusTooManyRequests, "Only one active connection is allowed", "unknown")
+			sendErrorResponse(http.StatusTooManyRequests, errors)
 			return
 		}
 
@@ -299,29 +353,50 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		dr, err := resolver.NewGraphResolver(baseDr.Fs, newCtx, baseDr.Environment, c, logger)
 		if err != nil {
 			errors = append(errors, ErrorResponse{
-				Code:    http.StatusInternalServerError,
-				Message: "Failed to initialize resolver",
+				Code:     http.StatusInternalServerError,
+				Message:  "Failed to initialize resolver",
+				ActionID: "unknown", // No resolver available yet
 			})
-			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
+			sendErrorResponse(http.StatusInternalServerError, errors)
 			return
+		}
+
+		// Helper function to get action ID safely
+		getActionID := func() string {
+			if dr != nil {
+				// First try to get the current resource actionID being processed
+				if dr.CurrentResourceActionID != "" {
+					return dr.CurrentResourceActionID
+				}
+				// Fall back to workflow's target action ID if no current resource
+				if dr.Workflow != nil {
+					actionID := dr.Workflow.GetTargetActionID()
+					if actionID != "" {
+						return actionID
+					}
+				}
+			}
+			return "unknown"
 		}
 
 		if err := cleanOldFiles(dr); err != nil {
 			errors = append(errors, ErrorResponse{
-				Code:    http.StatusInternalServerError,
-				Message: "Failed to clean old files",
+				Code:     http.StatusInternalServerError,
+				Message:  "Failed to clean old files",
+				ActionID: getActionID(),
 			})
-			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
+			sendErrorResponse(http.StatusInternalServerError, errors)
 			return
 		}
 
 		method, err := validateMethod(c.Request, allowedMethods)
 		if err != nil {
 			errors = append(errors, ErrorResponse{
-				Code:    http.StatusBadRequest,
-				Message: err.Error(),
+				Code:     http.StatusBadRequest,
+				Message:  err.Error(),
+				ActionID: getActionID(),
 			})
-			c.AbortWithStatusJSON(http.StatusBadRequest, createErrorResponse(errors))
+			sendErrorResponse(http.StatusBadRequest, errors)
 			return
 		}
 
@@ -345,10 +420,11 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			body, err := io.ReadAll(c.Request.Body)
 			if err != nil {
 				errors = append(errors, ErrorResponse{
-					Code:    http.StatusBadRequest,
-					Message: "Failed to read request body",
+					Code:     http.StatusBadRequest,
+					Message:  "Failed to read request body",
+					ActionID: getActionID(),
 				})
-				c.AbortWithStatusJSON(http.StatusBadRequest, createErrorResponse(errors))
+				sendErrorResponse(http.StatusBadRequest, errors)
 				return
 			}
 			defer c.Request.Body.Close()
@@ -361,16 +437,18 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 
 					if he, ok := err.(*handlerError); ok {
 						errors = append(errors, ErrorResponse{
-							Code:    he.statusCode,
-							Message: he.message,
+							Code:     he.statusCode,
+							Message:  he.message,
+							ActionID: getActionID(),
 						})
-						c.AbortWithStatusJSON(he.statusCode, createErrorResponse(errors))
+						sendErrorResponse(he.statusCode, errors)
 					} else {
 						errors = append(errors, ErrorResponse{
-							Code:    http.StatusInternalServerError,
-							Message: err.Error(),
+							Code:     http.StatusInternalServerError,
+							Message:  err.Error(),
+							ActionID: getActionID(),
 						})
-						c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
+						sendErrorResponse(http.StatusInternalServerError, errors)
 					}
 					return
 				}
@@ -379,10 +457,11 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 				body, err := io.ReadAll(c.Request.Body)
 				if err != nil {
 					errors = append(errors, ErrorResponse{
-						Code:    http.StatusBadRequest,
-						Message: "Failed to read request body",
+						Code:     http.StatusBadRequest,
+						Message:  "Failed to read request body",
+						ActionID: getActionID(),
 					})
-					c.AbortWithStatusJSON(http.StatusBadRequest, createErrorResponse(errors))
+					sendErrorResponse(http.StatusBadRequest, errors)
 					return
 				}
 				defer c.Request.Body.Close()
@@ -393,10 +472,11 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			bodyData = "Delete request received"
 		default:
 			errors = append(errors, ErrorResponse{
-				Code:    http.StatusMethodNotAllowed,
-				Message: "Unsupported method",
+				Code:     http.StatusMethodNotAllowed,
+				Message:  "Unsupported method",
+				ActionID: getActionID(),
 			})
-			c.AbortWithStatusJSON(http.StatusMethodNotAllowed, createErrorResponse(errors))
+			sendErrorResponse(http.StatusMethodNotAllowed, errors)
 			return
 		}
 
@@ -425,39 +505,84 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		if err := evaluator.CreateAndProcessPklFile(dr.Fs, ctx, sections, dr.RequestPklFile,
 			"APIServerRequest.pkl", dr.Logger, evaluator.EvalPkl, true); err != nil {
 			errors = append(errors, ErrorResponse{
-				Code:    http.StatusInternalServerError,
-				Message: messages.ErrProcessRequestFile,
+				Code:     http.StatusInternalServerError,
+				Message:  messages.ErrProcessRequestFile,
+				ActionID: getActionID(),
 			})
-			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
+			sendErrorResponse(http.StatusInternalServerError, errors)
 			return
 		}
 
 		if err := processWorkflow(ctx, dr); err != nil {
-			errors = append(errors, ErrorResponse{
-				Code:    http.StatusInternalServerError,
-				Message: messages.ErrEmptyResponse,
-			})
-			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
+			// Get action ID for error context
+			actionID := getActionID()
+
+			// Add the specific error first (if not empty and unique)
+			errorMessage := err.Error()
+			addUniqueError(&errors, http.StatusInternalServerError, errorMessage, actionID)
+
+			// Add the generic error message as additional context (if unique)
+			addUniqueError(&errors, http.StatusInternalServerError, messages.ErrEmptyResponse, actionID)
+
+			sendErrorResponse(http.StatusInternalServerError, errors)
 			return
 		}
 
 		content, err := afero.ReadFile(dr.Fs, dr.ResponseTargetFile)
 		if err != nil {
 			errors = append(errors, ErrorResponse{
-				Code:    http.StatusInternalServerError,
-				Message: messages.ErrReadResponseFile,
+				Code:     http.StatusInternalServerError,
+				Message:  messages.ErrReadResponseFile,
+				ActionID: getActionID(),
 			})
-			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
+			sendErrorResponse(http.StatusInternalServerError, errors)
 			return
 		}
 
 		decodedResp, err := decodeResponseContent(content, dr.Logger)
 		if err != nil {
 			errors = append(errors, ErrorResponse{
-				Code:    http.StatusInternalServerError,
-				Message: messages.ErrDecodeResponseContent,
+				Code:     http.StatusInternalServerError,
+				Message:  messages.ErrDecodeResponseContent,
+				ActionID: getActionID(),
 			})
-			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
+			sendErrorResponse(http.StatusInternalServerError, errors)
+			return
+		}
+
+		// Always check for all accumulated errors from workflow processing
+		// This includes preflight validation errors, exec errors, python errors, etc.
+		allAccumulatedErrors := utils.GetRequestErrorsWithActionID(graphID)
+
+		// Convert accumulated errors to our ErrorResponse format using their captured actionID
+		for _, accError := range allAccumulatedErrors {
+			if accError != nil {
+				// Use the actionID that was captured when the error was created
+				actionID := accError.ActionID
+				if actionID == "" {
+					actionID = "unknown"
+				}
+				addUniqueError(&errors, accError.Code, accError.Message, actionID)
+			}
+		}
+
+		// Merge APIResponse errors with workflow processing errors
+		if len(decodedResp.Errors) > 0 {
+			for _, apiError := range decodedResp.Errors {
+				// Extract actionID from existing error if present, otherwise use current actionID
+				actionID := apiError.ActionID
+				if actionID == "" {
+					actionID = getActionID()
+				}
+				addUniqueError(&errors, apiError.Code, apiError.Message, actionID)
+			}
+		}
+
+		// If there are any errors (workflow or APIResponse), send error response (fail-fast behavior)
+		if len(errors) > 0 {
+			// Add generic context error for fail-fast scenarios
+			addUniqueError(&errors, http.StatusInternalServerError, messages.ErrEmptyResponse, getActionID())
+			sendErrorResponse(http.StatusInternalServerError, errors)
 			return
 		}
 
@@ -473,10 +598,11 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		decodedContent, err := json.Marshal(decodedResp)
 		if err != nil {
 			errors = append(errors, ErrorResponse{
-				Code:    http.StatusInternalServerError,
-				Message: messages.ErrMarshalResponseContent,
+				Code:     http.StatusInternalServerError,
+				Message:  messages.ErrMarshalResponseContent,
+				ActionID: getActionID(),
 			})
-			c.AbortWithStatusJSON(http.StatusInternalServerError, createErrorResponse(errors))
+			sendErrorResponse(http.StatusInternalServerError, errors)
 			return
 		}
 

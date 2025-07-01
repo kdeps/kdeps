@@ -30,6 +30,10 @@ func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverre
 
 	dr.Logger.Debug("starting CreateResponsePklFile", "response", apiResponseBlock)
 
+	// Always allow processing - the buildResponseSections will handle error merging
+	// This ensures all workflow errors are preserved regardless of the response resource content
+	dr.Logger.Debug("processing response file with comprehensive error merging", "requestID", dr.RequestID)
+
 	if err := dr.ensureResponsePklFileNotExists(); err != nil {
 		return fmt.Errorf("ensure response PKL file does not exist: %w", err)
 	}
@@ -59,16 +63,28 @@ func (dr *DependencyResolver) ensureResponsePklFileNotExists() error {
 }
 
 func (dr *DependencyResolver) buildResponseSections(requestID string, apiResponseBlock apiserverresponse.APIServerResponse) []string {
+	// Get new errors from the current response resource only
+	var responseErrors []*apiserverresponse.APIServerErrorsBlock
+	if apiResponseBlock.GetErrors() != nil {
+		responseErrors = *apiResponseBlock.GetErrors()
+	}
+
+	// Only use response-specific errors in the PKL file
+	// Workflow errors will be merged separately at the API server level
+
+	// If there are any response-specific errors, mark as failure
+	isSuccess := apiResponseBlock.GetSuccess() && len(responseErrors) == 0
+
 	sections := []string{
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Document.pkl" as document`, schema.SchemaVersion(dr.Context)),
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Memory.pkl" as memory`, schema.SchemaVersion(dr.Context)),
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Session.pkl" as session`, schema.SchemaVersion(dr.Context)),
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Tool.pkl" as tool`, schema.SchemaVersion(dr.Context)),
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Item.pkl" as item`, schema.SchemaVersion(dr.Context)),
-		fmt.Sprintf("success = %v", apiResponseBlock.GetSuccess()),
+		fmt.Sprintf("success = %v", isSuccess),
 		formatResponseMeta(requestID, apiResponseBlock.GetMeta()),
 		formatResponseData(apiResponseBlock.GetResponse()),
-		formatErrors(apiResponseBlock.GetErrors(), dr.Logger),
+		formatErrors(&responseErrors, dr.Logger),
 	}
 	return sections
 }
@@ -304,13 +320,53 @@ func (dr *DependencyResolver) executePklEvalCommand() (kdepsexecStd struct {
 	return kdepsexecStd, nil
 }
 
-// HandleAPIErrorResponse creates an error response PKL file.
+// HandleAPIErrorResponse creates an error response PKL file when in API server mode,
+// or returns an actual error when not in API server mode.
 func (dr *DependencyResolver) HandleAPIErrorResponse(code int, message string, fatal bool) (bool, error) {
 	if dr.APIServerMode {
-		errorResponse := utils.NewAPIServerResponse(false, nil, code, message)
+		// Get the current actionID for error context
+		actionID := "unknown"
+		if dr.CurrentResourceActionID != "" {
+			actionID = dr.CurrentResourceActionID
+		} else if dr.Workflow != nil {
+			workflowActionID := dr.Workflow.GetTargetActionID()
+			if workflowActionID != "" {
+				actionID = workflowActionID
+			}
+		}
+
+		// Always accumulate the error in the global error collection with actionID
+		errorResponse := utils.NewAPIServerResponseWithActionID(false, nil, code, message, dr.RequestID, actionID)
+
+		// For fail-fast scenarios, we need to create a comprehensive error response
+		// that includes all accumulated errors, not just the current one
+		if fatal {
+			// Get all accumulated errors and merge with the current error
+			currentErrors := []*apiserverresponse.APIServerErrorsBlock{
+				{Code: code, Message: message},
+			}
+			allErrors := utils.MergeAllErrors(dr.RequestID, currentErrors)
+
+			// Create a comprehensive error response with all accumulated errors
+			finalErrorResponse := &apiserverresponse.APIServerResponseImpl{
+				Success:  false,
+				Response: &apiserverresponse.APIServerResponseBlock{Data: nil},
+				Errors:   &allErrors,
+			}
+
+			if err := dr.CreateResponsePklFile(finalErrorResponse); err != nil {
+				return fatal, fmt.Errorf("create comprehensive error response: %w", err)
+			}
+			return fatal, fmt.Errorf("%s", message)
+		}
+
+		// For non-fatal errors, just accumulate and continue
 		if err := dr.CreateResponsePklFile(errorResponse); err != nil {
 			return fatal, fmt.Errorf("create error response: %w", err)
 		}
+		return fatal, nil
 	}
-	return fatal, nil
+
+	// When not in API server mode, return an actual error to fail the processing
+	return fatal, fmt.Errorf("validation failed (code %d): %s", code, message)
 }

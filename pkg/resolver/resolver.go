@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/alexellis/go-execute/v2"
@@ -37,41 +38,42 @@ import (
 )
 
 type DependencyResolver struct {
-	Fs                   afero.Fs
-	Logger               *logging.Logger
-	Resources            []ResourceNodeEntry
-	ResourceDependencies map[string][]string
-	DependencyGraph      []string
-	VisitedPaths         map[string]bool
-	Context              context.Context // TODO: move this context into function params
-	Graph                *graph.DependencyGraph
-	Environment          *environment.Environment
-	Workflow             pklWf.Workflow
-	Request              *gin.Context
-	MemoryReader         *memory.PklResourceReader
-	MemoryDBPath         string
-	SessionReader        *session.PklResourceReader
-	SessionDBPath        string
-	ToolReader           *tool.PklResourceReader
-	ToolDBPath           string
-	ItemReader           *item.PklResourceReader
-	ItemDBPath           string
-	DBs                  []*sql.DB // collection of DB connections used by the resolver
-	AgentName            string
-	RequestID            string
-	RequestPklFile       string
-	ResponsePklFile      string
-	ResponseTargetFile   string
-	ProjectDir           string
-	WorkflowDir          string
-	AgentDir             string
-	ActionDir            string
-	FilesDir             string
-	DataDir              string
-	APIServerMode        bool
-	AnacondaInstalled    bool
-	FileRunCounter       map[string]int // Added to track run count per file
-	DefaultTimeoutSec    int            // default timeout value in seconds
+	Fs                      afero.Fs
+	Logger                  *logging.Logger
+	Resources               []ResourceNodeEntry
+	ResourceDependencies    map[string][]string
+	DependencyGraph         []string
+	VisitedPaths            map[string]bool
+	Context                 context.Context // TODO: move this context into function params
+	Graph                   *graph.DependencyGraph
+	Environment             *environment.Environment
+	Workflow                pklWf.Workflow
+	Request                 *gin.Context
+	MemoryReader            *memory.PklResourceReader
+	MemoryDBPath            string
+	SessionReader           *session.PklResourceReader
+	SessionDBPath           string
+	ToolReader              *tool.PklResourceReader
+	ToolDBPath              string
+	ItemReader              *item.PklResourceReader
+	ItemDBPath              string
+	DBs                     []*sql.DB // collection of DB connections used by the resolver
+	AgentName               string
+	RequestID               string
+	RequestPklFile          string
+	ResponsePklFile         string
+	ResponseTargetFile      string
+	ProjectDir              string
+	WorkflowDir             string
+	AgentDir                string
+	ActionDir               string
+	FilesDir                string
+	DataDir                 string
+	APIServerMode           bool
+	AnacondaInstalled       bool
+	FileRunCounter          map[string]int // Added to track run count per file
+	DefaultTimeoutSec       int            // default timeout value in seconds
+	CurrentResourceActionID string         // Track the currently processing resource actionID
 
 	// Injectable helpers (overridable in tests)
 	GetCurrentTimestampFn    func(string, string) (pkl.Duration, error)              `json:"-"`
@@ -172,7 +174,12 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		agentName = workflowConfiguration.GetName()
 	}
 
-	memoryDBPath = filepath.Join("/.kdeps/", agentName+"_memory.db")
+	// Use configurable kdeps path for tests or default to /.kdeps/
+	kdepsBase := os.Getenv("KDEPS_PATH")
+	if kdepsBase == "" {
+		kdepsBase = "/.kdeps/"
+	}
+	memoryDBPath = filepath.Join(kdepsBase, agentName+"_memory.db")
 	memoryReader, err := memory.InitializeMemory(memoryDBPath)
 	if err != nil {
 		memoryReader.DB.Close()
@@ -201,35 +208,36 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	}
 
 	dependencyResolver := &DependencyResolver{
-		Fs:                   fs,
-		ResourceDependencies: make(map[string][]string),
-		Logger:               logger,
-		VisitedPaths:         make(map[string]bool),
-		Context:              ctx,
-		Environment:          env,
-		WorkflowDir:          workflowDir,
-		AgentDir:             agentDir,
-		ActionDir:            actionDir,
-		FilesDir:             filesDir,
-		DataDir:              dataDir,
-		RequestID:            graphID,
-		RequestPklFile:       requestPklFile,
-		ResponsePklFile:      responsePklFile,
-		ResponseTargetFile:   responseTargetFile,
-		ProjectDir:           projectDir,
-		Request:              req,
-		Workflow:             workflowConfiguration,
-		APIServerMode:        apiServerMode,
-		AnacondaInstalled:    installAnaconda,
-		AgentName:            agentName,
-		MemoryDBPath:         memoryDBPath,
-		MemoryReader:         memoryReader,
-		SessionDBPath:        sessionDBPath,
-		SessionReader:        sessionReader,
-		ToolDBPath:           toolDBPath,
-		ToolReader:           toolReader,
-		ItemDBPath:           itemDBPath,
-		ItemReader:           itemReader,
+		Fs:                      fs,
+		ResourceDependencies:    make(map[string][]string),
+		Logger:                  logger,
+		VisitedPaths:            make(map[string]bool),
+		Context:                 ctx,
+		Environment:             env,
+		WorkflowDir:             workflowDir,
+		AgentDir:                agentDir,
+		ActionDir:               actionDir,
+		FilesDir:                filesDir,
+		DataDir:                 dataDir,
+		RequestID:               graphID,
+		RequestPklFile:          requestPklFile,
+		ResponsePklFile:         responsePklFile,
+		ResponseTargetFile:      responseTargetFile,
+		ProjectDir:              projectDir,
+		Request:                 req,
+		Workflow:                workflowConfiguration,
+		APIServerMode:           apiServerMode,
+		AnacondaInstalled:       installAnaconda,
+		AgentName:               agentName,
+		MemoryDBPath:            memoryDBPath,
+		MemoryReader:            memoryReader,
+		SessionDBPath:           sessionDBPath,
+		SessionReader:           sessionReader,
+		ToolDBPath:              toolDBPath,
+		ToolReader:              toolReader,
+		ItemDBPath:              itemDBPath,
+		ItemReader:              itemReader,
+		CurrentResourceActionID: "", // Initialize as empty, will be set during resource processing
 		DBs: []*sql.DB{
 			memoryReader.DB,
 			sessionReader.DB,
@@ -414,7 +422,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	requestFilePath := filepath.Join(dr.ActionDir, dr.RequestID)
 
 	visited := make(map[string]bool)
-	actionID := dr.Workflow.GetTargetActionID()
+	targetActionID := dr.Workflow.GetTargetActionID()
 	dr.Logger.Debug(messages.MsgProcessingResources)
 
 	if err := dr.LoadResourceEntriesFn(); err != nil {
@@ -422,7 +430,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	}
 
 	// Build dependency stack for the target action
-	stack := dr.BuildDependencyStackFn(actionID, visited)
+	stack := dr.BuildDependencyStackFn(targetActionID, visited)
 
 	// Process each resource in the dependency stack
 	for _, nodeActionID := range stack {
@@ -430,6 +438,9 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			if res.ActionID != nodeActionID {
 				continue
 			}
+
+			// Set the current resource actionID for error context
+			dr.CurrentResourceActionID = res.ActionID
 
 			// Load the resource
 			resPkl, err := dr.LoadResourceFn(dr.Context, res.File, Resource)
@@ -604,7 +615,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 		}
 		if err := dr.validateRequestParams(string(fileContent), allowedParams); err != nil {
 			dr.Logger.Error("request params validation failed", "actionID", res.ActionID, "error", err)
-			return dr.HandleAPIErrorResponse(400, fmt.Sprintf("Request params validation failed for resource %s: %v", res.ActionID, err), false)
+			return dr.HandleAPIErrorResponse(400, fmt.Sprintf("Request params validation failed for resource %s: %v", res.ActionID, err), true)
 		}
 
 		// Validate request.header
@@ -614,7 +625,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 		}
 		if err := dr.validateRequestHeaders(string(fileContent), allowedHeaders); err != nil {
 			dr.Logger.Error("request headers validation failed", "actionID", res.ActionID, "error", err)
-			return dr.HandleAPIErrorResponse(400, fmt.Sprintf("Request headers validation failed for resource %s: %v", res.ActionID, err), false)
+			return dr.HandleAPIErrorResponse(400, fmt.Sprintf("Request headers validation failed for resource %s: %v", res.ActionID, err), true)
 		}
 
 		// Validate request.path
@@ -645,15 +656,46 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 	}
 
 	// Preflight check
-	if runBlock.PreflightCheck != nil && runBlock.PreflightCheck.Validations != nil &&
-		!utils.AllConditionsMet(runBlock.PreflightCheck.Validations) {
-		dr.Logger.Error("preflight check not met, failing:", res.ActionID)
-		if runBlock.PreflightCheck.Error != nil {
-			return dr.HandleAPIErrorResponse(
-				runBlock.PreflightCheck.Error.Code,
-				fmt.Sprintf("%s: %s", runBlock.PreflightCheck.Error.Message, res.ActionID), false)
+	if runBlock.PreflightCheck != nil && runBlock.PreflightCheck.Validations != nil {
+		conditionsMet, failedConditions := utils.AllConditionsMetWithDetails(runBlock.PreflightCheck.Validations)
+		if !conditionsMet {
+			dr.Logger.Error("preflight check not met, collecting error and continuing to gather all errors:", res.ActionID, "failedConditions", failedConditions)
+
+			// Build user-friendly error message
+			var errorMessage string
+			if runBlock.PreflightCheck.Error != nil && runBlock.PreflightCheck.Error.Message != "" {
+				// Use the custom error message if provided
+				errorMessage = runBlock.PreflightCheck.Error.Message
+			} else {
+				// Default error message
+				errorMessage = fmt.Sprintf("Validation failed for %s", res.ActionID)
+			}
+
+			// Add specific validation failure details for debugging
+			if len(failedConditions) > 0 {
+				if len(failedConditions) == 1 {
+					errorMessage += fmt.Sprintf(" (%s)", failedConditions[0])
+				} else {
+					errorMessage += fmt.Sprintf(" (%s)", strings.Join(failedConditions, ", "))
+				}
+			}
+
+			// Collect error but continue processing to gather ALL errors
+			if runBlock.PreflightCheck.Error != nil {
+				dr.HandleAPIErrorResponse(runBlock.PreflightCheck.Error.Code, errorMessage, false)
+			} else {
+				dr.HandleAPIErrorResponse(500, errorMessage, false)
+			}
+			// Continue processing instead of returning early - this allows collection of all errors
 		}
-		return dr.HandleAPIErrorResponse(500, "Preflight check failed for resource: "+res.ActionID, false)
+	}
+
+	// Check if there are already accumulated errors - if so, skip expensive operations for fail-fast behavior
+	existingErrorsWithID := utils.GetRequestErrorsWithActionID(dr.RequestID)
+	if len(existingErrorsWithID) > 0 {
+		dr.Logger.Info("errors already accumulated, skipping expensive operations for fail-fast behavior", "actionID", res.ActionID, "errorCount", len(existingErrorsWithID))
+		// Skip all expensive operations (LLM, Python, HTTP, Exec) but continue to process response resource
+		return true, nil
 	}
 
 	// Process Exec step, if defined
@@ -662,7 +704,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 			return dr.HandleExec(res.ActionID, runBlock.Exec)
 		}); err != nil {
 			dr.Logger.Error("exec error:", res.ActionID)
-			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Exec failed for resource: %s - %s", res.ActionID, err), false)
+			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Exec failed for resource: %s - %s", res.ActionID, err), true)
 		}
 	}
 
@@ -672,7 +714,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 			return dr.HandlePython(res.ActionID, runBlock.Python)
 		}); err != nil {
 			dr.Logger.Error("python error:", res.ActionID)
-			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Python script failed for resource: %s - %s", res.ActionID, err), false)
+			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Python script failed for resource: %s - %s", res.ActionID, err), true)
 		}
 	}
 
@@ -701,7 +743,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 			return dr.HandleHTTPClient(res.ActionID, runBlock.HTTPClient)
 		}); err != nil {
 			dr.Logger.Error("HTTP client error:", res.ActionID)
-			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("HTTP client failed for resource: %s - %s", res.ActionID, err), false)
+			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("HTTP client failed for resource: %s - %s", res.ActionID, err), true)
 		}
 	}
 

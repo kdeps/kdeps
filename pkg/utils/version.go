@@ -70,7 +70,7 @@ func ValidateSchemaVersion(version string, minimumVersion string) error {
 	}
 
 	if cmp < 0 {
-		return fmt.Errorf("schema version %s is below minimum supported version %s", version, minimumVersion)
+		return fmt.Errorf("schema version %s is below minimum supported version %s. Run 'kdeps upgrade' to update your schema versions", version, minimumVersion)
 	}
 
 	return nil
