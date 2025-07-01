@@ -3,6 +3,7 @@ package utils
 import (
 	"testing"
 
+	apiserverresponse "github.com/kdeps/schema/gen/api_server_response"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -100,5 +101,45 @@ func TestNewAPIServerResponse(t *testing.T) {
 		// Verify errors are cleared
 		errors = GetRequestErrors(requestID)
 		assert.Empty(t, errors, "Errors should be empty after clearing")
+	})
+
+	t.Run("MergeAllErrors", func(t *testing.T) {
+		// Clear any existing errors
+		requestID := "test-merge-errors"
+		ClearRequestErrors(requestID)
+
+		// First, simulate workflow errors being accumulated
+		NewAPIServerResponse(false, nil, 500, "Preflight validation failed", requestID)
+		NewAPIServerResponse(false, nil, 500, "Python script failed", requestID)
+
+		// Verify we have 2 workflow errors
+		workflowErrors := GetRequestErrors(requestID)
+		assert.Len(t, workflowErrors, 2, "Should have 2 workflow errors")
+
+		// Now simulate response resource with new errors
+		responseErrors := []*apiserverresponse.APIServerErrorsBlock{
+			{Code: 400, Message: "Response validation error"},
+			{Code: 500, Message: "Response processing error"},
+		}
+
+		// Merge all errors
+		allErrors := MergeAllErrors(requestID, responseErrors)
+
+		// Should have 4 unique errors total
+		assert.Len(t, allErrors, 4, "Should have 4 total errors: 2 workflow + 2 response")
+
+		// Verify no duplicates if we merge the same errors again
+		allErrorsAgain := MergeAllErrors(requestID, responseErrors)
+		assert.Len(t, allErrorsAgain, 4, "Should still have 4 errors (no duplicates)")
+
+		// Test with empty response errors (key scenario)
+		ClearRequestErrors(requestID)
+		NewAPIServerResponse(false, nil, 500, "Workflow error only", requestID)
+
+		emptyResponseErrors := []*apiserverresponse.APIServerErrorsBlock{}
+		finalErrors := MergeAllErrors(requestID, emptyResponseErrors)
+
+		assert.Len(t, finalErrors, 1, "Should preserve workflow error even when response has no errors")
+		assert.Equal(t, "Workflow error only", finalErrors[0].Message)
 	})
 }
