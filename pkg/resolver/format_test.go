@@ -33,6 +33,92 @@ import (
 	"github.com/tmc/langchaingo/llms"
 )
 
+/*
+Filesystem Strategy for Tests:
+
+This file establishes a standardized approach for choosing filesystem types in tests:
+
+1. **Use Real Filesystem (setupTestResolverWithRealFS)** when:
+   - Tests involve PKL operations (evaluation, loading, processing)
+   - Tests call functions that use evaluator.EvalPkl()
+   - Tests work with PKL schema loading (e.g., LoadFromPath, LoadResource)
+   - Tests append entries to PKL files (AppendExecEntry, AppendPythonEntry, AppendChatEntry)
+   - Tests create and process PKL files (CreateAndProcessPklFile)
+   - Tests evaluate PKL formatted response files
+
+   **Why**: PKL requires real file paths on disk to load modules and resolve imports.
+   afero.NewMemMapFs() creates virtual files that PKL cannot access.
+
+2. **Use In-Memory Filesystem (setupTestResolverWithMemFS)** when:
+   - Tests only work with file I/O (reading/writing without PKL)
+   - Tests involve simple string manipulation or formatting
+   - Tests work with non-PKL configuration or data files
+   - Tests don't involve external PKL binary execution
+
+   **Why**: In-memory filesystem is faster and doesn't require cleanup.
+
+3. **Helper Functions**:
+   - setupTestResolverWithRealFS(t) - Creates resolver with afero.NewOsFs() + t.TempDir()
+   - setupTestResolverWithMemFS(t) - Creates resolver with afero.NewMemMapFs()
+
+4. **Examples**:
+   ✅ Real FS: TestAppendExecEntry, TestEvalPklFormattedResponseFile, TestHandlePython
+   ✅ Memory FS: TestWriteResponseToFile_EncodedAndPlain, TestFormatValue tests
+
+This pattern ensures PKL tests work correctly while maintaining performance for non-PKL tests.
+*/
+
+// setupTestResolverWithRealFS creates a DependencyResolver with real filesystem
+// using temporary directories. This is needed for PKL-related tests since PKL
+// cannot work with afero's in-memory filesystem.
+func setupTestResolverWithRealFS(t *testing.T) *DependencyResolver {
+	tmpDir := t.TempDir()
+
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	filesDir := filepath.Join(tmpDir, "files")
+	actionDir := filepath.Join(tmpDir, "action")
+	_ = fs.MkdirAll(filepath.Join(actionDir, "exec"), 0o755)
+	_ = fs.MkdirAll(filepath.Join(actionDir, "python"), 0o755)
+	_ = fs.MkdirAll(filepath.Join(actionDir, "llm"), 0o755)
+	_ = fs.MkdirAll(filesDir, 0o755)
+
+	return &DependencyResolver{
+		Fs:        fs,
+		Logger:    logger,
+		Context:   ctx,
+		FilesDir:  filesDir,
+		ActionDir: actionDir,
+		RequestID: "test-request",
+	}
+}
+
+// setupTestResolverWithMemFS creates a DependencyResolver with in-memory filesystem
+// for tests that don't need PKL functionality.
+func setupTestResolverWithMemFS(t *testing.T) *DependencyResolver {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	filesDir := "/files"
+	actionDir := "/action"
+	_ = fs.MkdirAll(filepath.Join(actionDir, "exec"), 0o755)
+	_ = fs.MkdirAll(filepath.Join(actionDir, "python"), 0o755)
+	_ = fs.MkdirAll(filepath.Join(actionDir, "llm"), 0o755)
+	_ = fs.MkdirAll(filesDir, 0o755)
+
+	return &DependencyResolver{
+		Fs:        fs,
+		Logger:    logger,
+		Context:   ctx,
+		FilesDir:  filesDir,
+		ActionDir: actionDir,
+		RequestID: "test-request",
+	}
+}
+
 func TestFormatMapSimple(t *testing.T) {
 	m := map[interface{}]interface{}{
 		"foo": "bar",
@@ -130,14 +216,8 @@ func TestGeneratePklContent_Minimal(t *testing.T) {
 }
 
 func TestWriteResponseToFile_EncodedAndPlain(t *testing.T) {
-	fs := afero.NewMemMapFs()
-	dr := &DependencyResolver{
-		Fs:        fs,
-		FilesDir:  "/files",
-		RequestID: "req123",
-		Logger:    logging.NewTestLogger(),
-	}
-	_ = fs.MkdirAll(dr.FilesDir, 0o755)
+	dr := setupTestResolverWithMemFS(t)
+	dr.RequestID = "req123"
 
 	resp := "this is the content"
 	encoded := base64.StdEncoding.EncodeToString([]byte(resp))
@@ -148,7 +228,7 @@ func TestWriteResponseToFile_EncodedAndPlain(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	data, _ := afero.ReadFile(fs, path)
+	data, _ := afero.ReadFile(dr.Fs, path)
 	if string(data) != resp {
 		t.Errorf("decoded content mismatch: got %q, want %q", string(data), resp)
 	}
@@ -158,7 +238,7 @@ func TestWriteResponseToFile_EncodedAndPlain(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error (plain): %v", err)
 	}
-	data2, _ := afero.ReadFile(fs, path2)
+	data2, _ := afero.ReadFile(dr.Fs, path2)
 	if string(data2) != resp {
 		t.Errorf("plain content mismatch: got %q, want %q", string(data2), resp)
 	}
@@ -454,25 +534,8 @@ func stringPtr(s string) *string {
 }
 
 func setupTestExecResolver(t *testing.T) *DependencyResolver {
-	tmpDir := t.TempDir()
-
-	fs := afero.NewOsFs()
-	logger := logging.GetLogger()
-	ctx := context.Background()
-
-	filesDir := filepath.Join(tmpDir, "files")
-	actionDir := filepath.Join(tmpDir, "action")
-	_ = fs.MkdirAll(filepath.Join(actionDir, "exec"), 0o755)
-	_ = fs.MkdirAll(filesDir, 0o755)
-
-	return &DependencyResolver{
-		Fs:        fs,
-		Logger:    logger,
-		Context:   ctx,
-		FilesDir:  filesDir,
-		ActionDir: actionDir,
-		RequestID: "test-request",
-	}
+	// Use the standardized real filesystem helper for exec tests
+	return setupTestResolverWithRealFS(t)
 }
 
 func TestHandleExec(t *testing.T) {
@@ -698,18 +761,11 @@ func TestEncodeExecOutputs(t *testing.T) {
 }
 
 func newHTTPTestResolver(t *testing.T) *DependencyResolver {
-	tmp := t.TempDir()
-	fs := afero.NewOsFs()
-	// ensure tmp dir exists on host fs
-	if err := os.MkdirAll(tmp, 0o755); err != nil {
-		t.Fatalf("unable to create temp dir: %v", err)
-	}
-	return &DependencyResolver{
-		Fs:        fs,
-		FilesDir:  tmp,
-		RequestID: "rid",
-		Logger:    logging.NewTestLogger(),
-	}
+	dr := setupTestResolverWithRealFS(t)
+	dr.RequestID = "rid"
+	// Create additional client directory for HTTP tests
+	_ = dr.Fs.MkdirAll(filepath.Join(dr.ActionDir, "client"), 0o755)
+	return dr
 }
 
 func TestWriteResponseBodyToFile(t *testing.T) {
@@ -903,10 +959,8 @@ func skipIfPKLErrorPy(t *testing.T, err error) {
 }
 
 func setupTestPyResolver(t *testing.T) *DependencyResolver {
-	dr := setupTestResolver(t)
-	// override dirs for python
-	_ = dr.Fs.MkdirAll(filepath.Join(dr.ActionDir, "python"), 0o755)
-	return dr
+	// Use real filesystem for Python tests since they may need PKL
+	return setupTestResolverWithRealFS(t)
 }
 
 func TestAppendPythonEntryExtra(t *testing.T) {
@@ -1008,24 +1062,10 @@ func (m *mockExecute) Execute(ctx context.Context) (struct {
 }
 
 func setupTestResolver(t *testing.T) *DependencyResolver {
-	fs := afero.NewMemMapFs()
-	logger := logging.GetLogger()
-	ctx := context.Background()
-
-	// Create necessary directories
-	err := fs.MkdirAll("/tmp", 0o755)
-	require.NoError(t, err)
-	err = fs.MkdirAll("/files", 0o755)
-	require.NoError(t, err)
-
-	return &DependencyResolver{
-		Fs:                fs,
-		Logger:            logger,
-		Context:           ctx,
-		FilesDir:          "/files",
-		RequestID:         "test-request",
-		AnacondaInstalled: false,
-	}
+	// Use real filesystem for tests that might need PKL
+	dr := setupTestResolverWithRealFS(t)
+	dr.AnacondaInstalled = false
+	return dr
 }
 
 func TestHandlePython(t *testing.T) {
@@ -1205,11 +1245,15 @@ func TestCleanupTempFile(t *testing.T) {
 }
 
 func TestHandleAPIErrorResponse_Extra(t *testing.T) {
-	// Case 1: APIServerMode disabled – function should just relay fatal and return nil error
+	// Case 1: APIServerMode disabled – function should return an actual error to fail processing
 	dr := &DependencyResolver{APIServerMode: false}
 	fatalRet, err := dr.HandleAPIErrorResponse(400, "bad", true)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err == nil {
+		t.Fatalf("expected error when APIServerMode is false, got nil")
+	}
+	expectedErr := "validation failed (code 400): bad"
+	if err.Error() != expectedErr {
+		t.Errorf("expected error message %q, got %q", expectedErr, err.Error())
 	}
 	if !fatalRet {
 		t.Errorf("expected fatal=true to passthrough when APIServerMode off")
@@ -1262,15 +1306,11 @@ fi
 }
 
 func newEvalResolver(t *testing.T) *DependencyResolver {
-	fs := afero.NewOsFs()
+	dr := setupTestResolverWithRealFS(t)
 	tmp := t.TempDir()
-	return &DependencyResolver{
-		Fs:                 fs,
-		ResponsePklFile:    filepath.Join(tmp, "resp.pkl"),
-		ResponseTargetFile: filepath.Join(tmp, "resp.json"),
-		Logger:             logging.NewTestLogger(),
-		Context:            context.Background(),
-	}
+	dr.ResponsePklFile = filepath.Join(tmp, "resp.pkl")
+	dr.ResponseTargetFile = filepath.Join(tmp, "resp.json")
+	return dr
 }
 
 func TestExecutePklEvalCommand(t *testing.T) {
@@ -1439,7 +1479,7 @@ func TestCreateResponsePklFile(t *testing.T) {
 	// Test cases
 	t.Run("SuccessfulResponse", func(t *testing.T) {
 		t.Skip("Skipping SuccessfulResponse due to external pkl binary dependency")
-		response := utils.NewAPIServerResponse(true, []any{"data"}, 0, "")
+		response := utils.NewAPIServerResponse(true, []any{"data"}, 0, "", "test-request-1")
 		err := resolver.CreateResponsePklFile(response)
 		assert.NoError(t, err)
 
@@ -1451,7 +1491,7 @@ func TestCreateResponsePklFile(t *testing.T) {
 
 	t.Run("NilResolver", func(t *testing.T) {
 		var nilResolver *DependencyResolver
-		err := nilResolver.CreateResponsePklFile(utils.NewAPIServerResponse(true, nil, 0, ""))
+		err := nilResolver.CreateResponsePklFile(utils.NewAPIServerResponse(true, nil, 0, "", "test-request-nil"))
 		assert.ErrorContains(t, err, "dependency resolver or database is nil")
 	})
 
@@ -1461,7 +1501,7 @@ func TestCreateResponsePklFile(t *testing.T) {
 			Fs:     afero.NewMemMapFs(),
 			DBs:    nil,
 		}
-		err := resolver.CreateResponsePklFile(utils.NewAPIServerResponse(true, nil, 0, ""))
+		err := resolver.CreateResponsePklFile(utils.NewAPIServerResponse(true, nil, 0, "", "test-request-valid"))
 		assert.ErrorContains(t, err, "dependency resolver or database is nil")
 	})
 }
@@ -1498,7 +1538,7 @@ func TestBuildResponseSections(t *testing.T) {
 	}
 
 	t.Run("FullResponse", func(t *testing.T) {
-		response := utils.NewAPIServerResponse(true, []any{"data1", "data2"}, 0, "")
+		response := utils.NewAPIServerResponse(true, []any{"data1", "data2"}, 0, "", "test-request-data")
 		sections := dr.buildResponseSections("test-id", response)
 		assert.NotEmpty(t, sections)
 		assert.Contains(t, sections[0], "import")
@@ -1506,7 +1546,7 @@ func TestBuildResponseSections(t *testing.T) {
 	})
 
 	t.Run("ResponseWithError", func(t *testing.T) {
-		response := utils.NewAPIServerResponse(false, nil, 404, "Resource not found")
+		response := utils.NewAPIServerResponse(false, nil, 404, "Resource not found", "test-request-error")
 		sections := dr.buildResponseSections("test-id", response)
 		assert.NotEmpty(t, sections)
 		assert.Contains(t, sections[0], "import")

@@ -107,7 +107,7 @@ func EnforcePklVersion(ctx context.Context, line, filePath, schemaVersion string
 
 	switch comparison {
 	case -1:
-		logger.Warn("version in amends line is lower than schema version. Please upgrade to latest schema version.",
+		logger.Warn("version in amends line is lower than schema version. Run 'kdeps upgrade' to update your schema versions.",
 			"version", version, "latestSchemaVersion(ctx)", schemaVersion, "file", filePath)
 	case 1:
 		logger.Debug("version in amends line is higher than schema version",
