@@ -18,6 +18,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// newTestResolver creates a DependencyResolver with real filesystem for PKL operations.
+// Note: This resolver uses afero.NewOsFs() because many tests in this file involve
+// PKL operations that require real file paths on disk.
 func newTestResolver() *DependencyResolver {
 	tmpDir := filepath.Join(os.TempDir(), "kdeps_test_", uuid.NewString())
 	// We purposely ignore error for MkdirAll because temp dir should exist

@@ -265,6 +265,11 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		baseLogger := logging.GetLogger()
 		logger := baseLogger.With("requestID", graphID)
 
+		// Ensure cleanup of request-specific errors when request completes
+		defer func() {
+			utils.ClearRequestErrors(graphID)
+		}()
+
 		// Helper function to create APIResponse with requestID
 		createErrorResponse := func(errs []ErrorResponse) APIResponse {
 			return APIResponse{

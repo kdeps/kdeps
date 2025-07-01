@@ -30,6 +30,19 @@ func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverre
 
 	dr.Logger.Debug("starting CreateResponsePklFile", "response", apiResponseBlock)
 
+	// Check if an error response already exists and prevent overwriting it with a success response
+	if apiResponseBlock.GetSuccess() {
+		exists, err := afero.Exists(dr.Fs, dr.ResponsePklFile)
+		if err == nil && exists {
+			// Try to read the existing response to check if it's an error response
+			content, readErr := afero.ReadFile(dr.Fs, dr.ResponsePklFile)
+			if readErr == nil && strings.Contains(string(content), "success = false") {
+				dr.Logger.Warn("preventing success response from overwriting existing error response", "requestID", dr.RequestID)
+				return nil // Don't overwrite error response with success response
+			}
+		}
+	}
+
 	if err := dr.ensureResponsePklFileNotExists(); err != nil {
 		return fmt.Errorf("ensure response PKL file does not exist: %w", err)
 	}
@@ -304,13 +317,21 @@ func (dr *DependencyResolver) executePklEvalCommand() (kdepsexecStd struct {
 	return kdepsexecStd, nil
 }
 
-// HandleAPIErrorResponse creates an error response PKL file.
+// HandleAPIErrorResponse creates an error response PKL file when in API server mode,
+// or returns an actual error when not in API server mode.
 func (dr *DependencyResolver) HandleAPIErrorResponse(code int, message string, fatal bool) (bool, error) {
 	if dr.APIServerMode {
-		errorResponse := utils.NewAPIServerResponse(false, nil, code, message)
+		errorResponse := utils.NewAPIServerResponse(false, nil, code, message, dr.RequestID)
 		if err := dr.CreateResponsePklFile(errorResponse); err != nil {
 			return fatal, fmt.Errorf("create error response: %w", err)
 		}
+		// If fatal is true, return an error to stop processing even in API server mode
+		if fatal {
+			return fatal, fmt.Errorf("fatal error (code %d): %s", code, message)
+		}
+		return fatal, nil
 	}
-	return fatal, nil
+
+	// When not in API server mode, return an actual error to fail the processing
+	return fatal, fmt.Errorf("validation failed (code %d): %s", code, message)
 }
