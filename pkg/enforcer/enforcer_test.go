@@ -35,34 +35,33 @@ var (
 	configAmendsLine    = fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Kdeps.pkl"`, schema.SchemaVersion(ctx))
 	resourceAmendsLine  = fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"`, schema.SchemaVersion(ctx))
 	resourceValues      = `
-actionID = "helloWorld"
-name = "name"
-description = "description"
-category = "category"
+ActionID = "helloWorld"
+Name = "agentname"
+Description = "description"
+Category = "category"
 `
 	configValues = `
-runMode = "docker"
-dockerGPU = "cpu"
+Mode = "docker"
+DockerGPU = "cpu"
 `
 	workflowValues = `
-settings {
+Settings {
   APIServerMode = false
   APIServer {
-    portNum = 3000
-    routes {
+    PortNum = 3000
+    Routes {
       new {
-	path = "/api"
-	methods {
-	  "POST"
-	}
+	Path = "/api"
+	Method = "POST"
+	ActionID = "myAction"
       }
     }
   }
 }
-name = "myAgent"
-description = "My awesome AI Agent"
-version = "1.0.0"
-targetActionID = "helloWorld"
+AgentID = "myAgent"
+Description = "My awesome AI Agent"
+Version = "1.0.0"
+TargetActionID = "helloWorld"
 `
 	testingT *testing.T
 )

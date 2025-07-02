@@ -140,7 +140,7 @@ func aKdepsContainerWithEndpointAPI(arg1, arg2, arg3 string) error {
 	systemConfigurationContent := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Kdeps.pkl"
 
-runMode = "docker"
+Mode = "docker"
 dockerGPU = "cpu"
 `, schema.SchemaVersion(ctx))
 

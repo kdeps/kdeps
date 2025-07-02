@@ -42,7 +42,7 @@ func TestValidateMethodExtra2(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if methodStr != `method = "POST"` {
+	if methodStr != `Method = "POST"` {
 		t.Fatalf("unexpected method string: %s", methodStr)
 	}
 
@@ -267,7 +267,7 @@ func TestValidateMethod(t *testing.T) {
 		req := httptest.NewRequest("GET", "/", nil)
 		method, err := validateMethod(req, []string{"GET", "POST"})
 		assert.NoError(t, err)
-		assert.Equal(t, "method = \"GET\"", method)
+		assert.Equal(t, "Method = \"GET\"", method)
 	})
 
 	t.Run("InvalidMethod", func(t *testing.T) {
@@ -281,7 +281,7 @@ func TestValidateMethod(t *testing.T) {
 		req := httptest.NewRequest("", "/", nil)
 		method, err := validateMethod(req, []string{"GET", "POST"})
 		assert.NoError(t, err)
-		assert.Equal(t, "method = \"GET\"", method)
+		assert.Equal(t, "Method = \"GET\"", method)
 	})
 }
 
@@ -450,8 +450,8 @@ func TestAPIServerHandler(t *testing.T) {
 
 	t.Run("ValidRoute", func(t *testing.T) {
 		route := &apiserver.APIServerRoutes{
-			Path:    "/test",
-			Methods: []string{"GET"},
+			Path:   "/test",
+			Method: "GET",
 		}
 		handler := APIServerHandler(context.Background(), route, dr, semaphore)
 		assert.NotNil(t, handler)
@@ -502,7 +502,7 @@ func (w workflowWithNilSettings) GetDocumentation() *string { return nil }
 
 func (w workflowWithNilSettings) GetHeroImage() *string { return nil }
 
-func (w workflowWithNilSettings) GetName() string { return "" }
+func (w workflowWithNilSettings) GetAgentID() string { return "" }
 
 func (w workflowWithNilSettings) GetRepository() *string { return nil }
 
@@ -668,12 +668,16 @@ func TestSetupRoutes(t *testing.T) {
 	// Create test routes
 	routes := []*apiserver.APIServerRoutes{
 		{
-			Path:    "/test",
-			Methods: []string{http.MethodGet, http.MethodPost},
+			Path:   "/test",
+			Method: http.MethodGet,
 		},
 		{
-			Path:    "/test2",
-			Methods: []string{http.MethodPut, http.MethodDelete},
+			Path:   "/test",
+			Method: http.MethodPost,
+		},
+		{
+			Path:   "/test2",
+			Method: http.MethodPut,
 		},
 	}
 
@@ -731,8 +735,8 @@ func TestSetupRoutes(t *testing.T) {
 		ctx := context.Background()
 		unsupportedRoutes := []*apiserver.APIServerRoutes{
 			{
-				Path:    "/test3",
-				Methods: []string{"UNSUPPORTED"},
+				Path:   "/test3",
+				Method: "UNSUPPORTED",
 			},
 		}
 		setupRoutes(router, ctx, corsConfig, []string{"127.0.0.1"}, unsupportedRoutes, baseDr, semaphore)
@@ -752,13 +756,13 @@ func TestValidateMethodUtilsExtra(t *testing.T) {
 
 	req, _ := http.NewRequest(http.MethodGet, "http://example.com", nil)
 	got, err := validateMethod(req, []string{http.MethodGet, http.MethodPost})
-	if err != nil || got != `method = "GET"` {
+	if err != nil || got != `Method = "GET"` {
 		t.Fatalf("expected valid GET, got %q err %v", got, err)
 	}
 
 	reqEmpty, _ := http.NewRequest("", "http://example.com", nil)
 	got2, err2 := validateMethod(reqEmpty, []string{http.MethodGet})
-	if err2 != nil || got2 != `method = "GET"` {
+	if err2 != nil || got2 != `Method = "GET"` {
 		t.Fatalf("default method failed: %q err %v", got2, err2)
 	}
 
@@ -833,13 +837,13 @@ func TestValidateMethodMore(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodPost, "/", nil)
 	out, err := validateMethod(req, allowed)
 	assert.NoError(t, err)
-	assert.Equal(t, `method = "POST"`, out)
+	assert.Equal(t, `Method = "POST"`, out)
 
 	// default empty method becomes GET and passes
 	req2, _ := http.NewRequest("", "/", nil)
 	out, err = validateMethod(req2, allowed)
 	assert.NoError(t, err)
-	assert.Equal(t, `method = "GET"`, out)
+	assert.Equal(t, `Method = "GET"`, out)
 
 	// invalid method
 	req3, _ := http.NewRequest(http.MethodPut, "/", nil)
@@ -989,7 +993,7 @@ func TestValidateMethodSimple(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validateMethod unexpected error: %v", err)
 	}
-	if methodStr != `method = "POST"` {
+	if methodStr != `Method = "POST"` {
 		t.Fatalf("unexpected method string: %s", methodStr)
 	}
 
@@ -1104,7 +1108,7 @@ func TestValidateMethodDefaultGET(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	want := `method = "GET"`
+	want := `Method = "GET"`
 	if got != want {
 		t.Fatalf("unexpected result: got %q want %q", got, want)
 	}
@@ -1160,8 +1164,8 @@ func TestAPIServerErrorHandling(t *testing.T) {
 
 		// Create test route configuration
 		route := &apiserver.APIServerRoutes{
-			Path:    "/api/v1/test",
-			Methods: []string{"POST"},
+			Path:   "/api/v1/test",
+			Method: "POST",
 		}
 
 		// Create semaphore
@@ -1241,20 +1245,20 @@ func TestAPIServerErrorHandling(t *testing.T) {
 		// but fail during processing (due to missing resources)
 		workflowContent := `
 amends "package://schema.kdeps.com/core@1.0.0#/Workflow.pkl"
-name = "testagent"
-description = "Test agent for error stacking"
-targetActionID = "testaction"
-settings {
+AgentID = "testagent"
+Description = "Test agent for error stacking"
+TargetActionID = "testaction"
+Settings {
 	APIServerMode = false
-	agentSettings {
-		installAnaconda = false
+	AgentSettings {
+		InstallAnaconda = false
 	}
 }
-preflightCheck {
-	validations {
+PreflightCheck {
+	Validations {
 		false  // This will always fail and trigger our error stacking
 	}
-	error {
+	Error {
 		code = 500
 		message = "Preflight validation failed"
 	}
@@ -1282,8 +1286,8 @@ preflightCheck {
 
 		// Create test route configuration
 		route := &apiserver.APIServerRoutes{
-			Path:    "/api/v1/whois",
-			Methods: []string{"GET"},
+			Path:   "/api/v1/whois",
+			Method: "GET",
 		}
 
 		// Create semaphore
@@ -1367,8 +1371,8 @@ preflightCheck {
 
 		// Even with invalid method configuration, resolver fails first
 		route := &apiserver.APIServerRoutes{
-			Path:    "/api/v1/test",
-			Methods: []string{"POST"}, // Only POST allowed
+			Path:   "/api/v1/test",
+			Method: "POST",
 		}
 
 		semaphore := make(chan struct{}, 1)

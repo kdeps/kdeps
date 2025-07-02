@@ -2,10 +2,13 @@ package workflow
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/schema"
+	assets "github.com/kdeps/schema/assets"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -34,49 +37,155 @@ func TestLoadWorkflow(t *testing.T) {
 	t.Run("ValidWorkflowFile", func(t *testing.T) {
 		// Create a temporary file with valid PKL content
 		tmpFile := t.TempDir() + "/valid.pkl"
-		validContent := `amends "package://schema.kdeps.com/core@0.2.30#/Workflow.pkl"
+		validContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
-name = "testworkflow"
-version = "1.0.0"
-description = "Test workflow"
-targetActionID = "testaction"
-settings {
+AgentID = "testworkflow"
+Version = "1.0.0"
+Description = "Test workflow"
+TargetActionID = "testaction"
+Settings {
   APIServerMode = true
   APIServer {
-    hostIP = "127.0.0.1"
-    portNum = 3000
-    routes {
+    HostIP = "127.0.0.1"
+    PortNum = 3000
+    Routes {
       new {
-        path = "/api/v1/test"
-        methods {
-          "POST"
-        }
+        Path = "/api/v1/test"
+        Method = "POST"
+        ActionID = "testaction"
       }
     }
-    cors {
-      enableCORS = true
-      allowOrigins {
+    CORS {
+      EnableCORS = true
+      AllowOrigins {
         "http://localhost:8080"
       }
     }
   }
-  agentSettings {
-    timezone = "Etc/UTC"
-    models {
+  AgentSettings {
+    Timezone = "Etc/UTC"
+    Models {
       "llama3.2:1b"
     }
-    ollamaImageTag = "0.8.0"
+    OllamaVersion = "0.8.0"
   }
-}`
+}`, schema.SchemaVersion(ctx))
 		err := os.WriteFile(tmpFile, []byte(validContent), 0o644)
 		require.NoError(t, err)
 
 		wf, err := LoadWorkflow(ctx, tmpFile, logger)
 		assert.NoError(t, err)
 		assert.NotNil(t, wf)
-		assert.Equal(t, "testworkflow", wf.GetName())
+		assert.Equal(t, "testworkflow", wf.GetAgentID())
 		assert.Equal(t, "1.0.0", wf.GetVersion())
 		assert.Equal(t, "Test workflow", wf.GetDescription())
 		assert.Equal(t, "testaction", wf.GetTargetActionID())
+	})
+}
+
+func TestWorkflowWithSchemaAssets(t *testing.T) {
+	t.Run("ValidateWorkflowAgainstSchemaAssets", func(t *testing.T) {
+		// Setup PKL workspace with all schema files
+		workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+		require.NoError(t, err)
+		defer workspace.Cleanup()
+
+		// Get the actual Workflow.pkl schema content
+		workflowSchema, err := assets.GetPKLFileAsString("Workflow.pkl")
+		require.NoError(t, err)
+		assert.NotEmpty(t, workflowSchema)
+
+		// Verify the schema contains expected v0.3.1 properties
+		assert.Contains(t, workflowSchema, "AgentID: String")
+		assert.Contains(t, workflowSchema, "Description: String")
+		assert.Contains(t, workflowSchema, "Website: Uri?")
+		assert.Contains(t, workflowSchema, "Authors: Listing<String>?")
+		assert.Contains(t, workflowSchema, "Documentation: Uri?")
+		assert.Contains(t, workflowSchema, "Repository: Uri?")
+		assert.Contains(t, workflowSchema, "HeroImage: String?")
+		assert.Contains(t, workflowSchema, "AgentIcon: String?")
+		assert.Contains(t, workflowSchema, "Version: String")
+		assert.Contains(t, workflowSchema, "TargetActionID: String")
+		assert.Contains(t, workflowSchema, "Workflows: Listing")
+		assert.Contains(t, workflowSchema, "Settings: Project.Settings")
+
+		t.Logf("Workflow schema validation successful")
+		t.Logf("Schema contains %d characters", len(workflowSchema))
+	})
+
+	t.Run("ValidateProjectSettingsSchema", func(t *testing.T) {
+		// Get the Project.pkl schema which contains Settings definition
+		projectSchema, err := assets.GetPKLFileAsString("Project.pkl")
+		require.NoError(t, err)
+		assert.NotEmpty(t, projectSchema)
+
+		// Verify it contains the new v0.3.1 Settings properties
+		assert.Contains(t, projectSchema, "RateLimitMax: Int = 100")
+		assert.Contains(t, projectSchema, "Environment: BuildEnv = \"dev\"")
+		assert.Contains(t, projectSchema, "APIServerMode: Boolean = false")
+		assert.Contains(t, projectSchema, "WebServerMode: Boolean = false")
+		assert.Contains(t, projectSchema, "AgentSettings: Docker.DockerSettings")
+
+		t.Logf("Project schema validation successful")
+	})
+
+	t.Run("ValidateResourceSchema", func(t *testing.T) {
+		// Get the Resource.pkl schema
+		resourceSchema, err := assets.GetPKLFileAsString("Resource.pkl")
+		require.NoError(t, err)
+		assert.NotEmpty(t, resourceSchema)
+
+		// Verify it contains the new v0.3.1 Resource properties
+		assert.Contains(t, resourceSchema, "ActionID: String")
+		assert.Contains(t, resourceSchema, "Name: String")
+		assert.Contains(t, resourceSchema, "Description: String")
+		assert.Contains(t, resourceSchema, "Category: String")
+		assert.Contains(t, resourceSchema, "PostflightCheck: ValidationCheck?")
+		assert.Contains(t, resourceSchema, "AllowedHeaders: Listing<String>?")
+		assert.Contains(t, resourceSchema, "AllowedParams: Listing<String>?")
+		assert.Contains(t, resourceSchema, "APIResponse: APIServerResponse?")
+
+		// Verify ValidationCheck class with retry properties
+		assert.Contains(t, resourceSchema, "Retry: Boolean = false")
+		assert.Contains(t, resourceSchema, "RetryTimes: Int = 3")
+
+		t.Logf("Resource schema validation successful")
+	})
+
+	t.Run("CreateWorkflowWithAssetsImport", func(t *testing.T) {
+		// Setup PKL workspace
+		workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+		require.NoError(t, err)
+		defer workspace.Cleanup()
+
+		// Create a test workflow file that imports from the workspace
+		tmpFile := t.TempDir() + "/assets_workflow.pkl"
+		workflowContent := fmt.Sprintf(`import "%s" as Workflow
+
+myWorkflow = new Workflow {
+  AgentID = "assets-test"
+  Description = "Testing with assets"
+  Version = "1.0.0"
+  TargetActionID = "test-action"
+  Workflows {}
+  Settings = new Workflow.Project.Settings {
+    APIServerMode = true
+    RateLimitMax = 50
+    Environment = "dev"
+    AgentSettings = new Workflow.Docker.DockerSettings {
+      InstallAnaconda = false
+    }
+  }
+}`, workspace.GetImportPath("Workflow.pkl"))
+
+		err = os.WriteFile(tmpFile, []byte(workflowContent), 0o644)
+		require.NoError(t, err)
+
+		t.Logf("Created test workflow with assets import at: %s", tmpFile)
+		t.Logf("Workspace directory: %s", workspace.Directory)
+		t.Logf("Import path: %s", workspace.GetImportPath("Workflow.pkl"))
+
+		// Note: We can't actually evaluate this with LoadWorkflow since it expects
+		// the amends format, but this demonstrates how to use assets for PKL imports
 	})
 }

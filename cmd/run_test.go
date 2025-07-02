@@ -78,10 +78,10 @@ func TestNewRunCommandDockerErrors(t *testing.T) {
 	// Create test package file with valid structure but that will fail docker operations
 	workflowContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
-name = "test-agent"
-description = "Test Agent"
-version = "1.0.0"
-targetActionID = "testAction"
+AgentID = "testagent"
+Description = "Test Agent"
+Version = "1.0.0"
+TargetActionID = "testAction"
 
 workflows {}
 

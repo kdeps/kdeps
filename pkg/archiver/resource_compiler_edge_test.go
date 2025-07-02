@@ -16,7 +16,7 @@ import (
 // Only Name and Version are significant for transformation functions; all other methods return zero values.
 type stubWf struct{}
 
-func (stubWf) GetName() string                { return "agent" }
+func (stubWf) GetAgentID() string             { return "agent" }
 func (stubWf) GetDescription() string         { return "" }
 func (stubWf) GetWebsite() *string            { return nil }
 func (stubWf) GetAuthors() *[]string          { return nil }
@@ -33,7 +33,7 @@ func (stubWf) GetSettings() *project.Settings { return nil }
 var (
 	_ pklWf.Workflow = stubWf{}
 	_ interface {
-		GetName() string
+		GetAgentID() string
 		GetVersion() string
 	} = stubWf{}
 )
@@ -81,7 +81,7 @@ func TestProcessActionIDLineEdge(t *testing.T) {
 
 func TestStubWfAllMethods(t *testing.T) {
 	wf := stubWf{}
-	if wf.GetName() == "" || wf.GetVersion() == "" {
+	if wf.GetAgentID() == "" || wf.GetVersion() == "" {
 		t.Fatalf("name or version empty")
 	}
 	_ = wf.GetDescription()

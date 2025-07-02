@@ -145,7 +145,7 @@ func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 	semaphore := make(chan struct{}, 1)
 	router := gin.Default()
 
-	wfAPIServerCORS := wfAPIServer.Cors
+	wfAPIServerCORS := wfAPIServer.CORS
 
 	setupRoutes(router, ctx, wfAPIServerCORS, wfTrustedProxies, wfAPIServer.Routes, dr, semaphore)
 
@@ -207,25 +207,24 @@ func setupRoutes(router *gin.Engine, ctx context.Context, wfAPIServerCORS *apise
 		}
 
 		handler := APIServerHandler(ctx, route, dr, semaphore)
-		for _, method := range route.Methods {
-			switch method {
-			case http.MethodGet:
-				router.GET(route.Path, handler)
-			case http.MethodPost:
-				router.POST(route.Path, handler)
-			case http.MethodPut:
-				router.PUT(route.Path, handler)
-			case http.MethodPatch:
-				router.PATCH(route.Path, handler)
-			case http.MethodDelete:
-				router.DELETE(route.Path, handler)
-			case http.MethodOptions:
-				router.OPTIONS(route.Path, handler)
-			case http.MethodHead:
-				router.HEAD(route.Path, handler)
-			default:
-				dr.Logger.Warn("Unsupported HTTP method in route configuration", "method", method)
-			}
+		method := route.Method
+		switch method {
+		case http.MethodGet:
+			router.GET(route.Path, handler)
+		case http.MethodPost:
+			router.POST(route.Path, handler)
+		case http.MethodPut:
+			router.PUT(route.Path, handler)
+		case http.MethodPatch:
+			router.PATCH(route.Path, handler)
+		case http.MethodDelete:
+			router.DELETE(route.Path, handler)
+		case http.MethodOptions:
+			router.OPTIONS(route.Path, handler)
+		case http.MethodHead:
+			router.HEAD(route.Path, handler)
+		default:
+			dr.Logger.Warn("Unsupported HTTP method in route configuration", "method", method)
 		}
 
 		dr.Logger.Printf("Route configured: %s", route.Path)
@@ -234,7 +233,7 @@ func setupRoutes(router *gin.Engine, ctx context.Context, wfAPIServerCORS *apise
 
 func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, baseDr *resolver.DependencyResolver, semaphore chan struct{}) gin.HandlerFunc {
 	// Validate route parameter
-	if route == nil || route.Path == "" || len(route.Methods) == 0 {
+	if route == nil || route.Path == "" || route.Method == "" {
 		baseDr.Logger.Error("invalid route configuration provided to APIServerHandler", "route", route)
 		return func(c *gin.Context) {
 			graphID := uuid.New().String()
@@ -265,7 +264,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		}
 	}
 
-	allowedMethods := route.Methods
+	allowedMethods := []string{route.Method}
 
 	return func(c *gin.Context) {
 		// Initialize errors slice to collect all errors
@@ -480,17 +479,17 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			return
 		}
 
-		urlSection := fmt.Sprintf(`path = "%s"`, c.Request.URL.Path)
+		urlSection := fmt.Sprintf(`Path = "%s"`, c.Request.URL.Path)
 		clientIPSection := fmt.Sprintf(`IP = "%s"`, c.ClientIP())
 		requestIDSection := fmt.Sprintf(`ID = "%s"`, graphID)
-		dataSection := fmt.Sprintf(`data = "%s"`, utils.EncodeBase64String(bodyData))
+		dataSection := fmt.Sprintf(`Data = "%s"`, utils.EncodeBase64String(bodyData))
 
 		var sb strings.Builder
-		sb.WriteString("files {\n")
+		sb.WriteString("Files {\n")
 		for _, fileInfo := range fileMap {
 			fileBlock := fmt.Sprintf(`
-	filepath = "%s"
-	filetype = "%s"
+	Filepath = "%s"
+	Filetype = "%s"
 `, fileInfo.Filename, fileInfo.Filetype)
 			sb.WriteString(fmt.Sprintf("    [\"%s\"] {\n%s\n}\n", filepath.Base(fileInfo.Filename), fileBlock))
 		}
@@ -632,7 +631,7 @@ func validateMethod(r *http.Request, allowedMethods []string) (string, error) {
 
 	for _, allowedMethod := range allowedMethods {
 		if allowedMethod == r.Method {
-			return fmt.Sprintf(`method = "%s"`, allowedMethod), nil
+			return fmt.Sprintf(`Method = "%s"`, allowedMethod), nil
 		}
 	}
 

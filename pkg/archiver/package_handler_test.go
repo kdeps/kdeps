@@ -18,6 +18,7 @@ import (
 // minimal workflow stub satisfying the two getters used by PackageProject.
 type simpleWf struct{}
 
+func (simpleWf) GetAgentID() string { return "agent" }
 func (simpleWf) GetName() string    { return "agent" }
 func (simpleWf) GetVersion() string { return "0.0.1" }
 
@@ -183,6 +184,7 @@ func TestPackageProjectHappy(t *testing.T) {
 // stubWorkflow implements the required methods of pklWf.Workflow for this unit test.
 type stubWorkflowPkg struct{}
 
+func (stubWorkflowPkg) GetAgentID() string                { return "mini-agent" }
 func (stubWorkflowPkg) GetName() string                   { return "mini-agent" }
 func (stubWorkflowPkg) GetVersion() string                { return "0.0.1" }
 func (stubWorkflowPkg) GetDescription() string            { return "" }

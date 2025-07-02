@@ -60,7 +60,7 @@ func processPklFile(fs afero.Fs, file string, wf pklWf.Workflow, resourcesDir st
 		return fmt.Errorf("no valid action found in file: %s", file)
 	}
 
-	name, version := parseActionID(action, wf.GetName(), wf.GetVersion())
+	name, version := parseActionID(action, wf.GetAgentID(), wf.GetVersion())
 	fname := fmt.Sprintf("%s_%s-%s.pkl", name, action, version)
 	targetPath := filepath.Join(resourcesDir, fname)
 
@@ -87,7 +87,7 @@ func processFileContent(fs afero.Fs, file string, wf pklWf.Workflow, logger *log
 		currentAction   string
 		requiresWritten bool // Tracks if a 'requires' block is already processed
 		scanner         = bufio.NewScanner(bytes.NewReader(content))
-		name            = wf.GetName()
+		name            = wf.GetAgentID()
 		version         = wf.GetVersion()
 	)
 

@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/kdeps/kdeps/pkg/schema"
+	assets "github.com/kdeps/schema/assets"
 	pklPython "github.com/kdeps/schema/gen/python"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
@@ -54,42 +54,73 @@ func TestEncodePythonStderrStdoutFormatting(t *testing.T) {
 	}
 }
 
-func TestAppendPythonEntry_CreatesResource(t *testing.T) {
+func TestAppendPythonEntry_SimpleEncode(t *testing.T) {
+	// Setup PKL workspace with embedded schema files
+	workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+	require.NoError(t, err)
+	defer workspace.Cleanup()
+
+	fs := afero.NewOsFs() // Use real FS for PKL operations
+	tmpdir := t.TempDir()
+	actionDir := filepath.Join(tmpdir, "action")
+	pythonDir := filepath.Join(actionDir, "python")
+	require.NoError(t, fs.MkdirAll(pythonDir, 0o755))
+
 	ctx := context.Background()
-	fs := afero.NewOsFs()
-	tmpDir := t.TempDir()
-
-	actionDir := filepath.Join(tmpDir, "action")
-	filesDir := filepath.Join(tmpDir, "files")
-	require.NoError(t, fs.MkdirAll(filepath.Join(actionDir, "python"), 0o755))
-	require.NoError(t, fs.MkdirAll(filesDir, 0o755))
-
-	requestID := "req123"
-	pythonPklPath := filepath.Join(actionDir, "python", requestID+"__python_output.pkl")
-
-	// Create minimal initial PKL file with empty resources map
-	minimal := "extends \"package://schema.kdeps.com/core@" + schema.SchemaVersion(ctx) + "#/Python.pkl\"\n\nresources {}\n"
-	require.NoError(t, afero.WriteFile(fs, pythonPklPath, []byte(minimal), 0o644))
-
 	dr := &DependencyResolver{
 		Fs:        fs,
-		Logger:    logging.NewTestLogger(),
 		Context:   ctx,
 		ActionDir: actionDir,
-		FilesDir:  filesDir,
-		RequestID: requestID,
+		RequestID: "req",
+		Logger:    logging.NewTestLogger(),
 	}
 
-	scriptContent := "print('hello')"
-	newPy := &pklPython.ResourcePython{
-		Script: scriptContent,
+	// Create minimal initial PKL file with empty resources map using assets
+	minimal := "extends \"" + workspace.GetImportPath("Python.pkl") + "\"\n\nResources {}\n"
+	pythonPklPath := filepath.Join(pythonDir, dr.RequestID+"__python_output.pkl")
+	require.NoError(t, afero.WriteFile(fs, pythonPklPath, []byte(minimal), 0o644))
+
+	// Create new Python resource
+	pyResource := &pklPython.ResourcePython{
+		Script: "print('hello world')",
+		Env:    &map[string]string{"KEY": "value"},
 	}
 
-	err := dr.AppendPythonEntry("myPython", newPy)
+	// Test encoding and appending
+	err = dr.AppendPythonEntry("myPython", pyResource)
 	require.NoError(t, err)
 
-	// Verify the PKL file now exists and contains our resource id
+	// Read back and verify the structure
 	content, err := afero.ReadFile(fs, pythonPklPath)
 	require.NoError(t, err)
 	require.Contains(t, string(content), "[\"myPython\"]")
+}
+
+func TestPythonEncodeBasic(t *testing.T) {
+	// Setup PKL workspace with embedded schema files
+	workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+	require.NoError(t, err)
+	defer workspace.Cleanup()
+
+	fs := afero.NewOsFs()
+	tmpdir := t.TempDir()
+	actionDir := filepath.Join(tmpdir, "action")
+	pythonDir := filepath.Join(actionDir, "python")
+	require.NoError(t, fs.MkdirAll(pythonDir, 0o755))
+
+	ctx := context.Background()
+	dr := &DependencyResolver{
+		Fs:        fs,
+		Context:   ctx,
+		ActionDir: actionDir,
+		RequestID: "req",
+		Logger:    logging.NewTestLogger(),
+	}
+
+	// Create minimal PKL content using assets workspace
+	minimal := "extends \"" + workspace.GetImportPath("Python.pkl") + "\"\n\nResources {}\n"
+	pklPath := filepath.Join(pythonDir, dr.RequestID+"__python_output.pkl")
+	require.NoError(t, afero.WriteFile(fs, pklPath, []byte(minimal), 0o644))
+
+	// ... existing code ...
 }

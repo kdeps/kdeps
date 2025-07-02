@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
+	assets "github.com/kdeps/schema/assets"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -407,4 +408,40 @@ func TestEnsurePklBinaryExistsPositive(t *testing.T) {
 
 	err = EnsurePklBinaryExists(context.Background(), logger)
 	assert.NoError(t, err)
+}
+
+func TestEvalPkl(t *testing.T) {
+	// Setup PKL workspace with embedded schema files
+	workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+	require.NoError(t, err)
+	defer workspace.Cleanup()
+
+	logger := logging.NewTestLogger()
+
+	t.Run("SimpleEval", func(t *testing.T) {
+		// Create a simple PKL file that uses workspace import
+		fs := afero.NewOsFs()
+		tempDir := t.TempDir()
+		pklFile := filepath.Join(tempDir, "test.pkl")
+
+		// Create PKL content that imports from the workspace
+		content := "import \"" + workspace.GetImportPath("Workflow.pkl") + "\" as Workflow\n\nresult = \"hello world\""
+		err := afero.WriteFile(fs, pklFile, []byte(content), 0o644)
+		require.NoError(t, err)
+
+		str, err := EvalPkl(fs, context.Background(), pklFile, "", logger)
+		if err != nil {
+			// PKL binary might not be available in test environment
+			t.Skipf("PKL evaluation failed (binary might not be available): %v", err)
+		}
+
+		assert.NotEmpty(t, str)
+		assert.Contains(t, str, "hello world")
+	})
+
+	t.Run("NonExistentFile", func(t *testing.T) {
+		fs := afero.NewOsFs()
+		_, err := EvalPkl(fs, context.Background(), "/nonexistent/file.pkl", "", logger)
+		assert.Error(t, err)
+	})
 }

@@ -1,48 +1,48 @@
 {{ .Header }}
 
-actionID = "pythonResource"
-name = "Python Resource"
-description = "This resource creates a python script session."
-category = ""
-requires {
+ActionID = "pythonResource"
+Name = "Python Resource"
+Description = "This resource creates a python script session."
+Category = ""
+Requires {
         // Define the ID of any dependency resource that must be executed before this resource.
 }
-run {
-        // restrictToHTTPMethods specifies the HTTP methods required for the request.
+Run {
+        // RestrictToHTTPMethods specifies the HTTP methods required for the request.
         // If none are specified, all HTTP methods are permitted. This restriction is only
         // in effect when APIServerMode is enabled. If the request method is not in this list,
         // the action will be skipped.
-        restrictToHTTPMethods {
+        RestrictToHTTPMethods {
             "GET"
         }
 
-        // restrictToRoutes specifies the URL paths required for the request.
+        // RestrictToRoutes specifies the URL paths required for the request.
         // If none are specified, all routes are permitted. This restriction is only
         // in effect when APIServerMode is enabled. If the request path is not in this list,
         // the action will be skipped.
-        restrictToRoutes {
+        RestrictToRoutes {
             "/api/v1/whois"
         }
 
-        // allowedHeaders specifies the permitted HTTP headers for the request.
+        // AllowedHeaders specifies the permitted HTTP headers for the request.
         // If none are specified, all headers are allowed. This restriction is only
         // in effect when APIServerMode is enabled.
-        allowedHeaders {
+        AllowedHeaders {
             // "X-API-KEY"
         }
 
-        // allowedParams specifies the permitted query parameters for the request.
+        // AllowedParams specifies the permitted query parameters for the request.
         // If none are specified, all parameters are allowed. This restriction is only
         // in effect when APIServerMode is enabled.
-        allowedParams {}
+        AllowedParams {}
 
-        skipCondition {
+        SkipCondition {
                 // Conditions under which the execution of this resource should be skipped.
                 // If any evaluated condition returns true, the resource execution will be bypassed.
         }
 
-        preflightCheck {
-                validations {
+        PreflightCheck {
+                Validations {
                         // This section expects boolean validations.
                         // If any validation returns false, an exception will be thrown before proceeding to the next step.
                         //
@@ -53,17 +53,47 @@ run {
                 //
                 // Custom error message and code to be returned immediately if the preflight check fails.
                 //
-                // error {
-                //         code = 0
-                //         message = ""
+                // Error {
+                //         Code = 0
+                //         Message = ""
                 // }
+                //
+                // Boolean flag to enable or disable retry functionality for the validation check.
+                // Default is false.
+                Retry = false
+                //
+                // The number of times to retry the validation check before considering it a failure.
+                // This property is only used when Retry is set to true. Default value is 3 retry attempts.
+                RetryTimes = 3
         }
 
-        // The expr block is space for evaluating standard PKL expressions. It is primarily used to execute
+        PostflightCheck {
+                Validations {
+                        // This section expects boolean validations.
+                        // If any validation returns false, an exception will be thrown after executing the action.
+                }
+                //
+                // Custom error message and code to be returned if the postflight check fails.
+                //
+                // Error {
+                //         Code = 0
+                //         Message = ""
+                // }
+                //
+                // Boolean flag to enable or disable retry functionality for the validation check.
+                // Default is false.
+                Retry = false
+                //
+                // The number of times to retry the validation check before considering it a failure.
+                // This property is only used when Retry is set to true. Default value is 3 retry attempts.
+                RetryTimes = 3
+        }
+
+        // The Expr block is space for evaluating standard PKL expressions. It is primarily used to execute
         // expressions that produce side effects, such as updating resources or triggering actions, but also supports
         // general-purpose evaluation of any valid PKL expression, making it a place for inline logic and
         // scripting within a configuration.
-        expr {
+        Expr {
                 // "@(memory.setRecord("foo", "bar"))" // Persistent data
                 // "@(memory.clear())"
                 // "@(session.setRecord("foo", "bar"))" // Temporary data only for this request
@@ -92,12 +122,12 @@ run {
         //
         // Note: Each resource is restricted to a single dedicated action. Combining multiple
         // actions within the same resource is not allowed.
-        python {
+        Python {
                 // Specifies the conda environment in which this Python script will execute, if Anaconda is
                 // installed.
-                condaEnvironment = "base"
+                CondaEnvironment = "base"
 
-                script =
+                Script =
 """
 def main():
     print("Hello, World!")
@@ -105,11 +135,11 @@ def main():
 if __name__ == "__main__":
     main()
 """
-                env {
+                Env {
                         // Environment variables that would be accessible inside the shell
                         ["ENVVAR"] = "XYZ"  // Example ENVVAR.
                 }
                 // Timeout duration in seconds. This specifies when to terminate the shell exec.
-                timeoutDuration = 60.s
+                TimeoutDuration = 60.s
         }
 }

@@ -171,7 +171,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		apiServerMode = workflowConfiguration.GetSettings().APIServerMode
 		agentSettings := workflowConfiguration.GetSettings().AgentSettings
 		installAnaconda = agentSettings.InstallAnaconda
-		agentName = workflowConfiguration.GetName()
+		agentName = workflowConfiguration.GetAgentID()
 	}
 
 	// Use configurable kdeps path for tests or default to /.kdeps/

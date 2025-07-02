@@ -74,8 +74,8 @@ func (dr *DependencyResolver) decodePythonBlock(pythonBlock *pklPython.ResourceP
 }
 
 func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *pklPython.ResourcePython) error {
-	if dr.AnacondaInstalled && pythonBlock.CondaEnvironment != nil && *pythonBlock.CondaEnvironment != "" {
-		if err := dr.activateCondaEnvironment(*pythonBlock.CondaEnvironment); err != nil {
+	if dr.AnacondaInstalled && pythonBlock.PythonEnvironment != nil && *pythonBlock.PythonEnvironment != "" {
+		if err := dr.activateCondaEnvironment(*pythonBlock.PythonEnvironment); err != nil {
 			return err
 		}
 

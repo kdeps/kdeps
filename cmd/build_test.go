@@ -49,33 +49,32 @@ func TestNewBuildCommandExecution(t *testing.T) {
 
 	workflowContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
-name = "test-agent"
-description = "Test Agent"
-version = "1.0.0"
-targetActionID = "testAction"
+AgentID = "testagent"
+Description = "Test Agent"
+Version = "1.0.0"
+TargetActionID = "testAction"
 
-workflows {}
+Workflows {}
 
-settings {
+Settings {
 	APIServerMode = true
 	APIServer {
-		hostIP = "127.0.0.1"
-		portNum = 3000
-		routes {
+		HostIP = "127.0.0.1"
+		PortNum = 3000
+		Routes {
 			new {
-				path = "/api/v1/test"
-				methods {
-					"GET"
-				}
+				Path = "/api/v1/test"
+				Method = "GET"
+				ActionID = "testAction"
 			}
 		}
 	}
-	agentSettings {
-		timezone = "Etc/UTC"
-		models {
+	AgentSettings {
+		Timezone = "Etc/UTC"
+		Models {
 			"llama3.2:1b"
 		}
-		ollamaImageTag = "0.6.8"
+		OllamaVersion = "0.6.8"
 	}
 }`, schema.SchemaVersion(ctx))
 
@@ -146,33 +145,32 @@ func TestNewBuildCommandDockerErrors(t *testing.T) {
 
 	workflowContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
-name = "test-agent"
-description = "Test Agent"
-version = "1.0.0"
-targetActionID = "testAction"
+AgentID = "testagent"
+Description = "Test Agent"
+Version = "1.0.0"
+TargetActionID = "testAction"
 
-workflows {}
+Workflows {}
 
-settings {
+Settings {
 	APIServerMode = true
 	APIServer {
-		hostIP = "127.0.0.1"
-		portNum = 3000
-		routes {
+		HostIP = "127.0.0.1"
+		PortNum = 3000
+		Routes {
 			new {
-				path = "/api/v1/test"
-				methods {
-					"GET"
-				}
+				Path = "/api/v1/test"
+				Method = "GET"
+				ActionID = "testAction"
 			}
 		}
 	}
-	agentSettings {
-		timezone = "Etc/UTC"
-		models {
+	AgentSettings {
+		Timezone = "Etc/UTC"
+		Models {
 			"llama3.2:1b"
 		}
-		ollamaImageTag = "0.6.8"
+		OllamaVersion = "0.6.8"
 	}
 }`, schema.SchemaVersion(ctx))
 

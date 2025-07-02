@@ -237,7 +237,7 @@ func TestBuildDockerfile(t *testing.T) {
 
 	t.Run("ValidConfig", func(t *testing.T) {
 		kdeps := &kdCfg.Kdeps{
-			RunMode:   "docker",
+			Mode:   "docker",
 			DockerGPU: "cpu",
 			KdepsDir:  ".kdeps",
 			KdepsPath: "user",
@@ -259,7 +259,7 @@ func TestBuildDockerImage(t *testing.T) {
 
 	t.Run("MissingWorkflow", func(t *testing.T) {
 		kdeps := &kdCfg.Kdeps{
-			RunMode:   "docker",
+			Mode:   "docker",
 			DockerGPU: "cpu",
 			KdepsDir:  ".kdeps",
 			KdepsPath: "user",
@@ -280,7 +280,7 @@ version: 1.0
 		require.NoError(t, err)
 
 		kdeps := &kdCfg.Kdeps{
-			RunMode:   "docker",
+			Mode:   "docker",
 			DockerGPU: "cpu",
 			KdepsDir:  ".kdeps",
 			KdepsPath: "user",

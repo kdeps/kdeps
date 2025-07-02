@@ -14,6 +14,7 @@ type stubWorkflow struct {
 	version string
 }
 
+func (s stubWorkflow) GetAgentID() string { return s.name }
 func (s stubWorkflow) GetName() string    { return s.name }
 func (s stubWorkflow) GetVersion() string { return s.version }
 

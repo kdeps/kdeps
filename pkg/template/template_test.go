@@ -12,6 +12,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/texteditor"
 	"github.com/kdeps/kdeps/pkg/version"
+	assets "github.com/kdeps/schema/assets"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -239,8 +240,8 @@ func TestTemplateLoadingEdgeCases(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotEmpty(t, content)
 		// Verify that the template still loads even with empty data
-		assert.Contains(t, content, "name =")
-		assert.Contains(t, content, "description =")
+		assert.Contains(t, content, "AgentID =")
+		assert.Contains(t, content, "Description =")
 	})
 
 	t.Run("TemplateWithMissingVariables", func(t *testing.T) {
@@ -256,7 +257,7 @@ func TestTemplateLoadingEdgeCases(t *testing.T) {
 		assert.NotEmpty(t, content)
 		// Verify that the template still loads but with empty variables
 		assert.Contains(t, content, "test header")
-		assert.Contains(t, content, "name =")
+		assert.Contains(t, content, "AgentID =")
 	})
 
 	t.Run("TemplateWithSpecialCharacters", func(t *testing.T) {
@@ -916,4 +917,121 @@ func TestGenerateDockerfileFromTemplate_DevMode(t *testing.T) {
 
 	// Verify Anaconda is not installed
 	assert.NotContains(t, content, "anaconda-linux")
+}
+
+func TestTemplateWithSchemaAssets(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	t.Run("GenerateWorkflowWithAssets", func(t *testing.T) {
+		// Setup PKL workspace with embedded schema files
+		workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+		require.NoError(t, err)
+		defer workspace.Cleanup() // Important: clean up temp files
+
+		// Verify the workspace has the schema files we expect
+		files, err := workspace.ListFiles()
+		require.NoError(t, err)
+		require.Contains(t, files, "Workflow.pkl")
+		require.Contains(t, files, "Resource.pkl")
+
+		// Generate workflow using the workspace
+		tempDir, err := afero.TempDir(fs, "", "test")
+		require.NoError(t, err)
+
+		err = GenerateWorkflowFile(fs, ctx, logger, tempDir, "testAgent")
+		require.NoError(t, err)
+
+		// Read the generated workflow file
+		content, err := afero.ReadFile(fs, filepath.Join(tempDir, "workflow.pkl"))
+		require.NoError(t, err)
+
+		// Verify it contains the correct schema reference
+		workflowContent := string(content)
+		assert.Contains(t, workflowContent, fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schema.SchemaVersion(ctx)))
+		assert.Contains(t, workflowContent, "AgentID = \"testAgent\"")
+
+		// Get the actual Workflow.pkl content from assets for comparison
+		workflowSchema, err := assets.GetPKLFileAsString("Workflow.pkl")
+		require.NoError(t, err)
+		assert.NotEmpty(t, workflowSchema)
+		assert.Contains(t, workflowSchema, "AgentID: String")
+
+		t.Logf("Workspace directory: %s", workspace.Directory)
+		t.Logf("Available schema files: %v", files)
+	})
+
+	t.Run("ValidateTemplateAgainstSchema", func(t *testing.T) {
+		// Setup PKL workspace
+		workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+		require.NoError(t, err)
+		defer workspace.Cleanup()
+
+		// Test all resource templates
+		resourceTemplates := []string{"exec.pkl", "llm.pkl", "client.pkl", "python.pkl", "response.pkl"}
+
+		for _, templateName := range resourceTemplates {
+			t.Run(fmt.Sprintf("Template_%s", templateName), func(t *testing.T) {
+				tempDir, err := afero.TempDir(fs, "", "test")
+				require.NoError(t, err)
+
+				// Generate the resource file
+				err = GenerateSpecificAgentFile(fs, ctx, logger, tempDir, strings.TrimSuffix(templateName, ".pkl"))
+				require.NoError(t, err)
+
+				// Read the generated file
+				content, err := afero.ReadFile(fs, filepath.Join(tempDir, "resources", templateName))
+				require.NoError(t, err)
+
+				// Verify it references the correct schema
+				resourceContent := string(content)
+				assert.Contains(t, resourceContent, fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"`, schema.SchemaVersion(ctx)))
+
+				// Verify it has the new v0.3.1 properties
+				assert.Contains(t, resourceContent, "PostflightCheck")
+				assert.Contains(t, resourceContent, "Retry = false")
+				assert.Contains(t, resourceContent, "RetryTimes = 3")
+
+				// Get the actual Resource.pkl schema for validation
+				resourceSchema, err := assets.GetPKLFileAsString("Resource.pkl")
+				require.NoError(t, err)
+				assert.Contains(t, resourceSchema, "PostflightCheck: ValidationCheck?")
+			})
+		}
+	})
+
+	t.Run("ListAllEmbeddedSchemaFiles", func(t *testing.T) {
+		// Test that we can access all embedded PKL files
+		files, err := assets.ListPKLFiles()
+		require.NoError(t, err)
+		require.NotEmpty(t, files)
+
+		// Verify expected schema files are present
+		expectedFiles := []string{
+			"Workflow.pkl",
+			"Resource.pkl",
+			"LLM.pkl",
+			"APIServer.pkl",
+			"Project.pkl",
+			"Docker.pkl",
+		}
+
+		for _, expected := range expectedFiles {
+			assert.Contains(t, files, expected, "Expected schema file %s should be available", expected)
+
+			// Test that we can read each file
+			content, err := assets.GetPKLFileAsString(expected)
+			require.NoError(t, err)
+			assert.NotEmpty(t, content, "Schema file %s should have content", expected)
+		}
+
+		t.Logf("Available schema files: %v", files)
+	})
+
+	t.Run("ValidatePKLFilesIntegrity", func(t *testing.T) {
+		// Test the built-in validation function
+		err := assets.ValidatePKLFiles()
+		require.NoError(t, err, "All expected PKL files should be present in assets")
+	})
 }

@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/kdeps/kdeps/pkg/schema"
+	assets "github.com/kdeps/schema/assets"
 	pklData "github.com/kdeps/schema/gen/data"
 	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
@@ -19,6 +19,11 @@ import (
 // It uses a real EvalPkl run, so it depends on `pkl` binary being available in PATH –
 // which the project's other tests already rely on.
 func TestAppendDataEntry_Direct(t *testing.T) {
+	// Setup PKL workspace with embedded schema files
+	workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+	require.NoError(t, err)
+	defer workspace.Cleanup()
+
 	fs := afero.NewOsFs()
 	tmpDir := t.TempDir()
 	actionDir := filepath.Join(tmpDir, "action")
@@ -26,12 +31,17 @@ func TestAppendDataEntry_Direct(t *testing.T) {
 	require.NoError(t, fs.MkdirAll(dataDir, 0o755))
 
 	ctx := context.Background()
-	schemaVer := schema.SchemaVersion(ctx)
 
-	// Seed minimal valid PKL content so pklData.LoadFromPath succeeds.
-	initialContent := "extends \"package://schema.kdeps.com/core@" + schemaVer + "#/Data.pkl\"\n\nfiles {}\n"
+	// Seed minimal valid PKL content using assets workspace instead of hardcoded URL
+	initialContent := "extends \"" + workspace.GetImportPath("Data.pkl") + "\"\n\nFiles {}\n"
 	pklPath := filepath.Join(dataDir, "req__data_output.pkl")
 	require.NoError(t, afero.WriteFile(fs, pklPath, []byte(initialContent), 0o644))
+
+	// Verify the initial content uses the workspace path
+	initialBytes, err := afero.ReadFile(fs, pklPath)
+	require.NoError(t, err)
+	initialString := string(initialBytes)
+	require.Contains(t, initialString, workspace.GetImportPath("Data.pkl"), "Initial PKL file should use workspace path")
 
 	dr := &DependencyResolver{
 		Fs:        fs,
@@ -56,7 +66,8 @@ func TestAppendDataEntry_Direct(t *testing.T) {
 	require.NoError(t, err)
 	merged := string(mergedBytes)
 	require.Contains(t, merged, "[\"agentX\"]")
-	require.Contains(t, merged, schemaVer)
+	require.Contains(t, merged, "\"hello.txt\"")
+	require.Contains(t, merged, "SGVsbG8=")
 }
 
 // note: createStubPkl helper is provided by resource_response_eval_extra_test.go

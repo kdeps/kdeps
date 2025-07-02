@@ -42,7 +42,7 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 		return "", "", err
 	}
 
-	agentName := wfCfg.GetName()
+	agentName := wfCfg.GetAgentID()
 	agentVersion := wfCfg.GetVersion()
 	cName := strings.Join([]string{"kdeps", agentName}, "-")
 	cName = strings.ToLower(cName)
@@ -275,7 +275,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		return "", false, false, "", "", "", "", "", err
 	}
 
-	agentName := wfCfg.GetName()
+	agentName := wfCfg.GetAgentID()
 	agentVersion := wfCfg.GetVersion()
 
 	wfSettings := wfCfg.GetSettings()
@@ -323,7 +323,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		exposedPort += strconv.Itoa(int(webPortNum))
 	}
 
-	imageVersion := dockerSettings.OllamaImageTag
+	imageVersion := dockerSettings.OllamaVersion
 	if gpuType == "amd" {
 		imageVersion += "-rocm"
 	}
