@@ -45,7 +45,7 @@ workflows {
 Once the agent is registered in your `workflow.pkl` file, you can include it in the `requires` block of your resources:
 
 ```apl
-requires {
+Requires {
   "@conveyour_counting_ai/countImageLLM:1.2.5"
   "@conveyour_counting_ai/sortImageItemsLLM:1.2.5"
 }

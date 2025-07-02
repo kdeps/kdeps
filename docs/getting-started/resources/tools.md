@@ -4,72 +4,72 @@ outline: deep
 
 # Tools
 
-The `tools` block lets open-source AI models (like LLaMA or Mistral) run scripts for tasks like math or file
+The `Tools` block lets open-source AI models (like LLaMA or Mistral) run scripts for tasks like math or file
 operations. It supports Python (`.py`), TypeScript (`.ts`), JavaScript (`.js`), Ruby (`.rb`), or shell scripts (e.g.,
 `.sh`), with inputs passed via `argv` (e.g., `sys.argv` in Python) or `$1`, `$2`, etc., for shell scripts. Scripts run
 with: `.py` uses `python3`, `.ts` uses `ts-node`, `.js` uses `node`, `.rb` uses `ruby`, others use `sh`. The LLM can
-automatically pick and chain multiple tools based on a prompt, using one tool’s output as input for the next. With
+automatically pick and chain multiple tools based on a prompt, using one tool's output as input for the next. With
 and `JSONResponseKeys`, tool outputs are structured as JSON for easier parsing. Tools are triggered via prompts or
-manually with `@(tools.getRecord(id))`, `runScript`, or `history`. This is like Anthropic’s MCP or Google’s A2A but for
+manually with `@(tools.getRecord(id))`, `runScript`, or `history`. This is like Anthropic's MCP or Google's A2A but for
 open-source models only.
 
 
 ## What It Does
 
-Inside a `chat` resource, the `tools` block lets the AI call scripts automatically via prompts or manually. The LLM can
-chain tools, passing outputs as inputs, and with `JSONResponseKeys` structures results as JSON. It’s kdeps’ open-source
+Inside a `Chat` resource, the `Tools` block lets the AI call scripts automatically via prompts or manually. The LLM can
+chain tools, passing outputs as inputs, and with `JSONResponseKeys` structures results as JSON. It's kdeps' open-source
 tool-calling system, similar to MCP or A2A but simpler.
 
 ## How It Looks
 
-Create a `chat` resource:
+Create a `Chat` resource:
 
 ```bash
 kdeps scaffold [aiagent] llm
 ```
 
-Define the `tools` block in the `chat` block. Here’s an excerpt:
+Define the `Tools` block in the `Chat` block. Here's an excerpt:
 
 ```apl
-chat {
-    model = "llama3.2" // Open-source AI model
-    role = "user"
-    prompt = "Run the task using tools: @(request.params("q"))"
+Chat {
+    Model = "llama3.2" // Open-source AI model
+    Role = "user"
+    Prompt = "Run the task using tools: @(request.params("q"))"
     JSONResponse = true
     JSONResponseKeys {
         "sum"      // Maps calculate_sum output to "result"
         "squared"  // Maps square_number output
         "saved"    // Maps write_result output
     }
-    tools {
+    Tools {
         new {
-            name = "calculate_sum"
-            script = "@(data.filepath("tools/1.0.0", "calculate_sum.py"))"
-            description = "Add two numbers"
-            parameters {
-                ["a"] { required = true; type = "number"; description = "First number" }
-                ["b"] { required = true; type = "number"; description = "Second number" }
+            Name = "calculate_sum"
+            Script = "@(data.filepath("tools/1.0.0", "calculate_sum.py"))"
+            Description = "Add two numbers"
+            Parameters {
+                ["a"] { Required = true; Type = "number"; Description = "First number" }
+                ["b"] { Required = true; Type = "number"; Description = "Second number" }
             }
         }
         new {
-            name = "square_number"
-            script = "@(data.filepath("tools/1.0.0", "square_number.js"))"
-            description = "Square a number"
-            parameters {
-                ["num"] { required = true; type = "number"; description = "Number to square" }
+            Name = "square_number"
+            Script = "@(data.filepath("tools/1.0.0", "square_number.js"))"
+            Description = "Square a number"
+            Parameters {
+                ["num"] { Required = true; Type = "number"; Description = "Number to square" }
             }
         }
         new {
-            name = "write_result"
-            script = "@(data.filepath("tools/1.0.0", "write_result.sh"))"
-            description = "Write a number to a file"
-            parameters {
-                ["path"] { required = true; type = "string"; description = "File path" }
-                ["content"] { required = true; type = "string"; description = "Number to write" }
+            Name = "write_result"
+            Script = "@(data.filepath("tools/1.0.0", "write_result.sh"))"
+            Description = "Write a number to a file"
+            Parameters {
+                ["path"] { Required = true; Type = "string"; Description = "File path" }
+                ["content"] { Required = true; Type = "string"; Description = "Number to write" }
             }
         }
     }
-    // Other settings like scenario, files, timeoutDuration...
+    // Other settings like scenario, files, TimeoutDuration...
 }
 ```
 
@@ -100,14 +100,14 @@ echo "$2" > "$1"
 ## Key Pieces
 
 - **new**: Defines a tool.
-- **name**: Unique name, like `calculate_sum`.
-- **script**: Script absolute path or using `@(data.filepath(...))`.
-- **description**: Tool’s purpose.
-- **parameters**:
+- **Name**: Unique name, like `calculate_sum`.
+- **Script**: Script absolute path or using `@(data.filepath(...))`.
+- **Description**: Tool's purpose.
+- **Parameters**:
   - **Key**: Parameter name, like `a`.
-  - **required**: If needed.
-  - **type**: Type, like `number` or `string`.
-  - **description**: Parameter’s role.
+  - **Required**: If needed.
+  - **Type**: Type, like `number` or `string`.
+  - **Description**: Parameter's role.
 
 ## Schema Functions
 
@@ -126,9 +126,9 @@ kdeps picks the program by file extension:
 
 ## Sample Prompts with Multi-Tool Chaining
 
-The LLM selects and chains tools, structuring outputs as JSON. Prompts don’t name tools:
+The LLM selects and chains tools, structuring outputs as JSON. Prompts don't name tools:
 
-1. **Prompt**: “Add 6 and 4, square the result, and save it to ‘output.txt’.”
+1. **Prompt**: "Add 6 and 4, square the result, and save it to 'output.txt'."
    - **Flow**:
      - LLM picks `calculate_sum` for 6 + 4 = 10.
      - Uses `square_number` for 10² = 100.
@@ -142,7 +142,7 @@ The LLM selects and chains tools, structuring outputs as JSON. Prompts don’t n
      }
      ```
 
-2. **Prompt**: “Sum 8 and 2, then write the sum to ‘sum.txt’.”
+2. **Prompt**: "Sum 8 and 2, then write the sum to 'sum.txt'."
    - **Flow**:
      - LLM uses `calculate_sum` for 8 + 2 = 10.
      - Uses `write_result` to save 10 to `sum.txt`.
@@ -154,12 +154,12 @@ The LLM selects and chains tools, structuring outputs as JSON. Prompts don’t n
      }
      ```
 
-3. **Prompt**: “Add 5 and 5, square it twice, and save to ‘final.txt’.”
+3. **Prompt**: "Add 5 and 5, square it twice, and save to 'final.txt'."
    - **Flow**:
      - LLM uses `calculate_sum` for 5 + 5 = 10.
      - Uses `square_number` for 10² = 100.
      - Uses `square_number` again for 100² = 10000.
-     - Uses `write_result` to save 10000 to ‘final.txt’.
+     - Uses `write_result` to save 10000 to 'final.txt'.
    - **JSON Output**:
      ```json
      {
@@ -177,20 +177,20 @@ local result = "@(tools.runScript("square_number_123", "<path_to_script>", "10")
 local output = "@(tools.getRecord("square_number_123"))"
 ```
 
-## How It’s Like MCP or A2A
+## How It's Like MCP or A2A
 
-- **MCP**: Claude’s tool-calling, not supported in kdeps (open-source only).
-- **A2A**: Google’s agent-connection system, unrelated to kdeps’ tool focus.
+- **MCP**: Claude's tool-calling, not supported in kdeps (open-source only).
+- **A2A**: Google's agent-connection system, unrelated to kdeps' tool focus.
 - **Kdeps**: Tool-calling with JSON outputs for open-source AI, like MCP but simpler.
 
 ## Tips
 
-- Use unique `name` values.
-- Write clear `description` fields for LLM tool selection.
+- Use unique `Name` values.
+- Write clear `Description` fields for LLM tool selection.
 - Define `JSONResponseKeys` for structured outputs.
-- Check inputs with `required` and `type`.
+- Check inputs with `Required` and `Type`.
 - Secure scripts with `@(data.filepath(...))`.
-- Set higher `timeoutDuration` in `chat` for longer tool chains.
+- Set higher `TimeoutDuration` in `Chat` for longer tool chains.
 
 ## Open-Source Only
 

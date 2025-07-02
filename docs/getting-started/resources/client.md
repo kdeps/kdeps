@@ -4,21 +4,21 @@ outline: deep
 
 # HTTP Client Resource
 
-A `client` resource allows creating HTTP calls to an API endpoint. It enables passing custom request `data`, request
-`headers`, and supports HTTP methods such as `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, and `HEAD`.
+A `Client` resource allows creating HTTP calls to an API endpoint. It enables passing custom request `Data`, request
+`Headers`, and supports HTTP methods such as `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, and `HEAD`.
 
 ## Creating a New HTTP Client Resource
 
-To create a new HTTP `client` resource, you can either generate a new AI agent using the `kdeps new` command or
+To create a new HTTP `Client` resource, you can either generate a new AI agent using the `kdeps new` command or
 `scaffold` the resource directly.
 
-Here’s how to scaffold a `client` resource:
+Here's how to scaffold a `Client` resource:
 
 ```bash
 kdeps scaffold [aiagent] client
 ```
 
-This command will add a `client` resource into the `aiagent/resources` folder, generating the following folder
+This command will add a `Client` resource into the `aiagent/resources` folder, generating the following folder
 structure:
 
 ```text
@@ -33,27 +33,27 @@ Configurations](../resources/resources#common-resource-configurations) documenta
 
 ## HTTP Client Block
 
-Within the file, you’ll find the `HTTPClient` block, which is structured as follows:
+Within the file, you'll find the `HTTPClient` block, which is structured as follows:
 
 ```apl
 HTTPClient {
-    method = "GET"
-    url = "https://www.google.com"
-    data {}
-    headers {
+    Method = "GET"
+    URL = "https://www.google.com"
+    Data {}
+    Headers {
         ["X-API-KEY"] = "@(request.header("X-API-KEY"))"
     }
-    timeoutDuration = 60.s
+    TimeoutDuration = 60.s
 }
 ```
 
 Key elements of the `HTTPClient` block include:
 
-- **`method`**: Specifies the HTTP verb to be used for this API call.
-- **`url`**: Defines the API endpoint.
-- **`data`**: Specifies all the request data to be submitted with this request.
-- **`headers`**: Specifies all the request headers to be submitted with this request.
-- **`timeoutDuration`**: Determines the exectuion timeout in s (seconds), min (minutes), etc., after which the request will be terminated.
+- **`Method`**: Specifies the HTTP verb to be used for this API call.
+- **`URL`**: Defines the API endpoint.
+- **`Data`**: Specifies all the request data to be submitted with this request.
+- **`Headers`**: Specifies all the request headers to be submitted with this request.
+- **`TimeoutDuration`**: Determines the execution timeout in s (seconds), min (minutes), etc., after which the request will be terminated.
 
 When the resource is executed, you can use client functions like `client.responseBody("id")` to access the response
 body. For further details, refer to the [HTTP Client

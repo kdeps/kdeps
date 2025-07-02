@@ -2,138 +2,92 @@
 outline: deep
 ---
 
-# Building an AI-Assisted Weather Forecaster API
+# How to Build a Weather API with Kdeps
 
-This tutorial demonstrates how to connect to an external API using the HTTP client resource, process the data with an
-LLM, and deliver structured JSON outputs. Using the [Open-Meteo API](https://open-meteo.com/) as an example, we’ll walk
-through creating consistent and reliable responses for integration into your applications.
+This tutorial demonstrates how to build a Weather API using Kdeps. The API will accept location queries, extract coordinates using an LLM, fetch weather data from a third-party API, and return formatted responses.
 
-The example will use the [`apiServeMode`](/getting-started/configuration/workflow#api-server-settings), but the same approach can be adapted for [Lambda Mode](/getting-started/configuration/workflow#lambda-mode).
+## Overview
 
-## Getting Started
+The Weather API will:
+1. Accept location queries (e.g., "What's the weather in Amsterdam?")
+2. Use an LLM to extract coordinates and timezone from the query
+3. Fetch weather data from the Open-Meteo API
+4. Format the response using another LLM
+5. Return a structured JSON response
 
-Let’s begin by setting up our project. This tutorial will guide you through scaffolding four essential `.pkl` files:
+## Prerequisites
 
-- **`workflow.pkl`**: Configures the AI Agent. See details in [Workflow](/getting-started/configuration/workflow).
-- **`resources/llm.pkl`**: Defines the LLM model responsible for generating structured JSON output. Learn more in [LLM
-  Resource](/getting-started/resources/functions#llm-resource-functions).
-- **`resources/response.pkl`**: Handles structured JSON output responses. Check out [Response
-  Resource](/getting-started/resources/response).
-- **`resources/client.pkl`**: Creates an HTTP Client to call an API.
-- **`resources/exec.pkl`**: Prepares and saves the LLM-generated output as a JSON file for subsequent processing.
+- Kdeps installed and configured
+- Basic understanding of PKL syntax
+- Access to the internet for API calls
 
-By the end of this tutorial, you’ll have a foundational understanding of how to structure LLM responses for API-based
-applications, and using the client resource to connect to an external API.
+## Project Structure
 
-## Setting Up Our AI Agent: `weather_forecast_ai`
+```
+weather_forecast_ai/
+├── workflow.pkl
+├── resources/
+│   ├── llm_input.pkl
+│   ├── exec.pkl
+│   ├── client.pkl
+│   ├── llm_output.pkl
+│   └── response.pkl
+└── .kdeps.pkl
+```
 
-To begin, we will scaffold the resources for our project. We'll name our AI agent `weather_forecast_ai` and use the
-following command to generate the necessary files all at once:
+## Step 1: Creating the AI Agent
+
+First, create a new AI agent:
 
 ```bash
-kdeps scaffold weather_forecast_ai workflow llm response client exec
+kdeps new weather_forecast_ai
+cd weather_forecast_ai
 ```
 
-This command will create the following directory structure:
+## Step 2: Setting Up Resources
 
-```plaintext
-weather_forecast_ai
-├── data
-├── resources
-│   ├── client.pkl
-│   ├── llm.pkl
-│   ├── exec.pkl
-│   └── response.pkl
-└── workflow.pkl
+### Creating the LLM Input Resource
+
+Create the first resource to handle input parsing:
+
+```bash
+kdeps scaffold weather_forecast_ai llm
 ```
 
-### Updating the `workflow.pkl` File
-
-Next, let's modify the `workflow.pkl` file by adding a new route to the `APIServer` block. Here's the updated configuration:
-
-```diff
-APIServer {
-    hostIP = "127.0.0.1"
-    portNum = 3000
-
-    routes {
-        new {
-            path = "/api/v1/forecast"
-            methods {
-                "GET"
-            }
-        }
-    }
-}
-```
-
-### Adding a Model to the Agent
-
-Finally, we will include the `llama3.1` model in the `models` block within the `agentSettings` section:
-
-```diff
-agentSettings {
-    ...
-    models {
-        "llama3.1"
-    }
-    ...
-}
-```
-
-## Creating Our First LLM for Structured Responses
-
-In this step, we'll build our first Language Learning Model (LLM) to assist with preparing inputs for an external Weather API call. The model will transform natural language queries into structured data, enabling seamless interaction with the API.
+This creates `resources/llm_input.pkl`.
 
 ### Renaming and Duplicating Files
 
-First, let's rename the `resources/llm.pkl` file to `resources/llm_input.pkl`:
-
-```bash
-mv weather_forecast_ai/resources/llm.pkl \
-   weather_forecast_ai/resources/llm_input.pkl
-```
+Rename the generated file to `resources/llm_input.pkl` to better reflect its purpose.
 
 Next, create a duplicate of this file, naming it `resources/llm_output.pkl`. This will handle output preparation:
 
 ```bash
-cp weather_forecast_ai/resources/llm_input.pkl \
-   weather_forecast_ai/resources/llm_output.pkl
+cp resources/llm_input.pkl resources/llm_output.pkl
 ```
 
-### Choosing the Weather API
+### Creating Additional Resources
 
-We'll use [Open Mateo](https://open-mateo.com) for this project, as it offers free API access. If you use an API key,
-you'll need to define it as `args` in the `workflow.pkl` file, and add the key to your `.env` file.
-
-The following input data is required:
-
-- **Latitude**
-- **Longitude**
-- **Timezone**
-
-This data will be used to retrieve:
-
-- Hourly and daily temperature
-- Precipitation
-- Wind speed
-
-## Constructing the Input
-
-We'll use natural language queries to obtain weather information and pass these as parameters to the API. The query will use the key `q` for the parameter. Here's an example API request:
+Create the remaining resources:
 
 ```bash
-http://localhost:3000/api/v1/forecast?q=What+is+the+weather+in+Amsterdam?
+kdeps scaffold weather_forecast_ai exec
+kdeps scaffold weather_forecast_ai client
+kdeps scaffold weather_forecast_ai response
 ```
 
-### Updating `llm_input.pkl`
+## Step 3: Configuring the LLM Input Resource
+
+The LLM input resource will parse location queries and extract structured data.
+
+### Updating Resource Details
 
 Open the `resources/llm_input.pkl` file and update the resource details as follows:
 
 ```diff
-actionID = "llmInput"
-name = "AI Helper for Input"
-description = "An AI helper to parse input into structured data"
+ActionID = "llmInput"
+Name = "AI Helper for Input"
+Description = "An AI helper to parse input into structured data"
 ```
 
 ### Adding Model, Prompt, and Response Keys
@@ -141,9 +95,9 @@ description = "An AI helper to parse input into structured data"
 Next, define the model, prompt, and structured response keys:
 
 ```diff
-chat {
-    model = "llama3.1"
-    prompt = """
+Chat {
+    Model = "llama3.1"
+    Prompt = """
 Extract the longitude, latitude, and timezone
 from this text. An example of timezone is Asia/Manila.
 @(request.params("q"))?
@@ -178,10 +132,10 @@ In this, we will use the `exec` resource.
 First, update the `resources/exec.pkl` file as follows:
 
 ```diff
-actionID = "execResource"
-name = "Store LLM JSON response to a file"
-description = "This resource will store the LLM JSON response to a file for processing later"
-requires {
+ActionID = "execResource"
+Name = "Store LLM JSON response to a file"
+Description = "This resource will store the LLM JSON response to a file for processing later"
+Requires {
     "llmInput"
 }
 ```
@@ -195,12 +149,12 @@ We also ensure that this file is recreated by deleting it first, so that we are 
 previously generated file that we might have reused.
 
 ```diff
-exec {
-    command = """
+Exec {
+    Command = """
     rm -rf /tmp/llm_input.json
     echo $LLM_INPUT > /tmp/llm_input.json
     """
-    env {
+    Env {
         ["LLM_INPUT"] = "@(llm.response("llmInput"))"
     }
 ```
@@ -208,7 +162,7 @@ exec {
 ## Creating an HTTP Client for the Weather API
 
 In this step, we will build the HTTP client responsible for interacting with the Weather API. Using the structured
-output (`longitude_str`, `latitude_str`, and `timezone_str`) from our previous LLM call, we’ll extract these values the
+output (`longitude_str`, `latitude_str`, and `timezone_str`) from our previous LLM call, we'll extract these values the
 built-in JSON parser.
 
 ### Editing `resources/client.pkl`
@@ -216,10 +170,10 @@ built-in JSON parser.
 First, update the `resources/client.pkl` file as follows:
 
 ```diff
-actionID = "HTTPClient"
-name = "HTTP Client for the Weather API"
-description = "This resource enables API requests to the Weather API."
-requires {
+ActionID = "HTTPClient"
+Name = "HTTP Client for the Weather API"
+Description = "This resource enables API requests to the Weather API."
+Requires {
     "execResource"
 }
 ```
@@ -230,9 +184,9 @@ Now, define the `HTTPClient` block to handle API calls:
 
 ```diff
 HTTPClient {
-    method = "GET"
-    url = "https://api.open-meteo.com/v1/forecast"
-    params {
+    Method = "GET"
+    URL = "https://api.open-meteo.com/v1/forecast"
+    Params {
         ["current_weather"] = "true"
         ["forecast_days"] = "1"
         ["hourly"] = "temperature_2m,precipitation,wind_speed_10m"
@@ -263,10 +217,10 @@ local JSONData = """
 """
 
 HTTPClient {
-    method = "GET"
-    url = "https://api.open-meteo.com/v1/forecast"
-    data {}
-    params {
+    Method = "GET"
+    URL = "https://api.open-meteo.com/v1/forecast"
+    Data {}
+    Params {
         ["latitude" ] = "@(JSONParser.parse(JSONData)?.latitude_str)"
         ["longitude"] = "@(JSONParser.parse(JSONData)?.longitude_str)"
         ["timezone "] = "@(JSONParser.parse(JSONData)?.timezone_str)"
@@ -294,10 +248,10 @@ With the JSON response from the Weather API in hand, let's format it into a user
 Open the `resources/llm_output.pkl` file and update the resource details as follows:
 
 ```diff
-actionID = "llmOutput"
-name = "AI Helper for Output"
-description = "A resource to generate a polished output using LLM."
-requires {
+ActionID = "llmOutput"
+Name = "AI Helper for Output"
+Description = "A resource to generate a polished output using LLM."
+Requires {
     "HTTPClient"
 }
 ```
@@ -307,9 +261,9 @@ requires {
 Next, configure the output construction logic:
 
 ```diff
-chat {
-    model = "llama3.1"
-    prompt = """
+Chat {
+    Model = "llama3.1"
+    Prompt = """
 As if you're a weather reporter, present this response in an engaging way:
 @(client.responseBody("HTTPClient").base64Decoded)
 """
@@ -317,8 +271,8 @@ As if you're a weather reporter, present this response in an engaging way:
 ...
 ```
 
-- **`model`**: Specifies the LLM version (`llama3.1`).
-- **`prompt`**: Instructs the model to generate an output resembling a weather reporter's announcement. The raw API
+- **`Model`**: Specifies the LLM version (`llama3.1`).
+- **`Prompt`**: Instructs the model to generate an output resembling a weather reporter's announcement. The raw API
 response is passed via `@(client.responseBody("HTTPClient"))`.
 - **`JSONResponse = false`**: Indicates that the output should be plain text, formatted for readability, rather than
 structured JSON.
@@ -328,23 +282,23 @@ narrative, making it more relatable for end users.
 
 ## Finalizing the AI Agent API
 
-To complete the AI agent, we’ll incorporate a `response` resource that enables the API to deliver structured JSON responses.
+To complete the AI agent, we'll incorporate a `response` resource that enables the API to deliver structured JSON responses.
 
 ### Updating `resources/response.pkl`
 
 Edit the `resources/response.pkl` file as follows:
 
 ```diff
-actionID = "APIResponse"
-name = "API Response Resource"
-description = "This resource provides a JSON response through the API."
-requires {
+ActionID = "APIResponse"
+Name = "API Response Resource"
+Description = "This resource provides a JSON response through the API."
+Requires {
     "llmOutput"
 }
 ```
 
-- **`actionID`**: Specifies the resource identifier as `weatherResponseResource`.
-- **`requires`**: Declares `llmOutputHelper` as a dependency, ensuring access to its processed output.
+- **`ActionID`**: Specifies the resource identifier as `weatherResponseResource`.
+- **`Requires`**: Declares `llmOutputHelper` as a dependency, ensuring access to its processed output.
 
 ### Configuring the `APIResponse` Section
 
@@ -352,16 +306,17 @@ Update the `APIResponse` block to define the structure of the API response:
 
 ```diff
 APIResponse {
-    success = true
-    response {
-        data {
+    Success = true
+    Response {
+        Data {
             "@(llm.response("llmOutput"))"
         }
-    ...
+    }
+}
 ```
 
-- **`success = true`**: Confirms the successful processing of the request.
-- **`data`**: Includes the formatted output from `llmOutputHelper`.
+- **`Success = true`**: Confirms the successful processing of the request.
+- **`Data`**: Includes the formatted output from `llmOutputHelper`.
 
 This configuration ensures that the AI agent generates structured, user-friendly JSON responses.
 
@@ -371,10 +326,10 @@ To ensure proper execution, update the workflow to set the default action to `we
 
 #### Modifying `workflow.pkl`
 
-Open the `workflow.pkl` file and adjust the `targetActionID` field as follows:
+Open the `workflow.pkl` file and adjust the `TargetActionID` field as follows:
 
 ```diff
-targetActionID = "weatherResponseResource"
+TargetActionID = "weatherResponseResource"
 ```
 
 By integrating the `response` resource and updating the workflow, the AI agent can deliver polished JSON responses via

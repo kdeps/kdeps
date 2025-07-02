@@ -26,20 +26,20 @@ HTTP methods.
 ```apl
 APIServer {
     cors {
-        enableCORS = true
-        allowOrigins {
+        EnableCORS = true
+        AllowOrigins {
             "https://example.com"
         }
-        allowMethods {
+        AllowMethods {
             "GET"
             "POST"
         }
-        allowHeaders {
+        AllowHeaders {
             "Content-Type"
             "Authorization"
         }
-        allowCredentials = true
-        maxAge = 24.h
+        AllowCredentials = true
+        MaxAge = 24.h
     }
 }
 ```
@@ -55,22 +55,22 @@ origin but restricts the allowed methods and headers.
 ```apl
 APIServer {
     cors {
-        enableCORS = true
-        allowOrigins {
+        EnableCORS = true
+        AllowOrigins {
             "*"
         }
-        allowMethods {
+        AllowMethods {
             "GET"
             "OPTIONS"
         }
-        allowHeaders {
+        AllowHeaders {
             "Content-Type"
         }
-        exposeHeaders {
+        ExposeHeaders {
             "X-Custom-Header"
         }
-        allowCredentials = false
-        maxAge = 12.h
+        AllowCredentials = false
+        MaxAge = 12.h
     }
 }
 ```
@@ -85,19 +85,19 @@ fields and their descriptions:
 
 | **Field**            | **Description**                                                                 |
 |----------------------|---------------------------------------------------------------------------------|
-| `enableCORS`         | Enables or disables CORS support (Boolean, default: `false`).                   |
-| `allowOrigins`       | List of allowed origin domains (e.g., `"https://example.com"`). Use `"*"` for all origins. If unset, no origins are allowed unless CORS is disabled. |
-| `allowMethods`       | List of HTTP methods allowed for CORS requests (e.g., `"GET"`, `"POST"`). Must be one of: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, `HEAD`. If unset, defaults to route methods. |
-| `allowHeaders`       | List of request headers allowed in CORS requests (e.g., `"Content-Type"`). If unset, no additional headers are allowed. |
-| `exposeHeaders`      | List of response headers exposed to clients (e.g., `"X-Custom-Header"`). If unset, no headers are exposed beyond defaults. |
-| `allowCredentials`   | Allows credentials (e.g., cookies, HTTP authentication) in CORS requests (Boolean, default: `true`). |
-| `maxAge`             | Maximum duration for caching CORS preflight responses (Duration, default: `12.h`). |
+| `EnableCORS`         | Enables or disables CORS support (Boolean, default: `false`).                   |
+| `AllowOrigins`       | List of allowed origin domains (e.g., `"https://example.com"`). Use `"*"` for all origins. If unset, no origins are allowed unless CORS is disabled. |
+| `AllowMethods`       | List of HTTP methods allowed for CORS requests (e.g., `"GET"`, `"POST"`). Must be one of: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, `HEAD`. If unset, defaults to route methods. |
+| `AllowHeaders`       | List of request headers allowed in CORS requests (e.g., `"Content-Type"`). If unset, no additional headers are allowed. |
+| `ExposeHeaders`      | List of response headers exposed to clients (e.g., `"X-Custom-Header"`). If unset, no headers are exposed beyond defaults. |
+| `AllowCredentials`   | Allows credentials (e.g., cookies, HTTP authentication) in CORS requests (Boolean, default: `true`). |
+| `MaxAge`             | Maximum duration for caching CORS preflight responses (Duration, default: `12.h`). |
 
 ## Best Practices
 
-- **Restrict Origins in Production**: Use specific domains in `allowOrigins` (e.g., `"https://yourapp.com"`) instead of `"*"` to enhance security.
+- **Restrict Origins in Production**: Use specific domains in `AllowOrigins` (e.g., `"https://yourapp.com"`) instead of `"*"` to enhance security.
 - **Limit Methods and Headers**: Only allow the HTTP methods and headers required by your API to minimize the attack surface.
-- **Adjust `maxAge` Carefully**: Set a reasonable `maxAge` (e.g., `12.h` or `24.h`) to balance performance and flexibility for preflight requests.
-- **Disable Credentials When Possible**: Set `allowCredentials = false` if your API doesn’t require cookies or authentication headers to simplify CORS handling.
+- **Adjust `MaxAge` Carefully**: Set a reasonable `MaxAge` (e.g., `12.h` or `24.h`) to balance performance and flexibility for preflight requests.
+- **Disable Credentials When Possible**: Set `AllowCredentials = false` if your API doesn't require cookies or authentication headers to simplify CORS handling.
 
-By tailoring the `cors` configuration to your API’s requirements, you can ensure secure and efficient cross-origin request handling.
+By tailoring the `cors` configuration to your API's requirements, you can ensure secure and efficient cross-origin request handling.

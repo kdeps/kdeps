@@ -15,9 +15,9 @@ defined conditions are met.
 Additionally, it can accept either a string value of `"true"` (case-insensitive) or a Boolean `true`. Any other input
 will result in a Boolean `false`.
 
-## Defining a `skipCondition`
+## Defining a `SkipCondition`
 
-To create a `skipCondition`, assign a function to a local variable that evaluates the condition. Here's an example:
+To create a `SkipCondition`, assign a function to a local variable that evaluates the condition. Here's an example:
 
 ### Example 1: Skipping Authentication if a Bearer Token Exists
 
@@ -28,7 +28,7 @@ local bearerToken = """
 @(read?("file:/tmp/bearer.txt")?.text)
 """
 
-skipCondition {
+SkipCondition {
     bearerToken.length != 0 // If the bearerToken file contains data,
                             // authentication is unnecessary.
 }
@@ -44,12 +44,12 @@ Here, the resource only runs if the `requestPath` matches the specified `allowed
 local allowedPath = "/api/v1/items"
 local requestPath = "@(request.path())"
 
-skipCondition {
+SkipCondition {
     requestPath != allowedPath // Skip execution for paths other than the allowedPath.
 }
 ```
 
-By defining `skipCondition` rules tailored to your requirements, you can optimize resource execution and ensure
+By defining `SkipCondition` rules tailored to your requirements, you can optimize resource execution and ensure
 efficient handling of diverse scenarios.
 
 ## Using Skip Condition Helpers

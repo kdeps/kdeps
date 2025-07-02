@@ -34,14 +34,14 @@ local OCROutputFile = """
 @(read?("file:/tmp/ocrOutput.txt")?.text)
 """
 
-preflightCheck {
-    validations {
+PreflightCheck {
+    Validations {
         OCROutputFile.length != 0
     }
 
-    error {
-        code = 422
-        message = "The LLM model cannot parse this input, it is empty!"
+    Error {
+        Code = 422
+        Message = "The LLM model cannot parse this input, it is empty!"
     }
 }
 ```

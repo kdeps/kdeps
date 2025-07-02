@@ -4,22 +4,22 @@ outline: deep
 
 # Exec Resource
 
-The `exec` resource is designed to run shell scripts and commands from the workflow. This is also the resource which
+The `Exec` resource is designed to run shell scripts and commands from the workflow. This is also the resource which
 allows accessing the installed Ubuntu packages defined in the `workflow.pkl`. For more information, see the
 [Workflow](../configuration/workflow.md) documentation.
 
 ## Creating a New Exec Resource
 
-To create a new `exec` resource, you can either generate a new AI agent using the `kdeps new` command or `scaffold` the
+To create a new `Exec` resource, you can either generate a new AI agent using the `kdeps new` command or `scaffold` the
 resource directly.
 
-Here’s how to scaffold an `exec` resource:
+Here's how to scaffold an `Exec` resource:
 
 ```bash
 kdeps scaffold [aiagent] exec
 ```
 
-This command will add an `exec` resource into the `aiagent/resources` folder, generating the following folder structure:
+This command will add an `Exec` resource into the `aiagent/resources` folder, generating the following folder structure:
 
 ```bash
 aiagent
@@ -33,27 +33,27 @@ Configurations](../resources/resources#common-resource-configurations) documenta
 
 ## Exec Block
 
-Within the file, you’ll find the `exec` block, which is structured as follows:
+Within the file, you'll find the `Exec` block, which is structured as follows:
 
 ```apl
-exec {
-    command = """
+Exec {
+    Command = """
     echo "hello world"
     """
-    env {
+    Env {
         // Environment variables accessible within the shell
         ["ENVVAR"] = "XYZ"  // Example environment variable
     }
     // Specifies the timeout duration (in seconds) for the shell execution
-    timeoutDuration = 60.s
+    TimeoutDuration = 60.s
 }
 ```
 
-Key elements of the `exec` block includes:
+Key elements of the `Exec` block includes:
 
-- **`command`**: Specifies the shell command(s) to execute, enclosed in triple double-quotes (`"""`) for multi-line support.
-- **`env`**: Defines environment variables to be available during execution.
-- **`timeoutDuration`**: Determines the exectuion timeout in s (seconds), min (minutes), etc., after which the shell command will be terminated.
+- **`Command`**: Specifies the shell command(s) to execute, enclosed in triple double-quotes (`"""`) for multi-line support.
+- **`Env`**: Defines environment variables to be available during execution.
+- **`TimeoutDuration`**: Determines the execution timeout in s (seconds), min (minutes), etc., after which the shell command will be terminated.
 
 When the resource is executed, you can leverage Exec functions like `exec.stdout("id")` to access the output. For
 further details, refer to the [Exec Functions](../resources/functions.md#exec-resource-functions) documentation.

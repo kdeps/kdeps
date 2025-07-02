@@ -49,7 +49,7 @@ local JSONResponse = new Mapping {
 
 ...
 
-data {
+Data {
     JSONResponse
 }
 

@@ -4,25 +4,25 @@ outline: deep
 
 # Python Resource
 
-The `python` resource is designed to run Python scripts specified in the `script` attribute from the workflow.
+The `Python` resource is designed to run Python scripts specified in the `Script` attribute from the workflow.
 
 This resource also provides access to installed Python packages installed via `pip`, and as well as
 [Anaconda](https://www.anaconda.com) packages defined in the `workflow.pkl`, are available for use. The resource also
-includes a `condaEnvironment` attribute, allowing it to isolate execution within a specified Conda environment. For more
+includes a `CondaEnvironment` attribute, allowing it to isolate execution within a specified Conda environment. For more
 information, see the [Workflow](../configuration/workflow) documentation.
 
 ## Creating a New Python Resource
 
-To create a new `python` resource, you can either generate a new AI agent using the `kdeps new` command or `scaffold`
+To create a new `Python` resource, you can either generate a new AI agent using the `kdeps new` command or `scaffold`
 the resource directly.
 
-Here’s how to scaffold a `python` resource:
+Here's how to scaffold a `Python` resource:
 
 ```bash
 kdeps scaffold [aiagent] python
 ```
 
-This command will add a `python` resource into the `aiagent/resources` folder, generating the following folder structure:
+This command will add a `Python` resource into the `aiagent/resources` folder, generating the following folder structure:
 
 ```text
 aiagent
@@ -36,31 +36,31 @@ Configurations](../resources/resources#common-resource-configurations) documenta
 
 ## Python Block
 
-Within the file, you’ll find the `python` block, which is structured as follows:
+Within the file, you'll find the `Python` block, which is structured as follows:
 
 ```apl
-python {
-    script = """
+Python {
+    Script = """
     print("hello world")
     """
-    env {
+    Env {
         // Environment variables accessible within the script
         ["ENVVAR"] = "XYZ"  // Example environment variable
     }
     // Specifies the timeout duration (in seconds) for script execution
-    timeoutDuration = 60.s
+    TimeoutDuration = 60.s
 
     // Specifies the Conda environment for isolation
-    condaEnvironment = "my-conda-env"
+    CondaEnvironment = "my-conda-env"
 }
 ```
 
-Key elements of the `python` block include:
+Key elements of the `Python` block include:
 
-- **`script`**: Specifies the Python script to execute, enclosed in triple double-quotes (`"""`) for multi-line support.
-- **`env`**: Defines environment variables to be available during execution.
-- **`timeoutDuration`**: Determines the exectuion timeout in s (seconds), min (minutes), etc., after which the script execution will be terminated.
-- **`condaEnvironment`**: Specifies the Conda environment to use, ensuring the script runs in an isolated environment
+- **`Script`**: Specifies the Python script to execute, enclosed in triple double-quotes (`"""`) for multi-line support.
+- **`Env`**: Defines environment variables to be available during execution.
+- **`TimeoutDuration`**: Determines the execution timeout in s (seconds), min (minutes), etc., after which the script execution will be terminated.
+- **`CondaEnvironment`**: Specifies the Conda environment to use, ensuring the script runs in an isolated environment
   with defined dependencies.
 
 When the resource is executed, you can leverage Python functions like `python.stdout("id")` to access the output. For

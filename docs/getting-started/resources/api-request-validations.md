@@ -16,49 +16,49 @@ These checks safeguard system integrity, enforce security policies, and streamli
 
 ## Defining API Request Validations
 
-API request validations are defined in the `run` block of a resource configuration and are enforced only when `APIServerMode` is enabled. They consist of four key fields:
+API request validations are defined in the `Run` block of a resource configuration and are enforced only when `APIServerMode` is enabled. They consist of four key fields:
 
-- `restrictToHTTPMethods`: Specifies the HTTP methods (e.g., `GET`, `POST`) required for the request.
-- `restrictToRoutes`: Specifies the URL paths (e.g., `/api/v1/whois`) required for the request.
-- `allowedHeaders`: Specifies the HTTP headers permitted in the request.
-- `allowedParams`: Specifies the query parameters permitted in the request.
+- `RestrictToHTTPMethods`: Specifies the HTTP methods (e.g., `GET`, `POST`) required for the request.
+- `RestrictToRoutes`: Specifies the URL paths (e.g., `/api/v1/whois`) required for the request.
+- `AllowedHeaders`: Specifies the HTTP headers permitted in the request.
+- `AllowedParams`: Specifies the query parameters permitted in the request.
 
-If any of these fields are empty, all corresponding values are permitted (e.g., an empty `restrictToHTTPMethods` allows all HTTP methods). If a validation fails, the action is skipped, and no further processing (e.g., `Exec`, `Python`, `Chat`, or `HTTPClient` steps) occurs for that action.
+If any of these fields are empty, all corresponding values are permitted (e.g., an empty `RestrictToHTTPMethods` allows all HTTP methods). If a validation fails, the action is skipped, and no further processing (e.g., `Exec`, `Python`, `Chat`, or `HTTPClient` steps) occurs for that action.
 
-Here’s an example of how to configure API request validations:
+Here's an example of how to configure API request validations:
 
 ```apl
-run {
-    // restrictToHTTPMethods specifies the HTTP methods required for the request.
+Run {
+    // RestrictToHTTPMethods specifies the HTTP methods required for the request.
     // If none are specified, all HTTP methods are permitted. This restriction is only
     // in effect when APIServerMode is enabled. If the request method is not in this list,
     // the action will be skipped.
-    restrictToHTTPMethods {
+    RestrictToHTTPMethods {
         "GET"
     }
 
-    // restrictToRoutes specifies the URL paths required for the request.
+    // RestrictToRoutes specifies the URL paths required for the request.
     // If none are specified, all routes are permitted. This restriction is only
     // in effect when APIServerMode is enabled. If the request path is not in this list,
     // the action will be skipped.
-    restrictToRoutes {
+    RestrictToRoutes {
         "/api/v1/whois"
     }
 
-    // allowedHeaders specifies the permitted HTTP headers for the request.
+    // AllowedHeaders specifies the permitted HTTP headers for the request.
     // If none are specified, all headers are allowed. This restriction is only
     // in effect when APIServerMode is enabled. If a header used in the resource is not
     // in this list, the action will be skipped.
-    allowedHeaders {
+    AllowedHeaders {
         "Content-Type"
         // "X-API-KEY"
     }
 
-    // allowedParams specifies the permitted query parameters for the request.
+    // AllowedParams specifies the permitted query parameters for the request.
     // If none are specified, all parameters are allowed. This restriction is only
     // in effect when APIServerMode is enabled. If a parameter used in the resource is
     // not in this list, the action will be skipped.
-    allowedParams {
+    AllowedParams {
         "user_id"
         "session_id"
     }
@@ -67,22 +67,22 @@ run {
 
 ### Validation Details
 
-- **restrictToHTTPMethods**:
-  - Validates the request’s HTTP method (e.g., `GET`, `POST`) against the specified list.
+- **RestrictToHTTPMethods**:
+  - Validates the request's HTTP method (e.g., `GET`, `POST`) against the specified list.
   - Example: If set to `["GET"]`, a `POST` request will cause the action to be skipped.
   - Case-insensitive matching is used (e.g., `get` matches `GET`).
 
-- **restrictToRoutes**:
-  - Validates the request’s URL path (e.g., `/api/v1/whois`) against the specified list.
+- **RestrictToRoutes**:
+  - Validates the request's URL path (e.g., `/api/v1/whois`) against the specified list.
   - Example: If set to `["/api/v1/whois"]`, a request to `/api/v1/users` will cause the action to be skipped.
   - Exact path matching is used; patterns or wildcards are not currently supported.
 
-- **allowedHeaders**:
+- **AllowedHeaders**:
   - Validates headers used in `request.header("header_id")` calls within the resource file against the specified list.
   - Example: If set to `["Content-Type"]`, a `request.header("Authorization")` call will cause the action to be skipped.
   - Case-insensitive matching is used.
 
-- **allowedParams**:
+- **AllowedParams**:
   - Validates query parameters used in `request.params("param_id")` calls within the resource file against the specified list.
   - Example: If set to `["user_id"]`, a `request.params("token")` call will cause the action to be skipped.
   - Case-insensitive matching is used.
@@ -96,7 +96,7 @@ run {
 
 - **Disabled (`APIServerMode = false`)**:
   - Validations are bypassed, and all HTTP methods, routes, headers, and parameters are permitted.
-  - Actions proceed without restriction, subject to other checks like `skipCondition` or `preflightCheck`.
+  - Actions proceed without restriction, subject to other checks like `SkipCondition` or `PreflightCheck`.
 
 ### Example Workflow
 
@@ -107,10 +107,10 @@ Consider a resource with the above configuration and a request with:
 - Query Parameters: `user_id`, `token`
 
 In `APIServerMode`:
-- The `restrictToHTTPMethods` validation fails (`POST` is not in `["GET"]`), so the action is skipped.
-- The `restrictToRoutes` validation would also fail (`/api/v1/users` is not in `["/api/v1/whois"]`).
-- The `allowedHeaders` validation would fail if `request.header("Authorization")` is used, as it’s not in `["Content-Type"]`.
-- The `allowedParams` validation would fail if `request.params("token")` is used, as it’s not in `["user_id", "session_id"]`.
+- The `RestrictToHTTPMethods` validation fails (`POST` is not in `["GET"]`), so the action is skipped.
+- The `RestrictToRoutes` validation would also fail (`/api/v1/users` is not in `["/api/v1/whois"]`).
+- The `AllowedHeaders` validation would fail if `request.header("Authorization")` is used, as it's not in `["Content-Type"]`.
+- The `AllowedParams` validation would fail if `request.params("token")` is used, as it's not in `["user_id", "session_id"]`.
 
 The action is skipped at the first validation failure, and a log entry details the reason.
 

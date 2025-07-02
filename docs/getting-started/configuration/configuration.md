@@ -13,7 +13,7 @@ This file contains the following default settings:
 ```apl
 amends "package://schema.kdeps.com/core@0.1.30#/Kdeps.pkl"
 
-runMode = "docker"
+Mode = "docker"
 dockerGPU = "cpu"
 kdepsDir = ".kdeps"
 kdepsPath = "user"
@@ -21,7 +21,7 @@ kdepsPath = "user"
 
 These settings define key operational parameters for Kdeps, such as the runtime mode, GPU configuration, and directory paths.
 
-## RunMode
+## Mode
 
 The mode of execution for Kdeps, defaulting to `docker`.
 
@@ -51,7 +51,7 @@ The path where Kdeps configurations are stored defaulting to `user`, and it supp
 
 ## TIMEOUT (environment variable)
 
-If you add `TIMEOUT=<seconds>` to your local `.env` file, Kdeps will use that value as the global default timeout for exec, HTTP-client, chat or Python steps **and will override any `timeoutDuration` already set in the PKL**.
+If you add `TIMEOUT=<seconds>` to your local `.env` file, Kdeps will use that value as the global default timeout for exec, HTTP-client, chat or Python steps **and will override any `TimeoutDuration` already set in the PKL**.
 
 * `TIMEOUT=<n>` (n > 0) → wait up to *n* seconds.
 * `TIMEOUT=0` → **unlimited** (no timeout at all).

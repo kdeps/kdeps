@@ -25,37 +25,37 @@ define the behavior, dependencies, and validation logic for each resource.
 ## Common Resource Configurations
 
 - **Metadata**:
-   - **`actionID`**: A unique identifier for the resource.
-   - **`name`**: A human-readable name for the resource.
-   - **`description`**: A brief explanation of what the resource does.
-   - **`category`**: A classification for organizing resources.
+   - **`ActionID`**: A unique identifier for the resource.
+   - **`Name`**: A human-readable name for the resource.
+   - **`Description`**: A brief explanation of what the resource does.
+   - **`Category`**: A classification for organizing resources.
 
 - **Dependencies**:
-   - **`requires`**: Specifies the dependencies of the resource. This ensures the resource executes only after its
+   - **`Requires`**: Specifies the dependencies of the resource. This ensures the resource executes only after its
      dependencies are satisfied. See [Graph Dependency](../resources/kartographer.md) for more information.
 
 - **Multiple Items Iterations**:
-   - **`items`**: Specify multiple items to be iterated over in a loop. Values can be obtained via `item.current()`,
+   - **`Items`**: Specify multiple items to be iterated over in a loop. Values can be obtained via `item.current()`,
      `item.prev()`, and `item.next()`.
 
 ### **Execution Logic**
 
-The `run` block defines the execution logic for a resource, including conditional execution, validation checks, and request-level constraints. This section is relevant when `APIServerMode` is enabled.
+The `Run` block defines the execution logic for a resource, including conditional execution, validation checks, and request-level constraints. This section is relevant when `APIServerMode` is enabled.
 
 #### **Key Fields:**
 
-- **`skipCondition`**
+- **`SkipCondition`**
   Specifies one or more conditions under which the resource execution should be skipped. If any condition evaluates to `true`, the resource is bypassed.
   See [Skip Conditions](../resources/skip.md).
 
-- **`preflightCheck`**
+- **`PreflightCheck`**
   Performs validation before execution begins. If validation fails, execution is aborted and a custom error is returned.
   See [Preflight Validations](../resources/validations.md).
 
-  - **`validations`**: A list of boolean expressions. If any expression evaluates to `false`, the check fails.
-  - **`error`**:
-    - **`code`**: HTTP status code to return (e.g., `404`)
-    - **`message`**: Error message included in the response
+  - **`Validations`**: A list of boolean expressions. If any expression evaluates to `false`, the check fails.
+  - **`Error`**:
+    - **`Code`**: HTTP status code to return (e.g., `404`)
+    - **`Message`**: Error message included in the response
 
 - **`API Request Validations`**
   These validations are enforced only in `APIServerMode`. If any validation fails, the action is skipped
@@ -64,14 +64,14 @@ The `run` block defines the execution logic for a resource, including conditiona
 
   For more information, please visit [API Request Validations](../resources/api-request-validations.md).
 
-  - **`restrictToHTTPMethods`**:
+  - **`RestrictToHTTPMethods`**:
     Limits which HTTP methods (e.g., `GET`, `POST`) are allowed.
 
-  - **`restrictToRoutes`**:
+  - **`RestrictToRoutes`**:
     Limits which URL paths (e.g., `/api/v1/whois`) the request must match.
 
-  - **`allowedHeaders`**:
+  - **`AllowedHeaders`**:
     Specifies which HTTP headers are allowed in the request.
 
-  - **`allowedParams`**:
+  - **`AllowedParams`**:
     Specifies which query parameters are permitted in the request.

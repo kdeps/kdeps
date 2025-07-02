@@ -5,14 +5,14 @@ outline: deep
 # Quickstart
 To get started, make sure the Kdeps CLI is already [installed](./installation.md) on your device.
 
-In this quickstart, we’ll guide you through creating a simple AI agent. We will:
+In this quickstart, we'll guide you through creating a simple AI agent. We will:
 
 1. **Enable API mode and set up a basic API route.**
 2. **Calling an open-source LLM (Language Model) and passing request data for processing.**
 3. **Returning a structured JSON response.**
 
 This tutorial will walk you through building a foundational AI agent, which you can expand to handle more advanced
-workflows. Let’s dive in!
+workflows. Let's dive in!
 
 ## Generate the Configuration
 
@@ -55,7 +55,7 @@ This command will:
      - **`resources/llm.pkl`**: A [LLM Resource](../resources/llm.md) for interacting with language models (LLMs).
 - **`data/`**: A [Data](../resources/data.md) directory for storing project-specific data.
 
-Once the setup is complete, you’re ready to start building and customizing your AI agent.
+Once the setup is complete, you're ready to start building and customizing your AI agent.
 
 > **Note:**
 > In this quickstart guide, we are just going to focus on configuring the `workflow.pkl`, and 2 resources namely
@@ -69,17 +69,17 @@ comprehensive details, see the [`Workflow`](../configuration/workflow.md) docume
 
 ### Default Action
 
-The `workflow.pkl` file defines the workflow and settings for your AI agent. Within this file, you’ll find the `targetActionID`
+The `workflow.pkl` file defines the workflow and settings for your AI agent. Within this file, you'll find the `TargetActionID`
 configuration:
 
 ```apl
-targetActionID = "responseResource"
+TargetActionID = "responseResource"
 ```
 
 Here, `responseResource` refers to the ID of the target resource file, located in `resources/response.pkl`:
 
 ```apl
-actionID = "responseResource"
+ActionID = "responseResource"
 ```
 
 This resource will be executed as the default action whenever the AI agent runs.
@@ -93,14 +93,12 @@ configuration:
 APIServerMode = true
 APIServer {
 ...
-    portNum = 3000
-    routes {
+    PortNum = 3000
+    Routes {
         new {
-            path = "/api/v1/whois"
-            methods {
-                "GET" // Enables data retrieval
-                "POST" // Allows data submission
-            }
+            Path = "/api/v1/whois"
+            Method = "GET" // Primary method for data retrieval
+            // For both GET and POST support, define separate routes
         }
     }
 }
@@ -121,16 +119,17 @@ exiting upon completion.
 
 ### LLM Models
 
-The `workflow.pkl` file defines the LLM models to be included in the Docker image. Here’s an example configuration:
+The `workflow.pkl` file defines the LLM models to be included in the Docker image. Here's an example configuration:
 
 ```apl
-agentSettings {
+AgentSettings {
 ...
-    models {
+    Models {
         "tinydolphin"
         // "llama3.2"
         // "llama3.1"
     }
+    OllamaVersion = "0.8.0"
 }
 ```
 
@@ -146,7 +145,7 @@ library](https://ollama.com/library).
 > **Note: Additional settings about Ubuntu, Python, and Anaconda Packages**
 >
 > You can also configure custom Ubuntu packages, repositories, and PPAs, along with additional Python or Anaconda
-> packages. However, for this quickstart guide, we won’t be using these settings.
+> packages. However, for this quickstart guide, we won't be using these settings.
 
 ## Configuring Resources
 
@@ -163,7 +162,7 @@ Each resource contains a `requires` section that defines the dependencies needed
 resources by uncommenting the relevant lines.
 
 ```apl
-requires {
+Requires {
     "chatResource"
     // "pythonResource"
     // "shellResource"
@@ -181,19 +180,19 @@ Within the `resources/response.pkl`, you'll find the following structure:
 
 ```apl
 APIResponse {
-    success = true
-    response {
-        data {
+    Success = true
+    Response {
+        Data {
             "@(llm.response("chatResource"))"
             // "@(python.stdout("pythonResource"))"
             // "@(exec.stdout("shellResource"))"
             // "@(client.responseBody("httpResource"))"
         }
     }
-    errors {
+    Errors {
         new {
-            code = 0
-            message = ""
+            Code = 0
+            Message = ""
         }
     }
 }
@@ -260,9 +259,9 @@ If we look at the pkl file, we notice that the `requires` section is blank. This
 depend on other resource in order to function.
 
 ```apl
-chat {
-    model = "llama3.1"
-    prompt = "Who is @(request.data())?"
+Chat {
+    Model = "llama3.1"
+    Prompt = "Who is @(request.data())?"
     JSONResponse = true
     JSONResponseKeys {
         "first_name"
@@ -272,7 +271,7 @@ chat {
         "famous_quotes"
         "known_for"
     }
-    timeoutDuration = 60.s
+    TimeoutDuration = 60.s
 }
 ```
 

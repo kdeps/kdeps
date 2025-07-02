@@ -18,7 +18,7 @@ The promise operator is commonly used in [Resources](../resources/resources.md).
 
 ## Skip Condition
 
-Each resource includes a `skipCondition` block that, when evaluated as `true`, skips the resource's execution.
+Each resource includes a `SkipCondition` block that, when evaluated as `true`, skips the resource's execution.
 
 In this example, the `@(request.path())` expression is wrapped with the promise operator to ensure the value is deferred:
 
@@ -26,7 +26,7 @@ In this example, the `@(request.path())` expression is wrapped with the promise 
 local allowedPath = "/api/v1/items"
 local requestPath = "@(request.path())"
 
-skipCondition {
+SkipCondition {
     requestPath != allowedPath
 }
 ```
@@ -40,7 +40,7 @@ The promise operator is used to evaluate the MIME type of the uploaded file, as 
 ```apl
 local filetype = "@(request.filetypes()[0])"
 
-preflightCheck {
+PreflightCheck {
     validations {
         filetype == "application/pdf" || filetype == "image/png" || filetype == "image/jpeg"
     }

@@ -6,40 +6,43 @@ outline: deep
 
 The `workflow.pkl` contains configuration about the AI Agent, namely:
 
-- AI agent `name`, `description`, `website`, `authors`, `documentation`, and `repository`.
-- The semver `version` of this AI agent.
-- The `targetActionID` resource to be executed when running the AI agent. This is the ID of the resource.
-- Existing AI agents `workflows` to be reused in this AI agent. The agent needs to be installed first via
-the `kdeps install` command.`
+- AI agent `AgentID`, `Description`, `website`, `authors`, `documentation`, and `repository`.
+- The semver `Version` of this AI agent.
+- The `TargetActionID` resource to be executed when running the AI agent. This is the ID of the resource.
+- Existing AI agents `Workflows` to be reused in this AI agent. The agent needs to be installed first via
+the `kdeps install` command.
 
 ## Settings
 
-The `settings` block allows advanced configuration of the AI agent, covering API settings, web server settings, routing,
+The `Settings` block allows advanced configuration of the AI agent, covering API settings, web server settings, routing,
 Ubuntu and Python packages, and default LLM models.
 
 ```apl
-settings {
+Settings {
+    RateLimitMax = 100
+    Environment = "production"
     APIServerMode = true
     APIServer {...}
     WebServerMode = false
     WebServer {...}
-    agentSettings {...}
+    AgentSettings {...}
 }
 ```
 
 ### Overview
 
-The `settings` block includes the following configurations:
+The `Settings` block includes the following configurations:
 
+- `RateLimitMax`: The maximum number of API requests allowed per minute for rate limiting control.
+- `Environment`: The build environment configuration (`"development"`, `"staging"`, or `"production"`).
 - `APIServerMode`: A boolean flag that enables or disables API server mode for the project. When set to `false`, the
   default action is executed directly, and the program exits upon completion.
 - `APIServer`: A configuration block that specifies API settings such as `hostIP`, `portNum`, and `routes`.
 - `WebServerMode`: A boolean flag that enables or disables the web server for serving frontends or proxying web
   applications.
 - `WebServer`: A configuration block that specifies web server settings such as `hostIP`, `portNum`, and `routes`.
-- `agentSettings`: A configuration block that includes settings for installing Anaconda, `condaPackages`,
+- `AgentSettings`: A configuration block that includes settings for installing Anaconda, `condaPackages`,
   `pythonPackages`, custom or PPA Ubuntu `repositories`, Ubuntu `packages`, and Ollama LLM `models`.
-
 
 ### API Server Settings
 
@@ -51,13 +54,13 @@ The `APIServer` block defines API routing configurations for the AI agent. These
 
 #### TrustedProxies
 
-The `trustedProxies` allows setting the allowable `X-Forwarded-For` header IPv4, IPv6, or CIDR addresses, used to limit
+The `TrustedProxies` allows setting the allowable `X-Forwarded-For` header IPv4, IPv6, or CIDR addresses, used to limit
 trusted requests to the service. You can obtain the client's IP address through `@(request.IP())`.
 
 Example:
 
 ```apl
-trustedProxies {
+TrustedProxies {
   "127.0.0.1"
   "192.168.1.2"
   "10.0.0.0/8"
@@ -74,20 +77,20 @@ Example:
 
 ```apl
 cors {
-    enableCORS = true
-    allowOrigins {
+    EnableCORS = true
+    AllowOrigins {
         "https://example.com"
     }
-    allowMethods {
+    AllowMethods {
         "GET"
         "POST"
     }
-    allowHeaders {
+    AllowHeaders {
         "Content-Type"
         "Authorization"
     }
-    allowCredentials = true
-    maxAge = 24.h
+    AllowCredentials = true
+    MaxAge = 24.h
 }
 ```
 
@@ -98,7 +101,7 @@ See the [CORS Configuration](/getting-started/configuration/cors.md) for more de
 - `routes`: API paths can be configured within the `routes` block. Each route is defined using a `new` block,
   specifying:
   - `path`: The defined API endpoint, e.g., `"/api/v1/items"`.
-  - `methods`: HTTP methods allowed for the route. Supported HTTP methods include: `GET`, `POST`, `PUT`, `PATCH`,
+  - `Method`: HTTP method allowed for the route. Supported HTTP methods include: `GET`, `POST`, `PUT`, `PATCH`,
     `OPTIONS`, `DELETE`, and `HEAD`.
 
 Example:
@@ -107,37 +110,33 @@ Example:
 routes {
     new {
         path = "/api/v1/user"
-        methods {
-            "GET"
-        }
+        Method = "GET"
     }
     new {
         path = "/api/v1/items"
-        methods {
-            "POST"
-        }
+        Method = "POST"
     }
 }
 ```
 
-Each route targets a single `targetActionID`, meaning every route points to the main action specified in the workflow
-configuration. If multiple routes are defined, you must use a `skipCondition` logic to specify which route a resource
+Each route targets a single `TargetActionID`, meaning every route points to the main action specified in the workflow
+configuration. If multiple routes are defined, you must use a `SkipCondition` logic to specify which route a resource
 should target. See the Workflow for more details.
 
-For instance, to run a resource only on the `"/api/v1/items"` route, you can define the following `skipCondition` logic:
+For instance, to run a resource only on the `"/api/v1/items"` route, you can define the following `SkipCondition` logic:
 
 ```apl
 local allowedPath = "/api/v1/items"
 local requestPath = "@(request.path())"
 
-skipCondition {
+SkipCondition {
     requestPath != allowedPath
 }
 ```
 
 In this example:
 
-- The resource is skipped if the `skipCondition` evaluates to `true`.
+- The resource is skipped if the `SkipCondition` evaluates to `true`.
 - The resource runs only when the request path equals `"/api/v1/items"`.
 
 For more details, refer to the Skip Conditions documentation.
@@ -161,7 +160,6 @@ set to `true`.
 - `hostIP` **and** `portNum`: Define the IP address and port for the web server. The default values are `"127.0.0.1"`
   for `hostIP` and `8080` for `portNum`.
 
-
 #### WebServerMode
 
 - `WebServerMode`: A boolean flag that enables or disables the web server. When set to `true`, Kdeps can serve static
@@ -177,7 +175,7 @@ WebServerMode = true
 #### WebServer
 
 - `WebServer`: A configuration block that defines settings for the web server, including `hostIP`, `portNum`,
-  `trustedProxies`, and `routes`. It is only active when `WebServerMode` is `true`.
+  `TrustedProxies`, and `routes`. It is only active when `WebServerMode` is `true`.
 
 Example:
 
@@ -185,7 +183,7 @@ Example:
 WebServer {
     hostIP = "0.0.0.0"
     portNum = 8080
-    trustedProxies {
+    TrustedProxies {
         "192.168.1.0/24"
     }
 }
@@ -247,7 +245,7 @@ This serves files from `/data/agentX/1.0.0/dashboard/` at `http://<host>:8080/da
 
 - **`app`**: Forwards requests to a local web application (e.g., Streamlit, Node.js) running on a specified port. The
   block with `serverType = "app"` defines the path, port, and optional command to start the app, proxying client
-  requests to the app’s server.
+  requests to the app's server.
 
 Example:
 
@@ -273,7 +271,7 @@ app.py`. For more details, see the [Web Server](/getting-started/configuration/w
 This section contains the agent settings that will be used to build the agent's Docker image.
 
 ```apl
-agentSettings {
+AgentSettings {
     timezone = "Etc/UTC"
     installAnaconda = false
     condaPackages { ... }
@@ -281,7 +279,7 @@ agentSettings {
     repositories { ... }
     packages { ... }
     models { ... }
-    ollamaImageTag = "0.5.4"
+    OllamaVersion = "0.8.0"
     env { ... }
     args { ... }
 }
@@ -382,11 +380,11 @@ For a comprehensive list of available Ollama-compatible models, visit the Ollama
 
 #### Ollama Docker Image Tag
 
-The `ollamaImageTag` configuration property allows you to dynamically specify the version of the Ollama base image tag
+The `OllamaVersion` configuration property allows you to dynamically specify the version of the Ollama base image tag
 used in your Docker image.
 
 When used in conjunction with a GPU configuration in the `.kdeps.pkl` file, this configuration can automatically adjust
-the image version to include hardware-specific extensions, such as `1.0.0-rocm` for AMD environments.
+the image version to include hardware-specific extensions, such as `0.8.0-rocm` for AMD environments.
 
 #### Arguments and Environment Variables
 
