@@ -75,14 +75,21 @@ func compareVersions(v1, v2 string, logger *logging.Logger) (int, error) {
 
 func EnforceSchemaURL(ctx context.Context, line, filePath string, logger *logging.Logger) error {
 	const amendErr = "the pkl file does not start with 'amends'"
-	const schemaErr = "the pkl file does not contain 'schema.kdeps.com/core'"
+	const schemaErr = "the pkl file does not contain a valid schema reference"
 
 	if !strings.HasPrefix(line, "amends") {
 		logger.Error(amendErr, "file", filePath)
 		return errors.New(amendErr)
 	}
 
-	if !strings.Contains(line, "schema.kdeps.com/core") {
+	// Check for valid legacy schema.kdeps.com URLs
+	hasValidSchemaURL := strings.Contains(line, "schema.kdeps.com/core")
+
+	// Check for valid assets-based local file paths (absolute paths to known schema files)
+	hasValidAssetPath := (strings.Contains(line, "/Workflow.pkl") || strings.Contains(line, "/Resource.pkl") || strings.Contains(line, "/Kdeps.pkl")) &&
+		(strings.Contains(line, "file://") || strings.HasPrefix(strings.Trim(strings.Split(line, "\"")[1], " "), "/"))
+
+	if !hasValidSchemaURL && !hasValidAssetPath {
 		logger.Error(schemaErr, "file", filePath)
 		return errors.New(schemaErr)
 	}
@@ -90,6 +97,15 @@ func EnforceSchemaURL(ctx context.Context, line, filePath string, logger *loggin
 }
 
 func EnforcePklVersion(ctx context.Context, line, filePath, schemaVersion string, logger *logging.Logger) error {
+	// Skip version validation for valid assets-based local file paths only
+	isValidAssetPath := (strings.Contains(line, "/Workflow.pkl") || strings.Contains(line, "/Resource.pkl") || strings.Contains(line, "/Kdeps.pkl")) &&
+		(strings.Contains(line, "file://") || strings.HasPrefix(strings.Trim(strings.Split(line, "\"")[1], " "), "/"))
+
+	if isValidAssetPath {
+		logger.Debug("skipping version validation for assets-based amends statement", "line", line, "file", filePath)
+		return nil
+	}
+
 	start := strings.Index(line, "@")
 	end := strings.Index(line, "#")
 	if start == -1 || end == -1 || start >= end {
@@ -118,14 +134,37 @@ func EnforcePklVersion(ctx context.Context, line, filePath, schemaVersion string
 
 func EnforcePklFilename(ctx context.Context, line string, filePath string, logger *logging.Logger) error {
 	filename := strings.ToLower(filepath.Base(filePath))
-	start := strings.Index(line, "#/")
-	if start == -1 {
-		err := errors.New("invalid format: could not extract .pkl filename")
-		logger.Error(err.Error())
-		return err
+
+	var pklFilename string
+
+	// Handle valid assets-based local file paths
+	isValidAssetPath := (strings.Contains(line, "/Workflow.pkl") || strings.Contains(line, "/Resource.pkl") || strings.Contains(line, "/Kdeps.pkl")) &&
+		(strings.Contains(line, "file://") || strings.HasPrefix(strings.Trim(strings.Split(line, "\"")[1], " "), "/"))
+
+	if isValidAssetPath {
+		// Extract PKL filename from local file path
+		if strings.Contains(line, "/Workflow.pkl") {
+			pklFilename = "Workflow.pkl"
+		} else if strings.Contains(line, "/Resource.pkl") {
+			pklFilename = "Resource.pkl"
+		} else if strings.Contains(line, "/Kdeps.pkl") {
+			pklFilename = "Kdeps.pkl"
+		} else {
+			err := errors.New("invalid format: could not extract .pkl filename from assets path")
+			logger.Error(err.Error())
+			return err
+		}
+	} else {
+		// Handle legacy schema URLs
+		start := strings.Index(line, "#/")
+		if start == -1 {
+			err := errors.New("invalid format: could not extract .pkl filename")
+			logger.Error(err.Error())
+			return err
+		}
+		pklFilename = strings.Trim(line[start+2:], `"`)
 	}
 
-	pklFilename := strings.Trim(line[start+2:], `"`)
 	logger.Debug("checking pkl filename", "line", line, "filePath", filePath, "pklFilename", pklFilename)
 
 	info, exists := validPklFiles[pklFilename]

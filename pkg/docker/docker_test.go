@@ -20,8 +20,8 @@ import (
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
-	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/workflow"
+	"github.com/kdeps/schema/assets"
 	"github.com/kdeps/schema/gen/kdeps"
 	wfPkl "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
@@ -127,12 +127,19 @@ func aSystemConfigurationFile(arg1, arg2, arg3, arg4 string) error {
 		return err
 	}
 
+	// Setup PKL workspace with embedded schema files
+	workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+	if err != nil {
+		return err
+	}
+	defer workspace.Cleanup()
+
 	systemConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Kdeps.pkl"
+amends "%s"
 
 Mode = "%s"
 DockerGPU = "%s"
-`, schema.SchemaVersion(ctx), arg3, arg2)
+`, workspace.GetImportPath("Kdeps.pkl"), arg3, arg2)
 
 	var filePath string
 
@@ -204,8 +211,15 @@ packages {
 }`, arg4)
 	}
 
+	// Setup PKL workspace with embedded schema files
+	workspace, workspaceErr := assets.SetupPKLWorkspaceInTmpDir()
+	if workspaceErr != nil {
+		return workspaceErr
+	}
+	defer workspace.Cleanup()
+
 	workflowConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
+amends "%s"
 
 AgentID = "%s"
 Description = "AI Agent X"
@@ -217,7 +231,7 @@ Settings {
     %s
   }
 }
-`, schema.SchemaVersion(ctx), arg1, arg1, pkgSection, modelSection)
+`, workspace.GetImportPath("Workflow.pkl"), arg1, arg1, pkgSection, modelSection)
 
 	var filePath string
 
@@ -244,12 +258,19 @@ Settings {
 		return err
 	}
 
+	// Setup PKL workspace with embedded schema files for resource
+	resourceWorkspace, workspaceErr := assets.SetupPKLWorkspaceInTmpDir()
+	if workspaceErr != nil {
+		return workspaceErr
+	}
+	defer resourceWorkspace.Cleanup()
+
 	resourceConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+amends "%s"
 
 ActionID = "%s"
 Description = "An action from agent %s"
-	`, schema.SchemaVersion(ctx), arg1, arg1)
+	`, resourceWorkspace.GetImportPath("Resource.pkl"), arg1, arg1)
 
 	resourceConfigurationFile := filepath.Join(resourcesDir, arg1+".pkl")
 	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0o644)
@@ -561,9 +582,16 @@ func itHasAFileWithIDPropertyAndDependentOn(arg1, arg2, arg3 string) error {
 }`, arg3)
 	}
 
+	// Setup PKL workspace with embedded schema files
+	workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+	if err != nil {
+		return err
+	}
+	defer workspace.Cleanup()
+
 	// Create the document with the id and requires block
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+amends "%s"
 
 ActionID = "%s"
 %s
@@ -578,7 +606,7 @@ Run {
 """
   }
 }
-`, schema.SchemaVersion(ctx), arg2, requiresSection)
+`, workspace.GetImportPath("Resource.pkl"), arg2, requiresSection)
 
 	// Write to the file
 	file := filepath.Join(resourcesDir, arg1)
@@ -606,8 +634,15 @@ func itWillBeStoredTo(arg1 string) error {
 }
 
 func itHasAFileWithNoDependencyWithIDProperty(arg1, arg2 string) error {
+	// Setup PKL workspace with embedded schema files
+	workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+	if err != nil {
+		return err
+	}
+	defer workspace.Cleanup()
+
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+amends "%s"
 
 ActionID = "%s"
 Run {
@@ -621,7 +656,7 @@ Run {
 """
   }
 }
-`, schema.SchemaVersion(ctx), arg2)
+`, workspace.GetImportPath("Resource.pkl"), arg2)
 
 	file := filepath.Join(resourcesDir, arg1)
 
@@ -637,26 +672,29 @@ Run {
 }
 
 func itHasAWorkflowFile(arg1, arg2, arg3 string) error {
-	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
-
-TargetActionID = "%s"
-AgentID = "%s"
-Description = "My awesome AI Agent"
-Version = "%s"
-`, schema.SchemaVersion(ctx), arg3, arg1, arg2)
-
-	file := filepath.Join(aiAgentDir, "workflow.pkl")
-
-	f, _ := testFs.Create(file)
-	if _, err := f.WriteString(doc); err != nil {
+	// Setup PKL workspace with embedded schema files
+	workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+	if err != nil {
 		return err
 	}
-	f.Close()
+	defer workspace.Cleanup()
 
-	workflowFile = file
+	doc := fmt.Sprintf(`
+amends "%s"
 
-	return nil
+AgentID = "%s"
+Description = "AI Agent X"
+TargetActionID = "%s"
+Settings {
+  APIServerMode = false
+  AgentSettings {
+    %s
+    %s
+  }
+}
+`, workspace.GetImportPath("Workflow.pkl"), arg1, arg3, arg2, "InstallAnaconda = false")
+
+	return afero.WriteFile(testFs, filepath.Join(agentDir, "workflow.pkl"), []byte(doc), 0o644)
 }
 
 func theContentOfThatArchiveFileWillBeExtractedTo(arg1 string) error {
@@ -807,15 +845,22 @@ func itHasAWorkflowFileDependencies(arg1, arg2, arg3, arg4 string) error {
 }`, arg4)
 	}
 
+	// Setup PKL workspace with embedded schema files
+	workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+	if err != nil {
+		return err
+	}
+	defer workspace.Cleanup()
+
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
+amends "%s"
 
 TargetActionID = "%s"
 AgentID = "%s"
 Description = "My awesome AI Agent"
 Version = "%s"
 %s
-`, schema.SchemaVersion(ctx), arg3, arg1, arg2, workflowsSection)
+`, workspace.GetImportPath("Workflow.pkl"), arg3, arg1, arg2, workflowsSection)
 
 	file := filepath.Join(aiAgentDir, "workflow.pkl")
 

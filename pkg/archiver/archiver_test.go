@@ -16,7 +16,6 @@ import (
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resource"
-	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/workflow"
 	assets "github.com/kdeps/schema/assets"
 	"github.com/kr/pretty"
@@ -26,22 +25,34 @@ import (
 )
 
 var (
-	testFs             = afero.NewOsFs()
-	testingT           *testing.T
+	testFs             afero.Fs
+	kdepsDir           string
 	aiAgentDir         string
 	resourcesDir       string
-	logger             *logging.Logger
 	dataDir            string
 	workflowFile       string
 	resourceFile       string
-	kdepsDir           string
-	projectDir         string
 	packageDir         string
 	lastCreatedPackage string
+	projectDir         string
+	logger             *logging.Logger
+	testingT           *testing.T
 	ctx                context.Context
+	globalWorkspace    *assets.PKLWorkspace // Global workspace for all tests
 )
 
 func TestFeatures(t *testing.T) {
+	// Initialize test filesystem
+	testFs = afero.NewOsFs()
+
+	// Setup global workspace that persists for all tests
+	var err error
+	globalWorkspace, err = assets.SetupPKLWorkspaceInTmpDir()
+	if err != nil {
+		t.Fatalf("Failed to setup global workspace: %v", err)
+	}
+	defer globalWorkspace.Cleanup() // Clean up after all tests
+
 	suite := godog.TestSuite{
 		ScenarioInitializer: func(ctx *godog.ScenarioContext) {
 			ctx.Step(`^a kdeps archive "([^"]*)" is opened$`, aKdepsArchiveIsOpened)
@@ -151,9 +162,9 @@ func itHasAFileWithIDPropertyAndDependentOn(arg1, arg2, arg3 string) error {
 }`, arg3)
 	}
 
-	// Create the document with the id and requires block
+	// Create the document with the id and requires block using global workspace
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+amends "%s"
 
 ActionID = "%s"
 %s
@@ -168,21 +179,9 @@ Run {
 """
   }
 }
-`, schema.SchemaVersion(ctx), arg2, requiresSection)
+`, globalWorkspace.GetImportPath("Resource.pkl"), arg2, requiresSection)
 
-	// Write to the file
-	file := filepath.Join(resourcesDir, arg1)
-
-	f, _ := testFs.Create(file)
-	if _, err := f.WriteString(doc); err != nil {
-		return err
-	}
-
-	f.Close()
-
-	resourceFile = file
-
-	return nil
+	return afero.WriteFile(testFs, filepath.Join(resourcesDir, arg1+".pkl"), []byte(doc), 0o644)
 }
 
 func itWillBeStoredTo(arg1 string) error {
@@ -284,8 +283,9 @@ func theResourcesAndDataFolderExists() error {
 }
 
 func itHasAFileWithNoDependencyWithIDProperty(arg1, arg2 string) error {
+	// Create the document with the id and requires block using global workspace
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+amends "%s"
 
 ActionID = "%s"
 Run {
@@ -299,7 +299,7 @@ Run {
 """
   }
 }
-`, schema.SchemaVersion(ctx), arg2)
+`, globalWorkspace.GetImportPath("Resource.pkl"), arg2)
 
 	file := filepath.Join(resourcesDir, arg1)
 
@@ -315,14 +315,15 @@ Run {
 }
 
 func itHasAWorkflowFile(arg1, arg2, arg3 string) error {
+	// Create the document with the id and requires block using global workspace
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
+amends "%s"
 
 TargetActionID = "%s"
 AgentID = "%s"
 Description = "My awesome AI Agent"
 Version = "%s"
-`, schema.SchemaVersion(ctx), arg3, arg1, arg2)
+`, globalWorkspace.GetImportPath("Workflow.pkl"), arg3, arg1, arg2)
 
 	file := filepath.Join(aiAgentDir, "workflow.pkl")
 
@@ -468,9 +469,10 @@ func thePackageFileWillBeCreated(arg1 string) error {
 }
 
 func itHasAWorkflowFileDependencies(arg1, arg2, arg3, arg4 string) error {
+	// Check if arg4 is a CSV (contains commas)
 	var workflowsSection string
 	if strings.Contains(arg4, ",") {
-		// Split arg3 into multiple values if it's a CSV
+		// Split arg4 into multiple values if it's a CSV
 		values := strings.Split(arg4, ",")
 		var workflowsLines []string
 		for _, value := range values {
@@ -485,15 +487,16 @@ func itHasAWorkflowFileDependencies(arg1, arg2, arg3, arg4 string) error {
 }`, arg4)
 	}
 
+	// Create the document with the id and requires block using global workspace
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
+amends "%s"
 
 TargetActionID = "%s"
 AgentID = "%s"
 Description = "My awesome AI Agent"
 Version = "%s"
 %s
-`, schema.SchemaVersion(ctx), arg3, arg1, arg2, workflowsSection)
+`, globalWorkspace.GetImportPath("Workflow.pkl"), arg3, arg1, arg2, workflowsSection)
 
 	file := filepath.Join(aiAgentDir, "workflow.pkl")
 
@@ -561,14 +564,14 @@ func itHasAFileWithIDPropertyAndDependentOnWithRunBlockAndIsNotNull(arg1, arg2, 
 }`, arg4)
 	}
 
-	// Create the document with the id and requires block
+	// Create the document with the id and requires block using global workspace
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+amends "%s"
 
 ActionID = "%s"
 %s
 %s
-`, schema.SchemaVersion(ctx), arg2, requiresSection, fieldSection)
+`, globalWorkspace.GetImportPath("Resource.pkl"), arg2, requiresSection, fieldSection)
 
 	// Write to the file
 	file := filepath.Join(resourcesDir, arg1)
@@ -620,14 +623,14 @@ func itHasAFileWithIDPropertyAndDependentOnWithRunBlockAndIsNull(arg1, arg2, arg
 }`, arg4)
 	}
 
-	// Create the document with the id and requires block
+	// Create the document with the id and requires block using global workspace
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+amends "%s"
 
 ActionID = "%s"
 %s
 %s
-`, schema.SchemaVersion(ctx), arg2, requiresSection, fieldSection)
+`, globalWorkspace.GetImportPath("Resource.pkl"), arg2, requiresSection, fieldSection)
 
 	// Write to the file
 	file := filepath.Join(resourcesDir, arg1)
@@ -648,14 +651,14 @@ func TestArchiverWithSchemaAssets(t *testing.T) {
 	logger := logging.NewTestLogger()
 	fs := afero.NewOsFs() // Use OS filesystem for PKL operations
 
-	t.Run("ValidateSchemaAssetsAvailable", func(t *testing.T) {
-		// Setup PKL workspace with all schema files
-		workspace, err := assets.SetupPKLWorkspaceInTmpDir()
-		require.NoError(t, err)
-		defer workspace.Cleanup()
+	// Setup dedicated workspace for this test suite
+	testWorkspace, err := assets.SetupPKLWorkspaceInTmpDir()
+	require.NoError(t, err)
+	defer testWorkspace.Cleanup()
 
+	t.Run("ValidateSchemaAssetsAvailable", func(t *testing.T) {
 		// Verify all files needed for archiver operations are available
-		files, err := workspace.ListFiles()
+		files, err := testWorkspace.ListFiles()
 		require.NoError(t, err)
 
 		expectedFiles := []string{"Workflow.pkl", "Resource.pkl", "Project.pkl", "Docker.pkl"}
@@ -667,17 +670,12 @@ func TestArchiverWithSchemaAssets(t *testing.T) {
 	})
 
 	t.Run("CreateWorkflowWithAssetsSchema", func(t *testing.T) {
-		// Setup PKL workspace
-		workspace, err := assets.SetupPKLWorkspaceInTmpDir()
-		require.NoError(t, err)
-		defer workspace.Cleanup()
-
 		// Create a temporary project directory
 		projectDir := t.TempDir()
 
 		// Create a workflow file using the embedded schema
 		workflowFile := filepath.Join(projectDir, "workflow.pkl")
-		workflowContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
+		workflowContent := fmt.Sprintf(`amends "%s"
 
 AgentID = "testagent"
 Description = "Test agent using schema assets"
@@ -697,9 +695,9 @@ Settings {
 		}
 		OllamaVersion = "0.8.0"
 	}
-}`, schema.SchemaVersion(ctx))
+}`, testWorkspace.GetImportPath("Workflow.pkl"))
 
-		err = os.WriteFile(workflowFile, []byte(workflowContent), 0o644)
+		err := os.WriteFile(workflowFile, []byte(workflowContent), 0o644)
 		require.NoError(t, err)
 
 		// Validate that we can load the workflow
@@ -715,7 +713,7 @@ Settings {
 		require.NoError(t, err)
 
 		resourceFile := filepath.Join(resourcesDir, "testAction.pkl")
-		resourceContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+		resourceContent := fmt.Sprintf(`amends "%s"
 
 ActionID = "testAction"
 Name = "Test Action"
@@ -753,14 +751,14 @@ Run {
 		}
 		TimeoutDuration = 30.s
 	}
-}`, schema.SchemaVersion(ctx))
+}`, testWorkspace.GetImportPath("Resource.pkl"))
 
 		err = os.WriteFile(resourceFile, []byte(resourceContent), 0o644)
 		require.NoError(t, err)
 
 		t.Logf("Created workflow file: %s", workflowFile)
 		t.Logf("Created resource file: %s", resourceFile)
-		t.Logf("Workspace directory: %s", workspace.Directory)
+		t.Logf("Workspace directory: %s", testWorkspace.Directory)
 	})
 
 	t.Run("ValidateSchemaProperties", func(t *testing.T) {
@@ -805,7 +803,7 @@ Run {
 
 		// Create workflow file
 		workflowFile := filepath.Join(projectDir, "workflow.pkl")
-		workflowContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
+		workflowContent := fmt.Sprintf(`amends "%s"
 
 AgentID = "archivetest"
 Description = "Archive test with assets"
@@ -823,7 +821,7 @@ Settings {
 		}
 		OllamaVersion = "0.8.0"
 	}
-}`, schema.SchemaVersion(ctx))
+}`, workspace.GetImportPath("Workflow.pkl"))
 
 		err = os.WriteFile(workflowFile, []byte(workflowContent), 0o644)
 		require.NoError(t, err)

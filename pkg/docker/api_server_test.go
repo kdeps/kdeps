@@ -1259,8 +1259,8 @@ PreflightCheck {
 		false  // This will always fail and trigger our error stacking
 	}
 	Error {
-		code = 500
-		message = "Preflight validation failed"
+		Code = 500
+		Message = "Preflight validation failed"
 	}
 }`
 		require.NoError(t, afero.WriteFile(fs, workflowFile, []byte(workflowContent), 0o644))
