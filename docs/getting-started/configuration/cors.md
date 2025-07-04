@@ -100,4 +100,4 @@ fields and their descriptions:
 - **Adjust `MaxAge` Carefully**: Set a reasonable `MaxAge` (e.g., `12.h` or `24.h`) to balance performance and flexibility for preflight requests.
 - **Disable Credentials When Possible**: Set `AllowCredentials = false` if your API doesn't require cookies or authentication headers to simplify CORS handling.
 
-By tailoring the `cors` configuration to your API's requirements, you can ensure secure and efficient cross-origin request handling.
+By tailoring the `CORS` configuration to your API's requirements, you can ensure secure and efficient cross-origin request handling.

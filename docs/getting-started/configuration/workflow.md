@@ -2,128 +2,138 @@
 outline: deep
 ---
 
-# Workflow
+# Workflow Configuration
 
-The `workflow.pkl` contains configuration about the AI Agent, namely:
+The `workflow.pkl` file contains the comprehensive configuration for your AI agent, including:
 
-- AI agent `AgentID`, `Description`, `website`, `authors`, `documentation`, and `repository`.
-- The semver `Version` of this AI agent.
-- The `TargetActionID` resource to be executed when running the AI agent. This is the ID of the resource.
-- Existing AI agents `Workflows` to be reused in this AI agent. The agent needs to be installed first via
-the `kdeps install` command.
+- **Agent Metadata**: `AgentID`, `Description`, `Website`, `Authors`, `Documentation`, and `Repository` information
+- **Version Management**: Semantic versioning (`Version`) for the AI agent
+- **Target Execution**: `TargetActionID` specifying which resource to execute when running the agent
+- **Workflow Composition**: `Workflows` section for reusing existing AI agents installed via `kdeps install`
 
-## Settings
+## Settings Overview
 
-The `Settings` block allows advanced configuration of the AI agent, covering API settings, web server settings, routing,
-Ubuntu and Python packages, and default LLM models.
+The `Settings` block provides advanced configuration for the AI agent, covering API settings, web server configuration, routing, Ubuntu and Python packages, and default LLM models.
 
 ```apl
 Settings {
     RateLimitMax = 100
     Environment = "production"
     APIServerMode = true
-    APIServer {...}
+    APIServer { /* API configuration */ }
     WebServerMode = false
-    WebServer {...}
-    AgentSettings {...}
+    WebServer { /* Web server configuration */ }
+    AgentSettings { /* Agent-specific settings */ }
 }
 ```
 
-### Overview
+### Configuration Properties
 
-The `Settings` block includes the following configurations:
+The `Settings` block includes these key configurations:
 
-- `RateLimitMax`: The maximum number of API requests allowed per minute for rate limiting control.
-- `Environment`: The build environment configuration (`"development"`, `"staging"`, or `"production"`).
-- `APIServerMode`: A boolean flag that enables or disables API server mode for the project. When set to `false`, the
-  default action is executed directly, and the program exits upon completion.
-- `APIServer`: A configuration block that specifies API settings such as `hostIP`, `portNum`, and `routes`.
-- `WebServerMode`: A boolean flag that enables or disables the web server for serving frontends or proxying web
-  applications.
-- `WebServer`: A configuration block that specifies web server settings such as `hostIP`, `portNum`, and `routes`.
-- `AgentSettings`: A configuration block that includes settings for installing Anaconda, `condaPackages`,
-  `pythonPackages`, custom or PPA Ubuntu `repositories`, Ubuntu `packages`, and Ollama LLM `models`.
+- **`RateLimitMax`**: Maximum number of API requests allowed per minute for rate limiting control
+- **`Environment`**: Build environment specification (`"development"`, `"staging"`, or `"production"`)
+- **`APIServerMode`**: Boolean flag enabling or disabling API server mode. When set to `false`, the default action executes directly and the program exits upon completion
+- **`APIServer`**: Configuration block for API settings including `HostIP`, `PortNum`, and `Routes`
+- **`WebServerMode`**: Boolean flag enabling or disabling web server for serving frontends or proxying web applications
+- **`WebServer`**: Configuration block for web server settings including `HostIP`, `PortNum`, and `Routes`
+- **`AgentSettings`**: Configuration for Anaconda installation, `CondaPackages`, `PythonPackages`, custom Ubuntu `Repositories`, Ubuntu `Packages`, and Ollama LLM `Models`
 
-### API Server Settings
+## API Server Configuration
 
-The `APIServer` block defines API routing configurations for the AI agent. These settings are only applied when
-`APIServerMode` is set to `true`.
+The `APIServer` block defines API routing configurations for the AI agent. These settings apply only when `APIServerMode` is set to `true`.
 
-- `hostIP` **and** `portNum`: Define the IP address and port for the Docker container. The default values are
-  `"127.0.0.1"` for `hostIP` and `3000` for `portNum`.
+### Basic Configuration
 
-#### TrustedProxies
+```apl
+APIServer {
+    HostIP = "127.0.0.1"
+    PortNum = 3000
+    TrustedProxies { /* proxy settings */ }
+    CORS { /* CORS configuration */ }
+    Routes { /* API routes */ }
+}
+```
 
-The `TrustedProxies` allows setting the allowable `X-Forwarded-For` header IPv4, IPv6, or CIDR addresses, used to limit
-trusted requests to the service. You can obtain the client's IP address through `@(request.IP())`.
+- **`HostIP` and `PortNum`**: Define the IP address and port for the Docker container. Default values are `"127.0.0.1"` for `HostIP` and `3000` for `PortNum`
 
-Example:
+### Trusted Proxies
 
+The `TrustedProxies` configuration allows setting allowable `X-Forwarded-For` header IPv4, IPv6, or CIDR addresses to limit trusted requests to the service. You can obtain the client's IP address using `@(request.IP())`.
+
+**Example:**
 ```apl
 TrustedProxies {
-  "127.0.0.1"
-  "192.168.1.2"
-  "10.0.0.0/8"
+    "127.0.0.1"
+    "192.168.1.2"
+    "10.0.0.0/8"
 }
 ```
 
-#### CORS Configuration
+### CORS Configuration
 
-The `cors` block configures Cross-Origin Resource Sharing for the API server, controlling which origins, methods, and
-headers are allowed for cross-origin requests. It enables secure access from web applications hosted on different
-domains.
+The `CORS` block configures Cross-Origin Resource Sharing for the API server, controlling which origins, methods, and headers are allowed for cross-origin requests. This enables secure access from web applications hosted on different domains.
 
-Example:
-
+**Example:**
 ```apl
-cors {
+CORS {
     EnableCORS = true
     AllowOrigins {
         "https://example.com"
+        "https://app.mydomain.com"
     }
     AllowMethods {
         "GET"
         "POST"
+        "PUT"
+        "DELETE"
     }
     AllowHeaders {
         "Content-Type"
         "Authorization"
+        "X-API-Key"
     }
     AllowCredentials = true
     MaxAge = 24.h
 }
 ```
 
-See the [CORS Configuration](/getting-started/configuration/cors.md) for more details.
+For detailed CORS configuration options, see the [CORS Configuration](./cors.md) documentation.
 
-#### API Routes
+### API Routes
 
-- `routes`: API paths can be configured within the `routes` block. Each route is defined using a `new` block,
-  specifying:
-  - `path`: The defined API endpoint, e.g., `"/api/v1/items"`.
-  - `Method`: HTTP method allowed for the route. Supported HTTP methods include: `GET`, `POST`, `PUT`, `PATCH`,
-    `OPTIONS`, `DELETE`, and `HEAD`.
+API paths are configured within the `Routes` block. Each route is defined using a `new` block with these properties:
 
-Example:
+- **`Path`**: The defined API endpoint (e.g., `"/api/v1/items"`)
+- **`Method`**: HTTP method allowed for the route
 
+**Supported HTTP Methods**: `GET`, `POST`, `PUT`, `PATCH`, `OPTIONS`, `DELETE`, and `HEAD`
+
+**Example:**
 ```apl
-routes {
+Routes {
     new {
-        path = "/api/v1/user"
+        Path = "/api/v1/user"
         Method = "GET"
     }
     new {
-        path = "/api/v1/items"
+        Path = "/api/v1/items"
         Method = "POST"
+    }
+    new {
+        Path = "/api/v1/health"
+        Method = "GET"
     }
 }
 ```
 
-Each route targets a single `TargetActionID`, meaning every route points to the main action specified in the workflow
-configuration. If multiple routes are defined, you must use a `SkipCondition` logic to specify which route a resource
-should target. See the Workflow for more details.
+### Route-Specific Resource Execution
 
-For instance, to run a resource only on the `"/api/v1/items"` route, you can define the following `SkipCondition` logic:
+Each route targets a single `TargetActionID`, meaning every route points to the main action specified in the workflow configuration. To run different resources for different routes, use `SkipCondition` logic to specify route targeting.
+
+**Example: Route-Specific Execution**
+
+To run a resource only on the `"/api/v1/items"` route:
 
 ```apl
 local allowedPath = "/api/v1/items"
@@ -135,287 +145,378 @@ SkipCondition {
 ```
 
 In this example:
+- The resource is skipped if the `SkipCondition` evaluates to `true`
+- The resource runs only when the request path equals `"/api/v1/items"`
 
-- The resource is skipped if the `SkipCondition` evaluates to `true`.
-- The resource runs only when the request path equals `"/api/v1/items"`.
+For more details, refer to the [Skip Conditions](../../workflow-control/skip.md) documentation.
 
-For more details, refer to the Skip Conditions documentation.
+### Lambda Mode
 
-#### Lambda Mode
+When `APIServerMode` is set to `false`, the AI agent operates in **single-execution lambda mode**. In this mode, the agent executes a specific task or serves a particular purpose in a single, self-contained execution cycle.
 
-When the `APIServerMode` is set to `false` in the workflow configuration, the AI agent operates in a **single-execution
-lambda mode**. In this mode, the AI agent is designed to execute a specific task or serve a particular purpose,
-completing its function in a single, self-contained execution cycle.
+**Use Cases for Lambda Mode:**
+- Analyzing data from form submissions
+- Generating reports or documents
+- Scheduled `cron` job functions
+- One-time query processing
+- Batch data processing tasks
 
-For example, an AI agent in single-execution lambda mode might be used to analyze data from a form submission, generate
-a report, be executed as a scheduled `cron` job function, or provide a response to a one-time query, without the need
-for maintaining an ongoing state or connection.
+## Web Server Configuration
 
-### Web Server Settings
+The `WebServer` block defines configurations for serving frontend interfaces or proxying to web applications, enabling Kdeps to deliver full-stack AI applications with integrated UIs.
 
-The `WebServer` block defines configurations for serving frontend interfaces or proxying to web applications, enabling
-Kdeps to deliver full-stack AI applications with integrated UIs. These settings are only applied when `WebServerMode` is
-set to `true`.
-
-- `hostIP` **and** `portNum`: Define the IP address and port for the web server. The default values are `"127.0.0.1"`
-  for `hostIP` and `8080` for `portNum`.
-
-#### WebServerMode
-
-- `WebServerMode`: A boolean flag that enables or disables the web server. When set to `true`, Kdeps can serve static
-  frontends (e.g., HTML, CSS, JS) or proxy to local web applications (e.g., Streamlit, Node.js). When `false`, the web
-  server is disabled.
-
-Example:
+### Basic Configuration
 
 ```apl
 WebServerMode = true
-```
-
-#### WebServer
-
-- `WebServer`: A configuration block that defines settings for the web server, including `hostIP`, `portNum`,
-  `TrustedProxies`, and `routes`. It is only active when `WebServerMode` is `true`.
-
-Example:
-
-```apl
 WebServer {
-    hostIP = "0.0.0.0"
-    portNum = 8080
-    TrustedProxies {
-        "192.168.1.0/24"
-    }
+    HostIP = "127.0.0.1"
+    PortNum = 8080
+    TrustedProxies { /* proxy settings */ }
+    Routes { /* web routes */ }
 }
 ```
 
-#### Web Server Routes
+- **`HostIP` and `PortNum`**: Define the IP address and port for the web server. Default values are `"127.0.0.1"` for `HostIP` and `8080` for `PortNum`
+- **`TrustedProxies`**: Similar to API server, defines trusted proxy addresses
 
-- `routes`: Web server paths are configured within the `routes` block of the `WebServer` section. Each route is defined
-  using a `web` block, specifying:
-  - `path`: The HTTP path to serve, e.g., `"/dashboard"` or `"/app"`.
-  - `serverType`: The serving mode: `"static"` for file hosting or `"app"` for reverse proxying.
+### Web Server Routes
 
-Example:
+Web server paths are configured within the `Routes` block of the `WebServer` section. Each route is defined using a `new` block with these properties:
 
+- **`Path`**: The HTTP path to serve (e.g., `"/dashboard"` or `"/app"`)
+- **`ServerType`**: The serving mode - `"static"` for file hosting or `"app"` for reverse proxying
+
+**Example:**
 ```apl
 WebServer {
-    routes {
+    Routes {
         new {
-            path = "/dashboard"
-            serverType = "static"
-            publicPath = "/agentX/1.0.0/dashboard/"
+            Path = "/dashboard"
+            ServerType = "static"
+            PublicPath = "/agentX/1.0.0/dashboard/"
         }
         new {
-            path = "/app"
-            serverType = "app"
-            appPort = 8501
-            command = "streamlit run app.py"
+            Path = "/app"
+            ServerType = "app"
+            AppPort = 8501
+            Command = "streamlit run app.py"
         }
     }
 }
 ```
 
-Each route directs requests to static files (e.g., HTML, CSS, JS) or a local web app (e.g., Streamlit, Node.js),
-enabling frontend integration with Kdeps' AI workflows.
+### Static File Serving
 
-##### Static File Serving
+The `"static"` server type serves files like HTML, CSS, or JavaScript from a specified directory, ideal for hosting dashboards or frontends.
 
-- **`static`**: Serves files like HTML, CSS, or JS from a specified directory, ideal for hosting dashboards or
-  frontends. The block with `serverType = "static"` defines the path and directory relative to `/data/`,
-  delivering files directly to clients.
-
-Example:
-
+**Configuration:**
 ```apl
-WebServer {
-    routes {
-        new {
-            path = "/dashboard"
-            serverType = "static"
-            publicPath = "/agentX/1.0.0/dashboard/"
-        }
-    }
+new {
+    Path = "/dashboard"
+    ServerType = "static"
+    PublicPath = "/agentX/1.0.0/dashboard/"
 }
 ```
 
-This serves files from `/data/agentX/1.0.0/dashboard/` at `http://<host>:8080/dashboard`.
+This configuration serves files from `/data/agentX/1.0.0/dashboard/` at `http://<host>:8080/dashboard`.
 
-##### Reverse Proxying
+**File Organization:**
+- Place static files in the specified `PublicPath` directory
+- Organize with standard web structure (HTML, CSS, JS, images)
+- Ensure proper file permissions for web access
 
-- **`app`**: Forwards requests to a local web application (e.g., Streamlit, Node.js) running on a specified port. The
-  block with `serverType = "app"` defines the path, port, and optional command to start the app, proxying client
-  requests to the app's server.
+### Reverse Proxying
 
-Example:
+The `"app"` server type forwards requests to a local web application (e.g., Streamlit, Node.js) running on a specified port.
 
+**Configuration:**
 ```apl
-WebServer {
-    routes {
-        new {
-            path = "/app"
-            serverType = "app"
-            publicPath = "/agentX/1.0.0/streamlit-app/"
-            appPort = 8501
-            command = "streamlit run app.py"
-        }
-    }
+new {
+    Path = "/app"
+    ServerType = "app"
+    PublicPath = "/agentX/1.0.0/streamlit-app/"
+    AppPort = 8501
+    Command = "streamlit run app.py"
 }
 ```
 
-This proxies requests from `http://<host>:8080/app` to a Streamlit app on port 8501, launched with `streamlit run
-app.py`. For more details, see the [Web Server](/getting-started/configuration/webserver.md) documentation.
+This configuration:
+- Proxies requests from `http://<host>:8080/app` to a Streamlit app on port 8501
+- Launches the app with `streamlit run app.py`
+- Serves the app from the specified `PublicPath`
 
-### AI Agent Settings
+**Supported Frameworks:**
+- Streamlit applications
+- Node.js web servers
+- Flask/FastAPI applications
+- Custom web applications
 
-This section contains the agent settings that will be used to build the agent's Docker image.
+For more details, see the [Web Server Configuration](./webserver.md) documentation.
+
+## Agent Settings
+
+The `AgentSettings` section contains configuration for building the agent's Docker image with required dependencies, packages, and models.
 
 ```apl
 AgentSettings {
-    timezone = "Etc/UTC"
-    installAnaconda = false
-    condaPackages { ... }
-    pythonPackages { ... }
-    repositories { ... }
-    packages { ... }
-    models { ... }
+    Timezone = "Etc/UTC"
+    InstallAnaconda = false
+    CondaPackages { /* Anaconda packages */ }
+    PythonPackages { /* Python packages */ }
+    Repositories { /* Ubuntu repositories */ }
+    Packages { /* Ubuntu packages */ }
+    Models { /* LLM models */ }
     OllamaVersion = "0.8.0"
-    env { ... }
-    args { ... }
+    Env { /* environment variables */ }
+    Args { /* build arguments */ }
+    ExposedPorts { /* exposed ports */ }
 }
 ```
 
-#### Timezone Settings
+### Timezone Configuration
 
-Configure the `timezone` setting with a valid tz database identifier (e.g., `America/New_York`) for the Docker image;
-see https://en.wikipedia.org/wiki/List_of_tz_database_time_zones for valid identifiers.
+Configure the timezone setting with a valid tz database identifier for the Docker image.
 
-#### Enabling Anaconda
+**Example:**
+```apl
+Timezone = "America/New_York"  // Eastern Time
+Timezone = "Europe/London"     // GMT/BST
+Timezone = "Asia/Tokyo"        // JST
+```
 
-- `installAnaconda`: **"The Operating System for AI"**, Anaconda, will be installed when set to `true`. However, please
-  note that if Anaconda is installed, the Docker image size will grow to &gt; 20GB. This does not include additional
-  `condaPackages`. Defaults to `false`.
+See the [tz database time zones](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) for valid identifiers.
 
-##### Anaconda Packages
+### Anaconda Installation
 
-- `condaPackages`: Anaconda packages to be installed if `installAnaconda` is `true`. The environment, channel, and
-  packages can be defined in a single entry.
+**Anaconda**: "The Operating System for AI" - When `InstallAnaconda` is set to `true`, Anaconda will be installed in the Docker image.
 
 ```apl
-condaPackages {
+InstallAnaconda = true
+```
+
+**Important Considerations:**
+- Installing Anaconda increases Docker image size to > 20GB
+- Additional `CondaPackages` will further increase image size
+- Consider using standard Python packages when possible
+- Defaults to `false` for smaller image sizes
+
+### Anaconda Packages
+
+When `InstallAnaconda` is `true`, you can specify Anaconda packages to install with environment, channel, and package definitions.
+
+**Configuration:**
+```apl
+CondaPackages {
     ["base"] {
         ["main"] = "pip diffusers numpy"
-        ["pytorch"] = "pytorch"
+        ["pytorch"] = "pytorch torchvision"
         ["conda-forge"] = "tensorflow pandas keras transformers"
+    }
+    ["ml-env"] {
+        ["conda-forge"] = "scikit-learn matplotlib seaborn"
+        ["nvidia"] = "cudatoolkit"
     }
 }
 ```
 
-This configuration will:
+This configuration:
+- Creates the `base` isolated Anaconda environment with:
+  - `main` channel: `pip`, `diffusers`, `numpy`
+  - `pytorch` channel: `pytorch`, `torchvision`
+  - `conda-forge` channel: `tensorflow`, `pandas`, `keras`, `transformers`
+- Creates the `ml-env` environment with machine learning packages
 
-- Create the `base` isolated Anaconda environment.
-- Use the `main` channel to install `pip`, `diffusers`, and `numpy` Anaconda packages.
-- Use the `pytorch` channel to install `pytorch`.
-- Use the `conda-forge` channel to install `tensorflow`, `pandas`, `keras`, and `transformers`.
+**Using Conda Environments:**
+To use an isolated environment, specify the Anaconda environment in the Python resource via the `condaEnvironment` setting.
 
-To use the isolated environment, the Python resource should specify the Anaconda environment via the `condaEnvironment`
-setting.
+### Python Packages
 
-#### Python Packages
+Python packages can be installed even without Anaconda, using pip for package management.
 
-Python packages can also be installed even without Anaconda installed.
-
+**Configuration:**
 ```apl
-pythonPackages {
+PythonPackages {
     "diffusers[torch]"
-    "streamlit"
+    "streamlit>=1.28.0"
     "openai-whisper"
+    "fastapi[all]"
+    "python-multipart"
+    "pandas>=1.5.0"
+    "numpy>=1.21.0"
 }
 ```
 
-#### Ubuntu Repositories
+**Best Practices:**
+- Specify version constraints for critical dependencies
+- Use extras syntax (e.g., `fastapi[all]`) when needed
+- Group related packages logically
+- Consider package size and build time
 
-Additional Ubuntu and Ubuntu PPA repositories can be defined in the `repositories` settings.
+### Ubuntu Repositories
 
+Add additional Ubuntu and Ubuntu PPA (Personal Package Archive) repositories for accessing specialized packages.
+
+**Configuration:**
 ```apl
-repositories {
+Repositories {
     "ppa:alex-p/tesseract-ocr-devel"
+    "ppa:deadsnakes/ppa"
+    "deb [arch=amd64] https://packages.microsoft.com/repos/azure-cli/ focal main"
 }
 ```
 
-In this example, a PPA repository is added for installing the latest `tesseract-ocr` package.
+**Repository Types:**
+- **PPA Repositories**: Easy-to-add Personal Package Archives
+- **Custom Debian Repositories**: Full repository URLs with architecture and distribution
+- **Official Ubuntu Repositories**: Additional official package sources
 
-#### Ubuntu Packages
+### Ubuntu Packages
 
-Specify the Ubuntu packages that should be pre-installed when building this image.
+Specify Ubuntu packages to pre-install when building the Docker image.
 
+**Configuration:**
 ```apl
-packages {
+Packages {
     "tesseract-ocr"
+    "tesseract-ocr-eng"
     "poppler-utils"
     "npm"
     "ffmpeg"
+    "curl"
+    "wget"
+    "git"
+    "build-essential"
 }
 ```
 
-#### LLM Models
+**Common Package Categories:**
+- **OCR Tools**: `tesseract-ocr`, `tesseract-ocr-eng`
+- **Document Processing**: `poppler-utils`, `pandoc`
+- **Media Processing**: `ffmpeg`, `imagemagick`
+- **Development Tools**: `git`, `build-essential`, `curl`, `wget`
+- **Language Runtimes**: `nodejs`, `npm`, `python3-dev`
 
-List the local Ollama LLM models that will be pre-installed. You can specify multiple models.
+### LLM Models
+
+Define the local Ollama LLM models to pre-install in the Docker image.
+
+**Configuration:**
+```apl
+Models {
+    "tinydolphin"        // Lightweight model for development
+    "llama3.3:latest"    // Latest LLaMA 3.3 model
+    "llama3.2-vision"    // Multi-modal model for vision tasks
+    "llama3.2:1b"        // Compact 1B parameter model
+    "mistral:7b"         // Mistral 7B model
+    "gemma:2b"           // Google Gemma 2B model
+    "codellama:13b"      // Code-specialized model
+}
+```
+
+**Model Selection Guidelines:**
+- **Development**: Use lightweight models like `tinydolphin` or `llama3.2:1b`
+- **Production**: Use larger, more capable models like `llama3.3` or `mistral:7b`
+- **Vision Tasks**: Include `llama3.2-vision` for image processing
+- **Code Generation**: Add `codellama` for programming tasks
+
+Kdeps uses [Ollama](https://ollama.com) as its LLM backend. Visit the [Ollama model library](https://ollama.com/library) for a comprehensive list of available models.
+
+### Ollama Version
+
+The `OllamaVersion` property dynamically specifies the version of the Ollama base image tag.
 
 ```apl
-models {
-    "tinydolphin"
-    "llama3.3"
-    "llama3.2-vision"
-    "llama3.2:1b"
-    "mistral"
-    "gemma"
-    "mistral"
-}
+OllamaVersion = "0.8.0"
 ```
 
-Kdeps uses Ollama as its LLM backend. You can define as many Ollama-compatible models as needed to fit your use case.
+**GPU-Specific Versions:**
+When used with GPU configuration in the `.kdeps.pkl` file, this automatically adjusts the image version to include hardware-specific extensions:
+- **AMD GPUs**: `0.8.0-rocm`
+- **NVIDIA GPUs**: `0.8.0-cuda`
+- **CPU Only**: `0.8.0`
 
-For a comprehensive list of available Ollama-compatible models, visit the Ollama model library.
+### Environment Variables and Arguments
 
-#### Ollama Docker Image Tag
+Define `ENV` (environment variables) that persist across Docker image and container runtime, and `ARG` (arguments) for passing values during the build process.
 
-The `OllamaVersion` configuration property allows you to dynamically specify the version of the Ollama base image tag
-used in your Docker image.
-
-When used in conjunction with a GPU configuration in the `.kdeps.pkl` file, this configuration can automatically adjust
-the image version to include hardware-specific extensions, such as `0.8.0-rocm` for AMD environments.
-
-#### Arguments and Environment Variables
-
-Kdeps allows you to define `ENV` (environment variables) that persist across both the Docker image and container
-runtime, and `ARG` (arguments) that are used for passing values during the build process.
-
-To declare `ENV` or `ARG` parameters, use the `env` and `args` sections in your workflow configuration:
-
+**Configuration:**
 ```apl
-env {
-  ["API_KEY"] = "example_value"
+Env {
+    ["API_KEY"] = "example_value"
+    ["DATABASE_URL"] = "postgresql://localhost:5432/mydb"
+    ["LOG_LEVEL"] = "INFO"
+    ["MAX_WORKERS"] = "4"
 }
 
-args {
-  ["API_TOKEN"] = ""
+Args {
+    ["API_TOKEN"] = ""
+    ["BUILD_VERSION"] = "1.0.0"
+    ["CUSTOM_CONFIG"] = ""
 }
 ```
 
-In this example:
+**Environment Variables (`ENV`):**
+- Must always be assigned a value during declaration
+- Persist in both Docker image and container at runtime
+- Available to all processes within the container
+- Can be overridden at container runtime
 
-- `API_KEY` is declared as an environment variable with the value `"example_value"`. This variable will persist in both
-  the Docker image and the container at runtime.
-- `API_TOKEN` is an argument that does not have a default value and will accept a value at container runtime.
+**Build Arguments (`ARG`):**
+- Can be declared without a value (e.g., `""`)
+- Accept values at build time or container runtime
+- Used for customizing the build process
+- Not persisted in the final image unless explicitly set as ENV
 
-**Environment File Support:**
+### Environment File Support
 
-Additionally, any `.env` file in your project will be automatically loaded via `kdeps run`, and the variables defined
-within it will populate the `env` or `args` sections accordingly.
+Any `.env` file in your project will be automatically loaded via `kdeps run`, and the variables defined within it will populate the `Env` or `Args` sections accordingly.
+
+**Example `.env` file:**
+```bash
+API_KEY=your_actual_api_key
+DATABASE_URL=postgresql://prod.example.com:5432/production
+LOG_LEVEL=DEBUG
+BUILD_VERSION=2.1.0
+```
 
 **Important Notes:**
+- Values in `.env` files override default values for matching `ENV` or `ARG` keys
+- Use `.env` files for environment-specific configurations
+- Never commit sensitive `.env` files to version control
+- Use different `.env` files for different environments (development, staging, production)
 
-- `ENV` variables must always be assigned a value during declaration.
-- `ARG` variables can be declared without a value (e.g., `""`). These will act as standalone runtime arguments.
-- Values defined in the `.env` file will override default values for any matching `ENV` or `ARG` keys.
+## Best Practices
+
+### Configuration Management
+- Use environment-specific configurations for different deployment stages
+- Keep sensitive data in `.env` files (not in version control)
+- Document all configuration options and their purposes
+- Use semantic versioning for agent versions
+
+### Performance Optimization
+- Choose appropriate model sizes for your use case
+- Install only necessary packages to minimize image size
+- Use multi-stage Docker builds when possible
+- Consider package caching strategies
+
+### Security Considerations
+- Restrict CORS origins to specific domains in production
+- Use trusted proxies configuration properly
+- Validate all environment variables
+- Implement proper rate limiting
+
+### Resource Management
+- Monitor Docker image sizes
+- Set appropriate memory and CPU limits
+- Use health checks for long-running services
+- Implement proper logging and monitoring
+
+## Next Steps
+
+- **[CORS Configuration](./cors.md)**: Detailed CORS setup and security
+- **[Web Server Configuration](./webserver.md)**: Advanced web server features
+- **[System Configuration](./configuration.md)**: Global system settings
+- **[Core Resources](../../core-resources/README.md)**: Understanding resource configuration
+
+The workflow configuration is the foundation of your Kdeps AI agent. Take time to understand each section and configure it appropriately for your specific use case and deployment environment.

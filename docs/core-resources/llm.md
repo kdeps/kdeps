@@ -4,35 +4,34 @@ outline: deep
 
 # LLM Resource
 
-The `llm` resource facilitates the creation of a Large Language Model (LLM) session to interact with AI models effectively.
+The `llm` resource facilitates the creation of Large Language Model (LLM) sessions to interact with AI models effectively. This resource enables chat-based interactions, tool calling, structured JSON responses, and multimodal processing.
 
-Multiple LLM models can be declared and used across multiple LLM resources. For more information, see the [Workflow](../configuration/workflow.md) documentation.
+Multiple LLM models can be declared and used across multiple LLM resources. For model configuration details, see the [Workflow Configuration](../getting-started/configuration/workflow.md) documentation.
 
 ## Creating a New LLM Resource
 
 To create a new `llm` chat resource, you can either generate a new AI agent using the `kdeps new` command or scaffold the resource directly.
 
-Here's how to scaffold an `llm` resource:
-
-``` bash
+**Scaffolding an LLM Resource:**
+```bash
 kdeps scaffold [aiagent] llm
 ```
 
-This command will add an `llm` resource to the `aiagent/resources` folder, generating the following folder structure:
+This command adds an `llm` resource to the `aiagent/resources` folder, generating the following structure:
 
-``` bash
+```bash
 aiagent
 └── resources
     └── llm.pkl
 ```
 
-The file includes essential metadata and common configurations, such as [Skip Conditions](../resources/skip) and [Preflight Validations](../resources/validations). For more details, refer to the [Common Resource Configurations](../resources/resources#common-resource-configurations) documentation.
+The generated file includes essential metadata and common configurations, such as [Skip Conditions](../workflow-control/skip.md) and [API Validations](../workflow-control/api-request-validations.md). For more details, refer to the [Resource Configuration](./resource.md) documentation.
 
-## LLM Resource Structure
+## Basic LLM Resource Structure
 
 A complete LLM resource file looks like this:
 
-``` apl
+```apl
 ActionID = "llmResource"
 Name = "AI Chat Handler" 
 Description = "Processes user queries using LLM models"
@@ -54,27 +53,26 @@ Run {
         RetryTimes = 2
     }
     Chat {
-        // Chat configuration details
+        Model = "tinydolphin"
+        Role = "user"
+        Prompt = "Who is @(request.data())?"
+        JSONResponse = false
+        TimeoutDuration = 60.s
     }
 }
 ```
 
-## Chat Block
+## Chat Configuration Block
 
-Within the `Run` block, you'll find the `Chat` block, structured as follows:
+Within the `Run` block, the `Chat` block defines the LLM interaction parameters:
 
-``` apl
+```apl
 Chat {
-    Model = "tinydolphin" // Specifies the LLM model to use, defined in the workflow.
-
-    // Send the dedicated prompt and role to the LLM or utilize the scenario block.
-    // Specifies the LLM role context for this prompt, e.g., "user", "assistant", or "system".
-    // Defaults to "human" if no role is specified.
+    Model = "tinydolphin"
     Role = "user"
     Prompt = "Who is @(request.data())?"
-
-    // Scenario block allows adding multiple prompts and roles for this LLM session.
-    scenario {
+    
+    Scenario {
         new {
             Role = "assistant"
             Prompt = "You are a knowledgeable and supportive AI assistant with expertise in general information."
@@ -100,10 +98,7 @@ Chat {
         }
     }
 
-    // Determines if the LLM response should be a structured JSON.
     JSONResponse = true
-
-    // If JSONResponse is true, the structured JSON will include the following keys:
     JSONResponseKeys {
         "first_name"
         "last_name"
@@ -113,38 +108,37 @@ Chat {
         "known_for"
     }
 
-    // Specify the files that this LLM will process.
-    files {
-        // "@(request.files()[0])"
+    Files {
+        "@(request.files()[0])"
     }
 
-    // Timeout duration in seconds, specifying when to terminate the LLM session.
     TimeoutDuration = 60.s
 }
 ```
 
-### Key Elements of the `Chat` Block
+### Core Chat Properties
 
-- **`Model`**: Specifies the LLM model to be used, as defined in the workflow configuration.
-- **`Role`**: Defines the role context for the prompt, such as `user`, `assistant`, or `system`. Defaults to `human` if not specified.
-- **`Prompt`**: The input query sent to the LLM for processing.
-- **`Tools`**: Available tools for open-source LLMs to automatically use. See [Tools](../resources/tools) for more details.
-- **`scenario`**: Enables the inclusion of multiple prompts and roles to shape the LLM session's context. Each `new` block within `scenario` specifies a role (e.g., `assistant` or `system`) and a corresponding prompt to guide the LLM's behavior or response.
-- **`files`**: Lists files to be processed by the LLM, particularly useful for vision-based LLM models.
-- **`JSONResponse`**: Indicates whether the LLM response should be formatted as structured JSON.
-- **`JSONResponseKeys`**: Lists the required keys for the structured JSON response. Keys can include type annotations (e.g., `first_name__string`, `famous_quotes__array`, `details__markdown`, `age__integer`) to enforce specific data types.
-- **`TimeoutDuration`**: Sets the execution timeout (e.g., in seconds `s` or minutes `min`), after which the LLM session is terminated.
+- **`Model`**: Specifies the LLM model to use, as defined in the workflow configuration (e.g., `"tinydolphin"`, `"llama3.3"`, `"llama3.2-vision"`)
+- **`Role`**: Defines the role context for the prompt (`"user"`, `"assistant"`, or `"system"`). Defaults to `"user"` if not specified
+- **`Prompt`**: The primary input query sent to the LLM for processing
+- **`TimeoutDuration`**: Sets the execution timeout (e.g., `60.s`, `5.min`), after which the LLM session is terminated
 
-When the resource is executed, you can leverage LLM functions like `llm.response("id")` to retrieve the generated response. For further details, refer to the [LLM Functions](../resources/functions.md#llm-resource-functions) documentation.
+### Advanced Chat Properties
 
-## Advanced Configuration
+- **`Scenario`**: Enables multiple prompts and roles to shape the LLM session's context
+- **`Tools`**: Available tools for open-source LLMs to automatically use. See [Advanced Tools](../advanced-resources/tools.md) for details
+- **`Files`**: Lists files to be processed by the LLM, particularly useful for vision-based models
+- **`JSONResponse`**: Indicates whether the LLM response should be formatted as structured JSON
+- **`JSONResponseKeys`**: Lists the required keys for structured JSON responses with optional type annotations
 
-### Scenario Block Usage
+## Scenario Configuration
 
-The `scenario` block is particularly useful for setting up complex interactions with the LLM. By defining multiple roles and prompts, you can create a conversational context that guides the LLM's responses. For example:
+The `Scenario` block enables complex conversational contexts by defining multiple roles and prompts. This is particularly useful for setting up the LLM's personality, knowledge base, and behavioral guidelines.
 
-``` apl
-scenario {
+### Basic Scenario Setup
+
+```apl
+Scenario {
     new {
         Role = "system"
         Prompt = "You are an expert in historical facts and provide detailed, accurate information."
@@ -155,194 +149,403 @@ scenario {
     }
     new {
         Role = "assistant"
-        Prompt = "The Renaissance was a cultural movement that spanned roughly from the 14th to the 17th century..."
+        Prompt = "The Renaissance was a cultural movement that spanned roughly from the 14th to the 17th century, beginning in Italy and later spreading across Europe..."
     }
 }
 ```
 
-This setup allows the LLM to maintain a consistent context across multiple interactions, improving response coherence.
+### Advanced Scenario Patterns
 
-### Handling Files
-
-The `files` block supports processing of various file types, such as images or documents, which is particularly beneficial for multimodal LLMs. For example:
-
-``` apl
-files {
-    "@(request.files()[0])" // Processes the first uploaded file
-    "data/document.pdf"     // Processes a specific PDF file
+**Knowledge Expert Setup:**
+```apl
+Scenario {
+    new {
+        Role = "system"
+        Prompt = "You are a knowledgeable expert in @(request.data('domain')). Provide accurate, detailed information."
+    }
+    new {
+        Role = "system"
+        Prompt = "If you're uncertain about any information, use the available tools to look up accurate data."
+    }
+    new {
+        Role = "system"
+        Prompt = "Format your responses to be clear and structured for @(request.data('audience_level')) audience."
+    }
 }
 ```
 
-Ensure that the files are accessible within the resource's context and compatible with the LLM model's capabilities.
+**Conversational Agent Setup:**
+```apl
+Scenario {
+    new {
+        Role = "system"
+        Prompt = "You are a helpful customer service agent for @(request.data('company_name'))."
+    }
+    new {
+        Role = "system"
+        Prompt = "Be polite, empathetic, and solution-focused. Always try to resolve customer issues."
+    }
+    new {
+        Role = "assistant"
+        Prompt = "Hello! I'm here to help you with any questions or concerns you may have."
+    }
+}
+```
 
-### Structured JSON Responses
+## File Processing
 
-When `JSONResponse` is set to `true`, the LLM response is formatted as a JSON object with the keys specified in `JSONResponseKeys`. Type annotations can be used to enforce data types, ensuring the output meets specific requirements. For example:
+The `Files` block supports processing various file types, enabling multimodal interactions with vision-capable LLMs.
 
-``` apl
+### File Input Methods
+
+```apl
+Files {
+    "@(request.files()[0])"                    // First uploaded file
+    "@(request.files('document'))"             // Named file input
+    "@(data.filepath('uploads/image.jpg'))"   // Static file path
+    "@(memory.get('processed_document'))"      // File from memory
+}
+```
+
+### Supported File Types
+
+- **Images**: JPG, PNG, WEBP, GIF (for vision models)
+- **Documents**: PDF, TXT, DOCX (for document analysis)
+- **Data Files**: JSON, CSV, XML (for data processing)
+- **Code Files**: Various programming languages (for code analysis)
+
+### File Processing Best Practices
+
+```apl
+Files {
+    "@(request.files()[0])"
+}
+
+// Use with vision models for image analysis
+Model = "llama3.2-vision"
+Prompt = "Analyze this image and describe what you see: @(request.files()[0].description())"
+
+// File validation in PreflightCheck
+PreflightCheck {
+    Validations { 
+        "@(request.files().length())" > 0
+        "@(request.files()[0].size())" < 10485760  // 10MB limit
+    }
+}
+```
+
+## Structured JSON Responses
+
+When `JSONResponse` is set to `true`, the LLM response is formatted as a JSON object with keys specified in `JSONResponseKeys`.
+
+### Basic JSON Configuration
+
+```apl
+JSONResponse = true
 JSONResponseKeys {
-    "name__string"
-    "age__integer"
-    "quotes__array"
-    "bio__markdown"
+    "name"
+    "age"
+    "occupation"
+    "summary"
 }
 ```
 
-This configuration ensures that the response contains a `name` (string), `age` (integer), `quotes` (array), and `bio` (markdown-formatted text).
+### Type-Annotated JSON Keys
 
-### Tools Configuration
+Type annotations ensure specific data types in the response:
 
-The `Tools` block allows open-source LLMs to utilize external tools to enhance their functionality, such as querying databases or executing scripts. Each tool is defined within a `new` block, specifying its name, script, description, and parameters. Tools can be chained, where the output of one tool is used as the input parameters for the next tool in the sequence.
+```apl
+JSONResponseKeys {
+    "name__string"           // String value
+    "age__integer"          // Integer value
+    "skills__array"         // Array of values
+    "bio__markdown"         // Markdown-formatted text
+    "active__boolean"       // Boolean value
+    "details__object"       // Nested object
+    "score__float"          // Floating-point number
+    "timestamp__datetime"   // DateTime value
+}
+```
 
-For example:
+### Complex JSON Response Example
 
-``` apl
+```apl
+Chat {
+    Model = "llama3.3"
+    Prompt = "Analyze the person mentioned in: @(request.data('query'))"
+    
+    JSONResponse = true
+    JSONResponseKeys {
+        "basic_info__object"
+        "achievements__array"
+        "timeline__array"
+        "analysis__markdown"
+        "confidence_score__float"
+        "sources__array"
+    }
+}
+```
+
+## Tools Configuration
+
+The `Tools` block enables LLMs to use external tools for enhanced functionality, such as database queries, API calls, or script execution.
+
+### Basic Tool Definition
+
+```apl
 Tools {
     new {
         Name = "lookup_db"
         Script = "@(data.filepath("tools/1.0.0", "lookup.py"))"
-        Description = "Lookup information in the DB"
-        parameters {
-            ["keyword"] { required = true; type = "string"; Description = "The string keyword to query the DB" }
-        }
-    }
-    new {
-        Name = "process_results"
-        Script = "@(data.filepath("tools/1.0.0", "process.py"))"
-        Description = "Process DB lookup results"
-        parameters {
-            ["lookup_data"] { required = true; type = "object"; Description = "The output data from lookup_db tool" }
+        Description = "Lookup information in the database"
+        Parameters {
+            ["keyword"] { Required = true; Type = "string"; Description = "The search keyword" }
+            ["limit"] { Required = false; Type = "integer"; Description = "Maximum results to return" }
         }
     }
 }
 ```
 
-#### Key Elements of the `Tools` Block
+### Tool Chaining
 
-- **`Name`**: A unique identifier for the tool, used by the LLM to reference it.
-- **`script`**: The path to the script or executable that the tool runs, often using a dynamic filepath like `@(data.filepath("tools/1.0.0", "lookup.py"))`.
-- **`Description`**: A clear description of the tool's purpose, helping the LLM decide when to use it.
-- **`Parameters`**: Defines the input parameters the tool accepts, including:
-  - `Required`: Whether the parameter is mandatory (`true` or `false`).
-  - `Type`: The data type of the parameter (e.g., `string`, `integer`, `object`, `boolean`).
-  - `Description`: A brief explanation of the parameter's purpose.
+Tools can be chained to create processing pipelines where the output of one tool becomes the input for the next:
 
-#### Tool Chaining
-
-Tools can be chained to create a pipeline where the output of one tool serves as the input for the next. The LLM automatically passes the output of a tool as the parameters for the subsequent tool, based on the order defined in the `Tools` block. For instance, in the example above, the `lookup_db` tool's output (e.g., a JSON object containing query results) is passed as the `lookup_data` parameter to the `process_results` tool.
-
-To enable chaining:
-- Ensure the output format of the first tool matches the expected input parameter type of the next tool (e.g., `object` for JSON data).
-- Define tools in the order of execution, as the LLM processes them sequentially.
-- Use clear `Description` fields to guide the LLM on when to initiate the chain.
-
-#### Best Practices for Tools
-
-- **Clear Descriptions**: Provide detailed descriptions to ensure the LLM understands when and how to use each tool.
-- **Parameter Validation**: Specify parameter types and requirements to prevent errors, especially when chaining tools.
-- **Script Accessibility**: Verify that script paths are correct and accessible within the resource's context.
-- **Minimal Tools**: Include only necessary tools to avoid complexity, and order them logically for chaining.
-- **Chaining Compatibility**: Ensure the output of one tool aligns with the input requirements of the next, using consistent data types.
-
-For example, a chained weather data pipeline might look like:
-
-``` apl
+```apl
 Tools {
     new {
         Name = "get_weather"
         Script = "@(data.filepath("tools/1.0.0", "weather.py"))"
         Description = "Fetches current weather data for a location"
-        parameters {
-            ["location"] { required = true; type = "string"; Description = "The city or region to fetch weather for" }
-            ["unit"] { required = false; type = "string"; Description = "Temperature unit (e.g., Celsius or Fahrenheit)" }
+        Parameters {
+            ["location"] { Required = true; Type = "string"; Description = "City or region name" }
+            ["units"] { Required = false; Type = "string"; Description = "Temperature units (celsius/fahrenheit)" }
         }
     }
     new {
         Name = "format_weather"
         Script = "@(data.filepath("tools/1.0.0", "format_weather.py"))"
-        Description = "Formats weather data into a user-friendly summary"
-        parameters {
-            ["weather_data"] { required = true; type = "object"; Description = "The weather data from get_weather tool" }
+        Description = "Formats weather data into user-friendly summary"
+        Parameters {
+            ["weather_data"] { Required = true; Type = "object"; Description = "Weather data from get_weather tool" }
+            ["format_type"] { Required = false; Type = "string"; Description = "Output format (brief/detailed)" }
         }
     }
 }
 ```
 
-For more information on tools, see [Tools](../resources/tools).
+### Tool Parameter Types
 
-## Error Handling and Timeouts
+- **`string`**: Text values
+- **`integer`**: Whole numbers
+- **`float`**: Decimal numbers
+- **`boolean`**: True/false values
+- **`object`**: JSON objects
+- **`array`**: Lists of values
 
-The `TimeoutDuration` parameter is critical for managing long-running LLM sessions. If the session exceeds the specified duration (e.g., `60.s`), it will be terminated to prevent resource overuse. Ensure the timeout is set appropriately based on the complexity of the prompt and the model's performance.
+### Tool Best Practices
 
-Additionally, you can implement error handling using [Preflight Validations](../resources/validations) to check for valid inputs or model availability before executing the session.
+1. **Clear Descriptions**: Provide detailed descriptions for when and how to use each tool
+2. **Parameter Validation**: Specify required parameters and types
+3. **Error Handling**: Include error checking in tool scripts
+4. **Performance**: Keep tools lightweight and efficient
+5. **Security**: Validate all inputs and sanitize outputs
 
-## Best Practices
+For comprehensive tool configuration, see [Tools Documentation](../advanced-resources/tools.md).
 
-- **Model Selection**: Choose an LLM model that aligns with your use case (e.g., text generation, image processing) and is defined in the workflow configuration.
-- **Prompt Design**: Craft clear and specific prompts to improve the quality of LLM responses. Use the `scenario` block to provide additional context where needed.
-- **File Management**: Verify that files listed in the `files` block are accessible and compatible with the LLM model.
-- **Structured Outputs**: Use `JSONResponse` and `JSONResponseKeys` for applications requiring structured data, and validate the output format in downstream processes.
-- **Timeout Configuration**: Set a reasonable `TimeoutDuration` to balance performance and resource usage, especially for complex queries.
-- **Tool Usage**: Configure tools with precise descriptions and parameters to ensure the LLM uses them effectively when needed.
+## Error Handling and Validation
 
-## Example Use Case
+### Preflight Validation
 
-Suppose you want to create an LLM resource to retrieve structured information about a history figure based on user input, with a tool to query a database for additional details. The complete resource might look like this:
+Validate inputs before LLM execution:
 
-``` apl
-ActionID = "historyLLMResource"
-Name = "Historical Figure Analyzer"
-Description = "Provides structured information about historical figures"
-Category = "ai"
+```apl
+PreflightCheck {
+    Validations { 
+        "@(request.data('query'))" != ""
+        "@(request.data('query').length())" > 5
+        "@(request.data('query').length())" < 1000
+    }
+    Retry = false
+    RetryTimes = 1
+}
+```
+
+### Postflight Validation
+
+Validate LLM outputs after execution:
+
+```apl
+PostflightCheck {
+    Validations { 
+        "@(llm.response('llmResource').response)" != ""
+        "@(llm.response('llmResource').response.length())" > 10
+    }
+    Retry = true
+    RetryTimes = 2
+}
+```
+
+### Timeout Management
+
+Configure appropriate timeouts based on task complexity:
+
+```apl
+TimeoutDuration = 30.s   // Quick responses
+TimeoutDuration = 2.min  // Complex analysis
+TimeoutDuration = 5.min  // Heavy file processing
+```
+
+## Accessing LLM Responses
+
+Use LLM functions to retrieve and process responses:
+
+```apl
+// Get the complete response
+@(llm.response('llmResource').response)
+
+// Get specific JSON fields
+@(llm.response('llmResource').name)
+@(llm.response('llmResource').age)
+
+// Get response metadata
+@(llm.response('llmResource').model)
+@(llm.response('llmResource').tokens_used)
+@(llm.response('llmResource').processing_time)
+```
+
+For detailed LLM function reference, see [Functions & Utilities](../functions-utilities/functions.md).
+
+## Complete Example: Customer Support Agent
+
+Here's a comprehensive example of an LLM resource for customer support:
+
+```apl
+ActionID = "customerSupportLLM"
+Name = "Customer Support AI Agent"
+Description = "Handles customer inquiries with tool access and structured responses"
+Category = "customer-service"
+Requires { "dataResource" }
+
 Run {
     RestrictToHTTPMethods { "POST" }
-    RestrictToRoutes { "/api/v1/history" }
-    AllowedParams { "person" }
+    RestrictToRoutes { "/api/v1/support" }
+    AllowedHeaders { "Authorization"; "Content-Type"; "X-Customer-ID" }
+    AllowedParams { "message"; "customer_id"; "priority" }
+    
     PreflightCheck {
-        Validations { "@(request.data('person'))" != "" }
+        Validations { 
+            "@(request.data('message'))" != ""
+            "@(request.data('customer_id'))" != ""
+            "@(request.data('message').length())" < 2000
+        }
         Retry = false
         RetryTimes = 1
     }
+    
     PostflightCheck {
-        Validations { "@(llm.response('historyLLMResource').name)" != "" }
+        Validations { 
+            "@(llm.response('customerSupportLLM').response)" != ""
+            "@(llm.response('customerSupportLLM').resolution_status)" != ""
+        }
         Retry = true
         RetryTimes = 2
     }
+    
     Chat {
-        Model = "tinydolphin"
+        Model = "llama3.3"
         Role = "user"
-        Prompt = "Provide details about @(request.data('person'))"
-        scenario {
+        Prompt = "Customer message: @(request.data('message')). Customer ID: @(request.data('customer_id'))"
+        
+        Scenario {
             new {
-                Role = "assistant"
-                Prompt = "You are a history expert AI, providing accurate and concise information about historical figures."
+                Role = "system"
+                Prompt = "You are a professional customer support agent for TechCorp. Be helpful, empathetic, and solution-focused."
+            }
+            new {
+                Role = "system"
+                Prompt = "Always try to resolve issues quickly. Use tools to look up customer information and order details when needed."
+            }
+            new {
+                Role = "system"
+                Prompt = "If you cannot resolve an issue, escalate it appropriately with clear reasoning."
             }
         }
+        
         Tools {
             new {
-                Name = "lookup_db"
-                Script = "@(data.filepath("tools/1.0.0", "lookup.py"))"
-                Description = "Lookup historical figure details in the database"
-                parameters {
-                    ["name"] { required = true; type = "string"; Description = "The name of the historical figure" }
+                Name = "lookup_customer"
+                Script = "@(data.filepath("tools/1.0.0", "customer_lookup.py"))"
+                Description = "Look up customer information and order history"
+                Parameters {
+                    ["customer_id"] { Required = true; Type = "string"; Description = "Customer ID to look up" }
+                }
+            }
+            new {
+                Name = "create_ticket"
+                Script = "@(data.filepath("tools/1.0.0", "create_ticket.py"))"
+                Description = "Create a support ticket for escalation"
+                Parameters {
+                    ["customer_id"] { Required = true; Type = "string"; Description = "Customer ID" }
+                    ["issue_type"] { Required = true; Type = "string"; Description = "Type of issue" }
+                    ["description"] { Required = true; Type = "string"; Description = "Issue description" }
+                    ["priority"] { Required = true; Type = "string"; Description = "Priority level" }
                 }
             }
         }
+        
         JSONResponse = true
         JSONResponseKeys {
-            "name__string"
-            "birth_year__integer"
-            "known_for__array"
-            "biography__markdown"
+            "response__string"
+            "resolution_status__string"
+            "next_steps__array"
+            "escalation_needed__boolean"
+            "ticket_id__string"
+            "estimated_resolution_time__string"
         }
-        TimeoutDuration = 30.s
+        
+        TimeoutDuration = 90.s
     }
 }
 ```
 
-This configuration ensures that the LLM returns a structured JSON response with details about the requested historical
-figure, formatted according to the specified keys and types, and can use the `lookup_db` tool to fetch additional data
-if needed.
+## Best Practices
 
-For more advanced configurations and use cases, refer to the [Workflow](../configuration/workflow.md) and [LLM
-Functions](../resources/functions.md#llm-resource-functions) documentation.
+### Model Selection
+- **Text Generation**: Use models like `llama3.3`, `mistral:7b` for general text tasks
+- **Vision Tasks**: Use `llama3.2-vision` for image analysis
+- **Code Tasks**: Use `codellama` for programming-related queries
+- **Development**: Use lightweight models like `tinydolphin` for testing
+
+### Prompt Engineering
+- Be specific and clear in prompts
+- Use the `Scenario` block to provide context and guidelines
+- Include examples in system prompts when helpful
+- Test prompts thoroughly with different inputs
+
+### Performance Optimization
+- Set appropriate timeouts based on task complexity
+- Use structured JSON responses when you need specific output formats
+- Implement proper validation to avoid unnecessary LLM calls
+- Consider model size vs. performance trade-offs
+
+### Security Considerations
+- Validate all user inputs in PreflightCheck
+- Sanitize file uploads and check file types
+- Implement rate limiting for API endpoints
+- Use appropriate authentication and authorization
+
+### Error Handling
+- Implement comprehensive validation checks
+- Use retry logic for transient failures
+- Provide meaningful error messages
+- Log errors for debugging and monitoring
+
+## Next Steps
+
+- **[HTTP Client Resource](./client.md)**: Make external API calls from your LLM
+- **[Python Resource](./python.md)**: Combine LLM with custom Python processing
+- **[Response Resource](./response.md)**: Format and return LLM responses
+- **[Advanced Tools](../advanced-resources/tools.md)**: Comprehensive tool configuration
+- **[Functions & Utilities](../functions-utilities/functions.md)**: Available LLM functions
+
+The LLM resource is the core of most AI agents in Kdeps. Master its configuration to build powerful, intelligent applications that can process natural language, handle complex queries, and integrate with external systems seamlessly.
