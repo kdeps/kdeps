@@ -25,8 +25,9 @@ import (
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/resource"
 	"github.com/kdeps/kdeps/pkg/workflow"
+	assets "github.com/kdeps/schema/assets"
 	"github.com/kdeps/schema/gen/kdeps"
 	wfPkl "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
@@ -137,12 +138,19 @@ func aKdepsContainerWithEndpointAPI(arg1, arg2, arg3 string) error {
 		return err
 	}
 
+	// Setup PKL workspace with embedded schema files
+	workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+	if err != nil {
+		return err
+	}
+	defer workspace.Cleanup()
+
 	systemConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Kdeps.pkl"
+amends "%s"
 
 Mode = "docker"
 dockerGPU = "cpu"
-`, schema.SchemaVersion(ctx))
+`, workspace.GetImportPath("Kdeps.pkl"))
 
 	systemConfigurationFile = filepath.Join(homeDirPath, ".kdeps.pkl")
 	// Write the heredoc content to the file
@@ -176,17 +184,14 @@ dockerGPU = "cpu"
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
 			methodLines = append(methodLines, fmt.Sprintf(`"%s"`, value))
 		}
-		methodSection = "methods {\n" + strings.Join(methodLines, "\n") + "\n}"
+		methodSection = "Methods {\n" + strings.Join(methodLines, "\n") + "\n}"
 	} else {
 		// Single value case
-		methodSection = fmt.Sprintf(`
-methods {
-  "%s"
-}`, arg1)
+		methodSection = fmt.Sprintf(`Methods { "%s" }`, arg1)
 	}
 
 	workflowConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
+amends "%s"
 
 name = "myAIAgentAPI"
 description = "AI Agent X API"
@@ -208,7 +213,7 @@ settings {
     }
   }
 }
-`, schema.SchemaVersion(ctx), methodSection)
+`, workspace.GetImportPath("Workflow.pkl"), methodSection)
 	filePath := filepath.Join(homeDirPath, "myAgentX")
 
 	if err := testFs.MkdirAll(filePath, 0o777); err != nil {
@@ -229,7 +234,7 @@ settings {
 	}
 
 	resourceConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+amends "%s"
 
 local llmResponse = "@(llm.response("action1"))"
 local execResponse = "@(exec.stdout("action2"))"
@@ -266,7 +271,7 @@ run {
     }
   }
 }
-`, schema.SchemaVersion(ctx))
+`, workspace.GetImportPath("Resource.pkl"))
 
 	resourceConfigurationFile := filepath.Join(resourcesDir, "resource1.pkl")
 	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0o644)
@@ -275,7 +280,7 @@ run {
 	}
 
 	resourceConfigurationContent = fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+amends "%s"
 
 local clientResponse = "@(client.responseBody("action3"))"
 
@@ -307,7 +312,7 @@ run {
     }
   }
 }
-`, schema.SchemaVersion(ctx))
+`, workspace.GetImportPath("Resource.pkl"))
 
 	resourceConfigurationFile = filepath.Join(resourcesDir, "resource2.pkl")
 	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0o644)
@@ -316,7 +321,7 @@ run {
 	}
 
 	resourceConfigurationContent = fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+amends "%s"
 
 actionID = "action2"
 category = "kdepsdockerai"
@@ -335,7 +340,7 @@ run {
     command = "echo $RESPONSE"
   }
 }
-`, schema.SchemaVersion(ctx))
+`, workspace.GetImportPath("Resource.pkl"))
 
 	resourceConfigurationFile = filepath.Join(resourcesDir, "resource3.pkl")
 	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0o644)
@@ -344,7 +349,7 @@ run {
 	}
 
 	resourceConfigurationContent = fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+amends "%s"
 
 actionID = "action3"
 category = "kdepsdockerai"
@@ -361,7 +366,7 @@ run {
     url = "https://dog.ceo/api/breeds/list/all"
   }
 }
-`, schema.SchemaVersion(ctx))
+`, workspace.GetImportPath("Resource.pkl"))
 
 	resourceConfigurationFile = filepath.Join(resourcesDir, "resource4.pkl")
 	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0o644)
@@ -370,7 +375,7 @@ run {
 	}
 
 	resourceConfigurationContent = fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+amends "%s"
 
 actionID = "action4"
 category = "kdepsdockerai"
@@ -388,7 +393,7 @@ run {
     url = "https://google.com"
   }
 }
-`, schema.SchemaVersion(ctx))
+`, workspace.GetImportPath("Resource.pkl"))
 
 	resourceConfigurationFile = filepath.Join(resourcesDir, "resource5.pkl")
 	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0o644)
@@ -650,14 +655,19 @@ func TestLoadResource(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
+	// Setup PKL workspace with embedded schema files
+	workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+	require.NoError(t, err)
+	defer workspace.Cleanup()
+
 	t.Run("ValidResourceFile", func(t *testing.T) {
 		// Create a temporary file on the real filesystem (PKL needs real files)
 		tmpDir, err := os.MkdirTemp("", "resource_test")
 		require.NoError(t, err)
 		defer os.RemoveAll(tmpDir)
 
-		// Create a valid resource file content
-		validContent := `amends "package://schema.kdeps.com/core@0.2.30#/Resource.pkl"
+		// Create a valid resource file content using schema assets
+		validContent := fmt.Sprintf(`amends "%s"
 
 actionID = "testaction"
 name = "Test Action"
@@ -673,14 +683,14 @@ run {
     }
   }
 }
-`
+`, workspace.GetImportPath("Resource.pkl"))
 
 		resourceFile := filepath.Join(tmpDir, "test.pkl")
 		err = os.WriteFile(resourceFile, []byte(validContent), 0o644)
 		require.NoError(t, err)
 
 		// Test LoadResource - this should load the resource successfully
-		resource, err := LoadResource(ctx, resourceFile, logger)
+		resource, err := resource.LoadResource(ctx, resourceFile, logger)
 
 		// Should succeed and return a valid resource
 		require.NoError(t, err)
@@ -694,7 +704,7 @@ run {
 	t.Run("NonExistentFile", func(t *testing.T) {
 		resourceFile := "/nonexistent/file.pkl"
 
-		_, err := LoadResource(ctx, resourceFile, logger)
+		_, err := resource.LoadResource(ctx, resourceFile, logger)
 
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "error reading resource file")
@@ -713,7 +723,7 @@ run {
 		err = os.WriteFile(resourceFile, []byte(invalidContent), 0o644)
 		require.NoError(t, err)
 
-		_, err = LoadResource(ctx, resourceFile, logger)
+		_, err = resource.LoadResource(ctx, resourceFile, logger)
 
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "error reading resource file")
@@ -724,7 +734,7 @@ run {
 
 		// Test with nil logger - should panic
 		assert.Panics(t, func() {
-			LoadResource(ctx, resourceFile, nil)
+			resource.LoadResource(ctx, resourceFile, nil)
 		})
 	})
 
@@ -738,7 +748,7 @@ run {
 		err = os.WriteFile(resourceFile, []byte(""), 0o644)
 		require.NoError(t, err)
 
-		resource, err := LoadResource(ctx, resourceFile, logger)
+		resource, err := resource.LoadResource(ctx, resourceFile, logger)
 
 		// Empty file might actually load successfully or fail - either is acceptable
 		// Just ensure it doesn't panic and we get consistent behavior
@@ -750,23 +760,6 @@ run {
 			assert.NotNil(t, resource)
 		}
 	})
-}
-
-// Test helper to ensure the logging calls work correctly
-func TestLoadResourceLogging(t *testing.T) {
-	ctx := context.Background()
-	logger := logging.NewTestLogger()
-
-	t.Run("LoggingBehavior", func(t *testing.T) {
-		resourceFile := "/nonexistent/file.pkl"
-
-		_, err := LoadResource(ctx, resourceFile, logger)
-
-		// Should log debug and error messages
-		assert.Error(t, err)
-		// The actual logging verification would require a mock logger
-		// but this tests that the function completes without panic
-	})
 
 	t.Run("SuccessLogging", func(t *testing.T) {
 		// Create a temporary file on the real filesystem
@@ -774,8 +767,8 @@ func TestLoadResourceLogging(t *testing.T) {
 		require.NoError(t, err)
 		defer os.RemoveAll(tmpDir)
 
-		// Create a valid resource file content
-		validContent := `amends "package://schema.kdeps.com/core@0.2.30#/Resource.pkl"
+		// Create a valid resource file content using schema assets
+		validContent := fmt.Sprintf(`amends "%s"
 
 actionID = "testaction"
 name = "Test Action"
@@ -791,14 +784,14 @@ run {
     }
   }
 }
-`
+`, workspace.GetImportPath("Resource.pkl"))
 
 		resourceFile := filepath.Join(tmpDir, "test.pkl")
 		err = os.WriteFile(resourceFile, []byte(validContent), 0o644)
 		require.NoError(t, err)
 
 		// This should test the successful debug logging path
-		resource, err := LoadResource(ctx, resourceFile, logger)
+		resource, err := resource.LoadResource(ctx, resourceFile, logger)
 
 		assert.NoError(t, err)
 		assert.NotNil(t, resource)

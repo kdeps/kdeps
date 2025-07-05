@@ -19,7 +19,7 @@ func (s stubWorkflow) GetName() string    { return s.name }
 func (s stubWorkflow) GetVersion() string { return s.version }
 
 // Below we satisfy the full interface with dummy methods so the compiler is happy.
-func (s stubWorkflow) GetDescription() string            { return "" }
+func (s stubWorkflow) GetDescription() *string           { desc := ""; return &desc }
 func (s stubWorkflow) GetWebsite() *string               { return nil }
 func (s stubWorkflow) GetAuthors() *[]string             { return nil }
 func (s stubWorkflow) GetDocumentation() *string         { return nil }

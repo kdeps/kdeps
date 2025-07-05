@@ -10,7 +10,7 @@ import (
 
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/kdeps/kdeps/pkg/schema"
+	assets "github.com/kdeps/schema/assets"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,12 +24,17 @@ func TestNewPackageCommandExecution(t *testing.T) {
 	env := &environment.Environment{}
 	logger := logging.NewTestLogger()
 
+	// Setup PKL workspace with embedded schema files
+	workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+	require.NoError(t, err)
+	defer workspace.Cleanup()
+
 	// Create a temporary directory for the test files
 	testAgentDir := filepath.Join(t.TempDir(), "agent")
-	err := fs.MkdirAll(testAgentDir, 0o755)
+	err = fs.MkdirAll(testAgentDir, 0o755)
 	require.NoError(t, err)
 
-	workflowContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
+	workflowContent := fmt.Sprintf(`amends "%s"
 
 AgentID = "testagent"
 Description = "Test Agent"
@@ -46,8 +51,7 @@ Settings {
 		Routes {
 			new {
 				Path = "/api/v1/test"
-				Method = "GET"
-				ActionID = "testAction"
+				Methods { "GET" }
 			}
 		}
 	}
@@ -56,9 +60,9 @@ Settings {
 		Models {
 			"llama3.2:1b"
 		}
-		OllamaVersion = "0.6.8"
+		OllamaTagVersion = "0.6.8"
 	}
-}`, schema.SchemaVersion(ctx))
+}`, workspace.GetImportPath("Workflow.pkl"))
 
 	workflowPath := filepath.Join(testAgentDir, "workflow.pkl")
 	err = afero.WriteFile(fs, workflowPath, []byte(workflowContent), 0o644)
@@ -69,14 +73,13 @@ Settings {
 	err = fs.MkdirAll(resourcesDir, 0o755)
 	require.NoError(t, err)
 
-	resourceContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+	resourceContent := fmt.Sprintf(`amends "%s"
 
-ActionID = "testAction"
 Run {
 	Exec {
 		test = "echo 'test'"
 	}
-}`, schema.SchemaVersion(ctx))
+}`, workspace.GetImportPath("Resource.pkl"))
 
 	// Create all required resource files
 	requiredResources := []string{"client.pkl", "exec.pkl", "llm.pkl", "python.pkl", "response.pkl"}

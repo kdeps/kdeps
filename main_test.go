@@ -2,37 +2,31 @@ package main
 
 import (
 	"context"
-	"os"
-	"testing"
-
-	"github.com/kdeps/kdeps/pkg/environment"
-	"github.com/kdeps/kdeps/pkg/ktx"
-	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/spf13/afero"
-	"github.com/stretchr/testify/assert"
-
-	// The following imports are required for stubbing the functions used in handleNonDockerMode
 	"fmt"
+	"os"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
+	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/kdeps/kdeps/cmd"
+	"github.com/kdeps/kdeps/pkg"
 	"github.com/kdeps/kdeps/pkg/cfg"
 	"github.com/kdeps/kdeps/pkg/docker"
+	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/ktx"
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
-	pkgschema "github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/kdeps/schema/gen/kdeps"
-	kdSchema "github.com/kdeps/schema/gen/kdeps"
 	kdepspkg "github.com/kdeps/schema/gen/kdeps"
-	kdepstype "github.com/kdeps/schema/gen/kdeps"
-	schema "github.com/kdeps/schema/gen/kdeps"
-	schemaKdeps "github.com/kdeps/schema/gen/kdeps"
 	kpath "github.com/kdeps/schema/gen/kdeps/path"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -141,13 +135,13 @@ func TestHandleNonDockerMode_Stubbed(t *testing.T) {
 	validateConfigurationFn = func(_ afero.Fs, _ context.Context, _ *environment.Environment, _ *logging.Logger) (string, error) {
 		return "/home/.kdeps.pkl", nil
 	}
-	loadConfigurationFn = func(_ afero.Fs, _ context.Context, _ string, _ *logging.Logger) (*kdeps.Kdeps, error) {
+	loadConfigurationFn = func(_ afero.Fs, _ context.Context, _ string, _ *logging.Logger) (*kdepspkg.Kdeps, error) {
 		return &kdeps.Kdeps{}, nil
 	}
-	getKdepsPathFn = func(_ context.Context, _ kdeps.Kdeps) (string, error) {
+	getKdepsPathFn = func(_ context.Context, _ kdepspkg.Kdeps) (string, error) {
 		return "/kdeps", nil
 	}
-	newRootCommandFn = func(_ afero.Fs, _ context.Context, _ string, _ *kdeps.Kdeps, _ *environment.Environment, _ *logging.Logger) *cobra.Command {
+	newRootCommandFn = func(_ afero.Fs, _ context.Context, _ string, _ *kdepspkg.Kdeps, _ *environment.Environment, _ *logging.Logger) *cobra.Command {
 		return &cobra.Command{Run: func(cmd *cobra.Command, args []string) {}}
 	}
 
@@ -195,7 +189,7 @@ func TestHandleNonDockerMode_NoConfig(t *testing.T) {
 }
 
 func TestCleanupFlagRemovalMemFS(t *testing.T) {
-	_ = pkgschema.SchemaVersion(nil)
+	_ = schema.SchemaVersion(context.Background())
 
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
@@ -311,7 +305,7 @@ func TestHandleNonDockerMode_Flow(t *testing.T) {
 			return "/tmp/config", nil
 		}
 		loadConfigurationFn = func(afero.Fs, context.Context, string, *logging.Logger) (*kdepspkg.Kdeps, error) {
-			return &kdepspkg.Kdeps{KdepsDir: "."}, nil
+			return &kdepspkg.Kdeps{KdepsDir: pkg.GetDefaultKdepsDir()}, nil
 		}
 		getKdepsPathFn = func(context.Context, kdepspkg.Kdeps) (string, error) { return "/tmp/kdeps", nil }
 		newRootCommandFn = func(afero.Fs, context.Context, string, *kdepspkg.Kdeps, *environment.Environment, *logging.Logger) *cobra.Command {
@@ -461,7 +455,7 @@ func TestHandleDockerMode_NoAPIServer(t *testing.T) {
 
 	// Touch rule-required reference
 	_ = utils.SafeDerefBool(nil) // uses utils to avoid unused import
-	_ = pkgschema.SchemaVersion(context.Background())
+	_ = schema.SchemaVersion(context.Background())
 }
 
 // TestRunGraphResolverActions_PrepareWorkflowDirError verifies that an error in
@@ -531,7 +525,7 @@ func TestHandleNonDockerModeExercise(t *testing.T) {
 	validateConfigurationFn = func(afero.Fs, context.Context, *environment.Environment, *logging.Logger) (string, error) {
 		return "config.yml", nil
 	}
-	loadConfigurationFn = func(afero.Fs, context.Context, string, *logging.Logger) (*kdeps.Kdeps, error) {
+	loadConfigurationFn = func(afero.Fs, context.Context, string, *logging.Logger) (*kdepspkg.Kdeps, error) {
 		return &kdeps.Kdeps{}, nil
 	}
 	getKdepsPathFn = func(context.Context, kdeps.Kdeps) (string, error) {
@@ -539,7 +533,7 @@ func TestHandleNonDockerModeExercise(t *testing.T) {
 	}
 
 	executed := false
-	newRootCommandFn = func(afero.Fs, context.Context, string, *kdeps.Kdeps, *environment.Environment, *logging.Logger) *cobra.Command {
+	newRootCommandFn = func(afero.Fs, context.Context, string, *kdepspkg.Kdeps, *environment.Environment, *logging.Logger) *cobra.Command {
 		return &cobra.Command{RunE: func(cmd *cobra.Command, args []string) error { executed = true; return nil }}
 	}
 
@@ -680,16 +674,16 @@ func TestHandleNonDockerMode(t *testing.T) {
 	validateConfigurationFn = func(_ afero.Fs, _ context.Context, _ *environment.Environment, _ *logging.Logger) (string, error) {
 		return "/config.yml", nil
 	}
-	loadConfigurationFn = func(_ afero.Fs, _ context.Context, _ string, _ *logging.Logger) (*kdeps.Kdeps, error) {
-		return &kdeps.Kdeps{
-			KdepsDir:  ".kdeps",
-			KdepsPath: kpath.User,
+	loadConfigurationFn = func(_ afero.Fs, _ context.Context, _ string, _ *logging.Logger) (*kdepspkg.Kdeps, error) {
+		return &kdepspkg.Kdeps{
+			KdepsDir:  pkg.GetDefaultKdepsDir(),
+			KdepsPath: (*kpath.Path)(pkg.GetDefaultKdepsPath()),
 		}, nil
 	}
-	getKdepsPathFn = func(_ context.Context, _ kdeps.Kdeps) (string, error) { return "/tmp/kdeps", nil }
+	getKdepsPathFn = func(_ context.Context, _ kdepspkg.Kdeps) (string, error) { return "/tmp/kdeps", nil }
 
 	executed := false
-	newRootCommandFn = func(_ afero.Fs, _ context.Context, _ string, _ *kdeps.Kdeps, _ *environment.Environment, _ *logging.Logger) *cobra.Command {
+	newRootCommandFn = func(_ afero.Fs, _ context.Context, _ string, _ *kdepspkg.Kdeps, _ *environment.Environment, _ *logging.Logger) *cobra.Command {
 		return &cobra.Command{Run: func(cmd *cobra.Command, args []string) { executed = true }}
 	}
 
@@ -737,7 +731,7 @@ func TestMainEntry_NoDocker(t *testing.T) {
 			return "config", nil
 		}
 		loadConfigurationFn = func(afero.Fs, context.Context, string, *logging.Logger) (*kdepspkg.Kdeps, error) {
-			return &kdepspkg.Kdeps{KdepsDir: "."}, nil
+			return &kdepspkg.Kdeps{KdepsDir: pkg.GetDefaultKdepsDir()}, nil
 		}
 		getKdepsPathFn = func(context.Context, kdepspkg.Kdeps) (string, error) { return "/tmp", nil }
 		newRootCommandFn = func(afero.Fs, context.Context, string, *kdepspkg.Kdeps, *environment.Environment, *logging.Logger) *cobra.Command {
@@ -793,14 +787,14 @@ func TestHandleNonDockerModeFlow(t *testing.T) {
 		return genPath, nil
 	}
 
-	dummyCfg := &schema.Kdeps{}
-	loadConfigurationFn = func(_ afero.Fs, _ context.Context, _ string, _ *logging.Logger) (*schema.Kdeps, error) {
+	dummyCfg := &kdepspkg.Kdeps{KdepsDir: pkg.GetDefaultKdepsDir()}
+	loadConfigurationFn = func(_ afero.Fs, _ context.Context, _ string, _ *logging.Logger) (*kdepspkg.Kdeps, error) {
 		return dummyCfg, nil
 	}
 
-	getKdepsPathFn = func(_ context.Context, _ schema.Kdeps) (string, error) { return "/kdeps", nil }
+	getKdepsPathFn = func(_ context.Context, _ kdepspkg.Kdeps) (string, error) { return "/kdeps", nil }
 
-	newRootCommandFn = func(_ afero.Fs, _ context.Context, _ string, _ *schema.Kdeps, _ *environment.Environment, _ *logging.Logger) *cobra.Command {
+	newRootCommandFn = func(_ afero.Fs, _ context.Context, _ string, _ *kdepspkg.Kdeps, _ *environment.Environment, _ *logging.Logger) *cobra.Command {
 		return &cobra.Command{Use: "root"}
 	}
 
@@ -845,14 +839,14 @@ func TestHandleNonDockerModeExistingConfig(t *testing.T) {
 		return cfgPath, nil
 	}
 
-	dummyCfg := &schema.Kdeps{KdepsDir: ".kdeps"}
-	loadConfigurationFn = func(_ afero.Fs, _ context.Context, _ string, _ *logging.Logger) (*schema.Kdeps, error) {
+	dummyCfg := &kdepspkg.Kdeps{KdepsDir: pkg.GetDefaultKdepsDir()}
+	loadConfigurationFn = func(_ afero.Fs, _ context.Context, _ string, _ *logging.Logger) (*kdepspkg.Kdeps, error) {
 		return dummyCfg, nil
 	}
 
-	getKdepsPathFn = func(_ context.Context, _ schema.Kdeps) (string, error) { return "/kdeps", nil }
+	getKdepsPathFn = func(_ context.Context, _ kdepspkg.Kdeps) (string, error) { return "/kdeps", nil }
 
-	newRootCommandFn = func(_ afero.Fs, _ context.Context, _ string, _ *schema.Kdeps, _ *environment.Environment, _ *logging.Logger) *cobra.Command {
+	newRootCommandFn = func(_ afero.Fs, _ context.Context, _ string, _ *kdepspkg.Kdeps, _ *environment.Environment, _ *logging.Logger) *cobra.Command {
 		return &cobra.Command{Use: "root"}
 	}
 
@@ -951,14 +945,14 @@ func TestHandleNonDockerModeGenerateFlow(t *testing.T) {
 		return genPath, nil
 	}
 
-	dummyCfg := &schema.Kdeps{KdepsDir: ".kdeps"}
-	loadConfigurationFn = func(_ afero.Fs, _ context.Context, _ string, _ *logging.Logger) (*schema.Kdeps, error) {
+	dummyCfg := &kdepspkg.Kdeps{KdepsDir: pkg.GetDefaultKdepsDir()}
+	loadConfigurationFn = func(_ afero.Fs, _ context.Context, _ string, _ *logging.Logger) (*kdepspkg.Kdeps, error) {
 		return dummyCfg, nil
 	}
 
-	getKdepsPathFn = func(_ context.Context, _ schema.Kdeps) (string, error) { return "/kdeps", nil }
+	getKdepsPathFn = func(_ context.Context, _ kdepspkg.Kdeps) (string, error) { return "/kdeps", nil }
 
-	newRootCommandFn = func(_ afero.Fs, _ context.Context, _ string, _ *schema.Kdeps, _ *environment.Environment, _ *logging.Logger) *cobra.Command {
+	newRootCommandFn = func(_ afero.Fs, _ context.Context, _ string, _ *kdepspkg.Kdeps, _ *environment.Environment, _ *logging.Logger) *cobra.Command {
 		// Define a no-op RunE so that Execute() does not error.
 		cmd := &cobra.Command{Use: "root"}
 		cmd.RunE = func(cmd *cobra.Command, args []string) error { return nil }
@@ -1005,13 +999,13 @@ func TestHandleNonDockerModeBasic(t *testing.T) {
 	validateConfigurationFn = func(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
 		return env.Home + "/.kdeps.pkl", nil
 	}
-	loadConfigurationFn = func(fs afero.Fs, ctx context.Context, path string, logger *logging.Logger) (*schemaKdeps.Kdeps, error) {
-		return &schemaKdeps.Kdeps{}, nil
+	loadConfigurationFn = func(fs afero.Fs, ctx context.Context, path string, logger *logging.Logger) (*kdepspkg.Kdeps, error) {
+		return &kdepspkg.Kdeps{KdepsDir: pkg.GetDefaultKdepsDir()}, nil
 	}
-	getKdepsPathFn = func(ctx context.Context, k schemaKdeps.Kdeps) (string, error) {
+	getKdepsPathFn = func(ctx context.Context, k kdepspkg.Kdeps) (string, error) {
 		return "/tmp/kdeps", nil
 	}
-	newRootCommandFn = func(fs afero.Fs, ctx context.Context, kdepsDir string, cfg *schemaKdeps.Kdeps, env *environment.Environment, logger *logging.Logger) *cobra.Command {
+	newRootCommandFn = func(fs afero.Fs, ctx context.Context, kdepsDir string, cfg *kdepspkg.Kdeps, env *environment.Environment, logger *logging.Logger) *cobra.Command {
 		return &cobra.Command{Use: "root", Run: func(cmd *cobra.Command, args []string) {}}
 	}
 
@@ -1047,12 +1041,12 @@ func TestHandleNonDockerModeMinimal(t *testing.T) {
 	validateConfigurationFn = func(afero.Fs, context.Context, *environment.Environment, *logging.Logger) (string, error) {
 		return tmp + "/cfg.pkl", nil
 	}
-	loadConfigurationFn = func(afero.Fs, context.Context, string, *logging.Logger) (*kdSchema.Kdeps, error) {
-		return &kdSchema.Kdeps{}, nil
+	loadConfigurationFn = func(afero.Fs, context.Context, string, *logging.Logger) (*kdepspkg.Kdeps, error) {
+		return &kdepspkg.Kdeps{}, nil
 	}
-	getKdepsPathFn = func(context.Context, kdSchema.Kdeps) (string, error) { return tmp, nil }
+	getKdepsPathFn = func(context.Context, kdepspkg.Kdeps) (string, error) { return tmp, nil }
 
-	newRootCommandFn = func(afero.Fs, context.Context, string, *kdSchema.Kdeps, *environment.Environment, *logging.Logger) *cobra.Command {
+	newRootCommandFn = func(afero.Fs, context.Context, string, *kdepspkg.Kdeps, *environment.Environment, *logging.Logger) *cobra.Command {
 		c := &cobra.Command{RunE: func(*cobra.Command, []string) error { return nil }}
 		return c
 	}
@@ -1109,13 +1103,13 @@ func TestHandleNonDockerMode_Happy(t *testing.T) {
 	validateConfigurationFn = func(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
 		return cfgPath, nil
 	}
-	loadConfigurationFn = func(fs afero.Fs, ctx context.Context, configFile string, logger *logging.Logger) (*kdepstype.Kdeps, error) {
-		return &kdepstype.Kdeps{}, nil
+	loadConfigurationFn = func(fs afero.Fs, ctx context.Context, configFile string, logger *logging.Logger) (*kdepspkg.Kdeps, error) {
+		return &kdepspkg.Kdeps{KdepsDir: pkg.GetDefaultKdepsDir()}, nil
 	}
-	getKdepsPathFn = func(ctx context.Context, _ kdepstype.Kdeps) (string, error) {
+	getKdepsPathFn = func(ctx context.Context, _ kdepspkg.Kdeps) (string, error) {
 		return filepath.Join(tmp, "agents"), nil
 	}
-	newRootCommandFn = func(fs afero.Fs, ctx context.Context, kdepsDir string, _ *kdepstype.Kdeps, _ *environment.Environment, _ *logging.Logger) *cobra.Command {
+	newRootCommandFn = func(fs afero.Fs, ctx context.Context, kdepsDir string, _ *kdepspkg.Kdeps, _ *environment.Environment, _ *logging.Logger) *cobra.Command {
 		return &cobra.Command{Run: func(cmd *cobra.Command, args []string) {}}
 	}
 
@@ -1129,5 +1123,5 @@ func TestHandleNonDockerMode_Happy(t *testing.T) {
 		t.Fatalf("expected some log output, got none")
 	}
 
-	_ = pkgschema.SchemaVersion(context.Background())
+	_ = schema.SchemaVersion(context.Background())
 }

@@ -12,16 +12,18 @@
 Kdeps is an all-in-one AI framework for building Dockerized full-stack AI applications (FE and BE) that includes
 open-source LLM models out-of-the-box.
 
-## 🆕 What's New in v0.3.1
+## 🆕 What's New in v0.3.2
 
 - **Enhanced Schema Structure**: All PKL properties now use capitalized naming (e.g., `AgentID`, `Settings`, `ActionID`)
 - **Improved Rate Limiting**: New `RateLimitMax` property for API throttling control
-- **Environment Configuration**: Added `Environment` property for build environment selection
+- **Environment Configuration**: Added `Environment` property for build environment selection (`dev` or `prod`)
 - **Enhanced Validations**: New `PostflightCheck`, `AllowedHeaders`, and `AllowedParams` properties
 - **Retry Mechanisms**: Built-in `Retry` and `RetryTimes` properties for robust error handling
 - **Better Resource Categorization**: Added `Name` and `Category` properties for resource organization
 - **Simplified HTTP Methods**: API routes now use single `Method` string instead of arrays
 - **Schema Assets**: Embedded schema files for improved reliability and offline development
+- **Centralized Defaults**: Single point of truth for all configurable default values
+- **Enhanced Web Server**: Improved static file serving and reverse-proxy capabilities
 
 ## Key Features
 
@@ -33,32 +35,43 @@ Kdeps is loaded with features to streamline full-stack AI app development:
 
 ```pkl
 // workflow.pkl
+amends "package://schema.kdeps.com/core@0.3.2#/Workflow.pkl"
+
 AgentID = "ticketResolutionAgent"
 Description = "Automates customer support ticket resolution with LLM responses."
 Version = "1.0.0"
 TargetActionID = "responseResource"
 Settings {
   RateLimitMax = 100
-  Environment = "production"
+  Environment = "dev"
   APIServerMode = true
   APIServer {
-    hostIP = "127.0.0.1"
-    portNum = 3000
-    routes {
-      new { path = "/api/v1/ticket"; Method = "POST" }
+    HostIP = "127.0.0.1"
+    PortNum = 3000
+    Routes {
+      new { 
+        Path = "/api/v1/ticket"
+        Methods { "POST" }
+        ActionID = "responseResource"
+      }
     }
-    cors { enableCORS = true; allowOrigins { "http://localhost:8080" } }
+    CORS { 
+      EnableCORS = true
+      AllowOrigins { "http://localhost:8080" }
+    }
   }
   AgentSettings {
-    timezone = "Etc/UTC"
-    models { "llama3.2:1b" }
-    OllamaVersion = "0.8.0"
+    Timezone = "Etc/UTC"
+    Models { "llama3.2:1b" }
+    OllamaTagVersion = "0.8.0"
   }
 }
 ```
 
 ```pkl
 // resources/fetch_data.pkl
+amends "package://schema.kdeps.com/core@0.3.2#/Resource.pkl"
+
 ActionID = "httpFetchResource"
 Name = "CRM Fetch"
 Description = "Fetches ticket data via CRM API."
@@ -75,8 +88,8 @@ Run {
   }
   HTTPClient {
     Method = "GET"
-    url = "https://crm.example.com/api/ticket/@(request.data().ticket_id)"
-    headers { ["Authorization"] = "Bearer @(session.getRecord('crm_token'))" }
+    URL = "https://crm.example.com/api/ticket/@(request.data().ticket_id)"
+    Headers { ["Authorization"] = "Bearer @(session.getRecord('crm_token'))" }
     TimeoutDuration = 30.s
   }
 }
@@ -84,6 +97,8 @@ Run {
 
 ```pkl
 // resources/llm.pkl
+amends "package://schema.kdeps.com/core@0.3.2#/Resource.pkl"
+
 ActionID = "llmResource"
 Name = "LLM Ticket Response"
 Description = "Generates responses for customer tickets."
@@ -103,12 +118,12 @@ Run {
     RetryTimes = 2
   }
   Chat {
-    model = "llama3.2:1b"
-    role = "assistant"
-    prompt = "Provide a professional response to the customer query: @(request.data().query)"
-    scenario {
-      new { role = "system"; prompt = "You are a customer support assistant. Be polite and concise." }
-      new { role = "system"; prompt = "Ticket data: @(client.responseBody("httpFetchResource"))" }
+    Model = "llama3.2:1b"
+    Role = "assistant"
+    Prompt = "Provide a professional response to the customer query: @(request.data().query)"
+    Scenario {
+      new { Role = "system"; Prompt = "You are a customer support assistant. Be polite and concise." }
+      new { Role = "system"; Prompt = "Ticket data: @(client.responseBody("httpFetchResource"))" }
     }
     JSONResponse = true
     JSONResponseKeys { "response_text" }
@@ -119,6 +134,8 @@ Run {
 
 ```pkl
 // resources/response.pkl
+amends "package://schema.kdeps.com/core@0.3.2#/Resource.pkl"
+
 ActionID = "responseResource"
 Name = "API Response"
 Description = "Returns ticket resolution response."
@@ -128,11 +145,13 @@ Run {
   RestrictToHTTPMethods { "POST" }
   RestrictToRoutes { "/api/v1/ticket" }
   APIResponse {
-    success = true
-    response {
-      data { "@(llm.response('llmResource'))" }
+    Success = true
+    Response {
+      Data { "@(llm.response('llmResource'))" }
     }
-    meta { headers { ["Content-Type"] = "application/json" } }
+    Meta { 
+      Headers { ["Content-Type"] = "application/json" }
+    }
   }
 }
 ```
@@ -180,32 +199,43 @@ volumes:
 
 ```pkl
 // workflow.pkl
+amends "package://schema.kdeps.com/core@0.3.2#/Workflow.pkl"
+
 AgentID = "visualTicketAnalyzer"
 Description = "Analyzes images in support tickets for defects using a vision model."
 Version = "1.0.0"
 TargetActionID = "responseResource"
 Settings {
   RateLimitMax = 50
-  Environment = "production"
+  Environment = "dev"
   APIServerMode = true
   APIServer {
-    hostIP = "127.0.0.1"
-    portNum = 3000
-    routes {
-      new { path = "/api/v1/visual-ticket"; Method = "POST" }
+    HostIP = "127.0.0.1"
+    PortNum = 3000
+    Routes {
+      new { 
+        Path = "/api/v1/visual-ticket"
+        Methods { "POST" }
+        ActionID = "responseResource"
+      }
     }
-    cors { enableCORS = true; allowOrigins { "http://localhost:8080" } }
+    CORS { 
+      EnableCORS = true
+      AllowOrigins { "http://localhost:8080" }
+    }
   }
   AgentSettings {
-    timezone = "Etc/UTC"
-    models { "llama3.2-vision" }
-    OllamaVersion = "0.8.0"
+    Timezone = "Etc/UTC"
+    Models { "llama3.2-vision" }
+    OllamaTagVersion = "0.8.0"
   }
 }
 ```
 
 ```pkl
 // resources/fetch_data.pkl
+amends "package://schema.kdeps.com/core@0.3.2#/Resource.pkl"
+
 ActionID = "httpFetchResource"
 Name = "CRM Fetch"
 Description = "Fetches ticket data via CRM API."
@@ -221,8 +251,8 @@ Run {
   }
   HTTPClient {
     Method = "GET"
-    url = "https://crm.example.com/api/ticket/@(request.data().ticket_id)"
-    headers { ["Authorization"] = "Bearer @(session.getRecord('crm_token'))" }
+    URL = "https://crm.example.com/api/ticket/@(request.data().ticket_id)"
+    Headers { ["Authorization"] = "Bearer @(session.getRecord('crm_token'))" }
     TimeoutDuration = 30.s
   }
 }
@@ -230,6 +260,8 @@ Run {
 
 ```pkl
 // resources/llm.pkl
+amends "package://schema.kdeps.com/core@0.3.2#/Resource.pkl"
+
 ActionID = "llmResource"
 Name = "Visual Defect Analyzer"
 Description = "Analyzes ticket images for defects."
@@ -250,13 +282,13 @@ Run {
     RetryTimes = 2
   }
   Chat {
-    model = "llama3.2-vision"
-    role = "assistant"
-    prompt = "Analyze the image for product defects and describe any issues found."
-    files { "@(request.files()[0])" }
-    scenario {
-      new { role = "system"; prompt = "You are a support assistant specializing in visual defect detection." }
-      new { role = "system"; prompt = "Ticket data: @(client.responseBody("httpFetchResource"))" }
+    Model = "llama3.2-vision"
+    Role = "assistant"
+    Prompt = "Analyze the image for product defects and describe any issues found."
+    Files { "@(request.files()[0])" }
+    Scenario {
+      new { Role = "system"; Prompt = "You are a support assistant specializing in visual defect detection." }
+      new { Role = "system"; Prompt = "Ticket data: @(client.responseBody("httpFetchResource"))" }
     }
     JSONResponse = true
     JSONResponseKeys { "defect_description"; "severity" }
@@ -267,6 +299,8 @@ Run {
 
 ```pkl
 // resources/response.pkl
+amends "package://schema.kdeps.com/core@0.3.2#/Resource.pkl"
+
 ActionID = "responseResource"
 Name = "API Response"
 Description = "Returns defect analysis result."
@@ -276,11 +310,13 @@ Run {
   RestrictToHTTPMethods { "POST" }
   RestrictToRoutes { "/api/v1/visual-ticket" }
   APIResponse {
-    success = true
-    response {
-      data { "@(llm.response('llmResource'))" }
+    Success = true
+    Response {
+      Data { "@(llm.response('llmResource'))" }
     }
-    meta { headers { ["Content-Type"] = "application/json" } }
+    Meta { 
+      Headers { ["Content-Type"] = "application/json" }
+    }
   }
 }
 ```
@@ -297,40 +333,46 @@ Run {
 
 ```pkl
 // workflow.pkl
+amends "package://schema.kdeps.com/core@0.3.2#/Workflow.pkl"
+
 AgentID = "frontendAIApp"
 Description = "Pairs an AI API with a Streamlit frontend for text summarization."
 Version = "1.0.0"
 TargetActionID = "responseResource"
 Settings {
   RateLimitMax = 200
-  Environment = "development"
+  Environment = "dev"
   APIServerMode = true
   WebServerMode = true
   APIServer {
-    hostIP = "127.0.0.1"
-    portNum = 3000
-    routes {
-      new { path = "/api/v1/summarize"; Method = "POST" }
+    HostIP = "127.0.0.1"
+    PortNum = 3000
+    Routes {
+      new { 
+        Path = "/api/v1/summarize"
+        Methods { "POST" }
+        ActionID = "responseResource"
+      }
     }
   }
   WebServer {
-    hostIP = "127.0.0.1"
-    portNum = 8501
-    routes {
+    HostIP = "127.0.0.1"
+    PortNum = 8501
+    Routes {
       new {
-        path = "/app"
-        publicPath = "/fe/1.0.0/web/"
-        serverType = "app"
-        appPort = 8501
-        command = "streamlit run app.py"
+        Path = "/app"
+        PublicPath = "/fe/1.0.0/web/"
+        ServerType = "app"
+        AppPort = 8501
+        Command = "streamlit run app.py"
       }
     }
   }
   AgentSettings {
-    timezone = "Etc/UTC"
-    pythonPackages { "streamlit" }
-    models { "llama3.2:1b" }
-    OllamaVersion = "0.8.0"
+    Timezone = "Etc/UTC"
+    PythonPackages { "streamlit" }
+    Models { "llama3.2:1b" }
+    OllamaTagVersion = "0.8.0"
   }
 }
 ```
@@ -352,6 +394,8 @@ if st.button("Summarize"):
 
 ```pkl
 // resources/llm.pkl
+amends "package://schema.kdeps.com/core@0.3.2#/Resource.pkl"
+
 ActionID = "llmResource"
 Name = "Text Summarizer"
 Description = "Summarizes input text using an LLM."
@@ -366,9 +410,9 @@ Run {
     RetryTimes = 1
   }
   Chat {
-    model = "llama3.2:1b"
-    role = "assistant"
-    prompt = "Summarize this text in 50 words or less: @(request.data().text)"
+    Model = "llama3.2:1b"
+    Role = "assistant"
+    Prompt = "Summarize this text in 50 words or less: @(request.data().text)"
     JSONResponse = true
     JSONResponseKeys { "summary" }
     TimeoutDuration = 60.s
@@ -383,31 +427,39 @@ Run {
 
 ```pkl
 // workflow.pkl
+amends "package://schema.kdeps.com/core@0.3.2#/Workflow.pkl"
+
 AgentID = "toolChainingAgent"
 Description = "Uses LLM to query a database and generate a report via tools."
 Version = "1.0.0"
 TargetActionID = "responseResource"
 Settings {
   RateLimitMax = 50
-  Environment = "production"
+  Environment = "dev"
   APIServerMode = true
   APIServer {
-    hostIP = "127.0.0.1"
-    portNum = 3000
-    routes {
-      new { path = "/api/v1/report"; Method = "POST" }
+    HostIP = "127.0.0.1"
+    PortNum = 3000
+    Routes {
+      new { 
+        Path = "/api/v1/report"
+        Methods { "POST" }
+        ActionID = "responseResource"
+      }
     }
   }
   AgentSettings {
-    timezone = "Etc/UTC"
-    models { "llama3.2:1b" }
-    OllamaVersion = "0.8.0"
+    Timezone = "Etc/UTC"
+    Models { "llama3.2:1b" }
+    OllamaTagVersion = "0.8.0"
   }
 }
 ```
 
 ```pkl
 // resources/llm.pkl
+amends "package://schema.kdeps.com/core@0.3.2#/Resource.pkl"
+
 ActionID = "llmResource"
 Name = "Report Generator"
 Description = "Generates a report using a database query tool."
@@ -422,16 +474,16 @@ Run {
     RetryTimes = 1
   }
   Chat {
-    model = "llama3.2:1b"
-    role = "assistant"
-    prompt = "Generate a sales report based on database query results. Date range: @(request.params("date_range"))"
-    tools {
+    Model = "llama3.2:1b"
+    Role = "assistant"
+    Prompt = "Generate a sales report based on database query results. Date range: @(request.params("date_range"))"
+    Tools {
       new {
         Name = "query_sales_db"
-        script = "@(data.filepath('tools/1.0.0', 'query_sales.py'))"
+        Script = "@(data.filepath('tools/1.0.0', 'query_sales.py'))"
         Description = "Queries the sales database for recent transactions"
-        parameters {
-          ["date_range"] { required = true; type = "string"; Description = "Date range for query (e.g., '2025-01-01:2025-05-01')" }
+        Parameters {
+          ["date_range"] { Required = true; Type = "string"; Description = "Date range for query (e.g., '2025-01-01:2025-05-01')" }
         }
       }
     }
@@ -472,31 +524,39 @@ print(query_sales(sys.argv[1]))
 
 ```pkl
 // workflow.pkl
+amends "package://schema.kdeps.com/core@0.3.2#/Workflow.pkl"
+
 AgentID = "structuredOutputAgent"
 Description = "Generates structured JSON responses from LLM."
 Version = "1.0.0"
 TargetActionID = "responseResource"
 Settings {
   RateLimitMax = 100
-  Environment = "production"
+  Environment = "dev"
   APIServerMode = true
   APIServer {
-    hostIP = "127.0.0.1"
-    portNum = 3000
-    routes {
-      new { path = "/api/v1/structured"; Method = "POST" }
+    HostIP = "127.0.0.1"
+    PortNum = 3000
+    Routes {
+      new { 
+        Path = "/api/v1/structured"
+        Methods { "POST" }
+        ActionID = "responseResource"
+      }
     }
   }
   AgentSettings {
-    timezone = "Etc/UTC"
-    models { "llama3.2:1b" }
-    OllamaVersion = "0.8.0"
+    Timezone = "Etc/UTC"
+    Models { "llama3.2:1b" }
+    OllamaTagVersion = "0.8.0"
   }
 }
 ```
 
 ```pkl
 // resources/llm.pkl
+amends "package://schema.kdeps.com/core@0.3.2#/Resource.pkl"
+
 ActionID = "llmResource"
 Name = "Structured Response Generator"
 Description = "Generates structured JSON output."
@@ -511,9 +571,9 @@ Run {
     RetryTimes = 1
   }
   Chat {
-    model = "llama3.2:1b"
-    role = "assistant"
-    prompt = "Analyze this text and return a structured response: @(request.data().text)"
+    Model = "llama3.2:1b"
+    Role = "assistant"
+    Prompt = "Analyze this text and return a structured response: @(request.data().text)"
     JSONResponse = true
     JSONResponseKeys { "summary"; "keywords" }
     TimeoutDuration = 60.s
@@ -528,32 +588,43 @@ Run {
 
 ```pkl
 // workflow.pkl
+amends "package://schema.kdeps.com/core@0.3.2#/Workflow.pkl"
+
 AgentID = "mtvScenarioGenerator"
 Description = "Generates MTV video scenarios based on song lyrics."
 Version = "1.0.0"
 TargetActionID = "responseResource"
 Settings {
   RateLimitMax = 100
-  Environment = "production"
+  Environment = "dev"
   APIServerMode = true
   APIServer {
-    hostIP = "127.0.0.1"
-    portNum = 3000
-    routes {
-      new { path = "/api/v1/mtv-scenarios"; Method = "GET" }
+    HostIP = "127.0.0.1"
+    PortNum = 3000
+    Routes {
+      new { 
+        Path = "/api/v1/mtv-scenarios"
+        Methods { "GET" }
+        ActionID = "responseResource"
+      }
     }
-    cors { enableCORS = true; allowOrigins { "http://localhost:8080" } }
+    CORS { 
+      EnableCORS = true
+      AllowOrigins { "http://localhost:8080" }
+    }
   }
   AgentSettings {
-    timezone = "Etc/UTC"
-    models { "llama3.2:1b" }
-    OllamaVersion = "0.8.0"
+    Timezone = "Etc/UTC"
+    Models { "llama3.2:1b" }
+    OllamaTagVersion = "0.8.0"
   }
 }
 ```
 
 ```pkl
 // resources/llm.pkl
+amends "package://schema.kdeps.com/core@0.3.2#/Resource.pkl"
+
 ActionID = "llmResource"
 Name = "MTV Scenario Generator"
 Description = "Generates MTV video scenarios for song lyrics."
@@ -571,13 +642,13 @@ Run {
     "@(item.current())" == "And I knew if I had my chance" // Skip this lyric
   }
   Chat {
-    model = "llama3.2:1b"
-    role = "assistant"
-    prompt = """
+    Model = "llama3.2:1b"
+    Role = "assistant"
+    Prompt = """
     Based on the lyric @(item.current()) from the song "American Pie," generate a suitable scenario for an MTV music video. The scenario should include a vivid setting, key visual elements, and a mood that matches the lyric's tone.
     """
-    scenario {
-      new { role = "system"; prompt = "You are a creative director specializing in music video production." }
+    Scenario {
+      new { Role = "system"; Prompt = "You are a creative director specializing in music video production." }
     }
     JSONResponse = true
     JSONResponseKeys { "setting"; "visual_elements"; "mood" }
@@ -588,6 +659,8 @@ Run {
 
 ```pkl
 // resources/response.pkl
+amends "package://schema.kdeps.com/core@0.3.2#/Resource.pkl"
+
 ActionID = "responseResource"
 Name = "API Response"
 Description = "Returns MTV video scenarios."
@@ -597,11 +670,13 @@ Run {
   RestrictToHTTPMethods { "GET" }
   RestrictToRoutes { "/api/v1/mtv-scenarios" }
   APIResponse {
-    success = true
-    response {
-      data { "@(llm.response('llmResource'))" }
+    Success = true
+    Response {
+      Data { "@(llm.response('llmResource'))" }
     }
-    meta { headers { ["Content-Type"] = "application/json" } }
+    Meta { 
+      Headers { ["Content-Type"] = "application/json" }
+    }
   }
 }
 ```
@@ -613,14 +688,17 @@ Run {
 
 ```pkl
 // workflow.pkl
-models {
-  "tinydolphin"
-  "llama3.3"
-  "llama3.2-vision"
-  "llama3.2:1b"
-  "mistral"
-  "gemma"
-  "mistral"
+amends "package://schema.kdeps.com/core@0.3.2#/Workflow.pkl"
+
+AgentSettings {
+  Models {
+    "tinydolphin"
+    "llama3.3"
+    "llama3.2-vision"
+    "llama3.2:1b"
+    "mistral"
+    "gemma"
+  }
 }
 ```
 </details>
@@ -631,31 +709,39 @@ models {
 
 ```pkl
 // workflow.pkl
+amends "package://schema.kdeps.com/core@0.3.2#/Workflow.pkl"
+
 AgentID = "docAnalysisAgent"
 Description = "Analyzes uploaded documents with LLM."
 Version = "1.0.0"
 TargetActionID = "responseResource"
 Settings {
   RateLimitMax = 100
-  Environment = "production"
+  Environment = "dev"
   APIServerMode = true
   APIServer {
-    hostIP = "127.0.0.1"
-    portNum = 3000
-    routes {
-      new { path = "/api/v1/doc-analyze"; Method = "POST" }
+    HostIP = "127.0.0.1"
+    PortNum = 3000
+    Routes {
+      new { 
+        Path = "/api/v1/doc-analyze"
+        Methods { "POST" }
+        ActionID = "responseResource"
+      }
     }
   }
   AgentSettings {
-    timezone = "Etc/UTC"
-    models { "llama3.2-vision" }
-    OllamaVersion = "0.8.0"
+    Timezone = "Etc/UTC"
+    Models { "llama3.2-vision" }
+    OllamaTagVersion = "0.8.0"
   }
 }
 ```
 
 ```pkl
 // resources/llm.pkl
+amends "package://schema.kdeps.com/core@0.3.2#/Resource.pkl"
+
 ActionID = "llmResource"
 Name = "Document Analyzer"
 Description = "Extracts text from uploaded documents."
@@ -669,10 +755,10 @@ Run {
     RetryTimes = 1
   }
   Chat {
-    model = "llama3.2-vision"
-    role = "assistant"
-    prompt = "Extract key information from this document."
-    files { "@(request.files()[0])" }
+    Model = "llama3.2-vision"
+    Role = "assistant"
+    Prompt = "Extract key information from this document."
+    Files { "@(request.files()[0])" }
     JSONResponse = true
     JSONResponseKeys { "key_info" }
     TimeoutDuration = 60.s
@@ -687,6 +773,8 @@ Run {
 
 ```pkl
 // workflow.pkl
+amends "package://schema.kdeps.com/core@0.3.2#/Workflow.pkl"
+
 AgentID = "docAnalysisAgent"
 Description = "Analyzes uploaded documents with LLM."
 Version = "1.0.0"
@@ -694,25 +782,31 @@ TargetActionID = "responseResource"
 Workflows { "@ticketResolutionAgent" }
 Settings {
   RateLimitMax = 100
-  Environment = "production"
+  Environment = "dev"
   APIServerMode = true
   APIServer {
-    hostIP = "127.0.0.1"
-    portNum = 3000
-    routes {
-      new { path = "/api/v1/doc-analyze"; Method = "POST" }
+    HostIP = "127.0.0.1"
+    PortNum = 3000
+    Routes {
+      new { 
+        Path = "/api/v1/doc-analyze"
+        Methods { "POST" }
+        ActionID = "responseResource"
+      }
     }
   }
   AgentSettings {
-    timezone = "Etc/UTC"
-    models { "llama3.2-vision" }
-    OllamaVersion = "0.8.0"
+    Timezone = "Etc/UTC"
+    Models { "llama3.2-vision" }
+    OllamaTagVersion = "0.8.0"
   }
 }
 ```
 
 ```pkl
 // resources/response.pkl
+amends "package://schema.kdeps.com/core@0.3.2#/Resource.pkl"
+
 ActionID = "responseResource"
 Name = "API Response"
 Description = "Returns defect analysis result."
@@ -725,14 +819,16 @@ Run {
   RestrictToHTTPMethods { "POST" }
   RestrictToRoutes { "/api/v1/doc-analyze" }
   APIResponse {
-    success = true
-    response {
-      data {
+    Success = true
+    Response {
+      Data {
         "@(llm.response("llmResource"))"
         "@(llm.response('@ticketResolutionAgent/llmResource:1.0.0'))"
       }
     }
-    meta { headers { ["Content-Type"] = "application/json" } }
+    Meta { 
+      Headers { ["Content-Type"] = "application/json" }
+    }
   }
 }
 ```
@@ -744,14 +840,16 @@ Run {
 
 ```pkl
 // resources/python.pkl
+amends "package://schema.kdeps.com/core@0.3.2#/Resource.pkl"
+
 ActionID = "pythonResource"
 Name = "Data Formatter"
 Description = "Formats extracted data for storage."
 Run {
   RestrictToHTTPMethods { "POST" }
   RestrictToRoutes { "/api/v1/scan-document" }
-  python {
-    script = """
+  Python {
+    Script = """
 import pandas as pd
 
 def format_data(data):
@@ -772,6 +870,8 @@ print(format_data(@(llm.response('llmResource'))))
 
 ```pkl
 // resources/http_client.pkl
+amends "package://schema.kdeps.com/core@0.3.2#/Resource.pkl"
+
 ActionID = "httpResource"
 Name = "DMS Submission"
 Description = "Submits extracted data to document management system."
@@ -780,9 +880,9 @@ Run {
   RestrictToRoutes { "/api/v1/scan-document" }
   HTTPClient {
     Method = "POST"
-    url = "https://dms.example.com/api/documents"
-    data { "@(python.stdout('pythonResource'))" }
-    headers { ["Authorization"] = "Bearer @(session.getRecord('dms_token'))" }
+    URL = "https://dms.example.com/api/documents"
+    Data { "@(python.stdout('pythonResource'))" }
+    Headers { ["Authorization"] = "Bearer @(session.getRecord('dms_token'))" }
     TimeoutDuration = 30.s
   }
 }
@@ -814,39 +914,45 @@ SkipCondition { "@(request.data().query.length)" < 5 }
 
 ```pkl
 // workflow.pkl
+amends "package://schema.kdeps.com/core@0.3.2#/Workflow.pkl"
+
 AgentID = "frontendAIApp"
 Description = "Pairs an AI API with a Streamlit frontend for text summarization."
 Version = "1.0.0"
 TargetActionID = "responseResource"
 Settings {
   RateLimitMax = 200
-  Environment = "development"
+  Environment = "dev"
   APIServerMode = true
   WebServerMode = true
   APIServer {
-    hostIP = "127.0.0.1"
-    portNum = 3000
-    routes {
-      new { path = "/api/v1/summarize"; Method = "POST" }
+    HostIP = "127.0.0.1"
+    PortNum = 3000
+    Routes {
+      new { 
+        Path = "/api/v1/summarize"
+        Methods { "POST" }
+        ActionID = "responseResource"
+      }
     }
   }
   WebServer {
-    hostIP = "127.0.0.1"
-    portNum = 8501
-    routes {
+    HostIP = "127.0.0.1"
+    PortNum = 8501
+    Routes {
       new {
-        path = "/app"
-        serverType = "app"
-        appPort = 8501
-        command = "streamlit run app.py"
+        Path = "/app"
+        ServerType = "app"
+        AppPort = 8501
+        Command = "streamlit run app.py"
       }
     }
   }
   AgentSettings {
-    timezone = "Etc/UTC"
-    pythonPackages { "streamlit" }
-    models { "llama3.2:1b" }
-    OllamaVersion = "0.8.0"
+    Timezone = "Etc/UTC"
+    PythonPackages { "streamlit" }
+    Models { "llama3.2:1b" }
+    OllamaTagVersion = "0.8.0"
   }
 }
 ```
@@ -870,10 +976,16 @@ local user_data = "@(memory.getRecord('user_data'))"
 
 ```pkl
 // workflow.pkl
-cors {
-  enableCORS = true
-  allowOrigins { "https://example.com" }
-  allowMethods { "GET"; "POST" }
+amends "package://schema.kdeps.com/core@0.3.2#/Workflow.pkl"
+
+Settings {
+  APIServer {
+    CORS {
+      EnableCORS = true
+      AllowOrigins { "https://example.com" }
+      AllowMethods { "GET"; "POST" }
+    }
+  }
 }
 ```
 </details>
@@ -884,14 +996,22 @@ cors {
 
 ```pkl
 // workflow.pkl
-APIServerMode = true
-APIServer {
-  hostIP = "127.0.0.1"
-  portNum = 3000
-  routes {
-    new { path = "/api/v1/proxy"; Method = "GET" }
+amends "package://schema.kdeps.com/core@0.3.2#/Workflow.pkl"
+
+Settings {
+  APIServerMode = true
+  APIServer {
+    HostIP = "127.0.0.1"
+    PortNum = 3000
+    Routes {
+      new { 
+        Path = "/api/v1/proxy"
+        Methods { "GET" }
+        ActionID = "responseResource"
+      }
+    }
+    TrustedProxies { "192.168.1.1"; "10.0.0.0/8" }
   }
-  trustedProxies { "192.168.1.1"; "10.0.0.0/8" }
 }
 ```
 </details>
@@ -902,12 +1022,14 @@ APIServer {
 
 ```pkl
 // resources/exec.pkl
+amends "package://schema.kdeps.com/core@0.3.2#/Resource.pkl"
+
 ActionID = "execResource"
 Name = "Shell Script Runner"
 Description = "Runs a shell script."
 Run {
-  exec {
-    command = """
+  Exec {
+    Command = """
 echo "Processing request at $(date)"
 """
     TimeoutDuration = 60.s
@@ -922,15 +1044,19 @@ echo "Processing request at $(date)"
 
 ```pkl
 // workflow.pkl
-AgentSettings {
-  timezone = "Etc/UTC"
-  packages {
-    "tesseract-ocr"
-    "poppler-utils"
-    "npm"
-    "ffmpeg"
+amends "package://schema.kdeps.com/core@0.3.2#/Workflow.pkl"
+
+Settings {
+  AgentSettings {
+    Timezone = "Etc/UTC"
+    Packages {
+      "tesseract-ocr"
+      "poppler-utils"
+      "npm"
+      "ffmpeg"
+    }
+    OllamaTagVersion = "0.8.0"
   }
-  OllamaVersion = "0.8.0"
 }
 ```
 </details>
@@ -941,8 +1067,14 @@ AgentSettings {
 
 ```pkl
 // workflow.pkl
-repositories {
-  "ppa:alex-p/tesseract-ocr-devel"
+amends "package://schema.kdeps.com/core@0.3.2#/Workflow.pkl"
+
+Settings {
+  AgentSettings {
+    Repositories {
+      "ppa:alex-p/tesseract-ocr-devel"
+    }
+  }
 }
 ```
 </details>

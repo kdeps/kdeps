@@ -71,9 +71,9 @@ Settings {
                 Routes {
                         new {
                                 Path = "/api/v1/whois"
-                                Method = "GET" // Allows retrieving data
+                                Methods { "GET" } // Allows retrieving data
                                 ActionID = "responseResource"
-                                // Note: For multiple methods, create separate route entries
+                                // Note: For multiple methods, add to the Methods array
                         }
                 }
 
@@ -228,7 +228,7 @@ Settings {
                 }
 
                 // The Ollama image tag version to be used as a base Docker image for this AI agent.
-                OllamaVersion = "{{ .OllamaImageTag }}"
+                OllamaTagVersion = "{{ .OllamaImageTag }}"
 
                 // A mapping of build argument variable names.
                 Args {}

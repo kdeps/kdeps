@@ -73,7 +73,8 @@ func (dr *DependencyResolver) buildResponseSections(requestID string, apiRespons
 	// Workflow errors will be merged separately at the API server level
 
 	// If there are any response-specific errors, mark as failure
-	isSuccess := apiResponseBlock.GetSuccess() && len(responseErrors) == 0
+	successPtr := apiResponseBlock.GetSuccess()
+	isSuccess := successPtr != nil && *successPtr && len(responseErrors) == 0
 
 	sections := []string{
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Document.pkl" as document`, schema.SchemaVersion(dr.Context)),
@@ -348,8 +349,9 @@ func (dr *DependencyResolver) HandleAPIErrorResponse(code int, message string, f
 			allErrors := utils.MergeAllErrors(dr.RequestID, currentErrors)
 
 			// Create a comprehensive error response with all accumulated errors
+			successFalse := false
 			finalErrorResponse := &apiserverresponse.APIServerResponseImpl{
-				Success:  false,
+				Success:  &successFalse,
 				Response: &apiserverresponse.APIServerResponseBlock{Data: nil},
 				Errors:   &allErrors,
 			}

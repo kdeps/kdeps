@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/kdeps/kdeps/pkg/schema"
 	assets "github.com/kdeps/schema/assets"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,42 +34,26 @@ func TestLoadWorkflow(t *testing.T) {
 	})
 
 	t.Run("ValidWorkflowFile", func(t *testing.T) {
-		// Create a temporary file with valid PKL content
+		// Setup PKL workspace with embedded schema files
+		workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+		require.NoError(t, err)
+		defer workspace.Cleanup()
+
+		// Create a temporary file with valid PKL content using schema assets
 		tmpFile := t.TempDir() + "/valid.pkl"
-		validContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
+		validContent := fmt.Sprintf(`amends "%s"
 
 AgentID = "testworkflow"
 Version = "1.0.0"
 Description = "Test workflow"
 TargetActionID = "testaction"
 Settings {
-  APIServerMode = true
-  APIServer {
-    HostIP = "127.0.0.1"
-    PortNum = 3000
-    Routes {
-      new {
-        Path = "/api/v1/test"
-        Method = "POST"
-        ActionID = "testaction"
-      }
-    }
-    CORS {
-      EnableCORS = true
-      AllowOrigins {
-        "http://localhost:8080"
-      }
-    }
-  }
-  AgentSettings {
-    Timezone = "Etc/UTC"
-    Models {
-      "llama3.2:1b"
-    }
-    OllamaVersion = "0.8.0"
-  }
-}`, schema.SchemaVersion(ctx))
-		err := os.WriteFile(tmpFile, []byte(validContent), 0o644)
+  APIServerMode = false
+  WebServerMode = false
+  RateLimitMax = 100
+  Environment = "dev"
+}`, workspace.GetImportPath("Workflow.pkl"))
+		err = os.WriteFile(tmpFile, []byte(validContent), 0o644)
 		require.NoError(t, err)
 
 		wf, err := LoadWorkflow(ctx, tmpFile, logger)
@@ -78,7 +61,8 @@ Settings {
 		assert.NotNil(t, wf)
 		assert.Equal(t, "testworkflow", wf.GetAgentID())
 		assert.Equal(t, "1.0.0", wf.GetVersion())
-		assert.Equal(t, "Test workflow", wf.GetDescription())
+		assert.NotNil(t, wf.GetDescription())
+		assert.Equal(t, "Test workflow", *wf.GetDescription())
 		assert.Equal(t, "testaction", wf.GetTargetActionID())
 	})
 }
@@ -95,7 +79,7 @@ func TestWorkflowWithSchemaAssets(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotEmpty(t, workflowSchema)
 
-		// Verify the schema contains expected v0.3.1 properties
+		// Verify the schema contains expected v0.3.2 properties
 		assert.Contains(t, workflowSchema, "AgentID: String")
 		assert.Contains(t, workflowSchema, "Description: String")
 		assert.Contains(t, workflowSchema, "Website: Uri?")
@@ -119,11 +103,11 @@ func TestWorkflowWithSchemaAssets(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotEmpty(t, projectSchema)
 
-		// Verify it contains the new v0.3.1 Settings properties
-		assert.Contains(t, projectSchema, "RateLimitMax: Int = 100")
-		assert.Contains(t, projectSchema, "Environment: BuildEnv = \"dev\"")
-		assert.Contains(t, projectSchema, "APIServerMode: Boolean = false")
-		assert.Contains(t, projectSchema, "WebServerMode: Boolean = false")
+		// Verify it contains the new v0.3.2 Settings properties
+		assert.Contains(t, projectSchema, "RateLimitMax: Int? = 100")
+		assert.Contains(t, projectSchema, "Environment: BuildEnv? = \"dev\"")
+		assert.Contains(t, projectSchema, "APIServerMode: Boolean? = false")
+		assert.Contains(t, projectSchema, "WebServerMode: Boolean? = false")
 		assert.Contains(t, projectSchema, "AgentSettings: Docker.DockerSettings")
 
 		t.Logf("Project schema validation successful")
@@ -135,7 +119,7 @@ func TestWorkflowWithSchemaAssets(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotEmpty(t, resourceSchema)
 
-		// Verify it contains the new v0.3.1 Resource properties
+		// Verify it contains the new v0.3.2 Resource properties
 		assert.Contains(t, resourceSchema, "ActionID: String")
 		assert.Contains(t, resourceSchema, "Name: String")
 		assert.Contains(t, resourceSchema, "Description: String")
@@ -146,8 +130,8 @@ func TestWorkflowWithSchemaAssets(t *testing.T) {
 		assert.Contains(t, resourceSchema, "APIResponse: APIServerResponse?")
 
 		// Verify ValidationCheck class with retry properties
-		assert.Contains(t, resourceSchema, "Retry: Boolean = false")
-		assert.Contains(t, resourceSchema, "RetryTimes: Int = 3")
+		assert.Contains(t, resourceSchema, "Retry: Boolean? = false")
+		assert.Contains(t, resourceSchema, "RetryTimes: Int? = 3")
 
 		t.Logf("Resource schema validation successful")
 	})

@@ -693,7 +693,7 @@ Settings {
 		Models {
 			"llama3.2:1b"
 		}
-		OllamaVersion = "0.8.0"
+		OllamaTagVersion = "0.8.0"
 	}
 }`, testWorkspace.GetImportPath("Workflow.pkl"))
 
@@ -766,29 +766,29 @@ Run {
 		workflowSchema, err := assets.GetPKLFileAsString("Workflow.pkl")
 		require.NoError(t, err)
 
-		// Verify v0.3.1 workflow properties are defined
+		// Verify v0.3.2 workflow properties are defined
 		assert.Contains(t, workflowSchema, "AgentID: String")
 		assert.Contains(t, workflowSchema, "Settings: Project.Settings")
 
 		resourceSchema, err := assets.GetPKLFileAsString("Resource.pkl")
 		require.NoError(t, err)
 
-		// Verify v0.3.1 resource properties are defined
+		// Verify v0.3.2 resource properties are defined
 		assert.Contains(t, resourceSchema, "ActionID: String")
 		assert.Contains(t, resourceSchema, "PostflightCheck: ValidationCheck?")
 		assert.Contains(t, resourceSchema, "AllowedHeaders: Listing<String>?")
 		assert.Contains(t, resourceSchema, "AllowedParams: Listing<String>?")
-		assert.Contains(t, resourceSchema, "Retry: Boolean = false")
-		assert.Contains(t, resourceSchema, "RetryTimes: Int = 3")
+		assert.Contains(t, resourceSchema, "Retry: Boolean? = false")
+		assert.Contains(t, resourceSchema, "RetryTimes: Int? = 3")
 
 		projectSchema, err := assets.GetPKLFileAsString("Project.pkl")
 		require.NoError(t, err)
 
-		// Verify v0.3.1 project settings properties
-		assert.Contains(t, projectSchema, "RateLimitMax: Int = 100")
-		assert.Contains(t, projectSchema, "Environment: BuildEnv = \"dev\"")
+		// Verify v0.3.2 project settings properties
+		assert.Contains(t, projectSchema, "RateLimitMax: Int? = 100")
+		assert.Contains(t, projectSchema, "Environment: BuildEnv? = \"dev\"")
 
-		t.Logf("Schema validation completed for v0.3.1 properties")
+		t.Logf("Schema validation completed for v0.3.2 properties")
 	})
 
 	t.Run("ArchiveProjectWithAssets", func(t *testing.T) {
@@ -819,7 +819,7 @@ Settings {
 		Models {
 			"llama3.2:3b"
 		}
-		OllamaVersion = "0.8.0"
+		OllamaTagVersion = "0.8.0"
 	}
 }`, workspace.GetImportPath("Workflow.pkl"))
 

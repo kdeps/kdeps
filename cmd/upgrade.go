@@ -15,6 +15,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // UpgradeCommand creates the 'upgrade' command for upgrading schema versions in pkl files.
 func UpgradeCommand(fs afero.Fs, ctx context.Context, kdepsDir string, logger *logging.Logger) *cobra.Command {
 	var targetVersion string
@@ -151,48 +158,31 @@ func upgradeSchemaVersions(fs afero.Fs, dirPath, targetVersion string, dryRun bo
 func upgradeSchemaVersionInContent(content, targetVersion string, logger *logging.Logger) (string, bool, error) {
 	// Regex patterns to match schema version references
 	patterns := []string{
-		// Match: amends "package://schema.kdeps.com/core@0.2.30#/Workflow.pkl"
-		`(amends\s+"package://schema\.kdeps\.com/core@)([^"#]+)(#/[^"]+")`,
-		// Match: import "package://schema.kdeps.com/core@0.2.30#/Resource.pkl"
-		`(import\s+"package://schema\.kdeps\.com/core@)([^"#]+)(#/[^"]+")`,
-		// Match other similar patterns
-		`("package://schema\.kdeps\.com/core@)([^"#]+)(#/[^"]+")`,
+		`(amends\s+"package://schema\.kdeps\.com/core@)([^\"]+)(#/[^"]+")`,
+		`(import\s+"package://schema\.kdeps\.com/core@)([^\"]+)(#/[^"]+")`,
+		`("package://schema\.kdeps\.com/core@)([^\"]+)(#/[^"]+")`,
 	}
 
 	updatedContent := content
 	changed := false
 
+	logger.Debug("upgrading schema version", "content", content, "target_version", targetVersion)
+
 	for _, pattern := range patterns {
 		re := regexp.MustCompile(pattern)
-		matches := re.FindAllStringSubmatch(updatedContent, -1)
-
-		for _, match := range matches {
-			if len(match) >= 4 {
-				currentVersion := match[2]
-
-				// Skip if already at target version
-				if currentVersion == targetVersion {
-					continue
-				}
-
-				// Validate current version format (if it's a valid version)
-				if err := utils.ValidateSchemaVersion(currentVersion, version.MinimumSchemaVersion); err != nil {
-					logger.Debug("skipping invalid current version", "version", currentVersion, "error", err)
-					continue
-				}
-
-				// Replace with target version
-				oldRef := match[1] + currentVersion + match[3]
-				newRef := match[1] + targetVersion + match[3]
-
-				updatedContent = strings.ReplaceAll(updatedContent, oldRef, newRef)
-				changed = true
-
-				logger.Debug("upgrading schema version reference",
-					"from", currentVersion,
-					"to", targetVersion)
+		updatedContentNew := re.ReplaceAllStringFunc(updatedContent, func(match string) string {
+			subs := re.FindStringSubmatch(match)
+			if len(subs) < 4 {
+				return match
 			}
-		}
+			currentVersion := subs[2]
+			if currentVersion == targetVersion {
+				return match
+			}
+			changed = true
+			return subs[1] + targetVersion + subs[3]
+		})
+		updatedContent = updatedContentNew
 	}
 
 	return updatedContent, changed, nil

@@ -168,9 +168,9 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	var agentName, memoryDBPath, sessionDBPath, toolDBPath, itemDBPath string
 
 	if workflowConfiguration.GetSettings() != nil {
-		apiServerMode = workflowConfiguration.GetSettings().APIServerMode
+		apiServerMode = workflowConfiguration.GetSettings().APIServerMode != nil && *workflowConfiguration.GetSettings().APIServerMode
 		agentSettings := workflowConfiguration.GetSettings().AgentSettings
-		installAnaconda = agentSettings.InstallAnaconda
+		installAnaconda = agentSettings.InstallAnaconda != nil && *agentSettings.InstallAnaconda
 		agentName = workflowConfiguration.GetAgentID()
 	}
 
@@ -663,9 +663,9 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 
 			// Build user-friendly error message
 			var errorMessage string
-			if runBlock.PreflightCheck.Error != nil && runBlock.PreflightCheck.Error.Message != "" {
+			if runBlock.PreflightCheck.Error != nil && runBlock.PreflightCheck.Error.Message != nil && *runBlock.PreflightCheck.Error.Message != "" {
 				// Use the custom error message if provided
-				errorMessage = runBlock.PreflightCheck.Error.Message
+				errorMessage = *runBlock.PreflightCheck.Error.Message
 			} else {
 				// Default error message
 				errorMessage = fmt.Sprintf("Validation failed for %s", res.ActionID)
@@ -681,8 +681,8 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 			}
 
 			// Collect error but continue processing to gather ALL errors
-			if runBlock.PreflightCheck.Error != nil {
-				dr.HandleAPIErrorResponse(runBlock.PreflightCheck.Error.Code, errorMessage, false)
+			if runBlock.PreflightCheck.Error != nil && runBlock.PreflightCheck.Error.Code != nil {
+				dr.HandleAPIErrorResponse(*runBlock.PreflightCheck.Error.Code, errorMessage, false)
 			} else {
 				dr.HandleAPIErrorResponse(500, errorMessage, false)
 			}

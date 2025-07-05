@@ -18,12 +18,10 @@ import (
 // minimal workflow stub satisfying the two getters used by PackageProject.
 type simpleWf struct{}
 
-func (simpleWf) GetAgentID() string { return "agent" }
-func (simpleWf) GetName() string    { return "agent" }
-func (simpleWf) GetVersion() string { return "0.0.1" }
-
-// Unused methods – provide zero values to satisfy interface.
-func (simpleWf) GetDescription() string         { return "" }
+func (simpleWf) GetAgentID() string             { return "simple-agent" }
+func (simpleWf) GetName() string                { return "agent" }
+func (simpleWf) GetVersion() string             { return "1.0.0" }
+func (simpleWf) GetDescription() *string        { desc := ""; return &desc }
 func (simpleWf) GetWebsite() *string            { return nil }
 func (simpleWf) GetAuthors() *[]string          { return nil }
 func (simpleWf) GetDocumentation() *string      { return nil }
@@ -156,7 +154,7 @@ func TestPrepareRunDir(t *testing.T) {
 func TestPackageProjectHappy(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	wf := stubWf{}
+	wf := simpleWf{}
 	kdepsDir := "/kdeps"
 	compiled := "/compiled"
 
@@ -187,7 +185,7 @@ type stubWorkflowPkg struct{}
 func (stubWorkflowPkg) GetAgentID() string                { return "mini-agent" }
 func (stubWorkflowPkg) GetName() string                   { return "mini-agent" }
 func (stubWorkflowPkg) GetVersion() string                { return "0.0.1" }
-func (stubWorkflowPkg) GetDescription() string            { return "" }
+func (stubWorkflowPkg) GetDescription() *string           { desc := ""; return &desc }
 func (stubWorkflowPkg) GetWebsite() *string               { return nil }
 func (stubWorkflowPkg) GetAuthors() *[]string             { return nil }
 func (stubWorkflowPkg) GetDocumentation() *string         { return nil }

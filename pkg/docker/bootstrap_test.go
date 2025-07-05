@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/pkg"
 	"github.com/kdeps/kdeps/pkg/schema"
 )
 
@@ -205,9 +206,9 @@ func TestStartWebServerWrapper_Success(t *testing.T) {
 
 	settings := &project.Settings{
 		WebServer: &webserver.WebServerSettings{
-			HostIP:  "127.0.0.1",
-			PortNum: portNum,
-			Routes:  []*webserver.WebServerRoutes{},
+			HostIP:  pkg.StringPtr("127.0.0.1"),
+			PortNum: pkg.Uint16Ptr(portNum),
+			Routes:  &[]*webserver.WebServerRoutes{},
 		},
 	}
 

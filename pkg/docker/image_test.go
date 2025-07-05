@@ -14,11 +14,15 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
+	pkg "github.com/kdeps/kdeps/pkg"
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/version"
-	kdCfg "github.com/kdeps/schema/gen/kdeps"
+	kdepspkg "github.com/kdeps/schema/gen/kdeps"
+	"github.com/kdeps/schema/gen/kdeps/gpu"
+	"github.com/kdeps/schema/gen/kdeps/path"
+	"github.com/kdeps/schema/gen/kdeps/runmode"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -229,18 +233,21 @@ func TestBuildDockerfile(t *testing.T) {
 	kdepsDir := "/test"
 
 	t.Run("MissingConfig", func(t *testing.T) {
-		kdeps := &kdCfg.Kdeps{}
+		kdeps := &kdepspkg.Kdeps{}
 		_, _, _, _, _, _, _, _, err := BuildDockerfile(fs, ctx, kdeps, kdepsDir, pkgProject, logger)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "error reading workflow file")
 	})
 
 	t.Run("ValidConfig", func(t *testing.T) {
-		kdeps := &kdCfg.Kdeps{
-			Mode:   "docker",
-			DockerGPU: "cpu",
-			KdepsDir:  ".kdeps",
-			KdepsPath: "user",
+		mode := runmode.Docker
+		gpuType := gpu.Cpu
+		pathType := path.User
+		kdeps := &kdepspkg.Kdeps{
+			Mode:      &mode,
+			DockerGPU: &gpuType,
+			KdepsDir:  pkg.GetDefaultKdepsDir(),
+			KdepsPath: &pathType,
 		}
 		_, _, _, _, _, _, _, _, err := BuildDockerfile(fs, ctx, kdeps, kdepsDir, pkgProject, logger)
 		assert.Error(t, err)
@@ -258,11 +265,14 @@ func TestBuildDockerImage(t *testing.T) {
 	mockClient := &client.Client{}
 
 	t.Run("MissingWorkflow", func(t *testing.T) {
-		kdeps := &kdCfg.Kdeps{
-			Mode:   "docker",
-			DockerGPU: "cpu",
-			KdepsDir:  ".kdeps",
-			KdepsPath: "user",
+		mode := runmode.Docker
+		gpuType := gpu.Cpu
+		pathType := path.User
+		kdeps := &kdepspkg.Kdeps{
+			Mode:      &mode,
+			DockerGPU: &gpuType,
+			KdepsDir:  pkg.GetDefaultKdepsDir(),
+			KdepsPath: &pathType,
 		}
 		_, _, err := BuildDockerImage(fs, ctx, kdeps, mockClient, runDir, kdepsDir, pkgProject, logger)
 		assert.Error(t, err)
@@ -279,11 +289,14 @@ version: 1.0
 `), 0o644)
 		require.NoError(t, err)
 
-		kdeps := &kdCfg.Kdeps{
-			Mode:   "docker",
-			DockerGPU: "cpu",
-			KdepsDir:  ".kdeps",
-			KdepsPath: "user",
+		mode := runmode.Docker
+		gpuType := gpu.Cpu
+		pathType := path.User
+		kdeps := &kdepspkg.Kdeps{
+			Mode:      &mode,
+			DockerGPU: &gpuType,
+			KdepsDir:  pkg.GetDefaultKdepsDir(),
+			KdepsPath: &pathType,
 		}
 		_, _, err = BuildDockerImage(fs, ctx, kdeps, mockClient, runDir, kdepsDir, pkgProject, logger)
 		assert.Error(t, err) // Expected error due to mock client
@@ -411,7 +424,7 @@ func (m *MockImageBuildClient) ImageList(ctx context.Context, options image.List
 func TestBuildDockerImageNew(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdeps := &kdCfg.Kdeps{}
+	kdeps := &kdepspkg.Kdeps{}
 	baseLogger := log.New(nil)
 	logger := &logging.Logger{Logger: baseLogger}
 
@@ -449,7 +462,7 @@ func TestBuildDockerImageNew(t *testing.T) {
 func TestBuildDockerImageImageExists(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdeps := &kdCfg.Kdeps{}
+	kdeps := &kdepspkg.Kdeps{}
 	baseLogger := log.New(nil)
 	logger := &logging.Logger{Logger: baseLogger}
 
@@ -603,7 +616,7 @@ func TestCheckDevBuildModeVariant(t *testing.T) {
 func TestBuildDockerfileContent(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdeps := &kdCfg.Kdeps{}
+	kdeps := &kdepspkg.Kdeps{}
 	baseLogger := log.New(nil)
 	logger := &logging.Logger{Logger: baseLogger}
 	kdepsDir := "/test/kdeps"

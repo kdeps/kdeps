@@ -17,7 +17,7 @@ import (
 type stubWf struct{}
 
 func (stubWf) GetAgentID() string             { return "agent" }
-func (stubWf) GetDescription() string         { return "" }
+func (stubWf) GetDescription() *string        { desc := ""; return &desc }
 func (stubWf) GetWebsite() *string            { return nil }
 func (stubWf) GetAuthors() *[]string          { return nil }
 func (stubWf) GetDocumentation() *string      { return nil }

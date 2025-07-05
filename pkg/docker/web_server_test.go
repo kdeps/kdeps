@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/kdeps/kdeps/pkg"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/schema"
@@ -26,8 +27,8 @@ func TestHandleAppRequest_Misconfiguration(t *testing.T) {
 
 	route := &webserver.WebServerRoutes{
 		Path:       "/app",
-		PublicPath: "app",
-		ServerType: webservertype.App,
+		PublicPath: pkg.StringPtr("app"),
+		ServerType: func() *webservertype.WebServerType { v := webservertype.App; return &v }(),
 		AppPort:    func() *uint16 { v := uint16(3000); return &v }(),
 	}
 
@@ -99,8 +100,8 @@ func TestWebServerHandler_Static(t *testing.T) {
 
 	route := &webserver.WebServerRoutes{
 		Path:       "/public",
-		PublicPath: publicPath,
-		ServerType: webservertype.Static,
+		PublicPath: pkg.StringPtr(publicPath),
+		ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 	}
 
 	handler := WebServerHandler(context.Background(), "", route, dr)
@@ -136,7 +137,7 @@ func TestWebServerHandler_AppError(t *testing.T) {
 	var port uint16 = 1234
 	route := &webserver.WebServerRoutes{
 		Path:       "/proxy",
-		ServerType: webservertype.App,
+		ServerType: func() *webservertype.WebServerType { v := webservertype.App; return &v }(),
 		AppPort:    &port,
 	}
 
@@ -171,8 +172,8 @@ func TestHandleAppRequest_BadGateway(t *testing.T) {
 	port := uint16(65534) // assume nothing is listening here
 	route := &webserver.WebServerRoutes{
 		Path:       "/app",
-		PublicPath: "unused",
-		ServerType: webservertype.App,
+		PublicPath: pkg.StringPtr("unused"),
+		ServerType: func() *webservertype.WebServerType { v := webservertype.App; return &v }(),
 		AppPort:    &port,
 	}
 
@@ -230,8 +231,8 @@ func TestHandleStaticRequest_Static(t *testing.T) {
 	// Build route definition
 	route := &webserver.WebServerRoutes{
 		Path:       "/static",
-		PublicPath: "public",
-		ServerType: webservertype.Static,
+		PublicPath: pkg.StringPtr("public"),
+		ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 	}
 
 	// Prepare gin context
@@ -240,7 +241,7 @@ func TestHandleStaticRequest_Static(t *testing.T) {
 	ctx.Request = httptest.NewRequest("GET", "/static/index.txt", nil)
 
 	// Invoke static handler directly
-	handleStaticRequest(ctx, filepath.Join(dataDir, route.PublicPath), route)
+	handleStaticRequest(ctx, filepath.Join(dataDir, *route.PublicPath), route)
 
 	if w.Code != 200 {
 		t.Fatalf("expected 200, got %d", w.Code)
@@ -277,7 +278,7 @@ func (m *MockWorkflow) GetAgentIcon() *string     { return nil }
 func (m *MockWorkflow) GetTargetActionID() string { return "" }
 func (m *MockWorkflow) GetWorkflows() []string    { return nil }
 func (m *MockWorkflow) GetAuthors() *[]string     { return nil }
-func (m *MockWorkflow) GetDescription() string    { return "" }
+func (m *MockWorkflow) GetDescription() *string   { return nil }
 func (m *MockWorkflow) GetDocumentation() *string { return nil }
 func (m *MockWorkflow) GetHeroImage() *string     { return nil }
 func (m *MockWorkflow) GetRepository() *string    { return nil }
@@ -289,9 +290,9 @@ func TestStartWebServerMode(t *testing.T) {
 		portNum := uint16(8080)
 		settings := &project.Settings{
 			WebServer: &webserver.WebServerSettings{
-				HostIP:  "localhost",
-				PortNum: portNum,
-				Routes:  []*webserver.WebServerRoutes{},
+				HostIP:  pkg.StringPtr("localhost"),
+				PortNum: pkg.Uint16Ptr(portNum),
+				Routes:  &[]*webserver.WebServerRoutes{},
 			},
 		}
 
@@ -342,10 +343,10 @@ func TestStartWebServerMode(t *testing.T) {
 		trustedProxies := []string{"127.0.0.1"}
 		settings := &project.Settings{
 			WebServer: &webserver.WebServerSettings{
-				HostIP:         "localhost",
-				PortNum:        portNum,
+				HostIP:         pkg.StringPtr("localhost"),
+				PortNum:        pkg.Uint16Ptr(portNum),
 				TrustedProxies: &trustedProxies,
-				Routes:         []*webserver.WebServerRoutes{},
+				Routes:         &[]*webserver.WebServerRoutes{},
 			},
 		}
 
@@ -395,9 +396,9 @@ func TestStartWebServerMode(t *testing.T) {
 		portNum := uint16(0) // Invalid port
 		settings := &project.Settings{
 			WebServer: &webserver.WebServerSettings{
-				HostIP:  "localhost",
-				PortNum: portNum,
-				Routes:  []*webserver.WebServerRoutes{},
+				HostIP:  pkg.StringPtr("localhost"),
+				PortNum: pkg.Uint16Ptr(portNum),
+				Routes:  &[]*webserver.WebServerRoutes{},
 			},
 		}
 
@@ -441,9 +442,9 @@ func TestStartWebServerMode(t *testing.T) {
 		portNum := uint16(0) // Invalid port
 		settings := &project.Settings{
 			WebServer: &webserver.WebServerSettings{
-				HostIP:  "localhost",
-				PortNum: portNum,
-				Routes:  []*webserver.WebServerRoutes{},
+				HostIP:  pkg.StringPtr("localhost"),
+				PortNum: pkg.Uint16Ptr(portNum),
+				Routes:  &[]*webserver.WebServerRoutes{},
 			},
 		}
 
@@ -524,9 +525,9 @@ func TestStartWebServerMode(t *testing.T) {
 		mockWorkflow := &MockWorkflow{
 			settings: &project.Settings{
 				WebServer: &webserver.WebServerSettings{
-					HostIP:         "localhost",
-					PortNum:        uint16(8090), // Use a different port to avoid conflicts
-					Routes:         []*webserver.WebServerRoutes{},
+					HostIP:         pkg.StringPtr("localhost"),
+					PortNum:        pkg.Uint16Ptr(uint16(8090)), // Use a different port to avoid conflicts
+					Routes:         &[]*webserver.WebServerRoutes{},
 					TrustedProxies: &[]string{},
 				},
 			},
@@ -555,9 +556,9 @@ func TestStartWebServerMode(t *testing.T) {
 		mockWorkflow := &MockWorkflow{
 			settings: &project.Settings{
 				WebServer: &webserver.WebServerSettings{
-					HostIP:         "localhost",
-					PortNum:        uint16(8081),
-					Routes:         []*webserver.WebServerRoutes{},
+					HostIP:         pkg.StringPtr("localhost"),
+					PortNum:        pkg.Uint16Ptr(uint16(8081)),
+					Routes:         &[]*webserver.WebServerRoutes{},
 					TrustedProxies: &[]string{},
 				},
 			},
@@ -584,9 +585,9 @@ func TestStartWebServerMode(t *testing.T) {
 		// Create mock workflow settings with invalid host IP
 		wfSettings := &project.Settings{
 			WebServer: &webserver.WebServerSettings{
-				HostIP:  "invalid-ip",
-				PortNum: uint16(8080),
-				Routes:  []*webserver.WebServerRoutes{},
+				HostIP:  pkg.StringPtr("invalid-ip"),
+				PortNum: pkg.Uint16Ptr(uint16(8080)),
+				Routes:  &[]*webserver.WebServerRoutes{},
 			},
 		}
 
@@ -623,13 +624,13 @@ func TestSetupWebRoutes(t *testing.T) {
 		routes := []*webserver.WebServerRoutes{
 			{
 				Path:       "/static",
-				PublicPath: "static",
-				ServerType: webservertype.Static,
+				PublicPath: pkg.StringPtr("static"),
+				ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 			},
 			{
 				Path:       "/app",
-				PublicPath: "app",
-				ServerType: webservertype.App,
+				PublicPath: pkg.StringPtr("app"),
+				ServerType: func() *webservertype.WebServerType { v := webservertype.App; return &v }(),
 				AppPort:    uint16Ptr(3000),
 			},
 		}
@@ -663,8 +664,8 @@ func TestSetupWebRoutes(t *testing.T) {
 		routes := []*webserver.WebServerRoutes{
 			{
 				Path:       "",
-				PublicPath: "static",
-				ServerType: webservertype.Static,
+				PublicPath: pkg.StringPtr("static"),
+				ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 			},
 		}
 
@@ -683,8 +684,8 @@ func TestSetupWebRoutes(t *testing.T) {
 		routes := []*webserver.WebServerRoutes{
 			{
 				Path:       "/static",
-				PublicPath: "static",
-				ServerType: webservertype.Static,
+				PublicPath: pkg.StringPtr("static"),
+				ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 			},
 		}
 
@@ -703,8 +704,8 @@ func TestSetupWebRoutes(t *testing.T) {
 		routes := []*webserver.WebServerRoutes{
 			{
 				Path:       "/test",
-				PublicPath: "test",
-				ServerType: webservertype.Static,
+				PublicPath: pkg.StringPtr("test"),
+				ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 			},
 		}
 
@@ -725,8 +726,8 @@ func TestSetupWebRoutes(t *testing.T) {
 		routes := []*webserver.WebServerRoutes{
 			{
 				Path:       "/test",
-				PublicPath: "test",
-				ServerType: webservertype.Static,
+				PublicPath: pkg.StringPtr("test"),
+				ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 			},
 		}
 
@@ -765,8 +766,8 @@ func TestSetupWebRoutes(t *testing.T) {
 		routes := []*webserver.WebServerRoutes{
 			{
 				Path:       "/test",
-				PublicPath: "test",
-				ServerType: webservertype.Static,
+				PublicPath: pkg.StringPtr("test"),
+				ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 			},
 		}
 
@@ -782,8 +783,8 @@ func TestSetupWebRoutes(t *testing.T) {
 		// Create mock route
 		route := &webserver.WebServerRoutes{
 			Path:       "/test",
-			PublicPath: "test",
-			ServerType: webservertype.Static,
+			PublicPath: pkg.StringPtr("test"),
+			ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 		}
 
 		// Create mock dependency resolver
@@ -806,8 +807,8 @@ func TestWebServerHandler(t *testing.T) {
 		// Create mock route
 		route := &webserver.WebServerRoutes{
 			Path:       "/test",
-			PublicPath: "/tmp/test",
-			ServerType: webservertype.Static,
+			PublicPath: pkg.StringPtr("/tmp/test"),
+			ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 		}
 
 		// Create mock dependency resolver
@@ -866,8 +867,8 @@ func TestWebServerHandler(t *testing.T) {
 	t.Run("UnsupportedServerType", func(t *testing.T) {
 		route := &webserver.WebServerRoutes{
 			Path:       "/test",
-			PublicPath: "test",
-			ServerType: "invalid",
+			PublicPath: pkg.StringPtr("test"),
+			ServerType: func() *webservertype.WebServerType { v := webservertype.WebServerType("invalid"); return &v }(),
 		}
 
 		logger := logging.NewTestLogger()
@@ -891,8 +892,8 @@ func TestWebServerHandler(t *testing.T) {
 		// Create mock route with invalid server type
 		route := &webserver.WebServerRoutes{
 			Path:       "/test",
-			PublicPath: "test",
-			ServerType: "invalid",
+			PublicPath: pkg.StringPtr("test"),
+			ServerType: func() *webservertype.WebServerType { v := webservertype.WebServerType("invalid"); return &v }(),
 		}
 
 		// Create mock dependency resolver
@@ -919,8 +920,8 @@ func TestWebServerHandler(t *testing.T) {
 	t.Run("EmptyDataDirectory", func(t *testing.T) {
 		route := &webserver.WebServerRoutes{
 			Path:       "/test",
-			PublicPath: "test",
-			ServerType: webservertype.Static,
+			PublicPath: pkg.StringPtr("test"),
+			ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 		}
 
 		// Create mock dependency resolver with empty data directory
@@ -960,8 +961,8 @@ func TestWebServerHandler(t *testing.T) {
 	t.Run("NilDependencyResolver", func(t *testing.T) {
 		route := &webserver.WebServerRoutes{
 			Path:       "/test",
-			PublicPath: "test",
-			ServerType: webservertype.Static,
+			PublicPath: pkg.StringPtr("test"),
+			ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 		}
 
 		// Call WebServerHandler and expect it to panic due to nil dependency resolver
@@ -974,8 +975,8 @@ func TestWebServerHandler(t *testing.T) {
 		// Create mock route
 		route := &webserver.WebServerRoutes{
 			Path:       "/test",
-			PublicPath: "/nonexistent",
-			ServerType: webservertype.Static,
+			PublicPath: pkg.StringPtr("/nonexistent"),
+			ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 		}
 
 		// Create mock dependency resolver with nil filesystem
@@ -1032,8 +1033,8 @@ func TestStartAppCommand(t *testing.T) {
 		invalidCommand := "invalid-command-that-will-fail"
 		route := &webserver.WebServerRoutes{
 			Path:       "/app",
-			PublicPath: "app",
-			ServerType: webservertype.App,
+			PublicPath: pkg.StringPtr("app"),
+			ServerType: func() *webservertype.WebServerType { v := webservertype.App; return &v }(),
 			Command:    &invalidCommand,
 		}
 
@@ -1049,8 +1050,8 @@ func TestStartAppCommand(t *testing.T) {
 		// Create mock route with nil command
 		route := &webserver.WebServerRoutes{
 			Path:       "/app",
-			PublicPath: "app",
-			ServerType: webservertype.App,
+			PublicPath: pkg.StringPtr("app"),
+			ServerType: func() *webservertype.WebServerType { v := webservertype.App; return &v }(),
 			Command:    nil,
 		}
 

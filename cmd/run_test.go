@@ -7,10 +7,11 @@ import (
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/kdeps/kdeps/pkg/schema"
+	assets "github.com/kdeps/schema/assets"
 	"github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewRunCommandFlags(t *testing.T) {
@@ -34,14 +35,80 @@ func TestNewRunCommandExecution(t *testing.T) {
 	systemCfg := &kdeps.Kdeps{}
 	logger := logging.NewTestLogger()
 
+	// Setup PKL workspace with embedded schema files
+	workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+	require.NoError(t, err)
+	defer workspace.Cleanup()
+
 	// Create test directory
 	testDir := filepath.Join("/test")
-	err := fs.MkdirAll(testDir, 0o755)
+	err = fs.MkdirAll(testDir, 0o755)
 	assert.NoError(t, err)
 
-	// Create test package file
-	agentKdepsPath := filepath.Join(testDir, "agent.kdeps")
-	err = afero.WriteFile(fs, agentKdepsPath, []byte("test package"), 0o644)
+	// Create a valid workflow file
+	validAgentDir := filepath.Join(testDir, "valid-agent")
+	err = fs.MkdirAll(validAgentDir, 0o755)
+	assert.NoError(t, err)
+
+	workflowContent := fmt.Sprintf(`amends "%s"
+
+AgentID = "testagent"
+Description = "Test Agent"
+Version = "1.0.0"
+TargetActionID = "testAction"
+
+Workflows {}
+
+Settings {
+	APIServerMode = true
+	APIServer {
+		HostIP = "127.0.0.1"
+		PortNum = 3000
+		Routes {
+			new {
+				Path = "/api/v1/test"
+				Methods { "GET" }
+			}
+		}
+	}
+	AgentSettings {
+		Timezone = "Etc/UTC"
+		Models {
+			"llama3.2:1b"
+		}
+		OllamaTagVersion = "0.6.8"
+	}
+}`, workspace.GetImportPath("Workflow.pkl"))
+
+	workflowPath := filepath.Join(validAgentDir, "workflow.pkl")
+	err = afero.WriteFile(fs, workflowPath, []byte(workflowContent), 0o644)
+	assert.NoError(t, err)
+
+	// Create resources directory and add required resources
+	resourcesDir := filepath.Join(validAgentDir, "resources")
+	err = fs.MkdirAll(resourcesDir, 0o755)
+	assert.NoError(t, err)
+
+	resourceContent := fmt.Sprintf(`amends "%s"
+
+actionID = "testAction"
+run {
+	exec {
+		["test"] = "echo 'test'"
+	}
+}`, workspace.GetImportPath("Resource.pkl"))
+
+	// Create all required resource files
+	requiredResources := []string{"client.pkl", "exec.pkl", "llm.pkl", "python.pkl", "response.pkl"}
+	for _, resource := range requiredResources {
+		resourcePath := filepath.Join(resourcesDir, resource)
+		err = afero.WriteFile(fs, resourcePath, []byte(resourceContent), 0o644)
+		assert.NoError(t, err)
+	}
+
+	// Create a valid .kdeps file
+	validKdepsPath := filepath.Join(testDir, "valid-agent.kdeps")
+	err = afero.WriteFile(fs, validKdepsPath, []byte("valid package"), 0o644)
 	assert.NoError(t, err)
 
 	// Test error case - no arguments
@@ -49,15 +116,18 @@ func TestNewRunCommandExecution(t *testing.T) {
 	err = cmd.Execute()
 	assert.Error(t, err)
 
-	// Test error case - invalid package file
+	// Test error case - nonexistent file
 	cmd = NewRunCommand(fs, ctx, kdepsDir, systemCfg, logger)
 	cmd.SetArgs([]string{filepath.Join(testDir, "nonexistent.kdeps")})
 	err = cmd.Execute()
 	assert.Error(t, err)
 
 	// Test error case - invalid package content
+	invalidKdepsPath := filepath.Join(testDir, "invalid.kdeps")
+	err = afero.WriteFile(fs, invalidKdepsPath, []byte("invalid package"), 0o644)
+	assert.NoError(t, err)
 	cmd = NewRunCommand(fs, ctx, kdepsDir, systemCfg, logger)
-	cmd.SetArgs([]string{agentKdepsPath})
+	cmd.SetArgs([]string{invalidKdepsPath})
 	err = cmd.Execute()
 	assert.Error(t, err)
 }
@@ -69,14 +139,19 @@ func TestNewRunCommandDockerErrors(t *testing.T) {
 	systemCfg := &kdeps.Kdeps{}
 	logger := logging.NewTestLogger()
 
+	// Setup PKL workspace with embedded schema files
+	workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+	require.NoError(t, err)
+	defer workspace.Cleanup()
+
 	// Create test directory
 	testDir := filepath.Join("/test")
 	validAgentDir := filepath.Join(testDir, "valid-agent")
-	err := fs.MkdirAll(validAgentDir, 0o755)
+	err = fs.MkdirAll(validAgentDir, 0o755)
 	assert.NoError(t, err)
 
 	// Create test package file with valid structure but that will fail docker operations
-	workflowContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
+	workflowContent := fmt.Sprintf(`amends "%s"
 
 AgentID = "testagent"
 Description = "Test Agent"
@@ -106,7 +181,7 @@ settings {
 		}
 		ollamaImageTag = "0.6.8"
 	}
-}`, schema.SchemaVersion(ctx))
+}`, workspace.GetImportPath("Workflow.pkl"))
 
 	workflowPath := filepath.Join(validAgentDir, "workflow.pkl")
 	err = afero.WriteFile(fs, workflowPath, []byte(workflowContent), 0o644)
@@ -117,14 +192,14 @@ settings {
 	err = fs.MkdirAll(resourcesDir, 0o755)
 	assert.NoError(t, err)
 
-	resourceContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+	resourceContent := fmt.Sprintf(`amends "%s"
 
 actionID = "testAction"
 run {
 	exec {
 		["test"] = "echo 'test'"
 	}
-}`, schema.SchemaVersion(ctx))
+}`, workspace.GetImportPath("Resource.pkl"))
 
 	// Create all required resource files
 	requiredResources := []string{"client.pkl", "exec.pkl", "llm.pkl", "python.pkl", "response.pkl"}

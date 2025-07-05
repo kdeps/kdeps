@@ -14,6 +14,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/schema/assets"
 	"github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
@@ -31,6 +32,7 @@ var (
 	logger              *logging.Logger
 	agentPath           string
 	doc                 string
+	globalWorkspace     *assets.PKLWorkspace // Global workspace for all tests
 	workflowAmendsLine  = fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schema.SchemaVersion(ctx))
 	configAmendsLine    = fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Kdeps.pkl"`, schema.SchemaVersion(ctx))
 	resourceAmendsLine  = fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"`, schema.SchemaVersion(ctx))
@@ -45,19 +47,6 @@ Mode = "docker"
 DockerGPU = "cpu"
 `
 	workflowValues = `
-Settings {
-  APIServerMode = false
-  APIServer {
-    PortNum = 3000
-    Routes {
-      new {
-	Path = "/api"
-	Method = "POST"
-	ActionID = "myAction"
-      }
-    }
-  }
-}
 AgentID = "myAgent"
 Description = "My awesome AI Agent"
 Version = "1.0.0"
@@ -66,7 +55,18 @@ TargetActionID = "helloWorld"
 	testingT *testing.T
 )
 
+func init() {
+	// Setup global PKL workspace once for all tests
+	var err error
+	globalWorkspace, err = assets.SetupPKLWorkspaceInTmpDir()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to setup global PKL workspace: %v", err))
+	}
+}
+
 func TestFeatures(t *testing.T) {
+	defer globalWorkspace.Cleanup() // Clean up at the end of all tests
+
 	suite := godog.TestSuite{
 		ScenarioInitializer: func(ctx *godog.ScenarioContext) {
 			// Configuration steps
@@ -186,13 +186,45 @@ func itDoesNotHaveAConfigAmendsLineOnTopOfTheFile() error {
 }
 
 func itHaveAAmendsURLLineOnTopOfTheFile(arg1 string) error {
-	doc = strings.ReplaceAll(doc, "kdeps.com", arg1)
+	// For assets-based paths, we need to handle domain validation differently
+	// If the domain is not "kdeps.com", we should create an invalid amends line
+	if arg1 != "kdeps.com" {
+		// Create an invalid amends line for testing domain validation
+		// Determine which type of file we're working with based on the current doc content
+		if strings.Contains(doc, "Workflow.pkl") {
+			doc = fmt.Sprintf(`amends "package://%s/core@0.3.2#/Workflow.pkl"
+%s`, arg1, workflowValues)
+		} else if strings.Contains(doc, "Resource.pkl") {
+			doc = fmt.Sprintf(`amends "package://%s/core@0.3.2#/Resource.pkl"
+%s`, arg1, resourceValues)
+		} else {
+			// Default to config file
+			doc = fmt.Sprintf(`amends "package://%s/core@0.3.2#/Kdeps.pkl"
+%s`, arg1, configValues)
+		}
+	} else {
+		// For valid domain, replace the assets path with legacy schema URL
+		// This simulates the old behavior for testing
+		if strings.Contains(doc, "Workflow.pkl") {
+			doc = fmt.Sprintf(`amends "package://schema.kdeps.com/core@0.3.2#/Workflow.pkl"
+%s`, workflowValues)
+		} else if strings.Contains(doc, "Resource.pkl") {
+			doc = fmt.Sprintf(`amends "package://schema.kdeps.com/core@0.3.2#/Resource.pkl"
+%s`, resourceValues)
+		} else {
+			// Default to config file
+			doc = fmt.Sprintf(`amends "package://schema.kdeps.com/core@0.3.2#/Kdeps.pkl"
+%s`, configValues)
+		}
+	}
 
 	return nil
 }
 
 func itHaveAConfigAmendsLineOnTopOfTheFile() error {
-	doc = fmt.Sprintf("%s\n%s", configAmendsLine, configValues)
+	// Use assets to get the correct import path for the latest version
+	assetsImportPath := fmt.Sprintf(`amends "%s"`, globalWorkspace.GetImportPath("Kdeps.pkl"))
+	doc = fmt.Sprintf("%s\n%s", assetsImportPath, configValues)
 
 	return nil
 }
@@ -273,7 +305,9 @@ func itDoesNotHaveAWorkflowAmendsLineOnTopOfTheFile() error {
 }
 
 func itHaveAWorkflowAmendsLineOnTopOfTheFile() error {
-	doc = fmt.Sprintf("%s\n%s", workflowAmendsLine, workflowValues)
+	// Use assets to get the correct import path for the latest version
+	assetsImportPath := fmt.Sprintf(`amends "%s"`, globalWorkspace.GetImportPath("Workflow.pkl"))
+	doc = fmt.Sprintf("%s%s", assetsImportPath, workflowValues)
 
 	return nil
 }
@@ -292,7 +326,9 @@ func aFolderNamedExistsInThe(arg1, arg2 string) error {
 // Resource steps
 
 func itHaveAResourceAmendsLineOnTopOfTheFile() error {
-	doc = fmt.Sprintf("%s\n%s", resourceAmendsLine, resourceValues)
+	// Use assets to get the correct import path for the latest version
+	assetsImportPath := fmt.Sprintf(`amends "%s"`, globalWorkspace.GetImportPath("Resource.pkl"))
+	doc = fmt.Sprintf("%s%s", assetsImportPath, resourceValues)
 
 	return nil
 }
@@ -327,17 +363,18 @@ func TestEnforcePklVersion(t *testing.T) {
 func TestEnforcePklFilename(t *testing.T) {
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
+	ver := schema.SchemaVersion(ctx)
 
 	// Good configuration .kdeps.pkl
-	lineCfg := "amends \"package://schema.kdeps.com/core@1.0.0#/Kdeps.pkl\""
+	lineCfg := fmt.Sprintf("amends \"package://schema.kdeps.com/core@%s#/Kdeps.pkl\"", ver)
 	require.NoError(t, EnforcePklFilename(ctx, lineCfg, "/path/to/.kdeps.pkl", logger))
 
 	// Good workflow.pkl
-	lineWf := "amends \"package://schema.kdeps.com/core@1.0.0#/Workflow.pkl\""
+	lineWf := fmt.Sprintf("amends \"package://schema.kdeps.com/core@%s#/Workflow.pkl\"", ver)
 	require.NoError(t, EnforcePklFilename(ctx, lineWf, "/some/workflow.pkl", logger))
 
 	// Resource.pkl must not have those filenames
-	lineResource := "amends \"package://schema.kdeps.com/core@1.0.0#/Resource.pkl\""
+	lineResource := fmt.Sprintf("amends \"package://schema.kdeps.com/core@%s#/Resource.pkl\"", ver)
 	require.NoError(t, EnforcePklFilename(ctx, lineResource, "/path/to/resources/custom.pkl", logger))
 
 	// Invalid file extension for config
@@ -349,33 +386,39 @@ func TestEnforcePklFilename(t *testing.T) {
 	require.Error(t, err)
 
 	// Unknown pkl filename in amends line -> expect error
-	unknownLine := "amends \"package://schema.kdeps.com/core@1.0.0#/Unknown.pkl\""
+	unknownLine := fmt.Sprintf("amends \"package://schema.kdeps.com/core@%s#/Unknown.pkl\"", ver)
 	err = EnforcePklFilename(ctx, unknownLine, "/path/to/unknown.pkl", logger)
 	require.Error(t, err)
 }
 
 func TestEnforcePklFilenameValid(t *testing.T) {
-	line := "amends \"package://schema.kdeps.com/core@0.0.0#/Workflow.pkl\""
-	if err := EnforcePklFilename(context.Background(), line, "/tmp/workflow.pkl", logging.NewTestLogger()); err != nil {
+	ctx := context.Background()
+	ver := schema.SchemaVersion(ctx)
+
+	line := fmt.Sprintf("amends \"package://schema.kdeps.com/core@%s#/Workflow.pkl\"", ver)
+	if err := EnforcePklFilename(ctx, line, "/tmp/workflow.pkl", logging.NewTestLogger()); err != nil {
 		t.Fatalf("unexpected error for valid filename: %v", err)
 	}
 
-	lineConf := "amends \"package://schema.kdeps.com/core@0.0.0#/Kdeps.pkl\""
-	if err := EnforcePklFilename(context.Background(), lineConf, "/tmp/.kdeps.pkl", logging.NewTestLogger()); err != nil {
+	lineConf := fmt.Sprintf("amends \"package://schema.kdeps.com/core@%s#/Kdeps.pkl\"", ver)
+	if err := EnforcePklFilename(ctx, lineConf, "/tmp/.kdeps.pkl", logging.NewTestLogger()); err != nil {
 		t.Fatalf("unexpected error for config filename: %v", err)
 	}
 }
 
 func TestEnforcePklFilenameInvalid(t *testing.T) {
-	line := "amends \"package://schema.kdeps.com/core@0.0.0#/Workflow.pkl\""
+	ctx := context.Background()
+	ver := schema.SchemaVersion(ctx)
+
+	line := fmt.Sprintf("amends \"package://schema.kdeps.com/core@%s#/Workflow.pkl\"", ver)
 	// wrong actual file name
-	if err := EnforcePklFilename(context.Background(), line, "/tmp/other.pkl", logging.NewTestLogger()); err == nil {
+	if err := EnforcePklFilename(ctx, line, "/tmp/other.pkl", logging.NewTestLogger()); err == nil {
 		t.Fatalf("expected error for mismatched filename")
 	}
 
 	// invalid pkl reference
-	badLine := "amends \"package://schema.kdeps.com/core@0.0.0#/Unknown.pkl\""
-	if err := EnforcePklFilename(context.Background(), badLine, "/tmp/foo.pkl", logging.NewTestLogger()); err == nil {
+	badLine := fmt.Sprintf("amends \"package://schema.kdeps.com/core@%s#/Unknown.pkl\"", ver)
+	if err := EnforcePklFilename(ctx, badLine, "/tmp/foo.pkl", logging.NewTestLogger()); err == nil {
 		t.Fatalf("expected error for unknown pkl file")
 	}
 }

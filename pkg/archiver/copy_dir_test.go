@@ -537,7 +537,7 @@ type mockWorkflow struct{ name, version string }
 func (m mockWorkflow) GetAgentID() string                { return m.name }
 func (m mockWorkflow) GetName() string                   { return m.name }
 func (m mockWorkflow) GetVersion() string                { return m.version }
-func (m mockWorkflow) GetDescription() string            { return "" }
+func (m mockWorkflow) GetDescription() *string           { desc := ""; return &desc }
 func (m mockWorkflow) GetWebsite() *string               { return nil }
 func (m mockWorkflow) GetAuthors() *[]string             { return nil }
 func (m mockWorkflow) GetDocumentation() *string         { return nil }

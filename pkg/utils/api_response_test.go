@@ -15,7 +15,8 @@ func TestNewAPIServerResponse(t *testing.T) {
 
 		response := NewAPIServerResponse(true, []any{"data1", "data2"}, 0, "", requestID)
 
-		assert.True(t, response.Success, "Expected success to be true")
+		assert.NotNil(t, response.Success, "Expected success to be non-nil")
+		assert.True(t, *response.Success, "Expected success to be true")
 		assert.NotNil(t, response.Response, "Response block should not be nil")
 		assert.Empty(t, *response.Errors, "Errors should be empty for successful response")
 		assert.Equal(t, []any{"data1", "data2"}, response.Response.Data, "Expected response data to match input")
@@ -28,7 +29,8 @@ func TestNewAPIServerResponse(t *testing.T) {
 
 		response := NewAPIServerResponse(false, nil, 404, "Resource not found", requestID)
 
-		assert.False(t, response.Success, "Expected success to be false")
+		assert.NotNil(t, response.Success, "Expected success to be non-nil")
+		assert.False(t, *response.Success, "Expected success to be false")
 		assert.NotNil(t, response.Errors, "Errors block should not be nil")
 		assert.Len(t, *response.Errors, 1, "Expected one error in the request errors slice")
 
