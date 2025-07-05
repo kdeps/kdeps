@@ -32,6 +32,8 @@ The generated file includes essential metadata and common configurations, such a
 A complete LLM resource file looks like this:
 
 ```apl
+amends "resource.pkl"
+
 ActionID = "llmResource"
 Name = "AI Chat Handler" 
 Description = "Processes user queries using LLM models"
@@ -420,6 +422,8 @@ For detailed LLM function reference, see [Functions & Utilities](../functions-ut
 Here's a comprehensive example of an LLM resource for customer support:
 
 ```apl
+amends "resource.pkl"
+
 ActionID = "customerSupportLLM"
 Name = "Customer Support AI Agent"
 Description = "Handles customer inquiries with tool access and structured responses"

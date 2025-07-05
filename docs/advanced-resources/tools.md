@@ -31,45 +31,55 @@ kdeps scaffold [aiagent] llm
 Define the `Tools` block in the `Chat` block. Here's an excerpt:
 
 ```apl
-Chat {
-    Model = "llama3.2" // Open-source AI model
-    Role = "user"
-    Prompt = "Run the task using tools: @(request.params("q"))"
-    JSONResponse = true
-    JSONResponseKeys {
-        "sum"      // Maps calculate_sum output to "result"
-        "squared"  // Maps square_number output
-        "saved"    // Maps write_result output
+amends "resource.pkl"
+
+ActionID = "toolsResource"
+Name = "Tools Integration"
+Description = "Integrates external tools with LLM"
+Category = "ai"
+Requires { "dataResource" }
+
+Run {
+    Chat {
+        Model = "llama3.2" // Open-source AI model
+        Role = "user"
+        Prompt = "Run the task using tools: @(request.params("q"))"
+        JSONResponse = true
+        JSONResponseKeys {
+            "sum"      // Maps calculate_sum output to "result"
+            "squared"  // Maps square_number output
+            "saved"    // Maps write_result output
+        }
+        Tools {
+            new {
+                Name = "calculate_sum"
+                Script = "@(data.filepath("tools/1.0.0", "calculate_sum.py"))"
+                Description = "Add two numbers"
+                Parameters {
+                    ["a"] { Required = true; Type = "number"; Description = "First number" }
+                    ["b"] { Required = true; Type = "number"; Description = "Second number" }
+                }
+            }
+            new {
+                Name = "square_number"
+                Script = "@(data.filepath("tools/1.0.0", "square_number.js"))"
+                Description = "Square a number"
+                Parameters {
+                    ["num"] { Required = true; Type = "number"; Description = "Number to square" }
+                }
+            }
+            new {
+                Name = "write_result"
+                Script = "@(data.filepath("tools/1.0.0", "write_result.sh"))"
+                Description = "Write a number to a file"
+                Parameters {
+                    ["path"] { Required = true; Type = "string"; Description = "File path" }
+                    ["content"] { Required = true; Type = "string"; Description = "Number to write" }
+                }
+            }
+        }
+        // Other settings like scenario, files, TimeoutDuration...
     }
-    Tools {
-        new {
-            Name = "calculate_sum"
-            Script = "@(data.filepath("tools/1.0.0", "calculate_sum.py"))"
-            Description = "Add two numbers"
-            Parameters {
-                ["a"] { Required = true; Type = "number"; Description = "First number" }
-                ["b"] { Required = true; Type = "number"; Description = "Second number" }
-            }
-        }
-        new {
-            Name = "square_number"
-            Script = "@(data.filepath("tools/1.0.0", "square_number.js"))"
-            Description = "Square a number"
-            Parameters {
-                ["num"] { Required = true; Type = "number"; Description = "Number to square" }
-            }
-        }
-        new {
-            Name = "write_result"
-            Script = "@(data.filepath("tools/1.0.0", "write_result.sh"))"
-            Description = "Write a number to a file"
-            Parameters {
-                ["path"] { Required = true; Type = "string"; Description = "File path" }
-                ["content"] { Required = true; Type = "string"; Description = "Number to write" }
-            }
-        }
-    }
-    // Other settings like scenario, files, TimeoutDuration...
 }
 ```
 

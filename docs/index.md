@@ -2,16 +2,18 @@
 outline: deep
 ---
 
-# Kdeps v0.3.1 - AI Agent Framework
+# Kdeps v0.3.2 - AI Agent Framework
 
 **A robust framework for building AI agents with enhanced schema structure and improved developer experience.**
 
-## 🚀 What's New in v0.3.1
+## 🚀 What's New in v0.3.2
 
 - **Enhanced Schema Structure**: All PKL properties now use capitalized naming (e.g., `AgentID`, `Settings`, `ActionID`)
 - **Improved Rate Limiting**: New `RateLimitMax` property for API throttling control
 - **Better Resource Organization**: Streamlined resource types and improved workflow control
 - **Enhanced Documentation**: Comprehensive guides with practical examples
+- **Trusted Proxies**: Support for trusted proxy configuration in web server settings
+- **Ubuntu Package Management**: Enhanced package and repository management capabilities
 
 ## 🎯 Quick Overview
 
@@ -81,6 +83,8 @@ Kdeps enables you to build AI agents that can:
 Kdeps follows a resource-based architecture where each component is a self-contained, reusable unit that can be composed into complex workflows:
 
 ```apl
+amends "workflow.pkl"
+
 // workflow.pkl - Main configuration
 AgentID = "myAIAgent"
 Description = "A sample AI agent for data processing"
@@ -105,6 +109,8 @@ Settings {
 ```
 
 ```apl
+amends "resource.pkl"
+
 // resources/llm.pkl - LLM interaction
 ActionID = "llmResource"
 Name = "Language Model"
@@ -125,6 +131,8 @@ Run {
 ```
 
 ```apl
+amends "resource.pkl"
+
 // resources/response.pkl - API response
 ActionID = "responseResource"
 Name = "API Response"

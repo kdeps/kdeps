@@ -37,34 +37,44 @@ Configurations](../resources/resources#common-resource-configurations) documenta
 The file contains the `APIResponse` block, structured as follows:
 
 ```apl
-APIResponse {
-    Success = true
-    Meta {
-        Headers {
-            // ["X-Frame-Options"] = "DENY"
-            // ["Content-Security-Policy"] = "default-src 'self'; connect-src *; font-src *; script-src-elem * 'unsafe-inline'; img-src * data:; style-src * 'unsafe-inline';"
-            // ["X-XSS-Protection"] = "1; mode=block"
-            // ["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
-            // ["Referrer-Policy"] = "strict-origin"
-            // ["X-Content-Type-Options"] = "nosniff"
-            // ["Permissions-Policy"] = "geolocation=(),midi=(),sync-xhr=(),microphone=(),camera=(),magnetometer=(),gyroscope=(),fullscreen=(self),payment=()"
+amends "resource.pkl"
+
+ActionID = "responseResource"
+Name = "API Response"
+Description = "Returns structured JSON response"
+Category = "output"
+Requires { "llmResource" }
+
+Run {
+    APIResponse {
+        Success = true
+        Meta {
+            Headers {
+                // ["X-Frame-Options"] = "DENY"
+                // ["Content-Security-Policy"] = "default-src 'self'; connect-src *; font-src *; script-src-elem * 'unsafe-inline'; img-src * data:; style-src * 'unsafe-inline';"
+                // ["X-XSS-Protection"] = "1; mode=block"
+                // ["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+                // ["Referrer-Policy"] = "strict-origin"
+                // ["X-Content-Type-Options"] = "nosniff"
+                // ["Permissions-Policy"] = "geolocation=(),midi=(),sync-xhr=(),microphone=(),camera=(),magnetometer=(),gyroscope=(),fullscreen=(self),payment=()"
+            }
+            Properties {
+                // ["X-Custom-Properties"] = "value"
+            }
         }
-        Properties {
-            // ["X-Custom-Properties"] = "value"
+        Response {
+            Data {
+                "@(llm.response("llmResource"))"
+                // "@(python.stdout("pythonResource"))"
+                // "@(exec.stdout("shellResource"))"
+                // "@(client.responseBody("httpResource"))"
+            }
         }
-    }
-    Response {
-        Data {
-            "@(llm.response("llmResource"))"
-            // "@(python.stdout("pythonResource"))"
-            // "@(exec.stdout("shellResource"))"
-            // "@(client.responseBody("httpResource"))"
-        }
-    }
-    Errors {
-        new {
-            Code = 0
-            Message = ""
+        Errors {
+            new {
+                Code = 0
+                Message = ""
+            }
         }
     }
 }

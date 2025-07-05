@@ -84,10 +84,32 @@ The LLM input resource will parse location queries and extract structured data.
 
 Open the `resources/llm_input.pkl` file and update the resource details as follows:
 
-```diff
+```apl
+amends "resource.pkl"
+
 ActionID = "llmInput"
 Name = "AI Helper for Input"
 Description = "An AI helper to parse input into structured data"
+Category = "ai"
+Requires { "dataResource" }
+
+Run {
+    Chat {
+        Model = "llama3.1"
+        Prompt = """
+Extract the longitude, latitude, and timezone
+from this text. An example of timezone is Asia/Manila.
+@(request.params("q"))?
+"""
+        JSONResponse = true
+        JSONResponseKeys {
+            "longitude_str"
+            "latitude_str"
+            "timezone_str"
+        }
+        TimeoutDuration = 60.s
+    }
+}
 ```
 
 ### Adding Model, Prompt, and Response Keys
@@ -131,12 +153,26 @@ In this, we will use the `exec` resource.
 
 First, update the `resources/exec.pkl` file as follows:
 
-```diff
+```apl
+amends "resource.pkl"
+
 ActionID = "execResource"
 Name = "Store LLM JSON response to a file"
 Description = "This resource will store the LLM JSON response to a file for processing later"
-Requires {
-    "llmInput"
+Category = "system"
+Requires { "llmInput" }
+
+Run {
+    Exec {
+        Command = """
+        rm -rf /tmp/llm_input.json
+        echo $LLM_INPUT > /tmp/llm_input.json
+        """
+        Env {
+            ["LLM_INPUT"] = "@(llm.response("llmInput"))"
+        }
+        TimeoutDuration = 60.s
+    }
 }
 ```
 
@@ -169,12 +205,35 @@ built-in JSON parser.
 
 First, update the `resources/client.pkl` file as follows:
 
-```diff
+```apl
+amends "resource.pkl"
+
 ActionID = "HTTPClient"
 Name = "HTTP Client for the Weather API"
 Description = "This resource enables API requests to the Weather API."
-Requires {
-    "execResource"
+Category = "api"
+Requires { "execResource" }
+
+Run {
+    local JSONData = """
+    @(read?("file:/tmp/llm_input.json")?.text)
+    """
+
+    HTTPClient {
+        Method = "GET"
+        URL = "https://api.open-meteo.com/v1/forecast"
+        Data {}
+        Params {
+            ["latitude" ] = "@(JSONParser.parse(JSONData)?.latitude_str)"
+            ["longitude"] = "@(JSONParser.parse(JSONData)?.longitude_str)"
+            ["timezone "] = "@(JSONParser.parse(JSONData)?.timezone_str)"
+            ["current_weather"] = "true"
+            ["forecast_days"] = "1"
+            ["hourly"] = "temperature_2m,precipitation,wind_speed_10m"
+            ["daily"] = "temperature_2m_max,temperature_2m_min,precipitation_sum"
+        }
+        TimeoutDuration = 60.s
+    }
 }
 ```
 

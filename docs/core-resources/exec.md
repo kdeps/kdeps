@@ -41,6 +41,8 @@ The generated file includes essential metadata and common configurations, such a
 A complete exec resource file looks like this:
 
 ```apl
+amends "resource.pkl"
+
 ActionID = "execResource"
 Name = "Shell Command Executor"
 Description = "Executes system commands and scripts"
@@ -640,6 +642,8 @@ fi
 ## Complete Example: File Processing Service
 
 ```apl
+amends "resource.pkl"
+
 ActionID = "fileProcessorExec"
 Name = "File Processing Service"
 Description = "Processes uploaded files with various operations"

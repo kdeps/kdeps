@@ -16,6 +16,13 @@ The `workflow.pkl` file contains the comprehensive configuration for your AI age
 The `Settings` block provides advanced configuration for the AI agent, covering API settings, web server configuration, routing, Ubuntu and Python packages, and default LLM models.
 
 ```apl
+amends "workflow.pkl"
+
+AgentID = "myAIAgent"
+Description = "A sample AI agent for data processing"
+Version = "1.0.0"
+TargetActionID = "responseResource"
+
 Settings {
     RateLimitMax = 100
     Environment = "production"
@@ -25,6 +32,7 @@ Settings {
     WebServer { /* Web server configuration */ }
     AgentSettings { /* Agent-specific settings */ }
 }
+```
 ```
 
 ### Configuration Properties
@@ -49,10 +57,47 @@ The `APIServer` block defines API routing configurations for the AI agent. These
 APIServer {
     HostIP = "127.0.0.1"
     PortNum = 3000
-    TrustedProxies { /* proxy settings */ }
-    CORS { /* CORS configuration */ }
-    Routes { /* API routes */ }
+    TrustedProxies {
+        "127.0.0.1"
+        "192.168.1.2"
+        "10.0.0.0/8"
+    }
+    CORS {
+        EnableCORS = true
+        AllowOrigins {
+            "https://example.com"
+            "https://app.mydomain.com"
+        }
+        AllowMethods {
+            "GET"
+            "POST"
+            "PUT"
+            "DELETE"
+        }
+        AllowHeaders {
+            "Content-Type"
+            "Authorization"
+            "X-API-Key"
+        }
+        AllowCredentials = true
+        MaxAge = 24.h
+    }
+    Routes {
+        new {
+            Path = "/api/v1/user"
+            Method = "GET"
+        }
+        new {
+            Path = "/api/v1/items"
+            Method = "POST"
+        }
+        new {
+            Path = "/api/v1/health"
+            Method = "GET"
+        }
+    }
 }
+```
 ```
 
 - **`HostIP` and `PortNum`**: Define the IP address and port for the Docker container. Default values are `"127.0.0.1"` for `HostIP` and `3000` for `PortNum`

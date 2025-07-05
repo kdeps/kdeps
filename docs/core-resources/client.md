@@ -36,14 +36,24 @@ Configurations](../resources/resources#common-resource-configurations) documenta
 Within the file, you'll find the `HTTPClient` block, which is structured as follows:
 
 ```apl
-HTTPClient {
-    Method = "GET"
-    URL = "https://www.google.com"
-    Data {}
-    Headers {
-        ["X-API-KEY"] = "@(request.header("X-API-KEY"))"
+amends "resource.pkl"
+
+ActionID = "clientResource"
+Name = "HTTP Client"
+Description = "Makes HTTP requests to external APIs"
+Category = "api"
+Requires { "dataResource" }
+
+Run {
+    HTTPClient {
+        Method = "GET"
+        URL = "https://www.google.com"
+        Data {}
+        Headers {
+            ["X-API-KEY"] = "@(request.header("X-API-KEY"))"
+        }
+        TimeoutDuration = 60.s
     }
-    TimeoutDuration = 60.s
 }
 ```
 

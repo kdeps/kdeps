@@ -39,19 +39,29 @@ Configurations](../resources/resources#common-resource-configurations) documenta
 Within the file, you'll find the `Python` block, which is structured as follows:
 
 ```apl
-Python {
-    Script = """
-    print("hello world")
-    """
-    Env {
-        // Environment variables accessible within the script
-        ["ENVVAR"] = "XYZ"  // Example environment variable
-    }
-    // Specifies the timeout duration (in seconds) for script execution
-    TimeoutDuration = 60.s
+amends "resource.pkl"
 
-    // Specifies the Conda environment for isolation
-    CondaEnvironment = "my-conda-env"
+ActionID = "pythonResource"
+Name = "Python Script"
+Description = "Executes Python scripts with environment isolation"
+Category = "processing"
+Requires { "dataResource" }
+
+Run {
+    Python {
+        Script = """
+        print("hello world")
+        """
+        Env {
+            // Environment variables accessible within the script
+            ["ENVVAR"] = "XYZ"  // Example environment variable
+        }
+        // Specifies the timeout duration (in seconds) for script execution
+        TimeoutDuration = 60.s
+
+        // Specifies the Conda environment for isolation
+        CondaEnvironment = "my-conda-env"
+    }
 }
 ```
 

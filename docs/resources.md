@@ -4,7 +4,7 @@ outline: deep
 
 # Resources Overview
 
-Resources are the building blocks of Kdeps AI agents. Each resource represents a specific functionality that can be composed together to create complex workflows. All resources follow the v0.3.1 schema with capitalized property names.
+Resources are the building blocks of Kdeps AI agents. Each resource represents a specific functionality that can be composed together to create complex workflows. All resources follow the v0.3.2 schema with capitalized property names.
 
 ## 🔧 Core Resources
 
@@ -168,9 +168,11 @@ These provide utility functions and expressions:
 
 ## 📋 Resource Schema Structure
 
-All resources follow a consistent schema structure in v0.3.1:
+All resources follow a consistent schema structure in v0.3.2:
 
 ```apl
+amends "resource.pkl"
+
 ActionID = "uniqueResourceID"
 Name = "Human Readable Name"
 Description = "Resource description"
