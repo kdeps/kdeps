@@ -70,7 +70,7 @@ func TestNewAddCommand_RunE_Error(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
-	kdepsDir := "/tmp/kdeps"
+	kdepsDir := t.TempDir()
 
 	cmd := NewAddCommand(fs, ctx, kdepsDir, logger)
 	if cmd == nil {
@@ -249,7 +249,7 @@ func TestCommandConstructorsAdditional(t *testing.T) {
 
 func TestNewAddCommand_Meta(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	cmd := NewAddCommand(fs, context.Background(), "/tmp/kdeps", logging.NewTestLogger())
+	cmd := NewAddCommand(fs, context.Background(), t.TempDir(), logging.NewTestLogger())
 
 	if cmd.Use != "install [package]" {
 		t.Fatalf("unexpected Use: %s", cmd.Use)
@@ -263,7 +263,7 @@ func TestNewAddCommand_Meta(t *testing.T) {
 func TestNewBuildCommand_Meta(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	systemCfg := &kschema.Kdeps{}
-	cmd := NewBuildCommand(fs, context.Background(), "/tmp/kdeps", systemCfg, logging.NewTestLogger())
+	cmd := NewBuildCommand(fs, context.Background(), t.TempDir(), systemCfg, logging.NewTestLogger())
 
 	if cmd.Use != "build [package]" {
 		t.Fatalf("unexpected Use: %s", cmd.Use)

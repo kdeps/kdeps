@@ -396,12 +396,14 @@ func TestEnforcePklFilenameValid(t *testing.T) {
 	ver := schema.SchemaVersion(ctx)
 
 	line := fmt.Sprintf("amends \"package://schema.kdeps.com/core@%s#/Workflow.pkl\"", ver)
-	if err := EnforcePklFilename(ctx, line, "/tmp/workflow.pkl", logging.NewTestLogger()); err != nil {
+	workflowPath := filepath.Join(t.TempDir(), "workflow.pkl")
+	if err := EnforcePklFilename(ctx, line, workflowPath, logging.NewTestLogger()); err != nil {
 		t.Fatalf("unexpected error for valid filename: %v", err)
 	}
 
 	lineConf := fmt.Sprintf("amends \"package://schema.kdeps.com/core@%s#/Kdeps.pkl\"", ver)
-	if err := EnforcePklFilename(ctx, lineConf, "/tmp/.kdeps.pkl", logging.NewTestLogger()); err != nil {
+	configPath := filepath.Join(t.TempDir(), ".kdeps.pkl")
+	if err := EnforcePklFilename(ctx, lineConf, configPath, logging.NewTestLogger()); err != nil {
 		t.Fatalf("unexpected error for config filename: %v", err)
 	}
 }
@@ -412,13 +414,15 @@ func TestEnforcePklFilenameInvalid(t *testing.T) {
 
 	line := fmt.Sprintf("amends \"package://schema.kdeps.com/core@%s#/Workflow.pkl\"", ver)
 	// wrong actual file name
-	if err := EnforcePklFilename(ctx, line, "/tmp/other.pkl", logging.NewTestLogger()); err == nil {
+	otherPath := filepath.Join(t.TempDir(), "other.pkl")
+	if err := EnforcePklFilename(ctx, line, otherPath, logging.NewTestLogger()); err == nil {
 		t.Fatalf("expected error for mismatched filename")
 	}
 
 	// invalid pkl reference
 	badLine := fmt.Sprintf("amends \"package://schema.kdeps.com/core@%s#/Unknown.pkl\"", ver)
-	if err := EnforcePklFilename(ctx, badLine, "/tmp/foo.pkl", logging.NewTestLogger()); err == nil {
+	fooPath := filepath.Join(t.TempDir(), "foo.pkl")
+	if err := EnforcePklFilename(ctx, badLine, fooPath, logging.NewTestLogger()); err == nil {
 		t.Fatalf("expected error for unknown pkl file")
 	}
 }

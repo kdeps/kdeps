@@ -169,17 +169,16 @@ amends "%s"
 ActionID = "%s"
 %s
 Run {
-  Exec {
-  ["key"] = """
-@(exec.stdout["anAction"])
-@(exec.stdin["anAction2"])
-@(exec.stderr["anAction2"])
-@(http.client["anAction3"].response)
-@(llm.chat["anAction4"].response)
-"""
+  APIResponse {
+    Success = true
+    Response {
+      Data {
+        "Hello from %s"
+      }
+    }
   }
 }
-`, globalWorkspace.GetImportPath("Resource.pkl"), arg2, requiresSection)
+`, globalWorkspace.GetImportPath("Resource.pkl"), arg2, requiresSection, arg2)
 
 	return afero.WriteFile(testFs, filepath.Join(resourcesDir, arg1+".pkl"), []byte(doc), 0o644)
 }
@@ -289,17 +288,16 @@ amends "%s"
 
 ActionID = "%s"
 Run {
-  Exec {
-  ["key"] = """
-@(exec.stdout["anAction"])
-@(exec.stdin["anAction2"])
-@(exec.stderr["anAction2"])
-@(http.client["anAction3"].response)
-@(llm.chat["anAction4"].response)
-"""
+  APIResponse {
+    Success = true
+    Response {
+      Data {
+        "Hello from %s"
+      }
+    }
   }
 }
-`, globalWorkspace.GetImportPath("Resource.pkl"), arg2)
+`, globalWorkspace.GetImportPath("Resource.pkl"), arg2, arg2)
 
 	file := filepath.Join(resourcesDir, arg1)
 
@@ -546,20 +544,14 @@ func itHasAFileWithIDPropertyAndDependentOnWithRunBlockAndIsNotNull(arg1, arg2, 
 		var fieldLines []string
 		for _, value := range values {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
-			fieldLines = append(fieldLines, value+" {\n[\"key\"] = \"\"\"\n@(exec.stdout[\"anAction\"])\n@(exec.stdin[\"anAction2\"])\n@(exec.stderr[\"anAction2\"])\n@(http.client[\"anAction3\"].response)\n@(llm.chat[\"anAction4\"].response)\n\"\"\"\n}")
+			fieldLines = append(fieldLines, value+" {\n    command = \"echo hello\"\n  }")
 		}
 		fieldSection = "Run {\n" + strings.Join(fieldLines, "\n") + "\n}"
 	} else {
 		// Single value case
 		fieldSection = fmt.Sprintf(`Run {
   %s {
-["key"] = """
-@(exec.stdout["anAction"])
-@(exec.stdin["anAction2"])
-@(exec.stderr["anAction2"])
-@(http.client["anAction3"].response)
-@(llm.chat["anAction4"].response)
-"""
+    command = "echo hello"
   }
 }`, arg4)
 	}

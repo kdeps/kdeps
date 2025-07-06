@@ -147,7 +147,9 @@ func TestDownloadFileSuccessAndSkip(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	dest := "/tmp/file.txt"
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	dest := filepath.Join(tmpDir, "file.txt")
 	// Ensure directory exists
 	_ = fs.MkdirAll(filepath.Dir(dest), 0o755)
 
@@ -187,7 +189,9 @@ func TestDownloadFileHTTPErrorAndBadPath(t *testing.T) {
 	srv := httptest.NewServer(http.NotFoundHandler())
 	defer srv.Close()
 
-	dest := "/tmp/err.txt"
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	dest := filepath.Join(tmpDir, "err.txt")
 	_ = fs.MkdirAll(filepath.Dir(dest), 0o755)
 
 	if err := DownloadFile(fs, ctx, srv.URL, dest, logger, false); err == nil {

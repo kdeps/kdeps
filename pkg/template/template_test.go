@@ -56,7 +56,10 @@ func TestCreateDirectoryNew(t *testing.T) {
 	// Test case: Create directory with in-memory FS
 	fs := afero.NewMemMapFs()
 	logger := logging.GetLogger()
-	path := "/test/dir"
+
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "test", "dir")
 	err := createDirectory(fs, logger, path)
 	if err != nil {
 		t.Errorf("Expected no error creating directory, got: %v", err)
@@ -76,7 +79,10 @@ func TestCreateFileNew(t *testing.T) {
 	// Test case: Create file with in-memory FS
 	fs := afero.NewMemMapFs()
 	logger := logging.GetLogger()
-	path := "/test/file.txt"
+
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "test", "file.txt")
 	content := "test content"
 	err := createFile(fs, logger, path, content)
 	if err != nil {

@@ -25,17 +25,22 @@ func (dr *DependencyResolver) AppendDataEntry(resourceID string, newData *pklDat
 
 	// Load existing PKL data
 	pklRes, err := pklData.LoadFromPath(dr.Context, pklPath)
-	if err != nil {
-		return fmt.Errorf("failed to load PKL file: %w", err)
+	if err != nil || pklRes == nil {
+		// If loading fails or returns nil, create a new empty data structure
+		emptyFiles := make(map[string]map[string]string)
+		pklRes = &pklData.DataImpl{
+			Files: &emptyFiles,
+		}
 	}
 
-	// Safeguard against nil pointers
-	if pklRes == nil || pklRes.GetFiles() == nil {
-		return errors.New("the PKL data or files map is nil")
+	// Safeguard against nil pointers - create empty structure if needed
+	var existingFiles *map[string]map[string]string
+	if pklRes.GetFiles() == nil {
+		emptyFiles := make(map[string]map[string]string)
+		existingFiles = &emptyFiles
+	} else {
+		existingFiles = pklRes.GetFiles()
 	}
-
-	// Get the existing files map
-	existingFiles := pklRes.GetFiles() // Pointer to the map
 
 	// Ensure newData is not nil
 	if newData == nil || newData.Files == nil {

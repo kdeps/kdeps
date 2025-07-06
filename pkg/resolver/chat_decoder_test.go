@@ -26,14 +26,17 @@ import (
 
 // buildEncodedChat constructs a ResourceChat with all string fields base64 encoded so we
 // can validate decodeChatBlock unwraps them correctly.
-func buildEncodedChat() (*pklLLM.ResourceChat, map[string]string) {
+func buildEncodedChat(t *testing.T) (*pklLLM.ResourceChat, map[string]string) {
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "data.txt")
+
 	original := map[string]string{
 		"prompt":           "Tell me a joke",
 		"role":             RoleSystem,
 		"jsonKeyOne":       "temperature",
 		"jsonKeyTwo":       "top_p",
 		"scenarioPrompt":   "You are helpful",
-		"filePath":         "/tmp/data.txt",
+		"filePath":         filePath,
 		"toolName":         "echo",
 		"toolScript":       "echo 'hi'",
 		"toolDescription":  "simple echo tool",
@@ -92,7 +95,7 @@ func buildEncodedChat() (*pklLLM.ResourceChat, map[string]string) {
 }
 
 func TestDecodeChatBlock_AllFields(t *testing.T) {
-	chat, original := buildEncodedChat()
+	chat, original := buildEncodedChat(t)
 	dr := &DependencyResolver{Logger: logging.GetLogger()}
 
 	if err := dr.decodeChatBlock(chat); err != nil {

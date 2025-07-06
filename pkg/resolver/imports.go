@@ -257,7 +257,7 @@ func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
 	defer file.Close()
 
 	// Use a regular expression to find the id in the file
-	re := regexp.MustCompile(`actionID\s*=\s*"([^"]+)"`)
+	re := regexp.MustCompile(`(?i)actionID\s*=\s*"([^"]+)"`)
 	var actionID string
 
 	scanner := bufio.NewScanner(file)

@@ -19,6 +19,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/kdeps/kdeps/pkg"
 	"github.com/kdeps/kdeps/pkg/archiver"
+	"github.com/kdeps/kdeps/pkg/config"
 	"github.com/kdeps/kdeps/pkg/download"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
@@ -38,6 +39,11 @@ type BuildLine struct {
 func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli *client.Client, runDir, kdepsDir string,
 	pkgProject *archiver.KdepsPackage, logger *logging.Logger,
 ) (string, string, error) {
+	// Check if pkgProject is nil
+	if pkgProject == nil {
+		return "", "", fmt.Errorf("package project is nil")
+	}
+
 	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow, logger)
 	if err != nil {
 		return "", "", err
@@ -263,35 +269,45 @@ func generateParamsSection(prefix string, items map[string]string) string {
 }
 
 func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *logging.Logger) (string, bool, bool, string, string, string, string, string, error) {
-	var portNum uint16 = pkg.DefaultPortNum
-	var webPortNum uint16 = pkg.DefaultAPIPortNum
-	hostIP := pkg.DefaultHostIP
-	webHostIP := pkg.DefaultHostIP
-
-	anacondaVersion := version.DefaultAnacondaVersion
-	pklVersion := version.DefaultPklVersion
+	// Check if pkgProject is nil
+	if pkgProject == nil {
+		return "", false, false, "", "", "", "", "", fmt.Errorf("package project is nil")
+	}
 
 	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow, logger)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
 	}
 
-	agentName := wfCfg.GetAgentID()
-	agentVersion := wfCfg.GetVersion()
-
-	wfSettings := wfCfg.GetSettings()
-	if wfSettings == nil {
-		// If settings are completely nil, use all defaults
-		var gpuType string
-		if kdeps.DockerGPU != nil {
-			gpuType = string(*kdeps.DockerGPU)
-		} else {
-			gpuType = pkg.DefaultDockerGPU
-		}
-		return generateDockerfileWithDefaults(fs, ctx, kdepsDir, agentName, agentVersion, hostIP, portNum, webPortNum, gpuType, anacondaVersion, pklVersion, logger)
+	// Use the new configuration processor for PKL-first config
+	processor := config.NewConfigurationProcessor(logger)
+	processedConfig, err := processor.ProcessWorkflowConfiguration(ctx, wfCfg)
+	if err != nil {
+		return "", false, false, "", "", "", "", "", err
 	}
 
-	dockerSettings := wfSettings.AgentSettings
+	// Validate configuration
+	if err := processor.ValidateConfiguration(processedConfig); err != nil {
+		return "", false, false, "", "", "", "", "", err
+	}
+
+	// Ensure processedConfig is not nil before accessing its fields
+	if processedConfig == nil {
+		return "", false, false, "", "", "", "", "", fmt.Errorf("processed configuration is nil")
+	}
+
+	// Use processedConfig for all config values
+	APIServerMode := processedConfig.APIServerMode.Value
+	webServerMode := processedConfig.WebServerMode.Value
+	installAnaconda := processedConfig.InstallAnaconda.Value
+	hostIP := processedConfig.APIServerHostIP.Value
+	portNum := processedConfig.APIServerPort.Value
+	webHostIP := processedConfig.WebServerHostIP.Value
+	webPortNum := processedConfig.WebServerPort.Value
+	timezone := processedConfig.Timezone.Value
+
+	agentName := wfCfg.GetAgentID()
+	agentVersion := wfCfg.GetVersion()
 
 	var gpuType string
 	if kdeps.DockerGPU != nil {
@@ -300,37 +316,16 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		gpuType = pkg.DefaultDockerGPU
 	}
 
-	APIServerMode := pkg.GetDefaultBoolOrFallback(wfSettings.APIServerMode, pkg.DefaultAPIServerMode)
-	APIServer := wfSettings.APIServer
-
-	if APIServer != nil {
-		portNum = pkg.GetDefaultUint16OrFallback(APIServer.PortNum, pkg.DefaultPortNum)
-		hostIP = pkg.GetDefaultStringOrFallback(APIServer.HostIP, pkg.DefaultHostIP)
-	}
-
-	webServerMode := pkg.GetDefaultBoolOrFallback(wfSettings.WebServerMode, pkg.DefaultWebServerMode)
-	webServer := wfSettings.WebServer
-
-	if webServer != nil {
-		webPortNum = pkg.GetDefaultUint16OrFallback(webServer.PortNum, pkg.DefaultAPIPortNum)
-		webHostIP = pkg.GetDefaultStringOrFallback(webServer.HostIP, pkg.DefaultHostIP)
-	}
-
 	var pkgList, repoList, pythonPkgList *[]string
 	var condaPkgList *map[string]map[string]string
 	var argsList, envsList *map[string]string
-	var installAnaconda *bool
-	var timezone *string
 
-	if dockerSettings != nil {
-		pkgList = dockerSettings.Packages
-		repoList = dockerSettings.Repositories
-		pythonPkgList = dockerSettings.PythonPackages
-		installAnaconda = dockerSettings.InstallAnaconda
-		condaPkgList = dockerSettings.CondaPackages
-		argsList = dockerSettings.Args
-		envsList = dockerSettings.Env
-		timezone = dockerSettings.Timezone
+	if processedConfig != nil {
+		pkgList = processedConfig.Packages
+		repoList = processedConfig.Repositories
+		pythonPkgList = processedConfig.PythonPackages
+		argsList = processedConfig.Args
+		envsList = processedConfig.Env
 	}
 
 	hostPort := strconv.FormatUint(uint64(portNum), 10)
@@ -350,33 +345,34 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		exposedPort += strconv.Itoa(int(webPortNum))
 	}
 
-	// TODO: Check if OllamaVersion field exists in the new schema
-	// For now, use a default value from pkg/defaults.go
-	imageVersion := "latest"
+	// Use PKL-first OllamaTagVersion from processed configuration
+	imageVersion := processedConfig.OllamaTagVersion.Value
+	logger.Debug("using Ollama image tag", "tag", imageVersion, "source", processedConfig.OllamaTagVersion.Source)
 	if gpuType == "amd" {
 		imageVersion += "-rocm"
+		logger.Debug("applied AMD GPU suffix to Ollama image tag", "final_tag", imageVersion)
 	}
 
 	var argsSection, envsSection string
 
-	if dockerSettings != nil && dockerSettings.Args != nil {
+	if processedConfig != nil && processedConfig.Args != nil && argsList != nil {
 		argsSection = generateParamsSection("ARG", *argsList)
 	}
 
-	if dockerSettings != nil && dockerSettings.Env != nil {
+	if processedConfig != nil && processedConfig.Env != nil && envsList != nil {
 		envsSection = generateParamsSection("ENV", *envsList)
 	}
 
 	var pkgLines []string
 
-	if dockerSettings != nil && dockerSettings.Repositories != nil {
+	if processedConfig != nil && processedConfig.Repositories != nil && repoList != nil {
 		for _, value := range *repoList {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
 			pkgLines = append(pkgLines, "RUN /usr/bin/add-apt-repository "+value)
 		}
 	}
 
-	if dockerSettings != nil && dockerSettings.Packages != nil {
+	if processedConfig != nil && processedConfig.Packages != nil && pkgList != nil {
 		for _, value := range *pkgList {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
 			pkgLines = append(pkgLines, "RUN /usr/bin/apt-get -y install "+value)
@@ -387,7 +383,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 
 	var pythonPkgLines []string
 
-	if dockerSettings != nil && dockerSettings.PythonPackages != nil {
+	if processedConfig != nil && processedConfig.PythonPackages != nil && pythonPkgList != nil {
 		for _, value := range *pythonPkgList {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
 			pythonPkgLines = append(pythonPkgLines, "RUN pip install --upgrade --no-input "+value)
@@ -398,7 +394,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 
 	var condaPkgLines []string
 
-	if dockerSettings != nil && dockerSettings.CondaPackages != nil {
+	if processedConfig != nil && processedConfig.CondaPackages != nil && condaPkgList != nil {
 		for env, packages := range *condaPkgList {
 			// Generate the appropriate commands based on whether the env is "base"
 			if env != "base" {
@@ -429,7 +425,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion)
 	downloadDir := filepath.Join(kdepsDir, "cache")
 
-	items, err := GenerateURLs(ctx, pkg.GetDefaultBoolOrFallback(installAnaconda, pkg.DefaultInstallAnaconda))
+	items, err := GenerateURLs(ctx, installAnaconda)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
 	}
@@ -456,7 +452,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	}
 
 	// Handle timezone pointer - use default if nil
-	timezoneStr := pkg.GetDefaultStringOrFallback(timezone, pkg.DefaultTimezone)
+	timezoneStr := timezone
 
 	dockerfileContent, err := generateDockerfileFromTemplate(
 		imageVersion,
@@ -469,11 +465,11 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		pkgSection,
 		pythonPkgSection,
 		condaPkgSection,
-		anacondaVersion,
-		pklVersion,
+		version.DefaultAnacondaVersion,
+		version.DefaultPklVersion,
 		timezoneStr,
 		exposedPort,
-		pkg.GetDefaultBoolOrFallback(installAnaconda, pkg.DefaultInstallAnaconda),
+		installAnaconda,
 		devBuildMode,
 		APIServerMode,
 		schema.UseLatest,
@@ -491,92 +487,6 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	}
 
 	return runDir, APIServerMode, webServerMode, hostIP, hostPort, webHostIP, webHostPort, gpuType, nil
-}
-
-// Helper function to generate dockerfile with all defaults when settings are nil
-func generateDockerfileWithDefaults(fs afero.Fs, ctx context.Context, kdepsDir, agentName, agentVersion, hostIP string, portNum, webPortNum uint16, gpuType, anacondaVersion, pklVersion string, logger *logging.Logger) (string, bool, bool, string, string, string, string, string, error) {
-	// Use all default values when settings are completely missing
-	APIServerMode := pkg.DefaultAPIServerMode
-	webServerMode := pkg.DefaultWebServerMode
-	installAnacondaDefault := pkg.DefaultInstallAnaconda
-	timezoneStr := pkg.DefaultTimezone
-
-	hostPort := strconv.FormatUint(uint64(portNum), 10)
-	webHostPort := strconv.FormatUint(uint64(webPortNum), 10)
-
-	kdepsHost := fmt.Sprintf("%s:%s", hostIP, hostPort)
-	exposedPort := ""
-
-	if APIServerMode {
-		exposedPort = hostPort
-	}
-
-	if webServerMode {
-		if exposedPort != "" {
-			exposedPort += " "
-		}
-		exposedPort += strconv.Itoa(int(webPortNum))
-	}
-
-	// Generate dockerfile with minimal defaults
-	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion)
-
-	// Download required files with defaults
-	items, err := GenerateURLs(ctx, installAnacondaDefault)
-	if err != nil {
-		return "", false, false, "", "", "", "", "", err
-	}
-
-	downloadDir := filepath.Join(kdepsDir, "cache")
-	err = download.DownloadFiles(fs, ctx, downloadDir, items, logger, schema.UseLatest)
-	if err != nil {
-		return "", false, false, "", "", "", "", "", err
-	}
-
-	err = copyFilesToRunDir(fs, ctx, downloadDir, runDir, logger)
-	if err != nil {
-		return "", false, false, "", "", "", "", "", err
-	}
-
-	ollamaPortNum := generateUniqueOllamaPort(portNum)
-
-	devBuildMode, err := checkDevBuildMode(fs, kdepsDir, logger)
-	if err != nil {
-		return "", false, false, "", "", "", "", "", err
-	}
-
-	// Generate dockerfile with defaults
-	dockerfileContent, err := generateDockerfileFromTemplate(
-		"latest",
-		schema.SchemaVersion(ctx),
-		hostIP,
-		ollamaPortNum,
-		kdepsHost,
-		"", // empty args section
-		"", // empty envs section
-		"", // empty pkg section
-		"", // empty python pkg section
-		"", // empty conda pkg section
-		anacondaVersion,
-		pklVersion,
-		timezoneStr,
-		exposedPort,
-		installAnacondaDefault,
-		devBuildMode,
-		APIServerMode,
-		schema.UseLatest,
-	)
-	if err != nil {
-		return "", false, false, "", "", "", "", "", err
-	}
-
-	resourceConfigurationFile := filepath.Join(runDir, "Dockerfile")
-	err = afero.WriteFile(fs, resourceConfigurationFile, []byte(dockerfileContent), 0o644)
-	if err != nil {
-		return "", false, false, "", "", "", "", "", err
-	}
-
-	return runDir, APIServerMode, webServerMode, hostIP, hostPort, hostIP, webHostPort, gpuType, nil
 }
 
 // printDockerBuildOutput processes the Docker build logs and returns any error encountered during the build.

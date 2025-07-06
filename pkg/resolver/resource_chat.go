@@ -433,10 +433,13 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 	if err != nil {
 		return fmt.Errorf("failed to load PKL file: %w", err)
 	}
+	if llmRes == nil {
+		return fmt.Errorf("LoadResourceFn returned nil for path: %s", pklPath)
+	}
 
 	pklRes, ok := llmRes.(*pklLLM.LLMImpl)
-	if !ok {
-		return errors.New("failed to cast pklRes to *pklLLM.Resource")
+	if !ok || pklRes == nil {
+		return errors.New("failed to cast pklRes to *pklLLM.LLMImpl or pklRes is nil")
 	}
 
 	resources := pklRes.GetResources()

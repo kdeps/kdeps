@@ -139,16 +139,14 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/HTTP.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
 	pklContent.WriteString("resources {\n")
 
+	timeoutDuration := dr.DefaultTimeoutSec
+
 	for id, res := range existingResources {
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
-		pklContent.WriteString(fmt.Sprintf("    method = \"%s\"\n", res.Method))
+		pklContent.WriteString(fmt.Sprintf("    Method = \"%s\"\n", res.Method))
 		pklContent.WriteString(fmt.Sprintf("    url = \"%s\"\n", res.Url))
 
-		if res.TimeoutDuration != nil {
-			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
-		} else {
-			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d.s\n", dr.DefaultTimeoutSec))
-		}
+		pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d.s\n", timeoutDuration))
 
 		if res.Timestamp != nil {
 			pklContent.WriteString(fmt.Sprintf("    timestamp = %g.%s\n", res.Timestamp.Value, res.Timestamp.Unit.String()))

@@ -82,7 +82,7 @@ func (dr *DependencyResolver) buildResponseSections(requestID string, apiRespons
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Session.pkl" as session`, schema.SchemaVersion(dr.Context)),
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Tool.pkl" as tool`, schema.SchemaVersion(dr.Context)),
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Item.pkl" as item`, schema.SchemaVersion(dr.Context)),
-		fmt.Sprintf("success = %v", isSuccess),
+		fmt.Sprintf("Success = %v", isSuccess),
 		formatResponseMeta(requestID, apiResponseBlock.GetMeta()),
 		formatResponseData(apiResponseBlock.GetResponse()),
 		formatErrors(&responseErrors, dr.Logger),
@@ -115,8 +115,8 @@ response {
 func formatResponseMeta(requestID string, meta *apiserverresponse.APIServerResponseMetaBlock) string {
 	if meta == nil || *meta.Headers == nil && *meta.Properties == nil {
 		return fmt.Sprintf(`
-meta {
-  requestID = "%s"
+Meta {
+  RequestID = "%s"
 }
 `, requestID)
 	}
@@ -126,15 +126,15 @@ meta {
 
 	if len(responseMetaHeaders) == 0 && len(responseMetaProperties) == 0 {
 		return fmt.Sprintf(`
-meta {
-  requestID = "%s"
+Meta {
+  RequestID = "%s"
 }
 `, requestID)
 	}
 
 	return fmt.Sprintf(`
-meta {
-  requestID = "%s"
+Meta {
+  RequestID = "%s"
   %s
   %s
 }`, requestID, responseMetaHeaders, responseMetaProperties)
@@ -218,8 +218,8 @@ func formatErrors(errors *[]*apiserverresponse.APIServerErrorsBlock, logger *log
 			decodedMessage := decodeErrorMessage(err.Message, logger)
 			newBlocks += fmt.Sprintf(`
   new {
-    code = %d
-    message = #"""
+    Code = %d
+    Message = #"""
 %s
 """#
   }`, err.Code, decodedMessage)
@@ -227,7 +227,7 @@ func formatErrors(errors *[]*apiserverresponse.APIServerErrorsBlock, logger *log
 	}
 
 	if newBlocks != "" {
-		return fmt.Sprintf(`errors {%s
+		return fmt.Sprintf(`Errors {%s
 }`, newBlocks)
 	}
 	return ""

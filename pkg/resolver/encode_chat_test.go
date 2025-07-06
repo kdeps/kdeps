@@ -3,6 +3,7 @@ package resolver
 import (
 	"context"
 	"encoding/base64"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -15,14 +16,11 @@ import (
 )
 
 func TestEncodeChat_AllFields(t *testing.T) {
-	logger := logging.GetLogger()
+	logger := logging.NewTestLogger()
+	model := "test-model"
+	prompt := "test-prompt"
+	role := "user"
 
-	// Build a fully-populated chat block using plain-text strings.
-	role := RoleHuman
-	prompt := "Say hi"
-	model := "mistral:7b"
-
-	// Scenario entry
 	scRole := RoleSystem
 	scPrompt := "contextual prompt"
 	scenario := []*pklLLM.MultiChat{{Role: &scRole, Prompt: &scPrompt}}
@@ -44,7 +42,10 @@ func TestEncodeChat_AllFields(t *testing.T) {
 		Parameters:  &params,
 	}}
 
-	files := []string{"/tmp/file.txt"}
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "file.txt")
+	files := []string{filePath}
 
 	chat := &pklLLM.ResourceChat{
 		Model:    model,

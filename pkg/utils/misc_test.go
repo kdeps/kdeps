@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -67,7 +68,9 @@ func TestFileHelpers(t *testing.T) {
 	assert.Equal(t, "req-__path_val", got)
 
 	// SanitizeArchivePath should allow inside paths and reject escape attempts
-	base := "/tmp/base"
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	base := filepath.Join(tmpDir, "base")
 	good, err := SanitizeArchivePath(base, "inner/file.txt")
 	assert.NoError(t, err)
 	assert.True(t, strings.HasPrefix(good, base))
@@ -78,8 +81,8 @@ func TestFileHelpers(t *testing.T) {
 	// CreateDirectories & CreateFiles integration test (in-mem FS)
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	dirs := []string{"/a/b/c", "/a/b/d"}
-	files := []string{"/a/b/c/file1.txt", "/a/b/d/file2.txt"}
+	dirs := []string{filepath.Join(tmpDir, "a", "b", "c"), filepath.Join(tmpDir, "a", "b", "d")}
+	files := []string{filepath.Join(dirs[0], "file1.txt"), filepath.Join(dirs[1], "file2.txt")}
 
 	assert.NoError(t, CreateDirectories(fs, ctx, dirs))
 	for _, d := range dirs {
@@ -94,7 +97,7 @@ func TestFileHelpers(t *testing.T) {
 	}
 
 	// Ensure CreateFiles writes to correct paths relative to previously created dirs
-	stat, err := fs.Stat("/a/b/c/file1.txt")
+	stat, err := fs.Stat(files[0])
 	assert.NoError(t, err)
 	assert.False(t, stat.IsDir())
 }

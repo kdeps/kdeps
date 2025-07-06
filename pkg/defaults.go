@@ -3,6 +3,7 @@ package pkg
 import (
 	"time"
 
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/schema/gen/kdeps/path"
 )
 
@@ -267,4 +268,99 @@ func GetDefaultDurationOrFallback(value *time.Duration, defaultValue time.Durati
 		return *value
 	}
 	return defaultValue
+}
+
+// ConfigurationSource represents where a configuration value came from
+type ConfigurationSource string
+
+const (
+	SourcePKL     ConfigurationSource = "PKL"
+	SourceDefault ConfigurationSource = "DEFAULT"
+)
+
+// ConfigurationValue represents a configuration value with its source
+type ConfigurationValue[T any] struct {
+	Value  T
+	Source ConfigurationSource
+}
+
+// ConfigurationManager provides a centralized way to manage configuration with PKL-first priority
+type ConfigurationManager struct {
+	logger *logging.Logger
+}
+
+// NewConfigurationManager creates a new configuration manager
+func NewConfigurationManager(logger *logging.Logger) *ConfigurationManager {
+	return &ConfigurationManager{
+		logger: logger,
+	}
+}
+
+// GetStringWithPKLPriority returns a string value with PKL taking priority over defaults
+func (cm *ConfigurationManager) GetStringWithPKLPriority(pklValue *string, defaultValue string, configName string) ConfigurationValue[string] {
+	if pklValue != nil {
+		cm.logger.Debug("using PKL configuration", "config", configName, "value", *pklValue, "source", SourcePKL)
+		return ConfigurationValue[string]{Value: *pklValue, Source: SourcePKL}
+	}
+	cm.logger.Debug("using default configuration", "config", configName, "value", defaultValue, "source", SourceDefault)
+	return ConfigurationValue[string]{Value: defaultValue, Source: SourceDefault}
+}
+
+// GetBoolWithPKLPriority returns a bool value with PKL taking priority over defaults
+func (cm *ConfigurationManager) GetBoolWithPKLPriority(pklValue *bool, defaultValue bool, configName string) ConfigurationValue[bool] {
+	if pklValue != nil {
+		cm.logger.Debug("using PKL configuration", "config", configName, "value", *pklValue, "source", SourcePKL)
+		return ConfigurationValue[bool]{Value: *pklValue, Source: SourcePKL}
+	}
+	cm.logger.Debug("using default configuration", "config", configName, "value", defaultValue, "source", SourceDefault)
+	return ConfigurationValue[bool]{Value: defaultValue, Source: SourceDefault}
+}
+
+// GetUint16WithPKLPriority returns a uint16 value with PKL taking priority over defaults
+func (cm *ConfigurationManager) GetUint16WithPKLPriority(pklValue *uint16, defaultValue uint16, configName string) ConfigurationValue[uint16] {
+	if pklValue != nil {
+		cm.logger.Debug("using PKL configuration", "config", configName, "value", *pklValue, "source", SourcePKL)
+		return ConfigurationValue[uint16]{Value: *pklValue, Source: SourcePKL}
+	}
+	cm.logger.Debug("using default configuration", "config", configName, "value", defaultValue, "source", SourceDefault)
+	return ConfigurationValue[uint16]{Value: defaultValue, Source: SourceDefault}
+}
+
+// GetIntWithPKLPriority returns an int value with PKL taking priority over defaults
+func (cm *ConfigurationManager) GetIntWithPKLPriority(pklValue *int, defaultValue int, configName string) ConfigurationValue[int] {
+	if pklValue != nil {
+		cm.logger.Debug("using PKL configuration", "config", configName, "value", *pklValue, "source", SourcePKL)
+		return ConfigurationValue[int]{Value: *pklValue, Source: SourcePKL}
+	}
+	cm.logger.Debug("using default configuration", "config", configName, "value", defaultValue, "source", SourceDefault)
+	return ConfigurationValue[int]{Value: defaultValue, Source: SourceDefault}
+}
+
+// GetDurationWithPKLPriority returns a duration value with PKL taking priority over defaults
+func (cm *ConfigurationManager) GetDurationWithPKLPriority(pklValue *time.Duration, defaultValue time.Duration, configName string) ConfigurationValue[time.Duration] {
+	if pklValue != nil {
+		cm.logger.Debug("using PKL configuration", "config", configName, "value", *pklValue, "source", SourcePKL)
+		return ConfigurationValue[time.Duration]{Value: *pklValue, Source: SourcePKL}
+	}
+	cm.logger.Debug("using default configuration", "config", configName, "value", defaultValue, "source", SourceDefault)
+	return ConfigurationValue[time.Duration]{Value: defaultValue, Source: SourceDefault}
+}
+
+// LogConfigurationSummary logs a summary of configuration sources
+func (cm *ConfigurationManager) LogConfigurationSummary(configs map[string]ConfigurationValue[any]) {
+	pklCount := 0
+	defaultCount := 0
+
+	for _, config := range configs {
+		if config.Source == SourcePKL {
+			pklCount++
+		} else {
+			defaultCount++
+		}
+	}
+
+	cm.logger.Info("configuration summary",
+		"pkl_configs", pklCount,
+		"default_configs", defaultCount,
+		"total_configs", len(configs))
 }

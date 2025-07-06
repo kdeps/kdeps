@@ -807,7 +807,7 @@ func TestWebServerHandler(t *testing.T) {
 		// Create mock route
 		route := &webserver.WebServerRoutes{
 			Path:       "/test",
-			PublicPath: pkg.StringPtr("/tmp/test"),
+			PublicPath: pkg.StringPtr(filepath.Join(t.TempDir(), "test")),
 			ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 		}
 
@@ -832,7 +832,7 @@ func TestWebServerHandler(t *testing.T) {
 		}{
 			{
 				name:           "Non-existent file returns 404",
-				path:           "/test/nonexistent.txt",
+				path:           "/nonexistent.txt",
 				expectedStatus: http.StatusNotFound,
 			},
 		}
@@ -1005,7 +1005,7 @@ func TestLogDirectoryContents(t *testing.T) {
 		}
 
 		// Call logDirectoryContents with non-existent directory
-		logDirectoryContents(mockResolver, "/tmp/nonexistent", mockResolver.Logger)
+		logDirectoryContents(mockResolver, filepath.Join(t.TempDir(), "nonexistent"), mockResolver.Logger)
 		// Should not panic and should log error
 	})
 
@@ -1018,11 +1018,12 @@ func TestLogDirectoryContents(t *testing.T) {
 		}
 
 		// Create empty directory
-		err := mockResolver.Fs.MkdirAll("/tmp/empty", 0o755)
+		emptyDir := filepath.Join(t.TempDir(), "empty")
+		err := mockResolver.Fs.MkdirAll(emptyDir, 0o755)
 		require.NoError(t, err)
 
 		// Call logDirectoryContents with empty directory
-		logDirectoryContents(mockResolver, "/tmp/empty", mockResolver.Logger)
+		logDirectoryContents(mockResolver, emptyDir, mockResolver.Logger)
 		// Should not panic and should log empty directory
 	})
 }

@@ -17,7 +17,7 @@ import (
 func TestNewRunCommandFlags(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/tmp/kdeps"
+	kdepsDir := t.TempDir()
 	systemCfg := &kdeps.Kdeps{}
 	logger := logging.NewTestLogger()
 
@@ -31,7 +31,7 @@ func TestNewRunCommandFlags(t *testing.T) {
 func TestNewRunCommandExecution(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/tmp/kdeps"
+	kdepsDir := t.TempDir()
 	systemCfg := &kdeps.Kdeps{}
 	logger := logging.NewTestLogger()
 
@@ -135,7 +135,7 @@ run {
 func TestNewRunCommandDockerErrors(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/tmp/kdeps"
+	kdepsDir := t.TempDir()
 	systemCfg := &kdeps.Kdeps{}
 	logger := logging.NewTestLogger()
 
@@ -223,7 +223,7 @@ func TestNewRunCommand_MetadataAndErrorPath(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
 
-	cmd := NewRunCommand(fs, ctx, "/tmp/kdeps", nil, logging.NewTestLogger())
+	cmd := NewRunCommand(fs, ctx, t.TempDir(), nil, logging.NewTestLogger())
 
 	// metadata assertions
 	assert.Equal(t, "run [package]", cmd.Use)

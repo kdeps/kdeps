@@ -607,7 +607,11 @@ func TestRealEditorCmd_Run(t *testing.T) {
 	}
 	defer func() { editorCmd = orig }()
 
-	cmd, err := realEditorCmdFactory("stub", "/tmp/test.pkl")
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.pkl")
+
+	cmd, err := realEditorCmdFactory("stub", testFile)
 	require.NoError(t, err)
 	require.NotNil(t, cmd)
 	err = cmd.Run()

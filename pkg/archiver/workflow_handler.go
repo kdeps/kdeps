@@ -14,6 +14,7 @@ import (
 
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/utils"
@@ -193,6 +194,12 @@ func CompileProject(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDi
 
 	if err := ProcessExternalWorkflows(fs, ctx, newWorkflow, kdepsDir, projectDir, compiledProjectDir, logger); err != nil {
 		return "", "", fmt.Errorf("failed to process workflows: %w", err)
+	}
+
+	// Evaluate all PKL files in the compiled project directory to test for any problems
+	logger.Info("evaluating all PKL files for validation")
+	if err := evaluator.EvaluateAllPklFilesInDirectory(fs, ctx, compiledProjectDir, logger); err != nil {
+		return "", "", fmt.Errorf("failed to evaluate PKL files: %w", err)
 	}
 
 	packageFile, err := PackageProject(fs, ctx, newWorkflow, kdepsDir, compiledProjectDir, logger)

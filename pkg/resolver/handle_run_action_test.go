@@ -3,6 +3,7 @@ package resolver
 import (
 	"context"
 	"database/sql"
+	"path/filepath"
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -24,6 +25,11 @@ func TestHandleRunAction_BasicFlow(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	sessionDBPath := filepath.Join(tmpDir, "session.db")
+	itemDBPath := filepath.Join(tmpDir, "item.db")
+
 	// Prepare in-memory sqlite connections for the various readers so that the
 	// final Close() calls in HandleRunAction don't panic.
 	openDB := func() *sql.DB {
@@ -44,8 +50,8 @@ func TestHandleRunAction_BasicFlow(t *testing.T) {
 		Context:        context.Background(),
 		ActionDir:      "/action",
 		RequestID:      "req1",
-		SessionDBPath:  "/tmp/session.db",
-		ItemDBPath:     "/tmp/item.db",
+		SessionDBPath:  sessionDBPath,
+		ItemDBPath:     itemDBPath,
 		MemoryReader:   &memory.PklResourceReader{DB: openDB()},
 		SessionReader:  &session.PklResourceReader{DB: openDB()},
 		ToolReader:     &tool.PklResourceReader{DB: openDB()},

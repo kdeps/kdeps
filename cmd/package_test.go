@@ -116,7 +116,7 @@ Run {
 func TestPackageCommandFlags(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/tmp/kdeps"
+	kdepsDir := t.TempDir()
 	env := &environment.Environment{}
 	logger := logging.NewTestLogger()
 
@@ -132,7 +132,7 @@ func TestNewPackageCommand_MetadataAndArgs(t *testing.T) {
 	ctx := context.Background()
 	env := &environment.Environment{}
 
-	cmd := NewPackageCommand(fs, ctx, "/tmp/kdeps", env, logging.NewTestLogger())
+	cmd := NewPackageCommand(fs, ctx, t.TempDir(), env, logging.NewTestLogger())
 
 	assert.Equal(t, "package [agent-dir]", cmd.Use)
 	assert.Contains(t, strings.ToLower(cmd.Short), "package")

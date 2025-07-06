@@ -315,41 +315,50 @@ func TestFindConfigurationUnit(t *testing.T) {
 
 	t.Run("ConfigInPwd", func(t *testing.T) {
 		fs := afero.NewMemMapFs()
+		tmpDir := t.TempDir()
+		pwd := filepath.Join(tmpDir, "pwd")
+		home := filepath.Join(tmpDir, "home")
 		env := &environment.Environment{
-			Pwd:  "/test/pwd",
-			Home: "/test/home",
+			Pwd:  pwd,
+			Home: home,
 		}
 
 		// Create config file in Pwd
-		fs.MkdirAll("/test/pwd", 0o755)
-		afero.WriteFile(fs, "/test/pwd/.kdeps.pkl", []byte("test"), 0o644)
+		fs.MkdirAll(pwd, 0o755)
+		afero.WriteFile(fs, filepath.Join(pwd, ".kdeps.pkl"), []byte("test"), 0o644)
 
 		result, err := FindConfiguration(fs, ctx, env, logger)
 		assert.NoError(t, err)
-		assert.Equal(t, "/test/pwd/.kdeps.pkl", result)
+		assert.Equal(t, filepath.Join(pwd, ".kdeps.pkl"), result)
 	})
 
 	t.Run("ConfigInHome", func(t *testing.T) {
 		fs := afero.NewMemMapFs()
+		tmpDir := t.TempDir()
+		pwd := filepath.Join(tmpDir, "pwd")
+		home := filepath.Join(tmpDir, "home")
 		env := &environment.Environment{
-			Pwd:  "/test/pwd",
-			Home: "/test/home",
+			Pwd:  pwd,
+			Home: home,
 		}
 
 		// Create config file only in Home
-		fs.MkdirAll("/test/home", 0o755)
-		afero.WriteFile(fs, "/test/home/.kdeps.pkl", []byte("test"), 0o644)
+		fs.MkdirAll(home, 0o755)
+		afero.WriteFile(fs, filepath.Join(home, ".kdeps.pkl"), []byte("test"), 0o644)
 
 		result, err := FindConfiguration(fs, ctx, env, logger)
 		assert.NoError(t, err)
-		assert.Equal(t, "/test/home/.kdeps.pkl", result)
+		assert.Equal(t, filepath.Join(home, ".kdeps.pkl"), result)
 	})
 
 	t.Run("NoConfigFound", func(t *testing.T) {
 		fs := afero.NewMemMapFs()
+		tmpDir := t.TempDir()
+		pwd := filepath.Join(tmpDir, "pwd")
+		home := filepath.Join(tmpDir, "home")
 		env := &environment.Environment{
-			Pwd:  "/test/pwd",
-			Home: "/test/home",
+			Pwd:  pwd,
+			Home: home,
 		}
 
 		result, err := FindConfiguration(fs, ctx, env, logger)
@@ -364,35 +373,39 @@ func TestGenerateConfigurationUnit(t *testing.T) {
 
 	t.Run("NonInteractiveMode", func(t *testing.T) {
 		fs := afero.NewMemMapFs()
+		tmpDir := t.TempDir()
+		home := filepath.Join(tmpDir, "home")
 		env := &environment.Environment{
-			Home:           "/test/home",
+			Home:           home,
 			NonInteractive: "1",
 		}
 
-		fs.MkdirAll("/test/home", 0o755)
+		fs.MkdirAll(home, 0o755)
 
 		result, err := GenerateConfiguration(fs, ctx, env, logger)
 		// This might fail due to evaluator.EvalPkl, but we test the path
 		if err != nil {
 			assert.Contains(t, err.Error(), "failed to evaluate .pkl file")
 		} else {
-			assert.Equal(t, "/test/home/.kdeps.pkl", result)
+			assert.Equal(t, filepath.Join(home, ".kdeps.pkl"), result)
 		}
 	})
 
 	t.Run("ConfigFileExists", func(t *testing.T) {
 		fs := afero.NewMemMapFs()
+		tmpDir := t.TempDir()
+		home := filepath.Join(tmpDir, "home")
 		env := &environment.Environment{
-			Home:           "/test/home",
+			Home:           home,
 			NonInteractive: "1",
 		}
 
-		fs.MkdirAll("/test/home", 0o755)
-		afero.WriteFile(fs, "/test/home/.kdeps.pkl", []byte("existing"), 0o644)
+		fs.MkdirAll(home, 0o755)
+		afero.WriteFile(fs, filepath.Join(home, ".kdeps.pkl"), []byte("existing"), 0o644)
 
 		result, err := GenerateConfiguration(fs, ctx, env, logger)
 		assert.NoError(t, err)
-		assert.Equal(t, "/test/home/.kdeps.pkl", result)
+		assert.Equal(t, filepath.Join(home, ".kdeps.pkl"), result)
 	})
 }
 
@@ -402,31 +415,35 @@ func TestEditConfigurationUnit(t *testing.T) {
 
 	t.Run("NonInteractiveMode", func(t *testing.T) {
 		fs := afero.NewMemMapFs()
+		tmpDir := t.TempDir()
+		home := filepath.Join(tmpDir, "home")
 		env := &environment.Environment{
-			Home:           "/test/home",
+			Home:           home,
 			NonInteractive: "1",
 		}
 
-		fs.MkdirAll("/test/home", 0o755)
-		afero.WriteFile(fs, "/test/home/.kdeps.pkl", []byte("test"), 0o644)
+		fs.MkdirAll(home, 0o755)
+		afero.WriteFile(fs, filepath.Join(home, ".kdeps.pkl"), []byte("test"), 0o644)
 
 		result, err := EditConfiguration(fs, ctx, env, logger)
 		assert.NoError(t, err)
-		assert.Equal(t, "/test/home/.kdeps.pkl", result)
+		assert.Equal(t, filepath.Join(home, ".kdeps.pkl"), result)
 	})
 
 	t.Run("ConfigFileDoesNotExist", func(t *testing.T) {
 		fs := afero.NewMemMapFs()
+		tmpDir := t.TempDir()
+		home := filepath.Join(tmpDir, "home")
 		env := &environment.Environment{
-			Home:           "/test/home",
+			Home:           home,
 			NonInteractive: "1",
 		}
 
-		fs.MkdirAll("/test/home", 0o755)
+		fs.MkdirAll(home, 0o755)
 
 		result, err := EditConfiguration(fs, ctx, env, logger)
 		assert.NoError(t, err)
-		assert.Equal(t, "/test/home/.kdeps.pkl", result)
+		assert.Equal(t, filepath.Join(home, ".kdeps.pkl"), result)
 	})
 }
 
@@ -436,17 +453,19 @@ func TestValidateConfigurationUnit(t *testing.T) {
 
 	t.Run("ValidationFailure", func(t *testing.T) {
 		fs := afero.NewMemMapFs()
+		tmpDir := t.TempDir()
+		home := filepath.Join(tmpDir, "home")
 		env := &environment.Environment{
-			Home: "/test/home",
+			Home: home,
 		}
 
-		fs.MkdirAll("/test/home", 0o755)
-		afero.WriteFile(fs, "/test/home/.kdeps.pkl", []byte("invalid pkl"), 0o644)
+		fs.MkdirAll(home, 0o755)
+		afero.WriteFile(fs, filepath.Join(home, ".kdeps.pkl"), []byte("invalid pkl"), 0o644)
 
 		result, err := ValidateConfiguration(fs, ctx, env, logger)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "configuration validation failed")
-		assert.Equal(t, "/test/home/.kdeps.pkl", result)
+		assert.Equal(t, filepath.Join(home, ".kdeps.pkl"), result)
 	})
 }
 
@@ -456,9 +475,11 @@ func TestLoadConfigurationUnit(t *testing.T) {
 
 	t.Run("InvalidConfigFile", func(t *testing.T) {
 		fs := afero.NewMemMapFs()
-		afero.WriteFile(fs, "/test/invalid.pkl", []byte("invalid"), 0o644)
+		tmpDir := t.TempDir()
+		invalidPath := filepath.Join(tmpDir, "invalid.pkl")
+		afero.WriteFile(fs, invalidPath, []byte("invalid"), 0o644)
 
-		result, err := LoadConfiguration(fs, ctx, "/test/invalid.pkl", logger)
+		result, err := LoadConfiguration(fs, ctx, invalidPath, logger)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "error reading config file")
 		assert.Nil(t, result)
@@ -466,8 +487,10 @@ func TestLoadConfigurationUnit(t *testing.T) {
 
 	t.Run("NonExistentFile", func(t *testing.T) {
 		fs := afero.NewMemMapFs()
+		tmpDir := t.TempDir()
+		nonexistentPath := filepath.Join(tmpDir, "nonexistent.pkl")
 
-		result, err := LoadConfiguration(fs, ctx, "/test/nonexistent.pkl", logger)
+		result, err := LoadConfiguration(fs, ctx, nonexistentPath, logger)
 		assert.Error(t, err)
 		assert.Nil(t, result)
 	})
@@ -548,7 +571,7 @@ func TestGenerateConfigurationAdditional(t *testing.T) {
 	t.Run("WriteFileError", func(t *testing.T) {
 		fs := afero.NewReadOnlyFs(afero.NewMemMapFs())
 		env := &environment.Environment{
-			Home:           "/test/home",
+			Home:           t.TempDir(),
 			NonInteractive: "1",
 		}
 
@@ -566,20 +589,22 @@ func TestEditConfigurationAdditional(t *testing.T) {
 
 	t.Run("InteractiveMode", func(t *testing.T) {
 		fs := afero.NewMemMapFs()
+		homeDir := t.TempDir()
 		env := &environment.Environment{
-			Home:           "/test/home",
+			Home:           homeDir,
 			NonInteractive: "1", // Non-interactive to skip prompt
 		}
 
-		fs.MkdirAll("/test/home", 0o755)
-		afero.WriteFile(fs, "/test/home/.kdeps.pkl", []byte("test"), 0o644)
+		fs.MkdirAll(homeDir, 0o755)
+		configPath := filepath.Join(homeDir, ".kdeps.pkl")
+		afero.WriteFile(fs, configPath, []byte("test"), 0o644)
 
 		result, err := EditConfiguration(fs, ctx, env, logger)
 		// This might fail due to texteditor.EditPkl, but we test the path
 		if err != nil {
 			assert.Contains(t, err.Error(), "failed to edit configuration file")
 		} else {
-			assert.Equal(t, "/test/home/.kdeps.pkl", result)
+			assert.Equal(t, configPath, result)
 		}
 	})
 }
@@ -590,11 +615,12 @@ func TestValidateConfigurationAdditional(t *testing.T) {
 
 	t.Run("ValidConfig", func(t *testing.T) {
 		fs := afero.NewMemMapFs()
+		homeDir := t.TempDir()
 		env := &environment.Environment{
-			Home: "/test/home",
+			Home: homeDir,
 		}
 
-		fs.MkdirAll("/test/home", 0o755)
+		fs.MkdirAll(homeDir, 0o755)
 		// Setup PKL workspace with embedded schema files
 		workspace, err := assets.SetupPKLWorkspaceInTmpDir()
 		require.NoError(t, err)
@@ -607,7 +633,8 @@ amends "%s"
 Mode = "docker"
 DockerGPU = "cpu"
 `, workspace.GetImportPath("Kdeps.pkl"))
-		afero.WriteFile(fs, "/test/home/.kdeps.pkl", []byte(validConfig), 0o644)
+		configPath := filepath.Join(homeDir, ".kdeps.pkl")
+		afero.WriteFile(fs, configPath, []byte(validConfig), 0o644)
 
 		result, err := ValidateConfiguration(fs, ctx, env, logger)
 		// This might still fail due to evaluator.EvalPkl dependencies, but we test the path
@@ -616,7 +643,7 @@ DockerGPU = "cpu"
 		} else {
 			assert.NoError(t, err)
 		}
-		assert.Equal(t, "/test/home/.kdeps.pkl", result)
+		assert.Equal(t, configPath, result)
 	})
 }
 
@@ -639,9 +666,10 @@ amends "%s"
 Mode = "docker"
 DockerGPU = "cpu"
 `, workspace.GetImportPath("Kdeps.pkl"))
-		afero.WriteFile(fs, "/test/valid.pkl", []byte(validConfig), 0o644)
+		configPath := filepath.Join(t.TempDir(), "valid.pkl")
+		afero.WriteFile(fs, configPath, []byte(validConfig), 0o644)
 
-		result, err := LoadConfiguration(fs, ctx, "/test/valid.pkl", logger)
+		result, err := LoadConfiguration(fs, ctx, configPath, logger)
 		// This might fail due to kdeps.LoadFromPath dependencies, but we test the code path
 		if err != nil {
 			assert.Contains(t, err.Error(), "error reading config file")

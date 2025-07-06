@@ -493,7 +493,7 @@ func iFillInTheWithSuccessResponseData(arg1, arg2, arg3 string) error {
 	}
 
 	responsePath := filepath.Join(compiledProjectDir, arg1)
-	content := fmt.Sprintf("success = %s\nresponse {\n  data {\n    \"%s\"\n  }\n}\n", arg2, arg3)
+	content := fmt.Sprintf("Success = %s\nresponse {\n  data {\n    \"%s\"\n  }\n}\n", arg2, arg3)
 	return afero.WriteFile(testFs, responsePath, []byte(content), 0o644)
 }
 

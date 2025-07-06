@@ -435,10 +435,12 @@ func TestBuildDockerImageNew(t *testing.T) {
 	// 	},
 	// }
 
-	runDir := "/test/run"
-	kdepsDir := "/test/kdeps"
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	runDir := filepath.Join(tmpDir, "run")
+	kdepsDir := filepath.Join(tmpDir, "kdeps")
 	pkgProject := &archiver.KdepsPackage{
-		Workflow: "testWorkflow",
+		Workflow: filepath.Join(kdepsDir, "testWorkflow"),
 	}
 
 	// Create dummy directories in memory FS
@@ -477,10 +479,12 @@ func TestBuildDockerImageImageExists(t *testing.T) {
 	// 	},
 	// }
 
-	runDir := "/test/run"
-	kdepsDir := "/test/kdeps"
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	runDir := filepath.Join(tmpDir, "run")
+	kdepsDir := filepath.Join(tmpDir, "kdeps")
 	pkgProject := &archiver.KdepsPackage{
-		Workflow: "testWorkflow",
+		Workflow: filepath.Join(kdepsDir, "testWorkflow"),
 	}
 
 	// Create dummy directories in memory FS
@@ -619,18 +623,21 @@ func TestBuildDockerfileContent(t *testing.T) {
 	kdeps := &kdepspkg.Kdeps{}
 	baseLogger := log.New(nil)
 	logger := &logging.Logger{Logger: baseLogger}
-	kdepsDir := "/test/kdeps"
+
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	kdepsDir := filepath.Join(tmpDir, "kdeps")
 	pkgProject := &archiver.KdepsPackage{
-		Workflow: "/test/kdeps/testWorkflow",
+		Workflow: filepath.Join(kdepsDir, "testWorkflow"),
 	}
 
 	// Create dummy directories in memory FS
 	fs.MkdirAll(kdepsDir, 0o755)
-	fs.MkdirAll("/test/kdeps/cache", 0o755)
-	fs.MkdirAll("/test/kdeps/run/test/1.0", 0o755)
+	fs.MkdirAll(filepath.Join(kdepsDir, "cache"), 0o755)
+	fs.MkdirAll(filepath.Join(kdepsDir, "run", "test", "1.0"), 0o755)
 
 	// Create a dummy workflow file to avoid module not found error
-	workflowPath := "/test/kdeps/testWorkflow"
+	workflowPath := filepath.Join(kdepsDir, "testWorkflow")
 	dummyWorkflowContent := `name = "test"
 version = "1.0"
 `
@@ -1620,4 +1627,70 @@ func TestGenerateDockerfile_NoAnacondaInstall(t *testing.T) {
 
 	// Should still contain pkl installation
 	assert.Contains(t, dockerfile, "pkl-linux", "dockerfile should still contain pkl installation")
+}
+
+func TestBuildDockerfile_OllamaTagVersion(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdeps := &kdepspkg.Kdeps{}
+	baseLogger := log.New(nil)
+	logger := &logging.Logger{Logger: baseLogger}
+
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	kdepsDir := filepath.Join(tmpDir, "kdeps")
+	pkgProject := &archiver.KdepsPackage{
+		Workflow: filepath.Join(kdepsDir, "testWorkflow"),
+	}
+
+	// Create dummy directories in memory FS
+	fs.MkdirAll(kdepsDir, 0o755)
+	fs.MkdirAll(filepath.Join(kdepsDir, "cache"), 0o755)
+	fs.MkdirAll(filepath.Join(kdepsDir, "run", "test", "1.0"), 0o755)
+
+	// Create a dummy workflow file with OllamaTagVersion set
+	workflowPath := filepath.Join(kdepsDir, "testWorkflow")
+	dummyWorkflowContent := `amends "package://schema.kdeps.com/core@0.3.2#/Workflow.pkl"
+
+AgentID = "test"
+Version = "1.0"
+TargetActionID = "responseResource"
+
+Settings {
+	APIServerMode = true
+	APIServer {
+		HostIP = "127.0.0.1"
+		PortNum = 3000
+	}
+	AgentSettings {
+		OllamaTagVersion = "0.8.0"
+	}
+}
+`
+	afero.WriteFile(fs, workflowPath, []byte(dummyWorkflowContent), 0o644)
+
+	// Call the function under test
+	runDir, _, _, _, _, _, _, _, err := BuildDockerfile(fs, ctx, kdeps, kdepsDir, pkgProject, logger)
+	if err != nil {
+		// Gracefully skip when PKL or workflow dependency is unavailable in CI
+		if strings.Contains(err.Error(), "Cannot find module") {
+			t.Skipf("Skipping TestBuildDockerfile_OllamaTagVersion due to missing PKL module: %v", err)
+		}
+		t.Errorf("BuildDockerfile failed unexpectedly: %v", err)
+	}
+
+	// Check if Dockerfile was created
+	dockerfilePath := runDir + "/Dockerfile"
+	content, err := afero.ReadFile(fs, dockerfilePath)
+	if err != nil {
+		t.Errorf("Failed to read generated Dockerfile: %v", err)
+	}
+
+	contentStr := string(content)
+	// Verify that the PKL-specified OllamaTagVersion is used
+	if !strings.Contains(contentStr, "FROM ollama/ollama:0.8.0") {
+		t.Errorf("Dockerfile does not contain expected base image with PKL-specified OllamaTagVersion. Content: %s", contentStr)
+	}
+
+	t.Log("BuildDockerfile correctly used PKL-specified OllamaTagVersion")
 }

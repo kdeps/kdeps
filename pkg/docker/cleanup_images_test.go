@@ -85,7 +85,7 @@ func TestCleanupFlagFilesSimple(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Create temporary files
-	files := []string{"/tmp/file1.flag", "/tmp/file2.flag", "/tmp/file3.flag"}
+	files := []string{filepath.Join(t.TempDir(), "file1.flag"), filepath.Join(t.TempDir(), "file2.flag"), filepath.Join(t.TempDir(), "file3.flag")}
 	for _, f := range files {
 		if err := afero.WriteFile(fs, f, []byte("data"), 0o644); err != nil {
 			t.Fatalf("unable to create temp file: %v", err)
@@ -151,8 +151,8 @@ func TestCreateFlagFileAndCleanup(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
 
-	flag1 := "/tmp/flag1"
-	flag2 := "/tmp/flag2"
+	flag1 := filepath.Join(t.TempDir(), "flag1")
+	flag2 := filepath.Join(t.TempDir(), "flag2")
 
 	// Create first flag file via helper.
 	if err := CreateFlagFile(fs, ctx, flag1); err != nil {
@@ -187,7 +187,7 @@ func TestCreateFlagFileAndCleanup(t *testing.T) {
 	}
 
 	// Verify CreateFlagFile sets timestamps (basic sanity: non-zero ModTime).
-	path := "/tmp/flag3"
+	path := filepath.Join(t.TempDir(), "flag3")
 	if err := CreateFlagFile(fs, ctx, path); err != nil {
 		t.Fatalf("CreateFlagFile: %v", err)
 	}
@@ -251,7 +251,7 @@ func TestCleanupFlagFilesExtra(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Create two files and leave one missing to exercise both paths
-	files := []string{"/tmp/f1", "/tmp/f2", "/tmp/missing"}
+	files := []string{filepath.Join(t.TempDir(), "f1"), filepath.Join(t.TempDir(), "f2"), filepath.Join(t.TempDir(), "missing")}
 	require.NoError(t, afero.WriteFile(fs, files[0], []byte("x"), 0o644))
 	require.NoError(t, afero.WriteFile(fs, files[1], []byte("y"), 0o644))
 
@@ -337,7 +337,7 @@ func TestCleanupFlagFilesRemoveAllExtra(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Create two dummy files
-	paths := []string{"/tmp/flag1", "/tmp/flag2"}
+	paths := []string{filepath.Join(t.TempDir(), "flag1"), filepath.Join(t.TempDir(), "flag2")}
 	for _, p := range paths {
 		afero.WriteFile(fs, p, []byte("x"), 0o644)
 	}
@@ -428,7 +428,7 @@ func TestCleanupEndToEnd(t *testing.T) {
 
 	// Prepare context keys expected by Cleanup.
 	graphID := "graph123"
-	actionDir := "/tmp/action" // Any absolute path is fine for the mem fs.
+	actionDir := filepath.Join(t.TempDir(), "action") // Any absolute path is fine for the mem fs.
 	ctx := context.Background()
 	ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, graphID)
 	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, actionDir)
@@ -736,7 +736,7 @@ func TestCleanupFlagFiles(t *testing.T) {
 	t.Log("cleanupFlagFiles with no files test passed")
 
 	// Test case 2: Remove existing file
-	filePath := "/test/flag1"
+	filePath := filepath.Join(t.TempDir(), "flag1")
 	err := afero.WriteFile(fs, filePath, []byte("test"), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
@@ -750,17 +750,17 @@ func TestCleanupFlagFiles(t *testing.T) {
 	t.Log("cleanupFlagFiles with existing file test passed")
 
 	// Test case 3: Attempt to remove non-existing file
-	files = []string{"/test/nonexistent"}
+	files = []string{filepath.Join(t.TempDir(), "nonexistent")}
 	cleanupFlagFiles(fs, files, logger)
 	t.Log("cleanupFlagFiles with non-existing file test passed")
 
 	// Test case 4: Multiple files, some existing, some not
-	filePath2 := "/test/flag2"
+	filePath2 := filepath.Join(t.TempDir(), "flag2")
 	err = afero.WriteFile(fs, filePath2, []byte("test2"), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create second test file: %v", err)
 	}
-	files = []string{filePath2, "/test/nonexistent2"}
+	files = []string{filePath2, filepath.Join(t.TempDir(), "nonexistent2")}
 	cleanupFlagFiles(fs, files, logger)
 	_, err = afero.ReadFile(fs, filePath2)
 	if err == nil {

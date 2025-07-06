@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/kdeps/kdeps/pkg/enforcer"
+	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/messages"
 	pklWf "github.com/kdeps/schema/gen/workflow"
@@ -20,7 +21,7 @@ import (
 var (
 	idPattern       = regexp.MustCompile(`(?i)^\s*actionID\s*=\s*"(.+)"`)
 	actionIDRegex   = regexp.MustCompile(`(?i)\b(resources|resource|responseBody|responseHeader|stderr|stdout|env|response|prompt|exitCode|file)\s*\(\s*"([^"]+)"\s*(?:,\s*"([^"]+)")?\s*\)`)
-	requiresPattern = regexp.MustCompile(`^\s*requires\s*{`)
+	requiresPattern = regexp.MustCompile(`(?i)^\s*requires\s*{`)
 )
 
 // CompileResources processes .pkl files and copies them to resources directory.
@@ -34,10 +35,18 @@ func CompileResources(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, resou
 	err := afero.Walk(fs, projectResourcesDir, pklFileProcessor(fs, wf, resourcesDir, logger))
 	if err != nil {
 		logger.Error("error compiling resources", "resourcesDir", resourcesDir, "projectDir", projectDir, "error", err)
+		return err
+	}
+
+	// Evaluate all compiled PKL files in the resources directory to test for any problems
+	logger.Debug("evaluating compiled resource PKL files")
+	if err := evaluator.EvaluateAllPklFilesInDirectory(fs, ctx, resourcesDir, logger); err != nil {
+		logger.Error("error evaluating resource PKL files", "resourcesDir", resourcesDir, "error", err)
+		return err
 	}
 
 	logger.Debug(messages.MsgResourcesCompiled, "resourcesDir", resourcesDir, "projectDir", projectDir)
-	return err
+	return nil
 }
 
 func pklFileProcessor(fs afero.Fs, wf pklWf.Workflow, resourcesDir string, logger *logging.Logger) filepath.WalkFunc {
@@ -172,7 +181,7 @@ func processActionPatterns(line, name, version string) string {
 
 		newID := fmt.Sprintf("@%s/%s:%s", name, parts[2], version)
 		switch parts[1] {
-		case "responseHeader", "env":
+		case "ResponseHeader", "env":
 			return fmt.Sprintf("%s(\"%s\", \"%s\")", parts[1], newID, parts[3])
 		default:
 			return fmt.Sprintf("%s(\"%s\")", parts[1], newID)

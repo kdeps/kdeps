@@ -290,24 +290,29 @@ func TestHandleNonDockerMode_Flow(t *testing.T) {
 	env := &environment.Environment{DockerMode: "0", NonInteractive: "1"}
 	logger := logging.NewTestLogger()
 
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config")
+	kdepsPath := filepath.Join(tmpDir, "kdeps")
+
 	// Stub chain of cfg helpers & root command
 	withInjects(func() {
 		findConfigurationFn = func(afero.Fs, context.Context, *environment.Environment, *logging.Logger) (string, error) {
 			return "", nil
 		}
 		generateConfigurationFn = func(afero.Fs, context.Context, *environment.Environment, *logging.Logger) (string, error) {
-			return "/tmp/config", nil
+			return configPath, nil
 		}
 		editConfigurationFn = func(afero.Fs, context.Context, *environment.Environment, *logging.Logger) (string, error) {
-			return "/tmp/config", nil
+			return configPath, nil
 		}
 		validateConfigurationFn = func(afero.Fs, context.Context, *environment.Environment, *logging.Logger) (string, error) {
-			return "/tmp/config", nil
+			return configPath, nil
 		}
 		loadConfigurationFn = func(afero.Fs, context.Context, string, *logging.Logger) (*kdepspkg.Kdeps, error) {
 			return &kdepspkg.Kdeps{KdepsDir: pkg.GetDefaultKdepsDir()}, nil
 		}
-		getKdepsPathFn = func(context.Context, kdepspkg.Kdeps) (string, error) { return "/tmp/kdeps", nil }
+		getKdepsPathFn = func(context.Context, kdepspkg.Kdeps) (string, error) { return kdepsPath, nil }
 		newRootCommandFn = func(afero.Fs, context.Context, string, *kdepspkg.Kdeps, *environment.Environment, *logging.Logger) *cobra.Command {
 			return &cobra.Command{Run: func(cmd *cobra.Command, args []string) {}}
 		}
@@ -469,6 +474,8 @@ func TestRunGraphResolverActions_PrepareWorkflowDirError(t *testing.T) {
 	// PrepareWorkflowDir fails when walking the source path.
 	fs := afero.NewMemMapFs()
 
+	tmpDir := t.TempDir()
+
 	env := &environment.Environment{DockerMode: "0"}
 	logger := logging.NewTestLogger()
 
@@ -476,7 +483,7 @@ func TestRunGraphResolverActions_PrepareWorkflowDirError(t *testing.T) {
 		Fs:          fs,
 		Logger:      logger,
 		ProjectDir:  "/nonexistent/project", // source dir intentionally missing
-		WorkflowDir: "/tmp/workflow",
+		WorkflowDir: filepath.Join(tmpDir, "workflow"),
 		Environment: env,
 		Context:     context.Background(),
 	}
@@ -529,7 +536,7 @@ func TestHandleNonDockerModeExercise(t *testing.T) {
 		return &kdeps.Kdeps{}, nil
 	}
 	getKdepsPathFn = func(context.Context, kdeps.Kdeps) (string, error) {
-		return "/tmp/kdeps", nil
+		return t.TempDir(), nil
 	}
 
 	executed := false
@@ -680,7 +687,7 @@ func TestHandleNonDockerMode(t *testing.T) {
 			KdepsPath: (*kpath.Path)(pkg.GetDefaultKdepsPath()),
 		}, nil
 	}
-	getKdepsPathFn = func(_ context.Context, _ kdepspkg.Kdeps) (string, error) { return "/tmp/kdeps", nil }
+	getKdepsPathFn = func(_ context.Context, _ kdepspkg.Kdeps) (string, error) { return t.TempDir(), nil }
 
 	executed := false
 	newRootCommandFn = func(_ afero.Fs, _ context.Context, _ string, _ *kdepspkg.Kdeps, _ *environment.Environment, _ *logging.Logger) *cobra.Command {
@@ -774,7 +781,7 @@ func TestHandleNonDockerModeFlow(t *testing.T) {
 		return "", nil // ensure we go through generation path
 	}
 
-	genPath := "/tmp/system.pkl"
+	genPath := filepath.Join(t.TempDir(), "system.pkl")
 	generateConfigurationFn = func(_ afero.Fs, _ context.Context, _ *environment.Environment, _ *logging.Logger) (string, error) {
 		return genPath, nil
 	}
@@ -879,7 +886,7 @@ func TestHandleNonDockerModeEditError(t *testing.T) {
 		return "", nil
 	}
 	// Generation succeeds
-	generated := "/tmp/generated.pkl"
+	generated := filepath.Join(t.TempDir(), "generated.pkl")
 	generateConfigurationFn = func(_ afero.Fs, _ context.Context, _ *environment.Environment, _ *logging.Logger) (string, error) {
 		return generated, nil
 	}
@@ -928,7 +935,7 @@ func TestHandleNonDockerModeGenerateFlow(t *testing.T) {
 	}()
 
 	// Stub behaviour: initial find returns empty string triggering generation.
-	genPath := "/tmp/generated-config.pkl"
+	genPath := filepath.Join(t.TempDir(), "generated-config.pkl")
 	findConfigurationFn = func(_ afero.Fs, _ context.Context, _ *environment.Environment, _ *logging.Logger) (string, error) {
 		return "", nil
 	}
@@ -1003,7 +1010,7 @@ func TestHandleNonDockerModeBasic(t *testing.T) {
 		return &kdepspkg.Kdeps{KdepsDir: pkg.GetDefaultKdepsDir()}, nil
 	}
 	getKdepsPathFn = func(ctx context.Context, k kdepspkg.Kdeps) (string, error) {
-		return "/tmp/kdeps", nil
+		return t.TempDir(), nil
 	}
 	newRootCommandFn = func(fs afero.Fs, ctx context.Context, kdepsDir string, cfg *kdepspkg.Kdeps, env *environment.Environment, logger *logging.Logger) *cobra.Command {
 		return &cobra.Command{Use: "root", Run: func(cmd *cobra.Command, args []string) {}}
@@ -1011,7 +1018,7 @@ func TestHandleNonDockerModeBasic(t *testing.T) {
 
 	// Add context keys to mimic main
 	ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, "graph-id")
-	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, "/tmp/action")
+	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, filepath.Join(t.TempDir(), "action"))
 
 	// Invoke the function under test. It should complete without panicking or fatal logging.
 	handleNonDockerMode(fs, ctx, env, logger)

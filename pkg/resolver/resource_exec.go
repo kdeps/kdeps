@@ -176,6 +176,11 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 		}
 	}
 
+	timeoutDuration := &pkl.Duration{
+		Value: float64(dr.DefaultTimeoutSec),
+		Unit:  pkl.Second,
+	}
+
 	existingResources[resourceID] = &pklExec.ResourceExec{
 		Env:             encodedEnv,
 		Command:         encodedCommand,
@@ -183,7 +188,7 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 		Stdout:          encodedStdout,
 		File:            &filePath,
 		Timestamp:       timestamp,
-		TimeoutDuration: newExec.TimeoutDuration,
+		TimeoutDuration: timeoutDuration,
 	}
 
 	var pklContent strings.Builder
@@ -197,7 +202,7 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 		if res.TimeoutDuration != nil {
 			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
 		} else {
-			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d.s\n", dr.DefaultTimeoutSec))
+			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", timeoutDuration.Value, timeoutDuration.Unit.String()))
 		}
 
 		if res.Timestamp != nil {

@@ -13,6 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/kdeps/kdeps/pkg"
+	"github.com/kdeps/kdeps/pkg/config"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/resolver"
@@ -31,10 +32,22 @@ func StartWebServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 		wfTrustedProxies = *wfWebServer.TrustedProxies
 	}
 
-	// Handle pointer fields using default fallbacks
-	hostIP := pkg.GetDefaultStringOrFallback(wfWebServer.HostIP, pkg.DefaultHostIP)
-	portNum := pkg.GetDefaultUint16OrFallback(wfWebServer.PortNum, pkg.DefaultAPIPortNum)
-	hostPort := ":" + strconv.FormatUint(uint64(portNum), 10)
+	// Use the new configuration processor for PKL-first config
+	processor := config.NewConfigurationProcessor(dr.Logger)
+	processedConfig, err := processor.ProcessWorkflowConfiguration(ctx, dr.Workflow)
+	if err != nil {
+		return err // or appropriate error handling
+	}
+
+	// Validate configuration
+	if err := processor.ValidateConfiguration(processedConfig); err != nil {
+		return err // or appropriate error handling
+	}
+
+	// Use processedConfig for all config values
+	webHostIP := processedConfig.WebServerHostIP.Value
+	webPortNum := processedConfig.WebServerPort.Value
+	hostPort := ":" + strconv.FormatUint(uint64(webPortNum), 10)
 
 	router := gin.Default()
 
@@ -43,7 +56,7 @@ func StartWebServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 		routes = *wfWebServer.Routes
 	}
 
-	setupWebRoutes(router, ctx, hostIP, wfTrustedProxies, routes, dr)
+	setupWebRoutes(router, ctx, webHostIP, wfTrustedProxies, routes, dr)
 
 	dr.Logger.Printf("Starting Web server on port %s", hostPort)
 
@@ -84,7 +97,10 @@ func WebServerHandler(ctx context.Context, hostIP string, route *webserver.WebSe
 	logger := dr.Logger.With("webserver", route.Path)
 
 	// Handle PublicPath pointer using default fallback
-	publicPath := pkg.GetDefaultStringOrFallback(route.PublicPath, pkg.DefaultPublicPath)
+	publicPath := pkg.DefaultPublicPath
+	if route.PublicPath != nil {
+		publicPath = *route.PublicPath
+	}
 	fullPath := filepath.Join(dr.DataDir, publicPath)
 
 	// Log directory contents for debugging

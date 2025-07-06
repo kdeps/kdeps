@@ -10,6 +10,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/pkg"
+	"github.com/kdeps/kdeps/pkg/config"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -139,8 +141,29 @@ func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 		wfTrustedProxies = *wfAPIServer.TrustedProxies
 	}
 
-	portNum := pkg.GetDefaultUint16OrFallback(wfAPIServer.PortNum, pkg.DefaultPortNum)
-	hostPort := ":" + strconv.FormatUint(uint64(portNum), 10)
+	// Use the new configuration processor for PKL-first config
+	processor := config.NewConfigurationProcessor(dr.Logger)
+	processedConfig, err := processor.ProcessWorkflowConfiguration(ctx, dr.Workflow)
+	if err != nil {
+		return err
+	}
+
+	// Validate configuration
+	if err := processor.ValidateConfiguration(processedConfig); err != nil {
+		return err
+	}
+
+	// Use processedConfig for all config values
+	hostIP := processedConfig.APIServerHostIP.Value
+
+	// For Docker containers, override 127.0.0.1 to 0.0.0.0 to accept external connections
+	if hostIP == "127.0.0.1" {
+		hostIP = "0.0.0.0"
+		dr.Logger.Debug("overriding API server host IP for Docker", "original", processedConfig.APIServerHostIP.Value, "new", hostIP)
+	}
+
+	portNum := processedConfig.APIServerPort.Value
+	hostPort := hostIP + ":" + strconv.FormatUint(uint64(portNum), 10)
 
 	// Create a semaphore channel to limit to 1 active connection
 	semaphore := make(chan struct{}, 1)
@@ -157,8 +180,11 @@ func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 
 	dr.Logger.Printf("Starting API server on port %s", hostPort)
 	go func() {
+		dr.Logger.Printf("GOROUTINE STARTED: About to start router on %s", hostPort)
 		if err := router.Run(hostPort); err != nil {
 			dr.Logger.Error("failed to start API server", "error", err)
+		} else {
+			dr.Logger.Printf("GOROUTINE ENDED: Router stopped normally")
 		}
 	}()
 
@@ -220,39 +246,39 @@ func setupRoutes(router *gin.Engine, ctx context.Context, wfAPIServerCORS *apise
 		}
 
 		handler := APIServerHandler(ctx, route, dr, semaphore)
-		// TODO: Fix this - route.Method is undefined in schema v0.3
-		// The Method field seems to have been changed or removed
-		// For now, we'll register all HTTP methods for each route
-		/*
-			method := route.Method
-			switch method {
-			case http.MethodGet:
-				router.GET(route.Path, handler)
-			case http.MethodPost:
-				router.POST(route.Path, handler)
-			case http.MethodPut:
-				router.PUT(route.Path, handler)
-			case http.MethodPatch:
-				router.PATCH(route.Path, handler)
-			case http.MethodDelete:
-				router.DELETE(route.Path, handler)
-			case http.MethodOptions:
-				router.OPTIONS(route.Path, handler)
-			case http.MethodHead:
-				router.HEAD(route.Path, handler)
-			default:
-				dr.Logger.Warn("Unsupported HTTP method in route configuration", "method", method)
-			}
-		*/
 
-		// Register all methods for now until we figure out the correct field
-		router.GET(route.Path, handler)
-		router.POST(route.Path, handler)
-		router.PUT(route.Path, handler)
-		router.PATCH(route.Path, handler)
-		router.DELETE(route.Path, handler)
-		router.OPTIONS(route.Path, handler)
-		router.HEAD(route.Path, handler)
+		// Register routes based on the Methods field from the schema
+		if route.Methods != nil {
+			for _, method := range route.Methods {
+				switch method {
+				case http.MethodGet:
+					router.GET(route.Path, handler)
+				case http.MethodPost:
+					router.POST(route.Path, handler)
+				case http.MethodPut:
+					router.PUT(route.Path, handler)
+				case http.MethodPatch:
+					router.PATCH(route.Path, handler)
+				case http.MethodDelete:
+					router.DELETE(route.Path, handler)
+				case http.MethodOptions:
+					router.OPTIONS(route.Path, handler)
+				case http.MethodHead:
+					router.HEAD(route.Path, handler)
+				default:
+					dr.Logger.Warn("Unsupported HTTP method in route configuration", "method", method)
+				}
+			}
+		} else {
+			// If no methods specified, register all methods for backward compatibility
+			router.GET(route.Path, handler)
+			router.POST(route.Path, handler)
+			router.PUT(route.Path, handler)
+			router.PATCH(route.Path, handler)
+			router.DELETE(route.Path, handler)
+			router.OPTIONS(route.Path, handler)
+			router.HEAD(route.Path, handler)
+		}
 
 		dr.Logger.Printf("Route configured: %s", route.Path)
 	}
@@ -260,7 +286,6 @@ func setupRoutes(router *gin.Engine, ctx context.Context, wfAPIServerCORS *apise
 
 func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, baseDr *resolver.DependencyResolver, semaphore chan struct{}) gin.HandlerFunc {
 	// Validate route parameter
-	// TODO: Fix this - route.Method is undefined in schema v0.3
 	if route == nil || route.Path == "" {
 		baseDr.Logger.Error("invalid route configuration provided to APIServerHandler", "route", route)
 		return func(c *gin.Context) {
@@ -292,19 +317,49 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		}
 	}
 
-	// TODO: Fix this - we need to determine allowed methods from the route configuration
-	// For now, allow all methods
-	allowedMethods := []string{
-		http.MethodGet,
-		http.MethodPost,
-		http.MethodPut,
-		http.MethodPatch,
-		http.MethodDelete,
-		http.MethodOptions,
-		http.MethodHead,
+	// Determine allowed methods from the route configuration
+	var allowedMethods []string
+	if route.Methods != nil {
+		allowedMethods = route.Methods
+	} else {
+		// If no methods specified, allow all methods for backward compatibility
+		allowedMethods = []string{
+			http.MethodGet,
+			http.MethodPost,
+			http.MethodPut,
+			http.MethodPatch,
+			http.MethodDelete,
+			http.MethodOptions,
+			http.MethodHead,
+		}
 	}
 
 	return func(c *gin.Context) {
+		// CRITICAL: Add logging at the very start to see if handler is called
+		baseDr.Logger.Printf("HANDLER CALLED: %s %s", c.Request.Method, c.Request.URL.Path)
+
+		// Add panic recovery to ensure we always send a response
+		defer func() {
+			if r := recover(); r != nil {
+				// Log the panic with stack trace
+				baseDr.Logger.Error("panic in API handler", "error", r, "stack", string(debug.Stack()))
+				// Send a JSON error response
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"success": false,
+					"errors": []map[string]interface{}{
+						{
+							"code":     http.StatusInternalServerError,
+							"message":  fmt.Sprintf("Internal server error: %v", r),
+							"actionId": "unknown",
+						},
+					},
+					"meta": map[string]interface{}{
+						"requestID": uuid.New().String(),
+					},
+				})
+			}
+		}()
+
 		// Initialize errors slice to collect all errors
 		var errors []ErrorResponse
 
@@ -312,8 +367,12 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		baseLogger := logging.GetLogger()
 		logger := baseLogger.With("requestID", graphID)
 
+		// Log that we've entered the handler
+		logger.Info("API request received", "method", c.Request.Method, "path", c.Request.URL.Path, "clientIP", c.ClientIP())
+
 		// Ensure cleanup of request-specific errors when request completes
 		defer func() {
+			logger.Debug("cleaning up request-specific errors")
 			utils.ClearRequestErrors(graphID)
 		}()
 
@@ -369,26 +428,33 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 				return
 			}
 			c.Header("Content-Type", "application/json; charset=utf-8")
-			c.AbortWithStatus(statusCode)
-			c.Writer.Write(jsonBytes)
+			c.Data(statusCode, "application/json; charset=utf-8", jsonBytes)
 		}
 
 		// Try to acquire the semaphore (non-blocking)
+		logger.Debug("attempting to acquire semaphore")
 		select {
 		case semaphore <- struct{}{}:
 			// Successfully acquired the semaphore
-			defer func() { <-semaphore }() // Release the semaphore when done
+			logger.Debug("semaphore acquired successfully")
+			defer func() {
+				logger.Debug("releasing semaphore")
+				<-semaphore
+			}() // Release the semaphore when done
 		default:
 			// Semaphore is full, append error
+			logger.Warn("semaphore is full, rejecting request")
 			addUniqueError(&errors, http.StatusTooManyRequests, "Only one active connection is allowed", "unknown")
 			sendErrorResponse(http.StatusTooManyRequests, errors)
 			return
 		}
 
+		logger.Debug("creating new context and resolver")
 		newCtx := ktx.UpdateContext(ctx, ktx.CtxKeyGraphID, graphID)
 
 		dr, err := resolver.NewGraphResolver(baseDr.Fs, newCtx, baseDr.Environment, c, logger)
 		if err != nil {
+			logger.Error("failed to create resolver", "error", err)
 			errors = append(errors, ErrorResponse{
 				Code:     http.StatusInternalServerError,
 				Message:  "Failed to initialize resolver",
@@ -397,6 +463,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			sendErrorResponse(http.StatusInternalServerError, errors)
 			return
 		}
+		logger.Debug("resolver created successfully")
 
 		// Helper function to get action ID safely
 		getActionID := func() string {
@@ -416,7 +483,9 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			return "unknown"
 		}
 
+		logger.Debug("cleaning old files")
 		if err := cleanOldFiles(dr); err != nil {
+			logger.Error("failed to clean old files", "error", err)
 			errors = append(errors, ErrorResponse{
 				Code:     http.StatusInternalServerError,
 				Message:  "Failed to clean old files",
@@ -426,8 +495,10 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			return
 		}
 
+		logger.Debug("validating HTTP method", "method", c.Request.Method, "allowedMethods", allowedMethods)
 		method, err := validateMethod(c.Request, allowedMethods)
 		if err != nil {
+			logger.Error("method validation failed", "error", err)
 			errors = append(errors, ErrorResponse{
 				Code:     http.StatusBadRequest,
 				Message:  err.Error(),
@@ -436,6 +507,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			sendErrorResponse(http.StatusBadRequest, errors)
 			return
 		}
+		logger.Debug("method validation passed", "method", method)
 
 		if c.Request.Method == http.MethodOptions {
 			c.Header("Allow", "OPTIONS, GET, HEAD, POST, PUT, PATCH, DELETE")
@@ -449,13 +521,16 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			return
 		}
 
+		logger.Debug("processing request body", "method", c.Request.Method, "contentType", c.GetHeader("Content-Type"))
 		var bodyData string
 		fileMap := make(map[string]struct{ Filename, Filetype string })
 
 		switch c.Request.Method {
 		case http.MethodGet:
+			logger.Debug("processing GET request body")
 			body, err := io.ReadAll(c.Request.Body)
 			if err != nil {
+				logger.Error("failed to read GET request body", "error", err)
 				errors = append(errors, ErrorResponse{
 					Code:     http.StatusBadRequest,
 					Message:  "Failed to read request body",
@@ -466,6 +541,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			}
 			defer c.Request.Body.Close()
 			bodyData = string(body)
+			logger.Debug("GET request body processed", "bodyLength", len(bodyData))
 
 		case http.MethodPost, http.MethodPut, http.MethodPatch:
 			contentType := c.GetHeader("Content-Type")
@@ -539,8 +615,10 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 
 		sections := []string{urlSection, clientIPSection, requestIDSection, method, requestHeaderSection, dataSection, paramSection, fileSection}
 
+		logger.Debug("creating and processing PKL file")
 		if err := evaluator.CreateAndProcessPklFile(dr.Fs, ctx, sections, dr.RequestPklFile,
 			"APIServerRequest.pkl", dr.Logger, evaluator.EvalPkl, true); err != nil {
+			logger.Error("failed to create and process PKL file", "error", err)
 			errors = append(errors, ErrorResponse{
 				Code:     http.StatusInternalServerError,
 				Message:  messages.ErrProcessRequestFile,
@@ -549,8 +627,11 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			sendErrorResponse(http.StatusInternalServerError, errors)
 			return
 		}
+		logger.Debug("PKL file created and processed successfully")
 
+		logger.Debug("processing workflow")
 		if err := processWorkflow(ctx, dr); err != nil {
+			logger.Error("workflow processing failed", "error", err)
 			// Get action ID for error context
 			actionID := getActionID()
 
@@ -564,9 +645,12 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			sendErrorResponse(http.StatusInternalServerError, errors)
 			return
 		}
+		logger.Debug("workflow processing completed successfully")
 
+		logger.Debug("reading response file", "file", dr.ResponseTargetFile)
 		content, err := afero.ReadFile(dr.Fs, dr.ResponseTargetFile)
 		if err != nil {
+			logger.Error("failed to read response file", "error", err, "file", dr.ResponseTargetFile)
 			errors = append(errors, ErrorResponse{
 				Code:     http.StatusInternalServerError,
 				Message:  messages.ErrReadResponseFile,
@@ -575,6 +659,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			sendErrorResponse(http.StatusInternalServerError, errors)
 			return
 		}
+		logger.Debug("response file read successfully", "contentLength", len(content))
 
 		decodedResp, err := decodeResponseContent(content, dr.Logger)
 		if err != nil {
@@ -632,8 +717,10 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		// Ensure requestID is set in the response
 		decodedResp.Meta.RequestID = graphID
 
+		logger.Debug("marshaling response content")
 		decodedContent, err := json.Marshal(decodedResp)
 		if err != nil {
+			logger.Error("failed to marshal response content", "error", err)
 			errors = append(errors, ErrorResponse{
 				Code:     http.StatusInternalServerError,
 				Message:  messages.ErrMarshalResponseContent,
@@ -644,6 +731,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		}
 
 		decodedContent = formatResponseJSON(decodedContent)
+		logger.Debug("sending successful response", "contentLength", len(decodedContent))
 		c.Data(http.StatusOK, "application/json; charset=utf-8", decodedContent)
 	}
 }
@@ -669,7 +757,7 @@ func validateMethod(r *http.Request, allowedMethods []string) (string, error) {
 
 	for _, allowedMethod := range allowedMethods {
 		if allowedMethod == r.Method {
-			return fmt.Sprintf(`Methods { "%s" }`, allowedMethod), nil
+			return fmt.Sprintf(`Method = "%s"`, allowedMethod), nil
 		}
 	}
 

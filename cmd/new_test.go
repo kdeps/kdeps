@@ -82,7 +82,7 @@ func TestNewAgentCommandExecution(t *testing.T) {
 func TestNewAgentCommandFlags(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/tmp/kdeps"
+	kdepsDir := t.TempDir()
 	logger := logging.NewTestLogger()
 
 	cmd := NewAgentCommand(fs, ctx, kdepsDir, logger)
@@ -94,7 +94,7 @@ func TestNewAgentCommandFlags(t *testing.T) {
 func TestNewAgentCommandMaxArgs(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/tmp/kdeps"
+	kdepsDir := t.TempDir()
 	logger := logging.NewTestLogger()
 
 	cmd := NewAgentCommand(fs, ctx, kdepsDir, logger)
@@ -107,7 +107,7 @@ func TestNewAgentCommandMaxArgs(t *testing.T) {
 func TestNewAgentCommandEmptyName(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/tmp/kdeps"
+	kdepsDir := t.TempDir()
 	logger := logging.NewTestLogger()
 
 	cmd := NewAgentCommand(fs, ctx, kdepsDir, logger)

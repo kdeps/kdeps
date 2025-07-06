@@ -20,7 +20,7 @@ import (
 func TestNewBuildCommandFlags(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/tmp/kdeps"
+	kdepsDir := t.TempDir()
 	systemCfg := &kdeps.Kdeps{}
 	logger := logging.NewTestLogger()
 
@@ -34,7 +34,7 @@ func TestNewBuildCommandFlags(t *testing.T) {
 func TestNewBuildCommandExecution(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/tmp/kdeps"
+	kdepsDir := t.TempDir()
 	systemCfg := &kdeps.Kdeps{}
 	logger := logging.NewTestLogger()
 
@@ -138,7 +138,7 @@ run {
 func TestNewBuildCommandDockerErrors(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/tmp/kdeps"
+	kdepsDir := t.TempDir()
 	systemCfg := &kdeps.Kdeps{}
 	logger := logging.NewTestLogger()
 
@@ -224,7 +224,7 @@ func TestNewBuildCommand_MetadataAndErrorPath(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
 
-	cmd := NewBuildCommand(fs, ctx, "/tmp/kdeps", nil, logging.NewTestLogger())
+	cmd := NewBuildCommand(fs, ctx, t.TempDir(), nil, logging.NewTestLogger())
 
 	// Verify metadata
 	assert.Equal(t, "build [package]", cmd.Use)
@@ -256,12 +256,12 @@ func TestNewBuildCommandMetadata(t *testing.T) {
 }
 
 // helper returns common deps for command constructors.
-func testDeps() (afero.Fs, context.Context, string, *logging.Logger) {
-	return afero.NewMemMapFs(), context.Background(), "/tmp/kdeps", logging.NewTestLogger()
+func testDeps(t *testing.T) (afero.Fs, context.Context, string, *logging.Logger) {
+	return afero.NewMemMapFs(), context.Background(), t.TempDir(), logging.NewTestLogger()
 }
 
 func TestNewAddCommandConstructor(t *testing.T) {
-	fs, ctx, dir, logger := testDeps()
+	fs, ctx, dir, logger := testDeps(t)
 	cmd := NewAddCommand(fs, ctx, dir, logger)
 	if cmd.Use != "install [package]" {
 		t.Fatalf("unexpected Use field: %s", cmd.Use)
@@ -274,7 +274,7 @@ func TestNewAddCommandConstructor(t *testing.T) {
 }
 
 func TestNewBuildCommandConstructor(t *testing.T) {
-	fs, ctx, dir, logger := testDeps()
+	fs, ctx, dir, logger := testDeps(t)
 	cmd := NewBuildCommand(fs, ctx, dir, &kdCfg.Kdeps{}, logger)
 	if cmd.Use != "build [package]" {
 		t.Fatalf("unexpected Use field: %s", cmd.Use)
@@ -286,7 +286,7 @@ func TestNewBuildCommandConstructor(t *testing.T) {
 }
 
 func TestNewAgentCommandConstructor(t *testing.T) {
-	fs, ctx, dir, logger := testDeps()
+	fs, ctx, dir, logger := testDeps(t)
 	cmd := NewAgentCommand(fs, ctx, dir, logger)
 	if cmd.Use != "new [agentName]" {
 		t.Fatalf("unexpected Use field: %s", cmd.Use)
@@ -299,7 +299,7 @@ func TestNewAgentCommandConstructor(t *testing.T) {
 }
 
 func TestNewPackageCommandConstructor(t *testing.T) {
-	fs, ctx, dir, logger := testDeps()
+	fs, ctx, dir, logger := testDeps(t)
 	cmd := NewPackageCommand(fs, ctx, dir, &environment.Environment{}, logger)
 	if cmd.Use != "package [agent-dir]" {
 		t.Fatalf("unexpected Use field: %s", cmd.Use)
@@ -311,7 +311,7 @@ func TestNewPackageCommandConstructor(t *testing.T) {
 }
 
 func TestNewRunCommandConstructor(t *testing.T) {
-	fs, ctx, dir, logger := testDeps()
+	fs, ctx, dir, logger := testDeps(t)
 	cmd := NewRunCommand(fs, ctx, dir, &kdCfg.Kdeps{}, logger)
 	if cmd.Use != "run [package]" {
 		t.Fatalf("unexpected Use field: %s", cmd.Use)
@@ -323,7 +323,7 @@ func TestNewRunCommandConstructor(t *testing.T) {
 }
 
 func TestNewScaffoldCommandConstructor(t *testing.T) {
-	fs, _, _, logger := testDeps()
+	fs, _, _, logger := testDeps(t)
 	cmd := NewScaffoldCommand(fs, context.Background(), logger)
 	if cmd.Use != "scaffold [agentName] [fileNames...]" {
 		t.Fatalf("unexpected Use field: %s", cmd.Use)

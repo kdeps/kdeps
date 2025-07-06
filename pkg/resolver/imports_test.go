@@ -12,6 +12,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	assets "github.com/kdeps/schema/assets"
+	pklLLM "github.com/kdeps/schema/gen/llm"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -152,10 +153,14 @@ func TestPrepareImportFilesExtra(t *testing.T) {
 	ctx := context.Background()
 	env := &environment.Environment{}
 
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	actionDir := filepath.Join(tmpDir, "action")
+
 	dr := &DependencyResolver{
 		Fs:          fs,
 		Context:     ctx,
-		ActionDir:   "/tmp/action",
+		ActionDir:   actionDir,
 		RequestID:   "req1",
 		Logger:      logging.NewTestLogger(),
 		Environment: env,
@@ -302,6 +307,11 @@ func TestAddPlaceholderImports(t *testing.T) {
 	assert.NoError(t, fs.MkdirAll(dataDir, 0o755))
 	assert.NoError(t, afero.WriteFile(fs, filepath.Join(dataDir, "dummy.txt"), []byte("abc"), 0o644))
 
+	// MOCK: Provide a safe LoadResourceFn to avoid nil dereference
+	dr.LoadResourceFn = func(ctx context.Context, path string, typ ResourceType) (interface{}, error) {
+		return &pklLLM.LLMImpl{}, nil
+	}
+
 	// run the function under test
 	err := dr.AddPlaceholderImports(targetPkl)
 	assert.Error(t, err)
@@ -343,10 +353,14 @@ func TestPrependDynamicImportsExtra(t *testing.T) {
 	ctx := context.Background()
 	env := &environment.Environment{}
 
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	actionDir := filepath.Join(tmpDir, "action")
+
 	dr := &DependencyResolver{
 		Fs:          fs,
 		Context:     ctx,
-		ActionDir:   "/tmp/action",
+		ActionDir:   actionDir,
 		RequestID:   "rid",
 		Logger:      logging.NewTestLogger(),
 		Environment: env,

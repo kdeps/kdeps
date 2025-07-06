@@ -68,7 +68,9 @@ func TestPrependDynamicImportsAddsLines(t *testing.T) {
 	_ = fs.MkdirAll("/action/data", 0o755)
 
 	// Create the target PKL file containing an amends line.
-	pklPath := "/tmp/test.pkl"
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	pklPath := filepath.Join(tmpDir, "test.pkl")
 	content := "amends \"base.pkl\"\n\noutput = @(`echo hello`)\n"
 	if err := afero.WriteFile(fs, pklPath, []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write pkl: %v", err)

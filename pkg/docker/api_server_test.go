@@ -40,7 +40,7 @@ func TestValidateMethodExtra2(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if methodStr != `Methods { "POST" }` {
+	if methodStr != `Method = "POST"` {
 		t.Fatalf("unexpected method string: %s", methodStr)
 	}
 
@@ -56,7 +56,7 @@ func TestCleanOldFilesExtra2(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// create dummy response file
-	path := "/tmp/resp.json"
+	path := filepath.Join(t.TempDir(), "resp.json")
 	afero.WriteFile(fs, path, []byte("dummy"), 0o644)
 
 	dr := &resolver.DependencyResolver{
@@ -265,7 +265,7 @@ func TestValidateMethod(t *testing.T) {
 		req := httptest.NewRequest("GET", "/", nil)
 		method, err := validateMethod(req, []string{"GET", "POST"})
 		assert.NoError(t, err)
-		assert.Equal(t, "Methods { \"GET\" }", method)
+		assert.Equal(t, "Method = \"GET\"", method)
 	})
 
 	t.Run("InvalidMethod", func(t *testing.T) {
@@ -279,7 +279,7 @@ func TestValidateMethod(t *testing.T) {
 		req := httptest.NewRequest("", "/", nil)
 		method, err := validateMethod(req, []string{"GET", "POST"})
 		assert.NoError(t, err)
-		assert.Equal(t, "Methods { \"GET\" }", method)
+		assert.Equal(t, "Method = \"GET\"", method)
 	})
 }
 
@@ -745,13 +745,13 @@ func TestValidateMethodUtilsExtra(t *testing.T) {
 
 	req, _ := http.NewRequest(http.MethodGet, "http://example.com", nil)
 	got, err := validateMethod(req, []string{http.MethodGet, http.MethodPost})
-	if err != nil || got != `Methods { "GET" }` {
+	if err != nil || got != `Method = "GET"` {
 		t.Fatalf("expected valid GET, got %q err %v", got, err)
 	}
 
 	reqEmpty, _ := http.NewRequest("", "http://example.com", nil)
 	got2, err2 := validateMethod(reqEmpty, []string{http.MethodGet})
-	if err2 != nil || got2 != `Methods { "GET" }` {
+	if err2 != nil || got2 != `Method = "GET"` {
 		t.Fatalf("default method failed: %q err %v", got2, err2)
 	}
 
@@ -826,13 +826,13 @@ func TestValidateMethodMore(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodPost, "/", nil)
 	out, err := validateMethod(req, allowed)
 	assert.NoError(t, err)
-	assert.Equal(t, `Methods { "POST" }`, out)
+	assert.Equal(t, `Method = "POST"`, out)
 
 	// default empty method becomes GET and passes
 	req2, _ := http.NewRequest("", "/", nil)
 	out, err = validateMethod(req2, allowed)
 	assert.NoError(t, err)
-	assert.Equal(t, `Methods { "GET" }`, out)
+	assert.Equal(t, `Method = "GET"`, out)
 
 	// invalid method
 	req3, _ := http.NewRequest(http.MethodPut, "/", nil)
@@ -846,7 +846,7 @@ func TestCleanOldFilesMore(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// create dummy response file
-	const respPath = "/tmp/response.json"
+	respPath := filepath.Join(t.TempDir(), "response.json")
 	_ = afero.WriteFile(fs, respPath, []byte("old"), 0o644)
 
 	dr := &resolver.DependencyResolver{
@@ -870,9 +870,10 @@ func TestCleanOldFilesMore(t *testing.T) {
 // and returns nil when the file is absent. Both branches of the conditional are exercised.
 func TestCleanOldFilesMemFS(t *testing.T) {
 	mem := afero.NewMemMapFs()
+	respPath := filepath.Join(t.TempDir(), "response.json")
 	dr := &resolver.DependencyResolver{
 		Fs:                 mem,
-		ResponseTargetFile: "/tmp/response.json",
+		ResponseTargetFile: respPath,
 		Logger:             logging.NewTestLogger(),
 	}
 
@@ -898,7 +899,7 @@ func TestCleanOldFilesMemFS(t *testing.T) {
 // depending on OS-specific permissions.
 func TestCleanOldFilesRemoveError(t *testing.T) {
 	mem := afero.NewMemMapFs()
-	target := "/tmp/response.json"
+	target := filepath.Join(t.TempDir(), "response.json")
 	if err := afero.WriteFile(mem, target, []byte("data"), 0o644); err != nil {
 		t.Fatalf("write seed file: %v", err)
 	}
@@ -980,7 +981,7 @@ func TestValidateMethodSimple(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validateMethod unexpected error: %v", err)
 	}
-	if methodStr != `Methods { "POST" }` {
+	if methodStr != `Method = "POST"` {
 		t.Fatalf("unexpected method string: %s", methodStr)
 	}
 
@@ -996,7 +997,7 @@ func TestCleanOldFilesMem(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Prepare dependency resolver stub with in-mem fs
-	dr := &resolver.DependencyResolver{Fs: fs, Logger: logger, ResponseTargetFile: "/tmp/old_resp.txt"}
+	dr := &resolver.DependencyResolver{Fs: fs, Logger: logger, ResponseTargetFile: filepath.Join(t.TempDir(), "old_resp.txt")}
 	// Create dummy file
 	afero.WriteFile(fs, dr.ResponseTargetFile, []byte("old"), 0o666)
 

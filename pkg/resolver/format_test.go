@@ -1222,24 +1222,28 @@ func TestCreatePythonTempFile(t *testing.T) {
 func TestCleanupTempFile(t *testing.T) {
 	dr := setupTestResolver(t)
 
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test-file.txt")
+	nonExistentFile := filepath.Join(tmpDir, "non-existent.txt")
+
 	t.Run("ExistingFile", func(t *testing.T) {
 		// Create a temporary file
-		file, err := dr.Fs.Create("/tmp/test-file.txt")
+		file, err := dr.Fs.Create(testFile)
 		require.NoError(t, err)
 		file.Close()
 
 		// Cleanup the file
-		dr.cleanupTempFile("/tmp/test-file.txt")
+		dr.cleanupTempFile(testFile)
 
 		// Verify file is deleted
-		exists, err := afero.Exists(dr.Fs, "/tmp/test-file.txt")
+		exists, err := afero.Exists(dr.Fs, testFile)
 		assert.NoError(t, err)
 		assert.False(t, exists)
 	})
 
 	t.Run("NonExistentFile", func(t *testing.T) {
 		// Attempt to cleanup non-existent file
-		dr.cleanupTempFile("/tmp/non-existent.txt")
+		dr.cleanupTempFile(nonExistentFile)
 		// Should not panic or error
 	})
 }
@@ -1358,10 +1362,13 @@ func TestEvalPklFormattedResponseFile(t *testing.T) {
 
 func TestValidateAndEnsureResponseFiles(t *testing.T) {
 	fs := afero.NewMemMapFs()
+	tmpDir := t.TempDir()
+	responsePkl := filepath.Join(tmpDir, "response.pkl")
+	responseJson := filepath.Join(tmpDir, "response.json")
 	dr := &DependencyResolver{
 		Fs:                 fs,
-		ResponsePklFile:    "/tmp/response.pkl",
-		ResponseTargetFile: "/tmp/response.json",
+		ResponsePklFile:    responsePkl,
+		ResponseTargetFile: responseJson,
 		Logger:             logging.NewTestLogger(),
 		Context:            context.Background(),
 	}
@@ -1371,7 +1378,7 @@ func TestValidateAndEnsureResponseFiles(t *testing.T) {
 	})
 
 	t.Run("ValidatePKLExtension_Error", func(t *testing.T) {
-		bad := &DependencyResolver{ResponsePklFile: "/tmp/file.txt"}
+		bad := &DependencyResolver{ResponsePklFile: filepath.Join(tmpDir, "file.txt")}
 		err := bad.validatePklFileExtension()
 		require.Error(t, err)
 	})
@@ -1542,7 +1549,7 @@ func TestBuildResponseSections(t *testing.T) {
 		sections := dr.buildResponseSections("test-id", response)
 		assert.NotEmpty(t, sections)
 		assert.Contains(t, sections[0], "import")
-		assert.Contains(t, sections[5], "success = true")
+		assert.Contains(t, sections[5], "Success = true")
 	})
 
 	t.Run("ResponseWithError", func(t *testing.T) {
@@ -1550,7 +1557,7 @@ func TestBuildResponseSections(t *testing.T) {
 		sections := dr.buildResponseSections("test-id", response)
 		assert.NotEmpty(t, sections)
 		assert.Contains(t, sections[0], "import")
-		assert.Contains(t, sections[5], "success = false")
+		assert.Contains(t, sections[5], "Success = false")
 	})
 }
 
@@ -1581,7 +1588,7 @@ func TestFormatResponseData(t *testing.T) {
 func TestFormatResponseMeta(t *testing.T) {
 	t.Run("NilMeta", func(t *testing.T) {
 		result := formatResponseMeta("test-id", nil)
-		assert.Contains(t, result, "requestID = \"test-id\"")
+		assert.Contains(t, result, "RequestID = \"test-id\"")
 	})
 
 	t.Run("EmptyMeta", func(t *testing.T) {
@@ -1590,7 +1597,7 @@ func TestFormatResponseMeta(t *testing.T) {
 			Properties: &map[string]string{},
 		}
 		result := formatResponseMeta("test-id", meta)
-		assert.Contains(t, result, "requestID = \"test-id\"")
+		assert.Contains(t, result, "RequestID = \"test-id\"")
 	})
 
 	t.Run("WithHeadersAndProperties", func(t *testing.T) {
@@ -1601,7 +1608,7 @@ func TestFormatResponseMeta(t *testing.T) {
 			Properties: &properties,
 		}
 		result := formatResponseMeta("test-id", meta)
-		assert.Contains(t, result, "requestID = \"test-id\"")
+		assert.Contains(t, result, "RequestID = \"test-id\"")
 		assert.Contains(t, result, "Content-Type")
 		assert.Contains(t, result, "key")
 	})
@@ -1629,8 +1636,8 @@ func TestFormatErrors(t *testing.T) {
 			},
 		}
 		result := formatErrors(errors, logger)
-		assert.Contains(t, result, "errors")
-		assert.Contains(t, result, "code = 404")
+		assert.Contains(t, result, "Errors")
+		assert.Contains(t, result, "Code = 404")
 		assert.Contains(t, result, "Resource not found")
 	})
 }

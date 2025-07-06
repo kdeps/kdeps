@@ -121,7 +121,7 @@ func TestLoadEnvFile_VariousCases(t *testing.T) {
 func TestLoadEnvFileMissingAndSuccess(t *testing.T) {
 	fs := afero.NewOsFs()
 	// Case 1: file missing returns nil slice, no error
-	envs, err := loadEnvFile(fs, "/tmp/not_existing.env")
+	envs, err := loadEnvFile(fs, filepath.Join(t.TempDir(), "not_existing.env"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
