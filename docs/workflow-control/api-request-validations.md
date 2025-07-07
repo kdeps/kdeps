@@ -119,6 +119,6 @@ The action is skipped at the first validation failure, and a log entry details t
 - **Use Specific Restrictions:** Define only the necessary HTTP methods and routes to minimize skipping and ensure intended behavior.
 - **Leverage Logging:** Review log messages for skipped actions to diagnose validation issues (e.g., incorrect method or path).
 - **Test Configurations:** Validate resource configurations in a test environment to ensure the correct methods, routes, headers, and parameters are permitted.
-- **Combine with Preflight Validations:** Use API request validations alongside [Preflight Validations](/getting-started/resources/validations.md) for comprehensive checks, as they serve complementary purposes.
+- **Combine with Preflight Validations:** Use API request validations alongside [Preflight Validations](../workflow-control/validations.md) for comprehensive checks, as they serve complementary purposes.
 
 By incorporating API request validations into your resources, you can enforce strict request compliance, enhance security, and streamline action execution in API-driven workflows.

@@ -1,8 +1,8 @@
 # File Uploads
 
-Kdeps supports uploading files via its [API](../configuration/workflow#api-server-settings) in addition to sourcing files from the [Data Folder](../resources/data).
+Kdeps supports uploading files via its [API](../getting-started/configuration/workflow.md#api-server-settings) in addition to sourcing files from the [Data Folder](../data-memory/data.md).
 
-To enable file uploads through the Kdeps API, you must configure the HTTP `POST` method in the `methods` section of your configuration. For further details, refer to the [API Routes](../configuration/workflow#api-routes) documentation.
+To enable file uploads through the Kdeps API, you must configure the HTTP `POST` method in the `methods` section of your configuration. For further details, refer to the [API Routes](../getting-started/configuration/workflow.md#api-routes) documentation.
 
 ## Uploading Files as `FORM` Data
 
@@ -26,7 +26,7 @@ The request functions that we are going to discuss for handling uploaded files a
 - **`request.filesByType("mimetype")`**: Filters and retrieves files of a specific MIME type.
 
 There are other available request file operation functions. For the full list of available request
-functions, refer to the [API Request Functions](../resources/functions#api-request-functions) documentation.
+functions, refer to the [API Request Functions](../functions-utilities/functions.md#api-request-functions) documentation.
 
 ### Example Usage
 

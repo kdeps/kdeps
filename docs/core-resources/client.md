@@ -27,9 +27,9 @@ aiagent
     └── client.pkl
 ```
 
-The file includes essential metadata and common configurations, such as [Skip Conditions](../resources/skip) and
-[Preflight Validations](../resources/validations). For more details, refer to the [Common Resource
-Configurations](../resources/resources#common-resource-configurations) documentation.
+The file includes essential metadata and common configurations, such as [Skip Conditions](../workflow-control/skip.md) and
+[Preflight Validations](../workflow-control/validations.md). For more details, refer to the [Common Resource
+Configurations](../resources.md#common-resource-configurations) documentation.
 
 ## HTTP Client Block
 
@@ -67,4 +67,4 @@ Key elements of the `HTTPClient` block include:
 
 When the resource is executed, you can use client functions like `client.responseBody("id")` to access the response
 body. For further details, refer to the [HTTP Client
-Functions](../resources/functions.md#http-client-resource-functions) documentation.
+Functions](../functions-utilities/functions.md#http-client-resource-functions) documentation.

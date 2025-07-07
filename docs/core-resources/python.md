@@ -9,7 +9,7 @@ The `Python` resource is designed to run Python scripts specified in the `Script
 This resource also provides access to installed Python packages installed via `pip`, and as well as
 [Anaconda](https://www.anaconda.com) packages defined in the `workflow.pkl`, are available for use. The resource also
 includes a `CondaEnvironment` attribute, allowing it to isolate execution within a specified Conda environment. For more
-information, see the [Workflow](../configuration/workflow) documentation.
+information, see the [Workflow](../getting-started/configuration/workflow.md) documentation.
 
 ## Creating a New Python Resource
 
@@ -30,9 +30,9 @@ aiagent
     └── python.pkl
 ```
 
-The file includes essential metadata and common configurations, such as [Skip Conditions](../resources/skip) and
-[Preflight Validations](../resources/validations) settings. For more details, refer to the [Common Resource
-Configurations](../resources/resources#common-resource-configurations) documentation.
+The file includes essential metadata and common configurations, such as [Skip Conditions](../workflow-control/skip.md) and
+[Preflight Validations](../workflow-control/validations.md) settings. For more details, refer to the [Common Resource
+Configurations](../resources.md#common-resource-configurations) documentation.
 
 ## Python Block
 
@@ -74,4 +74,4 @@ Key elements of the `Python` block include:
   with defined dependencies.
 
 When the resource is executed, you can leverage Python functions like `python.stdout("id")` to access the output. For
-further details, refer to the [Python Functions](../resources/functions.md#python-resource-functions) documentation.
+further details, refer to the [Python Functions](../functions-utilities/functions.md#python-resource-functions) documentation.

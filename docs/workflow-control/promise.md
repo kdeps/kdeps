@@ -14,7 +14,7 @@ generated during resource execution must be wrapped in this template convention.
 
 Without the promise operator, such functions would execute prematurely, causing an exception.
 
-The promise operator is commonly used in [Resources](../resources/resources.md). Below are examples of its applications:
+The promise operator is commonly used in [Resources](../resources.md). Below are examples of its applications:
 
 ## Skip Condition
 
@@ -49,8 +49,8 @@ PreflightCheck {
 
 ## Resource Functions
 
-All resource functions must use the promise operator. For further information, see the [Functions](../resources/functions) documentation.
+All resource functions must use the promise operator. For further information, see the [Functions](../functions-utilities/functions.md) documentation.
 
 ## API Request Functions
 
-Similarly, API request functions require the promise operator. For additional details, refer to the [API Request Functions](../resources/functions#api-request-functions) documentation.
+Similarly, API request functions require the promise operator. For additional details, refer to the [API Request Functions](../functions-utilities/functions.md#api-request-functions) documentation.

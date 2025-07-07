@@ -3,11 +3,11 @@
 The `Response` resource is designed to initialize an API response in JSON format by pre-filling the `Data` array with
 values generated from previously executed resources.
 
-Using this resource alongside [Skip Conditions](../resources/skip) and [Preflight
-Validations](../resources/validations), you can define rules to output either a successful response or a custom `Error`.
+Using this resource alongside [Skip Conditions](../workflow-control/skip.md) and [Preflight
+Validations](../workflow-control/validations.md), you can define rules to output either a successful response or a custom `Error`.
 
 You can define multiple API routes in the `workflow.pkl` file. For more information, refer to the
-[Workflow](../configuration/workflow) documentation.
+[Workflow](../getting-started/configuration/workflow.md) documentation.
 
 ## Creating a New API Response Resource
 
@@ -28,9 +28,9 @@ aiagent
     └── response.pkl
 ```
 
-The generated file includes essential metadata and common configurations, such as [Skip Conditions](../resources/skip)
-and [Preflight Validations](../resources/validations). For more details, refer to the [Common Resource
-Configurations](../resources/resources#common-resource-configurations) documentation.
+The generated file includes essential metadata and common configurations, such as [Skip Conditions](../workflow-control/skip.md)
+and [Preflight Validations](../workflow-control/validations.md). For more details, refer to the [Common Resource
+Configurations](../resources.md#common-resource-configurations) documentation.
 
 ## API Response Block
 

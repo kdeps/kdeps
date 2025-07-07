@@ -34,7 +34,7 @@ aiagent
     └── exec.pkl
 ```
 
-The generated file includes essential metadata and common configurations, such as [Skip Conditions](../workflow-control/skip.md) and [API Validations](../workflow-control/api-request-validations.md). For more details, refer to the [Resource Configuration](./resource.md) documentation.
+The generated file includes essential metadata and common configurations, such as [Skip Conditions](../workflow-control/skip.md) and [API Validations](../workflow-control/api-request-validations.md). For more details, refer to the [Resource Configuration](../resources.md) documentation.
 
 ## Basic Exec Resource Structure
 

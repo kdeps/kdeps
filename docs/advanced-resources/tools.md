@@ -206,4 +206,4 @@ local output = "@(tools.getRecord("square_number_123"))"
 
 kdeps only supports open-source AI models, not Claude or MCP.
 
-See [LLM Resource Functions](../resources/functions.md#llm-resource-functions) for more.
+See [LLM Resource Functions](../functions-utilities/functions.md#llm-resource-functions) for more.
