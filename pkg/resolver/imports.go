@@ -2,7 +2,6 @@ package resolver
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -20,6 +19,7 @@ import (
 	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
 	pklPython "github.com/kdeps/schema/gen/python"
+	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 )
 
@@ -272,44 +272,16 @@ func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
 		return fmt.Errorf("failed to initialize agent reader: %w", err)
 	}
 
-	// Find the actionID line and resolve it canonically
-	var actionID string
-	scanner := bufio.NewScanner(bytes.NewReader(content))
-	idPattern := regexp.MustCompile(`(?i)^\s*actionID\s*=\s*"(.+)"`)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if idMatch := idPattern.FindStringSubmatch(line); idMatch != nil {
-			// Use agentReader to resolve the actionID
-			query := url.Values{}
-			query.Set("op", "resolve")
-
-			// Add nil check for Workflow
-			if dr.Workflow == nil {
-				return fmt.Errorf("workflow is nil, cannot resolve action ID")
-			}
-
-			query.Set("agent", dr.Workflow.GetAgentID())
-			query.Set("version", dr.Workflow.GetVersion())
-			uri := url.URL{
-				Scheme:   "agent",
-				Path:     "/" + idMatch[1],
-				RawQuery: query.Encode(),
-			}
-			resolvedIDBytes, err := agentReader.Read(uri)
-			if err != nil {
-				return fmt.Errorf("failed to resolve action ID: %w", err)
-			}
-			actionID = string(resolvedIDBytes)
-			break
-		}
+	// Extract actionID using a more robust approach
+	actionID, err := extractActionIDFromContent(content)
+	if err != nil {
+		return fmt.Errorf("failed to extract actionID: %w", err)
 	}
 
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("error reading file: %w", err)
-	}
-
-	if actionID == "" {
-		return errors.New("action id not found in the file")
+	// Resolve the actionID canonically using the agent reader
+	resolvedActionID, err := resolveActionIDCanonically(actionID, dr.Workflow, agentReader)
+	if err != nil {
+		return fmt.Errorf("failed to resolve actionID canonically: %w", err)
 	}
 
 	dataFileList, err := data.PopulateDataFileRegistry(dr.Fs, dr.DataDir)
@@ -327,25 +299,77 @@ func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
 		Method: "GET",
 	}
 
-	if err := dr.AppendDataEntry(actionID, dataFiles); err != nil {
+	if err := dr.AppendDataEntry(resolvedActionID, dataFiles); err != nil {
 		return err
 	}
 
-	if err := dr.AppendChatEntry(actionID, llmChat); err != nil {
+	if err := dr.AppendChatEntry(resolvedActionID, llmChat); err != nil {
 		return err
 	}
 
-	if err := dr.AppendExecEntry(actionID, execCmd); err != nil {
+	if err := dr.AppendExecEntry(resolvedActionID, execCmd); err != nil {
 		return err
 	}
 
-	if err := dr.AppendHTTPEntry(actionID, HTTPClient); err != nil {
+	if err := dr.AppendHTTPEntry(resolvedActionID, HTTPClient); err != nil {
 		return err
 	}
 
-	if err := dr.AppendPythonEntry(actionID, pythonCmd); err != nil {
+	if err := dr.AppendPythonEntry(resolvedActionID, pythonCmd); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// extractActionIDFromContent extracts actionID from PKL file content using a more robust approach
+func extractActionIDFromContent(content []byte) (string, error) {
+	// First try to find actionID using a more precise regex pattern
+	// This pattern looks for actionID = "value" with proper PKL syntax
+	actionIDPattern := regexp.MustCompile(`(?m)^\s*actionID\s*=\s*"([^"]+)"\s*$`)
+	matches := actionIDPattern.FindSubmatch(content)
+	if len(matches) >= 2 {
+		return string(matches[1]), nil
+	}
+
+	// Fallback to a more flexible pattern if the strict one doesn't match
+	fallbackPattern := regexp.MustCompile(`(?i)actionID\s*=\s*"([^"]+)"`)
+	matches = fallbackPattern.FindSubmatch(content)
+	if len(matches) >= 2 {
+		return string(matches[1]), nil
+	}
+
+	return "", errors.New("actionID not found in file content")
+}
+
+// resolveActionIDCanonically resolves an actionID to its canonical form using the agent reader
+func resolveActionIDCanonically(actionID string, wf pklWf.Workflow, agentReader *agent.PklResourceReader) (string, error) {
+	// If the actionID is already in canonical form (@agent/action:version), return it
+	if strings.HasPrefix(actionID, "@") {
+		return actionID, nil
+	}
+
+	// Add nil check for Workflow
+	if wf == nil {
+		return "", fmt.Errorf("workflow is nil, cannot resolve action ID")
+	}
+
+	// Create URI for agent ID resolution
+	query := url.Values{}
+	query.Set("op", "resolve")
+	query.Set("agent", wf.GetAgentID())
+	query.Set("version", wf.GetVersion())
+	uri := url.URL{
+		Scheme:   "agent",
+		Path:     "/" + actionID,
+		RawQuery: query.Encode(),
+	}
+
+	resolvedIDBytes, err := agentReader.Read(uri)
+	if err != nil {
+		// Fallback to default resolution if agent reader fails
+		return fmt.Sprintf("@%s/%s:%s", wf.GetAgentID(), actionID, wf.GetVersion()), nil
+	}
+
+	return string(resolvedIDBytes), nil
 }

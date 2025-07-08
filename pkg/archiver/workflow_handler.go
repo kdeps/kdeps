@@ -7,11 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
+	"github.com/kdeps/kdeps/pkg/agent"
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/evaluator"
@@ -115,12 +117,15 @@ func CompileWorkflow(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsD
 		return "", errors.New("please specify the default action in the workflow")
 	}
 
-	name, version := wf.GetAgentID(), wf.GetVersion()
-	compiledAction := action
-	if !strings.HasPrefix(action, "@") {
-		compiledAction = fmt.Sprintf("@%s/%s:%s", name, action, version)
+	// Resolve the actionID canonically using the agent reader
+	agentReader, err := agent.GetGlobalAgentReader(fs, "", logger)
+	if err != nil {
+		return "", fmt.Errorf("failed to initialize agent reader: %w", err)
 	}
 
+	compiledAction := resolveActionIDCanonically(action, wf, agentReader)
+
+	name, version := wf.GetAgentID(), wf.GetVersion()
 	agentDir := filepath.Join(kdepsDir, fmt.Sprintf("agents/%s/%s", name, version))
 	resourcesDir := filepath.Join(agentDir, "resources")
 	compiledFilePath := filepath.Join(agentDir, "workflow.pkl")
@@ -147,8 +152,12 @@ func CompileWorkflow(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsD
 		return "", err
 	}
 
-	re := regexp.MustCompile(`TargetActionID\s*=\s*".*"`)
-	updatedContent := re.ReplaceAllString(string(content), fmt.Sprintf("TargetActionID = \"%s\"", compiledAction))
+	// Replace TargetActionID using a more robust approach
+	updatedContent, err := replaceTargetActionID(string(content), compiledAction)
+	if err != nil {
+		logger.Error("failed to replace TargetActionID", "error", err)
+		return "", err
+	}
 
 	if err := afero.WriteFile(fs, compiledFilePath, []byte(updatedContent), 0o644); err != nil {
 		logger.Error("failed to write compiled workflow", "path", compiledFilePath, "error", err)
@@ -161,6 +170,57 @@ func CompileWorkflow(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsD
 	}
 
 	return filepath.Dir(compiledFilePath), nil
+}
+
+// resolveActionIDCanonically resolves an actionID to its canonical form using the agent reader
+func resolveActionIDCanonically(actionID string, wf pklWf.Workflow, agentReader *agent.PklResourceReader) string {
+	// If the actionID is already in canonical form (@agent/action:version), return it
+	if strings.HasPrefix(actionID, "@") {
+		return actionID
+	}
+
+	// Create URI for agent ID resolution
+	query := url.Values{}
+	query.Set("op", "resolve")
+	query.Set("agent", wf.GetAgentID())
+	query.Set("version", wf.GetVersion())
+	uri := url.URL{
+		Scheme:   "agent",
+		Path:     "/" + actionID,
+		RawQuery: query.Encode(),
+	}
+
+	resolvedIDBytes, err := agentReader.Read(uri)
+	if err != nil {
+		// Fallback to default resolution if agent reader fails
+		return fmt.Sprintf("@%s/%s:%s", wf.GetAgentID(), actionID, wf.GetVersion())
+	}
+
+	return string(resolvedIDBytes)
+}
+
+// replaceTargetActionID replaces the TargetActionID in workflow content using a more robust approach
+func replaceTargetActionID(content, newActionID string) (string, error) {
+	// Use a more precise regex pattern that matches the PKL syntax
+	// This pattern looks for TargetActionID = "value" with proper PKL syntax
+	targetActionIDPattern := regexp.MustCompile(`(?m)^(\s*TargetActionID\s*=\s*)"[^"]*"(\s*)$`)
+	matches := targetActionIDPattern.FindStringSubmatch(content)
+	if len(matches) >= 3 {
+		// Replace with the new actionID
+		replacement := matches[1] + `"` + newActionID + `"` + matches[2]
+		return targetActionIDPattern.ReplaceAllString(content, replacement), nil
+	}
+
+	// Fallback to a more flexible pattern if the strict one doesn't match
+	fallbackPattern := regexp.MustCompile(`(?i)(TargetActionID\s*=\s*)"[^"]*"`)
+	matches = fallbackPattern.FindStringSubmatch(content)
+	if len(matches) >= 2 {
+		// Replace with the new actionID
+		replacement := matches[1] + `"` + newActionID + `"`
+		return fallbackPattern.ReplaceAllString(content, replacement), nil
+	}
+
+	return "", errors.New("TargetActionID not found in workflow content")
 }
 
 func CompileProject(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir string, projectDir string, env *environment.Environment, logger *logging.Logger) (string, string, error) {

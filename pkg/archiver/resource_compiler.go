@@ -294,7 +294,7 @@ func isActionID(value string) bool {
 }
 
 func resolveActionIDWithAgentReader(actionID string, wf pklWf.Workflow, agentReader *agent.PklResourceReader) string {
-	// If already fully qualified, return as-is
+	// If the actionID is already in canonical form (@agent/action:version), return it
 	if strings.HasPrefix(actionID, "@") {
 		return actionID
 	}

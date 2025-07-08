@@ -20,12 +20,11 @@ func TestResolveActionIDWithAgentReader(t *testing.T) {
 		version: "1.0.0",
 	}
 
-	// Initialize agent reader
-	agentReader, err := agent.InitializeAgent(fs, "", logger)
+	// Initialize agent reader using the global singleton
+	agentReader, err := agent.GetGlobalAgentReader(fs, "", logger)
 	if err != nil {
 		t.Fatalf("failed to initialize agent reader: %v", err)
 	}
-	defer agentReader.Close()
 
 	tests := []struct {
 		name     string
@@ -69,12 +68,11 @@ func TestProcessRequiresBlockWithAgentReader(t *testing.T) {
 		version: "1.0.0",
 	}
 
-	// Initialize agent reader
-	agentReader, err := agent.InitializeAgent(fs, "", logger)
+	// Initialize agent reader using the global singleton
+	agentReader, err := agent.GetGlobalAgentReader(fs, "", logger)
 	if err != nil {
 		t.Fatalf("failed to initialize agent reader: %v", err)
 	}
-	defer agentReader.Close()
 
 	input := strings.Join([]string{
 		"",
@@ -184,12 +182,11 @@ func TestRequiresBlockWithNoActions(t *testing.T) {
 		version: "1.0.0",
 	}
 
-	// Initialize agent reader
-	agentReader, err := agent.InitializeAgent(fs, "", logger)
+	// Initialize agent reader using the global singleton
+	agentReader, err := agent.GetGlobalAgentReader(fs, "", logger)
 	if err != nil {
 		t.Fatalf("failed to initialize agent reader: %v", err)
 	}
-	defer agentReader.Close()
 
 	// Test requires block with agent name (no actions)
 	requiresBlock := `requires = {
@@ -230,12 +227,11 @@ func TestRequiresBlockWithActions(t *testing.T) {
 		version: "1.0.0",
 	}
 
-	// Initialize agent reader
-	agentReader, err := agent.InitializeAgent(fs, "", logger)
+	// Initialize agent reader using the global singleton
+	agentReader, err := agent.GetGlobalAgentReader(fs, "", logger)
 	if err != nil {
 		t.Fatalf("failed to initialize agent reader: %v", err)
 	}
-	defer agentReader.Close()
 
 	// Test requires block with actions
 	requiresBlock := `requires = {
@@ -275,12 +271,11 @@ func TestRequiresBlockWithAgentAndActions(t *testing.T) {
 		version: "1.0.0",
 	}
 
-	// Initialize agent reader
-	agentReader, err := agent.InitializeAgent(fs, "", logger)
+	// Initialize agent reader using the global singleton
+	agentReader, err := agent.GetGlobalAgentReader(fs, "", logger)
 	if err != nil {
 		t.Fatalf("failed to initialize agent reader: %v", err)
 	}
-	defer agentReader.Close()
 
 	// Test requires block with both agent name and actions
 	requiresBlock := `requires = {
