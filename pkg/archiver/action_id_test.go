@@ -46,6 +46,16 @@ func TestResolveActionIDWithAgentReader(t *testing.T) {
 			actionID: "myAction:0.3.0",
 			expected: "@testagent/myAction:1.0.0", // version from workflow takes precedence
 		},
+		{
+			name:     "agent/action pattern",
+			actionID: "otheragent/myAction",
+			expected: "@otheragent/myAction:1.0.0",
+		},
+		{
+			name:     "agent/action with version",
+			actionID: "otheragent/myAction:2.0.0",
+			expected: "@otheragent/myAction:1.0.0", // version from workflow takes precedence
+		},
 	}
 
 	for _, tt := range tests {
@@ -53,6 +63,190 @@ func TestResolveActionIDWithAgentReader(t *testing.T) {
 			resolvedID := resolveActionIDWithAgentReader(tt.actionID, testWf, agentReader)
 			if resolvedID != tt.expected {
 				t.Errorf("Test %s: expected %s, got %s", tt.name, tt.expected, resolvedID)
+			}
+		})
+	}
+}
+
+func TestIsActionIDPatterns(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    string
+		expected bool
+		desc     string
+	}{
+		// Pattern 1: actionID:version
+		{
+			name:     "action with version",
+			value:    "myAction:1.0.0",
+			expected: true,
+			desc:     "Should match actionID:version pattern",
+		},
+		{
+			name:     "action with version complex",
+			value:    "complex_action:2.1.3",
+			expected: true,
+			desc:     "Should match complex action names with version",
+		},
+		{
+			name:     "invalid action with version",
+			value:    ":1.0.0",
+			expected: false,
+			desc:     "Should not match empty action part",
+		},
+		{
+			name:     "invalid version format",
+			value:    "myAction:",
+			expected: false,
+			desc:     "Should not match empty version part",
+		},
+
+		// Pattern 2: agentID/actionID
+		{
+			name:     "agent/action pattern",
+			value:    "myAgent/myAction",
+			expected: true,
+			desc:     "Should match agentID/actionID pattern",
+		},
+		{
+			name:     "agent/action with underscore",
+			value:    "my_agent/my_action",
+			expected: true,
+			desc:     "Should match agent/action with underscores",
+		},
+		{
+			name:     "agent/action with hyphen",
+			value:    "my-agent/my-action",
+			expected: true,
+			desc:     "Should match agent/action with hyphens",
+		},
+		{
+			name:     "invalid agent/action empty agent",
+			value:    "/myAction",
+			expected: false,
+			desc:     "Should not match empty agent part",
+		},
+		{
+			name:     "invalid agent/action empty action",
+			value:    "myAgent/",
+			expected: false,
+			desc:     "Should not match empty action part",
+		},
+
+		// Pattern 3: simple action name
+		{
+			name:     "simple action",
+			value:    "myAction",
+			expected: true,
+			desc:     "Should match simple action name",
+		},
+		{
+			name:     "action with underscore",
+			value:    "my_action",
+			expected: true,
+			desc:     "Should match action with underscore",
+		},
+		{
+			name:     "action with hyphen",
+			value:    "my-action",
+			expected: true,
+			desc:     "Should match action with hyphen",
+		},
+		{
+			name:     "complex action name",
+			value:    "complexActionName123",
+			expected: true,
+			desc:     "Should match complex action name",
+		},
+
+		// Already qualified patterns (should be handled elsewhere)
+		{
+			name:     "already qualified with version",
+			value:    "@agent/action:1.0.0",
+			expected: false,
+			desc:     "Should not match already qualified patterns",
+		},
+		{
+			name:     "already qualified without version",
+			value:    "@agent/action",
+			expected: false,
+			desc:     "Should not match already qualified patterns",
+		},
+
+		// Invalid patterns
+		{
+			name:     "empty string",
+			value:    "",
+			expected: false,
+			desc:     "Should not match empty string",
+		},
+		{
+			name:     "comment",
+			value:    "# comment",
+			expected: false,
+			desc:     "Should not match comments",
+		},
+		{
+			name:     "config value",
+			value:    "config_value",
+			expected: false,
+			desc:     "Should not match config values with multiple underscores",
+		},
+		{
+			name:     "config setting",
+			value:    "my_setting",
+			expected: false,
+			desc:     "Should not match config settings with multiple underscores",
+		},
+		{
+			name:     "contains equals",
+			value:    "action=value",
+			expected: false,
+			desc:     "Should not match strings with equals",
+		},
+		{
+			name:     "contains spaces",
+			value:    "my action",
+			expected: false,
+			desc:     "Should not match strings with spaces",
+		},
+		{
+			name:     "contains tabs",
+			value:    "my\taction",
+			expected: false,
+			desc:     "Should not match strings with tabs",
+		},
+		{
+			name:     "ends with _value",
+			value:    "my_value",
+			expected: false,
+			desc:     "Should not match strings ending with _value",
+		},
+		{
+			name:     "ends with _config",
+			value:    "my_config",
+			expected: false,
+			desc:     "Should not match strings ending with _config",
+		},
+		{
+			name:     "ends with _setting",
+			value:    "my_setting",
+			expected: false,
+			desc:     "Should not match strings ending with _setting",
+		},
+		{
+			name:     "ends with _option",
+			value:    "my_option",
+			expected: false,
+			desc:     "Should not match strings ending with _option",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isActionID(tt.value)
+			if result != tt.expected {
+				t.Errorf("Test %s: expected %v, got %v - %s", tt.name, tt.expected, result, tt.desc)
 			}
 		})
 	}
@@ -76,10 +270,12 @@ func TestProcessRequiresBlockWithAgentReader(t *testing.T) {
 
 	input := strings.Join([]string{
 		"",
-		"    \"\"",                // quoted empty
-		"    \"@otherAgent/foo\"", // @-prefixed without version
-		"    \"localAction\"",     // plain quoted value
-		"    \"config_value\"",    // config value should remain unchanged
+		"    \"\"",                        // quoted empty
+		"    \"@otherAgent/foo\"",         // @-prefixed without version
+		"    \"localAction\"",             // plain quoted value
+		"    \"actionWithVersion:1.0.0\"", // action with version
+		"    \"otheragent/myAction\"",     // agent/action pattern
+		"    \"config_value\"",            // config value should remain unchanged
 	}, "\n")
 
 	result, agentsToCopyAll := processRequiresBlockWithAgentReader(input, testWf, agentReader)
@@ -97,8 +293,14 @@ func TestProcessRequiresBlockWithAgentReader(t *testing.T) {
 	if !strings.Contains(lines[3], "@testagent/localAction:1.0.0") {
 		t.Errorf("local action should be resolved, got: %q", lines[3])
 	}
-	if strings.TrimSpace(lines[4]) != "\"config_value\"" {
-		t.Errorf("quoted config_value should remain unchanged, got: %q", lines[4])
+	if !strings.Contains(lines[4], "@testagent/actionWithVersion:1.0.0") {
+		t.Errorf("action with version should be resolved, got: %q", lines[4])
+	}
+	if !strings.Contains(lines[5], "@otheragent/myAction:1.0.0") {
+		t.Errorf("agent/action pattern should be resolved, got: %q", lines[5])
+	}
+	if strings.TrimSpace(lines[6]) != "\"config_value\"" {
+		t.Errorf("quoted config_value should remain unchanged, got: %q", lines[6])
 	}
 
 	// Should not have any agents for copying all resources in this test

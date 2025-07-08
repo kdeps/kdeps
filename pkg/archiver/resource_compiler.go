@@ -266,11 +266,6 @@ func isActionID(value string) bool {
 		return false
 	}
 
-	// Skip if it contains slashes (likely a path or URL)
-	if strings.Contains(value, "/") || strings.Contains(value, "\\") {
-		return false
-	}
-
 	// Skip if it contains spaces or other special characters
 	if strings.ContainsAny(value, " \t\n\r") {
 		return false
@@ -283,14 +278,46 @@ func isActionID(value string) bool {
 	}
 
 	// Skip if it contains multiple underscores (likely a config key)
-	if strings.Count(value, "_") > 1 {
-		return false
+	// But only for simple action names, not for agent/action patterns or versioned patterns
+	if !strings.Contains(value, "/") && !strings.Contains(value, ":") {
+		if strings.Count(value, "_") > 1 {
+			return false
+		}
 	}
 
-	// Action IDs should be simple alphanumeric with possible single underscore/hyphen
-	// and should be camelCase or PascalCase style
-	actionIDPattern := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9]*([_-][a-zA-Z0-9]+)*$`)
-	return actionIDPattern.MatchString(value)
+	// Handle patterns that should match:
+	// 1. "actionID:1.0.0" - action with version
+	// 2. "agentID/actionID" - agent/action pattern
+	// 3. "simpleAction" - simple action name
+	// 4. "@agentID/actionID:1.0.0" - already qualified (handled elsewhere)
+	// 5. "@agentID/actionID" - already qualified (handled elsewhere)
+
+	// Pattern 1: actionID:version (e.g., "myAction:1.0.0")
+	if strings.Contains(value, ":") && !strings.HasPrefix(value, "@") {
+		parts := strings.SplitN(value, ":", 2)
+		if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
+			// Check if the action part looks like a valid action name
+			actionPart := parts[0]
+			actionPattern := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
+			return actionPattern.MatchString(actionPart)
+		}
+	}
+
+	// Pattern 2: agentID/actionID (e.g., "myAgent/myAction")
+	if strings.Contains(value, "/") && !strings.HasPrefix(value, "@") {
+		parts := strings.SplitN(value, "/", 2)
+		if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
+			// Check if both parts look like valid identifiers
+			agentPattern := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
+			actionPattern := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
+			return agentPattern.MatchString(parts[0]) && actionPattern.MatchString(parts[1])
+		}
+	}
+
+	// Pattern 3: simple action name (e.g., "myAction")
+	// This should NOT match plain agent names (which are handled by isAgentName)
+	actionPattern := regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
+	return actionPattern.MatchString(value)
 }
 
 func resolveActionIDWithAgentReader(actionID string, wf pklWf.Workflow, agentReader *agent.PklResourceReader) string {
@@ -299,6 +326,40 @@ func resolveActionIDWithAgentReader(actionID string, wf pklWf.Workflow, agentRea
 		return actionID
 	}
 
+	// Handle agentID/actionID pattern (e.g., "myAgent/myAction")
+	if strings.Contains(actionID, "/") && !strings.HasPrefix(actionID, "@") {
+		parts := strings.SplitN(actionID, "/", 2)
+		if len(parts) == 2 {
+			agentID := parts[0]
+			actionName := parts[1]
+
+			// Strip any version from the action part
+			if strings.Contains(actionName, ":") {
+				actionName = strings.Split(actionName, ":")[0]
+			}
+
+			// Create URI for agent ID resolution with the specific agent
+			query := url.Values{}
+			query.Set("op", "resolve")
+			query.Set("agent", agentID)
+			query.Set("version", wf.GetVersion()) // Use workflow version as fallback
+			uri := url.URL{
+				Scheme:   "agent",
+				Path:     "/" + actionName,
+				RawQuery: query.Encode(),
+			}
+
+			resolvedIDBytes, err := agentReader.Read(uri)
+			if err != nil {
+				// Fallback to default resolution if agent reader fails
+				return fmt.Sprintf("@%s/%s:%s", agentID, actionName, wf.GetVersion())
+			}
+
+			return string(resolvedIDBytes)
+		}
+	}
+
+	// Handle actionID:version pattern (e.g., "myAction:1.0.0")
 	// Strip any version from the action ID (e.g., "myAction:0.3.0" -> "myAction")
 	// The workflow version should take precedence
 	actionName := actionID
