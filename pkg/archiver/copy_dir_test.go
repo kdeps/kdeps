@@ -800,24 +800,7 @@ func TestMoveFolder(t *testing.T) {
 	require.Equal(t, "content", string(data))
 }
 
-func TestGetFileMD5(t *testing.T) {
-	fs := afero.NewMemMapFs()
-	content := []byte("hello world")
-	_ = afero.WriteFile(fs, "/file.txt", content, 0o644)
-	md5short, err := GetFileMD5(fs, "/file.txt", 8)
-	require.NoError(t, err)
-	sum := md5.Sum(content)
-	expectedFull := hex.EncodeToString(sum[:])
-	if len(expectedFull) >= 8 {
-		require.Equal(t, expectedFull[:8], md5short)
-	} else {
-		require.Equal(t, expectedFull, md5short)
-	}
-	// length greater than md5 length should return full hash
-	md5full, err := GetFileMD5(fs, "/file.txt", 100)
-	require.NoError(t, err)
-	require.Equal(t, expectedFull, md5full)
-}
+
 
 func TestCopyFile_NoExist(t *testing.T) {
 	fs := afero.NewMemMapFs()
@@ -1482,22 +1465,9 @@ func TestGetFileMD5Truncate(t *testing.T) {
 }
 
 func TestParseActionIDEdgeCases(t *testing.T) {
-	name, ver := parseActionID("@other/action:2.1.0", "agent", "1.0.0")
-	if name != "other" || ver != "2.1.0" {
-		t.Fatalf("unexpected parse result %s %s", name, ver)
-	}
-
-	// Missing explicit name
-	name2, ver2 := parseActionID("myAction:0.3.0", "agent", "1.0.0")
-	if name2 != "agent" || ver2 != "0.3.0" {
-		t.Fatalf("unexpected default name parse")
-	}
-
-	// No version specified
-	name3, ver3 := parseActionID("@foo/bar", "agent", "1.2.3")
-	if name3 != "foo" || ver3 != "1.2.3" {
-		t.Fatalf("default version fallback failed")
-	}
+	// This test is no longer relevant as we now use agent.PklResourceReader for all action ID resolution.
+	// The old parseActionID function has been removed in favor of the canonical agent-based system.
+	t.Skip("parseActionID function removed in favor of agent.PklResourceReader-based resolution")
 }
 
 func TestCopyFileSuccess(t *testing.T) {
@@ -2212,4 +2182,23 @@ func TestMoveFolderSuccessMemFS(t *testing.T) {
 	if string(data2) != "b" {
 		t.Fatalf("dst f2 content mismatch")
 	}
+}
+
+func TestGetFileMD5CopyDir(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	content := []byte("hello world")
+	_ = afero.WriteFile(fs, "/file.txt", content, 0o644)
+	md5short, err := GetFileMD5(fs, "/file.txt", 8)
+	require.NoError(t, err)
+	sum := md5.Sum(content)
+	expectedFull := hex.EncodeToString(sum[:])
+	if len(expectedFull) >= 8 {
+		require.Equal(t, expectedFull[:8], md5short)
+	} else {
+		require.Equal(t, expectedFull, md5short)
+	}
+	// length greater than md5 length should return full hash
+	md5full, err := GetFileMD5(fs, "/file.txt", 100)
+	require.NoError(t, err)
+	require.Equal(t, expectedFull, md5full)
 }

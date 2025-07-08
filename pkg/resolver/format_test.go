@@ -1549,7 +1549,7 @@ func TestBuildResponseSections(t *testing.T) {
 		sections := dr.buildResponseSections("test-id", response)
 		assert.NotEmpty(t, sections)
 		assert.Contains(t, sections[0], "import")
-		assert.Contains(t, sections[5], "Success = true")
+		assert.Contains(t, sections[6], "Success = true")
 	})
 
 	t.Run("ResponseWithError", func(t *testing.T) {
@@ -1557,7 +1557,7 @@ func TestBuildResponseSections(t *testing.T) {
 		sections := dr.buildResponseSections("test-id", response)
 		assert.NotEmpty(t, sections)
 		assert.Contains(t, sections[0], "import")
-		assert.Contains(t, sections[5], "Success = false")
+		assert.Contains(t, sections[6], "Success = false")
 	})
 }
 

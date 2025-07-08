@@ -1,11 +1,12 @@
 {{ .Header }}
 
-ActionID = "httpResource"
-Name = "HTTP Client"
-Description = "This resource allows for making API requests using an HTTP client."
+ActionID = "clientResource"
+Name = "Client Resource"
+Description = "This resource creates a client session."
 Category = ""
-Requires {
+Requires = {
         // Define the ID of any dependency resource that must be executed before this resource.
+        // For example "@aiChatResource1"
 }
 Run {
         // RestrictToHTTPMethods specifies the HTTP methods required for the request.

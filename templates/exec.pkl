@@ -4,8 +4,9 @@ ActionID = "execResource"
 Name = "Exec Resource"
 Description = "This resource creates a shell session."
 Category = ""
-Requires {
+Requires = {
         // Define the ID of any dependency resource that must be executed before this resource.
+        // For example "@aiChatResource1"
 }
 Run {
         // RestrictToHTTPMethods specifies the HTTP methods required for the request.

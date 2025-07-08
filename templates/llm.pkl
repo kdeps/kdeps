@@ -4,7 +4,7 @@ ActionID = "llmResource"
 Name = "LLM Chat Resource"
 Description = "This resource creates a LLM chat session."
 Category = ""
-Requires {
+Requires = {
         // Define the ID of any dependency resource that must be executed before this resource.
         // For example "@aiChatResource1"
 }

@@ -1,17 +1,12 @@
 {{ .Header }}
 
 ActionID = "responseResource"
-Name = "API Response Resource"
-Description = "This resource creates a API response."
+Name = "Response Resource"
+Description = "This resource creates a response."
 Category = ""
-
-// Define the ID of any dependency resource that must be executed before this resource.
-// For example "aiChatResource1"
-Requires {
-        "llmResource"
-        // "pythonResource"
-        // "execResource"
-        // "httpResource"
+Requires = {
+        // Define the ID of any dependency resource that must be executed before this resource.
+        // For example "@aiChatResource1"
 }
 
 Run {

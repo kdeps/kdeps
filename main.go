@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/cmd"
+	"github.com/kdeps/kdeps/pkg/agent"
 	"github.com/kdeps/kdeps/pkg/cfg"
 	"github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/kdeps/pkg/environment"
@@ -236,6 +237,11 @@ func runGraphResolverActions(ctx context.Context, dr *resolver.DependencyResolve
 // cleanup performs any necessary cleanup tasks before shutting down.
 func cleanup(fs afero.Fs, ctx context.Context, env *environment.Environment, apiServerMode bool, logger *logging.Logger) {
 	logger.Debug("performing cleanup tasks...")
+
+	// Close the global agent reader
+	if err := agent.CloseGlobalAgentReader(); err != nil {
+		logger.Error("failed to close global agent reader", "error", err)
+	}
 
 	// Remove any old cleanup flags
 	if _, err := fs.Stat("/.dockercleanup"); err == nil {

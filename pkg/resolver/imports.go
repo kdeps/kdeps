@@ -2,14 +2,17 @@ package resolver
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
+	"github.com/kdeps/kdeps/pkg/agent"
 	"github.com/kdeps/kdeps/pkg/data"
 	"github.com/kdeps/kdeps/pkg/schema"
 	pklData "github.com/kdeps/schema/gen/data"
@@ -52,6 +55,7 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Session.pkl", schema.SchemaVersion(dr.Context)):  {Alias: "session", Check: false},
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Tool.pkl", schema.SchemaVersion(dr.Context)):     {Alias: "tool", Check: false},
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Item.pkl", schema.SchemaVersion(dr.Context)):     {Alias: "item", Check: false},
+		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Agent.pkl", schema.SchemaVersion(dr.Context)):    {Alias: "agent", Check: false},
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Skip.pkl", schema.SchemaVersion(dr.Context)):     {Alias: "skip", Check: false},
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Utils.pkl", schema.SchemaVersion(dr.Context)):    {Alias: "utils", Check: false},
 		filepath.Join(dr.ActionDir, "/llm/"+dr.RequestID+"__llm_output.pkl"):                              {Alias: "llm", Check: true},
@@ -256,17 +260,46 @@ func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
 	}
 	defer file.Close()
 
-	// Use a regular expression to find the id in the file
-	re := regexp.MustCompile(`(?i)actionID\s*=\s*"([^"]+)"`)
-	var actionID string
+	// Read the file content
+	content, err := io.ReadAll(file)
+	if err != nil {
+		return fmt.Errorf("error reading file: %w", err)
+	}
 
-	scanner := bufio.NewScanner(file)
+	// Use agent.PklResourceReader to resolve the actionID
+	agentReader, err := agent.GetGlobalAgentReader(dr.Fs, "", dr.Logger)
+	if err != nil {
+		return fmt.Errorf("failed to initialize agent reader: %w", err)
+	}
+
+	// Find the actionID line and resolve it canonically
+	var actionID string
+	scanner := bufio.NewScanner(bytes.NewReader(content))
+	idPattern := regexp.MustCompile(`(?i)^\s*actionID\s*=\s*"(.+)"`)
 	for scanner.Scan() {
 		line := scanner.Text()
-		// Check if the line contains the id
-		matches := re.FindStringSubmatch(line)
-		if len(matches) > 1 {
-			actionID = matches[1]
+		if idMatch := idPattern.FindStringSubmatch(line); idMatch != nil {
+			// Use agentReader to resolve the actionID
+			query := url.Values{}
+			query.Set("op", "resolve")
+
+			// Add nil check for Workflow
+			if dr.Workflow == nil {
+				return fmt.Errorf("workflow is nil, cannot resolve action ID")
+			}
+
+			query.Set("agent", dr.Workflow.GetAgentID())
+			query.Set("version", dr.Workflow.GetVersion())
+			uri := url.URL{
+				Scheme:   "agent",
+				Path:     "/" + idMatch[1],
+				RawQuery: query.Encode(),
+			}
+			resolvedIDBytes, err := agentReader.Read(uri)
+			if err != nil {
+				return fmt.Errorf("failed to resolve action ID: %w", err)
+			}
+			actionID = string(resolvedIDBytes)
 			break
 		}
 	}

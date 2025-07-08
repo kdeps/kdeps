@@ -194,6 +194,11 @@ func GenerateResourceFiles(fs afero.Fs, ctx context.Context, logger *logging.Log
 			continue
 		}
 
+		// Skip the agent.pkl file (it's not a standard resource file)
+		if file.Name() == "agent.pkl" {
+			continue
+		}
+
 		templatePath := file.Name()
 		content, err := loadTemplate(templatePath, templateData)
 		if err != nil {

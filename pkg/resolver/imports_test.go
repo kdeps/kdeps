@@ -13,6 +13,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/logging"
 	assets "github.com/kdeps/schema/assets"
 	pklLLM "github.com/kdeps/schema/gen/llm"
+	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -301,6 +302,7 @@ func TestAddPlaceholderImports(t *testing.T) {
 		RequestID: requestID,
 		Context:   ctx,
 		Logger:    logger,
+		Workflow:  &pklWf.WorkflowImpl{AgentID: "testagent", Version: "1.0.0"},
 	}
 
 	// ensure DataDir has at least one file for PopulateDataFileRegistry

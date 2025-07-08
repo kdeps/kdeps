@@ -19,6 +19,7 @@ import (
 	"github.com/apple/pkl-go/pkl"
 	"github.com/gin-gonic/gin"
 	"github.com/kdeps/kartographer/graph"
+	"github.com/kdeps/kdeps/pkg/agent"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/item"
 	"github.com/kdeps/kdeps/pkg/kdepsexec"
@@ -57,6 +58,8 @@ type DependencyResolver struct {
 	ToolDBPath              string
 	ItemReader              *item.PklResourceReader
 	ItemDBPath              string
+	AgentReader             *agent.PklResourceReader
+	AgentDBPath             string
 	DBs                     []*sql.DB // collection of DB connections used by the resolver
 	AgentName               string
 	RequestID               string
@@ -99,6 +102,11 @@ type DependencyResolver struct {
 	PrependDynamicImportsFn func(string) error                              `json:"-"`
 	AddPlaceholderImportsFn func(string) error                              `json:"-"`
 	WalkFn                  func(afero.Fs, string, filepath.WalkFunc) error `json:"-"`
+
+	// New injectable helpers
+	GetCurrentTimestampFn2    func(string, string) (pkl.Duration, error)
+	WaitForTimestampChangeFn2 func(string, pkl.Duration, time.Duration, string) error
+	HandleAPIErrorResponseFn  func(int, string, bool) (bool, error)
 }
 
 type ResourceNodeEntry struct {
@@ -165,7 +173,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	}
 
 	var apiServerMode, installAnaconda bool
-	var agentName, memoryDBPath, sessionDBPath, toolDBPath, itemDBPath string
+	var agentName, memoryDBPath, sessionDBPath, toolDBPath, itemDBPath, agentDBPath string
 
 	if workflowConfiguration.GetSettings() != nil {
 		apiServerMode = workflowConfiguration.GetSettings().APIServerMode != nil && *workflowConfiguration.GetSettings().APIServerMode
@@ -207,6 +215,12 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		return nil, fmt.Errorf("failed to initialize item DB: %w", err)
 	}
 
+	agentDBPath = filepath.Join(actionDir, graphID+"_agent.db")
+	agentReader, err := agent.GetGlobalAgentReader(fs, kdepsBase, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize agent DB: %w", err)
+	}
+
 	dependencyResolver := &DependencyResolver{
 		Fs:                      fs,
 		ResourceDependencies:    make(map[string][]string),
@@ -237,12 +251,15 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		ToolReader:              toolReader,
 		ItemDBPath:              itemDBPath,
 		ItemReader:              itemReader,
+		AgentDBPath:             agentDBPath,
+		AgentReader:             agentReader,
 		CurrentResourceActionID: "", // Initialize as empty, will be set during resource processing
 		DBs: []*sql.DB{
 			memoryReader.DB,
 			sessionReader.DB,
 			toolReader.DB,
 			itemReader.DB,
+			agentReader.DB,
 		},
 		FileRunCounter: make(map[string]int), // Initialize the file run counter map
 		DefaultTimeoutSec: func() int {
@@ -407,6 +424,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			dr.SessionReader.DB.Close()
 			dr.ToolReader.DB.Close()
 			dr.ItemReader.DB.Close()
+			dr.AgentReader.Close()
 
 			// Remove the session DB file
 			if err := dr.Fs.RemoveAll(dr.SessionDBPath); err != nil {
@@ -528,6 +546,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	dr.SessionReader.DB.Close()
 	dr.ToolReader.DB.Close()
 	dr.ItemReader.DB.Close()
+	dr.AgentReader.Close()
 
 	// Remove the request stamp file
 	if err := dr.Fs.RemoveAll(requestFilePath); err != nil {

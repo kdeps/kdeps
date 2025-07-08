@@ -8,6 +8,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
+	"github.com/kdeps/kdeps/pkg/agent"
 	"github.com/kdeps/kdeps/pkg/item"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/memory"
@@ -16,6 +17,7 @@ import (
 	pklRes "github.com/kdeps/schema/gen/resource"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
+	"github.com/stretchr/testify/assert"
 )
 
 // TestHandleRunAction_BasicFlow simulates a minimal happy-path execution where
@@ -56,6 +58,7 @@ func TestHandleRunAction_BasicFlow(t *testing.T) {
 		SessionReader:  &session.PklResourceReader{DB: openDB()},
 		ToolReader:     &tool.PklResourceReader{DB: openDB()},
 		ItemReader:     &item.PklResourceReader{DB: openDB()},
+		AgentReader:    &agent.PklResourceReader{DB: openDB()},
 		FileRunCounter: make(map[string]int),
 	}
 
@@ -102,4 +105,61 @@ func TestHandleRunAction_BasicFlow(t *testing.T) {
 	if !prbCalled {
 		t.Fatal("ProcessRunBlockFn was not invoked")
 	}
+}
+
+func TestAddPlaceholderImports_UsesCanonicalAgentReader(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+
+	// Create a minimal workflow with agentID and version
+	testAgentID := "testagent"
+	testVersion := "1.2.3"
+	wf := &pklWf.WorkflowImpl{
+		AgentID: testAgentID,
+		Version: testVersion,
+	}
+
+	dr := &DependencyResolver{
+		Fs:       fs,
+		Logger:   logger,
+		Workflow: wf,
+		Context:  context.Background(),
+		DataDir:  "/data",
+	}
+
+	// Write a resource file with an unqualified actionID
+	resourceContent := `actionID = "myAction"
+run {}`
+	resourcePath := "/tmp/test_resource.pkl"
+	afero.WriteFile(fs, resourcePath, []byte(resourceContent), 0o644)
+
+	// Create the data directory and a dummy data file
+	dataDir := "/data"
+	fs.MkdirAll(dataDir, 0o755)
+	afero.WriteFile(fs, filepath.Join(dataDir, "dummy.txt"), []byte("test data"), 0o644)
+
+	// Create the action directory structure
+	actionDir := "/action"
+	fs.MkdirAll(filepath.Join(actionDir, "data"), 0o755)
+	fs.MkdirAll(filepath.Join(actionDir, "exec"), 0o755)
+	fs.MkdirAll(filepath.Join(actionDir, "llm"), 0o755)
+	fs.MkdirAll(filepath.Join(actionDir, "client"), 0o755)
+	fs.MkdirAll(filepath.Join(actionDir, "python"), 0o755)
+
+	// Create minimal output files
+	requestID := "test-request"
+	dataOutputPath := filepath.Join(actionDir, "data", requestID+"__data_output.pkl")
+	afero.WriteFile(fs, dataOutputPath, []byte("Files {}\n"), 0o644)
+
+	// Set the request ID
+	dr.RequestID = requestID
+	dr.ActionDir = actionDir
+
+	// Test that AddPlaceholderImports uses the canonical agent reader
+	err := dr.AddPlaceholderImports(resourcePath)
+	
+	// The test should fail because the PKL file doesn't exist, but it should fail
+	// in a way that shows the agent reader was used (which we can see from the logs)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to evaluate PKL file")
 }

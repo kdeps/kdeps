@@ -4,8 +4,9 @@ ActionID = "pythonResource"
 Name = "Python Resource"
 Description = "This resource creates a python script session."
 Category = ""
-Requires {
+Requires = {
         // Define the ID of any dependency resource that must be executed before this resource.
+        // For example "@aiChatResource1"
 }
 Run {
         // RestrictToHTTPMethods specifies the HTTP methods required for the request.
