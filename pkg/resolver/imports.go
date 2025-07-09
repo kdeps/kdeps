@@ -253,6 +253,11 @@ func (dr *DependencyResolver) PrepareWorkflowDir() error {
 }
 
 func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
+	// Check if Workflow is initialized
+	if dr.Workflow == nil {
+		return fmt.Errorf("workflow is not initialized")
+	}
+
 	// Open the file using afero file system (dr.Fs)
 	file, err := dr.Fs.Open(filePath)
 	if err != nil {

@@ -129,9 +129,12 @@ func (dr *DependencyResolver) LoadResource(ctx context.Context, resourceFile str
 	// Log additional info before reading the resource
 	dr.Logger.Debug("reading resource file", "resource-file", resourceFile, "resource-type", resourceType)
 
-	// Set environment variables for current agent context
-	os.Setenv("KDEPS_CURRENT_AGENT", dr.Workflow.GetAgentID())
-	os.Setenv("KDEPS_CURRENT_VERSION", dr.Workflow.GetVersion())
+	// Check if Workflow is initialized
+	if dr.Workflow != nil {
+		// Set environment variables for current agent context
+		os.Setenv("KDEPS_CURRENT_AGENT", dr.Workflow.GetAgentID())
+		os.Setenv("KDEPS_CURRENT_VERSION", dr.Workflow.GetVersion())
+	}
 
 	// Define an option function to configure EvaluatorOptions
 	opts := func(options *pkl.EvaluatorOptions) {
