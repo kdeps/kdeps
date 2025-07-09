@@ -144,7 +144,7 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 	for id, res := range existingResources {
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
 		pklContent.WriteString(fmt.Sprintf("    Method = \"%s\"\n", res.Method))
-		pklContent.WriteString(fmt.Sprintf("    url = \"%s\"\n", res.Url))
+		pklContent.WriteString(fmt.Sprintf("    Url = \"%s\"\n", res.Url))
 
 		pklContent.WriteString(fmt.Sprintf("    TimeoutDuration = %d.s\n", timeoutDuration))
 
@@ -152,13 +152,13 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 			pklContent.WriteString(fmt.Sprintf("    Timestamp = %g.%s\n", res.Timestamp.Value, res.Timestamp.Unit.String()))
 		}
 
-		pklContent.WriteString("    data ")
+		pklContent.WriteString("    Data ")
 		pklContent.WriteString(utils.EncodePklSlice(res.Data))
-		pklContent.WriteString("    headers ")
+		pklContent.WriteString("    Headers ")
 		pklContent.WriteString(utils.EncodePklMap(res.Headers))
-		pklContent.WriteString("    params ")
+		pklContent.WriteString("    Params ")
 		pklContent.WriteString(utils.EncodePklMap(res.Params))
-		pklContent.WriteString("    response {\n")
+		pklContent.WriteString("    Response {\n")
 		pklContent.WriteString(encodeResponseHeaders(res.Response))
 		pklContent.WriteString(encodeResponseBody(res.Response, dr, resourceID))
 		pklContent.WriteString("    }\n")
@@ -182,10 +182,10 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 
 func encodeResponseHeaders(response *pklHTTP.ResponseBlock) string {
 	if response == nil || response.Headers == nil {
-		return "    headers {[\"\"] = \"\"}\n"
+		return "    Headers {[\"\"] = \"\"}\n"
 	}
 	var builder strings.Builder
-	builder.WriteString("    headers {\n")
+	builder.WriteString("    Headers {\n")
 	for k, v := range *response.Headers {
 		builder.WriteString(fmt.Sprintf("      [\"%s\"] = #\"\"\"\n%s\n\"\"\"#\n", k, utils.EncodeValue(v)))
 	}
@@ -195,12 +195,12 @@ func encodeResponseHeaders(response *pklHTTP.ResponseBlock) string {
 
 func encodeResponseBody(response *pklHTTP.ResponseBlock, dr *DependencyResolver, resourceID string) string {
 	if response == nil || response.Body == nil {
-		return "    body=\"\"\n"
+		return "    Body=\"\"\n"
 	}
 	if _, err := dr.WriteResponseBodyToFile(resourceID, response.Body); err != nil {
 		dr.Logger.Fatalf("unable to write HTTP response body to file for resource %s", resourceID)
 	}
-	return fmt.Sprintf("    body = #\"\"\"\n%s\n\"\"\"#\n", utils.EncodeValue(*response.Body))
+	return fmt.Sprintf("    Body = #\"\"\"\n%s\n\"\"\"#\n", utils.EncodeValue(*response.Body))
 }
 
 func (dr *DependencyResolver) DoRequest(client *pklHTTP.ResourceHTTPClient) error {

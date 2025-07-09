@@ -118,7 +118,7 @@ func CompileWorkflow(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsD
 	}
 
 	// Resolve the actionID canonically using the agent reader
-	agentReader, err := agent.GetGlobalAgentReader(fs, "", logger)
+	agentReader, err := agent.GetGlobalAgentReader(fs, "", wf.GetAgentID(), wf.GetVersion(), logger)
 	if err != nil {
 		return "", fmt.Errorf("failed to initialize agent reader: %w", err)
 	}

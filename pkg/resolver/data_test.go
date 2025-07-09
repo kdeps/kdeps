@@ -131,10 +131,10 @@ func TestAppendDataEntry(t *testing.T) {
 }
 
 func TestFormatDataValue(t *testing.T) {
-	// Simple string value should embed JSONRenderDocument lines
+	// Simple string value should embed jsonRenderDocument lines
 	out := formatDataValue("hello")
-	if !strings.Contains(out, "JSONRenderDocument") {
-		t.Errorf("expected JSONRenderDocument in output, got %s", out)
+	if !strings.Contains(out, "jsonRenderDocument") {
+		t.Errorf("expected jsonRenderDocument in output, got %s", out)
 	}
 
 	// Map value path should still produce block

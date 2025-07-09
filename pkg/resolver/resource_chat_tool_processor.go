@@ -575,7 +575,7 @@ func convertToolParamsToString(value interface{}, paramName, toolName string, lo
 
 // serializeTools serializes the Tools field to Pkl format.
 func serializeTools(builder *strings.Builder, tools *[]*pklLLM.Tool) {
-	builder.WriteString("    tools ")
+	builder.WriteString("    Tools ")
 	if tools == nil || len(*tools) == 0 {
 		builder.WriteString("{}\n")
 		return
@@ -591,18 +591,18 @@ func serializeTools(builder *strings.Builder, tools *[]*pklLLM.Tool) {
 		if entry.Name != nil {
 			name = *entry.Name
 		}
-		builder.WriteString(fmt.Sprintf("        name = %q\n", name))
+		builder.WriteString(fmt.Sprintf("        Name = %q\n", name))
 		script := ""
 		if entry.Script != nil {
 			script = *entry.Script
 		}
-		builder.WriteString(fmt.Sprintf("        script = #\"\"\"\n%s\n\"\"\"#\n", script))
+		builder.WriteString(fmt.Sprintf("        Script = #\"\"\"\n%s\n\"\"\"#\n", script))
 		description := ""
 		if entry.Description != nil {
 			description = *entry.Description
 		}
-		builder.WriteString(fmt.Sprintf("        description = %q\n", description))
-		builder.WriteString("        parameters ")
+		builder.WriteString(fmt.Sprintf("        Description = %q\n", description))
+		builder.WriteString("        Parameters ")
 		if entry.Parameters != nil && len(*entry.Parameters) > 0 {
 			builder.WriteString("{\n")
 			for pname, param := range *entry.Parameters {
@@ -614,17 +614,17 @@ func serializeTools(builder *strings.Builder, tools *[]*pklLLM.Tool) {
 				if param.Required != nil {
 					required = *param.Required
 				}
-				builder.WriteString(fmt.Sprintf("            required = %t\n", required))
+				builder.WriteString(fmt.Sprintf("            Required = %t\n", required))
 				paramType := ""
 				if param.Type != nil {
 					paramType = *param.Type
 				}
-				builder.WriteString(fmt.Sprintf("            type = %q\n", paramType))
+				builder.WriteString(fmt.Sprintf("            Type = %q\n", paramType))
 				paramDescription := ""
 				if param.Description != nil {
 					paramDescription = *param.Description
 				}
-				builder.WriteString(fmt.Sprintf("            description = %q\n", paramDescription))
+				builder.WriteString(fmt.Sprintf("            Description = %q\n", paramDescription))
 				builder.WriteString("          }\n")
 			}
 			builder.WriteString("        }\n")

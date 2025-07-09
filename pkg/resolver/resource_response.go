@@ -106,8 +106,8 @@ func formatResponseData(response *apiserverresponse.APIServerResponseBlock) stri
 	}
 
 	return fmt.Sprintf(`
-response {
-  data {
+Response {
+  Data {
 %s
   }
 }`, strings.Join(responseData, "\n    "))
@@ -202,9 +202,9 @@ local JSONDocument_%s = %s
 local JSONDocumentType_%s = JSONDocument_%s is Mapping | Dynamic
 
 if (JSONDocumentType_%s)
-  document.JSONRenderDocument(JSONDocument_%s)
+  document.jsonRenderDocument(JSONDocument_%s)
 else
-  document.JSONRenderDocument((if (document.JSONParser(JSONDocument_%s) != null) document.JSONParser(JSONDocument_%s) else JSONDocument_%s))
+  document.jsonRenderDocument((if (document.jsonParser(JSONDocument_%s) != null) document.jsonParser(JSONDocument_%s) else JSONDocument_%s))
 `, uuidVal, val, uuidVal, uuidVal, uuidVal, uuidVal, uuidVal, uuidVal, uuidVal)
 }
 

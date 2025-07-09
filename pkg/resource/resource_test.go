@@ -294,8 +294,8 @@ requires {
 name = "default action"
 run {
   chat {
-    model = "llama3.2"
-    prompt = "@(request.data)"
+    Model = "llama3.2"
+    Prompt = "@(request.data)"
     JSONResponse = true
     JSONResponseKeys {
       "translation"

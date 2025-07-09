@@ -173,13 +173,19 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	}
 
 	var apiServerMode, installAnaconda bool
-	var agentName, memoryDBPath, sessionDBPath, toolDBPath, itemDBPath, agentDBPath string
+	var memoryDBPath, sessionDBPath, toolDBPath, itemDBPath, agentDBPath string
+
+	// Always set agentName from workflow configuration
+	agentName := workflowConfiguration.GetAgentID()
+
+	// Set environment variables early to ensure agent reader has proper context
+	os.Setenv("KDEPS_CURRENT_AGENT", workflowConfiguration.GetAgentID())
+	os.Setenv("KDEPS_CURRENT_VERSION", workflowConfiguration.GetVersion())
 
 	if workflowConfiguration.GetSettings() != nil {
 		apiServerMode = workflowConfiguration.GetSettings().APIServerMode != nil && *workflowConfiguration.GetSettings().APIServerMode
 		agentSettings := workflowConfiguration.GetSettings().AgentSettings
 		installAnaconda = agentSettings.InstallAnaconda != nil && *agentSettings.InstallAnaconda
-		agentName = workflowConfiguration.GetAgentID()
 	}
 
 	// Use configurable kdeps path for tests or default to /.kdeps/
@@ -216,7 +222,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	}
 
 	agentDBPath = filepath.Join(actionDir, graphID+"_agent.db")
-	agentReader, err := agent.GetGlobalAgentReader(fs, kdepsBase, logger)
+	agentReader, err := agent.GetGlobalAgentReader(fs, kdepsBase, agentName, workflowConfiguration.GetVersion(), logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize agent DB: %w", err)
 	}

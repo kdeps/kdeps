@@ -129,6 +129,10 @@ func (dr *DependencyResolver) LoadResource(ctx context.Context, resourceFile str
 	// Log additional info before reading the resource
 	dr.Logger.Debug("reading resource file", "resource-file", resourceFile, "resource-type", resourceType)
 
+	// Set environment variables for current agent context
+	os.Setenv("KDEPS_CURRENT_AGENT", dr.Workflow.GetAgentID())
+	os.Setenv("KDEPS_CURRENT_VERSION", dr.Workflow.GetVersion())
+
 	// Define an option function to configure EvaluatorOptions
 	opts := func(options *pkl.EvaluatorOptions) {
 		pkl.WithDefaultAllowedResources(options)
@@ -209,7 +213,6 @@ func (dr *DependencyResolver) LoadResource(ctx context.Context, resourceFile str
 		return res, nil
 
 	default:
-		dr.Logger.Error("unknown resource type", "resource-type", resourceType)
-		return nil, fmt.Errorf("unknown resource type: %s", resourceType)
+		return nil, fmt.Errorf("unsupported resource type: %s", resourceType)
 	}
 }

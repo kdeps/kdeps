@@ -22,7 +22,7 @@ import (
 
 var (
 	idPattern       = regexp.MustCompile(`(?i)^\s*actionID\s*=\s*"(.+)"`)
-	requiresPattern = regexp.MustCompile(`(?i)^\s*requires\s*=\s*{`)
+	requiresPattern = regexp.MustCompile(`(?i)^\s*requires\s*{`)
 )
 
 // CompileResources processes .pkl files and copies them to resources directory.
@@ -36,6 +36,25 @@ func CompileResources(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, resou
 	err := afero.Walk(fs, projectResourcesDir, pklFileProcessor(fs, wf, resourcesDir, logger))
 	if err != nil {
 		logger.Error("error compiling resources", "resourcesDir", resourcesDir, "projectDir", projectDir, "error", err)
+		return err
+	}
+
+	// Process existing compiled files in resourcesDir to expand Requires blocks
+	logger.Debug("processing compiled resources for dependency expansion")
+	err = afero.Walk(fs, resourcesDir, func(file string, info os.FileInfo, err error) error {
+		if err != nil || filepath.Ext(file) != ".pkl" || info.IsDir() {
+			return err
+		}
+
+		logger.Info("ARCHIVER FIX: attempting to expand requires blocks", "file", file)
+		if err := expandRequiresInCompiledFile(fs, file, wf, logger); err != nil {
+			logger.Error("failed to expand requires blocks in compiled file", "file", file, "error", err)
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		logger.Error("error expanding requires blocks in compiled resources", "resourcesDir", resourcesDir, "error", err)
 		return err
 	}
 
@@ -71,7 +90,7 @@ func processPklFile(fs afero.Fs, file string, wf pklWf.Workflow, resourcesDir st
 	}
 
 	// Use agent.PklResourceReader to resolve the action ID
-	agentReader, err := agent.GetGlobalAgentReader(fs, "", logger)
+	agentReader, err := agent.GetGlobalAgentReader(fs, "", wf.GetAgentID(), wf.GetVersion(), logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialize agent reader: %w", err)
 	}
@@ -123,7 +142,7 @@ func processFileContent(fs afero.Fs, file string, wf pklWf.Workflow, logger *log
 	}
 
 	// Initialize agent reader for ID resolution
-	agentReader, err := agent.GetGlobalAgentReader(fs, "", logger)
+	agentReader, err := agent.GetGlobalAgentReader(fs, "", wf.GetAgentID(), wf.GetVersion(), logger)
 	if err != nil {
 		return nil, "", nil, fmt.Errorf("failed to initialize agent reader: %w", err)
 	}
@@ -178,13 +197,16 @@ func handleRequiresSection(line *string, inBlock *bool, wf pklWf.Workflow, requi
 	switch {
 	case *inBlock:
 		if strings.TrimSpace(*line) == "}" {
+			fmt.Printf("ARCHIVER DEBUG: End of requires block detected, buffer content:\n%s\n", requiresBuf.String())
 			*inBlock = false
 			processedRequires, additionalAgents := processRequiresBlockWithAgentReader(requiresBuf.String(), wf, agentReader)
+			fmt.Printf("ARCHIVER DEBUG: Processed requires result:\n%s\n", processedRequires)
 			fileBuf.WriteString(processedRequires)
 			*agentsToCopyAll = append(*agentsToCopyAll, additionalAgents...)
 			requiresBuf.Reset()
 			fileBuf.WriteString(*line + "\n")
 		} else {
+			fmt.Printf("ARCHIVER DEBUG: Adding line to requires buffer: %q\n", *line)
 			requiresBuf.WriteString(*line + "\n")
 		}
 		return true
@@ -192,6 +214,7 @@ func handleRequiresSection(line *string, inBlock *bool, wf pklWf.Workflow, requi
 		if requiresBuf.Len() > 0 {
 			return true
 		}
+		fmt.Printf("ARCHIVER DEBUG: Start of requires block detected: %q\n", *line)
 		*inBlock = true
 		requiresBuf.WriteString(*line + "\n")
 		return true
@@ -231,9 +254,11 @@ func processRequiresBlockWithAgentReader(blockContent string, wf pklWf.Workflow,
 			if isActionID(value) {
 				// Use agent reader to resolve the value
 				resolvedValue := resolveActionIDWithAgentReader(value, wf, agentReader)
+				fmt.Printf("ARCHIVER DEBUG: expanded %q to %q\n", value, resolvedValue)
 				modifiedLines = append(modifiedLines, fmt.Sprintf(`"%s"`, resolvedValue))
 			} else {
 				// Keep non-action quoted strings as-is
+				fmt.Printf("ARCHIVER DEBUG: keeping unchanged %q (not action ID)\n", value)
 				modifiedLines = append(modifiedLines, trimmedLine)
 			}
 			continue
@@ -250,7 +275,92 @@ func processRequiresBlockWithAgentReader(blockContent string, wf pklWf.Workflow,
 		modifiedLines = append(modifiedLines, trimmedLine)
 	}
 
-	return strings.Join(modifiedLines, "\n"), agentsToCopyAll
+	result := strings.Join(modifiedLines, "\n")
+	fmt.Printf("ARCHIVER DEBUG: final result:\n%s\n", result)
+	return result, agentsToCopyAll
+}
+
+// expandRequiresInCompiledFile processes an already-compiled PKL file to expand Requires blocks
+func expandRequiresInCompiledFile(fs afero.Fs, file string, wf pklWf.Workflow, logger *logging.Logger) error {
+	logger.Info("ARCHIVER FIX: reading compiled file", "file", file)
+	content, err := afero.ReadFile(fs, file)
+	if err != nil {
+		logger.Error("failed to read compiled file", "file", file, "error", err)
+		return err
+	}
+
+	logger.Info("ARCHIVER FIX: file content length", "file", file, "length", len(content))
+
+	// Initialize agent reader for ID resolution
+	agentReader, err := agent.GetGlobalAgentReader(fs, "", wf.GetAgentID(), wf.GetVersion(), logger)
+	if err != nil {
+		return fmt.Errorf("failed to initialize agent reader: %w", err)
+	}
+
+	var (
+		fileBuffer      bytes.Buffer
+		inRequiresBlock bool
+		requiresBuffer  bytes.Buffer
+		requiresWritten bool
+		agentsToCopyAll []string
+		scanner         = bufio.NewScanner(bytes.NewReader(content))
+		modified        = false
+	)
+
+	lineCount := 0
+	for scanner.Scan() {
+		line := scanner.Text()
+		lineCount++
+
+		// Check if this line contains "Requires" for debugging
+		if strings.Contains(line, "Requires") {
+			logger.Info("ARCHIVER FIX: found Requires line", "file", file, "lineNumber", lineCount, "line", line)
+		}
+
+		if requiresPattern.MatchString(line) && requiresWritten {
+			fileBuffer.WriteString(line + "\n")
+			continue // Skip redundant requires blocks
+		}
+
+		if handleRequiresSection(&line, &inRequiresBlock, wf, &requiresBuffer, &fileBuffer, agentReader, &agentsToCopyAll) {
+			if !inRequiresBlock {
+				requiresWritten = true
+				modified = true
+				logger.Info("ARCHIVER FIX: processed requires block", "file", file, "modified", modified)
+			}
+			continue
+		}
+
+		fileBuffer.WriteString(line + "\n")
+	}
+
+	if err := scanner.Err(); err != nil {
+		logger.Error("error reading compiled file", "file", file, "error", err)
+		return err
+	}
+
+	// Add any remaining `requires` block content
+	if requiresBuffer.Len() > 0 && !requiresWritten {
+		logger.Info("ARCHIVER FIX: processing remaining requires block", "file", file, "bufferLength", requiresBuffer.Len())
+		processedRequires, additionalAgents := processRequiresBlockWithAgentReader(requiresBuffer.String(), wf, agentReader)
+		fileBuffer.WriteString(processedRequires)
+		agentsToCopyAll = append(agentsToCopyAll, additionalAgents...)
+		modified = true
+		logger.Info("ARCHIVER FIX: processed remaining requires", "file", file, "processedRequires", processedRequires)
+	}
+
+	// Only write back if we made modifications
+	if modified {
+		if err := afero.WriteFile(fs, file, fileBuffer.Bytes(), 0o644); err != nil {
+			logger.Error("error writing expanded compiled file", "file", file, "error", err)
+			return fmt.Errorf("error writing expanded compiled file: %w", err)
+		}
+		logger.Info("ARCHIVER FIX: successfully wrote expanded file", "file", file)
+	} else {
+		logger.Info("ARCHIVER FIX: no modifications made", "file", file)
+	}
+
+	return nil
 }
 
 // isActionID checks if a string looks like an action ID
@@ -456,7 +566,7 @@ func isAgentName(value string) bool {
 // copyAllResourcesFromAgent copies all resources from a specified agent
 func copyAllResourcesFromAgent(fs afero.Fs, agentName string, wf pklWf.Workflow, resourcesDir string, logger *logging.Logger) error {
 	// Initialize agent reader
-	agentReader, err := agent.GetGlobalAgentReader(fs, "", logger)
+	agentReader, err := agent.GetGlobalAgentReader(fs, "", wf.GetAgentID(), wf.GetVersion(), logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialize agent reader: %w", err)
 	}

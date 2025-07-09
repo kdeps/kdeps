@@ -674,13 +674,13 @@ func TestSerializeTools(t *testing.T) {
 	serializeTools(&sb, &entries)
 	out := sb.String()
 
-	if !strings.Contains(out, "tools {") || !strings.Contains(out, "name = \""+name+"\"") {
+	if !strings.Contains(out, "Tools {") || !strings.Contains(out, "Name = \""+name+"\"") {
 		t.Errorf("serialized output missing fields: %s", out)
 	}
-	if !strings.Contains(out, "script = #\"\"\"") {
+	if !strings.Contains(out, "Script = #\"\"\"") {
 		t.Errorf("script block missing: %s", out)
 	}
-	if !strings.Contains(out, "parameters") {
+	if !strings.Contains(out, "Parameters") {
 		t.Errorf("parameters missing: %s", out)
 	}
 }

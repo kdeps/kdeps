@@ -35,11 +35,13 @@ type AgentInfo struct {
 
 // PklResourceReader implements the pkl.ResourceReader interface for agent ID resolution.
 type PklResourceReader struct {
-	DB       *sql.DB
-	DBPath   string
-	Fs       afero.Fs
-	KdepsDir string
-	Logger   *logging.Logger
+	DB             *sql.DB
+	DBPath         string
+	Fs             afero.Fs
+	KdepsDir       string
+	Logger         *logging.Logger
+	CurrentAgent   string // Current agent name for context
+	CurrentVersion string // Current agent version for context
 }
 
 // Scheme returns the URI scheme for this reader.
@@ -101,9 +103,26 @@ func (r *PklResourceReader) resolveAgentID(actionID string, query url.Values) ([
 	}
 
 	if !strings.HasPrefix(actionID, "@") {
-		// Legacy/local form: use query params for agent and version
+		// Legacy/local form: use query params for agent and version, or fall back to current context
 		currentAgentName := query.Get("agent")
 		currentAgentVersion := query.Get("version")
+
+		// If query params are not provided, use the current agent context
+		if currentAgentName == "" {
+			currentAgentName = r.CurrentAgent
+		}
+		if currentAgentVersion == "" {
+			currentAgentVersion = r.CurrentVersion
+		}
+
+		// If still not available, try environment variables as a last resort
+		if currentAgentName == "" {
+			currentAgentName = os.Getenv("KDEPS_CURRENT_AGENT")
+		}
+		if currentAgentVersion == "" {
+			currentAgentVersion = os.Getenv("KDEPS_CURRENT_VERSION")
+		}
+
 		if currentAgentName == "" || currentAgentVersion == "" {
 			return nil, errors.New("agent name and version required for ID resolution")
 		}
@@ -394,7 +413,7 @@ func InitializeDatabase(dbPath string) (*sql.DB, error) {
 }
 
 // InitializeAgent creates a new PklResourceReader with an in-memory SQLite database.
-func InitializeAgent(fs afero.Fs, kdepsDir string, logger *logging.Logger) (*PklResourceReader, error) {
+func InitializeAgent(fs afero.Fs, kdepsDir string, currentAgent string, currentVersion string, logger *logging.Logger) (*PklResourceReader, error) {
 	// Use in-memory database for better performance
 	db, err := InitializeDatabase(":memory:")
 	if err != nil {
@@ -403,11 +422,13 @@ func InitializeAgent(fs afero.Fs, kdepsDir string, logger *logging.Logger) (*Pkl
 
 	// Do NOT close db here; caller will manage closing
 	reader := &PklResourceReader{
-		DB:       db,
-		DBPath:   ":memory:", // Indicate this is an in-memory database
-		Fs:       fs,
-		KdepsDir: kdepsDir,
-		Logger:   logger,
+		DB:             db,
+		DBPath:         ":memory:", // Indicate this is an in-memory database
+		Fs:             fs,
+		KdepsDir:       kdepsDir,
+		CurrentAgent:   currentAgent,
+		CurrentVersion: currentVersion,
+		Logger:         logger,
 	}
 
 	// Register all agents and actions from the agents directory
@@ -607,7 +628,40 @@ func (r *PklResourceReader) findLatestVersionFromDB(agentID string) (string, err
 
 // GetGlobalAgentReader returns the singleton agent reader instance.
 // If it doesn't exist, it creates one with the provided parameters.
-func GetGlobalAgentReader(fs afero.Fs, kdepsDir string, logger *logging.Logger) (*PklResourceReader, error) {
+// If it exists, it updates the current agent context if parameters are provided.
+func GetGlobalAgentReader(fs afero.Fs, kdepsDir string, currentAgent string, currentVersion string, logger *logging.Logger) (*PklResourceReader, error) {
+	// Check if we need to update context (requires write lock)
+	needsUpdate := false
+	globalAgentMutex.RLock()
+	if globalAgentReader != nil {
+		needsUpdate = (currentAgent != "" && currentAgent != globalAgentReader.CurrentAgent) ||
+			(currentVersion != "" && currentVersion != globalAgentReader.CurrentVersion) ||
+			(kdepsDir != "" && kdepsDir != globalAgentReader.KdepsDir)
+	}
+	globalAgentMutex.RUnlock()
+
+	if needsUpdate {
+		globalAgentMutex.Lock()
+		// Double-check after acquiring write lock
+		if globalAgentReader != nil {
+			// Update current agent context if new parameters are provided and different
+			if currentAgent != "" && currentAgent != globalAgentReader.CurrentAgent {
+				globalAgentReader.CurrentAgent = currentAgent
+			}
+			if currentVersion != "" && currentVersion != globalAgentReader.CurrentVersion {
+				globalAgentReader.CurrentVersion = currentVersion
+			}
+			// Update kdepsDir if provided and different (avoid empty string overriding valid value)
+			if kdepsDir != "" && kdepsDir != globalAgentReader.KdepsDir {
+				globalAgentReader.KdepsDir = kdepsDir
+			}
+			globalAgentMutex.Unlock()
+			return globalAgentReader, nil
+		}
+		globalAgentMutex.Unlock()
+	}
+
+	// Quick read-only check for existing reader
 	globalAgentMutex.RLock()
 	if globalAgentReader != nil {
 		globalAgentMutex.RUnlock()
@@ -615,6 +669,7 @@ func GetGlobalAgentReader(fs afero.Fs, kdepsDir string, logger *logging.Logger) 
 	}
 	globalAgentMutex.RUnlock()
 
+	// Need to create the singleton
 	globalAgentMutex.Lock()
 	defer globalAgentMutex.Unlock()
 
@@ -624,7 +679,7 @@ func GetGlobalAgentReader(fs afero.Fs, kdepsDir string, logger *logging.Logger) 
 	}
 
 	// Create the singleton instance
-	reader, err := InitializeAgent(fs, kdepsDir, logger)
+	reader, err := InitializeAgent(fs, kdepsDir, currentAgent, currentVersion, logger)
 	if err != nil {
 		return nil, err
 	}

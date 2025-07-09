@@ -18,7 +18,7 @@ func TestPklResourceReader(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Initialize agent reader with temporary database
-	reader, err := InitializeAgent(fs, "/test/kdeps", logger)
+	reader, err := InitializeAgent(fs, "/test/kdeps", "testAgent", "1.0.0", logger)
 	if err != nil {
 		t.Fatalf("failed to initialize agent reader: %v", err)
 	}
@@ -58,17 +58,19 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("ResolveAgentID_MissingAgent", func(t *testing.T) {
+		// Should use context from agent reader (testAgent:1.0.0)
 		uri, _ := url.Parse("agent:///action?version=1.0.0")
-		_, err := reader.Read(*uri)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "agent name and version required")
+		data, err := reader.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte("@testAgent/action:1.0.0"), data)
 	})
 
 	t.Run("ResolveAgentID_MissingVersion", func(t *testing.T) {
+		// Should use context from agent reader (testAgent:1.0.0)
 		uri, _ := url.Parse("agent:///action?agent=myAgent")
-		_, err := reader.Read(*uri)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "agent name and version required")
+		data, err := reader.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte("@myAgent/action:1.0.0"), data)
 	})
 
 	t.Run("ResolveAgentID_EmptyID", func(t *testing.T) {
@@ -76,6 +78,19 @@ func TestPklResourceReader(t *testing.T) {
 		_, err := reader.Read(*uri)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "no action ID provided")
+	})
+
+	t.Run("ResolveAgentID_NoContextOrParams", func(t *testing.T) {
+		// Create reader with no context
+		emptyReader, err := InitializeAgent(fs, "/test/kdeps", "", "", logger)
+		require.NoError(t, err)
+		defer emptyReader.Close()
+
+		// Should fail when no agent/version in context or params
+		uri, _ := url.Parse("agent:///action")
+		_, err = emptyReader.Read(*uri)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "agent name and version required")
 	})
 
 	t.Run("ListInstalledAgents", func(t *testing.T) {
@@ -204,13 +219,15 @@ func TestInitializeAgent(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
-	reader, err := InitializeAgent(fs, "/test/kdeps", logger)
+	reader, err := InitializeAgent(fs, "/test/kdeps", "testAgent", "1.0.0", logger)
 	require.NoError(t, err)
 	require.NotNil(t, reader)
 	require.NotNil(t, reader.DB)
 	require.NotEmpty(t, reader.DBPath)
 	require.Equal(t, fs, reader.Fs)
 	require.Equal(t, "/test/kdeps", reader.KdepsDir)
+	require.Equal(t, "testAgent", reader.CurrentAgent)
+	require.Equal(t, "1.0.0", reader.CurrentVersion)
 	require.Equal(t, logger, reader.Logger)
 	defer reader.Close()
 }
@@ -236,7 +253,7 @@ func TestTemporaryFileCleanup(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Create agent reader
-	reader, err := InitializeAgent(fs, "/test/kdeps", logger)
+	reader, err := InitializeAgent(fs, "/test/kdeps", "testAgent", "1.0.0", logger)
 	require.NoError(t, err)
 	require.NotNil(t, reader)
 
@@ -293,7 +310,7 @@ ActionID = "action5"
 	afero.WriteFile(fs, filepath.Join(agent2Dir, "workflow.pkl"), []byte(workflow2Content), 0o644)
 
 	// Initialize agent reader
-	reader, err := InitializeAgent(fs, "/test/kdeps", logger)
+	reader, err := InitializeAgent(fs, "/test/kdeps", "agent1", "1.0.0", logger)
 	require.NoError(t, err)
 	defer reader.Close()
 
@@ -363,7 +380,7 @@ ActionID = "action2"
 	afero.WriteFile(fs, filepath.Join(agent1v10Dir, "workflow.pkl"), []byte(workflowContent), 0o644)
 
 	// Initialize agent reader
-	reader, err := InitializeAgent(fs, "/test/kdeps", logger)
+	reader, err := InitializeAgent(fs, "/test/kdeps", "agent1", "2.0.0", logger)
 	require.NoError(t, err)
 	defer reader.Close()
 

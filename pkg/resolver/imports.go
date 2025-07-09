@@ -267,7 +267,7 @@ func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
 	}
 
 	// Use agent.PklResourceReader to resolve the actionID
-	agentReader, err := agent.GetGlobalAgentReader(dr.Fs, "", dr.Logger)
+	agentReader, err := agent.GetGlobalAgentReader(dr.Fs, "", dr.Workflow.GetAgentID(), dr.Workflow.GetVersion(), dr.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialize agent reader: %w", err)
 	}

@@ -21,7 +21,7 @@ func TestResolveActionIDWithAgentReader(t *testing.T) {
 	}
 
 	// Initialize agent reader using the global singleton
-	agentReader, err := agent.GetGlobalAgentReader(fs, "", logger)
+	agentReader, err := agent.GetGlobalAgentReader(fs, "", testWf.GetAgentID(), testWf.GetVersion(), logger)
 	if err != nil {
 		t.Fatalf("failed to initialize agent reader: %v", err)
 	}
@@ -263,7 +263,7 @@ func TestProcessRequiresBlockWithAgentReader(t *testing.T) {
 	}
 
 	// Initialize agent reader using the global singleton
-	agentReader, err := agent.GetGlobalAgentReader(fs, "", logger)
+	agentReader, err := agent.GetGlobalAgentReader(fs, "", testWf.GetAgentID(), testWf.GetVersion(), logger)
 	if err != nil {
 		t.Fatalf("failed to initialize agent reader: %v", err)
 	}
@@ -385,7 +385,7 @@ func TestRequiresBlockWithNoActions(t *testing.T) {
 	}
 
 	// Initialize agent reader using the global singleton
-	agentReader, err := agent.GetGlobalAgentReader(fs, "", logger)
+	agentReader, err := agent.GetGlobalAgentReader(fs, "", testWf.GetAgentID(), testWf.GetVersion(), logger)
 	if err != nil {
 		t.Fatalf("failed to initialize agent reader: %v", err)
 	}
@@ -430,7 +430,7 @@ func TestRequiresBlockWithActions(t *testing.T) {
 	}
 
 	// Initialize agent reader using the global singleton
-	agentReader, err := agent.GetGlobalAgentReader(fs, "", logger)
+	agentReader, err := agent.GetGlobalAgentReader(fs, "", testWf.GetAgentID(), testWf.GetVersion(), logger)
 	if err != nil {
 		t.Fatalf("failed to initialize agent reader: %v", err)
 	}
@@ -474,7 +474,7 @@ func TestRequiresBlockWithAgentAndActions(t *testing.T) {
 	}
 
 	// Initialize agent reader using the global singleton
-	agentReader, err := agent.GetGlobalAgentReader(fs, "", logger)
+	agentReader, err := agent.GetGlobalAgentReader(fs, "", testWf.GetAgentID(), testWf.GetVersion(), logger)
 	if err != nil {
 		t.Fatalf("failed to initialize agent reader: %v", err)
 	}

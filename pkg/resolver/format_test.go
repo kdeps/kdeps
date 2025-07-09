@@ -204,10 +204,10 @@ func TestGeneratePklContent_Minimal(t *testing.T) {
 	if !strings.Contains(pklStr, "Resources {") || !strings.Contains(pklStr, "\"id1\"") {
 		t.Errorf("generated PKL missing expected identifiers: %s", pklStr)
 	}
-	if !strings.Contains(pklStr, "model = \"llama2\"") {
+	if !strings.Contains(pklStr, "Model = \"llama2\"") {
 		t.Errorf("model field not serialized correctly: %s", pklStr)
 	}
-	if !strings.Contains(pklStr, "prompt = \"Hello\"") {
+	if !strings.Contains(pklStr, "Prompt = \"Hello\"") {
 		t.Errorf("prompt field not serialized correctly: %s", pklStr)
 	}
 	if !strings.Contains(pklStr, "JSONResponse = true") {
@@ -886,11 +886,11 @@ func TestEncodeResponseHelpers(t *testing.T) {
 
 	// Nil cases
 	emptyHeaders := encodeResponseHeaders(nil)
-	if emptyHeaders != "    headers {[\"\"] = \"\"}\n" {
+	if emptyHeaders != "    Headers {[\"\"] = \"\"}\n" {
 		t.Errorf("unexpected default headers: %s", emptyHeaders)
 	}
 	emptyBody := encodeResponseBody(nil, dr, resourceID)
-	if emptyBody != "    body=\"\"\n" {
+	if emptyBody != "    Body=\"\"\n" {
 		t.Errorf("unexpected default body: %s", emptyBody)
 	}
 }
@@ -1580,8 +1580,8 @@ func TestFormatResponseData(t *testing.T) {
 			Data: []any{"test"},
 		}
 		result := formatResponseData(response)
-		assert.Contains(t, result, "response")
-		assert.Contains(t, result, "data")
+		assert.Contains(t, result, "Response")
+		assert.Contains(t, result, "Data")
 	})
 }
 

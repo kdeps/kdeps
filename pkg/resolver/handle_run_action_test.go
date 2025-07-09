@@ -223,7 +223,7 @@ run {
 			afero.WriteFile(fs, resourcePath, []byte(resourceContent), 0o644)
 
 			// Get the global agent reader
-			agentReader, err := agent.GetGlobalAgentReader(fs, "", logger)
+			agentReader, err := agent.GetGlobalAgentReader(fs, "", wf.AgentID, wf.Version, logger)
 			assert.NoError(t, err)
 			assert.NotNil(t, agentReader)
 
@@ -271,7 +271,7 @@ func TestNoRegexParsingInResolver(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// The mere fact that we can initialize the agent reader and it would be used
 			// indicates we're not doing manual regex parsing
-			agentReader, err := agent.GetGlobalAgentReader(fs, "", logger)
+			agentReader, err := agent.GetGlobalAgentReader(fs, "", "testagent", "1.0.0", logger)
 			assert.NoError(t, err)
 			assert.NotNil(t, agentReader)
 
