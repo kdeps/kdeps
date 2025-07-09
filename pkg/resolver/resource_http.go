@@ -137,7 +137,7 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 
 	var pklContent strings.Builder
 	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/HTTP.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
-	pklContent.WriteString("resources {\n")
+	pklContent.WriteString("Resources {\n")
 
 	timeoutDuration := dr.DefaultTimeoutSec
 
@@ -146,10 +146,10 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 		pklContent.WriteString(fmt.Sprintf("    Method = \"%s\"\n", res.Method))
 		pklContent.WriteString(fmt.Sprintf("    url = \"%s\"\n", res.Url))
 
-		pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d.s\n", timeoutDuration))
+		pklContent.WriteString(fmt.Sprintf("    TimeoutDuration = %d.s\n", timeoutDuration))
 
 		if res.Timestamp != nil {
-			pklContent.WriteString(fmt.Sprintf("    timestamp = %g.%s\n", res.Timestamp.Value, res.Timestamp.Unit.String()))
+			pklContent.WriteString(fmt.Sprintf("    Timestamp = %g.%s\n", res.Timestamp.Value, res.Timestamp.Unit.String()))
 		}
 
 		pklContent.WriteString("    data ")
@@ -162,7 +162,7 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 		pklContent.WriteString(encodeResponseHeaders(res.Response))
 		pklContent.WriteString(encodeResponseBody(res.Response, dr, resourceID))
 		pklContent.WriteString("    }\n")
-		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *res.File))
+		pklContent.WriteString(fmt.Sprintf("    File = \"%s\"\n", *res.File))
 		pklContent.WriteString("  }\n")
 	}
 	pklContent.WriteString("}\n")

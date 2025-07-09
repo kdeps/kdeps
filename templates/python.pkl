@@ -126,7 +126,7 @@ Run {
         Python {
                 // Specifies the conda environment in which this Python script will execute, if Anaconda is
                 // installed.
-                CondaEnvironment = "base"
+                PythonEnvironment = "base"
 
                 Script =
 """

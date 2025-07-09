@@ -159,22 +159,22 @@ func TestEncodeExecHelpers(t *testing.T) {
 		txt := "oops"
 		s := dr.encodeExecStderr(&txt)
 		require.Contains(t, s, txt)
-		require.Contains(t, s, "stderr = #\"\"\"")
+		require.Contains(t, s, "Stderr = #\"\"\"")
 	})
 
 	t.Run("EncodeStderr_Nil", func(t *testing.T) {
-		require.Equal(t, "    stderr = \"\"\n", dr.encodeExecStderr(nil))
+		require.Equal(t, "    Stderr = \"\"\n", dr.encodeExecStderr(nil))
 	})
 
 	t.Run("EncodeStdout", func(t *testing.T) {
 		txt := "yay"
 		s := dr.encodeExecStdout(&txt)
 		require.Contains(t, s, txt)
-		require.Contains(t, s, "stdout = #\"\"\"")
+		require.Contains(t, s, "Stdout = #\"\"\"")
 	})
 
 	t.Run("EncodeStdout_Nil", func(t *testing.T) {
-		require.Equal(t, "    stdout = \"\"\n", dr.encodeExecStdout(nil))
+		require.Equal(t, "    Stdout = \"\"\n", dr.encodeExecStdout(nil))
 	})
 }
 

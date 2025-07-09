@@ -49,7 +49,7 @@ func TestEncodePythonStderrStdoutFormatting(t *testing.T) {
 		t.Errorf("unexpected format: %s", got)
 	}
 	got2 := dr.encodePythonStdout(nil)
-	if got2 != "    stdout = \"\"\n" {
+	if got2 != "    Stdout = \"\"\n" {
 		t.Errorf("unexpected default stdout: %s", got2)
 	}
 }

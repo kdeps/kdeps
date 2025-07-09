@@ -91,7 +91,7 @@ Run {
 
 | **Function**                | **Description**                                                                                                                                    |
 |:----------------------------|:---------------------------------------------------------------------------------------------------------------------------------------------------|
-| python.resource("id")       | Accesses the `python` resource for the specified ID, providing details about the `CondaEnvironment`, `Script`, `Stderr`, `Stdout`, and `ExitCode`. |
+| python.resource("id")       | Accesses the `python` resource for the specified ID, providing details about the `PythonEnvironment`, `Script`, `Stderr`, `Stdout`, and `ExitCode`. |
 | python.stderr("id")         | Retrieves the standard error (`Stderr`) output of the shell pythonution for the specified `python` resource ID.                                    |
 | python.env("id", "ENV_VAR") | Fetches the value of a defined environment variable (`ENV_VAR`) from the specified `python` resource in the PKL.                                   |
 | python.stdout("id")         | Retrieves the standard output (`Stdout`) of the shell pythonution for the specified `python` resource ID.                                          |

@@ -337,7 +337,7 @@ run {
     env {
       ["RESPONSE"] = "@(client.responseBody("action3"))"
     }
-    command = "echo $RESPONSE"
+    Command = "echo $RESPONSE"
   }
 }
 `, workspace.GetImportPath("Resource.pkl"))

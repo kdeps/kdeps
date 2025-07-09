@@ -193,31 +193,31 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 
 	var pklContent strings.Builder
 	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Exec.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
-	pklContent.WriteString("resources {\n")
+	pklContent.WriteString("Resources {\n")
 
 	for id, res := range existingResources {
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
-		pklContent.WriteString(fmt.Sprintf("    command = \"%s\"\n", res.Command))
+		pklContent.WriteString(fmt.Sprintf("    Command = \"%s\"\n", res.Command))
 
 		if res.TimeoutDuration != nil {
-			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
+			pklContent.WriteString(fmt.Sprintf("    TimeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
 		} else {
-			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", timeoutDuration.Value, timeoutDuration.Unit.String()))
+			pklContent.WriteString(fmt.Sprintf("    TimeoutDuration = %g.%s\n", timeoutDuration.Value, timeoutDuration.Unit.String()))
 		}
 
 		if res.Timestamp != nil {
-			pklContent.WriteString(fmt.Sprintf("    timestamp = %g.%s\n", res.Timestamp.Value, res.Timestamp.Unit.String()))
+			pklContent.WriteString(fmt.Sprintf("    Timestamp = %g.%s\n", res.Timestamp.Value, res.Timestamp.Unit.String()))
 		}
 
-		pklContent.WriteString("    env ")
+		pklContent.WriteString("    Env ")
 		pklContent.WriteString(utils.EncodePklMap(res.Env))
 
 		pklContent.WriteString(dr.encodeExecStderr(res.Stderr))
 		pklContent.WriteString(dr.encodeExecStdout(res.Stdout))
 		if res.File != nil {
-			pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *res.File))
+			pklContent.WriteString(fmt.Sprintf("    File = \"%s\"\n", *res.File))
 		} else {
-			pklContent.WriteString("    file = \"\"\n")
+			pklContent.WriteString("    File = \"\"\n")
 		}
 
 		pklContent.WriteString("  }\n")
@@ -254,14 +254,14 @@ func (dr *DependencyResolver) encodeExecOutputs(stderr, stdout *string) (*string
 
 func (dr *DependencyResolver) encodeExecStderr(stderr *string) string {
 	if stderr == nil {
-		return "    stderr = \"\"\n"
+		return "    Stderr = \"\"\n"
 	}
-	return fmt.Sprintf("    stderr = #\"\"\"\n%s\n\"\"\"#\n", *stderr)
+	return fmt.Sprintf("    Stderr = #\"\"\"\n%s\n\"\"\"#\n", *stderr)
 }
 
 func (dr *DependencyResolver) encodeExecStdout(stdout *string) string {
 	if stdout == nil {
-		return "    stdout = \"\"\n"
+		return "    Stdout = \"\"\n"
 	}
-	return fmt.Sprintf("    stdout = #\"\"\"\n%s\n\"\"\"#\n", *stdout)
+	return fmt.Sprintf("    Stdout = #\"\"\"\n%s\n\"\"\"#\n", *stdout)
 }

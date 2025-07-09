@@ -8,7 +8,7 @@ The `Python` resource is designed to run Python scripts specified in the `Script
 
 This resource also provides access to installed Python packages installed via `pip`, and as well as
 [Anaconda](https://www.anaconda.com) packages defined in the `workflow.pkl`, are available for use. The resource also
-includes a `CondaEnvironment` attribute, allowing it to isolate execution within a specified Conda environment. For more
+includes a `PythonEnvironment` attribute, allowing it to isolate execution within a specified Conda environment. For more
 information, see the [Workflow](../getting-started/configuration/workflow.md) documentation.
 
 ## Creating a New Python Resource
@@ -60,7 +60,7 @@ Run {
         TimeoutDuration = 60.s
 
         // Specifies the Conda environment for isolation
-        CondaEnvironment = "my-conda-env"
+        PythonEnvironment = "my-conda-env"
     }
 }
 ```
@@ -70,7 +70,7 @@ Key elements of the `Python` block include:
 - **`Script`**: Specifies the Python script to execute, enclosed in triple double-quotes (`"""`) for multi-line support.
 - **`Env`**: Defines environment variables to be available during execution.
 - **`TimeoutDuration`**: Determines the execution timeout in s (seconds), min (minutes), etc., after which the script execution will be terminated.
-- **`CondaEnvironment`**: Specifies the Conda environment to use, ensuring the script runs in an isolated environment
+- **`PythonEnvironment`**: Specifies the Conda environment to use, ensuring the script runs in an isolated environment
   with defined dependencies.
 
 When the resource is executed, you can leverage Python functions like `python.stdout("id")` to access the output. For

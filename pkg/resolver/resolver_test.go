@@ -43,7 +43,7 @@ func TestDependencyResolver(t *testing.T) {
 	// Pre-create empty exec output PKL so resolver tests can load it without error logs
 	execOutFile := filepath.Join(execDir, "test-request__exec_output.pkl")
 	version := schema.SchemaVersion(ctx)
-	content := fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Exec.pkl\"\nresources {\n}\n", version)
+	content := fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Exec.pkl\"\nResources {\n}\n", version)
 	_ = afero.WriteFile(fs, execOutFile, []byte(content), 0o644)
 
 	_ = fs.MkdirAll(filesDir, 0o755)

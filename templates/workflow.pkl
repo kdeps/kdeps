@@ -165,7 +165,7 @@ Settings {
 
                                 // Command to start the app (e.g., "npm start").
                                 //
-                                // command = "npm start"
+                                // Command = "npm start"
                         }
                 }
         }

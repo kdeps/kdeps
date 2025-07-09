@@ -216,7 +216,7 @@ func TestCanonicalActionIDResolution(t *testing.T) {
 			resourceContent := `actionID = "` + tt.inputActionID + `"
 run {
   exec {
-    command = "echo test"
+    Command = "echo test"
   }
 }`
 			resourcePath := "/tmp/test_" + tt.name + ".pkl"

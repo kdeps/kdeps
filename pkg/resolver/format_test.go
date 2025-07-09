@@ -201,7 +201,7 @@ func TestGeneratePklContent_Minimal(t *testing.T) {
 	pklStr := generatePklContent(m, ctx, logger)
 
 	// Basic sanity checks
-	if !strings.Contains(pklStr, "resources {") || !strings.Contains(pklStr, "\"id1\"") {
+	if !strings.Contains(pklStr, "Resources {") || !strings.Contains(pklStr, "\"id1\"") {
 		t.Errorf("generated PKL missing expected identifiers: %s", pklStr)
 	}
 	if !strings.Contains(pklStr, "model = \"llama2\"") {
@@ -658,7 +658,7 @@ func TestAppendExecEntry(t *testing.T) {
 
 		initialContent := fmt.Sprintf(`extends "package://schema.kdeps.com/core@%s#/Exec.pkl"
 
-resources {
+Resources {
 }`, schema.SchemaVersion(dr.Context))
 		require.NoError(t, afero.WriteFile(dr.Fs, pklPath, []byte(initialContent), 0o644))
 
@@ -684,10 +684,10 @@ resources {
 
 		initialContent := fmt.Sprintf(`extends "package://schema.kdeps.com/core@%s#/Exec.pkl"
 
-resources {
+Resources {
   ["existing-resource"] {
-    command = "echo 'old'"
-    timestamp = 1234567890.ns
+    Command = "echo 'old'"
+    Timestamp = 1234567890.ns
   }
 }`, schema.SchemaVersion(dr.Context))
 		require.NoError(t, afero.WriteFile(dr.Fs, pklPath, []byte(initialContent), 0o644))
@@ -977,7 +977,7 @@ func TestAppendPythonEntryExtra(t *testing.T) {
 
 		initial := fmt.Sprintf(`extends "package://schema.kdeps.com/core@%s#/Python.pkl"
 
-resources {
+Resources {
 }`,
 			schema.SchemaVersion(dr.Context))
 		require.NoError(t, afero.WriteFile(dr.Fs, pklPath, []byte(initial), 0o644))
@@ -1005,10 +1005,10 @@ resources {
 
 		initial := fmt.Sprintf(`extends "package://schema.kdeps.com/core@%s#/Python.pkl"
 
-resources {
+Resources {
   ["res"] {
-    script = "cHJpbnQoJ29sZCc pyk="
-    timestamp = 1.ns
+    Script = "cHJpbnQoJ29sZCc pyk="
+    Timestamp = 1.ns
   }
 }`,
 			schema.SchemaVersion(dr.Context))

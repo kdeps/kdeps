@@ -480,7 +480,7 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.Context, logger *logging.Logger) string {
 	var pklContent strings.Builder
 	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"\n\n", schema.SchemaVersion(ctx)))
-	pklContent.WriteString("resources {\n")
+	pklContent.WriteString("Resources {\n")
 
 	for id, res := range resources {
 		logger.Info("Generating PKL for resource", "id", id)
@@ -556,7 +556,7 @@ func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.C
 			timeoutValue = res.TimeoutDuration.Value
 			timeoutUnit = res.TimeoutDuration.Unit
 		}
-		pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", timeoutValue, timeoutUnit.String()))
+		pklContent.WriteString(fmt.Sprintf("    TimeoutDuration = %g.%s\n", timeoutValue, timeoutUnit.String()))
 
 		timestampValue := float64(time.Now().Unix())
 		timestampUnit := pkl.Nanosecond
@@ -564,7 +564,7 @@ func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.C
 			timestampValue = res.Timestamp.Value
 			timestampUnit = res.Timestamp.Unit
 		}
-		pklContent.WriteString(fmt.Sprintf("    timestamp = %g.%s\n", timestampValue, timestampUnit.String()))
+		pklContent.WriteString(fmt.Sprintf("    Timestamp = %g.%s\n", timestampValue, timestampUnit.String()))
 
 		if res.Response != nil {
 			pklContent.WriteString(fmt.Sprintf("    response = #\"\"\"\n%s\n\"\"\"#\n", *res.Response))
@@ -573,9 +573,9 @@ func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.C
 		}
 
 		if res.File != nil {
-			pklContent.WriteString(fmt.Sprintf("    file = %q\n", *res.File))
+			pklContent.WriteString(fmt.Sprintf("    File = %q\n", *res.File))
 		} else {
-			pklContent.WriteString("    file = \"\"\n")
+			pklContent.WriteString("    File = \"\"\n")
 		}
 
 		pklContent.WriteString("  }\n")
