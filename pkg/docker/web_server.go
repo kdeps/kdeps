@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/kdeps/kdeps/pkg"
+	"github.com/kdeps/kdeps/pkg/config"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/resolver"
@@ -30,13 +32,31 @@ func StartWebServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 		wfTrustedProxies = *wfWebServer.TrustedProxies
 	}
 
-	hostIP := wfWebServer.HostIP
-	portNum := strconv.FormatUint(uint64(wfWebServer.PortNum), 10)
-	hostPort := ":" + portNum
+	// Use the new configuration processor for PKL-first config
+	processor := config.NewConfigurationProcessor(dr.Logger)
+	processedConfig, err := processor.ProcessWorkflowConfiguration(ctx, dr.Workflow)
+	if err != nil {
+		return err // or appropriate error handling
+	}
+
+	// Validate configuration
+	if err := processor.ValidateConfiguration(processedConfig); err != nil {
+		return err // or appropriate error handling
+	}
+
+	// Use processedConfig for all config values
+	webHostIP := processedConfig.WebServerHostIP.Value
+	webPortNum := processedConfig.WebServerPort.Value
+	hostPort := ":" + strconv.FormatUint(uint64(webPortNum), 10)
 
 	router := gin.Default()
 
-	setupWebRoutes(router, ctx, hostIP, wfTrustedProxies, wfWebServer.Routes, dr)
+	var routes []*webserver.WebServerRoutes
+	if wfWebServer.Routes != nil {
+		routes = *wfWebServer.Routes
+	}
+
+	setupWebRoutes(router, ctx, webHostIP, wfTrustedProxies, routes, dr)
 
 	dr.Logger.Printf("Starting Web server on port %s", hostPort)
 
@@ -75,7 +95,13 @@ func setupWebRoutes(router *gin.Engine, ctx context.Context, hostIP string, wfTr
 
 func WebServerHandler(ctx context.Context, hostIP string, route *webserver.WebServerRoutes, dr *resolver.DependencyResolver) gin.HandlerFunc {
 	logger := dr.Logger.With("webserver", route.Path)
-	fullPath := filepath.Join(dr.DataDir, route.PublicPath)
+
+	// Handle PublicPath pointer using default fallback
+	publicPath := pkg.DefaultPublicPath
+	if route.PublicPath != nil {
+		publicPath = *route.PublicPath
+	}
+	fullPath := filepath.Join(dr.DataDir, publicPath)
 
 	// Log directory contents for debugging
 	logDirectoryContents(dr, fullPath, logger)
@@ -84,13 +110,21 @@ func WebServerHandler(ctx context.Context, hostIP string, route *webserver.WebSe
 	startAppCommand(ctx, route, fullPath, logger)
 
 	return func(c *gin.Context) {
-		switch route.ServerType {
+		// Handle ServerType pointer
+		var serverType webservertype.WebServerType
+		if route.ServerType != nil {
+			serverType = *route.ServerType
+		} else {
+			serverType = webservertype.Static // default
+		}
+
+		switch serverType {
 		case webservertype.Static:
 			handleStaticRequest(c, fullPath, route)
 		case webservertype.App:
 			handleAppRequest(c, hostIP, route, logger)
 		default:
-			logger.Error(messages.ErrUnsupportedServerType, "type", route.ServerType)
+			logger.Error(messages.ErrUnsupportedServerType, "type", serverType)
 			c.String(http.StatusInternalServerError, messages.RespUnsupportedServerType)
 		}
 	}
@@ -108,7 +142,9 @@ func logDirectoryContents(dr *resolver.DependencyResolver, fullPath string, logg
 }
 
 func startAppCommand(ctx context.Context, route *webserver.WebServerRoutes, fullPath string, logger *logging.Logger) {
-	if route.ServerType == webservertype.App && route.Command != nil {
+	// Check if ServerType is App and Command is provided
+	isApp := route.ServerType != nil && *route.ServerType == webservertype.App
+	if isApp && route.Command != nil {
 		_, _, _, err := KdepsExec(
 			ctx,
 			"sh", []string{"-c", *route.Command},

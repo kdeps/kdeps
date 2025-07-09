@@ -3,7 +3,6 @@ package archiver
 import (
 	"context"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -16,8 +15,8 @@ import (
 // Only Name and Version are significant for transformation functions; all other methods return zero values.
 type stubWf struct{}
 
-func (stubWf) GetName() string                { return "agent" }
-func (stubWf) GetDescription() string         { return "" }
+func (stubWf) GetAgentID() string             { return "agent" }
+func (stubWf) GetDescription() *string        { desc := ""; return &desc }
 func (stubWf) GetWebsite() *string            { return nil }
 func (stubWf) GetAuthors() *[]string          { return nil }
 func (stubWf) GetDocumentation() *string      { return nil }
@@ -33,55 +32,14 @@ func (stubWf) GetSettings() *project.Settings { return nil }
 var (
 	_ pklWf.Workflow = stubWf{}
 	_ interface {
-		GetName() string
+		GetAgentID() string
 		GetVersion() string
 	} = stubWf{}
 )
 
-func TestHandleRequiresBlockEdge(t *testing.T) {
-	wf := stubWf{}
-	in := "\"data\"\n\"@other/act\"\n\"@agent/act:4.5.6\"\n\"\""
-	out := handleRequiresBlock(in, wf)
-	if !strings.Contains(out, "@agent/data:1.2.3") {
-		t.Fatalf("expected namespaced data, got %s", out)
-	}
-	if !strings.Contains(out, "@act:1.2.3") {
-		t.Fatalf("expected version appended to external id, got %s", out)
-	}
-	if !strings.Contains(out, "@agent/act:4.5.6") {
-		t.Fatalf("explicit version should remain unchanged")
-	}
-}
-
-func TestProcessActionPatternsEdge(t *testing.T) {
-	line := `responseBody("someID")`
-	got := processActionPatterns(line, "agent", "0.1.0")
-	if !strings.Contains(got, "@agent/someID:0.1.0") {
-		t.Fatalf("unexpected transform: %s", got)
-	}
-
-	orig := `response("@other/x:2.0.0")`
-	if res := processActionPatterns(orig, "agent", "0.1.0"); res != orig {
-		t.Fatalf("already qualified IDs should stay untouched")
-	}
-}
-
-func TestProcessActionIDLineEdge(t *testing.T) {
-	got := processActionIDLine("myAction", "myAction", "agent", "2.0.0")
-	if !strings.Contains(got, "@agent/myAction:2.0.0") {
-		t.Fatalf("expected namespaced id, got %s", got)
-	}
-
-	// Already namespaced should remain unchanged.
-	original := "call @other/that:1.1.1"
-	if res := processActionIDLine(original, "@other/that:1.1.1", "agent", "2.0.0"); res != original {
-		t.Fatalf("should not modify already namespaced string")
-	}
-}
-
 func TestStubWfAllMethods(t *testing.T) {
 	wf := stubWf{}
-	if wf.GetName() == "" || wf.GetVersion() == "" {
+	if wf.GetAgentID() == "" || wf.GetVersion() == "" {
 		t.Fatalf("name or version empty")
 	}
 	_ = wf.GetDescription()

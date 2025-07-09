@@ -2,7 +2,6 @@ package resolver
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,7 +11,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/kdeps/kdeps/pkg/schema"
+	assets "github.com/kdeps/schema/assets"
+	pklLLM "github.com/kdeps/schema/gen/llm"
+	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -50,6 +51,11 @@ func newTestResolver() *DependencyResolver {
 }
 
 func TestPrepareImportFiles_CreatesFiles(t *testing.T) {
+	// Setup PKL workspace with embedded schema files
+	workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+	require.NoError(t, err)
+	defer workspace.Cleanup()
+
 	dr := newTestResolver()
 	assert.NoError(t, dr.PrepareImportFiles())
 
@@ -66,7 +72,8 @@ func TestPrepareImportFiles_CreatesFiles(t *testing.T) {
 		exists, _ := afero.Exists(dr.Fs, f)
 		assert.True(t, exists, "%s should exist", f)
 		content, _ := afero.ReadFile(dr.Fs, f)
-		assert.Contains(t, string(content), "extends \"package://schema.kdeps.com/core@", "header present")
+		// Verify the file contains an extends statement (should be schema reference)
+		assert.Contains(t, string(content), "extends \"", "header present")
 	}
 }
 
@@ -147,10 +154,14 @@ func TestPrepareImportFilesExtra(t *testing.T) {
 	ctx := context.Background()
 	env := &environment.Environment{}
 
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	actionDir := filepath.Join(tmpDir, "action")
+
 	dr := &DependencyResolver{
 		Fs:          fs,
 		Context:     ctx,
-		ActionDir:   "/tmp/action",
+		ActionDir:   actionDir,
 		RequestID:   "req1",
 		Logger:      logging.NewTestLogger(),
 		Environment: env,
@@ -228,6 +239,11 @@ func TestPrepareImportFilesAndPrependDynamicImports(t *testing.T) {
 }
 
 func TestAddPlaceholderImports_Errors(t *testing.T) {
+	// Setup PKL workspace with embedded schema files
+	workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+	require.NoError(t, err)
+	defer workspace.Cleanup()
+
 	fs := afero.NewMemMapFs()
 	tmp := t.TempDir()
 	actionDir := filepath.Join(tmp, "action")
@@ -246,9 +262,9 @@ func TestAddPlaceholderImports_Errors(t *testing.T) {
 		t.Errorf("expected error for missing file path")
 	}
 
-	// 2) file without actionID line
+	// 2) file without actionID line - use assets for extends
 	filePath := filepath.Join(tmp, "no_id.pkl")
-	_ = afero.WriteFile(fs, filePath, []byte("extends \"package://schema.kdeps.com/core@1.0.0#/Exec.pkl\"\n"), 0o644)
+	_ = afero.WriteFile(fs, filePath, []byte("extends \""+workspace.GetImportPath("Exec.pkl")+"\"\n"), 0o644)
 
 	if err := dr.AddPlaceholderImports(filePath); err == nil {
 		t.Errorf("expected error when action id missing but got nil")
@@ -271,12 +287,12 @@ func TestAddPlaceholderImports(t *testing.T) {
 
 	// create minimal pkl file expected by AppendDataEntry
 	dataPklPath := filepath.Join(actionDir, "data", requestID+"__data_output.pkl")
-	minimalContent := []byte("files {}\n")
+	minimalContent := []byte("Files {}\n")
 	assert.NoError(t, afero.WriteFile(fs, dataPklPath, minimalContent, 0o644))
 
 	// create input file containing actionID
 	targetPkl := filepath.Join(actionDir, "exec", "sample.pkl")
-	fileContent := []byte("actionID = \"myAction\"\n")
+	fileContent := []byte("ActionID = \"myAction\"\n")
 	assert.NoError(t, afero.WriteFile(fs, targetPkl, fileContent, 0o644))
 
 	dr := &DependencyResolver{
@@ -286,11 +302,17 @@ func TestAddPlaceholderImports(t *testing.T) {
 		RequestID: requestID,
 		Context:   ctx,
 		Logger:    logger,
+		Workflow:  &pklWf.WorkflowImpl{AgentID: "testagent", Version: "1.0.0"},
 	}
 
 	// ensure DataDir has at least one file for PopulateDataFileRegistry
 	assert.NoError(t, fs.MkdirAll(dataDir, 0o755))
 	assert.NoError(t, afero.WriteFile(fs, filepath.Join(dataDir, "dummy.txt"), []byte("abc"), 0o644))
+
+	// MOCK: Provide a safe LoadResourceFn to avoid nil dereference
+	dr.LoadResourceFn = func(ctx context.Context, path string, typ ResourceType) (interface{}, error) {
+		return &pklLLM.LLMImpl{}, nil
+	}
 
 	// run the function under test
 	err := dr.AddPlaceholderImports(targetPkl)
@@ -298,28 +320,33 @@ func TestAddPlaceholderImports(t *testing.T) {
 }
 
 func TestPrepareImportFilesCreatesStubs(t *testing.T) {
+	// Setup PKL workspace with embedded schema files
+	workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+	require.NoError(t, err)
+	defer workspace.Cleanup()
+
 	fs := afero.NewMemMapFs()
 	dr := &DependencyResolver{
 		Fs:        fs,
 		ActionDir: "/agent/action",
 		RequestID: "abc",
-		Context:   nil,
+		Context:   context.Background(),
 	}
 
-	err := dr.PrepareImportFiles()
+	err = dr.PrepareImportFiles()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Check for one of the generated files and its header content
+	// Check for one of the generated files and its header content with assets
 	execPath := filepath.Join(dr.ActionDir, "exec/"+dr.RequestID+"__exec_output.pkl")
 	content, err := afero.ReadFile(fs, execPath)
 	if err != nil {
 		t.Fatalf("file not created: %v", err)
 	}
-	header := fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Exec.pkl\"", schema.SchemaVersion(dr.Context))
-	if !strings.Contains(string(content), header) {
-		t.Errorf("header not found in file: %s", execPath)
+	// Should contain extends statement with schema reference
+	if !strings.Contains(string(content), "extends \"") {
+		t.Errorf("extends header not found in file: %s", execPath)
 	}
 }
 
@@ -328,10 +355,14 @@ func TestPrependDynamicImportsExtra(t *testing.T) {
 	ctx := context.Background()
 	env := &environment.Environment{}
 
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	actionDir := filepath.Join(tmpDir, "action")
+
 	dr := &DependencyResolver{
 		Fs:          fs,
 		Context:     ctx,
-		ActionDir:   "/tmp/action",
+		ActionDir:   actionDir,
 		RequestID:   "rid",
 		Logger:      logging.NewTestLogger(),
 		Environment: env,

@@ -126,3 +126,43 @@ func CreateAndProcessPklFile(
 
 	return nil
 }
+
+// EvaluateAllPklFilesInDirectory evaluates all PKL files in the given directory to test for any problems.
+// This is useful during packaging to ensure all PKL files are valid and can be evaluated without errors.
+func EvaluateAllPklFilesInDirectory(fs afero.Fs, ctx context.Context, dir string, logger *logging.Logger) error {
+	// Ensure that the 'pkl' binary is available
+	if err := EnsurePklBinaryExists(ctx, logger); err != nil {
+		return fmt.Errorf("PKL binary not available: %w", err)
+	}
+
+	// Walk through the directory and find all PKL files
+	err := afero.Walk(fs, dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip directories and non-PKL files
+		if info.IsDir() || filepath.Ext(path) != ".pkl" {
+			return nil
+		}
+
+		logger.Debug("evaluating PKL file", "file", path)
+
+		// Evaluate the PKL file
+		_, err = EvalPkl(fs, ctx, path, "", logger)
+		if err != nil {
+			logger.Error("PKL file evaluation failed", "file", path, "error", err)
+			return fmt.Errorf("evaluation failed for %s: %w", path, err)
+		}
+
+		logger.Debug("PKL file evaluation successful", "file", path)
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to evaluate PKL files in directory %s: %w", dir, err)
+	}
+
+	logger.Info("all PKL files evaluated successfully", "directory", dir)
+	return nil
+}

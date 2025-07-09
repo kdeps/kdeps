@@ -10,7 +10,7 @@ import (
 
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/kdeps/kdeps/pkg/schema"
+	assets "github.com/kdeps/schema/assets"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,54 +24,45 @@ func TestNewPackageCommandExecution(t *testing.T) {
 	env := &environment.Environment{}
 	logger := logging.NewTestLogger()
 
+	// Setup PKL workspace with embedded schema files
+	workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+	require.NoError(t, err)
+	defer workspace.Cleanup()
+
 	// Create a temporary directory for the test files
 	testAgentDir := filepath.Join(t.TempDir(), "agent")
-	err := fs.MkdirAll(testAgentDir, 0o755)
+	err = fs.MkdirAll(testAgentDir, 0o755)
 	require.NoError(t, err)
 
-	workflowContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
+	workflowContent := fmt.Sprintf(`amends "%s"
 
-name = "testagent"
-description = "Test Agent"
-version = "1.0.0"
-targetActionID = "testAction"
+AgentID = "testagent"
+Description = "Test Agent"
+Version = "1.0.0"
+TargetActionID = "testAction"
 
-workflows {
-	default {
-		name = "Default Workflow"
-		description = "Default workflow for testing"
-		steps {
-			step1 {
-				name = "Test Step"
-				description = "A test step"
-				actionID = "testAction"
-			}
-		}
-	}
-}
+Workflows {}
 
-settings {
+Settings {
 	APIServerMode = true
 	APIServer {
-		hostIP = "127.0.0.1"
-		portNum = 3000
-		routes {
+		HostIP = "127.0.0.1"
+		PortNum = 3000
+		Routes {
 			new {
-				path = "/api/v1/test"
-				methods {
-					"GET"
-				}
+				Path = "/api/v1/test"
+				Methods { "GET" }
 			}
 		}
 	}
-	agentSettings {
-		timezone = "Etc/UTC"
-		models {
+	AgentSettings {
+		Timezone = "Etc/UTC"
+		Models {
 			"llama3.2:1b"
 		}
-		ollamaImageTag = "0.6.8"
+		OllamaTagVersion = "0.6.8"
 	}
-}`, schema.SchemaVersion(ctx))
+}`, workspace.GetImportPath("Workflow.pkl"))
 
 	workflowPath := filepath.Join(testAgentDir, "workflow.pkl")
 	err = afero.WriteFile(fs, workflowPath, []byte(workflowContent), 0o644)
@@ -82,14 +73,13 @@ settings {
 	err = fs.MkdirAll(resourcesDir, 0o755)
 	require.NoError(t, err)
 
-	resourceContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+	resourceContent := fmt.Sprintf(`amends "%s"
 
-actionID = "testAction"
-run {
-	exec {
+Run {
+	Exec {
 		test = "echo 'test'"
 	}
-}`, schema.SchemaVersion(ctx))
+}`, workspace.GetImportPath("Resource.pkl"))
 
 	// Create all required resource files
 	requiredResources := []string{"client.pkl", "exec.pkl", "llm.pkl", "python.pkl", "response.pkl"}
@@ -126,7 +116,7 @@ run {
 func TestPackageCommandFlags(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/tmp/kdeps"
+	kdepsDir := t.TempDir()
 	env := &environment.Environment{}
 	logger := logging.NewTestLogger()
 
@@ -142,7 +132,7 @@ func TestNewPackageCommand_MetadataAndArgs(t *testing.T) {
 	ctx := context.Background()
 	env := &environment.Environment{}
 
-	cmd := NewPackageCommand(fs, ctx, "/tmp/kdeps", env, logging.NewTestLogger())
+	cmd := NewPackageCommand(fs, ctx, t.TempDir(), env, logging.NewTestLogger())
 
 	assert.Equal(t, "package [agent-dir]", cmd.Use)
 	assert.Contains(t, strings.ToLower(cmd.Short), "package")

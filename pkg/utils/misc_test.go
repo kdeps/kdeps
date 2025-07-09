@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -41,23 +42,23 @@ func TestPKLHTTPFormattersMisc(t *testing.T) {
 	}
 	formattedHeaders := FormatRequestHeaders(headers)
 	// Expect outer block and encoded inner values
-	assert.True(t, strings.HasPrefix(formattedHeaders, "headers {"))
+	assert.True(t, strings.HasPrefix(formattedHeaders, "Headers {"))
 	assert.Contains(t, formattedHeaders, EncodeBase64String("val1"))
 	assert.Contains(t, formattedHeaders, EncodeBase64String("val2"))
 
 	params := map[string][]string{"q": {" go ", "lang"}}
 	formattedParams := FormatRequestParams(params)
-	assert.True(t, strings.HasPrefix(formattedParams, "params {"))
+	assert.True(t, strings.HasPrefix(formattedParams, "Params {"))
 	assert.Contains(t, formattedParams, EncodeBase64String("go")) // Trimmed
 
 	respHeaders := map[string]string{"Content-Type": "application/json"}
 	formattedRespHeaders := FormatResponseHeaders(respHeaders)
-	assert.True(t, strings.HasPrefix(formattedRespHeaders, "headers {"))
+	assert.True(t, strings.HasPrefix(formattedRespHeaders, "Headers {"))
 	assert.Contains(t, formattedRespHeaders, "application/json")
 
 	props := map[string]string{"duration": "120"}
 	formattedProps := FormatResponseProperties(props)
-	assert.True(t, strings.HasPrefix(formattedProps, "properties {"))
+	assert.True(t, strings.HasPrefix(formattedProps, "Properties {"))
 	assert.Contains(t, formattedProps, "120")
 }
 
@@ -67,7 +68,9 @@ func TestFileHelpers(t *testing.T) {
 	assert.Equal(t, "req-__path_val", got)
 
 	// SanitizeArchivePath should allow inside paths and reject escape attempts
-	base := "/tmp/base"
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	base := filepath.Join(tmpDir, "base")
 	good, err := SanitizeArchivePath(base, "inner/file.txt")
 	assert.NoError(t, err)
 	assert.True(t, strings.HasPrefix(good, base))
@@ -78,8 +81,8 @@ func TestFileHelpers(t *testing.T) {
 	// CreateDirectories & CreateFiles integration test (in-mem FS)
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	dirs := []string{"/a/b/c", "/a/b/d"}
-	files := []string{"/a/b/c/file1.txt", "/a/b/d/file2.txt"}
+	dirs := []string{filepath.Join(tmpDir, "a", "b", "c"), filepath.Join(tmpDir, "a", "b", "d")}
+	files := []string{filepath.Join(dirs[0], "file1.txt"), filepath.Join(dirs[1], "file2.txt")}
 
 	assert.NoError(t, CreateDirectories(fs, ctx, dirs))
 	for _, d := range dirs {
@@ -94,7 +97,7 @@ func TestFileHelpers(t *testing.T) {
 	}
 
 	// Ensure CreateFiles writes to correct paths relative to previously created dirs
-	stat, err := fs.Stat("/a/b/c/file1.txt")
+	stat, err := fs.Stat(files[0])
 	assert.NoError(t, err)
 	assert.False(t, stat.IsDir())
 }

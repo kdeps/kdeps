@@ -13,7 +13,7 @@ import (
 func TestNewAddCommandFlags(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/tmp/kdeps"
+	kdepsDir := t.TempDir()
 	logger := logging.NewTestLogger()
 
 	cmd := NewAddCommand(fs, ctx, kdepsDir, logger)
@@ -26,7 +26,7 @@ func TestNewAddCommandFlags(t *testing.T) {
 func TestNewAddCommandExecution(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/tmp/kdeps"
+	kdepsDir := t.TempDir()
 	logger := logging.NewTestLogger()
 
 	// Create test directory
@@ -60,7 +60,7 @@ func TestNewAddCommandExecution(t *testing.T) {
 func TestNewAddCommandValidPackage(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/tmp/kdeps"
+	kdepsDir := t.TempDir()
 	logger := logging.NewTestLogger()
 
 	// Create test directory
@@ -119,7 +119,7 @@ func TestNewAddCommand_ErrorPath(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
 
-	cmd := NewAddCommand(fs, ctx, "/tmp/kdeps", logging.NewTestLogger())
+	cmd := NewAddCommand(fs, ctx, t.TempDir(), logging.NewTestLogger())
 	cmd.SetArgs([]string{"nonexistent.kdeps"})
 
 	err := cmd.Execute()
@@ -129,7 +129,7 @@ func TestNewAddCommand_ErrorPath(t *testing.T) {
 func TestNewAddCommand_MetadataAndArgs(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	cmd := NewAddCommand(fs, ctx, "/tmp/kdeps", logging.NewTestLogger())
+	cmd := NewAddCommand(fs, ctx, t.TempDir(), logging.NewTestLogger())
 
 	assert.Equal(t, "install [package]", cmd.Use)
 	assert.Contains(t, cmd.Short, "Install")

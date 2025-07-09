@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
+	"github.com/kdeps/kdeps/pkg/agent"
 	"github.com/kdeps/kdeps/pkg/data"
 	"github.com/kdeps/kdeps/pkg/schema"
 	pklData "github.com/kdeps/schema/gen/data"
@@ -17,6 +19,7 @@ import (
 	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
 	pklPython "github.com/kdeps/schema/gen/python"
+	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 )
 
@@ -52,6 +55,7 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Session.pkl", schema.SchemaVersion(dr.Context)):  {Alias: "session", Check: false},
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Tool.pkl", schema.SchemaVersion(dr.Context)):     {Alias: "tool", Check: false},
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Item.pkl", schema.SchemaVersion(dr.Context)):     {Alias: "item", Check: false},
+		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Agent.pkl", schema.SchemaVersion(dr.Context)):    {Alias: "agent", Check: false},
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Skip.pkl", schema.SchemaVersion(dr.Context)):     {Alias: "skip", Check: false},
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Utils.pkl", schema.SchemaVersion(dr.Context)):    {Alias: "utils", Check: false},
 		filepath.Join(dr.ActionDir, "/llm/"+dr.RequestID+"__llm_output.pkl"):                              {Alias: "llm", Check: true},
@@ -256,27 +260,28 @@ func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
 	}
 	defer file.Close()
 
-	// Use a regular expression to find the id in the file
-	re := regexp.MustCompile(`actionID\s*=\s*"([^"]+)"`)
-	var actionID string
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		// Check if the line contains the id
-		matches := re.FindStringSubmatch(line)
-		if len(matches) > 1 {
-			actionID = matches[1]
-			break
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
+	// Read the file content
+	content, err := io.ReadAll(file)
+	if err != nil {
 		return fmt.Errorf("error reading file: %w", err)
 	}
 
-	if actionID == "" {
-		return errors.New("action id not found in the file")
+	// Use agent.PklResourceReader to resolve the actionID
+	agentReader, err := agent.GetGlobalAgentReader(dr.Fs, "", dr.Workflow.GetAgentID(), dr.Workflow.GetVersion(), dr.Logger)
+	if err != nil {
+		return fmt.Errorf("failed to initialize agent reader: %w", err)
+	}
+
+	// Extract actionID using a more robust approach
+	actionID, err := extractActionIDFromContent(content)
+	if err != nil {
+		return fmt.Errorf("failed to extract actionID: %w", err)
+	}
+
+	// Resolve the actionID canonically using the agent reader
+	resolvedActionID, err := resolveActionIDCanonically(actionID, dr.Workflow, agentReader)
+	if err != nil {
+		return fmt.Errorf("failed to resolve actionID canonically: %w", err)
 	}
 
 	dataFileList, err := data.PopulateDataFileRegistry(dr.Fs, dr.DataDir)
@@ -294,25 +299,77 @@ func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
 		Method: "GET",
 	}
 
-	if err := dr.AppendDataEntry(actionID, dataFiles); err != nil {
+	if err := dr.AppendDataEntry(resolvedActionID, dataFiles); err != nil {
 		return err
 	}
 
-	if err := dr.AppendChatEntry(actionID, llmChat); err != nil {
+	if err := dr.AppendChatEntry(resolvedActionID, llmChat); err != nil {
 		return err
 	}
 
-	if err := dr.AppendExecEntry(actionID, execCmd); err != nil {
+	if err := dr.AppendExecEntry(resolvedActionID, execCmd); err != nil {
 		return err
 	}
 
-	if err := dr.AppendHTTPEntry(actionID, HTTPClient); err != nil {
+	if err := dr.AppendHTTPEntry(resolvedActionID, HTTPClient); err != nil {
 		return err
 	}
 
-	if err := dr.AppendPythonEntry(actionID, pythonCmd); err != nil {
+	if err := dr.AppendPythonEntry(resolvedActionID, pythonCmd); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// extractActionIDFromContent extracts actionID from PKL file content using a more robust approach
+func extractActionIDFromContent(content []byte) (string, error) {
+	// First try to find actionID using a more precise regex pattern
+	// This pattern looks for actionID = "value" with proper PKL syntax
+	actionIDPattern := regexp.MustCompile(`(?m)^\s*actionID\s*=\s*"([^"]+)"\s*$`)
+	matches := actionIDPattern.FindSubmatch(content)
+	if len(matches) >= 2 {
+		return string(matches[1]), nil
+	}
+
+	// Fallback to a more flexible pattern if the strict one doesn't match
+	fallbackPattern := regexp.MustCompile(`(?i)actionID\s*=\s*"([^"]+)"`)
+	matches = fallbackPattern.FindSubmatch(content)
+	if len(matches) >= 2 {
+		return string(matches[1]), nil
+	}
+
+	return "", errors.New("actionID not found in file content")
+}
+
+// resolveActionIDCanonically resolves an actionID to its canonical form using the agent reader
+func resolveActionIDCanonically(actionID string, wf pklWf.Workflow, agentReader *agent.PklResourceReader) (string, error) {
+	// If the actionID is already in canonical form (@agent/action:version), return it
+	if strings.HasPrefix(actionID, "@") {
+		return actionID, nil
+	}
+
+	// Add nil check for Workflow
+	if wf == nil {
+		return "", fmt.Errorf("workflow is nil, cannot resolve action ID")
+	}
+
+	// Create URI for agent ID resolution
+	query := url.Values{}
+	query.Set("op", "resolve")
+	query.Set("agent", wf.GetAgentID())
+	query.Set("version", wf.GetVersion())
+	uri := url.URL{
+		Scheme:   "agent",
+		Path:     "/" + actionID,
+		RawQuery: query.Encode(),
+	}
+
+	resolvedIDBytes, err := agentReader.Read(uri)
+	if err != nil {
+		// Fallback to default resolution if agent reader fails
+		return fmt.Sprintf("@%s/%s:%s", wf.GetAgentID(), actionID, wf.GetVersion()), nil
+	}
+
+	return string(resolvedIDBytes), nil
 }

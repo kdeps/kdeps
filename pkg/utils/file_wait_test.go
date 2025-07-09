@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -11,7 +12,10 @@ import (
 func TestWaitForFileReadySuccess(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
-	fname := "/tmp/ready.txt"
+
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	fname := filepath.Join(tmpDir, "ready.txt")
 
 	// create file after 100ms in goroutine
 	go func() {
@@ -28,8 +32,12 @@ func TestWaitForFileReadyTimeout(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	nonexistentPath := filepath.Join(tmpDir, "nonexistent")
+
 	start := time.Now()
-	err := WaitForFileReady(fs, "/nonexistent", logger)
+	err := WaitForFileReady(fs, nonexistentPath, logger)
 	if err == nil {
 		t.Fatalf("expected timeout error")
 	}
@@ -58,7 +66,9 @@ func TestGenerateResourceIDFilenameAdditional(t *testing.T) {
 }
 
 func TestSanitizeArchivePathAdditional(t *testing.T) {
-	base := "/safe/root"
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	base := filepath.Join(tmpDir, "safe", "root")
 
 	// Good path
 	if _, err := SanitizeArchivePath(base, "folder/file.txt"); err != nil {

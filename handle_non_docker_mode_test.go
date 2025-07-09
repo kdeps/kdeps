@@ -2,12 +2,13 @@ package main
 
 import (
 	"context"
+	"testing"
+
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	schemaK "github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
-	"testing"
 )
 
 // TestHandleNonDockerMode_GenerateFlow exercises the path where no config exists and it must be generated.

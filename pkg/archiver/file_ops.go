@@ -171,7 +171,7 @@ func CopyDataDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, 
 	agentAction string, processWorkflows bool, logger *logging.Logger,
 ) error {
 	srcDir := filepath.Join(projectDir, "data")
-	destDir := filepath.Join(compiledProjectDir, fmt.Sprintf("data/%s/%s", wf.GetName(), wf.GetVersion()))
+	destDir := filepath.Join(compiledProjectDir, fmt.Sprintf("data/%s/%s", wf.GetAgentID(), wf.GetVersion()))
 
 	if processWorkflows {
 		newSrcDir, newDestDir, err := ResolveAgentVersionAndCopyResources(fs, ctx, kdepsDir, compiledProjectDir, agentName, agentVersion, logger)

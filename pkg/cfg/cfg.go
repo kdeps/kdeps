@@ -134,14 +134,24 @@ func GetKdepsPath(ctx context.Context, kdepsCfg kdeps.Kdeps) (string, error) {
 	kdepsDir := kdepsCfg.KdepsDir
 	p := kdepsCfg.KdepsPath
 
-	switch p {
+	// Handle nil pointers with defaults
+	if kdepsDir == nil {
+		defaultDir := ".kdeps"
+		kdepsDir = &defaultDir
+	}
+	if p == nil {
+		defaultPath := path.User
+		p = &defaultPath
+	}
+
+	switch *p {
 	case path.User:
 		// Use the user's home directory
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", err
 		}
-		return filepath.Join(home, kdepsDir), nil
+		return filepath.Join(home, *kdepsDir), nil
 
 	case path.Project:
 		// Use the current working directory (project dir)
@@ -149,13 +159,13 @@ func GetKdepsPath(ctx context.Context, kdepsCfg kdeps.Kdeps) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return filepath.Join(cwd, kdepsDir), nil
+		return filepath.Join(cwd, *kdepsDir), nil
 
 	case path.Xdg:
 		// Use the XDG config home directory
-		return filepath.Join(xdg.ConfigHome, kdepsDir), nil
+		return filepath.Join(xdg.ConfigHome, *kdepsDir), nil
 
 	default:
-		return "", fmt.Errorf("unknown path type: %s", p)
+		return "", fmt.Errorf("unknown path type: %s", *p)
 	}
 }

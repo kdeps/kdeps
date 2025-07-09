@@ -17,7 +17,9 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
+	"github.com/kdeps/kdeps/pkg"
 	"github.com/kdeps/kdeps/pkg/archiver"
+	"github.com/kdeps/kdeps/pkg/config"
 	"github.com/kdeps/kdeps/pkg/download"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
@@ -37,12 +39,17 @@ type BuildLine struct {
 func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli *client.Client, runDir, kdepsDir string,
 	pkgProject *archiver.KdepsPackage, logger *logging.Logger,
 ) (string, string, error) {
+	// Check if pkgProject is nil
+	if pkgProject == nil {
+		return "", "", fmt.Errorf("package project is nil")
+	}
+
 	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow, logger)
 	if err != nil {
 		return "", "", err
 	}
 
-	agentName := wfCfg.GetName()
+	agentName := wfCfg.GetAgentID()
 	agentVersion := wfCfg.GetVersion()
 	cName := strings.Join([]string{"kdeps", agentName}, "-")
 	cName = strings.ToLower(cName)
@@ -262,49 +269,64 @@ func generateParamsSection(prefix string, items map[string]string) string {
 }
 
 func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *logging.Logger) (string, bool, bool, string, string, string, string, string, error) {
-	var portNum uint16 = 3000
-	var webPortNum uint16 = 8080
-	hostIP := "127.0.0.1"
-	webHostIP := "127.0.0.1"
-
-	anacondaVersion := version.DefaultAnacondaVersion
-	pklVersion := version.DefaultPklVersion
+	// Check if pkgProject is nil
+	if pkgProject == nil {
+		return "", false, false, "", "", "", "", "", fmt.Errorf("package project is nil")
+	}
 
 	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow, logger)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
 	}
 
-	agentName := wfCfg.GetName()
+	// Use the new configuration processor for PKL-first config
+	processor := config.NewConfigurationProcessor(logger)
+	processedConfig, err := processor.ProcessWorkflowConfiguration(ctx, wfCfg)
+	if err != nil {
+		return "", false, false, "", "", "", "", "", err
+	}
+
+	// Validate configuration
+	if err := processor.ValidateConfiguration(processedConfig); err != nil {
+		return "", false, false, "", "", "", "", "", err
+	}
+
+	// Ensure processedConfig is not nil before accessing its fields
+	if processedConfig == nil {
+		return "", false, false, "", "", "", "", "", fmt.Errorf("processed configuration is nil")
+	}
+
+	// Use processedConfig for all config values
+	APIServerMode := processedConfig.APIServerMode.Value
+	webServerMode := processedConfig.WebServerMode.Value
+	installAnaconda := processedConfig.InstallAnaconda.Value
+	hostIP := processedConfig.APIServerHostIP.Value
+	portNum := processedConfig.APIServerPort.Value
+	webHostIP := processedConfig.WebServerHostIP.Value
+	webPortNum := processedConfig.WebServerPort.Value
+	timezone := processedConfig.Timezone.Value
+
+	agentName := wfCfg.GetAgentID()
 	agentVersion := wfCfg.GetVersion()
 
-	wfSettings := wfCfg.GetSettings()
-	dockerSettings := wfSettings.AgentSettings
-	gpuType := string(kdeps.DockerGPU)
-	APIServerMode := wfSettings.APIServerMode
-	APIServer := wfSettings.APIServer
-
-	if APIServer != nil {
-		portNum = APIServer.PortNum
-		hostIP = APIServer.HostIP
+	var gpuType string
+	if kdeps.DockerGPU != nil {
+		gpuType = string(*kdeps.DockerGPU)
+	} else {
+		gpuType = pkg.DefaultDockerGPU
 	}
 
-	webServerMode := wfSettings.WebServerMode
-	webServer := wfSettings.WebServer
+	var pkgList, repoList, pythonPkgList *[]string
+	var condaPkgList *map[string]map[string]string
+	var argsList, envsList *map[string]string
 
-	if webServer != nil {
-		webPortNum = webServer.PortNum
-		webHostIP = webServer.HostIP
+	if processedConfig != nil {
+		pkgList = processedConfig.Packages
+		repoList = processedConfig.Repositories
+		pythonPkgList = processedConfig.PythonPackages
+		argsList = processedConfig.Args
+		envsList = processedConfig.Env
 	}
-
-	pkgList := dockerSettings.Packages
-	repoList := dockerSettings.Repositories
-	pythonPkgList := dockerSettings.PythonPackages
-	installAnaconda := dockerSettings.InstallAnaconda
-	condaPkgList := dockerSettings.CondaPackages
-	argsList := dockerSettings.Args
-	envsList := dockerSettings.Env
-	timezone := dockerSettings.Timezone
 
 	hostPort := strconv.FormatUint(uint64(portNum), 10)
 	webHostPort := strconv.FormatUint(uint64(webPortNum), 10)
@@ -323,31 +345,34 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		exposedPort += strconv.Itoa(int(webPortNum))
 	}
 
-	imageVersion := dockerSettings.OllamaImageTag
+	// Use PKL-first OllamaTagVersion from processed configuration
+	imageVersion := processedConfig.OllamaTagVersion.Value
+	logger.Debug("using Ollama image tag", "tag", imageVersion, "source", processedConfig.OllamaTagVersion.Source)
 	if gpuType == "amd" {
 		imageVersion += "-rocm"
+		logger.Debug("applied AMD GPU suffix to Ollama image tag", "final_tag", imageVersion)
 	}
 
 	var argsSection, envsSection string
 
-	if dockerSettings.Args != nil {
+	if processedConfig != nil && processedConfig.Args != nil && argsList != nil {
 		argsSection = generateParamsSection("ARG", *argsList)
 	}
 
-	if dockerSettings.Env != nil {
+	if processedConfig != nil && processedConfig.Env != nil && envsList != nil {
 		envsSection = generateParamsSection("ENV", *envsList)
 	}
 
 	var pkgLines []string
 
-	if dockerSettings.Repositories != nil {
+	if processedConfig != nil && processedConfig.Repositories != nil && repoList != nil {
 		for _, value := range *repoList {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
 			pkgLines = append(pkgLines, "RUN /usr/bin/add-apt-repository "+value)
 		}
 	}
 
-	if dockerSettings.Packages != nil {
+	if processedConfig != nil && processedConfig.Packages != nil && pkgList != nil {
 		for _, value := range *pkgList {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
 			pkgLines = append(pkgLines, "RUN /usr/bin/apt-get -y install "+value)
@@ -358,7 +383,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 
 	var pythonPkgLines []string
 
-	if dockerSettings.PythonPackages != nil {
+	if processedConfig != nil && processedConfig.PythonPackages != nil && pythonPkgList != nil {
 		for _, value := range *pythonPkgList {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
 			pythonPkgLines = append(pythonPkgLines, "RUN pip install --upgrade --no-input "+value)
@@ -369,7 +394,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 
 	var condaPkgLines []string
 
-	if dockerSettings.CondaPackages != nil {
+	if processedConfig != nil && processedConfig.CondaPackages != nil && condaPkgList != nil {
 		for env, packages := range *condaPkgList {
 			// Generate the appropriate commands based on whether the env is "base"
 			if env != "base" {
@@ -426,6 +451,9 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		return "", false, false, "", "", "", "", "", err
 	}
 
+	// Handle timezone pointer - use default if nil
+	timezoneStr := timezone
+
 	dockerfileContent, err := generateDockerfileFromTemplate(
 		imageVersion,
 		schema.SchemaVersion(ctx),
@@ -437,9 +465,9 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		pkgSection,
 		pythonPkgSection,
 		condaPkgSection,
-		anacondaVersion,
-		pklVersion,
-		timezone,
+		version.DefaultAnacondaVersion,
+		version.DefaultPklVersion,
+		timezoneStr,
 		exposedPort,
 		installAnaconda,
 		devBuildMode,

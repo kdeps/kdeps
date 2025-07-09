@@ -15,7 +15,7 @@ import (
 func TestNewRootCommand(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/test/kdeps"
+	kdepsDir := t.TempDir()
 	systemCfg := &kdeps.Kdeps{}
 	env := &environment.Environment{}
 	logger := logging.GetLogger()
@@ -62,7 +62,7 @@ func TestNewRootCommand(t *testing.T) {
 func TestNewAgentCommand(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/tmp/kdeps"
+	kdepsDir := t.TempDir()
 	logger := logging.NewTestLogger()
 
 	cmd := NewAgentCommand(fs, ctx, kdepsDir, logger)
@@ -83,7 +83,7 @@ func TestNewScaffoldCommand(t *testing.T) {
 func TestNewAddCommand(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/tmp/kdeps"
+	kdepsDir := t.TempDir()
 	logger := logging.NewTestLogger()
 
 	cmd := NewAddCommand(fs, ctx, kdepsDir, logger)
@@ -94,7 +94,7 @@ func TestNewAddCommand(t *testing.T) {
 func TestNewPackageCommand(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/tmp/kdeps"
+	kdepsDir := t.TempDir()
 	env := &environment.Environment{}
 	logger := logging.NewTestLogger()
 
@@ -106,7 +106,7 @@ func TestNewPackageCommand(t *testing.T) {
 func TestNewBuildCommand(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/tmp/kdeps"
+	kdepsDir := t.TempDir()
 	systemCfg := &kdeps.Kdeps{}
 	logger := logging.NewTestLogger()
 
@@ -118,7 +118,7 @@ func TestNewBuildCommand(t *testing.T) {
 func TestNewRunCommand(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/tmp/kdeps"
+	kdepsDir := t.TempDir()
 	systemCfg := &kdeps.Kdeps{}
 	logger := logging.NewTestLogger()
 

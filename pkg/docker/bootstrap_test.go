@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/pkg"
 	"github.com/kdeps/kdeps/pkg/schema"
 )
 
@@ -55,15 +56,17 @@ func TestCreateFlagFile(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Success", func(t *testing.T) {
-		err := CreateFlagFile(fs, ctx, "/tmp/flag")
+		flagPath := filepath.Join(t.TempDir(), "flag")
+		err := CreateFlagFile(fs, ctx, flagPath)
 		assert.NoError(t, err)
-		exists, _ := afero.Exists(fs, "/tmp/flag")
+		exists, _ := afero.Exists(fs, flagPath)
 		assert.True(t, exists)
 	})
 
 	t.Run("FileExists", func(t *testing.T) {
-		_ = afero.WriteFile(fs, "/tmp/existing", []byte(""), 0o644)
-		err := CreateFlagFile(fs, ctx, "/tmp/existing")
+		existingPath := filepath.Join(t.TempDir(), "existing")
+		_ = afero.WriteFile(fs, existingPath, []byte(""), 0o644)
+		err := CreateFlagFile(fs, ctx, existingPath)
 		assert.NoError(t, err)
 	})
 }
@@ -118,7 +121,7 @@ func TestCreateFlagFileNoDuplicate(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
 
-	filename := "/tmp/flag.txt"
+	filename := filepath.Join(t.TempDir(), "flag.txt")
 
 	// First creation should succeed and file should exist.
 	if err := CreateFlagFile(fs, ctx, filename); err != nil {
@@ -205,9 +208,9 @@ func TestStartWebServerWrapper_Success(t *testing.T) {
 
 	settings := &project.Settings{
 		WebServer: &webserver.WebServerSettings{
-			HostIP:  "127.0.0.1",
-			PortNum: portNum,
-			Routes:  []*webserver.WebServerRoutes{},
+			HostIP:  pkg.StringPtr("127.0.0.1"),
+			PortNum: pkg.Uint16Ptr(portNum),
+			Routes:  &[]*webserver.WebServerRoutes{},
 		},
 	}
 
@@ -217,7 +220,7 @@ func TestStartWebServerWrapper_Success(t *testing.T) {
 		Workflow: mw,
 		Logger:   logging.NewTestLogger(),
 		Fs:       afero.NewMemMapFs(),
-		DataDir:  "/tmp",
+		DataDir:  t.TempDir(),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -290,7 +293,7 @@ func TestBootstrapDockerSystem_NilLogger2(t *testing.T) {
 
 func TestCreateFlagFileAgain(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	filename := "/tmp/test.flag"
+	filename := filepath.Join(t.TempDir(), "test.flag")
 
 	// First creation should succeed
 	if err := CreateFlagFile(fs, context.Background(), filename); err != nil {

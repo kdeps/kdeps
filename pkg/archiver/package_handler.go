@@ -132,7 +132,7 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 	}
 
 	// Extract the workflow name and version
-	agentName := wfConfig.GetName()
+	agentName := wfConfig.GetAgentID()
 	agentVersion := wfConfig.GetVersion()
 
 	// Move the extracted files from the temporary directory to the permanent location
@@ -238,7 +238,7 @@ func PackageProject(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDi
 	}
 
 	// Create the output filename for the package
-	outFile := fmt.Sprintf("%s-%s.kdeps", wf.GetName(), wf.GetVersion())
+	outFile := fmt.Sprintf("%s-%s.kdeps", wf.GetAgentID(), wf.GetVersion())
 	packageDir := kdepsDir + "/packages"
 
 	if _, err := fs.Stat(packageDir); err != nil {

@@ -534,9 +534,10 @@ func TestCopyFileBackupAndOverwrite(t *testing.T) {
 // mockWorkflow implements the minimal subset of the generated Workflow interface we need.
 type mockWorkflow struct{ name, version string }
 
+func (m mockWorkflow) GetAgentID() string                { return m.name }
 func (m mockWorkflow) GetName() string                   { return m.name }
 func (m mockWorkflow) GetVersion() string                { return m.version }
-func (m mockWorkflow) GetDescription() string            { return "" }
+func (m mockWorkflow) GetDescription() *string           { desc := ""; return &desc }
 func (m mockWorkflow) GetWebsite() *string               { return nil }
 func (m mockWorkflow) GetAuthors() *[]string             { return nil }
 func (m mockWorkflow) GetDocumentation() *string         { return nil }
@@ -577,7 +578,7 @@ func TestCopyDataDirBasic(t *testing.T) {
 		t.Fatalf("CopyDataDir error: %v", err)
 	}
 
-	destFile := filepath.Join(compiledDir, "data", wf.GetName(), wf.GetVersion(), "sample.txt")
+	destFile := filepath.Join(compiledDir, "data", wf.GetAgentID(), wf.GetVersion(), "sample.txt")
 	if ok, _ := afero.Exists(fs, destFile); !ok {
 		t.Fatalf("destination file not copied")
 	}
@@ -799,24 +800,7 @@ func TestMoveFolder(t *testing.T) {
 	require.Equal(t, "content", string(data))
 }
 
-func TestGetFileMD5(t *testing.T) {
-	fs := afero.NewMemMapFs()
-	content := []byte("hello world")
-	_ = afero.WriteFile(fs, "/file.txt", content, 0o644)
-	md5short, err := GetFileMD5(fs, "/file.txt", 8)
-	require.NoError(t, err)
-	sum := md5.Sum(content)
-	expectedFull := hex.EncodeToString(sum[:])
-	if len(expectedFull) >= 8 {
-		require.Equal(t, expectedFull[:8], md5short)
-	} else {
-		require.Equal(t, expectedFull, md5short)
-	}
-	// length greater than md5 length should return full hash
-	md5full, err := GetFileMD5(fs, "/file.txt", 100)
-	require.NoError(t, err)
-	require.Equal(t, expectedFull, md5full)
-}
+
 
 func TestCopyFile_NoExist(t *testing.T) {
 	fs := afero.NewMemMapFs()
@@ -1194,13 +1178,15 @@ func TestCopyFileVariants(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	srcPath := filepath.Join(tmpDir, "src.txt")
+	dstPath := filepath.Join(tmpDir, "dst.txt")
+
 	// create source file
-	srcPath := "/tmp/src.txt"
 	if err := afero.WriteFile(fsys, srcPath, []byte("hello"), 0o644); err != nil {
 		t.Fatalf("write src: %v", err)
 	}
-
-	dstPath := "/tmp/dst.txt"
 
 	// 1. destination does not exist – simple copy
 	if err := CopyFile(fsys, ctx, srcPath, dstPath, logger); err != nil {
@@ -1251,93 +1237,11 @@ func TestCopyFileVariants(t *testing.T) {
 	}
 }
 
-func TestMoveFolderSuccess(t *testing.T) {
-	fsys := afero.NewMemMapFs()
-
-	// create nested structure under /src
-	paths := []string{
-		"/src/file1.txt",
-		"/src/dir1/file2.txt",
-		"/src/dir1/dir2/file3.txt",
-	}
-	for _, p := range paths {
-		if err := fsys.MkdirAll(filepath.Dir(p), 0o755); err != nil {
-			t.Fatalf("mkdir: %v", err)
-		}
-		if err := afero.WriteFile(fsys, p, []byte("content"), 0o644); err != nil {
-			t.Fatalf("write: %v", err)
-		}
-	}
-
-	// perform move
-	if err := MoveFolder(fsys, "/src", "/dest"); err != nil {
-		t.Fatalf("MoveFolder: %v", err)
-	}
-
-	// original directory should not exist
-	if exists, _ := afero.DirExists(fsys, "/src"); exists {
-		t.Fatalf("expected /src to be removed after move")
-	}
-
-	// all files should have been moved preserving structure
-	for _, p := range paths {
-		newPath := filepath.Join("/dest", strings.TrimPrefix(p, "/src/"))
-		if exists, _ := afero.Exists(fsys, newPath); !exists {
-			t.Fatalf("expected file at %s after move", newPath)
-		}
-	}
-}
-
-func TestCopyFileHelpers(t *testing.T) {
-	fs := afero.NewOsFs()
-	dir := t.TempDir()
-
-	src := filepath.Join(dir, "src.bin")
-	dst := filepath.Join(dir, "dst.bin")
-
-	data := []byte("dummy-data")
-	if err := afero.WriteFile(fs, src, data, 0o640); err != nil {
-		t.Fatalf("write src: %v", err)
-	}
-
-	// call internal copyFile helper
-	if err := copyFile(fs, src, dst); err != nil {
-		t.Fatalf("copyFile error: %v", err)
-	}
-
-	// verify content matches
-	got, _ := afero.ReadFile(fs, dst)
-	if string(got) != string(data) {
-		t.Fatalf("content mismatch: %q vs %q", got, data)
-	}
-
-	// Overwrite dst with different content then test performCopy + setPermissions
-	src2 := filepath.Join(dir, "src2.bin")
-	data2 := []byte("another")
-	if err := afero.WriteFile(fs, src2, data2, 0o600); err != nil {
-		t.Fatalf("write src2: %v", err)
-	}
-
-	if err := performCopy(fs, src2, dst); err != nil {
-		t.Fatalf("performCopy error: %v", err)
-	}
-
-	if err := setPermissions(fs, src2, dst); err != nil {
-		t.Fatalf("setPermissions error: %v", err)
-	}
-
-	// Check permissions replicated (only use mode bits)
-	srcInfo, _ := fs.Stat(src2)
-	dstInfo, _ := fs.Stat(dst)
-	if srcInfo.Mode() != dstInfo.Mode() {
-		t.Fatalf("permissions not replicated: src %v dst %v", srcInfo.Mode(), dstInfo.Mode())
-	}
-}
-
 func TestGetBackupPathAdditional(t *testing.T) {
-	dst := filepath.Join("/tmp", "file.txt")
+	tmpDir := t.TempDir()
+	dst := filepath.Join(tmpDir, "file.txt")
 	md5 := "abcdef12"
-	expected := filepath.Join("/tmp", "file_"+md5+".txt")
+	expected := filepath.Join(tmpDir, "file_"+md5+".txt")
 	assert.Equal(t, expected, getBackupPath(dst, md5))
 }
 
@@ -1434,7 +1338,7 @@ func TestPerformCopyAndSetPermissions(t *testing.T) {
 // TestGetFileMD5 covers happy-path, truncation and error branches.
 func TestGetFileMD5Edges(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	filePath := "/tmp/test.txt"
+	filePath := filepath.Join(t.TempDir(), "test.txt")
 	content := []byte("hello-md5-check")
 	require.NoError(t, afero.WriteFile(fs, filePath, content, 0o644))
 
@@ -1561,22 +1465,9 @@ func TestGetFileMD5Truncate(t *testing.T) {
 }
 
 func TestParseActionIDEdgeCases(t *testing.T) {
-	name, ver := parseActionID("@other/action:2.1.0", "agent", "1.0.0")
-	if name != "other" || ver != "2.1.0" {
-		t.Fatalf("unexpected parse result %s %s", name, ver)
-	}
-
-	// Missing explicit name
-	name2, ver2 := parseActionID("myAction:0.3.0", "agent", "1.0.0")
-	if name2 != "agent" || ver2 != "0.3.0" {
-		t.Fatalf("unexpected default name parse")
-	}
-
-	// No version specified
-	name3, ver3 := parseActionID("@foo/bar", "agent", "1.2.3")
-	if name3 != "foo" || ver3 != "1.2.3" {
-		t.Fatalf("default version fallback failed")
-	}
+	// This test is no longer relevant as we now use agent.PklResourceReader for all action ID resolution.
+	// The old parseActionID function has been removed in favor of the canonical agent-based system.
+	t.Skip("parseActionID function removed in favor of agent.PklResourceReader-based resolution")
 }
 
 func TestCopyFileSuccess(t *testing.T) {
@@ -2291,4 +2182,23 @@ func TestMoveFolderSuccessMemFS(t *testing.T) {
 	if string(data2) != "b" {
 		t.Fatalf("dst f2 content mismatch")
 	}
+}
+
+func TestGetFileMD5CopyDir(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	content := []byte("hello world")
+	_ = afero.WriteFile(fs, "/file.txt", content, 0o644)
+	md5short, err := GetFileMD5(fs, "/file.txt", 8)
+	require.NoError(t, err)
+	sum := md5.Sum(content)
+	expectedFull := hex.EncodeToString(sum[:])
+	if len(expectedFull) >= 8 {
+		require.Equal(t, expectedFull[:8], md5short)
+	} else {
+		require.Equal(t, expectedFull, md5short)
+	}
+	// length greater than md5 length should return full hash
+	md5full, err := GetFileMD5(fs, "/file.txt", 100)
+	require.NoError(t, err)
+	require.Equal(t, expectedFull, md5full)
 }

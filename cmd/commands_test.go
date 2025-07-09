@@ -214,7 +214,7 @@ func TestNewScaffoldCommandExtra(t *testing.T) {
 func TestCommandConstructors_MetadataAndArgs(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/tmp/kd"
+	kdepsDir := t.TempDir()
 	logger := logging.NewTestLogger()
 
 	systemCfg := &kdSchema.Kdeps{}

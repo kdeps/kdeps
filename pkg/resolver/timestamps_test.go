@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -16,8 +17,12 @@ import (
 )
 
 func TestGetResourceFilePath(t *testing.T) {
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	actionDir := filepath.Join(tmpDir, "action")
+
 	dr := &DependencyResolver{
-		ActionDir: "/test/action",
+		ActionDir: actionDir,
 		RequestID: "test123",
 	}
 
@@ -30,13 +35,13 @@ func TestGetResourceFilePath(t *testing.T) {
 		{
 			name:         "valid llm resource",
 			resourceType: "llm",
-			want:         "/test/action/llm/test123__llm_output.pkl",
+			want:         filepath.Join(actionDir, "llm", "test123__llm_output.pkl"),
 			wantErr:      false,
 		},
 		{
 			name:         "valid exec resource",
 			resourceType: "exec",
-			want:         "/test/action/exec/test123__exec_output.pkl",
+			want:         filepath.Join(actionDir, "exec", "test123__exec_output.pkl"),
 			wantErr:      false,
 		},
 		{
@@ -102,12 +107,16 @@ func TestWaitForTimestampChange(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	testLogger := logging.NewTestLogger()
 
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	actionDir := filepath.Join(tmpDir, "action")
+
 	// Create necessary directories
 	dirs := []string{
-		"/test/action/exec",
-		"/test/action/llm",
-		"/test/action/python",
-		"/test/action/client",
+		filepath.Join(actionDir, "exec"),
+		filepath.Join(actionDir, "llm"),
+		filepath.Join(actionDir, "python"),
+		filepath.Join(actionDir, "client"),
 	}
 	for _, dir := range dirs {
 		err := fs.MkdirAll(dir, 0o755)
@@ -117,7 +126,7 @@ func TestWaitForTimestampChange(t *testing.T) {
 	dr := &DependencyResolver{
 		Context:   context.Background(),
 		Logger:    testLogger,
-		ActionDir: "/test/action",
+		ActionDir: actionDir,
 		RequestID: "test123",
 		Fs:        fs,
 	}

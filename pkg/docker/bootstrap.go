@@ -53,18 +53,24 @@ func setupDockerEnvironment(ctx context.Context, dr *resolver.DependencyResolver
 
 	wfSettings := dr.Workflow.GetSettings()
 	if err := pullModels(ctx, wfSettings.AgentSettings.Models, dr.Logger); err != nil {
-		return wfSettings.APIServerMode || wfSettings.WebServerMode, fmt.Errorf("failed to pull models: %w", err)
+		apiServerMode := wfSettings.APIServerMode != nil && *wfSettings.APIServerMode
+		webServerMode := wfSettings.WebServerMode != nil && *wfSettings.WebServerMode
+		return apiServerMode || webServerMode, fmt.Errorf("failed to pull models: %w", err)
 	}
 
 	if err := dr.Fs.MkdirAll(apiServerPath, 0o777); err != nil {
-		return wfSettings.APIServerMode || wfSettings.WebServerMode, fmt.Errorf("failed to create API server path: %w", err)
+		apiServerMode := wfSettings.APIServerMode != nil && *wfSettings.APIServerMode
+		webServerMode := wfSettings.WebServerMode != nil && *wfSettings.WebServerMode
+		return apiServerMode || webServerMode, fmt.Errorf("failed to create API server path: %w", err)
 	}
 
-	anyMode := wfSettings.APIServerMode || wfSettings.WebServerMode
+	apiServerMode := wfSettings.APIServerMode != nil && *wfSettings.APIServerMode
+	webServerMode := wfSettings.WebServerMode != nil && *wfSettings.WebServerMode
+	anyMode := apiServerMode || webServerMode
 	errChan := make(chan error, 2)
 
 	// Start API server
-	if wfSettings.APIServerMode {
+	if apiServerMode {
 		go func() {
 			dr.Logger.Info("starting API server")
 			errChan <- startAPIServer(ctx, dr)
@@ -72,7 +78,7 @@ func setupDockerEnvironment(ctx context.Context, dr *resolver.DependencyResolver
 	}
 
 	// Start Web server
-	if wfSettings.WebServerMode {
+	if webServerMode {
 		go func() {
 			dr.Logger.Info("starting Web server")
 			errChan <- startWebServer(ctx, dr)

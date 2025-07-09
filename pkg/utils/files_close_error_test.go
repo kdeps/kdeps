@@ -61,7 +61,10 @@ func TestCreateFiles_CreateError(t *testing.T) {
 func TestWaitForFileReadyEdgeSuccess(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
-	path := "/tmp/file.txt"
+
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "file.txt")
 
 	// create file after short delay in goroutine
 	go func() {
@@ -78,8 +81,12 @@ func TestWaitForFileReadyEdgeTimeout(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	nonexistentPath := filepath.Join(tmpDir, "nonexistent")
+
 	start := time.Now()
-	err := WaitForFileReady(fs, "/nonexistent", logger)
+	err := WaitForFileReady(fs, nonexistentPath, logger)
 	duration := time.Since(start)
 	if err == nil {
 		t.Fatalf("expected timeout error")
@@ -93,15 +100,19 @@ func TestWaitForFileReady_SuccessAndTimeout(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+
 	// Success case: create file first
-	successPath := "/tmp/success.txt"
+	successPath := filepath.Join(tmpDir, "success.txt")
 	require.NoError(t, afero.WriteFile(fs, successPath, []byte("ok"), 0o644))
 
 	require.NoError(t, WaitForFileReady(fs, successPath, logger))
 
 	// Timeout case: path never appears – expect error after ~1s
 	start := time.Now()
-	err := WaitForFileReady(fs, "/tmp/missing.txt", logger)
+	missingPath := filepath.Join(tmpDir, "missing.txt")
+	err := WaitForFileReady(fs, missingPath, logger)
 	require.Error(t, err)
 	// Ensure we did wait at least ~1s but not much longer (sanity)
 	require.GreaterOrEqual(t, time.Since(start), time.Second)
@@ -144,7 +155,9 @@ func TestCreateDirectoriesAndFilesExtra(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
 
-	dirs := []string{"/tmp/a", "/tmp/b/c"}
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	dirs := []string{filepath.Join(tmpDir, "a"), filepath.Join(tmpDir, "b", "c")}
 	require.NoError(t, CreateDirectories(fs, ctx, dirs))
 	for _, d := range dirs {
 		ok, _ := afero.DirExists(fs, d)
@@ -160,7 +173,9 @@ func TestCreateDirectoriesAndFilesExtra(t *testing.T) {
 }
 
 func TestSanitizeArchivePathExtra(t *testing.T) {
-	base := "/safe/root"
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	base := filepath.Join(tmpDir, "safe", "root")
 	good, err := SanitizeArchivePath(base, "sub/file.txt")
 	require.NoError(t, err)
 	require.Equal(t, filepath.Join(base, "sub/file.txt"), good)
@@ -180,7 +195,10 @@ func (e errFS) Stat(name string) (os.FileInfo, error) {
 func TestWaitForFileReadyHelper(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
-	fname := "/tmp/ready.txt"
+
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	fname := filepath.Join(tmpDir, "ready.txt")
 
 	// Create the file after a short delay to test the polling loop.
 	go func() {
@@ -194,7 +212,8 @@ func TestWaitForFileReadyHelper(t *testing.T) {
 	}
 
 	// Ensure timeout branch returns error when file never appears.
-	if err := WaitForFileReady(fs, "/tmp/missing.txt", logger); err == nil {
+	missingPath := filepath.Join(tmpDir, "missing.txt")
+	if err := WaitForFileReady(fs, missingPath, logger); err == nil {
 		t.Errorf("expected timeout error but got nil")
 	}
 }
@@ -203,7 +222,9 @@ func TestCreateDirectoriesAndFilesHelper(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
 
-	dirs := []string{"/a/b", "/c/d/e"}
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	dirs := []string{filepath.Join(tmpDir, "a", "b"), filepath.Join(tmpDir, "c", "d", "e")}
 	if err := CreateDirectories(fs, ctx, dirs); err != nil {
 		t.Fatalf("CreateDirectories error: %v", err)
 	}
@@ -214,7 +235,7 @@ func TestCreateDirectoriesAndFilesHelper(t *testing.T) {
 		}
 	}
 
-	files := []string{"/a/b/file.txt", "/c/d/e/other.txt"}
+	files := []string{filepath.Join(dirs[0], "file.txt"), filepath.Join(dirs[1], "other.txt")}
 	if err := CreateFiles(fs, ctx, files); err != nil {
 		t.Fatalf("CreateFiles error: %v", err)
 	}
@@ -234,16 +255,19 @@ func TestGenerateResourceIDFilenameAndSanitizeArchivePathHelper(t *testing.T) {
 		t.Errorf("GenerateResourceIDFilename = %s, want %s", got, want)
 	}
 
-	good, err := SanitizeArchivePath("/base", "sub/file.txt")
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	base := filepath.Join(tmpDir, "base")
+	good, err := SanitizeArchivePath(base, "sub/file.txt")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	expectedGood := filepath.Join("/base", "sub/file.txt")
+	expectedGood := filepath.Join(base, "sub/file.txt")
 	if good != expectedGood {
 		t.Errorf("SanitizeArchivePath = %s, want %s", good, expectedGood)
 	}
 
-	if _, err := SanitizeArchivePath("/base", "../escape.txt"); err == nil {
+	if _, err := SanitizeArchivePath(base, "../escape.txt"); err == nil {
 		t.Errorf("expected error for path escape, got nil")
 	}
 }
@@ -251,7 +275,12 @@ func TestGenerateResourceIDFilenameAndSanitizeArchivePathHelper(t *testing.T) {
 func TestWaitForFileReadyError(t *testing.T) {
 	fs := errFS{afero.NewMemMapFs()}
 	logger := logging.NewTestLogger()
-	if err := WaitForFileReady(fs, "/any", logger); err == nil {
+
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	testPath := filepath.Join(tmpDir, "any")
+
+	if err := WaitForFileReady(fs, testPath, logger); err == nil {
 		t.Errorf("expected error due to Stat failure, got nil")
 	}
 }
@@ -267,15 +296,17 @@ func TestCreateDirectoriesAndFilesMore(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
 
-	dirs := []string{"/a/b/c"}
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	dirs := []string{filepath.Join(tmpDir, "a", "b", "c")}
 	if err := CreateDirectories(fs, ctx, dirs); err != nil {
 		t.Fatalf("CreateDirectories error: %v", err)
 	}
-	if ok, _ := afero.DirExists(fs, "/a/b/c"); !ok {
+	if ok, _ := afero.DirExists(fs, dirs[0]); !ok {
 		t.Fatalf("directory not created")
 	}
 
-	files := []string{"/a/b/c/file.txt"}
+	files := []string{filepath.Join(dirs[0], "file.txt")}
 	if err := CreateFiles(fs, ctx, files); err != nil {
 		t.Fatalf("CreateFiles error: %v", err)
 	}
@@ -285,16 +316,20 @@ func TestCreateDirectoriesAndFilesMore(t *testing.T) {
 }
 
 func TestSanitizeArchivePathMore(t *testing.T) {
-	p, err := SanitizeArchivePath("/safe", "sub/dir.txt")
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	safe := filepath.Join(tmpDir, "safe")
+	p, err := SanitizeArchivePath(safe, "sub/dir.txt")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if p != "/safe/sub/dir.txt" {
+	expected := filepath.Join(safe, "sub/dir.txt")
+	if p != expected {
 		t.Fatalf("unexpected sanitized path: %s", p)
 	}
 
 	// attempt path traversal
-	if _, err := SanitizeArchivePath("/safe", "../evil.txt"); err == nil {
+	if _, err := SanitizeArchivePath(safe, "../evil.txt"); err == nil {
 		t.Fatalf("expected error for tainted path")
 	}
 }
@@ -368,12 +403,15 @@ func TestGenerateResourceIDFilename(t *testing.T) {
 // TestSanitizeArchivePath ensures that paths outside the destination return an error
 // while valid ones pass.
 func TestSanitizeArchivePath(t *testing.T) {
-	okPath, err := SanitizeArchivePath("/safe", "file.txt")
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	safe := filepath.Join(tmpDir, "safe")
+	okPath, err := SanitizeArchivePath(safe, "file.txt")
 	assert.NoError(t, err)
-	assert.Equal(t, filepath.Join("/safe", "file.txt"), okPath)
+	assert.Equal(t, filepath.Join(safe, "file.txt"), okPath)
 
 	// Attempt Zip-Slip attack with ".." – should error
-	_, err = SanitizeArchivePath("/safe", "../evil.txt")
+	_, err = SanitizeArchivePath(safe, "../evil.txt")
 	assert.Error(t, err)
 }
 
@@ -382,8 +420,10 @@ func TestCreateDirectoriesAndFiles(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
 
-	dirs := []string{"/tmp/dir1", "/tmp/dir2/sub"}
-	files := []string{"/tmp/dir1/a.txt", "/tmp/dir2/sub/b.txt"}
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	dirs := []string{filepath.Join(tmpDir, "dir1"), filepath.Join(tmpDir, "dir2", "sub")}
+	files := []string{filepath.Join(dirs[0], "a.txt"), filepath.Join(dirs[1], "b.txt")}
 
 	assert.NoError(t, CreateDirectories(fs, ctx, dirs))
 	assert.NoError(t, CreateFiles(fs, ctx, files))
@@ -404,7 +444,10 @@ func TestCreateDirectoriesAndFiles(t *testing.T) {
 func TestWaitForFileReady(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
-	const filename = "/ready.txt"
+
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	filename := filepath.Join(tmpDir, "ready.txt")
 
 	// success case – create the file shortly after starting the wait
 	done := make(chan struct{})
@@ -418,7 +461,8 @@ func TestWaitForFileReady(t *testing.T) {
 
 	// timeout case – file never appears
 	start := time.Now()
-	err := WaitForFileReady(fs, "/nonexistent", logger)
+	nonexistentPath := filepath.Join(tmpDir, "nonexistent")
+	err := WaitForFileReady(fs, nonexistentPath, logger)
 	duration := time.Since(start)
 	assert.Error(t, err)
 	// It should time-out roughly around the configured 1s ± some slack.

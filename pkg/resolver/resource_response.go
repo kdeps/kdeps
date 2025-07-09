@@ -73,7 +73,8 @@ func (dr *DependencyResolver) buildResponseSections(requestID string, apiRespons
 	// Workflow errors will be merged separately at the API server level
 
 	// If there are any response-specific errors, mark as failure
-	isSuccess := apiResponseBlock.GetSuccess() && len(responseErrors) == 0
+	successPtr := apiResponseBlock.GetSuccess()
+	isSuccess := successPtr != nil && *successPtr && len(responseErrors) == 0
 
 	sections := []string{
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Document.pkl" as document`, schema.SchemaVersion(dr.Context)),
@@ -81,7 +82,8 @@ func (dr *DependencyResolver) buildResponseSections(requestID string, apiRespons
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Session.pkl" as session`, schema.SchemaVersion(dr.Context)),
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Tool.pkl" as tool`, schema.SchemaVersion(dr.Context)),
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Item.pkl" as item`, schema.SchemaVersion(dr.Context)),
-		fmt.Sprintf("success = %v", isSuccess),
+		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Agent.pkl" as agent`, schema.SchemaVersion(dr.Context)),
+		fmt.Sprintf("Success = %v", isSuccess),
 		formatResponseMeta(requestID, apiResponseBlock.GetMeta()),
 		formatResponseData(apiResponseBlock.GetResponse()),
 		formatErrors(&responseErrors, dr.Logger),
@@ -104,8 +106,8 @@ func formatResponseData(response *apiserverresponse.APIServerResponseBlock) stri
 	}
 
 	return fmt.Sprintf(`
-response {
-  data {
+Response {
+  Data {
 %s
   }
 }`, strings.Join(responseData, "\n    "))
@@ -114,8 +116,8 @@ response {
 func formatResponseMeta(requestID string, meta *apiserverresponse.APIServerResponseMetaBlock) string {
 	if meta == nil || *meta.Headers == nil && *meta.Properties == nil {
 		return fmt.Sprintf(`
-meta {
-  requestID = "%s"
+Meta {
+  RequestID = "%s"
 }
 `, requestID)
 	}
@@ -125,15 +127,15 @@ meta {
 
 	if len(responseMetaHeaders) == 0 && len(responseMetaProperties) == 0 {
 		return fmt.Sprintf(`
-meta {
-  requestID = "%s"
+Meta {
+  RequestID = "%s"
 }
 `, requestID)
 	}
 
 	return fmt.Sprintf(`
-meta {
-  requestID = "%s"
+Meta {
+  RequestID = "%s"
   %s
   %s
 }`, requestID, responseMetaHeaders, responseMetaProperties)
@@ -200,9 +202,9 @@ local JSONDocument_%s = %s
 local JSONDocumentType_%s = JSONDocument_%s is Mapping | Dynamic
 
 if (JSONDocumentType_%s)
-  document.JSONRenderDocument(JSONDocument_%s)
+  document.jsonRenderDocument(JSONDocument_%s)
 else
-  document.JSONRenderDocument((if (document.JSONParser(JSONDocument_%s) != null) document.JSONParser(JSONDocument_%s) else JSONDocument_%s))
+  document.jsonRenderDocument((if (document.jsonParser(JSONDocument_%s) != null) document.jsonParser(JSONDocument_%s) else JSONDocument_%s))
 `, uuidVal, val, uuidVal, uuidVal, uuidVal, uuidVal, uuidVal, uuidVal, uuidVal)
 }
 
@@ -217,8 +219,8 @@ func formatErrors(errors *[]*apiserverresponse.APIServerErrorsBlock, logger *log
 			decodedMessage := decodeErrorMessage(err.Message, logger)
 			newBlocks += fmt.Sprintf(`
   new {
-    code = %d
-    message = #"""
+    Code = %d
+    Message = #"""
 %s
 """#
   }`, err.Code, decodedMessage)
@@ -226,7 +228,7 @@ func formatErrors(errors *[]*apiserverresponse.APIServerErrorsBlock, logger *log
 	}
 
 	if newBlocks != "" {
-		return fmt.Sprintf(`errors {%s
+		return fmt.Sprintf(`Errors {%s
 }`, newBlocks)
 	}
 	return ""
@@ -348,8 +350,9 @@ func (dr *DependencyResolver) HandleAPIErrorResponse(code int, message string, f
 			allErrors := utils.MergeAllErrors(dr.RequestID, currentErrors)
 
 			// Create a comprehensive error response with all accumulated errors
+			successFalse := false
 			finalErrorResponse := &apiserverresponse.APIServerResponseImpl{
-				Success:  false,
+				Success:  &successFalse,
 				Response: &apiserverresponse.APIServerResponseBlock{Data: nil},
 				Errors:   &allErrors,
 			}
