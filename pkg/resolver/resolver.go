@@ -27,6 +27,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/memory"
 	"github.com/kdeps/kdeps/pkg/messages"
+	"github.com/kdeps/kdeps/pkg/pklres"
 	"github.com/kdeps/kdeps/pkg/session"
 	"github.com/kdeps/kdeps/pkg/tool"
 	"github.com/kdeps/kdeps/pkg/utils"
@@ -60,7 +61,10 @@ type DependencyResolver struct {
 	ItemDBPath              string
 	AgentReader             *agent.PklResourceReader
 	AgentDBPath             string
-	DBs                     []*sql.DB // collection of DB connections used by the resolver
+	PklresReader            *pklres.PklResourceReader
+	PklresDBPath            string
+	DBs                     []*sql.DB     // collection of DB connections used by the resolver
+	PklresHelper            *PklresHelper // Helper for pklres operations
 	AgentName               string
 	RequestID               string
 	RequestPklFile          string
@@ -227,6 +231,13 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		return nil, fmt.Errorf("failed to initialize agent DB: %w", err)
 	}
 
+	pklresDBPath := filepath.Join(kdepsBase, agentName+"_pklres.db")
+	pklresReader, err := pklres.InitializePklResource(pklresDBPath)
+	if err != nil {
+		pklresReader.DB.Close()
+		return nil, fmt.Errorf("failed to initialize pklres DB: %w", err)
+	}
+
 	dependencyResolver := &DependencyResolver{
 		Fs:                      fs,
 		ResourceDependencies:    make(map[string][]string),
@@ -259,6 +270,8 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		ItemReader:              itemReader,
 		AgentDBPath:             agentDBPath,
 		AgentReader:             agentReader,
+		PklresReader:            pklresReader,
+		PklresDBPath:            pklresDBPath,
 		CurrentResourceActionID: "", // Initialize as empty, will be set during resource processing
 		DBs: []*sql.DB{
 			memoryReader.DB,
@@ -266,6 +279,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 			toolReader.DB,
 			itemReader.DB,
 			agentReader.DB,
+			pklresReader.DB,
 		},
 		FileRunCounter: make(map[string]int), // Initialize the file run counter map
 		DefaultTimeoutSec: func() int {
@@ -282,6 +296,9 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	if dependencyResolver.Graph == nil {
 		return nil, errors.New("failed to initialize dependency graph")
 	}
+
+	// Initialize the PklresHelper
+	dependencyResolver.PklresHelper = NewPklresHelper(dependencyResolver)
 
 	// Default injectable helpers
 	dependencyResolver.GetCurrentTimestampFn = dependencyResolver.GetCurrentTimestamp
@@ -431,10 +448,14 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			dr.ToolReader.DB.Close()
 			dr.ItemReader.DB.Close()
 			dr.AgentReader.Close()
+			dr.PklresReader.DB.Close()
 
 			// Remove the session DB file
 			if err := dr.Fs.RemoveAll(dr.SessionDBPath); err != nil {
 				dr.Logger.Error("failed to delete the SessionDB file", "file", dr.SessionDBPath, "error", err)
+			}
+			if err := dr.Fs.RemoveAll(dr.PklresDBPath); err != nil {
+				dr.Logger.Error("failed to delete the PklresDB file", "file", dr.PklresDBPath, "error", err)
 			}
 
 			buf := make([]byte, 1<<16)
@@ -553,6 +574,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	dr.ToolReader.DB.Close()
 	dr.ItemReader.DB.Close()
 	dr.AgentReader.Close()
+	dr.PklresReader.DB.Close()
 
 	// Remove the request stamp file
 	if err := dr.Fs.RemoveAll(requestFilePath); err != nil {
@@ -563,6 +585,10 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	// Remove the session DB file
 	if err := dr.Fs.RemoveAll(dr.SessionDBPath); err != nil {
 		dr.Logger.Error("failed to delete the SessionDB file", "file", dr.SessionDBPath, "error", err)
+		return false, err
+	}
+	if err := dr.Fs.RemoveAll(dr.PklresDBPath); err != nil {
+		dr.Logger.Error("failed to delete the PklresDB file", "file", dr.PklresDBPath, "error", err)
 		return false, err
 	}
 

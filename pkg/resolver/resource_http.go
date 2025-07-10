@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/apple/pkl-go/pkl"
-	"github.com/kdeps/kdeps/pkg/evaluator"
+
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklHTTP "github.com/kdeps/schema/gen/http"
@@ -89,16 +89,17 @@ func (dr *DependencyResolver) WriteResponseBodyToFile(resourceID string, respons
 }
 
 func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP.ResourceHTTPClient) error {
-	pklPath := filepath.Join(dr.ActionDir, "client/"+dr.RequestID+"__client_output.pkl")
+	// Use pklres path instead of file path
+	pklPath := dr.PklresHelper.getResourcePath("client")
 
-	res, err := dr.LoadResourceFn(dr.Context, pklPath, HTTPResource)
+	res, err := dr.LoadResource(dr.Context, pklPath, HTTPResource)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL: %w", err)
 	}
 
 	pklRes, ok := res.(*pklHTTP.HTTPImpl)
 	if !ok {
-		return errors.New("failed to cast pklRes to *pklHTTP.Resource")
+		return errors.New("failed to cast pklRes to *pklHTTP.HTTPImpl")
 	}
 
 	resources := pklRes.GetResources()
@@ -108,13 +109,17 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 	}
 	existingResources := *resources
 
-	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
-	filePath := filepath.Join(dr.FilesDir, resourceIDFile)
-
-	encodedURL := client.Url
-	if !utils.IsBase64Encoded(encodedURL) {
-		encodedURL = utils.EncodeBase64String(encodedURL)
+	// Prepare file path and write response body to file
+	var filePath string
+	if client.Response != nil && client.Response.Body != nil {
+		filePath, err = dr.WriteResponseBodyToFile(resourceID, client.Response.Body)
+		if err != nil {
+			return fmt.Errorf("failed to write response body to file: %w", err)
+		}
+		client.File = &filePath
 	}
+
+	encodedURL := utils.EncodeValue(client.Url)
 
 	timestamp := client.Timestamp
 	if timestamp == nil {
@@ -133,10 +138,14 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 		File:            &filePath,
 		Timestamp:       timestamp,
 		TimeoutDuration: client.TimeoutDuration,
+		ItemValues:      client.ItemValues,
 	}
 
+	// Store the PKL content using pklres (no JSON, no custom serialization)
 	var pklContent strings.Builder
 	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/HTTP.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
+	// Inject the requestID as a variable accessible to PKL functions
+	pklContent.WriteString(fmt.Sprintf("/// Current request ID for pklres operations\nrequestID = \"%s\"\n\n", dr.RequestID))
 	pklContent.WriteString("Resources {\n")
 
 	timeoutDuration := dr.DefaultTimeoutSec
@@ -163,21 +172,25 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 		pklContent.WriteString(encodeResponseBody(res.Response, dr, resourceID))
 		pklContent.WriteString("    }\n")
 		pklContent.WriteString(fmt.Sprintf("    File = \"%s\"\n", *res.File))
+
+		// Add ItemValues
+		pklContent.WriteString("    ItemValues ")
+		if res.ItemValues != nil && len(*res.ItemValues) > 0 {
+			pklContent.WriteString(utils.EncodePklSlice(res.ItemValues))
+		} else {
+			pklContent.WriteString("{}\n")
+		}
+
 		pklContent.WriteString("  }\n")
 	}
 	pklContent.WriteString("}\n")
 
-	if err := afero.WriteFile(dr.Fs, pklPath, []byte(pklContent.String()), 0o644); err != nil {
-		return fmt.Errorf("failed to write PKL: %w", err)
+	// Store the PKL content using pklres instead of writing to file
+	if err := dr.PklresHelper.storePklContent("client", resourceID, pklContent.String()); err != nil {
+		return fmt.Errorf("failed to store PKL content in pklres: %w", err)
 	}
 
-	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath,
-		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/HTTP.pkl\"\n\n", schema.SchemaVersion(dr.Context)), dr.Logger)
-	if err != nil {
-		return fmt.Errorf("failed to evaluate PKL: %w", err)
-	}
-
-	return afero.WriteFile(dr.Fs, pklPath, []byte(evaluatedContent), 0o644)
+	return nil
 }
 
 func encodeResponseHeaders(response *pklHTTP.ResponseBlock) string {

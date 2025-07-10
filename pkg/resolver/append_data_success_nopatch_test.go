@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
+	pklres "github.com/kdeps/kdeps/pkg/pklres"
 	assets "github.com/kdeps/schema/assets"
 	pklData "github.com/kdeps/schema/gen/data"
 	pklHTTP "github.com/kdeps/schema/gen/http"
@@ -93,6 +94,15 @@ func TestAppendChatEntry_Basic(t *testing.T) {
 		},
 	}
 
+	// Initialize PklresHelper and PklresReader for the test
+	dr.PklresHelper = NewPklresHelper(dr)
+
+	// Create a mock PklresReader for testing
+	mockPklresReader := &pklres.PklResourceReader{
+		DB: nil, // We don't need a real DB for this test
+	}
+	dr.PklresReader = mockPklresReader
+
 	// Create dirs in memfs that AppendChatEntry expects
 	_ = fs.MkdirAll(filepath.Join(dr.ActionDir, "llm"), 0o755)
 	_ = fs.MkdirAll(dr.FilesDir, 0o755)
@@ -106,10 +116,13 @@ func TestAppendChatEntry_Basic(t *testing.T) {
 		t.Fatalf("AppendChatEntry returned error: %v", err)
 	}
 
-	// Verify pkl file written
-	pklPath := filepath.Join(dr.ActionDir, "llm", dr.RequestID+"__llm_output.pkl")
-	if exists, _ := afero.Exists(fs, pklPath); !exists {
-		t.Fatalf("expected output file %s to exist", pklPath)
+	// Verify pklres record exists
+	record, err := dr.PklresHelper.retrievePklContent("llm", "resA")
+	if err != nil {
+		t.Fatalf("expected pklres record for llm/resA, got error: %v", err)
+	}
+	if record == "" {
+		t.Fatalf("expected non-empty pklres record for llm/resA")
 	}
 }
 

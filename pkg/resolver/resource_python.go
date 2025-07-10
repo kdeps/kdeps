@@ -10,7 +10,7 @@ import (
 
 	"github.com/alexellis/go-execute/v2"
 	"github.com/apple/pkl-go/pkl"
-	"github.com/kdeps/kdeps/pkg/evaluator"
+
 	"github.com/kdeps/kdeps/pkg/kdepsexec"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
@@ -101,18 +101,25 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 	}
 
 	var execStdout, execStderr string
+	var execExitCode int
 	var execErr error
 	if dr.ExecTaskRunnerFn != nil {
 		execStdout, execStderr, execErr = dr.ExecTaskRunnerFn(dr.Context, cmd)
+		// Default exit code for injected runner (assuming success)
+		execExitCode = 0
 	} else {
-		execStdout, execStderr, _, execErr = kdepsexec.RunExecTask(dr.Context, cmd, dr.Logger, false)
+		execStdout, execStderr, execExitCode, execErr = kdepsexec.RunExecTask(dr.Context, cmd, dr.Logger, false)
 	}
 	if execErr != nil {
-		return fmt.Errorf("execution failed: %w", execErr)
+		// Even if there's an error, we should still record the exit code
+		if execExitCode == 0 {
+			execExitCode = 1 // Default error exit code
+		}
 	}
 
 	pythonBlock.Stdout = &execStdout
 	pythonBlock.Stderr = &execStderr
+	pythonBlock.ExitCode = &execExitCode
 
 	ts := pkl.Duration{
 		Value: float64(time.Now().Unix()),
@@ -223,7 +230,8 @@ func (dr *DependencyResolver) WritePythonStdoutToFile(resourceID string, stdoutE
 }
 
 func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pklPython.ResourcePython) error {
-	pklPath := filepath.Join(dr.ActionDir, "python/"+dr.RequestID+"__python_output.pkl")
+	// Use pklres path instead of file path
+	pklPath := dr.PklresHelper.getResourcePath("python")
 
 	res, err := dr.LoadResource(dr.Context, pklPath, PythonResource)
 	if err != nil {
@@ -270,17 +278,23 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 	}
 
 	existingResources[resourceID] = &pklPython.ResourcePython{
-		Env:             encodedEnv,
-		Script:          encodedScript,
-		Stderr:          encodedStderr,
-		Stdout:          encodedStdout,
-		File:            &filePath,
-		Timestamp:       timestamp,
-		TimeoutDuration: timeoutDuration,
+		Env:               encodedEnv,
+		Script:            encodedScript,
+		Stderr:            encodedStderr,
+		Stdout:            encodedStdout,
+		File:              &filePath,
+		Timestamp:         timestamp,
+		TimeoutDuration:   timeoutDuration,
+		ExitCode:          newPython.ExitCode,
+		ItemValues:        newPython.ItemValues,
+		PythonEnvironment: newPython.PythonEnvironment,
 	}
 
+	// Store the PKL content using pklres (no JSON, no custom serialization)
 	var pklContent strings.Builder
 	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Python.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
+	// Inject the requestID as a variable accessible to PKL functions
+	pklContent.WriteString(fmt.Sprintf("/// Current request ID for pklres operations\nrequestID = \"%s\"\n\n", dr.RequestID))
 	pklContent.WriteString("Resources {\n")
 
 	for id, res := range existingResources {
@@ -300,25 +314,42 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 		pklContent.WriteString("    Env ")
 		pklContent.WriteString(utils.EncodePklMap(res.Env))
 
+		// Add PythonEnvironment
+		if res.PythonEnvironment != nil {
+			pklContent.WriteString(fmt.Sprintf("    PythonEnvironment = \"%s\"\n", *res.PythonEnvironment))
+		} else {
+			pklContent.WriteString("    PythonEnvironment = \"\"\n")
+		}
+
 		pklContent.WriteString(dr.encodePythonStderr(res.Stderr))
 		pklContent.WriteString(dr.encodePythonStdout(res.Stdout))
 		pklContent.WriteString(fmt.Sprintf("    File = \"%s\"\n", *res.File))
+
+		// Add ExitCode
+		if res.ExitCode != nil {
+			pklContent.WriteString(fmt.Sprintf("    ExitCode = %d\n", *res.ExitCode))
+		} else {
+			pklContent.WriteString("    ExitCode = 0\n")
+		}
+
+		// Add ItemValues
+		pklContent.WriteString("    ItemValues ")
+		if res.ItemValues != nil && len(*res.ItemValues) > 0 {
+			pklContent.WriteString(utils.EncodePklSlice(res.ItemValues))
+		} else {
+			pklContent.WriteString("{}\n")
+		}
 
 		pklContent.WriteString("  }\n")
 	}
 	pklContent.WriteString("}\n")
 
-	if err := afero.WriteFile(dr.Fs, pklPath, []byte(pklContent.String()), 0o644); err != nil {
-		return fmt.Errorf("failed to write PKL file: %w", err)
+	// Store the PKL content using pklres instead of writing to file
+	if err := dr.PklresHelper.storePklContent("python", resourceID, pklContent.String()); err != nil {
+		return fmt.Errorf("failed to store PKL content in pklres: %w", err)
 	}
 
-	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath,
-		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Python.pkl\"", schema.SchemaVersion(dr.Context)), dr.Logger)
-	if err != nil {
-		return fmt.Errorf("failed to evaluate PKL: %w", err)
-	}
-
-	return afero.WriteFile(dr.Fs, pklPath, []byte(evaluatedContent), 0o644)
+	return nil
 }
 
 func (dr *DependencyResolver) encodePythonEnv(env *map[string]string) *map[string]string {

@@ -149,6 +149,7 @@ func (dr *DependencyResolver) LoadResource(ctx context.Context, resourceFile str
 			dr.ToolReader,
 			dr.ItemReader,
 			dr.AgentReader,
+			dr.PklresReader,
 		}
 		options.AllowedModules = []string{".*"}
 		options.AllowedResources = []string{".*"}

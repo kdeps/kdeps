@@ -1,7 +1,6 @@
 package resolver
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -55,16 +54,28 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Agent.pkl", schema.SchemaVersion(dr.Context)):    {Alias: "agent", Check: false},
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Skip.pkl", schema.SchemaVersion(dr.Context)):     {Alias: "skip", Check: false},
 		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Utils.pkl", schema.SchemaVersion(dr.Context)):    {Alias: "utils", Check: false},
-		filepath.Join(dr.ActionDir, "/llm/"+dr.RequestID+"__llm_output.pkl"):                              {Alias: "llm", Check: true},
-		filepath.Join(dr.ActionDir, "/client/"+dr.RequestID+"__client_output.pkl"):                        {Alias: "client", Check: true},
-		filepath.Join(dr.ActionDir, "/exec/"+dr.RequestID+"__exec_output.pkl"):                            {Alias: "exec", Check: true},
-		filepath.Join(dr.ActionDir, "/python/"+dr.RequestID+"__python_output.pkl"):                        {Alias: "python", Check: true},
-		filepath.Join(dr.ActionDir, "/data/"+dr.RequestID+"__data_output.pkl"):                            {Alias: "data", Check: true},
-		dr.RequestPklFile: {Alias: "request", Check: true},
+		dr.PklresHelper.getResourcePath("llm"):                                                            {Alias: "llm", Check: true},
+		dr.PklresHelper.getResourcePath("client"):                                                         {Alias: "client", Check: true},
+		dr.PklresHelper.getResourcePath("exec"):                                                           {Alias: "exec", Check: true},
+		dr.PklresHelper.getResourcePath("python"):                                                         {Alias: "python", Check: true},
+		dr.PklresHelper.getResourcePath("data"):                                                           {Alias: "data", Check: true},
+		dr.RequestPklFile:                                                                                 {Alias: "request", Check: true},
 	}
 
-	// Helper to check file existence
+	// Helper to check file existence (including pklres resources)
 	fileExists := func(file string) bool {
+		// Check if this is a pklres path
+		if strings.HasPrefix(file, "pklres://") {
+			// For pklres paths, check if the resource exists
+			// Extract the resource type from the path
+			if parts := strings.Split(file, "?type="); len(parts) == 2 {
+				resourceType := strings.Split(parts[1], "&")[0]
+				_, err := dr.PklresHelper.retrievePklContent(resourceType, "")
+				return err == nil
+			}
+			return false
+		}
+		// For regular file paths, use afero
 		exists, _ := afero.Exists(dr.Fs, file)
 		return exists
 	}
@@ -128,70 +139,29 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 }
 
 func (dr *DependencyResolver) PrepareImportFiles() error {
-	files := map[string]string{
-		"llm":    filepath.Join(dr.ActionDir, "/llm/"+dr.RequestID+"__llm_output.pkl"),
-		"client": filepath.Join(dr.ActionDir, "/client/"+dr.RequestID+"__client_output.pkl"),
-		"exec":   filepath.Join(dr.ActionDir, "/exec/"+dr.RequestID+"__exec_output.pkl"),
-		"python": filepath.Join(dr.ActionDir, "/python/"+dr.RequestID+"__python_output.pkl"),
-		"data":   filepath.Join(dr.ActionDir, "/data/"+dr.RequestID+"__data_output.pkl"),
+	// Map resource types to their pklres paths
+	resourceTypes := map[string]string{
+		"llm":    "llm",
+		"client": "client",
+		"exec":   "exec",
+		"python": "python",
+		"data":   "data",
 	}
 
-	for key, file := range files {
-		dir := filepath.Dir(file)
-		if err := dr.Fs.MkdirAll(dir, 0o755); err != nil {
-			return fmt.Errorf("failed to create directory for %s: %w", key, err)
-		}
+	for key, resourceType := range resourceTypes {
+		// Initialize empty PKL content for this resource type if it doesn't exist
+		// This ensures pklres has the basic structure for imports to work
 
-		// Check if the file exists, if not, create it
-		exists, err := afero.Exists(dr.Fs, file)
+		// Check if we already have this resource type in pklres
+		_, err := dr.PklresHelper.retrievePklContent(resourceType, "")
 		if err != nil {
-			return fmt.Errorf("failed to check if %s file exists: %w", key, err)
-		}
+			// If it doesn't exist, create an empty PKL structure
+			info := dr.PklresHelper.getResourceTypeInfo(resourceType)
+			emptyContent := fmt.Sprintf("%s {\n}\n", info.BlockName)
 
-		if !exists {
-			// Create the file if it doesn't exist
-			f, err := dr.Fs.Create(file)
-			if err != nil {
-				return fmt.Errorf("failed to create %s file: %w", key, err)
-			}
-			defer f.Close()
-
-			// Use packageURL in the header writing
-			packageURL := fmt.Sprintf("package://schema.kdeps.com/core@%s#/", schema.SchemaVersion(dr.Context))
-			writer := bufio.NewWriter(f)
-
-			var schemaFile, blockType string
-			switch key {
-			case "exec":
-				schemaFile = "Exec.pkl"
-				blockType = "resources"
-			case "python":
-				schemaFile = "Python.pkl"
-				blockType = "resources"
-			case "client":
-				schemaFile = "HTTP.pkl"
-				blockType = "resources"
-			case "llm":
-				schemaFile = "LLM.pkl"
-				blockType = "resources"
-			case "data":
-				schemaFile = "Data.pkl"
-				blockType = "files" // Special case for "data"
-			}
-
-			// Write header using packageURL and schemaFile
-			if _, err := writer.WriteString(fmt.Sprintf("extends \"%s%s\"\n\n", packageURL, schemaFile)); err != nil {
-				return fmt.Errorf("failed to write header for %s: %w", key, err)
-			}
-
-			// Write the block (resources or files)
-			if _, err := writer.WriteString(blockType + " {\n}\n"); err != nil {
-				return fmt.Errorf("failed to write block for %s: %w", key, err)
-			}
-
-			// Flush the writer
-			if err := writer.Flush(); err != nil {
-				return fmt.Errorf("failed to flush output for %s: %w", key, err)
+			// Store the empty structure
+			if err := dr.PklresHelper.storePklContent(resourceType, "", emptyContent); err != nil {
+				return fmt.Errorf("failed to initialize empty %s structure in pklres: %w", key, err)
 			}
 		}
 	}

@@ -3,14 +3,11 @@ package resolver
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
 	"strings"
 
-	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklData "github.com/kdeps/schema/gen/data"
-	"github.com/spf13/afero"
 )
 
 // AppendDataEntry appends a data entry to the existing files map.
@@ -20,16 +17,27 @@ func (dr *DependencyResolver) AppendDataEntry(resourceID string, newData *pklDat
 		return errors.New("context is nil")
 	}
 
-	// Define the path to the PKL file
-	pklPath := filepath.Join(dr.ActionDir, "data/"+dr.RequestID+"__data_output.pkl")
+	// Use pklres path instead of file path
+	pklPath := dr.PklresHelper.getResourcePath("data")
 
-	// Load existing PKL data
-	pklRes, err := pklData.LoadFromPath(dr.Context, pklPath)
-	if err != nil || pklRes == nil {
-		// If loading fails or returns nil, create a new empty data structure
+	// Load existing PKL data from pklres
+	var pklRes *pklData.DataImpl
+	res, err := dr.LoadResource(dr.Context, pklPath, ResourceType("data"))
+	if err != nil {
+		// If loading fails, create a new empty data structure
 		emptyFiles := make(map[string]map[string]string)
 		pklRes = &pklData.DataImpl{
 			Files: &emptyFiles,
+		}
+	} else {
+		var ok bool
+		pklRes, ok = res.(*pklData.DataImpl)
+		if !ok {
+			// Fallback to empty structure if casting fails
+			emptyFiles := make(map[string]map[string]string)
+			pklRes = &pklData.DataImpl{
+				Files: &emptyFiles,
+			}
 		}
 	}
 
@@ -63,9 +71,11 @@ func (dr *DependencyResolver) AppendDataEntry(resourceID string, newData *pklDat
 		}
 	}
 
-	// Build the new PKL content
+	// Store the PKL content using pklres (no JSON, no custom serialization)
 	var pklContent strings.Builder
 	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Data.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
+	// Inject the requestID as a variable accessible to PKL functions
+	pklContent.WriteString(fmt.Sprintf("/// Current request ID for pklres operations\nrequestID = \"%s\"\n\n", dr.RequestID))
 	pklContent.WriteString("Files {\n")
 
 	for agentName, baseFileMap := range *existingFiles {
@@ -78,22 +88,9 @@ func (dr *DependencyResolver) AppendDataEntry(resourceID string, newData *pklDat
 
 	pklContent.WriteString("}\n")
 
-	// Write the new PKL content to the file using afero
-	err = afero.WriteFile(dr.Fs, pklPath, []byte(pklContent.String()), 0o644)
-	if err != nil {
-		return fmt.Errorf("failed to write to PKL file: %w", err)
-	}
-
-	// Evaluate the PKL file using EvalPkl
-	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath, fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Data.pkl\"", schema.SchemaVersion(dr.Context)), dr.Logger)
-	if err != nil {
-		return fmt.Errorf("failed to evaluate PKL file: %w", err)
-	}
-
-	// Rebuild the PKL content with the evaluated content
-	err = afero.WriteFile(dr.Fs, pklPath, []byte(evaluatedContent), 0o644)
-	if err != nil {
-		return fmt.Errorf("failed to write evaluated content to PKL file: %w", err)
+	// Store the PKL content using pklres instead of writing to file
+	if err := dr.PklresHelper.storePklContent("data", resourceID, pklContent.String()); err != nil {
+		return fmt.Errorf("failed to store PKL content in pklres: %w", err)
 	}
 
 	return nil

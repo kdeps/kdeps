@@ -3,7 +3,6 @@ package resolver
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
 	"time"
 
 	"github.com/apple/pkl-go/pkl"
@@ -13,33 +12,40 @@ import (
 	pklPython "github.com/kdeps/schema/gen/python"
 )
 
-// getResourceFilePath returns the file path for a given resourceType.
+// getResourceFilePath returns the pklres path for a given resourceType.
 func (dr *DependencyResolver) getResourceFilePath(resourceType string) (string, error) {
-	files := map[string]string{
-		"llm":    filepath.Join(dr.ActionDir, "llm", dr.RequestID+"__llm_output.pkl"),
-		"client": filepath.Join(dr.ActionDir, "client", dr.RequestID+"__client_output.pkl"),
-		"exec":   filepath.Join(dr.ActionDir, "exec", dr.RequestID+"__exec_output.pkl"),
-		"python": filepath.Join(dr.ActionDir, "python", dr.RequestID+"__python_output.pkl"),
+	// Map resource types to ensure they're valid
+	validTypes := map[string]bool{
+		"llm":    true,
+		"client": true,
+		"exec":   true,
+		"python": true,
 	}
 
-	pklPath, exists := files[resourceType]
-	if !exists {
+	if !validTypes[resourceType] {
 		return "", fmt.Errorf("invalid resourceType %s provided", resourceType)
 	}
-	return pklPath, nil
+
+	// Return pklres path instead of file path
+	return dr.PklresHelper.getResourcePath(resourceType), nil
 }
 
-// loadPKLFile loads and returns the PKL file based on resourceType.
+// loadPKLFile loads and returns the PKL data from pklres based on resourceType.
 func (dr *DependencyResolver) loadPKLFile(resourceType, pklPath string) (interface{}, error) {
+	// Since we're using pklres now, we need to retrieve the content and parse it
+	// For now, we'll create a temporary file approach or use the existing LoadResource method
+	// This is a compatibility layer - ideally we'd refactor to work directly with content
+	
 	switch resourceType {
 	case "exec":
-		return pklExec.LoadFromPath(dr.Context, pklPath)
+		// Try to load from pklres first, fallback to LoadResource method
+		return dr.LoadResource(dr.Context, pklPath, ExecResource)
 	case "python":
-		return pklPython.LoadFromPath(dr.Context, pklPath)
+		return dr.LoadResource(dr.Context, pklPath, PythonResource)
 	case "llm":
-		return pklLLM.LoadFromPath(dr.Context, pklPath)
+		return dr.LoadResource(dr.Context, pklPath, LLMResource)
 	case "client":
-		return pklHTTP.LoadFromPath(dr.Context, pklPath)
+		return dr.LoadResource(dr.Context, pklPath, HTTPResource)
 	default:
 		return nil, fmt.Errorf("unsupported resourceType %s provided", resourceType)
 	}

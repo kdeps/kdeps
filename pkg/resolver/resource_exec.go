@@ -9,7 +9,7 @@ import (
 
 	"github.com/alexellis/go-execute/v2"
 	"github.com/apple/pkl-go/pkl"
-	"github.com/kdeps/kdeps/pkg/evaluator"
+
 	"github.com/kdeps/kdeps/pkg/kdepsexec"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
@@ -90,19 +90,26 @@ func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklEx
 	}
 
 	var stdout, stderr string
+	var exitCode int
 	var err error
 	if dr.ExecTaskRunnerFn != nil {
 		stdout, stderr, err = dr.ExecTaskRunnerFn(dr.Context, task)
+		// Default exit code for injected runner (assuming success)
+		exitCode = 0
 	} else {
 		// fallback direct execution via kdepsexec
-		stdout, stderr, _, err = kdepsexec.RunExecTask(dr.Context, task, dr.Logger, false)
+		stdout, stderr, exitCode, err = kdepsexec.RunExecTask(dr.Context, task, dr.Logger, false)
 	}
 	if err != nil {
-		return err
+		// Even if there's an error, we should still record the exit code
+		if exitCode == 0 {
+			exitCode = 1 // Default error exit code
+		}
 	}
 
 	execBlock.Stdout = &stdout
 	execBlock.Stderr = &stderr
+	execBlock.ExitCode = &exitCode
 
 	ts := pkl.Duration{
 		Value: float64(time.Now().Unix()),
@@ -134,7 +141,8 @@ func (dr *DependencyResolver) WriteStdoutToFile(resourceID string, stdoutEncoded
 }
 
 func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExec.ResourceExec) error {
-	pklPath := filepath.Join(dr.ActionDir, "exec/"+dr.RequestID+"__exec_output.pkl")
+	// Use pklres path instead of file path
+	pklPath := dr.PklresHelper.getResourcePath("exec")
 
 	res, err := dr.LoadResource(dr.Context, pklPath, ExecResource)
 	if err != nil {
@@ -189,10 +197,15 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 		File:            &filePath,
 		Timestamp:       timestamp,
 		TimeoutDuration: timeoutDuration,
+		ExitCode:        newExec.ExitCode,
+		ItemValues:      newExec.ItemValues,
 	}
 
+	// Store the PKL content using pklres (no JSON, no custom serialization)
 	var pklContent strings.Builder
 	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Exec.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
+	// Inject the requestID as a variable accessible to PKL functions
+	pklContent.WriteString(fmt.Sprintf("/// Current request ID for pklres operations\nrequestID = \"%s\"\n\n", dr.RequestID))
 	pklContent.WriteString("Resources {\n")
 
 	for id, res := range existingResources {
@@ -220,21 +233,31 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 			pklContent.WriteString("    File = \"\"\n")
 		}
 
+		// Add ExitCode
+		if res.ExitCode != nil {
+			pklContent.WriteString(fmt.Sprintf("    ExitCode = %d\n", *res.ExitCode))
+		} else {
+			pklContent.WriteString("    ExitCode = 0\n")
+		}
+
+		// Add ItemValues
+		pklContent.WriteString("    ItemValues ")
+		if res.ItemValues != nil && len(*res.ItemValues) > 0 {
+			pklContent.WriteString(utils.EncodePklSlice(res.ItemValues))
+		} else {
+			pklContent.WriteString("{}\n")
+		}
+
 		pklContent.WriteString("  }\n")
 	}
 	pklContent.WriteString("}\n")
 
-	if err := afero.WriteFile(dr.Fs, pklPath, []byte(pklContent.String()), 0o644); err != nil {
-		return fmt.Errorf("failed to write PKL file: %w", err)
+	// Store the PKL content using pklres instead of writing to file
+	if err := dr.PklresHelper.storePklContent("exec", resourceID, pklContent.String()); err != nil {
+		return fmt.Errorf("failed to store PKL content in pklres: %w", err)
 	}
 
-	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath,
-		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Exec.pkl\"", schema.SchemaVersion(dr.Context)), dr.Logger)
-	if err != nil {
-		return fmt.Errorf("failed to evaluate PKL: %w", err)
-	}
-
-	return afero.WriteFile(dr.Fs, pklPath, []byte(evaluatedContent), 0o644)
+	return nil
 }
 
 func (dr *DependencyResolver) encodeExecEnv(env *map[string]string) *map[string]string {

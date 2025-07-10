@@ -11,7 +11,6 @@ import (
 
 	"github.com/apple/pkl-go/pkl"
 	"github.com/gabriel-vasile/mimetype"
-	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/tool"
@@ -427,11 +426,12 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 
 // AppendChatEntry appends a chat entry to the Pkl file.
 func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM.ResourceChat) error {
-	pklPath := filepath.Join(dr.ActionDir, "llm/"+dr.RequestID+"__llm_output.pkl")
+	// Use pklres path instead of file path
+	pklPath := dr.PklresHelper.getResourcePath("llm")
 
 	llmRes, err := dr.LoadResourceFn(dr.Context, pklPath, LLMResource)
 	if err != nil {
-		return fmt.Errorf("failed to load PKL file: %w", err)
+		return fmt.Errorf("failed to load PKL resource: %w", err)
 	}
 	if llmRes == nil {
 		return fmt.Errorf("LoadResourceFn returned nil for path: %s", pklPath)
@@ -459,27 +459,27 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 	}
 
 	encodedChat := encodeChat(newChat, dr.Logger)
+	// Ensure ItemValues is preserved
+	if newChat.ItemValues != nil {
+		encodedChat.ItemValues = newChat.ItemValues
+	}
 	existingResources[resourceID] = encodedChat
 
-	pklContent := generatePklContent(existingResources, dr.Context, dr.Logger)
-
-	if err := afero.WriteFile(dr.Fs, pklPath, []byte(pklContent), 0o644); err != nil {
-		return fmt.Errorf("failed to write PKL file: %w", err)
+	// Store the PKL content using pklres (no JSON, no custom serialization)
+	pklContent := generatePklContent(existingResources, dr.Context, dr.Logger, dr.RequestID)
+	if err := dr.PklresHelper.storePklContent("llm", resourceID, pklContent); err != nil {
+		return fmt.Errorf("failed to store PKL content in pklres: %w", err)
 	}
 
-	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath,
-		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"", schema.SchemaVersion(dr.Context)), dr.Logger)
-	if err != nil {
-		return fmt.Errorf("failed to evaluate PKL file: %w", err)
-	}
-
-	return afero.WriteFile(dr.Fs, pklPath, []byte(evaluatedContent), 0o644)
+	return nil
 }
 
 // generatePklContent generates Pkl content from resources.
-func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.Context, logger *logging.Logger) string {
+func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.Context, logger *logging.Logger, requestID string) string {
 	var pklContent strings.Builder
 	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"\n\n", schema.SchemaVersion(ctx)))
+	// Inject the requestID as a variable accessible to PKL functions
+	pklContent.WriteString(fmt.Sprintf("/// Current request ID for pklres operations\nrequestID = \"%s\"\n\n", requestID))
 	pklContent.WriteString("Resources {\n")
 
 	for id, res := range resources {
@@ -576,6 +576,14 @@ func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.C
 			pklContent.WriteString(fmt.Sprintf("    File = %q\n", *res.File))
 		} else {
 			pklContent.WriteString("    File = \"\"\n")
+		}
+
+		// Add ItemValues
+		pklContent.WriteString("    ItemValues ")
+		if res.ItemValues != nil && len(*res.ItemValues) > 0 {
+			pklContent.WriteString(utils.EncodePklSlice(res.ItemValues))
+		} else {
+			pklContent.WriteString("{}\n")
 		}
 
 		pklContent.WriteString("  }\n")

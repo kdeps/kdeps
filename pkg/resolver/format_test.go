@@ -198,7 +198,7 @@ func TestGeneratePklContent_Minimal(t *testing.T) {
 	}
 	m := map[string]*pklLLM.ResourceChat{"id1": res}
 
-	pklStr := generatePklContent(m, ctx, logger)
+	pklStr := generatePklContent(m, ctx, logger, "test-request-id")
 
 	// Basic sanity checks
 	if !strings.Contains(pklStr, "Resources {") || !strings.Contains(pklStr, "\"id1\"") {
