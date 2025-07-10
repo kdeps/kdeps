@@ -242,7 +242,6 @@ func (r *PklResourceReader) listInstalledAgents() ([]byte, error) {
 
 		return nil
 	})
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to scan agents directory: %w", err)
 	}
@@ -552,7 +551,6 @@ func (r *PklResourceReader) RegisterAllAgentsAndActions() error {
 		log.Printf("Registered agent %s v%s with %d actions", agentID, version, len(actionIDs))
 		return nil
 	})
-
 	if err != nil {
 		return fmt.Errorf("failed to scan agents directory: %w", err)
 	}

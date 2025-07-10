@@ -800,8 +800,6 @@ func TestMoveFolder(t *testing.T) {
 	require.Equal(t, "content", string(data))
 }
 
-
-
 func TestCopyFile_NoExist(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()

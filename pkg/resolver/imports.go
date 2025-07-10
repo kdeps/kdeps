@@ -31,9 +31,6 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 	}
 	contentStr := string(content)
 
-	// Define a regular expression to match "{{value}}"
-	re := regexp.MustCompile(`\@\((.*)\)`)
-
 	// Define ImportConfig struct
 	type ImportConfig struct {
 		Alias string
@@ -80,10 +77,25 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 		return fmt.Sprintf(`import "%s" as %s`, file, alias)
 	}
 
+	// Helper to check if an alias is already used
+	aliasExists := func(alias string) bool {
+		if alias == "" {
+			return false
+		}
+		// Check for pattern: import "..." as alias
+		aliasPattern := regexp.MustCompile(`import\s+"[^"]+"\s+as\s+` + regexp.QuoteMeta(alias) + `\b`)
+		return aliasPattern.MatchString(contentStr)
+	}
+
 	// Construct the dynamic import lines
 	var importBuilder strings.Builder
 	for file, config := range importCheck {
 		if config.Check && !fileExists(file) {
+			continue
+		}
+
+		// Skip if alias is already in use
+		if config.Alias != "" && aliasExists(config.Alias) {
 			continue
 		}
 
@@ -104,7 +116,6 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 	if amendsIndex != -1 {
 		amendsLineEnd := strings.Index(contentStr[amendsIndex:], "\n") + amendsIndex + 1
 		newContent := contentStr[:amendsLineEnd] + importFiles + contentStr[amendsLineEnd:]
-		newContent = re.ReplaceAllString(newContent, `\($1)`)
 
 		// Write the updated content back to the file
 		err = afero.WriteFile(dr.Fs, pklFile, []byte(newContent), 0o644)

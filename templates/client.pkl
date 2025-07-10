@@ -4,7 +4,7 @@ ActionID = "clientResource"
 Name = "Client Resource"
 Description = "This resource creates a client session."
 Category = ""
-Requires = {
+Requires {
         // Define the ID of any dependency resource that must be executed before this resource.
         // For example "@aiChatResource1"
 }
@@ -40,14 +40,14 @@ Run {
         SkipCondition {
                 // Conditions under which the execution of this resource should be skipped.
                 // If any evaluated condition returns true, the resource execution will be bypassed.
-                // "@(request.path)" != "/api/v1/whois" && "@(request.method)" != "GET"
+                // request.path != "/api/v1/whois" && request.method != "GET"
         }
 
         PreflightCheck {
                 Validations {
                         // This section expects boolean validations.
                         // If any validation returns false, an exception will be thrown before proceeding to the next step.
-                        // "@(request.header("X-API-KEY"))" != ""
+                        // request.header("X-API-KEY") != ""
                 }
                 //
                 // Custom error message and code to be returned immediately if the preflight check fails.
@@ -93,38 +93,45 @@ Run {
         // general-purpose evaluation of any valid PKL expression, making it a place for inline logic and
         // scripting within a configuration.
         Expr {
-                // "@(memory.setRecord("foo", "bar"))" // Persistent data
-                // "@(memory.clear())"
-                // "@(session.setRecord("foo", "bar"))" // Temporary data only for this request
+                // memory.setRecord("foo", "bar") // Persistent data
+                // memory.clear()
+                // session.setRecord("foo", "bar") // Temporary data only for this request
         }
 
-        // Initiates an HTTP client request for this resource.
+        // Initializes an HTTP client for this resource.
         //
-        // The HTTP resource provides the following helper functions:
+        // This resource offers the following helper functions:
         //
-        // - "@(client.resource("ResourceID"))"
-        // - "@(client.responseBody("ResourceID"))"
-        // - "@(client.responseHeader("ResourceID", "HEADER"))"
+        // - client.resource("ResourceID")
+        // - client.responseBody("ResourceID")
+        // - client.responseHeader("ResourceID", "HEADER")
         //
-        // For example, to use these in your resource, you can define a local variable like this:
+        // To use these in your resource, you can define a local variable as follows:
         //
-        // local bearerToken = "@(client.responseHeader("ResourceID", "Bearer"))"
-        // You can then access the value using "@(bearerToken)".
+        // local bearerToken = client.responseHeader("ResourceID", "Bearer")
+        // You can then access the value using bearerToken.
         //
-        // The "@(...)" syntax enables lazy evaluation, ensuring that values are
-        // retrieved only after the result is ready.
-        //
-        // Note: Each resource is restricted to a single dedicated action. Combining multiple
-        // actions within the same resource is not allowed.
+        // Module functions like client.*, llm.*, python.* are called directly.
+        // Request functions use "\(request.params("q"))" syntax only when embedding in strings.
+        // For direct assignment or comparisons, use request.params("q") without string interpolation.
         HTTPClient {
                 Method = "GET"  // Specifies the HTTP method to be used for the request.
-                URL = ""        // The URL endpoint for the HTTP request.
+                
+                // Example: Wikipedia API to get page info about a person
+                // Uses the 'q' query parameter from the incoming request
+                Url = """
+                https://en.wikipedia.org/api/rest_v1/page/summary/\(request.params("q"))
+                """
+                
                 Data {
                         // Any data that will be sent with the HTTP request.
+                        // For GET requests, this is typically empty
                 }
                 Headers {
                         // Headers to be included in the HTTP request.
-                        // ["X-API-KEY"] = "@(request.header("X-API-KEY"))"  // Example header.
+                        ["User-Agent"] = "KDeps-Agent/1.0"
+                        ["Accept"] = "application/json"
+                        // ["Authorization"] = "Bearer \(request.header(\"X-API-KEY\"))"  // Example auth header
                 }
                 // Timeout duration in seconds. This specifies when to terminate the request.
                 TimeoutDuration = 60.s

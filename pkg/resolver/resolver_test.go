@@ -901,7 +901,6 @@ func TestNewGraphResolver(t *testing.T) {
 	require.NoError(t, err)
 
 	dr, err := NewGraphResolver(fs, ctx, env, nil, logger)
-
 	// Handle PKL-related errors gracefully (when PKL binary is not available)
 	if err != nil {
 		msg := err.Error()

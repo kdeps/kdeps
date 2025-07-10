@@ -72,7 +72,6 @@ Settings {
                         new {
                                 Path = "/api/v1/whois"
                                 Methods { "GET" } // Allows retrieving data
-                                ActionID = "responseResource"
                                 // Note: For multiple methods, add to the Methods array
                         }
                 }

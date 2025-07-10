@@ -135,7 +135,6 @@ func upgradeSchemaVersions(fs afero.Fs, dirPath, targetVersion string, dryRun bo
 
 		return nil
 	})
-
 	if err != nil {
 		return fmt.Errorf("error walking directory: %w", err)
 	}

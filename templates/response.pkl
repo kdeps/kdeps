@@ -4,9 +4,13 @@ ActionID = "responseResource"
 Name = "Response Resource"
 Description = "This resource creates a response."
 Category = ""
-Requires = {
+Requires {
         // Define the ID of any dependency resource that must be executed before this resource.
-        // For example "@aiChatResource1"
+        // These resources will be executed in order before this response resource
+        "clientResource"
+        "execResource" 
+        "pythonResource"
+        "llmResource"
 }
 
 Run {
@@ -49,7 +53,7 @@ Run {
                         // If any validation returns false, an exception will be thrown before proceeding to the next step.
                         //
                         // For example, to ensure that data is present in the request (e.g., request parameters, file uploads).
-                        // "@(request.filecount())" > 0 && "@(request.params("q"))" != ""
+                        // request.filecount() > 0 && request.params("q") != ""
                 }
                 //
                 // Custom error message and code to be returned immediately if the preflight check fails.
@@ -95,9 +99,9 @@ Run {
         // general-purpose evaluation of any valid PKL expression, making it a place for inline logic and
         // scripting within a configuration.
         Expr {
-                // "@(memory.setRecord("foo", "bar"))" // Persistent data
-                // "@(memory.clear())"
-                // "@(session.setRecord("foo", "bar"))" // Temporary data only for this request
+                // memory.setRecord("foo", "bar") // Persistent data
+                // memory.clear()
+                // session.setRecord("foo", "bar") // Temporary data only for this request
         }
 
         // Initializes an api response for this agent.
@@ -139,11 +143,8 @@ Run {
                 }
                 Response {
                         Data {
-                                "@(llm.response("llmResource"))"
-                                // "@(memory.getRecord("foo"))"
-                                // "@(python.stdout("pythonResource"))"
-                                // "@(exec.stdout("shellResource"))"
-                                // "@(client.responseBody("httpResource"))"
+                                // Basic response showing the workflow is working
+                                "Agent processed query successfully"
                         }
                 }
                 Errors {

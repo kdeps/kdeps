@@ -44,36 +44,36 @@ func TestUpgradeSchemaVersionInContent(t *testing.T) {
 		{
 			name:           "upgrade workflow amends",
 			content:        fmt.Sprintf(coreWorkflowAmends+"\nAgentID = \"test\"", "0.3.1"),
-			targetVersion:  "0.3.3",
+			targetVersion:  "0.3.7",
 			expectedChange: true,
-			expectedResult: fmt.Sprintf(coreWorkflowAmends+"\nAgentID = \"test\"", "0.3.3"),
+			expectedResult: fmt.Sprintf(coreWorkflowAmends+"\nAgentID = \"test\"", "0.3.7"),
 		},
 		{
 			name:           "upgrade resource import",
 			content:        fmt.Sprintf(coreResourceImport+"\nAgentID = \"test\"", "0.3.1"),
-			targetVersion:  "0.3.3",
+			targetVersion:  "0.3.7",
 			expectedChange: true,
-			expectedResult: fmt.Sprintf(coreResourceImport+"\nAgentID = \"test\"", "0.3.3"),
+			expectedResult: fmt.Sprintf(coreResourceImport+"\nAgentID = \"test\"", "0.3.7"),
 		},
 		{
 			name:           "already at target version",
-			content:        fmt.Sprintf(coreWorkflowAmends+"\nAgentID = \"test\"", "0.3.3"),
-			targetVersion:  "0.3.3",
+			content:        fmt.Sprintf(coreWorkflowAmends+"\nAgentID = \"test\"", "0.3.7"),
+			targetVersion:  "0.3.7",
 			expectedChange: false,
-			expectedResult: fmt.Sprintf(coreWorkflowAmends+"\nAgentID = \"test\"", "0.3.3"),
+			expectedResult: fmt.Sprintf(coreWorkflowAmends+"\nAgentID = \"test\"", "0.3.7"),
 		},
 		{
 			name:           "multiple version references",
 			content:        fmt.Sprintf(coreWorkflowAmends+"\n"+coreResourceImport+"\nAgentID = \"test\"", "0.3.1", "0.3.1"),
-			targetVersion:  "0.3.3",
+			targetVersion:  "0.3.7",
 			expectedChange: true,
-			expectedResult: fmt.Sprintf(coreWorkflowAmends+"\n"+coreResourceImport+"\nAgentID = \"test\"", "0.3.3", "0.3.3"),
+			expectedResult: fmt.Sprintf(coreWorkflowAmends+"\n"+coreResourceImport+"\nAgentID = \"test\"", "0.3.7", "0.3.7"),
 		},
 		{
 			name: "no schema references",
 			content: `AgentID = "test"
 Version = "1.0.0"`,
-			targetVersion:  "0.3.3",
+			targetVersion:  "0.3.7",
 			expectedChange: false,
 			expectedResult: `AgentID = "test"
 Version = "1.0.0"`,
@@ -81,16 +81,16 @@ Version = "1.0.0"`,
 		{
 			name:           "duplicate amends lines",
 			content:        fmt.Sprintf(coreWorkflowAmends+"\n"+coreWorkflowAmends+"\nAgentID = \"test\"", "0.3.1", "0.3.1"),
-			targetVersion:  "0.3.3",
+			targetVersion:  "0.3.7",
 			expectedChange: true,
-			expectedResult: fmt.Sprintf(coreWorkflowAmends+"\n"+coreWorkflowAmends+"\nAgentID = \"test\"", "0.3.3", "0.3.3"),
+			expectedResult: fmt.Sprintf(coreWorkflowAmends+"\n"+coreWorkflowAmends+"\nAgentID = \"test\"", "0.3.7", "0.3.7"),
 		},
 		{
 			name:           "duplicate import lines",
 			content:        fmt.Sprintf(coreResourceImport+"\n"+coreResourceImport+"\nAgentID = \"test\"", "0.3.1", "0.3.1"),
-			targetVersion:  "0.3.3",
+			targetVersion:  "0.3.7",
 			expectedChange: true,
-			expectedResult: fmt.Sprintf(coreResourceImport+"\n"+coreResourceImport+"\nAgentID = \"test\"", "0.3.3", "0.3.3"),
+			expectedResult: fmt.Sprintf(coreResourceImport+"\n"+coreResourceImport+"\nAgentID = \"test\"", "0.3.7", "0.3.7"),
 		},
 	}
 
@@ -144,30 +144,30 @@ AgentID = "testResource"`
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(testDir, "package.json"), []byte(nonPklContent), 0o644))
 
 	t.Run("dry run upgrade", func(t *testing.T) {
-		err := upgradeSchemaVersions(fs, testDir, "0.3.3", true, logger)
+		err := upgradeSchemaVersions(fs, testDir, "0.3.7", true, logger)
 		require.NoError(t, err)
 
 		// Files should not be modified in dry run
 		content, err := afero.ReadFile(fs, filepath.Join(testDir, "workflow.pkl"))
 		require.NoError(t, err)
 		assert.Contains(t, string(content), "0.3.1")
-		assert.NotContains(t, string(content), "0.3.3")
+		assert.NotContains(t, string(content), "0.3.7")
 	})
 
 	t.Run("actual upgrade", func(t *testing.T) {
-		err := upgradeSchemaVersions(fs, testDir, "0.3.3", false, logger)
+		err := upgradeSchemaVersions(fs, testDir, "0.3.7", false, logger)
 		require.NoError(t, err)
 
 		// Check workflow.pkl was updated
 		content, err := afero.ReadFile(fs, filepath.Join(testDir, "workflow.pkl"))
 		require.NoError(t, err)
-		assert.Contains(t, string(content), "0.3.3")
+		assert.Contains(t, string(content), "0.3.7")
 		assert.NotContains(t, string(content), "0.3.1")
 
 		// Check resource file was updated
 		content, err = afero.ReadFile(fs, filepath.Join(testDir, "resources", "test.pkl"))
 		require.NoError(t, err)
-		assert.Contains(t, string(content), "0.3.3")
+		assert.Contains(t, string(content), "0.3.7")
 		assert.NotContains(t, string(content), "0.3.1")
 
 		// Check non-pkl file was not modified
@@ -224,7 +224,7 @@ Version = "1.0.0"`
 
 	// Test upgrade command
 	cmd := UpgradeCommand(fs, ctx, "/tmp", logger)
-	cmd.SetArgs([]string{"--version", "0.3.3", testDir})
+	cmd.SetArgs([]string{"--version", "0.3.7", testDir})
 
 	err := cmd.Execute()
 	require.NoError(t, err)
@@ -232,7 +232,7 @@ Version = "1.0.0"`
 	// Verify file was updated
 	updatedContent, err := afero.ReadFile(fs, filepath.Join(testDir, "workflow.pkl"))
 	require.NoError(t, err)
-	assert.Contains(t, string(updatedContent), "0.3.3")
+	assert.Contains(t, string(updatedContent), "0.3.7")
 	assert.NotContains(t, string(updatedContent), "0.3.1")
 }
 
@@ -256,9 +256,9 @@ AgentID = "test"`
 
 	// Test replacement
 	oldRef := matches[0][1] + currentVersion + matches[0][3]
-	newRef := matches[0][1] + "0.3.3" + matches[0][3]
+	newRef := matches[0][1] + "0.3.7" + matches[0][3]
 
-	expected := `amends "package://schema.kdeps.com/core@0.3.3#/Workflow.pkl"
+	expected := `amends "package://schema.kdeps.com/core@0.3.7#/Workflow.pkl"
 AgentID = "test"`
 
 	result := strings.ReplaceAll(content, oldRef, newRef)
@@ -274,7 +274,7 @@ AgentID = "test"`
 	// Create a logger that will show debug output
 	logger := logging.NewTestLogger()
 
-	result, changed, err := upgradeSchemaVersionInContent(content, "0.3.3", logger)
+	result, changed, err := upgradeSchemaVersionInContent(content, "0.3.7", logger)
 
 	t.Logf("Result: %q", result)
 	t.Logf("Changed: %v", changed)
@@ -282,6 +282,6 @@ AgentID = "test"`
 
 	require.NoError(t, err)
 	require.True(t, changed, "Should have changed")
-	require.Contains(t, result, "0.3.3", "Result should contain new version")
+	require.Contains(t, result, "0.3.7", "Result should contain new version")
 	require.NotContains(t, result, "0.3.1", "Result should not contain old version")
 }

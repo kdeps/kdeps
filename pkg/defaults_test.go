@@ -10,7 +10,7 @@ import (
 func TestNewConfigurationManager(t *testing.T) {
 	logger := logging.NewTestLogger()
 	manager := NewConfigurationManager(logger)
-	
+
 	assert.NotNil(t, manager)
 	assert.Equal(t, logger, manager.logger)
 }
@@ -183,7 +183,7 @@ func TestLogConfigurationSummary(t *testing.T) {
 	}
 
 	manager.LogConfigurationSummary(configs)
-	
+
 	// The function should not panic and should log the summary
 	// We can't easily test the log output, but we can verify the function runs
 	assert.NotNil(t, manager)
@@ -202,10 +202,10 @@ func TestConfigurationValue(t *testing.T) {
 
 	assert.Equal(t, true, boolValue.Value)
 	assert.Equal(t, SourcePKL, boolValue.Source)
-	
+
 	assert.Equal(t, "test", stringValue.Value)
 	assert.Equal(t, SourceDefault, stringValue.Source)
-	
+
 	assert.Equal(t, 42, intValue.Value)
 	assert.Equal(t, SourcePKL, intValue.Source)
-} 
+}

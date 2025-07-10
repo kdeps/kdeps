@@ -142,9 +142,12 @@ func GenerateWorkflowFile(fs afero.Fs, ctx context.Context, logger *logging.Logg
 	templatePath := "workflow.pkl"
 	outputPath := filepath.Join(mainDir, "workflow.pkl")
 
+	// Get schema version for imports
+	schemaVersion := schema.SchemaVersion(context.Background())
+
 	// Template data for dynamic replacement
 	templateData := map[string]string{
-		"Header":         fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schema.SchemaVersion(ctx)),
+		"Header":         fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schemaVersion),
 		"Name":           name,
 		"OllamaImageTag": version.DefaultOllamaImageTag,
 	}
@@ -171,9 +174,32 @@ func GenerateResourceFiles(fs afero.Fs, ctx context.Context, logger *logging.Log
 		return fmt.Errorf("failed to create resources directory: %w", err)
 	}
 
-	// Common template data
+	// Get schema version for imports
+	schemaVersion := schema.SchemaVersion(context.Background())
+
+	// Header template with imports for resource files
+	headerTemplate := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+
+import "package://schema.kdeps.com/core@%s#/Document.pkl" as document
+import "package://schema.kdeps.com/core@%s#/Utils.pkl" as utils
+import "package://schema.kdeps.com/core@%s#/Memory.pkl" as memory
+import "package://schema.kdeps.com/core@%s#/Session.pkl" as session
+import "package://schema.kdeps.com/core@%s#/Tool.pkl" as tool
+import "package://schema.kdeps.com/core@%s#/Item.pkl" as item
+import "package://schema.kdeps.com/core@%s#/LLM.pkl" as llm
+import "package://schema.kdeps.com/core@%s#/Agent.pkl" as agent
+import "package://schema.kdeps.com/core@%s#/Python.pkl" as python
+import "package://schema.kdeps.com/core@%s#/Exec.pkl" as exec
+import "package://schema.kdeps.com/core@%s#/HTTP.pkl" as client
+import "package://schema.kdeps.com/core@%s#/APIServerRequest.pkl" as request
+`, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion)
+
+	if name == "workflow" {
+		headerTemplate = fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schemaVersion)
+	}
+
 	templateData := map[string]string{
-		"Header": fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"`, schema.SchemaVersion(ctx)),
+		"Header": headerTemplate,
 		"Name":   name,
 	}
 
@@ -221,20 +247,32 @@ func GenerateSpecificAgentFile(fs afero.Fs, ctx context.Context, logger *logging
 		return err
 	}
 
-	headerTemplate := `amends "package://schema.kdeps.com/core@%s#/Resource.pkl"`
-	if strings.ToLower(agentName) == "workflow.pkl" {
-		headerTemplate = `amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`
+	// Get schema version for imports
+	schemaVersion := schema.SchemaVersion(context.Background())
+
+	// Header template with imports for resource files
+	headerTemplate := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+
+import "package://schema.kdeps.com/core@%s#/LLM.pkl" as llm
+import "package://schema.kdeps.com/core@%s#/Agent.pkl" as agent  
+import "package://schema.kdeps.com/core@%s#/Python.pkl" as python
+import "package://schema.kdeps.com/core@%s#/Exec.pkl" as exec
+import "package://schema.kdeps.com/core@%s#/HTTP.pkl" as client
+import "package://schema.kdeps.com/core@%s#/Memory.pkl" as memory
+import "package://schema.kdeps.com/core@%s#/Session.pkl" as session`,
+		schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion)
+	if agentName == "workflow" {
+		headerTemplate = fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schemaVersion)
 	}
 
-	templatePath := agentName + ".pkl"
 	templateData := map[string]string{
-		"Header":         fmt.Sprintf(headerTemplate, schema.SchemaVersion(ctx)),
+		"Header":         headerTemplate,
 		"Name":           agentName,
 		"OllamaImageTag": version.DefaultOllamaImageTag,
 	}
 
 	// Load the template
-	content, err := loadTemplate(templatePath, templateData)
+	content, err := loadTemplate(agentName+".pkl", templateData)
 	if err != nil {
 		logger.Error("failed to load specific template: ", err)
 		return err
@@ -242,7 +280,7 @@ func GenerateSpecificAgentFile(fs afero.Fs, ctx context.Context, logger *logging
 
 	// Determine the output directory
 	var outputDir string
-	if strings.ToLower(agentName) == "workflow.pkl" {
+	if agentName == "workflow" {
 		outputDir = mainDir // Place workflow.pkl in the main directory
 	} else {
 		outputDir = filepath.Join(mainDir, "resources") // Place other files in the resources folder

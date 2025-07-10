@@ -158,7 +158,6 @@ func EvaluateAllPklFilesInDirectory(fs afero.Fs, ctx context.Context, dir string
 		logger.Debug("PKL file evaluation successful", "file", path)
 		return nil
 	})
-
 	if err != nil {
 		return fmt.Errorf("failed to evaluate PKL files in directory %s: %w", dir, err)
 	}

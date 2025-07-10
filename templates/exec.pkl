@@ -4,7 +4,7 @@ ActionID = "execResource"
 Name = "Exec Resource"
 Description = "This resource creates a shell session."
 Category = ""
-Requires = {
+Requires {
         // Define the ID of any dependency resource that must be executed before this resource.
         // For example "@aiChatResource1"
 }
@@ -95,41 +95,49 @@ Run {
         // general-purpose evaluation of any valid PKL expression, making it a place for inline logic and
         // scripting within a configuration.
         Expr {
-                // "@(memory.setRecord("foo", "bar"))" // Persistent data
-                // "@(memory.clear())"
-                // "@(session.setRecord("foo", "bar"))" // Temporary data only for this request
+                // memory.setRecord("foo", "bar") // Persistent data
+                // memory.clear()
+                // session.setRecord("foo", "bar") // Temporary data only for this request
         }
 
-        // Initiates a shell session for executing commands within this resource. Any packages
-        // defined in the workflow are accessible here.
+        // Initializes a shell session for this resource.
         //
-        // The exec resource provides the following helper functions:
+        // This resource offers the following helper functions:
         //
-        // - "@(exec.resource("ResourceID"))"
-        // - "@(exec.stderr("ResourceID"))"
-        // - "@(exec.stdout("ResourceID"))"
-        // - "@(exec.exitCode("ResourceID"))"
+        // - exec.resource("ResourceID")
+        // - exec.stderr("ResourceID")
+        // - exec.stdout("ResourceID")
+        // - exec.exitCode("ResourceID")
         //
-        // To use these in your resource, you can define a local variable like this:
+        // To use these in your resource, you can define a local variable as follows:
         //
-        // local successExec = "@(exec.exitCode("ResourceID"))"
-        // You can then reference the value using "@(successExec)".
+        // local successExec = exec.exitCode("ResourceID")
+        // You can then reference the value using successExec.
         //
-        // If you need to access a file in your resource, you can use PKL's read("file") API like this:
-        // "@(read("file"))".
-        //
-        // The "@(...)" syntax enables lazy evaluation, ensuring that values are
-        // retrieved only after the result is ready.
-        //
-        // Note: Each resource is restricted to a single dedicated action. Combining multiple
-        // actions within the same resource is not allowed.
+        // Module functions like exec.*, llm.*, python.* are called directly.
+        // Request functions use "\(request.params("q"))" syntax only when embedding in strings.
+        // For direct assignment, use request.params("q") without string interpolation.
+        // File reading uses "\(read("file"))" syntax only when embedding in strings.
         Exec {
                 Command = """
-                echo "hello world"
+                # Example: Process the query parameter and get system info
+                QUERY="\(request.params("q"))"
+                echo "Processing query: $QUERY"
+                echo "System info:"
+                echo "- Current time: $(date)"
+                echo "- System: $(uname -s)"
+                echo "- User: $(whoami)"
+                echo "- Working directory: $(pwd)"
+                
+                # You could also process files, call APIs, or run analysis
+                # curl -s "https://api.example.com/search?q=$QUERY" | jq .
+                # grep -r "$QUERY" /path/to/data/ || echo "No matches found"
                 """
                 Env {
                         // Environment variables that would be accessible inside the shell
-                        ["ENVVAR"] = "XYZ"  // Example ENVVAR.
+                        ["QUERY_PARAM"] = request.params("q")
+                        ["REQUEST_ID"] = request.id()
+                        ["USER_AGENT"] = request.header("User-Agent")
                 }
                 // Timeout duration in seconds. This specifies when to terminate the shell exec.
                 TimeoutDuration = 60.s

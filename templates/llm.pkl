@@ -4,9 +4,12 @@ ActionID = "llmResource"
 Name = "LLM Chat Resource"
 Description = "This resource creates a LLM chat session."
 Category = ""
-Requires = {
+Requires {
         // Define the ID of any dependency resource that must be executed before this resource.
-        // For example "@aiChatResource1"
+        // LLM needs data from other resources to provide comprehensive analysis
+        "clientResource"
+        "execResource" 
+        "pythonResource"
 }
 Run {
         // RestrictToHTTPMethods specifies the HTTP methods required for the request.
@@ -91,25 +94,26 @@ Run {
         // general-purpose evaluation of any valid PKL expression, making it a place for inline logic and
         // scripting within a configuration.
         Expr {
-                // "@(memory.setRecord("foo", "bar"))" // Persistent data
-                // "@(memory.clear())"
-                // "@(session.setRecord("foo", "bar"))" // Temporary data only for this request
+                // memory.setRecord("foo", "bar") // Persistent data
+                // memory.clear()
+                // session.setRecord("foo", "bar") // Temporary data only for this request
         }
 
         // Initializes a chat session with the LLM for this resource.
         //
         // This resource offers the following helper functions:
         //
-        // - "@(llm.response("ResourceID"))"
-        // - "@(llm.prompt("ResourceID"))"
+        // - llm.response("ResourceID")
+        // - llm.prompt("ResourceID")
         //
         // To use these in your resource, you can define a local variable as follows:
         //
-        // local llmResponse = "@(llm.response("ResourceID"))"
-        // You can then access the value with "@(llmResponse)".
+        // local llmResponse = llm.response("ResourceID")
+        // You can then access the value with llmResponse.
         //
-        // The "@(...)" syntax enables lazy evaluation, ensuring that values are
-        // retrieved only after the result is ready.
+        // Module functions like llm.*, python.*, exec.* are called directly.
+        // Request functions use "\(request.params("q"))" syntax only when embedding in strings.
+        // For direct assignment or comparisons, use request.params("q") without string interpolation.
         //
         // Note: Each resource is restricted to a single dedicated action. Combining multiple
         // actions within the same resource is not allowed.
@@ -120,18 +124,28 @@ Run {
                 // This LLM role context for this prompt. For example, "user", "assistant" or "system".
                 // If none is provided, "human" will be used.
                 Role = "user"
-                Prompt = "Who is @(request.params("q"))?"
+                Prompt = """
+Please provide a comprehensive analysis of "\(request.params("q"))" based on the following data sources:
+
+Wikipedia Information: \(client.responseBody("clientResource"))
+
+System Analysis: \(exec.stdout("execResource"))
+
+Python Analysis: \(python.stdout("pythonResource"))
+
+Please synthesize this information and provide insights about the person or topic.
+"""
 
                 // Scenario block can take multiple prompts and roles to be added to this LLM session.
                 Scenario {
                         new {
-                                Role = "assistant"
-                                Prompt = "You are a helpful and informative AI assistant that specializes in general knowledge."
+                                Role = "system"
+                                Prompt = "You are an expert researcher and analyst. Your task is to synthesize information from multiple data sources (Wikipedia API, system analysis, and Python processing) to provide comprehensive insights about people, topics, or entities. Always cite your sources and highlight any inconsistencies or gaps in the data."
                         }
-                        // new {
-                        //         Role = "system"
-                        //         Prompt = "If you are unsure, please just lookup the DB."
-                        // }
+                        new {
+                                Role = "assistant"
+                                Prompt = "I'll analyze the provided data from multiple sources and give you a well-structured response with insights, key facts, and any relevant analysis."
+                        }
                 }
 
                 // Tools block enables LLMs to autonomously execute scripts and chain outputs across multiple tool calls
@@ -163,7 +177,7 @@ Run {
 
                 // Specify the files that this LLM will process.
                 Files {
-                        // "@(request.files()[0])"
+                        // "\(request.files()[0])"
                 }
 
                 // Timeout duration in seconds. This specifies when to terminate the llm session.

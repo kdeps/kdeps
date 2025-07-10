@@ -4,7 +4,7 @@ ActionID = "pythonResource"
 Name = "Python Resource"
 Description = "This resource creates a python script session."
 Category = ""
-Requires = {
+Requires {
         // Define the ID of any dependency resource that must be executed before this resource.
         // For example "@aiChatResource1"
 }
@@ -95,52 +95,69 @@ Run {
         // general-purpose evaluation of any valid PKL expression, making it a place for inline logic and
         // scripting within a configuration.
         Expr {
-                // "@(memory.setRecord("foo", "bar"))" // Persistent data
-                // "@(memory.clear())"
-                // "@(session.setRecord("foo", "bar"))" // Temporary data only for this request
+                // memory.setRecord("foo", "bar") // Persistent data
+                // memory.clear()
+                // session.setRecord("foo", "bar") // Temporary data only for this request
         }
 
-        // Initiates a shell session for executing commands within this resource. Any packages
-        // defined in the workflow are accessible here.
+        // Initializes a Python session for this resource.
         //
-        // The exec resource provides the following helper functions:
+        // This resource offers the following helper functions:
         //
-        // - "@(python.resource("ResourceID"))"
-        // - "@(python.stderr("ResourceID"))"
-        // - "@(python.stdout("ResourceID"))"
-        // - "@(python.exitCode("ResourceID"))"
+        // - python.resource("ResourceID")
+        // - python.stderr("ResourceID")
+        // - python.stdout("ResourceID")
+        // - python.exitCode("ResourceID")
         //
-        // To use these in your resource, you can define a local variable like this:
+        // To use these in your resource, you can define a local variable as follows:
         //
-        // local successExec = "@(python.exitCode("ResourceID"))"
-        // You can then reference the value using "@(successExec)".
+        // local successExec = python.exitCode("ResourceID")
+        // You can then reference the value using successExec.
         //
-        // If you need to access a file in your resource, you can use PKL's read("file") API like this:
-        // "@(read("file"))".
-        //
-        // The "@(...)" syntax enables lazy evaluation, ensuring that values are
-        // retrieved only after the result is ready.
-        //
-        // Note: Each resource is restricted to a single dedicated action. Combining multiple
-        // actions within the same resource is not allowed.
+        // Module functions like python.*, llm.*, exec.* are called directly.
+        // Request functions use "\(request.params("q"))" syntax only when embedding in strings.
+        // For direct assignment, use request.params("q") without string interpolation.
+        // File reading uses "\(read("file"))" syntax only when embedding in strings.
         Python {
                 // Specifies the conda environment in which this Python script will execute, if Anaconda is
                 // installed.
                 PythonEnvironment = "base"
 
-                Script =
-"""
+                Script = """
+import os
+import json
+import datetime
+
 def main():
-    print("Hello, World!")
+    # Get environment variables from PKL
+    query = os.getenv("QUERY_PARAM", "")
+    request_id = os.getenv("REQUEST_ID", "")
+    
+    print(f"Processing request: {request_id}")
+    print(f"Query parameter: {query}")
+    
+    # Simple analysis
+    analysis = {
+        "query": query,
+        "length": len(query),
+        "word_count": len(query.split()),
+        "timestamp": datetime.datetime.now().isoformat()
+    }
+    
+    print("ANALYSIS_RESULT:")
+    print(json.dumps(analysis, indent=2))
 
 if __name__ == "__main__":
     main()
 """
                 Env {
-                        // Environment variables that would be accessible inside the shell
-                        ["ENVVAR"] = "XYZ"  // Example ENVVAR.
+                        // Environment variables that would be accessible inside the Python script
+                        ["QUERY_PARAM"] = request.params("q")
+                        ["REQUEST_ID"] = request.id()
+                        ["USER_AGENT"] = request.header("User-Agent")
+                        ["PYTHONPATH"] = "/agent/workflow/data"
                 }
-                // Timeout duration in seconds. This specifies when to terminate the shell exec.
+                // Timeout duration in seconds. This specifies when to terminate the script execution.
                 TimeoutDuration = 60.s
         }
 }
