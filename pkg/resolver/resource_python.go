@@ -233,7 +233,13 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 	// Use pklres path instead of file path
 	pklPath := dr.PklresHelper.getResourcePath("python")
 
-	res, err := dr.LoadResource(dr.Context, pklPath, PythonResource)
+	var res interface{}
+	var err error
+	if dr.LoadResourceFn != nil {
+		res, err = dr.LoadResourceFn(dr.Context, pklPath, PythonResource)
+	} else {
+		res, err = dr.LoadResource(dr.Context, pklPath, PythonResource)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to load PKL: %w", err)
 	}

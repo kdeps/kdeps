@@ -163,6 +163,16 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 			if err := dr.PklresHelper.storePklContent(resourceType, "", emptyContent); err != nil {
 				return fmt.Errorf("failed to initialize empty %s structure in pklres: %w", key, err)
 			}
+		} else {
+			// If it exists, we still want to ensure it has the proper structure
+			// This handles the case where the record exists but is empty
+			info := dr.PklresHelper.getResourceTypeInfo(resourceType)
+			emptyContent := fmt.Sprintf("%s {\n}\n", info.BlockName)
+
+			// Store the empty structure (this will overwrite if it exists)
+			if err := dr.PklresHelper.storePklContent(resourceType, "", emptyContent); err != nil {
+				return fmt.Errorf("failed to initialize empty %s structure in pklres: %w", key, err)
+			}
 		}
 	}
 

@@ -44,7 +44,7 @@ func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSectio
 		return "", err
 	}
 
-	stdout, stderr, exitCode, err := kdepsexec.KdepsExec(ctx, "pkl", []string{"eval", resourcePath}, "", false, false, logger)
+	stdout, stderr, exitCode, err := kdepsexec.KdepsExec(ctx, "pkl", []string{"eval", "--external-resource-reader", "agent:=kdeps", resourcePath}, "", false, false, logger)
 	if err != nil {
 		logger.Error("command execution failed", "stderr", stderr, "error", err)
 		return "", err

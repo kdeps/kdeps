@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
+	pklres "github.com/kdeps/kdeps/pkg/pklres"
 	assets "github.com/kdeps/schema/assets"
 	pklPython "github.com/kdeps/schema/gen/python"
 	"github.com/spf13/afero"
@@ -73,6 +74,9 @@ func TestAppendPythonEntry_SimpleEncode(t *testing.T) {
 		ActionDir: actionDir,
 		RequestID: "req",
 		Logger:    logging.NewTestLogger(),
+		LoadResourceFn: func(_ context.Context, _ string, _ ResourceType) (interface{}, error) {
+			return &pklPython.PythonImpl{Resources: make(map[string]*pklPython.ResourcePython)}, nil
+		},
 	}
 
 	// Create minimal initial PKL file with empty resources map using assets
@@ -86,14 +90,20 @@ func TestAppendPythonEntry_SimpleEncode(t *testing.T) {
 		Env:    &map[string]string{"KEY": "value"},
 	}
 
+	// Initialize PklresReader and PklresHelper for the test
+	pklresReader, err := pklres.InitializePklResource(":memory:")
+	require.NoError(t, err)
+	dr.PklresReader = pklresReader
+	dr.PklresHelper = NewPklresHelper(dr)
+
 	// Test encoding and appending
 	err = dr.AppendPythonEntry("myPython", pyResource)
 	require.NoError(t, err)
 
-	// Read back and verify the structure
-	content, err := afero.ReadFile(fs, pythonPklPath)
+	// Read back and verify the structure from pklres
+	content, err := dr.PklresHelper.retrievePklContent("python", "myPython")
 	require.NoError(t, err)
-	require.Contains(t, string(content), "[\"myPython\"]")
+	require.Contains(t, content, "[\"myPython\"]")
 }
 
 func TestPythonEncodeBasic(t *testing.T) {

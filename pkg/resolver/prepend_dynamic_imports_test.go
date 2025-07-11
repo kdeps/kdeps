@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/pklres"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/spf13/afero"
 )
@@ -139,28 +140,38 @@ func TestPrepareImportFilesBasic(t *testing.T) {
 	ctx := context.Background()
 	tmpDir := t.TempDir()
 
-	dr := &DependencyResolver{
-		Fs:        fs,
-		Context:   ctx,
-		ActionDir: tmpDir,
-		RequestID: "graph1",
+	// Initialize PklresReader and PklresHelper
+	pklresReader, err := pklres.InitializePklResource(":memory:")
+	if err != nil {
+		t.Fatalf("failed to initialize PklresReader: %v", err)
 	}
+	defer pklresReader.DB.Close()
+
+	dr := &DependencyResolver{
+		Fs:           fs,
+		Context:      ctx,
+		ActionDir:    tmpDir,
+		RequestID:    "graph1",
+		PklresReader: pklresReader,
+		Logger:       logging.NewTestLogger(),
+	}
+
+	pklresHelper := NewPklresHelper(dr)
+	dr.PklresHelper = pklresHelper
 
 	if err := dr.PrepareImportFiles(); err != nil {
 		t.Fatalf("PrepareImportFiles error: %v", err)
 	}
 
-	// Verify that expected files are created
-	expectedFiles := []string{
-		filepath.Join(tmpDir, "llm/graph1__llm_output.pkl"),
-		filepath.Join(tmpDir, "client/graph1__client_output.pkl"),
-		filepath.Join(tmpDir, "exec/graph1__exec_output.pkl"),
-		filepath.Join(tmpDir, "python/graph1__python_output.pkl"),
-		filepath.Join(tmpDir, "data/graph1__data_output.pkl"),
-	}
-	for _, f := range expectedFiles {
-		if ok, _ := afero.Exists(fs, f); !ok {
-			t.Fatalf("expected file not created: %s", f)
+	// Verify that expected records are created in pklres
+	expectedTypes := []string{"llm", "client", "exec", "python", "data"}
+	for _, resourceType := range expectedTypes {
+		content, err := pklresHelper.retrievePklContent(resourceType, "")
+		if err != nil {
+			t.Fatalf("failed to retrieve %s record: %v", resourceType, err)
+		}
+		if content == "" {
+			t.Fatalf("expected %s record to be created but content is empty", resourceType)
 		}
 	}
 }
