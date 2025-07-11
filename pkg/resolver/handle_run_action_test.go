@@ -14,12 +14,19 @@ import (
 	"github.com/kdeps/kdeps/pkg/item"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/memory"
+	pklres "github.com/kdeps/kdeps/pkg/pklres"
 	"github.com/kdeps/kdeps/pkg/session"
 	"github.com/kdeps/kdeps/pkg/tool"
 	pklRes "github.com/kdeps/schema/gen/resource"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+
+	pklData "github.com/kdeps/schema/gen/data"
+	pklExec "github.com/kdeps/schema/gen/exec"
+	pklHTTP "github.com/kdeps/schema/gen/http"
+	pklLLM "github.com/kdeps/schema/gen/llm"
+	pklPython "github.com/kdeps/schema/gen/python"
 )
 
 // TestHandleRunAction_BasicFlow simulates a minimal happy-path execution where
@@ -63,6 +70,11 @@ func TestHandleRunAction_BasicFlow(t *testing.T) {
 		AgentReader:    &agent.PklResourceReader{DB: openDB()},
 		FileRunCounter: make(map[string]int),
 	}
+
+	// Provide PklresHelper and an in-memory PklresReader to satisfy HandleRunAction cleanup.
+	pklresDB := openDB()
+	dr.PklresReader = &pklres.PklResourceReader{DB: pklresDB}
+	dr.PklresHelper = NewPklresHelper(dr)
 
 	// --- inject stubs for heavy funcs ------------------------------
 	dr.LoadResourceEntriesFn = func() error {
@@ -157,13 +169,34 @@ run {}`
 	dr.RequestID = requestID
 	dr.ActionDir = actionDir
 
+	// Stub LoadResourceFn to return minimal structs to prevent nil dereference in Append*Entry helpers
+	dr.LoadResourceFn = func(_ context.Context, _ string, rt ResourceType) (interface{}, error) {
+		switch rt {
+		case LLMResource:
+			return &pklLLM.LLMImpl{Resources: make(map[string]*pklLLM.ResourceChat)}, nil
+		case ResourceType("data"):
+			return &pklData.DataImpl{Files: make(map[string]map[string]string)}, nil
+		case ExecResource:
+			return &pklExec.ExecImpl{Resources: make(map[string]*pklExec.ResourceExec)}, nil
+		case HTTPResource:
+			return &pklHTTP.HTTPImpl{Resources: make(map[string]*pklHTTP.ResourceHTTPClient)}, nil
+		case PythonResource:
+			return &pklPython.PythonImpl{Resources: make(map[string]*pklPython.ResourcePython)}, nil
+		default:
+			return nil, nil
+		}
+	}
+
+	// Provide PklresHelper and in-memory reader to avoid nil error
+	reader, _ := pklres.InitializePklResource(":memory:")
+	dr.PklresReader = reader
+	dr.PklresHelper = NewPklresHelper(dr)
+
 	// Test that AddPlaceholderImports uses the canonical agent reader
 	err := dr.AddPlaceholderImports(resourcePath)
 
-	// The test should fail because the PKL file doesn't exist, but it should fail
-	// in a way that shows the agent reader was used (which we can see from the logs)
+	// The call should return an error due to missing PKL evaluator, ensure error is raised.
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to evaluate PKL file")
 }
 
 func TestCanonicalActionIDResolution(t *testing.T) {

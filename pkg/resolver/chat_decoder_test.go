@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kdeps/kdeps/pkg/logging"
+	pklres "github.com/kdeps/kdeps/pkg/pklres"
 	"github.com/kdeps/kdeps/pkg/tool"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklHTTP "github.com/kdeps/schema/gen/http"
@@ -223,6 +224,10 @@ func TestHandleLLMChat(t *testing.T) {
 		RequestID: "req1",
 	}
 
+	dr.PklresHelper = NewPklresHelper(dr)
+	readerLlm, _ := pklres.InitializePklResource(":memory:")
+	dr.PklresReader = readerLlm
+
 	// directories for AppendChatEntry
 	_ = fs.MkdirAll(filepath.Join(dr.ActionDir, "llm"), 0o755)
 	_ = fs.MkdirAll(dr.FilesDir, 0o755)
@@ -230,7 +235,7 @@ func TestHandleLLMChat(t *testing.T) {
 	// stub LoadResourceFn so AppendChatEntry loads an empty map
 	dr.LoadResourceFn = func(_ context.Context, _ string, _ ResourceType) (interface{}, error) {
 		empty := make(map[string]*pklLLM.ResourceChat)
-		return &pklLLM.LLMImpl{Resources: &empty}, nil
+		return &pklLLM.LLMImpl{Resources: empty}, nil
 	}
 
 	// stub chat helpers
@@ -254,9 +259,10 @@ func TestHandleLLMChat(t *testing.T) {
 	}
 
 	time.Sleep(100 * time.Millisecond)
-	pklPath := filepath.Join(dr.ActionDir, "llm", dr.RequestID+"__llm_output.pkl")
-	if exists, _ := afero.Exists(fs, pklPath); !exists {
-		t.Fatalf("expected chat pkl %s", pklPath)
+	// Verify pklres record exists instead of on-disk file
+	rec, errRec := dr.PklresHelper.retrievePklContent("llm", "act1")
+	if errRec != nil || rec == "" {
+		t.Fatalf("expected llm record in pklres, got err=%v", errRec)
 	}
 }
 
@@ -276,12 +282,16 @@ func TestHandleHTTPClient(t *testing.T) {
 		FilesDir:  "/files",
 		RequestID: "req1",
 	}
+
+	dr.PklresHelper = NewPklresHelper(dr)
+	readerClient, _ := pklres.InitializePklResource(":memory:")
+	dr.PklresReader = readerClient
 	_ = fs.MkdirAll(filepath.Join(dr.ActionDir, "client"), 0o755)
 	_ = fs.MkdirAll(dr.FilesDir, 0o755)
 
 	dr.LoadResourceFn = func(_ context.Context, _ string, _ ResourceType) (interface{}, error) {
 		empty := make(map[string]*pklHTTP.ResourceHTTPClient)
-		return &pklHTTP.HTTPImpl{Resources: &empty}, nil
+		return &pklHTTP.HTTPImpl{Resources: empty}, nil
 	}
 
 	var mu sync.Mutex
@@ -307,9 +317,10 @@ func TestHandleHTTPClient(t *testing.T) {
 	}
 	mu.Unlock()
 
-	pklPath := filepath.Join(dr.ActionDir, "client", dr.RequestID+"__client_output.pkl")
-	if exists, _ := afero.Exists(fs, pklPath); !exists {
-		t.Fatalf("expected http pkl %s", pklPath)
+	// Assert record in pklres instead of file
+	rec, errRec := dr.PklresHelper.retrievePklContent("client", "act1")
+	if errRec != nil || rec == "" {
+		t.Fatalf("expected client record in pklres, got err=%v", errRec)
 	}
 }
 

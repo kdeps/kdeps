@@ -160,7 +160,7 @@ func (archHTMLTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	html := `<html><body>
         <a href="Anaconda3-2024.10-1-Linux-x86_64.sh">x</a>
         <a href="Anaconda3-2024.09-1-Linux-aarch64.sh">y</a>
-        <a href="Anaconda3-20.3.82-0-Linux-x86_64.sh">old-x</a>
+        <a href="Anaconda3-20.4.02-0-Linux-x86_64.sh">old-x</a>
         <a href="Anaconda3-2023.01-0-Linux-aarch64.sh">old-y</a>
         </body></html>`
 	return &http.Response{StatusCode: 200, Body: ioutil.NopCloser(bytes.NewBufferString(html)), Header: make(http.Header)}, nil
@@ -593,7 +593,7 @@ func TestGetLatestAnacondaVersions(t *testing.T) {
 	// sample HTML page snippet with versions
 	html := `
         <a href="Anaconda3-2024.10-1-Linux-x86_64.sh">x86</a>
-        <a href="Anaconda3-20.3.82-0-Linux-x86_64.sh">old</a>
+        <a href="Anaconda3-20.4.02-0-Linux-x86_64.sh">old</a>
         <a href="Anaconda3-2024.10-1-Linux-aarch64.sh">arm</a>
     `
 

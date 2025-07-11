@@ -276,7 +276,7 @@ func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
 	}
 
 	dataFiles := &pklData.DataImpl{
-		Files: dataFileList,
+		Files: *dataFileList,
 	}
 	llmChat := &pklLLM.ResourceChat{}
 	execCmd := &pklExec.ResourceExec{}

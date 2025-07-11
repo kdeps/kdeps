@@ -601,7 +601,7 @@ func TestProcessWorkflow(t *testing.T) {
 		mock.ClearItemDBFn = func() error { return nil }
 		err := processWorkflow(ctx, mock)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to handle run action")
+		assert.Contains(t, err.Error(), "failed to initialize empty")
 	})
 }
 

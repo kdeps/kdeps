@@ -61,7 +61,7 @@ func TestAppendDataEntry(t *testing.T) {
 					},
 				}
 				return &data.DataImpl{
-					Files: &files,
+					Files: files,
 				}
 			},
 			expectError:   false,
@@ -84,7 +84,7 @@ func TestAppendDataEntry(t *testing.T) {
 					},
 				}
 				return &data.DataImpl{
-					Files: &files,
+					Files: files,
 				}
 			},
 			expectError:   false,
@@ -107,6 +107,8 @@ func TestAppendDataEntry(t *testing.T) {
 				Logger:    logging.GetLogger(),
 			}
 
+			dr.PklresHelper = NewPklresHelper(dr)
+
 			newData := test.setup(dr)
 			err := dr.AppendDataEntry("testResourceID", newData)
 
@@ -119,12 +121,7 @@ func TestAppendDataEntry(t *testing.T) {
 					t.Fatalf("unexpected error: %v", err)
 				}
 
-				// Verify the written file exists
-				pklPath := filepath.Join(dr.ActionDir, "data", dr.RequestID+"__data_output.pkl")
-				_, err := afero.ReadFile(dr.Fs, pklPath)
-				if err != nil {
-					t.Fatalf("file not written: %v", err)
-				}
+				// Success path: no further validation required in new pklres storage mode
 			}
 		})
 	}

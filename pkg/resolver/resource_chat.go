@@ -444,10 +444,9 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 
 	resources := pklRes.GetResources()
 	if resources == nil {
-		emptyMap := make(map[string]*pklLLM.ResourceChat)
-		resources = &emptyMap
+		resources = make(map[string]*pklLLM.ResourceChat)
 	}
-	existingResources := *resources
+	existingResources := resources
 
 	var filePath string
 	if newChat.Response != nil {

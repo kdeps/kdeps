@@ -8,6 +8,7 @@ import (
 
 	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/logging"
+	pklres "github.com/kdeps/kdeps/pkg/pklres"
 	pklExec "github.com/kdeps/schema/gen/exec"
 	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
@@ -26,6 +27,9 @@ func TestGetResourceFilePath(t *testing.T) {
 		RequestID: "test123",
 	}
 
+	dr.PklresReader, _ = pklres.InitializePklResource(":memory:")
+	dr.PklresHelper = NewPklresHelper(dr)
+
 	tests := []struct {
 		name         string
 		resourceType string
@@ -35,13 +39,13 @@ func TestGetResourceFilePath(t *testing.T) {
 		{
 			name:         "valid llm resource",
 			resourceType: "llm",
-			want:         filepath.Join(actionDir, "llm", "test123__llm_output.pkl"),
+			want:         "pklres:///test123?type=llm",
 			wantErr:      false,
 		},
 		{
 			name:         "valid exec resource",
 			resourceType: "exec",
-			want:         filepath.Join(actionDir, "exec", "test123__exec_output.pkl"),
+			want:         "pklres:///test123?type=exec",
 			wantErr:      false,
 		},
 		{
@@ -131,6 +135,9 @@ func TestWaitForTimestampChange(t *testing.T) {
 		Fs:        fs,
 	}
 
+	dr.PklresReader, _ = pklres.InitializePklResource(":memory:")
+	dr.PklresHelper = NewPklresHelper(dr)
+
 	t.Run("missing PKL file", func(t *testing.T) {
 		// Test with a very short timeout
 		previousTimestamp := pkl.Duration{
@@ -140,7 +147,7 @@ func TestWaitForTimestampChange(t *testing.T) {
 		err := dr.WaitForTimestampChange("test-resource", previousTimestamp, 100*time.Millisecond, "exec")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "Cannot find module")
-		assert.Contains(t, err.Error(), "test123__exec_output.pkl")
+		assert.Contains(t, err.Error(), "pklres:///test123?type=exec")
 	})
 
 	// Note: Testing the successful case would require mocking the PKL file loading
@@ -153,25 +160,29 @@ func TestGetResourceTimestamp_SuccessPaths(t *testing.T) {
 	resID := "res"
 
 	// Exec
-	execImpl := &pklExec.ExecImpl{Resources: &map[string]*pklExec.ResourceExec{resID: {Timestamp: ts}}}
+	execResources := map[string]*pklExec.ResourceExec{resID: {Timestamp: ts}}
+	execImpl := &pklExec.ExecImpl{Resources: execResources}
 	if got, _ := getResourceTimestamp(resID, execImpl); got != ts {
 		t.Errorf("exec timestamp mismatch")
 	}
 
 	// Python
-	pyImpl := &pklPython.PythonImpl{Resources: &map[string]*pklPython.ResourcePython{resID: {Timestamp: ts}}}
+	pyResources := map[string]*pklPython.ResourcePython{resID: {Timestamp: ts}}
+	pyImpl := &pklPython.PythonImpl{Resources: pyResources}
 	if got, _ := getResourceTimestamp(resID, pyImpl); got != ts {
 		t.Errorf("python timestamp mismatch")
 	}
 
 	// LLM
-	llmImpl := &pklLLM.LLMImpl{Resources: &map[string]*pklLLM.ResourceChat{resID: {Timestamp: ts}}}
+	llmResources := map[string]*pklLLM.ResourceChat{resID: {Timestamp: ts}}
+	llmImpl := &pklLLM.LLMImpl{Resources: llmResources}
 	if got, _ := getResourceTimestamp(resID, llmImpl); got != ts {
 		t.Errorf("llm timestamp mismatch")
 	}
 
 	// HTTP
-	httpImpl := &pklHTTP.HTTPImpl{Resources: &map[string]*pklHTTP.ResourceHTTPClient{resID: {Timestamp: ts}}}
+	httpResources := map[string]*pklHTTP.ResourceHTTPClient{resID: {Timestamp: ts}}
+	httpImpl := &pklHTTP.HTTPImpl{Resources: httpResources}
 	if got, _ := getResourceTimestamp(resID, httpImpl); got != ts {
 		t.Errorf("http timestamp mismatch")
 	}
@@ -179,14 +190,14 @@ func TestGetResourceTimestamp_SuccessPaths(t *testing.T) {
 
 func TestGetResourceTimestamp_Errors(t *testing.T) {
 	ts := &pkl.Duration{Value: 1, Unit: pkl.Second}
-	execImpl := &pklExec.ExecImpl{Resources: &map[string]*pklExec.ResourceExec{"id": {Timestamp: ts}}}
+	execImpl := &pklExec.ExecImpl{Resources: map[string]*pklExec.ResourceExec{"id": {Timestamp: ts}}}
 
 	if _, err := getResourceTimestamp("missing", execImpl); err == nil {
 		t.Errorf("expected error for missing resource id")
 	}
 
 	// nil timestamp
-	execImpl2 := &pklExec.ExecImpl{Resources: &map[string]*pklExec.ResourceExec{"id": {Timestamp: nil}}}
+	execImpl2 := &pklExec.ExecImpl{Resources: map[string]*pklExec.ResourceExec{"id": {Timestamp: nil}}}
 	if _, err := getResourceTimestamp("id", execImpl2); err == nil {
 		t.Errorf("expected error for nil timestamp")
 	}

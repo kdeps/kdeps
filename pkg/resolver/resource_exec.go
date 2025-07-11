@@ -156,10 +156,9 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 
 	resources := pklRes.GetResources()
 	if resources == nil {
-		emptyMap := make(map[string]*pklExec.ResourceExec)
-		resources = &emptyMap
+		resources = make(map[string]*pklExec.ResourceExec)
 	}
-	existingResources := *resources
+	existingResources := resources
 
 	// Prepare file path and write stdout to file
 	var filePath string

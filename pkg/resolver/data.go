@@ -27,7 +27,7 @@ func (dr *DependencyResolver) AppendDataEntry(resourceID string, newData *pklDat
 		// If loading fails, create a new empty data structure
 		emptyFiles := make(map[string]map[string]string)
 		pklRes = &pklData.DataImpl{
-			Files: &emptyFiles,
+			Files: emptyFiles,
 		}
 	} else {
 		var ok bool
@@ -36,16 +36,15 @@ func (dr *DependencyResolver) AppendDataEntry(resourceID string, newData *pklDat
 			// Fallback to empty structure if casting fails
 			emptyFiles := make(map[string]map[string]string)
 			pklRes = &pklData.DataImpl{
-				Files: &emptyFiles,
+				Files: emptyFiles,
 			}
 		}
 	}
 
 	// Safeguard against nil pointers - create empty structure if needed
-	var existingFiles *map[string]map[string]string
+	var existingFiles map[string]map[string]string
 	if pklRes.GetFiles() == nil {
-		emptyFiles := make(map[string]map[string]string)
-		existingFiles = &emptyFiles
+		existingFiles = make(map[string]map[string]string)
 	} else {
 		existingFiles = pklRes.GetFiles()
 	}
@@ -56,10 +55,10 @@ func (dr *DependencyResolver) AppendDataEntry(resourceID string, newData *pklDat
 	}
 
 	// Merge new data into the existing files map
-	for agentName, baseFileMap := range *newData.Files {
+	for agentName, baseFileMap := range newData.Files {
 		// Ensure the agent name exists in the existing files map
-		if _, exists := (*existingFiles)[agentName]; !exists {
-			(*existingFiles)[agentName] = make(map[string]string)
+		if _, exists := existingFiles[agentName]; !exists {
+			existingFiles[agentName] = make(map[string]string)
 		}
 
 		// Merge and encode base filenames and file paths
@@ -67,7 +66,7 @@ func (dr *DependencyResolver) AppendDataEntry(resourceID string, newData *pklDat
 			if !utils.IsBase64Encoded(filePath) {
 				filePath = utils.EncodeBase64String(filePath)
 			}
-			(*existingFiles)[agentName][baseFilename] = filePath
+			existingFiles[agentName][baseFilename] = filePath
 		}
 	}
 
@@ -78,7 +77,7 @@ func (dr *DependencyResolver) AppendDataEntry(resourceID string, newData *pklDat
 	pklContent.WriteString(fmt.Sprintf("/// Current request ID for pklres operations\nrequestID = \"%s\"\n\n", dr.RequestID))
 	pklContent.WriteString("Files {\n")
 
-	for agentName, baseFileMap := range *existingFiles {
+	for agentName, baseFileMap := range existingFiles {
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", agentName))
 		for baseFilename, filePath := range baseFileMap {
 			pklContent.WriteString(fmt.Sprintf("    [\"%s\"] = \"%s\"\n", baseFilename, filePath))

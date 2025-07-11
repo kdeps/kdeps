@@ -52,23 +52,29 @@ func TestAppendDataEntry_Direct(t *testing.T) {
 		Logger:    logging.NewTestLogger(),
 	}
 
+	// Initialize PklresHelper required by AppendDataEntry
+	dr.PklresHelper = NewPklresHelper(dr)
+
+	// Provide an in-memory PklResourceReader for pklres interactions
+	readerDirect, errInit := pklres.InitializePklResource(":memory:")
+	require.NoError(t, errInit)
+	dr.PklresReader = readerDirect
+
 	// Prepare new data to merge.
 	files := map[string]map[string]string{
 		"agentX": {
 			"hello.txt": "SGVsbG8=", // "Hello" already base64-encoded
 		},
 	}
-	newData := &pklData.DataImpl{Files: &files}
+	newData := &pklData.DataImpl{Files: files}
 
 	require.NoError(t, dr.AppendDataEntry("testResource", newData))
 
-	// Validate merged content.
-	mergedBytes, err := afero.ReadFile(fs, pklPath)
-	require.NoError(t, err)
-	merged := string(mergedBytes)
-	require.Contains(t, merged, "[\"agentX\"]")
-	require.Contains(t, merged, "\"hello.txt\"")
-	require.Contains(t, merged, "SGVsbG8=")
+	// Legacy on-disk file is no longer modified – just ensure no error occurred and
+	// the pklres record has been written.
+	record, errRec := dr.PklresHelper.retrievePklContent("data", "testResource")
+	require.NoError(t, errRec)
+	require.Contains(t, record, "agentX")
 }
 
 // note: createStubPkl helper is provided by resource_response_eval_extra_test.go
@@ -90,18 +96,17 @@ func TestAppendChatEntry_Basic(t *testing.T) {
 		LoadResourceFn: func(_ context.Context, path string, _ ResourceType) (interface{}, error) {
 			// Return empty LLMImpl so AppendChatEntry has a map to update
 			empty := make(map[string]*pklLLM.ResourceChat)
-			return &pklLLM.LLMImpl{Resources: &empty}, nil
+			return &pklLLM.LLMImpl{Resources: empty}, nil
 		},
 	}
 
 	// Initialize PklresHelper and PklresReader for the test
 	dr.PklresHelper = NewPklresHelper(dr)
 
-	// Create a mock PklresReader for testing
-	mockPklresReader := &pklres.PklResourceReader{
-		DB: nil, // We don't need a real DB for this test
-	}
-	dr.PklresReader = mockPklresReader
+	// Initialize an in-memory PklResourceReader
+	reader, errInit := pklres.InitializePklResource(":memory:")
+	require.NoError(t, errInit)
+	dr.PklresReader = reader
 
 	// Create dirs in memfs that AppendChatEntry expects
 	_ = fs.MkdirAll(filepath.Join(dr.ActionDir, "llm"), 0o755)
@@ -142,9 +147,14 @@ func TestAppendHTTPEntry_Basic(t *testing.T) {
 		RequestID: "req1",
 		LoadResourceFn: func(_ context.Context, path string, _ ResourceType) (interface{}, error) {
 			empty := make(map[string]*pklHTTP.ResourceHTTPClient)
-			return &pklHTTP.HTTPImpl{Resources: &empty}, nil
+			return &pklHTTP.HTTPImpl{Resources: empty}, nil
 		},
 	}
+
+	dr.PklresHelper = NewPklresHelper(dr)
+	r, _ := pklres.InitializePklResource(":memory:")
+	dr.PklresReader = r
+
 	_ = fs.MkdirAll(filepath.Join(dr.ActionDir, "client"), 0o755)
 	_ = fs.MkdirAll(dr.FilesDir, 0o755)
 
@@ -157,10 +167,7 @@ func TestAppendHTTPEntry_Basic(t *testing.T) {
 		t.Fatalf("AppendHTTPEntry returned error: %v", err)
 	}
 
-	pklPath := filepath.Join(dr.ActionDir, "client", dr.RequestID+"__client_output.pkl")
-	if exists, _ := afero.Exists(fs, pklPath); !exists {
-		t.Fatalf("expected HTTP output pkl %s to exist", pklPath)
-	}
+	// No disk output expected in new pklres flow
 }
 
 func ptr(s string) *string { return &s }

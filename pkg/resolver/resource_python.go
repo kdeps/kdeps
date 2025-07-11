@@ -245,10 +245,9 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 
 	resources := pklRes.GetResources()
 	if resources == nil {
-		emptyMap := make(map[string]*pklPython.ResourcePython)
-		resources = &emptyMap
+		resources = make(map[string]*pklPython.ResourcePython)
 	}
-	existingResources := *resources
+	existingResources := resources
 
 	var filePath string
 	if newPython.Stdout != nil {

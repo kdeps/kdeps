@@ -92,7 +92,13 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 	// Use pklres path instead of file path
 	pklPath := dr.PklresHelper.getResourcePath("client")
 
-	res, err := dr.LoadResource(dr.Context, pklPath, HTTPResource)
+	var res interface{}
+	var err error
+	if dr.LoadResourceFn != nil {
+		res, err = dr.LoadResourceFn(dr.Context, pklPath, HTTPResource)
+	} else {
+		res, err = dr.LoadResource(dr.Context, pklPath, HTTPResource)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to load PKL: %w", err)
 	}
@@ -104,10 +110,9 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 
 	resources := pklRes.GetResources()
 	if resources == nil {
-		emptyMap := make(map[string]*pklHTTP.ResourceHTTPClient)
-		resources = &emptyMap
+		resources = make(map[string]*pklHTTP.ResourceHTTPClient)
 	}
-	existingResources := *resources
+	existingResources := resources
 
 	// Prepare file path and write response body to file
 	var filePath string

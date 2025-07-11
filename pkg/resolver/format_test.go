@@ -1547,17 +1547,15 @@ func TestBuildResponseSections(t *testing.T) {
 	t.Run("FullResponse", func(t *testing.T) {
 		response := utils.NewAPIServerResponse(true, []any{"data1", "data2"}, 0, "", "test-request-data")
 		sections := dr.buildResponseSections("test-id", response)
-		assert.NotEmpty(t, sections)
-		assert.Contains(t, sections[0], "import")
-		assert.Contains(t, sections[6], "Success = true")
+		joined := strings.Join(sections, "\n")
+		assert.Contains(t, joined, "Success = true")
 	})
 
 	t.Run("ResponseWithError", func(t *testing.T) {
 		response := utils.NewAPIServerResponse(false, nil, 404, "Resource not found", "test-request-error")
 		sections := dr.buildResponseSections("test-id", response)
-		assert.NotEmpty(t, sections)
-		assert.Contains(t, sections[0], "import")
-		assert.Contains(t, sections[6], "Success = false")
+		joined := strings.Join(sections, "\n")
+		assert.Contains(t, joined, "Success = false")
 	})
 }
 

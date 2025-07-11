@@ -1650,7 +1650,7 @@ func TestBuildDockerfile_OllamaTagVersion(t *testing.T) {
 
 	// Create a dummy workflow file with OllamaTagVersion set
 	workflowPath := filepath.Join(kdepsDir, "testWorkflow")
-	dummyWorkflowContent := `amends "package://schema.kdeps.com/core@0.3.8#/Workflow.pkl"
+	dummyWorkflowContent := `amends "package://schema.kdeps.com/core@0.4.0#/Workflow.pkl"
 
 AgentID = "test"
 Version = "1.0"

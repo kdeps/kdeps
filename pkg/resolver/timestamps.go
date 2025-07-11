@@ -35,7 +35,7 @@ func (dr *DependencyResolver) loadPKLFile(resourceType, pklPath string) (interfa
 	// Since we're using pklres now, we need to retrieve the content and parse it
 	// For now, we'll create a temporary file approach or use the existing LoadResource method
 	// This is a compatibility layer - ideally we'd refactor to work directly with content
-	
+
 	switch resourceType {
 	case "exec":
 		// Try to load from pklres first, fallback to LoadResource method
@@ -56,7 +56,7 @@ func getResourceTimestamp(resourceID string, pklRes interface{}) (*pkl.Duration,
 	switch res := pklRes.(type) {
 	case *pklExec.ExecImpl:
 		// ExecImpl resources are of type *ResourceExec
-		if resource, exists := (*res.GetResources())[resourceID]; exists {
+		if resource, exists := res.GetResources()[resourceID]; exists {
 			if resource.Timestamp == nil {
 				return nil, fmt.Errorf("timestamp for resource ID %s is nil", resourceID)
 			}
@@ -64,7 +64,7 @@ func getResourceTimestamp(resourceID string, pklRes interface{}) (*pkl.Duration,
 		}
 	case *pklPython.PythonImpl:
 		// PythonImpl resources are of type *ResourcePython
-		if resource, exists := (*res.GetResources())[resourceID]; exists {
+		if resource, exists := res.GetResources()[resourceID]; exists {
 			if resource.Timestamp == nil {
 				return nil, fmt.Errorf("timestamp for resource ID %s is nil", resourceID)
 			}
@@ -72,7 +72,7 @@ func getResourceTimestamp(resourceID string, pklRes interface{}) (*pkl.Duration,
 		}
 	case *pklLLM.LLMImpl:
 		// LLMImpl resources are of type *ResourceChat
-		if resource, exists := (*res.GetResources())[resourceID]; exists {
+		if resource, exists := res.GetResources()[resourceID]; exists {
 			if resource.Timestamp == nil {
 				return nil, fmt.Errorf("timestamp for resource ID %s is nil", resourceID)
 			}
@@ -80,7 +80,7 @@ func getResourceTimestamp(resourceID string, pklRes interface{}) (*pkl.Duration,
 		}
 	case *pklHTTP.HTTPImpl:
 		// HTTPImpl resources are of type *ResourceHTTPClient
-		if resource, exists := (*res.GetResources())[resourceID]; exists {
+		if resource, exists := res.GetResources()[resourceID]; exists {
 			if resource.Timestamp == nil {
 				return nil, fmt.Errorf("timestamp for resource ID %s is nil", resourceID)
 			}

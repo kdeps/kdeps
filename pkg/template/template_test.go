@@ -994,7 +994,7 @@ func TestTemplateWithSchemaAssets(t *testing.T) {
 				resourceContent := string(content)
 				assert.Contains(t, resourceContent, fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"`, schema.SchemaVersion(ctx)))
 
-				// Verify it has the new v0.3.8 properties
+				// Verify it has the new v0.4.0 properties
 				assert.Contains(t, resourceContent, "PostflightCheck")
 				assert.Contains(t, resourceContent, "Retry = false")
 				assert.Contains(t, resourceContent, "RetryTimes = 3")

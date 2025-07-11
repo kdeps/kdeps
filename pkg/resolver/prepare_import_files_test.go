@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
+	pklres "github.com/kdeps/kdeps/pkg/pklres"
 	"github.com/spf13/afero"
 )
 
@@ -20,15 +21,17 @@ func TestPrepareImportFilesCreatesExpectedFiles(t *testing.T) {
 		Logger:      logging.NewTestLogger(),
 	}
 
+	dr.PklresReader, _ = pklres.InitializePklResource(":memory:")
+	dr.PklresHelper = NewPklresHelper(dr)
+
 	// Call the function under test
 	if err := dr.PrepareImportFiles(); err != nil {
 		t.Fatalf("PrepareImportFiles error: %v", err)
 	}
 
-	// Verify that a known file now exists
-	target := "/action/python/graph1__python_output.pkl"
-	exists, err := afero.Exists(fs, target)
-	if err != nil || !exists {
-		t.Fatalf("expected file %s to exist", target)
+	// Verify a python record exists in pklres
+	_, err := dr.PklresHelper.retrievePklContent("python", "")
+	if err != nil {
+		t.Fatalf("expected python resource in pklres: %v", err)
 	}
 }
