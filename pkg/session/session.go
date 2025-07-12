@@ -49,7 +49,7 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		r = newReader
 	}
 
-	// Check if db is nil and initialize with retries
+	// Check if db is nil or closed and initialize with retries
 	if r.DB == nil {
 		maxAttempts := 5
 		for attempt := 1; attempt <= maxAttempts; attempt++ {
@@ -62,6 +62,23 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 				return nil, fmt.Errorf("failed to initialize database after %d attempts: %w", maxAttempts, err)
 			}
 			time.Sleep(1 * time.Second)
+		}
+	} else {
+		// Check if the database is closed and reconnect if necessary
+		if err := r.DB.Ping(); err != nil {
+			// Database is closed, try to reconnect
+			maxAttempts := 5
+			for attempt := 1; attempt <= maxAttempts; attempt++ {
+				db, err := InitializeDatabase(r.DBPath)
+				if err == nil {
+					r.DB = db
+					break
+				}
+				if attempt == maxAttempts {
+					return nil, fmt.Errorf("failed to reconnect to database after %d attempts: %w", maxAttempts, err)
+				}
+				time.Sleep(1 * time.Second)
+			}
 		}
 	}
 

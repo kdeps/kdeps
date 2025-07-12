@@ -80,13 +80,23 @@ func (r *PklResourceReader) fetchValues(operation string) ([]byte, error) {
 
 // Read handles operations for retrieving, navigating, listing, or setting item records.
 func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
-	// Initialize database if DB is nil
+	// Initialize database if DB is nil or closed
 	if r.DB == nil {
 		db, err := InitializeDatabase(r.DBPath, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize database: %w", err)
 		}
 		r.DB = db
+	} else {
+		// Check if the database is closed and reconnect if necessary
+		if err := r.DB.Ping(); err != nil {
+			// Database is closed, try to reconnect
+			db, err := InitializeDatabase(r.DBPath, nil)
+			if err != nil {
+				return nil, fmt.Errorf("failed to reconnect to database: %w", err)
+			}
+			r.DB = db
+		}
 	}
 
 	query := uri.Query()

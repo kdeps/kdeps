@@ -32,7 +32,7 @@ type EvaluatorConfig struct {
 // InitializeEvaluator initializes the singleton evaluator with the provided configuration
 func InitializeEvaluator(ctx context.Context, config *EvaluatorConfig) error {
 	var err error
-	
+
 	// Check if instance exists but evaluator is nil (closed)
 	if instance != nil {
 		instance.mu.RLock()
@@ -46,7 +46,7 @@ func InitializeEvaluator(ctx context.Context, config *EvaluatorConfig) error {
 			return nil
 		}
 	}
-	
+
 	once.Do(func() {
 		instance = &EvaluatorManager{
 			context: ctx,

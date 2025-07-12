@@ -287,8 +287,6 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 	// Store the PKL content using pklres (no JSON, no custom serialization)
 	var pklContent strings.Builder
 	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Python.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
-	// Inject the requestID as a variable accessible to PKL functions
-	pklContent.WriteString(fmt.Sprintf("/// Current request ID for pklres operations\nrequestID = \"%s\"\n\n", dr.RequestID))
 	pklContent.WriteString("Resources {\n")
 
 	for id, res := range existingResources {

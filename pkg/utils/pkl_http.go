@@ -23,11 +23,34 @@ func FormatRequestParams(params map[string][]string) string {
 	var paramsLines []string
 	for param, values := range params {
 		for _, value := range values {
-			encodedValue := EncodeBase64String(strings.TrimSpace(value))
-			paramsLines = append(paramsLines, fmt.Sprintf(`["%s"] = "%s"`, param, encodedValue))
+			trimmedValue := strings.TrimSpace(value)
+			// For simple string parameters, don't use Base64 encoding to avoid issues with PKL schema
+			// Only use Base64 encoding for complex values that might contain special characters
+			if isSimpleString(trimmedValue) {
+				paramsLines = append(paramsLines, fmt.Sprintf(`["%s"] = "%s"`, param, trimmedValue))
+			} else {
+				encodedValue := EncodeBase64String(trimmedValue)
+				paramsLines = append(paramsLines, fmt.Sprintf(`["%s"] = "%s"`, param, encodedValue))
+			}
 		}
 	}
 	return "Params {\n" + strings.Join(paramsLines, "\n") + "\n}"
+}
+
+// isSimpleString checks if a string is simple enough to not need Base64 encoding
+func isSimpleString(s string) bool {
+	// Check if the string contains only alphanumeric characters, spaces, and common punctuation
+	for _, r := range s {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') ||
+			r == ' ' || r == '-' || r == '_' || r == '.' || r == ',' || r == '!' || r == '?' ||
+			r == '(' || r == ')' || r == '[' || r == ']' || r == '{' || r == '}' ||
+			r == '@' || r == '#' || r == '$' || r == '%' || r == '^' || r == '&' || r == '*' ||
+			r == '+' || r == '=' || r == '|' || r == '\\' || r == '/' || r == ':' || r == ';' ||
+			r == '<' || r == '>' || r == '"' || r == '\'' || r == '`' || r == '~') {
+			return false
+		}
+	}
+	return true
 }
 
 // FormatResponseHeaders formats the HTTP headers into a string representation for inclusion in the .pkl file.

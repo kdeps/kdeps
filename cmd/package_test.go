@@ -21,7 +21,7 @@ func TestNewPackageCommandExecution(t *testing.T) {
 	// Initialize evaluator for this test
 	evaluator.TestSetup(t)
 	defer evaluator.TestTeardown(t)
-	
+
 	// Use a real filesystem for both input and output files
 	fs := afero.NewOsFs()
 	ctx := context.Background()

@@ -470,8 +470,6 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.Context, logger *logging.Logger, requestID string) string {
 	var pklContent strings.Builder
 	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"\n\n", schema.SchemaVersion(ctx)))
-	// Inject the requestID as a variable accessible to PKL functions
-	pklContent.WriteString(fmt.Sprintf("/// Current request ID for pklres operations\nrequestID = \"%s\"\n\n", requestID))
 	pklContent.WriteString("Resources {\n")
 
 	for id, res := range resources {

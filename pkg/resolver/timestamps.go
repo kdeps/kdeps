@@ -182,8 +182,8 @@ func (dr *DependencyResolver) WaitForTimestampChange(resourceID string, initialT
 		// Use a more robust comparison that accounts for potential precision issues
 		timestampDiff := currentTimestamp.Value - initialTimestamp.Value
 		if timestampDiff > 0 { // Allow for any positive difference
-			dr.Logger.Debug("Timestamp change detected", 
-				"resourceID", resourceID, 
+			dr.Logger.Debug("Timestamp change detected",
+				"resourceID", resourceID,
 				"resourceType", resourceType,
 				"initialTimestamp", initialTimestamp.Value,
 				"currentTimestamp", currentTimestamp.Value,

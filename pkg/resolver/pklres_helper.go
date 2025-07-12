@@ -60,10 +60,13 @@ func (h *PklresHelper) storePklContent(resourceType, resourceID, content string)
 		return fmt.Errorf("PklresHelper or resolver is nil")
 	}
 
+	// Automatically resolve actionID if it looks like one
+	resolvedResourceID := h.resolveActionID(resourceID)
+
 	// Store just the content without the header - the PKL schema will handle the parsing
-	// ID = RequestID, Type = resourceType, Key = resourceID, Value = content
+	// ID = RequestID, Type = resourceType, Key = resolvedResourceID, Value = content
 	uri, err := url.Parse(fmt.Sprintf("pklres:///%s?type=%s&key=%s&op=set&value=%s",
-		h.resolver.RequestID, resourceType, resourceID, url.QueryEscape(content)))
+		h.resolver.RequestID, resourceType, resolvedResourceID, url.QueryEscape(content)))
 	if err != nil {
 		return fmt.Errorf("failed to parse pklres URI: %w", err)
 	}
@@ -88,9 +91,12 @@ func (h *PklresHelper) retrievePklContent(resourceType, resourceID string) (stri
 		return "", fmt.Errorf("PklresHelper or resolver is nil")
 	}
 
+	// Automatically resolve actionID if it looks like one
+	resolvedResourceID := h.resolveActionID(resourceID)
+
 	// Use pklres to retrieve the content
 	uri, err := url.Parse(fmt.Sprintf("pklres:///%s?type=%s&key=%s",
-		h.resolver.RequestID, resourceType, resourceID))
+		h.resolver.RequestID, resourceType, resolvedResourceID))
 	if err != nil {
 		return "", fmt.Errorf("failed to parse pklres URI: %w", err)
 	}
@@ -208,4 +214,45 @@ func (h *PklresHelper) getResourcePath(resourceType string) string {
 	}
 	// Return a virtual path that indicates this is using pklres
 	return fmt.Sprintf("pklres:///%s?type=%s", h.resolver.RequestID, resourceType)
+}
+
+// resolveActionID automatically resolves actionIDs using the agent package
+func (h *PklresHelper) resolveActionID(actionID string) string {
+	if h == nil || h.resolver == nil {
+		return actionID // Return as-is if we can't resolve
+	}
+
+	// Check if this looks like an actionID that needs resolution
+	if strings.HasPrefix(actionID, "@") {
+		// Already in canonical form, return as-is
+		return actionID
+	}
+
+	// If it doesn't start with @, it might be a local actionID that needs resolution
+	// We need to use the agent package to resolve it
+	if h.resolver.AgentReader != nil {
+		// Create a URI for agent resolution
+		uri, err := url.Parse(fmt.Sprintf("agent:///%s", actionID))
+		if err == nil {
+			// Add current context as query parameters
+			query := uri.Query()
+			if h.resolver.AgentReader.CurrentAgent != "" {
+				query.Set("agent", h.resolver.AgentReader.CurrentAgent)
+			}
+			if h.resolver.AgentReader.CurrentVersion != "" {
+				query.Set("version", h.resolver.AgentReader.CurrentVersion)
+			}
+			uri.RawQuery = query.Encode()
+
+			// Try to resolve using the agent reader
+			data, err := h.resolver.AgentReader.Read(*uri)
+			if err == nil && len(data) > 0 {
+				// Successfully resolved, return the resolved ID
+				return string(data)
+			}
+		}
+	}
+
+	// If resolution fails, return the original actionID
+	return actionID
 }

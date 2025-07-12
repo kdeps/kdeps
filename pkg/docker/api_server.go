@@ -868,16 +868,16 @@ func parsePCFResponse(pcfContent string, logger *logging.Logger) (*APIResponse, 
 	}
 
 	lines := strings.Split(pcfContent, "\n")
-	
+
 	for i, line := range lines {
 		line = strings.TrimSpace(line)
-		
+
 		// Parse Success
 		if strings.HasPrefix(line, "Success = ") {
 			successStr := strings.TrimSpace(strings.TrimPrefix(line, "Success = "))
 			resp.Success = successStr == "true"
 		}
-		
+
 		// Parse RequestID
 		if strings.Contains(line, "RequestID = ") {
 			parts := strings.Split(line, "RequestID = ")
@@ -886,7 +886,7 @@ func parsePCFResponse(pcfContent string, logger *logging.Logger) (*APIResponse, 
 				resp.Meta.RequestID = requestID
 			}
 		}
-		
+
 		// Parse Data array
 		if strings.Contains(line, "document.jsonRenderDocument") {
 			// Extract the JSON content from the document.jsonRenderDocument call
@@ -910,13 +910,13 @@ func parsePCFResponse(pcfContent string, logger *logging.Logger) (*APIResponse, 
 				}
 			}
 		}
-		
+
 		// Parse Errors
 		if strings.Contains(line, "Code = ") {
 			// Extract error code and message
 			codeStr := ""
 			messageStr := ""
-			
+
 			// Look for Code and Message in the next few lines
 			for j := i; j < len(lines) && j < i+10; j++ {
 				errLine := strings.TrimSpace(lines[j])
@@ -933,7 +933,7 @@ func parsePCFResponse(pcfContent string, logger *logging.Logger) (*APIResponse, 
 					}
 				}
 			}
-			
+
 			if codeStr != "" {
 				if code, err := strconv.Atoi(codeStr); err == nil {
 					resp.Errors = append(resp.Errors, ErrorResponse{
@@ -944,7 +944,7 @@ func parsePCFResponse(pcfContent string, logger *logging.Logger) (*APIResponse, 
 			}
 		}
 	}
-	
+
 	return resp, nil
 }
 
