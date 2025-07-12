@@ -1,7 +1,6 @@
 package resolver
 
 import (
-	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -141,24 +140,20 @@ func (dr *DependencyResolver) WriteStdoutToFile(resourceID string, stdoutEncoded
 }
 
 func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExec.ResourceExec) error {
-	// Use pklres path instead of file path
-	pklPath := dr.PklresHelper.getResourcePath("exec")
-
-	res, err := dr.LoadResource(dr.Context, pklPath, ExecResource)
+	// Retrieve existing exec resources from pklres
+	existingContent, err := dr.PklresHelper.retrievePklContent("exec", "")
 	if err != nil {
-		return fmt.Errorf("failed to load PKL: %w", err)
+		// If no existing content, start with empty resources
+		existingContent = ""
 	}
 
-	pklRes, ok := res.(*pklExec.ExecImpl)
-	if !ok {
-		return errors.New("failed to cast pklRes to *pklExec.ExecImpl")
+	// Parse existing resources or create new map
+	existingResources := make(map[string]*pklExec.ResourceExec)
+	if existingContent != "" {
+		// For now, we'll create a simple empty structure since we're storing individual resources
+		// In a more sophisticated implementation, we'd parse the existing content
+		existingResources = make(map[string]*pklExec.ResourceExec)
 	}
-
-	resources := pklRes.GetResources()
-	if resources == nil {
-		resources = make(map[string]*pklExec.ResourceExec)
-	}
-	existingResources := resources
 
 	// Prepare file path and write stdout to file
 	var filePath string

@@ -18,6 +18,7 @@ import (
 
 	"github.com/apple/pkl-go/pkl"
 	"github.com/google/uuid"
+	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
@@ -72,6 +73,9 @@ This pattern ensures PKL tests work correctly while maintaining performance for 
 // using temporary directories. This is needed for PKL-related tests since PKL
 // cannot work with afero's in-memory filesystem.
 func setupTestResolverWithRealFS(t *testing.T) *DependencyResolver {
+	// Initialize evaluator for tests that need PKL functionality
+	evaluator.TestSetup(t)
+
 	tmpDir := t.TempDir()
 
 	fs := afero.NewOsFs()
@@ -1317,31 +1321,35 @@ func newEvalResolver(t *testing.T) *DependencyResolver {
 	return dr
 }
 
-func TestExecutePklEvalCommand(t *testing.T) {
-	_, restore := createStubPkl(t)
-	defer restore()
-
-	dr := newEvalResolver(t)
-	// create dummy pkl file so existence check passes
-	if err := afero.WriteFile(dr.Fs, dr.ResponsePklFile, []byte("{}"), 0o644); err != nil {
-		t.Fatalf("write pkl: %v", err)
-	}
-	res, err := dr.executePklEvalCommand()
-	if err != nil {
-		t.Fatalf("executePklEvalCommand error: %v", err)
-	}
-	if res.Stdout == "" {
-		t.Errorf("expected stdout from stub pkl, got empty")
-	}
-}
+// TestExecutePklEvalCommand removed - method no longer exists with singleton evaluator
 
 func TestEvalPklFormattedResponseFile(t *testing.T) {
-	_, restore := createStubPkl(t)
-	defer restore()
+	// Reset singleton before test
+	evaluator.Reset()
+
+	// Initialize evaluator for this test
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+	config := &evaluator.EvaluatorConfig{
+		Logger: logger,
+	}
+	err := evaluator.InitializeEvaluator(ctx, config)
+	require.NoError(t, err)
 
 	dr := newEvalResolver(t)
-	// create dummy pkl file
-	if err := afero.WriteFile(dr.Fs, dr.ResponsePklFile, []byte("{}"), 0o644); err != nil {
+	// create valid pkl file with proper structure
+	validPklContent := `data {
+  value = "42"
+}
+output {
+  files {
+    ["result.json"] {
+      value = data
+      renderer = new JsonRenderer {}
+    }
+  }
+}`
+	if err := afero.WriteFile(dr.Fs, dr.ResponsePklFile, []byte(validPklContent), 0o644); err != nil {
 		t.Fatalf("write pkl: %v", err)
 	}
 
@@ -1350,13 +1358,11 @@ func TestEvalPklFormattedResponseFile(t *testing.T) {
 		t.Fatalf("EvalPklFormattedResponseFile error: %v", err)
 	}
 	if out == "" {
-		t.Errorf("expected non-empty JSON output")
+		t.Errorf("expected non-empty output")
 	}
-	// If stub created file, ensure it's non-empty; otherwise, that's acceptable
-	if exists, _ := afero.Exists(dr.Fs, dr.ResponseTargetFile); exists {
-		if data, _ := afero.ReadFile(dr.Fs, dr.ResponseTargetFile); len(data) == 0 {
-			t.Errorf("target file exists but empty")
-		}
+	// Verify the output contains the expected value
+	if !strings.Contains(out, "42") {
+		t.Errorf("expected output to contain '42', got: %s", out)
 	}
 }
 

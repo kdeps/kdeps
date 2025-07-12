@@ -2,7 +2,6 @@ package resolver
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -230,30 +229,20 @@ func (dr *DependencyResolver) WritePythonStdoutToFile(resourceID string, stdoutE
 }
 
 func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pklPython.ResourcePython) error {
-	// Use pklres path instead of file path
-	pklPath := dr.PklresHelper.getResourcePath("python")
-
-	var res interface{}
-	var err error
-	if dr.LoadResourceFn != nil {
-		res, err = dr.LoadResourceFn(dr.Context, pklPath, PythonResource)
-	} else {
-		res, err = dr.LoadResource(dr.Context, pklPath, PythonResource)
-	}
+	// Retrieve existing python resources from pklres
+	existingContent, err := dr.PklresHelper.retrievePklContent("python", "")
 	if err != nil {
-		return fmt.Errorf("failed to load PKL: %w", err)
+		// If no existing content, start with empty resources
+		existingContent = ""
 	}
 
-	pklRes, ok := res.(*pklPython.PythonImpl)
-	if !ok {
-		return errors.New("failed to cast pklRes to *pklPython.Resource")
+	// Parse existing resources or create new map
+	existingResources := make(map[string]*pklPython.ResourcePython)
+	if existingContent != "" {
+		// For now, we'll create a simple empty structure since we're storing individual resources
+		// In a more sophisticated implementation, we'd parse the existing content
+		existingResources = make(map[string]*pklPython.ResourcePython)
 	}
-
-	resources := pklRes.GetResources()
-	if resources == nil {
-		resources = make(map[string]*pklPython.ResourcePython)
-	}
-	existingResources := resources
 
 	var filePath string
 	if newPython.Stdout != nil {

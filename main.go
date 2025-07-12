@@ -8,15 +8,22 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/apple/pkl-go/pkl"
 	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/cmd"
 	"github.com/kdeps/kdeps/pkg/agent"
 	"github.com/kdeps/kdeps/pkg/cfg"
 	"github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/evaluator"
+	"github.com/kdeps/kdeps/pkg/item"
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/memory"
+	"github.com/kdeps/kdeps/pkg/pklres"
 	"github.com/kdeps/kdeps/pkg/resolver"
+	"github.com/kdeps/kdeps/pkg/session"
+	"github.com/kdeps/kdeps/pkg/tool"
 	"github.com/kdeps/kdeps/pkg/utils"
 	v "github.com/kdeps/kdeps/pkg/version"
 	"github.com/spf13/afero"
@@ -51,6 +58,62 @@ func main() {
 	fs := afero.NewOsFs()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // Ensure context is canceled when main exits
+
+	// Initialize PKL evaluator with all available resource readers
+	// Create temporary database paths for resource readers
+	tmpDir := os.TempDir()
+	memoryDBPath := filepath.Join(tmpDir, "memory.db")
+	sessionDBPath := filepath.Join(tmpDir, "session.db")
+	toolDBPath := filepath.Join(tmpDir, "tool.db")
+	itemDBPath := filepath.Join(tmpDir, "item.db")
+	pklresDBPath := filepath.Join(tmpDir, "pklres.db")
+
+	// Initialize all resource readers
+	memoryReader, err := memory.InitializeMemory(memoryDBPath)
+	if err != nil {
+		logger.Fatalf("failed to initialize memory reader: %v", err)
+	}
+
+	sessionReader, err := session.InitializeSession(sessionDBPath)
+	if err != nil {
+		logger.Fatalf("failed to initialize session reader: %v", err)
+	}
+
+	toolReader, err := tool.InitializeTool(toolDBPath)
+	if err != nil {
+		logger.Fatalf("failed to initialize tool reader: %v", err)
+	}
+
+	itemReader, err := item.InitializeItem(itemDBPath, []string{})
+	if err != nil {
+		logger.Fatalf("failed to initialize item reader: %v", err)
+	}
+
+	pklresReader, err := pklres.InitializePklResource(pklresDBPath)
+	if err != nil {
+		logger.Fatalf("failed to initialize pklres reader: %v", err)
+	}
+
+	// Initialize agent reader (requires additional parameters)
+	agentReader, err := agent.InitializeAgent(fs, "/tmp", "default", "latest", logger)
+	if err != nil {
+		logger.Fatalf("failed to initialize agent reader: %v", err)
+	}
+
+	evaluatorConfig := &evaluator.EvaluatorConfig{
+		ResourceReaders: []pkl.ResourceReader{
+			memoryReader,
+			sessionReader,
+			toolReader,
+			itemReader,
+			agentReader,
+			pklresReader,
+		},
+		Logger: logger,
+	}
+	if err := evaluator.InitializeEvaluator(ctx, evaluatorConfig); err != nil {
+		logger.Fatalf("failed to initialize PKL evaluator: %v", err)
+	}
 
 	graphID := uuid.New().String()
 	actionDir := filepath.Join(os.TempDir(), "action")
@@ -241,6 +304,13 @@ func cleanup(fs afero.Fs, ctx context.Context, env *environment.Environment, api
 	// Close the global agent reader
 	if err := agent.CloseGlobalAgentReader(); err != nil {
 		logger.Error("failed to close global agent reader", "error", err)
+	}
+
+	// Close the singleton evaluator
+	if evaluatorMgr, err := evaluator.GetEvaluatorManager(); err == nil {
+		if err := evaluatorMgr.Close(); err != nil {
+			logger.Error("failed to close PKL evaluator", "error", err)
+		}
 	}
 
 	// Remove any old cleanup flags

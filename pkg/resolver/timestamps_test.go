@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/apple/pkl-go/pkl"
+	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	pklres "github.com/kdeps/kdeps/pkg/pklres"
 	pklExec "github.com/kdeps/schema/gen/exec"
@@ -107,6 +108,9 @@ func TestFormatDuration(t *testing.T) {
 }
 
 func TestWaitForTimestampChange(t *testing.T) {
+	// Initialize evaluator for this test
+	evaluator.TestSetup(t)
+
 	// Create a mock file system
 	fs := afero.NewMemMapFs()
 	testLogger := logging.NewTestLogger()

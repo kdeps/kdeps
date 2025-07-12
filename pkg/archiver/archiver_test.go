@@ -14,6 +14,7 @@ import (
 	"github.com/cucumber/godog"
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resource"
 	"github.com/kdeps/kdeps/pkg/workflow"
@@ -194,6 +195,10 @@ func itWillBeStoredTo(arg1 string) error {
 }
 
 func theProjectIsCompiled() error {
+	// Initialize evaluator for this test
+	evaluator.TestSetup(nil)
+	defer evaluator.TestTeardown(nil)
+
 	ctx = context.Background()
 	wf, err := workflow.LoadWorkflow(ctx, workflowFile, logger)
 	if err != nil {

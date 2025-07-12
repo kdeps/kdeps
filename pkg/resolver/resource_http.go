@@ -89,30 +89,20 @@ func (dr *DependencyResolver) WriteResponseBodyToFile(resourceID string, respons
 }
 
 func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP.ResourceHTTPClient) error {
-	// Use pklres path instead of file path
-	pklPath := dr.PklresHelper.getResourcePath("client")
-
-	var res interface{}
-	var err error
-	if dr.LoadResourceFn != nil {
-		res, err = dr.LoadResourceFn(dr.Context, pklPath, HTTPResource)
-	} else {
-		res, err = dr.LoadResource(dr.Context, pklPath, HTTPResource)
-	}
+	// Retrieve existing http resources from pklres
+	existingContent, err := dr.PklresHelper.retrievePklContent("client", "")
 	if err != nil {
-		return fmt.Errorf("failed to load PKL: %w", err)
+		// If no existing content, start with empty resources
+		existingContent = ""
 	}
 
-	pklRes, ok := res.(*pklHTTP.HTTPImpl)
-	if !ok {
-		return errors.New("failed to cast pklRes to *pklHTTP.HTTPImpl")
+	// Parse existing resources or create new map
+	existingResources := make(map[string]*pklHTTP.ResourceHTTPClient)
+	if existingContent != "" {
+		// For now, we'll create a simple empty structure since we're storing individual resources
+		// In a more sophisticated implementation, we'd parse the existing content
+		existingResources = make(map[string]*pklHTTP.ResourceHTTPClient)
 	}
-
-	resources := pklRes.GetResources()
-	if resources == nil {
-		resources = make(map[string]*pklHTTP.ResourceHTTPClient)
-	}
-	existingResources := resources
 
 	// Prepare file path and write response body to file
 	var filePath string

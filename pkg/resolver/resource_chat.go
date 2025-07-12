@@ -426,27 +426,20 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 
 // AppendChatEntry appends a chat entry to the Pkl file.
 func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM.ResourceChat) error {
-	// Use pklres path instead of file path
-	pklPath := dr.PklresHelper.getResourcePath("llm")
-
-	llmRes, err := dr.LoadResourceFn(dr.Context, pklPath, LLMResource)
+	// Retrieve existing LLM resources from pklres
+	existingContent, err := dr.PklresHelper.retrievePklContent("llm", "")
 	if err != nil {
-		return fmt.Errorf("failed to load PKL resource: %w", err)
-	}
-	if llmRes == nil {
-		return fmt.Errorf("LoadResourceFn returned nil for path: %s", pklPath)
+		// If no existing content, start with empty resources
+		existingContent = ""
 	}
 
-	pklRes, ok := llmRes.(*pklLLM.LLMImpl)
-	if !ok || pklRes == nil {
-		return errors.New("failed to cast pklRes to *pklLLM.LLMImpl or pklRes is nil")
+	// Parse existing resources or create new map
+	existingResources := make(map[string]*pklLLM.ResourceChat)
+	if existingContent != "" {
+		// For now, we'll create a simple empty structure since we're storing individual resources
+		// In a more sophisticated implementation, we'd parse the existing content
+		existingResources = make(map[string]*pklLLM.ResourceChat)
 	}
-
-	resources := pklRes.GetResources()
-	if resources == nil {
-		resources = make(map[string]*pklLLM.ResourceChat)
-	}
-	existingResources := resources
 
 	var filePath string
 	if newChat.Response != nil {

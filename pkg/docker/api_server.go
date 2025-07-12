@@ -616,8 +616,14 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		sections := []string{urlSection, clientIPSection, requestIDSection, method, requestHeaderSection, dataSection, paramSection, fileSection}
 
 		logger.Debug("creating and processing PKL file")
+
+		// Create a wrapper function that matches the expected signature
+		evalFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
+			return evaluator.EvalPkl(fs, ctx, tmpFile, headerSection, nil, logger)
+		}
+
 		if err := evaluator.CreateAndProcessPklFile(dr.Fs, ctx, sections, dr.RequestPklFile,
-			"APIServerRequest.pkl", dr.Logger, evaluator.EvalPkl, true); err != nil {
+			"APIServerRequest.pkl", dr.Logger, evalFunc, true); err != nil {
 			logger.Error("failed to create and process PKL file", "error", err)
 			errors = append(errors, ErrorResponse{
 				Code:     http.StatusInternalServerError,
@@ -765,7 +771,6 @@ func validateMethod(r *http.Request, allowedMethods []string) (string, error) {
 }
 
 // processWorkflow handles the execution of the workflow steps after the .pkl file is created.
-// It prepares the workflow directory, imports necessary files, and processes the actions defined in the workflow.
 func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver) error {
 	dr.Context = ctx
 
@@ -788,6 +793,13 @@ func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver) error
 		return err
 	}
 
+	// Close the singleton evaluator after response file evaluation
+	if evaluatorMgr, err := evaluator.GetEvaluatorManager(); err == nil {
+		if err := evaluatorMgr.Close(); err != nil {
+			dr.Logger.Error("failed to close PKL evaluator", "error", err)
+		}
+	}
+
 	dr.Logger.Debug(messages.MsgAwaitingResponse)
 
 	// Wait for the response file to be ready
@@ -800,6 +812,18 @@ func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver) error
 
 func decodeResponseContent(content []byte, logger *logging.Logger) (*APIResponse, error) {
 	var decodedResp APIResponse
+
+	// Check if content is PCF format (starts with "Success = " or similar)
+	contentStr := string(content)
+	if strings.Contains(contentStr, "Success = ") || strings.Contains(contentStr, "Meta {") {
+		// Parse PCF format
+		pcfResp, err := parsePCFResponse(contentStr, logger)
+		if err != nil {
+			logger.Error("failed to parse PCF response", "error", err)
+			return nil, err
+		}
+		return pcfResp, nil
+	}
 
 	// Unmarshal JSON content into APIResponse struct
 	err := json.Unmarshal(content, &decodedResp)
@@ -828,6 +852,100 @@ func decodeResponseContent(content []byte, logger *logging.Logger) (*APIResponse
 	}
 
 	return &decodedResp, nil
+}
+
+// parsePCFResponse parses PCF format response and converts it to APIResponse
+func parsePCFResponse(pcfContent string, logger *logging.Logger) (*APIResponse, error) {
+	resp := &APIResponse{
+		Success: false,
+		Response: ResponseData{
+			Data: []string{},
+		},
+		Meta: ResponseMeta{
+			RequestID: "",
+		},
+		Errors: []ErrorResponse{},
+	}
+
+	lines := strings.Split(pcfContent, "\n")
+	
+	for i, line := range lines {
+		line = strings.TrimSpace(line)
+		
+		// Parse Success
+		if strings.HasPrefix(line, "Success = ") {
+			successStr := strings.TrimSpace(strings.TrimPrefix(line, "Success = "))
+			resp.Success = successStr == "true"
+		}
+		
+		// Parse RequestID
+		if strings.Contains(line, "RequestID = ") {
+			parts := strings.Split(line, "RequestID = ")
+			if len(parts) > 1 {
+				requestID := strings.Trim(strings.TrimSpace(parts[1]), `"`)
+				resp.Meta.RequestID = requestID
+			}
+		}
+		
+		// Parse Data array
+		if strings.Contains(line, "document.jsonRenderDocument") {
+			// Extract the JSON content from the document.jsonRenderDocument call
+			// Look for the JSON content in the next few lines
+			for j := i + 1; j < len(lines) && j < i+10; j++ {
+				dataLine := strings.TrimSpace(lines[j])
+				if strings.Contains(dataLine, `"`) {
+					// Extract the quoted string content
+					start := strings.Index(dataLine, `"`)
+					end := strings.LastIndex(dataLine, `"`)
+					if start != -1 && end != -1 && end > start {
+						jsonContent := dataLine[start+1 : end]
+						// Decode any Base64 content
+						if decoded, err := utils.DecodeBase64String(jsonContent); err == nil {
+							resp.Response.Data = append(resp.Response.Data, decoded)
+						} else {
+							resp.Response.Data = append(resp.Response.Data, jsonContent)
+						}
+					}
+					break
+				}
+			}
+		}
+		
+		// Parse Errors
+		if strings.Contains(line, "Code = ") {
+			// Extract error code and message
+			codeStr := ""
+			messageStr := ""
+			
+			// Look for Code and Message in the next few lines
+			for j := i; j < len(lines) && j < i+10; j++ {
+				errLine := strings.TrimSpace(lines[j])
+				if strings.HasPrefix(errLine, "Code = ") {
+					codeStr = strings.TrimSpace(strings.TrimPrefix(errLine, "Code = "))
+				}
+				if strings.HasPrefix(errLine, "Message = ") {
+					// Extract message content between """# and """#
+					start := strings.Index(errLine, `"""#`)
+					end := strings.LastIndex(errLine, `"""#`)
+					if start != -1 && end != -1 && end > start {
+						messageStr = errLine[start+4 : end]
+						break
+					}
+				}
+			}
+			
+			if codeStr != "" {
+				if code, err := strconv.Atoi(codeStr); err == nil {
+					resp.Errors = append(resp.Errors, ErrorResponse{
+						Code:    code,
+						Message: messageStr,
+					})
+				}
+			}
+		}
+	}
+	
+	return resp, nil
 }
 
 // formatResponseJSON attempts to format the response content as JSON if required.

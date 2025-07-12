@@ -21,6 +21,7 @@ import (
 	"github.com/kdeps/kartographer/graph"
 	"github.com/kdeps/kdeps/pkg/agent"
 	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/item"
 	"github.com/kdeps/kdeps/pkg/kdepsexec"
 	"github.com/kdeps/kdeps/pkg/ktx"
@@ -238,6 +239,23 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		return nil, fmt.Errorf("failed to initialize pklres DB: %w", err)
 	}
 
+	// Initialize the singleton evaluator with resource readers
+	evaluatorConfig := &evaluator.EvaluatorConfig{
+		ResourceReaders: []pkl.ResourceReader{
+			memoryReader,
+			sessionReader,
+			toolReader,
+			itemReader,
+			agentReader,
+			pklresReader,
+		},
+		Logger: logger,
+	}
+
+	if err := evaluator.InitializeEvaluator(ctx, evaluatorConfig); err != nil {
+		return nil, fmt.Errorf("failed to initialize PKL evaluator: %w", err)
+	}
+
 	dependencyResolver := &DependencyResolver{
 		Fs:                      fs,
 		ResourceDependencies:    make(map[string][]string),
@@ -450,6 +468,13 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			dr.AgentReader.Close()
 			dr.PklresReader.DB.Close()
 
+			// Close the singleton evaluator
+			if evaluatorMgr, err := evaluator.GetEvaluatorManager(); err == nil {
+				if err := evaluatorMgr.Close(); err != nil {
+					dr.Logger.Error("failed to close PKL evaluator", "error", err)
+				}
+			}
+
 			// Remove the session DB file
 			if err := dr.Fs.RemoveAll(dr.SessionDBPath); err != nil {
 				dr.Logger.Error("failed to delete the SessionDB file", "file", dr.SessionDBPath, "error", err)
@@ -575,6 +600,9 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	dr.ItemReader.DB.Close()
 	dr.AgentReader.Close()
 	dr.PklresReader.DB.Close()
+
+	// Note: Evaluator is closed by the caller after EvalPklFormattedResponseFile
+	// to ensure it's available for response file evaluation
 
 	// Remove the request stamp file
 	if err := dr.Fs.RemoveAll(requestFilePath); err != nil {

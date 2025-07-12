@@ -155,9 +155,10 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 		// Check if we already have this resource type in pklres
 		_, err := dr.PklresHelper.retrievePklContent(resourceType, "")
 		if err != nil {
-			// If it doesn't exist, create an empty PKL structure
+			// If it doesn't exist, create a proper PKL structure with header
 			info := dr.PklresHelper.getResourceTypeInfo(resourceType)
-			emptyContent := fmt.Sprintf("%s {\n}\n", info.BlockName)
+			header := dr.PklresHelper.generatePklHeader(resourceType)
+			emptyContent := fmt.Sprintf("%s%s {\n}\n", header, info.BlockName)
 
 			// Store the empty structure
 			if err := dr.PklresHelper.storePklContent(resourceType, "", emptyContent); err != nil {
@@ -167,7 +168,8 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 			// If it exists, we still want to ensure it has the proper structure
 			// This handles the case where the record exists but is empty
 			info := dr.PklresHelper.getResourceTypeInfo(resourceType)
-			emptyContent := fmt.Sprintf("%s {\n}\n", info.BlockName)
+			header := dr.PklresHelper.generatePklHeader(resourceType)
+			emptyContent := fmt.Sprintf("%s%s {\n}\n", header, info.BlockName)
 
 			// Store the empty structure (this will overwrite if it exists)
 			if err := dr.PklresHelper.storePklContent(resourceType, "", emptyContent); err != nil {

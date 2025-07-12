@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -304,7 +303,7 @@ func (r *PklResourceReader) registerAgent(agentID string, query url.Values) ([]b
 		return nil, fmt.Errorf("failed to register agent: %w", err)
 	}
 
-	log.Printf("Registered agent: %s", agentID)
+	r.Logger.Debug("Registered agent", "agent_id", agentID)
 	return []byte(fmt.Sprintf("Registered agent: %s", agentID)), nil
 }
 
@@ -325,7 +324,7 @@ func (r *PklResourceReader) unregisterAgent(agentID string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to check unregister result: %w", err)
 	}
 
-	log.Printf("Unregistered agent: %s (removed %d records)", agentID, rowsAffected)
+	r.Logger.Debug("Unregistered agent", "agent_id", agentID, "rows_affected", rowsAffected)
 	return []byte(fmt.Sprintf("Unregistered agent: %s", agentID)), nil
 }
 
@@ -357,7 +356,7 @@ func (r *PklResourceReader) listAgentResources(agentPath string, query url.Value
 		return nil, fmt.Errorf("failed to marshal response: %w", err)
 	}
 
-	log.Printf("Listed all resources for agent: %s", agentID)
+	r.Logger.Debug("Listed all resources for agent", "agent_id", agentID)
 	return jsonData, nil
 }
 
@@ -365,10 +364,8 @@ func (r *PklResourceReader) listAgentResources(agentPath string, query url.Value
 func InitializeDatabase(dbPath string) (*sql.DB, error) {
 	const maxAttempts = 5
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		log.Printf("Attempt %d: Initializing SQLite database at %s", attempt, dbPath)
 		db, err := sql.Open("sqlite3", dbPath)
 		if err != nil {
-			log.Printf("Attempt %d: Failed to open database: %v", attempt, err)
 			if attempt == maxAttempts {
 				return nil, fmt.Errorf("failed to open database after %d attempts: %w", maxAttempts, err)
 			}
@@ -378,7 +375,6 @@ func InitializeDatabase(dbPath string) (*sql.DB, error) {
 
 		// Verify connection
 		if err := db.Ping(); err != nil {
-			log.Printf("Attempt %d: Failed to ping database: %v", attempt, err)
 			db.Close()
 			if attempt == maxAttempts {
 				return nil, fmt.Errorf("failed to ping database after %d attempts: %w", maxAttempts, err)
@@ -396,7 +392,6 @@ func InitializeDatabase(dbPath string) (*sql.DB, error) {
 			)
 		`)
 		if err != nil {
-			log.Printf("Attempt %d: Failed to create agents table: %v", attempt, err)
 			db.Close()
 			if attempt == maxAttempts {
 				return nil, fmt.Errorf("failed to create agents table after %d attempts: %w", maxAttempts, err)
@@ -405,7 +400,6 @@ func InitializeDatabase(dbPath string) (*sql.DB, error) {
 			continue
 		}
 
-		log.Printf("SQLite database initialized successfully at %s on attempt %d", dbPath, attempt)
 		return db, nil
 	}
 	return nil, fmt.Errorf("failed to initialize database after %d attempts", maxAttempts)
@@ -469,94 +463,89 @@ func (r *PklResourceReader) Close() error {
 // agentID/actionID/version combinations in the database for fast lookup.
 func (r *PklResourceReader) RegisterAllAgentsAndActions() error {
 	agentsDir := filepath.Join(r.KdepsDir, "agents")
+	if _, err := r.Fs.Stat(agentsDir); os.IsNotExist(err) {
+		r.Logger.Debug("agents directory does not exist", "path", agentsDir)
+		return nil // Not an error, just no agents to register
+	}
 
-	// Walk through the agents directory
-	err := afero.Walk(r.Fs, agentsDir, func(path string, info os.FileInfo, err error) error {
+	return afero.Walk(r.Fs, agentsDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
-		// Skip if not a directory or if it's the root agents directory
+		// Skip if not a directory or if it's the agents directory itself
 		if !info.IsDir() || path == agentsDir {
 			return nil
 		}
 
-		// Check if this is an agent directory (should contain workflow.pkl)
-		workflowPath := filepath.Join(path, "workflow.pkl")
-		if exists, _ := afero.Exists(r.Fs, workflowPath); !exists {
-			return nil
+		// Extract agent name from path
+		agentName := filepath.Base(path)
+		if agentName == "agents" {
+			return nil // Skip the agents directory itself
 		}
 
-		// Extract agent name and version from path
-		relPath, err := filepath.Rel(agentsDir, path)
+		// Look for version directories
+		versionDirs, err := afero.ReadDir(r.Fs, path)
 		if err != nil {
-			return err
-		}
-
-		parts := strings.Split(relPath, string(os.PathSeparator))
-		if len(parts) != 2 {
-			return nil // Skip if not agent/version structure
-		}
-
-		agentID := parts[0]
-		version := parts[1]
-
-		// Register the agent itself: @agentID:version
-		agentOnlyID := fmt.Sprintf("@%s:%s", agentID, version)
-		agentData := AgentInfo{
-			Name:    agentID,
-			Version: version,
-			Path:    path,
-		}
-		jsonData, err := json.Marshal(agentData)
-		if err != nil {
-			return fmt.Errorf("failed to marshal agent data: %w", err)
-		}
-		_, err = r.DB.Exec(
-			"INSERT OR REPLACE INTO agents (id, data) VALUES (?, ?)",
-			agentOnlyID, string(jsonData),
-		)
-		if err != nil {
-			return fmt.Errorf("failed to register agent %s: %w", agentOnlyID, err)
-		}
-
-		// Parse workflow.pkl to find all actionIDs
-		actionIDs, err := r.extractActionIDsFromWorkflow(workflowPath)
-		if err != nil {
-			log.Printf("Warning: failed to extract actionIDs from %s: %v", workflowPath, err)
+			r.Logger.Debug("failed to read agent directory", "agent", agentName, "error", err)
 			return nil // Continue with other agents
 		}
 
-		// Register each actionID: @agentID/actionID:version
-		for _, actionID := range actionIDs {
-			actionIDWithVersion := fmt.Sprintf("@%s/%s:%s", agentID, actionID, version)
-			actionData := AgentInfo{
-				Name:    agentID,
-				Version: version,
-				Path:    path,
+		for _, versionDir := range versionDirs {
+			if !versionDir.IsDir() {
+				continue
 			}
-			jsonData, err := json.Marshal(actionData)
+
+			version := versionDir.Name()
+			agentID := fmt.Sprintf("@%s:%s", agentName, version)
+
+			// Look for workflow.pkl file
+			workflowPath := filepath.Join(path, version, "workflow.pkl")
+			if _, err := r.Fs.Stat(workflowPath); os.IsNotExist(err) {
+				continue // No workflow file, skip this version
+			}
+
+			// Extract action IDs from workflow
+			actionIDs, err := r.extractActionIDsFromWorkflow(workflowPath)
 			if err != nil {
-				return fmt.Errorf("failed to marshal action data: %w", err)
+				r.Logger.Debug("failed to extract actionIDs from workflow", "path", workflowPath, "error", err)
+				continue // Continue with other agents
 			}
-			_, err = r.DB.Exec(
-				"INSERT OR REPLACE INTO agents (id, data) VALUES (?, ?)",
-				actionIDWithVersion, string(jsonData),
-			)
+
+			// Register the agent itself
+			agentData := map[string]interface{}{
+				"name":    agentName,
+				"version": version,
+				"path":    filepath.Join(path, version),
+			}
+			agentJSON, _ := json.Marshal(agentData)
+			_, err = r.DB.Exec("INSERT OR REPLACE INTO agents (id, data) VALUES (?, ?)", agentID, string(agentJSON))
 			if err != nil {
-				return fmt.Errorf("failed to register action %s: %w", actionIDWithVersion, err)
+				r.Logger.Debug("failed to register agent", "agent_id", agentID, "error", err)
+				continue
 			}
+
+			// Register each action
+			for _, actionID := range actionIDs {
+				fullActionID := fmt.Sprintf("@%s/%s:%s", agentName, actionID, version)
+				actionData := map[string]interface{}{
+					"agent":   agentName,
+					"version": version,
+					"action":  actionID,
+					"path":    filepath.Join(path, version, "resources"),
+				}
+				actionJSON, _ := json.Marshal(actionData)
+				_, err = r.DB.Exec("INSERT OR REPLACE INTO agents (id, data) VALUES (?, ?)", fullActionID, string(actionJSON))
+				if err != nil {
+					r.Logger.Debug("failed to register action", "action_id", fullActionID, "error", err)
+				}
+			}
+
+			r.Logger.Debug("registered agent", "agent_id", agentID, "version", version, "actions", len(actionIDs))
 		}
 
-		log.Printf("Registered agent %s v%s with %d actions", agentID, version, len(actionIDs))
 		return nil
 	})
-	if err != nil {
-		return fmt.Errorf("failed to scan agents directory: %w", err)
-	}
-
-	log.Printf("Completed registration of all agents and actions")
-	return nil
 }
 
 // extractActionIDsFromWorkflow parses a workflow.pkl file to extract all actionIDs

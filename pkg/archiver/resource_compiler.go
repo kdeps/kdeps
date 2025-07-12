@@ -197,16 +197,13 @@ func handleRequiresSection(line *string, inBlock *bool, wf pklWf.Workflow, requi
 	switch {
 	case *inBlock:
 		if strings.TrimSpace(*line) == "}" {
-			fmt.Printf("ARCHIVER DEBUG: End of requires block detected, buffer content:\n%s\n", requiresBuf.String())
 			*inBlock = false
 			processedRequires, additionalAgents := processRequiresBlockWithAgentReader(requiresBuf.String(), wf, agentReader)
-			fmt.Printf("ARCHIVER DEBUG: Processed requires result:\n%s\n", processedRequires)
 			fileBuf.WriteString(processedRequires)
 			*agentsToCopyAll = append(*agentsToCopyAll, additionalAgents...)
 			requiresBuf.Reset()
 			fileBuf.WriteString(*line + "\n")
 		} else {
-			fmt.Printf("ARCHIVER DEBUG: Adding line to requires buffer: %q\n", *line)
 			requiresBuf.WriteString(*line + "\n")
 		}
 		return true
@@ -214,7 +211,6 @@ func handleRequiresSection(line *string, inBlock *bool, wf pklWf.Workflow, requi
 		if requiresBuf.Len() > 0 {
 			return true
 		}
-		fmt.Printf("ARCHIVER DEBUG: Start of requires block detected: %q\n", *line)
 		*inBlock = true
 		requiresBuf.WriteString(*line + "\n")
 		return true
@@ -254,11 +250,9 @@ func processRequiresBlockWithAgentReader(blockContent string, wf pklWf.Workflow,
 			if isActionID(value) {
 				// Use agent reader to resolve the value
 				resolvedValue := resolveActionIDWithAgentReader(value, wf, agentReader)
-				fmt.Printf("ARCHIVER DEBUG: expanded %q to %q\n", value, resolvedValue)
 				modifiedLines = append(modifiedLines, fmt.Sprintf(`"%s"`, resolvedValue))
 			} else {
 				// Keep non-action quoted strings as-is
-				fmt.Printf("ARCHIVER DEBUG: keeping unchanged %q (not action ID)\n", value)
 				modifiedLines = append(modifiedLines, trimmedLine)
 			}
 			continue
@@ -276,20 +270,19 @@ func processRequiresBlockWithAgentReader(blockContent string, wf pklWf.Workflow,
 	}
 
 	result := strings.Join(modifiedLines, "\n")
-	fmt.Printf("ARCHIVER DEBUG: final result:\n%s\n", result)
 	return result, agentsToCopyAll
 }
 
 // expandRequiresInCompiledFile processes an already-compiled PKL file to expand Requires blocks
 func expandRequiresInCompiledFile(fs afero.Fs, file string, wf pklWf.Workflow, logger *logging.Logger) error {
-	logger.Info("ARCHIVER FIX: reading compiled file", "file", file)
+	logger.Debug("reading compiled file", "file", file)
 	content, err := afero.ReadFile(fs, file)
 	if err != nil {
 		logger.Error("failed to read compiled file", "file", file, "error", err)
 		return err
 	}
 
-	logger.Info("ARCHIVER FIX: file content length", "file", file, "length", len(content))
+	logger.Debug("file content length", "file", file, "length", len(content))
 
 	// Initialize agent reader for ID resolution
 	agentReader, err := agent.GetGlobalAgentReader(fs, "", wf.GetAgentID(), wf.GetVersion(), logger)
@@ -314,7 +307,7 @@ func expandRequiresInCompiledFile(fs afero.Fs, file string, wf pklWf.Workflow, l
 
 		// Check if this line contains "Requires" for debugging
 		if strings.Contains(line, "Requires") {
-			logger.Info("ARCHIVER FIX: found Requires line", "file", file, "lineNumber", lineCount, "line", line)
+			logger.Debug("found Requires line", "file", file, "lineNumber", lineCount, "line", line)
 		}
 
 		if requiresPattern.MatchString(line) && requiresWritten {
@@ -326,7 +319,7 @@ func expandRequiresInCompiledFile(fs afero.Fs, file string, wf pklWf.Workflow, l
 			if !inRequiresBlock {
 				requiresWritten = true
 				modified = true
-				logger.Info("ARCHIVER FIX: processed requires block", "file", file, "modified", modified)
+				logger.Debug("processed requires block", "file", file, "modified", modified)
 			}
 			continue
 		}
@@ -341,12 +334,12 @@ func expandRequiresInCompiledFile(fs afero.Fs, file string, wf pklWf.Workflow, l
 
 	// Add any remaining `requires` block content
 	if requiresBuffer.Len() > 0 && !requiresWritten {
-		logger.Info("ARCHIVER FIX: processing remaining requires block", "file", file, "bufferLength", requiresBuffer.Len())
+		logger.Debug("processing remaining requires block", "file", file, "bufferLength", requiresBuffer.Len())
 		processedRequires, additionalAgents := processRequiresBlockWithAgentReader(requiresBuffer.String(), wf, agentReader)
 		fileBuffer.WriteString(processedRequires)
 		agentsToCopyAll = append(agentsToCopyAll, additionalAgents...)
 		modified = true
-		logger.Info("ARCHIVER FIX: processed remaining requires", "file", file, "processedRequires", processedRequires)
+		logger.Debug("processed remaining requires", "file", file)
 	}
 
 	// Only write back if we made modifications
@@ -355,9 +348,9 @@ func expandRequiresInCompiledFile(fs afero.Fs, file string, wf pklWf.Workflow, l
 			logger.Error("error writing expanded compiled file", "file", file, "error", err)
 			return fmt.Errorf("error writing expanded compiled file: %w", err)
 		}
-		logger.Info("ARCHIVER FIX: successfully wrote expanded file", "file", file)
+		logger.Debug("successfully wrote expanded file", "file", file)
 	} else {
-		logger.Info("ARCHIVER FIX: no modifications made", "file", file)
+		logger.Debug("no modifications made", "file", file)
 	}
 
 	return nil

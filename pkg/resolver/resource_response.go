@@ -8,9 +8,9 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/apple/pkl-go/pkl"
 	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/pkg/evaluator"
-	"github.com/kdeps/kdeps/pkg/kdepsexec"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
@@ -39,7 +39,13 @@ func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverre
 	}
 
 	sections := dr.buildResponseSections(dr.RequestID, apiResponseBlock)
-	if err := evaluator.CreateAndProcessPklFile(dr.Fs, dr.Context, sections, dr.ResponsePklFile, "APIServerResponse.pkl", dr.Logger, evaluator.EvalPkl, false); err != nil {
+
+	// Create a wrapper function that matches the expected signature
+	evalFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
+		return evaluator.EvalPkl(fs, ctx, tmpFile, headerSection, nil, logger)
+	}
+
+	if err := evaluator.CreateAndProcessPklFile(dr.Fs, dr.Context, sections, dr.ResponsePklFile, "APIServerResponse.pkl", dr.Logger, evalFunc, false); err != nil {
 		return fmt.Errorf("create/process PKL file: %w", err)
 	}
 
@@ -83,8 +89,6 @@ func (dr *DependencyResolver) buildResponseSections(requestID string, apiRespons
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Tool.pkl" as tool`, schema.SchemaVersion(dr.Context)),
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Item.pkl" as item`, schema.SchemaVersion(dr.Context)),
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Agent.pkl" as agent`, schema.SchemaVersion(dr.Context)),
-		// Inject the requestID as a variable accessible to PKL functions
-		fmt.Sprintf("/// Current request ID for pklres operations\nrequestID = \"%s\"", requestID),
 		fmt.Sprintf("Success = %v", isSuccess),
 		formatResponseMeta(requestID, apiResponseBlock.GetMeta()),
 		formatResponseData(apiResponseBlock.GetResponse()),
@@ -266,15 +270,27 @@ func (dr *DependencyResolver) EvalPklFormattedResponseFile() (string, error) {
 		return "", fmt.Errorf("ensure target file not exists: %w", err)
 	}
 
-	if err := evaluator.EnsurePklBinaryExists(dr.Context, dr.Logger); err != nil {
-		return "", fmt.Errorf("PKL binary check: %w", err)
+	// Get the singleton evaluator
+	pklEvaluator, err := evaluator.GetEvaluator()
+	if err != nil {
+		return "", fmt.Errorf("get PKL evaluator: %w", err)
 	}
 
-	result, err := dr.executePklEvalCommand()
+	// Create module source
+	moduleSource := pkl.FileSource(dr.ResponsePklFile)
+
+	// Evaluate the PKL file
+	result, err := pklEvaluator.EvaluateOutputText(dr.Context, moduleSource)
 	if err != nil {
-		return "", fmt.Errorf("execute PKL eval: %w", err)
+		return "", fmt.Errorf("evaluate PKL file: %w", err)
 	}
-	return result.Stdout, nil
+
+	// Write result to target file
+	if err := afero.WriteFile(dr.Fs, dr.ResponseTargetFile, []byte(result), 0o644); err != nil {
+		return "", fmt.Errorf("write result to target file: %w", err)
+	}
+
+	return result, nil
 }
 
 func (dr *DependencyResolver) validatePklFileExtension() error {
@@ -296,32 +312,6 @@ func (dr *DependencyResolver) ensureResponseTargetFileNotExists() error {
 		}
 	}
 	return nil
-}
-
-func (dr *DependencyResolver) executePklEvalCommand() (kdepsexecStd struct {
-	Stdout, Stderr string
-	ExitCode       int
-}, err error,
-) {
-	stdout, stderr, exitCode, err := kdepsexec.KdepsExec(
-		dr.Context,
-		"pkl",
-		[]string{"eval", "--format", "json", "--output-path", dr.ResponseTargetFile, dr.ResponsePklFile},
-		"",
-		false,
-		false,
-		dr.Logger,
-	)
-	if err != nil {
-		return kdepsexecStd, err
-	}
-	if exitCode != 0 {
-		return kdepsexecStd, fmt.Errorf("command failed with exit code %d: %s", exitCode, stderr)
-	}
-	kdepsexecStd.Stdout = stdout
-	kdepsexecStd.Stderr = stderr
-	kdepsexecStd.ExitCode = exitCode
-	return kdepsexecStd, nil
 }
 
 // HandleAPIErrorResponse creates an error response PKL file when in API server mode,

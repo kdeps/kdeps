@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/adrg/xdg"
+	"github.com/apple/pkl-go/pkl"
 	"github.com/charmbracelet/huh"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/evaluator"
@@ -20,11 +21,6 @@ import (
 
 func FindConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
 	logger.Debug("finding configuration...")
-
-	// Ensure PKL binary exists before proceeding
-	if err := evaluator.EnsurePklBinaryExists(ctx, logger); err != nil {
-		return "", err
-	}
 
 	// Use the initialized environment's Pwd directory
 	configFilePwd := filepath.Join(env.Pwd, environment.SystemConfigFileName)
@@ -56,12 +52,25 @@ func GenerateConfiguration(fs afero.Fs, ctx context.Context, env *environment.En
 		url := fmt.Sprintf("package://schema.kdeps.com/core@%s#/Kdeps.pkl", schema.SchemaVersion(ctx))
 		headerSection := fmt.Sprintf("amends \"%s\"\n", url)
 
-		content, err := evaluator.EvalPkl(fs, ctx, url, headerSection, logger)
+		// Use the singleton evaluator directly to avoid writing back to package URL
+		eval, err := evaluator.GetEvaluator()
+		if err != nil {
+			return "", fmt.Errorf("failed to get evaluator: %w", err)
+		}
+
+		// Create a ModuleSource using UriSource for the package URL
+		moduleSource := pkl.UriSource(url)
+
+		// Evaluate the Pkl file
+		result, err := eval.EvaluateOutputText(ctx, moduleSource)
 		if err != nil {
 			return "", fmt.Errorf("failed to evaluate .pkl file: %w", err)
 		}
 
-		if err = afero.WriteFile(fs, configFile, []byte(content), 0o644); err != nil {
+		// Format the result by prepending the headerSection
+		formattedResult := fmt.Sprintf("%s\n%s", headerSection, result)
+
+		if err = afero.WriteFile(fs, configFile, []byte(formattedResult), 0o644); err != nil {
 			return "", fmt.Errorf("failed to write to %s: %w", configFile, err)
 		}
 
@@ -111,7 +120,7 @@ func ValidateConfiguration(fs afero.Fs, ctx context.Context, env *environment.En
 
 	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
 
-	if _, err := evaluator.EvalPkl(fs, ctx, configFile, "", logger); err != nil {
+	if _, err := evaluator.EvalPkl(fs, ctx, configFile, "", nil, logger); err != nil {
 		return configFile, fmt.Errorf("configuration validation failed: %w", err)
 	}
 

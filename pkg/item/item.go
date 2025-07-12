@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/url"
 	"time"
 
@@ -41,11 +40,8 @@ func (r *PklResourceReader) Scheme() string {
 
 // fetchValues retrieves unique values from the items table and returns them as a JSON array.
 func (r *PklResourceReader) fetchValues(operation string) ([]byte, error) {
-	log.Printf("%s processing", operation)
-
 	rows, err := r.DB.Query("SELECT value FROM items ORDER BY id")
 	if err != nil {
-		log.Printf("%s failed to query records: %v", operation, err)
 		return nil, fmt.Errorf("failed to list records: %w", err)
 	}
 	defer rows.Close()
@@ -56,7 +52,6 @@ func (r *PklResourceReader) fetchValues(operation string) ([]byte, error) {
 	for rows.Next() {
 		var value string
 		if err := rows.Scan(&value); err != nil {
-			log.Printf("%s failed to scan row: %v", operation, err)
 			return nil, fmt.Errorf("failed to scan record value: %w", err)
 		}
 		if _, exists := valueMap[value]; !exists {
@@ -66,12 +61,8 @@ func (r *PklResourceReader) fetchValues(operation string) ([]byte, error) {
 	}
 
 	if err := rows.Err(); err != nil {
-		log.Printf("%s failed during row iteration: %v", operation, err)
 		return nil, fmt.Errorf("failed to iterate records: %w", err)
 	}
-
-	// Debug: Log values before marshaling
-	log.Printf("%s values before marshal: %v (nil: %t)", operation, values, values == nil)
 
 	// Ensure values is not nil
 	if values == nil {
@@ -81,11 +72,9 @@ func (r *PklResourceReader) fetchValues(operation string) ([]byte, error) {
 	// Serialize values as JSON array
 	result, err := json.Marshal(values)
 	if err != nil {
-		log.Printf("%s failed to marshal JSON: %v", operation, err)
 		return nil, fmt.Errorf("failed to serialize record values: %w", err)
 	}
 
-	log.Printf("%s succeeded, found %d unique records", operation, len(values))
 	return result, nil
 }
 
@@ -93,168 +82,33 @@ func (r *PklResourceReader) fetchValues(operation string) ([]byte, error) {
 func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 	// Initialize database if DB is nil
 	if r.DB == nil {
-		log.Printf("Database connection is nil, attempting to initialize with path: %s", r.DBPath)
 		db, err := InitializeDatabase(r.DBPath, nil)
 		if err != nil {
-			log.Printf("Failed to initialize database in Read: %v", err)
 			return nil, fmt.Errorf("failed to initialize database: %w", err)
 		}
 		r.DB = db
-		log.Printf("Database initialized successfully in Read")
 	}
 
 	query := uri.Query()
 	operation := query.Get("op")
 
-	log.Printf("Read called with URI: %s, operation: %s", uri.String(), operation)
-
 	switch operation {
+	case "":
+		return r.getCurrentRecord()
 	case "set":
-		newValue := query.Get("value")
-		if newValue == "" {
-			log.Printf("setRecord failed: no value provided")
-			return nil, errors.New("set operation requires a value parameter")
-		}
-
-		// Generate a new ID (e.g., timestamp-based)
-		id := time.Now().Format("20060102150405.999999")
-		log.Printf("setRecord processing id: %s, value: %s", id, newValue)
-
-		// Start a transaction
-		tx, err := r.DB.Begin()
-		if err != nil {
-			log.Printf("setRecord failed to start transaction: %v", err)
-			return nil, fmt.Errorf("failed to start transaction: %w", err)
-		}
-
-		// Set current record
-		result, err := tx.Exec(
-			"INSERT OR REPLACE INTO items (id, value) VALUES (?, ?)",
-			id, newValue,
-		)
-		if err != nil {
-			if rollbackErr := tx.Rollback(); rollbackErr != nil {
-				log.Printf("setRecord failed to rollback transaction: %v", rollbackErr)
-			}
-			log.Printf("setRecord failed to execute SQL for current record: %v", err)
-			return nil, fmt.Errorf("setRecord failed to execute SQL for current record: %w", err)
-		}
-
-		rowsAffected, err := result.RowsAffected()
-		if err != nil {
-			if rollbackErr := tx.Rollback(); rollbackErr != nil {
-				log.Printf("setRecord failed to rollback transaction: %v", rollbackErr)
-			}
-			log.Printf("setRecord failed to check result for current record: %v", err)
-			return nil, fmt.Errorf("setRecord failed to check result for current record: %w", err)
-		}
-		if rowsAffected == 0 {
-			if rollbackErr := tx.Rollback(); rollbackErr != nil {
-				log.Printf("setRecord failed to rollback transaction: %v", rollbackErr)
-			}
-			log.Printf("setRecord: no record set for ID %s", id)
-			return nil, fmt.Errorf("setRecord: no record set for ID %s", id)
-		}
-
-		// Commit transaction
-		if err := tx.Commit(); err != nil {
-			if rollbackErr := tx.Rollback(); rollbackErr != nil {
-				log.Printf("setRecord failed to rollback transaction: %v", rollbackErr)
-			}
-			log.Printf("setRecord failed to commit transaction: %v", err)
-			return nil, fmt.Errorf("setRecord failed to commit transaction: %w", err)
-		}
-
-		log.Printf("setRecord succeeded for id: %s, value: %s", id, newValue)
-		return []byte(newValue), nil
-
-	case "prev":
-		log.Printf("prevRecord processing")
-
-		currentID, err := r.getMostRecentID()
-		if err != nil {
-			return nil, err
-		}
-		if currentID == "" {
-			log.Printf("prevRecord: no records found")
-			return []byte(""), nil
-		}
-
-		var value string
-		err = r.DB.QueryRow(`
-			SELECT value FROM items
-			WHERE id < ? ORDER BY id DESC LIMIT 1`, currentID).Scan(&value)
-		if errors.Is(err, sql.ErrNoRows) {
-			log.Printf("prevRecord: no previous record found for id: %s", currentID)
-			return []byte(""), nil
-		}
-		if err != nil {
-			log.Printf("prevRecord failed to read record for id: %s, error: %v", currentID, err)
-			return nil, fmt.Errorf("failed to read previous record: %w", err)
-		}
-
-		log.Printf("prevRecord succeeded for id: %s, value: %s", currentID, value)
-		return []byte(value), nil
-
-	case "next":
-		log.Printf("nextRecord processing")
-
-		currentID, err := r.getMostRecentID()
-		if err != nil {
-			return nil, err
-		}
-		if currentID == "" {
-			log.Printf("nextRecord: no records found")
-			return []byte(""), nil
-		}
-
-		var value string
-		err = r.DB.QueryRow(`
-			SELECT value FROM items
-			WHERE id > ? ORDER BY id ASC LIMIT 1`, currentID).Scan(&value)
-		if errors.Is(err, sql.ErrNoRows) {
-			log.Printf("nextRecord: no next record found for id: %s", currentID)
-			return []byte(""), nil
-		}
-		if err != nil {
-			log.Printf("nextRecord failed to read record for id: %s, error: %v", currentID, err)
-			return nil, fmt.Errorf("failed to read next record: %w", err)
-		}
-
-		log.Printf("nextRecord succeeded for id: %s, value: %s", currentID, value)
-		return []byte(value), nil
-
-	case "list", "values":
-		return r.fetchValues(operation)
-
+		return r.setRecord(query)
 	case "current":
-		log.Printf("getRecord processing")
-
-		currentID, err := r.getMostRecentID()
-		if err != nil {
-			return nil, err
-		}
-		if currentID == "" {
-			log.Printf("getRecord: no records found")
-			return []byte(""), nil
-		}
-
-		var value string
-		err = r.DB.QueryRow("SELECT value FROM items WHERE id = ?", currentID).Scan(&value)
-		if errors.Is(err, sql.ErrNoRows) {
-			log.Printf("getRecord: no record found for id: %s", currentID)
-			return []byte(""), nil
-		}
-		if err != nil {
-			log.Printf("getRecord failed to read record for id: %s, error: %v", currentID, err)
-			return nil, fmt.Errorf("failed to read record: %w", err)
-		}
-
-		log.Printf("getRecord succeeded for id: %s, value: %s", currentID, value)
-		return []byte(value), nil
-
+		return r.getCurrentRecord()
+	case "next":
+		return r.getNextRecord()
+	case "prev":
+		return r.getPrevRecord()
+	case "list":
+		return r.listRecords()
+	case "values":
+		return r.getValues()
 	default:
-		return nil, errors.New("invalid operation")
+		return nil, fmt.Errorf("invalid operation: %s", operation)
 	}
 }
 
@@ -275,13 +129,11 @@ func (r *PklResourceReader) getMostRecentID() (string, error) {
 func InitializeDatabase(dbPath string, items []string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
-		log.Printf("Failed to open database: %v", err)
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
 	// Verify connection
 	if err := db.Ping(); err != nil {
-		log.Printf("Failed to ping database: %v", err)
 		db.Close()
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
@@ -294,7 +146,6 @@ func InitializeDatabase(dbPath string, items []string) (*sql.DB, error) {
 		)
 	`)
 	if err != nil {
-		log.Printf("Failed to create items table: %v", err)
 		db.Close()
 		return nil, fmt.Errorf("failed to create items table: %w", err)
 	}
@@ -303,7 +154,6 @@ func InitializeDatabase(dbPath string, items []string) (*sql.DB, error) {
 	if len(items) > 0 {
 		tx, err := db.Begin()
 		if err != nil {
-			log.Printf("Failed to start transaction for items initialization: %v", err)
 			db.Close()
 			return nil, fmt.Errorf("failed to start transaction for items initialization: %w", err)
 		}
@@ -317,26 +167,22 @@ func InitializeDatabase(dbPath string, items []string) (*sql.DB, error) {
 			)
 			if err != nil {
 				if rollbackErr := tx.Rollback(); rollbackErr != nil {
-					log.Printf("Failed to rollback transaction for item %s: %v", itemValue, rollbackErr)
+					// Log rollback error but don't return it as the main error
 				}
-				log.Printf("Failed to insert item %s: %v", itemValue, err)
 				db.Close()
 				return nil, fmt.Errorf("failed to insert item %s: %w", itemValue, err)
 			}
-			log.Printf("Initialized item with id: %s, value: %s", id, itemValue)
 		}
 
 		if err := tx.Commit(); err != nil {
 			if rollbackErr := tx.Rollback(); rollbackErr != nil {
-				log.Printf("Failed to rollback transaction for items initialization: %v", rollbackErr)
+				// Log rollback error but don't return it as the main error
 			}
-			log.Printf("Failed to commit transaction for items initialization: %v", err)
 			db.Close()
 			return nil, fmt.Errorf("failed to commit transaction for items initialization: %w", err)
 		}
 	}
 
-	log.Printf("SQLite database initialized successfully at %s with %d items", dbPath, len(items))
 	return db, nil
 }
 
@@ -347,4 +193,137 @@ func InitializeItem(dbPath string, items []string) (*PklResourceReader, error) {
 		return nil, fmt.Errorf("error initializing database: %w", err)
 	}
 	return &PklResourceReader{DB: db, DBPath: dbPath}, nil
+}
+
+// setRecord stores a new item record in the database
+func (r *PklResourceReader) setRecord(query url.Values) ([]byte, error) {
+	newValue := query.Get("value")
+	if newValue == "" {
+		return nil, errors.New("set operation requires a value parameter")
+	}
+
+	// Generate a new ID (e.g., timestamp-based)
+	id := time.Now().Format("20060102150405.999999")
+
+	// Start a transaction
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to start transaction: %w", err)
+	}
+
+	// Set current record
+	result, err := tx.Exec(
+		"INSERT OR REPLACE INTO items (id, value) VALUES (?, ?)",
+		id, newValue,
+	)
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			// Log rollback error but don't return it as the main error
+		}
+		return nil, fmt.Errorf("failed to execute SQL for current record: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			// Log rollback error but don't return it as the main error
+		}
+		return nil, fmt.Errorf("failed to check result for current record: %w", err)
+	}
+	if rowsAffected == 0 {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			// Log rollback error but don't return it as the main error
+		}
+		return nil, fmt.Errorf("no record set for ID %s", id)
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			// Log rollback error but don't return it as the main error
+		}
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return []byte(newValue), nil
+}
+
+// getCurrentRecord retrieves the most recent item record
+func (r *PklResourceReader) getCurrentRecord() ([]byte, error) {
+	currentID, err := r.getMostRecentID()
+	if err != nil {
+		return nil, err
+	}
+	if currentID == "" {
+		return []byte(""), nil
+	}
+
+	var value string
+	err = r.DB.QueryRow("SELECT value FROM items WHERE id = ?", currentID).Scan(&value)
+	if errors.Is(err, sql.ErrNoRows) {
+		return []byte(""), nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read record: %w", err)
+	}
+
+	return []byte(value), nil
+}
+
+// getNextRecord retrieves the next item record after the current one
+func (r *PklResourceReader) getNextRecord() ([]byte, error) {
+	currentID, err := r.getMostRecentID()
+	if err != nil {
+		return nil, err
+	}
+	if currentID == "" {
+		return []byte(""), nil
+	}
+
+	var value string
+	err = r.DB.QueryRow(`
+		SELECT value FROM items
+		WHERE id > ? ORDER BY id ASC LIMIT 1`, currentID).Scan(&value)
+	if errors.Is(err, sql.ErrNoRows) {
+		return []byte(""), nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read next record: %w", err)
+	}
+
+	return []byte(value), nil
+}
+
+// getPrevRecord retrieves the previous item record before the current one
+func (r *PklResourceReader) getPrevRecord() ([]byte, error) {
+	currentID, err := r.getMostRecentID()
+	if err != nil {
+		return nil, err
+	}
+	if currentID == "" {
+		return []byte(""), nil
+	}
+
+	var value string
+	err = r.DB.QueryRow(`
+		SELECT value FROM items
+		WHERE id < ? ORDER BY id DESC LIMIT 1`, currentID).Scan(&value)
+	if errors.Is(err, sql.ErrNoRows) {
+		return []byte(""), nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read previous record: %w", err)
+	}
+
+	return []byte(value), nil
+}
+
+// listRecords lists all item records
+func (r *PklResourceReader) listRecords() ([]byte, error) {
+	return r.fetchValues("list")
+}
+
+// getValues retrieves unique values from the items table
+func (r *PklResourceReader) getValues() ([]byte, error) {
+	return r.fetchValues("values")
 }

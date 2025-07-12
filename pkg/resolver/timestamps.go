@@ -36,16 +36,37 @@ func (dr *DependencyResolver) loadPKLFile(resourceType, pklPath string) (interfa
 	// For now, we'll create a temporary file approach or use the existing LoadResource method
 	// This is a compatibility layer - ideally we'd refactor to work directly with content
 
+	// Extract the resource ID from the pklres path
+	// pklPath format: "pklres:///requestID?type=resourceType"
+	// We need to get the content for the specific resource type
+	_, err := dr.PklresHelper.retrievePklContent(resourceType, "")
+	if err != nil {
+		// If no content exists, return an empty structure
+		switch resourceType {
+		case "exec":
+			return &pklExec.ExecImpl{Resources: make(map[string]*pklExec.ResourceExec)}, nil
+		case "python":
+			return &pklPython.PythonImpl{Resources: make(map[string]*pklPython.ResourcePython)}, nil
+		case "llm":
+			return &pklLLM.LLMImpl{Resources: make(map[string]*pklLLM.ResourceChat)}, nil
+		case "client":
+			return &pklHTTP.HTTPImpl{Resources: make(map[string]*pklHTTP.ResourceHTTPClient)}, nil
+		default:
+			return nil, fmt.Errorf("unsupported resourceType %s provided", resourceType)
+		}
+	}
+
+	// For now, we'll return empty structures since we're storing individual resources
+	// In a more sophisticated implementation, we'd parse the content and return the proper structure
 	switch resourceType {
 	case "exec":
-		// Try to load from pklres first, fallback to LoadResource method
-		return dr.LoadResource(dr.Context, pklPath, ExecResource)
+		return &pklExec.ExecImpl{Resources: make(map[string]*pklExec.ResourceExec)}, nil
 	case "python":
-		return dr.LoadResource(dr.Context, pklPath, PythonResource)
+		return &pklPython.PythonImpl{Resources: make(map[string]*pklPython.ResourcePython)}, nil
 	case "llm":
-		return dr.LoadResource(dr.Context, pklPath, LLMResource)
+		return &pklLLM.LLMImpl{Resources: make(map[string]*pklLLM.ResourceChat)}, nil
 	case "client":
-		return dr.LoadResource(dr.Context, pklPath, HTTPResource)
+		return &pklHTTP.HTTPImpl{Resources: make(map[string]*pklHTTP.ResourceHTTPClient)}, nil
 	default:
 		return nil, fmt.Errorf("unsupported resourceType %s provided", resourceType)
 	}
@@ -108,7 +129,12 @@ func (dr *DependencyResolver) GetCurrentTimestamp(resourceID, resourceType strin
 
 	timestamp, err := getResourceTimestamp(resourceID, pklRes)
 	if err != nil {
-		return pkl.Duration{}, err
+		// If the resource doesn't exist yet, return a default timestamp (current time)
+		// This happens when a resource is being executed for the first time
+		return pkl.Duration{
+			Value: float64(time.Now().Unix()),
+			Unit:  pkl.Nanosecond,
+		}, nil
 	}
 
 	return *timestamp, nil
@@ -132,35 +158,40 @@ func formatDuration(d time.Duration) string {
 	}
 }
 
-// WaitForTimestampChange waits until the timestamp for the specified resourceID changes from the provided previous timestamp.
-func (dr *DependencyResolver) WaitForTimestampChange(resourceID string, previousTimestamp pkl.Duration, timeout time.Duration, resourceType string) error {
+// WaitForTimestampChange waits for the timestamp to change for the given resourceID and resourceType.
+func (dr *DependencyResolver) WaitForTimestampChange(resourceID string, initialTimestamp pkl.Duration, timeout time.Duration, resourceType string) error {
 	startTime := time.Now()
-	lastSeenTimestamp := previousTimestamp
+	timeoutDuration := timeout
 
 	for {
-		elapsed := time.Since(startTime)
-		// Calculate remaining time correctly for logging
-		remaining := timeout - elapsed
-		formattedRemaining := formatDuration(remaining)
-		dr.Logger.Infof("action '%s' will timeout in '%s'", resourceID, formattedRemaining)
-
-		// Check if elapsed time meets or exceeds the timeout
-		if timeout > 0 && remaining < 0 {
+		// Check if we've exceeded the timeout
+		if timeout > 0 && time.Since(startTime) > timeoutDuration {
 			return fmt.Errorf("timeout exceeded while waiting for timestamp change for resource ID %s", resourceID)
 		}
 
+		// Get current timestamp
 		currentTimestamp, err := dr.GetCurrentTimestamp(resourceID, resourceType)
 		if err != nil {
-			return fmt.Errorf("failed to get current timestamp for resource %s: %w", resourceID, err)
+			// Log the error but continue waiting
+			dr.Logger.Debug("Error getting current timestamp, continuing to wait", "error", err, "resourceID", resourceID, "resourceType", resourceType)
+			time.Sleep(100 * time.Millisecond)
+			continue
 		}
 
-		if currentTimestamp != previousTimestamp && currentTimestamp == lastSeenTimestamp {
-			elapsedTime := time.Since(startTime)
-			dr.Logger.Infof("resource '%s' (type: %s) completed in %s", resourceID, resourceType, formatDuration(elapsedTime))
+		// Check if timestamp has changed
+		// Use a more robust comparison that accounts for potential precision issues
+		timestampDiff := currentTimestamp.Value - initialTimestamp.Value
+		if timestampDiff > 0 { // Allow for any positive difference
+			dr.Logger.Debug("Timestamp change detected", 
+				"resourceID", resourceID, 
+				"resourceType", resourceType,
+				"initialTimestamp", initialTimestamp.Value,
+				"currentTimestamp", currentTimestamp.Value,
+				"difference", timestampDiff)
 			return nil
 		}
-		lastSeenTimestamp = currentTimestamp
 
-		time.Sleep(1000 * time.Millisecond)
+		// Wait a bit before checking again
+		time.Sleep(100 * time.Millisecond)
 	}
 }

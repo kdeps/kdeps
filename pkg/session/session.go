@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"net/url"
 	"strings"
 	"time"
@@ -43,28 +42,22 @@ func (r *PklResourceReader) ListElements(_ url.URL) ([]pkl.PathElement, error) {
 func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 	// Check if receiver is nil and initialize with fixed DBPath
 	if r == nil {
-		log.Printf("Warning: PklResourceReader is nil for URI: %s, initializing with DBPath", uri.String())
 		newReader, err := InitializeSession(r.DBPath)
 		if err != nil {
-			log.Printf("Failed to initialize PklResourceReader in Read: %v", err)
 			return nil, fmt.Errorf("failed to initialize PklResourceReader: %w", err)
 		}
 		r = newReader
-		log.Printf("Initialized PklResourceReader with DBPath")
 	}
 
 	// Check if db is nil and initialize with retries
 	if r.DB == nil {
-		log.Printf("Database connection is nil, attempting to initialize with path: %s", r.DBPath)
 		maxAttempts := 5
 		for attempt := 1; attempt <= maxAttempts; attempt++ {
 			db, err := InitializeDatabase(r.DBPath)
 			if err == nil {
 				r.DB = db
-				log.Printf("Database initialized successfully in Read on attempt %d", attempt)
 				break
 			}
-			log.Printf("Attempt %d: Failed to initialize database in Read: %v", attempt, err)
 			if attempt == maxAttempts {
 				return nil, fmt.Errorf("failed to initialize database after %d attempts: %w", maxAttempts, err)
 			}
@@ -76,111 +69,15 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 	query := uri.Query()
 	operation := query.Get("op")
 
-	log.Printf("Read called with URI: %s, operation: %s", uri.String(), operation)
-
 	switch operation {
 	case "set":
-		if id == "" {
-			log.Printf("setRecord failed: no record ID provided")
-			return nil, errors.New("invalid URI: no record ID provided for set operation")
-		}
-		newValue := query.Get("value")
-		if newValue == "" {
-			log.Printf("setRecord failed: no value provided")
-			return nil, errors.New("set operation requires a value parameter")
-		}
-
-		log.Printf("setRecord processing id: %s, value: %s", id, newValue)
-
-		result, err := r.DB.Exec(
-			"INSERT OR REPLACE INTO records (id, value) VALUES (?, ?)",
-			id, newValue,
-		)
-		if err != nil {
-			log.Printf("setRecord failed to execute SQL: %v", err)
-			return nil, fmt.Errorf("failed to set record: %w", err)
-		}
-
-		rowsAffected, err := result.RowsAffected()
-		if err != nil {
-			log.Printf("setRecord failed to check result: %v", err)
-			return nil, fmt.Errorf("failed to check set result: %w", err)
-		}
-		if rowsAffected == 0 {
-			log.Printf("setRecord: no record set for ID %s", id)
-			return nil, fmt.Errorf("no record set for ID %s", id)
-		}
-
-		log.Printf("setRecord succeeded for id: %s, value: %s", id, newValue)
-		return []byte(newValue), nil
-
+		return r.setRecord(id, query)
 	case "delete":
-		if id == "" {
-			log.Printf("deleteRecord failed: no record ID provided")
-			return nil, errors.New("invalid URI: no record ID provided for delete operation")
-		}
-
-		log.Printf("deleteRecord processing id: %s", id)
-
-		result, err := r.DB.Exec("DELETE FROM records WHERE id = ?", id)
-		if err != nil {
-			log.Printf("deleteRecord failed to execute SQL: %v", err)
-			return nil, fmt.Errorf("failed to delete record: %w", err)
-		}
-
-		rowsAffected, err := result.RowsAffected()
-		if err != nil {
-			log.Printf("deleteRecord failed to check result: %v", err)
-			return nil, fmt.Errorf("failed to check delete result: %w", err)
-		}
-
-		log.Printf("deleteRecord succeeded for id: %s, removed %d records", id, rowsAffected)
-		return []byte(fmt.Sprintf("Deleted %d record(s)", rowsAffected)), nil
-
+		return r.deleteRecord(id)
 	case "clear":
-		if id != "_" {
-			log.Printf("clear failed: invalid path, expected '/_'")
-			return nil, errors.New("invalid URI: clear operation requires path '/_'")
-		}
-
-		log.Printf("clear processing")
-
-		result, err := r.DB.Exec("DELETE FROM records")
-		if err != nil {
-			log.Printf("clear failed to execute SQL: %v", err)
-			return nil, fmt.Errorf("failed to clear records: %w", err)
-		}
-
-		rowsAffected, err := result.RowsAffected()
-		if err != nil {
-			log.Printf("clear failed to check result: %v", err)
-			return nil, fmt.Errorf("failed to check clear result: %w", err)
-		}
-
-		log.Printf("clear succeeded, removed %d records", rowsAffected)
-		return []byte(fmt.Sprintf("Cleared %d records", rowsAffected)), nil
-
+		return r.clearRecords(id)
 	default: // getRecord (no operation specified)
-		if id == "" {
-			log.Printf("getRecord failed: no record ID provided")
-			return nil, errors.New("invalid URI: no record ID provided")
-		}
-
-		log.Printf("getRecord processing id: %s", id)
-
-		var value string
-		err := r.DB.QueryRow("SELECT value FROM records WHERE id = ?", id).Scan(&value)
-		if err == sql.ErrNoRows {
-			log.Printf("getRecord: no record found for id: %s", id)
-			return []byte(""), nil // Return empty string for not found
-		}
-		if err != nil {
-			log.Printf("getRecord failed to read record for id: %s, error: %v", id, err)
-			return nil, fmt.Errorf("failed to read record: %w", err)
-		}
-
-		log.Printf("getRecord succeeded for id: %s, value: %s", id, value)
-		return []byte(value), nil
+		return r.getRecord(id)
 	}
 }
 
@@ -188,10 +85,8 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 func InitializeDatabase(dbPath string) (*sql.DB, error) {
 	const maxAttempts = 5
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		log.Printf("Attempt %d: Initializing SQLite database at %s", attempt, dbPath)
 		db, err := sql.Open("sqlite3", dbPath)
 		if err != nil {
-			log.Printf("Attempt %d: Failed to open database: %v", attempt, err)
 			if attempt == maxAttempts {
 				return nil, fmt.Errorf("failed to open database after %d attempts: %w", maxAttempts, err)
 			}
@@ -201,7 +96,6 @@ func InitializeDatabase(dbPath string) (*sql.DB, error) {
 
 		// Verify connection
 		if err := db.Ping(); err != nil {
-			log.Printf("Attempt %d: Failed to ping database: %v", attempt, err)
 			db.Close()
 			if attempt == maxAttempts {
 				return nil, fmt.Errorf("failed to ping database after %d attempts: %w", maxAttempts, err)
@@ -218,7 +112,6 @@ func InitializeDatabase(dbPath string) (*sql.DB, error) {
 			)
 		`)
 		if err != nil {
-			log.Printf("Attempt %d: Failed to create records table: %v", attempt, err)
 			db.Close()
 			if attempt == maxAttempts {
 				return nil, fmt.Errorf("failed to create records table after %d attempts: %w", maxAttempts, err)
@@ -227,7 +120,6 @@ func InitializeDatabase(dbPath string) (*sql.DB, error) {
 			continue
 		}
 
-		log.Printf("SQLite database initialized successfully at %s on attempt %d", dbPath, attempt)
 		return db, nil
 	}
 	return nil, fmt.Errorf("failed to initialize database after %d attempts", maxAttempts)
@@ -241,4 +133,89 @@ func InitializeSession(dbPath string) (*PklResourceReader, error) {
 	}
 	// Do NOT close db here; caller will manage closing
 	return &PklResourceReader{DB: db, DBPath: dbPath}, nil
+}
+
+// setRecord stores a session record in the database
+func (r *PklResourceReader) setRecord(id string, query url.Values) ([]byte, error) {
+	if id == "" {
+		return nil, errors.New("invalid URI: no record ID provided for set operation")
+	}
+	newValue := query.Get("value")
+	if newValue == "" {
+		return nil, errors.New("set operation requires a value parameter")
+	}
+
+	result, err := r.DB.Exec(
+		"INSERT OR REPLACE INTO records (id, value) VALUES (?, ?)",
+		id, newValue,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set record: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("failed to check set result: %w", err)
+	}
+	if rowsAffected == 0 {
+		return nil, fmt.Errorf("no record set for ID %s", id)
+	}
+
+	return []byte(newValue), nil
+}
+
+// deleteRecord removes a session record from the database
+func (r *PklResourceReader) deleteRecord(id string) ([]byte, error) {
+	if id == "" {
+		return nil, errors.New("invalid URI: no record ID provided for delete operation")
+	}
+
+	result, err := r.DB.Exec("DELETE FROM records WHERE id = ?", id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete record: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("failed to check delete result: %w", err)
+	}
+
+	return []byte(fmt.Sprintf("Deleted %d record(s)", rowsAffected)), nil
+}
+
+// clearRecords removes all session records from the database
+func (r *PklResourceReader) clearRecords(id string) ([]byte, error) {
+	if id != "_" {
+		return nil, errors.New("clear operation requires path '/_'")
+	}
+
+	result, err := r.DB.Exec("DELETE FROM records")
+	if err != nil {
+		return nil, fmt.Errorf("failed to clear records: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("failed to check clear result: %w", err)
+	}
+
+	return []byte(fmt.Sprintf("Cleared %d records", rowsAffected)), nil
+}
+
+// getRecord retrieves a session record from the database
+func (r *PklResourceReader) getRecord(id string) ([]byte, error) {
+	if id == "" {
+		return nil, errors.New("invalid URI: no record ID provided")
+	}
+
+	var value string
+	err := r.DB.QueryRow("SELECT value FROM records WHERE id = ?", id).Scan(&value)
+	if err == sql.ErrNoRows {
+		return []byte(""), nil // Return empty string for not found
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read record: %w", err)
+	}
+
+	return []byte(value), nil
 }

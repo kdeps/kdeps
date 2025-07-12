@@ -153,6 +153,10 @@ func aFileExistsInTheCurrentDirectory(arg1 string) error {
 }
 
 func aSystemConfigurationIsDefined() error {
+	// Initialize evaluator for this test
+	evaluator.TestSetup(nil)
+	defer evaluator.TestTeardown(nil)
+
 	env := &environment.Environment{
 		Home:           homeDirPath,
 		Pwd:            "",
@@ -254,11 +258,15 @@ func itIsAnInvalidPklFile() error {
 }
 
 func itIsAValidPklFile() error {
+	// Initialize evaluator for this test
+	evaluator.TestSetup(nil)
+	defer evaluator.TestTeardown(nil)
+
 	if err := EnforcePklTemplateAmendsRules(testFs, ctx, fileThatExist, logger); err != nil {
 		return err
 	}
 
-	if _, err := evaluator.EvalPkl(testFs, ctx, fileThatExist, "", logger); err != nil {
+	if _, err := evaluator.EvalPkl(testFs, ctx, fileThatExist, "", nil, logger); err != nil {
 		return err
 	}
 

@@ -12,6 +12,7 @@ import (
 	"github.com/adrg/xdg"
 	"github.com/cucumber/godog"
 	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	assets "github.com/kdeps/schema/assets"
 	"github.com/kdeps/schema/gen/kdeps"
@@ -368,6 +369,10 @@ func TestFindConfigurationUnit(t *testing.T) {
 }
 
 func TestGenerateConfigurationUnit(t *testing.T) {
+	// Initialize evaluator for this test
+	evaluator.TestSetup(t)
+	defer evaluator.TestTeardown(t)
+
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
 
@@ -565,6 +570,10 @@ func TestGetKdepsPath(t *testing.T) {
 }
 
 func TestGenerateConfigurationAdditional(t *testing.T) {
+	// Initialize evaluator for this test
+	evaluator.TestSetup(t)
+	defer evaluator.TestTeardown(t)
+
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
 
@@ -578,7 +587,7 @@ func TestGenerateConfigurationAdditional(t *testing.T) {
 		result, err := GenerateConfiguration(fs, ctx, env, logger)
 		// This will fail when trying to write the file
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to write to")
+		assert.Contains(t, err.Error(), "failed to write")
 		assert.Equal(t, "", result)
 	})
 }

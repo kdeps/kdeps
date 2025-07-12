@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/apple/pkl-go/pkl"
+	"github.com/kdeps/kdeps/pkg/evaluator"
 	pklExec "github.com/kdeps/schema/gen/exec"
 	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
@@ -136,43 +137,18 @@ func (dr *DependencyResolver) LoadResource(ctx context.Context, resourceFile str
 		os.Setenv("KDEPS_CURRENT_VERSION", dr.Workflow.GetVersion())
 	}
 
-	// Define an option function to configure EvaluatorOptions
-	opts := func(options *pkl.EvaluatorOptions) {
-		pkl.WithDefaultAllowedResources(options)
-		pkl.WithOsEnv(options)
-		pkl.WithDefaultAllowedModules(options)
-		pkl.WithDefaultCacheDir(options)
-		options.Logger = pkl.NoopLogger
-		options.ResourceReaders = []pkl.ResourceReader{
-			dr.MemoryReader,
-			dr.SessionReader,
-			dr.ToolReader,
-			dr.ItemReader,
-			dr.AgentReader,
-			dr.PklresReader,
-		}
-		options.AllowedModules = []string{".*"}
-		options.AllowedResources = []string{".*"}
-	}
-
-	// Create evaluator with custom options
-	evaluator, err := pkl.NewEvaluator(ctx, opts)
+	// Get the singleton evaluator
+	pklEvaluator, err := evaluator.GetEvaluator()
 	if err != nil {
-		dr.Logger.Error("error creating evaluator", "error", err)
-		return nil, fmt.Errorf("error creating evaluator: %w", err)
+		dr.Logger.Error("error getting evaluator", "error", err)
+		return nil, fmt.Errorf("error getting evaluator: %w", err)
 	}
-	defer func() {
-		if cerr := evaluator.Close(); cerr != nil && err == nil {
-			err = cerr
-			dr.Logger.Error("error closing evaluator", "error", err)
-		}
-	}()
 
 	// Load the resource based on the resource type
 	source := pkl.FileSource(resourceFile)
 	switch resourceType {
 	case Resource:
-		res, err := pklResource.Load(ctx, evaluator, source)
+		res, err := pklResource.Load(ctx, pklEvaluator, source)
 		if err != nil {
 			dr.Logger.Error("error reading resource file", "resource-file", resourceFile, "error", err)
 			return nil, fmt.Errorf("error reading resource file '%s': %w", resourceFile, err)
@@ -181,7 +157,7 @@ func (dr *DependencyResolver) LoadResource(ctx context.Context, resourceFile str
 		return res, nil
 
 	case ExecResource:
-		res, err := pklExec.Load(ctx, evaluator, source)
+		res, err := pklExec.Load(ctx, pklEvaluator, source)
 		if err != nil {
 			dr.Logger.Error("error reading exec resource file", "resource-file", resourceFile, "error", err)
 			return nil, fmt.Errorf("error reading exec resource file '%s': %w", resourceFile, err)
@@ -190,7 +166,7 @@ func (dr *DependencyResolver) LoadResource(ctx context.Context, resourceFile str
 		return res, nil
 
 	case PythonResource:
-		res, err := pklPython.Load(ctx, evaluator, source)
+		res, err := pklPython.Load(ctx, pklEvaluator, source)
 		if err != nil {
 			dr.Logger.Error("error reading python resource file", "resource-file", resourceFile, "error", err)
 			return nil, fmt.Errorf("error reading python resource file '%s': %w", resourceFile, err)
@@ -199,7 +175,7 @@ func (dr *DependencyResolver) LoadResource(ctx context.Context, resourceFile str
 		return res, nil
 
 	case LLMResource:
-		res, err := pklLLM.Load(ctx, evaluator, source)
+		res, err := pklLLM.Load(ctx, pklEvaluator, source)
 		if err != nil {
 			dr.Logger.Error("error reading llm resource file", "resource-file", resourceFile, "error", err)
 			return nil, fmt.Errorf("error reading llm resource file '%s': %w", resourceFile, err)
@@ -208,7 +184,7 @@ func (dr *DependencyResolver) LoadResource(ctx context.Context, resourceFile str
 		return res, nil
 
 	case HTTPResource:
-		res, err := pklHTTP.Load(ctx, evaluator, source)
+		res, err := pklHTTP.Load(ctx, pklEvaluator, source)
 		if err != nil {
 			dr.Logger.Error("error reading http resource file", "resource-file", resourceFile, "error", err)
 			return nil, fmt.Errorf("error reading http resource file '%s': %w", resourceFile, err)

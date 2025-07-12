@@ -44,28 +44,22 @@ func (r *PklResourceReader) ListElements(_ url.URL) ([]pkl.PathElement, error) {
 func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 	// Check if receiver is nil and initialize with fixed DBPath
 	if r == nil {
-		log.Printf("Warning: PklResourceReader is nil for URI: %s, initializing with DBPath", uri.String())
 		newReader, err := InitializePklResource(r.DBPath)
 		if err != nil {
-			log.Printf("Failed to initialize PklResourceReader in Read: %v", err)
 			return nil, fmt.Errorf("failed to initialize PklResourceReader: %w", err)
 		}
 		r = newReader
-		log.Printf("Initialized PklResourceReader with DBPath")
 	}
 
 	// Check if db is nil and initialize with retries
 	if r.DB == nil {
-		log.Printf("Database connection is nil, attempting to initialize with path: %s", r.DBPath)
 		maxAttempts := 5
 		for attempt := 1; attempt <= maxAttempts; attempt++ {
 			db, err := InitializeDatabase(r.DBPath)
 			if err == nil {
 				r.DB = db
-				log.Printf("Database initialized successfully in Read on attempt %d", attempt)
 				break
 			}
-			log.Printf("Attempt %d: Failed to initialize database in Read: %v", attempt, err)
 			if attempt == maxAttempts {
 				return nil, fmt.Errorf("failed to initialize database after %d attempts: %w", maxAttempts, err)
 			}
@@ -78,8 +72,6 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 	operation := query.Get("op")
 	typ := query.Get("type")
 	key := query.Get("key")
-
-	log.Printf("Read called with URI: %s, operation: %s, type: %s, key: %s", uri.String(), operation, typ, key)
 
 	switch operation {
 	case "set":
@@ -135,33 +127,18 @@ func (r *PklResourceReader) setRecord(id, typ, key string, query url.Values) ([]
 // getRecord retrieves a PKL record from the database
 func (r *PklResourceReader) getRecord(id, typ, key string) ([]byte, error) {
 	if id == "" || typ == "" {
-		log.Printf("getRecord failed: id or type not provided")
 		return nil, errors.New("get operation requires id and type parameters")
 	}
 
-	log.Printf("getRecord processing id: %s, type: %s, key: %s", id, typ, key)
-
 	var value string
-	var err error
-
-	keyValue := key
-	if keyValue == "" {
-		keyValue = "" // Use empty string instead of NULL
-	}
-
-	// Query with consistent key handling
-	err = r.DB.QueryRow("SELECT value FROM records WHERE id = ? AND type = ? AND key = ?", id, typ, keyValue).Scan(&value)
-
+	err := r.DB.QueryRow("SELECT value FROM records WHERE id = ? AND type = ? AND key = ?", id, typ, key).Scan(&value)
 	if err == sql.ErrNoRows {
-		log.Printf("getRecord: no record found for id: %s, type: %s, key: %s", id, typ, key)
 		return []byte(""), nil // Return empty string for not found
 	}
 	if err != nil {
-		log.Printf("getRecord failed to read record for id: %s, type: %s, key: %s, error: %v", id, typ, key, err)
 		return nil, fmt.Errorf("failed to read record: %w", err)
 	}
 
-	log.Printf("getRecord succeeded for id: %s, type: %s, key: %s, value: %s", id, typ, key, value)
 	return []byte(value), nil
 }
 
@@ -286,10 +263,8 @@ func (r *PklResourceReader) listRecords(typ string) ([]byte, error) {
 func InitializeDatabase(dbPath string) (*sql.DB, error) {
 	const maxAttempts = 5
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		log.Printf("Attempt %d: Initializing SQLite database at %s", attempt, dbPath)
 		db, err := sql.Open("sqlite3", dbPath)
 		if err != nil {
-			log.Printf("Attempt %d: Failed to open database: %v", attempt, err)
 			if attempt == maxAttempts {
 				return nil, fmt.Errorf("failed to open database after %d attempts: %w", maxAttempts, err)
 			}
@@ -299,7 +274,6 @@ func InitializeDatabase(dbPath string) (*sql.DB, error) {
 
 		// Verify connection
 		if err := db.Ping(); err != nil {
-			log.Printf("Attempt %d: Failed to ping database: %v", attempt, err)
 			db.Close()
 			if attempt == maxAttempts {
 				return nil, fmt.Errorf("failed to ping database after %d attempts: %w", maxAttempts, err)
@@ -320,7 +294,6 @@ func InitializeDatabase(dbPath string) (*sql.DB, error) {
 			)
 		`)
 		if err != nil {
-			log.Printf("Attempt %d: Failed to create records table: %v", attempt, err)
 			db.Close()
 			if attempt == maxAttempts {
 				return nil, fmt.Errorf("failed to create records table after %d attempts: %w", maxAttempts, err)
@@ -335,7 +308,6 @@ func InitializeDatabase(dbPath string) (*sql.DB, error) {
 			CREATE INDEX IF NOT EXISTS idx_records_id_type ON records(id, type);
 		`)
 		if err != nil {
-			log.Printf("Attempt %d: Failed to create indexes: %v", attempt, err)
 			db.Close()
 			if attempt == maxAttempts {
 				return nil, fmt.Errorf("failed to create indexes after %d attempts: %w", maxAttempts, err)
@@ -344,7 +316,6 @@ func InitializeDatabase(dbPath string) (*sql.DB, error) {
 			continue
 		}
 
-		log.Printf("SQLite database initialized successfully at %s on attempt %d", dbPath, attempt)
 		return db, nil
 	}
 	return nil, fmt.Errorf("failed to initialize database after %d attempts", maxAttempts)
