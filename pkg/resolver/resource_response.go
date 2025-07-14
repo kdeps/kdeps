@@ -118,6 +118,12 @@ func (dr *DependencyResolver) buildResponseSections(requestID string, apiRespons
 			responseData = &apiserverresponse.APIServerResponseBlock{
 				Data: []interface{}{fallbackData},
 			}
+		} else {
+			// If fallback fails, create a basic response
+			dr.Logger.Info("Fallback data is empty, creating basic response", "requestID", requestID)
+			responseData = &apiserverresponse.APIServerResponseBlock{
+				Data: []interface{}{`{"status": "processing", "message": "Request processed successfully but no data available", "requestID": "` + requestID + `"}`},
+			}
 		}
 	} else {
 		dr.Logger.Info("Response data is not empty, using original", "requestID", requestID, "dataLength", len(responseData.Data))
@@ -132,7 +138,7 @@ func (dr *DependencyResolver) buildResponseSections(requestID string, apiRespons
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Agent.pkl" as agent`, schema.SchemaVersion(dr.Context)),
 		fmt.Sprintf("Success = %v", isSuccess),
 		formatResponseMeta(requestID, apiResponseBlock.GetMeta()),
-		formatResponseData(responseData),
+		formatResponseData(responseData), // Use the fallback data if original was empty
 		formatErrors(&responseErrors, dr.Logger),
 	}
 	return sections
@@ -140,7 +146,12 @@ func (dr *DependencyResolver) buildResponseSections(requestID string, apiRespons
 
 func formatResponseData(response *apiserverresponse.APIServerResponseBlock) string {
 	if response == nil || response.Data == nil {
-		return ""
+		// Return empty data structure instead of empty string
+		return `
+Response {
+  Data {
+  }
+}`
 	}
 
 	responseData := make([]string, 0, len(response.Data))
@@ -153,7 +164,12 @@ func formatResponseData(response *apiserverresponse.APIServerResponseBlock) stri
 	}
 
 	if len(responseData) == 0 {
-		return ""
+		// Return empty data structure instead of empty string
+		return `
+Response {
+  Data {
+  }
+}`
 	}
 
 	return fmt.Sprintf(`

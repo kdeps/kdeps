@@ -293,19 +293,38 @@ func (dr *DependencyResolver) DoRequest(client *pklHTTP.ResourceHTTPClient) erro
 		},
 	}
 
+	// Parse and clean the URL first to handle any URL encoding issues
+	parsedURL, err := url.Parse(client.Url)
+	if err != nil {
+		return fmt.Errorf("invalid URL %q: %w", client.Url, err)
+	}
+
+	// URL-encode the path component to handle spaces and special characters
+	// This fixes issues where PKL interpolation creates URLs with unencoded characters
+	if parsedURL.Path != "" && strings.Contains(parsedURL.Path, " ") {
+		// Split path to preserve the base path and encode only the last segment
+		pathParts := strings.Split(strings.Trim(parsedURL.Path, "/"), "/")
+		if len(pathParts) > 0 {
+			// URL-encode the last path segment (which typically contains the search term)
+			lastSegment := pathParts[len(pathParts)-1]
+			pathParts[len(pathParts)-1] = url.PathEscape(lastSegment)
+			parsedURL.Path = "/" + strings.Join(pathParts, "/")
+		}
+	}
+
 	// Process query parameters
 	if client.Params != nil {
-		parsedURL, err := url.Parse(client.Url)
-		if err != nil {
-			return fmt.Errorf("invalid URL %q: %w", client.Url, err)
-		}
 		query := parsedURL.Query()
 		for k, v := range *client.Params {
 			query.Add(k, v)
 		}
 		parsedURL.RawQuery = query.Encode()
-		client.Url = parsedURL.String()
 	}
+	
+	client.Url = parsedURL.String()
+	
+	// Debug: Log the final URL being requested
+	dr.Logger.Info("HTTP request URL", "url", client.Url, "method", client.Method)
 
 	// Handle request body
 	var reqBody io.Reader

@@ -91,6 +91,11 @@ func GetLogger() *Logger {
 	return logger
 }
 
+// IsDebugEnabled returns true if debug logging is enabled
+func (l *Logger) IsDebugEnabled() bool {
+	return l.Logger.GetLevel() <= log.DebugLevel
+}
+
 // UnderlyingLogger returns the underlying *log.Logger from the custom Logger.
 func (l *Logger) BaseLogger() *log.Logger {
 	if l == nil || l.Logger == nil {

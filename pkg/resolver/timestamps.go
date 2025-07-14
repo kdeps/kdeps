@@ -231,22 +231,28 @@ func (dr *DependencyResolver) WaitForTimestampChange(resourceID string, initialT
 		// Check if timestamp has changed
 		timestampDiff := currentTimestamp.Value - initialTimestamp.Value
 		if timestampDiff > 0 { // Allow for any positive difference
-			dr.Logger.Debug("WaitForTimestampChange: timestamp change detected",
-				"resourceID", resourceID,
-				"resourceType", resourceType,
-				"difference", timestampDiff,
-				"elapsed", formatDuration(time.Since(startTime)))
+			// Only log timestamp changes for debugging, not for normal operations
+			if dr.Logger.IsDebugEnabled() {
+				dr.Logger.Debug("WaitForTimestampChange: timestamp change detected",
+					"resourceID", resourceID,
+					"resourceType", resourceType,
+					"difference", timestampDiff,
+					"elapsed", formatDuration(time.Since(startTime)))
+			}
 			return nil
 		}
 
 		// Log progress only every 5 seconds to reduce spam
 		elapsed := time.Since(startTime)
 		if elapsed > lastLogTime.Sub(startTime)+logInterval {
-			dr.Logger.Debug("WaitForTimestampChange: still waiting",
-				"resourceID", resourceID,
-				"resourceType", resourceType,
-				"elapsed", formatDuration(elapsed),
-				"remaining", formatDuration(timeoutDuration-elapsed))
+			// Only log if timeout is more than 10 seconds to avoid spam for short operations
+			if timeoutDuration > 10*time.Second {
+				dr.Logger.Debug("WaitForTimestampChange: still waiting",
+					"resourceID", resourceID,
+					"resourceType", resourceType,
+					"elapsed", formatDuration(elapsed),
+					"remaining", formatDuration(timeoutDuration-elapsed))
+			}
 			lastLogTime = time.Now()
 		}
 
@@ -265,7 +271,6 @@ func parseTimestampFromPklContent(content string) *pkl.Duration {
 		if strings.HasPrefix(line, "Timestamp = ") {
 			// Extract the timestamp value
 			timestampStr := strings.TrimPrefix(line, "Timestamp = ")
-			fmt.Printf("DEBUG: Found timestamp line: '%s', extracted: '%s'\n", line, timestampStr)
 
 			// Parse the value and unit
 			if strings.Contains(timestampStr, ".") {
@@ -273,11 +278,9 @@ func parseTimestampFromPklContent(content string) *pkl.Duration {
 				if lastDot > 0 && lastDot < len(timestampStr)-1 {
 					valueStr := timestampStr[:lastDot]
 					unitStr := timestampStr[lastDot+1:]
-					fmt.Printf("DEBUG: Parsed parts - value: '%s', unit: '%s'\n", valueStr, unitStr)
 
 					// Parse the value
 					if value, err := parseFloat(valueStr); err == nil {
-						fmt.Printf("DEBUG: Successfully parsed value: %f\n", value)
 						// Determine the unit
 						var unit pkl.DurationUnit
 						switch {
@@ -297,19 +300,15 @@ func parseTimestampFromPklContent(content string) *pkl.Duration {
 							unit = pkl.Nanosecond // default
 						}
 
-						fmt.Printf("DEBUG: Returning timestamp with value: %f, unit: %s\n", value, unit.String())
 						return &pkl.Duration{
 							Value: value,
 							Unit:  unit,
 						}
-					} else {
-						fmt.Printf("DEBUG: Failed to parse value '%s': %v\n", valueStr, err)
 					}
 				}
 			}
 		}
 	}
-	fmt.Printf("DEBUG: No timestamp found in content\n")
 	return nil
 }
 

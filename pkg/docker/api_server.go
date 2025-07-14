@@ -715,12 +715,22 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			}
 		}
 
-		// If there are any errors (workflow or APIResponse), send error response (fail-fast behavior)
-		if len(errors) > 0 {
+		// Check if we have data to return
+		hasData := decodedResp.Response.Data != nil && len(decodedResp.Response.Data) > 0
+		
+		// If there are critical errors AND no data, send error response (fail-fast behavior)
+		if len(errors) > 0 && !hasData {
 			// Add generic context error for fail-fast scenarios
 			addUniqueError(&errors, http.StatusInternalServerError, messages.ErrEmptyResponse, getActionID())
 			sendErrorResponse(http.StatusInternalServerError, errors)
 			return
+		}
+
+		// If we have data but also have errors, log the errors but continue with the response
+		if len(errors) > 0 && hasData {
+			logger.Warn("Response contains errors but also has data, returning data", "errors", errors, "dataLength", len(decodedResp.Response.Data))
+			// Clear non-critical errors if we have data to return
+			errors = []ErrorResponse{}
 		}
 
 		if decodedResp.Meta.Headers != nil {
