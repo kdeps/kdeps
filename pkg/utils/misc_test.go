@@ -49,7 +49,7 @@ func TestPKLHTTPFormattersMisc(t *testing.T) {
 	params := map[string][]string{"q": {" go ", "lang"}}
 	formattedParams := FormatRequestParams(params)
 	assert.True(t, strings.HasPrefix(formattedParams, "Params {"))
-	assert.Contains(t, formattedParams, EncodeBase64String("go")) // Trimmed
+	assert.Contains(t, formattedParams, EncodeBase64String("go")) // Trimmed and base64 encoded
 
 	respHeaders := map[string]string{"Content-Type": "application/json"}
 	formattedRespHeaders := FormatResponseHeaders(respHeaders)

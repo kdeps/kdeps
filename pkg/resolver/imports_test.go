@@ -65,7 +65,7 @@ func TestPrepareImportFiles_CreatesFiles(t *testing.T) {
 	// Verify that skeleton records exist in pklres instead of on-disk files
 	resourceTypes := []string{"llm", "client", "exec", "python", "data"}
 	for _, rt := range resourceTypes {
-		_, err := dr.PklresHelper.retrievePklContent(rt, "")
+		_, err := dr.PklresHelper.retrievePklContent(rt, "__empty__")
 		assert.NoError(t, err)
 	}
 }
@@ -82,7 +82,7 @@ func TestPrependDynamicImports_AddsImports(t *testing.T) {
 	dr.PklresHelper = NewPklresHelper(dr)
 	dr.PklresReader, _ = pklres.InitializePklResource(":memory:")
 	// store empty exec structure
-	_ = dr.PklresHelper.storePklContent("exec", "", "Exec {}\n")
+	_ = dr.PklresHelper.storePklContent("exec", "__empty__", "Exec {}\n")
 
 	assert.NoError(t, dr.PrependDynamicImports(pklFile))
 	content, _ := afero.ReadFile(dr.Fs, pklFile)
@@ -301,28 +301,15 @@ func TestPrepareImportFilesCreatesStubs(t *testing.T) {
 	require.NoError(t, err)
 	defer workspace.Cleanup()
 
-	fs := afero.NewMemMapFs()
-	dr := &DependencyResolver{
-		Fs:        fs,
-		ActionDir: "/agent/action",
-		RequestID: "abc",
-		Context:   context.Background(),
-	}
+	dr := newTestResolver()
+	assert.NoError(t, dr.PrepareImportFiles())
 
-	dr.PklresReader, _ = pklres.InitializePklResource(":memory:")
-	dr.PklresHelper = NewPklresHelper(dr)
-
-	err = dr.PrepareImportFiles()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	// Verify that skeleton records exist in pklres instead of on-disk files
+	resourceTypes := []string{"llm", "client", "exec", "python", "data"}
+	for _, rt := range resourceTypes {
+		_, err := dr.PklresHelper.retrievePklContent(rt, "__empty__")
+		assert.NoError(t, err, rt+" record not created")
 	}
-
-	// Check pklres record for exec type
-	content, err := dr.PklresHelper.retrievePklContent("exec", "")
-	if err != nil {
-		t.Fatalf("exec record not created: %v", err)
-	}
-	_ = content // content may be empty; presence of record indicates success
 }
 
 func TestPrependDynamicImportsExtra(t *testing.T) {

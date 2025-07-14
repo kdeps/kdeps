@@ -325,13 +325,13 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_Run_SQLExecFails", func(t *testing.T) {
-		// Mock DB that fails on Exec
-		db, _ := sql.Open("sqlite3", ":memory:")
-		db.Exec(`CREATE TABLE IF NOT EXISTS tools (id TEXT PRIMARY KEY, value TEXT)`)
-		db.Exec(`CREATE TABLE IF NOT EXISTS history (id TEXT, value TEXT, timestamp INTEGER)`)
-		// Close DB to force Exec to fail
-		db.Close()
-		mockReader := &PklResourceReader{DB: db}
+		// Create a mock DB that fails on Exec
+		mockDB := newMockDB()
+		mockDB.execFunc = func(query string, args ...interface{}) (sql.Result, error) {
+			return nil, fmt.Errorf("mock exec error")
+		}
+
+		mockReader := &PklResourceReader{DB: mockDB.db}
 		uri, _ := url.Parse("tool:///failtest?op=run&script=echo")
 		_, err := mockReader.Read(*uri)
 		require.Error(t, err)

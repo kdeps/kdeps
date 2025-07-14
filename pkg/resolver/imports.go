@@ -70,7 +70,7 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 			// Extract the resource type from the path
 			if parts := strings.Split(file, "?type="); len(parts) == 2 {
 				resourceType := strings.Split(parts[1], "&")[0]
-				_, err := dr.PklresHelper.retrievePklContent(resourceType, "")
+				_, err := dr.PklresHelper.retrievePklContent(resourceType, "__empty__")
 				return err == nil
 			}
 			return false
@@ -161,7 +161,7 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 			emptyContent := fmt.Sprintf("%s%s {\n}\n", header, info.BlockName)
 
 			// Store the empty structure
-			if err := dr.PklresHelper.storePklContent(resourceType, "", emptyContent); err != nil {
+			if err := dr.PklresHelper.storePklContent(resourceType, "__empty__", emptyContent); err != nil {
 				return fmt.Errorf("failed to initialize empty %s structure in pklres: %w", key, err)
 			}
 		} else {
@@ -172,7 +172,7 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 			emptyContent := fmt.Sprintf("%s%s {\n}\n", header, info.BlockName)
 
 			// Store the empty structure (this will overwrite if it exists)
-			if err := dr.PklresHelper.storePklContent(resourceType, "", emptyContent); err != nil {
+			if err := dr.PklresHelper.storePklContent(resourceType, "__empty__", emptyContent); err != nil {
 				return fmt.Errorf("failed to initialize empty %s structure in pklres: %w", key, err)
 			}
 		}

@@ -32,8 +32,10 @@ import (
 	"github.com/kdeps/kdeps/pkg/session"
 	"github.com/kdeps/kdeps/pkg/tool"
 	"github.com/kdeps/kdeps/pkg/utils"
+	pklExec "github.com/kdeps/schema/gen/exec"
 	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
+	pklPython "github.com/kdeps/schema/gen/python"
 	pklRes "github.com/kdeps/schema/gen/resource"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
@@ -88,11 +90,12 @@ type DependencyResolver struct {
 	WaitForTimestampChangeFn func(string, pkl.Duration, time.Duration, string) error `json:"-"`
 
 	// Additional injectable helpers for broader unit testing
-	LoadResourceEntriesFn  func() error                                                          `json:"-"`
-	LoadResourceFn         func(context.Context, string, ResourceType) (interface{}, error)      `json:"-"`
-	BuildDependencyStackFn func(string, map[string]bool) []string                                `json:"-"`
-	ProcessRunBlockFn      func(ResourceNodeEntry, *pklRes.Resource, string, bool) (bool, error) `json:"-"`
-	ClearItemDBFn          func() error                                                          `json:"-"`
+	LoadResourceEntriesFn            func() error                                                          `json:"-"`
+	LoadResourceFn                   func(context.Context, string, ResourceType) (interface{}, error)      `json:"-"`
+	LoadResourceWithRequestContextFn func(context.Context, string, ResourceType) (interface{}, error)      `json:"-"`
+	BuildDependencyStackFn           func(string, map[string]bool) []string                                `json:"-"`
+	ProcessRunBlockFn                func(ResourceNodeEntry, *pklRes.Resource, string, bool) (bool, error) `json:"-"`
+	ClearItemDBFn                    func() error                                                          `json:"-"`
 
 	// Chat / HTTP injection helpers
 	NewLLMFn               func(model string) (*ollama.LLM, error)                                                                                      `json:"-"`
@@ -198,31 +201,45 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	if kdepsBase == "" {
 		kdepsBase = "/.kdeps/"
 	}
+
+	// Ensure kdepsBase directory exists
+	if err := utils.CreateDirectories(fs, ctx, []string{kdepsBase}); err != nil {
+		return nil, fmt.Errorf("error creating kdeps base directory: %w", err)
+	}
+
 	memoryDBPath = filepath.Join(kdepsBase, agentName+"_memory.db")
 	memoryReader, err := memory.InitializeMemory(memoryDBPath)
 	if err != nil {
-		memoryReader.DB.Close()
+		if memoryReader != nil {
+			memoryReader.DB.Close()
+		}
 		return nil, fmt.Errorf("failed to initialize DB memory: %w", err)
 	}
 
 	sessionDBPath = filepath.Join(actionDir, graphID+"_session.db")
 	sessionReader, err := session.InitializeSession(sessionDBPath)
 	if err != nil {
-		sessionReader.DB.Close()
+		if sessionReader != nil {
+			sessionReader.DB.Close()
+		}
 		return nil, fmt.Errorf("failed to initialize session DB: %w", err)
 	}
 
 	toolDBPath = filepath.Join(actionDir, graphID+"_tool.db")
 	toolReader, err := tool.InitializeTool(toolDBPath)
 	if err != nil {
-		toolReader.DB.Close()
+		if toolReader != nil {
+			toolReader.DB.Close()
+		}
 		return nil, fmt.Errorf("failed to initialize tool DB: %w", err)
 	}
 
 	itemDBPath = filepath.Join(actionDir, graphID+"_item.db")
 	itemReader, err := item.InitializeItem(itemDBPath, nil)
 	if err != nil {
-		itemReader.DB.Close()
+		if itemReader != nil {
+			itemReader.DB.Close()
+		}
 		return nil, fmt.Errorf("failed to initialize item DB: %w", err)
 	}
 
@@ -235,7 +252,9 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	pklresDBPath := filepath.Join(kdepsBase, agentName+"_pklres.db")
 	pklresReader, err := pklres.InitializePklResource(pklresDBPath)
 	if err != nil {
-		pklresReader.DB.Close()
+		if pklresReader != nil {
+			pklresReader.DB.Close()
+		}
 		return nil, fmt.Errorf("failed to initialize pklres DB: %w", err)
 	}
 
@@ -325,6 +344,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	// Default injection for broader functions (now that Graph is initialized)
 	dependencyResolver.LoadResourceEntriesFn = dependencyResolver.LoadResourceEntries
 	dependencyResolver.LoadResourceFn = dependencyResolver.LoadResource
+	dependencyResolver.LoadResourceWithRequestContextFn = dependencyResolver.LoadResourceWithRequestContext
 	dependencyResolver.BuildDependencyStackFn = dependencyResolver.Graph.BuildDependencyStack
 	dependencyResolver.ProcessRunBlockFn = dependencyResolver.processRunBlock
 	dependencyResolver.ClearItemDBFn = dependencyResolver.ClearItemDB
@@ -364,10 +384,23 @@ func (dr *DependencyResolver) ClearItemDB() error {
 // processResourceStep consolidates the pattern of: get timestamp, run a handler, adjust timeout (if provided),
 // then wait for the timestamp change.
 func (dr *DependencyResolver) processResourceStep(resourceID, step string, timeoutPtr *pkl.Duration, handler func() error) error {
-	timestamp, err := dr.GetCurrentTimestampFn(resourceID, step)
+	dr.Logger.Debug("processResourceStep: about to call handler", "resourceID", resourceID, "step", step, "handler_is_nil", handler == nil)
+	// Canonicalize the resourceID if it's a short ActionID
+	canonicalResourceID := resourceID
+	if dr.PklresHelper != nil {
+		canonicalResourceID = dr.PklresHelper.resolveActionID(resourceID)
+		if canonicalResourceID != resourceID {
+			dr.Logger.Debug("canonicalized resourceID", "original", resourceID, "canonical", canonicalResourceID)
+		}
+	}
+
+	dr.Logger.Debug("processResourceStep: getting initial timestamp", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step)
+	timestamp, err := dr.GetCurrentTimestampFn(canonicalResourceID, step)
 	if err != nil {
+		dr.Logger.Error("processResourceStep: failed to get initial timestamp", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step, "error", err)
 		return fmt.Errorf("%s error: %w", step, err)
 	}
+	dr.Logger.Debug("processResourceStep: got initial timestamp", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step, "timestamp", timestamp.Value)
 
 	var timeout time.Duration
 	switch {
@@ -381,13 +414,26 @@ func (dr *DependencyResolver) processResourceStep(resourceID, step string, timeo
 		timeout = 60 * time.Second
 	}
 
-	if err := handler(); err != nil {
+	dr.Logger.Debug("processResourceStep: executing handler", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step, "timeout", timeout)
+	if handler == nil {
+		dr.Logger.Error("processResourceStep: handler is nil", "resourceID", resourceID, "step", step)
+		return fmt.Errorf("handler is nil for resourceID %s step %s", resourceID, step)
+	}
+	dr.Logger.Info("processResourceStep: about to call handler", "resourceID", resourceID, "step", step)
+	err = handler()
+	dr.Logger.Info("processResourceStep: handler returned", "resourceID", resourceID, "step", step, "err", err)
+	if err != nil {
+		dr.Logger.Error("processResourceStep: handler failed", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step, "error", err)
 		return fmt.Errorf("%s error: %w", step, err)
 	}
+	dr.Logger.Debug("processResourceStep: handler completed successfully", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step)
 
-	if err := dr.WaitForTimestampChangeFn(resourceID, timestamp, timeout, step); err != nil {
+	dr.Logger.Debug("processResourceStep: waiting for timestamp change", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step, "initialTimestamp", timestamp.Value, "timeout", timeout)
+	if err := dr.WaitForTimestampChangeFn(canonicalResourceID, timestamp, timeout, step); err != nil {
+		dr.Logger.Error("processResourceStep: timeout waiting for timestamp change", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step, "initialTimestamp", timestamp.Value, "error", err)
 		return fmt.Errorf("%s timeout awaiting for output: %w", step, err)
 	}
+	dr.Logger.Debug("processResourceStep: timestamp change detected", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step)
 	return nil
 }
 
@@ -461,12 +507,24 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			dr.Logger.Error("panic recovered in HandleRunAction", "panic", r)
 
 			// Close the DB
-			dr.MemoryReader.DB.Close()
-			dr.SessionReader.DB.Close()
-			dr.ToolReader.DB.Close()
-			dr.ItemReader.DB.Close()
-			dr.AgentReader.Close()
-			dr.PklresReader.DB.Close()
+			if dr.MemoryReader != nil && dr.MemoryReader.DB != nil {
+				dr.MemoryReader.DB.Close()
+			}
+			if dr.SessionReader != nil && dr.SessionReader.DB != nil {
+				dr.SessionReader.DB.Close()
+			}
+			if dr.ToolReader != nil && dr.ToolReader.DB != nil {
+				dr.ToolReader.DB.Close()
+			}
+			if dr.ItemReader != nil && dr.ItemReader.DB != nil {
+				dr.ItemReader.DB.Close()
+			}
+			if dr.AgentReader != nil {
+				dr.AgentReader.Close()
+			}
+			if dr.PklresReader != nil && dr.PklresReader.DB != nil {
+				dr.PklresReader.DB.Close()
+			}
 
 			// Close the singleton evaluator
 			if evaluatorMgr, err := evaluator.GetEvaluatorManager(); err == nil {
@@ -512,8 +570,14 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			// Set the current resource actionID for error context
 			dr.CurrentResourceActionID = res.ActionID
 
-			// Load the resource
-			resPkl, err := dr.LoadResourceFn(dr.Context, res.File, Resource)
+			// Load the resource with request context if in API server mode
+			var resPkl interface{}
+			var err error
+			if dr.APIServerMode {
+				resPkl, err = dr.LoadResourceWithRequestContextFn(dr.Context, res.File, Resource)
+			} else {
+				resPkl, err = dr.LoadResourceFn(dr.Context, res.File, Resource)
+			}
 			if err != nil {
 				return dr.HandleAPIErrorResponse(500, err.Error(), true)
 			}
@@ -560,7 +624,11 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 					}
 
 					// reload the resource
-					resPkl, err = dr.LoadResourceFn(dr.Context, res.File, Resource)
+					if dr.APIServerMode {
+						resPkl, err = dr.LoadResourceWithRequestContextFn(dr.Context, res.File, Resource)
+					} else {
+						resPkl, err = dr.LoadResourceFn(dr.Context, res.File, Resource)
+					}
 					if err != nil {
 						return dr.HandleAPIErrorResponse(500, err.Error(), true)
 					}
@@ -594,12 +662,24 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	}
 
 	// Close the DB
-	dr.MemoryReader.DB.Close()
-	dr.SessionReader.DB.Close()
-	dr.ToolReader.DB.Close()
-	dr.ItemReader.DB.Close()
-	dr.AgentReader.Close()
-	dr.PklresReader.DB.Close()
+	if dr.MemoryReader != nil && dr.MemoryReader.DB != nil {
+		dr.MemoryReader.DB.Close()
+	}
+	if dr.SessionReader != nil && dr.SessionReader.DB != nil {
+		dr.SessionReader.DB.Close()
+	}
+	if dr.ToolReader != nil && dr.ToolReader.DB != nil {
+		dr.ToolReader.DB.Close()
+	}
+	if dr.ItemReader != nil && dr.ItemReader.DB != nil {
+		dr.ItemReader.DB.Close()
+	}
+	if dr.AgentReader != nil {
+		dr.AgentReader.Close()
+	}
+	if dr.PklresReader != nil && dr.PklresReader.DB != nil {
+		dr.PklresReader.DB.Close()
+	}
 
 	// Note: Evaluator is closed by the caller after EvalPklFormattedResponseFile
 	// to ensure it's available for response file evaluation
@@ -634,6 +714,18 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 	// Increment the run counter for this file
 	dr.FileRunCounter[res.File]++
 	dr.Logger.Info("processing run block for file", "file", res.File, "runCount", dr.FileRunCounter[res.File], "actionID", actionID)
+
+	// Debug logging for Chat block values
+	if rsc.Run != nil && rsc.Run.Chat != nil {
+		dr.Logger.Info("processRunBlock: Chat block found", "actionID", actionID,
+			"model", rsc.Run.Chat.Model,
+			"prompt_nil", rsc.Run.Chat.Prompt == nil,
+			"scenario_nil", rsc.Run.Chat.Scenario == nil)
+	} else {
+		dr.Logger.Info("processRunBlock: No Chat block", "actionID", actionID,
+			"run_nil", rsc.Run == nil,
+			"chat_nil", rsc.Run == nil || rsc.Run.Chat == nil)
+	}
 
 	runBlock := rsc.Run
 	if runBlock == nil {
@@ -777,6 +869,37 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 		return true, nil
 	}
 
+	// Store initial resource state in pklres for timestamp lookups
+	// This ensures that when processResourceStep calls GetCurrentTimestamp, the resource exists in pklres
+	if dr.PklresHelper != nil {
+		dr.Logger.Debug("storing initial resource state in pklres for timestamp lookups", "actionID", res.ActionID)
+
+		// Store initial state for each step type that might be processed
+		if runBlock.Exec != nil && runBlock.Exec.Command != "" {
+			if err := dr.storeInitialResourceState(res.ActionID, "exec", runBlock.Exec); err != nil {
+				dr.Logger.Warn("failed to store initial exec resource state", "actionID", res.ActionID, "error", err)
+			}
+		}
+
+		if runBlock.Python != nil && runBlock.Python.Script != "" {
+			if err := dr.storeInitialResourceState(res.ActionID, "python", runBlock.Python); err != nil {
+				dr.Logger.Warn("failed to store initial python resource state", "actionID", res.ActionID, "error", err)
+			}
+		}
+
+		if runBlock.Chat != nil && runBlock.Chat.Model != "" && (runBlock.Chat.Prompt != nil || runBlock.Chat.Scenario != nil) {
+			if err := dr.storeInitialResourceState(res.ActionID, "llm", runBlock.Chat); err != nil {
+				dr.Logger.Warn("failed to store initial llm resource state", "actionID", res.ActionID, "error", err)
+			}
+		}
+
+		if runBlock.HTTPClient != nil && runBlock.HTTPClient.Method != "" && runBlock.HTTPClient.Url != "" {
+			if err := dr.storeInitialResourceState(res.ActionID, "client", runBlock.HTTPClient); err != nil {
+				dr.Logger.Warn("failed to store initial http client resource state", "actionID", res.ActionID, "error", err)
+			}
+		}
+	}
+
 	// Process Exec step, if defined
 	if runBlock.Exec != nil && runBlock.Exec.Command != "" {
 		if err := dr.processResourceStep(res.ActionID, "exec", runBlock.Exec.TimeoutDuration, func() error {
@@ -799,6 +922,14 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 
 	// Process Chat (LLM) step, if defined
 	if runBlock.Chat != nil && runBlock.Chat.Model != "" && (runBlock.Chat.Prompt != nil || runBlock.Chat.Scenario != nil) {
+		model := ""
+		promptNil := true
+		if runBlock.Chat != nil {
+			model = runBlock.Chat.Model
+			promptNil = runBlock.Chat.Prompt == nil
+		}
+		dr.Logger.Info("processRunBlock: about to call LLM handler", "actionID", res.ActionID, "model", model, "promptNil", promptNil)
+		dr.Logger.Info("[DEBUG] About to process LLM chat step", "actionID", res.ActionID)
 		dr.Logger.Info("Processing LLM chat step", "actionID", res.ActionID, "hasPrompt", runBlock.Chat.Prompt != nil, "hasScenario", runBlock.Chat.Scenario != nil)
 		if runBlock.Chat.Scenario != nil {
 			dr.Logger.Info("Scenario present", "length", len(*runBlock.Chat.Scenario))
@@ -809,11 +940,64 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 			dr.Logger.Error("LLM chat error", "actionID", res.ActionID, "error", err)
 			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("LLM chat failed for resource: %s - %s", res.ActionID, err), true)
 		}
+		dr.Logger.Info("[DEBUG] Finished processing LLM chat step", "actionID", res.ActionID)
 	} else {
+		// Debug logging to see why the LLM step is being skipped
+		dr.Logger.Info("processRunBlock: LLM step skipped - debug info", "actionID", res.ActionID,
+			"runBlock.Chat_nil", runBlock.Chat == nil,
+			"model_empty", func() bool {
+				if runBlock.Chat != nil {
+					return runBlock.Chat.Model == ""
+				} else {
+					return true
+				}
+			}(),
+			"prompt_and_scenario_nil", func() bool {
+				if runBlock.Chat != nil {
+					return (runBlock.Chat.Prompt == nil && runBlock.Chat.Scenario == nil)
+				} else {
+					return true
+				}
+			}())
+		if runBlock.Chat != nil {
+			dr.Logger.Info("processRunBlock: Chat block details", "actionID", res.ActionID,
+				"model", runBlock.Chat.Model,
+				"prompt_nil", runBlock.Chat.Prompt == nil,
+				"scenario_nil", runBlock.Chat.Scenario == nil)
+		}
 		dr.Logger.Info("Skipping LLM chat step", "actionID", res.ActionID, "chatNil",
 			runBlock.Chat == nil, "modelEmpty", runBlock.Chat == nil || runBlock.Chat.Model == "",
 			"promptAndScenarioNil", runBlock.Chat != nil && runBlock.Chat.Prompt == nil &&
 				runBlock.Chat.Scenario == nil)
+
+		// Fallback: If this file is an LLM resource, try to load and process as LLM
+		resourceType := dr.detectResourceType(res.File)
+		if resourceType == LLMResource {
+			dr.Logger.Warn("Fallback: Entered fallback LLM processing block", "file", res.File, "actionID", res.ActionID)
+			llmImplIface, err := pklLLM.Load(dr.Context, nil, pkl.FileSource(res.File))
+			if err != nil {
+				dr.Logger.Error("Fallback: Failed to load as LLM resource", "file", res.File, "error", err)
+				return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Failed to load LLM resource for file %s: %v", res.File, err), true)
+			}
+			llmImpl, ok := llmImplIface.(*pklLLM.LLMImpl)
+			if ok && llmImpl != nil {
+				dr.Logger.Warn("Fallback: Loaded LLMImpl, iterating resources", "resourceCount", len(llmImpl.Resources))
+				for llmActionID, llmRes := range llmImpl.Resources {
+					dr.Logger.Warn("Fallback: Processing LLM resource", "llmActionID", llmActionID, "llmRes_nil", llmRes == nil)
+					if llmRes != nil && llmRes.Model != "" && (llmRes.Prompt != nil || llmRes.Scenario != nil) {
+						dr.Logger.Info("Fallback: About to call processResourceStep for LLM resource", "llmActionID", llmActionID, "handler_is_nil", false)
+						err := dr.processResourceStep(llmActionID, "llm", llmRes.TimeoutDuration, func() error {
+							return dr.HandleLLMChat(llmActionID, llmRes)
+						})
+						if err != nil {
+							dr.Logger.Error("Fallback: LLM chat error", "actionID", llmActionID, "error", err)
+							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("LLM chat failed for resource: %s - %s", llmActionID, err), true)
+						}
+						dr.Logger.Info("Fallback: Finished processResourceStep for LLM resource", "llmActionID", llmActionID)
+					}
+				}
+			}
+		}
 	}
 
 	// Process HTTP Client step, if defined
@@ -822,9 +1006,84 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 			return dr.HandleHTTPClient(res.ActionID, runBlock.HTTPClient)
 		}); err != nil {
 			dr.Logger.Error("HTTP client error:", res.ActionID)
-			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("HTTP client failed for resource: %s - %s", res.ActionID, err), true)
+			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("HTTP client failed for resource: %s - client error: %s", res.ActionID, err), true)
 		}
 	}
 
 	return true, nil
+}
+
+// storeInitialResourceState stores the initial state of a resource in pklres for timestamp lookups
+func (dr *DependencyResolver) storeInitialResourceState(actionID, resourceType string, resource interface{}) error {
+	if dr.PklresHelper == nil {
+		return fmt.Errorf("PklresHelper is not initialized")
+	}
+
+	// Create a basic PKL content structure for the resource
+	var pklContent strings.Builder
+	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@0.4.0#/%s.pkl\"\n\n", strings.Title(resourceType)))
+	pklContent.WriteString("Resources {\n")
+	pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", actionID))
+
+	// Add basic fields based on resource type
+	switch resourceType {
+	case "exec":
+		if exec, ok := resource.(*pklExec.ResourceExec); ok {
+			pklContent.WriteString(fmt.Sprintf("    Command = \"%s\"\n", exec.Command))
+			if exec.TimeoutDuration != nil {
+				pklContent.WriteString(fmt.Sprintf("    TimeoutDuration = %d.s\n", int(exec.TimeoutDuration.GoDuration().Seconds())))
+			} else {
+				pklContent.WriteString("    TimeoutDuration = -1.s\n")
+			}
+		}
+	case "python":
+		if python, ok := resource.(*pklPython.ResourcePython); ok {
+			pklContent.WriteString(fmt.Sprintf("    Script = \"%s\"\n", python.Script))
+			if python.TimeoutDuration != nil {
+				pklContent.WriteString(fmt.Sprintf("    TimeoutDuration = %d.s\n", int(python.TimeoutDuration.GoDuration().Seconds())))
+			} else {
+				pklContent.WriteString("    TimeoutDuration = 60.s\n")
+			}
+		}
+	case "llm":
+		if llm, ok := resource.(*pklLLM.ResourceChat); ok {
+			pklContent.WriteString(fmt.Sprintf("    Model = \"%s\"\n", llm.Model))
+			if llm.TimeoutDuration != nil {
+				pklContent.WriteString(fmt.Sprintf("    TimeoutDuration = %d.s\n", int(llm.TimeoutDuration.GoDuration().Seconds())))
+			} else {
+				pklContent.WriteString("    TimeoutDuration = 60.s\n")
+			}
+		}
+	case "client":
+		if client, ok := resource.(*pklHTTP.ResourceHTTPClient); ok {
+			pklContent.WriteString(fmt.Sprintf("    Method = \"%s\"\n", client.Method))
+			pklContent.WriteString(fmt.Sprintf("    Url = \"%s\"\n", client.Url))
+			if client.TimeoutDuration != nil {
+				pklContent.WriteString(fmt.Sprintf("    TimeoutDuration = %d.s\n", int(client.TimeoutDuration.GoDuration().Seconds())))
+			} else {
+				pklContent.WriteString("    TimeoutDuration = -1.s\n")
+			}
+		}
+	}
+
+	// Add timestamp
+	pklContent.WriteString(fmt.Sprintf("    Timestamp = %g.ns\n", float64(time.Now().UnixNano())))
+
+	// Add empty fields
+	pklContent.WriteString("    Env {}\n")
+	pklContent.WriteString("    Stderr = \"\"\n")
+	pklContent.WriteString("    Stdout = \"\"\n")
+	pklContent.WriteString("    File = \"\"\n")
+	pklContent.WriteString("    ExitCode = 0\n")
+	pklContent.WriteString("    ItemValues {}\n")
+
+	pklContent.WriteString("  }\n")
+	pklContent.WriteString("}\n")
+
+	// Store the PKL content in pklres using the canonical ActionID as the key
+	canonicalActionID := actionID
+	if dr.PklresHelper != nil {
+		canonicalActionID = dr.PklresHelper.resolveActionID(actionID)
+	}
+	return dr.PklresHelper.storePklContent(resourceType, canonicalActionID, pklContent.String())
 }

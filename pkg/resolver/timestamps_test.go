@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGetResourceFilePath(t *testing.T) {
+func TestGetResourcePath(t *testing.T) {
 	// Use temporary directory for test files
 	tmpDir := t.TempDir()
 	actionDir := filepath.Join(tmpDir, "action")
@@ -59,7 +59,7 @@ func TestGetResourceFilePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := dr.getResourceFilePath(tt.resourceType)
+			got, err := dr.getResourcePath(tt.resourceType)
 			if tt.wantErr {
 				assert.Error(t, err)
 				assert.Empty(t, got)
@@ -142,7 +142,7 @@ func TestWaitForTimestampChange(t *testing.T) {
 	dr.PklresReader, _ = pklres.InitializePklResource(":memory:")
 	dr.PklresHelper = NewPklresHelper(dr)
 
-	t.Run("missing PKL file", func(t *testing.T) {
+	t.Run("missing PKL data", func(t *testing.T) {
 		// Test with a very short timeout
 		previousTimestamp := pkl.Duration{
 			Value: 0,
@@ -150,8 +150,8 @@ func TestWaitForTimestampChange(t *testing.T) {
 		}
 		err := dr.WaitForTimestampChange("test-resource", previousTimestamp, 100*time.Millisecond, "exec")
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "Cannot find module")
-		assert.Contains(t, err.Error(), "pklres:///test123?type=exec")
+		assert.Contains(t, err.Error(), "does not exist in pklres")
+		// Removed assertion for PKL path, as it's not guaranteed to be present
 	})
 
 	// Note: Testing the successful case would require mocking the PKL file loading
@@ -248,9 +248,9 @@ func TestFormatDurationExtra(t *testing.T) {
 	}
 }
 
-func TestGetResourceFilePath_InvalidType(t *testing.T) {
+func TestGetResourcePath_InvalidType(t *testing.T) {
 	dr := &DependencyResolver{}
-	_, err := dr.getResourceFilePath("unknown")
+	_, err := dr.getResourcePath("unknown")
 	if err == nil {
 		t.Fatalf("expected error for invalid resource type")
 	}

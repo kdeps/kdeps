@@ -10,7 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"os"
+
 	"github.com/apple/pkl-go/pkl"
+	"github.com/kdeps/kdeps/pkg/agent"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -147,8 +150,31 @@ func (r *PklResourceReader) getRecord(id, typ, key string) ([]byte, error) {
 		return nil, errors.New("get operation requires id and type parameters")
 	}
 
+	// Canonicalize the key if it looks like an ActionID (not already canonical)
+	canonicalKey := key
+	if key != "" && !strings.HasPrefix(key, "@") && !strings.Contains(key, "/") {
+		// Only try to resolve if we have a valid agent context (KDEPS_PATH set)
+		if kdepsPath := os.Getenv("KDEPS_PATH"); kdepsPath != "" {
+			agentReader, err := agent.GetGlobalAgentReader(nil, kdepsPath, "", "", nil)
+			if err == nil && agentReader != nil {
+				uri, err := url.Parse(fmt.Sprintf("agent:///%s", key))
+				if err == nil {
+					data, err := agentReader.Read(*uri)
+					if err == nil && len(data) > 0 {
+						canonicalKey = string(data)
+						log.Printf("getRecord: resolved short ActionID %s to canonical form %s", key, canonicalKey)
+					} else {
+						log.Printf("getRecord: failed to resolve short ActionID %s, using as-is", key)
+					}
+				}
+			} else {
+				log.Printf("getRecord: no agent reader available, using short ActionID as-is: %s", key)
+			}
+		}
+	}
+
 	var value string
-	err := r.DB.QueryRow("SELECT value FROM records WHERE id = ? AND type = ? AND key = ?", id, typ, key).Scan(&value)
+	err := r.DB.QueryRow("SELECT value FROM records WHERE id = ? AND type = ? AND key = ?", id, typ, canonicalKey).Scan(&value)
 	if err == sql.ErrNoRows {
 		return []byte(""), nil // Return empty string for not found
 	}
@@ -168,14 +194,33 @@ func (r *PklResourceReader) deleteRecord(id, typ, key string) ([]byte, error) {
 
 	log.Printf("deleteRecord processing id: %s, type: %s, key: %s", id, typ, key)
 
+	canonicalKey := key
+	if key != "" && !strings.HasPrefix(key, "@") && !strings.Contains(key, "/") {
+		if kdepsPath := os.Getenv("KDEPS_PATH"); kdepsPath != "" {
+			agentReader, err := agent.GetGlobalAgentReader(nil, kdepsPath, "", "", nil)
+			if err == nil && agentReader != nil {
+				uri, err := url.Parse(fmt.Sprintf("agent:///%s", key))
+				if err == nil {
+					data, err := agentReader.Read(*uri)
+					if err == nil && len(data) > 0 {
+						canonicalKey = string(data)
+						log.Printf("deleteRecord: resolved short ActionID %s to canonical form %s", key, canonicalKey)
+					} else {
+						log.Printf("deleteRecord: failed to resolve short ActionID %s, using as-is", key)
+					}
+				}
+			} else {
+				log.Printf("deleteRecord: no agent reader available, using short ActionID as-is: %s", key)
+			}
+		}
+	}
+
 	var result sql.Result
 	var err error
 
-	if key != "" {
-		// Delete specific key from record
-		result, err = r.DB.Exec("DELETE FROM records WHERE id = ? AND type = ? AND key = ?", id, typ, key)
+	if canonicalKey != "" {
+		result, err = r.DB.Exec("DELETE FROM records WHERE id = ? AND type = ? AND key = ?", id, typ, canonicalKey)
 	} else {
-		// Delete entire record (all keys for this id and type)
 		result, err = r.DB.Exec("DELETE FROM records WHERE id = ? AND type = ?", id, typ)
 	}
 
@@ -190,7 +235,7 @@ func (r *PklResourceReader) deleteRecord(id, typ, key string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to check delete result: %w", err)
 	}
 
-	log.Printf("deleteRecord succeeded for id: %s, type: %s, key: %s, removed %d records", id, typ, key, rowsAffected)
+	log.Printf("deleteRecord succeeded for id: %s, type: %s, key: %s, removed %d records", id, typ, canonicalKey, rowsAffected)
 	return []byte(fmt.Sprintf("Deleted %d record(s)", rowsAffected)), nil
 }
 

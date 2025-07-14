@@ -30,29 +30,26 @@ Settings {
         //
         // You can access the incoming request details using the following helper functions:
         //
-        // - "@(request.path())"
-        // - "@(request.method())"
-        // - "@(request.headers("HEADER"))"
-        // - "@(request.data())"
-        // - "@(request.params("PARAMS"))"
+        // - request.path()
+        // - request.method()
+        // - request.headers("HEADER")
+        // - request.data()
+        // - request.params("PARAMS")
         //
         // And use the following functions for file upload related functions
         //
-        // - "@(request.file("FILENAME"))"
-        // - "@(request.filetype("FILENAME"))"
-        // - "@(request.filepath("FILENAME"))"
-        // - "@(request.filecount())"
-        // - "@(request.files())"
-        // - "@(request.filetypes())"
-        // - "@(request.filesByType("image/jpeg"))"
+        // - request.file("FILENAME")
+        // - request.filetype("FILENAME")
+        // - request.filepath("FILENAME")
+        // - request.filecount()
+        // - request.files()
+        // - request.filetypes()
+        // - request.filesByType("image/jpeg")
         //
         // For example, to use these in your resource, you can define a local variable like this:
         //
-        // local xAPIHeader = "@(request.headers["X-API-HEADER"])"
-        // You can then retrieve the value with "@(xAPIHeader)".
-        //
-        // The "@(...)" syntax enables lazy evaluation, ensuring that values are
-        // retrieved only after the result is ready.
+        // local xAPIHeader = request.headers("X-API-HEADER")
+        // You can then retrieve the value with xAPIHeader.
         APIServer {
                 // Set the host IP address and port number for the AI Agent.
                 HostIP = "127.0.0.1"
@@ -72,7 +69,6 @@ Settings {
                         new {
                                 Path = "/api/v1/whois"
                                 Methods { "GET" } // Allows retrieving data
-                                // Note: For multiple methods, add to the Methods array
                         }
                 }
 

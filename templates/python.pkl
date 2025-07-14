@@ -158,6 +158,6 @@ if __name__ == "__main__":
                         ["PYTHONPATH"] = "/agent/workflow/data"
                 }
                 // Timeout duration in seconds. This specifies when to terminate the script execution.
-                TimeoutDuration = 60.s
+                TimeoutDuration = 30.s
         }
 }

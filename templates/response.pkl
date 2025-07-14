@@ -7,9 +7,6 @@ Category = ""
 Requires {
         // Define the ID of any dependency resource that must be executed before this resource.
         // These resources will be executed in order before this response resource
-        "clientResource"
-        "execResource" 
-        "pythonResource"
         "llmResource"
 }
 
@@ -109,6 +106,10 @@ Run {
         // This resource action is straightforward. It
         // creates a JSON response with the following shape
         //
+        // For Wikipedia API integration:
+        // - Use underscores in page titles (e.g., "Neil_Armstrong" not "NeilArmstrong")
+        // - Access client response data with: client.responseBody("clientResource")
+        //
         // {
         //   "success": true,
         //   "response": {
@@ -143,8 +144,8 @@ Run {
                 }
                 Response {
                         Data {
-                                // Basic response showing the workflow is working
-                                "Agent processed query successfully"
+                                // With the following, data field on the API response should not be empty.
+                                llm.response("llmResource")
                         }
                 }
                 Errors {

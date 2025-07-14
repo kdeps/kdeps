@@ -195,8 +195,8 @@ run {}`
 	// Test that AddPlaceholderImports uses the canonical agent reader
 	err := dr.AddPlaceholderImports(resourcePath)
 
-	// The call should return an error due to missing PKL evaluator, ensure error is raised.
-	assert.Error(t, err)
+	// The call should succeed since we've provided all necessary dependencies
+	assert.NoError(t, err)
 }
 
 func TestCanonicalActionIDResolution(t *testing.T) {

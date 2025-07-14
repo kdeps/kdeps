@@ -153,7 +153,7 @@ Please synthesize this information and provide insights about the person or topi
                 Tools {
                         // new {
                         //     Name = "lookup_db"
-                        //     Script = "@(data.filepath(\"tools/1.0.0\", \"lookup.py\"))"
+                        //     Script = data.filepath("tools/1.0.0", "lookup.py")
                         //     Description = "Queries a database for details about a historical figure"
                         //     Parameters {
                         //         ["name"] { Required = true; Type = "string"; Description = "Name of the historical figure to query" }
@@ -181,6 +181,6 @@ Please synthesize this information and provide insights about the person or topi
                 }
 
                 // Timeout duration in seconds. This specifies when to terminate the llm session.
-                TimeoutDuration = 60.s
+                TimeoutDuration = 200.s
         }
 }

@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/evaluator"
+	"github.com/kdeps/kdeps/pkg/schema"
 	pklExec "github.com/kdeps/schema/gen/exec"
 	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
@@ -21,11 +23,12 @@ import (
 type ResourceType string
 
 const (
-	ExecResource   ResourceType = "exec"
-	PythonResource ResourceType = "python"
-	LLMResource    ResourceType = "llm"
-	HTTPResource   ResourceType = "http"
-	Resource       ResourceType = "resource"
+	ExecResource     ResourceType = "exec"
+	PythonResource   ResourceType = "python"
+	LLMResource      ResourceType = "llm"
+	HTTPResource     ResourceType = "http"
+	ResponseResource ResourceType = "response"
+	Resource         ResourceType = "resource"
 )
 
 // LoadResourceEntries loads .pkl resource files from the resources directory.
@@ -96,30 +99,76 @@ func (dr *DependencyResolver) handleFileImports(path string) error {
 	return nil
 }
 
+// detectResourceType determines the resource type based on file content
+func (dr *DependencyResolver) detectResourceType(file string) ResourceType {
+	content, err := afero.ReadFile(dr.Fs, file)
+	if err != nil {
+		dr.Logger.Warn("failed to read file for resource type detection", "file", file, "error", err)
+		return Resource // fallback to generic resource
+	}
+
+	lines := strings.SplitN(string(content), "\n", 5)
+	if len(lines) > 0 {
+		first := strings.TrimSpace(lines[0])
+		if strings.HasPrefix(first, "extends") || strings.HasPrefix(first, "amends") {
+			if strings.Contains(first, "/HTTP.pkl\"") {
+				return HTTPResource
+			}
+			if strings.Contains(first, "/LLM.pkl\"") {
+				return LLMResource
+			}
+			if strings.Contains(first, "/Python.pkl\"") {
+				return PythonResource
+			}
+			if strings.Contains(first, "/Exec.pkl\"") {
+				return ExecResource
+			}
+			if strings.Contains(first, "/APIServerResponse.pkl\"") {
+				return ResponseResource
+			}
+		}
+	}
+	return Resource // fallback to generic resource
+}
+
 // processPklFile processes an individual .pkl file and updates dependencies.
 func (dr *DependencyResolver) processPklFile(file string) error {
-	// Load the resource file
-	res, err := dr.LoadResourceFn(dr.Context, file, Resource)
+	// Detect the resource type based on file content
+	resourceType := dr.detectResourceType(file)
+	dr.Logger.Debug("detected resource type", "file", file, "type", resourceType)
+
+	// Load the resource file with the detected type
+	res, err := dr.LoadResourceFn(dr.Context, file, resourceType)
 	if err != nil {
 		return fmt.Errorf("failed to load PKL file: %w", err)
 	}
 
-	pklRes, ok := res.(*pklResource.Resource)
-	if !ok {
-		return errors.New("failed to cast pklRes to *pklLLM.Resource")
+	// Extract ActionID and Requires based on the resource type
+	var actionID string
+	var requires *[]string
+
+	// All resource types should have ActionID and Requires fields
+	// Try to cast to the base Resource type first
+	if genericRes, ok := res.(*pklResource.Resource); ok {
+		actionID = genericRes.ActionID
+		requires = genericRes.Requires
+	} else {
+		// If that fails, try to extract using reflection
+		dr.Logger.Warn("failed to cast to *pklResource.Resource, trying reflection", "resourceType", resourceType, "actualType", fmt.Sprintf("%T", res))
+		return errors.New("failed to extract ActionID and Requires from resource")
 	}
 
 	// Append the resource to the list of resources
 	dr.Resources = append(dr.Resources, ResourceNodeEntry{
-		ActionID: pklRes.ActionID,
+		ActionID: actionID,
 		File:     file,
 	})
 
 	// Update resource dependencies
-	if pklRes.Requires != nil {
-		dr.ResourceDependencies[pklRes.ActionID] = *pklRes.Requires
+	if requires != nil {
+		dr.ResourceDependencies[actionID] = *requires
 	} else {
-		dr.ResourceDependencies[pklRes.ActionID] = nil
+		dr.ResourceDependencies[actionID] = nil
 	}
 
 	return nil
@@ -192,7 +241,139 @@ func (dr *DependencyResolver) LoadResource(ctx context.Context, resourceFile str
 		dr.Logger.Debug("successfully loaded http resource", "resource-file", resourceFile)
 		return res, nil
 
+	case ResponseResource:
+		// For response resources, we need to import the APIServerResponse schema
+		// and load it as a generic resource since there's no specific response loader
+		res, err := pklResource.Load(ctx, pklEvaluator, source)
+		if err != nil {
+			dr.Logger.Error("error reading response resource file", "resource-file", resourceFile, "error", err)
+			return nil, fmt.Errorf("error reading response resource file '%s': %w", resourceFile, err)
+		}
+		dr.Logger.Debug("successfully loaded response resource", "resource-file", resourceFile)
+		return res, nil
+
 	default:
 		return nil, fmt.Errorf("unsupported resource type: %s", resourceType)
 	}
+}
+
+// LoadResourceWithRequestContext reads a resource file in a context that includes request data
+// This allows resources to access request.params(), request.headers(), etc.
+func (dr *DependencyResolver) LoadResourceWithRequestContext(ctx context.Context, resourceFile string, resourceType ResourceType) (interface{}, error) {
+	// Log additional info before reading the resource
+	dr.Logger.Debug("reading resource file with request context", "resource-file", resourceFile, "resource-type", resourceType)
+
+	// Check if Workflow is initialized
+	if dr.Workflow != nil {
+		// Set environment variables for current agent context
+		os.Setenv("KDEPS_CURRENT_AGENT", dr.Workflow.GetAgentID())
+		os.Setenv("KDEPS_CURRENT_VERSION", dr.Workflow.GetVersion())
+	}
+
+	// Check if request PKL file exists
+	if dr.RequestPklFile == "" {
+		dr.Logger.Warn("no request PKL file available, falling back to standard resource loading")
+		return dr.LoadResource(ctx, resourceFile, resourceType)
+	}
+
+	// Check if the request file exists
+	if _, err := dr.Fs.Stat(dr.RequestPklFile); err != nil {
+		dr.Logger.Warn("request PKL file does not exist, falling back to standard resource loading", "request-file", dr.RequestPklFile)
+		return dr.LoadResource(ctx, resourceFile, resourceType)
+	}
+
+	// Get the singleton evaluator
+	pklEvaluator, err := evaluator.GetEvaluator()
+	if err != nil {
+		dr.Logger.Error("error getting evaluator", "error", err)
+		return nil, fmt.Errorf("error getting evaluator: %w", err)
+	}
+
+	// Load the resource based on the resource type with request context
+	source := pkl.FileSource(resourceFile)
+	switch resourceType {
+	case Resource:
+		res, err := pklResource.Load(ctx, pklEvaluator, source)
+		if err != nil {
+			dr.Logger.Error("error reading resource file with request context", "resource-file", resourceFile, "error", err)
+			return nil, fmt.Errorf("error reading resource file '%s': %w", resourceFile, err)
+		}
+		dr.Logger.Debug("successfully loaded resource with request context", "resource-file", resourceFile)
+		return res, nil
+
+	case ExecResource:
+		res, err := pklExec.Load(ctx, pklEvaluator, source)
+		if err != nil {
+			dr.Logger.Error("error reading exec resource file with request context", "resource-file", resourceFile, "error", err)
+			return nil, fmt.Errorf("error reading exec resource file '%s': %w", resourceFile, err)
+		}
+		dr.Logger.Debug("successfully loaded exec resource with request context", "resource-file", resourceFile)
+		return res, nil
+
+	case PythonResource:
+		res, err := pklPython.Load(ctx, pklEvaluator, source)
+		if err != nil {
+			dr.Logger.Error("error reading python resource file with request context", "resource-file", resourceFile, "error", err)
+			return nil, fmt.Errorf("error reading python resource file '%s': %w", resourceFile, err)
+		}
+		dr.Logger.Debug("successfully loaded python resource with request context", "resource-file", resourceFile)
+		return res, nil
+
+	case LLMResource:
+		res, err := pklLLM.Load(ctx, pklEvaluator, source)
+		if err != nil {
+			dr.Logger.Error("error reading llm resource file with request context", "resource-file", resourceFile, "error", err)
+			return nil, fmt.Errorf("error reading llm resource file '%s': %w", resourceFile, err)
+		}
+		dr.Logger.Debug("successfully loaded llm resource with request context", "resource-file", resourceFile)
+		return res, nil
+
+	case HTTPResource:
+		res, err := pklHTTP.Load(ctx, pklEvaluator, source)
+		if err != nil {
+			dr.Logger.Error("error reading http resource file with request context", "resource-file", resourceFile, "error", err)
+			return nil, fmt.Errorf("error reading http resource file '%s': %w", resourceFile, err)
+		}
+		dr.Logger.Debug("successfully loaded http resource with request context", "resource-file", resourceFile)
+		return res, nil
+
+	case ResponseResource:
+		// For response resources, we need to import the APIServerResponse schema
+		// and load it as a generic resource since there's no specific response loader
+		res, err := pklResource.Load(ctx, pklEvaluator, source)
+		if err != nil {
+			dr.Logger.Error("error reading response resource file with request context", "resource-file", resourceFile, "error", err)
+			return nil, fmt.Errorf("error reading response resource file '%s': %w", resourceFile, err)
+		}
+		dr.Logger.Debug("successfully loaded response resource with request context", "resource-file", resourceFile)
+		return res, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported resource type: %s", resourceType)
+	}
+}
+
+// getSchemaVersion returns the schema version for the current context
+func (dr *DependencyResolver) getSchemaVersion(ctx context.Context) string {
+	// Use the schema package to get the proper version
+	if ctx != nil {
+		return schema.SchemaVersion(ctx)
+	}
+	return "0.3.0" // Fallback version
+}
+
+// stripAmendsLine removes the amends/extends line from PKL content
+func (dr *DependencyResolver) stripAmendsLine(content string) string {
+	lines := strings.Split(content, "\n")
+	var filteredLines []string
+
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if i == 0 && (strings.HasPrefix(trimmed, "amends") || strings.HasPrefix(trimmed, "extends")) {
+			continue // skip the first amends/extends line
+		}
+		filteredLines = append(filteredLines, line)
+	}
+
+	return strings.Join(filteredLines, "\n")
 }

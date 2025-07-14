@@ -140,6 +140,6 @@ Run {
                         ["USER_AGENT"] = request.header("User-Agent")
                 }
                 // Timeout duration in seconds. This specifies when to terminate the shell exec.
-                TimeoutDuration = 60.s
+                TimeoutDuration = 30.s
         }
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
+	pklres "github.com/kdeps/kdeps/pkg/pklres"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
 	apiserverresponse "github.com/kdeps/schema/gen/api_server_response"
@@ -985,19 +986,18 @@ func TestAppendPythonEntryExtra(t *testing.T) {
 
 	newResolver := func(t *testing.T) (*DependencyResolver, string) {
 		dr := setupTestPyResolver(t)
-		pklPath := filepath.Join(dr.ActionDir, "python/"+dr.RequestID+"__python_output.pkl")
-		return dr, pklPath
+		// pklPath is no longer used since we're using pklres
+		return dr, ""
 	}
 
 	t.Run("NewEntry", func(t *testing.T) {
-		dr, pklPath := newResolver(t)
+		dr, _ := newResolver(t)
 
-		initial := fmt.Sprintf(`extends "package://schema.kdeps.com/core@%s#/Python.pkl"
-
-Resources {
-}`,
-			schema.SchemaVersion(dr.Context))
-		require.NoError(t, afero.WriteFile(dr.Fs, pklPath, []byte(initial), 0o644))
+		// Initialize PklresReader and PklresHelper for the test
+		pklresReader, pklresErr := pklres.InitializePklResource(":memory:")
+		require.NoError(t, pklresErr)
+		dr.PklresReader = pklresReader
+		dr.PklresHelper = NewPklresHelper(dr)
 
 		py := &pklPython.ResourcePython{
 			Script:    "print('hello')",
@@ -1009,17 +1009,25 @@ Resources {
 		skipIfPKLErrorPy(t, err)
 		assert.NoError(t, err)
 
-		content, err := afero.ReadFile(dr.Fs, pklPath)
+		// Read content from pklres instead of file
+		content, err := dr.PklresHelper.retrievePklContent("python", "res")
 		skipIfPKLErrorPy(t, err)
 		require.NoError(t, err)
-		assert.Contains(t, string(content), "res")
+		assert.Contains(t, content, "res")
 		// encoded script should appear
-		assert.Contains(t, string(content), utils.EncodeValue("print('hello')"))
+		assert.Contains(t, content, utils.EncodeValue("print('hello')"))
 	})
 
 	t.Run("ExistingEntry", func(t *testing.T) {
-		dr, pklPath := newResolver(t)
+		dr, _ := newResolver(t)
 
+		// Initialize PklresReader and PklresHelper for the test
+		pklresReader, pklresErr := pklres.InitializePklResource(":memory:")
+		require.NoError(t, pklresErr)
+		dr.PklresReader = pklresReader
+		dr.PklresHelper = NewPklresHelper(dr)
+
+		// Store initial content in pklres
 		initial := fmt.Sprintf(`extends "package://schema.kdeps.com/core@%s#/Python.pkl"
 
 Resources {
@@ -1029,7 +1037,8 @@ Resources {
   }
 }`,
 			schema.SchemaVersion(dr.Context))
-		require.NoError(t, afero.WriteFile(dr.Fs, pklPath, []byte(initial), 0o644))
+		err := dr.PklresHelper.storePklContent("python", "res", initial)
+		require.NoError(t, err)
 
 		py := &pklPython.ResourcePython{
 			Script:    "print('new')",
@@ -1037,15 +1046,16 @@ Resources {
 			Timestamp: &pkl.Duration{Value: float64(time.Now().Unix()), Unit: pkl.Nanosecond},
 		}
 
-		err := dr.AppendPythonEntry("res", py)
+		err = dr.AppendPythonEntry("res", py)
 		skipIfPKLErrorPy(t, err)
 		assert.NoError(t, err)
 
-		content, err := afero.ReadFile(dr.Fs, pklPath)
+		// Read content from pklres instead of file
+		content, err := dr.PklresHelper.retrievePklContent("python", "res")
 		skipIfPKLErrorPy(t, err)
 		require.NoError(t, err)
-		assert.Contains(t, string(content), utils.EncodeValue("print('new')"))
-		assert.NotContains(t, string(content), "cHJpbnQoJ29sZCc pyk=")
+		assert.Contains(t, content, utils.EncodeValue("print('new')"))
+		assert.NotContains(t, content, "cHJpbnQoJ29sZCc pyk=")
 	})
 }
 

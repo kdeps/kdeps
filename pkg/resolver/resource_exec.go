@@ -17,9 +17,18 @@ import (
 )
 
 func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.ResourceExec) error {
+	// Canonicalize the actionID if it's a short ActionID
+	canonicalActionID := actionID
+	if dr.PklresHelper != nil {
+		canonicalActionID = dr.PklresHelper.resolveActionID(actionID)
+		if canonicalActionID != actionID {
+			dr.Logger.Debug("canonicalized actionID", "original", actionID, "canonical", canonicalActionID)
+		}
+	}
+
 	// Decode the exec block synchronously
 	if err := dr.decodeExecBlock(execBlock); err != nil {
-		dr.Logger.Error("failed to decode exec block", "actionID", actionID, "error", err)
+		dr.Logger.Error("failed to decode exec block", "actionID", canonicalActionID, "error", err)
 		return err
 	}
 
@@ -29,7 +38,7 @@ func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.Res
 			// Log the error; consider additional error handling as needed.
 			dr.Logger.Error("failed to process exec block", "actionID", aID, "error", err)
 		}
-	}(actionID, execBlock)
+	}(canonicalActionID, execBlock)
 
 	// Return immediately; the exec block is being processed in the background.
 	return nil
@@ -140,6 +149,12 @@ func (dr *DependencyResolver) WriteStdoutToFile(resourceID string, stdoutEncoded
 }
 
 func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExec.ResourceExec) error {
+	// Canonicalize the resourceID for storage
+	canonicalResourceID := resourceID
+	if dr.PklresHelper != nil {
+		canonicalResourceID = dr.PklresHelper.resolveActionID(resourceID)
+	}
+	dr.Logger.Debug("AppendExecEntry: storing resource", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID)
 	// Retrieve existing exec resources from pklres
 	existingContent, err := dr.PklresHelper.retrievePklContent("exec", "")
 	if err != nil {
@@ -200,8 +215,10 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Exec.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
 	pklContent.WriteString("Resources {\n")
 
-	for id, res := range existingResources {
-		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
+	for _, res := range existingResources {
+		blockKey := canonicalResourceID
+		dr.Logger.Debug("AppendExecEntry: PKL block key", "blockKey", blockKey)
+		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", blockKey))
 		pklContent.WriteString(fmt.Sprintf("    Command = \"%s\"\n", res.Command))
 
 		if res.TimeoutDuration != nil {
@@ -245,7 +262,7 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 	pklContent.WriteString("}\n")
 
 	// Store the PKL content using pklres instead of writing to file
-	if err := dr.PklresHelper.storePklContent("exec", resourceID, pklContent.String()); err != nil {
+	if err := dr.PklresHelper.storePklContent("exec", canonicalResourceID, pklContent.String()); err != nil {
 		return fmt.Errorf("failed to store PKL content in pklres: %w", err)
 	}
 

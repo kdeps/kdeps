@@ -112,13 +112,16 @@ Run {
         // You can then access the value using bearerToken.
         //
         // Module functions like client.*, llm.*, python.* are called directly.
-        // Request functions use "\(request.params("q"))" syntax only when embedding in strings.
-        // For direct assignment or comparisons, use request.params("q") without string interpolation.
+        // Request functions use request.params("q") for direct assignment.
+        // For URL construction, use the Params field to add query parameters.
+        // For Wikipedia API, use underscores in page titles (e.g., "Neil_Armstrong" not "NeilArmstrong")
+        // Note: All functions are called directly without @() wrapper
         HTTPClient {
                 Method = "GET"  // Specifies the HTTP method to be used for the request.
                 
                 // Example: Wikipedia API to get page info about a person
                 // Uses the 'q' query parameter from the incoming request
+                // Note: Wikipedia API expects underscores in page titles (e.g., "Neil_Armstrong")
                 Url = """
                 https://en.wikipedia.org/api/rest_v1/page/summary/\(request.params("q"))
                 """
@@ -133,7 +136,11 @@ Run {
                         ["Accept"] = "application/json"
                         // ["Authorization"] = "Bearer \(request.header(\"X-API-KEY\"))"  // Example auth header
                 }
+                Params {
+                        // Query parameters to be added to the URL
+                        // Example: ["titles"] = request.params("q")
+                }
                 // Timeout duration in seconds. This specifies when to terminate the request.
-                TimeoutDuration = 60.s
+                TimeoutDuration = 30.s
         }
 }

@@ -56,25 +56,39 @@ func (h *PklresHelper) generatePklHeader(resourceType string) string {
 
 // storePklContent stores PKL content in pklres with the appropriate header
 func (h *PklresHelper) storePklContent(resourceType, resourceID, content string) error {
-	if h == nil || h.resolver == nil {
-		return fmt.Errorf("PklresHelper or resolver is nil")
+	if h == nil {
+		return fmt.Errorf("PklresHelper is nil")
+	}
+	if h.resolver != nil && h.resolver.Logger != nil {
+		h.resolver.Logger.Info("storePklContent: called", "resourceType", resourceType, "resourceID", resourceID, "content_length", len(content))
+	}
+	if h.resolver == nil {
+		if h.resolver != nil && h.resolver.Logger != nil {
+			h.resolver.Logger.Error("storePklContent: resolver is nil, cannot persist", "resourceType", resourceType, "resourceID", resourceID)
+		}
+		return fmt.Errorf("resolver is nil")
+	}
+	if h.resolver.PklresReader == nil {
+		if h.resolver.Logger != nil {
+			h.resolver.Logger.Error("storePklContent: PklresReader is nil, skipping persistence", "resourceType", resourceType, "resourceID", resourceID)
+		}
+		return nil
 	}
 
 	// Automatically resolve actionID if it looks like one
 	resolvedResourceID := h.resolveActionID(resourceID)
-
-	// Store just the content without the header - the PKL schema will handle the parsing
-	// ID = RequestID, Type = resourceType, Key = resolvedResourceID, Value = content
-	uri, err := url.Parse(fmt.Sprintf("pklres:///%s?type=%s&key=%s&op=set&value=%s",
-		h.resolver.RequestID, resourceType, resolvedResourceID, url.QueryEscape(content)))
-	if err != nil {
-		return fmt.Errorf("failed to parse pklres URI: %w", err)
+	if resourceType == "llm" && h.resolver.Logger != nil {
+		h.resolver.Logger.Debug("storePklContent: LLM", "resourceType", resourceType, "resourceID", resourceID, "resolvedResourceID", resolvedResourceID, "content", content)
+	}
+	if h.resolver.Logger != nil {
+		h.resolver.Logger.Debug("storePklContent: storing", "resourceType", resourceType, "resourceID", resourceID, "resolvedResourceID", resolvedResourceID, "content", content)
 	}
 
-	if h.resolver.PklresReader == nil {
-		// In testing contexts we may skip actual persistence
-		h.resolver.Logger.Info("PklresReader is nil - skipping storePklContent (likely test context)")
-		return nil
+	// Use canonicalActionID as the id in the path
+	uri, err := url.Parse(fmt.Sprintf("pklres:///%s?type=%s&op=set&value=%s",
+		resolvedResourceID, resourceType, url.QueryEscape(content)))
+	if err != nil {
+		return fmt.Errorf("failed to parse pklres URI: %w", err)
 	}
 
 	_, err = h.resolver.PklresReader.Read(*uri)
@@ -93,10 +107,13 @@ func (h *PklresHelper) retrievePklContent(resourceType, resourceID string) (stri
 
 	// Automatically resolve actionID if it looks like one
 	resolvedResourceID := h.resolveActionID(resourceID)
+	if resourceType == "llm" && h.resolver.Logger != nil {
+		h.resolver.Logger.Debug("retrievePklContent: LLM", "resourceType", resourceType, "resourceID", resourceID, "resolvedResourceID", resolvedResourceID)
+	}
 
 	// Use pklres to retrieve the content
-	uri, err := url.Parse(fmt.Sprintf("pklres:///%s?type=%s&key=%s",
-		h.resolver.RequestID, resourceType, resolvedResourceID))
+	uri, err := url.Parse(fmt.Sprintf("pklres:///%s?type=%s",
+		resolvedResourceID, resourceType))
 	if err != nil {
 		return "", fmt.Errorf("failed to parse pklres URI: %w", err)
 	}
@@ -115,8 +132,8 @@ func (h *PklresHelper) retrievePklContent(resourceType, resourceID string) (stri
 
 // retrieveAllResourcesForType retrieves all resources of a given type
 func (h *PklresHelper) retrieveAllResourcesForType(resourceType string) (map[string]string, error) {
-	// First, list all resource IDs for this type
-	listUri, err := url.Parse(fmt.Sprintf("pklres:///_?type=%s&op=list", resourceType))
+	// List all resource IDs for this type - use the request ID to find resources in the current request context
+	listUri, err := url.Parse(fmt.Sprintf("pklres:///%s?type=%s&op=list", h.resolver.RequestID, resourceType))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse list URI: %w", err)
 	}
@@ -155,6 +172,7 @@ func (h *PklresHelper) retrieveAllResourcesForType(resourceType string) (map[str
 		}
 	}
 
+	h.resolver.Logger.Debug("retrieveAllResourcesForType: found keys", "resourceType", resourceType, "keys", resources)
 	return resources, nil
 }
 
@@ -219,17 +237,28 @@ func (h *PklresHelper) getResourcePath(resourceType string) string {
 // resolveActionID automatically resolves actionIDs using the agent package
 func (h *PklresHelper) resolveActionID(actionID string) string {
 	if h == nil || h.resolver == nil {
+		if h != nil && h.resolver != nil && h.resolver.Logger != nil {
+			h.resolver.Logger.Debug("resolveActionID: helper or resolver is nil", "actionID", actionID)
+		}
 		return actionID // Return as-is if we can't resolve
 	}
 
 	// Check if this looks like an actionID that needs resolution
 	if strings.HasPrefix(actionID, "@") {
-		// Already in canonical form, return as-is
+		if h.resolver.Logger != nil {
+			h.resolver.Logger.Debug("resolveActionID: already canonical", "actionID", actionID)
+		}
 		return actionID
 	}
 
 	// If it doesn't start with @, it might be a local actionID that needs resolution
 	// We need to use the agent package to resolve it
+	if h.resolver.AgentReader == nil {
+		if h.resolver.Logger != nil {
+			h.resolver.Logger.Warn("resolveActionID: AgentReader is nil", "actionID", actionID)
+		}
+		return actionID
+	}
 	if h.resolver.AgentReader != nil {
 		// Create a URI for agent resolution
 		uri, err := url.Parse(fmt.Sprintf("agent:///%s", actionID))
@@ -244,15 +273,34 @@ func (h *PklresHelper) resolveActionID(actionID string) string {
 			}
 			uri.RawQuery = query.Encode()
 
+			if h.resolver.Logger != nil {
+				h.resolver.Logger.Debug("resolveActionID: attempting resolution", "actionID", actionID, "uri", uri.String(), "currentAgent", h.resolver.AgentReader.CurrentAgent, "currentVersion", h.resolver.AgentReader.CurrentVersion)
+			}
+
 			// Try to resolve using the agent reader
 			data, err := h.resolver.AgentReader.Read(*uri)
 			if err == nil && len(data) > 0 {
 				// Successfully resolved, return the resolved ID
-				return string(data)
+				resolvedID := string(data)
+				if h.resolver.Logger != nil {
+					h.resolver.Logger.Debug("resolveActionID: successfully resolved", "actionID", actionID, "resolvedID", resolvedID)
+				}
+				return resolvedID
+			} else {
+				if h.resolver.Logger != nil {
+					h.resolver.Logger.Warn("resolveActionID: resolution failed", "actionID", actionID, "error", err, "dataLength", len(data))
+				}
+			}
+		} else {
+			if h.resolver.Logger != nil {
+				h.resolver.Logger.Warn("resolveActionID: failed to parse URI", "actionID", actionID, "error", err)
 			}
 		}
 	}
 
 	// If resolution fails, return the original actionID
+	if h.resolver.Logger != nil {
+		h.resolver.Logger.Debug("resolveActionID: returning original", "actionID", actionID)
+	}
 	return actionID
 }

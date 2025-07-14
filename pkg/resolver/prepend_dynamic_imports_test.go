@@ -166,7 +166,7 @@ func TestPrepareImportFilesBasic(t *testing.T) {
 	// Verify that expected records are created in pklres
 	expectedTypes := []string{"llm", "client", "exec", "python", "data"}
 	for _, resourceType := range expectedTypes {
-		content, err := pklresHelper.retrievePklContent(resourceType, "")
+		content, err := pklresHelper.retrievePklContent(resourceType, "__empty__")
 		if err != nil {
 			t.Fatalf("failed to retrieve %s record: %v", resourceType, err)
 		}

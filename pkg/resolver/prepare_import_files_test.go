@@ -30,7 +30,7 @@ func TestPrepareImportFilesCreatesExpectedFiles(t *testing.T) {
 	}
 
 	// Verify a python record exists in pklres
-	_, err := dr.PklresHelper.retrievePklContent("python", "")
+	_, err := dr.PklresHelper.retrievePklContent("python", "__empty__")
 	if err != nil {
 		t.Fatalf("expected python resource in pklres: %v", err)
 	}

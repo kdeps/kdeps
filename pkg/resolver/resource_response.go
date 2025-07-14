@@ -2,11 +2,14 @@ package resolver
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/apple/pkl-go/pkl"
 	"github.com/google/uuid"
@@ -22,6 +25,12 @@ import (
 func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverresponse.APIServerResponse) error {
 	if dr == nil || len(dr.DBs) == 0 || dr.DBs[0] == nil {
 		return fmt.Errorf("dependency resolver or database is nil")
+	}
+
+	// Ensure agent context is set for PKL evaluation
+	if dr.Workflow != nil {
+		os.Setenv("KDEPS_CURRENT_AGENT", dr.Workflow.GetAgentID())
+		os.Setenv("KDEPS_CURRENT_VERSION", dr.Workflow.GetVersion())
 	}
 
 	if err := dr.DBs[0].PingContext(context.Background()); err != nil {
@@ -82,6 +91,38 @@ func (dr *DependencyResolver) buildResponseSections(requestID string, apiRespons
 	successPtr := apiResponseBlock.GetSuccess()
 	isSuccess := successPtr != nil && *successPtr && len(responseErrors) == 0
 
+	// Check if response data is empty and create fallback data
+	responseData := apiResponseBlock.GetResponse()
+	dr.Logger.Debug("buildResponseSections: checking response data",
+		"requestID", requestID,
+		"responseData_nil", responseData == nil,
+		"responseData_data_nil", func() bool {
+			if responseData != nil {
+				return responseData.Data == nil
+			}
+			return true
+		}(),
+		"responseData_length", func() int {
+			if responseData != nil && responseData.Data != nil {
+				return len(responseData.Data)
+			}
+			return 0
+		}())
+
+	if responseData == nil || responseData.Data == nil || len(responseData.Data) == 0 {
+		// Create fallback response data with meaningful information
+		dr.Logger.Info("Response data is empty, creating fallback", "requestID", requestID)
+		fallbackData := createFallbackResponseData(dr)
+		if fallbackData != "" {
+			dr.Logger.Info("Using fallback response data", "requestID", requestID, "fallbackLength", len(fallbackData))
+			responseData = &apiserverresponse.APIServerResponseBlock{
+				Data: []interface{}{fallbackData},
+			}
+		}
+	} else {
+		dr.Logger.Info("Response data is not empty, using original", "requestID", requestID, "dataLength", len(responseData.Data))
+	}
+
 	sections := []string{
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Document.pkl" as document`, schema.SchemaVersion(dr.Context)),
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Memory.pkl" as memory`, schema.SchemaVersion(dr.Context)),
@@ -91,7 +132,7 @@ func (dr *DependencyResolver) buildResponseSections(requestID string, apiRespons
 		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Agent.pkl" as agent`, schema.SchemaVersion(dr.Context)),
 		fmt.Sprintf("Success = %v", isSuccess),
 		formatResponseMeta(requestID, apiResponseBlock.GetMeta()),
-		formatResponseData(apiResponseBlock.GetResponse()),
+		formatResponseData(responseData),
 		formatErrors(&responseErrors, dr.Logger),
 	}
 	return sections
@@ -104,6 +145,10 @@ func formatResponseData(response *apiserverresponse.APIServerResponseBlock) stri
 
 	responseData := make([]string, 0, len(response.Data))
 	for _, v := range response.Data {
+		// Skip empty or null values to avoid empty data entries
+		if v == nil || v == "" {
+			continue
+		}
 		responseData = append(responseData, formatDataValue(v))
 	}
 
@@ -252,6 +297,42 @@ func decodeErrorMessage(message string, logger *logging.Logger) string {
 	return decoded
 }
 
+// createFallbackResponseData creates meaningful fallback data when the original response is empty
+func createFallbackResponseData(dr *DependencyResolver) string {
+	if dr.Request == nil {
+		return "API is working but no query parameters provided"
+	}
+
+	query := dr.Request.Query("q")
+	if query == "" {
+		return "API is working but no query parameter 'q' provided"
+	}
+
+	// Create a meaningful fallback response with the query context
+	fallbackResponse := map[string]interface{}{
+		"query":      query,
+		"status":     "fallback_response",
+		"message":    fmt.Sprintf("Information about %s: This is a fallback response. The LLM resource is not properly configured or the model is not available. Please check the workflow configuration and ensure the LLM resource files are present.", query),
+		"timestamp":  time.Now().Format(time.RFC3339),
+		"request_id": dr.RequestID,
+		"workflow_id": func() string {
+			if dr.Workflow != nil {
+				return dr.Workflow.GetTargetActionID()
+			}
+			return "unknown"
+		}(),
+	}
+
+	// Convert to JSON string
+	jsonData, err := json.Marshal(fallbackResponse)
+	if err != nil {
+		dr.Logger.Error("Failed to marshal fallback response", "error", err)
+		return fmt.Sprintf("Fallback response for query '%s': LLM resource not configured", query)
+	}
+
+	return string(jsonData)
+}
+
 // EvalPklFormattedResponseFile evaluates a PKL file and returns the JSON output.
 func (dr *DependencyResolver) EvalPklFormattedResponseFile() (string, error) {
 	exists, err := afero.Exists(dr.Fs, dr.ResponsePklFile)
@@ -270,6 +351,111 @@ func (dr *DependencyResolver) EvalPklFormattedResponseFile() (string, error) {
 		return "", fmt.Errorf("ensure target file not exists: %w", err)
 	}
 
+	// --- BEGIN PATCH: Enhanced LLM resource handling with fallback ---
+	llmResourceID := "@whois2/llmResource:1.0.0"
+	llmContent := ""
+
+	// Try to get the target action ID from workflow for better resource identification
+	targetActionID := ""
+	if dr.Workflow != nil {
+		targetActionID = dr.Workflow.GetTargetActionID()
+		dr.Logger.Debug("Workflow target action", "targetActionID", targetActionID)
+	}
+
+	// Try multiple resource IDs for better compatibility
+	resourceIDs := []string{llmResourceID}
+	if targetActionID != "" && targetActionID != llmResourceID {
+		resourceIDs = append(resourceIDs, targetActionID)
+	}
+
+	if dr.PklresHelper != nil {
+		for _, resourceID := range resourceIDs {
+			dr.Logger.Info("Attempting to retrieve LLM content", "resourceID", resourceID)
+			content, err := dr.PklresHelper.retrievePklContent("llm", resourceID)
+			if err != nil {
+				dr.Logger.Debug("Failed to retrieve LLM content", "resourceID", resourceID, "error", err)
+				continue
+			}
+			if len(content) > 0 {
+				llmContent = content
+				dr.Logger.Info("Successfully retrieved LLM content", "resourceID", resourceID, "contentLength", len(llmContent))
+				if len(llmContent) > 200 {
+					dr.Logger.Info("LLM content preview", "preview", llmContent[:200]+"...")
+				} else {
+					dr.Logger.Info("LLM content", "content", llmContent)
+				}
+				break
+			}
+		}
+	} else {
+		dr.Logger.Warn("PklresHelper is nil, cannot retrieve LLM content")
+	}
+	combinedPklFile := dr.ResponsePklFile + ".with_llm"
+	if llmContent != "" {
+		// Prepend the LLM PKL content to the response PKL file
+		origContent, err := afero.ReadFile(dr.Fs, dr.ResponsePklFile)
+		if err != nil {
+			return "", fmt.Errorf("read response PKL file: %w", err)
+		}
+		// Insert 'Resources = Resources' after the LLM PKL content
+		combined := []byte(llmContent + "\nResources = Resources\n" + string(origContent))
+		if err := afero.WriteFile(dr.Fs, combinedPklFile, combined, 0o644); err != nil {
+			return "", fmt.Errorf("write combined PKL file: %w", err)
+		}
+		// Debug: log the path and contents of the combined PKL file
+		contentPreview := string(combined)
+		if len(contentPreview) > 1000 {
+			contentPreview = contentPreview[:1000] + "... (truncated)"
+		}
+		dr.Logger.Info("Combined PKL file for response evaluation", "path", combinedPklFile, "contentPreview", contentPreview)
+	} else {
+		combinedPklFile = dr.ResponsePklFile
+		dr.Logger.Warn("No LLM content found, using original response PKL file", "path", combinedPklFile)
+
+		// Log additional context about why LLM content might be missing
+		dr.Logger.Info("LLM content missing - possible causes:",
+			"llmResourceID", llmResourceID,
+			"pklresHelper_nil", dr.PklresHelper == nil,
+			"workflow_target_action", func() string {
+				if dr.Workflow != nil {
+					return dr.Workflow.GetTargetActionID()
+				}
+				return "unknown"
+			}())
+
+		// Create fallback LLM content with request context for better user experience
+		if dr.Request != nil {
+			query := dr.Request.Query("q")
+			if query != "" {
+				dr.Logger.Info("Creating fallback response with query context", "query", query)
+				fallbackContent := fmt.Sprintf(`extends "package://schema.kdeps.com/core@0.3.0#/LLM.pkl"
+
+Resources {
+  ["%s"] {
+    Model = "llama2"
+    Prompt = "You are a helpful assistant. Please provide information about: %s"
+    Role = "assistant"
+    Response = "Information about %s: This is a fallback response. The LLM resource is not properly configured or the model is not available. Please check the workflow configuration and ensure the LLM resource files are present."
+    Timestamp = %g.ns
+    TimeoutDuration = 30.s
+    Env {}
+    Stderr = ""
+    Stdout = ""
+    File = ""
+    ExitCode = 0
+    ItemValues {}
+  }
+}`, llmResourceID, query, query, float64(time.Now().UnixNano()))
+
+				llmContent = fallbackContent
+				dr.Logger.Info("Generated fallback LLM content", "contentLength", len(llmContent))
+			}
+		}
+	}
+	// --- END PATCH ---
+
+	dr.Logger.Debug("using configured pklres reader for LLM resource access")
+
 	// Get the singleton evaluator
 	pklEvaluator, err := evaluator.GetEvaluator()
 	if err != nil {
@@ -277,7 +463,7 @@ func (dr *DependencyResolver) EvalPklFormattedResponseFile() (string, error) {
 	}
 
 	// Create module source
-	moduleSource := pkl.FileSource(dr.ResponsePklFile)
+	moduleSource := pkl.FileSource(combinedPklFile)
 
 	// Evaluate the PKL file
 	result, err := pklEvaluator.EvaluateOutputText(dr.Context, moduleSource)

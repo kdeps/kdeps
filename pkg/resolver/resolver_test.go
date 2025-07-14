@@ -48,6 +48,17 @@ func TestDependencyResolver(t *testing.T) {
 
 	_ = fs.MkdirAll(filesDir, 0o755)
 
+	// Add cleanup function to ensure all test files are removed
+	defer func() {
+		// Clean up any remaining files in the test directories
+		cleanupDirs := []string{filesDir, actionDir}
+		for _, dir := range cleanupDirs {
+			if exists, _ := afero.Exists(fs, dir); exists {
+				_ = fs.RemoveAll(dir)
+			}
+		}
+	}()
+
 	dr := &DependencyResolver{
 		Fs:            fs,
 		Logger:        logger,

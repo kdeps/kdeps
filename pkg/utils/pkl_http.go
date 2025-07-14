@@ -24,14 +24,9 @@ func FormatRequestParams(params map[string][]string) string {
 	for param, values := range params {
 		for _, value := range values {
 			trimmedValue := strings.TrimSpace(value)
-			// For simple string parameters, don't use Base64 encoding to avoid issues with PKL schema
-			// Only use Base64 encoding for complex values that might contain special characters
-			if isSimpleString(trimmedValue) {
-				paramsLines = append(paramsLines, fmt.Sprintf(`["%s"] = "%s"`, param, trimmedValue))
-			} else {
-				encodedValue := EncodeBase64String(trimmedValue)
-				paramsLines = append(paramsLines, fmt.Sprintf(`["%s"] = "%s"`, param, encodedValue))
-			}
+			// Always use Base64 encoding for parameters to ensure consistency and avoid PKL schema issues
+			encodedValue := EncodeBase64String(trimmedValue)
+			paramsLines = append(paramsLines, fmt.Sprintf(`["%s"] = "%s"`, param, encodedValue))
 		}
 	}
 	return "Params {\n" + strings.Join(paramsLines, "\n") + "\n}"

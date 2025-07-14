@@ -455,9 +455,18 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		dr, err := resolver.NewGraphResolver(baseDr.Fs, newCtx, baseDr.Environment, c, logger)
 		if err != nil {
 			logger.Error("failed to create resolver", "error", err)
+			
+			// Provide more specific error message for PKL syntax errors
+			errorMessage := "Failed to initialize resolver"
+			if strings.Contains(err.Error(), "Pkl Error") {
+				errorMessage = "PKL syntax error in workflow configuration"
+			} else if strings.Contains(err.Error(), "workflow.pkl") {
+				errorMessage = "Failed to load workflow configuration"
+			}
+			
 			errors = append(errors, ErrorResponse{
 				Code:     http.StatusInternalServerError,
-				Message:  "Failed to initialize resolver",
+				Message:  errorMessage,
 				ActionID: "unknown", // No resolver available yet
 			})
 			sendErrorResponse(http.StatusInternalServerError, errors)

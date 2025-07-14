@@ -18,21 +18,30 @@ import (
 )
 
 func (dr *DependencyResolver) HandlePython(actionID string, pythonBlock *pklPython.ResourcePython) error {
-	// Synchronously decode the python block.
+	// Canonicalize the actionID if it's a short ActionID
+	canonicalActionID := actionID
+	if dr.PklresHelper != nil {
+		canonicalActionID = dr.PklresHelper.resolveActionID(actionID)
+		if canonicalActionID != actionID {
+			dr.Logger.Debug("canonicalized actionID", "original", actionID, "canonical", canonicalActionID)
+		}
+	}
+
+	// Decode the python block synchronously
 	if err := dr.decodePythonBlock(pythonBlock); err != nil {
-		dr.Logger.Error("failed to decode python block", "actionID", actionID, "error", err)
+		dr.Logger.Error("failed to decode python block", "actionID", canonicalActionID, "error", err)
 		return err
 	}
 
-	// Process the python block asynchronously in a goroutine.
+	// Run processPythonBlock asynchronously in a goroutine
 	go func(aID string, block *pklPython.ResourcePython) {
 		if err := dr.processPythonBlock(aID, block); err != nil {
-			// Log the error; additional error handling can be added here if needed.
+			// Log the error; consider additional error handling as needed.
 			dr.Logger.Error("failed to process python block", "actionID", aID, "error", err)
 		}
-	}(actionID, pythonBlock)
+	}(canonicalActionID, pythonBlock)
 
-	// Return immediately while the python block is processed in the background.
+	// Return immediately; the python block is being processed in the background.
 	return nil
 }
 
@@ -229,6 +238,12 @@ func (dr *DependencyResolver) WritePythonStdoutToFile(resourceID string, stdoutE
 }
 
 func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pklPython.ResourcePython) error {
+	// Canonicalize the resourceID for storage
+	canonicalResourceID := resourceID
+	if dr.PklresHelper != nil {
+		canonicalResourceID = dr.PklresHelper.resolveActionID(resourceID)
+	}
+	dr.Logger.Debug("AppendPythonEntry: storing resource", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID)
 	// Retrieve existing python resources from pklres
 	existingContent, err := dr.PklresHelper.retrievePklContent("python", "")
 	if err != nil {
@@ -289,8 +304,10 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Python.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
 	pklContent.WriteString("Resources {\n")
 
-	for id, res := range existingResources {
-		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
+	for _, res := range existingResources {
+		blockKey := canonicalResourceID
+		dr.Logger.Debug("AppendPythonEntry: PKL block key", "blockKey", blockKey)
+		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", blockKey))
 		pklContent.WriteString(fmt.Sprintf("    Script = \"%s\"\n", res.Script))
 
 		if res.TimeoutDuration != nil {
@@ -337,7 +354,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 	pklContent.WriteString("}\n")
 
 	// Store the PKL content using pklres instead of writing to file
-	if err := dr.PklresHelper.storePklContent("python", resourceID, pklContent.String()); err != nil {
+	if err := dr.PklresHelper.storePklContent("python", canonicalResourceID, pklContent.String()); err != nil {
 		return fmt.Errorf("failed to store PKL content in pklres: %w", err)
 	}
 

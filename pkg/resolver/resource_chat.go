@@ -38,18 +38,33 @@ const (
 	RoleTool      = "tool"
 )
 
-// HandleLLMChat initiates asynchronous processing of an LLM chat interaction.
+// HandleLLMChat processes an LLM chat interaction synchronously.
 func (dr *DependencyResolver) HandleLLMChat(actionID string, chatBlock *pklLLM.ResourceChat) error {
+	dr.Logger.Info("HandleLLMChat: ENTRY", "actionID", actionID, "chatBlock_nil", chatBlock == nil)
+	if chatBlock != nil {
+		dr.Logger.Info("HandleLLMChat: chatBlock fields", "actionID", actionID, "model", chatBlock.Model, "prompt_nil", chatBlock.Prompt == nil)
+	}
+	dr.Logger.Debug("HandleLLMChat: called", "actionID", actionID, "PklresHelper_nil", dr.PklresHelper == nil, "PklresReader_nil", dr.PklresHelper == nil || dr.PklresHelper.resolver == nil || dr.PklresHelper.resolver.PklresReader == nil)
+	// Canonicalize the actionID if it's a short ActionID
+	canonicalActionID := actionID
+	if dr.PklresHelper != nil {
+		canonicalActionID = dr.PklresHelper.resolveActionID(actionID)
+		if canonicalActionID != actionID {
+			dr.Logger.Debug("canonicalized actionID", "original", actionID, "canonical", canonicalActionID)
+		}
+	}
+
+	// Decode the chat block synchronously
 	if err := dr.decodeChatBlock(chatBlock); err != nil {
-		dr.Logger.Error("failed to decode chat block", "actionID", actionID, "error", err)
+		dr.Logger.Error("failed to decode chat block", "actionID", canonicalActionID, "error", err)
 		return err
 	}
 
-	go func(aID string, block *pklLLM.ResourceChat) {
-		if err := dr.processLLMChat(aID, block); err != nil {
-			dr.Logger.Error("failed to process LLM chat", "actionID", aID, "error", err)
-		}
-	}(actionID, chatBlock)
+	// Process the chat block synchronously
+	if err := dr.processLLMChat(canonicalActionID, chatBlock); err != nil {
+		dr.Logger.Error("failed to process LLM chat block", "actionID", canonicalActionID, "error", err)
+		return err
+	}
 
 	return nil
 }
@@ -406,31 +421,81 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 
 // processLLMChat processes the LLM chat and saves the response.
 func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.ResourceChat) error {
+	dr.Logger.Info("processLLMChat: called", "actionID", actionID, "PklresHelper_nil", dr.PklresHelper == nil, "PklresReader_nil", dr.PklresHelper == nil || dr.PklresHelper.resolver == nil || dr.PklresHelper.resolver.PklresReader == nil)
+	dr.Logger.Info("processLLMChat: starting", "actionID", actionID)
+
+	if dr.NewLLMFn == nil {
+		dr.Logger.Error("processLLMChat: NewLLMFn is nil!", "actionID", actionID)
+		return errors.New("NewLLMFn is nil")
+	}
+	if dr.GenerateChatResponseFn == nil {
+		dr.Logger.Error("processLLMChat: GenerateChatResponseFn is nil!", "actionID", actionID)
+		return errors.New("GenerateChatResponseFn is nil")
+	}
+
 	if chatBlock == nil {
+		dr.Logger.Error("processLLMChat: chatBlock is nil", "actionID", actionID)
 		return errors.New("chatBlock cannot be nil")
 	}
 
+	dr.Logger.Debug("processLLMChat: initializing LLM", "actionID", actionID, "model", chatBlock.Model)
 	llm, err := dr.NewLLMFn(chatBlock.Model)
 	if err != nil {
+		dr.Logger.Error("processLLMChat: failed to initialize LLM", "actionID", actionID, "error", err)
 		return fmt.Errorf("failed to initialize LLM: %w", err)
 	}
 
+	dr.Logger.Debug("processLLMChat: generating chat response", "actionID", actionID)
 	completion, err := dr.GenerateChatResponseFn(dr.Context, dr.Fs, llm, chatBlock, dr.ToolReader, dr.Logger)
 	if err != nil {
+		dr.Logger.Error("processLLMChat: failed to generate chat response", "actionID", actionID, "error", err)
 		return err
 	}
 
+	dr.Logger.Info("processLLMChat: setting response", "actionID", actionID, "responseLength", len(completion))
 	chatBlock.Response = &completion
-	return dr.AppendChatEntry(actionID, chatBlock)
+
+	dr.Logger.Info("processLLMChat: calling AppendChatEntry", "actionID", actionID)
+	err = dr.AppendChatEntry(actionID, chatBlock)
+	if err != nil {
+		dr.Logger.Error("processLLMChat: failed to append chat entry", "actionID", actionID, "error", err)
+		return err
+	}
+
+	dr.Logger.Info("processLLMChat: completed successfully", "actionID", actionID)
+	return nil
 }
 
 // AppendChatEntry appends a chat entry to the Pkl file.
 func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM.ResourceChat) error {
+	dr.Logger.Info("AppendChatEntry: called", "resourceID", resourceID, "newChat_nil", newChat == nil)
+	if newChat != nil {
+		responseLength := 0
+		if newChat.Response != nil {
+			responseLength = len(*newChat.Response)
+		}
+		dr.Logger.Info("AppendChatEntry: newChat details", "resourceID", resourceID, "model", newChat.Model, "response_nil", newChat.Response == nil, "response_length", responseLength)
+	}
+	if dr.PklresHelper == nil {
+		dr.Logger.Error("AppendChatEntry: PklresHelper is nil, cannot persist LLM resource", "resourceID", resourceID)
+		return fmt.Errorf("PklresHelper is nil")
+	}
+
+	// Canonicalize the resourceID for storage
+	canonicalResourceID := resourceID
+	if dr.PklresHelper != nil {
+		canonicalResourceID = dr.PklresHelper.resolveActionID(resourceID)
+	}
+	dr.Logger.Debug("AppendChatEntry: storing resource", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID)
+
 	// Retrieve existing LLM resources from pklres
 	existingContent, err := dr.PklresHelper.retrievePklContent("llm", "")
 	if err != nil {
 		// If no existing content, start with empty resources
 		existingContent = ""
+		dr.Logger.Debug("AppendChatEntry: no existing content found", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID)
+	} else {
+		dr.Logger.Debug("AppendChatEntry: found existing content", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "contentLength", len(existingContent))
 	}
 
 	// Parse existing resources or create new map
@@ -443,11 +508,16 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 
 	var filePath string
 	if newChat.Response != nil {
+		dr.Logger.Debug("AppendChatEntry: writing response to file", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID)
 		filePath, err = dr.WriteResponseToFile(resourceID, newChat.Response)
 		if err != nil {
+			dr.Logger.Error("AppendChatEntry: failed to write response to file", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "error", err)
 			return fmt.Errorf("failed to write response to file: %w", err)
 		}
 		newChat.File = &filePath
+		dr.Logger.Debug("AppendChatEntry: wrote response to file", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "filePath", filePath)
+	} else {
+		dr.Logger.Debug("AppendChatEntry: no response to write to file", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID)
 	}
 
 	encodedChat := encodeChat(newChat, dr.Logger)
@@ -457,12 +527,19 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 	}
 	existingResources[resourceID] = encodedChat
 
+	dr.Logger.Debug("AppendChatEntry: generating PKL content", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID)
+
 	// Store the PKL content using pklres (no JSON, no custom serialization)
 	pklContent := generatePklContent(existingResources, dr.Context, dr.Logger, dr.RequestID)
-	if err := dr.PklresHelper.storePklContent("llm", resourceID, pklContent); err != nil {
+
+	dr.Logger.Debug("AppendChatEntry: storing PKL content", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "contentLength", len(pklContent))
+
+	if err := dr.PklresHelper.storePklContent("llm", canonicalResourceID, pklContent); err != nil {
+		dr.Logger.Error("AppendChatEntry: failed to store PKL content", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "error", err)
 		return fmt.Errorf("failed to store PKL content in pklres: %w", err)
 	}
 
+	dr.Logger.Debug("AppendChatEntry: successfully stored resource", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID)
 	return nil
 }
 
