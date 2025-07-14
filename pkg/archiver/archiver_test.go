@@ -763,14 +763,14 @@ Run {
 		workflowSchema, err := assets.GetPKLFileAsString("Workflow.pkl")
 		require.NoError(t, err)
 
-		// Verify v0.4.0 workflow properties are defined
+		// Verify v0.4.2 workflow properties are defined
 		assert.Contains(t, workflowSchema, "AgentID: String")
 		assert.Contains(t, workflowSchema, "Settings: Project.Settings")
 
 		resourceSchema, err := assets.GetPKLFileAsString("Resource.pkl")
 		require.NoError(t, err)
 
-		// Verify v0.4.0 resource properties are defined
+		// Verify v0.4.2 resource properties are defined
 		assert.Contains(t, resourceSchema, "ActionID: String")
 		assert.Contains(t, resourceSchema, "PostflightCheck: ValidationCheck?")
 		assert.Contains(t, resourceSchema, "AllowedHeaders: Listing<String>?")
@@ -781,11 +781,11 @@ Run {
 		projectSchema, err := assets.GetPKLFileAsString("Project.pkl")
 		require.NoError(t, err)
 
-		// Verify v0.4.0 project settings properties
+		// Verify v0.4.2 project settings properties
 		assert.Contains(t, projectSchema, "RateLimitMax: Int? = 100")
 		assert.Contains(t, projectSchema, "Environment: BuildEnv? = \"dev\"")
 
-		t.Logf("Schema validation completed for v0.4.0 properties")
+		t.Logf("Schema validation completed for v0.4.2 properties")
 	})
 
 	t.Run("ArchiveProjectWithAssets", func(t *testing.T) {

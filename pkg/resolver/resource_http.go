@@ -320,9 +320,9 @@ func (dr *DependencyResolver) DoRequest(client *pklHTTP.ResourceHTTPClient) erro
 		}
 		parsedURL.RawQuery = query.Encode()
 	}
-	
+
 	client.Url = parsedURL.String()
-	
+
 	// Debug: Log the final URL being requested
 	dr.Logger.Info("HTTP request URL", "url", client.Url, "method", client.Method)
 

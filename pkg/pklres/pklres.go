@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
-
-	"os"
 
 	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/agent"
@@ -102,6 +102,10 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		return r.clearRecords(typ)
 	case "list":
 		return r.listRecords(typ)
+	case "output":
+		return r.getResourceOutput(id, typ)
+	case "eval":
+		return r.evaluateResource(id, typ)
 	default: // getRecord (no operation specified)
 		return r.getRecord(id, typ, key)
 	}
@@ -319,6 +323,103 @@ func (r *PklResourceReader) listRecords(typ string) ([]byte, error) {
 
 	log.Printf("listRecords succeeded for type: %s, found %d records", typ, len(ids))
 	return result, nil
+}
+
+// getResourceOutput retrieves the output file content for a specific resource
+func (r *PklResourceReader) getResourceOutput(id, typ string) ([]byte, error) {
+	log.Printf("getResourceOutput called with id: %s, type: %s", id, typ)
+	if id == "" || typ == "" {
+		return nil, errors.New("getResourceOutput requires id and type parameters")
+	}
+
+	// Get the current request ID from environment or context
+	requestID := os.Getenv("KDEPS_REQUEST_ID")
+	log.Printf("getResourceOutput: KDEPS_REQUEST_ID = '%s'", requestID)
+	if requestID == "" {
+		// Try to get from the database or other context
+		// For now, scan temp directory for matching files
+		outputDir := "/tmp/action/files"
+
+		// Look for files matching the pattern: {requestID}_{resourcename}
+		// Convert canonical ID format: @whois2/llmResource:1.0.0 -> whois2_llmResource_1.0.0
+		resourceName := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(id, "@", ""), "/", "_"), ":", "_")
+		log.Printf("getResourceOutput: searching for pattern *_%s in %s", resourceName, outputDir)
+
+		files, err := filepath.Glob(filepath.Join(outputDir, "*_"+resourceName))
+		if err != nil {
+			log.Printf("getResourceOutput: glob search failed: %v", err)
+			return nil, fmt.Errorf("failed to search for output files: %w", err)
+		}
+
+		log.Printf("getResourceOutput: found %d matching files: %v", len(files), files)
+		if len(files) == 0 {
+			return []byte(""), nil // Return empty content if file not found
+		}
+
+		// Use the most recent file if multiple matches
+		var newestFile string
+		var newestTime time.Time
+		for _, file := range files {
+			if info, err := os.Stat(file); err == nil {
+				if info.ModTime().After(newestTime) {
+					newestTime = info.ModTime()
+					newestFile = file
+				}
+			}
+		}
+
+		if newestFile == "" {
+			return []byte(""), nil
+		}
+
+		// Read the file content
+		content, err := os.ReadFile(newestFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read output file %s: %w", newestFile, err)
+		}
+
+		return content, nil
+	}
+
+	// If we have requestID, construct the exact file path
+	resourceName := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(id, "@", ""), "/", "_"), ":", "_")
+	outputFile := filepath.Join("/tmp/action/files", requestID+"_"+resourceName)
+
+	content, err := os.ReadFile(outputFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []byte(""), nil // Return empty content if file doesn't exist
+		}
+		return nil, fmt.Errorf("failed to read output file %s: %w", outputFile, err)
+	}
+
+	return content, nil
+}
+
+// evaluateResource retrieves the PKL record from database and evaluates it
+func (r *PklResourceReader) evaluateResource(id, typ string) ([]byte, error) {
+	log.Printf("evaluateResource called with id: %s, type: %s", id, typ)
+	if id == "" || typ == "" {
+		return nil, errors.New("evaluateResource requires id and type parameters")
+	}
+
+	// Get the PKL record from database
+	pklRecord, err := r.getRecord(id, typ, "")
+	if err != nil {
+		log.Printf("evaluateResource: failed to get PKL record: %v", err)
+		return nil, fmt.Errorf("failed to get PKL record: %w", err)
+	}
+
+	if len(pklRecord) == 0 {
+		log.Printf("evaluateResource: PKL record is empty for id: %s, type: %s", id, typ)
+		return []byte(""), nil
+	}
+
+	log.Printf("evaluateResource: retrieved PKL record: %s", string(pklRecord))
+
+	// For PKL evaluation, we need to return the raw PKL record
+	// The PKL evaluator in the calling code will handle the evaluation
+	return pklRecord, nil
 }
 
 // InitializeDatabase sets up the SQLite database and creates the records table with retries.

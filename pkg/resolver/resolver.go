@@ -1021,7 +1021,7 @@ func (dr *DependencyResolver) storeInitialResourceState(actionID, resourceType s
 
 	// Create a basic PKL content structure for the resource
 	var pklContent strings.Builder
-	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@0.4.0#/%s.pkl\"\n\n", strings.Title(resourceType)))
+	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@0.4.2#/%s.pkl\"\n\n", strings.Title(resourceType)))
 	pklContent.WriteString("Resources {\n")
 	pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", actionID))
 

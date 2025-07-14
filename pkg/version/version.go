@@ -9,10 +9,10 @@ var (
 // Component version constants
 const (
 	// Default schema version used when not fetching latest
-	DefaultSchemaVersion = "0.4.0"
+	DefaultSchemaVersion = "0.4.2"
 
 	// Default Anaconda version for Docker images
-	DefaultAnacondaVersion = "2024.10-1"
+	DefaultAnacondaVersion = "20.4.20-1"
 
 	// Default PKL version for Docker images
 	DefaultPklVersion = "0.28.2"
@@ -24,5 +24,5 @@ const (
 	DefaultKdepsInstallVersion = "latest"
 
 	// Minimum supported schema version - versions below this are not supported
-	MinimumSchemaVersion = "0.4.0"
+	MinimumSchemaVersion = "0.4.2"
 )

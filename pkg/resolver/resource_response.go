@@ -31,7 +31,16 @@ func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverre
 	if dr.Workflow != nil {
 		os.Setenv("KDEPS_CURRENT_AGENT", dr.Workflow.GetAgentID())
 		os.Setenv("KDEPS_CURRENT_VERSION", dr.Workflow.GetVersion())
+
+		// Also update the AgentReader context directly
+		if dr.AgentReader != nil {
+			dr.AgentReader.CurrentAgent = dr.Workflow.GetAgentID()
+			dr.AgentReader.CurrentVersion = dr.Workflow.GetVersion()
+		}
 	}
+
+	// Set the request ID for output file lookup
+	os.Setenv("KDEPS_REQUEST_ID", dr.RequestID)
 
 	if err := dr.DBs[0].PingContext(context.Background()); err != nil {
 		return fmt.Errorf("failed to ping database: %v", err)

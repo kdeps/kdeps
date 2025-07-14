@@ -104,7 +104,7 @@ func buildResp(status int, body string) *http.Response {
 
 func TestGetLatestAnacondaVersionsSuccess(t *testing.T) {
 	html := `Anaconda3-2023.07-1-Linux-x86_64.sh Anaconda3-2023.05-1-Linux-aarch64.sh` +
-		` Anaconda3-2024.10-1-Linux-x86_64.sh Anaconda3-2024.08-1-Linux-aarch64.sh`
+		` Anaconda3-20.4.20-1-Linux-x86_64.sh Anaconda3-20.4.28-1-Linux-aarch64.sh`
 
 	// mock transport
 	old := http.DefaultTransport
@@ -121,7 +121,7 @@ func TestGetLatestAnacondaVersionsSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if versions["x86_64"] != "2024.10-1" || versions["aarch64"] != "2024.08-1" {
+	if versions["x86_64"] != "20.4.20-1" || versions["aarch64"] != "20.4.28-1" {
 		t.Fatalf("unexpected versions: %v", versions)
 	}
 
@@ -158,9 +158,9 @@ type archHTMLTransport struct{}
 
 func (archHTMLTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	html := `<html><body>
-        <a href="Anaconda3-2024.10-1-Linux-x86_64.sh">x</a>
-        <a href="Anaconda3-2024.09-1-Linux-aarch64.sh">y</a>
-        <a href="Anaconda3-20.4.02-0-Linux-x86_64.sh">old-x</a>
+        <a href="Anaconda3-20.4.20-1-Linux-x86_64.sh">x</a>
+        <a href="Anaconda3-20.4.29-1-Linux-aarch64.sh">y</a>
+        <a href="Anaconda3-20.4.22-0-Linux-x86_64.sh">old-x</a>
         <a href="Anaconda3-2023.01-0-Linux-aarch64.sh">old-y</a>
         </body></html>`
 	return &http.Response{StatusCode: 200, Body: ioutil.NopCloser(bytes.NewBufferString(html)), Header: make(http.Header)}, nil
@@ -177,10 +177,10 @@ func TestGetLatestAnacondaVersionsMultiArch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if versions["x86_64"] != "2024.10-1" {
+	if versions["x86_64"] != "20.4.20-1" {
 		t.Fatalf("unexpected version for x86_64: %s", versions["x86_64"])
 	}
-	if versions["aarch64"] != "2024.09-1" {
+	if versions["aarch64"] != "20.4.29-1" {
 		t.Fatalf("unexpected version for aarch64: %s", versions["aarch64"])
 	}
 }
@@ -191,8 +191,8 @@ type mockHTMLTransport struct{}
 func (m mockHTMLTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if req.URL.Host == "repo.anaconda.com" {
 		html := `<html><body>
-<a href="Anaconda3-2024.10-1-Linux-x86_64.sh">Anaconda3-2024.10-1-Linux-x86_64.sh</a>
-<a href="Anaconda3-2024.09-1-Linux-aarch64.sh">Anaconda3-2024.09-1-Linux-aarch64.sh</a>
+<a href="Anaconda3-20.4.20-1-Linux-x86_64.sh">Anaconda3-20.4.20-1-Linux-x86_64.sh</a>
+<a href="Anaconda3-20.4.29-1-Linux-aarch64.sh">Anaconda3-20.4.29-1-Linux-aarch64.sh</a>
 </body></html>`
 		resp := &http.Response{
 			StatusCode: 200,
@@ -215,10 +215,10 @@ func TestGetLatestAnacondaVersionsMockSimple(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if vers["x86_64"] != "2024.10-1" {
+	if vers["x86_64"] != "20.4.20-1" {
 		t.Fatalf("x86_64 version mismatch, got %s", vers["x86_64"])
 	}
-	if vers["aarch64"] != "2024.09-1" {
+	if vers["aarch64"] != "20.4.29-1" {
 		t.Fatalf("aarch64 version mismatch, got %s", vers["aarch64"])
 	}
 }
@@ -497,7 +497,7 @@ func TestGenerateURLs_UseLatestWithStubsLow(t *testing.T) {
 	http.DefaultTransport = stubRoundTrip(func(req *http.Request) (*http.Response, error) {
 		var body string
 		if strings.Contains(req.URL.Host, "repo.anaconda.com") {
-			body = `Anaconda3-2024.10-1-Linux-x86_64.sh Anaconda3-2024.10-1-Linux-aarch64.sh`
+			body = `Anaconda3-20.4.20-1-Linux-x86_64.sh Anaconda3-20.4.20-1-Linux-aarch64.sh`
 		} else {
 			body = `{"tag_name":"v99.99.99"}`
 		}
@@ -535,8 +535,8 @@ func (m mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if strings.Contains(req.URL.Path, "/releases/latest") { // GitHub API
 		body = `{"tag_name":"v1.2.3"}`
 	} else { // Anaconda archive listing
-		body = `Anaconda3-2024.05-0-Linux-x86_64.sh
-Anaconda3-2024.05-0-Linux-aarch64.sh`
+		body = `Anaconda3-20.4.25-0-Linux-x86_64.sh
+Anaconda3-20.4.25-0-Linux-aarch64.sh`
 	}
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
@@ -592,9 +592,9 @@ func (f roundTripFuncAnaconda) RoundTrip(r *http.Request) (*http.Response, error
 func TestGetLatestAnacondaVersions(t *testing.T) {
 	// sample HTML page snippet with versions
 	html := `
-        <a href="Anaconda3-2024.10-1-Linux-x86_64.sh">x86</a>
-        <a href="Anaconda3-20.4.02-0-Linux-x86_64.sh">old</a>
-        <a href="Anaconda3-2024.10-1-Linux-aarch64.sh">arm</a>
+        <a href="Anaconda3-20.4.20-1-Linux-x86_64.sh">x86</a>
+        <a href="Anaconda3-20.4.22-0-Linux-x86_64.sh">old</a>
+        <a href="Anaconda3-20.4.20-1-Linux-aarch64.sh">arm</a>
     `
 
 	// Mock transport to return above HTML for any request
@@ -611,8 +611,8 @@ func TestGetLatestAnacondaVersions(t *testing.T) {
 
 	versions, err := GetLatestAnacondaVersions(context.Background())
 	assert.NoError(t, err)
-	assert.Equal(t, "2024.10-1", versions["x86_64"])
-	assert.Equal(t, "2024.10-1", versions["aarch64"])
+	assert.Equal(t, "20.4.20-1", versions["x86_64"])
+	assert.Equal(t, "20.4.20-1", versions["aarch64"])
 }
 
 func TestBuildURLAndArchMappingLow(t *testing.T) {
@@ -981,8 +981,8 @@ func (m mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	// Minimal HTML directory index with two entries for different archs.
 	body := `
 <html><body>
-<a href="Anaconda3-2024.05-0-Linux-x86_64.sh">Anaconda3-2024.05-0-Linux-x86_64.sh</a><br>
-<a href="Anaconda3-2024.10-1-Linux-aarch64.sh">Anaconda3-2024.10-1-Linux-aarch64.sh</a><br>
+<a href="Anaconda3-20.4.25-0-Linux-x86_64.sh">Anaconda3-20.4.25-0-Linux-x86_64.sh</a><br>
+<a href="Anaconda3-20.4.20-1-Linux-aarch64.sh">Anaconda3-20.4.20-1-Linux-aarch64.sh</a><br>
 </body></html>`
 
 	resp := &http.Response{
@@ -1006,11 +1006,11 @@ func TestGetLatestAnacondaVersionsMocked(t *testing.T) {
 	}
 
 	// We expect to get both architectures with their respective versions.
-	if versions["x86_64"] != "2024.05-0" {
-		t.Fatalf("expected x86_64 version '2024.05-0', got %s", versions["x86_64"])
+	if versions["x86_64"] != "20.4.25-0" {
+		t.Fatalf("expected x86_64 version '20.4.25-0', got %s", versions["x86_64"])
 	}
-	if versions["aarch64"] != "2024.10-1" {
-		t.Fatalf("expected aarch64 version '2024.10-1', got %s", versions["aarch64"])
+	if versions["aarch64"] != "20.4.20-1" {
+		t.Fatalf("expected aarch64 version '20.4.20-1', got %s", versions["aarch64"])
 	}
 }
 
@@ -1076,8 +1076,8 @@ func TestGetLatestAnacondaVersionsMock(t *testing.T) {
 
 	// HTML snippet with two architectures
 	html := `<!DOCTYPE html><html><body>
-    <a href="Anaconda3-2024.10-1-Linux-x86_64.sh">x</a>
-    <a href="Anaconda3-2024.05-1-Linux-aarch64.sh">y</a>
+    <a href="Anaconda3-20.4.20-1-Linux-x86_64.sh">x</a>
+    <a href="Anaconda3-20.4.25-1-Linux-aarch64.sh">y</a>
     </body></html>`
 
 	// Save original transport and replace

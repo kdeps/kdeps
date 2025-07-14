@@ -194,5 +194,3 @@ func EvaluateText(ctx context.Context, pklText string, logger *logging.Logger) (
 
 	return result, nil
 }
-
-

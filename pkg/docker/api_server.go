@@ -455,7 +455,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		dr, err := resolver.NewGraphResolver(baseDr.Fs, newCtx, baseDr.Environment, c, logger)
 		if err != nil {
 			logger.Error("failed to create resolver", "error", err)
-			
+
 			// Provide more specific error message for PKL syntax errors
 			errorMessage := "Failed to initialize resolver"
 			if strings.Contains(err.Error(), "Pkl Error") {
@@ -463,7 +463,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			} else if strings.Contains(err.Error(), "workflow.pkl") {
 				errorMessage = "Failed to load workflow configuration"
 			}
-			
+
 			errors = append(errors, ErrorResponse{
 				Code:     http.StatusInternalServerError,
 				Message:  errorMessage,
@@ -717,7 +717,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 
 		// Check if we have data to return
 		hasData := decodedResp.Response.Data != nil && len(decodedResp.Response.Data) > 0
-		
+
 		// If there are critical errors AND no data, send error response (fail-fast behavior)
 		if len(errors) > 0 && !hasData {
 			// Add generic context error for fail-fast scenarios
