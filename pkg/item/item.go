@@ -38,8 +38,8 @@ func (r *PklResourceReader) Scheme() string {
 	return "item"
 }
 
-// fetchValues retrieves unique values from the items table and returns them as a JSON array.
-func (r *PklResourceReader) fetchValues(operation string) ([]byte, error) {
+// FetchValues retrieves unique values from the items table and returns them as a JSON array.
+func (r *PklResourceReader) FetchValues(operation string) ([]byte, error) {
 	rows, err := r.DB.Query("SELECT value FROM items ORDER BY id")
 	if err != nil {
 		return nil, fmt.Errorf("failed to list records: %w", err)
@@ -122,8 +122,8 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 	}
 }
 
-// getMostRecentID retrieves the ID of the most recent record.
-func (r *PklResourceReader) getMostRecentID() (string, error) {
+// GetMostRecentID retrieves the ID of the most recent record.
+func (r *PklResourceReader) GetMostRecentID() (string, error) {
 	var id string
 	err := r.DB.QueryRow("SELECT id FROM items ORDER BY id DESC LIMIT 1").Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -260,7 +260,7 @@ func (r *PklResourceReader) setRecord(query url.Values) ([]byte, error) {
 
 // getCurrentRecord retrieves the most recent item record
 func (r *PklResourceReader) getCurrentRecord() ([]byte, error) {
-	currentID, err := r.getMostRecentID()
+	currentID, err := r.GetMostRecentID()
 	if err != nil {
 		return nil, err
 	}
@@ -282,7 +282,7 @@ func (r *PklResourceReader) getCurrentRecord() ([]byte, error) {
 
 // getNextRecord retrieves the next item record after the current one
 func (r *PklResourceReader) getNextRecord() ([]byte, error) {
-	currentID, err := r.getMostRecentID()
+	currentID, err := r.GetMostRecentID()
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +306,7 @@ func (r *PklResourceReader) getNextRecord() ([]byte, error) {
 
 // getPrevRecord retrieves the previous item record before the current one
 func (r *PklResourceReader) getPrevRecord() ([]byte, error) {
-	currentID, err := r.getMostRecentID()
+	currentID, err := r.GetMostRecentID()
 	if err != nil {
 		return nil, err
 	}
@@ -330,10 +330,10 @@ func (r *PklResourceReader) getPrevRecord() ([]byte, error) {
 
 // listRecords lists all item records
 func (r *PklResourceReader) listRecords() ([]byte, error) {
-	return r.fetchValues("list")
+	return r.FetchValues("list")
 }
 
 // getValues retrieves unique values from the items table
 func (r *PklResourceReader) getValues() ([]byte, error) {
-	return r.fetchValues("values")
+	return r.FetchValues("values")
 }

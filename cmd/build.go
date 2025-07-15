@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/docker/docker/client"
 	"github.com/kdeps/kdeps/pkg/archiver"
@@ -21,7 +20,7 @@ func NewBuildCommand(fs afero.Fs, ctx context.Context, kdepsDir string, systemCf
 		Example: "$ kdeps build ./myAgent.kdeps",
 		Short:   "Build a dockerized AI agent",
 		Args:    cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			pkgFile := args[0]
 			// Use the passed dependencies
 			pkgProject, err := archiver.ExtractPackage(fs, ctx, kdepsDir, pkgFile, logger)
@@ -41,10 +40,10 @@ func NewBuildCommand(fs afero.Fs, ctx context.Context, kdepsDir string, systemCf
 				return err
 			}
 
-			if err := docker.CleanupDockerBuildImages(fs, ctx, agentContainerName, dockerClient); err != nil {
-				return err
+			if cleanupErr := docker.CleanupDockerBuildImages(fs, ctx, agentContainerName, dockerClient); cleanupErr != nil {
+				return cleanupErr
 			}
-			fmt.Println("Kdeps AI Agent docker image created:", agentContainerNameAndVersion)
+			logger.Info("Kdeps AI Agent docker image created", "agentContainerNameAndVersion", agentContainerNameAndVersion)
 			return nil
 		},
 	}

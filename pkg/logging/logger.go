@@ -91,12 +91,12 @@ func GetLogger() *Logger {
 	return logger
 }
 
-// IsDebugEnabled returns true if debug logging is enabled
+// IsDebugEnabled returns true if debug logging is enabled.
 func (l *Logger) IsDebugEnabled() bool {
 	return l.Logger.GetLevel() <= log.DebugLevel
 }
 
-// UnderlyingLogger returns the underlying *log.Logger from the custom Logger.
+// BaseLogger returns the underlying *log.Logger from the custom Logger.
 func (l *Logger) BaseLogger() *log.Logger {
 	if l == nil || l.Logger == nil {
 		panic("logger not initialized")
@@ -111,7 +111,7 @@ func ensureInitialized() {
 	}
 }
 
-// Add this method to your Logger struct.
+// With creates a new logger with additional key-value pairs.
 func (l *Logger) With(keyvals ...interface{}) *Logger {
 	return &Logger{
 		Logger: l.Logger.With(keyvals...),

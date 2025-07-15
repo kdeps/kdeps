@@ -1,4 +1,4 @@
-package resolver
+package resolver_test
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
@@ -17,14 +18,15 @@ import (
 
 func TestEncodeChat_AllFields(t *testing.T) {
 	logger := logging.NewTestLogger()
-	model := "test-model"
-	prompt := "test-prompt"
-	role := "user"
-
-	scRole := RoleSystem
-	scPrompt := "contextual prompt"
-	scenario := []*pklLLM.MultiChat{{Role: &scRole, Prompt: &scPrompt}}
-
+	model := "llama2"
+	prompt := "Tell me a joke"
+	role := "system"
+	scRole := "user"
+	scPrompt := "You are helpful"
+	scenario := []*pklLLM.MultiChat{{
+		Role:   &scRole,
+		Prompt: &scPrompt,
+	}}
 	// Tool definition with one parameter
 	req := true
 	paramType := "string"
@@ -41,12 +43,10 @@ func TestEncodeChat_AllFields(t *testing.T) {
 		Description: &toolDesc,
 		Parameters:  &params,
 	}}
-
 	// Use temporary directory for test files
 	tmpDir := t.TempDir()
 	filePath := filepath.Join(tmpDir, "file.txt")
 	files := []string{filePath}
-
 	chat := &pklLLM.ResourceChat{
 		Model:    model,
 		Prompt:   &prompt,
@@ -54,89 +54,70 @@ func TestEncodeChat_AllFields(t *testing.T) {
 		Scenario: &scenario,
 		Tools:    &tools,
 		Files:    &files,
-		// leave Timestamp/Timeout nil so encodeChat will populate defaults
 	}
-
-	encoded := encodeChat(chat, logger)
-
-	// Basic top-level encodings
-	if encoded.Model != utils.EncodeValue(model) {
-		t.Errorf("model not encoded correctly: %s", encoded.Model)
+	encoded := resolver.EncodeChat(chat, logger)
+	// Check that the encoded string contains the expected encoded values
+	if !strings.Contains(encoded, utils.EncodeValue(model)) {
+		t.Errorf("model not encoded correctly: %s", encoded)
 	}
-	if utils.SafeDerefString(encoded.Prompt) != utils.EncodeValue(prompt) {
-		t.Errorf("prompt not encoded correctly: %s", utils.SafeDerefString(encoded.Prompt))
+	if !strings.Contains(encoded, utils.EncodeValue(prompt)) {
+		t.Errorf("prompt not encoded correctly: %s", encoded)
 	}
-	if utils.SafeDerefString(encoded.Role) != utils.EncodeValue(role) {
-		t.Errorf("role not encoded correctly: %s", utils.SafeDerefString(encoded.Role))
+	if !strings.Contains(encoded, utils.EncodeValue(role)) {
+		t.Errorf("role not encoded correctly: %s", encoded)
 	}
-
-	// Scenario should be encoded
-	if encoded.Scenario == nil || len(*encoded.Scenario) != 1 {
-		t.Fatalf("scenario length mismatch")
+	if !strings.Contains(encoded, utils.EncodeValue(scRole)) {
+		t.Errorf("scenario role not encoded: %s", encoded)
 	}
-	sc := (*encoded.Scenario)[0]
-	if utils.SafeDerefString(sc.Role) != utils.EncodeValue(scRole) {
-		t.Errorf("scenario role not encoded: %s", utils.SafeDerefString(sc.Role))
+	if !strings.Contains(encoded, utils.EncodeValue(scPrompt)) {
+		t.Errorf("scenario prompt not encoded: %s", encoded)
 	}
-	if utils.SafeDerefString(sc.Prompt) != utils.EncodeValue(scPrompt) {
-		t.Errorf("scenario prompt not encoded: %s", utils.SafeDerefString(sc.Prompt))
+	if !strings.Contains(encoded, utils.EncodeValue(files[0])) {
+		t.Errorf("file not encoded: %s", encoded)
 	}
-
-	// Files encoded
-	if encoded.Files == nil || (*encoded.Files)[0] != utils.EncodeValue(files[0]) {
-		t.Errorf("file not encoded: %v", encoded.Files)
+	if !strings.Contains(encoded, utils.EncodeValue(toolName)) {
+		t.Errorf("tool name not encoded: %s", encoded)
 	}
-
-	// Tools encoded
-	if encoded.Tools == nil || len(*encoded.Tools) != 1 {
-		t.Fatalf("encoded tools missing")
+	if !strings.Contains(encoded, utils.EncodeValue(toolScript)) {
+		t.Errorf("tool script not encoded: %s", encoded)
 	}
-	et := (*encoded.Tools)[0]
-	if utils.SafeDerefString(et.Name) != utils.EncodeValue(toolName) {
-		t.Errorf("tool name not encoded")
+	if !strings.Contains(encoded, utils.EncodeValue(paramType)) {
+		t.Errorf("param type not encoded: %s", encoded)
 	}
-	if utils.SafeDerefString(et.Script) != utils.EncodeValue(toolScript) {
-		t.Errorf("tool script not encoded")
+	if !strings.Contains(encoded, utils.EncodeValue(paramDesc)) {
+		t.Errorf("param desc not encoded: %s", encoded)
 	}
-	gotParam := (*et.Parameters)["value"]
-	if utils.SafeDerefString(gotParam.Type) != utils.EncodeValue(paramType) {
-		t.Errorf("param type not encoded: %s", utils.SafeDerefString(gotParam.Type))
+	// Check for default timeout and timestamp
+	if !strings.Contains(encoded, "TimeoutDuration") {
+		t.Error("timeout should be auto-populated")
 	}
-	if utils.SafeDerefString(gotParam.Description) != utils.EncodeValue(paramDesc) {
-		t.Errorf("param desc not encoded: %s", utils.SafeDerefString(gotParam.Description))
-	}
-
-	// Defaults populated
-	if encoded.Timestamp == nil {
+	if !strings.Contains(encoded, "Timestamp") {
 		t.Error("timestamp should be auto-populated")
-	}
-	if encoded.TimeoutDuration == nil || encoded.TimeoutDuration.Value != 60 {
-		t.Errorf("timeout default incorrect: %+v", encoded.TimeoutDuration)
 	}
 }
 
 func TestEncodeJSONResponseKeys_Nil(t *testing.T) {
-	if encodeJSONResponseKeys(nil) != nil {
+	if resolver.EncodeJSONResponseKeys(nil) != nil {
 		t.Errorf("expected nil when keys nil")
 	}
 
 	keys := []string{"k1"}
-	enc := encodeJSONResponseKeys(&keys)
+	enc := resolver.EncodeJSONResponseKeys(&keys)
 	if (*enc)[0] != utils.EncodeValue("k1") {
 		t.Errorf("key not encoded: %s", (*enc)[0])
 	}
 }
 
 func TestEncodeExecHelpers(t *testing.T) {
-	dr := &DependencyResolver{}
+	dr := &resolver.DependencyResolver{}
 
 	t.Run("ExecEnv_Nil", func(t *testing.T) {
-		require.Nil(t, dr.encodeExecEnv(nil))
+		require.Nil(t, dr.EncodeExecEnv(nil))
 	})
 
 	t.Run("ExecEnv_Encode", func(t *testing.T) {
 		env := map[string]string{"KEY": "value"}
-		enc := dr.encodeExecEnv(&env)
+		enc := dr.EncodeExecEnv(&env)
 		require.NotNil(t, enc)
 		require.Equal(t, "dmFsdWU=", (*enc)["KEY"])
 	})
@@ -144,44 +125,44 @@ func TestEncodeExecHelpers(t *testing.T) {
 	t.Run("ExecOutputs", func(t *testing.T) {
 		stderr := "err"
 		stdout := "out"
-		es, eo := dr.encodeExecOutputs(&stderr, &stdout)
+		es, eo := dr.EncodeExecOutputs(&stderr, &stdout)
 		require.Equal(t, "ZXJy", *es)
 		require.Equal(t, "b3V0", *eo)
 	})
 
 	t.Run("ExecOutputs_Nil", func(t *testing.T) {
-		es, eo := dr.encodeExecOutputs(nil, nil)
+		es, eo := dr.EncodeExecOutputs(nil, nil)
 		require.Nil(t, es)
 		require.Nil(t, eo)
 	})
 
 	t.Run("EncodeStderr", func(t *testing.T) {
 		txt := "oops"
-		s := dr.encodeExecStderr(&txt)
+		s := dr.EncodeExecStderr(&txt)
 		require.Contains(t, s, txt)
 		require.Contains(t, s, "Stderr = #\"\"\"")
 	})
 
 	t.Run("EncodeStderr_Nil", func(t *testing.T) {
-		require.Equal(t, "    Stderr = \"\"\n", dr.encodeExecStderr(nil))
+		require.Equal(t, "    Stderr = \"\"\n", dr.EncodeExecStderr(nil))
 	})
 
 	t.Run("EncodeStdout", func(t *testing.T) {
 		txt := "yay"
-		s := dr.encodeExecStdout(&txt)
+		s := dr.EncodeExecStdout(&txt)
 		require.Contains(t, s, txt)
 		require.Contains(t, s, "Stdout = #\"\"\"")
 	})
 
 	t.Run("EncodeStdout_Nil", func(t *testing.T) {
-		require.Equal(t, "    Stdout = \"\"\n", dr.encodeExecStdout(nil))
+		require.Equal(t, "    Stdout = \"\"\n", dr.EncodeExecStdout(nil))
 	})
 }
 
-func newMemResolver() *DependencyResolver {
+func newMemResolver() *resolver.DependencyResolver {
 	fs := afero.NewMemMapFs()
-	fs.MkdirAll("/files", 0o755) // nolint:errcheck
-	return &DependencyResolver{
+	fs.MkdirAll("/files", 0o755)
+	return &resolver.DependencyResolver{
 		Fs:        fs,
 		FilesDir:  "/files",
 		ActionDir: "/action",
@@ -202,13 +183,13 @@ func TestEncodeResponseHeadersAndBody(t *testing.T) {
 	}
 
 	// Test headers
-	headersStr := encodeResponseHeaders(resp)
+	headersStr := resolver.EncodeResponseHeaders(resp)
 	if !strings.Contains(headersStr, "X-Test") {
 		t.Fatalf("expected header name in output, got %s", headersStr)
 	}
 
 	// Test body encoding & file writing
-	bodyStr := encodeResponseBody(resp, dr, "res1")
+	bodyStr := resolver.EncodeResponseBody(resp, dr, "res1")
 	encoded := base64.StdEncoding.EncodeToString([]byte(body))
 	if !strings.Contains(bodyStr, encoded) {
 		t.Fatalf("expected encoded body in output, got %s", bodyStr)

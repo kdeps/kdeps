@@ -1,4 +1,4 @@
-package cmd
+package cmd_test
 
 import (
 	"context"
@@ -43,12 +43,12 @@ func TestNewRunCommandExecution(t *testing.T) {
 	// Create test directory
 	testDir := filepath.Join("/test")
 	err = fs.MkdirAll(testDir, 0o755)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Create a valid workflow file
 	validAgentDir := filepath.Join(testDir, "valid-agent")
 	err = fs.MkdirAll(validAgentDir, 0o755)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	workflowContent := fmt.Sprintf(`amends "%s"
 
@@ -82,12 +82,12 @@ Settings {
 
 	workflowPath := filepath.Join(validAgentDir, "workflow.pkl")
 	err = afero.WriteFile(fs, workflowPath, []byte(workflowContent), 0o644)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Create resources directory and add required resources
 	resourcesDir := filepath.Join(validAgentDir, "resources")
 	err = fs.MkdirAll(resourcesDir, 0o755)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	resourceContent := fmt.Sprintf(`amends "%s"
 
@@ -103,33 +103,33 @@ run {
 	for _, resource := range requiredResources {
 		resourcePath := filepath.Join(resourcesDir, resource)
 		err = afero.WriteFile(fs, resourcePath, []byte(resourceContent), 0o644)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	}
 
 	// Create a valid .kdeps file
 	validKdepsPath := filepath.Join(testDir, "valid-agent.kdeps")
 	err = afero.WriteFile(fs, validKdepsPath, []byte("valid package"), 0o644)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Test error case - no arguments
 	cmd := NewRunCommand(fs, ctx, kdepsDir, systemCfg, logger)
 	err = cmd.Execute()
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	// Test error case - nonexistent file
 	cmd = NewRunCommand(fs, ctx, kdepsDir, systemCfg, logger)
 	cmd.SetArgs([]string{filepath.Join(testDir, "nonexistent.kdeps")})
 	err = cmd.Execute()
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	// Test error case - invalid package content
 	invalidKdepsPath := filepath.Join(testDir, "invalid.kdeps")
 	err = afero.WriteFile(fs, invalidKdepsPath, []byte("invalid package"), 0o644)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	cmd = NewRunCommand(fs, ctx, kdepsDir, systemCfg, logger)
 	cmd.SetArgs([]string{invalidKdepsPath})
 	err = cmd.Execute()
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestNewRunCommandDockerErrors(t *testing.T) {
@@ -148,7 +148,7 @@ func TestNewRunCommandDockerErrors(t *testing.T) {
 	testDir := filepath.Join("/test")
 	validAgentDir := filepath.Join(testDir, "valid-agent")
 	err = fs.MkdirAll(validAgentDir, 0o755)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Create test package file with valid structure but that will fail docker operations
 	workflowContent := fmt.Sprintf(`amends "%s"
@@ -185,12 +185,12 @@ settings {
 
 	workflowPath := filepath.Join(validAgentDir, "workflow.pkl")
 	err = afero.WriteFile(fs, workflowPath, []byte(workflowContent), 0o644)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Create resources directory and add required resources
 	resourcesDir := filepath.Join(validAgentDir, "resources")
 	err = fs.MkdirAll(resourcesDir, 0o755)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	resourceContent := fmt.Sprintf(`amends "%s"
 
@@ -206,17 +206,17 @@ run {
 	for _, resource := range requiredResources {
 		resourcePath := filepath.Join(resourcesDir, resource)
 		err = afero.WriteFile(fs, resourcePath, []byte(resourceContent), 0o644)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	}
 
 	validKdepsPath := filepath.Join(testDir, "valid-agent.kdeps")
 	err = afero.WriteFile(fs, validKdepsPath, []byte("valid package"), 0o644)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	cmd := NewRunCommand(fs, ctx, kdepsDir, systemCfg, logger)
 	cmd.SetArgs([]string{validKdepsPath})
 	err = cmd.Execute()
-	assert.Error(t, err) // Should fail due to docker client initialization
+	require.Error(t, err) // Should fail due to docker client initialization
 }
 
 func TestNewRunCommand_MetadataAndErrorPath(t *testing.T) {
@@ -231,10 +231,10 @@ func TestNewRunCommand_MetadataAndErrorPath(t *testing.T) {
 
 	// missing arg should error
 	err := cmd.Execute()
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	// non-existent file should propagate error
 	cmd.SetArgs([]string{"nonexistent.kdeps"})
 	err = cmd.Execute()
-	assert.Error(t, err)
+	require.Error(t, err)
 }

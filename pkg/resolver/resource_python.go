@@ -4,14 +4,12 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/alexellis/go-execute/v2"
 	"github.com/apple/pkl-go/pkl"
 
 	"github.com/kdeps/kdeps/pkg/kdepsexec"
-	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklPython "github.com/kdeps/schema/gen/python"
 	"github.com/spf13/afero"
@@ -135,7 +133,41 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 	}
 	pythonBlock.Timestamp = &ts
 
-	return dr.AppendPythonEntry(actionID, pythonBlock)
+	// Write the Python output to file for pklres access
+	if pythonBlock.Stdout != nil {
+		dr.Logger.Debug("processPythonBlock: writing stdout to file", "actionID", actionID)
+		filePath, err := dr.WritePythonOutputToFile(actionID, pythonBlock.Stdout)
+		if err != nil {
+			dr.Logger.Error("processPythonBlock: failed to write stdout to file", "actionID", actionID, "error", err)
+			return fmt.Errorf("failed to write stdout to file: %w", err)
+		}
+		pythonBlock.File = &filePath
+		dr.Logger.Debug("processPythonBlock: wrote stdout to file", "actionID", actionID, "filePath", filePath)
+	}
+
+	dr.Logger.Info("processPythonBlock: skipping AppendPythonEntry - using real-time pklres", "actionID", actionID)
+	// Note: AppendPythonEntry is no longer needed as we use real-time pklres access
+	// The Python output files are directly accessible through pklres.getResourceOutput()
+	return nil
+}
+
+func (dr *DependencyResolver) WritePythonOutputToFile(resourceID string, stdoutEncoded *string) (string, error) {
+	if stdoutEncoded == nil {
+		return "", nil
+	}
+
+	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
+	outputFilePath := filepath.Join(dr.FilesDir, resourceIDFile)
+
+	content, err := utils.DecodeBase64IfNeeded(*stdoutEncoded)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode python stdout: %w", err)
+	}
+
+	if err := afero.WriteFile(dr.Fs, outputFilePath, []byte(content), 0o644); err != nil {
+		return "", fmt.Errorf("failed to write file: %w", err)
+	}
+	return outputFilePath, nil
 }
 
 func (dr *DependencyResolver) activateCondaEnvironment(envName string) error {
@@ -237,131 +269,10 @@ func (dr *DependencyResolver) WritePythonStdoutToFile(resourceID string, stdoutE
 	return outputFilePath, nil
 }
 
-func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pklPython.ResourcePython) error {
-	// Canonicalize the resourceID for storage
-	canonicalResourceID := resourceID
-	if dr.PklresHelper != nil {
-		canonicalResourceID = dr.PklresHelper.resolveActionID(resourceID)
-	}
-	dr.Logger.Debug("AppendPythonEntry: storing resource", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID)
-	// Retrieve existing python resources from pklres
-	existingContent, err := dr.PklresHelper.retrievePklContent("python", "")
-	if err != nil {
-		// If no existing content, start with empty resources
-		existingContent = ""
-	}
+// AppendPythonEntry has been removed as it's no longer needed.
+// We now use real-time pklres access through getResourceOutput() instead of storing PKL content.
 
-	// Parse existing resources or create new map
-	existingResources := make(map[string]*pklPython.ResourcePython)
-	if existingContent != "" {
-		// For now, we'll create a simple empty structure since we're storing individual resources
-		// In a more sophisticated implementation, we'd parse the existing content
-		existingResources = make(map[string]*pklPython.ResourcePython)
-	}
-
-	var filePath string
-	if newPython.Stdout != nil {
-		filePath, err = dr.WritePythonStdoutToFile(resourceID, newPython.Stdout)
-		if err != nil {
-			return fmt.Errorf("failed to write stdout to file: %w", err)
-		}
-		newPython.File = &filePath
-	}
-
-	encodedScript := utils.EncodeValue(newPython.Script)
-	encodedEnv := dr.encodePythonEnv(newPython.Env)
-	encodedStderr, encodedStdout := dr.encodePythonOutputs(newPython.Stderr, newPython.Stdout)
-
-	timeoutDuration := newPython.TimeoutDuration
-	if timeoutDuration == nil {
-		sec := dr.DefaultTimeoutSec
-		if sec <= 0 {
-			sec = 60
-		}
-		timeoutDuration = &pkl.Duration{Value: float64(sec), Unit: pkl.Second}
-	}
-
-	timestamp := &pkl.Duration{
-		Value: float64(time.Now().Unix()),
-		Unit:  pkl.Nanosecond,
-	}
-
-	existingResources[resourceID] = &pklPython.ResourcePython{
-		Env:               encodedEnv,
-		Script:            encodedScript,
-		Stderr:            encodedStderr,
-		Stdout:            encodedStdout,
-		File:              &filePath,
-		Timestamp:         timestamp,
-		TimeoutDuration:   timeoutDuration,
-		ExitCode:          newPython.ExitCode,
-		ItemValues:        newPython.ItemValues,
-		PythonEnvironment: newPython.PythonEnvironment,
-	}
-
-	// Store the PKL content using pklres (no JSON, no custom serialization)
-	var pklContent strings.Builder
-	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Python.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
-	pklContent.WriteString("Resources {\n")
-
-	for _, res := range existingResources {
-		blockKey := canonicalResourceID
-		dr.Logger.Debug("AppendPythonEntry: PKL block key", "blockKey", blockKey)
-		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", blockKey))
-		pklContent.WriteString(fmt.Sprintf("    Script = \"%s\"\n", res.Script))
-
-		if res.TimeoutDuration != nil {
-			pklContent.WriteString(fmt.Sprintf("    TimeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
-		} else {
-			pklContent.WriteString(fmt.Sprintf("    TimeoutDuration = %d.s\n", dr.DefaultTimeoutSec))
-		}
-
-		if res.Timestamp != nil {
-			pklContent.WriteString(fmt.Sprintf("    Timestamp = %g.%s\n", res.Timestamp.Value, res.Timestamp.Unit.String()))
-		}
-
-		pklContent.WriteString("    Env ")
-		pklContent.WriteString(utils.EncodePklMap(res.Env))
-
-		// Add PythonEnvironment
-		if res.PythonEnvironment != nil {
-			pklContent.WriteString(fmt.Sprintf("    PythonEnvironment = \"%s\"\n", *res.PythonEnvironment))
-		} else {
-			pklContent.WriteString("    PythonEnvironment = \"\"\n")
-		}
-
-		pklContent.WriteString(dr.encodePythonStderr(res.Stderr))
-		pklContent.WriteString(dr.encodePythonStdout(res.Stdout))
-		pklContent.WriteString(fmt.Sprintf("    File = \"%s\"\n", *res.File))
-
-		// Add ExitCode
-		if res.ExitCode != nil {
-			pklContent.WriteString(fmt.Sprintf("    ExitCode = %d\n", *res.ExitCode))
-		} else {
-			pklContent.WriteString("    ExitCode = 0\n")
-		}
-
-		// Add ItemValues
-		pklContent.WriteString("    ItemValues ")
-		if res.ItemValues != nil && len(*res.ItemValues) > 0 {
-			pklContent.WriteString(utils.EncodePklSlice(res.ItemValues))
-		} else {
-			pklContent.WriteString("{}\n")
-		}
-
-		pklContent.WriteString("  }\n")
-	}
-	pklContent.WriteString("}\n")
-
-	// Store the PKL content using pklres instead of writing to file
-	if err := dr.PklresHelper.storePklContent("python", canonicalResourceID, pklContent.String()); err != nil {
-		return fmt.Errorf("failed to store PKL content in pklres: %w", err)
-	}
-
-	return nil
-}
-
-func (dr *DependencyResolver) encodePythonEnv(env *map[string]string) *map[string]string {
+func (dr *DependencyResolver) EncodePythonEnv(env *map[string]string) *map[string]string {
 	if env == nil {
 		return nil
 	}
@@ -372,18 +283,18 @@ func (dr *DependencyResolver) encodePythonEnv(env *map[string]string) *map[strin
 	return &encoded
 }
 
-func (dr *DependencyResolver) encodePythonOutputs(stderr, stdout *string) (*string, *string) {
+func (dr *DependencyResolver) EncodePythonOutputs(stderr, stdout *string) (*string, *string) {
 	return utils.EncodeValuePtr(stderr), utils.EncodeValuePtr(stdout)
 }
 
-func (dr *DependencyResolver) encodePythonStderr(stderr *string) string {
+func (dr *DependencyResolver) EncodePythonStderr(stderr *string) string {
 	if stderr == nil {
 		return "    Stderr = \"\"\n"
 	}
 	return fmt.Sprintf("    Stderr = #\"\"\"\n%s\n\"\"\"#\n", *stderr)
 }
 
-func (dr *DependencyResolver) encodePythonStdout(stdout *string) string {
+func (dr *DependencyResolver) EncodePythonStdout(stdout *string) string {
 	if stdout == nil {
 		return "    Stdout = \"\"\n"
 	}

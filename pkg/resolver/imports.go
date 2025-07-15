@@ -11,130 +11,14 @@ import (
 	"strings"
 
 	"github.com/kdeps/kdeps/pkg/agent"
-	"github.com/kdeps/kdeps/pkg/data"
-	"github.com/kdeps/kdeps/pkg/schema"
-	pklData "github.com/kdeps/schema/gen/data"
-	pklExec "github.com/kdeps/schema/gen/exec"
-	pklHTTP "github.com/kdeps/schema/gen/http"
-	pklLLM "github.com/kdeps/schema/gen/llm"
-	pklPython "github.com/kdeps/schema/gen/python"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 )
 
+// PrependDynamicImports has been removed as it's no longer needed.
+// We now use real-time pklres access instead of prepending import statements.
 func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
-	// Read the file content
-	content, err := afero.ReadFile(dr.Fs, pklFile)
-	if err != nil {
-		return err
-	}
-	contentStr := string(content)
-
-	// Define ImportConfig struct
-	type ImportConfig struct {
-		Alias string
-		Check bool // Flag to specify if the file existence should be checked
-	}
-
-	// Import configurations
-	importCheck := map[string]ImportConfig{
-		"pkl:json":     {Alias: "", Check: false},
-		"pkl:test":     {Alias: "", Check: false},
-		"pkl:math":     {Alias: "", Check: false},
-		"pkl:platform": {Alias: "", Check: false},
-		"pkl:semver":   {Alias: "", Check: false},
-		"pkl:shell":    {Alias: "", Check: false},
-		"pkl:xml":      {Alias: "", Check: false},
-		"pkl:yaml":     {Alias: "", Check: false},
-		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Document.pkl", schema.SchemaVersion(dr.Context)): {Alias: "document", Check: false},
-		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Memory.pkl", schema.SchemaVersion(dr.Context)):   {Alias: "memory", Check: false},
-		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Session.pkl", schema.SchemaVersion(dr.Context)):  {Alias: "session", Check: false},
-		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Tool.pkl", schema.SchemaVersion(dr.Context)):     {Alias: "tool", Check: false},
-		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Item.pkl", schema.SchemaVersion(dr.Context)):     {Alias: "item", Check: false},
-		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Agent.pkl", schema.SchemaVersion(dr.Context)):    {Alias: "agent", Check: false},
-		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Skip.pkl", schema.SchemaVersion(dr.Context)):     {Alias: "skip", Check: false},
-		fmt.Sprintf("package://schema.kdeps.com/core@%s#/Utils.pkl", schema.SchemaVersion(dr.Context)):    {Alias: "utils", Check: false},
-		dr.PklresHelper.getResourcePath("llm"):                                                            {Alias: "llm", Check: true},
-		dr.PklresHelper.getResourcePath("client"):                                                         {Alias: "client", Check: true},
-		dr.PklresHelper.getResourcePath("exec"):                                                           {Alias: "exec", Check: true},
-		dr.PklresHelper.getResourcePath("python"):                                                         {Alias: "python", Check: true},
-		dr.PklresHelper.getResourcePath("data"):                                                           {Alias: "data", Check: true},
-		dr.RequestPklFile:                                                                                 {Alias: "request", Check: true},
-	}
-
-	// Helper to check file existence (including pklres resources)
-	fileExists := func(file string) bool {
-		// Check if this is a pklres path
-		if strings.HasPrefix(file, "pklres://") {
-			// For pklres paths, check if the resource exists
-			// Extract the resource type from the path
-			if parts := strings.Split(file, "?type="); len(parts) == 2 {
-				resourceType := strings.Split(parts[1], "&")[0]
-				_, err := dr.PklresHelper.retrievePklContent(resourceType, "__empty__")
-				return err == nil
-			}
-			return false
-		}
-		// For regular file paths, use afero
-		exists, _ := afero.Exists(dr.Fs, file)
-		return exists
-	}
-
-	// Helper to generate import lines
-	generateImportLine := func(file, alias string) string {
-		if alias == "" {
-			return fmt.Sprintf(`import "%s"`, file)
-		}
-		return fmt.Sprintf(`import "%s" as %s`, file, alias)
-	}
-
-	// Helper to check if an alias is already used
-	aliasExists := func(alias string) bool {
-		if alias == "" {
-			return false
-		}
-		// Check for pattern: import "..." as alias
-		aliasPattern := regexp.MustCompile(`import\s+"[^"]+"\s+as\s+` + regexp.QuoteMeta(alias) + `\b`)
-		return aliasPattern.MatchString(contentStr)
-	}
-
-	// Construct the dynamic import lines
-	var importBuilder strings.Builder
-	for file, config := range importCheck {
-		if config.Check && !fileExists(file) {
-			continue
-		}
-
-		// Skip if alias is already in use
-		if config.Alias != "" && aliasExists(config.Alias) {
-			continue
-		}
-
-		importLine := generateImportLine(file, config.Alias)
-		if !strings.Contains(contentStr, importLine) {
-			importBuilder.WriteString(importLine + "\n")
-		}
-	}
-
-	// If there are no new imports, return early
-	importFiles := importBuilder.String()
-	if importFiles == "" {
-		return nil
-	}
-
-	// Add the imports after the "amends" line
-	amendsIndex := strings.Index(contentStr, "amends")
-	if amendsIndex != -1 {
-		amendsLineEnd := strings.Index(contentStr[amendsIndex:], "\n") + amendsIndex + 1
-		newContent := contentStr[:amendsLineEnd] + importFiles + contentStr[amendsLineEnd:]
-
-		// Write the updated content back to the file
-		err = afero.WriteFile(dr.Fs, pklFile, []byte(newContent), 0o644)
-		if err != nil {
-			return err
-		}
-	}
-
+	dr.Logger.Info("Skipping PrependDynamicImports - using real-time pklres access", "pklFile", pklFile)
 	return nil
 }
 
@@ -153,7 +37,7 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 		// This ensures pklres has the basic structure for imports to work
 
 		// Check if we already have this resource type in pklres
-		_, err := dr.PklresHelper.retrievePklContent(resourceType, "")
+		_, err := dr.PklresHelper.RetrievePklContent(resourceType, "")
 		if err != nil {
 			// If it doesn't exist, create a proper PKL structure with header
 			info := dr.PklresHelper.getResourceTypeInfo(resourceType)
@@ -161,7 +45,7 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 			emptyContent := fmt.Sprintf("%s%s {\n}\n", header, info.BlockName)
 
 			// Store the empty structure
-			if err := dr.PklresHelper.storePklContent(resourceType, "__empty__", emptyContent); err != nil {
+			if err := dr.PklresHelper.StorePklContent(resourceType, "__empty__", emptyContent); err != nil {
 				return fmt.Errorf("failed to initialize empty %s structure in pklres: %w", key, err)
 			}
 		} else {
@@ -172,7 +56,7 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 			emptyContent := fmt.Sprintf("%s%s {\n}\n", header, info.BlockName)
 
 			// Store the empty structure (this will overwrite if it exists)
-			if err := dr.PklresHelper.storePklContent(resourceType, "__empty__", emptyContent); err != nil {
+			if err := dr.PklresHelper.StorePklContent(resourceType, "__empty__", emptyContent); err != nil {
 				return fmt.Errorf("failed to initialize empty %s structure in pklres: %w", key, err)
 			}
 		}
@@ -248,7 +132,7 @@ func (dr *DependencyResolver) PrepareWorkflowDir() error {
 func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
 	// Check if Workflow is initialized
 	if dr.Workflow == nil {
-		return fmt.Errorf("workflow is not initialized")
+		return errors.New("workflow is not initialized")
 	}
 
 	// Open the file using afero file system (dr.Fs)
@@ -282,40 +166,10 @@ func (dr *DependencyResolver) AddPlaceholderImports(filePath string) error {
 		return fmt.Errorf("failed to resolve actionID canonically: %w", err)
 	}
 
-	dataFileList, err := data.PopulateDataFileRegistry(dr.Fs, dr.DataDir)
-	if err != nil {
-		return err
-	}
-
-	dataFiles := &pklData.DataImpl{
-		Files: *dataFileList,
-	}
-	llmChat := &pklLLM.ResourceChat{}
-	execCmd := &pklExec.ResourceExec{}
-	pythonCmd := &pklPython.ResourcePython{}
-	HTTPClient := &pklHTTP.ResourceHTTPClient{
-		Method: "GET",
-	}
-
-	if err := dr.AppendDataEntry(resolvedActionID, dataFiles); err != nil {
-		return err
-	}
-
-	if err := dr.AppendChatEntry(resolvedActionID, llmChat); err != nil {
-		return err
-	}
-
-	if err := dr.AppendExecEntry(resolvedActionID, execCmd); err != nil {
-		return err
-	}
-
-	if err := dr.AppendHTTPEntry(resolvedActionID, HTTPClient); err != nil {
-		return err
-	}
-
-	if err := dr.AppendPythonEntry(resolvedActionID, pythonCmd); err != nil {
-		return err
-	}
+	// All AppendXXXEntry functions have been removed as they're no longer needed.
+	// We now use real-time pklres access through getResourceOutput() instead of storing PKL content.
+	// Resource output files are written directly during processing and accessed via pklres.
+	dr.Logger.Info("Skipping all AppendXXXEntry calls - using real-time pklres access", "resolvedActionID", resolvedActionID)
 
 	return nil
 }
@@ -349,7 +203,7 @@ func resolveActionIDCanonically(actionID string, wf pklWf.Workflow, agentReader 
 
 	// Add nil check for Workflow
 	if wf == nil {
-		return "", fmt.Errorf("workflow is nil, cannot resolve action ID")
+		return "", errors.New("workflow is nil, cannot resolve action ID")
 	}
 
 	// Create URI for agent ID resolution
@@ -363,11 +217,11 @@ func resolveActionIDCanonically(actionID string, wf pklWf.Workflow, agentReader 
 		RawQuery: query.Encode(),
 	}
 
-	resolvedIDBytes, err := agentReader.Read(uri)
+	resovledIDBytes, err := agentReader.Read(uri)
 	if err != nil {
 		// Fallback to default resolution if agent reader fails
-		return fmt.Sprintf("@%s/%s:%s", wf.GetAgentID(), actionID, wf.GetVersion()), nil
+		return "", fmt.Errorf("failed to resolve actionID: %w", err)
 	}
 
-	return string(resolvedIDBytes), nil
+	return string(resovledIDBytes), nil
 }

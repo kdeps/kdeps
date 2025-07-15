@@ -1,11 +1,12 @@
 package pklres
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -15,12 +16,15 @@ import (
 	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/agent"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/spf13/afero"
 )
 
 // PklResourceReader implements the pkl.ResourceReader interface for SQLite.
 type PklResourceReader struct {
 	DB     *sql.DB
 	DBPath string // Store dbPath for reinitialization
+	Fs     afero.Fs
+	Logger *slog.Logger
 }
 
 // Scheme returns the URI scheme for this reader.
@@ -114,37 +118,56 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 // setRecord stores a PKL record in the database
 func (r *PklResourceReader) setRecord(id, typ, key string, query url.Values) ([]byte, error) {
 	if id == "" || typ == "" {
-		log.Printf("setRecord failed: id or type not provided")
+		r.Logger.Error("setRecord failed: id or type not provided")
 		return nil, errors.New("set operation requires id and type parameters")
 	}
 
 	value := query.Get("value")
 	if value == "" {
-		log.Printf("setRecord failed: no value provided")
+		r.Logger.Error("setRecord failed: no value provided")
 		return nil, errors.New("set operation requires a value parameter")
 	}
 
-	log.Printf("setRecord processing id: %s, type: %s, key: %s, value: %s", id, typ, key, value)
-
-	var err error
+	r.Logger.Debug("setRecord processing", "id", id, "type", typ, "key", key, "value", value)
 
 	keyValue := key
 	if keyValue == "" {
 		keyValue = "" // Use empty string instead of NULL
 	}
 
+	// Start a transaction for atomic operation
+	tx, err := r.DB.Begin()
+	if err != nil {
+		r.Logger.Error("setRecord failed to start transaction", "error", err)
+		return nil, fmt.Errorf("failed to start transaction: %w", err)
+	}
+
+	// Ensure transaction is rolled back on error
+	defer func() {
+		if err != nil {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				r.Logger.Error("setRecord: failed to rollback transaction", "error", rollbackErr)
+			}
+		}
+	}()
+
 	// Use INSERT OR REPLACE with consistent key handling
-	_, err = r.DB.Exec(
+	_, err = tx.Exec(
 		"INSERT OR REPLACE INTO records (id, type, key, value) VALUES (?, ?, ?, ?)",
 		id, typ, keyValue, value,
 	)
-
 	if err != nil {
-		log.Printf("setRecord failed to execute SQL: %v", err)
+		r.Logger.Error("setRecord failed to execute SQL", "error", err)
 		return nil, fmt.Errorf("failed to set record: %w", err)
 	}
 
-	log.Printf("setRecord succeeded for id: %s, type: %s, key: %s, value: %s", id, typ, key, value)
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		r.Logger.Error("setRecord failed to commit transaction", "error", err)
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	r.Logger.Debug("setRecord succeeded", "id", id, "type", typ, "key", key, "value", value)
 	return []byte(value), nil
 }
 
@@ -166,37 +189,77 @@ func (r *PklResourceReader) getRecord(id, typ, key string) ([]byte, error) {
 					data, err := agentReader.Read(*uri)
 					if err == nil && len(data) > 0 {
 						canonicalKey = string(data)
-						log.Printf("getRecord: resolved short ActionID %s to canonical form %s", key, canonicalKey)
+						r.Logger.Debug("getRecord: resolved short ActionID", "key", key, "canonicalKey", canonicalKey, "agent", os.Getenv("KDEPS_CURRENT_AGENT"), "version", os.Getenv("KDEPS_CURRENT_VERSION"))
 					} else {
-						log.Printf("getRecord: failed to resolve short ActionID %s, using as-is", key)
+						r.Logger.Debug("getRecord: failed to resolve short ActionID", "key", key, "agent", os.Getenv("KDEPS_CURRENT_AGENT"), "version", os.Getenv("KDEPS_CURRENT_VERSION"))
 					}
 				}
-			} else {
-				log.Printf("getRecord: no agent reader available, using short ActionID as-is: %s", key)
 			}
+		} else {
+			r.Logger.Debug("getRecord: no agent reader available, using short ActionID as-is", "key", key, "agent", os.Getenv("KDEPS_CURRENT_AGENT"), "version", os.Getenv("KDEPS_CURRENT_VERSION"))
 		}
 	}
 
+	// Ensure key is always an empty string, not NULL
+	if canonicalKey == "" {
+		canonicalKey = ""
+	}
+
+	r.Logger.Debug("getRecord: querying for id, type, key", "id", id, "type", typ, "key", canonicalKey)
+
+	// Start a transaction for consistent read
+	tx, err := r.DB.Begin()
+	if err != nil {
+		r.Logger.Debug("getRecord failed to start transaction", "error", err)
+		return nil, fmt.Errorf("failed to start transaction: %w", err)
+	}
+
+	// Ensure transaction is rolled back on error
+	committed := false
+	defer func() {
+		if !committed {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				r.Logger.Debug("getRecord: failed to rollback transaction", "error", rollbackErr)
+			}
+		}
+	}()
+
 	var value string
-	err := r.DB.QueryRow("SELECT value FROM records WHERE id = ? AND type = ? AND key = ?", id, typ, canonicalKey).Scan(&value)
-	if err == sql.ErrNoRows {
-		return []byte(""), nil // Return empty string for not found
+	err = tx.QueryRow("SELECT value FROM records WHERE id = ? AND type = ? AND key = ?", id, typ, canonicalKey).Scan(&value)
+	if errors.Is(err, sql.ErrNoRows) {
+		// Commit the transaction even for no rows found
+		if commitErr := tx.Commit(); commitErr != nil {
+			r.Logger.Debug("getRecord failed to commit transaction", "error", commitErr)
+			return nil, fmt.Errorf("failed to commit transaction: %w", commitErr)
+		}
+		committed = true
+		r.Logger.Debug("getRecord: no record found", "id", id, "type", typ, "key", canonicalKey)
+		return []byte(""), nil
 	}
 	if err != nil {
+		r.Logger.Debug("getRecord failed to scan row", "error", err)
 		return nil, fmt.Errorf("failed to read record: %w", err)
 	}
 
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		r.Logger.Debug("getRecord failed to commit transaction", "error", err)
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+	committed = true
+
+	r.Logger.Debug("getRecord: retrieved value", "id", id, "type", typ, "key", canonicalKey, "contentLength", len(value))
 	return []byte(value), nil
 }
 
 // deleteRecord removes a PKL record or key from the database
 func (r *PklResourceReader) deleteRecord(id, typ, key string) ([]byte, error) {
 	if id == "" || typ == "" {
-		log.Printf("deleteRecord failed: id or type not provided")
+		r.Logger.Debug("deleteRecord failed: id or type not provided")
 		return nil, errors.New("delete operation requires id and type parameters")
 	}
 
-	log.Printf("deleteRecord processing id: %s, type: %s, key: %s", id, typ, key)
+	r.Logger.Debug("deleteRecord processing", "id", id, "type", typ, "key", key)
 
 	canonicalKey := key
 	if key != "" && !strings.HasPrefix(key, "@") && !strings.Contains(key, "/") {
@@ -208,88 +271,130 @@ func (r *PklResourceReader) deleteRecord(id, typ, key string) ([]byte, error) {
 					data, err := agentReader.Read(*uri)
 					if err == nil && len(data) > 0 {
 						canonicalKey = string(data)
-						log.Printf("deleteRecord: resolved short ActionID %s to canonical form %s", key, canonicalKey)
+						r.Logger.Debug("deleteRecord: resolved short ActionID", "key", key, "canonicalKey", canonicalKey)
 					} else {
-						log.Printf("deleteRecord: failed to resolve short ActionID %s, using as-is", key)
+						r.Logger.Debug("deleteRecord: failed to resolve short ActionID, using as-is", "key", key)
 					}
 				}
 			} else {
-				log.Printf("deleteRecord: no agent reader available, using short ActionID as-is: %s", key)
+				r.Logger.Debug("deleteRecord: no agent reader available, using short ActionID as-is", "key", key)
 			}
 		}
 	}
 
-	var result sql.Result
-	var err error
-
-	if canonicalKey != "" {
-		result, err = r.DB.Exec("DELETE FROM records WHERE id = ? AND type = ? AND key = ?", id, typ, canonicalKey)
-	} else {
-		result, err = r.DB.Exec("DELETE FROM records WHERE id = ? AND type = ?", id, typ)
+	// Start a transaction for atomic operation
+	tx, err := r.DB.Begin()
+	if err != nil {
+		r.Logger.Debug("deleteRecord failed to start transaction", "error", err)
+		return nil, fmt.Errorf("failed to start transaction: %w", err)
 	}
 
+	// Ensure transaction is rolled back on error
+	defer func() {
+		if err != nil {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				r.Logger.Debug("deleteRecord: failed to rollback transaction", "error", rollbackErr)
+			}
+		}
+	}()
+
+	result, err := tx.Exec("DELETE FROM records WHERE id = ? AND type = ? AND key = ?", id, typ, canonicalKey)
 	if err != nil {
-		log.Printf("deleteRecord failed to execute SQL: %v", err)
+		r.Logger.Debug("deleteRecord failed to execute SQL", "error", err)
 		return nil, fmt.Errorf("failed to delete record: %w", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		log.Printf("deleteRecord failed to check result: %v", err)
+		r.Logger.Debug("deleteRecord failed to check result", "error", err)
 		return nil, fmt.Errorf("failed to check delete result: %w", err)
 	}
 
-	log.Printf("deleteRecord succeeded for id: %s, type: %s, key: %s, removed %d records", id, typ, canonicalKey, rowsAffected)
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		r.Logger.Debug("deleteRecord failed to commit transaction", "error", err)
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	r.Logger.Debug("deleteRecord succeeded", "id", id, "type", typ, "key", canonicalKey, "removed", rowsAffected)
 	return []byte(fmt.Sprintf("Deleted %d record(s)", rowsAffected)), nil
 }
 
 // clearRecords removes all records of a specific type or all records
 func (r *PklResourceReader) clearRecords(typ string) ([]byte, error) {
 	if typ == "" {
-		log.Printf("clearRecords failed: type not provided")
+		r.Logger.Debug("clearRecords failed: type not provided")
 		return nil, errors.New("clear operation requires type parameter")
 	}
 
-	log.Printf("clearRecords processing type: %s", typ)
+	r.Logger.Debug("clearRecords processing", "type", typ)
 
-	var result sql.Result
-	var err error
-
-	if typ == "_" {
-		// Clear all records regardless of type
-		result, err = r.DB.Exec("DELETE FROM records")
-	} else {
-		// Clear only records of specific type
-		result, err = r.DB.Exec("DELETE FROM records WHERE type = ?", typ)
+	// Start a transaction for atomic operation
+	tx, err := r.DB.Begin()
+	if err != nil {
+		r.Logger.Debug("clearRecords failed to start transaction", "error", err)
+		return nil, fmt.Errorf("failed to start transaction: %w", err)
 	}
 
+	// Ensure transaction is rolled back on error
+	defer func() {
+		if err != nil {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				r.Logger.Debug("clearRecords: failed to rollback transaction", "error", rollbackErr)
+			}
+		}
+	}()
+
+	result, err := tx.Exec("DELETE FROM records WHERE type = ?", typ)
 	if err != nil {
-		log.Printf("clearRecords failed to execute SQL: %v", err)
+		r.Logger.Debug("clearRecords failed to execute SQL", "error", err)
 		return nil, fmt.Errorf("failed to clear records: %w", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		log.Printf("clearRecords failed to check result: %v", err)
+		r.Logger.Debug("clearRecords failed to check result", "error", err)
 		return nil, fmt.Errorf("failed to check clear result: %w", err)
 	}
 
-	log.Printf("clearRecords succeeded for type: %s, removed %d records", typ, rowsAffected)
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		r.Logger.Debug("clearRecords failed to commit transaction", "error", err)
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	r.Logger.Debug("clearRecords succeeded", "type", typ, "removed", rowsAffected)
 	return []byte(fmt.Sprintf("Cleared %d records", rowsAffected)), nil
 }
 
 // listRecords returns all record IDs of a specific type
 func (r *PklResourceReader) listRecords(typ string) ([]byte, error) {
 	if typ == "" {
-		log.Printf("listRecords failed: type not provided")
+		r.Logger.Debug("listRecords failed: type not provided")
 		return nil, errors.New("list operation requires type parameter")
 	}
 
-	log.Printf("listRecords processing type: %s", typ)
+	r.Logger.Debug("listRecords processing", "type", typ)
 
-	rows, err := r.DB.Query("SELECT DISTINCT id FROM records WHERE type = ? ORDER BY id", typ)
+	// Start a transaction for consistent read
+	tx, err := r.DB.Begin()
 	if err != nil {
-		log.Printf("listRecords failed to query records: %v", err)
+		r.Logger.Debug("listRecords failed to start transaction", "error", err)
+		return nil, fmt.Errorf("failed to start transaction: %w", err)
+	}
+
+	// Ensure transaction is rolled back on error
+	defer func() {
+		if err != nil {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				r.Logger.Debug("listRecords: failed to rollback transaction", "error", rollbackErr)
+			}
+		}
+	}()
+
+	rows, err := tx.Query("SELECT DISTINCT id FROM records WHERE type = ? ORDER BY id", typ)
+	if err != nil {
+		r.Logger.Debug("listRecords failed to query records", "error", err)
 		return nil, fmt.Errorf("failed to list records: %w", err)
 	}
 	defer rows.Close()
@@ -298,107 +403,89 @@ func (r *PklResourceReader) listRecords(typ string) ([]byte, error) {
 	for rows.Next() {
 		var id string
 		if err := rows.Scan(&id); err != nil {
-			log.Printf("listRecords failed to scan row: %v", err)
+			r.Logger.Debug("listRecords failed to scan row", "error", err)
 			return nil, fmt.Errorf("failed to scan record ID: %w", err)
 		}
 		ids = append(ids, id)
 	}
 
 	if err := rows.Err(); err != nil {
-		log.Printf("listRecords failed during row iteration: %v", err)
+		r.Logger.Debug("listRecords failed during row iteration", "error", err)
 		return nil, fmt.Errorf("failed to iterate records: %w", err)
 	}
 
-	// Ensure ids is not nil
-	if ids == nil {
-		ids = []string{}
-	}
-
-	// Serialize IDs as JSON array
 	result, err := json.Marshal(ids)
 	if err != nil {
-		log.Printf("listRecords failed to marshal JSON: %v", err)
+		r.Logger.Debug("listRecords failed to marshal JSON", "error", err)
 		return nil, fmt.Errorf("failed to serialize record IDs: %w", err)
 	}
 
-	log.Printf("listRecords succeeded for type: %s, found %d records", typ, len(ids))
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		r.Logger.Debug("listRecords failed to commit transaction", "error", err)
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	r.Logger.Debug("listRecords succeeded", "type", typ, "count", len(ids))
 	return result, nil
 }
 
 // getResourceOutput retrieves the output file content for a specific resource
 func (r *PklResourceReader) getResourceOutput(id, typ string) ([]byte, error) {
-	log.Printf("getResourceOutput called with id: %s, type: %s", id, typ)
+	r.Logger.Debug("getResourceOutput called", "id", id, "type", typ)
 	if id == "" || typ == "" {
 		return nil, errors.New("getResourceOutput requires id and type parameters")
 	}
 
-	// Get the current request ID from environment or context
-	requestID := os.Getenv("KDEPS_REQUEST_ID")
-	log.Printf("getResourceOutput: KDEPS_REQUEST_ID = '%s'", requestID)
-	if requestID == "" {
-		// Try to get from the database or other context
-		// For now, scan temp directory for matching files
-		outputDir := "/tmp/action/files"
+	// The request ID should be available in the resource ID or through the call context
+	// For now, scan temp directory for matching files
+	outputDir := "/tmp/action/files"
 
-		// Look for files matching the pattern: {requestID}_{resourcename}
-		// Convert canonical ID format: @whois2/llmResource:1.0.0 -> whois2_llmResource_1.0.0
-		resourceName := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(id, "@", ""), "/", "_"), ":", "_")
-		log.Printf("getResourceOutput: searching for pattern *_%s in %s", resourceName, outputDir)
+	// Look for files matching the pattern: {requestID}_{resourcename}
+	// Convert canonical ID format: @whois2/llmResource:1.0.0 -> whois2_llmResource_1.0.0
+	resourceName := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(id, "@", ""), "/", "_"), ":", "_")
+	r.Logger.Debug("getResourceOutput: searching for pattern", "pattern", "*_"+resourceName, "directory", outputDir)
 
-		files, err := filepath.Glob(filepath.Join(outputDir, "*_"+resourceName))
-		if err != nil {
-			log.Printf("getResourceOutput: glob search failed: %v", err)
-			return nil, fmt.Errorf("failed to search for output files: %w", err)
-		}
+	files, err := filepath.Glob(filepath.Join(outputDir, "*_"+resourceName))
+	if err != nil {
+		r.Logger.Error("getResourceOutput: glob search failed", "error", err)
+		return nil, fmt.Errorf("failed to search for output files: %w", err)
+	}
 
-		log.Printf("getResourceOutput: found %d matching files: %v", len(files), files)
-		if len(files) == 0 {
-			return []byte(""), nil // Return empty content if file not found
-		}
+	r.Logger.Debug("getResourceOutput: found matching files", "count", len(files), "files", files)
+	if len(files) == 0 {
+		return []byte(""), nil // Return empty content if file not found
+	}
 
-		// Use the most recent file if multiple matches
-		var newestFile string
-		var newestTime time.Time
-		for _, file := range files {
-			if info, err := os.Stat(file); err == nil {
-				if info.ModTime().After(newestTime) {
-					newestTime = info.ModTime()
-					newestFile = file
-				}
+	// Use the most recent file if multiple matches
+	var newestFile string
+	var newestTime time.Time
+	for _, file := range files {
+		if info, err := os.Stat(file); err == nil {
+			if info.ModTime().After(newestTime) {
+				newestTime = info.ModTime()
+				newestFile = file
 			}
 		}
-
-		if newestFile == "" {
-			return []byte(""), nil
-		}
-
-		// Read the file content
-		content, err := os.ReadFile(newestFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read output file %s: %w", newestFile, err)
-		}
-
-		return content, nil
 	}
 
-	// If we have requestID, construct the exact file path
-	resourceName := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(id, "@", ""), "/", "_"), ":", "_")
-	outputFile := filepath.Join("/tmp/action/files", requestID+"_"+resourceName)
+	if newestFile == "" {
+		return []byte(""), nil
+	}
 
-	content, err := os.ReadFile(outputFile)
+	// Read the file content
+	content, err := os.ReadFile(newestFile)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return []byte(""), nil // Return empty content if file doesn't exist
-		}
-		return nil, fmt.Errorf("failed to read output file %s: %w", outputFile, err)
+		return nil, fmt.Errorf("failed to read output file %s: %w", newestFile, err)
 	}
 
+	r.Logger.Debug("getResourceOutput: successfully read file", "file", newestFile, "contentLength", len(content))
 	return content, nil
 }
 
 // evaluateResource retrieves the PKL record from database and evaluates it
 func (r *PklResourceReader) evaluateResource(id, typ string) ([]byte, error) {
-	log.Printf("evaluateResource called with id: %s, type: %s", id, typ)
+	r.Logger.Debug("evaluateResource called", "id", id, "type", typ)
 	if id == "" || typ == "" {
 		return nil, errors.New("evaluateResource requires id and type parameters")
 	}
@@ -406,20 +493,53 @@ func (r *PklResourceReader) evaluateResource(id, typ string) ([]byte, error) {
 	// Get the PKL record from database
 	pklRecord, err := r.getRecord(id, typ, "")
 	if err != nil {
-		log.Printf("evaluateResource: failed to get PKL record: %v", err)
+		r.Logger.Error("evaluateResource: failed to get PKL record", "error", err)
 		return nil, fmt.Errorf("failed to get PKL record: %w", err)
 	}
 
 	if len(pklRecord) == 0 {
-		log.Printf("evaluateResource: PKL record is empty for id: %s, type: %s", id, typ)
+		r.Logger.Debug("evaluateResource: PKL record is empty", "id", id, "type", typ)
 		return []byte(""), nil
 	}
 
-	log.Printf("evaluateResource: retrieved PKL record: %s", string(pklRecord))
+	r.Logger.Debug("evaluateResource: retrieved PKL record", "id", id, "type", typ, "recordLength", len(pklRecord))
 
-	// For PKL evaluation, we need to return the raw PKL record
-	// The PKL evaluator in the calling code will handle the evaluation
-	return pklRecord, nil
+	// Try to evaluate the PKL record using the PKL evaluator
+	evaluator, err := pkl.NewEvaluator(context.Background(), pkl.PreconfiguredOptions)
+	if err != nil {
+		r.Logger.Error("evaluateResource: failed to create PKL evaluator", "error", err)
+		return pklRecord, nil
+	}
+	defer evaluator.Close()
+
+	// Create a temporary file for the PKL content
+	tempFile, err := os.CreateTemp("", "pklres_eval_*.pkl")
+	if err != nil {
+		r.Logger.Error("evaluateResource: failed to create temp file", "error", err)
+		return nil, fmt.Errorf("failed to create temp file: %w", err)
+	}
+	defer os.Remove(tempFile.Name())
+	defer tempFile.Close()
+
+	// Write the PKL record to the temp file
+	if _, err := tempFile.Write(pklRecord); err != nil {
+		r.Logger.Error("evaluateResource: failed to write PKL record to temp file", "error", err)
+		return nil, fmt.Errorf("failed to write PKL record: %w", err)
+	}
+
+	// Close the file so it can be read by the evaluator
+	tempFile.Close()
+
+	// Evaluate the PKL file
+	result, err := evaluator.EvaluateOutputText(context.Background(), pkl.FileSource(tempFile.Name()))
+	if err != nil {
+		r.Logger.Error("evaluateResource: failed to evaluate PKL record", "error", err)
+		// If evaluation fails, return the raw PKL record as fallback
+		return pklRecord, nil
+	}
+
+	r.Logger.Debug("evaluateResource: successfully evaluated PKL record", "id", id, "type", typ, "resultLength", len(result))
+	return []byte(result), nil
 }
 
 // InitializeDatabase sets up the SQLite database and creates the records table with retries.
@@ -491,5 +611,5 @@ func InitializePklResource(dbPath string) (*PklResourceReader, error) {
 		return nil, fmt.Errorf("error initializing database: %w", err)
 	}
 	// Do NOT close db here; caller will manage closing
-	return &PklResourceReader{DB: db, DBPath: dbPath}, nil
+	return &PklResourceReader{DB: db, DBPath: dbPath, Logger: slog.Default()}, nil
 }

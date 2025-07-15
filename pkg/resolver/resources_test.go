@@ -1,4 +1,4 @@
-package resolver
+package resolver_test
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/memory"
 	"github.com/kdeps/kdeps/pkg/pklres"
+	resolverpkg "github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/session"
 	"github.com/kdeps/kdeps/pkg/tool"
 	pklResource "github.com/kdeps/schema/gen/resource"
@@ -117,7 +118,7 @@ Run {
 	require.NoError(t, err)
 
 	// Create a dependency resolver
-	dr := &DependencyResolver{
+	dr := &resolverpkg.DependencyResolver{
 		Fs:             fs,
 		Logger:         logger,
 		Context:        ctx,
@@ -127,7 +128,7 @@ Run {
 
 	// Test LoadResourceWithRequestContext
 	t.Run("LoadResourceWithRequestContext", func(t *testing.T) {
-		result, err := dr.LoadResourceWithRequestContext(ctx, resourceFile, Resource)
+		result, err := dr.LoadResourceWithRequestContext(ctx, resourceFile, resolverpkg.Resource)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 
@@ -142,7 +143,7 @@ Run {
 
 	t.Run("LoadResourceWithRequestContext_NoRequestFile", func(t *testing.T) {
 		// Test fallback when no request file is available
-		drNoRequest := &DependencyResolver{
+		drNoRequest := &resolverpkg.DependencyResolver{
 			Fs:             fs,
 			Logger:         logger,
 			Context:        ctx,
@@ -150,14 +151,14 @@ Run {
 			APIServerMode:  true,
 		}
 
-		result, err := drNoRequest.LoadResourceWithRequestContext(ctx, resourceFile, Resource)
+		result, err := drNoRequest.LoadResourceWithRequestContext(ctx, resourceFile, resolverpkg.Resource)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 	})
 
 	t.Run("LoadResourceWithRequestContext_InvalidRequestFile", func(t *testing.T) {
 		// Test fallback when request file is invalid
-		drInvalidRequest := &DependencyResolver{
+		drInvalidRequest := &resolverpkg.DependencyResolver{
 			Fs:             fs,
 			Logger:         logger,
 			Context:        ctx,
@@ -165,7 +166,7 @@ Run {
 			APIServerMode:  true,
 		}
 
-		result, err := drInvalidRequest.LoadResourceWithRequestContext(ctx, resourceFile, Resource)
+		result, err := drInvalidRequest.LoadResourceWithRequestContext(ctx, resourceFile, resolverpkg.Resource)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 	})

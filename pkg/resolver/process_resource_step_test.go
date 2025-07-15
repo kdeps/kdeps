@@ -1,4 +1,4 @@
-package resolver
+package resolver_test
 
 import (
 	"errors"
@@ -7,13 +7,14 @@ import (
 
 	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/logging"
+	resolverpkg "github.com/kdeps/kdeps/pkg/resolver"
 	pklRes "github.com/kdeps/schema/gen/resource"
 )
 
 // TestProcessResourceStep_Success verifies that the happy-path executes the handler
 // and waits for the timestamp change without returning an error.
 func TestProcessResourceStep_Success(t *testing.T) {
-	dr := &DependencyResolver{Logger: logging.NewTestLogger(), DefaultTimeoutSec: -1}
+	dr := &resolverpkg.DependencyResolver{Logger: logging.NewTestLogger(), DefaultTimeoutSec: -1}
 
 	calledGet := false
 	calledWait := false
@@ -31,7 +32,7 @@ func TestProcessResourceStep_Success(t *testing.T) {
 		return nil
 	}
 
-	err := dr.processResourceStep("resA", "exec", nil, func() error {
+	err := dr.ProcessResourceStep("resA", "exec", nil, func() error {
 		calledHandler = true
 		return nil
 	})
@@ -45,7 +46,7 @@ func TestProcessResourceStep_Success(t *testing.T) {
 
 // TestProcessResourceStep_HandlerErr ensures that an error from the handler is propagated.
 func TestProcessResourceStep_HandlerErr(t *testing.T) {
-	dr := &DependencyResolver{Logger: logging.NewTestLogger(), DefaultTimeoutSec: -1}
+	dr := &resolverpkg.DependencyResolver{Logger: logging.NewTestLogger(), DefaultTimeoutSec: -1}
 	handlerErr := errors.New("boom")
 
 	dr.GetCurrentTimestampFn = func(resourceID, step string) (pkl.Duration, error) {
@@ -55,7 +56,7 @@ func TestProcessResourceStep_HandlerErr(t *testing.T) {
 		return nil
 	}
 
-	err := dr.processResourceStep("resA", "python", nil, func() error { return handlerErr })
+	err := dr.ProcessResourceStep("resA", "python", nil, func() error { return handlerErr })
 	if err == nil || !errors.Is(err, handlerErr) {
 		t.Fatalf("expected handler error to propagate, got %v", err)
 	}
@@ -63,7 +64,7 @@ func TestProcessResourceStep_HandlerErr(t *testing.T) {
 
 // TestProcessResourceStep_WaitErr ensures that an error from the wait helper is propagated.
 func TestProcessResourceStep_WaitErr(t *testing.T) {
-	dr := &DependencyResolver{Logger: logging.NewTestLogger(), DefaultTimeoutSec: -1}
+	dr := &resolverpkg.DependencyResolver{Logger: logging.NewTestLogger(), DefaultTimeoutSec: -1}
 	waitErr := errors.New("timeout")
 
 	dr.GetCurrentTimestampFn = func(resourceID, step string) (pkl.Duration, error) {
@@ -73,7 +74,7 @@ func TestProcessResourceStep_WaitErr(t *testing.T) {
 		return waitErr
 	}
 
-	err := dr.processResourceStep("resA", "llm", nil, func() error { return nil })
+	err := dr.ProcessResourceStep("resA", "llm", nil, func() error { return nil })
 	if err == nil || !errors.Is(err, waitErr) {
 		t.Fatalf("expected wait error to propagate, got %v", err)
 	}
@@ -81,7 +82,7 @@ func TestProcessResourceStep_WaitErr(t *testing.T) {
 
 // TestProcessResourceStep_CustomTimeout verifies that the timeout value from the Pkl duration is used.
 func TestProcessResourceStep_CustomTimeout(t *testing.T) {
-	dr := &DependencyResolver{Logger: logging.NewTestLogger(), DefaultTimeoutSec: -1}
+	dr := &resolverpkg.DependencyResolver{Logger: logging.NewTestLogger(), DefaultTimeoutSec: -1}
 	customDur := &pkl.Duration{Value: 5, Unit: pkl.Second} // 5 seconds
 
 	dr.GetCurrentTimestampFn = func(resourceID, step string) (pkl.Duration, error) {
@@ -97,7 +98,7 @@ func TestProcessResourceStep_CustomTimeout(t *testing.T) {
 		return nil
 	}
 
-	if err := dr.processResourceStep("resA", "exec", customDur, func() error { return nil }); err != nil {
+	if err := dr.ProcessResourceStep("resA", "exec", customDur, func() error { return nil }); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !waited {
@@ -108,16 +109,16 @@ func TestProcessResourceStep_CustomTimeout(t *testing.T) {
 // TestProcessRunBlock_NoRunBlock verifies that when Run is nil the function returns without error
 // but still increments the FileRunCounter.
 func TestProcessRunBlock_NoRunBlock(t *testing.T) {
-	dr := &DependencyResolver{
+	dr := &resolverpkg.DependencyResolver{
 		Logger:         logging.NewTestLogger(),
 		FileRunCounter: make(map[string]int),
 		APIServerMode:  false,
 	}
 
-	resEntry := ResourceNodeEntry{ActionID: "act1", File: "foo.pkl"}
+	resEntry := resolverpkg.ResourceNodeEntry{ActionID: "act1", File: "foo.pkl"}
 	rsc := &pklRes.Resource{} // Run is nil by default
 
-	proceed, err := dr.processRunBlock(resEntry, rsc, "act1", false)
+	proceed, err := dr.ProcessRunBlock(resEntry, rsc, "act1", false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

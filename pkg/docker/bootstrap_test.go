@@ -1,4 +1,4 @@
-package docker
+package docker_test
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
@@ -38,14 +39,14 @@ func TestBootstrapDockerSystem(t *testing.T) {
 
 	t.Run("NonDockerMode", func(t *testing.T) {
 		dr.Environment.DockerMode = "0"
-		apiServerMode, err := BootstrapDockerSystem(ctx, dr)
+		apiServerMode, err := docker.BootstrapDockerSystem(ctx, dr)
 		assert.NoError(t, err)
 		assert.False(t, apiServerMode)
 	})
 
 	t.Run("DockerMode", func(t *testing.T) {
 		dr.Environment.DockerMode = "1"
-		apiServerMode, err := BootstrapDockerSystem(ctx, dr)
+		apiServerMode, err := docker.BootstrapDockerSystem(ctx, dr)
 		assert.Error(t, err) // Expected error due to missing OLLAMA_HOST
 		assert.False(t, apiServerMode)
 	})
@@ -57,7 +58,7 @@ func TestCreateFlagFile(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		flagPath := filepath.Join(t.TempDir(), "flag")
-		err := CreateFlagFile(fs, ctx, flagPath)
+		err := docker.CreateFlagFile(fs, ctx, flagPath)
 		assert.NoError(t, err)
 		exists, _ := afero.Exists(fs, flagPath)
 		assert.True(t, exists)
@@ -66,7 +67,7 @@ func TestCreateFlagFile(t *testing.T) {
 	t.Run("FileExists", func(t *testing.T) {
 		existingPath := filepath.Join(t.TempDir(), "existing")
 		_ = afero.WriteFile(fs, existingPath, []byte(""), 0o644)
-		err := CreateFlagFile(fs, ctx, existingPath)
+		err := docker.CreateFlagFile(fs, ctx, existingPath)
 		assert.NoError(t, err)
 	})
 }
@@ -76,7 +77,7 @@ func TestPullModels(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	t.Run("EmptyModels", func(t *testing.T) {
-		err := pullModels(ctx, []string{}, logger)
+		err := docker.PullModels(ctx, []string{}, logger)
 		assert.NoError(t, err)
 	})
 
@@ -124,7 +125,7 @@ func TestCreateFlagFileNoDuplicate(t *testing.T) {
 	filename := filepath.Join(t.TempDir(), "flag.txt")
 
 	// First creation should succeed and file should exist.
-	if err := CreateFlagFile(fs, ctx, filename); err != nil {
+	if err := docker.CreateFlagFile(fs, ctx, filename); err != nil {
 		t.Fatalf("CreateFlagFile error: %v", err)
 	}
 	if ok, _ := afero.Exists(fs, filename); !ok {
@@ -132,14 +133,14 @@ func TestCreateFlagFileNoDuplicate(t *testing.T) {
 	}
 
 	// Second creation should be no-op with no error (file already exists).
-	if err := CreateFlagFile(fs, ctx, filename); err != nil {
+	if err := docker.CreateFlagFile(fs, ctx, filename); err != nil {
 		t.Fatalf("expected no error on second create, got %v", err)
 	}
 }
 
 func TestBootstrapDockerSystem_NoLogger(t *testing.T) {
 	dr := &resolver.DependencyResolver{}
-	if _, err := BootstrapDockerSystem(context.Background(), dr); err == nil {
+	if _, err := docker.BootstrapDockerSystem(context.Background(), dr); err == nil {
 		t.Fatalf("expected error when Logger is nil")
 	}
 }
@@ -152,7 +153,7 @@ func TestBootstrapDockerSystem_NonDockerMode(t *testing.T) {
 		Logger:      logging.NewTestLogger(),
 		Environment: env,
 	}
-	ok, err := BootstrapDockerSystem(context.Background(), dr)
+	ok, err := docker.BootstrapDockerSystem(context.Background(), dr)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -175,7 +176,7 @@ func TestStartAndWaitForOllamaReady(t *testing.T) {
 	defer cancel()
 
 	logger := logging.NewTestLogger()
-	if err := startAndWaitForOllama(ctx, "127.0.0.1", portStr, logger); err != nil {
+	if err := docker.StartAndWaitForOllama(ctx, "127.0.0.1", portStr, logger); err != nil {
 		t.Errorf("expected nil error when server already ready, got %v", err)
 	}
 }
@@ -195,7 +196,7 @@ func TestStartAPIServerWrapper_Error(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	err := startAPIServer(ctx, dr)
+	err := docker.StartAPIServer(ctx, dr)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "configuration is missing")
 }
@@ -226,7 +227,7 @@ func TestStartWebServerWrapper_Success(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	err := startWebServer(ctx, dr)
+	err := docker.StartWebServer(ctx, dr)
 	require.NoError(t, err)
 }
 
@@ -234,7 +235,7 @@ func TestCreateFlagFileExtra(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	filename := "flag.txt"
 	// Create new flag file
-	err := CreateFlagFile(fs, context.Background(), filename)
+	err := docker.CreateFlagFile(fs, context.Background(), filename)
 	require.NoError(t, err)
 	exists, err := afero.Exists(fs, filename)
 	require.NoError(t, err)
@@ -249,7 +250,7 @@ func TestCreateFlagFileExtra(t *testing.T) {
 	time.Sleep(1 * time.Millisecond)
 
 	// Call again on existing file, should not alter modtime and return no error
-	err = CreateFlagFile(fs, context.Background(), filename)
+	err = docker.CreateFlagFile(fs, context.Background(), filename)
 	require.NoError(t, err)
 	fi2, err := fs.Stat(filename)
 	require.NoError(t, err)
@@ -270,7 +271,7 @@ func TestBootstrapDockerSystem_NonDockerMode2(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	dr := minimalDependencyResolver(fs)
 
-	apiMode, err := BootstrapDockerSystem(context.Background(), dr)
+	apiMode, err := docker.BootstrapDockerSystem(context.Background(), dr)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -286,7 +287,7 @@ func TestBootstrapDockerSystem_NilLogger2(t *testing.T) {
 		Environment: &environment.Environment{DockerMode: "0"},
 		Logger:      nil,
 	}
-	if _, err := BootstrapDockerSystem(context.Background(), dr); err == nil {
+	if _, err := docker.BootstrapDockerSystem(context.Background(), dr); err == nil {
 		t.Fatalf("expected error when logger is nil")
 	}
 }
@@ -296,7 +297,7 @@ func TestCreateFlagFileAgain(t *testing.T) {
 	filename := filepath.Join(t.TempDir(), "test.flag")
 
 	// First creation should succeed
-	if err := CreateFlagFile(fs, context.Background(), filename); err != nil {
+	if err := docker.CreateFlagFile(fs, context.Background(), filename); err != nil {
 		t.Fatalf("unexpected error creating flag file: %v", err)
 	}
 
@@ -310,7 +311,7 @@ func TestCreateFlagFileAgain(t *testing.T) {
 	}
 
 	// Second call should not error (file already exists)
-	if err := CreateFlagFile(fs, context.Background(), filename); err != nil {
+	if err := docker.CreateFlagFile(fs, context.Background(), filename); err != nil {
 		t.Fatalf("expected nil error when flag already exists, got: %v", err)
 	}
 }
@@ -326,12 +327,12 @@ func TestCreateFlagFile_ReadOnlyFs(t *testing.T) {
 	flagPath := filepath.Join(tmpDir, "flag.txt")
 
 	// Attempting to create a new file on read-only FS should error.
-	if err := CreateFlagFile(ro, context.Background(), flagPath); err == nil {
+	if err := docker.CreateFlagFile(ro, context.Background(), flagPath); err == nil {
 		t.Fatalf("expected error when creating flag file on read-only fs")
 	}
 
 	// Reference schema version (requirement in tests)
-	_ = schema.SchemaVersion(context.Background())
+	_ = schema.Version(context.Background())
 }
 
 func TestCreateFlagFile_NewFile(t *testing.T) {
@@ -339,7 +340,7 @@ func TestCreateFlagFile_NewFile(t *testing.T) {
 	ctx := context.Background()
 	filename := "test_flag_file"
 
-	if err := CreateFlagFile(fs, ctx, filename); err != nil {
+	if err := docker.CreateFlagFile(fs, ctx, filename); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -363,7 +364,7 @@ func TestCreateFlagFile_FileAlreadyExists(t *testing.T) {
 	// pre-create file
 	afero.WriteFile(fs, filename, []byte{}, 0o644)
 
-	if err := CreateFlagFile(fs, ctx, filename); err != nil {
+	if err := docker.CreateFlagFile(fs, ctx, filename); err != nil {
 		t.Fatalf("expected no error when file already exists, got: %v", err)
 	}
 }
@@ -373,7 +374,7 @@ func TestPullModels_Error(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Provide some dummy model names; expect error as 'ollama' binary likely unavailable
-	err := pullModels(ctx, []string{"nonexistent-model-1"}, logger)
+	err := docker.PullModels(ctx, []string{"nonexistent-model-1"}, logger)
 	if err == nil {
 		t.Fatalf("expected error when pulling models with missing binary")
 	}

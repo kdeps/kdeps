@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -22,7 +23,6 @@ import (
 var (
 	globalAgentReader *PklResourceReader
 	globalAgentMutex  sync.RWMutex
-	globalAgentOnce   sync.Once
 )
 
 // AgentInfo represents information about an installed agent
@@ -65,6 +65,7 @@ func (r *PklResourceReader) ListElements(_ url.URL) ([]pkl.PathElement, error) {
 
 // Read handles agent ID resolution operations based on the URI.
 func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
+	log.Printf("AgentReader.Read called with URI: %s", uri.String())
 	query := uri.Query()
 	op := query.Get("op")
 
@@ -75,7 +76,12 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 
 	switch op {
 	case "resolve":
-		return r.resolveAgentID(uri.Path, query)
+		resolvedID, err := r.resolveAgentID(uri.Path, query)
+		if err != nil {
+			return nil, err
+		}
+		log.Printf("AgentReader.Read: resolved %s to %s", uri.String(), resolvedID)
+		return []byte(resolvedID), nil
 	case "list":
 		// If no path is provided, treat as list-installed
 		if uri.Path == "" || uri.Path == "/" {
@@ -617,6 +623,8 @@ func (r *PklResourceReader) findLatestVersionFromDB(agentID string) (string, err
 // If it doesn't exist, it creates one with the provided parameters.
 // If it exists, it updates the current agent context if parameters are provided.
 func GetGlobalAgentReader(fs afero.Fs, kdepsDir string, currentAgent string, currentVersion string, logger *logging.Logger) (*PklResourceReader, error) {
+	log.Printf("GetGlobalAgentReader called with kdepsDir=%s, currentAgent=%s, currentVersion=%s", kdepsDir, currentAgent, currentVersion)
+
 	// Check if we need to update context (requires write lock)
 	needsUpdate := false
 	globalAgentMutex.RLock()
@@ -643,6 +651,7 @@ func GetGlobalAgentReader(fs afero.Fs, kdepsDir string, currentAgent string, cur
 				globalAgentReader.KdepsDir = kdepsDir
 			}
 			globalAgentMutex.Unlock()
+			log.Printf("GetGlobalAgentReader: updated existing global agent reader context")
 			return globalAgentReader, nil
 		}
 		globalAgentMutex.Unlock()
@@ -652,6 +661,7 @@ func GetGlobalAgentReader(fs afero.Fs, kdepsDir string, currentAgent string, cur
 	globalAgentMutex.RLock()
 	if globalAgentReader != nil {
 		globalAgentMutex.RUnlock()
+		log.Printf("GetGlobalAgentReader: returning existing global agent reader")
 		return globalAgentReader, nil
 	}
 	globalAgentMutex.RUnlock()
@@ -662,16 +672,20 @@ func GetGlobalAgentReader(fs afero.Fs, kdepsDir string, currentAgent string, cur
 
 	// Double-check pattern
 	if globalAgentReader != nil {
+		log.Printf("GetGlobalAgentReader: returning existing global agent reader (double-check)")
 		return globalAgentReader, nil
 	}
 
 	// Create the singleton instance
+	log.Printf("GetGlobalAgentReader: creating new global agent reader")
 	reader, err := InitializeAgent(fs, kdepsDir, currentAgent, currentVersion, logger)
 	if err != nil {
+		log.Printf("GetGlobalAgentReader: failed to create new agent reader: %v", err)
 		return nil, err
 	}
 
 	globalAgentReader = reader
+	log.Printf("GetGlobalAgentReader: created new global agent reader successfully")
 	return globalAgentReader, nil
 }
 

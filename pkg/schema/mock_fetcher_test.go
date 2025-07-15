@@ -1,4 +1,4 @@
-package schema
+package schema_test
 
 import (
 	"context"
@@ -7,10 +7,8 @@ import (
 )
 
 func init() {
-	// Provide a fast local stub to avoid live GitHub calls when UseLatest is true and
-	// individual sub-tests haven't swapped out the fetcher. This keeps the unit
-	// suite hermetic and avoids flaky network timeouts seen in CI.
+	// Mock the GitHubReleaseFetcher for testing
 	utils.GitHubReleaseFetcher = func(ctx context.Context, repo string, baseURL string) (string, error) {
-		return "0.0.0-test", nil
+		return "1.2.3", nil
 	}
 }

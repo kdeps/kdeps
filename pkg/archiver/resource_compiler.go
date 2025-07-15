@@ -113,7 +113,7 @@ func processPklFile(fs afero.Fs, file string, wf pklWf.Workflow, resourcesDir st
 	resolvedID := string(resolvedIDBytes)
 
 	// Extract name and version from resolved ID for filename
-	name, version := extractNameVersionFromResolvedID(resolvedID, wf.GetAgentID(), wf.GetVersion())
+	name, version := ExtractNameVersionFromResolvedID(resolvedID, wf.GetAgentID(), wf.GetVersion())
 	fname := fmt.Sprintf("%s_%s-%s.pkl", name, action, version)
 	targetPath := filepath.Join(resourcesDir, fname)
 
@@ -185,7 +185,7 @@ func processFileContent(fs afero.Fs, file string, wf pklWf.Workflow, logger *log
 
 	// Add any remaining `requires` block content
 	if requiresBuffer.Len() > 0 && !requiresWritten {
-		processedRequires, additionalAgents := processRequiresBlockWithAgentReader(requiresBuffer.String(), wf, agentReader)
+		processedRequires, additionalAgents := ProcessRequiresBlockWithAgentReader(requiresBuffer.String(), wf, agentReader)
 		fileBuffer.WriteString(processedRequires)
 		agentsToCopyAll = append(agentsToCopyAll, additionalAgents...)
 	}
@@ -198,7 +198,7 @@ func handleRequiresSection(line *string, inBlock *bool, wf pklWf.Workflow, requi
 	case *inBlock:
 		if strings.TrimSpace(*line) == "}" {
 			*inBlock = false
-			processedRequires, additionalAgents := processRequiresBlockWithAgentReader(requiresBuf.String(), wf, agentReader)
+			processedRequires, additionalAgents := ProcessRequiresBlockWithAgentReader(requiresBuf.String(), wf, agentReader)
 			fileBuf.WriteString(processedRequires)
 			*agentsToCopyAll = append(*agentsToCopyAll, additionalAgents...)
 			requiresBuf.Reset()
@@ -220,14 +220,14 @@ func handleRequiresSection(line *string, inBlock *bool, wf pklWf.Workflow, requi
 
 func processLineWithAgentReader(line string, wf pklWf.Workflow, agentReader *agent.PklResourceReader) (string, string) {
 	if idMatch := idPattern.FindStringSubmatch(line); idMatch != nil {
-		resolvedID := resolveActionIDWithAgentReader(idMatch[1], wf, agentReader)
+		resolvedID := ResolveActionIDWithAgentReader(idMatch[1], wf, agentReader)
 		return strings.ReplaceAll(line, idMatch[1], resolvedID), idMatch[1]
 	}
 	return line, ""
 }
 
 // processRequiresBlockWithAgentReader processes the requires block and returns the processed block string and a list of agent names for 'all resources' copying
-func processRequiresBlockWithAgentReader(blockContent string, wf pklWf.Workflow, agentReader *agent.PklResourceReader) (string, []string) {
+func ProcessRequiresBlockWithAgentReader(blockContent string, wf pklWf.Workflow, agentReader *agent.PklResourceReader) (string, []string) {
 	lines := strings.Split(blockContent, "\n")
 	modifiedLines := make([]string, 0, len(lines))
 	agentsToCopyAll := []string{}
@@ -247,9 +247,9 @@ func processRequiresBlockWithAgentReader(blockContent string, wf pklWf.Workflow,
 				continue
 			}
 
-			if isActionID(value) {
+			if IsActionID(value) {
 				// Use agent reader to resolve the value
-				resolvedValue := resolveActionIDWithAgentReader(value, wf, agentReader)
+				resolvedValue := ResolveActionIDWithAgentReader(value, wf, agentReader)
 				modifiedLines = append(modifiedLines, fmt.Sprintf(`"%s"`, resolvedValue))
 			} else {
 				// Keep non-action quoted strings as-is
@@ -259,7 +259,7 @@ func processRequiresBlockWithAgentReader(blockContent string, wf pklWf.Workflow,
 		}
 
 		// Detect unquoted agent names (for all resources)
-		if isAgentName(trimmedLine) {
+		if IsAgentName(trimmedLine) {
 			agentsToCopyAll = append(agentsToCopyAll, trimmedLine)
 			modifiedLines = append(modifiedLines, trimmedLine)
 			continue
@@ -335,7 +335,7 @@ func expandRequiresInCompiledFile(fs afero.Fs, file string, wf pklWf.Workflow, l
 	// Add any remaining `requires` block content
 	if requiresBuffer.Len() > 0 && !requiresWritten {
 		logger.Debug("processing remaining requires block", "file", file, "bufferLength", requiresBuffer.Len())
-		processedRequires, additionalAgents := processRequiresBlockWithAgentReader(requiresBuffer.String(), wf, agentReader)
+		processedRequires, additionalAgents := ProcessRequiresBlockWithAgentReader(requiresBuffer.String(), wf, agentReader)
 		fileBuffer.WriteString(processedRequires)
 		agentsToCopyAll = append(agentsToCopyAll, additionalAgents...)
 		modified = true
@@ -356,8 +356,9 @@ func expandRequiresInCompiledFile(fs afero.Fs, file string, wf pklWf.Workflow, l
 	return nil
 }
 
-// isActionID checks if a string looks like an action ID
-func isActionID(value string) bool {
+// IsActionID checks if a string looks like an action ID.
+// Used by tests and internal resource compilation logic.
+func IsActionID(value string) bool {
 	// Action IDs should be simple identifiers without special characters
 	// They should not contain slashes, equals, or other special syntax
 	if value == "" {
@@ -423,7 +424,11 @@ func isActionID(value string) bool {
 	return actionPattern.MatchString(value)
 }
 
-func resolveActionIDWithAgentReader(actionID string, wf pklWf.Workflow, agentReader *agent.PklResourceReader) string {
+// ResolveActionIDWithAgentReader resolves an actionID to its canonical form using the agent reader.
+// If the actionID is already in canonical form (@agent/action:version), it is returned as-is.
+// Otherwise, it is resolved using the agent reader and workflow context.
+// Used by tests and internal resource compilation logic.
+func ResolveActionIDWithAgentReader(actionID string, wf pklWf.Workflow, agentReader *agent.PklResourceReader) string {
 	// If the actionID is already in canonical form (@agent/action:version), return it
 	if strings.HasPrefix(actionID, "@") {
 		return actionID
@@ -490,7 +495,9 @@ func resolveActionIDWithAgentReader(actionID string, wf pklWf.Workflow, agentRea
 	return string(resolvedIDBytes)
 }
 
-func extractNameVersionFromResolvedID(resolvedID, defaultName, defaultVersion string) (string, string) {
+// ExtractNameVersionFromResolvedID extracts the agent name and version from a resolved action ID string.
+// Used by tests and internal resource compilation logic.
+func ExtractNameVersionFromResolvedID(resolvedID, defaultName, defaultVersion string) (string, string) {
 	if !strings.HasPrefix(resolvedID, "@") {
 		return defaultName, defaultVersion
 	}
@@ -517,7 +524,7 @@ func ValidatePklResources(fs afero.Fs, ctx context.Context, dir string, logger *
 		return fmt.Errorf("missing resource directory: %s", dir)
 	}
 
-	pklFiles, err := collectPklFiles(fs, dir)
+	pklFiles, err := CollectPklFiles(fs, dir)
 	if err != nil || len(pklFiles) == 0 {
 		logger.Error("no .pkl files found", "directory", dir)
 		return fmt.Errorf("no .pkl files in %s", dir)
@@ -531,7 +538,8 @@ func ValidatePklResources(fs afero.Fs, ctx context.Context, dir string, logger *
 	return nil
 }
 
-func collectPklFiles(fs afero.Fs, dir string) ([]string, error) {
+// CollectPklFiles collects all .pkl files from a directory.
+func CollectPklFiles(fs afero.Fs, dir string) ([]string, error) {
 	files, err := afero.ReadDir(fs, dir)
 	if err != nil {
 		return nil, fmt.Errorf("error reading directory: %w", err)
@@ -547,7 +555,7 @@ func collectPklFiles(fs afero.Fs, dir string) ([]string, error) {
 }
 
 // isAgentName checks if a string looks like an agent name (unquoted, simple identifier)
-func isAgentName(value string) bool {
+func IsAgentName(value string) bool {
 	if value == "" {
 		return false
 	}

@@ -1,9 +1,11 @@
-package utils
+package utils_test
 
 import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/kdeps/kdeps/pkg/utils"
 )
 
 func TestIsJSON(t *testing.T) {
@@ -46,7 +48,7 @@ func TestIsJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := IsJSON(tt.input)
+			got := utils.IsJSON(tt.input)
 			if got != tt.want {
 				t.Errorf("IsJSON() = %v, want %v", got, tt.want)
 			}
@@ -94,7 +96,7 @@ func TestFixJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := FixJSON(tt.input)
+			got := utils.FixJSON(tt.input)
 			if got != tt.want {
 				t.Errorf("FixJSON() = %v, want %v", got, tt.want)
 			}
@@ -106,10 +108,10 @@ func TestIsJSONSimpleExtra(t *testing.T) {
 	valid := `{"foo":123}`
 	invalid := `{"foo":}`
 
-	if !IsJSON(valid) {
+	if !utils.IsJSON(valid) {
 		t.Fatalf("expected valid JSON to return true")
 	}
-	if IsJSON(invalid) {
+	if utils.IsJSON(invalid) {
 		t.Fatalf("expected invalid JSON to return false")
 	}
 }
@@ -126,8 +128,8 @@ func TestFixJSONVariousExtra(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		output := FixJSON(c.input)
-		if !IsJSON(output) {
+		output := utils.FixJSON(c.input)
+		if !utils.IsJSON(output) {
 			t.Fatalf("case %s produced invalid JSON: %s", c.name, output)
 		}
 	}
@@ -136,25 +138,25 @@ func TestFixJSONVariousExtra(t *testing.T) {
 func TestFixJSONAdditional(t *testing.T) {
 	// Already valid JSON should remain unchanged
 	valid := `{"key":"value"}`
-	if got := FixJSON(valid); got != valid {
+	if got := utils.FixJSON(valid); got != valid {
 		t.Fatalf("FixJSON altered valid JSON: %s", got)
 	}
 
 	// Quoted JSON string should be unquoted
 	quoted := `"{\"a\":1}"`
 	expectedUnquoted := `{"a":1}`
-	if got := FixJSON(quoted); got != expectedUnquoted {
+	if got := utils.FixJSON(quoted); got != expectedUnquoted {
 		t.Fatalf("FixJSON failed to unquote: %s", got)
 	}
 
 	// JSON with newline inside string literal should be escaped
 	raw := "{\n  \"msg\": \"hello\nworld\"\n}"
-	fixed := FixJSON(raw)
+	fixed := utils.FixJSON(raw)
 	if fixed == raw {
 		t.Fatalf("FixJSON did not modify input with raw newline")
 	}
 	// Ensure result is valid JSON
-	if !IsJSON(fixed) {
+	if !utils.IsJSON(fixed) {
 		t.Fatalf("FixJSON output is not valid JSON: %s", fixed)
 	}
 }
@@ -174,7 +176,7 @@ Another",
   "value": 42
 }`
 
-	fixed := FixJSON(raw)
+	fixed := utils.FixJSON(raw)
 
 	if fixed == "" {
 		t.Fatalf("FixJSON returned empty string")
@@ -193,7 +195,7 @@ func TestFixJSONComplexInputExtra(t *testing.T) {
 	// 3. It includes a raw newline character
 	raw := "\"{\n  \\\"msg\\\": \\\"Hello World\\\"\n}\""
 
-	fixed := FixJSON(raw)
+	fixed := utils.FixJSON(raw)
 	if fixed == "" {
 		t.Fatalf("FixJSON returned empty string")
 	}
@@ -214,14 +216,14 @@ second"}`,
 	}
 
 	for _, in := range cases {
-		out := FixJSON(in)
+		out := utils.FixJSON(in)
 		if out == "" {
 			t.Fatalf("FixJSON returned empty for input %q", in)
 		}
 		// We don't require output to be fully valid JSON for malformed inputs, only non-empty.
 
 		// For inputs that are already valid JSON, the output should still be valid JSON.
-		if IsJSON(in) && !IsJSON(out) {
+		if utils.IsJSON(in) && !utils.IsJSON(out) {
 			t.Fatalf("expected valid JSON for input %q, got %q", in, out)
 		}
 	}
@@ -252,7 +254,7 @@ func TestFixJSON_EdgeCases2(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		out := FixJSON(c.input)
+		out := utils.FixJSON(c.input)
 
 		// Ensure output is valid JSON
 		var v interface{}
@@ -273,7 +275,7 @@ func TestFixJSON_EdgeCases(t *testing.T) {
 	}
 
 	in := `"{\n\"msg\":\"hi\"\n}"`
-	out := FixJSON(in)
+	out := utils.FixJSON(in)
 	for _, sub := range checks {
 		if !strings.Contains(out, sub) {
 			t.Fatalf("FixJSON output missing %s: %s", sub, out)
@@ -282,7 +284,7 @@ func TestFixJSON_EdgeCases(t *testing.T) {
 
 	// newline escaping case
 	newlineIn := "\"line1\nline2\""
-	newlineOut := FixJSON(newlineIn)
+	newlineOut := utils.FixJSON(newlineIn)
 	if !strings.Contains(newlineOut, "\\n") && !strings.Contains(newlineOut, "\n") {
 		t.Fatalf("expected newline preserved or escaped, got %s", newlineOut)
 	}
@@ -293,7 +295,7 @@ func TestFixJSON_EscapesAndWhitespace(t *testing.T) {
 	input := "{\n  \"msg\": \"Hello\nWorld\",\n  \"quote\": \"She said \"Hi\"\"\n}"
 	expected := "{\n\"msg\": \"Hello\\nWorld\",\n\"quote\": \"She said \\\"Hi\\\"\"\n}"
 
-	if got := FixJSON(input); got != expected {
+	if got := utils.FixJSON(input); got != expected {
 		t.Errorf("FixJSON mismatch\nwant: %s\n got: %s", expected, got)
 	}
 }
@@ -317,7 +319,7 @@ func TestFixJSONComprehensive(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		out := FixJSON(tc.input)
+		out := utils.FixJSON(tc.input)
 		if !tc.assert(out) {
 			t.Fatalf("%s: FixJSON output %q did not meet assertion", tc.name, out)
 		}
@@ -344,18 +346,18 @@ func TestFixJSONRepairsCommonIssues(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		fixed := FixJSON(c.input)
-		if !IsJSON(fixed) {
+		fixed := utils.FixJSON(c.input)
+		if !utils.IsJSON(fixed) {
 			t.Fatalf("case %s: result is not valid JSON: %s", c.name, fixed)
 		}
 	}
 }
 
 func TestIsJSONDetectsValidAndInvalid(t *testing.T) {
-	if !IsJSON("{}") {
+	if !utils.IsJSON("{}") {
 		t.Fatalf("expected '{}' to be valid JSON")
 	}
-	if IsJSON("not-json") {
+	if utils.IsJSON("not-json") {
 		t.Fatalf("expected 'not-json' to be invalid")
 	}
 }
@@ -366,15 +368,15 @@ func TestFixJSONRepair(t *testing.T) {
 	// Common CLI scenario: JSON gets wrapped in quotes with inner quotes escaped
 	bad := "\"{\\\"foo\\\":123}\""
 
-	fixed := FixJSON(bad)
-	if !IsJSON(fixed) {
+	fixed := utils.FixJSON(bad)
+	if !utils.IsJSON(fixed) {
 		t.Fatalf("FixJSON did not return valid JSON: %s", fixed)
 	}
 }
 
 func TestFixJSON_UnquoteAndCleanup(t *testing.T) {
 	input := "\"{\\\"msg\\\": \"Hello\\nWorld\"}\"" // wrapped & escaped
-	fixed := FixJSON(input)
+	fixed := utils.FixJSON(input)
 
 	// Should be unwrapped and contain escaped newline, not raw
 	if !strings.Contains(fixed, "Hello\\nWorld") {
@@ -385,7 +387,7 @@ func TestFixJSON_UnquoteAndCleanup(t *testing.T) {
 func TestFixJSON_NoChangeNeeded(t *testing.T) {
 	// Already well-formed JSON should come back unchanged
 	input := "{\n\"foo\": \"bar\"\n}"
-	if FixJSON(input) != input {
+	if utils.FixJSON(input) != input {
 		t.Fatalf("FixJSON modified an already valid JSON string")
 	}
 }
@@ -393,7 +395,7 @@ func TestFixJSON_NoChangeNeeded(t *testing.T) {
 func TestFixJSON_UnquoteErrorPath(t *testing.T) {
 	// malformed quoted string that will fail strconv.Unquote
 	input := "\"\\x\"" // contains invalid escape sequence
-	out := FixJSON(input)
+	out := utils.FixJSON(input)
 	// Function should return a non-empty string and not panic
 	if out == "" {
 		t.Fatalf("FixJSON returned empty string for malformed input")

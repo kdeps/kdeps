@@ -2,7 +2,7 @@ package evaluator
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"sync"
 
 	"github.com/apple/pkl-go/pkl"
@@ -92,14 +92,14 @@ func InitializeEvaluator(ctx context.Context, config *EvaluatorConfig) error {
 // GetEvaluator returns the singleton evaluator instance
 func GetEvaluator() (pkl.Evaluator, error) {
 	if instance == nil {
-		return nil, fmt.Errorf("evaluator not initialized - call InitializeEvaluator first")
+		return nil, errors.New("evaluator not initialized - call InitializeEvaluator first")
 	}
 
 	instance.mu.RLock()
 	defer instance.mu.RUnlock()
 
 	if instance.evaluator == nil {
-		return nil, fmt.Errorf("evaluator instance is nil")
+		return nil, errors.New("evaluator instance is nil")
 	}
 
 	return instance.evaluator, nil
@@ -108,7 +108,7 @@ func GetEvaluator() (pkl.Evaluator, error) {
 // GetEvaluatorManager returns the singleton evaluator manager instance
 func GetEvaluatorManager() (*EvaluatorManager, error) {
 	if instance == nil {
-		return nil, fmt.Errorf("evaluator manager not initialized - call InitializeEvaluator first")
+		return nil, errors.New("evaluator manager not initialized - call InitializeEvaluator first")
 	}
 
 	return instance, nil
@@ -147,7 +147,7 @@ func (em *EvaluatorManager) EvaluateModuleSource(ctx context.Context, source *pk
 	defer em.mu.RUnlock()
 
 	if em.evaluator == nil {
-		return "", fmt.Errorf("evaluator is nil")
+		return "", errors.New("evaluator is nil")
 	}
 
 	return em.evaluator.EvaluateOutputText(ctx, source)

@@ -26,16 +26,17 @@ type URLInfo struct {
 	LocalNameTemplate string
 }
 
-var archMappings = map[string]map[string]string{
+// ArchMappings maps repository names to architecture mappings.
+var ArchMappings = map[string]map[string]string{
 	"apple/pkl": {"amd64": "amd64", "arm64": "aarch64"},
 	"default":   {"amd64": "x86_64", "arm64": "aarch64"},
 }
 
 func GetCurrentArchitecture(ctx context.Context, repo string) string {
 	goArch := runtime.GOARCH
-	mapping, ok := archMappings[repo]
+	mapping, ok := ArchMappings[repo]
 	if !ok {
-		mapping = archMappings["default"]
+		mapping = ArchMappings["default"]
 	}
 	if arch, ok := mapping[goArch]; ok {
 		return arch
@@ -44,7 +45,7 @@ func GetCurrentArchitecture(ctx context.Context, repo string) string {
 }
 
 func CompareVersions(ctx context.Context, v1, v2 string) bool {
-	p1, p2 := parseVersion(v1), parseVersion(v2)
+	p1, p2 := ParseVersion(v1), ParseVersion(v2)
 	maxLen := max(len(p1), len(p2))
 
 	for i := range maxLen {
@@ -62,7 +63,8 @@ func CompareVersions(ctx context.Context, v1, v2 string) bool {
 	return false
 }
 
-func parseVersion(v string) []int {
+// ParseVersion parses a version string into components.
+func ParseVersion(v string) []int {
 	parts := strings.FieldsFunc(v, func(r rune) bool { return r == '.' || r == '-' })
 	res := make([]int, len(parts))
 	for i, p := range parts {
@@ -110,7 +112,8 @@ func GetLatestAnacondaVersions(ctx context.Context) (map[string]string, error) {
 	return versions, nil
 }
 
-func buildURL(baseURL, version, arch string) string {
+// BuildURL builds a URL for downloading.
+func BuildURL(baseURL, version, arch string) string {
 	return strings.NewReplacer("{version}", version, "{arch}", arch).Replace(baseURL)
 }
 
@@ -158,7 +161,7 @@ func GenerateURLs(ctx context.Context, installAnaconda bool) ([]download.Downloa
 		}
 
 		if utils.ContainsString(info.Architectures, currentArch) {
-			url := buildURL(info.BaseURL, version, currentArch)
+			url := BuildURL(info.BaseURL, version, currentArch)
 
 			// Use "latest" in local filenames when UseLatest is true to match Dockerfile template expectations
 			localVersion := version

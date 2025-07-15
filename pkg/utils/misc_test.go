@@ -1,4 +1,4 @@
-package utils
+package utils_test
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 )
@@ -19,20 +20,20 @@ func TestConditionsHelpers(t *testing.T) {
 		}
 		for _, c := range cases {
 			cond := c
-			assert.True(t, ShouldSkip(&cond))
+			assert.True(t, utils.ShouldSkip(&cond))
 		}
 	})
 
 	t.Run("ShouldSkip_FalseCase", func(t *testing.T) {
 		cond := []interface{}{false, "no"}
-		assert.False(t, ShouldSkip(&cond))
+		assert.False(t, utils.ShouldSkip(&cond))
 	})
 
 	t.Run("AllConditionsMet", func(t *testing.T) {
 		trueSet := []interface{}{true, "TRUE"}
 		falseSet := []interface{}{true, "false"}
-		assert.True(t, AllConditionsMet(&trueSet))
-		assert.False(t, AllConditionsMet(&falseSet))
+		assert.True(t, utils.AllConditionsMet(&trueSet))
+		assert.False(t, utils.AllConditionsMet(&falseSet))
 	})
 }
 
@@ -40,42 +41,42 @@ func TestPKLHTTPFormattersMisc(t *testing.T) {
 	headers := map[string][]string{
 		"X-Test": {"val1", "val2"},
 	}
-	formattedHeaders := FormatRequestHeaders(headers)
+	formattedHeaders := utils.FormatRequestHeaders(headers)
 	// Expect outer block and encoded inner values
 	assert.True(t, strings.HasPrefix(formattedHeaders, "Headers {"))
-	assert.Contains(t, formattedHeaders, EncodeBase64String("val1"))
-	assert.Contains(t, formattedHeaders, EncodeBase64String("val2"))
+	assert.Contains(t, formattedHeaders, utils.EncodeBase64String("val1"))
+	assert.Contains(t, formattedHeaders, utils.EncodeBase64String("val2"))
 
 	params := map[string][]string{"q": {" go ", "lang"}}
-	formattedParams := FormatRequestParams(params)
+	formattedParams := utils.FormatRequestParams(params)
 	assert.True(t, strings.HasPrefix(formattedParams, "Params {"))
-	assert.Contains(t, formattedParams, EncodeBase64String("go")) // Trimmed and base64 encoded
+	assert.Contains(t, formattedParams, utils.EncodeBase64String("go")) // Trimmed and base64 encoded
 
 	respHeaders := map[string]string{"Content-Type": "application/json"}
-	formattedRespHeaders := FormatResponseHeaders(respHeaders)
+	formattedRespHeaders := utils.FormatResponseHeaders(respHeaders)
 	assert.True(t, strings.HasPrefix(formattedRespHeaders, "Headers {"))
 	assert.Contains(t, formattedRespHeaders, "application/json")
 
 	props := map[string]string{"duration": "120"}
-	formattedProps := FormatResponseProperties(props)
+	formattedProps := utils.FormatResponseProperties(props)
 	assert.True(t, strings.HasPrefix(formattedProps, "Properties {"))
 	assert.Contains(t, formattedProps, "120")
 }
 
 func TestFileHelpers(t *testing.T) {
 	// GenerateResourceIDFilename sanitization
-	got := GenerateResourceIDFilename("@/path:val", "req-")
+	got := utils.GenerateResourceIDFilename("@/path:val", "req-")
 	assert.Equal(t, "req-__path_val", got)
 
 	// SanitizeArchivePath should allow inside paths and reject escape attempts
 	// Use temporary directory for test files
 	tmpDir := t.TempDir()
 	base := filepath.Join(tmpDir, "base")
-	good, err := SanitizeArchivePath(base, "inner/file.txt")
+	good, err := utils.SanitizeArchivePath(base, "inner/file.txt")
 	assert.NoError(t, err)
 	assert.True(t, strings.HasPrefix(good, base))
 
-	_, err = SanitizeArchivePath(base, "../../etc/passwd")
+	_, err = utils.SanitizeArchivePath(base, "../../etc/passwd")
 	assert.Error(t, err)
 
 	// CreateDirectories & CreateFiles integration test (in-mem FS)
@@ -84,13 +85,13 @@ func TestFileHelpers(t *testing.T) {
 	dirs := []string{filepath.Join(tmpDir, "a", "b", "c"), filepath.Join(tmpDir, "a", "b", "d")}
 	files := []string{filepath.Join(dirs[0], "file1.txt"), filepath.Join(dirs[1], "file2.txt")}
 
-	assert.NoError(t, CreateDirectories(fs, ctx, dirs))
+	assert.NoError(t, utils.CreateDirectories(fs, ctx, dirs))
 	for _, d := range dirs {
 		exists, _ := afero.DirExists(fs, d)
 		assert.True(t, exists)
 	}
 
-	assert.NoError(t, CreateFiles(fs, ctx, files))
+	assert.NoError(t, utils.CreateFiles(fs, ctx, files))
 	for _, f := range files {
 		exists, _ := afero.Exists(fs, f)
 		assert.True(t, exists)

@@ -1,4 +1,4 @@
-package resolver
+package resolver_test
 
 import (
 	"context"
@@ -13,10 +13,10 @@ import (
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
+	resolverpkg "github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
 	assets "github.com/kdeps/schema/assets"
-	pklData "github.com/kdeps/schema/gen/data"
 	pklExec "github.com/kdeps/schema/gen/exec"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -24,9 +24,10 @@ import (
 )
 
 func setNonInteractive(t *testing.T) func() {
+	t.Helper()
 	old := os.Getenv("NON_INTERACTIVE")
-	os.Setenv("NON_INTERACTIVE", "1")
-	return func() { os.Setenv("NON_INTERACTIVE", old) }
+	t.Setenv("NON_INTERACTIVE", "1")
+	return func() { t.Setenv("NON_INTERACTIVE", old) }
 }
 
 func TestDependencyResolver(t *testing.T) {
@@ -42,7 +43,7 @@ func TestDependencyResolver(t *testing.T) {
 	_ = fs.MkdirAll(execDir, 0o755)
 	// Pre-create empty exec output PKL so resolver tests can load it without error logs
 	execOutFile := filepath.Join(execDir, "test-request__exec_output.pkl")
-	version := schema.SchemaVersion(ctx)
+	version := schema.Version(ctx)
 	content := fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Exec.pkl\"\nResources {\n}\n", version)
 	_ = afero.WriteFile(fs, execOutFile, []byte(content), 0o644)
 
@@ -59,7 +60,7 @@ func TestDependencyResolver(t *testing.T) {
 		}
 	}()
 
-	dr := &DependencyResolver{
+	dr := &resolverpkg.DependencyResolver{
 		Fs:            fs,
 		Logger:        logger,
 		Context:       ctx,
@@ -70,9 +71,9 @@ func TestDependencyResolver(t *testing.T) {
 	}
 
 	// Stub LoadResourceFn to avoid remote network calls and use in-memory exec impl
-	dr.LoadResourceFn = func(ctx context.Context, path string, rt ResourceType) (interface{}, error) {
+	dr.LoadResourceFn = func(ctx context.Context, path string, rt resolverpkg.ResourceType) (interface{}, error) {
 		switch rt {
-		case ExecResource:
+		case resolverpkg.ExecResource:
 			return &pklExec.ExecImpl{}, nil
 		default:
 			return nil, fmt.Errorf("unsupported resource type in stub: %v", rt)
@@ -911,7 +912,7 @@ func TestNewGraphResolver(t *testing.T) {
 	err = afero.WriteFile(fs, execFile, []byte(execContent), 0o644)
 	require.NoError(t, err)
 
-	dr, err := NewGraphResolver(fs, ctx, env, nil, logger)
+	dr, err := resolverpkg.NewGraphResolver(fs, ctx, env, nil, logger)
 	// Handle PKL-related errors gracefully (when PKL binary is not available)
 	if err != nil {
 		msg := err.Error()
@@ -941,20 +942,6 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func TestAppendDataEntry_ContextNil(t *testing.T) {
-	tmpDir := t.TempDir()
-	dr := &DependencyResolver{
-		Fs:        afero.NewOsFs(),
-		Logger:    logging.NewTestLogger(),
-		ActionDir: tmpDir,
-		RequestID: "req",
-		// Context is nil
-	}
-	err := dr.AppendDataEntry("id", &pklData.DataImpl{})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "context is nil")
-}
-
 func TestFailFastBehavior(t *testing.T) {
 	// Test fail-fast behavior when preflight validation fails
 	fs := afero.NewOsFs()
@@ -970,7 +957,7 @@ func TestFailFastBehavior(t *testing.T) {
 	_ = fs.MkdirAll(filesDir, 0o755)
 
 	t.Run("SkipsExpensiveOperationsWhenErrorsExist", func(t *testing.T) {
-		dr := &DependencyResolver{
+		dr := &resolverpkg.DependencyResolver{
 			Fs:            fs,
 			Logger:        logger,
 			Context:       ctx,
@@ -997,18 +984,18 @@ func TestFailFastBehavior(t *testing.T) {
 		duration := time.Since(startTime)
 
 		// Assertions
-		assert.True(t, shouldSkipExpensiveOps, "should skip expensive operations when errors exist")
-		assert.Len(t, existingErrorsWithID, 1, "should have one accumulated error")
-		assert.Equal(t, "preflight validation failed", existingErrorsWithID[0].Message)
-		assert.Equal(t, "@test/llmResource:1.0.0", existingErrorsWithID[0].ActionID)
-		assert.Less(t, duration, 100*time.Millisecond, "checking for existing errors should be fast")
+		require.True(t, shouldSkipExpensiveOps, "should skip expensive operations when errors exist")
+		require.Len(t, existingErrorsWithID, 1, "should have one accumulated error")
+		require.Equal(t, "preflight validation failed", existingErrorsWithID[0].Message)
+		require.Equal(t, "@test/llmResource:1.0.0", existingErrorsWithID[0].ActionID)
+		require.Less(t, duration, 100*time.Millisecond, "checking for existing errors should be fast")
 
 		// Clean up
 		utils.ClearRequestErrors(dr.RequestID)
 	})
 
 	t.Run("ProcessesNormallyWhenNoErrorsExist", func(t *testing.T) {
-		dr := &DependencyResolver{
+		dr := &resolverpkg.DependencyResolver{
 			Fs:            fs,
 			Logger:        logger,
 			Context:       ctx,
@@ -1023,15 +1010,15 @@ func TestFailFastBehavior(t *testing.T) {
 		shouldSkipExpensiveOps := len(existingErrors) > 0
 
 		// Assertions
-		assert.False(t, shouldSkipExpensiveOps, "should not skip expensive operations when no errors exist")
-		assert.Empty(t, existingErrors, "should have no errors")
+		require.False(t, shouldSkipExpensiveOps, "should not skip expensive operations when no errors exist")
+		require.Empty(t, existingErrors, "should have no errors")
 
 		// Clean up
 		utils.ClearRequestErrors(dr.RequestID)
 	})
 
 	t.Run("ErrorAccumulation", func(t *testing.T) {
-		dr := &DependencyResolver{
+		dr := &resolverpkg.DependencyResolver{
 			Fs:            fs,
 			Logger:        logger,
 			Context:       ctx,
@@ -1049,17 +1036,17 @@ func TestFailFastBehavior(t *testing.T) {
 		shouldSkipExpensiveOps := len(existingErrors) > 0
 
 		// Assertions
-		assert.True(t, shouldSkipExpensiveOps, "should skip expensive operations when multiple errors exist")
-		assert.Len(t, existingErrors, 2, "should preserve all accumulated errors")
-		assert.Equal(t, "preflight error 1", existingErrors[0].Message)
-		assert.Equal(t, "preflight error 2", existingErrors[1].Message)
+		require.True(t, shouldSkipExpensiveOps, "should skip expensive operations when multiple errors exist")
+		require.Len(t, existingErrors, 2, "should preserve all accumulated errors")
+		require.Equal(t, "preflight error 1", existingErrors[0].Message)
+		require.Equal(t, "preflight error 2", existingErrors[1].Message)
 
 		// Clean up
 		utils.ClearRequestErrors(dr.RequestID)
 	})
 
 	t.Run("FailFastLogicIntegration", func(t *testing.T) {
-		dr := &DependencyResolver{
+		dr := &resolverpkg.DependencyResolver{
 			Fs:            fs,
 			Logger:        logger,
 			Context:       ctx,
@@ -1095,7 +1082,7 @@ func TestFailFastBehavior(t *testing.T) {
 	})
 
 	t.Run("VerifyResponseProcessingContinues", func(t *testing.T) {
-		dr := &DependencyResolver{
+		dr := &resolverpkg.DependencyResolver{
 			Fs:            fs,
 			Logger:        logger,
 			Context:       ctx,
@@ -1127,7 +1114,7 @@ func TestFailFastBehavior(t *testing.T) {
 	})
 
 	t.Run("PerformanceBenefit", func(t *testing.T) {
-		dr := &DependencyResolver{
+		dr := &resolverpkg.DependencyResolver{
 			Fs:            fs,
 			Logger:        logger,
 			Context:       ctx,

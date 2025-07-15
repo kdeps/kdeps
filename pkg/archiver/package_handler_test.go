@@ -1,4 +1,4 @@
-package archiver
+package archiver_test
 
 import (
 	"archive/tar"
@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	archiver "github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/logging"
 	pklProj "github.com/kdeps/schema/gen/project"
 	pklProject "github.com/kdeps/schema/gen/project"
@@ -56,7 +57,7 @@ func TestPackageProjectHappyPath(t *testing.T) {
 
 	wf := simpleWf{}
 
-	out, err := PackageProject(fs, ctx, wf, kdepsDir, compiled, logger)
+	out, err := archiver.PackageProject(fs, ctx, wf, kdepsDir, compiled, logger)
 	if err != nil {
 		t.Fatalf("PackageProject returned error: %v", err)
 	}
@@ -77,7 +78,7 @@ func TestPackageProjectMissingResources(t *testing.T) {
 	_ = fs.MkdirAll(compiled, 0o755)
 	_ = afero.WriteFile(fs, filepath.Join(compiled, "unexpected.txt"), []byte("oops"), 0o644)
 
-	_, err := PackageProject(fs, ctx, simpleWf{}, kdepsDir, compiled, logger)
+	_, err := archiver.PackageProject(fs, ctx, simpleWf{}, kdepsDir, compiled, logger)
 	if err == nil {
 		t.Fatalf("expected error when resources directory missing")
 	}
@@ -92,7 +93,7 @@ func TestFindWorkflowFileSuccessAndFailure(t *testing.T) {
 	// create file
 	_ = afero.WriteFile(fs, filepath.Join(dir, "workflow.pkl"), []byte(""), 0o644)
 
-	path, err := FindWorkflowFile(fs, dir, logger)
+	path, err := archiver.FindWorkflowFile(fs, dir, logger)
 	if err != nil || filepath.Base(path) != "workflow.pkl" {
 		t.Fatalf("expected to find workflow.pkl, got %s err %v", path, err)
 	}
@@ -100,7 +101,7 @@ func TestFindWorkflowFileSuccessAndFailure(t *testing.T) {
 	// failure case
 	emptyDir := "/empty"
 	_ = fs.MkdirAll(emptyDir, 0o755)
-	if _, err := FindWorkflowFile(fs, emptyDir, logger); err == nil {
+	if _, err := archiver.FindWorkflowFile(fs, emptyDir, logger); err == nil {
 		t.Fatalf("expected error when workflow file missing")
 	}
 }
@@ -139,7 +140,7 @@ func TestPrepareRunDir(t *testing.T) {
 	gz.Close()
 	pkgFile.Close()
 
-	runDir, err := PrepareRunDir(fs, ctx, wf, kdepsDir, pkgPath, logging.NewTestLogger())
+	runDir, err := archiver.PrepareRunDir(fs, ctx, wf, kdepsDir, pkgPath, logging.NewTestLogger())
 	if err != nil {
 		t.Fatalf("PrepareRunDir error: %v", err)
 	}
@@ -164,7 +165,7 @@ func TestPackageProjectHappy(t *testing.T) {
 	_ = afero.WriteFile(fs, filepath.Join(compiled, "workflow.pkl"), []byte("amends \"package://schema.kdeps.com/core@0.0.1#/Workflow.pkl\"\n"), 0o644)
 	_ = fs.MkdirAll(kdepsDir, 0o755)
 
-	pkg, err := PackageProject(fs, ctx, wf, kdepsDir, compiled, logging.NewTestLogger())
+	pkg, err := archiver.PackageProject(fs, ctx, wf, kdepsDir, compiled, logging.NewTestLogger())
 	if err != nil {
 		t.Fatalf("PackageProject error: %v", err)
 	}
@@ -174,7 +175,7 @@ func TestPackageProjectHappy(t *testing.T) {
 	}
 
 	// call again to ensure overwrite logic works (should not error)
-	if _, err := PackageProject(fs, ctx, wf, kdepsDir, compiled, logging.NewTestLogger()); err != nil {
+	if _, err := archiver.PackageProject(fs, ctx, wf, kdepsDir, compiled, logging.NewTestLogger()); err != nil {
 		t.Fatalf("second PackageProject error: %v", err)
 	}
 }
@@ -210,7 +211,7 @@ func TestPackageProject_MinimalAndOverwrite(t *testing.T) {
 	wf := stubWorkflowPkg{}
 
 	// First packaging.
-	out1, err := PackageProject(fs, ctx, wf, kdepsDir, projectDir, logger)
+	out1, err := archiver.PackageProject(fs, ctx, wf, kdepsDir, projectDir, logger)
 	if err != nil {
 		t.Fatalf("first PackageProject: %v", err)
 	}
@@ -219,7 +220,7 @@ func TestPackageProject_MinimalAndOverwrite(t *testing.T) {
 	}
 
 	// Second packaging should overwrite.
-	out2, err := PackageProject(fs, ctx, wf, kdepsDir, projectDir, logger)
+	out2, err := archiver.PackageProject(fs, ctx, wf, kdepsDir, projectDir, logger)
 	if err != nil {
 		t.Fatalf("second PackageProject: %v", err)
 	}
@@ -245,7 +246,7 @@ func TestFindWorkflowFile(t *testing.T) {
 	}
 
 	// Positive case
-	found, err := FindWorkflowFile(fs, baseDir, logger)
+	found, err := archiver.FindWorkflowFile(fs, baseDir, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -258,7 +259,7 @@ func TestFindWorkflowFile(t *testing.T) {
 	if err := fs.MkdirAll(emptyDir, 0o755); err != nil {
 		t.Fatalf("failed to create empty dir: %v", err)
 	}
-	if _, err := FindWorkflowFile(fs, emptyDir, logger); err == nil {
+	if _, err := archiver.FindWorkflowFile(fs, emptyDir, logger); err == nil {
 		t.Errorf("expected error for missing workflow.pkl, got nil")
 	}
 }

@@ -34,7 +34,8 @@ var validPklFiles = map[string]pklFileInfo{
 	"Resource.pkl": {},
 }
 
-func compareVersions(v1, v2 string, logger *logging.Logger) (int, error) {
+// CompareVersions ...
+func CompareVersions(v1, v2 string, logger *logging.Logger) (int, error) {
 	v1Parts := strings.Split(v1, ".")
 	v2Parts := strings.Split(v2, ".")
 
@@ -115,7 +116,7 @@ func EnforcePklVersion(ctx context.Context, line, filePath, schemaVersion string
 	}
 
 	version := line[start+1 : end]
-	comparison, err := compareVersions(version, schemaVersion, logger)
+	comparison, err := CompareVersions(version, schemaVersion, logger)
 	if err != nil {
 		logger.Error("version comparison error", "error", err)
 		return err
@@ -329,7 +330,7 @@ func EnforcePklTemplateAmendsRules(fs afero.Fs, ctx context.Context, filePath st
 			return fmt.Errorf("schema URL validation failed: %w", err)
 		}
 
-		if err := EnforcePklVersion(ctx, line, filePath, schema.SchemaVersion(ctx), logger); err != nil {
+		if err := EnforcePklVersion(ctx, line, filePath, schema.Version(ctx), logger); err != nil {
 			return fmt.Errorf("version validation failed: %w", err)
 		}
 

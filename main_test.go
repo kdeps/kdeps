@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -28,6 +27,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"errors"
 )
 
 func TestSetupEnvironment(t *testing.T) {
@@ -51,9 +51,9 @@ func TestSetupEnvironmentError(t *testing.T) {
 	// The function should still return an environment even if there are minor issues
 	// This depends on the actual implementation of environment.NewEnvironment
 	if err != nil {
-		assert.Nil(t, env)
+		require.Nil(t, env)
 	} else {
-		assert.NotNil(t, env)
+		require.NotNil(t, env)
 	}
 }
 
@@ -66,7 +66,7 @@ func TestSetupSignalHandler(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Test that setupSignalHandler doesn't panic
-	assert.NotPanics(t, func() {
+	require.NotPanics(t, func() {
 		setupSignalHandler(fs, ctx, cancel, env, false, logger)
 	})
 
@@ -84,13 +84,13 @@ func TestCleanup(t *testing.T) {
 	fs.Create("/.dockercleanup")
 
 	// Test that cleanup doesn't panic
-	assert.NotPanics(t, func() {
+	require.NotPanics(t, func() {
 		cleanup(fs, ctx, env, true, logger) // Use apiServerMode=true to avoid os.Exit
 	})
 
 	// Check that the cleanup flag file was removed
 	_, err := fs.Stat("/.dockercleanup")
-	assert.True(t, os.IsNotExist(err))
+	require.True(t, os.IsNotExist(err))
 }
 
 // TestHandleNonDockerMode_Stubbed exercises the main.handleNonDockerMode logic using stubbed dependency
@@ -189,7 +189,7 @@ func TestHandleNonDockerMode_NoConfig(t *testing.T) {
 }
 
 func TestCleanupFlagRemovalMemFS(t *testing.T) {
-	_ = schema.SchemaVersion(context.Background())
+	_ = schema.Version(context.Background())
 
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
@@ -460,7 +460,7 @@ func TestHandleDockerMode_NoAPIServer(t *testing.T) {
 
 	// Touch rule-required reference
 	_ = utils.SafeDerefBool(nil) // uses utils to avoid unused import
-	_ = schema.SchemaVersion(context.Background())
+	_ = schema.Version(context.Background())
 }
 
 // TestRunGraphResolverActions_PrepareWorkflowDirError verifies that an error in
@@ -892,7 +892,7 @@ func TestHandleNonDockerModeEditError(t *testing.T) {
 	}
 	// Editing fails
 	editConfigurationFn = func(_ afero.Fs, _ context.Context, _ *environment.Environment, _ *logging.Logger) (string, error) {
-		return "", fmt.Errorf("edit failed")
+		return "", errors.New("edit failed")
 	}
 
 	// Other functions should not be called; keep minimal safe stubs.
@@ -1130,5 +1130,5 @@ func TestHandleNonDockerMode_Happy(t *testing.T) {
 		t.Fatalf("expected some log output, got none")
 	}
 
-	_ = schema.SchemaVersion(context.Background())
+	_ = schema.Version(context.Background())
 }

@@ -1,10 +1,11 @@
-package archiver
+package archiver_test
 
 import (
 	"strings"
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/agent"
+	archiver "github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/logging"
 	pklProject "github.com/kdeps/schema/gen/project"
 	"github.com/spf13/afero"
@@ -60,7 +61,7 @@ func TestResolveActionIDWithAgentReader(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resolvedID := resolveActionIDWithAgentReader(tt.actionID, testWf, agentReader)
+			resolvedID := archiver.ResolveActionIDWithAgentReader(tt.actionID, testWf, agentReader)
 			if resolvedID != tt.expected {
 				t.Errorf("Test %s: expected %s, got %s", tt.name, tt.expected, resolvedID)
 			}
@@ -244,7 +245,7 @@ func TestIsActionIDPatterns(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := isActionID(tt.value)
+			result := archiver.IsActionID(tt.value)
 			if result != tt.expected {
 				t.Errorf("Test %s: expected %v, got %v - %s", tt.name, tt.expected, result, tt.desc)
 			}
@@ -278,7 +279,7 @@ func TestProcessRequiresBlockWithAgentReader(t *testing.T) {
 		"    \"config_value\"",            // config value should remain unchanged
 	}, "\n")
 
-	result, agentsToCopyAll := processRequiresBlockWithAgentReader(input, testWf, agentReader)
+	result, agentsToCopyAll := archiver.ProcessRequiresBlockWithAgentReader(input, testWf, agentReader)
 	lines := strings.Split(result, "\n")
 
 	if lines[0] != "" {
@@ -346,7 +347,7 @@ func TestExtractNameVersionFromResolvedID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			name, ver := extractNameVersionFromResolvedID(tt.resolvedID, tt.defaultName, tt.defaultVersion)
+			name, ver := archiver.ExtractNameVersionFromResolvedID(tt.resolvedID, tt.defaultName, tt.defaultVersion)
 			if name != tt.expectedName || ver != tt.expectedVer {
 				t.Errorf("extractNameVersionFromResolvedID(%s, %s, %s) = (%s, %s), want (%s, %s)",
 					tt.resolvedID, tt.defaultName, tt.defaultVersion, name, ver, tt.expectedName, tt.expectedVer)
@@ -398,7 +399,7 @@ func TestRequiresBlockWithNoActions(t *testing.T) {
   "another_config"
 }`
 
-	processed, agentsToCopyAll := processRequiresBlockWithAgentReader(requiresBlock, testWf, agentReader)
+	processed, agentsToCopyAll := archiver.ProcessRequiresBlockWithAgentReader(requiresBlock, testWf, agentReader)
 
 	// Should contain the agent name for copying all resources
 	if !strings.Contains(processed, "myagent") {
@@ -442,7 +443,7 @@ func TestRequiresBlockWithActions(t *testing.T) {
   "config_value"
 }`
 
-	processed, agentsToCopyAll := processRequiresBlockWithAgentReader(requiresBlock, testWf, agentReader)
+	processed, agentsToCopyAll := archiver.ProcessRequiresBlockWithAgentReader(requiresBlock, testWf, agentReader)
 
 	// Should NOT have any agents for copying all resources
 	if len(agentsToCopyAll) != 0 {
@@ -486,7 +487,7 @@ func TestRequiresBlockWithAgentAndActions(t *testing.T) {
   "anotherAction"
 }`
 
-	processed, agentsToCopyAll := processRequiresBlockWithAgentReader(requiresBlock, testWf, agentReader)
+	processed, agentsToCopyAll := archiver.ProcessRequiresBlockWithAgentReader(requiresBlock, testWf, agentReader)
 
 	// Should have the agent in the list for copying all resources
 	if len(agentsToCopyAll) != 1 || agentsToCopyAll[0] != "myagent" {

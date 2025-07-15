@@ -110,18 +110,18 @@ func CopyFile(fs afero.Fs, ctx context.Context, src, dst string, logger *logging
 			return nil
 		}
 
-		backupPath := getBackupPath(dst, dstMD5)
+		backupPath := GetBackupPath(dst, dstMD5)
 		logger.Debug(messages.MsgMovingExistingToBackup, "backupPath", backupPath)
 		if err := fs.Rename(dst, backupPath); err != nil {
 			return fmt.Errorf("failed to move file to backup: %w", err)
 		}
 	}
 
-	if err := performCopy(fs, src, dst); err != nil {
+	if err := PerformCopy(fs, src, dst); err != nil {
 		return err
 	}
 
-	if err := setPermissions(fs, src, dst); err != nil {
+	if err := SetPermissions(fs, src, dst); err != nil {
 		return err
 	}
 
@@ -129,13 +129,15 @@ func CopyFile(fs afero.Fs, ctx context.Context, src, dst string, logger *logging
 	return nil
 }
 
-func getBackupPath(dst, dstMD5 string) string {
+// GetBackupPath returns a backup file path for a given destination and its MD5 hash.
+func GetBackupPath(dst, dstMD5 string) string {
 	ext := filepath.Ext(dst)
 	baseName := strings.TrimSuffix(filepath.Base(dst), ext)
 	return filepath.Join(filepath.Dir(dst), fmt.Sprintf("%s_%s%s", baseName, dstMD5, ext))
 }
 
-func performCopy(fs afero.Fs, src, dst string) error {
+// PerformCopy copies a file from src to dst using the provided filesystem.
+func PerformCopy(fs afero.Fs, src, dst string) error {
 	srcFile, err := fs.Open(src)
 	if err != nil {
 		return fmt.Errorf("failed to open source file: %w", err)
@@ -154,7 +156,8 @@ func performCopy(fs afero.Fs, src, dst string) error {
 	return nil
 }
 
-func setPermissions(fs afero.Fs, src, dst string) error {
+// SetPermissions sets the permissions of dst to match those of src.
+func SetPermissions(fs afero.Fs, src, dst string) error {
 	srcInfo, err := fs.Stat(src)
 	if err != nil {
 		return fmt.Errorf("failed to stat source file: %w", err)

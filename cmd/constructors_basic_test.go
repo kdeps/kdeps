@@ -83,7 +83,7 @@ func TestNewAddCommand_RunE_Error(t *testing.T) {
 	}
 
 	// Reference schema version to satisfy project rules.
-	_ = schema.SchemaVersion(ctx)
+	_ = schema.Version(ctx)
 }
 
 // TestNewPackageCommand_Error triggers the error path when the workflow file
@@ -105,7 +105,7 @@ func TestNewPackageCommand_Error(t *testing.T) {
 		t.Fatalf("expected error for missing workflow file")
 	}
 
-	_ = schema.SchemaVersion(ctx)
+	_ = schema.Version(ctx)
 }
 
 // TestNewAgentCommand_Success verifies that the command successfully scaffolds
@@ -138,7 +138,7 @@ func TestNewAgentCommand_Success(t *testing.T) {
 
 	// Sanity-check: ensure GenerateResourceFiles created output using the template package.
 
-	_ = schema.SchemaVersion(ctx)
+	_ = schema.Version(ctx)
 }
 
 // TestNewBuildCommand_Error ensures that Build command surfaces error on
@@ -160,7 +160,7 @@ func TestNewBuildCommand_Error(t *testing.T) {
 		t.Fatalf("expected error for missing package")
 	}
 
-	_ = schema.SchemaVersion(ctx)
+	_ = schema.Version(ctx)
 }
 
 // TestNewRunCommand_Error validates early-exit error handling for the Run command.
@@ -181,7 +181,7 @@ func TestNewRunCommand_Error(t *testing.T) {
 		t.Fatalf("expected error for missing package")
 	}
 
-	_ = schema.SchemaVersion(ctx)
+	_ = schema.Version(ctx)
 }
 
 func TestCommandConstructorsUseStrings(t *testing.T) {

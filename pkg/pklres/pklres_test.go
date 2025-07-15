@@ -1,17 +1,17 @@
-package pklres
+package pklres_test
 
 import (
 	"net/url"
 	"testing"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/kdeps/kdeps/pkg/pklres"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPklResourceReader(t *testing.T) {
 	// Use in-memory SQLite database for testing
 	dbPath := "file::memory:"
-	reader, err := InitializePklResource(dbPath)
+	reader, err := pklres.InitializePklResource(dbPath)
 	require.NoError(t, err)
 	defer reader.DB.Close()
 
@@ -35,7 +35,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_GetRecord_Simple", func(t *testing.T) {
-		reader, err := InitializePklResource("file::memory:")
+		reader, err := pklres.InitializePklResource("file::memory:")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
@@ -57,7 +57,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_GetRecord_WithKey", func(t *testing.T) {
-		reader, err := InitializePklResource("file::memory:")
+		reader, err := pklres.InitializePklResource("file::memory:")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
@@ -79,7 +79,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_SetRecord_Simple", func(t *testing.T) {
-		reader, err := InitializePklResource("file::memory:")
+		reader, err := pklres.InitializePklResource("file::memory:")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
@@ -108,7 +108,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_SetRecord_WithKey", func(t *testing.T) {
-		reader, err := InitializePklResource("file::memory:")
+		reader, err := pklres.InitializePklResource("file::memory:")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
@@ -138,7 +138,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_DeleteRecord_Simple", func(t *testing.T) {
-		reader, err := InitializePklResource("file::memory:")
+		reader, err := pklres.InitializePklResource("file::memory:")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
@@ -166,7 +166,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_DeleteRecord_WithKey", func(t *testing.T) {
-		reader, err := InitializePklResource("file::memory:")
+		reader, err := pklres.InitializePklResource("file::memory:")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
@@ -196,7 +196,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_ClearRecords_ByType", func(t *testing.T) {
-		reader, err := InitializePklResource("file::memory:")
+		reader, err := pklres.InitializePklResource("file::memory:")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
@@ -232,7 +232,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_ClearRecords_All", func(t *testing.T) {
-		reader, err := InitializePklResource("file::memory:")
+		reader, err := pklres.InitializePklResource("file::memory:")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
@@ -256,7 +256,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_ListRecords", func(t *testing.T) {
-		reader, err := InitializePklResource("file::memory:")
+		reader, err := pklres.InitializePklResource("file::memory:")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
@@ -299,7 +299,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_InvalidParameters", func(t *testing.T) {
-		reader, err := InitializePklResource("file::memory:")
+		reader, err := pklres.InitializePklResource("file::memory:")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
@@ -318,7 +318,7 @@ func TestPklResourceReader(t *testing.T) {
 
 	t.Run("Database_Initialization", func(t *testing.T) {
 		// Test database initialization
-		db, err := InitializeDatabase(":memory:")
+		db, err := pklres.InitializeDatabase(":memory:")
 		require.NoError(t, err)
 		defer db.Close()
 
@@ -336,7 +336,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("InitializePklResource", func(t *testing.T) {
-		reader, err := InitializePklResource(":memory:")
+		reader, err := pklres.InitializePklResource(":memory:")
 		require.NoError(t, err)
 		require.NotNil(t, reader)
 		require.NotNil(t, reader.DB)
@@ -345,7 +345,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_EdgeCases", func(t *testing.T) {
-		reader, err := InitializePklResource("file::memory:")
+		reader, err := pklres.InitializePklResource("file::memory:")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 

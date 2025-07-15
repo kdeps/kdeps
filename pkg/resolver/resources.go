@@ -51,7 +51,7 @@ func (dr *DependencyResolver) LoadResourceEntries() error {
 		// Check if the file has a .pkl extension
 		if !info.IsDir() && filepath.Ext(path) == ".pkl" {
 			// Handle dynamic and placeholder imports
-			if err := dr.handleFileImports(path); err != nil {
+			if err := dr.HandleFileImports(path); err != nil {
 				dr.Logger.Errorf("error processing imports for file %s: %v", path, err)
 				return err
 			}
@@ -67,7 +67,7 @@ func (dr *DependencyResolver) LoadResourceEntries() error {
 
 	// Process all .pkl files found
 	for _, file := range pklFiles {
-		if err := dr.processPklFile(file); err != nil {
+		if err := dr.ProcessPklFile(file); err != nil {
 			dr.Logger.Errorf("error processing .pkl file %s: %v", file, err)
 			return err
 		}
@@ -76,16 +76,11 @@ func (dr *DependencyResolver) LoadResourceEntries() error {
 	return nil
 }
 
-// handleFileImports handles dynamic and placeholder imports for a given file.
-func (dr *DependencyResolver) handleFileImports(path string) error {
-	// Prepend dynamic imports
-	if dr.PrependDynamicImportsFn != nil {
-		if err := dr.PrependDynamicImportsFn(path); err != nil {
-			return fmt.Errorf("failed to prepend dynamic imports for file %s: %w", path, err)
-		}
-	} else if err := dr.PrependDynamicImports(path); err != nil {
-		return fmt.Errorf("failed to prepend dynamic imports for file %s: %w", path, err)
-	}
+// HandleFileImports handles dynamic and placeholder imports for a given file.
+func (dr *DependencyResolver) HandleFileImports(path string) error {
+	// PrependDynamicImports has been removed as it's no longer needed.
+	// We now use real-time pklres access instead of prepending import statements.
+	dr.Logger.Info("Skipping PrependDynamicImports - using real-time pklres access", "path", path)
 
 	// Add placeholder imports
 	if dr.AddPlaceholderImportsFn != nil {
@@ -131,8 +126,8 @@ func (dr *DependencyResolver) detectResourceType(file string) ResourceType {
 	return Resource // fallback to generic resource
 }
 
-// processPklFile processes an individual .pkl file and updates dependencies.
-func (dr *DependencyResolver) processPklFile(file string) error {
+// ProcessPklFile processes an individual .pkl file and updates dependencies.
+func (dr *DependencyResolver) ProcessPklFile(file string) error {
 	// Detect the resource type based on file content
 	resourceType := dr.detectResourceType(file)
 	dr.Logger.Debug("detected resource type", "file", file, "type", resourceType)
@@ -357,7 +352,7 @@ func (dr *DependencyResolver) LoadResourceWithRequestContext(ctx context.Context
 func (dr *DependencyResolver) getSchemaVersion(ctx context.Context) string {
 	// Use the schema package to get the proper version
 	if ctx != nil {
-		return schema.SchemaVersion(ctx)
+		return schema.Version(ctx)
 	}
 	return "0.3.0" // Fallback version
 }

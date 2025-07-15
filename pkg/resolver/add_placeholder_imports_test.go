@@ -1,10 +1,11 @@
-package resolver
+package resolver_test
 
 import (
 	"context"
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/spf13/afero"
 )
 
@@ -21,7 +22,7 @@ func TestAddPlaceholderImports_NoActionID(t *testing.T) {
 	_, _ = tmpFile.WriteString("# sample pkl file without id\n")
 	tmpFile.Close()
 
-	dr := &DependencyResolver{
+	dr := &resolver.DependencyResolver{
 		Fs:      fs,
 		Context: ctx,
 		Logger:  logger,

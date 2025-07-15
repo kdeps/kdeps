@@ -25,13 +25,13 @@ var (
 	lightGreen = lipgloss.NewStyle().Foreground(lipgloss.Color("#90EE90")).Bold(true)
 )
 
-func printWithDots(message string) {
+func PrintWithDots(message string) {
 	fmt.Print(lightBlue.Render(message))
 	fmt.Print("...")
 	fmt.Println()
 }
 
-func validateAgentName(agentName string) error {
+func ValidateAgentName(agentName string) error {
 	if strings.TrimSpace(agentName) == "" {
 		return errors.New("agent name cannot be empty or only whitespace")
 	}
@@ -41,7 +41,7 @@ func validateAgentName(agentName string) error {
 	return nil
 }
 
-func promptForAgentName() (string, error) {
+func PromptForAgentName() (string, error) {
 	// Skip prompt if NON_INTERACTIVE=1
 	if os.Getenv("NON_INTERACTIVE") == "1" {
 		return "test-agent", nil
@@ -51,7 +51,7 @@ func promptForAgentName() (string, error) {
 	form := huh.NewInput().
 		Title("Configure Your AI Agent").
 		Prompt("Enter a name for your AI Agent (no spaces): ").
-		Validate(validateAgentName).
+		Validate(ValidateAgentName).
 		Value(&name)
 
 	if err := form.Run(); err != nil {
@@ -60,13 +60,13 @@ func promptForAgentName() (string, error) {
 	return name, nil
 }
 
-func createDirectory(fs afero.Fs, logger *logging.Logger, path string) error {
+func CreateDirectory(fs afero.Fs, logger *logging.Logger, path string) error {
 	if path == "" {
 		err := errors.New("directory path cannot be empty")
 		logger.Error(err)
 		return err
 	}
-	printWithDots("Creating directory: " + lightGreen.Render(path))
+	PrintWithDots("Creating directory: " + lightGreen.Render(path))
 	if err := fs.MkdirAll(path, os.ModePerm); err != nil {
 		logger.Error(err)
 		return err
@@ -77,11 +77,11 @@ func createDirectory(fs afero.Fs, logger *logging.Logger, path string) error {
 	return nil
 }
 
-func createFile(fs afero.Fs, logger *logging.Logger, path string, content string) error {
+func CreateFile(fs afero.Fs, logger *logging.Logger, path string, content string) error {
 	if path == "" {
-		return fmt.Errorf("file path cannot be empty")
+		return errors.New("file path cannot be empty")
 	}
-	printWithDots("Creating file: " + lightGreen.Render(path))
+	PrintWithDots("Creating file: " + lightGreen.Render(path))
 	if err := afero.WriteFile(fs, path, []byte(content), 0o644); err != nil {
 		logger.Error(err)
 		return err
@@ -92,7 +92,7 @@ func createFile(fs afero.Fs, logger *logging.Logger, path string, content string
 	return nil
 }
 
-func loadTemplate(templatePath string, data map[string]string) (string, error) {
+func LoadTemplate(templatePath string, data map[string]string) (string, error) {
 	// If TEMPLATE_DIR is set, load from disk instead of embedded FS
 	if dir := os.Getenv("TEMPLATE_DIR"); dir != "" {
 		path := filepath.Join(dir, filepath.Base(templatePath))
@@ -130,7 +130,7 @@ func loadTemplate(templatePath string, data map[string]string) (string, error) {
 // GenerateWorkflowFile generates a workflow file for the agent.
 func GenerateWorkflowFile(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, name string) error {
 	// Validate agent name first
-	if err := validateAgentName(name); err != nil {
+	if err := ValidateAgentName(name); err != nil {
 		return err
 	}
 
@@ -143,7 +143,7 @@ func GenerateWorkflowFile(fs afero.Fs, ctx context.Context, logger *logging.Logg
 	outputPath := filepath.Join(mainDir, "workflow.pkl")
 
 	// Get schema version for imports
-	schemaVersion := schema.SchemaVersion(context.Background())
+	schemaVersion := schema.Version(context.Background())
 
 	// Template data for dynamic replacement
 	templateData := map[string]string{
@@ -153,19 +153,19 @@ func GenerateWorkflowFile(fs afero.Fs, ctx context.Context, logger *logging.Logg
 	}
 
 	// Load and process the template
-	content, err := loadTemplate(templatePath, templateData)
+	content, err := LoadTemplate(templatePath, templateData)
 	if err != nil {
 		logger.Error("failed to load workflow template: ", err)
 		return err
 	}
 
-	return createFile(fs, logger, outputPath, content)
+	return CreateFile(fs, logger, outputPath, content)
 }
 
 // GenerateResourceFiles generates resource files for the agent.
 func GenerateResourceFiles(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, name string) error {
 	// Validate agent name first
-	if err := validateAgentName(name); err != nil {
+	if err := ValidateAgentName(name); err != nil {
 		return err
 	}
 
@@ -175,7 +175,7 @@ func GenerateResourceFiles(fs afero.Fs, ctx context.Context, logger *logging.Log
 	}
 
 	// Get schema version for imports
-	schemaVersion := schema.SchemaVersion(context.Background())
+	schemaVersion := schema.Version(context.Background())
 
 	// Header template with imports for resource files
 	headerTemplate := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
@@ -226,14 +226,14 @@ import "package://schema.kdeps.com/core@%s#/APIServerRequest.pkl" as request
 		}
 
 		templatePath := file.Name()
-		content, err := loadTemplate(templatePath, templateData)
+		content, err := LoadTemplate(templatePath, templateData)
 		if err != nil {
 			logger.Error("failed to process template: ", err)
 			return err
 		}
 
 		outputPath := filepath.Join(resourceDir, file.Name())
-		if err := createFile(fs, logger, outputPath, content); err != nil {
+		if err := CreateFile(fs, logger, outputPath, content); err != nil {
 			return err
 		}
 	}
@@ -243,12 +243,12 @@ import "package://schema.kdeps.com/core@%s#/APIServerRequest.pkl" as request
 
 func GenerateSpecificAgentFile(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, agentName string) error {
 	// Validate agent name
-	if err := validateAgentName(agentName); err != nil {
+	if err := ValidateAgentName(agentName); err != nil {
 		return err
 	}
 
 	// Get schema version for imports
-	schemaVersion := schema.SchemaVersion(context.Background())
+	schemaVersion := schema.Version(context.Background())
 
 	// Header template with imports for resource files
 	headerTemplate := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
@@ -272,7 +272,7 @@ import "package://schema.kdeps.com/core@%s#/Session.pkl" as session`,
 	}
 
 	// Load the template
-	content, err := loadTemplate(agentName+".pkl", templateData)
+	content, err := LoadTemplate(agentName+".pkl", templateData)
 	if err != nil {
 		logger.Error("failed to load specific template: ", err)
 		return err
@@ -292,12 +292,12 @@ import "package://schema.kdeps.com/core@%s#/Session.pkl" as session`,
 	}
 
 	outputPath := filepath.Join(outputDir, agentName+".pkl")
-	return createFile(fs, logger, outputPath, content)
+	return CreateFile(fs, logger, outputPath, content)
 }
 
 func GenerateAgent(fs afero.Fs, ctx context.Context, logger *logging.Logger, baseDir, agentName string) error {
 	// Validate agent name
-	if err := validateAgentName(agentName); err != nil {
+	if err := ValidateAgentName(agentName); err != nil {
 		return err
 	}
 

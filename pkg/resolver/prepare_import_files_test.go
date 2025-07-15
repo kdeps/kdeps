@@ -1,4 +1,4 @@
-package resolver
+package resolver_test
 
 import (
 	"context"
@@ -6,12 +6,13 @@ import (
 
 	"github.com/kdeps/kdeps/pkg/logging"
 	pklres "github.com/kdeps/kdeps/pkg/pklres"
+	resolverpkg "github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/spf13/afero"
 )
 
 func TestPrepareImportFilesCreatesExpectedFiles(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	dr := &DependencyResolver{
+	dr := &resolverpkg.DependencyResolver{
 		Fs:          fs,
 		Context:     context.Background(),
 		ActionDir:   "/action",
@@ -22,7 +23,7 @@ func TestPrepareImportFilesCreatesExpectedFiles(t *testing.T) {
 	}
 
 	dr.PklresReader, _ = pklres.InitializePklResource(":memory:")
-	dr.PklresHelper = NewPklresHelper(dr)
+	dr.PklresHelper = resolverpkg.NewPklresHelper(dr)
 
 	// Call the function under test
 	if err := dr.PrepareImportFiles(); err != nil {
@@ -30,7 +31,7 @@ func TestPrepareImportFilesCreatesExpectedFiles(t *testing.T) {
 	}
 
 	// Verify a python record exists in pklres
-	_, err := dr.PklresHelper.retrievePklContent("python", "__empty__")
+	_, err := dr.PklresHelper.RetrievePklContent("python", "__empty__")
 	if err != nil {
 		t.Fatalf("expected python resource in pklres: %v", err)
 	}

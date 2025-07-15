@@ -1,4 +1,4 @@
-package environment
+package environment_test
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -16,10 +17,10 @@ import (
 func TestCheckConfig(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	baseDir := "/test"
-	configFilePath := filepath.Join(baseDir, SystemConfigFileName)
+	configFilePath := filepath.Join(baseDir, environment.SystemConfigFileName)
 
 	// Test when file does not exist
-	_, err := checkConfig(fs, baseDir)
+	_, err := environment.CheckConfig(fs, baseDir)
 	require.NoError(t, err, "Expected no error when file does not exist")
 
 	// Test when file exists
@@ -27,7 +28,7 @@ func TestCheckConfig(t *testing.T) {
 		fmt.Println(err)
 	}
 
-	foundConfig, err := checkConfig(fs, baseDir)
+	foundConfig, err := environment.CheckConfig(fs, baseDir)
 	require.NoError(t, err, "Expected no error when file exists")
 	assert.Equal(t, configFilePath, foundConfig, "Expected correct file path")
 }
@@ -38,23 +39,23 @@ func TestFindKdepsConfig(t *testing.T) {
 	home := "/home"
 
 	// Test when no kdeps.pkl file exists
-	config := findKdepsConfig(fs, pwd, home)
+	config := environment.FindKdepsConfig(fs, pwd, home)
 	assert.Empty(t, config, "Expected empty result when no config file exists")
 
 	// Test when kdeps.pkl exists in Pwd
-	if err := afero.WriteFile(fs, filepath.Join(pwd, SystemConfigFileName), []byte{}, 0o644); err != nil {
+	if err := afero.WriteFile(fs, filepath.Join(pwd, environment.SystemConfigFileName), []byte{}, 0o644); err != nil {
 		fmt.Println(err)
 	}
-	config = findKdepsConfig(fs, pwd, home)
-	assert.Equal(t, filepath.Join(pwd, SystemConfigFileName), config, "Expected config file from Pwd directory")
+	config = environment.FindKdepsConfig(fs, pwd, home)
+	assert.Equal(t, filepath.Join(pwd, environment.SystemConfigFileName), config, "Expected config file from Pwd directory")
 
 	// Test when kdeps.pkl exists in Home and not in Pwd
 	fs = afero.NewMemMapFs() // Reset file system
-	if err := afero.WriteFile(fs, filepath.Join(home, SystemConfigFileName), []byte{}, 0o644); err != nil {
+	if err := afero.WriteFile(fs, filepath.Join(home, environment.SystemConfigFileName), []byte{}, 0o644); err != nil {
 		fmt.Println(err)
 	}
-	config = findKdepsConfig(fs, pwd, home)
-	assert.Equal(t, filepath.Join(home, SystemConfigFileName), config, "Expected config file from Home directory")
+	config = environment.FindKdepsConfig(fs, pwd, home)
+	assert.Equal(t, filepath.Join(home, environment.SystemConfigFileName), config, "Expected config file from Home directory")
 }
 
 func TestIsDockerEnvironment(t *testing.T) {
@@ -62,7 +63,7 @@ func TestIsDockerEnvironment(t *testing.T) {
 	root := "/"
 
 	// Test when .dockerenv does not exist
-	isDocker := isDockerEnvironment(fs, root)
+	isDocker := environment.IsDockerEnvironment(fs, root)
 	assert.False(t, isDocker, "Expected not to be in a Docker environment")
 
 	// Test when .dockerenv exists
@@ -70,14 +71,14 @@ func TestIsDockerEnvironment(t *testing.T) {
 		fmt.Println(err)
 	}
 
-	isDocker = isDockerEnvironment(fs, root)
+	isDocker = environment.IsDockerEnvironment(fs, root)
 	assert.False(t, isDocker, "Expected false due to missing required Docker environment variables")
 
 	// Test when required Docker environment variables are set
 	t.Setenv("SCHEMA_VERSION", "1.0")
 	t.Setenv("OLLAMA_HOST", "localhost")
 	t.Setenv("KDEPS_HOST", "localhost")
-	isDocker = isDockerEnvironment(fs, root)
+	isDocker = environment.IsDockerEnvironment(fs, root)
 	assert.True(t, isDocker, "Expected true when .dockerenv exists and required environment variables are set")
 }
 
@@ -88,13 +89,13 @@ func TestAllDockerEnvVarsSet(t *testing.T) {
 	t.Setenv("KDEPS_HOST", "")
 
 	// Test when no variables are set
-	assert.False(t, allDockerEnvVarsSet(), "Expected false when no variables are set")
+	assert.False(t, environment.AllDockerEnvVarsSet(), "Expected false when no variables are set")
 
 	// Test when all variables are set
 	t.Setenv("SCHEMA_VERSION", "1.0")
 	t.Setenv("OLLAMA_HOST", "localhost")
 	t.Setenv("KDEPS_HOST", "localhost")
-	assert.True(t, allDockerEnvVarsSet(), "Expected true when all required variables are set")
+	assert.True(t, environment.AllDockerEnvVarsSet(), "Expected true when all required variables are set")
 
 	// Clean up
 	t.Setenv("SCHEMA_VERSION", "")
@@ -106,12 +107,12 @@ func TestNewEnvironment(t *testing.T) {
 	fs := afero.NewMemMapFs()
 
 	// Test with provided environment
-	providedEnv := &Environment{
+	providedEnv := &environment.Environment{
 		Root: "/",
 		Home: "/home",
 		Pwd:  "/current",
 	}
-	env, err := NewEnvironment(fs, providedEnv)
+	env, err := environment.NewEnvironment(fs, providedEnv)
 	require.NoError(t, err, "Expected no error")
 	assert.Equal(t, providedEnv.Home, env.Home, "Expected Home directory to match")
 	assert.Equal(t, "1", env.NonInteractive, "Expected NonInteractive to be prioritized")
@@ -120,7 +121,7 @@ func TestNewEnvironment(t *testing.T) {
 	t.Setenv("ROOT_DIR", "/")
 	t.Setenv("HOME", "/home")
 	t.Setenv("PWD", "/current")
-	env, err = NewEnvironment(fs, nil)
+	env, err = environment.NewEnvironment(fs, nil)
 	require.NoError(t, err, "Expected no error")
 	assert.Equal(t, "/home", env.Home, "Expected Home directory to match")
 	assert.Equal(t, "/current", env.Pwd, "Expected Pwd to match")
@@ -131,18 +132,18 @@ func TestNewEnvironment(t *testing.T) {
 	t.Setenv("OLLAMA_HOST", "localhost")
 	t.Setenv("KDEPS_HOST", "localhost")
 
-	providedEnvDocker := &Environment{
+	providedEnvDocker := &environment.Environment{
 		Root: "/",
 		Home: "/home",
 		Pwd:  "/current",
 	}
-	env, err = NewEnvironment(fs, providedEnvDocker)
+	env, err = environment.NewEnvironment(fs, providedEnvDocker)
 	require.NoError(t, err, "Expected no error")
 	assert.Equal(t, "1", env.DockerMode, "Expected Docker mode to be detected")
 	assert.Equal(t, "1", env.NonInteractive, "Expected NonInteractive to be prioritized")
 
 	// Test loading from default environment in Docker mode
-	env, err = NewEnvironment(fs, nil)
+	env, err = environment.NewEnvironment(fs, nil)
 	require.NoError(t, err, "Expected no error")
 	assert.Equal(t, "1", env.DockerMode, "Expected Docker mode to be detected")
 
@@ -158,16 +159,16 @@ func TestNewEnvironmentWithConfigFile(t *testing.T) {
 
 	// Create a config file in the home directory
 	homeDir := "/home"
-	configFile := filepath.Join(homeDir, SystemConfigFileName)
+	configFile := filepath.Join(homeDir, environment.SystemConfigFileName)
 	afero.WriteFile(fs, configFile, []byte{}, 0o644)
 
 	// Test with provided environment that finds the config file
-	providedEnv := &Environment{
+	providedEnv := &environment.Environment{
 		Root: "/",
 		Home: homeDir,
 		Pwd:  "/current",
 	}
-	env, err := NewEnvironment(fs, providedEnv)
+	env, err := environment.NewEnvironment(fs, providedEnv)
 	require.NoError(t, err, "Expected no error")
 	assert.Equal(t, configFile, env.KdepsConfig, "Expected config file to be found")
 
@@ -175,7 +176,7 @@ func TestNewEnvironmentWithConfigFile(t *testing.T) {
 	t.Setenv("ROOT_DIR", "/")
 	t.Setenv("HOME", homeDir)
 	t.Setenv("PWD", "/current")
-	env, err = NewEnvironment(fs, nil)
+	env, err = environment.NewEnvironment(fs, nil)
 	require.NoError(t, err, "Expected no error")
 	assert.Equal(t, configFile, env.KdepsConfig, "Expected config file to be found")
 }
@@ -190,7 +191,7 @@ func TestNewEnvironmentEdgeCases(t *testing.T) {
 		t.Setenv("PWD", "/pwd")
 		t.Setenv("NON_INTERACTIVE", "") // Explicitly unset
 
-		env, err := NewEnvironment(fs, nil)
+		env, err := environment.NewEnvironment(fs, nil)
 		require.NoError(t, err, "Expected no error")
 		assert.Equal(t, "", env.NonInteractive, "Expected empty NON_INTERACTIVE value when not set")
 	})
@@ -204,7 +205,7 @@ func TestNewEnvironmentEdgeCases(t *testing.T) {
 		t.Setenv("DOCKER_MODE", "1")
 		t.Setenv("NON_INTERACTIVE", "1")
 
-		env, err := NewEnvironment(fs, nil)
+		env, err := environment.NewEnvironment(fs, nil)
 		require.NoError(t, err, "Expected no error")
 		assert.Equal(t, "/custom", env.Root)
 		assert.Equal(t, "/custom/home", env.Home)
@@ -222,7 +223,7 @@ func TestNewEnvironment_UnmarshalError(t *testing.T) {
 	t.Setenv("ROOT_DIR", "/")
 	t.Setenv("HOME", "/tmp")
 
-	env, err := NewEnvironment(fs, nil)
+	env, err := environment.NewEnvironment(fs, nil)
 
 	assert.Error(t, err)
 	assert.Nil(t, env)
@@ -230,12 +231,12 @@ func TestNewEnvironment_UnmarshalError(t *testing.T) {
 
 func TestNewEnvironment_Provided_NoConfig_NoDocker(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	envIn := &Environment{
+	envIn := &environment.Environment{
 		Root: "/",
 		Pwd:  "/pwd",
 		Home: "/home",
 	}
-	newEnv, err := NewEnvironment(fs, envIn)
+	newEnv, err := environment.NewEnvironment(fs, envIn)
 	assert.NoError(t, err)
 	assert.Empty(t, newEnv.KdepsConfig)
 	assert.Equal(t, "0", newEnv.DockerMode)
@@ -246,8 +247,8 @@ func TestNewEnvironment_Provided_ConfigInPwd(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	_ = fs.MkdirAll("/pwd", 0o755)
 	_ = afero.WriteFile(fs, "/pwd/.kdeps.pkl", []byte(""), 0o644)
-	envIn := &Environment{Root: "/", Pwd: "/pwd", Home: "/home"}
-	newEnv, err := NewEnvironment(fs, envIn)
+	envIn := &environment.Environment{Root: "/", Pwd: "/pwd", Home: "/home"}
+	newEnv, err := environment.NewEnvironment(fs, envIn)
 	assert.NoError(t, err)
 	assert.Equal(t, "/pwd/.kdeps.pkl", newEnv.KdepsConfig)
 }
@@ -256,8 +257,8 @@ func TestNewEnvironment_Provided_ConfigInHomeOnly(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	_ = fs.MkdirAll("/home", 0o755)
 	_ = afero.WriteFile(fs, "/home/.kdeps.pkl", []byte(""), 0o644)
-	envIn := &Environment{Root: "/", Pwd: "/pwd", Home: "/home"}
-	newEnv, err := NewEnvironment(fs, envIn)
+	envIn := &environment.Environment{Root: "/", Pwd: "/pwd", Home: "/home"}
+	newEnv, err := environment.NewEnvironment(fs, envIn)
 	assert.NoError(t, err)
 	assert.Equal(t, "/home/.kdeps.pkl", newEnv.KdepsConfig)
 }
@@ -265,16 +266,16 @@ func TestNewEnvironment_Provided_ConfigInHomeOnly(t *testing.T) {
 func TestNewEnvironment_DockerDetection(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	_ = afero.WriteFile(fs, "/.dockerenv", []byte("x"), 0o644)
-	os.Setenv("SCHEMA_VERSION", schema.SchemaVersion(nil))
-	os.Setenv("OLLAMA_HOST", "0.0.0.0:1234")
-	os.Setenv("KDEPS_HOST", "host")
+	t.Setenv("SCHEMA_VERSION", schema.Version(nil))
+	t.Setenv("OLLAMA_HOST", "0.0.0.0:1234")
+	t.Setenv("KDEPS_HOST", "host")
 	t.Cleanup(func() {
 		os.Unsetenv("SCHEMA_VERSION")
 		os.Unsetenv("OLLAMA_HOST")
 		os.Unsetenv("KDEPS_HOST")
 	})
 
-	env, err := NewEnvironment(fs, nil)
+	env, err := environment.NewEnvironment(fs, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -285,7 +286,7 @@ func TestNewEnvironment_DockerDetection(t *testing.T) {
 
 func TestNewEnvironment_NonDocker(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	env, err := NewEnvironment(fs, nil)
+	env, err := environment.NewEnvironment(fs, nil)
 	if err != nil {
 		t.Fatalf("error: %v", err)
 	}
@@ -296,8 +297,8 @@ func TestNewEnvironment_NonDocker(t *testing.T) {
 
 func TestNewEnvironment_Override(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	over := &Environment{Root: "/", Home: "/home/user", Pwd: "/proj", TimeoutSec: 30}
-	env, err := NewEnvironment(fs, over)
+	over := &environment.Environment{Root: "/", Home: "/home/user", Pwd: "/proj", TimeoutSec: 30}
+	env, err := environment.NewEnvironment(fs, over)
 	if err != nil {
 		t.Fatalf("override error: %v", err)
 	}
@@ -326,35 +327,35 @@ func TestHelperFunctions(t *testing.T) {
 	}
 
 	// no config yet
-	if got := findKdepsConfig(fs, pwd, home); got != "" {
+	if got := environment.FindKdepsConfig(fs, pwd, home); got != "" {
 		t.Fatalf("expected empty, got %s", got)
 	}
 
 	// add config to home
-	cfgPath := filepath.Join(home, SystemConfigFileName)
+	cfgPath := filepath.Join(home, environment.SystemConfigFileName)
 	afero.WriteFile(fs, cfgPath, []byte("dummy"), 0o644)
 
-	if got := findKdepsConfig(fs, pwd, home); got != cfgPath {
+	if got := environment.FindKdepsConfig(fs, pwd, home); got != cfgPath {
 		t.Fatalf("expected %s got %s", cfgPath, got)
 	}
 
 	// isDockerEnvironment false by default
-	if isDockerEnvironment(fs, "/") {
+	if environment.IsDockerEnvironment(fs, "/") {
 		t.Fatalf("expected not docker env")
 	}
 
 	// create /.dockerenv and set required env vars
 	afero.WriteFile(fs, "/.dockerenv", []byte(""), 0o644)
-	os.Setenv("SCHEMA_VERSION", "1")
-	os.Setenv("OLLAMA_HOST", "x")
-	os.Setenv("KDEPS_HOST", "y")
+	t.Setenv("SCHEMA_VERSION", "1")
+	t.Setenv("OLLAMA_HOST", "x")
+	t.Setenv("KDEPS_HOST", "y")
 	defer func() {
 		os.Unsetenv("SCHEMA_VERSION")
 		os.Unsetenv("OLLAMA_HOST")
 		os.Unsetenv("KDEPS_HOST")
 	}()
 
-	if !isDockerEnvironment(fs, "/") {
+	if !environment.IsDockerEnvironment(fs, "/") {
 		t.Fatalf("expected docker environment")
 	}
 }
@@ -367,7 +368,7 @@ func TestNewEnvironmentWithOsFs(t *testing.T) {
 
 	// Create a real .kdeps.pkl in the temp directory.
 	fs := afero.NewOsFs()
-	configPath := filepath.Join(tmp, SystemConfigFileName)
+	configPath := filepath.Join(tmp, environment.SystemConfigFileName)
 	require.NoError(t, afero.WriteFile(fs, configPath, []byte(""), 0o644))
 
 	// Point the relevant environment variables to the temporary directory so
@@ -376,7 +377,7 @@ func TestNewEnvironmentWithOsFs(t *testing.T) {
 	t.Setenv("HOME", tmp)
 	t.Setenv("PWD", tmp)
 
-	env, err := NewEnvironment(fs, nil)
+	env, err := environment.NewEnvironment(fs, nil)
 	require.NoError(t, err)
 	require.Equal(t, configPath, env.KdepsConfig, "expected to locate .kdeps.pkl in temp dir")
 }

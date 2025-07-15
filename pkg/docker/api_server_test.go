@@ -1,4 +1,4 @@
-package docker
+package docker_test
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +16,7 @@ import (
 	"github.com/apple/pkl-go/pkl"
 	"github.com/gin-gonic/gin"
 	pkg "github.com/kdeps/kdeps/pkg"
+	"github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/item"
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -34,9 +35,206 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestValidateMethod(t *testing.T) {
+	tests := []struct {
+		name           string
+		method         string
+		allowedMethods []string
+		expectedMethod string
+		expectError    bool
+	}{
+		{
+			name:           "valid method",
+			method:         "GET",
+			allowedMethods: []string{"GET", "POST"},
+			expectedMethod: "GET",
+			expectError:    false,
+		},
+		{
+			name:           "case insensitive",
+			method:         "post",
+			allowedMethods: []string{"GET", "POST"},
+			expectedMethod: "POST",
+			expectError:    false,
+		},
+		{
+			name:           "invalid method",
+			method:         "PUT",
+			allowedMethods: []string{"GET", "POST"},
+			expectedMethod: "",
+			expectError:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, _ := http.NewRequest(tt.method, "/test", nil)
+			method, err := docker.ValidateMethod(req, tt.allowedMethods)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Empty(t, method)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedMethod, method)
+			}
+		})
+	}
+}
+
+func TestCleanOldFiles(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+
+	// Create test directory structure
+	testDir := "/test-action"
+	require.NoError(t, fs.MkdirAll(testDir, 0o755))
+	require.NoError(t, fs.MkdirAll(filepath.Join(testDir, "files"), 0o755))
+
+	// Create some test files
+	testFiles := []string{
+		filepath.Join(testDir, "files", "old1.txt"),
+		filepath.Join(testDir, "files", "old2.txt"),
+		filepath.Join(testDir, "workflow.pkl"),
+	}
+
+	for _, file := range testFiles {
+		require.NoError(t, afero.WriteFile(fs, file, []byte("test content"), 0o644))
+	}
+
+	// Create a mock dependency resolver
+	dr := &resolver.DependencyResolver{
+		Fs:        fs,
+		ActionDir: testDir,
+		Logger:    logger,
+	}
+
+	// Test cleanOldFiles
+	err := docker.CleanOldFiles(dr)
+	assert.NoError(t, err)
+
+	// Verify files were cleaned
+	for _, file := range testFiles[:2] { // Only the old files should be removed
+		exists, err := afero.Exists(fs, file)
+		assert.NoError(t, err)
+		assert.False(t, exists, "File should be cleaned: %s", file)
+	}
+
+	// Verify workflow.pkl still exists
+	exists, err := afero.Exists(fs, testFiles[2])
+	assert.NoError(t, err)
+	assert.True(t, exists, "Workflow file should not be cleaned")
+}
+
+func TestAPIResponse(t *testing.T) {
+	// Test APIResponse struct
+	response := docker.APIResponse{
+		Success: true,
+		Response: docker.ResponseData{
+			Data: []string{"test1", "test2"},
+		},
+		Meta: docker.ResponseMeta{
+			RequestID: "test-123",
+		},
+	}
+
+	assert.True(t, response.Success)
+	assert.Len(t, response.Response.Data, 2)
+	assert.Equal(t, "test-123", response.Meta.RequestID)
+}
+
+func TestResponseData(t *testing.T) {
+	// Test ResponseData struct
+	data := docker.ResponseData{
+		Data: []string{"item1", "item2", "item3"},
+	}
+
+	assert.Len(t, data.Data, 3)
+	assert.Equal(t, "item1", data.Data[0])
+}
+
+func TestResponseMeta(t *testing.T) {
+	// Test ResponseMeta struct
+	meta := docker.ResponseMeta{
+		RequestID: "req-456",
+		Headers: map[string]string{
+			"Content-Type": "application/json",
+		},
+		Properties: map[string]string{
+			"version": "1.0.0",
+		},
+	}
+
+	assert.Equal(t, "req-456", meta.RequestID)
+	assert.Equal(t, "application/json", meta.Headers["Content-Type"])
+	assert.Equal(t, "1.0.0", meta.Properties["version"])
+}
+
+func TestDecodeResponseContent(t *testing.T) {
+	logger := logging.NewTestLogger()
+
+	// Test valid JSON response
+	validJSON := `{
+		"success": true,
+		"response": {
+			"data": ["test1", "test2"]
+		},
+		"meta": {
+			"requestID": "test-123"
+		}
+	}`
+
+	response, err := docker.DecodeResponseContent([]byte(validJSON), logger)
+	assert.NoError(t, err)
+	assert.True(t, response.Success)
+	assert.Len(t, response.Response.Data, 2)
+	assert.Equal(t, "test-123", response.Meta.RequestID)
+
+	// Test invalid JSON
+	invalidJSON := `{invalid json}`
+	_, err = docker.DecodeResponseContent([]byte(invalidJSON), logger)
+	assert.Error(t, err)
+}
+
+func TestFormatResponseJSON(t *testing.T) {
+	// Test formatting response
+	response := docker.APIResponse{
+		Success: true,
+		Response: docker.ResponseData{
+			Data: []string{"formatted", "response"},
+		},
+		Meta: docker.ResponseMeta{
+			RequestID: "format-test",
+		},
+	}
+
+	// Convert to JSON
+	jsonData, err := json.Marshal(response)
+	require.NoError(t, err)
+
+	// Format the JSON
+	formatted := docker.FormatResponseJSON(jsonData)
+	assert.NotEmpty(t, formatted)
+
+	// Verify it's valid JSON
+	var parsedResponse docker.APIResponse
+	err = json.Unmarshal(formatted, &parsedResponse)
+	assert.NoError(t, err)
+	assert.True(t, parsedResponse.Success)
+}
+
+func TestFormatResponseJSONWithInvalidInput(t *testing.T) {
+	// Test with invalid input
+	invalidInput := []byte("invalid json")
+	formatted := docker.FormatResponseJSON(invalidInput)
+
+	// Should return the original input if it's not valid JSON
+	assert.Equal(t, invalidInput, formatted)
+}
+
 func TestValidateMethodExtra2(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/", nil)
-	methodStr, err := validateMethod(req, []string{http.MethodGet, http.MethodPost})
+	methodStr, err := docker.ValidateMethod(req, []string{http.MethodGet, http.MethodPost})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -45,8 +243,8 @@ func TestValidateMethodExtra2(t *testing.T) {
 	}
 
 	// invalid method
-	badReq := httptest.NewRequest("DELETE", "/", nil)
-	if _, err := validateMethod(badReq, []string{"GET"}); err == nil {
+	badReq := httptest.NewRequest(http.MethodDelete, "/", nil)
+	if _, err := docker.ValidateMethod(badReq, []string{"GET"}); err == nil {
 		t.Fatalf("expected error for disallowed method")
 	}
 }
@@ -65,7 +263,7 @@ func TestCleanOldFilesExtra2(t *testing.T) {
 		ResponseTargetFile: path,
 	}
 
-	if err := cleanOldFiles(dr); err != nil {
+	if err := docker.CleanOldFiles(dr); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -79,18 +277,18 @@ func TestDecodeResponseContentExtra2(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// prepare APIResponse with base64 encoded JSON data
-	apiResp := APIResponse{
+	apiResp := docker.APIResponse{
 		Success: true,
-		Response: ResponseData{
+		Response: docker.ResponseData{
 			Data: []string{base64.StdEncoding.EncodeToString([]byte(`{"foo":"bar"}`))},
 		},
-		Meta: ResponseMeta{
+		Meta: docker.ResponseMeta{
 			Headers: map[string]string{"X-Test": "yes"},
 		},
 	}
 	encoded, _ := json.Marshal(apiResp)
 
-	decResp, err := decodeResponseContent(encoded, logger)
+	decResp, err := docker.DecodeResponseContent(encoded, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -103,7 +301,7 @@ func TestDecodeResponseContentExtra2(t *testing.T) {
 func TestFormatResponseJSONExtra2(t *testing.T) {
 	// Response with data as JSON string
 	raw := []byte(`{"response":{"data":["{\"a\":1}"]}}`)
-	pretty := formatResponseJSON(raw)
+	pretty := docker.FormatResponseJSON(raw)
 
 	// Should be pretty printed and data element should be object not string
 	if !bytes.Contains(pretty, []byte("\"a\": 1")) {
@@ -121,7 +319,7 @@ func TestFormatResponseJSONExtra(t *testing.T) {
 		},
 	}
 	raw, _ := json.Marshal(resp)
-	pretty := formatResponseJSON(raw)
+	pretty := docker.FormatResponseJSON(raw)
 
 	// It should now be pretty-printed and contain nested object without quotes
 	require.Contains(t, string(pretty), "\"foo\": \"bar\"")
@@ -133,26 +331,26 @@ func TestCleanOldFilesExtra(t *testing.T) {
 
 	// Case where file exists
 	require.NoError(t, afero.WriteFile(fs, dr.ResponseTargetFile, []byte("x"), 0o644))
-	require.NoError(t, cleanOldFiles(dr))
+	require.NoError(t, docker.CleanOldFiles(dr))
 	exists, _ := afero.Exists(fs, dr.ResponseTargetFile)
 	require.False(t, exists)
 
 	// Case where file does not exist should be no-op
-	require.NoError(t, cleanOldFiles(dr))
+	require.NoError(t, docker.CleanOldFiles(dr))
 }
 
 func TestDecodeResponseContentExtra(t *testing.T) {
 	// Prepare APIResponse JSON with Base64 encoded data
 	dataJSON := `{"hello":"world"}`
 	encoded := base64.StdEncoding.EncodeToString([]byte(dataJSON))
-	respStruct := APIResponse{
+	respStruct := docker.APIResponse{
 		Success:  true,
-		Response: ResponseData{Data: []string{encoded}},
+		Response: docker.ResponseData{Data: []string{encoded}},
 	}
 	raw, _ := json.Marshal(respStruct)
 
 	logger := logging.NewTestLogger()
-	out, err := decodeResponseContent(raw, logger)
+	out, err := docker.DecodeResponseContent(raw, logger)
 	require.NoError(t, err)
 	require.Len(t, out.Response.Data, 1)
 	require.JSONEq(t, dataJSON, out.Response.Data[0])
@@ -161,7 +359,7 @@ func TestDecodeResponseContentExtra(t *testing.T) {
 func TestFormatResponseJSONFormatTest(t *testing.T) {
 	// Input where first element is JSON string and second is plain string.
 	in := []byte(`{"response":{"data":["{\"x\":1}","plain"]}}`)
-	out := formatResponseJSON(in)
+	out := docker.FormatResponseJSON(in)
 	// The output should still be valid JSON and contain "x": 1 without escaped quotes.
 	if !json.Valid(out) {
 		t.Fatalf("output not valid JSON: %s", string(out))
@@ -195,11 +393,11 @@ func TestHandleMultipartForm(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("POST", "/", body)
+		c.Request = httptest.NewRequest(http.MethodPost, "/", body)
 		c.Request.Header.Set("Content-Type", writer.FormDataContentType())
 
 		fileMap := make(map[string]struct{ Filename, Filetype string })
-		err = handleMultipartForm(c, dr, fileMap)
+		err = docker.HandleMultipartForm(c, dr, fileMap)
 		assert.NoError(t, err)
 		assert.Len(t, fileMap, 1)
 	})
@@ -207,11 +405,11 @@ func TestHandleMultipartForm(t *testing.T) {
 	t.Run("InvalidContentType", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("POST", "/", bytes.NewBuffer([]byte("test")))
+		c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer([]byte("test")))
 		c.Request.Header.Set("Content-Type", "text/plain")
 
 		fileMap := make(map[string]struct{ Filename, Filetype string })
-		err := handleMultipartForm(c, dr, fileMap)
+		err := docker.HandleMultipartForm(c, dr, fileMap)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "Unable to parse multipart form")
 	})
@@ -224,11 +422,11 @@ func TestHandleMultipartForm(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("POST", "/", body)
+		c.Request = httptest.NewRequest(http.MethodPost, "/", body)
 		c.Request.Header.Set("Content-Type", writer.FormDataContentType())
 
 		fileMap := make(map[string]struct{ Filename, Filetype string })
-		err := handleMultipartForm(c, dr, fileMap)
+		err := docker.HandleMultipartForm(c, dr, fileMap)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "No file uploaded")
 	})
@@ -249,162 +447,14 @@ func TestProcessFile(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("POST", "/", body)
+		c.Request = httptest.NewRequest(http.MethodPost, "/", body)
 		c.Request.Header.Set("Content-Type", writer.FormDataContentType())
 		_, fileHeader, err := c.Request.FormFile("file")
 		require.NoError(t, err)
 
-		err = processFile(fileHeader, dr, fileMap)
+		err = docker.ProcessFile(fileHeader, dr, fileMap)
 		assert.NoError(t, err)
 		assert.Len(t, fileMap, 1)
-	})
-}
-
-func TestValidateMethod(t *testing.T) {
-	t.Run("ValidMethod", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/", nil)
-		method, err := validateMethod(req, []string{"GET", "POST"})
-		assert.NoError(t, err)
-		assert.Equal(t, "Method = \"GET\"", method)
-	})
-
-	t.Run("InvalidMethod", func(t *testing.T) {
-		req := httptest.NewRequest("PUT", "/", nil)
-		_, err := validateMethod(req, []string{"GET", "POST"})
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "HTTP method \"PUT\" not allowed")
-	})
-
-	t.Run("EmptyMethodDefaultsToGet", func(t *testing.T) {
-		req := httptest.NewRequest("", "/", nil)
-		method, err := validateMethod(req, []string{"GET", "POST"})
-		assert.NoError(t, err)
-		assert.Equal(t, "Method = \"GET\"", method)
-	})
-}
-
-func TestDecodeResponseContent(t *testing.T) {
-	logger := logging.NewTestLogger()
-
-	t.Run("ValidJSON", func(t *testing.T) {
-		response := APIResponse{
-			Success: true,
-			Response: ResponseData{
-				Data: []string{"test"},
-			},
-			Meta: ResponseMeta{
-				RequestID: "123",
-			},
-		}
-		content, err := json.Marshal(response)
-		require.NoError(t, err)
-
-		decoded, err := decodeResponseContent(content, logger)
-		assert.NoError(t, err)
-		assert.True(t, decoded.Success)
-		assert.Equal(t, "123", decoded.Meta.RequestID)
-	})
-
-	t.Run("InvalidJSON", func(t *testing.T) {
-		content := []byte("invalid json")
-		_, err := decodeResponseContent(content, logger)
-		assert.Error(t, err)
-	})
-
-	t.Run("EmptyResponse", func(t *testing.T) {
-		content := []byte("{}")
-		decoded, err := decodeResponseContent(content, logger)
-		assert.NoError(t, err)
-		assert.False(t, decoded.Success)
-	})
-}
-
-func TestFormatResponseJSON(t *testing.T) {
-	t.Run("ValidResponse", func(t *testing.T) {
-		response := APIResponse{
-			Success: true,
-			Response: ResponseData{
-				Data: []string{"test"},
-			},
-			Meta: ResponseMeta{
-				RequestID: "123",
-			},
-		}
-		content, err := json.Marshal(response)
-		require.NoError(t, err)
-
-		formatted := formatResponseJSON(content)
-		var decoded APIResponse
-		err = json.Unmarshal(formatted, &decoded)
-		require.NoError(t, err)
-		assert.True(t, decoded.Success)
-		assert.Equal(t, "123", decoded.Meta.RequestID)
-	})
-
-	t.Run("ErrorResponse", func(t *testing.T) {
-		response := APIResponse{
-			Success: false,
-			Errors: []ErrorResponse{
-				{
-					Code:    400,
-					Message: "test error",
-				},
-			},
-			Meta: ResponseMeta{
-				RequestID: "123",
-			},
-		}
-		content, err := json.Marshal(response)
-		require.NoError(t, err)
-
-		formatted := formatResponseJSON(content)
-		var decoded APIResponse
-		err = json.Unmarshal(formatted, &decoded)
-		require.NoError(t, err)
-		assert.False(t, decoded.Success)
-		assert.Equal(t, "test error", decoded.Errors[0].Message)
-	})
-}
-
-func TestCleanOldFiles(t *testing.T) {
-	// Create a temporary directory using afero
-	fs := afero.NewOsFs()
-	tmpDir, err := afero.TempDir(fs, "", "test-cleanup")
-	require.NoError(t, err)
-	defer fs.RemoveAll(tmpDir)
-
-	// Create a test response file
-	responseFile := filepath.Join(tmpDir, "response.json")
-	err = afero.WriteFile(fs, responseFile, []byte("test response"), 0o644)
-	require.NoError(t, err)
-
-	// Create a DependencyResolver with the test filesystem
-	dr := &resolver.DependencyResolver{
-		Fs:                 fs,
-		Logger:             logging.NewTestLogger(),
-		ResponseTargetFile: responseFile,
-	}
-
-	t.Run("FileExists", func(t *testing.T) {
-		err := cleanOldFiles(dr)
-		require.NoError(t, err)
-
-		// Verify file was removed
-		exists, err := afero.Exists(fs, responseFile)
-		require.NoError(t, err)
-		assert.False(t, exists)
-	})
-
-	t.Run("FileDoesNotExist", func(t *testing.T) {
-		// Create a new resolver with a non-existent file
-		dr := &resolver.DependencyResolver{
-			Fs:                 fs,
-			Logger:             logging.NewTestLogger(),
-			ResponseTargetFile: filepath.Join(tmpDir, "nonexistent.json"),
-		}
-
-		err := cleanOldFiles(dr)
-		assert.NoError(t, err)
 	})
 }
 
@@ -415,7 +465,7 @@ func TestStartAPIServerMode(t *testing.T) {
 		dr.Logger = logging.NewTestLogger()
 		// Provide a mock Workflow with GetSettings() returning nil
 		dr.Workflow = workflowWithNilSettings{}
-		err := StartAPIServerMode(context.Background(), dr)
+		err := docker.StartAPIServerMode(context.Background(), dr)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "the API server configuration is missing")
 	})
@@ -426,18 +476,18 @@ func TestAPIServerHandler(t *testing.T) {
 	semaphore := make(chan struct{}, 1)
 
 	t.Run("InvalidRoute", func(t *testing.T) {
-		handler := APIServerHandler(context.Background(), nil, dr, semaphore)
+		handler := docker.APIServerHandler(context.Background(), nil, dr, semaphore)
 		assert.NotNil(t, handler)
 
 		// Simulate an HTTP request
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
+		c.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
 		handler(c)
 
 		// Verify the response
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
-		var resp APIResponse
+		var resp docker.APIResponse
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		require.NoError(t, err)
 		assert.False(t, resp.Success)
@@ -451,7 +501,7 @@ func TestAPIServerHandler(t *testing.T) {
 			Path:    "/test",
 			Methods: []string{"GET"},
 		}
-		handler := APIServerHandler(context.Background(), route, dr, semaphore)
+		handler := docker.APIServerHandler(context.Background(), route, dr, semaphore)
 		assert.NotNil(t, handler)
 	})
 }
@@ -596,10 +646,10 @@ func TestProcessWorkflow(t *testing.T) {
 			return &resource.Resource{Items: &items, Run: nil}, nil
 		}
 		mock.ProcessRunBlockFn = func(resolver.ResourceNodeEntry, *resource.Resource, string, bool) (bool, error) {
-			return false, fmt.Errorf("failed to handle run action")
+			return false, errors.New("failed to handle run action")
 		}
 		mock.ClearItemDBFn = func() error { return nil }
-		err := processWorkflow(ctx, mock)
+		err := docker.ProcessWorkflow(ctx, mock)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to initialize empty")
 	})
@@ -676,7 +726,7 @@ func TestSetupRoutes(t *testing.T) {
 	t.Run("ValidRoutes", func(t *testing.T) {
 		router := gin.New()
 		ctx := context.Background()
-		setupRoutes(router, ctx, corsConfig, []string{"127.0.0.1"}, routes, baseDr, semaphore)
+		docker.SetupRoutes(router, ctx, corsConfig, []string{"127.0.0.1"}, routes, baseDr, semaphore)
 
 		// Test GET request
 		w := httptest.NewRecorder()
@@ -698,7 +748,7 @@ func TestSetupRoutes(t *testing.T) {
 			nil,
 			{Path: ""},
 		}
-		setupRoutes(router, ctx, corsConfig, []string{"127.0.0.1"}, invalidRoutes, baseDr, semaphore)
+		docker.SetupRoutes(router, ctx, corsConfig, []string{"127.0.0.1"}, invalidRoutes, baseDr, semaphore)
 		// No assertions needed as the function should log errors and continue
 	})
 
@@ -708,14 +758,14 @@ func TestSetupRoutes(t *testing.T) {
 		disabledCORS := &apiserver.CORS{
 			EnableCORS: pkg.BoolPtr(false),
 		}
-		setupRoutes(router, ctx, disabledCORS, []string{"127.0.0.1"}, routes, baseDr, semaphore)
+		docker.SetupRoutes(router, ctx, disabledCORS, []string{"127.0.0.1"}, routes, baseDr, semaphore)
 		// No assertions needed as the function should skip CORS setup
 	})
 
 	t.Run("NoTrustedProxies", func(t *testing.T) {
 		router := gin.New()
 		ctx := context.Background()
-		setupRoutes(router, ctx, corsConfig, nil, routes, baseDr, semaphore)
+		docker.SetupRoutes(router, ctx, corsConfig, nil, routes, baseDr, semaphore)
 		// No assertions needed as the function should skip proxy setup
 	})
 
@@ -728,52 +778,52 @@ func TestSetupRoutes(t *testing.T) {
 				Methods: []string{"UNSUPPORTED"},
 			},
 		}
-		setupRoutes(router, ctx, corsConfig, []string{"127.0.0.1"}, unsupportedRoutes, baseDr, semaphore)
+		docker.SetupRoutes(router, ctx, corsConfig, []string{"127.0.0.1"}, unsupportedRoutes, baseDr, semaphore)
 		// No assertions needed as the function should log a warning and continue
 	})
 }
 
 // Ensure schema version gets referenced at least once in this test file.
 func TestSchemaVersionReference(t *testing.T) {
-	if v := schema.SchemaVersion(context.Background()); v == "" {
+	if v := schema.Version(context.Background()); v == "" {
 		t.Fatalf("SchemaVersion returned empty string")
 	}
 }
 
 func TestValidateMethodUtilsExtra(t *testing.T) {
-	_ = schema.SchemaVersion(nil)
+	_ = schema.Version(nil)
 
 	req, _ := http.NewRequest(http.MethodGet, "http://example.com", nil)
-	got, err := validateMethod(req, []string{http.MethodGet, http.MethodPost})
+	got, err := docker.ValidateMethod(req, []string{http.MethodGet, http.MethodPost})
 	if err != nil || got != `Method = "GET"` {
 		t.Fatalf("expected valid GET, got %q err %v", got, err)
 	}
 
 	reqEmpty, _ := http.NewRequest("", "http://example.com", nil)
-	got2, err2 := validateMethod(reqEmpty, []string{http.MethodGet})
+	got2, err2 := docker.ValidateMethod(reqEmpty, []string{http.MethodGet})
 	if err2 != nil || got2 != `Method = "GET"` {
 		t.Fatalf("default method failed: %q err %v", got2, err2)
 	}
 
 	reqBad, _ := http.NewRequest(http.MethodDelete, "http://example.com", nil)
-	if _, err := validateMethod(reqBad, []string{http.MethodGet}); err == nil {
+	if _, err := docker.ValidateMethod(reqBad, []string{http.MethodGet}); err == nil {
 		t.Fatalf("expected error for disallowed method")
 	}
 }
 
 func TestDecodeResponseContentUtilsExtra(t *testing.T) {
-	_ = schema.SchemaVersion(nil)
+	_ = schema.Version(nil)
 
 	helloB64 := base64.StdEncoding.EncodeToString([]byte("hello"))
 	invalidB64 := "@@invalid@@"
-	raw := APIResponse{
+	raw := docker.APIResponse{
 		Success:  true,
-		Response: ResponseData{Data: []string{helloB64, invalidB64}},
-		Meta:     ResponseMeta{RequestID: "abc"},
+		Response: docker.ResponseData{Data: []string{helloB64, invalidB64}},
+		Meta:     docker.ResponseMeta{RequestID: "abc"},
 	}
 	data, _ := json.Marshal(raw)
 	logger := logging.NewTestLogger()
-	decoded, err := decodeResponseContent(data, logger)
+	decoded, err := docker.DecodeResponseContent(data, logger)
 	if err != nil {
 		t.Fatalf("decode error: %v", err)
 	}
@@ -789,10 +839,10 @@ func TestDecodeResponseContentFormattingUtilsExtra(t *testing.T) {
 	jsonPayload := `{"foo":"bar"}`
 	encoded := base64.StdEncoding.EncodeToString([]byte(jsonPayload))
 
-	resp := APIResponse{
+	resp := docker.APIResponse{
 		Success:  true,
-		Response: ResponseData{Data: []string{encoded}},
-		Meta:     ResponseMeta{Headers: map[string]string{"X-Test": "1"}},
+		Response: docker.ResponseData{Data: []string{encoded}},
+		Meta:     docker.ResponseMeta{Headers: map[string]string{"X-Test": "1"}},
 	}
 	raw, err := json.Marshal(resp)
 	if err != nil {
@@ -800,7 +850,7 @@ func TestDecodeResponseContentFormattingUtilsExtra(t *testing.T) {
 	}
 
 	logger := logging.NewTestLogger()
-	decoded, err := decodeResponseContent(raw, logger)
+	decoded, err := docker.DecodeResponseContent(raw, logger)
 	if err != nil {
 		t.Fatalf("decodeResponseContent error: %v", err)
 	}
@@ -824,19 +874,19 @@ func TestValidateMethodMore(t *testing.T) {
 	allowed := []string{http.MethodGet, http.MethodPost}
 
 	req, _ := http.NewRequest(http.MethodPost, "/", nil)
-	out, err := validateMethod(req, allowed)
+	out, err := docker.ValidateMethod(req, allowed)
 	assert.NoError(t, err)
 	assert.Equal(t, `Method = "POST"`, out)
 
 	// default empty method becomes GET and passes
 	req2, _ := http.NewRequest("", "/", nil)
-	out, err = validateMethod(req2, allowed)
+	out, err = docker.ValidateMethod(req2, allowed)
 	assert.NoError(t, err)
 	assert.Equal(t, `Method = "GET"`, out)
 
 	// invalid method
 	req3, _ := http.NewRequest(http.MethodPut, "/", nil)
-	out, err = validateMethod(req3, allowed)
+	out, err = docker.ValidateMethod(req3, allowed)
 	assert.Error(t, err)
 	assert.Empty(t, out)
 }
@@ -856,13 +906,13 @@ func TestCleanOldFilesMore(t *testing.T) {
 	}
 
 	// should remove existing file
-	err := cleanOldFiles(dr)
+	err := docker.CleanOldFiles(dr)
 	assert.NoError(t, err)
 	exist, _ := afero.Exists(fs, respPath)
 	assert.False(t, exist)
 
 	// second call with file absent should still succeed
-	err = cleanOldFiles(dr)
+	err = docker.CleanOldFiles(dr)
 	assert.NoError(t, err)
 }
 
@@ -881,7 +931,7 @@ func TestCleanOldFilesMemFS(t *testing.T) {
 	if err := afero.WriteFile(mem, dr.ResponseTargetFile, []byte("data"), 0o644); err != nil {
 		t.Fatalf("failed to seed response file: %v", err)
 	}
-	if err := cleanOldFiles(dr); err != nil {
+	if err := docker.CleanOldFiles(dr); err != nil {
 		t.Fatalf("cleanOldFiles returned error for existing file: %v", err)
 	}
 	if exists, _ := afero.Exists(mem, dr.ResponseTargetFile); exists {
@@ -889,7 +939,7 @@ func TestCleanOldFilesMemFS(t *testing.T) {
 	}
 
 	// Branch 2: File does not exist – function should still return nil (no error).
-	if err := cleanOldFiles(dr); err != nil {
+	if err := docker.CleanOldFiles(dr); err != nil {
 		t.Fatalf("cleanOldFiles returned error when file absent: %v", err)
 	}
 }
@@ -910,20 +960,20 @@ func TestCleanOldFilesRemoveError(t *testing.T) {
 		Logger:             logging.NewTestLogger(),
 	}
 
-	if err := cleanOldFiles(dr); err == nil {
+	if err := docker.CleanOldFiles(dr); err == nil {
 		t.Fatalf("expected error from RemoveAll, got nil")
 	}
 }
 
 func TestFormatResponseJSON_NestedData(t *testing.T) {
 	// Build a response where data[0] is a JSON string
-	payload := APIResponse{
+	payload := docker.APIResponse{
 		Success:  true,
-		Response: ResponseData{Data: []string{`{"foo":123}`}},
-		Meta:     ResponseMeta{RequestID: "id"},
+		Response: docker.ResponseData{Data: []string{`{"foo":123}`}},
+		Meta:     docker.ResponseMeta{RequestID: "id"},
 	}
 	raw, _ := json.Marshal(payload)
-	pretty := formatResponseJSON(raw)
+	pretty := docker.FormatResponseJSON(raw)
 
 	// The nested JSON should have been parsed → data[0] becomes an object not string
 	var out map[string]interface{}
@@ -954,7 +1004,7 @@ func TestCleanOldFilesUnique(t *testing.T) {
 	_ = afero.WriteFile(fs, target, []byte("data"), 0o644)
 
 	dr := &resolver.DependencyResolver{Fs: fs, Logger: logging.NewTestLogger(), ResponseTargetFile: target}
-	if err := cleanOldFiles(dr); err != nil {
+	if err := docker.CleanOldFiles(dr); err != nil {
 		t.Fatalf("cleanOldFiles error: %v", err)
 	}
 	if exists, _ := afero.Exists(fs, target); exists {
@@ -968,7 +1018,7 @@ func TestCleanOldFilesUnique(t *testing.T) {
 func TestFormatResponseJSONInlineData(t *testing.T) {
 	raw := []byte(`{"response": {"data": ["{\"foo\": \"bar\"}", "plain text"]}}`)
 
-	pretty := formatResponseJSON(raw)
+	pretty := docker.FormatResponseJSON(raw)
 
 	if !bytes.Contains(pretty, []byte("\"foo\": \"bar\"")) {
 		t.Fatalf("expected pretty JSON to contain inlined object, got %s", string(pretty))
@@ -976,8 +1026,8 @@ func TestFormatResponseJSONInlineData(t *testing.T) {
 }
 
 func TestValidateMethodSimple(t *testing.T) {
-	req, _ := http.NewRequest("POST", "http://example.com", nil)
-	methodStr, err := validateMethod(req, []string{"GET", "POST"})
+	req, _ := http.NewRequest(http.MethodPost, "http://example.com", nil)
+	methodStr, err := docker.ValidateMethod(req, []string{"GET", "POST"})
 	if err != nil {
 		t.Fatalf("validateMethod unexpected error: %v", err)
 	}
@@ -986,8 +1036,8 @@ func TestValidateMethodSimple(t *testing.T) {
 	}
 
 	// Unsupported method should error
-	req.Method = "DELETE"
-	if _, err := validateMethod(req, []string{"GET", "POST"}); err == nil {
+	req.Method = http.MethodDelete
+	if _, err := docker.ValidateMethod(req, []string{"GET", "POST"}); err == nil {
 		t.Fatalf("expected error for unsupported method")
 	}
 }
@@ -1001,7 +1051,7 @@ func TestCleanOldFilesMem(t *testing.T) {
 	// Create dummy file
 	afero.WriteFile(fs, dr.ResponseTargetFile, []byte("old"), 0o666)
 
-	if err := cleanOldFiles(dr); err != nil {
+	if err := docker.CleanOldFiles(dr); err != nil {
 		t.Fatalf("cleanOldFiles returned error: %v", err)
 	}
 	if exists, _ := afero.Exists(fs, dr.ResponseTargetFile); exists {
@@ -1013,14 +1063,14 @@ func TestDecodeAndFormatResponseSimple(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Build sample APIResponse JSON with base64 encoded data
-	sample := APIResponse{
+	sample := docker.APIResponse{
 		Success:  true,
-		Response: ResponseData{Data: []string{utils.EncodeBase64String(`{"foo":"bar"}`)}},
-		Meta:     ResponseMeta{RequestID: "abc123"},
+		Response: docker.ResponseData{Data: []string{utils.EncodeBase64String(`{"foo":"bar"}`)}},
+		Meta:     docker.ResponseMeta{RequestID: "abc123"},
 	}
 	raw, _ := json.Marshal(sample)
 
-	decoded, err := decodeResponseContent(raw, logger)
+	decoded, err := docker.DecodeResponseContent(raw, logger)
 	if err != nil {
 		t.Fatalf("decodeResponseContent error: %v", err)
 	}
@@ -1030,7 +1080,7 @@ func TestDecodeAndFormatResponseSimple(t *testing.T) {
 
 	// Marshal decoded struct then format
 	marshaled, _ := json.Marshal(decoded)
-	formatted := formatResponseJSON(marshaled)
+	formatted := docker.FormatResponseJSON(marshaled)
 	if !bytes.Contains(formatted, []byte("foo")) {
 		t.Fatalf("formatResponseJSON missing field")
 	}
@@ -1043,12 +1093,12 @@ func TestDecodeResponseContent_Success(t *testing.T) {
 	inner := `{"hello":"world"}`
 	encoded := base64.StdEncoding.EncodeToString([]byte(inner))
 
-	raw := APIResponse{
+	raw := docker.APIResponse{
 		Success: true,
-		Response: ResponseData{
+		Response: docker.ResponseData{
 			Data: []string{encoded},
 		},
-		Meta: ResponseMeta{
+		Meta: docker.ResponseMeta{
 			RequestID: "abc",
 		},
 	}
@@ -1056,7 +1106,7 @@ func TestDecodeResponseContent_Success(t *testing.T) {
 	rawBytes, err := json.Marshal(raw)
 	assert.NoError(t, err)
 
-	decoded, err := decodeResponseContent(rawBytes, logger)
+	decoded, err := docker.DecodeResponseContent(rawBytes, logger)
 	assert.NoError(t, err)
 	assert.Equal(t, "abc", decoded.Meta.RequestID)
 	assert.Contains(t, decoded.Response.Data[0], "\"hello\": \"world\"")
@@ -1064,7 +1114,7 @@ func TestDecodeResponseContent_Success(t *testing.T) {
 
 func TestDecodeResponseContent_InvalidJSON(t *testing.T) {
 	logger := logging.NewTestLogger()
-	_, err := decodeResponseContent([]byte(`not-json`), logger)
+	_, err := docker.DecodeResponseContent([]byte(`not-json`), logger)
 	assert.Error(t, err)
 }
 
@@ -1080,7 +1130,7 @@ func TestFormatResponseJSONPretty(t *testing.T) {
 	}
 	bytesIn, _ := json.Marshal(resp)
 
-	pretty := formatResponseJSON(bytesIn)
+	pretty := docker.FormatResponseJSON(bytesIn)
 
 	// The formatted JSON should contain nested object without quotes around keys
 	assert.Contains(t, string(pretty), "\"foo\": \"bar\"")

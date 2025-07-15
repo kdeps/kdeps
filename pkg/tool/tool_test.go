@@ -1,7 +1,8 @@
-package tool
+package tool_test
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -13,6 +14,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/pkg/tool"
 )
 
 func TestPklResourceReader(t *testing.T) {
@@ -85,7 +88,7 @@ func TestPklResourceReader(t *testing.T) {
 	}
 
 	// Create reader with the test database
-	reader := &PklResourceReader{
+	reader := &tool.PklResourceReader{
 		DB: db,
 	}
 
@@ -119,7 +122,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_NilDB", func(t *testing.T) {
-		nilDBReader := &PklResourceReader{
+		nilDBReader := &tool.PklResourceReader{
 			DBPath: dbPath,
 		}
 		uri, _ := url.Parse("tool:///test1")
@@ -312,12 +315,12 @@ func TestPklResourceReader(t *testing.T) {
 		mockDB.db.Exec(`CREATE TABLE IF NOT EXISTS history (id TEXT, value TEXT, timestamp INTEGER)`)
 
 		// Create a mock result that fails RowsAffected
-		mockResult := &mockResult{rowsAffectedErr: fmt.Errorf("mock rows affected error")}
+		mockResult := &mockResult{rowsAffectedErr: errors.New("mock rows affected error")}
 		mockDB.execFunc = func(query string, args ...interface{}) (sql.Result, error) {
 			return mockResult, nil
 		}
 
-		mockReader := &PklResourceReader{DB: mockDB.db}
+		mockReader := &tool.PklResourceReader{DB: mockDB.db}
 		uri, _ := url.Parse("tool:///test4?op=run&script=echo&params=%ZZ")
 		output, err := mockReader.Read(*uri)
 		require.NoError(t, err)
@@ -328,10 +331,10 @@ func TestPklResourceReader(t *testing.T) {
 		// Create a mock DB that fails on Exec
 		mockDB := newMockDB()
 		mockDB.execFunc = func(query string, args ...interface{}) (sql.Result, error) {
-			return nil, fmt.Errorf("mock exec error")
+			return nil, errors.New("mock exec error")
 		}
 
-		mockReader := &PklResourceReader{DB: mockDB.db}
+		mockReader := &tool.PklResourceReader{DB: mockDB.db}
 		uri, _ := url.Parse("tool:///failtest?op=run&script=echo")
 		_, err := mockReader.Read(*uri)
 		require.Error(t, err)
@@ -342,10 +345,10 @@ func TestPklResourceReader(t *testing.T) {
 		// Create a mock DB that fails Query
 		mockDB := newMockDB()
 		mockDB.queryFunc = func(query string, args ...interface{}) (*sql.Rows, error) {
-			return nil, fmt.Errorf("mock query error")
+			return nil, errors.New("mock query error")
 		}
 
-		mockReader := &PklResourceReader{DB: mockDB.db}
+		mockReader := &tool.PklResourceReader{DB: mockDB.db}
 		uri, _ := url.Parse("tool:///test?op=history")
 		_, err := mockReader.Read(*uri)
 		require.Error(t, err)
@@ -353,7 +356,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_InvalidURL", func(t *testing.T) {
-		reader := &PklResourceReader{}
+		reader := &tool.PklResourceReader{}
 		invalidURL := url.URL{Scheme: "invalid", Path: "//test"}
 		output, err := reader.Read(invalidURL)
 		require.NoError(t, err)
@@ -361,7 +364,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_MissingOperation", func(t *testing.T) {
-		reader := &PklResourceReader{}
+		reader := &tool.PklResourceReader{}
 		uri := url.URL{
 			Scheme:   "tool",
 			Path:     "/test",
@@ -377,7 +380,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_InvalidOperation", func(t *testing.T) {
-		reader := &PklResourceReader{}
+		reader := &tool.PklResourceReader{}
 		testURL := url.URL{Scheme: "tool", Path: "//test", RawQuery: "op=invalid"}
 		output, err := reader.Read(testURL)
 		require.NoError(t, err)
@@ -385,7 +388,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_Run_MissingScript", func(t *testing.T) {
-		reader := &PklResourceReader{}
+		reader := &tool.PklResourceReader{}
 		testURL := url.URL{Scheme: "tool", Path: "//test", RawQuery: "op=run"}
 		_, err := reader.Read(testURL)
 		if err == nil {
@@ -394,7 +397,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_Run_ScriptExecutionTimeout", func(t *testing.T) {
-		reader := &PklResourceReader{}
+		reader := &tool.PklResourceReader{}
 		testURL := url.URL{Scheme: "tool", Path: "//test", RawQuery: "op=run&script=sleep 10"}
 		output, err := reader.Read(testURL)
 		require.NoError(t, err)
@@ -402,7 +405,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_Run_ScriptWithInvalidParams", func(t *testing.T) {
-		reader := &PklResourceReader{}
+		reader := &tool.PklResourceReader{}
 		testURL := url.URL{Scheme: "tool", Path: "//test", RawQuery: "op=run&script=echo&params=param1 param2 param3"}
 		_, err := reader.Read(testURL)
 		if err != nil {
@@ -411,7 +414,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_History_InvalidID", func(t *testing.T) {
-		reader := &PklResourceReader{}
+		reader := &tool.PklResourceReader{}
 		uri := url.URL{
 			Scheme:   "tool",
 			Path:     "/",
@@ -493,7 +496,7 @@ func TestInitializeTool(t *testing.T) {
 	dbPath := filepath.Join(tmpDir, "test.db")
 
 	// Test successful initialization
-	reader, err := InitializeTool(dbPath)
+	reader, err := tool.InitializeTool(dbPath)
 	if err != nil {
 		t.Errorf("InitializeTool failed: %v", err)
 	}
@@ -508,7 +511,7 @@ func TestInitializeTool(t *testing.T) {
 	}
 
 	// Test initialization with invalid path
-	_, err = InitializeTool("/nonexistent/path/test.db")
+	_, err = tool.InitializeTool("/nonexistent/path/test.db")
 	if err == nil {
 		t.Error("Expected error for invalid path")
 	}
@@ -524,7 +527,7 @@ func TestInitializeDatabaseAndHistory(t *testing.T) {
 	dbPath := filepath.Join(tmpDir, "kdeps_tool.db")
 
 	// Initialize the reader (this implicitly calls InitializeDatabase).
-	reader, err := InitializeTool(dbPath)
+	reader, err := tool.InitializeTool(dbPath)
 	if err != nil {
 		t.Fatalf("InitializeTool error: %v", err)
 	}
@@ -557,18 +560,13 @@ func TestInitializeDatabaseAndHistory(t *testing.T) {
 // TestInitializeDatabaseFailure exercises the retry + failure branch by pointing
 // the DB path into a directory that is not writable, ensuring all attempts fail.
 func TestInitializeDatabaseFailure(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "kdeps_ro")
-	if err != nil {
-		t.Fatalf("tempdir error: %v", err)
-	}
-	// make directory read-only so sqlite cannot create file inside it
-	if err := os.Chmod(tmpDir, 0o555); err != nil {
-		t.Fatalf("chmod error: %v", err)
-	}
+	tmpDir := t.TempDir()
+	err := os.MkdirAll(tmpDir, 0o755)
+	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
 	dbPath := filepath.Join(tmpDir, "tool.db")
-	_, err = InitializeDatabase(dbPath)
+	_, err = tool.InitializeDatabase(dbPath)
 	if err == nil {
 		t.Fatalf("expected error when initializing DB in read-only dir")
 	}

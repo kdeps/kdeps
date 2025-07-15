@@ -1,4 +1,4 @@
-package cmd
+package cmd_test
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kdeps/kdeps/cmd"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -24,11 +25,11 @@ func TestUpgradeCommand(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	cmd := UpgradeCommand(fs, ctx, "/tmp", logger)
+	upgradeCmd := cmd.UpgradeCommand(fs, ctx, "/tmp", logger)
 
-	assert.Contains(t, cmd.Use, "upgrade")
-	assert.NotEmpty(t, cmd.Short)
-	assert.NotEmpty(t, cmd.Long)
+	assert.Contains(t, upgradeCmd.Use, "upgrade")
+	assert.NotEmpty(t, upgradeCmd.Short)
+	assert.NotEmpty(t, upgradeCmd.Long)
 }
 
 func TestUpgradeSchemaVersionInContent(t *testing.T) {
@@ -44,36 +45,36 @@ func TestUpgradeSchemaVersionInContent(t *testing.T) {
 		{
 			name:           "upgrade workflow amends",
 			content:        fmt.Sprintf(coreWorkflowAmends+"\nAgentID = \"test\"", "0.3.1"),
-			targetVersion:  "0.4.2",
+			targetVersion:  "0.4.3",
 			expectedChange: true,
-			expectedResult: fmt.Sprintf(coreWorkflowAmends+"\nAgentID = \"test\"", "0.4.2"),
+			expectedResult: fmt.Sprintf(coreWorkflowAmends+"\nAgentID = \"test\"", "0.4.3"),
 		},
 		{
 			name:           "upgrade resource import",
 			content:        fmt.Sprintf(coreResourceImport+"\nAgentID = \"test\"", "0.3.1"),
-			targetVersion:  "0.4.2",
+			targetVersion:  "0.4.3",
 			expectedChange: true,
-			expectedResult: fmt.Sprintf(coreResourceImport+"\nAgentID = \"test\"", "0.4.2"),
+			expectedResult: fmt.Sprintf(coreResourceImport+"\nAgentID = \"test\"", "0.4.3"),
 		},
 		{
 			name:           "already at target version",
-			content:        fmt.Sprintf(coreWorkflowAmends+"\nAgentID = \"test\"", "0.4.2"),
-			targetVersion:  "0.4.2",
+			content:        fmt.Sprintf(coreWorkflowAmends+"\nAgentID = \"test\"", "0.4.3"),
+			targetVersion:  "0.4.3",
 			expectedChange: false,
-			expectedResult: fmt.Sprintf(coreWorkflowAmends+"\nAgentID = \"test\"", "0.4.2"),
+			expectedResult: fmt.Sprintf(coreWorkflowAmends+"\nAgentID = \"test\"", "0.4.3"),
 		},
 		{
 			name:           "multiple version references",
 			content:        fmt.Sprintf(coreWorkflowAmends+"\n"+coreResourceImport+"\nAgentID = \"test\"", "0.3.1", "0.3.1"),
-			targetVersion:  "0.4.2",
+			targetVersion:  "0.4.3",
 			expectedChange: true,
-			expectedResult: fmt.Sprintf(coreWorkflowAmends+"\n"+coreResourceImport+"\nAgentID = \"test\"", "0.4.2", "0.4.2"),
+			expectedResult: fmt.Sprintf(coreWorkflowAmends+"\n"+coreResourceImport+"\nAgentID = \"test\"", "0.4.3", "0.4.3"),
 		},
 		{
 			name: "no schema references",
 			content: `AgentID = "test"
 Version = "1.0.0"`,
-			targetVersion:  "0.4.2",
+			targetVersion:  "0.4.3",
 			expectedChange: false,
 			expectedResult: `AgentID = "test"
 Version = "1.0.0"`,
@@ -81,16 +82,16 @@ Version = "1.0.0"`,
 		{
 			name:           "duplicate amends lines",
 			content:        fmt.Sprintf(coreWorkflowAmends+"\n"+coreWorkflowAmends+"\nAgentID = \"test\"", "0.3.1", "0.3.1"),
-			targetVersion:  "0.4.2",
+			targetVersion:  "0.4.3",
 			expectedChange: true,
-			expectedResult: fmt.Sprintf(coreWorkflowAmends+"\n"+coreWorkflowAmends+"\nAgentID = \"test\"", "0.4.2", "0.4.2"),
+			expectedResult: fmt.Sprintf(coreWorkflowAmends+"\n"+coreWorkflowAmends+"\nAgentID = \"test\"", "0.4.3", "0.4.3"),
 		},
 		{
 			name:           "duplicate import lines",
 			content:        fmt.Sprintf(coreResourceImport+"\n"+coreResourceImport+"\nAgentID = \"test\"", "0.3.1", "0.3.1"),
-			targetVersion:  "0.4.2",
+			targetVersion:  "0.4.3",
 			expectedChange: true,
-			expectedResult: fmt.Sprintf(coreResourceImport+"\n"+coreResourceImport+"\nAgentID = \"test\"", "0.4.2", "0.4.2"),
+			expectedResult: fmt.Sprintf(coreResourceImport+"\n"+coreResourceImport+"\nAgentID = \"test\"", "0.4.3", "0.4.3"),
 		},
 	}
 
@@ -102,7 +103,7 @@ Version = "1.0.0"`,
 				t.Logf("Target version: %s", tt.targetVersion)
 			}
 
-			result, changed, err := upgradeSchemaVersionInContent(tt.content, tt.targetVersion, logger)
+			result, changed, err := cmd.UpgradeSchemaVersionInContent(tt.content, tt.targetVersion, logger)
 			require.NoError(t, err)
 
 			// Add debug output for failing test
@@ -144,30 +145,30 @@ AgentID = "testResource"`
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(testDir, "package.json"), []byte(nonPklContent), 0o644))
 
 	t.Run("dry run upgrade", func(t *testing.T) {
-		err := upgradeSchemaVersions(fs, testDir, "0.4.2", true, logger)
+		err := cmd.UpgradeSchemaVersions(fs, testDir, "0.4.3", true, logger)
 		require.NoError(t, err)
 
 		// Files should not be modified in dry run
 		content, err := afero.ReadFile(fs, filepath.Join(testDir, "workflow.pkl"))
 		require.NoError(t, err)
 		assert.Contains(t, string(content), "0.3.1")
-		assert.NotContains(t, string(content), "0.4.2")
+		assert.NotContains(t, string(content), "0.4.3")
 	})
 
 	t.Run("actual upgrade", func(t *testing.T) {
-		err := upgradeSchemaVersions(fs, testDir, "0.4.2", false, logger)
+		err := cmd.UpgradeSchemaVersions(fs, testDir, "0.4.3", false, logger)
 		require.NoError(t, err)
 
 		// Check workflow.pkl was updated
 		content, err := afero.ReadFile(fs, filepath.Join(testDir, "workflow.pkl"))
 		require.NoError(t, err)
-		assert.Contains(t, string(content), "0.4.2")
+		assert.Contains(t, string(content), "0.4.3")
 		assert.NotContains(t, string(content), "0.3.1")
 
 		// Check resource file was updated
 		content, err = afero.ReadFile(fs, filepath.Join(testDir, "resources", "test.pkl"))
 		require.NoError(t, err)
-		assert.Contains(t, string(content), "0.4.2")
+		assert.Contains(t, string(content), "0.4.3")
 		assert.NotContains(t, string(content), "0.3.1")
 
 		// Check non-pkl file was not modified
@@ -182,27 +183,27 @@ func TestUpgradeCommandValidation(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	cmd := UpgradeCommand(fs, ctx, "/tmp", logger)
+	upgradeCmd := cmd.UpgradeCommand(fs, ctx, "/tmp", logger)
 
 	t.Run("invalid target version", func(t *testing.T) {
-		cmd.SetArgs([]string{"--version", "invalid", "."})
-		err := cmd.Execute()
-		assert.Error(t, err)
+		upgradeCmd.SetArgs([]string{"--version", "invalid", "."})
+		err := upgradeCmd.Execute()
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid target version")
 	})
 
 	t.Run("version below minimum", func(t *testing.T) {
-		cmd.SetArgs([]string{"--version", "0.1.0", "."})
-		err := cmd.Execute()
-		assert.Error(t, err)
+		upgradeCmd.SetArgs([]string{"--version", "0.1.0", "."})
+		err := upgradeCmd.Execute()
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "below minimum supported version")
 	})
 
 	t.Run("nonexistent directory", func(t *testing.T) {
-		cmd := UpgradeCommand(fs, ctx, "/tmp", logger)
-		cmd.SetArgs([]string{"/nonexistent"})
-		err := cmd.Execute()
-		assert.Error(t, err)
+		upgradeCmd := cmd.UpgradeCommand(fs, ctx, "/tmp", logger)
+		upgradeCmd.SetArgs([]string{"/nonexistent"})
+		err := upgradeCmd.Execute()
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "directory does not exist")
 	})
 }
@@ -223,16 +224,16 @@ Version = "1.0.0"`
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(testDir, "workflow.pkl"), []byte(content), 0o644))
 
 	// Test upgrade command
-	cmd := UpgradeCommand(fs, ctx, "/tmp", logger)
-	cmd.SetArgs([]string{"--version", "0.4.2", testDir})
+	upgradeCmd := cmd.UpgradeCommand(fs, ctx, "/tmp", logger)
+	upgradeCmd.SetArgs([]string{"--version", "0.4.3", testDir})
 
-	err := cmd.Execute()
+	err := upgradeCmd.Execute()
 	require.NoError(t, err)
 
 	// Verify file was updated
 	updatedContent, err := afero.ReadFile(fs, filepath.Join(testDir, "workflow.pkl"))
 	require.NoError(t, err)
-	assert.Contains(t, string(updatedContent), "0.4.2")
+	assert.Contains(t, string(updatedContent), "0.4.3")
 	assert.NotContains(t, string(updatedContent), "0.3.1")
 }
 
@@ -256,9 +257,9 @@ AgentID = "test"`
 
 	// Test replacement
 	oldRef := matches[0][1] + currentVersion + matches[0][3]
-	newRef := matches[0][1] + "0.4.2" + matches[0][3]
+	newRef := matches[0][1] + "0.4.3" + matches[0][3]
 
-	expected := `amends "package://schema.kdeps.com/core@0.4.2#/Workflow.pkl"
+	expected := `amends "package://schema.kdeps.com/core@0.4.3#/Workflow.pkl"
 AgentID = "test"`
 
 	result := strings.ReplaceAll(content, oldRef, newRef)
@@ -274,7 +275,7 @@ AgentID = "test"`
 	// Create a logger that will show debug output
 	logger := logging.NewTestLogger()
 
-	result, changed, err := upgradeSchemaVersionInContent(content, "0.4.2", logger)
+	result, changed, err := cmd.UpgradeSchemaVersionInContent(content, "0.4.3", logger)
 
 	t.Logf("Result: %q", result)
 	t.Logf("Changed: %v", changed)
@@ -282,6 +283,6 @@ AgentID = "test"`
 
 	require.NoError(t, err)
 	require.True(t, changed, "Should have changed")
-	require.Contains(t, result, "0.4.2", "Result should contain new version")
+	require.Contains(t, result, "0.4.3", "Result should contain new version")
 	require.NotContains(t, result, "0.3.1", "Result should not contain old version")
 }

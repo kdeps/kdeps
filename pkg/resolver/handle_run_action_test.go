@@ -1,9 +1,9 @@
-package resolver
+package resolver_test
 
 import (
 	"context"
 	"database/sql"
-	"fmt"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -15,6 +15,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/memory"
 	pklres "github.com/kdeps/kdeps/pkg/pklres"
+	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/session"
 	"github.com/kdeps/kdeps/pkg/tool"
 	pklRes "github.com/kdeps/schema/gen/resource"
@@ -54,7 +55,7 @@ func TestHandleRunAction_BasicFlow(t *testing.T) {
 	// Minimal workflow that just targets a single action.
 	wf := &pklWf.WorkflowImpl{TargetActionID: "act1"}
 
-	dr := &DependencyResolver{
+	dr := &resolver.DependencyResolver{
 		Fs:             fs,
 		Logger:         logger,
 		Workflow:       wf,
@@ -74,12 +75,12 @@ func TestHandleRunAction_BasicFlow(t *testing.T) {
 	// Provide PklresHelper and an in-memory PklresReader to satisfy HandleRunAction cleanup.
 	pklresDB := openDB()
 	dr.PklresReader = &pklres.PklResourceReader{DB: pklresDB}
-	dr.PklresHelper = NewPklresHelper(dr)
+	dr.PklresHelper = resolver.NewPklresHelper(dr)
 
 	// --- inject stubs for heavy funcs ------------------------------
 	dr.LoadResourceEntriesFn = func() error {
 		// Provide a single resource entry.
-		dr.Resources = []ResourceNodeEntry{{ActionID: "act1", File: "/res1.pkl"}}
+		dr.Resources = []resolver.ResourceNodeEntry{{ActionID: "act1", File: "/res1.pkl"}}
 		return nil
 	}
 
@@ -91,13 +92,13 @@ func TestHandleRunAction_BasicFlow(t *testing.T) {
 	}
 
 	var loadCalled bool
-	dr.LoadResourceFn = func(_ context.Context, file string, _ ResourceType) (interface{}, error) {
+	dr.LoadResourceFn = func(_ context.Context, file string, _ resolver.ResourceType) (interface{}, error) {
 		loadCalled = true
 		return &pklRes.Resource{ActionID: "act1"}, nil // Run is nil
 	}
 
 	var prbCalled bool
-	dr.ProcessRunBlockFn = func(res ResourceNodeEntry, rsc *pklRes.Resource, actionID string, hasItems bool) (bool, error) {
+	dr.ProcessRunBlockFn = func(res resolver.ResourceNodeEntry, rsc *pklRes.Resource, actionID string, hasItems bool) (bool, error) {
 		prbCalled = true
 		return false, nil // do not proceed further
 	}
@@ -133,7 +134,7 @@ func TestAddPlaceholderImports_UsesCanonicalAgentReader(t *testing.T) {
 		Version: testVersion,
 	}
 
-	dr := &DependencyResolver{
+	dr := &resolver.DependencyResolver{
 		Fs:       fs,
 		Logger:   logger,
 		Workflow: wf,
@@ -170,27 +171,27 @@ run {}`
 	dr.ActionDir = actionDir
 
 	// Stub LoadResourceFn to return minimal structs to prevent nil dereference in Append*Entry helpers
-	dr.LoadResourceFn = func(_ context.Context, _ string, rt ResourceType) (interface{}, error) {
+	dr.LoadResourceFn = func(_ context.Context, _ string, rt resolver.ResourceType) (interface{}, error) {
 		switch rt {
-		case LLMResource:
+		case resolver.LLMResource:
 			return &pklLLM.LLMImpl{Resources: make(map[string]*pklLLM.ResourceChat)}, nil
-		case ResourceType("data"):
+		case resolver.ResourceType("data"):
 			return &pklData.DataImpl{Files: make(map[string]map[string]string)}, nil
-		case ExecResource:
+		case resolver.ExecResource:
 			return &pklExec.ExecImpl{Resources: make(map[string]*pklExec.ResourceExec)}, nil
-		case HTTPResource:
+		case resolver.HTTPResource:
 			return &pklHTTP.HTTPImpl{Resources: make(map[string]*pklHTTP.ResourceHTTPClient)}, nil
-		case PythonResource:
+		case resolver.PythonResource:
 			return &pklPython.PythonImpl{Resources: make(map[string]*pklPython.ResourcePython)}, nil
 		default:
-			return nil, nil
+			return nil, errors.New("mock action not found")
 		}
 	}
 
 	// Provide PklresHelper and in-memory reader to avoid nil error
 	reader, _ := pklres.InitializePklResource(":memory:")
 	dr.PklresReader = reader
-	dr.PklresHelper = NewPklresHelper(dr)
+	dr.PklresHelper = resolver.NewPklresHelper(dr)
 
 	// Test that AddPlaceholderImports uses the canonical agent reader
 	err := dr.AddPlaceholderImports(resourcePath)
@@ -323,13 +324,13 @@ func extractActionIDFromPklContent(content string) (string, error) {
 
 	startIdx := strings.Index(content, start)
 	if startIdx == -1 {
-		return "", fmt.Errorf("actionID not found")
+		return "", errors.New("actionID not found")
 	}
 
 	startIdx += len(start)
 	endIdx := strings.Index(content[startIdx:], end)
 	if endIdx == -1 {
-		return "", fmt.Errorf("actionID end quote not found")
+		return "", errors.New("actionID end quote not found")
 	}
 
 	return content[startIdx : startIdx+endIdx], nil

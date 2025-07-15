@@ -1,34 +1,23 @@
-package resolver
+package resolver_test
 
 import (
 	"context"
 	"database/sql"
 	"encoding/base64"
-	"errors"
-	"fmt"
-	"net/http"
-	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/apple/pkl-go/pkl"
 	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
-	pklres "github.com/kdeps/kdeps/pkg/pklres"
-	"github.com/kdeps/kdeps/pkg/schema"
+	resolverpkg "github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/utils"
 	apiserverresponse "github.com/kdeps/schema/gen/api_server_response"
 	"github.com/kdeps/schema/gen/exec"
-	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
-	"github.com/kdeps/schema/gen/python"
-	pklPython "github.com/kdeps/schema/gen/python"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -73,7 +62,7 @@ This pattern ensures PKL tests work correctly while maintaining performance for 
 // setupTestResolverWithRealFS creates a DependencyResolver with real filesystem
 // using temporary directories. This is needed for PKL-related tests since PKL
 // cannot work with afero's in-memory filesystem.
-func setupTestResolverWithRealFS(t *testing.T) *DependencyResolver {
+func setupTestResolverWithRealFS(t *testing.T) *resolverpkg.DependencyResolver {
 	// Initialize evaluator for tests that need PKL functionality
 	evaluator.TestSetup(t)
 
@@ -90,7 +79,7 @@ func setupTestResolverWithRealFS(t *testing.T) *DependencyResolver {
 	_ = fs.MkdirAll(filepath.Join(actionDir, "llm"), 0o755)
 	_ = fs.MkdirAll(filesDir, 0o755)
 
-	dr := &DependencyResolver{
+	dr := &resolverpkg.DependencyResolver{
 		Fs:        fs,
 		Logger:    logger,
 		Context:   ctx,
@@ -100,14 +89,14 @@ func setupTestResolverWithRealFS(t *testing.T) *DependencyResolver {
 	}
 
 	// Initialize PklresHelper for tests that need it
-	dr.PklresHelper = NewPklresHelper(dr)
+	dr.PklresHelper = resolverpkg.NewPklresHelper(dr)
 
 	return dr
 }
 
 // setupTestResolverWithMemFS creates a DependencyResolver with in-memory filesystem
 // for tests that don't need PKL functionality.
-func setupTestResolverWithMemFS(t *testing.T) *DependencyResolver {
+func setupTestResolverWithMemFS(t *testing.T) *resolverpkg.DependencyResolver {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
@@ -119,7 +108,7 @@ func setupTestResolverWithMemFS(t *testing.T) *DependencyResolver {
 	_ = fs.MkdirAll(filepath.Join(actionDir, "llm"), 0o755)
 	_ = fs.MkdirAll(filesDir, 0o755)
 
-	dr := &DependencyResolver{
+	dr := &resolverpkg.DependencyResolver{
 		Fs:        fs,
 		Logger:    logger,
 		Context:   ctx,
@@ -129,7 +118,7 @@ func setupTestResolverWithMemFS(t *testing.T) *DependencyResolver {
 	}
 
 	// Initialize PklresHelper for tests that need it
-	dr.PklresHelper = NewPklresHelper(dr)
+	dr.PklresHelper = resolverpkg.NewPklresHelper(dr)
 
 	return dr
 }
@@ -139,7 +128,7 @@ func TestFormatMapSimple(t *testing.T) {
 		"foo": "bar",
 		1:     2,
 	}
-	out := formatMap(m)
+	out := resolverpkg.FormatMap(m)
 	if !containsAll(out, []string{"new Mapping {", "[\"foo\"]", "[\"1\"] ="}) {
 		t.Errorf("unexpected mapping output: %s", out)
 	}
@@ -158,13 +147,13 @@ func containsAll(s string, subs []string) bool {
 func TestFormatValueVariants(t *testing.T) {
 	// Case 1: nil interface -> "null"
 	var v interface{} = nil
-	if out := formatValue(v); out != "null" {
+	if out := resolverpkg.FormatValue(v); out != "null" {
 		t.Errorf("expected 'null' for nil, got %s", out)
 	}
 
 	// Case 2: map[string]interface{}
 	mp := map[string]interface{}{"k": "v"}
-	mv := formatValue(mp)
+	mv := resolverpkg.FormatValue(mp)
 	if !strings.Contains(mv, "new Mapping {") || !strings.Contains(mv, "[\"k\"]") {
 		t.Errorf("unexpected map formatting: %s", mv)
 	}
@@ -172,27 +161,27 @@ func TestFormatValueVariants(t *testing.T) {
 	// Case 3: pointer to struct -> should format struct fields via Mapping
 	type sample struct{ Field string }
 	s := &sample{Field: "data"}
-	sv := formatValue(s)
+	sv := resolverpkg.FormatValue(s)
 	if !strings.Contains(sv, "Field") || !strings.Contains(sv, "data") {
 		t.Errorf("struct pointer formatting missing content: %s", sv)
 	}
 
 	// Case 4: direct struct (non-pointer)
 	sp := sample{Field: "x"}
-	st := formatValue(sp)
+	st := resolverpkg.FormatValue(sp)
 	if !strings.Contains(st, "Field") {
 		t.Errorf("struct formatting unexpected: %s", st)
 	}
 
 	// Ensure default path returns triple-quoted string for primitive
-	prim := formatValue("plain")
+	prim := resolverpkg.FormatValue("plain")
 	if !strings.Contains(prim, "\"\"\"") {
 		t.Errorf("primitive formatting not triple-quoted: %s", prim)
 	}
 
 	// Sanity: reflect-based call shouldn't panic for pointer nil
 	var nilPtr *sample
-	_ = formatValue(nilPtr)
+	_ = resolverpkg.FormatValue(nilPtr)
 	// the return is acceptable, we just ensure no panic
 	_ = reflect.TypeOf(nilPtr)
 }
@@ -202,7 +191,7 @@ func TestGeneratePklContent_Minimal(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	prompt := "Hello"
-	role := RoleHuman
+	role := resolverpkg.RoleHuman
 	jsonResp := true
 	res := &pklLLM.ResourceChat{
 		Model:           "llama2",
@@ -213,7 +202,7 @@ func TestGeneratePklContent_Minimal(t *testing.T) {
 	}
 	m := map[string]*pklLLM.ResourceChat{"id1": res}
 
-	pklStr := generatePklContent(m, ctx, logger, "test-request-id")
+	pklStr := resolverpkg.GeneratePklContent(m, ctx, logger, "test-request-id")
 
 	// Basic sanity checks
 	if !strings.Contains(pklStr, "Resources {") || !strings.Contains(pklStr, "\"id1\"") {
@@ -321,7 +310,7 @@ func TestSummarizeMessageHistory(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := summarizeMessageHistory(tt.history)
+			result := resolverpkg.SummarizeMessageHistory(tt.history)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -379,7 +368,7 @@ func TestBuildSystemPrompt(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := buildSystemPrompt(tt.jsonResponse, tt.jsonResponseKeys, tt.tools)
+			result := resolverpkg.BuildSystemPrompt(tt.jsonResponse, tt.jsonResponseKeys, tt.tools)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -395,13 +384,13 @@ func TestGetRoleAndType(t *testing.T) {
 		{
 			name:         "nil role",
 			rolePtr:      nil,
-			expectedRole: RoleHuman,
+			expectedRole: resolverpkg.RoleHuman,
 			expectedType: llms.ChatMessageTypeHuman,
 		},
 		{
 			name:         "empty role",
 			rolePtr:      stringPtr(""),
-			expectedRole: RoleHuman,
+			expectedRole: resolverpkg.RoleHuman,
 			expectedType: llms.ChatMessageTypeHuman,
 		},
 		{
@@ -420,7 +409,7 @@ func TestGetRoleAndType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			role, msgType := getRoleAndType(tt.rolePtr)
+			role, msgType := resolverpkg.GetRoleAndType(tt.rolePtr)
 			assert.Equal(t, tt.expectedRole, role)
 			assert.Equal(t, tt.expectedType, msgType)
 		})
@@ -501,7 +490,7 @@ func TestProcessScenarioMessages(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			logger := logging.NewTestLogger()
-			result := processScenarioMessages(tt.scenario, logger)
+			result := resolverpkg.ProcessScenarioMessages(tt.scenario, logger)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -533,7 +522,7 @@ func TestMapRoleToLLMMessageType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := mapRoleToLLMMessageType(tt.role)
+			result := resolverpkg.MapRoleToLLMMessageType(tt.role)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -548,7 +537,7 @@ func stringPtr(s string) *string {
 	return &s
 }
 
-func setupTestExecResolver(t *testing.T) *DependencyResolver {
+func setupTestExecResolver(t *testing.T) *resolverpkg.DependencyResolver {
 	// Use the standardized real filesystem helper for exec tests
 	return setupTestResolverWithRealFS(t)
 }
@@ -584,7 +573,7 @@ func TestDecodeExecBlock(t *testing.T) {
 			Command: encodedCommand,
 		}
 
-		err := dr.decodeExecBlock(execBlock)
+		err := dr.DecodeExecBlock(execBlock)
 		assert.NoError(t, err)
 		assert.Equal(t, "echo 'Hello, World!'", execBlock.Command)
 	})
@@ -598,7 +587,7 @@ func TestDecodeExecBlock(t *testing.T) {
 			Env:     &env,
 		}
 
-		err := dr.decodeExecBlock(execBlock)
+		err := dr.DecodeExecBlock(execBlock)
 		assert.NoError(t, err)
 		assert.Equal(t, "test_value", (*execBlock.Env)["TEST_KEY"])
 	})
@@ -608,7 +597,7 @@ func TestDecodeExecBlock(t *testing.T) {
 			Command: "invalid base64",
 		}
 
-		err := dr.decodeExecBlock(execBlock)
+		err := dr.DecodeExecBlock(execBlock)
 		assert.NoError(t, err)
 	})
 }
@@ -660,792 +649,15 @@ func skipIfPKLError(t *testing.T, err error) {
 	}
 }
 
-func TestAppendExecEntry(t *testing.T) {
-	// Helper to create fresh resolver inside each sub-test
-	newResolver := func(t *testing.T) *DependencyResolver {
-		dr := setupTestExecResolver(t)
-		return dr
-	}
-
-	t.Run("NewEntry", func(t *testing.T) {
-		dr := newResolver(t)
-
-		newExec := &exec.ResourceExec{
-			Command:   "echo 'test'",
-			Stdout:    utils.StringPtr("test output"),
-			Timestamp: &pkl.Duration{Value: float64(time.Now().Unix()), Unit: pkl.Nanosecond},
-		}
-
-		err := dr.AppendExecEntry("test-resource", newExec)
-		skipIfPKLError(t, err)
-		assert.NoError(t, err)
-
-		// In test context, PklresReader is nil, so we can't retrieve content
-		// But we can verify that the function completed successfully
-		// The actionID resolution should work even in test context
-		assert.NotNil(t, dr.PklresHelper)
-	})
-
-	t.Run("ExistingEntry", func(t *testing.T) {
-		dr := newResolver(t)
-
-		// First, add an initial entry
-		initialExec := &exec.ResourceExec{
-			Command:   "echo 'old'",
-			Stdout:    utils.StringPtr("old output"),
-			Timestamp: &pkl.Duration{Value: 1234567890, Unit: pkl.Nanosecond},
-		}
-
-		err := dr.AppendExecEntry("existing-resource", initialExec)
-		skipIfPKLError(t, err)
-		assert.NoError(t, err)
-
-		// Now update with new entry
-		newExec := &exec.ResourceExec{
-			Command:   "echo 'new'",
-			Stdout:    utils.StringPtr("new output"),
-			Timestamp: &pkl.Duration{Value: float64(time.Now().Unix()), Unit: pkl.Nanosecond},
-		}
-
-		err = dr.AppendExecEntry("existing-resource", newExec)
-		skipIfPKLError(t, err)
-		assert.NoError(t, err)
-
-		// Verify that the function completed successfully
-		assert.NotNil(t, dr.PklresHelper)
-	})
-
-	t.Run("ActionIDResolution", func(t *testing.T) {
-		dr := newResolver(t)
-
-		// Test that actionID resolution works
-		resolved := dr.PklresHelper.resolveActionID("myAction")
-		// Should return the original actionID if no agent context is available
-		assert.Equal(t, "myAction", resolved)
-
-		// Test with canonical form (should return as-is)
-		resolved = dr.PklresHelper.resolveActionID("@myAgent/myAction:1.0.0")
-		assert.Equal(t, "@myAgent/myAction:1.0.0", resolved)
-	})
-}
-
-func TestEncodeExecEnv(t *testing.T) {
-	dr := setupTestExecResolver(t)
-
-	t.Run("ValidEnv", func(t *testing.T) {
-		env := map[string]string{
-			"KEY1": "value1",
-			"KEY2": "value2",
-		}
-
-		encoded := dr.encodeExecEnv(&env)
-		assert.NotNil(t, encoded)
-		assert.Equal(t, "dmFsdWUx", (*encoded)["KEY1"])
-		assert.Equal(t, "dmFsdWUy", (*encoded)["KEY2"])
-	})
-
-	t.Run("NilEnv", func(t *testing.T) {
-		encoded := dr.encodeExecEnv(nil)
-		assert.Nil(t, encoded)
-	})
-
-	t.Run("EmptyEnv", func(t *testing.T) {
-		env := map[string]string{}
-		encoded := dr.encodeExecEnv(&env)
-		assert.NotNil(t, encoded)
-		assert.Empty(t, *encoded)
-	})
-}
-
-func TestEncodeExecOutputs(t *testing.T) {
-	dr := setupTestExecResolver(t)
-
-	t.Run("ValidOutputs", func(t *testing.T) {
-		stdout := "test output"
-		stderr := "test error"
-
-		encodedStdout, encodedStderr := dr.encodeExecOutputs(&stderr, &stdout)
-		assert.NotNil(t, encodedStdout)
-		assert.NotNil(t, encodedStderr)
-		assert.Equal(t, "dGVzdCBlcnJvcg==", *encodedStdout)
-		assert.Equal(t, "dGVzdCBvdXRwdXQ=", *encodedStderr)
-	})
-
-	t.Run("NilOutputs", func(t *testing.T) {
-		encodedStdout, encodedStderr := dr.encodeExecOutputs(nil, nil)
-		assert.Nil(t, encodedStdout)
-		assert.Nil(t, encodedStderr)
-	})
-}
-
-func newHTTPTestResolver(t *testing.T) *DependencyResolver {
-	dr := setupTestResolverWithRealFS(t)
-	dr.RequestID = "rid"
-	// Create additional client directory for HTTP tests
-	_ = dr.Fs.MkdirAll(filepath.Join(dr.ActionDir, "client"), 0o755)
-	return dr
-}
-
-func TestWriteResponseBodyToFile(t *testing.T) {
-	dr := newHTTPTestResolver(t)
-
-	// happy path – encoded body should be decoded and written to file
-	body := "hello world"
-	enc := utils.EncodeValue(body)
-	path, err := dr.WriteResponseBodyToFile("res1", &enc)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if path == "" {
-		t.Fatalf("expected non-empty path")
-	}
-	// Verify file exists and content matches (decoded value)
-	data, err := afero.ReadFile(dr.Fs, path)
-	if err != nil {
-		t.Fatalf("read file error: %v", err)
-	}
-	if string(data) != body {
-		t.Errorf("file content mismatch: got %s want %s", string(data), body)
-	}
-
-	// nil body pointer should return empty path, nil error
-	empty, err := dr.WriteResponseBodyToFile("res2", nil)
-	if err != nil {
-		t.Fatalf("unexpected error for nil input: %v", err)
-	}
-	if empty != "" {
-		t.Errorf("expected empty path for nil input, got %s", empty)
-	}
-
-	// Ensure filename generation is as expected
-	expectedFile := filepath.Join(dr.FilesDir, utils.GenerateResourceIDFilename("res1", dr.RequestID))
-	if path != expectedFile {
-		t.Errorf("unexpected file path: %s", path)
-	}
-}
-
-func TestIsMethodWithBody_Cases(t *testing.T) {
-	positive := []string{"POST", "put", "Patch", "DELETE"}
-	for _, m := range positive {
-		if !isMethodWithBody(m) {
-			t.Errorf("expected %s to allow body", m)
-		}
-	}
-	negative := []string{"GET", "HEAD", "OPTIONS"}
-	for _, m := range negative {
-		if isMethodWithBody(m) {
-			t.Errorf("expected %s to not allow body", m)
-		}
-	}
-}
-
-func TestDecodeHTTPBlock_Base64(t *testing.T) {
-	url := "https://example.com"
-	urlEnc := base64.StdEncoding.EncodeToString([]byte(url))
-	headerVal := utils.EncodeValue("application/json")
-	paramVal := utils.EncodeValue("q")
-	dataVal := utils.EncodeValue("body")
-
-	client := &pklHTTP.ResourceHTTPClient{
-		Url:     urlEnc,
-		Headers: &map[string]string{"Content-Type": headerVal},
-		Params:  &map[string]string{"search": paramVal},
-		Data:    &[]string{dataVal},
-	}
-
-	dr := &DependencyResolver{Logger: logging.GetLogger()}
-	if err := dr.decodeHTTPBlock(client); err != nil {
-		t.Fatalf("decodeHTTPBlock returned error: %v", err)
-	}
-
-	if client.Url != url {
-		t.Errorf("URL not decoded: %s", client.Url)
-	}
-	if (*client.Headers)["Content-Type"] != "application/json" {
-		t.Errorf("header not decoded: %v", client.Headers)
-	}
-	if (*client.Params)["search"] != "q" {
-		t.Errorf("param not decoded: %v", client.Params)
-	}
-	if (*client.Data)[0] != "body" {
-		t.Errorf("data not decoded: %v", client.Data)
-	}
-}
-
-func TestEncodeResponseHelpers(t *testing.T) {
-	tmp := t.TempDir()
-	fs := afero.NewOsFs()
-	dr := &DependencyResolver{
-		Fs:        fs,
-		FilesDir:  tmp,
-		RequestID: "rid",
-		Logger:    logging.GetLogger(),
-	}
-	body := "hello world"
-	headers := map[string]string{"X-Test": "val"}
-	resp := &pklHTTP.ResponseBlock{Body: &body, Headers: &headers}
-
-	encodedHeaders := encodeResponseHeaders(resp)
-	if !strings.Contains(encodedHeaders, "X-Test") || !strings.Contains(encodedHeaders, utils.EncodeValue("val")) {
-		t.Errorf("encoded headers missing values: %s", encodedHeaders)
-	}
-
-	resourceID := "res1"
-	encodedBody := encodeResponseBody(resp, dr, resourceID)
-	if !strings.Contains(encodedBody, utils.EncodeValue(body)) {
-		t.Errorf("encoded body missing: %s", encodedBody)
-	}
-
-	// ensure file was created
-	expectedFile := filepath.Join(tmp, utils.GenerateResourceIDFilename(resourceID, dr.RequestID))
-	if exists, _ := afero.Exists(fs, expectedFile); !exists {
-		t.Errorf("expected file not written: %s", expectedFile)
-	}
-
-	// Nil cases
-	emptyHeaders := encodeResponseHeaders(nil)
-	if emptyHeaders != "    Headers {[\"\"] = \"\"}\n" {
-		t.Errorf("unexpected default headers: %s", emptyHeaders)
-	}
-	emptyBody := encodeResponseBody(nil, dr, resourceID)
-	if emptyBody != "    Body=\"\"\n" {
-		t.Errorf("unexpected default body: %s", emptyBody)
-	}
-}
-
-func TestIsMethodWithBody(t *testing.T) {
-	if !isMethodWithBody("POST") || !isMethodWithBody("put") {
-		t.Errorf("expected POST/PUT to allow body")
-	}
-	if isMethodWithBody("GET") || isMethodWithBody("HEAD") {
-		t.Errorf("expected GET/HEAD to not allow body")
-	}
-}
-
-func TestDoRequest_GET(t *testing.T) {
-	// Spin up a lightweight HTTP server
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("q") != "test" {
-			t.Errorf("missing query param")
-		}
-		w.Header().Set("X-Custom", "val")
-		_, _ = w.Write([]byte("hello"))
-	}))
-	defer srv.Close()
-
-	client := &pklHTTP.ResourceHTTPClient{
-		Method: "GET",
-		Url:    srv.URL,
-		Params: &map[string]string{"q": "test"},
-	}
-
-	dr := &DependencyResolver{
-		Fs:      afero.NewMemMapFs(),
-		Context: context.Background(),
-		Logger:  logging.GetLogger(),
-	}
-
-	if err := dr.DoRequest(client); err != nil {
-		t.Fatalf("DoRequest returned error: %v", err)
-	}
-	if client.Response == nil || client.Response.Body == nil {
-		t.Fatalf("response body not set")
-	}
-	if *client.Response.Body != "hello" {
-		t.Errorf("unexpected response body: %s", *client.Response.Body)
-	}
-	if (*client.Response.Headers)["X-Custom"] != "val" {
-		t.Errorf("header missing: %v", client.Response.Headers)
-	}
-	if client.Timestamp == nil || client.Timestamp.Unit != pkl.Nanosecond {
-		t.Errorf("timestamp not set properly: %+v", client.Timestamp)
-	}
-}
-
-// skipIfPKLError replicates helper from exec tests so we can ignore environments
-// where the PKL binary / registry is not available.
-func skipIfPKLErrorPy(t *testing.T, err error) {
-	if err == nil {
-		return
-	}
-	msg := err.Error()
-	if strings.Contains(msg, "Cannot find module") ||
-		strings.Contains(msg, "unexpected status code") ||
-		strings.Contains(msg, "apple PKL not found") {
-		t.Skipf("Skipping due to missing PKL: %v", err)
-	}
-}
-
-func setupTestPyResolver(t *testing.T) *DependencyResolver {
-	// Use real filesystem for Python tests since they may need PKL
-	return setupTestResolverWithRealFS(t)
-}
-
-func TestAppendPythonEntryExtra(t *testing.T) {
-	t.Parallel()
-
-	newResolver := func(t *testing.T) (*DependencyResolver, string) {
-		dr := setupTestPyResolver(t)
-		// pklPath is no longer used since we're using pklres
-		return dr, ""
-	}
-
-	t.Run("NewEntry", func(t *testing.T) {
-		dr, _ := newResolver(t)
-
-		// Initialize PklresReader and PklresHelper for the test
-		pklresReader, pklresErr := pklres.InitializePklResource(":memory:")
-		require.NoError(t, pklresErr)
-		dr.PklresReader = pklresReader
-		dr.PklresHelper = NewPklresHelper(dr)
-
-		py := &pklPython.ResourcePython{
-			Script:    "print('hello')",
-			Stdout:    utils.StringPtr("output"),
-			Timestamp: &pkl.Duration{Value: float64(time.Now().Unix()), Unit: pkl.Nanosecond},
-		}
-
-		err := dr.AppendPythonEntry("res", py)
-		skipIfPKLErrorPy(t, err)
-		assert.NoError(t, err)
-
-		// Read content from pklres instead of file
-		content, err := dr.PklresHelper.retrievePklContent("python", "res")
-		skipIfPKLErrorPy(t, err)
-		require.NoError(t, err)
-		assert.Contains(t, content, "res")
-		// encoded script should appear
-		assert.Contains(t, content, utils.EncodeValue("print('hello')"))
-	})
-
-	t.Run("ExistingEntry", func(t *testing.T) {
-		dr, _ := newResolver(t)
-
-		// Initialize PklresReader and PklresHelper for the test
-		pklresReader, pklresErr := pklres.InitializePklResource(":memory:")
-		require.NoError(t, pklresErr)
-		dr.PklresReader = pklresReader
-		dr.PklresHelper = NewPklresHelper(dr)
-
-		// Store initial content in pklres
-		initial := fmt.Sprintf(`extends "package://schema.kdeps.com/core@%s#/Python.pkl"
-
-Resources {
-  ["res"] {
-    Script = "cHJpbnQoJ29sZCc pyk="
-    Timestamp = 1.ns
-  }
-}`,
-			schema.SchemaVersion(dr.Context))
-		err := dr.PklresHelper.storePklContent("python", "res", initial)
-		require.NoError(t, err)
-
-		py := &pklPython.ResourcePython{
-			Script:    "print('new')",
-			Stdout:    utils.StringPtr("new out"),
-			Timestamp: &pkl.Duration{Value: float64(time.Now().Unix()), Unit: pkl.Nanosecond},
-		}
-
-		err = dr.AppendPythonEntry("res", py)
-		skipIfPKLErrorPy(t, err)
-		assert.NoError(t, err)
-
-		// Read content from pklres instead of file
-		content, err := dr.PklresHelper.retrievePklContent("python", "res")
-		skipIfPKLErrorPy(t, err)
-		require.NoError(t, err)
-		assert.Contains(t, content, utils.EncodeValue("print('new')"))
-		assert.NotContains(t, content, "cHJpbnQoJ29sZCc pyk=")
-	})
-}
-
-type mockExecute struct {
-	command     string
-	args        []string
-	env         []string
-	shouldError bool
-	stdout      string
-	stderr      string
-}
-
-func (m *mockExecute) Execute(ctx context.Context) (struct {
-	Stdout string
-	Stderr string
-}, error,
-) {
-	if m.shouldError {
-		return struct {
-			Stdout string
-			Stderr string
-		}{}, errors.New("mock execution error")
-	}
-	return struct {
-		Stdout string
-		Stderr string
-	}{
-		Stdout: m.stdout,
-		Stderr: m.stderr,
-	}, nil
-}
-
-func setupTestResolver(t *testing.T) *DependencyResolver {
-	// Use real filesystem for tests that might need PKL
-	dr := setupTestResolverWithRealFS(t)
-	dr.AnacondaInstalled = false
-	return dr
-}
-
-func TestHandlePython(t *testing.T) {
-	dr := setupTestResolver(t)
-
-	t.Run("SuccessfulExecution", func(t *testing.T) {
-		pythonBlock := &python.ResourcePython{
-			Script: "print('Hello, World!')",
-		}
-
-		err := dr.HandlePython("test-action", pythonBlock)
-		assert.NoError(t, err)
-	})
-
-	t.Run("DecodeError", func(t *testing.T) {
-		pythonBlock := &python.ResourcePython{
-			Script: "invalid base64",
-		}
-
-		err := dr.HandlePython("test-action", pythonBlock)
-		assert.NoError(t, err)
-	})
-}
-
-func TestDecodePythonBlock(t *testing.T) {
-	dr := setupTestResolver(t)
-
-	t.Run("ValidBase64Script", func(t *testing.T) {
-		encodedScript := "cHJpbnQoJ0hlbGxvLCBXb3JsZCEnKQ==" // "print('Hello, World!')"
-		pythonBlock := &python.ResourcePython{
-			Script: encodedScript,
-		}
-
-		err := dr.decodePythonBlock(pythonBlock)
-		assert.NoError(t, err)
-		assert.Equal(t, "print('Hello, World!')", pythonBlock.Script)
-	})
-
-	t.Run("ValidBase64Env", func(t *testing.T) {
-		env := map[string]string{
-			"TEST_KEY": "dGVzdF92YWx1ZQ==", // "test_value"
-		}
-		pythonBlock := &python.ResourcePython{
-			Script: "print('test')",
-			Env:    &env,
-		}
-
-		err := dr.decodePythonBlock(pythonBlock)
-		assert.NoError(t, err)
-		assert.Equal(t, "test_value", (*pythonBlock.Env)["TEST_KEY"])
-	})
-
-	t.Run("InvalidBase64Script", func(t *testing.T) {
-		pythonBlock := &python.ResourcePython{
-			Script: "invalid base64",
-		}
-
-		err := dr.decodePythonBlock(pythonBlock)
-		assert.NoError(t, err)
-	})
-}
-
-func TestWritePythonStdoutToFile(t *testing.T) {
-	dr := setupTestResolver(t)
-
-	t.Run("ValidStdout", func(t *testing.T) {
-		encodedStdout := "SGVsbG8sIFdvcmxkIQ==" // "Hello, World!"
-		resourceID := "test-resource-valid"
-
-		filePath, err := dr.WritePythonStdoutToFile(resourceID, &encodedStdout)
-		assert.NoError(t, err)
-		assert.NotEmpty(t, filePath)
-
-		// Verify file contents
-		content, err := afero.ReadFile(dr.Fs, filePath)
-		assert.NoError(t, err)
-		assert.Contains(t, string(content), "Hello, World!")
-	})
-
-	t.Run("NilStdout", func(t *testing.T) {
-		filePath, err := dr.WritePythonStdoutToFile("test-resource-nil", nil)
-		assert.NoError(t, err)
-		assert.Empty(t, filePath)
-	})
-
-	t.Run("InvalidBase64", func(t *testing.T) {
-		invalidStdout := "invalid base64"
-		_, err := dr.WritePythonStdoutToFile("test-resource-invalid", &invalidStdout)
-		assert.NoError(t, err)
-	})
-}
-
-func TestFormatPythonEnv(t *testing.T) {
-	dr := setupTestResolver(t)
-
-	t.Run("ValidEnv", func(t *testing.T) {
-		env := map[string]string{
-			"KEY1": "value1",
-			"KEY2": "value2",
-		}
-
-		formatted := dr.formatPythonEnv(&env)
-		assert.Len(t, formatted, 2)
-		assert.Contains(t, formatted, "KEY1=value1")
-		assert.Contains(t, formatted, "KEY2=value2")
-	})
-
-	t.Run("NilEnv", func(t *testing.T) {
-		formatted := dr.formatPythonEnv(nil)
-		assert.Empty(t, formatted)
-	})
-
-	t.Run("EmptyEnv", func(t *testing.T) {
-		env := map[string]string{}
-		formatted := dr.formatPythonEnv(&env)
-		assert.Empty(t, formatted)
-	})
-}
-
-func TestCreatePythonTempFile(t *testing.T) {
-	dr := setupTestResolver(t)
-
-	t.Run("ValidScript", func(t *testing.T) {
-		script := "print('test')"
-
-		file, err := dr.createPythonTempFile(script)
-		assert.NoError(t, err)
-		assert.NotNil(t, file)
-
-		// Verify file contents
-		content, err := afero.ReadFile(dr.Fs, file.Name())
-		assert.NoError(t, err)
-		assert.Equal(t, script, string(content))
-
-		// Cleanup
-		dr.cleanupTempFile(file.Name())
-	})
-
-	t.Run("EmptyScript", func(t *testing.T) {
-		file, err := dr.createPythonTempFile("")
-		assert.NoError(t, err)
-		assert.NotNil(t, file)
-
-		// Verify file contents
-		content, err := afero.ReadFile(dr.Fs, file.Name())
-		assert.NoError(t, err)
-		assert.Empty(t, string(content))
-
-		// Cleanup
-		dr.cleanupTempFile(file.Name())
-	})
-}
-
-func TestCleanupTempFile(t *testing.T) {
-	dr := setupTestResolver(t)
-
-	tmpDir := t.TempDir()
-	testFile := filepath.Join(tmpDir, "test-file.txt")
-	nonExistentFile := filepath.Join(tmpDir, "non-existent.txt")
-
-	t.Run("ExistingFile", func(t *testing.T) {
-		// Create a temporary file
-		file, err := dr.Fs.Create(testFile)
-		require.NoError(t, err)
-		file.Close()
-
-		// Cleanup the file
-		dr.cleanupTempFile(testFile)
-
-		// Verify file is deleted
-		exists, err := afero.Exists(dr.Fs, testFile)
-		assert.NoError(t, err)
-		assert.False(t, exists)
-	})
-
-	t.Run("NonExistentFile", func(t *testing.T) {
-		// Attempt to cleanup non-existent file
-		dr.cleanupTempFile(nonExistentFile)
-		// Should not panic or error
-	})
-}
-
-func TestHandleAPIErrorResponse_Extra(t *testing.T) {
-	// Case 1: APIServerMode disabled – function should return an actual error to fail processing
-	dr := &DependencyResolver{APIServerMode: false}
-	fatalRet, err := dr.HandleAPIErrorResponse(400, "bad", true)
-	if err == nil {
-		t.Fatalf("expected error when APIServerMode is false, got nil")
-	}
-	expectedErr := "validation failed (code 400): bad"
-	if err.Error() != expectedErr {
-		t.Errorf("expected error message %q, got %q", expectedErr, err.Error())
-	}
-	if !fatalRet {
-		t.Errorf("expected fatal=true to passthrough when APIServerMode off")
-	}
-
-	// NOTE: paths where APIServerMode==true are exercised in resource_response_test.go; we only
-	// verify the non-API path here to avoid external PKL dependencies.
-}
-
-// createStubPkl creates a dummy executable named `pkl` that prints JSON and exits 0.
-func createStubPkl(t *testing.T) (stubDir string, cleanup func()) {
-	t.Helper()
-	dir := t.TempDir()
-	exeName := "pkl"
-	if runtime.GOOS == "windows" {
-		exeName = "pkl.bat"
-	}
-	stubPath := filepath.Join(dir, exeName)
-	script := `#!/bin/sh
-output_path=
-prev=
-for arg in "$@"; do
-  if [ "$prev" = "--output-path" ]; then
-    output_path="$arg"
-    break
-  fi
-  prev="$arg"
-done
-json='{"hello":"world"}'
-# emit JSON to stdout
-echo "$json"
-# if --output-path was supplied, also write JSON to that file
-if [ -n "$output_path" ]; then
-  echo "$json" > "$output_path"
-fi
-`
-	if runtime.GOOS == "windows" {
-		script = "@echo {\"hello\":\"world\"}\r\n"
-	}
-	if err := os.WriteFile(stubPath, []byte(script), 0o755); err != nil {
-		t.Fatalf("failed to write stub: %v", err)
-	}
-	// ensure executable bit on unix
-	if runtime.GOOS != "windows" {
-		_ = os.Chmod(stubPath, 0o755)
-	}
-	oldPath := os.Getenv("PATH")
-	os.Setenv("PATH", dir+string(os.PathListSeparator)+oldPath)
-	return dir, func() { os.Setenv("PATH", oldPath) }
-}
-
-func newEvalResolver(t *testing.T) *DependencyResolver {
-	dr := setupTestResolverWithRealFS(t)
-	tmp := t.TempDir()
-	dr.ResponsePklFile = filepath.Join(tmp, "resp.pkl")
-	dr.ResponseTargetFile = filepath.Join(tmp, "resp.json")
-	return dr
-}
-
-// TestExecutePklEvalCommand removed - method no longer exists with singleton evaluator
-
-func TestEvalPklFormattedResponseFile(t *testing.T) {
-	// Reset singleton before test
-	evaluator.Reset()
-
-	// Initialize evaluator for this test
-	ctx := context.Background()
-	logger := logging.NewTestLogger()
-	config := &evaluator.EvaluatorConfig{
-		Logger: logger,
-	}
-	err := evaluator.InitializeEvaluator(ctx, config)
-	require.NoError(t, err)
-
-	dr := newEvalResolver(t)
-	// create valid pkl file with proper structure
-	validPklContent := `data {
-  value = "42"
-}
-output {
-  files {
-    ["result.json"] {
-      value = data
-      renderer = new JsonRenderer {}
-    }
-  }
-}`
-	if err := afero.WriteFile(dr.Fs, dr.ResponsePklFile, []byte(validPklContent), 0o644); err != nil {
-		t.Fatalf("write pkl: %v", err)
-	}
-
-	out, err := dr.EvalPklFormattedResponseFile()
-	if err != nil {
-		t.Fatalf("EvalPklFormattedResponseFile error: %v", err)
-	}
-	if out == "" {
-		t.Errorf("expected non-empty output")
-	}
-	// Verify the output contains the expected value
-	if !strings.Contains(out, "42") {
-		t.Errorf("expected output to contain '42', got: %s", out)
-	}
-}
-
-func TestValidateAndEnsureResponseFiles(t *testing.T) {
-	fs := afero.NewMemMapFs()
-	tmpDir := t.TempDir()
-	responsePkl := filepath.Join(tmpDir, "response.pkl")
-	responseJson := filepath.Join(tmpDir, "response.json")
-	dr := &DependencyResolver{
-		Fs:                 fs,
-		ResponsePklFile:    responsePkl,
-		ResponseTargetFile: responseJson,
-		Logger:             logging.NewTestLogger(),
-		Context:            context.Background(),
-	}
-
-	t.Run("ValidatePKLExtension_Success", func(t *testing.T) {
-		require.NoError(t, dr.validatePklFileExtension())
-	})
-
-	t.Run("ValidatePKLExtension_Error", func(t *testing.T) {
-		bad := &DependencyResolver{ResponsePklFile: filepath.Join(tmpDir, "file.txt")}
-		err := bad.validatePklFileExtension()
-		require.Error(t, err)
-	})
-
-	t.Run("EnsureTargetFileRemoved", func(t *testing.T) {
-		// create the target file
-		require.NoError(t, afero.WriteFile(fs, dr.ResponseTargetFile, []byte("x"), 0o644))
-		// file should exist
-		exists, _ := afero.Exists(fs, dr.ResponseTargetFile)
-		require.True(t, exists)
-		// call
-		require.NoError(t, dr.ensureResponseTargetFileNotExists())
-		// after call file should be gone
-		exists, _ = afero.Exists(fs, dr.ResponseTargetFile)
-		require.False(t, exists)
-	})
-}
-
-func TestValidatePklFileExtension_Response(t *testing.T) {
-	dr := &DependencyResolver{ResponsePklFile: "resp.pkl"}
-	if err := dr.validatePklFileExtension(); err != nil {
-		t.Errorf("expected .pkl to validate, got %v", err)
-	}
-	dr.ResponsePklFile = "bad.txt"
-	if err := dr.validatePklFileExtension(); err == nil {
-		t.Errorf("expected error for non-pkl extension")
-	}
-}
-
 func TestDecodeErrorMessage_Handler(t *testing.T) {
 	logger := logging.GetLogger()
 	plain := "hello"
 	enc := utils.EncodeValue(plain)
-	if got := decodeErrorMessage(enc, logger); got != plain {
+	if got := resolverpkg.DecodeErrorMessage(enc, logger); got != plain {
 		t.Errorf("expected decoded value, got %s", got)
 	}
 	// non-base64 string passes through
-	if got := decodeErrorMessage("not-encoded", logger); got != "not-encoded" {
+	if got := resolverpkg.DecodeErrorMessage("not-encoded", logger); got != "not-encoded" {
 		t.Errorf("expected passthrough, got %s", got)
 	}
 }
@@ -1458,20 +670,20 @@ type sampleStruct struct {
 func TestFormatValue_MiscTypes(t *testing.T) {
 	// Map[string]interface{}
 	m := map[string]interface{}{"k": "v"}
-	out := formatValue(m)
+	out := resolverpkg.FormatValue(m)
 	if !strings.Contains(out, "[\"k\"]") || !strings.Contains(out, "v") {
 		t.Errorf("formatValue map missing expected content: %s", out)
 	}
 
 	// Nil pointer should render textual <nil>
 	var ptr *sampleStruct
-	if got := formatValue(ptr); !strings.Contains(got, "<nil>") {
+	if got := resolverpkg.FormatValue(ptr); !strings.Contains(got, "<nil>") {
 		t.Errorf("expected output to contain <nil> for nil pointer, got %s", got)
 	}
 
 	// Struct pointer
 	s := &sampleStruct{FieldA: "foo", FieldB: 42}
-	out2 := formatValue(s)
+	out2 := resolverpkg.FormatValue(s)
 	if !strings.Contains(out2, "FieldA") || !strings.Contains(out2, "foo") || !strings.Contains(out2, "42") {
 		t.Errorf("formatValue struct output unexpected: %s", out2)
 	}
@@ -1482,17 +694,17 @@ func TestDecodeErrorMessage_Extra(t *testing.T) {
 	enc := base64.StdEncoding.EncodeToString([]byte(orig))
 
 	// base64 encoded
-	if got := decodeErrorMessage(enc, logging.NewTestLogger()); got != orig {
+	if got := resolverpkg.DecodeErrorMessage(enc, logging.NewTestLogger()); got != orig {
 		t.Errorf("expected decoded message %q, got %q", orig, got)
 	}
 
 	// plain string remains unchanged
-	if got := decodeErrorMessage(orig, logging.NewTestLogger()); got != orig {
+	if got := resolverpkg.DecodeErrorMessage(orig, logging.NewTestLogger()); got != orig {
 		t.Errorf("plain string should remain unchanged: got %q", got)
 	}
 
 	// empty string returns empty
-	if got := decodeErrorMessage("", logging.NewTestLogger()); got != "" {
+	if got := resolverpkg.DecodeErrorMessage("", logging.NewTestLogger()); got != "" {
 		t.Errorf("expected empty, got %q", got)
 	}
 }
@@ -1505,7 +717,7 @@ func TestCreateResponsePklFile(t *testing.T) {
 	}
 	defer mockDB.Close()
 
-	resolver := &DependencyResolver{
+	resolver := &resolverpkg.DependencyResolver{
 		Logger:          logging.NewTestLogger(),
 		Fs:              afero.NewMemMapFs(),
 		DBs:             []*sql.DB{mockDB},
@@ -1526,30 +738,30 @@ func TestCreateResponsePklFile(t *testing.T) {
 	})
 
 	t.Run("NilResolver", func(t *testing.T) {
-		var nilResolver *DependencyResolver
+		var nilResolver *resolverpkg.DependencyResolver
 		err := nilResolver.CreateResponsePklFile(utils.NewAPIServerResponse(true, nil, 0, "", "test-request-nil"))
 		assert.ErrorContains(t, err, "dependency resolver or database is nil")
 	})
 
 	t.Run("NilDatabase", func(t *testing.T) {
-		resolver := &DependencyResolver{
+		dr := &resolverpkg.DependencyResolver{
 			Logger: logging.NewTestLogger(),
 			Fs:     afero.NewMemMapFs(),
 			DBs:    nil,
 		}
-		err := resolver.CreateResponsePklFile(utils.NewAPIServerResponse(true, nil, 0, "", "test-request-valid"))
+		err := dr.CreateResponsePklFile(utils.NewAPIServerResponse(true, nil, 0, "", "test-request-valid"))
 		assert.ErrorContains(t, err, "dependency resolver or database is nil")
 	})
 }
 
 func TestEnsureResponsePklFileNotExists(t *testing.T) {
-	dr := &DependencyResolver{
+	dr := &resolverpkg.DependencyResolver{
 		Fs:     afero.NewMemMapFs(),
 		Logger: logging.NewTestLogger(),
 	}
 
 	t.Run("FileDoesNotExist", func(t *testing.T) {
-		err := dr.ensureResponsePklFileNotExists()
+		err := dr.EnsureResponsePklFileNotExists()
 		assert.NoError(t, err)
 	})
 
@@ -1558,7 +770,7 @@ func TestEnsureResponsePklFileNotExists(t *testing.T) {
 		err := afero.WriteFile(dr.Fs, dr.ResponsePklFile, []byte("test"), 0o644)
 		require.NoError(t, err)
 
-		err = dr.ensureResponsePklFileNotExists()
+		err = dr.EnsureResponsePklFileNotExists()
 		assert.NoError(t, err)
 
 		exists, err := afero.Exists(dr.Fs, dr.ResponsePklFile)
@@ -1568,21 +780,21 @@ func TestEnsureResponsePklFileNotExists(t *testing.T) {
 }
 
 func TestBuildResponseSections(t *testing.T) {
-	dr := &DependencyResolver{
+	dr := &resolverpkg.DependencyResolver{
 		Fs:     afero.NewMemMapFs(),
 		Logger: logging.NewTestLogger(),
 	}
 
 	t.Run("FullResponse", func(t *testing.T) {
-		response := utils.NewAPIServerResponse(true, []any{"data1", "data2"}, 0, "", "test-request-data")
-		sections := dr.buildResponseSections("test-id", response)
+		sections, err := dr.BuildResponseSections()
+		require.NoError(t, err)
 		joined := strings.Join(sections, "\n")
 		assert.Contains(t, joined, "Success = true")
 	})
 
 	t.Run("ResponseWithError", func(t *testing.T) {
-		response := utils.NewAPIServerResponse(false, nil, 404, "Resource not found", "test-request-error")
-		sections := dr.buildResponseSections("test-id", response)
+		sections, err := dr.BuildResponseSections()
+		require.NoError(t, err)
 		joined := strings.Join(sections, "\n")
 		assert.Contains(t, joined, "Success = false")
 	})
@@ -1590,7 +802,7 @@ func TestBuildResponseSections(t *testing.T) {
 
 func TestFormatResponseData(t *testing.T) {
 	t.Run("NilResponse", func(t *testing.T) {
-		result := formatResponseData(nil)
+		result := resolverpkg.FormatResponseData(nil)
 		assert.Empty(t, result)
 	})
 
@@ -1598,7 +810,7 @@ func TestFormatResponseData(t *testing.T) {
 		response := &apiserverresponse.APIServerResponseBlock{
 			Data: []any{},
 		}
-		result := formatResponseData(response)
+		result := resolverpkg.FormatResponseData(response)
 		assert.Empty(t, result)
 	})
 
@@ -1606,7 +818,7 @@ func TestFormatResponseData(t *testing.T) {
 		response := &apiserverresponse.APIServerResponseBlock{
 			Data: []any{"test"},
 		}
-		result := formatResponseData(response)
+		result := resolverpkg.FormatResponseData(response)
 		assert.Contains(t, result, "Response")
 		assert.Contains(t, result, "Data")
 	})
@@ -1614,7 +826,7 @@ func TestFormatResponseData(t *testing.T) {
 
 func TestFormatResponseMeta(t *testing.T) {
 	t.Run("NilMeta", func(t *testing.T) {
-		result := formatResponseMeta("test-id", nil)
+		result := resolverpkg.FormatResponseMeta("test-id", nil)
 		assert.Contains(t, result, "RequestID = \"test-id\"")
 	})
 
@@ -1623,7 +835,7 @@ func TestFormatResponseMeta(t *testing.T) {
 			Headers:    &map[string]string{},
 			Properties: &map[string]string{},
 		}
-		result := formatResponseMeta("test-id", meta)
+		result := resolverpkg.FormatResponseMeta("test-id", meta)
 		assert.Contains(t, result, "RequestID = \"test-id\"")
 	})
 
@@ -1634,7 +846,7 @@ func TestFormatResponseMeta(t *testing.T) {
 			Headers:    &headers,
 			Properties: &properties,
 		}
-		result := formatResponseMeta("test-id", meta)
+		result := resolverpkg.FormatResponseMeta("test-id", meta)
 		assert.Contains(t, result, "RequestID = \"test-id\"")
 		assert.Contains(t, result, "Content-Type")
 		assert.Contains(t, result, "key")
@@ -1645,13 +857,13 @@ func TestFormatErrors(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	t.Run("NilErrors", func(t *testing.T) {
-		result := formatErrors(nil, logger)
+		result := resolverpkg.FormatErrors(nil, logger)
 		assert.Empty(t, result)
 	})
 
 	t.Run("EmptyErrors", func(t *testing.T) {
 		errors := &[]*apiserverresponse.APIServerErrorsBlock{}
-		result := formatErrors(errors, logger)
+		result := resolverpkg.FormatErrors(errors, logger)
 		assert.Empty(t, result)
 	})
 
@@ -1662,7 +874,7 @@ func TestFormatErrors(t *testing.T) {
 				Message: "Resource not found",
 			},
 		}
-		result := formatErrors(errors, logger)
+		result := resolverpkg.FormatErrors(errors, logger)
 		assert.Contains(t, result, "Errors")
 		assert.Contains(t, result, "Code = 404")
 		assert.Contains(t, result, "Resource not found")
@@ -1673,26 +885,26 @@ func TestDecodeErrorMessage(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	t.Run("EmptyMessage", func(t *testing.T) {
-		result := decodeErrorMessage("", logger)
+		result := resolverpkg.DecodeErrorMessage("", logger)
 		assert.Empty(t, result)
 	})
 
 	t.Run("PlainMessage", func(t *testing.T) {
 		message := "test message"
-		result := decodeErrorMessage(message, logger)
+		result := resolverpkg.DecodeErrorMessage(message, logger)
 		assert.Equal(t, message, result)
 	})
 
 	t.Run("Base64Message", func(t *testing.T) {
 		message := "dGVzdCBtZXNzYWdl"
-		result := decodeErrorMessage(message, logger)
+		result := resolverpkg.DecodeErrorMessage(message, logger)
 		assert.Equal(t, "test message", result)
 	})
 }
 
 func TestHandleAPIErrorResponse(t *testing.T) {
 	t.Skip("Skipping HandleAPIErrorResponse tests due to external PKL dependency")
-	dr := &DependencyResolver{
+	dr := &resolverpkg.DependencyResolver{
 		Fs:            afero.NewMemMapFs(),
 		Logger:        logging.NewTestLogger(),
 		APIServerMode: true,
@@ -1722,28 +934,28 @@ func TestHandleAPIErrorResponse(t *testing.T) {
 
 func TestFormatMapAndValueHelpers(t *testing.T) {
 	simpleMap := map[interface{}]interface{}{uuid.New().String(): "value"}
-	formatted := formatMap(simpleMap)
+	formatted := resolverpkg.FormatMap(simpleMap)
 	require.Contains(t, formatted, "new Mapping {")
 	require.Contains(t, formatted, "value")
 
 	// Value wrappers
-	require.Equal(t, "null", formatValue(nil))
+	require.Equal(t, "null", resolverpkg.FormatValue(nil))
 
 	// Map[string]interface{}
 	m := map[string]interface{}{"key": "val"}
-	formattedMap := formatValue(m)
+	formattedMap := resolverpkg.FormatValue(m)
 	require.Contains(t, formattedMap, "\"key\"")
 	require.Contains(t, formattedMap, "val")
 
 	// Struct pointer should deref
 	type sample struct{ A string }
 	s := &sample{A: "x"}
-	formattedStruct := formatValue(s)
+	formattedStruct := resolverpkg.FormatValue(s)
 	require.Contains(t, formattedStruct, "A")
 	require.Contains(t, formattedStruct, "x")
 
 	// structToMap should reflect fields
-	stMap := structToMap(sample{A: "y"})
+	stMap := resolverpkg.StructToMap(sample{A: "y"})
 	require.Equal(t, "y", stMap["A"])
 }
 
@@ -1752,11 +964,11 @@ func TestDecodeErrorMessageExtra(t *testing.T) {
 	src := "hello"
 	encoded := base64.StdEncoding.EncodeToString([]byte(src))
 	// Should decode base64
-	out := decodeErrorMessage(encoded, logger)
+	out := resolverpkg.DecodeErrorMessage(encoded, logger)
 	require.Equal(t, src, out)
 
 	// Non-base64 should return original
-	require.Equal(t, src, decodeErrorMessage(src, logger))
+	require.Equal(t, src, resolverpkg.DecodeErrorMessage(src, logger))
 }
 
 // Simple struct for structToMap / formatValue tests
@@ -1767,28 +979,28 @@ type demo struct {
 
 func TestFormatValueVariousTypes(t *testing.T) {
 	// nil becomes "null"
-	assert.Contains(t, formatValue(nil), "null")
+	assert.Contains(t, resolverpkg.FormatValue(nil), "null")
 
 	// map[string]interface{}
 	m := map[string]interface{}{"k1": "v1"}
-	out := formatValue(m)
+	out := resolverpkg.FormatValue(m)
 	assert.Contains(t, out, "[\"k1\"]")
 	assert.Contains(t, out, "v1")
 
 	// pointer to struct
 	d := &demo{FieldA: "abc", FieldB: 123}
-	out2 := formatValue(d)
+	out2 := resolverpkg.FormatValue(d)
 	assert.Contains(t, out2, "FieldA")
 	assert.Contains(t, out2, "abc")
 }
 
 func TestValidatePklFileExtension(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	dr := &DependencyResolver{Fs: fs, ResponsePklFile: "/file.pkl", ResponseTargetFile: "/out.json"}
-	assert.NoError(t, dr.validatePklFileExtension())
+	dr := &resolverpkg.DependencyResolver{Fs: fs, ResponsePklFile: "/file.pkl", ResponseTargetFile: "/out.json"}
+	assert.NoError(t, dr.ValidatePklFileExtension())
 
 	dr.ResponsePklFile = "/file.txt"
-	assert.Error(t, dr.validatePklFileExtension())
+	assert.Error(t, dr.ValidatePklFileExtension())
 }
 
 func TestEnsureResponseTargetFileNotExists(t *testing.T) {
@@ -1796,8 +1008,8 @@ func TestEnsureResponseTargetFileNotExists(t *testing.T) {
 	path := "/out.json"
 	_ = afero.WriteFile(fs, path, []byte("x"), 0o644)
 
-	dr := &DependencyResolver{Fs: fs, ResponseTargetFile: path}
-	assert.NoError(t, dr.ensureResponseTargetFileNotExists())
+	dr := &resolverpkg.DependencyResolver{Fs: fs, ResponseTargetFile: path}
+	assert.NoError(t, dr.EnsureResponseTargetFileNotExists())
 	exists, _ := afero.Exists(fs, path)
 	assert.False(t, exists)
 }

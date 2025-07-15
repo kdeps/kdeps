@@ -1,10 +1,11 @@
-package archiver
+package archiver_test
 
 import (
 	"context"
 	"path/filepath"
 	"testing"
 
+	archiver "github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/schema/gen/project"
 	pklWf "github.com/kdeps/schema/gen/workflow"
@@ -59,7 +60,7 @@ func TestValidatePklResourcesMissingDir(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	err := ValidatePklResources(fs, ctx, "/not/exist", logger)
+	err := archiver.ValidatePklResources(fs, ctx, "/not/exist", logger)
 	if err == nil {
 		t.Fatalf("expected error on missing directory")
 	}
@@ -73,7 +74,7 @@ func TestCollectPklFiles(t *testing.T) {
 	_ = afero.WriteFile(fs, filepath.Join(dir, "a.pkl"), []byte("x"), 0o644)
 	_ = afero.WriteFile(fs, filepath.Join(dir, "b.txt"), []byte("y"), 0o644)
 
-	files, err := collectPklFiles(fs, dir)
+	files, err := archiver.CollectPklFiles(fs, dir)
 	if err != nil {
 		t.Fatalf("collectPklFiles error: %v", err)
 	}

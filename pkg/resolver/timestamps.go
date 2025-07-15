@@ -30,11 +30,11 @@ func (dr *DependencyResolver) getResourcePath(resourceType string) (string, erro
 
 	// Check if PklresHelper is initialized
 	if dr.PklresHelper == nil {
-		return "", fmt.Errorf("PklresHelper is not initialized")
+		return "", errors.New("PklresHelper is not initialized")
 	}
 
 	// Return pklres path
-	return dr.PklresHelper.getResourcePath(resourceType), nil
+	return dr.PklresHelper.GetResourcePath(resourceType), nil
 }
 
 // loadPKLData loads and returns the PKL data from pklres based on resourceType.
@@ -46,7 +46,7 @@ func (dr *DependencyResolver) loadPKLData(resourceType, pklPath string) (interfa
 	resources, err := dr.PklresHelper.retrieveAllResourcesForType(resourceType)
 	if err != nil {
 		// If no content exists, return an error instead of an empty structure
-		return nil, fmt.Errorf("Cannot find module: %w", err)
+		return nil, fmt.Errorf("cannot find module: %w", err)
 	}
 
 	// Build the appropriate structure based on resource type

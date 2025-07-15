@@ -1,4 +1,4 @@
-package agent
+package agent_test
 
 import (
 	"encoding/json"
@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/kdeps/kdeps/pkg/agent"
 	"github.com/kdeps/kdeps/pkg/logging"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/afero"
@@ -18,7 +19,7 @@ func TestPklResourceReader(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Initialize agent reader with temporary database
-	reader, err := InitializeAgent(fs, "/test/kdeps", "testAgent", "1.0.0", logger)
+	reader, err := agent.InitializeAgent(fs, "/test/kdeps", "testAgent", "1.0.0", logger)
 	if err != nil {
 		t.Fatalf("failed to initialize agent reader: %v", err)
 	}
@@ -82,7 +83,7 @@ func TestPklResourceReader(t *testing.T) {
 
 	t.Run("ResolveAgentID_NoContextOrParams", func(t *testing.T) {
 		// Create reader with no context
-		emptyReader, err := InitializeAgent(fs, "/test/kdeps", "", "", logger)
+		emptyReader, err := agent.InitializeAgent(fs, "/test/kdeps", "", "", logger)
 		require.NoError(t, err)
 		defer emptyReader.Close()
 
@@ -110,7 +111,7 @@ func TestPklResourceReader(t *testing.T) {
 		data, err := reader.Read(*uri)
 		require.NoError(t, err)
 
-		var agents []AgentInfo
+		var agents []agent.AgentInfo
 		err = json.Unmarshal(data, &agents)
 		require.NoError(t, err)
 		require.Len(t, agents, 2)
@@ -150,7 +151,7 @@ func TestPklResourceReader(t *testing.T) {
 		err = reader.DB.QueryRow("SELECT data FROM agents WHERE id = ?", agentID).Scan(&storedData)
 		require.NoError(t, err)
 
-		var agentInfo AgentInfo
+		var agentInfo agent.AgentInfo
 		err = json.Unmarshal([]byte(storedData), &agentInfo)
 		require.NoError(t, err)
 		require.Equal(t, "testAgent", agentInfo.Name)
@@ -203,7 +204,7 @@ func TestPklResourceReader(t *testing.T) {
 
 func TestInitializeDatabase(t *testing.T) {
 	t.Run("SuccessfulInitialization", func(t *testing.T) {
-		db, err := InitializeDatabase(":memory:")
+		db, err := agent.InitializeDatabase(":memory:")
 		require.NoError(t, err)
 		require.NotNil(t, db)
 		defer db.Close()
@@ -219,7 +220,7 @@ func TestInitializeAgent(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
-	reader, err := InitializeAgent(fs, "/test/kdeps", "testAgent", "1.0.0", logger)
+	reader, err := agent.InitializeAgent(fs, "/test/kdeps", "testAgent", "1.0.0", logger)
 	require.NoError(t, err)
 	require.NotNil(t, reader)
 	require.NotNil(t, reader.DB)
@@ -233,7 +234,7 @@ func TestInitializeAgent(t *testing.T) {
 }
 
 func TestAgentInfo_JSON(t *testing.T) {
-	agentInfo := AgentInfo{
+	agentInfo := agent.AgentInfo{
 		Name:    "testAgent",
 		Version: "1.0.0",
 		Path:    "/test/path",
@@ -242,7 +243,7 @@ func TestAgentInfo_JSON(t *testing.T) {
 	jsonData, err := json.Marshal(agentInfo)
 	require.NoError(t, err)
 
-	var unmarshaled AgentInfo
+	var unmarshaled agent.AgentInfo
 	err = json.Unmarshal(jsonData, &unmarshaled)
 	require.NoError(t, err)
 	require.Equal(t, agentInfo, unmarshaled)
@@ -253,7 +254,7 @@ func TestTemporaryFileCleanup(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Create agent reader
-	reader, err := InitializeAgent(fs, "/test/kdeps", "testAgent", "1.0.0", logger)
+	reader, err := agent.InitializeAgent(fs, "/test/kdeps", "testAgent", "1.0.0", logger)
 	require.NoError(t, err)
 	require.NotNil(t, reader)
 
@@ -286,7 +287,7 @@ func TestRegisterAllAgentsAndActions(t *testing.T) {
 	fs.MkdirAll(agent2Dir, 0o755)
 
 	// Create workflow.pkl files with actionIDs
-	workflow1Content := `amends "package://schema.kdeps.com/core@0.4.2#/Workflow.pkl"
+	workflow1Content := `amends "package://schema.kdeps.com/core@0.4.3#/Workflow.pkl"
 
 AgentID = "agent1"
 Version = "1.0.0"
@@ -296,7 +297,7 @@ ActionID = "action1"
 ActionID = "action2"
 ActionID = "action3"
 `
-	workflow2Content := `amends "package://schema.kdeps.com/core@0.4.2#/Workflow.pkl"
+	workflow2Content := `amends "package://schema.kdeps.com/core@0.4.3#/Workflow.pkl"
 
 AgentID = "agent2"
 Version = "2.0.0"
@@ -310,7 +311,7 @@ ActionID = "action5"
 	afero.WriteFile(fs, filepath.Join(agent2Dir, "workflow.pkl"), []byte(workflow2Content), 0o644)
 
 	// Initialize agent reader
-	reader, err := InitializeAgent(fs, "/test/kdeps", "agent1", "1.0.0", logger)
+	reader, err := agent.InitializeAgent(fs, "/test/kdeps", "agent1", "1.0.0", logger)
 	require.NoError(t, err)
 	defer reader.Close()
 
@@ -366,7 +367,7 @@ func TestLatestVersionResolution(t *testing.T) {
 	fs.MkdirAll(agent1v10Dir, 0o755)
 
 	// Create workflow.pkl files
-	workflowContent := `amends "package://schema.kdeps.com/core@0.4.2#/Workflow.pkl"
+	workflowContent := `amends "package://schema.kdeps.com/core@0.4.3#/Workflow.pkl"
 
 AgentID = "agent1"
 TargetActionID = "action1"
@@ -380,7 +381,7 @@ ActionID = "action2"
 	afero.WriteFile(fs, filepath.Join(agent1v10Dir, "workflow.pkl"), []byte(workflowContent), 0o644)
 
 	// Initialize agent reader
-	reader, err := InitializeAgent(fs, "/test/kdeps", "agent1", "2.0.0", logger)
+	reader, err := agent.InitializeAgent(fs, "/test/kdeps", "agent1", "2.0.0", logger)
 	require.NoError(t, err)
 	defer reader.Close()
 

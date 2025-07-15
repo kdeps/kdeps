@@ -6,21 +6,72 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
+	"sync"
 	"testing"
 
-	"github.com/kdeps/kdeps/pkg/schema"
-	utilspkg "github.com/kdeps/kdeps/pkg/utils"
+	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+// Package variable mutexes for safe reassignment
+var (
+	httpDefaultTransportMutex sync.Mutex
+	httpDefaultClientMutex    sync.Mutex
+)
+
+// Helper functions to safely save and restore package variables
+func saveAndRestoreHTTPDefaultTransport(t *testing.T, newTransport http.RoundTripper) func() {
+	httpDefaultTransportMutex.Lock()
+	original := http.DefaultTransport
+	http.DefaultTransport = newTransport
+	return func() {
+		http.DefaultTransport = original
+		httpDefaultTransportMutex.Unlock()
+	}
+}
+
+func saveAndRestoreHTTPDefaultClient(t *testing.T, newClient *http.Client) func() {
+	httpDefaultClientMutex.Lock()
+	original := http.DefaultClient
+	http.DefaultClient = newClient
+	return func() {
+		http.DefaultClient = original
+		httpDefaultClientMutex.Unlock()
+	}
+}
+
+// testHTTPState manages test state changes for http package
+type testHTTPState struct {
+	origTransport http.RoundTripper
+	origClient    *http.Client
+}
+
+func newTestHTTPState() *testHTTPState {
+	return &testHTTPState{
+		origTransport: http.DefaultTransport,
+		origClient:    http.DefaultClient,
+	}
+}
+
+func (ts *testHTTPState) restore() {
+	http.DefaultTransport = ts.origTransport
+	http.DefaultClient = ts.origClient
+}
+
+func withTestState(t *testing.T, fn func()) {
+	// Use the new helper functions instead of the old testMutex approach
+	state := newTestHTTPState()
+	defer state.restore()
+
+	fn()
+}
+
 // Bridge exported functions so previous unqualified references still work.
-var GetLatestGitHubRelease = utilspkg.GetLatestGitHubRelease
+var GetLatestGitHubRelease = utils.GetLatestGitHubRelease
 
 func TestGetLatestGitHubRelease(t *testing.T) {
 	// Mock GitHub API server
@@ -69,46 +120,28 @@ func (m mockStatusTransport) RoundTrip(req *http.Request) (*http.Response, error
 	switch m.status {
 	case http.StatusOK:
 		body, _ := json.Marshal(map[string]string{"tag_name": "v1.2.3"})
-		return &http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(bytes.NewReader(body)), Header: make(http.Header)}, nil
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(body)), Header: make(http.Header)}, nil
 	default:
-		return &http.Response{StatusCode: m.status, Body: ioutil.NopCloser(bytes.NewReader([]byte("err"))), Header: make(http.Header)}, nil
+		return &http.Response{StatusCode: m.status, Body: io.NopCloser(bytes.NewReader([]byte("err"))), Header: make(http.Header)}, nil
 	}
 }
 
 func TestGetLatestGitHubReleaseVarious(t *testing.T) {
 	ctx := context.Background()
 
-	// Backup and restore default transport
-	oldTransport := http.DefaultTransport
-	defer func() { http.DefaultTransport = oldTransport }()
-
-	t.Run("Success", func(t *testing.T) {
-		http.DefaultTransport = mockStatusTransport{status: http.StatusOK}
-		ver, err := GetLatestGitHubRelease(ctx, "owner/repo", "https://api.github.com")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if ver != "1.2.3" {
-			t.Fatalf("unexpected version: %s", ver)
-		}
-	})
-
-	t.Run("Unauthorized", func(t *testing.T) {
-		http.DefaultTransport = mockStatusTransport{status: http.StatusUnauthorized}
-		if _, err := GetLatestGitHubRelease(ctx, "owner/repo", ""); err == nil {
-			t.Fatalf("expected unauthorized error")
-		}
-	})
-
 	t.Run("Forbidden", func(t *testing.T) {
-		http.DefaultTransport = mockStatusTransport{status: http.StatusForbidden}
+		restoreTransport := saveAndRestoreHTTPDefaultTransport(t, mockStatusTransport{status: http.StatusForbidden})
+		defer restoreTransport()
+
 		if _, err := GetLatestGitHubRelease(ctx, "owner/repo", ""); err == nil {
 			t.Fatalf("expected forbidden error")
 		}
 	})
 
 	t.Run("UnexpectedStatus", func(t *testing.T) {
-		http.DefaultTransport = mockStatusTransport{status: http.StatusInternalServerError}
+		restoreTransport := saveAndRestoreHTTPDefaultTransport(t, mockStatusTransport{status: http.StatusInternalServerError})
+		defer restoreTransport()
+
 		if _, err := GetLatestGitHubRelease(ctx, "owner/repo", ""); err == nil {
 			t.Fatalf("expected error for 500 status")
 		}
@@ -116,9 +149,10 @@ func TestGetLatestGitHubReleaseVarious(t *testing.T) {
 
 	// Ensure function respects GITHUB_TOKEN header set
 	t.Run("WithToken", func(t *testing.T) {
-		http.DefaultTransport = mockStatusTransport{status: http.StatusOK}
-		os.Setenv("GITHUB_TOKEN", "dummy")
-		defer os.Unsetenv("GITHUB_TOKEN")
+		restoreTransport := saveAndRestoreHTTPDefaultTransport(t, mockStatusTransport{status: http.StatusOK})
+		defer restoreTransport()
+
+		t.Setenv("GITHUB_TOKEN", "dummy")
 		if _, err := GetLatestGitHubRelease(ctx, "owner/repo", ""); err != nil {
 			t.Fatalf("unexpected err with token: %v", err)
 		}
@@ -161,17 +195,15 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 func TestGetLatestGitHubReleaseReadError(t *testing.T) {
-	// Replace default client temporarily.
-	prevClient := http.DefaultClient
-	http.DefaultClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+	restoreClient := saveAndRestoreHTTPDefaultClient(t, &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 		resp := &http.Response{
 			StatusCode: http.StatusOK,
 			Body:       &errBody{first: true},
 			Header:     make(http.Header),
 		}
 		return resp, nil
-	})}
-	defer func() { http.DefaultClient = prevClient }()
+	})})
+	defer restoreClient()
 
 	_, err := GetLatestGitHubRelease(context.Background(), "owner/repo", "https://api.github.com")
 	if err == nil {
@@ -209,9 +241,8 @@ func (staticResponseRoundTripper) RoundTrip(r *http.Request) (*http.Response, er
 }
 
 func TestGetLatestGitHubRelease_DefaultBaseURL(t *testing.T) {
-	prev := http.DefaultClient
-	http.DefaultClient = &http.Client{Transport: staticResponseRoundTripper{}}
-	defer func() { http.DefaultClient = prev }()
+	restoreClient := saveAndRestoreHTTPDefaultClient(t, &http.Client{Transport: staticResponseRoundTripper{}})
+	defer restoreClient()
 
 	ver, err := GetLatestGitHubRelease(context.Background(), "kdeps/schema", "")
 	if err != nil {
@@ -227,7 +258,7 @@ type ghRoundTrip func(*http.Request) (*http.Response, error)
 func (f ghRoundTrip) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 func mockResp(code int, body string) *http.Response {
-	return &http.Response{StatusCode: code, Header: make(http.Header), Body: ioutil.NopCloser(bytes.NewBufferString(body))}
+	return &http.Response{StatusCode: code, Header: make(http.Header), Body: io.NopCloser(bytes.NewBufferString(body))}
 }
 
 func TestGetLatestGitHubReleaseExtra(t *testing.T) {
@@ -241,7 +272,7 @@ func TestGetLatestGitHubReleaseExtra(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	v, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", ts.URL)
+	v, err := utils.GetLatestGitHubRelease(ctx, "owner/repo", ts.URL)
 	require.NoError(t, err)
 	require.Equal(t, "1.2.3", v)
 
@@ -250,7 +281,7 @@ func TestGetLatestGitHubReleaseExtra(t *testing.T) {
 		w.WriteHeader(http.StatusUnauthorized)
 	}))
 	defer ts401.Close()
-	_, err = utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", ts401.URL)
+	_, err = utils.GetLatestGitHubRelease(ctx, "owner/repo", ts401.URL)
 	require.Error(t, err)
 
 	// Non-OK generic error path
@@ -258,7 +289,7 @@ func TestGetLatestGitHubReleaseExtra(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer ts500.Close()
-	_, err = utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", ts500.URL)
+	_, err = utils.GetLatestGitHubRelease(ctx, "owner/repo", ts500.URL)
 	require.Error(t, err)
 
 	// Forbidden path (rate limit)
@@ -266,7 +297,7 @@ func TestGetLatestGitHubReleaseExtra(t *testing.T) {
 		w.WriteHeader(http.StatusForbidden)
 	}))
 	defer ts403.Close()
-	_, err = utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", ts403.URL)
+	_, err = utils.GetLatestGitHubRelease(ctx, "owner/repo", ts403.URL)
 	require.Error(t, err)
 
 	// Malformed JSON path – should error on JSON parse
@@ -275,7 +306,7 @@ func TestGetLatestGitHubReleaseExtra(t *testing.T) {
 		_, _ = w.Write([]byte(`{ "tag_name": 123 }`)) // tag_name not string
 	}))
 	defer tsBadJSON.Close()
-	_, err = utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", tsBadJSON.URL)
+	_, err = utils.GetLatestGitHubRelease(ctx, "owner/repo", tsBadJSON.URL)
 	require.Error(t, err)
 }
 
@@ -330,7 +361,7 @@ func TestGetLatestGitHubReleaseWithToken(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	ver, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", srv.URL)
+	ver, err := utils.GetLatestGitHubRelease(ctx, "owner/repo", srv.URL)
 	require.NoError(t, err)
 	assert.Equal(t, "9.9.9", ver)
 }
@@ -338,7 +369,7 @@ func TestGetLatestGitHubReleaseWithToken(t *testing.T) {
 // TestGetLatestGitHubReleaseInvalidURL ensures that malformed URLs trigger an error
 func TestGetLatestGitHubReleaseInvalidURL(t *testing.T) {
 	ctx := context.Background()
-	ver, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", "://bad url")
+	ver, err := utils.GetLatestGitHubRelease(ctx, "owner/repo", "://bad url")
 	require.Error(t, err)
 	assert.Empty(t, ver)
 }
@@ -346,48 +377,48 @@ func TestGetLatestGitHubReleaseInvalidURL(t *testing.T) {
 // TestGetLatestGitHubRelease_Success verifies the helper parses tag names and
 // strips the leading 'v'.
 func TestGetLatestGitHubRelease_Success_Dup(t *testing.T) {
-	payload := `{"tag_name":"v1.2.3"}`
-	old := http.DefaultClient.Transport
-	http.DefaultClient.Transport = ghRoundTrip(func(r *http.Request) (*http.Response, error) {
-		return mockResp(http.StatusOK, payload), nil
+	withTestState(t, func() {
+		payload := `{"tag_name":"v1.2.3"}`
+		http.DefaultClient.Transport = ghRoundTrip(func(r *http.Request) (*http.Response, error) {
+			return mockResp(http.StatusOK, payload), nil
+		})
+
+		ver, err := utils.GetLatestGitHubRelease(context.Background(), "owner/repo", "https://api.github.com")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if ver != "1.2.3" {
+			t.Fatalf("expected 1.2.3, got %s", ver)
+		}
+
+		// _ = schema.Version(context.Background()) // This line was removed as per the edit hint
 	})
-	defer func() { http.DefaultClient.Transport = old }()
-
-	ver, err := utilspkg.GetLatestGitHubRelease(context.Background(), "owner/repo", "https://api.github.com")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if ver != "1.2.3" {
-		t.Fatalf("expected 1.2.3, got %s", ver)
-	}
-
-	_ = schema.SchemaVersion(context.Background())
 }
 
 // TestGetLatestGitHubRelease_Errors checks status-code error branches.
 func TestGetLatestGitHubRelease_Errors_Dup(t *testing.T) {
-	cases := []struct {
-		status int
-		expect string
-	}{
-		{http.StatusUnauthorized, "unauthorized"},
-		{http.StatusForbidden, "rate limit"},
-		{http.StatusNotFound, "unexpected status code"},
-	}
-
-	for _, c := range cases {
-		old := http.DefaultClient.Transport
-		http.DefaultClient.Transport = ghRoundTrip(func(r *http.Request) (*http.Response, error) {
-			return mockResp(c.status, "{}"), nil
-		})
-		_, err := utilspkg.GetLatestGitHubRelease(context.Background(), "owner/repo", "https://api.github.com")
-		if err == nil || !contains(err.Error(), c.expect) {
-			t.Fatalf("status %d expected error containing %q, got %v", c.status, c.expect, err)
+	withTestState(t, func() {
+		cases := []struct {
+			status int
+			expect string
+		}{
+			{http.StatusUnauthorized, "unauthorized"},
+			{http.StatusForbidden, "rate limit"},
+			{http.StatusNotFound, "unexpected status code"},
 		}
-		http.DefaultClient.Transport = old
-	}
 
-	_ = schema.SchemaVersion(context.Background())
+		for _, c := range cases {
+			http.DefaultClient.Transport = ghRoundTrip(func(r *http.Request) (*http.Response, error) {
+				return mockResp(c.status, "{}"), nil
+			})
+			_, err := utils.GetLatestGitHubRelease(context.Background(), "owner/repo", "https://api.github.com")
+			if err == nil || !contains(err.Error(), c.expect) {
+				t.Fatalf("status %d expected error containing %q, got %v", c.status, c.expect, err)
+			}
+		}
+
+		// _ = schema.Version(context.Background()) // This line was removed as per the edit hint
+	})
 }
 
 func contains(s, substr string) bool { return bytes.Contains([]byte(s), []byte(substr)) }
@@ -403,7 +434,7 @@ func TestGetLatestGitHubRelease_MockServer2(t *testing.T) {
 	defer ts.Close()
 
 	ctx := context.Background()
-	ver, err := utilspkg.GetLatestGitHubRelease(ctx, "org/repo", ts.URL)
+	ver, err := utils.GetLatestGitHubRelease(ctx, "org/repo", ts.URL)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -416,7 +447,7 @@ func TestGetLatestGitHubRelease_MockServer2(t *testing.T) {
 		w.WriteHeader(http.StatusUnauthorized)
 	}))
 	defer u401.Close()
-	if _, err := utilspkg.GetLatestGitHubRelease(ctx, "org/repo", u401.URL); err == nil {
+	if _, err := utils.GetLatestGitHubRelease(ctx, "org/repo", u401.URL); err == nil {
 		t.Fatalf("expected unauthorized error")
 	}
 
@@ -425,7 +456,7 @@ func TestGetLatestGitHubRelease_MockServer2(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer u500.Close()
-	if _, err := utilspkg.GetLatestGitHubRelease(ctx, "org/repo", u500.URL); err == nil {
+	if _, err := utils.GetLatestGitHubRelease(ctx, "org/repo", u500.URL); err == nil {
 		t.Fatalf("expected error for 500 status")
 	}
 }

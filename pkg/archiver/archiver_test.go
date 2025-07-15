@@ -1,4 +1,4 @@
-package archiver
+package archiver_test
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/cucumber/godog"
+	archiver "github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/evaluator"
@@ -106,7 +107,7 @@ func aKdepsArchiveIsOpened(arg1 string) error {
 		return errors.New("agent should not yet exists on system agents dir")
 	}
 
-	proj, err := ExtractPackage(testFs, ctx, kdepsDir, lastCreatedPackage, logger)
+	proj, err := archiver.ExtractPackage(testFs, ctx, kdepsDir, lastCreatedPackage, logger)
 	if err != nil {
 		return err
 	}
@@ -210,7 +211,7 @@ func theProjectIsCompiled() error {
 		Pwd:  resourcesDir,
 	}
 
-	projectDir, _, _ := CompileProject(testFs, ctx, wf, kdepsDir, aiAgentDir, env, logger)
+	projectDir, _, _ := archiver.CompileProject(testFs, ctx, wf, kdepsDir, aiAgentDir, env, logger)
 
 	workflowFile = filepath.Join(projectDir, "workflow.pkl")
 
@@ -372,7 +373,7 @@ func theProjectWillBeArchivedTo(arg1 string) error {
 		return err
 	}
 
-	fpath, err := PackageProject(testFs, ctx, wf, kdepsDir, aiAgentDir, logger)
+	fpath, err := archiver.PackageProject(testFs, ctx, wf, kdepsDir, aiAgentDir, logger)
 	if err != nil {
 		return err
 	}
@@ -449,7 +450,7 @@ func theProjectWillNotBeArchivedTo(arg1 string) error {
 		return err
 	}
 
-	fpath, err := PackageProject(testFs, ctx, wf, kdepsDir, aiAgentDir, logger)
+	fpath, err := archiver.PackageProject(testFs, ctx, wf, kdepsDir, aiAgentDir, logger)
 	if err == nil {
 		return errors.New("expected an error, but got nil")
 	}
@@ -763,14 +764,14 @@ Run {
 		workflowSchema, err := assets.GetPKLFileAsString("Workflow.pkl")
 		require.NoError(t, err)
 
-		// Verify v0.4.2 workflow properties are defined
+		// Verify v0.4.3 workflow properties are defined
 		assert.Contains(t, workflowSchema, "AgentID: String")
 		assert.Contains(t, workflowSchema, "Settings: Project.Settings")
 
 		resourceSchema, err := assets.GetPKLFileAsString("Resource.pkl")
 		require.NoError(t, err)
 
-		// Verify v0.4.2 resource properties are defined
+		// Verify v0.4.3 resource properties are defined
 		assert.Contains(t, resourceSchema, "ActionID: String")
 		assert.Contains(t, resourceSchema, "PostflightCheck: ValidationCheck?")
 		assert.Contains(t, resourceSchema, "AllowedHeaders: Listing<String>?")
@@ -781,11 +782,11 @@ Run {
 		projectSchema, err := assets.GetPKLFileAsString("Project.pkl")
 		require.NoError(t, err)
 
-		// Verify v0.4.2 project settings properties
+		// Verify v0.4.3 project settings properties
 		assert.Contains(t, projectSchema, "RateLimitMax: Int? = 100")
 		assert.Contains(t, projectSchema, "Environment: BuildEnv? = \"dev\"")
 
-		t.Logf("Schema validation completed for v0.4.2 properties")
+		t.Logf("Schema validation completed for v0.4.3 properties")
 	})
 
 	t.Run("ArchiveProjectWithAssets", func(t *testing.T) {

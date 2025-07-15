@@ -635,3 +635,23 @@ func serializeTools(builder *strings.Builder, tools *[]*pklLLM.Tool) {
 	}
 	builder.WriteString("    }\n")
 }
+
+// Exported for testing
+var (
+	ProcessToolCalls           = processToolCalls
+	ParseToolCallArgs          = parseToolCallArgs
+	DeduplicateToolCalls       = deduplicateToolCalls
+	ExtractToolNames           = extractToolNames
+	EncodeTools                = encodeTools
+	EncodeToolParameters       = encodeToolParameters
+	GenerateAvailableTools     = generateAvailableTools
+	ConstructToolCallsFromJSON = constructToolCallsFromJSON
+	BuildToolURI               = buildToolURI
+)
+
+var (
+	ConvertToolParamsToString = convertToolParamsToString
+	ExtractToolParams         = extractToolParams
+	ExtractToolNamesFromTools = extractToolNamesFromTools
+	SerializeTools            = serializeTools
+)

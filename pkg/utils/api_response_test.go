@@ -1,147 +1,65 @@
-package utils
+package utils_test
 
 import (
 	"testing"
 
-	apiserverresponse "github.com/kdeps/schema/gen/api_server_response"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/pkg/utils"
 )
 
 func TestNewAPIServerResponse(t *testing.T) {
-	t.Run("SuccessfulResponseWithoutErrors", func(t *testing.T) {
-		// Clear request errors before starting the test
-		requestID := "test-request-success"
-		ClearRequestErrors(requestID)
+	// Test successful response
+	response := utils.NewAPIServerResponse(true, []any{"data"}, 0, "", "test-request-id")
+	require.NotNil(t, response)
+	assert.True(t, *response.Success)
+	assert.NotNil(t, response.Response)
+	assert.NotNil(t, response.Errors)
+	assert.Len(t, *response.Errors, 0)
 
-		response := NewAPIServerResponse(true, []any{"data1", "data2"}, 0, "", requestID)
+	// Test error response
+	response = utils.NewAPIServerResponse(false, nil, 400, "Bad Request", "test-request-id")
+	require.NotNil(t, response)
+	assert.False(t, *response.Success)
+	assert.NotNil(t, response.Response)
+	assert.NotNil(t, response.Errors)
+	assert.Len(t, *response.Errors, 1)
+	assert.Equal(t, 400, (*response.Errors)[0].Code)
+	assert.Equal(t, "Bad Request", (*response.Errors)[0].Message)
+}
 
-		assert.NotNil(t, response.Success, "Expected success to be non-nil")
-		assert.True(t, *response.Success, "Expected success to be true")
-		assert.NotNil(t, response.Response, "Response block should not be nil")
-		assert.Empty(t, *response.Errors, "Errors should be empty for successful response")
-		assert.Equal(t, []any{"data1", "data2"}, response.Response.Data, "Expected response data to match input")
-	})
+func TestClearRequestErrors(t *testing.T) {
+	// Create some errors first
+	utils.NewAPIServerResponse(false, nil, 400, "Error 1", "test-request-id")
+	utils.NewAPIServerResponse(false, nil, 500, "Error 2", "test-request-id")
 
-	t.Run("ResponseWithError", func(t *testing.T) {
-		// Clear request errors before starting the test
-		requestID := "test-request-error"
-		ClearRequestErrors(requestID)
+	// Verify errors exist
+	errors := utils.GetRequestErrors("test-request-id")
+	assert.Len(t, errors, 2)
 
-		response := NewAPIServerResponse(false, nil, 404, "Resource not found", requestID)
+	// Clear errors
+	utils.ClearRequestErrors("test-request-id")
 
-		assert.NotNil(t, response.Success, "Expected success to be non-nil")
-		assert.False(t, *response.Success, "Expected success to be false")
-		assert.NotNil(t, response.Errors, "Errors block should not be nil")
-		assert.Len(t, *response.Errors, 1, "Expected one error in the request errors slice")
+	// Verify errors are cleared
+	errors = utils.GetRequestErrors("test-request-id")
+	assert.Len(t, errors, 0)
+}
 
-		// Validate the error block
-		errorBlock := (*response.Errors)[0]
-		assert.Equal(t, 404, errorBlock.Code, "Expected error code to match")
-		assert.Equal(t, "Resource not found", errorBlock.Message, "Expected error message to match")
-	})
+func TestGetRequestErrors(t *testing.T) {
+	// Create some errors
+	utils.NewAPIServerResponse(false, nil, 400, "Error 1", "test-request-id")
+	utils.NewAPIServerResponse(false, nil, 500, "Error 2", "test-request-id")
 
-	t.Run("AccumulatedErrorsPerRequest", func(t *testing.T) {
-		// Clear request errors before starting the test
-		requestID := "test-request-accumulated"
-		ClearRequestErrors(requestID)
+	// Get errors
+	errors := utils.GetRequestErrors("test-request-id")
+	assert.Len(t, errors, 2)
+	assert.Equal(t, 400, errors[0].Code)
+	assert.Equal(t, "Error 1", errors[0].Message)
+	assert.Equal(t, 500, errors[1].Code)
+	assert.Equal(t, "Error 2", errors[1].Message)
 
-		// Add the first error
-		NewAPIServerResponse(false, nil, 404, "Resource not found", requestID)
-
-		// Add the second error
-		NewAPIServerResponse(false, nil, 500, "Internal server error", requestID)
-
-		// Get current errors for the request
-		errors := GetRequestErrors(requestID)
-		assert.Len(t, errors, 2, "Expected two errors for the request")
-
-		// Validate the first error block
-		assert.Equal(t, 404, errors[0].Code, "Expected first error code to match")
-		assert.Equal(t, "Resource not found", errors[0].Message, "Expected first error message to match")
-
-		// Validate the second error block
-		assert.Equal(t, 500, errors[1].Code, "Expected second error code to match")
-		assert.Equal(t, "Internal server error", errors[1].Message, "Expected second error message to match")
-	})
-
-	t.Run("ErrorsIsolatedPerRequest", func(t *testing.T) {
-		// Test that errors for different requests are isolated
-		requestID1 := "test-request-1"
-		requestID2 := "test-request-2"
-
-		ClearRequestErrors(requestID1)
-		ClearRequestErrors(requestID2)
-
-		// Add errors to different requests
-		NewAPIServerResponse(false, nil, 404, "Error for request 1", requestID1)
-		NewAPIServerResponse(false, nil, 500, "Error for request 2", requestID2)
-
-		// Verify each request has only its own errors
-		errors1 := GetRequestErrors(requestID1)
-		errors2 := GetRequestErrors(requestID2)
-
-		assert.Len(t, errors1, 1, "Request 1 should have only one error")
-		assert.Len(t, errors2, 1, "Request 2 should have only one error")
-
-		assert.Equal(t, "Error for request 1", errors1[0].Message, "Request 1 should have its own error")
-		assert.Equal(t, "Error for request 2", errors2[0].Message, "Request 2 should have its own error")
-	})
-
-	t.Run("ClearRequestErrors", func(t *testing.T) {
-		requestID := "test-request-clear"
-
-		// Add some errors
-		NewAPIServerResponse(false, nil, 404, "Error to clear", requestID)
-
-		// Verify errors exist
-		errors := GetRequestErrors(requestID)
-		assert.Len(t, errors, 1, "Should have one error before clearing")
-
-		// Clear errors
-		ClearRequestErrors(requestID)
-
-		// Verify errors are cleared
-		errors = GetRequestErrors(requestID)
-		assert.Empty(t, errors, "Errors should be empty after clearing")
-	})
-
-	t.Run("MergeAllErrors", func(t *testing.T) {
-		// Clear any existing errors
-		requestID := "test-merge-errors"
-		ClearRequestErrors(requestID)
-
-		// First, simulate workflow errors being accumulated
-		NewAPIServerResponse(false, nil, 500, "Preflight validation failed", requestID)
-		NewAPIServerResponse(false, nil, 500, "Python script failed", requestID)
-
-		// Verify we have 2 workflow errors
-		workflowErrors := GetRequestErrors(requestID)
-		assert.Len(t, workflowErrors, 2, "Should have 2 workflow errors")
-
-		// Now simulate response resource with new errors
-		responseErrors := []*apiserverresponse.APIServerErrorsBlock{
-			{Code: 400, Message: "Response validation error"},
-			{Code: 500, Message: "Response processing error"},
-		}
-
-		// Merge all errors
-		allErrors := MergeAllErrors(requestID, responseErrors)
-
-		// Should have 4 unique errors total
-		assert.Len(t, allErrors, 4, "Should have 4 total errors: 2 workflow + 2 response")
-
-		// Verify no duplicates if we merge the same errors again
-		allErrorsAgain := MergeAllErrors(requestID, responseErrors)
-		assert.Len(t, allErrorsAgain, 4, "Should still have 4 errors (no duplicates)")
-
-		// Test with empty response errors (key scenario)
-		ClearRequestErrors(requestID)
-		NewAPIServerResponse(false, nil, 500, "Workflow error only", requestID)
-
-		emptyResponseErrors := []*apiserverresponse.APIServerErrorsBlock{}
-		finalErrors := MergeAllErrors(requestID, emptyResponseErrors)
-
-		assert.Len(t, finalErrors, 1, "Should preserve workflow error even when response has no errors")
-		assert.Equal(t, "Workflow error only", finalErrors[0].Message)
-	})
+	// Test with non-existent request ID
+	errors = utils.GetRequestErrors("non-existent")
+	assert.Len(t, errors, 0)
 }

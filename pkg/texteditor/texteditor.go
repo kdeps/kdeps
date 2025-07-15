@@ -68,7 +68,7 @@ func (r *realEditorCmd) SetIO(stdin, stdout, stderr *os.File) {
 
 var editorCmd = editor.Cmd
 
-func realEditorCmdFactory(editorName, filePath string) (EditorCmd, error) {
+var RealEditorCmdFactory EditorCmdFunc = func(editorName, filePath string) (EditorCmd, error) {
 	cmd, err := editorCmd(editorName, filePath)
 	if err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func EditPklWithFactory(fs afero.Fs, ctx context.Context, filePath string, logge
 	}
 
 	if factory == nil {
-		factory = realEditorCmdFactory
+		factory = RealEditorCmdFactory
 	}
 
 	edCmd, err := factory("kdeps", filePath)

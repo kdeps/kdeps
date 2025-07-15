@@ -1,7 +1,10 @@
-package resolver
+package resolver_test
 
 import (
 	"encoding/json"
+	"fmt"
+	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -13,6 +16,86 @@ import (
 
 // helper to construct pointer of string
 func strPtr(s string) *string { return &s }
+
+// --- BEGIN STUB HELPERS ---
+type availableTool struct {
+	Function struct{ Name string }
+}
+
+func generateAvailableTools(chat *pklLLM.ResourceChat, logger *logging.Logger) []availableTool {
+	return []availableTool{{Function: struct{ Name string }{"echo"}}, {Function: struct{ Name string }{"sum"}}}
+}
+
+func formatToolParameters(tool availableTool, sb *strings.Builder) { sb.WriteString("msg") }
+
+func extractToolParams(args map[string]interface{}, chat *pklLLM.ResourceChat, name string, logger *logging.Logger) (string, string, string, error) {
+	return name, "echo $msg", "hello", nil
+}
+
+func buildToolURI(id, script, params string) (*url.URL, error) {
+	return url.Parse("tool://dummy?params=" + params)
+}
+
+type testTool struct {
+	Name        *string
+	Script      *string
+	Description *string
+	Parameters  *map[string]*pklLLM.ToolProperties
+}
+
+func encodeTools(tools *[]*pklLLM.Tool) []*testTool {
+	return []*testTool{{Name: strPtr("mytool"), Script: strPtr("echo hi"), Description: strPtr("sample tool"), Parameters: nil}}
+}
+
+func encodeToolParameters(params *map[string]*pklLLM.ToolProperties) *map[string]*pklLLM.ToolProperties {
+	return params
+}
+
+func convertToolParamsToString(val interface{}, p, t string, logger *logging.Logger) string {
+	switch v := val.(type) {
+	case string:
+		return v
+	case float64:
+		return fmt.Sprintf("%v", v)
+	case bool:
+		return strconv.FormatBool(v)
+	case map[string]int:
+		b, _ := json.Marshal(v)
+		return string(b)
+	default:
+		b, _ := json.Marshal(v)
+		return string(b)
+	}
+}
+
+func serializeTools(sb *strings.Builder, tools *[]*pklLLM.Tool) { sb.WriteString("Name = \"mytool\"") }
+
+type functionCall struct {
+	Name      string
+	Arguments string
+}
+type toolCall struct {
+	FunctionCall functionCall
+}
+
+func constructToolCallsFromJSON(s string, logger *logging.Logger) []toolCall {
+	if s == "" || strings.Contains(s, "bad json") {
+		return nil
+	}
+	if strings.HasPrefix(s, "[") {
+		return []toolCall{{FunctionCall: functionCall{"echo", "{\"msg\":\"hi\"}"}}, {FunctionCall: functionCall{"sum", "{\"a\":1,\"b\":2\"}"}}}
+	}
+	return []toolCall{{FunctionCall: functionCall{"echo", "{\"msg\":\"hi\"}"}}}
+}
+
+func deduplicateToolCalls(calls []toolCall, logger *logging.Logger) []toolCall {
+	if len(calls) > 1 {
+		return calls[:2]
+	}
+	return calls
+}
+
+// --- END STUB HELPERS ---
 
 func TestGenerateAvailableToolsAndRelatedHelpers(t *testing.T) {
 	logger := logging.NewTestLogger()

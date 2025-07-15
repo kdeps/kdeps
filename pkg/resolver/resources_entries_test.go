@@ -1,4 +1,4 @@
-package resolver
+package resolver_test
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
+	resolverpkg "github.com/kdeps/kdeps/pkg/resolver"
 	pklRes "github.com/kdeps/schema/gen/resource"
 	"github.com/spf13/afero"
 )
@@ -37,7 +38,7 @@ func TestLoadResourceEntries(t *testing.T) {
 		}
 	}
 
-	dr := &DependencyResolver{
+	dr := &resolverpkg.DependencyResolver{
 		Fs:                   fs,
 		Logger:               logger,
 		WorkflowDir:          workflowDir,
@@ -45,12 +46,12 @@ func TestLoadResourceEntries(t *testing.T) {
 		RequestID:            "req1",
 		RequestPklFile:       filepath.Join("/action", "api/req1__request.pkl"),
 		ResourceDependencies: make(map[string][]string),
-		Resources:            []ResourceNodeEntry{},
+		Resources:            []resolverpkg.ResourceNodeEntry{},
 		Context:              context.Background(),
 	}
 
 	// stub LoadResourceFn to avoid real evaluation; just return a Resource with ActionID = filename (no extension)
-	dr.LoadResourceFn = func(_ context.Context, path string, _ ResourceType) (interface{}, error) {
+	dr.LoadResourceFn = func(_ context.Context, path string, _ resolverpkg.ResourceType) (interface{}, error) {
 		base := filepath.Base(path)
 		id := strings.TrimSuffix(base, filepath.Ext(base))
 		return &pklRes.Resource{ActionID: id}, nil
@@ -59,7 +60,7 @@ func TestLoadResourceEntries(t *testing.T) {
 	// Manually invoke processPklFile for each dummy file instead of walking the directory
 	for _, f := range files {
 		p := filepath.Join(resourcesDir, f)
-		if err := dr.processPklFile(p); err != nil {
+		if err := dr.ProcessPklFile(p); err != nil {
 			t.Fatalf("processPklFile returned error for %s: %v", p, err)
 		}
 	}
@@ -78,7 +79,7 @@ func TestLoadResourceEntries(t *testing.T) {
 }
 
 func TestHandleFileImports_DelegatesToInjectedFns(t *testing.T) {
-	dr := &DependencyResolver{}
+	dr := &resolverpkg.DependencyResolver{}
 
 	calledPrepend := false
 	calledPlaceholder := false
@@ -100,7 +101,7 @@ func TestHandleFileImports_DelegatesToInjectedFns(t *testing.T) {
 		return nil
 	}
 
-	if err := dr.handleFileImports(argPath); err != nil {
+	if err := dr.HandleFileImports(argPath); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -110,13 +111,13 @@ func TestHandleFileImports_DelegatesToInjectedFns(t *testing.T) {
 }
 
 func TestHandleFileImports_PropagatesError(t *testing.T) {
-	dr := &DependencyResolver{}
+	dr := &resolverpkg.DependencyResolver{}
 
 	dr.PrependDynamicImportsFn = func(p string) error {
 		return errors.New("boom")
 	}
 
-	if err := dr.handleFileImports("file.pkl"); err == nil {
+	if err := dr.HandleFileImports("file.pkl"); err == nil {
 		t.Fatal("expected error but got nil")
 	}
 }

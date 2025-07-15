@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/docker/docker/client"
 	"github.com/kdeps/kdeps/pkg/archiver"
@@ -21,7 +20,7 @@ func NewRunCommand(fs afero.Fs, ctx context.Context, kdepsDir string, systemCfg 
 		Example: "$ kdeps run ./myAgent.kdeps",
 		Short:   "Build and run a dockerized AI agent container",
 		Args:    cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			pkgFile := args[0]
 			// Add your logic to run the docker container here
 			pkgProject, err := archiver.ExtractPackage(fs, ctx, kdepsDir, pkgFile, logger)
@@ -40,8 +39,8 @@ func NewRunCommand(fs afero.Fs, ctx context.Context, kdepsDir string, systemCfg 
 			if err != nil {
 				return err
 			}
-			if err := docker.CleanupDockerBuildImages(fs, ctx, agentContainerName, dockerClient); err != nil {
-				return err
+			if cleanupErr := docker.CleanupDockerBuildImages(fs, ctx, agentContainerName, dockerClient); cleanupErr != nil {
+				return cleanupErr
 			}
 			containerID, err := docker.CreateDockerContainer(fs, ctx, agentContainerName,
 				agentContainerNameAndVersion, hostIP, hostPort, webHostIP, webHostNum, gpuType,
@@ -49,7 +48,7 @@ func NewRunCommand(fs afero.Fs, ctx context.Context, kdepsDir string, systemCfg 
 			if err != nil {
 				return err
 			}
-			fmt.Println("Kdeps AI Agent docker container created:", containerID)
+			logger.Info("Kdeps AI Agent docker container created", "containerID", containerID)
 			return nil
 		},
 	}

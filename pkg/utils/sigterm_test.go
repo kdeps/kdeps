@@ -1,4 +1,4 @@
-package utils
+package utils_test
 
 import (
 	"os"
@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -22,7 +23,7 @@ func TestSendSigterm(t *testing.T) {
 	defer signal.Stop(sigChan)
 
 	// Run SendSigterm in a goroutine to avoid blocking
-	go SendSigterm(logging.GetLogger())
+	go utils.SendSigterm(logging.GetLogger())
 
 	// Wait for the signal to be sent
 	select {
@@ -53,7 +54,7 @@ func TestSendSigterm_Subprocess(t *testing.T) {
 			<-sigCh
 			os.Exit(0) // graceful exit when signal received
 		}()
-		SendSigterm(logging.NewTestLogger())
+		utils.SendSigterm(logging.NewTestLogger())
 		// If SendSigterm failed to deliver, exit non-zero after timeout.
 		time.Sleep(500 * time.Millisecond)
 		os.Exit(2)

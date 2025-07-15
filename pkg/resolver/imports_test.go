@@ -1,4 +1,4 @@
-package resolver
+package resolver_test
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	pklres "github.com/kdeps/kdeps/pkg/pklres"
@@ -18,38 +17,37 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/pkg/resolver"
 )
 
 // newTestResolver creates a DependencyResolver with real filesystem for PKL operations.
-// Note: This resolver uses afero.NewOsFs() because many tests in this file involve
-// PKL operations that require real file paths on disk.
-func newTestResolver() *DependencyResolver {
-	tmpDir := filepath.Join(os.TempDir(), "kdeps_test_", uuid.NewString())
-	_ = os.MkdirAll(tmpDir, 0o755) // Ensure temp dir exists
+// This is needed because PKL cannot work with afero's in-memory filesystem.
+func newTestResolver() *resolver.DependencyResolver {
+	tmpDir := os.TempDir()
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
 
-	fs := afero.NewOsFs() // Real FS for PKL compat
-
+	filesDir := filepath.Join(tmpDir, "files")
 	actionDir := filepath.Join(tmpDir, "action")
-	projectDir := filepath.Join(tmpDir, "project")
-	workflowDir := filepath.Join(tmpDir, "workflow")
+	_ = fs.MkdirAll(filepath.Join(actionDir, "exec"), 0o755)
+	_ = fs.MkdirAll(filepath.Join(actionDir, "python"), 0o755)
+	_ = fs.MkdirAll(filepath.Join(actionDir, "llm"), 0o755)
+	_ = fs.MkdirAll(filesDir, 0o755)
 
-	_ = fs.MkdirAll(actionDir, 0o755)
-	_ = fs.MkdirAll(projectDir, 0o755)
-	_ = fs.MkdirAll(workflowDir, 0o755)
-
-	reader, _ := pklres.InitializePklResource(":memory:")
-
-	dr := &DependencyResolver{
-		Fs:           fs,
-		Logger:       logging.NewTestLogger(),
-		Context:      context.Background(),
-		ActionDir:    actionDir,
-		RequestID:    "test-request",
-		ProjectDir:   projectDir,
-		WorkflowDir:  workflowDir,
-		PklresReader: reader,
+	dr := &resolver.DependencyResolver{
+		Fs:        fs,
+		Logger:    logger,
+		Context:   ctx,
+		FilesDir:  filesDir,
+		ActionDir: actionDir,
+		RequestID: "test-request",
 	}
-	dr.PklresHelper = NewPklresHelper(dr)
+
+	// Initialize PklresHelper for tests that need it
+	dr.PklresHelper = resolver.NewPklresHelper(dr)
+
 	return dr
 }
 
@@ -65,7 +63,7 @@ func TestPrepareImportFiles_CreatesFiles(t *testing.T) {
 	// Verify that skeleton records exist in pklres instead of on-disk files
 	resourceTypes := []string{"llm", "client", "exec", "python", "data"}
 	for _, rt := range resourceTypes {
-		_, err := dr.PklresHelper.retrievePklContent(rt, "__empty__")
+		_, err := dr.PklresHelper.RetrievePklContent(rt, "__empty__")
 		assert.NoError(t, err)
 	}
 }
@@ -79,10 +77,10 @@ func TestPrependDynamicImports_AddsImports(t *testing.T) {
 	_ = afero.WriteFile(dr.Fs, pklFile, []byte(initial), 0o644)
 
 	// ensure pklres helper initialized with stub record so Check=true passes
-	dr.PklresHelper = NewPklresHelper(dr)
+	dr.PklresHelper = resolver.NewPklresHelper(dr)
 	dr.PklresReader, _ = pklres.InitializePklResource(":memory:")
 	// store empty exec structure
-	_ = dr.PklresHelper.storePklContent("exec", "__empty__", "Exec {}\n")
+	_ = dr.PklresHelper.StorePklContent("exec", "__empty__", "Exec {}\n")
 
 	assert.NoError(t, dr.PrependDynamicImports(pklFile))
 	content, _ := afero.ReadFile(dr.Fs, pklFile)
@@ -90,7 +88,7 @@ func TestPrependDynamicImports_AddsImports(t *testing.T) {
 	// Should still start with amends line
 	assert.True(t, strings.HasPrefix(s, "amends"))
 	// Import for exec alias should reference pklres path
-	execPath := dr.PklresHelper.getResourcePath("exec")
+	execPath := dr.PklresHelper.GetResourcePath("exec")
 	assert.Contains(t, s, "import \""+execPath+"\" as exec")
 }
 
@@ -118,7 +116,7 @@ func TestAddPlaceholderImports_FileNotFound(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
-	dr := &DependencyResolver{Fs: fs, Logger: logger}
+	dr := &resolver.DependencyResolver{Fs: fs, Logger: logger}
 	if err := dr.AddPlaceholderImports("/no/such/file.pkl"); err == nil {
 		t.Errorf("expected error for missing file, got nil")
 	}
@@ -135,7 +133,7 @@ func TestNewGraphResolver_Minimal(t *testing.T) {
 		t.Fatalf("env err: %v", err)
 	}
 
-	dr, err := NewGraphResolver(fs, context.Background(), env, nil, logger)
+	dr, err := resolver.NewGraphResolver(fs, context.Background(), env, nil, logger)
 	if err == nil {
 		// If resolver succeeded, sanity-check key fields
 		if dr.Graph == nil || dr.FileRunCounter == nil {
@@ -153,7 +151,7 @@ func TestPrepareImportFilesExtra(t *testing.T) {
 	tmpDir := t.TempDir()
 	actionDir := filepath.Join(tmpDir, "action")
 
-	dr := &DependencyResolver{
+	dr := &resolver.DependencyResolver{
 		Fs:          fs,
 		Context:     ctx,
 		ActionDir:   actionDir,
@@ -163,7 +161,7 @@ func TestPrepareImportFilesExtra(t *testing.T) {
 	}
 
 	dr.PklresReader, _ = pklres.InitializePklResource(":memory:")
-	dr.PklresHelper = NewPklresHelper(dr)
+	dr.PklresHelper = resolver.NewPklresHelper(dr)
 
 	// Ensure prepare succeeds without error.
 }
@@ -177,7 +175,7 @@ func TestPrepareImportFilesAndPrependDynamicImports(t *testing.T) {
 	ctx := context.Background()
 
 	// create resolver
-	dr := &DependencyResolver{
+	dr := &resolver.DependencyResolver{
 		Fs:             fs,
 		ActionDir:      actionDir,
 		RequestID:      requestID,
@@ -188,15 +186,15 @@ func TestPrepareImportFilesAndPrependDynamicImports(t *testing.T) {
 
 	// initialize pklres before calling PrepareImportFiles
 	dr.PklresReader, _ = pklres.InitializePklResource(":memory:")
-	dr.PklresHelper = NewPklresHelper(dr)
+	dr.PklresHelper = resolver.NewPklresHelper(dr)
 
 	// call PrepareImportFiles – should create multiple skeleton records
 	assert.NoError(t, fs.MkdirAll(filepath.Join(actionDir, "api"), 0o755))
 	assert.NoError(t, dr.PrepareImportFiles())
 
 	// Ensure skeleton records exist in pklres
-	_, _ = dr.PklresHelper.retrievePklContent("exec", "")
-	_, _ = dr.PklresHelper.retrievePklContent("data", "")
+	_, _ = dr.PklresHelper.RetrievePklContent("exec", "")
+	_, _ = dr.PklresHelper.RetrievePklContent("data", "")
 
 	// create a dummy .pkl file with minimal content
 	wfDir := "/workflow"
@@ -224,7 +222,7 @@ func TestAddPlaceholderImports_Errors(t *testing.T) {
 	tmp := t.TempDir()
 	actionDir := filepath.Join(tmp, "action")
 
-	dr := &DependencyResolver{
+	dr := &resolver.DependencyResolver{
 		Fs:             fs,
 		Logger:         logging.NewTestLogger(),
 		ActionDir:      actionDir,
@@ -271,7 +269,7 @@ func TestAddPlaceholderImports(t *testing.T) {
 	fileContent := []byte("ActionID = \"myAction\"\n")
 	assert.NoError(t, afero.WriteFile(fs, targetPkl, fileContent, 0o644))
 
-	dr := &DependencyResolver{
+	dr := &resolver.DependencyResolver{
 		Fs:        fs,
 		ActionDir: actionDir,
 		DataDir:   dataDir,
@@ -286,7 +284,7 @@ func TestAddPlaceholderImports(t *testing.T) {
 	assert.NoError(t, afero.WriteFile(fs, filepath.Join(dataDir, "dummy.txt"), []byte("abc"), 0o644))
 
 	// MOCK: Provide a safe LoadResourceFn to avoid nil dereference
-	dr.LoadResourceFn = func(ctx context.Context, path string, typ ResourceType) (interface{}, error) {
+	dr.LoadResourceFn = func(ctx context.Context, path string, typ resolver.ResourceType) (interface{}, error) {
 		return &pklLLM.LLMImpl{}, nil
 	}
 
@@ -307,7 +305,7 @@ func TestPrepareImportFilesCreatesStubs(t *testing.T) {
 	// Verify that skeleton records exist in pklres instead of on-disk files
 	resourceTypes := []string{"llm", "client", "exec", "python", "data"}
 	for _, rt := range resourceTypes {
-		_, err := dr.PklresHelper.retrievePklContent(rt, "__empty__")
+		_, err := dr.PklresHelper.RetrievePklContent(rt, "__empty__")
 		assert.NoError(t, err, rt+" record not created")
 	}
 }
@@ -321,7 +319,7 @@ func TestPrependDynamicImportsExtra(t *testing.T) {
 	tmpDir := t.TempDir()
 	actionDir := filepath.Join(tmpDir, "action")
 
-	dr := &DependencyResolver{
+	dr := &resolver.DependencyResolver{
 		Fs:          fs,
 		Context:     ctx,
 		ActionDir:   actionDir,
@@ -331,7 +329,7 @@ func TestPrependDynamicImportsExtra(t *testing.T) {
 	}
 
 	dr.PklresReader, _ = pklres.InitializePklResource(":memory:")
-	dr.PklresHelper = NewPklresHelper(dr)
+	dr.PklresHelper = resolver.NewPklresHelper(dr)
 
 	// create directories and dummy files for Check=true imports
 	folders := []string{"llm", "client", "exec", "python", "data"}

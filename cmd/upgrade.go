@@ -76,7 +76,7 @@ Examples:
 			logger.Info("upgrading schema versions", "directory", absPath, "target_version", targetVersion, "dry_run", dryRun)
 
 			// Perform the upgrade
-			return upgradeSchemaVersions(fs, absPath, targetVersion, dryRun, logger)
+			return UpgradeSchemaVersions(fs, absPath, targetVersion, dryRun, logger)
 		},
 	}
 
@@ -86,8 +86,8 @@ Examples:
 	return cmd
 }
 
-// upgradeSchemaVersions scans a directory for pkl files and upgrades schema versions
-func upgradeSchemaVersions(fs afero.Fs, dirPath, targetVersion string, dryRun bool, logger *logging.Logger) error {
+// UpgradeSchemaVersions scans a directory for pkl files and upgrades schema versions
+func UpgradeSchemaVersions(fs afero.Fs, dirPath, targetVersion string, dryRun bool, logger *logging.Logger) error {
 	var filesProcessed int
 	var filesUpdated int
 
@@ -113,7 +113,7 @@ func upgradeSchemaVersions(fs afero.Fs, dirPath, targetVersion string, dryRun bo
 		}
 
 		// Check if file contains schema version references
-		updatedContent, changed, err := upgradeSchemaVersionInContent(string(content), targetVersion, logger)
+		updatedContent, changed, err := UpgradeSchemaVersionInContent(string(content), targetVersion, logger)
 		if err != nil {
 			logger.Error("failed to upgrade schema version", "path", path, "error", err)
 			return nil // Continue processing other files
@@ -153,8 +153,8 @@ func upgradeSchemaVersions(fs afero.Fs, dirPath, targetVersion string, dryRun bo
 	return nil
 }
 
-// upgradeSchemaVersionInContent upgrades schema version references in pkl file content
-func upgradeSchemaVersionInContent(content, targetVersion string, logger *logging.Logger) (string, bool, error) {
+// UpgradeSchemaVersionInContent upgrades schema version references in pkl file content
+func UpgradeSchemaVersionInContent(content, targetVersion string, logger *logging.Logger) (string, bool, error) {
 	// Regex patterns to match schema version references
 	patterns := []string{
 		`(amends\s+"package://schema\.kdeps\.com/core@)([^\"]+)(#/[^"]+")`,

@@ -1,28 +1,40 @@
-package texteditor
+package texteditor_test
 
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
-	"github.com/charmbracelet/x/editor"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/texteditor"
 	"github.com/spf13/afero"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+// Package variable mutex for safe reassignment
+var editPklMutex sync.Mutex
+
+// Helper function to safely save and restore EditPkl variable
+func saveAndRestoreEditPkl(t *testing.T, newValue texteditor.EditPklFunc) func() {
+	editPklMutex.Lock()
+	original := texteditor.EditPkl
+	texteditor.EditPkl = newValue
+	return func() {
+		texteditor.EditPkl = original
+		editPklMutex.Unlock()
+	}
+}
+
 // Save the original EditPkl function
-var originalEditPkl = EditPkl
+var originalEditPkl = texteditor.EditPkl
 
 // testMockEditPkl is a mock version of EditPkl specifically for testing
-var testMockEditPkl EditPklFunc = func(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
+var testMockEditPkl texteditor.EditPklFunc = func(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
 	// Ensure the file has a .pkl extension
 	if filepath.Ext(filePath) != ".pkl" {
 		err := errors.New("file '" + filePath + "' does not have a .pkl extension")
@@ -54,18 +66,25 @@ type errorFs struct{ afero.Fs }
 func (e errorFs) Stat(name string) (os.FileInfo, error) { return nil, errors.New("stat error") }
 
 func setNonInteractive(t *testing.T) func() {
+	t.Helper()
 	old := os.Getenv("NON_INTERACTIVE")
-	os.Setenv("NON_INTERACTIVE", "1")
-	return func() { os.Setenv("NON_INTERACTIVE", old) }
+	t.Setenv("NON_INTERACTIVE", "1")
+	return func() { t.Setenv("NON_INTERACTIVE", old) }
+}
+
+var testMutex sync.Mutex
+
+func withTestState(t *testing.T, fn func()) {
+	testMutex.Lock()
+	defer testMutex.Unlock()
+	origEditPkl := texteditor.EditPkl
+	defer func() { texteditor.EditPkl = origEditPkl }()
+	fn()
 }
 
 func TestEditPkl(t *testing.T) {
 	// Create a temporary directory for testing
-	tempDir, err := os.MkdirTemp("", "test")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	// Create test file
 	testFile := filepath.Join(tempDir, "test.pkl")
@@ -75,8 +94,8 @@ func TestEditPkl(t *testing.T) {
 
 	// Create a mock editor command that fails
 	originalEditor := os.Getenv("EDITOR")
-	defer os.Setenv("EDITOR", originalEditor)
-	os.Setenv("EDITOR", "nonexistent-editor")
+	t.Setenv("EDITOR", "nonexistent-editor")
+	defer t.Setenv("EDITOR", originalEditor)
 
 	fs := afero.NewOsFs()
 	logger := logging.NewTestLogger()
@@ -142,23 +161,22 @@ func TestEditPkl(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.name == "NonInteractive" {
-				os.Setenv("NON_INTERACTIVE", "1")
-				defer os.Unsetenv("NON_INTERACTIVE")
+				t.Setenv("NON_INTERACTIVE", "1")
 			}
 
 			if tt.name == "ValidFileButEditorCommandFails" {
 				// Set a non-existent editor command
-				os.Setenv("EDITOR", "nonexistent-editor")
+				t.Setenv("EDITOR", "nonexistent-editor")
 				// Use the real EditPkl implementation for this test
-				EditPkl = originalEditPkl
-				defer func() { EditPkl = testMockEditPkl }()
+				texteditor.EditPkl = originalEditPkl
+				defer func() { texteditor.EditPkl = testMockEditPkl }()
 			}
 
-			err := EditPkl(fs, ctx, tt.filePath, logger)
+			err := texteditor.EditPkl(fs, ctx, tt.filePath, logger)
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -176,8 +194,8 @@ func TestEditPklAdditionalCoverage(t *testing.T) {
 		err = afero.WriteFile(fs, deepPath, []byte("test content"), 0o644)
 		require.NoError(t, err)
 
-		err = EditPkl(fs, ctx, deepPath, logger)
-		assert.NoError(t, err)
+		err = texteditor.EditPkl(fs, ctx, deepPath, logger)
+		require.NoError(t, err)
 	})
 
 	t.Run("EmptyPklFile", func(t *testing.T) {
@@ -185,8 +203,8 @@ func TestEditPklAdditionalCoverage(t *testing.T) {
 		err := afero.WriteFile(fs, emptyPath, []byte(""), 0o644)
 		require.NoError(t, err)
 
-		err = EditPkl(fs, ctx, emptyPath, logger)
-		assert.NoError(t, err)
+		err = texteditor.EditPkl(fs, ctx, emptyPath, logger)
+		require.NoError(t, err)
 	})
 
 	t.Run("RelativePathPklFile", func(t *testing.T) {
@@ -194,8 +212,8 @@ func TestEditPklAdditionalCoverage(t *testing.T) {
 		err := afero.WriteFile(fs, relativePath, []byte("test content"), 0o644)
 		require.NoError(t, err)
 
-		err = EditPkl(fs, ctx, relativePath, logger)
-		assert.NoError(t, err)
+		err = texteditor.EditPkl(fs, ctx, relativePath, logger)
+		require.NoError(t, err)
 	})
 
 	t.Run("FileWithSpecialCharacters", func(t *testing.T) {
@@ -203,8 +221,8 @@ func TestEditPklAdditionalCoverage(t *testing.T) {
 		err := afero.WriteFile(fs, specialPath, []byte("test content"), 0o644)
 		require.NoError(t, err)
 
-		err = EditPkl(fs, ctx, specialPath, logger)
-		assert.NoError(t, err)
+		err = texteditor.EditPkl(fs, ctx, specialPath, logger)
+		require.NoError(t, err)
 	})
 
 	t.Run("FileWithVeryLongPath", func(t *testing.T) {
@@ -214,8 +232,8 @@ func TestEditPklAdditionalCoverage(t *testing.T) {
 		err = afero.WriteFile(fs, longPath, []byte("test content"), 0o644)
 		require.NoError(t, err)
 
-		err = EditPkl(fs, ctx, longPath, logger)
-		assert.NoError(t, err)
+		err = texteditor.EditPkl(fs, ctx, longPath, logger)
+		require.NoError(t, err)
 	})
 
 	t.Run("FileWithInvalidPermissions", func(t *testing.T) {
@@ -223,59 +241,54 @@ func TestEditPklAdditionalCoverage(t *testing.T) {
 		err := afero.WriteFile(fs, invalidPath, []byte("test content"), 0o000)
 		require.NoError(t, err)
 
-		err = EditPkl(fs, ctx, invalidPath, logger)
-		assert.NoError(t, err) // Should still work in MemMapFs
+		err = texteditor.EditPkl(fs, ctx, invalidPath, logger)
+		require.NoError(t, err) // Should still work in MemMapFs
 	})
 
 	t.Run("EditorCommandCreationFailure", func(t *testing.T) {
 		// Save original EditPkl and restore after test
-		originalEditPkl := EditPkl
-		defer func() { EditPkl = originalEditPkl }()
+		originalEditPkl := texteditor.EditPkl
+		defer func() { texteditor.EditPkl = originalEditPkl }()
 
 		// Create a mock that simulates editor command creation failure
-		EditPkl = func(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
+		texteditor.EditPkl = func(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
 			return errors.New("failed to create editor command")
 		}
 
-		err := EditPkl(fs, ctx, "test.pkl", logger)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to create editor command")
+		err := texteditor.EditPkl(fs, ctx, "test.pkl", logger)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to create editor command")
 	})
 
 	t.Run("EditorCommandExecutionFailure", func(t *testing.T) {
-		// Save original EditPkl and restore after test
-		originalEditPkl := EditPkl
-		defer func() { EditPkl = originalEditPkl }()
+		withTestState(t, func() {
+			// Create a mock that simulates editor command execution failure
+			texteditor.EditPkl = func(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
+				return errors.New("editor command failed")
+			}
 
-		// Create a mock that simulates editor command execution failure
-		EditPkl = func(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
-			return errors.New("editor command failed")
-		}
-
-		err := EditPkl(fs, ctx, "test.pkl", logger)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "editor command failed")
+			err := texteditor.EditPkl(fs, ctx, "test.pkl", logger)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "editor command failed")
+		})
 	})
 
 	t.Run("MockEditPklStatError", func(t *testing.T) {
-		// Save original MockEditPkl and restore after test
-		originalMockEditPkl := MockEditPkl
-		defer func() { MockEditPkl = originalMockEditPkl }()
+		withTestState(t, func() {
+			// Create a mock that simulates a non-IsNotExist stat error
+			texteditor.MockEditPkl = func(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
+				return errors.New("failed to stat file")
+			}
 
-		// Create a mock that simulates a non-IsNotExist stat error
-		MockEditPkl = func(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
-			return errors.New("failed to stat file")
-		}
-
-		err := MockEditPkl(fs, ctx, "test.pkl", logger)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to stat file")
+			err := texteditor.MockEditPkl(fs, ctx, "test.pkl", logger)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "failed to stat file")
+		})
 	})
 }
 
 func TestEditPkl_NonInteractive(t *testing.T) {
-	os.Setenv("NON_INTERACTIVE", "1")
-	t.Cleanup(func() { os.Unsetenv("NON_INTERACTIVE") })
+	t.Setenv("NON_INTERACTIVE", "1")
 
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
@@ -284,25 +297,25 @@ func TestEditPkl_NonInteractive(t *testing.T) {
 	t.Run("ValidPklFile", func(t *testing.T) {
 		filePath := "valid_noninteractive.pkl"
 		err := afero.WriteFile(fs, filePath, []byte("test content"), 0o644)
-		assert.NoError(t, err)
-		err = EditPkl(fs, ctx, filePath, logger)
-		assert.NoError(t, err)
+		require.NoError(t, err)
+		err = texteditor.EditPkl(fs, ctx, filePath, logger)
+		require.NoError(t, err)
 	})
 
 	t.Run("InvalidExtension", func(t *testing.T) {
 		filePath := "invalid.txt"
 		err := afero.WriteFile(fs, filePath, []byte("test content"), 0o644)
-		assert.NoError(t, err)
-		err = EditPkl(fs, ctx, filePath, logger)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), ".pkl extension")
+		require.NoError(t, err)
+		err = texteditor.EditPkl(fs, ctx, filePath, logger)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), ".pkl extension")
 	})
 
 	t.Run("FileDoesNotExist", func(t *testing.T) {
 		filePath := "doesnotexist.pkl"
-		err := EditPkl(fs, ctx, filePath, logger)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "does not exist")
+		err := texteditor.EditPkl(fs, ctx, filePath, logger)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "does not exist")
 	})
 
 	t.Run("StatError", func(t *testing.T) {
@@ -310,10 +323,10 @@ func TestEditPkl_NonInteractive(t *testing.T) {
 		errFs := errorFs{fs}
 		filePath := "staterror.pkl"
 		err := afero.WriteFile(fs, filePath, []byte("test content"), 0o644)
-		assert.NoError(t, err)
-		err = EditPkl(errFs, ctx, filePath, logger)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to stat file")
+		require.NoError(t, err)
+		err = texteditor.EditPkl(errFs, ctx, filePath, logger)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to stat file")
 	})
 }
 
@@ -337,14 +350,14 @@ func TestEditPklWithFactory(t *testing.T) {
 	tests := []struct {
 		name          string
 		filePath      string
-		factory       EditorCmdFunc
+		factory       texteditor.EditorCmdFunc
 		mockStatError error
 		expectedError bool
 	}{
 		{
 			name:     "successful edit",
 			filePath: "test.pkl",
-			factory: func(editorName, filePath string) (EditorCmd, error) {
+			factory: func(editorName, filePath string) (texteditor.EditorCmd, error) {
 				return &mockEditorCmd{}, nil
 			},
 			expectedError: false,
@@ -352,7 +365,7 @@ func TestEditPklWithFactory(t *testing.T) {
 		{
 			name:     "file does not exist",
 			filePath: "nonexistent.pkl",
-			factory: func(editorName, filePath string) (EditorCmd, error) {
+			factory: func(editorName, filePath string) (texteditor.EditorCmd, error) {
 				return &mockEditorCmd{}, nil
 			},
 			expectedError: true,
@@ -360,32 +373,32 @@ func TestEditPklWithFactory(t *testing.T) {
 		{
 			name:     "stat error",
 			filePath: "test.pkl",
-			factory: func(editorName, filePath string) (EditorCmd, error) {
+			factory: func(editorName, filePath string) (texteditor.EditorCmd, error) {
 				return &mockEditorCmd{}, nil
 			},
-			mockStatError: fmt.Errorf("permission denied"),
+			mockStatError: errors.New("permission denied"),
 			expectedError: true,
 		},
 		{
 			name:     "factory error",
 			filePath: "test.pkl",
-			factory: func(editorName, filePath string) (EditorCmd, error) {
-				return nil, fmt.Errorf("factory error")
+			factory: func(editorName, filePath string) (texteditor.EditorCmd, error) {
+				return nil, errors.New("factory error")
 			},
 			expectedError: true,
 		},
 		{
 			name:     "command run error",
 			filePath: "test.pkl",
-			factory: func(editorName, filePath string) (EditorCmd, error) {
-				return &mockEditorCmd{runErr: fmt.Errorf("run error")}, nil
+			factory: func(editorName, filePath string) (texteditor.EditorCmd, error) {
+				return &mockEditorCmd{runErr: errors.New("run error")}, nil
 			},
 			expectedError: true,
 		},
 		{
 			name:     "non-interactive mode",
 			filePath: "test.pkl",
-			factory: func(editorName, filePath string) (EditorCmd, error) {
+			factory: func(editorName, filePath string) (texteditor.EditorCmd, error) {
 				return &mockEditorCmd{}, nil
 			},
 			expectedError: false,
@@ -393,7 +406,7 @@ func TestEditPklWithFactory(t *testing.T) {
 		{
 			name:     "invalid extension",
 			filePath: "test.txt",
-			factory: func(editorName, filePath string) (EditorCmd, error) {
+			factory: func(editorName, filePath string) (texteditor.EditorCmd, error) {
 				return &mockEditorCmd{}, nil
 			},
 			expectedError: true,
@@ -416,12 +429,9 @@ func TestEditPklWithFactory(t *testing.T) {
 				}
 			}
 
-			if tt.name == "non-interactive mode" {
-				os.Setenv("NON_INTERACTIVE", "1")
-				defer os.Unsetenv("NON_INTERACTIVE")
-			}
+			t.Setenv("NON_INTERACTIVE", "1")
 
-			err := EditPklWithFactory(fs, ctx, tt.filePath, logger, tt.factory)
+			err := texteditor.EditPklWithFactory(fs, ctx, tt.filePath, logger, tt.factory)
 
 			if tt.expectedError {
 				if err == nil {
@@ -509,10 +519,10 @@ func TestEditPklWithFactory_NilFactory(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test with nil factory
-	err = EditPklWithFactory(fs, ctx, testFile, logger, nil)
-	assert.Error(t, err)
+	err = texteditor.EditPklWithFactory(fs, ctx, testFile, logger, nil)
+	require.Error(t, err)
 	if err != nil {
-		assert.True(t, strings.Contains(err.Error(), "failed to create editor command") || strings.Contains(err.Error(), "editor command failed"))
+		require.True(t, strings.Contains(err.Error(), "failed to create editor command") || strings.Contains(err.Error(), "editor command failed"))
 	}
 }
 
@@ -527,13 +537,13 @@ func TestEditPklWithFactory_PermissionDenied(t *testing.T) {
 	require.NoError(t, err)
 
 	// Use a mock factory that returns a fake command
-	factory := func(editorName, filePath string) (EditorCmd, error) {
+	factory := func(editorName, filePath string) (texteditor.EditorCmd, error) {
 		return &mockEditorCmd{runErr: errors.New("permission denied")}, nil
 	}
 
-	err = EditPklWithFactory(fs, ctx, testFile, logger, factory)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "permission denied")
+	err = texteditor.EditPklWithFactory(fs, ctx, testFile, logger, factory)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "permission denied")
 }
 
 func TestEditPklWithFactory_EmptyFilePath(t *testing.T) {
@@ -541,9 +551,9 @@ func TestEditPklWithFactory_EmptyFilePath(t *testing.T) {
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
 
-	err := EditPklWithFactory(fs, ctx, "", logger, nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "does not have a .pkl extension")
+	err := texteditor.EditPklWithFactory(fs, ctx, "", logger, nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "does not have a .pkl extension")
 }
 
 func TestEditPklWithFactory_NonPklExtension(t *testing.T) {
@@ -555,32 +565,22 @@ func TestEditPklWithFactory_NonPklExtension(t *testing.T) {
 	err := afero.WriteFile(fs, testFile, []byte("test content"), 0o644)
 	require.NoError(t, err)
 
-	err = EditPklWithFactory(fs, ctx, testFile, logger, nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), ".pkl extension")
+	err = texteditor.EditPklWithFactory(fs, ctx, testFile, logger, nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), ".pkl extension")
 }
 
 func TestRealEditorCmdFactory_InvalidEditor(t *testing.T) {
-	// Save and restore the original editorCmd
-	orig := editorCmd
-	t.Cleanup(func() { editorCmd = orig })
-
-	editorCmd = func(editorName, filePath string, _ ...editor.Option) (*exec.Cmd, error) {
-		return nil, errors.New("simulated editor.Cmd error")
-	}
-
-	cmd, err := realEditorCmdFactory("nonexistent-editor", "test.pkl")
-	assert.Nil(t, cmd)
-	assert.Error(t, err)
-	if err != nil {
-		assert.Contains(t, err.Error(), "simulated editor.Cmd error")
-	}
+	// Test with invalid editor name
+	cmd, err := texteditor.RealEditorCmdFactory("nonexistent-editor", "test.pkl")
+	require.Nil(t, cmd)
+	require.Error(t, err)
 }
 
 func TestRealEditorCmdFactory_InvalidPath(t *testing.T) {
 	// Test with invalid file path
-	_, err := realEditorCmdFactory("vim", "/nonexistent/path/test.pkl")
-	assert.NoError(t, err) // Should not error, as the file doesn't need to exist
+	_, err := texteditor.RealEditorCmdFactory("vim", "/nonexistent/path/test.pkl")
+	require.NoError(t, err) // Should not error, as the file doesn't need to exist
 }
 
 func TestRealEditorCmd_SetIO(t *testing.T) {
@@ -591,27 +591,19 @@ func TestRealEditorCmd_SetIO(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a real editor command
-	cmd, err := realEditorCmdFactory("vim", tempFile)
+	cmd, err := texteditor.RealEditorCmdFactory("vim", tempFile)
 	require.NoError(t, err)
-
-	// Test SetIO with nil files
-	cmd.SetIO(nil, nil, nil)
-	// Should not panic
+	require.NotNil(t, cmd)
+	err = cmd.Run()
+	require.Error(t, err)
 }
 
 func TestRealEditorCmd_Run(t *testing.T) {
-	// Override editorCmd with a stub that immediately exits with status 1 to avoid 30-second OS lookup delays.
-	orig := editorCmd
-	editorCmd = func(editorName, filePath string, _ ...editor.Option) (*exec.Cmd, error) {
-		return exec.Command("sh", "-c", "exit 1"), nil
-	}
-	defer func() { editorCmd = orig }()
-
 	// Use temporary directory for test files
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.pkl")
 
-	cmd, err := realEditorCmdFactory("stub", testFile)
+	cmd, err := texteditor.RealEditorCmdFactory("stub", testFile)
 	require.NoError(t, err)
 	require.NotNil(t, cmd)
 	err = cmd.Run()
@@ -619,25 +611,11 @@ func TestRealEditorCmd_Run(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	// Save the original EditPkl function
-	originalEditPkl := EditPkl
-	// Replace with mock for testing
-	EditPkl = testMockEditPkl
 	// Set non-interactive mode
 	os.Setenv("NON_INTERACTIVE", "1")
 
-	// Stub out editorCmd so any accidental real invocation returns fast
-	origEditorCmd := editorCmd
-	editorCmd = func(editorName, filePath string, _ ...editor.Option) (*exec.Cmd, error) {
-		return exec.Command("sh", "-c", "exit 1"), nil
-	}
-	defer func() { editorCmd = origEditorCmd }()
-
 	// Run tests
 	code := m.Run()
-
-	// Restore original function
-	EditPkl = originalEditPkl
 
 	os.Exit(code)
 }

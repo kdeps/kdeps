@@ -63,7 +63,7 @@ func (cp *ConfigurationProcessor) ProcessWorkflowConfiguration(ctx context.Conte
 	settings := workflow.GetSettings()
 	if settings == nil {
 		cp.logger.Warn("no settings found in workflow, using all defaults")
-		return cp.createDefaultConfiguration(), nil
+		return cp.CreateDefaultConfiguration(), nil
 	}
 
 	config := &ProcessedConfiguration{}
@@ -193,22 +193,29 @@ func (cp *ConfigurationProcessor) ProcessWorkflowConfiguration(ctx context.Conte
 	return config, nil
 }
 
-// createDefaultConfiguration creates a configuration with all default values
-func (cp *ConfigurationProcessor) createDefaultConfiguration() *ProcessedConfiguration {
+// CreateDefaultConfiguration creates a configuration with all default values
+func (cp *ConfigurationProcessor) CreateDefaultConfiguration() *ProcessedConfiguration {
 	cp.logger.Info("creating configuration with all default values")
 
 	return &ProcessedConfiguration{
-		APIServerMode:    pkg.ConfigurationValue[bool]{Value: pkg.DefaultAPIServerMode, Source: pkg.SourceDefault},
-		APIServerHostIP:  pkg.ConfigurationValue[string]{Value: pkg.DefaultHostIP, Source: pkg.SourceDefault},
-		APIServerPort:    pkg.ConfigurationValue[uint16]{Value: pkg.DefaultPortNum, Source: pkg.SourceDefault},
-		WebServerMode:    pkg.ConfigurationValue[bool]{Value: pkg.DefaultWebServerMode, Source: pkg.SourceDefault},
-		WebServerHostIP:  pkg.ConfigurationValue[string]{Value: pkg.DefaultHostIP, Source: pkg.SourceDefault},
-		WebServerPort:    pkg.ConfigurationValue[uint16]{Value: pkg.DefaultAPIPortNum, Source: pkg.SourceDefault},
-		RateLimitMax:     pkg.ConfigurationValue[int]{Value: pkg.DefaultRateLimitMax, Source: pkg.SourceDefault},
-		Environment:      pkg.ConfigurationValue[string]{Value: pkg.DefaultEnvironment, Source: pkg.SourceDefault},
-		InstallAnaconda:  pkg.ConfigurationValue[bool]{Value: pkg.DefaultInstallAnaconda, Source: pkg.SourceDefault},
-		Timezone:         pkg.ConfigurationValue[string]{Value: pkg.DefaultTimezone, Source: pkg.SourceDefault},
-		OllamaTagVersion: pkg.ConfigurationValue[string]{Value: pkg.DefaultOllamaTagVersion, Source: pkg.SourceDefault},
+		// API Server Configuration
+		APIServerMode:   cp.configManager.GetBoolWithPKLPriority(nil, pkg.DefaultAPIServerMode, "APIServerMode"),
+		APIServerHostIP: cp.configManager.GetStringWithPKLPriority(nil, pkg.DefaultHostIP, "APIServer.HostIP"),
+		APIServerPort:   cp.configManager.GetUint16WithPKLPriority(nil, pkg.DefaultPortNum, "APIServer.PortNum"),
+
+		// Web Server Configuration
+		WebServerMode:   cp.configManager.GetBoolWithPKLPriority(nil, pkg.DefaultWebServerMode, "WebServerMode"),
+		WebServerHostIP: cp.configManager.GetStringWithPKLPriority(nil, pkg.DefaultHostIP, "WebServer.HostIP"),
+		WebServerPort:   cp.configManager.GetUint16WithPKLPriority(nil, pkg.DefaultAPIPortNum, "WebServer.PortNum"),
+
+		// General Settings
+		RateLimitMax: cp.configManager.GetIntWithPKLPriority(nil, pkg.DefaultRateLimitMax, "RateLimitMax"),
+		Environment:  cp.configManager.GetStringWithPKLPriority(nil, pkg.DefaultEnvironment, "Environment"),
+
+		// Agent Settings
+		InstallAnaconda:  cp.configManager.GetBoolWithPKLPriority(nil, pkg.DefaultInstallAnaconda, "AgentSettings.InstallAnaconda"),
+		Timezone:         cp.configManager.GetStringWithPKLPriority(nil, pkg.DefaultTimezone, "AgentSettings.Timezone"),
+		OllamaTagVersion: cp.configManager.GetStringWithPKLPriority(nil, pkg.DefaultOllamaTagVersion, "AgentSettings.OllamaTagVersion"),
 	}
 }
 

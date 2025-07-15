@@ -1,10 +1,11 @@
-package resolver
+package resolver_test
 
 import (
 	"context"
 	"path/filepath"
 	"testing"
 
+	resolverpkg "github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/spf13/afero"
 )
 
@@ -19,7 +20,7 @@ func TestPrepareWorkflowDirSimple(t *testing.T) {
 	_ = fs.MkdirAll(filepath.Join(projectDir, "sub"), 0o755)
 	_ = afero.WriteFile(fs, filepath.Join(projectDir, "sub", "file.txt"), []byte("x"), 0o644)
 
-	dr := &DependencyResolver{
+	dr := &resolverpkg.DependencyResolver{
 		Fs:          fs,
 		Context:     ctx,
 		ProjectDir:  projectDir,

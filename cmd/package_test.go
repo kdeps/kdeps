@@ -1,4 +1,4 @@
-package cmd
+package cmd_test
 
 import (
 	"context"
@@ -109,19 +109,19 @@ Run {
 		if strings.Contains(err.Error(), "exit status 1") || strings.Contains(err.Error(), "PKL evaluator not available") {
 			t.Skip("Skipping test - PKL binary not available or evaluator initialization failed")
 		}
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	}
 
 	// Test error case - invalid directory
 	cmd = NewPackageCommand(fs, ctx, kdepsDir, env, logger)
 	cmd.SetArgs([]string{filepath.Join(t.TempDir(), "nonexistent")})
 	err = cmd.Execute()
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	// Test error case - no arguments
 	cmd = NewPackageCommand(fs, ctx, kdepsDir, env, logger)
 	err = cmd.Execute()
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestPackageCommandFlags(t *testing.T) {

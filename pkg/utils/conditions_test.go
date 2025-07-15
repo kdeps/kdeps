@@ -1,64 +1,45 @@
-package utils
+package utils_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/kdeps/kdeps/pkg/utils"
 )
 
 func TestShouldSkip(t *testing.T) {
-	t.Run("NoConditions", func(t *testing.T) {
-		conditions := []any{}
-		result := ShouldSkip(&conditions)
-		assert.False(t, result)
-	})
+	// Test skip condition
+	val1 := []interface{}{"skip"}
+	assert.True(t, utils.ShouldSkip(&val1))
+	val2 := []interface{}{"SKIP"}
+	assert.True(t, utils.ShouldSkip(&val2))
+	val3 := []interface{}{"Skip"}
+	assert.True(t, utils.ShouldSkip(&val3))
 
-	t.Run("AllFalseConditions", func(t *testing.T) {
-		conditions := []any{false, "false", false}
-		assert.False(t, ShouldSkip(&conditions))
-	})
-
-	t.Run("SomeTrueConditions", func(t *testing.T) {
-		conditions := []any{false, "true", false}
-		assert.True(t, ShouldSkip(&conditions))
-	})
-
-	t.Run("AllTrueConditions", func(t *testing.T) {
-		conditions := []any{true, "true", true}
-		assert.True(t, ShouldSkip(&conditions))
-	})
-
-	t.Run("MixedInvalidConditions", func(t *testing.T) {
-		conditions := []any{"maybe", 123, false}
-		assert.False(t, ShouldSkip(&conditions))
-	})
+	// Test non-skip conditions
+	val4 := []interface{}{"continue"}
+	assert.False(t, utils.ShouldSkip(&val4))
+	val5 := []interface{}{""}
+	assert.False(t, utils.ShouldSkip(&val5))
+	val6 := []interface{}{"other"}
+	assert.False(t, utils.ShouldSkip(&val6))
 }
 
 func TestAllConditionsMet(t *testing.T) {
-	t.Run("NoConditions", func(t *testing.T) {
-		conditions := []any{}
-		assert.True(t, AllConditionsMet(&conditions))
-	})
+	// Test all conditions met
+	vals1 := []interface{}{true, true}
+	assert.True(t, utils.AllConditionsMet(&vals1))
+	vals2 := []interface{}{}
+	assert.True(t, utils.AllConditionsMet(&vals2))
+	vals3 := []interface{}{true}
+	assert.True(t, utils.AllConditionsMet(&vals3))
 
-	t.Run("AllTrueConditions", func(t *testing.T) {
-		conditions := []any{true, "true", true}
-		assert.True(t, AllConditionsMet(&conditions))
-	})
-
-	t.Run("SomeFalseConditions", func(t *testing.T) {
-		conditions := []any{true, "false", true}
-		assert.False(t, AllConditionsMet(&conditions))
-	})
-
-	t.Run("AllFalseConditions", func(t *testing.T) {
-		conditions := []any{"false", false, "false"}
-		assert.False(t, AllConditionsMet(&conditions))
-	})
-
-	t.Run("MixedInvalidConditions", func(t *testing.T) {
-		conditions := []any{true, "maybe", 123}
-		assert.False(t, AllConditionsMet(&conditions))
-	})
+	// Test conditions not met
+	vals4 := []interface{}{true, false}
+	assert.False(t, utils.AllConditionsMet(&vals4))
+	vals5 := []interface{}{false}
+	assert.False(t, utils.AllConditionsMet(&vals5))
 }
 
 func TestShouldSkipAndAllConditionsMet(t *testing.T) {
@@ -77,10 +58,10 @@ func TestShouldSkipAndAllConditionsMet(t *testing.T) {
 	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			if got := ShouldSkip(&tc.input); got != tc.wantSkip {
+			if got := utils.ShouldSkip(&tc.input); got != tc.wantSkip {
 				t.Fatalf("ShouldSkip(%v) = %v, want %v", tc.input, got, tc.wantSkip)
 			}
-			if got := AllConditionsMet(&tc.input); got != tc.wantAllMet {
+			if got := utils.AllConditionsMet(&tc.input); got != tc.wantAllMet {
 				t.Fatalf("AllConditionsMet(%v) = %v, want %v", tc.input, got, tc.wantAllMet)
 			}
 		})
@@ -90,35 +71,35 @@ func TestShouldSkipAndAllConditionsMet(t *testing.T) {
 func TestAllConditionsMetExtra(t *testing.T) {
 	t.Run("all true bools", func(t *testing.T) {
 		conds := []interface{}{true, true, true}
-		if !AllConditionsMet(&conds) {
+		if !utils.AllConditionsMet(&conds) {
 			t.Fatalf("expected all conditions met")
 		}
 	})
 
 	t.Run("one false bool", func(t *testing.T) {
 		conds := []interface{}{true, false, true}
-		if AllConditionsMet(&conds) {
+		if utils.AllConditionsMet(&conds) {
 			t.Fatalf("expected not all conditions met")
 		}
 	})
 
 	t.Run("string true values", func(t *testing.T) {
 		conds := []interface{}{"TRUE", "true", "TrUe"}
-		if !AllConditionsMet(&conds) {
+		if !utils.AllConditionsMet(&conds) {
 			t.Fatalf("expected all string conditions met")
 		}
 	})
 
 	t.Run("string non true", func(t *testing.T) {
 		conds := []interface{}{"true", "false"}
-		if AllConditionsMet(&conds) {
+		if utils.AllConditionsMet(&conds) {
 			t.Fatalf("expected not all conditions met when one string is false")
 		}
 	})
 
 	t.Run("unsupported type", func(t *testing.T) {
 		conds := []interface{}{true, 123}
-		if AllConditionsMet(&conds) {
+		if utils.AllConditionsMet(&conds) {
 			t.Fatalf("expected not all conditions met with unsupported type")
 		}
 	})

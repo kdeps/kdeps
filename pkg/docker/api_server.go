@@ -1,7 +1,6 @@
 package docker
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -67,9 +66,9 @@ func (e *handlerError) Error() string {
 	return e.message
 }
 
-// handleMultipartForm processes multipart form data and updates fileMap.
+// HandleMultipartForm processes multipart form data and updates fileMap.
 // It returns a handlerError to be appended to the errors slice.
-func handleMultipartForm(c *gin.Context, dr *resolver.DependencyResolver, fileMap map[string]struct{ Filename, Filetype string }) error {
+func HandleMultipartForm(c *gin.Context, dr *resolver.DependencyResolver, fileMap map[string]struct{ Filename, Filetype string }) error {
 	form, err := c.MultipartForm()
 	if err != nil {
 		return &handlerError{http.StatusInternalServerError, "Unable to parse multipart form"}
@@ -78,7 +77,7 @@ func handleMultipartForm(c *gin.Context, dr *resolver.DependencyResolver, fileMa
 	// Handle multiple files from "file[]"
 	if files := form.File["file[]"]; len(files) > 0 {
 		for _, fileHeader := range files {
-			if err := processFile(fileHeader, dr, fileMap); err != nil {
+			if err := ProcessFile(fileHeader, dr, fileMap); err != nil {
 				return err
 			}
 		}
@@ -90,12 +89,12 @@ func handleMultipartForm(c *gin.Context, dr *resolver.DependencyResolver, fileMa
 	if err != nil {
 		return &handlerError{http.StatusBadRequest, "No file uploaded"}
 	}
-	return processFile(fileHeader, dr, fileMap)
+	return ProcessFile(fileHeader, dr, fileMap)
 }
 
-// processFile processes an individual file and updates fileMap.
+// ProcessFile processes an individual file and updates fileMap.
 // It returns a handlerError to be appended to the errors slice.
-func processFile(fileHeader *multipart.FileHeader, dr *resolver.DependencyResolver, fileMap map[string]struct{ Filename, Filetype string }) error {
+func ProcessFile(fileHeader *multipart.FileHeader, dr *resolver.DependencyResolver, fileMap map[string]struct{ Filename, Filetype string }) error {
 	file, err := fileHeader.Open()
 	if err != nil {
 		return &handlerError{http.StatusInternalServerError, fmt.Sprintf("Unable to open file: %v", err)}
@@ -176,7 +175,7 @@ func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 		routes = *wfAPIServer.Routes
 	}
 
-	setupRoutes(router, ctx, wfAPIServerCORS, wfTrustedProxies, routes, dr, semaphore)
+	SetupRoutes(router, ctx, wfAPIServerCORS, wfTrustedProxies, routes, dr, semaphore)
 
 	dr.Logger.Printf("Starting API server on port %s", hostPort)
 	go func() {
@@ -191,7 +190,7 @@ func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 	return nil
 }
 
-func setupRoutes(router *gin.Engine, ctx context.Context, wfAPIServerCORS *apiserver.CORS, wfTrustedProxies []string, routes []*apiserver.APIServerRoutes, dr *resolver.DependencyResolver, semaphore chan struct{}) {
+func SetupRoutes(router *gin.Engine, ctx context.Context, wfAPIServerCORS *apiserver.CORS, wfTrustedProxies []string, routes []*apiserver.APIServerRoutes, dr *resolver.DependencyResolver, semaphore chan struct{}) {
 	for _, route := range routes {
 		if route == nil || route.Path == "" {
 			dr.Logger.Error("route configuration is invalid", "route", route)
@@ -493,7 +492,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		}
 
 		logger.Debug("cleaning old files")
-		if err := cleanOldFiles(dr); err != nil {
+		if err := CleanOldFiles(dr); err != nil {
 			logger.Error("failed to clean old files", "error", err)
 			errors = append(errors, ErrorResponse{
 				Code:     http.StatusInternalServerError,
@@ -505,7 +504,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		}
 
 		logger.Debug("validating HTTP method", "method", c.Request.Method, "allowedMethods", allowedMethods)
-		method, err := validateMethod(c.Request, allowedMethods)
+		method, err := ValidateMethod(c.Request, allowedMethods)
 		if err != nil {
 			logger.Error("method validation failed", "error", err)
 			errors = append(errors, ErrorResponse{
@@ -555,7 +554,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		case http.MethodPost, http.MethodPut, http.MethodPatch:
 			contentType := c.GetHeader("Content-Type")
 			if strings.Contains(contentType, "multipart/form-data") {
-				if err := handleMultipartForm(c, dr, fileMap); err != nil {
+				if err := HandleMultipartForm(c, dr, fileMap); err != nil {
 
 					if he, ok := err.(*handlerError); ok {
 						errors = append(errors, ErrorResponse{
@@ -645,7 +644,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		logger.Debug("PKL file created and processed successfully")
 
 		logger.Debug("processing workflow")
-		if err := processWorkflow(ctx, dr); err != nil {
+		if err := ProcessWorkflow(ctx, dr); err != nil {
 			logger.Error("workflow processing failed", "error", err)
 			// Get action ID for error context
 			actionID := getActionID()
@@ -676,7 +675,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		}
 		logger.Debug("response file read successfully", "contentLength", len(content))
 
-		decodedResp, err := decodeResponseContent(content, dr.Logger)
+		decodedResp, err := DecodeResponseContent(content, dr.Logger)
 		if err != nil {
 			errors = append(errors, ErrorResponse{
 				Code:     http.StatusInternalServerError,
@@ -755,122 +754,72 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			return
 		}
 
-		decodedContent = formatResponseJSON(decodedContent)
+		decodedContent = FormatResponseJSON(decodedContent)
 		logger.Debug("sending successful response", "contentLength", len(decodedContent))
 		c.Data(http.StatusOK, "application/json; charset=utf-8", decodedContent)
 	}
 }
 
-// cleanOldFiles removes any old response files or flags from previous API requests.
-// It ensures the environment is clean before processing new requests.
-func cleanOldFiles(dr *resolver.DependencyResolver) error {
-	if _, err := dr.Fs.Stat(dr.ResponseTargetFile); err == nil {
-		if err := dr.Fs.RemoveAll(dr.ResponseTargetFile); err != nil {
-			dr.Logger.Error("unable to delete old response file", "response-target-file", dr.ResponseTargetFile)
-			return err
-		}
-	}
-	return nil
-}
-
-// validateMethod checks if the incoming HTTP request uses a valid method.
-// It returns the formatted method string for .pkl file creation.
-func validateMethod(r *http.Request, allowedMethods []string) (string, error) {
-	if r.Method == "" {
-		r.Method = "GET"
+// CleanOldFiles removes old response files
+func CleanOldFiles(dr *resolver.DependencyResolver) error {
+	if dr.ResponseTargetFile == "" {
+		return nil
 	}
 
-	for _, allowedMethod := range allowedMethods {
-		if allowedMethod == r.Method {
-			return fmt.Sprintf(`Method = "%s"`, allowedMethod), nil
-		}
-	}
-
-	return "", fmt.Errorf(`HTTP method "%s" not allowed`, r.Method)
-}
-
-// processWorkflow handles the execution of the workflow steps after the .pkl file is created.
-func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver) error {
-	dr.Context = ctx
-
-	if err := dr.PrepareWorkflowDir(); err != nil {
-		return err
-	}
-
-	if err := dr.PrepareImportFiles(); err != nil {
-		return err
-	}
-
-	// context already passed via dr.Context
-	if _, err := dr.HandleRunAction(); err != nil {
-		return err
-	}
-
-	stdout, err := dr.EvalPklFormattedResponseFile()
-	if err != nil {
-		dr.Logger.Errorf("%s: %v", stdout, err)
-		return err
-	}
-
-	// Close the singleton evaluator after response file evaluation
-	if evaluatorMgr, err := evaluator.GetEvaluatorManager(); err == nil {
-		if err := evaluatorMgr.Close(); err != nil {
-			dr.Logger.Error("failed to close PKL evaluator", "error", err)
-		}
-	}
-
-	dr.Logger.Debug(messages.MsgAwaitingResponse)
-
-	// Wait for the response file to be ready
-	if err := utils.WaitForFileReady(dr.Fs, dr.ResponseTargetFile, dr.Logger); err != nil {
-		return err
+	if err := dr.Fs.RemoveAll(dr.ResponseTargetFile); err != nil {
+		return fmt.Errorf("failed to clean old files: %w", err)
 	}
 
 	return nil
 }
 
-func decodeResponseContent(content []byte, logger *logging.Logger) (*APIResponse, error) {
-	var decodedResp APIResponse
+// ValidateMethod validates the HTTP method against allowed methods
+func ValidateMethod(r *http.Request, allowedMethods []string) (string, error) {
+	method := r.Method
+	if method == "" {
+		method = "GET"
+	}
 
-	// Check if content is PCF format (starts with "Success = " or similar)
-	contentStr := string(content)
-	if strings.Contains(contentStr, "Success = ") || strings.Contains(contentStr, "Meta {") {
-		// Parse PCF format
-		pcfResp, err := parsePCFResponse(contentStr, logger)
-		if err != nil {
-			logger.Error("failed to parse PCF response", "error", err)
-			return nil, err
+	for _, allowed := range allowedMethods {
+		if strings.EqualFold(method, allowed) {
+			return fmt.Sprintf(`Method = "%s"`, strings.ToUpper(method)), nil
 		}
-		return pcfResp, nil
 	}
 
-	// Unmarshal JSON content into APIResponse struct
-	err := json.Unmarshal(content, &decodedResp)
+	return "", fmt.Errorf("HTTP method \"%s\" not allowed", method)
+}
+
+// ProcessWorkflow processes the workflow
+func ProcessWorkflow(ctx context.Context, dr *resolver.DependencyResolver) error {
+	// Process the workflow
+	_, err := dr.HandleRunAction()
 	if err != nil {
-		logger.Error(messages.ErrUnmarshalRespContent, "error", err)
-		return nil, err
+		return fmt.Errorf("failed to handle run action: %w", err)
 	}
 
-	// Decode Base64 strings in the Data field
-	for i, encodedData := range decodedResp.Response.Data {
-		decodedData, err := utils.DecodeBase64String(encodedData)
-		if err != nil {
-			logger.Error(messages.ErrDecodeBase64String, "data", encodedData)
-			decodedResp.Response.Data[i] = encodedData // Use original if decoding fails
-		} else {
-			fixedJSON := utils.FixJSON(decodedData)
-			if utils.IsJSON(fixedJSON) {
-				var prettyJSON bytes.Buffer
-				err := json.Indent(&prettyJSON, []byte(fixedJSON), "", "  ")
-				if err == nil {
-					fixedJSON = prettyJSON.String()
-				}
+	return nil
+}
+
+// DecodeResponseContent decodes response content
+func DecodeResponseContent(content []byte, logger *logging.Logger) (*APIResponse, error) {
+	var response APIResponse
+	if err := json.Unmarshal(content, &response); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	// Decode base64 encoded data
+	for i, data := range response.Response.Data {
+		if utils.IsBase64Encoded(data) {
+			decoded, err := utils.DecodeBase64String(data)
+			if err != nil {
+				logger.Warn("failed to decode base64 data", "index", i, "error", err)
+				continue
 			}
-			decodedResp.Response.Data[i] = fixedJSON
+			response.Response.Data[i] = decoded
 		}
 	}
 
-	return &decodedResp, nil
+	return &response, nil
 }
 
 // parsePCFResponse parses PCF format response and converts it to APIResponse
@@ -967,37 +916,18 @@ func parsePCFResponse(pcfContent string, logger *logging.Logger) (*APIResponse, 
 	return resp, nil
 }
 
-// formatResponseJSON attempts to format the response content as JSON if required.
-// It unmarshals the content into a map, modifies the "data" field if necessary, and re-encodes it into a pretty-printed JSON string.
-func formatResponseJSON(content []byte) []byte {
-	var response map[string]interface{}
-
-	// Attempt to unmarshal the content into the response map
+// FormatResponseJSON formats response JSON
+func FormatResponseJSON(content []byte) []byte {
+	var response APIResponse
 	if err := json.Unmarshal(content, &response); err != nil {
-		// Return the original content if unmarshalling fails
 		return content
 	}
 
-	// Safely check if "response" is a map and if "data" exists and is an array
-	if responseField, ok := response["response"].(map[string]interface{}); ok {
-		if data, ok := responseField["data"].([]interface{}); ok {
-			for i, item := range data {
-				// Attempt to unmarshal each item in "data" if it's a string
-				if itemStr, isString := item.(string); isString {
-					var obj map[string]interface{}
-					if err := json.Unmarshal([]byte(itemStr), &obj); err == nil {
-						data[i] = obj
-					}
-				}
-			}
-		}
-	}
-
-	// Marshal the modified response back into JSON
-	modifiedContent, err := json.MarshalIndent(response, "", "  ")
+	// Format the response
+	formatted, err := json.MarshalIndent(response, "", "  ")
 	if err != nil {
 		return content
 	}
 
-	return modifiedContent
+	return formatted
 }

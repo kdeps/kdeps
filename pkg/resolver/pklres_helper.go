@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -49,15 +50,15 @@ func (h *PklresHelper) generatePklHeader(resourceType string) string {
 	if h == nil || h.resolver == nil || h.resolver.Context == nil {
 		schemaVersion = "0.3.0" // Default fallback version
 	} else {
-		schemaVersion = schema.SchemaVersion(h.resolver.Context)
+		schemaVersion = schema.Version(h.resolver.Context)
 	}
 	return fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/%s\"\n\n", schemaVersion, info.SchemaFile)
 }
 
-// storePklContent stores PKL content in pklres with the appropriate header
-func (h *PklresHelper) storePklContent(resourceType, resourceID, content string) error {
+// StorePklContent stores PKL content in pklres with the appropriate header
+func (h *PklresHelper) StorePklContent(resourceType, resourceID, content string) error {
 	if h == nil {
-		return fmt.Errorf("PklresHelper is nil")
+		return errors.New("PklresHelper is nil")
 	}
 	if h.resolver != nil && h.resolver.Logger != nil {
 		h.resolver.Logger.Info("storePklContent: called", "resourceType", resourceType, "resourceID", resourceID, "content_length", len(content))
@@ -66,7 +67,7 @@ func (h *PklresHelper) storePklContent(resourceType, resourceID, content string)
 		if h.resolver != nil && h.resolver.Logger != nil {
 			h.resolver.Logger.Error("storePklContent: resolver is nil, cannot persist", "resourceType", resourceType, "resourceID", resourceID)
 		}
-		return fmt.Errorf("resolver is nil")
+		return errors.New("resolver is nil")
 	}
 	if h.resolver.PklresReader == nil {
 		if h.resolver.Logger != nil {
@@ -99,10 +100,10 @@ func (h *PklresHelper) storePklContent(resourceType, resourceID, content string)
 	return nil
 }
 
-// retrievePklContent retrieves PKL content from pklres
-func (h *PklresHelper) retrievePklContent(resourceType, resourceID string) (string, error) {
+// RetrievePklContent retrieves PKL content from pklres
+func (h *PklresHelper) RetrievePklContent(resourceType, resourceID string) (string, error) {
 	if h == nil || h.resolver == nil {
-		return "", fmt.Errorf("PklresHelper or resolver is nil")
+		return "", errors.New("PklresHelper or resolver is nil")
 	}
 
 	// Automatically resolve actionID if it looks like one
@@ -112,22 +113,41 @@ func (h *PklresHelper) retrievePklContent(resourceType, resourceID string) (stri
 	}
 
 	// Use pklres to retrieve the content
-	uri, err := url.Parse(fmt.Sprintf("pklres:///%s?type=%s",
+	// Note: The content is stored with an empty key, so we need to use the resolvedResourceID as the id and an empty key
+	uri, err := url.Parse(fmt.Sprintf("pklres:///%s?type=%s&key=",
 		resolvedResourceID, resourceType))
 	if err != nil {
 		return "", fmt.Errorf("failed to parse pklres URI: %w", err)
 	}
 
 	if h.resolver.PklresReader == nil {
-		return "", fmt.Errorf("PklresReader is nil")
+		return "", errors.New("PklresReader is nil")
+	}
+
+	// Add debug logging to see what URI we're trying to read
+	if h.resolver.Logger != nil {
+		h.resolver.Logger.Debug("retrievePklContent: attempting to read from pklres", "uri", uri.String())
 	}
 
 	data, err := h.resolver.PklresReader.Read(*uri)
 	if err != nil {
+		if h.resolver.Logger != nil {
+			h.resolver.Logger.Debug("retrievePklContent: failed to read from pklres", "uri", uri.String(), "error", err)
+		}
 		return "", fmt.Errorf("failed to retrieve PKL content from pklres: %w", err)
 	}
 
-	return string(data), nil
+	content := string(data)
+	if h.resolver.Logger != nil {
+		h.resolver.Logger.Debug("retrievePklContent: successfully read from pklres", "uri", uri.String(), "contentLength", len(content))
+		if len(content) > 200 {
+			h.resolver.Logger.Debug("retrievePklContent: content preview", "preview", content[:200]+"...")
+		} else {
+			h.resolver.Logger.Debug("retrievePklContent: full content", "content", content)
+		}
+	}
+
+	return content, nil
 }
 
 // retrieveAllResourcesForType retrieves all resources of a given type
@@ -163,7 +183,7 @@ func (h *PklresHelper) retrieveAllResourcesForType(resourceType string) (map[str
 	for _, idPart := range idParts {
 		id := strings.Trim(strings.TrimSpace(idPart), "\"")
 		if id != "" {
-			content, err := h.retrievePklContent(resourceType, id)
+			content, err := h.RetrievePklContent(resourceType, id)
 			if err != nil {
 				h.resolver.Logger.Warn("failed to retrieve content for resource", "type", resourceType, "id", id, "error", err)
 				continue
@@ -224,8 +244,8 @@ func (h *PklresHelper) clearResourceType(resourceType string) error {
 	return nil
 }
 
-// getResourcePath returns the pklres path for a resource type (for compatibility with existing code)
-func (h *PklresHelper) getResourcePath(resourceType string) string {
+// GetResourcePath returns the pklres path for a resource type (for compatibility with existing code)
+func (h *PklresHelper) GetResourcePath(resourceType string) string {
 	// Handle nil resolver case (for tests or incomplete initialization)
 	if h == nil || h.resolver == nil {
 		return fmt.Sprintf("pklres:///test-request?type=%s", resourceType)

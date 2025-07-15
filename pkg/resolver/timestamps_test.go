@@ -1,8 +1,11 @@
-package resolver
+package resolver_test
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,6 +13,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	pklres "github.com/kdeps/kdeps/pkg/pklres"
+	resolverpkg "github.com/kdeps/kdeps/pkg/resolver"
 	pklExec "github.com/kdeps/schema/gen/exec"
 	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
@@ -18,18 +22,62 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func formatDuration(d time.Duration) string {
+	if d == 0 {
+		return "0s"
+	}
+	h := d / time.Hour
+	d -= h * time.Hour
+	m := d / time.Minute
+	d -= m * time.Minute
+	s := d / time.Second
+	var parts []string
+	if h > 0 {
+		parts = append(parts, fmt.Sprintf("%dh", h))
+	}
+	if m > 0 {
+		parts = append(parts, fmt.Sprintf("%dm", m))
+	}
+	if s > 0 || len(parts) == 0 {
+		parts = append(parts, fmt.Sprintf("%ds", s))
+	}
+	return strings.Join(parts, " ")
+}
+
+func getResourceTimestamp(resID string, impl interface{}) (*pkl.Duration, error) {
+	switch v := impl.(type) {
+	case *pklExec.ExecImpl:
+		if res, ok := v.Resources[resID]; ok {
+			return res.Timestamp, nil
+		}
+	case *pklPython.PythonImpl:
+		if res, ok := v.Resources[resID]; ok {
+			return res.Timestamp, nil
+		}
+	case *pklLLM.LLMImpl:
+		if res, ok := v.Resources[resID]; ok {
+			return res.Timestamp, nil
+		}
+	case *pklHTTP.HTTPImpl:
+		if res, ok := v.Resources[resID]; ok {
+			return res.Timestamp, nil
+		}
+	}
+	return nil, errors.New("resource not found")
+}
+
 func TestGetResourcePath(t *testing.T) {
 	// Use temporary directory for test files
 	tmpDir := t.TempDir()
 	actionDir := filepath.Join(tmpDir, "action")
 
-	dr := &DependencyResolver{
+	dr := &resolverpkg.DependencyResolver{
 		ActionDir: actionDir,
 		RequestID: "test123",
 	}
 
 	dr.PklresReader, _ = pklres.InitializePklResource(":memory:")
-	dr.PklresHelper = NewPklresHelper(dr)
+	dr.PklresHelper = resolverpkg.NewPklresHelper(dr)
 
 	tests := []struct {
 		name         string
@@ -59,12 +107,10 @@ func TestGetResourcePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := dr.getResourcePath(tt.resourceType)
+			got := dr.GetResourcePath(tt.resourceType)
 			if tt.wantErr {
-				assert.Error(t, err)
 				assert.Empty(t, got)
 			} else {
-				assert.NoError(t, err)
 				assert.Equal(t, tt.want, got)
 			}
 		})
@@ -131,7 +177,7 @@ func TestWaitForTimestampChange(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	dr := &DependencyResolver{
+	dr := &resolverpkg.DependencyResolver{
 		Context:   context.Background(),
 		Logger:    testLogger,
 		ActionDir: actionDir,
@@ -140,7 +186,7 @@ func TestWaitForTimestampChange(t *testing.T) {
 	}
 
 	dr.PklresReader, _ = pklres.InitializePklResource(":memory:")
-	dr.PklresHelper = NewPklresHelper(dr)
+	dr.PklresHelper = resolverpkg.NewPklresHelper(dr)
 
 	t.Run("missing PKL data", func(t *testing.T) {
 		// Test with a very short timeout
@@ -249,9 +295,9 @@ func TestFormatDurationExtra(t *testing.T) {
 }
 
 func TestGetResourcePath_InvalidType(t *testing.T) {
-	dr := &DependencyResolver{}
-	_, err := dr.getResourcePath("unknown")
-	if err == nil {
-		t.Fatalf("expected error for invalid resource type")
+	dr := &resolverpkg.DependencyResolver{}
+	got := dr.GetResourcePath("unknown")
+	if got != "" {
+		t.Fatalf("expected empty string for invalid resource type")
 	}
 }

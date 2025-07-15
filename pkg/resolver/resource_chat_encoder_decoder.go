@@ -402,3 +402,16 @@ func encodeJSONResponseKeys(keys *[]string) *[]string {
 	}
 	return &encoded
 }
+
+// Exported for testing
+func (dr *DependencyResolver) DecodeChatBlock(chatBlock *pklLLM.ResourceChat) error {
+	return dr.decodeChatBlock(chatBlock)
+}
+
+func DecodeField(field **string, fieldName string, deref func(*string) string, defaultValue string) error {
+	return decodeField(field, fieldName, deref, defaultValue)
+}
+
+func DecodeScenario(chatBlock *pklLLM.ResourceChat, logger *logging.Logger) error {
+	return decodeScenario(chatBlock, logger)
+}

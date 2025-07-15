@@ -23,7 +23,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/kdeps/kartographer v0.0.0-20240808015651-b2afd5d97715
-	github.com/kdeps/schema v0.4.2
+	github.com/kdeps/schema v0.4.3
 	github.com/kr/pretty v0.3.1
 	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/spf13/afero v1.14.0

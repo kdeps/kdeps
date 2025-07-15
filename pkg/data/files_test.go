@@ -1,4 +1,4 @@
-package data
+package data_test
 
 import (
 	"errors"
@@ -10,6 +10,9 @@ import (
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/kdeps/kdeps/pkg/data"
 )
 
 type errorFs struct{ afero.Fs }
@@ -75,8 +78,8 @@ func (s statErrorFs) Chtimes(name string, atime, mtime time.Time) error {
 
 func TestPopulateDataFileRegistry_BaseDirDoesNotExist(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	reg, err := PopulateDataFileRegistry(fs, "/not-exist")
-	assert.NoError(t, err)
+	reg, err := data.PopulateDataFileRegistry(fs, "/not-exist")
+	require.NoError(t, err)
 	assert.NotNil(t, reg)
 	assert.Empty(t, *reg)
 }
@@ -84,8 +87,8 @@ func TestPopulateDataFileRegistry_BaseDirDoesNotExist(t *testing.T) {
 func TestPopulateDataFileRegistry_EmptyBaseDir(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	_ = fs.MkdirAll("/base", 0o755)
-	reg, err := PopulateDataFileRegistry(fs, "/base")
-	assert.NoError(t, err)
+	reg, err := data.PopulateDataFileRegistry(fs, "/base")
+	require.NoError(t, err)
 	assert.NotNil(t, reg)
 	assert.Empty(t, *reg)
 }
@@ -98,8 +101,8 @@ func TestPopulateDataFileRegistry_WithFiles(t *testing.T) {
 	_ = fs.MkdirAll("/base/agent2/v2", 0o755)
 	_ = afero.WriteFile(fs, "/base/agent2/v2/file3.txt", []byte("data3"), 0o644)
 
-	reg, err := PopulateDataFileRegistry(fs, "/base")
-	assert.NoError(t, err)
+	reg, err := data.PopulateDataFileRegistry(fs, "/base")
+	require.NoError(t, err)
 	assert.NotNil(t, reg)
 	files := *reg
 	assert.Len(t, files, 2)
@@ -114,8 +117,8 @@ func TestPopulateDataFileRegistry_SkipInvalidStructure(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	_ = fs.MkdirAll("/base/agent1", 0o755)
 	_ = afero.WriteFile(fs, "/base/agent1/file.txt", []byte("data"), 0o644)
-	reg, err := PopulateDataFileRegistry(fs, "/base")
-	assert.NoError(t, err)
+	reg, err := data.PopulateDataFileRegistry(fs, "/base")
+	require.NoError(t, err)
 	assert.NotNil(t, reg)
 	files := *reg
 	assert.Len(t, files, 1)
@@ -125,8 +128,8 @@ func TestPopulateDataFileRegistry_SkipInvalidStructure(t *testing.T) {
 
 func TestPopulateDataFileRegistry_ErrorOnDirExists(t *testing.T) {
 	efs := errorFs{afero.NewMemMapFs()}
-	reg, err := PopulateDataFileRegistry(efs, "/base")
-	assert.Error(t, err)
+	reg, err := data.PopulateDataFileRegistry(efs, "/base")
+	require.Error(t, err)
 	assert.NotNil(t, reg)
 	assert.Empty(t, *reg)
 }
@@ -136,8 +139,8 @@ func TestPopulateDataFileRegistry_NestedDirectories(t *testing.T) {
 	_ = fs.MkdirAll("/base/agent1/v1/subdir", 0o755)
 	_ = afero.WriteFile(fs, "/base/agent1/v1/subdir/file.txt", []byte("data"), 0o644)
 
-	reg, err := PopulateDataFileRegistry(fs, "/base")
-	assert.NoError(t, err)
+	reg, err := data.PopulateDataFileRegistry(fs, "/base")
+	require.NoError(t, err)
 	assert.NotNil(t, reg)
 	files := *reg
 	assert.Len(t, files, 1)
@@ -150,8 +153,8 @@ func TestPopulateDataFileRegistry_SkipDirectoryEntries(t *testing.T) {
 	_ = fs.MkdirAll("/base/agent1/v1/dir", 0o755)
 	_ = afero.WriteFile(fs, "/base/agent1/v1/file.txt", []byte("data"), 0o644)
 
-	reg, err := PopulateDataFileRegistry(fs, "/base")
-	assert.NoError(t, err)
+	reg, err := data.PopulateDataFileRegistry(fs, "/base")
+	require.NoError(t, err)
 	assert.NotNil(t, reg)
 	files := *reg
 	assert.Len(t, files, 1)
@@ -166,8 +169,8 @@ func TestPopulateDataFileRegistry_SingleFileStructure(t *testing.T) {
 	_ = fs.MkdirAll("/base", 0o755)
 	_ = afero.WriteFile(fs, "/base/file.txt", []byte("data"), 0o644)
 
-	reg, err := PopulateDataFileRegistry(fs, "/base")
-	assert.NoError(t, err)
+	reg, err := data.PopulateDataFileRegistry(fs, "/base")
+	require.NoError(t, err)
 	assert.NotNil(t, reg)
 	files := *reg
 	// Should skip files without at least agentName and version structure
@@ -183,8 +186,8 @@ func TestPopulateDataFileRegistry_WalkErrors(t *testing.T) {
 		_ = afero.WriteFile(fs, "/base/agent1/v1/file.txt", []byte("data"), 0o644)
 
 		// This test checks that the function continues even if there are walk errors
-		reg, err := PopulateDataFileRegistry(fs, "/base")
-		assert.NoError(t, err)
+		reg, err := data.PopulateDataFileRegistry(fs, "/base")
+		require.NoError(t, err)
 		assert.NotNil(t, reg)
 		// Should still process the files that are accessible
 		files := *reg
@@ -198,8 +201,8 @@ func TestPopulateDataFileRegistry_WalkErrors(t *testing.T) {
 		_ = fs.MkdirAll("/base/agent1/v1", 0o755)
 		_ = afero.WriteFile(fs, "/base/agent1/v1/file.txt", []byte("data"), 0o644)
 
-		reg, err := PopulateDataFileRegistry(fs, "/base")
-		assert.NoError(t, err)
+		reg, err := data.PopulateDataFileRegistry(fs, "/base")
+		require.NoError(t, err)
 		assert.NotNil(t, reg)
 		files := *reg
 		assert.Len(t, files, 1)
@@ -213,8 +216,8 @@ func TestPopulateDataFileRegistry_EmptyAgentPath(t *testing.T) {
 	_ = fs.MkdirAll("/base/onelevel", 0o755)
 	_ = afero.WriteFile(fs, "/base/onelevel.txt", []byte("data"), 0o644)
 
-	reg, err := PopulateDataFileRegistry(fs, "/base")
-	assert.NoError(t, err)
+	reg, err := data.PopulateDataFileRegistry(fs, "/base")
+	require.NoError(t, err)
 	assert.NotNil(t, reg)
 	files := *reg
 	// Should be empty since files don't have proper agent/version structure
@@ -231,8 +234,8 @@ func TestPopulateDataFileRegistry_MixedContent(t *testing.T) {
 	_ = fs.MkdirAll("/base/onlyone", 0o755)
 	_ = afero.WriteFile(fs, "/base/onlyone/file.txt", []byte("data"), 0o644)
 
-	reg, err := PopulateDataFileRegistry(fs, "/base")
-	assert.NoError(t, err)
+	reg, err := data.PopulateDataFileRegistry(fs, "/base")
+	require.NoError(t, err)
 	assert.NotNil(t, reg)
 	files := *reg
 
@@ -245,8 +248,8 @@ func TestPopulateDataFileRegistry_MixedContent(t *testing.T) {
 func TestPopulateDataFileRegistry_ErrorConditions(t *testing.T) {
 	t.Run("DirExistsError", func(t *testing.T) {
 		efs := errorFs{afero.NewMemMapFs()}
-		reg, err := PopulateDataFileRegistry(efs, "/base")
-		assert.Error(t, err)
+		reg, err := data.PopulateDataFileRegistry(efs, "/base")
+		require.Error(t, err)
 		assert.NotNil(t, reg)
 		assert.Empty(t, *reg)
 	})
@@ -258,8 +261,8 @@ func TestPopulateDataFileRegistry_ErrorConditions(t *testing.T) {
 		_ = afero.WriteFile(fs, "/base/agent1/v1/file.txt", []byte("data"), 0o644)
 
 		wefs := walkErrorFs{fs}
-		reg, err := PopulateDataFileRegistry(wefs, "/base")
-		assert.NoError(t, err) // Walk errors are ignored
+		reg, err := data.PopulateDataFileRegistry(wefs, "/base")
+		require.NoError(t, err) // Walk errors are ignored
 		assert.NotNil(t, reg)
 		// Since we can't actually inject a walk error, we verify that the function
 		// continues processing and returns a non-empty registry
@@ -273,11 +276,153 @@ func TestPopulateDataFileRegistry_ErrorConditions(t *testing.T) {
 		_ = afero.WriteFile(fs, "/base/agent1/v1/file.txt", []byte("data"), 0o644)
 
 		sefs := statErrorFs{fs}
-		reg, err := PopulateDataFileRegistry(sefs, "/base")
-		assert.NoError(t, err) // Relative path errors are ignored
+		reg, err := data.PopulateDataFileRegistry(sefs, "/base")
+		require.NoError(t, err) // Relative path errors are ignored
 		assert.NotNil(t, reg)
 		// The file should be skipped due to stat error, but the directory structure
 		// should still be processed
 		assert.Empty(t, *reg)
 	})
+}
+
+func TestPopulateDataFileRegistry(t *testing.T) {
+	// Create a temporary directory for the test
+	tempDir := t.TempDir()
+
+	// Test successful registry population
+	registry, err := data.PopulateDataFileRegistry(afero.NewOsFs(), tempDir)
+	require.NoError(t, err)
+	assert.NotNil(t, registry)
+}
+
+func TestPopulateDataFileRegistryWithInvalidPath(t *testing.T) {
+	// Test with an invalid path
+	invalidPath := "/nonexistent/path"
+
+	registry, err := data.PopulateDataFileRegistry(afero.NewOsFs(), invalidPath)
+	require.Error(t, err)
+	assert.Nil(t, registry)
+}
+
+func TestPopulateDataFileRegistryWithEmptyDirectory(t *testing.T) {
+	// Create a temporary directory for the test
+	tempDir := t.TempDir()
+
+	// Test with empty directory
+	registry, err := data.PopulateDataFileRegistry(afero.NewOsFs(), tempDir)
+	require.NoError(t, err)
+	assert.NotNil(t, registry)
+}
+
+func TestPopulateDataFileRegistryWithFiles(t *testing.T) {
+	// Create a temporary directory for the test
+	tempDir := t.TempDir()
+
+	// Create some test files
+	testFiles := []string{"file1.txt", "file2.txt", "file3.txt"}
+	for _, filename := range testFiles {
+		filePath := filepath.Join(tempDir, filename)
+		err := os.WriteFile(filePath, []byte("test content"), 0o644)
+		require.NoError(t, err)
+	}
+
+	// Test with files in directory
+	registry, err := data.PopulateDataFileRegistry(afero.NewOsFs(), tempDir)
+	require.NoError(t, err)
+	assert.NotNil(t, registry)
+}
+
+func TestPopulateDataFileRegistryWithSubdirectories(t *testing.T) {
+	// Create a temporary directory for the test
+	tempDir := t.TempDir()
+
+	// Create subdirectories
+	subDir1 := filepath.Join(tempDir, "subdir1")
+	subDir2 := filepath.Join(tempDir, "subdir2")
+	err := os.MkdirAll(subDir1, 0o755)
+	require.NoError(t, err)
+	err = os.MkdirAll(subDir2, 0o755)
+	require.NoError(t, err)
+
+	// Create files in subdirectories
+	file1 := filepath.Join(subDir1, "file1.txt")
+	file2 := filepath.Join(subDir2, "file2.txt")
+	err = os.WriteFile(file1, []byte("test content 1"), 0o644)
+	require.NoError(t, err)
+	err = os.WriteFile(file2, []byte("test content 2"), 0o644)
+	require.NoError(t, err)
+
+	// Test with subdirectories
+	registry, err := data.PopulateDataFileRegistry(afero.NewOsFs(), tempDir)
+	require.NoError(t, err)
+	assert.NotNil(t, registry)
+}
+
+func TestPopulateDataFileRegistryWithSymlinks(t *testing.T) {
+	// Create a temporary directory for the test
+	tempDir := t.TempDir()
+
+	// Create a test file
+	testFile := filepath.Join(tempDir, "test.txt")
+	err := os.WriteFile(testFile, []byte("test content"), 0o644)
+	require.NoError(t, err)
+
+	// Create a symlink
+	symlink := filepath.Join(tempDir, "link.txt")
+	err = os.Symlink(testFile, symlink)
+	require.NoError(t, err)
+
+	// Test with symlinks
+	registry, err := data.PopulateDataFileRegistry(afero.NewOsFs(), tempDir)
+	require.NoError(t, err)
+	assert.NotNil(t, registry)
+}
+
+func TestPopulateDataFileRegistryWithHiddenFiles(t *testing.T) {
+	// Create a temporary directory for the test
+	tempDir := t.TempDir()
+
+	// Create hidden files
+	hiddenFile := filepath.Join(tempDir, ".hidden.txt")
+	err := os.WriteFile(hiddenFile, []byte("hidden content"), 0o644)
+	require.NoError(t, err)
+
+	// Test with hidden files
+	registry, err := data.PopulateDataFileRegistry(afero.NewOsFs(), tempDir)
+	require.NoError(t, err)
+	assert.NotNil(t, registry)
+}
+
+func TestPopulateDataFileRegistryWithLargeFiles(t *testing.T) {
+	// Create a temporary directory for the test
+	tempDir := t.TempDir()
+
+	// Create a large file (1MB)
+	largeFile := filepath.Join(tempDir, "large.txt")
+	largeContent := make([]byte, 1024*1024) // 1MB
+	for i := range largeContent {
+		largeContent[i] = byte(i % 256)
+	}
+	err := os.WriteFile(largeFile, largeContent, 0o644)
+	require.NoError(t, err)
+
+	// Test with large files
+	registry, err := data.PopulateDataFileRegistry(afero.NewOsFs(), tempDir)
+	require.NoError(t, err)
+	assert.NotNil(t, registry)
+}
+
+func TestPopulateDataFileRegistryWithSpecialCharacters(t *testing.T) {
+	// Create a temporary directory for the test
+	tempDir := t.TempDir()
+
+	// Create files with special characters in names
+	specialFile := filepath.Join(tempDir, "file with spaces.txt")
+	err := os.WriteFile(specialFile, []byte("special content"), 0o644)
+	require.NoError(t, err)
+
+	// Test with special characters
+	registry, err := data.PopulateDataFileRegistry(afero.NewOsFs(), tempDir)
+	require.NoError(t, err)
+	assert.NotNil(t, registry)
 }

@@ -17,7 +17,7 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 	webPortNum, gpu string, apiMode, webMode bool, cli *client.Client,
 ) (string, error) {
 	// Load environment variables from .env file (if it exists)
-	envSlice, err := loadEnvFile(fs, ".env")
+	envSlice, err := LoadEnvFile(fs, ".env")
 	if err != nil {
 		fmt.Println("Error loading .env file, proceeding without it:", err)
 	}
@@ -129,7 +129,7 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 	return resp.ID, nil
 }
 
-func loadEnvFile(fs afero.Fs, filename string) ([]string, error) {
+func LoadEnvFile(fs afero.Fs, filename string) ([]string, error) {
 	// Check if the file exists
 	exists, err := afero.Exists(fs, filename)
 	if err != nil {

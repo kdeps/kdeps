@@ -25,7 +25,7 @@ func BootstrapDockerSystem(ctx context.Context, dr *resolver.DependencyResolver)
 
 	dr.Logger.Debug("inside Docker environment\ninitializing Docker system")
 
-	apiServerMode, err := setupDockerEnvironment(ctx, dr)
+	apiServerMode, err := SetupDockerEnvironment(ctx, dr)
 	if err != nil {
 		return apiServerMode, err
 	}
@@ -34,7 +34,8 @@ func BootstrapDockerSystem(ctx context.Context, dr *resolver.DependencyResolver)
 	return apiServerMode, nil
 }
 
-func setupDockerEnvironment(ctx context.Context, dr *resolver.DependencyResolver) (bool, error) {
+// SetupDockerEnvironment sets up the Docker environment.
+func SetupDockerEnvironment(ctx context.Context, dr *resolver.DependencyResolver) (bool, error) {
 	apiServerPath := filepath.Join(dr.ActionDir, "api") // fixed path
 
 	dr.Logger.Debug("preparing workflow directory")
@@ -42,17 +43,17 @@ func setupDockerEnvironment(ctx context.Context, dr *resolver.DependencyResolver
 		return false, fmt.Errorf("failed to prepare workflow directory: %w", err)
 	}
 
-	host, port, err := parseOLLAMAHost(dr.Logger)
+	host, port, err := ParseOLLAMAHost(dr.Logger)
 	if err != nil {
 		return false, fmt.Errorf("failed to parse OLLAMA host: %w", err)
 	}
 
-	if err := startAndWaitForOllama(ctx, host, port, dr.Logger); err != nil {
+	if err := StartAndWaitForOllama(ctx, host, port, dr.Logger); err != nil {
 		return false, fmt.Errorf("OLLAMA service startup failed: %w", err)
 	}
 
 	wfSettings := dr.Workflow.GetSettings()
-	if err := pullModels(ctx, wfSettings.AgentSettings.Models, dr.Logger); err != nil {
+	if err := PullModels(ctx, wfSettings.AgentSettings.Models, dr.Logger); err != nil {
 		apiServerMode := wfSettings.APIServerMode != nil && *wfSettings.APIServerMode
 		webServerMode := wfSettings.WebServerMode != nil && *wfSettings.WebServerMode
 		return apiServerMode || webServerMode, fmt.Errorf("failed to pull models: %w", err)
@@ -73,7 +74,7 @@ func setupDockerEnvironment(ctx context.Context, dr *resolver.DependencyResolver
 	if apiServerMode {
 		go func() {
 			dr.Logger.Info("starting API server")
-			errChan <- startAPIServer(ctx, dr)
+			errChan <- StartAPIServer(ctx, dr)
 		}()
 	}
 
@@ -81,7 +82,7 @@ func setupDockerEnvironment(ctx context.Context, dr *resolver.DependencyResolver
 	if webServerMode {
 		go func() {
 			dr.Logger.Info("starting Web server")
-			errChan <- startWebServer(ctx, dr)
+			errChan <- StartWebServer(ctx, dr)
 		}()
 	}
 
@@ -95,12 +96,14 @@ func setupDockerEnvironment(ctx context.Context, dr *resolver.DependencyResolver
 	return anyMode, nil
 }
 
-func startAndWaitForOllama(ctx context.Context, host, port string, logger *logging.Logger) error {
-	go startOllamaServer(ctx, logger)
-	return waitForServer(host, port, 60*time.Second, logger)
+// StartAndWaitForOllama starts and waits for Ollama to be ready.
+func StartAndWaitForOllama(ctx context.Context, host, port string, logger *logging.Logger) error {
+	go StartOllamaServer(ctx, logger)
+	return WaitForServer(host, port, 60*time.Second, logger)
 }
 
-func pullModels(ctx context.Context, models []string, logger *logging.Logger) error {
+// PullModels pulls the required models.
+func PullModels(ctx context.Context, models []string, logger *logging.Logger) error {
 	for _, model := range models {
 		model = strings.TrimSpace(model)
 		logger.Debug("pulling model", "model", model)
@@ -122,7 +125,8 @@ func pullModels(ctx context.Context, models []string, logger *logging.Logger) er
 	return nil
 }
 
-func startAPIServer(ctx context.Context, dr *resolver.DependencyResolver) error {
+// StartAPIServer starts the API server.
+func StartAPIServer(ctx context.Context, dr *resolver.DependencyResolver) error {
 	errChan := make(chan error, 1)
 	go func() {
 		errChan <- StartAPIServerMode(ctx, dr)
@@ -131,7 +135,8 @@ func startAPIServer(ctx context.Context, dr *resolver.DependencyResolver) error 
 	return <-errChan
 }
 
-func startWebServer(ctx context.Context, dr *resolver.DependencyResolver) error {
+// StartWebServer starts the web server.
+func StartWebServer(ctx context.Context, dr *resolver.DependencyResolver) error {
 	errChan := make(chan error, 1)
 	go func() {
 		errChan <- StartWebServerMode(ctx, dr)

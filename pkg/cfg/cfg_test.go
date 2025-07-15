@@ -1,4 +1,4 @@
-package cfg
+package cfg_test
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/adrg/xdg"
 	"github.com/cucumber/godog"
+	"github.com/kdeps/kdeps/pkg/cfg"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -45,10 +46,11 @@ func init() {
 }
 
 func setNonInteractive(t *testing.T) func() {
-	original := os.Getenv("NON_INTERACTIVE")
-	os.Setenv("NON_INTERACTIVE", "1")
+	t.Helper()
+	oldValue := os.Getenv("NON_INTERACTIVE")
+	t.Setenv("NON_INTERACTIVE", "1")
 	return func() {
-		os.Setenv("NON_INTERACTIVE", original)
+		t.Setenv("NON_INTERACTIVE", oldValue)
 	}
 }
 
@@ -128,7 +130,7 @@ DockerGPU = "cpu"
 	return nil
 }
 
-func theConfigurationFileIs(arg1 string) error {
+func theConfigurationFileIs(_ string) error {
 	if _, err := testFs.Stat(fileThatExist); err != nil {
 		return err
 	}
@@ -147,7 +149,7 @@ func theConfigurationIsLoadedInTheCurrentDirectory() error {
 		return err
 	}
 
-	cfgFile, err := FindConfiguration(testFs, ctx, environ, logger)
+	cfgFile, err := cfg.FindConfiguration(testFs, ctx, environ, logger)
 	if err != nil {
 		return err
 	}
@@ -181,7 +183,7 @@ func theConfigurationIsLoadedInTheHomeDirectory() error {
 		return err
 	}
 
-	cfgFile, err := FindConfiguration(testFs, ctx, environ, logger)
+	cfgFile, err := cfg.FindConfiguration(testFs, ctx, environ, logger)
 	if err != nil {
 		return err
 	}
@@ -243,7 +245,7 @@ func theConfigurationFailsToLoadAnyConfiguration() error {
 		return err
 	}
 
-	cfgFile, err := FindConfiguration(testFs, ctx, environ, logger)
+	cfgFile, err := cfg.FindConfiguration(testFs, ctx, environ, logger)
 	if err != nil {
 		return fmt.Errorf("an error occurred while finding configuration: %w", err)
 	}
@@ -293,7 +295,7 @@ func theConfigurationWillBeEdited() error {
 		return err
 	}
 
-	if _, err := EditConfiguration(testFs, ctx, environ, logger); err != nil {
+	if _, err := cfg.EditConfiguration(testFs, ctx, environ, logger); err != nil {
 		return err
 	}
 
@@ -328,7 +330,7 @@ func TestFindConfigurationUnit(t *testing.T) {
 		fs.MkdirAll(pwd, 0o755)
 		afero.WriteFile(fs, filepath.Join(pwd, ".kdeps.pkl"), []byte("test"), 0o644)
 
-		result, err := FindConfiguration(fs, ctx, env, logger)
+		result, err := cfg.FindConfiguration(fs, ctx, env, logger)
 		assert.NoError(t, err)
 		assert.Equal(t, filepath.Join(pwd, ".kdeps.pkl"), result)
 	})
@@ -347,7 +349,7 @@ func TestFindConfigurationUnit(t *testing.T) {
 		fs.MkdirAll(home, 0o755)
 		afero.WriteFile(fs, filepath.Join(home, ".kdeps.pkl"), []byte("test"), 0o644)
 
-		result, err := FindConfiguration(fs, ctx, env, logger)
+		result, err := cfg.FindConfiguration(fs, ctx, env, logger)
 		assert.NoError(t, err)
 		assert.Equal(t, filepath.Join(home, ".kdeps.pkl"), result)
 	})
@@ -362,7 +364,7 @@ func TestFindConfigurationUnit(t *testing.T) {
 			Home: home,
 		}
 
-		result, err := FindConfiguration(fs, ctx, env, logger)
+		result, err := cfg.FindConfiguration(fs, ctx, env, logger)
 		assert.NoError(t, err)
 		assert.Equal(t, "", result)
 	})
@@ -387,7 +389,7 @@ func TestGenerateConfigurationUnit(t *testing.T) {
 
 		fs.MkdirAll(home, 0o755)
 
-		result, err := GenerateConfiguration(fs, ctx, env, logger)
+		result, err := cfg.GenerateConfiguration(fs, ctx, env, logger)
 		// This might fail due to evaluator.EvalPkl, but we test the path
 		if err != nil {
 			assert.Contains(t, err.Error(), "failed to evaluate .pkl file")
@@ -408,7 +410,7 @@ func TestGenerateConfigurationUnit(t *testing.T) {
 		fs.MkdirAll(home, 0o755)
 		afero.WriteFile(fs, filepath.Join(home, ".kdeps.pkl"), []byte("existing"), 0o644)
 
-		result, err := GenerateConfiguration(fs, ctx, env, logger)
+		result, err := cfg.GenerateConfiguration(fs, ctx, env, logger)
 		assert.NoError(t, err)
 		assert.Equal(t, filepath.Join(home, ".kdeps.pkl"), result)
 	})
@@ -430,7 +432,7 @@ func TestEditConfigurationUnit(t *testing.T) {
 		fs.MkdirAll(home, 0o755)
 		afero.WriteFile(fs, filepath.Join(home, ".kdeps.pkl"), []byte("test"), 0o644)
 
-		result, err := EditConfiguration(fs, ctx, env, logger)
+		result, err := cfg.EditConfiguration(fs, ctx, env, logger)
 		assert.NoError(t, err)
 		assert.Equal(t, filepath.Join(home, ".kdeps.pkl"), result)
 	})
@@ -446,7 +448,7 @@ func TestEditConfigurationUnit(t *testing.T) {
 
 		fs.MkdirAll(home, 0o755)
 
-		result, err := EditConfiguration(fs, ctx, env, logger)
+		result, err := cfg.EditConfiguration(fs, ctx, env, logger)
 		assert.NoError(t, err)
 		assert.Equal(t, filepath.Join(home, ".kdeps.pkl"), result)
 	})
@@ -467,7 +469,7 @@ func TestValidateConfigurationUnit(t *testing.T) {
 		fs.MkdirAll(home, 0o755)
 		afero.WriteFile(fs, filepath.Join(home, ".kdeps.pkl"), []byte("invalid pkl"), 0o644)
 
-		result, err := ValidateConfiguration(fs, ctx, env, logger)
+		result, err := cfg.ValidateConfiguration(fs, ctx, env, logger)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "configuration validation failed")
 		assert.Equal(t, filepath.Join(home, ".kdeps.pkl"), result)
@@ -484,7 +486,7 @@ func TestLoadConfigurationUnit(t *testing.T) {
 		invalidPath := filepath.Join(tmpDir, "invalid.pkl")
 		afero.WriteFile(fs, invalidPath, []byte("invalid"), 0o644)
 
-		result, err := LoadConfiguration(fs, ctx, invalidPath, logger)
+		result, err := cfg.LoadConfiguration(fs, ctx, invalidPath, logger)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "error reading config file")
 		assert.Nil(t, result)
@@ -495,7 +497,7 @@ func TestLoadConfigurationUnit(t *testing.T) {
 		tmpDir := t.TempDir()
 		nonexistentPath := filepath.Join(tmpDir, "nonexistent.pkl")
 
-		result, err := LoadConfiguration(fs, ctx, nonexistentPath, logger)
+		result, err := cfg.LoadConfiguration(fs, ctx, nonexistentPath, logger)
 		assert.Error(t, err)
 		assert.Nil(t, result)
 	})
@@ -557,7 +559,7 @@ func TestGetKdepsPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetKdepsPath(ctx, tt.kdepsCfg)
+			got, err := cfg.GetKdepsPath(ctx, tt.kdepsCfg)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetKdepsPath() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -584,7 +586,7 @@ func TestGenerateConfigurationAdditional(t *testing.T) {
 			NonInteractive: "1",
 		}
 
-		result, err := GenerateConfiguration(fs, ctx, env, logger)
+		result, err := cfg.GenerateConfiguration(fs, ctx, env, logger)
 		// This will fail when trying to write the file
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to write")
@@ -608,7 +610,7 @@ func TestEditConfigurationAdditional(t *testing.T) {
 		configPath := filepath.Join(homeDir, ".kdeps.pkl")
 		afero.WriteFile(fs, configPath, []byte("test"), 0o644)
 
-		result, err := EditConfiguration(fs, ctx, env, logger)
+		result, err := cfg.EditConfiguration(fs, ctx, env, logger)
 		// This might fail due to texteditor.EditPkl, but we test the path
 		if err != nil {
 			assert.Contains(t, err.Error(), "failed to edit configuration file")
@@ -645,7 +647,7 @@ DockerGPU = "cpu"
 		configPath := filepath.Join(homeDir, ".kdeps.pkl")
 		afero.WriteFile(fs, configPath, []byte(validConfig), 0o644)
 
-		result, err := ValidateConfiguration(fs, ctx, env, logger)
+		result, err := cfg.ValidateConfiguration(fs, ctx, env, logger)
 		// This might still fail due to evaluator.EvalPkl dependencies, but we test the path
 		if err != nil {
 			assert.Contains(t, err.Error(), "configuration validation failed")
@@ -678,7 +680,7 @@ DockerGPU = "cpu"
 		configPath := filepath.Join(t.TempDir(), "valid.pkl")
 		afero.WriteFile(fs, configPath, []byte(validConfig), 0o644)
 
-		result, err := LoadConfiguration(fs, ctx, configPath, logger)
+		result, err := cfg.LoadConfiguration(fs, ctx, configPath, logger)
 		// This might fail due to kdeps.LoadFromPath dependencies, but we test the code path
 		if err != nil {
 			assert.Contains(t, err.Error(), "error reading config file")
@@ -703,8 +705,8 @@ func newKdepsCfg(dir string, p path.Path) kdeps.Kdeps {
 }
 
 func TestGetKdepsPathUser(t *testing.T) {
-	cfg := newKdepsCfg(".kdeps", path.User)
-	got, err := GetKdepsPath(context.Background(), cfg)
+	kdepsCfg := newKdepsCfg(".kdeps", path.User)
+	got, err := cfg.GetKdepsPath(context.Background(), kdepsCfg)
 	if err != nil {
 		t.Fatalf("error: %v", err)
 	}
@@ -716,9 +718,9 @@ func TestGetKdepsPathUser(t *testing.T) {
 }
 
 func TestGetKdepsPathProject(t *testing.T) {
-	cfg := newKdepsCfg("kd", path.Project)
+	kdepsCfg := newKdepsCfg("kd", path.Project)
 	cwd, _ := os.Getwd()
-	got, err := GetKdepsPath(context.Background(), cfg)
+	got, err := cfg.GetKdepsPath(context.Background(), kdepsCfg)
 	if err != nil {
 		t.Fatalf("error: %v", err)
 	}
@@ -729,8 +731,8 @@ func TestGetKdepsPathProject(t *testing.T) {
 }
 
 func TestGetKdepsPathXDG(t *testing.T) {
-	cfg := newKdepsCfg("store", path.Xdg)
-	got, err := GetKdepsPath(context.Background(), cfg)
+	kdepsCfg := newKdepsCfg("store", path.Xdg)
+	got, err := cfg.GetKdepsPath(context.Background(), kdepsCfg)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -744,18 +746,15 @@ func TestGetKdepsPathUnknown(t *testing.T) {
 	// Provide invalid path using numeric constant outside defined ones.
 	type customPath string
 	bad := newKdepsCfg("dir", path.Path("bogus"))
-	if _, err := GetKdepsPath(context.Background(), bad); err == nil {
+	if _, err := cfg.GetKdepsPath(context.Background(), bad); err == nil {
 		t.Fatalf("expected error for unknown path type")
 	}
 }
 
 func TestGetKdepsPathVariants(t *testing.T) {
-	ctx := context.Background()
-
+	// Test with HOME environment variable set
 	tmpHome := t.TempDir()
-	if err := os.Setenv("HOME", tmpHome); err != nil {
-		t.Fatalf("setenv: %v", err)
-	}
+	t.Setenv("HOME", tmpHome)
 
 	tmpProject := t.TempDir()
 	if err := os.Chdir(tmpProject); err != nil {
@@ -780,7 +779,7 @@ func TestGetKdepsPathVariants(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		got, err := GetKdepsPath(ctx, c.cfg)
+		got, err := cfg.GetKdepsPath(ctx, c.cfg)
 		if c.wantErr {
 			if err == nil {
 				t.Fatalf("%s: expected error", c.name)
@@ -837,7 +836,7 @@ func TestGetKdepsPathCases(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		got, err := GetKdepsPath(context.Background(), tc.cfg)
+		got, err := cfg.GetKdepsPath(context.Background(), tc.cfg)
 		if tc.expectErr {
 			assert.Error(t, err, tc.name)
 			continue

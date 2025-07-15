@@ -1,10 +1,11 @@
-package archiver
+package archiver_test
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
 
+	archiver "github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -13,14 +14,14 @@ import (
 
 func TestCompareVersionsOrdering(t *testing.T) {
 	versions := []string{"1.2.3", "2.0.0", "1.10.1"}
-	latest := compareVersions(versions, logging.NewTestLogger())
+	latest := archiver.CompareVersions(versions, logging.NewTestLogger())
 	if latest != "2.0.0" {
 		t.Fatalf("expected latest 2.0.0 got %s", latest)
 	}
 
 	// already sorted descending should keep first element
 	versions2 := []string{"3.1.0", "2.9.9", "0.0.1"}
-	if got := compareVersions(versions2, logging.NewTestLogger()); got != "3.1.0" {
+	if got := archiver.CompareVersions(versions2, logging.NewTestLogger()); got != "3.1.0" {
 		t.Fatalf("unexpected latest %s", got)
 	}
 }
@@ -37,7 +38,7 @@ func TestGetLatestVersionEdge(t *testing.T) {
 	}
 
 	logger := logging.NewTestLogger()
-	latest, err := GetLatestVersion(tmpDir, logger)
+	latest, err := archiver.GetLatestVersion(tmpDir, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -49,7 +50,7 @@ func TestGetLatestVersionEdge(t *testing.T) {
 func TestGetLatestVersionNoVersions(t *testing.T) {
 	dir := t.TempDir()
 	logger := logging.NewTestLogger()
-	if _, err := GetLatestVersion(dir, logger); err == nil {
+	if _, err := archiver.GetLatestVersion(dir, logger); err == nil {
 		t.Fatalf("expected error when no versions present")
 	}
 }
@@ -59,7 +60,7 @@ func TestCompareVersionsAndGetLatest(t *testing.T) {
 
 	t.Run("compareVersions", func(t *testing.T) {
 		versions := []string{"1.0.0", "2.3.4", "2.10.0", "0.9.9"}
-		latest := compareVersions(versions, logger)
+		latest := archiver.CompareVersions(versions, logger)
 		assert.Equal(t, "2.3.4", latest)
 	})
 
@@ -72,13 +73,13 @@ func TestCompareVersionsAndGetLatest(t *testing.T) {
 		for _, v := range []string{"0.1.0", "1.2.3", "1.2.10"} {
 			assert.NoError(t, fs.MkdirAll(filepath.Join(tmpDir, v), 0o755))
 		}
-		latest, err := GetLatestVersion(tmpDir, logger)
+		latest, err := archiver.GetLatestVersion(tmpDir, logger)
 		assert.NoError(t, err)
 		assert.Equal(t, "1.2.3", latest)
 
 		emptyDir := filepath.Join(tmpDir, "empty")
 		assert.NoError(t, fs.MkdirAll(emptyDir, 0o755))
-		_, err = GetLatestVersion(emptyDir, logger)
+		_, err = archiver.GetLatestVersion(emptyDir, logger)
 		assert.Error(t, err)
 	})
 }
@@ -103,9 +104,9 @@ func TestCompareVersions(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			if test.expectPanic {
-				assert.Panics(t, func() { compareVersions(test.versions, logger) })
+				assert.Panics(t, func() { archiver.CompareVersions(test.versions, logger) })
 			} else {
-				assert.Equal(t, test.expected, compareVersions(test.versions, logger))
+				assert.Equal(t, test.expected, archiver.CompareVersions(test.versions, logger))
 			}
 		})
 	}
@@ -128,20 +129,20 @@ func TestGetLatestVersion(t *testing.T) {
 	}
 
 	t.Run("Valid directory with versions", func(t *testing.T) {
-		latestVersion, err := GetLatestVersion(tempDir, logger)
+		latestVersion, err := archiver.GetLatestVersion(tempDir, logger)
 		require.NoError(t, err, "Expected no error")
 		assert.Equal(t, "2.3.0", latestVersion, "Expected latest version")
 	})
 
 	t.Run("Empty directory", func(t *testing.T) {
 		emptyDir := t.TempDir()
-		latestVersion, err := GetLatestVersion(emptyDir, logger)
+		latestVersion, err := archiver.GetLatestVersion(emptyDir, logger)
 		require.Error(t, err, "Expected error for no versions found")
 		assert.Equal(t, "", latestVersion, "Expected empty latest version")
 	})
 
 	t.Run("Invalid directory path", func(t *testing.T) {
-		latestVersion, err := GetLatestVersion("/invalid/path", logger)
+		latestVersion, err := archiver.GetLatestVersion("/invalid/path", logger)
 		require.Error(t, err, "Expected error for invalid path")
 		assert.Equal(t, "", latestVersion, "Expected empty latest version")
 	})

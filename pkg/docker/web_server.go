@@ -104,7 +104,7 @@ func WebServerHandler(ctx context.Context, hostIP string, route *webserver.WebSe
 	fullPath := filepath.Join(dr.DataDir, publicPath)
 
 	// Log directory contents for debugging
-	logDirectoryContents(dr, fullPath, logger)
+	LogDirectoryContents(dr, fullPath, logger)
 
 	// Start app command if needed
 	startAppCommand(ctx, route, fullPath, logger)
@@ -120,9 +120,9 @@ func WebServerHandler(ctx context.Context, hostIP string, route *webserver.WebSe
 
 		switch serverType {
 		case webservertype.Static:
-			handleStaticRequest(c, fullPath, route)
+			HandleStaticRequest(c, fullPath, route)
 		case webservertype.App:
-			handleAppRequest(c, hostIP, route, logger)
+			HandleAppRequest(c, hostIP, route, logger)
 		default:
 			logger.Error(messages.ErrUnsupportedServerType, "type", serverType)
 			c.String(http.StatusInternalServerError, messages.RespUnsupportedServerType)
@@ -130,42 +130,8 @@ func WebServerHandler(ctx context.Context, hostIP string, route *webserver.WebSe
 	}
 }
 
-func logDirectoryContents(dr *resolver.DependencyResolver, fullPath string, logger *logging.Logger) {
-	entries, err := afero.ReadDir(dr.Fs, fullPath)
-	if err != nil {
-		logger.Error("failed to read directory", "path", fullPath, "error", err)
-		return
-	}
-	for _, entry := range entries {
-		logger.Debug(messages.MsgLogDirFoundFile, "name", entry.Name(), "isDir", entry.IsDir())
-	}
-}
-
-func startAppCommand(ctx context.Context, route *webserver.WebServerRoutes, fullPath string, logger *logging.Logger) {
-	// Check if ServerType is App and Command is provided
-	isApp := route.ServerType != nil && *route.ServerType == webservertype.App
-	if isApp && route.Command != nil {
-		_, _, _, err := KdepsExec(
-			ctx,
-			"sh", []string{"-c", *route.Command},
-			fullPath,
-			true,
-			true,
-			logger.With("webserver command", *route.Command),
-		)
-		if err != nil {
-			logger.Error("failed to start app command", "error", err)
-		}
-	}
-}
-
-func handleStaticRequest(c *gin.Context, fullPath string, route *webserver.WebServerRoutes) {
-	// Use the standard file server, stripping the route prefix
-	fileServer := http.StripPrefix(route.Path, http.FileServer(http.Dir(fullPath)))
-	fileServer.ServeHTTP(c.Writer, c.Request)
-}
-
-func handleAppRequest(c *gin.Context, hostIP string, route *webserver.WebServerRoutes, logger *logging.Logger) {
+// Exported for testing
+func HandleAppRequest(c *gin.Context, hostIP string, route *webserver.WebServerRoutes, logger *logging.Logger) {
 	portNum := strconv.FormatUint(uint64(*route.AppPort), 10)
 	if hostIP == "" || portNum == "" {
 		logger.Error(messages.ErrProxyHostPortMissing, "host", hostIP, "port", portNum)
@@ -205,4 +171,49 @@ func handleAppRequest(c *gin.Context, hostIP string, route *webserver.WebServerR
 	}
 
 	proxy.ServeHTTP(c.Writer, c.Request)
+}
+
+func LogDirectoryContents(dr *resolver.DependencyResolver, fullPath string, logger *logging.Logger) {
+	entries, err := afero.ReadDir(dr.Fs, fullPath)
+	if err != nil {
+		logger.Error("failed to read directory", "path", fullPath, "error", err)
+		return
+	}
+	for _, entry := range entries {
+		logger.Debug(messages.MsgLogDirFoundFile, "name", entry.Name(), "isDir", entry.IsDir())
+	}
+}
+
+func HandleStaticRequest(c *gin.Context, fullPath string, route *webserver.WebServerRoutes) {
+	// Use the standard file server, stripping the route prefix
+	fileServer := http.StripPrefix(route.Path, http.FileServer(http.Dir(fullPath)))
+	fileServer.ServeHTTP(c.Writer, c.Request)
+}
+
+func startAppCommand(ctx context.Context, route *webserver.WebServerRoutes, fullPath string, logger *logging.Logger) {
+	// Check if ServerType is App and Command is provided
+	isApp := route.ServerType != nil && *route.ServerType == webservertype.App
+	if isApp && route.Command != nil {
+		_, _, _, err := KdepsExec(
+			ctx,
+			"sh", []string{"-c", *route.Command},
+			fullPath,
+			true,
+			true,
+			logger.With("webserver command", *route.Command),
+		)
+		if err != nil {
+			logger.Error("failed to start app command", "error", err)
+		}
+	}
+}
+
+// Exported for testing
+func StartAppCommand(ctx context.Context, route *webserver.WebServerRoutes, fullPath string, logger *logging.Logger) {
+	startAppCommand(ctx, route, fullPath, logger)
+}
+
+// Exported for testing
+func SetupWebRoutes(router *gin.Engine, ctx context.Context, hostIP string, wfTrustedProxies []string, routes []*webserver.WebServerRoutes, dr *resolver.DependencyResolver) {
+	setupWebRoutes(router, ctx, hostIP, wfTrustedProxies, routes, dr)
 }

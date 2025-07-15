@@ -1,4 +1,4 @@
-package docker
+package docker_test
 
 import (
 	"bufio"
@@ -16,6 +16,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/cfg"
+	"github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -59,7 +60,6 @@ var (
 	lastCreatedPackage        string
 	resourcesDir              string
 	dataDir                   string
-	projectDir                string
 )
 
 func TestFeatures(t *testing.T) {
@@ -363,7 +363,7 @@ func searchTextInFile(filePath string, searchText string) (bool, error) {
 }
 
 func itShouldCreateTheDockerfile(arg1, arg2, arg3 string) error {
-	rd, asm, _, hIP, hPort, _, _, gpu, err := BuildDockerfile(testFs, ctx, systemConfiguration, kdepsDir, pkgProject, logger)
+	rd, asm, _, hIP, hPort, _, _, gpu, err := docker.BuildDockerfile(testFs, ctx, systemConfiguration, kdepsDir, pkgProject, logger)
 	if err != nil {
 		return err
 	}
@@ -423,7 +423,7 @@ func itShouldRunTheContainerBuildStepFor(arg1 string) error {
 
 	cli = cl
 
-	cN, conN, err := BuildDockerImage(testFs, ctx, systemConfiguration, cli, runDir, kdepsDir, pkgProject, logger)
+	cN, conN, err := docker.BuildDockerImage(testFs, ctx, systemConfiguration, cli, runDir, kdepsDir, pkgProject, logger)
 	if err != nil {
 		return err
 	}
@@ -431,7 +431,7 @@ func itShouldRunTheContainerBuildStepFor(arg1 string) error {
 	cName = cN
 	containerName = conN
 
-	if err := CleanupDockerBuildImages(testFs, ctx, cName, cli); err != nil {
+	if err := docker.CleanupDockerBuildImages(testFs, ctx, cName, cli); err != nil {
 		return err
 	}
 
@@ -439,7 +439,7 @@ func itShouldRunTheContainerBuildStepFor(arg1 string) error {
 }
 
 func itShouldStartTheContainer(arg1 string) error {
-	if _, err := CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, "", "", gpuType, APIServerMode, false, cli); err != nil {
+	if _, err := docker.CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, "", "", gpuType, APIServerMode, false, cli); err != nil {
 		return err
 	}
 
@@ -516,7 +516,7 @@ func kdepsWillCheckThePresenceOfTheFile(arg1 string) error {
 		return err
 	}
 
-	if _, err := BootstrapDockerSystem(ctx, dr); err != nil {
+	if _, err := docker.BootstrapDockerSystem(ctx, dr); err != nil {
 		return err
 	}
 
@@ -912,13 +912,13 @@ func PackageProject(fs afero.Fs, ctx context.Context, wf wfPkl.Workflow, kdepsDi
 
 func TestPrintDockerBuildOutputSimple(t *testing.T) {
 	successLog := bytes.NewBufferString(`{"stream":"Step 1/2 : FROM alpine\n"}\n{"stream":" ---> 123abc\n"}\n`)
-	if err := printDockerBuildOutput(successLog); err != nil {
+	if err := docker.PrintDockerBuildOutput(successLog); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	// Error case should propagate the message
 	errBuf := bytes.NewBufferString(`{"error":"build failed"}`)
-	if err := printDockerBuildOutput(errBuf); err == nil {
+	if err := docker.PrintDockerBuildOutput(errBuf); err == nil {
 		t.Fatalf("expected error not returned")
 	}
 }

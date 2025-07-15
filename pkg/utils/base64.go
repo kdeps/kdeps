@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"unicode/utf8"
 )
@@ -43,7 +44,7 @@ func DecodeBase64String(encodedStr string) (string, error) {
 	}
 	decodedBytes, err := base64.StdEncoding.DecodeString(encodedStr)
 	if err != nil {
-		return "", fmt.Errorf("failed to decode Base64 string: %w", err)
+		return "", errors.New("invalid base64 encoding")
 	}
 	return string(decodedBytes), nil
 }
@@ -78,7 +79,7 @@ func EncodeValuePtr(value *string) *string {
 
 func DecodeStringMap(src *map[string]string, fieldType string) (*map[string]string, error) {
 	if src == nil {
-		return nil, nil
+		return nil, errors.New("source map is nil")
 	}
 	decoded := make(map[string]string)
 	for k, v := range *src {
@@ -93,7 +94,7 @@ func DecodeStringMap(src *map[string]string, fieldType string) (*map[string]stri
 
 func DecodeStringSlice(src *[]string, fieldType string) (*[]string, error) {
 	if src == nil {
-		return nil, nil
+		return nil, errors.New("source slice is nil")
 	}
 	decoded := make([]string, len(*src))
 	for i, v := range *src {

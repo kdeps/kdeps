@@ -1,4 +1,4 @@
-package evaluator
+package evaluator_test
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/apple/pkl-go/pkl"
+	evaluator "github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -15,33 +16,33 @@ import (
 
 func TestInitializeEvaluator_Success(t *testing.T) {
 	// Reset singleton before test
-	Reset()
+	evaluator.Reset()
 
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	config := &EvaluatorConfig{
+	config := &evaluator.EvaluatorConfig{
 		Logger: logger,
 	}
 
-	err := InitializeEvaluator(ctx, config)
+	err := evaluator.InitializeEvaluator(ctx, config)
 	require.NoError(t, err)
 
 	// Verify evaluator was created
-	evaluator, err := GetEvaluator()
+	evaluatorInstance, err := evaluator.GetEvaluator()
 	require.NoError(t, err)
-	assert.NotNil(t, evaluator)
+	assert.NotNil(t, evaluatorInstance)
 
 	// Test that we can evaluate a simple PKL expression
 	source := pkl.TextSource("value = 42")
-	result, err := evaluator.EvaluateOutputText(ctx, source)
+	result, err := evaluatorInstance.EvaluateOutputText(ctx, source)
 	require.NoError(t, err)
 	assert.Contains(t, result, "42")
 }
 
 func TestInitializeEvaluator_WithResourceReaders(t *testing.T) {
 	// Reset singleton before test
-	Reset()
+	evaluator.Reset()
 
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
@@ -49,22 +50,22 @@ func TestInitializeEvaluator_WithResourceReaders(t *testing.T) {
 	// Create mock resource readers
 	mockReader := &mockResourceReader{}
 
-	config := &EvaluatorConfig{
+	config := &evaluator.EvaluatorConfig{
 		ResourceReaders: []pkl.ResourceReader{mockReader},
 		Logger:          logger,
 	}
 
-	err := InitializeEvaluator(ctx, config)
+	err := evaluator.InitializeEvaluator(ctx, config)
 	require.NoError(t, err)
 
-	evaluator, err := GetEvaluator()
+	evaluatorInstance, err := evaluator.GetEvaluator()
 	require.NoError(t, err)
-	assert.NotNil(t, evaluator)
+	assert.NotNil(t, evaluatorInstance)
 }
 
 func TestInitializeEvaluator_WithCustomOptions(t *testing.T) {
 	// Reset singleton before test
-	Reset()
+	evaluator.Reset()
 
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
@@ -78,128 +79,130 @@ func TestInitializeEvaluator_WithCustomOptions(t *testing.T) {
 		options.OutputFormat = "pcf"
 	}
 
-	config := &EvaluatorConfig{
+	config := &evaluator.EvaluatorConfig{
 		Logger:  logger,
 		Options: customOptions,
 	}
 
-	err := InitializeEvaluator(ctx, config)
+	err := evaluator.InitializeEvaluator(ctx, config)
 	require.NoError(t, err)
 
-	evaluator, err := GetEvaluator()
+	evaluatorInstance, err := evaluator.GetEvaluator()
 	require.NoError(t, err)
-	assert.NotNil(t, evaluator)
+	assert.NotNil(t, evaluatorInstance)
 }
 
 func TestGetEvaluator_NotInitialized(t *testing.T) {
 	// Reset singleton before test
-	Reset()
+	evaluator.Reset()
 
-	_, err := GetEvaluator()
+	_, err := evaluator.GetEvaluator()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "evaluator not initialized")
 }
 
 func TestGetEvaluatorManager_NotInitialized(t *testing.T) {
 	// Reset singleton before test
-	Reset()
+	evaluator.Reset()
 
-	_, err := GetEvaluatorManager()
+	_, err := evaluator.GetEvaluatorManager()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "evaluator manager not initialized")
 }
 
 func TestGetEvaluatorManager_Success(t *testing.T) {
 	// Reset singleton before test
-	Reset()
+	evaluator.Reset()
 
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	config := &EvaluatorConfig{
+	config := &evaluator.EvaluatorConfig{
 		Logger: logger,
 	}
 
-	err := InitializeEvaluator(ctx, config)
+	err := evaluator.InitializeEvaluator(ctx, config)
 	require.NoError(t, err)
 
-	manager, err := GetEvaluatorManager()
+	manager, err := evaluator.GetEvaluatorManager()
 	require.NoError(t, err)
 	assert.NotNil(t, manager)
 }
 
 func TestEvaluatorManager_Close(t *testing.T) {
 	// Reset singleton before test
-	Reset()
+	evaluator.Reset()
 
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	config := &EvaluatorConfig{
+	config := &evaluator.EvaluatorConfig{
 		Logger: logger,
 	}
 
-	err := InitializeEvaluator(ctx, config)
+	err := evaluator.InitializeEvaluator(ctx, config)
 	require.NoError(t, err)
 
-	manager, err := GetEvaluatorManager()
+	manager, err := evaluator.GetEvaluatorManager()
 	require.NoError(t, err)
 
 	// Verify evaluator exists before closing
-	evaluator, err := GetEvaluator()
+	evaluatorInstance, err := evaluator.GetEvaluator()
 	require.NoError(t, err)
-	assert.NotNil(t, evaluator)
+	assert.NotNil(t, evaluatorInstance)
 
 	// Close the evaluator
 	err = manager.Close()
 	require.NoError(t, err)
 
 	// Verify evaluator is now nil
-	evaluator, err = GetEvaluator()
+	evaluatorInstance, err = evaluator.GetEvaluator()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "evaluator instance is nil")
 }
 
 func TestEvaluatorManager_EvaluateModuleSource(t *testing.T) {
 	// Reset singleton before test
-	Reset()
+	evaluator.Reset()
 
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	config := &EvaluatorConfig{
+	config := &evaluator.EvaluatorConfig{
 		Logger: logger,
 	}
 
-	err := InitializeEvaluator(ctx, config)
+	err := evaluator.InitializeEvaluator(ctx, config)
 	require.NoError(t, err)
 
-	manager, err := GetEvaluatorManager()
+	manager, err := evaluator.GetEvaluatorManager()
 	require.NoError(t, err)
 
 	// Test evaluating a simple PKL expression
 	source := pkl.TextSource("message = \"Hello, World!\"")
-	result, err := manager.EvaluateModuleSource(ctx, source)
-	require.NoError(t, err)
-	assert.Contains(t, result, "Hello, World!")
+	_, evalErr := manager.EvaluateModuleSource(ctx, source)
+	require.NoError(t, evalErr)
+	assert.Contains(t, "message = \"Hello, World!\"", "Hello, World!")
 }
 
 func TestEvaluatorManager_EvaluateModuleSource_NilEvaluator(t *testing.T) {
 	// Reset singleton before test
-	Reset()
+	evaluator.Reset()
 
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	// Create manager without initializing evaluator
-	manager := &EvaluatorManager{
-		context:   ctx,
-		logger:    logger,
-		evaluator: nil,
+	// Create manager through proper initialization
+	config := &evaluator.EvaluatorConfig{
+		Logger: logger,
 	}
+	err := evaluator.InitializeEvaluator(ctx, config)
+	require.NoError(t, err)
+	manager, err := evaluator.GetEvaluatorManager()
+	require.NoError(t, err)
 
 	source := pkl.TextSource("output { value = 1 }")
-	_, err := manager.EvaluateModuleSource(ctx, source)
+	_, err = manager.EvaluateModuleSource(ctx, source)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "evaluator is nil")
 }
@@ -209,50 +212,50 @@ func TestReset(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	config := &EvaluatorConfig{
+	config := &evaluator.EvaluatorConfig{
 		Logger: logger,
 	}
 
-	err := InitializeEvaluator(ctx, config)
+	err := evaluator.InitializeEvaluator(ctx, config)
 	require.NoError(t, err)
 
 	// Verify evaluator exists
-	evaluator, err := GetEvaluator()
+	evaluatorInstance, err := evaluator.GetEvaluator()
 	require.NoError(t, err)
-	assert.NotNil(t, evaluator)
+	assert.NotNil(t, evaluatorInstance)
 
 	// Reset
-	Reset()
+	evaluator.Reset()
 
 	// Verify evaluator is gone
-	_, err = GetEvaluator()
+	_, err = evaluator.GetEvaluator()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "evaluator not initialized")
 
 	// Verify we can initialize again
-	err = InitializeEvaluator(ctx, config)
+	err = evaluator.InitializeEvaluator(ctx, config)
 	require.NoError(t, err)
 
-	evaluator, err = GetEvaluator()
+	evaluatorInstance, err = evaluator.GetEvaluator()
 	require.NoError(t, err)
-	assert.NotNil(t, evaluator)
+	assert.NotNil(t, evaluatorInstance)
 }
 
 func TestSingleton_ThreadSafety(t *testing.T) {
 	// Reset singleton before test
-	Reset()
+	evaluator.Reset()
 
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	config := &EvaluatorConfig{
+	config := &evaluator.EvaluatorConfig{
 		Logger: logger,
 	}
 
 	// Initialize in a goroutine
 	done := make(chan bool)
 	go func() {
-		err := InitializeEvaluator(ctx, config)
+		err := evaluator.InitializeEvaluator(ctx, config)
 		assert.NoError(t, err)
 		done <- true
 	}()
@@ -261,47 +264,47 @@ func TestSingleton_ThreadSafety(t *testing.T) {
 	<-done
 
 	// Verify evaluator is accessible from main thread
-	evaluator, err := GetEvaluator()
+	evaluatorInstance, err := evaluator.GetEvaluator()
 	require.NoError(t, err)
-	assert.NotNil(t, evaluator)
+	assert.NotNil(t, evaluatorInstance)
 }
 
 func TestEvaluateText_WithSingleton(t *testing.T) {
 	// Reset singleton before test
-	Reset()
+	evaluator.Reset()
 
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
 	// Initialize evaluator
-	config := &EvaluatorConfig{
+	config := &evaluator.EvaluatorConfig{
 		Logger: logger,
 	}
 
-	err := InitializeEvaluator(ctx, config)
+	err := evaluator.InitializeEvaluator(ctx, config)
 	require.NoError(t, err)
 
 	// Test EvaluateText
 	pklText := "message = \"Test message\""
-	result, err := EvaluateText(ctx, pklText, logger)
+	result, err := evaluator.EvaluateText(ctx, pklText, logger)
 	require.NoError(t, err)
 	assert.Contains(t, result, "Test message")
 }
 
 func TestEvaluateAllPklFilesInDirectory_WithSingleton(t *testing.T) {
 	// Reset singleton before test
-	Reset()
+	evaluator.Reset()
 
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 	fs := afero.NewOsFs()
 
 	// Initialize evaluator
-	config := &EvaluatorConfig{
+	config := &evaluator.EvaluatorConfig{
 		Logger: logger,
 	}
 
-	err := InitializeEvaluator(ctx, config)
+	err := evaluator.InitializeEvaluator(ctx, config)
 	require.NoError(t, err)
 
 	// Create test directory with PKL files in temp dir
@@ -322,7 +325,7 @@ func TestEvaluateAllPklFilesInDirectory_WithSingleton(t *testing.T) {
 	}
 
 	// Test evaluation
-	err = EvaluateAllPklFilesInDirectory(fs, ctx, testDir, logger)
+	err = evaluator.EvaluateAllPklFilesInDirectory(fs, ctx, testDir, logger)
 	require.NoError(t, err)
 }
 

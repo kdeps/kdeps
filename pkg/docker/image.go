@@ -41,7 +41,7 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 ) (string, string, error) {
 	// Check if pkgProject is nil
 	if pkgProject == nil {
-		return "", "", fmt.Errorf("package project is nil")
+		return "", "", errors.New("package project is nil")
 	}
 
 	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow, logger)
@@ -135,7 +135,7 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 	defer response.Body.Close()
 
 	// Process and print the build output
-	err = printDockerBuildOutput(response.Body)
+	err = PrintDockerBuildOutput(response.Body)
 	if err != nil {
 		return cName, containerName, err
 	}
@@ -145,7 +145,8 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 	return cName, containerName, nil
 }
 
-func checkDevBuildMode(fs afero.Fs, kdepsDir string, logger *logging.Logger) (bool, error) {
+// CheckDevBuildMode checks if we're in development build mode.
+func CheckDevBuildMode(fs afero.Fs, kdepsDir string, logger *logging.Logger) (bool, error) {
 	downloadDir := filepath.Join(kdepsDir, "cache")
 	kdepsBinaryFile := filepath.Join(downloadDir, "kdeps")
 
@@ -171,8 +172,8 @@ func checkDevBuildMode(fs afero.Fs, kdepsDir string, logger *logging.Logger) (bo
 	return true, nil
 }
 
-// generateDockerfileFromTemplate constructs the Dockerfile content using templates.
-func generateDockerfileFromTemplate(
+// GenerateDockerfileFromTemplate generates a Dockerfile from a template.
+func GenerateDockerfileFromTemplate(
 	imageVersion,
 	schemaVersion,
 	hostIP,
@@ -221,7 +222,8 @@ func generateDockerfileFromTemplate(
 	return template.GenerateDockerfileFromTemplate(templateData)
 }
 
-func copyFilesToRunDir(fs afero.Fs, ctx context.Context, downloadDir, runDir string, logger *logging.Logger) error {
+// CopyFilesToRunDir copies files to the run directory.
+func CopyFilesToRunDir(fs afero.Fs, ctx context.Context, downloadDir, runDir string, logger *logging.Logger) error {
 	// Ensure the runDir and cache directory exist
 	downloadsDir := filepath.Join(runDir, "cache")
 	err := fs.MkdirAll(downloadsDir, os.ModePerm)
@@ -255,7 +257,8 @@ func copyFilesToRunDir(fs afero.Fs, ctx context.Context, downloadDir, runDir str
 	return nil
 }
 
-func generateParamsSection(prefix string, items map[string]string) string {
+// GenerateParamsSection generates a parameters section for the Dockerfile.
+func GenerateParamsSection(prefix string, items map[string]string) string {
 	lines := make([]string, 0, len(items))
 
 	for key, value := range items {
@@ -271,7 +274,7 @@ func generateParamsSection(prefix string, items map[string]string) string {
 func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *logging.Logger) (string, bool, bool, string, string, string, string, string, error) {
 	// Check if pkgProject is nil
 	if pkgProject == nil {
-		return "", false, false, "", "", "", "", "", fmt.Errorf("package project is nil")
+		return "", false, false, "", "", "", "", "", errors.New("package project is nil")
 	}
 
 	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow, logger)
@@ -293,7 +296,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 
 	// Ensure processedConfig is not nil before accessing its fields
 	if processedConfig == nil {
-		return "", false, false, "", "", "", "", "", fmt.Errorf("processed configuration is nil")
+		return "", false, false, "", "", "", "", "", errors.New("processed configuration is nil")
 	}
 
 	// Use processedConfig for all config values
@@ -356,11 +359,11 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	var argsSection, envsSection string
 
 	if processedConfig != nil && processedConfig.Args != nil && argsList != nil {
-		argsSection = generateParamsSection("ARG", *argsList)
+		argsSection = GenerateParamsSection("ARG", *argsList)
 	}
 
 	if processedConfig != nil && processedConfig.Env != nil && envsList != nil {
-		envsSection = generateParamsSection("ENV", *envsList)
+		envsSection = GenerateParamsSection("ENV", *envsList)
 	}
 
 	var pkgLines []string
@@ -439,14 +442,14 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		return "", false, false, "", "", "", "", "", err
 	}
 
-	err = copyFilesToRunDir(fs, ctx, downloadDir, runDir, logger)
+	err = CopyFilesToRunDir(fs, ctx, downloadDir, runDir, logger)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
 	}
 
-	ollamaPortNum := generateUniqueOllamaPort(portNum)
+	ollamaPortNum := GenerateUniqueOllamaPort(portNum)
 
-	devBuildMode, err := checkDevBuildMode(fs, kdepsDir, logger)
+	devBuildMode, err := CheckDevBuildMode(fs, kdepsDir, logger)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
 	}
@@ -454,9 +457,9 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	// Handle timezone pointer - use default if nil
 	timezoneStr := timezone
 
-	dockerfileContent, err := generateDockerfileFromTemplate(
+	dockerfileContent, err := GenerateDockerfileFromTemplate(
 		imageVersion,
-		schema.SchemaVersion(ctx),
+		schema.Version(ctx),
 		hostIP,
 		ollamaPortNum,
 		kdepsHost,
@@ -489,8 +492,8 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	return runDir, APIServerMode, webServerMode, hostIP, hostPort, webHostIP, webHostPort, gpuType, nil
 }
 
-// printDockerBuildOutput processes the Docker build logs and returns any error encountered during the build.
-func printDockerBuildOutput(rd io.Reader) error {
+// PrintDockerBuildOutput prints Docker build output.
+func PrintDockerBuildOutput(rd io.Reader) error {
 	scanner := bufio.NewScanner(rd)
 	for scanner.Scan() {
 		line := scanner.Text()

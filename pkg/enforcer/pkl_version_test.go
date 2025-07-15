@@ -13,7 +13,7 @@ import (
 func TestEnforcePklVersionScenarios(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
-	schemaVer := schema.SchemaVersion(ctx)
+	schemaVer := schema.Version(ctx)
 
 	tests := []struct {
 		name         string

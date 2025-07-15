@@ -10,30 +10,34 @@ import (
 	"github.com/kdeps/kdeps/pkg/version"
 )
 
+// Export global variables for testing.
 var (
-	versionCache sync.Map
-	UseLatest    bool = false
-	// Add exitFunc for testability
-	exitFunc = os.Exit
+	VersionCache sync.Map
+	UseLatest    = false
+	// Add exitFunc for testability.
+	ExitFunc = os.Exit
 )
 
-// SchemaVersion(ctx) fetches and returns the schema version based on the cmd.Latest flag.
-func SchemaVersion(ctx context.Context) string {
+// Version fetches and returns the schema version based on the cmd.Latest flag.
+func Version(ctx context.Context) string {
 	if UseLatest { // Reference the global Latest flag from cmd package
 		// Try to get from cache first
-		if cached, ok := versionCache.Load("version"); ok {
-			return cached.(string)
+		if cached, ok := VersionCache.Load("version"); ok {
+			if cachedStr, okStr := cached.(string); okStr {
+				return cachedStr
+			}
+			return ""
 		}
 
 		// If not in cache, fetch it
 		schemaVersion, err := utils.GitHubReleaseFetcher(ctx, "kdeps/schema", "")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: Unable to fetch the latest schema version for 'kdeps/schema': %v\n", err)
-			exitFunc(1)
+			ExitFunc(1)
 		}
 
 		// Store in cache
-		versionCache.Store("version", schemaVersion)
+		VersionCache.Store("version", schemaVersion)
 		return schemaVersion
 	}
 

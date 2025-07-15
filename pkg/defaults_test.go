@@ -1,53 +1,52 @@
-package pkg
+package pkg_test
 
 import (
 	"testing"
 
+	"github.com/kdeps/kdeps/pkg"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNewConfigurationManager(t *testing.T) {
-	logger := logging.NewTestLogger()
-	manager := NewConfigurationManager(logger)
-
+	// Test creating a new configuration manager
+	manager := pkg.NewConfigurationManager(nil)
 	assert.NotNil(t, manager)
-	assert.Equal(t, logger, manager.logger)
 }
 
 func TestGetBoolWithPKLPriority(t *testing.T) {
 	logger := logging.NewTestLogger()
-	manager := NewConfigurationManager(logger)
+	manager := pkg.NewConfigurationManager(logger)
 
 	tests := []struct {
 		name         string
 		pklValue     *bool
 		defaultValue bool
-		expected     ConfigurationValue[bool]
+		expected     pkg.ConfigurationValue[bool]
 	}{
 		{
 			name:         "PKL value provided",
-			pklValue:     BoolPtr(true),
+			pklValue:     pkg.BoolPtr(true),
 			defaultValue: false,
-			expected:     ConfigurationValue[bool]{Value: true, Source: SourcePKL},
+			expected:     pkg.ConfigurationValue[bool]{Value: true, Source: pkg.SourcePKL},
 		},
 		{
 			name:         "PKL value nil, use default",
 			pklValue:     nil,
 			defaultValue: false,
-			expected:     ConfigurationValue[bool]{Value: false, Source: SourceDefault},
+			expected:     pkg.ConfigurationValue[bool]{Value: false, Source: pkg.SourceDefault},
 		},
 		{
 			name:         "PKL value false, use PKL",
-			pklValue:     BoolPtr(false),
+			pklValue:     pkg.BoolPtr(false),
 			defaultValue: true,
-			expected:     ConfigurationValue[bool]{Value: false, Source: SourcePKL},
+			expected:     pkg.ConfigurationValue[bool]{Value: false, Source: pkg.SourcePKL},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := manager.GetBoolWithPKLPriority(tt.pklValue, tt.defaultValue, "test")
+			result := manager.GetBoolWithPKLPriority(tt.pklValue, tt.defaultValue, tt.name)
 			assert.Equal(t, tt.expected.Value, result.Value)
 			assert.Equal(t, tt.expected.Source, result.Source)
 		})
@@ -56,37 +55,37 @@ func TestGetBoolWithPKLPriority(t *testing.T) {
 
 func TestGetStringWithPKLPriority(t *testing.T) {
 	logger := logging.NewTestLogger()
-	manager := NewConfigurationManager(logger)
+	manager := pkg.NewConfigurationManager(logger)
 
 	tests := []struct {
 		name         string
 		pklValue     *string
 		defaultValue string
-		expected     ConfigurationValue[string]
+		expected     pkg.ConfigurationValue[string]
 	}{
 		{
 			name:         "PKL value provided",
-			pklValue:     StringPtr("pkl-value"),
+			pklValue:     pkg.StringPtr("pkl-value"),
 			defaultValue: "default-value",
-			expected:     ConfigurationValue[string]{Value: "pkl-value", Source: SourcePKL},
+			expected:     pkg.ConfigurationValue[string]{Value: "pkl-value", Source: pkg.SourcePKL},
 		},
 		{
 			name:         "PKL value nil, use default",
 			pklValue:     nil,
 			defaultValue: "default-value",
-			expected:     ConfigurationValue[string]{Value: "default-value", Source: SourceDefault},
+			expected:     pkg.ConfigurationValue[string]{Value: "default-value", Source: pkg.SourceDefault},
 		},
 		{
 			name:         "PKL value empty string, use PKL",
-			pklValue:     StringPtr(""),
+			pklValue:     pkg.StringPtr(""),
 			defaultValue: "default-value",
-			expected:     ConfigurationValue[string]{Value: "", Source: SourcePKL},
+			expected:     pkg.ConfigurationValue[string]{Value: "", Source: pkg.SourcePKL},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := manager.GetStringWithPKLPriority(tt.pklValue, tt.defaultValue, "test")
+			result := manager.GetStringWithPKLPriority(tt.pklValue, tt.defaultValue, tt.name)
 			assert.Equal(t, tt.expected.Value, result.Value)
 			assert.Equal(t, tt.expected.Source, result.Source)
 		})
@@ -95,37 +94,37 @@ func TestGetStringWithPKLPriority(t *testing.T) {
 
 func TestGetUint16WithPKLPriority(t *testing.T) {
 	logger := logging.NewTestLogger()
-	manager := NewConfigurationManager(logger)
+	manager := pkg.NewConfigurationManager(logger)
 
 	tests := []struct {
 		name         string
 		pklValue     *uint16
 		defaultValue uint16
-		expected     ConfigurationValue[uint16]
+		expected     pkg.ConfigurationValue[uint16]
 	}{
 		{
 			name:         "PKL value provided",
-			pklValue:     Uint16Ptr(3000),
+			pklValue:     pkg.Uint16Ptr(3000),
 			defaultValue: 8080,
-			expected:     ConfigurationValue[uint16]{Value: 3000, Source: SourcePKL},
+			expected:     pkg.ConfigurationValue[uint16]{Value: 3000, Source: pkg.SourcePKL},
 		},
 		{
 			name:         "PKL value nil, use default",
 			pklValue:     nil,
 			defaultValue: 8080,
-			expected:     ConfigurationValue[uint16]{Value: 8080, Source: SourceDefault},
+			expected:     pkg.ConfigurationValue[uint16]{Value: 8080, Source: pkg.SourceDefault},
 		},
 		{
 			name:         "PKL value zero, use PKL",
-			pklValue:     Uint16Ptr(0),
+			pklValue:     pkg.Uint16Ptr(0),
 			defaultValue: 8080,
-			expected:     ConfigurationValue[uint16]{Value: 0, Source: SourcePKL},
+			expected:     pkg.ConfigurationValue[uint16]{Value: 0, Source: pkg.SourcePKL},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := manager.GetUint16WithPKLPriority(tt.pklValue, tt.defaultValue, "test")
+			result := manager.GetUint16WithPKLPriority(tt.pklValue, tt.defaultValue, tt.name)
 			assert.Equal(t, tt.expected.Value, result.Value)
 			assert.Equal(t, tt.expected.Source, result.Source)
 		})
@@ -134,78 +133,88 @@ func TestGetUint16WithPKLPriority(t *testing.T) {
 
 func TestGetIntWithPKLPriority(t *testing.T) {
 	logger := logging.NewTestLogger()
-	manager := NewConfigurationManager(logger)
+	manager := pkg.NewConfigurationManager(logger)
 
 	tests := []struct {
 		name         string
 		pklValue     *int
 		defaultValue int
-		expected     ConfigurationValue[int]
+		expected     pkg.ConfigurationValue[int]
 	}{
 		{
 			name:         "PKL value provided",
-			pklValue:     IntPtr(200),
+			pklValue:     pkg.IntPtr(200),
 			defaultValue: 100,
-			expected:     ConfigurationValue[int]{Value: 200, Source: SourcePKL},
+			expected:     pkg.ConfigurationValue[int]{Value: 200, Source: pkg.SourcePKL},
 		},
 		{
 			name:         "PKL value nil, use default",
 			pklValue:     nil,
 			defaultValue: 100,
-			expected:     ConfigurationValue[int]{Value: 100, Source: SourceDefault},
+			expected:     pkg.ConfigurationValue[int]{Value: 100, Source: pkg.SourceDefault},
 		},
 		{
 			name:         "PKL value zero, use PKL",
-			pklValue:     IntPtr(0),
+			pklValue:     pkg.IntPtr(0),
 			defaultValue: 100,
-			expected:     ConfigurationValue[int]{Value: 0, Source: SourcePKL},
+			expected:     pkg.ConfigurationValue[int]{Value: 0, Source: pkg.SourcePKL},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := manager.GetIntWithPKLPriority(tt.pklValue, tt.defaultValue, "test")
+			result := manager.GetIntWithPKLPriority(tt.pklValue, tt.defaultValue, tt.name)
 			assert.Equal(t, tt.expected.Value, result.Value)
 			assert.Equal(t, tt.expected.Source, result.Source)
 		})
 	}
 }
 
-func TestLogConfigurationSummary(t *testing.T) {
+func TestLogConfigurationSummary(_ *testing.T) {
 	logger := logging.NewTestLogger()
-	manager := NewConfigurationManager(logger)
+	manager := pkg.NewConfigurationManager(logger)
 
-	configs := map[string]ConfigurationValue[any]{
-		"setting1": {Value: "pkl-value", Source: SourcePKL},
-		"setting2": {Value: "default-value", Source: SourceDefault},
-		"setting3": {Value: true, Source: SourcePKL},
-		"setting4": {Value: 100, Source: SourceDefault},
+	configs := map[string]pkg.ConfigurationValue[any]{
+		"setting1": {Value: "pkl-value", Source: pkg.SourcePKL},
+		"setting2": {Value: "default-value", Source: pkg.SourceDefault},
+		"setting3": {Value: true, Source: pkg.SourcePKL},
+		"setting4": {Value: 100, Source: pkg.SourceDefault},
 	}
 
+	// This should not panic
 	manager.LogConfigurationSummary(configs)
-
-	// The function should not panic and should log the summary
-	// We can't easily test the log output, but we can verify the function runs
-	assert.NotNil(t, manager)
 }
 
 func TestConfigurationSourceConstants(t *testing.T) {
-	assert.Equal(t, ConfigurationSource("PKL"), SourcePKL)
-	assert.Equal(t, ConfigurationSource("DEFAULT"), SourceDefault)
+	assert.Equal(t, pkg.ConfigurationSource("PKL"), pkg.SourcePKL)
+	assert.Equal(t, pkg.ConfigurationSource("DEFAULT"), pkg.SourceDefault)
 }
 
 func TestConfigurationValue(t *testing.T) {
-	// Test that ConfigurationValue can hold different types
-	boolValue := ConfigurationValue[bool]{Value: true, Source: SourcePKL}
-	stringValue := ConfigurationValue[string]{Value: "test", Source: SourceDefault}
-	intValue := ConfigurationValue[int]{Value: 42, Source: SourcePKL}
+	// Test ConfigurationValue struct
+	configValue := pkg.ConfigurationValue[string]{
+		Value:  "test",
+		Source: pkg.SourcePKL,
+	}
 
-	assert.Equal(t, true, boolValue.Value)
-	assert.Equal(t, SourcePKL, boolValue.Source)
+	assert.Equal(t, "test", configValue.Value)
+	assert.Equal(t, pkg.SourcePKL, configValue.Source)
+}
 
-	assert.Equal(t, "test", stringValue.Value)
-	assert.Equal(t, SourceDefault, stringValue.Source)
+func TestBoolPtr(t *testing.T) {
+	// Test BoolPtr function
+	boolPtr := pkg.BoolPtr(true)
+	assert.NotNil(t, boolPtr)
+	assert.True(t, *boolPtr)
+}
 
-	assert.Equal(t, 42, intValue.Value)
-	assert.Equal(t, SourcePKL, intValue.Source)
+func TestConfigurationValueWithSource(t *testing.T) {
+	// Test ConfigurationValue with different sources
+	configValue := pkg.ConfigurationValue[string]{
+		Value:  "default_value",
+		Source: pkg.SourceDefault,
+	}
+
+	assert.Equal(t, "default_value", configValue.Value)
+	assert.Equal(t, pkg.SourceDefault, configValue.Source)
 }

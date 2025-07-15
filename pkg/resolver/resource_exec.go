@@ -3,14 +3,12 @@ package resolver
 import (
 	"fmt"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/alexellis/go-execute/v2"
 	"github.com/apple/pkl-go/pkl"
 
 	"github.com/kdeps/kdeps/pkg/kdepsexec"
-	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklExec "github.com/kdeps/schema/gen/exec"
 	"github.com/spf13/afero"
@@ -27,7 +25,7 @@ func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.Res
 	}
 
 	// Decode the exec block synchronously
-	if err := dr.decodeExecBlock(execBlock); err != nil {
+	if err := dr.DecodeExecBlock(execBlock); err != nil {
 		dr.Logger.Error("failed to decode exec block", "actionID", canonicalActionID, "error", err)
 		return err
 	}
@@ -44,7 +42,8 @@ func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.Res
 	return nil
 }
 
-func (dr *DependencyResolver) decodeExecBlock(execBlock *pklExec.ResourceExec) error {
+// DecodeExecBlock decodes an exec block by processing base64 encoded fields
+func (dr *DependencyResolver) DecodeExecBlock(execBlock *pklExec.ResourceExec) error {
 	// Decode Command
 	decodedCommand, err := utils.DecodeBase64IfNeeded(execBlock.Command)
 	if err != nil {
@@ -125,7 +124,22 @@ func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklEx
 	}
 	execBlock.Timestamp = &ts
 
-	return dr.AppendExecEntry(actionID, execBlock)
+	// Write the Exec output to file for pklres access
+	if execBlock.Stdout != nil {
+		dr.Logger.Debug("processExecBlock: writing stdout to file", "actionID", actionID)
+		filePath, err := dr.WriteStdoutToFile(actionID, execBlock.Stdout)
+		if err != nil {
+			dr.Logger.Error("processExecBlock: failed to write stdout to file", "actionID", actionID, "error", err)
+			return fmt.Errorf("failed to write stdout to file: %w", err)
+		}
+		execBlock.File = &filePath
+		dr.Logger.Debug("processExecBlock: wrote stdout to file", "actionID", actionID, "filePath", filePath)
+	}
+
+	dr.Logger.Info("processExecBlock: skipping AppendExecEntry - using real-time pklres", "actionID", actionID)
+	// Note: AppendExecEntry is no longer needed as we use real-time pklres access
+	// The Exec output files are directly accessible through pklres.getResourceOutput()
+	return nil
 }
 
 func (dr *DependencyResolver) WriteStdoutToFile(resourceID string, stdoutEncoded *string) (string, error) {
@@ -148,126 +162,8 @@ func (dr *DependencyResolver) WriteStdoutToFile(resourceID string, stdoutEncoded
 	return outputFilePath, nil
 }
 
-func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExec.ResourceExec) error {
-	// Canonicalize the resourceID for storage
-	canonicalResourceID := resourceID
-	if dr.PklresHelper != nil {
-		canonicalResourceID = dr.PklresHelper.resolveActionID(resourceID)
-	}
-	dr.Logger.Debug("AppendExecEntry: storing resource", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID)
-	// Retrieve existing exec resources from pklres
-	existingContent, err := dr.PklresHelper.retrievePklContent("exec", "")
-	if err != nil {
-		// If no existing content, start with empty resources
-		existingContent = ""
-	}
-
-	// Parse existing resources or create new map
-	existingResources := make(map[string]*pklExec.ResourceExec)
-	if existingContent != "" {
-		// For now, we'll create a simple empty structure since we're storing individual resources
-		// In a more sophisticated implementation, we'd parse the existing content
-		existingResources = make(map[string]*pklExec.ResourceExec)
-	}
-
-	// Prepare file path and write stdout to file
-	var filePath string
-	if newExec.Stdout != nil {
-		filePath, err = dr.WriteStdoutToFile(resourceID, newExec.Stdout)
-		if err != nil {
-			return fmt.Errorf("failed to write stdout to file: %w", err)
-		}
-		newExec.File = &filePath
-	}
-
-	// Encode fields for PKL storage
-	encodedCommand := utils.EncodeValue(newExec.Command)
-	encodedEnv := dr.encodeExecEnv(newExec.Env)
-	encodedStderr, encodedStdout := dr.encodeExecOutputs(newExec.Stderr, newExec.Stdout)
-
-	timestamp := newExec.Timestamp
-	if timestamp == nil {
-		timestamp = &pkl.Duration{
-			Value: float64(time.Now().Unix()),
-			Unit:  pkl.Nanosecond,
-		}
-	}
-
-	timeoutDuration := &pkl.Duration{
-		Value: float64(dr.DefaultTimeoutSec),
-		Unit:  pkl.Second,
-	}
-
-	existingResources[resourceID] = &pklExec.ResourceExec{
-		Env:             encodedEnv,
-		Command:         encodedCommand,
-		Stderr:          encodedStderr,
-		Stdout:          encodedStdout,
-		File:            &filePath,
-		Timestamp:       timestamp,
-		TimeoutDuration: timeoutDuration,
-		ExitCode:        newExec.ExitCode,
-		ItemValues:      newExec.ItemValues,
-	}
-
-	// Store the PKL content using pklres (no JSON, no custom serialization)
-	var pklContent strings.Builder
-	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Exec.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
-	pklContent.WriteString("Resources {\n")
-
-	for _, res := range existingResources {
-		blockKey := canonicalResourceID
-		dr.Logger.Debug("AppendExecEntry: PKL block key", "blockKey", blockKey)
-		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", blockKey))
-		pklContent.WriteString(fmt.Sprintf("    Command = \"%s\"\n", res.Command))
-
-		if res.TimeoutDuration != nil {
-			pklContent.WriteString(fmt.Sprintf("    TimeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
-		} else {
-			pklContent.WriteString(fmt.Sprintf("    TimeoutDuration = %g.%s\n", timeoutDuration.Value, timeoutDuration.Unit.String()))
-		}
-
-		if res.Timestamp != nil {
-			pklContent.WriteString(fmt.Sprintf("    Timestamp = %g.%s\n", res.Timestamp.Value, res.Timestamp.Unit.String()))
-		}
-
-		pklContent.WriteString("    Env ")
-		pklContent.WriteString(utils.EncodePklMap(res.Env))
-
-		pklContent.WriteString(dr.encodeExecStderr(res.Stderr))
-		pklContent.WriteString(dr.encodeExecStdout(res.Stdout))
-		if res.File != nil {
-			pklContent.WriteString(fmt.Sprintf("    File = \"%s\"\n", *res.File))
-		} else {
-			pklContent.WriteString("    File = \"\"\n")
-		}
-
-		// Add ExitCode
-		if res.ExitCode != nil {
-			pklContent.WriteString(fmt.Sprintf("    ExitCode = %d\n", *res.ExitCode))
-		} else {
-			pklContent.WriteString("    ExitCode = 0\n")
-		}
-
-		// Add ItemValues
-		pklContent.WriteString("    ItemValues ")
-		if res.ItemValues != nil && len(*res.ItemValues) > 0 {
-			pklContent.WriteString(utils.EncodePklSlice(res.ItemValues))
-		} else {
-			pklContent.WriteString("{}\n")
-		}
-
-		pklContent.WriteString("  }\n")
-	}
-	pklContent.WriteString("}\n")
-
-	// Store the PKL content using pklres instead of writing to file
-	if err := dr.PklresHelper.storePklContent("exec", canonicalResourceID, pklContent.String()); err != nil {
-		return fmt.Errorf("failed to store PKL content in pklres: %w", err)
-	}
-
-	return nil
-}
+// AppendExecEntry has been removed as it's no longer needed.
+// We now use real-time pklres access through getResourceOutput() instead of storing PKL content.
 
 func (dr *DependencyResolver) encodeExecEnv(env *map[string]string) *map[string]string {
 	if env == nil {
@@ -296,4 +192,21 @@ func (dr *DependencyResolver) encodeExecStdout(stdout *string) string {
 		return "    Stdout = \"\"\n"
 	}
 	return fmt.Sprintf("    Stdout = #\"\"\"\n%s\n\"\"\"#\n", *stdout)
+}
+
+// Exported for testing
+func (dr *DependencyResolver) EncodeExecEnv(env *map[string]string) *map[string]string {
+	return dr.encodeExecEnv(env)
+}
+
+func (dr *DependencyResolver) EncodeExecOutputs(stderr, stdout *string) (*string, *string) {
+	return dr.encodeExecOutputs(stderr, stdout)
+}
+
+func (dr *DependencyResolver) EncodeExecStderr(stderr *string) string {
+	return dr.encodeExecStderr(stderr)
+}
+
+func (dr *DependencyResolver) EncodeExecStdout(stdout *string) string {
+	return dr.encodeExecStdout(stdout)
 }

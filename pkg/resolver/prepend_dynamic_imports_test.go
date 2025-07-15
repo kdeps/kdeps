@@ -1,4 +1,4 @@
-package resolver
+package resolver_test
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/pklres"
+	resolverpkg "github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/spf13/afero"
 )
@@ -23,7 +24,7 @@ func TestPrependDynamicImportsInsert(t *testing.T) {
 		t.Fatalf("write initial file: %v", err)
 	}
 
-	dr := &DependencyResolver{
+	dr := &resolverpkg.DependencyResolver{
 		Fs:             fs,
 		Context:        context.Background(),
 		ActionDir:      "/action",
@@ -52,7 +53,7 @@ func TestPrependDynamicImportsAddsLines(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	dr := &DependencyResolver{
+	dr := &resolverpkg.DependencyResolver{
 		Fs:             fs,
 		Logger:         logger,
 		Context:        ctx,
@@ -103,7 +104,7 @@ func TestPrependDynamicImportsBasic(t *testing.T) {
 
 	// minimal DependencyResolver setup
 	tmpDir := t.TempDir()
-	dr := &DependencyResolver{
+	dr := &resolverpkg.DependencyResolver{
 		Fs:        fs,
 		Context:   ctx,
 		ActionDir: tmpDir,
@@ -112,7 +113,7 @@ func TestPrependDynamicImportsBasic(t *testing.T) {
 	}
 	// create pkl file with simple amends header
 	pklPath := filepath.Join(tmpDir, "sample.pkl")
-	header := "amends \"package://schema.kdeps.com/core@" + schema.SchemaVersion(ctx) + "#/Workflow.pkl\""
+	header := "amends \"package://schema.kdeps.com/core@" + schema.Version(ctx) + "#/Workflow.pkl\""
 	if err := afero.WriteFile(fs, pklPath, []byte(header+"\n"), 0o644); err != nil {
 		t.Fatalf("write pkl: %v", err)
 	}
@@ -147,7 +148,7 @@ func TestPrepareImportFilesBasic(t *testing.T) {
 	}
 	defer pklresReader.DB.Close()
 
-	dr := &DependencyResolver{
+	dr := &resolverpkg.DependencyResolver{
 		Fs:           fs,
 		Context:      ctx,
 		ActionDir:    tmpDir,
@@ -156,7 +157,7 @@ func TestPrepareImportFilesBasic(t *testing.T) {
 		Logger:       logging.NewTestLogger(),
 	}
 
-	pklresHelper := NewPklresHelper(dr)
+	pklresHelper := resolverpkg.NewPklresHelper(dr)
 	dr.PklresHelper = pklresHelper
 
 	if err := dr.PrepareImportFiles(); err != nil {
@@ -166,7 +167,7 @@ func TestPrepareImportFilesBasic(t *testing.T) {
 	// Verify that expected records are created in pklres
 	expectedTypes := []string{"llm", "client", "exec", "python", "data"}
 	for _, resourceType := range expectedTypes {
-		content, err := pklresHelper.retrievePklContent(resourceType, "__empty__")
+		content, err := pklresHelper.RetrievePklContent(resourceType, "__empty__")
 		if err != nil {
 			t.Fatalf("failed to retrieve %s record: %v", resourceType, err)
 		}

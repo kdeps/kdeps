@@ -346,7 +346,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	dependencyResolver.LoadResourceFn = dependencyResolver.LoadResource
 	dependencyResolver.LoadResourceWithRequestContextFn = dependencyResolver.LoadResourceWithRequestContext
 	dependencyResolver.BuildDependencyStackFn = dependencyResolver.Graph.BuildDependencyStack
-	dependencyResolver.ProcessRunBlockFn = dependencyResolver.processRunBlock
+	dependencyResolver.ProcessRunBlockFn = dependencyResolver.ProcessRunBlock
 	dependencyResolver.ClearItemDBFn = dependencyResolver.ClearItemDB
 
 	// Chat helpers
@@ -383,7 +383,7 @@ func (dr *DependencyResolver) ClearItemDB() error {
 
 // processResourceStep consolidates the pattern of: get timestamp, run a handler, adjust timeout (if provided),
 // then wait for the timestamp change.
-func (dr *DependencyResolver) processResourceStep(resourceID, step string, timeoutPtr *pkl.Duration, handler func() error) error {
+func (dr *DependencyResolver) ProcessResourceStep(resourceID, step string, timeoutPtr *pkl.Duration, handler func() error) error {
 	dr.Logger.Debug("processResourceStep: about to call handler", "resourceID", resourceID, "step", step, "handler_is_nil", handler == nil)
 	// Canonicalize the resourceID if it's a short ActionID
 	canonicalResourceID := resourceID
@@ -537,9 +537,11 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			if err := dr.Fs.RemoveAll(dr.SessionDBPath); err != nil {
 				dr.Logger.Error("failed to delete the SessionDB file", "file", dr.SessionDBPath, "error", err)
 			}
-			if err := dr.Fs.RemoveAll(dr.PklresDBPath); err != nil {
-				dr.Logger.Error("failed to delete the PklresDB file", "file", dr.PklresDBPath, "error", err)
-			}
+			// Note: Do not delete the pklres database file here, as the response resource needs to access
+			// LLM content that was stored during workflow execution
+			// if err := dr.Fs.RemoveAll(dr.PklresDBPath); err != nil {
+			// 	dr.Logger.Error("failed to delete the PklresDB file", "file", dr.PklresDBPath, "error", err)
+			// }
 
 			buf := make([]byte, 1<<16)
 			stackSize := runtime.Stack(buf, false)
@@ -695,10 +697,11 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 		dr.Logger.Error("failed to delete the SessionDB file", "file", dr.SessionDBPath, "error", err)
 		return false, err
 	}
-	if err := dr.Fs.RemoveAll(dr.PklresDBPath); err != nil {
-		dr.Logger.Error("failed to delete the PklresDB file", "file", dr.PklresDBPath, "error", err)
-		return false, err
-	}
+	// Note: Do not delete the pklres database file here, as the response resource needs to access
+	// LLM content that was stored during workflow execution
+	// if err := dr.Fs.RemoveAll(dr.PklresDBPath); err != nil {
+	// 	dr.Logger.Error("failed to delete the PklresDB file", "file", dr.PklresDBPath, "error", err)
+	// }
 
 	// Log the final file run counts
 	for file, count := range dr.FileRunCounter {
@@ -710,7 +713,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 }
 
 // processRunBlock handles the runBlock processing for a resource, excluding APIResponse.
-func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes.Resource, actionID string, hasItems bool) (bool, error) {
+func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes.Resource, actionID string, hasItems bool) (bool, error) {
 	// Increment the run counter for this file
 	dr.FileRunCounter[res.File]++
 	dr.Logger.Info("processing run block for file", "file", res.File, "runCount", dr.FileRunCounter[res.File], "actionID", actionID)
@@ -902,7 +905,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 
 	// Process Exec step, if defined
 	if runBlock.Exec != nil && runBlock.Exec.Command != "" {
-		if err := dr.processResourceStep(res.ActionID, "exec", runBlock.Exec.TimeoutDuration, func() error {
+		if err := dr.ProcessResourceStep(res.ActionID, "exec", runBlock.Exec.TimeoutDuration, func() error {
 			return dr.HandleExec(res.ActionID, runBlock.Exec)
 		}); err != nil {
 			dr.Logger.Error("exec error:", res.ActionID)
@@ -912,7 +915,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 
 	// Process Python step, if defined
 	if runBlock.Python != nil && runBlock.Python.Script != "" {
-		if err := dr.processResourceStep(res.ActionID, "python", runBlock.Python.TimeoutDuration, func() error {
+		if err := dr.ProcessResourceStep(res.ActionID, "python", runBlock.Python.TimeoutDuration, func() error {
 			return dr.HandlePython(res.ActionID, runBlock.Python)
 		}); err != nil {
 			dr.Logger.Error("python error:", res.ActionID)
@@ -934,7 +937,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 		if runBlock.Chat.Scenario != nil {
 			dr.Logger.Info("Scenario present", "length", len(*runBlock.Chat.Scenario))
 		}
-		if err := dr.processResourceStep(res.ActionID, "llm", runBlock.Chat.TimeoutDuration, func() error {
+		if err := dr.ProcessResourceStep(res.ActionID, "llm", runBlock.Chat.TimeoutDuration, func() error {
 			return dr.HandleLLMChat(res.ActionID, runBlock.Chat)
 		}); err != nil {
 			dr.Logger.Error("LLM chat error", "actionID", res.ActionID, "error", err)
@@ -986,7 +989,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 					dr.Logger.Warn("Fallback: Processing LLM resource", "llmActionID", llmActionID, "llmRes_nil", llmRes == nil)
 					if llmRes != nil && llmRes.Model != "" && (llmRes.Prompt != nil || llmRes.Scenario != nil) {
 						dr.Logger.Info("Fallback: About to call processResourceStep for LLM resource", "llmActionID", llmActionID, "handler_is_nil", false)
-						err := dr.processResourceStep(llmActionID, "llm", llmRes.TimeoutDuration, func() error {
+						err := dr.ProcessResourceStep(llmActionID, "llm", llmRes.TimeoutDuration, func() error {
 							return dr.HandleLLMChat(llmActionID, llmRes)
 						})
 						if err != nil {
@@ -1002,7 +1005,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 
 	// Process HTTP Client step, if defined
 	if runBlock.HTTPClient != nil && runBlock.HTTPClient.Method != "" && runBlock.HTTPClient.Url != "" {
-		if err := dr.processResourceStep(res.ActionID, "client", runBlock.HTTPClient.TimeoutDuration, func() error {
+		if err := dr.ProcessResourceStep(res.ActionID, "client", runBlock.HTTPClient.TimeoutDuration, func() error {
 			return dr.HandleHTTPClient(res.ActionID, runBlock.HTTPClient)
 		}); err != nil {
 			dr.Logger.Error("HTTP client error:", res.ActionID)
@@ -1016,12 +1019,12 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 // storeInitialResourceState stores the initial state of a resource in pklres for timestamp lookups
 func (dr *DependencyResolver) storeInitialResourceState(actionID, resourceType string, resource interface{}) error {
 	if dr.PklresHelper == nil {
-		return fmt.Errorf("PklresHelper is not initialized")
+		return errors.New("PklresHelper is not initialized")
 	}
 
 	// Create a basic PKL content structure for the resource
 	var pklContent strings.Builder
-	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@0.4.2#/%s.pkl\"\n\n", strings.Title(resourceType)))
+	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@0.4.3#/%s.pkl\"\n\n", strings.Title(resourceType)))
 	pklContent.WriteString("Resources {\n")
 	pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", actionID))
 
@@ -1085,5 +1088,39 @@ func (dr *DependencyResolver) storeInitialResourceState(actionID, resourceType s
 	if dr.PklresHelper != nil {
 		canonicalActionID = dr.PklresHelper.resolveActionID(actionID)
 	}
-	return dr.PklresHelper.storePklContent(resourceType, canonicalActionID, pklContent.String())
+	return dr.PklresHelper.StorePklContent(resourceType, canonicalActionID, pklContent.String())
+}
+
+// Exported for testing
+func (dr *DependencyResolver) ActivateCondaEnvironment(envName string) error {
+	return dr.activateCondaEnvironment(envName)
+}
+
+func (dr *DependencyResolver) DeactivateCondaEnvironment() error {
+	return dr.deactivateCondaEnvironment()
+}
+
+// GetResourcePath returns the resource path using the PklresHelper
+func (dr *DependencyResolver) GetResourcePath(resourceType string) string {
+	if dr.PklresHelper != nil {
+		return dr.PklresHelper.GetResourcePath(resourceType)
+	}
+	return ""
+}
+
+// Export the validation helpers for use in tests
+func (dr *DependencyResolver) ValidateRequestParams(file string, allowedParams []string) error {
+	return dr.validateRequestParams(file, allowedParams)
+}
+
+func (dr *DependencyResolver) ValidateRequestHeaders(file string, allowedHeaders []string) error {
+	return dr.validateRequestHeaders(file, allowedHeaders)
+}
+
+func (dr *DependencyResolver) ValidateRequestPath(req *gin.Context, allowedRoutes []string) error {
+	return dr.validateRequestPath(req, allowedRoutes)
+}
+
+func (dr *DependencyResolver) ValidateRequestMethod(req *gin.Context, allowedMethods []string) error {
+	return dr.validateRequestMethod(req, allowedMethods)
 }
