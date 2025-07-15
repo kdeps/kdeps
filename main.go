@@ -266,10 +266,7 @@ func setupSignalHandler(fs afero.Fs, ctx context.Context, cancelFunc context.Can
 
 // runGraphResolver prepares and runs the graph resolver.
 func runGraphResolverActions(ctx context.Context, dr *resolver.DependencyResolver, apiServerMode bool) error {
-	// Prepare workflow directory
-	if err := dr.PrepareWorkflowDir(); err != nil {
-		return fmt.Errorf("failed to prepare workflow directory: %w", err)
-	}
+	// Workflow directory preparation no longer needed - using project directory directly
 
 	if err := dr.PrepareImportFiles(); err != nil {
 		return fmt.Errorf("failed to prepare import files: %w", err)

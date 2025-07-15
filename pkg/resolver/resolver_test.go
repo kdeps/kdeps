@@ -18,6 +18,10 @@ import (
 	"github.com/kdeps/kdeps/pkg/utils"
 	assets "github.com/kdeps/schema/assets"
 	pklExec "github.com/kdeps/schema/gen/exec"
+	pklHTTP "github.com/kdeps/schema/gen/http"
+	pklLLM "github.com/kdeps/schema/gen/llm"
+	pklPython "github.com/kdeps/schema/gen/python"
+	pklRes "github.com/kdeps/schema/gen/resource"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -75,6 +79,16 @@ func TestDependencyResolver(t *testing.T) {
 		switch rt {
 		case resolverpkg.ExecResource:
 			return &pklExec.ExecImpl{}, nil
+		case resolverpkg.PythonResource:
+			return &pklPython.PythonImpl{}, nil
+		case resolverpkg.LLMResource:
+			return &pklLLM.LLMImpl{}, nil
+		case resolverpkg.HTTPResource:
+			return &pklHTTP.HTTPImpl{}, nil
+		case resolverpkg.ResponseResource:
+			return &pklRes.Resource{}, nil
+		case resolverpkg.Resource:
+			return &pklRes.Resource{}, nil
 		default:
 			return nil, fmt.Errorf("unsupported resource type in stub: %v", rt)
 		}
@@ -395,7 +409,6 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
@@ -435,7 +448,6 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
@@ -474,7 +486,6 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
@@ -523,7 +534,6 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
@@ -563,7 +573,6 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
@@ -597,7 +606,6 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
@@ -647,7 +655,6 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
@@ -682,7 +689,6 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
@@ -717,7 +723,6 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
@@ -757,7 +762,6 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
@@ -796,7 +800,6 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
@@ -836,7 +839,6 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
@@ -937,9 +939,11 @@ func TestNewGraphResolver(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	teardown := setNonInteractive(nil)
-	defer teardown()
-	os.Exit(m.Run())
+	old := os.Getenv("NON_INTERACTIVE")
+	os.Setenv("NON_INTERACTIVE", "1")
+	result := m.Run()
+	os.Setenv("NON_INTERACTIVE", old)
+	os.Exit(result)
 }
 
 func TestFailFastBehavior(t *testing.T) {

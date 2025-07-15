@@ -13,13 +13,12 @@ import (
 func TestPrepareImportFilesCreatesExpectedFiles(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	dr := &resolverpkg.DependencyResolver{
-		Fs:          fs,
-		Context:     context.Background(),
-		ActionDir:   "/action",
-		ProjectDir:  "/project",
-		WorkflowDir: "/workflow",
-		RequestID:   "graph1",
-		Logger:      logging.NewTestLogger(),
+		Fs:         fs,
+		Context:    context.Background(),
+		ActionDir:  "/action",
+		ProjectDir: "/project",
+		RequestID:  "graph1",
+		Logger:     logging.NewTestLogger(),
 	}
 
 	dr.PklresReader, _ = pklres.InitializePklResource(":memory:")

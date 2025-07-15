@@ -516,7 +516,8 @@ type mockResolver struct {
 }
 
 func (m *mockResolver) PrepareWorkflowDir() error {
-	return m.prepareWorkflowDirFn()
+	// PrepareWorkflowDir functionality removed - using project directory directly
+	return nil
 }
 
 func (m *mockResolver) PrepareImportFiles() error {
@@ -616,7 +617,6 @@ func TestProcessWorkflow(t *testing.T) {
 			ResponseTargetFile:   "/response.json",
 			ActionDir:            actionDir,
 			ProjectDir:           projectDir,
-			WorkflowDir:          workflowDir,
 			FilesDir:             "/files",
 			DataDir:              dataDir,
 			MemoryReader:         &memory.PklResourceReader{DB: memoryDB},
@@ -637,8 +637,7 @@ func TestProcessWorkflow(t *testing.T) {
 			DBs:                  []*sql.DB{memoryDB, sessionDB, toolDB, itemDB},
 		}
 
-		mock.PrependDynamicImportsFn = func(string) error { return nil }
-		mock.AddPlaceholderImportsFn = func(string) error { return nil }
+		// PrependDynamicImportsFn and AddPlaceholderImportsFn removed - deprecated functionality
 		mock.LoadResourceEntriesFn = func() error { return nil }
 		mock.BuildDependencyStackFn = func(string, map[string]bool) []string { return []string{"test-action"} }
 		mock.LoadResourceFn = func(context.Context, string, resolver.ResourceType) (interface{}, error) {

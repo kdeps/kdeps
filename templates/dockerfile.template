@@ -44,7 +44,6 @@ RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/refs/heads/main/ins
 {{ end }}
 
 COPY workflow /agent/project
-COPY workflow /agent/workflow
 
 {{ if .InstallAnaconda }}
 RUN chmod +x /cache/anaconda*

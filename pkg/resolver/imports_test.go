@@ -82,7 +82,8 @@ func TestPrependDynamicImports_AddsImports(t *testing.T) {
 	// store empty exec structure
 	_ = dr.PklresHelper.StorePklContent("exec", "__empty__", "Exec {}\n")
 
-	assert.NoError(t, dr.PrependDynamicImports(pklFile))
+	// PrependDynamicImports functionality removed - imports included in templates
+	// assert.NoError(t, dr.PrependDynamicImports(pklFile))
 	content, _ := afero.ReadFile(dr.Fs, pklFile)
 	s := string(content)
 	// Should still start with amends line
@@ -93,33 +94,15 @@ func TestPrependDynamicImports_AddsImports(t *testing.T) {
 }
 
 func TestPrepareWorkflowDir_CopiesAndCleans(t *testing.T) {
-	dr := newTestResolver()
-	fs := dr.Fs
-	// setup project files
-	_ = fs.MkdirAll(filepath.Join(dr.ProjectDir, "dir"), 0o755)
-	_ = afero.WriteFile(fs, filepath.Join(dr.ProjectDir, "file.txt"), []byte("hello"), 0o644)
-	_ = afero.WriteFile(fs, filepath.Join(dr.ProjectDir, "dir/file2.txt"), []byte("world"), 0o644)
-
-	// first copy
-	assert.NoError(t, dr.PrepareWorkflowDir())
-	exists, _ := afero.Exists(fs, filepath.Join(dr.WorkflowDir, "file.txt"))
-	assert.True(t, exists)
-
-	// create stale file in workflow dir and ensure second run cleans it
-	_ = afero.WriteFile(fs, filepath.Join(dr.WorkflowDir, "stale.txt"), []byte("x"), 0o644)
-	assert.NoError(t, dr.PrepareWorkflowDir())
-	staleExists, _ := afero.Exists(fs, filepath.Join(dr.WorkflowDir, "stale.txt"))
-	assert.False(t, staleExists)
+	// This test is deprecated - workflow directory functionality removed
+	// Using project directory directly now
+	t.Skip("PrepareWorkflowDir functionality removed - using project directory directly")
 }
 
 func TestAddPlaceholderImports_FileNotFound(t *testing.T) {
-	fs := afero.NewMemMapFs()
-	logger := logging.NewTestLogger()
-
-	dr := &resolver.DependencyResolver{Fs: fs, Logger: logger}
-	if err := dr.AddPlaceholderImports("/no/such/file.pkl"); err == nil {
-		t.Errorf("expected error for missing file, got nil")
-	}
+	// AddPlaceholderImports functionality removed - imports included in templates
+	// This test is deprecated - function no longer exists
+	t.Skip("AddPlaceholderImports functionality removed - imports included in templates")
 }
 
 func TestNewGraphResolver_Minimal(t *testing.T) {
@@ -204,7 +187,8 @@ func TestPrepareImportFilesAndPrependDynamicImports(t *testing.T) {
 	assert.NoError(t, afero.WriteFile(fs, pklPath, []byte(content), 0o644))
 
 	// run PrependDynamicImports
-	assert.NoError(t, dr.PrependDynamicImports(pklPath))
+	// PrependDynamicImports functionality removed - imports included in templates
+	// assert.NoError(t, dr.PrependDynamicImports(pklPath))
 
 	// the updated file should now contain some import lines (e.g., pkl:json)
 	updated, err := afero.ReadFile(fs, pklPath)
@@ -213,36 +197,9 @@ func TestPrepareImportFilesAndPrependDynamicImports(t *testing.T) {
 }
 
 func TestAddPlaceholderImports_Errors(t *testing.T) {
-	// Setup PKL workspace with embedded schema files
-	workspace, err := assets.SetupPKLWorkspaceInTmpDir()
-	require.NoError(t, err)
-	defer workspace.Cleanup()
-
-	fs := afero.NewMemMapFs()
-	tmp := t.TempDir()
-	actionDir := filepath.Join(tmp, "action")
-
-	dr := &resolver.DependencyResolver{
-		Fs:             fs,
-		Logger:         logging.NewTestLogger(),
-		ActionDir:      actionDir,
-		DataDir:        filepath.Join(tmp, "data"),
-		RequestID:      "req",
-		RequestPklFile: filepath.Join(tmp, "request.pkl"),
-	}
-
-	// 1) file not found
-	if err := dr.AddPlaceholderImports("/does/not/exist.pkl"); err == nil {
-		t.Errorf("expected error for missing file path")
-	}
-
-	// 2) file without actionID line - use assets for extends
-	filePath := filepath.Join(tmp, "no_id.pkl")
-	_ = afero.WriteFile(fs, filePath, []byte("extends \""+workspace.GetImportPath("Exec.pkl")+"\"\n"), 0o644)
-
-	if err := dr.AddPlaceholderImports(filePath); err == nil {
-		t.Errorf("expected error when action id missing but got nil")
-	}
+	// AddPlaceholderImports functionality removed - imports included in templates
+	// This test is deprecated - function no longer exists
+	t.Skip("AddPlaceholderImports functionality removed - imports included in templates")
 }
 
 func TestAddPlaceholderImports(t *testing.T) {
@@ -289,8 +246,9 @@ func TestAddPlaceholderImports(t *testing.T) {
 	}
 
 	// run the function under test
-	err := dr.AddPlaceholderImports(targetPkl)
-	assert.Error(t, err)
+	// AddPlaceholderImports functionality removed - imports included in templates
+	// This test is deprecated - function no longer exists
+	t.Skip("AddPlaceholderImports functionality removed - imports included in templates")
 }
 
 func TestPrepareImportFilesCreatesStubs(t *testing.T) {
@@ -349,7 +307,8 @@ func TestPrependDynamicImportsExtra(t *testing.T) {
 	require.NoError(t, afero.WriteFile(fs, testPkl, []byte(content), 0o644))
 
 	// Call function
-	require.NoError(t, dr.PrependDynamicImports(testPkl))
+	// PrependDynamicImports functionality removed - imports included in templates
+	// require.NoError(t, dr.PrependDynamicImports(testPkl))
 
 	// Read back file and ensure dynamic import lines exist (e.g., import "pkl:json") and request alias line
 	out, err := afero.ReadFile(fs, testPkl)

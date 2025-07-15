@@ -124,13 +124,11 @@ func (h *PklresHelper) RetrievePklContent(resourceType, resourceID string) (stri
 		return "", errors.New("PklresReader is nil")
 	}
 
-	// Add debug logging to see what URI we're trying to read
-	if h.resolver.Logger != nil {
-		h.resolver.Logger.Debug("retrievePklContent: attempting to read from pklres", "uri", uri.String())
-	}
+	// Removed excessive debug logging for pklres reads
 
 	data, err := h.resolver.PklresReader.Read(*uri)
 	if err != nil {
+		// Only log errors at debug level, not every read attempt
 		if h.resolver.Logger != nil {
 			h.resolver.Logger.Debug("retrievePklContent: failed to read from pklres", "uri", uri.String(), "error", err)
 		}
@@ -138,12 +136,11 @@ func (h *PklresHelper) RetrievePklContent(resourceType, resourceID string) (stri
 	}
 
 	content := string(data)
-	if h.resolver.Logger != nil {
-		h.resolver.Logger.Debug("retrievePklContent: successfully read from pklres", "uri", uri.String(), "contentLength", len(content))
-		if len(content) > 200 {
-			h.resolver.Logger.Debug("retrievePklContent: content preview", "preview", content[:200]+"...")
-		} else {
-			h.resolver.Logger.Debug("retrievePklContent: full content", "content", content)
+	// Log only at trace level to reduce spam
+	if h.resolver.Logger != nil && h.resolver.Logger.IsDebugEnabled() {
+		// Only log if content is empty or there's an error - success is expected
+		if len(content) == 0 {
+			h.resolver.Logger.Debug("retrievePklContent: empty content from pklres", "uri", uri.String())
 		}
 	}
 

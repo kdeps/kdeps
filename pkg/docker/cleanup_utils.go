@@ -10,7 +10,6 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
-	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -54,7 +53,7 @@ func CleanupDockerBuildImages(fs afero.Fs, ctx context.Context, cName string, cl
 	return nil
 }
 
-// Cleanup deletes /agent/action and /agent/workflow directories, then copies /agent/project to /agent/workflow.
+// Cleanup deletes /agent/action directory. No longer copies project to workflow.
 func Cleanup(fs afero.Fs, ctx context.Context, environ *environment.Environment, logger *logging.Logger) {
 	if environ.DockerMode != "1" {
 		return
@@ -75,8 +74,7 @@ func Cleanup(fs afero.Fs, ctx context.Context, environ *environment.Environment,
 		}
 	}
 
-	workflowDir := "/agent/workflow"
-	projectDir := "/agent/project"
+	// Removed workflow directory processing
 	removedFiles := []string{filepath.Join("/tmp", ".actiondir_removed_"+graphID), filepath.Join(actionDir, ".dockercleanup_"+graphID)}
 
 	// Helper function to remove a directory and create a corresponding flag file
@@ -94,7 +92,7 @@ func Cleanup(fs afero.Fs, ctx context.Context, environ *environment.Environment,
 		return nil
 	}
 
-	// Remove action and workflow directories
+	// Remove action directory only
 	if err := removeDirWithFlag(ctx, actionDir, removedFiles[0]); err != nil {
 		return
 	}
@@ -107,37 +105,8 @@ func Cleanup(fs afero.Fs, ctx context.Context, environ *environment.Environment,
 		}
 	}
 
-	// Copy /agent/project to /agent/workflow
-	err := afero.Walk(fs, projectDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		// Create relative target path inside /agent/workflow
-		relPath, err := filepath.Rel(projectDir, path)
-		if err != nil {
-			return err
-		}
-		targetPath := filepath.Join(workflowDir, relPath)
-
-		if info.IsDir() {
-			if err := fs.MkdirAll(targetPath, info.Mode()); err != nil {
-				return fmt.Errorf("failed to create directory %s: %w", targetPath, err)
-			}
-		} else {
-			// Copy the file from projectDir to workflowDir
-			if err := archiver.CopyFile(fs, ctx, path, targetPath, logger); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-
-	if err != nil {
-		logger.Error(fmt.Sprintf("Error copying %s to %s: %v", projectDir, workflowDir, err))
-	} else {
-		logger.Debug(fmt.Sprintf("Copied %s to %s for next run", projectDir, workflowDir))
-	}
+	// No longer copying project to workflow - using project directory directly
+	logger.Debug("Cleanup completed - using project directory directly")
 
 	// Create final cleanup flag
 	if err := CreateFlagFile(fs, ctx, removedFiles[1]); err != nil {

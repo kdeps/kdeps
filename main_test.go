@@ -463,18 +463,13 @@ func TestHandleDockerMode_NoAPIServer(t *testing.T) {
 	_ = schema.Version(context.Background())
 }
 
-// TestRunGraphResolverActions_PrepareWorkflowDirError verifies that an error in
-// PrepareWorkflowDir is propagated by runGraphResolverActions. This provides
-// coverage over the early-exit failure path without bootstrapping a full
-// resolver workflow.
-func TestRunGraphResolverActions_PrepareWorkflowDirError(t *testing.T) {
+// TestRunGraphResolverActions_MissingProjectDirError verifies that an error
+// is propagated when the project directory is missing.
+func TestRunGraphResolverActions_MissingProjectDirError(t *testing.T) {
 	t.Parallel()
 
-	// Use an in-memory filesystem with *no* project directory so that
-	// PrepareWorkflowDir fails when walking the source path.
+	// Use an in-memory filesystem with *no* project directory
 	fs := afero.NewMemMapFs()
-
-	tmpDir := t.TempDir()
 
 	env := &environment.Environment{DockerMode: "0"}
 	logger := logging.NewTestLogger()
@@ -483,7 +478,6 @@ func TestRunGraphResolverActions_PrepareWorkflowDirError(t *testing.T) {
 		Fs:          fs,
 		Logger:      logger,
 		ProjectDir:  "/nonexistent/project", // source dir intentionally missing
-		WorkflowDir: filepath.Join(tmpDir, "workflow"),
 		Environment: env,
 		Context:     context.Background(),
 	}
@@ -581,8 +575,6 @@ func TestHandleDockerMode(t *testing.T) {
 	tests := []bool{false, true} // apiServerMode flag returned by bootstrap stub
 
 	for _, apiServerMode := range tests {
-		// Capture range variable
-		apiServerMode := apiServerMode
 		t.Run("apiServerMode="+boolToStr(apiServerMode), func(t *testing.T) {
 			// Preserve originals and restore after test
 			origBootstrap := bootstrapDockerSystemFn

@@ -655,10 +655,10 @@ func compareSemver(a, b string) int {
 	for i := 0; i < 3; i++ {
 		var ai, bi int
 		if i < len(aParts) {
-			fmt.Sscanf(aParts[i], "%d", &ai)
+			_, _ = fmt.Sscanf(aParts[i], "%d", &ai)
 		}
 		if i < len(bParts) {
-			fmt.Sscanf(bParts[i], "%d", &bi)
+			_, _ = fmt.Sscanf(bParts[i], "%d", &bi)
 		}
 		if ai > bi {
 			return 1

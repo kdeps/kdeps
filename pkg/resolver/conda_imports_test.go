@@ -58,23 +58,7 @@ func TestCondaEnvironmentExecutionInjectedFailure(t *testing.T) {
 
 // Test that handleFileImports uses injected import helpers.
 func TestHandleFileImportsUsesInjection(t *testing.T) {
-	var prependCalled, placeholderCalled bool
-
-	dr := &resolver.DependencyResolver{
-		Fs:     afero.NewMemMapFs(),
-		Logger: logging.GetLogger(),
-		PrependDynamicImportsFn: func(path string) error {
-			prependCalled = true
-			return nil
-		},
-		AddPlaceholderImportsFn: func(path string) error {
-			placeholderCalled = true
-			return nil
-		},
-	}
-
-	err := dr.HandleFileImports("dummy.pkl")
-	assert.NoError(t, err)
-	assert.True(t, prependCalled, "PrependDynamicImportsFn was not called")
-	assert.True(t, placeholderCalled, "AddPlaceholderImportsFn was not called")
+	// This test is deprecated - import functionality removed
+	// Using template imports directly now
+	t.Skip("HandleFileImports functionality removed - imports included in templates")
 }

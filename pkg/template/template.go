@@ -182,6 +182,8 @@ func GenerateResourceFiles(fs afero.Fs, ctx context.Context, logger *logging.Log
 
 import "package://schema.kdeps.com/core@%s#/Document.pkl" as document
 import "package://schema.kdeps.com/core@%s#/Utils.pkl" as utils
+import "package://schema.kdeps.com/core@%s#/Skip.pkl" as skip
+import "package://schema.kdeps.com/core@%s#/Data.pkl" as data
 import "package://schema.kdeps.com/core@%s#/Memory.pkl" as memory
 import "package://schema.kdeps.com/core@%s#/Session.pkl" as session
 import "package://schema.kdeps.com/core@%s#/Tool.pkl" as tool
@@ -192,7 +194,7 @@ import "package://schema.kdeps.com/core@%s#/Python.pkl" as python
 import "package://schema.kdeps.com/core@%s#/Exec.pkl" as exec
 import "package://schema.kdeps.com/core@%s#/HTTP.pkl" as client
 import "package://schema.kdeps.com/core@%s#/APIServerRequest.pkl" as request
-`, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion)
+`, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion)
 
 	if name == "workflow" {
 		headerTemplate = fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schemaVersion)

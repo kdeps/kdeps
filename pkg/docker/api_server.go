@@ -312,7 +312,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			}
 			c.Header("Content-Type", "application/json; charset=utf-8")
 			c.AbortWithStatus(http.StatusInternalServerError)
-			c.Writer.Write(jsonBytes)
+			_, _ = c.Writer.Write(jsonBytes)
 		}
 	}
 

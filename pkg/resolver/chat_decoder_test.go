@@ -261,14 +261,12 @@ func TestLoadResourceEntriesInjected(t *testing.T) {
 	dr := &resolver.DependencyResolver{
 		Fs:                   fs,
 		Logger:               logger,
-		WorkflowDir:          workflowDir,
 		ResourceDependencies: make(map[string][]string),
 		Resources:            []resolver.ResourceNodeEntry{},
 		LoadResourceFn: func(_ context.Context, _ string, _ resolver.ResourceType) (interface{}, error) {
 			return &pklRes.Resource{ActionID: "action1"}, nil
 		},
-		PrependDynamicImportsFn: func(string) error { return nil },
-		AddPlaceholderImportsFn: func(string) error { return nil },
+		// PrependDynamicImportsFn and AddPlaceholderImportsFn removed - deprecated functionality
 	}
 
 	err := dr.LoadResourceEntries()

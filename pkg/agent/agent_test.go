@@ -287,7 +287,7 @@ func TestRegisterAllAgentsAndActions(t *testing.T) {
 	fs.MkdirAll(agent2Dir, 0o755)
 
 	// Create workflow.pkl files with actionIDs
-	workflow1Content := `amends "package://schema.kdeps.com/core@0.4.3#/Workflow.pkl"
+	workflow1Content := `amends "package://schema.kdeps.com/core@0.4.4#/Workflow.pkl"
 
 AgentID = "agent1"
 Version = "1.0.0"
@@ -297,7 +297,7 @@ ActionID = "action1"
 ActionID = "action2"
 ActionID = "action3"
 `
-	workflow2Content := `amends "package://schema.kdeps.com/core@0.4.3#/Workflow.pkl"
+	workflow2Content := `amends "package://schema.kdeps.com/core@0.4.4#/Workflow.pkl"
 
 AgentID = "agent2"
 Version = "2.0.0"
@@ -367,7 +367,7 @@ func TestLatestVersionResolution(t *testing.T) {
 	fs.MkdirAll(agent1v10Dir, 0o755)
 
 	// Create workflow.pkl files
-	workflowContent := `amends "package://schema.kdeps.com/core@0.4.3#/Workflow.pkl"
+	workflowContent := `amends "package://schema.kdeps.com/core@0.4.4#/Workflow.pkl"
 
 AgentID = "agent1"
 TargetActionID = "action1"

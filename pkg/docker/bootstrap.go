@@ -38,10 +38,8 @@ func BootstrapDockerSystem(ctx context.Context, dr *resolver.DependencyResolver)
 func SetupDockerEnvironment(ctx context.Context, dr *resolver.DependencyResolver) (bool, error) {
 	apiServerPath := filepath.Join(dr.ActionDir, "api") // fixed path
 
-	dr.Logger.Debug("preparing workflow directory")
-	if err := dr.PrepareWorkflowDir(); err != nil {
-		return false, fmt.Errorf("failed to prepare workflow directory: %w", err)
-	}
+	// Workflow directory preparation no longer needed - using project directory directly
+	dr.Logger.Debug("using project directory directly")
 
 	host, port, err := ParseOLLAMAHost(dr.Logger)
 	if err != nil {

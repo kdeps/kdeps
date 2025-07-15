@@ -85,7 +85,9 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 			return err
 		}
 
-		defer dr.deactivateCondaEnvironment()
+		defer func() {
+			_ = dr.deactivateCondaEnvironment()
+		}()
 	}
 
 	env := dr.formatPythonEnv(pythonBlock.Env)

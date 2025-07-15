@@ -17,7 +17,7 @@ var (
 	schemaMutex sync.Mutex
 )
 
-func withSchemaTestState(t *testing.T, fn func()) { //nolint:reassign
+func withSchemaTestState(t *testing.T, fn func()) {
 	testMutex.Lock()
 	defer testMutex.Unlock()
 	origUseLatest := schema.UseLatest
@@ -32,7 +32,7 @@ func withSchemaTestState(t *testing.T, fn func()) { //nolint:reassign
 // Mutex-protected helpers for global variable mutation
 var schemaGlobalsMutex sync.Mutex
 
-func saveAndRestoreSchemaGlobals(t *testing.T, useLatest bool) func() { //nolint:reassign
+func saveAndRestoreSchemaGlobals(t *testing.T, useLatest bool) func() {
 	schemaGlobalsMutex.Lock()
 	origUseLatest := schema.UseLatest
 	// Instead of copying VersionCache, just clear it after
@@ -44,7 +44,7 @@ func saveAndRestoreSchemaGlobals(t *testing.T, useLatest bool) func() { //nolint
 	}
 }
 
-func saveAndRestoreGitHubReleaseFetcher(t *testing.T, newFetcher func(ctx context.Context, repo, baseURL string) (string, error)) func() { //nolint:reassign
+func saveAndRestoreGitHubReleaseFetcher(t *testing.T, newFetcher func(ctx context.Context, repo, baseURL string) (string, error)) func() {
 	schemaGlobalsMutex.Lock()
 	origFetcher := utils.GitHubReleaseFetcher
 	utils.GitHubReleaseFetcher = newFetcher
@@ -54,7 +54,7 @@ func saveAndRestoreGitHubReleaseFetcher(t *testing.T, newFetcher func(ctx contex
 	}
 }
 
-func saveAndRestoreExitFunc(t *testing.T, newExit func(int)) func() { //nolint:reassign
+func saveAndRestoreExitFunc(t *testing.T, newExit func(int)) func() {
 	schemaGlobalsMutex.Lock()
 	origExit := schema.ExitFunc
 	schema.ExitFunc = newExit

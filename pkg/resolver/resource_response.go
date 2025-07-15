@@ -21,6 +21,249 @@ import (
 	"github.com/spf13/afero"
 )
 
+// GoAPIResponse represents the JSON response structure using pure Go
+type GoAPIResponse struct {
+	Success  bool            `json:"success"`
+	Response ResponseData    `json:"response"`
+	Meta     ResponseMeta    `json:"meta"`
+	Errors   []ErrorResponse `json:"errors,omitempty"`
+}
+
+// ResponseData represents the response data section
+type ResponseData struct {
+	Data interface{} `json:"data"`
+}
+
+// ResponseMeta represents the response metadata
+type ResponseMeta struct {
+	RequestID string `json:"requestID"`
+}
+
+// ErrorResponse represents an error in the response
+type ErrorResponse struct {
+	Code     int    `json:"code"`
+	Message  string `json:"message"`
+	ActionID string `json:"actionId,omitempty"`
+}
+
+// CreateResponseGoJSON generates a JSON response using pure Go instead of PKL evaluation
+func (dr *DependencyResolver) CreateResponseGoJSON(apiResponseBlock apiserverresponse.APIServerResponse) error {
+	if dr == nil || len(dr.DBs) == 0 || dr.DBs[0] == nil {
+		return errors.New("dependency resolver or database is nil")
+	}
+
+	// Ensure agent context is set
+	if dr.Workflow != nil {
+		os.Setenv("KDEPS_CURRENT_AGENT", dr.Workflow.GetAgentID())
+		os.Setenv("KDEPS_CURRENT_VERSION", dr.Workflow.GetVersion())
+
+		// Also update the AgentReader context directly
+		if dr.AgentReader != nil {
+			dr.AgentReader.CurrentAgent = dr.Workflow.GetAgentID()
+			dr.AgentReader.CurrentVersion = dr.Workflow.GetVersion()
+		}
+	}
+
+	// Set the request ID for output file lookup
+	os.Setenv("KDEPS_REQUEST_ID", dr.RequestID)
+
+	if err := dr.DBs[0].PingContext(context.Background()); err != nil {
+		return fmt.Errorf("failed to ping database: %w", err)
+	}
+
+	dr.Logger.Debug("starting CreateResponseGoJSON", "response", apiResponseBlock)
+
+	// Get existing errors
+	existingErrors := utils.GetRequestErrorsWithActionID(dr.RequestID)
+	hasErrors := len(existingErrors) > 0
+
+	// Prepare response data
+	var responseData interface{}
+	if hasErrors {
+		responseData = nil
+	} else {
+		// Extract data from the response block
+		if apiResponseBlock.GetResponse() != nil && apiResponseBlock.GetResponse().Data != nil {
+			responseData = dr.extractResponseData(apiResponseBlock.GetResponse().Data)
+		}
+	}
+
+	// Build the Go response structure
+	response := GoAPIResponse{
+		Success: !hasErrors,
+		Response: ResponseData{
+			Data: responseData,
+		},
+		Meta: ResponseMeta{
+			RequestID: dr.RequestID,
+		},
+	}
+
+	// Add errors if any
+	if hasErrors {
+		response.Errors = make([]ErrorResponse, len(existingErrors))
+		for i, err := range existingErrors {
+			response.Errors[i] = ErrorResponse{
+				Code:     err.Code,
+				Message:  err.Message,
+				ActionID: err.ActionID, // This comes from utils.GetRequestErrors, not the PKL structure
+			}
+		}
+	}
+
+	// Marshal to JSON
+	jsonData, err := json.Marshal(response)
+	if err != nil {
+		return fmt.Errorf("failed to marshal JSON response: %w", err)
+	}
+
+	// Write the JSON response to the target file
+	if err := afero.WriteFile(dr.Fs, dr.ResponseTargetFile, jsonData, 0644); err != nil {
+		return fmt.Errorf("failed to write JSON response file: %w", err)
+	}
+
+	dr.Logger.Debug("CreateResponseGoJSON completed", "file", dr.ResponseTargetFile)
+	return nil
+}
+
+// extractResponseData extracts data from the response block without PKL evaluation
+func (dr *DependencyResolver) extractResponseData(dataList []any) interface{} {
+	if len(dataList) == 0 {
+		return dr.createFallbackResponseData()
+	}
+
+	// Process each data item
+	var processedData []interface{}
+	for _, item := range dataList {
+		if item == nil {
+			continue
+		}
+
+		// Convert the item to a map for processing
+		if itemMap, ok := item.(map[string]interface{}); ok {
+			processedItem := dr.processDataItem(itemMap)
+			if processedItem != nil {
+				processedData = append(processedData, processedItem)
+			}
+		} else {
+			// If it's not a map, try to process it as is
+			processedData = append(processedData, item)
+		}
+	}
+
+	return processedData
+}
+
+// processDataItem processes a single data item without PKL evaluation
+func (dr *DependencyResolver) processDataItem(item map[string]interface{}) interface{} {
+	// Try to extract the actual data from the item
+	if value, exists := item["value"]; exists {
+		return dr.processValue(value)
+	}
+
+	// If no value field, process the item as-is
+	return dr.processValue(item)
+}
+
+// processValue processes a value, handling base64 decoding if needed
+func (dr *DependencyResolver) processValue(value interface{}) interface{} {
+	if value == nil {
+		return nil
+	}
+
+	// Handle string values (check for base64 encoding)
+	if str, ok := value.(string); ok {
+		// Try to decode base64 if it looks like base64
+		if dr.isBase64String(str) {
+			decoded, err := utils.DecodeBase64IfNeeded(str)
+			if err == nil {
+				// Try to parse as JSON
+				var jsonData interface{}
+				if err := json.Unmarshal([]byte(decoded), &jsonData); err == nil {
+					return jsonData
+				}
+				return decoded
+			}
+		}
+		return str
+	}
+
+	// Handle maps recursively
+	if mapValue, ok := value.(map[string]interface{}); ok {
+		processedMap := make(map[string]interface{})
+		for k, v := range mapValue {
+			processedMap[k] = dr.processValue(v)
+		}
+		return processedMap
+	}
+
+	// Handle slices recursively
+	if sliceValue, ok := value.([]interface{}); ok {
+		processedSlice := make([]interface{}, len(sliceValue))
+		for i, v := range sliceValue {
+			processedSlice[i] = dr.processValue(v)
+		}
+		return processedSlice
+	}
+
+	// Return other types as-is
+	return value
+}
+
+// isBase64String checks if a string is base64 encoded using simple heuristics
+func (dr *DependencyResolver) isBase64String(s string) bool {
+	if len(s) == 0 || len(s)%4 != 0 {
+		return false
+	}
+
+	// Basic checks - doesn't start with JSON characters
+	if strings.HasPrefix(s, "{") || strings.HasPrefix(s, "[") || strings.HasPrefix(s, "\"") {
+		return false
+	}
+
+	// Check for base64 characters (simplified)
+	for _, c := range s {
+		if !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/' || c == '=') {
+			return false
+		}
+	}
+
+	return true
+}
+
+// createFallbackResponseData creates meaningful fallback data when the original response is empty
+func (dr *DependencyResolver) createFallbackResponseData() interface{} {
+	if dr.Request == nil {
+		return map[string]interface{}{
+			"status":  "fallback_response",
+			"message": "API is working but no query parameters provided",
+		}
+	}
+
+	query := dr.Request.Query("q")
+	if query == "" {
+		return map[string]interface{}{
+			"status":  "fallback_response",
+			"message": "API is working but no query parameter 'q' provided",
+		}
+	}
+
+	// Create a meaningful fallback response with the query context
+	fallbackResponse := map[string]interface{}{
+		"query":      query,
+		"status":     "fallback_response",
+		"message":    fmt.Sprintf("Information about %s: This is a fallback response. The LLM resource is not properly configured or the model is not available. Please check the workflow configuration and ensure the LLM resource files are present.", query),
+		"timestamp":  time.Now().Format(time.RFC3339),
+		"request_id": dr.RequestID,
+	}
+
+	if dr.Workflow != nil {
+		fallbackResponse["workflow_id"] = dr.Workflow.GetAgentID()
+	}
+
+	return fallbackResponse
+}
+
 // CreateResponsePklFile generates a PKL file from the API response and processes it.
 func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverresponse.APIServerResponse) error {
 	if dr == nil || len(dr.DBs) == 0 || dr.DBs[0] == nil {
@@ -43,7 +286,7 @@ func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverre
 	os.Setenv("KDEPS_REQUEST_ID", dr.RequestID)
 
 	if err := dr.DBs[0].PingContext(context.Background()); err != nil {
-		return fmt.Errorf("failed to ping database: %v", err)
+		return fmt.Errorf("failed to ping database: %w", err)
 	}
 
 	dr.Logger.Debug("starting CreateResponsePklFile", "response", apiResponseBlock)
@@ -463,14 +706,14 @@ func (dr *DependencyResolver) HandleAPIErrorResponse(code int, message string, f
 				Errors:   &allErrors,
 			}
 
-			if err := dr.CreateResponsePklFile(finalErrorResponse); err != nil {
+			if err := dr.CreateResponseGoJSON(finalErrorResponse); err != nil {
 				return fatal, fmt.Errorf("create comprehensive error response: %w", err)
 			}
 			return fatal, fmt.Errorf("%s", message)
 		}
 
 		// For non-fatal errors, just accumulate and continue
-		if err := dr.CreateResponsePklFile(errorResponse); err != nil {
+		if err := dr.CreateResponseGoJSON(errorResponse); err != nil {
 			return fatal, fmt.Errorf("create error response: %w", err)
 		}
 		return fatal, nil

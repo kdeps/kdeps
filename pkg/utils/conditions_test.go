@@ -56,7 +56,6 @@ func TestShouldSkipAndAllConditionsMet(t *testing.T) {
 		{"mixed false", []interface{}{true, "false"}, true, false},
 	}
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			if got := utils.ShouldSkip(&tc.input); got != tc.wantSkip {
 				t.Fatalf("ShouldSkip(%v) = %v, want %v", tc.input, got, tc.wantSkip)

@@ -330,7 +330,6 @@ func TestGenerateParamsSectionAdditional(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			got := docker.GenerateParamsSection(tc.prefix, tc.items)
@@ -706,7 +705,7 @@ func TestGenerateDockerfileVariants(t *testing.T) {
 	pkgSection := ""
 	pythonPkgSection := ""
 	condaPkgSection := ""
-	anacondaVersion := "20.4.30-1"
+	anacondaVersion := "20.4.40-1"
 	pklVersion := "0.28.1"
 	timezone := "Etc/UTC"
 	exposedPort := "3000"
@@ -1050,7 +1049,7 @@ func TestGenerateDockerfileBranches(t *testing.T) {
 		pkgSection:       "RUN echo pkgs",
 		pythonPkgSection: "RUN echo py",
 		condaPkgSection:  "RUN echo conda",
-		anacondaVersion:  "20.4.39-1",
+		anacondaVersion:  "20.4.49-1",
 		pklVersion:       "0.25.0",
 		timezone:         "Etc/UTC",
 		exposedPort:      "5000",
@@ -1124,7 +1123,7 @@ func TestGenerateDockerfile_DevBuildAndAPIServer(t *testing.T) {
 		"RUN apt-get update", // pkg section
 		"RUN pip install x",  // python section
 		"",                   // conda pkg section
-		"20.4.31-1",          // anaconda version
+		"20.4.41-1",          // anaconda version
 		"0.28.1",             // pkl version
 		"UTC",                // timezone
 		"8080",               // expose port
@@ -1157,7 +1156,7 @@ func TestGenerateDockerfileEdgeCasesNew(t *testing.T) {
 		"RUN apt-get install -y gcc", // pkgSection
 		"",                           // pythonPkgSection
 		"",                           // condaPkgSection
-		"20.4.30-1",                  // anacondaVersion
+		"20.4.40-1",                  // anacondaVersion
 		"0.28.1",                     // pklVersion
 		"UTC",                        // timezone
 		"8080",                       // exposedPort
@@ -1211,7 +1210,7 @@ func TestGenerateDockerfileAdditionalCases(t *testing.T) {
 			"RUN apt-get -y install curl", // pkgSection
 			"RUN pip install pytest",      // pythonPkgSection
 			"",                            // condaPkgSection (none)
-			"20.4.30-1",                   // anacondaVersion (overwritten by useLatest=true below)
+			"20.4.40-1",                   // anacondaVersion (overwritten by useLatest=true below)
 			"0.28.1",                      // pklVersion   (ditto)
 			"UTC",                         // timezone
 			"8080",                        // exposedPort
@@ -1243,7 +1242,7 @@ func TestGenerateDockerfileAdditionalCases(t *testing.T) {
 			"",          // pkgSection
 			"",          // pythonPkgSection
 			"",          // condaPkgSection
-			"20.4.30-1", // anacondaVersion
+			"20.4.40-1", // anacondaVersion
 			"0.28.1",    // pklVersion
 			"UTC",       // timezone
 			"",          // exposedPort (no api server)
@@ -1274,7 +1273,7 @@ func TestGenerateDockerfileContent(t *testing.T) {
 		"# pkg section", // pkgSection
 		"# python pkgs", // pythonPkgSection
 		"# conda pkgs",  // condaPkgSection
-		"20.4.30-1",     // anacondaVersion
+		"20.4.40-1",     // anacondaVersion
 		"0.28.1",        // pklVersion
 		"UTC",           // timezone
 		"8080",          // exposedPort
@@ -1317,7 +1316,7 @@ func TestGenerateDockerfileBranchCoverage(t *testing.T) {
 			"",
 			"",
 			"",
-			"20.4.30-1",
+			"20.4.40-1",
 			"0.28.1",
 			"UTC",
 			"8080",
@@ -1476,7 +1475,7 @@ func (roundTripperLatest) RoundTrip(req *http.Request) (*http.Response, error) {
 		body, _ := json.Marshal(map[string]string{"tag_name": "v0.29.0"})
 		return &http.Response{StatusCode: http.StatusOK, Body: ioNopCloser(bytes.NewReader(body)), Header: make(http.Header)}, nil
 	case req.URL.Host == "repo.anaconda.com":
-		html := `<a href="Anaconda3-20.4.35-0-Linux-x86_64.sh">file</a><a href="Anaconda3-20.4.35-0-Linux-aarch64.sh">file</a>`
+		html := `<a href="Anaconda3-20.4.45-0-Linux-x86_64.sh">file</a><a href="Anaconda3-20.4.45-0-Linux-aarch64.sh">file</a>`
 		return &http.Response{StatusCode: http.StatusOK, Body: ioNopCloser(bytes.NewReader([]byte(html))), Header: make(http.Header)}, nil
 	default:
 		return &http.Response{StatusCode: http.StatusOK, Body: ioNopCloser(bytes.NewReader([]byte(""))), Header: make(http.Header)}, nil
@@ -1610,7 +1609,7 @@ func TestGenerateDockerfile_NoAnacondaInstall(t *testing.T) {
 		"",               // pkgSection
 		"",               // pythonPkgSection
 		"",               // condaPkgSection
-		"20.4.30-1",      // anacondaVersion
+		"20.4.40-1",      // anacondaVersion
 		"0.28.1",         // pklVersion
 		"UTC",            // timezone
 		"",               // exposedPort
@@ -1650,7 +1649,7 @@ func TestBuildDockerfile_OllamaTagVersion(t *testing.T) {
 
 	// Create a dummy workflow file with OllamaTagVersion set
 	workflowPath := filepath.Join(kdepsDir, "testWorkflow")
-	dummyWorkflowContent := `amends "package://schema.kdeps.com/core@0.4.3#/Workflow.pkl"
+	dummyWorkflowContent := `amends "package://schema.kdeps.com/core@0.4.4#/Workflow.pkl"
 
 AgentID = "test"
 Version = "1.0"

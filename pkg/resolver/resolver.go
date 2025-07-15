@@ -74,7 +74,6 @@ type DependencyResolver struct {
 	ResponsePklFile         string
 	ResponseTargetFile      string
 	ProjectDir              string
-	WorkflowDir             string
 	AgentDir                string
 	ActionDir               string
 	FilesDir                string
@@ -107,9 +106,7 @@ type DependencyResolver struct {
 	ExecTaskRunnerFn func(context.Context, execute.ExecTask) (string, string, error) `json:"-"`
 
 	// Import handling injectors
-	PrependDynamicImportsFn func(string) error                              `json:"-"`
-	AddPlaceholderImportsFn func(string) error                              `json:"-"`
-	WalkFn                  func(afero.Fs, string, filepath.WalkFunc) error `json:"-"`
+	WalkFn func(afero.Fs, string, filepath.WalkFunc) error `json:"-"`
 
 	// New injectable helpers
 	GetCurrentTimestampFn2    func(string, string) (pkl.Duration, error)
@@ -139,9 +136,8 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		}
 	}
 
-	workflowDir := filepath.Join(agentDir, "/workflow/")
 	projectDir := filepath.Join(agentDir, "/project/")
-	pklWfFile := filepath.Join(workflowDir, "workflow.pkl")
+	pklWfFile := filepath.Join(projectDir, "workflow.pkl")
 
 	exists, err := afero.Exists(fs, pklWfFile)
 	if err != nil || !exists {
@@ -193,7 +189,9 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	if workflowConfiguration.GetSettings() != nil {
 		apiServerMode = workflowConfiguration.GetSettings().APIServerMode != nil && *workflowConfiguration.GetSettings().APIServerMode
 		agentSettings := workflowConfiguration.GetSettings().AgentSettings
-		installAnaconda = agentSettings.InstallAnaconda != nil && *agentSettings.InstallAnaconda
+		if agentSettings != nil {
+			installAnaconda = agentSettings.InstallAnaconda != nil && *agentSettings.InstallAnaconda
+		}
 	}
 
 	// Use configurable kdeps path for tests or default to /.kdeps/
@@ -282,7 +280,6 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		VisitedPaths:            make(map[string]bool),
 		Context:                 ctx,
 		Environment:             env,
-		WorkflowDir:             workflowDir,
 		AgentDir:                agentDir,
 		ActionDir:               actionDir,
 		FilesDir:                filesDir,
@@ -363,8 +360,6 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	}
 
 	// Import helpers
-	dependencyResolver.PrependDynamicImportsFn = dependencyResolver.PrependDynamicImports
-	dependencyResolver.AddPlaceholderImportsFn = dependencyResolver.AddPlaceholderImports
 	dependencyResolver.WalkFn = afero.Walk
 
 	return dependencyResolver, nil
@@ -420,6 +415,7 @@ func (dr *DependencyResolver) ProcessResourceStep(resourceID, step string, timeo
 		return fmt.Errorf("handler is nil for resourceID %s step %s", resourceID, step)
 	}
 	dr.Logger.Info("processResourceStep: about to call handler", "resourceID", resourceID, "step", step)
+	dr.showProcessingProgress(resourceID, step, "starting")
 	err = handler()
 	dr.Logger.Info("processResourceStep: handler returned", "resourceID", resourceID, "step", step, "err", err)
 	if err != nil {
@@ -428,13 +424,96 @@ func (dr *DependencyResolver) ProcessResourceStep(resourceID, step string, timeo
 	}
 	dr.Logger.Debug("processResourceStep: handler completed successfully", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step)
 
-	dr.Logger.Debug("processResourceStep: waiting for timestamp change", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step, "initialTimestamp", timestamp.Value, "timeout", timeout)
-	if err := dr.WaitForTimestampChangeFn(canonicalResourceID, timestamp, timeout, step); err != nil {
-		dr.Logger.Error("processResourceStep: timeout waiting for timestamp change", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step, "initialTimestamp", timestamp.Value, "error", err)
-		return fmt.Errorf("%s timeout awaiting for output: %w", step, err)
-	}
-	dr.Logger.Debug("processResourceStep: timestamp change detected", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step)
+	// Since handlers are synchronous and complete processing immediately,
+	// we can show progress instead of waiting for timestamp changes
+	dr.showProcessingProgress(resourceID, step, "completed")
+	dr.Logger.Debug("processResourceStep: handler completed successfully", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step)
 	return nil
+}
+
+// hasResourceOutput checks if a resource already has output files
+func (dr *DependencyResolver) hasResourceOutput(resourceID string) bool {
+	if dr.Fs == nil || dr.FilesDir == "" || dr.RequestID == "" {
+		return false
+	}
+
+	// Generate the expected output file path for this resource
+	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
+	outputFilePath := filepath.Join(dr.FilesDir, resourceIDFile)
+
+	// Check if the output file already exists
+	exists, err := afero.Exists(dr.Fs, outputFilePath)
+	if err != nil {
+		return false
+	}
+
+	// If file exists, check if it has content
+	if exists {
+		info, err := dr.Fs.Stat(outputFilePath)
+		if err != nil {
+			return false
+		}
+		// Consider it has output if file size > 0
+		return info.Size() > 0
+	}
+
+	return false
+}
+
+// showProcessingProgress displays a progress indicator for resource processing
+func (dr *DependencyResolver) showProcessingProgress(resourceID, step, status string) {
+	if dr.Logger == nil {
+		return
+	}
+
+	// Check if this resource already has output - if so, show 100% for this resource
+	if dr.hasResourceOutput(resourceID) {
+		dr.Logger.Info("processing progress",
+			"resourceID", resourceID,
+			"step", step,
+			"status", "already_completed",
+			"progress", "[====================] 100% (cached)")
+		return
+	}
+
+	// Calculate progress based on total resources processed
+	totalResources := len(dr.Resources)
+	if totalResources == 0 {
+		return
+	}
+
+	// Count completed resources (either processed or have existing output)
+	completedCount := 0
+	for _, resource := range dr.Resources {
+		if dr.FileRunCounter[resource.File] > 0 || dr.hasResourceOutput(resource.ActionID) {
+			completedCount++
+		}
+	}
+
+	// Calculate percentage
+	percentage := (completedCount * 100) / totalResources
+
+	// Create progress bar (20 characters wide)
+	barWidth := 20
+	filledWidth := (percentage * barWidth) / 100
+
+	progressBar := "["
+	for i := 0; i < barWidth; i++ {
+		if i < filledWidth {
+			progressBar += "="
+		} else if i == filledWidth {
+			progressBar += ">"
+		} else {
+			progressBar += " "
+		}
+	}
+	progressBar += "]"
+
+	dr.Logger.Info("processing progress",
+		"resourceID", resourceID,
+		"step", step,
+		"status", status,
+		"progress", fmt.Sprintf("%s %d%% (%d/%d)", progressBar, percentage, completedCount, totalResources))
 }
 
 // validateRequestParams checks if params in request.params("header_id") are in AllowedParams.
@@ -656,7 +735,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 
 			// Process APIResponse once, outside the items loop
 			if dr.APIServerMode && rsc.Run != nil && rsc.Run.APIResponse != nil {
-				if err := dr.CreateResponsePklFile(*rsc.Run.APIResponse); err != nil {
+				if err := dr.CreateResponseGoJSON(*rsc.Run.APIResponse); err != nil {
 					return dr.HandleAPIErrorResponse(500, err.Error(), true)
 				}
 			}
@@ -856,9 +935,9 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 
 			// Collect error but continue processing to gather ALL errors
 			if runBlock.PreflightCheck.Error != nil && runBlock.PreflightCheck.Error.Code != nil {
-				dr.HandleAPIErrorResponse(*runBlock.PreflightCheck.Error.Code, errorMessage, false)
+				_, _ = dr.HandleAPIErrorResponse(*runBlock.PreflightCheck.Error.Code, errorMessage, false)
 			} else {
-				dr.HandleAPIErrorResponse(500, errorMessage, false)
+				_, _ = dr.HandleAPIErrorResponse(500, errorMessage, false)
 			}
 			// Continue processing instead of returning early - this allows collection of all errors
 		}
@@ -1024,7 +1103,7 @@ func (dr *DependencyResolver) storeInitialResourceState(actionID, resourceType s
 
 	// Create a basic PKL content structure for the resource
 	var pklContent strings.Builder
-	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@0.4.3#/%s.pkl\"\n\n", strings.Title(resourceType)))
+	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@0.4.4#/%s.pkl\"\n\n", strings.Title(resourceType)))
 	pklContent.WriteString("Resources {\n")
 	pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", actionID))
 
