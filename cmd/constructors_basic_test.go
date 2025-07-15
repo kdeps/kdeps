@@ -40,7 +40,7 @@ func TestCommandConstructors(t *testing.T) {
 		name string
 		fn   func() interface{}
 	}{
-		{name: "Add", fn: func() interface{} { return cmd.NewAddCommand(fs, ctx, "", logger) }},
+		{name: "Add", fn: func() interface{} { return cmd.NewAddCommand(ctx, fs, "", logger) }},
 		{name: "Build", fn: func() interface{} { return cmd.NewBuildCommand(fs, ctx, "", nil, logger) }},
 		{name: "Package", fn: func() interface{} { return cmd.NewPackageCommand(fs, ctx, "", nil, logger) }},
 		{name: "Run", fn: func() interface{} { return cmd.NewRunCommand(fs, ctx, "", nil, logger) }},
@@ -72,7 +72,7 @@ func TestNewAddCommand_RunE_Error(t *testing.T) {
 	logger := logging.NewTestLogger()
 	kdepsDir := t.TempDir()
 
-	cmd := NewAddCommand(fs, ctx, kdepsDir, logger)
+	cmd := NewAddCommand(ctx, fs, kdepsDir, logger)
 	if cmd == nil {
 		t.Fatalf("expected command, got nil")
 	}
@@ -229,7 +229,7 @@ func TestCommandConstructorsAdditional(t *testing.T) {
 		name string
 		cmd  *cobra.Command
 	}{
-		{"add", NewAddCommand(fs, ctx, tmpDir, logger)},
+		{"add", NewAddCommand(ctx, fs, tmpDir, logger)},
 		{"build", NewBuildCommand(fs, ctx, tmpDir, dummyCfg, logger)},
 		{"new", NewAgentCommand(fs, ctx, tmpDir, logger)},
 		{"package", NewPackageCommand(fs, ctx, tmpDir, env, logger)},
@@ -249,7 +249,7 @@ func TestCommandConstructorsAdditional(t *testing.T) {
 
 func TestNewAddCommand_Meta(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	cmd := NewAddCommand(fs, context.Background(), t.TempDir(), logging.NewTestLogger())
+	cmd := NewAddCommand(context.Background(), fs, t.TempDir(), logging.NewTestLogger())
 
 	if cmd.Use != "install [package]" {
 		t.Fatalf("unexpected Use: %s", cmd.Use)
@@ -284,7 +284,7 @@ func TestCommandConstructorsMetadata(t *testing.T) {
 	root := NewRootCommand(fs, ctx, tmpDir, &kdeps.Kdeps{}, env, logger)
 	assert.Equal(t, "kdeps", root.Use)
 
-	addCmd := NewAddCommand(fs, ctx, tmpDir, logger)
+	addCmd := NewAddCommand(ctx, fs, tmpDir, logger)
 	assert.Contains(t, addCmd.Aliases, "i")
 	assert.Equal(t, "install [package]", addCmd.Use)
 

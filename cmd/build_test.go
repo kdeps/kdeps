@@ -262,7 +262,7 @@ func testDeps(t *testing.T) (afero.Fs, context.Context, string, *logging.Logger)
 
 func TestNewAddCommandConstructor(t *testing.T) {
 	fs, ctx, dir, logger := testDeps(t)
-	cmd := NewAddCommand(fs, ctx, dir, logger)
+	cmd := NewAddCommand(ctx, fs, dir, logger)
 	if cmd.Use != "install [package]" {
 		t.Fatalf("unexpected Use field: %s", cmd.Use)
 	}

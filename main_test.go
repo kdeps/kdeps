@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/kdeps/kdeps/cmd"
 	"github.com/kdeps/kdeps/pkg"
@@ -27,7 +28,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"errors"
 )
 
 func TestSetupEnvironment(t *testing.T) {

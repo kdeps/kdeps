@@ -21,10 +21,10 @@ func withSchemaTestState(t *testing.T, fn func()) { //nolint:reassign
 	testMutex.Lock()
 	defer testMutex.Unlock()
 	origUseLatest := schema.UseLatest
-	origVersionCache := schema.VersionCache
+	// Instead of copying VersionCache, just clear it after
 	defer func() {
 		schema.UseLatest = origUseLatest
-		schema.VersionCache = origVersionCache
+		clearSyncMap(&schema.VersionCache)
 	}()
 	fn()
 }
@@ -35,11 +35,11 @@ var schemaGlobalsMutex sync.Mutex
 func saveAndRestoreSchemaGlobals(t *testing.T, useLatest bool) func() { //nolint:reassign
 	schemaGlobalsMutex.Lock()
 	origUseLatest := schema.UseLatest
-	origVersionCache := schema.VersionCache
+	// Instead of copying VersionCache, just clear it after
 	schema.UseLatest = useLatest
 	return func() {
 		schema.UseLatest = origUseLatest
-		schema.VersionCache = origVersionCache
+		clearSyncMap(&schema.VersionCache)
 		schemaGlobalsMutex.Unlock()
 	}
 }
@@ -80,7 +80,7 @@ func TestVersion(t *testing.T) {
 	t.Run("caches and returns latest version when UseLatest is true", func(t *testing.T) {
 		schema.UseLatest = true
 		// Clear any existing cache
-		schema.VersionCache.Delete("version")
+		clearSyncMap(&schema.VersionCache)
 
 		// First call should fetch and cache
 		result1 := schema.Version(ctx)
@@ -110,7 +110,7 @@ func TestVersionCaching(t *testing.T) {
 	schema.UseLatest = true
 
 	// Clear any existing cache
-	schema.VersionCache.Delete("version")
+	clearSyncMap(&schema.VersionCache)
 
 	// First call should fetch and cache
 	result1 := schema.Version(ctx)
@@ -138,7 +138,7 @@ func TestSchemaVersionErrorHandling(t *testing.T) {
 	}()
 
 	schema.UseLatest = true
-	schema.VersionCache.Delete("version")
+	clearSyncMap(&schema.VersionCache)
 
 	// Mock exitFunc to prevent actual exit
 	exitCalled := false
@@ -202,7 +202,7 @@ func TestSchemaVersionLatestSuccess(t *testing.T) {
 	defer func() {
 		schema.UseLatest = origLatest
 		utils.GitHubReleaseFetcher = origFetcher
-		schema.VersionCache.Delete("version")
+		clearSyncMap(&schema.VersionCache)
 	}()
 
 	schema.UseLatest = true
@@ -248,7 +248,7 @@ func TestSchemaVersionLatestFailure(t *testing.T) {
 func TestSchemaVersionSpecifiedExtra(t *testing.T) {
 	// Ensure we start from a clean slate.
 	schema.UseLatest = false
-	schema.VersionCache = sync.Map{}
+	clearSyncMap(&schema.VersionCache)
 
 	got := schema.Version(context.Background())
 	if got != "v1" {
@@ -271,7 +271,7 @@ func TestSchemaVersionLatestCachingExtra(t *testing.T) {
 
 	// Activate latest mode and clear cache.
 	schema.UseLatest = true
-	schema.VersionCache = sync.Map{}
+	clearSyncMap(&schema.VersionCache)
 
 	ctx := context.Background()
 	first := schema.Version(ctx)
@@ -289,7 +289,7 @@ func TestVersion_WithExitFunc(t *testing.T) {
 	withSchemaTestState(t, func() {
 		// Test with UseLatest = true
 		schema.UseLatest = true
-		schema.VersionCache.Delete("version")
+		clearSyncMap(&schema.VersionCache)
 
 		// Mock exitFunc to prevent actual exit
 		exitCalled := false
@@ -310,7 +310,7 @@ func TestVersion_WithExitFunc(t *testing.T) {
 
 		// Test with UseLatest = false
 		schema.UseLatest = false
-		schema.VersionCache = sync.Map{}
+		clearSyncMap(&schema.VersionCache)
 
 		got := schema.Version(context.Background())
 		if got != version.DefaultSchemaVersion {
@@ -322,7 +322,7 @@ func TestVersion_WithExitFunc(t *testing.T) {
 func TestVersion_WithGitHubFetcher(t *testing.T) {
 	withSchemaTestState(t, func() {
 		schema.UseLatest = true
-		schema.VersionCache = sync.Map{}
+		clearSyncMap(&schema.VersionCache)
 
 		utils.GitHubReleaseFetcher = func(ctx context.Context, repo string, baseURL string) (string, error) {
 			return "1.2.3", nil

@@ -30,7 +30,7 @@ func TestCommandConstructors_NoArgsError(t *testing.T) {
 		name string
 		cmd  *cobra.Command
 	}{
-		{"add", NewAddCommand(fs, ctx, dir, logger)},
+		{"add", NewAddCommand(ctx, fs, dir, logger)},
 		{"build", NewBuildCommand(fs, ctx, dir, nil, logger)},
 		{"run", NewRunCommand(fs, ctx, dir, nil, logger)},
 	}
@@ -149,7 +149,7 @@ func TestNewScaffoldCommandRunE2(t *testing.T) {
 }
 
 func TestNewAddCommandExtra(t *testing.T) {
-	cmd := NewAddCommand(afero.NewMemMapFs(), context.Background(), "kd", logging.NewTestLogger())
+	cmd := NewAddCommand(context.Background(), afero.NewMemMapFs(), "kd", logging.NewTestLogger())
 	require.Equal(t, "install [package]", cmd.Use)
 	require.Equal(t, []string{"i"}, cmd.Aliases)
 	require.Equal(t, "Install an AI agent locally", cmd.Short)
@@ -223,7 +223,7 @@ func TestCommandConstructors_MetadataAndArgs(t *testing.T) {
 		name string
 		cmd  func() *cobra.Command
 	}{
-		{"add", func() *cobra.Command { return NewAddCommand(fs, ctx, kdepsDir, logger) }},
+		{"add", func() *cobra.Command { return NewAddCommand(ctx, fs, kdepsDir, logger) }},
 		{"build", func() *cobra.Command { return NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger) }},
 		{"run", func() *cobra.Command { return NewRunCommand(fs, ctx, kdepsDir, systemCfg, logger) }},
 		{"package", func() *cobra.Command { return NewPackageCommand(fs, ctx, kdepsDir, nil, logger) }},
@@ -244,7 +244,7 @@ func TestCommandConstructors_MetadataAndArgs(t *testing.T) {
 
 func TestNewAddCommandMetadata(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	cmd := NewAddCommand(fs, context.Background(), "/kdeps", logging.NewTestLogger())
+	cmd := NewAddCommand(context.Background(), fs, "/kdeps", logging.NewTestLogger())
 	if cmd.Use != "install [package]" {
 		t.Fatalf("unexpected Use: %s", cmd.Use)
 	}

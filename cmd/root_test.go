@@ -86,7 +86,7 @@ func TestNewAddCommand(t *testing.T) {
 	kdepsDir := t.TempDir()
 	logger := logging.NewTestLogger()
 
-	cmd := NewAddCommand(fs, ctx, kdepsDir, logger)
+	cmd := NewAddCommand(ctx, fs, kdepsDir, logger)
 	assert.NotNil(t, cmd)
 	assert.Equal(t, "install [package]", cmd.Use)
 }
