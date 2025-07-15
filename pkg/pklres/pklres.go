@@ -345,7 +345,14 @@ func (r *PklResourceReader) clearRecords(typ string) ([]byte, error) {
 		}
 	}()
 
-	result, err := tx.Exec("DELETE FROM records WHERE type = ?", typ)
+	var result sql.Result
+	// Handle special case where type="_" means clear all records
+	if typ == "_" {
+		result, err = tx.Exec("DELETE FROM records")
+	} else {
+		result, err = tx.Exec("DELETE FROM records WHERE type = ?", typ)
+	}
+
 	if err != nil {
 		r.Logger.Debug("clearRecords failed to execute SQL", "error", err)
 		return nil, fmt.Errorf("failed to clear records: %w", err)
@@ -412,6 +419,11 @@ func (r *PklResourceReader) listRecords(typ string) ([]byte, error) {
 	if err := rows.Err(); err != nil {
 		r.Logger.Debug("listRecords failed during row iteration", "error", err)
 		return nil, fmt.Errorf("failed to iterate records: %w", err)
+	}
+
+	// If no records, return []
+	if len(ids) == 0 {
+		return []byte("[]"), nil
 	}
 
 	result, err := json.Marshal(ids)

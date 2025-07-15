@@ -691,8 +691,11 @@ DockerGPU = "cpu"
 }
 
 func TestMain(m *testing.M) {
-	teardown := setNonInteractive(nil)
-	defer teardown()
+	// Set environment variable directly for TestMain
+	oldValue := os.Getenv("NON_INTERACTIVE")
+	os.Setenv("NON_INTERACTIVE", "1")
+	defer os.Setenv("NON_INTERACTIVE", oldValue)
+
 	os.Exit(m.Run())
 }
 

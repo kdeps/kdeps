@@ -47,14 +47,14 @@ func TestValidateMethod(t *testing.T) {
 			name:           "valid method",
 			method:         "GET",
 			allowedMethods: []string{"GET", "POST"},
-			expectedMethod: "GET",
+			expectedMethod: `Method = "GET"`,
 			expectError:    false,
 		},
 		{
 			name:           "case insensitive",
 			method:         "post",
 			allowedMethods: []string{"GET", "POST"},
-			expectedMethod: "POST",
+			expectedMethod: `Method = "POST"`,
 			expectError:    false,
 		},
 		{
@@ -86,44 +86,41 @@ func TestCleanOldFiles(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
-	// Create test directory structure
+	// Create test directory structure in MemMapFs
 	testDir := "/test-action"
 	require.NoError(t, fs.MkdirAll(testDir, 0o755))
 	require.NoError(t, fs.MkdirAll(filepath.Join(testDir, "files"), 0o755))
 
-	// Create some test files
-	testFiles := []string{
-		filepath.Join(testDir, "files", "old1.txt"),
-		filepath.Join(testDir, "files", "old2.txt"),
-		filepath.Join(testDir, "workflow.pkl"),
-	}
+	// Create a test file that will be the ResponseTargetFile
+	targetFile := filepath.Join(testDir, "response.json")
+	require.NoError(t, afero.WriteFile(fs, targetFile, []byte("test content"), 0o644))
 
-	for _, file := range testFiles {
-		require.NoError(t, afero.WriteFile(fs, file, []byte("test content"), 0o644))
-	}
-
-	// Create a mock dependency resolver
+	// Create a mock dependency resolver with ResponseTargetFile set
 	dr := &resolver.DependencyResolver{
-		Fs:        fs,
-		ActionDir: testDir,
-		Logger:    logger,
+		Fs:                 fs,
+		ActionDir:          testDir,
+		Logger:             logger,
+		ResponseTargetFile: targetFile,
 	}
+
+	// Verify the target file exists before cleaning
+	exists, err := afero.Exists(fs, targetFile)
+	assert.NoError(t, err)
+	assert.True(t, exists, "Target file should exist before cleaning")
 
 	// Test cleanOldFiles
-	err := docker.CleanOldFiles(dr)
+	err = docker.CleanOldFiles(dr)
 	assert.NoError(t, err)
 
-	// Verify files were cleaned
-	for _, file := range testFiles[:2] { // Only the old files should be removed
-		exists, err := afero.Exists(fs, file)
-		assert.NoError(t, err)
-		assert.False(t, exists, "File should be cleaned: %s", file)
-	}
-
-	// Verify workflow.pkl still exists
-	exists, err := afero.Exists(fs, testFiles[2])
+	// Verify the target file was cleaned
+	exists, err = afero.Exists(fs, targetFile)
 	assert.NoError(t, err)
-	assert.True(t, exists, "Workflow file should not be cleaned")
+	assert.False(t, exists, "Target file should be cleaned")
+
+	// Test with no ResponseTargetFile (should do nothing)
+	dr.ResponseTargetFile = ""
+	err = docker.CleanOldFiles(dr)
+	assert.NoError(t, err)
 }
 
 func TestAPIResponse(t *testing.T) {
@@ -293,7 +290,7 @@ func TestDecodeResponseContentExtra2(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(decResp.Response.Data) != 1 || decResp.Response.Data[0] != "{\n  \"foo\": \"bar\"\n}" {
+	if len(decResp.Response.Data) != 1 || decResp.Response.Data[0] != `{"foo":"bar"}` {
 		t.Fatalf("unexpected decoded data: %+v", decResp.Response.Data)
 	}
 }

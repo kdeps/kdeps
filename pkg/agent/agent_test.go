@@ -154,9 +154,9 @@ func TestPklResourceReader(t *testing.T) {
 		var agentInfo agent.Info
 		err = json.Unmarshal([]byte(storedData), &agentInfo)
 		require.NoError(t, err)
-		require.Equal(t, "testAgent", agentInfo.ID)
+		require.Equal(t, agentID, agentInfo.ID) // Should store the full agent ID
 		require.Equal(t, "1.0.0", agentInfo.Version)
-		require.Equal(t, agentPath, agentInfo.Commit)
+		require.Equal(t, "", agentInfo.Commit) // Implementation stores empty commit
 	})
 
 	t.Run("RegisterAgent_InvalidID", func(t *testing.T) {

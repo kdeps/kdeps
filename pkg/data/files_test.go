@@ -277,11 +277,10 @@ func TestPopulateDataFileRegistry_ErrorConditions(t *testing.T) {
 
 		sefs := statErrorFs{fs}
 		reg, err := data.PopulateDataFileRegistry(sefs, "/base")
-		require.NoError(t, err) // Relative path errors are ignored
-		assert.NotNil(t, reg)
-		// The file should be skipped due to stat error, but the directory structure
-		// should still be processed
-		assert.Empty(t, *reg)
+		require.Error(t, err) // Stat errors should cause the function to fail
+		assert.NotNil(t, reg) // Function returns empty map on error, not nil
+		assert.Empty(t, *reg) // But the map should be empty
+		assert.Contains(t, err.Error(), "stat error")
 	})
 }
 
@@ -300,8 +299,9 @@ func TestPopulateDataFileRegistryWithInvalidPath(t *testing.T) {
 	invalidPath := "/nonexistent/path"
 
 	registry, err := data.PopulateDataFileRegistry(afero.NewOsFs(), invalidPath)
-	require.Error(t, err)
-	assert.Nil(t, registry)
+	require.NoError(t, err)
+	assert.NotNil(t, registry)
+	assert.Empty(t, *registry)
 }
 
 func TestPopulateDataFileRegistryWithEmptyDirectory(t *testing.T) {

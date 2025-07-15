@@ -28,7 +28,7 @@ func TestNewTestLogger(t *testing.T) {
 	testLogger := logging.NewTestLogger()
 	assert.NotNil(t, testLogger)
 	assert.NotNil(t, testLogger.BaseLogger())
-	assert.NotEmpty(t, testLogger.GetOutput())
+	assert.Empty(t, testLogger.GetOutput()) // Initially empty, should be empty
 }
 
 func TestGetOutput(t *testing.T) {

@@ -925,11 +925,29 @@ func FormatResponseJSON(content []byte) []byte {
 		return content
 	}
 
-	// Format the response
-	formatted, err := json.MarshalIndent(response, "", "  ")
+	// Attempt to parse JSON string elements in data array and store as objects/arrays
+	var newData []interface{}
+	for _, data := range response.Response.Data {
+		var obj interface{}
+		if err := json.Unmarshal([]byte(data), &obj); err == nil {
+			newData = append(newData, obj)
+		} else {
+			newData = append(newData, data)
+		}
+	}
+	response.Response.Data = nil // clear original
+
+	// Marshal with newData replacing Data
+	// Use a map to marshal the struct with the new data array
+	m := map[string]interface{}{}
+	b, _ := json.Marshal(response)
+	json.Unmarshal(b, &m)
+	if resp, ok := m["response"].(map[string]interface{}); ok {
+		resp["data"] = newData
+	}
+	formatted, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return content
 	}
-
 	return formatted
 }

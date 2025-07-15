@@ -240,7 +240,7 @@ func (r *PklResourceReader) listInstalledAgents() ([]byte, error) {
 		parts := strings.Split(relPath, string(os.PathSeparator))
 		if len(parts) == 2 {
 			agentInfo := Info{
-				ID:      fmt.Sprintf("@%s:%s", parts[0], parts[1]),
+				ID:      parts[0],
 				Version: parts[1],
 				Commit:  "", // No commit info in this simple list
 			}
