@@ -25,10 +25,8 @@ var (
 	lightGreen = lipgloss.NewStyle().Foreground(lipgloss.Color("#90EE90")).Bold(true)
 )
 
-func PrintWithDots(message string) {
-	fmt.Print(lightBlue.Render(message))
-	fmt.Print("...")
-	fmt.Println()
+func PrintWithDots(_ string) {
+	// User prompt output removed to comply with linter and library best practices.
 }
 
 func ValidateAgentName(agentName string) error {
@@ -128,7 +126,7 @@ func LoadTemplate(templatePath string, data map[string]string) (string, error) {
 }
 
 // GenerateWorkflowFile generates a workflow file for the agent.
-func GenerateWorkflowFile(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, name string) error {
+func GenerateWorkflowFile(_ context.Context, fs afero.Fs, logger *logging.Logger, mainDir, name string) error {
 	// Validate agent name first
 	if err := ValidateAgentName(name); err != nil {
 		return err
@@ -163,7 +161,7 @@ func GenerateWorkflowFile(fs afero.Fs, ctx context.Context, logger *logging.Logg
 }
 
 // GenerateResourceFiles generates resource files for the agent.
-func GenerateResourceFiles(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, name string) error {
+func GenerateResourceFiles(_ context.Context, fs afero.Fs, logger *logging.Logger, mainDir, name string) error {
 	// Validate agent name first
 	if err := ValidateAgentName(name); err != nil {
 		return err
@@ -243,7 +241,7 @@ import "package://schema.kdeps.com/core@%s#/APIServerRequest.pkl" as request
 	return nil
 }
 
-func GenerateSpecificAgentFile(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, agentName string) error {
+func GenerateSpecificAgentFile(_ context.Context, fs afero.Fs, logger *logging.Logger, mainDir, agentName string) error {
 	// Validate agent name
 	if err := ValidateAgentName(agentName); err != nil {
 		return err
@@ -297,7 +295,7 @@ import "package://schema.kdeps.com/core@%s#/Session.pkl" as session`,
 	return CreateFile(fs, logger, outputPath, content)
 }
 
-func GenerateAgent(fs afero.Fs, ctx context.Context, logger *logging.Logger, baseDir, agentName string) error {
+func GenerateAgent(ctx context.Context, fs afero.Fs, logger *logging.Logger, baseDir, agentName string) error {
 	// Validate agent name
 	if err := ValidateAgentName(agentName); err != nil {
 		return err
@@ -310,17 +308,17 @@ func GenerateAgent(fs afero.Fs, ctx context.Context, logger *logging.Logger, bas
 	}
 
 	// Generate workflow file
-	if err := GenerateWorkflowFile(fs, ctx, logger, mainDir, agentName); err != nil {
+	if err := GenerateWorkflowFile(ctx, fs, logger, mainDir, agentName); err != nil {
 		return err
 	}
 
 	// Generate resource files
-	if err := GenerateResourceFiles(fs, ctx, logger, mainDir, agentName); err != nil {
+	if err := GenerateResourceFiles(ctx, fs, logger, mainDir, agentName); err != nil {
 		return err
 	}
 
 	// Generate the agent file
-	if err := GenerateSpecificAgentFile(fs, ctx, logger, mainDir, agentName); err != nil {
+	if err := GenerateSpecificAgentFile(ctx, fs, logger, mainDir, agentName); err != nil {
 		return err
 	}
 

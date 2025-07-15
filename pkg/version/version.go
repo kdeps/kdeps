@@ -1,10 +1,27 @@
 package version
 
 // Application version information
-var (
-	Version = "dev"
-	Commit  = ""
-)
+type VersionInfo struct {
+	Version string
+	Commit  string
+}
+
+var versionInfo = VersionInfo{
+	Version: "dev",
+	Commit:  "",
+}
+
+// GetVersionInfo returns the current version and commit info.
+func GetVersionInfo() VersionInfo {
+	return versionInfo
+}
+
+// SetVersionInfo allows setting version info (for main or tests).
+// Deprecated: Prefer dependency injection in new code.
+func SetVersionInfo(v, c string) {
+	versionInfo.Version = v
+	versionInfo.Commit = c
+}
 
 // Component version constants
 const (

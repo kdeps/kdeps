@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/docker/docker/client"
 	"github.com/kdeps/kdeps/pkg/archiver"
@@ -14,7 +13,7 @@ import (
 )
 
 // NewBuildCommand creates the 'build' command and passes the necessary dependencies.
-func NewBuildCommand(fs afero.Fs, ctx context.Context, kdepsDir string, systemCfg *kdeps.Kdeps, logger *logging.Logger) *cobra.Command {
+func NewBuildCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCfg *kdeps.Kdeps, logger *logging.Logger) *cobra.Command {
 	return &cobra.Command{
 		Use:     "build [package]",
 		Aliases: []string{"b"},
@@ -44,7 +43,7 @@ func NewBuildCommand(fs afero.Fs, ctx context.Context, kdepsDir string, systemCf
 			if err := docker.CleanupDockerBuildImages(fs, ctx, agentContainerName, dockerClient); err != nil {
 				return err
 			}
-			fmt.Println("Kdeps AI Agent docker image created:", agentContainerNameAndVersion)
+			logger.Info("Kdeps AI Agent docker image created", "image", agentContainerNameAndVersion)
 			return nil
 		},
 	}

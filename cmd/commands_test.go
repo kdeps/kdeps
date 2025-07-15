@@ -7,8 +7,6 @@ import (
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/schema/gen/kdeps"
-	kdSchema "github.com/kdeps/schema/gen/kdeps"
-	kdepsschema "github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
@@ -31,8 +29,8 @@ func TestCommandConstructors_NoArgsError(t *testing.T) {
 		cmd  *cobra.Command
 	}{
 		{"add", NewAddCommand(ctx, fs, dir, logger)},
-		{"build", NewBuildCommand(fs, ctx, dir, nil, logger)},
-		{"run", NewRunCommand(fs, ctx, dir, nil, logger)},
+		{"build", NewBuildCommand(ctx, fs, dir, nil, logger)},
+		{"run", NewRunCommand(ctx, fs, dir, nil, logger)},
 	}
 
 	for _, tt := range tests {
@@ -48,7 +46,7 @@ func TestNewAgentCommand_Metadata(t *testing.T) {
 	dir := t.TempDir()
 	logger := logging.NewTestLogger()
 
-	c := NewAgentCommand(fs, ctx, dir, logger)
+	c := NewAgentCommand(ctx, fs, dir, logger)
 	if c.Use != "new [agentName]" {
 		t.Errorf("unexpected Use: %s", c.Use)
 	}
@@ -70,12 +68,12 @@ func TestBuildAndRunCommands_RunEErrorFast(t *testing.T) {
 
 	nonExist := "nonexistent.kdeps"
 
-	buildCmd := NewBuildCommand(fs, ctx, dir, nil, logger)
+	buildCmd := NewBuildCommand(ctx, fs, dir, nil, logger)
 	if err := execCommand(buildCmd, nonExist); err == nil {
 		t.Errorf("BuildCommand expected error for missing file, got nil")
 	}
 
-	runCmd := NewRunCommand(fs, ctx, dir, nil, logger)
+	runCmd := NewRunCommand(ctx, fs, dir, nil, logger)
 	if err := execCommand(runCmd, nonExist); err == nil {
 		t.Errorf("RunCommand expected error for missing file, got nil")
 	}
@@ -89,7 +87,7 @@ func TestNewBuildAndRunCommands_Basic(t *testing.T) {
 
 	sysCfg := &kdeps.Kdeps{}
 
-	buildCmd := NewBuildCommand(fs, ctx, kdepsDir, sysCfg, logger)
+	buildCmd := NewBuildCommand(ctx, fs, kdepsDir, sysCfg, logger)
 	require.Equal(t, "build [package]", buildCmd.Use)
 	require.Len(t, buildCmd.Aliases, 1)
 
@@ -97,7 +95,7 @@ func TestNewBuildAndRunCommands_Basic(t *testing.T) {
 	err := buildCmd.RunE(buildCmd, []string{"missing.kdeps"})
 	require.Error(t, err)
 
-	runCmd := NewRunCommand(fs, ctx, kdepsDir, sysCfg, logger)
+	runCmd := NewRunCommand(ctx, fs, kdepsDir, sysCfg, logger)
 	require.Equal(t, "run [package]", runCmd.Use)
 	require.Len(t, runCmd.Aliases, 1)
 
@@ -110,7 +108,7 @@ func TestNewBuildAndRunCommands_Basic(t *testing.T) {
 // error path while covering the constructor's code.
 func TestNewBuildCommandRunE(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	cmd := NewBuildCommand(fs, context.Background(), "/kdeps", &kdepsschema.Kdeps{}, logging.NewTestLogger())
+	cmd := NewBuildCommand(context.Background(), fs, "/kdeps", &kdeps.Kdeps{}, logging.NewTestLogger())
 
 	if err := cmd.RunE(cmd, []string{"missing.kdeps"}); err == nil {
 		t.Fatalf("expected error due to missing package file, got nil")
@@ -120,7 +118,7 @@ func TestNewBuildCommandRunE(t *testing.T) {
 // TestNewPackageCommandRunE similarly exercises the early failure path.
 func TestNewPackageCommandRunE(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	cmd := NewPackageCommand(fs, context.Background(), "/kdeps", nil, logging.NewTestLogger())
+	cmd := NewPackageCommand(context.Background(), fs, "/kdeps", nil, logging.NewTestLogger())
 
 	if err := cmd.RunE(cmd, []string{"/nonexistent/agent"}); err == nil {
 		t.Fatalf("expected error, got nil")
@@ -130,7 +128,7 @@ func TestNewPackageCommandRunE(t *testing.T) {
 // TestNewRunCommandRunE covers the run constructor.
 func TestNewRunCommandRunE(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	cmd := NewRunCommand(fs, context.Background(), "/kdeps", &kdepsschema.Kdeps{}, logging.NewTestLogger())
+	cmd := NewRunCommand(context.Background(), fs, "/kdeps", &kdeps.Kdeps{}, logging.NewTestLogger())
 
 	if err := cmd.RunE(cmd, []string{"missing.kdeps"}); err == nil {
 		t.Fatalf("expected error due to missing package file, got nil")
@@ -141,7 +139,7 @@ func TestNewRunCommandRunE(t *testing.T) {
 // constructor's statements.
 func TestNewScaffoldCommandRunE2(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	cmd := NewScaffoldCommand(fs, context.Background(), logging.NewTestLogger())
+	cmd := NewScaffoldCommand(context.Background(), fs, logging.NewTestLogger())
 
 	if cmd == nil {
 		t.Fatalf("expected command instance, got nil")
@@ -159,7 +157,7 @@ func TestNewAddCommandExtra(t *testing.T) {
 }
 
 func TestNewAgentCommandExtra(t *testing.T) {
-	cmd := NewAgentCommand(afero.NewMemMapFs(), context.Background(), "kd", logging.NewTestLogger())
+	cmd := NewAgentCommand(context.Background(), afero.NewMemMapFs(), "kd", logging.NewTestLogger())
 	require.Equal(t, "new [agentName]", cmd.Use)
 	require.Equal(t, []string{"n"}, cmd.Aliases)
 	require.Equal(t, "Create a new AI agent", cmd.Short)
@@ -170,7 +168,7 @@ func TestNewAgentCommandExtra(t *testing.T) {
 
 func TestNewPackageCommandExtra(t *testing.T) {
 	env := &environment.Environment{}
-	cmd := NewPackageCommand(afero.NewMemMapFs(), context.Background(), "kd", env, logging.NewTestLogger())
+	cmd := NewPackageCommand(context.Background(), afero.NewMemMapFs(), "kd", env, logging.NewTestLogger())
 	require.Equal(t, "package [agent-dir]", cmd.Use)
 	require.Equal(t, []string{"p"}, cmd.Aliases)
 	require.Equal(t, "Package an AI agent to .kdeps file", cmd.Short)
@@ -181,7 +179,7 @@ func TestNewPackageCommandExtra(t *testing.T) {
 
 func TestNewBuildCommandExtra(t *testing.T) {
 	cfg := &kdeps.Kdeps{}
-	cmd := NewBuildCommand(afero.NewMemMapFs(), context.Background(), "kd", cfg, logging.NewTestLogger())
+	cmd := NewBuildCommand(context.Background(), afero.NewMemMapFs(), "kd", cfg, logging.NewTestLogger())
 	require.Equal(t, "build [package]", cmd.Use)
 	require.Equal(t, []string{"b"}, cmd.Aliases)
 	require.Equal(t, "Build a dockerized AI agent", cmd.Short)
@@ -192,7 +190,7 @@ func TestNewBuildCommandExtra(t *testing.T) {
 
 func TestNewRunCommandExtra(t *testing.T) {
 	cfg := &kdeps.Kdeps{}
-	cmd := NewRunCommand(afero.NewMemMapFs(), context.Background(), "kd", cfg, logging.NewTestLogger())
+	cmd := NewRunCommand(context.Background(), afero.NewMemMapFs(), "kd", cfg, logging.NewTestLogger())
 	require.Equal(t, "run [package]", cmd.Use)
 	require.Equal(t, []string{"r"}, cmd.Aliases)
 	require.Equal(t, "Build and run a dockerized AI agent container", cmd.Short)
@@ -202,7 +200,7 @@ func TestNewRunCommandExtra(t *testing.T) {
 }
 
 func TestNewScaffoldCommandExtra(t *testing.T) {
-	cmd := NewScaffoldCommand(afero.NewMemMapFs(), context.Background(), logging.NewTestLogger())
+	cmd := NewScaffoldCommand(context.Background(), afero.NewMemMapFs(), logging.NewTestLogger())
 	require.Equal(t, "scaffold [agentName] [fileNames...]", cmd.Use)
 	require.Empty(t, cmd.Aliases)
 	require.Equal(t, "Scaffold specific files for an agent", cmd.Short)
@@ -217,18 +215,18 @@ func TestCommandConstructors_MetadataAndArgs(t *testing.T) {
 	kdepsDir := t.TempDir()
 	logger := logging.NewTestLogger()
 
-	systemCfg := &kdSchema.Kdeps{}
+	systemCfg := &kdeps.Kdeps{}
 
 	tests := []struct {
 		name string
 		cmd  func() *cobra.Command
 	}{
 		{"add", func() *cobra.Command { return NewAddCommand(ctx, fs, kdepsDir, logger) }},
-		{"build", func() *cobra.Command { return NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger) }},
-		{"run", func() *cobra.Command { return NewRunCommand(fs, ctx, kdepsDir, systemCfg, logger) }},
-		{"package", func() *cobra.Command { return NewPackageCommand(fs, ctx, kdepsDir, nil, logger) }},
-		{"scaffold", func() *cobra.Command { return NewScaffoldCommand(fs, ctx, logger) }},
-		{"new", func() *cobra.Command { return NewAgentCommand(fs, ctx, kdepsDir, logger) }},
+		{"build", func() *cobra.Command { return NewBuildCommand(ctx, fs, kdepsDir, systemCfg, logger) }},
+		{"run", func() *cobra.Command { return NewRunCommand(ctx, fs, kdepsDir, systemCfg, logger) }},
+		{"package", func() *cobra.Command { return NewPackageCommand(ctx, fs, kdepsDir, nil, logger) }},
+		{"scaffold", func() *cobra.Command { return NewScaffoldCommand(ctx, fs, logger) }},
+		{"new", func() *cobra.Command { return NewAgentCommand(ctx, fs, kdepsDir, logger) }},
 	}
 
 	for _, tc := range tests {
@@ -258,7 +256,7 @@ func TestNewAddCommandMetadata(t *testing.T) {
 
 func TestNewRunCommandMetadata(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	cmd := NewRunCommand(fs, context.Background(), "/kdeps", nil, logging.NewTestLogger())
+	cmd := NewRunCommand(context.Background(), fs, "/kdeps", nil, logging.NewTestLogger())
 	if cmd.Use != "run [package]" {
 		t.Fatalf("unexpected Use: %s", cmd.Use)
 	}
@@ -270,12 +268,12 @@ func TestNewRunCommandMetadata(t *testing.T) {
 func TestNewPackageAndScaffoldMetadata(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	env := &environment.Environment{}
-	pkgCmd := NewPackageCommand(fs, context.Background(), "/kdeps", env, logging.NewTestLogger())
+	pkgCmd := NewPackageCommand(context.Background(), fs, "/kdeps", env, logging.NewTestLogger())
 	if pkgCmd.Use != "package [agent-dir]" {
 		t.Fatalf("unexpected package Use: %s", pkgCmd.Use)
 	}
 
-	scaffoldCmd := NewScaffoldCommand(fs, context.Background(), logging.NewTestLogger())
+	scaffoldCmd := NewScaffoldCommand(context.Background(), fs, logging.NewTestLogger())
 	if scaffoldCmd.Use != "scaffold [agentName] [fileNames...]" {
 		t.Fatalf("unexpected scaffold Use: %s", scaffoldCmd.Use)
 	}

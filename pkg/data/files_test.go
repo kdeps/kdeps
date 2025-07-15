@@ -26,7 +26,7 @@ func (e errorFs) Open(name string) (afero.File, error)         { return e.Fs.Ope
 func (e errorFs) OpenFile(name string, flag int, perm os.FileMode) (afero.File, error) {
 	return e.Fs.OpenFile(name, flag, perm)
 }
-func (e errorFs) Stat(name string) (os.FileInfo, error)     { return nil, errors.New("stat error") }
+func (e errorFs) Stat(_ string) (os.FileInfo, error)        { return nil, errors.New("stat error") }
 func (e errorFs) Rename(oldname, newname string) error      { return e.Fs.Rename(oldname, newname) }
 func (e errorFs) Chmod(name string, mode os.FileMode) error { return e.Fs.Chmod(name, mode) }
 func (e errorFs) Chtimes(name string, atime, mtime time.Time) error {

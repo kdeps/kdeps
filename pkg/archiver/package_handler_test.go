@@ -11,7 +11,6 @@ import (
 
 	archiver "github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/logging"
-	pklProj "github.com/kdeps/schema/gen/project"
 	pklProject "github.com/kdeps/schema/gen/project"
 	"github.com/spf13/afero"
 )
@@ -19,19 +18,19 @@ import (
 // minimal workflow stub satisfying the two getters used by PackageProject.
 type simpleWf struct{}
 
-func (simpleWf) GetAgentID() string             { return "simple-agent" }
-func (simpleWf) GetName() string                { return "agent" }
-func (simpleWf) GetVersion() string             { return "1.0.0" }
-func (simpleWf) GetDescription() *string        { desc := ""; return &desc }
-func (simpleWf) GetWebsite() *string            { return nil }
-func (simpleWf) GetAuthors() *[]string          { return nil }
-func (simpleWf) GetDocumentation() *string      { return nil }
-func (simpleWf) GetRepository() *string         { return nil }
-func (simpleWf) GetHeroImage() *string          { return nil }
-func (simpleWf) GetAgentIcon() *string          { return nil }
-func (simpleWf) GetTargetActionID() string      { return "" }
-func (simpleWf) GetWorkflows() []string         { return nil }
-func (simpleWf) GetSettings() *pklProj.Settings { return nil }
+func (simpleWf) GetAgentID() string                { return "simple-agent" }
+func (simpleWf) GetName() string                   { return "agent" }
+func (simpleWf) GetVersion() string                { return "1.0.0" }
+func (simpleWf) GetDescription() *string           { desc := ""; return &desc }
+func (simpleWf) GetWebsite() *string               { return nil }
+func (simpleWf) GetAuthors() *[]string             { return nil }
+func (simpleWf) GetDocumentation() *string         { return nil }
+func (simpleWf) GetRepository() *string            { return nil }
+func (simpleWf) GetHeroImage() *string             { return nil }
+func (simpleWf) GetAgentIcon() *string             { return nil }
+func (simpleWf) GetTargetActionID() string         { return "" }
+func (simpleWf) GetWorkflows() []string            { return nil }
+func (simpleWf) GetSettings() *pklProject.Settings { return nil }
 
 // compile-time assertion
 var _ interface {

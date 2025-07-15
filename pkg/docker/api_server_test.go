@@ -369,7 +369,7 @@ func TestFormatResponseJSONFormatTest(t *testing.T) {
 	}
 }
 
-func setupTestAPIServer(t *testing.T) (*resolver.DependencyResolver, *logging.Logger) {
+func setupTestAPIServer(_ *testing.T) (*resolver.DependencyResolver, *logging.Logger) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 	dr := &resolver.DependencyResolver{
@@ -740,7 +740,7 @@ func TestSetupRoutes(t *testing.T) {
 		assert.Equal(t, http.StatusInternalServerError, w.Code) // Expected error due to missing resolver setup
 	})
 
-	t.Run("InvalidRoute", func(t *testing.T) {
+	t.Run("InvalidRoute", func(_ *testing.T) {
 		router := gin.New()
 		ctx := context.Background()
 		invalidRoutes := []*apiserver.APIServerRoutes{
@@ -751,7 +751,7 @@ func TestSetupRoutes(t *testing.T) {
 		// No assertions needed as the function should log errors and continue
 	})
 
-	t.Run("CORSDisabled", func(t *testing.T) {
+	t.Run("CORSDisabled", func(_ *testing.T) {
 		router := gin.New()
 		ctx := context.Background()
 		disabledCORS := &apiserver.CORS{
@@ -761,14 +761,14 @@ func TestSetupRoutes(t *testing.T) {
 		// No assertions needed as the function should skip CORS setup
 	})
 
-	t.Run("NoTrustedProxies", func(t *testing.T) {
+	t.Run("NoTrustedProxies", func(_ *testing.T) {
 		router := gin.New()
 		ctx := context.Background()
 		docker.SetupRoutes(router, ctx, corsConfig, nil, routes, baseDr, semaphore)
 		// No assertions needed as the function should skip proxy setup
 	})
 
-	t.Run("UnsupportedMethod", func(t *testing.T) {
+	t.Run("UnsupportedMethod", func(_ *testing.T) {
 		router := gin.New()
 		ctx := context.Background()
 		unsupportedRoutes := []*apiserver.APIServerRoutes{

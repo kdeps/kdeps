@@ -19,7 +19,7 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 	// Load environment variables from .env file (if it exists)
 	envSlice, err := LoadEnvFile(fs, ".env")
 	if err != nil {
-		fmt.Println("Error loading .env file, proceeding without it:", err)
+		// Error loading .env file, proceeding without it
 	}
 
 	// Validate port numbers based on modes
@@ -104,9 +104,9 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 					if err != nil {
 						return "", fmt.Errorf("error starting existing container: %w", err)
 					}
-					fmt.Println("Started existing container:", containerNameWithGpu)
+					// Started existing container
 				} else {
-					fmt.Println("Container is already running:", containerNameWithGpu)
+					// Container is already running
 				}
 				return resp.ID, nil
 			}
@@ -124,7 +124,7 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 		return "", fmt.Errorf("error starting new container: %w", err)
 	}
 
-	fmt.Println("Kdeps container is running:", containerNameWithGpu)
+	// Kdeps container is running
 
 	return resp.ID, nil
 }
@@ -138,7 +138,7 @@ func LoadEnvFile(fs afero.Fs, filename string) ([]string, error) {
 
 	if !exists {
 		// If the file doesn't exist, return an empty slice
-		fmt.Printf("%s does not exist, skipping .env loading.\n", filename)
+		// File does not exist, skipping .env loading
 		return nil, nil
 	}
 
@@ -241,6 +241,6 @@ volumes:
 		return fmt.Errorf("error writing Docker Compose file: %w", err)
 	}
 
-	fmt.Println("Docker Compose file generated successfully at:", filePath)
+	// Docker Compose file generated successfully
 	return nil
 }

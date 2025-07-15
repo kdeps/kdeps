@@ -39,7 +39,7 @@ func (r *PklResourceReader) Scheme() string {
 }
 
 // FetchValues retrieves unique values from the items table and returns them as a JSON array.
-func (r *PklResourceReader) FetchValues(operation string) ([]byte, error) {
+func (r *PklResourceReader) FetchValues(_ string) ([]byte, error) {
 	rows, err := r.DB.Query("SELECT value FROM items ORDER BY id")
 	if err != nil {
 		return nil, fmt.Errorf("failed to list records: %w", err)
@@ -178,6 +178,7 @@ func InitializeDatabase(dbPath string, items []string) (*sql.DB, error) {
 			if err != nil {
 				if rollbackErr := tx.Rollback(); rollbackErr != nil {
 					// Log rollback error but don't return it as the main error
+					_ = rollbackErr
 				}
 				db.Close()
 				return nil, fmt.Errorf("failed to insert item %s: %w", itemValue, err)

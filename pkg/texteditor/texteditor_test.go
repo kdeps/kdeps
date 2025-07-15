@@ -20,7 +20,7 @@ import (
 var editPklMutex sync.Mutex
 
 // Helper function to safely save and restore EditPkl variable
-func saveAndRestoreEditPkl(t *testing.T, newValue texteditor.EditPklFunc) func() {
+func saveAndRestoreEditPkl(_ *testing.T, newValue texteditor.EditPklFunc) func() {
 	editPklMutex.Lock()
 	original := texteditor.EditPkl
 	texteditor.EditPkl = newValue
@@ -74,7 +74,7 @@ func setNonInteractive(t *testing.T) func() {
 
 var testMutex sync.Mutex
 
-func withTestState(t *testing.T, fn func()) {
+func withTestState(_ *testing.T, fn func()) {
 	testMutex.Lock()
 	defer testMutex.Unlock()
 	origEditPkl := texteditor.EditPkl

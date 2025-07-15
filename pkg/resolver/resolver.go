@@ -154,7 +154,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	}
 
 	// Create directories
-	if err := utils.CreateDirectories(fs, ctx, directories); err != nil {
+	if err := utils.CreateDirectories(ctx, fs, directories); err != nil {
 		return nil, fmt.Errorf("error creating directory: %w", err)
 	}
 
@@ -163,7 +163,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		filepath.Join(actionDir, graphID),
 	}
 
-	if err := utils.CreateFiles(fs, ctx, files); err != nil {
+	if err := utils.CreateFiles(ctx, fs, files); err != nil {
 		return nil, fmt.Errorf("error creating file: %w", err)
 	}
 
@@ -201,7 +201,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	}
 
 	// Ensure kdepsBase directory exists
-	if err := utils.CreateDirectories(fs, ctx, []string{kdepsBase}); err != nil {
+	if err := utils.CreateDirectories(ctx, fs, []string{kdepsBase}); err != nil {
 		return nil, fmt.Errorf("error creating kdeps base directory: %w", err)
 	}
 

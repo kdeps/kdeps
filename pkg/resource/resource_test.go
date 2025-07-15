@@ -159,7 +159,7 @@ dockerGPU = "cpu"
 		return err
 	}
 
-	systemConfigurationFile, err = cfg.FindConfiguration(testFs, ctx, environ, logger)
+	systemConfigurationFile, err = cfg.FindConfiguration(ctx, testFs, environ, logger)
 	if err != nil {
 		return err
 	}

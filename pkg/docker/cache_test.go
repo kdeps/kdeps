@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"runtime"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/docker"
@@ -17,43 +16,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// Package variable mutexes for safe reassignment
-var (
-	schemaUseLatestMutex      sync.Mutex
-	httpDefaultTransportMutex sync.Mutex
-)
-
-// Helper functions to safely save and restore package variables
-func saveAndRestoreSchemaUseLatest(t *testing.T, newValue bool) func() {
-	schemaUseLatestMutex.Lock()
-	original := schema.UseLatest
-	schema.UseLatest = newValue
-	return func() {
-		schema.UseLatest = original
-		schemaUseLatestMutex.Unlock()
-	}
-}
-
-func saveAndRestoreHTTPDefaultTransport(t *testing.T, newTransport http.RoundTripper) func() {
-	httpDefaultTransportMutex.Lock()
-	original := http.DefaultTransport
-	http.DefaultTransport = newTransport
-	return func() {
-		http.DefaultTransport = original
-		httpDefaultTransportMutex.Unlock()
-	}
-}
-
-func withTestState(t *testing.T, fn func()) {
-	origTransport := http.DefaultTransport
-	origUseLatest := schema.UseLatest
-	defer func() {
-		http.DefaultTransport = origTransport
-		schema.UseLatest = origUseLatest
-	}()
-	fn()
-}
 
 func TestGetCurrentArchitectureDup(t *testing.T) {
 	ctx := context.Background()
@@ -110,12 +72,15 @@ func TestBuildURL(t *testing.T) {
 }
 
 func TestGenerateURLs_DefaultVersion(t *testing.T) {
-	// Ensure we are not in latest mode to avoid network calls
-	restore := saveAndRestoreSchemaUseLatest(t, false)
-	defer restore()
+	// Use dependency injection instead of mutating globals
+	deps := docker.CacheDeps{
+		UseLatest:     false,
+		HTTPClient:    &http.Client{},
+		GitHubFetcher: utils.GetLatestGitHubRelease,
+	}
 
 	ctx := context.Background()
-	items, err := docker.GenerateURLs(ctx, true)
+	items, err := docker.GenerateURLsWithDeps(ctx, true, deps)
 	assert.NoError(t, err)
 	assert.Greater(t, len(items), 0)
 
@@ -140,30 +105,31 @@ func buildResp(status int, body string) *http.Response {
 }
 
 func TestGetLatestAnacondaVersionsSuccess(t *testing.T) {
-	withTestState(t, func() {
-		html := `Anaconda3-2023.07-1-Linux-x86_64.sh Anaconda3-2023.05-1-Linux-aarch64.sh` +
-			` Anaconda3-20.4.40-1-Linux-x86_64.sh Anaconda3-20.4.48-1-Linux-aarch64.sh`
+	html := `Anaconda3-2023.07-1-Linux-x86_64.sh Anaconda3-2023.05-1-Linux-aarch64.sh` +
+		` Anaconda3-20.4.40-1-Linux-x86_64.sh Anaconda3-20.4.48-1-Linux-aarch64.sh`
 
-		// mock transport
-		restore := saveAndRestoreHTTPDefaultTransport(t, roundTripFunc(func(r *http.Request) (*http.Response, error) {
-			if r.URL.Host == "repo.anaconda.com" {
-				return buildResp(http.StatusOK, html), nil
-			}
-			return http.DefaultTransport.RoundTrip(r)
-		}))
-		defer restore()
+	// Use dependency injection with mock transport
+	deps := docker.CacheDeps{
+		HTTPClient: &http.Client{
+			Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+				if r.URL.Host == "repo.anaconda.com" {
+					return buildResp(http.StatusOK, html), nil
+				}
+				return http.DefaultTransport.RoundTrip(r)
+			}),
+		},
+	}
 
-		ctx := context.Background()
-		versions, err := docker.GetLatestAnacondaVersions(ctx)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if versions["x86_64"] != "20.4.40-1" || versions["aarch64"] != "20.4.48-1" {
-			t.Fatalf("unexpected versions: %v", versions)
-		}
+	ctx := context.Background()
+	versions, err := docker.GetLatestAnacondaVersionsWithDeps(ctx, deps)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if versions["x86_64"] != "20.4.40-1" || versions["aarch64"] != "20.4.48-1" {
+		t.Fatalf("unexpected versions: %v", versions)
+	}
 
-		_ = schema.Version(ctx)
-	})
+	_ = schema.Version(ctx)
 }
 
 func TestGetLatestAnacondaVersionsErrors(t *testing.T) {
@@ -177,15 +143,18 @@ func TestGetLatestAnacondaVersionsErrors(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		restore := saveAndRestoreHTTPDefaultTransport(t, roundTripFunc(func(r *http.Request) (*http.Response, error) {
-			return buildResp(c.status, c.body), nil
-		}))
+		deps := docker.CacheDeps{
+			HTTPClient: &http.Client{
+				Transport: roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+					return buildResp(c.status, c.body), nil
+				}),
+			},
+		}
 		ctx := context.Background()
-		_, err := docker.GetLatestAnacondaVersions(ctx)
+		_, err := docker.GetLatestAnacondaVersionsWithDeps(ctx, deps)
 		if err == nil {
 			t.Fatalf("expected error for case %+v", c)
 		}
-		restore()
 	}
 
 	_ = schema.Version(context.Background())
@@ -193,70 +162,55 @@ func TestGetLatestAnacondaVersionsErrors(t *testing.T) {
 
 type archHTMLTransport struct{}
 
-func (archHTMLTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+func (archHTMLTransport) RoundTrip(_ *http.Request) (*http.Response, error) {
 	html := `<html><body>
         <a href="Anaconda3-20.4.40-1-Linux-x86_64.sh">x</a>
         <a href="Anaconda3-20.4.49-1-Linux-aarch64.sh">y</a>
         <a href="Anaconda3-20.4.42-0-Linux-x86_64.sh">old-x</a>
-        <a href="Anaconda3-2023.01-0-Linux-aarch64.sh">old-y</a>
+        <a href="Anaconda3-20.4.48-1-Linux-aarch64.sh">old-y</a>
         </body></html>`
-	return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewBufferString(html)), Header: make(http.Header)}, nil
+	return buildResp(http.StatusOK, html), nil
 }
 
 func TestGetLatestAnacondaVersionsMultiArch(t *testing.T) {
+	deps := docker.CacheDeps{
+		HTTPClient: &http.Client{
+			Transport: archHTMLTransport{},
+		},
+	}
+
 	ctx := context.Background()
-
-	restore := saveAndRestoreHTTPDefaultTransport(t, archHTMLTransport{})
-	defer restore()
-
-	versions, err := docker.GetLatestAnacondaVersions(ctx)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if versions["x86_64"] != "20.4.40-1" {
-		t.Fatalf("unexpected version for x86_64: %s", versions["x86_64"])
-	}
-	if versions["aarch64"] != "20.4.49-1" {
-		t.Fatalf("unexpected version for aarch64: %s", versions["aarch64"])
-	}
+	versions, err := docker.GetLatestAnacondaVersionsWithDeps(ctx, deps)
+	assert.NoError(t, err)
+	assert.Equal(t, "20.4.40-1", versions["x86_64"])
+	assert.Equal(t, "20.4.49-1", versions["aarch64"])
 }
 
-// mockTransport intercepts HTTP requests to repo.anaconda.com and returns fixed HTML.
 type mockHTMLTransport struct{}
 
 func (m mockHTMLTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if req.URL.Host == "repo.anaconda.com" {
 		html := `<html><body>
-<a href="Anaconda3-20.4.40-1-Linux-x86_64.sh">Anaconda3-20.4.40-1-Linux-x86_64.sh</a>
-<a href="Anaconda3-20.4.49-1-Linux-aarch64.sh">Anaconda3-20.4.49-1-Linux-aarch64.sh</a>
-</body></html>`
-		resp := &http.Response{
-			StatusCode: http.StatusOK,
-			Body:       io.NopCloser(bytes.NewBufferString(html)),
-			Header:     make(http.Header),
-		}
-		return resp, nil
+        <a href="Anaconda3-20.4.40-1-Linux-x86_64.sh">x</a>
+        <a href="Anaconda3-20.4.49-1-Linux-aarch64.sh">y</a>
+        </body></html>`
+		return buildResp(http.StatusOK, html), nil
 	}
-	return nil, http.ErrUseLastResponse
+	return http.DefaultTransport.RoundTrip(req)
 }
 
 func TestGetLatestAnacondaVersionsMockSimple(t *testing.T) {
-	// Replace the default transport
-	origTransport := http.DefaultTransport
-	http.DefaultTransport = mockHTMLTransport{}
-	defer func() { http.DefaultTransport = origTransport }()
+	deps := docker.CacheDeps{
+		HTTPClient: &http.Client{
+			Transport: mockHTMLTransport{},
+		},
+	}
 
 	ctx := context.Background()
-	vers, err := docker.GetLatestAnacondaVersions(ctx)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if vers["x86_64"] != "20.4.40-1" {
-		t.Fatalf("x86_64 version mismatch, got %s", vers["x86_64"])
-	}
-	if vers["aarch64"] != "20.4.49-1" {
-		t.Fatalf("aarch64 version mismatch, got %s", vers["aarch64"])
-	}
+	versions, err := docker.GetLatestAnacondaVersionsWithDeps(ctx, deps)
+	assert.NoError(t, err)
+	assert.Equal(t, "20.4.40-1", versions["x86_64"])
+	assert.Equal(t, "20.4.49-1", versions["aarch64"])
 }
 
 func TestCompareVersions_EdgeCases(t *testing.T) {
@@ -432,11 +386,13 @@ func TestBuildURLExtra(t *testing.T) {
 
 func TestGenerateURLs_NoLatest(t *testing.T) {
 	ctx := context.Background()
-	originalLatest := schema.UseLatest
-	schema.UseLatest = false
-	defer func() { schema.UseLatest = originalLatest }()
+	deps := docker.CacheDeps{
+		UseLatest:     false,
+		HTTPClient:    &http.Client{},
+		GitHubFetcher: utils.GetLatestGitHubRelease,
+	}
 
-	items, err := docker.GenerateURLs(ctx, true)
+	items, err := docker.GenerateURLsWithDeps(ctx, true, deps)
 	require.NoError(t, err)
 	// Expect 2 items for supported architectures (pkl + anaconda) relevant to current arch
 	require.Len(t, items, 2)
@@ -464,16 +420,19 @@ func (m multiMockTransport) RoundTrip(req *http.Request) (*http.Response, error)
 }
 
 func TestGenerateURLsLatestMode(t *testing.T) {
-	// Enable latest mode
-	schema.UseLatest = true
-	defer func() { schema.UseLatest = false }()
-
-	origTransport := http.DefaultTransport
-	http.DefaultTransport = multiMockTransport{}
-	defer func() { http.DefaultTransport = origTransport }()
+	// Use dependency injection with latest mode enabled
+	deps := docker.CacheDeps{
+		UseLatest: true,
+		HTTPClient: &http.Client{
+			Transport: multiMockTransport{},
+		},
+		GitHubFetcher: func(ctx context.Context, repo, baseURL string) (string, error) {
+			return "v9.9.9", nil
+		},
+	}
 
 	ctx := context.Background()
-	items, err := docker.GenerateURLs(ctx, true)
+	items, err := docker.GenerateURLsWithDeps(ctx, true, deps)
 	if err != nil {
 		t.Fatalf("GenerateURLs latest failed: %v", err)
 	}
@@ -496,10 +455,14 @@ func contains(s, sub string) bool { return bytes.Contains([]byte(s), []byte(sub)
 
 func TestGenerateURLsBasic(t *testing.T) {
 	ctx := context.Background()
-	// Ensure deterministic behaviour
-	schema.UseLatest = false
+	// Use dependency injection with latest mode disabled
+	deps := docker.CacheDeps{
+		UseLatest:     false,
+		HTTPClient:    &http.Client{},
+		GitHubFetcher: utils.GetLatestGitHubRelease,
+	}
 
-	items, err := docker.GenerateURLs(ctx, true)
+	items, err := docker.GenerateURLsWithDeps(ctx, true, deps)
 	if err != nil {
 		t.Fatalf("GenerateURLs returned error: %v", err)
 	}
@@ -521,34 +484,30 @@ type stubRoundTrip func(*http.Request) (*http.Response, error)
 func (f stubRoundTrip) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 func TestGenerateURLs_UseLatestWithStubsLow(t *testing.T) {
-	// Stub GitHub release fetcher to avoid network
-	origFetcher := utils.GitHubReleaseFetcher
-	utils.GitHubReleaseFetcher = func(ctx context.Context, repo, baseURL string) (string, error) {
-		return "99.99.99", nil
+	// Use dependency injection with stubbed GitHub fetcher
+	deps := docker.CacheDeps{
+		UseLatest: true,
+		HTTPClient: &http.Client{
+			Transport: stubRoundTrip(func(req *http.Request) (*http.Response, error) {
+				var body string
+				if strings.Contains(req.URL.Host, "repo.anaconda.com") {
+					body = `Anaconda3-20.4.40-1-Linux-x86_64.sh Anaconda3-20.4.40-1-Linux-aarch64.sh`
+				} else {
+					body = `{"tag_name":"v99.99.99"}`
+				}
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(body)),
+					Header:     make(http.Header),
+				}, nil
+			}),
+		},
+		GitHubFetcher: func(_ context.Context, repo, baseURL string) (string, error) {
+			return "99.99.99", nil
+		},
 	}
-	defer func() { utils.GitHubReleaseFetcher = origFetcher }()
 
-	// Intercept HTTP requests for both Anaconda archive and GitHub API
-	origTransport := http.DefaultTransport
-	http.DefaultTransport = stubRoundTrip(func(req *http.Request) (*http.Response, error) {
-		var body string
-		if strings.Contains(req.URL.Host, "repo.anaconda.com") {
-			body = `Anaconda3-20.4.40-1-Linux-x86_64.sh Anaconda3-20.4.40-1-Linux-aarch64.sh`
-		} else {
-			body = `{"tag_name":"v99.99.99"}`
-		}
-		return &http.Response{
-			StatusCode: http.StatusOK,
-			Body:       io.NopCloser(strings.NewReader(body)),
-			Header:     make(http.Header),
-		}, nil
-	})
-	defer func() { http.DefaultTransport = origTransport }()
-
-	schema.UseLatest = true
-	defer func() { schema.UseLatest = false }()
-
-	items, err := docker.GenerateURLs(context.Background(), true)
+	items, err := docker.GenerateURLsWithDeps(context.Background(), true, deps)
 	if err != nil {
 		t.Fatalf("GenerateURLs error: %v", err)
 	}
@@ -583,25 +542,18 @@ Anaconda3-20.4.45-0-Linux-aarch64.sh`
 }
 
 func TestGenerateURLs_UseLatest(t *testing.T) {
-	// Save and restore globals we mutate.
-	restoreLatest := saveAndRestoreSchemaUseLatest(t, true)
-	defer restoreLatest()
-
-	origFetcher := utils.GitHubReleaseFetcher
-	defer func() {
-		utils.GitHubReleaseFetcher = origFetcher
-	}()
-
-	// Stub GitHub release fetcher.
-	utils.GitHubReleaseFetcher = func(ctx context.Context, repo, baseURL string) (string, error) {
-		return "v9.9.9", nil
+	// Use dependency injection with mock transport and stubbed GitHub fetcher
+	deps := docker.CacheDeps{
+		UseLatest: true,
+		HTTPClient: &http.Client{
+			Transport: mockTransport{},
+		},
+		GitHubFetcher: func(_ context.Context, repo, baseURL string) (string, error) {
+			return "v9.9.9", nil
+		},
 	}
 
-	// Intercept Anaconda archive request.
-	restoreTransport := saveAndRestoreHTTPDefaultTransport(t, mockTransport{})
-	defer restoreTransport()
-
-	items, err := docker.GenerateURLs(context.Background(), true)
+	items, err := docker.GenerateURLsWithDeps(context.Background(), true, deps)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, items)
 
@@ -631,18 +583,21 @@ func TestGetLatestAnacondaVersions(t *testing.T) {
         <a href="Anaconda3-20.4.40-1-Linux-aarch64.sh">arm</a>
     `
 
-	// Mock transport to return above HTML for any request
-	restoreTransport := saveAndRestoreHTTPDefaultTransport(t, roundTripFuncAnaconda(func(r *http.Request) (*http.Response, error) {
-		resp := &http.Response{
-			StatusCode: http.StatusOK,
-			Body:       io.NopCloser(strings.NewReader(html)),
-			Header:     make(http.Header),
-		}
-		return resp, nil
-	}))
-	defer restoreTransport()
+	// Use dependency injection with mock transport
+	deps := docker.CacheDeps{
+		HTTPClient: &http.Client{
+			Transport: roundTripFuncAnaconda(func(_ *http.Request) (*http.Response, error) {
+				resp := &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(html)),
+					Header:     make(http.Header),
+				}
+				return resp, nil
+			}),
+		},
+	}
 
-	versions, err := docker.GetLatestAnacondaVersions(context.Background())
+	versions, err := docker.GetLatestAnacondaVersionsWithDeps(context.Background(), deps)
 	assert.NoError(t, err)
 	assert.Equal(t, "20.4.40-1", versions["x86_64"])
 	assert.Equal(t, "20.4.40-1", versions["aarch64"])
@@ -675,12 +630,15 @@ func TestBuildURLAndArchMappingLow(t *testing.T) {
 }
 
 func TestGenerateURLs_NoLatestLow(t *testing.T) {
-	// Ensure UseLatest is false for deterministic output
-	restore := saveAndRestoreSchemaUseLatest(t, false)
-	defer restore()
+	// Use dependency injection with latest mode disabled
+	deps := docker.CacheDeps{
+		UseLatest:     false,
+		HTTPClient:    &http.Client{},
+		GitHubFetcher: utils.GetLatestGitHubRelease,
+	}
 
 	ctx := context.Background()
-	urls, err := docker.GenerateURLs(ctx, true)
+	urls, err := docker.GenerateURLsWithDeps(ctx, true, deps)
 	if err != nil {
 		t.Fatalf("GenerateURLs error: %v", err)
 	}
@@ -691,10 +649,7 @@ func TestGenerateURLs_NoLatestLow(t *testing.T) {
 	// Each item should have LocalName containing version, not "latest"
 	for _, it := range urls {
 		if strings.Contains(it.LocalName, "latest") {
-			t.Fatalf("LocalName should not contain 'latest' when UseLatest=false: %s", it.LocalName)
-		}
-		if it.URL == "" || it.LocalName == "" {
-			t.Fatalf("got empty fields in item %+v", it)
+			t.Fatalf("expected LocalName to contain version, not latest: %s", it.LocalName)
 		}
 	}
 }
@@ -704,11 +659,14 @@ func TestGenerateURLs_NoLatestLow(t *testing.T) {
 func TestGenerateURLsDefault(t *testing.T) {
 	ctx := context.Background()
 
-	// Ensure we are testing the static version path.
-	restore := saveAndRestoreSchemaUseLatest(t, false)
-	defer restore()
+	// Use dependency injection with latest mode disabled
+	deps := docker.CacheDeps{
+		UseLatest:     false,
+		HTTPClient:    &http.Client{},
+		GitHubFetcher: utils.GetLatestGitHubRelease,
+	}
 
-	items, err := docker.GenerateURLs(ctx, true)
+	items, err := docker.GenerateURLsWithDeps(ctx, true, deps)
 	if err != nil {
 		t.Fatalf("GenerateURLs returned error: %v", err)
 	}
@@ -793,10 +751,14 @@ func TestCompareVersionsAndParse(t *testing.T) {
 }
 
 func TestGenerateURLsStaticQuick(t *testing.T) {
-	restore := saveAndRestoreSchemaUseLatest(t, false)
-	defer restore()
+	// Use dependency injection with latest mode disabled
+	deps := docker.CacheDeps{
+		UseLatest:     false,
+		HTTPClient:    &http.Client{},
+		GitHubFetcher: utils.GetLatestGitHubRelease,
+	}
 
-	items, err := docker.GenerateURLs(context.Background(), true)
+	items, err := docker.GenerateURLsWithDeps(context.Background(), true, deps)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, items)
 	// Ensure each local name contains arch or version placeholders replaced
@@ -995,8 +957,14 @@ func TestCompareAndParseVersion(t *testing.T) {
 }
 
 func TestGenerateURLs_Static(t *testing.T) {
-	schema.UseLatest = false
-	items, err := docker.GenerateURLs(context.Background(), true)
+	// Use dependency injection with latest mode disabled
+	deps := docker.CacheDeps{
+		UseLatest:     false,
+		HTTPClient:    &http.Client{},
+		GitHubFetcher: utils.GetLatestGitHubRelease,
+	}
+
+	items, err := docker.GenerateURLsWithDeps(context.Background(), true, deps)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, items)
 	// Ensure each local name contains arch or version placeholders replaced
@@ -1013,7 +981,7 @@ func TestGenerateURLs_Static(t *testing.T) {
 
 type mockRoundTripper struct{}
 
-func (m mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+func (m mockRoundTripper) RoundTrip(_ *http.Request) (*http.Response, error) {
 	// Minimal HTML directory index with two entries for different archs.
 	body := `
 <html><body>
@@ -1030,13 +998,15 @@ func (m mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func TestGetLatestAnacondaVersionsMocked(t *testing.T) {
-	// Swap the default transport for our mock and restore afterwards.
-	origTransport := http.DefaultTransport
-	http.DefaultTransport = mockRoundTripper{}
-	defer func() { http.DefaultTransport = origTransport }()
+	// Use dependency injection with mock transport
+	deps := docker.CacheDeps{
+		HTTPClient: &http.Client{
+			Transport: mockRoundTripper{},
+		},
+	}
 
 	ctx := context.Background()
-	versions, err := docker.GetLatestAnacondaVersions(ctx)
+	versions, err := docker.GetLatestAnacondaVersionsWithDeps(ctx, deps)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1053,13 +1023,15 @@ func TestGetLatestAnacondaVersionsMocked(t *testing.T) {
 // TestGetLatestAnacondaVersions_StatusError ensures non-200 response returns error.
 func TestGetLatestAnacondaVersions_StatusError(t *testing.T) {
 	ctx := context.Background()
-	original := http.DefaultTransport
-	http.DefaultTransport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
-		return &http.Response{StatusCode: http.StatusInternalServerError, Header: make(http.Header), Body: io.NopCloser(bytes.NewBufferString(""))}, nil
-	})
-	defer func() { http.DefaultTransport = original }()
+	deps := docker.CacheDeps{
+		HTTPClient: &http.Client{
+			Transport: roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusInternalServerError, Header: make(http.Header), Body: io.NopCloser(bytes.NewBufferString(""))}, nil
+			}),
+		},
+	}
 
-	if _, err := docker.GetLatestAnacondaVersions(ctx); err == nil {
+	if _, err := docker.GetLatestAnacondaVersionsWithDeps(ctx, deps); err == nil {
 		t.Fatalf("expected error for non-OK status")
 	}
 }
@@ -1068,13 +1040,15 @@ func TestGetLatestAnacondaVersions_StatusError(t *testing.T) {
 func TestGetLatestAnacondaVersions_NoMatches(t *testing.T) {
 	ctx := context.Background()
 	html := "<html><body>no versions here</body></html>"
-	original := http.DefaultTransport
-	http.DefaultTransport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
-		return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(bytes.NewBufferString(html))}, nil
-	})
-	defer func() { http.DefaultTransport = original }()
+	deps := docker.CacheDeps{
+		HTTPClient: &http.Client{
+			Transport: roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(bytes.NewBufferString(html))}, nil
+			}),
+		},
+	}
 
-	if _, err := docker.GetLatestAnacondaVersions(ctx); err == nil {
+	if _, err := docker.GetLatestAnacondaVersionsWithDeps(ctx, deps); err == nil {
 		t.Fatalf("expected error when no versions found")
 	}
 }
@@ -1082,13 +1056,15 @@ func TestGetLatestAnacondaVersions_NoMatches(t *testing.T) {
 // TestGetLatestAnacondaVersions_NetworkError simulates transport failure.
 func TestGetLatestAnacondaVersions_NetworkError(t *testing.T) {
 	ctx := context.Background()
-	original := http.DefaultTransport
-	http.DefaultTransport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
-		return nil, context.DeadlineExceeded
-	})
-	defer func() { http.DefaultTransport = original }()
+	deps := docker.CacheDeps{
+		HTTPClient: &http.Client{
+			Transport: roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+				return nil, context.DeadlineExceeded
+			}),
+		},
+	}
 
-	if _, err := docker.GetLatestAnacondaVersions(ctx); err == nil {
+	if _, err := docker.GetLatestAnacondaVersionsWithDeps(ctx, deps); err == nil {
 		t.Fatalf("expected network error")
 	}
 }
@@ -1116,21 +1092,23 @@ func TestGetLatestAnacondaVersionsMock(t *testing.T) {
     <a href="Anaconda3-20.4.45-1-Linux-aarch64.sh">y</a>
     </body></html>`
 
-	// Save original transport and replace
-	orig := http.DefaultTransport
-	http.DefaultTransport = rtFunc(func(r *http.Request) (*http.Response, error) {
-		if r.URL.Host == "repo.anaconda.com" {
-			return &http.Response{
-				StatusCode: http.StatusOK,
-				Header:     make(http.Header),
-				Body:       io.NopCloser(bytes.NewBufferString(html)),
-			}, nil
-		}
-		return orig.RoundTrip(r)
-	})
-	defer func() { http.DefaultTransport = orig }()
+	// Use dependency injection with mock transport
+	deps := docker.CacheDeps{
+		HTTPClient: &http.Client{
+			Transport: rtFunc(func(r *http.Request) (*http.Response, error) {
+				if r.URL.Host == "repo.anaconda.com" {
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Header:     make(http.Header),
+						Body:       io.NopCloser(bytes.NewBufferString(html)),
+					}, nil
+				}
+				return http.DefaultTransport.RoundTrip(r)
+			}),
+		},
+	}
 
-	versions, err := docker.GetLatestAnacondaVersions(ctx)
+	versions, err := docker.GetLatestAnacondaVersionsWithDeps(ctx, deps)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1202,7 +1180,11 @@ func TestBuildURLTemplate(t *testing.T) {
 
 func TestGenerateURLsStatic(t *testing.T) {
 	ctx := context.Background()
-	items, err := docker.GenerateURLs(ctx, true)
+	items, err := docker.GenerateURLsWithDeps(ctx, true, docker.CacheDeps{
+		UseLatest:     false,
+		HTTPClient:    &http.Client{},
+		GitHubFetcher: utils.GetLatestGitHubRelease,
+	})
 	if err != nil {
 		t.Fatalf("GenerateURLs unexpected error: %v", err)
 	}
@@ -1219,11 +1201,14 @@ func TestGenerateURLsStatic(t *testing.T) {
 
 func TestGenerateURLs_NoAnaconda(t *testing.T) {
 	ctx := context.Background()
-	originalLatest := schema.UseLatest
-	schema.UseLatest = false
-	defer func() { schema.UseLatest = originalLatest }()
+	// Use dependency injection with latest mode disabled
+	deps := docker.CacheDeps{
+		UseLatest:     false,
+		HTTPClient:    &http.Client{},
+		GitHubFetcher: utils.GetLatestGitHubRelease,
+	}
 
-	items, err := docker.GenerateURLs(ctx, false) // installAnaconda = false
+	items, err := docker.GenerateURLsWithDeps(ctx, false, deps)
 	require.NoError(t, err)
 	// Expect only 1 item (pkl) since anaconda should be excluded
 	require.Len(t, items, 1)

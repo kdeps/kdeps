@@ -61,7 +61,7 @@ func HandleAppRequestWrapper(hostIP string, route *webserver.WebServerRoutes, lo
 }
 
 // TestLogDirectoryContents ensures no panic and logs for empty/filled dir.
-func TestLogDirectoryContentsNoPanic(t *testing.T) {
+func TestLogDirectoryContentsNoPanic(_ *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 	dr := &resolver.DependencyResolver{Fs: fs, Logger: logger}
@@ -254,7 +254,7 @@ func TestHandleStaticRequest_Static(t *testing.T) {
 	_ = resolver.DependencyResolver{}
 }
 
-func setupTestWebServer(t *testing.T) (afero.Fs, *logging.Logger, *resolver.DependencyResolver) {
+func setupTestWebServer(_ *testing.T) (afero.Fs, *logging.Logger, *resolver.DependencyResolver) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 	dr := &resolver.DependencyResolver{
@@ -613,7 +613,7 @@ func TestStartWebServerMode(t *testing.T) {
 }
 
 func TestSetupWebRoutes(t *testing.T) {
-	t.Run("ValidRoutes", func(t *testing.T) {
+	t.Run("ValidRoutes", func(_ *testing.T) {
 		router := gin.Default()
 		ctx := context.Background()
 		dr := &resolver.DependencyResolver{
@@ -639,7 +639,7 @@ func TestSetupWebRoutes(t *testing.T) {
 		docker.SetupWebRoutes(router, ctx, "localhost", []string{"127.0.0.1"}, routes, dr)
 	})
 
-	t.Run("NilRoute", func(t *testing.T) {
+	t.Run("NilRoute", func(_ *testing.T) {
 		router := gin.Default()
 		ctx := context.Background()
 		dr := &resolver.DependencyResolver{
@@ -653,7 +653,7 @@ func TestSetupWebRoutes(t *testing.T) {
 		docker.SetupWebRoutes(router, ctx, "localhost", nil, routes, dr)
 	})
 
-	t.Run("EmptyPath", func(t *testing.T) {
+	t.Run("EmptyPath", func(_ *testing.T) {
 		router := gin.Default()
 		ctx := context.Background()
 		dr := &resolver.DependencyResolver{
@@ -673,7 +673,7 @@ func TestSetupWebRoutes(t *testing.T) {
 		docker.SetupWebRoutes(router, ctx, "localhost", nil, routes, dr)
 	})
 
-	t.Run("InvalidTrustedProxies", func(t *testing.T) {
+	t.Run("InvalidTrustedProxies", func(_ *testing.T) {
 		router := gin.Default()
 		ctx := context.Background()
 		dr := &resolver.DependencyResolver{
@@ -694,7 +694,7 @@ func TestSetupWebRoutes(t *testing.T) {
 		docker.SetupWebRoutes(router, ctx, "localhost", []string{"invalid.ip"}, routes, dr)
 	})
 
-	t.Run("NilRouter", func(t *testing.T) {
+	t.Run("NilRouter", func(_ *testing.T) {
 		ctx := context.Background()
 		dr := &resolver.DependencyResolver{
 			Logger:  logging.NewTestLogger(),
@@ -716,7 +716,7 @@ func TestSetupWebRoutes(t *testing.T) {
 		})
 	})
 
-	t.Run("NilContext", func(t *testing.T) {
+	t.Run("NilContext", func(_ *testing.T) {
 		router := gin.Default()
 		dr := &resolver.DependencyResolver{
 			Logger:  logging.NewTestLogger(),
@@ -736,7 +736,7 @@ func TestSetupWebRoutes(t *testing.T) {
 		docker.SetupWebRoutes(router, nil, "localhost", nil, routes, dr)
 	})
 
-	t.Run("NilRoutes", func(t *testing.T) {
+	t.Run("NilRoutes", func(_ *testing.T) {
 		// Create mock dependency resolver
 		mockResolver := &resolver.DependencyResolver{
 			Logger:  logging.NewTestLogger(),
@@ -752,7 +752,7 @@ func TestSetupWebRoutes(t *testing.T) {
 		// Should not panic
 	})
 
-	t.Run("InvalidTrustedProxies", func(t *testing.T) {
+	t.Run("InvalidTrustedProxies", func(_ *testing.T) {
 		// Create mock dependency resolver
 		mockResolver := &resolver.DependencyResolver{
 			Logger:  logging.NewTestLogger(),
@@ -777,7 +777,7 @@ func TestSetupWebRoutes(t *testing.T) {
 		// Should not panic and should log error
 	})
 
-	t.Run("RouterTrustedProxiesFailure", func(t *testing.T) {
+	t.Run("RouterTrustedProxiesFailure", func(_ *testing.T) {
 		// Create mock router
 		router := gin.New()
 
@@ -1030,7 +1030,7 @@ func TestLogDirectoryContents(t *testing.T) {
 }
 
 func TestStartAppCommand(t *testing.T) {
-	t.Run("CommandFailure", func(t *testing.T) {
+	t.Run("CommandFailure", func(_ *testing.T) {
 		// Create mock route with invalid command
 		invalidCommand := "invalid-command-that-will-fail"
 		route := &webserver.WebServerRoutes{
@@ -1048,7 +1048,7 @@ func TestStartAppCommand(t *testing.T) {
 		// Should not panic and should log error
 	})
 
-	t.Run("NilCommand", func(t *testing.T) {
+	t.Run("NilCommand", func(_ *testing.T) {
 		// Create mock route with nil command
 		route := &webserver.WebServerRoutes{
 			Path:       "/app",

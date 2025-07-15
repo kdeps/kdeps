@@ -101,7 +101,7 @@ Run {
 	defer os.Chdir(kdepsDir)
 
 	// Test successful case
-	cmd := NewPackageCommand(fs, ctx, kdepsDir, env, logger)
+	cmd := NewPackageCommand(ctx, fs, kdepsDir, env, logger)
 	cmd.SetArgs([]string{testAgentDir})
 	err = cmd.Execute()
 	if err != nil {
@@ -113,13 +113,13 @@ Run {
 	}
 
 	// Test error case - invalid directory
-	cmd = NewPackageCommand(fs, ctx, kdepsDir, env, logger)
+	cmd = NewPackageCommand(ctx, fs, kdepsDir, env, logger)
 	cmd.SetArgs([]string{filepath.Join(t.TempDir(), "nonexistent")})
 	err = cmd.Execute()
 	require.Error(t, err)
 
 	// Test error case - no arguments
-	cmd = NewPackageCommand(fs, ctx, kdepsDir, env, logger)
+	cmd = NewPackageCommand(ctx, fs, kdepsDir, env, logger)
 	err = cmd.Execute()
 	require.Error(t, err)
 }
@@ -135,7 +135,7 @@ func TestPackageCommandFlags(t *testing.T) {
 	env := &environment.Environment{}
 	logger := logging.NewTestLogger()
 
-	cmd := NewPackageCommand(fs, ctx, kdepsDir, env, logger)
+	cmd := NewPackageCommand(ctx, fs, kdepsDir, env, logger)
 	assert.Equal(t, "package [agent-dir]", cmd.Use)
 	assert.Equal(t, []string{"p"}, cmd.Aliases)
 	assert.Equal(t, "Package an AI agent to .kdeps file", cmd.Short)
@@ -151,7 +151,7 @@ func TestNewPackageCommand_MetadataAndArgs(t *testing.T) {
 	ctx := context.Background()
 	env := &environment.Environment{}
 
-	cmd := NewPackageCommand(fs, ctx, t.TempDir(), env, logging.NewTestLogger())
+	cmd := NewPackageCommand(ctx, fs, t.TempDir(), env, logging.NewTestLogger())
 
 	assert.Equal(t, "package [agent-dir]", cmd.Use)
 	assert.Contains(t, strings.ToLower(cmd.Short), "package")

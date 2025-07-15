@@ -24,7 +24,7 @@ import (
 var editPklMutex sync.Mutex
 
 // Helper function to safely save and restore EditPkl variable
-func saveAndRestoreEditPkl(t *testing.T, newValue texteditor.EditPklFunc) func() {
+func saveAndRestoreEditPkl(_ *testing.T, newValue texteditor.EditPklFunc) func() {
 	editPklMutex.Lock()
 	original := texteditor.EditPkl
 	texteditor.EditPkl = newValue
@@ -34,7 +34,7 @@ func saveAndRestoreEditPkl(t *testing.T, newValue texteditor.EditPklFunc) func()
 	}
 }
 
-func withTestState(t *testing.T, fn func()) {
+func withTestState(_ *testing.T, fn func()) {
 	origEditPkl := texteditor.EditPkl
 	defer func() { texteditor.EditPkl = origEditPkl }()
 	fn()
@@ -327,7 +327,7 @@ func TestGenerateResourceFiles(t *testing.T) {
 	mainDir := "test-agent"
 	name := "test-agent"
 
-	err := template.GenerateResourceFiles(fs, ctx, logger, mainDir, name)
+	err := template.GenerateResourceFiles(ctx, fs, logger, mainDir, name)
 	if err != nil {
 		t.Fatalf("GenerateResourceFiles() error = %v", err)
 	}
@@ -359,7 +359,7 @@ func TestGenerateSpecificAgentFile(t *testing.T) {
 	mainDir := "test-agent"
 	name := "client"
 
-	err := template.GenerateSpecificAgentFile(fs, ctx, logger, mainDir, name)
+	err := template.GenerateSpecificAgentFile(ctx, fs, logger, mainDir, name)
 	if err != nil {
 		t.Fatalf("GenerateSpecificAgentFile() error = %v", err)
 	}
@@ -393,13 +393,13 @@ func TestGenerateAgent(t *testing.T) {
 	name := "test-agent"
 
 	// First, generate the workflow file
-	err := template.GenerateWorkflowFile(fs, ctx, logger, name, name)
+	err := template.GenerateWorkflowFile(ctx, fs, logger, name, name)
 	if err != nil {
 		t.Fatalf("GenerateWorkflowFile() error = %v", err)
 	}
 
 	// Then generate resource files
-	err = template.GenerateResourceFiles(fs, ctx, logger, name, name)
+	err = template.GenerateResourceFiles(ctx, fs, logger, name, name)
 	if err != nil {
 		t.Fatalf("GenerateResourceFiles() error = %v", err)
 	}
@@ -432,7 +432,7 @@ func TestGenerateAgent(t *testing.T) {
 	}
 }
 
-func TestPrintWithDots(t *testing.T) {
+func TestPrintWithDots(_ *testing.T) {
 	template.PrintWithDots("test")
 }
 
@@ -446,7 +446,7 @@ func TestSchemaVersionInTemplates(t *testing.T) {
 		require.NoError(t, err)
 		defer fs.RemoveAll(tempDir)
 
-		err = template.GenerateWorkflowFile(fs, ctx, logger, tempDir, "testAgent")
+		err = template.GenerateWorkflowFile(ctx, fs, logger, tempDir, "testAgent")
 		require.NoError(t, err)
 
 		content, err := afero.ReadFile(fs, filepath.Join(tempDir, "workflow.pkl"))
@@ -461,7 +461,7 @@ func TestSchemaVersionInTemplates(t *testing.T) {
 		require.NoError(t, err)
 		defer fs.RemoveAll(tempDir)
 
-		err = template.GenerateResourceFiles(fs, ctx, logger, tempDir, "testAgent")
+		err = template.GenerateResourceFiles(ctx, fs, logger, tempDir, "testAgent")
 		require.NoError(t, err)
 
 		// Check all generated resource files
@@ -516,7 +516,7 @@ func TestFileGenerationEdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// First, generate the workflow file
-			err := template.GenerateWorkflowFile(fs, ctx, logger, filepath.Join(tt.baseDir, tt.agentName), tt.agentName)
+			err := template.GenerateWorkflowFile(ctx, fs, logger, filepath.Join(tt.baseDir, tt.agentName), tt.agentName)
 			if tt.expectedError {
 				assert.Error(t, err)
 				return
@@ -524,7 +524,7 @@ func TestFileGenerationEdgeCases(t *testing.T) {
 			assert.NoError(t, err)
 
 			// Then generate resource files
-			err = template.GenerateResourceFiles(fs, ctx, logger, filepath.Join(tt.baseDir, tt.agentName), tt.agentName)
+			err = template.GenerateResourceFiles(ctx, fs, logger, filepath.Join(tt.baseDir, tt.agentName), tt.agentName)
 			if tt.expectedError {
 				assert.Error(t, err)
 				return
@@ -673,7 +673,7 @@ func TestGenerateWorkflowFileExtra(t *testing.T) {
 	defer t.Setenv("NON_INTERACTIVE", os.Getenv("NON_INTERACTIVE"))
 
 	// Invalid name should return error
-	err := template.GenerateWorkflowFile(fs, context.Background(), logger, "outdir", "bad name")
+	err := template.GenerateWorkflowFile(context.Background(), fs, logger, "outdir", "bad name")
 	require.Error(t, err)
 
 	// Setup disk template
@@ -685,7 +685,7 @@ func TestGenerateWorkflowFileExtra(t *testing.T) {
 
 	// Successful generation
 	mainDir := "agentdir"
-	err = template.GenerateWorkflowFile(fs, context.Background(), logger, mainDir, "Agent")
+	err = template.GenerateWorkflowFile(context.Background(), fs, logger, mainDir, "Agent")
 	require.NoError(t, err)
 	output, err := afero.ReadFile(fs, filepath.Join(mainDir, "workflow.pkl"))
 	require.NoError(t, err)
@@ -700,7 +700,7 @@ func TestGenerateResourceFilesExtra(t *testing.T) {
 	defer t.Setenv("NON_INTERACTIVE", os.Getenv("NON_INTERACTIVE"))
 
 	// Invalid name
-	err := template.GenerateResourceFiles(fs, context.Background(), logger, "outdir", "bad name")
+	err := template.GenerateResourceFiles(context.Background(), fs, logger, "outdir", "bad name")
 	require.Error(t, err)
 
 	// Setup disk templates directory matching embedded FS
@@ -716,7 +716,7 @@ func TestGenerateResourceFilesExtra(t *testing.T) {
 	}
 
 	mainDir := "agentdir2"
-	err = template.GenerateResourceFiles(fs, context.Background(), logger, mainDir, "Agent")
+	err = template.GenerateResourceFiles(context.Background(), fs, logger, mainDir, "Agent")
 	require.NoError(t, err)
 
 	// client.pkl should be created with expected content
@@ -785,7 +785,7 @@ func TestGenerateAgentEndToEndExtra(t *testing.T) {
 	baseDir := "/tmp"
 	agentName := "client" // corresponds to existing embedded template client.pkl
 
-	if err := template.GenerateAgent(fs, ctx, logger, baseDir, agentName); err != nil {
+	if err := template.GenerateAgent(ctx, fs, logger, baseDir, agentName); err != nil {
 		t.Fatalf("GenerateAgent error: %v", err)
 	}
 
@@ -828,7 +828,7 @@ func TestGenerateAgentBasic(t *testing.T) {
 	baseDir := "/workspace"
 	agentName := "client"
 
-	if err := template.GenerateAgent(fs, ctx, logger, baseDir, agentName); err != nil {
+	if err := template.GenerateAgent(ctx, fs, logger, baseDir, agentName); err != nil {
 		t.Fatalf("GenerateAgent failed: %v", err)
 	}
 
@@ -953,7 +953,7 @@ func TestTemplateWithSchemaAssets(t *testing.T) {
 		tempDir, err := afero.TempDir(fs, "", "test")
 		require.NoError(t, err)
 
-		err = template.GenerateWorkflowFile(fs, ctx, logger, tempDir, "testAgent")
+		err = template.GenerateWorkflowFile(ctx, fs, logger, tempDir, "testAgent")
 		require.NoError(t, err)
 
 		// Read the generated workflow file
@@ -990,7 +990,7 @@ func TestTemplateWithSchemaAssets(t *testing.T) {
 				require.NoError(t, err)
 
 				// Generate the resource file
-				err = template.GenerateSpecificAgentFile(fs, ctx, logger, tempDir, strings.TrimSuffix(templateName, ".pkl"))
+				err = template.GenerateSpecificAgentFile(ctx, fs, logger, tempDir, strings.TrimSuffix(templateName, ".pkl"))
 				require.NoError(t, err)
 
 				// Read the generated file

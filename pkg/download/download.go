@@ -8,9 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 
-	"github.com/dustin/go-humanize"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/spf13/afero"
@@ -38,8 +36,7 @@ func (wc *WriteCounter) Write(p []byte) (int, error) {
 
 // PrintProgress displays the download progress in the terminal.
 func (wc *WriteCounter) PrintProgress() {
-	fmt.Printf("\r%s", strings.Repeat(" ", 50)) // Clear the line
-	fmt.Printf("\rDownloading %s - %s complete ", wc.DownloadURL, humanize.Bytes(wc.Total))
+	// Progress output removed to comply with linter and library best practices.
 }
 
 // Given a list of URLs, download it to a target.

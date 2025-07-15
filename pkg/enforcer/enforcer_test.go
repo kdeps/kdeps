@@ -166,12 +166,12 @@ func aSystemConfigurationIsDefined() error {
 		return err
 	}
 
-	cfgFile, err := cfg.GenerateConfiguration(testFs, ctx, environ, logger)
+	cfgFile, err := cfg.GenerateConfiguration(ctx, testFs, environ, logger)
 	if err != nil {
 		return err
 	}
 
-	scfg, err := cfg.LoadConfiguration(testFs, ctx, cfgFile, logger)
+	scfg, err := cfg.LoadConfiguration(ctx, testFs, cfgFile, logger)
 	if err != nil {
 		return err
 	}
@@ -281,7 +281,7 @@ func aFileExistsInThe(arg1, arg2 string) error {
 	}
 
 	file := filepath.Join(p, arg1)
-	fmt.Printf("Creating %s file!", file)
+	// Creating file (log output removed)
 
 	f, _ := testFs.Create(file)
 	if _, err := f.WriteString(doc); err != nil {
@@ -299,7 +299,7 @@ func anAgentFolderExistsInTheCurrentDirectory(arg1 string) error {
 	if err := testFs.MkdirAll(agentPath, 0o755); err != nil {
 		return err
 	}
-	fmt.Printf("Agent path %s created!", agentPath)
+	// Agent path created (log output removed)
 
 	return nil
 }
@@ -324,7 +324,7 @@ func aFolderNamedExistsInThe(arg1, arg2 string) error {
 	if err := testFs.MkdirAll(subfolderPath, 0o755); err != nil {
 		return err
 	}
-	fmt.Printf("Agent path %s created!", subfolderPath)
+	// Agent path created (log output removed)
 
 	return nil
 }

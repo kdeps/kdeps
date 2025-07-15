@@ -149,7 +149,7 @@ func theConfigurationIsLoadedInTheCurrentDirectory() error {
 		return err
 	}
 
-	cfgFile, err := cfg.FindConfiguration(testFs, ctx, environ, logger)
+	cfgFile, err := cfg.FindConfiguration(ctx, testFs, environ, logger)
 	if err != nil {
 		return err
 	}
@@ -183,7 +183,7 @@ func theConfigurationIsLoadedInTheHomeDirectory() error {
 		return err
 	}
 
-	cfgFile, err := cfg.FindConfiguration(testFs, ctx, environ, logger)
+	cfgFile, err := cfg.FindConfiguration(ctx, testFs, environ, logger)
 	if err != nil {
 		return err
 	}
@@ -245,7 +245,7 @@ func theConfigurationFailsToLoadAnyConfiguration() error {
 		return err
 	}
 
-	cfgFile, err := cfg.FindConfiguration(testFs, ctx, environ, logger)
+	cfgFile, err := cfg.FindConfiguration(ctx, testFs, environ, logger)
 	if err != nil {
 		return fmt.Errorf("an error occurred while finding configuration: %w", err)
 	}
@@ -295,7 +295,7 @@ func theConfigurationWillBeEdited() error {
 		return err
 	}
 
-	if _, err := cfg.EditConfiguration(testFs, ctx, environ, logger); err != nil {
+	if _, err := cfg.EditConfiguration(ctx, testFs, environ, logger); err != nil {
 		return err
 	}
 
@@ -330,7 +330,7 @@ func TestFindConfigurationUnit(t *testing.T) {
 		fs.MkdirAll(pwd, 0o755)
 		afero.WriteFile(fs, filepath.Join(pwd, ".kdeps.pkl"), []byte("test"), 0o644)
 
-		result, err := cfg.FindConfiguration(fs, ctx, env, logger)
+		result, err := cfg.FindConfiguration(ctx, fs, env, logger)
 		assert.NoError(t, err)
 		assert.Equal(t, filepath.Join(pwd, ".kdeps.pkl"), result)
 	})
@@ -349,7 +349,7 @@ func TestFindConfigurationUnit(t *testing.T) {
 		fs.MkdirAll(home, 0o755)
 		afero.WriteFile(fs, filepath.Join(home, ".kdeps.pkl"), []byte("test"), 0o644)
 
-		result, err := cfg.FindConfiguration(fs, ctx, env, logger)
+		result, err := cfg.FindConfiguration(ctx, fs, env, logger)
 		assert.NoError(t, err)
 		assert.Equal(t, filepath.Join(home, ".kdeps.pkl"), result)
 	})
@@ -364,7 +364,7 @@ func TestFindConfigurationUnit(t *testing.T) {
 			Home: home,
 		}
 
-		result, err := cfg.FindConfiguration(fs, ctx, env, logger)
+		result, err := cfg.FindConfiguration(ctx, fs, env, logger)
 		assert.NoError(t, err)
 		assert.Equal(t, "", result)
 	})
@@ -389,7 +389,7 @@ func TestGenerateConfigurationUnit(t *testing.T) {
 
 		fs.MkdirAll(home, 0o755)
 
-		result, err := cfg.GenerateConfiguration(fs, ctx, env, logger)
+		result, err := cfg.GenerateConfiguration(ctx, fs, env, logger)
 		// This might fail due to evaluator.EvalPkl, but we test the path
 		if err != nil {
 			assert.Contains(t, err.Error(), "failed to evaluate .pkl file")
@@ -410,7 +410,7 @@ func TestGenerateConfigurationUnit(t *testing.T) {
 		fs.MkdirAll(home, 0o755)
 		afero.WriteFile(fs, filepath.Join(home, ".kdeps.pkl"), []byte("existing"), 0o644)
 
-		result, err := cfg.GenerateConfiguration(fs, ctx, env, logger)
+		result, err := cfg.GenerateConfiguration(ctx, fs, env, logger)
 		assert.NoError(t, err)
 		assert.Equal(t, filepath.Join(home, ".kdeps.pkl"), result)
 	})
@@ -432,7 +432,7 @@ func TestEditConfigurationUnit(t *testing.T) {
 		fs.MkdirAll(home, 0o755)
 		afero.WriteFile(fs, filepath.Join(home, ".kdeps.pkl"), []byte("test"), 0o644)
 
-		result, err := cfg.EditConfiguration(fs, ctx, env, logger)
+		result, err := cfg.EditConfiguration(ctx, fs, env, logger)
 		assert.NoError(t, err)
 		assert.Equal(t, filepath.Join(home, ".kdeps.pkl"), result)
 	})
@@ -448,7 +448,7 @@ func TestEditConfigurationUnit(t *testing.T) {
 
 		fs.MkdirAll(home, 0o755)
 
-		result, err := cfg.EditConfiguration(fs, ctx, env, logger)
+		result, err := cfg.EditConfiguration(ctx, fs, env, logger)
 		assert.NoError(t, err)
 		assert.Equal(t, filepath.Join(home, ".kdeps.pkl"), result)
 	})
@@ -469,7 +469,7 @@ func TestValidateConfigurationUnit(t *testing.T) {
 		fs.MkdirAll(home, 0o755)
 		afero.WriteFile(fs, filepath.Join(home, ".kdeps.pkl"), []byte("invalid pkl"), 0o644)
 
-		result, err := cfg.ValidateConfiguration(fs, ctx, env, logger)
+		result, err := cfg.ValidateConfiguration(ctx, fs, env, logger)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "configuration validation failed")
 		assert.Equal(t, filepath.Join(home, ".kdeps.pkl"), result)
@@ -486,7 +486,7 @@ func TestLoadConfigurationUnit(t *testing.T) {
 		invalidPath := filepath.Join(tmpDir, "invalid.pkl")
 		afero.WriteFile(fs, invalidPath, []byte("invalid"), 0o644)
 
-		result, err := cfg.LoadConfiguration(fs, ctx, invalidPath, logger)
+		result, err := cfg.LoadConfiguration(ctx, fs, invalidPath, logger)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "error reading config file")
 		assert.Nil(t, result)
@@ -497,7 +497,7 @@ func TestLoadConfigurationUnit(t *testing.T) {
 		tmpDir := t.TempDir()
 		nonexistentPath := filepath.Join(tmpDir, "nonexistent.pkl")
 
-		result, err := cfg.LoadConfiguration(fs, ctx, nonexistentPath, logger)
+		result, err := cfg.LoadConfiguration(ctx, fs, nonexistentPath, logger)
 		assert.Error(t, err)
 		assert.Nil(t, result)
 	})
@@ -586,7 +586,7 @@ func TestGenerateConfigurationAdditional(t *testing.T) {
 			NonInteractive: "1",
 		}
 
-		result, err := cfg.GenerateConfiguration(fs, ctx, env, logger)
+		result, err := cfg.GenerateConfiguration(ctx, fs, env, logger)
 		// This will fail when trying to write the file
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to write")
@@ -610,7 +610,7 @@ func TestEditConfigurationAdditional(t *testing.T) {
 		configPath := filepath.Join(homeDir, ".kdeps.pkl")
 		afero.WriteFile(fs, configPath, []byte("test"), 0o644)
 
-		result, err := cfg.EditConfiguration(fs, ctx, env, logger)
+		result, err := cfg.EditConfiguration(ctx, fs, env, logger)
 		// This might fail due to texteditor.EditPkl, but we test the path
 		if err != nil {
 			assert.Contains(t, err.Error(), "failed to edit configuration file")
@@ -647,7 +647,7 @@ DockerGPU = "cpu"
 		configPath := filepath.Join(homeDir, ".kdeps.pkl")
 		afero.WriteFile(fs, configPath, []byte(validConfig), 0o644)
 
-		result, err := cfg.ValidateConfiguration(fs, ctx, env, logger)
+		result, err := cfg.ValidateConfiguration(ctx, fs, env, logger)
 		// This might still fail due to evaluator.EvalPkl dependencies, but we test the path
 		if err != nil {
 			assert.Contains(t, err.Error(), "configuration validation failed")
@@ -680,7 +680,7 @@ DockerGPU = "cpu"
 		configPath := filepath.Join(t.TempDir(), "valid.pkl")
 		afero.WriteFile(fs, configPath, []byte(validConfig), 0o644)
 
-		result, err := cfg.LoadConfiguration(fs, ctx, configPath, logger)
+		result, err := cfg.LoadConfiguration(ctx, fs, configPath, logger)
 		// This might fail due to kdeps.LoadFromPath dependencies, but we test the code path
 		if err != nil {
 			assert.Contains(t, err.Error(), "error reading config file")

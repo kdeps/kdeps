@@ -23,7 +23,7 @@ func min(a, b int) int {
 }
 
 // UpgradeCommand creates the 'upgrade' command for upgrading schema versions in pkl files.
-func UpgradeCommand(fs afero.Fs, ctx context.Context, kdepsDir string, logger *logging.Logger) *cobra.Command {
+func UpgradeCommand(ctx context.Context, fs afero.Fs, kdepsDir string, logger *logging.Logger) *cobra.Command {
 	var targetVersion string
 	var dryRun bool
 
@@ -76,7 +76,7 @@ Examples:
 			logger.Info("upgrading schema versions", "directory", absPath, "target_version", targetVersion, "dry_run", dryRun)
 
 			// Perform the upgrade
-			return UpgradeSchemaVersions(fs, absPath, targetVersion, dryRun, logger)
+			return UpgradeSchemaVersions(ctx, fs, absPath, targetVersion, dryRun, logger)
 		},
 	}
 
@@ -87,7 +87,7 @@ Examples:
 }
 
 // UpgradeSchemaVersions scans a directory for pkl files and upgrades schema versions
-func UpgradeSchemaVersions(fs afero.Fs, dirPath, targetVersion string, dryRun bool, logger *logging.Logger) error {
+func UpgradeSchemaVersions(ctx context.Context, fs afero.Fs, dirPath, targetVersion string, dryRun bool, logger *logging.Logger) error {
 	var filesProcessed int
 	var filesUpdated int
 

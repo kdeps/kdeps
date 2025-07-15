@@ -85,13 +85,15 @@ func TestFileHelpers(t *testing.T) {
 	dirs := []string{filepath.Join(tmpDir, "a", "b", "c"), filepath.Join(tmpDir, "a", "b", "d")}
 	files := []string{filepath.Join(dirs[0], "file1.txt"), filepath.Join(dirs[1], "file2.txt")}
 
-	assert.NoError(t, utils.CreateDirectories(fs, ctx, dirs))
+	err = utils.CreateDirectories(ctx, fs, dirs)
+	assert.NoError(t, err)
 	for _, d := range dirs {
 		exists, _ := afero.DirExists(fs, d)
 		assert.True(t, exists)
 	}
 
-	assert.NoError(t, utils.CreateFiles(fs, ctx, files))
+	err = utils.CreateFiles(ctx, fs, files)
+	assert.NoError(t, err)
 	for _, f := range files {
 		exists, _ := afero.Exists(fs, f)
 		assert.True(t, exists)

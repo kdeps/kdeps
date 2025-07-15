@@ -34,10 +34,10 @@ func CleanupDockerBuildImages(fs afero.Fs, ctx context.Context, cName string, cl
 	for _, c := range containers {
 		for _, name := range c.Names {
 			if name == "/"+cName { // Ensure name match is exact
-				fmt.Printf("Deleting container: %s\n", c.ID)
+				// Deleting container
 				if err := cli.ContainerRemove(ctx, c.ID, container.RemoveOptions{Force: true}); err != nil {
 					// Log error and continue
-					fmt.Printf("Error removing container %s: %v\n", c.ID, err)
+					// Error removing container
 					continue
 				}
 			}
@@ -49,7 +49,7 @@ func CleanupDockerBuildImages(fs afero.Fs, ctx context.Context, cName string, cl
 		return fmt.Errorf("error pruning images: %w", err)
 	}
 
-	fmt.Println("Pruned dangling images.")
+	// Pruned dangling images
 	return nil
 }
 

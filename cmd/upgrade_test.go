@@ -25,7 +25,7 @@ func TestUpgradeCommand(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	upgradeCmd := cmd.UpgradeCommand(fs, ctx, "/tmp", logger)
+	upgradeCmd := cmd.UpgradeCommand(ctx, fs, "/tmp", logger)
 
 	assert.Contains(t, upgradeCmd.Use, "upgrade")
 	assert.NotEmpty(t, upgradeCmd.Short)
@@ -145,7 +145,7 @@ AgentID = "testResource"`
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(testDir, "package.json"), []byte(nonPklContent), 0o644))
 
 	t.Run("dry run upgrade", func(t *testing.T) {
-		err := cmd.UpgradeSchemaVersions(fs, testDir, "0.4.4", true, logger)
+		err := cmd.UpgradeSchemaVersions(context.Background(), fs, testDir, "0.4.4", true, logger)
 		require.NoError(t, err)
 
 		// Files should not be modified in dry run
@@ -156,7 +156,7 @@ AgentID = "testResource"`
 	})
 
 	t.Run("actual upgrade", func(t *testing.T) {
-		err := cmd.UpgradeSchemaVersions(fs, testDir, "0.4.4", false, logger)
+		err := cmd.UpgradeSchemaVersions(context.Background(), fs, testDir, "0.4.4", false, logger)
 		require.NoError(t, err)
 
 		// Check workflow.pkl was updated
@@ -183,7 +183,7 @@ func TestUpgradeCommandValidation(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	upgradeCmd := cmd.UpgradeCommand(fs, ctx, "/tmp", logger)
+	upgradeCmd := cmd.UpgradeCommand(ctx, fs, "/tmp", logger)
 
 	t.Run("invalid target version", func(t *testing.T) {
 		upgradeCmd.SetArgs([]string{"--version", "invalid", "."})
@@ -200,7 +200,7 @@ func TestUpgradeCommandValidation(t *testing.T) {
 	})
 
 	t.Run("nonexistent directory", func(t *testing.T) {
-		upgradeCmd := cmd.UpgradeCommand(fs, ctx, "/tmp", logger)
+		upgradeCmd := cmd.UpgradeCommand(ctx, fs, "/tmp", logger)
 		upgradeCmd.SetArgs([]string{"/nonexistent"})
 		err := upgradeCmd.Execute()
 		require.Error(t, err)
@@ -224,7 +224,7 @@ Version = "1.0.0"`
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(testDir, "workflow.pkl"), []byte(content), 0o644))
 
 	// Test upgrade command
-	upgradeCmd := cmd.UpgradeCommand(fs, ctx, "/tmp", logger)
+	upgradeCmd := cmd.UpgradeCommand(ctx, fs, "/tmp", logger)
 	upgradeCmd.SetArgs([]string{"--version", "0.4.4", testDir})
 
 	err := upgradeCmd.Execute()

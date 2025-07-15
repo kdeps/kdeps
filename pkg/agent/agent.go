@@ -15,6 +15,8 @@ import (
 
 	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/logging"
+
+	// Blank import for SQLite driver registration
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/afero"
 )
@@ -25,11 +27,11 @@ var (
 	globalAgentMutex  sync.RWMutex
 )
 
-// AgentInfo represents information about an installed agent
-type AgentInfo struct {
-	Name    string `json:"name"`
+// Info holds agent information.
+type Info struct {
+	ID      string `json:"id"`
 	Version string `json:"version"`
-	Path    string `json:"path"`
+	Commit  string `json:"commit"`
 }
 
 // PklResourceReader implements the pkl.ResourceReader interface for agent ID resolution.
@@ -210,7 +212,7 @@ func compareSemver(a, b string) int {
 func (r *PklResourceReader) listInstalledAgents() ([]byte, error) {
 	agentsDir := filepath.Join(r.KdepsDir, "agents")
 
-	agents := []AgentInfo{}
+	agents := []Info{}
 
 	// Walk through the agents directory
 	err := afero.Walk(r.Fs, agentsDir, func(path string, info os.FileInfo, err error) error {
@@ -237,10 +239,10 @@ func (r *PklResourceReader) listInstalledAgents() ([]byte, error) {
 
 		parts := strings.Split(relPath, string(os.PathSeparator))
 		if len(parts) == 2 {
-			agentInfo := AgentInfo{
-				Name:    parts[0],
+			agentInfo := Info{
+				ID:      fmt.Sprintf("@%s:%s", parts[0], parts[1]),
 				Version: parts[1],
-				Path:    path,
+				Commit:  "", // No commit info in this simple list
 			}
 			agents = append(agents, agentInfo)
 		}
@@ -279,21 +281,19 @@ func (r *PklResourceReader) registerAgent(agentID string, query url.Values) ([]b
 		return nil, errors.New("invalid agent ID format: expected @agentID/actionID:<semver>")
 	}
 
-	agentIDPart := parts[0]
 	actionIDWithVersion := parts[1]
 
-	// Split actionID and version
+	// Extract agent ID and version from the path
 	actionParts := strings.Split(actionIDWithVersion, ":")
 	if len(actionParts) != 2 {
 		return nil, errors.New("invalid agent ID format: expected @agentID/actionID:<semver>")
 	}
-
 	version := actionParts[1]
 
-	agentData := AgentInfo{
-		Name:    agentIDPart,
+	agentData := Info{
+		ID:      agentID,
 		Version: version,
-		Path:    agentPath,
+		Commit:  "", // No commit info in this simple register
 	}
 
 	jsonData, err := json.Marshal(agentData)

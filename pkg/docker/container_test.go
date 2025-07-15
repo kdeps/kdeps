@@ -22,7 +22,7 @@ import (
 
 var crandTestMutex sync.Mutex
 
-func withCRandTestState(t *testing.T, fn func()) {
+func withCRandTestState(_ *testing.T, fn func()) {
 	crandTestMutex.Lock()
 	defer crandTestMutex.Unlock()
 	origReader := crand.Reader

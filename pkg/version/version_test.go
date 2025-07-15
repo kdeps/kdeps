@@ -2,7 +2,6 @@ package version_test
 
 import (
 	"regexp"
-	"sync"
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/utils"
@@ -11,93 +10,39 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Package variable mutexes for safe reassignment
-var (
-	versionMutex sync.Mutex
-	commitMutex  sync.Mutex
-)
-
-// Helper functions to safely save and restore package variables
-func saveAndRestoreVersion(_ *testing.T, newValue string) func() {
-	versionMutex.Lock()
-	original := version.Version
-	version.Version = newValue
-	return func() {
-		version.Version = original
-		versionMutex.Unlock()
-	}
-}
-
-func saveAndRestoreCommit(_ *testing.T, newValue string) func() {
-	commitMutex.Lock()
-	original := version.Commit
-	version.Commit = newValue
-	return func() {
-		version.Commit = original
-		commitMutex.Unlock()
-	}
-}
-
-// testVersionState manages test state changes for version package
-type testVersionState struct {
-	origVersion string
-	origCommit  string
-}
-
-func newTestVersionState() *testVersionState {
-	return &testVersionState{
-		origVersion: version.Version,
-		origCommit:  version.Commit,
-	}
-}
-
-func (ts *testVersionState) restore() {
-	version.Version = ts.origVersion
-	version.Commit = ts.origCommit
-}
-
-func withVersionTestState(t *testing.T, fn func()) {
-	versionMutex.Lock()
-	defer versionMutex.Unlock()
-
-	state := newTestVersionState()
-	defer state.restore()
-
-	fn()
-}
-
 func TestVersionVariables(t *testing.T) {
 	// Test that Version has a default value
-	assert.Equal(t, "dev", version.Version)
+	vi := version.GetVersionInfo()
+	assert.Equal(t, "dev", vi.Version)
 
 	// Test that Commit has a default value
-	assert.Equal(t, "", version.Commit)
+	assert.Equal(t, "", vi.Commit)
 
 	// Test that we can modify the variables
-	withVersionTestState(t, func() {
-		version.Version = "1.0.0"
-		version.Commit = "abc123"
-
-		assert.Equal(t, "1.0.0", version.Version)
-		assert.Equal(t, "abc123", version.Commit)
-	})
-
-	// Restore original values
-	assert.Equal(t, "dev", version.Version)
-	assert.Equal(t, "", version.Commit)
+	version.SetVersionInfo("1.0.0", "abc123")
+	vi2 := version.GetVersionInfo()
+	assert.Equal(t, "1.0.0", vi2.Version)
+	assert.Equal(t, "abc123", vi2.Commit)
+	// Restore
+	version.SetVersionInfo("dev", "")
+	vi3 := version.GetVersionInfo()
+	assert.Equal(t, "dev", vi3.Version)
+	assert.Equal(t, "", vi3.Commit)
 }
 
 func TestVersion(t *testing.T) {
 	// Test case 1: Check if version string is not empty
-	if version.Version == "" {
+	vi := version.GetVersionInfo()
+	if vi.Version == "" {
 		t.Errorf("Version string is empty, expected a non-empty version")
 	}
 	t.Log("Version string test passed")
 }
 
 func TestVersionDefaults(t *testing.T) {
-	require.Equal(t, "dev", version.Version)
-	require.Equal(t, "", version.Commit)
+	vi := version.GetVersionInfo()
+	require.Equal(t, "dev", vi.Version)
+	require.Equal(t, "", vi.Commit)
 }
 
 func TestDefaultVersionValues(t *testing.T) {
@@ -132,23 +77,23 @@ func TestDefaultVersionValues(t *testing.T) {
 }
 
 func TestOverrideVersionValues(t *testing.T) {
-	withVersionTestState(t, func() {
-		version.Version = "1.2.3"
-		version.Commit = "abc123"
-
-		if version.Version != "1.2.3" {
-			t.Errorf("override failed for Version, got %s", version.Version)
-		}
-		if version.Commit != "abc123" {
-			t.Errorf("override failed for Commit, got %s", version.Commit)
-		}
-	})
+	version.SetVersionInfo("1.2.3", "abc123")
+	vi := version.GetVersionInfo()
+	if vi.Version != "1.2.3" {
+		t.Errorf("override failed for Version, got %s", vi.Version)
+	}
+	if vi.Commit != "abc123" {
+		t.Errorf("override failed for Commit, got %s", vi.Commit)
+	}
+	// Restore
+	version.SetVersionInfo("dev", "")
 }
 
 func TestVersionVars(t *testing.T) {
-	if version.Version == "" {
+	vi := version.GetVersionInfo()
+	if vi.Version == "" {
 		t.Fatalf("Version should not be empty")
 	}
 	// Commit may be empty in dev builds but accessing it should not panic.
-	_ = version.Commit
+	_ = vi.Commit
 }

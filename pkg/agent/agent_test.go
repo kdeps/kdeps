@@ -111,7 +111,7 @@ func TestPklResourceReader(t *testing.T) {
 		data, err := reader.Read(*uri)
 		require.NoError(t, err)
 
-		var agents []agent.AgentInfo
+		var agents []agent.Info
 		err = json.Unmarshal(data, &agents)
 		require.NoError(t, err)
 		require.Len(t, agents, 2)
@@ -119,7 +119,7 @@ func TestPklResourceReader(t *testing.T) {
 		// Check agent1
 		found := false
 		for _, agent := range agents {
-			if agent.Name == "agent1" && agent.Version == "1.0.0" {
+			if agent.ID == "agent1" && agent.Version == "1.0.0" {
 				found = true
 				break
 			}
@@ -129,7 +129,7 @@ func TestPklResourceReader(t *testing.T) {
 		// Check agent2
 		found = false
 		for _, agent := range agents {
-			if agent.Name == "agent2" && agent.Version == "2.0.0" {
+			if agent.ID == "agent2" && agent.Version == "2.0.0" {
 				found = true
 				break
 			}
@@ -151,12 +151,12 @@ func TestPklResourceReader(t *testing.T) {
 		err = reader.DB.QueryRow("SELECT data FROM agents WHERE id = ?", agentID).Scan(&storedData)
 		require.NoError(t, err)
 
-		var agentInfo agent.AgentInfo
+		var agentInfo agent.Info
 		err = json.Unmarshal([]byte(storedData), &agentInfo)
 		require.NoError(t, err)
-		require.Equal(t, "testAgent", agentInfo.Name)
+		require.Equal(t, "testAgent", agentInfo.ID)
 		require.Equal(t, "1.0.0", agentInfo.Version)
-		require.Equal(t, agentPath, agentInfo.Path)
+		require.Equal(t, agentPath, agentInfo.Commit)
 	})
 
 	t.Run("RegisterAgent_InvalidID", func(t *testing.T) {
@@ -234,19 +234,22 @@ func TestInitializeAgent(t *testing.T) {
 }
 
 func TestAgentInfo_JSON(t *testing.T) {
-	agentInfo := agent.AgentInfo{
-		Name:    "testAgent",
+	agentInfo := agent.Info{
+		ID:      "testAgent",
 		Version: "1.0.0",
-		Path:    "/test/path",
+		Commit:  "abc123",
 	}
 
 	jsonData, err := json.Marshal(agentInfo)
 	require.NoError(t, err)
 
-	var unmarshaled agent.AgentInfo
+	var unmarshaled agent.Info
 	err = json.Unmarshal(jsonData, &unmarshaled)
 	require.NoError(t, err)
 	require.Equal(t, agentInfo, unmarshaled)
+	require.Equal(t, "testAgent", unmarshaled.ID)
+	require.Equal(t, "1.0.0", unmarshaled.Version)
+	require.Equal(t, "abc123", unmarshaled.Commit)
 }
 
 func TestTemporaryFileCleanup(t *testing.T) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	stdErrors "errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -556,13 +557,14 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			if strings.Contains(contentType, "multipart/form-data") {
 				if err := HandleMultipartForm(c, dr, fileMap); err != nil {
 
-					if he, ok := err.(*handlerError); ok {
+					var handlerErr *handlerError
+					if stdErrors.As(err, &handlerErr) {
 						errors = append(errors, ErrorResponse{
-							Code:     he.statusCode,
-							Message:  he.message,
+							Code:     handlerErr.statusCode,
+							Message:  handlerErr.message,
 							ActionID: getActionID(),
 						})
-						sendErrorResponse(he.statusCode, errors)
+						sendErrorResponse(handlerErr.statusCode, errors)
 					} else {
 						errors = append(errors, ErrorResponse{
 							Code:     http.StatusInternalServerError,

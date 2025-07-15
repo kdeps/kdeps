@@ -37,7 +37,7 @@ func TestCreateFilesCloseError(t *testing.T) {
 	fs := badCloseFs{afero.NewOsFs()}
 	files := []string{filepath.Join(tmpDir, "fail.txt")}
 
-	if err := utils.CreateFiles(fs, context.Background(), files); err == nil {
+	if err := utils.CreateFiles(context.Background(), fs, files); err == nil {
 		t.Fatalf("expected close error but got nil")
 	}
 }
@@ -53,7 +53,7 @@ func TestCreateFiles_CreateError(t *testing.T) {
 	tmpDir := t.TempDir()
 	fs := failCreateFs{afero.NewOsFs()}
 	files := []string{filepath.Join(tmpDir, "cannot.txt")}
-	err := utils.CreateFiles(fs, context.Background(), files)
+	err := utils.CreateFiles(context.Background(), fs, files)
 	if err == nil {
 		t.Fatalf("expected error from CreateFiles when underlying fs.Create fails")
 	}
@@ -159,14 +159,14 @@ func TestCreateDirectoriesAndFilesExtra(t *testing.T) {
 	// Use temporary directory for test files
 	tmpDir := t.TempDir()
 	dirs := []string{filepath.Join(tmpDir, "a"), filepath.Join(tmpDir, "b", "c")}
-	require.NoError(t, utils.CreateDirectories(fs, ctx, dirs))
+	require.NoError(t, utils.CreateDirectories(ctx, fs, dirs))
 	for _, d := range dirs {
 		ok, _ := afero.DirExists(fs, d)
 		require.True(t, ok)
 	}
 
 	files := []string{filepath.Join(dirs[0], "f1.txt"), filepath.Join(dirs[1], "f2.txt")}
-	require.NoError(t, utils.CreateFiles(fs, ctx, files))
+	require.NoError(t, utils.CreateFiles(ctx, fs, files))
 	for _, f := range files {
 		ok, _ := afero.Exists(fs, f)
 		require.True(t, ok)
@@ -226,7 +226,7 @@ func TestCreateDirectoriesAndFilesHelper(t *testing.T) {
 	// Use temporary directory for test files
 	tmpDir := t.TempDir()
 	dirs := []string{filepath.Join(tmpDir, "a", "b"), filepath.Join(tmpDir, "c", "d", "e")}
-	if err := utils.CreateDirectories(fs, ctx, dirs); err != nil {
+	if err := utils.CreateDirectories(ctx, fs, dirs); err != nil {
 		t.Fatalf("CreateDirectories error: %v", err)
 	}
 	for _, d := range dirs {
@@ -237,7 +237,7 @@ func TestCreateDirectoriesAndFilesHelper(t *testing.T) {
 	}
 
 	files := []string{filepath.Join(dirs[0], "file.txt"), filepath.Join(dirs[1], "other.txt")}
-	if err := utils.CreateFiles(fs, ctx, files); err != nil {
+	if err := utils.CreateFiles(ctx, fs, files); err != nil {
 		t.Fatalf("CreateFiles error: %v", err)
 	}
 	for _, f := range files {
@@ -300,7 +300,7 @@ func TestCreateDirectoriesAndFilesMore(t *testing.T) {
 	// Use temporary directory for test files
 	tmpDir := t.TempDir()
 	dirs := []string{filepath.Join(tmpDir, "a", "b", "c")}
-	if err := utils.CreateDirectories(fs, ctx, dirs); err != nil {
+	if err := utils.CreateDirectories(ctx, fs, dirs); err != nil {
 		t.Fatalf("CreateDirectories error: %v", err)
 	}
 	if ok, _ := afero.DirExists(fs, dirs[0]); !ok {
@@ -308,7 +308,7 @@ func TestCreateDirectoriesAndFilesMore(t *testing.T) {
 	}
 
 	files := []string{filepath.Join(dirs[0], "file.txt")}
-	if err := utils.CreateFiles(fs, ctx, files); err != nil {
+	if err := utils.CreateFiles(ctx, fs, files); err != nil {
 		t.Fatalf("CreateFiles error: %v", err)
 	}
 	if ok, _ := afero.Exists(fs, files[0]); !ok {
@@ -343,7 +343,7 @@ func TestCreateFilesErrorOsFs(t *testing.T) {
 	roFs := afero.NewReadOnlyFs(afero.NewOsFs())
 
 	files := []string{filepath.Join(tmpDir, "should_fail.txt")}
-	err := utils.CreateFiles(roFs, context.Background(), files)
+	err := utils.CreateFiles(context.Background(), roFs, files)
 	if err == nil {
 		t.Fatalf("expected error when creating files on read-only fs, got nil")
 	}
@@ -375,7 +375,7 @@ func TestCreateDirectoriesErrorOsFs(t *testing.T) {
 	roFs := afero.NewReadOnlyFs(afero.NewOsFs())
 
 	dirs := []string{filepath.Join(tmpDir, "subdir")}
-	if err := utils.CreateDirectories(roFs, context.Background(), dirs); err == nil {
+	if err := utils.CreateDirectories(context.Background(), roFs, dirs); err == nil {
 		t.Fatalf("expected error when creating directory on read-only fs, got nil")
 	}
 }
@@ -426,8 +426,8 @@ func TestCreateDirectoriesAndFiles(t *testing.T) {
 	dirs := []string{filepath.Join(tmpDir, "dir1"), filepath.Join(tmpDir, "dir2", "sub")}
 	files := []string{filepath.Join(dirs[0], "a.txt"), filepath.Join(dirs[1], "b.txt")}
 
-	assert.NoError(t, utils.CreateDirectories(fs, ctx, dirs))
-	assert.NoError(t, utils.CreateFiles(fs, ctx, files))
+	assert.NoError(t, utils.CreateDirectories(ctx, fs, dirs))
+	assert.NoError(t, utils.CreateFiles(ctx, fs, files))
 
 	for _, d := range dirs {
 		exist, err := afero.DirExists(fs, d)

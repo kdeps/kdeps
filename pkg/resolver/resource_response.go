@@ -118,7 +118,7 @@ func (dr *DependencyResolver) CreateResponseGoJSON(apiResponseBlock apiserverres
 	}
 
 	// Write the JSON response to the target file
-	if err := afero.WriteFile(dr.Fs, dr.ResponseTargetFile, jsonData, 0644); err != nil {
+	if err := afero.WriteFile(dr.Fs, dr.ResponseTargetFile, jsonData, 0o644); err != nil {
 		return fmt.Errorf("failed to write JSON response file: %w", err)
 	}
 

@@ -21,7 +21,7 @@ func TestNewRunCommandFlags(t *testing.T) {
 	systemCfg := &kdeps.Kdeps{}
 	logger := logging.NewTestLogger()
 
-	cmd := NewRunCommand(fs, ctx, kdepsDir, systemCfg, logger)
+	cmd := NewRunCommand(ctx, fs, kdepsDir, systemCfg, logger)
 	assert.Equal(t, "run [package]", cmd.Use)
 	assert.Equal(t, []string{"r"}, cmd.Aliases)
 	assert.Equal(t, "Build and run a dockerized AI agent container", cmd.Short)
@@ -112,12 +112,12 @@ run {
 	require.NoError(t, err)
 
 	// Test error case - no arguments
-	cmd := NewRunCommand(fs, ctx, kdepsDir, systemCfg, logger)
+	cmd := NewRunCommand(ctx, fs, kdepsDir, systemCfg, logger)
 	err = cmd.Execute()
 	require.Error(t, err)
 
 	// Test error case - nonexistent file
-	cmd = NewRunCommand(fs, ctx, kdepsDir, systemCfg, logger)
+	cmd = NewRunCommand(ctx, fs, kdepsDir, systemCfg, logger)
 	cmd.SetArgs([]string{filepath.Join(testDir, "nonexistent.kdeps")})
 	err = cmd.Execute()
 	require.Error(t, err)
@@ -126,7 +126,7 @@ run {
 	invalidKdepsPath := filepath.Join(testDir, "invalid.kdeps")
 	err = afero.WriteFile(fs, invalidKdepsPath, []byte("invalid package"), 0o644)
 	require.NoError(t, err)
-	cmd = NewRunCommand(fs, ctx, kdepsDir, systemCfg, logger)
+	cmd = NewRunCommand(ctx, fs, kdepsDir, systemCfg, logger)
 	cmd.SetArgs([]string{invalidKdepsPath})
 	err = cmd.Execute()
 	require.Error(t, err)
@@ -213,7 +213,7 @@ run {
 	err = afero.WriteFile(fs, validKdepsPath, []byte("valid package"), 0o644)
 	require.NoError(t, err)
 
-	cmd := NewRunCommand(fs, ctx, kdepsDir, systemCfg, logger)
+	cmd := NewRunCommand(ctx, fs, kdepsDir, systemCfg, logger)
 	cmd.SetArgs([]string{validKdepsPath})
 	err = cmd.Execute()
 	require.Error(t, err) // Should fail due to docker client initialization
@@ -223,7 +223,7 @@ func TestNewRunCommand_MetadataAndErrorPath(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
 
-	cmd := NewRunCommand(fs, ctx, t.TempDir(), nil, logging.NewTestLogger())
+	cmd := NewRunCommand(ctx, fs, t.TempDir(), nil, logging.NewTestLogger())
 
 	// metadata assertions
 	assert.Equal(t, "run [package]", cmd.Use)

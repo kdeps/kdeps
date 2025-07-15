@@ -11,7 +11,7 @@ import (
 )
 
 // NewAgentCommand creates the 'new' command and passes the necessary dependencies.
-func NewAgentCommand(fs afero.Fs, ctx context.Context, kdepsDir string, logger *logging.Logger) *cobra.Command {
+func NewAgentCommand(ctx context.Context, fs afero.Fs, kdepsDir string, logger *logging.Logger) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "new [agentName]",
 		Aliases: []string{"n"},
@@ -27,12 +27,12 @@ func NewAgentCommand(fs afero.Fs, ctx context.Context, kdepsDir string, logger *
 			}
 
 			// Generate workflow file
-			if err := template.GenerateWorkflowFile(fs, ctx, logger, mainDir, agentName); err != nil {
+			if err := template.GenerateWorkflowFile(ctx, fs, logger, mainDir, agentName); err != nil {
 				return fmt.Errorf("failed to generate workflow file: %w", err)
 			}
 
 			// Generate resource files
-			if err := template.GenerateResourceFiles(fs, ctx, logger, mainDir, agentName); err != nil {
+			if err := template.GenerateResourceFiles(ctx, fs, logger, mainDir, agentName); err != nil {
 				return fmt.Errorf("failed to generate resource files: %w", err)
 			}
 

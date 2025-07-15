@@ -19,7 +19,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-func FindConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
+func FindConfiguration(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 	logger.Debug("finding configuration...")
 
 	// Use the initialized environment's Pwd directory
@@ -40,7 +40,7 @@ func FindConfiguration(fs afero.Fs, ctx context.Context, env *environment.Enviro
 	return "", nil
 }
 
-func GenerateConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
+func GenerateConfiguration(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 	logger.Debug("generating configuration...")
 
 	// Set configFile path in Home directory
@@ -80,7 +80,7 @@ func GenerateConfiguration(fs afero.Fs, ctx context.Context, env *environment.En
 	return configFile, nil
 }
 
-func EditConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
+func EditConfiguration(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 	logger.Debug("editing configuration...")
 
 	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
@@ -115,7 +115,7 @@ func EditConfiguration(fs afero.Fs, ctx context.Context, env *environment.Enviro
 	return configFile, nil
 }
 
-func ValidateConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
+func ValidateConfiguration(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 	logger.Debug("validating configuration...")
 
 	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
@@ -128,7 +128,7 @@ func ValidateConfiguration(fs afero.Fs, ctx context.Context, env *environment.En
 	return configFile, nil
 }
 
-func LoadConfiguration(fs afero.Fs, ctx context.Context, configFile string, logger *logging.Logger) (*kdeps.Kdeps, error) {
+func LoadConfiguration(ctx context.Context, fs afero.Fs, configFile string, logger *logging.Logger) (*kdeps.Kdeps, error) {
 	logger.Debug("loading configuration", "config-file", configFile)
 
 	konfig, err := kdeps.LoadFromPath(ctx, configFile)
@@ -139,7 +139,7 @@ func LoadConfiguration(fs afero.Fs, ctx context.Context, configFile string, logg
 	return konfig, nil
 }
 
-func GetKdepsPath(ctx context.Context, kdepsCfg kdeps.Kdeps) (string, error) {
+func GetKdepsPath(_ context.Context, kdepsCfg kdeps.Kdeps) (string, error) {
 	kdepsDir := kdepsCfg.KdepsDir
 	p := kdepsCfg.KdepsPath
 

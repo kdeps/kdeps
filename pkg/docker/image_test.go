@@ -78,7 +78,7 @@ func generateDockerfile(
 	return result
 }
 
-func setupTestImage(t *testing.T) (afero.Fs, *logging.Logger, *archiver.KdepsPackage) {
+func setupTestImage(_ *testing.T) (afero.Fs, *logging.Logger, *archiver.KdepsPackage) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 	pkgProject := &archiver.KdepsPackage{
@@ -215,13 +215,13 @@ func TestPrintDockerBuildOutput(t *testing.T) {
 {"stream": " ---> abc123\n"}
 {"stream": "Step 2/10 : RUN command\n"}
 {"stream": " ---> def456\n"}`
-		err := docker.PrintDockerBuildOutput(bytes.NewReader([]byte(output)))
+		err := docker.PrintDockerBuildOutput(bytes.NewReader([]byte(output)), logging.NewTestLogger())
 		require.NoError(t, err)
 	})
 
 	t.Run("ErrorOutput", func(t *testing.T) {
 		output := `{"error": "Build failed"}`
-		err := docker.PrintDockerBuildOutput(bytes.NewReader([]byte(output)))
+		err := docker.PrintDockerBuildOutput(bytes.NewReader([]byte(output)), logging.NewTestLogger())
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "Build failed")
 	})
@@ -387,13 +387,13 @@ func TestPrintDockerBuildOutput_Extra(t *testing.T) {
 		"non-json-line should be echoed as-is", // raw
 	}
 	reader := bytes.NewBufferString(strings.Join(lines, "\n"))
-	err := docker.PrintDockerBuildOutput(reader)
+	err := docker.PrintDockerBuildOutput(reader, logging.NewTestLogger())
 	require.NoError(t, err)
 
 	// 2. Error path: JSON line with an error field should surface.
 	errLines := []string{marshal(t, docker.BuildLine{Error: "boom"})}
 	errReader := bytes.NewBufferString(strings.Join(errLines, "\n"))
-	err = docker.PrintDockerBuildOutput(errReader)
+	err = docker.PrintDockerBuildOutput(errReader, logging.NewTestLogger())
 	assert.ErrorContains(t, err, "boom")
 }
 
@@ -1410,7 +1410,7 @@ func TestGenerateURLs_AnacondaError(t *testing.T) {
 
 	// GitHub fetch succeeds to move past first item.
 	schema.UseLatest = true
-	utils.GitHubReleaseFetcher = func(ctx context.Context, repo, base string) (string, error) {
+	utils.GitHubReleaseFetcher = func(_ context.Context, repo, base string) (string, error) {
 		return "0.28.1", nil
 	}
 
@@ -1529,7 +1529,7 @@ func TestGenerateURLsLatestUsesFetcher(t *testing.T) {
 	}()
 
 	schema.UseLatest = true
-	utils.GitHubReleaseFetcher = func(ctx context.Context, repo string, baseURL string) (string, error) {
+	utils.GitHubReleaseFetcher = func(_ context.Context, repo string, baseURL string) (string, error) {
 		return "0.99.0", nil
 	}
 
@@ -1551,14 +1551,14 @@ func TestGenerateURLsLatestUsesFetcher(t *testing.T) {
 
 func TestPrintDockerBuildOutputSuccess(t *testing.T) {
 	logs := `{"stream":"Step 1/2 : FROM alpine\n"}\n{"stream":" ---\u003e 123abc\n"}\n`
-	if err := docker.PrintDockerBuildOutput(strings.NewReader(logs)); err != nil {
+	if err := docker.PrintDockerBuildOutput(strings.NewReader(logs), logging.NewTestLogger()); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 }
 
 func TestPrintDockerBuildOutputError(t *testing.T) {
 	logs := `{"error":"something bad"}`
-	if err := docker.PrintDockerBuildOutput(strings.NewReader(logs)); err == nil {
+	if err := docker.PrintDockerBuildOutput(strings.NewReader(logs), logging.NewTestLogger()); err == nil {
 		t.Fatalf("expected error, got nil")
 	}
 }
@@ -1571,7 +1571,7 @@ func TestPrintDockerBuildOutput_Success(t *testing.T) {
 	}
 	rd := strings.NewReader(strings.Join(logs, "\n"))
 
-	err := docker.PrintDockerBuildOutput(rd)
+	err := docker.PrintDockerBuildOutput(rd, logging.NewTestLogger())
 	assert.NoError(t, err)
 }
 
@@ -1582,7 +1582,7 @@ func TestPrintDockerBuildOutput_Error(t *testing.T) {
 	}
 	rd := strings.NewReader(strings.Join(logs, "\n"))
 
-	err := docker.PrintDockerBuildOutput(rd)
+	err := docker.PrintDockerBuildOutput(rd, logging.NewTestLogger())
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "some docker build error")
 }
@@ -1593,7 +1593,7 @@ func TestPrintDockerBuildOutput_NonJSONLines(t *testing.T) {
 	buf.WriteString("{\"stream\":\"ok\"}\n")
 	buf.WriteString("another bad line\n")
 
-	err := docker.PrintDockerBuildOutput(&buf)
+	err := docker.PrintDockerBuildOutput(&buf, logging.NewTestLogger())
 	assert.NoError(t, err)
 }
 

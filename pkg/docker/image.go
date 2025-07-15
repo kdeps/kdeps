@@ -64,7 +64,7 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 	for _, image := range images {
 		for _, tag := range image.RepoTags {
 			if tag == containerName {
-				fmt.Println("Image already exists:", containerName)
+				// Image already exists
 				return cName, containerName, nil
 			}
 		}
@@ -135,12 +135,12 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 	defer response.Body.Close()
 
 	// Process and print the build output
-	err = PrintDockerBuildOutput(response.Body)
+	err = PrintDockerBuildOutput(response.Body, logger)
 	if err != nil {
 		return cName, containerName, err
 	}
 
-	fmt.Println("Docker image build completed successfully!")
+	// Docker image build completed successfully
 
 	return cName, containerName, nil
 }
@@ -483,7 +483,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 
 	// Write the Dockerfile to the run directory
 	resourceConfigurationFile := filepath.Join(runDir, "Dockerfile")
-	fmt.Println(resourceConfigurationFile)
+	logger.Debug("Resource configuration file", "content", resourceConfigurationFile)
 	err = afero.WriteFile(fs, resourceConfigurationFile, []byte(dockerfileContent), 0o644)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
@@ -493,7 +493,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 }
 
 // PrintDockerBuildOutput prints Docker build output.
-func PrintDockerBuildOutput(rd io.Reader) error {
+func PrintDockerBuildOutput(rd io.Reader, logger *logging.Logger) error {
 	scanner := bufio.NewScanner(rd)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -503,13 +503,13 @@ func PrintDockerBuildOutput(rd io.Reader) error {
 		err := json.Unmarshal([]byte(line), buildLine)
 		if err != nil {
 			// If unmarshalling fails, print the raw line (non-JSON output)
-			fmt.Println(line)
+			logger.Debug("Dockerfile line", "line", line)
 			continue
 		}
 
 		// Print the build logs (stream output)
 		if buildLine.Stream != "" {
-			fmt.Print(buildLine.Stream) // Docker logs often include newlines, so no need to add extra
+			logger.Debug("Docker build output", "stream", buildLine.Stream)
 		}
 
 		// If there's an error in the build process, return it

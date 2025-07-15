@@ -20,7 +20,6 @@ import (
 	"github.com/kdeps/kdeps/pkg/resource"
 	"github.com/kdeps/kdeps/pkg/workflow"
 	assets "github.com/kdeps/schema/assets"
-	"github.com/kr/pretty"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -107,12 +106,12 @@ func aKdepsArchiveIsOpened(arg1 string) error {
 		return errors.New("agent should not yet exists on system agents dir")
 	}
 
-	proj, err := archiver.ExtractPackage(testFs, ctx, kdepsDir, lastCreatedPackage, logger)
+	_, err := archiver.ExtractPackage(testFs, ctx, kdepsDir, lastCreatedPackage, logger)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("%# v", pretty.Formatter(proj))
+	// Debug output removed
 
 	return nil
 }

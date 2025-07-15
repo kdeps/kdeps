@@ -22,7 +22,7 @@ func TestCreateAndProcessPklFile_AmendsInPkg(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
-	processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
+	processFunc := func(_ afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
 		// Simply return the header section to verify it flows through
 		return headerSection + "\nprocessed", nil
 	}
@@ -48,7 +48,7 @@ func TestCreateAndProcessPklFile_ExtendsInPkg(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
-	processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
+	processFunc := func(_ afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
 		return "result-" + headerSection, nil
 	}
 
@@ -69,7 +69,7 @@ func TestCreateAndProcessPklFile_ProcessErrorInPkg(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
-	processFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
+	processFunc := func(_ afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
 		return "", assert.AnError
 	}
 
@@ -101,7 +101,7 @@ func TestCreateAndProcessPklFile_Basic(t *testing.T) {
 	finalFile := filepath.Join(t.TempDir(), "out.pkl")
 
 	// simple process func echoes header + sections concatenated
-	process := func(fs afero.Fs, ctx context.Context, tmpFile string, header string, logger *logging.Logger) (string, error) {
+	process := func(_ afero.Fs, ctx context.Context, tmpFile string, header string, logger *logging.Logger) (string, error) {
 		data, err := afero.ReadFile(fs, tmpFile)
 		if err != nil {
 			return "", err

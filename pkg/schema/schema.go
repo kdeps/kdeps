@@ -18,29 +18,40 @@ var (
 	ExitFunc = os.Exit
 )
 
-// Version fetches and returns the schema version based on the cmd.Latest flag.
-func Version(ctx context.Context) string {
-	if UseLatest { // Reference the global Latest flag from cmd package
-		// Try to get from cache first
-		if cached, ok := VersionCache.Load("version"); ok {
+// VersionDeps holds dependencies for VersionWithDeps, enabling test injection.
+type VersionDeps struct {
+	UseLatest    bool
+	Fetcher      func(context.Context, string, string) (string, error)
+	ExitFunc     func(int)
+	VersionCache *sync.Map
+}
+
+// VersionWithDeps fetches and returns the schema version using injected dependencies.
+func VersionWithDeps(ctx context.Context, deps VersionDeps) string {
+	if deps.UseLatest {
+		if cached, ok := deps.VersionCache.Load("version"); ok {
 			if cachedStr, okStr := cached.(string); okStr {
 				return cachedStr
 			}
 			return ""
 		}
-
-		// If not in cache, fetch it
-		schemaVersion, err := utils.GitHubReleaseFetcher(ctx, "kdeps/schema", "")
+		schemaVersion, err := deps.Fetcher(ctx, "kdeps/schema", "")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: Unable to fetch the latest schema version for 'kdeps/schema': %v\n", err)
-			ExitFunc(1)
+			deps.ExitFunc(1)
 		}
-
-		// Store in cache
-		VersionCache.Store("version", schemaVersion)
+		deps.VersionCache.Store("version", schemaVersion)
 		return schemaVersion
 	}
-
-	// Use the centralized default schema version
 	return version.DefaultSchemaVersion
+}
+
+// Version fetches and returns the schema version using global dependencies.
+func Version(ctx context.Context) string {
+	return VersionWithDeps(ctx, VersionDeps{
+		UseLatest:    UseLatest,
+		Fetcher:      utils.GitHubReleaseFetcher,
+		ExitFunc:     ExitFunc,
+		VersionCache: &VersionCache,
+	})
 }

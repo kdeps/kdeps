@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/pkg/environment"
-	kdCfg "github.com/kdeps/schema/gen/kdeps"
 )
 
 func TestNewBuildCommandFlags(t *testing.T) {
@@ -24,7 +23,7 @@ func TestNewBuildCommandFlags(t *testing.T) {
 	systemCfg := &kdeps.Kdeps{}
 	logger := logging.NewTestLogger()
 
-	cmd := NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger)
+	cmd := NewBuildCommand(ctx, fs, kdepsDir, systemCfg, logger)
 	assert.Equal(t, "build [package]", cmd.Use)
 	assert.Equal(t, []string{"b"}, cmd.Aliases)
 	assert.Equal(t, "Build a dockerized AI agent", cmd.Short)
@@ -115,12 +114,12 @@ run {
 	require.NoError(t, err)
 
 	// Test error case - no arguments
-	cmd := NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger)
+	cmd := NewBuildCommand(ctx, fs, kdepsDir, systemCfg, logger)
 	err = cmd.Execute()
 	require.Error(t, err)
 
 	// Test error case - nonexistent file
-	cmd = NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger)
+	cmd = NewBuildCommand(ctx, fs, kdepsDir, systemCfg, logger)
 	cmd.SetArgs([]string{filepath.Join(testDir, "nonexistent.kdeps")})
 	err = cmd.Execute()
 	require.Error(t, err)
@@ -129,7 +128,7 @@ run {
 	invalidKdepsPath := filepath.Join(testDir, "invalid.kdeps")
 	err = afero.WriteFile(fs, invalidKdepsPath, []byte("invalid package"), 0o644)
 	require.NoError(t, err)
-	cmd = NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger)
+	cmd = NewBuildCommand(ctx, fs, kdepsDir, systemCfg, logger)
 	cmd.SetArgs([]string{invalidKdepsPath})
 	err = cmd.Execute()
 	require.Error(t, err)
@@ -214,7 +213,7 @@ run {
 	err = afero.WriteFile(fs, validKdepsPath, []byte("valid package"), 0o644)
 	require.NoError(t, err)
 
-	cmd := NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger)
+	cmd := NewBuildCommand(ctx, fs, kdepsDir, systemCfg, logger)
 	cmd.SetArgs([]string{validKdepsPath})
 	err = cmd.Execute()
 	require.Error(t, err) // Should fail due to docker client initialization
@@ -224,7 +223,7 @@ func TestNewBuildCommand_MetadataAndErrorPath(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
 
-	cmd := NewBuildCommand(fs, ctx, t.TempDir(), nil, logging.NewTestLogger())
+	cmd := NewBuildCommand(ctx, fs, t.TempDir(), nil, logging.NewTestLogger())
 
 	// Verify metadata
 	assert.Equal(t, "build [package]", cmd.Use)
@@ -242,7 +241,7 @@ func TestNewBuildCommand_MetadataAndErrorPath(t *testing.T) {
 
 func TestNewBuildCommandMetadata(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	cmd := NewBuildCommand(fs, context.Background(), "/kdeps", nil, logging.NewTestLogger())
+	cmd := NewBuildCommand(context.Background(), fs, "/kdeps", nil, logging.NewTestLogger())
 
 	if cmd.Use != "build [package]" {
 		t.Fatalf("unexpected Use: %s", cmd.Use)
@@ -275,7 +274,7 @@ func TestNewAddCommandConstructor(t *testing.T) {
 
 func TestNewBuildCommandConstructor(t *testing.T) {
 	fs, ctx, dir, logger := testDeps(t)
-	cmd := NewBuildCommand(fs, ctx, dir, &kdCfg.Kdeps{}, logger)
+	cmd := NewBuildCommand(ctx, fs, dir, &kdeps.Kdeps{}, logger)
 	if cmd.Use != "build [package]" {
 		t.Fatalf("unexpected Use field: %s", cmd.Use)
 	}
@@ -287,7 +286,7 @@ func TestNewBuildCommandConstructor(t *testing.T) {
 
 func TestNewAgentCommandConstructor(t *testing.T) {
 	fs, ctx, dir, logger := testDeps(t)
-	cmd := NewAgentCommand(fs, ctx, dir, logger)
+	cmd := NewAgentCommand(ctx, fs, dir, logger)
 	if cmd.Use != "new [agentName]" {
 		t.Fatalf("unexpected Use field: %s", cmd.Use)
 	}
@@ -300,7 +299,7 @@ func TestNewAgentCommandConstructor(t *testing.T) {
 
 func TestNewPackageCommandConstructor(t *testing.T) {
 	fs, ctx, dir, logger := testDeps(t)
-	cmd := NewPackageCommand(fs, ctx, dir, &environment.Environment{}, logger)
+	cmd := NewPackageCommand(ctx, fs, dir, &environment.Environment{}, logger)
 	if cmd.Use != "package [agent-dir]" {
 		t.Fatalf("unexpected Use field: %s", cmd.Use)
 	}
@@ -312,7 +311,7 @@ func TestNewPackageCommandConstructor(t *testing.T) {
 
 func TestNewRunCommandConstructor(t *testing.T) {
 	fs, ctx, dir, logger := testDeps(t)
-	cmd := NewRunCommand(fs, ctx, dir, &kdCfg.Kdeps{}, logger)
+	cmd := NewRunCommand(ctx, fs, dir, &kdeps.Kdeps{}, logger)
 	if cmd.Use != "run [package]" {
 		t.Fatalf("unexpected Use field: %s", cmd.Use)
 	}
@@ -324,7 +323,7 @@ func TestNewRunCommandConstructor(t *testing.T) {
 
 func TestNewScaffoldCommandConstructor(t *testing.T) {
 	fs, _, _, logger := testDeps(t)
-	cmd := NewScaffoldCommand(fs, context.Background(), logger)
+	cmd := NewScaffoldCommand(context.Background(), fs, logger)
 	if cmd.Use != "scaffold [agentName] [fileNames...]" {
 		t.Fatalf("unexpected Use field: %s", cmd.Use)
 	}

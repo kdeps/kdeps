@@ -19,7 +19,7 @@ var (
 )
 
 // NewPackageCommand creates the 'package' command and passes the necessary dependencies.
-func NewPackageCommand(fs afero.Fs, ctx context.Context, kdepsDir string, env *environment.Environment, logger *logging.Logger) *cobra.Command {
+func NewPackageCommand(ctx context.Context, fs afero.Fs, kdepsDir string, env *environment.Environment, logger *logging.Logger) *cobra.Command {
 	return &cobra.Command{
 		Use:     "package [agent-dir]",
 		Aliases: []string{"p"},

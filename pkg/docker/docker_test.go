@@ -156,7 +156,7 @@ DockerGPU = "%s"
 		return err
 	}
 
-	systemConfigurationFile, err := cfg.FindConfiguration(testFs, ctx, environ, logger)
+	systemConfigurationFile, err := cfg.FindConfiguration(ctx, testFs, environ, logger)
 	if err != nil {
 		return err
 	}
@@ -165,12 +165,12 @@ DockerGPU = "%s"
 		return err
 	}
 
-	syscfg, err := cfg.LoadConfiguration(testFs, ctx, systemConfigurationFile, logger)
+	config, err := cfg.LoadConfiguration(ctx, testFs, systemConfigurationFile, logger)
 	if err != nil {
 		return err
 	}
 
-	systemConfiguration = syscfg
+	systemConfiguration = config
 
 	return nil
 }
@@ -415,7 +415,7 @@ func itShouldCreateTheDockerfile(arg1, arg2, arg3 string) error {
 	return nil
 }
 
-func itShouldRunTheContainerBuildStepFor(arg1 string) error {
+func itShouldRunTheContainerBuildStepFor(_ string) error {
 	cl, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return err
@@ -438,7 +438,7 @@ func itShouldRunTheContainerBuildStepFor(arg1 string) error {
 	return nil
 }
 
-func itShouldStartTheContainer(arg1 string) error {
+func itShouldStartTheContainer(_ string) error {
 	if _, err := docker.CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, "", "", gpuType, APIServerMode, false, cli); err != nil {
 		return err
 	}
@@ -446,7 +446,7 @@ func itShouldStartTheContainer(arg1 string) error {
 	return nil
 }
 
-func kdepsOpenThePackage(arg1 string) error {
+func kdepsOpenThePackage(_ string) error {
 	pkgP, err := archiver.ExtractPackage(testFs, ctx, kdepsDir, packageFile, logger)
 	if err != nil {
 		return err
@@ -457,7 +457,7 @@ func kdepsOpenThePackage(arg1 string) error {
 	return nil
 }
 
-func theValidAiagentHas(arg1, arg2 string) error {
+func theValidAiagentHas(_, _ string) error {
 	cDir, pFile, err := archiver.CompileProject(testFs, ctx, *workflowConfiguration, kdepsDir, agentDir, environ, logger)
 	if err != nil {
 		return err
@@ -510,7 +510,7 @@ func itWillInstallTheModels(arg1 string) error {
 	return nil
 }
 
-func kdepsWillCheckThePresenceOfTheFile(arg1 string) error {
+func kdepsWillCheckThePresenceOfTheFile(_ string) error {
 	dr, err := resolver.NewGraphResolver(testFs, ctx, environ, nil, logger)
 	if err != nil {
 		return err
@@ -912,13 +912,13 @@ func PackageProject(fs afero.Fs, ctx context.Context, wf wfPkl.Workflow, kdepsDi
 
 func TestPrintDockerBuildOutputSimple(t *testing.T) {
 	successLog := bytes.NewBufferString(`{"stream":"Step 1/2 : FROM alpine\n"}\n{"stream":" ---> 123abc\n"}\n`)
-	if err := docker.PrintDockerBuildOutput(successLog); err != nil {
+	if err := docker.PrintDockerBuildOutput(successLog, logging.NewTestLogger()); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	// Error case should propagate the message
 	errBuf := bytes.NewBufferString(`{"error":"build failed"}`)
-	if err := docker.PrintDockerBuildOutput(errBuf); err == nil {
+	if err := docker.PrintDockerBuildOutput(errBuf, logging.NewTestLogger()); err == nil {
 		t.Fatalf("expected error not returned")
 	}
 }

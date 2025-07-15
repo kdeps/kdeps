@@ -203,7 +203,7 @@ func (dr *DependencyResolver) LoadResourceWithRequestContext(ctx context.Context
 // This enables PKL files to access request.params(), request.headers(), etc.
 func (dr *DependencyResolver) populateRequestDataInPklres() error {
 	if dr.RequestPklFile == "" {
-		return fmt.Errorf("no request PKL file specified")
+		return errors.New("no request PKL file specified")
 	}
 
 	// Check if the request file exists

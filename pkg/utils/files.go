@@ -52,7 +52,7 @@ func GenerateResourceIDFilename(input string, requestID string) string {
 	return strings.TrimPrefix(requestID+sanitized, "_")
 }
 
-func CreateDirectories(fs afero.Fs, ctx context.Context, dirs []string) error {
+func CreateDirectories(_ context.Context, fs afero.Fs, dirs []string) error {
 	for _, dir := range dirs {
 		// Use fs.MkdirAll to create the directory and its parents if they don't exist
 		err := fs.MkdirAll(dir, 0o755)
@@ -63,7 +63,7 @@ func CreateDirectories(fs afero.Fs, ctx context.Context, dirs []string) error {
 	return nil
 }
 
-func CreateFiles(fs afero.Fs, ctx context.Context, files []string) error {
+func CreateFiles(_ context.Context, fs afero.Fs, files []string) error {
 	for _, file := range files {
 		// Create the file and any necessary parent directories
 		f, err := fs.Create(file)
