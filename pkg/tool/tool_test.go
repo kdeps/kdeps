@@ -316,7 +316,7 @@ func TestPklResourceReader(t *testing.T) {
 
 		// Create a mock result that fails RowsAffected
 		mockResult := &mockResult{rowsAffectedErr: errors.New("mock rows affected error")}
-		mockDB.execFunc = func(query string, args ...interface{}) (sql.Result, error) {
+		mockDB.execFunc = func(_ string, args ...interface{}) (sql.Result, error) {
 			return mockResult, nil
 		}
 
@@ -330,7 +330,7 @@ func TestPklResourceReader(t *testing.T) {
 	t.Run("Read_Run_SQLExecFails", func(t *testing.T) {
 		// Create a mock DB that fails on Exec
 		mockDB := newMockDB()
-		mockDB.execFunc = func(query string, args ...interface{}) (sql.Result, error) {
+		mockDB.execFunc = func(_ string, args ...interface{}) (sql.Result, error) {
 			return nil, errors.New("mock exec error")
 		}
 
@@ -344,7 +344,7 @@ func TestPklResourceReader(t *testing.T) {
 	t.Run("Read_History_SQLQueryFails", func(t *testing.T) {
 		// Create a mock DB that fails Query
 		mockDB := newMockDB()
-		mockDB.queryFunc = func(query string, args ...interface{}) (*sql.Rows, error) {
+		mockDB.queryFunc = func(_ string, args ...interface{}) (*sql.Rows, error) {
 			return nil, errors.New("mock query error")
 		}
 

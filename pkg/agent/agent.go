@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -67,7 +66,7 @@ func (r *PklResourceReader) ListElements(_ url.URL) ([]pkl.PathElement, error) {
 
 // Read handles agent ID resolution operations based on the URI.
 func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
-	slog.Debug("AgentReader.Read called", "uri", uri.String())
+	r.Logger.Debug("AgentReader.Read called", "uri", uri.String())
 	query := uri.Query()
 	op := query.Get("op")
 
@@ -82,8 +81,8 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		slog.Debug("AgentReader.Read resolved", "from", uri.String(), "to", resolvedID)
-		return []byte(resolvedID), nil
+		r.Logger.Debug("AgentReader.Read resolved", "from", uri.String(), "to", resolvedID)
+		return resolvedID, nil
 	case "list":
 		// If no path is provided, treat as list-installed
 		if uri.Path == "" || uri.Path == "/" {
@@ -595,6 +594,10 @@ func (r *PklResourceReader) findLatestVersionFromDB(agentID string) (string, err
 	}
 	defer rows.Close()
 
+	if err = rows.Err(); err != nil {
+		return "", fmt.Errorf("error iterating over rows: %w", err)
+	}
+
 	var latestVersion string
 	for rows.Next() {
 		var id string
@@ -623,7 +626,7 @@ func (r *PklResourceReader) findLatestVersionFromDB(agentID string) (string, err
 // If it doesn't exist, it creates one with the provided parameters.
 // If it exists, it updates the current agent context if parameters are provided.
 func GetGlobalAgentReader(fs afero.Fs, kdepsDir string, currentAgent string, currentVersion string, logger *logging.Logger) (*PklResourceReader, error) {
-	slog.Debug("GetGlobalAgentReader called", "kdepsDir", kdepsDir, "currentAgent", currentAgent, "currentVersion", currentVersion)
+	logger.Debug("GetGlobalAgentReader called", "kdepsDir", kdepsDir, "currentAgent", currentAgent, "currentVersion", currentVersion)
 
 	// Check if we need to update context (requires write lock)
 	needsUpdate := false
@@ -651,7 +654,7 @@ func GetGlobalAgentReader(fs afero.Fs, kdepsDir string, currentAgent string, cur
 				globalAgentReader.KdepsDir = kdepsDir
 			}
 			globalAgentMutex.Unlock()
-			slog.Debug("GetGlobalAgentReader: updated existing global agent reader context")
+			logger.Debug("GetGlobalAgentReader: updated existing global agent reader context")
 			return globalAgentReader, nil
 		}
 		globalAgentMutex.Unlock()
@@ -661,7 +664,7 @@ func GetGlobalAgentReader(fs afero.Fs, kdepsDir string, currentAgent string, cur
 	globalAgentMutex.RLock()
 	if globalAgentReader != nil {
 		globalAgentMutex.RUnlock()
-		slog.Debug("GetGlobalAgentReader: returning existing global agent reader")
+		logger.Debug("GetGlobalAgentReader: returning existing global agent reader")
 		return globalAgentReader, nil
 	}
 	globalAgentMutex.RUnlock()
@@ -672,20 +675,20 @@ func GetGlobalAgentReader(fs afero.Fs, kdepsDir string, currentAgent string, cur
 
 	// Double-check pattern
 	if globalAgentReader != nil {
-		slog.Debug("GetGlobalAgentReader: returning existing global agent reader (double-check)")
+		logger.Debug("GetGlobalAgentReader: returning existing global agent reader (double-check)")
 		return globalAgentReader, nil
 	}
 
 	// Create the singleton instance
-	slog.Debug("GetGlobalAgentReader: creating new global agent reader")
+	logger.Debug("GetGlobalAgentReader: creating new global agent reader")
 	reader, err := InitializeAgent(fs, kdepsDir, currentAgent, currentVersion, logger)
 	if err != nil {
-		slog.Debug("GetGlobalAgentReader: failed to create new agent reader", "error", err)
+		logger.Debug("GetGlobalAgentReader: failed to create new agent reader", "error", err)
 		return nil, err
 	}
 
 	globalAgentReader = reader
-	slog.Debug("GetGlobalAgentReader: created new global agent reader successfully")
+	logger.Debug("GetGlobalAgentReader: created new global agent reader successfully")
 	return globalAgentReader, nil
 }
 

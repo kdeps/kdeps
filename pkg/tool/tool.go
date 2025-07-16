@@ -14,7 +14,7 @@ import (
 	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/kdepsexec"
 	"github.com/kdeps/kdeps/pkg/logging"
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/mattn/go-sqlite3" // SQLite driver registration
 )
 
 // PklResourceReader implements the pkl.ResourceReader interface for SQLite.
