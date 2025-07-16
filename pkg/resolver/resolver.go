@@ -187,6 +187,14 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	// Set environment variables early to ensure agent reader has proper context
 	os.Setenv("KDEPS_CURRENT_AGENT", workflowConfiguration.GetAgentID())
 	os.Setenv("KDEPS_CURRENT_VERSION", workflowConfiguration.GetVersion())
+	
+	// Use configurable shared volume path for tests or default to /.kdeps/
+	kdepsBase := os.Getenv("KDEPS_SHARED_VOLUME_PATH")
+	if kdepsBase == "" {
+		kdepsBase = "/.kdeps/"
+	}
+	// Set the environment variable for pklres agent resolution
+	os.Setenv("KDEPS_SHARED_VOLUME_PATH", kdepsBase)
 
 	if workflowConfiguration.GetSettings() != nil {
 		apiServerMode = workflowConfiguration.GetSettings().APIServerMode != nil && *workflowConfiguration.GetSettings().APIServerMode
@@ -194,12 +202,6 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		if agentSettings != nil {
 			installAnaconda = agentSettings.InstallAnaconda != nil && *agentSettings.InstallAnaconda
 		}
-	}
-
-	// Use configurable kdeps path for tests or default to /.kdeps/
-	kdepsBase := os.Getenv("KDEPS_PATH")
-	if kdepsBase == "" {
-		kdepsBase = "/.kdeps/"
 	}
 
 	// Ensure kdepsBase directory exists
@@ -252,14 +254,16 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		return nil, fmt.Errorf("failed to initialize agent DB: %w", err)
 	}
 
-	// Use graphID-specific database file for pklres to share data between evaluator and resolver
-	pklresDBPath := filepath.Join(actionDir, graphID+"_pklres.db")
-	pklresReader, err := pklres.InitializePklResource(pklresDBPath, graphID)
+	// Use the global pklres reader and update its context for this workflow
+	pklresReader := pklres.GetGlobalPklresReader()
+	if pklresReader == nil {
+		return nil, fmt.Errorf("global pklres reader not initialized")
+	}
+	
+	// Update the global reader's context for this workflow
+	err = pklres.UpdateGlobalPklresReaderContext(graphID, workflowConfiguration.GetAgentID(), workflowConfiguration.GetVersion(), kdepsBase)
 	if err != nil {
-		if pklresReader != nil {
-			pklresReader.DB.Close()
-		}
-		return nil, fmt.Errorf("failed to initialize pklres DB: %w", err)
+		return nil, fmt.Errorf("failed to update pklres reader context: %w", err)
 	}
 
 	// Always reinitialize the evaluator with graphID-specific resource readers
@@ -312,7 +316,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		AgentDBPath:             agentDBPath,
 		AgentReader:             agentReader,
 		PklresReader:            pklresReader,
-		PklresDBPath:            pklresDBPath,
+		PklresDBPath:            pklresReader.DBPath,
 		CurrentResourceActionID: "", // Initialize as empty, will be set during resource processing
 		DBs: []*sql.DB{
 			memoryReader.DB,
@@ -320,7 +324,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 			toolReader.DB,
 			itemReader.DB,
 			agentReader.DB,
-			pklresReader.DB,
+			// Note: pklresReader.DB is global and should not be closed here
 		},
 		FileRunCounter: make(map[string]int), // Initialize the file run counter map
 		DefaultTimeoutSec: func() int {
@@ -608,9 +612,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			if dr.AgentReader != nil {
 				dr.AgentReader.Close()
 			}
-			if dr.PklresReader != nil && dr.PklresReader.DB != nil {
-				dr.PklresReader.DB.Close()
-			}
+			// Note: PklresReader is global and should not be closed here
 
 			// Close the singleton evaluator
 			if evaluatorMgr, err := evaluator.GetEvaluatorManager(); err == nil {
@@ -765,12 +767,8 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	if dr.AgentReader != nil {
 		dr.AgentReader.Close()
 	}
-	if dr.PklresReader != nil && dr.PklresReader.DB != nil {
-		dr.PklresReader.DB.Close()
-	}
-
-	// Note: Evaluator is closed by the caller after EvalPklFormattedResponseFile
-	// to ensure it's available for response file evaluation
+	// Note: Evaluator and PklresReader are closed by the caller after EvalPklFormattedResponseFile
+	// to ensure they're available for response evaluation
 
 	// Remove the request stamp file
 	if err := dr.Fs.RemoveAll(requestFilePath); err != nil {

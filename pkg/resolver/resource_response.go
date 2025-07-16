@@ -395,12 +395,12 @@ func (dr *DependencyResolver) buildResponseSections(requestID string, apiRespons
 	}
 
 	sections := []string{
-		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Document.pkl" as document`, schema.Version(dr.Context)),
-		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Memory.pkl" as memory`, schema.Version(dr.Context)),
-		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Session.pkl" as session`, schema.Version(dr.Context)),
-		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Tool.pkl" as tool`, schema.Version(dr.Context)),
-		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Item.pkl" as item`, schema.Version(dr.Context)),
-		fmt.Sprintf(`import "package://schema.kdeps.com/core@%s#/Agent.pkl" as agent`, schema.Version(dr.Context)),
+		fmt.Sprintf(`import "%s" as document`, schema.ImportPath(dr.Context, "Document.pkl")),
+		fmt.Sprintf(`import "%s" as memory`, schema.ImportPath(dr.Context, "Memory.pkl")),
+		fmt.Sprintf(`import "%s" as session`, schema.ImportPath(dr.Context, "Session.pkl")),
+		fmt.Sprintf(`import "%s" as tool`, schema.ImportPath(dr.Context, "Tool.pkl")),
+		fmt.Sprintf(`import "%s" as item`, schema.ImportPath(dr.Context, "Item.pkl")),
+		fmt.Sprintf(`import "%s" as agent`, schema.ImportPath(dr.Context, "Agent.pkl")),
 		fmt.Sprintf("Success = %v", isSuccess),
 		formatResponseMeta(requestID, apiResponseBlock.GetMeta()),
 		formatResponseData(responseData), // Use the fallback data if original was empty

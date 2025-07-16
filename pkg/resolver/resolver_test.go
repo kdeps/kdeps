@@ -869,12 +869,12 @@ func TestNewGraphResolver(t *testing.T) {
 	ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, "test-graph-id")
 	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, actionDir)
 
-	// Set KDEPS_PATH environment variable to use tmpdir for database files
+	// Set KDEPS_SHARED_VOLUME_PATH environment variable to use tmpdir for database files
 	kdepsDir := filepath.Join(workspace.Directory, ".kdeps")
 	if err := fs.MkdirAll(kdepsDir, 0o755); err != nil {
 		t.Fatalf("Failed to create .kdeps directory: %v", err)
 	}
-	t.Setenv("KDEPS_PATH", kdepsDir)
+	t.Setenv("KDEPS_SHARED_VOLUME_PATH", kdepsDir)
 
 	env := &environment.Environment{
 		Root: workspace.Directory,

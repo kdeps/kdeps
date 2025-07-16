@@ -471,7 +471,7 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 	if dr.PklresHelper != nil {
 		// Create PKL content for the LLM resource
 		var pklContent strings.Builder
-		pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"\n\n", schema.Version(dr.Context)))
+		pklContent.WriteString(fmt.Sprintf("extends \"%s\"\n\n", schema.ImportPath(dr.Context, "LLM.pkl")))
 		pklContent.WriteString("Resources {\n")
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", actionID))
 		pklContent.WriteString(fmt.Sprintf("    Model = \"%s\"\n", chatBlock.Model))
@@ -511,7 +511,7 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 // generatePklContent generates Pkl content from resources.
 func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.Context, logger *logging.Logger, requestID string) string {
 	var pklContent strings.Builder
-	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"\n\n", schema.Version(ctx)))
+	pklContent.WriteString(fmt.Sprintf("extends \"%s\"\n\n", schema.ImportPath(ctx, "LLM.pkl")))
 	pklContent.WriteString("Resources {\n")
 
 	for id, res := range resources {

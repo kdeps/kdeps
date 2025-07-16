@@ -60,11 +60,24 @@ func main() {
 
 	// Initialize PKL evaluator with all available resource readers
 	// Use in-memory databases for all readers except memory which uses persistent storage
-	memoryDBPath := filepath.Join("/.kdeps/", "memory.db") // Persistent storage in shared volume
-	sessionDBPath := ":memory:"                            // In-memory tied to operation
-	toolDBPath := ":memory:"                               // In-memory tied to operation
-	itemDBPath := ":memory:"                               // In-memory tied to operation
-	pklresDBPath := ":memory:"                             // In-memory tied to operation
+
+	// Use configurable shared volume path for tests or default to appropriate location
+	sharedVolumePath := os.Getenv("KDEPS_SHARED_VOLUME_PATH")
+	if sharedVolumePath == "" {
+		// For non-Docker mode, use a local directory instead of shared volume
+		sharedVolumePath = filepath.Join(os.TempDir(), ".kdeps")
+	}
+
+	// Ensure shared volume directory exists
+	if err := utils.CreateDirectories(ctx, fs, []string{sharedVolumePath}); err != nil {
+		logger.Fatalf("failed to create shared volume directory: %v", err)
+	}
+
+	memoryDBPath := filepath.Join(sharedVolumePath, "memory.db") // Persistent storage (shared volume in Docker mode, temp dir in non-Docker mode)
+	sessionDBPath := ":memory:"                                  // In-memory tied to operation
+	toolDBPath := ":memory:"                                     // In-memory tied to operation
+	itemDBPath := ":memory:"                                     // In-memory tied to operation
+	pklresDBPath := ":memory:"                                   // In-memory tied to operation
 
 	// Initialize all resource readers
 	memoryReader, err := memory.InitializeMemory(memoryDBPath)
@@ -88,7 +101,7 @@ func main() {
 	}
 
 	// For main.go, use a default graphID since this is global initialization
-	pklresReader, err := pklres.InitializePklResource(pklresDBPath, "global")
+	pklresReader, err := pklres.InitializePklResource(pklresDBPath, "global", "", "", "")
 	if err != nil {
 		logger.Fatalf("failed to initialize pklres reader: %v", err)
 	}

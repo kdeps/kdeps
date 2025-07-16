@@ -38,15 +38,15 @@ func TestLoadResourceWithRequestContext(t *testing.T) {
 	require.NoError(t, err)
 	defer memoryReader.DB.Close()
 
-	sessionReader, err := session.InitializeSession(filepath.Join(tmpDir, "session.db"))
+	sessionReader, err := session.InitializeSession(":memory:")
 	require.NoError(t, err)
 	defer sessionReader.DB.Close()
 
-	toolReader, err := tool.InitializeTool(filepath.Join(tmpDir, "tool.db"))
+	toolReader, err := tool.InitializeTool(":memory:")
 	require.NoError(t, err)
 	defer toolReader.DB.Close()
 
-	itemReader, err := item.InitializeItem(filepath.Join(tmpDir, "item.db"), []string{})
+	itemReader, err := item.InitializeItem(":memory:", []string{})
 	require.NoError(t, err)
 	defer itemReader.DB.Close()
 
@@ -54,7 +54,7 @@ func TestLoadResourceWithRequestContext(t *testing.T) {
 	require.NoError(t, err)
 	defer agentReader.Close()
 
-	pklresReader, err := pklres.InitializePklResource(filepath.Join(tmpDir, "pklres.db"), "test-graph")
+	pklresReader, err := pklres.InitializePklResource(":memory:", "test-graph", "", "", "")
 	require.NoError(t, err)
 	defer pklresReader.DB.Close()
 

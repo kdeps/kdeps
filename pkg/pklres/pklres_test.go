@@ -35,7 +35,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_GetRecord_Simple", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource("file::memory:", "test-graph")
+		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
@@ -57,7 +57,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_GetRecord_WithKey", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource("file::memory:", "test-graph")
+		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
@@ -79,7 +79,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_SetRecord_Simple", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource("file::memory:", "test-graph")
+		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
@@ -108,7 +108,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_SetRecord_WithKey", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource("file::memory:", "test-graph")
+		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
@@ -138,7 +138,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_DeleteRecord_Simple", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource("file::memory:", "test-graph")
+		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
@@ -166,7 +166,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_DeleteRecord_WithKey", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource("file::memory:", "test-graph")
+		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
@@ -196,7 +196,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_ClearRecords_ByType", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource("file::memory:", "test-graph")
+		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
@@ -232,7 +232,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_ClearRecords_All", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource("file::memory:", "test-graph")
+		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
@@ -256,7 +256,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_ListRecords", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource("file::memory:", "test-graph")
+		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
@@ -299,7 +299,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_InvalidParameters", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource("file::memory:", "test-graph")
+		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
@@ -336,7 +336,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("InitializePklResource", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource(":memory:", "test-graph")
+		reader, err := pklres.InitializePklResource(":memory:", "test-graph", "", "", "")
 		require.NoError(t, err)
 		require.NotNil(t, reader)
 		require.NotNil(t, reader.DB)
@@ -345,7 +345,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_EdgeCases", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource("file::memory:", "test-graph")
+		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "")
 		require.NoError(t, err)
 		defer reader.DB.Close()
 

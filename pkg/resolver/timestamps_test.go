@@ -77,7 +77,7 @@ func TestGetResourcePath(t *testing.T) {
 		RequestID: "test123",
 	}
 
-	dr.PklresReader, _ = pklres.InitializePklResource(":memory:", "test-graph")
+	dr.PklresReader, _ = pklres.InitializePklResource(":memory:", "test-graph", "", "", "")
 	dr.PklresHelper = resolverpkg.NewPklresHelper(dr)
 
 	tests := []struct {
@@ -186,7 +186,7 @@ func TestWaitForTimestampChange(t *testing.T) {
 		Fs:        fs,
 	}
 
-	dr.PklresReader, _ = pklres.InitializePklResource(":memory:", "test-graph")
+	dr.PklresReader, _ = pklres.InitializePklResource(":memory:", "test-graph", "", "", "")
 	dr.PklresHelper = resolverpkg.NewPklresHelper(dr)
 
 	t.Run("missing PKL data", func(t *testing.T) {

@@ -40,8 +40,8 @@ func TestHandleRunAction_BasicFlow(t *testing.T) {
 
 	// Use temporary directory for test files
 	tmpDir := t.TempDir()
-	sessionDBPath := filepath.Join(tmpDir, "session.db")
-	itemDBPath := filepath.Join(tmpDir, "item.db")
+	sessionDBPath := ":memory:"
+	itemDBPath := ":memory:"
 
 	// Prepare in-memory sqlite connections for the various readers so that the
 	// final Close() calls in HandleRunAction don't panic.
@@ -194,7 +194,7 @@ run {}`
 	}
 
 	// Provide PklresHelper and in-memory reader to avoid nil error
-	reader, _ := pklres.InitializePklResource(":memory:", "test-graph")
+	reader, _ := pklres.InitializePklResource(":memory:", "test-graph", "", "", "")
 	dr.PklresReader = reader
 	dr.PklresHelper = resolver.NewPklresHelper(dr)
 

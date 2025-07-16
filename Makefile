@@ -113,8 +113,12 @@ local-dev:
 	else \
 		echo "Local project already exists in local/localproject/"; \
 	fi
+	@echo "$(OK_COLOR)==> Creating local-dev stamp file...$(NO_COLOR)"
+	@touch /tmp/.local-dev
+	@echo "$(OK_COLOR)==> Building kdeps with local-dev support...$(NO_COLOR)"
+	@make build
 	@echo "$(OK_COLOR)==> Packaging local project...$(NO_COLOR)"
-	~/.local/bin/kdeps package local/localproject
+	./bin/kdeps package local/localproject
 	@echo "$(OK_COLOR)==> Extracting project to local/project...$(NO_COLOR)"
 	@rm -rf local/project
 	@mkdir -p local/project
@@ -122,6 +126,9 @@ local-dev:
 	@echo "$(OK_COLOR)==> Replacing PKL imports with local paths in extracted project...$(NO_COLOR)"
 	@find local/project -name "*.pkl" -type f -exec sed -i.bak 's|package://schema\.kdeps\.com/core@[^#]*#/|/local/pkl/|g' {} \;
 	@find local/project -name "*.bak" -delete
+	@echo "$(OK_COLOR)==> Replacing PKL imports in local PKL files...$(NO_COLOR)"
+	@find local/pkl -name "*.pkl" -type f -exec sed -i.bak 's|package://schema\.kdeps\.com/core@[^#]*#/|/local/pkl/|g' {} \;
+	@find local/pkl -name "*.bak" -delete
 	@echo "$(OK_COLOR)==> Deploying to Docker container...$(NO_COLOR)"
 	@make dev-build
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
@@ -139,6 +146,8 @@ local-dev:
 	docker exec $$CONTAINER rm -rf /agent/project
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
 	docker cp local/project $$CONTAINER:/agent/project
+	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
+	docker exec $$CONTAINER touch /tmp/.local-dev
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
 	docker restart $$CONTAINER
 	@echo "$(OK_COLOR)==> Local development environment ready!$(NO_COLOR)"
@@ -163,6 +172,8 @@ local-update:
 	docker exec $$CONTAINER rm -rf /agent/project
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
 	docker cp local/project $$CONTAINER:/agent/project
+	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
+	docker exec $$CONTAINER touch /tmp/.local-dev
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
 	docker restart $$CONTAINER
 	@echo "$(OK_COLOR)==> Container updated and restarted!$(NO_COLOR)"

@@ -473,6 +473,8 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		}
 		logger.Debug("resolver created successfully")
 
+		// Note: PklresReader is now global and should not be closed per request
+
 		// Helper function to get action ID safely
 		getActionID := func() string {
 			if dr != nil {

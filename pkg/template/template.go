@@ -143,12 +143,12 @@ func GenerateWorkflowFile(_ context.Context, fs afero.Fs, logger *logging.Logger
 	templatePath := "workflow.pkl"
 	outputPath := filepath.Join(mainDir, "workflow.pkl")
 
-	// Get schema version for imports
-	schemaVersion := schema.Version(context.Background())
+	// Get schema import path for imports
+	ctx := context.Background()
 
 	// Template data for dynamic replacement
 	templateData := map[string]string{
-		"Header":         fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schemaVersion),
+		"Header":         fmt.Sprintf(`amends "%s"`, schema.ImportPath(ctx, "Workflow.pkl")),
 		"Name":           name,
 		"OllamaImageTag": version.DefaultOllamaImageTag,
 	}
@@ -175,30 +175,30 @@ func GenerateResourceFiles(_ context.Context, fs afero.Fs, logger *logging.Logge
 		return fmt.Errorf("failed to create resources directory: %w", err)
 	}
 
-	// Get schema version for imports
-	schemaVersion := schema.Version(context.Background())
+	// Get schema import paths for imports
+	ctx := context.Background()
 
 	// Header template with imports for resource files
-	headerTemplate := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+	headerTemplate := fmt.Sprintf(`amends "%s"
 
-import "package://schema.kdeps.com/core@%s#/Document.pkl" as document
-import "package://schema.kdeps.com/core@%s#/Utils.pkl" as utils
-import "package://schema.kdeps.com/core@%s#/Skip.pkl" as skip
-import "package://schema.kdeps.com/core@%s#/Data.pkl" as data
-import "package://schema.kdeps.com/core@%s#/Memory.pkl" as memory
-import "package://schema.kdeps.com/core@%s#/Session.pkl" as session
-import "package://schema.kdeps.com/core@%s#/Tool.pkl" as tool
-import "package://schema.kdeps.com/core@%s#/Item.pkl" as item
-import "package://schema.kdeps.com/core@%s#/LLM.pkl" as llm
-import "package://schema.kdeps.com/core@%s#/Agent.pkl" as agent
-import "package://schema.kdeps.com/core@%s#/Python.pkl" as python
-import "package://schema.kdeps.com/core@%s#/Exec.pkl" as exec
-import "package://schema.kdeps.com/core@%s#/HTTP.pkl" as client
-import "package://schema.kdeps.com/core@%s#/APIServerRequest.pkl" as request
-`, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion)
+import "%s" as document
+import "%s" as utils
+import "%s" as skip
+import "%s" as data
+import "%s" as memory
+import "%s" as session
+import "%s" as tool
+import "%s" as item
+import "%s" as llm
+import "%s" as agent
+import "%s" as python
+import "%s" as exec
+import "%s" as client
+import "%s" as request
+`, schema.ImportPath(ctx, "Resource.pkl"), schema.ImportPath(ctx, "Document.pkl"), schema.ImportPath(ctx, "Utils.pkl"), schema.ImportPath(ctx, "Skip.pkl"), schema.ImportPath(ctx, "Data.pkl"), schema.ImportPath(ctx, "Memory.pkl"), schema.ImportPath(ctx, "Session.pkl"), schema.ImportPath(ctx, "Tool.pkl"), schema.ImportPath(ctx, "Item.pkl"), schema.ImportPath(ctx, "LLM.pkl"), schema.ImportPath(ctx, "Agent.pkl"), schema.ImportPath(ctx, "Python.pkl"), schema.ImportPath(ctx, "Exec.pkl"), schema.ImportPath(ctx, "HTTP.pkl"), schema.ImportPath(ctx, "APIServerRequest.pkl"))
 
 	if name == "workflow" {
-		headerTemplate = fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schemaVersion)
+		headerTemplate = fmt.Sprintf(`amends "%s"`, schema.ImportPath(ctx, "Workflow.pkl"))
 	}
 
 	templateData := map[string]string{
@@ -250,22 +250,22 @@ func GenerateSpecificAgentFile(_ context.Context, fs afero.Fs, logger *logging.L
 		return err
 	}
 
-	// Get schema version for imports
-	schemaVersion := schema.Version(context.Background())
+	// Get schema import paths for imports
+	ctx := context.Background()
 
 	// Header template with imports for resource files
-	headerTemplate := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+	headerTemplate := fmt.Sprintf(`amends "%s"
 
-import "package://schema.kdeps.com/core@%s#/LLM.pkl" as llm
-import "package://schema.kdeps.com/core@%s#/Agent.pkl" as agent  
-import "package://schema.kdeps.com/core@%s#/Python.pkl" as python
-import "package://schema.kdeps.com/core@%s#/Exec.pkl" as exec
-import "package://schema.kdeps.com/core@%s#/HTTP.pkl" as client
-import "package://schema.kdeps.com/core@%s#/Memory.pkl" as memory
-import "package://schema.kdeps.com/core@%s#/Session.pkl" as session`,
-		schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion, schemaVersion)
+import "%s" as llm
+import "%s" as agent  
+import "%s" as python
+import "%s" as exec
+import "%s" as client
+import "%s" as memory
+import "%s" as session`,
+		schema.ImportPath(ctx, "Resource.pkl"), schema.ImportPath(ctx, "LLM.pkl"), schema.ImportPath(ctx, "Agent.pkl"), schema.ImportPath(ctx, "Python.pkl"), schema.ImportPath(ctx, "Exec.pkl"), schema.ImportPath(ctx, "HTTP.pkl"), schema.ImportPath(ctx, "Memory.pkl"), schema.ImportPath(ctx, "Session.pkl"))
 	if agentName == "workflow" {
-		headerTemplate = fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schemaVersion)
+		headerTemplate = fmt.Sprintf(`amends "%s"`, schema.ImportPath(ctx, "Workflow.pkl"))
 	}
 
 	templateData := map[string]string{

@@ -49,7 +49,7 @@ func GenerateConfiguration(ctx context.Context, fs afero.Fs, env *environment.En
 	// Always create the configuration file if it doesn't exist
 	if _, err := fs.Stat(configFile); err != nil {
 		// Generate configuration without asking the user for confirmation
-		url := fmt.Sprintf("package://schema.kdeps.com/core@%s#/Kdeps.pkl", schema.Version(ctx))
+		url := schema.ImportPath(ctx, "Kdeps.pkl")
 		headerSection := fmt.Sprintf("amends \"%s\"\n", url)
 
 		// Use the singleton evaluator directly to avoid writing back to package URL

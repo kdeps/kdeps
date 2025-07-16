@@ -46,13 +46,11 @@ func (h *PklresHelper) getResourceTypeInfo(resourceType string) ResourceTypeInfo
 // generatePklHeader generates the PKL header for a given resource type
 func (h *PklresHelper) generatePklHeader(resourceType string) string {
 	info := h.getResourceTypeInfo(resourceType)
-	var schemaVersion string
 	if h == nil || h.resolver == nil || h.resolver.Context == nil {
-		schemaVersion = "0.3.0" // Default fallback version
-	} else {
-		schemaVersion = schema.Version(h.resolver.Context)
+		// Default fallback when no context available
+		return fmt.Sprintf("extends \"package://schema.kdeps.com/core@0.3.0#/%s\"\n\n", info.SchemaFile)
 	}
-	return fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/%s\"\n\n", schemaVersion, info.SchemaFile)
+	return fmt.Sprintf("extends \"%s\"\n\n", schema.ImportPath(h.resolver.Context, info.SchemaFile))
 }
 
 // StorePklContent stores PKL content in pklres with the appropriate header

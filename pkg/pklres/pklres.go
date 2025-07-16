@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/apple/pkl-go/pkl"
@@ -19,13 +20,21 @@ import (
 	"github.com/spf13/afero"
 )
 
+var (
+	globalPklresReader *PklResourceReader
+	globalMutex        sync.RWMutex
+)
+
 // PklResourceReader implements the pkl.ResourceReader interface for SQLite.
 type PklResourceReader struct {
-	DB      *sql.DB
-	DBPath  string // Store dbPath for reinitialization
-	Fs      afero.Fs
-	Logger  *slog.Logger
-	GraphID string // Current graphID for scoping database operations
+	DB             *sql.DB
+	DBPath         string // Store dbPath for reinitialization
+	Fs             afero.Fs
+	Logger         *slog.Logger
+	GraphID        string // Current graphID for scoping database operations
+	CurrentAgent   string // Current agent name for ActionID resolution
+	CurrentVersion string // Current agent version for ActionID resolution
+	KdepsPath      string // Path to kdeps directory for agent reader
 }
 
 // Scheme returns the URI scheme for this reader.
@@ -50,33 +59,53 @@ func (r *PklResourceReader) ListElements(_ url.URL) ([]pkl.PathElement, error) {
 
 // Read retrieves, sets, deletes, clears, or lists PKL records in the SQLite database based on the URI.
 func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
-	// Check if receiver is nil and initialize with fixed DBPath
+	r.Logger.Debug("PklResourceReader.Read called", "uri", uri.String())
+	// Check if receiver is nil and try to use global reader
 	if r == nil {
-		newReader, err := InitializePklResource(r.DBPath, "default")
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize PklResourceReader: %w", err)
+		globalReader := GetGlobalPklresReader()
+		if globalReader != nil {
+			r = globalReader
+		} else {
+			newReader, err := InitializePklResource(":memory:", "default", "", "", "")
+			if err != nil {
+				return nil, fmt.Errorf("failed to initialize PklResourceReader: %w", err)
+			}
+			r = newReader
 		}
-		r = newReader
 	}
 
-	// Check if db is nil or closed and initialize with retries
-	if r.DB == nil {
-		maxAttempts := 5
-		for attempt := 1; attempt <= maxAttempts; attempt++ {
-			db, err := InitializeDatabase(r.DBPath)
-			if err == nil {
-				r.DB = db
-				break
+	// For global reader, never create new database connections - use existing one
+	globalReader := GetGlobalPklresReader()
+	if r == globalReader {
+		if r.DB == nil {
+			return nil, fmt.Errorf("global pklres reader database is nil")
+		}
+		r.Logger.Debug("using global pklres reader database", "dbPath", r.DBPath, "graphID", r.GraphID)
+		
+		// Verify table exists
+		var tableName string
+		err := r.DB.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name='records'").Scan(&tableName)
+		if err != nil {
+			r.Logger.Debug("records table check failed", "error", err)
+			// Table doesn't exist, create it
+			if _, err := r.DB.Exec(`CREATE TABLE IF NOT EXISTS records (
+				graph_id TEXT NOT NULL,
+				id TEXT NOT NULL,
+				type TEXT NOT NULL,
+				key TEXT DEFAULT '',
+				value TEXT NOT NULL,
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY (graph_id, id, type, key)
+			)`); err != nil {
+				return nil, fmt.Errorf("failed to create records table: %w", err)
 			}
-			if attempt == maxAttempts {
-				return nil, fmt.Errorf("failed to initialize database after %d attempts: %w", maxAttempts, err)
-			}
-			time.Sleep(1 * time.Second)
+			r.Logger.Debug("created records table in global database")
+		} else {
+			r.Logger.Debug("records table exists in global database")
 		}
 	} else {
-		// Check if the database is closed and reconnect if necessary
-		if err := r.DB.Ping(); err != nil {
-			// Database is closed, try to reconnect
+		// Check if db is nil or closed and initialize with retries (for non-global readers)
+		if r.DB == nil {
 			maxAttempts := 5
 			for attempt := 1; attempt <= maxAttempts; attempt++ {
 				db, err := InitializeDatabase(r.DBPath)
@@ -85,9 +114,26 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 					break
 				}
 				if attempt == maxAttempts {
-					return nil, fmt.Errorf("failed to reconnect to database after %d attempts: %w", maxAttempts, err)
+					return nil, fmt.Errorf("failed to initialize database after %d attempts: %w", maxAttempts, err)
 				}
 				time.Sleep(1 * time.Second)
+			}
+		} else {
+			// Check if the database is closed and reconnect if necessary
+			if err := r.DB.Ping(); err != nil {
+				// Database is closed, try to reconnect
+				maxAttempts := 5
+				for attempt := 1; attempt <= maxAttempts; attempt++ {
+					db, err := InitializeDatabase(r.DBPath)
+					if err == nil {
+						r.DB = db
+						break
+					}
+					if attempt == maxAttempts {
+						return nil, fmt.Errorf("failed to reconnect to database after %d attempts: %w", maxAttempts, err)
+					}
+					time.Sleep(1 * time.Second)
+				}
 			}
 		}
 	}
@@ -130,6 +176,20 @@ func (r *PklResourceReader) setRecord(id, typ, key string, query url.Values) ([]
 	}
 
 	r.Logger.Debug("setRecord processing", "id", id, "type", typ, "key", key, "value", value)
+
+	// Ensure table exists before attempting to set record
+	if _, err := r.DB.Exec(`CREATE TABLE IF NOT EXISTS records (
+		graph_id TEXT NOT NULL,
+		id TEXT NOT NULL,
+		type TEXT NOT NULL,
+		key TEXT DEFAULT '',
+		value TEXT NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		PRIMARY KEY (graph_id, id, type, key)
+	)`); err != nil {
+		r.Logger.Error("setRecord failed to create table", "error", err)
+		return nil, fmt.Errorf("failed to create records table: %w", err)
+	}
 
 	keyValue := key
 	if keyValue == "" {
@@ -178,11 +238,50 @@ func (r *PklResourceReader) getRecord(id, typ, key string) ([]byte, error) {
 		return nil, errors.New("get operation requires id and type parameters")
 	}
 
+	// Canonicalize the id if it's not already canonical
+	canonicalID := id
+	r.Logger.Debug("getRecord: ActionID resolution", "id", id, "agent", r.CurrentAgent, "version", r.CurrentVersion, "kdepsPath", r.KdepsPath)
+	if id != "" && !strings.HasPrefix(id, "@") {
+		// For short ActionIDs (like "llmResource"), resolve using current agent context
+		r.Logger.Debug("getRecord: attempting ActionID resolution", "id", id, "agent", r.CurrentAgent, "version", r.CurrentVersion, "kdepsPath", r.KdepsPath)
+		if r.KdepsPath != "" && r.CurrentAgent != "" && r.CurrentVersion != "" {
+			// Use proper error handling to prevent panics in agent reader
+			func() {
+				defer func() {
+					if recover() != nil {
+						r.Logger.Debug("getRecord: agent reader panic recovered, using fallback", "id", id, "agent", r.CurrentAgent, "version", r.CurrentVersion)
+						canonicalID = fmt.Sprintf("@%s/%s:%s", r.CurrentAgent, id, r.CurrentVersion)
+					}
+				}()
+				
+				agentReader, err := agent.GetGlobalAgentReader(nil, r.KdepsPath, r.CurrentAgent, r.CurrentVersion, nil)
+				if err == nil && agentReader != nil {
+					uri, err := url.Parse(fmt.Sprintf("agent:///%s", id))
+					if err == nil {
+						data, err := agentReader.Read(*uri)
+						if err == nil && len(data) > 0 {
+							canonicalID = string(data)
+							r.Logger.Debug("getRecord: resolved short ActionID", "id", id, "canonicalID", canonicalID, "agent", r.CurrentAgent, "version", r.CurrentVersion)
+						} else {
+							r.Logger.Debug("getRecord: failed to resolve short ActionID, using fallback", "id", id, "agent", r.CurrentAgent, "version", r.CurrentVersion, "error", err)
+							canonicalID = fmt.Sprintf("@%s/%s:%s", r.CurrentAgent, id, r.CurrentVersion)
+						}
+					}
+				} else {
+					r.Logger.Debug("getRecord: failed to get agent reader, using fallback", "id", id, "agent", r.CurrentAgent, "version", r.CurrentVersion, "kdepsPath", r.KdepsPath, "error", err)
+					canonicalID = fmt.Sprintf("@%s/%s:%s", r.CurrentAgent, id, r.CurrentVersion)
+				}
+			}()
+		} else {
+			r.Logger.Debug("getRecord: missing agent context, using ActionID as-is", "id", id, "agent", r.CurrentAgent, "version", r.CurrentVersion, "kdepsPath", r.KdepsPath)
+		}
+	}
+
 	// Canonicalize the key if it looks like an ActionID (not already canonical)
 	canonicalKey := key
 	if key != "" && !strings.HasPrefix(key, "@") && !strings.Contains(key, "/") {
-		// Only try to resolve if we have a valid agent context (KDEPS_PATH set)
-		if kdepsPath := os.Getenv("KDEPS_PATH"); kdepsPath != "" {
+		// Only try to resolve if we have a valid agent context (KDEPS_SHARED_VOLUME_PATH set)
+		if kdepsPath := os.Getenv("KDEPS_SHARED_VOLUME_PATH"); kdepsPath != "" {
 			agentReader, err := agent.GetGlobalAgentReader(nil, kdepsPath, "", "", nil)
 			if err == nil && agentReader != nil {
 				uri, err := url.Parse(fmt.Sprintf("agent:///%s", key))
@@ -206,7 +305,21 @@ func (r *PklResourceReader) getRecord(id, typ, key string) ([]byte, error) {
 		canonicalKey = ""
 	}
 
-	r.Logger.Info("getRecord: querying for id, type, key", "graphID", r.GraphID, "id", id, "type", typ, "key", canonicalKey, "dbPath", r.DBPath)
+	r.Logger.Info("getRecord: querying for id, type, key", "graphID", r.GraphID, "id", canonicalID, "type", typ, "key", canonicalKey, "dbPath", r.DBPath)
+
+	// Ensure table exists before attempting to get record
+	if _, err := r.DB.Exec(`CREATE TABLE IF NOT EXISTS records (
+		graph_id TEXT NOT NULL,
+		id TEXT NOT NULL,
+		type TEXT NOT NULL,
+		key TEXT DEFAULT '',
+		value TEXT NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		PRIMARY KEY (graph_id, id, type, key)
+	)`); err != nil {
+		r.Logger.Error("getRecord failed to create table", "error", err)
+		return nil, fmt.Errorf("failed to create records table: %w", err)
+	}
 
 	// Start a transaction for consistent read
 	tx, err := r.DB.Begin()
@@ -226,7 +339,7 @@ func (r *PklResourceReader) getRecord(id, typ, key string) ([]byte, error) {
 	}()
 
 	var value string
-	err = tx.QueryRow("SELECT value FROM records WHERE graph_id = ? AND id = ? AND type = ? AND key = ?", r.GraphID, id, typ, canonicalKey).Scan(&value)
+	err = tx.QueryRow("SELECT value FROM records WHERE graph_id = ? AND id = ? AND type = ? AND key = ?", r.GraphID, canonicalID, typ, canonicalKey).Scan(&value)
 	if errors.Is(err, sql.ErrNoRows) {
 		// Commit the transaction even for no rows found
 		if commitErr := tx.Commit(); commitErr != nil {
@@ -234,7 +347,7 @@ func (r *PklResourceReader) getRecord(id, typ, key string) ([]byte, error) {
 			return nil, fmt.Errorf("failed to commit transaction: %w", commitErr)
 		}
 		committed = true
-		r.Logger.Debug("getRecord: no record found", "id", id, "type", typ, "key", canonicalKey)
+		r.Logger.Debug("getRecord: no record found", "id", canonicalID, "type", typ, "key", canonicalKey)
 		return []byte(""), nil
 	}
 	if err != nil {
@@ -249,7 +362,7 @@ func (r *PklResourceReader) getRecord(id, typ, key string) ([]byte, error) {
 	}
 	committed = true
 
-	r.Logger.Debug("getRecord: retrieved value", "id", id, "type", typ, "key", canonicalKey, "contentLength", len(value))
+	r.Logger.Debug("getRecord: retrieved value", "id", canonicalID, "type", typ, "key", canonicalKey, "contentLength", len(value))
 	return []byte(value), nil
 }
 
@@ -264,7 +377,7 @@ func (r *PklResourceReader) deleteRecord(id, typ, key string) ([]byte, error) {
 
 	canonicalKey := key
 	if key != "" && !strings.HasPrefix(key, "@") && !strings.Contains(key, "/") {
-		if kdepsPath := os.Getenv("KDEPS_PATH"); kdepsPath != "" {
+		if kdepsPath := os.Getenv("KDEPS_SHARED_VOLUME_PATH"); kdepsPath != "" {
 			agentReader, err := agent.GetGlobalAgentReader(nil, kdepsPath, "", "", nil)
 			if err == nil && agentReader != nil {
 				uri, err := url.Parse(fmt.Sprintf("agent:///%s", key))
@@ -627,12 +740,58 @@ func InitializeDatabase(dbPath string) (*sql.DB, error) {
 	return nil, fmt.Errorf("failed to initialize database after %d attempts", maxAttempts)
 }
 
+// SetGlobalPklresReader sets the global pklres reader instance
+func SetGlobalPklresReader(reader *PklResourceReader) {
+	globalMutex.Lock()
+	defer globalMutex.Unlock()
+	globalPklresReader = reader
+}
+
+// GetGlobalPklresReader returns the global pklres reader instance
+func GetGlobalPklresReader() *PklResourceReader {
+	globalMutex.RLock()
+	defer globalMutex.RUnlock()
+	return globalPklresReader
+}
+
+// UpdateGlobalPklresReaderContext updates the global pklres reader with new context
+func UpdateGlobalPklresReaderContext(graphID, currentAgent, currentVersion, kdepsPath string) error {
+	globalMutex.Lock()
+	defer globalMutex.Unlock()
+	
+	if globalPklresReader == nil {
+		return fmt.Errorf("global pklres reader not initialized")
+	}
+	
+	globalPklresReader.GraphID = graphID
+	globalPklresReader.CurrentAgent = currentAgent
+	globalPklresReader.CurrentVersion = currentVersion
+	globalPklresReader.KdepsPath = kdepsPath
+	
+	return nil
+}
+
 // InitializePklResource creates a new PklResourceReader with an initialized SQLite database.
-func InitializePklResource(dbPath, graphID string) (*PklResourceReader, error) {
+func InitializePklResource(dbPath, graphID, currentAgent, currentVersion, kdepsPath string) (*PklResourceReader, error) {
 	db, err := InitializeDatabase(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("error initializing database: %w", err)
 	}
 	// Do NOT close db here; caller will manage closing
-	return &PklResourceReader{DB: db, DBPath: dbPath, GraphID: graphID, Logger: slog.Default()}, nil
+	reader := &PklResourceReader{
+		DB:             db,
+		DBPath:         dbPath,
+		GraphID:        graphID,
+		CurrentAgent:   currentAgent,
+		CurrentVersion: currentVersion,
+		KdepsPath:      kdepsPath,
+		Logger:         slog.Default(),
+	}
+	
+	// Set as global reader if none exists
+	if GetGlobalPklresReader() == nil {
+		SetGlobalPklresReader(reader)
+	}
+	
+	return reader, nil
 }
