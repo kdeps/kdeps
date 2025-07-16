@@ -155,6 +155,7 @@ func getResourceTimestamp(resourceID string, pklRes interface{}) (*pkl.Duration,
 }
 
 // GetCurrentTimestamp retrieves the current timestamp for the given resourceID and resourceType.
+// If the resource doesn't exist in pklres yet (during initial processing), returns a default timestamp.
 func (dr *DependencyResolver) GetCurrentTimestamp(resourceID, resourceType string) (pkl.Duration, error) {
 	pklPath, err := dr.getResourcePath(resourceType)
 	if err != nil {
@@ -164,12 +165,27 @@ func (dr *DependencyResolver) GetCurrentTimestamp(resourceID, resourceType strin
 
 	pklRes, err := dr.loadPKLData(resourceType, pklPath)
 	if err != nil {
-		dr.Logger.Error("GetCurrentTimestamp: failed to load PKL data", "resourceID", resourceID, "resourceType", resourceType, "error", err)
-		return pkl.Duration{}, fmt.Errorf("failed to load %s PKL data from pklres: %w", resourceType, err)
+		// During initial resource processing, the resource may not exist in pklres yet
+		// Return a default timestamp instead of failing
+		dr.Logger.Debug("GetCurrentTimestamp: resource not in pklres yet, returning default timestamp", "resourceID", resourceID, "resourceType", resourceType, "error", err)
+		defaultTimestamp := pkl.Duration{
+			Value: float64(time.Now().UnixNano()),
+			Unit:  pkl.Nanosecond,
+		}
+		return defaultTimestamp, nil
 	}
 
 	timestamp, err := getResourceTimestamp(resourceID, pklRes)
 	if err != nil {
+		// If the specific resource doesn't exist in the loaded data, return a default timestamp
+		if strings.Contains(err.Error(), "does not exist in pklres") {
+			dr.Logger.Debug("GetCurrentTimestamp: resource not found in pklres, returning default timestamp", "resourceID", resourceID, "resourceType", resourceType)
+			defaultTimestamp := pkl.Duration{
+				Value: float64(time.Now().UnixNano()),
+				Unit:  pkl.Nanosecond,
+			}
+			return defaultTimestamp, nil
+		}
 		dr.Logger.Error("GetCurrentTimestamp: failed to get resource timestamp", "resourceID", resourceID, "resourceType", resourceType, "error", err)
 		return pkl.Duration{}, err
 	}
