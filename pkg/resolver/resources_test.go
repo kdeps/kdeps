@@ -129,7 +129,7 @@ Run {
 	// Test LoadResourceWithRequestContext
 	t.Run("LoadResourceWithRequestContext", func(t *testing.T) {
 		result, err := dr.LoadResourceWithRequestContext(ctx, resourceFile, resolverpkg.Resource)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, result)
 
 		// Verify that the resource was loaded successfully
@@ -152,7 +152,7 @@ Run {
 		}
 
 		result, err := drNoRequest.LoadResourceWithRequestContext(ctx, resourceFile, resolverpkg.Resource)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, result)
 	})
 
@@ -167,7 +167,7 @@ Run {
 		}
 
 		result, err := drInvalidRequest.LoadResourceWithRequestContext(ctx, resourceFile, resolverpkg.Resource)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, result)
 	})
 }

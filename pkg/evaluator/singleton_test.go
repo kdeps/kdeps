@@ -97,7 +97,7 @@ func TestGetEvaluator_NotInitialized(t *testing.T) {
 	evaluator.Reset()
 
 	_, err := evaluator.GetEvaluator()
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "evaluator not initialized")
 }
 
@@ -106,7 +106,7 @@ func TestGetEvaluatorManager_NotInitialized(t *testing.T) {
 	evaluator.Reset()
 
 	_, err := evaluator.GetEvaluatorManager()
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "evaluator manager not initialized")
 }
 
@@ -157,7 +157,7 @@ func TestEvaluatorManager_Close(t *testing.T) {
 
 	// Verify evaluator is now nil
 	evaluatorInstance, err = evaluator.GetEvaluator()
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "evaluator instance is nil")
 }
 
@@ -230,7 +230,7 @@ func TestReset(t *testing.T) {
 
 	// Verify evaluator is gone
 	_, err = evaluator.GetEvaluator()
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "evaluator not initialized")
 
 	// Verify we can initialize again

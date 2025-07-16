@@ -42,6 +42,8 @@ import (
 	"github.com/tmc/langchaingo/llms/ollama"
 )
 
+const statusInternalServerError = 500
+
 type DependencyResolver struct {
 	Fs                      afero.Fs
 	Logger                  *logging.Logger
@@ -640,7 +642,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	dr.Logger.Debug(messages.MsgProcessingResources)
 
 	if err := dr.LoadResourceEntriesFn(); err != nil {
-		return dr.HandleAPIErrorResponse(500, err.Error(), true)
+		return dr.HandleAPIErrorResponse(statusInternalServerError, err.Error(), true)
 	}
 
 	// Build dependency stack for the target action
@@ -665,13 +667,13 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 				resPkl, err = dr.LoadResourceFn(dr.Context, res.File, Resource)
 			}
 			if err != nil {
-				return dr.HandleAPIErrorResponse(500, err.Error(), true)
+				return dr.HandleAPIErrorResponse(statusInternalServerError, err.Error(), true)
 			}
 
 			// Explicitly type rsc as *pklRes.Resource
 			rsc, ok := resPkl.(*pklRes.Resource)
 			if !ok {
-				return dr.HandleAPIErrorResponse(500, "failed to cast resource to *pklRes.Resource for file "+res.File, true)
+				return dr.HandleAPIErrorResponse(statusInternalServerError, "failed to cast resource to *pklRes.Resource for file "+res.File, true)
 			}
 
 			// Reinitialize item database with items, if any
@@ -683,7 +685,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 				// Reinitialize item database with items
 				itemReader, err := item.InitializeItem(dr.ItemDBPath, items)
 				if err != nil {
-					return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to reinitialize item DB with items: %v", err), true)
+					return dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("failed to reinitialize item DB with items: %v", err), true)
 				}
 				dr.ItemReader = itemReader
 				dr.Logger.Info("reinitialized item database with items", "actionID", nodeActionID, "itemCount", len(items))
@@ -706,7 +708,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 					uri := url.URL{Scheme: "item", RawQuery: query.Encode()}
 					if _, err := dr.ItemReader.Read(uri); err != nil {
 						dr.Logger.Error("failed to set item", "item", itemValue, "error", err)
-						return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to set item %s: %v", itemValue, err), true)
+						return dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("failed to set item %s: %v", itemValue, err), true)
 					}
 
 					// reload the resource
@@ -716,13 +718,13 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 						resPkl, err = dr.LoadResourceFn(dr.Context, res.File, Resource)
 					}
 					if err != nil {
-						return dr.HandleAPIErrorResponse(500, err.Error(), true)
+						return dr.HandleAPIErrorResponse(statusInternalServerError, err.Error(), true)
 					}
 
 					// Explicitly type rsc as *pklRes.Resource
 					rsc, ok = resPkl.(*pklRes.Resource)
 					if !ok {
-						return dr.HandleAPIErrorResponse(500, "failed to cast resource to *pklRes.Resource for file "+res.File, true)
+						return dr.HandleAPIErrorResponse(statusInternalServerError, "failed to cast resource to *pklRes.Resource for file "+res.File, true)
 					}
 
 					// Process runBlock for the current item
@@ -734,14 +736,14 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 				// Clear the item database after processing all items
 				if err := dr.ClearItemDBFn(); err != nil {
 					dr.Logger.Error("failed to clear item database after iteration", "actionID", res.ActionID, "error", err)
-					return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to clear item database for resource %s: %v", res.ActionID, err), true)
+					return dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("failed to clear item database for resource %s: %v", res.ActionID, err), true)
 				}
 			}
 
 			// Process APIResponse once, outside the items loop
 			if dr.APIServerMode && rsc.Run != nil && rsc.Run.APIResponse != nil {
 				if err := dr.CreateResponsePklFile(*rsc.Run.APIResponse); err != nil {
-					return dr.HandleAPIErrorResponse(500, err.Error(), true)
+					return dr.HandleAPIErrorResponse(statusInternalServerError, err.Error(), true)
 				}
 			}
 		}
@@ -833,14 +835,14 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 			result, err := dr.ItemReader.Read(uri)
 			if err != nil {
 				dr.Logger.Error("Failed to read list from items database", "actionID", actionID, "error", err)
-				return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Failed to read list from items database for resource %s: %v", actionID, err), true)
+				return dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("Failed to read list from items database for resource %s: %v", actionID, err), true)
 			}
 			// Parse the []byte result as a JSON array
 			var items []string
 			if len(result) > 0 {
 				if err := json.Unmarshal(result, &items); err != nil {
 					dr.Logger.Error("Failed to parse items database result as JSON array", "actionID", actionID, "error", err)
-					return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Failed to parse items database result for resource %s: %v", actionID, err), true)
+					return dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("Failed to parse items database result for resource %s: %v", actionID, err), true)
 				}
 			}
 			// Check if the list is non-empty
@@ -855,7 +857,7 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 		// Check if we timed out
 		if time.Now().After(deadline) {
 			dr.Logger.Error("Timeout waiting for items database to have a non-empty list", "actionID", actionID)
-			return dr.HandleAPIErrorResponse(500, "Timeout waiting for items database to have a non-empty list for resource "+actionID, true)
+			return dr.HandleAPIErrorResponse(statusInternalServerError, "Timeout waiting for items database to have a non-empty list for resource "+actionID, true)
 		}
 	}
 
@@ -863,7 +865,7 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 		// Read the resource file content for validation
 		fileContent, err := afero.ReadFile(dr.Fs, res.File)
 		if err != nil {
-			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to read resource file %s: %v", res.File, err), true)
+			return dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("failed to read resource file %s: %v", res.File, err), true)
 		}
 
 		// Validate request.params
@@ -873,7 +875,7 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 		}
 		if err := dr.validateRequestParams(string(fileContent), allowedParams); err != nil {
 			dr.Logger.Error("request params validation failed", "actionID", res.ActionID, "error", err)
-			return dr.HandleAPIErrorResponse(400, fmt.Sprintf("Request params validation failed for resource %s: %v", res.ActionID, err), true)
+			return dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("Request params validation failed for resource %s: %v", res.ActionID, err), true)
 		}
 
 		// Validate request.header
@@ -883,7 +885,7 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 		}
 		if err := dr.validateRequestHeaders(string(fileContent), allowedHeaders); err != nil {
 			dr.Logger.Error("request headers validation failed", "actionID", res.ActionID, "error", err)
-			return dr.HandleAPIErrorResponse(400, fmt.Sprintf("Request headers validation failed for resource %s: %v", res.ActionID, err), true)
+			return dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("Request headers validation failed for resource %s: %v", res.ActionID, err), true)
 		}
 
 		// Validate request.path
@@ -942,7 +944,7 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 			if runBlock.PreflightCheck.Error != nil && runBlock.PreflightCheck.Error.Code != nil {
 				_, _ = dr.HandleAPIErrorResponse(*runBlock.PreflightCheck.Error.Code, errorMessage, false)
 			} else {
-				_, _ = dr.HandleAPIErrorResponse(500, errorMessage, false)
+				_, _ = dr.HandleAPIErrorResponse(statusInternalServerError, errorMessage, false)
 			}
 			// Continue processing instead of returning early - this allows collection of all errors
 		}
@@ -993,7 +995,7 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 			return dr.HandleExec(res.ActionID, runBlock.Exec)
 		}); err != nil {
 			dr.Logger.Error("exec error:", res.ActionID)
-			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Exec failed for resource: %s - %s", res.ActionID, err), true)
+			return dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("Exec failed for resource: %s - %s", res.ActionID, err), true)
 		}
 	}
 
@@ -1003,7 +1005,7 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 			return dr.HandlePython(res.ActionID, runBlock.Python)
 		}); err != nil {
 			dr.Logger.Error("python error:", res.ActionID)
-			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Python script failed for resource: %s - %s", res.ActionID, err), true)
+			return dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("Python script failed for resource: %s - %s", res.ActionID, err), true)
 		}
 	}
 
@@ -1025,7 +1027,7 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 			return dr.HandleLLMChat(res.ActionID, runBlock.Chat)
 		}); err != nil {
 			dr.Logger.Error("LLM chat error", "actionID", res.ActionID, "error", err)
-			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("LLM chat failed for resource: %s - %s", res.ActionID, err), true)
+			return dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("LLM chat failed for resource: %s - %s", res.ActionID, err), true)
 		}
 		dr.Logger.Info("[DEBUG] Finished processing LLM chat step", "actionID", res.ActionID)
 	} else {
@@ -1064,7 +1066,7 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 			llmImplIface, err := pklLLM.Load(dr.Context, nil, pkl.FileSource(res.File))
 			if err != nil {
 				dr.Logger.Error("Fallback: Failed to load as LLM resource", "file", res.File, "error", err)
-				return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Failed to load LLM resource for file %s: %v", res.File, err), true)
+				return dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("Failed to load LLM resource for file %s: %v", res.File, err), true)
 			}
 			llmImpl, ok := llmImplIface.(*pklLLM.LLMImpl)
 			if ok && llmImpl != nil {
@@ -1078,7 +1080,7 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 						})
 						if err != nil {
 							dr.Logger.Error("Fallback: LLM chat error", "actionID", llmActionID, "error", err)
-							return dr.HandleAPIErrorResponse(500, fmt.Sprintf("LLM chat failed for resource: %s - %s", llmActionID, err), true)
+							return dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("LLM chat failed for resource: %s - %s", llmActionID, err), true)
 						}
 						dr.Logger.Info("Fallback: Finished processResourceStep for LLM resource", "llmActionID", llmActionID)
 					}
@@ -1093,7 +1095,7 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 			return dr.HandleHTTPClient(res.ActionID, runBlock.HTTPClient)
 		}); err != nil {
 			dr.Logger.Error("HTTP client error:", res.ActionID)
-			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("HTTP client failed for resource: %s - client error: %s", res.ActionID, err), true)
+			return dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("HTTP client failed for resource: %s - client error: %s", res.ActionID, err), true)
 		}
 	}
 

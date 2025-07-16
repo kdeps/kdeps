@@ -228,9 +228,7 @@ func TestWriteResponseToFile_EncodedAndPlain(t *testing.T) {
 
 	// Base64 encoded input
 	path, err := dr.WriteResponseToFile("resID", &encoded)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	require.NoError(t, err)
 
 	data, _ := afero.ReadFile(dr.Fs, path)
 	if string(data) != resp {
@@ -239,9 +237,7 @@ func TestWriteResponseToFile_EncodedAndPlain(t *testing.T) {
 
 	// Plain text input
 	path2, err := dr.WriteResponseToFile("resID2", &resp)
-	if err != nil {
-		t.Fatalf("unexpected error (plain): %v", err)
-	}
+	require.NoError(t, err)
 	data2, _ := afero.ReadFile(dr.Fs, path2)
 	if string(data2) != resp {
 		t.Errorf("plain content mismatch: got %q, want %q", string(data2), resp)

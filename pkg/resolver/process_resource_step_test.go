@@ -52,7 +52,7 @@ func TestProcessResourceStep_HandlerErr(t *testing.T) {
 	dr.GetCurrentTimestampFn = func(_, _ string) (pkl.Duration, error) {
 		return pkl.Duration{Value: 0, Unit: pkl.Second}, nil
 	}
-	dr.WaitForTimestampChangeFn = func(_ string, _ pkl.Duration, _ time.Duration, step string) error {
+	dr.WaitForTimestampChangeFn = func(_ string, _ pkl.Duration, _ time.Duration, _ string) error {
 		return nil
 	}
 
@@ -70,7 +70,7 @@ func TestProcessResourceStep_WaitErr(t *testing.T) {
 	dr.GetCurrentTimestampFn = func(_, _ string) (pkl.Duration, error) {
 		return pkl.Duration{Value: 0, Unit: pkl.Second}, nil
 	}
-	dr.WaitForTimestampChangeFn = func(_ string, _ pkl.Duration, _ time.Duration, step string) error {
+	dr.WaitForTimestampChangeFn = func(_ string, _ pkl.Duration, _ time.Duration, _ string) error {
 		return waitErr
 	}
 
@@ -90,7 +90,7 @@ func TestProcessResourceStep_CustomTimeout(t *testing.T) {
 	}
 
 	waited := false
-	dr.WaitForTimestampChangeFn = func(_ string, _ pkl.Duration, timeout time.Duration, step string) error {
+	dr.WaitForTimestampChangeFn = func(_ string, _ pkl.Duration, timeout time.Duration, _ string) error {
 		waited = true
 		if timeout != 5*time.Second {
 			t.Fatalf("expected timeout 5s, got %v", timeout)

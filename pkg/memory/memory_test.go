@@ -42,7 +42,7 @@ func TestInitializeMemoryWithInvalidPath(t *testing.T) {
 	invalidPath := "/nonexistent/path/test.db"
 
 	reader, err := memory.InitializeMemory(invalidPath)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, reader)
 }
 
@@ -57,7 +57,7 @@ func TestInitializeMemoryWithReadOnlyDirectory(t *testing.T) {
 	// Try to create database in read-only directory
 	dbPath := filepath.Join(tempDir, "test.db")
 	reader, err := memory.InitializeMemory(dbPath)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, reader)
 
 	// Restore permissions for cleanup
@@ -75,7 +75,7 @@ func TestInitializeMemoryWithExistingInvalidDatabase(t *testing.T) {
 
 	// Try to initialize with invalid database
 	reader, err := memory.InitializeMemory(dbPath)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, reader)
 }
 
@@ -124,7 +124,7 @@ func TestInitializeDatabaseWithInvalidPath(t *testing.T) {
 	invalidPath := "/nonexistent/path/test.db"
 
 	db, err := memory.InitializeDatabase(invalidPath)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, db)
 }
 

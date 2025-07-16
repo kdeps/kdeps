@@ -59,7 +59,7 @@ func TestDefaultVersionValues(t *testing.T) {
 
 	// Schema version should follow semantic versioning
 	assert.Regexp(t, regexp.MustCompile(semverPattern), version.DefaultSchemaVersion, "DefaultSchemaVersion should follow semantic versioning")
-	assert.Regexp(t, regexp.MustCompile(semverPattern), version.MinimumSchemaVersion, "MinimumSchemaVersion should follow semantic versioning")
+	require.Regexp(t, regexp.MustCompile(semverPattern), version.MinimumSchemaVersion, "MinimumSchemaVersion should follow semantic versioning")
 
 	// Anaconda version should follow date-based versioning
 	assert.Regexp(t, regexp.MustCompile(dateVersionPattern), version.DefaultAnacondaVersion, "DefaultAnacondaVersion should follow date-based versioning")
@@ -72,7 +72,7 @@ func TestDefaultVersionValues(t *testing.T) {
 
 	// Default schema version should be >= minimum using utils.CompareVersions
 	cmp, err := utils.CompareVersions(version.DefaultSchemaVersion, version.MinimumSchemaVersion)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.GreaterOrEqual(t, cmp, 0, "DefaultSchemaVersion should be >= MinimumSchemaVersion")
 }
 

@@ -206,18 +206,18 @@ type fakeClient struct {
 	pruneErr   error
 }
 
-func (f *fakeClient) ContainerList(_ context.Context, options container.ListOptions) ([]container.Summary, error) {
+func (f *fakeClient) ContainerList(_ context.Context, _ container.ListOptions) ([]container.Summary, error) {
 	return f.containers, f.listErr
 }
 
-func (f *fakeClient) ContainerRemove(_ context.Context, containerID string, options container.RemoveOptions) error {
+func (f *fakeClient) ContainerRemove(_ context.Context, _ string, _ container.RemoveOptions) error {
 	if f.removeErr != nil {
 		return f.removeErr
 	}
 	return nil
 }
 
-func (f *fakeClient) ImagesPrune(_ context.Context, pruneFilters filters.Args) (image.PruneReport, error) {
+func (f *fakeClient) ImagesPrune(_ context.Context, _ filters.Args) (image.PruneReport, error) {
 	if f.pruneErr != nil {
 		return image.PruneReport{}, f.pruneErr
 	}
@@ -402,7 +402,7 @@ func TestCleanupFlagFilesAdditional(t *testing.T) {
 	// Create a temporary directory and a flag file that should be removed.
 	tmpDir := t.TempDir()
 	flag1 := filepath.Join(tmpDir, "flag1")
-	assert.NoError(t, afero.WriteFile(fs, flag1, []byte("flag"), 0o644))
+	require.NoError(t, afero.WriteFile(fs, flag1, []byte("flag"), 0o644))
 
 	// flag2 intentionally does NOT exist to hit the non-existence branch.
 	flag2 := filepath.Join(tmpDir, "flag2")
@@ -411,12 +411,12 @@ func TestCleanupFlagFilesAdditional(t *testing.T) {
 
 	// Verify flag1 has been deleted and flag2 still does not exist.
 	_, err := fs.Stat(flag1)
-	assert.Error(t, err)
-	assert.True(t, os.IsNotExist(err))
+	require.Error(t, err)
+	require.True(t, os.IsNotExist(err))
 
 	_, err = fs.Stat(flag2)
-	assert.Error(t, err)
-	assert.True(t, os.IsNotExist(err))
+	require.Error(t, err)
+	require.True(t, os.IsNotExist(err))
 }
 
 // TestCleanupEndToEnd exercises the happy-path of the high-level Cleanup
@@ -438,26 +438,26 @@ func TestCleanupEndToEnd(t *testing.T) {
 	env := &environment.Environment{DockerMode: "1"}
 
 	// Create the action directory so that Cleanup can delete it.
-	assert.NoError(t, fs.MkdirAll(actionDir, 0o755))
+	require.NoError(t, fs.MkdirAll(actionDir, 0o755))
 
 	// Pre-create the second flag file so that WaitForFileReady does not time out.
 	preFlag := filepath.Join(actionDir, ".dockercleanup_"+graphID)
-	assert.NoError(t, afero.WriteFile(fs, preFlag, []byte("flag"), 0o644))
+	require.NoError(t, afero.WriteFile(fs, preFlag, []byte("flag"), 0o644))
 
 	// Create a dummy project directory with a single file that should be copied
 	// to the workflow directory by Cleanup.
 	projectDir := "/agent/project"
 	dummyFile := filepath.Join(projectDir, "hello.txt")
-	assert.NoError(t, fs.MkdirAll(projectDir, 0o755))
-	assert.NoError(t, afero.WriteFile(fs, dummyFile, []byte("hello"), 0o644))
+	require.NoError(t, fs.MkdirAll(projectDir, 0o755))
+	require.NoError(t, afero.WriteFile(fs, dummyFile, []byte("hello"), 0o644))
 
 	// Execute the function under test.
 	docker.Cleanup(fs, ctx, env, logger)
 
 	// Assert that the action directory has been removed.
 	_, err := fs.Stat(actionDir)
-	assert.Error(t, err)
-	assert.True(t, os.IsNotExist(err))
+	require.Error(t, err)
+	require.True(t, os.IsNotExist(err))
 
 	// Cleanup finished without panicking and the action directory is gone – that's sufficient for this test.
 }
@@ -534,119 +534,119 @@ func (m *MockDockerClient) ImagesPrune(ctx context.Context, pruneFilters filters
 }
 
 // Implement other required interface methods with empty implementations
-func (m *MockDockerClient) ContainerStart(_ context.Context, containerID string, options container.StartOptions) error {
+func (m *MockDockerClient) ContainerStart(_ context.Context, _ string, _ container.StartOptions) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerStop(_ context.Context, containerID string, options *container.StopOptions) error {
+func (m *MockDockerClient) ContainerStop(_ context.Context, _ string, _ *container.StopOptions) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerWait(_ context.Context, containerID string, condition container.WaitCondition) (<-chan container.WaitResponse, <-chan error) {
+func (m *MockDockerClient) ContainerWait(_ context.Context, _ string, _ container.WaitCondition) (<-chan container.WaitResponse, <-chan error) {
 	return make(chan container.WaitResponse), make(chan error)
 }
 
-func (m *MockDockerClient) ContainerLogs(_ context.Context, containerID string, options container.LogsOptions) (io.ReadCloser, error) {
+func (m *MockDockerClient) ContainerLogs(_ context.Context, _ string, _ container.LogsOptions) (io.ReadCloser, error) {
 	return io.NopCloser(strings.NewReader("")), nil
 }
 
-func (m *MockDockerClient) ContainerInspect(_ context.Context, containerID string) (types.ContainerJSON, error) {
+func (m *MockDockerClient) ContainerInspect(_ context.Context, _ string) (types.ContainerJSON, error) {
 	return types.ContainerJSON{}, nil
 }
 
-func (m *MockDockerClient) ContainerInspectWithRaw(_ context.Context, containerID string, getSize bool) (types.ContainerJSON, []byte, error) {
+func (m *MockDockerClient) ContainerInspectWithRaw(_ context.Context, _ string, _ bool) (types.ContainerJSON, []byte, error) {
 	return types.ContainerJSON{}, nil, nil
 }
 
-func (m *MockDockerClient) ContainerStats(_ context.Context, containerID string, stream bool) (container.Stats, error) {
+func (m *MockDockerClient) ContainerStats(_ context.Context, _ string, _ bool) (container.Stats, error) {
 	return container.Stats{}, nil
 }
 
-func (m *MockDockerClient) ContainerStatsOneShot(_ context.Context, containerID string) (container.Stats, error) {
+func (m *MockDockerClient) ContainerStatsOneShot(_ context.Context, _ string) (container.Stats, error) {
 	return container.Stats{}, nil
 }
 
-func (m *MockDockerClient) ContainerTop(_ context.Context, containerID string, arguments []string) (container.ContainerTopOKBody, error) {
+func (m *MockDockerClient) ContainerTop(_ context.Context, _ string, _ []string) (container.ContainerTopOKBody, error) {
 	return container.ContainerTopOKBody{}, nil
 }
 
-func (m *MockDockerClient) ContainerUpdate(_ context.Context, containerID string, updateConfig container.UpdateConfig) (container.ContainerUpdateOKBody, error) {
+func (m *MockDockerClient) ContainerUpdate(_ context.Context, _ string, _ container.UpdateConfig) (container.ContainerUpdateOKBody, error) {
 	return container.ContainerUpdateOKBody{}, nil
 }
 
-func (m *MockDockerClient) ContainerPause(_ context.Context, containerID string) error {
+func (m *MockDockerClient) ContainerPause(_ context.Context, _ string) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerUnpause(_ context.Context, containerID string) error {
+func (m *MockDockerClient) ContainerUnpause(_ context.Context, _ string) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerRestart(_ context.Context, containerID string, options *container.StopOptions) error {
+func (m *MockDockerClient) ContainerRestart(_ context.Context, _ string, _ *container.StopOptions) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerKill(_ context.Context, containerID, signal string) error {
+func (m *MockDockerClient) ContainerKill(_ context.Context, _, _ string) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerRename(_ context.Context, containerID, newContainerName string) error {
+func (m *MockDockerClient) ContainerRename(_ context.Context, _, _ string) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerResize(_ context.Context, containerID string, options container.ResizeOptions) error {
+func (m *MockDockerClient) ContainerResize(_ context.Context, _ string, _ container.ResizeOptions) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerExecCreate(_ context.Context, containerID string, config container.ExecOptions) (container.ExecCreateResponse, error) {
+func (m *MockDockerClient) ContainerExecCreate(_ context.Context, _ string, _ container.ExecOptions) (container.ExecCreateResponse, error) {
 	return container.ExecCreateResponse{}, nil
 }
 
-func (m *MockDockerClient) ContainerExecStart(_ context.Context, execID string, config container.ExecStartOptions) error {
+func (m *MockDockerClient) ContainerExecStart(_ context.Context, _ string, _ container.ExecStartOptions) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerExecAttach(_ context.Context, execID string, config container.ExecStartOptions) (types.HijackedResponse, error) {
+func (m *MockDockerClient) ContainerExecAttach(_ context.Context, _ string, _ container.ExecStartOptions) (types.HijackedResponse, error) {
 	return types.HijackedResponse{}, nil
 }
 
-func (m *MockDockerClient) ContainerExecInspect(_ context.Context, execID string) (container.ExecInspect, error) {
+func (m *MockDockerClient) ContainerExecInspect(_ context.Context, _ string) (container.ExecInspect, error) {
 	return container.ExecInspect{}, nil
 }
 
-func (m *MockDockerClient) ContainerExecResize(_ context.Context, execID string, options container.ResizeOptions) error {
+func (m *MockDockerClient) ContainerExecResize(_ context.Context, _ string, _ container.ResizeOptions) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerAttach(_ context.Context, containerID string, options container.AttachOptions) (types.HijackedResponse, error) {
+func (m *MockDockerClient) ContainerAttach(_ context.Context, _ string, _ container.AttachOptions) (types.HijackedResponse, error) {
 	return types.HijackedResponse{}, nil
 }
 
-func (m *MockDockerClient) ContainerCommit(_ context.Context, containerID string, options container.CommitOptions) (container.CommitResponse, error) {
+func (m *MockDockerClient) ContainerCommit(_ context.Context, _ string, _ container.CommitOptions) (container.CommitResponse, error) {
 	return container.CommitResponse{}, nil
 }
 
-func (m *MockDockerClient) ContainerCopyFromContainer(_ context.Context, containerID, srcPath string) (io.ReadCloser, container.PathStat, error) {
+func (m *MockDockerClient) ContainerCopyFromContainer(_ context.Context, _, _ string) (io.ReadCloser, container.PathStat, error) {
 	return nil, container.PathStat{}, nil
 }
 
-func (m *MockDockerClient) ContainerCopyToContainer(_ context.Context, containerID, path string, content io.Reader, options container.CopyToContainerOptions) error {
+func (m *MockDockerClient) ContainerCopyToContainer(_ context.Context, _, _ string, _ io.Reader, _ container.CopyToContainerOptions) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerExport(_ context.Context, containerID string) (io.ReadCloser, error) {
+func (m *MockDockerClient) ContainerExport(_ context.Context, _ string) (io.ReadCloser, error) {
 	return io.NopCloser(strings.NewReader("")), nil
 }
 
-func (m *MockDockerClient) ContainerArchive(_ context.Context, containerID, srcPath string) (io.ReadCloser, error) {
+func (m *MockDockerClient) ContainerArchive(_ context.Context, _, _ string) (io.ReadCloser, error) {
 	return io.NopCloser(strings.NewReader("")), nil
 }
 
-func (m *MockDockerClient) ContainerArchiveInfo(_ context.Context, containerID, srcPath string) (container.PathStat, error) {
+func (m *MockDockerClient) ContainerArchiveInfo(_ context.Context, _, _ string) (container.PathStat, error) {
 	return container.PathStat{}, nil
 }
 
-func (m *MockDockerClient) ContainerExtractToDir(_ context.Context, containerID, srcPath string, dstPath string) error {
+func (m *MockDockerClient) ContainerExtractToDir(_ context.Context, _, _, _ string) error {
 	return nil
 }
 
@@ -713,13 +713,13 @@ func TestCleanup(t *testing.T) {
 	environ := &environment.Environment{DockerMode: "1"}
 	logger := logging.NewTestLogger() // Mock logger
 
-	t.Run("NonDockerMode", func(t *testing.T) {
+	t.Run("NonDockerMode", func(_ *testing.T) {
 		environ.DockerMode = "0"
 		docker.Cleanup(fs, ctx, environ, logger)
 		// No assertions, just ensure it doesn't panic
 	})
 
-	t.Run("DockerMode", func(t *testing.T) {
+	t.Run("DockerMode", func(_ *testing.T) {
 		environ.DockerMode = "1"
 		docker.Cleanup(fs, ctx, environ, logger)
 		// No assertions, just ensure it doesn't panic

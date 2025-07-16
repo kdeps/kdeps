@@ -457,7 +457,7 @@ func TestWaitForFileReady(t *testing.T) {
 		_ = afero.WriteFile(fs, filename, []byte("ok"), 0o644)
 	}()
 
-	assert.NoError(t, utils.WaitForFileReady(fs, filename, logger))
+	require.NoError(t, utils.WaitForFileReady(fs, filename, logger))
 	close(done)
 
 	// timeout case – file never appears
@@ -465,7 +465,7 @@ func TestWaitForFileReady(t *testing.T) {
 	nonexistentPath := filepath.Join(tmpDir, "nonexistent")
 	err := utils.WaitForFileReady(fs, nonexistentPath, logger)
 	duration := time.Since(start)
-	assert.Error(t, err)
+	require.Error(t, err)
 	// It should time-out roughly around the configured 1s ± some slack.
 	assert.LessOrEqual(t, duration.Seconds(), 2.0)
 }

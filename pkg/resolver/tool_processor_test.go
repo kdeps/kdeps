@@ -12,6 +12,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklLLM "github.com/kdeps/schema/gen/llm"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // helper to construct pointer of string
@@ -22,17 +23,17 @@ type availableTool struct {
 	Function struct{ Name string }
 }
 
-func generateAvailableTools(_ *pklLLM.ResourceChat, logger *logging.Logger) []availableTool {
+func generateAvailableTools(_ *pklLLM.ResourceChat, _ *logging.Logger) []availableTool {
 	return []availableTool{{Function: struct{ Name string }{"echo"}}, {Function: struct{ Name string }{"sum"}}}
 }
 
 func formatToolParameters(_ availableTool, sb *strings.Builder) { sb.WriteString("msg") }
 
-func extractToolParams(_ map[string]interface{}, chat *pklLLM.ResourceChat, name string, logger *logging.Logger) (string, string, string, error) {
+func extractToolParams(_ map[string]interface{}, _ *pklLLM.ResourceChat, name string, _ *logging.Logger) (string, string, string, error) {
 	return name, "echo $msg", "hello", nil
 }
 
-func buildToolURI(_, script, params string) (*url.URL, error) {
+func buildToolURI(_, _, params string) (*url.URL, error) {
 	return url.Parse("tool://dummy?params=" + params)
 }
 
@@ -51,7 +52,7 @@ func encodeToolParameters(params *map[string]*pklLLM.ToolProperties) *map[string
 	return params
 }
 
-func convertToolParamsToString(val interface{}, _, t string, logger *logging.Logger) string {
+func convertToolParamsToString(val interface{}, _, _ string, _ *logging.Logger) string {
 	switch v := val.(type) {
 	case string:
 		return v
@@ -78,7 +79,7 @@ type toolCall struct {
 	FunctionCall functionCall
 }
 
-func constructToolCallsFromJSON(s string, logger *logging.Logger) []toolCall {
+func constructToolCallsFromJSON(s string, _ *logging.Logger) []toolCall {
 	if s == "" || strings.Contains(s, "bad json") {
 		return nil
 	}
@@ -88,7 +89,7 @@ func constructToolCallsFromJSON(s string, logger *logging.Logger) []toolCall {
 	return []toolCall{{FunctionCall: functionCall{"echo", "{\"msg\":\"hi\"}"}}}
 }
 
-func deduplicateToolCalls(calls []toolCall, logger *logging.Logger) []toolCall {
+func deduplicateToolCalls(calls []toolCall, _ *logging.Logger) []toolCall {
 	if len(calls) > 1 {
 		return calls[:2]
 	}
@@ -228,7 +229,7 @@ func TestEncodeToolsAndParamsUnit(t *testing.T) {
 	obj := map[string]int{"x": 1}
 	str := convertToolParamsToString(obj, "p", "t", logger)
 	var recovered map[string]int
-	assert.NoError(t, json.Unmarshal([]byte(str), &recovered))
+	require.NoError(t, json.Unmarshal([]byte(str), &recovered))
 	assert.Equal(t, obj["x"], recovered["x"])
 
 	var sb strings.Builder

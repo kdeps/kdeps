@@ -136,7 +136,7 @@ func TestValidateConfiguration_InvalidValues(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := processor.ValidateConfiguration(tt.config)
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				if tt.errorMsg != "" {
 					assert.Contains(t, err.Error(), tt.errorMsg)
 				}

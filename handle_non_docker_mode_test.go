@@ -39,29 +39,26 @@ func TestHandleNonDockerMode_GenerateFlow(_ *testing.T) {
 	}()
 
 	// Mock functions with correct parameter order
-	findConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
-		return "/test/config.pkl", nil
+	findConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ *logging.Logger) (string, error) {
+		return "/tmp/test-config.pkl", nil
 	}
-	generateConfigurationFn = func(_ context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
-		return "/test/generated.pkl", nil
+	generateConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ *logging.Logger) (string, error) {
+		return "/tmp/test-config.pkl", nil
 	}
-	editConfigurationFn = func(_ context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
-		return "/test/edited.pkl", nil
+	editConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ *logging.Logger) (string, error) {
+		return "/tmp/test-config.pkl", nil
 	}
-	validateConfigurationFn = func(_ context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
-		return "/test/validated.pkl", nil
+	validateConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ *logging.Logger) (string, error) {
+		return "/tmp/test-config.pkl", nil
 	}
-	loadConfigurationFn = func(_ context.Context, fs afero.Fs, configFile string, logger *logging.Logger) (*schemaK.Kdeps, error) {
+	loadConfigurationFn = func(_ context.Context, _ afero.Fs, _ string, _ *logging.Logger) (*schemaK.Kdeps, error) {
 		return &schemaK.Kdeps{}, nil
 	}
 	getKdepsPathFn = func(context.Context, schemaK.Kdeps) (string, error) {
 		return "/kdeps", nil
 	}
-	newRootCommandFn = func(ctx context.Context, fs afero.Fs, kdepsDir string, systemCfg *schemaK.Kdeps, env *environment.Environment, logger *logging.Logger) *cobra.Command {
-		return &cobra.Command{
-			Use: "root",
-			Run: func(_ *cobra.Command, args []string) {},
-		}
+	newRootCommandFn = func(_ context.Context, _ afero.Fs, _ string, systemCfg *schemaK.Kdeps, env *environment.Environment, logger *logging.Logger) *cobra.Command {
+		return &cobra.Command{Run: func(_ *cobra.Command, _ []string) {}}
 	}
 
 	// Call the function; expecting graceful completion without panic.
@@ -91,22 +88,22 @@ func TestHandleNonDockerMode_ExistingConfig(_ *testing.T) {
 	}()
 
 	// Stubs
-	findConfigurationFn = func(_ context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	findConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 		return "", nil
 	}
-	generateConfigurationFn = func(_ context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	generateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 		return "/test/existing.pkl", nil
 	}
-	validateConfigurationFn = func(_ context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	validateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 		return "/existing/config.yml", nil
 	}
-	loadConfigurationFn = func(_ context.Context, fs afero.Fs, configFile string, logger *logging.Logger) (*schemaK.Kdeps, error) {
+	loadConfigurationFn = func(_ context.Context, _ afero.Fs, _ string, logger *logging.Logger) (*schemaK.Kdeps, error) {
 		return &schemaK.Kdeps{}, nil
 	}
 	getKdepsPathFn = func(context.Context, schemaK.Kdeps) (string, error) {
 		return "/kdeps", nil
 	}
-	newRootCommandFn = func(_ context.Context, fs afero.Fs, kdepsDir string, systemCfg *schemaK.Kdeps, env *environment.Environment, logger *logging.Logger) *cobra.Command {
+	newRootCommandFn = func(_ context.Context, _ afero.Fs, _ string, systemCfg *schemaK.Kdeps, env *environment.Environment, logger *logging.Logger) *cobra.Command {
 		return &cobra.Command{Use: "root"}
 	}
 

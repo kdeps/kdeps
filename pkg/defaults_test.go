@@ -186,8 +186,8 @@ func TestLogConfigurationSummary(_ *testing.T) {
 }
 
 func TestConfigurationSourceConstants(t *testing.T) {
-	assert.Equal(t, pkg.ConfigurationSource("PKL"), pkg.SourcePKL)
-	assert.Equal(t, pkg.ConfigurationSource("DEFAULT"), pkg.SourceDefault)
+	assert.Equal(t, pkg.SourcePKL, pkg.ConfigurationSource("PKL"))
+	assert.Equal(t, pkg.SourceDefault, pkg.ConfigurationSource("DEFAULT"))
 }
 
 func TestConfigurationValue(t *testing.T) {

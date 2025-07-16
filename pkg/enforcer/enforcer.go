@@ -250,7 +250,7 @@ func EnforceFolderStructure(ctx context.Context, fs afero.Fs, filePath string, l
 	return nil
 }
 
-func EnforceResourceRunBlock(ctx context.Context, fs afero.Fs, file string, logger *logging.Logger) error {
+func EnforceResourceRunBlock(_ context.Context, fs afero.Fs, file string, logger *logging.Logger) error {
 	pklData, err := afero.ReadFile(fs, file)
 	if err != nil {
 		logger.Error("failed to read .pkl file", "file", file, "error", err)

@@ -14,6 +14,10 @@ import (
 	pklPython "github.com/kdeps/schema/gen/python"
 )
 
+const (
+	waitTimestampSleep = 100 * time.Millisecond
+)
+
 // getResourcePath returns the pklres path for a given resourceType.
 func (dr *DependencyResolver) getResourcePath(resourceType string) (string, error) {
 	// Map resource types to ensure they're valid
@@ -257,7 +261,7 @@ func (dr *DependencyResolver) WaitForTimestampChange(resourceID string, initialT
 		}
 
 		// Wait a bit before checking again
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(waitTimestampSleep)
 	}
 }
 

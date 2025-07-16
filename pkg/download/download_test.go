@@ -350,7 +350,7 @@ func TestDownloadFiles_MultipleUnit(t *testing.T) {
 	for _, n := range []string{"a.txt", "b.txt"} {
 		path := filepath.Join(tmpDir, n)
 		info, err := mem.Stat(path)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotZero(t, info.Size())
 	}
 

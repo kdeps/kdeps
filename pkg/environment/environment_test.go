@@ -192,7 +192,7 @@ func TestNewEnvironmentEdgeCases(t *testing.T) {
 
 		env, err := environment.NewEnvironment(fs, nil)
 		require.NoError(t, err, "Expected no error")
-		assert.Equal(t, "", env.NonInteractive, "Expected empty NON_INTERACTIVE value when not set")
+		assert.Empty(t, env.NonInteractive, "Expected empty NON_INTERACTIVE value when not set")
 	})
 
 	t.Run("WithAllEnvironmentVariables", func(t *testing.T) {
@@ -224,7 +224,7 @@ func TestNewEnvironment_UnmarshalError(t *testing.T) {
 
 	env, err := environment.NewEnvironment(fs, nil)
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, env)
 }
 
@@ -236,7 +236,7 @@ func TestNewEnvironment_Provided_NoConfig_NoDocker(t *testing.T) {
 		Home: "/home",
 	}
 	newEnv, err := environment.NewEnvironment(fs, envIn)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Empty(t, newEnv.KdepsConfig)
 	assert.Equal(t, "0", newEnv.DockerMode)
 	assert.Equal(t, "1", newEnv.NonInteractive)
@@ -248,7 +248,7 @@ func TestNewEnvironment_Provided_ConfigInPwd(t *testing.T) {
 	_ = afero.WriteFile(fs, "/pwd/.kdeps.pkl", []byte(""), 0o644)
 	envIn := &environment.Environment{Root: "/", Pwd: "/pwd", Home: "/home"}
 	newEnv, err := environment.NewEnvironment(fs, envIn)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "/pwd/.kdeps.pkl", newEnv.KdepsConfig)
 }
 
@@ -258,7 +258,7 @@ func TestNewEnvironment_Provided_ConfigInHomeOnly(t *testing.T) {
 	_ = afero.WriteFile(fs, "/home/.kdeps.pkl", []byte(""), 0o644)
 	envIn := &environment.Environment{Root: "/", Pwd: "/pwd", Home: "/home"}
 	newEnv, err := environment.NewEnvironment(fs, envIn)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "/home/.kdeps.pkl", newEnv.KdepsConfig)
 }
 

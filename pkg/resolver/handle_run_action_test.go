@@ -22,6 +22,7 @@ import (
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	pklData "github.com/kdeps/schema/gen/data"
 	pklExec "github.com/kdeps/schema/gen/exec"
@@ -98,7 +99,7 @@ func TestHandleRunAction_BasicFlow(t *testing.T) {
 	}
 
 	var prbCalled bool
-	dr.ProcessRunBlockFn = func(_ resolver.ResourceNodeEntry, _ *pklRes.Resource, _ string, hasItems bool) (bool, error) {
+	dr.ProcessRunBlockFn = func(_ resolver.ResourceNodeEntry, _ *pklRes.Resource, _ string, _ bool) (bool, error) {
 		prbCalled = true
 		return false, nil // do not proceed further
 	}
@@ -202,7 +203,7 @@ run {}`
 	err := error(nil) // Skip this test as function is removed
 
 	// The call should succeed since we've provided all necessary dependencies
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestCanonicalActionIDResolution(t *testing.T) {

@@ -10,6 +10,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Test that activate/deactivate use the injected ExecTaskRunnerFn and succeed.
@@ -46,13 +47,13 @@ func TestCondaEnvironmentExecutionInjectedFailure(t *testing.T) {
 		Fs:      afero.NewMemMapFs(),
 		Logger:  logging.GetLogger(),
 		Context: context.Background(),
-		ExecTaskRunnerFn: func(_ context.Context, task execute.ExecTask) (string, string, error) {
+		ExecTaskRunnerFn: func(_ context.Context, _ execute.ExecTask) (string, string, error) {
 			return "", "", expectedErr
 		},
 	}
 
 	err := dr.ActivateCondaEnvironment("myenv")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), expectedErr.Error())
 }
 

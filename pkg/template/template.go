@@ -20,9 +20,12 @@ import (
 	"github.com/spf13/afero"
 )
 
-var (
-	lightBlue  = lipgloss.NewStyle().Foreground(lipgloss.Color("#6495ED")).Bold(true)
-	lightGreen = lipgloss.NewStyle().Foreground(lipgloss.Color("#90EE90")).Bold(true)
+var lightGreen = lipgloss.NewStyle().Foreground(lipgloss.Color("#90EE90")).Bold(true)
+
+const (
+	filePerm      = 0o644
+	dirPerm       = 0o755
+	progressSleep = 80 * time.Millisecond
 )
 
 func PrintWithDots(_ string) {
@@ -70,7 +73,7 @@ func CreateDirectory(fs afero.Fs, logger *logging.Logger, path string) error {
 		return err
 	}
 	if os.Getenv("NON_INTERACTIVE") != "1" {
-		time.Sleep(80 * time.Millisecond)
+		time.Sleep(progressSleep)
 	}
 	return nil
 }
@@ -80,12 +83,12 @@ func CreateFile(fs afero.Fs, logger *logging.Logger, path string, content string
 		return errors.New("file path cannot be empty")
 	}
 	PrintWithDots("Creating file: " + lightGreen.Render(path))
-	if err := afero.WriteFile(fs, path, []byte(content), 0o644); err != nil {
+	if err := afero.WriteFile(fs, path, []byte(content), filePerm); err != nil {
 		logger.Error(err)
 		return err
 	}
 	if os.Getenv("NON_INTERACTIVE") != "1" {
-		time.Sleep(80 * time.Millisecond)
+		time.Sleep(progressSleep)
 	}
 	return nil
 }
@@ -133,7 +136,7 @@ func GenerateWorkflowFile(_ context.Context, fs afero.Fs, logger *logging.Logger
 	}
 
 	// Create the directory if it doesn't exist
-	if err := fs.MkdirAll(mainDir, 0o755); err != nil {
+	if err := fs.MkdirAll(mainDir, dirPerm); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
@@ -168,7 +171,7 @@ func GenerateResourceFiles(_ context.Context, fs afero.Fs, logger *logging.Logge
 	}
 
 	resourceDir := filepath.Join(mainDir, "resources")
-	if err := fs.MkdirAll(resourceDir, 0o755); err != nil {
+	if err := fs.MkdirAll(resourceDir, dirPerm); err != nil {
 		return fmt.Errorf("failed to create resources directory: %w", err)
 	}
 
@@ -287,7 +290,7 @@ import "package://schema.kdeps.com/core@%s#/Session.pkl" as session`,
 	}
 
 	// Create the output directory if it doesn't exist
-	if err := fs.MkdirAll(outputDir, 0o755); err != nil {
+	if err := fs.MkdirAll(outputDir, dirPerm); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
@@ -303,7 +306,7 @@ func GenerateAgent(ctx context.Context, fs afero.Fs, logger *logging.Logger, bas
 
 	// Create the main directory under baseDir
 	mainDir := filepath.Join(baseDir, agentName)
-	if err := fs.MkdirAll(mainDir, 0o755); err != nil {
+	if err := fs.MkdirAll(mainDir, dirPerm); err != nil {
 		return fmt.Errorf("failed to create main directory: %w", err)
 	}
 

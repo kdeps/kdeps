@@ -20,6 +20,7 @@ import (
 	pklPython "github.com/kdeps/schema/gen/python"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func formatDuration(d time.Duration) string {
@@ -195,7 +196,7 @@ func TestWaitForTimestampChange(t *testing.T) {
 			Unit:  pkl.Second,
 		}
 		err := dr.WaitForTimestampChange("test-resource", previousTimestamp, 100*time.Millisecond, "exec")
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "does not exist in pklres")
 		// Removed assertion for PKL path, as it's not guaranteed to be present
 	})

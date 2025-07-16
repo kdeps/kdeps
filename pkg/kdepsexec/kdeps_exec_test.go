@@ -9,6 +9,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/kdepsexec"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	execute "github.com/alexellis/go-execute/v2"
 )
@@ -19,7 +20,7 @@ func TestKdepsExec(t *testing.T) {
 
 	t.Run("SimpleCommand", func(t *testing.T) {
 		stdout, stderr, exitCode, err := kdepsexec.KdepsExec(ctx, "echo", []string{"hello"}, "", false, false, logger)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "hello\n", stdout)
 		assert.Empty(t, stderr)
 		assert.Equal(t, 0, exitCode)
@@ -33,7 +34,7 @@ func TestKdepsExec(t *testing.T) {
 		assert.NoError(t, err)
 
 		stdout, stderr, exitCode, err := kdepsexec.KdepsExec(ctx, "sh", []string{"-c", "echo $TEST_VAR"}, tempDir, true, false, logger)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "test_value\n", stdout)
 		assert.Empty(t, stderr)
 		assert.Equal(t, 0, exitCode)
@@ -41,7 +42,7 @@ func TestKdepsExec(t *testing.T) {
 
 	t.Run("BackgroundCommand", func(t *testing.T) {
 		stdout, stderr, exitCode, err := kdepsexec.KdepsExec(ctx, "sleep", []string{"1"}, "", false, true, logger)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Empty(t, stdout)
 		assert.Empty(t, stderr)
 		assert.Equal(t, 0, exitCode)
@@ -49,7 +50,7 @@ func TestKdepsExec(t *testing.T) {
 
 	t.Run("NonZeroExitCode", func(t *testing.T) {
 		stdout, stderr, exitCode, err := kdepsexec.KdepsExec(ctx, "false", []string{}, "", false, false, logger)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Empty(t, stdout)
 		assert.Empty(t, stderr)
 		assert.NotEqual(t, 0, exitCode)
@@ -67,7 +68,7 @@ func TestRunExecTask_Foreground(t *testing.T) {
 	}
 
 	stdout, stderr, exitCode, err := kdepsexec.RunExecTask(ctx, task, logger, false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "hello\n", stdout)
 	assert.Empty(t, stderr)
 	assert.Equal(t, 0, exitCode)
@@ -83,7 +84,7 @@ func TestRunExecTask_ShellMode(t *testing.T) {
 	}
 
 	stdout, _, _, err := kdepsexec.RunExecTask(ctx, task, logger, false)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "shell-test\n", stdout)
 }
 
@@ -98,7 +99,7 @@ func TestRunExecTask_Background(t *testing.T) {
 
 	stdout, stderr, exitCode, err := kdepsexec.RunExecTask(ctx, task, logger, true)
 	// Background mode should return immediately with zero exit code and no output
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Empty(t, stdout)
 	assert.Empty(t, stderr)
 	assert.Equal(t, 0, exitCode)

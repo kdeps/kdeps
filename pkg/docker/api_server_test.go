@@ -105,16 +105,16 @@ func TestCleanOldFiles(t *testing.T) {
 
 	// Verify the target file exists before cleaning
 	exists, err := afero.Exists(fs, targetFile)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, exists, "Target file should exist before cleaning")
 
 	// Test cleanOldFiles
 	err = docker.CleanOldFiles(dr)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify the target file was cleaned
 	exists, err = afero.Exists(fs, targetFile)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.False(t, exists, "Target file should be cleaned")
 
 	// Test with no ResponseTargetFile (should do nothing)
@@ -182,7 +182,7 @@ func TestDecodeResponseContent(t *testing.T) {
 	}`
 
 	response, err := docker.DecodeResponseContent([]byte(validJSON), logger)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, response.Success)
 	assert.Len(t, response.Response.Data, 2)
 	assert.Equal(t, "test-123", response.Meta.RequestID)
@@ -190,7 +190,7 @@ func TestDecodeResponseContent(t *testing.T) {
 	// Test invalid JSON
 	invalidJSON := `{invalid json}`
 	_, err = docker.DecodeResponseContent([]byte(invalidJSON), logger)
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestFormatResponseJSON(t *testing.T) {
@@ -395,7 +395,7 @@ func TestHandleMultipartForm(t *testing.T) {
 
 		fileMap := make(map[string]struct{ Filename, Filetype string })
 		err = docker.HandleMultipartForm(c, dr, fileMap)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, fileMap, 1)
 	})
 
@@ -407,7 +407,7 @@ func TestHandleMultipartForm(t *testing.T) {
 
 		fileMap := make(map[string]struct{ Filename, Filetype string })
 		err := docker.HandleMultipartForm(c, dr, fileMap)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "Unable to parse multipart form")
 	})
 
@@ -424,7 +424,7 @@ func TestHandleMultipartForm(t *testing.T) {
 
 		fileMap := make(map[string]struct{ Filename, Filetype string })
 		err := docker.HandleMultipartForm(c, dr, fileMap)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "No file uploaded")
 	})
 }
@@ -450,7 +450,7 @@ func TestProcessFile(t *testing.T) {
 		require.NoError(t, err)
 
 		err = docker.ProcessFile(fileHeader, dr, fileMap)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, fileMap, 1)
 	})
 }
@@ -463,7 +463,7 @@ func TestStartAPIServerMode(t *testing.T) {
 		// Provide a mock Workflow with GetSettings() returning nil
 		dr.Workflow = workflowWithNilSettings{}
 		err := docker.StartAPIServerMode(context.Background(), dr)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "the API server configuration is missing")
 	})
 }
@@ -646,7 +646,7 @@ func TestProcessWorkflow(t *testing.T) {
 		}
 		mock.ClearItemDBFn = func() error { return nil }
 		err := docker.ProcessWorkflow(ctx, mock)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to initialize empty")
 	})
 }
@@ -871,19 +871,19 @@ func TestValidateMethodMore(t *testing.T) {
 
 	req, _ := http.NewRequest(http.MethodPost, "/", nil)
 	out, err := docker.ValidateMethod(req, allowed)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, `Method = "POST"`, out)
 
 	// default empty method becomes GET and passes
 	req2, _ := http.NewRequest("", "/", nil)
 	out, err = docker.ValidateMethod(req2, allowed)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, `Method = "GET"`, out)
 
 	// invalid method
 	req3, _ := http.NewRequest(http.MethodPut, "/", nil)
 	out, err = docker.ValidateMethod(req3, allowed)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Empty(t, out)
 }
 
@@ -903,13 +903,13 @@ func TestCleanOldFilesMore(t *testing.T) {
 
 	// should remove existing file
 	err := docker.CleanOldFiles(dr)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	exist, _ := afero.Exists(fs, respPath)
 	assert.False(t, exist)
 
 	// second call with file absent should still succeed
 	err = docker.CleanOldFiles(dr)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 // TestCleanOldFiles ensures that the helper deletes the ResponseTargetFile when it exists
@@ -1100,10 +1100,10 @@ func TestDecodeResponseContent_Success(t *testing.T) {
 	}
 
 	rawBytes, err := json.Marshal(raw)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	decoded, err := docker.DecodeResponseContent(rawBytes, logger)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "abc", decoded.Meta.RequestID)
 	assert.Contains(t, decoded.Response.Data[0], "\"hello\": \"world\"")
 }
@@ -1111,7 +1111,7 @@ func TestDecodeResponseContent_Success(t *testing.T) {
 func TestDecodeResponseContent_InvalidJSON(t *testing.T) {
 	logger := logging.NewTestLogger()
 	_, err := docker.DecodeResponseContent([]byte(`not-json`), logger)
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestFormatResponseJSONPretty(t *testing.T) {

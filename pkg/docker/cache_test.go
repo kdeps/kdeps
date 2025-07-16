@@ -502,7 +502,7 @@ func TestGenerateURLs_UseLatestWithStubsLow(t *testing.T) {
 				}, nil
 			}),
 		},
-		GitHubFetcher: func(_ context.Context, _ string, baseURL string) (string, error) {
+		GitHubFetcher: func(_ context.Context, _ string, _ string) (string, error) {
 			return "99.99.99", nil
 		},
 	}
@@ -548,7 +548,7 @@ func TestGenerateURLs_UseLatest(t *testing.T) {
 		HTTPClient: &http.Client{
 			Transport: mockTransport{},
 		},
-		GitHubFetcher: func(_ context.Context, _ string, baseURL string) (string, error) {
+		GitHubFetcher: func(_ context.Context, _ string, _ string) (string, error) {
 			return "v9.9.9", nil
 		},
 	}

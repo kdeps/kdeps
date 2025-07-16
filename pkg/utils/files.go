@@ -13,10 +13,15 @@ import (
 	"github.com/spf13/afero"
 )
 
+const (
+	dirPerm         = 0o755
+	fileReadyTicker = 500 * time.Millisecond
+)
+
 func WaitForFileReady(fs afero.Fs, filepath string, logger *logging.Logger) error {
 	logger.Debug(messages.MsgWaitingForFileReady, "file", filepath)
 
-	ticker := time.NewTicker(500 * time.Millisecond)
+	ticker := time.NewTicker(fileReadyTicker)
 	defer ticker.Stop()
 
 	// Introduce a timeout
@@ -55,7 +60,7 @@ func GenerateResourceIDFilename(input string, requestID string) string {
 func CreateDirectories(_ context.Context, fs afero.Fs, dirs []string) error {
 	for _, dir := range dirs {
 		// Use fs.MkdirAll to create the directory and its parents if they don't exist
-		err := fs.MkdirAll(dir, 0o755)
+		err := fs.MkdirAll(dir, dirPerm)
 		if err != nil {
 			return fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}

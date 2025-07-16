@@ -1410,7 +1410,7 @@ func TestGenerateURLs_AnacondaError(t *testing.T) {
 
 	// GitHub fetch succeeds to move past first item.
 	schema.UseLatest = true
-	utils.GitHubReleaseFetcher = func(_ context.Context, _ string, base string) (string, error) {
+	utils.GitHubReleaseFetcher = func(_ context.Context, _ string, _ string) (string, error) {
 		return "0.28.1", nil
 	}
 
@@ -1529,7 +1529,7 @@ func TestGenerateURLsLatestUsesFetcher(t *testing.T) {
 	}()
 
 	schema.UseLatest = true
-	utils.GitHubReleaseFetcher = func(_ context.Context, _ string, baseURL string) (string, error) {
+	utils.GitHubReleaseFetcher = func(_ context.Context, _ string, _ string) (string, error) {
 		return "0.99.0", nil
 	}
 

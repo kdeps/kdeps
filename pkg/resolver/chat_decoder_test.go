@@ -18,6 +18,7 @@ import (
 	pklRes "github.com/kdeps/schema/gen/resource"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/ollama"
 )
@@ -228,7 +229,7 @@ func TestGenerateChatResponseBasic(t *testing.T) {
 		ollama.WithHTTPClient(httpClient),
 		ollama.WithServerURL("http://stub"),
 	)
-	assert.NoError(t, errNew)
+	require.NoError(t, errNew)
 
 	fs := afero.NewMemMapFs()
 	logger := logging.GetLogger()
@@ -243,7 +244,7 @@ func TestGenerateChatResponseBasic(t *testing.T) {
 	}
 
 	resp, err := resolver.GenerateChatResponse(ctx, fs, llm, chatBlock, nil, logger)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "stub-response", resp)
 }
 
@@ -270,7 +271,7 @@ func TestLoadResourceEntriesInjected(t *testing.T) {
 	}
 
 	err := dr.LoadResourceEntries()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, dr.Resources, 1)
 	assert.Contains(t, dr.ResourceDependencies, "action1")
 }

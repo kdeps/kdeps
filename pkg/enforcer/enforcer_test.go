@@ -611,7 +611,7 @@ func TestCompareVersionsAdditional(t *testing.T) {
 	}
 	for _, tc := range tests {
 		got, err := enforcer.CompareVersions(tc.v1, tc.v2, logger)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, tc.want, got, tc.name)
 	}
 }

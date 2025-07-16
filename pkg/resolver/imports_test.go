@@ -58,7 +58,7 @@ func TestPrepareImportFiles_CreatesFiles(t *testing.T) {
 	defer workspace.Cleanup()
 
 	dr := newTestResolver()
-	assert.NoError(t, dr.PrepareImportFiles())
+	require.NoError(t, dr.PrepareImportFiles())
 
 	// Verify that skeleton records exist in pklres instead of on-disk files
 	resourceTypes := []string{"llm", "client", "exec", "python", "data"}
@@ -241,7 +241,7 @@ func TestAddPlaceholderImports(t *testing.T) {
 	assert.NoError(t, afero.WriteFile(fs, filepath.Join(dataDir, "dummy.txt"), []byte("abc"), 0o644))
 
 	// MOCK: Provide a safe LoadResourceFn to avoid nil dereference
-	dr.LoadResourceFn = func(_ context.Context, _ string, typ resolver.ResourceType) (interface{}, error) {
+	dr.LoadResourceFn = func(_ context.Context, _ string, _ resolver.ResourceType) (interface{}, error) {
 		return &pklLLM.LLMImpl{}, nil
 	}
 
@@ -258,7 +258,7 @@ func TestPrepareImportFilesCreatesStubs(t *testing.T) {
 	defer workspace.Cleanup()
 
 	dr := newTestResolver()
-	assert.NoError(t, dr.PrepareImportFiles())
+	require.NoError(t, dr.PrepareImportFiles())
 
 	// Verify that skeleton records exist in pklres instead of on-disk files
 	resourceTypes := []string{"llm", "client", "exec", "python", "data"}

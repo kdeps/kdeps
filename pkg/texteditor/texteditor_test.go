@@ -251,7 +251,7 @@ func TestEditPklAdditionalCoverage(t *testing.T) {
 		defer func() { texteditor.EditPkl = originalEditPkl }()
 
 		// Create a mock that simulates editor command creation failure
-		texteditor.EditPkl = func(_ afero.Fs, _ context.Context, filePath string, logger *logging.Logger) error {
+		texteditor.EditPkl = func(_ afero.Fs, _ context.Context, _ string, _ *logging.Logger) error {
 			return errors.New("failed to create editor command")
 		}
 
@@ -263,7 +263,7 @@ func TestEditPklAdditionalCoverage(t *testing.T) {
 	t.Run("EditorCommandExecutionFailure", func(t *testing.T) {
 		withTestState(t, func() {
 			// Create a mock that simulates editor command execution failure
-			texteditor.EditPkl = func(_ afero.Fs, _ context.Context, filePath string, logger *logging.Logger) error {
+			texteditor.EditPkl = func(_ afero.Fs, _ context.Context, _ string, _ *logging.Logger) error {
 				return errors.New("editor command failed")
 			}
 
@@ -276,7 +276,7 @@ func TestEditPklAdditionalCoverage(t *testing.T) {
 	t.Run("MockEditPklStatError", func(t *testing.T) {
 		withTestState(t, func() {
 			// Create a mock that simulates a non-IsNotExist stat error
-			texteditor.MockEditPkl = func(_ afero.Fs, _ context.Context, filePath string, logger *logging.Logger) error {
+			texteditor.MockEditPkl = func(_ afero.Fs, _ context.Context, _ string, _ *logging.Logger) error {
 				return errors.New("failed to stat file")
 			}
 

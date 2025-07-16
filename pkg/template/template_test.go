@@ -141,9 +141,9 @@ func TestCreateDirectory(t *testing.T) {
 		path := filepath.Join(tempDir, "test/directory")
 		err := template.CreateDirectory(fs, logger, path)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		exists, err := afero.DirExists(fs, path)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, exists)
 	})
 
@@ -151,9 +151,9 @@ func TestCreateDirectory(t *testing.T) {
 		path := filepath.Join(tempDir, "test/nested/deep/directory")
 		err := template.CreateDirectory(fs, logger, path)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		exists, err := afero.DirExists(fs, path)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, exists)
 	})
 
@@ -189,9 +189,9 @@ func TestCreateFile(t *testing.T) {
 
 		err := template.CreateFile(fs, logger, path, content)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		exists, err := afero.Exists(fs, path)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, exists)
 
 		data, err := afero.ReadFile(fs, path)
@@ -210,7 +210,7 @@ func TestCreateFile(t *testing.T) {
 
 		err = template.CreateFile(fs, logger, path, content)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		data, err := afero.ReadFile(fs, path)
 		assert.NoError(t, err)
 		assert.Equal(t, content, string(data))

@@ -9,6 +9,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConditionsHelpers(t *testing.T) {
@@ -73,11 +74,11 @@ func TestFileHelpers(t *testing.T) {
 	tmpDir := t.TempDir()
 	base := filepath.Join(tmpDir, "base")
 	good, err := utils.SanitizeArchivePath(base, "inner/file.txt")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, strings.HasPrefix(good, base))
 
 	_, err = utils.SanitizeArchivePath(base, "../../etc/passwd")
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	// CreateDirectories & CreateFiles integration test (in-mem FS)
 	fs := afero.NewMemMapFs()
@@ -86,14 +87,14 @@ func TestFileHelpers(t *testing.T) {
 	files := []string{filepath.Join(dirs[0], "file1.txt"), filepath.Join(dirs[1], "file2.txt")}
 
 	err = utils.CreateDirectories(ctx, fs, dirs)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	for _, d := range dirs {
 		exists, _ := afero.DirExists(fs, d)
 		assert.True(t, exists)
 	}
 
 	err = utils.CreateFiles(ctx, fs, files)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	for _, f := range files {
 		exists, _ := afero.Exists(fs, f)
 		assert.True(t, exists)
@@ -101,6 +102,6 @@ func TestFileHelpers(t *testing.T) {
 
 	// Ensure CreateFiles writes to correct paths relative to previously created dirs
 	stat, err := fs.Stat(files[0])
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.False(t, stat.IsDir())
 }
