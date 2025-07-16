@@ -124,12 +124,23 @@ local-dev:
 	@find local/project -name "*.bak" -delete
 	@echo "$(OK_COLOR)==> Deploying to Docker container...$(NO_COLOR)"
 	@make dev-build
-	@docker cp bin/kdeps kdeps-whois2-cpu:/bin/kdeps
-	@docker exec kdeps-whois2-cpu mkdir -p /local
-	@docker cp local/pkl kdeps-whois2-cpu:/local/
-	@docker exec kdeps-whois2-cpu rm -rf /agent/project
-	@docker cp local/project kdeps-whois2-cpu:/agent/project
-	@docker restart kdeps-whois2-cpu
+	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
+	if [ -z "$$CONTAINER" ]; then \
+		echo "$(ERROR_COLOR)==> No running kdeps-* container found$(NO_COLOR)"; \
+		exit 1; \
+	fi; \
+	echo "$(OK_COLOR)==> Found container: $$CONTAINER$(NO_COLOR)"; \
+	docker cp bin/kdeps $$CONTAINER:/bin/kdeps
+	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
+	docker exec $$CONTAINER mkdir -p /local
+	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
+	docker cp local/pkl $$CONTAINER:/local/
+	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
+	docker exec $$CONTAINER rm -rf /agent/project
+	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
+	docker cp local/project $$CONTAINER:/agent/project
+	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
+	docker restart $$CONTAINER
 	@echo "$(OK_COLOR)==> Local development environment ready!$(NO_COLOR)"
 	@echo "$(OK_COLOR)==> Container restarted and accessible at http://localhost:3000$(NO_COLOR)"
 
@@ -137,11 +148,22 @@ local-dev:
 local-update:
 	@echo "$(OK_COLOR)==> Updating container with current changes...$(NO_COLOR)"
 	@make dev-build
-	@docker cp bin/kdeps kdeps-whois2-cpu:/bin/kdeps
-	@docker exec kdeps-whois2-cpu mkdir -p /local
-	@docker cp local/pkl kdeps-whois2-cpu:/local/
-	@docker exec kdeps-whois2-cpu rm -rf /agent/project
-	@docker cp local/project kdeps-whois2-cpu:/agent/project
-	@docker restart kdeps-whois2-cpu
+	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
+	if [ -z "$$CONTAINER" ]; then \
+		echo "$(ERROR_COLOR)==> No running kdeps-* container found$(NO_COLOR)"; \
+		exit 1; \
+	fi; \
+	echo "$(OK_COLOR)==> Found container: $$CONTAINER$(NO_COLOR)"; \
+	docker cp bin/kdeps $$CONTAINER:/bin/kdeps
+	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
+	docker exec $$CONTAINER mkdir -p /local
+	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
+	docker cp local/pkl $$CONTAINER:/local/
+	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
+	docker exec $$CONTAINER rm -rf /agent/project
+	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
+	docker cp local/project $$CONTAINER:/agent/project
+	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
+	docker restart $$CONTAINER
 	@echo "$(OK_COLOR)==> Container updated and restarted!$(NO_COLOR)"
 

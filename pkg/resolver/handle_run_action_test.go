@@ -193,7 +193,7 @@ run {}`
 	}
 
 	// Provide PklresHelper and in-memory reader to avoid nil error
-	reader, _ := pklres.InitializePklResource(":memory:")
+	reader, _ := pklres.InitializePklResource(":memory:", "test-graph")
 	dr.PklresReader = reader
 	dr.PklresHelper = resolver.NewPklresHelper(dr)
 

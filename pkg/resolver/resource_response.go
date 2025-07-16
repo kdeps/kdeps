@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/apple/pkl-go/pkl"
-	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
@@ -311,6 +310,19 @@ func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverre
 	}
 
 	dr.Logger.Debug("successfully created and processed PKL file", "file", dr.ResponsePklFile)
+
+	// Now evaluate the PKL response file to generate the JSON response
+	jsonResponse, err := dr.EvalPklFormattedResponseFile()
+	if err != nil {
+		return fmt.Errorf("failed to evaluate PKL response file: %w", err)
+	}
+
+	// Write the JSON response to the target file
+	if err := afero.WriteFile(dr.Fs, dr.ResponseTargetFile, []byte(jsonResponse), 0o644); err != nil {
+		return fmt.Errorf("failed to write JSON response to target file: %w", err)
+	}
+
+	dr.Logger.Debug("successfully generated JSON response from PKL", "file", dr.ResponseTargetFile, "contentLength", len(jsonResponse))
 	return nil
 }
 
@@ -515,17 +527,8 @@ func structToMap(s interface{}) map[interface{}]interface{} {
 }
 
 func formatDataValue(value interface{}) string {
-	uuidVal := strings.ReplaceAll(uuid.New().String(), "-", "_")
-	val := formatValue(value)
-	return fmt.Sprintf(`
-local JSONDocument_%s = %s
-local JSONDocumentType_%s = JSONDocument_%s is Mapping | Dynamic
-
-if (JSONDocumentType_%s)
-  document.jsonRenderDocument(JSONDocument_%s)
-else
-  document.jsonRenderDocument((if (document.jsonParser(JSONDocument_%s) != null) document.jsonParser(JSONDocument_%s) else JSONDocument_%s))
-`, uuidVal, val, uuidVal, uuidVal, uuidVal, uuidVal, uuidVal, uuidVal, uuidVal)
+	// Use pure Go approach instead of document.jsonRenderDocument
+	return formatValue(value)
 }
 
 func formatErrors(errors *[]*apiserverresponse.APIServerErrorsBlock, logger *logging.Logger) string {
@@ -636,10 +639,16 @@ func (dr *DependencyResolver) EvalPklFormattedResponseFile() (string, error) {
 	// Create module source
 	moduleSource := pkl.FileSource(dr.ResponsePklFile)
 
-	// Evaluate the PKL file
-	result, err := pklEvaluator.EvaluateOutputText(dr.Context, moduleSource)
+	// Evaluate the PKL file to get text format first
+	pklText, err := pklEvaluator.EvaluateOutputText(dr.Context, moduleSource)
 	if err != nil {
 		return "", fmt.Errorf("evaluate PKL file: %w", err)
+	}
+
+	// Parse the PKL text and convert to proper JSON format
+	result, err := dr.convertPklResponseToJSON(pklText)
+	if err != nil {
+		return "", fmt.Errorf("convert PKL to JSON: %w", err)
 	}
 
 	// Write result to target file
@@ -648,6 +657,105 @@ func (dr *DependencyResolver) EvalPklFormattedResponseFile() (string, error) {
 	}
 
 	return result, nil
+}
+
+// convertPklResponseToJSON converts PKL-formatted response text to JSON format
+func (dr *DependencyResolver) convertPklResponseToJSON(pklText string) (string, error) {
+	// Parse the PKL response structure and convert to JSON
+	// Expected PKL format:
+	// Success = true
+	// Meta { RequestID = "..." Headers {} Properties {} }
+	// Response { Data { ... } }
+	// Errors = null
+
+	lines := strings.Split(strings.TrimSpace(pklText), "\n")
+
+	response := map[string]interface{}{
+		"success": true,
+		"meta": map[string]interface{}{
+			"requestID": dr.RequestID,
+		},
+		"response": map[string]interface{}{
+			"data": nil,
+		},
+		"errors": nil,
+	}
+
+	// Simple parser to extract the Data section
+	inDataSection := false
+	dataContent := strings.Builder{}
+	braceCount := 0
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		if strings.Contains(trimmed, "Data {") {
+			inDataSection = true
+			braceCount = 1
+			continue
+		}
+
+		if inDataSection {
+			// Count braces to know when we're done with the Data section
+			braceCount += strings.Count(trimmed, "{")
+			braceCount -= strings.Count(trimmed, "}")
+
+			if braceCount > 0 {
+				// We're still inside the Data section, collect the content
+				if trimmed != "" && !strings.Contains(trimmed, "Data {") {
+					if dataContent.Len() > 0 {
+						dataContent.WriteString(" ")
+					}
+					dataContent.WriteString(trimmed)
+				}
+			} else {
+				// We've closed the Data section
+				break
+			}
+		}
+	}
+
+	// Process the data content
+	dataStr := strings.TrimSpace(dataContent.String())
+	if dataStr != "" && dataStr != "{}" {
+		// If the data contains a JSON string, parse it
+		if strings.HasPrefix(dataStr, "\"") && strings.HasSuffix(dataStr, "\"") {
+			// Remove quotes and parse as JSON
+			jsonStr := strings.Trim(dataStr, "\"")
+			// Unescape any escaped quotes
+			jsonStr = strings.ReplaceAll(jsonStr, "\\\"", "\"")
+
+			var jsonData interface{}
+			if err := json.Unmarshal([]byte(jsonStr), &jsonData); err == nil {
+				response["response"] = map[string]interface{}{
+					"data": []interface{}{jsonData},
+				}
+			} else {
+				// If it fails to parse as JSON, treat as string
+				response["response"] = map[string]interface{}{
+					"data": []string{jsonStr},
+				}
+			}
+		} else {
+			// If it's not a quoted string, treat as raw content
+			response["response"] = map[string]interface{}{
+				"data": []string{dataStr},
+			}
+		}
+	} else {
+		// Empty data
+		response["response"] = map[string]interface{}{
+			"data": []interface{}{},
+		}
+	}
+
+	// Convert to JSON
+	jsonBytes, err := json.Marshal(response)
+	if err != nil {
+		return "", fmt.Errorf("marshal response to JSON: %w", err)
+	}
+
+	return string(jsonBytes), nil
 }
 
 func (dr *DependencyResolver) validatePklFileExtension() error {

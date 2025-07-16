@@ -59,13 +59,12 @@ func main() {
 	defer cancel() // Ensure context is canceled when main exits
 
 	// Initialize PKL evaluator with all available resource readers
-	// Create temporary database paths for resource readers
-	tmpDir := os.TempDir()
-	memoryDBPath := filepath.Join(tmpDir, "memory.db")
-	sessionDBPath := filepath.Join(tmpDir, "session.db")
-	toolDBPath := filepath.Join(tmpDir, "tool.db")
-	itemDBPath := filepath.Join(tmpDir, "item.db")
-	pklresDBPath := filepath.Join(tmpDir, "pklres.db")
+	// Use in-memory databases for all readers except memory which uses persistent storage
+	memoryDBPath := filepath.Join("/.kdeps/", "memory.db") // Persistent storage in shared volume
+	sessionDBPath := ":memory:"   // In-memory tied to operation
+	toolDBPath := ":memory:"      // In-memory tied to operation  
+	itemDBPath := ":memory:"      // In-memory tied to operation
+	pklresDBPath := ":memory:"    // In-memory tied to operation
 
 	// Initialize all resource readers
 	memoryReader, err := memory.InitializeMemory(memoryDBPath)
@@ -88,7 +87,8 @@ func main() {
 		logger.Fatalf("failed to initialize item reader: %v", err)
 	}
 
-	pklresReader, err := pklres.InitializePklResource(pklresDBPath)
+	// For main.go, use a default graphID since this is global initialization
+	pklresReader, err := pklres.InitializePklResource(pklresDBPath, "global")
 	if err != nil {
 		logger.Fatalf("failed to initialize pklres reader: %v", err)
 	}

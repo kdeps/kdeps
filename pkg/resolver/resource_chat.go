@@ -467,9 +467,39 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 		dr.Logger.Debug("processLLMChat: wrote response to file", "actionID", actionID, "filePath", filePath)
 	}
 
-	dr.Logger.Info("processLLMChat: skipping AppendChatEntry - using real-time pklres", "actionID", actionID)
-	// Note: AppendChatEntry is no longer needed as we use real-time pklres access
-	// The LLM output files are directly accessible through pklres.getResourceOutput()
+	// Store the LLM resource data in pklres for real-time access
+	if dr.PklresHelper != nil {
+		// Create PKL content for the LLM resource
+		var pklContent strings.Builder
+		pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"\n\n", schema.Version(dr.Context)))
+		pklContent.WriteString("Resources {\n")
+		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", actionID))
+		pklContent.WriteString(fmt.Sprintf("    Model = \"%s\"\n", chatBlock.Model))
+		if chatBlock.Role != nil {
+			pklContent.WriteString(fmt.Sprintf("    Role = \"%s\"\n", *chatBlock.Role))
+		}
+		if chatBlock.Prompt != nil {
+			pklContent.WriteString(fmt.Sprintf("    Prompt = \"\"\"\n%s\n\"\"\"\n", *chatBlock.Prompt))
+		}
+		if chatBlock.Response != nil {
+			pklContent.WriteString(fmt.Sprintf("    Response = \"\"\"\n%s\n\"\"\"\n", *chatBlock.Response))
+		}
+		if chatBlock.File != nil {
+			pklContent.WriteString(fmt.Sprintf("    File = \"%s\"\n", *chatBlock.File))
+		}
+		if chatBlock.JSONResponse != nil {
+			pklContent.WriteString(fmt.Sprintf("    JSONResponse = %t\n", *chatBlock.JSONResponse))
+		}
+		pklContent.WriteString("  }\n")
+		pklContent.WriteString("}\n")
+
+		// Store the PKL content in pklres
+		if err := dr.PklresHelper.StorePklContent("llm", actionID, pklContent.String()); err != nil {
+			dr.Logger.Error("processLLMChat: failed to store LLM resource in pklres", "actionID", actionID, "error", err)
+		} else {
+			dr.Logger.Info("processLLMChat: stored LLM resource in pklres", "actionID", actionID)
+		}
+	}
 
 	dr.Logger.Info("processLLMChat: completed successfully", "actionID", actionID)
 	return nil

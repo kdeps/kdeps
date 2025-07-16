@@ -78,7 +78,7 @@ func TestPrependDynamicImports_AddsImports(t *testing.T) {
 
 	// ensure pklres helper initialized with stub record so Check=true passes
 	dr.PklresHelper = resolver.NewPklresHelper(dr)
-	dr.PklresReader, _ = pklres.InitializePklResource(":memory:")
+	dr.PklresReader, _ = pklres.InitializePklResource(":memory:", "test-graph")
 	// store empty exec structure
 	_ = dr.PklresHelper.StorePklContent("exec", "__empty__", "Exec {}\n")
 
@@ -143,7 +143,7 @@ func TestPrepareImportFilesExtra(t *testing.T) {
 		Environment: env,
 	}
 
-	dr.PklresReader, _ = pklres.InitializePklResource(":memory:")
+	dr.PklresReader, _ = pklres.InitializePklResource(":memory:", "test-graph")
 	dr.PklresHelper = resolver.NewPklresHelper(dr)
 
 	// Ensure prepare succeeds without error.
@@ -168,7 +168,7 @@ func TestPrepareImportFilesAndPrependDynamicImports(t *testing.T) {
 	}
 
 	// initialize pklres before calling PrepareImportFiles
-	dr.PklresReader, _ = pklres.InitializePklResource(":memory:")
+	dr.PklresReader, _ = pklres.InitializePklResource(":memory:", "test-graph")
 	dr.PklresHelper = resolver.NewPklresHelper(dr)
 
 	// call PrepareImportFiles – should create multiple skeleton records
@@ -286,7 +286,7 @@ func TestPrependDynamicImportsExtra(t *testing.T) {
 		Environment: env,
 	}
 
-	dr.PklresReader, _ = pklres.InitializePklResource(":memory:")
+	dr.PklresReader, _ = pklres.InitializePklResource(":memory:", "test-graph")
 	dr.PklresHelper = resolver.NewPklresHelper(dr)
 
 	// create directories and dummy files for Check=true imports

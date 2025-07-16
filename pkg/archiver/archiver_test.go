@@ -225,7 +225,7 @@ func theResourceIDForWillBeAndDependency(arg1, arg2, arg3 string) error {
 			return err
 		}
 		if res.ActionID != arg2 {
-			return errors.New("should be equal!")
+			return errors.New("should be equal")
 		}
 		found := false
 		for _, v := range *res.Requires {
@@ -236,7 +236,7 @@ func theResourceIDForWillBeAndDependency(arg1, arg2, arg3 string) error {
 		}
 
 		if !found {
-			return errors.New("require found!")
+			return errors.New("require found")
 		}
 	}
 
@@ -252,7 +252,7 @@ func theResourceIDForWillBeRewrittenTo(arg1, arg2 string) error {
 		}
 
 		if res.ActionID != arg2 {
-			return errors.New("should be equal!")
+			return errors.New("should be equal")
 		}
 	}
 
@@ -266,7 +266,7 @@ func theWorkflowActionConfigurationWillBeRewrittenTo(arg1 string) error {
 	}
 
 	if wf.GetTargetActionID() != arg1 {
-		return fmt.Errorf("%s = %s does not match!", wf.GetTargetActionID(), arg1)
+		return fmt.Errorf("%s = %s does not match", wf.GetTargetActionID(), arg1)
 	}
 
 	return nil

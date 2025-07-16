@@ -214,7 +214,8 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		return nil, fmt.Errorf("failed to initialize DB memory: %w", err)
 	}
 
-	sessionDBPath = filepath.Join(actionDir, graphID+"_session.db")
+	// Use in-memory database tied to graphID for session
+	sessionDBPath = ":memory:"
 	sessionReader, err := session.InitializeSession(sessionDBPath)
 	if err != nil {
 		if sessionReader != nil {
@@ -223,7 +224,8 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		return nil, fmt.Errorf("failed to initialize session DB: %w", err)
 	}
 
-	toolDBPath = filepath.Join(actionDir, graphID+"_tool.db")
+	// Use in-memory database tied to graphID for tool
+	toolDBPath = ":memory:"
 	toolReader, err := tool.InitializeTool(toolDBPath)
 	if err != nil {
 		if toolReader != nil {
@@ -232,7 +234,8 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		return nil, fmt.Errorf("failed to initialize tool DB: %w", err)
 	}
 
-	itemDBPath = filepath.Join(actionDir, graphID+"_item.db")
+	// Use in-memory database tied to graphID for item
+	itemDBPath = ":memory:"
 	itemReader, err := item.InitializeItem(itemDBPath, nil)
 	if err != nil {
 		if itemReader != nil {
@@ -247,8 +250,9 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		return nil, fmt.Errorf("failed to initialize agent DB: %w", err)
 	}
 
-	pklresDBPath := filepath.Join(kdepsBase, agentName+"_pklres.db")
-	pklresReader, err := pklres.InitializePklResource(pklresDBPath)
+	// Use graphID-specific database file for pklres to share data between evaluator and resolver
+	pklresDBPath := filepath.Join(actionDir, graphID+"_pklres.db")
+	pklresReader, err := pklres.InitializePklResource(pklresDBPath, graphID)
 	if err != nil {
 		if pklresReader != nil {
 			pklresReader.DB.Close()
@@ -256,7 +260,8 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		return nil, fmt.Errorf("failed to initialize pklres DB: %w", err)
 	}
 
-	// Initialize the singleton evaluator with resource readers
+	// Always reinitialize the evaluator with graphID-specific resource readers
+	// This ensures the PKL evaluator uses the same graphID-scoped databases as the resolver
 	evaluatorConfig := &evaluator.EvaluatorConfig{
 		ResourceReaders: []pkl.ResourceReader{
 			memoryReader,
@@ -264,7 +269,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 			toolReader,
 			itemReader,
 			agentReader,
-			pklresReader,
+			pklresReader, // This pklres reader has the correct graphID
 		},
 		Logger: logger,
 	}
@@ -735,7 +740,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 
 			// Process APIResponse once, outside the items loop
 			if dr.APIServerMode && rsc.Run != nil && rsc.Run.APIResponse != nil {
-				if err := dr.CreateResponseGoJSON(*rsc.Run.APIResponse); err != nil {
+				if err := dr.CreateResponsePklFile(*rsc.Run.APIResponse); err != nil {
 					return dr.HandleAPIErrorResponse(500, err.Error(), true)
 				}
 			}

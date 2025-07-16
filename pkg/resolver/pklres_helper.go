@@ -76,18 +76,18 @@ func (h *PklresHelper) StorePklContent(resourceType, resourceID, content string)
 		return nil
 	}
 
-	// Automatically resolve actionID if it looks like one
-	resolvedResourceID := h.resolveActionID(resourceID)
+	// Use graphID instead of full actionID for storage - tie data only to the operation
+	graphID := h.resolver.RequestID // RequestID is the graphID for this operation
 	if resourceType == "llm" && h.resolver.Logger != nil {
-		h.resolver.Logger.Debug("storePklContent: LLM", "resourceType", resourceType, "resourceID", resourceID, "resolvedResourceID", resolvedResourceID, "content", content)
+		h.resolver.Logger.Debug("storePklContent: LLM", "resourceType", resourceType, "resourceID", resourceID, "graphID", graphID, "content", content)
 	}
 	if h.resolver.Logger != nil {
-		h.resolver.Logger.Debug("storePklContent: storing", "resourceType", resourceType, "resourceID", resourceID, "resolvedResourceID", resolvedResourceID, "content", content)
+		h.resolver.Logger.Debug("storePklContent: storing", "resourceType", resourceType, "resourceID", resourceID, "graphID", graphID, "content", content)
 	}
 
-	// Use canonicalActionID as the id in the path
+	// Use graphID as the id in the path
 	uri, err := url.Parse(fmt.Sprintf("pklres:///%s?type=%s&op=set&value=%s",
-		resolvedResourceID, resourceType, url.QueryEscape(content)))
+		graphID, resourceType, url.QueryEscape(content)))
 	if err != nil {
 		return fmt.Errorf("failed to parse pklres URI: %w", err)
 	}
@@ -106,16 +106,16 @@ func (h *PklresHelper) RetrievePklContent(resourceType, resourceID string) (stri
 		return "", errors.New("PklresHelper or resolver is nil")
 	}
 
-	// Automatically resolve actionID if it looks like one
-	resolvedResourceID := h.resolveActionID(resourceID)
+	// Use graphID instead of full actionID for retrieval - data is tied only to the operation
+	graphID := h.resolver.RequestID // RequestID is the graphID for this operation
 	if resourceType == "llm" && h.resolver.Logger != nil {
-		h.resolver.Logger.Debug("retrievePklContent: LLM", "resourceType", resourceType, "resourceID", resourceID, "resolvedResourceID", resolvedResourceID)
+		h.resolver.Logger.Debug("retrievePklContent: LLM", "resourceType", resourceType, "resourceID", resourceID, "graphID", graphID)
 	}
 
 	// Use pklres to retrieve the content
-	// Note: The content is stored with an empty key, so we need to use the resolvedResourceID as the id and an empty key
+	// Note: The content is stored with an empty key, so we need to use the graphID as the id and an empty key
 	uri, err := url.Parse(fmt.Sprintf("pklres:///%s?type=%s&key=",
-		resolvedResourceID, resourceType))
+		graphID, resourceType))
 	if err != nil {
 		return "", fmt.Errorf("failed to parse pklres URI: %w", err)
 	}

@@ -21,10 +21,11 @@ import (
 
 // PklResourceReader implements the pkl.ResourceReader interface for SQLite.
 type PklResourceReader struct {
-	DB     *sql.DB
-	DBPath string // Store dbPath for reinitialization
-	Fs     afero.Fs
-	Logger *slog.Logger
+	DB      *sql.DB
+	DBPath  string // Store dbPath for reinitialization
+	Fs      afero.Fs
+	Logger  *slog.Logger
+	GraphID string // Current graphID for scoping database operations
 }
 
 // Scheme returns the URI scheme for this reader.
@@ -51,7 +52,7 @@ func (r *PklResourceReader) ListElements(_ url.URL) ([]pkl.PathElement, error) {
 func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 	// Check if receiver is nil and initialize with fixed DBPath
 	if r == nil {
-		newReader, err := InitializePklResource(r.DBPath)
+		newReader, err := InitializePklResource(r.DBPath, "default")
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize PklResourceReader: %w", err)
 		}
@@ -151,10 +152,10 @@ func (r *PklResourceReader) setRecord(id, typ, key string, query url.Values) ([]
 		}
 	}()
 
-	// Use INSERT OR REPLACE with consistent key handling
+	// Use INSERT OR REPLACE with graphID and consistent key handling
 	_, err = tx.Exec(
-		"INSERT OR REPLACE INTO records (id, type, key, value) VALUES (?, ?, ?, ?)",
-		id, typ, keyValue, value,
+		"INSERT OR REPLACE INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)",
+		r.GraphID, id, typ, keyValue, value,
 	)
 	if err != nil {
 		r.Logger.Error("setRecord failed to execute SQL", "error", err)
@@ -205,7 +206,7 @@ func (r *PklResourceReader) getRecord(id, typ, key string) ([]byte, error) {
 		canonicalKey = ""
 	}
 
-	r.Logger.Debug("getRecord: querying for id, type, key", "id", id, "type", typ, "key", canonicalKey)
+	r.Logger.Info("getRecord: querying for id, type, key", "graphID", r.GraphID, "id", id, "type", typ, "key", canonicalKey, "dbPath", r.DBPath)
 
 	// Start a transaction for consistent read
 	tx, err := r.DB.Begin()
@@ -225,7 +226,7 @@ func (r *PklResourceReader) getRecord(id, typ, key string) ([]byte, error) {
 	}()
 
 	var value string
-	err = tx.QueryRow("SELECT value FROM records WHERE id = ? AND type = ? AND key = ?", id, typ, canonicalKey).Scan(&value)
+	err = tx.QueryRow("SELECT value FROM records WHERE graph_id = ? AND id = ? AND type = ? AND key = ?", r.GraphID, id, typ, canonicalKey).Scan(&value)
 	if errors.Is(err, sql.ErrNoRows) {
 		// Commit the transaction even for no rows found
 		if commitErr := tx.Commit(); commitErr != nil {
@@ -298,7 +299,7 @@ func (r *PklResourceReader) deleteRecord(id, typ, key string) ([]byte, error) {
 		}
 	}()
 
-	result, err := tx.Exec("DELETE FROM records WHERE id = ? AND type = ? AND key = ?", id, typ, canonicalKey)
+	result, err := tx.Exec("DELETE FROM records WHERE graph_id = ? AND id = ? AND type = ? AND key = ?", r.GraphID, id, typ, canonicalKey)
 	if err != nil {
 		r.Logger.Debug("deleteRecord failed to execute SQL", "error", err)
 		return nil, fmt.Errorf("failed to delete record: %w", err)
@@ -346,11 +347,11 @@ func (r *PklResourceReader) clearRecords(typ string) ([]byte, error) {
 	}()
 
 	var result sql.Result
-	// Handle special case where type="_" means clear all records
+	// Handle special case where type="_" means clear all records for this graphID
 	if typ == "_" {
-		result, err = tx.Exec("DELETE FROM records")
+		result, err = tx.Exec("DELETE FROM records WHERE graph_id = ?", r.GraphID)
 	} else {
-		result, err = tx.Exec("DELETE FROM records WHERE type = ?", typ)
+		result, err = tx.Exec("DELETE FROM records WHERE graph_id = ? AND type = ?", r.GraphID, typ)
 	}
 
 	if err != nil {
@@ -399,7 +400,7 @@ func (r *PklResourceReader) listRecords(typ string) ([]byte, error) {
 		}
 	}()
 
-	rows, err := tx.Query("SELECT DISTINCT id FROM records WHERE type = ? ORDER BY id", typ)
+	rows, err := tx.Query("SELECT DISTINCT id FROM records WHERE graph_id = ? AND type = ? ORDER BY id", r.GraphID, typ)
 	if err != nil {
 		r.Logger.Debug("listRecords failed to query records", "error", err)
 		return nil, fmt.Errorf("failed to list records: %w", err)
@@ -502,6 +503,15 @@ func (r *PklResourceReader) evaluateResource(id, typ string) ([]byte, error) {
 		return nil, errors.New("evaluateResource requires id and type parameters")
 	}
 
+	// For LLM resources, try to get the output file first
+	if typ == "llm" {
+		outputData, err := r.getResourceOutput(id, typ)
+		if err == nil && len(outputData) > 0 {
+			r.Logger.Debug("evaluateResource: found LLM output file", "id", id, "dataLength", len(outputData))
+			return outputData, nil
+		}
+	}
+
 	// Get the PKL record from database
 	pklRecord, err := r.getRecord(id, typ, "")
 	if err != nil {
@@ -577,15 +587,16 @@ func InitializeDatabase(dbPath string) (*sql.DB, error) {
 			continue
 		}
 
-		// Create records table with type and optional key support
+		// Create records table with graphID, type and optional key support
 		_, err = db.Exec(`
 			CREATE TABLE IF NOT EXISTS records (
+				graph_id TEXT NOT NULL,
 				id TEXT NOT NULL,
 				type TEXT NOT NULL,
 				key TEXT DEFAULT '',
 				value TEXT NOT NULL,
 				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-				PRIMARY KEY (id, type, key)
+				PRIMARY KEY (graph_id, id, type, key)
 			)
 		`)
 		if err != nil {
@@ -597,10 +608,10 @@ func InitializeDatabase(dbPath string) (*sql.DB, error) {
 			continue
 		}
 
-		// Create indexes for better performance
+		// Create indexes for better performance with graphID
 		_, err = db.Exec(`
-			CREATE INDEX IF NOT EXISTS idx_records_type ON records(type);
-			CREATE INDEX IF NOT EXISTS idx_records_id_type ON records(id, type);
+			CREATE INDEX IF NOT EXISTS idx_records_graph_type ON records(graph_id, type);
+			CREATE INDEX IF NOT EXISTS idx_records_graph_id_type ON records(graph_id, id, type);
 		`)
 		if err != nil {
 			db.Close()
@@ -617,11 +628,11 @@ func InitializeDatabase(dbPath string) (*sql.DB, error) {
 }
 
 // InitializePklResource creates a new PklResourceReader with an initialized SQLite database.
-func InitializePklResource(dbPath string) (*PklResourceReader, error) {
+func InitializePklResource(dbPath, graphID string) (*PklResourceReader, error) {
 	db, err := InitializeDatabase(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("error initializing database: %w", err)
 	}
 	// Do NOT close db here; caller will manage closing
-	return &PklResourceReader{DB: db, DBPath: dbPath, Logger: slog.Default()}, nil
+	return &PklResourceReader{DB: db, DBPath: dbPath, GraphID: graphID, Logger: slog.Default()}, nil
 }

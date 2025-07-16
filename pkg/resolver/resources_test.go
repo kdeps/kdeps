@@ -54,7 +54,7 @@ func TestLoadResourceWithRequestContext(t *testing.T) {
 	require.NoError(t, err)
 	defer agentReader.Close()
 
-	pklresReader, err := pklres.InitializePklResource(filepath.Join(tmpDir, "pklres.db"))
+	pklresReader, err := pklres.InitializePklResource(filepath.Join(tmpDir, "pklres.db"), "test-graph")
 	require.NoError(t, err)
 	defer pklresReader.DB.Close()
 
