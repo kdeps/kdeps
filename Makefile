@@ -11,7 +11,7 @@ CURRENT_DIR=$(pwd)
 TELEMETRY_KEY=""
 FILES := $(wildcard *.yml *.txt *.py)
 
-.PHONY: all clean test build tools format pre-commit tools-update dev-build
+.PHONY: all clean test build tools format pre-commit tools-update dev-build local-dev local-update
 all: clean deps test build
 
 deps: tools
@@ -86,3 +86,62 @@ tools-update:
 	go install github.com/daixiang0/gci@latest; \
 	go install mvdan.cc/gofumpt@latest; \
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest;
+
+# Local development setup
+local-dev:
+	@echo "$(OK_COLOR)==> Setting up local development environment...$(NO_COLOR)"
+	@mkdir -p local/pkl local/project local/localproject ~/.kdeps/cache
+	@echo "$(OK_COLOR)==> Downloading PKL schema files...$(NO_COLOR)"
+	@if [ ! -d "local/pkl" ] || [ -z "$$(ls -A local/pkl 2>/dev/null)" ]; then \
+		echo "Downloading PKL files from schema repository..."; \
+		curl -s https://api.github.com/repos/kdeps/schema/contents/deps/pkl | \
+		jq -r '.[] | select(.type == "file") | .download_url' | \
+		while read url; do \
+			filename=$$(basename "$$url"); \
+			echo "Downloading $$filename..."; \
+			curl -s "$$url" -o "local/pkl/$$filename"; \
+		done; \
+	else \
+		echo "PKL files already exist in local/pkl/"; \
+	fi
+	@echo "$(OK_COLOR)==> Creating local project...$(NO_COLOR)"
+	@if [ ! -d "local/localproject" ] || [ -z "$$(ls -A local/localproject 2>/dev/null)" ]; then \
+		echo "Creating new local project..."; \
+		rm -rf localproject; \
+		~/.local/bin/kdeps new localproject; \
+		mv localproject local/localproject; \
+	else \
+		echo "Local project already exists in local/localproject/"; \
+	fi
+	@echo "$(OK_COLOR)==> Packaging local project...$(NO_COLOR)"
+	~/.local/bin/kdeps package local/localproject
+	@echo "$(OK_COLOR)==> Extracting project to local/project...$(NO_COLOR)"
+	@rm -rf local/project
+	@mkdir -p local/project
+	@tar xzf localproject-1.0.0.kdeps -C local/project
+	@echo "$(OK_COLOR)==> Replacing PKL imports with local paths in extracted project...$(NO_COLOR)"
+	@find local/project -name "*.pkl" -type f -exec sed -i.bak 's|package://schema\.kdeps\.com/core@[^#]*#/|/local/pkl/|g' {} \;
+	@find local/project -name "*.bak" -delete
+	@echo "$(OK_COLOR)==> Deploying to Docker container...$(NO_COLOR)"
+	@make dev-build
+	@docker cp bin/kdeps kdeps-whois2-cpu:/bin/kdeps
+	@docker exec kdeps-whois2-cpu mkdir -p /local
+	@docker cp local/pkl kdeps-whois2-cpu:/local/
+	@docker exec kdeps-whois2-cpu rm -rf /agent/project
+	@docker cp local/project kdeps-whois2-cpu:/agent/project
+	@docker restart kdeps-whois2-cpu
+	@echo "$(OK_COLOR)==> Local development environment ready!$(NO_COLOR)"
+	@echo "$(OK_COLOR)==> Container restarted and accessible at http://localhost:3000$(NO_COLOR)"
+
+# Helper task to just update the container with current changes
+local-update:
+	@echo "$(OK_COLOR)==> Updating container with current changes...$(NO_COLOR)"
+	@make dev-build
+	@docker cp bin/kdeps kdeps-whois2-cpu:/bin/kdeps
+	@docker exec kdeps-whois2-cpu mkdir -p /local
+	@docker cp local/pkl kdeps-whois2-cpu:/local/
+	@docker exec kdeps-whois2-cpu rm -rf /agent/project
+	@docker cp local/project kdeps-whois2-cpu:/agent/project
+	@docker restart kdeps-whois2-cpu
+	@echo "$(OK_COLOR)==> Container updated and restarted!$(NO_COLOR)"
+
