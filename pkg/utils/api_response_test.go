@@ -16,7 +16,7 @@ func TestNewAPIServerResponse(t *testing.T) {
 	assert.True(t, *response.Success)
 	assert.NotNil(t, response.Response)
 	assert.NotNil(t, response.Errors)
-	assert.Len(t, *response.Errors, 0)
+	assert.Empty(t, *response.Errors)
 
 	// Test error response
 	response = utils.NewAPIServerResponse(false, nil, 400, "Bad Request", "test-request-id")
@@ -43,7 +43,7 @@ func TestClearRequestErrors(t *testing.T) {
 
 	// Verify errors are cleared
 	errors = utils.GetRequestErrors("test-request-id")
-	assert.Len(t, errors, 0)
+	assert.Empty(t, errors)
 }
 
 func TestGetRequestErrors(t *testing.T) {
@@ -61,5 +61,5 @@ func TestGetRequestErrors(t *testing.T) {
 
 	// Test with non-existent request ID
 	errors = utils.GetRequestErrors("non-existent")
-	assert.Len(t, errors, 0)
+	assert.Empty(t, errors)
 }

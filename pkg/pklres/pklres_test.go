@@ -11,7 +11,7 @@ import (
 func TestPklResourceReader(t *testing.T) {
 	// Use in-memory SQLite database for testing
 	dbPath := "file::memory:"
-	reader, err := pklres.InitializePklResource(dbPath, "test-graph")
+	reader, err := pklres.InitializePklResource(dbPath, "test-graph", "", "", "")
 	require.NoError(t, err)
 	defer reader.DB.Close()
 
@@ -40,7 +40,7 @@ func TestPklResourceReader(t *testing.T) {
 		defer reader.DB.Close()
 
 		// Insert a simple record (no key)
-		_, err = reader.DB.Exec("INSERT INTO records (id, type, key, value) VALUES (?, ?, ?, ?)", "test1", "config", "", "value1")
+		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test1", "config", "", "value1")
 		require.NoError(t, err)
 
 		// Get the record
@@ -62,7 +62,7 @@ func TestPklResourceReader(t *testing.T) {
 		defer reader.DB.Close()
 
 		// Insert a structured record with key
-		_, err = reader.DB.Exec("INSERT INTO records (id, type, key, value) VALUES (?, ?, ?, ?)", "test1", "config", "database", "postgresql://localhost")
+		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test1", "config", "database", "postgresql://localhost")
 		require.NoError(t, err)
 
 		// Get the record by key
@@ -143,7 +143,7 @@ func TestPklResourceReader(t *testing.T) {
 		defer reader.DB.Close()
 
 		// Insert a simple record
-		_, err = reader.DB.Exec("INSERT INTO records (id, type, key, value) VALUES (?, ?, ?, ?)", "test1", "config", "", "value1")
+		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test1", "config", "", "value1")
 		require.NoError(t, err)
 
 		// Delete the record
@@ -171,9 +171,9 @@ func TestPklResourceReader(t *testing.T) {
 		defer reader.DB.Close()
 
 		// Insert multiple keys for the same record
-		_, err = reader.DB.Exec("INSERT INTO records (id, type, key, value) VALUES (?, ?, ?, ?)", "test1", "config", "database", "postgresql://localhost")
+		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test1", "config", "database", "postgresql://localhost")
 		require.NoError(t, err)
-		_, err = reader.DB.Exec("INSERT INTO records (id, type, key, value) VALUES (?, ?, ?, ?)", "test1", "config", "redis", "redis://localhost:6379")
+		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test1", "config", "redis", "redis://localhost:6379")
 		require.NoError(t, err)
 
 		// Delete specific key
@@ -201,11 +201,11 @@ func TestPklResourceReader(t *testing.T) {
 		defer reader.DB.Close()
 
 		// Insert records of different types
-		_, err = reader.DB.Exec("INSERT INTO records (id, type, key, value) VALUES (?, ?, ?, ?)", "test1", "config", "", "value1")
+		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test1", "config", "", "value1")
 		require.NoError(t, err)
-		_, err = reader.DB.Exec("INSERT INTO records (id, type, key, value) VALUES (?, ?, ?, ?)", "test2", "config", "", "value2")
+		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test2", "config", "", "value2")
 		require.NoError(t, err)
-		_, err = reader.DB.Exec("INSERT INTO records (id, type, key, value) VALUES (?, ?, ?, ?)", "test3", "cache", "", "value3")
+		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test3", "cache", "", "value3")
 		require.NoError(t, err)
 
 		// Clear only config records
@@ -237,9 +237,9 @@ func TestPklResourceReader(t *testing.T) {
 		defer reader.DB.Close()
 
 		// Insert records of different types
-		_, err = reader.DB.Exec("INSERT INTO records (id, type, key, value) VALUES (?, ?, ?, ?)", "test1", "config", "", "value1")
+		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test1", "config", "", "value1")
 		require.NoError(t, err)
-		_, err = reader.DB.Exec("INSERT INTO records (id, type, key, value) VALUES (?, ?, ?, ?)", "test2", "cache", "", "value2")
+		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test2", "cache", "", "value2")
 		require.NoError(t, err)
 
 		// Clear all records
@@ -261,13 +261,13 @@ func TestPklResourceReader(t *testing.T) {
 		defer reader.DB.Close()
 
 		// Insert records of different types
-		_, err = reader.DB.Exec("INSERT INTO records (id, type, key, value) VALUES (?, ?, ?, ?)", "test1", "config", "", "value1")
+		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test1", "config", "", "value1")
 		require.NoError(t, err)
-		_, err = reader.DB.Exec("INSERT INTO records (id, type, key, value) VALUES (?, ?, ?, ?)", "test1", "config", "database", "postgresql://localhost")
+		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test1", "config", "database", "postgresql://localhost")
 		require.NoError(t, err)
-		_, err = reader.DB.Exec("INSERT INTO records (id, type, key, value) VALUES (?, ?, ?, ?)", "test2", "config", "", "value2")
+		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test2", "config", "", "value2")
 		require.NoError(t, err)
-		_, err = reader.DB.Exec("INSERT INTO records (id, type, key, value) VALUES (?, ?, ?, ?)", "test3", "cache", "", "value3")
+		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test3", "cache", "", "value3")
 		require.NoError(t, err)
 
 		// List config records

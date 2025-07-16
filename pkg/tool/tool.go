@@ -211,7 +211,6 @@ func (r *PklResourceReader) runScript(id string, query url.Values) ([]byte, erro
 
 	// Determine if script is a file path or inline script
 	var output []byte
-	var err error
 	if _, statErr := os.Stat(script); statErr == nil {
 		// Script is a file path; determine interpreter based on extension
 		extension := strings.ToLower(filepath.Ext(script))
@@ -230,22 +229,19 @@ func (r *PklResourceReader) runScript(id string, query url.Values) ([]byte, erro
 		}
 		logger := logging.GetLogger()
 		args := append([]string{script}, paramList...)
-		out, errStr, _, errExec := kdepsexec.KdepsExec(context.Background(), interpreter, args, "", false, false, logger)
+		out, errStr, _, _ := kdepsexec.KdepsExec(context.Background(), interpreter, args, "", false, false, logger)
 		output = []byte(out + errStr)
-		err = errExec
 	} else {
 		// Script is inline; pass script as $1 and params as $2, $3, etc.
 		logger := logging.GetLogger()
 		args := append([]string{"-c", script}, paramList...)
-		out, errStr, _, errExec := kdepsexec.KdepsExec(context.Background(), "sh", args, "", false, false, logger)
+		out, errStr, _, _ := kdepsexec.KdepsExec(context.Background(), "sh", args, "", false, false, logger)
 		output = []byte(out + errStr)
-		err = errExec
 	}
 
 	outputStr := string(output)
-	if err != nil {
-		// Still store the output (which includes stderr) even if execution failed
-	}
+	// Still store the output (which includes stderr) even if execution failed
+	// This is expected behavior - we want to capture error output
 
 	// Store the output in the database, overwriting any existing record
 	result, dbErr := r.DB.Exec(
@@ -269,9 +265,8 @@ func (r *PklResourceReader) runScript(id string, query url.Values) ([]byte, erro
 		"INSERT INTO history (id, value, timestamp) VALUES (?, ?, ?)",
 		id, outputStr, time.Now().Unix(),
 	)
-	if dbErr != nil {
-		// Note: Not failing the operation if history append fails
-	}
+	// Note: Not failing the operation if history append fails
+	// This is expected behavior - history is non-critical
 
 	return []byte(outputStr), nil
 }

@@ -188,6 +188,7 @@ func InitializeDatabase(dbPath string, items []string) (*sql.DB, error) {
 		if err := tx.Commit(); err != nil {
 			if rollbackErr := tx.Rollback(); rollbackErr != nil {
 				// Log rollback error but don't return it as the main error
+				_ = rollbackErr
 			}
 			db.Close()
 			return nil, fmt.Errorf("failed to commit transaction for items initialization: %w", err)
@@ -230,6 +231,7 @@ func (r *PklResourceReader) setRecord(query url.Values) ([]byte, error) {
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
 			// Log rollback error but don't return it as the main error
+			_ = rollbackErr
 		}
 		return nil, fmt.Errorf("failed to execute SQL for current record: %w", err)
 	}
@@ -238,12 +240,14 @@ func (r *PklResourceReader) setRecord(query url.Values) ([]byte, error) {
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
 			// Log rollback error but don't return it as the main error
+			_ = rollbackErr
 		}
 		return nil, fmt.Errorf("failed to check result for current record: %w", err)
 	}
 	if rowsAffected == 0 {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
 			// Log rollback error but don't return it as the main error
+			_ = rollbackErr
 		}
 		return nil, fmt.Errorf("no record set for ID %s", id)
 	}
@@ -252,6 +256,7 @@ func (r *PklResourceReader) setRecord(query url.Values) ([]byte, error) {
 	if err := tx.Commit(); err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
 			// Log rollback error but don't return it as the main error
+			_ = rollbackErr
 		}
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}

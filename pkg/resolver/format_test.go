@@ -570,7 +570,7 @@ func TestDecodeExecBlock(t *testing.T) {
 		}
 
 		err := dr.DecodeExecBlock(execBlock)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "echo 'Hello, World!'", execBlock.Command)
 	})
 
@@ -584,7 +584,7 @@ func TestDecodeExecBlock(t *testing.T) {
 		}
 
 		err := dr.DecodeExecBlock(execBlock)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "test_value", (*execBlock.Env)["TEST_KEY"])
 	})
 
@@ -594,7 +594,7 @@ func TestDecodeExecBlock(t *testing.T) {
 		}
 
 		err := dr.DecodeExecBlock(execBlock)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
@@ -606,25 +606,25 @@ func TestWriteStdoutToFile(t *testing.T) {
 		resourceID := "test-resource"
 
 		filePath, err := dr.WriteStdoutToFile(resourceID, &encodedStdout)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotEmpty(t, filePath)
 
 		// Verify file contents
 		content, err := afero.ReadFile(dr.Fs, filePath)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotEmpty(t, content)
 	})
 
 	t.Run("NilStdout", func(t *testing.T) {
 		filePath, err := dr.WriteStdoutToFile("test-resource", nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Empty(t, filePath)
 	})
 
 	t.Run("InvalidBase64", func(t *testing.T) {
 		invalidStdout := "invalid base64"
 		_, err := dr.WriteStdoutToFile("test-resource", &invalidStdout)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
@@ -725,11 +725,11 @@ func TestCreateResponsePklFile(t *testing.T) {
 		t.Skip("Skipping SuccessfulResponse due to external pkl binary dependency")
 		response := utils.NewAPIServerResponse(true, []any{"data"}, 0, "", "test-request-1")
 		err := resolver.CreateResponsePklFile(response)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Verify file was created
 		exists, err := afero.Exists(resolver.Fs, resolver.ResponsePklFile)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, exists)
 	})
 
@@ -758,7 +758,7 @@ func TestEnsureResponsePklFileNotExists(t *testing.T) {
 
 	t.Run("FileDoesNotExist", func(t *testing.T) {
 		err := dr.EnsureResponsePklFileNotExists()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("FileExists", func(t *testing.T) {
@@ -767,7 +767,7 @@ func TestEnsureResponsePklFileNotExists(t *testing.T) {
 		require.NoError(t, err)
 
 		err = dr.EnsureResponsePklFileNotExists()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		exists, err := afero.Exists(dr.Fs, dr.ResponsePklFile)
 		require.NoError(t, err)
@@ -908,7 +908,7 @@ func TestHandleAPIErrorResponse(t *testing.T) {
 
 	t.Run("ErrorResponse", func(t *testing.T) {
 		fatal, err := dr.HandleAPIErrorResponse(404, "Resource not found", true)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, fatal)
 
 		exists, err := afero.Exists(dr.Fs, dr.ResponsePklFile)
@@ -919,7 +919,7 @@ func TestHandleAPIErrorResponse(t *testing.T) {
 	t.Run("NonAPIServerMode", func(t *testing.T) {
 		dr.APIServerMode = false
 		fatal, err := dr.HandleAPIErrorResponse(404, "Resource not found", true)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, fatal)
 
 		exists, err := afero.Exists(dr.Fs, dr.ResponsePklFile)
@@ -993,7 +993,7 @@ func TestFormatValueVariousTypes(t *testing.T) {
 func TestValidatePklFileExtension(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	dr := &resolverpkg.DependencyResolver{Fs: fs, ResponsePklFile: "/file.pkl", ResponseTargetFile: "/out.json"}
-	assert.NoError(t, dr.ValidatePklFileExtension())
+	require.NoError(t, dr.ValidatePklFileExtension())
 
 	dr.ResponsePklFile = "/file.txt"
 	assert.Error(t, dr.ValidatePklFileExtension())
@@ -1005,7 +1005,7 @@ func TestEnsureResponseTargetFileNotExists(t *testing.T) {
 	_ = afero.WriteFile(fs, path, []byte("x"), 0o644)
 
 	dr := &resolverpkg.DependencyResolver{Fs: fs, ResponseTargetFile: path}
-	assert.NoError(t, dr.EnsureResponseTargetFileNotExists())
+	require.NoError(t, dr.EnsureResponseTargetFileNotExists())
 	exists, _ := afero.Exists(fs, path)
 	assert.False(t, exists)
 }

@@ -24,7 +24,7 @@ func TestInitializeMemory(t *testing.T) {
 
 	// Verify the database file was created
 	_, err = os.Stat(dbPath)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Test initialization with existing database
 	reader2, err := memory.InitializeMemory(dbPath)
@@ -90,7 +90,7 @@ func TestPklResourceReaderMethods(t *testing.T) {
 
 	// Test Close method
 	err = reader.DB.Close()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Test that DB is closed (not nil, but closed)
 	// sql.DB.Close() doesn't set the pointer to nil, it just closes the connection
@@ -109,11 +109,11 @@ func TestInitializeDatabase(t *testing.T) {
 
 	// Verify the database file was created
 	_, err = os.Stat(dbPath)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Test that we can execute a simple query
 	_, err = db.Exec("CREATE TABLE test (id INTEGER PRIMARY KEY)")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Clean up
 	db.Close()
@@ -138,14 +138,14 @@ func TestInitializeMemoryConcurrentAccess(t *testing.T) {
 
 	go func() {
 		reader, err := memory.InitializeMemory(dbPath)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		defer reader.DB.Close()
 		done <- true
 	}()
 
 	go func() {
 		reader, err := memory.InitializeMemory(dbPath)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		defer reader.DB.Close()
 		done <- true
 	}()

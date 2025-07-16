@@ -137,7 +137,7 @@ func BuildURL(baseURL, version, arch string) string {
 }
 
 // GenerateURLsWithDeps generates URLs using injected dependencies.
-func GenerateURLsWithDeps(ctx context.Context, installAnaconda bool, deps CacheDeps) ([]download.DownloadItem, error) {
+func GenerateURLsWithDeps(ctx context.Context, installAnaconda bool, deps CacheDeps) ([]download.Item, error) {
 	urlInfos := []URLInfo{
 		{
 			BaseURL:           "https://github.com/apple/pkl/releases/download/{version}/pkl-linux-{arch}",
@@ -159,7 +159,7 @@ func GenerateURLsWithDeps(ctx context.Context, installAnaconda bool, deps CacheD
 		})
 	}
 
-	var items []download.DownloadItem
+	var items []download.Item
 	for _, info := range urlInfos {
 		currentArch := GetCurrentArchitecture(ctx, info.Repo)
 		version := info.Version
@@ -201,7 +201,7 @@ func GenerateURLsWithDeps(ctx context.Context, installAnaconda bool, deps CacheD
 				).Replace(info.LocalNameTemplate)
 			}
 
-			items = append(items, download.DownloadItem{
+			items = append(items, download.Item{
 				URL:       url,       // full URL with actual version
 				LocalName: localName, // friendly/stable name like "anaconda-latest-aarch64.sh"
 			})
@@ -212,7 +212,7 @@ func GenerateURLsWithDeps(ctx context.Context, installAnaconda bool, deps CacheD
 }
 
 // GenerateURLs generates URLs using default dependencies.
-func GenerateURLs(ctx context.Context, installAnaconda bool) ([]download.DownloadItem, error) {
+func GenerateURLs(ctx context.Context, installAnaconda bool) ([]download.Item, error) {
 	return GenerateURLsWithDeps(ctx, installAnaconda, CacheDeps{
 		UseLatest:     schema.UseLatest,
 		HTTPClient:    &http.Client{},

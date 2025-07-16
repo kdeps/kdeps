@@ -115,11 +115,11 @@ func TestCleanupDockerFlow(t *testing.T) {
 	workflowDir := filepath.Join(agentDir, "workflow")
 
 	// populate dirs and a test file inside project
-	assert.NoError(t, fs.MkdirAll(filepath.Join(projectDir, "sub"), 0o755))
-	assert.NoError(t, afero.WriteFile(fs, filepath.Join(projectDir, "sub", "file.txt"), []byte("data"), 0o644))
+	require.NoError(t, fs.MkdirAll(filepath.Join(projectDir, "sub"), 0o755))
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(projectDir, "sub", "file.txt"), []byte("data"), 0o644))
 
 	// action directory (will be removed)
-	assert.NoError(t, fs.MkdirAll(actionDir, 0o755))
+	require.NoError(t, fs.MkdirAll(actionDir, 0o755))
 
 	// context with required keys
 	ctx := context.Background()
@@ -661,7 +661,7 @@ func TestCleanupDockerBuildImages(t *testing.T) {
 		mockClient.On("ImagesPrune", ctx, filters.Args{}).Return(image.PruneReport{}, nil)
 
 		err := docker.CleanupDockerBuildImages(fs, ctx, "nonexistent", mockClient)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		mockClient.AssertExpectations(t)
 	})
 
@@ -679,7 +679,7 @@ func TestCleanupDockerBuildImages(t *testing.T) {
 		mockClient.On("ImagesPrune", ctx, filters.Args{}).Return(image.PruneReport{}, nil)
 
 		err := docker.CleanupDockerBuildImages(fs, ctx, "test-container", mockClient)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		mockClient.AssertExpectations(t)
 	})
 
@@ -689,8 +689,8 @@ func TestCleanupDockerBuildImages(t *testing.T) {
 		mockClient.On("ContainerList", ctx, container.ListOptions{All: true}).Return([]container.Summary{}, assert.AnError)
 
 		err := docker.CleanupDockerBuildImages(fs, ctx, "test-container", mockClient)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "error listing containers")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "error listing containers")
 		mockClient.AssertExpectations(t)
 	})
 
@@ -701,8 +701,8 @@ func TestCleanupDockerBuildImages(t *testing.T) {
 		mockClient.On("ImagesPrune", ctx, filters.Args{}).Return(image.PruneReport{}, assert.AnError)
 
 		err := docker.CleanupDockerBuildImages(fs, ctx, "test-container", mockClient)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "error pruning images")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "error pruning images")
 		mockClient.AssertExpectations(t)
 	})
 }
@@ -800,7 +800,7 @@ func (f *fakeDockerClient) ImagesPrune(ctx context.Context, _ filters.Args) (ima
 func TestCleanupDockerBuildImagesUnit(t *testing.T) {
 	cli := &fakeDockerClient{}
 	err := docker.CleanupDockerBuildImages(afero.NewOsFs(), context.Background(), "dummy", cli)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, cli.pruned)
 }
 
@@ -838,7 +838,7 @@ func TestServerReadyHelpers(t *testing.T) {
 
 	// Start a TCP listener on an ephemeral port
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	host, port, _ := net.SplitHostPort(ln.Addr().String())
 
 	t.Run("isServerReady_true", func(t *testing.T) {
@@ -1227,7 +1227,7 @@ func TestIsServerReady(t *testing.T) {
 	t.Run("ServerReady", func(t *testing.T) {
 		// Start a test TCP server
 		listener, err := net.Listen("tcp", "127.0.0.1:0")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer listener.Close()
 
 		host, port, _ := net.SplitHostPort(listener.Addr().String())
@@ -1246,17 +1246,17 @@ func TestWaitForServer(t *testing.T) {
 
 	t.Run("ServerReady", func(t *testing.T) {
 		listener, err := net.Listen("tcp", "127.0.0.1:0")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer listener.Close()
 
 		host, port, _ := net.SplitHostPort(listener.Addr().String())
 		err = docker.WaitForServer(host, port, 2*time.Second, logger)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("Timeout", func(t *testing.T) {
 		err := docker.WaitForServer("127.0.0.1", "99999", 1*time.Second, logger)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "timeout")
 	})
 }

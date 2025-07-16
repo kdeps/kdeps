@@ -18,18 +18,6 @@ import (
 
 var stdoutMutex sync.Mutex
 
-// saveAndRestoreStdout temporarily redirects os.Stdout to newStdout for the duration of the test.
-// This is a test-only workaround to capture output and should be used with care.
-func saveAndRestoreStdout(_ *testing.T, newStdout *os.File) func() {
-	stdoutMutex.Lock()
-	original := os.Stdout
-	os.Stdout = newStdout
-	return func() {
-		defer stdoutMutex.Unlock()
-		os.Stdout = original
-	}
-}
-
 // captureOutput redirects stdout to a buffer and returns a restore func along with the buffer pointer.
 // The reassignment of os.Stdout is tightly scoped and restored via defer to minimize linter warnings.
 func captureOutput() (*bytes.Buffer, func()) {

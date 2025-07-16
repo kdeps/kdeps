@@ -187,7 +187,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	// Set environment variables early to ensure agent reader has proper context
 	os.Setenv("KDEPS_CURRENT_AGENT", workflowConfiguration.GetAgentID())
 	os.Setenv("KDEPS_CURRENT_VERSION", workflowConfiguration.GetVersion())
-	
+
 	// Use configurable shared volume path for tests or default to /.kdeps/
 	kdepsBase := os.Getenv("KDEPS_SHARED_VOLUME_PATH")
 	if kdepsBase == "" {
@@ -257,9 +257,9 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	// Use the global pklres reader and update its context for this workflow
 	pklresReader := pklres.GetGlobalPklresReader()
 	if pklresReader == nil {
-		return nil, fmt.Errorf("global pklres reader not initialized")
+		return nil, errors.New("global pklres reader not initialized")
 	}
-	
+
 	// Update the global reader's context for this workflow
 	err = pklres.UpdateGlobalPklresReaderContext(graphID, workflowConfiguration.GetAgentID(), workflowConfiguration.GetVersion(), kdepsBase)
 	if err != nil {

@@ -195,7 +195,7 @@ func TestCreateFile(t *testing.T) {
 		assert.True(t, exists)
 
 		data, err := afero.ReadFile(fs, path)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, content, string(data))
 	})
 
@@ -212,7 +212,7 @@ func TestCreateFile(t *testing.T) {
 
 		require.NoError(t, err)
 		data, err := afero.ReadFile(fs, path)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, content, string(data))
 	})
 
@@ -228,9 +228,9 @@ func TestCreateFile(t *testing.T) {
 		// Overwrite with new content
 		err = template.CreateFile(fs, logger, path, newContent)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		data, err := afero.ReadFile(fs, path)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, newContent, string(data))
 	})
 }
@@ -261,7 +261,7 @@ func TestTemplateLoadingEdgeCases(t *testing.T) {
 
 		content, err := template.LoadTemplate(templatePath, data)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotEmpty(t, content)
 		// Verify that the template still loads even with empty data
 		assert.Contains(t, content, "AgentID =")
@@ -277,7 +277,7 @@ func TestTemplateLoadingEdgeCases(t *testing.T) {
 
 		content, err := template.LoadTemplate(templatePath, data)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotEmpty(t, content)
 		// Verify that the template still loads but with empty variables
 		assert.Contains(t, content, "test header")
@@ -293,7 +293,7 @@ func TestTemplateLoadingEdgeCases(t *testing.T) {
 
 		content, err := template.LoadTemplate(templatePath, data)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotEmpty(t, content)
 		assert.Contains(t, content, "test header with special chars: !@#$%^&*()")
 		assert.Contains(t, content, "test-agent_with.special@chars")
@@ -341,12 +341,12 @@ func TestGenerateResourceFiles(t *testing.T) {
 
 	// Check that we have the expected number of files
 	expectedFiles := []string{"client.pkl", "exec.pkl", "llm.pkl", "python.pkl", "response.pkl"}
-	assert.Equal(t, len(expectedFiles), len(files), "Unexpected number of resource files")
+	require.Len(t, files, len(expectedFiles), "Unexpected number of resource files")
 
 	// Check each expected file exists
 	for _, expectedFile := range expectedFiles {
 		exists, err := afero.Exists(fs, filepath.Join(resourceDir, expectedFile))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, exists, "Expected file %s does not exist", expectedFile)
 	}
 }
@@ -422,12 +422,12 @@ func TestGenerateAgent(t *testing.T) {
 
 	// Check that we have the expected number of files
 	expectedFiles := []string{"client.pkl", "exec.pkl", "llm.pkl", "python.pkl", "response.pkl"}
-	assert.Equal(t, len(expectedFiles), len(files), "Unexpected number of resource files")
+	require.Len(t, files, len(expectedFiles), "Unexpected number of resource files")
 
 	// Check each expected file exists
 	for _, expectedFile := range expectedFiles {
 		exists, err := afero.Exists(fs, filepath.Join(resourceDir, expectedFile))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, exists, "Expected file %s does not exist", expectedFile)
 	}
 }
@@ -521,7 +521,7 @@ func TestFileGenerationEdgeCases(t *testing.T) {
 				assert.Error(t, err)
 				return
 			}
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// Then generate resource files
 			err = template.GenerateResourceFiles(ctx, fs, logger, filepath.Join(tt.baseDir, tt.agentName), tt.agentName)
@@ -529,18 +529,18 @@ func TestFileGenerationEdgeCases(t *testing.T) {
 				assert.Error(t, err)
 				return
 			}
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// For valid cases, verify the files were created in the correct location
 			basePath := filepath.Join(tt.baseDir, tt.agentName)
 			exists, err := afero.Exists(fs, filepath.Join(basePath, "workflow.pkl"))
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.True(t, exists)
 
 			// Check resource directory
 			resourceDir := filepath.Join(basePath, "resources")
 			exists, err = afero.Exists(fs, resourceDir)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.True(t, exists)
 		})
 	}
@@ -584,9 +584,9 @@ func TestCreateFileEdgeCases(t *testing.T) {
 		path := filepath.Join(tempDir, "nonexistent/dir/file.txt")
 		content := "test content"
 		err := template.CreateFile(fs, logger, path, content)
-		assert.NoError(t, err, "Expected no error, should create parent directories")
+		require.NoError(t, err, "Expected no error, should create parent directories")
 		exists, err := afero.Exists(fs, path)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, exists, "File should exist")
 	})
 
@@ -594,10 +594,10 @@ func TestCreateFileEdgeCases(t *testing.T) {
 		path := filepath.Join(tempDir, "empty.txt")
 		content := ""
 		err := template.CreateFile(fs, logger, path, content)
-		assert.NoError(t, err, "Expected no error for empty content")
+		require.NoError(t, err, "Expected no error for empty content")
 		data, err := afero.ReadFile(fs, path)
-		assert.NoError(t, err)
-		assert.Equal(t, "", string(data), "File content should be empty")
+		require.NoError(t, err)
+		assert.Empty(t, string(data), "File content should be empty")
 	})
 }
 
@@ -873,7 +873,7 @@ func TestGenerateDockerfileFromTemplate(t *testing.T) {
 	}
 
 	content, err := template.GenerateDockerfileFromTemplate(templateData)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEmpty(t, content)
 
 	// Verify key components are present
@@ -918,7 +918,7 @@ func TestGenerateDockerfileFromTemplate_DevMode(t *testing.T) {
 	}
 
 	content, err := template.GenerateDockerfileFromTemplate(templateData)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEmpty(t, content)
 
 	// Verify dev mode specific content

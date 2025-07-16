@@ -36,7 +36,7 @@ func TestLoadEnvFile(t *testing.T) {
 	t.Run("FileExists", func(t *testing.T) {
 		_ = afero.WriteFile(fs, ".env", []byte("KEY1=value1\nKEY2=value2"), 0o644)
 		envSlice, err := docker.LoadEnvFile(fs, ".env")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, envSlice, 2)
 		assert.Contains(t, envSlice, "KEY1=value1")
 		assert.Contains(t, envSlice, "KEY2=value2")
@@ -44,7 +44,7 @@ func TestLoadEnvFile(t *testing.T) {
 
 	t.Run("FileDoesNotExist", func(t *testing.T) {
 		envSlice, err := docker.LoadEnvFile(fs, "nonexistent.env")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Nil(t, envSlice)
 	})
 }
@@ -54,7 +54,7 @@ func TestGenerateDockerCompose(t *testing.T) {
 
 	t.Run("CPU", func(t *testing.T) {
 		err := docker.GenerateDockerCompose(fs, "test", "image", "test-cpu", "127.0.0.1", "8080", "", "", true, false, "cpu")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		content, _ := afero.ReadFile(fs, "test_docker-compose-cpu.yaml")
 		assert.Contains(t, string(content), "test-cpu:")
 		assert.Contains(t, string(content), "image: image")
@@ -62,14 +62,14 @@ func TestGenerateDockerCompose(t *testing.T) {
 
 	t.Run("NVIDIA", func(t *testing.T) {
 		err := docker.GenerateDockerCompose(fs, "test", "image", "test-nvidia", "127.0.0.1", "8080", "", "", true, false, "nvidia")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		content, _ := afero.ReadFile(fs, "test_docker-compose-nvidia.yaml")
 		assert.Contains(t, string(content), "driver: nvidia")
 	})
 
 	t.Run("AMD", func(t *testing.T) {
 		err := docker.GenerateDockerCompose(fs, "test", "image", "test-amd", "127.0.0.1", "8080", "", "", true, false, "amd")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		content, _ := afero.ReadFile(fs, "test_docker-compose-amd.yaml")
 		assert.Contains(t, string(content), "/dev/kfd")
 		assert.Contains(t, string(content), "/dev/dri")
@@ -77,7 +77,7 @@ func TestGenerateDockerCompose(t *testing.T) {
 
 	t.Run("UnsupportedGPU", func(t *testing.T) {
 		err := docker.GenerateDockerCompose(fs, "test", "image", "test-unsupported", "127.0.0.1", "8080", "", "", true, false, "unsupported")
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 }
 
@@ -85,17 +85,17 @@ func TestCreateDockerContainer(t *testing.T) {
 	ctx := context.Background()
 	fs := afero.NewMemMapFs()
 	cli, err := client.NewClientWithOpts(client.FromEnv)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	t.Run("APIModeWithoutPort", func(t *testing.T) {
 		_, err := docker.CreateDockerContainer(fs, ctx, "test", "image", "127.0.0.1", "", "", "", "cpu", true, false, cli)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "portNum must be non-empty")
 	})
 
 	t.Run("WebModeWithoutPort", func(t *testing.T) {
 		_, err := docker.CreateDockerContainer(fs, ctx, "test", "image", "127.0.0.1", "8080", "127.0.0.1", "", "cpu", false, true, cli)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "webPortNum must be non-empty")
 	})
 
@@ -224,7 +224,7 @@ func TestParseOLLAMAHostExtra(t *testing.T) {
 	t.Run("env-not-set", func(t *testing.T) {
 		_ = os.Unsetenv("OLLAMA_HOST")
 		host, port, err := docker.ParseOLLAMAHost(logger)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Empty(t, host)
 		assert.Empty(t, port)
 	})
@@ -232,7 +232,7 @@ func TestParseOLLAMAHostExtra(t *testing.T) {
 	t.Run("invalid-format", func(t *testing.T) {
 		t.Setenv("OLLAMA_HOST", "invalid") // missing ':'
 		host, port, err := docker.ParseOLLAMAHost(logger)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Empty(t, host)
 		assert.Empty(t, port)
 	})
@@ -240,7 +240,7 @@ func TestParseOLLAMAHostExtra(t *testing.T) {
 	t.Run("happy-path", func(t *testing.T) {
 		t.Setenv("OLLAMA_HOST", "127.0.0.1:11435")
 		host, port, err := docker.ParseOLLAMAHost(logger)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "127.0.0.1", host)
 		assert.Equal(t, "11435", port)
 	})
@@ -252,7 +252,7 @@ func TestGenerateUniqueOllamaPortRange(t *testing.T) {
 	for i := 0; i < count; i++ {
 		portStr := docker.GenerateUniqueOllamaPort(existing)
 		port, err := strconv.Atoi(portStr)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.GreaterOrEqual(t, port, docker.MinPort)
 		assert.LessOrEqual(t, port, docker.MaxPort)
 		assert.NotEqual(t, int(existing), port)
@@ -267,7 +267,7 @@ func TestLoadEnvFile_InvalidContent(t *testing.T) {
 	_ = afero.WriteFile(fs, envPath, []byte("INVALID"), 0o644)
 
 	envSlice, err := docker.LoadEnvFile(fs, envPath)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	// godotenv treats 'INVALID' as key "" with value "INVALID", leading to "=INVALID" entry.
 	assert.Equal(t, []string{"=INVALID"}, envSlice)
 }

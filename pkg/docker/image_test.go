@@ -1583,7 +1583,7 @@ func TestPrintDockerBuildOutput_Error(t *testing.T) {
 	rd := strings.NewReader(strings.Join(logs, "\n"))
 
 	err := docker.PrintDockerBuildOutput(rd, logging.NewTestLogger())
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "some docker build error")
 }
 

@@ -153,7 +153,7 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 	destinationFile := filepath.Join(packageDir, baseFilename)
 	sourceFile := kdepsPackage
 
-	err = CopyFile(fs, ctx, sourceFile, destinationFile, logger)
+	err = CopyFile(ctx, fs, sourceFile, destinationFile, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to copy kdeps package to packages directory: %w", err)
 	}
@@ -341,7 +341,7 @@ func PackageProject(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDi
 	return tarGzPath, nil
 }
 
-// Function to search for workflow.pkl file in a given folder.
+// FindWorkflowFile searches for workflow.pkl file in a given folder.
 func FindWorkflowFile(fs afero.Fs, folder string, logger *logging.Logger) (string, error) {
 	fileName := "workflow.pkl"
 

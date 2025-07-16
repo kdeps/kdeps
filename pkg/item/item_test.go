@@ -359,7 +359,7 @@ func TestGetMostRecentID_EdgeCases(t *testing.T) {
 
 		id, err := reader.GetMostRecentID()
 		require.NoError(t, err)
-		require.Equal(t, "", id)
+		require.Empty(t, id)
 	})
 }
 

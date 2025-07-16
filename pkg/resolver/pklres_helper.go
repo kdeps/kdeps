@@ -148,12 +148,12 @@ func (h *PklresHelper) RetrievePklContent(resourceType, resourceID string) (stri
 // retrieveAllResourcesForType retrieves all resources of a given type
 func (h *PklresHelper) retrieveAllResourcesForType(resourceType string) (map[string]string, error) {
 	// List all resource IDs for this type - use the request ID to find resources in the current request context
-	listUri, err := url.Parse(fmt.Sprintf("pklres:///%s?type=%s&op=list", h.resolver.RequestID, resourceType))
+	listURI, err := url.Parse(fmt.Sprintf("pklres:///%s?type=%s&op=list", h.resolver.RequestID, resourceType))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse list URI: %w", err)
 	}
 
-	data, err := h.resolver.PklresReader.Read(*listUri)
+	data, err := h.resolver.PklresReader.Read(*listURI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list resources: %w", err)
 	}

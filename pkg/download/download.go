@@ -21,7 +21,8 @@ type WriteCounter struct {
 	DownloadURL   string
 }
 
-type DownloadItem struct {
+// Item represents a download item with URL and local filename.
+type Item struct {
 	URL       string
 	LocalName string
 }
@@ -39,8 +40,8 @@ func (wc *WriteCounter) PrintProgress() {
 	// Progress output removed to comply with linter and library best practices.
 }
 
-// Given a list of URLs, download it to a target.
-func DownloadFiles(ctx context.Context, fs afero.Fs, downloadDir string, items []DownloadItem, logger *logging.Logger, useLatest bool) error {
+// Files downloads a list of URLs to a target directory.
+func Files(ctx context.Context, fs afero.Fs, downloadDir string, items []Item, logger *logging.Logger, useLatest bool) error {
 	// Create the downloads directory if it doesn't exist
 	err := os.MkdirAll(downloadDir, 0o755)
 	if err != nil {
@@ -60,7 +61,7 @@ func DownloadFiles(ctx context.Context, fs afero.Fs, downloadDir string, items [
 		}
 
 		// Download the file
-		err := DownloadFile(ctx, fs, item.URL, localPath, logger, useLatest)
+		err := File(ctx, fs, item.URL, localPath, logger, useLatest)
 		if err != nil {
 			logger.Error("failed to download", "url", item.URL, "err", err)
 		} else {
@@ -71,9 +72,9 @@ func DownloadFiles(ctx context.Context, fs afero.Fs, downloadDir string, items [
 	return nil
 }
 
-// DownloadFile downloads a file from the specified URL and saves it to the given path.
+// File downloads a file from the specified URL and saves it to the given path.
 // If useLatest is true, it overwrites the destination file regardless of its existence.
-func DownloadFile(ctx context.Context, fs afero.Fs, url, filePath string, logger *logging.Logger, useLatest bool) error {
+func File(ctx context.Context, fs afero.Fs, url, filePath string, logger *logging.Logger, useLatest bool) error {
 	logger.Debug(messages.MsgCheckingFileExistsDownload, "destination", filePath)
 
 	if filePath == "" {

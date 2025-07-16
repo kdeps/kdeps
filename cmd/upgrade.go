@@ -15,13 +15,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 // UpgradeCommand creates the 'upgrade' command for upgrading schema versions in pkl files.
 func UpgradeCommand(ctx context.Context, fs afero.Fs, _ string, logger *logging.Logger) *cobra.Command {
 	var targetVersion string

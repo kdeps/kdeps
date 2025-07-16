@@ -34,8 +34,8 @@ func TestCondaEnvironmentExecutionInjectedSuccess(t *testing.T) {
 		},
 	}
 
-	assert.NoError(t, dr.ActivateCondaEnvironment("myenv"))
-	assert.NoError(t, dr.DeactivateCondaEnvironment())
+	require.NoError(t, dr.ActivateCondaEnvironment("myenv"))
+	require.NoError(t, dr.DeactivateCondaEnvironment())
 	assert.True(t, activateCalled, "activate runner was not called")
 	assert.True(t, deactivateCalled, "deactivate runner was not called")
 }

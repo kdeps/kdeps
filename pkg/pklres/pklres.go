@@ -78,10 +78,10 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 	globalReader := GetGlobalPklresReader()
 	if r == globalReader {
 		if r.DB == nil {
-			return nil, fmt.Errorf("global pklres reader database is nil")
+			return nil, errors.New("global pklres reader database is nil")
 		}
 		r.Logger.Debug("using global pklres reader database", "dbPath", r.DBPath, "graphID", r.GraphID)
-		
+
 		// Verify table exists
 		var tableName string
 		err := r.DB.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name='records'").Scan(&tableName)
@@ -253,7 +253,7 @@ func (r *PklResourceReader) getRecord(id, typ, key string) ([]byte, error) {
 						canonicalID = fmt.Sprintf("@%s/%s:%s", r.CurrentAgent, id, r.CurrentVersion)
 					}
 				}()
-				
+
 				agentReader, err := agent.GetGlobalAgentReader(nil, r.KdepsPath, r.CurrentAgent, r.CurrentVersion, nil)
 				if err == nil && agentReader != nil {
 					uri, err := url.Parse(fmt.Sprintf("agent:///%s", id))
@@ -758,16 +758,16 @@ func GetGlobalPklresReader() *PklResourceReader {
 func UpdateGlobalPklresReaderContext(graphID, currentAgent, currentVersion, kdepsPath string) error {
 	globalMutex.Lock()
 	defer globalMutex.Unlock()
-	
+
 	if globalPklresReader == nil {
-		return fmt.Errorf("global pklres reader not initialized")
+		return errors.New("global pklres reader not initialized")
 	}
-	
+
 	globalPklresReader.GraphID = graphID
 	globalPklresReader.CurrentAgent = currentAgent
 	globalPklresReader.CurrentVersion = currentVersion
 	globalPklresReader.KdepsPath = kdepsPath
-	
+
 	return nil
 }
 
@@ -787,11 +787,11 @@ func InitializePklResource(dbPath, graphID, currentAgent, currentVersion, kdepsP
 		KdepsPath:      kdepsPath,
 		Logger:         slog.Default(),
 	}
-	
+
 	// Set as global reader if none exists
 	if GetGlobalPklresReader() == nil {
 		SetGlobalPklresReader(reader)
 	}
-	
+
 	return reader, nil
 }

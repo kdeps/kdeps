@@ -30,8 +30,9 @@ import (
 )
 
 var (
-	version = "dev"
-	commit  = ""
+	version   = "dev"
+	commit    = ""
+	localMode = "0"
 
 	// Function variables for dependency injection during tests.
 	newGraphResolverFn        = resolver.NewGraphResolver
@@ -52,6 +53,7 @@ var (
 
 func main() {
 	v.SetVersionInfo(version, commit)
+	v.SetLocalMode(localMode)
 
 	logger := logging.GetLogger()
 	fs := afero.NewOsFs()
@@ -158,7 +160,7 @@ func handleDockerMode(ctx context.Context, dr *resolver.DependencyResolver, canc
 	apiServerMode, err := bootstrapDockerSystemFn(ctx, dr)
 	if err != nil {
 		dr.Logger.Error("error during Docker bootstrap", "error", err)
-		utils.SendSigterm(dr.Logger)
+		utils.SendSigterm()
 		return
 	}
 	// Setup graceful shutdown handler
@@ -168,7 +170,7 @@ func handleDockerMode(ctx context.Context, dr *resolver.DependencyResolver, canc
 	if !apiServerMode {
 		if err := runGraphResolverActionsFn(ctx, dr, apiServerMode); err != nil {
 			dr.Logger.Error("error running graph resolver", "error", err)
-			utils.SendSigterm(dr.Logger)
+			utils.SendSigterm()
 			return
 		}
 	}
@@ -293,7 +295,7 @@ func runGraphResolverActions(ctx context.Context, dr *resolver.DependencyResolve
 	// In certain error cases, Ollama needs to be restarted
 	if fatal {
 		dr.Logger.Fatal("fatal error occurred")
-		utils.SendSigterm(dr.Logger)
+		utils.SendSigterm()
 	}
 
 	cleanupFn(ctx, dr.Fs, dr.Environment, apiServerMode, dr.Logger)

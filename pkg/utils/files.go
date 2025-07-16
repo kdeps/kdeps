@@ -85,12 +85,12 @@ func CreateFiles(_ context.Context, fs afero.Fs, files []string) error {
 	return nil
 }
 
-// Sanitize archive file pathing from "G305: Zip Slip vulnerability".
-func SanitizeArchivePath(d, t string) (string, error) {
-	v := filepath.Join(d, t)
-	if strings.HasPrefix(v, filepath.Clean(d)) {
+// SanitizeArchivePath sanitizes archive file pathing from "G305: Zip Slip vulnerability".
+func SanitizeArchivePath(base, target string) (string, error) {
+	v := filepath.Join(base, target)
+	if strings.HasPrefix(v, filepath.Clean(base)) {
 		return v, nil
 	}
 
-	return "", fmt.Errorf("%s: %s", "content filepath is tainted", t)
+	return "", fmt.Errorf("%s: %s", "content filepath is tainted", target)
 }

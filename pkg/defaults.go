@@ -81,7 +81,7 @@ const (
 	DefaultMode = "docker"
 )
 
-// Helper functions to create pointers.
+// StringPtr creates a pointer to a string value.
 func StringPtr(s string) *string {
 	return &s
 }
@@ -106,7 +106,7 @@ func DurationPtr(d time.Duration) *time.Duration {
 	return &d
 }
 
-// Default value getters.
+// GetDefaultAllowCredentials returns the default value for allow credentials.
 func GetDefaultAllowCredentials() *bool {
 	return BoolPtr(DefaultAllowCredentials)
 }

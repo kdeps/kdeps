@@ -175,7 +175,7 @@ func TestWaitForTimestampChange(t *testing.T) {
 	}
 	for _, dir := range dirs {
 		err := fs.MkdirAll(dir, 0o755)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	}
 
 	dr := &resolverpkg.DependencyResolver{

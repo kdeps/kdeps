@@ -11,7 +11,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/messages"
 )
 
-// Function to compare version numbers.
+// CompareVersions compares version numbers and returns the latest.
 func CompareVersions(versions []string, logger *logging.Logger) string {
 	logger.Debug(messages.MsgComparingVersions, "versions", versions)
 	sort.Slice(versions, func(i, j int) bool {

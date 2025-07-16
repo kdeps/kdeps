@@ -168,14 +168,14 @@ func TestBuildToolURIAndExtractParams(t *testing.T) {
 	args := map[string]interface{}{"msg": "hello"}
 
 	name, gotScript, paramsStr, err := extractToolParams(args, chat, "echo", logger)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "echo", name)
 	assert.Equal(t, script, gotScript)
 	assert.Equal(t, "hello", paramsStr)
 
 	// Build the tool URI
 	uri, err := buildToolURI("id123", gotScript, paramsStr)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	// Should encode params as query param
 	assert.Contains(t, uri.String(), "params=")
 
@@ -273,5 +273,5 @@ func TestConstructToolCallsFromJSONAndDeduplication(t *testing.T) {
 	// additional sanity: encode/decode arguments roundtrip
 	var args map[string]interface{}
 	_ = json.Unmarshal([]byte(dedup[1].FunctionCall.Arguments), &args)
-	assert.Equal(t, float64(1), args["a"]) // json numbers unmarshal to float64
+	assert.InEpsilon(t, float64(1), args["a"], 0.001) // json numbers unmarshal to float64
 }

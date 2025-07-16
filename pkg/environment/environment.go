@@ -17,6 +17,7 @@ type Environment struct {
 	Pwd            string `env:"PWD"`
 	KdepsConfig    string `env:"KDEPS_CONFIG,default=$HOME/.kdeps.pkl"`
 	DockerMode     string `env:"DOCKER_MODE,default=0"`
+	LocalMode      string `env:"KDEPS_LOCAL_MODE,default=0"`
 	NonInteractive string `env:"NON_INTERACTIVE,default=0"`
 	TimeoutSec     int    `env:"TIMEOUT,default=60"`
 	Extras         env.EnvSet
@@ -64,6 +65,11 @@ func AllDockerEnvVarsSet() bool {
 		}
 	}
 	return true
+}
+
+// IsLocalMode checks if local mode is enabled via environment variable.
+func IsLocalMode() bool {
+	return os.Getenv("KDEPS_LOCAL_MODE") == "1"
 }
 
 // NewEnvironment initializes and returns a new Environment based on provided or default settings.

@@ -1,14 +1,16 @@
 package version
 
-// Application version information
+// VersionInfo contains application version information.
 type VersionInfo struct {
-	Version string
-	Commit  string
+	Version   string
+	Commit    string
+	LocalMode string
 }
 
 var versionInfo = VersionInfo{
-	Version: "dev",
-	Commit:  "",
+	Version:   "dev",
+	Commit:    "",
+	LocalMode: "0",
 }
 
 // GetVersionInfo returns the current version and commit info.
@@ -21,6 +23,11 @@ func GetVersionInfo() VersionInfo {
 func SetVersionInfo(v, c string) {
 	versionInfo.Version = v
 	versionInfo.Commit = c
+}
+
+// SetLocalMode allows setting local mode info (for main or tests).
+func SetLocalMode(mode string) {
+	versionInfo.LocalMode = mode
 }
 
 // Component version constants

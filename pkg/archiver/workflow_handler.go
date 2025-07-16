@@ -20,6 +20,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/utils"
+	"github.com/kdeps/kdeps/pkg/version"
 	"github.com/kdeps/kdeps/pkg/workflow"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
@@ -258,8 +259,15 @@ func CompileProject(ctx context.Context, fs afero.Fs, wf pklWf.Workflow, kdepsDi
 
 	// Evaluate all PKL files in the compiled project directory to test for any problems
 	logger.Info("evaluating all PKL files for validation")
-	if err := evaluator.EvaluateAllPklFilesInDirectory(fs, ctx, compiledProjectDir, logger); err != nil {
-		return "", "", fmt.Errorf("failed to evaluate PKL files: %w", err)
+
+	// Skip PKL evaluation in local mode since local PKL files won't be available during packaging
+	versionInfo := version.GetVersionInfo()
+	if versionInfo.LocalMode == "1" {
+		logger.Info("skipping PKL evaluation in local mode", "reason", "local PKL files not available during packaging")
+	} else {
+		if err := evaluator.EvaluateAllPklFilesInDirectory(fs, ctx, compiledProjectDir, logger); err != nil {
+			return "", "", fmt.Errorf("failed to evaluate PKL files: %w", err)
+		}
 	}
 
 	packageFile, err := PackageProject(fs, ctx, newWorkflow, kdepsDir, compiledProjectDir, logger)
@@ -272,7 +280,7 @@ func CompileProject(ctx context.Context, fs afero.Fs, wf pklWf.Workflow, kdepsDi
 	}
 
 	cwdPackage := filepath.Join(env.Pwd, filepath.Base(packageFile))
-	if err := CopyFile(fs, ctx, packageFile, cwdPackage, logger); err != nil {
+	if err := CopyFile(ctx, fs, packageFile, cwdPackage, logger); err != nil {
 		return "", "", err
 	}
 

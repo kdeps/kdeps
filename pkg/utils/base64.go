@@ -7,20 +7,20 @@ import (
 	"unicode/utf8"
 )
 
-// Helper function to check if a string is already Base64 encoded.
-func IsBase64Encoded(str string) bool {
+// IsBase64Encoded checks if a string is already Base64 encoded.
+func IsBase64Encoded(s string) bool {
 	// Return false for empty strings
-	if str == "" {
+	if s == "" {
 		return false
 	}
 
 	// Check length of the string
-	if len(str)%4 != 0 {
+	if len(s)%4 != 0 {
 		return false
 	}
 
 	// Check if the string contains only Base64 valid characters
-	for _, char := range str {
+	for _, char := range s {
 		if !(('A' <= char && char <= 'Z') || ('a' <= char && char <= 'z') ||
 			('0' <= char && char <= '9') || char == '+' || char == '/' || char == '=') {
 			return false
@@ -28,7 +28,7 @@ func IsBase64Encoded(str string) bool {
 	}
 
 	// Try decoding the string
-	decoded, err := base64.StdEncoding.DecodeString(str)
+	decoded, err := base64.StdEncoding.DecodeString(s)
 	if err != nil {
 		return false
 	}
@@ -37,21 +37,21 @@ func IsBase64Encoded(str string) bool {
 	return utf8.Valid(decoded)
 }
 
-// Helper function to decode a Base64-encoded string.
-func DecodeBase64String(encodedStr string) (string, error) {
-	if !IsBase64Encoded(encodedStr) {
-		return encodedStr, nil
+// DecodeBase64String decodes a Base64-encoded string.
+func DecodeBase64String(s string) (string, error) {
+	if !IsBase64Encoded(s) {
+		return s, nil
 	}
-	decodedBytes, err := base64.StdEncoding.DecodeString(encodedStr)
+	decodedBytes, err := base64.StdEncoding.DecodeString(s)
 	if err != nil {
 		return "", errors.New("invalid base64 encoding")
 	}
 	return string(decodedBytes), nil
 }
 
-// Helper function to Base64 encode a string.
-func EncodeBase64String(data string) string {
-	return base64.StdEncoding.EncodeToString([]byte(data))
+// EncodeBase64String Base64 encodes a string.
+func EncodeBase64String(s string) string {
+	return base64.StdEncoding.EncodeToString([]byte(s))
 }
 
 func DecodeBase64IfNeeded(value string) (string, error) {
@@ -68,12 +68,12 @@ func EncodeValue(value string) string {
 	return value
 }
 
-// handles optional string pointers (like Stderr/Stdout).
-func EncodeValuePtr(value *string) *string {
-	if value == nil {
+// EncodeValuePtr handles optional string pointers (like Stderr/Stdout).
+func EncodeValuePtr(s *string) *string {
+	if s == nil {
 		return nil
 	}
-	encoded := EncodeValue(*value)
+	encoded := EncodeValue(*s)
 	return &encoded
 }
 

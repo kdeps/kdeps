@@ -3,13 +3,14 @@ package evaluator_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/apple/pkl-go/pkl"
 	evaluator "github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -37,7 +38,8 @@ func TestCreateAndProcessPklFile_AmendsInPkg(t *testing.T) {
 	content, err := afero.ReadFile(fs, final)
 	require.NoError(t, err)
 	data := string(content)
-	require.True(t, strings.Contains(data, "amends \"package://schema.kdeps.com/core@"), "should contain amends relationship")
+	expectedAmends := fmt.Sprintf("amends \"%s\"", schema.ImportPath(context.Background(), "template.pkl"))
+	require.Contains(t, data, expectedAmends, "should contain amends relationship")
 	require.Contains(t, data, "processed")
 }
 
@@ -184,7 +186,7 @@ func TestCreateAndProcessPklFile_Minimal(t *testing.T) {
 	ctx := context.Background()
 	finalPath := "minimal.pkl"
 	sections := []string{"test"}
-	processFunc := func(_ afero.Fs, _ context.Context, _ string, headerSection string, _ *logging.Logger) (string, error) {
+	processFunc := func(_ afero.Fs, _ context.Context, _ string, _ string, _ *logging.Logger) (string, error) {
 		return "processed", nil
 	}
 
@@ -272,7 +274,7 @@ func TestCreateAndProcessPklFileNew(t *testing.T) {
 	finalPath := "new.pkl"
 	sections := []string{"new section"}
 
-	processFunc := func(_ afero.Fs, _ context.Context, tmpFile string, headerSection string, l *logging.Logger) (string, error) {
+	processFunc := func(_ afero.Fs, _ context.Context, _ string, _ string, _ *logging.Logger) (string, error) {
 		return "new processed", nil
 	}
 
@@ -294,7 +296,7 @@ func TestCreateAndProcessPklFileWithExtensionNew(t *testing.T) {
 	finalPath := "extension.pkl"
 	sections := []string{"ext section"}
 
-	processFunc := func(_ afero.Fs, _ context.Context, tmpFile string, headerSection string, l *logging.Logger) (string, error) {
+	processFunc := func(_ afero.Fs, _ context.Context, _ string, _ string, _ *logging.Logger) (string, error) {
 		return "extension processed", nil
 	}
 

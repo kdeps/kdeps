@@ -105,17 +105,16 @@ func buildResp(status int, body string) *http.Response {
 }
 
 func TestGetLatestAnacondaVersionsSuccess(t *testing.T) {
-	html := `Anaconda3-2023.07-1-Linux-x86_64.sh Anaconda3-2023.05-1-Linux-aarch64.sh` +
-		` Anaconda3-20.4.40-1-Linux-x86_64.sh Anaconda3-20.4.48-1-Linux-aarch64.sh`
-
-	// Use dependency injection with mock transport
+	// Use a mock HTTP client with deterministic HTML
 	deps := docker.CacheDeps{
 		HTTPClient: &http.Client{
-			Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
-				if r.URL.Host == "repo.anaconda.com" {
-					return buildResp(http.StatusOK, html), nil
-				}
-				return http.DefaultTransport.RoundTrip(r)
+			Transport: roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+				return buildResp(http.StatusOK, `<html><body>
+					<a href="Anaconda3-20.4.40-1-Linux-x86_64.sh">x</a>
+					<a href="Anaconda3-20.4.48-1-Linux-aarch64.sh">y</a>
+					<a href="Anaconda3-20.4.42-0-Linux-x86_64.sh">old-x</a>
+					<a href="Anaconda3-20.4.47-1-Linux-aarch64.sh">old-y</a>
+					</body></html>`), nil
 			}),
 		},
 	}
@@ -181,7 +180,7 @@ func TestGetLatestAnacondaVersionsMultiArch(t *testing.T) {
 
 	ctx := context.Background()
 	versions, err := docker.GetLatestAnacondaVersionsWithDeps(ctx, deps)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "20.4.40-1", versions["x86_64"])
 	assert.Equal(t, "20.4.49-1", versions["aarch64"])
 }
@@ -208,7 +207,7 @@ func TestGetLatestAnacondaVersionsMockSimple(t *testing.T) {
 
 	ctx := context.Background()
 	versions, err := docker.GetLatestAnacondaVersionsWithDeps(ctx, deps)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "20.4.40-1", versions["x86_64"])
 	assert.Equal(t, "20.4.49-1", versions["aarch64"])
 }
@@ -554,7 +553,7 @@ func TestGenerateURLs_UseLatest(t *testing.T) {
 	}
 
 	items, err := docker.GenerateURLsWithDeps(context.Background(), true, deps)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEmpty(t, items)
 
 	// Ensure an item for pkl latest and anaconda latest exist.
@@ -598,7 +597,7 @@ func TestGetLatestAnacondaVersions(t *testing.T) {
 	}
 
 	versions, err := docker.GetLatestAnacondaVersionsWithDeps(context.Background(), deps)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "20.4.40-1", versions["x86_64"])
 	assert.Equal(t, "20.4.40-1", versions["aarch64"])
 }
@@ -759,7 +758,7 @@ func TestGenerateURLsStaticQuick(t *testing.T) {
 	}
 
 	items, err := docker.GenerateURLsWithDeps(context.Background(), true, deps)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEmpty(t, items)
 	// Ensure each local name contains arch or version placeholders replaced
 	for _, it := range items {
@@ -965,7 +964,7 @@ func TestGenerateURLs_Static(t *testing.T) {
 	}
 
 	items, err := docker.GenerateURLsWithDeps(context.Background(), true, deps)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEmpty(t, items)
 	// Ensure each local name contains arch or version placeholders replaced
 	for _, it := range items {

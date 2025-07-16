@@ -16,6 +16,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/messages"
+	"github.com/kdeps/kdeps/pkg/version"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 )
@@ -60,13 +61,88 @@ func CompileResources(ctx context.Context, fs afero.Fs, wf pklWf.Workflow, resou
 
 	// Evaluate all compiled PKL files in the resources directory to test for any problems
 	logger.Debug("evaluating compiled resource PKL files")
-	if err := evaluator.EvaluateAllPklFilesInDirectory(fs, ctx, resourcesDir, logger); err != nil {
-		logger.Error("error evaluating resource PKL files", "resourcesDir", resourcesDir, "error", err)
-		return err
+
+	// Skip PKL evaluation in local mode since local PKL files won't be available during packaging
+	versionInfo := version.GetVersionInfo()
+	if versionInfo.LocalMode == "1" {
+		logger.Info("skipping PKL evaluation in local mode", "reason", "local PKL files not available during packaging")
+	} else {
+		if err := evaluator.EvaluateAllPklFilesInDirectory(fs, ctx, resourcesDir, logger); err != nil {
+			logger.Error("error evaluating resource PKL files", "resourcesDir", resourcesDir, "error", err)
+			return err
+		}
 	}
 
 	logger.Debug(messages.MsgResourcesCompiled, "resourcesDir", resourcesDir, "projectDir", projectDir)
+
+	// Post-compilation validation: check for canonical IDs in all .pkl files
+	pklFiles, err := afero.ReadDir(fs, resourcesDir)
+	if err == nil {
+		for _, f := range pklFiles {
+			if f.IsDir() || filepath.Ext(f.Name()) != ".pkl" {
+				continue
+			}
+			filePath := filepath.Join(resourcesDir, f.Name())
+			content, err := afero.ReadFile(fs, filePath)
+			if err != nil {
+				logger.Warn("could not read resource file for canonical ID validation", "file", filePath, "error", err)
+				continue
+			}
+			text := string(content)
+			if !strings.Contains(text, "ActionID = \"@") {
+				logger.Warn("resource file missing canonical ActionID", "file", filePath)
+			}
+			if !strings.Contains(text, "AgentID = \"") {
+				logger.Warn("resource file missing AgentID", "file", filePath)
+			}
+			// Validate Requires block using string parsing (same as pkg/agent/agent.go)
+			validateRequiresBlock(text, filePath, logger)
+		}
+	}
 	return nil
+}
+
+// validateRequiresBlock validates Requires block entries using string parsing (same as pkg/agent/agent.go)
+func validateRequiresBlock(text, filePath string, logger *logging.Logger) {
+	// Find Requires blocks using simple string operations
+	lines := strings.Split(text, "\n")
+	inRequiresBlock := false
+	var requiresLines []string
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "Requires") && strings.Contains(trimmed, "{") {
+			inRequiresBlock = true
+			requiresLines = append(requiresLines, line)
+			continue
+		}
+		if inRequiresBlock {
+			requiresLines = append(requiresLines, line)
+			if strings.TrimSpace(line) == "}" {
+				inRequiresBlock = false
+				validateRequiresBlockContent(strings.Join(requiresLines, "\n"), filePath, logger)
+				requiresLines = nil
+			}
+		}
+	}
+}
+
+// validateRequiresBlockContent validates the content of a Requires block
+func validateRequiresBlockContent(blockContent, filePath string, logger *logging.Logger) {
+	// Extract quoted entries using simple string parsing
+	lines := strings.Split(blockContent, "\n")
+	for _, line := range lines {
+		// Look for quoted strings that might be entries
+		parts := strings.Split(line, `"`)
+		for i := 1; i < len(parts); i += 2 { // Every odd index is inside quotes
+			if i < len(parts) {
+				entry := parts[i]
+				if entry != "" && !strings.HasPrefix(entry, "@") {
+					logger.Warn("Requires block quoted entry is not canonical", "file", filePath, "entry", entry)
+				}
+			}
+		}
+	}
 }
 
 func pklFileProcessor(fs afero.Fs, wf pklWf.Workflow, resourcesDir string, logger *logging.Logger) filepath.WalkFunc {
@@ -226,7 +302,7 @@ func processLineWithAgentReader(line string, wf pklWf.Workflow, agentReader *age
 	return line, ""
 }
 
-// processRequiresBlockWithAgentReader processes the requires block and returns the processed block string and a list of agent names for 'all resources' copying
+// ProcessRequiresBlockWithAgentReader processes the requires block and returns the processed block string and a list of agent names for 'all resources' copying
 func ProcessRequiresBlockWithAgentReader(blockContent string, wf pklWf.Workflow, agentReader *agent.PklResourceReader) (string, []string) {
 	lines := strings.Split(blockContent, "\n")
 	modifiedLines := make([]string, 0, len(lines))
@@ -248,7 +324,7 @@ func ProcessRequiresBlockWithAgentReader(blockContent string, wf pklWf.Workflow,
 			}
 
 			if IsActionID(value) {
-				// Use agent reader to resolve the value
+				// Use agent reader to resolve the value (same as pkg/agent/agent.go)
 				resolvedValue := ResolveActionIDWithAgentReader(value, wf, agentReader)
 				modifiedLines = append(modifiedLines, fmt.Sprintf(`"%s"`, resolvedValue))
 			} else {
@@ -554,7 +630,7 @@ func CollectPklFiles(fs afero.Fs, dir string) ([]string, error) {
 	return pklFiles, nil
 }
 
-// isAgentName checks if a string looks like an agent name (unquoted, simple identifier)
+// IsAgentName checks if a string looks like an agent name (unquoted, simple identifier)
 func IsAgentName(value string) bool {
 	if value == "" {
 		return false

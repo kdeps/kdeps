@@ -39,7 +39,6 @@ func TestHandleRunAction_BasicFlow(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Use temporary directory for test files
-	tmpDir := t.TempDir()
 	sessionDBPath := ":memory:"
 	itemDBPath := ":memory:"
 
@@ -264,13 +263,13 @@ run {
 
 			// Get the global agent reader
 			agentReader, err := agent.GetGlobalAgentReader(fs, "", wf.AgentID, wf.Version, logger)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.NotNil(t, agentReader)
 
 			// Test extracting actionID using a simple approach
 			// (this simulates the extraction logic from AddPlaceholderImports)
 			actionID, err := extractActionIDFromPklContent(resourceContent)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Equal(t, tt.inputActionID, actionID, tt.description)
 
 			// Test that the agent reader would resolve it canonically
@@ -312,7 +311,7 @@ func TestNoRegexParsingInResolver(t *testing.T) {
 			// The mere fact that we can initialize the agent reader and it would be used
 			// indicates we're not doing manual regex parsing
 			agentReader, err := agent.GetGlobalAgentReader(fs, "", "testagent", "1.0.0", logger)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.NotNil(t, agentReader)
 
 			// Verify that the agent reader is available for use

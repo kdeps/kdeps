@@ -88,7 +88,7 @@ func GetFileMD5(fs afero.Fs, filePath string, length int) (string, error) {
 }
 
 // CopyFile copies a file from src to dst, handling existing files by creating backups.
-func CopyFile(fs afero.Fs, _ context.Context, src, dst string, logger *logging.Logger) error {
+func CopyFile(_ context.Context, fs afero.Fs, src, dst string, logger *logging.Logger) error {
 	exists, err := afero.Exists(fs, dst)
 	if err != nil {
 		return fmt.Errorf("failed to check destination existence: %w", err)
@@ -249,7 +249,7 @@ func CopyDir(ctx context.Context, fs afero.Fs, srcDir, destDir string, logger *l
 				return err
 			}
 		} else {
-			if err := CopyFile(fs, ctx, path, dstPath, logger); err != nil {
+			if err := CopyFile(ctx, fs, path, dstPath, logger); err != nil {
 				logger.Error("failed to copy file", "src", path, "dst", dstPath, "error", err)
 				return err
 			}

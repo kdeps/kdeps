@@ -408,7 +408,7 @@ func TestSanitizeArchivePath(t *testing.T) {
 	tmpDir := t.TempDir()
 	safe := filepath.Join(tmpDir, "safe")
 	okPath, err := utils.SanitizeArchivePath(safe, "file.txt")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, filepath.Join(safe, "file.txt"), okPath)
 
 	// Attempt Zip-Slip attack with ".." – should error
@@ -426,18 +426,18 @@ func TestCreateDirectoriesAndFiles(t *testing.T) {
 	dirs := []string{filepath.Join(tmpDir, "dir1"), filepath.Join(tmpDir, "dir2", "sub")}
 	files := []string{filepath.Join(dirs[0], "a.txt"), filepath.Join(dirs[1], "b.txt")}
 
-	assert.NoError(t, utils.CreateDirectories(ctx, fs, dirs))
-	assert.NoError(t, utils.CreateFiles(ctx, fs, files))
+	require.NoError(t, utils.CreateDirectories(ctx, fs, dirs))
+	require.NoError(t, utils.CreateFiles(ctx, fs, files))
 
 	for _, d := range dirs {
 		exist, err := afero.DirExists(fs, d)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, exist)
 	}
 
 	for _, f := range files {
 		_, err := fs.Stat(f)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	}
 }
 

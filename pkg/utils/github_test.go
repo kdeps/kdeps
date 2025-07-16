@@ -97,7 +97,7 @@ func TestGetLatestGitHubReleaseSuccess(t *testing.T) {
 
 	ctx := context.Background()
 	ver, err := GetLatestGitHubRelease(ctx, "owner/repo", srv.URL)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "1.2.3", ver)
 }
 
@@ -110,7 +110,7 @@ func TestGetLatestGitHubReleaseError(t *testing.T) {
 
 	ctx := context.Background()
 	ver, err := GetLatestGitHubRelease(ctx, "owner/repo", srv.URL)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Empty(t, ver)
 }
 
@@ -266,7 +266,7 @@ func TestGetLatestGitHubReleaseExtra(t *testing.T) {
 
 	// Success path
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/repos/owner/repo/releases/latest", r.URL.Path)
+		assert.Equal(t, "/repos/owner/repo/releases/latest", r.URL.Path)
 		resp := map[string]string{"tag_name": "v1.2.3"}
 		_ = json.NewEncoder(w).Encode(resp)
 	}))
@@ -354,7 +354,7 @@ func TestGetLatestGitHubReleaseWithToken(t *testing.T) {
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auth := r.Header.Get("Authorization")
-		require.Equal(t, "Bearer "+token, auth)
+		assert.Equal(t, "Bearer "+token, auth)
 
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"tag_name":"v9.9.9"}`))
@@ -469,7 +469,7 @@ func TestGetLatestGitHubRelease_Success_Alt(t *testing.T) {
 	defer ts.Close()
 
 	ver, err := GetLatestGitHubRelease(context.Background(), "dummy/repo", ts.URL)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "2.3.4", ver)
 }
 
@@ -487,7 +487,7 @@ func TestGetLatestGitHubRelease_Errors_Alt(t *testing.T) {
 			w.WriteHeader(tc.status)
 		}))
 		ver, err := GetLatestGitHubRelease(context.Background(), "dummy/repo", ts.URL)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Empty(t, ver)
 		assert.Contains(t, err.Error(), tc.wantErr)
 		ts.Close()

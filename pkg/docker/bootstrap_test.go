@@ -47,7 +47,7 @@ func TestBootstrapDockerSystem(t *testing.T) {
 	t.Run("DockerMode", func(t *testing.T) {
 		dr.Environment.DockerMode = "1"
 		apiServerMode, err := docker.BootstrapDockerSystem(ctx, dr)
-		assert.Error(t, err) // Expected error due to missing OLLAMA_HOST
+		require.Error(t, err) // Expected error due to missing OLLAMA_HOST
 		assert.False(t, apiServerMode)
 	})
 }

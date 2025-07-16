@@ -245,7 +245,7 @@ func CopyFilesToRunDir(fs afero.Fs, ctx context.Context, downloadDir, runDir str
 		destinationPath := filepath.Join(downloadsDir, file.Name())
 
 		// Copy the file content
-		err = archiver.CopyFile(fs, ctx, sourcePath, destinationPath, logger)
+		err = archiver.CopyFile(ctx, fs, sourcePath, destinationPath, logger)
 		if err != nil {
 			logger.Error("failed to copy file", "source", sourcePath, "destination", destinationPath, "error", err)
 			return fmt.Errorf("failed to copy file: %w", err)
@@ -437,9 +437,8 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		logger.Debug("will download", "url", item.URL, "localName", item.LocalName)
 	}
 
-	err = download.DownloadFiles(ctx, fs, downloadDir, items, logger, schema.UseLatest)
-	if err != nil {
-		return "", false, false, "", "", "", "", "", err
+	if err := download.Files(ctx, fs, downloadDir, items, logger, schema.UseLatest); err != nil {
+		return "", false, false, "", "", "", "", "", fmt.Errorf("failed to download cache files: %w", err)
 	}
 
 	err = CopyFilesToRunDir(fs, ctx, downloadDir, runDir, logger)

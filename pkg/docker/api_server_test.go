@@ -216,7 +216,7 @@ func TestFormatResponseJSON(t *testing.T) {
 	// Verify it's valid JSON
 	var parsedResponse docker.APIResponse
 	err = json.Unmarshal(formatted, &parsedResponse)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, parsedResponse.Success)
 }
 
@@ -641,13 +641,17 @@ func TestProcessWorkflow(t *testing.T) {
 			items := []string{}
 			return &resource.Resource{Items: &items, Run: nil}, nil
 		}
+		mock.LoadResourceWithRequestContextFn = func(context.Context, string, resolver.ResourceType) (interface{}, error) {
+			items := []string{}
+			return &resource.Resource{Items: &items, Run: nil}, nil
+		}
 		mock.ProcessRunBlockFn = func(resolver.ResourceNodeEntry, *resource.Resource, string, bool) (bool, error) {
 			return false, errors.New("failed to handle run action")
 		}
 		mock.ClearItemDBFn = func() error { return nil }
 		err := docker.ProcessWorkflow(ctx, mock)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to initialize empty")
+		assert.Contains(t, err.Error(), "failed to handle run action")
 	})
 }
 
@@ -1070,8 +1074,8 @@ func TestDecodeAndFormatResponseSimple(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decodeResponseContent error: %v", err)
 	}
-	if len(decoded.Response.Data) != 1 || decoded.Response.Data[0] != "{\n  \"foo\": \"bar\"\n}" {
-		t.Fatalf("decodeResponseContent did not prettify JSON: %v", decoded.Response.Data)
+	if len(decoded.Response.Data) != 1 || decoded.Response.Data[0] != `{"foo":"bar"}` {
+		t.Fatalf("decodeResponseContent did not decode JSON correctly: %v", decoded.Response.Data)
 	}
 
 	// Marshal decoded struct then format
@@ -1105,7 +1109,7 @@ func TestDecodeResponseContent_Success(t *testing.T) {
 	decoded, err := docker.DecodeResponseContent(rawBytes, logger)
 	require.NoError(t, err)
 	assert.Equal(t, "abc", decoded.Meta.RequestID)
-	assert.Contains(t, decoded.Response.Data[0], "\"hello\": \"world\"")
+	assert.Equal(t, `{"hello":"world"}`, decoded.Response.Data[0])
 }
 
 func TestDecodeResponseContent_InvalidJSON(t *testing.T) {

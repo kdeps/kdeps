@@ -123,12 +123,12 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		err := dr.HandleExec(resourceID, execBlock)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Verify temporary files are cleaned up
 		tmpDir := filepath.Join(dr.ActionDir, "exec")
 		files, err := afero.ReadDir(dr.Fs, tmpDir)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		// Allow the stub exec output file created during setup
 		var nonStubFiles []os.FileInfo
 		for _, f := range files {
@@ -146,7 +146,7 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		err := dr.HandleExec("", execBlock)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("LargeCommandOutput", func(t *testing.T) {
@@ -157,7 +157,7 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		err := dr.HandleExec("large-output-test", execBlock)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("EnvironmentVariableInjection", func(t *testing.T) {
@@ -172,7 +172,7 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		err := dr.HandleExec("env-test", execBlock)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("TimeoutHandling", func(t *testing.T) {
@@ -186,7 +186,7 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		err := dr.HandleExec("timeout-test", execBlock)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		// Wait for the background goroutine to finish
 		time.Sleep(300 * time.Millisecond)
 		// Optionally, check for side effects or logs if possible
@@ -220,7 +220,7 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		err := dr.HandleExec("error-test", execBlock)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		// Wait for the background goroutine to finish
 		time.Sleep(300 * time.Millisecond)
 		// Optionally, check for side effects or logs if possible
@@ -234,7 +234,7 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		err := dr.HandleExec("base64-test", execBlock)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("EnvironmentVariableEncoding", func(t *testing.T) {
@@ -248,7 +248,7 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		err := dr.HandleExec("env-encoding-test", execBlock)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("FileOutputHandling", func(t *testing.T) {
@@ -258,14 +258,14 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		err := dr.HandleExec("file-output-test", execBlock)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		// Wait for the background goroutine to finish
 		time.Sleep(300 * time.Millisecond)
 
 		// Verify file was created
 		filePath := filepath.Join(dr.FilesDir, "test.txt")
 		exists, err := afero.Exists(dr.Fs, filePath)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		if !exists {
 			t.Logf("File %s was not created immediately; this may be due to async execution.", filePath)
 		}
@@ -303,12 +303,12 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		err := dr.HandleExec("cleanup-error-test", execBlock)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Verify no temporary files were left behind
 		tmpDir := filepath.Join(dr.ActionDir, "exec")
 		files, err := afero.ReadDir(dr.Fs, tmpDir)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		// Allow the stub exec output file created during setup
 		var nonStubFiles []os.FileInfo
 		for _, f := range files {
@@ -330,7 +330,7 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		err := dr.HandleExec("long-running-test", execBlock)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("CommandWithSpecialCharacters", func(t *testing.T) {
@@ -340,7 +340,7 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		err := dr.HandleExec("special-chars-test", execBlock)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("EnvironmentVariableExpansion", func(t *testing.T) {
@@ -355,7 +355,7 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		err := dr.HandleExec("env-expansion-test", execBlock)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("ResourceIDValidation", func(t *testing.T) {

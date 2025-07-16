@@ -364,7 +364,7 @@ func TestFindConfigurationUnit(t *testing.T) {
 
 		result, err := cfg.FindConfiguration(ctx, fs, env, logger)
 		require.NoError(t, err)
-		assert.Equal(t, "", result)
+		assert.Empty(t, result)
 	})
 }
 
@@ -587,7 +587,7 @@ func TestGenerateConfigurationAdditional(t *testing.T) {
 		result, err := cfg.GenerateConfiguration(ctx, fs, env, logger)
 		// This will fail when trying to write the file
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to write")
+		assert.Contains(t, err.Error(), "failed to write to")
 		assert.Empty(t, result)
 	})
 }
@@ -650,7 +650,7 @@ DockerGPU = "cpu"
 		if err != nil {
 			assert.Contains(t, err.Error(), "configuration validation failed")
 		} else {
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		}
 		assert.Equal(t, configPath, result)
 	})

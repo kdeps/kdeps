@@ -121,7 +121,7 @@ func TestCopyFileSkipIfHashesMatch(t *testing.T) {
 		t.Fatalf("write dst: %v", err)
 	}
 
-	if err := archiver.CopyFile(fs, ctx, src, dst, logger); err != nil {
+	if err := archiver.CopyFile(ctx, fs, src, dst, logger); err != nil {
 		t.Fatalf("CopyFile error: %v", err)
 	}
 }
@@ -141,7 +141,7 @@ func TestCopyFileCreatesBackupOnHashMismatch(t *testing.T) {
 		t.Fatalf("write dst: %v", err)
 	}
 
-	if err := archiver.CopyFile(fs, ctx, src, dst, logger); err != nil {
+	if err := archiver.CopyFile(ctx, fs, src, dst, logger); err != nil {
 		t.Fatalf("CopyFile error: %v", err)
 	}
 
@@ -236,7 +236,7 @@ func TestCopyFile_NoDestination(t *testing.T) {
 	// create src
 	_ = afero.WriteFile(fs, "/src.txt", []byte("abc"), 0o644)
 
-	if err := archiver.CopyFile(fs, ctx, "/src.txt", "/dst.txt", logger); err != nil {
+	if err := archiver.CopyFile(ctx, fs, "/src.txt", "/dst.txt", logger); err != nil {
 		t.Fatalf("CopyFile unexpected error: %v", err)
 	}
 
@@ -255,7 +255,7 @@ func TestCopyFile_SkipSameMD5(t *testing.T) {
 	_ = afero.WriteFile(fs, "/src.txt", content, 0o644)
 	_ = afero.WriteFile(fs, "/dst.txt", content, 0o644)
 
-	if err := archiver.CopyFile(fs, ctx, "/src.txt", "/dst.txt", logger); err != nil {
+	if err := archiver.CopyFile(ctx, fs, "/src.txt", "/dst.txt", logger); err != nil {
 		t.Fatalf("CopyFile error: %v", err)
 	}
 
@@ -374,7 +374,7 @@ func TestCopyFileSrcNotFound(t *testing.T) {
 	src := filepath.Join(tmp, "does_not_exist.txt")
 	dst := filepath.Join(tmp, "dst.txt")
 
-	if err := archiver.CopyFile(fs, context.Background(), src, dst, logging.NewTestLogger()); err == nil {
+	if err := archiver.CopyFile(context.Background(), fs, src, dst, logging.NewTestLogger()); err == nil {
 		t.Fatalf("expected error when source is missing")
 	}
 
@@ -400,7 +400,7 @@ func TestCopyFileDestCreateError(t *testing.T) {
 	}
 
 	dst := filepath.Join(roDir, "dst.txt")
-	if err := archiver.CopyFile(fs, context.Background(), src, dst, logging.NewTestLogger()); err == nil {
+	if err := archiver.CopyFile(context.Background(), fs, src, dst, logging.NewTestLogger()); err == nil {
 		t.Fatalf("expected error when destination directory is not writable")
 	}
 
@@ -422,7 +422,7 @@ func TestCopyFileSimple(t *testing.T) {
 		t.Fatalf("write src: %v", err)
 	}
 
-	if err := archiver.CopyFile(fs, context.Background(), src, dst, logging.NewTestLogger()); err != nil {
+	if err := archiver.CopyFile(context.Background(), fs, src, dst, logging.NewTestLogger()); err != nil {
 		t.Fatalf("copyFile error: %v", err)
 	}
 
@@ -444,7 +444,7 @@ func TestCopyFileOverwrite(t *testing.T) {
 	_ = afero.WriteFile(fs, src, []byte("new"), 0o644)
 	_ = afero.WriteFile(fs, dst, []byte("old"), 0o644)
 
-	if err := archiver.CopyFile(fs, context.Background(), src, dst, logging.NewTestLogger()); err != nil {
+	if err := archiver.CopyFile(context.Background(), fs, src, dst, logging.NewTestLogger()); err != nil {
 		t.Fatalf("copyFile: %v", err)
 	}
 
@@ -472,7 +472,7 @@ func TestCopyFileSkipSameMD5(t *testing.T) {
 	}
 
 	logger := logging.NewTestLogger()
-	if err := archiver.CopyFile(fs, context.Background(), src, dst, logger); err != nil {
+	if err := archiver.CopyFile(context.Background(), fs, src, dst, logger); err != nil {
 		t.Fatalf("CopyFile error: %v", err)
 	}
 
@@ -501,7 +501,7 @@ func TestCopyFileBackupAndOverwrite(t *testing.T) {
 	}
 
 	logger := logging.NewTestLogger()
-	if err := archiver.CopyFile(fs, context.Background(), src, dst, logger); err != nil {
+	if err := archiver.CopyFile(context.Background(), fs, src, dst, logger); err != nil {
 		t.Fatalf("CopyFile: %v", err)
 	}
 
@@ -650,7 +650,7 @@ func TestCopyFile_RenameError(t *testing.T) {
 	// Wrap the mem fs with read-only to make Rename fail
 	rofs := afero.NewReadOnlyFs(fs)
 
-	if err := archiver.CopyFile(rofs, ctx, src, dst, logger); err == nil {
+	if err := archiver.CopyFile(ctx, rofs, src, dst, logger); err == nil {
 		t.Fatalf("expected error due to read-only rename failure")
 	}
 }
@@ -674,7 +674,7 @@ func TestPerformCopy_DestCreateError(t *testing.T) {
 func TestCopyFileMissingSource(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	dst := "/dst.txt"
-	if err := archiver.CopyFile(fs, context.Background(), "/no-such.txt", dst, logging.NewTestLogger()); err == nil {
+	if err := archiver.CopyFile(context.Background(), fs, "/no-such.txt", dst, logging.NewTestLogger()); err == nil {
 		t.Fatalf("expected error for missing source file")
 	}
 	// Destination should not exist either.
@@ -723,7 +723,7 @@ func TestCopyPermissions(t *testing.T) {
 	// Need a dummy logger – not used in code path.
 	logger := logging.NewTestLogger()
 
-	if err := archiver.CopyFile(fs, ctx, src, dst, logger); err != nil {
+	if err := archiver.CopyFile(ctx, fs, src, dst, logger); err != nil {
 		t.Fatalf("CopyFile error: %v", err)
 	}
 
@@ -804,7 +804,7 @@ func TestCopyFile_NoExist(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 	_ = afero.WriteFile(fs, "/src.txt", []byte("data"), 0o644)
-	require.NoError(t, archiver.CopyFile(fs, context.Background(), "/src.txt", "/dst.txt", logger))
+	require.NoError(t, archiver.CopyFile(context.Background(), fs, "/src.txt", "/dst.txt", logger))
 	data, err := afero.ReadFile(fs, "/dst.txt")
 	require.NoError(t, err)
 	require.Equal(t, "data", string(data))
@@ -816,7 +816,7 @@ func TestCopyFile_ExistsSameMD5(t *testing.T) {
 	content := []byte("data")
 	_ = afero.WriteFile(fs, "/src.txt", content, 0o644)
 	_ = afero.WriteFile(fs, "/dst.txt", content, 0o644)
-	require.NoError(t, archiver.CopyFile(fs, context.Background(), "/src.txt", "/dst.txt", logger))
+	require.NoError(t, archiver.CopyFile(context.Background(), fs, "/src.txt", "/dst.txt", logger))
 	data, err := afero.ReadFile(fs, "/dst.txt")
 	require.NoError(t, err)
 	require.Equal(t, "data", string(data))
@@ -832,7 +832,7 @@ func TestCopyFile_ExistsDifferentMD5(t *testing.T) {
 	logger := logging.NewTestLogger()
 	_ = afero.WriteFile(fs, "/src.txt", []byte("src"), 0o644)
 	_ = afero.WriteFile(fs, "/dst.txt", []byte("dst"), 0o644)
-	require.NoError(t, archiver.CopyFile(fs, context.Background(), "/src.txt", "/dst.txt", logger))
+	require.NoError(t, archiver.CopyFile(context.Background(), fs, "/src.txt", "/dst.txt", logger))
 	data, err := afero.ReadFile(fs, "/dst.txt")
 	require.NoError(t, err)
 	require.Equal(t, "src", string(data))
@@ -913,12 +913,12 @@ func TestCopyFileCreatesBackup(t *testing.T) {
 	}
 
 	// first copy (dest does not exist yet)
-	if err := archiver.CopyFile(fs, ctx, src, dst, logger); err != nil {
+	if err := archiver.CopyFile(ctx, fs, src, dst, logger); err != nil {
 		t.Fatalf("CopyFile error: %v", err)
 	}
 
 	// Copy again with identical content – should skip and not create backup
-	if err := archiver.CopyFile(fs, ctx, src, dst, logger); err != nil {
+	if err := archiver.CopyFile(ctx, fs, src, dst, logger); err != nil {
 		t.Fatalf("CopyFile second identical error: %v", err)
 	}
 
@@ -936,7 +936,7 @@ func TestCopyFileCreatesBackup(t *testing.T) {
 		t.Fatalf("write src changed: %v", err)
 	}
 
-	if err := archiver.CopyFile(fs, ctx, src, dst, logger); err != nil {
+	if err := archiver.CopyFile(ctx, fs, src, dst, logger); err != nil {
 		t.Fatalf("CopyFile with changed content error: %v", err)
 	}
 
@@ -1019,7 +1019,7 @@ func TestCopyFileIdentical(t *testing.T) {
 		t.Fatalf("failed to write dst file: %v", err)
 	}
 
-	if err := archiver.CopyFile(fs, ctx, src, dst, logger); err != nil {
+	if err := archiver.CopyFile(ctx, fs, src, dst, logger); err != nil {
 		t.Fatalf("CopyFile returned error: %v", err)
 	}
 
@@ -1063,7 +1063,7 @@ func TestCopyFileBackup(t *testing.T) {
 	oldMD5, _ := archiver.GetFileMD5(fs, dst, 8)
 	expectedBackup := archiver.GetBackupPath(dst, oldMD5)
 
-	if err := archiver.CopyFile(fs, ctx, src, dst, logger); err != nil {
+	if err := archiver.CopyFile(ctx, fs, src, dst, logger); err != nil {
 		t.Fatalf("CopyFile returned error: %v", err)
 	}
 
@@ -1112,7 +1112,7 @@ func TestCopyFileSuccessOS(t *testing.T) {
 		t.Fatalf("mkdir: %v", err)
 	}
 
-	if err := archiver.CopyFile(fs, context.Background(), src, dst, logging.NewTestLogger()); err != nil {
+	if err := archiver.CopyFile(context.Background(), fs, src, dst, logging.NewTestLogger()); err != nil {
 		t.Fatalf("copyFile error: %v", err)
 	}
 
@@ -1187,7 +1187,7 @@ func TestCopyFileVariants(t *testing.T) {
 	}
 
 	// 1. destination does not exist – simple copy
-	if err := archiver.CopyFile(fsys, ctx, srcPath, dstPath, logger); err != nil {
+	if err := archiver.CopyFile(ctx, fsys, srcPath, dstPath, logger); err != nil {
 		t.Fatalf("copy (new): %v", err)
 	}
 	// verify content
@@ -1197,7 +1197,7 @@ func TestCopyFileVariants(t *testing.T) {
 	}
 
 	// 2. destination exists with SAME md5 – should skip copy and keep content
-	if err := archiver.CopyFile(fsys, ctx, srcPath, dstPath, logger); err != nil {
+	if err := archiver.CopyFile(ctx, fsys, srcPath, dstPath, logger); err != nil {
 		t.Fatalf("copy (same md5): %v", err)
 	}
 	data2, _ := afero.ReadFile(fsys, dstPath)
@@ -1211,7 +1211,7 @@ func TestCopyFileVariants(t *testing.T) {
 		t.Fatalf("prep diff md5: %v", err)
 	}
 
-	if err := archiver.CopyFile(fsys, ctx, srcPath, dstPath, logger); err != nil {
+	if err := archiver.CopyFile(ctx, fsys, srcPath, dstPath, logger); err != nil {
 		t.Fatalf("copy (diff md5): %v", err)
 	}
 
@@ -1279,7 +1279,7 @@ func TestCopyFileInternalError(t *testing.T) {
 	src := filepath.Join(tmp, "nosuch.txt")
 	dst := filepath.Join(tmp, "dst.txt")
 
-	if err := archiver.CopyFile(fs, context.Background(), src, dst, logging.NewTestLogger()); err == nil {
+	if err := archiver.CopyFile(context.Background(), fs, src, dst, logging.NewTestLogger()); err == nil {
 		t.Fatalf("expected error for missing source file")
 	}
 }
@@ -1408,9 +1408,9 @@ func TestGetFileMD5SuccessAndError(t *testing.T) {
 
 	// error path: zero-length allowed file but permission denied (use read only fs layer)
 	ro := afero.NewReadOnlyFs(afs)
-	if _, err := archiver.GetFileMD5(ro, filePath, 8); err != nil && !errors.Is(err, fs.ErrPermission) {
-		// expected some error not nil – just ensure function propagates
-	}
+	// Expected: function should propagate permission errors, but we don't fail the test
+	// since this is testing error handling behavior
+	_, _ = archiver.GetFileMD5(ro, filePath, 8)
 }
 
 func TestMoveFolderSuccessEdge(t *testing.T) {
@@ -1484,7 +1484,7 @@ func TestCopyFileSuccess(t *testing.T) {
 		t.Fatalf("mkdir nested: %v", err)
 	}
 
-	if err := archiver.CopyFile(fs, context.Background(), src, dst, logging.NewTestLogger()); err != nil {
+	if err := archiver.CopyFile(context.Background(), fs, src, dst, logging.NewTestLogger()); err != nil {
 		t.Fatalf("copyFile error: %v", err)
 	}
 
@@ -1547,15 +1547,15 @@ func TestGetFileMD5AndCopyFile(t *testing.T) {
 	assert.Len(t, md5short, 8)
 
 	dest := "/dest.txt"
-	assert.NoError(t, archiver.CopyFile(fsys, ctx, src, dest, logger))
+	assert.NoError(t, archiver.CopyFile(ctx, fsys, src, dest, logger))
 
 	// identical copy should not create backup
-	assert.NoError(t, archiver.CopyFile(fsys, ctx, src, dest, logger))
+	assert.NoError(t, archiver.CopyFile(ctx, fsys, src, dest, logger))
 
 	// modify src and copy again -> backup expected
 	newContent := []byte("hello new world")
 	assert.NoError(t, afero.WriteFile(fsys, src, newContent, 0o644))
-	assert.NoError(t, archiver.CopyFile(fsys, ctx, src, dest, logger))
+	assert.NoError(t, archiver.CopyFile(ctx, fsys, src, dest, logger))
 
 	backupName := "dest_" + md5short + ".txt"
 	exists, _ := afero.Exists(fsys, "/"+backupName)
@@ -1662,7 +1662,7 @@ func TestCopyFile_SetPermissionsFails(t *testing.T) {
 	dst := "/b.txt"
 	_ = afero.WriteFile(mem, src, []byte("x"), 0o644)
 
-	err := archiver.CopyFile(efs, context.Background(), src, dst, logging.NewTestLogger())
+	err := archiver.CopyFile(context.Background(), efs, src, dst, logging.NewTestLogger())
 	if err == nil {
 		t.Fatalf("expected chmod failure error")
 	}
@@ -1800,11 +1800,11 @@ func TestMoveFolderAndCopyFileSimple(t *testing.T) {
 
 	// Test CopyFile idempotent path (same content)
 	newFile := dstDir + "/copy.txt"
-	if err := archiver.CopyFile(fs, ctx, dstDir+"/file.txt", newFile, logger); err != nil {
+	if err := archiver.CopyFile(ctx, fs, dstDir+"/file.txt", newFile, logger); err != nil {
 		t.Fatalf("CopyFile error: %v", err)
 	}
 	// Copying again should detect same MD5 and skip
-	if err := archiver.CopyFile(fs, ctx, dstDir+"/file.txt", newFile, logger); err != nil {
+	if err := archiver.CopyFile(ctx, fs, dstDir+"/file.txt", newFile, logger); err != nil {
 		t.Fatalf("CopyFile second error: %v", err)
 	}
 }
@@ -1871,17 +1871,14 @@ func TestCopyFileSuccessMemFS(t *testing.T) {
 	src := "/src.txt"
 	dst := "/dst.txt"
 	data := []byte("hello")
-	if err := afero.WriteFile(mem, src, data, 0o644); err != nil {
-		t.Fatalf("write src: %v", err)
-	}
+	require.NoError(t, afero.WriteFile(mem, src, data, 0o644))
 
-	if err := archiver.CopyFile(mem, context.Background(), src, dst, logging.NewTestLogger()); err != nil {
-		t.Fatalf("copyFile error: %v", err)
-	}
-	copied, _ := afero.ReadFile(mem, dst)
-	if string(copied) != string(data) {
-		t.Fatalf("copied content mismatch: %s", string(copied))
-	}
+	err := archiver.CopyFile(context.Background(), mem, src, dst, logging.NewTestLogger())
+	require.NoError(t, err, "copyFile should succeed on in-memory FS")
+
+	copied, err := afero.ReadFile(mem, dst)
+	require.NoError(t, err)
+	assert.Equal(t, data, copied, "copied content mismatch")
 }
 
 // TestSetPermissionsSuccess ensures permissions are propagated from source to destination.
@@ -1940,7 +1937,7 @@ func TestGetFileMD5AndCopyFileSuccess(t *testing.T) {
 
 	// Run CopyFile where dst does not exist yet.
 	logger := logging.NewTestLogger()
-	if err := archiver.CopyFile(fs, context.Background(), srcPath, dstPath, logger); err != nil {
+	if err := archiver.CopyFile(context.Background(), fs, srcPath, dstPath, logger); err != nil {
 		t.Fatalf("CopyFile error: %v", err)
 	}
 
@@ -2004,7 +2001,7 @@ func TestCopyFileMainPkg(t *testing.T) {
 	_ = fs.MkdirAll(filepath.Dir(srcFile), 0o755)
 	_ = afero.WriteFile(fs, srcFile, []byte("file content"), 0o644)
 
-	err := archiver.CopyFile(fs, context.Background(), srcFile, destFile, logging.GetLogger())
+	err := archiver.CopyFile(context.Background(), fs, srcFile, destFile, logging.GetLogger())
 	require.NoError(t, err)
 
 	// Assert destination file exists and content matches

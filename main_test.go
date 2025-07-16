@@ -363,7 +363,7 @@ func TestHandleDockerMode_APIServerMode(t *testing.T) {
 	}
 
 	// Stub cleanup so we do not touch the real docker cleanup logic.
-	cleanupFn = func(_ context.Context, fs afero.Fs, env *environment.Environment, apiServerMode bool, logger *logging.Logger) {
+	cleanupFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, apiServerMode bool, logger *logging.Logger) {
 		atomic.StoreInt32(&cleanupCalled, 1)
 	}
 
@@ -432,7 +432,7 @@ func TestHandleDockerMode_NoAPIServer(t *testing.T) {
 		return nil
 	}
 
-	cleanupFn = func(_ context.Context, fs afero.Fs, env *environment.Environment, apiServerMode bool, logger *logging.Logger) {
+	cleanupFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, apiServerMode bool, logger *logging.Logger) {
 		atomic.StoreInt32(&cleanupCalled, 1)
 	}
 

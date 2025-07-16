@@ -23,7 +23,7 @@ func TestSendSigterm(t *testing.T) {
 	defer signal.Stop(sigChan)
 
 	// Run SendSigterm in a goroutine to avoid blocking
-	go utils.SendSigterm(logging.GetLogger())
+	go utils.SendSigterm()
 
 	// Wait for the signal to be sent
 	select {
@@ -54,7 +54,7 @@ func TestSendSigterm_Subprocess(t *testing.T) {
 			<-sigCh
 			os.Exit(0) // graceful exit when signal received
 		}()
-		utils.SendSigterm(logging.NewTestLogger())
+		utils.SendSigterm()
 		// If SendSigterm failed to deliver, exit non-zero after timeout.
 		time.Sleep(500 * time.Millisecond)
 		os.Exit(2)

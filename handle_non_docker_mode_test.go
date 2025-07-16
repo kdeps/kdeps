@@ -57,7 +57,7 @@ func TestHandleNonDockerMode_GenerateFlow(_ *testing.T) {
 	getKdepsPathFn = func(context.Context, schemaK.Kdeps) (string, error) {
 		return "/kdeps", nil
 	}
-	newRootCommandFn = func(_ context.Context, _ afero.Fs, _ string, systemCfg *schemaK.Kdeps, env *environment.Environment, logger *logging.Logger) *cobra.Command {
+	newRootCommandFn = func(_ context.Context, _ afero.Fs, _ string, _ *schemaK.Kdeps, _ *environment.Environment, logger *logging.Logger) *cobra.Command {
 		return &cobra.Command{Run: func(_ *cobra.Command, _ []string) {}}
 	}
 
@@ -88,7 +88,7 @@ func TestHandleNonDockerMode_ExistingConfig(_ *testing.T) {
 	}()
 
 	// Stubs
-	findConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	findConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, logger *logging.Logger) (string, error) {
 		return "", nil
 	}
 	generateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {

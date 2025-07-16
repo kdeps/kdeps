@@ -95,14 +95,14 @@ func TestSessionConcurrentAccess(t *testing.T) {
 
 	go func() {
 		sess, err := session.InitializeSession(dbPath)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		defer sess.DB.Close()
 		done <- true
 	}()
 
 	go func() {
 		sess, err := session.InitializeSession(dbPath)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		defer sess.DB.Close()
 		done <- true
 	}()

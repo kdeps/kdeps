@@ -18,9 +18,8 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 ) (string, error) {
 	// Load environment variables from .env file (if it exists)
 	envSlice, err := LoadEnvFile(fs, ".env")
-	if err != nil {
-		// Error loading .env file, proceeding without it
-	}
+	// Error loading .env file, proceeding without it
+	// This is expected behavior - .env file is optional
 
 	// Validate port numbers based on modes
 	if apiMode && portNum == "" {
@@ -105,9 +104,8 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 						return "", fmt.Errorf("error starting existing container: %w", err)
 					}
 					// Started existing container
-				} else {
-					// Container is already running
 				}
+				// Container is already running, no action needed
 				return resp.ID, nil
 			}
 		}

@@ -172,8 +172,8 @@ func TestPrepareImportFilesAndPrependDynamicImports(t *testing.T) {
 	dr.PklresHelper = resolver.NewPklresHelper(dr)
 
 	// call PrepareImportFiles – should create multiple skeleton records
-	assert.NoError(t, fs.MkdirAll(filepath.Join(actionDir, "api"), 0o755))
-	assert.NoError(t, dr.PrepareImportFiles())
+	require.NoError(t, fs.MkdirAll(filepath.Join(actionDir, "api"), 0o755))
+	require.NoError(t, dr.PrepareImportFiles())
 
 	// Ensure skeleton records exist in pklres
 	_, _ = dr.PklresHelper.RetrievePklContent("exec", "")
@@ -181,10 +181,10 @@ func TestPrepareImportFilesAndPrependDynamicImports(t *testing.T) {
 
 	// create a dummy .pkl file with minimal content
 	wfDir := "/workflow"
-	assert.NoError(t, fs.MkdirAll(wfDir, 0o755))
+	require.NoError(t, fs.MkdirAll(wfDir, 0o755))
 	pklPath := filepath.Join(wfDir, "workflow.pkl")
 	content := "amends \"base\"\n" // just an amends line
-	assert.NoError(t, afero.WriteFile(fs, pklPath, []byte(content), 0o644))
+	require.NoError(t, afero.WriteFile(fs, pklPath, []byte(content), 0o644))
 
 	// run PrependDynamicImports
 	// PrependDynamicImports functionality removed - imports included in templates
@@ -192,7 +192,7 @@ func TestPrepareImportFilesAndPrependDynamicImports(t *testing.T) {
 
 	// the updated file should now contain some import lines (e.g., pkl:json)
 	updated, err := afero.ReadFile(fs, pklPath)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Contains(t, string(updated), "import \"pkl:json\"")
 }
 
@@ -213,18 +213,18 @@ func TestAddPlaceholderImports(t *testing.T) {
 	requestID := "req1"
 
 	// create directories for placeholder files
-	assert.NoError(t, fs.MkdirAll(filepath.Join(actionDir, "exec"), 0o755))
-	assert.NoError(t, fs.MkdirAll(filepath.Join(actionDir, "data"), 0o755))
+	require.NoError(t, fs.MkdirAll(filepath.Join(actionDir, "exec"), 0o755))
+	require.NoError(t, fs.MkdirAll(filepath.Join(actionDir, "data"), 0o755))
 
 	// create minimal pkl file expected by AppendDataEntry
 	dataPklPath := filepath.Join(actionDir, "data", requestID+"__data_output.pkl")
 	minimalContent := []byte("Files {}\n")
-	assert.NoError(t, afero.WriteFile(fs, dataPklPath, minimalContent, 0o644))
+	require.NoError(t, afero.WriteFile(fs, dataPklPath, minimalContent, 0o644))
 
 	// create input file containing actionID
 	targetPkl := filepath.Join(actionDir, "exec", "sample.pkl")
 	fileContent := []byte("ActionID = \"myAction\"\n")
-	assert.NoError(t, afero.WriteFile(fs, targetPkl, fileContent, 0o644))
+	require.NoError(t, afero.WriteFile(fs, targetPkl, fileContent, 0o644))
 
 	dr := &resolver.DependencyResolver{
 		Fs:        fs,
@@ -237,8 +237,8 @@ func TestAddPlaceholderImports(t *testing.T) {
 	}
 
 	// ensure DataDir has at least one file for PopulateDataFileRegistry
-	assert.NoError(t, fs.MkdirAll(dataDir, 0o755))
-	assert.NoError(t, afero.WriteFile(fs, filepath.Join(dataDir, "dummy.txt"), []byte("abc"), 0o644))
+	require.NoError(t, fs.MkdirAll(dataDir, 0o755))
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(dataDir, "dummy.txt"), []byte("abc"), 0o644))
 
 	// MOCK: Provide a safe LoadResourceFn to avoid nil dereference
 	dr.LoadResourceFn = func(_ context.Context, _ string, _ resolver.ResourceType) (interface{}, error) {

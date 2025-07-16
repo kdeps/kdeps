@@ -31,7 +31,7 @@ func TestKdepsExec(t *testing.T) {
 
 		envFile := filepath.Join(tempDir, ".env")
 		err := os.WriteFile(envFile, []byte("TEST_VAR=test_value"), 0o644)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		stdout, stderr, exitCode, err := kdepsexec.KdepsExec(ctx, "sh", []string{"-c", "echo $TEST_VAR"}, tempDir, true, false, logger)
 		require.NoError(t, err)

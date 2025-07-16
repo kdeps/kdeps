@@ -88,7 +88,7 @@ func TestContainsStringInsensitive(t *testing.T) {
 
 func TestSafeDerefString(t *testing.T) {
 	var ptr *string
-	assert.Equal(t, "", utils.SafeDerefString(ptr))
+	assert.Empty(t, utils.SafeDerefString(ptr))
 	val := "value"
 	ptr = &val
 	assert.Equal(t, "value", utils.SafeDerefString(ptr))
