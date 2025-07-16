@@ -437,7 +437,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		logger.Debug("will download", "url", item.URL, "localName", item.LocalName)
 	}
 
-	err = download.DownloadFiles(fs, ctx, downloadDir, items, logger, schema.UseLatest)
+	err = download.DownloadFiles(ctx, fs, downloadDir, items, logger, schema.UseLatest)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
 	}

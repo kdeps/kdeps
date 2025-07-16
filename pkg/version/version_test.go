@@ -16,7 +16,7 @@ func TestVersionVariables(t *testing.T) {
 	assert.Equal(t, "dev", vi.Version)
 
 	// Test that Commit has a default value
-	assert.Equal(t, "", vi.Commit)
+	assert.Empty(t, vi.Commit)
 
 	// Test that we can modify the variables
 	version.SetVersionInfo("1.0.0", "abc123")
@@ -27,7 +27,7 @@ func TestVersionVariables(t *testing.T) {
 	version.SetVersionInfo("dev", "")
 	vi3 := version.GetVersionInfo()
 	assert.Equal(t, "dev", vi3.Version)
-	assert.Equal(t, "", vi3.Commit)
+	assert.Empty(t, vi3.Commit)
 }
 
 func TestVersion(t *testing.T) {
@@ -42,7 +42,7 @@ func TestVersion(t *testing.T) {
 func TestVersionDefaults(t *testing.T) {
 	vi := version.GetVersionInfo()
 	require.Equal(t, "dev", vi.Version)
-	require.Equal(t, "", vi.Commit)
+	require.Empty(t, vi.Commit)
 }
 
 func TestDefaultVersionValues(t *testing.T) {

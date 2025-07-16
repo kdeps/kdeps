@@ -165,7 +165,7 @@ func HandleAppRequest(c *gin.Context, hostIP string, route *webserver.WebServerR
 		logger.Debug(messages.MsgProxyingRequest, "url", req.URL.String())
 	}
 
-	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+	proxy.ErrorHandler = func(_ http.ResponseWriter, r *http.Request, err error) {
 		logger.Error(messages.ErrFailedProxyRequest, "url", r.URL.String(), "error", err)
 		c.String(http.StatusBadGateway, messages.RespFailedReachApp)
 	}

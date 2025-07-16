@@ -23,7 +23,7 @@ func min(a, b int) int {
 }
 
 // UpgradeCommand creates the 'upgrade' command for upgrading schema versions in pkl files.
-func UpgradeCommand(ctx context.Context, fs afero.Fs, kdepsDir string, logger *logging.Logger) *cobra.Command {
+func UpgradeCommand(ctx context.Context, fs afero.Fs, _ string, logger *logging.Logger) *cobra.Command {
 	var targetVersion string
 	var dryRun bool
 
@@ -43,7 +43,7 @@ Examples:
   kdeps upgrade --dry-run ./my-agent  # Preview changes without applying
 		`,
 		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			// Determine target directory
 			targetDir := "."
 			if len(args) > 0 {
@@ -87,7 +87,7 @@ Examples:
 }
 
 // UpgradeSchemaVersions scans a directory for pkl files and upgrades schema versions
-func UpgradeSchemaVersions(ctx context.Context, fs afero.Fs, dirPath, targetVersion string, dryRun bool, logger *logging.Logger) error {
+func UpgradeSchemaVersions(_ context.Context, fs afero.Fs, dirPath, targetVersion string, dryRun bool, logger *logging.Logger) error {
 	var filesProcessed int
 	var filesUpdated int
 

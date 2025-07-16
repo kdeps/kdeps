@@ -42,7 +42,7 @@ func NewPackageCommand(ctx context.Context, fs afero.Fs, kdepsDir string, env *e
 			}
 
 			// Compile the project
-			_, _, err = archiver.CompileProject(fs, ctx, wf, kdepsDir, agentDir, env, logger)
+			_, _, err = archiver.CompileProject(ctx, fs, wf, kdepsDir, agentDir, env, logger)
 			if err != nil {
 				return fmt.Errorf("%s: %w", errorStyle.Render("Error compiling project"), err)
 			}

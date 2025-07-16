@@ -24,7 +24,7 @@ var (
 )
 
 // Helper functions to safely save and restore package variables
-func saveAndRestoreHTTPDefaultTransport(t *testing.T, newTransport http.RoundTripper) func() {
+func saveAndRestoreHTTPDefaultTransport(_ *testing.T, newTransport http.RoundTripper) func() {
 	httpDefaultTransportMutex.Lock()
 	original := http.DefaultTransport
 	http.DefaultTransport = newTransport
@@ -34,7 +34,7 @@ func saveAndRestoreHTTPDefaultTransport(t *testing.T, newTransport http.RoundTri
 	}
 }
 
-func saveAndRestoreHTTPDefaultClient(t *testing.T, newClient *http.Client) func() {
+func saveAndRestoreHTTPDefaultClient(_ *testing.T, newClient *http.Client) func() {
 	httpDefaultClientMutex.Lock()
 	original := http.DefaultClient
 	http.DefaultClient = newClient
@@ -62,7 +62,7 @@ func (ts *testHTTPState) restore() {
 	http.DefaultClient = ts.origClient
 }
 
-func withTestState(t *testing.T, fn func()) {
+func withTestState(_ *testing.T, fn func()) {
 	// Use the new helper functions instead of the old testMutex approach
 	state := newTestHTTPState()
 	defer state.restore()
@@ -75,7 +75,7 @@ var GetLatestGitHubRelease = utils.GetLatestGitHubRelease
 
 func TestGetLatestGitHubRelease(t *testing.T) {
 	// Mock GitHub API server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintln(w, `{"tag_name": "v2.1.0"}`)
@@ -89,7 +89,7 @@ func TestGetLatestGitHubRelease(t *testing.T) {
 
 func TestGetLatestGitHubReleaseSuccess(t *testing.T) {
 	// Create test server returning fake release
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(w, `{"tag_name":"v1.2.3"}`)
 	}))
@@ -103,7 +103,7 @@ func TestGetLatestGitHubReleaseSuccess(t *testing.T) {
 
 func TestGetLatestGitHubReleaseError(t *testing.T) {
 	// Server returns non-200
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer srv.Close()
@@ -116,7 +116,7 @@ func TestGetLatestGitHubReleaseError(t *testing.T) {
 
 type mockStatusTransport struct{ status int }
 
-func (m mockStatusTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+func (m mockStatusTransport) RoundTrip(_ *http.Request) (*http.Response, error) {
 	switch m.status {
 	case http.StatusOK:
 		body, _ := json.Marshal(map[string]string{"tag_name": "v1.2.3"})
@@ -167,7 +167,7 @@ func TestGetLatestGitHubRelease_AuthErrors(t *testing.T) {
 		{http.StatusForbidden},
 	}
 	for _, c := range cases {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(c.status)
 		}))
 		_, err := GetLatestGitHubRelease(context.Background(), "owner/repo", srv.URL)
@@ -195,7 +195,7 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 func TestGetLatestGitHubReleaseReadError(t *testing.T) {
-	restoreClient := saveAndRestoreHTTPDefaultClient(t, &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+	restoreClient := saveAndRestoreHTTPDefaultClient(t, &http.Client{Transport: roundTripFunc(func(_ *http.Request) (*http.Response, error) {
 		resp := &http.Response{
 			StatusCode: http.StatusOK,
 			Body:       &errBody{first: true},
@@ -213,7 +213,7 @@ func TestGetLatestGitHubReleaseReadError(t *testing.T) {
 
 func TestGetLatestGitHubReleaseUnauthorizedExtra(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/repos/owner/repo/releases/latest", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/repos/owner/repo/releases/latest", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 	})
 	server := httptest.NewServer(mux)
@@ -277,7 +277,7 @@ func TestGetLatestGitHubReleaseExtra(t *testing.T) {
 	require.Equal(t, "1.2.3", v)
 
 	// Unauthorized path
-	ts401 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts401 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 	}))
 	defer ts401.Close()
@@ -285,7 +285,7 @@ func TestGetLatestGitHubReleaseExtra(t *testing.T) {
 	require.Error(t, err)
 
 	// Non-OK generic error path
-	ts500 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts500 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer ts500.Close()
@@ -293,7 +293,7 @@ func TestGetLatestGitHubReleaseExtra(t *testing.T) {
 	require.Error(t, err)
 
 	// Forbidden path (rate limit)
-	ts403 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts403 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 	}))
 	defer ts403.Close()
@@ -301,7 +301,7 @@ func TestGetLatestGitHubReleaseExtra(t *testing.T) {
 	require.Error(t, err)
 
 	// Malformed JSON path – should error on JSON parse
-	tsBadJSON := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	tsBadJSON := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{ "tag_name": 123 }`)) // tag_name not string
 	}))
@@ -379,7 +379,7 @@ func TestGetLatestGitHubReleaseInvalidURL(t *testing.T) {
 func TestGetLatestGitHubRelease_Success_Dup(t *testing.T) {
 	withTestState(t, func() {
 		payload := `{"tag_name":"v1.2.3"}`
-		http.DefaultClient.Transport = ghRoundTrip(func(r *http.Request) (*http.Response, error) {
+		http.DefaultClient.Transport = ghRoundTrip(func(_ *http.Request) (*http.Response, error) {
 			return mockResp(http.StatusOK, payload), nil
 		})
 
@@ -408,7 +408,7 @@ func TestGetLatestGitHubRelease_Errors_Dup(t *testing.T) {
 		}
 
 		for _, c := range cases {
-			http.DefaultClient.Transport = ghRoundTrip(func(r *http.Request) (*http.Response, error) {
+			http.DefaultClient.Transport = ghRoundTrip(func(_ *http.Request) (*http.Response, error) {
 				return mockResp(c.status, "{}"), nil
 			})
 			_, err := utils.GetLatestGitHubRelease(context.Background(), "owner/repo", "https://api.github.com")
@@ -425,7 +425,7 @@ func contains(s, substr string) bool { return bytes.Contains([]byte(s), []byte(s
 
 func TestGetLatestGitHubRelease_MockServer2(t *testing.T) {
 	// Successful path
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := struct {
 			Tag string `json:"tag_name"`
 		}{Tag: "v1.2.3"}
@@ -443,7 +443,7 @@ func TestGetLatestGitHubRelease_MockServer2(t *testing.T) {
 	}
 
 	// Unauthorized path
-	u401 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	u401 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 	}))
 	defer u401.Close()
@@ -452,7 +452,7 @@ func TestGetLatestGitHubRelease_MockServer2(t *testing.T) {
 	}
 
 	// Non-200 path
-	u500 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	u500 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer u500.Close()
@@ -462,7 +462,7 @@ func TestGetLatestGitHubRelease_MockServer2(t *testing.T) {
 }
 
 func TestGetLatestGitHubRelease_Success_Alt(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := map[string]string{"tag_name": "v2.3.4"}
 		_ = json.NewEncoder(w).Encode(resp)
 	}))
@@ -483,7 +483,7 @@ func TestGetLatestGitHubRelease_Errors_Alt(t *testing.T) {
 		{http.StatusInternalServerError, "unexpected status code"},
 	}
 	for _, tc := range tests {
-		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(tc.status)
 		}))
 		ver, err := GetLatestGitHubRelease(context.Background(), "dummy/repo", ts.URL)

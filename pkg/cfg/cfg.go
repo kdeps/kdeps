@@ -19,7 +19,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-func FindConfiguration(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+func FindConfiguration(_ context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 	logger.Debug("finding configuration...")
 
 	// Use the initialized environment's Pwd directory
@@ -128,7 +128,7 @@ func ValidateConfiguration(ctx context.Context, fs afero.Fs, env *environment.En
 	return configFile, nil
 }
 
-func LoadConfiguration(ctx context.Context, fs afero.Fs, configFile string, logger *logging.Logger) (*kdeps.Kdeps, error) {
+func LoadConfiguration(ctx context.Context, _ afero.Fs, configFile string, logger *logging.Logger) (*kdeps.Kdeps, error) {
 	logger.Debug("loading configuration", "config-file", configFile)
 
 	konfig, err := kdeps.LoadFromPath(ctx, configFile)

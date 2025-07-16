@@ -81,8 +81,8 @@ func TestGenerateURLs_DefaultVersion(t *testing.T) {
 
 	ctx := context.Background()
 	items, err := docker.GenerateURLsWithDeps(ctx, true, deps)
-	assert.NoError(t, err)
-	assert.Greater(t, len(items), 0)
+	require.NoError(t, err)
+	assert.NotEmpty(t, items)
 
 	// verify each item has URL and LocalName populated
 	for _, item := range items {
@@ -426,7 +426,7 @@ func TestGenerateURLsLatestMode(t *testing.T) {
 		HTTPClient: &http.Client{
 			Transport: multiMockTransport{},
 		},
-		GitHubFetcher: func(ctx context.Context, repo, baseURL string) (string, error) {
+		GitHubFetcher: func(_ context.Context, _, _ string) (string, error) {
 			return "v9.9.9", nil
 		},
 	}
@@ -502,7 +502,7 @@ func TestGenerateURLs_UseLatestWithStubsLow(t *testing.T) {
 				}, nil
 			}),
 		},
-		GitHubFetcher: func(_ context.Context, repo, baseURL string) (string, error) {
+		GitHubFetcher: func(_ context.Context, _ string, baseURL string) (string, error) {
 			return "99.99.99", nil
 		},
 	}
@@ -548,7 +548,7 @@ func TestGenerateURLs_UseLatest(t *testing.T) {
 		HTTPClient: &http.Client{
 			Transport: mockTransport{},
 		},
-		GitHubFetcher: func(_ context.Context, repo, baseURL string) (string, error) {
+		GitHubFetcher: func(_ context.Context, _ string, baseURL string) (string, error) {
 			return "v9.9.9", nil
 		},
 	}

@@ -27,9 +27,9 @@ func formatDuration(d time.Duration) string {
 		return "0s"
 	}
 	h := d / time.Hour
-	d -= time.Duration(h) * time.Hour
+	d -= h * time.Hour
 	m := d / time.Minute
-	d -= time.Duration(m) * time.Minute
+	d -= m * time.Minute
 	s := d / time.Second
 	var parts []string
 	if h > 0 {

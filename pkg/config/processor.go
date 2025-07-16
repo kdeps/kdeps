@@ -57,7 +57,7 @@ func NewConfigurationProcessor(logger *logging.Logger) *ConfigurationProcessor {
 }
 
 // ProcessWorkflowConfiguration processes workflow configuration with PKL-first priority
-func (cp *ConfigurationProcessor) ProcessWorkflowConfiguration(ctx context.Context, workflow pklWf.Workflow) (*ProcessedConfiguration, error) {
+func (cp *ConfigurationProcessor) ProcessWorkflowConfiguration(_ context.Context, workflow pklWf.Workflow) (*ProcessedConfiguration, error) {
 	cp.logger.Info("processing workflow configuration with PKL-first priority")
 
 	settings := workflow.GetSettings()

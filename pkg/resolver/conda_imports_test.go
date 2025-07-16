@@ -20,7 +20,7 @@ func TestCondaEnvironmentExecutionInjectedSuccess(t *testing.T) {
 		Fs:      afero.NewMemMapFs(),
 		Logger:  logging.GetLogger(),
 		Context: context.Background(),
-		ExecTaskRunnerFn: func(ctx context.Context, task execute.ExecTask) (string, string, error) {
+		ExecTaskRunnerFn: func(_ context.Context, task execute.ExecTask) (string, string, error) {
 			if task.Command == "conda" && len(task.Args) >= 1 {
 				switch task.Args[0] {
 				case "activate":
@@ -46,7 +46,7 @@ func TestCondaEnvironmentExecutionInjectedFailure(t *testing.T) {
 		Fs:      afero.NewMemMapFs(),
 		Logger:  logging.GetLogger(),
 		Context: context.Background(),
-		ExecTaskRunnerFn: func(ctx context.Context, task execute.ExecTask) (string, string, error) {
+		ExecTaskRunnerFn: func(_ context.Context, task execute.ExecTask) (string, string, error) {
 			return "", "", expectedErr
 		},
 	}

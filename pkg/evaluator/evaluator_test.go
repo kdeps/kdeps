@@ -22,7 +22,7 @@ func TestCreateAndProcessPklFile_AmendsInPkg(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
-	processFunc := func(_ afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
+	processFunc := func(_ afero.Fs, _ context.Context, _ string, headerSection string, _ *logging.Logger) (string, error) {
 		// Simply return the header section to verify it flows through
 		return headerSection + "\nprocessed", nil
 	}
@@ -48,7 +48,7 @@ func TestCreateAndProcessPklFile_ExtendsInPkg(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
-	processFunc := func(_ afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
+	processFunc := func(_ afero.Fs, _ context.Context, _ string, headerSection string, _ *logging.Logger) (string, error) {
 		return "result-" + headerSection, nil
 	}
 
@@ -69,7 +69,7 @@ func TestCreateAndProcessPklFile_ProcessErrorInPkg(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
-	processFunc := func(_ afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
+	processFunc := func(_ afero.Fs, _ context.Context, _ string, _ string, _ *logging.Logger) (string, error) {
 		return "", assert.AnError
 	}
 
@@ -101,7 +101,7 @@ func TestCreateAndProcessPklFile_Basic(t *testing.T) {
 	finalFile := filepath.Join(t.TempDir(), "out.pkl")
 
 	// simple process func echoes header + sections concatenated
-	process := func(_ afero.Fs, ctx context.Context, tmpFile string, header string, logger *logging.Logger) (string, error) {
+	process := func(_ afero.Fs, _ context.Context, tmpFile string, _ string, _ *logging.Logger) (string, error) {
 		data, err := afero.ReadFile(fs, tmpFile)
 		if err != nil {
 			return "", err
@@ -130,7 +130,7 @@ func TestCreateAndProcessPklFile_Simple(t *testing.T) {
 	sections := []string{"sec1", "sec2"}
 	// processFunc writes content combining headerSection and sections
 	var receivedHeader string
-	processFunc := func(f afero.Fs, c context.Context, tmpFile string, headerSection string, l *logging.Logger) (string, error) {
+	processFunc := func(_ afero.Fs, _ context.Context, _ string, headerSection string, l *logging.Logger) (string, error) {
 		receivedHeader = headerSection
 		return headerSection + "-processed", nil
 	}
@@ -152,7 +152,7 @@ func TestCreateAndProcessPklFile_Extends(t *testing.T) {
 	ctx := context.Background()
 	finalPath := "result_ext.pkl"
 	sections := []string{"sec1", "sec2"}
-	processFunc := func(f afero.Fs, c context.Context, tmpFile string, headerSection string, l *logging.Logger) (string, error) {
+	processFunc := func(_ afero.Fs, _ context.Context, _ string, headerSection string, l *logging.Logger) (string, error) {
 		return headerSection + "-processed", nil
 	}
 
@@ -184,7 +184,7 @@ func TestCreateAndProcessPklFile_Minimal(t *testing.T) {
 	ctx := context.Background()
 	finalPath := "minimal.pkl"
 	sections := []string{"test"}
-	processFunc := func(f afero.Fs, c context.Context, tmpFile string, headerSection string, l *logging.Logger) (string, error) {
+	processFunc := func(_ afero.Fs, _ context.Context, _ string, headerSection string, l *logging.Logger) (string, error) {
 		return "processed", nil
 	}
 
@@ -196,11 +196,11 @@ func TestCreateAndProcessPklFile_Minimal(t *testing.T) {
 	require.Equal(t, "processed", string(content))
 }
 
-func stubProcessSuccess(fs afero.Fs, ctx context.Context, tmpFile string, header string, logger *logging.Logger) (string, error) {
+func stubProcessSuccess(_ afero.Fs, _ context.Context, _ string, _ string, _ *logging.Logger) (string, error) {
 	return "success", nil
 }
 
-func stubProcessFail(fs afero.Fs, ctx context.Context, tmpFile string, header string, logger *logging.Logger) (string, error) {
+func stubProcessFail(_ afero.Fs, _ context.Context, _ string, _ string, _ *logging.Logger) (string, error) {
 	return "", errors.New("process failed")
 }
 
@@ -272,7 +272,7 @@ func TestCreateAndProcessPklFileNew(t *testing.T) {
 	finalPath := "new.pkl"
 	sections := []string{"new section"}
 
-	processFunc := func(f afero.Fs, c context.Context, tmpFile string, headerSection string, l *logging.Logger) (string, error) {
+	processFunc := func(_ afero.Fs, c context.Context, tmpFile string, headerSection string, l *logging.Logger) (string, error) {
 		return "new processed", nil
 	}
 
@@ -294,7 +294,7 @@ func TestCreateAndProcessPklFileWithExtensionNew(t *testing.T) {
 	finalPath := "extension.pkl"
 	sections := []string{"ext section"}
 
-	processFunc := func(f afero.Fs, c context.Context, tmpFile string, headerSection string, l *logging.Logger) (string, error) {
+	processFunc := func(_ afero.Fs, c context.Context, tmpFile string, headerSection string, l *logging.Logger) (string, error) {
 		return "extension processed", nil
 	}
 

@@ -210,7 +210,7 @@ func theProjectIsCompiled() error {
 		Pwd:  resourcesDir,
 	}
 
-	projectDir, _, _ := archiver.CompileProject(testFs, ctx, wf, kdepsDir, aiAgentDir, env, logger)
+	projectDir, _, _ := archiver.CompileProject(ctx, testFs, wf, kdepsDir, aiAgentDir, env, logger)
 
 	workflowFile = filepath.Join(projectDir, "workflow.pkl")
 
@@ -351,7 +351,7 @@ func theContentOfThatArchiveFileWillBeExtractedTo(arg1 string) error {
 }
 
 func thePklFilesIsValid() error {
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowFile, logger); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(ctx, testFs, workflowFile, logger); err != nil {
 		return err
 	}
 
@@ -359,14 +359,14 @@ func thePklFilesIsValid() error {
 }
 
 func theProjectIsValid() error {
-	if err := enforcer.EnforceFolderStructure(testFs, ctx, workflowFile, logger); err != nil {
+	if err := enforcer.EnforceFolderStructure(ctx, testFs, workflowFile, logger); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func theProjectWillBeArchivedTo(arg1 string) error {
+func theProjectWillBeArchivedTo(_ string) error {
 	wf, err := workflow.LoadWorkflow(ctx, workflowFile, logger)
 	if err != nil {
 		return err
@@ -428,7 +428,7 @@ func thePklFilesIsInvalid() error {
 
 	workflowFile = file
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowFile, logger); err == nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(ctx, testFs, workflowFile, logger); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 
@@ -436,14 +436,14 @@ func thePklFilesIsInvalid() error {
 }
 
 func theProjectIsInvalid() error {
-	if err := enforcer.EnforceFolderStructure(testFs, ctx, workflowFile, logger); err == nil {
+	if err := enforcer.EnforceFolderStructure(ctx, testFs, workflowFile, logger); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 
 	return nil
 }
 
-func theProjectWillNotBeArchivedTo(arg1 string) error {
+func theProjectWillNotBeArchivedTo(_ string) error {
 	wf, err := workflow.LoadWorkflow(ctx, workflowFile, logger)
 	if err != nil {
 		return err
@@ -514,7 +514,7 @@ Version = "%s"
 	return nil
 }
 
-func theResourceFileExistsInTheAgent(arg1, arg2, arg3 string) error {
+func theResourceFileExistsInTheAgent(arg1, arg2, _ string) error {
 	fpath := filepath.Join(kdepsDir, "agents/"+arg2+"/1.0.0/resources/"+arg1)
 	if _, err := testFs.Stat(fpath); err != nil {
 		return errors.New("expected a package, but got none")

@@ -84,7 +84,7 @@ func TestHandleRunAction_BasicFlow(t *testing.T) {
 		return nil
 	}
 
-	dr.BuildDependencyStackFn = func(target string, visited map[string]bool) []string {
+	dr.BuildDependencyStackFn = func(target string, _ map[string]bool) []string {
 		if target != "act1" {
 			t.Fatalf("unexpected target passed to BuildDependencyStackFn: %s", target)
 		}
@@ -92,13 +92,13 @@ func TestHandleRunAction_BasicFlow(t *testing.T) {
 	}
 
 	var loadCalled bool
-	dr.LoadResourceFn = func(_ context.Context, file string, _ resolver.ResourceType) (interface{}, error) {
+	dr.LoadResourceFn = func(_ context.Context, _ string, _ resolver.ResourceType) (interface{}, error) {
 		loadCalled = true
 		return &pklRes.Resource{ActionID: "act1"}, nil // Run is nil
 	}
 
 	var prbCalled bool
-	dr.ProcessRunBlockFn = func(res resolver.ResourceNodeEntry, rsc *pklRes.Resource, actionID string, hasItems bool) (bool, error) {
+	dr.ProcessRunBlockFn = func(_ resolver.ResourceNodeEntry, _ *pklRes.Resource, _ string, hasItems bool) (bool, error) {
 		prbCalled = true
 		return false, nil // do not proceed further
 	}

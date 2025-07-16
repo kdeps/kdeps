@@ -15,7 +15,7 @@ import (
 
 func BootstrapDockerSystem(ctx context.Context, dr *resolver.DependencyResolver) (bool, error) {
 	if dr.Logger == nil {
-		return false, errors.New("Bootstrapping Docker system failed")
+		return false, errors.New("bootstrapping Docker system failed")
 	}
 
 	if dr.Environment.DockerMode != "1" {
@@ -143,7 +143,7 @@ func StartWebServer(ctx context.Context, dr *resolver.DependencyResolver) error 
 	return <-errChan
 }
 
-func CreateFlagFile(fs afero.Fs, ctx context.Context, filename string) error {
+func CreateFlagFile(fs afero.Fs, _ context.Context, filename string) error {
 	if exists, err := afero.Exists(fs, filename); err != nil || exists {
 		return err
 	}

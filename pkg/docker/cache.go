@@ -32,7 +32,7 @@ var ArchMappings = map[string]map[string]string{
 	"default":   {"amd64": "x86_64", "arm64": "aarch64"},
 }
 
-func GetCurrentArchitecture(ctx context.Context, repo string) string {
+func GetCurrentArchitecture(_ context.Context, repo string) string {
 	goArch := runtime.GOARCH
 	mapping, ok := ArchMappings[repo]
 	if !ok {
@@ -44,7 +44,7 @@ func GetCurrentArchitecture(ctx context.Context, repo string) string {
 	return goArch
 }
 
-func CompareVersions(ctx context.Context, v1, v2 string) bool {
+func CompareVersions(_ context.Context, v1, v2 string) bool {
 	p1, p2 := ParseVersion(v1), ParseVersion(v2)
 	maxLen := max(len(p1), len(p2))
 

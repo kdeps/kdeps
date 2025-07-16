@@ -96,7 +96,7 @@ func setupTestResolverWithRealFS(t *testing.T) *resolverpkg.DependencyResolver {
 
 // setupTestResolverWithMemFS creates a DependencyResolver with in-memory filesystem
 // for tests that don't need PKL functionality.
-func setupTestResolverWithMemFS(t *testing.T) *resolverpkg.DependencyResolver {
+func setupTestResolverWithMemFS(_ *testing.T) *resolverpkg.DependencyResolver {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 	ctx := context.Background()
@@ -146,7 +146,7 @@ func containsAll(s string, subs []string) bool {
 
 func TestFormatValueVariants(t *testing.T) {
 	// Case 1: nil interface -> "null"
-	var v interface{} = nil
+	var v interface{}
 	if out := resolverpkg.FormatValue(v); out != "null" {
 		t.Errorf("expected 'null' for nil, got %s", out)
 	}

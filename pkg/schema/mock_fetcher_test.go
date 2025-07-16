@@ -8,7 +8,7 @@ import (
 
 func init() {
 	// Mock the GitHubReleaseFetcher for testing
-	utils.GitHubReleaseFetcher = func(_ context.Context, repo string, baseURL string) (string, error) {
+	utils.GitHubReleaseFetcher = func(_ context.Context, _ string, _ string) (string, error) {
 		return "1.2.3", nil
 	}
 }

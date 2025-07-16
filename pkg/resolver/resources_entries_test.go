@@ -14,11 +14,11 @@ import (
 // testLogger is a simple implementation of the Logger interface for testing
 type testLogger struct{}
 
-func (l *testLogger) Info(msg string, keysAndValues ...interface{})  {}
-func (l *testLogger) Error(msg string, keysAndValues ...interface{}) {}
-func (l *testLogger) Debug(msg string, keysAndValues ...interface{}) {}
-func (l *testLogger) Warn(msg string, keysAndValues ...interface{})  {}
-func (l *testLogger) Fatal(msg string, keysAndValues ...interface{}) {}
+func (l *testLogger) Info(_ string, _ ...interface{})  {}
+func (l *testLogger) Error(_ string, _ ...interface{}) {}
+func (l *testLogger) Debug(_ string, _ ...interface{}) {}
+func (l *testLogger) Warn(_ string, _ ...interface{})  {}
+func (l *testLogger) Fatal(_ string, _ ...interface{}) {}
 
 // TestLoadResourceEntriesStub ensures that the LoadResourceEntries function works when
 // given a stub with a simple list of pkl files to process.
@@ -54,7 +54,7 @@ func TestLoadResourceEntriesStub(t *testing.T) {
 	}
 
 	// stub LoadResourceFn to avoid real evaluation; just return a Resource with ActionID = filename (no extension)
-	dr.LoadResourceFn = func(ctx context.Context, file string, rt resolverpkg.ResourceType) (interface{}, error) {
+	dr.LoadResourceFn = func(_ context.Context, file string, _ resolverpkg.ResourceType) (interface{}, error) {
 		baseName := filepath.Base(file)
 		nameWithoutExt := baseName[:len(baseName)-len(filepath.Ext(baseName))]
 		return &pklRes.Resource{ActionID: nameWithoutExt}, nil

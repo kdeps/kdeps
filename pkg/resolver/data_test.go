@@ -26,7 +26,7 @@ func (mc *MockContext) Err() error {
 	return nil
 }
 
-func (mc *MockContext) Value(key interface{}) interface{} {
+func (mc *MockContext) Value(_ interface{}) interface{} {
 	return nil
 }
 

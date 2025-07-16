@@ -3,7 +3,6 @@ package docker
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	stdErrors "errors"
 	"fmt"
 	"io"
@@ -128,12 +127,12 @@ func ProcessFile(fileHeader *multipart.FileHeader, dr *resolver.DependencyResolv
 func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) error {
 	wfSettings := dr.Workflow.GetSettings()
 	if wfSettings == nil {
-		return errors.New("the API server configuration is missing")
+		return stdErrors.New("the API server configuration is missing")
 	}
 
 	wfAPIServer := wfSettings.APIServer
 	if wfAPIServer == nil {
-		return errors.New("the API server configuration is missing")
+		return stdErrors.New("the API server configuration is missing")
 	}
 
 	var wfTrustedProxies []string
@@ -792,7 +791,7 @@ func ValidateMethod(r *http.Request, allowedMethods []string) (string, error) {
 }
 
 // ProcessWorkflow processes the workflow
-func ProcessWorkflow(ctx context.Context, dr *resolver.DependencyResolver) error {
+func ProcessWorkflow(_ context.Context, dr *resolver.DependencyResolver) error {
 	// Process the workflow
 	_, err := dr.HandleRunAction()
 	if err != nil {

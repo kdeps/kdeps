@@ -60,7 +60,7 @@ func TestValidatePklResourcesMissingDir(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	err := archiver.ValidatePklResources(fs, ctx, "/not/exist", logger)
+	err := archiver.ValidatePklResources(ctx, fs, "/not/exist", logger)
 	if err == nil {
 		t.Fatalf("expected error on missing directory")
 	}

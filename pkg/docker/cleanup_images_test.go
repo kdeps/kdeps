@@ -37,17 +37,17 @@ type mockPruneClient struct {
 	removed   []string
 }
 
-func (m *mockPruneClient) ContainerList(ctx context.Context, opts container.ListOptions) ([]types.Container, error) {
+func (m *mockPruneClient) ContainerList(_ context.Context, _ container.ListOptions) ([]container.Summary, error) {
 	if m.listErr != nil {
 		return nil, m.listErr
 	}
-	return []types.Container{
+	return []container.Summary{
 		{ID: "abc", Names: []string{"/mycnt"}},
 		{ID: "def", Names: []string{"/other"}},
 	}, nil
 }
 
-func (m *mockPruneClient) ContainerRemove(ctx context.Context, id string, opts container.RemoveOptions) error {
+func (m *mockPruneClient) ContainerRemove(_ context.Context, id string, _ container.RemoveOptions) error {
 	if m.removeErr != nil {
 		return m.removeErr
 	}
@@ -55,7 +55,7 @@ func (m *mockPruneClient) ContainerRemove(ctx context.Context, id string, opts c
 	return nil
 }
 
-func (m *mockPruneClient) ImagesPrune(ctx context.Context, f filters.Args) (image.PruneReport, error) {
+func (m *mockPruneClient) ImagesPrune(_ context.Context, _ filters.Args) (image.PruneReport, error) {
 	if m.pruneErr != nil {
 		return image.PruneReport{}, m.pruneErr
 	}
@@ -200,24 +200,24 @@ func TestCreateFlagFileAndCleanup(t *testing.T) {
 
 // fakeClient implements DockerPruneClient for testing.
 type fakeClient struct {
-	containers []types.Container
+	containers []container.Summary
 	listErr    error
 	removeErr  error
 	pruneErr   error
 }
 
-func (f *fakeClient) ContainerList(ctx context.Context, options container.ListOptions) ([]types.Container, error) {
+func (f *fakeClient) ContainerList(_ context.Context, options container.ListOptions) ([]container.Summary, error) {
 	return f.containers, f.listErr
 }
 
-func (f *fakeClient) ContainerRemove(ctx context.Context, containerID string, options container.RemoveOptions) error {
+func (f *fakeClient) ContainerRemove(_ context.Context, containerID string, options container.RemoveOptions) error {
 	if f.removeErr != nil {
 		return f.removeErr
 	}
 	return nil
 }
 
-func (f *fakeClient) ImagesPrune(ctx context.Context, pruneFilters filters.Args) (image.PruneReport, error) {
+func (f *fakeClient) ImagesPrune(_ context.Context, pruneFilters filters.Args) (image.PruneReport, error) {
 	if f.pruneErr != nil {
 		return image.PruneReport{}, f.pruneErr
 	}
@@ -232,7 +232,7 @@ func TestCleanupDockerBuildImages_NoContainers(t *testing.T) {
 
 func TestCleanupDockerBuildImages_RemoveAndPruneSuccess(t *testing.T) {
 	client := &fakeClient{
-		containers: []types.Container{{ID: "abc123", Names: []string{"/testname"}}},
+		containers: []container.Summary{{ID: "abc123", Names: []string{"/testname"}}},
 	}
 	// Should handle remove and prune without error
 	err := docker.CleanupDockerBuildImages(nil, context.Background(), "testname", client)
@@ -284,7 +284,7 @@ func TestCleanupFlagFiles_RemovesExisting(t *testing.T) {
 	}
 }
 
-func TestCleanupFlagFiles_NonExistent(t *testing.T) {
+func TestCleanupFlagFiles_NonExistent(_ *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
@@ -293,13 +293,13 @@ func TestCleanupFlagFiles_NonExistent(t *testing.T) {
 }
 
 type stubPruneClient struct {
-	containers  []types.Container
+	containers  []container.Summary
 	removedIDs  []string
 	pruneCalled bool
 	removeErr   error
 }
 
-func (s *stubPruneClient) ContainerList(_ context.Context, _ container.ListOptions) ([]types.Container, error) {
+func (s *stubPruneClient) ContainerList(_ context.Context, _ container.ListOptions) ([]container.Summary, error) {
 	return s.containers, nil
 }
 
@@ -318,7 +318,7 @@ func (s *stubPruneClient) ImagesPrune(_ context.Context, _ filters.Args) (image.
 
 func TestCleanupDockerBuildImages_RemovesMatchAndPrunes(t *testing.T) {
 	cli := &stubPruneClient{
-		containers: []types.Container{{ID: "abc", Names: []string{"/target"}}},
+		containers: []container.Summary{{ID: "abc", Names: []string{"/target"}}},
 	}
 
 	if err := docker.CleanupDockerBuildImages(nil, context.Background(), "target", cli); err != nil {
@@ -465,15 +465,15 @@ func TestCleanupEndToEnd(t *testing.T) {
 // stubDockerClient satisfies DockerPruneClient for unit-testing.
 // It records how many times ImagesPrune was called.
 type stubDockerClient struct {
-	containers []types.Container
+	containers []container.Summary
 	pruned     bool
 }
 
-func (s *stubDockerClient) ContainerList(ctx context.Context, opts container.ListOptions) ([]types.Container, error) {
+func (s *stubDockerClient) ContainerList(_ context.Context, opts container.ListOptions) ([]container.Summary, error) {
 	return s.containers, nil
 }
 
-func (s *stubDockerClient) ContainerRemove(ctx context.Context, id string, opts container.RemoveOptions) error {
+func (s *stubDockerClient) ContainerRemove(_ context.Context, id string, opts container.RemoveOptions) error {
 	// simulate successful removal by deleting from slice
 	for i, c := range s.containers {
 		if c.ID == id {
@@ -484,7 +484,7 @@ func (s *stubDockerClient) ContainerRemove(ctx context.Context, id string, opts 
 	return nil
 }
 
-func (s *stubDockerClient) ImagesPrune(ctx context.Context, f filters.Args) (image.PruneReport, error) {
+func (s *stubDockerClient) ImagesPrune(_ context.Context, f filters.Args) (image.PruneReport, error) {
 	s.pruned = true
 	return image.PruneReport{}, nil
 }
@@ -495,7 +495,7 @@ func TestCleanupDockerBuildImagesStub(t *testing.T) {
 
 	cName := "abc"
 	client := &stubDockerClient{
-		containers: []types.Container{{ID: "123", Names: []string{"/" + cName}}},
+		containers: []container.Summary{{ID: "123", Names: []string{"/" + cName}}},
 	}
 
 	if err := docker.CleanupDockerBuildImages(fs, ctx, cName, client); err != nil {
@@ -518,9 +518,9 @@ type MockDockerClient struct {
 
 var _ docker.DockerPruneClient = (*MockDockerClient)(nil)
 
-func (m *MockDockerClient) ContainerList(ctx context.Context, options container.ListOptions) ([]types.Container, error) {
+func (m *MockDockerClient) ContainerList(ctx context.Context, options container.ListOptions) ([]container.Summary, error) {
 	args := m.Called(ctx, options)
-	return args.Get(0).([]types.Container), args.Error(1)
+	return args.Get(0).([]container.Summary), args.Error(1)
 }
 
 func (m *MockDockerClient) ContainerRemove(ctx context.Context, containerID string, options container.RemoveOptions) error {
@@ -534,119 +534,119 @@ func (m *MockDockerClient) ImagesPrune(ctx context.Context, pruneFilters filters
 }
 
 // Implement other required interface methods with empty implementations
-func (m *MockDockerClient) ContainerStart(ctx context.Context, containerID string, options container.StartOptions) error {
+func (m *MockDockerClient) ContainerStart(_ context.Context, containerID string, options container.StartOptions) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerStop(ctx context.Context, containerID string, options *container.StopOptions) error {
+func (m *MockDockerClient) ContainerStop(_ context.Context, containerID string, options *container.StopOptions) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerWait(ctx context.Context, containerID string, condition container.WaitCondition) (<-chan container.WaitResponse, <-chan error) {
+func (m *MockDockerClient) ContainerWait(_ context.Context, containerID string, condition container.WaitCondition) (<-chan container.WaitResponse, <-chan error) {
 	return make(chan container.WaitResponse), make(chan error)
 }
 
-func (m *MockDockerClient) ContainerLogs(ctx context.Context, containerID string, options container.LogsOptions) (io.ReadCloser, error) {
+func (m *MockDockerClient) ContainerLogs(_ context.Context, containerID string, options container.LogsOptions) (io.ReadCloser, error) {
 	return io.NopCloser(strings.NewReader("")), nil
 }
 
-func (m *MockDockerClient) ContainerInspect(ctx context.Context, containerID string) (types.ContainerJSON, error) {
+func (m *MockDockerClient) ContainerInspect(_ context.Context, containerID string) (types.ContainerJSON, error) {
 	return types.ContainerJSON{}, nil
 }
 
-func (m *MockDockerClient) ContainerInspectWithRaw(ctx context.Context, containerID string, getSize bool) (types.ContainerJSON, []byte, error) {
+func (m *MockDockerClient) ContainerInspectWithRaw(_ context.Context, containerID string, getSize bool) (types.ContainerJSON, []byte, error) {
 	return types.ContainerJSON{}, nil, nil
 }
 
-func (m *MockDockerClient) ContainerStats(ctx context.Context, containerID string, stream bool) (container.Stats, error) {
+func (m *MockDockerClient) ContainerStats(_ context.Context, containerID string, stream bool) (container.Stats, error) {
 	return container.Stats{}, nil
 }
 
-func (m *MockDockerClient) ContainerStatsOneShot(ctx context.Context, containerID string) (container.Stats, error) {
+func (m *MockDockerClient) ContainerStatsOneShot(_ context.Context, containerID string) (container.Stats, error) {
 	return container.Stats{}, nil
 }
 
-func (m *MockDockerClient) ContainerTop(ctx context.Context, containerID string, arguments []string) (container.ContainerTopOKBody, error) {
+func (m *MockDockerClient) ContainerTop(_ context.Context, containerID string, arguments []string) (container.ContainerTopOKBody, error) {
 	return container.ContainerTopOKBody{}, nil
 }
 
-func (m *MockDockerClient) ContainerUpdate(ctx context.Context, containerID string, updateConfig container.UpdateConfig) (container.ContainerUpdateOKBody, error) {
+func (m *MockDockerClient) ContainerUpdate(_ context.Context, containerID string, updateConfig container.UpdateConfig) (container.ContainerUpdateOKBody, error) {
 	return container.ContainerUpdateOKBody{}, nil
 }
 
-func (m *MockDockerClient) ContainerPause(ctx context.Context, containerID string) error {
+func (m *MockDockerClient) ContainerPause(_ context.Context, containerID string) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerUnpause(ctx context.Context, containerID string) error {
+func (m *MockDockerClient) ContainerUnpause(_ context.Context, containerID string) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerRestart(ctx context.Context, containerID string, options *container.StopOptions) error {
+func (m *MockDockerClient) ContainerRestart(_ context.Context, containerID string, options *container.StopOptions) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerKill(ctx context.Context, containerID, signal string) error {
+func (m *MockDockerClient) ContainerKill(_ context.Context, containerID, signal string) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerRename(ctx context.Context, containerID, newContainerName string) error {
+func (m *MockDockerClient) ContainerRename(_ context.Context, containerID, newContainerName string) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerResize(ctx context.Context, containerID string, options container.ResizeOptions) error {
+func (m *MockDockerClient) ContainerResize(_ context.Context, containerID string, options container.ResizeOptions) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerExecCreate(ctx context.Context, containerID string, config container.ExecOptions) (container.ExecCreateResponse, error) {
+func (m *MockDockerClient) ContainerExecCreate(_ context.Context, containerID string, config container.ExecOptions) (container.ExecCreateResponse, error) {
 	return container.ExecCreateResponse{}, nil
 }
 
-func (m *MockDockerClient) ContainerExecStart(ctx context.Context, execID string, config container.ExecStartOptions) error {
+func (m *MockDockerClient) ContainerExecStart(_ context.Context, execID string, config container.ExecStartOptions) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerExecAttach(ctx context.Context, execID string, config container.ExecStartOptions) (types.HijackedResponse, error) {
+func (m *MockDockerClient) ContainerExecAttach(_ context.Context, execID string, config container.ExecStartOptions) (types.HijackedResponse, error) {
 	return types.HijackedResponse{}, nil
 }
 
-func (m *MockDockerClient) ContainerExecInspect(ctx context.Context, execID string) (container.ExecInspect, error) {
+func (m *MockDockerClient) ContainerExecInspect(_ context.Context, execID string) (container.ExecInspect, error) {
 	return container.ExecInspect{}, nil
 }
 
-func (m *MockDockerClient) ContainerExecResize(ctx context.Context, execID string, options container.ResizeOptions) error {
+func (m *MockDockerClient) ContainerExecResize(_ context.Context, execID string, options container.ResizeOptions) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerAttach(ctx context.Context, containerID string, options container.AttachOptions) (types.HijackedResponse, error) {
+func (m *MockDockerClient) ContainerAttach(_ context.Context, containerID string, options container.AttachOptions) (types.HijackedResponse, error) {
 	return types.HijackedResponse{}, nil
 }
 
-func (m *MockDockerClient) ContainerCommit(ctx context.Context, containerID string, options container.CommitOptions) (container.CommitResponse, error) {
+func (m *MockDockerClient) ContainerCommit(_ context.Context, containerID string, options container.CommitOptions) (container.CommitResponse, error) {
 	return container.CommitResponse{}, nil
 }
 
-func (m *MockDockerClient) ContainerCopyFromContainer(ctx context.Context, containerID, srcPath string) (io.ReadCloser, container.PathStat, error) {
+func (m *MockDockerClient) ContainerCopyFromContainer(_ context.Context, containerID, srcPath string) (io.ReadCloser, container.PathStat, error) {
 	return nil, container.PathStat{}, nil
 }
 
-func (m *MockDockerClient) ContainerCopyToContainer(ctx context.Context, containerID, path string, content io.Reader, options container.CopyToContainerOptions) error {
+func (m *MockDockerClient) ContainerCopyToContainer(_ context.Context, containerID, path string, content io.Reader, options container.CopyToContainerOptions) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerExport(ctx context.Context, containerID string) (io.ReadCloser, error) {
+func (m *MockDockerClient) ContainerExport(_ context.Context, containerID string) (io.ReadCloser, error) {
 	return io.NopCloser(strings.NewReader("")), nil
 }
 
-func (m *MockDockerClient) ContainerArchive(ctx context.Context, containerID, srcPath string) (io.ReadCloser, error) {
+func (m *MockDockerClient) ContainerArchive(_ context.Context, containerID, srcPath string) (io.ReadCloser, error) {
 	return io.NopCloser(strings.NewReader("")), nil
 }
 
-func (m *MockDockerClient) ContainerArchiveInfo(ctx context.Context, containerID, srcPath string) (container.PathStat, error) {
+func (m *MockDockerClient) ContainerArchiveInfo(_ context.Context, containerID, srcPath string) (container.PathStat, error) {
 	return container.PathStat{}, nil
 }
 
-func (m *MockDockerClient) ContainerExtractToDir(ctx context.Context, containerID, srcPath string, dstPath string) error {
+func (m *MockDockerClient) ContainerExtractToDir(_ context.Context, containerID, srcPath string, dstPath string) error {
 	return nil
 }
 
@@ -657,7 +657,7 @@ func TestCleanupDockerBuildImages(t *testing.T) {
 	t.Run("NoContainers", func(t *testing.T) {
 		mockClient := &MockDockerClient{}
 		// Setup mock expectations
-		mockClient.On("ContainerList", ctx, container.ListOptions{All: true}).Return([]types.Container{}, nil)
+		mockClient.On("ContainerList", ctx, container.ListOptions{All: true}).Return([]container.Summary{}, nil)
 		mockClient.On("ImagesPrune", ctx, filters.Args{}).Return(image.PruneReport{}, nil)
 
 		err := docker.CleanupDockerBuildImages(fs, ctx, "nonexistent", mockClient)
@@ -668,7 +668,7 @@ func TestCleanupDockerBuildImages(t *testing.T) {
 	t.Run("ContainerExists", func(t *testing.T) {
 		mockClient := &MockDockerClient{}
 		// Setup mock expectations for existing container
-		containers := []types.Container{
+		containers := []container.Summary{
 			{
 				ID:    "test-container-id",
 				Names: []string{"/test-container"},
@@ -686,7 +686,7 @@ func TestCleanupDockerBuildImages(t *testing.T) {
 	t.Run("ContainerListError", func(t *testing.T) {
 		mockClient := &MockDockerClient{}
 		// Setup mock expectations for error case
-		mockClient.On("ContainerList", ctx, container.ListOptions{All: true}).Return([]types.Container{}, assert.AnError)
+		mockClient.On("ContainerList", ctx, container.ListOptions{All: true}).Return([]container.Summary{}, assert.AnError)
 
 		err := docker.CleanupDockerBuildImages(fs, ctx, "test-container", mockClient)
 		assert.Error(t, err)
@@ -697,7 +697,7 @@ func TestCleanupDockerBuildImages(t *testing.T) {
 	t.Run("ImagesPruneError", func(t *testing.T) {
 		mockClient := &MockDockerClient{}
 		// Setup mock expectations for error case
-		mockClient.On("ContainerList", ctx, container.ListOptions{All: true}).Return([]types.Container{}, nil)
+		mockClient.On("ContainerList", ctx, container.ListOptions{All: true}).Return([]container.Summary{}, nil)
 		mockClient.On("ImagesPrune", ctx, filters.Args{}).Return(image.PruneReport{}, assert.AnError)
 
 		err := docker.CleanupDockerBuildImages(fs, ctx, "test-container", mockClient)
@@ -772,17 +772,17 @@ func TestCleanupFlagFiles(t *testing.T) {
 
 // fakeDockerClient implements DockerPruneClient for unit-tests.
 type fakeDockerClient struct {
-	containers []types.Container
+	containers []container.Summary
 	pruned     bool
 }
 
-func (f *fakeDockerClient) ContainerList(ctx context.Context, opts container.ListOptions) ([]types.Container, error) {
+func (f *fakeDockerClient) ContainerList(ctx context.Context, opts container.ListOptions) ([]container.Summary, error) {
 	return f.containers, nil
 }
 
 func (f *fakeDockerClient) ContainerRemove(ctx context.Context, id string, opts container.RemoveOptions) error {
 	// simulate removal by filtering slice
-	var out []types.Container
+	var out []container.Summary
 	for _, c := range f.containers {
 		if c.ID != id {
 			out = append(out, c)

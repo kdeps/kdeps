@@ -74,7 +74,7 @@ func CompareVersions(v1, v2 string, logger *logging.Logger) (int, error) {
 	return 0, nil
 }
 
-func EnforceSchemaURL(ctx context.Context, line, filePath string, logger *logging.Logger) error {
+func EnforceSchemaURL(_ context.Context, line, filePath string, logger *logging.Logger) error {
 	const amendErr = "the pkl file does not start with 'amends'"
 	const schemaErr = "the pkl file does not contain a valid schema reference"
 
@@ -97,7 +97,7 @@ func EnforceSchemaURL(ctx context.Context, line, filePath string, logger *loggin
 	return nil
 }
 
-func EnforcePklVersion(ctx context.Context, line, filePath, schemaVersion string, logger *logging.Logger) error {
+func EnforcePklVersion(_ context.Context, line, filePath, schemaVersion string, logger *logging.Logger) error {
 	// Skip version validation for valid assets-based local file paths only
 	isValidAssetPath := (strings.Contains(line, "/Workflow.pkl") || strings.Contains(line, "/Resource.pkl") || strings.Contains(line, "/Kdeps.pkl")) &&
 		(strings.Contains(line, "file://") || strings.HasPrefix(strings.Trim(strings.Split(line, "\"")[1], " "), "/"))
@@ -133,7 +133,7 @@ func EnforcePklVersion(ctx context.Context, line, filePath, schemaVersion string
 	return nil
 }
 
-func EnforcePklFilename(ctx context.Context, line string, filePath string, logger *logging.Logger) error {
+func EnforcePklFilename(_ context.Context, line string, filePath string, logger *logging.Logger) error {
 	filename := strings.ToLower(filepath.Base(filePath))
 
 	var pklFilename string
@@ -190,7 +190,7 @@ func EnforcePklFilename(ctx context.Context, line string, filePath string, logge
 	return nil
 }
 
-func EnforceFolderStructure(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
+func EnforceFolderStructure(ctx context.Context, fs afero.Fs, filePath string, logger *logging.Logger) error {
 	const expectedFile = "workflow.pkl"
 	expectedFolders := map[string]bool{"resources": false, "data": false}
 	ignoredFiles := map[string]bool{".kdeps.pkl": true}
@@ -232,7 +232,7 @@ func EnforceFolderStructure(fs afero.Fs, ctx context.Context, filePath string, l
 			expectedFolders[file.Name()] = true
 
 			if file.Name() == "resources" {
-				if err := enforceResourcesFolder(fs, ctx, filepath.Join(absTargetDir, "resources"), logger); err != nil {
+				if err := enforceResourcesFolder(ctx, fs, filepath.Join(absTargetDir, "resources"), logger); err != nil {
 					return err
 				}
 			}
@@ -250,7 +250,7 @@ func EnforceFolderStructure(fs afero.Fs, ctx context.Context, filePath string, l
 	return nil
 }
 
-func EnforceResourceRunBlock(fs afero.Fs, ctx context.Context, file string, logger *logging.Logger) error {
+func EnforceResourceRunBlock(ctx context.Context, fs afero.Fs, file string, logger *logging.Logger) error {
 	pklData, err := afero.ReadFile(fs, file)
 	if err != nil {
 		logger.Error("failed to read .pkl file", "file", file, "error", err)
@@ -275,7 +275,7 @@ func EnforceResourceRunBlock(fs afero.Fs, ctx context.Context, file string, logg
 	return nil
 }
 
-func enforceResourcesFolder(fs afero.Fs, ctx context.Context, resourcesPath string, logger *logging.Logger) error {
+func enforceResourcesFolder(ctx context.Context, fs afero.Fs, resourcesPath string, logger *logging.Logger) error {
 	files, err := afero.ReadDir(fs, resourcesPath)
 	if err != nil {
 		logger.Error("error reading resources folder", "path", resourcesPath, "error", err)
@@ -297,7 +297,7 @@ func enforceResourcesFolder(fs afero.Fs, ctx context.Context, resourcesPath stri
 		}
 
 		fullPath := filepath.Join(resourcesPath, file.Name())
-		if err := EnforceResourceRunBlock(fs, ctx, fullPath, logger); err != nil {
+		if err := EnforceResourceRunBlock(ctx, fs, fullPath, logger); err != nil {
 			logger.Error("failed to process .pkl file", "file", fullPath, "error", err)
 			return err
 		}
@@ -305,7 +305,7 @@ func enforceResourcesFolder(fs afero.Fs, ctx context.Context, resourcesPath stri
 	return nil
 }
 
-func EnforcePklTemplateAmendsRules(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
+func EnforcePklTemplateAmendsRules(ctx context.Context, fs afero.Fs, filePath string, logger *logging.Logger) error {
 	file, err := fs.Open(filePath)
 	if err != nil {
 		logger.Error("failed to open file", "filePath", filePath, "error", err)

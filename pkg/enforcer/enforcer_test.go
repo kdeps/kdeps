@@ -113,7 +113,7 @@ func weHaveABlankFile() error {
 	return nil
 }
 
-func theHomeDirectoryIs(arg1 string) error {
+func theHomeDirectoryIs(_ string) error {
 	tempDir, err := afero.TempDir(testFs, "", "")
 	if err != nil {
 		return err
@@ -124,7 +124,7 @@ func theHomeDirectoryIs(arg1 string) error {
 	return nil
 }
 
-func theCurrentDirectoryIs(arg1 string) error {
+func theCurrentDirectoryIs(_ string) error {
 	tempDir, err := afero.TempDir(testFs, "", "")
 	if err != nil {
 		return err
@@ -232,7 +232,7 @@ func itHaveAConfigAmendsLineOnTopOfTheFile() error {
 }
 
 func itIsAnInvalidAgent() error {
-	if err := enforcer.EnforceFolderStructure(testFs, ctx, agentPath, logger); err == nil {
+	if err := enforcer.EnforceFolderStructure(ctx, testFs, agentPath, logger); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 
@@ -240,7 +240,7 @@ func itIsAnInvalidAgent() error {
 }
 
 func itIsAValidAgent() error {
-	if err := enforcer.EnforceFolderStructure(testFs, ctx, agentPath, logger); err != nil {
+	if err := enforcer.EnforceFolderStructure(ctx, testFs, agentPath, logger); err != nil {
 		return err
 	}
 
@@ -248,7 +248,7 @@ func itIsAValidAgent() error {
 }
 
 func itIsAnInvalidPklFile() error {
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, fileThatExist, logger); err == nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(ctx, testFs, fileThatExist, logger); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 
@@ -260,7 +260,7 @@ func itIsAValidPklFile() error {
 	evaluator.TestSetup(nil)
 	defer evaluator.TestTeardown(nil)
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, fileThatExist, logger); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(ctx, testFs, fileThatExist, logger); err != nil {
 		return err
 	}
 
@@ -294,7 +294,7 @@ func aFileExistsInThe(arg1, arg2 string) error {
 	return nil
 }
 
-func anAgentFolderExistsInTheCurrentDirectory(arg1 string) error {
+func anAgentFolderExistsInTheCurrentDirectory(_ string) error {
 	agentPath = currentDirPath + "/my-agent"
 	if err := testFs.MkdirAll(agentPath, 0o755); err != nil {
 		return err
@@ -318,7 +318,7 @@ func itHaveAWorkflowAmendsLineOnTopOfTheFile() error {
 	return nil
 }
 
-func aFolderNamedExistsInThe(arg1, arg2 string) error {
+func aFolderNamedExistsInThe(arg1, _ string) error {
 	agentPath = currentDirPath + "/my-agent"
 	subfolderPath := agentPath + "/" + arg1
 	if err := testFs.MkdirAll(subfolderPath, 0o755); err != nil {
@@ -459,7 +459,8 @@ func createFiles(t *testing.T, fsys afero.Fs, paths []string) {
 }
 
 func TestEnforceFolderStructure_Happy(t *testing.T) {
-	fsys := afero.NewOsFs()
+	ctx := context.Background()
+	fsys := afero.NewMemMapFs()
 	tmpDir := t.TempDir()
 
 	// required layout
@@ -469,15 +470,16 @@ func TestEnforceFolderStructure_Happy(t *testing.T) {
 		filepath.Join(tmpDir, "data", "agent", "1.0", "file.txt"),
 	})
 
-	if err := enforcer.EnforceFolderStructure(fsys, context.Background(), tmpDir, logging.NewTestLogger()); err != nil {
+	if err := enforcer.EnforceFolderStructure(ctx, fsys, tmpDir, logging.NewTestLogger()); err != nil {
 		t.Fatalf("expected success, got error: %v", err)
 	}
 
-	_ = schema.Version(context.Background())
+	_ = schema.Version(ctx)
 }
 
 func TestEnforceFolderStructure_BadExtraDir(t *testing.T) {
-	fsys := afero.NewOsFs()
+	ctx := context.Background()
+	fsys := afero.NewMemMapFs()
 	tmpDir := t.TempDir()
 
 	createFiles(t, fsys, []string{
@@ -486,23 +488,23 @@ func TestEnforceFolderStructure_BadExtraDir(t *testing.T) {
 		filepath.Join(tmpDir, "extras", "bad.txt"),
 	})
 
-	if err := enforcer.EnforceFolderStructure(fsys, context.Background(), tmpDir, logging.NewTestLogger()); err == nil {
+	if err := enforcer.EnforceFolderStructure(ctx, fsys, tmpDir, logging.NewTestLogger()); err == nil {
 		t.Fatalf("expected error for unexpected folder")
 	}
 
-	_ = schema.Version(context.Background())
+	_ = schema.Version(ctx)
 }
 
 func TestEnforcePklTemplateAmendsRules(t *testing.T) {
 	fsys := afero.NewOsFs()
 	tmp := t.TempDir()
 	validFile := filepath.Join(tmp, "workflow.pkl")
-	content := "amends \"package://schema.kdeps.com/core@" + schema.Version(context.Background()) + "#/Workflow.pkl\"\n"
+	content := "amends \"package://schema.kdeps.com/core@" + schema.Version(ctx) + "#/Workflow.pkl\"\n"
 	if err := afero.WriteFile(fsys, validFile, []byte(content), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(fsys, context.Background(), validFile, logging.NewTestLogger()); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(ctx, fsys, validFile, logging.NewTestLogger()); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -510,7 +512,7 @@ func TestEnforcePklTemplateAmendsRules(t *testing.T) {
 	if err := afero.WriteFile(fsys, invalidFile, []byte("invalid line\n"), 0o644); err != nil {
 		t.Fatalf("write2: %v", err)
 	}
-	if err := enforcer.EnforcePklTemplateAmendsRules(fsys, context.Background(), invalidFile, logging.NewTestLogger()); err == nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(ctx, fsys, invalidFile, logging.NewTestLogger()); err == nil {
 		t.Fatalf("expected error for bad amends line")
 	}
 }
@@ -550,7 +552,7 @@ func TestEnforceResourceRunBlock(t *testing.T) {
 	contentSingle := "chat {\n}" // one run block
 	_ = afero.WriteFile(fs, fileOne, []byte(contentSingle), 0o644)
 
-	if err := enforcer.EnforceResourceRunBlock(fs, context.Background(), fileOne, logging.NewTestLogger()); err != nil {
+	if err := enforcer.EnforceResourceRunBlock(ctx, fs, fileOne, logging.NewTestLogger()); err != nil {
 		t.Fatalf("unexpected error for single run block: %v", err)
 	}
 
@@ -558,7 +560,7 @@ func TestEnforceResourceRunBlock(t *testing.T) {
 	contentMulti := "chat {\n}\npython {\n}" // two run blocks
 	_ = afero.WriteFile(fs, fileMulti, []byte(contentMulti), 0o644)
 
-	if err := enforcer.EnforceResourceRunBlock(fs, context.Background(), fileMulti, logging.NewTestLogger()); err == nil {
+	if err := enforcer.EnforceResourceRunBlock(ctx, fs, fileMulti, logging.NewTestLogger()); err == nil {
 		t.Fatalf("expected error for multiple run blocks, got nil")
 	}
 }

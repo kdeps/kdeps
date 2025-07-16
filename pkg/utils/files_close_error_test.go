@@ -45,7 +45,7 @@ func TestCreateFilesCloseError(t *testing.T) {
 // failCreateFs returns error on Create to hit the error branch inside CreateFiles.
 type failCreateFs struct{ afero.Fs }
 
-func (f failCreateFs) Create(name string) (afero.File, error) {
+func (f failCreateFs) Create(_ string) (afero.File, error) {
 	return nil, errors.New("create error")
 }
 
@@ -189,7 +189,7 @@ func TestSanitizeArchivePathExtra(t *testing.T) {
 // errFS wraps an afero.Fs but forces Stat to return an error to exercise the error branch in WaitForFileReady.
 type errFS struct{ afero.Fs }
 
-func (e errFS) Stat(name string) (os.FileInfo, error) {
+func (e errFS) Stat(_ string) (os.FileInfo, error) {
 	return nil, errors.New("stat failure")
 }
 

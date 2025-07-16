@@ -111,7 +111,7 @@ func PrepareRunDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir
 	return runDir, nil
 }
 
-func CompileWorkflow(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, projectDir string, logger *logging.Logger) (string, error) {
+func CompileWorkflow(ctx context.Context, fs afero.Fs, wf pklWf.Workflow, kdepsDir, projectDir string, logger *logging.Logger) (string, error) {
 	action := wf.GetTargetActionID()
 	if action == "" {
 		return "", errors.New("please specify the default action in the workflow")
@@ -164,7 +164,7 @@ func CompileWorkflow(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsD
 		return "", err
 	}
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(fs, ctx, compiledFilePath, logger); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(ctx, fs, compiledFilePath, logger); err != nil {
 		logger.Error("validation failed for .pkl file", "file", compiledFilePath, "error", err)
 		return "", err
 	}
@@ -223,8 +223,8 @@ func replaceTargetActionID(content, newActionID string) (string, error) {
 	return "", errors.New("TargetActionID not found in workflow content")
 }
 
-func CompileProject(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir string, projectDir string, env *environment.Environment, logger *logging.Logger) (string, string, error) {
-	compiledProjectDir, err := CompileWorkflow(fs, ctx, wf, kdepsDir, projectDir, logger)
+func CompileProject(ctx context.Context, fs afero.Fs, wf pklWf.Workflow, kdepsDir string, projectDir string, env *environment.Environment, logger *logging.Logger) (string, string, error) {
+	compiledProjectDir, err := CompileWorkflow(ctx, fs, wf, kdepsDir, projectDir, logger)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to compile workflow: %w", err)
 	}
@@ -244,15 +244,15 @@ func CompileProject(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDi
 	}
 
 	resourcesDir := filepath.Join(compiledProjectDir, "resources")
-	if err := CompileResources(fs, ctx, newWorkflow, resourcesDir, projectDir, logger); err != nil {
+	if err := CompileResources(ctx, fs, newWorkflow, resourcesDir, projectDir, logger); err != nil {
 		return "", "", fmt.Errorf("failed to compile resources: %w", err)
 	}
 
-	if err := CopyDataDir(fs, ctx, newWorkflow, kdepsDir, projectDir, compiledProjectDir, "", "", "", false, logger); err != nil {
+	if err := CopyDataDir(ctx, fs, newWorkflow, kdepsDir, projectDir, compiledProjectDir, "", "", "", false, logger); err != nil {
 		return "", "", fmt.Errorf("failed to copy project: %w", err)
 	}
 
-	if err := ProcessExternalWorkflows(fs, ctx, newWorkflow, kdepsDir, projectDir, compiledProjectDir, logger); err != nil {
+	if err := ProcessExternalWorkflows(ctx, fs, newWorkflow, kdepsDir, projectDir, compiledProjectDir, logger); err != nil {
 		return "", "", fmt.Errorf("failed to process workflows: %w", err)
 	}
 
@@ -301,14 +301,14 @@ func parseWorkflowValue(value string) (string, string, string) {
 	return agent, version, action
 }
 
-func ProcessExternalWorkflows(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, projectDir, compiledProjectDir string, logger *logging.Logger) error {
+func ProcessExternalWorkflows(ctx context.Context, fs afero.Fs, wf pklWf.Workflow, kdepsDir, projectDir, compiledProjectDir string, logger *logging.Logger) error {
 	if wf.GetWorkflows() == nil {
 		return nil
 	}
 
 	for _, value := range wf.GetWorkflows() {
 		agent, version, action := parseWorkflowValue(value)
-		err := CopyDataDir(fs, ctx, wf, kdepsDir, projectDir, compiledProjectDir, agent, version, action, true, logger)
+		err := CopyDataDir(ctx, fs, wf, kdepsDir, projectDir, compiledProjectDir, agent, version, action, true, logger)
 		if err != nil {
 			logger.Error("failed to process workflow", "agent", agent, "version", version, "action", action, "error", err)
 			return err

@@ -34,7 +34,7 @@ func saveAndRestoreEditPkl(_ *testing.T, newValue texteditor.EditPklFunc) func()
 var originalEditPkl = texteditor.EditPkl
 
 // testMockEditPkl is a mock version of EditPkl specifically for testing
-var testMockEditPkl texteditor.EditPklFunc = func(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
+var testMockEditPkl texteditor.EditPklFunc = func(fs afero.Fs, _ context.Context, filePath string, logger *logging.Logger) error {
 	// Ensure the file has a .pkl extension
 	if filepath.Ext(filePath) != ".pkl" {
 		err := errors.New("file '" + filePath + "' does not have a .pkl extension")
@@ -63,7 +63,7 @@ var testMockEditPkl texteditor.EditPklFunc = func(fs afero.Fs, ctx context.Conte
 
 type errorFs struct{ afero.Fs }
 
-func (e errorFs) Stat(name string) (os.FileInfo, error) { return nil, errors.New("stat error") }
+func (e errorFs) Stat(_ string) (os.FileInfo, error) { return nil, errors.New("stat error") }
 
 func setNonInteractive(t *testing.T) func() {
 	t.Helper()
@@ -251,7 +251,7 @@ func TestEditPklAdditionalCoverage(t *testing.T) {
 		defer func() { texteditor.EditPkl = originalEditPkl }()
 
 		// Create a mock that simulates editor command creation failure
-		texteditor.EditPkl = func(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
+		texteditor.EditPkl = func(_ afero.Fs, _ context.Context, filePath string, logger *logging.Logger) error {
 			return errors.New("failed to create editor command")
 		}
 
@@ -263,7 +263,7 @@ func TestEditPklAdditionalCoverage(t *testing.T) {
 	t.Run("EditorCommandExecutionFailure", func(t *testing.T) {
 		withTestState(t, func() {
 			// Create a mock that simulates editor command execution failure
-			texteditor.EditPkl = func(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
+			texteditor.EditPkl = func(_ afero.Fs, _ context.Context, filePath string, logger *logging.Logger) error {
 				return errors.New("editor command failed")
 			}
 
@@ -276,7 +276,7 @@ func TestEditPklAdditionalCoverage(t *testing.T) {
 	t.Run("MockEditPklStatError", func(t *testing.T) {
 		withTestState(t, func() {
 			// Create a mock that simulates a non-IsNotExist stat error
-			texteditor.MockEditPkl = func(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
+			texteditor.MockEditPkl = func(_ afero.Fs, _ context.Context, filePath string, logger *logging.Logger) error {
 				return errors.New("failed to stat file")
 			}
 
@@ -339,7 +339,7 @@ func (m *mockEditorCmd) Run() error {
 	return m.runErr
 }
 
-func (m *mockEditorCmd) SetIO(stdin, stdout, stderr *os.File) {}
+func (m *mockEditorCmd) SetIO(_, _, _ *os.File) {}
 
 func TestEditPklWithFactory(t *testing.T) {
 	// Create test logger
@@ -357,7 +357,7 @@ func TestEditPklWithFactory(t *testing.T) {
 		{
 			name:     "successful edit",
 			filePath: "test.pkl",
-			factory: func(editorName, filePath string) (texteditor.EditorCmd, error) {
+			factory: func(_, _ string) (texteditor.EditorCmd, error) {
 				return &mockEditorCmd{}, nil
 			},
 			expectedError: false,
@@ -365,7 +365,7 @@ func TestEditPklWithFactory(t *testing.T) {
 		{
 			name:     "file does not exist",
 			filePath: "nonexistent.pkl",
-			factory: func(editorName, filePath string) (texteditor.EditorCmd, error) {
+			factory: func(_, _ string) (texteditor.EditorCmd, error) {
 				return &mockEditorCmd{}, nil
 			},
 			expectedError: true,
@@ -373,7 +373,7 @@ func TestEditPklWithFactory(t *testing.T) {
 		{
 			name:     "stat error",
 			filePath: "test.pkl",
-			factory: func(editorName, filePath string) (texteditor.EditorCmd, error) {
+			factory: func(_, _ string) (texteditor.EditorCmd, error) {
 				return &mockEditorCmd{}, nil
 			},
 			mockStatError: errors.New("permission denied"),
@@ -382,7 +382,7 @@ func TestEditPklWithFactory(t *testing.T) {
 		{
 			name:     "factory error",
 			filePath: "test.pkl",
-			factory: func(editorName, filePath string) (texteditor.EditorCmd, error) {
+			factory: func(_, _ string) (texteditor.EditorCmd, error) {
 				return nil, errors.New("factory error")
 			},
 			expectedError: true,
@@ -390,7 +390,7 @@ func TestEditPklWithFactory(t *testing.T) {
 		{
 			name:     "command run error",
 			filePath: "test.pkl",
-			factory: func(editorName, filePath string) (texteditor.EditorCmd, error) {
+			factory: func(_, _ string) (texteditor.EditorCmd, error) {
 				return &mockEditorCmd{runErr: errors.New("run error")}, nil
 			},
 			expectedError: true,
@@ -398,7 +398,7 @@ func TestEditPklWithFactory(t *testing.T) {
 		{
 			name:     "non-interactive mode",
 			filePath: "test.pkl",
-			factory: func(editorName, filePath string) (texteditor.EditorCmd, error) {
+			factory: func(_, _ string) (texteditor.EditorCmd, error) {
 				return &mockEditorCmd{}, nil
 			},
 			expectedError: false,
@@ -406,7 +406,7 @@ func TestEditPklWithFactory(t *testing.T) {
 		{
 			name:     "invalid extension",
 			filePath: "test.txt",
-			factory: func(editorName, filePath string) (texteditor.EditorCmd, error) {
+			factory: func(_, _ string) (texteditor.EditorCmd, error) {
 				return &mockEditorCmd{}, nil
 			},
 			expectedError: true,
@@ -537,7 +537,7 @@ func TestEditPklWithFactory_PermissionDenied(t *testing.T) {
 	require.NoError(t, err)
 
 	// Use a mock factory that returns a fake command
-	factory := func(editorName, filePath string) (texteditor.EditorCmd, error) {
+	factory := func(_, _ string) (texteditor.EditorCmd, error) {
 		return &mockEditorCmd{runErr: errors.New("permission denied")}, nil
 	}
 

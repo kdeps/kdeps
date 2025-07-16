@@ -1284,11 +1284,11 @@ func TestGenerateDockerfileContent(t *testing.T) {
 	)
 
 	// basic sanity checks on returned content
-	assert.True(t, strings.Contains(df, "FROM ollama/ollama:10.1"))
-	assert.True(t, strings.Contains(df, "ENV SCHEMA_VERSION=v1"))
-	assert.True(t, strings.Contains(df, "EXPOSE 8080"))
-	assert.True(t, strings.Contains(df, "ARG FOO=bar"))
-	assert.True(t, strings.Contains(df, "ENV BAR=baz"))
+	assert.Contains(t, df, "FROM ollama/ollama:10.1")
+	assert.Contains(t, df, "ENV SCHEMA_VERSION=v1")
+	assert.Contains(t, df, "EXPOSE 8080")
+	assert.Contains(t, df, "ARG FOO=bar")
+	assert.Contains(t, df, "ENV BAR=baz")
 }
 
 // TestGenerateDockerfileBranchCoverage exercises additional parameter combinations
@@ -1410,7 +1410,7 @@ func TestGenerateURLs_AnacondaError(t *testing.T) {
 
 	// GitHub fetch succeeds to move past first item.
 	schema.UseLatest = true
-	utils.GitHubReleaseFetcher = func(_ context.Context, repo, base string) (string, error) {
+	utils.GitHubReleaseFetcher = func(_ context.Context, _ string, base string) (string, error) {
 		return "0.28.1", nil
 	}
 
@@ -1529,7 +1529,7 @@ func TestGenerateURLsLatestUsesFetcher(t *testing.T) {
 	}()
 
 	schema.UseLatest = true
-	utils.GitHubReleaseFetcher = func(_ context.Context, repo string, baseURL string) (string, error) {
+	utils.GitHubReleaseFetcher = func(_ context.Context, _ string, baseURL string) (string, error) {
 		return "0.99.0", nil
 	}
 

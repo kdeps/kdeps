@@ -38,7 +38,7 @@ func (dr *DependencyResolver) getResourcePath(resourceType string) (string, erro
 }
 
 // loadPKLData loads and returns the PKL data from pklres based on resourceType.
-func (dr *DependencyResolver) loadPKLData(resourceType, pklPath string) (interface{}, error) {
+func (dr *DependencyResolver) loadPKLData(resourceType, _ string) (interface{}, error) {
 	// Retrieve all resources of this type from pklres
 	// and build the complete structure that the timestamp lookup expects
 

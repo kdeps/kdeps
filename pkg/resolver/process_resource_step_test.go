@@ -20,11 +20,11 @@ func TestProcessResourceStep_Success(t *testing.T) {
 	calledWait := false
 	calledHandler := false
 
-	dr.GetCurrentTimestampFn = func(resourceID, step string) (pkl.Duration, error) {
+	dr.GetCurrentTimestampFn = func(_, _ string) (pkl.Duration, error) {
 		calledGet = true
 		return pkl.Duration{Value: 0, Unit: pkl.Second}, nil
 	}
-	dr.WaitForTimestampChangeFn = func(resourceID string, ts pkl.Duration, timeout time.Duration, step string) error {
+	dr.WaitForTimestampChangeFn = func(_ string, _ pkl.Duration, timeout time.Duration, _ string) error {
 		calledWait = true
 		if timeout != 60*time.Second {
 			t.Fatalf("expected default timeout 60s, got %v", timeout)
@@ -49,10 +49,10 @@ func TestProcessResourceStep_HandlerErr(t *testing.T) {
 	dr := &resolverpkg.DependencyResolver{Logger: logging.NewTestLogger(), DefaultTimeoutSec: -1}
 	handlerErr := errors.New("boom")
 
-	dr.GetCurrentTimestampFn = func(resourceID, step string) (pkl.Duration, error) {
+	dr.GetCurrentTimestampFn = func(_, _ string) (pkl.Duration, error) {
 		return pkl.Duration{Value: 0, Unit: pkl.Second}, nil
 	}
-	dr.WaitForTimestampChangeFn = func(resourceID string, ts pkl.Duration, timeout time.Duration, step string) error {
+	dr.WaitForTimestampChangeFn = func(_ string, _ pkl.Duration, _ time.Duration, step string) error {
 		return nil
 	}
 
@@ -67,10 +67,10 @@ func TestProcessResourceStep_WaitErr(t *testing.T) {
 	dr := &resolverpkg.DependencyResolver{Logger: logging.NewTestLogger(), DefaultTimeoutSec: -1}
 	waitErr := errors.New("timeout")
 
-	dr.GetCurrentTimestampFn = func(resourceID, step string) (pkl.Duration, error) {
+	dr.GetCurrentTimestampFn = func(_, _ string) (pkl.Duration, error) {
 		return pkl.Duration{Value: 0, Unit: pkl.Second}, nil
 	}
-	dr.WaitForTimestampChangeFn = func(resourceID string, ts pkl.Duration, timeout time.Duration, step string) error {
+	dr.WaitForTimestampChangeFn = func(_ string, _ pkl.Duration, _ time.Duration, step string) error {
 		return waitErr
 	}
 
@@ -85,12 +85,12 @@ func TestProcessResourceStep_CustomTimeout(t *testing.T) {
 	dr := &resolverpkg.DependencyResolver{Logger: logging.NewTestLogger(), DefaultTimeoutSec: -1}
 	customDur := &pkl.Duration{Value: 5, Unit: pkl.Second} // 5 seconds
 
-	dr.GetCurrentTimestampFn = func(resourceID, step string) (pkl.Duration, error) {
+	dr.GetCurrentTimestampFn = func(_, _ string) (pkl.Duration, error) {
 		return pkl.Duration{Value: 0, Unit: pkl.Second}, nil
 	}
 
 	waited := false
-	dr.WaitForTimestampChangeFn = func(resourceID string, ts pkl.Duration, timeout time.Duration, step string) error {
+	dr.WaitForTimestampChangeFn = func(_ string, _ pkl.Duration, timeout time.Duration, step string) error {
 		waited = true
 		if timeout != 5*time.Second {
 			t.Fatalf("expected timeout 5s, got %v", timeout)

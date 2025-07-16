@@ -164,7 +164,7 @@ dockerGPU = "cpu"
 		return err
 	}
 
-	if err = enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, systemConfigurationFile, logger); err != nil {
+	if err = enforcer.EnforcePklTemplateAmendsRules(ctx, testFs, systemConfigurationFile, logger); err != nil {
 		return err
 	}
 
@@ -419,7 +419,7 @@ run {
 		f.Close()
 	}
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowConfigurationFile, logger); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(ctx, testFs, workflowConfigurationFile, logger); err != nil {
 		return err
 	}
 

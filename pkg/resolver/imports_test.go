@@ -241,7 +241,7 @@ func TestAddPlaceholderImports(t *testing.T) {
 	assert.NoError(t, afero.WriteFile(fs, filepath.Join(dataDir, "dummy.txt"), []byte("abc"), 0o644))
 
 	// MOCK: Provide a safe LoadResourceFn to avoid nil dereference
-	dr.LoadResourceFn = func(ctx context.Context, path string, typ resolver.ResourceType) (interface{}, error) {
+	dr.LoadResourceFn = func(_ context.Context, _ string, typ resolver.ResourceType) (interface{}, error) {
 		return &pklLLM.LLMImpl{}, nil
 	}
 
@@ -314,6 +314,6 @@ func TestPrependDynamicImportsExtra(t *testing.T) {
 	out, err := afero.ReadFile(fs, testPkl)
 	require.NoError(t, err)
 	s := string(out)
-	require.True(t, strings.Contains(s, "import \"pkl:json\""))
-	require.True(t, strings.Contains(s, "import \""+dr.RequestPklFile+"\" as request"))
+	require.Contains(t, s, "import \"pkl:json\"")
+	require.Contains(t, s, "import \""+dr.RequestPklFile+"\" as request")
 }

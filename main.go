@@ -61,10 +61,10 @@ func main() {
 	// Initialize PKL evaluator with all available resource readers
 	// Use in-memory databases for all readers except memory which uses persistent storage
 	memoryDBPath := filepath.Join("/.kdeps/", "memory.db") // Persistent storage in shared volume
-	sessionDBPath := ":memory:"   // In-memory tied to operation
-	toolDBPath := ":memory:"      // In-memory tied to operation  
-	itemDBPath := ":memory:"      // In-memory tied to operation
-	pklresDBPath := ":memory:"    // In-memory tied to operation
+	sessionDBPath := ":memory:"                            // In-memory tied to operation
+	toolDBPath := ":memory:"                               // In-memory tied to operation
+	itemDBPath := ":memory:"                               // In-memory tied to operation
+	pklresDBPath := ":memory:"                             // In-memory tied to operation
 
 	// Initialize all resource readers
 	memoryReader, err := memory.InitializeMemory(memoryDBPath)

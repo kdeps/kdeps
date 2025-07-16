@@ -26,10 +26,10 @@ var (
 )
 
 // CompileResources processes .pkl files and copies them to resources directory.
-func CompileResources(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, resourcesDir string, projectDir string, logger *logging.Logger) error {
+func CompileResources(ctx context.Context, fs afero.Fs, wf pklWf.Workflow, resourcesDir string, projectDir string, logger *logging.Logger) error {
 	projectResourcesDir := filepath.Join(projectDir, "resources")
 
-	if err := ValidatePklResources(fs, ctx, projectResourcesDir, logger); err != nil {
+	if err := ValidatePklResources(ctx, fs, projectResourcesDir, logger); err != nil {
 		return err
 	}
 
@@ -518,7 +518,7 @@ func ExtractNameVersionFromResolvedID(resolvedID, defaultName, defaultVersion st
 	return name, defaultVersion
 }
 
-func ValidatePklResources(fs afero.Fs, ctx context.Context, dir string, logger *logging.Logger) error {
+func ValidatePklResources(ctx context.Context, fs afero.Fs, dir string, logger *logging.Logger) error {
 	if _, err := fs.Stat(dir); err != nil {
 		logger.Error("resource directory not found", "path", dir)
 		return fmt.Errorf("missing resource directory: %s", dir)
@@ -531,7 +531,7 @@ func ValidatePklResources(fs afero.Fs, ctx context.Context, dir string, logger *
 	}
 
 	for _, file := range pklFiles {
-		if err := enforcer.EnforcePklTemplateAmendsRules(fs, ctx, file, logger); err != nil {
+		if err := enforcer.EnforcePklTemplateAmendsRules(ctx, fs, file, logger); err != nil {
 			return fmt.Errorf("validation failed for %s: %w", file, err)
 		}
 	}
@@ -638,7 +638,7 @@ func copyAllResourcesFromAgent(fs afero.Fs, agentName string, wf pklWf.Workflow,
 
 	if exists, _ := afero.DirExists(fs, srcData); exists {
 		ctx := context.TODO()
-		if err := CopyDir(fs, ctx, srcData, dstData, logger); err != nil {
+		if err := CopyDir(ctx, fs, srcData, dstData, logger); err != nil {
 			logger.Warn("failed to copy agent data directory", "src", srcData, "dst", dstData, "error", err)
 		} else {
 			logger.Debug("copied agent data directory", "src", srcData, "dst", dstData)

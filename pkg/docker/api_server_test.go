@@ -72,10 +72,10 @@ func TestValidateMethod(t *testing.T) {
 			method, err := docker.ValidateMethod(req, tt.allowedMethods)
 
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Empty(t, method)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, tt.expectedMethod, method)
 			}
 		})

@@ -75,7 +75,7 @@ func TestDependencyResolver(t *testing.T) {
 	}
 
 	// Stub LoadResourceFn to avoid remote network calls and use in-memory exec impl
-	dr.LoadResourceFn = func(ctx context.Context, path string, rt resolverpkg.ResourceType) (interface{}, error) {
+	dr.LoadResourceFn = func(_ context.Context, _ string, rt resolverpkg.ResourceType) (interface{}, error) {
 		switch rt {
 		case resolverpkg.ExecResource:
 			return &pklExec.ExecImpl{}, nil

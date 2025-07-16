@@ -40,7 +40,7 @@ func TestBootstrapDockerSystem(t *testing.T) {
 	t.Run("NonDockerMode", func(t *testing.T) {
 		dr.Environment.DockerMode = "0"
 		apiServerMode, err := docker.BootstrapDockerSystem(ctx, dr)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.False(t, apiServerMode)
 	})
 
@@ -59,7 +59,7 @@ func TestCreateFlagFile(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		flagPath := filepath.Join(t.TempDir(), "flag")
 		err := docker.CreateFlagFile(fs, ctx, flagPath)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		exists, _ := afero.Exists(fs, flagPath)
 		assert.True(t, exists)
 	})
@@ -68,7 +68,7 @@ func TestCreateFlagFile(t *testing.T) {
 		existingPath := filepath.Join(t.TempDir(), "existing")
 		_ = afero.WriteFile(fs, existingPath, []byte(""), 0o644)
 		err := docker.CreateFlagFile(fs, ctx, existingPath)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 }
 
@@ -78,7 +78,7 @@ func TestPullModels(t *testing.T) {
 
 	t.Run("EmptyModels", func(t *testing.T) {
 		err := docker.PullModels(ctx, []string{}, logger)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	})
 
 	t.Run("ModelPull", func(t *testing.T) {

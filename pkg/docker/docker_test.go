@@ -161,7 +161,7 @@ DockerGPU = "%s"
 		return err
 	}
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, systemConfigurationFile, logger); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(ctx, testFs, systemConfigurationFile, logger); err != nil {
 		return err
 	}
 
@@ -296,7 +296,7 @@ Description = "An action from agent %s"
 		f.Close()
 	}
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowConfigurationFile, logger); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(ctx, testFs, workflowConfigurationFile, logger); err != nil {
 		return err
 	}
 
@@ -388,7 +388,7 @@ func itShouldCreateTheDockerfile(arg1, arg2, arg3 string) error {
 			}
 
 			if !found {
-				return errors.New("package not found!")
+				return errors.New("package not found")
 			}
 		}
 	} else {
@@ -398,7 +398,7 @@ func itShouldCreateTheDockerfile(arg1, arg2, arg3 string) error {
 		}
 
 		if !found {
-			return errors.New("package not found!")
+			return errors.New("package not found")
 		}
 	}
 
@@ -458,7 +458,7 @@ func kdepsOpenThePackage(_ string) error {
 }
 
 func theValidAiagentHas(_, _ string) error {
-	cDir, pFile, err := archiver.CompileProject(testFs, ctx, *workflowConfiguration, kdepsDir, agentDir, environ, logger)
+	cDir, pFile, err := archiver.CompileProject(ctx, testFs, *workflowConfiguration, kdepsDir, agentDir, environ, logger)
 	if err != nil {
 		return err
 	}
@@ -477,7 +477,7 @@ func theCommandShouldBeRunActionByDefault(arg1 string) error {
 	}
 
 	if !found {
-		return errors.New("entrypoint run not found!")
+		return errors.New("entrypoint run not found")
 	}
 
 	return nil
@@ -491,7 +491,7 @@ func theDockerEntrypointShouldBe(arg1 string) error {
 	}
 
 	if !found {
-		return errors.New("entrypoint not found!")
+		return errors.New("entrypoint not found")
 	}
 
 	return nil
@@ -504,7 +504,7 @@ func itWillInstallTheModels(arg1 string) error {
 	}
 
 	if !found {
-		return errors.New("model not found!")
+		return errors.New("model not found")
 	}
 
 	return nil
@@ -707,7 +707,7 @@ func theContentOfThatArchiveFileWillBeExtractedTo(arg1 string) error {
 }
 
 func thePklFilesIsValid() error {
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowFile, logger); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(ctx, testFs, workflowFile, logger); err != nil {
 		return err
 	}
 
@@ -715,14 +715,14 @@ func thePklFilesIsValid() error {
 }
 
 func theProjectIsValid() error {
-	if err := enforcer.EnforceFolderStructure(testFs, ctx, workflowFile, logger); err != nil {
+	if err := enforcer.EnforceFolderStructure(ctx, testFs, workflowFile, logger); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func theProjectWillBeArchivedTo(arg1 string) error {
+func theProjectWillBeArchivedTo(_ string) error {
 	_, err := workflow.LoadWorkflow(ctx, workflowFile, logger)
 	if err != nil {
 		return err
@@ -784,7 +784,7 @@ func thePklFilesIsInvalid() error {
 
 	workflowFile = file
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowFile, logger); err == nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(ctx, testFs, workflowFile, logger); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 
@@ -792,14 +792,14 @@ func thePklFilesIsInvalid() error {
 }
 
 func theProjectIsInvalid() error {
-	if err := enforcer.EnforceFolderStructure(testFs, ctx, workflowFile, logger); err == nil {
+	if err := enforcer.EnforceFolderStructure(ctx, testFs, workflowFile, logger); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 
 	return nil
 }
 
-func theProjectWillNotBeArchivedTo(arg1 string) error {
+func theProjectWillNotBeArchivedTo(_ string) error {
 	_, err := workflow.LoadWorkflow(ctx, workflowFile, logger)
 	if err != nil {
 		return err
@@ -875,7 +875,7 @@ Version = "%s"
 	return nil
 }
 
-func theResourceFileExistsInTheAgent(arg1, arg2, arg3 string) error {
+func theResourceFileExistsInTheAgent(arg1, arg2, _ string) error {
 	fpath := filepath.Join(kdepsDir, "agents/"+arg2+"/1.0.0/resources/"+arg1)
 	if _, err := testFs.Stat(fpath); err != nil {
 		return errors.New("expected a package, but got none")
@@ -885,7 +885,7 @@ func theResourceFileExistsInTheAgent(arg1, arg2, arg3 string) error {
 }
 
 // PackageProject is a helper function to package a project
-func PackageProject(fs afero.Fs, ctx context.Context, wf wfPkl.Workflow, kdepsDir, aiAgentDir string, logger *logging.Logger) (string, error) {
+func PackageProject(fs afero.Fs, _ context.Context, wf wfPkl.Workflow, kdepsDir, aiAgentDir string, logger *logging.Logger) (string, error) {
 	// Create package directory if it doesn't exist
 	packageDir := filepath.Join(kdepsDir, "packages")
 	if err := fs.MkdirAll(packageDir, 0o755); err != nil {

@@ -21,8 +21,6 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	kpath "github.com/kdeps/schema/gen/kdeps/path"
 )
 
 var (
@@ -206,7 +204,7 @@ func theConfigurationIsLoadedInTheHomeDirectory() error {
 	return errors.New("no configuration file found")
 }
 
-func theCurrentDirectoryIs(arg1 string) error {
+func theCurrentDirectoryIs(_ string) error {
 	tempDir, err := afero.TempDir(testFs, "", "")
 	if err != nil {
 		return err
@@ -217,7 +215,7 @@ func theCurrentDirectoryIs(arg1 string) error {
 	return nil
 }
 
-func theHomeDirectoryIs(arg1 string) error {
+func theHomeDirectoryIs(_ string) error {
 	tempDir, err := afero.TempDir(testFs, "", "")
 	if err != nil {
 		return err
@@ -228,7 +226,7 @@ func theHomeDirectoryIs(arg1 string) error {
 	return nil
 }
 
-func aFileDoesNotExistsInTheHomeOrCurrentDirectory(arg1 string) error {
+func aFileDoesNotExistsInTheHomeOrCurrentDirectory(_ string) error {
 	fileThatExist = ""
 
 	return nil
@@ -256,7 +254,7 @@ func theConfigurationFailsToLoadAnyConfiguration() error {
 	return nil
 }
 
-func theConfigurationFileWillBeGeneratedTo(arg1 string) error {
+func theConfigurationFileWillBeGeneratedTo(_ string) error {
 	// Skip actual PKL generation in tests to avoid binary dependency issues
 	// Instead, create a mock configuration file using assets
 	configFile := filepath.Join(homeDirPath, environment.SystemConfigFileName)
@@ -331,7 +329,7 @@ func TestFindConfigurationUnit(t *testing.T) {
 		afero.WriteFile(fs, filepath.Join(pwd, ".kdeps.pkl"), []byte("test"), 0o644)
 
 		result, err := cfg.FindConfiguration(ctx, fs, env, logger)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, filepath.Join(pwd, ".kdeps.pkl"), result)
 	})
 
@@ -350,7 +348,7 @@ func TestFindConfigurationUnit(t *testing.T) {
 		afero.WriteFile(fs, filepath.Join(home, ".kdeps.pkl"), []byte("test"), 0o644)
 
 		result, err := cfg.FindConfiguration(ctx, fs, env, logger)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, filepath.Join(home, ".kdeps.pkl"), result)
 	})
 
@@ -365,7 +363,7 @@ func TestFindConfigurationUnit(t *testing.T) {
 		}
 
 		result, err := cfg.FindConfiguration(ctx, fs, env, logger)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "", result)
 	})
 }
@@ -411,7 +409,7 @@ func TestGenerateConfigurationUnit(t *testing.T) {
 		afero.WriteFile(fs, filepath.Join(home, ".kdeps.pkl"), []byte("existing"), 0o644)
 
 		result, err := cfg.GenerateConfiguration(ctx, fs, env, logger)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, filepath.Join(home, ".kdeps.pkl"), result)
 	})
 }
@@ -433,7 +431,7 @@ func TestEditConfigurationUnit(t *testing.T) {
 		afero.WriteFile(fs, filepath.Join(home, ".kdeps.pkl"), []byte("test"), 0o644)
 
 		result, err := cfg.EditConfiguration(ctx, fs, env, logger)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, filepath.Join(home, ".kdeps.pkl"), result)
 	})
 
@@ -449,7 +447,7 @@ func TestEditConfigurationUnit(t *testing.T) {
 		fs.MkdirAll(home, 0o755)
 
 		result, err := cfg.EditConfiguration(ctx, fs, env, logger)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, filepath.Join(home, ".kdeps.pkl"), result)
 	})
 }
@@ -470,7 +468,7 @@ func TestValidateConfigurationUnit(t *testing.T) {
 		afero.WriteFile(fs, filepath.Join(home, ".kdeps.pkl"), []byte("invalid pkl"), 0o644)
 
 		result, err := cfg.ValidateConfiguration(ctx, fs, env, logger)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "configuration validation failed")
 		assert.Equal(t, filepath.Join(home, ".kdeps.pkl"), result)
 	})
@@ -487,7 +485,7 @@ func TestLoadConfigurationUnit(t *testing.T) {
 		afero.WriteFile(fs, invalidPath, []byte("invalid"), 0o644)
 
 		result, err := cfg.LoadConfiguration(ctx, fs, invalidPath, logger)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "error reading config file")
 		assert.Nil(t, result)
 	})
@@ -498,7 +496,7 @@ func TestLoadConfigurationUnit(t *testing.T) {
 		nonexistentPath := filepath.Join(tmpDir, "nonexistent.pkl")
 
 		result, err := cfg.LoadConfiguration(ctx, fs, nonexistentPath, logger)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, result)
 	})
 }
@@ -588,9 +586,9 @@ func TestGenerateConfigurationAdditional(t *testing.T) {
 
 		result, err := cfg.GenerateConfiguration(ctx, fs, env, logger)
 		// This will fail when trying to write the file
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to write")
-		assert.Equal(t, "", result)
+		assert.Empty(t, result)
 	})
 }
 
@@ -817,19 +815,19 @@ func TestGetKdepsPathCases(t *testing.T) {
 		expectErr bool
 	}{
 		{
-			"user path", kdeps.Kdeps{KdepsDir: StringPtr("mykdeps"), KdepsPath: PathPtr(kpath.User)}, func() string {
+			"user path", kdeps.Kdeps{KdepsDir: StringPtr("mykdeps"), KdepsPath: PathPtr(path.User)}, func() string {
 				home, _ := os.UserHomeDir()
 				return filepath.Join(home, "mykdeps")
 			}, false,
 		},
 		{
-			"project path", kdeps.Kdeps{KdepsDir: StringPtr("mykdeps"), KdepsPath: PathPtr(kpath.Project)}, func() string {
+			"project path", kdeps.Kdeps{KdepsDir: StringPtr("mykdeps"), KdepsPath: PathPtr(path.Project)}, func() string {
 				cwd, _ := os.Getwd()
 				return filepath.Join(cwd, "mykdeps")
 			}, false,
 		},
 		{
-			"xdg path", kdeps.Kdeps{KdepsDir: StringPtr("mykdeps"), KdepsPath: PathPtr(kpath.Xdg)}, func() string {
+			"xdg path", kdeps.Kdeps{KdepsDir: StringPtr("mykdeps"), KdepsPath: PathPtr(path.Xdg)}, func() string {
 				return filepath.Join(xdg.ConfigHome, "mykdeps")
 			}, false,
 		},
@@ -841,10 +839,10 @@ func TestGetKdepsPathCases(t *testing.T) {
 	for _, tc := range cases {
 		got, err := cfg.GetKdepsPath(context.Background(), tc.cfg)
 		if tc.expectErr {
-			assert.Error(t, err, tc.name)
+			require.Error(t, err, tc.name)
 			continue
 		}
-		assert.NoError(t, err, tc.name)
+		require.NoError(t, err, tc.name)
 		assert.Equal(t, tc.expectFn(), got, tc.name)
 	}
 }

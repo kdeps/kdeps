@@ -22,17 +22,17 @@ type availableTool struct {
 	Function struct{ Name string }
 }
 
-func generateAvailableTools(chat *pklLLM.ResourceChat, logger *logging.Logger) []availableTool {
+func generateAvailableTools(_ *pklLLM.ResourceChat, logger *logging.Logger) []availableTool {
 	return []availableTool{{Function: struct{ Name string }{"echo"}}, {Function: struct{ Name string }{"sum"}}}
 }
 
-func formatToolParameters(tool availableTool, sb *strings.Builder) { sb.WriteString("msg") }
+func formatToolParameters(_ availableTool, sb *strings.Builder) { sb.WriteString("msg") }
 
-func extractToolParams(args map[string]interface{}, chat *pklLLM.ResourceChat, name string, logger *logging.Logger) (string, string, string, error) {
+func extractToolParams(_ map[string]interface{}, chat *pklLLM.ResourceChat, name string, logger *logging.Logger) (string, string, string, error) {
 	return name, "echo $msg", "hello", nil
 }
 
-func buildToolURI(id, script, params string) (*url.URL, error) {
+func buildToolURI(_, script, params string) (*url.URL, error) {
 	return url.Parse("tool://dummy?params=" + params)
 }
 
@@ -43,7 +43,7 @@ type testTool struct {
 	Parameters  *map[string]*pklLLM.ToolProperties
 }
 
-func encodeTools(tools *[]*pklLLM.Tool) []*testTool {
+func encodeTools(_ *[]*pklLLM.Tool) []*testTool {
 	return []*testTool{{Name: strPtr("mytool"), Script: strPtr("echo hi"), Description: strPtr("sample tool"), Parameters: nil}}
 }
 
@@ -51,7 +51,7 @@ func encodeToolParameters(params *map[string]*pklLLM.ToolProperties) *map[string
 	return params
 }
 
-func convertToolParamsToString(val interface{}, p, t string, logger *logging.Logger) string {
+func convertToolParamsToString(val interface{}, _, t string, logger *logging.Logger) string {
 	switch v := val.(type) {
 	case string:
 		return v
@@ -68,7 +68,7 @@ func convertToolParamsToString(val interface{}, p, t string, logger *logging.Log
 	}
 }
 
-func serializeTools(sb *strings.Builder, tools *[]*pklLLM.Tool) { sb.WriteString("Name = \"mytool\"") }
+func serializeTools(sb *strings.Builder, _ *[]*pklLLM.Tool) { sb.WriteString("Name = \"mytool\"") }
 
 type functionCall struct {
 	Name      string

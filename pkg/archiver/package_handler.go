@@ -171,7 +171,7 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 		Data:      make(map[string]map[string][]string),
 	}
 
-	err = afero.Walk(fs, extractBasePath, func(path string, info os.FileInfo, err error) error {
+	err = afero.Walk(fs, extractBasePath, func(path string, _ os.FileInfo, err error) error {
 		if err != nil {
 			return fmt.Errorf("error walking through directory: %w", err)
 		}
@@ -232,7 +232,7 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 // PackageProject compresses the contents of projectDir into a kdeps file in kdepsDir.
 func PackageProject(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, compiledProjectDir string, logger *logging.Logger) (string, error) {
 	// Enforce the folder structure
-	if err := enforcer.EnforceFolderStructure(fs, ctx, compiledProjectDir, logger); err != nil {
+	if err := enforcer.EnforceFolderStructure(ctx, fs, compiledProjectDir, logger); err != nil {
 		logger.Error("failed to enforce folder structure", "error", err)
 		return "", err
 	}

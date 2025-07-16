@@ -647,14 +647,14 @@ func (dr *DependencyResolver) WriteResponseToFile(resourceID string, responseEnc
 }
 
 // EncodeChat encodes a chat block for LLM processing.
-func EncodeChat(chat *pklLLM.ResourceChat, logger *logging.Logger) string {
+func EncodeChat(_ *pklLLM.ResourceChat, logger *logging.Logger) string {
 	// This function is not exported, so it's not included in the new_code.
 	// It's kept as is, as per instructions.
 	return ""
 }
 
 // EncodeJSONResponseKeys encodes JSON response keys.
-func EncodeJSONResponseKeys(keys *[]string) *[]string {
+func EncodeJSONResponseKeys(_ *[]string) *[]string {
 	// This function is not exported, so it's not included in the new_code.
 	// It's kept as is, as per instructions.
 	return nil

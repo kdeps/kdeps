@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
@@ -18,13 +17,14 @@ import (
 )
 
 // DockerPruneClient is a minimal interface for Docker operations used in CleanupDockerBuildImages
+// Updated to use container.Summary instead of deprecated types.Container
 type DockerPruneClient interface {
-	ContainerList(ctx context.Context, options container.ListOptions) ([]types.Container, error)
+	ContainerList(ctx context.Context, options container.ListOptions) ([]container.Summary, error)
 	ContainerRemove(ctx context.Context, containerID string, options container.RemoveOptions) error
 	ImagesPrune(ctx context.Context, pruneFilters filters.Args) (image.PruneReport, error)
 }
 
-func CleanupDockerBuildImages(fs afero.Fs, ctx context.Context, cName string, cli DockerPruneClient) error {
+func CleanupDockerBuildImages(_ afero.Fs, ctx context.Context, cName string, cli DockerPruneClient) error {
 	// Check if the container named "cName" is already running, and remove it if necessary
 	containers, err := cli.ContainerList(ctx, container.ListOptions{All: true})
 	if err != nil {
