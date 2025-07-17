@@ -109,7 +109,7 @@ local-dev:
 		echo "Creating new local project..."; \
 		rm -rf localproject; \
 		~/.local/bin/kdeps new localproject; \
-		mv localproject local/localproject; \
+		mv localproject local; \
 	else \
 		echo "Local project already exists in local/localproject/"; \
 	fi
