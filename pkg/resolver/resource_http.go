@@ -77,6 +77,30 @@ func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHT
 	dr.Logger.Info("processHTTPBlock: skipping AppendHTTPEntry - using real-time pklres", "actionID", actionID)
 	// Note: AppendHTTPEntry is no longer needed as we use real-time pklres access
 	// The HTTP output files are directly accessible through pklres.getResourceOutput()
+
+	// Store the complete http resource record in the PKL mapping
+	if dr.PklresHelper != nil {
+		// Create a ResourceHTTPClient object for storage
+		resourceHTTP := &pklHTTP.ResourceHTTPClient{
+			Method:          httpBlock.Method,
+			Url:             httpBlock.Url,
+			Headers:         httpBlock.Headers,
+			Params:          httpBlock.Params,
+			Data:            httpBlock.Data,
+			Response:        httpBlock.Response,
+			File:            httpBlock.File,
+			Timestamp:       httpBlock.Timestamp,
+			TimeoutDuration: httpBlock.TimeoutDuration,
+		}
+
+		// Store the resource record using the new method
+		if err := dr.PklresHelper.StoreResourceRecord("client", actionID, actionID, fmt.Sprintf("%+v", resourceHTTP)); err != nil {
+			dr.Logger.Error("processHTTPBlock: failed to store http resource in pklres", "actionID", actionID, "error", err)
+		} else {
+			dr.Logger.Info("processHTTPBlock: stored http resource in pklres", "actionID", actionID)
+		}
+	}
+
 	return nil
 }
 

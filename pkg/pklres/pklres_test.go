@@ -112,147 +112,31 @@ func TestPklResourceReader(t *testing.T) {
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
-		// Set a structured record with key
+		// Set a structured record with key - now creates a PKL mapping
 		uri, _ := url.Parse("pklres:///test1?type=config&key=database&op=set&value=postgresql://localhost")
 		data, err := reader.Read(*uri)
 		require.NoError(t, err)
-		require.Equal(t, []byte("postgresql://localhost"), data)
+		// Should return the full PKL mapping content
+		require.Contains(t, string(data), "Resources = new Mapping")
+		require.Contains(t, string(data), "[\"database\"] = postgresql://localhost")
 
-		// Verify it was stored
+		// Verify it was stored as a single PKL mapping
 		var value string
-		err = reader.DB.QueryRow("SELECT value FROM records WHERE id = ? AND type = ? AND key = ?", "test1", "config", "database").Scan(&value)
+		err = reader.DB.QueryRow("SELECT value FROM records WHERE id = ? AND type = ? AND key = ?", "test1", "config", "").Scan(&value)
 		require.NoError(t, err)
-		require.Equal(t, "postgresql://localhost", value)
+		require.Contains(t, value, "[\"database\"] = postgresql://localhost")
 
 		// Set another key for the same record
 		uri, _ = url.Parse("pklres:///test1?type=config&key=redis&op=set&value=redis://localhost:6379")
 		data, err = reader.Read(*uri)
 		require.NoError(t, err)
-		require.Equal(t, []byte("redis://localhost:6379"), data)
+		require.Contains(t, string(data), "[\"redis\"] = redis://localhost:6379")
 
-		// Verify both keys exist
+		// Verify both keys exist in the same mapping
 		var count int
 		err = reader.DB.QueryRow("SELECT COUNT(*) FROM records WHERE id = ? AND type = ?", "test1", "config").Scan(&count)
 		require.NoError(t, err)
-		require.Equal(t, 2, count)
-	})
-
-	t.Run("Read_DeleteRecord_Simple", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "")
-		require.NoError(t, err)
-		defer reader.DB.Close()
-
-		// Insert a simple record
-		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test1", "config", "", "value1")
-		require.NoError(t, err)
-
-		// Delete the record
-		uri, _ := url.Parse("pklres:///test1?type=config&op=delete")
-		data, err := reader.Read(*uri)
-		require.NoError(t, err)
-		require.Contains(t, string(data), "Deleted 1 record(s)")
-
-		// Verify it was deleted
-		var count int
-		err = reader.DB.QueryRow("SELECT COUNT(*) FROM records WHERE id = ? AND type = ?", "test1", "config").Scan(&count)
-		require.NoError(t, err)
-		require.Equal(t, 0, count)
-
-		// Test missing parameters
-		uri, _ = url.Parse("pklres:///test1?op=delete")
-		_, err = reader.Read(*uri)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "delete operation requires id and type parameters")
-	})
-
-	t.Run("Read_DeleteRecord_WithKey", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "")
-		require.NoError(t, err)
-		defer reader.DB.Close()
-
-		// Insert multiple keys for the same record
-		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test1", "config", "database", "postgresql://localhost")
-		require.NoError(t, err)
-		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test1", "config", "redis", "redis://localhost:6379")
-		require.NoError(t, err)
-
-		// Delete specific key
-		uri, _ := url.Parse("pklres:///test1?type=config&key=database&op=delete")
-		data, err := reader.Read(*uri)
-		require.NoError(t, err)
-		require.Contains(t, string(data), "Deleted 1 record(s)")
-
-		// Verify only one key was deleted
-		var count int
-		err = reader.DB.QueryRow("SELECT COUNT(*) FROM records WHERE id = ? AND type = ?", "test1", "config").Scan(&count)
-		require.NoError(t, err)
-		require.Equal(t, 1, count)
-
-		// Verify the right key was deleted
-		var value string
-		err = reader.DB.QueryRow("SELECT value FROM records WHERE id = ? AND type = ? AND key = ?", "test1", "config", "redis").Scan(&value)
-		require.NoError(t, err)
-		require.Equal(t, "redis://localhost:6379", value)
-	})
-
-	t.Run("Read_ClearRecords_ByType", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "")
-		require.NoError(t, err)
-		defer reader.DB.Close()
-
-		// Insert records of different types
-		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test1", "config", "", "value1")
-		require.NoError(t, err)
-		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test2", "config", "", "value2")
-		require.NoError(t, err)
-		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test3", "cache", "", "value3")
-		require.NoError(t, err)
-
-		// Clear only config records
-		uri, _ := url.Parse("pklres:///_?type=config&op=clear")
-		data, err := reader.Read(*uri)
-		require.NoError(t, err)
-		require.Contains(t, string(data), "Cleared 2 records")
-
-		// Verify config records were cleared but cache records remain
-		var configCount, cacheCount int
-		err = reader.DB.QueryRow("SELECT COUNT(*) FROM records WHERE type = ?", "config").Scan(&configCount)
-		require.NoError(t, err)
-		require.Equal(t, 0, configCount)
-
-		err = reader.DB.QueryRow("SELECT COUNT(*) FROM records WHERE type = ?", "cache").Scan(&cacheCount)
-		require.NoError(t, err)
-		require.Equal(t, 1, cacheCount)
-
-		// Test missing type parameter
-		uri, _ = url.Parse("pklres:///_?op=clear")
-		_, err = reader.Read(*uri)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "clear operation requires type parameter")
-	})
-
-	t.Run("Read_ClearRecords_All", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "")
-		require.NoError(t, err)
-		defer reader.DB.Close()
-
-		// Insert records of different types
-		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test1", "config", "", "value1")
-		require.NoError(t, err)
-		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test2", "cache", "", "value2")
-		require.NoError(t, err)
-
-		// Clear all records
-		uri, _ := url.Parse("pklres:///_?type=_&op=clear")
-		data, err := reader.Read(*uri)
-		require.NoError(t, err)
-		require.Contains(t, string(data), "Cleared 2 records")
-
-		// Verify all records were cleared
-		var totalCount int
-		err = reader.DB.QueryRow("SELECT COUNT(*) FROM records").Scan(&totalCount)
-		require.NoError(t, err)
-		require.Equal(t, 0, totalCount)
+		require.Equal(t, 1, count) // Only one record with the full mapping
 	})
 
 	t.Run("Read_ListRecords", func(t *testing.T) {
@@ -366,10 +250,10 @@ func TestPklResourceReader(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "value2", value)
 
-		// Test delete non-existent record
-		uri, _ = url.Parse("pklres:///nonexistent?type=config&op=delete")
+		// Test getObject operation with non-existent record
+		uri, _ = url.Parse("pklres:///nonexistent?type=config&key=test&op=getObject")
 		data, err = reader.Read(*uri)
 		require.NoError(t, err)
-		require.Contains(t, string(data), "Deleted 0 record(s)")
+		require.Equal(t, []byte(""), data)
 	})
 }

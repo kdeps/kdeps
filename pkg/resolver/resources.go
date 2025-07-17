@@ -11,6 +11,7 @@ import (
 	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/schema"
+	pklData "github.com/kdeps/schema/gen/data"
 	pklExec "github.com/kdeps/schema/gen/exec"
 	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
@@ -27,6 +28,7 @@ const (
 	PythonResource   ResourceType = "python"
 	LLMResource      ResourceType = "llm"
 	HTTPResource     ResourceType = "http"
+	DataResource     ResourceType = "data"
 	ResponseResource ResourceType = "response"
 	Resource         ResourceType = "resource"
 )
@@ -94,6 +96,9 @@ func (dr *DependencyResolver) detectResourceType(file string) ResourceType {
 			if strings.Contains(first, "/Exec.pkl\"") {
 				return ExecResource
 			}
+			if strings.Contains(first, "/Data.pkl\"") {
+				return DataResource
+			}
 			if strings.Contains(first, "/APIServerResponse.pkl\"") {
 				return ResponseResource
 			}
@@ -127,6 +132,16 @@ func (dr *DependencyResolver) ProcessPklFile(file string) error {
 		// If that fails, try to extract using reflection
 		dr.Logger.Warn("failed to cast to *pklResource.Resource, trying reflection", "resourceType", resourceType, "actualType", fmt.Sprintf("%T", res))
 		return errors.New("failed to extract ActionID and Requires from resource")
+	}
+
+	// Process data resources immediately when loaded
+	if resourceType == DataResource {
+		if dataRes, ok := res.(*pklData.DataImpl); ok {
+			if err := dr.HandleData(actionID, dataRes); err != nil {
+				dr.Logger.Error("failed to handle data resource", "actionID", actionID, "error", err)
+				return fmt.Errorf("failed to handle data resource: %w", err)
+			}
+		}
 	}
 
 	// Append the resource to the list of resources
@@ -200,7 +215,7 @@ func (dr *DependencyResolver) LoadResourceWithRequestContext(ctx context.Context
 }
 
 // populateRequestDataInPklres loads request data from RequestPklFile and stores it in pklres
-// This enables PKL files to access request.params(), request.headers(), etc.
+// This enables PKL files to access request data via pklres:///{requestID}?type=request
 func (dr *DependencyResolver) populateRequestDataInPklres() error {
 	if dr.RequestPklFile == "" {
 		return errors.New("no request PKL file specified")
@@ -284,6 +299,15 @@ func (dr *DependencyResolver) loadResourceByType(ctx context.Context, pklEvaluat
 			return nil, fmt.Errorf("error reading http resource file '%s': %w", resourceFile, err)
 		}
 		dr.Logger.Debug("successfully loaded http resource"+contextSuffix, "resource-file", resourceFile)
+		return res, nil
+
+	case DataResource:
+		res, err := pklData.Load(ctx, pklEvaluator, source)
+		if err != nil {
+			dr.Logger.Error("error reading data resource file"+contextSuffix, "resource-file", resourceFile, "error", err)
+			return nil, fmt.Errorf("error reading data resource file '%s': %w", resourceFile, err)
+		}
+		dr.Logger.Debug("successfully loaded data resource"+contextSuffix, "resource-file", resourceFile)
 		return res, nil
 
 	case ResponseResource:

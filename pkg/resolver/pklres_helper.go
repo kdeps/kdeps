@@ -191,54 +191,6 @@ func (h *PklresHelper) retrieveAllResourcesForType(resourceType string) (map[str
 	return resources, nil
 }
 
-// storeCompleteResourceMap stores a complete PKL document for a resource type
-func (h *PklresHelper) storeCompleteResourceMap(resourceType string, resourcesMap map[string]interface{}) error {
-	info := h.getResourceTypeInfo(resourceType)
-	header := h.generatePklHeader(resourceType)
-
-	var content strings.Builder
-	content.WriteString(header)
-	content.WriteString(fmt.Sprintf("%s {\n", info.BlockName))
-
-	for resourceID, resourceData := range resourcesMap {
-		// Convert resourceData to string representation
-		// This is a simplified approach - in practice, you might want more sophisticated serialization
-		resourceStr := fmt.Sprintf("%v", resourceData)
-		content.WriteString(fmt.Sprintf("  [\"%s\"] = %s\n", resourceID, resourceStr))
-	}
-
-	content.WriteString("}\n")
-
-	// Store the complete document
-	uri, err := url.Parse(fmt.Sprintf("pklres:///%s?type=%s&op=set&value=%s",
-		h.resolver.RequestID, resourceType, url.QueryEscape(content.String())))
-	if err != nil {
-		return fmt.Errorf("failed to parse pklres URI: %w", err)
-	}
-
-	_, err = h.resolver.PklresReader.Read(*uri)
-	if err != nil {
-		return fmt.Errorf("failed to store complete resource map: %w", err)
-	}
-
-	return nil
-}
-
-// clearResourceType clears all resources of a given type
-func (h *PklresHelper) clearResourceType(resourceType string) error {
-	uri, err := url.Parse(fmt.Sprintf("pklres:///_?type=%s&op=clear", resourceType))
-	if err != nil {
-		return fmt.Errorf("failed to parse clear URI: %w", err)
-	}
-
-	_, err = h.resolver.PklresReader.Read(*uri)
-	if err != nil {
-		return fmt.Errorf("failed to clear resources of type %s: %w", resourceType, err)
-	}
-
-	return nil
-}
-
 // GetResourcePath returns the pklres path for a resource type (for compatibility with existing code)
 func (h *PklresHelper) GetResourcePath(resourceType string) string {
 	// Handle nil resolver case (for tests or incomplete initialization)
@@ -318,4 +270,31 @@ func (h *PklresHelper) resolveActionID(actionID string) string {
 		h.resolver.Logger.Debug("resolveActionID: returning original", "actionID", actionID)
 	}
 	return actionID
+}
+
+// StoreResourceRecord stores a resource record using the set operation
+func (h *PklresHelper) StoreResourceRecord(resourceType, resourceID, key, value string) error {
+	if h == nil {
+		return errors.New("PklresHelper is nil")
+	}
+
+	// Use graphID as the primary identifier for storage - ensures single record collection per graphID
+	graphID := h.resolver.RequestID
+	if h.resolver.Logger != nil {
+		h.resolver.Logger.Debug("StoreResourceRecord: using graphID for storage", "resourceType", resourceType, "resourceID", resourceID, "key", key, "graphID", graphID)
+	}
+
+	// Use set operation - this will create or update the record
+	uri, err := url.Parse(fmt.Sprintf("pklres:///%s?type=%s&key=%s&op=set&value=%s",
+		graphID, resourceType, url.QueryEscape(key), url.QueryEscape(value)))
+	if err != nil {
+		return fmt.Errorf("failed to parse pklres URI: %w", err)
+	}
+
+	_, err = h.resolver.PklresReader.Read(*uri)
+	if err != nil {
+		return fmt.Errorf("failed to store resource record: %w", err)
+	}
+
+	return nil
 }

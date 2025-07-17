@@ -150,6 +150,30 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 	dr.Logger.Info("processPythonBlock: skipping AppendPythonEntry - using real-time pklres", "actionID", actionID)
 	// Note: AppendPythonEntry is no longer needed as we use real-time pklres access
 	// The Python output files are directly accessible through pklres.getResourceOutput()
+
+	// Store the complete python resource record in the PKL mapping
+	if dr.PklresHelper != nil {
+		// Create a ResourcePython object for storage
+		resourcePython := &pklPython.ResourcePython{
+			Script:            pythonBlock.Script,
+			Env:               pythonBlock.Env,
+			Stdout:            pythonBlock.Stdout,
+			Stderr:            pythonBlock.Stderr,
+			ExitCode:          pythonBlock.ExitCode,
+			File:              pythonBlock.File,
+			Timestamp:         pythonBlock.Timestamp,
+			TimeoutDuration:   pythonBlock.TimeoutDuration,
+			PythonEnvironment: pythonBlock.PythonEnvironment,
+		}
+
+		// Store the resource record using the new method
+		if err := dr.PklresHelper.StoreResourceRecord("python", actionID, actionID, fmt.Sprintf("%+v", resourcePython)); err != nil {
+			dr.Logger.Error("processPythonBlock: failed to store python resource in pklres", "actionID", actionID, "error", err)
+		} else {
+			dr.Logger.Info("processPythonBlock: stored python resource in pklres", "actionID", actionID)
+		}
+	}
+
 	return nil
 }
 

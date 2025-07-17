@@ -469,32 +469,18 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 
 	// Store the LLM resource data in pklres for real-time access
 	if dr.PklresHelper != nil {
-		// Create PKL content for the LLM resource
-		var pklContent strings.Builder
-		pklContent.WriteString(fmt.Sprintf("extends \"%s\"\n\n", schema.ImportPath(dr.Context, "LLM.pkl")))
-		pklContent.WriteString("Resources {\n")
-		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", actionID))
-		pklContent.WriteString(fmt.Sprintf("    Model = \"%s\"\n", chatBlock.Model))
-		if chatBlock.Role != nil {
-			pklContent.WriteString(fmt.Sprintf("    Role = \"%s\"\n", *chatBlock.Role))
+		// Create a ResourceChat object for storage
+		resourceChat := &pklLLM.ResourceChat{
+			Model:        chatBlock.Model,
+			Role:         chatBlock.Role,
+			Prompt:       chatBlock.Prompt,
+			Response:     chatBlock.Response,
+			File:         chatBlock.File,
+			JSONResponse: chatBlock.JSONResponse,
 		}
-		if chatBlock.Prompt != nil {
-			pklContent.WriteString(fmt.Sprintf("    Prompt = \"\"\"\n%s\n\"\"\"\n", *chatBlock.Prompt))
-		}
-		if chatBlock.Response != nil {
-			pklContent.WriteString(fmt.Sprintf("    Response = \"\"\"\n%s\n\"\"\"\n", *chatBlock.Response))
-		}
-		if chatBlock.File != nil {
-			pklContent.WriteString(fmt.Sprintf("    File = \"%s\"\n", *chatBlock.File))
-		}
-		if chatBlock.JSONResponse != nil {
-			pklContent.WriteString(fmt.Sprintf("    JSONResponse = %t\n", *chatBlock.JSONResponse))
-		}
-		pklContent.WriteString("  }\n")
-		pklContent.WriteString("}\n")
 
-		// Store the PKL content in pklres
-		if err := dr.PklresHelper.StorePklContent("llm", actionID, pklContent.String()); err != nil {
+		// Store the resource record using the new method
+		if err := dr.PklresHelper.StoreResourceRecord("llm", actionID, actionID, fmt.Sprintf("%+v", resourceChat)); err != nil {
 			dr.Logger.Error("processLLMChat: failed to store LLM resource in pklres", "actionID", actionID, "error", err)
 		} else {
 			dr.Logger.Info("processLLMChat: stored LLM resource in pklres", "actionID", actionID)

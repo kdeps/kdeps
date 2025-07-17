@@ -139,6 +139,29 @@ func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklEx
 	dr.Logger.Info("processExecBlock: skipping AppendExecEntry - using real-time pklres", "actionID", actionID)
 	// Note: AppendExecEntry is no longer needed as we use real-time pklres access
 	// The Exec output files are directly accessible through pklres.getResourceOutput()
+
+	// Store the complete exec resource record in the PKL mapping
+	if dr.PklresHelper != nil {
+		// Create a ResourceExec object for storage
+		resourceExec := &pklExec.ResourceExec{
+			Command:         execBlock.Command,
+			Env:             execBlock.Env,
+			Stdout:          execBlock.Stdout,
+			Stderr:          execBlock.Stderr,
+			ExitCode:        execBlock.ExitCode,
+			File:            execBlock.File,
+			Timestamp:       execBlock.Timestamp,
+			TimeoutDuration: execBlock.TimeoutDuration,
+		}
+
+		// Store the resource record using the new method
+		if err := dr.PklresHelper.StoreResourceRecord("exec", actionID, actionID, fmt.Sprintf("%+v", resourceExec)); err != nil {
+			dr.Logger.Error("processExecBlock: failed to store exec resource in pklres", "actionID", actionID, "error", err)
+		} else {
+			dr.Logger.Info("processExecBlock: stored exec resource in pklres", "actionID", actionID)
+		}
+	}
+
 	return nil
 }
 
