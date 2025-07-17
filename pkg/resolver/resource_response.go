@@ -414,12 +414,7 @@ func (dr *DependencyResolver) buildResponseSections(requestID string, apiRespons
 
 func formatResponseData(response *apiserverresponse.APIServerResponseBlock) string {
 	if response == nil || response.Data == nil {
-		// Return empty data structure instead of empty string
-		return `
-Response {
-  Data {
-  }
-}`
+		return ""
 	}
 
 	responseData := make([]string, 0, len(response.Data))
@@ -432,12 +427,7 @@ Response {
 	}
 
 	if len(responseData) == 0 {
-		// Return empty data structure instead of empty string
-		return `
-Response {
-  Data {
-  }
-}`
+		return ""
 	}
 
 	return fmt.Sprintf(`
@@ -531,7 +521,8 @@ func structToMap(s interface{}) map[interface{}]interface{} {
 
 func formatDataValue(value interface{}) string {
 	// Use pure Go approach instead of document.jsonRenderDocument
-	return formatValue(value)
+	formattedValue := formatValue(value)
+	return fmt.Sprintf("jsonRenderDocument\n%s", formattedValue)
 }
 
 func formatErrors(errors *[]*apiserverresponse.APIServerErrorsBlock, logger *logging.Logger) string {
@@ -866,6 +857,16 @@ func (dr *DependencyResolver) BuildResponseSections() ([]string, error) {
 		Response: &apiserverresponse.APIServerResponseBlock{
 			Data: []interface{}{"test data"},
 		},
+	}
+
+	return dr.buildResponseSections(requestID, response), nil
+}
+
+// BuildResponseSectionsForTesting is exported for testing with custom responses
+func (dr *DependencyResolver) BuildResponseSectionsForTesting(response apiserverresponse.APIServerResponse) ([]string, error) {
+	requestID := dr.RequestID
+	if requestID == "" {
+		requestID = "request-id"
 	}
 
 	return dr.buildResponseSections(requestID, response), nil

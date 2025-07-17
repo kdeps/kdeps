@@ -70,11 +70,13 @@ func (dr *DependencyResolver) DecodeExecBlock(execBlock *pklExec.ResourceExec) e
 	}
 
 	// Decode Env values
-	decodedEnv, err := utils.DecodeStringMap(execBlock.Env, "env")
-	if err != nil {
-		return fmt.Errorf("failed to decode env: %w", err)
+	if execBlock.Env != nil {
+		decodedEnv, err := utils.DecodeStringMap(execBlock.Env, "env")
+		if err != nil {
+			return fmt.Errorf("failed to decode env: %w", err)
+		}
+		execBlock.Env = decodedEnv
 	}
-	execBlock.Env = decodedEnv
 
 	return nil
 }

@@ -166,7 +166,13 @@ func aSystemConfigurationIsDefined() error {
 		return err
 	}
 
-	cfgFile, err := cfg.GenerateConfiguration(ctx, testFs, environ, logger, nil)
+	// Get evaluator from the test setup
+	eval, err := evaluator.GetEvaluator()
+	if err != nil {
+		return err
+	}
+
+	cfgFile, err := cfg.GenerateConfiguration(ctx, testFs, environ, logger, eval)
 	if err != nil {
 		return err
 	}
@@ -264,7 +270,13 @@ func itIsAValidPklFile() error {
 		return err
 	}
 
-	if _, err := evaluator.EvalPkl(nil, testFs, ctx, fileThatExist, "", nil, logger); err != nil {
+	// Get evaluator from the test setup
+	eval, err := evaluator.GetEvaluator()
+	if err != nil {
+		return err
+	}
+
+	if _, err := evaluator.EvalPkl(eval, testFs, ctx, fileThatExist, "", nil, logger); err != nil {
 		return err
 	}
 

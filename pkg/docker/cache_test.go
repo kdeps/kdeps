@@ -110,9 +110,9 @@ func TestGetLatestAnacondaVersionsSuccess(t *testing.T) {
 		HTTPClient: &http.Client{
 			Transport: roundTripFunc(func(_ *http.Request) (*http.Response, error) {
 				return buildResp(http.StatusOK, `<html><body>
-					<a href="Anaconda3-20.4.30-1-Linux-x86_64.sh">x</a>
+					<a href="Anaconda3-20.4.52-0-Linux-x86_64.sh">x</a>
 					<a href="Anaconda3-20.4.58-1-Linux-aarch64.sh">y</a>
-					<a href="Anaconda3-20.4.52-0-Linux-x86_64.sh">old-x</a>
+					<a href="Anaconda3-20.4.30-1-Linux-x86_64.sh">old-x</a>
 					<a href="Anaconda3-20.4.57-1-Linux-aarch64.sh">old-y</a>
 					</body></html>`), nil
 			}),
@@ -124,7 +124,7 @@ func TestGetLatestAnacondaVersionsSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if versions["x86_64"] != "20.4.30-1" || versions["aarch64"] != "20.4.58-1" {
+	if versions["x86_64"] != "20.4.52-0" || versions["aarch64"] != "20.4.58-1" {
 		t.Fatalf("unexpected versions: %v", versions)
 	}
 
@@ -163,9 +163,9 @@ type archHTMLTransport struct{}
 
 func (archHTMLTransport) RoundTrip(_ *http.Request) (*http.Response, error) {
 	html := `<html><body>
-        <a href="Anaconda3-20.4.30-1-Linux-x86_64.sh">x</a>
+        <a href="Anaconda3-20.4.52-0-Linux-x86_64.sh">x</a>
         <a href="Anaconda3-20.4.59-1-Linux-aarch64.sh">y</a>
-        <a href="Anaconda3-20.4.52-0-Linux-x86_64.sh">old-x</a>
+        <a href="Anaconda3-20.4.30-1-Linux-x86_64.sh">old-x</a>
         <a href="Anaconda3-20.4.58-1-Linux-aarch64.sh">old-y</a>
         </body></html>`
 	return buildResp(http.StatusOK, html), nil
@@ -181,7 +181,7 @@ func TestGetLatestAnacondaVersionsMultiArch(t *testing.T) {
 	ctx := context.Background()
 	versions, err := docker.GetLatestAnacondaVersionsWithDeps(ctx, deps)
 	require.NoError(t, err)
-	assert.Equal(t, "20.4.30-1", versions["x86_64"])
+	assert.Equal(t, "20.4.52-0", versions["x86_64"])
 	assert.Equal(t, "20.4.59-1", versions["aarch64"])
 }
 
@@ -411,7 +411,10 @@ func (m multiMockTransport) RoundTrip(req *http.Request) (*http.Response, error)
 		body, _ := json.Marshal(map[string]string{"tag_name": "v9.9.9"})
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(body)), Header: make(http.Header)}, nil
 	case "repo.anaconda.com":
-		html := `<a href="Anaconda3-2025.01-0-Linux-x86_64.sh">Anaconda3-2025.01-0-Linux-x86_64.sh</a>`
+		html := `<html><body>
+        <a href="Anaconda3-20.4.52-0-Linux-x86_64.sh">x</a>
+        <a href="Anaconda3-20.4.58-1-Linux-aarch64.sh">y</a>
+        </body></html>`
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewBufferString(html)), Header: make(http.Header)}, nil
 	default:
 		return &http.Response{StatusCode: http.StatusNotFound, Body: io.NopCloser(bytes.NewBuffer(nil)), Header: make(http.Header)}, nil
@@ -598,7 +601,7 @@ func TestGetLatestAnacondaVersions(t *testing.T) {
 
 	versions, err := docker.GetLatestAnacondaVersionsWithDeps(context.Background(), deps)
 	require.NoError(t, err)
-	assert.Equal(t, "20.4.30-1", versions["x86_64"])
+	assert.Equal(t, "20.4.52-0", versions["x86_64"])
 	assert.Equal(t, "20.4.30-1", versions["aarch64"])
 }
 

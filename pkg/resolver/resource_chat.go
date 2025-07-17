@@ -643,17 +643,110 @@ func (dr *DependencyResolver) WriteResponseToFile(resourceID string, responseEnc
 }
 
 // EncodeChat encodes a chat block for LLM processing.
-func EncodeChat(_ *pklLLM.ResourceChat, _ *logging.Logger) string {
-	// This function is not exported, so it's not included in the new_code.
-	// It's kept as is, as per instructions.
-	return ""
+func EncodeChat(chat *pklLLM.ResourceChat, logger *logging.Logger) string {
+	if chat == nil {
+		return ""
+	}
+
+	// Use the private encodeChat function to encode the chat
+	encodedChat := encodeChat(chat, logger)
+
+	// Convert the encoded chat to a string representation
+	var result strings.Builder
+
+	// Add model
+	result.WriteString(fmt.Sprintf("Model = %s\n", utils.EncodeValue(encodedChat.Model)))
+
+	// Add prompt
+	if encodedChat.Prompt != nil {
+		result.WriteString(fmt.Sprintf("Prompt = %s\n", *encodedChat.Prompt))
+	}
+
+	// Add role
+	if encodedChat.Role != nil {
+		result.WriteString(fmt.Sprintf("Role = %s\n", *encodedChat.Role))
+	}
+
+	// Add scenario
+	if encodedChat.Scenario != nil && len(*encodedChat.Scenario) > 0 {
+		result.WriteString("Scenario {\n")
+		for _, entry := range *encodedChat.Scenario {
+			if entry != nil {
+				if entry.Role != nil {
+					result.WriteString(fmt.Sprintf("  Role = %s\n", *entry.Role))
+				}
+				if entry.Prompt != nil {
+					result.WriteString(fmt.Sprintf("  Prompt = %s\n", *entry.Prompt))
+				}
+			}
+		}
+		result.WriteString("}\n")
+	}
+
+	// Add tools
+	if encodedChat.Tools != nil && len(*encodedChat.Tools) > 0 {
+		result.WriteString("Tools {\n")
+		for _, tool := range *encodedChat.Tools {
+			if tool != nil {
+				if tool.Name != nil {
+					result.WriteString(fmt.Sprintf("  Name = %s\n", *tool.Name))
+				}
+				if tool.Script != nil {
+					result.WriteString(fmt.Sprintf("  Script = %s\n", *tool.Script))
+				}
+				if tool.Parameters != nil {
+					result.WriteString("  Parameters {\n")
+					for paramName, param := range *tool.Parameters {
+						if param != nil {
+							result.WriteString(fmt.Sprintf("    [%s] {\n", utils.EncodeValue(paramName)))
+							if param.Type != nil {
+								result.WriteString(fmt.Sprintf("      Type = %s\n", *param.Type))
+							}
+							if param.Description != nil {
+								result.WriteString(fmt.Sprintf("      Description = %s\n", *param.Description))
+							}
+							result.WriteString("    }\n")
+						}
+					}
+					result.WriteString("  }\n")
+				}
+			}
+		}
+		result.WriteString("}\n")
+	}
+
+	// Add files
+	if encodedChat.Files != nil && len(*encodedChat.Files) > 0 {
+		result.WriteString("Files {\n")
+		for _, file := range *encodedChat.Files {
+			result.WriteString(fmt.Sprintf("  %s\n", file))
+		}
+		result.WriteString("}\n")
+	}
+
+	// Add timeout
+	if encodedChat.TimeoutDuration != nil {
+		result.WriteString(fmt.Sprintf("TimeoutDuration = %g.%s\n", encodedChat.TimeoutDuration.Value, encodedChat.TimeoutDuration.Unit.String()))
+	}
+
+	// Add timestamp
+	if encodedChat.Timestamp != nil {
+		result.WriteString(fmt.Sprintf("Timestamp = %g.%s\n", encodedChat.Timestamp.Value, encodedChat.Timestamp.Unit.String()))
+	}
+
+	return result.String()
 }
 
 // EncodeJSONResponseKeys encodes JSON response keys.
-func EncodeJSONResponseKeys(_ *[]string) *[]string {
-	// This function is not exported, so it's not included in the new_code.
-	// It's kept as is, as per instructions.
-	return nil
+func EncodeJSONResponseKeys(keys *[]string) *[]string {
+	if keys == nil {
+		return nil
+	}
+	encoded := make([]string, len(*keys))
+	for i, v := range *keys {
+		encoded[i] = utils.EncodeValue(v)
+	}
+	return &encoded
 }
 
 // Exported for testing

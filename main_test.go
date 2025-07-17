@@ -148,7 +148,7 @@ func TestHandleNonDockerMode_Stubbed(_ *testing.T) {
 	// Execute the function under test – if any of our stubs return an unexpected error the
 	// function itself will log.Fatal / log.Error. The absence of panics or fatal exits is our
 	// success criteria here.
-	handleNonDockerMode(ctx, fs, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger, nil)
 }
 
 func TestHandleNonDockerMode_NoConfig(t *testing.T) {
@@ -166,7 +166,7 @@ func TestHandleNonDockerMode_NoConfig(t *testing.T) {
 	defer func() { findConfigurationFn = originalFindConfigurationFn }()
 
 	originalGenerateConfigurationFn := generateConfigurationFn
-	generateConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ *logging.Logger) (string, error) {
+	generateConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ *logging.Logger, _ pkl.Evaluator) (string, error) {
 		return "", nil
 	}
 	defer func() { generateConfigurationFn = originalGenerateConfigurationFn }()
@@ -178,13 +178,13 @@ func TestHandleNonDockerMode_NoConfig(t *testing.T) {
 	defer func() { editConfigurationFn = originalEditConfigurationFn }()
 
 	originalValidateConfigurationFn := validateConfigurationFn
-	validateConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ *logging.Logger) (string, error) {
+	validateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger, _ pkl.Evaluator) (string, error) {
 		return "", nil
 	}
 	defer func() { validateConfigurationFn = originalValidateConfigurationFn }()
 
 	// Call the function, it should return without panicking
-	handleNonDockerMode(ctx, fs, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger, nil)
 	t.Log("handleNonDockerMode with no config test passed")
 }
 
@@ -224,7 +224,9 @@ func withInjects(inject func(), t *testing.T) {
 		findConfigurationFn = cfg.FindConfiguration
 		generateConfigurationFn = cfg.GenerateConfiguration
 		editConfigurationFn = cfg.EditConfiguration
-		validateConfigurationFn = cfg.ValidateConfiguration
+		validateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger, _ pkl.Evaluator) (string, error) {
+			return "", nil
+		}
 		loadConfigurationFn = cfg.LoadConfiguration
 		getKdepsPathFn = cfg.GetKdepsPath
 
@@ -302,13 +304,13 @@ func TestHandleNonDockerMode_Flow(t *testing.T) {
 		findConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ *logging.Logger) (string, error) {
 			return "", nil
 		}
-		generateConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ *logging.Logger) (string, error) {
+		generateConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ *logging.Logger, _ pkl.Evaluator) (string, error) {
 			return configPath, nil
 		}
 		editConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ *logging.Logger) (string, error) {
 			return configPath, nil
 		}
-		validateConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ *logging.Logger) (string, error) {
+		validateConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ *logging.Logger, _ pkl.Evaluator) (string, error) {
 			return configPath, nil
 		}
 		loadConfigurationFn = func(_ context.Context, _ afero.Fs, _ string, _ *logging.Logger) (*kdepspkg.Kdeps, error) {
@@ -321,7 +323,7 @@ func TestHandleNonDockerMode_Flow(t *testing.T) {
 	}, t)
 
 	ctx := context.Background()
-	handleNonDockerMode(ctx, fs, env, logger) // should complete without panic
+	handleNonDockerMode(ctx, fs, env, logger, nil) // should complete without panic
 }
 
 // TestHandleDockerMode_APIServerMode validates the code path where bootstrapDockerSystemFn
@@ -519,13 +521,13 @@ func TestHandleNonDockerModeExercise(t *testing.T) {
 	findConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 		return "", nil // trigger generation path
 	}
-	generateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	generateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger, _ pkl.Evaluator) (string, error) {
 		return "config.yml", nil
 	}
 	editConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 		return "config.yml", nil
 	}
-	validateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	validateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger, _ pkl.Evaluator) (string, error) {
 		return "config.yml", nil
 	}
 	loadConfigurationFn = func(_ context.Context, _ afero.Fs, configFile string, logger *logging.Logger) (*kdepspkg.Kdeps, error) {
@@ -540,7 +542,7 @@ func TestHandleNonDockerModeExercise(t *testing.T) {
 		return &cobra.Command{RunE: func(_ *cobra.Command, _ []string) error { executed = true; return nil }}
 	}
 
-	handleNonDockerMode(ctx, fs, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger, nil)
 	require.True(t, executed, "root command Execute should be called")
 }
 
@@ -666,13 +668,13 @@ func TestHandleNonDockerMode(t *testing.T) {
 	findConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 		return "", nil // force generation path
 	}
-	generateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	generateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger, _ pkl.Evaluator) (string, error) {
 		return "/config.yml", nil
 	}
 	editConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 		return "/config.yml", nil
 	}
-	validateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	validateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger, _ pkl.Evaluator) (string, error) {
 		return "/config.yml", nil
 	}
 	loadConfigurationFn = func(_ context.Context, _ afero.Fs, configFile string, logger *logging.Logger) (*kdepspkg.Kdeps, error) {
@@ -691,7 +693,7 @@ func TestHandleNonDockerMode(t *testing.T) {
 	env := &environment.Environment{DockerMode: "0"}
 	ctx := context.Background()
 
-	handleNonDockerMode(ctx, fs, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger, nil)
 
 	if !executed {
 		t.Fatalf("expected root command to be executed")
@@ -713,7 +715,7 @@ func TestMainEntry_NoDocker(t *testing.T) {
 	withInjects(func() {
 		// environment is created inside main; we can't intercept that easily.
 
-		newGraphResolverFn = func(afero.Fs, context.Context, *environment.Environment, *gin.Context, *logging.Logger) (*resolver.DependencyResolver, error) {
+		newGraphResolverFn = func(afero.Fs, context.Context, *environment.Environment, *gin.Context, *logging.Logger, pkl.Evaluator) (*resolver.DependencyResolver, error) {
 			return &resolver.DependencyResolver{Fs: fs, Logger: logging.NewTestLogger()}, nil
 		}
 		bootstrapDockerSystemFn = func(_ context.Context, dr *resolver.DependencyResolver) (bool, error) { return false, nil }
@@ -722,13 +724,13 @@ func TestMainEntry_NoDocker(t *testing.T) {
 		findConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 			return "config", nil
 		}
-		generateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+		generateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger, _ pkl.Evaluator) (string, error) {
 			return "config", nil
 		}
 		editConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 			return "config", nil
 		}
-		validateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+		validateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger, _ pkl.Evaluator) (string, error) {
 			return "config", nil
 		}
 		loadConfigurationFn = func(_ context.Context, _ afero.Fs, configFile string, logger *logging.Logger) (*kdepspkg.Kdeps, error) {
@@ -777,7 +779,7 @@ func TestHandleNonDockerModeFlow(t *testing.T) {
 	}
 
 	genPath := filepath.Join(t.TempDir(), "system.pkl")
-	generateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	generateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger, _ pkl.Evaluator) (string, error) {
 		return genPath, nil
 	}
 
@@ -785,7 +787,7 @@ func TestHandleNonDockerModeFlow(t *testing.T) {
 		return genPath, nil
 	}
 
-	validateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	validateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger, _ pkl.Evaluator) (string, error) {
 		return genPath, nil
 	}
 
@@ -801,7 +803,7 @@ func TestHandleNonDockerModeFlow(t *testing.T) {
 	}
 
 	// execute function
-	handleNonDockerMode(ctx, fs, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger, nil)
 
 	// if we reach here, function executed without fatal panic.
 	// This assertion is intentionally left as-is to document the test's success condition
@@ -837,7 +839,7 @@ func TestHandleNonDockerModeExistingConfig(t *testing.T) {
 		return cfgPath, nil
 	}
 
-	validateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	validateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger, _ pkl.Evaluator) (string, error) {
 		return cfgPath, nil
 	}
 
@@ -853,7 +855,7 @@ func TestHandleNonDockerModeExistingConfig(t *testing.T) {
 	}
 
 	// Execute.
-	handleNonDockerMode(ctx, fs, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger, nil)
 }
 
 // TestHandleNonDockerModeEditError triggers the branch where editing the
@@ -882,7 +884,7 @@ func TestHandleNonDockerModeEditError(t *testing.T) {
 	}
 	// Generation succeeds
 	generated := filepath.Join(t.TempDir(), "generated.pkl")
-	generateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	generateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger, _ pkl.Evaluator) (string, error) {
 		return generated, nil
 	}
 	// Editing fails
@@ -891,13 +893,13 @@ func TestHandleNonDockerModeEditError(t *testing.T) {
 	}
 
 	// Other functions should not be called; keep minimal safe stubs.
-	validateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	validateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger, _ pkl.Evaluator) (string, error) {
 		t.Fatalf("validateConfigurationFn should not be called when cfgFile is empty after edit")
 		return "", nil
 	}
 
 	// Execute – should not panic or fatal.
-	handleNonDockerMode(ctx, fs, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger, nil)
 }
 
 // TestHandleNonDockerModeGenerateFlow covers the branch where no existing
@@ -935,7 +937,7 @@ func TestHandleNonDockerModeGenerateFlow(t *testing.T) {
 		return "", nil
 	}
 
-	generateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	generateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger, _ pkl.Evaluator) (string, error) {
 		return genPath, nil
 	}
 
@@ -943,7 +945,7 @@ func TestHandleNonDockerModeGenerateFlow(t *testing.T) {
 		return genPath, nil
 	}
 
-	validateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	validateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger, _ pkl.Evaluator) (string, error) {
 		return genPath, nil
 	}
 
@@ -962,7 +964,7 @@ func TestHandleNonDockerModeGenerateFlow(t *testing.T) {
 	}
 
 	// Execute.
-	handleNonDockerMode(ctx, fs, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger, nil)
 }
 
 func TestHandleNonDockerModeBasic(t *testing.T) {
@@ -988,7 +990,7 @@ func TestHandleNonDockerModeBasic(t *testing.T) {
 	findConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 		return "", nil // force generation path
 	}
-	generateConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	generateConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger, _ pkl.Evaluator) (string, error) {
 		confPath := env.Home + "/.kdeps.pkl"
 		if err := afero.WriteFile(fs, confPath, []byte("dummy"), 0o644); err != nil {
 			t.Fatalf("failed to write config: %v", err)
@@ -998,7 +1000,7 @@ func TestHandleNonDockerModeBasic(t *testing.T) {
 	editConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 		return env.Home + "/.kdeps.pkl", nil
 	}
-	validateConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	validateConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger, _ pkl.Evaluator) (string, error) {
 		return env.Home + "/.kdeps.pkl", nil
 	}
 	loadConfigurationFn = func(ctx context.Context, fs afero.Fs, path string, logger *logging.Logger) (*kdepspkg.Kdeps, error) {
@@ -1016,7 +1018,7 @@ func TestHandleNonDockerModeBasic(t *testing.T) {
 	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, filepath.Join(t.TempDir(), "action"))
 
 	// Invoke the function under test. It should complete without panicking or fatal logging.
-	handleNonDockerMode(ctx, fs, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger, nil)
 }
 
 // TestHandleNonDockerModeMinimal exercises the happy path of handleNonDockerMode
@@ -1034,13 +1036,13 @@ func TestHandleNonDockerModeMinimal(t *testing.T) {
 	findConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 		return "", nil // trigger generation path
 	}
-	generateConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	generateConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger, _ pkl.Evaluator) (string, error) {
 		return tmp + "/cfg.pkl", nil
 	}
 	editConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 		return tmp + "/cfg.pkl", nil
 	}
-	validateConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	validateConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger, _ pkl.Evaluator) (string, error) {
 		return tmp + "/cfg.pkl", nil
 	}
 	loadConfigurationFn = func(ctx context.Context, fs afero.Fs, configFile string, logger *logging.Logger) (*kdepspkg.Kdeps, error) {
@@ -1054,7 +1056,7 @@ func TestHandleNonDockerModeMinimal(t *testing.T) {
 	}
 
 	// execute function under test; should not panic
-	handleNonDockerMode(ctx, fs, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger, nil)
 }
 
 // TestHandleNonDockerMode_Happy mocks dependencies so the flow completes without fatal errors.
@@ -1096,13 +1098,13 @@ func TestHandleNonDockerMode_Happy(t *testing.T) {
 	findConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 		return "", nil // force generate path
 	}
-	generateConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	generateConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger, _ pkl.Evaluator) (string, error) {
 		return cfgPath, nil
 	}
 	editConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 		return cfgPath, nil
 	}
-	validateConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	validateConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger, _ pkl.Evaluator) (string, error) {
 		return cfgPath, nil
 	}
 	loadConfigurationFn = func(ctx context.Context, fs afero.Fs, configFile string, logger *logging.Logger) (*kdepspkg.Kdeps, error) {
@@ -1119,7 +1121,7 @@ func TestHandleNonDockerMode_Happy(t *testing.T) {
 	ctx := context.Background()
 
 	// Execute the function under test; expect it to run without panics or exits.
-	handleNonDockerMode(ctx, fs, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger, nil)
 
 	// Sanity: ensure our logger captured the ready message.
 	if out := logger.GetOutput(); out == "" {

@@ -8,6 +8,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	schemaK "github.com/kdeps/schema/gen/kdeps"
+	schemaPath "github.com/kdeps/schema/gen/kdeps/path"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 )
@@ -53,7 +54,9 @@ func TestHandleNonDockerMode_GenerateFlow(_ *testing.T) {
 		return "/tmp/test-config.pkl", nil
 	}
 	loadConfigurationFn = func(_ context.Context, _ afero.Fs, _ string, _ *logging.Logger) (*schemaK.Kdeps, error) {
-		return &schemaK.Kdeps{}, nil
+		dir := ".kdeps"
+		p := schemaPath.User
+		return &schemaK.Kdeps{KdepsDir: &dir, KdepsPath: &p}, nil
 	}
 	getKdepsPathFn = func(context.Context, schemaK.Kdeps) (string, error) {
 		return "/kdeps", nil
@@ -63,7 +66,7 @@ func TestHandleNonDockerMode_GenerateFlow(_ *testing.T) {
 	}
 
 	// Call the function; expecting graceful completion without panic.
-	handleNonDockerMode(ctx, fs, env, logger, nil)
+	handleNonDockerMode(ctx, fs, env, logger, &dummyEvaluator{})
 }
 
 // TestHandleNonDockerMode_ExistingConfig exercises the flow when a configuration already exists.
@@ -90,16 +93,18 @@ func TestHandleNonDockerMode_ExistingConfig(_ *testing.T) {
 
 	// Stubs
 	findConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, logger *logging.Logger) (string, error) {
-		return "", nil
-	}
-	generateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger, _ pkl.Evaluator) (string, error) {
 		return "/test/existing.pkl", nil
 	}
-	validateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger, _ pkl.Evaluator) (string, error) {
+	generateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger, eval pkl.Evaluator) (string, error) {
+		return "/test/existing.pkl", nil
+	}
+	validateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger, eval pkl.Evaluator) (string, error) {
 		return "/existing/config.yml", nil
 	}
 	loadConfigurationFn = func(_ context.Context, _ afero.Fs, _ string, logger *logging.Logger) (*schemaK.Kdeps, error) {
-		return &schemaK.Kdeps{}, nil
+		dir := ".kdeps"
+		p := schemaPath.User
+		return &schemaK.Kdeps{KdepsDir: &dir, KdepsPath: &p}, nil
 	}
 	getKdepsPathFn = func(context.Context, schemaK.Kdeps) (string, error) {
 		return "/kdeps", nil
@@ -108,8 +113,12 @@ func TestHandleNonDockerMode_ExistingConfig(_ *testing.T) {
 		return &cobra.Command{Use: "root"}
 	}
 
-	// Execute
-	handleNonDockerMode(ctx, fs, env, logger, nil)
+	// Create expected files in the in-memory filesystem
+	afero.WriteFile(fs, "/test/existing.pkl", []byte("dummy config"), 0644)
+	afero.WriteFile(fs, "/existing/config.yml", []byte("dummy config"), 0644)
+
+	// Execute with a dummy evaluator so the test passes
+	handleNonDockerMode(ctx, fs, env, logger, &dummyEvaluator{})
 }
 
 func TestSetupEnvironmentSuccess(t *testing.T) {
@@ -122,3 +131,29 @@ func TestSetupEnvironmentSuccess(t *testing.T) {
 		t.Fatalf("expected non-nil environment")
 	}
 }
+
+// Minimal working mock for pkl.Evaluator
+// Satisfies the interface and returns dummy values
+
+type dummyEvaluator struct{}
+
+func (d *dummyEvaluator) EvaluateModule(ctx context.Context, source *pkl.ModuleSource, out any) error {
+	return nil
+}
+func (d *dummyEvaluator) EvaluateOutputText(ctx context.Context, source *pkl.ModuleSource) (string, error) {
+	return "dummy", nil
+}
+func (d *dummyEvaluator) EvaluateOutputValue(ctx context.Context, source *pkl.ModuleSource, out any) error {
+	return nil
+}
+func (d *dummyEvaluator) EvaluateOutputFiles(ctx context.Context, source *pkl.ModuleSource) (map[string]string, error) {
+	return nil, nil
+}
+func (d *dummyEvaluator) EvaluateExpression(ctx context.Context, source *pkl.ModuleSource, expr string, out any) error {
+	return nil
+}
+func (d *dummyEvaluator) EvaluateExpressionRaw(ctx context.Context, source *pkl.ModuleSource, expr string) ([]byte, error) {
+	return nil, nil
+}
+func (d *dummyEvaluator) Close() error { return nil }
+func (d *dummyEvaluator) Closed() bool { return false }

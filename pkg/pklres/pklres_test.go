@@ -65,6 +65,10 @@ func TestPklResourceReader(t *testing.T) {
 		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test1", "config", "database", "postgresql://localhost")
 		require.NoError(t, err)
 
+		// Initialize the resource status and mark it as finished to avoid waiting
+		reader.SetProcessingStatus("test1", pklres.NewProcessingStatus(nil))
+		reader.MarkResourceFinished("test1")
+
 		// Get the record by key
 		uri, _ := url.Parse("pklres:///test1?type=config&key=database")
 		data, err := reader.Read(*uri)
@@ -251,6 +255,10 @@ func TestPklResourceReader(t *testing.T) {
 		require.Equal(t, "value2", value)
 
 		// Test getObject operation with non-existent record
+		// Mark the resource as finished to avoid waiting
+		reader.SetProcessingStatus("nonexistent", pklres.NewProcessingStatus(nil))
+		reader.MarkResourceFinished("nonexistent")
+
 		uri, _ = url.Parse("pklres:///nonexistent?type=config&key=test&op=getObject")
 		data, err = reader.Read(*uri)
 		require.NoError(t, err)

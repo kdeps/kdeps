@@ -262,6 +262,7 @@ func TestLoadResourceEntriesInjected(t *testing.T) {
 	dr := &resolver.DependencyResolver{
 		Fs:                   fs,
 		Logger:               logger,
+		ProjectDir:           workflowDir,
 		ResourceDependencies: make(map[string][]string),
 		Resources:            []resolver.ResourceNodeEntry{},
 		LoadResourceFn: func(_ context.Context, _ string, _ resolver.ResourceType) (interface{}, error) {

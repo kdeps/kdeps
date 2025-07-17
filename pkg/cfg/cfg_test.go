@@ -387,13 +387,10 @@ func TestGenerateConfigurationUnit(t *testing.T) {
 
 		fs.MkdirAll(home, 0o755)
 
-		result, err := cfg.GenerateConfiguration(ctx, fs, env, logger, nil)
-		// This might fail due to evaluator.EvalPkl, but we test the path
-		if err != nil {
-			assert.Contains(t, err.Error(), "failed to evaluate .pkl file")
-		} else {
-			assert.Equal(t, filepath.Join(home, ".kdeps.pkl"), result)
-		}
+		_, err := cfg.GenerateConfiguration(ctx, fs, env, logger, nil)
+		// This should fail due to nil evaluator
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "evaluator is required but was nil")
 	})
 
 	t.Run("ConfigFileExists", func(t *testing.T) {
@@ -585,9 +582,9 @@ func TestGenerateConfigurationAdditional(t *testing.T) {
 		}
 
 		result, err := cfg.GenerateConfiguration(ctx, fs, env, logger, nil)
-		// This will fail when trying to write the file
+		// This should fail due to nil evaluator
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to write to")
+		assert.Contains(t, err.Error(), "evaluator is required but was nil")
 		assert.Empty(t, result)
 	})
 }

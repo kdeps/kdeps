@@ -450,23 +450,14 @@ func (dr *DependencyResolver) ProcessResourceStep(resourceID, step string, timeo
 	}
 	dr.Logger.Debug("processResourceStep: handler completed successfully", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step)
 
-	// Wait for async processing to complete only for async handlers
-	// Async handlers (exec, python) return immediately and process in goroutines
-	// Sync handlers (llm, client) process completely before returning
-	isAsyncHandler := step == "exec" || step == "python"
-
-	if isAsyncHandler {
-		// Wait for the async processing to complete by monitoring timestamp changes
-		// This ensures that pklres records are only available after the process is fully finished
-		dr.Logger.Debug("processResourceStep: waiting for async processing to complete", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step)
-		err = dr.WaitForTimestampChangeFn(canonicalResourceID, timestamp, timeout, step)
-		if err != nil {
-			dr.Logger.Error("processResourceStep: failed to wait for timestamp change", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step, "error", err)
-			return fmt.Errorf("%s error: %w", step, err)
-		}
-	} else {
-		// For sync handlers, no need to wait as processing is complete when handler returns
-		dr.Logger.Debug("processResourceStep: sync handler completed immediately", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step)
+	// Wait for processing to complete by monitoring timestamp changes
+	// This ensures that pklres records are only available after the process is fully finished
+	// All resource types now wait for timestamp changes for consistency
+	dr.Logger.Debug("processResourceStep: waiting for processing to complete", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step)
+	err = dr.WaitForTimestampChangeFn(canonicalResourceID, timestamp, timeout, step)
+	if err != nil {
+		dr.Logger.Error("processResourceStep: failed to wait for timestamp change", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step, "error", err)
+		return fmt.Errorf("%s error: %w", step, err)
 	}
 
 	dr.showProcessingProgress(resourceID, step, "completed")

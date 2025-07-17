@@ -338,16 +338,27 @@ func TestEvalPkl_WithSingletonEvaluator(t *testing.T) {
 	logger := logging.NewTestLogger()
 	fs := afero.NewOsFs()
 
+	// Initialize evaluator for this test
+	config := &evaluator.EvaluatorConfig{
+		Logger: logger,
+	}
+	evaluatorManager, err := evaluator.InitializeEvaluator(ctx, config)
+	require.NoError(t, err)
+
+	// Get evaluator from the manager
+	eval, err := evaluatorManager.GetEvaluator()
+	require.NoError(t, err)
+
 	// Create a test PKL file in a real temp dir
 	tempDir := t.TempDir()
 	testFile := filepath.Join(tempDir, "test.pkl")
 	testContent := "value = 123"
-	err := afero.WriteFile(fs, testFile, []byte(testContent), 0o644)
+	err = afero.WriteFile(fs, testFile, []byte(testContent), 0o644)
 	require.NoError(t, err)
 
-	// Test EvalPkl with singleton
+	// Test EvalPkl with evaluator
 	headerSection := "amends \"package://test\""
-	result, err := evaluator.EvalPkl(nil, fs, ctx, testFile, headerSection, nil, logger)
+	result, err := evaluator.EvalPkl(eval, fs, ctx, testFile, headerSection, nil, logger)
 	require.NoError(t, err)
 
 	// Verify result contains both header and evaluated content

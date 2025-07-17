@@ -789,7 +789,30 @@ func TestBuildResponseSections(t *testing.T) {
 	})
 
 	t.Run("ResponseWithError", func(t *testing.T) {
-		sections, err := dr.BuildResponseSections()
+		// Create a test resolver with error condition
+		drWithError := &resolverpkg.DependencyResolver{
+			Fs:     afero.NewMemMapFs(),
+			Logger: logging.NewTestLogger(),
+		}
+
+		// Create an error response using the existing API
+		success := false
+		errors := []*apiserverresponse.APIServerErrorsBlock{
+			{
+				Code:    500,
+				Message: "Test error",
+			},
+		}
+		response := &apiserverresponse.APIServerResponseImpl{
+			Success: &success,
+			Response: &apiserverresponse.APIServerResponseBlock{
+				Data: []interface{}{"test data"},
+			},
+			Errors: &errors,
+		}
+
+		// Call the exported testing method
+		sections, err := drWithError.BuildResponseSectionsForTesting(response)
 		require.NoError(t, err)
 		joined := strings.Join(sections, "\n")
 		assert.Contains(t, joined, "Success = false")

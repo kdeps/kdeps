@@ -117,6 +117,10 @@ Run {
 	err = afero.WriteFile(fs, resourceFile, []byte(resourceContent), 0o644)
 	require.NoError(t, err)
 
+	// Get the evaluator from the manager
+	evaluator, err := evaluatorManager.GetEvaluator()
+	require.NoError(t, err)
+
 	// Create a dependency resolver
 	dr := &resolverpkg.DependencyResolver{
 		Fs:             fs,
@@ -124,6 +128,7 @@ Run {
 		Context:        ctx,
 		RequestPklFile: requestFile,
 		APIServerMode:  true,
+		Evaluator:      evaluator,
 	}
 
 	// Test LoadResourceWithRequestContext
@@ -149,6 +154,7 @@ Run {
 			Context:        ctx,
 			RequestPklFile: "", // No request file
 			APIServerMode:  true,
+			Evaluator:      evaluator,
 		}
 
 		result, err := drNoRequest.LoadResourceWithRequestContext(ctx, resourceFile, resolverpkg.Resource)
@@ -164,6 +170,7 @@ Run {
 			Context:        ctx,
 			RequestPklFile: filepath.Join(requestDir, "nonexistent.pkl"),
 			APIServerMode:  true,
+			Evaluator:      evaluator,
 		}
 
 		result, err := drInvalidRequest.LoadResourceWithRequestContext(ctx, resourceFile, resolverpkg.Resource)

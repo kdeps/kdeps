@@ -627,14 +627,14 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 
 		sections := []string{urlSection, clientIPSection, requestIDSection, method, requestHeaderSection, dataSection, paramSection, fileSection}
 
-		logger.Debug("creating and processing PKL file")
+		logger.Debug("creating and processing PKL file", "evaluator_nil", dr.Evaluator == nil)
 
 		// Create a wrapper function that matches the expected signature
 		evalFunc := func(eval pkl.Evaluator, fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
 			return evaluator.EvalPkl(eval, fs, ctx, tmpFile, headerSection, nil, logger)
 		}
 
-		if err := evaluator.CreateAndProcessPklFile(nil, dr.Fs, ctx, sections, dr.RequestPklFile,
+		if err := evaluator.CreateAndProcessPklFile(dr.Evaluator, dr.Fs, ctx, sections, dr.RequestPklFile,
 			"APIServerRequest.pkl", dr.Logger, evalFunc, true); err != nil {
 			logger.Error("failed to create and process PKL file", "error", err)
 			errors = append(errors, ErrorResponse{

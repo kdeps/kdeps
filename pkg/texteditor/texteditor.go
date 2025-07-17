@@ -104,7 +104,12 @@ func EditPklWithFactory(fs afero.Fs, ctx context.Context, filePath string, logge
 		factory = RealEditorCmdFactory
 	}
 
-	edCmd, err := factory("kdeps", filePath)
+	editorName := os.Getenv("EDITOR")
+	if editorName == "" {
+		editorName = "kdeps"
+	}
+
+	edCmd, err := factory(editorName, filePath)
 	if err != nil {
 		errMsg := fmt.Sprintf("failed to create editor command: %v", err)
 		logger.Error(errMsg)

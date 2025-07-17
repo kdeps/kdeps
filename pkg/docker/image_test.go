@@ -1533,7 +1533,16 @@ func TestGenerateURLsLatestUsesFetcher(t *testing.T) {
 		return "0.99.0", nil
 	}
 
-	items, err := docker.GenerateURLs(ctx, true)
+	// Use GenerateURLsWithDeps to inject a mock HTTP client that returns fake Anaconda data
+	mockClient := &http.Client{
+		Transport: &roundTripperLatest{},
+	}
+
+	items, err := docker.GenerateURLsWithDeps(ctx, true, docker.CacheDeps{
+		UseLatest:     true,
+		HTTPClient:    mockClient,
+		GitHubFetcher: utils.GitHubReleaseFetcher,
+	})
 	if err != nil {
 		t.Fatalf("GenerateURLs error: %v", err)
 	}

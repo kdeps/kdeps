@@ -9,9 +9,9 @@ import (
 
 // IsBase64Encoded checks if a string is already Base64 encoded.
 func IsBase64Encoded(s string) bool {
-	// Return false for empty strings
+	// Return true for empty strings (valid base64 encoding of empty byte array)
 	if s == "" {
-		return false
+		return true
 	}
 
 	// Check length of the string
@@ -39,9 +39,6 @@ func IsBase64Encoded(s string) bool {
 
 // DecodeBase64String decodes a Base64-encoded string.
 func DecodeBase64String(s string) (string, error) {
-	if !IsBase64Encoded(s) {
-		return s, nil
-	}
 	decodedBytes, err := base64.StdEncoding.DecodeString(s)
 	if err != nil {
 		return "", errors.New("invalid base64 encoding")

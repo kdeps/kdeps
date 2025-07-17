@@ -20,7 +20,7 @@ func TestVersion(t *testing.T) {
 		ExitFunc:     func(int) {},
 		VersionCache: &cache,
 	})
-	assert.Equal(t, "v1", result, "expected default schema version")
+	assert.Equal(t, "0.4.5", result, "expected default schema version")
 
 	// caches and returns latest version when UseLatest is true
 	cache = sync.Map{}
@@ -100,7 +100,7 @@ func TestVersion_DefaultSchemaVersion(t *testing.T) {
 		ExitFunc:     func(int) {},
 		VersionCache: &cache,
 	})
-	assert.Equal(t, "v1", result, "expected default schema version")
+	assert.Equal(t, "0.4.5", result, "expected default schema version")
 }
 
 func TestVersion_CacheClear(t *testing.T) {

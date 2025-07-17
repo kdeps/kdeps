@@ -565,6 +565,10 @@ func TestInitializeDatabaseFailure(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
+	// Make the directory read-only to cause database initialization to fail
+	err = os.Chmod(tmpDir, 0o444)
+	require.NoError(t, err)
+
 	dbPath := filepath.Join(tmpDir, "tool.db")
 	_, err = tool.InitializeDatabase(dbPath)
 	if err == nil {

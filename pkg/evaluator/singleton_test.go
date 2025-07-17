@@ -287,9 +287,9 @@ func TestEvaluateText_WithSingleton(t *testing.T) {
 
 	eval, err := evaluator.GetEvaluator()
 	require.NoError(t, err)
-	_, err = evaluator.EvaluateText(eval, ctx, "some text", logger)
+	result, err := evaluator.EvaluateText(eval, ctx, "value = 42", logger)
 	require.NoError(t, err)
-	assert.Contains(t, "some text", "some text")
+	assert.Contains(t, result, "42")
 }
 
 func TestEvaluateAllPklFilesInDirectory_WithSingleton(t *testing.T) {

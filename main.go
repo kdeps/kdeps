@@ -233,6 +233,11 @@ func handleNonDockerMode(ctx context.Context, fs afero.Fs, env *environment.Envi
 		return
 	}
 
+	if systemCfg == nil {
+		logger.Error("system configuration is nil")
+		return
+	}
+
 	kdepsDir, err := getKdepsPathFn(ctx, *systemCfg)
 	if err != nil {
 		logger.Error("error occurred while getting Kdeps system path")

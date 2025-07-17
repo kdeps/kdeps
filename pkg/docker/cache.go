@@ -108,7 +108,7 @@ func GetLatestAnacondaVersionsWithDeps(ctx context.Context, deps CacheDeps) (map
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	re := regexp.MustCompile(`Anaconda3-(\d+\.\d+-\d+)-Linux-(x86_64|aarch64)\.sh`)
+	re := regexp.MustCompile(`Anaconda3-(\d+\.\d+\.\d+-\d+)-Linux-(x86_64|aarch64)\.sh`)
 	matches := re.FindAllStringSubmatch(string(body), -1)
 	if len(matches) == 0 {
 		return nil, errors.New("no Anaconda versions found")

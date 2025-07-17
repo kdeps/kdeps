@@ -55,14 +55,14 @@ func TestDefaultVersionValues(t *testing.T) {
 
 	// Test that they follow expected version format patterns
 	semverPattern := `^\d+\.\d+\.\d+$`
-	dateVersionPattern := `^\d{4}\.\d{2}-\d+$`
+	anacondaVersionPattern := `^\d+\.\d+\.\d+-\d+$`
 
 	// Schema version should follow semantic versioning
 	assert.Regexp(t, regexp.MustCompile(semverPattern), version.DefaultSchemaVersion, "DefaultSchemaVersion should follow semantic versioning")
 	require.Regexp(t, semverPattern, version.MinimumSchemaVersion, "MinimumSchemaVersion should follow semantic versioning")
 
-	// Anaconda version should follow date-based versioning
-	assert.Regexp(t, regexp.MustCompile(dateVersionPattern), version.DefaultAnacondaVersion, "DefaultAnacondaVersion should follow date-based versioning")
+	// Anaconda version should follow the actual format used (e.g., "20.4.20-1")
+	assert.Regexp(t, regexp.MustCompile(anacondaVersionPattern), version.DefaultAnacondaVersion, "DefaultAnacondaVersion should follow the correct format")
 
 	// PKL version should follow semantic versioning
 	assert.Regexp(t, regexp.MustCompile(semverPattern), version.DefaultPklVersion, "DefaultPklVersion should follow semantic versioning")

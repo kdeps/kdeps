@@ -30,6 +30,9 @@ func TestNewAPIServerResponse(t *testing.T) {
 }
 
 func TestClearRequestErrors(t *testing.T) {
+	// Clear any existing errors first
+	utils.ClearRequestErrors("test-request-id")
+
 	// Create some errors first
 	utils.NewAPIServerResponse(false, nil, 400, "Error 1", "test-request-id")
 	utils.NewAPIServerResponse(false, nil, 500, "Error 2", "test-request-id")

@@ -194,6 +194,21 @@ func (h *PklresHelper) retrieveAllResourcesForType(resourceType string) (map[str
 
 // GetResourcePath returns the pklres path for a resource type (for compatibility with existing code)
 func (h *PklresHelper) GetResourcePath(resourceType string) string {
+	// Validate resource type
+	validTypes := map[string]bool{
+		"exec":     true,
+		"python":   true,
+		"llm":      true,
+		"http":     true,
+		"data":     true,
+		"response": true,
+		"resource": true,
+	}
+
+	if !validTypes[resourceType] {
+		return ""
+	}
+
 	// Handle nil resolver case (for tests or incomplete initialization)
 	if h == nil || h.resolver == nil {
 		return fmt.Sprintf("pklres:///test-request?type=%s", resourceType)

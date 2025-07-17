@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
+	resolver "github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklLLM "github.com/kdeps/schema/gen/llm"
 	"github.com/stretchr/testify/assert"
@@ -84,7 +85,7 @@ func constructToolCallsFromJSON(s string, _ *logging.Logger) []toolCall {
 		return nil
 	}
 	if strings.HasPrefix(s, "[") {
-		return []toolCall{{FunctionCall: functionCall{"echo", "{\"msg\":\"hi\"}"}}, {FunctionCall: functionCall{"sum", "{\"a\":1,\"b\":2\"}"}}}
+		return []toolCall{{FunctionCall: functionCall{"echo", "{\"msg\":\"hi\"}"}}, {FunctionCall: functionCall{"sum", "{\"a\":1,\"b\":2}"}}}
 	}
 	return []toolCall{{FunctionCall: functionCall{"echo", "{\"msg\":\"hi\"}"}}}
 }
@@ -207,14 +208,15 @@ func TestEncodeToolsAndParamsUnit(t *testing.T) {
 	}
 	tools := []*pklLLM.Tool{tool}
 
-	encoded := encodeTools(&tools)
+	// Use the real implementation instead of the stub
+	encoded := resolver.EncodeTools(&tools)
 	assert.Len(t, encoded, 1)
 	// ensure values are encoded (base64) via utils.EncodeValue helper
 	assert.Equal(t, utils.EncodeValue(name), *encoded[0].Name)
 	assert.Equal(t, utils.EncodeValue(script), *encoded[0].Script)
 
 	// verify encodeToolParameters encodes nested map
-	encodedParams := encodeToolParameters(&params)
+	encodedParams := resolver.EncodeToolParameters(&params)
 	assert.NotNil(t, encodedParams)
 	assert.Contains(t, *encodedParams, "arg1")
 	encType := *(*encodedParams)["arg1"].Type
@@ -222,18 +224,18 @@ func TestEncodeToolsAndParamsUnit(t *testing.T) {
 
 	// convertToolParamsToString with various types
 	logger.Debug("testing convertToolParamsToString")
-	assert.Equal(t, "hello", convertToolParamsToString("hello", "p", "t", logger))
-	assert.Equal(t, "3.5", convertToolParamsToString(3.5, "p", "t", logger))
-	assert.Equal(t, "true", convertToolParamsToString(true, "p", "t", logger))
+	assert.Equal(t, "hello", resolver.ConvertToolParamsToString("hello", "p", "t", logger))
+	assert.Equal(t, "3.5", resolver.ConvertToolParamsToString(3.5, "p", "t", logger))
+	assert.Equal(t, "true", resolver.ConvertToolParamsToString(true, "p", "t", logger))
 
 	obj := map[string]int{"x": 1}
-	str := convertToolParamsToString(obj, "p", "t", logger)
+	str := resolver.ConvertToolParamsToString(obj, "p", "t", logger)
 	var recovered map[string]int
 	require.NoError(t, json.Unmarshal([]byte(str), &recovered))
 	assert.Equal(t, obj["x"], recovered["x"])
 
 	var sb strings.Builder
-	serializeTools(&sb, &tools)
+	resolver.SerializeTools(&sb, &tools)
 	serialized := sb.String()
 	assert.Contains(t, serialized, "Name = \"mytool\"")
 }

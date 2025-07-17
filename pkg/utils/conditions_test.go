@@ -9,21 +9,23 @@ import (
 )
 
 func TestShouldSkip(t *testing.T) {
-	// Test skip condition
-	val1 := []interface{}{"skip"}
+	// Test skip condition - ShouldSkip returns true for boolean true or string "true"
+	val1 := []interface{}{true}
 	assert.True(t, utils.ShouldSkip(&val1))
-	val2 := []interface{}{"SKIP"}
+	val2 := []interface{}{"true"}
 	assert.True(t, utils.ShouldSkip(&val2))
-	val3 := []interface{}{"Skip"}
+	val3 := []interface{}{"TRUE"}
 	assert.True(t, utils.ShouldSkip(&val3))
 
 	// Test non-skip conditions
-	val4 := []interface{}{"continue"}
+	val4 := []interface{}{"skip"}
 	assert.False(t, utils.ShouldSkip(&val4))
 	val5 := []interface{}{""}
 	assert.False(t, utils.ShouldSkip(&val5))
 	val6 := []interface{}{"other"}
 	assert.False(t, utils.ShouldSkip(&val6))
+	val7 := []interface{}{false}
+	assert.False(t, utils.ShouldSkip(&val7))
 }
 
 func TestAllConditionsMet(t *testing.T) {
