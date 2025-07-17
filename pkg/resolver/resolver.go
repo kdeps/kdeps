@@ -387,6 +387,29 @@ func (dr *DependencyResolver) ClearItemDB() error {
 	return nil
 }
 
+// SetResourceProcessingStatus sets the processing status for a resource in pklres
+func (dr *DependencyResolver) SetResourceProcessingStatus(resourceID string, dependencies []string) error {
+	if dr.PklresReader == nil {
+		return errors.New("PklresReader is not initialized")
+	}
+
+	status := pklres.NewProcessingStatus(dependencies)
+	dr.PklresReader.SetProcessingStatus(resourceID, status)
+	dr.Logger.Debug("set resource processing status", "resourceID", resourceID, "dependencies", dependencies)
+	return nil
+}
+
+// MarkResourceFinished marks a resource as finished processing in pklres
+func (dr *DependencyResolver) MarkResourceFinished(resourceID string) error {
+	if dr.PklresReader == nil {
+		return errors.New("PklresReader is not initialized")
+	}
+
+	dr.PklresReader.MarkResourceFinished(resourceID)
+	dr.Logger.Debug("marked resource as finished", "resourceID", resourceID)
+	return nil
+}
+
 // processResourceStep consolidates the pattern of: get timestamp, run a handler, adjust timeout (if provided),
 // then wait for the timestamp change.
 func (dr *DependencyResolver) ProcessResourceStep(resourceID, step string, timeoutPtr *pkl.Duration, handler func() error) error {
@@ -439,7 +462,7 @@ func (dr *DependencyResolver) ProcessResourceStep(resourceID, step string, timeo
 	// Async handlers (exec, python) return immediately and process in goroutines
 	// Sync handlers (llm, client) process completely before returning
 	isAsyncHandler := step == "exec" || step == "python"
-	
+
 	if isAsyncHandler {
 		// Wait for the async processing to complete by monitoring timestamp changes
 		// This ensures that pklres records are only available after the process is fully finished
@@ -818,6 +841,19 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 	// Increment the run counter for this file
 	dr.FileRunCounter[res.File]++
 	dr.Logger.Info("processing run block for file", "file", res.File, "runCount", dr.FileRunCounter[res.File], "actionID", actionID)
+
+	// Set processing status at the beginning
+	dependencies := dr.ResourceDependencies[res.ActionID]
+	if err := dr.SetResourceProcessingStatus(res.ActionID, dependencies); err != nil {
+		dr.Logger.Warn("failed to set resource processing status", "actionID", res.ActionID, "error", err)
+	}
+
+	// Ensure we mark the resource as finished at the end, regardless of success or failure
+	defer func() {
+		if err := dr.MarkResourceFinished(res.ActionID); err != nil {
+			dr.Logger.Warn("failed to mark resource as finished", "actionID", res.ActionID, "error", err)
+		}
+	}()
 
 	// Debug logging for Chat block values
 	if rsc.Run != nil && rsc.Run.Chat != nil {

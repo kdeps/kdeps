@@ -6,15 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/agent"
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	_ "github.com/mattn/go-sqlite3" // SQLite driver registration
 	"github.com/spf13/afero"
@@ -49,11 +48,97 @@ type PklResourceReader struct {
 	DB             *sql.DB
 	DBPath         string // Store dbPath for reinitialization
 	Fs             afero.Fs
-	Logger         *slog.Logger
+	Logger         *logging.Logger
 	GraphID        string // Current graphID for scoping database operations
 	CurrentAgent   string // Current agent name for ActionID resolution
 	CurrentVersion string // Current agent version for ActionID resolution
 	KdepsPath      string // Path to kdeps directory for agent reader
+
+	// Synchronization fields
+	ProcessingStatus map[string]ProcessingStatus // Track processing status per resource
+	StatusMutex      sync.RWMutex                // Protect processing status
+}
+
+// ProcessingStatus tracks the processing state of a resource
+type ProcessingStatus struct {
+	IsProcessing bool      // Whether the resource is currently being processed
+	IsFinished   bool      // Whether the resource processing is finished
+	FinishedAt   time.Time // When the processing finished
+	Dependencies []string  // List of dependencies that must be finished
+}
+
+// NewProcessingStatus creates a new processing status
+func NewProcessingStatus(dependencies []string) ProcessingStatus {
+	return ProcessingStatus{
+		IsProcessing: true,
+		IsFinished:   false,
+		FinishedAt:   time.Time{},
+		Dependencies: dependencies,
+	}
+}
+
+// SetProcessingStatus sets the processing status for a resource
+func (r *PklResourceReader) SetProcessingStatus(resourceID string, status ProcessingStatus) {
+	r.StatusMutex.Lock()
+	defer r.StatusMutex.Unlock()
+	r.ProcessingStatus[resourceID] = status
+	r.Logger.Debug("set processing status", "resourceID", resourceID, "isProcessing", status.IsProcessing, "isFinished", status.IsFinished, "dependencies", status.Dependencies)
+}
+
+// GetProcessingStatus gets the processing status for a resource
+func (r *PklResourceReader) GetProcessingStatus(resourceID string) (ProcessingStatus, bool) {
+	r.StatusMutex.RLock()
+	defer r.StatusMutex.RUnlock()
+	status, exists := r.ProcessingStatus[resourceID]
+	return status, exists
+}
+
+// MarkResourceFinished marks a resource as finished processing
+func (r *PklResourceReader) MarkResourceFinished(resourceID string) {
+	r.StatusMutex.Lock()
+	defer r.StatusMutex.Unlock()
+	if status, exists := r.ProcessingStatus[resourceID]; exists {
+		status.IsProcessing = false
+		status.IsFinished = true
+		status.FinishedAt = time.Now()
+		r.ProcessingStatus[resourceID] = status
+		r.Logger.Debug("marked resource as finished", "resourceID", resourceID)
+	}
+}
+
+// CheckDependenciesFinished checks if all dependencies for a resource are finished
+func (r *PklResourceReader) CheckDependenciesFinished(resourceID string) bool {
+	r.StatusMutex.RLock()
+	defer r.StatusMutex.RUnlock()
+
+	status, exists := r.ProcessingStatus[resourceID]
+	if !exists {
+		return true // No status means no dependencies to check
+	}
+
+	for _, depID := range status.Dependencies {
+		depStatus, depExists := r.ProcessingStatus[depID]
+		if !depExists || !depStatus.IsFinished {
+			return false
+		}
+	}
+	return true
+}
+
+// WaitForDependencies waits for all dependencies to be finished
+func (r *PklResourceReader) WaitForDependencies(resourceID string, timeout time.Duration) error {
+	start := time.Now()
+	for {
+		if r.CheckDependenciesFinished(resourceID) {
+			return nil
+		}
+
+		if timeout > 0 && time.Since(start) > timeout {
+			return fmt.Errorf("timeout waiting for dependencies for resource %s", resourceID)
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
 // Scheme returns the URI scheme for this reader.
@@ -189,6 +274,16 @@ func (r *PklResourceReader) setRecord(id, typ, key string, query url.Values) ([]
 	}
 
 	r.Logger.Debug("setRecord processing", "id", id, "type", typ, "key", key, "value", value)
+
+	// Check if this is a resource record that needs synchronization
+	if key != "" {
+		// For resource records, check if the resource is finished processing
+		status, exists := r.GetProcessingStatus(id)
+		if exists && status.IsProcessing && !status.IsFinished {
+			r.Logger.Error("setRecord failed: resource is still processing", "id", id, "type", typ)
+			return nil, fmt.Errorf("cannot set record for resource %s: resource is still processing", id)
+		}
+	}
 
 	// If this is a resource record (key is not empty), we need to handle it as a mapping update
 	if key != "" {
@@ -391,71 +486,56 @@ func (r *PklResourceReader) getRecord(id, typ, key string) ([]byte, error) {
 	// Canonicalize the id if it's not already canonical
 	canonicalID := id
 	r.Logger.Debug("getRecord: ActionID resolution", "id", id, "agent", r.CurrentAgent, "version", r.CurrentVersion, "kdepsPath", r.KdepsPath)
-	if id != "" && !strings.HasPrefix(id, "@") {
-		// For short ActionIDs (like "llmResource"), resolve using current agent context
-		r.Logger.Debug("getRecord: attempting ActionID resolution", "id", id, "agent", r.CurrentAgent, "version", r.CurrentVersion, "kdepsPath", r.KdepsPath)
-		if r.KdepsPath != "" && r.CurrentAgent != "" && r.CurrentVersion != "" {
-			// Use proper error handling to prevent panics in agent reader
-			func() {
-				defer func() {
-					if recover() != nil {
-						r.Logger.Debug("getRecord: agent reader panic recovered, using fallback", "id", id, "agent", r.CurrentAgent, "version", r.CurrentVersion)
-						canonicalID = fmt.Sprintf("@%s/%s:%s", r.CurrentAgent, id, r.CurrentVersion)
-					}
-				}()
+	if r.CurrentAgent != "" && r.CurrentVersion != "" && r.KdepsPath != "" {
+		// Use agent reader to resolve the action ID
+		agentReader, err := agent.GetGlobalAgentReader(r.Fs, r.KdepsPath, r.CurrentAgent, r.CurrentVersion, r.Logger)
+		if err == nil {
+			// Create URI for agent ID resolution
+			query := url.Values{}
+			query.Set("op", "resolve")
+			query.Set("agent", r.CurrentAgent)
+			query.Set("version", r.CurrentVersion)
+			uri := url.URL{
+				Scheme:   "agent",
+				Path:     "/" + id,
+				RawQuery: query.Encode(),
+			}
 
-				agentReader, err := agent.GetGlobalAgentReader(nil, r.KdepsPath, r.CurrentAgent, r.CurrentVersion, nil)
-				if err == nil && agentReader != nil {
-					uri, err := url.Parse(fmt.Sprintf("agent:///%s", id))
-					if err == nil {
-						data, err := agentReader.Read(*uri)
-						if err == nil && len(data) > 0 {
-							canonicalID = string(data)
-							r.Logger.Debug("getRecord: resolved short ActionID", "id", id, "canonicalID", canonicalID, "agent", r.CurrentAgent, "version", r.CurrentVersion)
-						} else {
-							r.Logger.Debug("getRecord: failed to resolve short ActionID, using fallback", "id", id, "agent", r.CurrentAgent, "version", r.CurrentVersion, "error", err)
-							canonicalID = fmt.Sprintf("@%s/%s:%s", r.CurrentAgent, id, r.CurrentVersion)
-						}
-					}
-				} else {
-					r.Logger.Debug("getRecord: failed to get agent reader, using fallback", "id", id, "agent", r.CurrentAgent, "version", r.CurrentVersion, "kdepsPath", r.KdepsPath, "error", err)
-					canonicalID = fmt.Sprintf("@%s/%s:%s", r.CurrentAgent, id, r.CurrentVersion)
-				}
-			}()
-		} else {
-			r.Logger.Debug("getRecord: missing agent context, using ActionID as-is", "id", id, "agent", r.CurrentAgent, "version", r.CurrentVersion, "kdepsPath", r.KdepsPath)
-		}
-	}
-
-	// Canonicalize the key if it looks like an ActionID (not already canonical)
-	canonicalKey := key
-	if key != "" && !strings.HasPrefix(key, "@") && !strings.Contains(key, "/") {
-		// Only try to resolve if we have a valid agent context (KDEPS_SHARED_VOLUME_PATH set)
-		if kdepsPath := os.Getenv("KDEPS_SHARED_VOLUME_PATH"); kdepsPath != "" {
-			agentReader, err := agent.GetGlobalAgentReader(nil, kdepsPath, "", "", nil)
-			if err == nil && agentReader != nil {
-				uri, err := url.Parse(fmt.Sprintf("agent:///%s", key))
-				if err == nil {
-					data, err := agentReader.Read(*uri)
-					if err == nil && len(data) > 0 {
-						canonicalKey = string(data)
-						r.Logger.Debug("getRecord: resolved short ActionID", "key", key, "canonicalKey", canonicalKey, "agent", os.Getenv("KDEPS_CURRENT_AGENT"), "version", os.Getenv("KDEPS_CURRENT_VERSION"))
-					} else {
-						r.Logger.Debug("getRecord: failed to resolve short ActionID", "key", key, "agent", os.Getenv("KDEPS_CURRENT_AGENT"), "version", os.Getenv("KDEPS_CURRENT_VERSION"))
-					}
-				}
+			resolvedIDBytes, err := agentReader.Read(uri)
+			if err == nil {
+				canonicalID = string(resolvedIDBytes)
+				r.Logger.Debug("getRecord: resolved ActionID", "original", id, "canonical", canonicalID)
+			} else {
+				r.Logger.Debug("getRecord: failed to resolve ActionID, using original", "id", id, "error", err)
 			}
 		} else {
-			r.Logger.Debug("getRecord: no agent reader available, using short ActionID as-is", "key", key, "agent", os.Getenv("KDEPS_CURRENT_AGENT"), "version", os.Getenv("KDEPS_CURRENT_VERSION"))
+			r.Logger.Debug("getRecord: failed to get agent reader, using original ID", "id", id, "error", err)
 		}
 	}
 
-	// Ensure key is always an empty string, not NULL
-	if canonicalKey == "" {
-		canonicalKey = ""
+	// Check if this is a resource record that needs dependency synchronization
+	if key != "" {
+		// For resource records, check if dependencies are finished
+		if !r.CheckDependenciesFinished(canonicalID) {
+			r.Logger.Info("getRecord: dependencies not finished, waiting", "id", canonicalID, "type", typ)
+			if err := r.WaitForDependencies(canonicalID, 5*time.Minute); err != nil {
+				return nil, err
+			}
+		}
+		// For resource records, also wait for the resource itself to be finished
+		waitStart := time.Now()
+		for {
+			status, exists := r.GetProcessingStatus(canonicalID)
+			if exists && status.IsFinished {
+				break
+			}
+			if time.Since(waitStart) > 5*time.Minute {
+				return nil, fmt.Errorf("timeout waiting for resource %s to finish", canonicalID)
+			}
+			r.Logger.Info("getRecord: resource not finished, waiting", "id", canonicalID, "type", typ)
+			time.Sleep(100 * time.Millisecond)
+		}
 	}
-
-	r.Logger.Info("getRecord: querying for id, type, key", "graphID", r.GraphID, "id", canonicalID, "type", typ, "key", canonicalKey, "dbPath", r.DBPath)
 
 	// Ensure table exists before attempting to get record
 	if _, err := r.DB.Exec(`CREATE TABLE IF NOT EXISTS records (
@@ -474,45 +554,39 @@ func (r *PklResourceReader) getRecord(id, typ, key string) ([]byte, error) {
 	// Start a transaction for consistent read
 	tx, err := r.DB.Begin()
 	if err != nil {
-		r.Logger.Debug("getRecord failed to start transaction", "error", err)
+		r.Logger.Error("getRecord failed to start transaction", "error", err)
 		return nil, fmt.Errorf("failed to start transaction: %w", err)
 	}
 
 	// Ensure transaction is rolled back on error
-	committed := false
 	defer func() {
-		if !committed {
+		if err != nil {
 			if rollbackErr := tx.Rollback(); rollbackErr != nil {
-				r.Logger.Debug("getRecord: failed to rollback transaction", "error", rollbackErr)
+				r.Logger.Error("getRecord: failed to rollback transaction", "error", rollbackErr)
 			}
 		}
 	}()
 
+	// Query for the record
 	var value string
-	err = tx.QueryRow("SELECT value FROM records WHERE graph_id = ? AND id = ? AND type = ? AND key = ?", r.GraphID, canonicalID, typ, canonicalKey).Scan(&value)
-	if errors.Is(err, sql.ErrNoRows) {
-		// Commit the transaction even for no rows found
-		if commitErr := tx.Commit(); commitErr != nil {
-			r.Logger.Debug("getRecord failed to commit transaction", "error", commitErr)
-			return nil, fmt.Errorf("failed to commit transaction: %w", commitErr)
-		}
-		committed = true
-		r.Logger.Debug("getRecord: no record found", "id", canonicalID, "type", typ, "key", canonicalKey)
-		return []byte(""), nil
-	}
+	err = tx.QueryRow("SELECT value FROM records WHERE graph_id = ? AND id = ? AND type = ? AND key = ?",
+		r.GraphID, canonicalID, typ, key).Scan(&value)
 	if err != nil {
-		r.Logger.Debug("getRecord failed to scan row", "error", err)
-		return nil, fmt.Errorf("failed to read record: %w", err)
+		if errors.Is(err, sql.ErrNoRows) {
+			r.Logger.Debug("getRecord: no record found", "id", canonicalID, "type", typ, "key", key)
+			return []byte(""), nil // Return empty byte slice for no record found
+		}
+		r.Logger.Error("getRecord failed to query record", "error", err)
+		return nil, fmt.Errorf("failed to get record: %w", err)
 	}
 
 	// Commit the transaction
 	if err := tx.Commit(); err != nil {
-		r.Logger.Debug("getRecord failed to commit transaction", "error", err)
+		r.Logger.Error("getRecord failed to commit transaction", "error", err)
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
-	committed = true
 
-	r.Logger.Debug("getRecord: retrieved value", "id", canonicalID, "type", typ, "key", canonicalKey, "contentLength", len(value))
+	r.Logger.Debug("getRecord succeeded", "id", canonicalID, "type", typ, "key", key, "value", value)
 	return []byte(value), nil
 }
 
@@ -686,13 +760,15 @@ func InitializePklResource(dbPath, graphID, currentAgent, currentVersion, kdepsP
 	}
 	// Do NOT close db here; caller will manage closing
 	reader := &PklResourceReader{
-		DB:             db,
-		DBPath:         dbPath,
-		GraphID:        graphID,
-		CurrentAgent:   currentAgent,
-		CurrentVersion: currentVersion,
-		KdepsPath:      kdepsPath,
-		Logger:         slog.Default(),
+		DB:               db,
+		DBPath:           dbPath,
+		GraphID:          graphID,
+		CurrentAgent:     currentAgent,
+		CurrentVersion:   currentVersion,
+		KdepsPath:        kdepsPath,
+		Logger:           logging.GetLogger(),
+		ProcessingStatus: make(map[string]ProcessingStatus),
+		StatusMutex:      sync.RWMutex{},
 	}
 
 	// Set as global reader if none exists

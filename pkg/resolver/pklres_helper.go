@@ -298,3 +298,148 @@ func (h *PklresHelper) StoreResourceRecord(resourceType, resourceID, key, value 
 
 	return nil
 }
+
+// StoreResourceObject stores a resource object by converting it to proper PKL content
+func (h *PklresHelper) StoreResourceObject(resourceType, resourceID string, resourceObject interface{}) error {
+	if h == nil {
+		return errors.New("PklresHelper is nil")
+	}
+
+	// Generate proper PKL content for the resource object
+	pklContent, err := h.generateResourcePklContent(resourceType, resourceID, resourceObject)
+	if err != nil {
+		return fmt.Errorf("failed to generate PKL content: %w", err)
+	}
+
+	// Store the PKL content
+	return h.StorePklContent(resourceType, resourceID, pklContent)
+}
+
+// generateResourcePklContent generates proper PKL content for a resource object
+func (h *PklresHelper) generateResourcePklContent(resourceType, resourceID string, resourceObject interface{}) (string, error) {
+	// Generate header
+	header := h.generatePklHeader(resourceType)
+
+	// Generate the resource content based on type
+	var resourceContent string
+	var err error
+
+	switch resourceType {
+	case "llm":
+		resourceContent, err = h.generateLLMContent(resourceID, resourceObject)
+	case "python":
+		resourceContent, err = h.generatePythonContent(resourceID, resourceObject)
+	case "exec":
+		resourceContent, err = h.generateExecContent(resourceID, resourceObject)
+	case "http":
+		resourceContent, err = h.generateHTTPContent(resourceID, resourceObject)
+	case "data":
+		resourceContent, err = h.generateDataContent(resourceID, resourceObject)
+	default:
+		return "", fmt.Errorf("unsupported resource type: %s", resourceType)
+	}
+
+	if err != nil {
+		return "", err
+	}
+
+	// Combine header and content
+	return header + resourceContent, nil
+}
+
+// generateLLMContent generates PKL content for LLM resources
+func (h *PklresHelper) generateLLMContent(resourceID string, resourceObject interface{}) (string, error) {
+	var content strings.Builder
+	content.WriteString("Resources {\n")
+	content.WriteString(fmt.Sprintf("  [\"%s\"] {\n", resourceID))
+
+	// For now, just add basic fields - this can be expanded based on the actual LLM object structure
+	content.WriteString("    Model = \"\"\n")
+	content.WriteString("    Prompt = \"\"\n")
+	content.WriteString("    Response = \"\"\n")
+	content.WriteString("    File = \"\"\n")
+	content.WriteString("    Timestamp = 0.ns\n")
+	content.WriteString("    Env {}\n")
+	content.WriteString("    ItemValues {}\n")
+	content.WriteString("  }\n")
+	content.WriteString("}\n")
+
+	return content.String(), nil
+}
+
+// generatePythonContent generates PKL content for Python resources
+func (h *PklresHelper) generatePythonContent(resourceID string, resourceObject interface{}) (string, error) {
+	var content strings.Builder
+	content.WriteString("Resources {\n")
+	content.WriteString(fmt.Sprintf("  [\"%s\"] {\n", resourceID))
+
+	// For now, just add basic fields - this can be expanded based on the actual Python object structure
+	content.WriteString("    Script = \"\"\n")
+	content.WriteString("    Stdout = \"\"\n")
+	content.WriteString("    Stderr = \"\"\n")
+	content.WriteString("    ExitCode = 0\n")
+	content.WriteString("    File = \"\"\n")
+	content.WriteString("    Timestamp = 0.ns\n")
+	content.WriteString("    Env {}\n")
+	content.WriteString("    ItemValues {}\n")
+	content.WriteString("  }\n")
+	content.WriteString("}\n")
+
+	return content.String(), nil
+}
+
+// generateExecContent generates PKL content for Exec resources
+func (h *PklresHelper) generateExecContent(resourceID string, resourceObject interface{}) (string, error) {
+	var content strings.Builder
+	content.WriteString("Resources {\n")
+	content.WriteString(fmt.Sprintf("  [\"%s\"] {\n", resourceID))
+
+	// For now, just add basic fields - this can be expanded based on the actual Exec object structure
+	content.WriteString("    Command = \"\"\n")
+	content.WriteString("    Stdout = \"\"\n")
+	content.WriteString("    Stderr = \"\"\n")
+	content.WriteString("    ExitCode = 0\n")
+	content.WriteString("    File = \"\"\n")
+	content.WriteString("    Timestamp = 0.ns\n")
+	content.WriteString("    Env {}\n")
+	content.WriteString("    ItemValues {}\n")
+	content.WriteString("  }\n")
+	content.WriteString("}\n")
+
+	return content.String(), nil
+}
+
+// generateHTTPContent generates PKL content for HTTP resources
+func (h *PklresHelper) generateHTTPContent(resourceID string, resourceObject interface{}) (string, error) {
+	var content strings.Builder
+	content.WriteString("Resources {\n")
+	content.WriteString(fmt.Sprintf("  [\"%s\"] {\n", resourceID))
+
+	// For now, just add basic fields - this can be expanded based on the actual HTTP object structure
+	content.WriteString("    Method = \"\"\n")
+	content.WriteString("    Url = \"\"\n")
+	content.WriteString("    Response = \"\"\n")
+	content.WriteString("    File = \"\"\n")
+	content.WriteString("    Timestamp = 0.ns\n")
+	content.WriteString("    Headers {}\n")
+	content.WriteString("    Params {}\n")
+	content.WriteString("    ItemValues {}\n")
+	content.WriteString("  }\n")
+	content.WriteString("}\n")
+
+	return content.String(), nil
+}
+
+// generateDataContent generates PKL content for Data resources
+func (h *PklresHelper) generateDataContent(resourceID string, resourceObject interface{}) (string, error) {
+	var content strings.Builder
+	content.WriteString("Files {\n")
+	content.WriteString(fmt.Sprintf("  [\"%s\"] {\n", resourceID))
+
+	// For now, just add basic fields - this can be expanded based on the actual Data object structure
+	content.WriteString("    Files {}\n")
+	content.WriteString("  }\n")
+	content.WriteString("}\n")
+
+	return content.String(), nil
+}

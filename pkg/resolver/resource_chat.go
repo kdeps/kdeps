@@ -487,20 +487,22 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 			Timestamp:    chatBlock.Timestamp,
 		}
 
-		// Store the resource record using the new method
-		if err := dr.PklresHelper.StoreResourceRecord("llm", actionID, actionID, fmt.Sprintf("%+v", resourceChat)); err != nil {
+		// Store the resource object using the new method
+		if err := dr.PklresHelper.StoreResourceObject("llm", actionID, resourceChat); err != nil {
 			dr.Logger.Error("processLLMChat: failed to store LLM resource in pklres", "actionID", actionID, "error", err)
 		} else {
 			dr.Logger.Info("processLLMChat: stored LLM resource in pklres", "actionID", actionID)
 		}
 	}
 
+	// Mark the resource as finished processing
+	if err := dr.MarkResourceFinished(actionID); err != nil {
+		dr.Logger.Warn("processLLMChat: failed to mark resource as finished", "actionID", actionID, "error", err)
+	}
+
 	dr.Logger.Info("processLLMChat: completed successfully", "actionID", actionID)
 	return nil
 }
-
-// AppendChatEntry has been removed as it's no longer needed.
-// We now use real-time pklres access through getResourceOutput() instead of storing PKL content.
 
 // generatePklContent generates Pkl content from resources.
 func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.Context, logger *logging.Logger, requestID string) string {

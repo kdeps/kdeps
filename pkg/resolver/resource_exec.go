@@ -154,12 +154,17 @@ func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklEx
 			TimeoutDuration: execBlock.TimeoutDuration,
 		}
 
-		// Store the resource record using the new method
-		if err := dr.PklresHelper.StoreResourceRecord("exec", actionID, actionID, fmt.Sprintf("%+v", resourceExec)); err != nil {
+		// Store the resource object using the new method
+		if err := dr.PklresHelper.StoreResourceObject("exec", actionID, resourceExec); err != nil {
 			dr.Logger.Error("processExecBlock: failed to store exec resource in pklres", "actionID", actionID, "error", err)
 		} else {
 			dr.Logger.Info("processExecBlock: stored exec resource in pklres", "actionID", actionID)
 		}
+	}
+
+	// Mark the resource as finished processing
+	if err := dr.MarkResourceFinished(actionID); err != nil {
+		dr.Logger.Warn("processExecBlock: failed to mark resource as finished", "actionID", actionID, "error", err)
 	}
 
 	return nil

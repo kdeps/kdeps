@@ -166,12 +166,17 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 			PythonEnvironment: pythonBlock.PythonEnvironment,
 		}
 
-		// Store the resource record using the new method
-		if err := dr.PklresHelper.StoreResourceRecord("python", actionID, actionID, fmt.Sprintf("%+v", resourcePython)); err != nil {
+		// Store the resource object using the new method
+		if err := dr.PklresHelper.StoreResourceObject("python", actionID, resourcePython); err != nil {
 			dr.Logger.Error("processPythonBlock: failed to store python resource in pklres", "actionID", actionID, "error", err)
 		} else {
 			dr.Logger.Info("processPythonBlock: stored python resource in pklres", "actionID", actionID)
 		}
+	}
+
+	// Mark the resource as finished processing
+	if err := dr.MarkResourceFinished(actionID); err != nil {
+		dr.Logger.Warn("processPythonBlock: failed to mark resource as finished", "actionID", actionID, "error", err)
 	}
 
 	return nil

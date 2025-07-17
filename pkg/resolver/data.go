@@ -53,8 +53,8 @@ func (dr *DependencyResolver) processDataBlock(actionID string, dataBlock *pklDa
 			Files: dataBlock.Files,
 		}
 
-		// Store the resource record using the new method
-		if err := dr.PklresHelper.StoreResourceRecord("data", actionID, actionID, fmt.Sprintf("%+v", resourceData)); err != nil {
+		// Store the resource object using the new method
+		if err := dr.PklresHelper.StoreResourceObject("data", actionID, resourceData); err != nil {
 			dr.Logger.Error("processDataBlock: failed to store data resource in pklres", "actionID", actionID, "error", err)
 		} else {
 			dr.Logger.Info("processDataBlock: stored data resource in pklres", "actionID", actionID)
@@ -62,6 +62,12 @@ func (dr *DependencyResolver) processDataBlock(actionID string, dataBlock *pklDa
 	}
 
 	dr.Logger.Info("processDataBlock: completed successfully", "actionID", actionID, "fileCount", len(dataBlock.Files))
+
+	// Mark the resource as finished processing
+	if err := dr.MarkResourceFinished(actionID); err != nil {
+		dr.Logger.Warn("processDataBlock: failed to mark resource as finished", "actionID", actionID, "error", err)
+	}
+
 	return nil
 }
 

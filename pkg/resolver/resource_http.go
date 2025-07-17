@@ -84,9 +84,9 @@ func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHT
 		resourceHTTP := &pklHTTP.ResourceHTTPClient{
 			Method:          httpBlock.Method,
 			Url:             httpBlock.Url,
+			Data:            httpBlock.Data,
 			Headers:         httpBlock.Headers,
 			Params:          httpBlock.Params,
-			Data:            httpBlock.Data,
 			Response:        httpBlock.Response,
 			File:            httpBlock.File,
 			ItemValues:      httpBlock.ItemValues,
@@ -94,12 +94,17 @@ func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHT
 			TimeoutDuration: httpBlock.TimeoutDuration,
 		}
 
-		// Store the resource record using the new method
-		if err := dr.PklresHelper.StoreResourceRecord("client", actionID, actionID, fmt.Sprintf("%+v", resourceHTTP)); err != nil {
+		// Store the resource object using the new method
+		if err := dr.PklresHelper.StoreResourceObject("http", actionID, resourceHTTP); err != nil {
 			dr.Logger.Error("processHTTPBlock: failed to store http resource in pklres", "actionID", actionID, "error", err)
 		} else {
 			dr.Logger.Info("processHTTPBlock: stored http resource in pklres", "actionID", actionID)
 		}
+	}
+
+	// Mark the resource as finished processing
+	if err := dr.MarkResourceFinished(actionID); err != nil {
+		dr.Logger.Warn("processHTTPBlock: failed to mark resource as finished", "actionID", actionID, "error", err)
 	}
 
 	return nil
@@ -325,7 +330,6 @@ func (dr *DependencyResolver) DoRequest(client *pklHTTP.ResourceHTTPClient) erro
 		Unit:  pkl.Nanosecond,
 	}
 	client.Timestamp = &timestamp
-
 
 	return nil
 }
