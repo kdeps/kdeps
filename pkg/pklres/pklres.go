@@ -221,7 +221,7 @@ func (r *PklResourceReader) setResourceRecord(id, typ, key, value string) ([]byt
 		}
 		// Use proper schema import path with dynamic version
 		schemaPath := schema.ImportPath(context.Background(), schemaFile)
-		mappingContent = fmt.Sprintf("extends \"%s\"\n\n%s = new %s {}\n", schemaPath, blockName, blockName)
+		mappingContent = fmt.Sprintf("extends \"%s\"\n\n%s = new Mapping {}\n", schemaPath, blockName)
 	}
 
 	// Update the mapping with the new record
@@ -296,18 +296,18 @@ func (r *PklResourceReader) updateMappingContent(content, key, value, typ string
 	if typ == "data" {
 		blockName = "Files"
 	}
-	
-	// Look for either "BlockName {" or "BlockName = new BlockName {"
+
+	// Look for either "BlockName {" or "BlockName = new Mapping {"
 	blockPattern1 := blockName + " {"
-	blockPattern2 := blockName + " = new " + blockName + " {"
-	
+	blockPattern2 := blockName + " = new Mapping {"
+
 	blockIndex := strings.Index(content, blockPattern1)
 	patternUsed := blockPattern1
 	if blockIndex == -1 {
 		blockIndex = strings.Index(content, blockPattern2)
 		patternUsed = blockPattern2
 	}
-	
+
 	if blockIndex == -1 {
 		return "", errors.New(blockName + " block not found in content")
 	}
@@ -358,7 +358,7 @@ func (r *PklResourceReader) updateMappingContent(content, key, value, typ string
 
 	// Write back the collection block, sorted by key
 	var newBlock strings.Builder
-	newBlock.WriteString(blockName + " = new " + blockName + " {\n")
+	newBlock.WriteString(blockName + " = new Mapping {\n")
 	var keys []string
 	for k := range entries {
 		keys = append(keys, k)
@@ -583,7 +583,6 @@ func (r *PklResourceReader) listRecords(typ string) ([]byte, error) {
 	r.Logger.Debug("listRecords succeeded", "type", typ, "count", len(ids))
 	return result, nil
 }
-
 
 // InitializeDatabase sets up the SQLite database and creates the records table with retries.
 func InitializeDatabase(dbPath string) (*sql.DB, error) {
