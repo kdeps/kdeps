@@ -70,11 +70,11 @@ func TestLoadResourceWithRequestContext(t *testing.T) {
 		},
 		Logger: logger,
 	}
-	err = evaluator.InitializeEvaluator(ctx, evaluatorConfig)
+	evaluatorManager, err := evaluator.InitializeEvaluator(ctx, evaluatorConfig)
 	require.NoError(t, err)
 	defer func() {
-		if mgr, err := evaluator.GetEvaluatorManager(); err == nil {
-			mgr.Close()
+		if evaluatorManager != nil {
+			evaluatorManager.Close()
 		}
 	}()
 

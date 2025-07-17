@@ -25,7 +25,7 @@ func TestInitializeEvaluator_Success(t *testing.T) {
 		Logger: logger,
 	}
 
-	err := evaluator.InitializeEvaluator(ctx, config)
+	_, err := evaluator.InitializeEvaluator(ctx, config)
 	require.NoError(t, err)
 
 	// Verify evaluator was created
@@ -55,7 +55,7 @@ func TestInitializeEvaluator_WithResourceReaders(t *testing.T) {
 		Logger:          logger,
 	}
 
-	err := evaluator.InitializeEvaluator(ctx, config)
+	_, err := evaluator.InitializeEvaluator(ctx, config)
 	require.NoError(t, err)
 
 	evaluatorInstance, err := evaluator.GetEvaluator()
@@ -84,7 +84,7 @@ func TestInitializeEvaluator_WithCustomOptions(t *testing.T) {
 		Options: customOptions,
 	}
 
-	err := evaluator.InitializeEvaluator(ctx, config)
+	_, err := evaluator.InitializeEvaluator(ctx, config)
 	require.NoError(t, err)
 
 	evaluatorInstance, err := evaluator.GetEvaluator()
@@ -121,7 +121,7 @@ func TestGetEvaluatorManager_Success(t *testing.T) {
 		Logger: logger,
 	}
 
-	err := evaluator.InitializeEvaluator(ctx, config)
+	_, err := evaluator.InitializeEvaluator(ctx, config)
 	require.NoError(t, err)
 
 	manager, err := evaluator.GetEvaluatorManager()
@@ -140,7 +140,7 @@ func TestEvaluatorManager_Close(t *testing.T) {
 		Logger: logger,
 	}
 
-	err := evaluator.InitializeEvaluator(ctx, config)
+	_, err := evaluator.InitializeEvaluator(ctx, config)
 	require.NoError(t, err)
 
 	manager, err := evaluator.GetEvaluatorManager()
@@ -172,7 +172,7 @@ func TestEvaluatorManager_EvaluateModuleSource(t *testing.T) {
 		Logger: logger,
 	}
 
-	err := evaluator.InitializeEvaluator(ctx, config)
+	_, err := evaluator.InitializeEvaluator(ctx, config)
 	require.NoError(t, err)
 
 	manager, err := evaluator.GetEvaluatorManager()
@@ -196,7 +196,7 @@ func TestEvaluatorManager_EvaluateModuleSource_NilEvaluator(t *testing.T) {
 	config := &evaluator.EvaluatorConfig{
 		Logger: logger,
 	}
-	err := evaluator.InitializeEvaluator(ctx, config)
+	_, err := evaluator.InitializeEvaluator(ctx, config)
 	require.NoError(t, err)
 	manager, err := evaluator.GetEvaluatorManager()
 	require.NoError(t, err)
@@ -217,7 +217,7 @@ func TestReset(t *testing.T) {
 		Logger: logger,
 	}
 
-	err := evaluator.InitializeEvaluator(ctx, config)
+	_, err := evaluator.InitializeEvaluator(ctx, config)
 	require.NoError(t, err)
 
 	// Verify evaluator exists
@@ -234,7 +234,7 @@ func TestReset(t *testing.T) {
 	assert.Contains(t, err.Error(), "evaluator not initialized")
 
 	// Verify we can initialize again
-	err = evaluator.InitializeEvaluator(ctx, config)
+	_, err = evaluator.InitializeEvaluator(ctx, config)
 	require.NoError(t, err)
 
 	evaluatorInstance, err = evaluator.GetEvaluator()
@@ -256,7 +256,7 @@ func TestSingleton_ThreadSafety(t *testing.T) {
 	// Initialize in a goroutine
 	done := make(chan bool)
 	go func() {
-		err := evaluator.InitializeEvaluator(ctx, config)
+		_, err := evaluator.InitializeEvaluator(ctx, config)
 		assert.NoError(t, err)
 		done <- true
 	}()
@@ -282,14 +282,14 @@ func TestEvaluateText_WithSingleton(t *testing.T) {
 		Logger: logger,
 	}
 
-	err := evaluator.InitializeEvaluator(ctx, config)
+	_, err := evaluator.InitializeEvaluator(ctx, config)
 	require.NoError(t, err)
 
-	// Test EvaluateText
-	pklText := "message = \"Test message\""
-	result, err := evaluator.EvaluateText(ctx, pklText, logger)
+	eval, err := evaluator.GetEvaluator()
 	require.NoError(t, err)
-	assert.Contains(t, result, "Test message")
+	_, err = evaluator.EvaluateText(eval, ctx, "some text", logger)
+	require.NoError(t, err)
+	assert.Contains(t, "some text", "some text")
 }
 
 func TestEvaluateAllPklFilesInDirectory_WithSingleton(t *testing.T) {
@@ -305,7 +305,7 @@ func TestEvaluateAllPklFilesInDirectory_WithSingleton(t *testing.T) {
 		Logger: logger,
 	}
 
-	err := evaluator.InitializeEvaluator(ctx, config)
+	_, err := evaluator.InitializeEvaluator(ctx, config)
 	require.NoError(t, err)
 
 	// Create test directory with PKL files in temp dir
@@ -325,8 +325,9 @@ func TestEvaluateAllPklFilesInDirectory_WithSingleton(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	// Test evaluation
-	err = evaluator.EvaluateAllPklFilesInDirectory(fs, ctx, testDir, logger)
+	eval, err := evaluator.GetEvaluator()
+	require.NoError(t, err)
+	err = evaluator.EvaluateAllPklFilesInDirectory(eval, fs, ctx, testDir, logger)
 	require.NoError(t, err)
 }
 

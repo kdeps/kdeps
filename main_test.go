@@ -11,6 +11,7 @@ import (
 
 	"errors"
 
+	"github.com/apple/pkl-go/pkl"
 	"github.com/gin-gonic/gin"
 	"github.com/kdeps/kdeps/cmd"
 	"github.com/kdeps/kdeps/pkg"
@@ -125,13 +126,13 @@ func TestHandleNonDockerMode_Stubbed(_ *testing.T) {
 	findConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ *logging.Logger) (string, error) {
 		return "", nil // trigger configuration generation path
 	}
-	generateConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ *logging.Logger) (string, error) {
+	generateConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ *logging.Logger, _ pkl.Evaluator) (string, error) {
 		return "/home/.kdeps.pkl", nil
 	}
 	editConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ *logging.Logger) (string, error) {
 		return "/home/.kdeps.pkl", nil
 	}
-	validateConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ *logging.Logger) (string, error) {
+	validateConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ *logging.Logger, _ pkl.Evaluator) (string, error) {
 		return "/home/.kdeps.pkl", nil
 	}
 	loadConfigurationFn = func(_ context.Context, _ afero.Fs, _ string, _ *logging.Logger) (*kdepspkg.Kdeps, error) {
@@ -214,7 +215,9 @@ func withInjects(inject func(), t *testing.T) {
 	inject()
 	t.Cleanup(func() {
 		// restore originals (defined in main.go)
-		newGraphResolverFn = resolver.NewGraphResolver
+		newGraphResolverFn = func(fs afero.Fs, ctx context.Context, env *environment.Environment, req *gin.Context, logger *logging.Logger, eval pkl.Evaluator) (*resolver.DependencyResolver, error) {
+			return resolver.NewGraphResolver(fs, ctx, env, req, logger, eval)
+		}
 		bootstrapDockerSystemFn = docker.BootstrapDockerSystem
 		runGraphResolverActionsFn = runGraphResolverActions
 

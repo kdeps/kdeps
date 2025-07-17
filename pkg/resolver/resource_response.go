@@ -301,11 +301,14 @@ func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverre
 	sections := dr.buildResponseSections(dr.RequestID, apiResponseBlock)
 
 	// Create a wrapper function that matches the expected signature
-	evalFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
-		return evaluator.EvalPkl(fs, ctx, tmpFile, headerSection, nil, logger)
+	evalFunc := func(evaluatorObj pkl.Evaluator, fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
+		return evaluator.EvalPkl(evaluatorObj, fs, ctx, tmpFile, headerSection, nil, logger)
 	}
 
-	if err := evaluator.CreateAndProcessPklFile(dr.Fs, dr.Context, sections, dr.ResponsePklFile, "APIServerResponse.pkl", dr.Logger, evalFunc, false); err != nil {
+	// Use the evaluator directly
+	pklEvaluator := dr.Evaluator
+
+	if err := evaluator.CreateAndProcessPklFile(pklEvaluator, dr.Fs, dr.Context, sections, dr.ResponsePklFile, "APIServerResponse.pkl", dr.Logger, evalFunc, false); err != nil {
 		return fmt.Errorf("create/process PKL file: %w", err)
 	}
 

@@ -14,9 +14,8 @@ import (
 	"github.com/spf13/afero"
 )
 
-// EvalPkl evaluates the resource file at resourcePath using the singleton PKL evaluator.
-// If the file content is a quoted PKL code string like "new <Dynamic,Listing,Mapping,etc..> {...}", it removes the quotes and writes it to a temporary file for evaluation.
-func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSection string, opts func(options *pkl.EvaluatorOptions), logger *logging.Logger) (string, error) {
+// EvalPkl evaluates the resource file at resourcePath using the provided PKL evaluator.
+func EvalPkl(evaluator pkl.Evaluator, fs afero.Fs, ctx context.Context, resourcePath string, headerSection string, opts func(options *pkl.EvaluatorOptions), logger *logging.Logger) (string, error) {
 	// Validate that the file has a .pkl extension
 	if filepath.Ext(resourcePath) != ".pkl" {
 		errMsg := fmt.Sprintf("file '%s' must have a .pkl extension", resourcePath)
@@ -24,11 +23,9 @@ func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSectio
 		return "", fmt.Errorf("%s", errMsg)
 	}
 
-	// Get the singleton evaluator
-	evaluator, err := GetEvaluator()
-	if err != nil {
-		logger.Error("failed to get PKL evaluator", "resourcePath", resourcePath, "error", err)
-		return "", fmt.Errorf("error getting evaluator for %s: %w", resourcePath, err)
+	// Check if evaluator is provided
+	if evaluator == nil {
+		return "", fmt.Errorf("evaluator is required but was nil")
 	}
 
 	// Create a ModuleSource using UriSource for paths with a protocol, FileSource for relative paths
@@ -66,13 +63,14 @@ func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSectio
 }
 
 func CreateAndProcessPklFile(
+	evaluator pkl.Evaluator,
 	fs afero.Fs,
 	ctx context.Context,
 	sections []string,
 	finalFileName string,
 	pklTemplate string,
 	logger *logging.Logger,
-	processFunc func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error),
+	processFunc func(evaluator pkl.Evaluator, fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error),
 	isExtension bool, // New parameter to control amends vs extends
 ) error {
 	// Create a temporary directory
@@ -115,7 +113,7 @@ func CreateAndProcessPklFile(
 	}
 
 	// Process the temporary file using the provided function
-	processedContent, err := processFunc(fs, ctx, tmpFile.Name(), relationshipSection, logger)
+	processedContent, err := processFunc(evaluator, fs, ctx, tmpFile.Name(), relationshipSection, logger)
 	if err != nil {
 		logger.Error("failed to process temporary file", "path", tmpFile.Name(), "error", err)
 		return fmt.Errorf("failed to process temporary file: %w", err)
@@ -132,16 +130,9 @@ func CreateAndProcessPklFile(
 }
 
 // EvaluateAllPklFilesInDirectory evaluates all PKL files in the given directory to test for any problems.
-// This is useful during packaging to ensure all PKL files are valid and can be evaluated without errors.
-func EvaluateAllPklFilesInDirectory(fs afero.Fs, ctx context.Context, dir string, logger *logging.Logger) error {
-	// Get the singleton evaluator
-	evaluator, err := GetEvaluator()
-	if err != nil {
-		return fmt.Errorf("PKL evaluator not available: %w", err)
-	}
-
+func EvaluateAllPklFilesInDirectory(evaluator pkl.Evaluator, fs afero.Fs, ctx context.Context, dir string, logger *logging.Logger) error {
 	// Walk through the directory and find all PKL files
-	err = afero.Walk(fs, dir, func(path string, info os.FileInfo, err error) error {
+	err := afero.Walk(fs, dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -174,14 +165,8 @@ func EvaluateAllPklFilesInDirectory(fs afero.Fs, ctx context.Context, dir string
 	return nil
 }
 
-// EvaluateText evaluates PKL text directly using the singleton evaluator
-func EvaluateText(ctx context.Context, pklText string, logger *logging.Logger) (string, error) {
-	// Get the singleton evaluator
-	evaluator, err := GetEvaluator()
-	if err != nil {
-		return "", fmt.Errorf("PKL evaluator not available: %w", err)
-	}
-
+// EvaluateText evaluates PKL text directly using the provided evaluator
+func EvaluateText(evaluator pkl.Evaluator, ctx context.Context, pklText string, logger *logging.Logger) (string, error) {
 	// Create a text source
 	moduleSource := pkl.TextSource(pklText)
 

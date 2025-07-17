@@ -23,15 +23,14 @@ func TestCreateAndProcessPklFile_AmendsInPkg(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
-	processFunc := func(_ afero.Fs, _ context.Context, _ string, headerSection string, _ *logging.Logger) (string, error) {
-		// Simply return the header section to verify it flows through
-		return headerSection + "\nprocessed", nil
+	processFunc := func(evaluator pkl.Evaluator, _ afero.Fs, _ context.Context, _ string, headerSection string, _ *logging.Logger) (string, error) {
+		return "processed-" + headerSection, nil
 	}
 
 	final := "output_amends.pkl"
 	sections := []string{"section1", "section2"}
 
-	err := evaluator.CreateAndProcessPklFile(fs, context.Background(), sections, final, "template.pkl", logger, processFunc, false)
+	err := evaluator.CreateAndProcessPklFile(nil, fs, context.Background(), sections, final, "template.pkl", logger, processFunc, false)
 	require.NoError(t, err)
 
 	// Verify final file exists and contains expected text
@@ -50,12 +49,12 @@ func TestCreateAndProcessPklFile_ExtendsInPkg(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
-	processFunc := func(_ afero.Fs, _ context.Context, _ string, headerSection string, _ *logging.Logger) (string, error) {
+	processFunc := func(evaluator pkl.Evaluator, _ afero.Fs, _ context.Context, _ string, headerSection string, _ *logging.Logger) (string, error) {
 		return "result-" + headerSection, nil
 	}
 
 	final := "output_extends.pkl"
-	err := evaluator.CreateAndProcessPklFile(fs, context.Background(), nil, final, "template.pkl", logger, processFunc, true)
+	err := evaluator.CreateAndProcessPklFile(nil, fs, context.Background(), nil, final, "template.pkl", logger, processFunc, true)
 	require.NoError(t, err)
 
 	content, _ := afero.ReadFile(fs, final)
@@ -71,11 +70,11 @@ func TestCreateAndProcessPklFile_ProcessErrorInPkg(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
-	processFunc := func(_ afero.Fs, _ context.Context, _ string, _ string, _ *logging.Logger) (string, error) {
+	processFunc := func(evaluator pkl.Evaluator, _ afero.Fs, _ context.Context, _ string, _ string, _ *logging.Logger) (string, error) {
 		return "", assert.AnError
 	}
 
-	err := evaluator.CreateAndProcessPklFile(fs, context.Background(), nil, "file.pkl", "template.pkl", logger, processFunc, false)
+	err := evaluator.CreateAndProcessPklFile(nil, fs, context.Background(), nil, "file.pkl", "template.pkl", logger, processFunc, false)
 	require.Error(t, err)
 }
 
@@ -86,7 +85,7 @@ func TestEvalPkl_InvalidExtension(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 	// Should error when file does not have .pkl extension
-	_, err := evaluator.EvalPkl(fs, context.Background(), "file.txt", "header", nil, logger)
+	_, err := evaluator.EvalPkl(nil, fs, context.Background(), "file.txt", "header", nil, logger)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), ".pkl extension")
 }
@@ -103,7 +102,7 @@ func TestCreateAndProcessPklFile_Basic(t *testing.T) {
 	finalFile := filepath.Join(t.TempDir(), "out.pkl")
 
 	// simple process func echoes header + sections concatenated
-	process := func(_ afero.Fs, _ context.Context, tmpFile string, _ string, _ *logging.Logger) (string, error) {
+	process := func(evaluator pkl.Evaluator, _ afero.Fs, _ context.Context, tmpFile string, _ string, _ *logging.Logger) (string, error) {
 		data, err := afero.ReadFile(fs, tmpFile)
 		if err != nil {
 			return "", err
@@ -111,7 +110,7 @@ func TestCreateAndProcessPklFile_Basic(t *testing.T) {
 		return string(data), nil
 	}
 
-	err := evaluator.CreateAndProcessPklFile(fs, ctx, sections, finalFile, "Workflow.pkl", logger, process, false)
+	err := evaluator.CreateAndProcessPklFile(nil, fs, ctx, sections, finalFile, "Workflow.pkl", logger, process, false)
 	require.NoError(t, err)
 
 	content, err := afero.ReadFile(fs, finalFile)
@@ -132,12 +131,12 @@ func TestCreateAndProcessPklFile_Simple(t *testing.T) {
 	sections := []string{"sec1", "sec2"}
 	// processFunc writes content combining headerSection and sections
 	var receivedHeader string
-	processFunc := func(_ afero.Fs, _ context.Context, _ string, headerSection string, _ *logging.Logger) (string, error) {
+	processFunc := func(evaluator pkl.Evaluator, _ afero.Fs, _ context.Context, _ string, headerSection string, _ *logging.Logger) (string, error) {
 		receivedHeader = headerSection
 		return headerSection + "-processed", nil
 	}
 
-	err := evaluator.CreateAndProcessPklFile(fs, ctx, sections, finalPath, "Template.pkl", logger, processFunc, false)
+	err := evaluator.CreateAndProcessPklFile(nil, fs, ctx, sections, finalPath, "Template.pkl", logger, processFunc, false)
 	require.NoError(t, err)
 	// Verify output file exists with expected content
 	data, err := afero.ReadFile(fs, finalPath)
@@ -154,11 +153,11 @@ func TestCreateAndProcessPklFile_Extends(t *testing.T) {
 	ctx := context.Background()
 	finalPath := "result_ext.pkl"
 	sections := []string{"sec1", "sec2"}
-	processFunc := func(_ afero.Fs, _ context.Context, _ string, headerSection string, _ *logging.Logger) (string, error) {
+	processFunc := func(evaluator pkl.Evaluator, _ afero.Fs, _ context.Context, _ string, headerSection string, _ *logging.Logger) (string, error) {
 		return headerSection + "-processed", nil
 	}
 
-	err := evaluator.CreateAndProcessPklFile(fs, ctx, sections, finalPath, "Template.pkl", logger, processFunc, true)
+	err := evaluator.CreateAndProcessPklFile(nil, fs, ctx, sections, finalPath, "Template.pkl", logger, processFunc, true)
 	require.NoError(t, err)
 
 	content, err := afero.ReadFile(fs, finalPath)
@@ -172,7 +171,7 @@ func TestEvalPkl_InvalidExtensionAlt(t *testing.T) {
 
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
-	_, err := evaluator.EvalPkl(fs, context.Background(), "file.txt", "header", nil, logger)
+	_, err := evaluator.EvalPkl(nil, fs, context.Background(), "file.txt", "header", nil, logger)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), ".pkl extension")
 }
@@ -186,11 +185,11 @@ func TestCreateAndProcessPklFile_Minimal(t *testing.T) {
 	ctx := context.Background()
 	finalPath := "minimal.pkl"
 	sections := []string{"test"}
-	processFunc := func(_ afero.Fs, _ context.Context, _ string, _ string, _ *logging.Logger) (string, error) {
+	processFunc := func(evaluator pkl.Evaluator, _ afero.Fs, _ context.Context, _ string, _ string, _ *logging.Logger) (string, error) {
 		return "processed", nil
 	}
 
-	err := evaluator.CreateAndProcessPklFile(fs, ctx, sections, finalPath, "Template.pkl", logger, processFunc, false)
+	err := evaluator.CreateAndProcessPklFile(nil, fs, ctx, sections, finalPath, "Template.pkl", logger, processFunc, false)
 	require.NoError(t, err)
 
 	content, err := afero.ReadFile(fs, finalPath)
@@ -198,11 +197,11 @@ func TestCreateAndProcessPklFile_Minimal(t *testing.T) {
 	require.Equal(t, "processed", string(content))
 }
 
-func stubProcessSuccess(_ afero.Fs, _ context.Context, _ string, _ string, _ *logging.Logger) (string, error) {
+func stubProcessSuccess(evaluator pkl.Evaluator, _ afero.Fs, _ context.Context, _ string, _ string, _ *logging.Logger) (string, error) {
 	return "success", nil
 }
 
-func stubProcessFail(_ afero.Fs, _ context.Context, _ string, _ string, _ *logging.Logger) (string, error) {
+func stubProcessFail(evaluator pkl.Evaluator, _ afero.Fs, _ context.Context, _ string, _ string, _ *logging.Logger) (string, error) {
 	return "", errors.New("process failed")
 }
 
@@ -215,7 +214,7 @@ func TestCreateAndProcessPklFile_ProcessFuncError(t *testing.T) {
 	ctx := context.Background()
 	finalPath := "error.pkl"
 
-	err := evaluator.CreateAndProcessPklFile(fs, ctx, nil, finalPath, "Template.pkl", logger, stubProcessFail, false)
+	err := evaluator.CreateAndProcessPklFile(nil, fs, ctx, nil, finalPath, "Template.pkl", logger, stubProcessFail, false)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "process failed")
 }
@@ -229,7 +228,7 @@ func TestCreateAndProcessPklFile_WritesFile(t *testing.T) {
 	ctx := context.Background()
 	finalPath := "written.pkl"
 
-	err := evaluator.CreateAndProcessPklFile(fs, ctx, nil, finalPath, "Template.pkl", logger, stubProcessSuccess, false)
+	err := evaluator.CreateAndProcessPklFile(nil, fs, ctx, nil, finalPath, "Template.pkl", logger, stubProcessSuccess, false)
 	require.NoError(t, err)
 
 	content, err := afero.ReadFile(fs, finalPath)
@@ -247,7 +246,7 @@ func TestCreateAndProcessPklFile(t *testing.T) {
 	finalPath := "test.pkl"
 	sections := []string{"section1", "section2"}
 
-	processFunc := func(f afero.Fs, _ context.Context, tmpFile string, _ string, _ *logging.Logger) (string, error) {
+	processFunc := func(evaluator pkl.Evaluator, f afero.Fs, _ context.Context, tmpFile string, _ string, _ *logging.Logger) (string, error) {
 		data, err := afero.ReadFile(f, tmpFile)
 		if err != nil {
 			return "", err
@@ -255,7 +254,7 @@ func TestCreateAndProcessPklFile(t *testing.T) {
 		return string(data), nil
 	}
 
-	err := evaluator.CreateAndProcessPklFile(fs, ctx, sections, finalPath, "Template.pkl", logger, processFunc, false)
+	err := evaluator.CreateAndProcessPklFile(nil, fs, ctx, sections, finalPath, "Template.pkl", logger, processFunc, false)
 	require.NoError(t, err)
 
 	content, err := afero.ReadFile(fs, finalPath)
@@ -274,11 +273,11 @@ func TestCreateAndProcessPklFileNew(t *testing.T) {
 	finalPath := "new.pkl"
 	sections := []string{"new section"}
 
-	processFunc := func(_ afero.Fs, _ context.Context, _ string, _ string, _ *logging.Logger) (string, error) {
+	processFunc := func(evaluator pkl.Evaluator, _ afero.Fs, _ context.Context, _ string, _ string, _ *logging.Logger) (string, error) {
 		return "new processed", nil
 	}
 
-	err := evaluator.CreateAndProcessPklFile(fs, ctx, sections, finalPath, "Template.pkl", logger, processFunc, false)
+	err := evaluator.CreateAndProcessPklFile(nil, fs, ctx, sections, finalPath, "Template.pkl", logger, processFunc, false)
 	require.NoError(t, err)
 
 	content, err := afero.ReadFile(fs, finalPath)
@@ -296,11 +295,11 @@ func TestCreateAndProcessPklFileWithExtensionNew(t *testing.T) {
 	finalPath := "extension.pkl"
 	sections := []string{"ext section"}
 
-	processFunc := func(_ afero.Fs, _ context.Context, _ string, _ string, _ *logging.Logger) (string, error) {
+	processFunc := func(evaluator pkl.Evaluator, _ afero.Fs, _ context.Context, _ string, _ string, _ *logging.Logger) (string, error) {
 		return "extension processed", nil
 	}
 
-	err := evaluator.CreateAndProcessPklFile(fs, ctx, sections, finalPath, "Template.pkl", logger, processFunc, true)
+	err := evaluator.CreateAndProcessPklFile(nil, fs, ctx, sections, finalPath, "Template.pkl", logger, processFunc, true)
 	require.NoError(t, err)
 
 	content, err := afero.ReadFile(fs, finalPath)
@@ -318,15 +317,15 @@ func TestEvalPkl(t *testing.T) {
 	config := &evaluator.EvaluatorConfig{
 		Logger: logger,
 	}
-	err := evaluator.InitializeEvaluator(ctx, config)
+	evaluatorManager, err := evaluator.InitializeEvaluator(ctx, config)
 	require.NoError(t, err)
 
 	// Test using TextSource instead of file-based evaluation
-	evaluator, err := evaluator.GetEvaluator()
+	eval, err := evaluatorManager.GetEvaluator()
 	require.NoError(t, err)
 
 	source := pkl.TextSource("value = 42")
-	result, err := evaluator.EvaluateOutputText(ctx, source)
+	result, err := eval.EvaluateOutputText(ctx, source)
 	require.NoError(t, err)
 	require.Contains(t, result, "42")
 }
@@ -339,24 +338,16 @@ func TestEvalPkl_WithSingletonEvaluator(t *testing.T) {
 	logger := logging.NewTestLogger()
 	fs := afero.NewOsFs()
 
-	// Initialize evaluator
-	config := &evaluator.EvaluatorConfig{
-		Logger: logger,
-	}
-
-	err := evaluator.InitializeEvaluator(ctx, config)
-	require.NoError(t, err)
-
 	// Create a test PKL file in a real temp dir
 	tempDir := t.TempDir()
 	testFile := filepath.Join(tempDir, "test.pkl")
 	testContent := "value = 123"
-	err = afero.WriteFile(fs, testFile, []byte(testContent), 0o644)
+	err := afero.WriteFile(fs, testFile, []byte(testContent), 0o644)
 	require.NoError(t, err)
 
 	// Test EvalPkl with singleton
 	headerSection := "amends \"package://test\""
-	result, err := evaluator.EvalPkl(fs, ctx, testFile, headerSection, nil, logger)
+	result, err := evaluator.EvalPkl(nil, fs, ctx, testFile, headerSection, nil, logger)
 	require.NoError(t, err)
 
 	// Verify result contains both header and evaluated content
@@ -374,7 +365,7 @@ func TestEvaluateAllPklFilesInDirectory(t *testing.T) {
 	config := &evaluator.EvaluatorConfig{
 		Logger: logger,
 	}
-	err := evaluator.InitializeEvaluator(ctx, config)
+	evaluatorManager, err := evaluator.InitializeEvaluator(ctx, config)
 	require.NoError(t, err)
 
 	fs := afero.NewOsFs()
@@ -394,7 +385,9 @@ func TestEvaluateAllPklFilesInDirectory(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	err = evaluator.EvaluateAllPklFilesInDirectory(fs, ctx, testDir, logger)
+	eval, err := evaluatorManager.GetEvaluator()
+	require.NoError(t, err)
+	err = evaluator.EvaluateAllPklFilesInDirectory(eval, fs, ctx, testDir, logger)
 	require.NoError(t, err)
 }
 
@@ -408,7 +401,7 @@ func TestEvaluateAllPklFilesInDirectory_InvalidPkl(t *testing.T) {
 	config := &evaluator.EvaluatorConfig{
 		Logger: logger,
 	}
-	err := evaluator.InitializeEvaluator(ctx, config)
+	evaluatorManager, err := evaluator.InitializeEvaluator(ctx, config)
 	require.NoError(t, err)
 
 	fs := afero.NewMemMapFs()
@@ -421,7 +414,9 @@ func TestEvaluateAllPklFilesInDirectory_InvalidPkl(t *testing.T) {
 	err = afero.WriteFile(fs, invalidFile, []byte("invalid pkl content"), 0o644)
 	require.NoError(t, err)
 
-	err = evaluator.EvaluateAllPklFilesInDirectory(fs, ctx, testDir, logger)
+	eval, err := evaluatorManager.GetEvaluator()
+	require.NoError(t, err)
+	err = evaluator.EvaluateAllPklFilesInDirectory(eval, fs, ctx, testDir, logger)
 	require.Error(t, err)
 }
 
@@ -435,7 +430,7 @@ func TestEvaluateAllPklFilesInDirectory_NoPklFiles(t *testing.T) {
 	config := &evaluator.EvaluatorConfig{
 		Logger: logger,
 	}
-	err := evaluator.InitializeEvaluator(ctx, config)
+	evaluatorManager, err := evaluator.InitializeEvaluator(ctx, config)
 	require.NoError(t, err)
 
 	fs := afero.NewMemMapFs()
@@ -455,6 +450,8 @@ func TestEvaluateAllPklFilesInDirectory_NoPklFiles(t *testing.T) {
 	}
 
 	// Should succeed (no PKL files to evaluate)
-	err = evaluator.EvaluateAllPklFilesInDirectory(fs, ctx, testDir, logger)
+	eval, err := evaluatorManager.GetEvaluator()
+	require.NoError(t, err)
+	err = evaluator.EvaluateAllPklFilesInDirectory(eval, fs, ctx, testDir, logger)
 	require.NoError(t, err)
 }

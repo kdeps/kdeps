@@ -511,7 +511,7 @@ func itWillInstallTheModels(arg1 string) error {
 }
 
 func kdepsWillCheckThePresenceOfTheFile(_ string) error {
-	dr, err := resolver.NewGraphResolver(testFs, ctx, environ, nil, logger)
+	dr, err := resolver.NewGraphResolver(testFs, ctx, environ, nil, logger, nil)
 	if err != nil {
 		return err
 	}

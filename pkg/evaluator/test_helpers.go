@@ -20,7 +20,7 @@ func TestSetup(t *testing.T) {
 		Logger: logger,
 	}
 
-	err := InitializeEvaluator(ctx, config)
+	_, err := InitializeEvaluator(ctx, config)
 	if err != nil {
 		// Skip test if PKL binary is not available or initialization fails
 		if strings.Contains(err.Error(), "exit status 1") ||

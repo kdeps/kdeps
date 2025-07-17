@@ -40,7 +40,7 @@ func FindConfiguration(_ context.Context, fs afero.Fs, env *environment.Environm
 	return "", nil
 }
 
-func GenerateConfiguration(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+func GenerateConfiguration(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger, eval pkl.Evaluator) (string, error) {
 	logger.Debug("generating configuration...")
 
 	// Set configFile path in Home directory
@@ -52,14 +52,14 @@ func GenerateConfiguration(ctx context.Context, fs afero.Fs, env *environment.En
 		url := schema.ImportPath(ctx, "Kdeps.pkl")
 		headerSection := fmt.Sprintf("amends \"%s\"\n", url)
 
-		// Use the singleton evaluator directly to avoid writing back to package URL
-		eval, err := evaluator.GetEvaluator()
-		if err != nil {
-			return "", fmt.Errorf("failed to get evaluator: %w", err)
-		}
-
+		// Use the provided evaluator directly
 		// Create a ModuleSource using UriSource for the package URL
 		moduleSource := pkl.UriSource(url)
+
+		// Check if evaluator is provided
+		if eval == nil {
+			return "", fmt.Errorf("evaluator is required but was nil")
+		}
 
 		// Evaluate the Pkl file
 		result, err := eval.EvaluateOutputText(ctx, moduleSource)
@@ -115,12 +115,12 @@ func EditConfiguration(ctx context.Context, fs afero.Fs, env *environment.Enviro
 	return configFile, nil
 }
 
-func ValidateConfiguration(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+func ValidateConfiguration(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger, eval pkl.Evaluator) (string, error) {
 	logger.Debug("validating configuration...")
 
 	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
 
-	if _, err := evaluator.EvalPkl(fs, ctx, configFile, "", nil, logger); err != nil {
+	if _, err := evaluator.EvalPkl(eval, fs, ctx, configFile, "", nil, logger); err != nil {
 		return configFile, fmt.Errorf("configuration validation failed: %w", err)
 	}
 

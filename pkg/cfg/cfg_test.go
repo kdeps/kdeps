@@ -387,7 +387,7 @@ func TestGenerateConfigurationUnit(t *testing.T) {
 
 		fs.MkdirAll(home, 0o755)
 
-		result, err := cfg.GenerateConfiguration(ctx, fs, env, logger)
+		result, err := cfg.GenerateConfiguration(ctx, fs, env, logger, nil)
 		// This might fail due to evaluator.EvalPkl, but we test the path
 		if err != nil {
 			assert.Contains(t, err.Error(), "failed to evaluate .pkl file")
@@ -408,7 +408,7 @@ func TestGenerateConfigurationUnit(t *testing.T) {
 		fs.MkdirAll(home, 0o755)
 		afero.WriteFile(fs, filepath.Join(home, ".kdeps.pkl"), []byte("existing"), 0o644)
 
-		result, err := cfg.GenerateConfiguration(ctx, fs, env, logger)
+		result, err := cfg.GenerateConfiguration(ctx, fs, env, logger, nil)
 		require.NoError(t, err)
 		assert.Equal(t, filepath.Join(home, ".kdeps.pkl"), result)
 	})
@@ -467,7 +467,7 @@ func TestValidateConfigurationUnit(t *testing.T) {
 		fs.MkdirAll(home, 0o755)
 		afero.WriteFile(fs, filepath.Join(home, ".kdeps.pkl"), []byte("invalid pkl"), 0o644)
 
-		result, err := cfg.ValidateConfiguration(ctx, fs, env, logger)
+		result, err := cfg.ValidateConfiguration(ctx, fs, env, logger, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "configuration validation failed")
 		assert.Equal(t, filepath.Join(home, ".kdeps.pkl"), result)
@@ -584,7 +584,7 @@ func TestGenerateConfigurationAdditional(t *testing.T) {
 			NonInteractive: "1",
 		}
 
-		result, err := cfg.GenerateConfiguration(ctx, fs, env, logger)
+		result, err := cfg.GenerateConfiguration(ctx, fs, env, logger, nil)
 		// This will fail when trying to write the file
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to write to")
@@ -645,7 +645,7 @@ DockerGPU = "cpu"
 		configPath := filepath.Join(homeDir, ".kdeps.pkl")
 		afero.WriteFile(fs, configPath, []byte(validConfig), 0o644)
 
-		result, err := cfg.ValidateConfiguration(ctx, fs, env, logger)
+		result, err := cfg.ValidateConfiguration(ctx, fs, env, logger, nil)
 		// This might still fail due to evaluator.EvalPkl dependencies, but we test the path
 		if err != nil {
 			assert.Contains(t, err.Error(), "configuration validation failed")

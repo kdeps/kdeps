@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/apple/pkl-go/pkl"
-	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/schema"
 	pklData "github.com/kdeps/schema/gen/data"
 	pklExec "github.com/kdeps/schema/gen/exec"
@@ -172,12 +171,8 @@ func (dr *DependencyResolver) LoadResource(ctx context.Context, resourceFile str
 		os.Setenv("KDEPS_CURRENT_VERSION", dr.Workflow.GetVersion())
 	}
 
-	// Get the singleton evaluator
-	pklEvaluator, err := evaluator.GetEvaluator()
-	if err != nil {
-		dr.Logger.Error("error getting evaluator", "error", err)
-		return nil, fmt.Errorf("error getting evaluator: %w", err)
-	}
+	// Use the evaluator directly
+	pklEvaluator := dr.Evaluator
 
 	// Load the resource based on the resource type
 	return dr.loadResourceByType(ctx, pklEvaluator, resourceFile, resourceType, "")
@@ -203,12 +198,8 @@ func (dr *DependencyResolver) LoadResourceWithRequestContext(ctx context.Context
 		}
 	}
 
-	// Get the singleton evaluator
-	pklEvaluator, err := evaluator.GetEvaluator()
-	if err != nil {
-		dr.Logger.Error("error getting evaluator", "error", err)
-		return nil, fmt.Errorf("error getting evaluator: %w", err)
-	}
+	// Use the evaluator directly
+	pklEvaluator := dr.Evaluator
 
 	// Use the standard evaluator with pklres reader, which should handle template expressions
 	return dr.loadResourceByType(ctx, pklEvaluator, resourceFile, resourceType, " with request context")

@@ -914,7 +914,7 @@ func TestNewGraphResolver(t *testing.T) {
 	err = afero.WriteFile(fs, execFile, []byte(execContent), 0o644)
 	require.NoError(t, err)
 
-	dr, err := resolverpkg.NewGraphResolver(fs, ctx, env, nil, logger)
+	dr, err := resolverpkg.NewGraphResolver(fs, ctx, env, nil, logger, nil)
 	// Handle PKL-related errors gracefully (when PKL binary is not available)
 	if err != nil {
 		msg := err.Error()

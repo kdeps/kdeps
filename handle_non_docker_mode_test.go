@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	schemaK "github.com/kdeps/schema/gen/kdeps"
@@ -42,13 +43,13 @@ func TestHandleNonDockerMode_GenerateFlow(_ *testing.T) {
 	findConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ *logging.Logger) (string, error) {
 		return "/tmp/test-config.pkl", nil
 	}
-	generateConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ *logging.Logger) (string, error) {
+	generateConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger, eval pkl.Evaluator) (string, error) {
 		return "/tmp/test-config.pkl", nil
 	}
-	editConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ *logging.Logger) (string, error) {
+	editConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 		return "/tmp/test-config.pkl", nil
 	}
-	validateConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ *logging.Logger) (string, error) {
+	validateConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger, eval pkl.Evaluator) (string, error) {
 		return "/tmp/test-config.pkl", nil
 	}
 	loadConfigurationFn = func(_ context.Context, _ afero.Fs, _ string, _ *logging.Logger) (*schemaK.Kdeps, error) {
@@ -62,7 +63,7 @@ func TestHandleNonDockerMode_GenerateFlow(_ *testing.T) {
 	}
 
 	// Call the function; expecting graceful completion without panic.
-	handleNonDockerMode(ctx, fs, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger, nil)
 }
 
 // TestHandleNonDockerMode_ExistingConfig exercises the flow when a configuration already exists.
@@ -91,10 +92,10 @@ func TestHandleNonDockerMode_ExistingConfig(_ *testing.T) {
 	findConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, logger *logging.Logger) (string, error) {
 		return "", nil
 	}
-	generateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	generateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger, _ pkl.Evaluator) (string, error) {
 		return "/test/existing.pkl", nil
 	}
-	validateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	validateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger, _ pkl.Evaluator) (string, error) {
 		return "/existing/config.yml", nil
 	}
 	loadConfigurationFn = func(_ context.Context, _ afero.Fs, _ string, logger *logging.Logger) (*schemaK.Kdeps, error) {
@@ -108,7 +109,7 @@ func TestHandleNonDockerMode_ExistingConfig(_ *testing.T) {
 	}
 
 	// Execute
-	handleNonDockerMode(ctx, fs, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger, nil)
 }
 
 func TestSetupEnvironmentSuccess(t *testing.T) {

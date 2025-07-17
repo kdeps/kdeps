@@ -114,6 +114,9 @@ type DependencyResolver struct {
 	GetCurrentTimestampFn2    func(string, string) (pkl.Duration, error)
 	WaitForTimestampChangeFn2 func(string, pkl.Duration, time.Duration, string) error
 	HandleAPIErrorResponseFn  func(int, string, bool) (bool, error)
+
+	// PKL evaluator
+	Evaluator pkl.Evaluator
 }
 
 type ResourceNodeEntry struct {
@@ -121,7 +124,7 @@ type ResourceNodeEntry struct {
 	File     string `pkl:"file"`
 }
 
-func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment, req *gin.Context, logger *logging.Logger) (*DependencyResolver, error) {
+func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment, req *gin.Context, logger *logging.Logger, eval pkl.Evaluator) (*DependencyResolver, error) {
 	var agentDir, graphID, actionDir string
 
 	contextKeys := map[*string]ktx.ContextKey{
@@ -266,22 +269,10 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		return nil, fmt.Errorf("failed to update pklres reader context: %w", err)
 	}
 
-	// Always reinitialize the evaluator with graphID-specific resource readers
-	// This ensures the PKL evaluator uses the same graphID-scoped databases as the resolver
-	evaluatorConfig := &evaluator.EvaluatorConfig{
-		ResourceReaders: []pkl.ResourceReader{
-			memoryReader,
-			sessionReader,
-			toolReader,
-			itemReader,
-			agentReader,
-			pklresReader, // This pklres reader has the correct graphID
-		},
-		Logger: logger,
-	}
-
-	if err := evaluator.InitializeEvaluator(ctx, evaluatorConfig); err != nil {
-		return nil, fmt.Errorf("failed to initialize PKL evaluator: %w", err)
+	// Use the passed evaluator directly
+	// The evaluator should already be initialized with the correct resource readers from main
+	if eval == nil {
+		return nil, fmt.Errorf("evaluator is required but was nil")
 	}
 
 	dependencyResolver := &DependencyResolver{
@@ -317,7 +308,8 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		AgentReader:             agentReader,
 		PklresReader:            pklresReader,
 		PklresDBPath:            pklresReader.DBPath,
-		CurrentResourceActionID: "", // Initialize as empty, will be set during resource processing
+		CurrentResourceActionID: "",   // Initialize as empty, will be set during resource processing
+		Evaluator:               eval, // Store the PKL evaluator
 		DBs: []*sql.DB{
 			memoryReader.DB,
 			sessionReader.DB,
@@ -1161,7 +1153,7 @@ func (dr *DependencyResolver) storeInitialResourceState(actionID, resourceType s
 
 	// Create a basic PKL content structure for the resource
 	var pklContent strings.Builder
-	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@0.4.4#/%s.pkl\"\n\n", strings.Title(resourceType)))
+	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@0.4.5#/%s.pkl\"\n\n", strings.Title(resourceType)))
 	pklContent.WriteString("Resources {\n")
 	pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", actionID))
 

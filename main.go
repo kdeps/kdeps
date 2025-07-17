@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/apple/pkl-go/pkl"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/cmd"
 	"github.com/kdeps/kdeps/pkg/agent"
@@ -35,14 +36,15 @@ var (
 	localMode = "0"
 
 	// Function variables for dependency injection during tests.
-	newGraphResolverFn        = resolver.NewGraphResolver
-	bootstrapDockerSystemFn   = docker.BootstrapDockerSystem
-	runGraphResolverActionsFn = runGraphResolverActions
+	newGraphResolverFn        func(afero.Fs, context.Context, *environment.Environment, *gin.Context, *logging.Logger, pkl.Evaluator) (*resolver.DependencyResolver, error) = resolver.NewGraphResolver
+	bootstrapDockerSystemFn                                                                                                                                                 = docker.BootstrapDockerSystem
+	runGraphResolverActionsFn                                                                                                                                               = runGraphResolverActions
 
-	findConfigurationFn     = cfg.FindConfiguration
-	generateConfigurationFn = cfg.GenerateConfiguration
-	editConfigurationFn     = cfg.EditConfiguration
-	validateConfigurationFn = cfg.ValidateConfiguration
+	// Configuration functions with different signatures
+	findConfigurationFn     func(context.Context, afero.Fs, *environment.Environment, *logging.Logger) (string, error)
+	generateConfigurationFn func(context.Context, afero.Fs, *environment.Environment, *logging.Logger, pkl.Evaluator) (string, error)
+	editConfigurationFn     func(context.Context, afero.Fs, *environment.Environment, *logging.Logger) (string, error)
+	validateConfigurationFn func(context.Context, afero.Fs, *environment.Environment, *logging.Logger, pkl.Evaluator) (string, error)
 	loadConfigurationFn     = cfg.LoadConfiguration
 	getKdepsPathFn          = cfg.GetKdepsPath
 
@@ -125,9 +127,15 @@ func main() {
 		},
 		Logger: logger,
 	}
-	if err := evaluator.InitializeEvaluator(ctx, evaluatorConfig); err != nil {
+	evaluatorManager, err := evaluator.InitializeEvaluator(ctx, evaluatorConfig)
+	if err != nil {
 		logger.Fatalf("failed to initialize PKL evaluator: %v", err)
 	}
+	pklEvaluator, err := evaluatorManager.GetEvaluator()
+	if err != nil {
+		logger.Fatalf("failed to get PKL evaluator: %v", err)
+	}
+	_ = evaluatorManager // If not used directly, suppress unused warning
 
 	graphID := uuid.New().String()
 	actionDir := filepath.Join(os.TempDir(), "action")
@@ -143,15 +151,21 @@ func main() {
 	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, actionDir)
 	ctx = ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
 
+	// Initialize configuration function variables
+	findConfigurationFn = cfg.FindConfiguration
+	generateConfigurationFn = cfg.GenerateConfiguration
+	editConfigurationFn = cfg.EditConfiguration
+	validateConfigurationFn = cfg.ValidateConfiguration
+
 	if env.DockerMode == "1" {
-		dr, err := newGraphResolverFn(fs, ctx, env, nil, logger.With("requestID", graphID))
+		dr, err := newGraphResolverFn(fs, ctx, env, nil, logger.With("requestID", graphID), pklEvaluator)
 		if err != nil {
 			logger.Fatalf("failed to create graph resolver: %v", err)
 		}
 
 		handleDockerMode(ctx, dr, cancel)
 	} else {
-		handleNonDockerMode(ctx, fs, env, logger)
+		handleNonDockerMode(ctx, fs, env, logger, pklEvaluator)
 	}
 }
 
@@ -181,14 +195,14 @@ func handleDockerMode(ctx context.Context, dr *resolver.DependencyResolver, canc
 	cleanupFn(ctx, dr.Fs, dr.Environment, apiServerMode, dr.Logger)
 }
 
-func handleNonDockerMode(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) {
+func handleNonDockerMode(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger, pklEvaluator pkl.Evaluator) {
 	cfgFile, err := findConfigurationFn(ctx, fs, env, logger)
 	if err != nil {
 		logger.Error("error occurred finding configuration")
 	}
 
 	if cfgFile == "" {
-		cfgFile, err = generateConfigurationFn(ctx, fs, env, logger)
+		cfgFile, err = generateConfigurationFn(ctx, fs, env, logger, pklEvaluator)
 		if err != nil {
 			logger.Fatal("error occurred generating configuration", "error", err)
 		}
@@ -207,7 +221,7 @@ func handleNonDockerMode(ctx context.Context, fs afero.Fs, env *environment.Envi
 
 	logger.Info("configuration file ready", "file", cfgFile)
 
-	cfgFile, err = validateConfigurationFn(ctx, fs, env, logger)
+	cfgFile, err = validateConfigurationFn(ctx, fs, env, logger, pklEvaluator)
 	if err != nil {
 		logger.Fatal("error occurred validating configuration", "error", err)
 		return

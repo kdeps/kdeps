@@ -166,7 +166,7 @@ func aSystemConfigurationIsDefined() error {
 		return err
 	}
 
-	cfgFile, err := cfg.GenerateConfiguration(ctx, testFs, environ, logger)
+	cfgFile, err := cfg.GenerateConfiguration(ctx, testFs, environ, logger, nil)
 	if err != nil {
 		return err
 	}
@@ -194,28 +194,28 @@ func itHaveAAmendsURLLineOnTopOfTheFile(arg1 string) error {
 		// Create an invalid amends line for testing domain validation
 		// Determine which type of file we're working with based on the current doc content
 		if strings.Contains(doc, "Workflow.pkl") {
-			doc = fmt.Sprintf(`amends "package://%s/core@0.4.4#/Workflow.pkl"
+			doc = fmt.Sprintf(`amends "package://%s/core@0.4.5#/Workflow.pkl"
 %s`, arg1, workflowValues)
 		} else if strings.Contains(doc, "Resource.pkl") {
-			doc = fmt.Sprintf(`amends "package://%s/core@0.4.4#/Resource.pkl"
+			doc = fmt.Sprintf(`amends "package://%s/core@0.4.5#/Resource.pkl"
 %s`, arg1, resourceValues)
 		} else {
 			// Default to config file
-			doc = fmt.Sprintf(`amends "package://%s/core@0.4.4#/Kdeps.pkl"
+			doc = fmt.Sprintf(`amends "package://%s/core@0.4.5#/Kdeps.pkl"
 %s`, arg1, configValues)
 		}
 	} else {
 		// For valid domain, replace the assets path with legacy schema URL
 		// This simulates the old behavior for testing
 		if strings.Contains(doc, "Workflow.pkl") {
-			doc = fmt.Sprintf(`amends "package://schema.kdeps.com/core@0.4.4#/Workflow.pkl"
+			doc = fmt.Sprintf(`amends "package://schema.kdeps.com/core@0.4.5#/Workflow.pkl"
 %s`, workflowValues)
 		} else if strings.Contains(doc, "Resource.pkl") {
-			doc = fmt.Sprintf(`amends "package://schema.kdeps.com/core@0.4.4#/Resource.pkl"
+			doc = fmt.Sprintf(`amends "package://schema.kdeps.com/core@0.4.5#/Resource.pkl"
 %s`, resourceValues)
 		} else {
 			// Default to config file
-			doc = fmt.Sprintf(`amends "package://schema.kdeps.com/core@0.4.4#/Kdeps.pkl"
+			doc = fmt.Sprintf(`amends "package://schema.kdeps.com/core@0.4.5#/Kdeps.pkl"
 %s`, configValues)
 		}
 	}
@@ -264,7 +264,7 @@ func itIsAValidPklFile() error {
 		return err
 	}
 
-	if _, err := evaluator.EvalPkl(testFs, ctx, fileThatExist, "", nil, logger); err != nil {
+	if _, err := evaluator.EvalPkl(nil, testFs, ctx, fileThatExist, "", nil, logger); err != nil {
 		return err
 	}
 

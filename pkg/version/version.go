@@ -33,7 +33,7 @@ func SetLocalMode(mode string) {
 // Component version constants
 const (
 	// Default schema version used when not fetching latest
-	DefaultSchemaVersion = "0.4.4"
+	DefaultSchemaVersion = "0.4.5"
 
 	// Default Anaconda version for Docker images
 	DefaultAnacondaVersion = "20.4.20-1"
@@ -48,5 +48,5 @@ const (
 	DefaultKdepsInstallVersion = "latest"
 
 	// Minimum supported schema version - versions below this are not supported
-	MinimumSchemaVersion = "0.4.4"
+	MinimumSchemaVersion = "0.4.5"
 )

@@ -3,6 +3,7 @@ package evaluator
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/apple/pkl-go/pkl"
@@ -29,8 +30,18 @@ type EvaluatorConfig struct {
 	Options         func(*pkl.EvaluatorOptions)
 }
 
+// NewEvaluatorManager creates a new evaluator manager with an existing evaluator
+func NewEvaluatorManager(ctx context.Context, eval pkl.Evaluator, logger *logging.Logger) *EvaluatorManager {
+	return &EvaluatorManager{
+		evaluator: eval,
+		context:   ctx,
+		logger:    logger,
+	}
+}
+
 // InitializeEvaluator initializes the singleton evaluator with the provided configuration
-func InitializeEvaluator(ctx context.Context, config *EvaluatorConfig) error {
+// and returns the EvaluatorManager object that can be passed around
+func InitializeEvaluator(ctx context.Context, config *EvaluatorConfig) (*EvaluatorManager, error) {
 	var err error
 
 	// Check if instance exists but evaluator is nil (closed)
@@ -42,8 +53,8 @@ func InitializeEvaluator(ctx context.Context, config *EvaluatorConfig) error {
 			Reset()
 		} else {
 			instance.mu.RUnlock()
-			// Evaluator already exists and is valid, return success
-			return nil
+			// Evaluator already exists and is valid, return the existing instance
+			return instance, nil
 		}
 	}
 
@@ -57,13 +68,13 @@ func InitializeEvaluator(ctx context.Context, config *EvaluatorConfig) error {
 		opts := config.Options
 		if opts == nil {
 			opts = func(options *pkl.EvaluatorOptions) {
-				pkl.WithDefaultAllowedResources(options)
+				// Remove pkl.WithDefaultAllowedResources to avoid restrictive defaults
 				pkl.WithOsEnv(options)
 				pkl.WithDefaultAllowedModules(options)
 				pkl.WithDefaultCacheDir(options)
 				options.Logger = pkl.NoopLogger
 				options.AllowedModules = []string{".*"}
-				options.AllowedResources = []string{".*"}
+				options.AllowedResources = []string{".*", "pklres://.*"}
 				options.OutputFormat = "pcf"
 			}
 		}
@@ -86,13 +97,17 @@ func InitializeEvaluator(ctx context.Context, config *EvaluatorConfig) error {
 		config.Logger.Debug("PKL evaluator singleton initialized successfully")
 	})
 
-	return err
+	if err != nil {
+		return nil, err
+	}
+
+	return instance, nil
 }
 
 // GetEvaluator returns the singleton evaluator instance
 func GetEvaluator() (pkl.Evaluator, error) {
 	if instance == nil {
-		return nil, errors.New("evaluator not initialized - call InitializeEvaluator first")
+		return nil, fmt.Errorf("evaluator not initialized - call InitializeEvaluator first")
 	}
 
 	instance.mu.RLock()
@@ -112,6 +127,18 @@ func GetEvaluatorManager() (*EvaluatorManager, error) {
 	}
 
 	return instance, nil
+}
+
+// GetEvaluator returns the underlying pkl.Evaluator instance
+func (em *EvaluatorManager) GetEvaluator() (pkl.Evaluator, error) {
+	em.mu.RLock()
+	defer em.mu.RUnlock()
+
+	if em.evaluator == nil {
+		return nil, errors.New("evaluator instance is nil")
+	}
+
+	return em.evaluator, nil
 }
 
 // Close closes the singleton evaluator

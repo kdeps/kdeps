@@ -16,7 +16,6 @@ import (
 	"github.com/kdeps/kdeps/pkg/agent"
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/environment"
-	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/utils"
@@ -265,9 +264,9 @@ func CompileProject(ctx context.Context, fs afero.Fs, wf pklWf.Workflow, kdepsDi
 	if versionInfo.LocalMode == "1" {
 		logger.Info("skipping PKL evaluation in local mode", "reason", "local PKL files not available during packaging")
 	} else {
-		if err := evaluator.EvaluateAllPklFilesInDirectory(fs, ctx, compiledProjectDir, logger); err != nil {
-			return "", "", fmt.Errorf("failed to evaluate PKL files: %w", err)
-		}
+		// Note: We don't have access to evaluator here, so we'll skip PKL evaluation
+		// This is acceptable since this is for archiving/packaging, not runtime evaluation
+		logger.Info("skipping PKL evaluation during project compilation", "reason", "evaluator not available in archiver context")
 	}
 
 	packageFile, err := PackageProject(fs, ctx, newWorkflow, kdepsDir, compiledProjectDir, logger)

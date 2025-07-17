@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/apple/pkl-go/pkl"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -451,7 +452,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		logger.Debug("creating new context and resolver")
 		newCtx := ktx.UpdateContext(ctx, ktx.CtxKeyGraphID, graphID)
 
-		dr, err := resolver.NewGraphResolver(baseDr.Fs, newCtx, baseDr.Environment, c, logger)
+		dr, err := resolver.NewGraphResolver(baseDr.Fs, newCtx, baseDr.Environment, c, logger, baseDr.Evaluator)
 		if err != nil {
 			logger.Error("failed to create resolver", "error", err)
 
@@ -629,11 +630,11 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		logger.Debug("creating and processing PKL file")
 
 		// Create a wrapper function that matches the expected signature
-		evalFunc := func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
-			return evaluator.EvalPkl(fs, ctx, tmpFile, headerSection, nil, logger)
+		evalFunc := func(eval pkl.Evaluator, fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error) {
+			return evaluator.EvalPkl(eval, fs, ctx, tmpFile, headerSection, nil, logger)
 		}
 
-		if err := evaluator.CreateAndProcessPklFile(dr.Fs, ctx, sections, dr.RequestPklFile,
+		if err := evaluator.CreateAndProcessPklFile(nil, dr.Fs, ctx, sections, dr.RequestPklFile,
 			"APIServerRequest.pkl", dr.Logger, evalFunc, true); err != nil {
 			logger.Error("failed to create and process PKL file", "error", err)
 			errors = append(errors, ErrorResponse{

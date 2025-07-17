@@ -116,7 +116,7 @@ func TestNewGraphResolver_Minimal(t *testing.T) {
 		t.Fatalf("env err: %v", err)
 	}
 
-	dr, err := resolver.NewGraphResolver(fs, context.Background(), env, nil, logger)
+	dr, err := resolver.NewGraphResolver(fs, context.Background(), env, nil, logger, nil)
 	if err == nil {
 		// If resolver succeeded, sanity-check key fields
 		if dr.Graph == nil || dr.FileRunCounter == nil {

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/kdeps/kdeps/pkg/schema"
+	pklLLM "github.com/kdeps/schema/gen/llm"
 )
 
 // PklresHelper manages PKL storage operations using the pklres SQLite3 system
@@ -353,12 +354,43 @@ func (h *PklresHelper) generateLLMContent(resourceID string, resourceObject inte
 	content.WriteString("Resources {\n")
 	content.WriteString(fmt.Sprintf("  [\"%s\"] {\n", resourceID))
 
-	// For now, just add basic fields - this can be expanded based on the actual LLM object structure
-	content.WriteString("    Model = \"\"\n")
-	content.WriteString("    Prompt = \"\"\n")
-	content.WriteString("    Response = \"\"\n")
-	content.WriteString("    File = \"\"\n")
-	content.WriteString("    Timestamp = 0.ns\n")
+	// Cast the resource object to ResourceChat
+	llmResource, ok := resourceObject.(*pklLLM.ResourceChat)
+	if !ok {
+		return "", fmt.Errorf("resource object is not a ResourceChat")
+	}
+
+	// Use actual values from the resource object
+	model := ""
+	if llmResource.Model != "" {
+		model = llmResource.Model
+	}
+	content.WriteString(fmt.Sprintf("    Model = %q\n", model))
+
+	prompt := ""
+	if llmResource.Prompt != nil {
+		prompt = *llmResource.Prompt
+	}
+	content.WriteString(fmt.Sprintf("    Prompt = %q\n", prompt))
+
+	response := ""
+	if llmResource.Response != nil {
+		response = *llmResource.Response
+	}
+	content.WriteString(fmt.Sprintf("    Response = %q\n", response))
+
+	file := ""
+	if llmResource.File != nil {
+		file = *llmResource.File
+	}
+	content.WriteString(fmt.Sprintf("    File = %q\n", file))
+
+	timestamp := "0.ns"
+	if llmResource.Timestamp != nil {
+		timestamp = fmt.Sprintf("%g.%s", llmResource.Timestamp.Value, llmResource.Timestamp.Unit.String())
+	}
+	content.WriteString(fmt.Sprintf("    Timestamp = %s\n", timestamp))
+
 	content.WriteString("    Env {}\n")
 	content.WriteString("    ItemValues {}\n")
 	content.WriteString("  }\n")
