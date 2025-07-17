@@ -78,7 +78,7 @@ func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHT
 	// Note: AppendHTTPEntry is no longer needed as we use real-time pklres access
 	// The HTTP output files are directly accessible through pklres.getResourceOutput()
 
-	// Store the complete http resource record in the PKL mapping
+	// Store the complete http resource record in the PKL mapping after processing is complete
 	if dr.PklresHelper != nil {
 		// Create a ResourceHTTPClient object for storage
 		resourceHTTP := &pklHTTP.ResourceHTTPClient{
@@ -89,6 +89,7 @@ func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHT
 			Data:            httpBlock.Data,
 			Response:        httpBlock.Response,
 			File:            httpBlock.File,
+			ItemValues:      httpBlock.ItemValues,
 			Timestamp:       httpBlock.Timestamp,
 			TimeoutDuration: httpBlock.TimeoutDuration,
 		}
@@ -324,6 +325,7 @@ func (dr *DependencyResolver) DoRequest(client *pklHTTP.ResourceHTTPClient) erro
 		Unit:  pkl.Nanosecond,
 	}
 	client.Timestamp = &timestamp
+
 
 	return nil
 }

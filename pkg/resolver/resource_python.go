@@ -130,7 +130,7 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 	pythonBlock.ExitCode = &execExitCode
 
 	ts := pkl.Duration{
-		Value: float64(time.Now().Unix()),
+		Value: float64(time.Now().UnixNano()),
 		Unit:  pkl.Nanosecond,
 	}
 	pythonBlock.Timestamp = &ts

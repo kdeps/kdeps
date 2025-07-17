@@ -467,6 +467,13 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 		dr.Logger.Debug("processLLMChat: wrote response to file", "actionID", actionID, "filePath", filePath)
 	}
 
+	// Set timestamp after processing is complete
+	ts := pkl.Duration{
+		Value: float64(time.Now().UnixNano()),
+		Unit:  pkl.Nanosecond,
+	}
+	chatBlock.Timestamp = &ts
+
 	// Store the LLM resource data in pklres for real-time access
 	if dr.PklresHelper != nil {
 		// Create a ResourceChat object for storage
@@ -477,6 +484,7 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 			Response:     chatBlock.Response,
 			File:         chatBlock.File,
 			JSONResponse: chatBlock.JSONResponse,
+			Timestamp:    chatBlock.Timestamp,
 		}
 
 		// Store the resource record using the new method
