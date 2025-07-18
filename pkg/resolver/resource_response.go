@@ -519,10 +519,9 @@ func structToMap(s interface{}) map[interface{}]interface{} {
 	return result
 }
 
+// This is the 'data' array in the API response
 func formatDataValue(value interface{}) string {
-	// Use pure Go approach instead of document.jsonRenderDocument
-	formattedValue := formatValue(value)
-	return fmt.Sprintf("jsonRenderDocument\n%s", formattedValue)
+	return formatValue(value)
 }
 
 func formatErrors(errors *[]*apiserverresponse.APIServerErrorsBlock, logger *logging.Logger) string {
