@@ -165,9 +165,7 @@ func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklEx
 	}
 
 	// Mark the resource as finished processing
-	if err := dr.MarkResourceFinished(actionID); err != nil {
-		dr.Logger.Warn("processExecBlock: failed to mark resource as finished", "actionID", actionID, "error", err)
-	}
+	// Processing status tracking removed - simplified to pure key-value store approach
 
 	return nil
 }

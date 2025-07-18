@@ -136,7 +136,7 @@ Run {
                 Env {
                         // Environment variables that would be accessible inside the shell
                         ["QUERY_PARAM"] = request.params("q")
-                        ["REQUEST_ID"] = request.id()
+                        ["REQUEST_ID"] = request.requestID()
                         ["USER_AGENT"] = request.header("User-Agent")
                 }
                 // Timeout duration in seconds. This specifies when to terminate the shell exec.

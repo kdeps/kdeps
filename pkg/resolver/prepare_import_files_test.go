@@ -21,7 +21,7 @@ func TestPrepareImportFilesCreatesExpectedFiles(t *testing.T) {
 		Logger:     logging.NewTestLogger(),
 	}
 
-	dr.PklresReader, _ = pklres.InitializePklResource(":memory:", "test-graph", "", "", "")
+	dr.PklresReader, _ = pklres.InitializePklResource("test-graph", "", "", "", afero.NewMemMapFs())
 	dr.PklresHelper = resolverpkg.NewPklresHelper(dr)
 
 	// Call the function under test

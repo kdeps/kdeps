@@ -795,6 +795,17 @@ func ValidateMethod(r *http.Request, allowedMethods []string) (string, error) {
 
 // ProcessWorkflow processes the workflow
 func ProcessWorkflow(_ context.Context, dr *resolver.DependencyResolver) error {
+	// In API server mode, populate request data in pklres before any resource evaluation
+	if dr.APIServerMode && dr.RequestPklFile != "" {
+		dr.Logger.Debug("populating request data in pklres before workflow processing")
+		if err := dr.PopulateRequestDataInPklres(); err != nil {
+			dr.Logger.Warn("failed to populate request data in pklres", "error", err)
+			// Don't fail the workflow for this error, but log it
+		} else {
+			dr.Logger.Debug("successfully populated request data in pklres")
+		}
+	}
+
 	// Process the workflow
 	_, err := dr.HandleRunAction()
 	if err != nil {

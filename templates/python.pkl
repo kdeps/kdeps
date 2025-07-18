@@ -153,7 +153,7 @@ if __name__ == "__main__":
                 Env {
                         // Environment variables that would be accessible inside the Python script
                         ["QUERY_PARAM"] = request.params("q")
-                        ["REQUEST_ID"] = request.id()
+                        ["REQUEST_ID"] = request.requestID()
                         ["USER_AGENT"] = request.header("User-Agent")
                         ["PYTHONPATH"] = "/agent/workflow/data"
                 }

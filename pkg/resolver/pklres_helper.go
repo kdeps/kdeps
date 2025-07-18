@@ -7,17 +7,45 @@ import (
 	"strings"
 
 	"github.com/kdeps/kdeps/pkg/schema"
-	pklLLM "github.com/kdeps/schema/gen/llm"
 )
 
-// PklresHelper manages PKL storage operations using the pklres SQLite3 system
+// PklresHelper manages PKL storage operations using the pklres key-value store system
 type PklresHelper struct {
-	resolver *DependencyResolver
+	resolver       *DependencyResolver
+	isLoadingPhase bool // Flag to indicate if we're in the resource loading phase
 }
 
 // NewPklresHelper creates a new PklresHelper instance
 func NewPklresHelper(dr *DependencyResolver) *PklresHelper {
-	return &PklresHelper{resolver: dr}
+	return &PklresHelper{resolver: dr, isLoadingPhase: false}
+}
+
+// SetLoadingPhase sets the loading phase flag
+func (h *PklresHelper) SetLoadingPhase(loading bool) {
+	if h != nil {
+		h.isLoadingPhase = loading
+	}
+}
+
+// IsLoadingPhase returns true if we're in the resource loading phase
+func (h *PklresHelper) IsLoadingPhase() bool {
+	if h == nil {
+		return false
+	}
+	return h.isLoadingPhase
+}
+
+// getRecordSafely safely retrieves a record from pklres without blocking
+func (h *PklresHelper) getRecordSafely(resourceID, resourceType string) map[string]interface{} {
+	// During resource loading phase, return nil to avoid circular dependencies
+	if h.isLoadingPhase {
+		return nil
+	}
+
+	// For now, return nil during resource loading phase to avoid circular dependencies
+	// Once the resource dependency ordering is fixed, this can be implemented properly
+	// to return actual data from processed resources
+	return nil
 }
 
 // ResourceTypeInfo contains information about a resource type for PKL generation
@@ -366,50 +394,22 @@ func (h *PklresHelper) generateResourcePklContent(resourceType, resourceID strin
 // generateLLMContent generates PKL content for LLM resources
 func (h *PklresHelper) generateLLMContent(resourceID string, resourceObject interface{}) (string, error) {
 	var content strings.Builder
-	content.WriteString("Resources {\n")
-	content.WriteString(fmt.Sprintf("  [\"%s\"] {\n", resourceID))
+	content.WriteString("// LLM Resource Content - Key-Value Store Format\n")
+	content.WriteString("// Individual attributes are stored as key-value pairs in pklres\n")
+	content.WriteString("// Collection key: CanonicalID from Agent reader\n")
+	content.WriteString("// Keys: template attributes (model, role, prompt, response, etc.)\n")
+	content.WriteString("// Values: obtained directly from pklres as key-value pairs\n\n")
 
-	// Cast the resource object to ResourceChat
-	llmResource, ok := resourceObject.(*pklLLM.ResourceChat)
-	if !ok {
-		return "", fmt.Errorf("resource object is not a ResourceChat")
-	}
-
-	// Use actual values from the resource object
-	model := ""
-	if llmResource.Model != "" {
-		model = llmResource.Model
-	}
-	content.WriteString(fmt.Sprintf("    Model = %q\n", model))
-
-	prompt := ""
-	if llmResource.Prompt != nil {
-		prompt = *llmResource.Prompt
-	}
-	content.WriteString(fmt.Sprintf("    Prompt = %q\n", prompt))
-
-	response := ""
-	if llmResource.Response != nil {
-		response = *llmResource.Response
-	}
-	content.WriteString(fmt.Sprintf("    Response = %q\n", response))
-
-	file := ""
-	if llmResource.File != nil {
-		file = *llmResource.File
-	}
-	content.WriteString(fmt.Sprintf("    File = %q\n", file))
-
-	timestamp := "0.ns"
-	if llmResource.Timestamp != nil {
-		timestamp = fmt.Sprintf("%g.%s", llmResource.Timestamp.Value, llmResource.Timestamp.Unit.String())
-	}
-	content.WriteString(fmt.Sprintf("    Timestamp = %s\n", timestamp))
-
-	content.WriteString("    Env {}\n")
-	content.WriteString("    ItemValues {}\n")
-	content.WriteString("  }\n")
-	content.WriteString("}\n")
+	// For now, just add basic fields - this can be expanded based on the actual LLM object structure
+	content.WriteString("// Example of how to access LLM attributes:\n")
+	content.WriteString("// model = core.getPklValue(\"" + resourceID + "\", \"llm\", \"model\")\n")
+	content.WriteString("// role = core.getPklValue(\"" + resourceID + "\", \"llm\", \"role\")\n")
+	content.WriteString("// prompt = core.getPklValue(\"" + resourceID + "\", \"llm\", \"prompt\")\n")
+	content.WriteString("// response = core.getPklValue(\"" + resourceID + "\", \"llm\", \"response\")\n")
+	content.WriteString("// file = core.getPklValue(\"" + resourceID + "\", \"llm\", \"file\")\n")
+	content.WriteString("// jsonResponse = core.getPklValue(\"" + resourceID + "\", \"llm\", \"jsonResponse\")\n")
+	content.WriteString("// timeoutDuration = core.getPklValue(\"" + resourceID + "\", \"llm\", \"timeoutDuration\")\n")
+	content.WriteString("// timestamp = core.getPklValue(\"" + resourceID + "\", \"llm\", \"timestamp\")\n")
 
 	return content.String(), nil
 }
@@ -417,20 +417,21 @@ func (h *PklresHelper) generateLLMContent(resourceID string, resourceObject inte
 // generatePythonContent generates PKL content for Python resources
 func (h *PklresHelper) generatePythonContent(resourceID string, resourceObject interface{}) (string, error) {
 	var content strings.Builder
-	content.WriteString("Resources {\n")
-	content.WriteString(fmt.Sprintf("  [\"%s\"] {\n", resourceID))
+	content.WriteString("// Python Resource Content - Key-Value Store Format\n")
+	content.WriteString("// Individual attributes are stored as key-value pairs in pklres\n")
+	content.WriteString("// Collection key: CanonicalID from Agent reader\n")
+	content.WriteString("// Keys: template attributes (script, stdout, stderr, exitCode, etc.)\n")
+	content.WriteString("// Values: obtained directly from pklres as key-value pairs\n\n")
 
 	// For now, just add basic fields - this can be expanded based on the actual Python object structure
-	content.WriteString("    Script = \"\"\n")
-	content.WriteString("    Stdout = \"\"\n")
-	content.WriteString("    Stderr = \"\"\n")
-	content.WriteString("    ExitCode = 0\n")
-	content.WriteString("    File = \"\"\n")
-	content.WriteString("    Timestamp = 0.ns\n")
-	content.WriteString("    Env {}\n")
-	content.WriteString("    ItemValues {}\n")
-	content.WriteString("  }\n")
-	content.WriteString("}\n")
+	content.WriteString("// Example of how to access Python attributes:\n")
+	content.WriteString("// script = core.getPklValue(\"" + resourceID + "\", \"python\", \"script\")\n")
+	content.WriteString("// stdout = core.getPklValue(\"" + resourceID + "\", \"python\", \"stdout\")\n")
+	content.WriteString("// stderr = core.getPklValue(\"" + resourceID + "\", \"python\", \"stderr\")\n")
+	content.WriteString("// exitCode = core.getPklValue(\"" + resourceID + "\", \"python\", \"exitCode\")\n")
+	content.WriteString("// file = core.getPklValue(\"" + resourceID + "\", \"python\", \"file\")\n")
+	content.WriteString("// timestamp = core.getPklValue(\"" + resourceID + "\", \"python\", \"timestamp\")\n")
+	content.WriteString("// env = core.getPklValue(\"" + resourceID + "\", \"python\", \"env\")\n")
 
 	return content.String(), nil
 }
@@ -438,20 +439,21 @@ func (h *PklresHelper) generatePythonContent(resourceID string, resourceObject i
 // generateExecContent generates PKL content for Exec resources
 func (h *PklresHelper) generateExecContent(resourceID string, resourceObject interface{}) (string, error) {
 	var content strings.Builder
-	content.WriteString("Resources {\n")
-	content.WriteString(fmt.Sprintf("  [\"%s\"] {\n", resourceID))
+	content.WriteString("// Exec Resource Content - Key-Value Store Format\n")
+	content.WriteString("// Individual attributes are stored as key-value pairs in pklres\n")
+	content.WriteString("// Collection key: CanonicalID from Agent reader\n")
+	content.WriteString("// Keys: template attributes (command, stdout, stderr, exitCode, etc.)\n")
+	content.WriteString("// Values: obtained directly from pklres as key-value pairs\n\n")
 
 	// For now, just add basic fields - this can be expanded based on the actual Exec object structure
-	content.WriteString("    Command = \"\"\n")
-	content.WriteString("    Stdout = \"\"\n")
-	content.WriteString("    Stderr = \"\"\n")
-	content.WriteString("    ExitCode = 0\n")
-	content.WriteString("    File = \"\"\n")
-	content.WriteString("    Timestamp = 0.ns\n")
-	content.WriteString("    Env {}\n")
-	content.WriteString("    ItemValues {}\n")
-	content.WriteString("  }\n")
-	content.WriteString("}\n")
+	content.WriteString("// Example of how to access Exec attributes:\n")
+	content.WriteString("// command = core.getPklValue(\"" + resourceID + "\", \"exec\", \"command\")\n")
+	content.WriteString("// stdout = core.getPklValue(\"" + resourceID + "\", \"exec\", \"stdout\")\n")
+	content.WriteString("// stderr = core.getPklValue(\"" + resourceID + "\", \"exec\", \"stderr\")\n")
+	content.WriteString("// exitCode = core.getPklValue(\"" + resourceID + "\", \"exec\", \"exitCode\")\n")
+	content.WriteString("// file = core.getPklValue(\"" + resourceID + "\", \"exec\", \"file\")\n")
+	content.WriteString("// timestamp = core.getPklValue(\"" + resourceID + "\", \"exec\", \"timestamp\")\n")
+	content.WriteString("// env = core.getPklValue(\"" + resourceID + "\", \"exec\", \"env\")\n")
 
 	return content.String(), nil
 }
@@ -459,20 +461,22 @@ func (h *PklresHelper) generateExecContent(resourceID string, resourceObject int
 // generateHTTPContent generates PKL content for HTTP resources
 func (h *PklresHelper) generateHTTPContent(resourceID string, resourceObject interface{}) (string, error) {
 	var content strings.Builder
-	content.WriteString("Resources {\n")
-	content.WriteString(fmt.Sprintf("  [\"%s\"] {\n", resourceID))
+	content.WriteString("// HTTP Resource Content - Key-Value Store Format\n")
+	content.WriteString("// Individual attributes are stored as key-value pairs in pklres\n")
+	content.WriteString("// Collection key: CanonicalID from Agent reader\n")
+	content.WriteString("// Keys: template attributes (url, method, headers, body, response, etc.)\n")
+	content.WriteString("// Values: obtained directly from pklres as key-value pairs\n\n")
 
 	// For now, just add basic fields - this can be expanded based on the actual HTTP object structure
-	content.WriteString("    Method = \"\"\n")
-	content.WriteString("    Url = \"\"\n")
-	content.WriteString("    Response = \"\"\n")
-	content.WriteString("    File = \"\"\n")
-	content.WriteString("    Timestamp = 0.ns\n")
-	content.WriteString("    Headers {}\n")
-	content.WriteString("    Params {}\n")
-	content.WriteString("    ItemValues {}\n")
-	content.WriteString("  }\n")
-	content.WriteString("}\n")
+	content.WriteString("// Example of how to access HTTP attributes:\n")
+	content.WriteString("// url = core.getPklValue(\"" + resourceID + "\", \"http\", \"url\")\n")
+	content.WriteString("// method = core.getPklValue(\"" + resourceID + "\", \"http\", \"method\")\n")
+	content.WriteString("// headers = core.getPklValue(\"" + resourceID + "\", \"http\", \"headers\")\n")
+	content.WriteString("// body = core.getPklValue(\"" + resourceID + "\", \"http\", \"body\")\n")
+	content.WriteString("// response = core.getPklValue(\"" + resourceID + "\", \"http\", \"response\")\n")
+	content.WriteString("// statusCode = core.getPklValue(\"" + resourceID + "\", \"http\", \"statusCode\")\n")
+	content.WriteString("// file = core.getPklValue(\"" + resourceID + "\", \"http\", \"file\")\n")
+	content.WriteString("// timestamp = core.getPklValue(\"" + resourceID + "\", \"http\", \"timestamp\")\n")
 
 	return content.String(), nil
 }
@@ -480,13 +484,17 @@ func (h *PklresHelper) generateHTTPContent(resourceID string, resourceObject int
 // generateDataContent generates PKL content for Data resources
 func (h *PklresHelper) generateDataContent(resourceID string, resourceObject interface{}) (string, error) {
 	var content strings.Builder
-	content.WriteString("Files {\n")
-	content.WriteString(fmt.Sprintf("  [\"%s\"] {\n", resourceID))
+	content.WriteString("// Data Resource Content - Key-Value Store Format\n")
+	content.WriteString("// Individual attributes are stored as key-value pairs in pklres\n")
+	content.WriteString("// Collection key: CanonicalID from Agent reader\n")
+	content.WriteString("// Keys: template attributes (files, content, etc.)\n")
+	content.WriteString("// Values: obtained directly from pklres as key-value pairs\n\n")
 
 	// For now, just add basic fields - this can be expanded based on the actual Data object structure
-	content.WriteString("    Files {}\n")
-	content.WriteString("  }\n")
-	content.WriteString("}\n")
+	content.WriteString("// Example of how to access Data attributes:\n")
+	content.WriteString("// files = core.getPklValue(\"" + resourceID + "\", \"data\", \"files\")\n")
+	content.WriteString("// content = core.getPklValue(\"" + resourceID + "\", \"data\", \"content\")\n")
+	content.WriteString("// filepath = core.getPklValue(\"" + resourceID + "\", \"data\", \"filepath\")\n")
 
 	return content.String(), nil
 }

@@ -54,9 +54,8 @@ func TestLoadResourceWithRequestContext(t *testing.T) {
 	require.NoError(t, err)
 	defer agentReader.Close()
 
-	pklresReader, err := pklres.InitializePklResource(":memory:", "test-graph", "", "", "")
+	pklresReader, err := pklres.InitializePklResource("test-graph", "", "", "", afero.NewMemMapFs())
 	require.NoError(t, err)
-	defer pklresReader.DB.Close()
 
 	// Initialize the evaluator
 	evaluatorConfig := &evaluator.EvaluatorConfig{

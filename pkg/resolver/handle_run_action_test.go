@@ -73,8 +73,8 @@ func TestHandleRunAction_BasicFlow(t *testing.T) {
 	}
 
 	// Provide PklresHelper and an in-memory PklresReader to satisfy HandleRunAction cleanup.
-	pklresDB := openDB()
-	dr.PklresReader = &pklres.PklResourceReader{DB: pklresDB}
+	reader, _ := pklres.InitializePklResource("test-graph", "", "", "", afero.NewMemMapFs())
+	dr.PklresReader = reader
 	dr.PklresHelper = resolver.NewPklresHelper(dr)
 
 	// --- inject stubs for heavy funcs ------------------------------
@@ -193,7 +193,7 @@ run {}`
 	}
 
 	// Provide PklresHelper and in-memory reader to avoid nil error
-	reader, _ := pklres.InitializePklResource(":memory:", "test-graph", "", "", "")
+	reader, _ := pklres.InitializePklResource("test-graph", "", "", "", afero.NewMemMapFs())
 	dr.PklresReader = reader
 	dr.PklresHelper = resolver.NewPklresHelper(dr)
 

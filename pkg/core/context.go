@@ -35,10 +35,13 @@ func InitializeContext(fs afero.Fs, graphID, currentAgent, currentVersion, kdeps
 	defer contextMutex.Unlock()
 
 	// Initialize pklres reader
-	pklresReader, err := pklres.InitializePklResource(":memory:", graphID, currentAgent, currentVersion, kdepsPath, fs)
+	pklresReader, err := pklres.InitializePklResource(graphID, currentAgent, currentVersion, kdepsPath, fs)
 	if err != nil {
 		return fmt.Errorf("failed to initialize pklres reader: %w", err)
 	}
+
+	// Set the global pklres reader
+	pklres.SetGlobalPklresReader(pklresReader)
 
 	// Initialize agent reader
 	agentReader, err := agent.InitializeAgent(fs, kdepsPath, currentAgent, currentVersion, logger)

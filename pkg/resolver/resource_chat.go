@@ -38,6 +38,93 @@ const (
 	RoleTool      = "tool"
 )
 
+// substituteChatBlockTemplates substitutes template placeholders in chat block with actual values at runtime
+func (dr *DependencyResolver) substituteChatBlockTemplates(actionID string, chatBlock *pklLLM.ResourceChat) error {
+	// Create a mapping of template variables to their actual values
+	templateVars := make(map[string]string)
+
+	// Get request parameter 'q' if available
+	if dr.Request != nil {
+		if q := dr.Request.Query("q"); q != "" {
+			templateVars["REQUEST_PARAM_Q"] = q
+		}
+	}
+
+	// Get client response body
+	if dr.PklresHelper != nil {
+		if clientBody := dr.getResourceOutputSafely("clientResource", "http", "Body"); clientBody != "" {
+			templateVars["CLIENT_RESPONSE_BODY"] = clientBody
+		}
+	}
+
+	// Get exec stdout
+	if dr.PklresHelper != nil {
+		if execStdout := dr.getResourceOutputSafely("execResource", "exec", "Stdout"); execStdout != "" {
+			templateVars["EXEC_STDOUT"] = execStdout
+		}
+	}
+
+	// Get python stdout
+	if dr.PklresHelper != nil {
+		if pythonStdout := dr.getResourceOutputSafely("pythonResource", "python", "Stdout"); pythonStdout != "" {
+			templateVars["PYTHON_STDOUT"] = pythonStdout
+		}
+	}
+
+	// Substitute templates in the prompt
+	if chatBlock.Prompt != nil {
+		newPrompt := *chatBlock.Prompt
+		for placeholder, value := range templateVars {
+			newPrompt = strings.ReplaceAll(newPrompt, "{"+placeholder+"}", value)
+		}
+		chatBlock.Prompt = &newPrompt
+	}
+
+	// Substitute templates in scenario prompts
+	if chatBlock.Scenario != nil {
+		for _, scenario := range *chatBlock.Scenario {
+			if scenario != nil && scenario.Prompt != nil {
+				newPrompt := *scenario.Prompt
+				for placeholder, value := range templateVars {
+					newPrompt = strings.ReplaceAll(newPrompt, "{"+placeholder+"}", value)
+				}
+				scenario.Prompt = &newPrompt
+			}
+		}
+	}
+
+	return nil
+}
+
+// getResourceOutputSafely safely retrieves resource output without causing circular dependencies
+func (dr *DependencyResolver) getResourceOutputSafely(resourceID, resourceType, field string) string {
+	if dr.PklresHelper == nil {
+		return ""
+	}
+
+	// Resolve the resource ID to canonical form
+	canonicalID := dr.PklresHelper.resolveActionID(resourceID)
+
+	// Try to get the resource data from pklres
+	// This should only work if the resource has already been processed
+	if record := dr.PklresHelper.getRecordSafely(canonicalID, resourceType); record != nil {
+		switch field {
+		case "Body":
+			if response, ok := record["Response"].(map[string]interface{}); ok {
+				if body, ok := response["Body"].(string); ok {
+					return body
+				}
+			}
+		case "Stdout":
+			if stdout, ok := record["Stdout"].(string); ok {
+				return stdout
+			}
+		}
+	}
+
+	return ""
+}
+
 // HandleLLMChat processes an LLM chat interaction synchronously.
 func (dr *DependencyResolver) HandleLLMChat(actionID string, chatBlock *pklLLM.ResourceChat) error {
 	dr.Logger.Info("HandleLLMChat: ENTRY", "actionID", actionID, "chatBlock_nil", chatBlock == nil)
@@ -438,6 +525,12 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 		return errors.New("chatBlock cannot be nil")
 	}
 
+	// Substitute template placeholders with actual values at runtime
+	if err := dr.substituteChatBlockTemplates(actionID, chatBlock); err != nil {
+		dr.Logger.Error("processLLMChat: failed to substitute templates", "actionID", actionID, "error", err)
+		return fmt.Errorf("failed to substitute templates: %w", err)
+	}
+
 	dr.Logger.Debug("processLLMChat: initializing LLM", "actionID", actionID, "model", chatBlock.Model)
 	llm, err := dr.NewLLMFn(chatBlock.Model)
 	if err != nil {
@@ -496,9 +589,7 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 	}
 
 	// Mark the resource as finished processing
-	if err := dr.MarkResourceFinished(actionID); err != nil {
-		dr.Logger.Warn("processLLMChat: failed to mark resource as finished", "actionID", actionID, "error", err)
-	}
+	// Processing status tracking removed - simplified to pure key-value store approach
 
 	dr.Logger.Info("processLLMChat: completed successfully", "actionID", actionID)
 	return nil

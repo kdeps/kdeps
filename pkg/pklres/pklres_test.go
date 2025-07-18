@@ -10,11 +10,8 @@ import (
 )
 
 func TestPklResourceReader(t *testing.T) {
-	// Use in-memory SQLite database for testing
-	dbPath := "file::memory:"
-	reader, err := pklres.InitializePklResource(dbPath, "test-graph", "", "", "", afero.NewMemMapFs())
+	reader, err := pklres.InitializePklResource("test-graph", "", "", "", afero.NewMemMapFs())
 	require.NoError(t, err)
-	defer reader.DB.Close()
 
 	t.Run("Scheme", func(t *testing.T) {
 		require.Equal(t, "pklres", reader.Scheme())
@@ -35,234 +32,181 @@ func TestPklResourceReader(t *testing.T) {
 		require.Nil(t, elements)
 	})
 
-	t.Run("Read_GetRecord_Simple", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "", afero.NewMemMapFs())
-		require.NoError(t, err)
-		defer reader.DB.Close()
-
-		// Insert a simple record (no key)
-		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test1", "config", "", "value1")
+	t.Run("Read_GetKeyValue", func(t *testing.T) {
+		reader, err := pklres.InitializePklResource("test-graph", "", "", "", afero.NewMemMapFs())
 		require.NoError(t, err)
 
-		// Get the record
-		uri, _ := url.Parse("pklres:///test1?type=config")
-		data, err := reader.Read(*uri)
-		require.NoError(t, err)
-		require.Equal(t, []byte("value1"), data)
-
-		// Test with non-existent record
-		uri, _ = url.Parse("pklres:///nonexistent?type=config")
-		data, err = reader.Read(*uri)
-		require.NoError(t, err)
-		require.Equal(t, []byte(""), data)
-	})
-
-	t.Run("Read_GetRecord_WithKey", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "", afero.NewMemMapFs())
-		require.NoError(t, err)
-		defer reader.DB.Close()
-
-		// Insert a structured record with key
-		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test1", "config", "database", "postgresql://localhost")
+		// Set a value first
+		setURI, _ := url.Parse("pklres://?op=set&collection=test1&key=testkey&value=testvalue")
+		_, err = reader.Read(*setURI)
 		require.NoError(t, err)
 
-		// Initialize the resource status and mark it as finished to avoid waiting
-		reader.SetProcessingStatus("test1", pklres.NewProcessingStatus(nil))
-		reader.MarkResourceFinished("test1")
-
-		// Get the record by key
-		uri, _ := url.Parse("pklres:///test1?type=config&key=database")
-		data, err := reader.Read(*uri)
+		// Get the value
+		getURI, _ := url.Parse("pklres://?op=get&collection=test1&key=testkey")
+		data, err := reader.Read(*getURI)
 		require.NoError(t, err)
-		require.Equal(t, []byte("postgresql://localhost"), data)
+		require.Equal(t, `"testvalue"`, string(data)) // JSON format
 
 		// Test with non-existent key
-		uri, _ = url.Parse("pklres:///test1?type=config&key=nonexistent")
-		data, err = reader.Read(*uri)
-		require.NoError(t, err)
-		require.Equal(t, []byte(""), data)
+		getURI, _ = url.Parse("pklres://?op=get&collection=test1&key=nonexistent")
+		_, err = reader.Read(*getURI)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "key 'nonexistent' not found")
 	})
 
-	t.Run("Read_SetRecord_Simple", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "", afero.NewMemMapFs())
+	t.Run("Read_SetKeyValue", func(t *testing.T) {
+		reader, err := pklres.InitializePklResource("test-graph", "", "", "", afero.NewMemMapFs())
 		require.NoError(t, err)
-		defer reader.DB.Close()
 
-		// Set a simple record
-		uri, _ := url.Parse("pklres:///test1?type=config&op=set&value=newvalue")
+		// Set a value
+		uri, _ := url.Parse("pklres://?op=set&collection=test2&key=testkey&value=newvalue")
 		data, err := reader.Read(*uri)
 		require.NoError(t, err)
-		require.Equal(t, []byte("newvalue"), data)
+		require.Equal(t, `"newvalue"`, string(data)) // JSON format
 
-		// Verify it was stored
-		var value string
-		err = reader.DB.QueryRow("SELECT value FROM records WHERE id = ? AND type = ? AND key = ?", "test1", "config", "").Scan(&value)
+		// Verify it was stored by getting it back
+		getURI, _ := url.Parse("pklres://?op=get&collection=test2&key=testkey")
+		data, err = reader.Read(*getURI)
 		require.NoError(t, err)
-		require.Equal(t, "newvalue", value)
+		require.Equal(t, `"newvalue"`, string(data))
 
 		// Test missing parameters
-		uri, _ = url.Parse("pklres:///test1?op=set")
+		uri, _ = url.Parse("pklres://?op=set")
 		_, err = reader.Read(*uri)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "set operation requires id and type parameters")
+		require.Contains(t, err.Error(), "set operation requires collection and key parameters")
 
-		uri, _ = url.Parse("pklres:///test1?type=config&op=set")
+		uri, _ = url.Parse("pklres://?op=set&collection=test&key=testkey")
 		_, err = reader.Read(*uri)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "set operation requires a value parameter")
 	})
 
-	t.Run("Read_SetRecord_WithKey", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "")
+	t.Run("Read_ListKeys", func(t *testing.T) {
+		reader, err := pklres.InitializePklResource("test-graph", "", "", "", afero.NewMemMapFs())
 		require.NoError(t, err)
-		defer reader.DB.Close()
 
-		// Set a structured record with key - now creates a PKL mapping
-		uri, _ := url.Parse("pklres:///test1?type=config&key=database&op=set&value=postgresql://localhost")
-		data, err := reader.Read(*uri)
+		// Set multiple values in the same collection
+		setURI1, _ := url.Parse("pklres://?op=set&collection=test3&key=key1&value=value1")
+		_, err = reader.Read(*setURI1)
 		require.NoError(t, err)
-		// Should return the full PKL mapping content
-		require.Contains(t, string(data), "Resources = new Mapping")
-		require.Contains(t, string(data), "[\"database\"] = postgresql://localhost")
 
-		// Verify it was stored as a single PKL mapping
-		var value string
-		err = reader.DB.QueryRow("SELECT value FROM records WHERE id = ? AND type = ? AND key = ?", "test1", "config", "").Scan(&value)
+		setURI2, _ := url.Parse("pklres://?op=set&collection=test3&key=key2&value=value2")
+		_, err = reader.Read(*setURI2)
 		require.NoError(t, err)
-		require.Contains(t, value, "[\"database\"] = postgresql://localhost")
 
-		// Set another key for the same record
-		uri, _ = url.Parse("pklres:///test1?type=config&key=redis&op=set&value=redis://localhost:6379")
-		data, err = reader.Read(*uri)
+		// List keys
+		listURI, _ := url.Parse("pklres://?op=list&collection=test3")
+		data, err := reader.Read(*listURI)
 		require.NoError(t, err)
-		require.Contains(t, string(data), "[\"redis\"] = redis://localhost:6379")
+		require.Contains(t, string(data), "key1")
+		require.Contains(t, string(data), "key2")
 
-		// Verify both keys exist in the same mapping
-		var count int
-		err = reader.DB.QueryRow("SELECT COUNT(*) FROM records WHERE id = ? AND type = ?", "test1", "config").Scan(&count)
-		require.NoError(t, err)
-		require.Equal(t, 1, count) // Only one record with the full mapping
+		// Test missing collection parameter
+		listURI, _ = url.Parse("pklres://?op=list")
+		_, err = reader.Read(*listURI)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "list operation requires collection parameter")
 	})
 
-	t.Run("Read_ListRecords", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "")
-		require.NoError(t, err)
-		defer reader.DB.Close()
-
-		// Insert records of different types
-		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test1", "config", "", "value1")
-		require.NoError(t, err)
-		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test1", "config", "database", "postgresql://localhost")
-		require.NoError(t, err)
-		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test2", "config", "", "value2")
-		require.NoError(t, err)
-		_, err = reader.DB.Exec("INSERT INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)", "test-graph", "test3", "cache", "", "value3")
+	t.Run("Read_InvalidOperation", func(t *testing.T) {
+		reader, err := pklres.InitializePklResource("test-graph", "", "", "", afero.NewMemMapFs())
 		require.NoError(t, err)
 
-		// List config records
-		uri, _ := url.Parse("pklres:///_?type=config&op=list")
-		data, err := reader.Read(*uri)
-		require.NoError(t, err)
-		require.Contains(t, string(data), "test1")
-		require.Contains(t, string(data), "test2")
-		require.NotContains(t, string(data), "test3")
-
-		// List cache records
-		uri, _ = url.Parse("pklres:///_?type=cache&op=list")
-		data, err = reader.Read(*uri)
-		require.NoError(t, err)
-		require.Contains(t, string(data), "test3")
-		require.NotContains(t, string(data), "test1")
-
-		// List non-existent type
-		uri, _ = url.Parse("pklres:///_?type=nonexistent&op=list")
-		data, err = reader.Read(*uri)
-		require.NoError(t, err)
-		require.Equal(t, "[]", string(data))
-
-		// Test missing type parameter
-		uri, _ = url.Parse("pklres:///_?op=list")
+		// Test invalid operation
+		uri, _ := url.Parse("pklres://?op=invalid")
 		_, err = reader.Read(*uri)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "list operation requires type parameter")
+		require.Contains(t, err.Error(), "unsupported operation: invalid")
 	})
 
-	t.Run("Read_InvalidParameters", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "")
+	t.Run("Read_GetMissingParameters", func(t *testing.T) {
+		reader, err := pklres.InitializePklResource("test-graph", "", "", "", afero.NewMemMapFs())
 		require.NoError(t, err)
-		defer reader.DB.Close()
 
-		// Test get without id
-		uri, _ := url.Parse("pklres:///?type=config")
+		// Test get without collection
+		uri, _ := url.Parse("pklres://?op=get&key=testkey")
 		_, err = reader.Read(*uri)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "get operation requires id and type parameters")
+		require.Contains(t, err.Error(), "get operation requires collection and key parameters")
 
-		// Test get without type
-		uri, _ = url.Parse("pklres:///test1")
+		// Test get without key
+		uri, _ = url.Parse("pklres://?op=get&collection=test")
 		_, err = reader.Read(*uri)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "get operation requires id and type parameters")
+		require.Contains(t, err.Error(), "get operation requires collection and key parameters")
 	})
 
-	t.Run("Database_Initialization", func(t *testing.T) {
-		// Test database initialization
-		db, err := pklres.InitializeDatabase(":memory:")
+	t.Run("GraphIDScoping", func(t *testing.T) {
+		reader1, err := pklres.InitializePklResource("graph1", "", "", "", afero.NewMemMapFs())
 		require.NoError(t, err)
-		defer db.Close()
 
-		// Verify table was created
-		var name string
-		err = db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name='records'").Scan(&name)
+		reader2, err := pklres.InitializePklResource("graph2", "", "", "", afero.NewMemMapFs())
 		require.NoError(t, err)
-		require.Equal(t, "records", name)
 
-		// Verify indexes were created
-		var indexCount int
-		err = db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND tbl_name='records'").Scan(&indexCount)
+		// Set value in graph1
+		setURI, _ := url.Parse("pklres://?op=set&collection=test&key=key&value=value1")
+		_, err = reader1.Read(*setURI)
 		require.NoError(t, err)
-		require.GreaterOrEqual(t, indexCount, 2) // Should have at least 2 indexes
+
+		// Set value in graph2
+		setURI, _ = url.Parse("pklres://?op=set&collection=test&key=key&value=value2")
+		_, err = reader2.Read(*setURI)
+		require.NoError(t, err)
+
+		// Get value from graph1
+		getURI, _ := url.Parse("pklres://?op=get&collection=test&key=key")
+		data, err := reader1.Read(*getURI)
+		require.NoError(t, err)
+		require.Equal(t, `"value1"`, string(data))
+
+		// Get value from graph2
+		data, err = reader2.Read(*getURI)
+		require.NoError(t, err)
+		require.Equal(t, `"value2"`, string(data))
 	})
 
-	t.Run("InitializePklResource", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource(":memory:", "test-graph", "", "", "")
+	t.Run("GlobalReader", func(t *testing.T) {
+		// Test global reader functionality
+		reader, err := pklres.InitializePklResource("test-graph", "", "", "", afero.NewMemMapFs())
 		require.NoError(t, err)
-		require.NotNil(t, reader)
-		require.NotNil(t, reader.DB)
-		require.Equal(t, ":memory:", reader.DBPath)
-		defer reader.DB.Close()
+
+		pklres.SetGlobalPklresReader(reader)
+		defer pklres.SetGlobalPklresReader(nil)
+
+		// Test that global reader is accessible
+		globalReader := pklres.GetGlobalPklresReader()
+		require.NotNil(t, globalReader)
+		require.Equal(t, reader, globalReader)
+
+		// Test context update
+		err = pklres.UpdateGlobalPklresReaderContext("new-graph", "agent1", "1.0.0", "/path")
+		require.NoError(t, err)
+
+		require.Equal(t, "new-graph", globalReader.GraphID)
+		require.Equal(t, "agent1", globalReader.CurrentAgent)
+		require.Equal(t, "1.0.0", globalReader.CurrentVersion)
+		require.Equal(t, "/path", globalReader.KdepsPath)
 	})
 
-	t.Run("Read_EdgeCases", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "")
-		require.NoError(t, err)
-		defer reader.DB.Close()
-
-		// Test update existing record
-		uri, _ := url.Parse("pklres:///test1?type=config&op=set&value=value1")
-		_, err = reader.Read(*uri)
+	t.Run("NilReceiver", func(t *testing.T) {
+		// Test that nil receiver uses global reader
+		reader, err := pklres.InitializePklResource("test-graph", "", "", "", afero.NewMemMapFs())
 		require.NoError(t, err)
 
-		// Update with new value
-		uri, _ = url.Parse("pklres:///test1?type=config&op=set&value=value2")
-		data, err := reader.Read(*uri)
-		require.NoError(t, err)
-		require.Equal(t, []byte("value2"), data)
+		pklres.SetGlobalPklresReader(reader)
+		defer pklres.SetGlobalPklresReader(nil)
 
-		// Verify it was updated
-		var value string
-		err = reader.DB.QueryRow("SELECT value FROM records WHERE id = ? AND type = ? AND key = ?", "test1", "config", "").Scan(&value)
+		// Set a value using global reader
+		setURI, _ := url.Parse("pklres://?op=set&collection=test&key=key&value=value")
+		_, err = reader.Read(*setURI)
 		require.NoError(t, err)
-		require.Equal(t, "value2", value)
 
-		// Test getObject operation with non-existent record
-		// Mark the resource as finished to avoid waiting
-		reader.SetProcessingStatus("nonexistent", pklres.NewProcessingStatus(nil))
-		reader.MarkResourceFinished("nonexistent")
-
-		uri, _ = url.Parse("pklres:///nonexistent?type=config&key=test&op=getObject")
-		data, err = reader.Read(*uri)
+		// Get the value using nil receiver (should use global reader)
+		var nilReader *pklres.PklResourceReader
+		getURI, _ := url.Parse("pklres://?op=get&collection=test&key=key")
+		data, err := nilReader.Read(*getURI)
 		require.NoError(t, err)
-		require.Equal(t, []byte(""), data)
+		require.Equal(t, `"value"`, string(data))
 	})
 }

@@ -1,9 +1,13 @@
 package resolver
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -172,11 +176,13 @@ func (dr *DependencyResolver) LoadResource(ctx context.Context, resourceFile str
 		os.Setenv("KDEPS_CURRENT_VERSION", dr.Workflow.GetVersion())
 	}
 
-	// Use the evaluator directly
-	pklEvaluator := dr.Evaluator
+	// Use the existing evaluator from the dependency resolver
+	if dr.Evaluator == nil {
+		return nil, fmt.Errorf("evaluator is required but was nil")
+	}
 
 	// Load the resource based on the resource type
-	return dr.loadResourceByType(ctx, pklEvaluator, resourceFile, resourceType, "")
+	return dr.loadResourceByType(ctx, dr.Evaluator, resourceFile, resourceType, "")
 }
 
 // LoadResourceWithRequestContext reads a resource file in a context that includes request data
@@ -194,21 +200,22 @@ func (dr *DependencyResolver) LoadResourceWithRequestContext(ctx context.Context
 
 	// Populate request data in pklres if available
 	if dr.RequestPklFile != "" {
-		if err := dr.populateRequestDataInPklres(); err != nil {
+		if err := dr.PopulateRequestDataInPklres(); err != nil {
 			dr.Logger.Warn("failed to populate request data in pklres", "error", err)
 		}
 	}
 
-	// Use the evaluator directly
-	pklEvaluator := dr.Evaluator
+	// Use the existing evaluator from the dependency resolver
+	if dr.Evaluator == nil {
+		return nil, fmt.Errorf("evaluator is required but was nil")
+	}
 
 	// Use the standard evaluator with pklres reader, which should handle template expressions
-	return dr.loadResourceByType(ctx, pklEvaluator, resourceFile, resourceType, " with request context")
+	return dr.loadResourceByType(ctx, dr.Evaluator, resourceFile, resourceType, " with request context")
 }
 
-// populateRequestDataInPklres loads request data from RequestPklFile and stores it in pklres
-// This enables PKL files to access request data via pklres:///{requestID}?type=request
-func (dr *DependencyResolver) populateRequestDataInPklres() error {
+// PopulateRequestDataInPklres stores request data in pklres using the key-value store approach
+func (dr *DependencyResolver) PopulateRequestDataInPklres() error {
 	dr.Logger.Debug("populateRequestDataInPklres: called", "requestID", dr.RequestID)
 	if dr.RequestPklFile == "" {
 		return errors.New("no request PKL file specified")
@@ -234,21 +241,6 @@ func (dr *DependencyResolver) populateRequestDataInPklres() error {
 		}
 	}
 
-	// Process the request resource asynchronously using the same pattern as exec/python resources
-	if err := dr.ProcessResourceStep(canonicalRequestID, "request", nil, func() error {
-		return dr.processRequestBlock(canonicalRequestID)
-	}); err != nil {
-		dr.Logger.Error("failed to process request resource", "requestID", canonicalRequestID, "error", err)
-		return fmt.Errorf("failed to process request resource: %w", err)
-	}
-
-	return nil
-}
-
-// processRequestBlock processes the request resource asynchronously
-func (dr *DependencyResolver) processRequestBlock(requestID string) error {
-	dr.Logger.Debug("processRequestBlock: starting", "requestID", requestID)
-
 	// Check if the request file exists
 	if _, err := dr.Fs.Stat(dr.RequestPklFile); err != nil {
 		return fmt.Errorf("request PKL file does not exist: %w", err)
@@ -260,24 +252,240 @@ func (dr *DependencyResolver) processRequestBlock(requestID string) error {
 		return fmt.Errorf("failed to read request PKL file: %w", err)
 	}
 
-	// Store the request data in pklres under the "request" type
+	// Store the request data in pklres as individual key-value pairs
 	if dr.PklresHelper != nil {
-		dr.Logger.Debug("processRequestBlock: storing request data in pklres", "requestID", requestID)
-		if err := dr.PklresHelper.StorePklContent("request", requestID, string(requestBytes)); err != nil {
-			return fmt.Errorf("failed to store request data in pklres: %w", err)
+		// Store the request ID
+		if err := dr.PklresHelper.StoreResourceRecord("request", canonicalRequestID, "requestID", dr.RequestID); err != nil {
+			dr.Logger.Warn("failed to store request ID", "error", err)
 		}
-		dr.Logger.Debug("processRequestBlock: stored request data in pklres", "requestID", requestID)
-	} else {
-		return errors.New("PklresHelper is nil")
+
+		// Store the request file content
+		if err := dr.PklresHelper.StoreResourceRecord("request", canonicalRequestID, "file", string(requestBytes)); err != nil {
+			dr.Logger.Warn("failed to store request file", "error", err)
+		}
+
+		// Store additional request metadata
+		if dr.Request != nil {
+			// Store path
+			if err := dr.PklresHelper.StoreResourceRecord("request", canonicalRequestID, "path", dr.Request.Request.URL.Path); err != nil {
+				dr.Logger.Warn("failed to store request path", "error", err)
+			}
+
+			// Store method
+			if err := dr.PklresHelper.StoreResourceRecord("request", canonicalRequestID, "method", dr.Request.Request.Method); err != nil {
+				dr.Logger.Warn("failed to store request method", "error", err)
+			}
+
+			// Store client IP
+			if err := dr.PklresHelper.StoreResourceRecord("request", canonicalRequestID, "ip", dr.Request.ClientIP()); err != nil {
+				dr.Logger.Warn("failed to store request IP", "error", err)
+			}
+
+			// Store headers as JSON
+			headers := make(map[string]string)
+			for key, values := range dr.Request.Request.Header {
+				if len(values) > 0 {
+					headers[key] = values[0]
+				}
+			}
+			if headersJSON, err := json.Marshal(headers); err == nil {
+				if err := dr.PklresHelper.StoreResourceRecord("request", canonicalRequestID, "headers", string(headersJSON)); err != nil {
+					dr.Logger.Warn("failed to store request headers", "error", err)
+				}
+			}
+
+			// Store query parameters as JSON
+			params := make(map[string]string)
+			for key, values := range dr.Request.Request.URL.Query() {
+				if len(values) > 0 {
+					params[key] = values[0]
+				}
+			}
+			if paramsJSON, err := json.Marshal(params); err == nil {
+				if err := dr.PklresHelper.StoreResourceRecord("request", canonicalRequestID, "params", string(paramsJSON)); err != nil {
+					dr.Logger.Warn("failed to store request params", "error", err)
+				}
+			}
+
+			// Store request body
+			if dr.Request.Request.Body != nil {
+				if bodyBytes, err := io.ReadAll(dr.Request.Request.Body); err == nil {
+					// Restore the body for potential future reads
+					dr.Request.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+					// Store the body as base64 encoded
+					bodyBase64 := base64.StdEncoding.EncodeToString(bodyBytes)
+					if err := dr.PklresHelper.StoreResourceRecord("request", canonicalRequestID, "data", bodyBase64); err != nil {
+						dr.Logger.Warn("failed to store request body", "error", err)
+					}
+				}
+			}
+		}
+
+		dr.Logger.Debug("storeRequestResource: successfully stored request resource", "requestID", canonicalRequestID)
 	}
 
-	dr.Logger.Debug("processRequestBlock: completed successfully", "requestID", requestID)
 	return nil
+}
+
+// storeRequestResource stores the request resource in pklres with type=request
+func (dr *DependencyResolver) storeRequestResource(requestID string) error {
+	if dr.PklresHelper == nil || dr.PklresHelper.resolver == nil || dr.PklresHelper.resolver.PklresReader == nil {
+		return errors.New("pklres reader not available")
+	}
+
+	dr.Logger.Debug("storeRequestResource: storing request resource", "requestID", requestID)
+
+	// Store the request resource with type=request using the correct pklres URI format
+	// The system looks for resources with type=request in pklres://?op=set&collection={requestID}&key=resource&value={resourceJSON}
+	resourceData := map[string]interface{}{
+		"type":     "request",
+		"id":       requestID,
+		"file":     "virtual://request.pkl",
+		"finished": true,
+	}
+
+	resourceJSON, err := json.Marshal(resourceData)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request resource data: %w", err)
+	}
+
+	// Store the request resource using the correct pklres URI format
+	// Format: pklres://?op=set&collection={requestID}&key=resource&value={resourceJSON}
+	setURI := fmt.Sprintf("pklres://?op=set&collection=%s&key=resource&value=%s",
+		url.QueryEscape(requestID),
+		url.QueryEscape(string(resourceJSON)))
+
+	parsedURI, err := url.Parse(setURI)
+	if err != nil {
+		return fmt.Errorf("failed to parse set URI: %w", err)
+	}
+
+	_, err = dr.PklresHelper.resolver.PklresReader.Read(*parsedURI)
+	if err != nil {
+		dr.Logger.Error("storeRequestResource: failed to store request resource", "requestID", requestID, "error", err)
+		return fmt.Errorf("failed to store request resource: %w", err)
+	}
+
+	dr.Logger.Debug("storeRequestResource: successfully stored request resource", "requestID", requestID)
+	return nil
+}
+
+// storeRequestData is a helper function to store a single key-value pair in pklres
+func (dr *DependencyResolver) storeRequestData(collection, key, value string) error {
+	if dr.PklresHelper == nil || dr.PklresHelper.resolver == nil || dr.PklresHelper.resolver.PklresReader == nil {
+		return errors.New("pklres reader not available")
+	}
+
+	dr.Logger.Debug("storeRequestData: storing", "collection", collection, "key", key, "value", value, "value_length", len(value))
+
+	setURI := fmt.Sprintf("pklres://?op=set&collection=%s&key=%s&value=%s",
+		url.QueryEscape(collection),
+		url.QueryEscape(key),
+		url.QueryEscape(value))
+
+	dr.Logger.Debug("storeRequestData: constructed URI", "uri", setURI)
+
+	parsedURI, err := url.Parse(setURI)
+	if err != nil {
+		return fmt.Errorf("failed to parse set URI: %w", err)
+	}
+
+	_, err = dr.PklresHelper.resolver.PklresReader.Read(*parsedURI)
+	if err != nil {
+		dr.Logger.Error("storeRequestData: failed to store", "collection", collection, "key", key, "value", value, "error", err)
+		return fmt.Errorf("failed to store request data: %w", err)
+	}
+
+	dr.Logger.Debug("storeRequestData: successfully stored", "collection", collection, "key", key, "value", value)
+	return nil
+}
+
+// createResourceWithRequestContext creates a temporary PKL file that includes both the request data and the resource
+func (dr *DependencyResolver) createResourceWithRequestContext(resourceFile string) (string, error) {
+	// Read the request PKL file content
+	requestBytes, err := afero.ReadFile(dr.Fs, dr.RequestPklFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to read request PKL file: %w", err)
+	}
+
+	// Read the resource file content
+	resourceBytes, err := afero.ReadFile(dr.Fs, resourceFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to read resource file: %w", err)
+	}
+
+	// Create a temporary file that combines both
+	tmpFile, err := afero.TempFile(dr.Fs, "", "resource-with-request-*.pkl")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temporary file: %w", err)
+	}
+	defer tmpFile.Close()
+
+	// Write the request data first (this provides the request context)
+	if _, err := tmpFile.Write(requestBytes); err != nil {
+		return "", fmt.Errorf("failed to write request data to temporary file: %w", err)
+	}
+
+	// Add a newline separator
+	if _, err := tmpFile.WriteString("\n\n"); err != nil {
+		return "", fmt.Errorf("failed to write separator to temporary file: %w", err)
+	}
+
+	// Convert the resource to amend the request context instead of extending its own template
+	resourceContent := string(resourceBytes)
+
+	// Replace the extends statement with amends to modify the request context
+	// This allows the resource to access the request data while maintaining its own structure
+	if strings.Contains(resourceContent, "extends") {
+		// Find and replace extends with amends to the request context
+		lines := strings.Split(resourceContent, "\n")
+		for i, line := range lines {
+			if strings.Contains(line, "extends") {
+				// Skip the extends line and let the resource amend the request context
+				lines[i] = "// Original extends line: " + line
+				break
+			}
+		}
+		resourceContent = strings.Join(lines, "\n")
+	}
+
+	// Write the modified resource content
+	if _, err := tmpFile.WriteString(resourceContent); err != nil {
+		return "", fmt.Errorf("failed to write resource content to temporary file: %w", err)
+	}
+
+	return tmpFile.Name(), nil
 }
 
 // loadResourceByType is a helper function that eliminates duplicate code between LoadResource and LoadResourceWithRequestContext
 func (dr *DependencyResolver) loadResourceByType(ctx context.Context, pklEvaluator pkl.Evaluator, resourceFile string, resourceType ResourceType, contextSuffix string) (interface{}, error) {
-	source := pkl.FileSource(resourceFile)
+	var source *pkl.ModuleSource
+
+	// Set loading phase flag to prevent circular dependencies
+	if dr.PklresHelper != nil {
+		dr.PklresHelper.SetLoadingPhase(true)
+		defer dr.PklresHelper.SetLoadingPhase(false)
+	}
+
+	// In API server mode with request context, create a temporary PKL file that includes the request data
+	if dr.APIServerMode && dr.RequestPklFile != "" && contextSuffix == " with request context" {
+		// Create a temporary file that amends the resource with request context
+		tmpFile, err := dr.createResourceWithRequestContext(resourceFile)
+		if err != nil {
+			dr.Logger.Error("failed to create resource with request context"+contextSuffix, "resource-file", resourceFile, "error", err)
+			return nil, fmt.Errorf("failed to create resource with request context: %w", err)
+		}
+		defer func() {
+			if err := dr.Fs.Remove(tmpFile); err != nil {
+				dr.Logger.Warn("failed to cleanup temporary resource file", "file", tmpFile, "error", err)
+			}
+		}()
+		source = pkl.FileSource(tmpFile)
+		dr.Logger.Debug("created temporary resource file with request context", "original", resourceFile, "temporary", tmpFile)
+	} else {
+		source = pkl.FileSource(resourceFile)
+	}
 
 	switch resourceType {
 	case Resource:

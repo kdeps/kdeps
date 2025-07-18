@@ -202,6 +202,10 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 
 	if workflowConfiguration.GetSettings() != nil {
 		apiServerMode = workflowConfiguration.GetSettings().APIServerMode != nil && *workflowConfiguration.GetSettings().APIServerMode
+		logger.Debug("APIServerMode set from workflow configuration", "apiServerMode", apiServerMode, "APIServerMode_nil", workflowConfiguration.GetSettings().APIServerMode == nil)
+		if workflowConfiguration.GetSettings().APIServerMode != nil {
+			logger.Debug("APIServerMode value", "value", *workflowConfiguration.GetSettings().APIServerMode)
+		}
 		agentSettings := workflowConfiguration.GetSettings().AgentSettings
 		if agentSettings != nil {
 			installAnaconda = agentSettings.InstallAnaconda != nil && *agentSettings.InstallAnaconda
@@ -305,7 +309,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		AgentDBPath:             agentDBPath,
 		AgentReader:             agentReader,
 		PklresReader:            pklresReader,
-		PklresDBPath:            pklresReader.DBPath,
+		PklresDBPath:            "",   // No longer needed with in-memory key-value store
 		CurrentResourceActionID: "",   // Initialize as empty, will be set during resource processing
 		Evaluator:               eval, // Store the PKL evaluator
 		DBs: []*sql.DB{
@@ -374,29 +378,6 @@ func (dr *DependencyResolver) ClearItemDB() error {
 		return fmt.Errorf("failed to clear item database: %w", err)
 	}
 	dr.Logger.Info("cleared item database", "path", dr.ItemDBPath)
-	return nil
-}
-
-// SetResourceProcessingStatus sets the processing status for a resource in pklres
-func (dr *DependencyResolver) SetResourceProcessingStatus(resourceID string, dependencies []string) error {
-	if dr.PklresReader == nil {
-		return errors.New("PklresReader is not initialized")
-	}
-
-	status := pklres.NewProcessingStatus(dependencies)
-	dr.PklresReader.SetProcessingStatus(resourceID, status)
-	dr.Logger.Debug("set resource processing status", "resourceID", resourceID, "dependencies", dependencies)
-	return nil
-}
-
-// MarkResourceFinished marks a resource as finished processing in pklres
-func (dr *DependencyResolver) MarkResourceFinished(resourceID string) error {
-	if dr.PklresReader == nil {
-		return errors.New("PklresReader is not initialized")
-	}
-
-	dr.PklresReader.MarkResourceFinished(resourceID)
-	dr.Logger.Debug("marked resource as finished", "resourceID", resourceID)
 	return nil
 }
 
@@ -671,8 +652,74 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	// Build dependency stack for the target action
 	stack := dr.BuildDependencyStackFn(targetActionID, visited)
 
+	// In API server mode, ensure the request resource is processed first
+	if dr.APIServerMode {
+		dr.Logger.Debug("API server mode detected, adding virtual request resource", "requestID", dr.RequestID)
+
+		// Add the request resource as a dependency for all other resources
+		requestResourceID := dr.RequestID
+		if dr.AgentReader != nil {
+			// Create a URI for agent resolution
+			query := url.Values{}
+			query.Set("op", "resolve")
+			query.Set("agent", dr.Workflow.GetAgentID())
+			query.Set("version", dr.Workflow.GetVersion())
+			uri := url.URL{
+				Scheme:   "agent",
+				Path:     "/" + dr.RequestID,
+				RawQuery: query.Encode(),
+			}
+
+			if resolvedIDBytes, err := dr.AgentReader.Read(uri); err == nil {
+				requestResourceID = string(resolvedIDBytes)
+				dr.Logger.Debug("canonicalized request resource ID", "original", dr.RequestID, "canonical", requestResourceID)
+			}
+		}
+
+		// Add the request resource to the dependency graph
+		dr.ResourceDependencies[requestResourceID] = []string{}
+		dr.Logger.Debug("added request resource to dependencies", "requestResourceID", requestResourceID)
+
+		// Add the request resource to the Resources list
+		requestResourceEntry := ResourceNodeEntry{
+			ActionID: requestResourceID,
+			File:     "virtual://request.pkl", // Virtual file path for the request resource
+		}
+		dr.Resources = append(dr.Resources, requestResourceEntry)
+		dr.Logger.Debug("added virtual request resource to Resources list", "requestResourceID", requestResourceID)
+
+		// Add the request resource as a dependency for all other resources
+		for actionID := range dr.ResourceDependencies {
+			if actionID != requestResourceID {
+				deps := dr.ResourceDependencies[actionID]
+				if deps == nil {
+					deps = []string{}
+				}
+				// Check if request resource is already in dependencies
+				found := false
+				for _, dep := range deps {
+					if dep == requestResourceID {
+						found = true
+						break
+					}
+				}
+				if !found {
+					deps = append(deps, requestResourceID)
+					dr.ResourceDependencies[actionID] = deps
+					dr.Logger.Debug("added request resource as dependency", "resource", actionID, "requestResourceID", requestResourceID)
+				}
+			}
+		}
+
+		// Rebuild the dependency stack to include the request resource
+		stack = dr.BuildDependencyStackFn(targetActionID, visited)
+		dr.Logger.Debug("dependency stack with request resource", "stack", stack, "targetActionID", targetActionID)
+	}
+
 	// Process each resource in the dependency stack
 	for _, nodeActionID := range stack {
+		dr.Logger.Debug("processing resource in dependency stack", "nodeActionID", nodeActionID)
+
 		for _, res := range dr.Resources {
 			if res.ActionID != nodeActionID {
 				continue
@@ -680,6 +727,17 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 
 			// Set the current resource actionID for error context
 			dr.CurrentResourceActionID = res.ActionID
+			dr.Logger.Debug("found matching resource", "actionID", res.ActionID, "file", res.File)
+
+			// Handle virtual request resource specially
+			if res.File == "virtual://request.pkl" {
+				dr.Logger.Debug("processing virtual request resource", "actionID", res.ActionID)
+				if err := dr.PopulateRequestDataInPklres(); err != nil {
+					return dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("failed to process request resource: %v", err), true)
+				}
+				dr.Logger.Debug("virtual request resource processed successfully", "actionID", res.ActionID)
+				continue // Skip normal resource processing for virtual request resource
+			}
 
 			// Load the resource with request context if in API server mode
 			var resPkl interface{}
@@ -823,18 +881,7 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 	dr.FileRunCounter[res.File]++
 	dr.Logger.Info("processing run block for file", "file", res.File, "runCount", dr.FileRunCounter[res.File], "actionID", actionID)
 
-	// Set processing status at the beginning
-	dependencies := dr.ResourceDependencies[res.ActionID]
-	if err := dr.SetResourceProcessingStatus(res.ActionID, dependencies); err != nil {
-		dr.Logger.Warn("failed to set resource processing status", "actionID", res.ActionID, "error", err)
-	}
-
-	// Ensure we mark the resource as finished at the end, regardless of success or failure
-	defer func() {
-		if err := dr.MarkResourceFinished(res.ActionID); err != nil {
-			dr.Logger.Warn("failed to mark resource as finished", "actionID", res.ActionID, "error", err)
-		}
-	}()
+	// Processing status tracking removed - simplified to pure key-value store approach
 
 	// Debug logging for Chat block values
 	if rsc.Run != nil && rsc.Run.Chat != nil {
@@ -1207,6 +1254,98 @@ func (dr *DependencyResolver) storeInitialResourceState(actionID, resourceType s
 		canonicalActionID = dr.PklresHelper.resolveActionID(actionID)
 	}
 	return dr.PklresHelper.StorePklContent(resourceType, canonicalActionID, pklContent.String())
+}
+
+// storeResourceInPklres stores a resource in pklres using the key-value store approach
+func (dr *DependencyResolver) storeResourceInPklres(resourceType, actionID, key, value string) error {
+	if dr.PklresHelper == nil {
+		return errors.New("PklresHelper is not initialized")
+	}
+
+	// Use the canonical ActionID as the collection key
+	canonicalActionID := actionID
+	if dr.PklresHelper != nil {
+		canonicalActionID = dr.PklresHelper.resolveActionID(actionID)
+	}
+
+	// Store the resource record using the key-value store
+	return dr.PklresHelper.StoreResourceRecord(resourceType, canonicalActionID, key, value)
+}
+
+// storeLLMResource stores an LLM resource in pklres
+func (dr *DependencyResolver) storeLLMResource(actionID, model, prompt, response string) error {
+	if err := dr.storeResourceInPklres("llm", actionID, "model", model); err != nil {
+		return err
+	}
+	if err := dr.storeResourceInPklres("llm", actionID, "prompt", prompt); err != nil {
+		return err
+	}
+	if err := dr.storeResourceInPklres("llm", actionID, "response", response); err != nil {
+		return err
+	}
+	return nil
+}
+
+// storeExecResource stores an Exec resource in pklres
+func (dr *DependencyResolver) storeExecResource(actionID, command, stdout, stderr string, exitCode int) error {
+	if err := dr.storeResourceInPklres("exec", actionID, "command", command); err != nil {
+		return err
+	}
+	if err := dr.storeResourceInPklres("exec", actionID, "stdout", stdout); err != nil {
+		return err
+	}
+	if err := dr.storeResourceInPklres("exec", actionID, "stderr", stderr); err != nil {
+		return err
+	}
+	if err := dr.storeResourceInPklres("exec", actionID, "exitCode", strconv.Itoa(exitCode)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// storePythonResource stores a Python resource in pklres
+func (dr *DependencyResolver) storePythonResource(actionID, script, stdout, stderr string, exitCode int) error {
+	if err := dr.storeResourceInPklres("python", actionID, "script", script); err != nil {
+		return err
+	}
+	if err := dr.storeResourceInPklres("python", actionID, "stdout", stdout); err != nil {
+		return err
+	}
+	if err := dr.storeResourceInPklres("python", actionID, "stderr", stderr); err != nil {
+		return err
+	}
+	if err := dr.storeResourceInPklres("python", actionID, "exitCode", strconv.Itoa(exitCode)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// storeHTTPResource stores an HTTP resource in pklres
+func (dr *DependencyResolver) storeHTTPResource(actionID, url, method, response string, statusCode int) error {
+	if err := dr.storeResourceInPklres("http", actionID, "url", url); err != nil {
+		return err
+	}
+	if err := dr.storeResourceInPklres("http", actionID, "method", method); err != nil {
+		return err
+	}
+	if err := dr.storeResourceInPklres("http", actionID, "response", response); err != nil {
+		return err
+	}
+	if err := dr.storeResourceInPklres("http", actionID, "statusCode", strconv.Itoa(statusCode)); err != nil {
+		return err
+	}
+	return nil
+}
+
+// storeDataResource stores a Data resource in pklres
+func (dr *DependencyResolver) storeDataResource(actionID, content, filepath string) error {
+	if err := dr.storeResourceInPklres("data", actionID, "content", content); err != nil {
+		return err
+	}
+	if err := dr.storeResourceInPklres("data", actionID, "filepath", filepath); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Exported for testing

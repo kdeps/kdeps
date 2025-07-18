@@ -45,7 +45,7 @@ func newTestResolver() *resolver.DependencyResolver {
 	}
 
 	// Initialize PklresReader and PklresHelper for tests that need it
-	dr.PklresReader, _ = pklres.InitializePklResource(":memory:", "test-graph", "", "", "")
+	dr.PklresReader, _ = pklres.InitializePklResource("test-graph", "", "", "", afero.NewMemMapFs())
 	dr.PklresHelper = resolver.NewPklresHelper(dr)
 
 	return dr
@@ -124,7 +124,7 @@ func TestPrepareImportFilesExtra(t *testing.T) {
 		Environment: env,
 	}
 
-	dr.PklresReader, _ = pklres.InitializePklResource(":memory:", "test-graph", "", "", "")
+	dr.PklresReader, _ = pklres.InitializePklResource("test-graph", "", "", "", afero.NewMemMapFs())
 	dr.PklresHelper = resolver.NewPklresHelper(dr)
 
 	// Ensure prepare succeeds without error.

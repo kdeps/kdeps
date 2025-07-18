@@ -102,10 +102,7 @@ func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHT
 		}
 	}
 
-	// Mark the resource as finished processing
-	if err := dr.MarkResourceFinished(actionID); err != nil {
-		dr.Logger.Warn("processHTTPBlock: failed to mark resource as finished", "actionID", actionID, "error", err)
-	}
+	// Processing status tracking removed - simplified to pure key-value store approach
 
 	return nil
 }
