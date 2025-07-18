@@ -84,8 +84,8 @@ func (h *PklresHelper) StorePklContent(resourceType, resourceID, content string)
 		h.resolver.Logger.Debug("storePklContent: storing", "resourceType", resourceType, "resourceID", resourceID, "graphID", graphID, "content", content)
 	}
 
-	// Use graphID as the id in the path
-	uri, err := url.Parse(fmt.Sprintf("pklres:///%s?type=%s&op=set&value=%s",
+	// Use graphID as the id in the path with a proper key
+	uri, err := url.Parse(fmt.Sprintf("pklres:///%s?type=%s&key=content&op=set&value=%s",
 		graphID, resourceType, url.QueryEscape(content)))
 	if err != nil {
 		return fmt.Errorf("failed to parse pklres URI: %w", err)
@@ -112,8 +112,8 @@ func (h *PklresHelper) RetrievePklContent(resourceType, resourceID string) (stri
 	}
 
 	// Use pklres to retrieve the content
-	// Note: The content is stored with an empty key, so we need to use the graphID as the id and an empty key
-	uri, err := url.Parse(fmt.Sprintf("pklres:///%s?type=%s&key=",
+	// Note: The content is stored with the "content" key
+	uri, err := url.Parse(fmt.Sprintf("pklres:///%s?type=%s&key=content",
 		graphID, resourceType))
 	if err != nil {
 		return "", fmt.Errorf("failed to parse pklres URI: %w", err)

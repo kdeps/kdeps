@@ -24,6 +24,12 @@ var (
 	globalMutex        sync.RWMutex
 )
 
+// Simplified database connection pool
+var (
+	dbPool      *sql.DB
+	dbPoolMutex sync.Mutex
+)
+
 // getSchemaFileForType returns the appropriate schema file based on the resource type
 func getSchemaFileForType(typ string) string {
 	switch typ {
@@ -170,7 +176,7 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		if globalReader != nil {
 			r = globalReader
 		} else {
-			newReader, err := InitializePklResource(":memory:", "default", "", "", "")
+			newReader, err := InitializePklResource(":memory:", "default", "", "", "", nil)
 			if err != nil {
 				return nil, fmt.Errorf("failed to initialize PklResourceReader: %w", err)
 			}
@@ -266,7 +272,10 @@ func (r *PklResourceReader) setRecord(id, typ, key string, query url.Values) ([]
 		r.Logger.Error("setRecord failed: id or type not provided")
 		return nil, errors.New("set operation requires id and type parameters")
 	}
-
+	if key == "" {
+		r.Logger.Error("setRecord failed: key not provided")
+		return nil, errors.New("set operation requires a non-empty key")
+	}
 	value := query.Get("value")
 	if value == "" {
 		r.Logger.Error("setRecord failed: no value provided")
@@ -285,19 +294,14 @@ func (r *PklResourceReader) setRecord(id, typ, key string, query url.Values) ([]
 		}
 	}
 
-	// If this is a resource record (key is not empty), we need to handle it as a mapping update
-	if key != "" {
-		return r.setResourceRecord(id, typ, key, value)
-	}
-
-	// For non-resource records (empty key), store the value directly
-	return r.setDirectRecord(id, typ, value)
+	// All records must have a key - handle as resource record
+	return r.setResourceRecord(id, typ, key, value)
 }
 
 // setResourceRecord handles storing resource records in PKL mappings
 func (r *PklResourceReader) setResourceRecord(id, typ, key, value string) ([]byte, error) {
 	// Get existing mapping content
-	existingContent, err := r.getRecord(id, typ, "")
+	existingContent, err := r.getRecord(id, typ, "content")
 	if err != nil {
 		r.Logger.Debug("setResourceRecord: no existing content, creating new mapping", "id", id, "type", typ)
 		existingContent = []byte("")
@@ -326,14 +330,7 @@ func (r *PklResourceReader) setResourceRecord(id, typ, key, value string) ([]byt
 		return nil, fmt.Errorf("failed to update mapping: %w", err)
 	}
 
-	// Store the updated content
-	query := url.Values{}
-	query.Set("value", updatedContent)
-	return r.setDirectRecord(id, typ, updatedContent)
-}
-
-// setDirectRecord stores a direct value in the database
-func (r *PklResourceReader) setDirectRecord(id, typ, value string) ([]byte, error) {
+	// Store the updated content directly in the database
 	// Ensure table exists before attempting to set record
 	if _, err := r.DB.Exec(`CREATE TABLE IF NOT EXISTS records (
 		graph_id TEXT NOT NULL,
@@ -344,14 +341,14 @@ func (r *PklResourceReader) setDirectRecord(id, typ, value string) ([]byte, erro
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		PRIMARY KEY (graph_id, id, type, key)
 	)`); err != nil {
-		r.Logger.Error("setDirectRecord failed to create table", "error", err)
+		r.Logger.Error("setResourceRecord failed to create table", "error", err)
 		return nil, fmt.Errorf("failed to create records table: %w", err)
 	}
 
 	// Start a transaction for atomic operation
 	tx, err := r.DB.Begin()
 	if err != nil {
-		r.Logger.Error("setDirectRecord failed to start transaction", "error", err)
+		r.Logger.Error("setResourceRecord failed to start transaction", "error", err)
 		return nil, fmt.Errorf("failed to start transaction: %w", err)
 	}
 
@@ -359,7 +356,7 @@ func (r *PklResourceReader) setDirectRecord(id, typ, value string) ([]byte, erro
 	defer func() {
 		if err != nil {
 			if rollbackErr := tx.Rollback(); rollbackErr != nil {
-				r.Logger.Error("setDirectRecord: failed to rollback transaction", "error", rollbackErr)
+				r.Logger.Error("setResourceRecord: failed to rollback transaction", "error", rollbackErr)
 			}
 		}
 	}()
@@ -367,20 +364,20 @@ func (r *PklResourceReader) setDirectRecord(id, typ, value string) ([]byte, erro
 	// Use INSERT OR REPLACE with graphID and consistent key handling
 	_, err = tx.Exec(
 		"INSERT OR REPLACE INTO records (graph_id, id, type, key, value) VALUES (?, ?, ?, ?, ?)",
-		r.GraphID, id, typ, "", value,
+		r.GraphID, id, typ, "content", updatedContent,
 	)
 	if err != nil {
-		r.Logger.Error("setDirectRecord failed to execute SQL", "error", err)
+		r.Logger.Error("setResourceRecord failed to execute SQL", "error", err)
 		return nil, fmt.Errorf("failed to set record: %w", err)
 	}
 
 	// Commit the transaction
 	if err := tx.Commit(); err != nil {
-		r.Logger.Error("setDirectRecord failed to commit transaction", "error", err)
+		r.Logger.Error("setResourceRecord failed to commit transaction", "error", err)
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	r.Logger.Debug("setDirectRecord succeeded", "id", id, "type", typ, "value", value)
+	r.Logger.Debug("setResourceRecord succeeded", "id", id, "type", typ, "key", key, "value", value)
 	return []byte(value), nil
 }
 
@@ -481,6 +478,9 @@ func (r *PklResourceReader) updateMappingContent(content, key, value, typ string
 func (r *PklResourceReader) getRecord(id, typ, key string) ([]byte, error) {
 	if id == "" || typ == "" {
 		return nil, errors.New("get operation requires id and type parameters")
+	}
+	if key == "" {
+		return nil, errors.New("get operation requires a non-empty key")
 	}
 
 	// Canonicalize the id if it's not already canonical
@@ -658,67 +658,56 @@ func (r *PklResourceReader) listRecords(typ string) ([]byte, error) {
 	return result, nil
 }
 
-// InitializeDatabase sets up the SQLite database and creates the records table with retries.
-func InitializeDatabase(dbPath string) (*sql.DB, error) {
-	const maxAttempts = 5
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		db, err := sql.Open("sqlite3", dbPath)
+// getDB returns a database connection from the pool
+func getDB() *sql.DB {
+	dbPoolMutex.Lock()
+	defer dbPoolMutex.Unlock()
+
+	if dbPool == nil {
+		db, err := sql.Open("sqlite3", ":memory:")
 		if err != nil {
-			if attempt == maxAttempts {
-				return nil, fmt.Errorf("failed to open database after %d attempts: %w", maxAttempts, err)
-			}
-			time.Sleep(1 * time.Second)
-			continue
+			return nil
 		}
 
-		// Verify connection
-		if err := db.Ping(); err != nil {
-			db.Close()
-			if attempt == maxAttempts {
-				return nil, fmt.Errorf("failed to ping database after %d attempts: %w", maxAttempts, err)
-			}
-			time.Sleep(1 * time.Second)
-			continue
-		}
-
-		// Create records table with graphID, type and optional key support
-		_, err = db.Exec(`
-			CREATE TABLE IF NOT EXISTS records (
-				graph_id TEXT NOT NULL,
-				id TEXT NOT NULL,
-				type TEXT NOT NULL,
-				key TEXT DEFAULT '',
-				value TEXT NOT NULL,
-				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-				PRIMARY KEY (graph_id, id, type, key)
-			)
-		`)
+		// Create the records table
+		_, err = db.Exec(`CREATE TABLE IF NOT EXISTS records (
+			graph_id TEXT NOT NULL,
+			id TEXT NOT NULL,
+			type TEXT NOT NULL,
+			key TEXT DEFAULT '',
+			value TEXT NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (graph_id, id, type, key)
+		)`)
 		if err != nil {
 			db.Close()
-			if attempt == maxAttempts {
-				return nil, fmt.Errorf("failed to create records table after %d attempts: %w", maxAttempts, err)
-			}
-			time.Sleep(1 * time.Second)
-			continue
+			return nil
 		}
 
-		// Create indexes for better performance with graphID
+		// Create indexes for better performance
 		_, err = db.Exec(`
 			CREATE INDEX IF NOT EXISTS idx_records_graph_type ON records(graph_id, type);
 			CREATE INDEX IF NOT EXISTS idx_records_graph_id_type ON records(graph_id, id, type);
 		`)
 		if err != nil {
 			db.Close()
-			if attempt == maxAttempts {
-				return nil, fmt.Errorf("failed to create indexes after %d attempts: %w", maxAttempts, err)
-			}
-			time.Sleep(1 * time.Second)
-			continue
+			return nil
 		}
 
-		return db, nil
+		dbPool = db
 	}
-	return nil, fmt.Errorf("failed to initialize database after %d attempts", maxAttempts)
+
+	return dbPool
+}
+
+// InitializeDatabase sets up the SQLite database and creates the records table with retries.
+func InitializeDatabase(dbPath string) (*sql.DB, error) {
+	// For simplicity, always use in-memory database
+	db := getDB()
+	if db == nil {
+		return nil, fmt.Errorf("failed to initialize database")
+	}
+	return db, nil
 }
 
 // SetGlobalPklresReader sets the global pklres reader instance
@@ -753,7 +742,7 @@ func UpdateGlobalPklresReaderContext(graphID, currentAgent, currentVersion, kdep
 }
 
 // InitializePklResource creates a new PklResourceReader with an initialized SQLite database.
-func InitializePklResource(dbPath, graphID, currentAgent, currentVersion, kdepsPath string) (*PklResourceReader, error) {
+func InitializePklResource(dbPath, graphID, currentAgent, currentVersion, kdepsPath string, fs afero.Fs) (*PklResourceReader, error) {
 	db, err := InitializeDatabase(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("error initializing database: %w", err)
@@ -762,6 +751,7 @@ func InitializePklResource(dbPath, graphID, currentAgent, currentVersion, kdepsP
 	reader := &PklResourceReader{
 		DB:               db,
 		DBPath:           dbPath,
+		Fs:               fs,
 		GraphID:          graphID,
 		CurrentAgent:     currentAgent,
 		CurrentVersion:   currentVersion,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -208,9 +209,45 @@ func (dr *DependencyResolver) LoadResourceWithRequestContext(ctx context.Context
 // populateRequestDataInPklres loads request data from RequestPklFile and stores it in pklres
 // This enables PKL files to access request data via pklres:///{requestID}?type=request
 func (dr *DependencyResolver) populateRequestDataInPklres() error {
+	dr.Logger.Debug("populateRequestDataInPklres: called", "requestID", dr.RequestID)
 	if dr.RequestPklFile == "" {
 		return errors.New("no request PKL file specified")
 	}
+
+	// Get the canonicalized request ID
+	canonicalRequestID := dr.RequestID
+	if dr.AgentReader != nil {
+		// Create a URI for agent resolution
+		query := url.Values{}
+		query.Set("op", "resolve")
+		query.Set("agent", dr.Workflow.GetAgentID())
+		query.Set("version", dr.Workflow.GetVersion())
+		uri := url.URL{
+			Scheme:   "agent",
+			Path:     "/" + dr.RequestID,
+			RawQuery: query.Encode(),
+		}
+
+		if resolvedIDBytes, err := dr.AgentReader.Read(uri); err == nil {
+			canonicalRequestID = string(resolvedIDBytes)
+			dr.Logger.Debug("canonicalized request ID for storage", "original", dr.RequestID, "canonical", canonicalRequestID)
+		}
+	}
+
+	// Process the request resource asynchronously using the same pattern as exec/python resources
+	if err := dr.ProcessResourceStep(canonicalRequestID, "request", nil, func() error {
+		return dr.processRequestBlock(canonicalRequestID)
+	}); err != nil {
+		dr.Logger.Error("failed to process request resource", "requestID", canonicalRequestID, "error", err)
+		return fmt.Errorf("failed to process request resource: %w", err)
+	}
+
+	return nil
+}
+
+// processRequestBlock processes the request resource asynchronously
+func (dr *DependencyResolver) processRequestBlock(requestID string) error {
+	dr.Logger.Debug("processRequestBlock: starting", "requestID", requestID)
 
 	// Check if the request file exists
 	if _, err := dr.Fs.Stat(dr.RequestPklFile); err != nil {
@@ -218,27 +255,23 @@ func (dr *DependencyResolver) populateRequestDataInPklres() error {
 	}
 
 	// Read the request PKL file content
-	requestContent, err := dr.Fs.Open(dr.RequestPklFile)
-	if err != nil {
-		return fmt.Errorf("failed to open request PKL file: %w", err)
-	}
-	defer requestContent.Close()
-
-	// Read the content as bytes
 	requestBytes, err := afero.ReadFile(dr.Fs, dr.RequestPklFile)
 	if err != nil {
 		return fmt.Errorf("failed to read request PKL file: %w", err)
 	}
 
 	// Store the request data in pklres under the "request" type
-	// This allows PKL files to access request data via pklres:///{requestID}?type=request
 	if dr.PklresHelper != nil {
-		if err := dr.PklresHelper.StorePklContent("request", dr.RequestID, string(requestBytes)); err != nil {
+		dr.Logger.Debug("processRequestBlock: storing request data in pklres", "requestID", requestID)
+		if err := dr.PklresHelper.StorePklContent("request", requestID, string(requestBytes)); err != nil {
 			return fmt.Errorf("failed to store request data in pklres: %w", err)
 		}
-		dr.Logger.Debug("stored request data in pklres", "requestID", dr.RequestID)
+		dr.Logger.Debug("processRequestBlock: stored request data in pklres", "requestID", requestID)
+	} else {
+		return errors.New("PklresHelper is nil")
 	}
 
+	dr.Logger.Debug("processRequestBlock: completed successfully", "requestID", requestID)
 	return nil
 }
 

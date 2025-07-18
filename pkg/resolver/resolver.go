@@ -20,6 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/kdeps/kartographer/graph"
 	"github.com/kdeps/kdeps/pkg/agent"
+	kdepsctx "github.com/kdeps/kdeps/pkg/core"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/item"
@@ -251,23 +252,20 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		return nil, fmt.Errorf("failed to initialize item DB: %w", err)
 	}
 
-	agentDBPath = filepath.Join(actionDir, graphID+"_agent.db")
-	agentReader, err := agent.GetGlobalAgentReader(fs, kdepsBase, agentName, workflowConfiguration.GetVersion(), logger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize agent DB: %w", err)
+	// Use the unified context system
+	kdepsCtx := kdepsctx.GetContext()
+	if kdepsCtx == nil {
+		return nil, errors.New("unified context not initialized")
 	}
 
-	// Use the global pklres reader and update its context for this workflow
-	pklresReader := pklres.GetGlobalPklresReader()
-	if pklresReader == nil {
-		return nil, errors.New("global pklres reader not initialized")
+	// Update the unified context for this workflow
+	err = kdepsctx.UpdateContext(graphID, workflowConfiguration.GetAgentID(), workflowConfiguration.GetVersion(), kdepsBase)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update unified context: %w", err)
 	}
 
-	// Update the global reader's context for this workflow
-	err = pklres.UpdateGlobalPklresReaderContext(graphID, workflowConfiguration.GetAgentID(), workflowConfiguration.GetVersion(), kdepsBase)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update pklres reader context: %w", err)
-	}
+	agentReader := kdepsCtx.AgentReader
+	pklresReader := kdepsCtx.PklresReader
 
 	// Use the passed evaluator directly
 	// The evaluator should already be initialized with the correct resource readers from main

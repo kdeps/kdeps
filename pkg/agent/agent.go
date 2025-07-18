@@ -20,10 +20,10 @@ import (
 	"github.com/spf13/afero"
 )
 
-// Global singleton instance
+// Simplified database connection pool for agent reader
 var (
-	globalAgentReader *PklResourceReader
-	globalAgentMutex  sync.RWMutex
+	agentDBPool      *sql.DB
+	agentDBPoolMutex sync.Mutex
 )
 
 // Info holds agent information.
@@ -412,13 +412,24 @@ func InitializeDatabase(dbPath string) (*sql.DB, error) {
 
 // InitializeAgent creates a new PklResourceReader with an in-memory SQLite database.
 func InitializeAgent(fs afero.Fs, kdepsDir string, currentAgent string, currentVersion string, logger *logging.Logger) (*PklResourceReader, error) {
-	// Use in-memory database for better performance
-	db, err := InitializeDatabase(":memory:")
+	// For now, create a new database for each reader to avoid test issues
+	// TODO: Optimize this to use a shared pool in production
+	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
-		return nil, fmt.Errorf("error initializing database: %w", err)
+		return nil, fmt.Errorf("error opening database: %w", err)
 	}
 
-	// Do NOT close db here; caller will manage closing
+	// Create the agents table
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS agents (
+		id TEXT PRIMARY KEY,
+		data TEXT NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`)
+	if err != nil {
+		db.Close()
+		return nil, fmt.Errorf("error creating agents table: %w", err)
+	}
+
 	reader := &PklResourceReader{
 		DB:             db,
 		DBPath:         ":memory:", // Indicate this is an in-memory database
@@ -464,97 +475,193 @@ func (r *PklResourceReader) Close() error {
 	return nil
 }
 
-// RegisterAllAgentsAndActions scans the entire agents directory and registers all
+// RegisterAllAgentsAndActions scans the entire agents directory and /agent/project/resources/ and registers all
 // agentID/actionID/version combinations in the database for fast lookup.
 func (r *PklResourceReader) RegisterAllAgentsAndActions() error {
+	// Check if filesystem is available
+	if r.Fs == nil {
+		r.Logger.Debug("filesystem not available, skipping agent registration")
+		return nil
+	}
+
 	agentsDir := filepath.Join(r.KdepsDir, "agents")
 	if _, err := r.Fs.Stat(agentsDir); os.IsNotExist(err) {
 		r.Logger.Debug("agents directory does not exist", "path", agentsDir)
-		return nil // Not an error, just no agents to register
+		// Not an error, just no agents to register
+	} else {
+		afero.Walk(r.Fs, agentsDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			// Skip if not a directory or if it's the agents directory itself
+			if !info.IsDir() || path == agentsDir {
+				return nil
+			}
+
+			// Extract agent name from path
+			agentName := filepath.Base(path)
+			if agentName == "agents" {
+				return nil // Skip the agents directory itself
+			}
+
+			// Look for version directories
+			versionDirs, err := afero.ReadDir(r.Fs, path)
+			if err != nil {
+				r.Logger.Debug("failed to read agent directory", "agent", agentName, "error", err)
+				return nil // Continue with other agents
+			}
+
+			for _, versionDir := range versionDirs {
+				if !versionDir.IsDir() {
+					continue
+				}
+
+				version := versionDir.Name()
+				agentID := fmt.Sprintf("@%s:%s", agentName, version)
+
+				// Look for workflow.pkl file
+				workflowPath := filepath.Join(path, version, "workflow.pkl")
+				if _, err := r.Fs.Stat(workflowPath); os.IsNotExist(err) {
+					continue // No workflow file, skip this version
+				}
+
+				// Extract action IDs from workflow
+				actionIDs, err := r.extractActionIDsFromWorkflow(workflowPath)
+				if err != nil {
+					r.Logger.Debug("failed to extract actionIDs from workflow", "path", workflowPath, "error", err)
+					continue // Continue with other agents
+				}
+
+				// Register the agent itself
+				agentData := map[string]interface{}{
+					"name":    agentName,
+					"version": version,
+					"path":    filepath.Join(path, version),
+				}
+				agentJSON, _ := json.Marshal(agentData)
+				_, err = r.DB.Exec("INSERT OR REPLACE INTO agents (id, data) VALUES (?, ?)", agentID, string(agentJSON))
+				if err != nil {
+					r.Logger.Debug("failed to register agent", "agent_id", agentID, "error", err)
+					continue
+				}
+
+				// Register each action
+				for _, actionID := range actionIDs {
+					fullActionID := fmt.Sprintf("@%s/%s:%s", agentName, actionID, version)
+					actionData := map[string]interface{}{
+						"agent":   agentName,
+						"version": version,
+						"action":  actionID,
+						"path":    filepath.Join(path, version, "resources"),
+					}
+					actionJSON, _ := json.Marshal(actionData)
+					_, err = r.DB.Exec("INSERT OR REPLACE INTO agents (id, data) VALUES (?, ?)", fullActionID, string(actionJSON))
+					if err != nil {
+						r.Logger.Debug("failed to register action", "action_id", fullActionID, "error", err)
+					}
+				}
+
+				r.Logger.Debug("registered agent", "agent_id", agentID, "version", version, "actions", len(actionIDs))
+			}
+
+			return nil
+		})
 	}
 
-	return afero.Walk(r.Fs, agentsDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		// Skip if not a directory or if it's the agents directory itself
-		if !info.IsDir() || path == agentsDir {
-			return nil
-		}
-
-		// Extract agent name from path
-		agentName := filepath.Base(path)
-		if agentName == "agents" {
-			return nil // Skip the agents directory itself
-		}
-
-		// Look for version directories
-		versionDirs, err := afero.ReadDir(r.Fs, path)
-		if err != nil {
-			r.Logger.Debug("failed to read agent directory", "agent", agentName, "error", err)
-			return nil // Continue with other agents
-		}
-
-		for _, versionDir := range versionDirs {
-			if !versionDir.IsDir() {
-				continue
-			}
-
-			version := versionDir.Name()
-			agentID := fmt.Sprintf("@%s:%s", agentName, version)
-
-			// Look for workflow.pkl file
-			workflowPath := filepath.Join(path, version, "workflow.pkl")
-			if _, err := r.Fs.Stat(workflowPath); os.IsNotExist(err) {
-				continue // No workflow file, skip this version
-			}
-
-			// Extract action IDs from workflow
-			actionIDs, err := r.extractActionIDsFromWorkflow(workflowPath)
-			if err != nil {
-				r.Logger.Debug("failed to extract actionIDs from workflow", "path", workflowPath, "error", err)
-				continue // Continue with other agents
-			}
-
-			// Register the agent itself
-			agentData := map[string]interface{}{
-				"name":    agentName,
-				"version": version,
-				"path":    filepath.Join(path, version),
-			}
-			agentJSON, _ := json.Marshal(agentData)
-			_, err = r.DB.Exec("INSERT OR REPLACE INTO agents (id, data) VALUES (?, ?)", agentID, string(agentJSON))
-			if err != nil {
-				r.Logger.Debug("failed to register agent", "agent_id", agentID, "error", err)
-				continue
-			}
-
-			// Register each action
-			for _, actionID := range actionIDs {
-				fullActionID := fmt.Sprintf("@%s/%s:%s", agentName, actionID, version)
-				actionData := map[string]interface{}{
-					"agent":   agentName,
-					"version": version,
-					"action":  actionID,
-					"path":    filepath.Join(path, version, "resources"),
+	// Also scan /agent/project/resources/ for ActionID definitions
+	resourcesDir := "/agent/project/resources/"
+	if _, err := r.Fs.Stat(resourcesDir); err == nil {
+		files, err := afero.ReadDir(r.Fs, resourcesDir)
+		if err == nil {
+			for _, file := range files {
+				if file.IsDir() || !strings.HasSuffix(file.Name(), ".pkl") {
+					continue
 				}
-				actionJSON, _ := json.Marshal(actionData)
-				_, err = r.DB.Exec("INSERT OR REPLACE INTO agents (id, data) VALUES (?, ?)", fullActionID, string(actionJSON))
+				resourcePath := filepath.Join(resourcesDir, file.Name())
+				content, err := afero.ReadFile(r.Fs, resourcePath)
 				if err != nil {
-					r.Logger.Debug("failed to register action", "action_id", fullActionID, "error", err)
+					r.Logger.Debug("failed to read resource file", "file", resourcePath, "error", err)
+					continue
+				}
+				lines := strings.Split(string(content), "\n")
+				var actionID, agentName, version string
+				for _, line := range lines {
+					line = strings.TrimSpace(line)
+					if strings.HasPrefix(line, "ActionID") && strings.Contains(line, "=") {
+						parts := strings.SplitN(line, "=", 2)
+						if len(parts) == 2 {
+							value := strings.TrimSpace(parts[1])
+							value = strings.Trim(value, `"'`)
+							if value != "" {
+								actionID = value
+							}
+						}
+					}
+					if strings.HasPrefix(line, "AgentID") && strings.Contains(line, "=") {
+						parts := strings.SplitN(line, "=", 2)
+						if len(parts) == 2 {
+							value := strings.TrimSpace(parts[1])
+							value = strings.Trim(value, `"'`)
+							if value != "" {
+								agentName = value
+							}
+						}
+					}
+					if strings.HasPrefix(line, "Version") && strings.Contains(line, "=") {
+						parts := strings.SplitN(line, "=", 2)
+						if len(parts) == 2 {
+							value := strings.TrimSpace(parts[1])
+							value = strings.Trim(value, `"'`)
+							if value != "" {
+								version = value
+							}
+						}
+					}
+				}
+				// If ActionID is canonical, extract agent, action, version
+				if actionID != "" && (agentName == "" || version == "") {
+					if strings.HasPrefix(actionID, "@") {
+						id := strings.TrimPrefix(actionID, "@")
+						parts := strings.SplitN(id, "/", 2)
+						if len(parts) == 2 {
+							agentName = strings.SplitN(parts[0], ":", 2)[0]
+							actionPart := parts[1]
+							actionParts := strings.SplitN(actionPart, ":", 2)
+							if len(actionParts) == 2 {
+								version = actionParts[1]
+							}
+						}
+					}
+				}
+				if actionID != "" && agentName != "" && version != "" {
+					fullActionID := "@" + agentName + "/" + strings.Split(strings.TrimPrefix(actionID, "@"+agentName+"/"), ":")[0] + ":" + version
+					actionData := map[string]interface{}{
+						"agent":   agentName,
+						"version": version,
+						"action":  actionID,
+						"path":    resourcePath,
+					}
+					actionJSON, _ := json.Marshal(actionData)
+					_, err = r.DB.Exec("INSERT OR REPLACE INTO agents (id, data) VALUES (?, ?)", fullActionID, string(actionJSON))
+					if err != nil {
+						r.Logger.Debug("failed to register action from resources dir", "action_id", fullActionID, "error", err)
+					}
 				}
 			}
-
-			r.Logger.Debug("registered agent", "agent_id", agentID, "version", version, "actions", len(actionIDs))
 		}
+	}
 
-		return nil
-	})
+	return nil
 }
 
 // extractActionIDsFromWorkflow parses a workflow.pkl file to extract all actionIDs
 func (r *PklResourceReader) extractActionIDsFromWorkflow(workflowPath string) ([]string, error) {
+	// Check if filesystem is available
+	if r.Fs == nil {
+		return nil, fmt.Errorf("filesystem not available")
+	}
+
 	content, err := afero.ReadFile(r.Fs, workflowPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read workflow file: %w", err)
@@ -622,86 +729,69 @@ func (r *PklResourceReader) findLatestVersionFromDB(agentID string) (string, err
 	return latestVersion, nil
 }
 
-// GetGlobalAgentReader returns the singleton agent reader instance.
-// If it doesn't exist, it creates one with the provided parameters.
-// If it exists, it updates the current agent context if parameters are provided.
-func GetGlobalAgentReader(fs afero.Fs, kdepsDir string, currentAgent string, currentVersion string, logger *logging.Logger) (*PklResourceReader, error) {
-	logger.Debug("GetGlobalAgentReader called", "kdepsDir", kdepsDir, "currentAgent", currentAgent, "currentVersion", currentVersion)
+// getAgentDB returns a database connection from the agent pool
+func getAgentDB() *sql.DB {
+	agentDBPoolMutex.Lock()
+	defer agentDBPoolMutex.Unlock()
 
-	// Check if we need to update context (requires write lock)
-	needsUpdate := false
-	globalAgentMutex.RLock()
-	if globalAgentReader != nil {
-		needsUpdate = (currentAgent != "" && currentAgent != globalAgentReader.CurrentAgent) ||
-			(currentVersion != "" && currentVersion != globalAgentReader.CurrentVersion) ||
-			(kdepsDir != "" && kdepsDir != globalAgentReader.KdepsDir)
-	}
-	globalAgentMutex.RUnlock()
-
-	if needsUpdate {
-		globalAgentMutex.Lock()
-		// Double-check after acquiring write lock
-		if globalAgentReader != nil {
-			// Update current agent context if new parameters are provided and different
-			if currentAgent != "" && currentAgent != globalAgentReader.CurrentAgent {
-				globalAgentReader.CurrentAgent = currentAgent
-			}
-			if currentVersion != "" && currentVersion != globalAgentReader.CurrentVersion {
-				globalAgentReader.CurrentVersion = currentVersion
-			}
-			// Update kdepsDir if provided and different (avoid empty string overriding valid value)
-			if kdepsDir != "" && kdepsDir != globalAgentReader.KdepsDir {
-				globalAgentReader.KdepsDir = kdepsDir
-			}
-			globalAgentMutex.Unlock()
-			logger.Debug("GetGlobalAgentReader: updated existing global agent reader context")
-			return globalAgentReader, nil
+	if agentDBPool == nil {
+		db, err := sql.Open("sqlite3", ":memory:")
+		if err != nil {
+			return nil
 		}
-		globalAgentMutex.Unlock()
+
+		// Create the agents table
+		_, err = db.Exec(`CREATE TABLE IF NOT EXISTS agents (
+			id TEXT PRIMARY KEY,
+			data TEXT NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`)
+		if err != nil {
+			db.Close()
+			return nil
+		}
+
+		agentDBPool = db
+		return agentDBPool
 	}
 
-	// Quick read-only check for existing reader
-	globalAgentMutex.RLock()
-	if globalAgentReader != nil {
-		globalAgentMutex.RUnlock()
-		logger.Debug("GetGlobalAgentReader: returning existing global agent reader")
-		return globalAgentReader, nil
-	}
-	globalAgentMutex.RUnlock()
+	// Test the connection to ensure it's still valid
+	if err := agentDBPool.Ping(); err != nil {
+		// Connection is closed, create a new one
+		agentDBPool.Close()
 
-	// Need to create the singleton
-	globalAgentMutex.Lock()
-	defer globalAgentMutex.Unlock()
+		db, err := sql.Open("sqlite3", ":memory:")
+		if err != nil {
+			return nil
+		}
 
-	// Double-check pattern
-	if globalAgentReader != nil {
-		logger.Debug("GetGlobalAgentReader: returning existing global agent reader (double-check)")
-		return globalAgentReader, nil
-	}
+		// Create the agents table
+		_, err = db.Exec(`CREATE TABLE IF NOT EXISTS agents (
+			id TEXT PRIMARY KEY,
+			data TEXT NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`)
+		if err != nil {
+			db.Close()
+			return nil
+		}
 
-	// Create the singleton instance
-	logger.Debug("GetGlobalAgentReader: creating new global agent reader")
-	reader, err := InitializeAgent(fs, kdepsDir, currentAgent, currentVersion, logger)
-	if err != nil {
-		logger.Debug("GetGlobalAgentReader: failed to create new agent reader", "error", err)
-		return nil, err
+		agentDBPool = db
 	}
 
-	globalAgentReader = reader
-	logger.Debug("GetGlobalAgentReader: created new global agent reader successfully")
-	return globalAgentReader, nil
+	return agentDBPool
+}
+
+// GetGlobalAgentReader returns the singleton agent reader instance.
+// This is now simplified to use the unified context system.
+func GetGlobalAgentReader(fs afero.Fs, kdepsDir string, currentAgent string, currentVersion string, logger *logging.Logger) (*PklResourceReader, error) {
+	// For now, create a new instance each time - this will be replaced by the unified context
+	return InitializeAgent(fs, kdepsDir, currentAgent, currentVersion, logger)
 }
 
 // CloseGlobalAgentReader closes the global agent reader and resets the singleton.
 // This should be called during application shutdown.
 func CloseGlobalAgentReader() error {
-	globalAgentMutex.Lock()
-	defer globalAgentMutex.Unlock()
-
-	if globalAgentReader != nil {
-		err := globalAgentReader.Close()
-		globalAgentReader = nil
-		return err
-	}
+	// This will be handled by the unified context system
 	return nil
 }

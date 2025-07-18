@@ -12,8 +12,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/cmd"
-	"github.com/kdeps/kdeps/pkg/agent"
 	"github.com/kdeps/kdeps/pkg/cfg"
+	kdepsctx "github.com/kdeps/kdeps/pkg/core"
 	"github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/evaluator"
@@ -21,7 +21,6 @@ import (
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/memory"
-	"github.com/kdeps/kdeps/pkg/pklres"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/session"
 	"github.com/kdeps/kdeps/pkg/tool"
@@ -32,7 +31,7 @@ import (
 
 var (
 	version   = "dev"
-	commit    = ""
+	commit    = "unknown"
 	localMode = "0"
 
 	// Function variables for dependency injection during tests.
@@ -81,7 +80,6 @@ func main() {
 	sessionDBPath := ":memory:"                                  // In-memory tied to operation
 	toolDBPath := ":memory:"                                     // In-memory tied to operation
 	itemDBPath := ":memory:"                                     // In-memory tied to operation
-	pklresDBPath := ":memory:"                                   // In-memory tied to operation
 
 	// Initialize all resource readers
 	memoryReader, err := memory.InitializeMemory(memoryDBPath)
@@ -104,17 +102,20 @@ func main() {
 		logger.Fatalf("failed to initialize item reader: %v", err)
 	}
 
-	// For main.go, use a default graphID since this is global initialization
-	pklresReader, err := pklres.InitializePklResource(pklresDBPath, "global", "", "", "")
+	// Initialize unified context system
+	err = kdepsctx.InitializeContext(fs, "global", "", "", sharedVolumePath, logger)
 	if err != nil {
-		logger.Fatalf("failed to initialize pklres reader: %v", err)
+		logger.Fatalf("failed to initialize unified context: %v", err)
 	}
 
-	// Initialize agent reader (requires additional parameters)
-	agentReader, err := agent.InitializeAgent(fs, "/tmp", "default", "latest", logger)
-	if err != nil {
-		logger.Fatalf("failed to initialize agent reader: %v", err)
+	// Get readers from unified context
+	kdepsCtx := kdepsctx.GetContext()
+	if kdepsCtx == nil {
+		logger.Fatalf("failed to get unified context")
 	}
+
+	pklresReader := kdepsCtx.PklresReader
+	agentReader := kdepsCtx.AgentReader
 
 	evaluatorConfig := &evaluator.EvaluatorConfig{
 		ResourceReaders: []pkl.ResourceReader{
@@ -330,9 +331,9 @@ func runGraphResolverActions(ctx context.Context, dr *resolver.DependencyResolve
 func cleanup(ctx context.Context, fs afero.Fs, env *environment.Environment, apiServerMode bool, logger *logging.Logger) {
 	logger.Debug("performing cleanup tasks...")
 
-	// Close the global agent reader
-	if err := agent.CloseGlobalAgentReader(); err != nil {
-		logger.Error("failed to close global agent reader", "error", err)
+	// Close the unified context
+	if err := kdepsctx.CloseContext(); err != nil {
+		logger.Error("failed to close unified context", "error", err)
 	}
 
 	// Close the singleton evaluator

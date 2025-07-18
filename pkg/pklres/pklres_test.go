@@ -5,13 +5,14 @@ import (
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/pklres"
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPklResourceReader(t *testing.T) {
 	// Use in-memory SQLite database for testing
 	dbPath := "file::memory:"
-	reader, err := pklres.InitializePklResource(dbPath, "test-graph", "", "", "")
+	reader, err := pklres.InitializePklResource(dbPath, "test-graph", "", "", "", afero.NewMemMapFs())
 	require.NoError(t, err)
 	defer reader.DB.Close()
 
@@ -35,7 +36,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_GetRecord_Simple", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "")
+		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "", afero.NewMemMapFs())
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
@@ -57,7 +58,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_GetRecord_WithKey", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "")
+		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "", afero.NewMemMapFs())
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
@@ -83,7 +84,7 @@ func TestPklResourceReader(t *testing.T) {
 	})
 
 	t.Run("Read_SetRecord_Simple", func(t *testing.T) {
-		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "")
+		reader, err := pklres.InitializePklResource("file::memory:", "test-graph", "", "", "", afero.NewMemMapFs())
 		require.NoError(t, err)
 		defer reader.DB.Close()
 
