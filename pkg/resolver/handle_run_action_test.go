@@ -53,7 +53,11 @@ func TestHandleRunAction_BasicFlow(t *testing.T) {
 	}
 
 	// Minimal workflow that just targets a single action.
-	wf := &pklWf.WorkflowImpl{TargetActionID: "act1"}
+	wf := &pklWf.WorkflowImpl{
+		TargetActionID: "act1",
+		AgentID:        "testagent",
+		Version:        "1.0.0",
+	}
 
 	dr := &resolver.DependencyResolver{
 		Fs:             fs,

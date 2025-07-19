@@ -22,27 +22,36 @@ func NewBuildCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCf
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			pkgFile := args[0]
-			// Use the passed dependencies
+
+			// Extract package
 			pkgProject, err := archiver.ExtractPackage(fs, ctx, kdepsDir, pkgFile, logger)
 			if err != nil {
 				return err
 			}
+
+			// Build Dockerfile
 			runDir, _, _, _, _, _, _, _, err := docker.BuildDockerfile(fs, ctx, systemCfg, kdepsDir, pkgProject, logger)
 			if err != nil {
 				return err
 			}
+
+			// Create Docker client
 			dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 			if err != nil {
 				return err
 			}
+
+			// Build Docker image (this will show real-time progress)
 			agentContainerName, agentContainerNameAndVersion, err := docker.BuildDockerImage(fs, ctx, systemCfg, dockerClient, runDir, kdepsDir, pkgProject, logger)
 			if err != nil {
 				return err
 			}
 
+			// Cleanup build images
 			if err := docker.CleanupDockerBuildImages(fs, ctx, agentContainerName, dockerClient); err != nil {
 				return err
 			}
+
 			logger.Info("Kdeps AI Agent docker image created", "image", agentContainerNameAndVersion)
 			return nil
 		},

@@ -81,7 +81,7 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		r.Logger.Debug("AgentReader.Read resolved", "from", uri.String(), "to", resolvedID)
+		r.Logger.Debug("AgentReader.Read resolved", "from", uri.String(), "to", string(resolvedID))
 		return resolvedID, nil
 	case "list":
 		// If no path is provided, treat as list-installed

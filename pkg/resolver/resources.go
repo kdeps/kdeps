@@ -221,25 +221,18 @@ func (dr *DependencyResolver) PopulateRequestDataInPklres() error {
 		return errors.New("no request PKL file specified")
 	}
 
-	// Get the canonicalized request ID
-	canonicalRequestID := dr.RequestID
-	if dr.AgentReader != nil {
-		// Create a URI for agent resolution
-		query := url.Values{}
-		query.Set("op", "resolve")
-		query.Set("agent", dr.Workflow.GetAgentID())
-		query.Set("version", dr.Workflow.GetVersion())
-		uri := url.URL{
-			Scheme:   "agent",
-			Path:     "/" + dr.RequestID,
-			RawQuery: query.Encode(),
-		}
-
-		if resolvedIDBytes, err := dr.AgentReader.Read(uri); err == nil {
-			canonicalRequestID = string(resolvedIDBytes)
-			dr.Logger.Debug("canonicalized request ID for storage", "original", dr.RequestID, "canonical", canonicalRequestID)
-		}
+	// Create a proper canonical actionID for the request resource
+	// Format: @<agentID>/requestResource:<version>
+	var agentID, version string
+	if dr.Workflow != nil {
+		agentID = dr.Workflow.GetAgentID()
+		version = dr.Workflow.GetVersion()
 	}
+	if agentID == "" || version == "" {
+		return fmt.Errorf("missing agentID or version for canonical actionID generation: agentID=%s, version=%s", agentID, version)
+	}
+	canonicalRequestID := fmt.Sprintf("@%s/requestResource:%s", agentID, version)
+	dr.Logger.Debug("created canonical request ID for storage", "requestID", dr.RequestID, "canonical", canonicalRequestID)
 
 	// Check if the request file exists
 	if _, err := dr.Fs.Stat(dr.RequestPklFile); err != nil {

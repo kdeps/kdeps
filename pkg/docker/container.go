@@ -10,6 +10,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/joho/godotenv"
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 )
 
@@ -125,6 +126,31 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 	// Kdeps container is running
 
 	return resp.ID, nil
+}
+
+// CreateDockerContainerWithProgress creates a Docker container with progress display
+func CreateDockerContainerWithProgress(fs afero.Fs, ctx context.Context, cName, containerName, hostIP, portNum, webHostIP,
+	webPortNum, gpu string, apiMode, webMode bool, cli *client.Client, logger *logging.Logger,
+) (string, error) {
+	// Create a progress context
+	progressCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// Show container creation progress in a goroutine
+	go func() {
+		if err := ShowContainerCreationProgress(progressCtx, logger, containerName); err != nil {
+			logger.Error("Container progress display error", "error", err)
+		}
+	}()
+
+	// Perform the actual container creation
+	containerID, err := CreateDockerContainer(fs, ctx, cName, containerName, hostIP, portNum, webHostIP,
+		webPortNum, gpu, apiMode, webMode, cli)
+
+	// Cancel progress display
+	cancel()
+
+	return containerID, err
 }
 
 func LoadEnvFile(fs afero.Fs, filename string) ([]string, error) {

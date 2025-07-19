@@ -674,25 +674,19 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	if dr.APIServerMode {
 		dr.Logger.Debug("API server mode detected, adding virtual request resource", "requestID", dr.RequestID)
 
-		// Add the request resource as a dependency for all other resources
-		requestResourceID := dr.RequestID
-		if dr.AgentReader != nil {
-			// Create a URI for agent resolution
-			query := url.Values{}
-			query.Set("op", "resolve")
-			query.Set("agent", dr.Workflow.GetAgentID())
-			query.Set("version", dr.Workflow.GetVersion())
-			uri := url.URL{
-				Scheme:   "agent",
-				Path:     "/" + dr.RequestID,
-				RawQuery: query.Encode(),
-			}
-
-			if resolvedIDBytes, err := dr.AgentReader.Read(uri); err == nil {
-				requestResourceID = string(resolvedIDBytes)
-				dr.Logger.Debug("canonicalized request resource ID", "original", dr.RequestID, "canonical", requestResourceID)
-			}
+		// Create a proper canonical actionID for the request resource
+		// Format: @<agentID>/requestResource:<version>
+		var agentID, version string
+		if dr.Workflow != nil {
+			agentID = dr.Workflow.GetAgentID()
+			version = dr.Workflow.GetVersion()
 		}
+		if agentID == "" || version == "" {
+			dr.Logger.Error("missing agentID or version for canonical actionID generation", "agentID", agentID, "version", version)
+			return dr.HandleAPIErrorResponse(statusInternalServerError, "missing agentID or version for canonical actionID generation", true)
+		}
+		requestResourceID := fmt.Sprintf("@%s/requestResource:%s", agentID, version)
+		dr.Logger.Debug("created canonical request resource ID", "requestID", dr.RequestID, "canonical", requestResourceID)
 
 		// Add the request resource to the dependency graph
 		dr.ResourceDependencies[requestResourceID] = []string{}
@@ -736,7 +730,18 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 
 	// Ensure the response resource is processed last in the dependency stack
 	// Find the response resource and move it to the end of the stack if present
-	responseResourceID := "@localproject/responseResource:1.0.0"
+	// Create a proper canonical actionID for the response resource
+	// Format: @<agentID>/responseResource:<version>
+	var agentID, version string
+	if dr.Workflow != nil {
+		agentID = dr.Workflow.GetAgentID()
+		version = dr.Workflow.GetVersion()
+	}
+	if agentID == "" || version == "" {
+		dr.Logger.Error("missing agentID or version for response resource canonical actionID generation", "agentID", agentID, "version", version)
+		return dr.HandleAPIErrorResponse(statusInternalServerError, "missing agentID or version for response resource canonical actionID generation", true)
+	}
+	responseResourceID := fmt.Sprintf("@%s/responseResource:%s", agentID, version)
 	var newStack []string
 	var foundResponseResource bool
 	for _, id := range stack {

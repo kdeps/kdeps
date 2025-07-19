@@ -134,8 +134,8 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 	}
 	defer response.Body.Close()
 
-	// Process and print the build output
-	err = PrintDockerBuildOutput(response.Body, logger)
+	// Process and print the build output with enhanced UI
+	err = EnhancedDockerBuildOutput(response.Body, logger)
 	if err != nil {
 		return cName, containerName, err
 	}

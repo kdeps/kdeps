@@ -22,32 +22,44 @@ func NewRunCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCfg 
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			pkgFile := args[0]
-			// Add your logic to run the docker container here
+
+			// Extract package
 			pkgProject, err := archiver.ExtractPackage(fs, ctx, kdepsDir, pkgFile, logger)
 			if err != nil {
 				return err
 			}
+
+			// Build Dockerfile
 			runDir, APIServerMode, WebServerMode, hostIP, hostPort, webHostIP, webHostNum, gpuType, err := docker.BuildDockerfile(fs, ctx, systemCfg, kdepsDir, pkgProject, logger)
 			if err != nil {
 				return err
 			}
+
+			// Create Docker client
 			dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 			if err != nil {
 				return err
 			}
+
+			// Build Docker image (this will show real-time progress)
 			agentContainerName, agentContainerNameAndVersion, err := docker.BuildDockerImage(fs, ctx, systemCfg, dockerClient, runDir, kdepsDir, pkgProject, logger)
 			if err != nil {
 				return err
 			}
+
+			// Cleanup build images
 			if cleanupErr := docker.CleanupDockerBuildImages(fs, ctx, agentContainerName, dockerClient); cleanupErr != nil {
 				return cleanupErr
 			}
+
+			// Create and start container
 			containerID, err := docker.CreateDockerContainer(fs, ctx, agentContainerName,
 				agentContainerNameAndVersion, hostIP, hostPort, webHostIP, webHostNum, gpuType,
 				APIServerMode, WebServerMode, dockerClient)
 			if err != nil {
 				return err
 			}
+
 			logger.Info("Kdeps AI Agent docker container created", "containerID", containerID)
 			return nil
 		},
