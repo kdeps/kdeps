@@ -608,7 +608,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		urlSection := fmt.Sprintf(`Path = "%s"`, c.Request.URL.Path)
 		clientIPSection := fmt.Sprintf(`IP = "%s"`, c.ClientIP())
 		requestIDSection := fmt.Sprintf(`ID = "%s"`, graphID)
-		dataSection := fmt.Sprintf(`Data = "%s"`, utils.EncodeBase64String(bodyData))
+		dataSection := fmt.Sprintf(`Data = "%s"`, utils.EncodeValue(bodyData))
 
 		var sb strings.Builder
 		sb.WriteString("Files {\n")
@@ -870,26 +870,23 @@ func parsePCFResponse(pcfContent string, logger *logging.Logger) (*APIResponse, 
 			}
 		}
 
-		// Parse Data array
-		if strings.Contains(line, "document.jsonRenderDocument") {
-			// Extract the JSON content from the document.jsonRenderDocument call
-			// Look for the JSON content in the next few lines
+		// Parse Data array - look for quoted strings directly
+		if strings.Contains(line, "Data {") {
+			// Look for data content in the following lines
 			for j := i + 1; j < len(lines) && j < i+10; j++ {
 				dataLine := strings.TrimSpace(lines[j])
+				if dataLine == "}" {
+					break // End of Data block
+				}
 				if strings.Contains(dataLine, `"`) {
 					// Extract the quoted string content
 					start := strings.Index(dataLine, `"`)
 					end := strings.LastIndex(dataLine, `"`)
 					if start != -1 && end != -1 && end > start {
 						jsonContent := dataLine[start+1 : end]
-						// Decode any Base64 content
-						if decoded, err := utils.DecodeBase64String(jsonContent); err == nil {
-							resp.Response.Data = append(resp.Response.Data, decoded)
-						} else {
-							resp.Response.Data = append(resp.Response.Data, jsonContent)
-						}
+						// Use content directly without base64 decoding
+						resp.Response.Data = append(resp.Response.Data, jsonContent)
 					}
-					break
 				}
 			}
 		}

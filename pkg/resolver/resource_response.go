@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -49,19 +48,18 @@ type ErrorResponse struct {
 
 // APIResponseTemplateData represents the data for the API response template
 type APIResponseTemplateData struct {
-	Header         string
-	DocumentImport string
-	MemoryImport   string
-	SessionImport  string
-	ToolImport     string
-	ItemImport     string
-	AgentImport    string
-	Success        bool
-	RequestID      string
-	Headers        map[string]string
-	Properties     map[string]string
-	ResponseData   []string
-	Errors         []ErrorTemplateData
+	Header        string
+	MemoryImport  string
+	SessionImport string
+	ToolImport    string
+	ItemImport    string
+	AgentImport   string
+	Success       bool
+	RequestID     string
+	Headers       map[string]string
+	Properties    map[string]string
+	ResponseData  []string
+	Errors        []ErrorTemplateData
 }
 
 // ErrorTemplateData represents error data for the template
@@ -76,20 +74,11 @@ func (dr *DependencyResolver) CreateResponseGoJSON(apiResponseBlock apiserverres
 		return errors.New("dependency resolver or database is nil")
 	}
 
-	// Ensure agent context is set
-	if dr.Workflow != nil {
-		os.Setenv("KDEPS_CURRENT_AGENT", dr.Workflow.GetAgentID())
-		os.Setenv("KDEPS_CURRENT_VERSION", dr.Workflow.GetVersion())
-
-		// Also update the AgentReader context directly
-		if dr.AgentReader != nil {
-			dr.AgentReader.CurrentAgent = dr.Workflow.GetAgentID()
-			dr.AgentReader.CurrentVersion = dr.Workflow.GetVersion()
-		}
+	// Ensure agent context is set directly in AgentReader (avoid env vars)
+	if dr.Workflow != nil && dr.AgentReader != nil {
+		dr.AgentReader.CurrentAgent = dr.Workflow.GetAgentID()
+		dr.AgentReader.CurrentVersion = dr.Workflow.GetVersion()
 	}
-
-	// Set the request ID for output file lookup
-	os.Setenv("KDEPS_REQUEST_ID", dr.RequestID)
 
 	if err := dr.DBs[0].PingContext(context.Background()); err != nil {
 		return fmt.Errorf("failed to ping database: %w", err)
@@ -268,20 +257,11 @@ func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverre
 		return errors.New("dependency resolver or database is nil")
 	}
 
-	// Ensure agent context is set for PKL evaluation
-	if dr.Workflow != nil {
-		os.Setenv("KDEPS_CURRENT_AGENT", dr.Workflow.GetAgentID())
-		os.Setenv("KDEPS_CURRENT_VERSION", dr.Workflow.GetVersion())
-
-		// Also update the AgentReader context directly
-		if dr.AgentReader != nil {
-			dr.AgentReader.CurrentAgent = dr.Workflow.GetAgentID()
-			dr.AgentReader.CurrentVersion = dr.Workflow.GetVersion()
-		}
+	// Ensure agent context is set directly in AgentReader (avoid env vars)
+	if dr.Workflow != nil && dr.AgentReader != nil {
+		dr.AgentReader.CurrentAgent = dr.Workflow.GetAgentID()
+		dr.AgentReader.CurrentVersion = dr.Workflow.GetVersion()
 	}
-
-	// Set the request ID for output file lookup
-	os.Setenv("KDEPS_REQUEST_ID", dr.RequestID)
 
 	if err := dr.DBs[0].PingContext(context.Background()); err != nil {
 		return fmt.Errorf("failed to ping database: %w", err)
@@ -399,7 +379,6 @@ func (dr *DependencyResolver) buildResponseSections(requestID string, apiRespons
 	// Prepare template data
 	templateData := APIResponseTemplateData{
 		Header:         "",
-		DocumentImport: schema.ImportPath(dr.Context, "Document.pkl"),
 		MemoryImport:   schema.ImportPath(dr.Context, "Memory.pkl"),
 		SessionImport:  schema.ImportPath(dr.Context, "Session.pkl"),
 		ToolImport:     schema.ImportPath(dr.Context, "Tool.pkl"),
@@ -442,15 +421,14 @@ func (dr *DependencyResolver) buildResponseSections(requestID string, apiRespons
 
 	// Convert template data to map[string]string for LoadTemplate
 	templateMap := map[string]string{
-		"Header":         templateData.Header,
-		"DocumentImport": templateData.DocumentImport,
-		"MemoryImport":   templateData.MemoryImport,
-		"SessionImport":  templateData.SessionImport,
-		"ToolImport":     templateData.ToolImport,
-		"ItemImport":     templateData.ItemImport,
-		"AgentImport":    templateData.AgentImport,
-		"Success":        fmt.Sprintf("%v", templateData.Success),
-		"RequestID":      templateData.RequestID,
+		"Header":        templateData.Header,
+		"MemoryImport":  templateData.MemoryImport,
+		"SessionImport": templateData.SessionImport,
+		"ToolImport":    templateData.ToolImport,
+		"ItemImport":    templateData.ItemImport,
+		"AgentImport":   templateData.AgentImport,
+		"Success":       fmt.Sprintf("%v", templateData.Success),
+		"RequestID":     templateData.RequestID,
 	}
 
 	// Add headers as string
@@ -612,26 +590,22 @@ func structToMap(s interface{}) map[interface{}]interface{} {
 func formatDataValue(value interface{}) string {
 	switch v := value.(type) {
 	case string:
-		// For strings, generate document.jsonRenderDocument call with proper multi-line string format
-		return fmt.Sprintf(`document.jsonRenderDocument("""
-%s
-""")`, v)
+		// For strings, return the value directly as a quoted string
+		return fmt.Sprintf(`"%s"`, strings.ReplaceAll(v, `"`, `\"`))
 	case map[string]interface{}, map[interface{}]interface{}:
 		// For maps, use the existing formatValue logic
 		return formatValue(v)
 	case nil:
 		return "null"
 	default:
-		// For other types, convert to JSON and use document.jsonRenderDocument
+		// For other types, convert to JSON and return directly
 		jsonBytes, err := json.Marshal(v)
 		if err != nil {
 			// Fallback to formatValue if JSON marshaling fails
 			return formatValue(v)
 		}
-		// For other types, convert to JSON and use document.jsonRenderDocument with proper multi-line string format
-		return fmt.Sprintf(`document.jsonRenderDocument("""
-%s
-""")`, string(jsonBytes))
+		// Return the JSON string directly
+		return string(jsonBytes)
 	}
 }
 

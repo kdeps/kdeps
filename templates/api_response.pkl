@@ -1,6 +1,5 @@
 {{ .Header }}
 
-import "{{ .DocumentImport }}" as document
 import "{{ .MemoryImport }}" as memory
 import "{{ .SessionImport }}" as session
 import "{{ .ToolImport }}" as tool

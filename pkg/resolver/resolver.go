@@ -835,7 +835,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 				continue // Skip normal resource processing for virtual request resource
 			}
 
-			// Load the resource with request context if in API server mode
+			// Load the resource with request context if in API server mode (keep as generic Resource for now)
 			var resPkl interface{}
 			var err error
 			if dr.APIServerMode {

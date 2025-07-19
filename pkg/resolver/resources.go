@@ -169,11 +169,10 @@ func (dr *DependencyResolver) LoadResource(ctx context.Context, resourceFile str
 	// Log additional info before reading the resource
 	dr.Logger.Debug("reading resource file", "resource-file", resourceFile, "resource-type", resourceType)
 
-	// Check if Workflow is initialized
-	if dr.Workflow != nil {
-		// Set environment variables for current agent context
-		os.Setenv("KDEPS_CURRENT_AGENT", dr.Workflow.GetAgentID())
-		os.Setenv("KDEPS_CURRENT_VERSION", dr.Workflow.GetVersion())
+	// Check if Workflow is initialized and set agent context directly (avoid env vars)
+	if dr.Workflow != nil && dr.AgentReader != nil {
+		dr.AgentReader.CurrentAgent = dr.Workflow.GetAgentID()
+		dr.AgentReader.CurrentVersion = dr.Workflow.GetVersion()
 	}
 
 	// Use the existing evaluator from the dependency resolver
@@ -191,11 +190,10 @@ func (dr *DependencyResolver) LoadResourceWithRequestContext(ctx context.Context
 	// Log additional info before reading the resource
 	dr.Logger.Debug("reading resource file with request context", "resource-file", resourceFile, "resource-type", resourceType)
 
-	// Check if Workflow is initialized
-	if dr.Workflow != nil {
-		// Set environment variables for current agent context
-		os.Setenv("KDEPS_CURRENT_AGENT", dr.Workflow.GetAgentID())
-		os.Setenv("KDEPS_CURRENT_VERSION", dr.Workflow.GetVersion())
+	// Check if Workflow is initialized and set agent context directly (avoid env vars)
+	if dr.Workflow != nil && dr.AgentReader != nil {
+		dr.AgentReader.CurrentAgent = dr.Workflow.GetAgentID()
+		dr.AgentReader.CurrentVersion = dr.Workflow.GetVersion()
 	}
 
 	// Populate request data in pklres if available
@@ -247,9 +245,13 @@ func (dr *DependencyResolver) PopulateRequestDataInPklres() error {
 
 	// Store the request data in pklres as individual key-value pairs
 	if dr.PklresHelper != nil {
-		// Store the request ID
+		// Store the request ID in both canonical collection and "current" collection
 		if err := dr.PklresHelper.Set(canonicalRequestID, "requestID", dr.RequestID); err != nil {
-			dr.Logger.Warn("failed to store request ID", "error", err)
+			dr.Logger.Warn("failed to store request ID in canonical collection", "error", err)
+		}
+		// Also store in "current" collection for PKL template access
+		if err := dr.PklresHelper.Set("current", "requestID", dr.RequestID); err != nil {
+			dr.Logger.Warn("failed to store request ID in current collection", "error", err)
 		}
 
 		// Store the request file content
@@ -257,21 +259,35 @@ func (dr *DependencyResolver) PopulateRequestDataInPklres() error {
 			dr.Logger.Warn("failed to store request file", "error", err)
 		}
 
-		// Store additional request metadata
+		// Store additional request metadata in both collections
 		if dr.Request != nil {
+			requestID := dr.RequestID
+			path := dr.Request.Request.URL.Path
+			method := dr.Request.Request.Method
+			clientIP := dr.Request.ClientIP()
+
 			// Store path
-			if err := dr.PklresHelper.Set(canonicalRequestID, "path", dr.Request.Request.URL.Path); err != nil {
-				dr.Logger.Warn("failed to store request path", "error", err)
+			if err := dr.PklresHelper.Set(canonicalRequestID, "path", path); err != nil {
+				dr.Logger.Warn("failed to store request path in canonical collection", "error", err)
+			}
+			if err := dr.PklresHelper.Set(requestID, "path", path); err != nil {
+				dr.Logger.Warn("failed to store request path in request collection", "error", err)
 			}
 
 			// Store method
-			if err := dr.PklresHelper.Set(canonicalRequestID, "method", dr.Request.Request.Method); err != nil {
-				dr.Logger.Warn("failed to store request method", "error", err)
+			if err := dr.PklresHelper.Set(canonicalRequestID, "method", method); err != nil {
+				dr.Logger.Warn("failed to store request method in canonical collection", "error", err)
+			}
+			if err := dr.PklresHelper.Set(requestID, "method", method); err != nil {
+				dr.Logger.Warn("failed to store request method in request collection", "error", err)
 			}
 
 			// Store client IP
-			if err := dr.PklresHelper.Set(canonicalRequestID, "ip", dr.Request.ClientIP()); err != nil {
-				dr.Logger.Warn("failed to store request IP", "error", err)
+			if err := dr.PklresHelper.Set(canonicalRequestID, "ip", clientIP); err != nil {
+				dr.Logger.Warn("failed to store request IP in canonical collection", "error", err)
+			}
+			if err := dr.PklresHelper.Set(requestID, "ip", clientIP); err != nil {
+				dr.Logger.Warn("failed to store request IP in request collection", "error", err)
 			}
 
 			// Store headers as JSON
@@ -282,8 +298,12 @@ func (dr *DependencyResolver) PopulateRequestDataInPklres() error {
 				}
 			}
 			if headersJSON, err := json.Marshal(headers); err == nil {
-				if err := dr.PklresHelper.Set(canonicalRequestID, "headers", string(headersJSON)); err != nil {
-					dr.Logger.Warn("failed to store request headers", "error", err)
+				headersStr := string(headersJSON)
+				if err := dr.PklresHelper.Set(canonicalRequestID, "headers", headersStr); err != nil {
+					dr.Logger.Warn("failed to store request headers in canonical collection", "error", err)
+				}
+				if err := dr.PklresHelper.Set(requestID, "headers", headersStr); err != nil {
+					dr.Logger.Warn("failed to store request headers in request collection", "error", err)
 				}
 			}
 
@@ -295,8 +315,12 @@ func (dr *DependencyResolver) PopulateRequestDataInPklres() error {
 				}
 			}
 			if paramsJSON, err := json.Marshal(params); err == nil {
-				if err := dr.PklresHelper.Set(canonicalRequestID, "params", string(paramsJSON)); err != nil {
-					dr.Logger.Warn("failed to store request params", "error", err)
+				paramsStr := string(paramsJSON)
+				if err := dr.PklresHelper.Set(canonicalRequestID, "params", paramsStr); err != nil {
+					dr.Logger.Warn("failed to store request params in canonical collection", "error", err)
+				}
+				if err := dr.PklresHelper.Set(requestID, "params", paramsStr); err != nil {
+					dr.Logger.Warn("failed to store request params in request collection", "error", err)
 				}
 			}
 
@@ -307,8 +331,12 @@ func (dr *DependencyResolver) PopulateRequestDataInPklres() error {
 					dr.Request.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
 					// Store the body as string directly without base64 encoding
-					if err := dr.PklresHelper.Set(canonicalRequestID, "data", string(bodyBytes)); err != nil {
-						dr.Logger.Warn("failed to store request body", "error", err)
+					bodyStr := string(bodyBytes)
+					if err := dr.PklresHelper.Set(canonicalRequestID, "data", bodyStr); err != nil {
+						dr.Logger.Warn("failed to store request body in canonical collection", "error", err)
+					}
+					if err := dr.PklresHelper.Set(requestID, "data", bodyStr); err != nil {
+						dr.Logger.Warn("failed to store request body in request collection", "error", err)
 					}
 				}
 			}
