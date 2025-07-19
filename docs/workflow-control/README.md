@@ -31,6 +31,25 @@ Requires { "validationResource"; "processingResource"; "outputResource" }
 Requires { "dataSourceA"; "dataSourceB" } // → "aggregatorResource"
 ```
 
+### **Async PKLRes (`async-pklres.md`)**
+**Automatic Dependency Resolution and Caching**
+
+The Async PKLRes system provides automatic dependency resolution and caching for pklres operations during workflow execution. Features include:
+- Pre-resolution of all pklres dependencies based on graph execution order
+- Automatic caching of dependency relationships between resources
+- Async execution management where resources wait for dependencies
+- Graph validation that ignores pklres calls not in the execution order
+- Real-time dependency status monitoring and logging
+
+**Key Capabilities**:
+- **Dependency Pre-Resolution**: All dependencies are resolved before execution starts
+- **Async Execution**: Resources automatically wait for their dependencies to complete
+- **Graph Validation**: Only resources in the dependency graph are processed
+- **Status Tracking**: Real-time monitoring of dependency completion status
+- **Error Propagation**: Failed dependencies are properly handled and logged
+
+**Use Cases**: Complex dependency chains, performance optimization, reliable resource execution, dependency monitoring
+
 ### **Skip Conditions (`skip.md`)**
 **Conditional Execution Logic and Flow Control**
 

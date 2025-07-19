@@ -15,7 +15,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-
 // NewRunCommand creates the 'run' command and passes the necessary dependencies.
 func NewRunCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCfg *kdeps.Kdeps, logger *logging.Logger) *cobra.Command {
 	return &cobra.Command{
@@ -112,7 +111,7 @@ func NewRunCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCfg 
 			// Success!
 			// Extract route information from workflow
 			routes := extractRoutes(pkgProject, ctx, guiLogger)
-			
+
 			containerStats := &ui.ContainerStats{
 				ImageName:     agentContainerName,
 				ImageVersion:  agentContainerNameAndVersion,

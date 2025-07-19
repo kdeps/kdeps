@@ -41,7 +41,6 @@ func (gw *guiWriter) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-
 // NewBuildCommand creates the 'build' command and passes the necessary dependencies.
 func NewBuildCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCfg *kdeps.Kdeps, logger *logging.Logger) *cobra.Command {
 	return &cobra.Command{
@@ -125,7 +124,7 @@ func NewBuildCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCf
 			// Success!
 			// Extract route information from workflow
 			routes := extractRoutes(pkgProject, ctx, guiLogger)
-			
+
 			containerStats := &ui.ContainerStats{
 				ImageName:    agentContainerName,
 				ImageVersion: agentContainerNameAndVersion,

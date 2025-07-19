@@ -492,7 +492,7 @@ func (m LiveGUIModel) renderContainerStats() string {
 	// Route information - only show routes for enabled server modes
 	var apiRoutes []RouteInfo
 	var webRoutes []RouteInfo
-	
+
 	for _, route := range stats.Routes {
 		if route.ServerType == "api" && stats.APIServerMode {
 			apiRoutes = append(apiRoutes, route)
@@ -500,7 +500,7 @@ func (m LiveGUIModel) renderContainerStats() string {
 			webRoutes = append(webRoutes, route)
 		}
 	}
-	
+
 	// Display API routes if API server is enabled
 	if len(apiRoutes) > 0 && stats.APIServerMode {
 		details = append(details, "")
@@ -516,14 +516,14 @@ func (m LiveGUIModel) renderContainerStats() string {
 			}
 		}
 	}
-	
+
 	// Display Web routes if Web server is enabled
 	if len(webRoutes) > 0 && stats.WebServerMode {
 		details = append(details, "")
 		details = append(details, "🌍 Web Routes:")
 		for _, route := range webRoutes {
 			var routeLine string
-			
+
 			switch route.ServerType {
 			case "static":
 				if stats.WebHostIP != "" && stats.WebHostPort != "" {
@@ -543,7 +543,7 @@ func (m LiveGUIModel) renderContainerStats() string {
 			default:
 				routeLine = fmt.Sprintf("   • %s", route.Path)
 			}
-			
+
 			details = append(details, routeLine)
 		}
 	}

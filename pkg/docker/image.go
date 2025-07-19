@@ -181,7 +181,6 @@ func streamDockerLogsToGUI(rd io.Reader, guiController interface{}) error {
 		// Try to parse as JSON Docker build line
 		buildLine := &BuildLine{}
 		err := json.Unmarshal([]byte(line), buildLine)
-
 		if err != nil {
 			// Non-JSON line, show it directly
 			gui.AddLog(fmt.Sprintf("   %s", line), false)

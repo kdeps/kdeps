@@ -394,6 +394,29 @@ func (dr *DependencyResolver) ProcessResourceStep(resourceID, step string, timeo
 		}
 	}
 
+	// Check if this resource's dependencies are ready (async pklres system)
+	if dr.PklresReader != nil {
+		// Check if this resource exists in the dependency graph
+		depData, err := dr.PklresReader.GetDependencyData(canonicalResourceID)
+		if err == nil && depData != nil {
+			// Update status to processing
+			if err := dr.PklresReader.UpdateDependencyStatus(canonicalResourceID, "processing", "", nil); err != nil {
+				dr.Logger.Warn("Failed to update dependency status to processing", "resourceID", canonicalResourceID, "error", err)
+			}
+
+			// Wait for all dependencies to be ready
+			if len(depData.Dependencies) > 0 {
+				dr.Logger.Debug("Waiting for dependencies to be ready", "resourceID", canonicalResourceID, "dependencies", depData.Dependencies)
+				waitTimeout := 5 * time.Minute // 5 minute timeout for dependencies
+				if err := dr.PklresReader.WaitForDependencies(canonicalResourceID, waitTimeout); err != nil {
+					dr.Logger.Error("Timeout waiting for dependencies", "resourceID", canonicalResourceID, "error", err)
+					return fmt.Errorf("timeout waiting for dependencies: %w", err)
+				}
+				dr.Logger.Debug("All dependencies are ready", "resourceID", canonicalResourceID)
+			}
+		}
+	}
+
 	dr.Logger.Debug("processResourceStep: getting initial timestamp", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step)
 	timestamp, err := dr.GetCurrentTimestampFn(canonicalResourceID, step)
 	if err != nil {
@@ -425,9 +448,28 @@ func (dr *DependencyResolver) ProcessResourceStep(resourceID, step string, timeo
 	dr.Logger.Info("processResourceStep: handler returned", "resourceID", resourceID, "step", step, "err", err)
 	if err != nil {
 		dr.Logger.Error("processResourceStep: handler failed", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step, "error", err)
+
+		// Update dependency status to error
+		if dr.PklresReader != nil {
+			if updateErr := dr.PklresReader.UpdateDependencyStatus(canonicalResourceID, "error", "", err); updateErr != nil {
+				dr.Logger.Warn("Failed to update dependency status to error", "resourceID", canonicalResourceID, "error", updateErr)
+			}
+		}
+
 		return fmt.Errorf("%s error: %w", step, err)
 	}
 	dr.Logger.Debug("processResourceStep: handler completed successfully", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step)
+
+	// Update dependency status to completed
+	if dr.PklresReader != nil {
+		if err := dr.PklresReader.UpdateDependencyStatus(canonicalResourceID, "completed", "", nil); err != nil {
+			dr.Logger.Warn("Failed to update dependency status to completed", "resourceID", canonicalResourceID, "error", err)
+		} else {
+			// Log updated dependency status
+			pendingDeps := dr.PklresReader.GetPendingDependencies()
+			dr.Logger.Info("Resource completed, updated dependency status", "resourceID", canonicalResourceID, "pendingDependencies", pendingDeps)
+		}
+	}
 
 	// Wait for processing to complete by monitoring timestamp changes
 	// This ensures that pklres records are only available after the process is fully finished
@@ -668,6 +710,20 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	if !found {
 		stack = append(stack, targetActionID)
 		dr.Logger.Debug("added target action to dependency stack", "targetActionID", targetActionID, "stack", stack)
+	}
+
+	// Pre-resolve all pklres dependencies based on the execution order
+	if dr.PklresReader != nil {
+		dr.Logger.Info("Pre-resolving pklres dependencies", "executionOrder", stack)
+		if err := dr.PklresReader.PreResolveDependencies(stack, dr.ResourceDependencies); err != nil {
+			dr.Logger.Error("Failed to pre-resolve pklres dependencies", "error", err)
+			return dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("Failed to pre-resolve dependencies: %v", err), true)
+		}
+		dr.Logger.Info("Successfully pre-resolved pklres dependencies", "actionCount", len(stack))
+
+		// Log initial dependency status
+		statusSummary := dr.PklresReader.GetDependencyStatusSummary()
+		dr.Logger.Info("Initial dependency status", "statusSummary", statusSummary)
 	}
 
 	// In API server mode, ensure the request resource is processed first
