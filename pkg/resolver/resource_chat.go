@@ -569,23 +569,55 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 
 	// Store the LLM resource data in pklres for real-time access
 	if dr.PklresHelper != nil {
-		// Create a ResourceChat object for storage
-		resourceChat := &pklLLM.ResourceChat{
-			Model:        chatBlock.Model,
-			Role:         chatBlock.Role,
-			Prompt:       chatBlock.Prompt,
-			Response:     chatBlock.Response,
-			File:         chatBlock.File,
-			JSONResponse: chatBlock.JSONResponse,
-			Timestamp:    chatBlock.Timestamp,
+		// Store individual attributes as key-value pairs for direct access
+		if chatBlock.Model != "" {
+			if err := dr.PklresHelper.StoreResourceRecord("llm", actionID, "model", chatBlock.Model); err != nil {
+				dr.Logger.Error("processLLMChat: failed to store model", "actionID", actionID, "error", err)
+			}
 		}
 
-		// Store the resource object using the new method
-		if err := dr.PklresHelper.StoreResourceObject("llm", actionID, resourceChat); err != nil {
-			dr.Logger.Error("processLLMChat: failed to store LLM resource in pklres", "actionID", actionID, "error", err)
-		} else {
-			dr.Logger.Info("processLLMChat: stored LLM resource in pklres", "actionID", actionID)
+		if chatBlock.Role != nil && *chatBlock.Role != "" {
+			if err := dr.PklresHelper.StoreResourceRecord("llm", actionID, "role", *chatBlock.Role); err != nil {
+				dr.Logger.Error("processLLMChat: failed to store role", "actionID", actionID, "error", err)
+			}
 		}
+
+		if chatBlock.Prompt != nil && *chatBlock.Prompt != "" {
+			if err := dr.PklresHelper.StoreResourceRecord("llm", actionID, "prompt", *chatBlock.Prompt); err != nil {
+				dr.Logger.Error("processLLMChat: failed to store prompt", "actionID", actionID, "error", err)
+			}
+		}
+
+		if chatBlock.Response != nil && *chatBlock.Response != "" {
+			if err := dr.PklresHelper.StoreResourceRecord("llm", actionID, "response", *chatBlock.Response); err != nil {
+				dr.Logger.Error("processLLMChat: failed to store response", "actionID", actionID, "error", err)
+			}
+		}
+
+		if chatBlock.File != nil && *chatBlock.File != "" {
+			if err := dr.PklresHelper.StoreResourceRecord("llm", actionID, "file", *chatBlock.File); err != nil {
+				dr.Logger.Error("processLLMChat: failed to store file", "actionID", actionID, "error", err)
+			}
+		}
+
+		if chatBlock.JSONResponse != nil {
+			jsonResponseStr := "false"
+			if *chatBlock.JSONResponse {
+				jsonResponseStr = "true"
+			}
+			if err := dr.PklresHelper.StoreResourceRecord("llm", actionID, "jsonResponse", jsonResponseStr); err != nil {
+				dr.Logger.Error("processLLMChat: failed to store jsonResponse", "actionID", actionID, "error", err)
+			}
+		}
+
+		if chatBlock.Timestamp != nil {
+			timestampStr := fmt.Sprintf("%g", chatBlock.Timestamp.Value)
+			if err := dr.PklresHelper.StoreResourceRecord("llm", actionID, "timestamp", timestampStr); err != nil {
+				dr.Logger.Error("processLLMChat: failed to store timestamp", "actionID", actionID, "error", err)
+			}
+		}
+
+		dr.Logger.Info("processLLMChat: stored LLM resource attributes in pklres", "actionID", actionID)
 	}
 
 	// Mark the resource as finished processing

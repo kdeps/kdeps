@@ -484,6 +484,8 @@ func (r *PklResourceReader) RegisterAllAgentsAndActions() error {
 		return nil
 	}
 
+	var actionID string
+
 	agentsDir := filepath.Join(r.KdepsDir, "agents")
 	if _, err := r.Fs.Stat(agentsDir); os.IsNotExist(err) {
 		r.Logger.Debug("agents directory does not exist", "path", agentsDir)
@@ -585,7 +587,7 @@ func (r *PklResourceReader) RegisterAllAgentsAndActions() error {
 					continue
 				}
 				lines := strings.Split(string(content), "\n")
-				var actionID, agentName, version string
+				var agentName, version string
 				for _, line := range lines {
 					line = strings.TrimSpace(line)
 					if strings.HasPrefix(line, "ActionID") && strings.Contains(line, "=") {
@@ -646,6 +648,59 @@ func (r *PklResourceReader) RegisterAllAgentsAndActions() error {
 					_, err = r.DB.Exec("INSERT OR REPLACE INTO agents (id, data) VALUES (?, ?)", fullActionID, string(actionJSON))
 					if err != nil {
 						r.Logger.Debug("failed to register action from resources dir", "action_id", fullActionID, "error", err)
+					}
+				}
+			}
+		}
+	}
+
+	// Also scan /agent/project/agents/ for agent definition files
+	agentsDir = "/agent/project/agents/"
+	if _, err := r.Fs.Stat(agentsDir); err == nil {
+		files, err := afero.ReadDir(r.Fs, agentsDir)
+		if err == nil {
+			for _, file := range files {
+				if file.IsDir() {
+					continue
+				}
+				agentPath := filepath.Join(agentsDir, file.Name())
+				content, err := afero.ReadFile(r.Fs, agentPath)
+				if err != nil {
+					r.Logger.Debug("failed to read agent file", "file", agentPath, "error", err)
+					continue
+				}
+
+				// Parse the agent file content to extract the canonical action ID
+				if strings.HasPrefix(strings.TrimSpace(string(content)), "@") {
+					// This is a canonical action ID, register it directly
+					actionID = strings.TrimSpace(string(content))
+
+					// Extract agent name, action name, and version from the canonical ID
+					id := strings.TrimPrefix(actionID, "@")
+					parts := strings.SplitN(id, "/", 2)
+					if len(parts) == 2 {
+						agentName := strings.SplitN(parts[0], ":", 2)[0]
+						actionPart := parts[1]
+						actionParts := strings.SplitN(actionPart, ":", 2)
+						actionName := actionParts[0]
+						version := "1.0.0" // Default version if not specified
+						if len(actionParts) == 2 {
+							version = actionParts[1]
+						}
+
+						actionData := map[string]interface{}{
+							"agent":   agentName,
+							"version": version,
+							"action":  actionName,
+							"path":    agentPath,
+						}
+						actionJSON, _ := json.Marshal(actionData)
+						_, err = r.DB.Exec("INSERT OR REPLACE INTO agents (id, data) VALUES (?, ?)", actionID, string(actionJSON))
+						if err != nil {
+							r.Logger.Debug("failed to register agent from agents dir", "action_id", actionID, "error", err)
+						} else {
+							r.Logger.Debug("registered agent from agents dir", "action_id", actionID, "file", file.Name())
+						}
 					}
 				}
 			}

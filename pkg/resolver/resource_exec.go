@@ -30,15 +30,12 @@ func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.Res
 		return err
 	}
 
-	// Run processExecBlock asynchronously in a goroutine
-	go func(aID string, block *pklExec.ResourceExec) {
-		if err := dr.processExecBlock(aID, block); err != nil {
-			// Log the error; consider additional error handling as needed.
-			dr.Logger.Error("failed to process exec block", "actionID", aID, "error", err)
-		}
-	}(canonicalActionID, execBlock)
+	// Run processExecBlock synchronously (patch: removed goroutine)
+	if err := dr.processExecBlock(canonicalActionID, execBlock); err != nil {
+		dr.Logger.Error("failed to process exec block", "actionID", canonicalActionID, "error", err)
+		return err
+	}
 
-	// Return immediately; the exec block is being processed in the background.
 	return nil
 }
 

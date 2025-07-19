@@ -649,8 +649,26 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 		return dr.HandleAPIErrorResponse(statusInternalServerError, err.Error(), true)
 	}
 
+	// Debug: Log the dependency graph before building the stack
+	dr.Logger.Debug("dependency graph before build", "targetActionID", targetActionID, "dependencies", dr.ResourceDependencies)
+
 	// Build dependency stack for the target action
 	stack := dr.BuildDependencyStackFn(targetActionID, visited)
+
+	dr.Logger.Debug("dependency stack after build", "targetActionID", targetActionID, "stack", stack)
+
+	// Ensure the target action is always included in the stack, even if it has no dependencies
+	found := false
+	for _, actionID := range stack {
+		if actionID == targetActionID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		stack = append(stack, targetActionID)
+		dr.Logger.Debug("added target action to dependency stack", "targetActionID", targetActionID, "stack", stack)
+	}
 
 	// In API server mode, ensure the request resource is processed first
 	if dr.APIServerMode {
@@ -711,9 +729,27 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			}
 		}
 
-		// Rebuild the dependency stack to include the request resource
-		stack = dr.BuildDependencyStackFn(targetActionID, visited)
-		dr.Logger.Debug("dependency stack with request resource", "stack", stack, "targetActionID", targetActionID)
+		// Don't rebuild the dependency stack in API server mode - keep the original stack
+		// The request resource is already added as a dependency to all resources, so the original stack is correct
+		dr.Logger.Debug("keeping original dependency stack in API server mode", "stack", stack, "targetActionID", targetActionID)
+	}
+
+	// Ensure the response resource is processed last in the dependency stack
+	// Find the response resource and move it to the end of the stack if present
+	responseResourceID := "@localproject/responseResource:1.0.0"
+	var newStack []string
+	var foundResponseResource bool
+	for _, id := range stack {
+		if id == responseResourceID {
+			foundResponseResource = true
+			continue
+		}
+		newStack = append(newStack, id)
+	}
+	if foundResponseResource {
+		newStack = append(newStack, responseResourceID)
+		stack = newStack
+		dr.Logger.Info("Moved response resource to end of dependency stack for correct execution order", "stack", stack)
 	}
 
 	// Process each resource in the dependency stack

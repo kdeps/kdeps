@@ -403,55 +403,21 @@ func (dr *DependencyResolver) storeRequestData(collection, key, value string) er
 
 // createResourceWithRequestContext creates a temporary PKL file that includes both the request data and the resource
 func (dr *DependencyResolver) createResourceWithRequestContext(resourceFile string) (string, error) {
-	// Read the request PKL file content
-	requestBytes, err := afero.ReadFile(dr.Fs, dr.RequestPklFile)
-	if err != nil {
-		return "", fmt.Errorf("failed to read request PKL file: %w", err)
-	}
-
 	// Read the resource file content
 	resourceBytes, err := afero.ReadFile(dr.Fs, resourceFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to read resource file: %w", err)
 	}
 
-	// Create a temporary file that combines both
+	// Create a temporary file
 	tmpFile, err := afero.TempFile(dr.Fs, "", "resource-with-request-*.pkl")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temporary file: %w", err)
 	}
 	defer tmpFile.Close()
 
-	// Write the request data first (this provides the request context)
-	if _, err := tmpFile.Write(requestBytes); err != nil {
-		return "", fmt.Errorf("failed to write request data to temporary file: %w", err)
-	}
-
-	// Add a newline separator
-	if _, err := tmpFile.WriteString("\n\n"); err != nil {
-		return "", fmt.Errorf("failed to write separator to temporary file: %w", err)
-	}
-
-	// Convert the resource to amend the request context instead of extending its own template
-	resourceContent := string(resourceBytes)
-
-	// Replace the extends statement with amends to modify the request context
-	// This allows the resource to access the request data while maintaining its own structure
-	if strings.Contains(resourceContent, "extends") {
-		// Find and replace extends with amends to the request context
-		lines := strings.Split(resourceContent, "\n")
-		for i, line := range lines {
-			if strings.Contains(line, "extends") {
-				// Skip the extends line and let the resource amend the request context
-				lines[i] = "// Original extends line: " + line
-				break
-			}
-		}
-		resourceContent = strings.Join(lines, "\n")
-	}
-
-	// Write the modified resource content
-	if _, err := tmpFile.WriteString(resourceContent); err != nil {
+	// Write the resource content as-is, since the request context is available through pklres
+	if _, err := tmpFile.Write(resourceBytes); err != nil {
 		return "", fmt.Errorf("failed to write resource content to temporary file: %w", err)
 	}
 

@@ -113,8 +113,8 @@ func (h *PklresHelper) StorePklContent(resourceType, resourceID, content string)
 	}
 
 	// Use graphID as the id in the path with a proper key
-	uri, err := url.Parse(fmt.Sprintf("pklres:///%s?type=%s&key=content&op=set&value=%s",
-		graphID, resourceType, url.QueryEscape(content)))
+	uri, err := url.Parse(fmt.Sprintf("pklres:///%s?collection=%s&key=content&op=set&value=%s",
+		graphID, resourceID, url.QueryEscape(content)))
 	if err != nil {
 		return fmt.Errorf("failed to parse pklres URI: %w", err)
 	}
@@ -141,8 +141,8 @@ func (h *PklresHelper) RetrievePklContent(resourceType, resourceID string) (stri
 
 	// Use pklres to retrieve the content
 	// Note: The content is stored with the "content" key
-	uri, err := url.Parse(fmt.Sprintf("pklres:///%s?type=%s&key=content",
-		graphID, resourceType))
+	uri, err := url.Parse(fmt.Sprintf("pklres:///%s?collection=%s&key=content",
+		graphID, resourceID))
 	if err != nil {
 		return "", fmt.Errorf("failed to parse pklres URI: %w", err)
 	}
@@ -177,7 +177,7 @@ func (h *PklresHelper) RetrievePklContent(resourceType, resourceID string) (stri
 // retrieveAllResourcesForType retrieves all resources of a given type
 func (h *PklresHelper) retrieveAllResourcesForType(resourceType string) (map[string]string, error) {
 	// List all resource IDs for this type - use the request ID to find resources in the current request context
-	listURI, err := url.Parse(fmt.Sprintf("pklres:///%s?type=%s&op=list", h.resolver.RequestID, resourceType))
+	listURI, err := url.Parse(fmt.Sprintf("pklres:///%s?collection=%s&op=list", h.resolver.RequestID, resourceType))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse list URI: %w", err)
 	}
@@ -329,8 +329,8 @@ func (h *PklresHelper) StoreResourceRecord(resourceType, resourceID, key, value 
 	}
 
 	// Use set operation - this will create or update the record
-	uri, err := url.Parse(fmt.Sprintf("pklres:///%s?type=%s&key=%s&op=set&value=%s",
-		graphID, resourceType, url.QueryEscape(key), url.QueryEscape(value)))
+	uri, err := url.Parse(fmt.Sprintf("pklres:///%s?collection=%s&key=%s&op=set&value=%s",
+		graphID, resourceID, url.QueryEscape(key), url.QueryEscape(value)))
 	if err != nil {
 		return fmt.Errorf("failed to parse pklres URI: %w", err)
 	}
