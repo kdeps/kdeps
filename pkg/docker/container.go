@@ -132,23 +132,11 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 func CreateDockerContainerWithProgress(fs afero.Fs, ctx context.Context, cName, containerName, hostIP, portNum, webHostIP,
 	webPortNum, gpu string, apiMode, webMode bool, cli *client.Client, logger *logging.Logger,
 ) (string, error) {
-	// Create a progress context
-	progressCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	// Show container creation progress in a goroutine
-	go func() {
-		if err := ShowContainerCreationProgress(progressCtx, logger, containerName); err != nil {
-			logger.Error("Container progress display error", "error", err)
-		}
-	}()
+	// Container creation - no need for separate progress display as it's fast
 
 	// Perform the actual container creation
 	containerID, err := CreateDockerContainer(fs, ctx, cName, containerName, hostIP, portNum, webHostIP,
 		webPortNum, gpu, apiMode, webMode, cli)
-
-	// Cancel progress display
-	cancel()
 
 	return containerID, err
 }

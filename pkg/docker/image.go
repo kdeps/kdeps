@@ -24,6 +24,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/template"
+	"github.com/kdeps/kdeps/pkg/ui"
 	"github.com/kdeps/kdeps/pkg/version"
 	"github.com/kdeps/kdeps/pkg/workflow"
 	kdCfg "github.com/kdeps/schema/gen/kdeps"
@@ -36,8 +37,11 @@ type BuildLine struct {
 	Error  string `json:"error"`
 }
 
-func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli *client.Client, runDir, kdepsDir string,
-	pkgProject *archiver.KdepsPackage, logger *logging.Logger,
+
+
+// BuildDockerImageWithGUI builds a Docker image with modern GUI integration
+func BuildDockerImageWithGUI(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli *client.Client, runDir, kdepsDir string,
+	pkgProject *archiver.KdepsPackage, gui interface{}, logger *logging.Logger,
 ) (string, string, error) {
 	// Check if pkgProject is nil
 	if pkgProject == nil {
@@ -55,6 +59,12 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 	cName = strings.ToLower(cName)
 	containerName := strings.Join([]string{cName, agentVersion}, ":")
 
+	// Type assert to our modern GUI controller
+	guiController, ok := gui.(*ui.GUIController)
+	if !ok {
+		return "", "", fmt.Errorf("GUI controller is required for Docker builds")
+	}
+
 	// Check if the Docker image already exists
 	images, err := cli.ImageList(ctx, image.ListOptions{})
 	if err != nil {
@@ -65,10 +75,13 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 		for _, tag := range image.RepoTags {
 			if tag == containerName {
 				// Image already exists
+				guiController.AddLog(fmt.Sprintf("✅ Docker image %s already exists, skipping build", containerName), false)
 				return cName, containerName, nil
 			}
 		}
 	}
+
+	guiController.AddLog("📦 Preparing build context...", false)
 
 	// Create a tar archive of the run directory to use as the Docker build context
 	tarBuffer := new(bytes.Buffer)
@@ -101,30 +114,29 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 			}
 			defer fileReader.Close()
 
-			if _, err := io.Copy(tw, fileReader); err != nil {
+			_, err = io.Copy(tw, fileReader)
+			if err != nil {
 				return err
 			}
 		}
-
 		return nil
 	})
 	if err != nil {
-		return cName, containerName, err
+		return "", "", fmt.Errorf("error creating tar archive: %w", err)
 	}
 
-	// Close the tar writer to finish writing the tarball
 	if err := tw.Close(); err != nil {
-		return cName, containerName, err
+		return "", "", fmt.Errorf("error closing tar writer: %w", err)
 	}
 
-	// Docker build options
+	guiController.AddLog("🐳 Starting Docker build...", false)
+
+	// Build options
 	buildOptions := types.ImageBuildOptions{
-		Tags:           []string{containerName}, // Image name and tag
-		Dockerfile:     "Dockerfile",            // The Dockerfile is in the root of the build context
-		Remove:         true,                    // Remove intermediate containers after a successful build
-		SuppressOutput: false,
-		Context:        tarBuffer,
-		NoCache:        false,
+		Context:    tarBuffer,
+		Dockerfile: "Dockerfile",
+		Tags:       []string{containerName},
+		Remove:     true,
 	}
 
 	// Build the Docker image
@@ -134,15 +146,85 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 	}
 	defer response.Body.Close()
 
-	// Process and print the build output with enhanced UI
-	err = EnhancedDockerBuildOutput(response.Body, logger)
+	// Process Docker logs directly with the GUI
+	err = streamDockerLogsToGUI(response.Body, guiController)
 	if err != nil {
 		return cName, containerName, err
 	}
 
-	// Docker image build completed successfully
-
+	guiController.AddLog(fmt.Sprintf("✅ Successfully built image: %s", containerName), false)
 	return cName, containerName, nil
+}
+
+
+// streamDockerLogsToGUI streams Docker logs directly to the GUI
+func streamDockerLogsToGUI(rd io.Reader, guiController interface{}) error {
+	// Type assert to our GUI controller
+	gui, ok := guiController.(*ui.GUIController)
+	if !ok {
+		// If it's not our GUI controller, just consume the logs silently
+		scanner := bufio.NewScanner(rd)
+		for scanner.Scan() {
+			// Just read and discard
+		}
+		return scanner.Err()
+	}
+
+	scanner := bufio.NewScanner(rd)
+	stepCount := 0
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		line = strings.TrimSpace(line)
+
+		if line == "" {
+			continue
+		}
+
+		// Try to parse as JSON Docker build line
+		buildLine := &BuildLine{}
+		err := json.Unmarshal([]byte(line), buildLine)
+
+		if err != nil {
+			// Non-JSON line, show it directly
+			gui.AddLog(fmt.Sprintf("   %s", line), false)
+			continue
+		}
+
+		// Handle build errors
+		if buildLine.Error != "" {
+			gui.AddLog(fmt.Sprintf("🔴 ERROR: %s", buildLine.Error), true)
+			return fmt.Errorf("docker build error: %s", buildLine.Error)
+		}
+
+		// Process stream content
+		if buildLine.Stream != "" {
+			stream := strings.TrimSpace(buildLine.Stream)
+			if stream == "" {
+				continue
+			}
+
+			// Clean up the stream
+			stream = strings.ReplaceAll(stream, "\r", "")
+			stream = strings.ReplaceAll(stream, "\n", " ")
+
+			// Check if this is a Docker step
+			if strings.HasPrefix(stream, "Step ") {
+				stepCount++
+				gui.UpdateOperation(2, ui.StatusRunning, fmt.Sprintf("Processing %s", stream), 0.0)
+				gui.AddLog(fmt.Sprintf("🔷 %s", stream), false)
+			} else if strings.HasPrefix(stream, "---> ") {
+				gui.AddLog(fmt.Sprintf("  ➤ %s", stream), false)
+			} else if strings.Contains(stream, "Successfully built") || strings.Contains(stream, "Successfully tagged") {
+				gui.AddLog(fmt.Sprintf("✅ %s", stream), false)
+			} else if len(stream) > 0 {
+				// Show all other Docker output
+				gui.AddLog(fmt.Sprintf("   %s", stream), false)
+			}
+		}
+	}
+
+	return scanner.Err()
 }
 
 // CheckDevBuildMode checks if we're in development build mode.
