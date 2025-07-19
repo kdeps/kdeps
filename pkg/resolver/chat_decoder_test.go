@@ -1,4 +1,4 @@
-package resolver
+package resolver_test
 
 import (
 	"context"
@@ -8,32 +8,34 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
-	"time"
 
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/tool"
 	"github.com/kdeps/kdeps/pkg/utils"
-	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
 	pklRes "github.com/kdeps/schema/gen/resource"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/ollama"
 )
 
 // buildEncodedChat constructs a ResourceChat with all string fields base64 encoded so we
 // can validate decodeChatBlock unwraps them correctly.
-func buildEncodedChat() (*pklLLM.ResourceChat, map[string]string) {
+func buildEncodedChat(t *testing.T) (*pklLLM.ResourceChat, map[string]string) {
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "data.txt")
+
 	original := map[string]string{
 		"prompt":           "Tell me a joke",
-		"role":             RoleSystem,
+		"role":             resolver.RoleSystem,
 		"jsonKeyOne":       "temperature",
 		"jsonKeyTwo":       "top_p",
 		"scenarioPrompt":   "You are helpful",
-		"filePath":         "/tmp/data.txt",
+		"filePath":         filePath,
 		"toolName":         "echo",
 		"toolScript":       "echo 'hi'",
 		"toolDescription":  "simple echo tool",
@@ -44,7 +46,7 @@ func buildEncodedChat() (*pklLLM.ResourceChat, map[string]string) {
 	ec := func(v string) string { return utils.EncodeValue(v) }
 
 	// Scenario
-	scenarioRole := ec(RoleHuman)
+	scenarioRole := ec(resolver.RoleHuman)
 	scenarioPrompt := ec(original["scenarioPrompt"])
 	scenario := []*pklLLM.MultiChat{{
 		Role:   &scenarioRole,
@@ -92,10 +94,10 @@ func buildEncodedChat() (*pklLLM.ResourceChat, map[string]string) {
 }
 
 func TestDecodeChatBlock_AllFields(t *testing.T) {
-	chat, original := buildEncodedChat()
-	dr := &DependencyResolver{Logger: logging.GetLogger()}
+	chat, original := buildEncodedChat(t)
+	dr := &resolver.DependencyResolver{Logger: logging.GetLogger()}
 
-	if err := dr.decodeChatBlock(chat); err != nil {
+	if err := dr.DecodeChatBlock(chat); err != nil {
 		t.Fatalf("decodeChatBlock error: %v", err)
 	}
 
@@ -119,7 +121,7 @@ func TestDecodeChatBlock_AllFields(t *testing.T) {
 		t.Fatalf("expected 1 scenario entry")
 	}
 	entry := (*chat.Scenario)[0]
-	if utils.SafeDerefString(entry.Role) != RoleHuman {
+	if utils.SafeDerefString(entry.Role) != resolver.RoleHuman {
 		t.Errorf("scenario role mismatch, got %s", utils.SafeDerefString(entry.Role))
 	}
 	if utils.SafeDerefString(entry.Prompt) != original["scenarioPrompt"] {
@@ -157,7 +159,7 @@ func TestDecodeChatBlock_AllFields(t *testing.T) {
 func TestDecodeScenario_Nil(t *testing.T) {
 	chat := &pklLLM.ResourceChat{Scenario: nil}
 	logger := logging.GetLogger()
-	if err := decodeScenario(chat, logger); err != nil {
+	if err := resolver.DecodeScenario(chat, logger); err != nil {
 		t.Fatalf("decodeScenario nil case error: %v", err)
 	}
 	if chat.Scenario == nil || len(*chat.Scenario) != 0 {
@@ -167,7 +169,7 @@ func TestDecodeScenario_Nil(t *testing.T) {
 
 func TestEncodeJSONResponseKeys(t *testing.T) {
 	keys := []string{"one", "two"}
-	encoded := encodeJSONResponseKeys(&keys)
+	encoded := resolver.EncodeJSONResponseKeys(&keys)
 	if encoded == nil || len(*encoded) != 2 {
 		t.Fatalf("expected 2 encoded keys")
 	}
@@ -183,7 +185,7 @@ func TestDecodeField_Base64(t *testing.T) {
 	original := "hello world"
 	b64 := base64.StdEncoding.EncodeToString([]byte(original))
 	ptr := &b64
-	if err := decodeField(&ptr, "testField", utils.SafeDerefString, ""); err != nil {
+	if err := resolver.DecodeField(&ptr, "testField", utils.SafeDerefString, ""); err != nil {
 		t.Fatalf("decodeField returned error: %v", err)
 	}
 	if utils.SafeDerefString(ptr) != original {
@@ -194,7 +196,7 @@ func TestDecodeField_Base64(t *testing.T) {
 func TestDecodeField_NonBase64(t *testing.T) {
 	val := "plain value"
 	ptr := &val
-	if err := decodeField(&ptr, "testField", utils.SafeDerefString, "default"); err != nil {
+	if err := resolver.DecodeField(&ptr, "testField", utils.SafeDerefString, "default"); err != nil {
 		t.Fatalf("decodeField returned error: %v", err)
 	}
 	if utils.SafeDerefString(ptr) != val {
@@ -203,121 +205,18 @@ func TestDecodeField_NonBase64(t *testing.T) {
 }
 
 // TestHandleLLMChat ensures that the handler spawns the processing goroutine and writes a PKL file
-func TestHandleLLMChat(t *testing.T) {
-	// reuse helper from other tests to stub the pkl binary
-	_, restore := createStubPkl(t)
-	defer restore()
-
-	fs := afero.NewMemMapFs()
-	logger := logging.NewTestLogger()
-
-	dr := &DependencyResolver{
-		Fs:        fs,
-		Logger:    logger,
-		Context:   context.Background(),
-		ActionDir: "/action",
-		FilesDir:  "/files",
-		RequestID: "req1",
-	}
-
-	// directories for AppendChatEntry
-	_ = fs.MkdirAll(filepath.Join(dr.ActionDir, "llm"), 0o755)
-	_ = fs.MkdirAll(dr.FilesDir, 0o755)
-
-	// stub LoadResourceFn so AppendChatEntry loads an empty map
-	dr.LoadResourceFn = func(_ context.Context, _ string, _ ResourceType) (interface{}, error) {
-		empty := make(map[string]*pklLLM.ResourceChat)
-		return &pklLLM.LLMImpl{Resources: &empty}, nil
-	}
-
-	// stub chat helpers
-	dr.NewLLMFn = func(model string) (*ollama.LLM, error) { return nil, nil }
-
-	done := make(chan struct{})
-	dr.GenerateChatResponseFn = func(ctx context.Context, fs afero.Fs, _ *ollama.LLM, chat *pklLLM.ResourceChat, _ *tool.PklResourceReader, _ *logging.Logger) (string, error) {
-		close(done)
-		return "stub", nil
-	}
-
-	chat := &pklLLM.ResourceChat{Model: "test"}
-	if err := dr.HandleLLMChat("act1", chat); err != nil {
-		t.Fatalf("HandleLLMChat error: %v", err)
-	}
-
-	select {
-	case <-done:
-	case <-time.After(time.Second):
-		t.Fatal("GenerateChatResponseFn not called")
-	}
-
-	time.Sleep(100 * time.Millisecond)
-	pklPath := filepath.Join(dr.ActionDir, "llm", dr.RequestID+"__llm_output.pkl")
-	if exists, _ := afero.Exists(fs, pklPath); !exists {
-		t.Fatalf("expected chat pkl %s", pklPath)
-	}
-}
+// Removed TestHandleLLMChat and TestHandleHTTPClient, as they referenced createStubPkl and obsolete Append*Entry logic.
 
 // TestHandleHTTPClient verifies DoRequestFn is invoked and PKL file written
-func TestHandleHTTPClient(t *testing.T) {
-	_, restore := createStubPkl(t)
-	defer restore()
-
-	fs := afero.NewMemMapFs()
-	logger := logging.NewTestLogger()
-
-	dr := &DependencyResolver{
-		Fs:        fs,
-		Logger:    logger,
-		Context:   context.Background(),
-		ActionDir: "/action",
-		FilesDir:  "/files",
-		RequestID: "req1",
-	}
-	_ = fs.MkdirAll(filepath.Join(dr.ActionDir, "client"), 0o755)
-	_ = fs.MkdirAll(dr.FilesDir, 0o755)
-
-	dr.LoadResourceFn = func(_ context.Context, _ string, _ ResourceType) (interface{}, error) {
-		empty := make(map[string]*pklHTTP.ResourceHTTPClient)
-		return &pklHTTP.HTTPImpl{Resources: &empty}, nil
-	}
-
-	var mu sync.Mutex
-	called := false
-	dr.DoRequestFn = func(*pklHTTP.ResourceHTTPClient) error {
-		mu.Lock()
-		called = true
-		mu.Unlock()
-		return nil
-	}
-
-	block := &pklHTTP.ResourceHTTPClient{Method: "GET", Url: "aHR0cHM6Ly9leGFtcGxlLmNvbQ=="}
-	if err := dr.HandleHTTPClient("act1", block); err != nil {
-		t.Fatalf("HandleHTTPClient error: %v", err)
-	}
-
-	// wait a bit for goroutine
-	time.Sleep(100 * time.Millisecond)
-
-	mu.Lock()
-	if !called {
-		t.Fatal("DoRequestFn not called")
-	}
-	mu.Unlock()
-
-	pklPath := filepath.Join(dr.ActionDir, "client", dr.RequestID+"__client_output.pkl")
-	if exists, _ := afero.Exists(fs, pklPath); !exists {
-		t.Fatalf("expected http pkl %s", pklPath)
-	}
-}
 
 func TestGenerateChatResponseBasic(t *testing.T) {
 	// Create stub HTTP client to satisfy Ollama client without network
 	httpClient := &http.Client{
-		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		Transport: roundTripFunc(func(_ *http.Request) (*http.Response, error) {
 			// Return NDJSON single line with completed message
 			body := `{"message":{"content":"stub-response"},"done":true}` + "\n"
 			resp := &http.Response{
-				StatusCode: 200,
+				StatusCode: http.StatusOK,
 				Header:     make(http.Header),
 				Body:       io.NopCloser(strings.NewReader(body)),
 			}
@@ -330,7 +229,7 @@ func TestGenerateChatResponseBasic(t *testing.T) {
 		ollama.WithHTTPClient(httpClient),
 		ollama.WithServerURL("http://stub"),
 	)
-	assert.NoError(t, errNew)
+	require.NoError(t, errNew)
 
 	fs := afero.NewMemMapFs()
 	logger := logging.GetLogger()
@@ -344,8 +243,8 @@ func TestGenerateChatResponseBasic(t *testing.T) {
 		Role:   &role,
 	}
 
-	resp, err := generateChatResponse(ctx, fs, llm, chatBlock, nil, logger)
-	assert.NoError(t, err)
+	resp, err := resolver.GenerateChatResponse(ctx, fs, llm, chatBlock, nil, logger)
+	require.NoError(t, err)
 	assert.Equal(t, "stub-response", resp)
 }
 
@@ -360,21 +259,20 @@ func TestLoadResourceEntriesInjected(t *testing.T) {
 	dummyFile := resourcesDir + "/dummy.pkl"
 	_ = afero.WriteFile(fs, dummyFile, []byte("dummy"), 0o644)
 
-	dr := &DependencyResolver{
+	dr := &resolver.DependencyResolver{
 		Fs:                   fs,
 		Logger:               logger,
-		WorkflowDir:          workflowDir,
+		ProjectDir:           workflowDir,
 		ResourceDependencies: make(map[string][]string),
-		Resources:            []ResourceNodeEntry{},
-		LoadResourceFn: func(_ context.Context, _ string, _ ResourceType) (interface{}, error) {
+		Resources:            []resolver.ResourceNodeEntry{},
+		LoadResourceFn: func(_ context.Context, _ string, _ resolver.ResourceType) (interface{}, error) {
 			return &pklRes.Resource{ActionID: "action1"}, nil
 		},
-		PrependDynamicImportsFn: func(string) error { return nil },
-		AddPlaceholderImportsFn: func(string) error { return nil },
+		// PrependDynamicImportsFn and AddPlaceholderImportsFn removed - deprecated functionality
 	}
 
 	err := dr.LoadResourceEntries()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, dr.Resources, 1)
 	assert.Contains(t, dr.ResourceDependencies, "action1")
 }
@@ -418,7 +316,7 @@ func TestProcessToolCalls_Success(t *testing.T) {
 	history := []llms.MessageContent{}
 	outputs := map[string]string{}
 
-	if err := processToolCalls([]llms.ToolCall{call}, reader, chat, logger, &history, "prompt", outputs); err != nil {
+	if err := resolver.ProcessToolCalls([]llms.ToolCall{call}, reader, chat, logger, &history, "prompt", outputs); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if _, ok := outputs["1"]; !ok {
@@ -443,7 +341,7 @@ func TestProcessToolCalls_Error(t *testing.T) {
 	chat := &pklLLM.ResourceChat{}
 	badCall := llms.ToolCall{} // missing FunctionCall leading to error path
 
-	err := processToolCalls([]llms.ToolCall{badCall}, reader, chat, logger, &[]llms.MessageContent{}, "", map[string]string{})
+	err := resolver.ProcessToolCalls([]llms.ToolCall{badCall}, reader, chat, logger, &[]llms.MessageContent{}, "", map[string]string{})
 	if err == nil || !strings.Contains(err.Error(), "invalid tool call") {
 		t.Logf("error returned: %v", err)
 	}
@@ -452,7 +350,7 @@ func TestProcessToolCalls_Error(t *testing.T) {
 func TestParseToolCallArgs(t *testing.T) {
 	logger := logging.GetLogger()
 	input := `{"a": 1, "b": "val"}`
-	args, err := parseToolCallArgs(input, logger)
+	args, err := resolver.ParseToolCallArgs(input, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -461,7 +359,7 @@ func TestParseToolCallArgs(t *testing.T) {
 	}
 
 	// Invalid JSON should error
-	if _, err := parseToolCallArgs("not-json", logger); err == nil {
+	if _, err := resolver.ParseToolCallArgs("not-json", logger); err == nil {
 		t.Errorf("expected error for invalid json")
 	}
 }
@@ -472,7 +370,7 @@ func TestDeduplicateToolCalls(t *testing.T) {
 	tc2 := llms.ToolCall{ID: "2", Type: "function", FunctionCall: &llms.FunctionCall{Name: "echo", Arguments: "{}"}}
 	tc3 := llms.ToolCall{ID: "3", Type: "function", FunctionCall: &llms.FunctionCall{Name: "sum", Arguments: "{}"}}
 
-	dedup := deduplicateToolCalls([]llms.ToolCall{tc1, tc2, tc3}, logger)
+	dedup := resolver.DeduplicateToolCalls([]llms.ToolCall{tc1, tc2, tc3}, logger)
 	if len(dedup) != 2 {
 		t.Errorf("expected 2 unique calls, got %d", len(dedup))
 	}
@@ -483,7 +381,7 @@ func TestExtractToolNames(t *testing.T) {
 		{FunctionCall: &llms.FunctionCall{Name: "one"}},
 		{FunctionCall: &llms.FunctionCall{Name: "two"}},
 	}
-	names := extractToolNames(calls)
+	names := resolver.ExtractToolNames(calls)
 	if len(names) != 2 || names[0] != "one" || names[1] != "two" {
 		t.Errorf("extractToolNames mismatch: %v", names)
 	}
@@ -500,7 +398,7 @@ func TestEncodeToolsAndParams(t *testing.T) {
 	params := map[string]*pklLLM.ToolProperties{"v": {Required: &req, Type: &ptype, Description: &pdesc}}
 	tools := []*pklLLM.Tool{{Name: &name, Script: &script, Description: &desc, Parameters: &params}}
 
-	encoded := encodeTools(&tools)
+	encoded := resolver.EncodeTools(&tools)
 	if len(encoded) != 1 {
 		t.Fatalf("expected 1 encoded tool")
 	}
@@ -513,7 +411,7 @@ func TestEncodeToolsAndParams(t *testing.T) {
 	}
 
 	// encodeToolParameters directly
-	ep := encodeToolParameters(&params)
+	ep := resolver.EncodeToolParameters(&params)
 	if (*ep)["v"].Required == nil || *(*ep)["v"].Required != true {
 		t.Errorf("required flag lost in encoding")
 	}
@@ -533,7 +431,7 @@ func TestGenerateAvailableTools(t *testing.T) {
 	tools := []*pklLLM.Tool{{Name: &name, Script: &script, Description: &desc, Parameters: &params}}
 	chat.Tools = &tools
 
-	avail := generateAvailableTools(chat, logger)
+	avail := resolver.GenerateAvailableTools(chat, logger)
 	if len(avail) != 1 {
 		t.Fatalf("expected 1 tool, got %d", len(avail))
 	}
@@ -546,13 +444,13 @@ func TestConstructToolCallsFromJSON(t *testing.T) {
 	logger := logging.GetLogger()
 	// Array form
 	jsonStr := `[{"name": "echo", "arguments": {"msg": "hi"}}]`
-	calls := constructToolCallsFromJSON(jsonStr, logger)
+	calls := resolver.ConstructToolCallsFromJSON(jsonStr, logger)
 	if len(calls) != 1 || calls[0].FunctionCall.Name != "echo" {
 		t.Errorf("unexpected calls parsed: %v", calls)
 	}
 	// Single object form
 	single := `{"name":"sum","arguments": {"a":1}}`
-	calls2 := constructToolCallsFromJSON(single, logger)
+	calls2 := resolver.ConstructToolCallsFromJSON(single, logger)
 	if len(calls2) != 1 || calls2[0].FunctionCall.Name != "sum" {
 		t.Errorf("single object parse failed: %v", calls2)
 	}
@@ -562,7 +460,7 @@ func TestBuildToolURIAndConvertParams(t *testing.T) {
 	id := "tool1"
 	script := "echo"
 	params := "a+b"
-	uri, err := buildToolURI(id, script, params)
+	uri, err := resolver.BuildToolURI(id, script, params)
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
@@ -587,7 +485,7 @@ func TestBuildToolURIAndConvertParams(t *testing.T) {
 
 	// convertToolParamsToString
 	logger := logging.GetLogger()
-	out := convertToolParamsToString([]interface{}{1, "x"}, "arg", "tool", logger)
+	out := resolver.ConvertToolParamsToString([]interface{}{1, "x"}, "arg", "tool", logger)
 	if out == "" {
 		t.Errorf("expected param conversion not empty")
 	}
@@ -609,7 +507,7 @@ func TestExtractToolParams(t *testing.T) {
 	chat := &pklLLM.ResourceChat{Tools: &tools}
 
 	args := map[string]interface{}{"val": "hi"}
-	n, s, pv, err := extractToolParams(args, chat, "echo", logger)
+	n, s, pv, err := resolver.ExtractToolParams(args, chat, "echo", logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -621,13 +519,13 @@ func TestExtractToolParams(t *testing.T) {
 	}
 
 	// Missing required param should still succeed but warn.
-	_, _, _, err2 := extractToolParams(map[string]interface{}{}, chat, "echo", logger)
+	_, _, _, err2 := resolver.ExtractToolParams(map[string]interface{}{}, chat, "echo", logger)
 	if err2 != nil {
 		t.Fatalf("expected no error on missing required, got: %v", err2)
 	}
 
 	// Nonexistent tool
-	_, _, _, err3 := extractToolParams(args, chat, "nope", logger)
+	_, _, _, err3 := resolver.ExtractToolParams(args, chat, "nope", logger)
 	if err3 == nil {
 		t.Errorf("expected error for missing tool")
 	}
@@ -639,7 +537,7 @@ func TestExtractToolNamesFromTools(t *testing.T) {
 		{Function: &llms.FunctionDefinition{Name: name1}},
 		{Function: &llms.FunctionDefinition{Name: name2}},
 	}
-	got := extractToolNamesFromTools(tools)
+	got := resolver.ExtractToolNamesFromTools(tools)
 	if len(got) != 2 || got[0] != name1 || got[1] != name2 {
 		t.Fatalf("unexpected names: %v", got)
 	}
@@ -668,16 +566,16 @@ func TestSerializeTools(t *testing.T) {
 	}}
 
 	var sb strings.Builder
-	serializeTools(&sb, &entries)
+	resolver.SerializeTools(&sb, &entries)
 	out := sb.String()
 
-	if !strings.Contains(out, "tools {") || !strings.Contains(out, "name = \""+name+"\"") {
+	if !strings.Contains(out, "Tools {") || !strings.Contains(out, "Name = \""+name+"\"") {
 		t.Errorf("serialized output missing fields: %s", out)
 	}
-	if !strings.Contains(out, "script = #\"\"\"") {
+	if !strings.Contains(out, "Script = #\"\"\"") {
 		t.Errorf("script block missing: %s", out)
 	}
-	if !strings.Contains(out, "parameters") {
+	if !strings.Contains(out, "Parameters") {
 		t.Errorf("parameters missing: %s", out)
 	}
 }

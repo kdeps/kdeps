@@ -88,7 +88,7 @@ func GetFileMD5(fs afero.Fs, filePath string, length int) (string, error) {
 }
 
 // CopyFile copies a file from src to dst, handling existing files by creating backups.
-func CopyFile(fs afero.Fs, ctx context.Context, src, dst string, logger *logging.Logger) error {
+func CopyFile(_ context.Context, fs afero.Fs, src, dst string, logger *logging.Logger) error {
 	exists, err := afero.Exists(fs, dst)
 	if err != nil {
 		return fmt.Errorf("failed to check destination existence: %w", err)
@@ -110,18 +110,18 @@ func CopyFile(fs afero.Fs, ctx context.Context, src, dst string, logger *logging
 			return nil
 		}
 
-		backupPath := getBackupPath(dst, dstMD5)
+		backupPath := GetBackupPath(dst, dstMD5)
 		logger.Debug(messages.MsgMovingExistingToBackup, "backupPath", backupPath)
 		if err := fs.Rename(dst, backupPath); err != nil {
 			return fmt.Errorf("failed to move file to backup: %w", err)
 		}
 	}
 
-	if err := performCopy(fs, src, dst); err != nil {
+	if err := PerformCopy(fs, src, dst); err != nil {
 		return err
 	}
 
-	if err := setPermissions(fs, src, dst); err != nil {
+	if err := SetPermissions(fs, src, dst); err != nil {
 		return err
 	}
 
@@ -129,13 +129,15 @@ func CopyFile(fs afero.Fs, ctx context.Context, src, dst string, logger *logging
 	return nil
 }
 
-func getBackupPath(dst, dstMD5 string) string {
+// GetBackupPath returns a backup file path for a given destination and its MD5 hash.
+func GetBackupPath(dst, dstMD5 string) string {
 	ext := filepath.Ext(dst)
 	baseName := strings.TrimSuffix(filepath.Base(dst), ext)
 	return filepath.Join(filepath.Dir(dst), fmt.Sprintf("%s_%s%s", baseName, dstMD5, ext))
 }
 
-func performCopy(fs afero.Fs, src, dst string) error {
+// PerformCopy copies a file from src to dst using the provided filesystem.
+func PerformCopy(fs afero.Fs, src, dst string) error {
 	srcFile, err := fs.Open(src)
 	if err != nil {
 		return fmt.Errorf("failed to open source file: %w", err)
@@ -154,7 +156,8 @@ func performCopy(fs afero.Fs, src, dst string) error {
 	return nil
 }
 
-func setPermissions(fs afero.Fs, src, dst string) error {
+// SetPermissions sets the permissions of dst to match those of src.
+func SetPermissions(fs afero.Fs, src, dst string) error {
 	srcInfo, err := fs.Stat(src)
 	if err != nil {
 		return fmt.Errorf("failed to stat source file: %w", err)
@@ -167,14 +170,14 @@ func setPermissions(fs afero.Fs, src, dst string) error {
 }
 
 // CopyDataDir copies data directories, handling workflows and resources.
-func CopyDataDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, projectDir, compiledProjectDir, agentName, agentVersion,
-	agentAction string, processWorkflows bool, logger *logging.Logger,
+func CopyDataDir(ctx context.Context, fs afero.Fs, wf pklWf.Workflow, kdepsDir, projectDir, compiledProjectDir, agentName, agentVersion,
+	_ string, processWorkflows bool, logger *logging.Logger,
 ) error {
 	srcDir := filepath.Join(projectDir, "data")
-	destDir := filepath.Join(compiledProjectDir, fmt.Sprintf("data/%s/%s", wf.GetName(), wf.GetVersion()))
+	destDir := filepath.Join(compiledProjectDir, fmt.Sprintf("data/%s/%s", wf.GetAgentID(), wf.GetVersion()))
 
 	if processWorkflows {
-		newSrcDir, newDestDir, err := ResolveAgentVersionAndCopyResources(fs, ctx, kdepsDir, compiledProjectDir, agentName, agentVersion, logger)
+		newSrcDir, newDestDir, err := ResolveAgentVersionAndCopyResources(ctx, fs, kdepsDir, compiledProjectDir, agentName, agentVersion, logger)
 		if err != nil {
 			return err
 		}
@@ -186,10 +189,10 @@ func CopyDataDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, 
 		return nil
 	}
 
-	return CopyDir(fs, ctx, srcDir, destDir, logger)
+	return CopyDir(ctx, fs, srcDir, destDir, logger)
 }
 
-func ResolveAgentVersionAndCopyResources(fs afero.Fs, ctx context.Context, kdepsDir, compiledProjectDir, agentName, agentVersion string, logger *logging.Logger) (string, string, error) {
+func ResolveAgentVersionAndCopyResources(ctx context.Context, fs afero.Fs, kdepsDir, compiledProjectDir, agentName, agentVersion string, logger *logging.Logger) (string, string, error) {
 	if agentVersion == "" {
 		agentVersionPath := filepath.Join(kdepsDir, "agents", agentName)
 		exists, err := afero.Exists(fs, agentVersionPath)
@@ -214,7 +217,7 @@ func ResolveAgentVersionAndCopyResources(fs afero.Fs, ctx context.Context, kdeps
 		return "", "", err
 	}
 	if exists {
-		if err := CopyDir(fs, ctx, src, dst, logger); err != nil {
+		if err := CopyDir(ctx, fs, src, dst, logger); err != nil {
 			logger.Error("failed to copy resources", "src", src, "dst", dst, "error", err)
 			return "", "", err
 		}
@@ -225,7 +228,7 @@ func ResolveAgentVersionAndCopyResources(fs afero.Fs, ctx context.Context, kdeps
 	return newSrcDir, newDestDir, nil
 }
 
-func CopyDir(fs afero.Fs, ctx context.Context, srcDir, destDir string, logger *logging.Logger) error {
+func CopyDir(ctx context.Context, fs afero.Fs, srcDir, destDir string, logger *logging.Logger) error {
 	return afero.Walk(fs, srcDir, func(path string, info os.FileInfo, walkErr error) error {
 		if walkErr != nil {
 			logger.Error("error walking source directory", "path", srcDir, "error", walkErr)
@@ -246,7 +249,7 @@ func CopyDir(fs afero.Fs, ctx context.Context, srcDir, destDir string, logger *l
 				return err
 			}
 		} else {
-			if err := CopyFile(fs, ctx, path, dstPath, logger); err != nil {
+			if err := CopyFile(ctx, fs, path, dstPath, logger); err != nil {
 				logger.Error("failed to copy file", "src", path, "dst", dstPath, "error", err)
 				return err
 			}

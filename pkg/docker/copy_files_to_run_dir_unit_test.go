@@ -1,12 +1,14 @@
-package docker
+package docker_test
 
 import (
 	"context"
 	"testing"
 
+	"github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCopyFilesToRunDirUnit(t *testing.T) {
@@ -21,15 +23,15 @@ func TestCopyFilesToRunDirUnit(t *testing.T) {
 	assert.NoError(t, fs.MkdirAll(downloadDir, 0o755))
 	files := []string{"a.txt", "b.txt"}
 	for _, f := range files {
-		assert.NoError(t, afero.WriteFile(fs, downloadDir+"/"+f, []byte(f), 0o644))
+		require.NoError(t, afero.WriteFile(fs, downloadDir+"/"+f, []byte(f), 0o644))
 	}
 
-	assert.NoError(t, copyFilesToRunDir(fs, ctx, downloadDir, runDir, logger))
+	assert.NoError(t, docker.CopyFilesToRunDir(fs, ctx, downloadDir, runDir, logger))
 
 	// verify files copied into runDir/cache
 	for _, f := range files {
 		data, err := afero.ReadFile(fs, runDir+"/cache/"+f)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, []byte(f), data)
 	}
 }

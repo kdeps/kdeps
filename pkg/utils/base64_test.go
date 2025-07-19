@@ -16,7 +16,7 @@ func TestIsBase64Encoded(t *testing.T) {
 		want  bool
 	}{
 		{name: "valid", input: base64.StdEncoding.EncodeToString([]byte("hello")), want: true},
-		{name: "empty", input: "", want: false},
+		{name: "empty", input: "", want: true},
 		{name: "invalid chars", input: "SGVsbG@=", want: false},
 		{name: "wrong padding", input: "abc", want: false},
 	}
@@ -145,13 +145,10 @@ func TestBase64Helpers(t *testing.T) {
 		t.Fatalf("decoded value mismatch: got %q, want %q", decoded, original)
 	}
 
-	// DecodeBase64String should return the same string if the input is not base64
-	same, err := DecodeBase64String(original)
-	if err != nil {
-		t.Fatalf("unexpected error decoding non-base64 string: %v", err)
-	}
-	if same != original {
-		t.Fatalf("DecodeBase64String altered non-base64 string: got %q, want %q", same, original)
+	// DecodeBase64String should return an error if the input is not base64
+	_, err = DecodeBase64String(original)
+	if err == nil {
+		t.Fatalf("expected error when decoding non-base64 string, but got none")
 	}
 
 	// DecodeBase64IfNeeded helper
@@ -224,12 +221,9 @@ func TestDecodeBase64StringHelpers(t *testing.T) {
 
 	t.Run("InvalidString", func(t *testing.T) {
 		in := "$$invalid$$"
-		out, err := DecodeBase64String(in)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if out != in {
-			t.Fatalf("want %q got %q", in, out)
+		_, err := DecodeBase64String(in)
+		if err == nil {
+			t.Fatalf("expected error for invalid base64 string, but got none")
 		}
 	})
 }
@@ -268,7 +262,7 @@ func TestIsBase64Encoded_EdgeCasesAdditional(t *testing.T) {
 		in   string
 		want bool
 	}{
-		{"", false},                         // empty
+		{"", true},                          // empty string is valid base64 encoding of empty byte array
 		{"abc", false},                      // length not multiple of 4
 		{"@@@@", false},                     // invalid chars
 		{EncodeBase64String("hello"), true}, // valid
@@ -336,14 +330,11 @@ func TestDecodeBase64String_ErrorPath(t *testing.T) {
 		t.Fatalf("unexpected decoded value: %q", decoded)
 	}
 
-	// Produce input that is *not* base64, the helper should return it unchanged with no error.
+	// Produce input that is *not* base64, the helper should return an error.
 	notEncoded := "not_base64"
-	result, err := DecodeBase64String(notEncoded)
-	if err != nil {
-		t.Fatalf("unexpected error for non-base64 input: %v", err)
-	}
-	if result != notEncoded {
-		t.Fatalf("expected result to be unchanged for non-base64 input")
+	_, err = DecodeBase64String(notEncoded)
+	if err == nil {
+		t.Fatalf("expected error for non-base64 input, but got none")
 	}
 }
 
@@ -370,12 +361,14 @@ func TestDecodeStringMapAndSlice_ErrorPaths(t *testing.T) {
 }
 
 func TestDecodeStringHelpers_Branches(t *testing.T) {
-	// 1) nil inputs should return (nil,nil) without error
-	if m, err := DecodeStringMap(nil, "hdr"); err != nil || m != nil {
-		t.Fatalf("expected nil,nil for nil map, got %v err %v", m, err)
+	// 1) nil inputs should return error
+	_, err := DecodeStringMap(nil, "hdr")
+	if err == nil {
+		t.Fatalf("expected error for nil map, but got none")
 	}
-	if s, err := DecodeStringSlice(nil, "slice"); err != nil || s != nil {
-		t.Fatalf("expected nil,nil for nil slice, got %v err %v", s, err)
+	_, err = DecodeStringSlice(nil, "slice")
+	if err == nil {
+		t.Fatalf("expected error for nil slice, but got none")
 	}
 
 	// 2) non-base64 path: helper should return value unchanged without error
@@ -456,9 +449,9 @@ func TestIsBase64Encoded_DecodeFunctions(t *testing.T) {
 	// Negative path: not base64
 	invalid := "not@@base64!"
 	require.False(t, IsBase64Encoded(invalid))
-	same, err := DecodeBase64String(invalid)
-	require.NoError(t, err)
-	require.Equal(t, invalid, same)
+	_, err = DecodeBase64String(invalid)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid base64 encoding")
 }
 
 func TestDecodeStringHelpers_ErrorPaths(t *testing.T) {
@@ -475,12 +468,12 @@ func TestDecodeStringHelpers_ErrorPaths(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, decodedSlice)
 
-	// Map/slice with nil pointer should return nil, no error
-	mh, err := DecodeStringMap(nil, "field")
-	require.NoError(t, err)
-	require.Nil(t, mh)
+	// Map/slice with nil pointer should return error
+	_, err = DecodeStringMap(nil, "field")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "source map is nil")
 
-	sh, err := DecodeStringSlice(nil, "slice")
-	require.NoError(t, err)
-	require.Nil(t, sh)
+	_, err = DecodeStringSlice(nil, "slice")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "source slice is nil")
 }

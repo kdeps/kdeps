@@ -11,8 +11,8 @@ import (
 	"github.com/kdeps/kdeps/pkg/messages"
 )
 
-// isServerReady checks if ollama server is ready by attempting to connect to the specified host and port.
-func isServerReady(host string, port string, logger *logging.Logger) bool {
+// IsServerReady checks if a server is ready on the specified host and port.
+func IsServerReady(host string, port string, logger *logging.Logger) bool {
 	logger.Debug(messages.MsgServerCheckingReady, "host", host, "port", port)
 
 	timeout := time.Second
@@ -26,13 +26,13 @@ func isServerReady(host string, port string, logger *logging.Logger) bool {
 	return true
 }
 
-// waitForServer waits until ollama server is ready by polling the specified host and port.
-func waitForServer(host string, port string, timeout time.Duration, logger *logging.Logger) error {
+// WaitForServer waits for a server to be ready on the specified host and port.
+func WaitForServer(host string, port string, timeout time.Duration, logger *logging.Logger) error {
 	logger.Debug(messages.MsgServerWaitingReady)
 
 	start := time.Now()
 	for {
-		if isServerReady(host, port, logger) {
+		if IsServerReady(host, port, logger) {
 			logger.Debug(messages.MsgServerReady, "host", host, "port", port)
 			return nil
 		}
@@ -47,9 +47,8 @@ func waitForServer(host string, port string, timeout time.Duration, logger *logg
 	}
 }
 
-// startOllamaServer starts the ollama server in the background using go-execute.
-// Errors are logged in the background, and the function returns immediately.
-func startOllamaServer(ctx context.Context, logger *logging.Logger) {
+// StartOllamaServer starts the Ollama server in the background.
+func StartOllamaServer(ctx context.Context, logger *logging.Logger) {
 	logger.Debug(messages.MsgStartOllamaBackground)
 
 	_, _, _, err := kdepsexec.KdepsExec(ctx, "ollama", []string{"serve"}, "", false, true, logger)

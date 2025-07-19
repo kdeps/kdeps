@@ -41,7 +41,7 @@ func NewAPIServerResponse(success bool, data []any, errorCode int, errorMessage 
 
 	// Use the concrete implementation APIServerResponseImpl to return the response
 	return &apiserverresponse.APIServerResponseImpl{
-		Success:  success,
+		Success:  &success,
 		Response: responseBlock,
 		Errors:   &currentErrors, // Pass the pointer to the request-specific errors slice
 	}
@@ -77,7 +77,7 @@ func NewAPIServerResponseWithActionID(success bool, data []any, errorCode int, e
 
 	// Use the concrete implementation APIServerResponseImpl to return the response
 	return &apiserverresponse.APIServerResponseImpl{
-		Success:  success,
+		Success:  &success,
 		Response: responseBlock,
 		Errors:   &currentErrors,
 	}

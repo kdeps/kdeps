@@ -2,73 +2,75 @@ package evaluator
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
-	"github.com/kdeps/kdeps/pkg/kdepsexec"
+	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/spf13/afero"
 )
 
-// EnsurePklBinaryExists checks if the 'pkl' binary exists in the system PATH.
-func EnsurePklBinaryExists(ctx context.Context, logger *logging.Logger) error {
-	binaryNames := []string{"pkl", "pkl.exe"} // Support both Unix-like and Windows binary names
-	for _, binaryName := range binaryNames {
-		if _, err := exec.LookPath(binaryName); err == nil {
-			return nil // Found a valid binary, no error
-		}
-	}
-	// Log the error if none of the binaries were found
-	logger.Fatal("apple PKL not found in PATH. Please install Apple PKL (see https://pkl-lang.org/main/current/pkl-cli/index.html#installation) for more details")
-	os.Exit(1)
-	return nil // Unreachable, but included for clarity
-}
-
-// EvalPkl evaluates the resource file at resourcePath using the 'pkl' binary.
-// It expects the resourcePath to have a .pkl extension.
-func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSection string, logger *logging.Logger) (string, error) {
+// EvalPkl evaluates the resource file at resourcePath using the provided PKL evaluator.
+func EvalPkl(evaluator pkl.Evaluator, fs afero.Fs, ctx context.Context, resourcePath string, headerSection string, opts func(options *pkl.EvaluatorOptions), logger *logging.Logger) (string, error) {
 	// Validate that the file has a .pkl extension
 	if filepath.Ext(resourcePath) != ".pkl" {
 		errMsg := fmt.Sprintf("file '%s' must have a .pkl extension", resourcePath)
 		logger.Error(errMsg)
-		return "", errors.New(errMsg)
+		return "", fmt.Errorf("%s", errMsg)
 	}
 
-	// Ensure that the 'pkl' binary is available
-	if err := EnsurePklBinaryExists(ctx, logger); err != nil {
-		return "", err
+	// Check if evaluator is provided
+	if evaluator == nil {
+		return "", fmt.Errorf("evaluator is required but was nil")
 	}
 
-	stdout, stderr, exitCode, err := kdepsexec.KdepsExec(ctx, "pkl", []string{"eval", resourcePath}, "", false, false, logger)
+	// Create a ModuleSource using UriSource for paths with a protocol, FileSource for relative paths
+	var moduleSource *pkl.ModuleSource
+	parsedURL, err := url.Parse(resourcePath)
+	if err == nil && parsedURL.Scheme != "" {
+		// Has a protocol (e.g., file://, http://, https://)
+		moduleSource = pkl.UriSource(resourcePath)
+	} else {
+		// Absolute path without a protocol
+		moduleSource = pkl.FileSource(resourcePath)
+	}
+
+	// Evaluate the Pkl file
+	result, err := evaluator.EvaluateOutputText(ctx, moduleSource)
 	if err != nil {
-		logger.Error("command execution failed", "stderr", stderr, "error", err)
-		return "", err
+		errMsg := "failed to evaluate Pkl file"
+		logger.Error(errMsg, "resourcePath", resourcePath, "error", err)
+		return "", fmt.Errorf("%s: %w", errMsg, err)
 	}
 
-	if exitCode != 0 {
-		errMsg := fmt.Sprintf("command failed with exit code %d: %s", exitCode, stderr)
-		logger.Error(errMsg)
-		return "", errors.New(errMsg)
+	// Format the result by prepending the headerSection
+	formattedResult := fmt.Sprintf("%s\n%s", headerSection, result)
+
+	// Write the formatted result to the original file
+	err = afero.WriteFile(fs, resourcePath, []byte(formattedResult), 0o644)
+	if err != nil {
+		logger.Error("failed to write formatted result to file", "resourcePath", resourcePath, "error", err)
+		return "", fmt.Errorf("error writing formatted result to %s: %w", resourcePath, err)
 	}
+	logger.Debug("successfully wrote formatted result to file", "resourcePath", resourcePath)
 
-	formattedResult := fmt.Sprintf("%s\n%s", headerSection, stdout)
-
+	// Return the formatted result
 	return formattedResult, nil
 }
 
 func CreateAndProcessPklFile(
+	evaluator pkl.Evaluator,
 	fs afero.Fs,
 	ctx context.Context,
 	sections []string,
 	finalFileName string,
 	pklTemplate string,
 	logger *logging.Logger,
-	processFunc func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error),
+	processFunc func(evaluator pkl.Evaluator, fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error),
 	isExtension bool, // New parameter to control amends vs extends
 ) error {
 	// Create a temporary directory
@@ -100,7 +102,7 @@ func CreateAndProcessPklFile(
 	}
 
 	// Prepare the sections with the relationship keyword and imports
-	relationshipSection := fmt.Sprintf(`%s "package://schema.kdeps.com/core@%s#/%s"`, relationship, schema.SchemaVersion(ctx), pklTemplate)
+	relationshipSection := fmt.Sprintf(`%s "%s"`, relationship, schema.ImportPath(ctx, pklTemplate))
 	fullSections := append([]string{relationshipSection}, sections...)
 
 	// Write sections to the temporary file
@@ -111,7 +113,7 @@ func CreateAndProcessPklFile(
 	}
 
 	// Process the temporary file using the provided function
-	processedContent, err := processFunc(fs, ctx, tmpFile.Name(), relationshipSection, logger)
+	processedContent, err := processFunc(evaluator, fs, ctx, tmpFile.Name(), relationshipSection, logger)
 	if err != nil {
 		logger.Error("failed to process temporary file", "path", tmpFile.Name(), "error", err)
 		return fmt.Errorf("failed to process temporary file: %w", err)
@@ -125,4 +127,55 @@ func CreateAndProcessPklFile(
 	}
 
 	return nil
+}
+
+// EvaluateAllPklFilesInDirectory evaluates all PKL files in the given directory to test for any problems.
+func EvaluateAllPklFilesInDirectory(evaluator pkl.Evaluator, fs afero.Fs, ctx context.Context, dir string, logger *logging.Logger) error {
+	// Walk through the directory and find all PKL files
+	err := afero.Walk(fs, dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip directories and non-PKL files
+		if info.IsDir() || filepath.Ext(path) != ".pkl" {
+			return nil
+		}
+
+		logger.Debug("evaluating PKL file", "file", path)
+
+		// Create module source
+		moduleSource := pkl.FileSource(path)
+
+		// Evaluate the PKL file
+		_, err = evaluator.EvaluateOutputText(ctx, moduleSource)
+		if err != nil {
+			logger.Error("PKL file evaluation failed", "file", path, "error", err)
+			return fmt.Errorf("evaluation failed for %s: %w", path, err)
+		}
+
+		logger.Debug("PKL file evaluation successful", "file", path)
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to evaluate PKL files in directory %s: %w", dir, err)
+	}
+
+	logger.Info("all PKL files evaluated successfully", "directory", dir)
+	return nil
+}
+
+// EvaluateText evaluates PKL text directly using the provided evaluator
+func EvaluateText(evaluator pkl.Evaluator, ctx context.Context, pklText string, logger *logging.Logger) (string, error) {
+	// Create a text source
+	moduleSource := pkl.TextSource(pklText)
+
+	// Evaluate the PKL text
+	result, err := evaluator.EvaluateOutputText(ctx, moduleSource)
+	if err != nil {
+		logger.Error("PKL text evaluation failed", "error", err)
+		return "", fmt.Errorf("evaluation failed: %w", err)
+	}
+
+	return result, nil
 }

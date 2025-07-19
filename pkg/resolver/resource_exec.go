@@ -1,42 +1,46 @@
 package resolver
 
 import (
-	"errors"
 	"fmt"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/alexellis/go-execute/v2"
 	"github.com/apple/pkl-go/pkl"
-	"github.com/kdeps/kdeps/pkg/evaluator"
+
 	"github.com/kdeps/kdeps/pkg/kdepsexec"
-	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklExec "github.com/kdeps/schema/gen/exec"
 	"github.com/spf13/afero"
 )
 
 func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.ResourceExec) error {
+	// Canonicalize the actionID if it's a short ActionID
+	canonicalActionID := actionID
+	if dr.PklresHelper != nil {
+		canonicalActionID = dr.PklresHelper.resolveActionID(actionID)
+		if canonicalActionID != actionID {
+			dr.Logger.Debug("canonicalized actionID", "original", actionID, "canonical", canonicalActionID)
+		}
+	}
+
 	// Decode the exec block synchronously
-	if err := dr.decodeExecBlock(execBlock); err != nil {
-		dr.Logger.Error("failed to decode exec block", "actionID", actionID, "error", err)
+	if err := dr.DecodeExecBlock(execBlock); err != nil {
+		dr.Logger.Error("failed to decode exec block", "actionID", canonicalActionID, "error", err)
 		return err
 	}
 
-	// Run processExecBlock asynchronously in a goroutine
-	go func(aID string, block *pklExec.ResourceExec) {
-		if err := dr.processExecBlock(aID, block); err != nil {
-			// Log the error; consider additional error handling as needed.
-			dr.Logger.Error("failed to process exec block", "actionID", aID, "error", err)
-		}
-	}(actionID, execBlock)
+	// Run processExecBlock synchronously (patch: removed goroutine)
+	if err := dr.processExecBlock(canonicalActionID, execBlock); err != nil {
+		dr.Logger.Error("failed to process exec block", "actionID", canonicalActionID, "error", err)
+		return err
+	}
 
-	// Return immediately; the exec block is being processed in the background.
 	return nil
 }
 
-func (dr *DependencyResolver) decodeExecBlock(execBlock *pklExec.ResourceExec) error {
+// DecodeExecBlock decodes an exec block by processing base64 encoded fields
+func (dr *DependencyResolver) DecodeExecBlock(execBlock *pklExec.ResourceExec) error {
 	// Decode Command
 	decodedCommand, err := utils.DecodeBase64IfNeeded(execBlock.Command)
 	if err != nil {
@@ -63,11 +67,13 @@ func (dr *DependencyResolver) decodeExecBlock(execBlock *pklExec.ResourceExec) e
 	}
 
 	// Decode Env values
-	decodedEnv, err := utils.DecodeStringMap(execBlock.Env, "env")
-	if err != nil {
-		return fmt.Errorf("failed to decode env: %w", err)
+	if execBlock.Env != nil {
+		decodedEnv, err := utils.DecodeStringMap(execBlock.Env, "env")
+		if err != nil {
+			return fmt.Errorf("failed to decode env: %w", err)
+		}
+		execBlock.Env = decodedEnv
 	}
-	execBlock.Env = decodedEnv
 
 	return nil
 }
@@ -90,27 +96,75 @@ func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklEx
 	}
 
 	var stdout, stderr string
+	var exitCode int
 	var err error
 	if dr.ExecTaskRunnerFn != nil {
 		stdout, stderr, err = dr.ExecTaskRunnerFn(dr.Context, task)
+		// Default exit code for injected runner (assuming success)
+		exitCode = 0
 	} else {
 		// fallback direct execution via kdepsexec
-		stdout, stderr, _, err = kdepsexec.RunExecTask(dr.Context, task, dr.Logger, false)
+		stdout, stderr, exitCode, err = kdepsexec.RunExecTask(dr.Context, task, dr.Logger, false)
 	}
 	if err != nil {
-		return err
+		// Even if there's an error, we should still record the exit code
+		if exitCode == 0 {
+			exitCode = 1 // Default error exit code
+		}
 	}
 
 	execBlock.Stdout = &stdout
 	execBlock.Stderr = &stderr
+	execBlock.ExitCode = &exitCode
 
 	ts := pkl.Duration{
-		Value: float64(time.Now().Unix()),
+		Value: float64(time.Now().UnixNano()),
 		Unit:  pkl.Nanosecond,
 	}
 	execBlock.Timestamp = &ts
 
-	return dr.AppendExecEntry(actionID, execBlock)
+	// Write the Exec output to file for pklres access
+	if execBlock.Stdout != nil {
+		dr.Logger.Debug("processExecBlock: writing stdout to file", "actionID", actionID)
+		filePath, err := dr.WriteStdoutToFile(actionID, execBlock.Stdout)
+		if err != nil {
+			dr.Logger.Error("processExecBlock: failed to write stdout to file", "actionID", actionID, "error", err)
+			return fmt.Errorf("failed to write stdout to file: %w", err)
+		}
+		execBlock.File = &filePath
+		dr.Logger.Debug("processExecBlock: wrote stdout to file", "actionID", actionID, "filePath", filePath)
+	}
+
+	dr.Logger.Info("processExecBlock: skipping AppendExecEntry - using real-time pklres", "actionID", actionID)
+	// Note: AppendExecEntry is no longer needed as we use real-time pklres access
+	// The Exec output files are directly accessible through pklres.getResourceOutput()
+
+	// Store the complete exec resource record in the PKL mapping
+	if dr.PklresHelper != nil {
+		// Create a ResourceExec object for storage
+		resourceExec := &pklExec.ResourceExec{
+			Command:         execBlock.Command,
+			Env:             execBlock.Env,
+			Stdout:          execBlock.Stdout,
+			Stderr:          execBlock.Stderr,
+			ExitCode:        execBlock.ExitCode,
+			File:            execBlock.File,
+			Timestamp:       execBlock.Timestamp,
+			TimeoutDuration: execBlock.TimeoutDuration,
+		}
+
+		// Store the resource object using the new method
+		if err := dr.PklresHelper.StoreResourceObject("exec", actionID, resourceExec); err != nil {
+			dr.Logger.Error("processExecBlock: failed to store exec resource in pklres", "actionID", actionID, "error", err)
+		} else {
+			dr.Logger.Info("processExecBlock: stored exec resource in pklres", "actionID", actionID)
+		}
+	}
+
+	// Mark the resource as finished processing
+	// Processing status tracking removed - simplified to pure key-value store approach
+
+	return nil
 }
 
 func (dr *DependencyResolver) WriteStdoutToFile(resourceID string, stdoutEncoded *string) (string, error) {
@@ -133,104 +187,8 @@ func (dr *DependencyResolver) WriteStdoutToFile(resourceID string, stdoutEncoded
 	return outputFilePath, nil
 }
 
-func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExec.ResourceExec) error {
-	pklPath := filepath.Join(dr.ActionDir, "exec/"+dr.RequestID+"__exec_output.pkl")
-
-	res, err := dr.LoadResource(dr.Context, pklPath, ExecResource)
-	if err != nil {
-		return fmt.Errorf("failed to load PKL: %w", err)
-	}
-
-	pklRes, ok := res.(*pklExec.ExecImpl)
-	if !ok {
-		return errors.New("failed to cast pklRes to *pklExec.ExecImpl")
-	}
-
-	resources := pklRes.GetResources()
-	if resources == nil {
-		emptyMap := make(map[string]*pklExec.ResourceExec)
-		resources = &emptyMap
-	}
-	existingResources := *resources
-
-	// Prepare file path and write stdout to file
-	var filePath string
-	if newExec.Stdout != nil {
-		filePath, err = dr.WriteStdoutToFile(resourceID, newExec.Stdout)
-		if err != nil {
-			return fmt.Errorf("failed to write stdout to file: %w", err)
-		}
-		newExec.File = &filePath
-	}
-
-	// Encode fields for PKL storage
-	encodedCommand := utils.EncodeValue(newExec.Command)
-	encodedEnv := dr.encodeExecEnv(newExec.Env)
-	encodedStderr, encodedStdout := dr.encodeExecOutputs(newExec.Stderr, newExec.Stdout)
-
-	timestamp := newExec.Timestamp
-	if timestamp == nil {
-		timestamp = &pkl.Duration{
-			Value: float64(time.Now().Unix()),
-			Unit:  pkl.Nanosecond,
-		}
-	}
-
-	existingResources[resourceID] = &pklExec.ResourceExec{
-		Env:             encodedEnv,
-		Command:         encodedCommand,
-		Stderr:          encodedStderr,
-		Stdout:          encodedStdout,
-		File:            &filePath,
-		Timestamp:       timestamp,
-		TimeoutDuration: newExec.TimeoutDuration,
-	}
-
-	var pklContent strings.Builder
-	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Exec.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
-	pklContent.WriteString("resources {\n")
-
-	for id, res := range existingResources {
-		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
-		pklContent.WriteString(fmt.Sprintf("    command = \"%s\"\n", res.Command))
-
-		if res.TimeoutDuration != nil {
-			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
-		} else {
-			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d.s\n", dr.DefaultTimeoutSec))
-		}
-
-		if res.Timestamp != nil {
-			pklContent.WriteString(fmt.Sprintf("    timestamp = %g.%s\n", res.Timestamp.Value, res.Timestamp.Unit.String()))
-		}
-
-		pklContent.WriteString("    env ")
-		pklContent.WriteString(utils.EncodePklMap(res.Env))
-
-		pklContent.WriteString(dr.encodeExecStderr(res.Stderr))
-		pklContent.WriteString(dr.encodeExecStdout(res.Stdout))
-		if res.File != nil {
-			pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *res.File))
-		} else {
-			pklContent.WriteString("    file = \"\"\n")
-		}
-
-		pklContent.WriteString("  }\n")
-	}
-	pklContent.WriteString("}\n")
-
-	if err := afero.WriteFile(dr.Fs, pklPath, []byte(pklContent.String()), 0o644); err != nil {
-		return fmt.Errorf("failed to write PKL file: %w", err)
-	}
-
-	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath,
-		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Exec.pkl\"", schema.SchemaVersion(dr.Context)), dr.Logger)
-	if err != nil {
-		return fmt.Errorf("failed to evaluate PKL: %w", err)
-	}
-
-	return afero.WriteFile(dr.Fs, pklPath, []byte(evaluatedContent), 0o644)
-}
+// AppendExecEntry has been removed as it's no longer needed.
+// We now use real-time pklres access through getResourceOutput() instead of storing PKL content.
 
 func (dr *DependencyResolver) encodeExecEnv(env *map[string]string) *map[string]string {
 	if env == nil {
@@ -249,14 +207,31 @@ func (dr *DependencyResolver) encodeExecOutputs(stderr, stdout *string) (*string
 
 func (dr *DependencyResolver) encodeExecStderr(stderr *string) string {
 	if stderr == nil {
-		return "    stderr = \"\"\n"
+		return "    Stderr = \"\"\n"
 	}
-	return fmt.Sprintf("    stderr = #\"\"\"\n%s\n\"\"\"#\n", *stderr)
+	return fmt.Sprintf("    Stderr = #\"\"\"\n%s\n\"\"\"#\n", *stderr)
 }
 
 func (dr *DependencyResolver) encodeExecStdout(stdout *string) string {
 	if stdout == nil {
-		return "    stdout = \"\"\n"
+		return "    Stdout = \"\"\n"
 	}
-	return fmt.Sprintf("    stdout = #\"\"\"\n%s\n\"\"\"#\n", *stdout)
+	return fmt.Sprintf("    Stdout = #\"\"\"\n%s\n\"\"\"#\n", *stdout)
+}
+
+// Exported for testing
+func (dr *DependencyResolver) EncodeExecEnv(env *map[string]string) *map[string]string {
+	return dr.encodeExecEnv(env)
+}
+
+func (dr *DependencyResolver) EncodeExecOutputs(stderr, stdout *string) (*string, *string) {
+	return dr.encodeExecOutputs(stderr, stdout)
+}
+
+func (dr *DependencyResolver) EncodeExecStderr(stderr *string) string {
+	return dr.encodeExecStderr(stderr)
+}
+
+func (dr *DependencyResolver) EncodeExecStdout(stdout *string) string {
+	return dr.encodeExecStdout(stdout)
 }

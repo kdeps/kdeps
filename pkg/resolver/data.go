@@ -1,95 +1,82 @@
 package resolver
 
 import (
-	"errors"
 	"fmt"
-	"path/filepath"
-	"strings"
 
-	"github.com/kdeps/kdeps/pkg/evaluator"
-	"github.com/kdeps/kdeps/pkg/schema"
-	"github.com/kdeps/kdeps/pkg/utils"
+	"github.com/kdeps/kdeps/pkg/data"
 	pklData "github.com/kdeps/schema/gen/data"
-	"github.com/spf13/afero"
 )
 
-// AppendDataEntry appends a data entry to the existing files map.
-func (dr *DependencyResolver) AppendDataEntry(resourceID string, newData *pklData.DataImpl) error {
-	// Ensure dr.Context is not nil
-	if dr.Context == nil {
-		return errors.New("context is nil")
-	}
-
-	// Define the path to the PKL file
-	pklPath := filepath.Join(dr.ActionDir, "data/"+dr.RequestID+"__data_output.pkl")
-
-	// Load existing PKL data
-	pklRes, err := pklData.LoadFromPath(dr.Context, pklPath)
-	if err != nil {
-		return fmt.Errorf("failed to load PKL file: %w", err)
-	}
-
-	// Safeguard against nil pointers
-	if pklRes == nil || pklRes.GetFiles() == nil {
-		return errors.New("the PKL data or files map is nil")
-	}
-
-	// Get the existing files map
-	existingFiles := pklRes.GetFiles() // Pointer to the map
-
-	// Ensure newData is not nil
-	if newData == nil || newData.Files == nil {
-		return errors.New("new data or its files map is nil")
-	}
-
-	// Merge new data into the existing files map
-	for agentName, baseFileMap := range *newData.Files {
-		// Ensure the agent name exists in the existing files map
-		if _, exists := (*existingFiles)[agentName]; !exists {
-			(*existingFiles)[agentName] = make(map[string]string)
-		}
-
-		// Merge and encode base filenames and file paths
-		for baseFilename, filePath := range baseFileMap {
-			if !utils.IsBase64Encoded(filePath) {
-				filePath = utils.EncodeBase64String(filePath)
-			}
-			(*existingFiles)[agentName][baseFilename] = filePath
+// HandleData processes data resources and populates the Files mapping registry
+func (dr *DependencyResolver) HandleData(actionID string, dataBlock *pklData.DataImpl) error {
+	// Canonicalize the actionID if it's a short ActionID
+	canonicalActionID := actionID
+	if dr.PklresHelper != nil {
+		canonicalActionID = dr.PklresHelper.resolveActionID(actionID)
+		if canonicalActionID != actionID {
+			dr.Logger.Debug("canonicalized actionID", "original", actionID, "canonical", canonicalActionID)
 		}
 	}
 
-	// Build the new PKL content
-	var pklContent strings.Builder
-	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Data.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
-	pklContent.WriteString("files {\n")
-
-	for agentName, baseFileMap := range *existingFiles {
-		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", agentName))
-		for baseFilename, filePath := range baseFileMap {
-			pklContent.WriteString(fmt.Sprintf("    [\"%s\"] = \"%s\"\n", baseFilename, filePath))
-		}
-		pklContent.WriteString("  }\n")
-	}
-
-	pklContent.WriteString("}\n")
-
-	// Write the new PKL content to the file using afero
-	err = afero.WriteFile(dr.Fs, pklPath, []byte(pklContent.String()), 0o644)
-	if err != nil {
-		return fmt.Errorf("failed to write to PKL file: %w", err)
-	}
-
-	// Evaluate the PKL file using EvalPkl
-	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath, fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Data.pkl\"", schema.SchemaVersion(dr.Context)), dr.Logger)
-	if err != nil {
-		return fmt.Errorf("failed to evaluate PKL file: %w", err)
-	}
-
-	// Rebuild the PKL content with the evaluated content
-	err = afero.WriteFile(dr.Fs, pklPath, []byte(evaluatedContent), 0o644)
-	if err != nil {
-		return fmt.Errorf("failed to write evaluated content to PKL file: %w", err)
+	// Process data block to populate Files mapping
+	if err := dr.processDataBlock(canonicalActionID, dataBlock); err != nil {
+		dr.Logger.Error("failed to process data block", "actionID", canonicalActionID, "error", err)
+		return err
 	}
 
 	return nil
 }
+
+// processDataBlock processes a data block and populates the Files mapping registry
+func (dr *DependencyResolver) processDataBlock(actionID string, dataBlock *pklData.DataImpl) error {
+	// Populate the Files mapping registry using the data package
+	if dataBlock.Files == nil {
+		dataBlock.Files = make(map[string]map[string]string)
+	}
+
+	// Use the data package to populate the file registry
+	fileRegistry, err := data.PopulateDataFileRegistry(dr.Fs, dr.DataDir)
+	if err != nil {
+		dr.Logger.Error("failed to populate data file registry", "actionID", actionID, "error", err)
+		return fmt.Errorf("failed to populate data file registry: %w", err)
+	}
+
+	// Convert the file registry to the expected format
+	for agentVersion, files := range *fileRegistry {
+		dataBlock.Files[agentVersion] = files
+	}
+
+	// Store the complete data resource record in the PKL mapping
+	if dr.PklresHelper != nil {
+		// Create a DataImpl object for storage
+		resourceData := &pklData.DataImpl{
+			Files: dataBlock.Files,
+		}
+
+		// Store the resource object using the new method
+		if err := dr.PklresHelper.StoreResourceObject("data", actionID, resourceData); err != nil {
+			dr.Logger.Error("processDataBlock: failed to store data resource in pklres", "actionID", actionID, "error", err)
+		} else {
+			dr.Logger.Info("processDataBlock: stored data resource in pklres", "actionID", actionID)
+		}
+	}
+
+	dr.Logger.Info("processDataBlock: completed successfully", "actionID", actionID, "fileCount", len(dataBlock.Files))
+
+	// Mark the resource as finished processing
+	// Processing status tracking removed - simplified to pure key-value store approach
+
+	return nil
+}
+
+// AppendDataEntry has been removed as it's no longer needed.
+// We now use real-time pklres access through getResourceOutput() instead of storing PKL content.
+// Data resources are now handled differently - they don't store PKL content but rather
+// manage file references directly through the agent system.
+
+// Exported for testing
+var (
+	FormatValue     = formatValue
+	FormatErrors    = formatErrors
+	FormatDataValue = formatDataValue
+)

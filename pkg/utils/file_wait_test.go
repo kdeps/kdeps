@@ -1,17 +1,22 @@
-package utils
+package utils_test
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/spf13/afero"
 )
 
 func TestWaitForFileReadySuccess(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
-	fname := "/tmp/ready.txt"
+
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	fname := filepath.Join(tmpDir, "ready.txt")
 
 	// create file after 100ms in goroutine
 	go func() {
@@ -19,7 +24,7 @@ func TestWaitForFileReadySuccess(t *testing.T) {
 		_ = afero.WriteFile(fs, fname, []byte("ok"), 0o644)
 	}()
 
-	if err := WaitForFileReady(fs, fname, logger); err != nil {
+	if err := utils.WaitForFileReady(fs, fname, logger); err != nil {
 		t.Fatalf("expected success, got %v", err)
 	}
 }
@@ -28,8 +33,12 @@ func TestWaitForFileReadyTimeout(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	nonexistentPath := filepath.Join(tmpDir, "nonexistent")
+
 	start := time.Now()
-	err := WaitForFileReady(fs, "/nonexistent", logger)
+	err := utils.WaitForFileReady(fs, nonexistentPath, logger)
 	if err == nil {
 		t.Fatalf("expected timeout error")
 	}
@@ -50,7 +59,7 @@ func TestGenerateResourceIDFilenameAdditional(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		got := GenerateResourceIDFilename(c.input, c.reqID)
+		got := utils.GenerateResourceIDFilename(c.input, c.reqID)
 		if got != c.want {
 			t.Fatalf("GenerateResourceIDFilename(%q,%q) = %q; want %q", c.input, c.reqID, got, c.want)
 		}
@@ -58,15 +67,17 @@ func TestGenerateResourceIDFilenameAdditional(t *testing.T) {
 }
 
 func TestSanitizeArchivePathAdditional(t *testing.T) {
-	base := "/safe/root"
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	base := filepath.Join(tmpDir, "safe", "root")
 
 	// Good path
-	if _, err := SanitizeArchivePath(base, "folder/file.txt"); err != nil {
+	if _, err := utils.SanitizeArchivePath(base, "folder/file.txt"); err != nil {
 		t.Fatalf("unexpected error for safe path: %v", err)
 	}
 
 	// Attempt path traversal should error
-	if _, err := SanitizeArchivePath(base, "../evil.txt"); err == nil {
+	if _, err := utils.SanitizeArchivePath(base, "../evil.txt"); err == nil {
 		t.Fatalf("expected error for tainted path")
 	}
 }

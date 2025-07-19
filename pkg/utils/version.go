@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -61,7 +62,7 @@ func parseVersion(version string) ([3]int, error) {
 // ValidateSchemaVersion validates that a schema version meets minimum requirements
 func ValidateSchemaVersion(version string, minimumVersion string) error {
 	if version == "" {
-		return fmt.Errorf("schema version cannot be empty")
+		return errors.New("schema version cannot be empty")
 	}
 
 	cmp, err := CompareVersions(version, minimumVersion)

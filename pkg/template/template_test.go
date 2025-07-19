@@ -1,4 +1,4 @@
-package template
+package template_test
 
 import (
 	"context"
@@ -6,44 +6,64 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/template"
 	"github.com/kdeps/kdeps/pkg/texteditor"
 	"github.com/kdeps/kdeps/pkg/version"
+	assets "github.com/kdeps/schema/assets"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// Save the original EditPkl function
-var originalEditPkl = texteditor.EditPkl
+// Package variable mutex for safe reassignment
+var editPklMutex sync.Mutex
+
+// Helper function to safely save and restore EditPkl variable
+func saveAndRestoreEditPkl(_ *testing.T, newValue texteditor.EditPklFunc) func() {
+	editPklMutex.Lock()
+	original := texteditor.EditPkl
+	texteditor.EditPkl = newValue
+	return func() {
+		texteditor.EditPkl = original
+		editPklMutex.Unlock()
+	}
+}
+
+func withTestState(_ *testing.T, fn func()) {
+	origEditPkl := texteditor.EditPkl
+	defer func() { texteditor.EditPkl = origEditPkl }()
+	fn()
+}
 
 func setNonInteractive(t *testing.T) func() {
 	t.Helper()
 	oldValue := os.Getenv("NON_INTERACTIVE")
-	os.Setenv("NON_INTERACTIVE", "1")
+	t.Setenv("NON_INTERACTIVE", "1")
 	return func() {
-		os.Setenv("NON_INTERACTIVE", oldValue)
+		t.Setenv("NON_INTERACTIVE", oldValue)
 	}
 }
 
 func TestValidateAgentName(t *testing.T) {
 	// Test case 1: Valid agent name
-	err := validateAgentName("test-agent")
+	err := template.ValidateAgentName("test-agent")
 	if err != nil {
 		t.Errorf("Expected no error for valid agent name, got: %v", err)
 	}
 
 	// Test case 2: Empty agent name
-	err = validateAgentName("")
+	err = template.ValidateAgentName("")
 	if err == nil {
 		t.Error("Expected error for empty agent name, got nil")
 	}
 
 	// Test case 3: Agent name with spaces
-	err = validateAgentName("test agent")
+	err = template.ValidateAgentName("test agent")
 	if err == nil {
 		t.Error("Expected error for agent name with spaces, got nil")
 	}
@@ -55,8 +75,11 @@ func TestCreateDirectoryNew(t *testing.T) {
 	// Test case: Create directory with in-memory FS
 	fs := afero.NewMemMapFs()
 	logger := logging.GetLogger()
-	path := "/test/dir"
-	err := createDirectory(fs, logger, path)
+
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "test", "dir")
+	err := template.CreateDirectory(fs, logger, path)
 	if err != nil {
 		t.Errorf("Expected no error creating directory, got: %v", err)
 	}
@@ -75,9 +98,12 @@ func TestCreateFileNew(t *testing.T) {
 	// Test case: Create file with in-memory FS
 	fs := afero.NewMemMapFs()
 	logger := logging.GetLogger()
-	path := "/test/file.txt"
+
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "test", "file.txt")
 	content := "test content"
-	err := createFile(fs, logger, path, content)
+	err := template.CreateFile(fs, logger, path, content)
 	if err != nil {
 		t.Errorf("Expected no error creating file, got: %v", err)
 	}
@@ -94,9 +120,8 @@ func TestCreateFileNew(t *testing.T) {
 
 func TestPromptForAgentName_NonInteractive(t *testing.T) {
 	// Test case: Non-interactive mode should return default name
-	os.Setenv("NON_INTERACTIVE", "1")
-	defer os.Unsetenv("NON_INTERACTIVE")
-	name, err := promptForAgentName()
+	t.Setenv("NON_INTERACTIVE", "1")
+	name, err := template.PromptForAgentName()
 	if err != nil {
 		t.Errorf("Expected no error in non-interactive mode, got: %v", err)
 	}
@@ -114,21 +139,21 @@ func TestCreateDirectory(t *testing.T) {
 
 	t.Run("CreateValidDirectory", func(t *testing.T) {
 		path := filepath.Join(tempDir, "test/directory")
-		err := createDirectory(fs, logger, path)
+		err := template.CreateDirectory(fs, logger, path)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		exists, err := afero.DirExists(fs, path)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, exists)
 	})
 
 	t.Run("CreateNestedDirectory", func(t *testing.T) {
 		path := filepath.Join(tempDir, "test/nested/deep/directory")
-		err := createDirectory(fs, logger, path)
+		err := template.CreateDirectory(fs, logger, path)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		exists, err := afero.DirExists(fs, path)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, exists)
 	})
 
@@ -137,7 +162,7 @@ func TestCreateDirectory(t *testing.T) {
 		err := fs.MkdirAll(path, 0o755)
 		require.NoError(t, err)
 
-		err = createDirectory(fs, logger, path)
+		err = template.CreateDirectory(fs, logger, path)
 		assert.NoError(t, err)
 	})
 
@@ -146,7 +171,7 @@ func TestCreateDirectory(t *testing.T) {
 		readOnlyFs := afero.NewReadOnlyFs(afero.NewMemMapFs())
 
 		path := filepath.Join(tempDir, "test/readonly")
-		err := createDirectory(readOnlyFs, logger, path)
+		err := template.CreateDirectory(readOnlyFs, logger, path)
 
 		assert.Error(t, err)
 	})
@@ -162,15 +187,15 @@ func TestCreateFile(t *testing.T) {
 		path := filepath.Join(tempDir, "test/file.txt")
 		content := "test content"
 
-		err := createFile(fs, logger, path, content)
+		err := template.CreateFile(fs, logger, path, content)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		exists, err := afero.Exists(fs, path)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, exists)
 
 		data, err := afero.ReadFile(fs, path)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, content, string(data))
 	})
 
@@ -183,11 +208,11 @@ func TestCreateFile(t *testing.T) {
 		path := filepath.Join(dir, "file.txt")
 		content := "nested file content"
 
-		err = createFile(fs, logger, path, content)
+		err = template.CreateFile(fs, logger, path, content)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		data, err := afero.ReadFile(fs, path)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, content, string(data))
 	})
 
@@ -201,11 +226,11 @@ func TestCreateFile(t *testing.T) {
 		require.NoError(t, err)
 
 		// Overwrite with new content
-		err = createFile(fs, logger, path, newContent)
+		err = template.CreateFile(fs, logger, path, newContent)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		data, err := afero.ReadFile(fs, path)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, newContent, string(data))
 	})
 }
@@ -216,7 +241,7 @@ func TestLoadTemplate(t *testing.T) {
 		"Name":   "test-name",
 	}
 
-	content, err := loadTemplate("workflow.pkl", data)
+	content, err := template.LoadTemplate("workflow.pkl", data)
 	if err != nil {
 		t.Fatalf("loadTemplate() error = %v", err)
 	}
@@ -234,13 +259,13 @@ func TestTemplateLoadingEdgeCases(t *testing.T) {
 		templatePath := "templates/workflow.pkl"
 		data := map[string]string{}
 
-		content, err := loadTemplate(templatePath, data)
+		content, err := template.LoadTemplate(templatePath, data)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotEmpty(t, content)
 		// Verify that the template still loads even with empty data
-		assert.Contains(t, content, "name =")
-		assert.Contains(t, content, "description =")
+		assert.Contains(t, content, "AgentID =")
+		assert.Contains(t, content, "Description =")
 	})
 
 	t.Run("TemplateWithMissingVariables", func(t *testing.T) {
@@ -250,13 +275,13 @@ func TestTemplateLoadingEdgeCases(t *testing.T) {
 			// Name is missing
 		}
 
-		content, err := loadTemplate(templatePath, data)
+		content, err := template.LoadTemplate(templatePath, data)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotEmpty(t, content)
 		// Verify that the template still loads but with empty variables
 		assert.Contains(t, content, "test header")
-		assert.Contains(t, content, "name =")
+		assert.Contains(t, content, "AgentID =")
 	})
 
 	t.Run("TemplateWithSpecialCharacters", func(t *testing.T) {
@@ -266,9 +291,9 @@ func TestTemplateLoadingEdgeCases(t *testing.T) {
 			"Name":   "test-agent_with.special@chars",
 		}
 
-		content, err := loadTemplate(templatePath, data)
+		content, err := template.LoadTemplate(templatePath, data)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotEmpty(t, content)
 		assert.Contains(t, content, "test header with special chars: !@#$%^&*()")
 		assert.Contains(t, content, "test-agent_with.special@chars")
@@ -281,7 +306,7 @@ func TestGenerateWorkflowFile(t *testing.T) {
 		"Name":   "test-name",
 	}
 
-	content, err := loadTemplate("workflow.pkl", data)
+	content, err := template.LoadTemplate("workflow.pkl", data)
 	if err != nil {
 		t.Fatalf("loadTemplate() error = %v", err)
 	}
@@ -302,7 +327,7 @@ func TestGenerateResourceFiles(t *testing.T) {
 	mainDir := "test-agent"
 	name := "test-agent"
 
-	err := GenerateResourceFiles(fs, ctx, logger, mainDir, name)
+	err := template.GenerateResourceFiles(ctx, fs, logger, mainDir, name)
 	if err != nil {
 		t.Fatalf("GenerateResourceFiles() error = %v", err)
 	}
@@ -316,12 +341,12 @@ func TestGenerateResourceFiles(t *testing.T) {
 
 	// Check that we have the expected number of files
 	expectedFiles := []string{"client.pkl", "exec.pkl", "llm.pkl", "python.pkl", "response.pkl"}
-	assert.Equal(t, len(expectedFiles), len(files), "Unexpected number of resource files")
+	require.Len(t, files, len(expectedFiles), "Unexpected number of resource files")
 
 	// Check each expected file exists
 	for _, expectedFile := range expectedFiles {
 		exists, err := afero.Exists(fs, filepath.Join(resourceDir, expectedFile))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, exists, "Expected file %s does not exist", expectedFile)
 	}
 }
@@ -334,7 +359,7 @@ func TestGenerateSpecificAgentFile(t *testing.T) {
 	mainDir := "test-agent"
 	name := "client"
 
-	err := GenerateSpecificAgentFile(fs, ctx, logger, mainDir, name)
+	err := template.GenerateSpecificAgentFile(ctx, fs, logger, mainDir, name)
 	if err != nil {
 		t.Fatalf("GenerateSpecificAgentFile() error = %v", err)
 	}
@@ -368,13 +393,13 @@ func TestGenerateAgent(t *testing.T) {
 	name := "test-agent"
 
 	// First, generate the workflow file
-	err := GenerateWorkflowFile(fs, ctx, logger, name, name)
+	err := template.GenerateWorkflowFile(ctx, fs, logger, name, name)
 	if err != nil {
 		t.Fatalf("GenerateWorkflowFile() error = %v", err)
 	}
 
 	// Then generate resource files
-	err = GenerateResourceFiles(fs, ctx, logger, name, name)
+	err = template.GenerateResourceFiles(ctx, fs, logger, name, name)
 	if err != nil {
 		t.Fatalf("GenerateResourceFiles() error = %v", err)
 	}
@@ -397,18 +422,18 @@ func TestGenerateAgent(t *testing.T) {
 
 	// Check that we have the expected number of files
 	expectedFiles := []string{"client.pkl", "exec.pkl", "llm.pkl", "python.pkl", "response.pkl"}
-	assert.Equal(t, len(expectedFiles), len(files), "Unexpected number of resource files")
+	require.Len(t, files, len(expectedFiles), "Unexpected number of resource files")
 
 	// Check each expected file exists
 	for _, expectedFile := range expectedFiles {
 		exists, err := afero.Exists(fs, filepath.Join(resourceDir, expectedFile))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, exists, "Expected file %s does not exist", expectedFile)
 	}
 }
 
-func TestPrintWithDots(t *testing.T) {
-	printWithDots("test")
+func TestPrintWithDots(_ *testing.T) {
+	template.PrintWithDots("test")
 }
 
 func TestSchemaVersionInTemplates(t *testing.T) {
@@ -421,14 +446,14 @@ func TestSchemaVersionInTemplates(t *testing.T) {
 		require.NoError(t, err)
 		defer fs.RemoveAll(tempDir)
 
-		err = GenerateWorkflowFile(fs, ctx, logger, tempDir, "testAgent")
+		err = template.GenerateWorkflowFile(ctx, fs, logger, tempDir, "testAgent")
 		require.NoError(t, err)
 
 		content, err := afero.ReadFile(fs, filepath.Join(tempDir, "workflow.pkl"))
 		require.NoError(t, err)
 
 		// Verify that the schema version is included in the template
-		assert.Contains(t, string(content), fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schema.SchemaVersion(ctx)))
+		assert.Contains(t, string(content), fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schema.Version(ctx)))
 	})
 
 	t.Run("ResourceTemplateWithSchemaVersion", func(t *testing.T) {
@@ -436,7 +461,7 @@ func TestSchemaVersionInTemplates(t *testing.T) {
 		require.NoError(t, err)
 		defer fs.RemoveAll(tempDir)
 
-		err = GenerateResourceFiles(fs, ctx, logger, tempDir, "testAgent")
+		err = template.GenerateResourceFiles(ctx, fs, logger, tempDir, "testAgent")
 		require.NoError(t, err)
 
 		// Check all generated resource files
@@ -452,7 +477,7 @@ func TestSchemaVersionInTemplates(t *testing.T) {
 			require.NoError(t, err)
 
 			// Verify that the schema version is included in each template
-			assert.Contains(t, string(content), fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"`, schema.SchemaVersion(ctx)))
+			assert.Contains(t, string(content), fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"`, schema.Version(ctx)))
 		}
 	})
 }
@@ -491,31 +516,31 @@ func TestFileGenerationEdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// First, generate the workflow file
-			err := GenerateWorkflowFile(fs, ctx, logger, filepath.Join(tt.baseDir, tt.agentName), tt.agentName)
+			err := template.GenerateWorkflowFile(ctx, fs, logger, filepath.Join(tt.baseDir, tt.agentName), tt.agentName)
 			if tt.expectedError {
 				assert.Error(t, err)
 				return
 			}
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// Then generate resource files
-			err = GenerateResourceFiles(fs, ctx, logger, filepath.Join(tt.baseDir, tt.agentName), tt.agentName)
+			err = template.GenerateResourceFiles(ctx, fs, logger, filepath.Join(tt.baseDir, tt.agentName), tt.agentName)
 			if tt.expectedError {
 				assert.Error(t, err)
 				return
 			}
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// For valid cases, verify the files were created in the correct location
 			basePath := filepath.Join(tt.baseDir, tt.agentName)
 			exists, err := afero.Exists(fs, filepath.Join(basePath, "workflow.pkl"))
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.True(t, exists)
 
 			// Check resource directory
 			resourceDir := filepath.Join(basePath, "resources")
 			exists, err = afero.Exists(fs, resourceDir)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.True(t, exists)
 		})
 	}
@@ -529,7 +554,7 @@ func TestCreateDirectoryEdgeCases(t *testing.T) {
 
 	t.Run("CreateDirectoryWithInvalidPath", func(t *testing.T) {
 		path := ""
-		err := createDirectory(fs, logger, path)
+		err := template.CreateDirectory(fs, logger, path)
 		assert.Error(t, err, "Expected error for empty path")
 	})
 
@@ -537,7 +562,7 @@ func TestCreateDirectoryEdgeCases(t *testing.T) {
 		// Simulate a read-only parent directory by using a read-only FS
 		readOnlyFs := afero.NewReadOnlyFs(afero.NewMemMapFs())
 		path := filepath.Join(tempDir, "test/readonly/child")
-		err := createDirectory(readOnlyFs, logger, path)
+		err := template.CreateDirectory(readOnlyFs, logger, path)
 		assert.Error(t, err, "Expected error when parent directory is read-only")
 	})
 }
@@ -551,62 +576,54 @@ func TestCreateFileEdgeCases(t *testing.T) {
 	t.Run("CreateFileWithInvalidPath", func(t *testing.T) {
 		path := ""
 		content := "test content"
-		err := createFile(fs, logger, path, content)
+		err := template.CreateFile(fs, logger, path, content)
 		assert.Error(t, err, "Expected error for empty path")
 	})
 
 	t.Run("CreateFileInNonExistentDirectory", func(t *testing.T) {
 		path := filepath.Join(tempDir, "nonexistent/dir/file.txt")
 		content := "test content"
-		err := createFile(fs, logger, path, content)
-		assert.NoError(t, err, "Expected no error, should create parent directories")
+		err := template.CreateFile(fs, logger, path, content)
+		require.NoError(t, err, "Expected no error, should create parent directories")
 		exists, err := afero.Exists(fs, path)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, exists, "File should exist")
 	})
 
 	t.Run("CreateFileWithEmptyContent", func(t *testing.T) {
 		path := filepath.Join(tempDir, "empty.txt")
 		content := ""
-		err := createFile(fs, logger, path, content)
-		assert.NoError(t, err, "Expected no error for empty content")
+		err := template.CreateFile(fs, logger, path, content)
+		require.NoError(t, err, "Expected no error for empty content")
 		data, err := afero.ReadFile(fs, path)
-		assert.NoError(t, err)
-		assert.Equal(t, "", string(data), "File content should be empty")
+		require.NoError(t, err)
+		assert.Empty(t, string(data), "File content should be empty")
 	})
 }
 
 func TestMain(m *testing.M) {
-	// Save the original EditPkl function
-	originalEditPkl := texteditor.EditPkl
-	// Replace with mock for testing
-	texteditor.EditPkl = texteditor.MockEditPkl
 	// Set non-interactive mode
 	os.Setenv("NON_INTERACTIVE", "1")
 
 	// Run tests
 	code := m.Run()
 
-	// Restore original function
-	texteditor.EditPkl = originalEditPkl
-
 	os.Exit(code)
 }
 
 // validateAgentName should reject empty, whitespace, and names with spaces, and accept valid names.
 func TestValidateAgentNameExtra(t *testing.T) {
-	require.Error(t, validateAgentName(""))
-	require.Error(t, validateAgentName("   "))
-	require.Error(t, validateAgentName("bad name"))
-	require.NoError(t, validateAgentName("goodName"))
+	require.Error(t, template.ValidateAgentName(""))
+	require.Error(t, template.ValidateAgentName("   "))
+	require.Error(t, template.ValidateAgentName("bad name"))
+	require.NoError(t, template.ValidateAgentName("goodName"))
 }
 
 // promptForAgentName should return default in non-interactive mode.
 func TestPromptForAgentNameNonInteractiveExtra(t *testing.T) {
-	os.Setenv("NON_INTERACTIVE", "1")
-	defer os.Unsetenv("NON_INTERACTIVE")
+	t.Setenv("NON_INTERACTIVE", "1")
 
-	name, err := promptForAgentName()
+	name, err := template.PromptForAgentName()
 	require.NoError(t, err)
 	require.Equal(t, "test-agent", name)
 }
@@ -615,18 +632,17 @@ func TestPromptForAgentNameNonInteractiveExtra(t *testing.T) {
 func TestCreateDirectoryAndFileExtra(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
-	os.Setenv("NON_INTERACTIVE", "1")
-	defer os.Unsetenv("NON_INTERACTIVE")
+	t.Setenv("NON_INTERACTIVE", "1")
 
 	// Test createDirectory
-	err := createDirectory(fs, logger, "dir/subdir")
+	err := template.CreateDirectory(fs, logger, "dir/subdir")
 	require.NoError(t, err)
 	exists, err := afero.DirExists(fs, "dir/subdir")
 	require.NoError(t, err)
 	require.True(t, exists)
 
 	// Test createFile
-	err = createFile(fs, logger, "dir/subdir/file.txt", "content")
+	err = template.CreateFile(fs, logger, "dir/subdir/file.txt", "content")
 	require.NoError(t, err)
 	data, err := afero.ReadFile(fs, "dir/subdir/file.txt")
 	require.NoError(t, err)
@@ -636,15 +652,15 @@ func TestCreateDirectoryAndFileExtra(t *testing.T) {
 // TestLoadTemplateFromDisk verifies loadTemplate reads from TEMPLATE_DIR when set.
 func TestLoadTemplateFromDiskExtra(t *testing.T) {
 	tmpDir := t.TempDir()
-	os.Setenv("TEMPLATE_DIR", tmpDir)
-	defer os.Unsetenv("TEMPLATE_DIR")
+	t.Setenv("TEMPLATE_DIR", tmpDir)
+	defer t.Setenv("TEMPLATE_DIR", os.Getenv("TEMPLATE_DIR"))
 
 	// Write a simple template file
 	templateName := "foo.tmpl"
 	content := "Hello {{.Name}}"
 	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, templateName), []byte(content), 0o644))
 
-	out, err := loadTemplate(templateName, map[string]string{"Name": "Bob"})
+	out, err := template.LoadTemplate(templateName, map[string]string{"Name": "Bob"})
 	require.NoError(t, err)
 	require.Equal(t, "Hello Bob", out)
 }
@@ -653,23 +669,23 @@ func TestLoadTemplateFromDiskExtra(t *testing.T) {
 func TestGenerateWorkflowFileExtra(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
-	os.Setenv("NON_INTERACTIVE", "1")
-	defer os.Unsetenv("NON_INTERACTIVE")
+	t.Setenv("NON_INTERACTIVE", "1")
+	defer t.Setenv("NON_INTERACTIVE", os.Getenv("NON_INTERACTIVE"))
 
 	// Invalid name should return error
-	err := GenerateWorkflowFile(fs, context.Background(), logger, "outdir", "bad name")
+	err := template.GenerateWorkflowFile(context.Background(), fs, logger, "outdir", "bad name")
 	require.Error(t, err)
 
 	// Setup disk template
 	tmpDir := t.TempDir()
-	os.Setenv("TEMPLATE_DIR", tmpDir)
-	defer os.Unsetenv("TEMPLATE_DIR")
+	t.Setenv("TEMPLATE_DIR", tmpDir)
+	defer t.Setenv("TEMPLATE_DIR", os.Getenv("TEMPLATE_DIR"))
 	tmplPath := filepath.Join(tmpDir, "workflow.pkl")
 	require.NoError(t, os.WriteFile(tmplPath, []byte("X:{{.Name}}"), 0o644))
 
 	// Successful generation
 	mainDir := "agentdir"
-	err = GenerateWorkflowFile(fs, context.Background(), logger, mainDir, "Agent")
+	err = template.GenerateWorkflowFile(context.Background(), fs, logger, mainDir, "Agent")
 	require.NoError(t, err)
 	output, err := afero.ReadFile(fs, filepath.Join(mainDir, "workflow.pkl"))
 	require.NoError(t, err)
@@ -680,17 +696,17 @@ func TestGenerateWorkflowFileExtra(t *testing.T) {
 func TestGenerateResourceFilesExtra(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
-	os.Setenv("NON_INTERACTIVE", "1")
-	defer os.Unsetenv("NON_INTERACTIVE")
+	t.Setenv("NON_INTERACTIVE", "1")
+	defer t.Setenv("NON_INTERACTIVE", os.Getenv("NON_INTERACTIVE"))
 
 	// Invalid name
-	err := GenerateResourceFiles(fs, context.Background(), logger, "outdir", "bad name")
+	err := template.GenerateResourceFiles(context.Background(), fs, logger, "outdir", "bad name")
 	require.Error(t, err)
 
 	// Setup disk templates directory matching embedded FS
 	tmpDir := t.TempDir()
-	os.Setenv("TEMPLATE_DIR", tmpDir)
-	defer os.Unsetenv("TEMPLATE_DIR")
+	t.Setenv("TEMPLATE_DIR", tmpDir)
+	defer t.Setenv("TEMPLATE_DIR", os.Getenv("TEMPLATE_DIR"))
 	// Create .pkl template files for each embedded resource (skip workflow.pkl)
 	templateFiles := []string{"client.pkl", "exec.pkl", "llm.pkl", "python.pkl", "response.pkl"}
 	for _, name := range templateFiles {
@@ -700,14 +716,14 @@ func TestGenerateResourceFilesExtra(t *testing.T) {
 	}
 
 	mainDir := "agentdir2"
-	err = GenerateResourceFiles(fs, context.Background(), logger, mainDir, "Agent")
+	err = template.GenerateResourceFiles(context.Background(), fs, logger, mainDir, "Agent")
 	require.NoError(t, err)
 
 	// client.pkl should be created with expected content
 	clientPath := filepath.Join(mainDir, "resources", "client.pkl")
 	output, err := afero.ReadFile(fs, clientPath)
 	require.NoError(t, err)
-	require.Equal(t, fmt.Sprintf("CONTENT:client.pkl:Agent"), string(output))
+	require.Equal(t, "CONTENT:client.pkl:Agent", string(output))
 	// workflow.pkl should be skipped
 	exists, err := afero.Exists(fs, filepath.Join(mainDir, "resources", "workflow.pkl"))
 	require.NoError(t, err)
@@ -725,7 +741,7 @@ func TestValidateAgentNameSimple(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		err := validateAgentName(c.name)
+		err := template.ValidateAgentName(c.name)
 		if c.wantErr && err == nil {
 			t.Fatalf("expected error for %q, got nil", c.name)
 		}
@@ -740,7 +756,7 @@ func TestLoadTemplateEmbeddedBasic(t *testing.T) {
 		"Header": "header-line",
 		"Name":   "myagent",
 	}
-	out, err := loadTemplate("workflow.pkl", data)
+	out, err := template.LoadTemplate("workflow.pkl", data)
 	if err != nil {
 		t.Fatalf("loadTemplate error: %v", err)
 	}
@@ -759,8 +775,8 @@ func contains(s, substr string) bool {
 func TestGenerateAgentEndToEndExtra(t *testing.T) {
 	// Ensure non-interactive to avoid slow sleeps.
 	old := os.Getenv("NON_INTERACTIVE")
-	_ = os.Setenv("NON_INTERACTIVE", "1")
-	defer os.Setenv("NON_INTERACTIVE", old)
+	t.Setenv("NON_INTERACTIVE", "1")
+	defer t.Setenv("NON_INTERACTIVE", old)
 
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
@@ -769,7 +785,7 @@ func TestGenerateAgentEndToEndExtra(t *testing.T) {
 	baseDir := "/tmp"
 	agentName := "client" // corresponds to existing embedded template client.pkl
 
-	if err := GenerateAgent(fs, ctx, logger, baseDir, agentName); err != nil {
+	if err := template.GenerateAgent(ctx, fs, logger, baseDir, agentName); err != nil {
 		t.Fatalf("GenerateAgent error: %v", err)
 	}
 
@@ -789,13 +805,11 @@ func TestGenerateAgentEndToEndExtra(t *testing.T) {
 // TestPromptForAgentNameNonInteractive verifies that the helper returns the fixed
 // value when NON_INTERACTIVE is set, without awaiting user input.
 func TestPromptForAgentNameNonInteractive(t *testing.T) {
-	// Backup existing value
 	orig := os.Getenv("NON_INTERACTIVE")
-	defer os.Setenv("NON_INTERACTIVE", orig)
+	t.Setenv("NON_INTERACTIVE", "1")
+	defer t.Setenv("NON_INTERACTIVE", orig)
 
-	os.Setenv("NON_INTERACTIVE", "1")
-
-	name, err := promptForAgentName()
+	name, err := template.PromptForAgentName()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -814,7 +828,7 @@ func TestGenerateAgentBasic(t *testing.T) {
 	baseDir := "/workspace"
 	agentName := "client"
 
-	if err := GenerateAgent(fs, ctx, logger, baseDir, agentName); err != nil {
+	if err := template.GenerateAgent(ctx, fs, logger, baseDir, agentName); err != nil {
 		t.Fatalf("GenerateAgent failed: %v", err)
 	}
 
@@ -858,8 +872,8 @@ func TestGenerateDockerfileFromTemplate(t *testing.T) {
 		"ApiServerMode":    true,
 	}
 
-	content, err := GenerateDockerfileFromTemplate(templateData)
-	assert.NoError(t, err)
+	content, err := template.GenerateDockerfileFromTemplate(templateData)
+	require.NoError(t, err)
 	assert.NotEmpty(t, content)
 
 	// Verify key components are present
@@ -903,8 +917,8 @@ func TestGenerateDockerfileFromTemplate_DevMode(t *testing.T) {
 		"ApiServerMode":    false,
 	}
 
-	content, err := GenerateDockerfileFromTemplate(templateData)
-	assert.NoError(t, err)
+	content, err := template.GenerateDockerfileFromTemplate(templateData)
+	require.NoError(t, err)
 	assert.NotEmpty(t, content)
 
 	// Verify dev mode specific content
@@ -916,4 +930,121 @@ func TestGenerateDockerfileFromTemplate_DevMode(t *testing.T) {
 
 	// Verify Anaconda is not installed
 	assert.NotContains(t, content, "anaconda-linux")
+}
+
+func TestTemplateWithSchemaAssets(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	t.Run("GenerateWorkflowWithAssets", func(t *testing.T) {
+		// Setup PKL workspace with embedded schema files
+		workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+		require.NoError(t, err)
+		defer workspace.Cleanup() // Important: clean up temp files
+
+		// Verify the workspace has the schema files we expect
+		files, err := workspace.ListFiles()
+		require.NoError(t, err)
+		require.Contains(t, files, "Workflow.pkl")
+		require.Contains(t, files, "Resource.pkl")
+
+		// Generate workflow using the workspace
+		tempDir, err := afero.TempDir(fs, "", "test")
+		require.NoError(t, err)
+
+		err = template.GenerateWorkflowFile(ctx, fs, logger, tempDir, "testAgent")
+		require.NoError(t, err)
+
+		// Read the generated workflow file
+		content, err := afero.ReadFile(fs, filepath.Join(tempDir, "workflow.pkl"))
+		require.NoError(t, err)
+
+		// Verify it contains the correct schema reference
+		workflowContent := string(content)
+		assert.Contains(t, workflowContent, fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`, schema.Version(ctx)))
+		assert.Contains(t, workflowContent, "AgentID = \"testAgent\"")
+
+		// Get the actual Workflow.pkl content from assets for comparison
+		workflowSchema, err := assets.GetPKLFileAsString("Workflow.pkl")
+		require.NoError(t, err)
+		assert.NotEmpty(t, workflowSchema)
+		assert.Contains(t, workflowSchema, "AgentID: String")
+
+		t.Logf("Workspace directory: %s", workspace.Directory)
+		t.Logf("Available schema files: %v", files)
+	})
+
+	t.Run("ValidateTemplateAgainstSchema", func(t *testing.T) {
+		// Setup PKL workspace
+		workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+		require.NoError(t, err)
+		defer workspace.Cleanup()
+
+		// Test all resource templates
+		resourceTemplates := []string{"exec.pkl", "llm.pkl", "client.pkl", "python.pkl", "response.pkl"}
+
+		for _, templateName := range resourceTemplates {
+			t.Run(fmt.Sprintf("Template_%s", templateName), func(t *testing.T) {
+				tempDir, err := afero.TempDir(fs, "", "test")
+				require.NoError(t, err)
+
+				// Generate the resource file
+				err = template.GenerateSpecificAgentFile(ctx, fs, logger, tempDir, strings.TrimSuffix(templateName, ".pkl"))
+				require.NoError(t, err)
+
+				// Read the generated file
+				content, err := afero.ReadFile(fs, filepath.Join(tempDir, "resources", templateName))
+				require.NoError(t, err)
+
+				// Verify it references the correct schema
+				resourceContent := string(content)
+				assert.Contains(t, resourceContent, fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"`, schema.Version(ctx)))
+
+				// Verify it has the new v0.4.5 properties
+				assert.Contains(t, resourceContent, "PostflightCheck")
+				assert.Contains(t, resourceContent, "Retry = false")
+				assert.Contains(t, resourceContent, "RetryTimes = 3")
+
+				// Get the actual Resource.pkl schema for validation
+				resourceSchema, err := assets.GetPKLFileAsString("Resource.pkl")
+				require.NoError(t, err)
+				assert.Contains(t, resourceSchema, "PostflightCheck: ValidationCheck?")
+			})
+		}
+	})
+
+	t.Run("ListAllEmbeddedSchemaFiles", func(t *testing.T) {
+		// Test that we can access all embedded PKL files
+		files, err := assets.ListPKLFiles()
+		require.NoError(t, err)
+		require.NotEmpty(t, files)
+
+		// Verify expected schema files are present
+		expectedFiles := []string{
+			"Workflow.pkl",
+			"Resource.pkl",
+			"LLM.pkl",
+			"APIServer.pkl",
+			"Project.pkl",
+			"Docker.pkl",
+		}
+
+		for _, expected := range expectedFiles {
+			assert.Contains(t, files, expected, "Expected schema file %s should be available", expected)
+
+			// Test that we can read each file
+			content, err := assets.GetPKLFileAsString(expected)
+			require.NoError(t, err)
+			assert.NotEmpty(t, content, "Schema file %s should have content", expected)
+		}
+
+		t.Logf("Available schema files: %v", files)
+	})
+
+	t.Run("ValidatePKLFilesIntegrity", func(t *testing.T) {
+		// Test the built-in validation function
+		err := assets.ValidatePKLFiles()
+		require.NoError(t, err, "All expected PKL files should be present in assets")
+	})
 }

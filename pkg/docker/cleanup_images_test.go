@@ -1,4 +1,4 @@
-package docker
+package docker_test
 
 import (
 	"context"
@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/schema"
 )
@@ -36,17 +37,17 @@ type mockPruneClient struct {
 	removed   []string
 }
 
-func (m *mockPruneClient) ContainerList(ctx context.Context, opts container.ListOptions) ([]types.Container, error) {
+func (m *mockPruneClient) ContainerList(_ context.Context, _ container.ListOptions) ([]container.Summary, error) {
 	if m.listErr != nil {
 		return nil, m.listErr
 	}
-	return []types.Container{
+	return []container.Summary{
 		{ID: "abc", Names: []string{"/mycnt"}},
 		{ID: "def", Names: []string{"/other"}},
 	}, nil
 }
 
-func (m *mockPruneClient) ContainerRemove(ctx context.Context, id string, opts container.RemoveOptions) error {
+func (m *mockPruneClient) ContainerRemove(_ context.Context, id string, _ container.RemoveOptions) error {
 	if m.removeErr != nil {
 		return m.removeErr
 	}
@@ -54,7 +55,7 @@ func (m *mockPruneClient) ContainerRemove(ctx context.Context, id string, opts c
 	return nil
 }
 
-func (m *mockPruneClient) ImagesPrune(ctx context.Context, f filters.Args) (image.PruneReport, error) {
+func (m *mockPruneClient) ImagesPrune(_ context.Context, _ filters.Args) (image.PruneReport, error) {
 	if m.pruneErr != nil {
 		return image.PruneReport{}, m.pruneErr
 	}
@@ -64,7 +65,7 @@ func (m *mockPruneClient) ImagesPrune(ctx context.Context, f filters.Args) (imag
 func TestCleanupDockerBuildImages_Success(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	cli := &mockPruneClient{}
-	if err := CleanupDockerBuildImages(fs, context.Background(), "mycnt", cli); err != nil {
+	if err := docker.CleanupDockerBuildImages(fs, context.Background(), "mycnt", cli); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(cli.removed) != 1 || cli.removed[0] != "abc" {
@@ -75,7 +76,7 @@ func TestCleanupDockerBuildImages_Success(t *testing.T) {
 func TestCleanupDockerBuildImages_ListError(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	cli := &mockPruneClient{listErr: errors.New("boom")}
-	if err := CleanupDockerBuildImages(fs, context.Background(), "x", cli); err == nil {
+	if err := docker.CleanupDockerBuildImages(fs, context.Background(), "x", cli); err == nil {
 		t.Fatalf("expected error from ContainerList")
 	}
 }
@@ -85,14 +86,14 @@ func TestCleanupFlagFilesSimple(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Create temporary files
-	files := []string{"/tmp/file1.flag", "/tmp/file2.flag", "/tmp/file3.flag"}
+	files := []string{filepath.Join(t.TempDir(), "file1.flag"), filepath.Join(t.TempDir(), "file2.flag"), filepath.Join(t.TempDir(), "file3.flag")}
 	for _, f := range files {
 		if err := afero.WriteFile(fs, f, []byte("data"), 0o644); err != nil {
 			t.Fatalf("unable to create temp file: %v", err)
 		}
 	}
 
-	cleanupFlagFiles(fs, files, logger)
+	docker.CleanupFlagFiles(fs, files, logger)
 
 	// Verify they are removed
 	for _, f := range files {
@@ -114,11 +115,11 @@ func TestCleanupDockerFlow(t *testing.T) {
 	workflowDir := filepath.Join(agentDir, "workflow")
 
 	// populate dirs and a test file inside project
-	assert.NoError(t, fs.MkdirAll(filepath.Join(projectDir, "sub"), 0o755))
-	assert.NoError(t, afero.WriteFile(fs, filepath.Join(projectDir, "sub", "file.txt"), []byte("data"), 0o644))
+	require.NoError(t, fs.MkdirAll(filepath.Join(projectDir, "sub"), 0o755))
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(projectDir, "sub", "file.txt"), []byte("data"), 0o644))
 
 	// action directory (will be removed)
-	assert.NoError(t, fs.MkdirAll(actionDir, 0o755))
+	require.NoError(t, fs.MkdirAll(actionDir, 0o755))
 
 	// context with required keys
 	ctx := context.Background()
@@ -131,7 +132,7 @@ func TestCleanupDockerFlow(t *testing.T) {
 	// run cleanup – we just assert it completes within reasonable time (~2s)
 	done := make(chan struct{})
 	go func() {
-		Cleanup(fs, ctx, env, logger)
+		docker.Cleanup(fs, ctx, env, logger)
 		close(done)
 	}()
 
@@ -151,16 +152,16 @@ func TestCreateFlagFileAndCleanup(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
 
-	flag1 := "/tmp/flag1"
-	flag2 := "/tmp/flag2"
+	flag1 := filepath.Join(t.TempDir(), "flag1")
+	flag2 := filepath.Join(t.TempDir(), "flag2")
 
 	// Create first flag file via helper.
-	if err := CreateFlagFile(fs, ctx, flag1); err != nil {
+	if err := docker.CreateFlagFile(fs, ctx, flag1); err != nil {
 		t.Fatalf("CreateFlagFile returned error: %v", err)
 	}
 
 	// Second call with same path should NO-OP (exists) and return nil.
-	if err := CreateFlagFile(fs, ctx, flag1); err != nil {
+	if err := docker.CreateFlagFile(fs, ctx, flag1); err != nil {
 		t.Fatalf("CreateFlagFile second call expected nil err, got %v", err)
 	}
 
@@ -177,7 +178,7 @@ func TestCreateFlagFileAndCleanup(t *testing.T) {
 	}
 
 	logger := logging.NewTestLogger()
-	cleanupFlagFiles(fs, []string{flag1, flag2}, logger)
+	docker.CleanupFlagFiles(fs, []string{flag1, flag2}, logger)
 
 	// Confirm they are removed.
 	for _, p := range []string{flag1, flag2} {
@@ -187,8 +188,8 @@ func TestCreateFlagFileAndCleanup(t *testing.T) {
 	}
 
 	// Verify CreateFlagFile sets timestamps (basic sanity: non-zero ModTime).
-	path := "/tmp/flag3"
-	if err := CreateFlagFile(fs, ctx, path); err != nil {
+	path := filepath.Join(t.TempDir(), "flag3")
+	if err := docker.CreateFlagFile(fs, ctx, path); err != nil {
 		t.Fatalf("CreateFlagFile: %v", err)
 	}
 	info, _ := fs.Stat(path)
@@ -199,24 +200,24 @@ func TestCreateFlagFileAndCleanup(t *testing.T) {
 
 // fakeClient implements DockerPruneClient for testing.
 type fakeClient struct {
-	containers []types.Container
+	containers []container.Summary
 	listErr    error
 	removeErr  error
 	pruneErr   error
 }
 
-func (f *fakeClient) ContainerList(ctx context.Context, options container.ListOptions) ([]types.Container, error) {
+func (f *fakeClient) ContainerList(_ context.Context, _ container.ListOptions) ([]container.Summary, error) {
 	return f.containers, f.listErr
 }
 
-func (f *fakeClient) ContainerRemove(ctx context.Context, containerID string, options container.RemoveOptions) error {
+func (f *fakeClient) ContainerRemove(_ context.Context, _ string, _ container.RemoveOptions) error {
 	if f.removeErr != nil {
 		return f.removeErr
 	}
 	return nil
 }
 
-func (f *fakeClient) ImagesPrune(ctx context.Context, pruneFilters filters.Args) (image.PruneReport, error) {
+func (f *fakeClient) ImagesPrune(_ context.Context, _ filters.Args) (image.PruneReport, error) {
 	if f.pruneErr != nil {
 		return image.PruneReport{}, f.pruneErr
 	}
@@ -225,22 +226,22 @@ func (f *fakeClient) ImagesPrune(ctx context.Context, pruneFilters filters.Args)
 
 func TestCleanupDockerBuildImages_NoContainers(t *testing.T) {
 	client := &fakeClient{}
-	err := CleanupDockerBuildImages(nil, context.Background(), "", client)
+	err := docker.CleanupDockerBuildImages(nil, context.Background(), "", client)
 	require.NoError(t, err)
 }
 
 func TestCleanupDockerBuildImages_RemoveAndPruneSuccess(t *testing.T) {
 	client := &fakeClient{
-		containers: []types.Container{{ID: "abc123", Names: []string{"/testname"}}},
+		containers: []container.Summary{{ID: "abc123", Names: []string{"/testname"}}},
 	}
 	// Should handle remove and prune without error
-	err := CleanupDockerBuildImages(nil, context.Background(), "testname", client)
+	err := docker.CleanupDockerBuildImages(nil, context.Background(), "testname", client)
 	require.NoError(t, err)
 }
 
 func TestCleanupDockerBuildImages_PruneError(t *testing.T) {
 	client := &fakeClient{pruneErr: errors.New("prune failed")}
-	err := CleanupDockerBuildImages(nil, context.Background(), "", client)
+	err := docker.CleanupDockerBuildImages(nil, context.Background(), "", client)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "prune failed")
 }
@@ -251,11 +252,11 @@ func TestCleanupFlagFilesExtra(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Create two files and leave one missing to exercise both paths
-	files := []string{"/tmp/f1", "/tmp/f2", "/tmp/missing"}
+	files := []string{filepath.Join(t.TempDir(), "f1"), filepath.Join(t.TempDir(), "f2"), filepath.Join(t.TempDir(), "missing")}
 	require.NoError(t, afero.WriteFile(fs, files[0], []byte("x"), 0o644))
 	require.NoError(t, afero.WriteFile(fs, files[1], []byte("y"), 0o644))
 
-	cleanupFlagFiles(fs, files, logger)
+	docker.CleanupFlagFiles(fs, files, logger)
 
 	for _, f := range files {
 		exists, _ := afero.Exists(fs, f)
@@ -274,7 +275,7 @@ func TestCleanupFlagFiles_RemovesExisting(t *testing.T) {
 	_ = afero.WriteFile(fs, f1, []byte("x"), 0o644)
 	_ = afero.WriteFile(fs, f2, []byte("y"), 0o644)
 
-	cleanupFlagFiles(fs, []string{f1, f2}, logger)
+	docker.CleanupFlagFiles(fs, []string{f1, f2}, logger)
 
 	for _, p := range []string{f1, f2} {
 		if exists, _ := afero.Exists(fs, p); exists {
@@ -283,22 +284,22 @@ func TestCleanupFlagFiles_RemovesExisting(t *testing.T) {
 	}
 }
 
-func TestCleanupFlagFiles_NonExistent(t *testing.T) {
+func TestCleanupFlagFiles_NonExistent(_ *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 
 	// Call with files that don't exist; should not panic or error.
-	cleanupFlagFiles(fs, []string{"/missing1", "/missing2"}, logger)
+	docker.CleanupFlagFiles(fs, []string{"/missing1", "/missing2"}, logger)
 }
 
 type stubPruneClient struct {
-	containers  []types.Container
+	containers  []container.Summary
 	removedIDs  []string
 	pruneCalled bool
 	removeErr   error
 }
 
-func (s *stubPruneClient) ContainerList(_ context.Context, _ container.ListOptions) ([]types.Container, error) {
+func (s *stubPruneClient) ContainerList(_ context.Context, _ container.ListOptions) ([]container.Summary, error) {
 	return s.containers, nil
 }
 
@@ -317,10 +318,10 @@ func (s *stubPruneClient) ImagesPrune(_ context.Context, _ filters.Args) (image.
 
 func TestCleanupDockerBuildImages_RemovesMatchAndPrunes(t *testing.T) {
 	cli := &stubPruneClient{
-		containers: []types.Container{{ID: "abc", Names: []string{"/target"}}},
+		containers: []container.Summary{{ID: "abc", Names: []string{"/target"}}},
 	}
 
-	if err := CleanupDockerBuildImages(nil, context.Background(), "target", cli); err != nil {
+	if err := docker.CleanupDockerBuildImages(nil, context.Background(), "target", cli); err != nil {
 		t.Fatalf("CleanupDockerBuildImages error: %v", err)
 	}
 
@@ -337,12 +338,12 @@ func TestCleanupFlagFilesRemoveAllExtra(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Create two dummy files
-	paths := []string{"/tmp/flag1", "/tmp/flag2"}
+	paths := []string{filepath.Join(t.TempDir(), "flag1"), filepath.Join(t.TempDir(), "flag2")}
 	for _, p := range paths {
 		afero.WriteFile(fs, p, []byte("x"), 0o644)
 	}
 
-	cleanupFlagFiles(fs, paths, logger)
+	docker.CleanupFlagFiles(fs, paths, logger)
 
 	for _, p := range paths {
 		if exists, _ := afero.Exists(fs, p); exists {
@@ -380,7 +381,7 @@ func TestCleanupDockerMode_Timeout(t *testing.T) {
 	env := &environment.Environment{DockerMode: "1"}
 
 	start := time.Now()
-	Cleanup(fs, ctx, env, logger) // should block ~1s due to WaitForFileReady timeout
+	docker.Cleanup(fs, ctx, env, logger) // should block ~1s due to WaitForFileReady timeout
 	elapsed := time.Since(start)
 	if elapsed < time.Second {
 		t.Fatalf("expected at least 1s wait, got %v", elapsed)
@@ -401,21 +402,21 @@ func TestCleanupFlagFilesAdditional(t *testing.T) {
 	// Create a temporary directory and a flag file that should be removed.
 	tmpDir := t.TempDir()
 	flag1 := filepath.Join(tmpDir, "flag1")
-	assert.NoError(t, afero.WriteFile(fs, flag1, []byte("flag"), 0o644))
+	require.NoError(t, afero.WriteFile(fs, flag1, []byte("flag"), 0o644))
 
 	// flag2 intentionally does NOT exist to hit the non-existence branch.
 	flag2 := filepath.Join(tmpDir, "flag2")
 
-	cleanupFlagFiles(fs, []string{flag1, flag2}, logger)
+	docker.CleanupFlagFiles(fs, []string{flag1, flag2}, logger)
 
 	// Verify flag1 has been deleted and flag2 still does not exist.
 	_, err := fs.Stat(flag1)
-	assert.Error(t, err)
-	assert.True(t, os.IsNotExist(err))
+	require.Error(t, err)
+	require.True(t, os.IsNotExist(err))
 
 	_, err = fs.Stat(flag2)
-	assert.Error(t, err)
-	assert.True(t, os.IsNotExist(err))
+	require.Error(t, err)
+	require.True(t, os.IsNotExist(err))
 }
 
 // TestCleanupEndToEnd exercises the happy-path of the high-level Cleanup
@@ -428,7 +429,7 @@ func TestCleanupEndToEnd(t *testing.T) {
 
 	// Prepare context keys expected by Cleanup.
 	graphID := "graph123"
-	actionDir := "/tmp/action" // Any absolute path is fine for the mem fs.
+	actionDir := filepath.Join(t.TempDir(), "action") // Any absolute path is fine for the mem fs.
 	ctx := context.Background()
 	ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, graphID)
 	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, actionDir)
@@ -437,26 +438,26 @@ func TestCleanupEndToEnd(t *testing.T) {
 	env := &environment.Environment{DockerMode: "1"}
 
 	// Create the action directory so that Cleanup can delete it.
-	assert.NoError(t, fs.MkdirAll(actionDir, 0o755))
+	require.NoError(t, fs.MkdirAll(actionDir, 0o755))
 
 	// Pre-create the second flag file so that WaitForFileReady does not time out.
 	preFlag := filepath.Join(actionDir, ".dockercleanup_"+graphID)
-	assert.NoError(t, afero.WriteFile(fs, preFlag, []byte("flag"), 0o644))
+	require.NoError(t, afero.WriteFile(fs, preFlag, []byte("flag"), 0o644))
 
 	// Create a dummy project directory with a single file that should be copied
 	// to the workflow directory by Cleanup.
 	projectDir := "/agent/project"
 	dummyFile := filepath.Join(projectDir, "hello.txt")
-	assert.NoError(t, fs.MkdirAll(projectDir, 0o755))
-	assert.NoError(t, afero.WriteFile(fs, dummyFile, []byte("hello"), 0o644))
+	require.NoError(t, fs.MkdirAll(projectDir, 0o755))
+	require.NoError(t, afero.WriteFile(fs, dummyFile, []byte("hello"), 0o644))
 
 	// Execute the function under test.
-	Cleanup(fs, ctx, env, logger)
+	docker.Cleanup(fs, ctx, env, logger)
 
 	// Assert that the action directory has been removed.
 	_, err := fs.Stat(actionDir)
-	assert.Error(t, err)
-	assert.True(t, os.IsNotExist(err))
+	require.Error(t, err)
+	require.True(t, os.IsNotExist(err))
 
 	// Cleanup finished without panicking and the action directory is gone – that's sufficient for this test.
 }
@@ -464,15 +465,15 @@ func TestCleanupEndToEnd(t *testing.T) {
 // stubDockerClient satisfies DockerPruneClient for unit-testing.
 // It records how many times ImagesPrune was called.
 type stubDockerClient struct {
-	containers []types.Container
+	containers []container.Summary
 	pruned     bool
 }
 
-func (s *stubDockerClient) ContainerList(ctx context.Context, opts container.ListOptions) ([]types.Container, error) {
+func (s *stubDockerClient) ContainerList(_ context.Context, opts container.ListOptions) ([]container.Summary, error) {
 	return s.containers, nil
 }
 
-func (s *stubDockerClient) ContainerRemove(ctx context.Context, id string, opts container.RemoveOptions) error {
+func (s *stubDockerClient) ContainerRemove(_ context.Context, id string, opts container.RemoveOptions) error {
 	// simulate successful removal by deleting from slice
 	for i, c := range s.containers {
 		if c.ID == id {
@@ -483,7 +484,7 @@ func (s *stubDockerClient) ContainerRemove(ctx context.Context, id string, opts 
 	return nil
 }
 
-func (s *stubDockerClient) ImagesPrune(ctx context.Context, f filters.Args) (image.PruneReport, error) {
+func (s *stubDockerClient) ImagesPrune(_ context.Context, f filters.Args) (image.PruneReport, error) {
 	s.pruned = true
 	return image.PruneReport{}, nil
 }
@@ -494,10 +495,10 @@ func TestCleanupDockerBuildImagesStub(t *testing.T) {
 
 	cName := "abc"
 	client := &stubDockerClient{
-		containers: []types.Container{{ID: "123", Names: []string{"/" + cName}}},
+		containers: []container.Summary{{ID: "123", Names: []string{"/" + cName}}},
 	}
 
-	if err := CleanupDockerBuildImages(fs, ctx, cName, client); err != nil {
+	if err := docker.CleanupDockerBuildImages(fs, ctx, cName, client); err != nil {
 		t.Fatalf("CleanupDockerBuildImages returned error: %v", err)
 	}
 
@@ -515,11 +516,11 @@ type MockDockerClient struct {
 	mock.Mock
 }
 
-var _ DockerPruneClient = (*MockDockerClient)(nil)
+var _ docker.DockerPruneClient = (*MockDockerClient)(nil)
 
-func (m *MockDockerClient) ContainerList(ctx context.Context, options container.ListOptions) ([]types.Container, error) {
+func (m *MockDockerClient) ContainerList(ctx context.Context, options container.ListOptions) ([]container.Summary, error) {
 	args := m.Called(ctx, options)
-	return args.Get(0).([]types.Container), args.Error(1)
+	return args.Get(0).([]container.Summary), args.Error(1)
 }
 
 func (m *MockDockerClient) ContainerRemove(ctx context.Context, containerID string, options container.RemoveOptions) error {
@@ -533,119 +534,119 @@ func (m *MockDockerClient) ImagesPrune(ctx context.Context, pruneFilters filters
 }
 
 // Implement other required interface methods with empty implementations
-func (m *MockDockerClient) ContainerStart(ctx context.Context, containerID string, options container.StartOptions) error {
+func (m *MockDockerClient) ContainerStart(_ context.Context, _ string, _ container.StartOptions) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerStop(ctx context.Context, containerID string, options *container.StopOptions) error {
+func (m *MockDockerClient) ContainerStop(_ context.Context, _ string, _ *container.StopOptions) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerWait(ctx context.Context, containerID string, condition container.WaitCondition) (<-chan container.WaitResponse, <-chan error) {
-	return nil, nil
+func (m *MockDockerClient) ContainerWait(_ context.Context, _ string, _ container.WaitCondition) (<-chan container.WaitResponse, <-chan error) {
+	return make(chan container.WaitResponse), make(chan error)
 }
 
-func (m *MockDockerClient) ContainerLogs(ctx context.Context, containerID string, options container.LogsOptions) (io.ReadCloser, error) {
-	return nil, nil
+func (m *MockDockerClient) ContainerLogs(_ context.Context, _ string, _ container.LogsOptions) (io.ReadCloser, error) {
+	return io.NopCloser(strings.NewReader("")), nil
 }
 
-func (m *MockDockerClient) ContainerInspect(ctx context.Context, containerID string) (types.ContainerJSON, error) {
+func (m *MockDockerClient) ContainerInspect(_ context.Context, _ string) (types.ContainerJSON, error) {
 	return types.ContainerJSON{}, nil
 }
 
-func (m *MockDockerClient) ContainerInspectWithRaw(ctx context.Context, containerID string, getSize bool) (types.ContainerJSON, []byte, error) {
+func (m *MockDockerClient) ContainerInspectWithRaw(_ context.Context, _ string, _ bool) (types.ContainerJSON, []byte, error) {
 	return types.ContainerJSON{}, nil, nil
 }
 
-func (m *MockDockerClient) ContainerStats(ctx context.Context, containerID string, stream bool) (container.Stats, error) {
+func (m *MockDockerClient) ContainerStats(_ context.Context, _ string, _ bool) (container.Stats, error) {
 	return container.Stats{}, nil
 }
 
-func (m *MockDockerClient) ContainerStatsOneShot(ctx context.Context, containerID string) (container.Stats, error) {
+func (m *MockDockerClient) ContainerStatsOneShot(_ context.Context, _ string) (container.Stats, error) {
 	return container.Stats{}, nil
 }
 
-func (m *MockDockerClient) ContainerTop(ctx context.Context, containerID string, arguments []string) (container.ContainerTopOKBody, error) {
+func (m *MockDockerClient) ContainerTop(_ context.Context, _ string, _ []string) (container.ContainerTopOKBody, error) {
 	return container.ContainerTopOKBody{}, nil
 }
 
-func (m *MockDockerClient) ContainerUpdate(ctx context.Context, containerID string, updateConfig container.UpdateConfig) (container.ContainerUpdateOKBody, error) {
+func (m *MockDockerClient) ContainerUpdate(_ context.Context, _ string, _ container.UpdateConfig) (container.ContainerUpdateOKBody, error) {
 	return container.ContainerUpdateOKBody{}, nil
 }
 
-func (m *MockDockerClient) ContainerPause(ctx context.Context, containerID string) error {
+func (m *MockDockerClient) ContainerPause(_ context.Context, _ string) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerUnpause(ctx context.Context, containerID string) error {
+func (m *MockDockerClient) ContainerUnpause(_ context.Context, _ string) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerRestart(ctx context.Context, containerID string, options *container.StopOptions) error {
+func (m *MockDockerClient) ContainerRestart(_ context.Context, _ string, _ *container.StopOptions) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerKill(ctx context.Context, containerID, signal string) error {
+func (m *MockDockerClient) ContainerKill(_ context.Context, _, _ string) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerRename(ctx context.Context, containerID, newContainerName string) error {
+func (m *MockDockerClient) ContainerRename(_ context.Context, _, _ string) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerResize(ctx context.Context, containerID string, options container.ResizeOptions) error {
+func (m *MockDockerClient) ContainerResize(_ context.Context, _ string, _ container.ResizeOptions) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerExecCreate(ctx context.Context, containerID string, config container.ExecOptions) (container.ExecCreateResponse, error) {
+func (m *MockDockerClient) ContainerExecCreate(_ context.Context, _ string, _ container.ExecOptions) (container.ExecCreateResponse, error) {
 	return container.ExecCreateResponse{}, nil
 }
 
-func (m *MockDockerClient) ContainerExecStart(ctx context.Context, execID string, config container.ExecStartOptions) error {
+func (m *MockDockerClient) ContainerExecStart(_ context.Context, _ string, _ container.ExecStartOptions) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerExecAttach(ctx context.Context, execID string, config container.ExecStartOptions) (types.HijackedResponse, error) {
+func (m *MockDockerClient) ContainerExecAttach(_ context.Context, _ string, _ container.ExecStartOptions) (types.HijackedResponse, error) {
 	return types.HijackedResponse{}, nil
 }
 
-func (m *MockDockerClient) ContainerExecInspect(ctx context.Context, execID string) (container.ExecInspect, error) {
+func (m *MockDockerClient) ContainerExecInspect(_ context.Context, _ string) (container.ExecInspect, error) {
 	return container.ExecInspect{}, nil
 }
 
-func (m *MockDockerClient) ContainerExecResize(ctx context.Context, execID string, options container.ResizeOptions) error {
+func (m *MockDockerClient) ContainerExecResize(_ context.Context, _ string, _ container.ResizeOptions) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerAttach(ctx context.Context, containerID string, options container.AttachOptions) (types.HijackedResponse, error) {
+func (m *MockDockerClient) ContainerAttach(_ context.Context, _ string, _ container.AttachOptions) (types.HijackedResponse, error) {
 	return types.HijackedResponse{}, nil
 }
 
-func (m *MockDockerClient) ContainerCommit(ctx context.Context, containerID string, options container.CommitOptions) (container.CommitResponse, error) {
+func (m *MockDockerClient) ContainerCommit(_ context.Context, _ string, _ container.CommitOptions) (container.CommitResponse, error) {
 	return container.CommitResponse{}, nil
 }
 
-func (m *MockDockerClient) ContainerCopyFromContainer(ctx context.Context, containerID, srcPath string) (io.ReadCloser, container.PathStat, error) {
+func (m *MockDockerClient) ContainerCopyFromContainer(_ context.Context, _, _ string) (io.ReadCloser, container.PathStat, error) {
 	return nil, container.PathStat{}, nil
 }
 
-func (m *MockDockerClient) ContainerCopyToContainer(ctx context.Context, containerID, path string, content io.Reader, options container.CopyToContainerOptions) error {
+func (m *MockDockerClient) ContainerCopyToContainer(_ context.Context, _, _ string, _ io.Reader, _ container.CopyToContainerOptions) error {
 	return nil
 }
 
-func (m *MockDockerClient) ContainerExport(ctx context.Context, containerID string) (io.ReadCloser, error) {
-	return nil, nil
+func (m *MockDockerClient) ContainerExport(_ context.Context, _ string) (io.ReadCloser, error) {
+	return io.NopCloser(strings.NewReader("")), nil
 }
 
-func (m *MockDockerClient) ContainerArchive(ctx context.Context, containerID, srcPath string) (io.ReadCloser, error) {
-	return nil, nil
+func (m *MockDockerClient) ContainerArchive(_ context.Context, _, _ string) (io.ReadCloser, error) {
+	return io.NopCloser(strings.NewReader("")), nil
 }
 
-func (m *MockDockerClient) ContainerArchiveInfo(ctx context.Context, containerID, srcPath string) (container.PathStat, error) {
+func (m *MockDockerClient) ContainerArchiveInfo(_ context.Context, _, _ string) (container.PathStat, error) {
 	return container.PathStat{}, nil
 }
 
-func (m *MockDockerClient) ContainerExtractToDir(ctx context.Context, containerID, srcPath string, dstPath string) error {
+func (m *MockDockerClient) ContainerExtractToDir(_ context.Context, _, _, _ string) error {
 	return nil
 }
 
@@ -656,18 +657,18 @@ func TestCleanupDockerBuildImages(t *testing.T) {
 	t.Run("NoContainers", func(t *testing.T) {
 		mockClient := &MockDockerClient{}
 		// Setup mock expectations
-		mockClient.On("ContainerList", ctx, container.ListOptions{All: true}).Return([]types.Container{}, nil)
+		mockClient.On("ContainerList", ctx, container.ListOptions{All: true}).Return([]container.Summary{}, nil)
 		mockClient.On("ImagesPrune", ctx, filters.Args{}).Return(image.PruneReport{}, nil)
 
-		err := CleanupDockerBuildImages(fs, ctx, "nonexistent", mockClient)
-		assert.NoError(t, err)
+		err := docker.CleanupDockerBuildImages(fs, ctx, "nonexistent", mockClient)
+		require.NoError(t, err)
 		mockClient.AssertExpectations(t)
 	})
 
 	t.Run("ContainerExists", func(t *testing.T) {
 		mockClient := &MockDockerClient{}
 		// Setup mock expectations for existing container
-		containers := []types.Container{
+		containers := []container.Summary{
 			{
 				ID:    "test-container-id",
 				Names: []string{"/test-container"},
@@ -677,31 +678,31 @@ func TestCleanupDockerBuildImages(t *testing.T) {
 		mockClient.On("ContainerRemove", ctx, "test-container-id", container.RemoveOptions{Force: true}).Return(nil)
 		mockClient.On("ImagesPrune", ctx, filters.Args{}).Return(image.PruneReport{}, nil)
 
-		err := CleanupDockerBuildImages(fs, ctx, "test-container", mockClient)
-		assert.NoError(t, err)
+		err := docker.CleanupDockerBuildImages(fs, ctx, "test-container", mockClient)
+		require.NoError(t, err)
 		mockClient.AssertExpectations(t)
 	})
 
 	t.Run("ContainerListError", func(t *testing.T) {
 		mockClient := &MockDockerClient{}
 		// Setup mock expectations for error case
-		mockClient.On("ContainerList", ctx, container.ListOptions{All: true}).Return([]types.Container{}, assert.AnError)
+		mockClient.On("ContainerList", ctx, container.ListOptions{All: true}).Return([]container.Summary{}, assert.AnError)
 
-		err := CleanupDockerBuildImages(fs, ctx, "test-container", mockClient)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "error listing containers")
+		err := docker.CleanupDockerBuildImages(fs, ctx, "test-container", mockClient)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "error listing containers")
 		mockClient.AssertExpectations(t)
 	})
 
 	t.Run("ImagesPruneError", func(t *testing.T) {
 		mockClient := &MockDockerClient{}
 		// Setup mock expectations for error case
-		mockClient.On("ContainerList", ctx, container.ListOptions{All: true}).Return([]types.Container{}, nil)
+		mockClient.On("ContainerList", ctx, container.ListOptions{All: true}).Return([]container.Summary{}, nil)
 		mockClient.On("ImagesPrune", ctx, filters.Args{}).Return(image.PruneReport{}, assert.AnError)
 
-		err := CleanupDockerBuildImages(fs, ctx, "test-container", mockClient)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "error pruning images")
+		err := docker.CleanupDockerBuildImages(fs, ctx, "test-container", mockClient)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "error pruning images")
 		mockClient.AssertExpectations(t)
 	})
 }
@@ -712,15 +713,15 @@ func TestCleanup(t *testing.T) {
 	environ := &environment.Environment{DockerMode: "1"}
 	logger := logging.NewTestLogger() // Mock logger
 
-	t.Run("NonDockerMode", func(t *testing.T) {
+	t.Run("NonDockerMode", func(_ *testing.T) {
 		environ.DockerMode = "0"
-		Cleanup(fs, ctx, environ, logger)
+		docker.Cleanup(fs, ctx, environ, logger)
 		// No assertions, just ensure it doesn't panic
 	})
 
-	t.Run("DockerMode", func(t *testing.T) {
+	t.Run("DockerMode", func(_ *testing.T) {
 		environ.DockerMode = "1"
-		Cleanup(fs, ctx, environ, logger)
+		docker.Cleanup(fs, ctx, environ, logger)
 		// No assertions, just ensure it doesn't panic
 	})
 }
@@ -732,17 +733,17 @@ func TestCleanupFlagFiles(t *testing.T) {
 
 	// Test case 1: No files to remove
 	files := []string{}
-	cleanupFlagFiles(fs, files, logger)
+	docker.CleanupFlagFiles(fs, files, logger)
 	t.Log("cleanupFlagFiles with no files test passed")
 
 	// Test case 2: Remove existing file
-	filePath := "/test/flag1"
+	filePath := filepath.Join(t.TempDir(), "flag1")
 	err := afero.WriteFile(fs, filePath, []byte("test"), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 	files = []string{filePath}
-	cleanupFlagFiles(fs, files, logger)
+	docker.CleanupFlagFiles(fs, files, logger)
 	_, err = afero.ReadFile(fs, filePath)
 	if err == nil {
 		t.Errorf("Expected file to be removed, but it still exists")
@@ -750,18 +751,18 @@ func TestCleanupFlagFiles(t *testing.T) {
 	t.Log("cleanupFlagFiles with existing file test passed")
 
 	// Test case 3: Attempt to remove non-existing file
-	files = []string{"/test/nonexistent"}
-	cleanupFlagFiles(fs, files, logger)
+	files = []string{filepath.Join(t.TempDir(), "nonexistent")}
+	docker.CleanupFlagFiles(fs, files, logger)
 	t.Log("cleanupFlagFiles with non-existing file test passed")
 
 	// Test case 4: Multiple files, some existing, some not
-	filePath2 := "/test/flag2"
+	filePath2 := filepath.Join(t.TempDir(), "flag2")
 	err = afero.WriteFile(fs, filePath2, []byte("test2"), 0o644)
 	if err != nil {
 		t.Fatalf("Failed to create second test file: %v", err)
 	}
-	files = []string{filePath2, "/test/nonexistent2"}
-	cleanupFlagFiles(fs, files, logger)
+	files = []string{filePath2, filepath.Join(t.TempDir(), "nonexistent2")}
+	docker.CleanupFlagFiles(fs, files, logger)
 	_, err = afero.ReadFile(fs, filePath2)
 	if err == nil {
 		t.Errorf("Expected second file to be removed, but it still exists")
@@ -771,17 +772,17 @@ func TestCleanupFlagFiles(t *testing.T) {
 
 // fakeDockerClient implements DockerPruneClient for unit-tests.
 type fakeDockerClient struct {
-	containers []types.Container
+	containers []container.Summary
 	pruned     bool
 }
 
-func (f *fakeDockerClient) ContainerList(ctx context.Context, opts container.ListOptions) ([]types.Container, error) {
+func (f *fakeDockerClient) ContainerList(ctx context.Context, opts container.ListOptions) ([]container.Summary, error) {
 	return f.containers, nil
 }
 
 func (f *fakeDockerClient) ContainerRemove(ctx context.Context, id string, opts container.RemoveOptions) error {
 	// simulate removal by filtering slice
-	var out []types.Container
+	var out []container.Summary
 	for _, c := range f.containers {
 		if c.ID != id {
 			out = append(out, c)
@@ -798,8 +799,8 @@ func (f *fakeDockerClient) ImagesPrune(ctx context.Context, _ filters.Args) (ima
 
 func TestCleanupDockerBuildImagesUnit(t *testing.T) {
 	cli := &fakeDockerClient{}
-	err := CleanupDockerBuildImages(afero.NewOsFs(), context.Background(), "dummy", cli)
-	assert.NoError(t, err)
+	err := docker.CleanupDockerBuildImages(afero.NewOsFs(), context.Background(), "dummy", cli)
+	require.NoError(t, err)
 	assert.True(t, cli.pruned)
 }
 
@@ -819,7 +820,7 @@ func TestCleanupFlagFilesMemFS(t *testing.T) {
 	}
 
 	// Call cleanupFlagFiles and ensure files are removed without error.
-	cleanupFlagFiles(fs, []string{file1, file2}, logger)
+	docker.CleanupFlagFiles(fs, []string{file1, file2}, logger)
 
 	for _, f := range []string{file1, file2} {
 		exists, _ := afero.Exists(fs, f)
@@ -829,7 +830,7 @@ func TestCleanupFlagFilesMemFS(t *testing.T) {
 	}
 
 	// Calling cleanupFlagFiles again should hit the os.IsNotExist branch and not fail.
-	cleanupFlagFiles(fs, []string{file1, file2}, logger)
+	docker.CleanupFlagFiles(fs, []string{file1, file2}, logger)
 }
 
 func TestServerReadyHelpers(t *testing.T) {
@@ -837,26 +838,26 @@ func TestServerReadyHelpers(t *testing.T) {
 
 	// Start a TCP listener on an ephemeral port
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	host, port, _ := net.SplitHostPort(ln.Addr().String())
 
 	t.Run("isServerReady_true", func(t *testing.T) {
-		assert.True(t, isServerReady(host, port, logger))
+		assert.True(t, docker.IsServerReady(host, port, logger))
 	})
 
 	t.Run("waitForServer_success", func(t *testing.T) {
-		assert.NoError(t, waitForServer(host, port, 2*time.Second, logger))
+		assert.NoError(t, docker.WaitForServer(host, port, 2*time.Second, logger))
 	})
 
 	// close listener to make port unavailable
 	_ = ln.Close()
 
 	t.Run("isServerReady_false", func(t *testing.T) {
-		assert.False(t, isServerReady(host, port, logger))
+		assert.False(t, docker.IsServerReady(host, port, logger))
 	})
 
 	t.Run("waitForServer_timeout", func(t *testing.T) {
-		err := waitForServer(host, port, 1500*time.Millisecond, logger)
+		err := docker.WaitForServer(host, port, 1500*time.Millisecond, logger)
 		assert.Error(t, err)
 	})
 }
@@ -874,16 +875,16 @@ func TestIsServerReady_Extra(t *testing.T) {
 
 	_, port, _ := net.SplitHostPort(ln.Addr().String())
 
-	if !isServerReady("127.0.0.1", port, logger) {
+	if !docker.IsServerReady("127.0.0.1", port, logger) {
 		t.Fatalf("server should be reported as ready on open port")
 	}
 
 	// pick an arbitrary high port unlikely to be used (and different)
-	if isServerReady("127.0.0.1", "65535", logger) {
+	if docker.IsServerReady("127.0.0.1", "65535", logger) {
 		t.Fatalf("server should not be ready on closed port")
 	}
 
-	schema.SchemaVersion(context.Background()) // maintain convention
+	schema.Version(context.Background()) // maintain convention
 }
 
 // TestWaitForServerQuickSuccess ensures waitForServer returns quickly when the
@@ -899,14 +900,14 @@ func TestWaitForServerQuickSuccess(t *testing.T) {
 	_, port, _ := net.SplitHostPort(ln.Addr().String())
 
 	start := time.Now()
-	if err := waitForServer("127.0.0.1", port, 500*time.Millisecond, logger); err != nil {
+	if err := docker.WaitForServer("127.0.0.1", port, 500*time.Millisecond, logger); err != nil {
 		t.Fatalf("waitForServer returned error: %v", err)
 	}
 	if elapsed := time.Since(start); elapsed > 100*time.Millisecond {
 		t.Fatalf("waitForServer took too long: %v", elapsed)
 	}
 
-	schema.SchemaVersion(context.Background())
+	schema.Version(context.Background())
 }
 
 // TestIsServerReadyAndWaitForServer covers both positive and timeout scenarios
@@ -924,12 +925,12 @@ func TestIsServerReadyAndWaitForServerExtra(t *testing.T) {
 	host, port, _ := net.SplitHostPort(ln.Addr().String())
 
 	// Expect server to be reported as ready.
-	if !isServerReady(host, port, logger) {
+	if !docker.IsServerReady(host, port, logger) {
 		t.Fatalf("expected server to be ready")
 	}
 
 	// waitForServer should return quickly for an already-ready server.
-	if err := waitForServer(host, port, 2*time.Second, logger); err != nil {
+	if err := docker.WaitForServer(host, port, 2*time.Second, logger); err != nil {
 		t.Fatalf("waitForServer returned error: %v", err)
 	}
 
@@ -937,7 +938,7 @@ func TestIsServerReadyAndWaitForServerExtra(t *testing.T) {
 	ln.Close()
 
 	start := time.Now()
-	err = waitForServer(host, port, 1*time.Second, logger)
+	err = docker.WaitForServer(host, port, 1*time.Second, logger)
 	if err == nil {
 		t.Fatalf("expected timeout error, got nil")
 	}
@@ -950,7 +951,7 @@ func TestIsServerReadyAndWaitForServerExtra(t *testing.T) {
 	// can at least ensure it does not panic when invoked with a canceled context.
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	startOllamaServer(ctx, logger)
+	docker.StartOllamaServer(ctx, logger)
 }
 
 func TestIsServerReadyAndWaitForServer(t *testing.T) {
@@ -967,12 +968,12 @@ func TestIsServerReadyAndWaitForServer(t *testing.T) {
 	host, port, _ := strings.Cut(addr, ":")
 
 	// isServerReady should return true.
-	if ready := isServerReady(host, port, logger); !ready {
+	if ready := docker.IsServerReady(host, port, logger); !ready {
 		t.Errorf("expected server to be ready on %s:%s", host, port)
 	}
 
 	// waitForServer should return quickly because it's already ready.
-	if err := waitForServer(host, port, 3*time.Second, logger); err != nil {
+	if err := docker.WaitForServer(host, port, 3*time.Second, logger); err != nil {
 		t.Errorf("waitForServer returned error: %v", err)
 	}
 
@@ -981,7 +982,7 @@ func TestIsServerReadyAndWaitForServer(t *testing.T) {
 	// Choose a port unlikely to be in use (listener just closed)
 	pInt, _ := strconv.Atoi(port)
 	unavailablePort := strconv.Itoa(pInt)
-	if ready := isServerReady(host, unavailablePort, logger); ready {
+	if ready := docker.IsServerReady(host, unavailablePort, logger); ready {
 		t.Errorf("expected server NOT to be ready on closed port %s", unavailablePort)
 	}
 }
@@ -994,7 +995,7 @@ func TestWaitForServerTimeout(t *testing.T) {
 	port := "65000"
 
 	start := time.Now()
-	err := waitForServer(host, port, 1500*time.Millisecond, logger)
+	err := docker.WaitForServer(host, port, 1500*time.Millisecond, logger)
 	duration := time.Since(start)
 
 	if err == nil {
@@ -1017,13 +1018,13 @@ func TestIsServerReadyListener(t *testing.T) {
 	addr := ln.Addr().(*net.TCPAddr)
 	portStr := strconv.Itoa(addr.Port)
 
-	if !isServerReady("127.0.0.1", portStr, logger) {
+	if !docker.IsServerReady("127.0.0.1", portStr, logger) {
 		t.Fatalf("expected server to be ready on open port")
 	}
 	ln.Close()
 
 	// After closing listener, readiness should fail
-	if isServerReady("127.0.0.1", portStr, logger) {
+	if docker.IsServerReady("127.0.0.1", portStr, logger) {
 		t.Fatalf("expected server NOT ready after listener closed")
 	}
 }
@@ -1032,7 +1033,7 @@ func TestWaitForServerTimeoutShort(t *testing.T) {
 	logger := logging.NewTestLogger()
 	port := "65534" // unlikely to be in use
 	start := time.Now()
-	err := waitForServer("127.0.0.1", port, 1500*time.Millisecond, logger)
+	err := docker.WaitForServer("127.0.0.1", port, 1500*time.Millisecond, logger)
 	if err == nil {
 		t.Fatalf("expected timeout error")
 	}
@@ -1052,14 +1053,14 @@ func TestIsServerReadyVariants(t *testing.T) {
 	defer ln.Close()
 	host, port, _ := net.SplitHostPort(ln.Addr().String())
 
-	if ok := isServerReady(host, port, logger); !ok {
+	if ok := docker.IsServerReady(host, port, logger); !ok {
 		t.Fatalf("expected server to be ready")
 	}
 
 	// Close listener to make port unavailable.
 	ln.Close()
 
-	if ok := isServerReady(host, port, logger); ok {
+	if ok := docker.IsServerReady(host, port, logger); ok {
 		t.Fatalf("expected server to be NOT ready after close")
 	}
 }
@@ -1077,12 +1078,12 @@ func TestIsServerReadyAndWaitForServerSimple(t *testing.T) {
 	host, portStr, _ := net.SplitHostPort(ln.Addr().String())
 
 	// Positive case for isServerReady
-	if !isServerReady(host, portStr, logger) {
+	if !docker.IsServerReady(host, portStr, logger) {
 		t.Fatalf("expected server to be ready on open port")
 	}
 
 	// Positive case for waitForServer with short timeout
-	if err := waitForServer(host, portStr, 2*time.Second, logger); err != nil {
+	if err := docker.WaitForServer(host, portStr, 2*time.Second, logger); err != nil {
 		t.Fatalf("waitForServer unexpectedly failed: %v", err)
 	}
 
@@ -1090,14 +1091,14 @@ func TestIsServerReadyAndWaitForServerSimple(t *testing.T) {
 	ln.Close()
 
 	// Now port should be closed; isServerReady should return false
-	if isServerReady(host, portStr, logger) {
+	if docker.IsServerReady(host, portStr, logger) {
 		t.Fatalf("expected server not ready after listener closed")
 	}
 
 	// waitForServer should timeout quickly
 	timeout := 1500 * time.Millisecond
 	start := time.Now()
-	err = waitForServer(host, portStr, timeout, logger)
+	err = docker.WaitForServer(host, portStr, timeout, logger)
 	if err == nil {
 		t.Fatalf("expected timeout error, got nil")
 	}
@@ -1115,7 +1116,7 @@ func TestStartOllamaServerReturn(t *testing.T) {
 	defer cancel()
 
 	start := time.Now()
-	startOllamaServer(ctx, logger)
+	docker.StartOllamaServer(ctx, logger)
 	if time.Since(start) > 200*time.Millisecond {
 		t.Fatalf("startOllamaServer took too long to return")
 	}
@@ -1130,7 +1131,7 @@ func TestStartOllamaServer_NoBinary(t *testing.T) {
 	defer cancel()
 
 	start := time.Now()
-	startOllamaServer(ctx, logging.NewTestLogger())
+	docker.StartOllamaServer(ctx, logging.NewTestLogger())
 	elapsed := time.Since(start)
 
 	// The function should return almost instantly because it only launches the
@@ -1151,13 +1152,13 @@ func TestStartOllamaServerBackground(t *testing.T) {
 
 	// Prepend the temp dir to PATH so it's discovered by exec.LookPath.
 	oldPath := os.Getenv("PATH")
-	_ = os.Setenv("PATH", tmpDir+string(os.PathListSeparator)+oldPath)
-	t.Cleanup(func() { _ = os.Setenv("PATH", oldPath) })
+	t.Setenv("PATH", tmpDir+string(os.PathListSeparator)+oldPath)
+	t.Cleanup(func() { t.Setenv("PATH", oldPath) })
 
 	logger := logging.NewTestLogger()
 
 	// Call the function under test; it should return immediately.
-	startOllamaServer(context.Background(), logger)
+	docker.StartOllamaServer(context.Background(), logger)
 
 	// Allow some time for the goroutine in KdepsExec to start and finish.
 	time.Sleep(150 * time.Millisecond)
@@ -1177,7 +1178,7 @@ func TestStartOllamaServerSimple(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Call function under test; it should return immediately and not panic.
-	startOllamaServer(ctx, logger)
+	docker.StartOllamaServer(ctx, logger)
 
 	// Give the background goroutine a brief moment to run and fail gracefully.
 	time.Sleep(10 * time.Millisecond)
@@ -1189,7 +1190,7 @@ func TestCheckDevBuildModeVariants(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Case 1: file missing -> expect false
-	ok, err := checkDevBuildMode(fs, kdepsDir, logger)
+	ok, err := docker.CheckDevBuildMode(fs, kdepsDir, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1202,7 +1203,7 @@ func TestCheckDevBuildModeVariants(t *testing.T) {
 	_ = fs.MkdirAll(filepath.Dir(cacheFile), 0o755)
 	_ = afero.WriteFile(fs, cacheFile, []byte("bin"), 0o755)
 
-	ok, err = checkDevBuildMode(fs, kdepsDir, logger)
+	ok, err = docker.CheckDevBuildMode(fs, kdepsDir, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1217,7 +1218,7 @@ func TestStartOllamaServerStubbed(t *testing.T) {
 	defer cancel()
 
 	// Function should return immediately and not panic.
-	startOllamaServer(ctx, logger)
+	docker.StartOllamaServer(ctx, logger)
 }
 
 func TestIsServerReady(t *testing.T) {
@@ -1226,16 +1227,16 @@ func TestIsServerReady(t *testing.T) {
 	t.Run("ServerReady", func(t *testing.T) {
 		// Start a test TCP server
 		listener, err := net.Listen("tcp", "127.0.0.1:0")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer listener.Close()
 
 		host, port, _ := net.SplitHostPort(listener.Addr().String())
-		ready := isServerReady(host, port, logger)
+		ready := docker.IsServerReady(host, port, logger)
 		assert.True(t, ready)
 	})
 
 	t.Run("ServerNotReady", func(t *testing.T) {
-		ready := isServerReady("127.0.0.1", "99999", logger)
+		ready := docker.IsServerReady("127.0.0.1", "99999", logger)
 		assert.False(t, ready)
 	})
 }
@@ -1245,17 +1246,17 @@ func TestWaitForServer(t *testing.T) {
 
 	t.Run("ServerReady", func(t *testing.T) {
 		listener, err := net.Listen("tcp", "127.0.0.1:0")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		defer listener.Close()
 
 		host, port, _ := net.SplitHostPort(listener.Addr().String())
-		err = waitForServer(host, port, 2*time.Second, logger)
-		assert.NoError(t, err)
+		err = docker.WaitForServer(host, port, 2*time.Second, logger)
+		require.NoError(t, err)
 	})
 
 	t.Run("Timeout", func(t *testing.T) {
-		err := waitForServer("127.0.0.1", "99999", 1*time.Second, logger)
-		assert.Error(t, err)
+		err := docker.WaitForServer("127.0.0.1", "99999", 1*time.Second, logger)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "timeout")
 	})
 }
@@ -1268,7 +1269,7 @@ func TestStartOllamaServer(t *testing.T) {
 
 	// Simply call the function to ensure it doesn't panic
 	// Since it runs in background, we can't easily check the result
-	startOllamaServer(ctx, logger)
+	docker.StartOllamaServer(ctx, logger)
 
 	// If we reach here without panic, the test passes
 	t.Log("startOllamaServer called without panic")
@@ -1285,7 +1286,7 @@ func TestWaitForServerSuccess(t *testing.T) {
 
 	host, port, _ := net.SplitHostPort(ln.Addr().String())
 
-	if err := waitForServer(host, port, 2*time.Second, logger); err != nil {
+	if err := docker.WaitForServer(host, port, 2*time.Second, logger); err != nil {
 		t.Fatalf("waitForServer returned error: %v", err)
 	}
 }
@@ -1304,7 +1305,7 @@ func TestWaitForServerReadyAndTimeout(t *testing.T) {
 
 	// Ready case: should return quickly.
 	start := time.Now()
-	if err := waitForServer(host, portStr, 2*time.Second, logger); err != nil {
+	if err := docker.WaitForServer(host, portStr, 2*time.Second, logger); err != nil {
 		t.Fatalf("expected server to be ready, got error: %v", err)
 	}
 	if time.Since(start) > time.Second {
@@ -1314,7 +1315,7 @@ func TestWaitForServerReadyAndTimeout(t *testing.T) {
 	// Timeout case: use a different unused port.
 	unusedPort := strconv.Itoa(60000)
 	start = time.Now()
-	err = waitForServer(host, unusedPort, 1*time.Second, logger)
+	err = docker.WaitForServer(host, unusedPort, 1*time.Second, logger)
 	if err == nil {
 		t.Fatalf("expected timeout error for unopened port")
 	}
@@ -1327,8 +1328,11 @@ func TestParseOLLAMAHostVariants(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Success path.
-	_ = os.Setenv("OLLAMA_HOST", "0.0.0.0:12345")
-	host, port, err := parseOLLAMAHost(logger)
+	originalOllamaHost := os.Getenv("OLLAMA_HOST")
+	t.Setenv("OLLAMA_HOST", "0.0.0.0:12345")
+	defer t.Setenv("OLLAMA_HOST", originalOllamaHost)
+
+	host, port, err := docker.ParseOLLAMAHost(logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1337,14 +1341,13 @@ func TestParseOLLAMAHostVariants(t *testing.T) {
 	}
 
 	// Invalid format path.
-	_ = os.Setenv("OLLAMA_HOST", "badformat")
-	if _, _, err := parseOLLAMAHost(logger); err == nil {
+	t.Setenv("OLLAMA_HOST", "badformat")
+	if _, _, err := docker.ParseOLLAMAHost(logger); err == nil {
 		t.Fatalf("expected error for invalid format")
 	}
 
 	// Missing var path.
-	_ = os.Unsetenv("OLLAMA_HOST")
-	if _, _, err := parseOLLAMAHost(logger); err == nil {
+	if _, _, err := docker.ParseOLLAMAHost(logger); err == nil {
 		t.Fatalf("expected error when OLLAMA_HOST unset")
 	}
 }

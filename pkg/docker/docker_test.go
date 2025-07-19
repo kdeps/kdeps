@@ -1,4 +1,4 @@
-package docker
+package docker_test
 
 import (
 	"bufio"
@@ -16,12 +16,13 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/cfg"
+	"github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
-	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/workflow"
+	"github.com/kdeps/schema/assets"
 	"github.com/kdeps/schema/gen/kdeps"
 	wfPkl "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
@@ -59,13 +60,12 @@ var (
 	lastCreatedPackage        string
 	resourcesDir              string
 	dataDir                   string
-	projectDir                string
 )
 
 func TestFeatures(t *testing.T) {
 	suite := godog.TestSuite{
 		ScenarioInitializer: func(ctx *godog.ScenarioContext) {
-			ctx.Step(`^a "([^"]*)" system configuration file with dockerGPU "([^"]*)" and runMode "([^"]*)" is defined in the "([^"]*)" directory$`, aSystemConfigurationFile)
+			ctx.Step(`^a "([^"]*)" system configuration file with dockerGPU "([^"]*)" and Mode "([^"]*)" is defined in the "([^"]*)" directory$`, aSystemConfigurationFile)
 			ctx.Step(`^a valid ai-agent "([^"]*)" is present in the "([^"]*)" directory$`, aValidAiagentIsPresentInTheDirectory)
 			ctx.Step(`^"([^"]*)" directory exists in the "([^"]*)" directory$`, directoryExistsInTheDirectory)
 			ctx.Step(`^it should create the Dockerfile for the agent in the "([^"]*)" directory with package "([^"]*)" and copy the kdeps package to the "([^"]*)" directory$`, itShouldCreateTheDockerfile)
@@ -127,12 +127,19 @@ func aSystemConfigurationFile(arg1, arg2, arg3, arg4 string) error {
 		return err
 	}
 
-	systemConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Kdeps.pkl"
+	// Setup PKL workspace with embedded schema files
+	workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+	if err != nil {
+		return err
+	}
+	defer workspace.Cleanup()
 
-runMode = "%s"
-dockerGPU = "%s"
-`, schema.SchemaVersion(ctx), arg3, arg2)
+	systemConfigurationContent := fmt.Sprintf(`
+amends "%s"
+
+Mode = "%s"
+DockerGPU = "%s"
+`, workspace.GetImportPath("Kdeps.pkl"), arg3, arg2)
 
 	var filePath string
 
@@ -149,21 +156,21 @@ dockerGPU = "%s"
 		return err
 	}
 
-	systemConfigurationFile, err := cfg.FindConfiguration(testFs, ctx, environ, logger)
+	systemConfigurationFile, err := cfg.FindConfiguration(ctx, testFs, environ, logger)
 	if err != nil {
 		return err
 	}
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, systemConfigurationFile, logger); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(ctx, testFs, systemConfigurationFile, logger); err != nil {
 		return err
 	}
 
-	syscfg, err := cfg.LoadConfiguration(testFs, ctx, systemConfigurationFile, logger)
+	config, err := cfg.LoadConfiguration(ctx, testFs, systemConfigurationFile, logger)
 	if err != nil {
 		return err
 	}
 
-	systemConfiguration = syscfg
+	systemConfiguration = config
 
 	return nil
 }
@@ -204,20 +211,27 @@ packages {
 }`, arg4)
 	}
 
-	workflowConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
+	// Setup PKL workspace with embedded schema files
+	workspace, workspaceErr := assets.SetupPKLWorkspaceInTmpDir()
+	if workspaceErr != nil {
+		return workspaceErr
+	}
+	defer workspace.Cleanup()
 
-name = "%s"
-description = "AI Agent X"
-targetActionID = "%s"
-settings {
+	workflowConfigurationContent := fmt.Sprintf(`
+amends "%s"
+
+AgentID = "%s"
+Description = "AI Agent X"
+TargetActionID = "%s"
+Settings {
   APIServerMode = false
-  agentSettings {
+  AgentSettings {
     %s
     %s
   }
 }
-`, schema.SchemaVersion(ctx), arg1, arg1, pkgSection, modelSection)
+`, workspace.GetImportPath("Workflow.pkl"), arg1, arg1, pkgSection, modelSection)
 
 	var filePath string
 
@@ -244,12 +258,19 @@ settings {
 		return err
 	}
 
-	resourceConfigurationContent := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+	// Setup PKL workspace with embedded schema files for resource
+	resourceWorkspace, workspaceErr := assets.SetupPKLWorkspaceInTmpDir()
+	if workspaceErr != nil {
+		return workspaceErr
+	}
+	defer resourceWorkspace.Cleanup()
 
-actionID = "%s"
-description = "An action from agent %s"
-	`, schema.SchemaVersion(ctx), arg1, arg1)
+	resourceConfigurationContent := fmt.Sprintf(`
+amends "%s"
+
+ActionID = "%s"
+Description = "An action from agent %s"
+	`, resourceWorkspace.GetImportPath("Resource.pkl"), arg1, arg1)
 
 	resourceConfigurationFile := filepath.Join(resourcesDir, arg1+".pkl")
 	err = afero.WriteFile(testFs, resourceConfigurationFile, []byte(resourceConfigurationContent), 0o644)
@@ -275,7 +296,7 @@ description = "An action from agent %s"
 		f.Close()
 	}
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowConfigurationFile, logger); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(ctx, testFs, workflowConfigurationFile, logger); err != nil {
 		return err
 	}
 
@@ -342,7 +363,7 @@ func searchTextInFile(filePath string, searchText string) (bool, error) {
 }
 
 func itShouldCreateTheDockerfile(arg1, arg2, arg3 string) error {
-	rd, asm, _, hIP, hPort, _, _, gpu, err := BuildDockerfile(testFs, ctx, systemConfiguration, kdepsDir, pkgProject, logger)
+	rd, asm, _, hIP, hPort, _, _, gpu, err := docker.BuildDockerfile(testFs, ctx, systemConfiguration, kdepsDir, pkgProject, logger)
 	if err != nil {
 		return err
 	}
@@ -367,7 +388,7 @@ func itShouldCreateTheDockerfile(arg1, arg2, arg3 string) error {
 			}
 
 			if !found {
-				return errors.New("package not found!")
+				return errors.New("package not found")
 			}
 		}
 	} else {
@@ -377,7 +398,7 @@ func itShouldCreateTheDockerfile(arg1, arg2, arg3 string) error {
 		}
 
 		if !found {
-			return errors.New("package not found!")
+			return errors.New("package not found")
 		}
 	}
 
@@ -394,7 +415,7 @@ func itShouldCreateTheDockerfile(arg1, arg2, arg3 string) error {
 	return nil
 }
 
-func itShouldRunTheContainerBuildStepFor(arg1 string) error {
+func itShouldRunTheContainerBuildStepFor(_ string) error {
 	cl, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return err
@@ -402,7 +423,7 @@ func itShouldRunTheContainerBuildStepFor(arg1 string) error {
 
 	cli = cl
 
-	cN, conN, err := BuildDockerImage(testFs, ctx, systemConfiguration, cli, runDir, kdepsDir, pkgProject, logger)
+	cN, conN, err := docker.BuildDockerImage(testFs, ctx, systemConfiguration, cli, runDir, kdepsDir, pkgProject, logger)
 	if err != nil {
 		return err
 	}
@@ -410,22 +431,22 @@ func itShouldRunTheContainerBuildStepFor(arg1 string) error {
 	cName = cN
 	containerName = conN
 
-	if err := CleanupDockerBuildImages(testFs, ctx, cName, cli); err != nil {
+	if err := docker.CleanupDockerBuildImages(testFs, ctx, cName, cli); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func itShouldStartTheContainer(arg1 string) error {
-	if _, err := CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, "", "", gpuType, APIServerMode, false, cli); err != nil {
+func itShouldStartTheContainer(_ string) error {
+	if _, err := docker.CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, "", "", gpuType, APIServerMode, false, cli); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func kdepsOpenThePackage(arg1 string) error {
+func kdepsOpenThePackage(_ string) error {
 	pkgP, err := archiver.ExtractPackage(testFs, ctx, kdepsDir, packageFile, logger)
 	if err != nil {
 		return err
@@ -436,8 +457,8 @@ func kdepsOpenThePackage(arg1 string) error {
 	return nil
 }
 
-func theValidAiagentHas(arg1, arg2 string) error {
-	cDir, pFile, err := archiver.CompileProject(testFs, ctx, *workflowConfiguration, kdepsDir, agentDir, environ, logger)
+func theValidAiagentHas(_, _ string) error {
+	cDir, pFile, err := archiver.CompileProject(ctx, testFs, *workflowConfiguration, kdepsDir, agentDir, environ, logger)
 	if err != nil {
 		return err
 	}
@@ -456,7 +477,7 @@ func theCommandShouldBeRunActionByDefault(arg1 string) error {
 	}
 
 	if !found {
-		return errors.New("entrypoint run not found!")
+		return errors.New("entrypoint run not found")
 	}
 
 	return nil
@@ -470,7 +491,7 @@ func theDockerEntrypointShouldBe(arg1 string) error {
 	}
 
 	if !found {
-		return errors.New("entrypoint not found!")
+		return errors.New("entrypoint not found")
 	}
 
 	return nil
@@ -483,19 +504,19 @@ func itWillInstallTheModels(arg1 string) error {
 	}
 
 	if !found {
-		return errors.New("model not found!")
+		return errors.New("model not found")
 	}
 
 	return nil
 }
 
-func kdepsWillCheckThePresenceOfTheFile(arg1 string) error {
-	dr, err := resolver.NewGraphResolver(testFs, ctx, environ, nil, logger)
+func kdepsWillCheckThePresenceOfTheFile(_ string) error {
+	dr, err := resolver.NewGraphResolver(testFs, ctx, environ, nil, logger, nil)
 	if err != nil {
 		return err
 	}
 
-	if _, err := BootstrapDockerSystem(ctx, dr); err != nil {
+	if _, err := docker.BootstrapDockerSystem(ctx, dr); err != nil {
 		return err
 	}
 
@@ -553,22 +574,29 @@ func itHasAFileWithIDPropertyAndDependentOn(arg1, arg2, arg3 string) error {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
 			requiresLines = append(requiresLines, fmt.Sprintf(`  "%s"`, value))
 		}
-		requiresSection = "requires {\n" + strings.Join(requiresLines, "\n") + "\n}"
+		requiresSection = "Requires {\n" + strings.Join(requiresLines, "\n") + "\n}"
 	} else {
 		// Single value case
-		requiresSection = fmt.Sprintf(`requires {
+		requiresSection = fmt.Sprintf(`Requires {
   "%s"
 }`, arg3)
 	}
 
+	// Setup PKL workspace with embedded schema files
+	workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+	if err != nil {
+		return err
+	}
+	defer workspace.Cleanup()
+
 	// Create the document with the id and requires block
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+amends "%s"
 
-actionID = "%s"
+ActionID = "%s"
 %s
-run {
-  exec {
+Run {
+  Exec {
   ["key"] = """
 @(exec.stdout["anAction"])
 @(exec.stdin["anAction2"])
@@ -578,7 +606,7 @@ run {
 """
   }
 }
-`, schema.SchemaVersion(ctx), arg2, requiresSection)
+`, workspace.GetImportPath("Resource.pkl"), arg2, requiresSection)
 
 	// Write to the file
 	file := filepath.Join(resourcesDir, arg1)
@@ -606,12 +634,19 @@ func itWillBeStoredTo(arg1 string) error {
 }
 
 func itHasAFileWithNoDependencyWithIDProperty(arg1, arg2 string) error {
-	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+	// Setup PKL workspace with embedded schema files
+	workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+	if err != nil {
+		return err
+	}
+	defer workspace.Cleanup()
 
-actionID = "%s"
-run {
-  exec {
+	doc := fmt.Sprintf(`
+amends "%s"
+
+ActionID = "%s"
+Run {
+  Exec {
   ["key"] = """
 @(exec.stdout["anAction"])
 @(exec.stdin["anAction2"])
@@ -621,7 +656,7 @@ run {
 """
   }
 }
-`, schema.SchemaVersion(ctx), arg2)
+`, workspace.GetImportPath("Resource.pkl"), arg2)
 
 	file := filepath.Join(resourcesDir, arg1)
 
@@ -637,26 +672,29 @@ run {
 }
 
 func itHasAWorkflowFile(arg1, arg2, arg3 string) error {
-	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
-
-targetActionID = "%s"
-name = "%s"
-description = "My awesome AI Agent"
-version = "%s"
-`, schema.SchemaVersion(ctx), arg3, arg1, arg2)
-
-	file := filepath.Join(aiAgentDir, "workflow.pkl")
-
-	f, _ := testFs.Create(file)
-	if _, err := f.WriteString(doc); err != nil {
+	// Setup PKL workspace with embedded schema files
+	workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+	if err != nil {
 		return err
 	}
-	f.Close()
+	defer workspace.Cleanup()
 
-	workflowFile = file
+	doc := fmt.Sprintf(`
+amends "%s"
 
-	return nil
+AgentID = "%s"
+Description = "AI Agent X"
+TargetActionID = "%s"
+Settings {
+  APIServerMode = false
+  AgentSettings {
+    %s
+    %s
+  }
+}
+`, workspace.GetImportPath("Workflow.pkl"), arg1, arg3, arg2, "InstallAnaconda = false")
+
+	return afero.WriteFile(testFs, filepath.Join(agentDir, "workflow.pkl"), []byte(doc), 0o644)
 }
 
 func theContentOfThatArchiveFileWillBeExtractedTo(arg1 string) error {
@@ -669,7 +707,7 @@ func theContentOfThatArchiveFileWillBeExtractedTo(arg1 string) error {
 }
 
 func thePklFilesIsValid() error {
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowFile, logger); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(ctx, testFs, workflowFile, logger); err != nil {
 		return err
 	}
 
@@ -677,14 +715,14 @@ func thePklFilesIsValid() error {
 }
 
 func theProjectIsValid() error {
-	if err := enforcer.EnforceFolderStructure(testFs, ctx, workflowFile, logger); err != nil {
+	if err := enforcer.EnforceFolderStructure(ctx, testFs, workflowFile, logger); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func theProjectWillBeArchivedTo(arg1 string) error {
+func theProjectWillBeArchivedTo(_ string) error {
 	_, err := workflow.LoadWorkflow(ctx, workflowFile, logger)
 	if err != nil {
 		return err
@@ -731,10 +769,10 @@ func theDataFilesWillBeCopiedTo(arg1 string) error {
 
 func thePklFilesIsInvalid() error {
 	doc := `
-	name = "invalid agent"
-	description = "a not valid configuration"
-	version = "five"
-	targetActionID = "hello World"
+	AgentID = "invalid agent"
+	Description = "a not valid configuration"
+	Version = "five"
+	TargetActionID = "hello World"
 	`
 	file := filepath.Join(aiAgentDir, "workflow1.pkl")
 
@@ -746,7 +784,7 @@ func thePklFilesIsInvalid() error {
 
 	workflowFile = file
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowFile, logger); err == nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(ctx, testFs, workflowFile, logger); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 
@@ -754,14 +792,14 @@ func thePklFilesIsInvalid() error {
 }
 
 func theProjectIsInvalid() error {
-	if err := enforcer.EnforceFolderStructure(testFs, ctx, workflowFile, logger); err == nil {
+	if err := enforcer.EnforceFolderStructure(ctx, testFs, workflowFile, logger); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 
 	return nil
 }
 
-func theProjectWillNotBeArchivedTo(arg1 string) error {
+func theProjectWillNotBeArchivedTo(_ string) error {
 	_, err := workflow.LoadWorkflow(ctx, workflowFile, logger)
 	if err != nil {
 		return err
@@ -799,23 +837,30 @@ func itHasAWorkflowFileDependencies(arg1, arg2, arg3, arg4 string) error {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
 			workflowsLines = append(workflowsLines, fmt.Sprintf(`  "%s"`, value))
 		}
-		workflowsSection = "workflows {\n" + strings.Join(workflowsLines, "\n") + "\n}"
+		workflowsSection = "Workflows {\n" + strings.Join(workflowsLines, "\n") + "\n}"
 	} else {
 		// Single value case
-		workflowsSection = fmt.Sprintf(`workflows {
+		workflowsSection = fmt.Sprintf(`Workflows {
   "%s"
 }`, arg4)
 	}
 
-	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
+	// Setup PKL workspace with embedded schema files
+	workspace, err := assets.SetupPKLWorkspaceInTmpDir()
+	if err != nil {
+		return err
+	}
+	defer workspace.Cleanup()
 
-targetActionID = "%s"
-name = "%s"
-description = "My awesome AI Agent"
-version = "%s"
+	doc := fmt.Sprintf(`
+amends "%s"
+
+TargetActionID = "%s"
+AgentID = "%s"
+Description = "My awesome AI Agent"
+Version = "%s"
 %s
-`, schema.SchemaVersion(ctx), arg3, arg1, arg2, workflowsSection)
+`, workspace.GetImportPath("Workflow.pkl"), arg3, arg1, arg2, workflowsSection)
 
 	file := filepath.Join(aiAgentDir, "workflow.pkl")
 
@@ -830,7 +875,7 @@ version = "%s"
 	return nil
 }
 
-func theResourceFileExistsInTheAgent(arg1, arg2, arg3 string) error {
+func theResourceFileExistsInTheAgent(arg1, arg2, _ string) error {
 	fpath := filepath.Join(kdepsDir, "agents/"+arg2+"/1.0.0/resources/"+arg1)
 	if _, err := testFs.Stat(fpath); err != nil {
 		return errors.New("expected a package, but got none")
@@ -840,7 +885,7 @@ func theResourceFileExistsInTheAgent(arg1, arg2, arg3 string) error {
 }
 
 // PackageProject is a helper function to package a project
-func PackageProject(fs afero.Fs, ctx context.Context, wf wfPkl.Workflow, kdepsDir, aiAgentDir string, logger *logging.Logger) (string, error) {
+func PackageProject(fs afero.Fs, _ context.Context, wf wfPkl.Workflow, kdepsDir, aiAgentDir string, logger *logging.Logger) (string, error) {
 	// Create package directory if it doesn't exist
 	packageDir := filepath.Join(kdepsDir, "packages")
 	if err := fs.MkdirAll(packageDir, 0o755); err != nil {
@@ -848,7 +893,7 @@ func PackageProject(fs afero.Fs, ctx context.Context, wf wfPkl.Workflow, kdepsDi
 	}
 
 	// Create package file path
-	packageFile := filepath.Join(packageDir, fmt.Sprintf("%s-%s.tar.gz", wf.GetName(), wf.GetVersion()))
+	packageFile := filepath.Join(packageDir, fmt.Sprintf("%s-%s.tar.gz", wf.GetAgentID(), wf.GetVersion()))
 
 	// Create package file
 	file, err := fs.Create(packageFile)
@@ -867,13 +912,13 @@ func PackageProject(fs afero.Fs, ctx context.Context, wf wfPkl.Workflow, kdepsDi
 
 func TestPrintDockerBuildOutputSimple(t *testing.T) {
 	successLog := bytes.NewBufferString(`{"stream":"Step 1/2 : FROM alpine\n"}\n{"stream":" ---> 123abc\n"}\n`)
-	if err := printDockerBuildOutput(successLog); err != nil {
+	if err := docker.PrintDockerBuildOutput(successLog, logging.NewTestLogger()); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	// Error case should propagate the message
 	errBuf := bytes.NewBufferString(`{"error":"build failed"}`)
-	if err := printDockerBuildOutput(errBuf); err == nil {
+	if err := docker.PrintDockerBuildOutput(errBuf, logging.NewTestLogger()); err == nil {
 		t.Fatalf("expected error not returned")
 	}
 }

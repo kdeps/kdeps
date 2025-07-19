@@ -2,38 +2,44 @@ package resolver
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/alexellis/go-execute/v2"
 	"github.com/apple/pkl-go/pkl"
-	"github.com/kdeps/kdeps/pkg/evaluator"
+
 	"github.com/kdeps/kdeps/pkg/kdepsexec"
-	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklPython "github.com/kdeps/schema/gen/python"
 	"github.com/spf13/afero"
 )
 
 func (dr *DependencyResolver) HandlePython(actionID string, pythonBlock *pklPython.ResourcePython) error {
-	// Synchronously decode the python block.
+	// Canonicalize the actionID if it's a short ActionID
+	canonicalActionID := actionID
+	if dr.PklresHelper != nil {
+		canonicalActionID = dr.PklresHelper.resolveActionID(actionID)
+		if canonicalActionID != actionID {
+			dr.Logger.Debug("canonicalized actionID", "original", actionID, "canonical", canonicalActionID)
+		}
+	}
+
+	// Decode the python block synchronously
 	if err := dr.decodePythonBlock(pythonBlock); err != nil {
-		dr.Logger.Error("failed to decode python block", "actionID", actionID, "error", err)
+		dr.Logger.Error("failed to decode python block", "actionID", canonicalActionID, "error", err)
 		return err
 	}
 
-	// Process the python block asynchronously in a goroutine.
+	// Run processPythonBlock asynchronously in a goroutine
 	go func(aID string, block *pklPython.ResourcePython) {
 		if err := dr.processPythonBlock(aID, block); err != nil {
-			// Log the error; additional error handling can be added here if needed.
+			// Log the error; consider additional error handling as needed.
 			dr.Logger.Error("failed to process python block", "actionID", aID, "error", err)
 		}
-	}(actionID, pythonBlock)
+	}(canonicalActionID, pythonBlock)
 
-	// Return immediately while the python block is processed in the background.
+	// Return immediately; the python block is being processed in the background.
 	return nil
 }
 
@@ -74,12 +80,14 @@ func (dr *DependencyResolver) decodePythonBlock(pythonBlock *pklPython.ResourceP
 }
 
 func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *pklPython.ResourcePython) error {
-	if dr.AnacondaInstalled && pythonBlock.CondaEnvironment != nil && *pythonBlock.CondaEnvironment != "" {
-		if err := dr.activateCondaEnvironment(*pythonBlock.CondaEnvironment); err != nil {
+	if dr.AnacondaInstalled && pythonBlock.PythonEnvironment != nil && *pythonBlock.PythonEnvironment != "" {
+		if err := dr.activateCondaEnvironment(*pythonBlock.PythonEnvironment); err != nil {
 			return err
 		}
 
-		defer dr.deactivateCondaEnvironment()
+		defer func() {
+			_ = dr.deactivateCondaEnvironment()
+		}()
 	}
 
 	env := dr.formatPythonEnv(pythonBlock.Env)
@@ -101,26 +109,94 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 	}
 
 	var execStdout, execStderr string
+	var execExitCode int
 	var execErr error
 	if dr.ExecTaskRunnerFn != nil {
 		execStdout, execStderr, execErr = dr.ExecTaskRunnerFn(dr.Context, cmd)
+		// Default exit code for injected runner (assuming success)
+		execExitCode = 0
 	} else {
-		execStdout, execStderr, _, execErr = kdepsexec.RunExecTask(dr.Context, cmd, dr.Logger, false)
+		execStdout, execStderr, execExitCode, execErr = kdepsexec.RunExecTask(dr.Context, cmd, dr.Logger, false)
 	}
 	if execErr != nil {
-		return fmt.Errorf("execution failed: %w", execErr)
+		// Even if there's an error, we should still record the exit code
+		if execExitCode == 0 {
+			execExitCode = 1 // Default error exit code
+		}
 	}
 
 	pythonBlock.Stdout = &execStdout
 	pythonBlock.Stderr = &execStderr
+	pythonBlock.ExitCode = &execExitCode
 
 	ts := pkl.Duration{
-		Value: float64(time.Now().Unix()),
+		Value: float64(time.Now().UnixNano()),
 		Unit:  pkl.Nanosecond,
 	}
 	pythonBlock.Timestamp = &ts
 
-	return dr.AppendPythonEntry(actionID, pythonBlock)
+	// Write the Python output to file for pklres access
+	if pythonBlock.Stdout != nil {
+		dr.Logger.Debug("processPythonBlock: writing stdout to file", "actionID", actionID)
+		filePath, err := dr.WritePythonOutputToFile(actionID, pythonBlock.Stdout)
+		if err != nil {
+			dr.Logger.Error("processPythonBlock: failed to write stdout to file", "actionID", actionID, "error", err)
+			return fmt.Errorf("failed to write stdout to file: %w", err)
+		}
+		pythonBlock.File = &filePath
+		dr.Logger.Debug("processPythonBlock: wrote stdout to file", "actionID", actionID, "filePath", filePath)
+	}
+
+	dr.Logger.Info("processPythonBlock: skipping AppendPythonEntry - using real-time pklres", "actionID", actionID)
+	// Note: AppendPythonEntry is no longer needed as we use real-time pklres access
+	// The Python output files are directly accessible through pklres.getResourceOutput()
+
+	// Store the complete python resource record in the PKL mapping
+	if dr.PklresHelper != nil {
+		// Create a ResourcePython object for storage
+		resourcePython := &pklPython.ResourcePython{
+			Script:            pythonBlock.Script,
+			Env:               pythonBlock.Env,
+			Stdout:            pythonBlock.Stdout,
+			Stderr:            pythonBlock.Stderr,
+			ExitCode:          pythonBlock.ExitCode,
+			File:              pythonBlock.File,
+			Timestamp:         pythonBlock.Timestamp,
+			TimeoutDuration:   pythonBlock.TimeoutDuration,
+			PythonEnvironment: pythonBlock.PythonEnvironment,
+		}
+
+		// Store the resource object using the new method
+		if err := dr.PklresHelper.StoreResourceObject("python", actionID, resourcePython); err != nil {
+			dr.Logger.Error("processPythonBlock: failed to store python resource in pklres", "actionID", actionID, "error", err)
+		} else {
+			dr.Logger.Info("processPythonBlock: stored python resource in pklres", "actionID", actionID)
+		}
+	}
+
+	// Mark the resource as finished processing
+	// Processing status tracking removed - simplified to pure key-value store approach
+
+	return nil
+}
+
+func (dr *DependencyResolver) WritePythonOutputToFile(resourceID string, stdoutEncoded *string) (string, error) {
+	if stdoutEncoded == nil {
+		return "", nil
+	}
+
+	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
+	outputFilePath := filepath.Join(dr.FilesDir, resourceIDFile)
+
+	content, err := utils.DecodeBase64IfNeeded(*stdoutEncoded)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode python stdout: %w", err)
+	}
+
+	if err := afero.WriteFile(dr.Fs, outputFilePath, []byte(content), 0o644); err != nil {
+		return "", fmt.Errorf("failed to write file: %w", err)
+	}
+	return outputFilePath, nil
 }
 
 func (dr *DependencyResolver) activateCondaEnvironment(envName string) error {
@@ -222,106 +298,10 @@ func (dr *DependencyResolver) WritePythonStdoutToFile(resourceID string, stdoutE
 	return outputFilePath, nil
 }
 
-func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pklPython.ResourcePython) error {
-	pklPath := filepath.Join(dr.ActionDir, "python/"+dr.RequestID+"__python_output.pkl")
+// AppendPythonEntry has been removed as it's no longer needed.
+// We now use real-time pklres access through getResourceOutput() instead of storing PKL content.
 
-	res, err := dr.LoadResource(dr.Context, pklPath, PythonResource)
-	if err != nil {
-		return fmt.Errorf("failed to load PKL: %w", err)
-	}
-
-	pklRes, ok := res.(*pklPython.PythonImpl)
-	if !ok {
-		return errors.New("failed to cast pklRes to *pklPython.Resource")
-	}
-
-	resources := pklRes.GetResources()
-	if resources == nil {
-		emptyMap := make(map[string]*pklPython.ResourcePython)
-		resources = &emptyMap
-	}
-	existingResources := *resources
-
-	var filePath string
-	if newPython.Stdout != nil {
-		filePath, err = dr.WritePythonStdoutToFile(resourceID, newPython.Stdout)
-		if err != nil {
-			return fmt.Errorf("failed to write stdout to file: %w", err)
-		}
-		newPython.File = &filePath
-	}
-
-	encodedScript := utils.EncodeValue(newPython.Script)
-	encodedEnv := dr.encodePythonEnv(newPython.Env)
-	encodedStderr, encodedStdout := dr.encodePythonOutputs(newPython.Stderr, newPython.Stdout)
-
-	timeoutDuration := newPython.TimeoutDuration
-	if timeoutDuration == nil {
-		sec := dr.DefaultTimeoutSec
-		if sec <= 0 {
-			sec = 60
-		}
-		timeoutDuration = &pkl.Duration{Value: float64(sec), Unit: pkl.Second}
-	}
-
-	timestamp := &pkl.Duration{
-		Value: float64(time.Now().Unix()),
-		Unit:  pkl.Nanosecond,
-	}
-
-	existingResources[resourceID] = &pklPython.ResourcePython{
-		Env:             encodedEnv,
-		Script:          encodedScript,
-		Stderr:          encodedStderr,
-		Stdout:          encodedStdout,
-		File:            &filePath,
-		Timestamp:       timestamp,
-		TimeoutDuration: timeoutDuration,
-	}
-
-	var pklContent strings.Builder
-	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Python.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
-	pklContent.WriteString("resources {\n")
-
-	for id, res := range existingResources {
-		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
-		pklContent.WriteString(fmt.Sprintf("    script = \"%s\"\n", res.Script))
-
-		if res.TimeoutDuration != nil {
-			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
-		} else {
-			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d.s\n", dr.DefaultTimeoutSec))
-		}
-
-		if res.Timestamp != nil {
-			pklContent.WriteString(fmt.Sprintf("    timestamp = %g.%s\n", res.Timestamp.Value, res.Timestamp.Unit.String()))
-		}
-
-		pklContent.WriteString("    env ")
-		pklContent.WriteString(utils.EncodePklMap(res.Env))
-
-		pklContent.WriteString(dr.encodePythonStderr(res.Stderr))
-		pklContent.WriteString(dr.encodePythonStdout(res.Stdout))
-		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *res.File))
-
-		pklContent.WriteString("  }\n")
-	}
-	pklContent.WriteString("}\n")
-
-	if err := afero.WriteFile(dr.Fs, pklPath, []byte(pklContent.String()), 0o644); err != nil {
-		return fmt.Errorf("failed to write PKL file: %w", err)
-	}
-
-	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath,
-		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Python.pkl\"", schema.SchemaVersion(dr.Context)), dr.Logger)
-	if err != nil {
-		return fmt.Errorf("failed to evaluate PKL: %w", err)
-	}
-
-	return afero.WriteFile(dr.Fs, pklPath, []byte(evaluatedContent), 0o644)
-}
-
-func (dr *DependencyResolver) encodePythonEnv(env *map[string]string) *map[string]string {
+func (dr *DependencyResolver) EncodePythonEnv(env *map[string]string) *map[string]string {
 	if env == nil {
 		return nil
 	}
@@ -332,20 +312,20 @@ func (dr *DependencyResolver) encodePythonEnv(env *map[string]string) *map[strin
 	return &encoded
 }
 
-func (dr *DependencyResolver) encodePythonOutputs(stderr, stdout *string) (*string, *string) {
+func (dr *DependencyResolver) EncodePythonOutputs(stderr, stdout *string) (*string, *string) {
 	return utils.EncodeValuePtr(stderr), utils.EncodeValuePtr(stdout)
 }
 
-func (dr *DependencyResolver) encodePythonStderr(stderr *string) string {
+func (dr *DependencyResolver) EncodePythonStderr(stderr *string) string {
 	if stderr == nil {
-		return "    stderr = \"\"\n"
+		return "    Stderr = \"\"\n"
 	}
-	return fmt.Sprintf("    stderr = #\"\"\"\n%s\n\"\"\"#\n", *stderr)
+	return fmt.Sprintf("    Stderr = #\"\"\"\n%s\n\"\"\"#\n", *stderr)
 }
 
-func (dr *DependencyResolver) encodePythonStdout(stdout *string) string {
+func (dr *DependencyResolver) EncodePythonStdout(stdout *string) string {
 	if stdout == nil {
-		return "    stdout = \"\"\n"
+		return "    Stdout = \"\"\n"
 	}
-	return fmt.Sprintf("    stdout = #\"\"\"\n%s\n\"\"\"#\n", *stdout)
+	return fmt.Sprintf("    Stdout = #\"\"\"\n%s\n\"\"\"#\n", *stdout)
 }

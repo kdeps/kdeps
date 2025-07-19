@@ -1,4 +1,4 @@
-package resolver
+package resolver_test
 
 import (
 	"database/sql"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/kdeps/kdeps/pkg/item"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/resolver"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/afero"
 )
@@ -23,7 +24,7 @@ func TestClearItemDB(t *testing.T) {
 		t.Fatalf("InitializeItem failed: %v", err)
 	}
 
-	dr := &DependencyResolver{
+	dr := &resolver.DependencyResolver{
 		Fs:         fs,
 		Logger:     logging.NewTestLogger(),
 		ItemReader: reader,

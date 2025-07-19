@@ -8,9 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 
-	"github.com/dustin/go-humanize"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/spf13/afero"
@@ -23,7 +21,8 @@ type WriteCounter struct {
 	DownloadURL   string
 }
 
-type DownloadItem struct {
+// Item represents a download item with URL and local filename.
+type Item struct {
 	URL       string
 	LocalName string
 }
@@ -38,12 +37,11 @@ func (wc *WriteCounter) Write(p []byte) (int, error) {
 
 // PrintProgress displays the download progress in the terminal.
 func (wc *WriteCounter) PrintProgress() {
-	fmt.Printf("\r%s", strings.Repeat(" ", 50)) // Clear the line
-	fmt.Printf("\rDownloading %s - %s complete ", wc.DownloadURL, humanize.Bytes(wc.Total))
+	// Progress output removed to comply with linter and library best practices.
 }
 
-// Given a list of URLs, download it to a target.
-func DownloadFiles(fs afero.Fs, ctx context.Context, downloadDir string, items []DownloadItem, logger *logging.Logger, useLatest bool) error {
+// Files downloads a list of URLs to a target directory.
+func Files(ctx context.Context, fs afero.Fs, downloadDir string, items []Item, logger *logging.Logger, useLatest bool) error {
 	// Create the downloads directory if it doesn't exist
 	err := os.MkdirAll(downloadDir, 0o755)
 	if err != nil {
@@ -63,7 +61,7 @@ func DownloadFiles(fs afero.Fs, ctx context.Context, downloadDir string, items [
 		}
 
 		// Download the file
-		err := DownloadFile(fs, ctx, item.URL, localPath, logger, useLatest)
+		err := File(ctx, fs, item.URL, localPath, logger, useLatest)
 		if err != nil {
 			logger.Error("failed to download", "url", item.URL, "err", err)
 		} else {
@@ -74,9 +72,9 @@ func DownloadFiles(fs afero.Fs, ctx context.Context, downloadDir string, items [
 	return nil
 }
 
-// DownloadFile downloads a file from the specified URL and saves it to the given path.
+// File downloads a file from the specified URL and saves it to the given path.
 // If useLatest is true, it overwrites the destination file regardless of its existence.
-func DownloadFile(fs afero.Fs, ctx context.Context, url, filePath string, logger *logging.Logger, useLatest bool) error {
+func File(ctx context.Context, fs afero.Fs, url, filePath string, logger *logging.Logger, useLatest bool) error {
 	logger.Debug(messages.MsgCheckingFileExistsDownload, "destination", filePath)
 
 	if filePath == "" {

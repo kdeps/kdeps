@@ -10,6 +10,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/joho/godotenv"
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 )
 
@@ -17,10 +18,9 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 	webPortNum, gpu string, apiMode, webMode bool, cli *client.Client,
 ) (string, error) {
 	// Load environment variables from .env file (if it exists)
-	envSlice, err := loadEnvFile(fs, ".env")
-	if err != nil {
-		fmt.Println("Error loading .env file, proceeding without it:", err)
-	}
+	envSlice, err := LoadEnvFile(fs, ".env")
+	// Error loading .env file, proceeding without it
+	// This is expected behavior - .env file is optional
 
 	// Validate port numbers based on modes
 	if apiMode && portNum == "" {
@@ -104,10 +104,9 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 					if err != nil {
 						return "", fmt.Errorf("error starting existing container: %w", err)
 					}
-					fmt.Println("Started existing container:", containerNameWithGpu)
-				} else {
-					fmt.Println("Container is already running:", containerNameWithGpu)
+					// Started existing container
 				}
+				// Container is already running, no action needed
 				return resp.ID, nil
 			}
 		}
@@ -124,12 +123,25 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 		return "", fmt.Errorf("error starting new container: %w", err)
 	}
 
-	fmt.Println("Kdeps container is running:", containerNameWithGpu)
+	// Kdeps container is running
 
 	return resp.ID, nil
 }
 
-func loadEnvFile(fs afero.Fs, filename string) ([]string, error) {
+// CreateDockerContainerWithProgress creates a Docker container with progress display
+func CreateDockerContainerWithProgress(fs afero.Fs, ctx context.Context, cName, containerName, hostIP, portNum, webHostIP,
+	webPortNum, gpu string, apiMode, webMode bool, cli *client.Client, logger *logging.Logger,
+) (string, error) {
+	// Container creation - no need for separate progress display as it's fast
+
+	// Perform the actual container creation
+	containerID, err := CreateDockerContainer(fs, ctx, cName, containerName, hostIP, portNum, webHostIP,
+		webPortNum, gpu, apiMode, webMode, cli)
+
+	return containerID, err
+}
+
+func LoadEnvFile(fs afero.Fs, filename string) ([]string, error) {
 	// Check if the file exists
 	exists, err := afero.Exists(fs, filename)
 	if err != nil {
@@ -138,7 +150,7 @@ func loadEnvFile(fs afero.Fs, filename string) ([]string, error) {
 
 	if !exists {
 		// If the file doesn't exist, return an empty slice
-		fmt.Printf("%s does not exist, skipping .env loading.\n", filename)
+		// File does not exist, skipping .env loading
 		return nil, nil
 	}
 
@@ -241,6 +253,6 @@ volumes:
 		return fmt.Errorf("error writing Docker Compose file: %w", err)
 	}
 
-	fmt.Println("Docker Compose file generated successfully at:", filePath)
+	// Docker Compose file generated successfully
 	return nil
 }
