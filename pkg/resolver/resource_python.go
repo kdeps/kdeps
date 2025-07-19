@@ -25,9 +25,9 @@ func (dr *DependencyResolver) HandlePython(actionID string, pythonBlock *pklPyth
 		}
 	}
 
-	// Decode the python block synchronously
+	// Process the python block synchronously
 	if err := dr.decodePythonBlock(pythonBlock); err != nil {
-		dr.Logger.Error("failed to decode python block", "actionID", canonicalActionID, "error", err)
+		dr.Logger.Error("failed to process python block", "actionID", canonicalActionID, "error", err)
 		return err
 	}
 
@@ -44,38 +44,7 @@ func (dr *DependencyResolver) HandlePython(actionID string, pythonBlock *pklPyth
 }
 
 func (dr *DependencyResolver) decodePythonBlock(pythonBlock *pklPython.ResourcePython) error {
-	// Decode Script
-	decodedScript, err := utils.DecodeBase64IfNeeded(pythonBlock.Script)
-	if err != nil {
-		return fmt.Errorf("failed to decode script: %w", err)
-	}
-	pythonBlock.Script = decodedScript
-
-	// Decode Stderr
-	if pythonBlock.Stderr != nil {
-		decodedStderr, err := utils.DecodeBase64IfNeeded(*pythonBlock.Stderr)
-		if err != nil {
-			return fmt.Errorf("failed to decode stderr: %w", err)
-		}
-		pythonBlock.Stderr = &decodedStderr
-	}
-
-	// Decode Stdout
-	if pythonBlock.Stdout != nil {
-		decodedStdout, err := utils.DecodeBase64IfNeeded(*pythonBlock.Stdout)
-		if err != nil {
-			return fmt.Errorf("failed to decode stdout: %w", err)
-		}
-		pythonBlock.Stdout = &decodedStdout
-	}
-
-	// Decode Env
-	decodedEnv, err := utils.DecodeStringMap(pythonBlock.Env, "env")
-	if err != nil {
-		return fmt.Errorf("failed to decode env: %w", err)
-	}
-	pythonBlock.Env = decodedEnv
-
+	// No processing needed - data is already in proper format
 	return nil
 }
 
@@ -167,7 +136,8 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 		}
 
 		// Store the resource object using the new method
-		if err := dr.PklresHelper.StoreResourceObject("python", actionID, resourcePython); err != nil {
+		// Store python resource attributes using the new generic approach
+		if err := dr.PklresHelper.Set(actionID, "script", resourcePython.Script); err != nil {
 			dr.Logger.Error("processPythonBlock: failed to store python resource in pklres", "actionID", actionID, "error", err)
 		} else {
 			dr.Logger.Info("processPythonBlock: stored python resource in pklres", "actionID", actionID)
@@ -180,20 +150,16 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 	return nil
 }
 
-func (dr *DependencyResolver) WritePythonOutputToFile(resourceID string, stdoutEncoded *string) (string, error) {
-	if stdoutEncoded == nil {
+func (dr *DependencyResolver) WritePythonOutputToFile(resourceID string, stdout *string) (string, error) {
+	if stdout == nil {
 		return "", nil
 	}
 
 	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
 	outputFilePath := filepath.Join(dr.FilesDir, resourceIDFile)
 
-	content, err := utils.DecodeBase64IfNeeded(*stdoutEncoded)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode python stdout: %w", err)
-	}
-
-	if err := afero.WriteFile(dr.Fs, outputFilePath, []byte(content), 0o644); err != nil {
+	// Write the stdout content directly without base64 decoding
+	if err := afero.WriteFile(dr.Fs, outputFilePath, []byte(*stdout), 0o644); err != nil {
 		return "", fmt.Errorf("failed to write file: %w", err)
 	}
 	return outputFilePath, nil
@@ -278,20 +244,16 @@ func (dr *DependencyResolver) cleanupTempFile(name string) {
 	}
 }
 
-func (dr *DependencyResolver) WritePythonStdoutToFile(resourceID string, stdoutEncoded *string) (string, error) {
-	if stdoutEncoded == nil {
+func (dr *DependencyResolver) WritePythonStdoutToFile(resourceID string, stdout *string) (string, error) {
+	if stdout == nil {
 		return "", nil
-	}
-
-	content, err := utils.DecodeBase64IfNeeded(*stdoutEncoded)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode stdout: %w", err)
 	}
 
 	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
 	outputFilePath := filepath.Join(dr.FilesDir, resourceIDFile)
 
-	if err := afero.WriteFile(dr.Fs, outputFilePath, []byte(content), 0o644); err != nil {
+	// Write the stdout content directly without base64 decoding
+	if err := afero.WriteFile(dr.Fs, outputFilePath, []byte(*stdout), 0o644); err != nil {
 		return "", fmt.Errorf("failed to write stdout to file: %w", err)
 	}
 
@@ -301,31 +263,3 @@ func (dr *DependencyResolver) WritePythonStdoutToFile(resourceID string, stdoutE
 // AppendPythonEntry has been removed as it's no longer needed.
 // We now use real-time pklres access through getResourceOutput() instead of storing PKL content.
 
-func (dr *DependencyResolver) EncodePythonEnv(env *map[string]string) *map[string]string {
-	if env == nil {
-		return nil
-	}
-	encoded := make(map[string]string)
-	for k, v := range *env {
-		encoded[k] = utils.EncodeValue(v)
-	}
-	return &encoded
-}
-
-func (dr *DependencyResolver) EncodePythonOutputs(stderr, stdout *string) (*string, *string) {
-	return utils.EncodeValuePtr(stderr), utils.EncodeValuePtr(stdout)
-}
-
-func (dr *DependencyResolver) EncodePythonStderr(stderr *string) string {
-	if stderr == nil {
-		return "    Stderr = \"\"\n"
-	}
-	return fmt.Sprintf("    Stderr = #\"\"\"\n%s\n\"\"\"#\n", *stderr)
-}
-
-func (dr *DependencyResolver) EncodePythonStdout(stdout *string) string {
-	if stdout == nil {
-		return "    Stdout = \"\"\n"
-	}
-	return fmt.Sprintf("    Stdout = #\"\"\"\n%s\n\"\"\"#\n", *stdout)
-}

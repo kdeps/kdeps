@@ -3,7 +3,6 @@ package utils
 import (
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"unicode/utf8"
 )
 
@@ -51,55 +50,33 @@ func EncodeBase64String(s string) string {
 	return base64.StdEncoding.EncodeToString([]byte(s))
 }
 
+// DecodeBase64IfNeeded now returns the string directly without base64 decoding
 func DecodeBase64IfNeeded(value string) (string, error) {
-	if IsBase64Encoded(value) {
-		return DecodeBase64String(value)
-	}
 	return value, nil
 }
 
+// EncodeValue now returns the string directly without base64 encoding
 func EncodeValue(value string) string {
-	if !IsBase64Encoded(value) {
-		return EncodeBase64String(value)
-	}
 	return value
 }
 
-// EncodeValuePtr handles optional string pointers (like Stderr/Stdout).
+// EncodeValuePtr now returns the string pointer directly without base64 encoding
 func EncodeValuePtr(s *string) *string {
-	if s == nil {
-		return nil
-	}
-	encoded := EncodeValue(*s)
-	return &encoded
+	return s
 }
 
+// DecodeStringMap now returns the map directly without base64 decoding
 func DecodeStringMap(src *map[string]string, fieldType string) (*map[string]string, error) {
 	if src == nil {
 		return nil, errors.New("source map is nil")
 	}
-	decoded := make(map[string]string)
-	for k, v := range *src {
-		decodedVal, err := DecodeBase64IfNeeded(v)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode %s %s: %w", fieldType, k, err)
-		}
-		decoded[k] = decodedVal
-	}
-	return &decoded, nil
+	return src, nil
 }
 
+// DecodeStringSlice now returns the slice directly without base64 decoding
 func DecodeStringSlice(src *[]string, fieldType string) (*[]string, error) {
 	if src == nil {
 		return nil, errors.New("source slice is nil")
 	}
-	decoded := make([]string, len(*src))
-	for i, v := range *src {
-		decodedVal, err := DecodeBase64IfNeeded(v)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode %s index %d: %w", fieldType, i, err)
-		}
-		decoded[i] = decodedVal
-	}
-	return &decoded, nil
+	return src, nil
 }

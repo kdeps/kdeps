@@ -63,7 +63,7 @@ func TestPrepareImportFiles_CreatesFiles(t *testing.T) {
 	// Verify that skeleton records exist in pklres instead of on-disk files
 	resourceTypes := []string{"llm", "client", "exec", "python", "data"}
 	for _, rt := range resourceTypes {
-		_, err := dr.PklresHelper.RetrievePklContent(rt, "__empty__")
+		_, err := dr.PklresHelper.Get(rt, "initialized")
 		assert.NoError(t, err)
 	}
 }
@@ -203,7 +203,7 @@ func TestPrepareImportFilesCreatesStubs(t *testing.T) {
 	// Verify that skeleton records exist in pklres instead of on-disk files
 	resourceTypes := []string{"llm", "client", "exec", "python", "data"}
 	for _, rt := range resourceTypes {
-		_, err := dr.PklresHelper.RetrievePklContent(rt, "__empty__")
+		_, err := dr.PklresHelper.Get(rt, "initialized")
 		assert.NoError(t, err, rt+" record not created")
 	}
 }

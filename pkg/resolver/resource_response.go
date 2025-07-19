@@ -12,9 +12,11 @@ import (
 	"time"
 
 	"github.com/apple/pkl-go/pkl"
+	"github.com/kdeps/kdeps/pkg"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/template"
 	"github.com/kdeps/kdeps/pkg/utils"
 	apiserverresponse "github.com/kdeps/schema/gen/api_server_response"
 	"github.com/spf13/afero"
@@ -43,6 +45,29 @@ type ErrorResponse struct {
 	Code     int    `json:"code"`
 	Message  string `json:"message"`
 	ActionID string `json:"actionId,omitempty"`
+}
+
+// APIResponseTemplateData represents the data for the API response template
+type APIResponseTemplateData struct {
+	Header         string
+	DocumentImport string
+	MemoryImport   string
+	SessionImport  string
+	ToolImport     string
+	ItemImport     string
+	AgentImport    string
+	Success        bool
+	RequestID      string
+	Headers        map[string]string
+	Properties     map[string]string
+	ResponseData   []string
+	Errors         []ErrorTemplateData
+}
+
+// ErrorTemplateData represents error data for the template
+type ErrorTemplateData struct {
+	Code    int
+	Message string
 }
 
 // CreateResponseGoJSON generates a JSON response using pure Go instead of PKL evaluation
@@ -117,7 +142,7 @@ func (dr *DependencyResolver) CreateResponseGoJSON(apiResponseBlock apiserverres
 	}
 
 	// Write the JSON response to the target file
-	if err := afero.WriteFile(dr.Fs, dr.ResponseTargetFile, jsonData, 0o644); err != nil {
+	if err := afero.WriteFile(dr.Fs, dr.ResponseTargetFile, jsonData, pkg.DefaultOctalFilePerms); err != nil {
 		return fmt.Errorf("failed to write JSON response file: %w", err)
 	}
 
@@ -172,17 +197,11 @@ func (dr *DependencyResolver) processValue(value interface{}) interface{} {
 
 	// Handle string values (check for base64 encoding)
 	if str, ok := value.(string); ok {
-		// Try to decode base64 if it looks like base64
-		if dr.isBase64String(str) {
-			decoded, err := utils.DecodeBase64IfNeeded(str)
-			if err == nil {
-				// Try to parse as JSON
-				var jsonData interface{}
-				if err := json.Unmarshal([]byte(decoded), &jsonData); err == nil {
-					return jsonData
-				}
-				return decoded
-			}
+		// Use string directly without base64 decoding
+		// Try to parse as JSON
+		var jsonData interface{}
+		if err := json.Unmarshal([]byte(str), &jsonData); err == nil {
+			return jsonData
 		}
 		return str
 	}
@@ -209,26 +228,6 @@ func (dr *DependencyResolver) processValue(value interface{}) interface{} {
 	return value
 }
 
-// isBase64String checks if a string is base64 encoded using simple heuristics
-func (dr *DependencyResolver) isBase64String(s string) bool {
-	if len(s) == 0 || len(s)%4 != 0 {
-		return false
-	}
-
-	// Basic checks - doesn't start with JSON characters
-	if strings.HasPrefix(s, "{") || strings.HasPrefix(s, "[") || strings.HasPrefix(s, "\"") {
-		return false
-	}
-
-	// Check for base64 characters (simplified)
-	for _, c := range s {
-		if !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '+' || c == '/' || c == '=') {
-			return false
-		}
-	}
-
-	return true
-}
 
 // createFallbackResponseData creates meaningful fallback data when the original response is empty
 func (dr *DependencyResolver) createFallbackResponseData() interface{} {
@@ -281,7 +280,7 @@ func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverre
 		}
 	}
 
-	// Set the request ID for output file lookup (kept for backward compatibility)
+	// Set the request ID for output file lookup
 	os.Setenv("KDEPS_REQUEST_ID", dr.RequestID)
 
 	if err := dr.DBs[0].PingContext(context.Background()); err != nil {
@@ -321,7 +320,7 @@ func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverre
 	}
 
 	// Write the JSON response to the target file
-	if err := afero.WriteFile(dr.Fs, dr.ResponseTargetFile, []byte(jsonResponse), 0o644); err != nil {
+	if err := afero.WriteFile(dr.Fs, dr.ResponseTargetFile, []byte(jsonResponse), pkg.DefaultOctalFilePerms); err != nil {
 		return fmt.Errorf("failed to write JSON response to target file: %w", err)
 	}
 
@@ -397,20 +396,110 @@ func (dr *DependencyResolver) buildResponseSections(requestID string, apiRespons
 		dr.Logger.Info("Response data is not empty, using original", "requestID", requestID, "dataLength", len(responseData.Data))
 	}
 
-	sections := []string{
-		fmt.Sprintf(`import "%s" as document`, schema.ImportPath(dr.Context, "Document.pkl")),
-		fmt.Sprintf(`import "%s" as memory`, schema.ImportPath(dr.Context, "Memory.pkl")),
-		fmt.Sprintf(`import "%s" as session`, schema.ImportPath(dr.Context, "Session.pkl")),
-		fmt.Sprintf(`import "%s" as tool`, schema.ImportPath(dr.Context, "Tool.pkl")),
-		fmt.Sprintf(`import "%s" as item`, schema.ImportPath(dr.Context, "Item.pkl")),
-		fmt.Sprintf(`import "%s" as agent`, schema.ImportPath(dr.Context, "Agent.pkl")),
-		fmt.Sprintf("Success = %v", isSuccess),
-		formatResponseMeta(requestID, apiResponseBlock.GetMeta()),
-		formatResponseData(responseData), // Use the fallback data if original was empty
-		formatErrors(&responseErrors, dr.Logger),
+	// Prepare template data
+	templateData := APIResponseTemplateData{
+		Header:         "",
+		DocumentImport: schema.ImportPath(dr.Context, "Document.pkl"),
+		MemoryImport:   schema.ImportPath(dr.Context, "Memory.pkl"),
+		SessionImport:  schema.ImportPath(dr.Context, "Session.pkl"),
+		ToolImport:     schema.ImportPath(dr.Context, "Tool.pkl"),
+		ItemImport:     schema.ImportPath(dr.Context, "Item.pkl"),
+		AgentImport:    schema.ImportPath(dr.Context, "Agent.pkl"),
+		Success:        isSuccess,
+		RequestID:      requestID,
+		Headers:        make(map[string]string),
+		Properties:     make(map[string]string),
+		ResponseData:   []string{},
+		Errors:         []ErrorTemplateData{},
 	}
-	return sections
+
+	// Add headers if present
+	if meta := apiResponseBlock.GetMeta(); meta != nil {
+		if meta.Headers != nil {
+			templateData.Headers = *meta.Headers
+		}
+		if meta.Properties != nil {
+			templateData.Properties = *meta.Properties
+		}
+	}
+
+	// Add response data
+	if responseData != nil && responseData.Data != nil {
+		for _, data := range responseData.Data {
+			templateData.ResponseData = append(templateData.ResponseData, formatDataValue(data))
+		}
+	}
+
+	// Add errors
+	for _, err := range responseErrors {
+		if err != nil {
+			templateData.Errors = append(templateData.Errors, ErrorTemplateData{
+				Code:    err.Code,
+				Message: err.Message,
+			})
+		}
+	}
+
+	// Convert template data to map[string]string for LoadTemplate
+	templateMap := map[string]string{
+		"Header":         templateData.Header,
+		"DocumentImport": templateData.DocumentImport,
+		"MemoryImport":   templateData.MemoryImport,
+		"SessionImport":  templateData.SessionImport,
+		"ToolImport":     templateData.ToolImport,
+		"ItemImport":     templateData.ItemImport,
+		"AgentImport":    templateData.AgentImport,
+		"Success":        fmt.Sprintf("%v", templateData.Success),
+		"RequestID":      templateData.RequestID,
+	}
+
+	// Add headers as string
+	if len(templateData.Headers) > 0 {
+		headersList := make([]string, 0, len(templateData.Headers))
+		for k, v := range templateData.Headers {
+			headersList = append(headersList, fmt.Sprintf(`["%s"] = "%s"`, k, v))
+		}
+		templateMap["Headers"] = strings.Join(headersList, "\n        ")
+	}
+
+	// Add properties as string
+	if len(templateData.Properties) > 0 {
+		propsList := make([]string, 0, len(templateData.Properties))
+		for k, v := range templateData.Properties {
+			propsList = append(propsList, fmt.Sprintf(`["%s"] = "%s"`, k, v))
+		}
+		templateMap["Properties"] = strings.Join(propsList, "\n        ")
+	}
+
+	// Add response data
+	templateMap["ResponseData"] = strings.Join(templateData.ResponseData, "\n        ")
+
+	// Add errors as string
+	if len(templateData.Errors) > 0 {
+		errorsList := make([]string, 0, len(templateData.Errors))
+		for _, err := range templateData.Errors {
+			errorsList = append(errorsList, fmt.Sprintf(`new {
+        Code = %d
+        Message = #"""
+%s
+"""#
+    }`, err.Code, err.Message))
+		}
+		templateMap["Errors"] = strings.Join(errorsList, "\n    ")
+	}
+
+	// Generate PKL content using template
+	content, err := template.LoadTemplate("api_response.pkl", templateMap)
+	if err != nil {
+		dr.Logger.Error("failed to render API response template", "error", err)
+		// Fallback to single section with error
+		return []string{fmt.Sprintf("Success = false\nErrors { new { Code = 500; Message = \"Template rendering failed: %s\" } }", err.Error())}
+	}
+
+	// Return the generated content as a single section
+	return []string{content}
 }
+
 
 func formatResponseData(response *apiserverresponse.APIServerResponseBlock) string {
 	if response == nil || response.Data == nil {
@@ -521,7 +610,29 @@ func structToMap(s interface{}) map[interface{}]interface{} {
 
 // This is the 'data' array in the API response
 func formatDataValue(value interface{}) string {
-	return formatValue(value)
+	switch v := value.(type) {
+	case string:
+		// For strings, generate document.jsonRenderDocument call with proper multi-line string format
+		return fmt.Sprintf(`document.jsonRenderDocument("""
+%s
+""")`, v)
+	case map[string]interface{}, map[interface{}]interface{}:
+		// For maps, use the existing formatValue logic
+		return formatValue(v)
+	case nil:
+		return "null"
+	default:
+		// For other types, convert to JSON and use document.jsonRenderDocument
+		jsonBytes, err := json.Marshal(v)
+		if err != nil {
+			// Fallback to formatValue if JSON marshaling fails
+			return formatValue(v)
+		}
+		// For other types, convert to JSON and use document.jsonRenderDocument with proper multi-line string format
+		return fmt.Sprintf(`document.jsonRenderDocument("""
+%s
+""")`, string(jsonBytes))
+	}
 }
 
 func formatErrors(errors *[]*apiserverresponse.APIServerErrorsBlock, logger *logging.Logger) string {
@@ -532,14 +643,13 @@ func formatErrors(errors *[]*apiserverresponse.APIServerErrorsBlock, logger *log
 	var newBlocks string
 	for _, err := range *errors {
 		if err != nil {
-			decodedMessage := decodeErrorMessage(err.Message, logger)
 			newBlocks += fmt.Sprintf(`
   new {
     Code = %d
     Message = #"""
 %s
 """#
-  }`, err.Code, decodedMessage)
+  }`, err.Code, err.Message)
 		}
 	}
 
@@ -550,17 +660,6 @@ func formatErrors(errors *[]*apiserverresponse.APIServerErrorsBlock, logger *log
 	return ""
 }
 
-func decodeErrorMessage(message string, logger *logging.Logger) string {
-	if message == "" {
-		return ""
-	}
-	decoded, err := utils.DecodeBase64IfNeeded(message)
-	if err != nil {
-		logger.Warn("failed to decode error message", "message", message, "error", err)
-		return message
-	}
-	return decoded
-}
 
 // createFallbackResponseData creates meaningful fallback data when the original response is empty
 func createFallbackResponseData(dr *DependencyResolver) string {
@@ -645,7 +744,7 @@ func (dr *DependencyResolver) EvalPklFormattedResponseFile() (string, error) {
 	}
 
 	// Write result to target file
-	if err := afero.WriteFile(dr.Fs, dr.ResponseTargetFile, []byte(result), 0o644); err != nil {
+	if err := afero.WriteFile(dr.Fs, dr.ResponseTargetFile, []byte(result), pkg.DefaultOctalFilePerms); err != nil {
 		return "", fmt.Errorf("write result to target file: %w", err)
 	}
 
@@ -824,14 +923,6 @@ func (dr *DependencyResolver) HandleAPIErrorResponse(code int, message string, f
 	return fatal, fmt.Errorf("validation failed (code %d): %s", code, message)
 }
 
-// Exported for testing
-var (
-	EncodeResponseHeaders = encodeResponseHeaders
-	EncodeResponseBody    = encodeResponseBody
-)
-
-// Exported for testing
-var DecodeErrorMessage = decodeErrorMessage
 
 // Exported for testing
 var FormatResponseMeta = formatResponseMeta

@@ -24,9 +24,9 @@ func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.Res
 		}
 	}
 
-	// Decode the exec block synchronously
+	// Process the exec block synchronously
 	if err := dr.DecodeExecBlock(execBlock); err != nil {
-		dr.Logger.Error("failed to decode exec block", "actionID", canonicalActionID, "error", err)
+		dr.Logger.Error("failed to process exec block", "actionID", canonicalActionID, "error", err)
 		return err
 	}
 
@@ -39,42 +39,9 @@ func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.Res
 	return nil
 }
 
-// DecodeExecBlock decodes an exec block by processing base64 encoded fields
+// ProcessExecBlock processes an exec block - no decoding needed
 func (dr *DependencyResolver) DecodeExecBlock(execBlock *pklExec.ResourceExec) error {
-	// Decode Command
-	decodedCommand, err := utils.DecodeBase64IfNeeded(execBlock.Command)
-	if err != nil {
-		return fmt.Errorf("failed to decode command: %w", err)
-	}
-	execBlock.Command = decodedCommand
-
-	// Decode Stderr
-	if execBlock.Stderr != nil {
-		decodedStderr, err := utils.DecodeBase64IfNeeded(*execBlock.Stderr)
-		if err != nil {
-			return fmt.Errorf("failed to decode stderr: %w", err)
-		}
-		execBlock.Stderr = &decodedStderr
-	}
-
-	// Decode Stdout
-	if execBlock.Stdout != nil {
-		decodedStdout, err := utils.DecodeBase64IfNeeded(*execBlock.Stdout)
-		if err != nil {
-			return fmt.Errorf("failed to decode stdout: %w", err)
-		}
-		execBlock.Stdout = &decodedStdout
-	}
-
-	// Decode Env values
-	if execBlock.Env != nil {
-		decodedEnv, err := utils.DecodeStringMap(execBlock.Env, "env")
-		if err != nil {
-			return fmt.Errorf("failed to decode env: %w", err)
-		}
-		execBlock.Env = decodedEnv
-	}
-
+	// No processing needed - data is already in proper format
 	return nil
 }
 
@@ -154,7 +121,8 @@ func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklEx
 		}
 
 		// Store the resource object using the new method
-		if err := dr.PklresHelper.StoreResourceObject("exec", actionID, resourceExec); err != nil {
+		// Store exec resource attributes using the new generic approach
+		if err := dr.PklresHelper.Set(actionID, "command", resourceExec.Command); err != nil {
 			dr.Logger.Error("processExecBlock: failed to store exec resource in pklres", "actionID", actionID, "error", err)
 		} else {
 			dr.Logger.Info("processExecBlock: stored exec resource in pklres", "actionID", actionID)
@@ -167,20 +135,16 @@ func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklEx
 	return nil
 }
 
-func (dr *DependencyResolver) WriteStdoutToFile(resourceID string, stdoutEncoded *string) (string, error) {
-	if stdoutEncoded == nil {
+func (dr *DependencyResolver) WriteStdoutToFile(resourceID string, stdout *string) (string, error) {
+	if stdout == nil {
 		return "", nil
 	}
 
 	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
 	outputFilePath := filepath.Join(dr.FilesDir, resourceIDFile)
 
-	content, err := utils.DecodeBase64IfNeeded(*stdoutEncoded)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode stdout: %w", err)
-	}
-
-	if err := afero.WriteFile(dr.Fs, outputFilePath, []byte(content), 0o644); err != nil {
+	// Write the stdout content directly without base64 decoding
+	if err := afero.WriteFile(dr.Fs, outputFilePath, []byte(*stdout), 0o644); err != nil {
 		return "", fmt.Errorf("failed to write file: %w", err)
 	}
 
@@ -190,48 +154,3 @@ func (dr *DependencyResolver) WriteStdoutToFile(resourceID string, stdoutEncoded
 // AppendExecEntry has been removed as it's no longer needed.
 // We now use real-time pklres access through getResourceOutput() instead of storing PKL content.
 
-func (dr *DependencyResolver) encodeExecEnv(env *map[string]string) *map[string]string {
-	if env == nil {
-		return nil
-	}
-	encoded := make(map[string]string)
-	for k, v := range *env {
-		encoded[k] = utils.EncodeValue(v)
-	}
-	return &encoded
-}
-
-func (dr *DependencyResolver) encodeExecOutputs(stderr, stdout *string) (*string, *string) {
-	return utils.EncodeValuePtr(stderr), utils.EncodeValuePtr(stdout)
-}
-
-func (dr *DependencyResolver) encodeExecStderr(stderr *string) string {
-	if stderr == nil {
-		return "    Stderr = \"\"\n"
-	}
-	return fmt.Sprintf("    Stderr = #\"\"\"\n%s\n\"\"\"#\n", *stderr)
-}
-
-func (dr *DependencyResolver) encodeExecStdout(stdout *string) string {
-	if stdout == nil {
-		return "    Stdout = \"\"\n"
-	}
-	return fmt.Sprintf("    Stdout = #\"\"\"\n%s\n\"\"\"#\n", *stdout)
-}
-
-// Exported for testing
-func (dr *DependencyResolver) EncodeExecEnv(env *map[string]string) *map[string]string {
-	return dr.encodeExecEnv(env)
-}
-
-func (dr *DependencyResolver) EncodeExecOutputs(stderr, stdout *string) (*string, *string) {
-	return dr.encodeExecOutputs(stderr, stdout)
-}
-
-func (dr *DependencyResolver) EncodeExecStderr(stderr *string) string {
-	return dr.encodeExecStderr(stderr)
-}
-
-func (dr *DependencyResolver) EncodeExecStdout(stdout *string) string {
-	return dr.encodeExecStdout(stdout)
-}

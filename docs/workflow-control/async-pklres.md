@@ -1,79 +1,75 @@
-# Async PKLRes Dependency Resolution
-
-The async PKLRes system provides automatic dependency resolution and caching for pklres operations during workflow execution. This system ensures that pklres key values are pre-resolved and available when needed, based on the graph resolver's execution order.
+# Asynchronous PKL Resource System (Pklres)
 
 ## Overview
 
-When a run action is executed, the system:
+Pklres is a **generic key-value store** that can record anything from shallow to deep nested data without schema restrictions. It's scoped by `graphID` and uses `actionID` as collection keys.
 
-1. **Pre-resolves all pklres dependencies** based on the graph resolver's execution order
-2. **Caches dependency relationships** between resources
-3. **Manages async execution** where resources wait for their dependencies to complete
-4. **Ignores pklres calls** that don't exist in the pre and post graph execution
+## Key Features
 
-## How It Works
+### 1. Generic Storage
+- **No schema restrictions**: Can store any data structure
+- **Flexible data types**: From simple strings to complex nested objects
+- **JSON-based**: All values are stored and retrieved as JSON
 
-### 1. Dependency Pre-Resolution
+### 2. Simple Operations
+- `get(collectionKey, key)` - Retrieve a value
+- `set(collectionKey, key, value)` - Store a value  
+- `list(collectionKey)` - List all keys in a collection
 
-During `HandleRunAction()`, the system calls `PreResolveDependencies()` with:
-- The execution order from the graph resolver
-- The resource dependencies map
+### 3. Scoping and Organization
+- **Scope**: `graphID` (request ID) ensures data isolation between workflow executions
+- **Collection**: `actionID` (canonicalized) organizes data by resource
+- **Storage Structure**: `graphID -> actionID -> key -> value`
 
-```go
-// Pre-resolve all pklres dependencies based on the execution order
-if dr.PklresReader != nil {
-    if err := dr.PklresReader.PreResolveDependencies(stack, dr.ResourceDependencies); err != nil {
-        // Handle error
-    }
-}
+## Architecture
+
+### Storage Structure
+```
+graphID (request ID) -> actionID (canonical) -> key -> value (JSON)
 ```
 
-### 2. Dependency Status Management
+### Key Components
 
-Each resource in the execution order gets a `DependencyData` structure:
+1. **PklResourceReader**: Implements the generic key-value store
+2. **PklresHelper**: Provides a simple interface for Go code
+3. **PKL Functions**: Core functions for PKL integration
 
-```go
-type DependencyData struct {
-    ActionID      string    `json:"actionID"`
-    Dependents    []string  `json:"dependents"`     // Resources that depend on this
-    Dependencies  []string  `json:"dependencies"`   // Resources this depends on
-    Status        string    `json:"status"`         // "pending", "processing", "completed", "error"
-    ResultData    string    `json:"resultData"`     // Actual execution results
-    Timestamp     int64     `json:"timestamp"`
-    Error         string    `json:"error,omitempty"`
-    CompletedAt   int64     `json:"completedAt,omitempty"`
-}
-```
+### 3. Asynchronous Dependency Resolution
 
-### 3. Async Execution Flow
-
-When processing a resource:
-
-1. **Check dependencies**: The system checks if all dependencies are ready
-2. **Wait if needed**: If dependencies aren't ready, the resource waits
-3. **Update status**: Mark resource as "processing"
-4. **Execute**: Run the resource handler
-5. **Complete**: Mark resource as "completed" or "error"
+Pklres supports async dependency resolution with dependency tracking:
 
 ```go
-// Check if this resource's dependencies are ready
-if dr.PklresReader != nil {
-    depData, err := dr.PklresReader.GetDependencyData(canonicalResourceID)
-    if err == nil && depData != nil {
-        // Update status to processing
-        dr.PklresReader.UpdateDependencyStatus(canonicalResourceID, "processing", "", nil)
-        
-        // Wait for all dependencies to be ready
-        if len(depData.Dependencies) > 0 {
-            dr.PklresReader.WaitForDependencies(canonicalResourceID, waitTimeout)
-        }
-    }
-}
+// Pre-resolve dependencies based on execution order
+err := pklres.PreResolveDependencies(executionOrder, dependencies)
+
+// Update dependency status
+err := pklres.UpdateDependencyStatus(actionID, "completed", resultData, nil)
+
+// Wait for dependencies to be ready
+err := pklres.WaitForDependencies(actionID, timeout)
 ```
 
-### 4. Graph Validation
+### 4. Collection Key Handling
 
-Pklres operations are only processed for resources that exist in the dependency graph:
+All collection keys are actionIDs that are automatically canonicalized using the agent resolver:
+
+```go
+// Always canonicalize the collection key using Agent reader
+canonicalCollectionKey := resolveActionID(collectionKey)
+```
+
+This ensures that:
+- Resource types like "llm", "exec", "python" are resolved to their canonical actionID format
+- Action IDs like "@localproject/llmResource:1.0.0" are resolved to their fully qualified form
+- All pklres operations use consistent, canonical actionIDs as collection keys
+
+### 5. Scope and Graph Validation
+
+Pklres operations use graphID as the scope and validate against the dependency graph:
+
+**Scope**: All pklres operations are scoped by graphID (request ID) to ensure data isolation between different workflow executions.
+
+**Graph Validation**: Pklres operations are only processed for resources that exist in the dependency graph:
 
 ```go
 // Check if this collection key exists in the dependency graph
@@ -83,72 +79,114 @@ if !r.IsInDependencyGraph(canonicalCollectionKey) {
 }
 ```
 
+**Storage Structure**: `graphID -> actionID -> key -> value`
+
 ## Example Workflow
 
-Consider a workflow with three resources:
-
-```apl
-// Resource A: No dependencies
-ActionID = "resourceA"
-Requires {}
-
-// Resource B: Depends on A
-ActionID = "resourceB"
-Requires {
-    "resourceA"
-}
-
-// Resource C: Depends on B
-ActionID = "resourceC"
-Requires {
-    "resourceB"
-}
+### 1. Initialize Pklres
+```go
+reader, err := pklres.InitializePklResource("workflow-123", "myagent", "1.0.0", "/path/to/kdeps", fs)
 ```
 
-### Execution Flow
+### 2. Store Data
+```go
+// Store simple values
+err := pklres.Set("@myagent/llm:1.0.0", "response", "Hello, world!")
 
-1. **Pre-resolution**: All three resources are marked as "pending"
-2. **Resource A**: No dependencies, executes immediately, marked "completed"
-3. **Resource B**: Waits for A to complete, then executes, marked "completed"
-4. **Resource C**: Waits for B to complete, then executes, marked "completed"
+// Store complex data
+complexData := map[string]interface{}{
+    "user": "john",
+    "data": []string{"item1", "item2"},
+    "nested": map[string]interface{}{
+        "key": "value",
+    },
+}
+jsonData, _ := json.Marshal(complexData)
+err := pklres.Set("@myagent/data:1.0.0", "user_data", string(jsonData))
+```
 
-### Pklres Operations
+### 3. Retrieve Data
+```go
+// Get simple values
+response, err := pklres.Get("@myagent/llm:1.0.0", "response")
 
-- `pklres.get("resourceA", "key")` - Returns cached value if A is completed
-- `pklres.get("resourceB", "key")` - Returns cached value if B is completed
+// Get complex data
+jsonData, err := pklres.Get("@myagent/data:1.0.0", "user_data")
+var userData map[string]interface{}
+json.Unmarshal([]byte(jsonData), &userData)
+```
+
+### 4. List Keys
+```go
+keys, err := pklres.List("@myagent/llm:1.0.0")
+// Returns: ["response", "model", "prompt", ...]
+```
+
+## PKL Integration
+
+### Core Functions
+```pkl
+// Generic key-value operations
+function get(collectionKey: String?, key: String?): String
+function set(collectionKey: String?, key: String?, value: String?): String  
+function list(collectionKey: String?): Listing<String>
+
+// Legacy functions for backward compatibility
+function getPklValue(id: String?, typ: String?, key: String?): String
+function setPklValue(id: String?, typ: String?, key: String?, value: String?): String
+function getAllRecords(typ: String?): Listing<String>
+```
+
+### Usage Examples
+```pkl
+// Store data
+set("@localproject/llm:1.0.0", "response", "AI response here")
+set("@localproject/exec:1.0.0", "output", "Command output")
+
+// Retrieve data  
+response = get("@localproject/llm:1.0.0", "response")
+output = get("@localproject/exec:1.0.0", "output")
+
+// List available keys
+keys = list("@localproject/llm:1.0.0")
+```
+
+## Pklres Operations
+
+- `pklres.get("@localproject/llm:1.0.0", "key")` - Returns cached value from canonicalized actionID collection
+- `pklres.get("@localproject/exec:1.0.0", "key")` - Returns cached value from canonicalized actionID collection
+- `pklres.get("@localproject/llmResource:1.0.0", "key")` - Returns cached value from canonicalized action ID
 - `pklres.get("unknownResource", "key")` - Returns null (not in dependency graph)
 
 ## Benefits
 
-1. **Performance**: Pklres values are pre-resolved and cached
-2. **Reliability**: Dependencies are automatically managed
-3. **Consistency**: Only resources in the execution graph are processed
-4. **Monitoring**: Dependency status is tracked and logged
-5. **Error Handling**: Failed dependencies are properly propagated
+1. **Simplicity**: Pure key-value store without schema restrictions
+2. **Flexibility**: Can store any data structure from simple to complex
+3. **Consistency**: All collection keys are canonicalized actionIDs
+4. **Isolation**: GraphID scoping ensures data isolation
+5. **Performance**: In-memory storage with async dependency resolution
+6. **Backward Compatibility**: Legacy functions still work
 
-## Monitoring
+## Implementation Details
 
-The system provides several methods for monitoring dependency status:
-
+### Go Interface
 ```go
-// Get status summary of all dependencies
-statusSummary := reader.GetDependencyStatusSummary()
+type PklresHelper struct {
+    resolver *DependencyResolver
+}
 
-// Get list of pending dependencies
-pendingDeps := reader.GetPendingDependencies()
-
-// Check if specific dependency is ready
-isReady := reader.IsDependencyReady("resourceID")
-
-// Wait for dependencies with timeout
-err := reader.WaitForDependencies("resourceID", 5*time.Minute)
+func (h *PklresHelper) Get(collectionKey, key string) (string, error)
+func (h *PklresHelper) Set(collectionKey, key, value string) error  
+func (h *PklresHelper) List(collectionKey string) ([]string, error)
 ```
 
-## Configuration
+### Storage Backend
+```go
+// In-memory storage: graphID -> actionID -> key -> value (JSON string)
+store map[string]map[string]map[string]string
+```
 
-The async pklres system is automatically enabled when:
-- A `PklresReader` is available in the `DependencyResolver`
-- The workflow has resources with dependencies
-- The graph resolver provides an execution order
-
-No additional configuration is required - the system works transparently with existing workflows. 
+### URI Format
+```
+pklres:///graphID?collection=actionID&key=key&op=get|set|list&value=value
+``` 

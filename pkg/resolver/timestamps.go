@@ -8,163 +8,24 @@ import (
 	"time"
 
 	"github.com/apple/pkl-go/pkl"
-	pklExec "github.com/kdeps/schema/gen/exec"
-	pklHTTP "github.com/kdeps/schema/gen/http"
-	pklLLM "github.com/kdeps/schema/gen/llm"
-	pklPython "github.com/kdeps/schema/gen/python"
 )
 
 const (
 	waitTimestampSleep = 100 * time.Millisecond
 )
 
-// getResourcePath returns the pklres path for a given resourceType.
-func (dr *DependencyResolver) getResourcePath(resourceType string) (string, error) {
-	// Map resource types to ensure they're valid
-	validTypes := map[string]bool{
-		"llm":    true,
-		"client": true,
-		"exec":   true,
-		"python": true,
-	}
-
-	if !validTypes[resourceType] {
-		return "", fmt.Errorf("invalid resourceType %s provided", resourceType)
-	}
-
-	// Check if PklresHelper is initialized
-	if dr.PklresHelper == nil {
-		return "", errors.New("PklresHelper is not initialized")
-	}
-
-	// Return pklres path
-	return dr.PklresHelper.GetResourcePath(resourceType), nil
-}
-
-// loadPKLData loads and returns the PKL data from pklres based on resourceType.
-func (dr *DependencyResolver) loadPKLData(resourceType, _ string) (interface{}, error) {
-	// Retrieve all resources of this type from pklres
-	// and build the complete structure that the timestamp lookup expects
-
-	// Retrieve all resources of this type from pklres
-	resources, err := dr.PklresHelper.retrieveAllResourcesForType(resourceType)
-	if err != nil {
-		// If no content exists, return an error instead of an empty structure
-		return nil, fmt.Errorf("cannot find module: %w", err)
-	}
-
-	// Build the appropriate structure based on resource type
-	dr.Logger.Debug("loadPKLData: resource keys", "resourceType", resourceType, "keys", resources)
-	switch resourceType {
-	case "exec":
-		execResources := make(map[string]*pklExec.ResourceExec)
-		for resourceID := range resources {
-			// Parse the PKL content to extract timestamp
-			// For now, we'll create a basic structure with current timestamp
-			// In a full implementation, we'd parse the actual PKL content
-			execResources[resourceID] = &pklExec.ResourceExec{
-				Timestamp: &pkl.Duration{Value: float64(time.Now().UnixNano())},
-			}
-		}
-		return &pklExec.ExecImpl{Resources: execResources}, nil
-	case "python":
-		pythonResources := make(map[string]*pklPython.ResourcePython)
-		for resourceID := range resources {
-			pythonResources[resourceID] = &pklPython.ResourcePython{
-				Timestamp: &pkl.Duration{Value: float64(time.Now().UnixNano())},
-			}
-		}
-		return &pklPython.PythonImpl{Resources: pythonResources}, nil
-	case "llm":
-		llmResources := make(map[string]*pklLLM.ResourceChat)
-		for resourceID := range resources {
-			llmResources[resourceID] = &pklLLM.ResourceChat{
-				Timestamp: &pkl.Duration{Value: float64(time.Now().UnixNano())},
-			}
-		}
-		return &pklLLM.LLMImpl{Resources: llmResources}, nil
-	case "client":
-		clientResources := make(map[string]*pklHTTP.ResourceHTTPClient)
-		for resourceID, content := range resources {
-			// Debug: print the PKL content we're trying to parse
-			dr.Logger.Debug("loadPKLData: parsing PKL content", "resourceID", resourceID, "contentLength", len(content), "content", content)
-
-			// Parse the PKL content to extract the actual timestamp
-			// The content should contain a Timestamp field like: Timestamp = 1.7523852347917573e+18.ns
-			timestamp := parseTimestampFromPklContent(content)
-			if timestamp == nil {
-				// Fallback to current timestamp if parsing fails
-				timestamp = &pkl.Duration{Value: float64(time.Now().UnixNano())}
-				dr.Logger.Debug("loadPKLData: failed to parse timestamp, using fallback", "resourceID", resourceID, "fallbackTimestamp", timestamp.Value)
-			} else {
-				dr.Logger.Debug("loadPKLData: successfully parsed timestamp", "resourceID", resourceID, "timestamp", timestamp.Value)
-			}
-			clientResources[resourceID] = &pklHTTP.ResourceHTTPClient{
-				Timestamp: timestamp,
-			}
-		}
-		// Debug: print the resources we found
-		dr.Logger.Debug("loadPKLData: found client resources", "count", len(clientResources), "resources", clientResources)
-		return &pklHTTP.HTTPImpl{Resources: clientResources}, nil
-	default:
-		return nil, fmt.Errorf("unsupported resourceType %s provided", resourceType)
-	}
-}
-
-// getResourceTimestamp retrieves the timestamp for a specific resource from the given PKL result.
-func getResourceTimestamp(resourceID string, pklRes interface{}) (*pkl.Duration, error) {
-	switch res := pklRes.(type) {
-	case *pklExec.ExecImpl:
-		// ExecImpl resources are of type *ResourceExec
-		if resource, exists := res.GetResources()[resourceID]; exists {
-			if resource.Timestamp == nil {
-				return nil, fmt.Errorf("timestamp for resource ID %s is nil", resourceID)
-			}
-			return resource.Timestamp, nil
-		}
-	case *pklPython.PythonImpl:
-		// PythonImpl resources are of type *ResourcePython
-		if resource, exists := res.GetResources()[resourceID]; exists {
-			if resource.Timestamp == nil {
-				return nil, fmt.Errorf("timestamp for resource ID %s is nil", resourceID)
-			}
-			return resource.Timestamp, nil
-		}
-	case *pklLLM.LLMImpl:
-		// LLMImpl resources are of type *ResourceChat
-		if resource, exists := res.GetResources()[resourceID]; exists {
-			if resource.Timestamp == nil {
-				return nil, fmt.Errorf("timestamp for resource ID %s is nil", resourceID)
-			}
-			return resource.Timestamp, nil
-		}
-	case *pklHTTP.HTTPImpl:
-		// HTTPImpl resources are of type *ResourceHTTPClient
-		if resource, exists := res.GetResources()[resourceID]; exists {
-			if resource.Timestamp == nil {
-				return nil, fmt.Errorf("timestamp for resource ID %s is nil", resourceID)
-			}
-			return resource.Timestamp, nil
-		}
-	default:
-		return nil, errors.New("unknown PKL result type")
-	}
-
-	// If the resource does not exist, return an error
-	return nil, fmt.Errorf("resource ID %s does not exist in pklres", resourceID)
-}
-
 // GetCurrentTimestamp retrieves the current timestamp for the given resourceID and resourceType.
 // If the resource doesn't exist in pklres yet (during initial processing), returns a default timestamp.
 func (dr *DependencyResolver) GetCurrentTimestamp(resourceID, resourceType string) (pkl.Duration, error) {
-	pklPath, err := dr.getResourcePath(resourceType)
-	if err != nil {
-		dr.Logger.Error("GetCurrentTimestamp: failed to get resource path", "resourceID", resourceID, "resourceType", resourceType, "error", err)
-		return pkl.Duration{}, err
+	// Use the new generic key-value store approach
+	if dr.PklresHelper == nil {
+		dr.Logger.Error("GetCurrentTimestamp: PklresHelper not initialized", "resourceID", resourceID, "resourceType", resourceType)
+		return pkl.Duration{}, errors.New("PklresHelper not initialized")
 	}
 
-	pklRes, err := dr.loadPKLData(resourceType, pklPath)
-	if err != nil {
+	// Try to get the timestamp from the generic store
+	timestampStr, err := dr.PklresHelper.Get(resourceID, "timestamp")
+	if err != nil || timestampStr == "" {
 		// During initial resource processing, the resource may not exist in pklres yet
 		// Return a default timestamp instead of failing
 		dr.Logger.Debug("GetCurrentTimestamp: resource not in pklres yet, returning default timestamp", "resourceID", resourceID, "resourceType", resourceType, "error", err)
@@ -175,22 +36,17 @@ func (dr *DependencyResolver) GetCurrentTimestamp(resourceID, resourceType strin
 		return defaultTimestamp, nil
 	}
 
-	timestamp, err := getResourceTimestamp(resourceID, pklRes)
+	// Parse the timestamp string
+	timestampValue, err := strconv.ParseFloat(timestampStr, 64)
 	if err != nil {
-		// If the specific resource doesn't exist in the loaded data, return a default timestamp
-		if strings.Contains(err.Error(), "does not exist in pklres") {
-			dr.Logger.Debug("GetCurrentTimestamp: resource not found in pklres, returning default timestamp", "resourceID", resourceID, "resourceType", resourceType)
-			defaultTimestamp := pkl.Duration{
-				Value: float64(time.Now().UnixNano()),
-				Unit:  pkl.Nanosecond,
-			}
-			return defaultTimestamp, nil
-		}
-		dr.Logger.Error("GetCurrentTimestamp: failed to get resource timestamp", "resourceID", resourceID, "resourceType", resourceType, "error", err)
+		dr.Logger.Error("GetCurrentTimestamp: failed to parse timestamp", "resourceID", resourceID, "resourceType", resourceType, "timestampStr", timestampStr, "error", err)
 		return pkl.Duration{}, err
 	}
 
-	return *timestamp, nil
+	return pkl.Duration{
+		Value: timestampValue,
+		Unit:  pkl.Nanosecond,
+	}, nil
 }
 
 // formatDuration converts a time.Duration into a human-friendly string.

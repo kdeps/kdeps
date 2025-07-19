@@ -1,0 +1,31 @@
+{{ .Header }}
+
+import "{{ .DocumentImport }}" as document
+import "{{ .MemoryImport }}" as memory
+import "{{ .SessionImport }}" as session
+import "{{ .ToolImport }}" as tool
+import "{{ .ItemImport }}" as item
+import "{{ .AgentImport }}" as agent
+
+Success = {{ .Success }}
+
+Meta {
+    RequestID = "{{ .RequestID }}"
+{{ if .Headers }}    Headers {
+        {{ .Headers }}
+    }
+{{ end }}{{ if .Properties }}    Properties {
+        {{ .Properties }}
+    }
+{{ end }}}
+
+Response {
+    Data {
+        {{ .ResponseData }}
+    }
+}
+{{ if .Errors }}
+Errors {
+    {{ .Errors }}
+}
+{{ end }}

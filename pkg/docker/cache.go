@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kdeps/kdeps/pkg"
 	"github.com/kdeps/kdeps/pkg/download"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
@@ -88,7 +89,7 @@ func GetLatestAnacondaVersionsWithDeps(ctx context.Context, deps CacheDeps) (map
 		client = &http.Client{}
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://repo.anaconda.com/archive/", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pkg.DefaultAnacondaRepoURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -140,7 +141,7 @@ func BuildURL(baseURL, version, arch string) string {
 func GenerateURLsWithDeps(ctx context.Context, installAnaconda bool, deps CacheDeps) ([]download.Item, error) {
 	urlInfos := []URLInfo{
 		{
-			BaseURL:           "https://github.com/apple/pkl/releases/download/{version}/pkl-linux-{arch}",
+			BaseURL:           pkg.DefaultPklGitHubReleaseURL,
 			Repo:              "apple/pkl",
 			Version:           version.DefaultPklVersion,
 			Architectures:     []string{"amd64", "aarch64"},
@@ -151,7 +152,7 @@ func GenerateURLsWithDeps(ctx context.Context, installAnaconda bool, deps CacheD
 	// Only include anaconda if it should be installed
 	if installAnaconda {
 		urlInfos = append(urlInfos, URLInfo{
-			BaseURL:           "https://repo.anaconda.com/archive/Anaconda3-{version}-Linux-{arch}.sh",
+			BaseURL:           pkg.DefaultAnacondaDownloadURL,
 			IsAnaconda:        true,
 			Version:           version.DefaultAnacondaVersion,
 			Architectures:     []string{"x86_64", "aarch64"},

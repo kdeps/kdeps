@@ -111,11 +111,11 @@ func ProcessFile(fileHeader *multipart.FileHeader, dr *resolver.DependencyResolv
 	filesPath := filepath.Join(dr.ActionDir, "files")
 	filename := filepath.Join(filesPath, fileHeader.Filename)
 
-	if err := dr.Fs.MkdirAll(filesPath, 0o777); err != nil {
+	if err := dr.Fs.MkdirAll(filesPath, pkg.DefaultOctalDirPerms); err != nil {
 		return &handlerError{http.StatusInternalServerError, "Unable to create files directory"}
 	}
 
-	if err := afero.WriteFile(dr.Fs, filename, fileBytes, 0o644); err != nil {
+	if err := afero.WriteFile(dr.Fs, filename, fileBytes, pkg.DefaultOctalFilePerms); err != nil {
 		return &handlerError{http.StatusInternalServerError, "Failed to save file"}
 	}
 
@@ -156,9 +156,9 @@ func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 	// Use processedConfig for all config values
 	hostIP := processedConfig.APIServerHostIP.Value
 
-	// For Docker containers, override 127.0.0.1 to 0.0.0.0 to accept external connections
-	if hostIP == "127.0.0.1" {
-		hostIP = "0.0.0.0"
+	// For Docker containers, override default host IP to Docker host IP to accept external connections
+	if hostIP == pkg.DefaultHostIP {
+		hostIP = pkg.DefaultDockerHostIP
 		dr.Logger.Debug("overriding API server host IP for Docker", "original", processedConfig.APIServerHostIP.Value, "new", hostIP)
 	}
 
@@ -311,7 +311,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 				c.AbortWithStatusJSON(http.StatusInternalServerError, response)
 				return
 			}
-			c.Header("Content-Type", "application/json; charset=utf-8")
+			c.Header("Content-Type", pkg.DefaultContentType)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			_, _ = c.Writer.Write(jsonBytes)
 		}
@@ -427,8 +427,8 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 				c.AbortWithStatusJSON(statusCode, response)
 				return
 			}
-			c.Header("Content-Type", "application/json; charset=utf-8")
-			c.Data(statusCode, "application/json; charset=utf-8", jsonBytes)
+			c.Header("Content-Type", pkg.DefaultContentType)
+			c.Data(statusCode, pkg.DefaultContentType, jsonBytes)
 		}
 
 		// Try to acquire the semaphore (non-blocking)
@@ -521,13 +521,13 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		logger.Debug("method validation passed", "method", method)
 
 		if c.Request.Method == http.MethodOptions {
-			c.Header("Allow", "OPTIONS, GET, HEAD, POST, PUT, PATCH, DELETE")
+			c.Header("Allow", pkg.DefaultHTTPMethods)
 			c.Status(http.StatusNoContent)
 			return
 		}
 
 		if c.Request.Method == http.MethodHead {
-			c.Header("Content-Type", "application/json")
+			c.Header("Content-Type", pkg.DefaultContentType)
 			c.Status(http.StatusOK)
 			return
 		}
@@ -760,7 +760,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 
 		decodedContent = FormatResponseJSON(decodedContent)
 		logger.Debug("sending successful response", "contentLength", len(decodedContent))
-		c.Data(http.StatusOK, "application/json; charset=utf-8", decodedContent)
+		c.Data(http.StatusOK, pkg.DefaultContentType, decodedContent)
 	}
 }
 

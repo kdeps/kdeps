@@ -19,6 +19,7 @@ import (
 	"github.com/apple/pkl-go/pkl"
 	"github.com/gin-gonic/gin"
 	"github.com/kdeps/kartographer/graph"
+	"github.com/kdeps/kdeps/pkg"
 	"github.com/kdeps/kdeps/pkg/agent"
 	kdepsctx "github.com/kdeps/kdeps/pkg/core"
 	"github.com/kdeps/kdeps/pkg/environment"
@@ -33,10 +34,8 @@ import (
 	"github.com/kdeps/kdeps/pkg/session"
 	"github.com/kdeps/kdeps/pkg/tool"
 	"github.com/kdeps/kdeps/pkg/utils"
-	pklExec "github.com/kdeps/schema/gen/exec"
 	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
-	pklPython "github.com/kdeps/schema/gen/python"
 	pklRes "github.com/kdeps/schema/gen/resource"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
@@ -741,7 +740,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			dr.Logger.Error("missing agentID or version for canonical actionID generation", "agentID", agentID, "version", version)
 			return dr.HandleAPIErrorResponse(statusInternalServerError, "missing agentID or version for canonical actionID generation", true)
 		}
-		requestResourceID := fmt.Sprintf("@%s/requestResource:%s", agentID, version)
+		requestResourceID := pkg.GenerateCanonicalActionID(agentID, "requestResource", version)
 		dr.Logger.Debug("created canonical request resource ID", "requestID", dr.RequestID, "canonical", requestResourceID)
 
 		// Add the request resource to the dependency graph
@@ -797,7 +796,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 		dr.Logger.Error("missing agentID or version for response resource canonical actionID generation", "agentID", agentID, "version", version)
 		return dr.HandleAPIErrorResponse(statusInternalServerError, "missing agentID or version for response resource canonical actionID generation", true)
 	}
-	responseResourceID := fmt.Sprintf("@%s/responseResource:%s", agentID, version)
+	responseResourceID := pkg.GenerateCanonicalActionID(agentID, "responseResource", version)
 	var newStack []string
 	var foundResponseResource bool
 	for _, id := range stack {
@@ -1137,32 +1136,6 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 	// Store initial resource state in pklres for timestamp lookups
 	// This ensures that when processResourceStep calls GetCurrentTimestamp, the resource exists in pklres
 	if dr.PklresHelper != nil {
-		dr.Logger.Debug("storing initial resource state in pklres for timestamp lookups", "actionID", res.ActionID)
-
-		// Store initial state for each step type that might be processed
-		if runBlock.Exec != nil && runBlock.Exec.Command != "" {
-			if err := dr.storeInitialResourceState(res.ActionID, "exec", runBlock.Exec); err != nil {
-				dr.Logger.Warn("failed to store initial exec resource state", "actionID", res.ActionID, "error", err)
-			}
-		}
-
-		if runBlock.Python != nil && runBlock.Python.Script != "" {
-			if err := dr.storeInitialResourceState(res.ActionID, "python", runBlock.Python); err != nil {
-				dr.Logger.Warn("failed to store initial python resource state", "actionID", res.ActionID, "error", err)
-			}
-		}
-
-		if runBlock.Chat != nil && runBlock.Chat.Model != "" && (runBlock.Chat.Prompt != nil || runBlock.Chat.Scenario != nil) {
-			if err := dr.storeInitialResourceState(res.ActionID, "llm", runBlock.Chat); err != nil {
-				dr.Logger.Warn("failed to store initial llm resource state", "actionID", res.ActionID, "error", err)
-			}
-		}
-
-		if runBlock.HTTPClient != nil && runBlock.HTTPClient.Method != "" && runBlock.HTTPClient.Url != "" {
-			if err := dr.storeInitialResourceState(res.ActionID, "client", runBlock.HTTPClient); err != nil {
-				dr.Logger.Warn("failed to store initial http client resource state", "actionID", res.ActionID, "error", err)
-			}
-		}
 	}
 
 	// Process Exec step, if defined
@@ -1278,173 +1251,6 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc *pklRes
 	return true, nil
 }
 
-// storeInitialResourceState stores the initial state of a resource in pklres for timestamp lookups
-func (dr *DependencyResolver) storeInitialResourceState(actionID, resourceType string, resource interface{}) error {
-	if dr.PklresHelper == nil {
-		return errors.New("PklresHelper is not initialized")
-	}
-
-	// Create a basic PKL content structure for the resource
-	var pklContent strings.Builder
-	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@0.4.5#/%s.pkl\"\n\n", strings.Title(resourceType)))
-	pklContent.WriteString("Resources {\n")
-	pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", actionID))
-
-	// Add basic fields based on resource type
-	switch resourceType {
-	case "exec":
-		if exec, ok := resource.(*pklExec.ResourceExec); ok {
-			pklContent.WriteString(fmt.Sprintf("    Command = \"%s\"\n", exec.Command))
-			if exec.TimeoutDuration != nil {
-				pklContent.WriteString(fmt.Sprintf("    TimeoutDuration = %d.s\n", int(exec.TimeoutDuration.GoDuration().Seconds())))
-			} else {
-				pklContent.WriteString("    TimeoutDuration = -1.s\n")
-			}
-		}
-	case "python":
-		if python, ok := resource.(*pklPython.ResourcePython); ok {
-			pklContent.WriteString(fmt.Sprintf("    Script = \"%s\"\n", python.Script))
-			if python.TimeoutDuration != nil {
-				pklContent.WriteString(fmt.Sprintf("    TimeoutDuration = %d.s\n", int(python.TimeoutDuration.GoDuration().Seconds())))
-			} else {
-				pklContent.WriteString("    TimeoutDuration = 60.s\n")
-			}
-		}
-	case "llm":
-		if llm, ok := resource.(*pklLLM.ResourceChat); ok {
-			pklContent.WriteString(fmt.Sprintf("    Model = \"%s\"\n", llm.Model))
-			if llm.TimeoutDuration != nil {
-				pklContent.WriteString(fmt.Sprintf("    TimeoutDuration = %d.s\n", int(llm.TimeoutDuration.GoDuration().Seconds())))
-			} else {
-				pklContent.WriteString("    TimeoutDuration = 60.s\n")
-			}
-		}
-	case "client":
-		if client, ok := resource.(*pklHTTP.ResourceHTTPClient); ok {
-			pklContent.WriteString(fmt.Sprintf("    Method = \"%s\"\n", client.Method))
-			pklContent.WriteString(fmt.Sprintf("    Url = \"%s\"\n", client.Url))
-			if client.TimeoutDuration != nil {
-				pklContent.WriteString(fmt.Sprintf("    TimeoutDuration = %d.s\n", int(client.TimeoutDuration.GoDuration().Seconds())))
-			} else {
-				pklContent.WriteString("    TimeoutDuration = -1.s\n")
-			}
-		}
-	}
-
-	// Add timestamp
-	pklContent.WriteString(fmt.Sprintf("    Timestamp = %g.ns\n", float64(time.Now().UnixNano())))
-
-	// Add empty fields
-	pklContent.WriteString("    Env {}\n")
-	pklContent.WriteString("    Stderr = \"\"\n")
-	pklContent.WriteString("    Stdout = \"\"\n")
-	pklContent.WriteString("    File = \"\"\n")
-	pklContent.WriteString("    ExitCode = 0\n")
-	pklContent.WriteString("    ItemValues {}\n")
-
-	pklContent.WriteString("  }\n")
-	pklContent.WriteString("}\n")
-
-	// Store the PKL content in pklres using the canonical ActionID as the key
-	canonicalActionID := actionID
-	if dr.PklresHelper != nil {
-		canonicalActionID = dr.PklresHelper.resolveActionID(actionID)
-	}
-	return dr.PklresHelper.StorePklContent(resourceType, canonicalActionID, pklContent.String())
-}
-
-// storeResourceInPklres stores a resource in pklres using the key-value store approach
-func (dr *DependencyResolver) storeResourceInPklres(resourceType, actionID, key, value string) error {
-	if dr.PklresHelper == nil {
-		return errors.New("PklresHelper is not initialized")
-	}
-
-	// Use the canonical ActionID as the collection key
-	canonicalActionID := actionID
-	if dr.PklresHelper != nil {
-		canonicalActionID = dr.PklresHelper.resolveActionID(actionID)
-	}
-
-	// Store the resource record using the key-value store
-	return dr.PklresHelper.StoreResourceRecord(resourceType, canonicalActionID, key, value)
-}
-
-// storeLLMResource stores an LLM resource in pklres
-func (dr *DependencyResolver) storeLLMResource(actionID, model, prompt, response string) error {
-	if err := dr.storeResourceInPklres("llm", actionID, "model", model); err != nil {
-		return err
-	}
-	if err := dr.storeResourceInPklres("llm", actionID, "prompt", prompt); err != nil {
-		return err
-	}
-	if err := dr.storeResourceInPklres("llm", actionID, "response", response); err != nil {
-		return err
-	}
-	return nil
-}
-
-// storeExecResource stores an Exec resource in pklres
-func (dr *DependencyResolver) storeExecResource(actionID, command, stdout, stderr string, exitCode int) error {
-	if err := dr.storeResourceInPklres("exec", actionID, "command", command); err != nil {
-		return err
-	}
-	if err := dr.storeResourceInPklres("exec", actionID, "stdout", stdout); err != nil {
-		return err
-	}
-	if err := dr.storeResourceInPklres("exec", actionID, "stderr", stderr); err != nil {
-		return err
-	}
-	if err := dr.storeResourceInPklres("exec", actionID, "exitCode", strconv.Itoa(exitCode)); err != nil {
-		return err
-	}
-	return nil
-}
-
-// storePythonResource stores a Python resource in pklres
-func (dr *DependencyResolver) storePythonResource(actionID, script, stdout, stderr string, exitCode int) error {
-	if err := dr.storeResourceInPklres("python", actionID, "script", script); err != nil {
-		return err
-	}
-	if err := dr.storeResourceInPklres("python", actionID, "stdout", stdout); err != nil {
-		return err
-	}
-	if err := dr.storeResourceInPklres("python", actionID, "stderr", stderr); err != nil {
-		return err
-	}
-	if err := dr.storeResourceInPklres("python", actionID, "exitCode", strconv.Itoa(exitCode)); err != nil {
-		return err
-	}
-	return nil
-}
-
-// storeHTTPResource stores an HTTP resource in pklres
-func (dr *DependencyResolver) storeHTTPResource(actionID, url, method, response string, statusCode int) error {
-	if err := dr.storeResourceInPklres("http", actionID, "url", url); err != nil {
-		return err
-	}
-	if err := dr.storeResourceInPklres("http", actionID, "method", method); err != nil {
-		return err
-	}
-	if err := dr.storeResourceInPklres("http", actionID, "response", response); err != nil {
-		return err
-	}
-	if err := dr.storeResourceInPklres("http", actionID, "statusCode", strconv.Itoa(statusCode)); err != nil {
-		return err
-	}
-	return nil
-}
-
-// storeDataResource stores a Data resource in pklres
-func (dr *DependencyResolver) storeDataResource(actionID, content, filepath string) error {
-	if err := dr.storeResourceInPklres("data", actionID, "content", content); err != nil {
-		return err
-	}
-	if err := dr.storeResourceInPklres("data", actionID, "filepath", filepath); err != nil {
-		return err
-	}
-	return nil
-}
-
 // Exported for testing
 func (dr *DependencyResolver) ActivateCondaEnvironment(envName string) error {
 	return dr.activateCondaEnvironment(envName)
@@ -1452,14 +1258,6 @@ func (dr *DependencyResolver) ActivateCondaEnvironment(envName string) error {
 
 func (dr *DependencyResolver) DeactivateCondaEnvironment() error {
 	return dr.deactivateCondaEnvironment()
-}
-
-// GetResourcePath returns the resource path using the PklresHelper
-func (dr *DependencyResolver) GetResourcePath(resourceType string) string {
-	if dr.PklresHelper != nil {
-		return dr.PklresHelper.GetResourcePath(resourceType)
-	}
-	return ""
 }
 
 // Export the validation helpers for use in tests

@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/kdeps/kdeps/pkg"
 )
 
 // GitHubReleaseFetcher is a function variable that can be mocked in tests.
@@ -18,7 +20,7 @@ var GitHubReleaseFetcher = GetLatestGitHubRelease
 // GetLatestGitHubRelease fetches the latest release version from a GitHub repository.
 func GetLatestGitHubRelease(ctx context.Context, repo string, baseURL string) (string, error) {
 	if baseURL == "" {
-		baseURL = "https://api.github.com"
+		baseURL = pkg.DefaultGitHubAPIBaseURL
 	}
 	url := fmt.Sprintf("%s/repos/%s/releases/latest", baseURL, repo)
 

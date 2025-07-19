@@ -54,7 +54,8 @@ func (dr *DependencyResolver) processDataBlock(actionID string, dataBlock *pklDa
 		}
 
 		// Store the resource object using the new method
-		if err := dr.PklresHelper.StoreResourceObject("data", actionID, resourceData); err != nil {
+		// Store data resource attributes using the new generic approach
+		if err := dr.PklresHelper.Set(actionID, "files", fmt.Sprintf("%v", resourceData.Files)); err != nil {
 			dr.Logger.Error("processDataBlock: failed to store data resource in pklres", "actionID", actionID, "error", err)
 		} else {
 			dr.Logger.Info("processDataBlock: stored data resource in pklres", "actionID", actionID)

@@ -107,18 +107,14 @@ func (dr *DependencyResolver) getResourceOutputSafely(resourceID, resourceType, 
 
 	// Try to get the resource data from pklres
 	// This should only work if the resource has already been processed
-	if record := dr.PklresHelper.getRecordSafely(canonicalID, resourceType); record != nil {
-		switch field {
-		case "Body":
-			if response, ok := record["Response"].(map[string]interface{}); ok {
-				if body, ok := response["Body"].(string); ok {
-					return body
-				}
-			}
-		case "Stdout":
-			if stdout, ok := record["Stdout"].(string); ok {
-				return stdout
-			}
+	switch field {
+	case "Body":
+		if response, err := dr.PklresHelper.Get(canonicalID, "response"); err == nil && response != "" {
+			return response
+		}
+	case "Stdout":
+		if stdout, err := dr.PklresHelper.Get(canonicalID, "stdout"); err == nil && stdout != "" {
+			return stdout
 		}
 	}
 
@@ -571,31 +567,31 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 	if dr.PklresHelper != nil {
 		// Store individual attributes as key-value pairs for direct access
 		if chatBlock.Model != "" {
-			if err := dr.PklresHelper.StoreResourceRecord("llm", actionID, "model", chatBlock.Model); err != nil {
+			if err := dr.PklresHelper.Set(actionID, "model", chatBlock.Model); err != nil {
 				dr.Logger.Error("processLLMChat: failed to store model", "actionID", actionID, "error", err)
 			}
 		}
 
 		if chatBlock.Role != nil && *chatBlock.Role != "" {
-			if err := dr.PklresHelper.StoreResourceRecord("llm", actionID, "role", *chatBlock.Role); err != nil {
+			if err := dr.PklresHelper.Set(actionID, "role", *chatBlock.Role); err != nil {
 				dr.Logger.Error("processLLMChat: failed to store role", "actionID", actionID, "error", err)
 			}
 		}
 
 		if chatBlock.Prompt != nil && *chatBlock.Prompt != "" {
-			if err := dr.PklresHelper.StoreResourceRecord("llm", actionID, "prompt", *chatBlock.Prompt); err != nil {
+			if err := dr.PklresHelper.Set(actionID, "prompt", *chatBlock.Prompt); err != nil {
 				dr.Logger.Error("processLLMChat: failed to store prompt", "actionID", actionID, "error", err)
 			}
 		}
 
 		if chatBlock.Response != nil && *chatBlock.Response != "" {
-			if err := dr.PklresHelper.StoreResourceRecord("llm", actionID, "response", *chatBlock.Response); err != nil {
+			if err := dr.PklresHelper.Set(actionID, "response", *chatBlock.Response); err != nil {
 				dr.Logger.Error("processLLMChat: failed to store response", "actionID", actionID, "error", err)
 			}
 		}
 
 		if chatBlock.File != nil && *chatBlock.File != "" {
-			if err := dr.PklresHelper.StoreResourceRecord("llm", actionID, "file", *chatBlock.File); err != nil {
+			if err := dr.PklresHelper.Set(actionID, "file", *chatBlock.File); err != nil {
 				dr.Logger.Error("processLLMChat: failed to store file", "actionID", actionID, "error", err)
 			}
 		}
@@ -605,14 +601,14 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 			if *chatBlock.JSONResponse {
 				jsonResponseStr = "true"
 			}
-			if err := dr.PklresHelper.StoreResourceRecord("llm", actionID, "jsonResponse", jsonResponseStr); err != nil {
+			if err := dr.PklresHelper.Set(actionID, "jsonResponse", jsonResponseStr); err != nil {
 				dr.Logger.Error("processLLMChat: failed to store jsonResponse", "actionID", actionID, "error", err)
 			}
 		}
 
 		if chatBlock.Timestamp != nil {
 			timestampStr := fmt.Sprintf("%g", chatBlock.Timestamp.Value)
-			if err := dr.PklresHelper.StoreResourceRecord("llm", actionID, "timestamp", timestampStr); err != nil {
+			if err := dr.PklresHelper.Set(actionID, "timestamp", timestampStr); err != nil {
 				dr.Logger.Error("processLLMChat: failed to store timestamp", "actionID", actionID, "error", err)
 			}
 		}
@@ -753,10 +749,8 @@ func (dr *DependencyResolver) WriteResponseToFile(resourceID string, responseEnc
 	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
 	outputFilePath := filepath.Join(dr.FilesDir, resourceIDFile)
 
-	content, err := utils.DecodeBase64IfNeeded(utils.SafeDerefString(responseEncoded))
-	if err != nil {
-		return "", fmt.Errorf("failed to decode response: %w", err)
-	}
+	// Use the response content directly without base64 decoding
+	content := utils.SafeDerefString(responseEncoded)
 
 	if err := afero.WriteFile(dr.Fs, outputFilePath, []byte(content), 0o644); err != nil {
 		return "", fmt.Errorf("failed to write file: %w", err)
@@ -766,114 +760,3 @@ func (dr *DependencyResolver) WriteResponseToFile(resourceID string, responseEnc
 }
 
 // EncodeChat encodes a chat block for LLM processing.
-func EncodeChat(chat *pklLLM.ResourceChat, logger *logging.Logger) string {
-	if chat == nil {
-		return ""
-	}
-
-	// Use the private encodeChat function to encode the chat
-	encodedChat := encodeChat(chat, logger)
-
-	// Convert the encoded chat to a string representation
-	var result strings.Builder
-
-	// Add model
-	result.WriteString(fmt.Sprintf("Model = %s\n", utils.EncodeValue(encodedChat.Model)))
-
-	// Add prompt
-	if encodedChat.Prompt != nil {
-		result.WriteString(fmt.Sprintf("Prompt = %s\n", *encodedChat.Prompt))
-	}
-
-	// Add role
-	if encodedChat.Role != nil {
-		result.WriteString(fmt.Sprintf("Role = %s\n", *encodedChat.Role))
-	}
-
-	// Add scenario
-	if encodedChat.Scenario != nil && len(*encodedChat.Scenario) > 0 {
-		result.WriteString("Scenario {\n")
-		for _, entry := range *encodedChat.Scenario {
-			if entry != nil {
-				if entry.Role != nil {
-					result.WriteString(fmt.Sprintf("  Role = %s\n", *entry.Role))
-				}
-				if entry.Prompt != nil {
-					result.WriteString(fmt.Sprintf("  Prompt = %s\n", *entry.Prompt))
-				}
-			}
-		}
-		result.WriteString("}\n")
-	}
-
-	// Add tools
-	if encodedChat.Tools != nil && len(*encodedChat.Tools) > 0 {
-		result.WriteString("Tools {\n")
-		for _, tool := range *encodedChat.Tools {
-			if tool != nil {
-				if tool.Name != nil {
-					result.WriteString(fmt.Sprintf("  Name = %s\n", *tool.Name))
-				}
-				if tool.Script != nil {
-					result.WriteString(fmt.Sprintf("  Script = %s\n", *tool.Script))
-				}
-				if tool.Parameters != nil {
-					result.WriteString("  Parameters {\n")
-					for paramName, param := range *tool.Parameters {
-						if param != nil {
-							result.WriteString(fmt.Sprintf("    [%s] {\n", utils.EncodeValue(paramName)))
-							if param.Type != nil {
-								result.WriteString(fmt.Sprintf("      Type = %s\n", *param.Type))
-							}
-							if param.Description != nil {
-								result.WriteString(fmt.Sprintf("      Description = %s\n", *param.Description))
-							}
-							result.WriteString("    }\n")
-						}
-					}
-					result.WriteString("  }\n")
-				}
-			}
-		}
-		result.WriteString("}\n")
-	}
-
-	// Add files
-	if encodedChat.Files != nil && len(*encodedChat.Files) > 0 {
-		result.WriteString("Files {\n")
-		for _, file := range *encodedChat.Files {
-			result.WriteString(fmt.Sprintf("  %s\n", file))
-		}
-		result.WriteString("}\n")
-	}
-
-	// Add timeout
-	if encodedChat.TimeoutDuration != nil {
-		result.WriteString(fmt.Sprintf("TimeoutDuration = %g.%s\n", encodedChat.TimeoutDuration.Value, encodedChat.TimeoutDuration.Unit.String()))
-	}
-
-	// Add timestamp
-	if encodedChat.Timestamp != nil {
-		result.WriteString(fmt.Sprintf("Timestamp = %g.%s\n", encodedChat.Timestamp.Value, encodedChat.Timestamp.Unit.String()))
-	}
-
-	return result.String()
-}
-
-// EncodeJSONResponseKeys encodes JSON response keys.
-func EncodeJSONResponseKeys(keys *[]string) *[]string {
-	if keys == nil {
-		return nil
-	}
-	encoded := make([]string, len(*keys))
-	for i, v := range *keys {
-		encoded[i] = utils.EncodeValue(v)
-	}
-	return &encoded
-}
-
-// Exported for testing
-var GenerateChatResponse = generateChatResponse
-
-// Exported for testing
-var GeneratePklContent = generatePklContent

@@ -12,40 +12,27 @@ import (
 )
 
 func (dr *DependencyResolver) PrepareImportFiles() error {
-	// Map resource types to their pklres paths
+	// Map resource types to their canonical actionIDs
 	resourceTypes := map[string]string{
-		"llm":    "llm",
-		"client": "client",
-		"exec":   "exec",
-		"python": "python",
-		"data":   "data",
+		"llm":    "@localproject/llm:1.0.0",
+		"client": "@localproject/http:1.0.0",
+		"exec":   "@localproject/exec:1.0.0",
+		"python": "@localproject/python:1.0.0",
+		"data":   "@localproject/data:1.0.0",
 	}
 
-	for key, resourceType := range resourceTypes {
-		// Initialize empty PKL content for this resource type if it doesn't exist
+	for key, actionID := range resourceTypes {
+		// Initialize empty structure for this actionID if it doesn't exist
 		// This ensures pklres has the basic structure for imports to work
 
-		// Check if we already have this resource type in pklres
-		_, err := dr.PklresHelper.RetrievePklContent(resourceType, "")
+		// Check if we already have this actionID in pklres
+		_, err := dr.PklresHelper.Get(actionID, "initialized")
 		if err != nil {
-			// If it doesn't exist, create a proper PKL structure with header
-			info := dr.PklresHelper.getResourceTypeInfo(resourceType)
-			header := dr.PklresHelper.generatePklHeader(resourceType)
-			emptyContent := fmt.Sprintf("%s%s {\n}\n", header, info.BlockName)
+			// If it doesn't exist, create a basic structure
+			emptyContent := fmt.Sprintf("// %s resource initialized\n", key)
 
 			// Store the empty structure
-			if err := dr.PklresHelper.StorePklContent(resourceType, "__empty__", emptyContent); err != nil {
-				return fmt.Errorf("failed to initialize empty %s structure in pklres: %w", key, err)
-			}
-		} else {
-			// If it exists, we still want to ensure it has the proper structure
-			// This handles the case where the record exists but is empty
-			info := dr.PklresHelper.getResourceTypeInfo(resourceType)
-			header := dr.PklresHelper.generatePklHeader(resourceType)
-			emptyContent := fmt.Sprintf("%s%s {\n}\n", header, info.BlockName)
-
-			// Store the empty structure (this will overwrite if it exists)
-			if err := dr.PklresHelper.StorePklContent(resourceType, "__empty__", emptyContent); err != nil {
+			if err := dr.PklresHelper.Set(actionID, "initialized", emptyContent); err != nil {
 				return fmt.Errorf("failed to initialize empty %s structure in pklres: %w", key, err)
 			}
 		}

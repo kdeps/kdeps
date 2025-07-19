@@ -31,19 +31,18 @@ type DependencyData struct {
 	CompletedAt  int64    `json:"completedAt,omitempty"`
 }
 
-// PklResourceReader implements the pkl.ResourceReader interface for a simple key-value store.
-// Collection key is the CanonicalID from Agent reader, keys are template attributes.
-// Scoping is by GraphID and set internally in the backend.
-// Always returns JSON format.
+// PklResourceReader implements a generic key-value store scoped by graphID and actionID collection keys.
+// It can store anything from shallow to deep nested data without schema restrictions.
+// Storage structure: graphID -> actionID -> key -> value (JSON)
 type PklResourceReader struct {
 	Fs             afero.Fs
 	Logger         *logging.Logger
-	GraphID        string // Current graphID for scoping operations (set internally)
+	GraphID        string // Current graphID for scoping operations
 	CurrentAgent   string // Current agent name for ActionID resolution
 	CurrentVersion string // Current agent version for ActionID resolution
 	KdepsPath      string // Path to kdeps directory for agent reader
 
-	// Simple in-memory key-value store: graphID -> canonicalID -> key -> value
+	// Generic key-value store: graphID -> actionID -> key -> value (JSON string)
 	store      map[string]map[string]map[string]string
 	storeMutex sync.RWMutex
 
@@ -74,8 +73,42 @@ func (r *PklResourceReader) ListElements(_ url.URL) ([]pkl.PathElement, error) {
 	return nil, nil
 }
 
-// Read retrieves, sets, or lists PKL records in the key-value store based on the URI.
-// Always returns JSON format.
+// resolveActionID canonicalizes an actionID using the agent reader
+func (r *PklResourceReader) resolveActionID(actionID string) string {
+	if r.CurrentAgent != "" && r.CurrentVersion != "" && r.KdepsPath != "" {
+		// Use agent reader to resolve the action ID
+		agentReader, err := agent.GetGlobalAgentReader(r.Fs, r.KdepsPath, r.CurrentAgent, r.CurrentVersion, r.Logger)
+		if err == nil {
+			// Create URI for agent ID resolution
+			query := url.Values{}
+			query.Set("op", "resolve")
+			query.Set("agent", r.CurrentAgent)
+			query.Set("version", r.CurrentVersion)
+			uri := url.URL{
+				Scheme:   "agent",
+				Path:     "/" + actionID,
+				RawQuery: query.Encode(),
+			}
+
+			resolvedIDBytes, err := agentReader.Read(uri)
+			if err == nil {
+				resolvedID := string(resolvedIDBytes)
+				r.Logger.Debug("resolveActionID: resolved", "original", actionID, "canonical", resolvedID)
+				return resolvedID
+			} else {
+				r.Logger.Debug("resolveActionID: failed to resolve, using original", "actionID", actionID, "error", err)
+			}
+		} else {
+			r.Logger.Debug("resolveActionID: failed to get agent reader, using original", "actionID", actionID, "error", err)
+		}
+	} else {
+		r.Logger.Debug("resolveActionID: no agent context available, using original", "actionID", actionID)
+	}
+	return actionID
+}
+
+// Read handles generic key-value store operations: get, set, list
+// Always returns JSON format. Can store any data structure.
 func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 	// Check if receiver is nil and try to use global reader
 	if r == nil {
@@ -120,11 +153,9 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		collectionKey := query.Get("collection")
 		return r.listKeys(collectionKey)
 	case "async_resolve":
-		// New async resolution operation
 		actionID := query.Get("actionID")
 		return r.asyncResolve(actionID)
 	case "async_status":
-		// Check async resolution status
 		actionID := query.Get("actionID")
 		return r.getAsyncStatus(actionID)
 	default:
@@ -430,18 +461,14 @@ func (r *PklResourceReader) GetPendingDependencies() []string {
 	return pending
 }
 
-// IsInDependencyGraph checks if an actionID exists in the dependency graph
-// Returns true if no dependency graph has been set up (backward compatibility)
 func (r *PklResourceReader) IsInDependencyGraph(actionID string) bool {
 	r.dependencyMutex.RLock()
 	defer r.dependencyMutex.RUnlock()
 
-	// If no dependency store exists, allow all operations (backward compatibility)
 	if r.dependencyStore == nil || r.dependencyStore[r.GraphID] == nil {
 		return true
 	}
 
-	// If dependency store is empty, allow all operations (no graph set up)
 	if len(r.dependencyStore[r.GraphID]) == 0 {
 		return true
 	}
@@ -450,7 +477,7 @@ func (r *PklResourceReader) IsInDependencyGraph(actionID string) bool {
 	return exists
 }
 
-// getKeyValue retrieves a value from the key-value store and returns it as JSON
+// getKeyValue retrieves a value from the generic key-value store
 func (r *PklResourceReader) getKeyValue(collectionKey, key string) ([]byte, error) {
 	if collectionKey == "" || key == "" {
 		return nil, errors.New("get operation requires collection and key parameters")
@@ -458,37 +485,10 @@ func (r *PklResourceReader) getKeyValue(collectionKey, key string) ([]byte, erro
 
 	r.Logger.Debug("getKeyValue: retrieving", "collectionKey", collectionKey, "key", key, "graphID", r.GraphID)
 
-	// Canonicalize the collection key using Agent reader
-	canonicalCollectionKey := collectionKey
-	if r.CurrentAgent != "" && r.CurrentVersion != "" && r.KdepsPath != "" {
-		// Use agent reader to resolve the action ID
-		agentReader, err := agent.GetGlobalAgentReader(r.Fs, r.KdepsPath, r.CurrentAgent, r.CurrentVersion, r.Logger)
-		if err == nil {
-			// Create URI for agent ID resolution
-			query := url.Values{}
-			query.Set("op", "resolve")
-			query.Set("agent", r.CurrentAgent)
-			query.Set("version", r.CurrentVersion)
-			uri := url.URL{
-				Scheme:   "agent",
-				Path:     "/" + collectionKey,
-				RawQuery: query.Encode(),
-			}
-
-			resolvedIDBytes, err := agentReader.Read(uri)
-			if err == nil {
-				canonicalCollectionKey = string(resolvedIDBytes)
-				r.Logger.Debug("getKeyValue: resolved ActionID", "original", collectionKey, "canonical", canonicalCollectionKey)
-			} else {
-				r.Logger.Debug("getKeyValue: failed to resolve ActionID, using original", "collectionKey", collectionKey, "error", err)
-			}
-		} else {
-			r.Logger.Debug("getKeyValue: failed to get agent reader, using original collectionKey", "collectionKey", collectionKey, "error", err)
-		}
-	}
+	// Canonicalize the collection key
+	canonicalCollectionKey := r.resolveActionID(collectionKey)
 
 	// Check if this collection key exists in the dependency graph
-	// If not, return null as per the requirement that pklres calls not in the graph should do nothing
 	if !r.IsInDependencyGraph(canonicalCollectionKey) {
 		r.Logger.Debug("getKeyValue: collection key not in dependency graph, returning null", "collectionKey", canonicalCollectionKey, "key", key)
 		return []byte("null"), nil
@@ -510,25 +510,23 @@ func (r *PklResourceReader) getKeyValue(collectionKey, key string) ([]byte, erro
 	}
 
 	value, exists := r.store[r.GraphID][canonicalCollectionKey][key]
-	r.Logger.Debug("getKeyValue: retrieved value", "collectionKey", canonicalCollectionKey, "key", key, "value", value, "exists", exists)
+	r.Logger.Debug("getKeyValue: retrieved value", "collectionKey", canonicalCollectionKey, "key", key, "exists", exists, "value", value)
 
 	if !exists {
 		r.Logger.Debug("getKeyValue: key not found", "collectionKey", canonicalCollectionKey, "key", key)
 
-		// For backward compatibility: return error if no dependency graph is set up
 		if r.dependencyStore == nil || r.dependencyStore[r.GraphID] == nil || len(r.dependencyStore[r.GraphID]) == 0 {
 			return nil, fmt.Errorf("key '%s' not found", key)
 		}
 
-		// Return null as JSON when key doesn't exist (async mode)
 		return []byte("null"), nil
 	}
 
-	// Always return JSON format
+	// Return the stored value as JSON
 	return json.Marshal(value)
 }
 
-// setKeyValue stores a value in the key-value store and returns it as JSON
+// setKeyValue stores a value in the generic key-value store
 func (r *PklResourceReader) setKeyValue(collectionKey, key, value string) ([]byte, error) {
 	if collectionKey == "" || key == "" {
 		return nil, errors.New("set operation requires collection and key parameters")
@@ -537,43 +535,15 @@ func (r *PklResourceReader) setKeyValue(collectionKey, key, value string) ([]byt
 		return nil, errors.New("set operation requires a value parameter")
 	}
 
-	r.Logger.Debug("setKeyValue: storing", "collectionKey", collectionKey, "key", key, "value", value, "graphID", r.GraphID)
+	r.Logger.Debug("setKeyValue: storing", "collectionKey", collectionKey, "key", key, "graphID", r.GraphID)
 
-	// Canonicalize the collection key using Agent reader
-	canonicalCollectionKey := collectionKey
-	if r.CurrentAgent != "" && r.CurrentVersion != "" && r.KdepsPath != "" {
-		// Use agent reader to resolve the action ID
-		agentReader, err := agent.GetGlobalAgentReader(r.Fs, r.KdepsPath, r.CurrentAgent, r.CurrentVersion, r.Logger)
-		if err == nil {
-			// Create URI for agent ID resolution
-			query := url.Values{}
-			query.Set("op", "resolve")
-			query.Set("agent", r.CurrentAgent)
-			query.Set("version", r.CurrentVersion)
-			uri := url.URL{
-				Scheme:   "agent",
-				Path:     "/" + collectionKey,
-				RawQuery: query.Encode(),
-			}
-
-			resolvedIDBytes, err := agentReader.Read(uri)
-			if err == nil {
-				canonicalCollectionKey = string(resolvedIDBytes)
-				r.Logger.Debug("setKeyValue: resolved ActionID", "original", collectionKey, "canonical", canonicalCollectionKey)
-			} else {
-				r.Logger.Debug("setKeyValue: failed to resolve ActionID, using original", "collectionKey", collectionKey, "error", err)
-			}
-		} else {
-			r.Logger.Debug("setKeyValue: failed to get agent reader, using original collectionKey", "collectionKey", collectionKey, "error", err)
-		}
-	}
+	// Canonicalize the collection key
+	canonicalCollectionKey := r.resolveActionID(collectionKey)
 
 	// Check if this collection key exists in the dependency graph
-	// If not, return success but don't store anything as per the requirement
 	if !r.IsInDependencyGraph(canonicalCollectionKey) {
-		r.Logger.Debug("setKeyValue: collection key not in dependency graph, ignoring set operation", "collectionKey", canonicalCollectionKey, "key", key)
-		// Return the value as JSON to indicate success, but don't store it
-		return json.Marshal(value)
+		r.Logger.Debug("setKeyValue: collection key not in dependency graph, ignoring operation", "collectionKey", canonicalCollectionKey, "key", key)
+		return []byte("null"), nil
 	}
 
 	// Store the value
@@ -591,14 +561,15 @@ func (r *PklResourceReader) setKeyValue(collectionKey, key, value string) ([]byt
 		r.store[r.GraphID][canonicalCollectionKey] = make(map[string]string)
 	}
 
+	// Store the value (value is already JSON from the URI parameter)
 	r.store[r.GraphID][canonicalCollectionKey][key] = value
-	r.Logger.Debug("setKeyValue: stored value", "collectionKey", canonicalCollectionKey, "key", key, "value", value)
+	r.Logger.Debug("setKeyValue: stored value", "collectionKey", canonicalCollectionKey, "key", key)
 
 	// Return the stored value as JSON
 	return json.Marshal(value)
 }
 
-// listKeys lists all keys in a collection and returns them as JSON array
+// listKeys lists all keys in a collection
 func (r *PklResourceReader) listKeys(collectionKey string) ([]byte, error) {
 	if collectionKey == "" {
 		return nil, errors.New("list operation requires collection parameter")
@@ -606,34 +577,8 @@ func (r *PklResourceReader) listKeys(collectionKey string) ([]byte, error) {
 
 	r.Logger.Debug("listKeys: listing", "collectionKey", collectionKey, "graphID", r.GraphID)
 
-	// Canonicalize the collection key using Agent reader
-	canonicalCollectionKey := collectionKey
-	if r.CurrentAgent != "" && r.CurrentVersion != "" && r.KdepsPath != "" {
-		// Use agent reader to resolve the action ID
-		agentReader, err := agent.GetGlobalAgentReader(r.Fs, r.KdepsPath, r.CurrentAgent, r.CurrentVersion, r.Logger)
-		if err == nil {
-			// Create URI for agent ID resolution
-			query := url.Values{}
-			query.Set("op", "resolve")
-			query.Set("agent", r.CurrentAgent)
-			query.Set("version", r.CurrentVersion)
-			uri := url.URL{
-				Scheme:   "agent",
-				Path:     "/" + collectionKey,
-				RawQuery: query.Encode(),
-			}
-
-			resolvedIDBytes, err := agentReader.Read(uri)
-			if err == nil {
-				canonicalCollectionKey = string(resolvedIDBytes)
-				r.Logger.Debug("listKeys: resolved ActionID", "original", collectionKey, "canonical", canonicalCollectionKey)
-			} else {
-				r.Logger.Debug("listKeys: failed to resolve ActionID, using original", "collectionKey", collectionKey, "error", err)
-			}
-		} else {
-			r.Logger.Debug("listKeys: failed to get agent reader, using original collectionKey", "collectionKey", collectionKey, "error", err)
-		}
-	}
+	// Canonicalize the collection key
+	canonicalCollectionKey := r.resolveActionID(collectionKey)
 
 	// Get the keys from the store
 	r.storeMutex.RLock()
@@ -656,7 +601,7 @@ func (r *PklResourceReader) listKeys(collectionKey string) ([]byte, error) {
 		keys = append(keys, key)
 	}
 
-	r.Logger.Debug("listKeys: found keys", "collectionKey", canonicalCollectionKey, "keys", keys)
+	r.Logger.Debug("listKeys: found keys", "collectionKey", canonicalCollectionKey, "count", len(keys))
 
 	// Return keys as JSON array
 	return json.Marshal(keys)

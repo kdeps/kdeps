@@ -95,7 +95,8 @@ func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHT
 		}
 
 		// Store the resource object using the new method
-		if err := dr.PklresHelper.StoreResourceObject("http", actionID, resourceHTTP); err != nil {
+		// Store http resource attributes using the new generic approach
+		if err := dr.PklresHelper.Set(actionID, "url", resourceHTTP.Url); err != nil {
 			dr.Logger.Error("processHTTPBlock: failed to store http resource in pklres", "actionID", actionID, "error", err)
 		} else {
 			dr.Logger.Info("processHTTPBlock: stored http resource in pklres", "actionID", actionID)
@@ -108,73 +109,26 @@ func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHT
 }
 
 func (dr *DependencyResolver) decodeHTTPBlock(httpBlock *pklHTTP.ResourceHTTPClient) error {
-	if utils.IsBase64Encoded(httpBlock.Url) {
-		decodedURL, err := utils.DecodeBase64String(httpBlock.Url)
-		if err != nil {
-			return fmt.Errorf("failed to decode URL: %w", err)
-		}
-		httpBlock.Url = decodedURL
-	}
-
-	var err error
-	httpBlock.Headers, err = utils.DecodeStringMap(httpBlock.Headers, "header")
-	if err != nil {
-		return err
-	}
-
-	httpBlock.Params, err = utils.DecodeStringMap(httpBlock.Params, "param")
-	if err != nil {
-		return err
-	}
-
-	httpBlock.Data, err = utils.DecodeStringSlice(httpBlock.Data, "data")
-	return err
+	// No base64 decoding needed - data is already in string format
+	return nil
 }
 
-func (dr *DependencyResolver) WriteResponseBodyToFile(resourceID string, responseBodyEncoded *string) (string, error) {
-	if responseBodyEncoded == nil {
+func (dr *DependencyResolver) WriteResponseBodyToFile(resourceID string, responseBody *string) (string, error) {
+	if responseBody == nil {
 		return "", nil
 	}
 
 	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
 	outputFilePath := filepath.Join(dr.FilesDir, resourceIDFile)
 
-	content, err := utils.DecodeBase64IfNeeded(*responseBodyEncoded)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode response body: %w", err)
-	}
-
-	if err := afero.WriteFile(dr.Fs, outputFilePath, []byte(content), 0o644); err != nil {
+	// Write the response body directly without base64 decoding
+	if err := afero.WriteFile(dr.Fs, outputFilePath, []byte(*responseBody), 0o644); err != nil {
 		return "", fmt.Errorf("failed to write file: %w", err)
 	}
 	return outputFilePath, nil
 }
 
-// AppendHTTPEntry has been removed as it's no longer needed.
-// We now use real-time pklres access through getResourceOutput() instead of storing PKL content.
 
-func encodeResponseHeaders(response *pklHTTP.ResponseBlock) string {
-	if response == nil || response.Headers == nil {
-		return "    Headers {[\"\"] = \"\"}\n"
-	}
-	var builder strings.Builder
-	builder.WriteString("    Headers {\n")
-	for k, v := range *response.Headers {
-		builder.WriteString(fmt.Sprintf("      [\"%s\"] = #\"\"\"\n%s\n\"\"\"#\n", k, utils.EncodeValue(v)))
-	}
-	builder.WriteString("    }\n")
-	return builder.String()
-}
-
-func encodeResponseBody(response *pklHTTP.ResponseBlock, dr *DependencyResolver, resourceID string) string {
-	if response == nil || response.Body == nil {
-		return "    Body=\"\"\n"
-	}
-	if _, err := dr.WriteResponseBodyToFile(resourceID, response.Body); err != nil {
-		dr.Logger.Fatalf("unable to write HTTP response body to file for resource %s", resourceID)
-	}
-	return fmt.Sprintf("    Body = #\"\"\"\n%s\n\"\"\"#\n", utils.EncodeValue(*response.Body))
-}
 
 func (dr *DependencyResolver) DoRequest(client *pklHTTP.ResourceHTTPClient) error {
 	// Validate required parameters

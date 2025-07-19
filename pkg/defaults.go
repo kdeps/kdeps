@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -41,6 +42,7 @@ const (
 	DefaultAppPort          = uint16(8052)
 	DefaultEnableCORS       = false
 	DefaultHostIP           = "127.0.0.1"
+	DefaultDockerHostIP     = "0.0.0.0"
 	DefaultPortNum          = uint16(3000)
 	DefaultAPIPortNum       = uint16(8080)
 	DefaultPublicPath       = "/web"
@@ -52,6 +54,10 @@ const (
 	DefaultEnvironment      = "dev"
 	DefaultMaxAge           = 12 * time.Hour
 	DefaultTimeoutDuration  = 60 * time.Second
+	DefaultHTTPMethods      = "OPTIONS, GET, HEAD, POST, PUT, PATCH, DELETE"
+	DefaultContentType      = "application/json; charset=utf-8"
+	DefaultOctalFilePerms   = 0o644
+	DefaultOctalDirPerms    = 0o777
 )
 
 // Docker Defaults
@@ -79,6 +85,14 @@ const (
 // RunMode Defaults
 const (
 	DefaultMode = "docker"
+)
+
+// URL Defaults
+const (
+	DefaultGitHubAPIBaseURL     = "https://api.github.com"
+	DefaultAnacondaRepoURL      = "https://repo.anaconda.com/archive/"
+	DefaultPklGitHubReleaseURL  = "https://github.com/apple/pkl/releases/download/{version}/pkl-linux-{arch}"
+	DefaultAnacondaDownloadURL  = "https://repo.anaconda.com/archive/Anaconda3-{version}-Linux-{arch}.sh"
 )
 
 // StringPtr creates a pointer to a string value.
@@ -213,6 +227,39 @@ func GetDefaultKdepsPath() *string {
 
 func GetDefaultMode() *string {
 	return StringPtr(DefaultMode)
+}
+
+func GetDefaultDockerHostIP() *string {
+	return StringPtr(DefaultDockerHostIP)
+}
+
+func GetDefaultHTTPMethods() *string {
+	return StringPtr(DefaultHTTPMethods)
+}
+
+func GetDefaultContentType() *string {
+	return StringPtr(DefaultContentType)
+}
+
+func GetDefaultGitHubAPIBaseURL() *string {
+	return StringPtr(DefaultGitHubAPIBaseURL)
+}
+
+func GetDefaultAnacondaRepoURL() *string {
+	return StringPtr(DefaultAnacondaRepoURL)
+}
+
+func GetDefaultPklGitHubReleaseURL() *string {
+	return StringPtr(DefaultPklGitHubReleaseURL)
+}
+
+func GetDefaultAnacondaDownloadURL() *string {
+	return StringPtr(DefaultAnacondaDownloadURL)
+}
+
+// GenerateCanonicalActionID creates a canonical action ID in the format @agentID/resourceType:version
+func GenerateCanonicalActionID(agentID, resourceType, version string) string {
+	return fmt.Sprintf("@%s/%s:%s", agentID, resourceType, version)
 }
 
 // ApplyDefaultsToWorkflowSettings applies default values to workflow settings when they are nil or missing
