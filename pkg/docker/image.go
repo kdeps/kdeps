@@ -37,8 +37,6 @@ type BuildLine struct {
 	Error  string `json:"error"`
 }
 
-
-
 // BuildDockerImageWithGUI builds a Docker image with modern GUI integration
 func BuildDockerImageWithGUI(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli *client.Client, runDir, kdepsDir string,
 	pkgProject *archiver.KdepsPackage, gui interface{}, logger *logging.Logger,
@@ -155,7 +153,6 @@ func BuildDockerImageWithGUI(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdep
 	guiController.AddLog(fmt.Sprintf("✅ Successfully built image: %s", containerName), false)
 	return cName, containerName, nil
 }
-
 
 // streamDockerLogsToGUI streams Docker logs directly to the GUI
 func streamDockerLogsToGUI(rd io.Reader, guiController interface{}) error {

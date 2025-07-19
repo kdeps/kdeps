@@ -78,19 +78,29 @@ type LogMsg struct {
 	IsError bool
 }
 
+// RouteInfo holds information about a specific route
+type RouteInfo struct {
+	Path       string
+	Methods    []string
+	ServerType string // "api", "static", "app"
+	ActionID   string // for API routes
+	AppPort    string // for app routes
+}
+
 // ContainerStats holds information about the built/running container
 type ContainerStats struct {
-	ImageName         string
-	ImageVersion      string
-	ContainerID       string
-	APIServerMode     bool
-	WebServerMode     bool
-	HostIP            string
-	HostPort          string
-	WebHostIP         string
-	WebHostPort       string
-	GPUType           string
-	Command           string // build, run, package
+	ImageName     string
+	ImageVersion  string
+	ContainerID   string
+	APIServerMode bool
+	WebServerMode bool
+	HostIP        string
+	HostPort      string
+	WebHostIP     string
+	WebHostPort   string
+	GPUType       string
+	Command       string // build, run, package
+	Routes        []RouteInfo
 }
 
 // CompletionMsg represents completion of all operations
@@ -155,7 +165,7 @@ func (m LiveGUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.done {
 			return m, tea.Quit
 		}
-		
+
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
@@ -192,7 +202,7 @@ func (m LiveGUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// Update global progress
 			m.updateGlobalProgress()
-			
+
 			// Update progress bar with new value
 			progressCmd := m.progress.SetPercent(m.globalProgress)
 			return m, tea.Batch(m.waitForActivity(), progressCmd)
@@ -479,6 +489,65 @@ func (m LiveGUIModel) renderContainerStats() string {
 		details = append(details, fmt.Sprintf("🔗 Access: http://%s:%s", stats.HostIP, stats.HostPort))
 	}
 
+	// Route information - only show routes for enabled server modes
+	var apiRoutes []RouteInfo
+	var webRoutes []RouteInfo
+	
+	for _, route := range stats.Routes {
+		if route.ServerType == "api" && stats.APIServerMode {
+			apiRoutes = append(apiRoutes, route)
+		} else if (route.ServerType == "static" || route.ServerType == "app") && stats.WebServerMode {
+			webRoutes = append(webRoutes, route)
+		}
+	}
+	
+	// Display API routes if API server is enabled
+	if len(apiRoutes) > 0 && stats.APIServerMode {
+		details = append(details, "")
+		details = append(details, "🌐 API Routes:")
+		for _, route := range apiRoutes {
+			methodsStr := strings.Join(route.Methods, ", ")
+			if stats.HostIP != "" && stats.HostPort != "" {
+				routeLine := fmt.Sprintf("   • %s [%s] → http://%s:%s%s", route.Path, methodsStr, stats.HostIP, stats.HostPort, route.Path)
+				details = append(details, routeLine)
+			} else {
+				routeLine := fmt.Sprintf("   • %s [%s]", route.Path, methodsStr)
+				details = append(details, routeLine)
+			}
+		}
+	}
+	
+	// Display Web routes if Web server is enabled
+	if len(webRoutes) > 0 && stats.WebServerMode {
+		details = append(details, "")
+		details = append(details, "🌍 Web Routes:")
+		for _, route := range webRoutes {
+			var routeLine string
+			
+			switch route.ServerType {
+			case "static":
+				if stats.WebHostIP != "" && stats.WebHostPort != "" {
+					routeLine = fmt.Sprintf("   • %s [Static] → http://%s:%s%s", route.Path, stats.WebHostIP, stats.WebHostPort, route.Path)
+				} else {
+					routeLine = fmt.Sprintf("   • %s [Static]", route.Path)
+				}
+			case "app":
+				if stats.WebHostIP != "" && stats.WebHostPort != "" {
+					routeLine = fmt.Sprintf("   • %s [App] → http://%s:%s%s", route.Path, stats.WebHostIP, stats.WebHostPort, route.Path)
+				} else {
+					routeLine = fmt.Sprintf("   • %s [App]", route.Path)
+				}
+				if route.AppPort != "" {
+					routeLine += fmt.Sprintf(" (Port: %s)", route.AppPort)
+				}
+			default:
+				routeLine = fmt.Sprintf("   • %s", route.Path)
+			}
+			
+			details = append(details, routeLine)
+		}
+	}
+
 	if len(details) == 0 {
 		details = append(details, "No container details available")
 	}
@@ -756,7 +825,7 @@ func (gl *GUILogger) Info(msg string, keysAndValues ...interface{}) {
 	gl.gui.AddLog(fmt.Sprintf("ℹ️  %s", msg), false)
 }
 
-// Debug logs a debug message to the GUI  
+// Debug logs a debug message to the GUI
 func (gl *GUILogger) Debug(msg string, keysAndValues ...interface{}) {
 	// Skip debug messages to reduce noise
 }

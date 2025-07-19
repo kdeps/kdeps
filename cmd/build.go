@@ -41,6 +41,7 @@ func (gw *guiWriter) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
+
 // NewBuildCommand creates the 'build' command and passes the necessary dependencies.
 func NewBuildCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCfg *kdeps.Kdeps, logger *logging.Logger) *cobra.Command {
 	return &cobra.Command{
@@ -55,7 +56,7 @@ func NewBuildCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCf
 			// Create and start modern GUI immediately to prevent terminal conflicts
 			operations := []string{"Package Extraction", "Dockerfile Generation", "Docker Image Build", "Image Cleanup"}
 			gui := ui.NewGUIController(ctx, operations)
-			
+
 			// Start the GUI immediately
 			if err := gui.Start(); err != nil {
 				return fmt.Errorf("failed to start GUI: %w", err)
@@ -63,7 +64,7 @@ func NewBuildCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCf
 
 			// Give GUI time to initialize and take control of terminal
 			time.Sleep(200 * time.Millisecond)
-			
+
 			// Add initial log message
 			gui.AddLog("🚀 Starting kdeps build operation...", false)
 
@@ -122,16 +123,20 @@ func NewBuildCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCf
 			gui.UpdateOperation(3, ui.StatusCompleted, "Build images cleaned up successfully", 1.0)
 
 			// Success!
+			// Extract route information from workflow
+			routes := extractRoutes(pkgProject, ctx, guiLogger)
+			
 			containerStats := &ui.ContainerStats{
 				ImageName:    agentContainerName,
 				ImageVersion: agentContainerNameAndVersion,
 				Command:      "build",
+				Routes:       routes,
 			}
 			gui.CompleteWithStats(true, nil, containerStats)
-			
+
 			// Wait for user input to exit
 			gui.Wait()
-			
+
 			return nil
 		},
 	}

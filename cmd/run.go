@@ -38,7 +38,7 @@ func NewRunCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCfg 
 
 			// Give GUI time to initialize and take control of terminal
 			time.Sleep(200 * time.Millisecond)
-			
+
 			// Add initial log message
 			gui.AddLog("🚀 Starting kdeps run operation...", false)
 
@@ -110,6 +110,9 @@ func NewRunCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCfg 
 			gui.UpdateOperation(4, ui.StatusCompleted, fmt.Sprintf("Container %s created and started successfully", containerID[:12]), 1.0)
 
 			// Success!
+			// Extract route information from workflow
+			routes := extractRoutes(pkgProject, ctx, guiLogger)
+			
 			containerStats := &ui.ContainerStats{
 				ImageName:     agentContainerName,
 				ImageVersion:  agentContainerNameAndVersion,
@@ -122,6 +125,7 @@ func NewRunCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCfg 
 				WebHostPort:   webHostNum,
 				GPUType:       gpuType,
 				Command:       "run",
+				Routes:        routes,
 			}
 			gui.CompleteWithStats(true, nil, containerStats)
 

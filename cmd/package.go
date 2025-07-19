@@ -15,7 +15,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-
 // Define styles using lipgloss.
 var (
 	errorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
@@ -43,7 +42,7 @@ func NewPackageCommand(ctx context.Context, fs afero.Fs, kdepsDir string, env *e
 
 			// Give GUI time to initialize and take control of terminal
 			time.Sleep(200 * time.Millisecond)
-			
+
 			// Add initial log message
 			gui.AddLog("🚀 Starting kdeps package operation...", false)
 
