@@ -114,7 +114,7 @@ local-dev:
 		echo "Local project already exists in local/localproject/"; \
 	fi
 	@echo "$(OK_COLOR)==> Building kdeps with local-dev support...$(NO_COLOR)"
-	@CGO_ENABLED=1 go build -v -ldflags="-s -w -X main.Version=$(or $(tag),dev-$(shell git describe --tags --abbrev=0)) -X main.localMode=1" -o "$(BUILD_DIR)/$(NAME)" "$(BUILD_SRC)"
+	@make build
 	@echo "$(OK_COLOR)==> Packaging local project...$(NO_COLOR)"
 	./bin/kdeps package local/localproject
 	@echo "$(OK_COLOR)==> Extracting project to local/project...$(NO_COLOR)"
@@ -127,8 +127,9 @@ local-dev:
 	@echo "$(OK_COLOR)==> Replacing PKL imports in local PKL files...$(NO_COLOR)"
 	@find local/pkl -name "*.pkl" -type f -exec sed -i.bak 's|package://schema\.kdeps\.com/core@[^#]*#/|/local/pkl/|g' {} \;
 	@find local/pkl -name "*.bak" -delete
-	@echo "$(OK_COLOR)==> Deploying to Docker container...$(NO_COLOR)"
+	@echo "$(OK_COLOR)==> Building kdeps for Docker Linux...$(NO_COLOR)"
 	@make dev-build
+	@echo "$(OK_COLOR)==> Deploying to Docker container...$(NO_COLOR)"
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
 	if [ -z "$$CONTAINER" ]; then \
 		echo "$(ERROR_COLOR)==> No running kdeps-* container found$(NO_COLOR)"; \
@@ -152,7 +153,8 @@ local-dev:
 # Helper task to just update the container with current changes
 local-update:
 	@echo "$(OK_COLOR)==> Updating container with current changes...$(NO_COLOR)"
-	@GOOS=linux GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-linux-musl-gcc go build -v -ldflags="-s -w -X main.Version=$(or $(tag),dev-$(shell git describe --tags --abbrev=0)) -X main.localMode=1" -o "$(BUILD_DIR)/$(NAME)" "$(BUILD_SRC)"
+	@echo "$(OK_COLOR)==> Building kdeps for host platform...$(NO_COLOR)"
+	@make build
 	@echo "$(OK_COLOR)==> Packaging local project...$(NO_COLOR)"
 	./bin/kdeps package local/localproject
 	@echo "$(OK_COLOR)==> Extracting project to local/project...$(NO_COLOR)"
@@ -162,6 +164,8 @@ local-update:
 	@echo "$(OK_COLOR)==> Replacing PKL imports with local paths in extracted project...$(NO_COLOR)"
 	@find local/project -name "*.pkl" -type f -exec sed -i.bak 's|package://schema\.kdeps\.com/core@[^#]*#/|/local/pkl/|g' {} \;
 	@find local/project -name "*.bak" -delete
+	@echo "$(OK_COLOR)==> Building kdeps for Docker Linux...$(NO_COLOR)"
+	@make dev-build
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
 	if [ -z "$$CONTAINER" ]; then \
 		echo "$(ERROR_COLOR)==> No running kdeps-* container found$(NO_COLOR)"; \
