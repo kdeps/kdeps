@@ -99,7 +99,7 @@ Run {
         Prompt = """
 Extract the longitude, latitude, and timezone
 from this text. An example of timezone is Asia/Manila.
-@(request.params("q"))?
+\(request.params("q"))?
 """
         JSONResponse = true
         JSONResponseKeys {
@@ -122,7 +122,7 @@ Chat {
     Prompt = """
 Extract the longitude, latitude, and timezone
 from this text. An example of timezone is Asia/Manila.
-@(request.params("q"))?
+\(request.params("q"))?
 """
     JSONResponse = true
     JSONResponseKeys {
@@ -169,7 +169,7 @@ Run {
         echo $LLM_INPUT > /tmp/llm_input.json
         """
         Env {
-            ["LLM_INPUT"] = "@(llm.response("llmInput"))"
+            ["LLM_INPUT"] = llm.response("llmInput")
         }
         TimeoutDuration = 60.s
     }
@@ -216,7 +216,7 @@ Requires { "execResource" }
 
 Run {
     local JSONData = """
-    @(read?("file:/tmp/llm_input.json")?.text)
+    \(read?("file:/tmp/llm_input.json")?.text)
     """
 
     HTTPClient {
@@ -224,9 +224,9 @@ Run {
         URL = "https://api.open-meteo.com/v1/forecast"
         Data {}
         Params {
-            ["latitude" ] = "@(JSONParser.parse(JSONData)?.latitude_str)"
-            ["longitude"] = "@(JSONParser.parse(JSONData)?.longitude_str)"
-            ["timezone "] = "@(JSONParser.parse(JSONData)?.timezone_str)"
+            ["latitude" ] = JSONParser.parse(JSONData)?.latitude_str
+            ["longitude"] = JSONParser.parse(JSONData)?.longitude_str
+            ["timezone "] = JSONParser.parse(JSONData)?.timezone_str
             ["current_weather"] = "true"
             ["forecast_days"] = "1"
             ["hourly"] = "temperature_2m,precipitation,wind_speed_10m"
@@ -324,7 +324,7 @@ Chat {
     Model = "llama3.1"
     Prompt = """
 As if you're a weather reporter, present this response in an engaging way:
-@(client.responseBody("HTTPClient").base64Decoded)
+\(client.responseBody("HTTPClient"))
 """
     JSONResponse = false
 ...
@@ -332,7 +332,7 @@ As if you're a weather reporter, present this response in an engaging way:
 
 - **`Model`**: Specifies the LLM version (`llama3.1`).
 - **`Prompt`**: Instructs the model to generate an output resembling a weather reporter's announcement. The raw API
-response is passed via `@(client.responseBody("HTTPClient"))`.
+response is passed via `\(client.responseBody("HTTPClient"))`.
 - **`JSONResponse = false`**: Indicates that the output should be plain text, formatted for readability, rather than
 structured JSON.
 
@@ -368,7 +368,7 @@ APIResponse {
     Success = true
     Response {
         Data {
-            "@(llm.response("llmOutput"))"
+            llm.response("llmOutput")
         }
     }
 }

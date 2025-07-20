@@ -45,19 +45,19 @@ Run {
     AllowedHeaders { "Authorization"; "Content-Type" }
     AllowedParams { "query"; "model" }
     PreflightCheck {
-        Validations { "@(request.data().query)" != "" }
+        Validations { request.data().query != "" }
         Retry = false
         RetryTimes = 1
     }
     PostflightCheck {
-        Validations { "@(llm.response('llmResource').response)" != "" }
+        Validations { llm.response('llmResource').response != "" }
         Retry = true
         RetryTimes = 2
     }
     Chat {
         Model = "tinydolphin"
         Role = "user"
-        Prompt = "Who is @(request.data())?"
+        Prompt = "Who is \\(request.data())?"
         JSONResponse = false
         TimeoutDuration = 60.s
     }
@@ -72,7 +72,7 @@ Within the `Run` block, the `Chat` block defines the LLM interaction parameters:
 Chat {
     Model = "tinydolphin"
     Role = "user"
-    Prompt = "Who is @(request.data())?"
+    Prompt = "Who is \\(request.data())?"
     
     Scenario {
         new {
@@ -92,7 +92,7 @@ Chat {
     Tools {
         new {
             Name = "lookup_db"
-            Script = "@(data.filepath("tools/1.0.0", "lookup.py"))"
+            Script = data.filepath("tools/1.0.0", "lookup.py")
             Description = "Lookup information in the DB"
             Parameters {
                 ["keyword"] { Required = true; Type = "string"; Description = "The string keyword to query the DB" }
@@ -111,7 +111,7 @@ Chat {
     }
 
     Files {
-        "@(request.files()[0])"
+        request.files()[0]
     }
 
     TimeoutDuration = 60.s
@@ -163,7 +163,7 @@ Scenario {
 Scenario {
     new {
         Role = "system"
-        Prompt = "You are a knowledgeable expert in @(request.data('domain')). Provide accurate, detailed information."
+        Prompt = "You are a knowledgeable expert in \(request.data('domain')). Provide accurate, detailed information."
     }
     new {
         Role = "system"
@@ -171,7 +171,7 @@ Scenario {
     }
     new {
         Role = "system"
-        Prompt = "Format your responses to be clear and structured for @(request.data('audience_level')) audience."
+        Prompt = "Format your responses to be clear and structured for \(request.data('audience_level')) audience."
     }
 }
 ```
@@ -181,7 +181,7 @@ Scenario {
 Scenario {
     new {
         Role = "system"
-        Prompt = "You are a helpful customer service agent for @(request.data('company_name'))."
+        Prompt = "You are a helpful customer service agent for \(request.data('company_name'))."
     }
     new {
         Role = "system"
@@ -202,10 +202,10 @@ The `Files` block supports processing various file types, enabling multimodal in
 
 ```apl
 Files {
-    "@(request.files()[0])"                    // First uploaded file
-    "@(request.files('document'))"             // Named file input
-    "@(data.filepath('uploads/image.jpg'))"   // Static file path
-    "@(memory.get('processed_document'))"      // File from memory
+    request.files()[0]                    // First uploaded file
+    request.files('document')             // Named file input
+    data.filepath('uploads/image.jpg')   // Static file path
+    memory.get('processed_document')      // File from memory
 }
 ```
 
@@ -220,18 +220,18 @@ Files {
 
 ```apl
 Files {
-    "@(request.files()[0])"
+    request.files()[0]
 }
 
 // Use with vision models for image analysis
 Model = "llama3.2-vision"
-Prompt = "Analyze this image and describe what you see: @(request.files()[0].description())"
+Prompt = "Analyze this image and describe what you see: \(request.files()[0].description())"
 
 // File validation in PreflightCheck
 PreflightCheck {
     Validations { 
-        "@(request.files().length())" > 0
-        "@(request.files()[0].size())" < 10485760  // 10MB limit
+        request.files().length() > 0
+        request.files()[0].size() < 10485760  // 10MB limit
     }
 }
 ```
@@ -274,7 +274,7 @@ JSONResponseKeys {
 ```apl
 Chat {
     Model = "llama3.3"
-    Prompt = "Analyze the person mentioned in: @(request.data('query'))"
+    Prompt = "Analyze the person mentioned in: \(request.data('query'))"
     
     JSONResponse = true
     JSONResponseKeys {
@@ -298,7 +298,7 @@ The `Tools` block enables LLMs to use external tools for enhanced functionality,
 Tools {
     new {
         Name = "lookup_db"
-        Script = "@(data.filepath("tools/1.0.0", "lookup.py"))"
+        Script = data.filepath("tools/1.0.0", "lookup.py")
         Description = "Lookup information in the database"
         Parameters {
             ["keyword"] { Required = true; Type = "string"; Description = "The search keyword" }
@@ -316,7 +316,7 @@ Tools can be chained to create processing pipelines where the output of one tool
 Tools {
     new {
         Name = "get_weather"
-        Script = "@(data.filepath("tools/1.0.0", "weather.py"))"
+        Script = data.filepath("tools/1.0.0", "weather.py")
         Description = "Fetches current weather data for a location"
         Parameters {
             ["location"] { Required = true; Type = "string"; Description = "City or region name" }
@@ -325,7 +325,7 @@ Tools {
     }
     new {
         Name = "format_weather"
-        Script = "@(data.filepath("tools/1.0.0", "format_weather.py"))"
+        Script = data.filepath("tools/1.0.0", "format_weather.py")
         Description = "Formats weather data into user-friendly summary"
         Parameters {
             ["weather_data"] { Required = true; Type = "object"; Description = "Weather data from get_weather tool" }
@@ -363,9 +363,9 @@ Validate inputs before LLM execution:
 ```apl
 PreflightCheck {
     Validations { 
-        "@(request.data('query'))" != ""
-        "@(request.data('query').length())" > 5
-        "@(request.data('query').length())" < 1000
+        request.data('query') != ""
+        request.data('query').length() > 5
+        request.data('query').length() < 1000
     }
     Retry = false
     RetryTimes = 1
@@ -379,8 +379,8 @@ Validate LLM outputs after execution:
 ```apl
 PostflightCheck {
     Validations { 
-        "@(llm.response('llmResource').response)" != ""
-        "@(llm.response('llmResource').response.length())" > 10
+        llm.response('llmResource').response != ""
+        llm.response('llmResource').response.length() > 10
     }
     Retry = true
     RetryTimes = 2
@@ -403,16 +403,16 @@ Use LLM functions to retrieve and process responses:
 
 ```apl
 // Get the complete response
-@(llm.response('llmResource').response)
+llm.response('llmResource').response
 
 // Get specific JSON fields
-@(llm.response('llmResource').name)
-@(llm.response('llmResource').age)
+llm.response('llmResource').name
+llm.response('llmResource').age
 
 // Get response metadata
-@(llm.response('llmResource').model)
-@(llm.response('llmResource').tokens_used)
-@(llm.response('llmResource').processing_time)
+llm.response('llmResource').model
+llm.response('llmResource').tokens_used
+llm.response('llmResource').processing_time
 ```
 
 For detailed LLM function reference, see [Functions & Utilities](../functions-utilities/functions.md).
@@ -438,9 +438,9 @@ Run {
     
     PreflightCheck {
         Validations { 
-            "@(request.data('message'))" != ""
-            "@(request.data('customer_id'))" != ""
-            "@(request.data('message').length())" < 2000
+            request.data('message') != ""
+            request.data('customer_id') != ""
+            request.data('message').length() < 2000
         }
         Retry = false
         RetryTimes = 1
@@ -448,8 +448,8 @@ Run {
     
     PostflightCheck {
         Validations { 
-            "@(llm.response('customerSupportLLM').response)" != ""
-            "@(llm.response('customerSupportLLM').resolution_status)" != ""
+            llm.response('customerSupportLLM').response != ""
+            llm.response('customerSupportLLM').resolution_status != ""
         }
         Retry = true
         RetryTimes = 2
@@ -458,7 +458,7 @@ Run {
     Chat {
         Model = "llama3.3"
         Role = "user"
-        Prompt = "Customer message: @(request.data('message')). Customer ID: @(request.data('customer_id'))"
+        Prompt = "Customer message: \(request.data('message')). Customer ID: \(request.data('customer_id'))"
         
         Scenario {
             new {
@@ -478,7 +478,7 @@ Run {
         Tools {
             new {
                 Name = "lookup_customer"
-                Script = "@(data.filepath("tools/1.0.0", "customer_lookup.py"))"
+                Script = data.filepath("tools/1.0.0", "customer_lookup.py")
                 Description = "Look up customer information and order history"
                 Parameters {
                     ["customer_id"] { Required = true; Type = "string"; Description = "Customer ID to look up" }
@@ -486,7 +486,7 @@ Run {
             }
             new {
                 Name = "create_ticket"
-                Script = "@(data.filepath("tools/1.0.0", "create_ticket.py"))"
+                Script = data.filepath("tools/1.0.0", "create_ticket.py")
                 Description = "Create a support ticket for escalation"
                 Parameters {
                     ["customer_id"] { Required = true; Type = "string"; Description = "Customer ID" }

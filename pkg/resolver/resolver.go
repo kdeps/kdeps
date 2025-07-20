@@ -686,7 +686,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	stack := dr.BuildDependencyStackFn(targetActionID, visited)
 
 	dr.Logger.Debug("dependency stack after build", "targetActionID", targetActionID, "stack", stack)
-	
+
 	// Enhanced dependency logging with progress indicators
 	if len(stack) > 0 {
 		dr.Logger.Info("=== DEPENDENCY EXECUTION PLAN ===")
@@ -851,7 +851,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 				if dr.PklresHelper != nil {
 					canonicalResourceID = dr.PklresHelper.resolveActionID(res.ActionID)
 				}
-				
+
 				// Check if this resource has dependencies
 				depData, err := dr.PklresReader.GetDependencyData(canonicalResourceID)
 				if err == nil && depData != nil && len(depData.Dependencies) > 0 {
@@ -925,7 +925,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 						if dr.PklresHelper != nil {
 							canonicalResourceID = dr.PklresHelper.resolveActionID(res.ActionID)
 						}
-						
+
 						// Check if this resource has dependencies
 						depData, err := dr.PklresReader.GetDependencyData(canonicalResourceID)
 						if err == nil && depData != nil && len(depData.Dependencies) > 0 {
@@ -974,7 +974,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 				}
 			}
 		}
-		
+
 		// Check if resource was found in the loaded resources
 		if !resourceFound {
 			dr.Logger.Error(fmt.Sprintf("❌ RESOURCE NOT FOUND [%d/%d] *%s* - Resource exists in dependency stack but not in loaded resources!", i+1, len(stack), nodeActionID))

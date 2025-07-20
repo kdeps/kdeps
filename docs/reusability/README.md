@@ -70,7 +70,7 @@ Category = "validation"
 Run {
     Validation {
         Schema = emailSchema
-        Data = "@(request.data().email)"
+        Data = request.data().email
     }
 }
 
@@ -109,7 +109,7 @@ Settings {
         Sequential = ["data-processor", "ml-analyzer"]
         Parallel = ["report-generator"]
         Conditional = {
-            "premium-features": "@(request.data().tier == 'premium')"
+            "premium-features": request.data().tier == 'premium'
         }
     }
 }
@@ -119,9 +119,9 @@ Settings {
 ```apl
 // Load agents based on runtime conditions
 Expr {
-    "local agentType = @(request.data().processingType)"
+    "local agentType = \(request.data().processingType)"
     "local agentPath = 'agents/' + agentType + '-agent.kdeps'"
-    "@(runtime.loadAgent(agentPath))"
+    runtime.loadAgent(agentPath)
 }
 ```
 
@@ -135,7 +135,7 @@ Workflows {
 
 VersionStrategy {
     Default = "1.0.0"
-    Beta = "@(request.headers().X-Beta-Features == 'true')"
+    Beta = request.headers().X-Beta-Features == 'true'
     Rollback = "1.0.0"  // Fallback version
 }
 ```
@@ -216,7 +216,7 @@ ActionID = "baseLLMResource"
 Category = "ai"
 Run {
     Chat {
-        Model = "@(environment.get('DEFAULT_MODEL'))"
+        Model = environment.get('DEFAULT_MODEL')
         TimeoutDuration = 60.s
         JSONResponse = true
     }
@@ -228,7 +228,7 @@ extends = "baseLLMResource"
 ActionID = "specializedLLMResource"
 Run {
     Chat = parent.Chat + {
-        Prompt = "You are a specialized assistant for @(request.data().domain)"
+        Prompt = "You are a specialized assistant for \(request.data().domain)"
         JSONResponseKeys { "answer"; "confidence"; "sources" }
     }
 }
@@ -327,7 +327,7 @@ kdeps benchmark my-agent --requests 1000 --concurrent 10
 AgentID = "tenantAgent"
 Workflows {
     "core-platform-1.0.0.kdeps"        // Base platform
-    "tenant-customization-@(tenant.id).kdeps"  // Tenant-specific
+    "tenant-customization-\(tenant.id).kdeps"  // Tenant-specific
 }
 
 Settings {

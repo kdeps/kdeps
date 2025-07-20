@@ -54,12 +54,12 @@ Requires {
 After specifying the required resources, you can use a `function` or retrieve output through `file`. Here’s an example:
 
 ```apl
-local sortedItemsJsonPath = "@(llm.file("@conveyour_counting_ai/sortImageItemsLLM:1.2.5"))"
-local sortedItemsJsonData = "@(read?("\(sortedItemsJsonPath)")?.text)"
+local sortedItemsJsonPath = llm.file("@conveyour_counting_ai/sortImageItemsLLM:1.2.5")
+local sortedItemsJsonData = read?("\(sortedItemsJsonPath)")?.text
 
 local report = new Mapping {
-  ["fruit_count"] = "@(document.JSONParser(sortedItemsJsonData)?.fruit_count_integer)"
-  ["vegetable_count"] = "@(document.JSONParser(sortedItemsJsonData)?.vegetable_count_integer)"
-  ["stock_analysis_report"] = "@(document.JSONParser(stockAnalysisLLMReporter)?.report_markdown)"
+  ["fruit_count"] = document.JSONParser(sortedItemsJsonData)?.fruit_count_integer
+  ["vegetable_count"] = document.JSONParser(sortedItemsJsonData)?.vegetable_count_integer
+  ["stock_analysis_report"] = document.JSONParser(stockAnalysisLLMReporter)?.report_markdown
 }
 ```

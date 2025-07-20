@@ -24,7 +24,7 @@ The Memory system provides persistent data storage that survives across requests
 - Primitive types (string, number, boolean)
 - Complex objects and arrays
 - Nested data structures
-- Binary data (base64 encoded)
+- Binary data (handled as direct strings)
 
 **Use Cases**: User sessions, application state, caching, configuration storage, temporary data
 

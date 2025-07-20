@@ -82,14 +82,14 @@ Run {
   AllowedHeaders { "Authorization"; "Content-Type" }
   AllowedParams { "ticket_id" }
   PreflightCheck {
-    Validations { "@(request.data().ticket_id)" != "" }
+    Validations { "request.data().ticket_id" != "" }
     Retry = true
     RetryTimes = 3
   }
   HTTPClient {
     Method = "GET"
-    URL = "https://crm.example.com/api/ticket/@(request.data().ticket_id)"
-    Headers { ["Authorization"] = "Bearer @(session.getRecord('crm_token'))" }
+    URL = "https://crm.example.com/api/ticket/request.data().ticket_id"
+    Headers { ["Authorization"] = "Bearer \(session.getRecord('crm_token'))" }
     TimeoutDuration = 30.s
   }
 }
@@ -108,22 +108,22 @@ Run {
   RestrictToHTTPMethods { "POST" }
   RestrictToRoutes { "/api/v1/ticket" }
   PreflightCheck {
-    Validations { "@(request.data().query)" != "" }
+    Validations { "\(request.data().query)" != "" }
     Retry = false
     RetryTimes = 1
   }
   PostflightCheck {
-    Validations { "@(llm.response('llmResource').response_text)" != "" }
+    Validations { "llm.response('llmResource').response_text" != "" }
     Retry = true
     RetryTimes = 2
   }
   Chat {
     Model = "llama3.2:1b"
     Role = "assistant"
-    Prompt = "Provide a professional response to the customer query: @(request.data().query)"
+    Prompt = "Provide a professional response to the customer query: \(request.data().query)"
     Scenario {
       new { Role = "system"; Prompt = "You are a customer support assistant. Be polite and concise." }
-      new { Role = "system"; Prompt = "Ticket data: @(client.responseBody("httpFetchResource"))" }
+      new { Role = "system"; Prompt = "Ticket data: \(client.responseBody("httpFetchResource"))" }
     }
     JSONResponse = true
     JSONResponseKeys { "response_text" }
@@ -147,7 +147,7 @@ Run {
   APIResponse {
     Success = true
     Response {
-      Data { "@(llm.response('llmResource'))" }
+      Data { llm.response('llmResource') }
     }
     Meta { 
       Headers { ["Content-Type"] = "application/json" }
@@ -245,14 +245,14 @@ Run {
   RestrictToRoutes { "/api/v1/visual-ticket" }
   AllowedParams { "ticket_id" }
   PreflightCheck {
-    Validations { "@(request.data().ticket_id)" != "" }
+    Validations { "request.data().ticket_id" != "" }
     Retry = true
     RetryTimes = 3
   }
   HTTPClient {
     Method = "GET"
-    URL = "https://crm.example.com/api/ticket/@(request.data().ticket_id)"
-    Headers { ["Authorization"] = "Bearer @(session.getRecord('crm_token'))" }
+    URL = "https://crm.example.com/api/ticket/request.data().ticket_id"
+    Headers { ["Authorization"] = "Bearer \(session.getRecord('crm_token'))" }
     TimeoutDuration = 30.s
   }
 }
@@ -272,12 +272,12 @@ Run {
   RestrictToRoutes { "/api/v1/visual-ticket" }
   AllowedHeaders { "Content-Type" }
   PreflightCheck {
-    Validations { "@(request.filecount())" > 0 }
+    Validations { "request.filecount()" > 0 }
     Retry = false
     RetryTimes = 1
   }
   PostflightCheck {
-    Validations { "@(llm.response('llmResource').defect_description)" != "" }
+    Validations { "llm.response('llmResource').defect_description" != "" }
     Retry = true
     RetryTimes = 2
   }
@@ -285,10 +285,10 @@ Run {
     Model = "llama3.2-vision"
     Role = "assistant"
     Prompt = "Analyze the image for product defects and describe any issues found."
-    Files { "@(request.files()[0])" }
+    Files { request.files()[0] }
     Scenario {
       new { Role = "system"; Prompt = "You are a support assistant specializing in visual defect detection." }
-      new { Role = "system"; Prompt = "Ticket data: @(client.responseBody("httpFetchResource"))" }
+      new { Role = "system"; Prompt = "Ticket data: \(client.responseBody("httpFetchResource"))" }
     }
     JSONResponse = true
     JSONResponseKeys { "defect_description"; "severity" }
@@ -312,7 +312,7 @@ Run {
   APIResponse {
     Success = true
     Response {
-      Data { "@(llm.response('llmResource'))" }
+      Data { llm.response('llmResource') }
     }
     Meta { 
       Headers { ["Content-Type"] = "application/json" }
@@ -405,14 +405,14 @@ Run {
   RestrictToRoutes { "/api/v1/summarize" }
   AllowedParams { "text" }
   PreflightCheck {
-    Validations { "@(request.data().text)" != "" }
+    Validations { "\(request.data().text)" != "" }
     Retry = false
     RetryTimes = 1
   }
   Chat {
     Model = "llama3.2:1b"
     Role = "assistant"
-    Prompt = "Summarize this text in 50 words or less: @(request.data().text)"
+    Prompt = "Summarize this text in 50 words or less: \(request.data().text)"
     JSONResponse = true
     JSONResponseKeys { "summary" }
     TimeoutDuration = 60.s
@@ -469,18 +469,18 @@ Run {
   RestrictToRoutes { "/api/v1/report" }
   AllowedParams { "date_range" }
   PreflightCheck {
-    Validations { "@(request.params("date_range"))" != "" }
+    Validations { "\(request.params("date_range"))" != "" }
     Retry = false
     RetryTimes = 1
   }
   Chat {
     Model = "llama3.2:1b"
     Role = "assistant"
-    Prompt = "Generate a sales report based on database query results. Date range: @(request.params("date_range"))"
+    Prompt = "Generate a sales report based on database query results. Date range: \(request.params("date_range"))"
     Tools {
       new {
         Name = "query_sales_db"
-        Script = "@(data.filepath('tools/1.0.0', 'query_sales.py'))"
+        Script = data.filepath('tools/1.0.0', 'query_sales.py')
         Description = "Queries the sales database for recent transactions"
         Parameters {
           ["date_range"] { Required = true; Type = "string"; Description = "Date range for query (e.g., '2025-01-01:2025-05-01')" }
@@ -566,14 +566,14 @@ Run {
   RestrictToRoutes { "/api/v1/structured" }
   AllowedParams { "text" }
   PreflightCheck {
-    Validations { "@(request.data().text)" != "" }
+    Validations { "\(request.data().text)" != "" }
     Retry = false
     RetryTimes = 1
   }
   Chat {
     Model = "llama3.2:1b"
     Role = "assistant"
-    Prompt = "Analyze this text and return a structured response: @(request.data().text)"
+    Prompt = "Analyze this text and return a structured response: \(request.data().text)"
     JSONResponse = true
     JSONResponseKeys { "summary"; "keywords" }
     TimeoutDuration = 60.s
@@ -639,13 +639,13 @@ Run {
   RestrictToHTTPMethods { "GET" }
   RestrictToRoutes { "/api/v1/mtv-scenarios" }
   SkipCondition {
-    "@(item.current())" == "And I knew if I had my chance" // Skip this lyric
+    item.current() == "And I knew if I had my chance" // Skip this lyric
   }
   Chat {
     Model = "llama3.2:1b"
     Role = "assistant"
     Prompt = """
-    Based on the lyric @(item.current()) from the song "American Pie," generate a suitable scenario for an MTV music video. The scenario should include a vivid setting, key visual elements, and a mood that matches the lyric's tone.
+    Based on the lyric \(item.current()) from the song "American Pie," generate a suitable scenario for an MTV music video. The scenario should include a vivid setting, key visual elements, and a mood that matches the lyric's tone.
     """
     Scenario {
       new { Role = "system"; Prompt = "You are a creative director specializing in music video production." }
@@ -672,7 +672,7 @@ Run {
   APIResponse {
     Success = true
     Response {
-      Data { "@(llm.response('llmResource'))" }
+      Data { llm.response('llmResource') }
     }
     Meta { 
       Headers { ["Content-Type"] = "application/json" }
@@ -750,7 +750,7 @@ Run {
   RestrictToHTTPMethods { "POST" }
   RestrictToRoutes { "/api/v1/doc-analyze" }
   PreflightCheck {
-    Validations { "@(request.filecount())" > 0 }
+    Validations { "request.filecount()" > 0 }
     Retry = false
     RetryTimes = 1
   }
@@ -758,7 +758,7 @@ Run {
     Model = "llama3.2-vision"
     Role = "assistant"
     Prompt = "Extract key information from this document."
-    Files { "@(request.files()[0])" }
+    Files { request.files()[0] }
     JSONResponse = true
     JSONResponseKeys { "key_info" }
     TimeoutDuration = 60.s
@@ -822,8 +822,8 @@ Run {
     Success = true
     Response {
       Data {
-        "@(llm.response("llmResource"))"
-        "@(llm.response('@ticketResolutionAgent/llmResource:1.0.0'))"
+        llm.response("llmResource")
+        llm.response('@ticketResolutionAgent/llmResource:1.0.0')
       }
     }
     Meta { 
@@ -856,7 +856,7 @@ def format_data(data):
   df = pd.DataFrame([data])
   return df.to_json()
 
-print(format_data(@(llm.response('llmResource'))))
+print(format_data(\(llm.response('llmResource'))))
 """
     TimeoutDuration = 60.s
   }
@@ -881,8 +881,8 @@ Run {
   HTTPClient {
     Method = "POST"
     URL = "https://dms.example.com/api/documents"
-    Data { "@(python.stdout('pythonResource'))" }
-    Headers { ["Authorization"] = "Bearer @(session.getRecord('dms_token'))" }
+    Data { python.stdout('pythonResource') }
+    Headers { ["Authorization"] = "Bearer \(session.getRecord('dms_token'))" }
     TimeoutDuration = 30.s
   }
 }
@@ -902,9 +902,9 @@ Run {
 RestrictToHTTPMethods { "POST" }
 RestrictToRoutes { "/api/v1/scan-document" }
 PreflightCheck {
-  Validations { "@(request.filetype('document'))" == "image/jpeg" }
+  Validations { request.filetype('document') == "image/jpeg" }
 }
-SkipCondition { "@(request.data().query.length)" < 5 }
+SkipCondition { request.data().query.length < 5 }
 ```
 </details>
 
@@ -964,9 +964,9 @@ Settings {
 
 ```pkl
 expr {
-  "@(memory.setRecord('user_data', request.data().data))"
+  memory.setRecord('user_data', request.data().data)
 }
-local user_data = "@(memory.getRecord('user_data'))"
+local user_data = memory.getRecord('user_data')
 ```
 </details>
 

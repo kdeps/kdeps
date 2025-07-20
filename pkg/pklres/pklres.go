@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -113,7 +114,7 @@ func (r *PklResourceReader) resolveActionID(actionID string) string {
 
 			r.Logger.Debug("resolveActionID: got non-canonical result, retrying", "actionID", actionID, "resolved", resolvedID, "attempt", attempt+1)
 		}
-		
+
 		r.Logger.Warn("resolveActionID: failed to get canonical ID after retries, using original", "actionID", actionID, "maxRetries", maxRetries)
 	} else {
 		r.Logger.Debug("resolveActionID: no agent context available, using original", "actionID", actionID)
@@ -479,6 +480,12 @@ func (r *PklResourceReader) IsInDependencyGraph(actionID string) bool {
 	r.dependencyMutex.RLock()
 	defer r.dependencyMutex.RUnlock()
 
+	// System collections with format @agentID/<graphID> are always allowed
+	if strings.Contains(actionID, "/") && strings.HasPrefix(actionID, "@") {
+		// This is a system collection format, always allow it
+		return true
+	}
+
 	if r.dependencyStore == nil || r.dependencyStore[r.GraphID] == nil {
 		return true
 	}
@@ -499,8 +506,19 @@ func (r *PklResourceReader) getKeyValue(collectionKey, key string) ([]byte, erro
 
 	r.Logger.Debug("getKeyValue: retrieving", "collectionKey", collectionKey, "key", key, "graphID", r.GraphID)
 
-	// Canonicalize the collection key
-	canonicalCollectionKey := r.resolveActionID(collectionKey)
+	// Handle special "current" collection - automatically resolve to system collection format
+	var canonicalCollectionKey string
+	if collectionKey == "current" {
+		// For "current" collection, use @agentID/<graphID> format as system collection
+		if r.CurrentAgent != "" && r.GraphID != "" {
+			canonicalCollectionKey = fmt.Sprintf("@%s/%s", r.CurrentAgent, r.GraphID)
+		} else {
+			return nil, fmt.Errorf("current collection requires agent and graphID to be set")
+		}
+	} else {
+		// Canonicalize the collection key normally
+		canonicalCollectionKey = r.resolveActionID(collectionKey)
+	}
 
 	// Check if this collection key exists in the dependency graph
 	if !r.IsInDependencyGraph(canonicalCollectionKey) {
@@ -551,8 +569,19 @@ func (r *PklResourceReader) setKeyValue(collectionKey, key, value string) ([]byt
 
 	r.Logger.Debug("setKeyValue: storing", "collectionKey", collectionKey, "key", key, "graphID", r.GraphID)
 
-	// Canonicalize the collection key
-	canonicalCollectionKey := r.resolveActionID(collectionKey)
+	// Handle special "current" collection - automatically resolve to system collection format
+	var canonicalCollectionKey string
+	if collectionKey == "current" {
+		// For "current" collection, use @agentID/<graphID> format as system collection
+		if r.CurrentAgent != "" && r.GraphID != "" {
+			canonicalCollectionKey = fmt.Sprintf("@%s/%s", r.CurrentAgent, r.GraphID)
+		} else {
+			return nil, fmt.Errorf("current collection requires agent and graphID to be set")
+		}
+	} else {
+		// Canonicalize the collection key normally
+		canonicalCollectionKey = r.resolveActionID(collectionKey)
+	}
 
 	// Check if this collection key exists in the dependency graph
 	if !r.IsInDependencyGraph(canonicalCollectionKey) {

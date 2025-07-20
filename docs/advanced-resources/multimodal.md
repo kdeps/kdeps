@@ -36,7 +36,7 @@ Chat {
     "category_text"
   }
   Files {
-    "@(request.files()[0])" // Uses the first uploaded file
+    request.files()[0] // Uses the first uploaded file
   }
 }
 ```
@@ -46,12 +46,12 @@ Chat {
 Once the image is processed, you can leverage its output in your resources. For example:
 
 ```apl
-local jsonPath = "@(llm.file("llamaVision"))"
-local JSONData = "@(read?("\(jsonPath)")?.text)"
+local jsonPath = llm.file("llamaVision")
+local JSONData = read?("\(jsonPath)")?.text
 
-local imageDescription = "@(document.JSONParser(JSONData)?.description_text)"
-local imageStyle = "@(document.JSONParser(JSONData)?.style_text)"
-local imageCategory = "@(document.JSONParser(JSONData)?.category_text)"
+local imageDescription = document.JSONParser(JSONData)?.description_text
+local imageStyle = document.JSONParser(JSONData)?.style_text
+local imageCategory = document.JSONParser(JSONData)?.category_text
 ```
 
 This example demonstrates how to extract key details like description, style, and category from the processed image data

@@ -18,7 +18,7 @@ func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.Res
 		dr.Logger.Info("HandleExec: execBlock fields", "actionID", actionID, "command", execBlock.Command)
 	}
 	dr.Logger.Debug("HandleExec: called", "actionID", actionID, "PklresHelper_nil", dr.PklresHelper == nil)
-	
+
 	// Canonicalize the actionID if it's a short ActionID
 	canonicalActionID := actionID
 	if dr.PklresHelper != nil {
@@ -46,7 +46,7 @@ func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.Res
 // reloadExecResourceWithDependencies reloads the Exec resource to ensure PKL templates are evaluated after dependencies
 func (dr *DependencyResolver) reloadExecResourceWithDependencies(actionID string, execBlock *pklExec.ResourceExec) error {
 	dr.Logger.Debug("reloadExecResourceWithDependencies: reloading Exec resource for fresh template evaluation", "actionID", actionID)
-	
+
 	// Find the resource file path for this actionID
 	resourceFile := ""
 	for _, res := range dr.Resources {
@@ -55,13 +55,13 @@ func (dr *DependencyResolver) reloadExecResourceWithDependencies(actionID string
 			break
 		}
 	}
-	
+
 	if resourceFile == "" {
 		return fmt.Errorf("could not find resource file for actionID: %s", actionID)
 	}
-	
+
 	dr.Logger.Debug("reloadExecResourceWithDependencies: found resource file", "actionID", actionID, "file", resourceFile)
-	
+
 	// Reload the Exec resource with fresh PKL template evaluation
 	// Load as generic Resource since the Exec resource extends Resource.pkl, not Exec.pkl
 	var reloadedResource interface{}
@@ -71,33 +71,33 @@ func (dr *DependencyResolver) reloadExecResourceWithDependencies(actionID string
 	} else {
 		reloadedResource, err = dr.LoadResourceFn(dr.Context, resourceFile, Resource)
 	}
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to reload Exec resource: %w", err)
 	}
-	
+
 	// Cast to generic Resource first
 	reloadedGenericResource, ok := reloadedResource.(*pklResource.Resource)
 	if !ok {
 		return fmt.Errorf("failed to cast reloaded resource to generic Resource")
 	}
-	
+
 	// Extract the Exec block from the reloaded resource
 	if reloadedGenericResource.Run != nil && reloadedGenericResource.Run.Exec != nil {
 		reloadedExec := reloadedGenericResource.Run.Exec
-		
+
 		// Update the execBlock with the reloaded values that contain fresh template evaluation
 		if reloadedExec.Command != "" {
 			execBlock.Command = reloadedExec.Command
 			dr.Logger.Debug("reloadExecResourceWithDependencies: updated command from reloaded resource", "actionID", actionID)
 		}
-		
+
 		if reloadedExec.Env != nil {
 			execBlock.Env = reloadedExec.Env
 			dr.Logger.Debug("reloadExecResourceWithDependencies: updated env from reloaded resource", "actionID", actionID)
 		}
 	}
-	
+
 	dr.Logger.Info("reloadExecResourceWithDependencies: successfully reloaded Exec resource with fresh template evaluation", "actionID", actionID)
 	return nil
 }
@@ -153,21 +153,21 @@ func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklEx
 		if err := dr.PklresHelper.Set(actionID, "command", execBlock.Command); err != nil {
 			dr.Logger.Error("failed to store command in pklres", "actionID", actionID, "error", err)
 		}
-		
+
 		// Store stdout for cross-resource access
 		if execBlock.Stdout != nil {
 			if err := dr.PklresHelper.Set(actionID, "stdout", *execBlock.Stdout); err != nil {
 				dr.Logger.Error("failed to store stdout in pklres", "actionID", actionID, "error", err)
 			}
 		}
-		
+
 		// Store stderr for cross-resource access
 		if execBlock.Stderr != nil {
 			if err := dr.PklresHelper.Set(actionID, "stderr", *execBlock.Stderr); err != nil {
 				dr.Logger.Error("failed to store stderr in pklres", "actionID", actionID, "error", err)
 			}
 		}
-		
+
 		// Store exit code
 		if execBlock.ExitCode != nil {
 			exitCodeStr := fmt.Sprintf("%d", *execBlock.ExitCode)
@@ -175,7 +175,7 @@ func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklEx
 				dr.Logger.Error("failed to store exitCode in pklres", "actionID", actionID, "error", err)
 			}
 		}
-		
+
 		// Store timestamp
 		if execBlock.Timestamp != nil {
 			timestampStr := fmt.Sprintf("%.0f", execBlock.Timestamp.Value)
@@ -183,11 +183,9 @@ func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklEx
 				dr.Logger.Error("failed to store timestamp in pklres", "actionID", actionID, "error", err)
 			}
 		}
-		
+
 		dr.Logger.Info("stored exec resource in pklres", "actionID", actionID)
 	}
 
 	return nil
 }
-
-

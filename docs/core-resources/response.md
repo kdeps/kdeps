@@ -64,10 +64,10 @@ Run {
         }
         Response {
             Data {
-                "@(llm.response("llmResource"))"
-                // "@(python.stdout("pythonResource"))"
-                // "@(exec.stdout("shellResource"))"
-                // "@(client.responseBody("httpResource"))"
+                llm.response("llmResource")
+                // python.stdout("pythonResource")
+                // exec.stdout("shellResource")
+                // client.responseBody("httpResource")
             }
         }
         Errors {

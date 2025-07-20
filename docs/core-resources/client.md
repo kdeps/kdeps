@@ -50,7 +50,7 @@ Run {
         URL = "https://www.google.com"
         Data {}
         Headers {
-            ["X-API-KEY"] = "@(request.header("X-API-KEY"))"
+            ["X-API-KEY"] = request.header("X-API-KEY")
         }
         TimeoutDuration = 60.s
     }

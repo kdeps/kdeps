@@ -32,8 +32,8 @@ functions, refer to the [API Request Functions](../functions-utilities/functions
 
 Using the earlier `curl` example:
 
-- To retrieve the path of the first uploaded file: `"@(request.files()[0])"`.
-- To determine the file type of the first uploaded file: `"@(request.filetypes()[0])"`.
-- To access the second file’s path: `"@(request.files()[1])"`, which corresponds to `file2.png`.
+- To retrieve the path of the first uploaded file: `"\(request.files()[0])"`.
+- To determine the file type of the first uploaded file: `"\(request.filetypes()[0])"`.
+- To access the second file's path: `"\(request.files()[1])"`, which corresponds to `file2.png`.
 
 The `request.filesByType("mimetype")` function is particularly useful for filtering files based on their MIME type.

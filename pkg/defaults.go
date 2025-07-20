@@ -89,10 +89,10 @@ const (
 
 // URL Defaults
 const (
-	DefaultGitHubAPIBaseURL     = "https://api.github.com"
-	DefaultAnacondaRepoURL      = "https://repo.anaconda.com/archive/"
-	DefaultPklGitHubReleaseURL  = "https://github.com/apple/pkl/releases/download/{version}/pkl-linux-{arch}"
-	DefaultAnacondaDownloadURL  = "https://repo.anaconda.com/archive/Anaconda3-{version}-Linux-{arch}.sh"
+	DefaultGitHubAPIBaseURL    = "https://api.github.com"
+	DefaultAnacondaRepoURL     = "https://repo.anaconda.com/archive/"
+	DefaultPklGitHubReleaseURL = "https://github.com/apple/pkl/releases/download/{version}/pkl-linux-{arch}"
+	DefaultAnacondaDownloadURL = "https://repo.anaconda.com/archive/Anaconda3-{version}-Linux-{arch}.sh"
 )
 
 // StringPtr creates a pointer to a string value.

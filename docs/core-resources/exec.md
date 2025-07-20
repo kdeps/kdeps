@@ -56,7 +56,7 @@ Run {
     
     PreflightCheck {
         Validations { 
-            "@(request.data('command'))" != ""
+            request.data('command') != ""
         }
         Retry = false
         RetryTimes = 1
@@ -64,7 +64,7 @@ Run {
     
     PostflightCheck {
         Validations { 
-            "@(exec.exitCode('execResource'))" == 0
+            exec.exitCode('execResource') == 0
         }
         Retry = true
         RetryTimes = 2
@@ -149,8 +149,8 @@ echo "=== Process Complete ==="
 ```apl
 Command = """
 #!/bin/bash
-COMMAND="@(request.data('command'))"
-ARGS="@(request.data('args'))"
+COMMAND="\(request.data('command'))"
+ARGS="\(request.data('args'))"
 
 if [[ -n "$COMMAND" ]]; then
     echo "Executing: $COMMAND $ARGS"
@@ -169,8 +169,8 @@ fi
 ```apl
 Env {
     ["API_URL"] = "https://api.example.com"
-    ["API_KEY"] = "@(request.data('api_key'))"
-    ["PROCESSING_MODE"] = "@(request.data('mode') ?? 'default')"
+    ["API_KEY"] = request.data('api_key')
+    ["PROCESSING_MODE"] = request.data('mode') ?? 'default'
     ["DEBUG"] = "true"
     ["MAX_RETRIES"] = "3"
 }
@@ -212,10 +212,10 @@ Env {
 **Dynamic Values:**
 ```apl
 Env {
-    ["USER_ID"] = "@(request.headers('X-User-ID'))"
-    ["REQUEST_ID"] = "@(uuid())"
-    ["TIMESTAMP"] = "@(now())"
-    ["SESSION_TOKEN"] = "@(memory.get('session_token'))"
+    ["USER_ID"] = request.headers('X-User-ID')
+    ["REQUEST_ID"] = uuid()
+    ["TIMESTAMP"] = now()
+    ["SESSION_TOKEN"] = memory.get('session_token')
 }
 ```
 
@@ -229,8 +229,8 @@ Exec {
 #!/bin/bash
 set -e
 
-SOURCE_FILE="@(request.data('source_file'))"
-DEST_FILE="@(request.data('dest_file'))"
+SOURCE_FILE="\(request.data('source_file'))"
+DEST_FILE="\(request.data('dest_file'))"
 
 # Validate inputs
 if [[ ! -f "$SOURCE_FILE" ]]; then
@@ -261,7 +261,7 @@ Exec {
 #!/bin/bash
 set -e
 
-PACKAGE_NAME="@(request.data('package'))"
+PACKAGE_NAME="\(request.data('package'))"
 
 # Update package list
 apt-get update -qq
@@ -291,9 +291,9 @@ Exec {
 #!/bin/bash
 set -e
 
-INPUT_FILE="@(request.data('input_file'))"
-OUTPUT_FILE="@(request.data('output_file'))"
-PROCESSING_MODE="@(request.data('mode') ?? 'standard')"
+INPUT_FILE="\(request.data('input_file'))"
+OUTPUT_FILE="\(request.data('output_file'))"
+PROCESSING_MODE="\(request.data('mode') ?? 'standard')"
 
 echo "Processing file: $INPUT_FILE"
 echo "Mode: $PROCESSING_MODE"
@@ -338,9 +338,9 @@ Exec {
 #!/bin/bash
 set -e
 
-API_ENDPOINT="@(request.data('endpoint'))"
-API_METHOD="@(request.data('method') ?? 'GET')"
-API_DATA="@(request.data('data'))"
+API_ENDPOINT="\(request.data('endpoint'))"
+API_METHOD="\(request.data('method') ?? 'GET')"
+API_DATA="\(request.data('data'))"
 
 # Prepare curl command
 CURL_CMD="curl -s -X $API_METHOD"
@@ -369,7 +369,7 @@ fi
 """
     
     Env {
-        ["API_TOKEN"] = "@(memory.get('api_token'))"
+        ["API_TOKEN"] = memory.get('api_token')
     }
     
     TimeoutDuration = 60.s
@@ -386,8 +386,8 @@ Exec {
 #!/bin/bash
 set -e
 
-MODE="@(request.data('mode'))"
-USER_ROLE="@(request.headers('X-User-Role'))"
+MODE="\(request.data('mode'))"
+USER_ROLE="\(request.headers('X-User-Role'))"
 
 # Check user permissions
 if [[ "$USER_ROLE" != "admin" ]] && [[ "$MODE" == "admin" ]]; then
@@ -403,7 +403,7 @@ case "$MODE" in
         ;;
     "restore")
         echo "Restoring from backup..."
-        BACKUP_FILE="@(request.data('backup_file'))"
+        BACKUP_FILE="\(request.data('backup_file'))"
         tar -xzf "$BACKUP_FILE" -C /
         ;;
     "cleanup")
@@ -451,7 +451,7 @@ log() {
 # Main script
 log "INFO" "Starting script execution"
 
-TASK="@(request.data('task'))"
+TASK="\(request.data('task'))"
 log "INFO" "Task: $TASK"
 
 # Execute task with error handling
@@ -472,7 +472,7 @@ log "INFO" "Script execution completed"
     
     Env {
         ["LOG_FILE"] = "/var/log/exec-resource.log"
-        ["DEBUG"] = "@(request.data('debug') ?? 'false')"
+        ["DEBUG"] = request.data('debug') ?? 'false'
     }
     
     TimeoutDuration = 300.s
@@ -485,19 +485,19 @@ Use exec functions to retrieve command results:
 
 ```apl
 // Get stdout output
-@(exec.stdout('execResource'))
+exec.stdout('execResource')
 
 // Get stderr output
-@(exec.stderr('execResource'))
+exec.stderr('execResource')
 
 // Get exit code
-@(exec.exitCode('execResource'))
+exec.exitCode('execResource')
 
 // Check if execution was successful
-@(exec.success('execResource'))
+exec.success('execResource')
 
 // Get execution duration
-@(exec.duration('execResource'))
+exec.duration('execResource')
 ```
 
 ### Using Outputs in Other Resources
@@ -507,9 +507,9 @@ ActionID = "responseResource"
 Requires { "execResource" }
 
 Run {
-    local execOutput = "@(exec.stdout('execResource'))"
-    local execSuccess = "@(exec.success('execResource'))"
-    local exitCode = "@(exec.exitCode('execResource'))"
+    local execOutput = exec.stdout('execResource')
+    local execSuccess = exec.success('execResource')
+    local exitCode = exec.exitCode('execResource')
     
     APIResponse {
         Response {
@@ -523,7 +523,7 @@ Run {
                 } else {
                     new Mapping {
                         ["success"] = false
-                        ["error"] = "@(exec.stderr('execResource'))"
+                        ["error"] = exec.stderr('execResource')
                         ["exit_code"] = exitCode
                     }
                 }
@@ -544,8 +544,8 @@ Exec {
 set -e
 
 # Validate inputs
-FILENAME="@(request.data('filename'))"
-ACTION="@(request.data('action'))"
+FILENAME="\(request.data('filename'))"
+ACTION="\(request.data('action'))"
 
 # Sanitize filename - only allow alphanumeric, dots, dashes, underscores
 if [[ ! "$FILENAME" =~ ^[a-zA-Z0-9._-]+$ ]]; then
@@ -586,7 +586,7 @@ umask 077
 export PATH="/usr/local/bin:/usr/bin:/bin"
 
 # Validate user input
-USER_COMMAND="@(request.data('command'))"
+USER_COMMAND="\(request.data('command'))"
 
 # Whitelist of allowed commands
 ALLOWED_COMMANDS="ls cat grep head tail wc sort uniq"
@@ -656,8 +656,8 @@ Run {
     
     PreflightCheck {
         Validations { 
-            "@(request.files().length())" > 0
-            "@(request.data('operation'))" != ""
+            request.files().length() > 0
+            request.data('operation') != ""
         }
         Retry = false
         RetryTimes = 1
@@ -665,8 +665,8 @@ Run {
     
     PostflightCheck {
         Validations { 
-            "@(exec.exitCode('fileProcessorExec'))" == 0
-            "@(exec.stdout('fileProcessorExec'))" != ""
+            exec.exitCode('fileProcessorExec') == 0
+            exec.stdout('fileProcessorExec') != ""
         }
         Retry = true
         RetryTimes = 2
@@ -734,9 +734,9 @@ echo "Operation: $OPERATION completed"
 """
         
         Env {
-            ["OPERATION_TYPE"] = "@(request.data('operation'))"
-            ["OUTPUT_FORMAT"] = "@(request.data('format') ?? 'txt')"
-            ["FILE_EXTENSION"] = "@(request.files()[0].extension())"
+            ["OPERATION_TYPE"] = request.data('operation')
+            ["OUTPUT_FORMAT"] = request.data('format') ?? 'txt'
+            ["FILE_EXTENSION"] = request.files()[0].extension()
         }
         
         TimeoutDuration = 300.s

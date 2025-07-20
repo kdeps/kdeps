@@ -22,7 +22,7 @@ func (dr *DependencyResolver) HandleHTTPClient(actionID string, httpBlock *pklHT
 		dr.Logger.Info("HandleHTTPClient: httpBlock fields", "actionID", actionID, "url", httpBlock.Url, "method", httpBlock.Method)
 	}
 	dr.Logger.Debug("HandleHTTPClient: called", "actionID", actionID, "PklresHelper_nil", dr.PklresHelper == nil)
-	
+
 	// Canonicalize the actionID if it's a short ActionID
 	canonicalActionID := actionID
 	if dr.PklresHelper != nil {
@@ -50,7 +50,7 @@ func (dr *DependencyResolver) HandleHTTPClient(actionID string, httpBlock *pklHT
 // reloadHTTPResourceWithDependencies reloads the HTTP resource to ensure PKL templates are evaluated after dependencies
 func (dr *DependencyResolver) reloadHTTPResourceWithDependencies(actionID string, httpBlock *pklHTTP.ResourceHTTPClient) error {
 	dr.Logger.Debug("reloadHTTPResourceWithDependencies: reloading HTTP resource for fresh template evaluation", "actionID", actionID)
-	
+
 	// Find the resource file path for this actionID
 	resourceFile := ""
 	for _, res := range dr.Resources {
@@ -59,13 +59,13 @@ func (dr *DependencyResolver) reloadHTTPResourceWithDependencies(actionID string
 			break
 		}
 	}
-	
+
 	if resourceFile == "" {
 		return fmt.Errorf("could not find resource file for actionID: %s", actionID)
 	}
-	
+
 	dr.Logger.Debug("reloadHTTPResourceWithDependencies: found resource file", "actionID", actionID, "file", resourceFile)
-	
+
 	// Reload the HTTP resource with fresh PKL template evaluation
 	// Load as generic Resource since the HTTP resource extends Resource.pkl, not HTTP.pkl
 	var reloadedResource interface{}
@@ -75,48 +75,48 @@ func (dr *DependencyResolver) reloadHTTPResourceWithDependencies(actionID string
 	} else {
 		reloadedResource, err = dr.LoadResourceFn(dr.Context, resourceFile, Resource)
 	}
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to reload HTTP resource: %w", err)
 	}
-	
+
 	// Cast to generic Resource first
 	reloadedGenericResource, ok := reloadedResource.(*pklResource.Resource)
 	if !ok {
 		return fmt.Errorf("failed to cast reloaded resource to generic Resource")
 	}
-	
+
 	// Extract the HTTP block from the reloaded resource
 	if reloadedGenericResource.Run != nil && reloadedGenericResource.Run.HTTPClient != nil {
 		reloadedHTTP := reloadedGenericResource.Run.HTTPClient
-		
+
 		// Update the httpBlock with the reloaded values that contain fresh template evaluation
 		if reloadedHTTP.Url != "" {
 			httpBlock.Url = reloadedHTTP.Url
 			dr.Logger.Debug("reloadHTTPResourceWithDependencies: updated URL from reloaded resource", "actionID", actionID)
 		}
-		
+
 		if reloadedHTTP.Method != "" {
 			httpBlock.Method = reloadedHTTP.Method
 			dr.Logger.Debug("reloadHTTPResourceWithDependencies: updated method from reloaded resource", "actionID", actionID)
 		}
-		
+
 		if reloadedHTTP.Headers != nil {
 			httpBlock.Headers = reloadedHTTP.Headers
 			dr.Logger.Debug("reloadHTTPResourceWithDependencies: updated headers from reloaded resource", "actionID", actionID)
 		}
-		
+
 		if reloadedHTTP.Params != nil {
 			httpBlock.Params = reloadedHTTP.Params
 			dr.Logger.Debug("reloadHTTPResourceWithDependencies: updated params from reloaded resource", "actionID", actionID)
 		}
-		
+
 		if reloadedHTTP.Data != nil {
 			httpBlock.Data = reloadedHTTP.Data
 			dr.Logger.Debug("reloadHTTPResourceWithDependencies: updated data from reloaded resource", "actionID", actionID)
 		}
 	}
-	
+
 	dr.Logger.Info("reloadHTTPResourceWithDependencies: successfully reloaded HTTP resource with fresh template evaluation", "actionID", actionID)
 	return nil
 }
@@ -146,21 +146,21 @@ func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHT
 		if err := dr.PklresHelper.Set(actionID, "url", httpBlock.Url); err != nil {
 			dr.Logger.Error("failed to store url in pklres", "actionID", actionID, "error", err)
 		}
-		
+
 		// Store response body for cross-resource access
 		if httpBlock.Response != nil && httpBlock.Response.Body != nil {
 			if err := dr.PklresHelper.Set(actionID, "response", *httpBlock.Response.Body); err != nil {
 				dr.Logger.Error("failed to store response in pklres", "actionID", actionID, "error", err)
 			}
 		}
-		
+
 		// Store method
 		if httpBlock.Method != "" {
 			if err := dr.PklresHelper.Set(actionID, "method", httpBlock.Method); err != nil {
 				dr.Logger.Error("failed to store method in pklres", "actionID", actionID, "error", err)
 			}
 		}
-		
+
 		// Store timestamp
 		if httpBlock.Timestamp != nil {
 			timestampStr := fmt.Sprintf("%.0f", httpBlock.Timestamp.Value)
@@ -168,15 +168,12 @@ func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHT
 				dr.Logger.Error("failed to store timestamp in pklres", "actionID", actionID, "error", err)
 			}
 		}
-		
+
 		dr.Logger.Info("stored http resource in pklres", "actionID", actionID)
 	}
 
 	return nil
 }
-
-
-
 
 func (dr *DependencyResolver) DoRequest(client *pklHTTP.ResourceHTTPClient) error {
 	// Validate required parameters

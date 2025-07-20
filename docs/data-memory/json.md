@@ -44,7 +44,7 @@ the process straightforward and efficient.
 
 ```apl
 local JSONResponse = new Mapping {
-    ["currentWeather"] = "@(llm.response("llmWeatherReport"))"
+    ["currentWeather"] = llm.response("llmWeatherReport")
 }
 
 ...
@@ -83,11 +83,11 @@ pass it into the `JSONRenderDocument` function, and it will be converted into a 
 
 ```apl
 local localWeather = new Mapping {
-    ["currentWeather"] = "@(llm.response("llmWeatherReport"))"
+    ["currentWeather"] = llm.response("llmWeatherReport")
 }
 
 local JSONResponse = """
-@(document.JSONRenderDocument(localWeather))
+\(document.JSONRenderDocument(localWeather))
 """
 ```
 
@@ -101,7 +101,7 @@ Here’s an example of defining a JSON string:
 ```apl
 local localWeather = """
 {
-  "currentWeather": "@(llm.response("llmWeatherReport"))"
+  "currentWeather": "\(llm.response("llmWeatherReport"))"
 }
 """
 ```
@@ -120,10 +120,10 @@ After parsing, you can pass the resulting object into `JSONRenderDocument` to pr
 Here’s an example of parsing and re-rendering the JSON:
 
 ```apl
-local parsedJsonMapping = "@(document.JSONParserMapping(localWeather))"
+local parsedJsonMapping = document.JSONParserMapping(localWeather)
 
 local parsedJsonString = """
-@(document.JSONRenderDocument(parsedJsonMapping))
+\(document.JSONRenderDocument(parsedJsonMapping))
 """
 ```
 
@@ -149,10 +149,10 @@ Once you have obtained the file path, you can use the `read#text` function to re
 Here’s an example:
 
 ```apl
-local llmOutputFilepath = "@(llm.file("llmWeatherReport"))"
+local llmOutputFilepath = llm.file("llmWeatherReport")
 
 local llmOutputJson = """
-@(read("\(llmOutputFilepath)")?.text)
+\(read("\(llmOutputFilepath)")?.text)
 """
 ```
 
@@ -190,11 +190,11 @@ Here’s an example:
 ```apl
 local localWeatherJson = """
 {
-  "currentWeather": "@(llm.response("llmWeatherReport"))"
+  "currentWeather": "\(llm.response("llmWeatherReport"))"
 }
 """
-local localWeather = "@(JSONParser(localWeatherJson))"
-local currentWeather = "@(localWeather?.currentWeather)"
+local localWeather = JSONParser(localWeatherJson)
+local currentWeather = localWeather?.currentWeather
 ```
 
 In this example:
@@ -210,11 +210,11 @@ Here’s an example:
 ```apl
 local localWeatherJson = """
 {
-  "currentWeather": "@(llm.response("llmWeatherReport"))"
+  "currentWeather": "\(llm.response("llmWeatherReport"))"
 }
 """
-local localWeather = "@(JSONParserMapping(localWeatherJson))"
-local currentWeather = "@(localWeather.getOrNull("currentWeather"))"
+local localWeather = JSONParserMapping(localWeatherJson)
+local currentWeather = localWeather.getOrNull("currentWeather")
 ```
 
 In this example:

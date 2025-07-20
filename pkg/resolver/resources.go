@@ -299,11 +299,14 @@ func (dr *DependencyResolver) PopulateRequestDataInPklres() error {
 			}
 			if headersJSON, err := json.Marshal(headers); err == nil {
 				headersStr := string(headersJSON)
-				if err := dr.PklresHelper.Set(canonicalRequestID, "headers", headersStr); err != nil {
-					dr.Logger.Warn("failed to store request headers in canonical collection", "error", err)
-				}
-				if err := dr.PklresHelper.Set(requestID, "headers", headersStr); err != nil {
-					dr.Logger.Warn("failed to store request headers in request collection", "error", err)
+				// Only store if there are actual headers
+				if len(headers) > 0 {
+					if err := dr.PklresHelper.Set(canonicalRequestID, "headers", headersStr); err != nil {
+						dr.Logger.Warn("failed to store request headers in canonical collection", "error", err)
+					}
+					if err := dr.PklresHelper.Set(requestID, "headers", headersStr); err != nil {
+						dr.Logger.Warn("failed to store request headers in request collection", "error", err)
+					}
 				}
 			}
 
@@ -316,11 +319,14 @@ func (dr *DependencyResolver) PopulateRequestDataInPklres() error {
 			}
 			if paramsJSON, err := json.Marshal(params); err == nil {
 				paramsStr := string(paramsJSON)
-				if err := dr.PklresHelper.Set(canonicalRequestID, "params", paramsStr); err != nil {
-					dr.Logger.Warn("failed to store request params in canonical collection", "error", err)
-				}
-				if err := dr.PklresHelper.Set(requestID, "params", paramsStr); err != nil {
-					dr.Logger.Warn("failed to store request params in request collection", "error", err)
+				// Only store if there are actual parameters
+				if len(params) > 0 {
+					if err := dr.PklresHelper.Set(canonicalRequestID, "params", paramsStr); err != nil {
+						dr.Logger.Warn("failed to store request params in canonical collection", "error", err)
+					}
+					if err := dr.PklresHelper.Set(requestID, "params", paramsStr); err != nil {
+						dr.Logger.Warn("failed to store request params in request collection", "error", err)
+					}
 				}
 			}
 
@@ -332,11 +338,14 @@ func (dr *DependencyResolver) PopulateRequestDataInPklres() error {
 
 					// Store the body as string directly without base64 encoding
 					bodyStr := string(bodyBytes)
-					if err := dr.PklresHelper.Set(canonicalRequestID, "data", bodyStr); err != nil {
-						dr.Logger.Warn("failed to store request body in canonical collection", "error", err)
-					}
-					if err := dr.PklresHelper.Set(requestID, "data", bodyStr); err != nil {
-						dr.Logger.Warn("failed to store request body in request collection", "error", err)
+					// Only store if the body is not empty
+					if bodyStr != "" {
+						if err := dr.PklresHelper.Set(canonicalRequestID, "data", bodyStr); err != nil {
+							dr.Logger.Warn("failed to store request body in canonical collection", "error", err)
+						}
+						if err := dr.PklresHelper.Set(requestID, "data", bodyStr); err != nil {
+							dr.Logger.Warn("failed to store request body in request collection", "error", err)
+						}
 					}
 				}
 			}

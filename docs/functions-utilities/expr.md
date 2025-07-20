@@ -44,7 +44,7 @@ Description = "Evaluate PKL expressions for state management"
 Category = "utility"
 Run {
   Expr {
-    "@(memory.setRecord("status", "active"))"
+    memory.setRecord("status", "active")
   }
 }
 ```
@@ -59,9 +59,9 @@ Store and manage persistent data across requests:
 
 ```apl
 Expr {
-  "@(memory.setRecord("user_id", "12345"))"
-  "@(memory.setRecord("session_start", utils.timestamp()))"
-  "@(memory.setRecord("request_count", memory.get("request_count") + 1))"
+  memory.setRecord("user_id", "12345")
+  memory.setRecord("session_start", utils.timestamp())
+  memory.setRecord("request_count", memory.get("request_count") + 1)
 }
 ```
 
@@ -71,9 +71,9 @@ Handle session-specific data and state:
 
 ```apl
 Expr {
-  "@(session.setRecord("current_step", "processing"))"
-  "@(session.setRecord("attempts", "3"))"
-  "@(session.setRecord("last_activity", utils.timestamp()))"
+  session.setRecord("current_step", "processing")
+  session.setRecord("attempts", "3")
+  session.setRecord("last_activity", utils.timestamp())
 }
 ```
 
@@ -83,11 +83,11 @@ Implement business rules and conditional operations:
 
 ```apl
 Expr {
-  "if @(request.data().priority == "high") { 
-    @(memory.setRecord("priority", "urgent"))
-    @(memory.setRecord("escalation_needed", true))
+  "if \(request.data().priority == "high") { 
+    memory.setRecord("priority", "urgent")
+    memory.setRecord("escalation_needed", true)
   } else {
-    @(memory.setRecord("priority", "normal"))
+    memory.setRecord("priority", "normal")
   }"
 }
 ```
@@ -98,10 +98,10 @@ Transform and process data before storage:
 
 ```apl
 Expr {
-  "local processedData = @(document.JSONParser(request.data().json))"
-  "@(memory.setRecord("processed_data", processedData))"
-  "@(memory.setRecord("processing_timestamp", utils.timestamp()))"
-  "@(memory.setRecord("data_size", processedData.length))"
+  "local processedData = document.JSONParser(request.data().json)"
+  memory.setRecord("processed_data", processedData)
+  memory.setRecord("processing_timestamp", utils.timestamp())
+  memory.setRecord("data_size", processedData.length)
 }
 ```
 
@@ -111,8 +111,8 @@ Track execution flow and debug information:
 
 ```apl
 Expr {
-  "@(logger.info("Processing request for user: " + request.data().userId))"
-  "@(memory.setRecord("debug_trace", memory.get("debug_trace") + [utils.timestamp()]))"
+  logger.info("Processing request for user: " + request.data().userId)
+  memory.setRecord("debug_trace", memory.get("debug_trace") + [utils.timestamp()])
 }
 ```
 
@@ -124,18 +124,18 @@ Handle multiple conditions and branching logic:
 
 ```apl
 Expr {
-  "local userType = @(request.data().userType)"
-  "local requestData = @(request.data())"
+  "local userType = \(request.data().userType)"
+  "local requestData = \(request.data())"
   
   "if userType == "premium" {
-    @(memory.setRecord("rate_limit", 1000))
-    @(memory.setRecord("features", ["advanced", "priority", "analytics"]))
+    memory.setRecord("rate_limit", 1000)
+    memory.setRecord("features", ["advanced", "priority", "analytics"])
   } else if userType == "standard" {
-    @(memory.setRecord("rate_limit", 100))
-    @(memory.setRecord("features", ["basic", "standard"]))
+    memory.setRecord("rate_limit", 100)
+    memory.setRecord("features", ["basic", "standard"])
   } else {
-    @(memory.setRecord("rate_limit", 10))
-    @(memory.setRecord("features", ["basic"]))
+    memory.setRecord("rate_limit", 10)
+    memory.setRecord("features", ["basic"])
   }"
 }
 ```
@@ -146,15 +146,15 @@ Validate and prepare data before processing:
 
 ```apl
 Expr {
-  "local email = @(request.data().email)"
+  "local email = \(request.data().email)"
   "local isValidEmail = email.contains("@") && email.contains(".")"
   
   "if isValidEmail {
-    @(memory.setRecord("user_email", email))
-    @(memory.setRecord("validation_status", "passed"))
+    memory.setRecord("user_email", email)
+    memory.setRecord("validation_status", "passed")
   } else {
-    @(memory.setRecord("validation_status", "failed"))
-    @(memory.setRecord("error_message", "Invalid email format"))
+    memory.setRecord("validation_status", "failed")
+    memory.setRecord("error_message", "Invalid email format")
   }"
 }
 ```
@@ -165,16 +165,16 @@ Perform multiple related operations efficiently:
 
 ```apl
 Expr {
-  "local userData = @(request.data())"
-  "local timestamp = @(utils.timestamp())"
+  "local userData = \(request.data())"
+  "local timestamp = \(utils.timestamp())"
   
   // Batch memory operations
-  "@(memory.setBatch({
+  memory.setBatch({
     "user_profile": userData,
     "last_login": timestamp,
     "session_active": true,
     "login_count": memory.get("login_count") + 1
-  }))"
+  })
 }
 ```
 
@@ -185,13 +185,13 @@ Implement error handling and recovery logic:
 ```apl
 Expr {
   "try {
-    local result = @(client.responseBody("externalAPI"))
-    @(memory.setRecord("api_result", result))
-    @(memory.setRecord("api_status", "success"))
+    local result = client.responseBody("externalAPI")
+    memory.setRecord("api_result", result)
+    memory.setRecord("api_status", "success")
   } catch (error) {
-    @(memory.setRecord("api_status", "failed"))
-    @(memory.setRecord("error_message", error.message))
-    @(logger.error("API call failed: " + error.message))
+    memory.setRecord("api_status", "failed")
+    memory.setRecord("error_message", error.message)
+    logger.error("API call failed: " + error.message)
   }"
 }
 ```
@@ -233,14 +233,14 @@ ActionID = "llmPreProcessor"
 Requires { "dataProcessor" }
 Run {
   Expr {
-    "local userData = @(memory.get("user_profile"))"
+    "local userData = memory.get("user_profile")"
     "local context = "User is a " + userData.type + " with " + userData.experience + " experience""
-    "@(memory.setRecord("llm_context", context))"
+    memory.setRecord("llm_context", context)
   }
   
   Chat {
     Model = "llama3.2:1b"
-    Prompt = "@(memory.get("llm_context")) + ": " + @(request.data().query)"
+    Prompt = "\(memory.get("llm_context")) + ": " + \(request.data().query)"
     JSONResponse = true
   }
 }
@@ -255,12 +255,12 @@ ActionID = "apiProcessor"
 Requires { "externalApiCall" }
 Run {
   Expr {
-    "local apiResponse = @(client.responseBody("externalApiCall"))"
+    "local apiResponse = client.responseBody("externalApiCall")"
     "local processedData = apiResponse.data.map(item => {
       processedItem = item + {timestamp: utils.timestamp()}
       return processedItem
     })"
-    "@(memory.setRecord("processed_api_data", processedData))"
+    memory.setRecord("processed_api_data", processedData)
   }
 }
 ```
@@ -273,7 +273,7 @@ Implement custom validation logic:
 ActionID = "customValidator"
 Run {
   Expr {
-    "local requestData = @(request.data())"
+    "local requestData = \(request.data())"
     "local isValid = true"
     "local errors = []"
     
@@ -287,7 +287,7 @@ Run {
       errors = errors + ["Email is required"]
     }"
     
-    "@(memory.setRecord("validation_result", {valid: isValid, errors: errors}))"
+    memory.setRecord("validation_result", {valid: isValid, errors: errors})
   }
 }
 ```
@@ -306,7 +306,7 @@ Expr {
 **Correct:**
 ```apl
 Expr {
-  "@(memory.setRecord("key", "value"))"  // Proper promise syntax
+  memory.setRecord("key", "value")  // Proper promise syntax
 }
 ```
 
@@ -343,8 +343,8 @@ Expr {
 **Better:**
 ```apl
 Expr {
-  "@(memory.setRecord("key", "value"))"
-  "if @(memory.get("key")) == "value" {
+  memory.setRecord("key", "value")
+  "if \(memory.get("key")) == "value" {
     // Clear separation of side effects and conditions
   }"
 }

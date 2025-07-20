@@ -37,7 +37,7 @@ Global functions provide utilities that work across all resource types and conte
 - **Memory Functions**: `memory.get()`, `memory.set()`, `memory.clear()`
 - **Session Functions**: `session.get()`, `session.set()`, `session.clear()`
 - **Document Functions**: `document.JSONParser()`, `document.XMLParser()`
-- **Utility Functions**: `utils.base64()`, `utils.hash()`, `utils.uuid()`
+- **Utility Functions**: `utils.hash()`, `utils.uuid()`, `utils.timestamp()`
 
 **Use Cases**: Request processing, data storage, session management, data conversion
 
@@ -86,9 +86,9 @@ The Data Types system provides robust type checking and schema validation. Capab
 // Extract and use data from different resources
 Response {
     Data {
-        "llm_response": "@(llm.response('chatResource'))"
-        "api_data": "@(client.responseBody('apiResource'))"
-        "processing_result": "@(python.stdout('dataResource'))"
+        "llm_response": llm.response('chatResource')
+        "api_data": client.responseBody('apiResource')
+        "processing_result": python.stdout('dataResource')
     }
 }
 ```
@@ -97,8 +97,8 @@ Response {
 ```apl
 // Store and retrieve data across requests
 Expr {
-    "@(memory.setRecord('user_session', request.data().sessionId))"
-    "@(memory.setRecord('last_request', utils.timestamp()))"
+    memory.setRecord('user_session', request.data().sessionId)
+    memory.setRecord('last_request', utils.timestamp())
 }
 ```
 
@@ -106,8 +106,8 @@ Expr {
 ```apl
 // Implement custom business logic
 Expr {
-    "if @(request.data().priority == 'high') { 
-        @(memory.setRecord('priority_flag', 'urgent'))
+    "if \(request.data().priority == 'high') { 
+        memory.setRecord('priority_flag', 'urgent')
     }"
 }
 ```
@@ -119,9 +119,9 @@ APIResponse {
     Success = true
     Response {
         Data {
-            "user_id": "@(request.data().id)"  // String type
-            "score": "@(python.stdout('scoreResource'))"  // Integer type
-            "metadata": "@(memory.get('session_data'))"  // Object type
+            "user_id": request.data().id  // String type
+            "score": python.stdout('scoreResource')  // Integer type
+            "metadata": memory.get('session_data')  // Object type
         }
     }
 }
@@ -160,12 +160,12 @@ Run {
     // Type validation
     Validation {
         Schema = userInputSchema
-        Data = "@(request.data())"
+        Data = request.data()
     }
     
     // State management
     Expr {
-        "@(session.setRecord('current_step', 'processing'))"
+        session.setRecord('current_step', 'processing')
     }
     
     // API response with resource functions
@@ -173,9 +173,9 @@ Run {
         Success = true
         Response {
             Data {
-                "processed": "@(llm.response('llmResource'))"
-                "session": "@(session.get('current_step'))"
-                "timestamp": "@(utils.timestamp())"
+                "processed": llm.response('llmResource')
+                "session": session.get('current_step')
+                "timestamp": utils.timestamp()
             }
         }
     }

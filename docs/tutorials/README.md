@@ -132,7 +132,7 @@ ActionID = "contentGenerator"
 Run {
     Chat {
         Model = "llama3.2:1b"
-        Prompt = "Generate a blog post about @(request.data().topic)"
+        Prompt = "Generate a blog post about \(request.data().topic)"
         JSONResponse = true
         JSONResponseKeys {
             "title"

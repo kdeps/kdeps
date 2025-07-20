@@ -67,9 +67,9 @@ Items {
 
 Run {
     local message = """
-    Current lyric: @(item.current())
-    Previous lyric: @(item.prev() ?: "none")
-    Next lyric: @(item.next() ?: "none")
+    Current lyric: \(item.current())
+    Previous lyric: \(item.prev() ?: "none")
+    Next lyric: \(item.next() ?: "none")
     """
     // Handle the message (e.g., store it, send it to an API, or process further)
 }
@@ -168,7 +168,7 @@ Run {
         Model = "llama3.2:1b"
         Role = "user"
         Prompt = """
-        Based on the lyric "@(item.current())" from the song "American Pie," generate a suitable scenario for an MTV music video. The scenario should include a vivid setting, key visual elements, and a mood that matches the lyric's tone.
+        Based on the lyric "\(item.current())" from the song "American Pie," generate a suitable scenario for an MTV music video. The scenario should include a vivid setting, key visual elements, and a mood that matches the lyric's tone.
         """
         JSONResponse = true
         JSONResponseKeys {

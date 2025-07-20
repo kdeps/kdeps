@@ -47,7 +47,7 @@ Category = "scripting"
 Run {
   Python {
     Script = "print('Hello, World!')"
-    Input { ["data"] = "@(request.data())" }
+    Input { ["data"] = request.data() }
     Output { ["result"] = "stdout" }
   }
 }
@@ -63,7 +63,7 @@ Run {
   APIResponse {
     Success = true
     Response {
-      Data { "@(llm.response('llmResource'))" }
+      Data { llm.response('llmResource') }
     }
     Meta { Headers { ["Content-Type"] = "application/json" } }
   }
@@ -94,7 +94,7 @@ Category = "ai"
 Run {
   Chat {
     Model = "llama3.2:1b"
-    Prompt = "Answer this question: @(request.data().query)"
+    Prompt = "Answer this question: \(request.data().query)"
     JSONResponse = true
     JSONResponseKeys { "answer"; "confidence" }
     TimeoutDuration = 60.s

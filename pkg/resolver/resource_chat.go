@@ -51,26 +51,6 @@ func (dr *DependencyResolver) substituteChatBlockTemplates(actionID string, chat
 		}
 	}
 
-	// Get client response body
-	if dr.PklresHelper != nil {
-		if clientBody := dr.getResourceOutputSafely("clientResource", "http", "Body"); clientBody != "" {
-			templateVars["CLIENT_RESPONSE_BODY"] = clientBody
-		}
-	}
-
-	// Get exec stdout
-	if dr.PklresHelper != nil {
-		if execStdout := dr.getResourceOutputSafely("execResource", "exec", "Stdout"); execStdout != "" {
-			templateVars["EXEC_STDOUT"] = execStdout
-		}
-	}
-
-	// Get python stdout
-	if dr.PklresHelper != nil {
-		if pythonStdout := dr.getResourceOutputSafely("pythonResource", "python", "Stdout"); pythonStdout != "" {
-			templateVars["PYTHON_STDOUT"] = pythonStdout
-		}
-	}
 
 	// Substitute templates in the prompt
 	if chatBlock.Prompt != nil {
@@ -162,7 +142,7 @@ func (dr *DependencyResolver) HandleLLMChat(actionID string, chatBlock *pklLLM.R
 // reloadLLMResourceWithDependencies reloads the LLM resource to ensure PKL templates are evaluated after dependencies
 func (dr *DependencyResolver) reloadLLMResourceWithDependencies(actionID string, chatBlock *pklLLM.ResourceChat) error {
 	dr.Logger.Debug("reloadLLMResourceWithDependencies: reloading LLM resource for fresh template evaluation", "actionID", actionID)
-	
+
 	// Find the resource file path for this actionID
 	resourceFile := ""
 	for _, res := range dr.Resources {
@@ -171,13 +151,13 @@ func (dr *DependencyResolver) reloadLLMResourceWithDependencies(actionID string,
 			break
 		}
 	}
-	
+
 	if resourceFile == "" {
 		return fmt.Errorf("could not find resource file for actionID: %s", actionID)
 	}
-	
+
 	dr.Logger.Debug("reloadLLMResourceWithDependencies: found resource file", "actionID", actionID, "file", resourceFile)
-	
+
 	// Reload the LLM resource with fresh PKL template evaluation
 	// Load as generic Resource since the LLM resource extends Resource.pkl, not LLM.pkl
 	var reloadedResource interface{}
@@ -187,33 +167,33 @@ func (dr *DependencyResolver) reloadLLMResourceWithDependencies(actionID string,
 	} else {
 		reloadedResource, err = dr.LoadResourceFn(dr.Context, resourceFile, Resource)
 	}
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to reload LLM resource: %w", err)
 	}
-	
+
 	// Cast to generic Resource first
 	reloadedGenericResource, ok := reloadedResource.(*pklResource.Resource)
 	if !ok {
 		return fmt.Errorf("failed to cast reloaded resource to generic Resource")
 	}
-	
+
 	// Extract the Chat block from the reloaded resource
 	if reloadedGenericResource.Run != nil && reloadedGenericResource.Run.Chat != nil {
 		reloadedChat := reloadedGenericResource.Run.Chat
-		
+
 		// Update the chatBlock with the reloaded values that contain fresh template evaluation
 		if reloadedChat.Prompt != nil {
 			chatBlock.Prompt = reloadedChat.Prompt
 			dr.Logger.Debug("reloadLLMResourceWithDependencies: updated prompt from reloaded resource", "actionID", actionID)
 		}
-		
+
 		if reloadedChat.Scenario != nil {
 			chatBlock.Scenario = reloadedChat.Scenario
 			dr.Logger.Debug("reloadLLMResourceWithDependencies: updated scenario from reloaded resource", "actionID", actionID)
 		}
 	}
-	
+
 	dr.Logger.Info("reloadLLMResourceWithDependencies: successfully reloaded LLM resource with fresh template evaluation", "actionID", actionID)
 	return nil
 }
