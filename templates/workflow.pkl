@@ -55,6 +55,10 @@ Settings {
                 HostIP = "127.0.0.1"
                 PortNum = 3000
 
+                // The timeout duration (in seconds) for API requests.
+                // Defaults to 60 seconds. This controls how long API requests can take before timing out.
+                TimeoutDuration = 60.s
+
                 // A list of trusted proxies (IPv4, IPv6, or CIDR ranges).
                 // If set, only requests passing through these proxies will have their `X-Forwarded-For`
                 // header trusted.
@@ -141,38 +145,48 @@ Settings {
                                 Path = "/web"
 
                                 // Server type: "static" (serves files) or "app" (reverse-proxies to container).
-                                //
-                                // serverType = "static"
+                                // Options: "static" or "app". Default: "static"
+                                ServerType = "static"
 
                                 // Defines the base path to serve the web content, relative to /data/ folder.
+                                // Default: "/web"
                                 //
                                 // Example:
                                 //   - "/agentX/1.0.0/web"     → maps to /data/agentX/1.0.0/web
                                 //
                                 // During packaging (via `kdeps package`), the local directory /data/web/
                                 // is relocated to /data/<agentName>/<version>/web.
-                                //
-                                // publicPath = "/whois/1.0.0/web/"
+                                PublicPath = "/web"
 
                                 // Port for app proxying (1–65535). Required for serverType="app".
-                                //
-                                // appPort = 3000
+                                // Default: 8052
+                                AppPort = 8052
 
                                 // Command to start the app (e.g., "npm start").
-                                //
+                                // Only applicable when ServerType = "app"
                                 // Command = "npm start"
                         }
                 }
         }
 
-        // Maximum number of rate limit requests allowed in the workflow.
+        // Maximum number of concurrent requests allowed in the workflow.
         // This setting controls the rate limiting behavior for workflow execution.
-        // Default value is 100 requests.
-        RateLimitMax = 100
+        // Default value is 5 concurrent requests.
+        RateLimitMax = 5
 
         // Environment setting for the workflow execution.
         // Specifies whether the workflow runs in development or production mode.
-        // Valid values are "dev" or "prod".
+        // Valid values are "dev", "development", "prod", or "production".
+        // 
+        // In production mode ("prod" or "production"):
+        // - Gin framework runs in release mode (no debug output)
+        // - Log level is set to WARN (less verbose)
+        // - Debug logs are suppressed
+        //
+        // In development mode ("dev" or "development"):
+        // - Gin framework runs in debug mode (verbose output)
+        // - Log level is set to INFO or DEBUG (based on DEBUG env var)
+        // - Full logging and debug information available
         Environment = "dev"
 
         // This section contains the agent settings that will be used to build
@@ -230,5 +244,10 @@ Settings {
 
                 // A mapping of environment variable names for the build that persist in both the image and the container.
                 Env {}
+
+                // A list of additional ports to be exposed in the Docker container.
+                // These ports are in addition to the API server and web server ports.
+                // Each port should be specified as a string (e.g., "8081", "9000").
+                ExposedPorts {}
         }
 }

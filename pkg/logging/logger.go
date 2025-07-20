@@ -35,6 +35,23 @@ func CreateLogger() {
 	})
 }
 
+// SetLogLevel adjusts the global logger level based on environment
+func SetLogLevel(environment string) {
+	ensureInitialized()
+	
+	isProduction := environment == "prod" || environment == "production"
+	if isProduction {
+		logger.SetLevel(log.WarnLevel) // Less verbose in production
+	} else {
+		// Keep debug level for development environments
+		if os.Getenv("DEBUG") == "1" {
+			logger.SetLevel(log.DebugLevel)
+		} else {
+			logger.SetLevel(log.InfoLevel)
+		}
+	}
+}
+
 // NewTestLogger creates a logger that writes to a buffer for testing.
 func NewTestLogger() *Logger {
 	buf := new(bytes.Buffer)

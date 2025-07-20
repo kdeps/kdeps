@@ -55,7 +55,7 @@ func (h *HTTPResourceHandler) updateResourceFromReloaded(resource *pklHTTP.Resou
 // HandleHTTPClientV2 handles HTTP client resources using the specialized handler
 func (dr *DependencyResolver) HandleHTTPClientV2(actionID string, httpBlock *pklHTTP.ResourceHTTPClient) error {
 	handler := NewHTTPResourceHandler(dr)
-	
+
 	// Use the specialized handler (method override handled in the handler itself)
 	return handler.HandleResource(actionID, httpBlock, func(resource *pklHTTP.ResourceHTTPClient) error {
 		return dr.processHTTPBlock(actionID, resource)

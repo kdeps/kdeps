@@ -57,7 +57,7 @@ func NewRunCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCfg 
 
 			// Step 2: Build Dockerfile
 			gui.UpdateOperation(1, ui.StatusRunning, "Generating Dockerfile and build context...", 0.0)
-			runDir, APIServerMode, WebServerMode, hostIP, hostPort, webHostIP, webHostNum, gpuType, err := docker.BuildDockerfile(fs, ctx, systemCfg, kdepsDir, pkgProject, guiLogger)
+			runDir, APIServerMode, WebServerMode, hostIP, hostPort, webHostIP, webHostNum, gpuType, exposedPorts, err := docker.BuildDockerfile(fs, ctx, systemCfg, kdepsDir, pkgProject, guiLogger)
 			if err != nil {
 				gui.UpdateOperationError(1, fmt.Errorf("dockerfile generation failed: %w", err))
 				gui.Complete(false, err)
@@ -99,7 +99,7 @@ func NewRunCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCfg 
 			gui.UpdateOperation(4, ui.StatusRunning, "Creating and starting Docker container...", 0.0)
 			containerID, err := docker.CreateDockerContainer(fs, ctx, agentContainerName,
 				agentContainerNameAndVersion, hostIP, hostPort, webHostIP, webHostNum, gpuType,
-				APIServerMode, WebServerMode, dockerClient)
+				APIServerMode, WebServerMode, dockerClient, exposedPorts)
 			if err != nil {
 				gui.UpdateOperationError(4, fmt.Errorf("container creation failed: %w", err))
 				gui.Complete(false, err)

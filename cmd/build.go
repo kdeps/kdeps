@@ -83,7 +83,7 @@ func NewBuildCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCf
 
 			// Step 2: Build Dockerfile
 			gui.UpdateOperation(1, ui.StatusRunning, "Generating Dockerfile and build context...", 0.0)
-			runDir, _, _, _, _, _, _, _, err := docker.BuildDockerfile(fs, ctx, systemCfg, kdepsDir, pkgProject, guiLogger)
+			runDir, _, _, _, _, _, _, _, _, err := docker.BuildDockerfile(fs, ctx, systemCfg, kdepsDir, pkgProject, guiLogger)
 			if err != nil {
 				gui.UpdateOperationError(1, fmt.Errorf("dockerfile generation failed: %w", err))
 				gui.Complete(false, err)

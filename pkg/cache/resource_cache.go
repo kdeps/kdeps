@@ -20,16 +20,16 @@ type ResourceCache struct {
 
 // CacheEntry represents a cached resource result
 type CacheEntry struct {
-	Key           string      `json:"key"`
-	ActionID      string      `json:"action_id"`
-	ResourceType  string      `json:"resource_type"`
-	InputHash     string      `json:"input_hash"`
-	Result        interface{} `json:"result"`
-	CreatedAt     time.Time   `json:"created_at"`
-	LastAccessed  time.Time   `json:"last_accessed"`
-	TTL           time.Duration `json:"ttl"`
-	AccessCount   int64       `json:"access_count"`
-	HitCount      int64       `json:"hit_count"`
+	Key          string        `json:"key"`
+	ActionID     string        `json:"action_id"`
+	ResourceType string        `json:"resource_type"`
+	InputHash    string        `json:"input_hash"`
+	Result       interface{}   `json:"result"`
+	CreatedAt    time.Time     `json:"created_at"`
+	LastAccessed time.Time     `json:"last_accessed"`
+	TTL          time.Duration `json:"ttl"`
+	AccessCount  int64         `json:"access_count"`
+	HitCount     int64         `json:"hit_count"`
 }
 
 // NewResourceCache creates a new resource cache
@@ -79,7 +79,7 @@ func (rc *ResourceCache) Get(key string) (*CacheEntry, bool) {
 	entry.LastAccessed = time.Now()
 	entry.AccessCount++
 	entry.HitCount++
-	
+
 	// Move to front of access order (LRU)
 	rc.moveToFront(key)
 
@@ -219,7 +219,7 @@ func (rc *ResourceCache) Stats() CacheStats {
 	for _, entry := range rc.cache {
 		totalHits += entry.HitCount
 		totalAccesses += entry.AccessCount
-		
+
 		if entry.CreatedAt.Before(oldestEntry) {
 			oldestEntry = entry.CreatedAt
 		}
@@ -234,13 +234,13 @@ func (rc *ResourceCache) Stats() CacheStats {
 	}
 
 	return CacheStats{
-		Size:         len(rc.cache),
-		MaxSize:      rc.maxSize,
-		HitRate:      hitRate,
-		TotalHits:    totalHits,
+		Size:          len(rc.cache),
+		MaxSize:       rc.maxSize,
+		HitRate:       hitRate,
+		TotalHits:     totalHits,
 		TotalAccesses: totalAccesses,
-		OldestEntry:  oldestEntry,
-		NewestEntry:  newestEntry,
+		OldestEntry:   oldestEntry,
+		NewestEntry:   newestEntry,
 	}
 }
 
@@ -271,7 +271,7 @@ func (rc *ResourceCache) evictLRU() {
 func (rc *ResourceCache) moveToFront(key string) {
 	// Remove from current position
 	rc.removeFromAccessOrder(key)
-	
+
 	// Add to front
 	rc.accessOrder = append([]string{key}, rc.accessOrder...)
 }
@@ -300,7 +300,7 @@ type CacheStats struct {
 type CacheConfig struct {
 	MaxSize    int           `json:"max_size"`
 	DefaultTTL time.Duration `json:"default_ttl"`
-	
+
 	// Resource-specific TTLs
 	HTTPTTL   time.Duration `json:"http_ttl"`
 	LLMTTL    time.Duration `json:"llm_ttl"`
@@ -313,10 +313,10 @@ func DefaultCacheConfig() CacheConfig {
 	return CacheConfig{
 		MaxSize:    1000,
 		DefaultTTL: 1 * time.Hour,
-		HTTPTTL:    30 * time.Minute,   // HTTP responses can be cached longer
-		LLMTTL:     15 * time.Minute,   // LLM responses may vary
-		PythonTTL:  10 * time.Minute,   // Python scripts may have side effects
-		ExecTTL:    5 * time.Minute,    // Exec commands may have side effects
+		HTTPTTL:    30 * time.Minute, // HTTP responses can be cached longer
+		LLMTTL:     15 * time.Minute, // LLM responses may vary
+		PythonTTL:  10 * time.Minute, // Python scripts may have side effects
+		ExecTTL:    5 * time.Minute,  // Exec commands may have side effects
 	}
 }
 

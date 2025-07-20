@@ -80,7 +80,7 @@ func TestNewScaffoldCommandValidResources(t *testing.T) {
 	err := fs.MkdirAll(testAgentDir, 0o755)
 	require.NoError(t, err)
 
-	validResources := []string{"client", "exec", "llm", "python", "response"}
+	validResources := []string{"client", "exec", "llm", "python", "response", "workflow"}
 
 	for _, resource := range validResources {
 		cmd := NewScaffoldCommand(ctx, fs, logger)
@@ -89,7 +89,12 @@ func TestNewScaffoldCommandValidResources(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify file was created
-		filePath := filepath.Join(testAgentDir, "resources", resource+".pkl")
+		var filePath string
+		if resource == "workflow" {
+			filePath = filepath.Join(testAgentDir, resource+".pkl")
+		} else {
+			filePath = filepath.Join(testAgentDir, "resources", resource+".pkl")
+		}
 		exists, err := afero.Exists(fs, filePath)
 		require.NoError(t, err)
 		assert.True(t, exists, "File %s should exist", filePath)

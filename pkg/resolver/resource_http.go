@@ -147,7 +147,7 @@ func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHT
 		if err := dr.PklresHelper.Set(actionID, "url", httpBlock.Url); err != nil {
 			dr.Logger.Error("failed to store url", "actionID", actionID, "error", err)
 		}
-		
+
 		if httpBlock.Method != "" {
 			if err := dr.PklresHelper.Set(actionID, "method", httpBlock.Method); err != nil {
 				dr.Logger.Error("failed to store method", "actionID", actionID, "error", err)
@@ -188,7 +188,7 @@ func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHT
 					dr.Logger.Error("failed to store response", "actionID", actionID, "error", err)
 				}
 			}
-			
+
 			if httpBlock.Response.Headers != nil && len(*httpBlock.Response.Headers) > 0 {
 				if responseHeadersJSON, err := json.Marshal(*httpBlock.Response.Headers); err == nil {
 					if err := dr.PklresHelper.Set(actionID, "responseHeaders", string(responseHeadersJSON)); err != nil {

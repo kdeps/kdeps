@@ -40,6 +40,7 @@ type ProcessedConfiguration struct {
 	CondaPackages    *map[string]map[string]string
 	Args             *map[string]string
 	Env              *map[string]string
+	ExposedPorts     *[]string
 }
 
 // ConfigurationProcessor handles the processing of workflow configuration with PKL-first priority
@@ -169,6 +170,7 @@ func (cp *ConfigurationProcessor) ProcessWorkflowConfiguration(_ context.Context
 		config.CondaPackages = settings.AgentSettings.CondaPackages
 		config.Args = settings.AgentSettings.Args
 		config.Env = settings.AgentSettings.Env
+		config.ExposedPorts = settings.AgentSettings.ExposedPorts
 
 		if config.Packages != nil {
 			cp.logger.Debug("using PKL packages configuration", "packages", *config.Packages)
@@ -178,6 +180,9 @@ func (cp *ConfigurationProcessor) ProcessWorkflowConfiguration(_ context.Context
 		}
 		if config.PythonPackages != nil {
 			cp.logger.Debug("using PKL Python packages configuration", "python_packages", *config.PythonPackages)
+		}
+		if config.ExposedPorts != nil {
+			cp.logger.Debug("using PKL exposed ports configuration", "exposed_ports", *config.ExposedPorts)
 		}
 	} else {
 		// Use defaults for agent settings

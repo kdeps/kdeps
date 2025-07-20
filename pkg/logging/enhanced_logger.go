@@ -12,12 +12,12 @@ import (
 type ContextKey string
 
 const (
-	RequestIDKey  ContextKey = "request_id"
-	ActionIDKey   ContextKey = "action_id"
-	ResourceKey   ContextKey = "resource_type"
-	WorkflowKey   ContextKey = "workflow_id"
-	AgentKey      ContextKey = "agent_id"
-	TraceIDKey    ContextKey = "trace_id"
+	RequestIDKey ContextKey = "request_id"
+	ActionIDKey  ContextKey = "action_id"
+	ResourceKey  ContextKey = "resource_type"
+	WorkflowKey  ContextKey = "workflow_id"
+	AgentKey     ContextKey = "agent_id"
+	TraceIDKey   ContextKey = "trace_id"
 )
 
 // EnhancedLogger provides structured logging with context and performance tracking
@@ -88,12 +88,12 @@ func (el *EnhancedLogger) WithResourceType(resourceType string) *EnhancedLogger 
 func (el *EnhancedLogger) TimeOperation(operation string, fn func() error) error {
 	start := time.Now()
 	el.Debug("starting operation", "operation", operation)
-	
+
 	err := fn()
 	duration := time.Since(start)
-	
+
 	if err != nil {
-		el.Error("operation failed", 
+		el.Error("operation failed",
 			"operation", operation,
 			"duration", duration,
 			"error", err)
@@ -102,7 +102,7 @@ func (el *EnhancedLogger) TimeOperation(operation string, fn func() error) error
 			"operation", operation,
 			"duration", duration)
 	}
-	
+
 	return err
 }
 
@@ -110,12 +110,12 @@ func (el *EnhancedLogger) TimeOperation(operation string, fn func() error) error
 func (el *EnhancedLogger) TimeOperationWithResult(operation string, fn func() (interface{}, error)) (interface{}, error) {
 	start := time.Now()
 	el.Debug("starting operation", "operation", operation)
-	
+
 	result, err := fn()
 	duration := time.Since(start)
-	
+
 	if err != nil {
-		el.Error("operation failed", 
+		el.Error("operation failed",
 			"operation", operation,
 			"duration", duration,
 			"error", err)
@@ -124,7 +124,7 @@ func (el *EnhancedLogger) TimeOperationWithResult(operation string, fn func() (i
 			"operation", operation,
 			"duration", duration)
 	}
-	
+
 	return result, err
 }
 
@@ -171,7 +171,7 @@ func (el *EnhancedLogger) Fatal(msg string, args ...interface{}) {
 func (el *EnhancedLogger) logWithContext(level string, msg string, args ...interface{}) {
 	// Combine context fields, logger fields, and provided args
 	allArgs := make([]interface{}, 0, len(el.fields)*2+len(args))
-	
+
 	// Add context-derived fields
 	if el.ctx != nil {
 		if requestID := el.ctx.Value(RequestIDKey); requestID != nil {
@@ -193,15 +193,15 @@ func (el *EnhancedLogger) logWithContext(level string, msg string, args ...inter
 			allArgs = append(allArgs, "trace_id", traceID)
 		}
 	}
-	
+
 	// Add logger-specific fields
 	for k, v := range el.fields {
 		allArgs = append(allArgs, k, v)
 	}
-	
+
 	// Add provided args
 	allArgs = append(allArgs, args...)
-	
+
 	// Log using the base logger
 	switch level {
 	case "TRACE":
@@ -243,7 +243,7 @@ func (el *EnhancedLogger) copyFields() map[string]interface{} {
 // LogResourceProcessing provides structured logging for resource processing
 func (el *EnhancedLogger) LogResourceProcessing(actionID, resourceType string, fn func(*EnhancedLogger) error) error {
 	resourceLogger := el.WithActionID(actionID).WithResourceType(resourceType)
-	
+
 	return resourceLogger.TimeOperation(
 		fmt.Sprintf("process_%s_resource", strings.ToLower(resourceType)),
 		func() error {
@@ -257,7 +257,7 @@ func (el *EnhancedLogger) LogDependencyResolution(workflowID string, dependencie
 	depLogger := el.WithField("workflow_id", workflowID).
 		WithField("dependency_count", len(dependencies)).
 		WithField("dependencies", dependencies)
-	
+
 	return depLogger.TimeOperation("resolve_dependencies", func() error {
 		return fn(depLogger)
 	})
@@ -266,14 +266,14 @@ func (el *EnhancedLogger) LogDependencyResolution(workflowID string, dependencie
 // LogHTTPRequest provides structured logging for HTTP requests
 func (el *EnhancedLogger) LogHTTPRequest(method, url string, statusCode int, duration time.Duration, err error) {
 	fields := map[string]interface{}{
-		"http_method":     method,
-		"http_url":        url,
-		"http_status":     statusCode,
-		"http_duration":   duration,
+		"http_method":   method,
+		"http_url":      url,
+		"http_status":   statusCode,
+		"http_duration": duration,
 	}
-	
+
 	logger := el.WithFields(fields)
-	
+
 	if err != nil {
 		logger.Error("HTTP request failed", "error", err)
 	} else if statusCode >= 400 {
@@ -291,9 +291,9 @@ func (el *EnhancedLogger) LogLLMGeneration(model, prompt string, responseLength 
 		"llm_response_length": responseLength,
 		"llm_duration":        duration,
 	}
-	
+
 	logger := el.WithFields(fields)
-	
+
 	if err != nil {
 		logger.Error("LLM generation failed", "error", err)
 	} else {
@@ -304,13 +304,13 @@ func (el *EnhancedLogger) LogLLMGeneration(model, prompt string, responseLength 
 // LogCommandExecution provides structured logging for command execution
 func (el *EnhancedLogger) LogCommandExecution(command string, exitCode int, duration time.Duration, err error) {
 	fields := map[string]interface{}{
-		"command":      command,
-		"exit_code":    exitCode,
+		"command":       command,
+		"exit_code":     exitCode,
 		"exec_duration": duration,
 	}
-	
+
 	logger := el.WithFields(fields)
-	
+
 	if err != nil {
 		logger.Error("command execution failed", "error", err)
 	} else if exitCode != 0 {
@@ -324,7 +324,7 @@ func (el *EnhancedLogger) LogCommandExecution(command string, exitCode int, dura
 func (el *EnhancedLogger) MemoryUsage() {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	
+
 	el.Debug("memory usage statistics",
 		"alloc_mb", m.Alloc/1024/1024,
 		"total_alloc_mb", m.TotalAlloc/1024/1024,

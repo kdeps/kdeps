@@ -46,7 +46,7 @@ const (
 	DefaultPortNum          = uint16(3000)
 	DefaultAPIPortNum       = uint16(8080)
 	DefaultPublicPath       = "/web"
-	DefaultRateLimitMax     = 100
+	DefaultRateLimitMax     = 5
 	DefaultRetry            = false
 	DefaultRetryTimes       = 3
 	DefaultServerType       = "static"

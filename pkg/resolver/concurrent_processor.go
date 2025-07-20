@@ -10,9 +10,9 @@ import (
 
 // ConcurrentProcessor handles concurrent processing of independent resources
 type ConcurrentProcessor struct {
-	dr           *DependencyResolver
-	maxWorkers   int
-	timeout      time.Duration
+	dr         *DependencyResolver
+	maxWorkers int
+	timeout    time.Duration
 }
 
 // NewConcurrentProcessor creates a new concurrent processor
@@ -54,7 +54,7 @@ func (cp *ConcurrentProcessor) processConcurrently(ctx context.Context, resource
 	// Start workers
 	numWorkers := min(cp.maxWorkers, len(resources))
 	var wg sync.WaitGroup
-	
+
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
 		go cp.worker(processCtx, &wg, jobs, results)
@@ -75,26 +75,26 @@ func (cp *ConcurrentProcessor) processConcurrently(ctx context.Context, resource
 	// Collect results
 	var errors []error
 	processed := 0
-	
+
 	for result := range results {
 		processed++
 		if result.Error != nil {
-			cp.dr.Logger.Error("resource processing failed", 
-				"actionID", result.ActionID, 
-				"resourceType", result.ResourceType, 
+			cp.dr.Logger.Error("resource processing failed",
+				"actionID", result.ActionID,
+				"resourceType", result.ResourceType,
 				"error", result.Error)
 			errors = append(errors, result.Error)
 		} else {
-			cp.dr.Logger.Info("resource processed successfully", 
-				"actionID", result.ActionID, 
+			cp.dr.Logger.Info("resource processed successfully",
+				"actionID", result.ActionID,
 				"resourceType", result.ResourceType,
 				"duration", result.Duration)
 		}
 	}
 
-	cp.dr.Logger.Info("concurrent processing completed", 
-		"processed", processed, 
-		"total", len(resources), 
+	cp.dr.Logger.Info("concurrent processing completed",
+		"processed", processed,
+		"total", len(resources),
 		"errors", len(errors))
 
 	// Return the first error encountered, if any
@@ -111,7 +111,7 @@ func (cp *ConcurrentProcessor) worker(ctx context.Context, wg *sync.WaitGroup, j
 
 	for resource := range jobs {
 		start := time.Now()
-		
+
 		// Check if context is cancelled
 		select {
 		case <-ctx.Done():
@@ -127,7 +127,7 @@ func (cp *ConcurrentProcessor) worker(ctx context.Context, wg *sync.WaitGroup, j
 
 		// Process the resource
 		err := cp.processResource(ctx, resource)
-		
+
 		results <- ProcessResult{
 			ActionID:     resource.ActionID,
 			ResourceType: resource.Type,

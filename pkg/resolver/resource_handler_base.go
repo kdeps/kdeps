@@ -27,7 +27,7 @@ func NewResourceHandler[T any](dr *DependencyResolver, resourceType string) *Res
 // HandleResource provides generic resource handling with PKL reloading and comprehensive storage
 func (rh *ResourceHandler[T]) HandleResource(actionID string, resource *T, processor func(*T) error) error {
 	rh.dr.Logger.Info("HandleResource: ENTRY", "actionID", actionID, "resourceType", rh.resourceType, "resource_nil", resource == nil)
-	
+
 	// Canonicalize the actionID
 	canonicalActionID := actionID
 	if rh.dr.PklresHelper != nil {
@@ -198,7 +198,7 @@ func (rh *ResourceHandler[T]) convertFieldNameToKey(fieldName string) string {
 	if len(fieldName) == 0 {
 		return fieldName
 	}
-	
+
 	// Convert PascalCase to camelCase
 	runes := []rune(fieldName)
 	runes[0] = runes[0] + 32 // Convert first character to lowercase
@@ -209,7 +209,7 @@ func (rh *ResourceHandler[T]) convertFieldNameToKey(fieldName string) string {
 func (rh *ResourceHandler[T]) SetTimestamp(resource *T) {
 	v := reflect.ValueOf(resource).Elem()
 	timestampField := v.FieldByName("Timestamp")
-	
+
 	if timestampField.IsValid() && timestampField.CanSet() && timestampField.Kind() == reflect.Ptr {
 		ts := pkl.Duration{
 			Value: float64(time.Now().UnixNano()),

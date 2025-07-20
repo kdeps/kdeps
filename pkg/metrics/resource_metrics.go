@@ -7,7 +7,7 @@ import (
 
 // ResourceMetrics tracks performance and usage metrics for resources
 type ResourceMetrics struct {
-	mu                    sync.RWMutex
+	mu                      sync.RWMutex
 	resourceProcessingTimes map[string][]time.Duration
 	resourceSuccessCount    map[string]int64
 	resourceErrorCount      map[string]int64
@@ -34,7 +34,7 @@ func (rm *ResourceMetrics) RecordProcessingTime(resourceType string, duration ti
 
 	// Record processing time
 	rm.resourceProcessingTimes[resourceType] = append(rm.resourceProcessingTimes[resourceType], duration)
-	
+
 	// Keep only last 100 measurements per resource type
 	if len(rm.resourceProcessingTimes[resourceType]) > 100 {
 		rm.resourceProcessingTimes[resourceType] = rm.resourceProcessingTimes[resourceType][1:]
@@ -78,25 +78,25 @@ func (rm *ResourceMetrics) GetResourceStats(resourceType string) ResourceStats {
 	times := rm.resourceProcessingTimes[resourceType]
 	if len(times) == 0 {
 		return ResourceStats{
-			ResourceType:   resourceType,
-			SuccessCount:   rm.resourceSuccessCount[resourceType],
-			ErrorCount:     rm.resourceErrorCount[resourceType],
-			TotalCount:     rm.resourceSuccessCount[resourceType] + rm.resourceErrorCount[resourceType],
+			ResourceType: resourceType,
+			SuccessCount: rm.resourceSuccessCount[resourceType],
+			ErrorCount:   rm.resourceErrorCount[resourceType],
+			TotalCount:   rm.resourceSuccessCount[resourceType] + rm.resourceErrorCount[resourceType],
 		}
 	}
 
 	return ResourceStats{
-		ResourceType:       resourceType,
-		SuccessCount:       rm.resourceSuccessCount[resourceType],
-		ErrorCount:         rm.resourceErrorCount[resourceType],
-		TotalCount:         rm.resourceSuccessCount[resourceType] + rm.resourceErrorCount[resourceType],
-		AverageTime:        rm.calculateAverage(times),
-		MinTime:            rm.calculateMin(times),
-		MaxTime:            rm.calculateMax(times),
-		MedianTime:         rm.calculateMedian(times),
-		P95Time:            rm.calculatePercentile(times, 0.95),
-		P99Time:            rm.calculatePercentile(times, 0.99),
-		SuccessRate:        rm.calculateSuccessRate(resourceType),
+		ResourceType: resourceType,
+		SuccessCount: rm.resourceSuccessCount[resourceType],
+		ErrorCount:   rm.resourceErrorCount[resourceType],
+		TotalCount:   rm.resourceSuccessCount[resourceType] + rm.resourceErrorCount[resourceType],
+		AverageTime:  rm.calculateAverage(times),
+		MinTime:      rm.calculateMin(times),
+		MaxTime:      rm.calculateMax(times),
+		MedianTime:   rm.calculateMedian(times),
+		P95Time:      rm.calculatePercentile(times, 0.95),
+		P99Time:      rm.calculatePercentile(times, 0.99),
+		SuccessRate:  rm.calculateSuccessRate(resourceType),
 	}
 }
 
@@ -111,12 +111,12 @@ func (rm *ResourceMetrics) GetOverallStats() OverallStats {
 	}
 
 	return OverallStats{
-		TotalProcessed:         rm.totalProcessed,
-		TotalErrors:            rm.totalErrors,
-		OverallSuccessRate:     rm.calculateOverallSuccessRate(),
-		AverageProcessingTime:  rm.averageProcessingTime,
-		ResourceTypeStats:      resourceTypeStats,
-		LastUpdated:            rm.lastUpdated,
+		TotalProcessed:        rm.totalProcessed,
+		TotalErrors:           rm.totalErrors,
+		OverallSuccessRate:    rm.calculateOverallSuccessRate(),
+		AverageProcessingTime: rm.averageProcessingTime,
+		ResourceTypeStats:     resourceTypeStats,
+		LastUpdated:           rm.lastUpdated,
 	}
 }
 
@@ -162,11 +162,11 @@ func (rm *ResourceMetrics) calculateMedian(times []time.Duration) time.Duration 
 	if len(times) == 0 {
 		return 0
 	}
-	
+
 	// Create a copy and sort it
 	sorted := make([]time.Duration, len(times))
 	copy(sorted, times)
-	
+
 	// Simple bubble sort for small arrays
 	for i := 0; i < len(sorted); i++ {
 		for j := 0; j < len(sorted)-1-i; j++ {
@@ -175,7 +175,7 @@ func (rm *ResourceMetrics) calculateMedian(times []time.Duration) time.Duration 
 			}
 		}
 	}
-	
+
 	if len(sorted)%2 == 0 {
 		return (sorted[len(sorted)/2-1] + sorted[len(sorted)/2]) / 2
 	}
@@ -186,11 +186,11 @@ func (rm *ResourceMetrics) calculatePercentile(times []time.Duration, percentile
 	if len(times) == 0 {
 		return 0
 	}
-	
+
 	// Create a copy and sort it
 	sorted := make([]time.Duration, len(times))
 	copy(sorted, times)
-	
+
 	// Simple bubble sort
 	for i := 0; i < len(sorted); i++ {
 		for j := 0; j < len(sorted)-1-i; j++ {
@@ -199,7 +199,7 @@ func (rm *ResourceMetrics) calculatePercentile(times []time.Duration, percentile
 			}
 		}
 	}
-	
+
 	index := int(float64(len(sorted)-1) * percentile)
 	if index >= len(sorted) {
 		index = len(sorted) - 1
@@ -211,11 +211,11 @@ func (rm *ResourceMetrics) calculateSuccessRate(resourceType string) float64 {
 	successCount := rm.resourceSuccessCount[resourceType]
 	errorCount := rm.resourceErrorCount[resourceType]
 	total := successCount + errorCount
-	
+
 	if total == 0 {
 		return 0.0
 	}
-	
+
 	return float64(successCount) / float64(total) * 100.0
 }
 
@@ -228,27 +228,27 @@ func (rm *ResourceMetrics) calculateOverallSuccessRate() float64 {
 
 // ResourceStats contains statistics for a specific resource type
 type ResourceStats struct {
-	ResourceType    string        `json:"resource_type"`
-	SuccessCount    int64         `json:"success_count"`
-	ErrorCount      int64         `json:"error_count"`
-	TotalCount      int64         `json:"total_count"`
-	AverageTime     time.Duration `json:"average_time"`
-	MinTime         time.Duration `json:"min_time"`
-	MaxTime         time.Duration `json:"max_time"`
-	MedianTime      time.Duration `json:"median_time"`
-	P95Time         time.Duration `json:"p95_time"`
-	P99Time         time.Duration `json:"p99_time"`
-	SuccessRate     float64       `json:"success_rate"`
+	ResourceType string        `json:"resource_type"`
+	SuccessCount int64         `json:"success_count"`
+	ErrorCount   int64         `json:"error_count"`
+	TotalCount   int64         `json:"total_count"`
+	AverageTime  time.Duration `json:"average_time"`
+	MinTime      time.Duration `json:"min_time"`
+	MaxTime      time.Duration `json:"max_time"`
+	MedianTime   time.Duration `json:"median_time"`
+	P95Time      time.Duration `json:"p95_time"`
+	P99Time      time.Duration `json:"p99_time"`
+	SuccessRate  float64       `json:"success_rate"`
 }
 
 // OverallStats contains overall system statistics
 type OverallStats struct {
-	TotalProcessed         int64                    `json:"total_processed"`
-	TotalErrors            int64                    `json:"total_errors"`
-	OverallSuccessRate     float64                  `json:"overall_success_rate"`
-	AverageProcessingTime  time.Duration            `json:"average_processing_time"`
-	ResourceTypeStats      map[string]ResourceStats `json:"resource_type_stats"`
-	LastUpdated            time.Time                `json:"last_updated"`
+	TotalProcessed        int64                    `json:"total_processed"`
+	TotalErrors           int64                    `json:"total_errors"`
+	OverallSuccessRate    float64                  `json:"overall_success_rate"`
+	AverageProcessingTime time.Duration            `json:"average_processing_time"`
+	ResourceTypeStats     map[string]ResourceStats `json:"resource_type_stats"`
+	LastUpdated           time.Time                `json:"last_updated"`
 }
 
 // Reset clears all metrics

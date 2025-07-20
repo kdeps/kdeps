@@ -53,30 +53,30 @@ func TestGenerateDockerCompose(t *testing.T) {
 	fs := afero.NewMemMapFs()
 
 	t.Run("CPU", func(t *testing.T) {
-		err := docker.GenerateDockerCompose(fs, "test", "image", "test-cpu", "127.0.0.1", "8080", "", "", true, false, "cpu")
+		err := docker.GenerateDockerCompose(fs, "test", "image", "test-cpu", "127.0.0.1", "8080", "", "", true, false, "cpu", nil)
 		require.NoError(t, err)
-		content, _ := afero.ReadFile(fs, "test_docker-compose-cpu.yaml")
+		content, _ := afero.ReadFile(fs, "test-docker-compose-cpu.yaml")
 		assert.Contains(t, string(content), "test-cpu:")
 		assert.Contains(t, string(content), "image: image")
 	})
 
 	t.Run("NVIDIA", func(t *testing.T) {
-		err := docker.GenerateDockerCompose(fs, "test", "image", "test-nvidia", "127.0.0.1", "8080", "", "", true, false, "nvidia")
+		err := docker.GenerateDockerCompose(fs, "test", "image", "test-nvidia", "127.0.0.1", "8080", "", "", true, false, "nvidia", nil)
 		require.NoError(t, err)
-		content, _ := afero.ReadFile(fs, "test_docker-compose-nvidia.yaml")
+		content, _ := afero.ReadFile(fs, "test-docker-compose-nvidia.yaml")
 		assert.Contains(t, string(content), "driver: nvidia")
 	})
 
 	t.Run("AMD", func(t *testing.T) {
-		err := docker.GenerateDockerCompose(fs, "test", "image", "test-amd", "127.0.0.1", "8080", "", "", true, false, "amd")
+		err := docker.GenerateDockerCompose(fs, "test", "image", "test-amd", "127.0.0.1", "8080", "", "", true, false, "amd", nil)
 		require.NoError(t, err)
-		content, _ := afero.ReadFile(fs, "test_docker-compose-amd.yaml")
+		content, _ := afero.ReadFile(fs, "test-docker-compose-amd.yaml")
 		assert.Contains(t, string(content), "/dev/kfd")
 		assert.Contains(t, string(content), "/dev/dri")
 	})
 
 	t.Run("UnsupportedGPU", func(t *testing.T) {
-		err := docker.GenerateDockerCompose(fs, "test", "image", "test-unsupported", "127.0.0.1", "8080", "", "", true, false, "unsupported")
+		err := docker.GenerateDockerCompose(fs, "test", "image", "test-unsupported", "127.0.0.1", "8080", "", "", true, false, "unsupported", nil)
 		require.Error(t, err)
 	})
 }
@@ -88,13 +88,13 @@ func TestCreateDockerContainer(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("APIModeWithoutPort", func(t *testing.T) {
-		_, err := docker.CreateDockerContainer(fs, ctx, "test", "image", "127.0.0.1", "", "", "", "cpu", true, false, cli)
+		_, err := docker.CreateDockerContainer(fs, ctx, "test", "image", "127.0.0.1", "", "", "", "cpu", true, false, cli, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "portNum must be non-empty")
 	})
 
 	t.Run("WebModeWithoutPort", func(t *testing.T) {
-		_, err := docker.CreateDockerContainer(fs, ctx, "test", "image", "127.0.0.1", "8080", "127.0.0.1", "", "cpu", false, true, cli)
+		_, err := docker.CreateDockerContainer(fs, ctx, "test", "image", "127.0.0.1", "8080", "127.0.0.1", "", "cpu", false, true, cli, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "webPortNum must be non-empty")
 	})
@@ -162,11 +162,11 @@ func TestLoadEnvFileMissingAndSuccess(t *testing.T) {
 
 func TestGenerateDockerComposeCPU(t *testing.T) {
 	fs := afero.NewOsFs()
-	err := docker.GenerateDockerCompose(fs, "agent", "image:tag", "agent-cpu", "127.0.0.1", "5000", "", "", true, false, "cpu")
+	err := docker.GenerateDockerCompose(fs, "agent", "image:tag", "agent-cpu", "127.0.0.1", "5000", "", "", true, false, "cpu", nil)
 	if err != nil {
 		t.Fatalf("GenerateDockerCompose error: %v", err)
 	}
-	expected := "agent_docker-compose-cpu.yaml"
+	expected := "agent-docker-compose-cpu.yaml"
 	exists, _ := afero.Exists(fs, expected)
 	if !exists {
 		t.Fatalf("expected compose file %s", expected)

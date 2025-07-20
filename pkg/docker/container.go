@@ -11,11 +11,12 @@ import (
 	"github.com/docker/go-connections/nat"
 	"github.com/joho/godotenv"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/template"
 	"github.com/spf13/afero"
 )
 
 func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerName, hostIP, portNum, webHostIP,
-	webPortNum, gpu string, apiMode, webMode bool, cli *client.Client,
+	webPortNum, gpu string, apiMode, webMode bool, cli *client.Client, exposedPorts *[]string,
 ) (string, error) {
 	// Load environment variables from .env file (if it exists)
 	envSlice, err := LoadEnvFile(fs, ".env")
@@ -83,7 +84,7 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 	containerNameWithGpu := fmt.Sprintf("%s-%s", cName, gpu)
 
 	// Generate Docker Compose file
-	err = GenerateDockerCompose(fs, cName, containerName, containerNameWithGpu, hostIP, portNum, webHostIP, webPortNum, apiMode, webMode, gpu)
+	err = GenerateDockerCompose(fs, cName, containerName, containerNameWithGpu, hostIP, portNum, webHostIP, webPortNum, apiMode, webMode, gpu, exposedPorts)
 	if err != nil {
 		return "", fmt.Errorf("error generating Docker Compose file: %w", err)
 	}
@@ -130,13 +131,13 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 
 // CreateDockerContainerWithProgress creates a Docker container with progress display
 func CreateDockerContainerWithProgress(fs afero.Fs, ctx context.Context, cName, containerName, hostIP, portNum, webHostIP,
-	webPortNum, gpu string, apiMode, webMode bool, cli *client.Client, logger *logging.Logger,
+	webPortNum, gpu string, apiMode, webMode bool, cli *client.Client, logger *logging.Logger, exposedPorts *[]string,
 ) (string, error) {
 	// Container creation - no need for separate progress display as it's fast
 
 	// Perform the actual container creation
 	containerID, err := CreateDockerContainer(fs, ctx, cName, containerName, hostIP, portNum, webHostIP,
-		webPortNum, gpu, apiMode, webMode, cli)
+		webPortNum, gpu, apiMode, webMode, cli, exposedPorts)
 
 	return containerID, err
 }
@@ -175,7 +176,7 @@ func LoadEnvFile(fs afero.Fs, filename string) ([]string, error) {
 	return envSlice, nil
 }
 
-func GenerateDockerCompose(fs afero.Fs, cName, containerName, containerNameWithGpu, hostIP, portNum, webHostIP, webPortNum string, apiMode, webMode bool, gpu string) error {
+func GenerateDockerCompose(fs afero.Fs, cName, containerName, containerNameWithGpu, hostIP, portNum, webHostIP, webPortNum string, apiMode, webMode bool, gpu string, exposedPorts *[]string) error {
 	var gpuConfig string
 
 	// GPU-specific configurations
@@ -211,44 +212,28 @@ func GenerateDockerCompose(fs afero.Fs, cName, containerName, containerNameWithG
 		ports = append(ports, fmt.Sprintf("%s:%s", webHostIP, webPortNum))
 	}
 
-	// Format ports section for YAML
-	var portsSection string
-	if len(ports) > 0 {
-		portsSection = "    ports:\n"
-		for _, port := range ports {
-			portsSection += fmt.Sprintf("      - \"%s\"\n", port)
+	// Add additional exposed ports if any are configured
+	if exposedPorts != nil {
+		for _, port := range *exposedPorts {
+			ports = append(ports, fmt.Sprintf("127.0.0.1:%s", port))
 		}
 	}
 
-	// Compose file content
-	dockerComposeContent := fmt.Sprintf(`
-# This Docker Compose file runs the Kdeps AI Agent containerized service with GPU configurations.
-# To use it:
-# 1. Start the service with the command:
-#    docker-compose --file <filename> up -d
-# 2. The service will start with the specified GPU configuration
-#    and will be accessible on the configured host IP and port.
+	// Use template system to generate Docker Compose content
+	templateData := map[string]interface{}{
+		"ContainerNameWithGpu": containerNameWithGpu,
+		"ContainerName":        containerName,
+		"Ports":               ports,
+		"GpuConfig":           gpuConfig,
+	}
 
-version: '3.8'
-services:
-  %s:
-    image: %s
-%s    restart: on-failure
-    volumes:
-      - ollama:/root/.ollama
-      - kdeps:/.kdeps
-%s
-volumes:
-  ollama:
-    external:
-      name: ollama
-  kdeps:
-    external:
-      name: kdeps
-`, containerNameWithGpu, containerName, portsSection, gpuConfig)
+	dockerComposeContent, err := template.GenerateDockerComposeFromTemplate(templateData)
+	if err != nil {
+		return fmt.Errorf("error generating Docker Compose from template: %w", err)
+	}
 
-	filePath := fmt.Sprintf("%s_docker-compose-%s.yaml", cName, gpu)
-	err := afero.WriteFile(fs, filePath, []byte(dockerComposeContent), 0o644)
+	filePath := fmt.Sprintf("%s-docker-compose-%s.yaml", cName, gpu)
+	err = afero.WriteFile(fs, filePath, []byte(dockerComposeContent), 0o644)
 	if err != nil {
 		return fmt.Errorf("error writing Docker Compose file: %w", err)
 	}

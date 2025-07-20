@@ -265,7 +265,8 @@ func GenerateDockerfileFromTemplate(
 	anacondaVersion,
 	pklVersion,
 	timezone,
-	exposedPort string,
+	exposedPort,
+	environment string,
 	installAnaconda,
 	devBuildMode,
 	apiServerMode,
@@ -292,6 +293,7 @@ func GenerateDockerfileFromTemplate(
 		"KdepsVersion":     version.DefaultKdepsInstallVersion,
 		"Timezone":         timezone,
 		"ExposedPort":      exposedPort,
+		"Environment":      environment,
 		"InstallAnaconda":  installAnaconda,
 		"DevBuildMode":     devBuildMode,
 		"ApiServerMode":    apiServerMode,
@@ -349,32 +351,32 @@ func GenerateParamsSection(prefix string, items map[string]string) string {
 	return strings.Join(lines, "\n")
 }
 
-func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *logging.Logger) (string, bool, bool, string, string, string, string, string, error) {
+func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *logging.Logger) (string, bool, bool, string, string, string, string, string, *[]string, error) {
 	// Check if pkgProject is nil
 	if pkgProject == nil {
-		return "", false, false, "", "", "", "", "", errors.New("package project is nil")
+		return "", false, false, "", "", "", "", "", nil, errors.New("package project is nil")
 	}
 
 	wfCfg, err := workflow.LoadWorkflow(ctx, pkgProject.Workflow, logger)
 	if err != nil {
-		return "", false, false, "", "", "", "", "", err
+		return "", false, false, "", "", "", "", "", nil, err
 	}
 
 	// Use the new configuration processor for PKL-first config
 	processor := config.NewConfigurationProcessor(logger)
 	processedConfig, err := processor.ProcessWorkflowConfiguration(ctx, wfCfg)
 	if err != nil {
-		return "", false, false, "", "", "", "", "", err
+		return "", false, false, "", "", "", "", "", nil, err
 	}
 
 	// Validate configuration
 	if err := processor.ValidateConfiguration(processedConfig); err != nil {
-		return "", false, false, "", "", "", "", "", err
+		return "", false, false, "", "", "", "", "", nil, err
 	}
 
 	// Ensure processedConfig is not nil before accessing its fields
 	if processedConfig == nil {
-		return "", false, false, "", "", "", "", "", errors.New("processed configuration is nil")
+		return "", false, false, "", "", "", "", "", nil, errors.New("processed configuration is nil")
 	}
 
 	// Use processedConfig for all config values
@@ -424,6 +426,16 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 			exposedPort += " "
 		}
 		exposedPort += strconv.Itoa(int(webPortNum))
+	}
+
+	// Add additional exposed ports if any are configured
+	if processedConfig.ExposedPorts != nil {
+		for _, port := range *processedConfig.ExposedPorts {
+			if exposedPort != "" {
+				exposedPort += " "
+			}
+			exposedPort += port
+		}
 	}
 
 	// Use PKL-first OllamaTagVersion from processed configuration
@@ -508,7 +520,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 
 	items, err := GenerateURLs(ctx, installAnaconda)
 	if err != nil {
-		return "", false, false, "", "", "", "", "", err
+		return "", false, false, "", "", "", "", "", nil, err
 	}
 
 	for _, item := range items {
@@ -516,19 +528,19 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	}
 
 	if err := download.Files(ctx, fs, downloadDir, items, logger, schema.UseLatest); err != nil {
-		return "", false, false, "", "", "", "", "", fmt.Errorf("failed to download cache files: %w", err)
+		return "", false, false, "", "", "", "", "", nil, fmt.Errorf("failed to download cache files: %w", err)
 	}
 
 	err = CopyFilesToRunDir(fs, ctx, downloadDir, runDir, logger)
 	if err != nil {
-		return "", false, false, "", "", "", "", "", err
+		return "", false, false, "", "", "", "", "", nil, err
 	}
 
 	ollamaPortNum := GenerateUniqueOllamaPort(portNum)
 
 	devBuildMode, err := CheckDevBuildMode(fs, kdepsDir, logger)
 	if err != nil {
-		return "", false, false, "", "", "", "", "", err
+		return "", false, false, "", "", "", "", "", nil, err
 	}
 
 	// Handle timezone pointer - use default if nil
@@ -549,13 +561,14 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		version.DefaultPklVersion,
 		timezoneStr,
 		exposedPort,
+		processedConfig.Environment.Value,
 		installAnaconda,
 		devBuildMode,
 		APIServerMode,
 		schema.UseLatest,
 	)
 	if err != nil {
-		return "", false, false, "", "", "", "", "", err
+		return "", false, false, "", "", "", "", "", nil, err
 	}
 
 	// Write the Dockerfile to the run directory
@@ -563,10 +576,10 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	logger.Debug("Resource configuration file", "content", resourceConfigurationFile)
 	err = afero.WriteFile(fs, resourceConfigurationFile, []byte(dockerfileContent), 0o644)
 	if err != nil {
-		return "", false, false, "", "", "", "", "", err
+		return "", false, false, "", "", "", "", "", nil, err
 	}
 
-	return runDir, APIServerMode, webServerMode, hostIP, hostPort, webHostIP, webHostPort, gpuType, nil
+	return runDir, APIServerMode, webServerMode, hostIP, hostPort, webHostIP, webHostPort, gpuType, processedConfig.ExposedPorts, nil
 }
 
 // PrintDockerBuildOutput prints Docker build output.

@@ -330,36 +330,46 @@ func GenerateAgent(ctx context.Context, fs afero.Fs, logger *logging.Logger, bas
 
 // GenerateDockerfileFromTemplate generates a Dockerfile using the template system.
 func GenerateDockerfileFromTemplate(templateData map[string]interface{}) (string, error) {
+	return generateFromTemplate("dockerfile.template", templateData)
+}
+
+// GenerateDockerComposeFromTemplate generates a Docker Compose file using the template system.
+func GenerateDockerComposeFromTemplate(templateData map[string]interface{}) (string, error) {
+	return generateFromTemplate("docker-compose.template", templateData)
+}
+
+// generateFromTemplate is a helper function that generates content from a template.
+func generateFromTemplate(templateName string, templateData map[string]interface{}) (string, error) {
 	// If TEMPLATE_DIR is set, load from disk instead of embedded FS
 	if dir := os.Getenv("TEMPLATE_DIR"); dir != "" {
-		path := filepath.Join(dir, "dockerfile.template")
+		path := filepath.Join(dir, templateName)
 		content, err := os.ReadFile(path)
 		if err != nil {
-			return "", fmt.Errorf("failed to read dockerfile template from disk: %w", err)
+			return "", fmt.Errorf("failed to read %s template from disk: %w", templateName, err)
 		}
-		tmpl, err := template.New("dockerfile.template").Parse(string(content))
+		tmpl, err := template.New(templateName).Parse(string(content))
 		if err != nil {
-			return "", fmt.Errorf("failed to parse dockerfile template file: %w", err)
+			return "", fmt.Errorf("failed to parse %s template file: %w", templateName, err)
 		}
 		var output bytes.Buffer
 		if err := tmpl.Execute(&output, templateData); err != nil {
-			return "", fmt.Errorf("failed to execute dockerfile template: %w", err)
+			return "", fmt.Errorf("failed to execute %s template: %w", templateName, err)
 		}
 		return output.String(), nil
 	}
 
 	// Otherwise, use embedded FS
-	content, err := templates.TemplatesFS.ReadFile("dockerfile.template")
+	content, err := templates.TemplatesFS.ReadFile(templateName)
 	if err != nil {
-		return "", fmt.Errorf("failed to read embedded dockerfile template: %w", err)
+		return "", fmt.Errorf("failed to read embedded %s template: %w", templateName, err)
 	}
-	tmpl, err := template.New("dockerfile.template").Parse(string(content))
+	tmpl, err := template.New(templateName).Parse(string(content))
 	if err != nil {
-		return "", fmt.Errorf("failed to parse dockerfile template file: %w", err)
+		return "", fmt.Errorf("failed to parse %s template file: %w", templateName, err)
 	}
 	var output bytes.Buffer
 	if err := tmpl.Execute(&output, templateData); err != nil {
-		return "", fmt.Errorf("failed to execute dockerfile template: %w", err)
+		return "", fmt.Errorf("failed to execute %s template: %w", templateName, err)
 	}
 	return output.String(), nil
 }

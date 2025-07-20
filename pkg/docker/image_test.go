@@ -67,6 +67,7 @@ func generateDockerfile(
 		pklVersion,
 		timezone,
 		exposedPort,
+		"dev", // Default environment for tests
 		installAnaconda,
 		devBuildMode,
 		apiServerMode,
@@ -234,7 +235,7 @@ func TestBuildDockerfile(t *testing.T) {
 
 	t.Run("MissingConfig", func(t *testing.T) {
 		kdeps := &kdepspkg.Kdeps{}
-		_, _, _, _, _, _, _, _, err := docker.BuildDockerfile(fs, ctx, kdeps, kdepsDir, pkgProject, logger)
+		_, _, _, _, _, _, _, _, _, err := docker.BuildDockerfile(fs, ctx, kdeps, kdepsDir, pkgProject, logger)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "error reading workflow file")
 	})
@@ -249,7 +250,7 @@ func TestBuildDockerfile(t *testing.T) {
 			KdepsDir:  pkg.GetDefaultKdepsDir(),
 			KdepsPath: &pathType,
 		}
-		_, _, _, _, _, _, _, _, err := docker.BuildDockerfile(fs, ctx, kdeps, kdepsDir, pkgProject, logger)
+		_, _, _, _, _, _, _, _, _, err := docker.BuildDockerfile(fs, ctx, kdeps, kdepsDir, pkgProject, logger)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "error reading workflow file")
 	})
@@ -643,7 +644,7 @@ version = "1.0"
 	afero.WriteFile(fs, workflowPath, []byte(dummyWorkflowContent), 0o644)
 
 	// Call the function under test
-	runDir, apiServerMode, webServerMode, hostIP, hostPort, webHostIP, webHostPort, gpuType, err := docker.BuildDockerfile(fs, ctx, kdeps, kdepsDir, pkgProject, logger)
+	runDir, apiServerMode, webServerMode, hostIP, hostPort, webHostIP, webHostPort, gpuType, _, err := docker.BuildDockerfile(fs, ctx, kdeps, kdepsDir, pkgProject, logger)
 	if err != nil {
 		// Gracefully skip when PKL or workflow dependency is unavailable in CI
 		if strings.Contains(err.Error(), "Cannot find module") {
@@ -1678,7 +1679,7 @@ Settings {
 	afero.WriteFile(fs, workflowPath, []byte(dummyWorkflowContent), 0o644)
 
 	// Call the function under test
-	runDir, _, _, _, _, _, _, _, err := docker.BuildDockerfile(fs, ctx, kdeps, kdepsDir, pkgProject, logger)
+	runDir, _, _, _, _, _, _, _, _, err := docker.BuildDockerfile(fs, ctx, kdeps, kdepsDir, pkgProject, logger)
 	if err != nil {
 		// Gracefully skip when PKL or workflow dependency is unavailable in CI
 		if strings.Contains(err.Error(), "Cannot find module") {

@@ -10,51 +10,51 @@ type ErrorCode string
 
 const (
 	// Resource handling errors
-	ErrResourceNotFound     ErrorCode = "RESOURCE_NOT_FOUND"
-	ErrResourceReload       ErrorCode = "RESOURCE_RELOAD_FAILED"
-	ErrResourceProcessing   ErrorCode = "RESOURCE_PROCESSING_FAILED"
-	ErrResourceStorage      ErrorCode = "RESOURCE_STORAGE_FAILED"
-	
+	ErrResourceNotFound   ErrorCode = "RESOURCE_NOT_FOUND"
+	ErrResourceReload     ErrorCode = "RESOURCE_RELOAD_FAILED"
+	ErrResourceProcessing ErrorCode = "RESOURCE_PROCESSING_FAILED"
+	ErrResourceStorage    ErrorCode = "RESOURCE_STORAGE_FAILED"
+
 	// PKL errors
 	ErrPKLTemplateEvaluation ErrorCode = "PKL_TEMPLATE_EVALUATION_FAILED"
 	ErrPKLResourceLoading    ErrorCode = "PKL_RESOURCE_LOADING_FAILED"
-	
+
 	// Network errors
-	ErrHTTPRequest          ErrorCode = "HTTP_REQUEST_FAILED"
-	ErrHTTPTimeout          ErrorCode = "HTTP_TIMEOUT"
-	
+	ErrHTTPRequest ErrorCode = "HTTP_REQUEST_FAILED"
+	ErrHTTPTimeout ErrorCode = "HTTP_TIMEOUT"
+
 	// Execution errors
-	ErrCommandExecution     ErrorCode = "COMMAND_EXECUTION_FAILED"
-	ErrPythonExecution      ErrorCode = "PYTHON_EXECUTION_FAILED"
-	
+	ErrCommandExecution ErrorCode = "COMMAND_EXECUTION_FAILED"
+	ErrPythonExecution  ErrorCode = "PYTHON_EXECUTION_FAILED"
+
 	// LLM errors
-	ErrLLMGeneration        ErrorCode = "LLM_GENERATION_FAILED"
-	ErrLLMTimeout           ErrorCode = "LLM_TIMEOUT"
-	
+	ErrLLMGeneration ErrorCode = "LLM_GENERATION_FAILED"
+	ErrLLMTimeout    ErrorCode = "LLM_TIMEOUT"
+
 	// Dependency errors
 	ErrDependencyResolution ErrorCode = "DEPENDENCY_RESOLUTION_FAILED"
 	ErrCircularDependency   ErrorCode = "CIRCULAR_DEPENDENCY_DETECTED"
-	
+
 	// Storage errors
-	ErrPklresAccess         ErrorCode = "PKLRES_ACCESS_FAILED"
-	ErrFileOperations       ErrorCode = "FILE_OPERATIONS_FAILED"
+	ErrPklresAccess   ErrorCode = "PKLRES_ACCESS_FAILED"
+	ErrFileOperations ErrorCode = "FILE_OPERATIONS_FAILED"
 )
 
 // ResourceError represents a structured error in the kdeps system
 type ResourceError struct {
-	Code        ErrorCode `json:"code"`
-	Message     string    `json:"message"`
-	ActionID    string    `json:"action_id,omitempty"`
-	ResourceType string   `json:"resource_type,omitempty"`
-	Timestamp   time.Time `json:"timestamp"`
-	Cause       error     `json:"-"`
-	Context     map[string]interface{} `json:"context,omitempty"`
+	Code         ErrorCode              `json:"code"`
+	Message      string                 `json:"message"`
+	ActionID     string                 `json:"action_id,omitempty"`
+	ResourceType string                 `json:"resource_type,omitempty"`
+	Timestamp    time.Time              `json:"timestamp"`
+	Cause        error                  `json:"-"`
+	Context      map[string]interface{} `json:"context,omitempty"`
 }
 
 // Error implements the error interface
 func (re *ResourceError) Error() string {
 	if re.ActionID != "" && re.ResourceType != "" {
-		return fmt.Sprintf("[%s] %s (actionID: %s, resourceType: %s): %s", 
+		return fmt.Sprintf("[%s] %s (actionID: %s, resourceType: %s): %s",
 			re.Code, re.ResourceType, re.ActionID, re.ResourceType, re.Message)
 	}
 	return fmt.Sprintf("[%s]: %s", re.Code, re.Message)

@@ -21,7 +21,8 @@ func NewScaffoldCommand(ctx context.Context, fs afero.Fs, logger *logging.Logger
   - exec: Execute shell commands and scripts
   - llm: Large Language Model interaction
   - python: Run Python scripts
-  - response: API response handling`,
+  - response: API response handling
+  - workflow: Workflow configuration file`,
 		Args: cobra.MinimumNArgs(1), // Require at least one argument (agentName)
 		Run: func(_ *cobra.Command, args []string) {
 			agentName := args[0]
@@ -35,6 +36,7 @@ func NewScaffoldCommand(ctx context.Context, fs afero.Fs, logger *logging.Logger
 				logger.Info("  - llm: Large Language Model interaction")
 				logger.Info("  - python: Run Python scripts")
 				logger.Info("  - response: API response handling")
+				logger.Info("  - workflow: Workflow configuration file")
 				return
 			}
 
@@ -45,6 +47,7 @@ func NewScaffoldCommand(ctx context.Context, fs afero.Fs, logger *logging.Logger
 				"llm":      true,
 				"python":   true,
 				"response": true,
+				"workflow": true,
 			}
 
 			var invalidResources []string
@@ -60,7 +63,14 @@ func NewScaffoldCommand(ctx context.Context, fs afero.Fs, logger *logging.Logger
 					logger.Error("error scaffolding file:", err)
 					logger.Error("Error", "err", err)
 				} else {
-					logger.Info("Successfully scaffolded file", "file", filepath.Join(agentName, "resources", resourceName+".pkl"))
+					// Workflow files go in the main directory, others go in resources
+					var filePath string
+					if resourceName == "workflow" {
+						filePath = filepath.Join(agentName, resourceName+".pkl")
+					} else {
+						filePath = filepath.Join(agentName, "resources", resourceName+".pkl")
+					}
+					logger.Info("Successfully scaffolded file", "file", filePath)
 				}
 			}
 
@@ -73,6 +83,7 @@ func NewScaffoldCommand(ctx context.Context, fs afero.Fs, logger *logging.Logger
 				logger.Info("  - llm: Large Language Model interaction")
 				logger.Info("  - python: Run Python scripts")
 				logger.Info("  - response: API response handling")
+				logger.Info("  - workflow: Workflow configuration file")
 			}
 		},
 	}

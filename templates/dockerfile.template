@@ -4,7 +4,7 @@ FROM ollama/ollama:{{ .ImageVersion }}
 ENV SCHEMA_VERSION={{ .SchemaVersion }}
 ENV OLLAMA_HOST={{ .HostIP }}:{{ .OllamaPortNum }}
 ENV KDEPS_HOST={{ .KdepsHost }}
-ENV DEBUG=1
+{{ if eq .Environment "prod" }}ENV DEBUG=0{{ else if eq .Environment "production" }}ENV DEBUG=0{{ else }}ENV DEBUG=1{{ end }}
 
 {{ if .EnvsSection }}{{ .EnvsSection }}{{ end }}
 
@@ -74,6 +74,6 @@ ENV PATH="/opt/conda/bin:$PATH"
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 RUN rm -rf /cache
 
-{{ if .ApiServerMode }}EXPOSE {{ .ExposedPort }}{{ end }}
+{{ if .ExposedPort }}EXPOSE {{ .ExposedPort }}{{ end }}
 
 ENTRYPOINT ["/bin/kdeps"] 

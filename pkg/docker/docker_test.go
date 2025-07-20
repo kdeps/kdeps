@@ -363,7 +363,7 @@ func searchTextInFile(filePath string, searchText string) (bool, error) {
 }
 
 func itShouldCreateTheDockerfile(arg1, arg2, arg3 string) error {
-	rd, asm, _, hIP, hPort, _, _, gpu, err := docker.BuildDockerfile(testFs, ctx, systemConfiguration, kdepsDir, pkgProject, logger)
+	rd, asm, _, hIP, hPort, _, _, gpu, _, err := docker.BuildDockerfile(testFs, ctx, systemConfiguration, kdepsDir, pkgProject, logger)
 	if err != nil {
 		return err
 	}
@@ -439,7 +439,7 @@ func itShouldRunTheContainerBuildStepFor(_ string) error {
 }
 
 func itShouldStartTheContainer(_ string) error {
-	if _, err := docker.CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, "", "", gpuType, APIServerMode, false, cli); err != nil {
+	if _, err := docker.CreateDockerContainer(testFs, ctx, cName, containerName, hostIP, hostPort, "", "", gpuType, APIServerMode, false, cli, nil); err != nil {
 		return err
 	}
 

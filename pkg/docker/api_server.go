@@ -165,8 +165,25 @@ func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 	portNum := processedConfig.APIServerPort.Value
 	hostPort := hostIP + ":" + strconv.FormatUint(uint64(portNum), 10)
 
-	// Create a semaphore channel to limit to 1 active connection
-	semaphore := make(chan struct{}, 1)
+	// Create a semaphore channel using RateLimitMax from configuration
+	rateLimitMax := processedConfig.RateLimitMax.Value
+	dr.Logger.Debug("creating semaphore", "rateLimitMax", rateLimitMax)
+	semaphore := make(chan struct{}, rateLimitMax)
+	
+	// Set Gin mode and logging based on Environment configuration
+	isProduction := processedConfig.Environment.Value == "prod" || processedConfig.Environment.Value == "production"
+	if isProduction {
+		gin.SetMode(gin.ReleaseMode)
+		dr.Logger.Debug("set gin mode to release for production environment")
+	} else {
+		gin.SetMode(gin.DebugMode)
+		dr.Logger.Debug("set gin mode to debug for development environment")
+	}
+	
+	// Adjust global log level based on environment
+	logging.SetLogLevel(processedConfig.Environment.Value)
+	dr.Logger.Debug("configured logging for environment", "environment", processedConfig.Environment.Value)
+	
 	router := gin.Default()
 
 	wfAPIServerCORS := wfAPIServer.CORS
@@ -797,7 +814,7 @@ func ValidateMethod(r *http.Request, allowedMethods []string) (string, error) {
 // ProcessWorkflow processes the workflow
 func ProcessWorkflow(_ context.Context, dr *resolver.DependencyResolver) error {
 	dr.Logger.Debug("ProcessWorkflow STARTED")
-	
+
 	// In API server mode, populate request data in pklres before any resource evaluation
 	if dr.APIServerMode && dr.RequestPklFile != "" {
 		dr.Logger.Debug("populating request data in pklres before workflow processing")
@@ -816,7 +833,7 @@ func ProcessWorkflow(_ context.Context, dr *resolver.DependencyResolver) error {
 		dr.Logger.Error("HandleRunAction failed", "error", err)
 		return fmt.Errorf("failed to handle run action: %w", err)
 	}
-	
+
 	dr.Logger.Debug("ProcessWorkflow COMPLETED")
 	return nil
 }

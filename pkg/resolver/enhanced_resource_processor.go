@@ -22,18 +22,18 @@ type EnhancedResourceProcessor struct {
 
 // ProcessorConfig contains configuration for the enhanced processor
 type ProcessorConfig struct {
-	EnableCaching     bool                  `json:"enable_caching"`
-	EnableMetrics     bool                  `json:"enable_metrics"`
-	EnableConcurrency bool                  `json:"enable_concurrency"`
-	CacheConfig       cache.CacheConfig     `json:"cache_config"`
-	MaxConcurrency    int                   `json:"max_concurrency"`
-	ProcessingTimeout time.Duration         `json:"processing_timeout"`
+	EnableCaching     bool              `json:"enable_caching"`
+	EnableMetrics     bool              `json:"enable_metrics"`
+	EnableConcurrency bool              `json:"enable_concurrency"`
+	CacheConfig       cache.CacheConfig `json:"cache_config"`
+	MaxConcurrency    int               `json:"max_concurrency"`
+	ProcessingTimeout time.Duration     `json:"processing_timeout"`
 }
 
 // NewEnhancedResourceProcessor creates a new enhanced resource processor
 func NewEnhancedResourceProcessor(dr *DependencyResolver) *EnhancedResourceProcessor {
 	config := DefaultProcessorConfig()
-	
+
 	processor := &EnhancedResourceProcessor{
 		dr:     dr,
 		config: &config,
@@ -65,19 +65,19 @@ func NewEnhancedResourceProcessor(dr *DependencyResolver) *EnhancedResourceProce
 func (erp *EnhancedResourceProcessor) ProcessResource(ctx context.Context, actionID string, resourceType string, resource interface{}) error {
 	start := time.Now()
 	var err error
-	
+
 	// Create resource-specific logger
 	resourceLogger := erp.logger.WithActionID(actionID).WithResourceType(resourceType)
-	
+
 	defer func() {
 		duration := time.Since(start)
 		success := err == nil
-		
+
 		// Record metrics
 		if erp.metrics != nil {
 			erp.metrics.RecordProcessingTime(resourceType, duration, success)
 		}
-		
+
 		// Log completion
 		if success {
 			resourceLogger.Info("resource processing completed", "duration", duration)
@@ -96,7 +96,7 @@ func (erp *EnhancedResourceProcessor) ProcessResource(ctx context.Context, actio
 
 	// Process the resource
 	err = erp.processResourceByType(ctx, actionID, resourceType, resource, resourceLogger)
-	
+
 	// Cache the result if successful
 	if err == nil && erp.config.EnableCaching && erp.cache != nil {
 		erp.cacheResult(actionID, resourceType, resource)
@@ -112,7 +112,7 @@ func (erp *EnhancedResourceProcessor) ProcessResourceLevel(ctx context.Context, 
 	}
 
 	levelLogger := erp.logger.WithField("resource_count", len(resources))
-	
+
 	if erp.config.EnableConcurrency && erp.concurrentProcessor != nil && len(resources) > 1 {
 		levelLogger.Info("processing resource level concurrently")
 		return erp.concurrentProcessor.ProcessLevel(ctx, resources)
@@ -192,7 +192,7 @@ func (erp *EnhancedResourceProcessor) cacheResult(actionID, resourceType string,
 	}
 
 	ttl := erp.config.CacheConfig.GetTTLForResourceType(resourceType)
-	
+
 	if err := erp.cache.SetWithTTL(key, actionID, resourceType, resource, resource, ttl); err != nil {
 		erp.logger.Warn("failed to cache result", "actionID", actionID, "error", err)
 	}
@@ -211,7 +211,7 @@ func (erp *EnhancedResourceProcessor) GetMetrics() *metrics.OverallStats {
 	if erp.metrics == nil {
 		return nil
 	}
-	
+
 	stats := erp.metrics.GetOverallStats()
 	return &stats
 }
@@ -221,7 +221,7 @@ func (erp *EnhancedResourceProcessor) GetCacheStats() *cache.CacheStats {
 	if erp.cache == nil {
 		return nil
 	}
-	
+
 	stats := erp.cache.Stats()
 	return &stats
 }
@@ -253,13 +253,13 @@ func (erp *EnhancedResourceProcessor) ClearCache() {
 // UpdateConfig updates the processor configuration
 func (erp *EnhancedResourceProcessor) UpdateConfig(config ProcessorConfig) {
 	erp.config = &config
-	
+
 	// Reinitialize subsystems if needed
 	if config.EnableConcurrency && erp.concurrentProcessor != nil {
 		erp.concurrentProcessor.SetMaxWorkers(config.MaxConcurrency)
 		erp.concurrentProcessor.SetTimeout(config.ProcessingTimeout)
 	}
-	
+
 	erp.logger.Info("processor configuration updated", "config", config)
 }
 
@@ -277,11 +277,11 @@ func DefaultProcessorConfig() ProcessorConfig {
 
 // ProcessorStatus provides detailed status information
 type ProcessorStatus struct {
-	Config     ProcessorConfig         `json:"config"`
-	Metrics    *metrics.OverallStats   `json:"metrics,omitempty"`
-	CacheStats *cache.CacheStats       `json:"cache_stats,omitempty"`
-	Uptime     time.Duration           `json:"uptime"`
-	LastUpdate time.Time               `json:"last_update"`
+	Config     ProcessorConfig       `json:"config"`
+	Metrics    *metrics.OverallStats `json:"metrics,omitempty"`
+	CacheStats *cache.CacheStats     `json:"cache_stats,omitempty"`
+	Uptime     time.Duration         `json:"uptime"`
+	LastUpdate time.Time             `json:"last_update"`
 }
 
 // GetStatus returns comprehensive processor status

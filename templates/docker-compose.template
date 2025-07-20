@@ -1,0 +1,25 @@
+# This Docker Compose file runs the Kdeps AI Agent containerized service with GPU configurations.
+# To use it:
+# 1. Start the service with the command:
+#    docker-compose --file <filename> up -d
+# 2. The service will start with the specified GPU configuration
+#    and will be accessible on the configured host IP and port.
+
+version: '3.8'
+services:
+  {{ .ContainerNameWithGpu }}:
+    image: {{ .ContainerName }}
+{{ if .Ports }}    ports:
+{{ range .Ports }}      - "{{ . }}"
+{{ end }}{{ end }}    restart: on-failure
+    volumes:
+      - ollama:/root/.ollama
+      - kdeps:/.kdeps
+{{ .GpuConfig }}
+volumes:
+  ollama:
+    external:
+      name: ollama
+  kdeps:
+    external:
+      name: kdeps
