@@ -2,19 +2,23 @@ package resolver
 
 import (
 	"fmt"
-	"path/filepath"
 	"time"
 
 	"github.com/alexellis/go-execute/v2"
 	"github.com/apple/pkl-go/pkl"
 
 	"github.com/kdeps/kdeps/pkg/kdepsexec"
-	"github.com/kdeps/kdeps/pkg/utils"
 	pklExec "github.com/kdeps/schema/gen/exec"
-	"github.com/spf13/afero"
+	pklResource "github.com/kdeps/schema/gen/resource"
 )
 
 func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.ResourceExec) error {
+	dr.Logger.Info("HandleExec: ENTRY", "actionID", actionID, "execBlock_nil", execBlock == nil)
+	if execBlock != nil {
+		dr.Logger.Info("HandleExec: execBlock fields", "actionID", actionID, "command", execBlock.Command)
+	}
+	dr.Logger.Debug("HandleExec: called", "actionID", actionID, "PklresHelper_nil", dr.PklresHelper == nil)
+	
 	// Canonicalize the actionID if it's a short ActionID
 	canonicalActionID := actionID
 	if dr.PklresHelper != nil {
@@ -24,13 +28,13 @@ func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.Res
 		}
 	}
 
-	// Process the exec block synchronously
-	if err := dr.DecodeExecBlock(execBlock); err != nil {
-		dr.Logger.Error("failed to process exec block", "actionID", canonicalActionID, "error", err)
-		return err
+	// Reload the Exec resource to ensure PKL templates are evaluated after dependencies are processed
+	// This ensures that PKL template expressions like \(client.responseBody("clientResource")) have access to dependency data
+	if err := dr.reloadExecResourceWithDependencies(canonicalActionID, execBlock); err != nil {
+		dr.Logger.Warn("failed to reload Exec resource, continuing with original", "actionID", canonicalActionID, "error", err)
 	}
 
-	// Run processExecBlock synchronously (patch: removed goroutine)
+	// Run processExecBlock synchronously
 	if err := dr.processExecBlock(canonicalActionID, execBlock); err != nil {
 		dr.Logger.Error("failed to process exec block", "actionID", canonicalActionID, "error", err)
 		return err
@@ -39,9 +43,62 @@ func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.Res
 	return nil
 }
 
-// ProcessExecBlock processes an exec block - no decoding needed
-func (dr *DependencyResolver) DecodeExecBlock(execBlock *pklExec.ResourceExec) error {
-	// No processing needed - data is already in proper format
+// reloadExecResourceWithDependencies reloads the Exec resource to ensure PKL templates are evaluated after dependencies
+func (dr *DependencyResolver) reloadExecResourceWithDependencies(actionID string, execBlock *pklExec.ResourceExec) error {
+	dr.Logger.Debug("reloadExecResourceWithDependencies: reloading Exec resource for fresh template evaluation", "actionID", actionID)
+	
+	// Find the resource file path for this actionID
+	resourceFile := ""
+	for _, res := range dr.Resources {
+		if res.ActionID == actionID {
+			resourceFile = res.File
+			break
+		}
+	}
+	
+	if resourceFile == "" {
+		return fmt.Errorf("could not find resource file for actionID: %s", actionID)
+	}
+	
+	dr.Logger.Debug("reloadExecResourceWithDependencies: found resource file", "actionID", actionID, "file", resourceFile)
+	
+	// Reload the Exec resource with fresh PKL template evaluation
+	// Load as generic Resource since the Exec resource extends Resource.pkl, not Exec.pkl
+	var reloadedResource interface{}
+	var err error
+	if dr.APIServerMode {
+		reloadedResource, err = dr.LoadResourceWithRequestContextFn(dr.Context, resourceFile, Resource)
+	} else {
+		reloadedResource, err = dr.LoadResourceFn(dr.Context, resourceFile, Resource)
+	}
+	
+	if err != nil {
+		return fmt.Errorf("failed to reload Exec resource: %w", err)
+	}
+	
+	// Cast to generic Resource first
+	reloadedGenericResource, ok := reloadedResource.(*pklResource.Resource)
+	if !ok {
+		return fmt.Errorf("failed to cast reloaded resource to generic Resource")
+	}
+	
+	// Extract the Exec block from the reloaded resource
+	if reloadedGenericResource.Run != nil && reloadedGenericResource.Run.Exec != nil {
+		reloadedExec := reloadedGenericResource.Run.Exec
+		
+		// Update the execBlock with the reloaded values that contain fresh template evaluation
+		if reloadedExec.Command != "" {
+			execBlock.Command = reloadedExec.Command
+			dr.Logger.Debug("reloadExecResourceWithDependencies: updated command from reloaded resource", "actionID", actionID)
+		}
+		
+		if reloadedExec.Env != nil {
+			execBlock.Env = reloadedExec.Env
+			dr.Logger.Debug("reloadExecResourceWithDependencies: updated env from reloaded resource", "actionID", actionID)
+		}
+	}
+	
+	dr.Logger.Info("reloadExecResourceWithDependencies: successfully reloaded Exec resource with fresh template evaluation", "actionID", actionID)
 	return nil
 }
 
@@ -90,67 +147,47 @@ func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklEx
 	}
 	execBlock.Timestamp = &ts
 
-	// Write the Exec output to file for pklres access
-	if execBlock.Stdout != nil {
-		dr.Logger.Debug("processExecBlock: writing stdout to file", "actionID", actionID)
-		filePath, err := dr.WriteStdoutToFile(actionID, execBlock.Stdout)
-		if err != nil {
-			dr.Logger.Error("processExecBlock: failed to write stdout to file", "actionID", actionID, "error", err)
-			return fmt.Errorf("failed to write stdout to file: %w", err)
-		}
-		execBlock.File = &filePath
-		dr.Logger.Debug("processExecBlock: wrote stdout to file", "actionID", actionID, "filePath", filePath)
-	}
-
-	dr.Logger.Info("processExecBlock: skipping AppendExecEntry - using real-time pklres", "actionID", actionID)
-	// Note: AppendExecEntry is no longer needed as we use real-time pklres access
-	// The Exec output files are directly accessible through pklres.getResourceOutput()
-
-	// Store the complete exec resource record in the PKL mapping
+	// Store resource data in pklres for cross-resource access
 	if dr.PklresHelper != nil {
-		// Create a ResourceExec object for storage
-		resourceExec := &pklExec.ResourceExec{
-			Command:         execBlock.Command,
-			Env:             execBlock.Env,
-			Stdout:          execBlock.Stdout,
-			Stderr:          execBlock.Stderr,
-			ExitCode:        execBlock.ExitCode,
-			File:            execBlock.File,
-			Timestamp:       execBlock.Timestamp,
-			TimeoutDuration: execBlock.TimeoutDuration,
+		// Store command
+		if err := dr.PklresHelper.Set(actionID, "command", execBlock.Command); err != nil {
+			dr.Logger.Error("failed to store command in pklres", "actionID", actionID, "error", err)
 		}
-
-		// Store the resource object using the new method
-		// Store exec resource attributes using the new generic approach
-		if err := dr.PklresHelper.Set(actionID, "command", resourceExec.Command); err != nil {
-			dr.Logger.Error("processExecBlock: failed to store exec resource in pklres", "actionID", actionID, "error", err)
-		} else {
-			dr.Logger.Info("processExecBlock: stored exec resource in pklres", "actionID", actionID)
+		
+		// Store stdout for cross-resource access
+		if execBlock.Stdout != nil {
+			if err := dr.PklresHelper.Set(actionID, "stdout", *execBlock.Stdout); err != nil {
+				dr.Logger.Error("failed to store stdout in pklres", "actionID", actionID, "error", err)
+			}
 		}
+		
+		// Store stderr for cross-resource access
+		if execBlock.Stderr != nil {
+			if err := dr.PklresHelper.Set(actionID, "stderr", *execBlock.Stderr); err != nil {
+				dr.Logger.Error("failed to store stderr in pklres", "actionID", actionID, "error", err)
+			}
+		}
+		
+		// Store exit code
+		if execBlock.ExitCode != nil {
+			exitCodeStr := fmt.Sprintf("%d", *execBlock.ExitCode)
+			if err := dr.PklresHelper.Set(actionID, "exitCode", exitCodeStr); err != nil {
+				dr.Logger.Error("failed to store exitCode in pklres", "actionID", actionID, "error", err)
+			}
+		}
+		
+		// Store timestamp
+		if execBlock.Timestamp != nil {
+			timestampStr := fmt.Sprintf("%.0f", execBlock.Timestamp.Value)
+			if err := dr.PklresHelper.Set(actionID, "timestamp", timestampStr); err != nil {
+				dr.Logger.Error("failed to store timestamp in pklres", "actionID", actionID, "error", err)
+			}
+		}
+		
+		dr.Logger.Info("stored exec resource in pklres", "actionID", actionID)
 	}
-
-	// Mark the resource as finished processing
-	// Processing status tracking removed - simplified to pure key-value store approach
 
 	return nil
 }
 
-func (dr *DependencyResolver) WriteStdoutToFile(resourceID string, stdout *string) (string, error) {
-	if stdout == nil {
-		return "", nil
-	}
-
-	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
-	outputFilePath := filepath.Join(dr.FilesDir, resourceIDFile)
-
-	// Write the stdout content directly without base64 decoding
-	if err := afero.WriteFile(dr.Fs, outputFilePath, []byte(*stdout), 0o644); err != nil {
-		return "", fmt.Errorf("failed to write file: %w", err)
-	}
-
-	return outputFilePath, nil
-}
-
-// AppendExecEntry has been removed as it's no longer needed.
-// We now use real-time pklres access through getResourceOutput() instead of storing PKL content.
 

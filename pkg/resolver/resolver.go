@@ -393,7 +393,7 @@ func (dr *DependencyResolver) ProcessResourceStep(resourceID, step string, timeo
 		}
 	}
 
-	// Check if this resource's dependencies are ready (async pklres system)
+	// Update processing status (dependency waiting now happens before resource loading)
 	if dr.PklresReader != nil {
 		// Check if this resource exists in the dependency graph
 		depData, err := dr.PklresReader.GetDependencyData(canonicalResourceID)
@@ -401,17 +401,6 @@ func (dr *DependencyResolver) ProcessResourceStep(resourceID, step string, timeo
 			// Update status to processing
 			if err := dr.PklresReader.UpdateDependencyStatus(canonicalResourceID, "processing", "", nil); err != nil {
 				dr.Logger.Warn("Failed to update dependency status to processing", "resourceID", canonicalResourceID, "error", err)
-			}
-
-			// Wait for all dependencies to be ready
-			if len(depData.Dependencies) > 0 {
-				dr.Logger.Debug("Waiting for dependencies to be ready", "resourceID", canonicalResourceID, "dependencies", depData.Dependencies)
-				waitTimeout := 5 * time.Minute // 5 minute timeout for dependencies
-				if err := dr.PklresReader.WaitForDependencies(canonicalResourceID, waitTimeout); err != nil {
-					dr.Logger.Error("Timeout waiting for dependencies", "resourceID", canonicalResourceID, "error", err)
-					return fmt.Errorf("timeout waiting for dependencies: %w", err)
-				}
-				dr.Logger.Debug("All dependencies are ready", "resourceID", canonicalResourceID)
 			}
 		}
 	}
@@ -697,6 +686,22 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	stack := dr.BuildDependencyStackFn(targetActionID, visited)
 
 	dr.Logger.Debug("dependency stack after build", "targetActionID", targetActionID, "stack", stack)
+	
+	// Enhanced dependency logging with progress indicators
+	if len(stack) > 0 {
+		dr.Logger.Info("=== DEPENDENCY EXECUTION PLAN ===")
+		for i, actionID := range stack {
+			deps := dr.ResourceDependencies[actionID]
+			if len(deps) > 0 {
+				dr.Logger.Info(fmt.Sprintf("dependency [%d/%d] (%s <- %v)", i+1, len(stack), actionID, deps))
+			} else {
+				dr.Logger.Info(fmt.Sprintf("dependency [%d/%d] (%s <- no dependencies)", i+1, len(stack), actionID))
+			}
+		}
+		dr.Logger.Info("=== END DEPENDENCY PLAN ===")
+	} else {
+		dr.Logger.Warn("EMPTY DEPENDENCY STACK - This will cause execution issues!")
+	}
 
 	// Ensure the target action is always included in the stack, even if it has no dependencies
 	found := false
@@ -813,13 +818,17 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	}
 
 	// Process each resource in the dependency stack
-	for _, nodeActionID := range stack {
+	for i, nodeActionID := range stack {
+		// Enhanced execution logging with progress
+		dr.Logger.Info(fmt.Sprintf("🚀 EXECUTING [%d/%d] *%s*", i+1, len(stack), nodeActionID))
 		dr.Logger.Debug("processing resource in dependency stack", "nodeActionID", nodeActionID)
 
+		resourceFound := false
 		for _, res := range dr.Resources {
 			if res.ActionID != nodeActionID {
 				continue
 			}
+			resourceFound = true
 
 			// Set the current resource actionID for error context
 			dr.CurrentResourceActionID = res.ActionID
@@ -833,6 +842,27 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 				}
 				dr.Logger.Debug("virtual request resource processed successfully", "actionID", res.ActionID)
 				continue // Skip normal resource processing for virtual request resource
+			}
+
+			// Wait for dependencies before loading resource to ensure PKL templates have access to dependency data
+			// This is critical for PKL template expressions like \(client.responseBody("clientResource"))
+			if dr.PklresReader != nil {
+				canonicalResourceID := res.ActionID
+				if dr.PklresHelper != nil {
+					canonicalResourceID = dr.PklresHelper.resolveActionID(res.ActionID)
+				}
+				
+				// Check if this resource has dependencies
+				depData, err := dr.PklresReader.GetDependencyData(canonicalResourceID)
+				if err == nil && depData != nil && len(depData.Dependencies) > 0 {
+					dr.Logger.Info("Waiting for dependencies before loading resource with PKL templates", "resourceID", res.ActionID, "dependencies", depData.Dependencies)
+					waitTimeout := 5 * time.Minute
+					if err := dr.PklresReader.WaitForDependencies(canonicalResourceID, waitTimeout); err != nil {
+						dr.Logger.Error("Timeout waiting for dependencies before resource loading", "resourceID", res.ActionID, "error", err)
+						return dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("Timeout waiting for dependencies before loading resource %s: %v", res.ActionID, err), true)
+					}
+					dr.Logger.Info("All dependencies ready, proceeding with resource loading", "resourceID", res.ActionID)
+				}
 			}
 
 			// Load the resource with request context if in API server mode (keep as generic Resource for now)
@@ -888,6 +918,26 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 						return dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("failed to set item %s: %v", itemValue, err), true)
 					}
 
+					// Wait for dependencies before reloading resource to ensure PKL templates have access to dependency data
+					// This is critical for PKL template expressions like \(client.responseBody("clientResource"))
+					if dr.PklresReader != nil {
+						canonicalResourceID := res.ActionID
+						if dr.PklresHelper != nil {
+							canonicalResourceID = dr.PklresHelper.resolveActionID(res.ActionID)
+						}
+						
+						// Check if this resource has dependencies
+						depData, err := dr.PklresReader.GetDependencyData(canonicalResourceID)
+						if err == nil && depData != nil && len(depData.Dependencies) > 0 {
+							dr.Logger.Debug("Waiting for dependencies before reloading resource for item", "resourceID", res.ActionID, "item", itemValue)
+							waitTimeout := 5 * time.Minute
+							if err := dr.PklresReader.WaitForDependencies(canonicalResourceID, waitTimeout); err != nil {
+								dr.Logger.Error("Timeout waiting for dependencies before reloading resource", "resourceID", res.ActionID, "error", err)
+								return dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("Timeout waiting for dependencies before reloading resource %s: %v", res.ActionID, err), true)
+							}
+						}
+					}
+
 					// reload the resource
 					if dr.APIServerMode {
 						resPkl, err = dr.LoadResourceWithRequestContextFn(dr.Context, res.File, Resource)
@@ -923,6 +973,18 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 					return dr.HandleAPIErrorResponse(statusInternalServerError, err.Error(), true)
 				}
 			}
+		}
+		
+		// Check if resource was found in the loaded resources
+		if !resourceFound {
+			dr.Logger.Error(fmt.Sprintf("❌ RESOURCE NOT FOUND [%d/%d] *%s* - Resource exists in dependency stack but not in loaded resources!", i+1, len(stack), nodeActionID))
+			dr.Logger.Error("Available resources:", "loadedResources", func() []string {
+				var loaded []string
+				for _, r := range dr.Resources {
+					loaded = append(loaded, r.ActionID)
+				}
+				return loaded
+			}())
 		}
 	}
 

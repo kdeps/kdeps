@@ -74,11 +74,19 @@ func (r *PklResourceReader) ListElements(_ url.URL) ([]pkl.PathElement, error) {
 }
 
 // resolveActionID canonicalizes an actionID using the agent reader
+// Keeps trying until it gets a canonical ID, then returns that
 func (r *PklResourceReader) resolveActionID(actionID string) string {
 	if r.CurrentAgent != "" && r.CurrentVersion != "" && r.KdepsPath != "" {
-		// Use agent reader to resolve the action ID
-		agentReader, err := agent.GetGlobalAgentReader(r.Fs, r.KdepsPath, r.CurrentAgent, r.CurrentVersion, r.Logger)
-		if err == nil {
+		// Keep trying until we get a canonical ID
+		maxRetries := 10
+		for attempt := 0; attempt < maxRetries; attempt++ {
+			// Use agent reader to resolve the action ID
+			agentReader, err := agent.GetGlobalAgentReader(r.Fs, r.KdepsPath, r.CurrentAgent, r.CurrentVersion, r.Logger)
+			if err != nil {
+				r.Logger.Debug("resolveActionID: failed to get agent reader, retrying", "actionID", actionID, "attempt", attempt+1, "error", err)
+				continue
+			}
+
 			// Create URI for agent ID resolution
 			query := url.Values{}
 			query.Set("op", "resolve")
@@ -91,16 +99,22 @@ func (r *PklResourceReader) resolveActionID(actionID string) string {
 			}
 
 			resolvedIDBytes, err := agentReader.Read(uri)
-			if err == nil {
-				resolvedID := string(resolvedIDBytes)
-				r.Logger.Debug("resolveActionID: resolved", "original", actionID, "canonical", resolvedID)
-				return resolvedID
-			} else {
-				r.Logger.Debug("resolveActionID: failed to resolve, using original", "actionID", actionID, "error", err)
+			if err != nil {
+				r.Logger.Debug("resolveActionID: failed to resolve, retrying", "actionID", actionID, "attempt", attempt+1, "error", err)
+				continue
 			}
-		} else {
-			r.Logger.Debug("resolveActionID: failed to get agent reader, using original", "actionID", actionID, "error", err)
+
+			resolvedID := string(resolvedIDBytes)
+			// Check if we got a canonical ID (should start with @)
+			if resolvedID != "" && resolvedID[0] == '@' {
+				r.Logger.Debug("resolveActionID: resolved to canonical", "original", actionID, "canonical", resolvedID, "attempt", attempt+1)
+				return resolvedID
+			}
+
+			r.Logger.Debug("resolveActionID: got non-canonical result, retrying", "actionID", actionID, "resolved", resolvedID, "attempt", attempt+1)
 		}
+		
+		r.Logger.Warn("resolveActionID: failed to get canonical ID after retries, using original", "actionID", actionID, "maxRetries", maxRetries)
 	} else {
 		r.Logger.Debug("resolveActionID: no agent context available, using original", "actionID", actionID)
 	}

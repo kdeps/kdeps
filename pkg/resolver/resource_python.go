@@ -3,19 +3,24 @@ package resolver
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"time"
 
 	"github.com/alexellis/go-execute/v2"
 	"github.com/apple/pkl-go/pkl"
 
 	"github.com/kdeps/kdeps/pkg/kdepsexec"
-	"github.com/kdeps/kdeps/pkg/utils"
 	pklPython "github.com/kdeps/schema/gen/python"
+	pklResource "github.com/kdeps/schema/gen/resource"
 	"github.com/spf13/afero"
 )
 
 func (dr *DependencyResolver) HandlePython(actionID string, pythonBlock *pklPython.ResourcePython) error {
+	dr.Logger.Info("HandlePython: ENTRY", "actionID", actionID, "pythonBlock_nil", pythonBlock == nil)
+	if pythonBlock != nil {
+		dr.Logger.Info("HandlePython: pythonBlock fields", "actionID", actionID, "script_length", len(pythonBlock.Script))
+	}
+	dr.Logger.Debug("HandlePython: called", "actionID", actionID, "PklresHelper_nil", dr.PklresHelper == nil)
+	
 	// Canonicalize the actionID if it's a short ActionID
 	canonicalActionID := actionID
 	if dr.PklresHelper != nil {
@@ -25,26 +30,82 @@ func (dr *DependencyResolver) HandlePython(actionID string, pythonBlock *pklPyth
 		}
 	}
 
-	// Process the python block synchronously
-	if err := dr.decodePythonBlock(pythonBlock); err != nil {
+	// Reload the Python resource to ensure PKL templates are evaluated after dependencies are processed
+	// This ensures that PKL template expressions like \(client.responseBody("clientResource")) have access to dependency data
+	if err := dr.reloadPythonResourceWithDependencies(canonicalActionID, pythonBlock); err != nil {
+		dr.Logger.Warn("failed to reload Python resource, continuing with original", "actionID", canonicalActionID, "error", err)
+	}
+
+	// Run processPythonBlock synchronously
+	if err := dr.processPythonBlock(canonicalActionID, pythonBlock); err != nil {
 		dr.Logger.Error("failed to process python block", "actionID", canonicalActionID, "error", err)
 		return err
 	}
 
-	// Run processPythonBlock asynchronously in a goroutine
-	go func(aID string, block *pklPython.ResourcePython) {
-		if err := dr.processPythonBlock(aID, block); err != nil {
-			// Log the error; consider additional error handling as needed.
-			dr.Logger.Error("failed to process python block", "actionID", aID, "error", err)
-		}
-	}(canonicalActionID, pythonBlock)
-
-	// Return immediately; the python block is being processed in the background.
 	return nil
 }
 
-func (dr *DependencyResolver) decodePythonBlock(pythonBlock *pklPython.ResourcePython) error {
-	// No processing needed - data is already in proper format
+// reloadPythonResourceWithDependencies reloads the Python resource to ensure PKL templates are evaluated after dependencies
+func (dr *DependencyResolver) reloadPythonResourceWithDependencies(actionID string, pythonBlock *pklPython.ResourcePython) error {
+	dr.Logger.Debug("reloadPythonResourceWithDependencies: reloading Python resource for fresh template evaluation", "actionID", actionID)
+	
+	// Find the resource file path for this actionID
+	resourceFile := ""
+	for _, res := range dr.Resources {
+		if res.ActionID == actionID {
+			resourceFile = res.File
+			break
+		}
+	}
+	
+	if resourceFile == "" {
+		return fmt.Errorf("could not find resource file for actionID: %s", actionID)
+	}
+	
+	dr.Logger.Debug("reloadPythonResourceWithDependencies: found resource file", "actionID", actionID, "file", resourceFile)
+	
+	// Reload the Python resource with fresh PKL template evaluation
+	// Load as generic Resource since the Python resource extends Resource.pkl, not Python.pkl
+	var reloadedResource interface{}
+	var err error
+	if dr.APIServerMode {
+		reloadedResource, err = dr.LoadResourceWithRequestContextFn(dr.Context, resourceFile, Resource)
+	} else {
+		reloadedResource, err = dr.LoadResourceFn(dr.Context, resourceFile, Resource)
+	}
+	
+	if err != nil {
+		return fmt.Errorf("failed to reload Python resource: %w", err)
+	}
+	
+	// Cast to generic Resource first
+	reloadedGenericResource, ok := reloadedResource.(*pklResource.Resource)
+	if !ok {
+		return fmt.Errorf("failed to cast reloaded resource to generic Resource")
+	}
+	
+	// Extract the Python block from the reloaded resource
+	if reloadedGenericResource.Run != nil && reloadedGenericResource.Run.Python != nil {
+		reloadedPython := reloadedGenericResource.Run.Python
+		
+		// Update the pythonBlock with the reloaded values that contain fresh template evaluation
+		if reloadedPython.Script != "" {
+			pythonBlock.Script = reloadedPython.Script
+			dr.Logger.Debug("reloadPythonResourceWithDependencies: updated script from reloaded resource", "actionID", actionID)
+		}
+		
+		if reloadedPython.Env != nil {
+			pythonBlock.Env = reloadedPython.Env
+			dr.Logger.Debug("reloadPythonResourceWithDependencies: updated env from reloaded resource", "actionID", actionID)
+		}
+		
+		if reloadedPython.PythonEnvironment != nil {
+			pythonBlock.PythonEnvironment = reloadedPython.PythonEnvironment
+			dr.Logger.Debug("reloadPythonResourceWithDependencies: updated python environment from reloaded resource", "actionID", actionID)
+		}
+	}
+	
+	dr.Logger.Info("reloadPythonResourceWithDependencies: successfully reloaded Python resource with fresh template evaluation", "actionID", actionID)
 	return nil
 }
 
@@ -104,66 +165,49 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 	}
 	pythonBlock.Timestamp = &ts
 
-	// Write the Python output to file for pklres access
-	if pythonBlock.Stdout != nil {
-		dr.Logger.Debug("processPythonBlock: writing stdout to file", "actionID", actionID)
-		filePath, err := dr.WritePythonOutputToFile(actionID, pythonBlock.Stdout)
-		if err != nil {
-			dr.Logger.Error("processPythonBlock: failed to write stdout to file", "actionID", actionID, "error", err)
-			return fmt.Errorf("failed to write stdout to file: %w", err)
-		}
-		pythonBlock.File = &filePath
-		dr.Logger.Debug("processPythonBlock: wrote stdout to file", "actionID", actionID, "filePath", filePath)
-	}
-
-	dr.Logger.Info("processPythonBlock: skipping AppendPythonEntry - using real-time pklres", "actionID", actionID)
-	// Note: AppendPythonEntry is no longer needed as we use real-time pklres access
-	// The Python output files are directly accessible through pklres.getResourceOutput()
-
-	// Store the complete python resource record in the PKL mapping
+	// Store resource data in pklres for cross-resource access
 	if dr.PklresHelper != nil {
-		// Create a ResourcePython object for storage
-		resourcePython := &pklPython.ResourcePython{
-			Script:            pythonBlock.Script,
-			Env:               pythonBlock.Env,
-			Stdout:            pythonBlock.Stdout,
-			Stderr:            pythonBlock.Stderr,
-			ExitCode:          pythonBlock.ExitCode,
-			File:              pythonBlock.File,
-			Timestamp:         pythonBlock.Timestamp,
-			TimeoutDuration:   pythonBlock.TimeoutDuration,
-			PythonEnvironment: pythonBlock.PythonEnvironment,
+		// Store script
+		if err := dr.PklresHelper.Set(actionID, "script", pythonBlock.Script); err != nil {
+			dr.Logger.Error("failed to store script in pklres", "actionID", actionID, "error", err)
 		}
-
-		// Store the resource object using the new method
-		// Store python resource attributes using the new generic approach
-		if err := dr.PklresHelper.Set(actionID, "script", resourcePython.Script); err != nil {
-			dr.Logger.Error("processPythonBlock: failed to store python resource in pklres", "actionID", actionID, "error", err)
-		} else {
-			dr.Logger.Info("processPythonBlock: stored python resource in pklres", "actionID", actionID)
+		
+		// Store stdout for cross-resource access
+		if pythonBlock.Stdout != nil {
+			if err := dr.PklresHelper.Set(actionID, "stdout", *pythonBlock.Stdout); err != nil {
+				dr.Logger.Error("failed to store stdout in pklres", "actionID", actionID, "error", err)
+			}
 		}
+		
+		// Store stderr for cross-resource access
+		if pythonBlock.Stderr != nil {
+			if err := dr.PklresHelper.Set(actionID, "stderr", *pythonBlock.Stderr); err != nil {
+				dr.Logger.Error("failed to store stderr in pklres", "actionID", actionID, "error", err)
+			}
+		}
+		
+		// Store exit code
+		if pythonBlock.ExitCode != nil {
+			exitCodeStr := fmt.Sprintf("%d", *pythonBlock.ExitCode)
+			if err := dr.PklresHelper.Set(actionID, "exitCode", exitCodeStr); err != nil {
+				dr.Logger.Error("failed to store exitCode in pklres", "actionID", actionID, "error", err)
+			}
+		}
+		
+		// Store timestamp
+		if pythonBlock.Timestamp != nil {
+			timestampStr := fmt.Sprintf("%.0f", pythonBlock.Timestamp.Value)
+			if err := dr.PklresHelper.Set(actionID, "timestamp", timestampStr); err != nil {
+				dr.Logger.Error("failed to store timestamp in pklres", "actionID", actionID, "error", err)
+			}
+		}
+		
+		dr.Logger.Info("stored python resource in pklres", "actionID", actionID)
 	}
-
-	// Mark the resource as finished processing
-	// Processing status tracking removed - simplified to pure key-value store approach
 
 	return nil
 }
 
-func (dr *DependencyResolver) WritePythonOutputToFile(resourceID string, stdout *string) (string, error) {
-	if stdout == nil {
-		return "", nil
-	}
-
-	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
-	outputFilePath := filepath.Join(dr.FilesDir, resourceIDFile)
-
-	// Write the stdout content directly without base64 decoding
-	if err := afero.WriteFile(dr.Fs, outputFilePath, []byte(*stdout), 0o644); err != nil {
-		return "", fmt.Errorf("failed to write file: %w", err)
-	}
-	return outputFilePath, nil
-}
 
 func (dr *DependencyResolver) activateCondaEnvironment(envName string) error {
 	execTask := execute.ExecTask{
@@ -244,22 +288,4 @@ func (dr *DependencyResolver) cleanupTempFile(name string) {
 	}
 }
 
-func (dr *DependencyResolver) WritePythonStdoutToFile(resourceID string, stdout *string) (string, error) {
-	if stdout == nil {
-		return "", nil
-	}
-
-	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
-	outputFilePath := filepath.Join(dr.FilesDir, resourceIDFile)
-
-	// Write the stdout content directly without base64 decoding
-	if err := afero.WriteFile(dr.Fs, outputFilePath, []byte(*stdout), 0o644); err != nil {
-		return "", fmt.Errorf("failed to write stdout to file: %w", err)
-	}
-
-	return outputFilePath, nil
-}
-
-// AppendPythonEntry has been removed as it's no longer needed.
-// We now use real-time pklres access through getResourceOutput() instead of storing PKL content.
 
