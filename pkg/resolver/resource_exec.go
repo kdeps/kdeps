@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -147,7 +148,7 @@ func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklEx
 	}
 	execBlock.Timestamp = &ts
 
-	// Store resource data in pklres for cross-resource access
+	// Store comprehensive resource data in pklres for cross-resource access
 	if dr.PklresHelper != nil {
 		// Store command
 		if err := dr.PklresHelper.Set(actionID, "command", execBlock.Command); err != nil {
@@ -176,6 +177,43 @@ func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklEx
 			}
 		}
 
+		// Store environment variables as JSON for complex structure
+		if execBlock.Env != nil && len(*execBlock.Env) > 0 {
+			if envJSON, err := json.Marshal(*execBlock.Env); err == nil {
+				if err := dr.PklresHelper.Set(actionID, "env", string(envJSON)); err != nil {
+					dr.Logger.Error("failed to store env", "actionID", actionID, "error", err)
+				}
+			} else {
+				dr.Logger.Error("failed to marshal env", "actionID", actionID, "error", err)
+			}
+		}
+
+		// Store file path if present
+		if execBlock.File != nil && *execBlock.File != "" {
+			if err := dr.PklresHelper.Set(actionID, "file", *execBlock.File); err != nil {
+				dr.Logger.Error("failed to store file", "actionID", actionID, "error", err)
+			}
+		}
+
+		// Store item values as JSON for complex structure
+		if execBlock.ItemValues != nil && len(*execBlock.ItemValues) > 0 {
+			if itemValuesJSON, err := json.Marshal(*execBlock.ItemValues); err == nil {
+				if err := dr.PklresHelper.Set(actionID, "itemValues", string(itemValuesJSON)); err != nil {
+					dr.Logger.Error("failed to store itemValues", "actionID", actionID, "error", err)
+				}
+			} else {
+				dr.Logger.Error("failed to marshal itemValues", "actionID", actionID, "error", err)
+			}
+		}
+
+		// Store timeout duration
+		if execBlock.TimeoutDuration != nil {
+			timeoutStr := fmt.Sprintf("%g", execBlock.TimeoutDuration.Value)
+			if err := dr.PklresHelper.Set(actionID, "timeoutDuration", timeoutStr); err != nil {
+				dr.Logger.Error("failed to store timeoutDuration", "actionID", actionID, "error", err)
+			}
+		}
+
 		// Store timestamp
 		if execBlock.Timestamp != nil {
 			timestampStr := fmt.Sprintf("%.0f", execBlock.Timestamp.Value)
@@ -184,7 +222,7 @@ func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklEx
 			}
 		}
 
-		dr.Logger.Info("stored exec resource in pklres", "actionID", actionID)
+		dr.Logger.Info("stored comprehensive Exec resource attributes in pklres", "actionID", actionID)
 	}
 
 	return nil

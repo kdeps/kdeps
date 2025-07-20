@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -165,7 +166,7 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 	}
 	pythonBlock.Timestamp = &ts
 
-	// Store resource data in pklres for cross-resource access
+	// Store comprehensive resource data in pklres for cross-resource access
 	if dr.PklresHelper != nil {
 		// Store script
 		if err := dr.PklresHelper.Set(actionID, "script", pythonBlock.Script); err != nil {
@@ -194,6 +195,50 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 			}
 		}
 
+		// Store environment variables as JSON for complex structure
+		if pythonBlock.Env != nil && len(*pythonBlock.Env) > 0 {
+			if envJSON, err := json.Marshal(*pythonBlock.Env); err == nil {
+				if err := dr.PklresHelper.Set(actionID, "env", string(envJSON)); err != nil {
+					dr.Logger.Error("failed to store env", "actionID", actionID, "error", err)
+				}
+			} else {
+				dr.Logger.Error("failed to marshal env", "actionID", actionID, "error", err)
+			}
+		}
+
+		// Store Python environment
+		if pythonBlock.PythonEnvironment != nil && *pythonBlock.PythonEnvironment != "" {
+			if err := dr.PklresHelper.Set(actionID, "pythonEnvironment", *pythonBlock.PythonEnvironment); err != nil {
+				dr.Logger.Error("failed to store pythonEnvironment", "actionID", actionID, "error", err)
+			}
+		}
+
+		// Store file path if present
+		if pythonBlock.File != nil && *pythonBlock.File != "" {
+			if err := dr.PklresHelper.Set(actionID, "file", *pythonBlock.File); err != nil {
+				dr.Logger.Error("failed to store file", "actionID", actionID, "error", err)
+			}
+		}
+
+		// Store item values as JSON for complex structure
+		if pythonBlock.ItemValues != nil && len(*pythonBlock.ItemValues) > 0 {
+			if itemValuesJSON, err := json.Marshal(*pythonBlock.ItemValues); err == nil {
+				if err := dr.PklresHelper.Set(actionID, "itemValues", string(itemValuesJSON)); err != nil {
+					dr.Logger.Error("failed to store itemValues", "actionID", actionID, "error", err)
+				}
+			} else {
+				dr.Logger.Error("failed to marshal itemValues", "actionID", actionID, "error", err)
+			}
+		}
+
+		// Store timeout duration
+		if pythonBlock.TimeoutDuration != nil {
+			timeoutStr := fmt.Sprintf("%g", pythonBlock.TimeoutDuration.Value)
+			if err := dr.PklresHelper.Set(actionID, "timeoutDuration", timeoutStr); err != nil {
+				dr.Logger.Error("failed to store timeoutDuration", "actionID", actionID, "error", err)
+			}
+		}
+
 		// Store timestamp
 		if pythonBlock.Timestamp != nil {
 			timestampStr := fmt.Sprintf("%.0f", pythonBlock.Timestamp.Value)
@@ -202,7 +247,7 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 			}
 		}
 
-		dr.Logger.Info("stored python resource in pklres", "actionID", actionID)
+		dr.Logger.Info("stored comprehensive Python resource attributes in pklres", "actionID", actionID)
 	}
 
 	return nil

@@ -153,6 +153,15 @@ local-dev:
 local-update:
 	@echo "$(OK_COLOR)==> Updating container with current changes...$(NO_COLOR)"
 	@GOOS=linux GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-linux-musl-gcc go build -v -ldflags="-s -w -X main.Version=$(or $(tag),dev-$(shell git describe --tags --abbrev=0)) -X main.localMode=1" -o "$(BUILD_DIR)/$(NAME)" "$(BUILD_SRC)"
+	@echo "$(OK_COLOR)==> Packaging local project...$(NO_COLOR)"
+	./bin/kdeps package local/localproject
+	@echo "$(OK_COLOR)==> Extracting project to local/project...$(NO_COLOR)"
+	@rm -rf local/project
+	@mkdir -p local/project
+	@tar xzf localproject-1.0.0.kdeps -C local/project
+	@echo "$(OK_COLOR)==> Replacing PKL imports with local paths in extracted project...$(NO_COLOR)"
+	@find local/project -name "*.pkl" -type f -exec sed -i.bak 's|package://schema\.kdeps\.com/core@[^#]*#/|/local/pkl/|g' {} \;
+	@find local/project -name "*.bak" -delete
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
 	if [ -z "$$CONTAINER" ]; then \
 		echo "$(ERROR_COLOR)==> No running kdeps-* container found$(NO_COLOR)"; \

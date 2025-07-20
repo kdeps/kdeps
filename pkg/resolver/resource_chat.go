@@ -663,6 +663,66 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 			}
 		}
 
+		// Store Scenario as JSON for complex structure
+		if chatBlock.Scenario != nil && len(*chatBlock.Scenario) > 0 {
+			if scenarioJSON, err := json.Marshal(*chatBlock.Scenario); err == nil {
+				if err := dr.PklresHelper.Set(actionID, "scenario", string(scenarioJSON)); err != nil {
+					dr.Logger.Error("processLLMChat: failed to store scenario", "actionID", actionID, "error", err)
+				}
+			} else {
+				dr.Logger.Error("processLLMChat: failed to marshal scenario", "actionID", actionID, "error", err)
+			}
+		}
+
+		// Store Tools as JSON for complex structure
+		if chatBlock.Tools != nil && len(*chatBlock.Tools) > 0 {
+			if toolsJSON, err := json.Marshal(*chatBlock.Tools); err == nil {
+				if err := dr.PklresHelper.Set(actionID, "tools", string(toolsJSON)); err != nil {
+					dr.Logger.Error("processLLMChat: failed to store tools", "actionID", actionID, "error", err)
+				}
+			} else {
+				dr.Logger.Error("processLLMChat: failed to marshal tools", "actionID", actionID, "error", err)
+			}
+		}
+
+		// Store Files as JSON for complex structure
+		if chatBlock.Files != nil && len(*chatBlock.Files) > 0 {
+			if filesJSON, err := json.Marshal(*chatBlock.Files); err == nil {
+				if err := dr.PklresHelper.Set(actionID, "files", string(filesJSON)); err != nil {
+					dr.Logger.Error("processLLMChat: failed to store files", "actionID", actionID, "error", err)
+				}
+			} else {
+				dr.Logger.Error("processLLMChat: failed to marshal files", "actionID", actionID, "error", err)
+			}
+		}
+
+		// Store ItemValues as JSON for complex structure
+		if chatBlock.ItemValues != nil && len(*chatBlock.ItemValues) > 0 {
+			if itemValuesJSON, err := json.Marshal(*chatBlock.ItemValues); err == nil {
+				if err := dr.PklresHelper.Set(actionID, "itemValues", string(itemValuesJSON)); err != nil {
+					dr.Logger.Error("processLLMChat: failed to store itemValues", "actionID", actionID, "error", err)
+				}
+			} else {
+				dr.Logger.Error("processLLMChat: failed to marshal itemValues", "actionID", actionID, "error", err)
+			}
+		}
+
+		// Store TimeoutDuration
+		if chatBlock.TimeoutDuration != nil {
+			timeoutStr := fmt.Sprintf("%g", chatBlock.TimeoutDuration.Value)
+			if err := dr.PklresHelper.Set(actionID, "timeoutDuration", timeoutStr); err != nil {
+				dr.Logger.Error("processLLMChat: failed to store timeoutDuration", "actionID", actionID, "error", err)
+			}
+		}
+
+		// Store Description if present (field might not exist in current schema)
+		// TODO: Re-enable when Description field is available in ResourceChat struct
+		// if chatBlock.Description != nil && *chatBlock.Description != "" {
+		//     if err := dr.PklresHelper.Set(actionID, "description", *chatBlock.Description); err != nil {
+		//         dr.Logger.Error("processLLMChat: failed to store description", "actionID", actionID, "error", err)
+		//     }
+		// }
+
 		if chatBlock.Timestamp != nil {
 			timestampStr := fmt.Sprintf("%g", chatBlock.Timestamp.Value)
 			if err := dr.PklresHelper.Set(actionID, "timestamp", timestampStr); err != nil {
@@ -670,7 +730,7 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 			}
 		}
 
-		dr.Logger.Info("processLLMChat: stored LLM resource attributes in pklres", "actionID", actionID)
+		dr.Logger.Info("processLLMChat: stored comprehensive LLM resource attributes in pklres", "actionID", actionID)
 	}
 
 	// Mark the resource as finished processing
