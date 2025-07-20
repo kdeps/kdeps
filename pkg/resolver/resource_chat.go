@@ -51,7 +51,6 @@ func (dr *DependencyResolver) substituteChatBlockTemplates(actionID string, chat
 		}
 	}
 
-
 	// Substitute templates in the prompt
 	if chatBlock.Prompt != nil {
 		newPrompt := *chatBlock.Prompt
@@ -649,6 +648,18 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 			}
 			if err := dr.PklresHelper.Set(actionID, "jsonResponse", jsonResponseStr); err != nil {
 				dr.Logger.Error("processLLMChat: failed to store jsonResponse", "actionID", actionID, "error", err)
+			}
+		}
+
+		// Store JSONResponseKeys in pklres for fallback response generation
+		if chatBlock.JSONResponseKeys != nil && len(*chatBlock.JSONResponseKeys) > 0 {
+			jsonResponseKeysJSON, err := json.Marshal(*chatBlock.JSONResponseKeys)
+			if err == nil {
+				if err := dr.PklresHelper.Set(actionID, "jsonResponseKeys", string(jsonResponseKeysJSON)); err != nil {
+					dr.Logger.Error("processLLMChat: failed to store jsonResponseKeys", "actionID", actionID, "error", err)
+				}
+			} else {
+				dr.Logger.Error("processLLMChat: failed to marshal jsonResponseKeys", "actionID", actionID, "error", err)
 			}
 		}
 

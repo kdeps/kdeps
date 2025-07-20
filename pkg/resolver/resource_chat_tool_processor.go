@@ -471,9 +471,9 @@ func encodeTools(tools *[]*pklLLM.Tool) []*pklLLM.Tool {
 		if entry == nil {
 			continue
 		}
-		encodedName := utils.EncodeValue(utils.SafeDerefString(entry.Name))
-		encodedScript := utils.EncodeValue(utils.SafeDerefString(entry.Script))
-		encodedDescription := utils.EncodeValue(utils.SafeDerefString(entry.Description))
+		encodedName := utils.SafeDerefString(entry.Name)
+		encodedScript := utils.SafeDerefString(entry.Script)
+		encodedDescription := utils.SafeDerefString(entry.Description)
 
 		var encodedParameters *map[string]*pklLLM.ToolProperties
 		if entry.Parameters != nil {
@@ -498,8 +498,8 @@ func encodeToolParameters(params *map[string]*pklLLM.ToolProperties) *map[string
 		if param == nil {
 			continue
 		}
-		encodedType := utils.EncodeValue(utils.SafeDerefString(param.Type))
-		encodedDescription := utils.EncodeValue(utils.SafeDerefString(param.Description))
+		encodedType := utils.SafeDerefString(param.Type)
+		encodedDescription := utils.SafeDerefString(param.Description)
 		encodedParams[paramName] = &pklLLM.ToolProperties{
 			Required:    param.Required,
 			Type:        &encodedType,

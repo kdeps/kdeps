@@ -722,7 +722,6 @@ func (dr *DependencyResolver) EvalPklFormattedResponseFile() (string, error) {
 	return result, nil
 }
 
-
 func (dr *DependencyResolver) convertPklResponseToJSON(pklText string) (string, error) {
 	// Parse the PKL response structure and convert to JSON
 	// Expected PKL format:
@@ -767,9 +766,9 @@ func (dr *DependencyResolver) convertPklResponseToJSON(pklText string) (string, 
 		}
 	}
 
-		// Process the data content
+	// Process the data content
 	dataStr := strings.TrimSpace(dataContent.String())
-	
+
 	// Strip trailing non-JSON characters (e.g., '%')
 	for len(dataStr) > 0 && (dataStr[len(dataStr)-1] < ' ' || dataStr[len(dataStr)-1] > '~') {
 		dataStr = dataStr[:len(dataStr)-1]
@@ -780,22 +779,13 @@ func (dr *DependencyResolver) convertPklResponseToJSON(pklText string) (string, 
 	}
 	// Additional cleanup for any remaining non-JSON characters
 	dataStr = strings.TrimSpace(dataStr)
-	
+
 	// Log the cleaned data for debugging
 	dr.Logger.Debug("Processing cleaned data", "original_length", len(dataContent.String()), "cleaned_length", len(dataStr), "cleaned_data", dataStr)
-	
+
 	// If the data is empty after cleaning, return a default response
 	if dataStr == "" || dataStr == "{}" {
-		defaultData := map[string]interface{}{
-			"first_name":   nil,
-			"last_name":    nil,
-			"parents":      nil,
-			"address":      nil,
-			"famous_quotes": nil,
-			"known_for":    nil,
-			"error":        "No data available",
-		}
-		
+		defaultData := dr.getDefaultResponseData("No data available")
 		if defaultJSON, err := json.Marshal(defaultData); err == nil {
 			return string(defaultJSON), nil
 		}
@@ -855,22 +845,40 @@ func (dr *DependencyResolver) convertPklResponseToJSON(pklText string) (string, 
 	}
 
 	// If all else fails, return a default structure
-	defaultData := map[string]interface{}{
-		"first_name":    nil,
-		"last_name":     nil,
-		"parents":       nil,
-		"address":       nil,
-		"famous_quotes": nil,
-		"known_for":     nil,
-		"error":         "Unable to parse LLM response",
-		"raw_response":  dataStr,
-	}
+	defaultData := dr.getDefaultResponseData("Unable to parse LLM response")
+	defaultData["raw_response"] = dataStr
 
 	if defaultJSON, err := json.Marshal(defaultData); err == nil {
 		return string(defaultJSON), nil
 	}
 
 	return "{}", nil
+}
+
+// getDefaultResponseData retrieves the configured JSONResponseKeys from the current resource
+// and creates a default response structure with those keys set to nil
+func (dr *DependencyResolver) getDefaultResponseData(errorMessage string) map[string]interface{} {
+	defaultData := map[string]interface{}{
+		"error": errorMessage,
+	}
+
+	// Try to get JSONResponseKeys from the current resource
+	if dr.CurrentResourceActionID != "" && dr.PklresHelper != nil {
+		jsonResponseKeysStr, err := dr.PklresHelper.Get(dr.CurrentResourceActionID, "jsonResponseKeys")
+		if err == nil && jsonResponseKeysStr != "" {
+			var jsonResponseKeys []string
+			if err := json.Unmarshal([]byte(jsonResponseKeysStr), &jsonResponseKeys); err == nil {
+				// Add each configured key with nil value
+				for _, key := range jsonResponseKeys {
+					defaultData[key] = nil
+				}
+				return defaultData
+			}
+		}
+	}
+
+	// Fallback to empty structure if no keys are configured
+	return defaultData
 }
 
 func (dr *DependencyResolver) validatePklFileExtension() error {

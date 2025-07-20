@@ -25,7 +25,6 @@ import (
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/session"
 	"github.com/kdeps/kdeps/pkg/tool"
-	"github.com/kdeps/kdeps/pkg/utils"
 	apiserver "github.com/kdeps/schema/gen/api_server"
 	pklProject "github.com/kdeps/schema/gen/project"
 	"github.com/kdeps/schema/gen/resource"
@@ -277,7 +276,7 @@ func TestDecodeResponseContentExtra2(t *testing.T) {
 	apiResp := docker.APIResponse{
 		Success: true,
 		Response: docker.ResponseData{
-			Data: []string{base64.StdEncoding.EncodeToString([]byte(`{"foo":"bar"}`))},
+			Data: []string{`{"foo":"bar"}`},
 		},
 		Meta: docker.ResponseMeta{
 			Headers: map[string]string{"X-Test": "yes"},
@@ -1065,7 +1064,7 @@ func TestDecodeAndFormatResponseSimple(t *testing.T) {
 	// Build sample APIResponse JSON with base64 encoded data
 	sample := docker.APIResponse{
 		Success:  true,
-		Response: docker.ResponseData{Data: []string{utils.EncodeBase64String(`{"foo":"bar"}`)}},
+		Response: docker.ResponseData{Data: []string{`{"foo":"bar"}`}},
 		Meta:     docker.ResponseMeta{RequestID: "abc123"},
 	}
 	raw, _ := json.Marshal(sample)

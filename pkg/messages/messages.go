@@ -46,7 +46,6 @@ const (
 
 	// decodeResponseContent internal
 	ErrUnmarshalRespContent = "failed to unmarshal response content"
-	ErrDecodeBase64String   = "failed to decode Base64 string"
 
 	// Resolver messages
 	MsgProcessingResources   = "processing resources..."

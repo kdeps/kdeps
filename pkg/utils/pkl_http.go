@@ -10,8 +10,7 @@ func FormatRequestHeaders(headers map[string][]string) string {
 	var headersLines []string
 	for name, values := range headers {
 		for _, value := range values {
-			encodedValue := EncodeBase64String(strings.TrimSpace(value))
-			headersLines = append(headersLines, fmt.Sprintf(`["%s"] = "%s"`, name, encodedValue))
+			headersLines = append(headersLines, fmt.Sprintf(`["%s"] = "%s"`, name, strings.TrimSpace(value)))
 		}
 	}
 
@@ -24,9 +23,7 @@ func FormatRequestParams(params map[string][]string) string {
 	for param, values := range params {
 		for _, value := range values {
 			trimmedValue := strings.TrimSpace(value)
-			// Always use Base64 encoding for parameters to ensure consistency and avoid PKL schema issues
-			encodedValue := EncodeBase64String(trimmedValue)
-			paramsLines = append(paramsLines, fmt.Sprintf(`["%s"] = "%s"`, param, encodedValue))
+			paramsLines = append(paramsLines, fmt.Sprintf(`["%s"] = "%s"`, param, trimmedValue))
 		}
 	}
 	return "Params {\n" + strings.Join(paramsLines, "\n") + "\n}"

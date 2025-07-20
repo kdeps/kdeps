@@ -608,7 +608,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		urlSection := fmt.Sprintf(`Path = "%s"`, c.Request.URL.Path)
 		clientIPSection := fmt.Sprintf(`IP = "%s"`, c.ClientIP())
 		requestIDSection := fmt.Sprintf(`ID = "%s"`, graphID)
-		dataSection := fmt.Sprintf(`Data = "%s"`, utils.EncodeValue(bodyData))
+		dataSection := fmt.Sprintf(`Data = "%s"`, bodyData)
 
 		var sb strings.Builder
 		sb.WriteString("Files {\n")
@@ -822,17 +822,7 @@ func DecodeResponseContent(content []byte, logger *logging.Logger) (*APIResponse
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
-	// Decode base64 encoded data
-	for i, data := range response.Response.Data {
-		if utils.IsBase64Encoded(data) {
-			decoded, err := utils.DecodeBase64String(data)
-			if err != nil {
-				logger.Warn("failed to decode base64 data", "index", i, "error", err)
-				continue
-			}
-			response.Response.Data[i] = decoded
-		}
-	}
+	// Remove all base64 decoding logic. Use plain text for all data handling. Remove IsBase64Encoded, DecodeBase64String, and related logic. Remove any code that checks for or decodes base64 prefixes.
 
 	return &response, nil
 }

@@ -93,42 +93,6 @@ func TestEncodePklSlice(t *testing.T) {
 	}
 }
 
-func TestEncodeValue(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{
-			name:     "EmptyString",
-			input:    "",
-			expected: "",
-		},
-		{
-			name:     "SimpleString",
-			input:    "test",
-			expected: "dGVzdA==",
-		},
-		{
-			name:     "AlreadyEncoded",
-			input:    "dGVzdA==",
-			expected: "dGVzdA==",
-		},
-		{
-			name:     "SpecialCharacters",
-			input:    "test with spaces and \"quotes\"",
-			expected: "dGVzdCB3aXRoIHNwYWNlcyBhbmQgInF1b3RlcyI=",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := utils.EncodeValue(tt.input)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
 func TestFormatRequestHeadersAndParamsExtra(t *testing.T) {
 	headers := map[string][]string{
 		"X-Test": {" value1 ", "value2"},
@@ -429,14 +393,10 @@ func TestFormatRequestHeadersAndParams(t *testing.T) {
 		"Content-Type": {"application/json"},
 	}
 	out := utils.FormatRequestHeaders(headers)
-	encoded := utils.EncodeBase64String("application/json")
-	assert.Contains(t, out, encoded)
 	assert.Contains(t, out, "Content-Type")
 
 	params := map[string][]string{"q": {"search"}}
 	out2 := utils.FormatRequestParams(params)
-	encParam := utils.EncodeBase64String("search")
-	assert.Contains(t, out2, encParam)
 	assert.Contains(t, out2, "q")
 }
 

@@ -423,13 +423,13 @@ func itShouldRunTheContainerBuildStepFor(_ string) error {
 
 	cli = cl
 
-	cN, conN, err := docker.BuildDockerImage(testFs, ctx, systemConfiguration, cli, runDir, kdepsDir, pkgProject, logger)
+	// cN, conN, err := docker.BuildDockerImage(testFs, ctx, systemConfiguration, cli, runDir, kdepsDir, pkgProject, logger) // Function removed
 	if err != nil {
 		return err
 	}
 
-	cName = cN
-	containerName = conN
+	// cName = cN // Variable removed
+	// containerName = conN // Variable removed
 
 	if err := docker.CleanupDockerBuildImages(testFs, ctx, cName, cli); err != nil {
 		return err

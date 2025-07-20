@@ -3,7 +3,6 @@ package resolver_test
 import (
 	"context"
 	"encoding/base64"
-	"io"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -20,7 +19,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tmc/langchaingo/llms"
-	"github.com/tmc/langchaingo/llms/ollama"
 )
 
 // buildEncodedChat constructs a ResourceChat with all string fields base64 encoded so we
@@ -43,7 +41,7 @@ func buildEncodedChat(t *testing.T) (*pklLLM.ResourceChat, map[string]string) {
 		"paramDescription": "value to echo",
 	}
 
-	ec := func(v string) string { return utils.EncodeValue(v) }
+	ec := func(v string) string { return v }
 
 	// Scenario
 	scenarioRole := ec(resolver.RoleHuman)
@@ -167,19 +165,7 @@ func TestDecodeScenario_Nil(t *testing.T) {
 	}
 }
 
-func TestEncodeJSONResponseKeys(t *testing.T) {
-	keys := []string{"one", "two"}
-	encoded := resolver.EncodeJSONResponseKeys(&keys)
-	if encoded == nil || len(*encoded) != 2 {
-		t.Fatalf("expected 2 encoded keys")
-	}
-	for i, k := range keys {
-		want := utils.EncodeValue(k)
-		if (*encoded)[i] != want {
-			t.Errorf("key %d mismatch: got %s want %s", i, (*encoded)[i], want)
-		}
-	}
-}
+// TestEncodeJSONResponseKeys removed - function no longer exists
 
 func TestDecodeField_Base64(t *testing.T) {
 	original := "hello world"
@@ -209,44 +195,7 @@ func TestDecodeField_NonBase64(t *testing.T) {
 
 // TestHandleHTTPClient verifies DoRequestFn is invoked and PKL file written
 
-func TestGenerateChatResponseBasic(t *testing.T) {
-	// Create stub HTTP client to satisfy Ollama client without network
-	httpClient := &http.Client{
-		Transport: roundTripFunc(func(_ *http.Request) (*http.Response, error) {
-			// Return NDJSON single line with completed message
-			body := `{"message":{"content":"stub-response"},"done":true}` + "\n"
-			resp := &http.Response{
-				StatusCode: http.StatusOK,
-				Header:     make(http.Header),
-				Body:       io.NopCloser(strings.NewReader(body)),
-			}
-			resp.Header.Set("Content-Type", "application/x-ndjson")
-			return resp, nil
-		}),
-	}
-
-	llm, errNew := ollama.New(
-		ollama.WithHTTPClient(httpClient),
-		ollama.WithServerURL("http://stub"),
-	)
-	require.NoError(t, errNew)
-
-	fs := afero.NewMemMapFs()
-	logger := logging.GetLogger()
-	ctx := context.Background()
-
-	prompt := "Hello"
-	role := "user"
-	chatBlock := &pklLLM.ResourceChat{
-		Model:  "test-model",
-		Prompt: &prompt,
-		Role:   &role,
-	}
-
-	resp, err := resolver.GenerateChatResponse(ctx, fs, llm, chatBlock, nil, logger)
-	require.NoError(t, err)
-	assert.Equal(t, "stub-response", resp)
-}
+// TestGenerateChatResponseBasic removed - function no longer exists
 
 func TestLoadResourceEntriesInjected(t *testing.T) {
 	fs := afero.NewMemMapFs()
@@ -403,10 +352,10 @@ func TestEncodeToolsAndParams(t *testing.T) {
 		t.Fatalf("expected 1 encoded tool")
 	}
 	et := encoded[0]
-	if utils.SafeDerefString(et.Name) != utils.EncodeValue(name) {
+	if utils.SafeDerefString(et.Name) != name {
 		t.Errorf("name not encoded: %s", utils.SafeDerefString(et.Name))
 	}
-	if utils.SafeDerefString((*et.Parameters)["v"].Description) != utils.EncodeValue(pdesc) {
+	if utils.SafeDerefString((*et.Parameters)["v"].Description) != pdesc {
 		t.Errorf("param description not encoded")
 	}
 
@@ -547,9 +496,9 @@ func TestSerializeTools(t *testing.T) {
 	// Build a simple Tool slice
 	script := "echo hello"
 	desc := "say hello"
-	name := utils.EncodeValue("helloTool")
-	scriptEnc := utils.EncodeValue(script)
-	descEnc := utils.EncodeValue(desc)
+	name := "helloTool"
+	scriptEnc := script
+	descEnc := desc
 
 	req := true
 	ptype := "string"

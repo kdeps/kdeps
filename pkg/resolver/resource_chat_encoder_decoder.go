@@ -23,14 +23,7 @@ func (dr *DependencyResolver) decodeChatBlock(chatBlock *pklLLM.ResourceChat) er
 		return err
 	}
 
-	// Decode JSONResponseKeys
-	if chatBlock.JSONResponseKeys != nil {
-		decodedKeys, err := utils.DecodeStringSlice(chatBlock.JSONResponseKeys, "JSONResponseKeys")
-		if err != nil {
-			return fmt.Errorf("failed to decode JSONResponseKeys: %w", err)
-		}
-		chatBlock.JSONResponseKeys = decodedKeys
-	}
+	// JSONResponseKeys are already in the correct format
 
 	// Decode Scenario
 	if err := decodeScenario(chatBlock, dr.Logger); err != nil {
@@ -58,17 +51,9 @@ func decodeField(field **string, fieldName string, deref func(*string) string, d
 	original := deref(*field)
 	logger := logging.GetLogger()
 	logger.Debug("Decoding field", "fieldName", fieldName, "original", original)
-	decoded, err := utils.DecodeBase64IfNeeded(original)
-	if err != nil {
-		logger.Warn("Base64 decoding failed, using original value", "fieldName", fieldName, "error", err)
-		decoded = original
-	}
-	if decoded == "" && original != "" {
-		logger.Warn("Decoded value is empty, preserving original", "fieldName", fieldName, "original", original)
-		decoded = original
-	}
-	*field = &decoded
+	decoded := original
 	logger.Debug("Decoded field", "fieldName", fieldName, "decoded", decoded)
+	*field = &decoded
 	return nil
 }
 
@@ -90,11 +75,7 @@ func decodeScenario(chatBlock *pklLLM.ResourceChat, logger *logging.Logger) erro
 		}
 		decodedEntry := &pklLLM.MultiChat{}
 		if entry.Role != nil {
-			decodedRole, err := utils.DecodeBase64IfNeeded(utils.SafeDerefString(entry.Role))
-			if err != nil {
-				logger.Error("Failed to decode scenario role", "index", i, "error", err)
-				return err
-			}
+			decodedRole := utils.SafeDerefString(entry.Role)
 			decodedEntry.Role = &decodedRole
 		} else {
 			logger.Warn("Scenario role is nil", "index", i)
@@ -102,11 +83,7 @@ func decodeScenario(chatBlock *pklLLM.ResourceChat, logger *logging.Logger) erro
 			decodedEntry.Role = &defaultRole
 		}
 		if entry.Prompt != nil {
-			decodedPrompt, err := utils.DecodeBase64IfNeeded(utils.SafeDerefString(entry.Prompt))
-			if err != nil {
-				logger.Error("Failed to decode scenario prompt", "index", i, "error", err)
-				return err
-			}
+			decodedPrompt := utils.SafeDerefString(entry.Prompt)
 			decodedEntry.Prompt = &decodedPrompt
 		} else {
 			logger.Warn("Scenario prompt is nil", "index", i)
@@ -125,15 +102,7 @@ func decodeFiles(chatBlock *pklLLM.ResourceChat) error {
 	if chatBlock.Files == nil {
 		return nil
 	}
-	decodedFiles := make([]string, len(*chatBlock.Files))
-	for i, file := range *chatBlock.Files {
-		decodedFile, err := utils.DecodeBase64IfNeeded(file)
-		if err != nil {
-			return fmt.Errorf("failed to decode Files[%d]: %w", i, err)
-		}
-		decodedFiles[i] = decodedFile
-	}
-	chatBlock.Files = &decodedFiles
+	// Files are already in the correct format
 	return nil
 }
 
@@ -192,15 +161,8 @@ func decodeToolEntry(entry *pklLLM.Tool, index int, logger *logging.Logger) (*pk
 	// Decode Name
 	if entry.Name != nil {
 		nameStr := utils.SafeDerefString(entry.Name)
-		logger.Debug("Checking if name is Base64", "index", index, "name", nameStr, "isBase64", utils.IsBase64Encoded(nameStr))
-		if utils.IsBase64Encoded(nameStr) {
-			if err := decodeField(&decodedTool.Name, fmt.Sprintf("Tools[%d].Name", index), utils.SafeDerefString, ""); err != nil {
-				return nil, err
-			}
-		} else {
-			decodedTool.Name = entry.Name
-			logger.Debug("Preserving non-Base64 tool name", "index", index, "name", nameStr)
-		}
+		logger.Debug("Processing tool name", "index", index, "name", nameStr)
+		decodedTool.Name = entry.Name
 	} else {
 		logger.Warn("Tool name is nil", "index", index)
 		emptyName := ""
@@ -210,15 +172,8 @@ func decodeToolEntry(entry *pklLLM.Tool, index int, logger *logging.Logger) (*pk
 	// Decode Script
 	if entry.Script != nil {
 		scriptStr := utils.SafeDerefString(entry.Script)
-		logger.Debug("Checking if script is Base64", "index", index, "script_length", len(scriptStr), "isBase64", utils.IsBase64Encoded(scriptStr))
-		if utils.IsBase64Encoded(scriptStr) {
-			if err := decodeField(&decodedTool.Script, fmt.Sprintf("Tools[%d].Script", index), utils.SafeDerefString, ""); err != nil {
-				return nil, err
-			}
-		} else {
-			decodedTool.Script = entry.Script
-			logger.Debug("Preserving non-Base64 tool script", "index", index, "script_length", len(scriptStr))
-		}
+		logger.Debug("Processing tool script", "index", index, "script_length", len(scriptStr))
+		decodedTool.Script = entry.Script
 	} else {
 		logger.Warn("Tool script is nil", "index", index)
 		emptyScript := ""
@@ -228,15 +183,8 @@ func decodeToolEntry(entry *pklLLM.Tool, index int, logger *logging.Logger) (*pk
 	// Decode Description
 	if entry.Description != nil {
 		descStr := utils.SafeDerefString(entry.Description)
-		logger.Debug("Checking if description is Base64", "index", index, "description", descStr, "isBase64", utils.IsBase64Encoded(descStr))
-		if utils.IsBase64Encoded(descStr) {
-			if err := decodeField(&decodedTool.Description, fmt.Sprintf("Tools[%d].Description", index), utils.SafeDerefString, ""); err != nil {
-				return nil, err
-			}
-		} else {
-			decodedTool.Description = entry.Description
-			logger.Debug("Preserving non-Base64 tool description", "index", index, "description", descStr)
-		}
+		logger.Debug("Processing tool description", "index", index, "description", descStr)
+		decodedTool.Description = entry.Description
 	} else {
 		logger.Warn("Tool description is nil", "index", index)
 		emptyDesc := ""
@@ -273,15 +221,9 @@ func decodeToolParameters(params *map[string]*pklLLM.ToolProperties, index int, 
 		// Decode Type
 		if param.Type != nil {
 			typeStr := utils.SafeDerefString(param.Type)
-			logger.Debug("Checking if parameter type is Base64", "index", index, "paramName", paramName, "type", typeStr, "isBase64", utils.IsBase64Encoded(typeStr))
-			if utils.IsBase64Encoded(typeStr) {
-				if err := decodeField(&decodedParam.Type, fmt.Sprintf("Tools[%d].Parameters[%s].Type", index, paramName), utils.SafeDerefString, ""); err != nil {
-					return nil, err
-				}
-			} else {
-				decodedParam.Type = param.Type
-				logger.Debug("Preserving non-Base64 parameter type", "index", index, "paramName", paramName, "type", typeStr)
-			}
+			logger.Debug("Processing parameter type", "index", index, "paramName", paramName, "type", typeStr)
+			decodedParam.Type = param.Type
+			logger.Debug("Preserving parameter type", "index", index, "paramName", paramName, "type", typeStr)
 		} else {
 			logger.Warn("Parameter type is nil", "index", index, "paramName", paramName)
 			emptyType := ""
@@ -291,15 +233,9 @@ func decodeToolParameters(params *map[string]*pklLLM.ToolProperties, index int, 
 		// Decode Description
 		if param.Description != nil {
 			descStr := utils.SafeDerefString(param.Description)
-			logger.Debug("Checking if parameter description is Base64", "index", index, "paramName", paramName, "description", descStr, "isBase64", utils.IsBase64Encoded(descStr))
-			if utils.IsBase64Encoded(descStr) {
-				if err := decodeField(&decodedParam.Description, fmt.Sprintf("Tools[%d].Parameters[%s].Description", index, paramName), utils.SafeDerefString, ""); err != nil {
-					return nil, err
-				}
-			} else {
-				decodedParam.Description = param.Description
-				logger.Debug("Preserving non-Base64 parameter description", "index", index, "paramName", paramName, "description", descStr)
-			}
+			logger.Debug("Processing parameter description", "index", index, "paramName", paramName, "description", descStr)
+			decodedParam.Description = param.Description
+			logger.Debug("Preserving non-Base64 parameter description", "index", index, "paramName", paramName, "description", descStr)
 		} else {
 			logger.Warn("Parameter description is nil", "index", index, "paramName", paramName)
 			emptyDesc := ""
@@ -328,8 +264,8 @@ func encodeChat(chat *pklLLM.ResourceChat, logger *logging.Logger) *pklLLM.Resou
 			}
 			prompt := utils.SafeDerefString(entry.Prompt)
 			logger.Info("Encoding scenario entry", "index", i, "role", role, "prompt", prompt)
-			encodedRole := utils.EncodeValue(role)
-			encodedPrompt := utils.EncodeValue(prompt)
+			encodedRole := role
+			encodedPrompt := prompt
 			encodedEntries = append(encodedEntries, &pklLLM.MultiChat{
 				Role:   &encodedRole,
 				Prompt: &encodedPrompt,
@@ -352,17 +288,13 @@ func encodeChat(chat *pklLLM.ResourceChat, logger *logging.Logger) *pklLLM.Resou
 
 	var encodedFiles *[]string
 	if chat.Files != nil {
-		encodedEntries := make([]string, len(*chat.Files))
-		for i, file := range *chat.Files {
-			encodedEntries[i] = utils.EncodeValue(file)
-		}
-		encodedFiles = &encodedEntries
+		encodedFiles = chat.Files
 	}
 
-	encodedModel := utils.EncodeValue(chat.Model)
-	encodedRole := utils.EncodeValue(utils.SafeDerefString(chat.Role))
-	encodedPrompt := utils.EncodeValue(utils.SafeDerefString(chat.Prompt))
-	encodedResponse := utils.EncodeValuePtr(chat.Response)
+	encodedModel := chat.Model
+	encodedRole := chat.Role
+	encodedPrompt := chat.Prompt
+	encodedResponse := chat.Response
 	encodedJSONResponseKeys := encodeJSONResponseKeys(chat.JSONResponseKeys)
 
 	timeoutDuration := chat.TimeoutDuration
@@ -377,8 +309,8 @@ func encodeChat(chat *pklLLM.ResourceChat, logger *logging.Logger) *pklLLM.Resou
 
 	return &pklLLM.ResourceChat{
 		Model:            encodedModel,
-		Prompt:           &encodedPrompt,
-		Role:             &encodedRole,
+		Prompt:           encodedPrompt,
+		Role:             encodedRole,
 		Scenario:         encodedScenario,
 		Tools:            encodedTools,
 		JSONResponse:     chat.JSONResponse,
@@ -398,7 +330,7 @@ func encodeJSONResponseKeys(keys *[]string) *[]string {
 	}
 	encoded := make([]string, len(*keys))
 	for i, v := range *keys {
-		encoded[i] = utils.EncodeValue(v)
+		encoded[i] = v
 	}
 	return &encoded
 }

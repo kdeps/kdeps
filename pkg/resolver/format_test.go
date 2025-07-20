@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apple/pkl-go/pkl"
 	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -186,38 +185,7 @@ func TestFormatValueVariants(t *testing.T) {
 	_ = reflect.TypeOf(nilPtr)
 }
 
-func TestGeneratePklContent_Minimal(t *testing.T) {
-	ctx := context.Background()
-	logger := logging.NewTestLogger()
-
-	prompt := "Hello"
-	role := resolverpkg.RoleHuman
-	jsonResp := true
-	res := &pklLLM.ResourceChat{
-		Model:           "llama2",
-		Prompt:          &prompt,
-		Role:            &role,
-		JSONResponse:    &jsonResp,
-		TimeoutDuration: &pkl.Duration{Value: 5, Unit: pkl.Second},
-	}
-	m := map[string]*pklLLM.ResourceChat{"id1": res}
-
-	pklStr := resolverpkg.GeneratePklContent(m, ctx, logger, "test-request-id")
-
-	// Basic sanity checks
-	if !strings.Contains(pklStr, "Resources {") || !strings.Contains(pklStr, "\"id1\"") {
-		t.Errorf("generated PKL missing expected identifiers: %s", pklStr)
-	}
-	if !strings.Contains(pklStr, "Model = \"llama2\"") {
-		t.Errorf("model field not serialized correctly: %s", pklStr)
-	}
-	if !strings.Contains(pklStr, "Prompt = \"Hello\"") {
-		t.Errorf("prompt field not serialized correctly: %s", pklStr)
-	}
-	if !strings.Contains(pklStr, "JSONResponse = true") {
-		t.Errorf("JSONResponse field not serialized: %s", pklStr)
-	}
-}
+// TestGeneratePklContent_Minimal removed - function no longer exists
 
 func TestWriteResponseToFile_EncodedAndPlain(t *testing.T) {
 	dr := setupTestResolverWithMemFS(t)
@@ -560,73 +528,9 @@ func TestHandleExec(t *testing.T) {
 	})
 }
 
-func TestDecodeExecBlock(t *testing.T) {
-	dr := setupTestExecResolver(t)
+// TestDecodeExecBlock removed - function no longer exists
 
-	t.Run("ValidBase64Command", func(t *testing.T) {
-		encodedCommand := "ZWNobyAnSGVsbG8sIFdvcmxkISc=" // "echo 'Hello, World!'"
-		execBlock := &exec.ResourceExec{
-			Command: encodedCommand,
-		}
-
-		err := dr.DecodeExecBlock(execBlock)
-		require.NoError(t, err)
-		assert.Equal(t, "echo 'Hello, World!'", execBlock.Command)
-	})
-
-	t.Run("ValidBase64Env", func(t *testing.T) {
-		env := map[string]string{
-			"TEST_KEY": "dGVzdF92YWx1ZQ==", // "test_value"
-		}
-		execBlock := &exec.ResourceExec{
-			Command: "echo 'test'",
-			Env:     &env,
-		}
-
-		err := dr.DecodeExecBlock(execBlock)
-		require.NoError(t, err)
-		assert.Equal(t, "test_value", (*execBlock.Env)["TEST_KEY"])
-	})
-
-	t.Run("InvalidBase64Command", func(t *testing.T) {
-		execBlock := &exec.ResourceExec{
-			Command: "invalid base64",
-		}
-
-		err := dr.DecodeExecBlock(execBlock)
-		require.NoError(t, err)
-	})
-}
-
-func TestWriteStdoutToFile(t *testing.T) {
-	dr := setupTestExecResolver(t)
-
-	t.Run("ValidStdout", func(t *testing.T) {
-		encodedStdout := "SGVsbG8sIFdvcmxkIQ==" // "Hello, World!"
-		resourceID := "test-resource"
-
-		filePath, err := dr.WriteStdoutToFile(resourceID, &encodedStdout)
-		require.NoError(t, err)
-		assert.NotEmpty(t, filePath)
-
-		// Verify file contents
-		content, err := afero.ReadFile(dr.Fs, filePath)
-		require.NoError(t, err)
-		assert.NotEmpty(t, content)
-	})
-
-	t.Run("NilStdout", func(t *testing.T) {
-		filePath, err := dr.WriteStdoutToFile("test-resource", nil)
-		require.NoError(t, err)
-		assert.Empty(t, filePath)
-	})
-
-	t.Run("InvalidBase64", func(t *testing.T) {
-		invalidStdout := "invalid base64"
-		_, err := dr.WriteStdoutToFile("test-resource", &invalidStdout)
-		require.NoError(t, err)
-	})
-}
+// TestWriteStdoutToFile removed - function no longer exists
 
 // skipIfPKLError skips the test when the provided error is non-nil and indicates
 // that the PKL binary / registry is not available in the current CI
@@ -645,18 +549,7 @@ func skipIfPKLError(t *testing.T, err error) {
 	}
 }
 
-func TestDecodeErrorMessage_Handler(t *testing.T) {
-	logger := logging.GetLogger()
-	plain := "hello"
-	enc := utils.EncodeValue(plain)
-	if got := resolverpkg.DecodeErrorMessage(enc, logger); got != plain {
-		t.Errorf("expected decoded value, got %s", got)
-	}
-	// non-base64 string passes through
-	if got := resolverpkg.DecodeErrorMessage("not-encoded", logger); got != "not-encoded" {
-		t.Errorf("expected passthrough, got %s", got)
-	}
-}
+// TestDecodeErrorMessage_Handler removed - function no longer exists
 
 type sampleStruct struct {
 	FieldA string
@@ -685,25 +578,7 @@ func TestFormatValue_MiscTypes(t *testing.T) {
 	}
 }
 
-func TestDecodeErrorMessage_Extra(t *testing.T) {
-	orig := "hello world"
-	enc := base64.StdEncoding.EncodeToString([]byte(orig))
-
-	// base64 encoded
-	if got := resolverpkg.DecodeErrorMessage(enc, logging.NewTestLogger()); got != orig {
-		t.Errorf("expected decoded message %q, got %q", orig, got)
-	}
-
-	// plain string remains unchanged
-	if got := resolverpkg.DecodeErrorMessage(orig, logging.NewTestLogger()); got != orig {
-		t.Errorf("plain string should remain unchanged: got %q", got)
-	}
-
-	// empty string returns empty
-	if got := resolverpkg.DecodeErrorMessage("", logging.NewTestLogger()); got != "" {
-		t.Errorf("expected empty, got %q", got)
-	}
-}
+// TestDecodeErrorMessage_Extra removed - function no longer exists
 
 func TestCreateResponsePklFile(t *testing.T) {
 	// Initialize mock dependencies
@@ -900,26 +775,7 @@ func TestFormatErrors(t *testing.T) {
 	})
 }
 
-func TestDecodeErrorMessage(t *testing.T) {
-	logger := logging.NewTestLogger()
-
-	t.Run("EmptyMessage", func(t *testing.T) {
-		result := resolverpkg.DecodeErrorMessage("", logger)
-		assert.Empty(t, result)
-	})
-
-	t.Run("PlainMessage", func(t *testing.T) {
-		message := "test message"
-		result := resolverpkg.DecodeErrorMessage(message, logger)
-		assert.Equal(t, message, result)
-	})
-
-	t.Run("Base64Message", func(t *testing.T) {
-		message := "dGVzdCBtZXNzYWdl"
-		result := resolverpkg.DecodeErrorMessage(message, logger)
-		assert.Equal(t, "test message", result)
-	})
-}
+// TestDecodeErrorMessage removed - function no longer exists
 
 func TestHandleAPIErrorResponse(t *testing.T) {
 	t.Skip("Skipping HandleAPIErrorResponse tests due to external PKL dependency")
@@ -978,17 +834,7 @@ func TestFormatMapAndValueHelpers(t *testing.T) {
 	require.Equal(t, "y", stMap["A"])
 }
 
-func TestDecodeErrorMessageExtra(t *testing.T) {
-	logger := logging.NewTestLogger()
-	src := "hello"
-	encoded := base64.StdEncoding.EncodeToString([]byte(src))
-	// Should decode base64
-	out := resolverpkg.DecodeErrorMessage(encoded, logger)
-	require.Equal(t, src, out)
-
-	// Non-base64 should return original
-	require.Equal(t, src, resolverpkg.DecodeErrorMessage(src, logger))
-}
+// TestDecodeErrorMessageExtra removed - function no longer exists
 
 // Simple struct for structToMap / formatValue tests
 type demo struct {

@@ -10,7 +10,6 @@ import (
 
 	"github.com/kdeps/kdeps/pkg/logging"
 	resolver "github.com/kdeps/kdeps/pkg/resolver"
-	"github.com/kdeps/kdeps/pkg/utils"
 	pklLLM "github.com/kdeps/schema/gen/llm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -212,15 +211,15 @@ func TestEncodeToolsAndParamsUnit(t *testing.T) {
 	encoded := resolver.EncodeTools(&tools)
 	assert.Len(t, encoded, 1)
 	// ensure values are encoded (base64) via utils.EncodeValue helper
-	assert.Equal(t, utils.EncodeValue(name), *encoded[0].Name)
-	assert.Equal(t, utils.EncodeValue(script), *encoded[0].Script)
+	assert.Equal(t, name, *encoded[0].Name)
+	assert.Equal(t, script, *encoded[0].Script)
 
 	// verify encodeToolParameters encodes nested map
 	encodedParams := resolver.EncodeToolParameters(&params)
 	assert.NotNil(t, encodedParams)
 	assert.Contains(t, *encodedParams, "arg1")
 	encType := *(*encodedParams)["arg1"].Type
-	assert.Equal(t, utils.EncodeValue(ptype), encType)
+	assert.Equal(t, ptype, encType)
 
 	// convertToolParamsToString with various types
 	logger.Debug("testing convertToolParamsToString")

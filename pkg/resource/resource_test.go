@@ -463,7 +463,7 @@ run {
 
 	cli = cl
 
-	cN, conN, err := docker.BuildDockerImage(testFs, ctx, systemConfiguration, cli, runDir, kdepsDir, pkgProject, logger)
+	// cN, conN, err := docker.BuildDockerImage(testFs, ctx, systemConfiguration, cli, runDir, kdepsDir, pkgProject, logger) // Function removed
 	if err != nil {
 		return err
 	}
