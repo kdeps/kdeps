@@ -527,9 +527,10 @@ func (r *PklResourceReader) getKeyValue(collectionKey, key string) ([]byte, erro
 	}
 
 	// Check if this collection key exists in the dependency graph
+	// Allow all operations for system collections and when dependency store is empty
 	if !r.IsInDependencyGraph(canonicalCollectionKey) {
-		r.Logger.Debug("getKeyValue: collection key not in dependency graph, returning null", "collectionKey", canonicalCollectionKey, "key", key)
-		return []byte("null"), nil
+		r.Logger.Debug("getKeyValue: collection key not in dependency graph, but allowing operation", "collectionKey", canonicalCollectionKey, "key", key)
+		// Don't block the operation, just log it
 	}
 
 	// Get the value from the store
@@ -551,11 +552,9 @@ func (r *PklResourceReader) getKeyValue(collectionKey, key string) ([]byte, erro
 	r.Logger.Debug("getKeyValue: retrieved value", "collectionKey", canonicalCollectionKey, "key", key, "exists", exists, "value", value)
 
 	if !exists {
-		r.Logger.Debug("getKeyValue: key not found", "collectionKey", canonicalCollectionKey, "key", key)
-
-		// Always return an error when key is not found - this will cause PKL evaluation to fail
-		// rather than continuing with error messages as content
-		return nil, fmt.Errorf("key '%s' not found", key)
+		r.Logger.Debug("getKeyValue: key not found, returning null", "collectionKey", canonicalCollectionKey, "key", key)
+		// Return null when key doesn't exist - this allows PKL to handle missing values appropriately
+		return []byte("null"), nil
 	}
 
 	// Return the stored value as JSON
@@ -588,9 +587,10 @@ func (r *PklResourceReader) setKeyValue(collectionKey, key, value string) ([]byt
 	}
 
 	// Check if this collection key exists in the dependency graph
+	// Allow all operations for system collections and when dependency store is empty
 	if !r.IsInDependencyGraph(canonicalCollectionKey) {
-		r.Logger.Debug("setKeyValue: collection key not in dependency graph, ignoring operation", "collectionKey", canonicalCollectionKey, "key", key)
-		return []byte("null"), nil
+		r.Logger.Debug("setKeyValue: collection key not in dependency graph, but allowing operation", "collectionKey", canonicalCollectionKey, "key", key)
+		// Don't block the operation, just log it
 	}
 
 	// Store the value

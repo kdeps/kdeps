@@ -499,17 +499,24 @@ func (r *PklResourceReader) RegisterAllAgentsAndActions() error {
 					// Extract agent name from filename (remove .kdeps extension)
 					agentName := strings.TrimSuffix(file.Name(), ".kdeps")
 					r.Logger.Debug("found agent kdeps file", "agent", agentName, "file", file.Name())
-					
+
 					// Register this agent - we'll use default version 1.0.0 for kdeps files
 					agentID := fmt.Sprintf("@%s:1.0.0", agentName)
-					if err := r.RegisterAgent(agentID, agentName, "1.0.0"); err != nil {
+					agentData := map[string]interface{}{
+						"name":    agentName,
+						"version": "1.0.0",
+						"path":    filepath.Join(agentsDir, file.Name()),
+					}
+					agentJSON, _ := json.Marshal(agentData)
+					_, err := r.DB.Exec("INSERT OR REPLACE INTO agents (id, data) VALUES (?, ?)", agentID, string(agentJSON))
+					if err != nil {
 						r.Logger.Debug("failed to register agent from kdeps file", "agent_id", agentID, "error", err)
 					}
 				}
 			}
 		}
-		
-		// Then scan agent directory structure  
+
+		// Then scan agent directory structure
 		afero.Walk(r.Fs, agentsDir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err

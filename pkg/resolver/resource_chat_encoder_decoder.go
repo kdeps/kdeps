@@ -51,10 +51,10 @@ func decodeField(field **string, fieldName string, deref func(*string) string, d
 	original := deref(*field)
 	logger := logging.GetLogger()
 	logger.Debug("Decoding field", "fieldName", fieldName, "original", original)
-	
+
 	// Note: PKL evaluation errors should be caught at the evaluation level, not here
 	// This decoder should only handle successfully evaluated PKL content
-	
+
 	decoded := original
 	logger.Debug("Decoded field", "fieldName", fieldName, "decoded", decoded)
 	*field = &decoded
@@ -347,7 +347,6 @@ func (dr *DependencyResolver) DecodeChatBlock(chatBlock *pklLLM.ResourceChat) er
 func DecodeField(field **string, fieldName string, deref func(*string) string, defaultValue string) error {
 	return decodeField(field, fieldName, deref, defaultValue)
 }
-
 
 func DecodeScenario(chatBlock *pklLLM.ResourceChat, logger *logging.Logger) error {
 	return decodeScenario(chatBlock, logger)

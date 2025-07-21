@@ -57,16 +57,8 @@ func Version(ctx context.Context) string {
 }
 
 // ImportPath returns the appropriate import path for PKL schema files.
-// In local mode (when localMode is set to "1"), it returns local paths.
-// Otherwise, it returns the standard package:// paths with version.
+// Always returns the standard package:// paths with version.
 func ImportPath(ctx context.Context, pklFile string) string {
-	// Check if local mode is enabled via version info
-	versionInfo := version.GetVersionInfo()
-	if versionInfo.LocalMode == "1" {
-		// Local development mode - use local file paths
-		return fmt.Sprintf("/local/pkl/%s", pklFile)
-	}
-
 	// Standard mode - use package URLs with version
 	return fmt.Sprintf("package://schema.kdeps.com/core@%s#/%s", Version(ctx), pklFile)
 }

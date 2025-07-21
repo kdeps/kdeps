@@ -20,11 +20,13 @@ deps: tools
 
 build: deps
 	@echo "$(OK_COLOR)==> Building the application...$(NO_COLOR)"
-	@CGO_ENABLED=1 go build -v -ldflags="-s -w -X main.Version=$(or $(tag),dev-$(shell git describe --tags --abbrev=0)) -X main.localMode=0" -o "$(BUILD_DIR)/$(NAME)" "$(BUILD_SRC)"
+	@CGO_ENABLED=1 go build -v -ldflags="-s -w -X main.Version=$(or $(tag),dev-$(shell git describe --tags --abbrev=0 2>/dev/null || echo 'unknown')) -X main.localMode=0" -o "$(BUILD_DIR)/$(NAME)" "$(BUILD_SRC)"
 
 dev-build: deps
 	@echo "$(OK_COLOR)==> Building the application for Linux...$(NO_COLOR)"
-	@GOOS=linux GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-linux-musl-gcc go build -v -ldflags="-s -w -X main.Version=$(or $(tag),dev-$(shell git describe --tags --abbrev=0)) -X main.localMode=0" -o "$(BUILD_DIR)/$(NAME)" "$(BUILD_SRC)"
+	@GOOS=linux GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-linux-musl-gcc go build -v -ldflags="-s -w -X main.Version=$(or $(tag),dev-$(shell git describe --tags --abbrev=0 2>/dev/null || echo 'unknown')) -X main.localMode=0" -o "$(BUILD_DIR)/$(NAME)" "$(BUILD_SRC)"
+
+
 
 clean:
 	@rm -rf ./bin
@@ -105,29 +107,19 @@ local-dev:
 		echo "PKL files already exist in local/pkl/"; \
 	fi
 	@echo "$(OK_COLOR)==> Creating local project...$(NO_COLOR)"
-	@if [ ! -d "local/localproject" ] || [ -z "$$(ls -A local/localproject 2>/dev/null)" ]; then \
-		echo "Creating new local project..."; \
-		rm -rf localproject; \
-		~/.local/bin/kdeps new localproject; \
-		mv localproject local; \
-	else \
-		echo "Local project already exists in local/localproject/"; \
-	fi
-	@echo "$(OK_COLOR)==> Building kdeps with local-dev support...$(NO_COLOR)"
-	@make build
+	@echo "Creating new local project..."; \
+	rm -rf localproject; \
+	~/.local/bin/kdeps new localproject; \
+	mv localproject local;
 	@echo "$(OK_COLOR)==> Packaging local project...$(NO_COLOR)"
 	./bin/kdeps package local/localproject
 	@echo "$(OK_COLOR)==> Extracting project to local/project...$(NO_COLOR)"
 	@rm -rf local/project
 	@mkdir -p local/project
 	@tar xzf localproject-1.0.0.kdeps -C local/project
-	@echo "$(OK_COLOR)==> Replacing PKL imports with local paths in extracted project...$(NO_COLOR)"
-	@find local/project -name "*.pkl" -type f -exec sed -i.bak 's|package://schema\.kdeps\.com/core@[^#]*#/|/local/pkl/|g' {} \;
-	@find local/project -name "*.bak" -delete
-	@echo "$(OK_COLOR)==> Replacing PKL imports in local PKL files...$(NO_COLOR)"
-	@find local/pkl -name "*.pkl" -type f -exec sed -i.bak 's|package://schema\.kdeps\.com/core@[^#]*#/|/local/pkl/|g' {} \;
-	@find local/pkl -name "*.bak" -delete
-	@echo "$(OK_COLOR)==> Building kdeps for Docker Linux...$(NO_COLOR)"
+	@echo "$(OK_COLOR)==> Replacing import paths to use local schema...$(NO_COLOR)"
+	@find local/project -name "*.pkl" -type f -exec sed -i '' 's|package://schema\.kdeps\.com/core@[^#]*#/|/local/pkl/|g' {} \;
+	@echo "$(OK_COLOR)==> Building kdeps for Docker...$(NO_COLOR)"
 	@make dev-build
 	@echo "$(OK_COLOR)==> Deploying to Docker container...$(NO_COLOR)"
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
@@ -142,11 +134,11 @@ local-dev:
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
 	docker cp local/pkl $$CONTAINER:/local/
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
-	docker exec $$CONTAINER rm -rf /run/localproject || true
+	docker exec $$CONTAINER rm -rf /agents/localproject || true
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
-	docker exec $$CONTAINER mkdir -p /run/localproject/1.0.0
+	docker exec $$CONTAINER mkdir -p /agents/localproject/1.0.0
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
-	docker cp local/project $$CONTAINER:/run/localproject/1.0.0/workflow
+	docker cp local/project/. $$CONTAINER:/agents/localproject/1.0.0/
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
 	docker restart $$CONTAINER
 	@echo "$(OK_COLOR)==> Local development environment ready!$(NO_COLOR)"
@@ -155,18 +147,7 @@ local-dev:
 # Helper task to just update the container with current changes
 local-update:
 	@echo "$(OK_COLOR)==> Updating container with current changes...$(NO_COLOR)"
-	@echo "$(OK_COLOR)==> Building kdeps for host platform...$(NO_COLOR)"
-	@make build
-	@echo "$(OK_COLOR)==> Packaging local project...$(NO_COLOR)"
-	./bin/kdeps package local/localproject
-	@echo "$(OK_COLOR)==> Extracting project to local/project...$(NO_COLOR)"
-	@rm -rf local/project
-	@mkdir -p local/project
-	@tar xzf localproject-1.0.0.kdeps -C local/project
-	@echo "$(OK_COLOR)==> Replacing PKL imports with local paths in extracted project...$(NO_COLOR)"
-	@find local/project -name "*.pkl" -type f -exec sed -i.bak 's|package://schema\.kdeps\.com/core@[^#]*#/|/local/pkl/|g' {} \;
-	@find local/project -name "*.bak" -delete
-	@echo "$(OK_COLOR)==> Building kdeps for Docker Linux...$(NO_COLOR)"
+	@echo "$(OK_COLOR)==> Building kdeps for Docker...$(NO_COLOR)"
 	@make dev-build
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
 	if [ -z "$$CONTAINER" ]; then \
@@ -179,12 +160,6 @@ local-update:
 	docker exec $$CONTAINER mkdir -p /local
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
 	docker cp local/pkl $$CONTAINER:/local/
-	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
-	docker exec $$CONTAINER rm -rf /run/localproject || true
-	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
-	docker exec $$CONTAINER mkdir -p /run/localproject/1.0.0
-	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
-	docker cp local/project $$CONTAINER:/run/localproject/1.0.0/workflow
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
 	docker restart $$CONTAINER
 	@echo "$(OK_COLOR)==> Container updated and restarted!$(NO_COLOR)"

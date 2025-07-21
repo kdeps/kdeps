@@ -160,10 +160,12 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 
 	kdepsPackage = destinationFile
 
-	_, err = PrepareRunDir(fs, ctx, wfConfig, kdepsDir, kdepsPackage, false, logger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare runtime directory: %w", err)
-	}
+	// Don't create the workflow directory structure when extracting for analysis
+	// The runtime extraction will handle the proper directory structure
+	// _, err = PrepareRunDir(fs, ctx, wfConfig, kdepsDir, kdepsPackage, false, logger)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to prepare runtime directory: %w", err)
+	// }
 
 	// Now walk the extractBasePath directory to populate the KdepsPackage
 	kdeps := &KdepsPackage{

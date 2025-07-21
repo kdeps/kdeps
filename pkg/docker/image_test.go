@@ -635,7 +635,7 @@ func TestBuildDockerfileContent(t *testing.T) {
 	// Create dummy directories in memory FS
 	fs.MkdirAll(kdepsDir, 0o755)
 	fs.MkdirAll(filepath.Join(kdepsDir, "cache"), 0o755)
-	fs.MkdirAll(filepath.Join(kdepsDir, "run", "test", "1.0"), 0o755)
+	fs.MkdirAll(filepath.Join(kdepsDir, "agents", "test", "1.0"), 0o755)
 
 	// Create a dummy workflow file to avoid module not found error
 	workflowPath := filepath.Join(kdepsDir, "testWorkflow")
@@ -1656,7 +1656,7 @@ func TestBuildDockerfile_OllamaTagVersion(t *testing.T) {
 	// Create dummy directories in memory FS
 	fs.MkdirAll(kdepsDir, 0o755)
 	fs.MkdirAll(filepath.Join(kdepsDir, "cache"), 0o755)
-	fs.MkdirAll(filepath.Join(kdepsDir, "run", "test", "1.0"), 0o755)
+	fs.MkdirAll(filepath.Join(kdepsDir, "agents", "test", "1.0"), 0o755)
 
 	// Create a dummy workflow file with OllamaTagVersion set
 	workflowPath := filepath.Join(kdepsDir, "testWorkflow")

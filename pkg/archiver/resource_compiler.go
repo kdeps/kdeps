@@ -15,7 +15,6 @@ import (
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/messages"
-	"github.com/kdeps/kdeps/pkg/version"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 )
@@ -61,15 +60,9 @@ func CompileResources(ctx context.Context, fs afero.Fs, wf pklWf.Workflow, resou
 	// Evaluate all compiled PKL files in the resources directory to test for any problems
 	logger.Debug("evaluating compiled resource PKL files")
 
-	// Skip PKL evaluation in local mode since local PKL files won't be available during packaging
-	versionInfo := version.GetVersionInfo()
-	if versionInfo.LocalMode == "1" {
-		logger.Info("skipping PKL evaluation in local mode", "reason", "local PKL files not available during packaging")
-	} else {
-		// Note: We don't have access to evaluator here, so we'll skip PKL evaluation
-		// This is acceptable since this is for archiving/packaging, not runtime evaluation
-		logger.Info("skipping PKL evaluation during resource compilation", "reason", "evaluator not available in archiver context")
-	}
+	// Note: We don't have access to evaluator here, so we'll skip PKL evaluation
+	// This is acceptable since this is for archiving/packaging, not runtime evaluation
+	logger.Info("skipping PKL evaluation during resource compilation", "reason", "evaluator not available in archiver context")
 
 	logger.Debug(messages.MsgResourcesCompiled, "resourcesDir", resourcesDir, "projectDir", projectDir)
 

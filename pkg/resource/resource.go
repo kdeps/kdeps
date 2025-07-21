@@ -9,7 +9,7 @@ import (
 )
 
 // LoadResource reads a resource file and returns the parsed resource object or an error.
-func LoadResource(ctx context.Context, resourceFile string, logger *logging.Logger) (*pklRes.Resource, error) {
+func LoadResource(ctx context.Context, resourceFile string, logger *logging.Logger) (pklRes.Resource, error) {
 	// Log additional info before reading the resource
 	logger.Debug("reading resource file", "resource-file", resourceFile)
 

@@ -99,10 +99,10 @@ type DependencyResolver struct {
 	ClearItemDBFn                    func() error                                                         `json:"-"`
 
 	// Async pklres polling and reloading
-	asyncPollingCancel   context.CancelFunc            `json:"-"`
-	processedResources   map[string]bool               `json:"-"` // Track previously executed resources
-	dependencyWaitQueue  map[string][]string           `json:"-"` // Resources waiting for dependencies
-	resourceReloadQueue  chan string                   `json:"-"` // Queue for resources that need reloading
+	asyncPollingCancel  context.CancelFunc  `json:"-"`
+	processedResources  map[string]bool     `json:"-"` // Track previously executed resources
+	dependencyWaitQueue map[string][]string `json:"-"` // Resources waiting for dependencies
+	resourceReloadQueue chan string         `json:"-"` // Queue for resources that need reloading
 
 	// Chat / HTTP injection helpers
 	NewLLMFn               func(model string) (*ollama.LLM, error)                                                                                      `json:"-"`
@@ -150,12 +150,12 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	var pklWfFile string
 	var projectDir string
 
-	// In Docker mode, look for workflow in /run/<agentname>/<version>/workflow.pkl
+	// In Docker mode, look for workflow in /agents/<agentname>/<version>/workflow.pkl
 	if env.DockerMode == "1" {
 		// Find the workflow.pkl in the run directory structure
 		pklWfFile = findWorkflowInRun(fs)
 		if pklWfFile == "" {
-			return nil, fmt.Errorf("workflow.pkl not found in /run directory structure")
+			return nil, fmt.Errorf("workflow.pkl not found in /agents directory structure")
 		}
 		// Set projectDir to the directory containing workflow.pkl
 		projectDir = filepath.Dir(pklWfFile)
@@ -361,7 +361,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	// Default injectable helpers
 	dependencyResolver.GetCurrentTimestampFn = dependencyResolver.GetCurrentTimestamp
 	dependencyResolver.WaitForTimestampChangeFn = dependencyResolver.WaitForTimestampChange
-	
+
 	// Initialize async polling system
 	dependencyResolver.processedResources = make(map[string]bool)
 	dependencyResolver.dependencyWaitQueue = make(map[string][]string)
@@ -488,11 +488,11 @@ func (dr *DependencyResolver) ProcessResourceStep(resourceID, step string, timeo
 				if remaining > 0 {
 					// Calculate progress percentage for timeout
 					progress := int((elapsed.Seconds() / timeout.Seconds()) * 100)
-					
+
 					// Create timeout progress bar (20 characters wide)
 					barWidth := 20
 					filledWidth := (progress * barWidth) / 100
-					
+
 					progressBar := "["
 					for i := 0; i < barWidth; i++ {
 						if i < filledWidth {
@@ -504,10 +504,10 @@ func (dr *DependencyResolver) ProcessResourceStep(resourceID, step string, timeo
 						}
 					}
 					progressBar += "]"
-					
-					dr.Logger.Info("processResourceStep: timeout progress", 
-						"resourceID", resourceID, 
-						"step", step, 
+
+					dr.Logger.Info("processResourceStep: timeout progress",
+						"resourceID", resourceID,
+						"step", step,
 						"progress", fmt.Sprintf("%s %d%% (%v/%v)", progressBar, progress, elapsed.Round(time.Second), timeout))
 				} else {
 					// Elapsed time exceeds timeout, force timeout
@@ -1422,9 +1422,9 @@ func (dr *DependencyResolver) ValidateRequestMethod(req *gin.Context, allowedMet
 	return dr.validateRequestMethod(req, allowedMethods)
 }
 
-// findWorkflowInRun searches for workflow.pkl in /run/<agentname>/<version>/
+// findWorkflowInRun searches for workflow.pkl in /agents/<agentname>/<version>/
 func findWorkflowInRun(fs afero.Fs) string {
-	runDir := "/run"
+	runDir := "/agents"
 
 	// Check if run directory exists
 	if exists, err := afero.Exists(fs, runDir); err != nil || !exists {
@@ -1454,13 +1454,13 @@ func findWorkflowInRun(fs afero.Fs) string {
 func (dr *DependencyResolver) StartAsyncPklresPolling(ctx context.Context) {
 	pollCtx, cancel := context.WithCancel(ctx)
 	dr.asyncPollingCancel = cancel
-	
+
 	// Start the pklres polling goroutine
 	go dr.pollPklresUpdates(pollCtx)
-	
+
 	// Start the resource reloading worker
 	go dr.processResourceReloads(pollCtx)
-	
+
 	dr.Logger.Info("Started async pklres polling system")
 }
 
@@ -1476,7 +1476,7 @@ func (dr *DependencyResolver) StopAsyncPklresPolling() {
 func (dr *DependencyResolver) pollPklresUpdates(ctx context.Context) {
 	ticker := time.NewTicker(5 * time.Second) // Poll every 5 seconds
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -1493,44 +1493,44 @@ func (dr *DependencyResolver) checkForPklresUpdates() {
 		dr.Logger.Debug("PklresReader is nil, skipping update check")
 		return
 	}
-	
+
 	// Get all pending dependencies with error handling
 	pendingDeps := dr.PklresReader.GetPendingDependencies()
 	if len(pendingDeps) == 0 {
 		dr.Logger.Debug("No pending dependencies found")
 		return
 	}
-	
+
 	dr.Logger.Debug("Checking pklres updates", "pendingCount", len(pendingDeps))
-	
+
 	for _, actionID := range pendingDeps {
 		// Check if this is a valid canonical action ID in our dependency graph
 		if !dr.isValidDependencyGraphActionID(actionID) {
 			dr.Logger.Debug("Skipping invalid dependency graph actionID", "actionID", actionID)
 			continue
 		}
-		
+
 		// Check if this resource was previously executed
 		if dr.processedResources[actionID] {
 			dr.Logger.Debug("Skipping previously executed resource", "actionID", actionID)
 			continue
 		}
-		
+
 		// Check if dependency data is now available with proper error handling
 		depData, err := dr.PklresReader.GetDependencyData(actionID)
 		if err != nil {
 			dr.Logger.Debug("Failed to get dependency data", "actionID", actionID, "error", err)
 			continue
 		}
-		
+
 		if depData == nil {
 			dr.Logger.Debug("No dependency data available yet", "actionID", actionID)
 			continue
 		}
-		
+
 		if depData.Status == "completed" {
 			dr.Logger.Info("New dependency data available", "actionID", actionID, "status", depData.Status)
-			
+
 			// Queue this resource for reloading
 			select {
 			case dr.resourceReloadQueue <- actionID:
@@ -1560,7 +1560,7 @@ func (dr *DependencyResolver) processResourceReloads(ctx context.Context) {
 // reloadAndExecuteResourceSync reloads PKL with new dependency values and re-executes synchronously
 func (dr *DependencyResolver) reloadAndExecuteResourceSync(actionID string) {
 	dr.Logger.Info("Reloading and executing resource", "actionID", actionID)
-	
+
 	// Find the resource entry
 	var resourceEntry *ResourceNodeEntry
 	for i, res := range dr.Resources {
@@ -1569,12 +1569,12 @@ func (dr *DependencyResolver) reloadAndExecuteResourceSync(actionID string) {
 			break
 		}
 	}
-	
+
 	if resourceEntry == nil {
 		dr.Logger.Warn("Resource not found for reloading", "actionID", actionID)
 		return
 	}
-	
+
 	// Reload the resource file with fresh dependency data
 	ctx := context.Background()
 	reloadedResource, err := dr.LoadResourceWithRequestContextFn(ctx, resourceEntry.File, Resource)
@@ -1582,7 +1582,7 @@ func (dr *DependencyResolver) reloadAndExecuteResourceSync(actionID string) {
 		dr.Logger.Error("Failed to reload resource", "actionID", actionID, "error", err)
 		return
 	}
-	
+
 	// Execute the reloaded resource
 	switch typedResource := reloadedResource.(type) {
 	case pklRes.Resource:
@@ -1591,11 +1591,11 @@ func (dr *DependencyResolver) reloadAndExecuteResourceSync(actionID string) {
 			dr.Logger.Error("Failed to execute reloaded resource", "actionID", actionID, "error", err)
 			return
 		}
-		
+
 		// Mark as processed
 		dr.processedResources[actionID] = true
 		dr.Logger.Info("Successfully reloaded and executed resource", "actionID", actionID)
-		
+
 	default:
 		dr.Logger.Error("Invalid resource type for reloading", "actionID", actionID, "type", fmt.Sprintf("%T", reloadedResource))
 	}
@@ -1608,13 +1608,13 @@ func (dr *DependencyResolver) isValidDependencyGraphActionID(actionID string) bo
 	if dr.PklresHelper != nil {
 		canonicalActionID = dr.PklresHelper.resolveActionID(actionID)
 	}
-	
+
 	// Look for the action ID in our loaded resources
 	for _, res := range dr.Resources {
 		if res.ActionID == canonicalActionID {
 			return true
 		}
 	}
-	
+
 	return false
 }

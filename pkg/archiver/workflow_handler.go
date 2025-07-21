@@ -19,7 +19,6 @@ import (
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/utils"
-	"github.com/kdeps/kdeps/pkg/version"
 	"github.com/kdeps/kdeps/pkg/workflow"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
@@ -28,15 +27,8 @@ import (
 func PrepareRunDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, pkgFilePath string, dockerMode bool, logger *logging.Logger) (string, error) {
 	agentName, agentVersion := wf.GetAgentID(), wf.GetVersion()
 
-	// Always use agents directory structure
-	var runDir string
-	if dockerMode {
-		// For Docker mode, use parent directory to hold the .kdeps file
-		runDir = filepath.Join(kdepsDir, "agents/"+agentName+"/"+agentVersion)
-	} else {
-		// For extraction mode, use workflow subdirectory  
-		runDir = filepath.Join(kdepsDir, "agents/"+agentName+"/"+agentVersion+"/workflow")
-	}
+	// Always use agents directory structure without workflow subdirectory
+	runDir := filepath.Join(kdepsDir, "agents/"+agentName+"/"+agentVersion)
 
 	if exists, err := afero.Exists(fs, runDir); err != nil {
 		return "", err
@@ -55,24 +47,30 @@ func PrepareRunDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir
 	if err := fs.MkdirAll(agentsBaseDir, 0o755); err != nil {
 		return "", fmt.Errorf("failed to create agents base directory: %w", err)
 	}
-	
+
 	kdepsFileName := agentName + ".kdeps"
 	agentsKdepsPath := filepath.Join(agentsBaseDir, kdepsFileName)
-	
+
 	logger.Info("Copying .kdeps file to agents directory", "source", pkgFilePath, "dest", agentsKdepsPath)
-	
+
 	if err := CopyFile(ctx, fs, pkgFilePath, agentsKdepsPath, logger); err != nil {
 		return "", fmt.Errorf("failed to copy .kdeps file to agents directory: %w", err)
 	}
 
 	if dockerMode {
-		// For Docker mode, also copy the .kdeps file to runDir (will be copied to /packages in container)
+		// For Docker mode, copy the .kdeps file to runDir and extract contents for workflow.pkl
 		destPath := filepath.Join(runDir, kdepsFileName)
 
 		logger.Info("Copying .kdeps file for Docker build", "source", pkgFilePath, "dest", destPath)
 
 		if err := CopyFile(ctx, fs, pkgFilePath, destPath, logger); err != nil {
 			return "", fmt.Errorf("failed to copy .kdeps file for Docker: %w", err)
+		}
+
+		// Extract workflow.pkl from the .kdeps file for docker mode
+		logger.Info("Extracting workflow.pkl for Docker mode", "source", destPath, "dest", runDir)
+		if err := extractWorkflowFromKdeps(ctx, fs, destPath, runDir, logger); err != nil {
+			return "", fmt.Errorf("failed to extract workflow.pkl for Docker: %w", err)
 		}
 
 		return runDir, nil
@@ -149,6 +147,94 @@ func PrepareRunDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir
 	return runDir, nil
 }
 
+// extractWorkflowFromKdeps extracts the workflow.pkl file and resources directory from a .kdeps package
+func extractWorkflowFromKdeps(ctx context.Context, fs afero.Fs, kdepsPath, destDir string, logger *logging.Logger) error {
+	file, err := os.Open(kdepsPath)
+	if err != nil {
+		return fmt.Errorf("error opening .kdeps file: %w", err)
+	}
+	defer file.Close()
+
+	gzr, err := gzip.NewReader(file)
+	if err != nil {
+		return fmt.Errorf("error creating gzip reader: %w", err)
+	}
+	defer gzr.Close()
+
+	tarReader := tar.NewReader(gzr)
+	workflowFound := false
+	resourcesFound := false
+
+	for {
+		header, err := tarReader.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("error reading tar file: %w", err)
+		}
+
+		// Extract workflow.pkl
+		if header.Name == "workflow.pkl" {
+			target := filepath.Join(destDir, "workflow.pkl")
+
+			// Create the target file
+			outFile, err := fs.Create(target)
+			if err != nil {
+				return fmt.Errorf("error creating workflow.pkl: %w", err)
+			}
+			defer outFile.Close()
+
+			// Copy the content
+			if _, err := io.Copy(outFile, tarReader); err != nil {
+				return fmt.Errorf("error copying workflow.pkl content: %w", err)
+			}
+
+			logger.Info("Extracted workflow.pkl for Docker mode", "source", kdepsPath, "dest", target)
+			workflowFound = true
+		}
+
+		// Extract resources directory
+		if strings.HasPrefix(header.Name, "resources/") {
+			target := filepath.Join(destDir, header.Name)
+
+			switch header.Typeflag {
+			case tar.TypeDir:
+				if err := fs.MkdirAll(target, 0o755); err != nil {
+					return fmt.Errorf("error creating resources directory: %w", err)
+				}
+				resourcesFound = true
+			case tar.TypeReg:
+				dir := filepath.Dir(target)
+				if err := fs.MkdirAll(dir, 0o755); err != nil {
+					return fmt.Errorf("error creating resources file directory: %w", err)
+				}
+
+				outFile, err := fs.Create(target)
+				if err != nil {
+					return fmt.Errorf("error creating resources file: %w", err)
+				}
+				defer outFile.Close()
+
+				if _, err := io.Copy(outFile, tarReader); err != nil {
+					return fmt.Errorf("error copying resources file content: %w", err)
+				}
+				resourcesFound = true
+			}
+		}
+	}
+
+	if !workflowFound {
+		return fmt.Errorf("workflow.pkl not found in .kdeps package")
+	}
+
+	if resourcesFound {
+		logger.Info("Extracted resources directory for Docker mode", "source", kdepsPath, "dest", filepath.Join(destDir, "resources"))
+	}
+
+	return nil
+}
+
 func CompileWorkflow(ctx context.Context, fs afero.Fs, wf pklWf.Workflow, kdepsDir, projectDir string, dockerMode bool, logger *logging.Logger) (string, error) {
 	action := wf.GetTargetActionID()
 	if action == "" {
@@ -164,7 +250,7 @@ func CompileWorkflow(ctx context.Context, fs afero.Fs, wf pklWf.Workflow, kdepsD
 	compiledAction := resolveActionIDCanonically(action, wf, agentReader)
 
 	name, version := wf.GetAgentID(), wf.GetVersion()
-	
+
 	// Always use agents directory structure
 	agentDir := filepath.Join(kdepsDir, fmt.Sprintf("agents/%s/%s", name, version))
 	resourcesDir := filepath.Join(agentDir, "resources")
@@ -300,15 +386,9 @@ func CompileProject(ctx context.Context, fs afero.Fs, wf pklWf.Workflow, kdepsDi
 	// Evaluate all PKL files in the compiled project directory to test for any problems
 	logger.Info("evaluating all PKL files for validation")
 
-	// Skip PKL evaluation in local mode since local PKL files won't be available during packaging
-	versionInfo := version.GetVersionInfo()
-	if versionInfo.LocalMode == "1" {
-		logger.Info("skipping PKL evaluation in local mode", "reason", "local PKL files not available during packaging")
-	} else {
-		// Note: We don't have access to evaluator here, so we'll skip PKL evaluation
-		// This is acceptable since this is for archiving/packaging, not runtime evaluation
-		logger.Info("skipping PKL evaluation during project compilation", "reason", "evaluator not available in archiver context")
-	}
+	// Note: We don't have access to evaluator here, so we'll skip PKL evaluation
+	// This is acceptable since this is for archiving/packaging, not runtime evaluation
+	logger.Info("skipping PKL evaluation during project compilation", "reason", "evaluator not available in archiver context")
 
 	packageFile, err := PackageProject(fs, ctx, newWorkflow, kdepsDir, compiledProjectDir, logger)
 	if err != nil {

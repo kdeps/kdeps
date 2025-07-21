@@ -753,7 +753,11 @@ func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.C
 	for id, res := range resources {
 		logger.Info("Generating PKL for resource", "id", id)
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
-		pklContent.WriteString(fmt.Sprintf("    Model = %q\n", res.Model))
+		model := ""
+		if res.Model != nil {
+			model = *res.Model
+		}
+		pklContent.WriteString(fmt.Sprintf("    Model = %q\n", model))
 
 		prompt := ""
 		if res.Prompt != nil {

@@ -684,7 +684,11 @@ func (m *LiveGUIModel) updateViewport() {
 
 	content := strings.Join(processedLogs, "\n")
 	m.viewport.SetContent(content)
-	m.viewport.GotoBottom()
+
+	// Add safety check before calling GotoBottom to prevent panic
+	if m.viewport.Height > 0 && len(processedLogs) > 0 {
+		m.viewport.GotoBottom()
+	}
 }
 
 func (m LiveGUIModel) getStatusIcon(status OperationStatus) string {

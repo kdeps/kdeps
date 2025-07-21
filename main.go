@@ -31,9 +31,8 @@ import (
 )
 
 var (
-	version   = "dev"
-	commit    = "unknown"
-	localMode = "0"
+	version = "dev"
+	commit  = "unknown"
 
 	// Function variables for dependency injection during tests.
 	newGraphResolverFn        func(afero.Fs, context.Context, *environment.Environment, *gin.Context, *logging.Logger, pkl.Evaluator) (*resolver.DependencyResolver, error) = resolver.NewGraphResolver
@@ -55,7 +54,6 @@ var (
 
 func main() {
 	v.SetVersionInfo(version, commit)
-	v.SetLocalMode(localMode)
 
 	logger := logging.GetLogger()
 	fs := afero.NewOsFs()
