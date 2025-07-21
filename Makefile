@@ -160,6 +160,12 @@ local-update:
 	docker exec $$CONTAINER mkdir -p /local
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
 	docker cp local/pkl $$CONTAINER:/local/
+	@echo "$(OK_COLOR)==> Creating localproject.kdeps package...$(NO_COLOR)"
+	@cd local/project && tar -czf ../../localproject.kdeps * && cd ../..
+	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
+	docker exec $$CONTAINER mkdir -p /agents
+	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
+	docker cp localproject.kdeps $$CONTAINER:/agents/
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
 	docker restart $$CONTAINER
 	@echo "$(OK_COLOR)==> Container updated and restarted!$(NO_COLOR)"

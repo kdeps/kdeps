@@ -408,6 +408,9 @@ func (dr *DependencyResolver) ClearItemDB() error {
 // processResourceStep consolidates the pattern of: get timestamp, run a handler, adjust timeout (if provided),
 // then wait for the timestamp change.
 func (dr *DependencyResolver) ProcessResourceStep(resourceID, step string, timeoutPtr *pkl.Duration, handler func() error) error {
+	// Start timing for this resource step
+	startTime := time.Now()
+	dr.Logger.Info("processResourceStep: starting", "resourceID", resourceID, "step", step, "startTime", startTime.Format(time.RFC3339Nano))
 	dr.Logger.Debug("processResourceStep: about to call handler", "resourceID", resourceID, "step", step, "handler_is_nil", handler == nil)
 	// Canonicalize the resourceID if it's a short ActionID
 	canonicalResourceID := resourceID
@@ -529,7 +532,8 @@ func (dr *DependencyResolver) ProcessResourceStep(resourceID, step string, timeo
 		dr.Logger.Info("processResourceStep: handler returned", "resourceID", resourceID, "step", step, "err", err)
 	}
 	if err != nil {
-		dr.Logger.Error("processResourceStep: handler failed", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step, "error", err)
+		elapsed := time.Since(startTime)
+		dr.Logger.Error("processResourceStep: handler failed", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step, "error", err, "elapsed", elapsed.String(), "elapsedMs", elapsed.Milliseconds())
 
 		// Update dependency status to error
 		if dr.PklresReader != nil {
@@ -575,7 +579,10 @@ func (dr *DependencyResolver) ProcessResourceStep(resourceID, step string, timeo
 	}
 
 	dr.showProcessingProgress(resourceID, step, "completed")
-	dr.Logger.Debug("processResourceStep: processing completed successfully", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step)
+
+	// Calculate and log elapsed time
+	elapsed := time.Since(startTime)
+	dr.Logger.Info("processResourceStep: completed successfully", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step, "elapsed", elapsed.String(), "elapsedMs", elapsed.Milliseconds())
 	return nil
 }
 
@@ -928,6 +935,15 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 		dr.Logger.Info(fmt.Sprintf("🚀 EXECUTING [%d/%d] *%s*", i+1, len(stack), nodeActionID))
 		dr.Logger.Debug("processing resource in dependency stack", "nodeActionID", nodeActionID)
 
+		// Debug: Log all available resources for comparison
+		dr.Logger.Info("available resources for matching", "availableResourceIDs", func() []string {
+			var ids []string
+			for _, r := range dr.Resources {
+				ids = append(ids, r.ActionID)
+			}
+			return ids
+		}())
+
 		resourceFound := false
 		for _, res := range dr.Resources {
 			if res.ActionID != nodeActionID {
@@ -949,8 +965,19 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 				continue // Skip normal resource processing for virtual request resource
 			}
 
-			// Wait for dependencies before loading resource to ensure PKL templates have access to dependency data
-			// This is critical for PKL template expressions like \(client.responseBody("clientResource"))
+			// Load the resource with request context if in API server mode (keep as generic Resource for now)
+			var resPkl interface{}
+			var err error
+			if dr.APIServerMode {
+				resPkl, err = dr.LoadResourceWithRequestContextFn(dr.Context, res.File, Resource)
+			} else {
+				resPkl, err = dr.LoadResourceFn(dr.Context, res.File, Resource)
+			}
+			if err != nil {
+				return dr.HandleAPIErrorResponse(statusInternalServerError, err.Error(), true)
+			}
+
+			// Check if this resource has dependencies and reload PKL template with fresh data
 			if dr.PklresReader != nil {
 				canonicalResourceID := res.ActionID
 				if dr.PklresHelper != nil {
@@ -960,23 +987,20 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 				// Check if this resource has dependencies
 				depData, err := dr.PklresReader.GetDependencyData(canonicalResourceID)
 				if err == nil && depData != nil && len(depData.Dependencies) > 0 {
-					dr.Logger.Info("Waiting for dependencies before loading resource with PKL templates", "resourceID", res.ActionID, "dependencies", depData.Dependencies)
-					waitTimeout := 5 * time.Minute
-					if err := dr.PklresReader.WaitForDependencies(canonicalResourceID, waitTimeout); err != nil {
-						dr.Logger.Error("Timeout waiting for dependencies before resource loading", "resourceID", res.ActionID, "error", err)
-						return dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("Timeout waiting for dependencies before loading resource %s: %v", res.ActionID, err), true)
-					}
-					dr.Logger.Info("All dependencies ready, proceeding with resource loading", "resourceID", res.ActionID)
-				}
-			}
+					dr.Logger.Info("Resource has dependencies, reloading PKL template with fresh data", "resourceID", res.ActionID, "dependencies", depData.Dependencies)
 
-			// Load the resource with request context if in API server mode (keep as generic Resource for now)
-			var resPkl interface{}
-			var err error
-			if dr.APIServerMode {
-				resPkl, err = dr.LoadResourceWithRequestContextFn(dr.Context, res.File, Resource)
-			} else {
-				resPkl, err = dr.LoadResourceFn(dr.Context, res.File, Resource)
+					// Reload the resource to ensure PKL expressions have access to dependency data
+					if dr.APIServerMode {
+						resPkl, err = dr.LoadResourceWithRequestContextFn(dr.Context, res.File, Resource)
+					} else {
+						resPkl, err = dr.LoadResourceFn(dr.Context, res.File, Resource)
+					}
+					if err != nil {
+						return dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("failed to reload resource %s: %v", res.ActionID, err), true)
+					}
+
+					dr.Logger.Info("Successfully reloaded resource with dependency data", "resourceID", res.ActionID)
+				}
 			}
 			if err != nil {
 				return dr.HandleAPIErrorResponse(statusInternalServerError, err.Error(), true)
@@ -1147,16 +1171,6 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc pklRes.
 	// Processing status tracking removed - simplified to pure key-value store approach
 
 	// Debug logging for Chat block values
-	if rscRun := rsc.GetRun(); rscRun != nil && rscRun.Chat != nil {
-		dr.Logger.Info("processRunBlock: Chat block found", "actionID", actionID,
-			"model", rscRun.Chat.Model,
-			"prompt_nil", rscRun.Chat.Prompt == nil,
-			"scenario_nil", rscRun.Chat.Scenario == nil)
-	} else {
-		dr.Logger.Info("processRunBlock: No Chat block", "actionID", actionID,
-			"run_nil", rsc.GetRun() == nil,
-			"chat_nil", rsc.GetRun() == nil || rsc.GetRun().Chat == nil)
-	}
 
 	runBlock := rsc.GetRun()
 	if runBlock == nil {
@@ -1300,11 +1314,6 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc pklRes.
 		return true, nil
 	}
 
-	// Store initial resource state in pklres for timestamp lookups
-	// This ensures that when processResourceStep calls GetCurrentTimestamp, the resource exists in pklres
-	if dr.PklresHelper != nil {
-	}
-
 	// Process Exec step, if defined
 	if runBlock.Exec != nil && runBlock.Exec.Command != "" {
 		if err := dr.ProcessResourceStep(res.ActionID, "exec", runBlock.Exec.TimeoutDuration, func() error {
@@ -1326,60 +1335,12 @@ func (dr *DependencyResolver) ProcessRunBlock(res ResourceNodeEntry, rsc pklRes.
 	}
 
 	// Process Chat (LLM) step, if defined
-	if runBlock.Chat != nil && runBlock.Chat.Model != nil && *runBlock.Chat.Model != "" && (runBlock.Chat.Prompt != nil || runBlock.Chat.Scenario != nil) {
-		model := ""
-		promptNil := true
-		if runBlock.Chat != nil && runBlock.Chat.Model != nil {
-			model = *runBlock.Chat.Model
-			promptNil = runBlock.Chat.Prompt == nil
-		}
-		dr.Logger.Info("processRunBlock: about to call LLM handler", "actionID", res.ActionID, "model", model, "promptNil", promptNil)
-		dr.Logger.Info("[DEBUG] About to process LLM chat step", "actionID", res.ActionID)
-		dr.Logger.Info("Processing LLM chat step", "actionID", res.ActionID, "hasPrompt", runBlock.Chat.Prompt != nil, "hasScenario", runBlock.Chat.Scenario != nil)
-		if runBlock.Chat.Scenario != nil {
-			dr.Logger.Info("Scenario present", "length", len(*runBlock.Chat.Scenario))
-		}
+	if runBlock.Chat != nil && runBlock.Chat.Model != nil {
 		if err := dr.ProcessResourceStep(res.ActionID, "llm", runBlock.Chat.TimeoutDuration, func() error {
 			return dr.HandleLLMChat(res.ActionID, runBlock.Chat)
 		}); err != nil {
 			dr.Logger.Error("LLM chat error", "actionID", res.ActionID, "error", err)
 			return dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("LLM chat failed for resource: %s - %s", res.ActionID, err), true)
-		}
-		dr.Logger.Info("[DEBUG] Finished processing LLM chat step", "actionID", res.ActionID)
-	} else {
-		// Debug logging to see why the LLM step is being skipped
-		dr.Logger.Info("processRunBlock: LLM step skipped - debug info", "actionID", res.ActionID,
-			"runBlock.Chat_nil", runBlock.Chat == nil,
-			"model_empty", func() bool {
-				if runBlock.Chat != nil && runBlock.Chat.Model != nil {
-					return *runBlock.Chat.Model == ""
-				} else {
-					return true
-				}
-			}(),
-			"prompt_and_scenario_nil", func() bool {
-				if runBlock.Chat != nil {
-					return (runBlock.Chat.Prompt == nil && runBlock.Chat.Scenario == nil)
-				} else {
-					return true
-				}
-			}())
-		if runBlock.Chat != nil {
-			dr.Logger.Info("processRunBlock: Chat block details", "actionID", res.ActionID,
-				"model", runBlock.Chat.Model,
-				"prompt_nil", runBlock.Chat.Prompt == nil,
-				"scenario_nil", runBlock.Chat.Scenario == nil)
-		}
-		dr.Logger.Info("Skipping LLM chat step", "actionID", res.ActionID, "chatNil",
-			runBlock.Chat == nil, "modelEmpty", runBlock.Chat == nil || runBlock.Chat.Model == nil || *runBlock.Chat.Model == "",
-			"promptAndScenarioNil", runBlock.Chat != nil && runBlock.Chat.Prompt == nil &&
-				runBlock.Chat.Scenario == nil)
-
-		// Fallback: If this file is an LLM resource, try to load and process as LLM
-		// Note: LLMImpl no longer has Resources field in new schema, so this fallback is disabled
-		resourceType := dr.detectResourceType(res.File)
-		if resourceType == LLMResource {
-			dr.Logger.Warn("Fallback: LLM resource detected but fallback processing disabled due to schema changes", "file", res.File, "actionID", res.ActionID)
 		}
 	}
 

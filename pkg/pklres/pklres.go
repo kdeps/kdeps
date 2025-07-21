@@ -526,13 +526,6 @@ func (r *PklResourceReader) getKeyValue(collectionKey, key string) ([]byte, erro
 		canonicalCollectionKey = r.resolveActionID(collectionKey)
 	}
 
-	// Check if this collection key exists in the dependency graph
-	// Allow all operations for system collections and when dependency store is empty
-	if !r.IsInDependencyGraph(canonicalCollectionKey) {
-		r.Logger.Debug("getKeyValue: collection key not in dependency graph, but allowing operation", "collectionKey", canonicalCollectionKey, "key", key)
-		// Don't block the operation, just log it
-	}
-
 	// Get the value from the store
 	r.storeMutex.RLock()
 	defer r.storeMutex.RUnlock()
@@ -586,13 +579,6 @@ func (r *PklResourceReader) setKeyValue(collectionKey, key, value string) ([]byt
 		canonicalCollectionKey = r.resolveActionID(collectionKey)
 	}
 
-	// Check if this collection key exists in the dependency graph
-	// Allow all operations for system collections and when dependency store is empty
-	if !r.IsInDependencyGraph(canonicalCollectionKey) {
-		r.Logger.Debug("setKeyValue: collection key not in dependency graph, but allowing operation", "collectionKey", canonicalCollectionKey, "key", key)
-		// Don't block the operation, just log it
-	}
-
 	// Store the value
 	r.storeMutex.Lock()
 	defer r.storeMutex.Unlock()
@@ -610,7 +596,7 @@ func (r *PklResourceReader) setKeyValue(collectionKey, key, value string) ([]byt
 
 	// Store the value (value is already JSON from the URI parameter)
 	r.store[r.GraphID][canonicalCollectionKey][key] = value
-	r.Logger.Debug("setKeyValue: stored value", "collectionKey", canonicalCollectionKey, "key", key)
+	r.Logger.Debug("setKeyValue: stored value", "collectionKey", canonicalCollectionKey, "key", key, "value", value)
 
 	// Return the stored value as JSON
 	return json.Marshal(value)

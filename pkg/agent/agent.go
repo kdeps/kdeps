@@ -78,6 +78,7 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 	switch op {
 	case "resolve":
 		resolvedID, err := r.resolveAgentID(uri.Path, query)
+		r.Logger.Debug("AgentReader.Read: resolve op", "inputPath", uri.Path, "query", query, "resolvedID", string(resolvedID), "err", err)
 		if err != nil {
 			return nil, err
 		}
@@ -102,9 +103,11 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 
 // resolveAgentID resolves a local action ID to a fully qualified agent ID
 func (r *PklResourceReader) resolveAgentID(actionID string, query url.Values) ([]byte, error) {
+	r.Logger.Debug("resolveAgentID: called", "input", actionID, "query", query)
 	actionID = strings.TrimPrefix(actionID, "/")
 
 	if actionID == "" {
+		r.Logger.Debug("resolveAgentID: no action ID provided")
 		return nil, errors.New("no action ID provided")
 	}
 
@@ -130,9 +133,11 @@ func (r *PklResourceReader) resolveAgentID(actionID string, query url.Values) ([
 		}
 
 		if currentAgentName == "" || currentAgentVersion == "" {
+			r.Logger.Debug("resolveAgentID: missing agent name or version", "agent", currentAgentName, "version", currentAgentVersion)
 			return nil, errors.New("agent name and version required for ID resolution")
 		}
 		resolvedID := fmt.Sprintf("@%s/%s:%s", currentAgentName, actionID, currentAgentVersion)
+		r.Logger.Debug("resolveAgentID: resolved legacy/local form", "input", actionID, "resolvedID", resolvedID)
 		return []byte(resolvedID), nil
 	}
 
@@ -165,8 +170,11 @@ func (r *PklResourceReader) resolveAgentID(actionID string, query url.Values) ([
 	}
 
 	if agentID == "" {
+		r.Logger.Debug("resolveAgentID: missing agent ID in canonical form", "input", actionID)
 		return nil, errors.New("agent ID required")
 	}
+	// Log the canonical parse result
+	r.Logger.Debug("resolveAgentID: canonical parse", "agentID", agentID, "actID", actID, "version", version, "hasAction", hasAction)
 
 	if version == "" {
 		// Look up the latest version from the database

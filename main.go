@@ -349,9 +349,8 @@ func runGraphResolverActions(ctx context.Context, dr *resolver.DependencyResolve
 		return fmt.Errorf("failed to prepare import files: %w", err)
 	}
 
-	// Start async pklres polling system
-	dr.StartAsyncPklresPolling(ctx)
-	defer dr.StopAsyncPklresPolling()
+	// Note: Removed async pklres polling system - now running purely synchronous execution
+	// The pklres system will handle dependency waiting internally during PKL template evaluation
 
 	// Handle run action
 

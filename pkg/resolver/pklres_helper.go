@@ -26,6 +26,17 @@ func (h *PklresHelper) Get(collectionKey, key string) (string, error) {
 
 	// Canonicalize the collection key
 	actionID := h.resolveActionID(collectionKey)
+	if !strings.HasPrefix(actionID, "@") {
+		return "", fmt.Errorf("pklres Get: actionID '%s' is not canonical (must start with @)", actionID)
+	}
+
+	graphID := "<nil>"
+	if h.resolver.PklresReader != nil {
+		graphID = h.resolver.PklresReader.GraphID
+	}
+	if h.resolver.Logger != nil {
+		h.resolver.Logger.Debug("PklresHelper.Get", "actionID", actionID, "graphID", graphID, "key", key)
+	}
 
 	// Use pklres to retrieve the value
 	uri, err := url.Parse(fmt.Sprintf("pklres:///%s?collection=%s&key=%s&op=get",
@@ -36,6 +47,9 @@ func (h *PklresHelper) Get(collectionKey, key string) (string, error) {
 
 	data, err := h.resolver.PklresReader.Read(*uri)
 	if err != nil {
+		if h.resolver.Logger != nil {
+			h.resolver.Logger.Debug("PklresHelper.Get FAILED", "actionID", actionID, "graphID", graphID, "key", key, "err", err)
+		}
 		return "", fmt.Errorf("failed to get value from pklres: %w", err)
 	}
 
@@ -43,9 +57,14 @@ func (h *PklresHelper) Get(collectionKey, key string) (string, error) {
 	var result string
 	if err := json.Unmarshal(data, &result); err != nil {
 		// If it's not a string, return the raw JSON
+		if h.resolver.Logger != nil {
+			h.resolver.Logger.Debug("PklresHelper.Get result (raw)", "actionID", actionID, "graphID", graphID, "key", key, "result", string(data))
+		}
 		return string(data), nil
 	}
-
+	if h.resolver.Logger != nil {
+		h.resolver.Logger.Debug("PklresHelper.Get result", "actionID", actionID, "graphID", graphID, "key", key, "result", result)
+	}
 	return result, nil
 }
 
@@ -57,6 +76,17 @@ func (h *PklresHelper) Set(collectionKey, key, value string) error {
 
 	// Canonicalize the collection key
 	actionID := h.resolveActionID(collectionKey)
+	if !strings.HasPrefix(actionID, "@") {
+		return fmt.Errorf("pklres Set: actionID '%s' is not canonical (must start with @)", actionID)
+	}
+
+	graphID := "<nil>"
+	if h.resolver.PklresReader != nil {
+		graphID = h.resolver.PklresReader.GraphID
+	}
+	if h.resolver.Logger != nil {
+		h.resolver.Logger.Debug("PklresHelper.Set", "actionID", actionID, "graphID", graphID, "key", key, "value", value)
+	}
 
 	// Use pklres to store the value
 	uri, err := url.Parse(fmt.Sprintf("pklres:///%s?collection=%s&key=%s&op=set&value=%s",
@@ -67,9 +97,14 @@ func (h *PklresHelper) Set(collectionKey, key, value string) error {
 
 	_, err = h.resolver.PklresReader.Read(*uri)
 	if err != nil {
+		if h.resolver.Logger != nil {
+			h.resolver.Logger.Debug("PklresHelper.Set FAILED", "actionID", actionID, "graphID", graphID, "key", key, "value", value, "err", err)
+		}
 		return fmt.Errorf("failed to set value in pklres: %w", err)
 	}
-
+	if h.resolver.Logger != nil {
+		h.resolver.Logger.Debug("PklresHelper.Set SUCCESS", "actionID", actionID, "graphID", graphID, "key", key, "value", value)
+	}
 	return nil
 }
 
@@ -81,6 +116,9 @@ func (h *PklresHelper) List(collectionKey string) ([]string, error) {
 
 	// Canonicalize the collection key
 	actionID := h.resolveActionID(collectionKey)
+	if !strings.HasPrefix(actionID, "@") {
+		return nil, fmt.Errorf("pklres List: actionID '%s' is not canonical (must start with @)", actionID)
+	}
 
 	// Use pklres to list keys
 	uri, err := url.Parse(fmt.Sprintf("pklres:///%s?collection=%s&op=list",
