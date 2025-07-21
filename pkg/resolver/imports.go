@@ -12,6 +12,8 @@ import (
 )
 
 func (dr *DependencyResolver) PrepareImportFiles() error {
+	dr.Logger.Info("PrepareImportFiles: Starting local import preparation")
+	
 	// Map resource types to their canonical actionIDs
 	resourceTypes := map[string]string{
 		"llm":    "@localproject/llm:1.0.0",
@@ -22,22 +24,32 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 	}
 
 	for key, actionID := range resourceTypes {
+		dr.Logger.Debug("PrepareImportFiles: Processing resource type", "key", key, "actionID", actionID)
+		
 		// Initialize empty structure for this actionID if it doesn't exist
 		// This ensures pklres has the basic structure for imports to work
 
 		// Check if we already have this actionID in pklres
 		_, err := dr.PklresHelper.Get(actionID, "initialized")
 		if err != nil {
+			dr.Logger.Debug("PrepareImportFiles: Resource not found, initializing", "key", key, "actionID", actionID, "error", err)
+			
 			// If it doesn't exist, create a basic structure
 			emptyContent := fmt.Sprintf("// %s resource initialized\n", key)
 
 			// Store the empty structure
 			if err := dr.PklresHelper.Set(actionID, "initialized", emptyContent); err != nil {
+				dr.Logger.Error("PrepareImportFiles: Failed to initialize resource", "key", key, "actionID", actionID, "error", err)
 				return fmt.Errorf("failed to initialize empty %s structure in pklres: %w", key, err)
 			}
+			
+			dr.Logger.Info("PrepareImportFiles: Successfully initialized resource", "key", key, "actionID", actionID)
+		} else {
+			dr.Logger.Debug("PrepareImportFiles: Resource already exists", "key", key, "actionID", actionID)
 		}
 	}
 
+	dr.Logger.Info("PrepareImportFiles: Completed local import preparation")
 	return nil
 }
 

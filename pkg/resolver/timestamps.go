@@ -67,19 +67,82 @@ func formatDuration(d time.Duration) string {
 	}
 }
 
+// createCountdownIndicator creates a visual countdown indicator showing time remaining.
+func (dr *DependencyResolver) createCountdownIndicator(elapsed, total time.Duration) string {
+	if total <= 0 {
+		return "⏳ unlimited"
+	}
+
+	// Calculate percentage of time elapsed
+	percentage := float64(elapsed) / float64(total)
+	if percentage > 1.0 {
+		percentage = 1.0
+	}
+
+	// Create a 20-character wide progress bar
+	barWidth := 20
+	filled := int(percentage * float64(barWidth))
+
+	// Different visual representations based on time remaining
+	var bar strings.Builder
+	remaining := total - elapsed
+
+	// Choose color/symbol based on remaining time
+	var symbol string
+	if remaining <= 10*time.Second {
+		symbol = "🔴" // Red for critical (≤10s)
+	} else if remaining <= 30*time.Second {
+		symbol = "🟡" // Yellow for warning (≤30s)
+	} else {
+		symbol = "🟢" // Green for normal (>30s)
+	}
+
+	bar.WriteString(symbol)
+	bar.WriteString(" [")
+
+	// Fill the progress bar
+	for i := 0; i < barWidth; i++ {
+		if i < filled {
+			if remaining <= 10*time.Second {
+				bar.WriteString("█") // Solid block for critical
+			} else if remaining <= 30*time.Second {
+				bar.WriteString("▓") // Medium shade for warning
+			} else {
+				bar.WriteString("▒") // Light shade for normal
+			}
+		} else {
+			bar.WriteString("░") // Very light for unfilled
+		}
+	}
+
+	bar.WriteString("] ")
+
+	// Add percentage and time remaining
+	remainingSeconds := int(remaining.Seconds())
+	if remainingSeconds < 0 {
+		remainingSeconds = 0
+	}
+
+	bar.WriteString(fmt.Sprintf("%d%% (%ds left)", int((1.0-percentage)*100), remainingSeconds))
+
+	return bar.String()
+}
+
 // WaitForTimestampChange waits for the timestamp to change for the given resourceID and resourceType.
 func (dr *DependencyResolver) WaitForTimestampChange(resourceID string, initialTimestamp pkl.Duration, timeout time.Duration, resourceType string) error {
 	startTime := time.Now()
 	timeoutDuration := timeout
 	lastLogTime := startTime
-	logInterval := 5 * time.Second // Log only every 5 seconds to reduce spam
+	logInterval := 1 * time.Second // Update countdown every second for visual indicator
 
 	dr.Logger.Debug("WaitForTimestampChange: starting", "resourceID", resourceID, "resourceType", resourceType, "timeout", timeoutDuration)
 
 	for {
+		elapsed := time.Since(startTime)
+
 		// Check if we've exceeded the timeout
-		if timeout > 0 && time.Since(startTime) > timeoutDuration {
-			dr.Logger.Error("WaitForTimestampChange: timeout exceeded", "resourceID", resourceID, "resourceType", resourceType, "elapsed", formatDuration(time.Since(startTime)), "timeout", formatDuration(timeoutDuration))
+		if timeout > 0 && elapsed > timeoutDuration {
+			dr.Logger.Error("WaitForTimestampChange: timeout exceeded", "resourceID", resourceID, "resourceType", resourceType, "elapsed", formatDuration(elapsed), "timeout", formatDuration(timeoutDuration))
 			return fmt.Errorf("timeout exceeded while waiting for timestamp change for resource ID %s", resourceID)
 		}
 
@@ -113,21 +176,28 @@ func (dr *DependencyResolver) WaitForTimestampChange(resourceID string, initialT
 					"resourceID", resourceID,
 					"resourceType", resourceType,
 					"difference", timestampDiff,
-					"elapsed", formatDuration(time.Since(startTime)))
+					"elapsed", formatDuration(elapsed))
 			}
 			return nil
 		}
 
-		// Log progress only every 5 seconds to reduce spam
-		elapsed := time.Since(startTime)
+		// Show graphical countdown indicator every second
 		if elapsed > lastLogTime.Sub(startTime)+logInterval {
-			// Only log if timeout is more than 10 seconds to avoid spam for short operations
-			if timeoutDuration > 10*time.Second {
-				dr.Logger.Debug("WaitForTimestampChange: still waiting",
+			// Only show countdown for operations with timeout > 5 seconds to avoid spam
+			if timeoutDuration > 5*time.Second {
+				remaining := timeoutDuration - elapsed
+				if remaining < 0 {
+					remaining = 0
+				}
+
+				// Create graphical countdown indicator
+				countdownBar := dr.createCountdownIndicator(elapsed, timeoutDuration)
+
+				dr.Logger.Info("resource timeout countdown",
 					"resourceID", resourceID,
-					"resourceType", resourceType,
-					"elapsed", formatDuration(elapsed),
-					"remaining", formatDuration(timeoutDuration-elapsed))
+					"step", resourceType,
+					"countdown", countdownBar,
+					"remaining", formatDuration(remaining))
 			}
 			lastLogTime = time.Now()
 		}

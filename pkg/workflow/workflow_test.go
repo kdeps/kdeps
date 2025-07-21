@@ -80,7 +80,7 @@ func TestWorkflowWithSchemaAssets(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotEmpty(t, workflowSchema)
 
-		// Verify the schema contains expected v0.4.5 properties
+		// Verify the schema contains expected v0.4.6 properties
 		assert.Contains(t, workflowSchema, "AgentID: String")
 		assert.Contains(t, workflowSchema, "Description: String")
 		assert.Contains(t, workflowSchema, "Website: Uri?")
@@ -104,7 +104,7 @@ func TestWorkflowWithSchemaAssets(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotEmpty(t, projectSchema)
 
-		// Verify it contains the new v0.4.5 Settings properties
+		// Verify it contains the new v0.4.6 Settings properties
 		assert.Contains(t, projectSchema, "RateLimitMax: Int? = 100")
 		assert.Contains(t, projectSchema, "Environment: BuildEnv? = \"dev\"")
 		assert.Contains(t, projectSchema, "APIServerMode: Boolean? = false")
@@ -120,7 +120,7 @@ func TestWorkflowWithSchemaAssets(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotEmpty(t, resourceSchema)
 
-		// Verify it contains the new v0.4.5 Resource properties
+		// Verify it contains the new v0.4.6 Resource properties
 		assert.Contains(t, resourceSchema, "ActionID: String")
 		assert.Contains(t, resourceSchema, "Name: String")
 		assert.Contains(t, resourceSchema, "Description: String")

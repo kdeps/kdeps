@@ -223,8 +223,8 @@ func GenerateDockerCompose(fs afero.Fs, cName, containerName, containerNameWithG
 	templateData := map[string]interface{}{
 		"ContainerNameWithGpu": containerNameWithGpu,
 		"ContainerName":        containerName,
-		"Ports":               ports,
-		"GpuConfig":           gpuConfig,
+		"Ports":                ports,
+		"GpuConfig":            gpuConfig,
 	}
 
 	dockerComposeContent, err := template.GenerateDockerComposeFromTemplate(templateData)

@@ -169,7 +169,7 @@ func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 	rateLimitMax := processedConfig.RateLimitMax.Value
 	dr.Logger.Debug("creating semaphore", "rateLimitMax", rateLimitMax)
 	semaphore := make(chan struct{}, rateLimitMax)
-	
+
 	// Set Gin mode and logging based on Environment configuration
 	isProduction := processedConfig.Environment.Value == "prod" || processedConfig.Environment.Value == "production"
 	if isProduction {
@@ -179,11 +179,11 @@ func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 		gin.SetMode(gin.DebugMode)
 		dr.Logger.Debug("set gin mode to debug for development environment")
 	}
-	
+
 	// Adjust global log level based on environment
 	logging.SetLogLevel(processedConfig.Environment.Value)
 	dr.Logger.Debug("configured logging for environment", "environment", processedConfig.Environment.Value)
-	
+
 	router := gin.Default()
 
 	wfAPIServerCORS := wfAPIServer.CORS

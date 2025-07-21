@@ -38,7 +38,7 @@ func CreateLogger() {
 // SetLogLevel adjusts the global logger level based on environment
 func SetLogLevel(environment string) {
 	ensureInitialized()
-	
+
 	isProduction := environment == "prod" || environment == "production"
 	if isProduction {
 		logger.SetLevel(log.WarnLevel) // Less verbose in production

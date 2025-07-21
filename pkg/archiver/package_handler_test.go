@@ -139,7 +139,7 @@ func TestPrepareRunDir(t *testing.T) {
 	gz.Close()
 	pkgFile.Close()
 
-	runDir, err := archiver.PrepareRunDir(fs, ctx, wf, kdepsDir, pkgPath, logging.NewTestLogger())
+	runDir, err := archiver.PrepareRunDir(fs, ctx, wf, kdepsDir, pkgPath, false, logging.NewTestLogger())
 	if err != nil {
 		t.Fatalf("PrepareRunDir error: %v", err)
 	}

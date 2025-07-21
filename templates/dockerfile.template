@@ -43,7 +43,7 @@ RUN chmod a+x /bin/kdeps
 RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/refs/heads/main/install.sh | sh -s -- -b /bin/ -d "{{ .KdepsVersion }}"
 {{ end }}
 
-COPY workflow /agent/project
+COPY {{ .AgentName }}.kdeps /agent/{{ .AgentName }}.kdeps
 
 {{ if .InstallAnaconda }}
 RUN chmod +x /cache/anaconda*
@@ -76,4 +76,4 @@ RUN rm -rf /cache
 
 {{ if .ExposedPort }}EXPOSE {{ .ExposedPort }}{{ end }}
 
-ENTRYPOINT ["/bin/kdeps"] 
+ENTRYPOINT ["/bin/kdeps", "--agent", "/agent/{{ .AgentName }}.kdeps"] 

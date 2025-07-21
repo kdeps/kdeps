@@ -160,7 +160,7 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 
 	kdepsPackage = destinationFile
 
-	_, err = PrepareRunDir(fs, ctx, wfConfig, kdepsDir, kdepsPackage, logger)
+	_, err = PrepareRunDir(fs, ctx, wfConfig, kdepsDir, kdepsPackage, false, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare runtime directory: %w", err)
 	}

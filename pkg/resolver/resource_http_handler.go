@@ -19,10 +19,10 @@ func NewHTTPResourceHandler(dr *DependencyResolver) *HTTPResourceHandler {
 }
 
 // updateResourceFromReloaded implements HTTP-specific resource updating
-func (h *HTTPResourceHandler) updateResourceFromReloaded(resource *pklHTTP.ResourceHTTPClient, reloadedGenericResource *pklResource.Resource) {
+func (h *HTTPResourceHandler) updateResourceFromReloaded(resource *pklHTTP.ResourceHTTPClient, reloadedGenericResource pklResource.Resource) {
 	// Extract the HTTP block from the reloaded resource
-	if reloadedGenericResource.Run != nil && reloadedGenericResource.Run.HTTPClient != nil {
-		reloadedHTTP := reloadedGenericResource.Run.HTTPClient
+	if reloadedRun := reloadedGenericResource.GetRun(); reloadedRun != nil && reloadedRun.HTTPClient != nil {
+		reloadedHTTP := reloadedRun.HTTPClient
 
 		// Update the resource with the reloaded values that contain fresh template evaluation
 		if reloadedHTTP.Url != "" {

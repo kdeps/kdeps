@@ -25,9 +25,18 @@ import (
 	"github.com/spf13/afero"
 )
 
-func PrepareRunDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, pkgFilePath string, logger *logging.Logger) (string, error) {
+func PrepareRunDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, pkgFilePath string, dockerMode bool, logger *logging.Logger) (string, error) {
 	agentName, agentVersion := wf.GetAgentID(), wf.GetVersion()
-	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion+"/workflow")
+
+	// Always use agents directory structure
+	var runDir string
+	if dockerMode {
+		// For Docker mode, use parent directory to hold the .kdeps file
+		runDir = filepath.Join(kdepsDir, "agents/"+agentName+"/"+agentVersion)
+	} else {
+		// For extraction mode, use workflow subdirectory  
+		runDir = filepath.Join(kdepsDir, "agents/"+agentName+"/"+agentVersion+"/workflow")
+	}
 
 	if exists, err := afero.Exists(fs, runDir); err != nil {
 		return "", err
@@ -41,6 +50,35 @@ func PrepareRunDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir
 		return "", err
 	}
 
+	// Always copy the kdeps file to the agents directory for local-mode imports
+	agentsBaseDir := filepath.Join(kdepsDir, "agents")
+	if err := fs.MkdirAll(agentsBaseDir, 0o755); err != nil {
+		return "", fmt.Errorf("failed to create agents base directory: %w", err)
+	}
+	
+	kdepsFileName := agentName + ".kdeps"
+	agentsKdepsPath := filepath.Join(agentsBaseDir, kdepsFileName)
+	
+	logger.Info("Copying .kdeps file to agents directory", "source", pkgFilePath, "dest", agentsKdepsPath)
+	
+	if err := CopyFile(ctx, fs, pkgFilePath, agentsKdepsPath, logger); err != nil {
+		return "", fmt.Errorf("failed to copy .kdeps file to agents directory: %w", err)
+	}
+
+	if dockerMode {
+		// For Docker mode, also copy the .kdeps file to runDir (will be copied to /packages in container)
+		destPath := filepath.Join(runDir, kdepsFileName)
+
+		logger.Info("Copying .kdeps file for Docker build", "source", pkgFilePath, "dest", destPath)
+
+		if err := CopyFile(ctx, fs, pkgFilePath, destPath, logger); err != nil {
+			return "", fmt.Errorf("failed to copy .kdeps file for Docker: %w", err)
+		}
+
+		return runDir, nil
+	}
+
+	// For extraction mode, extract the full package contents
 	file, err := os.Open(pkgFilePath)
 	if err != nil {
 		logger.Error("error opening file: %v\n", err)
@@ -111,7 +149,7 @@ func PrepareRunDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir
 	return runDir, nil
 }
 
-func CompileWorkflow(ctx context.Context, fs afero.Fs, wf pklWf.Workflow, kdepsDir, projectDir string, logger *logging.Logger) (string, error) {
+func CompileWorkflow(ctx context.Context, fs afero.Fs, wf pklWf.Workflow, kdepsDir, projectDir string, dockerMode bool, logger *logging.Logger) (string, error) {
 	action := wf.GetTargetActionID()
 	if action == "" {
 		return "", errors.New("please specify the default action in the workflow")
@@ -126,6 +164,8 @@ func CompileWorkflow(ctx context.Context, fs afero.Fs, wf pklWf.Workflow, kdepsD
 	compiledAction := resolveActionIDCanonically(action, wf, agentReader)
 
 	name, version := wf.GetAgentID(), wf.GetVersion()
+	
+	// Always use agents directory structure
 	agentDir := filepath.Join(kdepsDir, fmt.Sprintf("agents/%s/%s", name, version))
 	resourcesDir := filepath.Join(agentDir, "resources")
 	compiledFilePath := filepath.Join(agentDir, "workflow.pkl")
@@ -224,7 +264,8 @@ func replaceTargetActionID(content, newActionID string) (string, error) {
 }
 
 func CompileProject(ctx context.Context, fs afero.Fs, wf pklWf.Workflow, kdepsDir string, projectDir string, env *environment.Environment, logger *logging.Logger) (string, string, error) {
-	compiledProjectDir, err := CompileWorkflow(ctx, fs, wf, kdepsDir, projectDir, logger)
+	dockerMode := env.DockerMode == "1"
+	compiledProjectDir, err := CompileWorkflow(ctx, fs, wf, kdepsDir, projectDir, dockerMode, logger)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to compile workflow: %w", err)
 	}

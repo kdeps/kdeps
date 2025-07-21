@@ -491,6 +491,25 @@ func (r *PklResourceReader) RegisterAllAgentsAndActions() error {
 		r.Logger.Debug("agents directory does not exist", "path", agentsDir)
 		// Not an error, just no agents to register
 	} else {
+		// First scan for .kdeps files in the base agents directory
+		agentFiles, err := afero.ReadDir(r.Fs, agentsDir)
+		if err == nil {
+			for _, file := range agentFiles {
+				if !file.IsDir() && strings.HasSuffix(file.Name(), ".kdeps") {
+					// Extract agent name from filename (remove .kdeps extension)
+					agentName := strings.TrimSuffix(file.Name(), ".kdeps")
+					r.Logger.Debug("found agent kdeps file", "agent", agentName, "file", file.Name())
+					
+					// Register this agent - we'll use default version 1.0.0 for kdeps files
+					agentID := fmt.Sprintf("@%s:1.0.0", agentName)
+					if err := r.RegisterAgent(agentID, agentName, "1.0.0"); err != nil {
+						r.Logger.Debug("failed to register agent from kdeps file", "agent_id", agentID, "error", err)
+					}
+				}
+			}
+		}
+		
+		// Then scan agent directory structure  
 		afero.Walk(r.Fs, agentsDir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err

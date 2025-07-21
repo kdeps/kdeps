@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/cmd"
+	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/cfg"
 	kdepsctx "github.com/kdeps/kdeps/pkg/core"
 	"github.com/kdeps/kdeps/pkg/docker"
@@ -159,6 +160,51 @@ func main() {
 	validateConfigurationFn = cfg.ValidateConfiguration
 
 	if env.DockerMode == "1" {
+		// In Docker mode, check if we need to extract a .kdeps file first
+		logger.Debug("Docker mode detected, checking for agent extraction", "args", os.Args)
+
+		// Check if --agent parameter was provided by looking at command line args
+		agentFile := ""
+		args := os.Args[1:]
+		for i, arg := range args {
+			if arg == "--agent" && i+1 < len(args) {
+				agentFile = args[i+1]
+				break
+			}
+		}
+
+		logger.Debug("Agent file parameter check", "agentFile", agentFile, "argsCount", len(args))
+
+		if agentFile != "" {
+			logger.Info("Found --agent parameter, extracting to /run", "agentFile", agentFile)
+
+			// Verify the agent file exists before extraction
+			if exists, err := afero.Exists(fs, agentFile); err != nil {
+				logger.Fatalf("failed to check agent file: %v", err)
+			} else if !exists {
+				logger.Fatalf("agent file does not exist: %s", agentFile)
+			}
+
+			// Extract the .kdeps package to /run structure
+			_, err := archiver.ExtractPackage(fs, ctx, "/", agentFile, logger)
+			if err != nil {
+				logger.Fatalf("failed to extract agent package: %v", err)
+			}
+
+			logger.Info("Successfully extracted agent package to /run structure")
+
+			// Debug: Check if /run directory was created
+			if exists, err := afero.Exists(fs, "/run"); err != nil {
+				logger.Warn("Error checking /run directory", "error", err)
+			} else if exists {
+				logger.Debug("/run directory exists after extraction")
+			} else {
+				logger.Warn("/run directory does not exist after extraction")
+			}
+		} else {
+			logger.Debug("No --agent parameter found, proceeding without extraction")
+		}
+
 		dr, err := newGraphResolverFn(fs, ctx, env, nil, logger.With("requestID", graphID), pklEvaluator)
 		if err != nil {
 			logger.Fatalf("failed to create graph resolver: %v", err)
@@ -304,6 +350,10 @@ func runGraphResolverActions(ctx context.Context, dr *resolver.DependencyResolve
 	if err := dr.PrepareImportFiles(); err != nil {
 		return fmt.Errorf("failed to prepare import files: %w", err)
 	}
+
+	// Start async pklres polling system
+	dr.StartAsyncPklresPolling(ctx)
+	defer dr.StopAsyncPklresPolling()
 
 	// Handle run action
 

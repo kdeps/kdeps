@@ -110,10 +110,10 @@ func TestGetLatestAnacondaVersionsSuccess(t *testing.T) {
 		HTTPClient: &http.Client{
 			Transport: roundTripFunc(func(_ *http.Request) (*http.Response, error) {
 				return buildResp(http.StatusOK, `<html><body>
-					<a href="Anaconda3-20.4.52-0-Linux-x86_64.sh">x</a>
-					<a href="Anaconda3-20.4.58-1-Linux-aarch64.sh">y</a>
+					<a href="Anaconda3-20.4.62-0-Linux-x86_64.sh">x</a>
+					<a href="Anaconda3-20.4.68-1-Linux-aarch64.sh">y</a>
 					<a href="Anaconda3-20.4.30-1-Linux-x86_64.sh">old-x</a>
-					<a href="Anaconda3-20.4.57-1-Linux-aarch64.sh">old-y</a>
+					<a href="Anaconda3-20.4.67-1-Linux-aarch64.sh">old-y</a>
 					</body></html>`), nil
 			}),
 		},
@@ -124,7 +124,7 @@ func TestGetLatestAnacondaVersionsSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if versions["x86_64"] != "20.4.52-0" || versions["aarch64"] != "20.4.58-1" {
+	if versions["x86_64"] != "20.4.62-0" || versions["aarch64"] != "20.4.68-1" {
 		t.Fatalf("unexpected versions: %v", versions)
 	}
 
@@ -163,10 +163,10 @@ type archHTMLTransport struct{}
 
 func (archHTMLTransport) RoundTrip(_ *http.Request) (*http.Response, error) {
 	html := `<html><body>
-        <a href="Anaconda3-20.4.52-0-Linux-x86_64.sh">x</a>
-        <a href="Anaconda3-20.4.59-1-Linux-aarch64.sh">y</a>
+        <a href="Anaconda3-20.4.62-0-Linux-x86_64.sh">x</a>
+        <a href="Anaconda3-20.4.69-1-Linux-aarch64.sh">y</a>
         <a href="Anaconda3-20.4.30-1-Linux-x86_64.sh">old-x</a>
-        <a href="Anaconda3-20.4.58-1-Linux-aarch64.sh">old-y</a>
+        <a href="Anaconda3-20.4.68-1-Linux-aarch64.sh">old-y</a>
         </body></html>`
 	return buildResp(http.StatusOK, html), nil
 }
@@ -181,8 +181,8 @@ func TestGetLatestAnacondaVersionsMultiArch(t *testing.T) {
 	ctx := context.Background()
 	versions, err := docker.GetLatestAnacondaVersionsWithDeps(ctx, deps)
 	require.NoError(t, err)
-	assert.Equal(t, "20.4.52-0", versions["x86_64"])
-	assert.Equal(t, "20.4.59-1", versions["aarch64"])
+	assert.Equal(t, "20.4.62-0", versions["x86_64"])
+	assert.Equal(t, "20.4.69-1", versions["aarch64"])
 }
 
 type mockHTMLTransport struct{}
@@ -191,7 +191,7 @@ func (m mockHTMLTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	if req.URL.Host == "repo.anaconda.com" {
 		html := `<html><body>
         <a href="Anaconda3-20.4.30-1-Linux-x86_64.sh">x</a>
-        <a href="Anaconda3-20.4.59-1-Linux-aarch64.sh">y</a>
+        <a href="Anaconda3-20.4.69-1-Linux-aarch64.sh">y</a>
         </body></html>`
 		return buildResp(http.StatusOK, html), nil
 	}
@@ -209,7 +209,7 @@ func TestGetLatestAnacondaVersionsMockSimple(t *testing.T) {
 	versions, err := docker.GetLatestAnacondaVersionsWithDeps(ctx, deps)
 	require.NoError(t, err)
 	assert.Equal(t, "20.4.30-1", versions["x86_64"])
-	assert.Equal(t, "20.4.59-1", versions["aarch64"])
+	assert.Equal(t, "20.4.69-1", versions["aarch64"])
 }
 
 func TestCompareVersions_EdgeCases(t *testing.T) {
@@ -412,8 +412,8 @@ func (m multiMockTransport) RoundTrip(req *http.Request) (*http.Response, error)
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(body)), Header: make(http.Header)}, nil
 	case "repo.anaconda.com":
 		html := `<html><body>
-        <a href="Anaconda3-20.4.52-0-Linux-x86_64.sh">x</a>
-        <a href="Anaconda3-20.4.58-1-Linux-aarch64.sh">y</a>
+        <a href="Anaconda3-20.4.62-0-Linux-x86_64.sh">x</a>
+        <a href="Anaconda3-20.4.68-1-Linux-aarch64.sh">y</a>
         </body></html>`
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewBufferString(html)), Header: make(http.Header)}, nil
 	default:
@@ -532,8 +532,8 @@ func (m mockTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if strings.Contains(req.URL.Path, "/releases/latest") { // GitHub API
 		body = `{"tag_name":"v1.2.3"}`
 	} else { // Anaconda archive listing
-		body = `Anaconda3-20.4.55-0-Linux-x86_64.sh
-Anaconda3-20.4.55-0-Linux-aarch64.sh`
+		body = `Anaconda3-20.4.65-0-Linux-x86_64.sh
+Anaconda3-20.4.65-0-Linux-aarch64.sh`
 	}
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
@@ -581,7 +581,7 @@ func TestGetLatestAnacondaVersions(t *testing.T) {
 	// sample HTML page snippet with versions
 	html := `
         <a href="Anaconda3-20.4.30-1-Linux-x86_64.sh">x86</a>
-        <a href="Anaconda3-20.4.52-0-Linux-x86_64.sh">old</a>
+        <a href="Anaconda3-20.4.62-0-Linux-x86_64.sh">old</a>
         <a href="Anaconda3-20.4.30-1-Linux-aarch64.sh">arm</a>
     `
 
@@ -601,7 +601,7 @@ func TestGetLatestAnacondaVersions(t *testing.T) {
 
 	versions, err := docker.GetLatestAnacondaVersionsWithDeps(context.Background(), deps)
 	require.NoError(t, err)
-	assert.Equal(t, "20.4.52-0", versions["x86_64"])
+	assert.Equal(t, "20.4.62-0", versions["x86_64"])
 	assert.Equal(t, "20.4.30-1", versions["aarch64"])
 }
 
@@ -987,7 +987,7 @@ func (m mockRoundTripper) RoundTrip(_ *http.Request) (*http.Response, error) {
 	// Minimal HTML directory index with two entries for different archs.
 	body := `
 <html><body>
-<a href="Anaconda3-20.4.55-0-Linux-x86_64.sh">Anaconda3-20.4.55-0-Linux-x86_64.sh</a><br>
+<a href="Anaconda3-20.4.65-0-Linux-x86_64.sh">Anaconda3-20.4.65-0-Linux-x86_64.sh</a><br>
 <a href="Anaconda3-20.4.30-1-Linux-aarch64.sh">Anaconda3-20.4.30-1-Linux-aarch64.sh</a><br>
 </body></html>`
 
@@ -1014,8 +1014,8 @@ func TestGetLatestAnacondaVersionsMocked(t *testing.T) {
 	}
 
 	// We expect to get both architectures with their respective versions.
-	if versions["x86_64"] != "20.4.55-0" {
-		t.Fatalf("expected x86_64 version '20.4.55-0', got %s", versions["x86_64"])
+	if versions["x86_64"] != "20.4.65-0" {
+		t.Fatalf("expected x86_64 version '20.4.65-0', got %s", versions["x86_64"])
 	}
 	if versions["aarch64"] != "20.4.30-1" {
 		t.Fatalf("expected aarch64 version '20.4.30-1', got %s", versions["aarch64"])
@@ -1091,7 +1091,7 @@ func TestGetLatestAnacondaVersionsMock(t *testing.T) {
 	// HTML snippet with two architectures
 	html := `<!DOCTYPE html><html><body>
     <a href="Anaconda3-20.4.30-1-Linux-x86_64.sh">x</a>
-    <a href="Anaconda3-20.4.55-1-Linux-aarch64.sh">y</a>
+    <a href="Anaconda3-20.4.65-1-Linux-aarch64.sh">y</a>
     </body></html>`
 
 	// Use dependency injection with mock transport

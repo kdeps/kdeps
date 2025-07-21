@@ -266,7 +266,8 @@ func GenerateDockerfileFromTemplate(
 	pklVersion,
 	timezone,
 	exposedPort,
-	environment string,
+	environment,
+	agentName string,
 	installAnaconda,
 	devBuildMode,
 	apiServerMode,
@@ -294,6 +295,7 @@ func GenerateDockerfileFromTemplate(
 		"Timezone":         timezone,
 		"ExposedPort":      exposedPort,
 		"Environment":      environment,
+		"AgentName":        agentName,
 		"InstallAnaconda":  installAnaconda,
 		"DevBuildMode":     devBuildMode,
 		"ApiServerMode":    apiServerMode,
@@ -390,7 +392,6 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	timezone := processedConfig.Timezone.Value
 
 	agentName := wfCfg.GetAgentID()
-	agentVersion := wfCfg.GetVersion()
 
 	var gpuType string
 	if kdeps.DockerGPU != nil {
@@ -514,8 +515,15 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	// Join all lines into a single section for the Dockerfile
 	condaPkgSection := strings.Join(condaPkgLines, "\n")
 
-	// Ensure the run directory and download dir exists
-	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion)
+	// Prepare run directory for Docker mode (copies .kdeps file instead of extracting)
+	runDir, err := archiver.PrepareRunDir(fs, ctx, wfCfg, kdepsDir, pkgProject.PkgFilePath, true, logger)
+	if err != nil {
+		return "", false, false, "", "", "", "", "", nil, fmt.Errorf("failed to prepare Docker run directory: %w", err)
+	}
+
+	// No agents directory copying - only the .kdeps file will be copied
+	// The container will extract the .kdeps file at runtime to get the workflow files
+
 	downloadDir := filepath.Join(kdepsDir, "cache")
 
 	items, err := GenerateURLs(ctx, installAnaconda)
@@ -562,6 +570,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		timezoneStr,
 		exposedPort,
 		processedConfig.Environment.Value,
+		agentName,
 		installAnaconda,
 		devBuildMode,
 		APIServerMode,

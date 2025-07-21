@@ -172,14 +172,14 @@ func (dr *DependencyResolver) reloadLLMResourceWithDependencies(actionID string,
 	}
 
 	// Cast to generic Resource first
-	reloadedGenericResource, ok := reloadedResource.(*pklResource.Resource)
+	reloadedGenericResource, ok := reloadedResource.(pklResource.Resource)
 	if !ok {
 		return fmt.Errorf("failed to cast reloaded resource to generic Resource")
 	}
 
 	// Extract the Chat block from the reloaded resource
-	if reloadedGenericResource.Run != nil && reloadedGenericResource.Run.Chat != nil {
-		reloadedChat := reloadedGenericResource.Run.Chat
+	if reloadedRun := reloadedGenericResource.GetRun(); reloadedRun != nil && reloadedRun.Chat != nil {
+		reloadedChat := reloadedRun.Chat
 
 		// Update the chatBlock with the reloaded values that contain fresh template evaluation
 		if reloadedChat.Prompt != nil {
@@ -572,8 +572,12 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 		return fmt.Errorf("failed to substitute templates: %w", err)
 	}
 
-	dr.Logger.Debug("processLLMChat: initializing LLM", "actionID", actionID, "model", chatBlock.Model)
-	llm, err := dr.NewLLMFn(chatBlock.Model)
+	modelStr := ""
+	if chatBlock.Model != nil {
+		modelStr = *chatBlock.Model
+	}
+	dr.Logger.Debug("processLLMChat: initializing LLM", "actionID", actionID, "model", modelStr)
+	llm, err := dr.NewLLMFn(modelStr)
 	if err != nil {
 		dr.Logger.Error("processLLMChat: failed to initialize LLM", "actionID", actionID, "error", err)
 		return fmt.Errorf("failed to initialize LLM: %w", err)
@@ -611,8 +615,8 @@ func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.
 	// Store the LLM resource data in pklres for real-time access
 	if dr.PklresHelper != nil {
 		// Store individual attributes as key-value pairs for direct access
-		if chatBlock.Model != "" {
-			if err := dr.PklresHelper.Set(actionID, "model", chatBlock.Model); err != nil {
+		if chatBlock.Model != nil && *chatBlock.Model != "" {
+			if err := dr.PklresHelper.Set(actionID, "model", *chatBlock.Model); err != nil {
 				dr.Logger.Error("processLLMChat: failed to store model", "actionID", actionID, "error", err)
 			}
 		}

@@ -142,9 +142,11 @@ local-dev:
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
 	docker cp local/pkl $$CONTAINER:/local/
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
-	docker exec $$CONTAINER rm -rf /agent/project
+	docker exec $$CONTAINER rm -rf /run/localproject || true
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
-	docker cp local/project $$CONTAINER:/agent/project
+	docker exec $$CONTAINER mkdir -p /run/localproject/1.0.0
+	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
+	docker cp local/project $$CONTAINER:/run/localproject/1.0.0/workflow
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
 	docker restart $$CONTAINER
 	@echo "$(OK_COLOR)==> Local development environment ready!$(NO_COLOR)"
@@ -178,9 +180,11 @@ local-update:
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
 	docker cp local/pkl $$CONTAINER:/local/
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
-	docker exec $$CONTAINER rm -rf /agent/project
+	docker exec $$CONTAINER rm -rf /run/localproject || true
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
-	docker cp local/project $$CONTAINER:/agent/project
+	docker exec $$CONTAINER mkdir -p /run/localproject/1.0.0
+	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
+	docker cp local/project $$CONTAINER:/run/localproject/1.0.0/workflow
 	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
 	docker restart $$CONTAINER
 	@echo "$(OK_COLOR)==> Container updated and restarted!$(NO_COLOR)"

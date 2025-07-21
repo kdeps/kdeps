@@ -80,14 +80,14 @@ func (dr *DependencyResolver) reloadPythonResourceWithDependencies(actionID stri
 	}
 
 	// Cast to generic Resource first
-	reloadedGenericResource, ok := reloadedResource.(*pklResource.Resource)
+	reloadedGenericResource, ok := reloadedResource.(pklResource.Resource)
 	if !ok {
 		return fmt.Errorf("failed to cast reloaded resource to generic Resource")
 	}
 
 	// Extract the Python block from the reloaded resource
-	if reloadedGenericResource.Run != nil && reloadedGenericResource.Run.Python != nil {
-		reloadedPython := reloadedGenericResource.Run.Python
+	if reloadedRun := reloadedGenericResource.GetRun(); reloadedRun != nil && reloadedRun.Python != nil {
+		reloadedPython := reloadedRun.Python
 
 		// Update the pythonBlock with the reloaded values that contain fresh template evaluation
 		if reloadedPython.Script != "" {

@@ -67,7 +67,8 @@ func generateDockerfile(
 		pklVersion,
 		timezone,
 		exposedPort,
-		"dev", // Default environment for tests
+		"dev",        // Default environment for tests
+		"test-agent", // Default agent name for tests
 		installAnaconda,
 		devBuildMode,
 		apiServerMode,
@@ -1050,7 +1051,7 @@ func TestGenerateDockerfileBranches(t *testing.T) {
 		pkgSection:       "RUN echo pkgs",
 		pythonPkgSection: "RUN echo py",
 		condaPkgSection:  "RUN echo conda",
-		anacondaVersion:  "20.4.59-1",
+		anacondaVersion:  "20.4.69-1",
 		pklVersion:       "0.25.0",
 		timezone:         "Etc/UTC",
 		exposedPort:      "5000",
@@ -1124,7 +1125,7 @@ func TestGenerateDockerfile_DevBuildAndAPIServer(t *testing.T) {
 		"RUN apt-get update", // pkg section
 		"RUN pip install x",  // python section
 		"",                   // conda pkg section
-		"20.4.51-1",          // anaconda version
+		"20.4.61-1",          // anaconda version
 		"0.28.1",             // pkl version
 		"UTC",                // timezone
 		"8080",               // expose port
@@ -1476,7 +1477,7 @@ func (roundTripperLatest) RoundTrip(req *http.Request) (*http.Response, error) {
 		body, _ := json.Marshal(map[string]string{"tag_name": "v0.29.0"})
 		return &http.Response{StatusCode: http.StatusOK, Body: ioNopCloser(bytes.NewReader(body)), Header: make(http.Header)}, nil
 	case req.URL.Host == "repo.anaconda.com":
-		html := `<a href="Anaconda3-20.4.55-0-Linux-x86_64.sh">file</a><a href="Anaconda3-20.4.55-0-Linux-aarch64.sh">file</a>`
+		html := `<a href="Anaconda3-20.4.65-0-Linux-x86_64.sh">file</a><a href="Anaconda3-20.4.65-0-Linux-aarch64.sh">file</a>`
 		return &http.Response{StatusCode: http.StatusOK, Body: ioNopCloser(bytes.NewReader([]byte(html))), Header: make(http.Header)}, nil
 	default:
 		return &http.Response{StatusCode: http.StatusOK, Body: ioNopCloser(bytes.NewReader([]byte(""))), Header: make(http.Header)}, nil
@@ -1659,7 +1660,7 @@ func TestBuildDockerfile_OllamaTagVersion(t *testing.T) {
 
 	// Create a dummy workflow file with OllamaTagVersion set
 	workflowPath := filepath.Join(kdepsDir, "testWorkflow")
-	dummyWorkflowContent := `amends "package://schema.kdeps.com/core@0.4.5#/Workflow.pkl"
+	dummyWorkflowContent := `amends "package://schema.kdeps.com/core@0.4.6#/Workflow.pkl"
 
 AgentID = "test"
 Version = "1.0"

@@ -78,14 +78,14 @@ func (dr *DependencyResolver) reloadExecResourceWithDependencies(actionID string
 	}
 
 	// Cast to generic Resource first
-	reloadedGenericResource, ok := reloadedResource.(*pklResource.Resource)
+	reloadedGenericResource, ok := reloadedResource.(pklResource.Resource)
 	if !ok {
 		return fmt.Errorf("failed to cast reloaded resource to generic Resource")
 	}
 
 	// Extract the Exec block from the reloaded resource
-	if reloadedGenericResource.Run != nil && reloadedGenericResource.Run.Exec != nil {
-		reloadedExec := reloadedGenericResource.Run.Exec
+	if reloadedRun := reloadedGenericResource.GetRun(); reloadedRun != nil && reloadedRun.Exec != nil {
+		reloadedExec := reloadedRun.Exec
 
 		// Update the execBlock with the reloaded values that contain fresh template evaluation
 		if reloadedExec.Command != "" {

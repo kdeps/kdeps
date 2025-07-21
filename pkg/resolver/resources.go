@@ -129,12 +129,12 @@ func (dr *DependencyResolver) ProcessPklFile(file string) error {
 
 	// All resource types should have ActionID and Requires fields
 	// Try to cast to the base Resource type first
-	if genericRes, ok := res.(*pklResource.Resource); ok {
-		actionID = genericRes.ActionID
-		requires = genericRes.Requires
+	if genericRes, ok := res.(pklResource.Resource); ok {
+		actionID = genericRes.GetActionID()
+		requires = genericRes.GetRequires()
 	} else {
 		// If that fails, try to extract using reflection
-		dr.Logger.Warn("failed to cast to *pklResource.Resource, trying reflection", "resourceType", resourceType, "actualType", fmt.Sprintf("%T", res))
+		dr.Logger.Warn("failed to cast to pklResource.Resource, trying reflection", "resourceType", resourceType, "actualType", fmt.Sprintf("%T", res))
 		return errors.New("failed to extract ActionID and Requires from resource")
 	}
 

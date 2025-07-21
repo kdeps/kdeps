@@ -868,6 +868,7 @@ func TestGenerateDockerfileFromTemplate(t *testing.T) {
 		"Timezone":         "UTC",
 		"ExposedPort":      "8080",
 		"Environment":      "dev",
+		"AgentName":        "test-agent",
 		"InstallAnaconda":  true,
 		"DevBuildMode":     false,
 		"ApiServerMode":    true,
@@ -914,6 +915,7 @@ func TestGenerateDockerfileFromTemplate_DevMode(t *testing.T) {
 		"Timezone":         "UTC",
 		"ExposedPort":      "",
 		"Environment":      "dev",
+		"AgentName":        "test-agent",
 		"InstallAnaconda":  false,
 		"DevBuildMode":     true,
 		"ApiServerMode":    false,
@@ -1003,7 +1005,7 @@ func TestTemplateWithSchemaAssets(t *testing.T) {
 				resourceContent := string(content)
 				assert.Contains(t, resourceContent, fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"`, schema.Version(ctx)))
 
-				// Verify it has the new v0.4.5 properties
+				// Verify it has the new v0.4.6 properties
 				assert.Contains(t, resourceContent, "PostflightCheck")
 				assert.Contains(t, resourceContent, "Retry = false")
 				assert.Contains(t, resourceContent, "RetryTimes = 3")

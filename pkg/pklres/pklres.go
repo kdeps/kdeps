@@ -158,7 +158,13 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 	case "get":
 		collectionKey := query.Get("collection")
 		key := query.Get("key")
-		return r.getKeyValue(collectionKey, key)
+		result, err := r.getKeyValue(collectionKey, key)
+		if err != nil {
+			r.Logger.Error("PklResourceReader.Read: getKeyValue failed", "collection", collectionKey, "key", key, "error", err)
+			return nil, fmt.Errorf("pklres get operation failed for collection=%s key=%s: %w", collectionKey, key, err)
+		}
+		r.Logger.Debug("PklResourceReader.Read: getKeyValue succeeded", "collection", collectionKey, "key", key, "result", string(result))
+		return result, nil
 	case "set":
 		collectionKey := query.Get("collection")
 		key := query.Get("key")
@@ -547,11 +553,9 @@ func (r *PklResourceReader) getKeyValue(collectionKey, key string) ([]byte, erro
 	if !exists {
 		r.Logger.Debug("getKeyValue: key not found", "collectionKey", canonicalCollectionKey, "key", key)
 
-		if r.dependencyStore == nil || r.dependencyStore[r.GraphID] == nil || len(r.dependencyStore[r.GraphID]) == 0 {
-			return nil, fmt.Errorf("key '%s' not found", key)
-		}
-
-		return []byte("null"), nil
+		// Always return an error when key is not found - this will cause PKL evaluation to fail
+		// rather than continuing with error messages as content
+		return nil, fmt.Errorf("key '%s' not found", key)
 	}
 
 	// Return the stored value as JSON

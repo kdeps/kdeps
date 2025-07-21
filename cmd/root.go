@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -15,6 +16,8 @@ import (
 // NewRootCommand returns the root command with all subcommands attached.
 func NewRootCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCfg *kdeps.Kdeps, env *environment.Environment, logger *logging.Logger) *cobra.Command {
 	cobra.EnableCommandSorting = false
+	var agentFile string
+
 	rootCmd := &cobra.Command{
 		Use:   "kdeps",
 		Short: "Multi-model AI agent framework.",
@@ -22,10 +25,26 @@ func NewRootCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCfg
 Dockerized AI agent APIs ready to be deployed in any organization. It utilizes self-contained
 open-source LLM models that are orchestrated by a graph-based dependency workflow.`,
 		Version: v.GetVersionInfo().Version,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// If --agent flag is provided, this indicates Docker container mode
+			// The actual extraction happens in main.go before the graph resolver is created
+			if agentFile != "" {
+				if !environment.IsDockerEnvironment(fs, "/") {
+					return fmt.Errorf("--agent parameter can only be used inside Docker containers")
+				}
+				// In Docker mode, extraction happens in main.go, so just return success
+				// The main.go Docker workflow will handle the rest
+				return nil
+			}
+			// Otherwise, show help
+			return cmd.Help()
+		},
 	}
 	rootCmd.PersistentFlags().BoolVarP(&schema.UseLatest, "latest", "l", false,
 		`Fetch and use the latest schema and libraries. It is recommended to set the GITHUB_TOKEN environment
 variable to prevent errors caused by rate limit exhaustion.`)
+	rootCmd.Flags().StringVar(&agentFile, "agent", "", "Path to .kdeps file for Docker container mode")
+
 	rootCmd.AddCommand(NewAgentCommand(ctx, fs, kdepsDir, logger))
 	rootCmd.AddCommand(NewScaffoldCommand(ctx, fs, logger))
 	rootCmd.AddCommand(NewAddCommand(ctx, fs, kdepsDir, logger))

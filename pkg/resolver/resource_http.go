@@ -82,14 +82,14 @@ func (dr *DependencyResolver) reloadHTTPResourceWithDependencies(actionID string
 	}
 
 	// Cast to generic Resource first
-	reloadedGenericResource, ok := reloadedResource.(*pklResource.Resource)
+	reloadedGenericResource, ok := reloadedResource.(pklResource.Resource)
 	if !ok {
 		return fmt.Errorf("failed to cast reloaded resource to generic Resource")
 	}
 
 	// Extract the HTTP block from the reloaded resource
-	if reloadedGenericResource.Run != nil && reloadedGenericResource.Run.HTTPClient != nil {
-		reloadedHTTP := reloadedGenericResource.Run.HTTPClient
+	if reloadedRun := reloadedGenericResource.GetRun(); reloadedRun != nil && reloadedRun.HTTPClient != nil {
+		reloadedHTTP := reloadedRun.HTTPClient
 
 		// Update the httpBlock with the reloaded values that contain fresh template evaluation
 		if reloadedHTTP.Url != "" {
