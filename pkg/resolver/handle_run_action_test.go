@@ -98,11 +98,11 @@ func TestHandleRunAction_BasicFlow(t *testing.T) {
 	var loadCalled bool
 	dr.LoadResourceFn = func(_ context.Context, _ string, _ resolver.ResourceType) (interface{}, error) {
 		loadCalled = true
-		return &pklRes.Resource{ActionID: "act1"}, nil // Run is nil
+		return &pklRes.ResourceImpl{ActionID: "act1"}, nil // Run is nil
 	}
 
 	var prbCalled bool
-	dr.ProcessRunBlockFn = func(_ resolver.ResourceNodeEntry, _ *pklRes.Resource, _ string, _ bool) (bool, error) {
+	dr.ProcessRunBlockFn = func(_ resolver.ResourceNodeEntry, _ pklRes.Resource, _ string, _ bool) (bool, error) {
 		prbCalled = true
 		return false, nil // do not proceed further
 	}
@@ -178,19 +178,19 @@ run {}`
 	dr.LoadResourceFn = func(_ context.Context, _ string, rt resolver.ResourceType) (interface{}, error) {
 		switch rt {
 		case resolver.LLMResource:
-			return &pklLLM.LLMImpl{Resources: make(map[string]*pklLLM.ResourceChat)}, nil
+			return &pklLLM.LLMImpl{}, nil
 		case resolver.ResourceType("data"):
-			return &pklData.DataImpl{Files: make(map[string]map[string]string)}, nil
+			return &pklData.DataImpl{}, nil
 		case resolver.ExecResource:
-			return &pklExec.ExecImpl{Resources: make(map[string]*pklExec.ResourceExec)}, nil
+			return &pklExec.ExecImpl{}, nil
 		case resolver.HTTPResource:
-			return &pklHTTP.HTTPImpl{Resources: make(map[string]*pklHTTP.ResourceHTTPClient)}, nil
+			return &pklHTTP.HTTPImpl{}, nil
 		case resolver.PythonResource:
-			return &pklPython.PythonImpl{Resources: make(map[string]*pklPython.ResourcePython)}, nil
+			return &pklPython.PythonImpl{}, nil
 		case resolver.ResponseResource:
-			return &pklRes.Resource{}, nil
+			return &pklRes.ResourceImpl{}, nil
 		case resolver.Resource:
-			return &pklRes.Resource{}, nil
+			return &pklRes.ResourceImpl{}, nil
 		default:
 			return nil, errors.New("mock action not found")
 		}

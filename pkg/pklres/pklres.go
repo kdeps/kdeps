@@ -1,10 +1,14 @@
 package pklres
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -18,7 +22,51 @@ import (
 var (
 	globalPklresReader *PklResourceReader
 	globalMutex        sync.RWMutex
+	operationCounter   map[string]int // graphID -> counter
+	operationMutex     sync.Mutex
 )
+
+// QueryCache stores cached query results to avoid repeated operations
+type QueryCache struct {
+	Results map[string]interface{} `json:"results"`
+	TTL     time.Time              `json:"ttl"`
+	Query   string                 `json:"query"`
+}
+
+// RelationalRow represents a row in a relational result set
+type RelationalRow struct {
+	Data map[string]interface{} `json:"data"`
+}
+
+// RelationalResult represents the result of a relational algebra operation
+type RelationalResult struct {
+	Rows    []RelationalRow `json:"rows"`
+	Columns []string        `json:"columns"`
+	Query   string          `json:"query"`
+	TTL     time.Time       `json:"ttl"`
+}
+
+// JoinCondition defines how to join two collections
+type JoinCondition struct {
+	LeftCollection  string `json:"leftCollection"`
+	RightCollection string `json:"rightCollection"`
+	LeftKey         string `json:"leftKey"`
+	RightKey        string `json:"rightKey"`
+	JoinType        string `json:"joinType"` // "inner", "left", "right", "full"
+}
+
+// ProjectionCondition defines which columns to include/exclude
+type ProjectionCondition struct {
+	Columns []string `json:"columns"` // Empty means all columns
+	Exclude []string `json:"exclude"` // Columns to exclude
+}
+
+// SelectionCondition defines filtering criteria
+type SelectionCondition struct {
+	Field    string      `json:"field"`
+	Operator string      `json:"operator"` // "eq", "ne", "gt", "lt", "gte", "lte", "contains", "in"
+	Value    interface{} `json:"value"`
+}
 
 // DependencyData holds metadata for async dependency resolution
 type DependencyData struct {
@@ -42,10 +90,16 @@ type PklResourceReader struct {
 	CurrentAgent   string // Current agent name for ActionID resolution
 	CurrentVersion string // Current agent version for ActionID resolution
 	KdepsPath      string // Path to kdeps directory for agent reader
+	ProcessID      string // Current process ID for resource execution context
 
 	// Generic key-value store: graphID -> actionID -> key -> value (JSON string)
 	store      map[string]map[string]map[string]string
 	storeMutex sync.RWMutex
+
+	// Query cache: graphID -> queryHash -> QueryCache
+	queryCache map[string]map[string]*QueryCache
+	cacheMutex sync.RWMutex
+	cacheTTL   time.Duration // Default TTL for cached queries
 
 	// Async dependency management: graphID -> actionID -> DependencyData
 	dependencyStore     map[string]map[string]*DependencyData
@@ -169,7 +223,13 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 		collectionKey := query.Get("collection")
 		key := query.Get("key")
 		value := query.Get("value")
-		return r.setKeyValue(collectionKey, key, value)
+		result, err := r.setKeyValue(collectionKey, key, value)
+		if err != nil {
+			r.Logger.Error("PklResourceReader.Read: setKeyValue failed", "collection", collectionKey, "key", key, "error", err)
+			return nil, fmt.Errorf("pklres set operation failed for collection=%s key=%s: %w", collectionKey, key, err)
+		}
+		r.Logger.Debug("PklResourceReader.Read: setKeyValue succeeded", "collection", collectionKey, "key", key, "result", string(result))
+		return result, nil
 	case "list":
 		collectionKey := query.Get("collection")
 		return r.listKeys(collectionKey)
@@ -179,6 +239,28 @@ func (r *PklResourceReader) Read(uri url.URL) ([]byte, error) {
 	case "async_status":
 		actionID := query.Get("actionID")
 		return r.getAsyncStatus(actionID)
+	case "relationalSelect":
+		collectionKey := query.Get("collection")
+		conditionsJson := query.Get("conditions")
+		return r.handleRelationalSelect(collectionKey, conditionsJson)
+	case "relationalProject":
+		collectionKey := query.Get("collection")
+		conditionJson := query.Get("condition")
+		return r.handleRelationalProject(collectionKey, conditionJson)
+	case "relationalJoin":
+		conditionJson := query.Get("condition")
+		return r.handleRelationalJoin(conditionJson)
+	case "clearCache":
+		return r.handleClearCache()
+	case "setCacheTTL":
+		ttlStr := query.Get("ttl")
+		return r.handleSetCacheTTL(ttlStr)
+	case "getCacheStats":
+		return r.handleGetCacheStats()
+	case "queryWithCache":
+		queryType := query.Get("queryType")
+		paramsJson := query.Get("params")
+		return r.handleQueryWithCache(queryType, paramsJson)
 	default:
 		return nil, fmt.Errorf("unsupported operation: %s", op)
 	}
@@ -504,54 +586,17 @@ func (r *PklResourceReader) IsInDependencyGraph(actionID string) bool {
 	return exists
 }
 
-// getKeyValue retrieves a value from the generic key-value store
-func (r *PklResourceReader) getKeyValue(collectionKey, key string) ([]byte, error) {
-	if collectionKey == "" || key == "" {
-		return nil, errors.New("get operation requires collection and key parameters")
+// getNextOperationNumber returns the next operation number for a given graphID
+func getNextOperationNumber(graphID string) int {
+	operationMutex.Lock()
+	defer operationMutex.Unlock()
+
+	if operationCounter == nil {
+		operationCounter = make(map[string]int)
 	}
 
-	r.Logger.Debug("getKeyValue: retrieving", "collectionKey", collectionKey, "key", key, "graphID", r.GraphID)
-
-	// Handle special "current" collection - automatically resolve to system collection format
-	var canonicalCollectionKey string
-	if collectionKey == "current" {
-		// For "current" collection, use @agentID/<graphID> format as system collection
-		if r.CurrentAgent != "" && r.GraphID != "" {
-			canonicalCollectionKey = fmt.Sprintf("@%s/%s", r.CurrentAgent, r.GraphID)
-		} else {
-			return nil, fmt.Errorf("current collection requires agent and graphID to be set")
-		}
-	} else {
-		// Canonicalize the collection key normally
-		canonicalCollectionKey = r.resolveActionID(collectionKey)
-	}
-
-	// Get the value from the store
-	r.storeMutex.RLock()
-	defer r.storeMutex.RUnlock()
-
-	// Initialize nested maps if they don't exist
-	if r.store == nil {
-		r.store = make(map[string]map[string]map[string]string)
-	}
-	if r.store[r.GraphID] == nil {
-		r.store[r.GraphID] = make(map[string]map[string]string)
-	}
-	if r.store[r.GraphID][canonicalCollectionKey] == nil {
-		r.store[r.GraphID][canonicalCollectionKey] = make(map[string]string)
-	}
-
-	value, exists := r.store[r.GraphID][canonicalCollectionKey][key]
-	r.Logger.Debug("getKeyValue: retrieved value", "collectionKey", canonicalCollectionKey, "key", key, "exists", exists, "value", value)
-
-	if !exists {
-		r.Logger.Debug("getKeyValue: key not found, returning null", "collectionKey", canonicalCollectionKey, "key", key)
-		// Return null when key doesn't exist - this allows PKL to handle missing values appropriately
-		return []byte("null"), nil
-	}
-
-	// Return the stored value as JSON
-	return json.Marshal(value)
+	operationCounter[graphID]++
+	return operationCounter[graphID]
 }
 
 // setKeyValue stores a value in the generic key-value store
@@ -563,21 +608,44 @@ func (r *PklResourceReader) setKeyValue(collectionKey, key, value string) ([]byt
 		return nil, errors.New("set operation requires a value parameter")
 	}
 
-	r.Logger.Debug("setKeyValue: storing", "collectionKey", collectionKey, "key", key, "graphID", r.GraphID)
+	// Get caller information for context
+	caller := "unknown"
+	if pc, _, line, ok := runtime.Caller(2); ok {
+		if fn := runtime.FuncForPC(pc); fn != nil {
+			caller = fmt.Sprintf("%s:%d", filepath.Base(fn.Name()), line)
+		}
+	}
+
+	// Get operation number for this graph
+	opNumber := getNextOperationNumber(r.GraphID)
+
+	r.Logger.Debug("setKeyValue: storing",
+		"collectionKey", collectionKey,
+		"key", key,
+		"value", value,
+		"graphID", r.GraphID,
+		"CurrentAgent", r.CurrentAgent,
+		"CurrentVersion", r.CurrentVersion,
+		"KdepsPath", r.KdepsPath,
+		"caller", caller,
+		"op", fmt.Sprintf("SET [%d]", opNumber),
+		"processID", r.ProcessID,
+		"prefix", fmt.Sprintf("kdeps: 🚀 RECORD SET %s", r.ProcessID))
 
 	// Handle special "current" collection - automatically resolve to system collection format
 	var canonicalCollectionKey string
 	if collectionKey == "current" {
-		// For "current" collection, use @agentID/<graphID> format as system collection
-		if r.CurrentAgent != "" && r.GraphID != "" {
-			canonicalCollectionKey = fmt.Sprintf("@%s/%s", r.CurrentAgent, r.GraphID)
-		} else {
-			return nil, fmt.Errorf("current collection requires agent and graphID to be set")
+		if r.CurrentAgent == "" || r.CurrentVersion == "" {
+			return nil, errors.New("cannot resolve 'current' collection without CurrentAgent and CurrentVersion")
 		}
+		canonicalCollectionKey = fmt.Sprintf("@%s:%s", r.CurrentAgent, r.CurrentVersion)
+		r.Logger.Debug("setKeyValue: resolved 'current' collection", "original", collectionKey, "canonical", canonicalCollectionKey)
 	} else {
 		// Canonicalize the collection key normally
 		canonicalCollectionKey = r.resolveActionID(collectionKey)
 	}
+
+	r.Logger.Debug("setKeyValue: canonicalized", "canonicalCollectionKey", canonicalCollectionKey, "graphID", r.GraphID)
 
 	// Store the value
 	r.storeMutex.Lock()
@@ -596,7 +664,97 @@ func (r *PklResourceReader) setKeyValue(collectionKey, key, value string) ([]byt
 
 	// Store the value (value is already JSON from the URI parameter)
 	r.store[r.GraphID][canonicalCollectionKey][key] = value
-	r.Logger.Debug("setKeyValue: stored value", "collectionKey", canonicalCollectionKey, "key", key, "value", value)
+
+	r.Logger.Debug("setKeyValue: stored value",
+		"collectionKey", canonicalCollectionKey,
+		"key", key,
+		"value", value,
+		"graphID", r.GraphID,
+		"caller", caller,
+		"op", fmt.Sprintf("SET [%d]", opNumber),
+		"processID", r.ProcessID,
+		"prefix", fmt.Sprintf("kdeps: 🚀 RECORD SET %s", r.ProcessID))
+
+	// Return the stored value as JSON
+	return json.Marshal(value)
+}
+
+// getKeyValue retrieves a value from the generic key-value store
+func (r *PklResourceReader) getKeyValue(collectionKey, key string) ([]byte, error) {
+	if collectionKey == "" || key == "" {
+		return nil, errors.New("get operation requires collection and key parameters")
+	}
+
+	// Get caller information for context
+	caller := "unknown"
+	if pc, _, line, ok := runtime.Caller(2); ok {
+		if fn := runtime.FuncForPC(pc); fn != nil {
+			caller = fmt.Sprintf("%s:%d", filepath.Base(fn.Name()), line)
+		}
+	}
+
+	// Get operation number for this graph
+	opNumber := getNextOperationNumber(r.GraphID)
+
+	r.Logger.Debug("getKeyValue: retrieving",
+		"collectionKey", collectionKey,
+		"key", key,
+		"graphID", r.GraphID,
+		"CurrentAgent", r.CurrentAgent,
+		"CurrentVersion", r.CurrentVersion,
+		"KdepsPath", r.KdepsPath,
+		"caller", caller,
+		"op", fmt.Sprintf("GET [%d]", opNumber),
+		"processID", r.ProcessID,
+		"prefix", fmt.Sprintf("kdeps: 🚀 RECORD GET %s", r.ProcessID))
+
+	// Handle special "current" collection - automatically resolve to system collection format
+	var canonicalCollectionKey string
+	if collectionKey == "current" {
+		if r.CurrentAgent == "" || r.CurrentVersion == "" {
+			return nil, errors.New("cannot resolve 'current' collection without CurrentAgent and CurrentVersion")
+		}
+		canonicalCollectionKey = fmt.Sprintf("@%s:%s", r.CurrentAgent, r.CurrentVersion)
+		r.Logger.Debug("getKeyValue: resolved 'current' collection", "original", collectionKey, "canonical", canonicalCollectionKey)
+	} else {
+		// Canonicalize the collection key normally
+		canonicalCollectionKey = r.resolveActionID(collectionKey)
+	}
+
+	r.Logger.Debug("getKeyValue: canonicalized", "canonicalCollectionKey", canonicalCollectionKey, "graphID", r.GraphID)
+
+	// Get the value from the store
+	r.storeMutex.RLock()
+	defer r.storeMutex.RUnlock()
+
+	// Initialize nested maps if they don't exist
+	if r.store == nil {
+		r.store = make(map[string]map[string]map[string]string)
+	}
+	if r.store[r.GraphID] == nil {
+		r.store[r.GraphID] = make(map[string]map[string]string)
+	}
+	if r.store[r.GraphID][canonicalCollectionKey] == nil {
+		r.store[r.GraphID][canonicalCollectionKey] = make(map[string]string)
+	}
+
+	value, exists := r.store[r.GraphID][canonicalCollectionKey][key]
+	r.Logger.Debug("getKeyValue: retrieved value",
+		"collectionKey", canonicalCollectionKey,
+		"key", key,
+		"exists", exists,
+		"value", value,
+		"graphID", r.GraphID,
+		"caller", caller,
+		"op", fmt.Sprintf("GET [%d]", opNumber),
+		"processID", r.ProcessID,
+		"prefix", fmt.Sprintf("kdeps: 🚀 RECORD GET %s", r.ProcessID))
+
+	if !exists {
+		r.Logger.Warn("getKeyValue: key not found, returning null", "collectionKey", canonicalCollectionKey, "key", key, "graphID", r.GraphID, "caller", caller, "op", fmt.Sprintf("GET [%d]", opNumber), "processID", r.ProcessID, "prefix", fmt.Sprintf("kdeps: 🚀 RECORD GET %s", r.ProcessID))
+		// Return null when key doesn't exist - this allows PKL to handle missing values appropriately
+		return []byte("null"), nil
+	}
 
 	// Return the stored value as JSON
 	return json.Marshal(value)
@@ -654,13 +812,13 @@ func GetGlobalPklresReader() *PklResourceReader {
 	return globalPklresReader
 }
 
-// UpdateGlobalPklresReaderContext updates the context of the global pklres reader
+// UpdateGlobalPklresReaderContext updates the global pklres reader context
 func UpdateGlobalPklresReaderContext(graphID, currentAgent, currentVersion, kdepsPath string) error {
 	globalMutex.Lock()
 	defer globalMutex.Unlock()
 
 	if globalPklresReader == nil {
-		return errors.New("global pklres reader is not initialized")
+		return errors.New("global pklres reader not initialized")
 	}
 
 	globalPklresReader.GraphID = graphID
@@ -671,7 +829,20 @@ func UpdateGlobalPklresReaderContext(graphID, currentAgent, currentVersion, kdep
 	return nil
 }
 
-// InitializePklResource initializes a new PklResourceReader
+// UpdateGlobalPklresReaderProcessID updates the process ID for the global pklres reader
+func UpdateGlobalPklresReaderProcessID(processID string) error {
+	globalMutex.Lock()
+	defer globalMutex.Unlock()
+
+	if globalPklresReader == nil {
+		return errors.New("global pklres reader not initialized")
+	}
+
+	globalPklresReader.ProcessID = processID
+	return nil
+}
+
+// InitializePklResource creates a new PklResourceReader with the given parameters
 func InitializePklResource(graphID, currentAgent, currentVersion, kdepsPath string, fs afero.Fs) (*PklResourceReader, error) {
 	reader := &PklResourceReader{
 		Fs:                  fs,
@@ -681,12 +852,634 @@ func InitializePklResource(graphID, currentAgent, currentVersion, kdepsPath stri
 		CurrentVersion:      currentVersion,
 		KdepsPath:           kdepsPath,
 		store:               make(map[string]map[string]map[string]string),
+		queryCache:          make(map[string]map[string]*QueryCache),
+		cacheTTL:            5 * time.Minute, // Default 5 minute cache TTL
 		dependencyStore:     make(map[string]map[string]*DependencyData),
 		dependencyCallbacks: make(map[string][]func(string, *DependencyData)),
 	}
 
-	// Set as global reader
 	SetGlobalPklresReader(reader)
-
 	return reader, nil
+}
+
+// Relational Algebra Methods
+
+// generateQueryHash creates a unique hash for a query to use as cache key
+func (r *PklResourceReader) generateQueryHash(query interface{}) string {
+	queryBytes, _ := json.Marshal(query)
+	hash := md5.Sum(queryBytes)
+	return hex.EncodeToString(hash[:])
+}
+
+// getCachedQuery retrieves a cached query result if it exists and is not expired
+func (r *PklResourceReader) getCachedQuery(queryHash string) (*QueryCache, bool) {
+	r.cacheMutex.RLock()
+	defer r.cacheMutex.RUnlock()
+
+	if r.queryCache == nil || r.queryCache[r.GraphID] == nil {
+		return nil, false
+	}
+
+	cache, exists := r.queryCache[r.GraphID][queryHash]
+	if !exists {
+		return nil, false
+	}
+
+	// Check if cache is expired
+	if time.Now().After(cache.TTL) {
+		// Remove expired cache
+		r.cacheMutex.RUnlock()
+		r.cacheMutex.Lock()
+		delete(r.queryCache[r.GraphID], queryHash)
+		r.cacheMutex.Unlock()
+		r.cacheMutex.RLock()
+		return nil, false
+	}
+
+	return cache, true
+}
+
+// setCachedQuery stores a query result in the cache
+func (r *PklResourceReader) setCachedQuery(queryHash string, query interface{}, results map[string]interface{}) {
+	r.cacheMutex.Lock()
+	defer r.cacheMutex.Unlock()
+
+	if r.queryCache == nil {
+		r.queryCache = make(map[string]map[string]*QueryCache)
+	}
+	if r.queryCache[r.GraphID] == nil {
+		r.queryCache[r.GraphID] = make(map[string]*QueryCache)
+	}
+
+	queryStr, _ := json.Marshal(query)
+	r.queryCache[r.GraphID][queryHash] = &QueryCache{
+		Results: results,
+		TTL:     time.Now().Add(r.cacheTTL),
+		Query:   string(queryStr),
+	}
+
+	r.Logger.Debug("Cached query result", "queryHash", queryHash, "graphID", r.GraphID, "ttl", r.cacheTTL)
+}
+
+// Select performs a selection operation (filtering) on a collection
+func (r *PklResourceReader) Select(collectionKey string, conditions []SelectionCondition) (*RelationalResult, error) {
+	query := map[string]interface{}{
+		"operation":  "select",
+		"collection": collectionKey,
+		"conditions": conditions,
+	}
+	queryHash := r.generateQueryHash(query)
+
+	// Check cache first
+	if cache, exists := r.getCachedQuery(queryHash); exists {
+		r.Logger.Debug("Using cached select result", "queryHash", queryHash, "collection", collectionKey)
+		return &RelationalResult{
+			Rows:    cache.Results["rows"].([]RelationalRow),
+			Columns: cache.Results["columns"].([]string),
+			Query:   cache.Query,
+			TTL:     cache.TTL,
+		}, nil
+	}
+
+	// Get all data from the collection
+	r.storeMutex.RLock()
+	defer r.storeMutex.RUnlock()
+
+	canonicalCollectionKey := r.resolveActionID(collectionKey)
+	collection, exists := r.store[r.GraphID][canonicalCollectionKey]
+	if !exists {
+		return &RelationalResult{Rows: []RelationalRow{}, Columns: []string{}}, nil
+	}
+
+	var rows []RelationalRow
+	var columns []string
+	columnSet := make(map[string]bool)
+
+	// Convert collection data to rows
+	for key, value := range collection {
+		row := RelationalRow{Data: make(map[string]interface{})}
+		row.Data["key"] = key
+
+		// Try to parse value as JSON, fallback to string
+		var parsedValue interface{}
+		if err := json.Unmarshal([]byte(value), &parsedValue); err == nil {
+			row.Data["value"] = parsedValue
+		} else {
+			row.Data["value"] = value
+		}
+
+		// Apply selection conditions
+		includeRow := true
+		for _, condition := range conditions {
+			if !r.evaluateCondition(row.Data, condition) {
+				includeRow = false
+				break
+			}
+		}
+
+		if includeRow {
+			rows = append(rows, row)
+			// Track columns
+			for col := range row.Data {
+				columnSet[col] = true
+			}
+		}
+	}
+
+	// Convert column set to slice
+	for col := range columnSet {
+		columns = append(columns, col)
+	}
+
+	result := &RelationalResult{
+		Rows:    rows,
+		Columns: columns,
+		Query:   fmt.Sprintf("SELECT * FROM %s WHERE %v", collectionKey, conditions),
+		TTL:     time.Now().Add(r.cacheTTL),
+	}
+
+	// Cache the result
+	r.setCachedQuery(queryHash, query, map[string]interface{}{
+		"rows":    rows,
+		"columns": columns,
+	})
+
+	r.Logger.Debug("Select operation completed", "collection", collectionKey, "rows", len(rows), "queryHash", queryHash)
+	return result, nil
+}
+
+// Project performs a projection operation (column selection) on a collection
+func (r *PklResourceReader) Project(collectionKey string, condition ProjectionCondition) (*RelationalResult, error) {
+	query := map[string]interface{}{
+		"operation":  "project",
+		"collection": collectionKey,
+		"condition":  condition,
+	}
+	queryHash := r.generateQueryHash(query)
+
+	// Check cache first
+	if cache, exists := r.getCachedQuery(queryHash); exists {
+		r.Logger.Debug("Using cached project result", "queryHash", queryHash, "collection", collectionKey)
+		return &RelationalResult{
+			Rows:    cache.Results["rows"].([]RelationalRow),
+			Columns: cache.Results["columns"].([]string),
+			Query:   cache.Query,
+			TTL:     cache.TTL,
+		}, nil
+	}
+
+	// Get all data from the collection
+	r.storeMutex.RLock()
+	defer r.storeMutex.RUnlock()
+
+	canonicalCollectionKey := r.resolveActionID(collectionKey)
+	collection, exists := r.store[r.GraphID][canonicalCollectionKey]
+	if !exists {
+		return &RelationalResult{Rows: []RelationalRow{}, Columns: []string{}}, nil
+	}
+
+	var rows []RelationalRow
+	var columns []string
+
+	// Convert collection data to rows
+	for key, value := range collection {
+		row := RelationalRow{Data: make(map[string]interface{})}
+		row.Data["key"] = key
+
+		// Try to parse value as JSON, fallback to string
+		var parsedValue interface{}
+		if err := json.Unmarshal([]byte(value), &parsedValue); err == nil {
+			row.Data["value"] = parsedValue
+		} else {
+			row.Data["value"] = value
+		}
+
+		// Apply projection
+		projectedRow := RelationalRow{Data: make(map[string]interface{})}
+
+		if len(condition.Columns) > 0 {
+			// Include only specified columns
+			for _, col := range condition.Columns {
+				if val, exists := row.Data[col]; exists {
+					projectedRow.Data[col] = val
+				}
+			}
+		} else {
+			// Include all columns except excluded ones
+			for col, val := range row.Data {
+				excluded := false
+				for _, excludeCol := range condition.Exclude {
+					if col == excludeCol {
+						excluded = true
+						break
+					}
+				}
+				if !excluded {
+					projectedRow.Data[col] = val
+				}
+			}
+		}
+
+		rows = append(rows, projectedRow)
+	}
+
+	// Determine columns from first row
+	if len(rows) > 0 {
+		for col := range rows[0].Data {
+			columns = append(columns, col)
+		}
+	}
+
+	result := &RelationalResult{
+		Rows:    rows,
+		Columns: columns,
+		Query:   fmt.Sprintf("PROJECT %v FROM %s", condition, collectionKey),
+		TTL:     time.Now().Add(r.cacheTTL),
+	}
+
+	// Cache the result
+	r.setCachedQuery(queryHash, query, map[string]interface{}{
+		"rows":    rows,
+		"columns": columns,
+	})
+
+	r.Logger.Debug("Project operation completed", "collection", collectionKey, "rows", len(rows), "queryHash", queryHash)
+	return result, nil
+}
+
+// Join performs a join operation between two collections
+func (r *PklResourceReader) Join(condition JoinCondition) (*RelationalResult, error) {
+	query := map[string]interface{}{
+		"operation": "join",
+		"condition": condition,
+	}
+	queryHash := r.generateQueryHash(query)
+
+	// Check cache first
+	if cache, exists := r.getCachedQuery(queryHash); exists {
+		r.Logger.Debug("Using cached join result", "queryHash", queryHash)
+		return &RelationalResult{
+			Rows:    cache.Results["rows"].([]RelationalRow),
+			Columns: cache.Results["columns"].([]string),
+			Query:   cache.Query,
+			TTL:     cache.TTL,
+		}, nil
+	}
+
+	// Get data from both collections
+	r.storeMutex.RLock()
+	defer r.storeMutex.RUnlock()
+
+	leftCollectionKey := r.resolveActionID(condition.LeftCollection)
+	rightCollectionKey := r.resolveActionID(condition.RightCollection)
+
+	leftCollection, leftExists := r.store[r.GraphID][leftCollectionKey]
+	rightCollection, rightExists := r.store[r.GraphID][rightCollectionKey]
+
+	if !leftExists || !rightExists {
+		return &RelationalResult{Rows: []RelationalRow{}, Columns: []string{}}, nil
+	}
+
+	var rows []RelationalRow
+	var columns []string
+	columnSet := make(map[string]bool)
+
+	// Build join index for right collection
+	rightIndex := make(map[string][]RelationalRow)
+	for key, value := range rightCollection {
+		row := RelationalRow{Data: make(map[string]interface{})}
+		row.Data["key"] = key
+
+		var parsedValue interface{}
+		if err := json.Unmarshal([]byte(value), &parsedValue); err == nil {
+			row.Data["value"] = parsedValue
+		} else {
+			row.Data["value"] = value
+		}
+
+		joinKey := fmt.Sprintf("%v", row.Data[condition.RightKey])
+		rightIndex[joinKey] = append(rightIndex[joinKey], row)
+	}
+
+	// Perform join
+	for leftKey, leftValue := range leftCollection {
+		leftRow := RelationalRow{Data: make(map[string]interface{})}
+		leftRow.Data["key"] = leftKey
+
+		var parsedValue interface{}
+		if err := json.Unmarshal([]byte(leftValue), &parsedValue); err == nil {
+			leftRow.Data["value"] = parsedValue
+		} else {
+			leftRow.Data["value"] = leftValue
+		}
+
+		joinKey := fmt.Sprintf("%v", leftRow.Data[condition.LeftKey])
+		rightRows, exists := rightIndex[joinKey]
+
+		if exists {
+			// Inner join - create joined rows
+			for _, rightRow := range rightRows {
+				joinedRow := RelationalRow{Data: make(map[string]interface{})}
+
+				// Add left collection data with prefix
+				for k, v := range leftRow.Data {
+					joinedRow.Data[fmt.Sprintf("left_%s", k)] = v
+				}
+
+				// Add right collection data with prefix
+				for k, v := range rightRow.Data {
+					joinedRow.Data[fmt.Sprintf("right_%s", k)] = v
+				}
+
+				rows = append(rows, joinedRow)
+
+				// Track columns
+				for col := range joinedRow.Data {
+					columnSet[col] = true
+				}
+			}
+		} else if condition.JoinType == "left" || condition.JoinType == "full" {
+			// Left join - include left row with null right values
+			joinedRow := RelationalRow{Data: make(map[string]interface{})}
+
+			for k, v := range leftRow.Data {
+				joinedRow.Data[fmt.Sprintf("left_%s", k)] = v
+			}
+
+			// Add null values for right collection
+			for k := range rightCollection {
+				joinedRow.Data[fmt.Sprintf("right_%s", k)] = nil
+			}
+
+			rows = append(rows, joinedRow)
+
+			for col := range joinedRow.Data {
+				columnSet[col] = true
+			}
+		}
+	}
+
+	// Handle right join for full outer join
+	if condition.JoinType == "right" || condition.JoinType == "full" {
+		leftIndex := make(map[string]bool)
+		for _, row := range rows {
+			leftKey := fmt.Sprintf("%v", row.Data[fmt.Sprintf("left_%s", condition.LeftKey)])
+			leftIndex[leftKey] = true
+		}
+
+		for _, rightRows := range rightIndex {
+			for _, rightRow := range rightRows {
+				rightKey := fmt.Sprintf("%v", rightRow.Data[condition.RightKey])
+				if !leftIndex[rightKey] {
+					// Right join - include right row with null left values
+					joinedRow := RelationalRow{Data: make(map[string]interface{})}
+
+					// Add null values for left collection
+					for k := range leftCollection {
+						joinedRow.Data[fmt.Sprintf("left_%s", k)] = nil
+					}
+
+					// Add right collection data
+					for k, v := range rightRow.Data {
+						joinedRow.Data[fmt.Sprintf("right_%s", k)] = v
+					}
+
+					rows = append(rows, joinedRow)
+
+					for col := range joinedRow.Data {
+						columnSet[col] = true
+					}
+				}
+			}
+		}
+	}
+
+	// Convert column set to slice
+	for col := range columnSet {
+		columns = append(columns, col)
+	}
+
+	result := &RelationalResult{
+		Rows:    rows,
+		Columns: columns,
+		Query:   fmt.Sprintf("JOIN %s.%s = %s.%s (%s)", condition.LeftCollection, condition.LeftKey, condition.RightCollection, condition.RightKey, condition.JoinType),
+		TTL:     time.Now().Add(r.cacheTTL),
+	}
+
+	// Cache the result
+	r.setCachedQuery(queryHash, query, map[string]interface{}{
+		"rows":    rows,
+		"columns": columns,
+	})
+
+	r.Logger.Debug("Join operation completed", "left", condition.LeftCollection, "right", condition.RightCollection, "rows", len(rows), "queryHash", queryHash)
+	return result, nil
+}
+
+// evaluateCondition evaluates a selection condition against row data
+func (r *PklResourceReader) evaluateCondition(rowData map[string]interface{}, condition SelectionCondition) bool {
+	fieldValue, exists := rowData[condition.Field]
+	if !exists {
+		return false
+	}
+
+	switch condition.Operator {
+	case "eq":
+		return fmt.Sprintf("%v", fieldValue) == fmt.Sprintf("%v", condition.Value)
+	case "ne":
+		return fmt.Sprintf("%v", fieldValue) != fmt.Sprintf("%v", condition.Value)
+	case "gt":
+		return r.compareValues(fieldValue, condition.Value) > 0
+	case "lt":
+		return r.compareValues(fieldValue, condition.Value) < 0
+	case "gte":
+		return r.compareValues(fieldValue, condition.Value) >= 0
+	case "lte":
+		return r.compareValues(fieldValue, condition.Value) <= 0
+	case "contains":
+		return strings.Contains(fmt.Sprintf("%v", fieldValue), fmt.Sprintf("%v", condition.Value))
+	case "in":
+		if slice, ok := condition.Value.([]interface{}); ok {
+			for _, val := range slice {
+				if fmt.Sprintf("%v", fieldValue) == fmt.Sprintf("%v", val) {
+					return true
+				}
+			}
+		}
+		return false
+	default:
+		return false
+	}
+}
+
+// compareValues compares two values for ordering operations
+func (r *PklResourceReader) compareValues(a, b interface{}) int {
+	// Try numeric comparison first
+	if aNum, aOk := a.(float64); aOk {
+		if bNum, bOk := b.(float64); bOk {
+			if aNum < bNum {
+				return -1
+			} else if aNum > bNum {
+				return 1
+			}
+			return 0
+		}
+	}
+
+	// Fallback to string comparison
+	aStr := fmt.Sprintf("%v", a)
+	bStr := fmt.Sprintf("%v", b)
+	return strings.Compare(aStr, bStr)
+}
+
+// ClearCache clears the query cache for the current graph
+func (r *PklResourceReader) ClearCache() {
+	r.cacheMutex.Lock()
+	defer r.cacheMutex.Unlock()
+
+	if r.queryCache != nil {
+		delete(r.queryCache, r.GraphID)
+	}
+	r.Logger.Debug("Cleared query cache", "graphID", r.GraphID)
+}
+
+// SetCacheTTL sets the default TTL for cached queries
+func (r *PklResourceReader) SetCacheTTL(ttl time.Duration) {
+	r.cacheTTL = ttl
+	r.Logger.Debug("Set cache TTL", "ttl", ttl)
+}
+
+// GetCacheStats returns statistics about the query cache
+func (r *PklResourceReader) GetCacheStats() map[string]interface{} {
+	r.cacheMutex.RLock()
+	defer r.cacheMutex.RUnlock()
+
+	if r.queryCache == nil || r.queryCache[r.GraphID] == nil {
+		return map[string]interface{}{
+			"total_queries":   0,
+			"expired_queries": 0,
+			"active_queries":  0,
+		}
+	}
+
+	total := len(r.queryCache[r.GraphID])
+	expired := 0
+	active := 0
+
+	for _, cache := range r.queryCache[r.GraphID] {
+		if time.Now().After(cache.TTL) {
+			expired++
+		} else {
+			active++
+		}
+	}
+
+	return map[string]interface{}{
+		"total_queries":   total,
+		"expired_queries": expired,
+		"active_queries":  active,
+		"cache_ttl":       r.cacheTTL,
+	}
+}
+
+// URI Handler Methods for Relational Algebra Operations
+
+// handleRelationalSelect handles the relationalSelect URI operation
+func (r *PklResourceReader) handleRelationalSelect(collectionKey, conditionsJson string) ([]byte, error) {
+	if collectionKey == "" || conditionsJson == "" {
+		return nil, errors.New("relationalSelect requires collection and conditions parameters")
+	}
+
+	var conditions []SelectionCondition
+	if err := json.Unmarshal([]byte(conditionsJson), &conditions); err != nil {
+		return nil, fmt.Errorf("failed to parse conditions JSON: %w", err)
+	}
+
+	result, err := r.Select(collectionKey, conditions)
+	if err != nil {
+		return nil, fmt.Errorf("relationalSelect operation failed: %w", err)
+	}
+
+	return json.Marshal(result)
+}
+
+// handleRelationalProject handles the relationalProject URI operation
+func (r *PklResourceReader) handleRelationalProject(collectionKey, conditionJson string) ([]byte, error) {
+	if collectionKey == "" || conditionJson == "" {
+		return nil, errors.New("relationalProject requires collection and condition parameters")
+	}
+
+	var condition ProjectionCondition
+	if err := json.Unmarshal([]byte(conditionJson), &condition); err != nil {
+		return nil, fmt.Errorf("failed to parse condition JSON: %w", err)
+	}
+
+	result, err := r.Project(collectionKey, condition)
+	if err != nil {
+		return nil, fmt.Errorf("relationalProject operation failed: %w", err)
+	}
+
+	return json.Marshal(result)
+}
+
+// handleRelationalJoin handles the relationalJoin URI operation
+func (r *PklResourceReader) handleRelationalJoin(conditionJson string) ([]byte, error) {
+	if conditionJson == "" {
+		return nil, errors.New("relationalJoin requires condition parameter")
+	}
+
+	var condition JoinCondition
+	if err := json.Unmarshal([]byte(conditionJson), &condition); err != nil {
+		return nil, fmt.Errorf("failed to parse condition JSON: %w", err)
+	}
+
+	result, err := r.Join(condition)
+	if err != nil {
+		return nil, fmt.Errorf("relationalJoin operation failed: %w", err)
+	}
+
+	return json.Marshal(result)
+}
+
+// handleClearCache handles the clearCache URI operation
+func (r *PklResourceReader) handleClearCache() ([]byte, error) {
+	r.ClearCache()
+	return json.Marshal("Cache cleared successfully")
+}
+
+// handleSetCacheTTL handles the setCacheTTL URI operation
+func (r *PklResourceReader) handleSetCacheTTL(ttlStr string) ([]byte, error) {
+	if ttlStr == "" {
+		return nil, errors.New("setCacheTTL requires ttl parameter")
+	}
+
+	ttlSeconds, err := fmt.Sscanf(ttlStr, "%d", new(int))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse TTL: %w", err)
+	}
+
+	r.SetCacheTTL(time.Duration(ttlSeconds) * time.Second)
+	return json.Marshal(fmt.Sprintf("Cache TTL set to %d seconds", ttlSeconds))
+}
+
+// handleGetCacheStats handles the getCacheStats URI operation
+func (r *PklResourceReader) handleGetCacheStats() ([]byte, error) {
+	stats := r.GetCacheStats()
+	return json.Marshal(stats)
+}
+
+// handleQueryWithCache handles the queryWithCache URI operation
+func (r *PklResourceReader) handleQueryWithCache(queryType, paramsJson string) ([]byte, error) {
+	if queryType == "" || paramsJson == "" {
+		return nil, errors.New("queryWithCache requires queryType and params parameters")
+	}
+
+	var params map[string]interface{}
+	if err := json.Unmarshal([]byte(paramsJson), &params); err != nil {
+		return nil, fmt.Errorf("failed to parse params JSON: %w", err)
+	}
+
+	// This would need to be implemented in PklresHelper
+	// For now, return an error indicating this needs to be handled differently
+	return nil, errors.New("queryWithCache operation not yet implemented in URI handler")
 }

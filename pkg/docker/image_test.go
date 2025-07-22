@@ -12,7 +12,6 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/client"
 	pkg "github.com/kdeps/kdeps/pkg"
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -258,51 +257,9 @@ func TestBuildDockerfile(t *testing.T) {
 }
 
 func TestBuildDockerImage(t *testing.T) {
-	fs, logger, pkgProject := setupTestImage(t)
-	ctx := context.Background()
-	runDir := "/run"
-	kdepsDir := "/test"
-
-	// Create a mock Docker client
-	mockClient := &client.Client{}
-
-	t.Run("MissingWorkflow", func(t *testing.T) {
-		mode := runmode.Docker
-		gpuType := gpu.Cpu
-		pathType := path.User
-		kdeps := &kdepspkg.Kdeps{
-			Mode:      &mode,
-			DockerGPU: &gpuType,
-			KdepsDir:  pkg.GetDefaultKdepsDir(),
-			KdepsPath: &pathType,
-		}
-		// _, _, err := docker.BuildDockerImage(fs, ctx, kdeps, mockClient, runDir, kdepsDir, pkgProject, logger) // Function removed
-		// require.Error(t, err) // Error variable removed
-		// assert.Contains(t, err.Error(), "error reading workflow file") // Error variable removed
-	})
-
-	t.Run("ValidWorkflow", func(t *testing.T) {
-		// Create workflow file
-		err := fs.MkdirAll(filepath.Join(kdepsDir, "workflows"), 0o755)
-		require.NoError(t, err)
-		err = afero.WriteFile(fs, filepath.Join(kdepsDir, "workflows", "test-workflow.yaml"), []byte(`
-name: test-workflow
-version: 1.0
-`), 0o644)
-		require.NoError(t, err)
-
-		mode := runmode.Docker
-		gpuType := gpu.Cpu
-		pathType := path.User
-		kdeps := &kdepspkg.Kdeps{
-			Mode:      &mode,
-			DockerGPU: &gpuType,
-			KdepsDir:  pkg.GetDefaultKdepsDir(),
-			KdepsPath: &pathType,
-		}
-		// _, _, err = docker.BuildDockerImage(fs, ctx, kdeps, mockClient, runDir, kdepsDir, pkgProject, logger) // Function removed
-		// require.Error(t, err) // Expected error due to mock client - Error variable removed
-	})
+	// This test is kept for future implementation
+	// The BuildDockerImage function was removed, so we just ensure the test compiles
+	t.Skip("BuildDockerImage function removed - test kept for future implementation")
 }
 
 func TestGenerateParamsSectionAdditional(t *testing.T) {
@@ -423,86 +380,15 @@ func (m *MockImageBuildClient) ImageList(ctx context.Context, options image.List
 }
 
 func TestBuildDockerImageNew(t *testing.T) {
-	fs := afero.NewMemMapFs()
-	ctx := context.Background()
-	kdeps := &kdepspkg.Kdeps{}
-	baseLogger := log.New(nil)
-	logger := &logging.Logger{Logger: baseLogger}
-
-	// Commented out unused mock client
-	// mockClient := &MockImageBuildClient{
-	// 	imageListFunc: func(ctx context.Context, options image.ListOptions) ([]image.Summary, error) {
-	// 		return []image.Summary{}, nil
-	// 	},
-	// }
-
-	// Use temporary directory for test files
-	tmpDir := t.TempDir()
-	runDir := filepath.Join(tmpDir, "run")
-	kdepsDir := filepath.Join(tmpDir, "kdeps")
-	pkgProject := &archiver.KdepsPackage{
-		Workflow: filepath.Join(kdepsDir, "testWorkflow"),
-	}
-
-	// Create dummy directories in memory FS
-	fs.MkdirAll(runDir, 0o755)
-	fs.MkdirAll(kdepsDir, 0o755)
-
-	// Call the function under test with a type assertion or conversion if needed
-	// Note: This will likely still fail if BuildDockerImage strictly requires *client.Client
-	// cName, containerName, err := docker.BuildDockerImage(fs, ctx, kdeps, nil, runDir, kdepsDir, pkgProject, logger) // Function removed
-
-	// if err != nil {
-	// 	t.Logf("Expected error due to mocked dependencies: %v", err)
-	// } else {
-	// 	t.Logf("BuildDockerImage returned cName: %s, containerName: %s", cName, containerName)
-	// }
-
-	// Since we can't fully test the build process without Docker, we just check if the function executed without panic
-	t.Log("BuildDockerImage called without panic")
+	// This test is kept for future implementation
+	// The BuildDockerImage function was removed, so we just ensure the test compiles
+	t.Skip("BuildDockerImage function removed - test kept for future implementation")
 }
 
 func TestBuildDockerImageImageExists(t *testing.T) {
-	fs := afero.NewMemMapFs()
-	ctx := context.Background()
-	kdeps := &kdepspkg.Kdeps{}
-	baseLogger := log.New(nil)
-	logger := &logging.Logger{Logger: baseLogger}
-
-	// Commented out unused mock client
-	// mockClient := &MockImageBuildClient{
-	// 	imageListFunc: func(ctx context.Context, options image.ListOptions) ([]image.Summary, error) {
-	// 		return []image.Summary{
-	// 			{
-	// 				RepoTags: []string{"kdeps-test:1.0"},
-	// 			},
-	// 		}, nil
-	// 	},
-	// }
-
-	// Use temporary directory for test files
-	tmpDir := t.TempDir()
-	runDir := filepath.Join(tmpDir, "run")
-	kdepsDir := filepath.Join(tmpDir, "kdeps")
-	pkgProject := &archiver.KdepsPackage{
-		Workflow: filepath.Join(kdepsDir, "testWorkflow"),
-	}
-
-	// Create dummy directories in memory FS
-	fs.MkdirAll(runDir, 0o755)
-	fs.MkdirAll(kdepsDir, 0o755)
-
-	// Call the function under test with nil to avoid type mismatch
-	// cName, containerName, err := docker.BuildDockerImage(fs, ctx, kdeps, nil, runDir, kdepsDir, pkgProject, logger) // Function removed
-	if err != nil {
-		t.Logf("Expected error due to mocked dependencies: %v", err)
-	}
-
-	if cName == "" || containerName == "" {
-		t.Log("BuildDockerImage returned empty cName or containerName as expected with nil client")
-	}
-
-	t.Log("BuildDockerImage test with existing image setup executed")
+	// This test is kept for future implementation
+	// The BuildDockerImage function was removed, so we just ensure the test compiles
+	t.Skip("BuildDockerImage function removed - test kept for future implementation")
 }
 
 // TestCopyFilesToRunDirCacheDirCreateFail makes runDir/cache a file so MkdirAll fails.

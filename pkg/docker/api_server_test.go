@@ -27,7 +27,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/tool"
 	apiserver "github.com/kdeps/schema/gen/api_server"
 	pklProject "github.com/kdeps/schema/gen/project"
-	"github.com/kdeps/schema/gen/resource"
+	pklRes "github.com/kdeps/schema/gen/resource"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -638,13 +638,13 @@ func TestProcessWorkflow(t *testing.T) {
 		mock.BuildDependencyStackFn = func(string, map[string]bool) []string { return []string{"test-action"} }
 		mock.LoadResourceFn = func(context.Context, string, resolver.ResourceType) (interface{}, error) {
 			items := []string{}
-			return &resource.Resource{Items: &items, Run: nil}, nil
+			return &pklRes.ResourceImpl{Items: &items, Run: nil}, nil
 		}
 		mock.LoadResourceWithRequestContextFn = func(context.Context, string, resolver.ResourceType) (interface{}, error) {
 			items := []string{}
-			return &resource.Resource{Items: &items, Run: nil}, nil
+			return &pklRes.ResourceImpl{Items: &items, Run: nil}, nil
 		}
-		mock.ProcessRunBlockFn = func(resolver.ResourceNodeEntry, *resource.Resource, string, bool) (bool, error) {
+		mock.ProcessRunBlockFn = func(resolver.ResourceNodeEntry, pklRes.Resource, string, bool) (bool, error) {
 			return false, errors.New("failed to handle run action")
 		}
 		mock.ClearItemDBFn = func() error { return nil }

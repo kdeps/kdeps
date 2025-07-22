@@ -224,11 +224,15 @@ func theResourceIDForWillBeAndDependency(arg1, arg2, arg3 string) error {
 		if err != nil {
 			return err
 		}
-		if res.ActionID != arg2 {
+		if res.GetActionID() != arg2 {
 			return errors.New("should be equal")
 		}
+		requires := res.GetRequires()
+		if requires == nil {
+			return errors.New("requires is nil")
+		}
 		found := false
-		for _, v := range *res.Requires {
+		for _, v := range *requires {
 			if v == arg3 {
 				found = true
 				break
@@ -251,7 +255,7 @@ func theResourceIDForWillBeRewrittenTo(arg1, arg2 string) error {
 			return err
 		}
 
-		if res.ActionID != arg2 {
+		if res.GetActionID() != arg2 {
 			return errors.New("should be equal")
 		}
 	}

@@ -116,7 +116,7 @@ func TestProcessRunBlock_NoRunBlock(t *testing.T) {
 	}
 
 	resEntry := resolverpkg.ResourceNodeEntry{ActionID: "act1", File: "foo.pkl"}
-	rsc := &pklRes.Resource{} // Run is nil by default
+	rsc := &pklRes.ResourceImpl{} // Run is nil by default
 
 	proceed, err := dr.ProcessRunBlock(resEntry, rsc, "act1", false)
 	if err != nil {

@@ -842,6 +842,14 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 		dr.Logger.Info("Initial dependency status", "statusSummary", statusSummary)
 	}
 
+	// Set the global pklres reader context before processing resources
+	if dr.PklresReader != nil && dr.Workflow != nil {
+		err := pklres.UpdateGlobalPklresReaderContext(dr.RequestID, dr.Workflow.GetAgentID(), dr.Workflow.GetVersion(), dr.AgentDir)
+		if err != nil {
+			dr.Logger.Warn("Failed to update global pklres reader context", "error", err)
+		}
+	}
+
 	// In API server mode, ensure the request resource is processed first
 	if dr.APIServerMode {
 		dr.Logger.Debug("API server mode detected, adding virtual request resource", "requestID", dr.RequestID)
@@ -931,9 +939,19 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 
 	// Process each resource in the dependency stack
 	for i, nodeActionID := range stack {
+		// Create process ID for this resource execution
+		processID := fmt.Sprintf("[%d/%d] *%s*", i+1, len(stack), nodeActionID)
+
+		// Set the process ID for pklres logging
+		if dr.PklresReader != nil {
+			if err := pklres.UpdateGlobalPklresReaderProcessID(processID); err != nil {
+				dr.Logger.Warn("Failed to update pklres process ID", "error", err, "processID", processID)
+			}
+		}
+
 		// Enhanced execution logging with progress
-		dr.Logger.Info(fmt.Sprintf("🚀 EXECUTING [%d/%d] *%s*", i+1, len(stack), nodeActionID))
-		dr.Logger.Debug("processing resource in dependency stack", "nodeActionID", nodeActionID)
+		dr.Logger.Info(fmt.Sprintf("🚀 EXECUTING %s", processID))
+		dr.Logger.Debug("processing resource in dependency stack", "nodeActionID", nodeActionID, "processID", processID)
 
 		// Debug: Log all available resources for comparison
 		dr.Logger.Info("available resources for matching", "availableResourceIDs", func() []string {
@@ -1029,12 +1047,25 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 
 			// Process run block: once if no items, or once per item
 			if len(items) == 0 {
-				dr.Logger.Info("no items specified, processing run block once", "actionID", res.ActionID)
-				proceed, err := dr.ProcessRunBlockFn(res, rsc, nodeActionID, false)
+				// Process run block once
+				_, err = dr.ProcessRunBlockFn(res, rsc, nodeActionID, false)
 				if err != nil {
 					return false, err
-				} else if !proceed {
-					continue
+				}
+
+				// Wait for pklres recording to complete before proceeding to next resource
+				// Use configurable timeout: DefaultTimeoutSec > 0 overrides, otherwise use 30s default
+				var pklresTimeout time.Duration
+				switch {
+				case dr.DefaultTimeoutSec > 0:
+					pklresTimeout = time.Duration(dr.DefaultTimeoutSec) * time.Second
+				case dr.DefaultTimeoutSec == 0:
+					pklresTimeout = 0 // unlimited
+				default:
+					pklresTimeout = 30 * time.Second // reasonable default
+				}
+				if err := dr.WaitForPklresRecording(res.ActionID, pklresTimeout); err != nil {
+					dr.Logger.Warn("Failed to wait for pklres recording, continuing to next resource", "actionID", res.ActionID, "error", err)
 				}
 			} else {
 				for _, itemValue := range items {
@@ -1093,6 +1124,21 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 				if err := dr.ClearItemDBFn(); err != nil {
 					dr.Logger.Error("failed to clear item database after iteration", "actionID", res.ActionID, "error", err)
 					return dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("failed to clear item database for resource %s: %v", res.ActionID, err), true)
+				}
+
+				// Wait for pklres recording to complete after processing all items
+				// Use configurable timeout: DefaultTimeoutSec > 0 overrides, otherwise use 30s default
+				var pklresTimeout time.Duration
+				switch {
+				case dr.DefaultTimeoutSec > 0:
+					pklresTimeout = time.Duration(dr.DefaultTimeoutSec) * time.Second
+				case dr.DefaultTimeoutSec == 0:
+					pklresTimeout = 0 // unlimited
+				default:
+					pklresTimeout = 30 * time.Second // reasonable default
+				}
+				if err := dr.WaitForPklresRecording(res.ActionID, pklresTimeout); err != nil {
+					dr.Logger.Warn("Failed to wait for pklres recording after items processing, continuing to next resource", "actionID", res.ActionID, "error", err)
 				}
 			}
 
@@ -1381,6 +1427,83 @@ func (dr *DependencyResolver) ValidateRequestPath(req *gin.Context, allowedRoute
 
 func (dr *DependencyResolver) ValidateRequestMethod(req *gin.Context, allowedMethods []string) error {
 	return dr.validateRequestMethod(req, allowedMethods)
+}
+
+// WaitForPklresRecording waits for pklres to record the results of a resource execution
+// before proceeding to the next resource. This ensures data consistency.
+// The timeout is configurable via DefaultTimeoutSec or uses a reasonable default.
+func (dr *DependencyResolver) WaitForPklresRecording(actionID string, timeout time.Duration) error {
+	if dr.PklresReader == nil || dr.PklresHelper == nil {
+		dr.Logger.Debug("PklresReader or PklresHelper is nil, skipping pklres recording verification", "actionID", actionID)
+		return nil
+	}
+
+	canonicalActionID := dr.PklresHelper.resolveActionID(actionID)
+
+	// Use configurable timeout: DefaultTimeoutSec > 0 overrides, otherwise use provided timeout
+	var configurableTimeout time.Duration
+	switch {
+	case dr.DefaultTimeoutSec > 0:
+		configurableTimeout = time.Duration(dr.DefaultTimeoutSec) * time.Second
+	case dr.DefaultTimeoutSec == 0:
+		configurableTimeout = 0 // unlimited
+	default:
+		configurableTimeout = timeout // use provided timeout as fallback
+	}
+
+	dr.Logger.Debug("Waiting for pklres recording to complete", "actionID", actionID, "canonicalActionID", canonicalActionID, "timeout", configurableTimeout, "defaultTimeoutSec", dr.DefaultTimeoutSec)
+
+	// Helper function to check if any data exists for this resource
+	checkForData := func() bool {
+		// Try to get any key from the collection to see if data exists
+		// We'll use a simple approach: try to list keys or check for common patterns
+		keys := []string{"timestamp", "response", "stdout", "model", "prompt", "file", "command", "script", "url", "method"}
+
+		for _, key := range keys {
+			value, err := dr.PklresHelper.Get(canonicalActionID, key)
+			if err == nil && value != "" && value != "null" {
+				dr.Logger.Debug("Found data in pklres", "actionID", actionID, "key", key, "value", utils.TruncateString(value, 50))
+				return true
+			}
+		}
+		return false
+	}
+
+	// If timeout is 0 (unlimited), wait indefinitely
+	if configurableTimeout == 0 {
+		dr.Logger.Debug("Waiting indefinitely for pklres recording (unlimited timeout)", "actionID", actionID)
+		pollInterval := 100 * time.Millisecond
+
+		for {
+			if checkForData() {
+				dr.Logger.Debug("Pklres recording completed", "actionID", actionID, "status", "completed")
+				return nil
+			}
+
+			dr.Logger.Debug("Still waiting for pklres recording", "actionID", actionID, "pendingDeps", []string{canonicalActionID})
+			time.Sleep(pollInterval)
+		}
+	}
+
+	// Use configurable timeout
+	deadline := time.Now().Add(configurableTimeout)
+	pollInterval := 100 * time.Millisecond
+
+	// Wait for the resource to set any data in pklres
+	for time.Now().Before(deadline) {
+		if checkForData() {
+			dr.Logger.Debug("Pklres recording completed", "actionID", actionID, "status", "completed")
+			return nil
+		}
+
+		dr.Logger.Debug("Still waiting for pklres recording", "actionID", actionID, "pendingDeps", []string{canonicalActionID})
+		time.Sleep(pollInterval)
+	}
+
+	// If we reach here, the resource didn't set any data within the timeout
+	// This is normal for resources that don't use pklres for data storage
+	dr.Logger.Debug("Resource did not set data in pklres within timeout, proceeding", "actionID", actionID, "timeout", configurableTimeout)
+	return nil
 }
 
 // findWorkflowInRun searches for workflow.pkl in /agents/<agentname>/<version>/

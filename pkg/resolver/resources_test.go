@@ -140,9 +140,9 @@ Run {
 		// Note: The request object is not currently available in the PKL context
 		// without explicit imports, so the resource will be loaded but without
 		// request context access
-		resource, ok := result.(*pklResource.Resource)
+		resource, ok := result.(pklResource.Resource)
 		assert.True(t, ok)
-		assert.Equal(t, "testResource", resource.ActionID)
+		assert.Equal(t, "testResource", resource.GetActionID())
 	})
 
 	t.Run("LoadResourceWithRequestContext_NoRequestFile", func(t *testing.T) {

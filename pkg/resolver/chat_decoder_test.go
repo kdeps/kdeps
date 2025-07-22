@@ -215,7 +215,7 @@ func TestLoadResourceEntriesInjected(t *testing.T) {
 		ResourceDependencies: make(map[string][]string),
 		Resources:            []resolver.ResourceNodeEntry{},
 		LoadResourceFn: func(_ context.Context, _ string, _ resolver.ResourceType) (interface{}, error) {
-			return &pklRes.Resource{ActionID: "action1"}, nil
+			return &pklRes.ResourceImpl{ActionID: "action1"}, nil
 		},
 		// PrependDynamicImportsFn and AddPlaceholderImportsFn removed - deprecated functionality
 	}

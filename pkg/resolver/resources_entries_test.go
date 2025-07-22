@@ -57,7 +57,7 @@ func TestLoadResourceEntriesStub(t *testing.T) {
 	dr.LoadResourceFn = func(_ context.Context, file string, _ resolverpkg.ResourceType) (interface{}, error) {
 		baseName := filepath.Base(file)
 		nameWithoutExt := baseName[:len(baseName)-len(filepath.Ext(baseName))]
-		return &pklRes.Resource{ActionID: nameWithoutExt}, nil
+		return &pklRes.ResourceImpl{ActionID: nameWithoutExt}, nil
 	}
 
 	// Call LoadResourceEntries
