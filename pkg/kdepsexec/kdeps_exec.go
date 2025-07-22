@@ -51,11 +51,40 @@ func KdepsExec(
 	}
 
 	if background {
-		// Run the command asynchronously
+		// Run the command asynchronously with timeout enforcement
 		go func() {
-			_, err := task.Execute(ctx)
+			// Create a new context that respects the original context's timeout
+			backgroundCtx, cancel := context.WithCancel(ctx)
+			defer cancel()
+
+			// Check if original context has deadline and apply it
+			if deadline, ok := ctx.Deadline(); ok {
+				backgroundCtx, cancel = context.WithDeadline(context.Background(), deadline)
+				defer cancel()
+			}
+
+			result, err := task.Execute(backgroundCtx)
 			if err != nil {
-				logger.Error("background command failed", "error", err)
+				if errors.Is(err, context.DeadlineExceeded) {
+					logger.Error("background command timed out", "command", command, "error", err)
+				} else {
+					logger.Error("background command failed", "command", command, "error", err)
+				}
+				return
+			}
+
+			// Log output from background command
+			if result.Stdout != "" {
+				logger.Info("background command stdout", "command", command, "output", result.Stdout)
+			}
+			if result.Stderr != "" {
+				logger.Warn("background command stderr", "command", command, "output", result.Stderr)
+			}
+
+			if result.ExitCode != 0 {
+				logger.Error("background command exited with non-zero code", "command", command, "code", result.ExitCode)
+			} else {
+				logger.Info("background command completed successfully", "command", command, "code", result.ExitCode)
 			}
 		}()
 		logger.Info("background command started", "command", command)

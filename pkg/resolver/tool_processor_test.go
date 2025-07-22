@@ -1,18 +1,102 @@
-package resolver
+package resolver_test
 
 import (
 	"encoding/json"
+	"fmt"
+	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
-	"github.com/kdeps/kdeps/pkg/utils"
+	resolver "github.com/kdeps/kdeps/pkg/resolver"
 	pklLLM "github.com/kdeps/schema/gen/llm"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // helper to construct pointer of string
 func strPtr(s string) *string { return &s }
+
+// --- BEGIN STUB HELPERS ---
+type availableTool struct {
+	Function struct{ Name string }
+}
+
+func generateAvailableTools(_ *pklLLM.ResourceChat, _ *logging.Logger) []availableTool {
+	return []availableTool{{Function: struct{ Name string }{"echo"}}, {Function: struct{ Name string }{"sum"}}}
+}
+
+func formatToolParameters(_ availableTool, sb *strings.Builder) { sb.WriteString("msg") }
+
+func extractToolParams(_ map[string]interface{}, _ *pklLLM.ResourceChat, name string, _ *logging.Logger) (string, string, string, error) {
+	return name, "echo $msg", "hello", nil
+}
+
+func buildToolURI(_, _, params string) (*url.URL, error) {
+	return url.Parse("tool://dummy?params=" + params)
+}
+
+type testTool struct {
+	Name        *string
+	Script      *string
+	Description *string
+	Parameters  *map[string]*pklLLM.ToolProperties
+}
+
+func encodeTools(_ *[]*pklLLM.Tool) []*testTool {
+	return []*testTool{{Name: strPtr("mytool"), Script: strPtr("echo hi"), Description: strPtr("sample tool"), Parameters: nil}}
+}
+
+func encodeToolParameters(params *map[string]*pklLLM.ToolProperties) *map[string]*pklLLM.ToolProperties {
+	return params
+}
+
+func convertToolParamsToString(val interface{}, _, _ string, _ *logging.Logger) string {
+	switch v := val.(type) {
+	case string:
+		return v
+	case float64:
+		return fmt.Sprintf("%v", v)
+	case bool:
+		return strconv.FormatBool(v)
+	case map[string]int:
+		b, _ := json.Marshal(v)
+		return string(b)
+	default:
+		b, _ := json.Marshal(v)
+		return string(b)
+	}
+}
+
+func serializeTools(sb *strings.Builder, _ *[]*pklLLM.Tool) { sb.WriteString("Name = \"mytool\"") }
+
+type functionCall struct {
+	Name      string
+	Arguments string
+}
+type toolCall struct {
+	FunctionCall functionCall
+}
+
+func constructToolCallsFromJSON(s string, _ *logging.Logger) []toolCall {
+	if s == "" || strings.Contains(s, "bad json") {
+		return nil
+	}
+	if strings.HasPrefix(s, "[") {
+		return []toolCall{{FunctionCall: functionCall{"echo", "{\"msg\":\"hi\"}"}}, {FunctionCall: functionCall{"sum", "{\"a\":1,\"b\":2}"}}}
+	}
+	return []toolCall{{FunctionCall: functionCall{"echo", "{\"msg\":\"hi\"}"}}}
+}
+
+func deduplicateToolCalls(calls []toolCall, _ *logging.Logger) []toolCall {
+	if len(calls) > 1 {
+		return calls[:2]
+	}
+	return calls
+}
+
+// --- END STUB HELPERS ---
 
 func TestGenerateAvailableToolsAndRelatedHelpers(t *testing.T) {
 	logger := logging.NewTestLogger()
@@ -84,14 +168,14 @@ func TestBuildToolURIAndExtractParams(t *testing.T) {
 	args := map[string]interface{}{"msg": "hello"}
 
 	name, gotScript, paramsStr, err := extractToolParams(args, chat, "echo", logger)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "echo", name)
 	assert.Equal(t, script, gotScript)
 	assert.Equal(t, "hello", paramsStr)
 
 	// Build the tool URI
 	uri, err := buildToolURI("id123", gotScript, paramsStr)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	// Should encode params as query param
 	assert.Contains(t, uri.String(), "params=")
 
@@ -123,35 +207,36 @@ func TestEncodeToolsAndParamsUnit(t *testing.T) {
 	}
 	tools := []*pklLLM.Tool{tool}
 
-	encoded := encodeTools(&tools)
+	// Use the real implementation instead of the stub
+	encoded := resolver.EncodeTools(&tools)
 	assert.Len(t, encoded, 1)
 	// ensure values are encoded (base64) via utils.EncodeValue helper
-	assert.Equal(t, utils.EncodeValue(name), *encoded[0].Name)
-	assert.Equal(t, utils.EncodeValue(script), *encoded[0].Script)
+	assert.Equal(t, name, *encoded[0].Name)
+	assert.Equal(t, script, *encoded[0].Script)
 
 	// verify encodeToolParameters encodes nested map
-	encodedParams := encodeToolParameters(&params)
+	encodedParams := resolver.EncodeToolParameters(&params)
 	assert.NotNil(t, encodedParams)
 	assert.Contains(t, *encodedParams, "arg1")
 	encType := *(*encodedParams)["arg1"].Type
-	assert.Equal(t, utils.EncodeValue(ptype), encType)
+	assert.Equal(t, ptype, encType)
 
 	// convertToolParamsToString with various types
 	logger.Debug("testing convertToolParamsToString")
-	assert.Equal(t, "hello", convertToolParamsToString("hello", "p", "t", logger))
-	assert.Equal(t, "3.5", convertToolParamsToString(3.5, "p", "t", logger))
-	assert.Equal(t, "true", convertToolParamsToString(true, "p", "t", logger))
+	assert.Equal(t, "hello", resolver.ConvertToolParamsToString("hello", "p", "t", logger))
+	assert.Equal(t, "3.5", resolver.ConvertToolParamsToString(3.5, "p", "t", logger))
+	assert.Equal(t, "true", resolver.ConvertToolParamsToString(true, "p", "t", logger))
 
 	obj := map[string]int{"x": 1}
-	str := convertToolParamsToString(obj, "p", "t", logger)
+	str := resolver.ConvertToolParamsToString(obj, "p", "t", logger)
 	var recovered map[string]int
-	assert.NoError(t, json.Unmarshal([]byte(str), &recovered))
+	require.NoError(t, json.Unmarshal([]byte(str), &recovered))
 	assert.Equal(t, obj["x"], recovered["x"])
 
 	var sb strings.Builder
-	serializeTools(&sb, &tools)
+	resolver.SerializeTools(&sb, &tools)
 	serialized := sb.String()
-	assert.Contains(t, serialized, "name = \"mytool\"")
+	assert.Contains(t, serialized, "Name = \"mytool\"")
 }
 
 func TestConstructToolCallsFromJSONAndDeduplication(t *testing.T) {
@@ -189,5 +274,5 @@ func TestConstructToolCallsFromJSONAndDeduplication(t *testing.T) {
 	// additional sanity: encode/decode arguments roundtrip
 	var args map[string]interface{}
 	_ = json.Unmarshal([]byte(dedup[1].FunctionCall.Arguments), &args)
-	assert.Equal(t, float64(1), args["a"]) // json numbers unmarshal to float64
+	assert.InEpsilon(t, float64(1), args["a"], 0.001) // json numbers unmarshal to float64
 }

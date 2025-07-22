@@ -11,12 +11,12 @@ import (
 
 	"github.com/apple/pkl-go/pkl"
 	"github.com/gabriel-vasile/mimetype"
-	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/tool"
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklLLM "github.com/kdeps/schema/gen/llm"
+	pklResource "github.com/kdeps/schema/gen/resource"
 	"github.com/spf13/afero"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/ollama"
@@ -39,19 +39,159 @@ const (
 	RoleTool      = "tool"
 )
 
-// HandleLLMChat initiates asynchronous processing of an LLM chat interaction.
+// substituteChatBlockTemplates substitutes template placeholders in chat block with actual values at runtime
+func (dr *DependencyResolver) substituteChatBlockTemplates(actionID string, chatBlock *pklLLM.ResourceChat) error {
+	// Create a mapping of template variables to their actual values
+	templateVars := make(map[string]string)
+
+	// Get request parameter 'q' if available
+	if dr.Request != nil {
+		if q := dr.Request.Query("q"); q != "" {
+			templateVars["REQUEST_PARAM_Q"] = q
+		}
+	}
+
+	// Substitute templates in the prompt
+	if chatBlock.Prompt != nil {
+		newPrompt := *chatBlock.Prompt
+		for placeholder, value := range templateVars {
+			newPrompt = strings.ReplaceAll(newPrompt, "{"+placeholder+"}", value)
+		}
+		chatBlock.Prompt = &newPrompt
+	}
+
+	// Substitute templates in scenario prompts
+	if chatBlock.Scenario != nil {
+		for _, scenario := range *chatBlock.Scenario {
+			if scenario != nil && scenario.Prompt != nil {
+				newPrompt := *scenario.Prompt
+				for placeholder, value := range templateVars {
+					newPrompt = strings.ReplaceAll(newPrompt, "{"+placeholder+"}", value)
+				}
+				scenario.Prompt = &newPrompt
+			}
+		}
+	}
+
+	return nil
+}
+
+// getResourceOutputSafely safely retrieves resource output without causing circular dependencies
+func (dr *DependencyResolver) getResourceOutputSafely(resourceID, resourceType, field string) string {
+	if dr.PklresHelper == nil {
+		return ""
+	}
+
+	// Resolve the resource ID to canonical form
+	canonicalID := dr.PklresHelper.resolveActionID(resourceID)
+
+	// Try to get the resource data from pklres
+	// This should only work if the resource has already been processed
+	switch field {
+	case "Body":
+		if response, err := dr.PklresHelper.Get(canonicalID, "response"); err == nil && response != "" {
+			return response
+		}
+	case "Stdout":
+		if stdout, err := dr.PklresHelper.Get(canonicalID, "stdout"); err == nil && stdout != "" {
+			return stdout
+		}
+	}
+
+	return ""
+}
+
+// HandleLLMChat processes an LLM chat interaction synchronously.
 func (dr *DependencyResolver) HandleLLMChat(actionID string, chatBlock *pklLLM.ResourceChat) error {
+	// LLM Chat processing started for actionID
+	// Canonicalize the actionID if it's a short ActionID
+	canonicalActionID := actionID
+	if dr.PklresHelper != nil {
+		canonicalActionID = dr.PklresHelper.resolveActionID(actionID)
+		if canonicalActionID != actionID {
+			// ActionID canonicalized
+		}
+	}
+
+	// Decode the chat block synchronously
 	if err := dr.decodeChatBlock(chatBlock); err != nil {
-		dr.Logger.Error("failed to decode chat block", "actionID", actionID, "error", err)
+		dr.Logger.Error("failed to decode chat block", "actionID", canonicalActionID, "error", err)
 		return err
 	}
 
-	go func(aID string, block *pklLLM.ResourceChat) {
-		if err := dr.processLLMChat(aID, block); err != nil {
-			dr.Logger.Error("failed to process LLM chat", "actionID", aID, "error", err)
-		}
-	}(actionID, chatBlock)
+	// Reload the LLM resource to ensure PKL templates are evaluated after dependencies are processed
+	// This ensures that PKL template expressions like \(client.responseBody("clientResource")) have access to dependency data
+	if err := dr.reloadLLMResourceWithDependencies(canonicalActionID, chatBlock); err != nil {
+		dr.Logger.Warn("failed to reload LLM resource, continuing with original", "actionID", canonicalActionID, "error", err)
+	}
 
+	// Process the chat block synchronously
+	if err := dr.processLLMChat(canonicalActionID, chatBlock); err != nil {
+		dr.Logger.Error("failed to process LLM chat block", "actionID", canonicalActionID, "error", err)
+		return err
+	}
+
+	return nil
+}
+
+// reloadLLMResourceWithDependencies reloads the LLM resource to ensure PKL templates are evaluated after dependencies
+func (dr *DependencyResolver) reloadLLMResourceWithDependencies(actionID string, chatBlock *pklLLM.ResourceChat) error {
+	// Reloading LLM resource with fresh template evaluation
+
+	// Find the resource file path for this actionID
+	resourceFile := ""
+	for _, resInterface := range dr.Resources {
+		if res, ok := resInterface.(ResourceNodeEntry); ok {
+			if res.ActionID == actionID {
+				resourceFile = res.File
+				break
+			}
+		}
+	}
+
+	if resourceFile == "" {
+		return fmt.Errorf("could not find resource file for actionID: %s", actionID)
+	}
+
+	// Found resource file for reloading
+
+	// Reload the LLM resource with fresh PKL template evaluation
+	// Load as generic Resource since the LLM resource extends Resource.pkl, not LLM.pkl
+	var reloadedResource interface{}
+	var err error
+	if dr.APIServerMode {
+		reloadedResource, err = dr.LoadResourceWithRequestContextFn(dr.Context, resourceFile, Resource)
+	} else {
+		reloadedResource, err = dr.LoadResourceFn(dr.Context, resourceFile, Resource)
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to reload LLM resource: %w", err)
+	}
+
+	// Cast to generic Resource first
+	reloadedGenericResource, ok := reloadedResource.(pklResource.Resource)
+	if !ok {
+		return fmt.Errorf("failed to cast reloaded resource to generic Resource")
+	}
+
+	// Extract the Chat block from the reloaded resource
+	if reloadedRun := reloadedGenericResource.GetRun(); reloadedRun != nil && reloadedRun.Chat != nil {
+		reloadedChat := reloadedRun.Chat
+
+		// Update the chatBlock with the reloaded values that contain fresh template evaluation
+		if reloadedChat.Prompt != nil {
+			chatBlock.Prompt = reloadedChat.Prompt
+			// Updated prompt from reloaded resource
+		}
+
+		if reloadedChat.Scenario != nil {
+			chatBlock.Scenario = reloadedChat.Scenario
+			// Updated scenario from reloaded resource
+		}
+	}
+
+	dr.Logger.Info("LLM resource reloaded", "actionID", actionID)
 	return nil
 }
 
@@ -407,96 +547,229 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 
 // processLLMChat processes the LLM chat and saves the response.
 func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.ResourceChat) error {
+	// Processing LLM Chat
+	dr.Logger.Info("processLLMChat: starting", "actionID", actionID)
+
+	if dr.NewLLMFn == nil {
+		dr.Logger.Error("processLLMChat: NewLLMFn is nil!", "actionID", actionID)
+		return errors.New("NewLLMFn is nil")
+	}
+	if dr.GenerateChatResponseFn == nil {
+		dr.Logger.Error("processLLMChat: GenerateChatResponseFn is nil!", "actionID", actionID)
+		return errors.New("GenerateChatResponseFn is nil")
+	}
+
 	if chatBlock == nil {
+		dr.Logger.Error("processLLMChat: chatBlock is nil", "actionID", actionID)
 		return errors.New("chatBlock cannot be nil")
 	}
 
-	llm, err := dr.NewLLMFn(chatBlock.Model)
+	// Substitute template placeholders with actual values at runtime
+	if err := dr.substituteChatBlockTemplates(actionID, chatBlock); err != nil {
+		dr.Logger.Error("processLLMChat: failed to substitute templates", "actionID", actionID, "error", err)
+		return fmt.Errorf("failed to substitute templates: %w", err)
+	}
+
+	modelStr := ""
+	if chatBlock.Model != nil {
+		modelStr = *chatBlock.Model
+	}
+	dr.Logger.Debug("processLLMChat: initializing LLM", "actionID", actionID, "model", modelStr)
+	llm, err := dr.NewLLMFn(modelStr)
 	if err != nil {
+		dr.Logger.Error("processLLMChat: failed to initialize LLM", "actionID", actionID, "error", err)
 		return fmt.Errorf("failed to initialize LLM: %w", err)
 	}
 
+	dr.Logger.Debug("processLLMChat: generating chat response", "actionID", actionID)
 	completion, err := dr.GenerateChatResponseFn(dr.Context, dr.Fs, llm, chatBlock, dr.ToolReader, dr.Logger)
 	if err != nil {
+		dr.Logger.Error("processLLMChat: failed to generate chat response", "actionID", actionID, "error", err)
 		return err
 	}
 
+	dr.Logger.Info("processLLMChat: setting response", "actionID", actionID, "responseLength", len(completion))
 	chatBlock.Response = &completion
-	return dr.AppendChatEntry(actionID, chatBlock)
-}
 
-// AppendChatEntry appends a chat entry to the Pkl file.
-func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM.ResourceChat) error {
-	pklPath := filepath.Join(dr.ActionDir, "llm/"+dr.RequestID+"__llm_output.pkl")
-
-	llmRes, err := dr.LoadResourceFn(dr.Context, pklPath, LLMResource)
-	if err != nil {
-		return fmt.Errorf("failed to load PKL file: %w", err)
-	}
-
-	pklRes, ok := llmRes.(*pklLLM.LLMImpl)
-	if !ok {
-		return errors.New("failed to cast pklRes to *pklLLM.Resource")
-	}
-
-	resources := pklRes.GetResources()
-	if resources == nil {
-		emptyMap := make(map[string]*pklLLM.ResourceChat)
-		resources = &emptyMap
-	}
-	existingResources := *resources
-
-	var filePath string
-	if newChat.Response != nil {
-		filePath, err = dr.WriteResponseToFile(resourceID, newChat.Response)
+	// Write the LLM response to output file for pklres access
+	if chatBlock.Response != nil {
+		dr.Logger.Debug("processLLMChat: writing response to file", "actionID", actionID)
+		filePath, err := dr.WriteResponseToFile(actionID, chatBlock.Response)
 		if err != nil {
+			dr.Logger.Error("processLLMChat: failed to write response to file", "actionID", actionID, "error", err)
 			return fmt.Errorf("failed to write response to file: %w", err)
 		}
-		newChat.File = &filePath
+		chatBlock.File = &filePath
+		dr.Logger.Debug("processLLMChat: wrote response to file", "actionID", actionID, "filePath", filePath)
 	}
 
-	encodedChat := encodeChat(newChat, dr.Logger)
-	existingResources[resourceID] = encodedChat
+	// Set timestamp after processing is complete
+	ts := pkl.Duration{
+		Value: float64(time.Now().UnixNano()),
+		Unit:  pkl.Nanosecond,
+	}
+	chatBlock.Timestamp = &ts
 
-	pklContent := generatePklContent(existingResources, dr.Context, dr.Logger)
+	// Store the LLM resource data in pklres for real-time access
+	if dr.PklresHelper != nil {
+		// Store individual attributes as key-value pairs for direct access
+		if chatBlock.Model != nil && *chatBlock.Model != "" {
+			if err := dr.PklresHelper.Set(actionID, "model", *chatBlock.Model); err != nil {
+				dr.Logger.Error("processLLMChat: failed to store model", "actionID", actionID, "error", err)
+			}
+		}
 
-	if err := afero.WriteFile(dr.Fs, pklPath, []byte(pklContent), 0o644); err != nil {
-		return fmt.Errorf("failed to write PKL file: %w", err)
+		if chatBlock.Role != nil && *chatBlock.Role != "" {
+			if err := dr.PklresHelper.Set(actionID, "role", *chatBlock.Role); err != nil {
+				dr.Logger.Error("processLLMChat: failed to store role", "actionID", actionID, "error", err)
+			}
+		}
+
+		if chatBlock.Prompt != nil && *chatBlock.Prompt != "" {
+			if err := dr.PklresHelper.Set(actionID, "prompt", *chatBlock.Prompt); err != nil {
+				dr.Logger.Error("processLLMChat: failed to store prompt", "actionID", actionID, "error", err)
+			}
+		}
+
+		if chatBlock.Response != nil && *chatBlock.Response != "" {
+			if err := dr.PklresHelper.Set(actionID, "response", *chatBlock.Response); err != nil {
+				dr.Logger.Error("processLLMChat: failed to store response", "actionID", actionID, "error", err)
+			}
+		}
+
+		if chatBlock.File != nil && *chatBlock.File != "" {
+			if err := dr.PklresHelper.Set(actionID, "file", *chatBlock.File); err != nil {
+				dr.Logger.Error("processLLMChat: failed to store file", "actionID", actionID, "error", err)
+			}
+		}
+
+		if chatBlock.JSONResponse != nil {
+			jsonResponseStr := "false"
+			if *chatBlock.JSONResponse {
+				jsonResponseStr = "true"
+			}
+			if err := dr.PklresHelper.Set(actionID, "jsonResponse", jsonResponseStr); err != nil {
+				dr.Logger.Error("processLLMChat: failed to store jsonResponse", "actionID", actionID, "error", err)
+			}
+		}
+
+		// Store JSONResponseKeys in pklres for fallback response generation
+		if chatBlock.JSONResponseKeys != nil && len(*chatBlock.JSONResponseKeys) > 0 {
+			jsonResponseKeysJSON, err := json.Marshal(*chatBlock.JSONResponseKeys)
+			if err == nil {
+				if err := dr.PklresHelper.Set(actionID, "jsonResponseKeys", string(jsonResponseKeysJSON)); err != nil {
+					dr.Logger.Error("processLLMChat: failed to store jsonResponseKeys", "actionID", actionID, "error", err)
+				}
+			} else {
+				dr.Logger.Error("processLLMChat: failed to marshal jsonResponseKeys", "actionID", actionID, "error", err)
+			}
+		}
+
+		// Store Scenario as JSON for complex structure
+		if chatBlock.Scenario != nil && len(*chatBlock.Scenario) > 0 {
+			if scenarioJSON, err := json.Marshal(*chatBlock.Scenario); err == nil {
+				if err := dr.PklresHelper.Set(actionID, "scenario", string(scenarioJSON)); err != nil {
+					dr.Logger.Error("processLLMChat: failed to store scenario", "actionID", actionID, "error", err)
+				}
+			} else {
+				dr.Logger.Error("processLLMChat: failed to marshal scenario", "actionID", actionID, "error", err)
+			}
+		}
+
+		// Store Tools as JSON for complex structure
+		if chatBlock.Tools != nil && len(*chatBlock.Tools) > 0 {
+			if toolsJSON, err := json.Marshal(*chatBlock.Tools); err == nil {
+				if err := dr.PklresHelper.Set(actionID, "tools", string(toolsJSON)); err != nil {
+					dr.Logger.Error("processLLMChat: failed to store tools", "actionID", actionID, "error", err)
+				}
+			} else {
+				dr.Logger.Error("processLLMChat: failed to marshal tools", "actionID", actionID, "error", err)
+			}
+		}
+
+		// Store Files as JSON for complex structure
+		if chatBlock.Files != nil && len(*chatBlock.Files) > 0 {
+			if filesJSON, err := json.Marshal(*chatBlock.Files); err == nil {
+				if err := dr.PklresHelper.Set(actionID, "files", string(filesJSON)); err != nil {
+					dr.Logger.Error("processLLMChat: failed to store files", "actionID", actionID, "error", err)
+				}
+			} else {
+				dr.Logger.Error("processLLMChat: failed to marshal files", "actionID", actionID, "error", err)
+			}
+		}
+
+		// Store ItemValues as JSON for complex structure
+		if chatBlock.ItemValues != nil && len(*chatBlock.ItemValues) > 0 {
+			if itemValuesJSON, err := json.Marshal(*chatBlock.ItemValues); err == nil {
+				if err := dr.PklresHelper.Set(actionID, "itemValues", string(itemValuesJSON)); err != nil {
+					dr.Logger.Error("processLLMChat: failed to store itemValues", "actionID", actionID, "error", err)
+				}
+			} else {
+				dr.Logger.Error("processLLMChat: failed to marshal itemValues", "actionID", actionID, "error", err)
+			}
+		}
+
+		// Store TimeoutDuration
+		if chatBlock.TimeoutDuration != nil {
+			timeoutStr := fmt.Sprintf("%g", chatBlock.TimeoutDuration.Value)
+			if err := dr.PklresHelper.Set(actionID, "timeoutDuration", timeoutStr); err != nil {
+				dr.Logger.Error("processLLMChat: failed to store timeoutDuration", "actionID", actionID, "error", err)
+			}
+		}
+
+		// Store Description if present (field might not exist in current schema)
+		// TODO: Re-enable when Description field is available in ResourceChat struct
+		// if chatBlock.Description != nil && *chatBlock.Description != "" {
+		//     if err := dr.PklresHelper.Set(actionID, "description", *chatBlock.Description); err != nil {
+		//         dr.Logger.Error("processLLMChat: failed to store description", "actionID", actionID, "error", err)
+		//     }
+		// }
+
+		if chatBlock.Timestamp != nil {
+			timestampStr := fmt.Sprintf("%g", chatBlock.Timestamp.Value)
+			if err := dr.PklresHelper.Set(actionID, "timestamp", timestampStr); err != nil {
+				dr.Logger.Error("processLLMChat: failed to store timestamp", "actionID", actionID, "error", err)
+			}
+		}
+
+		dr.Logger.Info("processLLMChat: stored comprehensive LLM resource attributes in pklres", "actionID", actionID)
 	}
 
-	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath,
-		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"", schema.SchemaVersion(dr.Context)), dr.Logger)
-	if err != nil {
-		return fmt.Errorf("failed to evaluate PKL file: %w", err)
-	}
+	// Mark the resource as finished processing
+	// Processing status tracking removed - simplified to pure key-value store approach
 
-	return afero.WriteFile(dr.Fs, pklPath, []byte(evaluatedContent), 0o644)
+	dr.Logger.Info("processLLMChat: completed successfully", "actionID", actionID)
+	return nil
 }
 
 // generatePklContent generates Pkl content from resources.
-func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.Context, logger *logging.Logger) string {
+func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.Context, logger *logging.Logger, requestID string) string {
 	var pklContent strings.Builder
-	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"\n\n", schema.SchemaVersion(ctx)))
-	pklContent.WriteString("resources {\n")
+	pklContent.WriteString(fmt.Sprintf("extends \"%s\"\n\n", schema.ImportPath(ctx, "LLM.pkl")))
+	pklContent.WriteString("Resources {\n")
 
 	for id, res := range resources {
 		logger.Info("Generating PKL for resource", "id", id)
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
-		pklContent.WriteString(fmt.Sprintf("    model = %q\n", res.Model))
+		model := ""
+		if res.Model != nil {
+			model = *res.Model
+		}
+		pklContent.WriteString(fmt.Sprintf("    Model = %q\n", model))
 
 		prompt := ""
 		if res.Prompt != nil {
 			prompt = *res.Prompt
 		}
-		pklContent.WriteString(fmt.Sprintf("    prompt = %q\n", prompt))
+		pklContent.WriteString(fmt.Sprintf("    Prompt = %q\n", prompt))
 
 		role := RoleHuman
 		if res.Role != nil && *res.Role != "" {
 			role = *res.Role
 		}
-		pklContent.WriteString(fmt.Sprintf("    role = %q\n", role))
+		pklContent.WriteString(fmt.Sprintf("    Role = %q\n", role))
 
-		pklContent.WriteString("    scenario ")
+		pklContent.WriteString("    Scenario ")
 		if res.Scenario != nil && len(*res.Scenario) > 0 {
 			logger.Info("Serializing scenario", "entry_count", len(*res.Scenario))
 			pklContent.WriteString("{\n")
@@ -510,12 +783,12 @@ func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.C
 				if entry.Role != nil && *entry.Role != "" {
 					entryRole = *entry.Role
 				}
-				pklContent.WriteString(fmt.Sprintf("        role = %q\n", entryRole))
+				pklContent.WriteString(fmt.Sprintf("        Role = %q\n", entryRole))
 				entryPrompt := ""
 				if entry.Prompt != nil {
 					entryPrompt = *entry.Prompt
 				}
-				pklContent.WriteString(fmt.Sprintf("        prompt = %q\n", entryPrompt))
+				pklContent.WriteString(fmt.Sprintf("        Prompt = %q\n", entryPrompt))
 				logger.Info("Serialized scenario entry", "index", i, "role", entryRole, "prompt", entryPrompt)
 				pklContent.WriteString("      }\n")
 			}
@@ -540,7 +813,7 @@ func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.C
 			pklContent.WriteString("{}\n")
 		}
 
-		pklContent.WriteString("    files ")
+		pklContent.WriteString("    Files ")
 		if res.Files != nil && len(*res.Files) > 0 {
 			pklContent.WriteString(utils.EncodePklSlice(res.Files))
 		} else {
@@ -553,7 +826,7 @@ func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.C
 			timeoutValue = res.TimeoutDuration.Value
 			timeoutUnit = res.TimeoutDuration.Unit
 		}
-		pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", timeoutValue, timeoutUnit.String()))
+		pklContent.WriteString(fmt.Sprintf("    TimeoutDuration = %g.%s\n", timeoutValue, timeoutUnit.String()))
 
 		timestampValue := float64(time.Now().Unix())
 		timestampUnit := pkl.Nanosecond
@@ -561,18 +834,26 @@ func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.C
 			timestampValue = res.Timestamp.Value
 			timestampUnit = res.Timestamp.Unit
 		}
-		pklContent.WriteString(fmt.Sprintf("    timestamp = %g.%s\n", timestampValue, timestampUnit.String()))
+		pklContent.WriteString(fmt.Sprintf("    Timestamp = %g.%s\n", timestampValue, timestampUnit.String()))
 
 		if res.Response != nil {
-			pklContent.WriteString(fmt.Sprintf("    response = #\"\"\"\n%s\n\"\"\"#\n", *res.Response))
+			pklContent.WriteString(fmt.Sprintf("    Response = #\"\"\"\n%s\n\"\"\"#\n", *res.Response))
 		} else {
-			pklContent.WriteString("    response = \"\"\n")
+			pklContent.WriteString("    Response = \"\"\n")
 		}
 
 		if res.File != nil {
-			pklContent.WriteString(fmt.Sprintf("    file = %q\n", *res.File))
+			pklContent.WriteString(fmt.Sprintf("    File = %q\n", *res.File))
 		} else {
-			pklContent.WriteString("    file = \"\"\n")
+			pklContent.WriteString("    File = \"\"\n")
+		}
+
+		// Add ItemValues
+		pklContent.WriteString("    ItemValues ")
+		if res.ItemValues != nil && len(*res.ItemValues) > 0 {
+			pklContent.WriteString(utils.EncodePklSlice(res.ItemValues))
+		} else {
+			pklContent.WriteString("{}\n")
 		}
 
 		pklContent.WriteString("  }\n")
@@ -591,10 +872,8 @@ func (dr *DependencyResolver) WriteResponseToFile(resourceID string, responseEnc
 	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
 	outputFilePath := filepath.Join(dr.FilesDir, resourceIDFile)
 
-	content, err := utils.DecodeBase64IfNeeded(utils.SafeDerefString(responseEncoded))
-	if err != nil {
-		return "", fmt.Errorf("failed to decode response: %w", err)
-	}
+	// Use the response content directly without base64 decoding
+	content := utils.SafeDerefString(responseEncoded)
 
 	if err := afero.WriteFile(dr.Fs, outputFilePath, []byte(content), 0o644); err != nil {
 		return "", fmt.Errorf("failed to write file: %w", err)
@@ -602,3 +881,5 @@ func (dr *DependencyResolver) WriteResponseToFile(resourceID string, responseEnc
 
 	return outputFilePath, nil
 }
+
+// EncodeChat encodes a chat block for LLM processing.

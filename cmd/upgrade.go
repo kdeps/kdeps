@@ -16,27 +16,27 @@ import (
 )
 
 // UpgradeCommand creates the 'upgrade' command for upgrading schema versions in pkl files.
-func UpgradeCommand(fs afero.Fs, ctx context.Context, kdepsDir string, logger *logging.Logger) *cobra.Command {
+func UpgradeCommand(ctx context.Context, fs afero.Fs, _ string, logger *logging.Logger) *cobra.Command {
 	var targetVersion string
 	var dryRun bool
 
 	cmd := &cobra.Command{
 		Use:   "upgrade [directory]",
-		Short: "Upgrade schema versions in pkl files",
-		Long: `Upgrade schema versions in pkl files within a directory.
+		Short: "Upgrade schema versions and Ollama image tags in pkl files",
+		Long: `Upgrade schema versions and Ollama image tags in pkl files within a directory.
 		
-This command scans for pkl files containing schema version references and upgrades them to 
-the specified version or the latest default version. It validates that the new version 
-meets minimum requirements.
+This command scans for pkl files containing schema version references and Ollama image tag 
+versions, upgrading them to the specified schema version or latest default versions. It 
+validates that the new schema version meets minimum requirements.
 
 Examples:
-  kdeps upgrade                        # Upgrade current directory to default version
-  kdeps upgrade ./my-agent            # Upgrade specific directory to default version  
-  kdeps upgrade --version 0.2.50 .    # Upgrade to specific version
+  kdeps upgrade                        # Upgrade current directory to default versions
+  kdeps upgrade ./my-agent            # Upgrade specific directory to default versions  
+  kdeps upgrade --version 0.2.50 .    # Upgrade to specific schema version (Ollama tag uses latest)
   kdeps upgrade --dry-run ./my-agent  # Preview changes without applying
 		`,
 		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			// Determine target directory
 			targetDir := "."
 			if len(args) > 0 {
@@ -66,10 +66,10 @@ Examples:
 				return fmt.Errorf("directory does not exist: %s", absPath)
 			}
 
-			logger.Info("upgrading schema versions", "directory", absPath, "target_version", targetVersion, "dry_run", dryRun)
+			logger.Info("upgrading schema and Ollama versions", "directory", absPath, "target_schema_version", targetVersion, "target_ollama_tag", version.DefaultOllamaImageTag, "dry_run", dryRun)
 
 			// Perform the upgrade
-			return upgradeSchemaVersions(fs, absPath, targetVersion, dryRun, logger)
+			return UpgradeSchemaVersions(ctx, fs, absPath, targetVersion, dryRun, logger)
 		},
 	}
 
@@ -79,8 +79,8 @@ Examples:
 	return cmd
 }
 
-// upgradeSchemaVersions scans a directory for pkl files and upgrades schema versions
-func upgradeSchemaVersions(fs afero.Fs, dirPath, targetVersion string, dryRun bool, logger *logging.Logger) error {
+// UpgradeSchemaVersions scans a directory for pkl files and upgrades schema versions
+func UpgradeSchemaVersions(_ context.Context, fs afero.Fs, dirPath, targetVersion string, dryRun bool, logger *logging.Logger) error {
 	var filesProcessed int
 	var filesUpdated int
 
@@ -106,29 +106,50 @@ func upgradeSchemaVersions(fs afero.Fs, dirPath, targetVersion string, dryRun bo
 		}
 
 		// Check if file contains schema version references
-		updatedContent, changed, err := upgradeSchemaVersionInContent(string(content), targetVersion, logger)
+		updatedContent, schemaChanged, err := UpgradeSchemaVersionInContent(string(content), targetVersion, logger)
 		if err != nil {
 			logger.Error("failed to upgrade schema version", "path", path, "error", err)
 			return nil // Continue processing other files
 		}
 
+		// Check if file contains Ollama image tag references
+		updatedContent, ollamaChanged, err := UpgradeOllamaTagVersionInContent(updatedContent, version.DefaultOllamaImageTag, logger)
+		if err != nil {
+			logger.Error("failed to upgrade Ollama tag version", "path", path, "error", err)
+			return nil // Continue processing other files
+		}
+
+		changed := schemaChanged || ollamaChanged
 		if changed {
 			filesUpdated++
 			if dryRun {
-				logger.Info("would update file", "path", path, "target_version", targetVersion)
+				changes := []string{}
+				if schemaChanged {
+					changes = append(changes, "schema_version="+targetVersion)
+				}
+				if ollamaChanged {
+					changes = append(changes, "ollama_tag="+version.DefaultOllamaImageTag)
+				}
+				logger.Info("would update file", "path", path, "changes", strings.Join(changes, ", "))
 			} else {
 				// Write updated content back to file
 				if err := afero.WriteFile(fs, path, []byte(updatedContent), info.Mode()); err != nil {
 					logger.Error("failed to write updated file", "path", path, "error", err)
 					return nil // Continue processing other files
 				}
-				logger.Info("updated file", "path", path, "target_version", targetVersion)
+				changes := []string{}
+				if schemaChanged {
+					changes = append(changes, "schema_version="+targetVersion)
+				}
+				if ollamaChanged {
+					changes = append(changes, "ollama_tag="+version.DefaultOllamaImageTag)
+				}
+				logger.Info("updated file", "path", path, "changes", strings.Join(changes, ", "))
 			}
 		}
 
 		return nil
 	})
-
 	if err != nil {
 		return fmt.Errorf("error walking directory: %w", err)
 	}
@@ -138,62 +159,77 @@ func upgradeSchemaVersions(fs afero.Fs, dirPath, targetVersion string, dryRun bo
 		action = "would update"
 	}
 
-	logger.Info("schema upgrade complete",
+	logger.Info("schema and Ollama upgrade complete",
 		"files_processed", filesProcessed,
 		"files_updated", filesUpdated,
 		"action", action,
-		"target_version", targetVersion)
+		"target_schema_version", targetVersion,
+		"target_ollama_tag", version.DefaultOllamaImageTag)
 
 	return nil
 }
 
-// upgradeSchemaVersionInContent upgrades schema version references in pkl file content
-func upgradeSchemaVersionInContent(content, targetVersion string, logger *logging.Logger) (string, bool, error) {
+// UpgradeSchemaVersionInContent upgrades schema version references in pkl file content
+func UpgradeSchemaVersionInContent(content, targetVersion string, logger *logging.Logger) (string, bool, error) {
 	// Regex patterns to match schema version references
 	patterns := []string{
-		// Match: amends "package://schema.kdeps.com/core@0.2.30#/Workflow.pkl"
-		`(amends\s+"package://schema\.kdeps\.com/core@)([^"#]+)(#/[^"]+")`,
-		// Match: import "package://schema.kdeps.com/core@0.2.30#/Resource.pkl"
-		`(import\s+"package://schema\.kdeps\.com/core@)([^"#]+)(#/[^"]+")`,
-		// Match other similar patterns
-		`("package://schema\.kdeps\.com/core@)([^"#]+)(#/[^"]+")`,
+		`(amends\s+"package://schema\.kdeps\.com/core@)([^\"]+)(#/[^"]+")`,
+		`(import\s+"package://schema\.kdeps\.com/core@)([^\"]+)(#/[^"]+")`,
+		`("package://schema\.kdeps\.com/core@)([^\"]+)(#/[^"]+")`,
 	}
 
 	updatedContent := content
 	changed := false
 
+	logger.Debug("upgrading schema version", "content", content, "target_version", targetVersion)
+
 	for _, pattern := range patterns {
 		re := regexp.MustCompile(pattern)
-		matches := re.FindAllStringSubmatch(updatedContent, -1)
-
-		for _, match := range matches {
-			if len(match) >= 4 {
-				currentVersion := match[2]
-
-				// Skip if already at target version
-				if currentVersion == targetVersion {
-					continue
-				}
-
-				// Validate current version format (if it's a valid version)
-				if err := utils.ValidateSchemaVersion(currentVersion, version.MinimumSchemaVersion); err != nil {
-					logger.Debug("skipping invalid current version", "version", currentVersion, "error", err)
-					continue
-				}
-
-				// Replace with target version
-				oldRef := match[1] + currentVersion + match[3]
-				newRef := match[1] + targetVersion + match[3]
-
-				updatedContent = strings.ReplaceAll(updatedContent, oldRef, newRef)
-				changed = true
-
-				logger.Debug("upgrading schema version reference",
-					"from", currentVersion,
-					"to", targetVersion)
+		updatedContentNew := re.ReplaceAllStringFunc(updatedContent, func(match string) string {
+			subs := re.FindStringSubmatch(match)
+			if len(subs) < 4 {
+				return match
 			}
-		}
+			currentVersion := subs[2]
+			if currentVersion == targetVersion {
+				return match
+			}
+			changed = true
+			return subs[1] + targetVersion + subs[3]
+		})
+		updatedContent = updatedContentNew
 	}
+
+	return updatedContent, changed, nil
+}
+
+// UpgradeOllamaTagVersionInContent upgrades OllamaTagVersion references in pkl file content
+func UpgradeOllamaTagVersionInContent(content, targetOllamaTag string, logger *logging.Logger) (string, bool, error) {
+	// Regex pattern to match OllamaTagVersion assignments
+	// Matches: OllamaTagVersion = "version"
+	pattern := `(\s*OllamaTagVersion\s*=\s*")([^"]+)(")`
+
+	re := regexp.MustCompile(pattern)
+
+	updatedContent := content
+	changed := false
+
+	logger.Debug("upgrading Ollama tag version", "target_tag", targetOllamaTag)
+
+	updatedContent = re.ReplaceAllStringFunc(content, func(match string) string {
+		subs := re.FindStringSubmatch(match)
+		if len(subs) < 4 {
+			return match
+		}
+		currentTag := subs[2]
+		if currentTag == targetOllamaTag {
+			logger.Debug("Ollama tag already up to date", "current", currentTag, "target", targetOllamaTag)
+			return match
+		}
+		logger.Debug("upgrading Ollama tag", "from", currentTag, "to", targetOllamaTag)
+		changed = true
+		return subs[1] + targetOllamaTag + subs[3]
+	})
 
 	return updatedContent, changed, nil
 }

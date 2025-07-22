@@ -24,7 +24,7 @@ func TestCleanup_RemovesFlagFile(t *testing.T) {
 	ctx := context.Background()
 
 	// Call the helper under test. apiServerMode=true avoids the os.Exit path.
-	cleanup(fs, ctx, env, true, logger)
+	cleanup(ctx, fs, env, true, logger)
 
 	if exists, _ := afero.Exists(fs, "/.dockercleanup"); exists {
 		t.Fatalf("expected flag file to be removed by cleanup")

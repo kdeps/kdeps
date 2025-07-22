@@ -1,4 +1,4 @@
-package cmd
+package cmd_test
 
 import (
 	"context"
@@ -15,12 +15,12 @@ import (
 func TestNewRootCommand(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/test/kdeps"
+	kdepsDir := t.TempDir()
 	systemCfg := &kdeps.Kdeps{}
 	env := &environment.Environment{}
 	logger := logging.GetLogger()
 
-	rootCmd := NewRootCommand(fs, ctx, kdepsDir, systemCfg, env, logger)
+	rootCmd := NewRootCommand(ctx, fs, kdepsDir, systemCfg, env, logger)
 
 	// Test case 1: Check if root command is created
 	if rootCmd == nil {
@@ -62,10 +62,10 @@ func TestNewRootCommand(t *testing.T) {
 func TestNewAgentCommand(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/tmp/kdeps"
+	kdepsDir := t.TempDir()
 	logger := logging.NewTestLogger()
 
-	cmd := NewAgentCommand(fs, ctx, kdepsDir, logger)
+	cmd := NewAgentCommand(ctx, fs, kdepsDir, logger)
 	assert.NotNil(t, cmd)
 	assert.Equal(t, "new [agentName]", cmd.Use)
 }
@@ -75,7 +75,7 @@ func TestNewScaffoldCommand(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	cmd := NewScaffoldCommand(fs, ctx, logger)
+	cmd := NewScaffoldCommand(ctx, fs, logger)
 	assert.NotNil(t, cmd)
 	assert.Equal(t, "scaffold [agentName] [fileNames...]", cmd.Use)
 }
@@ -83,10 +83,10 @@ func TestNewScaffoldCommand(t *testing.T) {
 func TestNewAddCommand(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/tmp/kdeps"
+	kdepsDir := t.TempDir()
 	logger := logging.NewTestLogger()
 
-	cmd := NewAddCommand(fs, ctx, kdepsDir, logger)
+	cmd := NewAddCommand(ctx, fs, kdepsDir, logger)
 	assert.NotNil(t, cmd)
 	assert.Equal(t, "install [package]", cmd.Use)
 }
@@ -94,11 +94,11 @@ func TestNewAddCommand(t *testing.T) {
 func TestNewPackageCommand(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/tmp/kdeps"
+	kdepsDir := t.TempDir()
 	env := &environment.Environment{}
 	logger := logging.NewTestLogger()
 
-	cmd := NewPackageCommand(fs, ctx, kdepsDir, env, logger)
+	cmd := NewPackageCommand(ctx, fs, kdepsDir, env, logger)
 	assert.NotNil(t, cmd)
 	assert.Equal(t, "package [agent-dir]", cmd.Use)
 }
@@ -106,11 +106,11 @@ func TestNewPackageCommand(t *testing.T) {
 func TestNewBuildCommand(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/tmp/kdeps"
+	kdepsDir := t.TempDir()
 	systemCfg := &kdeps.Kdeps{}
 	logger := logging.NewTestLogger()
 
-	cmd := NewBuildCommand(fs, ctx, kdepsDir, systemCfg, logger)
+	cmd := NewBuildCommand(ctx, fs, kdepsDir, systemCfg, logger)
 	assert.NotNil(t, cmd)
 	assert.Equal(t, "build [package]", cmd.Use)
 }
@@ -118,11 +118,11 @@ func TestNewBuildCommand(t *testing.T) {
 func TestNewRunCommand(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdepsDir := "/tmp/kdeps"
+	kdepsDir := t.TempDir()
 	systemCfg := &kdeps.Kdeps{}
 	logger := logging.NewTestLogger()
 
-	cmd := NewRunCommand(fs, ctx, kdepsDir, systemCfg, logger)
+	cmd := NewRunCommand(ctx, fs, kdepsDir, systemCfg, logger)
 	assert.NotNil(t, cmd)
 	assert.Equal(t, "run [package]", cmd.Use)
 }
@@ -130,7 +130,7 @@ func TestNewRunCommand(t *testing.T) {
 func TestNewRootCommandMetadata(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	env := &environment.Environment{}
-	cmd := NewRootCommand(fs, context.Background(), "/kdeps", nil, env, logging.NewTestLogger())
+	cmd := NewRootCommand(context.Background(), fs, "/kdeps", nil, env, logging.NewTestLogger())
 	if cmd.Use != "kdeps" {
 		t.Fatalf("expected root command name kdeps, got %s", cmd.Use)
 	}

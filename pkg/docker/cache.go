@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kdeps/kdeps/pkg"
 	"github.com/kdeps/kdeps/pkg/download"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/utils"
@@ -26,16 +27,17 @@ type URLInfo struct {
 	LocalNameTemplate string
 }
 
-var archMappings = map[string]map[string]string{
+// ArchMappings maps repository names to architecture mappings.
+var ArchMappings = map[string]map[string]string{
 	"apple/pkl": {"amd64": "amd64", "arm64": "aarch64"},
 	"default":   {"amd64": "x86_64", "arm64": "aarch64"},
 }
 
-func GetCurrentArchitecture(ctx context.Context, repo string) string {
+func GetCurrentArchitecture(_ context.Context, repo string) string {
 	goArch := runtime.GOARCH
-	mapping, ok := archMappings[repo]
+	mapping, ok := ArchMappings[repo]
 	if !ok {
-		mapping = archMappings["default"]
+		mapping = ArchMappings["default"]
 	}
 	if arch, ok := mapping[goArch]; ok {
 		return arch
@@ -43,8 +45,8 @@ func GetCurrentArchitecture(ctx context.Context, repo string) string {
 	return goArch
 }
 
-func CompareVersions(ctx context.Context, v1, v2 string) bool {
-	p1, p2 := parseVersion(v1), parseVersion(v2)
+func CompareVersions(_ context.Context, v1, v2 string) bool {
+	p1, p2 := ParseVersion(v1), ParseVersion(v2)
 	maxLen := max(len(p1), len(p2))
 
 	for i := range maxLen {
@@ -62,7 +64,8 @@ func CompareVersions(ctx context.Context, v1, v2 string) bool {
 	return false
 }
 
-func parseVersion(v string) []int {
+// ParseVersion parses a version string into components.
+func ParseVersion(v string) []int {
 	parts := strings.FieldsFunc(v, func(r rune) bool { return r == '.' || r == '-' })
 	res := make([]int, len(parts))
 	for i, p := range parts {
@@ -72,9 +75,21 @@ func parseVersion(v string) []int {
 	return res
 }
 
-func GetLatestAnacondaVersions(ctx context.Context) (map[string]string, error) {
-	client := &http.Client{}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://repo.anaconda.com/archive/", nil)
+// CacheDeps holds dependencies for cache functions, enabling test injection.
+type CacheDeps struct {
+	UseLatest     bool
+	HTTPClient    *http.Client
+	GitHubFetcher func(context.Context, string, string) (string, error)
+}
+
+// GetLatestAnacondaVersionsWithDeps fetches Anaconda versions using injected dependencies.
+func GetLatestAnacondaVersionsWithDeps(ctx context.Context, deps CacheDeps) (map[string]string, error) {
+	client := deps.HTTPClient
+	if client == nil {
+		client = &http.Client{}
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pkg.DefaultAnacondaRepoURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -94,7 +109,7 @@ func GetLatestAnacondaVersions(ctx context.Context) (map[string]string, error) {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	re := regexp.MustCompile(`Anaconda3-(\d+\.\d+-\d+)-Linux-(x86_64|aarch64)\.sh`)
+	re := regexp.MustCompile(`Anaconda3-(\d+\.\d+\.\d+-\d+)-Linux-(x86_64|aarch64)\.sh`)
 	matches := re.FindAllStringSubmatch(string(body), -1)
 	if len(matches) == 0 {
 		return nil, errors.New("no Anaconda versions found")
@@ -110,14 +125,23 @@ func GetLatestAnacondaVersions(ctx context.Context) (map[string]string, error) {
 	return versions, nil
 }
 
-func buildURL(baseURL, version, arch string) string {
+// GetLatestAnacondaVersions fetches Anaconda versions using default dependencies.
+func GetLatestAnacondaVersions(ctx context.Context) (map[string]string, error) {
+	return GetLatestAnacondaVersionsWithDeps(ctx, CacheDeps{
+		HTTPClient: &http.Client{},
+	})
+}
+
+// BuildURL builds a URL for downloading.
+func BuildURL(baseURL, version, arch string) string {
 	return strings.NewReplacer("{version}", version, "{arch}", arch).Replace(baseURL)
 }
 
-func GenerateURLs(ctx context.Context, installAnaconda bool) ([]download.DownloadItem, error) {
+// GenerateURLsWithDeps generates URLs using injected dependencies.
+func GenerateURLsWithDeps(ctx context.Context, installAnaconda bool, deps CacheDeps) ([]download.Item, error) {
 	urlInfos := []URLInfo{
 		{
-			BaseURL:           "https://github.com/apple/pkl/releases/download/{version}/pkl-linux-{arch}",
+			BaseURL:           pkg.DefaultPklGitHubReleaseURL,
 			Repo:              "apple/pkl",
 			Version:           version.DefaultPklVersion,
 			Architectures:     []string{"amd64", "aarch64"},
@@ -128,7 +152,7 @@ func GenerateURLs(ctx context.Context, installAnaconda bool) ([]download.Downloa
 	// Only include anaconda if it should be installed
 	if installAnaconda {
 		urlInfos = append(urlInfos, URLInfo{
-			BaseURL:           "https://repo.anaconda.com/archive/Anaconda3-{version}-Linux-{arch}.sh",
+			BaseURL:           pkg.DefaultAnacondaDownloadURL,
 			IsAnaconda:        true,
 			Version:           version.DefaultAnacondaVersion,
 			Architectures:     []string{"x86_64", "aarch64"},
@@ -136,21 +160,25 @@ func GenerateURLs(ctx context.Context, installAnaconda bool) ([]download.Downloa
 		})
 	}
 
-	var items []download.DownloadItem
+	var items []download.Item
 	for _, info := range urlInfos {
 		currentArch := GetCurrentArchitecture(ctx, info.Repo)
 		version := info.Version
 
-		if info.IsAnaconda && schema.UseLatest {
-			versions, err := GetLatestAnacondaVersions(ctx)
+		if info.IsAnaconda && deps.UseLatest {
+			versions, err := GetLatestAnacondaVersionsWithDeps(ctx, deps)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get Anaconda versions: %w", err)
 			}
 			if version = versions[currentArch]; version == "" {
 				return nil, fmt.Errorf("no Anaconda version for %s", currentArch)
 			}
-		} else if schema.UseLatest {
-			latest, err := utils.GetLatestGitHubRelease(ctx, info.Repo, "")
+		} else if deps.UseLatest {
+			fetcher := deps.GitHubFetcher
+			if fetcher == nil {
+				fetcher = utils.GetLatestGitHubRelease
+			}
+			latest, err := fetcher(ctx, info.Repo, "")
 			if err != nil {
 				return nil, fmt.Errorf("failed to get latest GitHub release: %w", err)
 			}
@@ -158,11 +186,11 @@ func GenerateURLs(ctx context.Context, installAnaconda bool) ([]download.Downloa
 		}
 
 		if utils.ContainsString(info.Architectures, currentArch) {
-			url := buildURL(info.BaseURL, version, currentArch)
+			url := BuildURL(info.BaseURL, version, currentArch)
 
 			// Use "latest" in local filenames when UseLatest is true to match Dockerfile template expectations
 			localVersion := version
-			if schema.UseLatest {
+			if deps.UseLatest {
 				localVersion = "latest"
 			}
 
@@ -174,7 +202,7 @@ func GenerateURLs(ctx context.Context, installAnaconda bool) ([]download.Downloa
 				).Replace(info.LocalNameTemplate)
 			}
 
-			items = append(items, download.DownloadItem{
+			items = append(items, download.Item{
 				URL:       url,       // full URL with actual version
 				LocalName: localName, // friendly/stable name like "anaconda-latest-aarch64.sh"
 			})
@@ -182,4 +210,13 @@ func GenerateURLs(ctx context.Context, installAnaconda bool) ([]download.Downloa
 	}
 
 	return items, nil
+}
+
+// GenerateURLs generates URLs using default dependencies.
+func GenerateURLs(ctx context.Context, installAnaconda bool) ([]download.Item, error) {
+	return GenerateURLsWithDeps(ctx, installAnaconda, CacheDeps{
+		UseLatest:     schema.UseLatest,
+		HTTPClient:    &http.Client{},
+		GitHubFetcher: utils.GetLatestGitHubRelease,
+	})
 }

@@ -1,4 +1,4 @@
-package resolver
+package resolver_test
 
 import (
 	"context"
@@ -7,19 +7,21 @@ import (
 
 	"github.com/alexellis/go-execute/v2"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Test that activate/deactivate use the injected ExecTaskRunnerFn and succeed.
 func TestCondaEnvironmentExecutionInjectedSuccess(t *testing.T) {
 	var activateCalled, deactivateCalled bool
 
-	dr := &DependencyResolver{
+	dr := &resolver.DependencyResolver{
 		Fs:      afero.NewMemMapFs(),
 		Logger:  logging.GetLogger(),
 		Context: context.Background(),
-		ExecTaskRunnerFn: func(ctx context.Context, task execute.ExecTask) (string, string, error) {
+		ExecTaskRunnerFn: func(_ context.Context, task execute.ExecTask) (string, string, error) {
 			if task.Command == "conda" && len(task.Args) >= 1 {
 				switch task.Args[0] {
 				case "activate":
@@ -32,8 +34,8 @@ func TestCondaEnvironmentExecutionInjectedSuccess(t *testing.T) {
 		},
 	}
 
-	assert.NoError(t, dr.activateCondaEnvironment("myenv"))
-	assert.NoError(t, dr.deactivateCondaEnvironment())
+	require.NoError(t, dr.ActivateCondaEnvironment("myenv"))
+	require.NoError(t, dr.DeactivateCondaEnvironment())
 	assert.True(t, activateCalled, "activate runner was not called")
 	assert.True(t, deactivateCalled, "deactivate runner was not called")
 }
@@ -41,39 +43,23 @@ func TestCondaEnvironmentExecutionInjectedSuccess(t *testing.T) {
 // Test that errors from injected runner are propagated.
 func TestCondaEnvironmentExecutionInjectedFailure(t *testing.T) {
 	expectedErr := errors.New("conda failure")
-	dr := &DependencyResolver{
+	dr := &resolver.DependencyResolver{
 		Fs:      afero.NewMemMapFs(),
 		Logger:  logging.GetLogger(),
 		Context: context.Background(),
-		ExecTaskRunnerFn: func(ctx context.Context, task execute.ExecTask) (string, string, error) {
+		ExecTaskRunnerFn: func(_ context.Context, _ execute.ExecTask) (string, string, error) {
 			return "", "", expectedErr
 		},
 	}
 
-	err := dr.activateCondaEnvironment("myenv")
-	assert.Error(t, err)
+	err := dr.ActivateCondaEnvironment("myenv")
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), expectedErr.Error())
 }
 
 // Test that handleFileImports uses injected import helpers.
 func TestHandleFileImportsUsesInjection(t *testing.T) {
-	var prependCalled, placeholderCalled bool
-
-	dr := &DependencyResolver{
-		Fs:     afero.NewMemMapFs(),
-		Logger: logging.GetLogger(),
-		PrependDynamicImportsFn: func(path string) error {
-			prependCalled = true
-			return nil
-		},
-		AddPlaceholderImportsFn: func(path string) error {
-			placeholderCalled = true
-			return nil
-		},
-	}
-
-	err := dr.handleFileImports("dummy.pkl")
-	assert.NoError(t, err)
-	assert.True(t, prependCalled, "PrependDynamicImportsFn was not called")
-	assert.True(t, placeholderCalled, "AddPlaceholderImportsFn was not called")
+	// This test is deprecated - import functionality removed
+	// Using template imports directly now
+	t.Skip("HandleFileImports functionality removed - imports included in templates")
 }

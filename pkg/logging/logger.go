@@ -35,6 +35,23 @@ func CreateLogger() {
 	})
 }
 
+// SetLogLevel adjusts the global logger level based on environment
+func SetLogLevel(environment string) {
+	ensureInitialized()
+
+	isProduction := environment == "prod" || environment == "production"
+	if isProduction {
+		logger.SetLevel(log.WarnLevel) // Less verbose in production
+	} else {
+		// Keep debug level for development environments
+		if os.Getenv("DEBUG") == "1" {
+			logger.SetLevel(log.DebugLevel)
+		} else {
+			logger.SetLevel(log.InfoLevel)
+		}
+	}
+}
+
 // NewTestLogger creates a logger that writes to a buffer for testing.
 func NewTestLogger() *Logger {
 	buf := new(bytes.Buffer)
@@ -91,7 +108,12 @@ func GetLogger() *Logger {
 	return logger
 }
 
-// UnderlyingLogger returns the underlying *log.Logger from the custom Logger.
+// IsDebugEnabled returns true if debug logging is enabled.
+func (l *Logger) IsDebugEnabled() bool {
+	return l.Logger.GetLevel() <= log.DebugLevel
+}
+
+// BaseLogger returns the underlying *log.Logger from the custom Logger.
 func (l *Logger) BaseLogger() *log.Logger {
 	if l == nil || l.Logger == nil {
 		panic("logger not initialized")
@@ -106,7 +128,7 @@ func ensureInitialized() {
 	}
 }
 
-// Add this method to your Logger struct.
+// With creates a new logger with additional key-value pairs.
 func (l *Logger) With(keyvals ...interface{}) *Logger {
 	return &Logger{
 		Logger: l.Logger.With(keyvals...),

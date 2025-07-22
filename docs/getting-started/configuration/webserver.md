@@ -25,36 +25,36 @@ WebServerMode = false
 WebServer {
     // IP address to bind the server.
     // "127.0.0.1" for localhost; "0.0.0.0" for all interfaces.
-    hostIP = "127.0.0.1"
+    HostIP = "127.0.0.1"
 
     // Port to listen on (1–65535). Defaults to 8080.
-    portNum = 8080
+    PortNum = 8080
 
     // Optional: Trusted proxy IPs or CIDR blocks.
     // Leave empty to trust all proxies (avoid in production).
-    trustedProxies {}
+    TrustedProxies {}
 
     // Routing rules for static files or reverse proxying.
-    routes {
+    Routes {
         new {
             // HTTP path to serve, e.g., "/ui" or "/dashboard".
-            path = "/ui"
+            Path = "/ui"
 
             // Server type: "static" for files, "app" for proxying.
-            serverType = "static"
+            ServerType = "static"
 
-            // For serverType="static": Directory to serve files from.
+            // For ServerType="static": Directory to serve files from.
             // Relative to /data/ in the agent.
             // Example: "/agentY/2.0.0/web" maps to /data/agentY/2.0.0/web
-            publicPath = "/agentY/2.0.0/web/"
+            PublicPath = "/agentY/2.0.0/web/"
 
-            // For serverType="app": Local port of the web app.
-            // Required for serverType="app".
-            // appPort = 3000
+            // For ServerType="app": Local port of the web app.
+            // Required for ServerType="app".
+            // AppPort = 3000
 
-            // Optional: Shell command to start the app, run in publicPath.
+            // Optional: Shell command to start the app, run in PublicPath.
             // Example: "streamlit run app.py" or "npm start"
-            // command = ""
+            // Command = ""
         }
     }
 }
@@ -68,7 +68,7 @@ Set `WebServerMode = true` to activate the web server. This enables:
 - **Reverse Proxying**: Forward requests to a local web server (e.g., Node.js, Streamlit, Django) for dynamic applications like admin panels or interactive dashboards.
 - **CORS Support**: Configure Cross-Origin Resource Sharing for secure API access from external frontends, with customizable origins, methods, and headers.
 
-Each `routes` entry can independently serve static files or proxy to an app, supporting flexible multi-path setups.
+Each `Routes` entry can independently serve static files or proxy to an app, supporting flexible multi-path setups.
 
 ## Example Use Cases
 
@@ -86,39 +86,39 @@ This configuration serves a static frontend and proxies to a Streamlit app:
 ```apl
 APIServer {
     cors {
-        allowedOrigins {
+        AllowOrigins {
             "http://localhost:8080"
         }
-        allowedMethods {
+        AllowMethods {
             "GET"
             "POST"
         }
-        allowedHeaders {
+        AllowHeaders {
             "Content-Type"
         }
-        allowCredentials = true
+        AllowCredentials = true
     }
 }
 
 WebServerMode = true
 
 WebServer {
-    hostIP = "0.0.0.0"
-    portNum = 8080
-    trustedProxies { "192.168.1.0/24" }
+    HostIP = "0.0.0.0"
+    PortNum = 8080
+    TrustedProxies { "192.168.1.0/24" }
 
-    routes {
+    Routes {
         new {
-            path = "/dashboard"
-            serverType = "static"
-            publicPath = "/agentX/1.0.0/dashboard/"
+            Path = "/dashboard"
+            ServerType = "static"
+            PublicPath = "/agentX/1.0.0/dashboard/"
         }
         new {
-            path = "/app"
-            serverType = "app"
-            appPort = 8501
-            command = "streamlit run app.py"
-            publicPath = "/agentX/1.0.0/streamlit/"
+            Path = "/app"
+            ServerType = "app"
+            AppPort = 8501
+            Command = "streamlit run app.py"
+            PublicPath = "/agentX/1.0.0/streamlit/"
         }
     }
 }
@@ -131,16 +131,16 @@ This setup:
 
 ## Best Practices
 
-- **Security**: Set `trustedProxies` and restrict `cors.allowedOrigins` in production.
-- **Ports**: Avoid conflicts by checking `portNum` and `appPort` with `netstat` or `lsof`.
-- **Static Files**: Ensure `publicPath` exists under `/data/` and includes an `index.html`.
-- **App Commands**: Verify `command` works in `publicPath` to start the app.
+- **Security**: Set `TrustedProxies` and restrict `cors.AllowOrigins` in production.
+- **Ports**: Avoid conflicts by checking `PortNum` and `AppPort` with `netstat` or `lsof`.
+- **Static Files**: Ensure `PublicPath` exists under `/data/` and includes an `index.html`.
+- **App Commands**: Verify `Command` works in `PublicPath` to start the app.
 - **Logging**: Enable debug logs to troubleshoot routing, proxy, or CORS issues.
 
 ## Troubleshooting
 
-- **404 Errors (Static)**: Check if `publicPath` exists and contains `index.html`.
-- **Connection Refused (App)**: Confirm the app runs on `appPort` and `command` is valid.
-- **CORS Errors**: Verify `allowedOrigins` matches the frontend’s domain and port.
-- **Proxy Issues**: Ensure `trustedProxies` includes the proxy IP.
+- **404 Errors (Static)**: Check if `PublicPath` exists and contains `index.html`.
+- **Connection Refused (App)**: Confirm the app runs on `AppPort` and `Command` is valid.
+- **CORS Errors**: Verify `AllowOrigins` matches the frontend's domain and port.
+- **Proxy Issues**: Ensure `TrustedProxies` includes the proxy IP.
 - **Startup Failures**: Review logs for directory contents or misconfigured paths.

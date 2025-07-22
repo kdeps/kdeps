@@ -125,3 +125,11 @@ func mapRoleToLLMMessageType(role string) llms.ChatMessageType {
 		return llms.ChatMessageTypeGeneric
 	}
 }
+
+// Exported for testing
+var (
+	BuildSystemPrompt       = buildSystemPrompt
+	GetRoleAndType          = getRoleAndType
+	ProcessScenarioMessages = processScenarioMessages
+	MapRoleToLLMMessageType = mapRoleToLLMMessageType
+)

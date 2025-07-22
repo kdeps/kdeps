@@ -1,11 +1,10 @@
-package docker
+package docker_test
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -13,16 +12,20 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/client"
+	pkg "github.com/kdeps/kdeps/pkg"
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/version"
-	kdCfg "github.com/kdeps/schema/gen/kdeps"
+	kdepspkg "github.com/kdeps/schema/gen/kdeps"
+	"github.com/kdeps/schema/gen/kdeps/gpu"
+	"github.com/kdeps/schema/gen/kdeps/path"
+	"github.com/kdeps/schema/gen/kdeps/runmode"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/kdeps/pkg/utils"
 )
 
@@ -48,7 +51,7 @@ func generateDockerfile(
 	apiServerMode,
 	useLatest bool,
 ) string {
-	result, err := generateDockerfileFromTemplate(
+	result, err := docker.GenerateDockerfileFromTemplate(
 		imageVersion,
 		schemaVersion,
 		hostIP,
@@ -63,6 +66,8 @@ func generateDockerfile(
 		pklVersion,
 		timezone,
 		exposedPort,
+		"dev",        // Default environment for tests
+		"test-agent", // Default agent name for tests
 		installAnaconda,
 		devBuildMode,
 		apiServerMode,
@@ -74,7 +79,7 @@ func generateDockerfile(
 	return result
 }
 
-func setupTestImage(t *testing.T) (afero.Fs, *logging.Logger, *archiver.KdepsPackage) {
+func setupTestImage(_ *testing.T) (afero.Fs, *logging.Logger, *archiver.KdepsPackage) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 	pkgProject := &archiver.KdepsPackage{
@@ -88,8 +93,8 @@ func TestCheckDevBuildMode(t *testing.T) {
 	kdepsDir := "/test"
 
 	t.Run("FileDoesNotExist", func(t *testing.T) {
-		isDev, err := checkDevBuildMode(fs, kdepsDir, logger)
-		assert.NoError(t, err)
+		isDev, err := docker.CheckDevBuildMode(fs, kdepsDir, logger)
+		require.NoError(t, err)
 		assert.False(t, isDev)
 	})
 
@@ -100,15 +105,15 @@ func TestCheckDevBuildMode(t *testing.T) {
 		err = afero.WriteFile(fs, filepath.Join(kdepsDir, "cache", "kdeps"), []byte("test"), 0o644)
 		require.NoError(t, err)
 
-		isDev, err := checkDevBuildMode(fs, kdepsDir, logger)
-		assert.NoError(t, err)
+		isDev, err := docker.CheckDevBuildMode(fs, kdepsDir, logger)
+		require.NoError(t, err)
 		assert.True(t, isDev)
 	})
 }
 
 func TestGenerateParamsSection(t *testing.T) {
 	t.Run("EmptyMap", func(t *testing.T) {
-		result := generateParamsSection("TEST", nil)
+		result := docker.GenerateParamsSection("TEST", nil)
 		assert.Empty(t, result)
 	})
 
@@ -117,7 +122,7 @@ func TestGenerateParamsSection(t *testing.T) {
 			"param1": "value1",
 			"param2": "value2",
 		}
-		result := generateParamsSection("TEST", params)
+		result := docker.GenerateParamsSection("TEST", params)
 		assert.Contains(t, result, "TEST param1=\"value1\"")
 		assert.Contains(t, result, "TEST param2=\"value2\"")
 	})
@@ -184,8 +189,8 @@ func TestCopyFilesToRunDir(t *testing.T) {
 	runDir := "/run"
 
 	t.Run("NoFiles", func(t *testing.T) {
-		err := copyFilesToRunDir(fs, ctx, downloadDir, runDir, logger)
-		assert.Error(t, err)
+		err := docker.CopyFilesToRunDir(fs, ctx, downloadDir, runDir, logger)
+		require.Error(t, err)
 	})
 
 	t.Run("WithFiles", func(t *testing.T) {
@@ -195,12 +200,12 @@ func TestCopyFilesToRunDir(t *testing.T) {
 		err = afero.WriteFile(fs, filepath.Join(downloadDir, "test.txt"), []byte("test"), 0o644)
 		require.NoError(t, err)
 
-		err = copyFilesToRunDir(fs, ctx, downloadDir, runDir, logger)
-		assert.NoError(t, err)
+		err = docker.CopyFilesToRunDir(fs, ctx, downloadDir, runDir, logger)
+		require.NoError(t, err)
 
 		// Verify file was copied
 		exists, err := afero.Exists(fs, filepath.Join(runDir, "cache", "test.txt"))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, exists)
 	})
 }
@@ -211,14 +216,14 @@ func TestPrintDockerBuildOutput(t *testing.T) {
 {"stream": " ---> abc123\n"}
 {"stream": "Step 2/10 : RUN command\n"}
 {"stream": " ---> def456\n"}`
-		err := printDockerBuildOutput(bytes.NewReader([]byte(output)))
-		assert.NoError(t, err)
+		err := docker.PrintDockerBuildOutput(bytes.NewReader([]byte(output)), logging.NewTestLogger())
+		require.NoError(t, err)
 	})
 
 	t.Run("ErrorOutput", func(t *testing.T) {
 		output := `{"error": "Build failed"}`
-		err := printDockerBuildOutput(bytes.NewReader([]byte(output)))
-		assert.Error(t, err)
+		err := docker.PrintDockerBuildOutput(bytes.NewReader([]byte(output)), logging.NewTestLogger())
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "Build failed")
 	})
 }
@@ -229,65 +234,32 @@ func TestBuildDockerfile(t *testing.T) {
 	kdepsDir := "/test"
 
 	t.Run("MissingConfig", func(t *testing.T) {
-		kdeps := &kdCfg.Kdeps{}
-		_, _, _, _, _, _, _, _, err := BuildDockerfile(fs, ctx, kdeps, kdepsDir, pkgProject, logger)
-		assert.Error(t, err)
+		kdeps := &kdepspkg.Kdeps{}
+		_, _, _, _, _, _, _, _, _, err := docker.BuildDockerfile(fs, ctx, kdeps, kdepsDir, pkgProject, logger)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "error reading workflow file")
 	})
 
 	t.Run("ValidConfig", func(t *testing.T) {
-		kdeps := &kdCfg.Kdeps{
-			RunMode:   "docker",
-			DockerGPU: "cpu",
-			KdepsDir:  ".kdeps",
-			KdepsPath: "user",
+		mode := runmode.Docker
+		gpuType := gpu.Cpu
+		pathType := path.User
+		kdeps := &kdepspkg.Kdeps{
+			Mode:      &mode,
+			DockerGPU: &gpuType,
+			KdepsDir:  pkg.GetDefaultKdepsDir(),
+			KdepsPath: &pathType,
 		}
-		_, _, _, _, _, _, _, _, err := BuildDockerfile(fs, ctx, kdeps, kdepsDir, pkgProject, logger)
-		assert.Error(t, err)
+		_, _, _, _, _, _, _, _, _, err := docker.BuildDockerfile(fs, ctx, kdeps, kdepsDir, pkgProject, logger)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "error reading workflow file")
 	})
 }
 
 func TestBuildDockerImage(t *testing.T) {
-	fs, logger, pkgProject := setupTestImage(t)
-	ctx := context.Background()
-	runDir := "/run"
-	kdepsDir := "/test"
-
-	// Create a mock Docker client
-	mockClient := &client.Client{}
-
-	t.Run("MissingWorkflow", func(t *testing.T) {
-		kdeps := &kdCfg.Kdeps{
-			RunMode:   "docker",
-			DockerGPU: "cpu",
-			KdepsDir:  ".kdeps",
-			KdepsPath: "user",
-		}
-		_, _, err := BuildDockerImage(fs, ctx, kdeps, mockClient, runDir, kdepsDir, pkgProject, logger)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "error reading workflow file")
-	})
-
-	t.Run("ValidWorkflow", func(t *testing.T) {
-		// Create workflow file
-		err := fs.MkdirAll(filepath.Join(kdepsDir, "workflows"), 0o755)
-		require.NoError(t, err)
-		err = afero.WriteFile(fs, filepath.Join(kdepsDir, "workflows", "test-workflow.yaml"), []byte(`
-name: test-workflow
-version: 1.0
-`), 0o644)
-		require.NoError(t, err)
-
-		kdeps := &kdCfg.Kdeps{
-			RunMode:   "docker",
-			DockerGPU: "cpu",
-			KdepsDir:  ".kdeps",
-			KdepsPath: "user",
-		}
-		_, _, err = BuildDockerImage(fs, ctx, kdeps, mockClient, runDir, kdepsDir, pkgProject, logger)
-		assert.Error(t, err) // Expected error due to mock client
-	})
+	// This test is kept for future implementation
+	// The BuildDockerImage function was removed, so we just ensure the test compiles
+	t.Skip("BuildDockerImage function removed - test kept for future implementation")
 }
 
 func TestGenerateParamsSectionAdditional(t *testing.T) {
@@ -317,10 +289,9 @@ func TestGenerateParamsSectionAdditional(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			got := generateParamsSection(tc.prefix, tc.items)
+			got := docker.GenerateParamsSection(tc.prefix, tc.items)
 			for _, want := range tc.expected {
 				assert.Contains(t, got, want)
 			}
@@ -334,7 +305,7 @@ func TestGenerateDockerfile_Minimal(t *testing.T) {
 	// Build a minimal Dockerfile using generateDockerfile. Only verify that
 	// critical dynamic pieces make their way into the output template. A full
 	// semantic diff is unnecessary and would be brittle.
-	schemaVersion := schema.SchemaVersion(context.Background())
+	schemaVersion := schema.Version(context.Background())
 
 	df := generateDockerfile(
 		"1.0",                          // imageVersion
@@ -370,24 +341,24 @@ func TestPrintDockerBuildOutput_Extra(t *testing.T) {
 
 	// 1. Happy-path: mixed JSON stream lines and raw text.
 	lines := []string{
-		marshal(t, BuildLine{Stream: "Step 1/2 : FROM scratch\n"}),
-		marshal(t, BuildLine{Stream: " ---> Using cache\n"}),
+		marshal(t, docker.BuildLine{Stream: "Step 1/2 : FROM scratch\n"}),
+		marshal(t, docker.BuildLine{Stream: " ---> Using cache\n"}),
 		"non-json-line should be echoed as-is", // raw
 	}
 	reader := bytes.NewBufferString(strings.Join(lines, "\n"))
-	err := printDockerBuildOutput(reader)
-	assert.NoError(t, err)
+	err := docker.PrintDockerBuildOutput(reader, logging.NewTestLogger())
+	require.NoError(t, err)
 
 	// 2. Error path: JSON line with an error field should surface.
-	errLines := []string{marshal(t, BuildLine{Error: "boom"})}
+	errLines := []string{marshal(t, docker.BuildLine{Error: "boom"})}
 	errReader := bytes.NewBufferString(strings.Join(errLines, "\n"))
-	err = printDockerBuildOutput(errReader)
+	err = docker.PrintDockerBuildOutput(errReader, logging.NewTestLogger())
 	assert.ErrorContains(t, err, "boom")
 }
 
 // marshal is a tiny helper that converts a BuildLine to its JSON string
 // representation and fails the test immediately upon error.
-func marshal(t *testing.T, bl BuildLine) string {
+func marshal(t *testing.T, bl docker.BuildLine) string {
 	t.Helper()
 	data, err := json.Marshal(bl)
 	if err != nil {
@@ -409,82 +380,15 @@ func (m *MockImageBuildClient) ImageList(ctx context.Context, options image.List
 }
 
 func TestBuildDockerImageNew(t *testing.T) {
-	fs := afero.NewMemMapFs()
-	ctx := context.Background()
-	kdeps := &kdCfg.Kdeps{}
-	baseLogger := log.New(nil)
-	logger := &logging.Logger{Logger: baseLogger}
-
-	// Commented out unused mock client
-	// mockClient := &MockImageBuildClient{
-	// 	imageListFunc: func(ctx context.Context, options image.ListOptions) ([]image.Summary, error) {
-	// 		return []image.Summary{}, nil
-	// 	},
-	// }
-
-	runDir := "/test/run"
-	kdepsDir := "/test/kdeps"
-	pkgProject := &archiver.KdepsPackage{
-		Workflow: "testWorkflow",
-	}
-
-	// Create dummy directories in memory FS
-	fs.MkdirAll(runDir, 0o755)
-	fs.MkdirAll(kdepsDir, 0o755)
-
-	// Call the function under test with a type assertion or conversion if needed
-	// Note: This will likely still fail if BuildDockerImage strictly requires *client.Client
-	cName, containerName, err := BuildDockerImage(fs, ctx, kdeps, nil, runDir, kdepsDir, pkgProject, logger)
-
-	if err != nil {
-		t.Logf("Expected error due to mocked dependencies: %v", err)
-	} else {
-		t.Logf("BuildDockerImage returned cName: %s, containerName: %s", cName, containerName)
-	}
-
-	// Since we can't fully test the build process without Docker, we just check if the function executed without panic
-	t.Log("BuildDockerImage called without panic")
+	// This test is kept for future implementation
+	// The BuildDockerImage function was removed, so we just ensure the test compiles
+	t.Skip("BuildDockerImage function removed - test kept for future implementation")
 }
 
 func TestBuildDockerImageImageExists(t *testing.T) {
-	fs := afero.NewMemMapFs()
-	ctx := context.Background()
-	kdeps := &kdCfg.Kdeps{}
-	baseLogger := log.New(nil)
-	logger := &logging.Logger{Logger: baseLogger}
-
-	// Commented out unused mock client
-	// mockClient := &MockImageBuildClient{
-	// 	imageListFunc: func(ctx context.Context, options image.ListOptions) ([]image.Summary, error) {
-	// 		return []image.Summary{
-	// 			{
-	// 				RepoTags: []string{"kdeps-test:1.0"},
-	// 			},
-	// 		}, nil
-	// 	},
-	// }
-
-	runDir := "/test/run"
-	kdepsDir := "/test/kdeps"
-	pkgProject := &archiver.KdepsPackage{
-		Workflow: "testWorkflow",
-	}
-
-	// Create dummy directories in memory FS
-	fs.MkdirAll(runDir, 0o755)
-	fs.MkdirAll(kdepsDir, 0o755)
-
-	// Call the function under test with nil to avoid type mismatch
-	cName, containerName, err := BuildDockerImage(fs, ctx, kdeps, nil, runDir, kdepsDir, pkgProject, logger)
-	if err != nil {
-		t.Logf("Expected error due to mocked dependencies: %v", err)
-	}
-
-	if cName == "" || containerName == "" {
-		t.Log("BuildDockerImage returned empty cName or containerName as expected with nil client")
-	}
-
-	t.Log("BuildDockerImage test with existing image setup executed")
+	// This test is kept for future implementation
+	// The BuildDockerImage function was removed, so we just ensure the test compiles
+	t.Skip("BuildDockerImage function removed - test kept for future implementation")
 }
 
 // TestCopyFilesToRunDirCacheDirCreateFail makes runDir/cache a file so MkdirAll fails.
@@ -502,12 +406,12 @@ func TestCopyFilesToRunDirCacheDirCreateFail(t *testing.T) {
 	_ = afero.WriteFile(baseFs, filepath.Join(downloadDir, "x.bin"), []byte("x"), 0o644)
 
 	// runDir is unwritable (ReadOnlyFs), so MkdirAll to create runDir/cache must fail.
-	err := copyFilesToRunDir(fs, context.Background(), downloadDir, runDir, logging.NewTestLogger())
+	err := docker.CopyFilesToRunDir(fs, context.Background(), downloadDir, runDir, logging.NewTestLogger())
 	if err == nil {
 		t.Fatalf("expected error due to cache path collision")
 	}
 
-	schema.SchemaVersion(context.Background())
+	schema.Version(context.Background())
 }
 
 // TestCopyFilesToRunDirCopyFailure forces CopyFile to fail by making destination directory read-only.
@@ -523,12 +427,12 @@ func TestCopyFilesToRunDirCopyFailure(t *testing.T) {
 	_ = afero.WriteFile(baseFs, filepath.Join(downloadDir, "obj.bin"), []byte("data"), 0o644)
 
 	// No need to create cache dir; ReadOnlyFs will prevent MkdirAll inside implementation.
-	err := copyFilesToRunDir(fs, context.Background(), downloadDir, runDir, logging.NewTestLogger())
+	err := docker.CopyFilesToRunDir(fs, context.Background(), downloadDir, runDir, logging.NewTestLogger())
 	if err == nil {
 		t.Fatalf("expected error due to read-only cache directory")
 	}
 
-	schema.SchemaVersion(context.Background())
+	schema.Version(context.Background())
 }
 
 // TestCopyFilesToRunDirSuccess verifies that files in the download cache
@@ -545,7 +449,7 @@ func TestCopyFilesToRunDirSuccess(t *testing.T) {
 	_ = afero.WriteFile(fs, filepath.Join(downloadDir, "b.bin"), []byte("B"), 0o600)
 
 	logger := logging.NewTestLogger()
-	if err := copyFilesToRunDir(fs, context.Background(), downloadDir, runDir, logger); err != nil {
+	if err := docker.CopyFilesToRunDir(fs, context.Background(), downloadDir, runDir, logger); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -560,7 +464,7 @@ func TestCopyFilesToRunDirSuccess(t *testing.T) {
 		}
 	}
 
-	schema.SchemaVersion(context.Background())
+	schema.Version(context.Background())
 }
 
 // TestCopyFilesToRunDirMissingSource ensures a descriptive error when the
@@ -571,12 +475,12 @@ func TestCopyFilesToRunDirMissingSource(t *testing.T) {
 	downloadDir := filepath.Join(dir, "no_such")
 	runDir := filepath.Join(dir, "run")
 
-	err := copyFilesToRunDir(fs, context.Background(), downloadDir, runDir, logging.NewTestLogger())
+	err := docker.CopyFilesToRunDir(fs, context.Background(), downloadDir, runDir, logging.NewTestLogger())
 	if err == nil {
 		t.Fatalf("expected error for missing download dir, got nil")
 	}
 
-	schema.SchemaVersion(context.Background())
+	schema.Version(context.Background())
 }
 
 func TestCheckDevBuildModeVariant(t *testing.T) {
@@ -589,42 +493,45 @@ func TestCheckDevBuildModeVariant(t *testing.T) {
 	kdepsBinary := filepath.Join(cacheDir, "kdeps")
 
 	// when file absent
-	dev, err := checkDevBuildMode(fs, tmpDir, logger)
-	assert.NoError(t, err)
+	dev, err := docker.CheckDevBuildMode(fs, tmpDir, logger)
+	require.NoError(t, err)
 	assert.False(t, dev)
 
 	// create file
-	assert.NoError(t, afero.WriteFile(fs, kdepsBinary, []byte("binary"), 0o755))
-	dev, err = checkDevBuildMode(fs, tmpDir, logger)
-	assert.NoError(t, err)
+	require.NoError(t, afero.WriteFile(fs, kdepsBinary, []byte("binary"), 0o755))
+	dev, err = docker.CheckDevBuildMode(fs, tmpDir, logger)
+	require.NoError(t, err)
 	assert.True(t, dev)
 }
 
 func TestBuildDockerfileContent(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	kdeps := &kdCfg.Kdeps{}
+	kdeps := &kdepspkg.Kdeps{}
 	baseLogger := log.New(nil)
 	logger := &logging.Logger{Logger: baseLogger}
-	kdepsDir := "/test/kdeps"
+
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	kdepsDir := filepath.Join(tmpDir, "kdeps")
 	pkgProject := &archiver.KdepsPackage{
-		Workflow: "/test/kdeps/testWorkflow",
+		Workflow: filepath.Join(kdepsDir, "testWorkflow"),
 	}
 
 	// Create dummy directories in memory FS
 	fs.MkdirAll(kdepsDir, 0o755)
-	fs.MkdirAll("/test/kdeps/cache", 0o755)
-	fs.MkdirAll("/test/kdeps/run/test/1.0", 0o755)
+	fs.MkdirAll(filepath.Join(kdepsDir, "cache"), 0o755)
+	fs.MkdirAll(filepath.Join(kdepsDir, "agents", "test", "1.0"), 0o755)
 
 	// Create a dummy workflow file to avoid module not found error
-	workflowPath := "/test/kdeps/testWorkflow"
+	workflowPath := filepath.Join(kdepsDir, "testWorkflow")
 	dummyWorkflowContent := `name = "test"
 version = "1.0"
 `
 	afero.WriteFile(fs, workflowPath, []byte(dummyWorkflowContent), 0o644)
 
 	// Call the function under test
-	runDir, apiServerMode, webServerMode, hostIP, hostPort, webHostIP, webHostPort, gpuType, err := BuildDockerfile(fs, ctx, kdeps, kdepsDir, pkgProject, logger)
+	runDir, apiServerMode, webServerMode, hostIP, hostPort, webHostIP, webHostPort, gpuType, _, err := docker.BuildDockerfile(fs, ctx, kdeps, kdepsDir, pkgProject, logger)
 	if err != nil {
 		// Gracefully skip when PKL or workflow dependency is unavailable in CI
 		if strings.Contains(err.Error(), "Cannot find module") {
@@ -686,7 +593,7 @@ func TestGenerateDockerfileVariants(t *testing.T) {
 	pkgSection := ""
 	pythonPkgSection := ""
 	condaPkgSection := ""
-	anacondaVersion := "2024.10-1"
+	anacondaVersion := "20.4.30-1"
 	pklVersion := "0.28.1"
 	timezone := "Etc/UTC"
 	exposedPort := "3000"
@@ -805,7 +712,7 @@ func TestGenerateDockerfileVariants(t *testing.T) {
 
 func TestGenerateParamsSection_Extra(t *testing.T) {
 	input := map[string]string{"USER": "root", "DEBUG": ""}
-	got := generateParamsSection("ENV", input)
+	got := docker.GenerateParamsSection("ENV", input)
 
 	// The slice order is not guaranteed; ensure both expected lines exist.
 	if !(containsLine(got, `ENV USER="root"`) && containsLine(got, `ENV DEBUG`)) {
@@ -828,7 +735,7 @@ func TestGenerateParamsSectionEdge(t *testing.T) {
 		"FOO":   "bar",
 		"EMPTY": "",
 	}
-	out := generateParamsSection("ARG", items)
+	out := docker.GenerateParamsSection("ARG", items)
 
 	if !strings.Contains(out, "ARG FOO=\"bar\"") {
 		t.Fatalf("missing value param: %s", out)
@@ -848,7 +755,7 @@ func TestCheckDevBuildModeMem(t *testing.T) {
 	_ = fs.MkdirAll(cacheDir, 0o755)
 
 	// Case 1: file absent => devBuildMode false
-	dev, err := checkDevBuildMode(fs, kdepsDir, logger)
+	dev, err := docker.CheckDevBuildMode(fs, kdepsDir, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -862,7 +769,7 @@ func TestCheckDevBuildModeMem(t *testing.T) {
 		t.Fatalf("write file: %v", err)
 	}
 
-	dev2, err := checkDevBuildMode(fs, kdepsDir, logger)
+	dev2, err := docker.CheckDevBuildMode(fs, kdepsDir, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -873,7 +780,7 @@ func TestCheckDevBuildModeMem(t *testing.T) {
 
 func TestGenerateParamsSectionVariants(t *testing.T) {
 	// Test case 1: Empty map
-	result := generateParamsSection("ARG", map[string]string{})
+	result := docker.GenerateParamsSection("ARG", map[string]string{})
 	if result != "" {
 		t.Errorf("Expected empty string for empty map, got: %s", result)
 	}
@@ -884,7 +791,7 @@ func TestGenerateParamsSectionVariants(t *testing.T) {
 	items := map[string]string{
 		"DEBUG": "",
 	}
-	result = generateParamsSection("ENV", items)
+	result = docker.GenerateParamsSection("ENV", items)
 	if result != "ENV DEBUG" {
 		t.Errorf("Expected 'ENV DEBUG', got: %s", result)
 	}
@@ -895,7 +802,7 @@ func TestGenerateParamsSectionVariants(t *testing.T) {
 	items = map[string]string{
 		"PATH": "/usr/local/bin",
 	}
-	result = generateParamsSection("ARG", items)
+	result = docker.GenerateParamsSection("ARG", items)
 	if result != "ARG PATH=\"/usr/local/bin\"" {
 		t.Errorf("Expected 'ARG PATH=\"/usr/local/bin\"', got: %s", result)
 	}
@@ -908,7 +815,7 @@ func TestGenerateParamsSectionVariants(t *testing.T) {
 		"VAR2": "",
 		"VAR3": "value3",
 	}
-	result = generateParamsSection("ENV", items)
+	result = docker.GenerateParamsSection("ENV", items)
 	// The order of map iteration is not guaranteed, so check individual lines
 	lines := strings.Split(result, "\n")
 	lineSet := make(map[string]struct{})
@@ -930,7 +837,7 @@ func TestGenerateParamsSectionLight(t *testing.T) {
 		"FOO": "bar",
 		"BAZ": "", // param without value
 	}
-	got := generateParamsSection("ENV", params)
+	got := docker.GenerateParamsSection("ENV", params)
 	if !containsAll(got, []string{"ENV FOO=\"bar\"", "ENV BAZ"}) {
 		t.Fatalf("unexpected section: %s", got)
 	}
@@ -946,8 +853,8 @@ func containsAll(s string, subs []string) bool {
 }
 
 func TestGenerateUniqueOllamaPortLight(t *testing.T) {
-	p1 := generateUniqueOllamaPort(3000)
-	p2 := generateUniqueOllamaPort(3000)
+	p1 := docker.GenerateUniqueOllamaPort(3000)
+	p2 := docker.GenerateUniqueOllamaPort(3000)
 	if p1 == p2 {
 		t.Fatalf("expected different ports when called twice, got %s %s", p1, p2)
 	}
@@ -958,7 +865,7 @@ func TestCheckDevBuildModeLight(t *testing.T) {
 	logger := logging.NewTestLogger()
 	kdepsDir := "/kd"
 	// No cache/kdeps binary present -> dev build mode should be false.
-	ok, err := checkDevBuildMode(fs, kdepsDir, logger)
+	ok, err := docker.CheckDevBuildMode(fs, kdepsDir, logger)
 	if err != nil || ok {
 		t.Fatalf("expected false dev mode, got %v %v", ok, err)
 	}
@@ -969,7 +876,7 @@ func TestCheckDevBuildModeLight(t *testing.T) {
 	}
 	_ = afero.WriteFile(fs, "/kd/cache/kdeps", []byte("binary"), 0o755)
 
-	ok, err = checkDevBuildMode(fs, kdepsDir, logger)
+	ok, err = docker.CheckDevBuildMode(fs, kdepsDir, logger)
 	if err != nil || !ok {
 		t.Fatalf("expected dev mode true, got %v %v", ok, err)
 	}
@@ -989,7 +896,7 @@ func TestCheckDevBuildModeDir(t *testing.T) {
 		t.Fatalf("setup failed: %v", err)
 	}
 
-	ok, err := checkDevBuildMode(fs, kdepsDir, logger)
+	ok, err := docker.CheckDevBuildMode(fs, kdepsDir, logger)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1030,7 +937,7 @@ func TestGenerateDockerfileBranches(t *testing.T) {
 		pkgSection:       "RUN echo pkgs",
 		pythonPkgSection: "RUN echo py",
 		condaPkgSection:  "RUN echo conda",
-		anacondaVersion:  "2024.09-1",
+		anacondaVersion:  "20.4.69-1",
 		pklVersion:       "0.25.0",
 		timezone:         "Etc/UTC",
 		exposedPort:      "5000",
@@ -1104,7 +1011,7 @@ func TestGenerateDockerfile_DevBuildAndAPIServer(t *testing.T) {
 		"RUN apt-get update", // pkg section
 		"RUN pip install x",  // python section
 		"",                   // conda pkg section
-		"2024.01-1",          // anaconda version
+		"20.4.61-1",          // anaconda version
 		"0.28.1",             // pkl version
 		"UTC",                // timezone
 		"8080",               // expose port
@@ -1137,7 +1044,7 @@ func TestGenerateDockerfileEdgeCasesNew(t *testing.T) {
 		"RUN apt-get install -y gcc", // pkgSection
 		"",                           // pythonPkgSection
 		"",                           // condaPkgSection
-		"2024.10-1",                  // anacondaVersion
+		"20.4.30-1",                  // anacondaVersion
 		"0.28.1",                     // pklVersion
 		"UTC",                        // timezone
 		"8080",                       // exposedPort
@@ -1191,7 +1098,7 @@ func TestGenerateDockerfileAdditionalCases(t *testing.T) {
 			"RUN apt-get -y install curl", // pkgSection
 			"RUN pip install pytest",      // pythonPkgSection
 			"",                            // condaPkgSection (none)
-			"2024.10-1",                   // anacondaVersion (overwritten by useLatest=true below)
+			"20.4.30-1",                   // anacondaVersion (overwritten by useLatest=true below)
 			"0.28.1",                      // pklVersion   (ditto)
 			"UTC",                         // timezone
 			"8080",                        // exposedPort
@@ -1223,7 +1130,7 @@ func TestGenerateDockerfileAdditionalCases(t *testing.T) {
 			"",          // pkgSection
 			"",          // pythonPkgSection
 			"",          // condaPkgSection
-			"2024.10-1", // anacondaVersion
+			"20.4.30-1", // anacondaVersion
 			"0.28.1",    // pklVersion
 			"UTC",       // timezone
 			"",          // exposedPort (no api server)
@@ -1254,7 +1161,7 @@ func TestGenerateDockerfileContent(t *testing.T) {
 		"# pkg section", // pkgSection
 		"# python pkgs", // pythonPkgSection
 		"# conda pkgs",  // condaPkgSection
-		"2024.10-1",     // anacondaVersion
+		"20.4.30-1",     // anacondaVersion
 		"0.28.1",        // pklVersion
 		"UTC",           // timezone
 		"8080",          // exposedPort
@@ -1265,11 +1172,11 @@ func TestGenerateDockerfileContent(t *testing.T) {
 	)
 
 	// basic sanity checks on returned content
-	assert.True(t, strings.Contains(df, "FROM ollama/ollama:10.1"))
-	assert.True(t, strings.Contains(df, "ENV SCHEMA_VERSION=v1"))
-	assert.True(t, strings.Contains(df, "EXPOSE 8080"))
-	assert.True(t, strings.Contains(df, "ARG FOO=bar"))
-	assert.True(t, strings.Contains(df, "ENV BAR=baz"))
+	assert.Contains(t, df, "FROM ollama/ollama:10.1")
+	assert.Contains(t, df, "ENV SCHEMA_VERSION=v1")
+	assert.Contains(t, df, "EXPOSE 8080")
+	assert.Contains(t, df, "ARG FOO=bar")
+	assert.Contains(t, df, "ENV BAR=baz")
 }
 
 // TestGenerateDockerfileBranchCoverage exercises additional parameter combinations
@@ -1297,7 +1204,7 @@ func TestGenerateDockerfileBranchCoverage(t *testing.T) {
 			"",
 			"",
 			"",
-			"2024.10-1",
+			"20.4.30-1",
 			"0.28.1",
 			"UTC",
 			"8080",
@@ -1321,7 +1228,7 @@ func TestGenerateURLsHappyPath(t *testing.T) {
 	// Ensure the package-level flag is in the expected default state.
 	schema.UseLatest = false
 
-	items, err := GenerateURLs(ctx, true)
+	items, err := docker.GenerateURLs(ctx, true)
 	if err != nil {
 		t.Fatalf("GenerateURLs returned error: %v", err)
 	}
@@ -1363,15 +1270,15 @@ func TestGenerateURLs_GitHubError(t *testing.T) {
 	http.DefaultTransport = rtFunc(func(r *http.Request) (*http.Response, error) {
 		if r.URL.Host == "api.github.com" {
 			return &http.Response{
-				StatusCode: 403,
-				Body:       ioutil.NopCloser(bytes.NewBufferString("forbidden")),
+				StatusCode: http.StatusForbidden,
+				Body:       io.NopCloser(bytes.NewBufferString("forbidden")),
 				Header:     make(http.Header),
 			}, nil
 		}
 		return origTransport.RoundTrip(r)
 	})
 
-	if _, err := GenerateURLs(ctx, true); err == nil {
+	if _, err := docker.GenerateURLs(ctx, true); err == nil {
 		t.Fatalf("expected error when GitHub API returns forbidden")
 	}
 }
@@ -1391,7 +1298,7 @@ func TestGenerateURLs_AnacondaError(t *testing.T) {
 
 	// GitHub fetch succeeds to move past first item.
 	schema.UseLatest = true
-	utils.GitHubReleaseFetcher = func(ctx context.Context, repo, base string) (string, error) {
+	utils.GitHubReleaseFetcher = func(_ context.Context, _ string, _ string) (string, error) {
 		return "0.28.1", nil
 	}
 
@@ -1399,15 +1306,15 @@ func TestGenerateURLs_AnacondaError(t *testing.T) {
 	http.DefaultTransport = rtFunc(func(r *http.Request) (*http.Response, error) {
 		if r.URL.Host == "repo.anaconda.com" {
 			return &http.Response{
-				StatusCode: 500,
-				Body:       ioutil.NopCloser(bytes.NewBufferString("server error")),
+				StatusCode: http.StatusInternalServerError,
+				Body:       io.NopCloser(bytes.NewBufferString("server error")),
 				Header:     make(http.Header),
 			}, nil
 		}
 		return origTransport.RoundTrip(r)
 	})
 
-	if _, err := GenerateURLs(ctx, true); err == nil {
+	if _, err := docker.GenerateURLs(ctx, true); err == nil {
 		t.Fatalf("expected error when Anaconda version fetch fails")
 	}
 }
@@ -1415,7 +1322,7 @@ func TestGenerateURLs_AnacondaError(t *testing.T) {
 func TestGenerateURLs(t *testing.T) {
 	ctx := context.Background()
 
-	items, err := GenerateURLs(ctx, true)
+	items, err := docker.GenerateURLs(ctx, true)
 	if err != nil {
 		t.Fatalf("unexpected error generating urls: %v", err)
 	}
@@ -1432,7 +1339,7 @@ func TestGenerateURLs(t *testing.T) {
 
 func TestGenerateURLsDefaultExtra(t *testing.T) {
 	ctx := context.Background()
-	items, err := GenerateURLs(ctx, true)
+	items, err := docker.GenerateURLs(ctx, true)
 	if err != nil {
 		t.Fatalf("GenerateURLs returned error: %v", err)
 	}
@@ -1456,7 +1363,7 @@ func (roundTripperLatest) RoundTrip(req *http.Request) (*http.Response, error) {
 		body, _ := json.Marshal(map[string]string{"tag_name": "v0.29.0"})
 		return &http.Response{StatusCode: http.StatusOK, Body: ioNopCloser(bytes.NewReader(body)), Header: make(http.Header)}, nil
 	case req.URL.Host == "repo.anaconda.com":
-		html := `<a href="Anaconda3-2024.05-0-Linux-x86_64.sh">file</a><a href="Anaconda3-2024.05-0-Linux-aarch64.sh">file</a>`
+		html := `<a href="Anaconda3-20.4.65-0-Linux-x86_64.sh">file</a><a href="Anaconda3-20.4.65-0-Linux-aarch64.sh">file</a>`
 		return &http.Response{StatusCode: http.StatusOK, Body: ioNopCloser(bytes.NewReader([]byte(html))), Header: make(http.Header)}, nil
 	default:
 		return &http.Response{StatusCode: http.StatusOK, Body: ioNopCloser(bytes.NewReader([]byte(""))), Header: make(http.Header)}, nil
@@ -1481,7 +1388,7 @@ func TestGenerateURLsUseLatest(t *testing.T) {
 	defer func() { schema.UseLatest = origLatest }()
 
 	ctx := context.Background()
-	items, err := GenerateURLs(ctx, true)
+	items, err := docker.GenerateURLs(ctx, true)
 	if err != nil {
 		t.Fatalf("GenerateURLs returned error: %v", err)
 	}
@@ -1510,17 +1417,26 @@ func TestGenerateURLsLatestUsesFetcher(t *testing.T) {
 	}()
 
 	schema.UseLatest = true
-	utils.GitHubReleaseFetcher = func(ctx context.Context, repo string, baseURL string) (string, error) {
+	utils.GitHubReleaseFetcher = func(_ context.Context, _ string, _ string) (string, error) {
 		return "0.99.0", nil
 	}
 
-	items, err := GenerateURLs(ctx, true)
+	// Use GenerateURLsWithDeps to inject a mock HTTP client that returns fake Anaconda data
+	mockClient := &http.Client{
+		Transport: &roundTripperLatest{},
+	}
+
+	items, err := docker.GenerateURLsWithDeps(ctx, true, docker.CacheDeps{
+		UseLatest:     true,
+		HTTPClient:    mockClient,
+		GitHubFetcher: utils.GitHubReleaseFetcher,
+	})
 	if err != nil {
 		t.Fatalf("GenerateURLs error: %v", err)
 	}
 	found := false
 	for _, it := range items {
-		if it.LocalName == "pkl-linux-latest-"+GetCurrentArchitecture(ctx, "apple/pkl") {
+		if it.LocalName == "pkl-linux-latest-"+docker.GetCurrentArchitecture(ctx, "apple/pkl") {
 			found = true
 			break
 		}
@@ -1532,14 +1448,14 @@ func TestGenerateURLsLatestUsesFetcher(t *testing.T) {
 
 func TestPrintDockerBuildOutputSuccess(t *testing.T) {
 	logs := `{"stream":"Step 1/2 : FROM alpine\n"}\n{"stream":" ---\u003e 123abc\n"}\n`
-	if err := printDockerBuildOutput(strings.NewReader(logs)); err != nil {
+	if err := docker.PrintDockerBuildOutput(strings.NewReader(logs), logging.NewTestLogger()); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
 }
 
 func TestPrintDockerBuildOutputError(t *testing.T) {
 	logs := `{"error":"something bad"}`
-	if err := printDockerBuildOutput(strings.NewReader(logs)); err == nil {
+	if err := docker.PrintDockerBuildOutput(strings.NewReader(logs), logging.NewTestLogger()); err == nil {
 		t.Fatalf("expected error, got nil")
 	}
 }
@@ -1552,7 +1468,7 @@ func TestPrintDockerBuildOutput_Success(t *testing.T) {
 	}
 	rd := strings.NewReader(strings.Join(logs, "\n"))
 
-	err := printDockerBuildOutput(rd)
+	err := docker.PrintDockerBuildOutput(rd, logging.NewTestLogger())
 	assert.NoError(t, err)
 }
 
@@ -1563,8 +1479,8 @@ func TestPrintDockerBuildOutput_Error(t *testing.T) {
 	}
 	rd := strings.NewReader(strings.Join(logs, "\n"))
 
-	err := printDockerBuildOutput(rd)
-	assert.Error(t, err)
+	err := docker.PrintDockerBuildOutput(rd, logging.NewTestLogger())
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "some docker build error")
 }
 
@@ -1574,7 +1490,7 @@ func TestPrintDockerBuildOutput_NonJSONLines(t *testing.T) {
 	buf.WriteString("{\"stream\":\"ok\"}\n")
 	buf.WriteString("another bad line\n")
 
-	err := printDockerBuildOutput(&buf)
+	err := docker.PrintDockerBuildOutput(&buf, logging.NewTestLogger())
 	assert.NoError(t, err)
 }
 
@@ -1590,7 +1506,7 @@ func TestGenerateDockerfile_NoAnacondaInstall(t *testing.T) {
 		"",               // pkgSection
 		"",               // pythonPkgSection
 		"",               // condaPkgSection
-		"2024.10-1",      // anacondaVersion
+		"20.4.30-1",      // anacondaVersion
 		"0.28.1",         // pklVersion
 		"UTC",            // timezone
 		"",               // exposedPort
@@ -1607,4 +1523,70 @@ func TestGenerateDockerfile_NoAnacondaInstall(t *testing.T) {
 
 	// Should still contain pkl installation
 	assert.Contains(t, dockerfile, "pkl-linux", "dockerfile should still contain pkl installation")
+}
+
+func TestBuildDockerfile_OllamaTagVersion(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdeps := &kdepspkg.Kdeps{}
+	baseLogger := log.New(nil)
+	logger := &logging.Logger{Logger: baseLogger}
+
+	// Use temporary directory for test files
+	tmpDir := t.TempDir()
+	kdepsDir := filepath.Join(tmpDir, "kdeps")
+	pkgProject := &archiver.KdepsPackage{
+		Workflow: filepath.Join(kdepsDir, "testWorkflow"),
+	}
+
+	// Create dummy directories in memory FS
+	fs.MkdirAll(kdepsDir, 0o755)
+	fs.MkdirAll(filepath.Join(kdepsDir, "cache"), 0o755)
+	fs.MkdirAll(filepath.Join(kdepsDir, "agents", "test", "1.0"), 0o755)
+
+	// Create a dummy workflow file with OllamaTagVersion set
+	workflowPath := filepath.Join(kdepsDir, "testWorkflow")
+	dummyWorkflowContent := `amends "package://schema.kdeps.com/core@0.4.6#/Workflow.pkl"
+
+AgentID = "test"
+Version = "1.0"
+TargetActionID = "responseResource"
+
+Settings {
+	APIServerMode = true
+	APIServer {
+		HostIP = "127.0.0.1"
+		PortNum = 3000
+	}
+	AgentSettings {
+		OllamaTagVersion = "0.8.0"
+	}
+}
+`
+	afero.WriteFile(fs, workflowPath, []byte(dummyWorkflowContent), 0o644)
+
+	// Call the function under test
+	runDir, _, _, _, _, _, _, _, _, err := docker.BuildDockerfile(fs, ctx, kdeps, kdepsDir, pkgProject, logger)
+	if err != nil {
+		// Gracefully skip when PKL or workflow dependency is unavailable in CI
+		if strings.Contains(err.Error(), "Cannot find module") {
+			t.Skipf("Skipping TestBuildDockerfile_OllamaTagVersion due to missing PKL module: %v", err)
+		}
+		t.Errorf("BuildDockerfile failed unexpectedly: %v", err)
+	}
+
+	// Check if Dockerfile was created
+	dockerfilePath := runDir + "/Dockerfile"
+	content, err := afero.ReadFile(fs, dockerfilePath)
+	if err != nil {
+		t.Errorf("Failed to read generated Dockerfile: %v", err)
+	}
+
+	contentStr := string(content)
+	// Verify that the PKL-specified OllamaTagVersion is used
+	if !strings.Contains(contentStr, "FROM ollama/ollama:0.8.0") {
+		t.Errorf("Dockerfile does not contain expected base image with PKL-specified OllamaTagVersion. Content: %s", contentStr)
+	}
+
+	t.Log("BuildDockerfile correctly used PKL-specified OllamaTagVersion")
 }

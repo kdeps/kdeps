@@ -1,10 +1,11 @@
-package memory
+package memory_test
 
 import (
 	"net/url"
 	"os"
 	"testing"
 
+	"github.com/kdeps/kdeps/pkg/memory"
 	"github.com/stretchr/testify/require"
 )
 
@@ -14,7 +15,7 @@ func TestInitializeMemory_Basic(t *testing.T) {
 	tmpDir := t.TempDir()
 	tmpPath := tmpDir + "/test.db"
 
-	reader, err := InitializeMemory(tmpPath)
+	reader, err := memory.InitializeMemory(tmpPath)
 	require.NoError(t, err)
 	require.NotNil(t, reader)
 	require.NotNil(t, reader.DB)
@@ -35,7 +36,7 @@ func TestInitializeMemory_Basic(t *testing.T) {
 // clear) to bump coverage through conditional branches.
 func TestPklResourceReaderOperations(t *testing.T) {
 	tmpDir := t.TempDir()
-	reader, err := InitializeMemory(tmpDir + "/db.sqlite")
+	reader, err := memory.InitializeMemory(tmpDir + "/db.sqlite")
 	require.NoError(t, err)
 
 	// Set value

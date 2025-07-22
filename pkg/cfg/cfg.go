@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/adrg/xdg"
+	"github.com/apple/pkl-go/pkl"
 	"github.com/charmbracelet/huh"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/evaluator"
@@ -18,13 +19,8 @@ import (
 	"github.com/spf13/afero"
 )
 
-func FindConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
+func FindConfiguration(_ context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 	logger.Debug("finding configuration...")
-
-	// Ensure PKL binary exists before proceeding
-	if err := evaluator.EnsurePklBinaryExists(ctx, logger); err != nil {
-		return "", err
-	}
 
 	// Use the initialized environment's Pwd directory
 	configFilePwd := filepath.Join(env.Pwd, environment.SystemConfigFileName)
@@ -44,7 +40,7 @@ func FindConfiguration(fs afero.Fs, ctx context.Context, env *environment.Enviro
 	return "", nil
 }
 
-func GenerateConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
+func GenerateConfiguration(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger, eval pkl.Evaluator) (string, error) {
 	logger.Debug("generating configuration...")
 
 	// Set configFile path in Home directory
@@ -53,15 +49,28 @@ func GenerateConfiguration(fs afero.Fs, ctx context.Context, env *environment.En
 	// Always create the configuration file if it doesn't exist
 	if _, err := fs.Stat(configFile); err != nil {
 		// Generate configuration without asking the user for confirmation
-		url := fmt.Sprintf("package://schema.kdeps.com/core@%s#/Kdeps.pkl", schema.SchemaVersion(ctx))
+		url := schema.ImportPath(ctx, "Kdeps.pkl")
 		headerSection := fmt.Sprintf("amends \"%s\"\n", url)
 
-		content, err := evaluator.EvalPkl(fs, ctx, url, headerSection, logger)
+		// Use the provided evaluator directly
+		// Create a ModuleSource using UriSource for the package URL
+		moduleSource := pkl.UriSource(url)
+
+		// Check if evaluator is provided
+		if eval == nil {
+			return "", fmt.Errorf("evaluator is required but was nil")
+		}
+
+		// Evaluate the Pkl file
+		result, err := eval.EvaluateOutputText(ctx, moduleSource)
 		if err != nil {
 			return "", fmt.Errorf("failed to evaluate .pkl file: %w", err)
 		}
 
-		if err = afero.WriteFile(fs, configFile, []byte(content), 0o644); err != nil {
+		// Format the result by prepending the headerSection
+		formattedResult := fmt.Sprintf("%s\n%s", headerSection, result)
+
+		if err = afero.WriteFile(fs, configFile, []byte(formattedResult), 0o644); err != nil {
 			return "", fmt.Errorf("failed to write to %s: %w", configFile, err)
 		}
 
@@ -71,7 +80,7 @@ func GenerateConfiguration(fs afero.Fs, ctx context.Context, env *environment.En
 	return configFile, nil
 }
 
-func EditConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
+func EditConfiguration(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 	logger.Debug("editing configuration...")
 
 	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
@@ -106,12 +115,12 @@ func EditConfiguration(fs afero.Fs, ctx context.Context, env *environment.Enviro
 	return configFile, nil
 }
 
-func ValidateConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
+func ValidateConfiguration(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger, eval pkl.Evaluator) (string, error) {
 	logger.Debug("validating configuration...")
 
 	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
 
-	if _, err := evaluator.EvalPkl(fs, ctx, configFile, "", logger); err != nil {
+	if _, err := evaluator.EvalPkl(eval, fs, ctx, configFile, "", nil, logger); err != nil {
 		return configFile, fmt.Errorf("configuration validation failed: %w", err)
 	}
 
@@ -119,7 +128,7 @@ func ValidateConfiguration(fs afero.Fs, ctx context.Context, env *environment.En
 	return configFile, nil
 }
 
-func LoadConfiguration(fs afero.Fs, ctx context.Context, configFile string, logger *logging.Logger) (*kdeps.Kdeps, error) {
+func LoadConfiguration(ctx context.Context, _ afero.Fs, configFile string, logger *logging.Logger) (*kdeps.Kdeps, error) {
 	logger.Debug("loading configuration", "config-file", configFile)
 
 	konfig, err := kdeps.LoadFromPath(ctx, configFile)
@@ -130,18 +139,28 @@ func LoadConfiguration(fs afero.Fs, ctx context.Context, configFile string, logg
 	return konfig, nil
 }
 
-func GetKdepsPath(ctx context.Context, kdepsCfg kdeps.Kdeps) (string, error) {
+func GetKdepsPath(_ context.Context, kdepsCfg kdeps.Kdeps) (string, error) {
 	kdepsDir := kdepsCfg.KdepsDir
 	p := kdepsCfg.KdepsPath
 
-	switch p {
+	// Handle nil pointers with defaults
+	if kdepsDir == nil {
+		defaultDir := ".kdeps"
+		kdepsDir = &defaultDir
+	}
+	if p == nil {
+		defaultPath := path.User
+		p = &defaultPath
+	}
+
+	switch *p {
 	case path.User:
 		// Use the user's home directory
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", err
 		}
-		return filepath.Join(home, kdepsDir), nil
+		return filepath.Join(home, *kdepsDir), nil
 
 	case path.Project:
 		// Use the current working directory (project dir)
@@ -149,13 +168,13 @@ func GetKdepsPath(ctx context.Context, kdepsCfg kdeps.Kdeps) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return filepath.Join(cwd, kdepsDir), nil
+		return filepath.Join(cwd, *kdepsDir), nil
 
 	case path.Xdg:
 		// Use the XDG config home directory
-		return filepath.Join(xdg.ConfigHome, kdepsDir), nil
+		return filepath.Join(xdg.ConfigHome, *kdepsDir), nil
 
 	default:
-		return "", fmt.Errorf("unknown path type: %s", p)
+		return "", fmt.Errorf("unknown path type: %s", *p)
 	}
 }

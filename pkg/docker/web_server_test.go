@@ -1,4 +1,4 @@
-package docker
+package docker_test
 
 import (
 	"context"
@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/kdeps/kdeps/pkg"
+	"github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/schema"
@@ -26,8 +28,8 @@ func TestHandleAppRequest_Misconfiguration(t *testing.T) {
 
 	route := &webserver.WebServerRoutes{
 		Path:       "/app",
-		PublicPath: "app",
-		ServerType: webservertype.App,
+		PublicPath: pkg.StringPtr("app"),
+		ServerType: func() *webservertype.WebServerType { v := webservertype.App; return &v }(),
 		AppPort:    func() *uint16 { v := uint16(3000); return &v }(),
 	}
 
@@ -38,11 +40,11 @@ func TestHandleAppRequest_Misconfiguration(t *testing.T) {
 	}
 
 	// hostIP is empty -> should trigger error branch and return 500
-	handler := handleAppRequestWrapper("", route, dr.Logger)
+	handler := HandleAppRequestWrapper("", route, dr.Logger)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/app", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
 
 	handler(c)
 
@@ -52,25 +54,25 @@ func TestHandleAppRequest_Misconfiguration(t *testing.T) {
 }
 
 // helper to expose handleAppRequest (unexported) via closure
-func handleAppRequestWrapper(hostIP string, route *webserver.WebServerRoutes, logger *logging.Logger) gin.HandlerFunc {
+func HandleAppRequestWrapper(hostIP string, route *webserver.WebServerRoutes, logger *logging.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		handleAppRequest(c, hostIP, route, logger)
+		docker.HandleAppRequest(c, hostIP, route, logger)
 	}
 }
 
 // TestLogDirectoryContents ensures no panic and logs for empty/filled dir.
-func TestLogDirectoryContentsNoPanic(t *testing.T) {
+func TestLogDirectoryContentsNoPanic(_ *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 	dr := &resolver.DependencyResolver{Fs: fs, Logger: logger}
 
 	// Case 1: directory missing – should just log an error and continue.
-	logDirectoryContents(dr, "/not-exist", logger)
+	docker.LogDirectoryContents(dr, "/not-exist", logger)
 
 	// Case 2: directory with files – should iterate entries.
 	_ = fs.MkdirAll("/data", 0o755)
 	_ = afero.WriteFile(fs, "/data/hello.txt", []byte("hi"), 0o644)
-	logDirectoryContents(dr, "/data", logger)
+	docker.LogDirectoryContents(dr, "/data", logger)
 }
 
 // Second misconfiguration scenario (empty host) is covered via TestHandleAppRequest_Misconfiguration.
@@ -99,11 +101,11 @@ func TestWebServerHandler_Static(t *testing.T) {
 
 	route := &webserver.WebServerRoutes{
 		Path:       "/public",
-		PublicPath: publicPath,
-		ServerType: webservertype.Static,
+		PublicPath: pkg.StringPtr(publicPath),
+		ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 	}
 
-	handler := WebServerHandler(context.Background(), "", route, dr)
+	handler := docker.WebServerHandler(context.Background(), "", route, dr)
 
 	req := httptest.NewRequest(http.MethodGet, "/public/hello.txt", nil)
 	w := httptest.NewRecorder()
@@ -119,7 +121,7 @@ func TestWebServerHandler_Static(t *testing.T) {
 		t.Fatalf("unexpected body: %s", body)
 	}
 
-	_ = schema.SchemaVersion(context.Background())
+	_ = schema.Version(context.Background())
 }
 
 // TestWebServerHandler_AppError checks that missing host triggers HTTP 500.
@@ -136,11 +138,11 @@ func TestWebServerHandler_AppError(t *testing.T) {
 	var port uint16 = 1234
 	route := &webserver.WebServerRoutes{
 		Path:       "/proxy",
-		ServerType: webservertype.App,
+		ServerType: func() *webservertype.WebServerType { v := webservertype.App; return &v }(),
 		AppPort:    &port,
 	}
 
-	handler := WebServerHandler(context.Background(), "", route, dr)
+	handler := docker.WebServerHandler(context.Background(), "", route, dr)
 
 	req := httptest.NewRequest(http.MethodGet, "/proxy/x", nil)
 	w := httptest.NewRecorder()
@@ -153,7 +155,7 @@ func TestWebServerHandler_AppError(t *testing.T) {
 		t.Fatalf("expected 500, got %d", w.Code)
 	}
 
-	_ = schema.SchemaVersion(context.Background())
+	_ = schema.Version(context.Background())
 }
 
 // closeNotifyRecorder wraps ResponseRecorder to satisfy CloseNotifier.
@@ -164,15 +166,15 @@ func (closeNotifyRecorder) CloseNotify() <-chan bool { return make(chan bool, 1)
 // TestHandleAppRequest_BadGateway confirms that when the target app port is not reachable,
 // handleAppRequest returns a 502 Bad Gateway and logs the error branch.
 func TestHandleAppRequest_BadGateway(t *testing.T) {
-	_ = schema.SchemaVersion(context.Background()) // rule compliance
+	_ = schema.Version(context.Background()) // rule compliance
 
 	gin.SetMode(gin.TestMode)
 
 	port := uint16(65534) // assume nothing is listening here
 	route := &webserver.WebServerRoutes{
 		Path:       "/app",
-		PublicPath: "unused",
-		ServerType: webservertype.App,
+		PublicPath: pkg.StringPtr("unused"),
+		ServerType: func() *webservertype.WebServerType { v := webservertype.App; return &v }(),
 		AppPort:    &port,
 	}
 
@@ -180,14 +182,14 @@ func TestHandleAppRequest_BadGateway(t *testing.T) {
 
 	// Build handler closure using wrapper from earlier helper pattern
 	handler := func(c *gin.Context) {
-		handleAppRequest(c, "127.0.0.1", route, logger)
+		docker.HandleAppRequest(c, "127.0.0.1", route, logger)
 	}
 
 	rec := httptest.NewRecorder()
 	// Wrap recorder to implement CloseNotify for reverse proxy compatibility.
 	cn := closeNotifyRecorder{rec}
 	c, _ := gin.CreateTestContext(cn)
-	c.Request = httptest.NewRequest("GET", "/app/foo", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/app/foo", nil)
 
 	// set a small timeout on proxy transport via context deadline guarantee not needed; request returns fast.
 	handler(c)
@@ -207,7 +209,7 @@ func TestHandleAppRequest_BadGateway(t *testing.T) {
 // verifies we get a 200 and the expected payload. Uses OsFs + tmp dir per guidelines.
 func TestHandleStaticRequest_Static(t *testing.T) {
 	// Reference schema version (project rule)
-	_ = schema.SchemaVersion(context.Background())
+	_ = schema.Version(context.Background())
 
 	gin.SetMode(gin.TestMode)
 
@@ -230,17 +232,17 @@ func TestHandleStaticRequest_Static(t *testing.T) {
 	// Build route definition
 	route := &webserver.WebServerRoutes{
 		Path:       "/static",
-		PublicPath: "public",
-		ServerType: webservertype.Static,
+		PublicPath: pkg.StringPtr("public"),
+		ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 	}
 
 	// Prepare gin context
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
-	ctx.Request = httptest.NewRequest("GET", "/static/index.txt", nil)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/static/index.txt", nil)
 
 	// Invoke static handler directly
-	handleStaticRequest(ctx, filepath.Join(dataDir, route.PublicPath), route)
+	docker.HandleStaticRequest(ctx, filepath.Join(dataDir, *route.PublicPath), route)
 
 	if w.Code != 200 {
 		t.Fatalf("expected 200, got %d", w.Code)
@@ -252,7 +254,7 @@ func TestHandleStaticRequest_Static(t *testing.T) {
 	_ = resolver.DependencyResolver{}
 }
 
-func setupTestWebServer(t *testing.T) (afero.Fs, *logging.Logger, *resolver.DependencyResolver) {
+func setupTestWebServer(_ *testing.T) (afero.Fs, *logging.Logger, *resolver.DependencyResolver) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 	dr := &resolver.DependencyResolver{
@@ -271,13 +273,13 @@ func (m *MockWorkflow) GetSettings() *project.Settings {
 	return m.settings
 }
 
-func (m *MockWorkflow) GetName() string           { return "" }
+func (m *MockWorkflow) GetAgentID() string        { return "" }
 func (m *MockWorkflow) GetVersion() string        { return "" }
 func (m *MockWorkflow) GetAgentIcon() *string     { return nil }
 func (m *MockWorkflow) GetTargetActionID() string { return "" }
 func (m *MockWorkflow) GetWorkflows() []string    { return nil }
 func (m *MockWorkflow) GetAuthors() *[]string     { return nil }
-func (m *MockWorkflow) GetDescription() string    { return "" }
+func (m *MockWorkflow) GetDescription() *string   { return nil }
 func (m *MockWorkflow) GetDocumentation() *string { return nil }
 func (m *MockWorkflow) GetHeroImage() *string     { return nil }
 func (m *MockWorkflow) GetRepository() *string    { return nil }
@@ -289,9 +291,9 @@ func TestStartWebServerMode(t *testing.T) {
 		portNum := uint16(8080)
 		settings := &project.Settings{
 			WebServer: &webserver.WebServerSettings{
-				HostIP:  "localhost",
-				PortNum: portNum,
-				Routes:  []*webserver.WebServerRoutes{},
+				HostIP:  pkg.StringPtr("localhost"),
+				PortNum: pkg.Uint16Ptr(portNum),
+				Routes:  &[]*webserver.WebServerRoutes{},
 			},
 		}
 
@@ -313,14 +315,14 @@ func TestStartWebServerMode(t *testing.T) {
 		defer cancel()
 
 		// Start web server
-		err := StartWebServerMode(ctx, mockResolver)
+		err := docker.StartWebServerMode(ctx, mockResolver)
 		require.NoError(t, err)
 
 		// Give server time to start
 		time.Sleep(100 * time.Millisecond)
 
 		// Test server is running
-		req, err := http.NewRequest("GET", "http://localhost:8080/", nil)
+		req, err := http.NewRequest(http.MethodGet, "http://localhost:8080/", nil)
 		require.NoError(t, err)
 
 		client := &http.Client{
@@ -342,10 +344,10 @@ func TestStartWebServerMode(t *testing.T) {
 		trustedProxies := []string{"127.0.0.1"}
 		settings := &project.Settings{
 			WebServer: &webserver.WebServerSettings{
-				HostIP:         "localhost",
-				PortNum:        portNum,
+				HostIP:         pkg.StringPtr("localhost"),
+				PortNum:        pkg.Uint16Ptr(portNum),
 				TrustedProxies: &trustedProxies,
-				Routes:         []*webserver.WebServerRoutes{},
+				Routes:         &[]*webserver.WebServerRoutes{},
 			},
 		}
 
@@ -367,14 +369,14 @@ func TestStartWebServerMode(t *testing.T) {
 		defer cancel()
 
 		// Start web server
-		err := StartWebServerMode(ctx, mockResolver)
+		err := docker.StartWebServerMode(ctx, mockResolver)
 		require.NoError(t, err)
 
 		// Give server time to start
 		time.Sleep(100 * time.Millisecond)
 
 		// Test server is running
-		req, err := http.NewRequest("GET", "http://localhost:8081/", nil)
+		req, err := http.NewRequest(http.MethodGet, "http://localhost:8081/", nil)
 		require.NoError(t, err)
 
 		client := &http.Client{
@@ -395,9 +397,9 @@ func TestStartWebServerMode(t *testing.T) {
 		portNum := uint16(0) // Invalid port
 		settings := &project.Settings{
 			WebServer: &webserver.WebServerSettings{
-				HostIP:  "localhost",
-				PortNum: portNum,
-				Routes:  []*webserver.WebServerRoutes{},
+				HostIP:  pkg.StringPtr("localhost"),
+				PortNum: pkg.Uint16Ptr(portNum),
+				Routes:  &[]*webserver.WebServerRoutes{},
 			},
 		}
 
@@ -419,14 +421,14 @@ func TestStartWebServerMode(t *testing.T) {
 		defer cancel()
 
 		// Start web server
-		err := StartWebServerMode(ctx, mockResolver)
+		err := docker.StartWebServerMode(ctx, mockResolver)
 		require.NoError(t, err)
 
 		// Give server time to start
 		time.Sleep(100 * time.Millisecond)
 
 		// Test server is running
-		req, err := http.NewRequest("GET", "http://localhost:0/", nil)
+		req, err := http.NewRequest(http.MethodGet, "http://localhost:0/", nil)
 		require.NoError(t, err)
 
 		client := &http.Client{
@@ -441,9 +443,9 @@ func TestStartWebServerMode(t *testing.T) {
 		portNum := uint16(0) // Invalid port
 		settings := &project.Settings{
 			WebServer: &webserver.WebServerSettings{
-				HostIP:  "localhost",
-				PortNum: portNum,
-				Routes:  []*webserver.WebServerRoutes{},
+				HostIP:  pkg.StringPtr("localhost"),
+				PortNum: pkg.Uint16Ptr(portNum),
+				Routes:  &[]*webserver.WebServerRoutes{},
 			},
 		}
 
@@ -465,14 +467,14 @@ func TestStartWebServerMode(t *testing.T) {
 		defer cancel()
 
 		// Start web server
-		err := StartWebServerMode(ctx, mockResolver)
+		err := docker.StartWebServerMode(ctx, mockResolver)
 		require.NoError(t, err)
 
 		// Give server time to start
 		time.Sleep(100 * time.Millisecond)
 
 		// Test server is running
-		req, err := http.NewRequest("GET", "http://localhost:0/", nil)
+		req, err := http.NewRequest(http.MethodGet, "http://localhost:0/", nil)
 		require.NoError(t, err)
 
 		client := &http.Client{
@@ -500,7 +502,7 @@ func TestStartWebServerMode(t *testing.T) {
 
 		// Call StartWebServerMode and expect it to panic due to nil pointer dereference
 		assert.Panics(t, func() {
-			_ = StartWebServerMode(context.Background(), mockResolver)
+			_ = docker.StartWebServerMode(context.Background(), mockResolver)
 		})
 	})
 
@@ -515,7 +517,7 @@ func TestStartWebServerMode(t *testing.T) {
 
 		// Call StartWebServerMode and expect it to panic due to nil pointer dereference
 		assert.Panics(t, func() {
-			_ = StartWebServerMode(context.Background(), mockResolver)
+			_ = docker.StartWebServerMode(context.Background(), mockResolver)
 		})
 	})
 
@@ -524,9 +526,9 @@ func TestStartWebServerMode(t *testing.T) {
 		mockWorkflow := &MockWorkflow{
 			settings: &project.Settings{
 				WebServer: &webserver.WebServerSettings{
-					HostIP:         "localhost",
-					PortNum:        uint16(8090), // Use a different port to avoid conflicts
-					Routes:         []*webserver.WebServerRoutes{},
+					HostIP:         pkg.StringPtr("localhost"),
+					PortNum:        pkg.Uint16Ptr(uint16(8090)), // Use a different port to avoid conflicts
+					Routes:         &[]*webserver.WebServerRoutes{},
 					TrustedProxies: &[]string{},
 				},
 			},
@@ -546,7 +548,7 @@ func TestStartWebServerMode(t *testing.T) {
 		defer listener.Close()
 
 		// Call StartWebServerMode
-		err = StartWebServerMode(context.Background(), mockResolver)
+		err = docker.StartWebServerMode(context.Background(), mockResolver)
 		assert.NoError(t, err) // Should not return error as server starts in goroutine
 	})
 
@@ -555,9 +557,9 @@ func TestStartWebServerMode(t *testing.T) {
 		mockWorkflow := &MockWorkflow{
 			settings: &project.Settings{
 				WebServer: &webserver.WebServerSettings{
-					HostIP:         "localhost",
-					PortNum:        uint16(8081),
-					Routes:         []*webserver.WebServerRoutes{},
+					HostIP:         pkg.StringPtr("localhost"),
+					PortNum:        pkg.Uint16Ptr(uint16(8081)),
+					Routes:         &[]*webserver.WebServerRoutes{},
 					TrustedProxies: &[]string{},
 				},
 			},
@@ -576,7 +578,7 @@ func TestStartWebServerMode(t *testing.T) {
 		cancel() // Cancel immediately
 
 		// Call StartWebServerMode
-		err := StartWebServerMode(ctx, mockResolver)
+		err := docker.StartWebServerMode(ctx, mockResolver)
 		assert.NoError(t, err) // Should not return error as server starts in goroutine
 	})
 
@@ -584,9 +586,9 @@ func TestStartWebServerMode(t *testing.T) {
 		// Create mock workflow settings with invalid host IP
 		wfSettings := &project.Settings{
 			WebServer: &webserver.WebServerSettings{
-				HostIP:  "invalid-ip",
-				PortNum: uint16(8080),
-				Routes:  []*webserver.WebServerRoutes{},
+				HostIP:  pkg.StringPtr("invalid-ip"),
+				PortNum: pkg.Uint16Ptr(uint16(8080)),
+				Routes:  &[]*webserver.WebServerRoutes{},
 			},
 		}
 
@@ -605,13 +607,13 @@ func TestStartWebServerMode(t *testing.T) {
 		ctx := context.Background()
 
 		// Call function
-		err := StartWebServerMode(ctx, dr)
+		err := docker.StartWebServerMode(ctx, dr)
 		assert.NoError(t, err) // Should not return error as server starts in goroutine
 	})
 }
 
 func TestSetupWebRoutes(t *testing.T) {
-	t.Run("ValidRoutes", func(t *testing.T) {
+	t.Run("ValidRoutes", func(_ *testing.T) {
 		router := gin.Default()
 		ctx := context.Background()
 		dr := &resolver.DependencyResolver{
@@ -623,21 +625,21 @@ func TestSetupWebRoutes(t *testing.T) {
 		routes := []*webserver.WebServerRoutes{
 			{
 				Path:       "/static",
-				PublicPath: "static",
-				ServerType: webservertype.Static,
+				PublicPath: pkg.StringPtr("static"),
+				ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 			},
 			{
 				Path:       "/app",
-				PublicPath: "app",
-				ServerType: webservertype.App,
+				PublicPath: pkg.StringPtr("app"),
+				ServerType: func() *webservertype.WebServerType { v := webservertype.App; return &v }(),
 				AppPort:    uint16Ptr(3000),
 			},
 		}
 
-		setupWebRoutes(router, ctx, "localhost", []string{"127.0.0.1"}, routes, dr)
+		docker.SetupWebRoutes(router, ctx, "localhost", []string{"127.0.0.1"}, routes, dr)
 	})
 
-	t.Run("NilRoute", func(t *testing.T) {
+	t.Run("NilRoute", func(_ *testing.T) {
 		router := gin.Default()
 		ctx := context.Background()
 		dr := &resolver.DependencyResolver{
@@ -648,10 +650,10 @@ func TestSetupWebRoutes(t *testing.T) {
 
 		routes := []*webserver.WebServerRoutes{nil}
 
-		setupWebRoutes(router, ctx, "localhost", nil, routes, dr)
+		docker.SetupWebRoutes(router, ctx, "localhost", nil, routes, dr)
 	})
 
-	t.Run("EmptyPath", func(t *testing.T) {
+	t.Run("EmptyPath", func(_ *testing.T) {
 		router := gin.Default()
 		ctx := context.Background()
 		dr := &resolver.DependencyResolver{
@@ -663,15 +665,15 @@ func TestSetupWebRoutes(t *testing.T) {
 		routes := []*webserver.WebServerRoutes{
 			{
 				Path:       "",
-				PublicPath: "static",
-				ServerType: webservertype.Static,
+				PublicPath: pkg.StringPtr("static"),
+				ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 			},
 		}
 
-		setupWebRoutes(router, ctx, "localhost", nil, routes, dr)
+		docker.SetupWebRoutes(router, ctx, "localhost", nil, routes, dr)
 	})
 
-	t.Run("InvalidTrustedProxies", func(t *testing.T) {
+	t.Run("InvalidTrustedProxies", func(_ *testing.T) {
 		router := gin.Default()
 		ctx := context.Background()
 		dr := &resolver.DependencyResolver{
@@ -683,16 +685,16 @@ func TestSetupWebRoutes(t *testing.T) {
 		routes := []*webserver.WebServerRoutes{
 			{
 				Path:       "/static",
-				PublicPath: "static",
-				ServerType: webservertype.Static,
+				PublicPath: pkg.StringPtr("static"),
+				ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 			},
 		}
 
 		// Invalid IP address that will cause SetTrustedProxies to fail
-		setupWebRoutes(router, ctx, "localhost", []string{"invalid.ip"}, routes, dr)
+		docker.SetupWebRoutes(router, ctx, "localhost", []string{"invalid.ip"}, routes, dr)
 	})
 
-	t.Run("NilRouter", func(t *testing.T) {
+	t.Run("NilRouter", func(_ *testing.T) {
 		ctx := context.Background()
 		dr := &resolver.DependencyResolver{
 			Logger:  logging.NewTestLogger(),
@@ -703,18 +705,18 @@ func TestSetupWebRoutes(t *testing.T) {
 		routes := []*webserver.WebServerRoutes{
 			{
 				Path:       "/test",
-				PublicPath: "test",
-				ServerType: webservertype.Static,
+				PublicPath: pkg.StringPtr("test"),
+				ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 			},
 		}
 
 		// Should panic when router is nil
 		assert.Panics(t, func() {
-			setupWebRoutes(nil, ctx, "localhost", nil, routes, dr)
+			docker.SetupWebRoutes(nil, ctx, "localhost", nil, routes, dr)
 		})
 	})
 
-	t.Run("NilContext", func(t *testing.T) {
+	t.Run("NilContext", func(_ *testing.T) {
 		router := gin.Default()
 		dr := &resolver.DependencyResolver{
 			Logger:  logging.NewTestLogger(),
@@ -725,16 +727,16 @@ func TestSetupWebRoutes(t *testing.T) {
 		routes := []*webserver.WebServerRoutes{
 			{
 				Path:       "/test",
-				PublicPath: "test",
-				ServerType: webservertype.Static,
+				PublicPath: pkg.StringPtr("test"),
+				ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 			},
 		}
 
 		// Should not panic
-		setupWebRoutes(router, nil, "localhost", nil, routes, dr)
+		docker.SetupWebRoutes(router, nil, "localhost", nil, routes, dr)
 	})
 
-	t.Run("NilRoutes", func(t *testing.T) {
+	t.Run("NilRoutes", func(_ *testing.T) {
 		// Create mock dependency resolver
 		mockResolver := &resolver.DependencyResolver{
 			Logger:  logging.NewTestLogger(),
@@ -746,11 +748,11 @@ func TestSetupWebRoutes(t *testing.T) {
 		router := gin.Default()
 
 		// Call setupWebRoutes with nil routes
-		setupWebRoutes(router, context.Background(), "localhost", nil, nil, mockResolver)
+		docker.SetupWebRoutes(router, context.Background(), "localhost", nil, nil, mockResolver)
 		// Should not panic
 	})
 
-	t.Run("InvalidTrustedProxies", func(t *testing.T) {
+	t.Run("InvalidTrustedProxies", func(_ *testing.T) {
 		// Create mock dependency resolver
 		mockResolver := &resolver.DependencyResolver{
 			Logger:  logging.NewTestLogger(),
@@ -765,25 +767,25 @@ func TestSetupWebRoutes(t *testing.T) {
 		routes := []*webserver.WebServerRoutes{
 			{
 				Path:       "/test",
-				PublicPath: "test",
-				ServerType: webservertype.Static,
+				PublicPath: pkg.StringPtr("test"),
+				ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 			},
 		}
 
 		// Call setupWebRoutes with invalid trusted proxy
-		setupWebRoutes(router, context.Background(), "localhost", []string{"invalid-ip"}, routes, mockResolver)
+		docker.SetupWebRoutes(router, context.Background(), "localhost", []string{"invalid-ip"}, routes, mockResolver)
 		// Should not panic and should log error
 	})
 
-	t.Run("RouterTrustedProxiesFailure", func(t *testing.T) {
+	t.Run("RouterTrustedProxiesFailure", func(_ *testing.T) {
 		// Create mock router
 		router := gin.New()
 
 		// Create mock route
 		route := &webserver.WebServerRoutes{
 			Path:       "/test",
-			PublicPath: "test",
-			ServerType: webservertype.Static,
+			PublicPath: pkg.StringPtr("test"),
+			ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 		}
 
 		// Create mock dependency resolver
@@ -797,7 +799,7 @@ func TestSetupWebRoutes(t *testing.T) {
 		ctx := context.Background()
 
 		// Call function with invalid trusted proxies
-		setupWebRoutes(router, ctx, "localhost", []string{"invalid-proxy"}, []*webserver.WebServerRoutes{route}, dr)
+		docker.SetupWebRoutes(router, ctx, "localhost", []string{"invalid-proxy"}, []*webserver.WebServerRoutes{route}, dr)
 	})
 }
 
@@ -806,8 +808,8 @@ func TestWebServerHandler(t *testing.T) {
 		// Create mock route
 		route := &webserver.WebServerRoutes{
 			Path:       "/test",
-			PublicPath: "/tmp/test",
-			ServerType: webservertype.Static,
+			PublicPath: pkg.StringPtr(filepath.Join(t.TempDir(), "test")),
+			ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 		}
 
 		// Create mock dependency resolver
@@ -821,7 +823,7 @@ func TestWebServerHandler(t *testing.T) {
 		ctx := context.Background()
 
 		// Get handler
-		handler := WebServerHandler(ctx, "localhost", route, mockResolver)
+		handler := docker.WebServerHandler(ctx, "localhost", route, mockResolver)
 
 		// Test cases
 		tests := []struct {
@@ -831,7 +833,7 @@ func TestWebServerHandler(t *testing.T) {
 		}{
 			{
 				name:           "Non-existent file returns 404",
-				path:           "/test/nonexistent.txt",
+				path:           "/nonexistent.txt",
 				expectedStatus: http.StatusNotFound,
 			},
 		}
@@ -840,7 +842,7 @@ func TestWebServerHandler(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				// Create request
-				req, err := http.NewRequest("GET", tt.path, nil)
+				req, err := http.NewRequest(http.MethodGet, tt.path, nil)
 				require.NoError(t, err)
 
 				// Create response recorder
@@ -866,17 +868,17 @@ func TestWebServerHandler(t *testing.T) {
 	t.Run("UnsupportedServerType", func(t *testing.T) {
 		route := &webserver.WebServerRoutes{
 			Path:       "/test",
-			PublicPath: "test",
-			ServerType: "invalid",
+			PublicPath: pkg.StringPtr("test"),
+			ServerType: func() *webservertype.WebServerType { v := webservertype.WebServerType("invalid"); return &v }(),
 		}
 
 		logger := logging.NewTestLogger()
 
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
+		c.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
 
-		handler := WebServerHandler(context.Background(), "localhost", route, &resolver.DependencyResolver{
+		handler := docker.WebServerHandler(context.Background(), "localhost", route, &resolver.DependencyResolver{
 			Logger:  logger,
 			Fs:      afero.NewMemMapFs(),
 			DataDir: "/tmp",
@@ -891,8 +893,8 @@ func TestWebServerHandler(t *testing.T) {
 		// Create mock route with invalid server type
 		route := &webserver.WebServerRoutes{
 			Path:       "/test",
-			PublicPath: "test",
-			ServerType: "invalid",
+			PublicPath: pkg.StringPtr("test"),
+			ServerType: func() *webservertype.WebServerType { v := webservertype.WebServerType("invalid"); return &v }(),
 		}
 
 		// Create mock dependency resolver
@@ -903,12 +905,12 @@ func TestWebServerHandler(t *testing.T) {
 		}
 
 		// Get handler
-		handler := WebServerHandler(context.Background(), "localhost", route, mockResolver)
+		handler := docker.WebServerHandler(context.Background(), "localhost", route, mockResolver)
 
 		// Create request
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
+		c.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
 
 		// Call handler
 		handler(c)
@@ -919,8 +921,8 @@ func TestWebServerHandler(t *testing.T) {
 	t.Run("EmptyDataDirectory", func(t *testing.T) {
 		route := &webserver.WebServerRoutes{
 			Path:       "/test",
-			PublicPath: "test",
-			ServerType: webservertype.Static,
+			PublicPath: pkg.StringPtr("test"),
+			ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 		}
 
 		// Create mock dependency resolver with empty data directory
@@ -931,12 +933,12 @@ func TestWebServerHandler(t *testing.T) {
 		}
 
 		// Get handler
-		handler := WebServerHandler(context.Background(), "localhost", route, mockResolver)
+		handler := docker.WebServerHandler(context.Background(), "localhost", route, mockResolver)
 
 		// Create request
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
+		c.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
 
 		// Call handler
 		handler(c)
@@ -953,20 +955,20 @@ func TestWebServerHandler(t *testing.T) {
 
 		// Call WebServerHandler and expect it to panic due to nil route
 		assert.Panics(t, func() {
-			WebServerHandler(context.Background(), "localhost", nil, mockResolver)
+			docker.WebServerHandler(context.Background(), "localhost", nil, mockResolver)
 		})
 	})
 
 	t.Run("NilDependencyResolver", func(t *testing.T) {
 		route := &webserver.WebServerRoutes{
 			Path:       "/test",
-			PublicPath: "test",
-			ServerType: webservertype.Static,
+			PublicPath: pkg.StringPtr("test"),
+			ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 		}
 
 		// Call WebServerHandler and expect it to panic due to nil dependency resolver
 		assert.Panics(t, func() {
-			WebServerHandler(context.Background(), "localhost", route, nil)
+			docker.WebServerHandler(context.Background(), "localhost", route, nil)
 		})
 	})
 
@@ -974,8 +976,8 @@ func TestWebServerHandler(t *testing.T) {
 		// Create mock route
 		route := &webserver.WebServerRoutes{
 			Path:       "/test",
-			PublicPath: "/nonexistent",
-			ServerType: webservertype.Static,
+			PublicPath: pkg.StringPtr("/nonexistent"),
+			ServerType: func() *webservertype.WebServerType { v := webservertype.Static; return &v }(),
 		}
 
 		// Create mock dependency resolver with nil filesystem
@@ -989,7 +991,7 @@ func TestWebServerHandler(t *testing.T) {
 
 		// Call WebServerHandler and expect it to panic due to nil filesystem
 		assert.Panics(t, func() {
-			WebServerHandler(ctx, "localhost", route, dr)
+			docker.WebServerHandler(ctx, "localhost", route, dr)
 		})
 	})
 }
@@ -1004,7 +1006,7 @@ func TestLogDirectoryContents(t *testing.T) {
 		}
 
 		// Call logDirectoryContents with non-existent directory
-		logDirectoryContents(mockResolver, "/tmp/nonexistent", mockResolver.Logger)
+		docker.LogDirectoryContents(mockResolver, filepath.Join(t.TempDir(), "nonexistent"), mockResolver.Logger)
 		// Should not panic and should log error
 	})
 
@@ -1017,23 +1019,24 @@ func TestLogDirectoryContents(t *testing.T) {
 		}
 
 		// Create empty directory
-		err := mockResolver.Fs.MkdirAll("/tmp/empty", 0o755)
+		emptyDir := filepath.Join(t.TempDir(), "empty")
+		err := mockResolver.Fs.MkdirAll(emptyDir, 0o755)
 		require.NoError(t, err)
 
 		// Call logDirectoryContents with empty directory
-		logDirectoryContents(mockResolver, "/tmp/empty", mockResolver.Logger)
+		docker.LogDirectoryContents(mockResolver, emptyDir, mockResolver.Logger)
 		// Should not panic and should log empty directory
 	})
 }
 
 func TestStartAppCommand(t *testing.T) {
-	t.Run("CommandFailure", func(t *testing.T) {
+	t.Run("CommandFailure", func(_ *testing.T) {
 		// Create mock route with invalid command
 		invalidCommand := "invalid-command-that-will-fail"
 		route := &webserver.WebServerRoutes{
 			Path:       "/app",
-			PublicPath: "app",
-			ServerType: webservertype.App,
+			PublicPath: pkg.StringPtr("app"),
+			ServerType: func() *webservertype.WebServerType { v := webservertype.App; return &v }(),
 			Command:    &invalidCommand,
 		}
 
@@ -1041,16 +1044,16 @@ func TestStartAppCommand(t *testing.T) {
 		logger := logging.NewTestLogger()
 
 		// Call startAppCommand with invalid command
-		startAppCommand(context.Background(), route, "/tmp", logger)
+		docker.StartAppCommand(context.Background(), route, "/tmp", logger)
 		// Should not panic and should log error
 	})
 
-	t.Run("NilCommand", func(t *testing.T) {
+	t.Run("NilCommand", func(_ *testing.T) {
 		// Create mock route with nil command
 		route := &webserver.WebServerRoutes{
 			Path:       "/app",
-			PublicPath: "app",
-			ServerType: webservertype.App,
+			PublicPath: pkg.StringPtr("app"),
+			ServerType: func() *webservertype.WebServerType { v := webservertype.App; return &v }(),
 			Command:    nil,
 		}
 
@@ -1058,7 +1061,7 @@ func TestStartAppCommand(t *testing.T) {
 		logger := logging.NewTestLogger()
 
 		// Call startAppCommand with nil command
-		startAppCommand(context.Background(), route, "/tmp", logger)
+		docker.StartAppCommand(context.Background(), route, "/tmp", logger)
 		// Should not panic and should not log error
 	})
 }

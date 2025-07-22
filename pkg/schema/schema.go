@@ -10,33 +10,55 @@ import (
 	"github.com/kdeps/kdeps/pkg/version"
 )
 
+// Export global variables for testing.
 var (
-	versionCache sync.Map
-	UseLatest    bool = false
-	// Add exitFunc for testability
-	exitFunc = os.Exit
+	VersionCache sync.Map
+	UseLatest    = false
+	// Add exitFunc for testability.
+	ExitFunc = os.Exit
 )
 
-// SchemaVersion(ctx) fetches and returns the schema version based on the cmd.Latest flag.
-func SchemaVersion(ctx context.Context) string {
-	if UseLatest { // Reference the global Latest flag from cmd package
-		// Try to get from cache first
-		if cached, ok := versionCache.Load("version"); ok {
-			return cached.(string)
-		}
+// VersionDeps holds dependencies for VersionWithDeps, enabling test injection.
+type VersionDeps struct {
+	UseLatest    bool
+	Fetcher      func(context.Context, string, string) (string, error)
+	ExitFunc     func(int)
+	VersionCache *sync.Map
+}
 
-		// If not in cache, fetch it
-		schemaVersion, err := utils.GitHubReleaseFetcher(ctx, "kdeps/schema", "")
+// VersionWithDeps fetches and returns the schema version using injected dependencies.
+func VersionWithDeps(ctx context.Context, deps VersionDeps) string {
+	if deps.UseLatest {
+		if cached, ok := deps.VersionCache.Load("version"); ok {
+			if cachedStr, okStr := cached.(string); okStr {
+				return cachedStr
+			}
+			return ""
+		}
+		schemaVersion, err := deps.Fetcher(ctx, "kdeps/schema", "")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: Unable to fetch the latest schema version for 'kdeps/schema': %v\n", err)
-			exitFunc(1)
+			deps.ExitFunc(1)
 		}
-
-		// Store in cache
-		versionCache.Store("version", schemaVersion)
+		deps.VersionCache.Store("version", schemaVersion)
 		return schemaVersion
 	}
-
-	// Use the centralized default schema version
 	return version.DefaultSchemaVersion
+}
+
+// Version fetches and returns the schema version using global dependencies.
+func Version(ctx context.Context) string {
+	return VersionWithDeps(ctx, VersionDeps{
+		UseLatest:    UseLatest,
+		Fetcher:      utils.GitHubReleaseFetcher,
+		ExitFunc:     ExitFunc,
+		VersionCache: &VersionCache,
+	})
+}
+
+// ImportPath returns the appropriate import path for PKL schema files.
+// Always returns the standard package:// paths with version.
+func ImportPath(ctx context.Context, pklFile string) string {
+	// Standard mode - use package URLs with version
+	return fmt.Sprintf("package://schema.kdeps.com/core@%s#/%s", Version(ctx), pklFile)
 }

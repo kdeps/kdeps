@@ -132,7 +132,7 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 	}
 
 	// Extract the workflow name and version
-	agentName := wfConfig.GetName()
+	agentName := wfConfig.GetAgentID()
 	agentVersion := wfConfig.GetVersion()
 
 	// Move the extracted files from the temporary directory to the permanent location
@@ -153,17 +153,19 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 	destinationFile := filepath.Join(packageDir, baseFilename)
 	sourceFile := kdepsPackage
 
-	err = CopyFile(fs, ctx, sourceFile, destinationFile, logger)
+	err = CopyFile(ctx, fs, sourceFile, destinationFile, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to copy kdeps package to packages directory: %w", err)
 	}
 
 	kdepsPackage = destinationFile
 
-	_, err = PrepareRunDir(fs, ctx, wfConfig, kdepsDir, kdepsPackage, logger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare runtime directory: %w", err)
-	}
+	// Don't create the workflow directory structure when extracting for analysis
+	// The runtime extraction will handle the proper directory structure
+	// _, err = PrepareRunDir(fs, ctx, wfConfig, kdepsDir, kdepsPackage, false, logger)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to prepare runtime directory: %w", err)
+	// }
 
 	// Now walk the extractBasePath directory to populate the KdepsPackage
 	kdeps := &KdepsPackage{
@@ -171,7 +173,7 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 		Data:      make(map[string]map[string][]string),
 	}
 
-	err = afero.Walk(fs, extractBasePath, func(path string, info os.FileInfo, err error) error {
+	err = afero.Walk(fs, extractBasePath, func(path string, _ os.FileInfo, err error) error {
 		if err != nil {
 			return fmt.Errorf("error walking through directory: %w", err)
 		}
@@ -232,13 +234,13 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 // PackageProject compresses the contents of projectDir into a kdeps file in kdepsDir.
 func PackageProject(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, compiledProjectDir string, logger *logging.Logger) (string, error) {
 	// Enforce the folder structure
-	if err := enforcer.EnforceFolderStructure(fs, ctx, compiledProjectDir, logger); err != nil {
+	if err := enforcer.EnforceFolderStructure(ctx, fs, compiledProjectDir, logger); err != nil {
 		logger.Error("failed to enforce folder structure", "error", err)
 		return "", err
 	}
 
 	// Create the output filename for the package
-	outFile := fmt.Sprintf("%s-%s.kdeps", wf.GetName(), wf.GetVersion())
+	outFile := fmt.Sprintf("%s-%s.kdeps", wf.GetAgentID(), wf.GetVersion())
 	packageDir := kdepsDir + "/packages"
 
 	if _, err := fs.Stat(packageDir); err != nil {
@@ -341,7 +343,7 @@ func PackageProject(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDi
 	return tarGzPath, nil
 }
 
-// Function to search for workflow.pkl file in a given folder.
+// FindWorkflowFile searches for workflow.pkl file in a given folder.
 func FindWorkflowFile(fs afero.Fs, folder string, logger *logging.Logger) (string, error) {
 	fileName := "workflow.pkl"
 

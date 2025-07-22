@@ -1,34 +1,37 @@
-package resolver
+package resolver_test
 
 import (
 	"context"
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
+	pklres "github.com/kdeps/kdeps/pkg/pklres"
+	resolverpkg "github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/spf13/afero"
 )
 
 func TestPrepareImportFilesCreatesExpectedFiles(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	dr := &DependencyResolver{
-		Fs:          fs,
-		Context:     context.Background(),
-		ActionDir:   "/action",
-		ProjectDir:  "/project",
-		WorkflowDir: "/workflow",
-		RequestID:   "graph1",
-		Logger:      logging.NewTestLogger(),
+	dr := &resolverpkg.DependencyResolver{
+		Fs:         fs,
+		Context:    context.Background(),
+		ActionDir:  "/action",
+		ProjectDir: "/project",
+		RequestID:  "graph1",
+		Logger:     logging.NewTestLogger(),
 	}
+
+	dr.PklresReader, _ = pklres.InitializePklResource("test-graph", "", "", "", afero.NewMemMapFs())
+	dr.PklresHelper = resolverpkg.NewPklresHelper(dr)
 
 	// Call the function under test
 	if err := dr.PrepareImportFiles(); err != nil {
 		t.Fatalf("PrepareImportFiles error: %v", err)
 	}
 
-	// Verify that a known file now exists
-	target := "/action/python/graph1__python_output.pkl"
-	exists, err := afero.Exists(fs, target)
-	if err != nil || !exists {
-		t.Fatalf("expected file %s to exist", target)
+	// Verify a python record exists in pklres
+	_, err := dr.PklresHelper.Get("python", "initialized")
+	if err != nil {
+		t.Fatalf("expected python resource in pklres: %v", err)
 	}
 }

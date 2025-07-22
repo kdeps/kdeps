@@ -17,7 +17,7 @@ import (
 type EditPklFunc func(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error
 
 // MockEditPkl is a mock version of EditPkl that doesn't actually open an editor
-var MockEditPkl EditPklFunc = func(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
+var MockEditPkl EditPklFunc = func(fs afero.Fs, _ context.Context, filePath string, logger *logging.Logger) error {
 	// Ensure the file has a .pkl extension
 	if filepath.Ext(filePath) != ".pkl" {
 		err := errors.New("file '" + filePath + "' does not have a .pkl extension")
@@ -68,7 +68,7 @@ func (r *realEditorCmd) SetIO(stdin, stdout, stderr *os.File) {
 
 var editorCmd = editor.Cmd
 
-func realEditorCmdFactory(editorName, filePath string) (EditorCmd, error) {
+var RealEditorCmdFactory EditorCmdFunc = func(editorName, filePath string) (EditorCmd, error) {
 	cmd, err := editorCmd(editorName, filePath)
 	if err != nil {
 		return nil, err
@@ -101,10 +101,15 @@ func EditPklWithFactory(fs afero.Fs, ctx context.Context, filePath string, logge
 	}
 
 	if factory == nil {
-		factory = realEditorCmdFactory
+		factory = RealEditorCmdFactory
 	}
 
-	edCmd, err := factory("kdeps", filePath)
+	editorName := os.Getenv("EDITOR")
+	if editorName == "" {
+		editorName = "kdeps"
+	}
+
+	edCmd, err := factory(editorName, filePath)
 	if err != nil {
 		errMsg := fmt.Sprintf("failed to create editor command: %v", err)
 		logger.Error(errMsg)

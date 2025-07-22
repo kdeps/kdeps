@@ -1,9 +1,11 @@
-package utils
+package utils_test
 
 import (
 	"testing"
 
+	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCompareVersions(t *testing.T) {
@@ -30,13 +32,13 @@ func TestCompareVersions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := CompareVersions(tt.v1, tt.v2)
+			result, err := utils.CompareVersions(tt.v1, tt.v2)
 
 			if tt.hasError {
-				assert.Error(t, err)
+				require.Error(t, err)
 			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expected, result)
+				require.NoError(t, err)
+				require.Equal(t, tt.expected, result)
 			}
 		})
 	}
@@ -61,12 +63,12 @@ func TestValidateSchemaVersion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateSchemaVersion(tt.version, tt.minimumVersion)
+			err := utils.ValidateSchemaVersion(tt.version, tt.minimumVersion)
 
 			if tt.hasError {
-				assert.Error(t, err)
+				require.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -89,7 +91,7 @@ func TestIsSchemaVersionSupported(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := IsSchemaVersionSupported(tt.version, tt.minimumVersion)
+			result := utils.IsSchemaVersionSupported(tt.version, tt.minimumVersion)
 			assert.Equal(t, tt.supported, result)
 		})
 	}

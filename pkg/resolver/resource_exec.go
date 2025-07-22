@@ -1,74 +1,107 @@
 package resolver
 
 import (
-	"errors"
+	"encoding/json"
 	"fmt"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/alexellis/go-execute/v2"
 	"github.com/apple/pkl-go/pkl"
-	"github.com/kdeps/kdeps/pkg/evaluator"
+
 	"github.com/kdeps/kdeps/pkg/kdepsexec"
-	"github.com/kdeps/kdeps/pkg/schema"
-	"github.com/kdeps/kdeps/pkg/utils"
 	pklExec "github.com/kdeps/schema/gen/exec"
-	"github.com/spf13/afero"
+	pklResource "github.com/kdeps/schema/gen/resource"
 )
 
 func (dr *DependencyResolver) HandleExec(actionID string, execBlock *pklExec.ResourceExec) error {
-	// Decode the exec block synchronously
-	if err := dr.decodeExecBlock(execBlock); err != nil {
-		dr.Logger.Error("failed to decode exec block", "actionID", actionID, "error", err)
+	dr.Logger.Info("HandleExec: ENTRY", "actionID", actionID, "execBlock_nil", execBlock == nil)
+	if execBlock != nil {
+		dr.Logger.Info("HandleExec: execBlock fields", "actionID", actionID, "command", execBlock.Command)
+	}
+	dr.Logger.Debug("HandleExec: called", "actionID", actionID, "PklresHelper_nil", dr.PklresHelper == nil)
+
+	// Canonicalize the actionID if it's a short ActionID
+	canonicalActionID := actionID
+	if dr.PklresHelper != nil {
+		canonicalActionID = dr.PklresHelper.resolveActionID(actionID)
+		if canonicalActionID != actionID {
+			dr.Logger.Debug("canonicalized actionID", "original", actionID, "canonical", canonicalActionID)
+		}
+	}
+
+	// Reload the Exec resource to ensure PKL templates are evaluated after dependencies are processed
+	// This ensures that PKL template expressions like \(client.responseBody("clientResource")) have access to dependency data
+	if err := dr.reloadExecResourceWithDependencies(canonicalActionID, execBlock); err != nil {
+		dr.Logger.Warn("failed to reload Exec resource, continuing with original", "actionID", canonicalActionID, "error", err)
+	}
+
+	// Run processExecBlock synchronously
+	if err := dr.processExecBlock(canonicalActionID, execBlock); err != nil {
+		dr.Logger.Error("failed to process exec block", "actionID", canonicalActionID, "error", err)
 		return err
 	}
 
-	// Run processExecBlock asynchronously in a goroutine
-	go func(aID string, block *pklExec.ResourceExec) {
-		if err := dr.processExecBlock(aID, block); err != nil {
-			// Log the error; consider additional error handling as needed.
-			dr.Logger.Error("failed to process exec block", "actionID", aID, "error", err)
-		}
-	}(actionID, execBlock)
-
-	// Return immediately; the exec block is being processed in the background.
 	return nil
 }
 
-func (dr *DependencyResolver) decodeExecBlock(execBlock *pklExec.ResourceExec) error {
-	// Decode Command
-	decodedCommand, err := utils.DecodeBase64IfNeeded(execBlock.Command)
-	if err != nil {
-		return fmt.Errorf("failed to decode command: %w", err)
-	}
-	execBlock.Command = decodedCommand
+// reloadExecResourceWithDependencies reloads the Exec resource to ensure PKL templates are evaluated after dependencies
+func (dr *DependencyResolver) reloadExecResourceWithDependencies(actionID string, execBlock *pklExec.ResourceExec) error {
+	dr.Logger.Debug("reloadExecResourceWithDependencies: reloading Exec resource for fresh template evaluation", "actionID", actionID)
 
-	// Decode Stderr
-	if execBlock.Stderr != nil {
-		decodedStderr, err := utils.DecodeBase64IfNeeded(*execBlock.Stderr)
-		if err != nil {
-			return fmt.Errorf("failed to decode stderr: %w", err)
+	// Find the resource file path for this actionID
+	resourceFile := ""
+	for _, resInterface := range dr.Resources {
+		if res, ok := resInterface.(ResourceNodeEntry); ok {
+			if res.ActionID == actionID {
+				resourceFile = res.File
+				break
+			}
 		}
-		execBlock.Stderr = &decodedStderr
 	}
 
-	// Decode Stdout
-	if execBlock.Stdout != nil {
-		decodedStdout, err := utils.DecodeBase64IfNeeded(*execBlock.Stdout)
-		if err != nil {
-			return fmt.Errorf("failed to decode stdout: %w", err)
-		}
-		execBlock.Stdout = &decodedStdout
+	if resourceFile == "" {
+		return fmt.Errorf("could not find resource file for actionID: %s", actionID)
 	}
 
-	// Decode Env values
-	decodedEnv, err := utils.DecodeStringMap(execBlock.Env, "env")
+	dr.Logger.Debug("reloadExecResourceWithDependencies: found resource file", "actionID", actionID, "file", resourceFile)
+
+	// Reload the Exec resource with fresh PKL template evaluation
+	// Load as generic Resource since the Exec resource extends Resource.pkl, not Exec.pkl
+	var reloadedResource interface{}
+	var err error
+	if dr.APIServerMode {
+		reloadedResource, err = dr.LoadResourceWithRequestContextFn(dr.Context, resourceFile, Resource)
+	} else {
+		reloadedResource, err = dr.LoadResourceFn(dr.Context, resourceFile, Resource)
+	}
+
 	if err != nil {
-		return fmt.Errorf("failed to decode env: %w", err)
+		return fmt.Errorf("failed to reload Exec resource: %w", err)
 	}
-	execBlock.Env = decodedEnv
 
+	// Cast to generic Resource first
+	reloadedGenericResource, ok := reloadedResource.(pklResource.Resource)
+	if !ok {
+		return fmt.Errorf("failed to cast reloaded resource to generic Resource")
+	}
+
+	// Extract the Exec block from the reloaded resource
+	if reloadedRun := reloadedGenericResource.GetRun(); reloadedRun != nil && reloadedRun.Exec != nil {
+		reloadedExec := reloadedRun.Exec
+
+		// Update the execBlock with the reloaded values that contain fresh template evaluation
+		if reloadedExec.Command != "" {
+			execBlock.Command = reloadedExec.Command
+			dr.Logger.Debug("reloadExecResourceWithDependencies: updated command from reloaded resource", "actionID", actionID)
+		}
+
+		if reloadedExec.Env != nil {
+			execBlock.Env = reloadedExec.Env
+			dr.Logger.Debug("reloadExecResourceWithDependencies: updated env from reloaded resource", "actionID", actionID)
+		}
+	}
+
+	dr.Logger.Info("reloadExecResourceWithDependencies: successfully reloaded Exec resource with fresh template evaluation", "actionID", actionID)
 	return nil
 }
 
@@ -90,173 +123,87 @@ func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklEx
 	}
 
 	var stdout, stderr string
+	var exitCode int
 	var err error
 	if dr.ExecTaskRunnerFn != nil {
 		stdout, stderr, err = dr.ExecTaskRunnerFn(dr.Context, task)
+		// Default exit code for injected runner (assuming success)
+		exitCode = 0
 	} else {
 		// fallback direct execution via kdepsexec
-		stdout, stderr, _, err = kdepsexec.RunExecTask(dr.Context, task, dr.Logger, false)
+		stdout, stderr, exitCode, err = kdepsexec.RunExecTask(dr.Context, task, dr.Logger, false)
 	}
 	if err != nil {
-		return err
+		// Even if there's an error, we should still record the exit code
+		if exitCode == 0 {
+			exitCode = 1 // Default error exit code
+		}
 	}
 
 	execBlock.Stdout = &stdout
 	execBlock.Stderr = &stderr
+	execBlock.ExitCode = &exitCode
 
 	ts := pkl.Duration{
-		Value: float64(time.Now().Unix()),
+		Value: float64(time.Now().UnixNano()),
 		Unit:  pkl.Nanosecond,
 	}
 	execBlock.Timestamp = &ts
 
-	return dr.AppendExecEntry(actionID, execBlock)
-}
+	// Store comprehensive resource data in pklres using batch operations for better performance
+	if dr.PklresHelper != nil {
+		attributes := make(map[string]string)
 
-func (dr *DependencyResolver) WriteStdoutToFile(resourceID string, stdoutEncoded *string) (string, error) {
-	if stdoutEncoded == nil {
-		return "", nil
-	}
+		// Collect all attributes for batch operation
+		attributes["command"] = execBlock.Command
 
-	resourceIDFile := utils.GenerateResourceIDFilename(resourceID, dr.RequestID)
-	outputFilePath := filepath.Join(dr.FilesDir, resourceIDFile)
-
-	content, err := utils.DecodeBase64IfNeeded(*stdoutEncoded)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode stdout: %w", err)
-	}
-
-	if err := afero.WriteFile(dr.Fs, outputFilePath, []byte(content), 0o644); err != nil {
-		return "", fmt.Errorf("failed to write file: %w", err)
-	}
-
-	return outputFilePath, nil
-}
-
-func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExec.ResourceExec) error {
-	pklPath := filepath.Join(dr.ActionDir, "exec/"+dr.RequestID+"__exec_output.pkl")
-
-	res, err := dr.LoadResource(dr.Context, pklPath, ExecResource)
-	if err != nil {
-		return fmt.Errorf("failed to load PKL: %w", err)
-	}
-
-	pklRes, ok := res.(*pklExec.ExecImpl)
-	if !ok {
-		return errors.New("failed to cast pklRes to *pklExec.ExecImpl")
-	}
-
-	resources := pklRes.GetResources()
-	if resources == nil {
-		emptyMap := make(map[string]*pklExec.ResourceExec)
-		resources = &emptyMap
-	}
-	existingResources := *resources
-
-	// Prepare file path and write stdout to file
-	var filePath string
-	if newExec.Stdout != nil {
-		filePath, err = dr.WriteStdoutToFile(resourceID, newExec.Stdout)
-		if err != nil {
-			return fmt.Errorf("failed to write stdout to file: %w", err)
+		if execBlock.Stdout != nil {
+			attributes["stdout"] = *execBlock.Stdout
 		}
-		newExec.File = &filePath
-	}
 
-	// Encode fields for PKL storage
-	encodedCommand := utils.EncodeValue(newExec.Command)
-	encodedEnv := dr.encodeExecEnv(newExec.Env)
-	encodedStderr, encodedStdout := dr.encodeExecOutputs(newExec.Stderr, newExec.Stdout)
-
-	timestamp := newExec.Timestamp
-	if timestamp == nil {
-		timestamp = &pkl.Duration{
-			Value: float64(time.Now().Unix()),
-			Unit:  pkl.Nanosecond,
+		if execBlock.Stderr != nil {
+			attributes["stderr"] = *execBlock.Stderr
 		}
-	}
 
-	existingResources[resourceID] = &pklExec.ResourceExec{
-		Env:             encodedEnv,
-		Command:         encodedCommand,
-		Stderr:          encodedStderr,
-		Stdout:          encodedStdout,
-		File:            &filePath,
-		Timestamp:       timestamp,
-		TimeoutDuration: newExec.TimeoutDuration,
-	}
+		if execBlock.ExitCode != nil {
+			attributes["exitCode"] = fmt.Sprintf("%d", *execBlock.ExitCode)
+		}
 
-	var pklContent strings.Builder
-	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Exec.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
-	pklContent.WriteString("resources {\n")
+		if execBlock.Env != nil && len(*execBlock.Env) > 0 {
+			if envJSON, err := json.Marshal(*execBlock.Env); err == nil {
+				attributes["env"] = string(envJSON)
+			} else {
+				dr.Logger.Error("failed to marshal env", "actionID", actionID, "error", err)
+			}
+		}
 
-	for id, res := range existingResources {
-		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
-		pklContent.WriteString(fmt.Sprintf("    command = \"%s\"\n", res.Command))
+		if execBlock.File != nil && *execBlock.File != "" {
+			attributes["file"] = *execBlock.File
+		}
 
-		if res.TimeoutDuration != nil {
-			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
+		if execBlock.ItemValues != nil && len(*execBlock.ItemValues) > 0 {
+			if itemValuesJSON, err := json.Marshal(*execBlock.ItemValues); err == nil {
+				attributes["itemValues"] = string(itemValuesJSON)
+			} else {
+				dr.Logger.Error("failed to marshal itemValues", "actionID", actionID, "error", err)
+			}
+		}
+
+		if execBlock.TimeoutDuration != nil {
+			attributes["timeoutDuration"] = fmt.Sprintf("%g", execBlock.TimeoutDuration.Value)
+		}
+
+		if execBlock.Timestamp != nil {
+			attributes["timestamp"] = fmt.Sprintf("%.0f", execBlock.Timestamp.Value)
+		}
+
+		// Perform batch set operation
+		if err := dr.PklresHelper.SetResourceAttributes(actionID, attributes); err != nil {
+			dr.Logger.Error("failed to store Exec resource attributes in pklres", "actionID", actionID, "error", err)
 		} else {
-			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d.s\n", dr.DefaultTimeoutSec))
+			dr.Logger.Info("stored comprehensive Exec resource attributes in pklres", "actionID", actionID, "attributeCount", len(attributes))
 		}
-
-		if res.Timestamp != nil {
-			pklContent.WriteString(fmt.Sprintf("    timestamp = %g.%s\n", res.Timestamp.Value, res.Timestamp.Unit.String()))
-		}
-
-		pklContent.WriteString("    env ")
-		pklContent.WriteString(utils.EncodePklMap(res.Env))
-
-		pklContent.WriteString(dr.encodeExecStderr(res.Stderr))
-		pklContent.WriteString(dr.encodeExecStdout(res.Stdout))
-		if res.File != nil {
-			pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *res.File))
-		} else {
-			pklContent.WriteString("    file = \"\"\n")
-		}
-
-		pklContent.WriteString("  }\n")
-	}
-	pklContent.WriteString("}\n")
-
-	if err := afero.WriteFile(dr.Fs, pklPath, []byte(pklContent.String()), 0o644); err != nil {
-		return fmt.Errorf("failed to write PKL file: %w", err)
 	}
 
-	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath,
-		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Exec.pkl\"", schema.SchemaVersion(dr.Context)), dr.Logger)
-	if err != nil {
-		return fmt.Errorf("failed to evaluate PKL: %w", err)
-	}
-
-	return afero.WriteFile(dr.Fs, pklPath, []byte(evaluatedContent), 0o644)
-}
-
-func (dr *DependencyResolver) encodeExecEnv(env *map[string]string) *map[string]string {
-	if env == nil {
-		return nil
-	}
-	encoded := make(map[string]string)
-	for k, v := range *env {
-		encoded[k] = utils.EncodeValue(v)
-	}
-	return &encoded
-}
-
-func (dr *DependencyResolver) encodeExecOutputs(stderr, stdout *string) (*string, *string) {
-	return utils.EncodeValuePtr(stderr), utils.EncodeValuePtr(stdout)
-}
-
-func (dr *DependencyResolver) encodeExecStderr(stderr *string) string {
-	if stderr == nil {
-		return "    stderr = \"\"\n"
-	}
-	return fmt.Sprintf("    stderr = #\"\"\"\n%s\n\"\"\"#\n", *stderr)
-}
-
-func (dr *DependencyResolver) encodeExecStdout(stdout *string) string {
-	if stdout == nil {
-		return "    stdout = \"\"\n"
-	}
-	return fmt.Sprintf("    stdout = #\"\"\"\n%s\n\"\"\"#\n", *stdout)
+	return nil
 }

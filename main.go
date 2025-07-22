@@ -7,15 +7,26 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
+	"github.com/apple/pkl-go/pkl"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/cmd"
+	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/cfg"
+	kdepsctx "github.com/kdeps/kdeps/pkg/core"
 	"github.com/kdeps/kdeps/pkg/docker"
 	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/evaluator"
+	"github.com/kdeps/kdeps/pkg/item"
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/kdeps/pkg/memory"
+	"github.com/kdeps/kdeps/pkg/reactive"
 	"github.com/kdeps/kdeps/pkg/resolver"
+	"github.com/kdeps/kdeps/pkg/session"
+	"github.com/kdeps/kdeps/pkg/tool"
 	"github.com/kdeps/kdeps/pkg/utils"
 	v "github.com/kdeps/kdeps/pkg/version"
 	"github.com/spf13/afero"
@@ -23,17 +34,18 @@ import (
 
 var (
 	version = "dev"
-	commit  = ""
+	commit  = "unknown"
 
 	// Function variables for dependency injection during tests.
-	newGraphResolverFn        = resolver.NewGraphResolver
-	bootstrapDockerSystemFn   = docker.BootstrapDockerSystem
-	runGraphResolverActionsFn = runGraphResolverActions
+	newGraphResolverFn        func(afero.Fs, context.Context, *environment.Environment, *gin.Context, *logging.Logger, pkl.Evaluator) (*resolver.DependencyResolver, error) = resolver.NewGraphResolver
+	bootstrapDockerSystemFn                                                                                                                                                 = docker.BootstrapDockerSystem
+	runGraphResolverActionsFn                                                                                                                                               = runGraphResolverActions
 
-	findConfigurationFn     = cfg.FindConfiguration
-	generateConfigurationFn = cfg.GenerateConfiguration
-	editConfigurationFn     = cfg.EditConfiguration
-	validateConfigurationFn = cfg.ValidateConfiguration
+	// Configuration functions with different signatures
+	findConfigurationFn     func(context.Context, afero.Fs, *environment.Environment, *logging.Logger) (string, error)
+	generateConfigurationFn func(context.Context, afero.Fs, *environment.Environment, *logging.Logger, pkl.Evaluator) (string, error)
+	editConfigurationFn     func(context.Context, afero.Fs, *environment.Environment, *logging.Logger) (string, error)
+	validateConfigurationFn func(context.Context, afero.Fs, *environment.Environment, *logging.Logger, pkl.Evaluator) (string, error)
 	loadConfigurationFn     = cfg.LoadConfiguration
 	getKdepsPathFn          = cfg.GetKdepsPath
 
@@ -43,13 +55,89 @@ var (
 )
 
 func main() {
-	v.Version = version
-	v.Commit = commit
+	v.SetVersionInfo(version, commit)
 
 	logger := logging.GetLogger()
 	fs := afero.NewOsFs()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel() // Ensure context is canceled when main exits
+
+	// Initialize PKL evaluator with all available resource readers
+	// Use in-memory databases for all readers except memory which uses persistent storage
+
+	// Use configurable shared volume path for tests or default to appropriate location
+	sharedVolumePath := os.Getenv("KDEPS_SHARED_VOLUME_PATH")
+	if sharedVolumePath == "" {
+		// For non-Docker mode, use a local directory instead of shared volume
+		sharedVolumePath = filepath.Join(os.TempDir(), ".kdeps")
+	}
+
+	// Ensure shared volume directory exists
+	if err := utils.CreateDirectories(ctx, fs, []string{sharedVolumePath}); err != nil {
+		logger.Fatalf("failed to create shared volume directory: %v", err)
+	}
+
+	memoryDBPath := filepath.Join(sharedVolumePath, "memory.db") // Persistent storage (shared volume in Docker mode, temp dir in non-Docker mode)
+	sessionDBPath := ":memory:"                                  // In-memory tied to operation
+	toolDBPath := ":memory:"                                     // In-memory tied to operation
+	itemDBPath := ":memory:"                                     // In-memory tied to operation
+
+	// Initialize all resource readers
+	memoryReader, err := memory.InitializeMemory(memoryDBPath)
+	if err != nil {
+		logger.Fatalf("failed to initialize memory reader: %v", err)
+	}
+
+	sessionReader, err := session.InitializeSession(sessionDBPath)
+	if err != nil {
+		logger.Fatalf("failed to initialize session reader: %v", err)
+	}
+
+	toolReader, err := tool.InitializeTool(toolDBPath)
+	if err != nil {
+		logger.Fatalf("failed to initialize tool reader: %v", err)
+	}
+
+	itemReader, err := item.InitializeItem(itemDBPath, []string{})
+	if err != nil {
+		logger.Fatalf("failed to initialize item reader: %v", err)
+	}
+
+	// Initialize unified context system
+	err = kdepsctx.InitializeContext(fs, "global", "", "", sharedVolumePath, logger)
+	if err != nil {
+		logger.Fatalf("failed to initialize unified context: %v", err)
+	}
+
+	// Get readers from unified context
+	kdepsCtx := kdepsctx.GetContext()
+	if kdepsCtx == nil {
+		logger.Fatalf("failed to get unified context")
+	}
+
+	pklresReader := kdepsCtx.PklresReader
+	agentReader := kdepsCtx.AgentReader
+
+	evaluatorConfig := &evaluator.EvaluatorConfig{
+		ResourceReaders: []pkl.ResourceReader{
+			memoryReader,
+			sessionReader,
+			toolReader,
+			itemReader,
+			agentReader,
+			pklresReader,
+		},
+		Logger: logger,
+	}
+	evaluatorManager, err := evaluator.InitializeEvaluator(ctx, evaluatorConfig)
+	if err != nil {
+		logger.Fatalf("failed to initialize PKL evaluator: %v", err)
+	}
+	pklEvaluator, err := evaluatorManager.GetEvaluator()
+	if err != nil {
+		logger.Fatalf("failed to get PKL evaluator: %v", err)
+	}
+	_ = evaluatorManager // If not used directly, suppress unused warning
 
 	graphID := uuid.New().String()
 	actionDir := filepath.Join(os.TempDir(), "action")
@@ -65,15 +153,66 @@ func main() {
 	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, actionDir)
 	ctx = ktx.CreateContext(ctx, ktx.CtxKeyAgentDir, agentDir)
 
+	// Initialize configuration function variables
+	findConfigurationFn = cfg.FindConfiguration
+	generateConfigurationFn = cfg.GenerateConfiguration
+	editConfigurationFn = cfg.EditConfiguration
+	validateConfigurationFn = cfg.ValidateConfiguration
+
 	if env.DockerMode == "1" {
-		dr, err := newGraphResolverFn(fs, ctx, env, nil, logger.With("requestID", graphID))
+		// In Docker mode, check if we need to extract a .kdeps file first
+		logger.Debug("Docker mode detected, checking for agent extraction", "args", os.Args)
+
+		// Check if --agent parameter was provided by looking at command line args
+		agentFile := ""
+		args := os.Args[1:]
+		for i, arg := range args {
+			if arg == "--agent" && i+1 < len(args) {
+				agentFile = args[i+1]
+				break
+			}
+		}
+
+		logger.Debug("Agent file parameter check", "agentFile", agentFile, "argsCount", len(args))
+
+		if agentFile != "" {
+			logger.Info("Found --agent parameter, extracting to /run", "agentFile", agentFile)
+
+			// Verify the agent file exists before extraction
+			if exists, err := afero.Exists(fs, agentFile); err != nil {
+				logger.Fatalf("failed to check agent file: %v", err)
+			} else if !exists {
+				logger.Fatalf("agent file does not exist: %s", agentFile)
+			}
+
+			// Extract the .kdeps package to /run structure
+			_, err := archiver.ExtractPackage(fs, ctx, "/", agentFile, logger)
+			if err != nil {
+				logger.Fatalf("failed to extract agent package: %v", err)
+			}
+
+			logger.Info("Successfully extracted agent package to /run structure")
+
+			// Debug: Check if /run directory was created
+			if exists, err := afero.Exists(fs, "/run"); err != nil {
+				logger.Warn("Error checking /run directory", "error", err)
+			} else if exists {
+				logger.Debug("/run directory exists after extraction")
+			} else {
+				logger.Warn("/run directory does not exist after extraction")
+			}
+		} else {
+			logger.Debug("No --agent parameter found, proceeding without extraction")
+		}
+
+		dr, err := newGraphResolverFn(fs, ctx, env, nil, logger.With("requestID", graphID), pklEvaluator)
 		if err != nil {
 			logger.Fatalf("failed to create graph resolver: %v", err)
 		}
 
 		handleDockerMode(ctx, dr, cancel)
 	} else {
-		handleNonDockerMode(fs, ctx, env, logger)
+		handleNonDockerMode(ctx, fs, env, logger, pklEvaluator)
 	}
 }
 
@@ -82,17 +221,17 @@ func handleDockerMode(ctx context.Context, dr *resolver.DependencyResolver, canc
 	apiServerMode, err := bootstrapDockerSystemFn(ctx, dr)
 	if err != nil {
 		dr.Logger.Error("error during Docker bootstrap", "error", err)
-		utils.SendSigterm(dr.Logger)
+		utils.SendSigterm()
 		return
 	}
 	// Setup graceful shutdown handler
-	setupSignalHandler(dr.Fs, ctx, cancel, dr.Environment, apiServerMode, dr.Logger)
+	setupSignalHandler(ctx, dr.Fs, cancel, dr.Environment, apiServerMode, dr.Logger)
 
 	// Run workflow or wait for shutdown
 	if !apiServerMode {
 		if err := runGraphResolverActionsFn(ctx, dr, apiServerMode); err != nil {
 			dr.Logger.Error("error running graph resolver", "error", err)
-			utils.SendSigterm(dr.Logger)
+			utils.SendSigterm()
 			return
 		}
 	}
@@ -100,25 +239,24 @@ func handleDockerMode(ctx context.Context, dr *resolver.DependencyResolver, canc
 	// Wait for shutdown signal
 	<-ctx.Done()
 	dr.Logger.Debug("context canceled, shutting down gracefully...")
-	cleanupFn(dr.Fs, ctx, dr.Environment, apiServerMode, dr.Logger)
+	cleanupFn(ctx, dr.Fs, dr.Environment, apiServerMode, dr.Logger)
 }
 
-func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) {
-	cfgFile, err := findConfigurationFn(fs, ctx, env, logger)
+func handleNonDockerMode(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger, pklEvaluator pkl.Evaluator) {
+	cfgFile, err := findConfigurationFn(ctx, fs, env, logger)
 	if err != nil {
 		logger.Error("error occurred finding configuration")
 	}
 
 	if cfgFile == "" {
-		cfgFile, err = generateConfigurationFn(fs, ctx, env, logger)
+		cfgFile, err = generateConfigurationFn(ctx, fs, env, logger, pklEvaluator)
 		if err != nil {
 			logger.Fatal("error occurred generating configuration", "error", err)
-			return
 		}
 
 		logger.Info("configuration file generated", "file", cfgFile)
 
-		cfgFile, err = editConfigurationFn(fs, ctx, env, logger)
+		cfgFile, err = editConfigurationFn(ctx, fs, env, logger)
 		if err != nil {
 			logger.Error("error occurred editing configuration")
 		}
@@ -130,15 +268,20 @@ func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Envi
 
 	logger.Info("configuration file ready", "file", cfgFile)
 
-	cfgFile, err = validateConfigurationFn(fs, ctx, env, logger)
+	cfgFile, err = validateConfigurationFn(ctx, fs, env, logger, pklEvaluator)
 	if err != nil {
 		logger.Fatal("error occurred validating configuration", "error", err)
 		return
 	}
 
-	systemCfg, err := loadConfigurationFn(fs, ctx, cfgFile, logger)
+	systemCfg, err := loadConfigurationFn(ctx, fs, cfgFile, logger)
 	if err != nil {
 		logger.Error("error occurred loading configuration")
+		return
+	}
+
+	if systemCfg == nil {
+		logger.Error("system configuration is nil")
 		return
 	}
 
@@ -148,7 +291,7 @@ func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Envi
 		return
 	}
 
-	rootCmd := newRootCommandFn(fs, ctx, kdepsDir, systemCfg, env, logger)
+	rootCmd := newRootCommandFn(ctx, fs, kdepsDir, systemCfg, env, logger)
 	if err := rootCmd.Execute(); err != nil {
 		logger.Fatal(err)
 	}
@@ -164,7 +307,7 @@ func setupEnvironment(fs afero.Fs) (*environment.Environment, error) {
 }
 
 // setupSignalHandler sets up a goroutine to handle OS signals for graceful shutdown.
-func setupSignalHandler(fs afero.Fs, ctx context.Context, cancelFunc context.CancelFunc, env *environment.Environment, apiServerMode bool, logger *logging.Logger) {
+func setupSignalHandler(ctx context.Context, fs afero.Fs, cancelFunc context.CancelFunc, env *environment.Environment, apiServerMode bool, logger *logging.Logger) {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
@@ -172,7 +315,7 @@ func setupSignalHandler(fs afero.Fs, ctx context.Context, cancelFunc context.Can
 		sig := <-sigs
 		logger.Debug(fmt.Sprintf("Received signal: %v, initiating shutdown...", sig))
 		cancelFunc() // Cancel context to initiate shutdown
-		cleanupFn(fs, ctx, env, apiServerMode, logger)
+		cleanupFn(ctx, fs, env, apiServerMode, logger)
 
 		var graphID, actionDir string
 
@@ -200,31 +343,64 @@ func setupSignalHandler(fs afero.Fs, ctx context.Context, cancelFunc context.Can
 	}()
 }
 
-// runGraphResolver prepares and runs the graph resolver.
+// runGraphResolverActions prepares and runs the graph resolver using reactive patterns.
 func runGraphResolverActions(ctx context.Context, dr *resolver.DependencyResolver, apiServerMode bool) error {
-	// Prepare workflow directory
-	if err := dr.PrepareWorkflowDir(); err != nil {
-		return fmt.Errorf("failed to prepare workflow directory: %w", err)
+	// Use reactive workflow processing
+	if err := dr.ProcessWorkflowReactive(); err != nil {
+		return fmt.Errorf("failed to process workflow reactively: %w", err)
 	}
 
-	if err := dr.PrepareImportFiles(); err != nil {
-		return fmt.Errorf("failed to prepare import files: %w", err)
+	// Prepare imports reactively
+	if err := dr.PrepareImportFilesReactive(); err != nil {
+		return fmt.Errorf("failed to prepare import files reactively: %w", err)
 	}
 
-	// Handle run action
-	
-	fatal, err := dr.HandleRunAction()
-	if err != nil {
-		return fmt.Errorf("failed to handle run action: %w", err)
+	// Handle run action reactively
+	if err := dr.HandleRunActionReactive(); err != nil {
+		return fmt.Errorf("failed to handle run action reactively: %w", err)
 	}
 
-	// In certain error cases, Ollama needs to be restarted
-	if fatal {
-		dr.Logger.Fatal("fatal error occurred")
-		utils.SendSigterm(dr.Logger)
+	// Monitor for completion via reactive streams
+	completed := make(chan bool, 1)
+	errorOccurred := make(chan error, 1)
+
+	// Subscribe to operation completion
+	dr.MonitorOperationChanges().SubscribeFunc(ctx,
+		func(event reactive.OperationEvent) {
+			if event.Type == "updated" && event.Operation.Status == "completed" {
+				if event.Operation.ID == "run-action" {
+					completed <- true
+				}
+			}
+			if event.Type == "updated" && event.Operation.Status == "error" {
+				if event.Operation.ID == "run-action" {
+					errorOccurred <- fmt.Errorf("run action failed: %s", event.Operation.ID)
+				}
+			}
+		},
+		func(err error) {
+			errorOccurred <- err
+		},
+		func() {
+			// Stream completed
+		})
+
+	// Wait for completion or error
+	select {
+	case <-completed:
+		dr.Logger.Info("Reactive workflow completed successfully")
+	case err := <-errorOccurred:
+		dr.Logger.Error("Reactive workflow failed", "error", err)
+		utils.SendSigterm()
+		return err
+	case <-time.After(30 * time.Second):
+		dr.Logger.Error("Reactive workflow timed out")
+		return fmt.Errorf("workflow processing timed out")
 	}
 
-	cleanupFn(dr.Fs, ctx, dr.Environment, apiServerMode, dr.Logger)
+	// Cleanup
+	cleanupFn(ctx, dr.Fs, dr.Environment, apiServerMode, dr.Logger)
+	dr.CloseReactive()
 
 	if err := utils.WaitForFileReady(dr.Fs, "/.dockercleanup", dr.Logger); err != nil {
 		return fmt.Errorf("failed to wait for file to be ready: %w", err)
@@ -234,8 +410,20 @@ func runGraphResolverActions(ctx context.Context, dr *resolver.DependencyResolve
 }
 
 // cleanup performs any necessary cleanup tasks before shutting down.
-func cleanup(fs afero.Fs, ctx context.Context, env *environment.Environment, apiServerMode bool, logger *logging.Logger) {
+func cleanup(ctx context.Context, fs afero.Fs, env *environment.Environment, apiServerMode bool, logger *logging.Logger) {
 	logger.Debug("performing cleanup tasks...")
+
+	// Close the unified context
+	if err := kdepsctx.CloseContext(); err != nil {
+		logger.Error("failed to close unified context", "error", err)
+	}
+
+	// Close the singleton evaluator
+	if evaluatorMgr, err := evaluator.GetEvaluatorManager(); err == nil {
+		if err := evaluatorMgr.Close(); err != nil {
+			logger.Error("failed to close PKL evaluator", "error", err)
+		}
+	}
 
 	// Remove any old cleanup flags
 	if _, err := fs.Stat("/.dockercleanup"); err == nil {

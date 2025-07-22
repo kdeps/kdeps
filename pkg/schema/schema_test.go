@@ -1,4 +1,4 @@
-package schema
+package schema_test
 
 import (
 	"context"
@@ -6,228 +6,125 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/kdeps/kdeps/pkg/utils"
-	"github.com/kdeps/kdeps/pkg/version"
+	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSchemaVersion(t *testing.T) {
+func TestVersion(t *testing.T) {
 	ctx := context.Background()
-
-	// Save the original value of UseLatest to avoid test interference
-	originalUseLatest := UseLatest
-	defer func() { UseLatest = originalUseLatest }()
-
-	t.Run("returns specified version when UseLatest is false", func(t *testing.T) {
-		UseLatest = false
-		result := SchemaVersion(ctx)
-		assert.Equal(t, version.DefaultSchemaVersion, result, "expected default schema version")
+	var cache sync.Map
+	// returns specified version when UseLatest is false
+	result := schema.VersionWithDeps(ctx, schema.VersionDeps{
+		UseLatest:    false,
+		Fetcher:      func(context.Context, string, string) (string, error) { return "", nil },
+		ExitFunc:     func(int) {},
+		VersionCache: &cache,
 	})
+	assert.Equal(t, "0.4.6", result, "expected default schema version")
 
-	t.Run("caches and returns latest version when UseLatest is true", func(t *testing.T) {
-		UseLatest = true
-		// Clear any existing cache
-		versionCache.Delete("version")
-
-		// First call should fetch and cache
-		result1 := SchemaVersion(ctx)
-		assert.NotEmpty(t, result1, "expected non-empty version")
-
-		// Second call should use cache
-		result2 := SchemaVersion(ctx)
-		assert.Equal(t, result1, result2, "expected cached version")
-
-		// Verify it's in cache
-		cached, ok := versionCache.Load("version")
-		assert.True(t, ok, "expected version to be cached")
-		assert.Equal(t, result1, cached.(string), "cached version mismatch")
-	})
-}
-
-func TestSchemaVersionSpecifiedVersion(t *testing.T) {
-	ctx := context.Background()
-	UseLatest = false
-
-	result := SchemaVersion(ctx)
-	assert.Equal(t, version.DefaultSchemaVersion, result, "expected default schema version")
-}
-
-func TestSchemaVersionCaching(t *testing.T) {
-	ctx := context.Background()
-	UseLatest = true
-
-	// Clear any existing cache
-	versionCache.Delete("version")
-
-	// First call should fetch and cache
-	result1 := SchemaVersion(ctx)
-	assert.NotEmpty(t, result1, "expected non-empty version")
-
-	// Second call should use cache
-	result2 := SchemaVersion(ctx)
-	assert.Equal(t, result1, result2, "expected cached version")
-
-	// Verify it's in cache
-	cached, ok := versionCache.Load("version")
-	assert.True(t, ok, "expected version to be cached")
-	assert.Equal(t, result1, cached.(string), "cached version mismatch")
-}
-
-func TestSchemaVersionErrorHandling(t *testing.T) {
-	ctx := context.Background()
-
-	// Save original values
-	originalUseLatest := UseLatest
-	originalExitFunc := exitFunc
-	defer func() {
-		UseLatest = originalUseLatest
-		exitFunc = originalExitFunc
-	}()
-
-	UseLatest = true
-	versionCache.Delete("version")
-
-	// Mock exitFunc to prevent actual exit
-	exitCalled := false
-	exitFunc = func(code int) {
-		exitCalled = true
+	// caches and returns latest version when UseLatest is true
+	cache = sync.Map{}
+	fetchCount := 0
+	fetcher := func(context.Context, string, string) (string, error) {
+		fetchCount++
+		return "v2", nil
 	}
+	result1 := schema.VersionWithDeps(ctx, schema.VersionDeps{
+		UseLatest:    true,
+		Fetcher:      fetcher,
+		ExitFunc:     func(int) {},
+		VersionCache: &cache,
+	})
+	assert.Equal(t, "v2", result1, "expected fetched version")
+	result2 := schema.VersionWithDeps(ctx, schema.VersionDeps{
+		UseLatest:    true,
+		Fetcher:      fetcher,
+		ExitFunc:     func(int) {},
+		VersionCache: &cache,
+	})
+	assert.Equal(t, result1, result2, "expected cached version")
+	assert.Equal(t, 1, fetchCount, "fetcher should be called once")
+}
 
-	// Mock GitHubReleaseFetcher to return error
-	originalFetcher := utils.GitHubReleaseFetcher
-	utils.GitHubReleaseFetcher = func(ctx context.Context, repo, _ string) (string, error) {
+func TestVersion_ErrorHandling(t *testing.T) {
+	ctx := context.Background()
+	var cache sync.Map
+	exitCalled := false
+	fetcher := func(context.Context, string, string) (string, error) {
 		return "", assert.AnError
 	}
-	defer func() { utils.GitHubReleaseFetcher = originalFetcher }()
-
-	// Call SchemaVersion
-	SchemaVersion(ctx)
-
-	// Verify exit was called
+	schema.VersionWithDeps(ctx, schema.VersionDeps{
+		UseLatest:    true,
+		Fetcher:      fetcher,
+		ExitFunc:     func(int) { exitCalled = true },
+		VersionCache: &cache,
+	})
 	assert.True(t, exitCalled, "expected exit to be called on error")
 }
 
-func TestSchemaVersionCachedValue(t *testing.T) {
+func TestVersion_CachedValue(t *testing.T) {
 	ctx := context.Background()
-
-	// Save original value
-	originalUseLatest := UseLatest
-	defer func() { UseLatest = originalUseLatest }()
-
-	UseLatest = true
-
-	// Pre-populate cache
-	testVersion := "1.2.3"
-	versionCache.Store("version", testVersion)
-
-	// Call SchemaVersion
-	result := SchemaVersion(ctx)
-
-	// Verify cached value was used
-	assert.Equal(t, testVersion, result, "expected cached version to be used")
+	var cache sync.Map
+	cache.Store("version", "1.2.3")
+	result := schema.VersionWithDeps(ctx, schema.VersionDeps{
+		UseLatest:    true,
+		Fetcher:      func(context.Context, string, string) (string, error) { return "should not call", nil },
+		ExitFunc:     func(int) {},
+		VersionCache: &cache,
+	})
+	assert.Equal(t, "1.2.3", result, "expected cached version to be used")
 }
 
-// TestSchemaVersionSpecified ensures the function returns the default schema version when UseLatest is false.
-func TestSchemaVersionSpecified(t *testing.T) {
-	// Preserve global state and restore afterwards
-	origLatest := UseLatest
-	defer func() {
-		UseLatest = origLatest
-	}()
-
-	UseLatest = false
-
-	ver := SchemaVersion(context.Background())
-	assert.Equal(t, version.DefaultSchemaVersion, ver)
-}
-
-// TestSchemaVersionLatestSuccess exercises the successful latest-fetch path.
-func TestSchemaVersionLatestSuccess(t *testing.T) {
-	// Save globals
-	origLatest := UseLatest
-	origFetcher := utils.GitHubReleaseFetcher
-	defer func() {
-		UseLatest = origLatest
-		utils.GitHubReleaseFetcher = origFetcher
-		versionCache.Delete("version")
-	}()
-
-	UseLatest = true
-	utils.GitHubReleaseFetcher = func(ctx context.Context, repo string, baseURL string) (string, error) {
-		return "1.2.3", nil
-	}
-
+func TestVersion_FetcherErrorFallback(t *testing.T) {
 	ctx := context.Background()
-
-	ver1 := SchemaVersion(ctx)
-	assert.Equal(t, "1.2.3", ver1)
-	// Second call should hit cache and not invoke fetcher again
-	ver2 := SchemaVersion(ctx)
-	assert.Equal(t, "1.2.3", ver2)
+	var cache sync.Map
+	exitCalled := false
+	fetcher := func(context.Context, string, string) (string, error) {
+		return "", errors.New("mock error")
+	}
+	schema.VersionWithDeps(ctx, schema.VersionDeps{
+		UseLatest:    true,
+		Fetcher:      fetcher,
+		ExitFunc:     func(int) { exitCalled = true },
+		VersionCache: &cache,
+	})
+	assert.True(t, exitCalled, "expected exit to be called on error")
 }
 
-// TestSchemaVersionLatestFailure hits the error branch and verifies exitFunc is called.
-func TestSchemaVersionLatestFailure(t *testing.T) {
-	origLatest := UseLatest
-	origFetcher := utils.GitHubReleaseFetcher
-	origExit := exitFunc
-	defer func() {
-		UseLatest = origLatest
-		utils.GitHubReleaseFetcher = origFetcher
-		exitFunc = origExit
-	}()
-
-	UseLatest = true
-	utils.GitHubReleaseFetcher = func(ctx context.Context, repo string, baseURL string) (string, error) {
-		return "", errors.New("network error")
-	}
-
-	var code int
-	exitFunc = func(c int) { code = c }
-
-	SchemaVersion(context.Background())
-	assert.Equal(t, 1, code)
-}
-
-// TestSchemaVersionSpecified verifies that when UseLatest is false the
-// function returns the compile-time default schema version without making any
-// external fetch calls.
-func TestSchemaVersionSpecifiedExtra(t *testing.T) {
-	// Ensure we start from a clean slate.
-	UseLatest = false
-	versionCache = sync.Map{}
-
-	got := SchemaVersion(context.Background())
-	if got != version.DefaultSchemaVersion {
-		t.Fatalf("expected DefaultSchemaVersion %s, got %s", version.DefaultSchemaVersion, got)
-	}
-}
-
-// TestSchemaVersionLatestCaching ensures that when UseLatest is true the
-// version is fetched via GitHubReleaseFetcher exactly once and then served
-// from the cache on subsequent invocations.
-func TestSchemaVersionLatestCachingExtra(t *testing.T) {
-	// Prepare stub fetcher.
-	fetchCount := 0
-	oldFetcher := utils.GitHubReleaseFetcher
-	utils.GitHubReleaseFetcher = func(ctx context.Context, repo, baseURL string) (string, error) {
-		fetchCount++
-		return "1.2.3", nil
-	}
-	defer func() { utils.GitHubReleaseFetcher = oldFetcher }()
-
-	// Activate latest mode and clear cache.
-	UseLatest = true
-	versionCache = sync.Map{}
-
+func TestVersion_DefaultSchemaVersion(t *testing.T) {
 	ctx := context.Background()
-	first := SchemaVersion(ctx)
-	second := SchemaVersion(ctx)
+	var cache sync.Map
+	result := schema.VersionWithDeps(ctx, schema.VersionDeps{
+		UseLatest:    false,
+		Fetcher:      func(context.Context, string, string) (string, error) { return "should not call", nil },
+		ExitFunc:     func(int) {},
+		VersionCache: &cache,
+	})
+	assert.Equal(t, "0.4.6", result, "expected default schema version")
+}
 
-	if first != "1.2.3" || second != "1.2.3" {
-		t.Fatalf("unexpected versions returned: %s and %s", first, second)
+func TestVersion_CacheClear(t *testing.T) {
+	ctx := context.Background()
+	var cache sync.Map
+	fetcher := func(context.Context, string, string) (string, error) {
+		return "v3.0.0", nil
 	}
-	if fetchCount != 1 {
-		t.Fatalf("GitHubReleaseFetcher should be called once, got %d", fetchCount)
-	}
+	// First call
+	result1 := schema.VersionWithDeps(ctx, schema.VersionDeps{
+		UseLatest:    true,
+		Fetcher:      fetcher,
+		ExitFunc:     func(int) {},
+		VersionCache: &cache,
+	})
+	assert.Equal(t, "v3.0.0", result1)
+	// Clear cache
+	cache = sync.Map{}
+	// Second call should fetch again
+	result2 := schema.VersionWithDeps(ctx, schema.VersionDeps{
+		UseLatest:    true,
+		Fetcher:      fetcher,
+		ExitFunc:     func(int) {},
+		VersionCache: &cache,
+	})
+	assert.Equal(t, "v3.0.0", result2)
 }

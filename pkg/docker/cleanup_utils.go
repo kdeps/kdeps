@@ -6,11 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
-	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -19,13 +17,14 @@ import (
 )
 
 // DockerPruneClient is a minimal interface for Docker operations used in CleanupDockerBuildImages
+// Updated to use container.Summary instead of deprecated types.Container
 type DockerPruneClient interface {
-	ContainerList(ctx context.Context, options container.ListOptions) ([]types.Container, error)
+	ContainerList(ctx context.Context, options container.ListOptions) ([]container.Summary, error)
 	ContainerRemove(ctx context.Context, containerID string, options container.RemoveOptions) error
 	ImagesPrune(ctx context.Context, pruneFilters filters.Args) (image.PruneReport, error)
 }
 
-func CleanupDockerBuildImages(fs afero.Fs, ctx context.Context, cName string, cli DockerPruneClient) error {
+func CleanupDockerBuildImages(_ afero.Fs, ctx context.Context, cName string, cli DockerPruneClient) error {
 	// Check if the container named "cName" is already running, and remove it if necessary
 	containers, err := cli.ContainerList(ctx, container.ListOptions{All: true})
 	if err != nil {
@@ -35,10 +34,10 @@ func CleanupDockerBuildImages(fs afero.Fs, ctx context.Context, cName string, cl
 	for _, c := range containers {
 		for _, name := range c.Names {
 			if name == "/"+cName { // Ensure name match is exact
-				fmt.Printf("Deleting container: %s\n", c.ID)
+				// Deleting container
 				if err := cli.ContainerRemove(ctx, c.ID, container.RemoveOptions{Force: true}); err != nil {
 					// Log error and continue
-					fmt.Printf("Error removing container %s: %v\n", c.ID, err)
+					// Error removing container
 					continue
 				}
 			}
@@ -50,11 +49,11 @@ func CleanupDockerBuildImages(fs afero.Fs, ctx context.Context, cName string, cl
 		return fmt.Errorf("error pruning images: %w", err)
 	}
 
-	fmt.Println("Pruned dangling images.")
+	// Pruned dangling images
 	return nil
 }
 
-// Cleanup deletes /agent/action and /agent/workflow directories, then copies /agent/project to /agent/workflow.
+// Cleanup deletes /agent/action directory. No longer copies project to workflow.
 func Cleanup(fs afero.Fs, ctx context.Context, environ *environment.Environment, logger *logging.Logger) {
 	if environ.DockerMode != "1" {
 		return
@@ -75,8 +74,7 @@ func Cleanup(fs afero.Fs, ctx context.Context, environ *environment.Environment,
 		}
 	}
 
-	workflowDir := "/agent/workflow"
-	projectDir := "/agent/project"
+	// Removed workflow directory processing
 	removedFiles := []string{filepath.Join("/tmp", ".actiondir_removed_"+graphID), filepath.Join(actionDir, ".dockercleanup_"+graphID)}
 
 	// Helper function to remove a directory and create a corresponding flag file
@@ -94,7 +92,7 @@ func Cleanup(fs afero.Fs, ctx context.Context, environ *environment.Environment,
 		return nil
 	}
 
-	// Remove action and workflow directories
+	// Remove action directory only
 	if err := removeDirWithFlag(ctx, actionDir, removedFiles[0]); err != nil {
 		return
 	}
@@ -107,37 +105,8 @@ func Cleanup(fs afero.Fs, ctx context.Context, environ *environment.Environment,
 		}
 	}
 
-	// Copy /agent/project to /agent/workflow
-	err := afero.Walk(fs, projectDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		// Create relative target path inside /agent/workflow
-		relPath, err := filepath.Rel(projectDir, path)
-		if err != nil {
-			return err
-		}
-		targetPath := filepath.Join(workflowDir, relPath)
-
-		if info.IsDir() {
-			if err := fs.MkdirAll(targetPath, info.Mode()); err != nil {
-				return fmt.Errorf("failed to create directory %s: %w", targetPath, err)
-			}
-		} else {
-			// Copy the file from projectDir to workflowDir
-			if err := archiver.CopyFile(fs, ctx, path, targetPath, logger); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-
-	if err != nil {
-		logger.Error(fmt.Sprintf("Error copying %s to %s: %v", projectDir, workflowDir, err))
-	} else {
-		logger.Debug(fmt.Sprintf("Copied %s to %s for next run", projectDir, workflowDir))
-	}
+	// No longer copying project to workflow - using project directory directly
+	logger.Debug("Cleanup completed - using project directory directly")
 
 	// Create final cleanup flag
 	if err := CreateFlagFile(fs, ctx, removedFiles[1]); err != nil {
@@ -145,11 +114,11 @@ func Cleanup(fs afero.Fs, ctx context.Context, environ *environment.Environment,
 	}
 
 	// Remove flag files
-	cleanupFlagFiles(fs, removedFiles, logger)
+	CleanupFlagFiles(fs, removedFiles, logger)
 }
 
-// cleanupFlagFiles removes the specified flag files.
-func cleanupFlagFiles(fs afero.Fs, files []string, logger *logging.Logger) {
+// CleanupFlagFiles removes the specified flag files.
+func CleanupFlagFiles(fs afero.Fs, files []string, logger *logging.Logger) {
 	for _, file := range files {
 		if err := fs.Remove(file); err != nil {
 			if os.IsNotExist(err) {
