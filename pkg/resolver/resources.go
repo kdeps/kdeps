@@ -455,6 +455,13 @@ func (dr *DependencyResolver) createResourceWithRequestContext(resourceFile stri
 
 // loadResourceByType is a helper function that eliminates duplicate code between LoadResource and LoadResourceWithRequestContext
 func (dr *DependencyResolver) loadResourceByType(ctx context.Context, pklEvaluator pkl.Evaluator, resourceFile string, resourceType ResourceType, contextSuffix string) (interface{}, error) {
+	// Check cache first for performance optimization
+	cacheKey := dr.getPklCacheKey(resourceFile, resourceType, contextSuffix)
+	if cachedResult, found := dr.getCachedPklEvaluation(cacheKey); found {
+		dr.Logger.Debug("using cached PKL evaluation", "resource-file", resourceFile, "resource-type", resourceType)
+		return cachedResult, nil
+	}
+
 	var source *pkl.ModuleSource
 
 	// Set loading phase flag to prevent circular dependencies
@@ -489,6 +496,8 @@ func (dr *DependencyResolver) loadResourceByType(ctx context.Context, pklEvaluat
 			return nil, fmt.Errorf("error reading resource file '%s': %w", resourceFile, err)
 		}
 		dr.Logger.Debug("successfully loaded resource"+contextSuffix, "resource-file", resourceFile)
+		// Cache the successful result
+		dr.setCachedPklEvaluation(cacheKey, res)
 		return res, nil
 
 	case ExecResource:
@@ -498,6 +507,8 @@ func (dr *DependencyResolver) loadResourceByType(ctx context.Context, pklEvaluat
 			return nil, fmt.Errorf("error reading exec resource file '%s': %w", resourceFile, err)
 		}
 		dr.Logger.Debug("successfully loaded exec resource"+contextSuffix, "resource-file", resourceFile)
+		// Cache the successful result
+		dr.setCachedPklEvaluation(cacheKey, res)
 		return res, nil
 
 	case PythonResource:
@@ -507,6 +518,8 @@ func (dr *DependencyResolver) loadResourceByType(ctx context.Context, pklEvaluat
 			return nil, fmt.Errorf("error reading python resource file '%s': %w", resourceFile, err)
 		}
 		dr.Logger.Debug("successfully loaded python resource"+contextSuffix, "resource-file", resourceFile)
+		// Cache the successful result
+		dr.setCachedPklEvaluation(cacheKey, res)
 		return res, nil
 
 	case LLMResource:
@@ -516,6 +529,8 @@ func (dr *DependencyResolver) loadResourceByType(ctx context.Context, pklEvaluat
 			return nil, fmt.Errorf("error reading llm resource file '%s': %w", resourceFile, err)
 		}
 		dr.Logger.Debug("successfully loaded llm resource"+contextSuffix, "resource-file", resourceFile)
+		// Cache the successful result
+		dr.setCachedPklEvaluation(cacheKey, res)
 		return res, nil
 
 	case HTTPResource:
@@ -525,6 +540,8 @@ func (dr *DependencyResolver) loadResourceByType(ctx context.Context, pklEvaluat
 			return nil, fmt.Errorf("error reading http resource file '%s': %w", resourceFile, err)
 		}
 		dr.Logger.Debug("successfully loaded http resource"+contextSuffix, "resource-file", resourceFile)
+		// Cache the successful result
+		dr.setCachedPklEvaluation(cacheKey, res)
 		return res, nil
 
 	case DataResource:
@@ -534,6 +551,8 @@ func (dr *DependencyResolver) loadResourceByType(ctx context.Context, pklEvaluat
 			return nil, fmt.Errorf("error reading data resource file '%s': %w", resourceFile, err)
 		}
 		dr.Logger.Debug("successfully loaded data resource"+contextSuffix, "resource-file", resourceFile)
+		// Cache the successful result
+		dr.setCachedPklEvaluation(cacheKey, res)
 		return res, nil
 
 	case ResponseResource:
@@ -545,6 +564,8 @@ func (dr *DependencyResolver) loadResourceByType(ctx context.Context, pklEvaluat
 			return nil, fmt.Errorf("error reading response resource file '%s': %w", resourceFile, err)
 		}
 		dr.Logger.Debug("successfully loaded response resource"+contextSuffix, "resource-file", resourceFile)
+		// Cache the successful result
+		dr.setCachedPklEvaluation(cacheKey, res)
 		return res, nil
 
 	default:

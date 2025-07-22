@@ -148,81 +148,59 @@ func (dr *DependencyResolver) processExecBlock(actionID string, execBlock *pklEx
 	}
 	execBlock.Timestamp = &ts
 
-	// Store comprehensive resource data in pklres for cross-resource access
+	// Store comprehensive resource data in pklres using batch operations for better performance
 	if dr.PklresHelper != nil {
-		// Store command
-		if err := dr.PklresHelper.Set(actionID, "command", execBlock.Command); err != nil {
-			dr.Logger.Error("failed to store command in pklres", "actionID", actionID, "error", err)
-		}
+		attributes := make(map[string]string)
 
-		// Store stdout for cross-resource access
+		// Collect all attributes for batch operation
+		attributes["command"] = execBlock.Command
+
 		if execBlock.Stdout != nil {
-			if err := dr.PklresHelper.Set(actionID, "stdout", *execBlock.Stdout); err != nil {
-				dr.Logger.Error("failed to store stdout in pklres", "actionID", actionID, "error", err)
-			}
+			attributes["stdout"] = *execBlock.Stdout
 		}
 
-		// Store stderr for cross-resource access
 		if execBlock.Stderr != nil {
-			if err := dr.PklresHelper.Set(actionID, "stderr", *execBlock.Stderr); err != nil {
-				dr.Logger.Error("failed to store stderr in pklres", "actionID", actionID, "error", err)
-			}
+			attributes["stderr"] = *execBlock.Stderr
 		}
 
-		// Store exit code
 		if execBlock.ExitCode != nil {
-			exitCodeStr := fmt.Sprintf("%d", *execBlock.ExitCode)
-			if err := dr.PklresHelper.Set(actionID, "exitCode", exitCodeStr); err != nil {
-				dr.Logger.Error("failed to store exitCode in pklres", "actionID", actionID, "error", err)
-			}
+			attributes["exitCode"] = fmt.Sprintf("%d", *execBlock.ExitCode)
 		}
 
-		// Store environment variables as JSON for complex structure
 		if execBlock.Env != nil && len(*execBlock.Env) > 0 {
 			if envJSON, err := json.Marshal(*execBlock.Env); err == nil {
-				if err := dr.PklresHelper.Set(actionID, "env", string(envJSON)); err != nil {
-					dr.Logger.Error("failed to store env", "actionID", actionID, "error", err)
-				}
+				attributes["env"] = string(envJSON)
 			} else {
 				dr.Logger.Error("failed to marshal env", "actionID", actionID, "error", err)
 			}
 		}
 
-		// Store file path if present
 		if execBlock.File != nil && *execBlock.File != "" {
-			if err := dr.PklresHelper.Set(actionID, "file", *execBlock.File); err != nil {
-				dr.Logger.Error("failed to store file", "actionID", actionID, "error", err)
-			}
+			attributes["file"] = *execBlock.File
 		}
 
-		// Store item values as JSON for complex structure
 		if execBlock.ItemValues != nil && len(*execBlock.ItemValues) > 0 {
 			if itemValuesJSON, err := json.Marshal(*execBlock.ItemValues); err == nil {
-				if err := dr.PklresHelper.Set(actionID, "itemValues", string(itemValuesJSON)); err != nil {
-					dr.Logger.Error("failed to store itemValues", "actionID", actionID, "error", err)
-				}
+				attributes["itemValues"] = string(itemValuesJSON)
 			} else {
 				dr.Logger.Error("failed to marshal itemValues", "actionID", actionID, "error", err)
 			}
 		}
 
-		// Store timeout duration
 		if execBlock.TimeoutDuration != nil {
-			timeoutStr := fmt.Sprintf("%g", execBlock.TimeoutDuration.Value)
-			if err := dr.PklresHelper.Set(actionID, "timeoutDuration", timeoutStr); err != nil {
-				dr.Logger.Error("failed to store timeoutDuration", "actionID", actionID, "error", err)
-			}
+			attributes["timeoutDuration"] = fmt.Sprintf("%g", execBlock.TimeoutDuration.Value)
 		}
 
-		// Store timestamp
 		if execBlock.Timestamp != nil {
-			timestampStr := fmt.Sprintf("%.0f", execBlock.Timestamp.Value)
-			if err := dr.PklresHelper.Set(actionID, "timestamp", timestampStr); err != nil {
-				dr.Logger.Error("failed to store timestamp in pklres", "actionID", actionID, "error", err)
-			}
+			attributes["timestamp"] = fmt.Sprintf("%.0f", execBlock.Timestamp.Value)
 		}
 
-		dr.Logger.Info("stored comprehensive Exec resource attributes in pklres", "actionID", actionID)
+		// Perform batch set operation
+		if err := dr.PklresHelper.SetResourceAttributes(actionID, attributes); err != nil {
+			dr.Logger.Error("failed to store Exec resource attributes in pklres", "actionID", actionID, "error", err)
+		} else {
+			dr.Logger.Info("stored comprehensive Exec resource attributes in pklres", "actionID", actionID, "attributeCount", len(attributes))
+		}
 	}
 
 	return nil

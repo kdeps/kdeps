@@ -141,96 +141,81 @@ func (dr *DependencyResolver) processHTTPBlock(actionID string, httpBlock *pklHT
 		}
 	}
 
-	// Store comprehensive resource data in pklres for cross-resource access
+	// Store comprehensive resource data in pklres using batch operations for better performance
 	if dr.PklresHelper != nil {
-		// Store basic HTTP request data
-		if err := dr.PklresHelper.Set(actionID, "url", httpBlock.Url); err != nil {
-			dr.Logger.Error("failed to store url", "actionID", actionID, "error", err)
-		}
+		attributes := make(map[string]string)
+
+		// Collect all attributes for batch operation
+		attributes["url"] = httpBlock.Url
 
 		if httpBlock.Method != "" {
-			if err := dr.PklresHelper.Set(actionID, "method", httpBlock.Method); err != nil {
-				dr.Logger.Error("failed to store method", "actionID", actionID, "error", err)
-			}
+			attributes["method"] = httpBlock.Method
 		}
 
-		// Store request data as JSON for complex structures
 		if httpBlock.Data != nil && len(*httpBlock.Data) > 0 {
 			if dataJSON, err := json.Marshal(*httpBlock.Data); err == nil {
-				if err := dr.PklresHelper.Set(actionID, "data", string(dataJSON)); err != nil {
-					dr.Logger.Error("failed to store data", "actionID", actionID, "error", err)
-				}
+				attributes["data"] = string(dataJSON)
+			} else {
+				dr.Logger.Error("failed to marshal data", "actionID", actionID, "error", err)
 			}
 		}
 
-		// Store request headers as JSON for complex structures
 		if httpBlock.Headers != nil && len(*httpBlock.Headers) > 0 {
 			if headersJSON, err := json.Marshal(*httpBlock.Headers); err == nil {
-				if err := dr.PklresHelper.Set(actionID, "headers", string(headersJSON)); err != nil {
-					dr.Logger.Error("failed to store headers", "actionID", actionID, "error", err)
-				}
+				attributes["headers"] = string(headersJSON)
+			} else {
+				dr.Logger.Error("failed to marshal headers", "actionID", actionID, "error", err)
 			}
 		}
 
-		// Store query parameters as JSON for complex structures
 		if httpBlock.Params != nil && len(*httpBlock.Params) > 0 {
 			if paramsJSON, err := json.Marshal(*httpBlock.Params); err == nil {
-				if err := dr.PklresHelper.Set(actionID, "params", string(paramsJSON)); err != nil {
-					dr.Logger.Error("failed to store params", "actionID", actionID, "error", err)
-				}
+				attributes["params"] = string(paramsJSON)
+			} else {
+				dr.Logger.Error("failed to marshal params", "actionID", actionID, "error", err)
 			}
 		}
 
-		// Store response data (both body and headers)
 		if httpBlock.Response != nil {
 			if httpBlock.Response.Body != nil {
-				if err := dr.PklresHelper.Set(actionID, "response", *httpBlock.Response.Body); err != nil {
-					dr.Logger.Error("failed to store response", "actionID", actionID, "error", err)
-				}
+				attributes["response"] = *httpBlock.Response.Body
 			}
 
 			if httpBlock.Response.Headers != nil && len(*httpBlock.Response.Headers) > 0 {
 				if responseHeadersJSON, err := json.Marshal(*httpBlock.Response.Headers); err == nil {
-					if err := dr.PklresHelper.Set(actionID, "responseHeaders", string(responseHeadersJSON)); err != nil {
-						dr.Logger.Error("failed to store responseHeaders", "actionID", actionID, "error", err)
-					}
+					attributes["responseHeaders"] = string(responseHeadersJSON)
+				} else {
+					dr.Logger.Error("failed to marshal responseHeaders", "actionID", actionID, "error", err)
 				}
 			}
 		}
 
-		// Store file path if present
 		if httpBlock.File != nil && *httpBlock.File != "" {
-			if err := dr.PklresHelper.Set(actionID, "file", *httpBlock.File); err != nil {
-				dr.Logger.Error("failed to store file", "actionID", actionID, "error", err)
-			}
+			attributes["file"] = *httpBlock.File
 		}
 
-		// Store item values as JSON for complex structures
 		if httpBlock.ItemValues != nil && len(*httpBlock.ItemValues) > 0 {
 			if itemValuesJSON, err := json.Marshal(*httpBlock.ItemValues); err == nil {
-				if err := dr.PklresHelper.Set(actionID, "itemValues", string(itemValuesJSON)); err != nil {
-					dr.Logger.Error("failed to store itemValues", "actionID", actionID, "error", err)
-				}
+				attributes["itemValues"] = string(itemValuesJSON)
+			} else {
+				dr.Logger.Error("failed to marshal itemValues", "actionID", actionID, "error", err)
 			}
 		}
 
-		// Store timeout duration
 		if httpBlock.TimeoutDuration != nil {
-			timeoutStr := fmt.Sprintf("%g", httpBlock.TimeoutDuration.Value)
-			if err := dr.PklresHelper.Set(actionID, "timeoutDuration", timeoutStr); err != nil {
-				dr.Logger.Error("failed to store timeoutDuration", "actionID", actionID, "error", err)
-			}
+			attributes["timeoutDuration"] = fmt.Sprintf("%g", httpBlock.TimeoutDuration.Value)
 		}
 
-		// Store timestamp
 		if httpBlock.Timestamp != nil {
-			timestampStr := fmt.Sprintf("%g", httpBlock.Timestamp.Value)
-			if err := dr.PklresHelper.Set(actionID, "timestamp", timestampStr); err != nil {
-				dr.Logger.Error("failed to store timestamp", "actionID", actionID, "error", err)
-			}
+			attributes["timestamp"] = fmt.Sprintf("%g", httpBlock.Timestamp.Value)
 		}
 
-		dr.Logger.Info("stored comprehensive HTTP resource attributes in pklres", "actionID", actionID)
+		// Perform batch set operation
+		if err := dr.PklresHelper.SetResourceAttributes(actionID, attributes); err != nil {
+			dr.Logger.Error("failed to store HTTP resource attributes in pklres", "actionID", actionID, "error", err)
+		} else {
+			dr.Logger.Info("stored comprehensive HTTP resource attributes in pklres", "actionID", actionID, "attributeCount", len(attributes))
+		}
 	}
 
 	return nil

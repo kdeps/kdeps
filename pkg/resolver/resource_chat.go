@@ -103,17 +103,13 @@ func (dr *DependencyResolver) getResourceOutputSafely(resourceID, resourceType, 
 
 // HandleLLMChat processes an LLM chat interaction synchronously.
 func (dr *DependencyResolver) HandleLLMChat(actionID string, chatBlock *pklLLM.ResourceChat) error {
-	dr.Logger.Info("HandleLLMChat: ENTRY", "actionID", actionID, "chatBlock_nil", chatBlock == nil)
-	if chatBlock != nil {
-		dr.Logger.Info("HandleLLMChat: chatBlock fields", "actionID", actionID, "model", chatBlock.Model, "prompt_nil", chatBlock.Prompt == nil)
-	}
-	dr.Logger.Debug("HandleLLMChat: called", "actionID", actionID, "PklresHelper_nil", dr.PklresHelper == nil, "PklresReader_nil", dr.PklresHelper == nil || dr.PklresHelper.resolver == nil || dr.PklresHelper.resolver.PklresReader == nil)
+	// LLM Chat processing started for actionID
 	// Canonicalize the actionID if it's a short ActionID
 	canonicalActionID := actionID
 	if dr.PklresHelper != nil {
 		canonicalActionID = dr.PklresHelper.resolveActionID(actionID)
 		if canonicalActionID != actionID {
-			dr.Logger.Debug("canonicalized actionID", "original", actionID, "canonical", canonicalActionID)
+			// ActionID canonicalized
 		}
 	}
 
@@ -140,7 +136,7 @@ func (dr *DependencyResolver) HandleLLMChat(actionID string, chatBlock *pklLLM.R
 
 // reloadLLMResourceWithDependencies reloads the LLM resource to ensure PKL templates are evaluated after dependencies
 func (dr *DependencyResolver) reloadLLMResourceWithDependencies(actionID string, chatBlock *pklLLM.ResourceChat) error {
-	dr.Logger.Debug("reloadLLMResourceWithDependencies: reloading LLM resource for fresh template evaluation", "actionID", actionID)
+	// Reloading LLM resource with fresh template evaluation
 
 	// Find the resource file path for this actionID
 	resourceFile := ""
@@ -155,7 +151,7 @@ func (dr *DependencyResolver) reloadLLMResourceWithDependencies(actionID string,
 		return fmt.Errorf("could not find resource file for actionID: %s", actionID)
 	}
 
-	dr.Logger.Debug("reloadLLMResourceWithDependencies: found resource file", "actionID", actionID, "file", resourceFile)
+	// Found resource file for reloading
 
 	// Reload the LLM resource with fresh PKL template evaluation
 	// Load as generic Resource since the LLM resource extends Resource.pkl, not LLM.pkl
@@ -184,16 +180,16 @@ func (dr *DependencyResolver) reloadLLMResourceWithDependencies(actionID string,
 		// Update the chatBlock with the reloaded values that contain fresh template evaluation
 		if reloadedChat.Prompt != nil {
 			chatBlock.Prompt = reloadedChat.Prompt
-			dr.Logger.Debug("reloadLLMResourceWithDependencies: updated prompt from reloaded resource", "actionID", actionID)
+			// Updated prompt from reloaded resource
 		}
 
 		if reloadedChat.Scenario != nil {
 			chatBlock.Scenario = reloadedChat.Scenario
-			dr.Logger.Debug("reloadLLMResourceWithDependencies: updated scenario from reloaded resource", "actionID", actionID)
+			// Updated scenario from reloaded resource
 		}
 	}
 
-	dr.Logger.Info("reloadLLMResourceWithDependencies: successfully reloaded LLM resource with fresh template evaluation", "actionID", actionID)
+	dr.Logger.Info("LLM resource reloaded", "actionID", actionID)
 	return nil
 }
 
@@ -549,7 +545,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 
 // processLLMChat processes the LLM chat and saves the response.
 func (dr *DependencyResolver) processLLMChat(actionID string, chatBlock *pklLLM.ResourceChat) error {
-	dr.Logger.Info("processLLMChat: called", "actionID", actionID, "PklresHelper_nil", dr.PklresHelper == nil, "PklresReader_nil", dr.PklresHelper == nil || dr.PklresHelper.resolver == nil || dr.PklresHelper.resolver.PklresReader == nil)
+	// Processing LLM Chat
 	dr.Logger.Info("processLLMChat: starting", "actionID", actionID)
 
 	if dr.NewLLMFn == nil {

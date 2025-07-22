@@ -69,6 +69,9 @@ type ErrorTemplateData struct {
 }
 
 // CreateResponseGoJSON generates a JSON response using pure Go instead of PKL evaluation
+//
+// DEPRECATED: This method writes to files. Use BuildResponseInMemory() for memory-only approach.
+// Policy: No temporary files - use memory-only approach for better performance.
 func (dr *DependencyResolver) CreateResponseGoJSON(apiResponseBlock apiserverresponse.APIServerResponse) error {
 	if dr == nil || len(dr.DBs) == 0 || dr.DBs[0] == nil {
 		return errors.New("dependency resolver or database is nil")
@@ -137,6 +140,73 @@ func (dr *DependencyResolver) CreateResponseGoJSON(apiResponseBlock apiserverres
 
 	dr.Logger.Debug("CreateResponseGoJSON completed", "file", dr.ResponseTargetFile)
 	return nil
+}
+
+// BuildResponseInMemory generates a JSON response in memory without writing to file
+// Returns the JSON string directly for immediate use
+func (dr *DependencyResolver) BuildResponseInMemory(apiResponseBlock apiserverresponse.APIServerResponse) (string, error) {
+	if dr == nil || len(dr.DBs) == 0 || dr.DBs[0] == nil {
+		return "", errors.New("dependency resolver or database is nil")
+	}
+
+	// Ensure agent context is set directly in AgentReader (avoid env vars)
+	if dr.Workflow != nil && dr.AgentReader != nil {
+		dr.AgentReader.CurrentAgent = dr.Workflow.GetAgentID()
+		dr.AgentReader.CurrentVersion = dr.Workflow.GetVersion()
+	}
+
+	if err := dr.DBs[0].PingContext(context.Background()); err != nil {
+		return "", fmt.Errorf("failed to ping database: %w", err)
+	}
+
+	dr.Logger.Debug("building response in memory", "response", apiResponseBlock)
+
+	// Get existing errors
+	existingErrors := utils.GetRequestErrorsWithActionID(dr.RequestID)
+	hasErrors := len(existingErrors) > 0
+
+	// Prepare response data
+	var responseData interface{}
+	if hasErrors {
+		responseData = nil
+	} else {
+		// Extract data from the response block
+		if apiResponseBlock.GetResponse() != nil && apiResponseBlock.GetResponse().Data != nil {
+			responseData = dr.extractResponseData(apiResponseBlock.GetResponse().Data)
+		}
+	}
+
+	// Build the Go response structure
+	response := GoAPIResponse{
+		Success: !hasErrors,
+		Response: ResponseData{
+			Data: responseData,
+		},
+		Meta: ResponseMeta{
+			RequestID: dr.RequestID,
+		},
+	}
+
+	// Add errors if any
+	if hasErrors {
+		response.Errors = make([]ErrorResponse, len(existingErrors))
+		for i, err := range existingErrors {
+			response.Errors[i] = ErrorResponse{
+				Code:     err.Code,
+				Message:  err.Message,
+				ActionID: err.ActionID,
+			}
+		}
+	}
+
+	// Marshal to JSON
+	jsonData, err := json.Marshal(response)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal JSON response: %w", err)
+	}
+
+	dr.Logger.Debug("BuildResponseInMemory completed", "jsonLength", len(jsonData))
+	return string(jsonData), nil
 }
 
 // extractResponseData extracts data from the response block without PKL evaluation
@@ -251,6 +321,9 @@ func (dr *DependencyResolver) createFallbackResponseData() interface{} {
 }
 
 // CreateResponsePklFile generates a PKL file from the API response and processes it.
+// 
+// DEPRECATED: This method creates temporary files. Use BuildResponseInMemory() instead.
+// Policy: No temporary files - use memory-only approach for better performance.
 func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverresponse.APIServerResponse) error {
 	if dr == nil || len(dr.DBs) == 0 || dr.DBs[0] == nil {
 		return errors.New("dependency resolver or database is nil")

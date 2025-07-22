@@ -166,88 +166,63 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 	}
 	pythonBlock.Timestamp = &ts
 
-	// Store comprehensive resource data in pklres for cross-resource access
+	// Store comprehensive resource data in pklres using batch operations for better performance
 	if dr.PklresHelper != nil {
-		// Store script
-		if err := dr.PklresHelper.Set(actionID, "script", pythonBlock.Script); err != nil {
-			dr.Logger.Error("failed to store script in pklres", "actionID", actionID, "error", err)
-		}
+		attributes := make(map[string]string)
 
-		// Store stdout for cross-resource access
+		// Collect all attributes for batch operation
+		attributes["script"] = pythonBlock.Script
+
 		if pythonBlock.Stdout != nil {
-			if err := dr.PklresHelper.Set(actionID, "stdout", *pythonBlock.Stdout); err != nil {
-				dr.Logger.Error("failed to store stdout in pklres", "actionID", actionID, "error", err)
-			}
+			attributes["stdout"] = *pythonBlock.Stdout
 		}
 
-		// Store stderr for cross-resource access
 		if pythonBlock.Stderr != nil {
-			if err := dr.PklresHelper.Set(actionID, "stderr", *pythonBlock.Stderr); err != nil {
-				dr.Logger.Error("failed to store stderr in pklres", "actionID", actionID, "error", err)
-			}
+			attributes["stderr"] = *pythonBlock.Stderr
 		}
 
-		// Store exit code
 		if pythonBlock.ExitCode != nil {
-			exitCodeStr := fmt.Sprintf("%d", *pythonBlock.ExitCode)
-			if err := dr.PklresHelper.Set(actionID, "exitCode", exitCodeStr); err != nil {
-				dr.Logger.Error("failed to store exitCode in pklres", "actionID", actionID, "error", err)
-			}
+			attributes["exitCode"] = fmt.Sprintf("%d", *pythonBlock.ExitCode)
 		}
 
-		// Store environment variables as JSON for complex structure
 		if pythonBlock.Env != nil && len(*pythonBlock.Env) > 0 {
 			if envJSON, err := json.Marshal(*pythonBlock.Env); err == nil {
-				if err := dr.PklresHelper.Set(actionID, "env", string(envJSON)); err != nil {
-					dr.Logger.Error("failed to store env", "actionID", actionID, "error", err)
-				}
+				attributes["env"] = string(envJSON)
 			} else {
 				dr.Logger.Error("failed to marshal env", "actionID", actionID, "error", err)
 			}
 		}
 
-		// Store Python environment
 		if pythonBlock.PythonEnvironment != nil && *pythonBlock.PythonEnvironment != "" {
-			if err := dr.PklresHelper.Set(actionID, "pythonEnvironment", *pythonBlock.PythonEnvironment); err != nil {
-				dr.Logger.Error("failed to store pythonEnvironment", "actionID", actionID, "error", err)
-			}
+			attributes["pythonEnvironment"] = *pythonBlock.PythonEnvironment
 		}
 
-		// Store file path if present
 		if pythonBlock.File != nil && *pythonBlock.File != "" {
-			if err := dr.PklresHelper.Set(actionID, "file", *pythonBlock.File); err != nil {
-				dr.Logger.Error("failed to store file", "actionID", actionID, "error", err)
-			}
+			attributes["file"] = *pythonBlock.File
 		}
 
-		// Store item values as JSON for complex structure
 		if pythonBlock.ItemValues != nil && len(*pythonBlock.ItemValues) > 0 {
 			if itemValuesJSON, err := json.Marshal(*pythonBlock.ItemValues); err == nil {
-				if err := dr.PklresHelper.Set(actionID, "itemValues", string(itemValuesJSON)); err != nil {
-					dr.Logger.Error("failed to store itemValues", "actionID", actionID, "error", err)
-				}
+				attributes["itemValues"] = string(itemValuesJSON)
 			} else {
 				dr.Logger.Error("failed to marshal itemValues", "actionID", actionID, "error", err)
 			}
 		}
 
-		// Store timeout duration
 		if pythonBlock.TimeoutDuration != nil {
-			timeoutStr := fmt.Sprintf("%g", pythonBlock.TimeoutDuration.Value)
-			if err := dr.PklresHelper.Set(actionID, "timeoutDuration", timeoutStr); err != nil {
-				dr.Logger.Error("failed to store timeoutDuration", "actionID", actionID, "error", err)
-			}
+			attributes["timeoutDuration"] = fmt.Sprintf("%g", pythonBlock.TimeoutDuration.Value)
 		}
 
-		// Store timestamp
 		if pythonBlock.Timestamp != nil {
-			timestampStr := fmt.Sprintf("%.0f", pythonBlock.Timestamp.Value)
-			if err := dr.PklresHelper.Set(actionID, "timestamp", timestampStr); err != nil {
-				dr.Logger.Error("failed to store timestamp in pklres", "actionID", actionID, "error", err)
-			}
+			attributes["timestamp"] = fmt.Sprintf("%.0f", pythonBlock.Timestamp.Value)
 		}
 
-		dr.Logger.Info("stored comprehensive Python resource attributes in pklres", "actionID", actionID)
+		// Perform batch set operation
+		if err := dr.PklresHelper.SetResourceAttributes(actionID, attributes); err != nil {
+			dr.Logger.Error("failed to store Python resource attributes in pklres", "actionID", actionID, "error", err)
+		} else {
+			dr.Logger.Info("stored comprehensive Python resource attributes in pklres", "actionID", actionID, "attributeCount", len(attributes))
+		}
 	}
 
 	return nil
