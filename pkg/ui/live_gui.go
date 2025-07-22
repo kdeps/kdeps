@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/kdeps/kdeps/pkg/reactive"
 )
 
 // Operation represents a single operation in the workflow
@@ -61,6 +62,10 @@ type LiveGUIModel struct {
 
 	// Context
 	ctx context.Context
+
+	// Reactive integration
+	reactiveStore *reactive.Store[reactive.AppState]
+	subscription  reactive.Subscription
 }
 
 // OperationMsg represents an operation update message
@@ -137,7 +142,10 @@ func NewLiveGUI(ctx context.Context, operationNames []string) LiveGUIModel {
 		}
 	}
 
-	return LiveGUIModel{
+	// Initialize reactive store
+	store := reactive.NewStore(reactive.InitialAppState(), reactive.AppReducer)
+
+	model := LiveGUIModel{
 		spinner:        s,
 		progress:       p,
 		viewport:       vp,
@@ -149,7 +157,24 @@ func NewLiveGUI(ctx context.Context, operationNames []string) LiveGUIModel {
 		width:          120,
 		height:         40,
 		ctx:            ctx,
+		reactiveStore:  store,
 	}
+
+	// Subscribe to reactive state changes
+	model.subscription = store.Subscribe(ctx, reactive.ObserverFunc[reactive.AppState]{
+		NextFunc: func(state reactive.AppState) {
+			// Update UI from reactive state
+			model.syncFromReactiveState(state)
+		},
+		ErrorFunc: func(err error) {
+			// Handle reactive state errors
+		},
+		CompleteFunc: func() {
+			// Handle reactive state completion
+		},
+	})
+
+	return model
 }
 
 // Init initializes the model

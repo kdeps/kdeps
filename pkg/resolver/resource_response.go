@@ -321,7 +321,7 @@ func (dr *DependencyResolver) createFallbackResponseData() interface{} {
 }
 
 // CreateResponsePklFile generates a PKL file from the API response and processes it.
-// 
+//
 // DEPRECATED: This method creates temporary files. Use BuildResponseInMemory() instead.
 // Policy: No temporary files - use memory-only approach for better performance.
 func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverresponse.APIServerResponse) error {

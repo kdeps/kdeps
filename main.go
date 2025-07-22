@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/apple/pkl-go/pkl"
 	"github.com/gin-gonic/gin"
@@ -22,6 +23,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/memory"
+	"github.com/kdeps/kdeps/pkg/reactive"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/session"
 	"github.com/kdeps/kdeps/pkg/tool"
@@ -341,31 +343,64 @@ func setupSignalHandler(ctx context.Context, fs afero.Fs, cancelFunc context.Can
 	}()
 }
 
-// runGraphResolver prepares and runs the graph resolver.
+// runGraphResolverActions prepares and runs the graph resolver using reactive patterns.
 func runGraphResolverActions(ctx context.Context, dr *resolver.DependencyResolver, apiServerMode bool) error {
-	// Workflow directory preparation no longer needed - using project directory directly
-
-	if err := dr.PrepareImportFiles(); err != nil {
-		return fmt.Errorf("failed to prepare import files: %w", err)
+	// Use reactive workflow processing
+	if err := dr.ProcessWorkflowReactive(); err != nil {
+		return fmt.Errorf("failed to process workflow reactively: %w", err)
 	}
 
-	// Note: Removed async pklres polling system - now running purely synchronous execution
-	// The pklres system will handle dependency waiting internally during PKL template evaluation
-
-	// Handle run action
-
-	fatal, err := dr.HandleRunAction()
-	if err != nil {
-		return fmt.Errorf("failed to handle run action: %w", err)
+	// Prepare imports reactively
+	if err := dr.PrepareImportFilesReactive(); err != nil {
+		return fmt.Errorf("failed to prepare import files reactively: %w", err)
 	}
 
-	// In certain error cases, Ollama needs to be restarted
-	if fatal {
-		dr.Logger.Fatal("fatal error occurred")
+	// Handle run action reactively
+	if err := dr.HandleRunActionReactive(); err != nil {
+		return fmt.Errorf("failed to handle run action reactively: %w", err)
+	}
+
+	// Monitor for completion via reactive streams
+	completed := make(chan bool, 1)
+	errorOccurred := make(chan error, 1)
+
+	// Subscribe to operation completion
+	dr.MonitorOperationChanges().SubscribeFunc(ctx,
+		func(event reactive.OperationEvent) {
+			if event.Type == "updated" && event.Operation.Status == "completed" {
+				if event.Operation.ID == "run-action" {
+					completed <- true
+				}
+			}
+			if event.Type == "updated" && event.Operation.Status == "error" {
+				if event.Operation.ID == "run-action" {
+					errorOccurred <- fmt.Errorf("run action failed: %s", event.Operation.ID)
+				}
+			}
+		},
+		func(err error) {
+			errorOccurred <- err
+		},
+		func() {
+			// Stream completed
+		})
+
+	// Wait for completion or error
+	select {
+	case <-completed:
+		dr.Logger.Info("Reactive workflow completed successfully")
+	case err := <-errorOccurred:
+		dr.Logger.Error("Reactive workflow failed", "error", err)
 		utils.SendSigterm()
+		return err
+	case <-time.After(30 * time.Second):
+		dr.Logger.Error("Reactive workflow timed out")
+		return fmt.Errorf("workflow processing timed out")
 	}
 
+	// Cleanup
 	cleanupFn(ctx, dr.Fs, dr.Environment, apiServerMode, dr.Logger)
+	dr.CloseReactive()
 
 	if err := utils.WaitForFileReady(dr.Fs, "/.dockercleanup", dr.Logger); err != nil {
 		return fmt.Errorf("failed to wait for file to be ready: %w", err)

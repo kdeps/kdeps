@@ -50,10 +50,12 @@ func (dr *DependencyResolver) reloadExecResourceWithDependencies(actionID string
 
 	// Find the resource file path for this actionID
 	resourceFile := ""
-	for _, res := range dr.Resources {
-		if res.ActionID == actionID {
-			resourceFile = res.File
-			break
+	for _, resInterface := range dr.Resources {
+		if res, ok := resInterface.(ResourceNodeEntry); ok {
+			if res.ActionID == actionID {
+				resourceFile = res.File
+				break
+			}
 		}
 	}
 

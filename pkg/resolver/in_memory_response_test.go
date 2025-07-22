@@ -30,7 +30,7 @@ func TestStoredAPIResponses(t *testing.T) {
 	// Test storing a response
 	testActionID := "test-action-1"
 	testResponseJSON := `{"success":true,"response":{"data":"test data"},"meta":{"requestId":"test-request-123"}}`
-	
+
 	dr.storedAPIResponses[testActionID] = testResponseJSON
 
 	// Test retrieving the stored response
@@ -53,10 +53,10 @@ func TestStoredAPIResponses(t *testing.T) {
 
 func TestBuildResponseInMemory(t *testing.T) {
 	t.Skip("Skipping BuildResponseInMemory test due to database dependency - requires integration testing")
-	
+
 	// This test would require a full database setup with memory/session/tool/item/agent readers
 	// It's better tested as part of integration tests rather than unit tests
-	
+
 	// The function is tested implicitly when running the full resolver pipeline
 	// with actual database connections and PKL resource processing
 }

@@ -62,10 +62,12 @@ func (rh *ResourceHandler[T]) reloadResourceWithDependencies(actionID string, re
 
 	// Find the resource file path for this actionID
 	resourceFile := ""
-	for _, res := range rh.dr.Resources {
-		if res.ActionID == actionID {
-			resourceFile = res.File
-			break
+	for _, resInterface := range rh.dr.Resources {
+		if res, ok := resInterface.(ResourceNodeEntry); ok {
+			if res.ActionID == actionID {
+				resourceFile = res.File
+				break
+			}
 		}
 	}
 

@@ -43,27 +43,27 @@ func (h *PklresHelper) isValidNonNullValue(value string) bool {
 	if value == "" || value == "null" || value == "undefined" || value == "<nil>" {
 		return false
 	}
-	
+
 	// Check for JSON null
 	if strings.TrimSpace(value) == "null" {
 		return false
 	}
-	
+
 	// Check for placeholder values that indicate incomplete processing
 	placeholders := []string{
-		"<pending>", 
-		"<processing>", 
+		"<pending>",
+		"<processing>",
 		"<unresolved>",
-		"{{",  // Template placeholders
-		"${",  // Variable substitution markers
+		"{{", // Template placeholders
+		"${", // Variable substitution markers
 	}
-	
+
 	for _, placeholder := range placeholders {
 		if strings.Contains(value, placeholder) {
 			return false
 		}
 	}
-	
+
 	// Value passes all null/placeholder checks
 	return true
 }
@@ -342,8 +342,8 @@ func (h *PklresHelper) resolveActionID(actionID string) string {
 	// Fallback: construct canonical ID using available context
 	if h.resolver.AgentReader != nil && h.resolver.AgentReader.CurrentAgent != "" && h.resolver.AgentReader.CurrentVersion != "" {
 		canonicalID := fmt.Sprintf("@%s/%s:%s", h.resolver.AgentReader.CurrentAgent, actionID, h.resolver.AgentReader.CurrentVersion)
-		h.resolver.Logger.Debug("resolveActionID: constructed canonical ID", 
-			"original", actionID, 
+		h.resolver.Logger.Debug("resolveActionID: constructed canonical ID",
+			"original", actionID,
 			"canonical", canonicalID,
 			"agent", h.resolver.AgentReader.CurrentAgent,
 			"version", h.resolver.AgentReader.CurrentVersion)
@@ -352,8 +352,8 @@ func (h *PklresHelper) resolveActionID(actionID string) string {
 
 	// Final fallback: if no agent context, use "localproject" as default agent
 	canonicalID := fmt.Sprintf("@localproject/%s:1.0.0", actionID)
-	h.resolver.Logger.Debug("resolveActionID: using default canonical ID", 
-		"original", actionID, 
+	h.resolver.Logger.Debug("resolveActionID: using default canonical ID",
+		"original", actionID,
 		"canonical", canonicalID)
 	return canonicalID
 }
@@ -449,19 +449,19 @@ func (h *PklresHelper) GetCacheStats() (map[string]interface{}, error) {
 
 // BatchOperation represents a single operation in a batch
 type BatchOperation struct {
-	Operation string // "set" or "get"
+	Operation  string // "set" or "get"
 	Collection string
-	Key       string
-	Value     string // only used for set operations
+	Key        string
+	Value      string // only used for set operations
 }
 
 // BatchResult represents the result of a batch operation
 type BatchResult struct {
-	Operation string
+	Operation  string
 	Collection string
-	Key       string
-	Value     string
-	Error     error
+	Key        string
+	Value      string
+	Error      error
 }
 
 // BatchSet performs multiple set operations in a single batch
@@ -471,21 +471,21 @@ func (h *PklresHelper) BatchSet(operations []BatchOperation) ([]BatchResult, err
 	}
 
 	results := make([]BatchResult, len(operations))
-	
+
 	// Group operations by collection for better efficiency
 	collectionOps := make(map[string][]BatchOperation)
 	for i, op := range operations {
 		canonicalActionID := h.resolveActionID(op.Collection)
 		if !strings.HasPrefix(canonicalActionID, "@") {
 			results[i] = BatchResult{
-				Operation: op.Operation,
+				Operation:  op.Operation,
 				Collection: op.Collection,
-				Key: op.Key,
-				Error: fmt.Errorf("actionID '%s' is not canonical (must start with @)", canonicalActionID),
+				Key:        op.Key,
+				Error:      fmt.Errorf("actionID '%s' is not canonical (must start with @)", canonicalActionID),
 			}
 			continue
 		}
-		
+
 		op.Collection = canonicalActionID
 		collectionOps[canonicalActionID] = append(collectionOps[canonicalActionID], op)
 	}
@@ -498,27 +498,27 @@ func (h *PklresHelper) BatchSet(operations []BatchOperation) ([]BatchResult, err
 			case "set":
 				err := h.Set(op.Collection, op.Key, op.Value)
 				results[resultIndex] = BatchResult{
-					Operation: "set",
+					Operation:  "set",
 					Collection: op.Collection,
-					Key: op.Key,
-					Value: op.Value,
-					Error: err,
+					Key:        op.Key,
+					Value:      op.Value,
+					Error:      err,
 				}
 			case "get":
 				value, err := h.Get(op.Collection, op.Key)
 				results[resultIndex] = BatchResult{
-					Operation: "get",
+					Operation:  "get",
 					Collection: op.Collection,
-					Key: op.Key,
-					Value: value,
-					Error: err,
+					Key:        op.Key,
+					Value:      value,
+					Error:      err,
 				}
 			default:
 				results[resultIndex] = BatchResult{
-					Operation: op.Operation,
+					Operation:  op.Operation,
 					Collection: op.Collection,
-					Key: op.Key,
-					Error: fmt.Errorf("unknown operation: %s", op.Operation),
+					Key:        op.Key,
+					Error:      fmt.Errorf("unknown operation: %s", op.Operation),
 				}
 			}
 			resultIndex++
@@ -553,10 +553,10 @@ func (h *PklresHelper) SetResourceAttributes(actionID string, attributes map[str
 	operations := make([]BatchOperation, 0, len(attributes))
 	for key, value := range attributes {
 		operations = append(operations, BatchOperation{
-			Operation: "set",
+			Operation:  "set",
 			Collection: actionID,
-			Key: key,
-			Value: value,
+			Key:        key,
+			Value:      value,
 		})
 	}
 
@@ -611,7 +611,7 @@ func (h *PklresHelper) waitForDependenciesWithRetry(actionID string, dependencie
 	deadline := time.Now().Add(timeout)
 	retryCount := 0
 	maxRetries := 300 // 30 seconds / 100ms = 300 retries
-	
+
 	h.resolver.Logger.Info("Waiting for dependencies", "actionID", actionID, "deps", len(dependencies))
 
 	for time.Now().Before(deadline) && retryCount < maxRetries {
@@ -640,7 +640,7 @@ func (h *PklresHelper) waitForDependenciesWithRetry(actionID string, dependencie
 
 		// Try to trigger dependency resolution
 		h.triggerDependencyResolution(incompleteDeps)
-		
+
 		time.Sleep(100 * time.Millisecond)
 	}
 
@@ -677,12 +677,12 @@ func (h *PklresHelper) triggerDependencyResolution(incompleteDeps []string) {
 	for _, depWithStatus := range incompleteDeps {
 		// Extract just the dependency name (before the status part)
 		depName := strings.Split(depWithStatus, " (status:")[0]
-		
+
 		// Triggering dependency resolution for missing deps
 
 		// Try to initialize missing dependency data
 		h.initializeDependencyIfMissing(depName)
-		
+
 		// Try to fill dependency values
 		h.attemptDependencyValueFill(depName)
 	}
@@ -694,7 +694,7 @@ func (h *PklresHelper) initializeDependencyIfMissing(depName string) {
 	if err != nil {
 		// Dependency data doesn't exist, try to initialize it
 		// Initializing missing dependency
-		
+
 		// Use the PklresReader's UpdateDependencyStatus to create the dependency
 		err := h.resolver.PklresReader.UpdateDependencyStatus(depName, "pending", "", nil)
 		if err != nil {
@@ -706,11 +706,11 @@ func (h *PklresHelper) initializeDependencyIfMissing(depName string) {
 // attemptDependencyValueFill tries to fill values for a dependency
 func (h *PklresHelper) attemptDependencyValueFill(depName string) {
 	// Filling dependency values
-	
+
 	// Check if we can get some basic values for this dependency
 	essentialKeys := []string{"status", "output", "response", "timestamp"}
 	filledCount := 0
-	
+
 	for _, key := range essentialKeys {
 		value, err := h.Get(depName, key)
 		if err == nil && value != "" && value != "null" {
@@ -727,7 +727,7 @@ func (h *PklresHelper) attemptDependencyValueFill(depName string) {
 			}
 		}
 	}
-	
+
 	// If we have some essential values, try to mark as completed
 	if filledCount >= 2 {
 		err := h.resolver.PklresReader.UpdateDependencyStatus(depName, "completed", "dependency filled", nil)
@@ -749,24 +749,24 @@ func (h *PklresHelper) getDefaultValueForKey(key string) string {
 		"exitcode":  "0",
 		"error":     " ",
 	}
-	
+
 	return defaults[key]
 }
 
 // AggressiveDependencyFill proactively fills all known dependencies to ensure they're ready
 func (h *PklresHelper) AggressiveDependencyFill(actionIDs []string) error {
 	h.resolver.Logger.Info("Starting aggressive dependency fill", "actionCount", len(actionIDs))
-	
+
 	// Standard resource types that might need initialization
 	resourceTypes := []string{"llm", "http", "exec", "python", "data"}
-	
+
 	// For each action ID, try to create all common resource dependencies
 	for _, actionID := range actionIDs {
 		h.resolver.Logger.Debug("Filling dependencies for action", "actionID", actionID)
-		
+
 		// Ensure the action itself has basic data
 		h.ensureActionHasBasicData(actionID)
-		
+
 		// Create dependencies for common resource types
 		for _, resourceType := range resourceTypes {
 			depName := h.constructDependencyName(actionID, resourceType)
@@ -774,7 +774,7 @@ func (h *PklresHelper) AggressiveDependencyFill(actionIDs []string) error {
 			h.fillDependencyWithDefaults(depName, resourceType)
 		}
 	}
-	
+
 	h.resolver.Logger.Info("Aggressive dependency fill completed", "actionCount", len(actionIDs))
 	return nil
 }
@@ -782,14 +782,14 @@ func (h *PklresHelper) AggressiveDependencyFill(actionIDs []string) error {
 // ensureActionHasBasicData ensures an action has basic required data
 func (h *PklresHelper) ensureActionHasBasicData(actionID string) {
 	canonicalID := h.resolveActionID(actionID)
-	
+
 	basicKeys := map[string]string{
 		"initialized": "true",
 		"created":     fmt.Sprintf("%.0f", float64(time.Now().UnixNano())/1e9),
 		"status":      "ready",
 		"type":        "resource",
 	}
-	
+
 	for key, value := range basicKeys {
 		existing, err := h.Get(canonicalID, key)
 		if err != nil || existing == "" || existing == "null" {
@@ -815,7 +815,7 @@ func (h *PklresHelper) constructDependencyName(actionID, resourceType string) st
 			}
 		}
 	}
-	
+
 	// Fallback: construct new canonical name
 	canonicalActionID := h.resolveActionID(actionID)
 	parts := strings.Split(canonicalActionID, "/")
@@ -828,7 +828,7 @@ func (h *PklresHelper) constructDependencyName(actionID, resourceType string) st
 			return fmt.Sprintf("%s/%s:%s", agent, resourceType, version)
 		}
 	}
-	
+
 	// Final fallback
 	return fmt.Sprintf("@localproject/%s:1.0.0", resourceType)
 }
@@ -851,10 +851,10 @@ func (h *PklresHelper) ensureDependencyExists(depName string) {
 // Enhanced to read from configuration and use smart configuration-driven data
 func (h *PklresHelper) fillDependencyWithDefaults(depName, resourceType string) {
 	// Filling with configuration-driven defaults
-	
+
 	// First try to get configured data from the workflow/resource definition
 	configuredDefaults := h.getConfiguredResourceDefaults(depName, resourceType)
-	
+
 	// Common defaults for all resources
 	commonDefaults := map[string]string{
 		"initialized": "true",
@@ -864,10 +864,10 @@ func (h *PklresHelper) fillDependencyWithDefaults(depName, resourceType string) 
 		"exitcode":    "0",
 		"error":       " ",
 	}
-	
+
 	// Smart resource-specific defaults based on configuration
 	resourceDefaults := h.getSmartResourceDefaults(depName, resourceType, configuredDefaults)
-	
+
 	// Merge defaults: configured > smart > common
 	allDefaults := make(map[string]string)
 	for k, v := range commonDefaults {
@@ -879,7 +879,7 @@ func (h *PklresHelper) fillDependencyWithDefaults(depName, resourceType string) 
 	for k, v := range configuredDefaults {
 		allDefaults[k] = v // Override with configured values
 	}
-	
+
 	// Set defaults if values don't exist
 	filledCount := 0
 	for key, value := range allDefaults {
@@ -894,7 +894,7 @@ func (h *PklresHelper) fillDependencyWithDefaults(depName, resourceType string) 
 			filledCount++
 		}
 	}
-	
+
 	// Mark as completed if we have enough data
 	if filledCount >= len(allDefaults)-2 { // Allow 2 keys to be missing
 		err := h.resolver.PklresReader.UpdateDependencyStatus(depName, "completed", "filled with configuration-driven defaults", nil)
@@ -907,13 +907,13 @@ func (h *PklresHelper) fillDependencyWithDefaults(depName, resourceType string) 
 // getConfiguredResourceDefaults tries to extract configured values from actual PKL resource evaluation
 func (h *PklresHelper) getConfiguredResourceDefaults(depName, resourceType string) map[string]string {
 	configured := make(map[string]string)
-	
+
 	if h.resolver == nil || h.resolver.PklresReader == nil {
 		return configured
 	}
-	
+
 	h.resolver.Logger.Debug("Reading configuration for dependency from PKL evaluation", "depName", depName, "resourceType", resourceType)
-	
+
 	// Get actual resource data from PKL evaluation results
 	if resourceData, err := h.resolver.PklresReader.GetDependencyData(depName); err == nil && resourceData != nil {
 		// Extract configuration based on resource type using PKL evaluation data
@@ -930,30 +930,30 @@ func (h *PklresHelper) getConfiguredResourceDefaults(depName, resourceType strin
 			configured = h.extractDataResponseConfiguration(resourceData)
 		}
 	}
-	
+
 	// Also try to extract from workflow-level configuration if available
 	h.extractWorkflowConfiguration(depName, resourceType, configured)
-	
+
 	if len(configured) > 0 {
-		h.resolver.Logger.Info("Found configuration-driven values for dependency from PKL evaluation", 
+		h.resolver.Logger.Info("Found configuration-driven values for dependency from PKL evaluation",
 			"depName", depName, "configuredKeys", len(configured), "resourceType", resourceType)
 	}
-	
+
 	return configured
 }
 
 // extractLLMResponseConfiguration extracts LLM-specific response configuration from PKL evaluation
 func (h *PklresHelper) extractLLMResponseConfiguration(resourceData *pklres.DependencyData) map[string]string {
 	configured := make(map[string]string)
-	
+
 	if resourceData == nil {
 		return configured
 	}
-	
+
 	// Use available fields from DependencyData
 	if resourceData.ResultData != "" {
 		h.resolver.Logger.Debug("Found ResultData for LLM configuration", "actionID", resourceData.ActionID)
-		
+
 		// Try to parse existing result data as configuration source
 		var resultMap map[string]interface{}
 		if err := json.Unmarshal([]byte(resourceData.ResultData), &resultMap); err == nil {
@@ -970,7 +970,7 @@ func (h *PklresHelper) extractLLMResponseConfiguration(resourceData *pklres.Depe
 					"timestamp":  time.Now().Format(time.RFC3339),
 					"prompt_len": len(promptStr),
 				}
-				
+
 				if responseJSON, err := json.Marshal(llmResponse); err == nil {
 					configured["response"] = string(responseJSON)
 					configured["output"] = llmResponse["message"].(string)
@@ -978,12 +978,12 @@ func (h *PklresHelper) extractLLMResponseConfiguration(resourceData *pklres.Depe
 			}
 		}
 	}
-	
+
 	// Try to get additional configuration from pklres store based on ActionID
 	if model, err := h.Get(resourceData.ActionID, "model"); err == nil && model != "" {
 		configured["model"] = model
 	}
-	
+
 	if jsonKeys, err := h.Get(resourceData.ActionID, "jsonResponseKeys"); err == nil && jsonKeys != "" {
 		var keys []string
 		if err := json.Unmarshal([]byte(jsonKeys), &keys); err == nil {
@@ -991,25 +991,25 @@ func (h *PklresHelper) extractLLMResponseConfiguration(resourceData *pklres.Depe
 			for _, key := range keys {
 				responseData[key] = h.getIntelligentDefaultForKey(key, "llm")
 			}
-			
+
 			if responseJSON, err := json.Marshal(responseData); err == nil {
 				configured["response"] = string(responseJSON)
 				configured["output"] = string(responseJSON)
 			}
 		}
 	}
-	
+
 	return configured
 }
 
 // extractHTTPResponseConfiguration extracts HTTP-specific response configuration from PKL evaluation
 func (h *PklresHelper) extractHTTPResponseConfiguration(resourceData *pklres.DependencyData) map[string]string {
 	configured := make(map[string]string)
-	
+
 	if resourceData == nil {
 		return configured
 	}
-	
+
 	// Parse existing result data for HTTP configuration
 	if resourceData.ResultData != "" {
 		var resultMap map[string]interface{}
@@ -1017,16 +1017,16 @@ func (h *PklresHelper) extractHTTPResponseConfiguration(resourceData *pklres.Dep
 			if url, exists := resultMap["url"]; exists {
 				urlStr := fmt.Sprintf("%v", url)
 				configured["url"] = urlStr
-				
+
 				// Generate realistic HTTP response
 				httpResponse := map[string]interface{}{
-					"status":     200,
-					"url":        urlStr,
-					"body":       `{"status": "success", "message": "Data retrieved from configured endpoint"}`,
-					"headers":    map[string]string{"Content-Type": "application/json"},
-					"timestamp":  time.Now().Format(time.RFC3339),
+					"status":    200,
+					"url":       urlStr,
+					"body":      `{"status": "success", "message": "Data retrieved from configured endpoint"}`,
+					"headers":   map[string]string{"Content-Type": "application/json"},
+					"timestamp": time.Now().Format(time.RFC3339),
 				}
-				
+
 				if responseJSON, err := json.Marshal(httpResponse); err == nil {
 					configured["response"] = string(responseJSON)
 					configured["output"] = `{"status": "success", "message": "Data retrieved from configured endpoint"}`
@@ -1035,27 +1035,27 @@ func (h *PklresHelper) extractHTTPResponseConfiguration(resourceData *pklres.Dep
 			}
 		}
 	}
-	
+
 	// Try to get additional configuration from pklres store
 	if url, err := h.Get(resourceData.ActionID, "url"); err == nil && url != "" {
 		configured["url"] = url
 	}
-	
+
 	if method, err := h.Get(resourceData.ActionID, "method"); err == nil && method != "" {
 		configured["method"] = method
 	}
-	
+
 	return configured
 }
 
 // extractExecResponseConfiguration extracts exec-specific response configuration from PKL evaluation
 func (h *PklresHelper) extractExecResponseConfiguration(resourceData *pklres.DependencyData) map[string]string {
 	configured := make(map[string]string)
-	
+
 	if resourceData == nil {
 		return configured
 	}
-	
+
 	// Parse existing result data for exec configuration
 	if resourceData.ResultData != "" {
 		var resultMap map[string]interface{}
@@ -1063,7 +1063,7 @@ func (h *PklresHelper) extractExecResponseConfiguration(resourceData *pklres.Dep
 			if command, exists := resultMap["command"]; exists {
 				cmdStr := fmt.Sprintf("%v", command)
 				configured["command"] = cmdStr
-				
+
 				// Generate realistic execution response
 				execResponse := map[string]interface{}{
 					"stdout":    fmt.Sprintf("Executed configured command: %s", h.truncateString(cmdStr, 80)),
@@ -1073,7 +1073,7 @@ func (h *PklresHelper) extractExecResponseConfiguration(resourceData *pklres.Dep
 					"duration":  "0.234s",
 					"timestamp": time.Now().Format(time.RFC3339),
 				}
-				
+
 				if responseJSON, err := json.Marshal(execResponse); err == nil {
 					configured["response"] = string(responseJSON)
 					configured["output"] = execResponse["stdout"].(string)
@@ -1083,27 +1083,27 @@ func (h *PklresHelper) extractExecResponseConfiguration(resourceData *pklres.Dep
 			}
 		}
 	}
-	
+
 	// Try to get additional configuration from pklres store
 	if command, err := h.Get(resourceData.ActionID, "command"); err == nil && command != "" {
 		configured["command"] = command
 	}
-	
+
 	if script, err := h.Get(resourceData.ActionID, "script"); err == nil && script != "" {
 		configured["script"] = script
 	}
-	
+
 	return configured
 }
 
 // extractPythonResponseConfiguration extracts Python-specific response configuration from PKL evaluation
 func (h *PklresHelper) extractPythonResponseConfiguration(resourceData *pklres.DependencyData) map[string]string {
 	configured := make(map[string]string)
-	
+
 	if resourceData == nil {
 		return configured
 	}
-	
+
 	// Parse existing result data for Python configuration
 	if resourceData.ResultData != "" {
 		var resultMap map[string]interface{}
@@ -1111,7 +1111,7 @@ func (h *PklresHelper) extractPythonResponseConfiguration(resourceData *pklres.D
 			if script, exists := resultMap["script"]; exists {
 				scriptStr := fmt.Sprintf("%v", script)
 				configured["script"] = scriptStr
-				
+
 				// Generate realistic Python execution response
 				pythonResponse := map[string]interface{}{
 					"stdout":    fmt.Sprintf("Python script executed successfully: %s", h.truncateString(scriptStr, 60)),
@@ -1121,7 +1121,7 @@ func (h *PklresHelper) extractPythonResponseConfiguration(resourceData *pklres.D
 					"duration":  "0.156s",
 					"timestamp": time.Now().Format(time.RFC3339),
 				}
-				
+
 				if responseJSON, err := json.Marshal(pythonResponse); err == nil {
 					configured["response"] = string(responseJSON)
 					configured["output"] = pythonResponse["stdout"].(string)
@@ -1131,27 +1131,27 @@ func (h *PklresHelper) extractPythonResponseConfiguration(resourceData *pklres.D
 			}
 		}
 	}
-	
+
 	// Try to get additional configuration from pklres store
 	if script, err := h.Get(resourceData.ActionID, "script"); err == nil && script != "" {
 		configured["script"] = script
 	}
-	
+
 	if module, err := h.Get(resourceData.ActionID, "module"); err == nil && module != "" {
 		configured["module"] = module
 	}
-	
+
 	return configured
 }
 
 // extractDataResponseConfiguration extracts data-specific response configuration from PKL evaluation
 func (h *PklresHelper) extractDataResponseConfiguration(resourceData *pklres.DependencyData) map[string]string {
 	configured := make(map[string]string)
-	
+
 	if resourceData == nil {
 		return configured
 	}
-	
+
 	// Parse existing result data for data configuration
 	if resourceData.ResultData != "" {
 		var resultMap map[string]interface{}
@@ -1162,7 +1162,7 @@ func (h *PklresHelper) extractDataResponseConfiguration(resourceData *pklres.Dep
 				configured["output"] = contentStr
 				configured["response"] = fmt.Sprintf(`{"data": "%s"}`, contentStr)
 			}
-			
+
 			if files, exists := resultMap["files"]; exists {
 				filesStr := fmt.Sprintf("%v", files)
 				configured["files"] = filesStr
@@ -1170,26 +1170,26 @@ func (h *PklresHelper) extractDataResponseConfiguration(resourceData *pklres.Dep
 			}
 		}
 	}
-	
+
 	// Try to get additional configuration from pklres store
 	if content, err := h.Get(resourceData.ActionID, "content"); err == nil && content != "" {
 		configured["content"] = content
 		configured["output"] = content
 	}
-	
+
 	if files, err := h.Get(resourceData.ActionID, "files"); err == nil && files != "" {
 		configured["files"] = files
 	}
-	
+
 	// Generate data registry information if no specific configuration found
 	if configured["response"] == "" {
 		dataResponse := map[string]interface{}{
 			"type":      "data",
-			"registry": "agent/data",
-			"files":    []string{"data1.json", "data2.txt"},
+			"registry":  "agent/data",
+			"files":     []string{"data1.json", "data2.txt"},
 			"timestamp": time.Now().Format(time.RFC3339),
 		}
-		
+
 		if responseJSON, err := json.Marshal(dataResponse); err == nil {
 			configured["response"] = string(responseJSON)
 			if configured["output"] == "" {
@@ -1197,7 +1197,7 @@ func (h *PklresHelper) extractDataResponseConfiguration(resourceData *pklres.Dep
 			}
 		}
 	}
-	
+
 	return configured
 }
 
@@ -1207,27 +1207,27 @@ func (h *PklresHelper) extractAPIResponseConfiguration(depName, resourceType str
 	// This is a fallback when PKL evaluation data is not available
 	if jsonKeys, err := h.Get(depName, "jsonResponseKeys"); err == nil && jsonKeys != "" && jsonKeys != "null" {
 		h.resolver.Logger.Debug("Found jsonResponseKeys config in legacy store", "depName", depName, "jsonKeys", jsonKeys)
-		
+
 		var keys []string
 		if err := json.Unmarshal([]byte(jsonKeys), &keys); err == nil {
 			responseData := make(map[string]interface{})
 			for _, key := range keys {
 				responseData[key] = h.getIntelligentDefaultForKey(key, resourceType)
 			}
-			
+
 			if responseJSON, err := json.Marshal(responseData); err == nil {
 				configured["response"] = string(responseJSON)
 				configured["output"] = string(responseJSON)
 			}
 		}
 	}
-	
+
 	if apiResponseData, err := h.Get(depName, "apiResponseData"); err == nil && apiResponseData != "" && apiResponseData != "null" {
 		h.resolver.Logger.Debug("Found apiResponseData config in legacy store", "depName", depName)
 		configured["response"] = apiResponseData
 		configured["output"] = apiResponseData
 	}
-	
+
 	if expectedResponse, err := h.Get(depName, "expectedResponse"); err == nil && expectedResponse != "" && expectedResponse != "null" {
 		h.resolver.Logger.Debug("Found expectedResponse config in legacy store", "depName", depName)
 		configured["response"] = expectedResponse
@@ -1256,8 +1256,8 @@ func (h *PklresHelper) extractLLMConfiguration(depName string, configured map[st
 	if model, err := h.Get(depName, "model"); err == nil && model != "" && model != "null" {
 		configured["model"] = model
 	}
-	
-	// Try to get prompt or messages configuration  
+
+	// Try to get prompt or messages configuration
 	if prompt, err := h.Get(depName, "prompt"); err == nil && prompt != "" && prompt != "null" {
 		// Create a realistic LLM response based on the prompt
 		llmResponse := map[string]interface{}{
@@ -1271,7 +1271,7 @@ func (h *PklresHelper) extractLLMConfiguration(depName string, configured map[st
 			configured["output"] = fmt.Sprintf("AI response to: %s", h.truncateString(prompt, 100))
 		}
 	}
-	
+
 	// Try to get schema configuration
 	if schema, err := h.Get(depName, "schema"); err == nil && schema != "" && schema != "null" {
 		// Found schema configuration
@@ -1292,14 +1292,14 @@ func (h *PklresHelper) extractHTTPConfiguration(depName string, configured map[s
 	// Try to get URL configuration
 	if url, err := h.Get(depName, "url"); err == nil && url != "" && url != "null" {
 		configured["url"] = url
-		
+
 		// Create a realistic HTTP response
 		httpResponse := map[string]interface{}{
-			"status":     200,
-			"url":        url,
-			"body":       `{"status": "success", "message": "HTTP request completed"}`,
-			"headers":    map[string]string{"Content-Type": "application/json"},
-			"timestamp":  time.Now().Format(time.RFC3339),
+			"status":    200,
+			"url":       url,
+			"body":      `{"status": "success", "message": "HTTP request completed"}`,
+			"headers":   map[string]string{"Content-Type": "application/json"},
+			"timestamp": time.Now().Format(time.RFC3339),
 		}
 		if responseJSON, err := json.Marshal(httpResponse); err == nil {
 			configured["response"] = string(responseJSON)
@@ -1307,7 +1307,7 @@ func (h *PklresHelper) extractHTTPConfiguration(depName string, configured map[s
 			configured["status_code"] = "200"
 		}
 	}
-	
+
 	// Try to get method configuration
 	if method, err := h.Get(depName, "method"); err == nil && method != "" && method != "null" {
 		configured["method"] = method
@@ -1319,14 +1319,14 @@ func (h *PklresHelper) extractExecutionConfiguration(depName string, configured 
 	// Try to get command/script configuration
 	if command, err := h.Get(depName, "command"); err == nil && command != "" && command != "null" {
 		configured["command"] = command
-		
+
 		// Create realistic execution response
 		execResponse := map[string]interface{}{
-			"stdout":    "Command executed successfully",
-			"stderr":    " ",
-			"exitcode":  0,
-			"command":   command,
-			"duration":  "0.123s",
+			"stdout":   "Command executed successfully",
+			"stderr":   " ",
+			"exitcode": 0,
+			"command":  command,
+			"duration": "0.123s",
 		}
 		if responseJSON, err := json.Marshal(execResponse); err == nil {
 			configured["response"] = string(responseJSON)
@@ -1335,14 +1335,14 @@ func (h *PklresHelper) extractExecutionConfiguration(depName string, configured 
 			configured["stderr"] = " "
 		}
 	}
-	
+
 	// Try to get script configuration
 	if script, err := h.Get(depName, "script"); err == nil && script != "" && script != "null" {
 		configured["script"] = script
 	}
 }
 
-// extractDataConfiguration extracts data-specific configuration  
+// extractDataConfiguration extracts data-specific configuration
 func (h *PklresHelper) extractDataConfiguration(depName string, configured map[string]string) {
 	// Try to get data content or structure
 	if dataContent, err := h.Get(depName, "content"); err == nil && dataContent != "" && dataContent != "null" {
@@ -1350,7 +1350,7 @@ func (h *PklresHelper) extractDataConfiguration(depName string, configured map[s
 		configured["output"] = dataContent
 		configured["response"] = fmt.Sprintf(`{"data": %s}`, dataContent)
 	}
-	
+
 	// Try to get files configuration
 	if files, err := h.Get(depName, "files"); err == nil && files != "" && files != "null" {
 		configured["files"] = files
@@ -1365,10 +1365,10 @@ func (h *PklresHelper) extractWorkflowConfiguration(depName, resourceType string
 		targetActionID := h.resolver.Workflow.GetTargetActionID()
 		if targetActionID != "" && strings.Contains(depName, targetActionID) {
 			// Found target action configuration
-			
+
 			// This is the target action, make it more realistic
 			configured["is_target_action"] = "true"
-			
+
 			// Enhanced response for target actions
 			if existing, exists := configured["response"]; exists {
 				var responseData map[string]interface{}
@@ -1387,7 +1387,7 @@ func (h *PklresHelper) extractWorkflowConfiguration(depName, resourceType string
 // getIntelligentDefaultForKey returns intelligent default values based on key name
 func (h *PklresHelper) getIntelligentDefaultForKey(key, resourceType string) interface{} {
 	key = strings.ToLower(key)
-	
+
 	// Context-aware defaults based on key name patterns
 	switch {
 	case strings.Contains(key, "message") || strings.Contains(key, "text") || strings.Contains(key, "content"):
@@ -1416,14 +1416,14 @@ func (h *PklresHelper) getIntelligentDefaultForKey(key, resourceType string) int
 // getSmartResourceDefaults provides intelligent defaults based on resource type
 func (h *PklresHelper) getSmartResourceDefaults(depName, resourceType string, configuredDefaults map[string]string) map[string]string {
 	defaults := make(map[string]string)
-	
+
 	// If we have configured response, use it as basis for smart defaults
 	if configuredResponse, exists := configuredDefaults["response"]; exists {
 		// Using configured response for defaults
 		defaults["output"] = h.extractOutputFromResponse(configuredResponse)
 		return defaults
 	}
-	
+
 	// Fallback to basic resource-specific defaults
 	switch resourceType {
 	case "llm":
@@ -1459,7 +1459,7 @@ func (h *PklresHelper) getSmartResourceDefaults(depName, resourceType string, co
 			"content":  `{"configured": true, "data": "Configuration-driven data"}`,
 		}
 	}
-	
+
 	return defaults
 }
 
@@ -1489,7 +1489,7 @@ func (h *PklresHelper) extractOutputFromResponse(response string) string {
 
 func (h *PklresHelper) generateExampleFromSchema(schema map[string]interface{}) map[string]interface{} {
 	example := make(map[string]interface{})
-	
+
 	if properties, exists := schema["properties"]; exists {
 		if props, ok := properties.(map[string]interface{}); ok {
 			for key, propDef := range props {
@@ -1514,7 +1514,7 @@ func (h *PklresHelper) generateExampleFromSchema(schema map[string]interface{}) 
 			}
 		}
 	}
-	
+
 	return example
 }
 
@@ -1528,15 +1528,15 @@ func (h *PklresHelper) getValueSource(key string, configuredDefaults map[string]
 // ForceResolveMissingDependencies aggressively resolves any missing dependencies
 func (h *PklresHelper) ForceResolveMissingDependencies(actionID string, requiredDeps []string) error {
 	h.resolver.Logger.Info("Resolving missing dependencies", "actionID", actionID, "deps", len(requiredDeps))
-	
+
 	for _, dep := range requiredDeps {
 		canonicalDep := h.resolveActionID(dep)
-		
+
 		// Check if dependency exists
 		_, err := h.resolver.PklresReader.GetDependencyData(canonicalDep)
 		if err != nil {
 			// Creating missing dependency
-			
+
 			// Create the dependency
 			err := h.resolver.PklresReader.UpdateDependencyStatus(canonicalDep, "pending", "", nil)
 			if err != nil {
@@ -1544,12 +1544,12 @@ func (h *PklresHelper) ForceResolveMissingDependencies(actionID string, required
 				continue
 			}
 		}
-		
+
 		// Fill with appropriate defaults based on dependency name
 		resourceType := h.extractResourceType(canonicalDep)
 		h.fillDependencyWithDefaults(canonicalDep, resourceType)
 	}
-	
+
 	return nil
 }
 
@@ -1566,7 +1566,7 @@ func (h *PklresHelper) extractResourceType(canonicalDep string) string {
 			}
 		}
 	}
-	
+
 	// Fallback
 	return "data"
 }
@@ -1579,7 +1579,7 @@ func (h *PklresHelper) validateAttributeValues(actionID string, attributes map[s
 
 	invalidAttributes := make([]string, 0)
 	emptyAttributes := make([]string, 0)
-	
+
 	for key, value := range attributes {
 		// Check for empty/null values (but allow certain keys to be empty legitimately)
 		if value == "" || value == "null" || value == "<nil>" {
@@ -1637,7 +1637,7 @@ func (h *PklresHelper) isPlaceholderValue(value string) bool {
 		"<pending>",    // Pending evaluation marker
 		"undefined",    // Undefined values
 	}
-	
+
 	for _, pattern := range placeholderPatterns {
 		if strings.Contains(value, pattern) {
 			return true
@@ -1693,7 +1693,7 @@ func (h *PklresHelper) waitForDependenciesWithValueRetry(actionID string, requir
 	deadline := time.Now().Add(timeout)
 	retryCount := 0
 	maxRetries := 450 // 45 seconds / 100ms = 450 retries
-	
+
 	h.resolver.Logger.Info("Validating dependency values", "actionID", actionID, "deps", len(requiredDependencies))
 
 	for time.Now().Before(deadline) && retryCount < maxRetries {
@@ -1737,7 +1737,7 @@ func (h *PklresHelper) waitForDependenciesWithValueRetry(actionID string, requir
 
 		retryCount++
 		if retryCount%20 == 0 { // Log every 2 seconds (20 * 100ms)
-			h.resolver.Logger.Debug("Still validating dependency values for PKL evaluation", 
+			h.resolver.Logger.Debug("Still validating dependency values for PKL evaluation",
 				"actionID", actionID,
 				"incompleteValues", incompleteValues,
 				"missingValues", missingValues,
@@ -1748,7 +1748,7 @@ func (h *PklresHelper) waitForDependenciesWithValueRetry(actionID string, requir
 		// Try to resolve missing/incomplete dependencies
 		allIncomplete := append(incompleteValues, missingValues...)
 		h.triggerDependencyResolution(allIncomplete)
-		
+
 		time.Sleep(100 * time.Millisecond)
 	}
 
@@ -1799,10 +1799,10 @@ func (h *PklresHelper) waitForDependenciesWithValueRetry(actionID string, requir
 func (h *PklresHelper) verifyDependencyKeyValues(depActionID string) (bool, error) {
 	// List of essential keys that should be available for a completed dependency
 	essentialKeys := []string{
-		"status",     // Resource execution status
-		"output",     // Primary output/result
-		"response",   // Response data (if applicable)
-		"timestamp",  // Execution timestamp
+		"status",    // Resource execution status
+		"output",    // Primary output/result
+		"response",  // Response data (if applicable)
+		"timestamp", // Execution timestamp
 	}
 
 	availableKeys := 0
@@ -1836,13 +1836,13 @@ func (h *PklresHelper) EnsureAttributesReadyForEvaluation(actionID string) error
 	// STEP 1: Get dependency data
 	depData, err := h.resolver.PklresReader.GetDependencyData(actionID)
 	if err != nil {
-		h.resolver.Logger.Debug("No dependency data found, proceeding with evaluation", 
+		h.resolver.Logger.Debug("No dependency data found, proceeding with evaluation",
 			"actionID", actionID, "error", err)
 		return nil
 	}
 
 	if depData == nil || len(depData.Dependencies) == 0 {
-		h.resolver.Logger.Debug("No dependencies found for resource, evaluation ready", 
+		h.resolver.Logger.Debug("No dependencies found for resource, evaluation ready",
 			"actionID", actionID)
 		return nil
 	}
@@ -1889,7 +1889,7 @@ func (h *PklresHelper) hasCircularDependency(actionID string, dependencies []str
 		return true
 	}
 	visited[actionID] = true
-	
+
 	for _, dep := range dependencies {
 		depData, err := h.resolver.PklresReader.GetDependencyData(dep)
 		if err == nil && depData != nil {
@@ -1898,7 +1898,7 @@ func (h *PklresHelper) hasCircularDependency(actionID string, dependencies []str
 			}
 		}
 	}
-	
+
 	delete(visited, actionID) // backtrack
 	return false
 }

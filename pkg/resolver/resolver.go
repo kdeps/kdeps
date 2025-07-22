@@ -4,135 +4,121 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/url"
-	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/alexellis/go-execute/v2"
 	"github.com/apple/pkl-go/pkl"
 	"github.com/gin-gonic/gin"
-	"github.com/kdeps/kartographer/graph"
 	"github.com/kdeps/kdeps/pkg"
 	"github.com/kdeps/kdeps/pkg/agent"
-	kdepsctx "github.com/kdeps/kdeps/pkg/core"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/item"
-	"github.com/kdeps/kdeps/pkg/kdepsexec"
-	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/memory"
 	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/pklres"
+	"github.com/kdeps/kdeps/pkg/reactive"
 	"github.com/kdeps/kdeps/pkg/session"
 	"github.com/kdeps/kdeps/pkg/tool"
 	"github.com/kdeps/kdeps/pkg/utils"
-	pklHTTP "github.com/kdeps/schema/gen/http"
-	pklLLM "github.com/kdeps/schema/gen/llm"
 	pklRes "github.com/kdeps/schema/gen/resource"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
-	"github.com/tmc/langchaingo/llms/ollama"
 )
 
 const statusInternalServerError = 500
 
 type DependencyResolver struct {
-	Fs                      afero.Fs
-	Logger                  *logging.Logger
-	Resources               []ResourceNodeEntry
+	// Core reactive system - now primary interface
+	*reactive.ReactiveResolver
+
+	// Essential system components
+	Fs          afero.Fs
+	Logger      *logging.Logger
+	Context     context.Context
+	Environment *environment.Environment
+	Workflow    pklWf.Workflow
+	Request     *gin.Context
+	Evaluator   pkl.Evaluator
+
+	// Directory paths
+	ProjectDir         string
+	AgentDir           string
+	ActionDir          string
+	FilesDir           string
+	DataDir            string
+	RequestPklFile     string
+	ResponsePklFile    string
+	ResponseTargetFile string
+
+	// Configuration
+	AgentName         string
+	RequestID         string
+	APIServerMode     bool
+	AnacondaInstalled bool
+	DefaultTimeoutSec int
+
+	// Legacy components needed by existing code
+	PklresHelper *PklresHelper
+	PklresReader *pklres.PklResourceReader
+	AgentReader  *agent.PklResourceReader
+
+	// Legacy fields for backward compatibility
+	ItemReader     *item.PklResourceReader // Item database reader
+	ItemDBPath     string
+	MemoryReader   *memory.PklResourceReader  // Memory database reader
+	SessionReader  *session.PklResourceReader // Session database reader
+	ToolReader     *tool.PklResourceReader    // Tool database reader
+	Resources      map[string]interface{}     // Resource cache
+	FileRunCounter map[string]int             // File run tracking
+
+	// Legacy database paths
+	SessionDBPath string
+	MemoryDBPath  string
+	ToolDBPath    string
+
+	// Legacy dependency tracking
 	ResourceDependencies    map[string][]string
-	DependencyGraph         []string
-	VisitedPaths            map[string]bool
-	Context                 context.Context // TODO: move this context into function params
-	Graph                   *graph.DependencyGraph
-	Environment             *environment.Environment
-	Workflow                pklWf.Workflow
-	Request                 *gin.Context
-	MemoryReader            *memory.PklResourceReader
-	MemoryDBPath            string
-	SessionReader           *session.PklResourceReader
-	SessionDBPath           string
-	ToolReader              *tool.PklResourceReader
-	ToolDBPath              string
-	ItemReader              *item.PklResourceReader
-	ItemDBPath              string
-	AgentReader             *agent.PklResourceReader
-	AgentDBPath             string
-	PklresReader            *pklres.PklResourceReader
-	PklresDBPath            string
-	DBs                     []*sql.DB     // collection of DB connections used by the resolver
-	PklresHelper            *PklresHelper // Helper for pklres operations
-	AgentName               string
-	RequestID               string
-	RequestPklFile          string
-	ResponsePklFile         string
-	ResponseTargetFile      string
-	ProjectDir              string
-	AgentDir                string
-	ActionDir               string
-	FilesDir                string
-	DataDir                 string
-	APIServerMode           bool
-	AnacondaInstalled       bool
-	FileRunCounter          map[string]int // Added to track run count per file
-	DefaultTimeoutSec       int            // default timeout value in seconds
-	CurrentResourceActionID string         // Track the currently processing resource actionID
+	CurrentResourceActionID string // Current resource being processed
 
-	// PKL Evaluation Cache for performance optimization
-	pklEvaluationCache     map[string]interface{} // Cache for PKL evaluation results
-	pklCacheEnabled        bool                   // Enable/disable PKL caching
-	pklCacheMaxSize        int                    // Maximum number of cached evaluations
-	pklCacheHitCount       int                    // Performance metrics
-	pklCacheMissCount      int                    // Performance metrics
+	// Legacy function fields
+	GetCurrentTimestampFn            func(string, string) (int64, error)
+	WaitForTimestampChangeFn         func(string, interface{}, time.Duration, string) error
+	HandleAPIErrorResponseFn         func(int, string, bool) (interface{}, error)
+	WalkFn                           func(afero.Fs, string, filepath.WalkFunc) error
+	LoadResourceEntriesFn            func(string) ([]ResourceNodeEntry, error)
+	BuildDependencyStackFn           func([]string, interface{}) ([]interface{}, error)
+	LoadResourceWithRequestContextFn func(context.Context, string, interface{}) (interface{}, error)
+	LoadResourceFn                   func(context.Context, string, interface{}) (interface{}, error)
+	ProcessRunBlockFn                func(ResourceNodeEntry, interface{}, string, bool) (bool, error)
+	NewLLMFn                         func(string) (interface{}, error)
+	GenerateChatResponseFn           func(context.Context, afero.Fs, interface{}, interface{}, interface{}, *logging.Logger) (string, error)
+	ExecTaskRunnerFn                 func(context.Context, interface{}) (string, string, error)
+	DoRequestFn                      func(interface{}) error
 
-	// Injectable helpers (overridable in tests)
-	GetCurrentTimestampFn    func(string, string) (pkl.Duration, error)              `json:"-"`
-	WaitForTimestampChangeFn func(string, pkl.Duration, time.Duration, string) error `json:"-"`
+	// Legacy storage
+	storedAPIResponses map[string]string
 
-	// Store intermediate API responses in memory (for when processing continues beyond response resources)
-	storedAPIResponses map[string]string `json:"-"` // key: resourceActionID, value: JSON response
+	// Legacy async processing
+	asyncPollingCancel  context.CancelFunc
+	processedResources  map[string]bool
+	resourceReloadQueue chan string
 
-	// Additional injectable helpers for broader unit testing
-	LoadResourceEntriesFn            func() error                                                         `json:"-"`
-	LoadResourceFn                   func(context.Context, string, ResourceType) (interface{}, error)     `json:"-"`
-	LoadResourceWithRequestContextFn func(context.Context, string, ResourceType) (interface{}, error)     `json:"-"`
-	BuildDependencyStackFn           func(string, map[string]bool) []string                               `json:"-"`
-	ProcessRunBlockFn                func(ResourceNodeEntry, pklRes.Resource, string, bool) (bool, error) `json:"-"`
-	ClearItemDBFn                    func() error                                                         `json:"-"`
+	// Legacy PKL caching
+	pklEvaluationCache map[string]interface{}
+	pklCacheEnabled    bool
+	pklCacheMaxSize    int
+	pklCacheHitCount   int64
+	pklCacheMissCount  int64
 
-	// Async pklres polling and reloading
-	asyncPollingCancel  context.CancelFunc  `json:"-"`
-	processedResources  map[string]bool     `json:"-"` // Track previously executed resources
-	dependencyWaitQueue map[string][]string `json:"-"` // Resources waiting for dependencies
-	resourceReloadQueue chan string         `json:"-"` // Queue for resources that need reloading
-
-	// Chat / HTTP injection helpers
-	NewLLMFn               func(model string) (*ollama.LLM, error)                                                                                      `json:"-"`
-	GenerateChatResponseFn func(context.Context, afero.Fs, *ollama.LLM, *pklLLM.ResourceChat, *tool.PklResourceReader, *logging.Logger) (string, error) `json:"-"`
-
-	DoRequestFn func(*pklHTTP.ResourceHTTPClient) error `json:"-"`
-
-	// Python / Conda execution injector
-	ExecTaskRunnerFn func(context.Context, execute.ExecTask) (string, string, error) `json:"-"`
-
-	// Import handling injectors
-	WalkFn func(afero.Fs, string, filepath.WalkFunc) error `json:"-"`
-
-	// New injectable helpers
-	GetCurrentTimestampFn2    func(string, string) (pkl.Duration, error)
-	WaitForTimestampChangeFn2 func(string, pkl.Duration, time.Duration, string) error
-	HandleAPIErrorResponseFn  func(int, string, bool) (bool, error)
-
-	// PKL evaluator
-	Evaluator pkl.Evaluator
+	// Legacy database connections
+	DBs []*sql.DB
 }
 
 type ResourceNodeEntry struct {
@@ -141,271 +127,8 @@ type ResourceNodeEntry struct {
 }
 
 func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment, req *gin.Context, logger *logging.Logger, eval pkl.Evaluator) (*DependencyResolver, error) {
-	var agentDir, graphID, actionDir string
-
-	contextKeys := map[*string]ktx.ContextKey{
-		&agentDir:  ktx.CtxKeyAgentDir,
-		&graphID:   ktx.CtxKeyGraphID,
-		&actionDir: ktx.CtxKeyActionDir,
-	}
-
-	for ptr, key := range contextKeys {
-		if value, found := ktx.ReadContext(ctx, key); found {
-			if strValue, ok := value.(string); ok {
-				*ptr = strValue
-			}
-		}
-	}
-
-	var pklWfFile string
-	var projectDir string
-
-	// In Docker mode, look for workflow in /agents/<agentname>/<version>/workflow.pkl
-	if env.DockerMode == "1" {
-		// Find the workflow.pkl in the run directory structure
-		pklWfFile = findWorkflowInRun(fs)
-		if pklWfFile == "" {
-			return nil, fmt.Errorf("workflow.pkl not found in /agents directory structure")
-		}
-		// Set projectDir to the directory containing workflow.pkl
-		projectDir = filepath.Dir(pklWfFile)
-	} else {
-		// Non-Docker mode: use the traditional /agent/project structure
-		projectDir = filepath.Join(agentDir, "/project/")
-		pklWfFile = filepath.Join(projectDir, "workflow.pkl")
-		exists, err := afero.Exists(fs, pklWfFile)
-		if err != nil || !exists {
-			return nil, fmt.Errorf("error checking %s: %w", pklWfFile, err)
-		}
-	}
-
-	dataDir := filepath.Join(projectDir, "/data/")
-	filesDir := filepath.Join(actionDir, "/files/")
-
-	directories := []string{
-		projectDir,
-		actionDir,
-		filesDir,
-	}
-
-	// Create directories
-	if err := utils.CreateDirectories(ctx, fs, directories); err != nil {
-		return nil, fmt.Errorf("error creating directory: %w", err)
-	}
-
-	// List of files to create (stamp file)
-	files := []string{
-		filepath.Join(actionDir, graphID),
-	}
-
-	if err := utils.CreateFiles(ctx, fs, files); err != nil {
-		return nil, fmt.Errorf("error creating file: %w", err)
-	}
-
-	requestPklFile := filepath.Join(actionDir, "/api/"+graphID+"__request.pkl")
-	responsePklFile := filepath.Join(actionDir, "/api/"+graphID+"__response.pkl")
-	responseTargetFile := filepath.Join(actionDir, "/api/"+graphID+"__response.json")
-
-	workflowConfiguration, err := pklWf.LoadFromPath(ctx, pklWfFile)
-	if err != nil {
-		return nil, err
-	}
-
-	var apiServerMode, installAnaconda bool
-	var memoryDBPath, sessionDBPath, toolDBPath, itemDBPath, agentDBPath string
-
-	// Always set agentName from workflow configuration
-	agentName := workflowConfiguration.GetAgentID()
-
-	// Set environment variables early to ensure agent reader has proper context
-	os.Setenv("KDEPS_CURRENT_AGENT", workflowConfiguration.GetAgentID())
-	os.Setenv("KDEPS_CURRENT_VERSION", workflowConfiguration.GetVersion())
-
-	// Use configurable shared volume path for tests or default to /.kdeps/
-	kdepsBase := os.Getenv("KDEPS_SHARED_VOLUME_PATH")
-	if kdepsBase == "" {
-		kdepsBase = "/.kdeps/"
-	}
-	// Set the environment variable for pklres agent resolution
-	os.Setenv("KDEPS_SHARED_VOLUME_PATH", kdepsBase)
-
-	if workflowConfiguration.GetSettings() != nil {
-		apiServerMode = workflowConfiguration.GetSettings().APIServerMode != nil && *workflowConfiguration.GetSettings().APIServerMode
-		logger.Debug("APIServerMode set from workflow configuration", "apiServerMode", apiServerMode, "APIServerMode_nil", workflowConfiguration.GetSettings().APIServerMode == nil)
-		if workflowConfiguration.GetSettings().APIServerMode != nil {
-			logger.Debug("APIServerMode value", "value", *workflowConfiguration.GetSettings().APIServerMode)
-		}
-		agentSettings := workflowConfiguration.GetSettings().AgentSettings
-		if agentSettings != nil {
-			installAnaconda = agentSettings.InstallAnaconda != nil && *agentSettings.InstallAnaconda
-		}
-	}
-
-	// Ensure kdepsBase directory exists
-	if err := utils.CreateDirectories(ctx, fs, []string{kdepsBase}); err != nil {
-		return nil, fmt.Errorf("error creating kdeps base directory: %w", err)
-	}
-
-	memoryDBPath = filepath.Join(kdepsBase, agentName+"_memory.db")
-	memoryReader, err := memory.InitializeMemory(memoryDBPath)
-	if err != nil {
-		if memoryReader != nil {
-			memoryReader.DB.Close()
-		}
-		return nil, fmt.Errorf("failed to initialize DB memory: %w", err)
-	}
-
-	// Use in-memory database tied to graphID for session
-	sessionDBPath = ":memory:"
-	sessionReader, err := session.InitializeSession(sessionDBPath)
-	if err != nil {
-		if sessionReader != nil {
-			sessionReader.DB.Close()
-		}
-		return nil, fmt.Errorf("failed to initialize session DB: %w", err)
-	}
-
-	// Use in-memory database tied to graphID for tool
-	toolDBPath = ":memory:"
-	toolReader, err := tool.InitializeTool(toolDBPath)
-	if err != nil {
-		if toolReader != nil {
-			toolReader.DB.Close()
-		}
-		return nil, fmt.Errorf("failed to initialize tool DB: %w", err)
-	}
-
-	// Use in-memory database tied to graphID for item
-	itemDBPath = ":memory:"
-	itemReader, err := item.InitializeItem(itemDBPath, nil)
-	if err != nil {
-		if itemReader != nil {
-			itemReader.DB.Close()
-		}
-		return nil, fmt.Errorf("failed to initialize item DB: %w", err)
-	}
-
-	// Use the unified context system
-	kdepsCtx := kdepsctx.GetContext()
-	if kdepsCtx == nil {
-		return nil, errors.New("unified context not initialized")
-	}
-
-	// Update the unified context for this workflow
-	err = kdepsctx.UpdateContext(graphID, workflowConfiguration.GetAgentID(), workflowConfiguration.GetVersion(), kdepsBase)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update unified context: %w", err)
-	}
-
-	agentReader := kdepsCtx.AgentReader
-	pklresReader := kdepsCtx.PklresReader
-
-	// Use the passed evaluator directly
-	// The evaluator should already be initialized with the correct resource readers from main
-	if eval == nil {
-		return nil, fmt.Errorf("evaluator is required but was nil")
-	}
-
-	dependencyResolver := &DependencyResolver{
-		Fs:                      fs,
-		ResourceDependencies:    make(map[string][]string),
-		Logger:                  logger,
-		VisitedPaths:            make(map[string]bool),
-		Context:                 ctx,
-		Environment:             env,
-		AgentDir:                agentDir,
-		ActionDir:               actionDir,
-		FilesDir:                filesDir,
-		DataDir:                 dataDir,
-		RequestID:               graphID,
-		RequestPklFile:          requestPklFile,
-		ResponsePklFile:         responsePklFile,
-		ResponseTargetFile:      responseTargetFile,
-		ProjectDir:              projectDir,
-		Request:                 req,
-		Workflow:                workflowConfiguration,
-		APIServerMode:           apiServerMode,
-		AnacondaInstalled:       installAnaconda,
-		AgentName:               agentName,
-		MemoryDBPath:            memoryDBPath,
-		MemoryReader:            memoryReader,
-		SessionDBPath:           sessionDBPath,
-		SessionReader:           sessionReader,
-		ToolDBPath:              toolDBPath,
-		ToolReader:              toolReader,
-		ItemDBPath:              itemDBPath,
-		ItemReader:              itemReader,
-		AgentDBPath:             agentDBPath,
-		AgentReader:             agentReader,
-		PklresReader:            pklresReader,
-		PklresDBPath:            "",   // No longer needed with in-memory key-value store
-		CurrentResourceActionID: "",   // Initialize as empty, will be set during resource processing
-		Evaluator:               eval, // Store the PKL evaluator
-		DBs: []*sql.DB{
-			memoryReader.DB,
-			sessionReader.DB,
-			toolReader.DB,
-			itemReader.DB,
-			agentReader.DB,
-			// Note: pklresReader.DB is global and should not be closed here
-		},
-		FileRunCounter:      make(map[string]int), // Initialize the file run counter map
-		storedAPIResponses:  make(map[string]string), // Initialize the stored API responses map
-		DefaultTimeoutSec: func() int {
-			if v, ok := os.LookupEnv("TIMEOUT"); ok {
-				if i, err := strconv.Atoi(v); err == nil {
-					return i // could be 0 (unlimited) or positive override
-				}
-			}
-			return -1 // absent -> sentinel to allow PKL/default fallback
-		}(),
-	}
-
-	dependencyResolver.Graph = graph.NewDependencyGraph(fs, logger.BaseLogger(), dependencyResolver.ResourceDependencies)
-	if dependencyResolver.Graph == nil {
-		return nil, errors.New("failed to initialize dependency graph")
-	}
-
-	// Initialize the PklresHelper
-	dependencyResolver.PklresHelper = NewPklresHelper(dependencyResolver)
-
-	// Default injectable helpers
-	dependencyResolver.GetCurrentTimestampFn = dependencyResolver.GetCurrentTimestamp
-	dependencyResolver.WaitForTimestampChangeFn = dependencyResolver.WaitForTimestampChange
-
-	// Initialize async polling system
-	dependencyResolver.processedResources = make(map[string]bool)
-	dependencyResolver.dependencyWaitQueue = make(map[string][]string)
-	dependencyResolver.resourceReloadQueue = make(chan string, 100)
-
-	// Initialize PKL evaluation cache
-	dependencyResolver.initializePklCache()
-
-	// Default injection for broader functions (now that Graph is initialized)
-	dependencyResolver.LoadResourceEntriesFn = dependencyResolver.LoadResourceEntries
-	dependencyResolver.LoadResourceFn = dependencyResolver.LoadResource
-	dependencyResolver.LoadResourceWithRequestContextFn = dependencyResolver.LoadResourceWithRequestContext
-	dependencyResolver.BuildDependencyStackFn = dependencyResolver.Graph.BuildDependencyStack
-	dependencyResolver.ProcessRunBlockFn = dependencyResolver.ProcessRunBlock
-	dependencyResolver.ClearItemDBFn = dependencyResolver.ClearItemDB
-
-	// Chat helpers
-	dependencyResolver.NewLLMFn = func(model string) (*ollama.LLM, error) {
-		return ollama.New(ollama.WithModel(model))
-	}
-	dependencyResolver.GenerateChatResponseFn = generateChatResponse
-	dependencyResolver.DoRequestFn = dependencyResolver.DoRequest
-
-	// Default Python/Conda runner
-	dependencyResolver.ExecTaskRunnerFn = func(ctx context.Context, task execute.ExecTask) (string, string, error) {
-		stdout, stderr, _, err := kdepsexec.RunExecTask(ctx, task, dependencyResolver.Logger, false)
-		return stdout, stderr, err
-	}
-
-	// Import helpers
-	dependencyResolver.WalkFn = afero.Walk
-
-	return dependencyResolver, nil
+	// Use new reactive resolver constructor
+	return NewReactiveDependencyResolver(fs, ctx, env, req, logger, eval)
 }
 
 // ClearItemDB clears all contents of the item database.
@@ -453,7 +176,7 @@ func (dr *DependencyResolver) ProcessResourceStep(resourceID, step string, timeo
 		dr.Logger.Error("processResourceStep: failed to get initial timestamp", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step, "error", err)
 		return fmt.Errorf("%s error: %w", step, err)
 	}
-	dr.Logger.Debug("processResourceStep: got initial timestamp", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step, "timestamp", timestamp.Value)
+	dr.Logger.Debug("processResourceStep: got initial timestamp", "resourceID", resourceID, "canonicalResourceID", canonicalResourceID, "step", step, "timestamp", timestamp)
 
 	var timeout time.Duration
 	switch {
@@ -654,8 +377,11 @@ func (dr *DependencyResolver) showProcessingProgress(resourceID, step, status st
 	// Count completed resources (either processed or have existing output)
 	completedCount := 0
 	for _, resource := range dr.Resources {
-		if dr.FileRunCounter[resource.File] > 0 || dr.hasResourceOutput(resource.ActionID) {
-			completedCount++
+		// Skip if resource is not the expected type
+		if res, ok := resource.(ResourceNodeEntry); ok {
+			if dr.FileRunCounter[res.File] > 0 || dr.hasResourceOutput(res.ActionID) {
+				completedCount++
+			}
 		}
 	}
 
@@ -801,7 +527,8 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	targetActionID := dr.Workflow.GetTargetActionID()
 	dr.Logger.Debug(messages.MsgProcessingResources)
 
-	if err := dr.LoadResourceEntriesFn(); err != nil {
+	_, err := dr.LoadResourceEntriesFn("")
+	if err != nil {
 		return dr.HandleAPIErrorResponse(statusInternalServerError, err.Error(), true)
 	}
 
@@ -809,7 +536,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	dr.Logger.Debug("dependency graph before build", "targetActionID", targetActionID, "dependencies", dr.ResourceDependencies)
 
 	// Build dependency stack for the target action
-	stack := dr.BuildDependencyStackFn(targetActionID, visited)
+	stack, _ := dr.BuildDependencyStackFn([]string{targetActionID}, visited)
 
 	dr.Logger.Debug("dependency stack after build", "targetActionID", targetActionID, "stack", stack)
 
@@ -817,11 +544,13 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	if len(stack) > 0 {
 		dr.Logger.Info("=== DEPENDENCY EXECUTION PLAN ===")
 		for i, actionID := range stack {
-			deps := dr.ResourceDependencies[actionID]
-			if len(deps) > 0 {
-				dr.Logger.Info(fmt.Sprintf("dependency [%d/%d] (%s <- %v)", i+1, len(stack), actionID, deps))
-			} else {
-				dr.Logger.Info(fmt.Sprintf("dependency [%d/%d] (%s <- no dependencies)", i+1, len(stack), actionID))
+			if id, ok := actionID.(string); ok {
+				deps := dr.ResourceDependencies[id]
+				if len(deps) > 0 {
+					dr.Logger.Info(fmt.Sprintf("dependency [%d/%d] (%s <- %v)", i+1, len(stack), id, deps))
+				} else {
+					dr.Logger.Info(fmt.Sprintf("dependency [%d/%d] (%s)", i+1, len(stack), id))
+				}
 			}
 		}
 		dr.Logger.Info("=== END DEPENDENCY PLAN ===")
@@ -844,8 +573,15 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 
 	// Pre-resolve all pklres dependencies based on the execution order
 	if dr.PklresReader != nil {
-		dr.Logger.Info("Pre-resolving pklres dependencies", "executionOrder", stack)
-		if err := dr.PklresReader.PreResolveDependencies(stack, dr.ResourceDependencies); err != nil {
+		// Convert []interface{} to []string
+		stringStack := make([]string, 0, len(stack))
+		for _, item := range stack {
+			if id, ok := item.(string); ok {
+				stringStack = append(stringStack, id)
+			}
+		}
+		dr.Logger.Info("Pre-resolving pklres dependencies", "executionOrder", stringStack)
+		if err := dr.PklresReader.PreResolveDependencies(stringStack, dr.ResourceDependencies); err != nil {
 			dr.Logger.Error("Failed to pre-resolve pklres dependencies", "error", err)
 			return dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("Failed to pre-resolve dependencies: %v", err), true)
 		}
@@ -886,12 +622,12 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 		dr.ResourceDependencies[requestResourceID] = []string{}
 		dr.Logger.Debug("added request resource to dependencies", "requestResourceID", requestResourceID)
 
-		// Add the request resource to the Resources list
+		// Add the request resource to the Resources map
 		requestResourceEntry := ResourceNodeEntry{
 			ActionID: requestResourceID,
 			File:     "virtual://request.pkl", // Virtual file path for the request resource
 		}
-		dr.Resources = append(dr.Resources, requestResourceEntry)
+		dr.Resources[requestResourceID] = requestResourceEntry
 		dr.Logger.Debug("added virtual request resource to Resources list", "requestResourceID", requestResourceID)
 
 		// Add the request resource as a dependency for all other resources
@@ -938,24 +674,37 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 	responseResourceID := pkg.GenerateCanonicalActionID(agentID, "responseResource", version)
 	var newStack []string
 	var foundResponseResource bool
-	for _, id := range stack {
-		if id == responseResourceID {
-			foundResponseResource = true
-			continue
+	for _, item := range stack {
+		if id, ok := item.(string); ok {
+			if id == responseResourceID {
+				foundResponseResource = true
+				continue
+			}
+			newStack = append(newStack, id)
 		}
-		newStack = append(newStack, id)
 	}
 	if foundResponseResource {
 		newStack = append(newStack, responseResourceID)
-		stack = newStack
+		// Convert back to []interface{}
+		stack = make([]interface{}, len(newStack))
+		for i, s := range newStack {
+			stack[i] = s
+		}
 		dr.Logger.Info("Moved response resource to end of dependency stack for correct execution order", "stack", stack)
 	}
 
 	// Process resources in parallel based on dependency levels for better performance
-	if err := dr.processResourcesInParallel(stack); err != nil {
+	// Convert []interface{} to []string for processResourcesInParallel
+	stringStack := make([]string, 0, len(stack))
+	for _, item := range stack {
+		if id, ok := item.(string); ok {
+			stringStack = append(stringStack, id)
+		}
+	}
+	if err := dr.processResourcesInParallel(stringStack); err != nil {
 		return false, err
 	}
-	
+
 	return true, nil
 }
 
@@ -963,22 +712,22 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 func (dr *DependencyResolver) processResourcesInParallel(stack []string) error {
 	// Group resources by dependency level (independent resources can run in parallel)
 	dependencyLevels := dr.groupResourcesByDependencyLevel(stack)
-	
-	dr.Logger.Info("Resource dependency levels for parallel processing", 
+
+	dr.Logger.Info("Resource dependency levels for parallel processing",
 		"totalLevels", len(dependencyLevels),
 		"totalResources", len(stack))
-	
+
 	// Process each dependency level in sequence, but resources within each level in parallel
 	for level, resourceIDs := range dependencyLevels {
-		dr.Logger.Info(fmt.Sprintf("🚀 PROCESSING DEPENDENCY LEVEL %d", level), 
+		dr.Logger.Info(fmt.Sprintf("🚀 PROCESSING DEPENDENCY LEVEL %d", level),
 			"resourceCount", len(resourceIDs),
 			"resources", resourceIDs)
-		
+
 		if err := dr.processResourceLevel(resourceIDs, level); err != nil {
 			return err
 		}
 	}
-	
+
 	return nil
 }
 
@@ -986,14 +735,14 @@ func (dr *DependencyResolver) processResourcesInParallel(stack []string) error {
 func (dr *DependencyResolver) groupResourcesByDependencyLevel(stack []string) map[int][]string {
 	dependencyLevels := make(map[int][]string)
 	resourceLevels := make(map[string]int)
-	
+
 	// Calculate the dependency level for each resource
 	for _, resourceID := range stack {
 		level := dr.calculateResourceDependencyLevel(resourceID, stack, resourceLevels)
 		dependencyLevels[level] = append(dependencyLevels[level], resourceID)
 		resourceLevels[resourceID] = level
 	}
-	
+
 	return dependencyLevels
 }
 
@@ -1003,7 +752,7 @@ func (dr *DependencyResolver) calculateResourceDependencyLevel(resourceID string
 	if level, exists := calculated[resourceID]; exists {
 		return level
 	}
-	
+
 	// Get dependencies for this resource
 	dependencies := dr.ResourceDependencies[resourceID]
 	if len(dependencies) == 0 {
@@ -1011,7 +760,7 @@ func (dr *DependencyResolver) calculateResourceDependencyLevel(resourceID string
 		calculated[resourceID] = 0
 		return 0
 	}
-	
+
 	// Find the maximum level of all dependencies + 1
 	maxDepLevel := -1
 	for _, dep := range dependencies {
@@ -1023,7 +772,7 @@ func (dr *DependencyResolver) calculateResourceDependencyLevel(resourceID string
 				break
 			}
 		}
-		
+
 		if depInStack {
 			depLevel := dr.calculateResourceDependencyLevel(dep, stack, calculated)
 			if depLevel > maxDepLevel {
@@ -1031,7 +780,7 @@ func (dr *DependencyResolver) calculateResourceDependencyLevel(resourceID string
 			}
 		}
 	}
-	
+
 	level := maxDepLevel + 1
 	calculated[resourceID] = level
 	return level
@@ -1043,15 +792,15 @@ func (dr *DependencyResolver) processResourceLevel(resourceIDs []string, level i
 		// Single resource, process directly
 		return dr.processResource(resourceIDs[0], level, 0, 1)
 	}
-	
+
 	// Multiple resources, process in parallel
 	dr.Logger.Info(fmt.Sprintf("Processing %d resources in parallel for level %d", len(resourceIDs), level))
-	
+
 	// Use worker pool pattern for controlled parallelism
 	workerCount := minInt(len(resourceIDs), 4) // Limit to 4 concurrent workers for resource safety
 	resourceChan := make(chan string, len(resourceIDs))
 	errorChan := make(chan error, len(resourceIDs))
-	
+
 	// Start workers
 	for i := 0; i < workerCount; i++ {
 		go func(workerID int) {
@@ -1064,23 +813,23 @@ func (dr *DependencyResolver) processResourceLevel(resourceIDs []string, level i
 			errorChan <- nil // Signal successful completion
 		}(i)
 	}
-	
+
 	// Send resources to workers
 	for i, resourceID := range resourceIDs {
-		dr.Logger.Debug(fmt.Sprintf("Queuing resource %d/%d for parallel processing", i+1, len(resourceIDs)), 
+		dr.Logger.Debug(fmt.Sprintf("Queuing resource %d/%d for parallel processing", i+1, len(resourceIDs)),
 			"resourceID", resourceID, "level", level)
 		resourceChan <- resourceID
 	}
 	close(resourceChan)
-	
+
 	// Wait for all workers to complete and check for errors
 	for i := 0; i < workerCount; i++ {
 		if err := <-errorChan; err != nil {
 			return err
 		}
 	}
-	
-	dr.Logger.Info(fmt.Sprintf("✅ COMPLETED DEPENDENCY LEVEL %d", level), 
+
+	dr.Logger.Info(fmt.Sprintf("✅ COMPLETED DEPENDENCY LEVEL %d", level),
 		"resourceCount", len(resourceIDs))
 	return nil
 }
@@ -1089,7 +838,7 @@ func (dr *DependencyResolver) processResourceLevel(resourceIDs []string, level i
 func (dr *DependencyResolver) processResource(nodeActionID string, level, workerID, totalInLevel int) error {
 	// Create process ID for this resource execution
 	processID := fmt.Sprintf("[L%d-W%d] *%s*", level, workerID, nodeActionID)
-	
+
 	// Set the process ID for pklres logging
 	if dr.PklresReader != nil {
 		dr.PklresReader.ProcessID = processID
@@ -1103,155 +852,159 @@ func (dr *DependencyResolver) processResource(nodeActionID string, level, worker
 	dr.Logger.Info("available resources for matching", "availableResourceIDs", func() []string {
 		var ids []string
 		for _, r := range dr.Resources {
-			ids = append(ids, r.ActionID)
+			if resource, ok := r.(ResourceNodeEntry); ok {
+				ids = append(ids, resource.ActionID)
+			}
 		}
 		return ids
 	}())
 
 	resourceFound := false
-	for _, res := range dr.Resources {
-		if res.ActionID != nodeActionID {
-			continue
-		}
-		resourceFound = true
-
-		// Set the current resource actionID for error context
-		dr.CurrentResourceActionID = res.ActionID
-		dr.Logger.Debug("found matching resource", "actionID", res.ActionID, "file", res.File)
-
-		// Handle virtual request resource specially
-		if res.File == "virtual://request.pkl" {
-			dr.Logger.Debug("processing virtual request resource", "actionID", res.ActionID)
-			if err := dr.PopulateRequestDataInPklres(); err != nil {
-				_, apiErr := dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("failed to process request resource: %v", err), true)
-				return apiErr
+	for _, resInterface := range dr.Resources {
+		if res, ok := resInterface.(ResourceNodeEntry); ok {
+			if res.ActionID != nodeActionID {
+				continue
 			}
-			dr.Logger.Debug("virtual request resource processed successfully", "actionID", res.ActionID)
-			return nil // Continue to next resource
-		}
+			resourceFound = true
 
-		// Load the resource with request context if in API server mode (keep as generic Resource for now)
-		var resPkl interface{}
-		var err error
-		if dr.APIServerMode {
-			resPkl, err = dr.LoadResourceWithRequestContextFn(dr.Context, res.File, Resource)
-		} else {
-			resPkl, err = dr.LoadResourceFn(dr.Context, res.File, Resource)
-		}
-		if err != nil {
-			_, apiErr := dr.HandleAPIErrorResponse(statusInternalServerError, err.Error(), true)
-			return apiErr
-		}
+			// Set the current resource actionID for error context
+			dr.CurrentResourceActionID = res.ActionID
+			dr.Logger.Debug("found matching resource", "actionID", res.ActionID, "file", res.File)
 
-		// COMPREHENSIVE DEPENDENCY AND ATTRIBUTE VALIDATION
-		if dr.PklresReader != nil && dr.PklresHelper != nil {
-			canonicalResourceID := dr.PklresHelper.resolveActionID(res.ActionID)
-
-			// STEP 1: Ensure all attributes are ready for evaluation (comprehensive dependency validation)
-			if err := dr.PklresHelper.EnsureAttributesReadyForEvaluation(canonicalResourceID); err != nil {
-				dr.Logger.Error("Dependency validation failed before PKL evaluation", 
-					"resourceID", res.ActionID, 
-					"canonicalResourceID", canonicalResourceID,
-					"error", err)
-				_, apiErr := dr.HandleAPIErrorResponse(statusInternalServerError, 
-					fmt.Sprintf("Dependency validation failed for resource %s: %v", res.ActionID, err), true)
-				return apiErr
-			}
-
-			// STEP 2: Check if this resource has dependencies and reload PKL template with validated data
-			depData, err := dr.PklresReader.GetDependencyData(canonicalResourceID)
-			if err == nil && depData != nil && len(depData.Dependencies) > 0 {
-				dr.Logger.Info("Resource has validated dependencies, reloading PKL template with verified data", 
-					"resourceID", res.ActionID, 
-					"dependencies", depData.Dependencies,
-					"dependenciesValidated", true)
-
-				// Reload the resource to ensure PKL expressions have access to validated dependency data
-				if dr.APIServerMode {
-					resPkl, err = dr.LoadResourceWithRequestContextFn(dr.Context, res.File, Resource)
-				} else {
-					resPkl, err = dr.LoadResourceFn(dr.Context, res.File, Resource)
-				}
-				if err != nil {
-					_, apiErr := dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("failed to reload resource %s: %v", res.ActionID, err), true)
+			// Handle virtual request resource specially
+			if res.File == "virtual://request.pkl" {
+				dr.Logger.Debug("processing virtual request resource", "actionID", res.ActionID)
+				if err := dr.PopulateRequestDataInPklres(); err != nil {
+					_, apiErr := dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("failed to process request resource: %v", err), true)
 					return apiErr
 				}
-
-				dr.Logger.Info("Successfully reloaded resource with validated dependency data", 
-					"resourceID", res.ActionID,
-					"dependencyValidationPassed", true)
-			} else {
-				dr.Logger.Debug("Resource has no dependencies or dependency validation not required", 
-					"resourceID", res.ActionID)
+				dr.Logger.Debug("virtual request resource processed successfully", "actionID", res.ActionID)
+				return nil // Continue to next resource
 			}
-		}
-		if err != nil {
-			_, apiErr := dr.HandleAPIErrorResponse(statusInternalServerError, err.Error(), true)
-			return apiErr
-		}
 
-		// Explicitly type rsc as *pklRes.Resource
-		rsc, ok := resPkl.(pklRes.Resource)
-		if !ok {
-			_, apiErr := dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("invalid resource type returned: %T", resPkl), true)
-			return apiErr
-		}
-
-		// Process the resource
-		if shouldContinue, err := dr.ProcessRunBlockFn(res, rsc, processID, false); err != nil {
-			return err
-		} else if !shouldContinue {
-			return nil
-		}
-
-		// Handle APIResponse if present (in API server mode) - MEMORY-ONLY APPROACH
-		if dr.APIServerMode && rsc.GetRun() != nil && rsc.GetRun().APIResponse != nil {
-			// Build response directly in memory - NO TEMPORARY FILES
-			jsonResponse, err := dr.BuildResponseInMemory(*rsc.GetRun().APIResponse)
+			// Load the resource with request context if in API server mode (keep as generic Resource for now)
+			var resPkl interface{}
+			var err error
+			if dr.APIServerMode {
+				resPkl, err = dr.LoadResourceWithRequestContextFn(dr.Context, res.File, Resource)
+			} else {
+				resPkl, err = dr.LoadResourceFn(dr.Context, res.File, Resource)
+			}
 			if err != nil {
-				_, apiErr := dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("Failed to build response in memory for resource %s: %v", res.ActionID, err), true)
+				_, apiErr := dr.HandleAPIErrorResponse(statusInternalServerError, err.Error(), true)
 				return apiErr
 			}
-			
-			// Store all responses in memory for potential future use
-			dr.storedAPIResponses[res.ActionID] = jsonResponse
-			dr.Logger.Info("APIResponse processed in memory-only", 
-				"actionID", res.ActionID, 
-				"responseLength", len(jsonResponse),
-				"totalStoredResponses", len(dr.storedAPIResponses))
-			
-			// Check if this is the target action - if so, we can terminate
-			targetActionID := dr.Workflow.GetTargetActionID()
-			if res.ActionID == targetActionID {
-				// Only write final response file when we reach the target (required for API consumers)
-				if err := afero.WriteFile(dr.Fs, dr.ResponseTargetFile, []byte(jsonResponse), pkg.DefaultOctalFilePerms); err != nil {
-					_, apiErr := dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("Failed to write final response for target action %s: %v", res.ActionID, err), true)
+
+			// COMPREHENSIVE DEPENDENCY AND ATTRIBUTE VALIDATION
+			if dr.PklresReader != nil && dr.PklresHelper != nil {
+				canonicalResourceID := dr.PklresHelper.resolveActionID(res.ActionID)
+
+				// STEP 1: Ensure all attributes are ready for evaluation (comprehensive dependency validation)
+				if err := dr.PklresHelper.EnsureAttributesReadyForEvaluation(canonicalResourceID); err != nil {
+					dr.Logger.Error("Dependency validation failed before PKL evaluation",
+						"resourceID", res.ActionID,
+						"canonicalResourceID", canonicalResourceID,
+						"error", err)
+					_, apiErr := dr.HandleAPIErrorResponse(statusInternalServerError,
+						fmt.Sprintf("Dependency validation failed for resource %s: %v", res.ActionID, err), true)
 					return apiErr
 				}
-				
-				dr.Logger.Info("Target action reached - workflow complete", 
-					"targetActionID", targetActionID, 
-					"currentActionID", res.ActionID,
-					"finalResponseFile", dr.ResponseTargetFile,
-					"intermediateResponsesStored", len(dr.storedAPIResponses)-1)
-				return nil // Terminate the workflow as we've reached the target
-			} else {
-				dr.Logger.Info("Intermediate APIResponse stored in memory, continuing to target", 
-					"currentActionID", res.ActionID, 
-					"targetActionID", targetActionID,
-					"memoryOnlyPolicy", "no-temp-files")
-				// Continue processing - store in memory but don't create files or terminate
+
+				// STEP 2: Check if this resource has dependencies and reload PKL template with validated data
+				depData, err := dr.PklresReader.GetDependencyData(canonicalResourceID)
+				if err == nil && depData != nil && len(depData.Dependencies) > 0 {
+					dr.Logger.Info("Resource has validated dependencies, reloading PKL template with verified data",
+						"resourceID", res.ActionID,
+						"dependencies", depData.Dependencies,
+						"dependenciesValidated", true)
+
+					// Reload the resource to ensure PKL expressions have access to validated dependency data
+					if dr.APIServerMode {
+						resPkl, err = dr.LoadResourceWithRequestContextFn(dr.Context, res.File, Resource)
+					} else {
+						resPkl, err = dr.LoadResourceFn(dr.Context, res.File, Resource)
+					}
+					if err != nil {
+						_, apiErr := dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("failed to reload resource %s: %v", res.ActionID, err), true)
+						return apiErr
+					}
+
+					dr.Logger.Info("Successfully reloaded resource with validated dependency data",
+						"resourceID", res.ActionID,
+						"dependencyValidationPassed", true)
+				} else {
+					dr.Logger.Debug("Resource has no dependencies or dependency validation not required",
+						"resourceID", res.ActionID)
+				}
 			}
-		}
-		
-		break
+			if err != nil {
+				_, apiErr := dr.HandleAPIErrorResponse(statusInternalServerError, err.Error(), true)
+				return apiErr
+			}
+
+			// Explicitly type rsc as *pklRes.Resource
+			rsc, ok := resPkl.(pklRes.Resource)
+			if !ok {
+				_, apiErr := dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("invalid resource type returned: %T", resPkl), true)
+				return apiErr
+			}
+
+			// Process the resource
+			if shouldContinue, err := dr.ProcessRunBlockFn(res, rsc, processID, false); err != nil {
+				return err
+			} else if !shouldContinue {
+				return nil
+			}
+
+			// Handle APIResponse if present (in API server mode) - MEMORY-ONLY APPROACH
+			if dr.APIServerMode && rsc.GetRun() != nil && rsc.GetRun().APIResponse != nil {
+				// Build response directly in memory - NO TEMPORARY FILES
+				jsonResponse, err := dr.BuildResponseInMemory(*rsc.GetRun().APIResponse)
+				if err != nil {
+					_, apiErr := dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("Failed to build response in memory for resource %s: %v", res.ActionID, err), true)
+					return apiErr
+				}
+
+				// Store all responses in memory for potential future use
+				dr.storedAPIResponses[res.ActionID] = jsonResponse
+				dr.Logger.Info("APIResponse processed in memory-only",
+					"actionID", res.ActionID,
+					"responseLength", len(jsonResponse),
+					"totalStoredResponses", len(dr.storedAPIResponses))
+
+				// Check if this is the target action - if so, we can terminate
+				targetActionID := dr.Workflow.GetTargetActionID()
+				if res.ActionID == targetActionID {
+					// Only write final response file when we reach the target (required for API consumers)
+					if err := afero.WriteFile(dr.Fs, dr.ResponseTargetFile, []byte(jsonResponse), pkg.DefaultOctalFilePerms); err != nil {
+						_, apiErr := dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("Failed to write final response for target action %s: %v", res.ActionID, err), true)
+						return apiErr
+					}
+
+					dr.Logger.Info("Target action reached - workflow complete",
+						"targetActionID", targetActionID,
+						"currentActionID", res.ActionID,
+						"finalResponseFile", dr.ResponseTargetFile,
+						"intermediateResponsesStored", len(dr.storedAPIResponses)-1)
+					return nil // Terminate the workflow as we've reached the target
+				} else {
+					dr.Logger.Info("Intermediate APIResponse stored in memory, continuing to target",
+						"currentActionID", res.ActionID,
+						"targetActionID", targetActionID,
+						"memoryOnlyPolicy", "no-temp-files")
+					// Continue processing - store in memory but don't create files or terminate
+				}
+			}
+
+			break
+		} // close if res, ok := resInterface.(ResourceNodeEntry); ok
 	}
 
 	if !resourceFound {
 		_, apiErr := dr.HandleAPIErrorResponse(statusInternalServerError, fmt.Sprintf("resource with actionID '%s' not found in loaded resources", nodeActionID), true)
 		return apiErr
 	}
-	
+
 	return nil
 }
 
@@ -1586,34 +1339,6 @@ func (dr *DependencyResolver) WaitForPklresRecording(actionID string, timeout ti
 	return nil
 }
 
-// findWorkflowInRun searches for workflow.pkl in /agents/<agentname>/<version>/
-func findWorkflowInRun(fs afero.Fs) string {
-	runDir := "/agents"
-
-	// Check if run directory exists
-	if exists, err := afero.Exists(fs, runDir); err != nil || !exists {
-		return ""
-	}
-
-	// Walk through run directory to find workflow.pkl
-	var workflowPath string
-	err := afero.Walk(fs, runDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() && info.Name() == "workflow.pkl" {
-			workflowPath = path
-			return filepath.SkipDir // Stop walking once found
-		}
-		return nil
-	})
-	if err != nil {
-		return ""
-	}
-
-	return workflowPath
-}
-
 // StartAsyncPklresPolling starts the async polling system for pklres updates
 func (dr *DependencyResolver) StartAsyncPklresPolling(ctx context.Context) {
 	pollCtx, cancel := context.WithCancel(ctx)
@@ -1727,10 +1452,14 @@ func (dr *DependencyResolver) reloadAndExecuteResourceSync(actionID string) {
 
 	// Find the resource entry
 	var resourceEntry *ResourceNodeEntry
-	for i, res := range dr.Resources {
-		if res.ActionID == actionID {
-			resourceEntry = &dr.Resources[i]
-			break
+	for _, resInterface := range dr.Resources {
+		if res, ok := resInterface.(ResourceNodeEntry); ok {
+			if res.ActionID == actionID {
+				// Create a copy since we can't take address of map value
+				resCopy := res
+				resourceEntry = &resCopy
+				break
+			}
 		}
 	}
 
@@ -1774,9 +1503,11 @@ func (dr *DependencyResolver) isValidDependencyGraphActionID(actionID string) bo
 	}
 
 	// Look for the action ID in our loaded resources
-	for _, res := range dr.Resources {
-		if res.ActionID == canonicalActionID {
-			return true
+	for _, resInterface := range dr.Resources {
+		if res, ok := resInterface.(ResourceNodeEntry); ok {
+			if res.ActionID == canonicalActionID {
+				return true
+			}
 		}
 	}
 
@@ -1792,9 +1523,9 @@ func (dr *DependencyResolver) initializePklCache() {
 	dr.pklCacheMaxSize = 100  // Limit cache size to prevent memory issues
 	dr.pklCacheHitCount = 0
 	dr.pklCacheMissCount = 0
-	
-	dr.Logger.Debug("PKL evaluation cache initialized", 
-		"enabled", dr.pklCacheEnabled, 
+
+	dr.Logger.Debug("PKL evaluation cache initialized",
+		"enabled", dr.pklCacheEnabled,
 		"maxSize", dr.pklCacheMaxSize)
 }
 
@@ -1806,7 +1537,7 @@ func (dr *DependencyResolver) getPklCacheKey(resourceFile string, resourceType R
 	if err == nil {
 		modTime = fileInfo.ModTime().Unix()
 	}
-	
+
 	return fmt.Sprintf("%s:%s:%s:%d", resourceFile, resourceType, contextSuffix, modTime)
 }
 
@@ -1815,14 +1546,14 @@ func (dr *DependencyResolver) getCachedPklEvaluation(cacheKey string) (interface
 	if !dr.pklCacheEnabled {
 		return nil, false
 	}
-	
+
 	result, exists := dr.pklEvaluationCache[cacheKey]
 	if exists {
 		dr.pklCacheHitCount++
 		dr.Logger.Debug("PKL cache hit", "key", cacheKey, "hitCount", dr.pklCacheHitCount)
 		return result, true
 	}
-	
+
 	dr.pklCacheMissCount++
 	dr.Logger.Debug("PKL cache miss", "key", cacheKey, "missCount", dr.pklCacheMissCount)
 	return nil, false
@@ -1833,7 +1564,7 @@ func (dr *DependencyResolver) setCachedPklEvaluation(cacheKey string, result int
 	if !dr.pklCacheEnabled {
 		return
 	}
-	
+
 	// Implement simple LRU eviction if cache is full
 	if len(dr.pklEvaluationCache) >= dr.pklCacheMaxSize {
 		// Remove one random entry to make space (simple eviction strategy)
@@ -1843,7 +1574,7 @@ func (dr *DependencyResolver) setCachedPklEvaluation(cacheKey string, result int
 			break
 		}
 	}
-	
+
 	dr.pklEvaluationCache[cacheKey] = result
 	dr.Logger.Debug("PKL cache stored", "key", cacheKey, "cacheSize", len(dr.pklEvaluationCache))
 }
@@ -1863,14 +1594,14 @@ func (dr *DependencyResolver) getPklCacheStats() map[string]interface{} {
 	if totalRequests > 0 {
 		hitRate = float64(dr.pklCacheHitCount) / float64(totalRequests) * 100
 	}
-	
+
 	return map[string]interface{}{
-		"enabled":      dr.pklCacheEnabled,
-		"size":         len(dr.pklEvaluationCache),
-		"maxSize":      dr.pklCacheMaxSize,
-		"hits":         dr.pklCacheHitCount,
-		"misses":       dr.pklCacheMissCount,
-		"hitRate":      fmt.Sprintf("%.2f%%", hitRate),
+		"enabled":       dr.pklCacheEnabled,
+		"size":          len(dr.pklEvaluationCache),
+		"maxSize":       dr.pklCacheMaxSize,
+		"hits":          dr.pklCacheHitCount,
+		"misses":        dr.pklCacheMissCount,
+		"hitRate":       fmt.Sprintf("%.2f%%", hitRate),
 		"totalRequests": totalRequests,
 	}
 }
