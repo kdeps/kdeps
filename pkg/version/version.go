@@ -18,7 +18,7 @@ const (
 	DefaultPklVersion = "0.28.2"
 
 	// Default Ollama image tag version for base Docker images
-	DefaultOllamaImageTag = "0.9.2"
+	DefaultOllamaImageTag = "0.9.6"
 
 	// Default kdeps installation version tag
 	DefaultKdepsInstallVersion = "latest"
