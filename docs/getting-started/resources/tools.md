@@ -43,26 +43,26 @@ chat {
     }
     tools {
         new {
-            name = "calculate_sum"
-            script = "@(data.filepath("tools/1.0.0", "calculate_sum.py"))"
-            description = "Add two numbers"
+            Name = "calculate_sum"
+            Script = "@(data.filepath("tools/1.0.0", "calculate_sum.py"))"
+            Description = "Add two numbers"
             parameters {
                 ["a"] { required = true; type = "number"; description = "First number" }
                 ["b"] { required = true; type = "number"; description = "Second number" }
             }
         }
         new {
-            name = "square_number"
-            script = "@(data.filepath("tools/1.0.0", "square_number.js"))"
-            description = "Square a number"
+            Name = "square_number"
+            Script = "@(data.filepath("tools/1.0.0", "square_number.js"))"
+            Description = "Square a number"
             parameters {
                 ["num"] { required = true; type = "number"; description = "Number to square" }
             }
         }
         new {
-            name = "write_result"
-            script = "@(data.filepath("tools/1.0.0", "write_result.sh"))"
-            description = "Write a number to a file"
+            Name = "write_result"
+            Script = "@(data.filepath("tools/1.0.0", "write_result.sh"))"
+            Description = "Write a number to a file"
             parameters {
                 ["path"] { required = true; type = "string"; description = "File path" }
                 ["content"] { required = true; type = "string"; description = "Number to write" }

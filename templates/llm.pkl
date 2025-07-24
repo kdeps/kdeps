@@ -1,9 +1,9 @@
 {{ .Header }}
 
-actionID = "llmResource"
-name = "LLM Chat Resource"
-description = "This resource creates a LLM chat session."
-category = ""
+ActionID = "llmResource"
+Name = "LLM Chat Resource"
+Description = "This resource creates a LLM chat session."
+Category = ""
 requires {
         // Define the ID of any dependency resource that must be executed before this resource.
         // For example "@aiChatResource1"
@@ -83,36 +83,36 @@ run {
         //
         // Note: Each resource is restricted to a single dedicated action. Combining multiple
         // actions within the same resource is not allowed.
-        chat {
-                model = "llama3.2:1b" // This LLM model needs to be defined in the workflow
+        Chat {
+                Model = "llama3.2:1b" // This LLM model needs to be defined in the workflow
 
                 // The dedicated prompt and role can be sent to the LLM, or use the scenario block.
                 // This LLM role context for this prompt. For example, "user", "assistant" or "system".
                 // If none is provided, "human" will be used.
-                role = "user"
-                prompt = "Who is @(request.params("q"))?"
+                Role = "user"
+                Prompt = "Who is @(request.params("q"))?"
 
                 // Scenario block can take multiple prompts and roles to be added to this LLM session.
-                scenario {
+                Scenario {
                         new {
-                                role = "assistant"
-                                prompt = "You are a helpful and informative AI assistant that specializes in general knowledge."
+                                Role = "assistant"
+                                Prompt = "You are a helpful and informative AI assistant that specializes in general knowledge."
                         }
                         // new {
-                        //         role = "system"
-                        //         prompt = "If you are unsure, please just lookup the DB."
+                        //         Role = "system"
+                        //         Prompt = "If you are unsure, please just lookup the DB."
                         // }
                 }
 
                 // Tools block enables LLMs to autonomously execute scripts and chain outputs across multiple tool calls
                 // for complex workflows.
-                tools {
+                Tools {
                         // new {
-                        //     name = "lookup_db"
-                        //     script = "@(data.filepath(\"tools/1.0.0\", \"lookup.py\"))"
-                        //     description = "Queries a database for details about a historical figure"
-                        //     parameters {
-                        //         ["name"] { required = true; type = "string"; description = "Name of the historical figure to query" }
+                        //     Name = "lookup_db"
+                        //     Script = "@(data.filepath(\"tools/1.0.0\", \"lookup.py\"))"
+                        //     Description = "Queries a database for details about a historical figure"
+                        //     Parameters {
+                        //         ["name"] { Required = true; Type = "string"; Description = "Name of the historical figure to query" }
                         //     }
                         // }
                 }
@@ -132,11 +132,11 @@ run {
                 }
 
                 // Specify the files that this LLM will process.
-                files {
+                Files {
                         // "@(request.files()[0])"
                 }
 
                 // Timeout duration in seconds. This specifies when to terminate the llm session.
-                timeoutDuration = 60.s
+                TimeoutDuration = 60.s
         }
 }

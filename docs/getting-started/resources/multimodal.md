@@ -13,7 +13,7 @@ models page.
 Before using an LLM model, you need to include it in the `workflow.pkl` file. For example:
 
 ```apl
-models {
+Models {
     "llama3.3"
     "llama3.2-vision"
 }
@@ -25,10 +25,10 @@ To interact with a model, you'll need to provide a prompt and a file. Below is a
 utilizes the `llama3.2-vision` model with a file uploaded via the API:
 
 ```apl
-actionID = "llamaVision"
+ActionID = "llamaVision"
 chat {
-  model = "llama3.2-vision"
-  prompt = "Describe this image"
+  Model = "llama3.2-vision"
+  Prompt = "Describe this image"
   JSONResponse = true
   JSONResponseKeys = {
     "description_text"

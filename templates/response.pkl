@@ -1,9 +1,9 @@
 {{ .Header }}
 
-actionID = "responseResource"
-name = "API Response Resource"
-description = "This resource creates a API response."
-category = ""
+ActionID = "responseResource"
+Name = "API Response Resource"
+Description = "This resource creates a API response."
+Category = ""
 
 // Define the ID of any dependency resource that must be executed before this resource.
 // For example "aiChatResource1"
@@ -94,9 +94,9 @@ run {
         // }
         //
         APIResponse {
-                success = true
-                meta {
-                        headers {
+                Success = true
+                Meta {
+                        Headers {
                                 // ["X-Frame-Options"] = "DENY"
                                 // ["Content-Security-Policy"] = "default-src 'self'; connect-src *; font-src *; script-src-elem * 'unsafe-inline'; img-src * data:; style-src * 'unsafe-inline';"
                                 // ["X-XSS-Protection"] = "1; mode=block"
@@ -105,12 +105,12 @@ run {
                                 // ["X-Content-Type-Options"] = "nosniff"
                                 // ["Permissions-Policy"] = "geolocation=(),midi=(),sync-xhr=(),microphone=(),camera=(),magnetometer=(),gyroscope=(),fullscreen=(self),payment=()"
                         }
-                        properties {
+                        Properties {
                                 // ["X-Custom-Properties"] = "value"
                         }
                 }
-                response {
-                        data {
+                Response {
+                        Data {
                                 "@(llm.response("llmResource"))"
                                 // "@(memory.getRecord("foo"))"
                                 // "@(python.stdout("pythonResource"))"
@@ -118,10 +118,10 @@ run {
                                 // "@(client.responseBody("httpResource"))"
                         }
                 }
-                errors {
+                Errors {
                         // new {
-                        //         code = 0
-                        //         message = ""
+                        //         Code = 0
+                        //         Message = ""
                         // }
                 }
         }

@@ -29,8 +29,8 @@ targetActionID = "responseResource"
 settings {
   APIServerMode = true
   APIServer {
-    hostIP = "127.0.0.1"
-    portNum = 3000
+    HostIP = "127.0.0.1"
+    PortNum = 3000
     routes {
       new { path = "/api/v1/ticket"; methods { "POST" } }
     }
@@ -74,12 +74,12 @@ run {
   restrictToHTTPMethods { "POST" }
   restrictToRoutes { "/api/v1/ticket" }
   chat {
-    model = "llama3.2:1b"
-    role = "assistant"
-    prompt = "Provide a professional response to the customer query: @(request.data().query)"
+    Model = "llama3.2:1b"
+    Role = "assistant"
+    Prompt = "Provide a professional response to the customer query: @(request.data().query)"
     scenario {
-      new { role = "system"; prompt = "You are a customer support assistant. Be polite and concise." }
-      new { role = "system"; prompt = "Ticket data: @(client.responseBody("httpFetchResource"))" }
+      new { Role = "system"; Prompt = "You are a customer support assistant. Be polite and concise." }
+      new { Role = "system"; Prompt = "Ticket data: @(client.responseBody("httpFetchResource"))" }
     }
     JSONResponse = true
     JSONResponseKeys { "response_text" }
@@ -157,8 +157,8 @@ targetActionID = "responseResource"
 settings {
   APIServerMode = true
   APIServer {
-    hostIP = "127.0.0.1"
-    portNum = 3000
+    HostIP = "127.0.0.1"
+    PortNum = 3000
     routes {
       new { path = "/api/v1/visual-ticket"; methods { "POST" } }
     }
@@ -206,12 +206,12 @@ run {
   }
   chat {
     model = "llama3.2-vision"
-    role = "assistant"
+    Role = "assistant"
     prompt = "Analyze the image for product defects and describe any issues found."
     files { "@(request.files()[0])" }
     scenario {
-      new { role = "system"; prompt = "You are a support assistant specializing in visual defect detection." }
-      new { role = "system"; prompt = "Ticket data: @(client.responseBody("httpFetchResource"))" }
+      new { Role = "system"; Prompt = "You are a support assistant specializing in visual defect detection." }
+      new { Role = "system"; Prompt = "Ticket data: @(client.responseBody("httpFetchResource"))" }
     }
     JSONResponse = true
     JSONResponseKeys { "defect_description"; "severity" }
@@ -259,14 +259,14 @@ settings {
   APIServerMode = true
   WebServerMode = true
   APIServer {
-    hostIP = "127.0.0.1"
-    portNum = 3000
+    HostIP = "127.0.0.1"
+    PortNum = 3000
     routes {
       new { path = "/api/v1/summarize"; methods { "POST" } }
     }
   }
   WebServer {
-    hostIP = "127.0.0.1"
+    HostIP = "127.0.0.1"
     portNum = 8501
     routes {
       new {
@@ -311,8 +311,8 @@ run {
   restrictToHTTPMethods { "POST" }
   restrictToRoutes { "/api/v1/summarize" }
   chat {
-    model = "llama3.2:1b"
-    role = "assistant"
+    Model = "llama3.2:1b"
+    Role = "assistant"
     prompt = "Summarize this text in 50 words or less: @(request.data().text)"
     JSONResponse = true
     JSONResponseKeys { "summary" }
@@ -335,8 +335,8 @@ targetActionID = "responseResource"
 settings {
   APIServerMode = true
   APIServer {
-    hostIP = "127.0.0.1"
-    portNum = 3000
+    HostIP = "127.0.0.1"
+    PortNum = 3000
     routes {
       new { path = "/api/v1/report"; methods { "POST" } }
     }
@@ -358,8 +358,8 @@ run {
   restrictToHTTPMethods { "POST" }
   restrictToRoutes { "/api/v1/report" }
   chat {
-    model = "llama3.2:1b"
-    role = "assistant"
+    Model = "llama3.2:1b"
+    Role = "assistant"
     prompt = "Generate a sales report based on database query results. Date range: @(request.params("date_range"))"
     tools {
       new {
@@ -415,8 +415,8 @@ targetActionID = "responseResource"
 settings {
   APIServerMode = true
   APIServer {
-    hostIP = "127.0.0.1"
-    portNum = 3000
+    HostIP = "127.0.0.1"
+    PortNum = 3000
     routes {
       new { path = "/api/v1/structured"; methods { "POST" } }
     }
@@ -438,8 +438,8 @@ run {
   restrictToHTTPMethods { "POST" }
   restrictToRoutes { "/api/v1/structured" }
   chat {
-    model = "llama3.2:1b"
-    role = "assistant"
+    Model = "llama3.2:1b"
+    Role = "assistant"
     prompt = "Analyze this text and return a structured response: @(request.data().text)"
     JSONResponse = true
     JSONResponseKeys { "summary"; "keywords" }
@@ -462,8 +462,8 @@ targetActionID = "responseResource"
 settings {
   APIServerMode = true
   APIServer {
-    hostIP = "127.0.0.1"
-    portNum = 3000
+    HostIP = "127.0.0.1"
+    PortNum = 3000
     routes {
       new { path = "/api/v1/mtv-scenarios"; methods { "GET" } }
     }
@@ -495,13 +495,13 @@ run {
     "@(item.current())" == "And I knew if I had my chance" // Skip this lyric
   }
   chat {
-    model = "llama3.2:1b"
-    role = "assistant"
+    Model = "llama3.2:1b"
+    Role = "assistant"
     prompt = """
     Based on the lyric @(item.current()) from the song "American Pie," generate a suitable scenario for an MTV music video. The scenario should include a vivid setting, key visual elements, and a mood that matches the lyric's tone.
     """
     scenario {
-      new { role = "system"; prompt = "You are a creative director specializing in music video production." }
+      new { Role = "system"; Prompt = "You are a creative director specializing in music video production." }
     }
     JSONResponse = true
     JSONResponseKeys { "setting"; "visual_elements"; "mood" }
@@ -561,8 +561,8 @@ targetActionID = "responseResource"
 settings {
   APIServerMode = true
   APIServer {
-    hostIP = "127.0.0.1"
-    portNum = 3000
+    HostIP = "127.0.0.1"
+    PortNum = 3000
     routes {
       new { path = "/api/v1/doc-analyze"; methods { "POST" } }
     }
@@ -588,7 +588,7 @@ run {
   }
   chat {
     model = "llama3.2-vision"
-    role = "assistant"
+    Role = "assistant"
     prompt = "Extract key information from this document."
     files { "@(request.files()[0])" }
     JSONResponse = true
@@ -613,8 +613,8 @@ workflows { "@ticketResolutionAgent" }
 settings {
   APIServerMode = true
   APIServer {
-    hostIP = "127.0.0.1"
-    portNum = 3000
+    HostIP = "127.0.0.1"
+    PortNum = 3000
     routes {
       new { path = "/api/v1/doc-analyze"; methods { "POST" } }
     }
@@ -737,14 +737,14 @@ settings {
   APIServerMode = true
   WebServerMode = true
   APIServer {
-    hostIP = "127.0.0.1"
-    portNum = 3000
+    HostIP = "127.0.0.1"
+    PortNum = 3000
     routes {
       new { path = "/api/v1/summarize"; methods { "POST" } }
     }
   }
   WebServer {
-    hostIP = "127.0.0.1"
+    HostIP = "127.0.0.1"
     portNum = 8501
     routes {
       new {

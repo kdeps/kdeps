@@ -17,9 +17,9 @@ In this example, a resource iterates over lines from the song "American Pie" by 
 ```apl
 amends "package://schema.kdeps.com/core@0.2.30#/Resource.pkl"
 
-actionID = "processLyrics"
-name = "Process Lyrics Resource"
-description = "This resource processes song lyrics line by line."
+ActionID = "processLyrics"
+Name = "Process Lyrics Resource"
+Description = "This resource processes song lyrics line by line."
 category = ""
 
 items {
@@ -142,9 +142,9 @@ The following example uses an LLM chat resource to iterate over lyrics from "Ame
 ```apl
 amends "package://schema.kdeps.com/core@0.2.30#/Resource.pkl"
 
-actionID = "llmResource"
-name = "LLM Chat Resource"
-description = "This resource generates MTV video scenarios based on song lyrics."
+ActionID = "llmResource"
+Name = "LLM Chat Resource"
+Description = "This resource generates MTV video scenarios based on song lyrics."
 category = ""
 
 items {
@@ -176,7 +176,7 @@ run {
             "visual_elements"
             "mood"
         }
-        timeoutDuration = 60.s
+        TimeoutDuration = 60.s
     }
 }
 ```

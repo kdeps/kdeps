@@ -37,23 +37,23 @@ Within the file, you’ll find the `exec` block, which is structured as follows:
 
 ```apl
 exec {
-    command = """
+    Command = """
     echo "hello world"
     """
-    env {
+    Env {
         // Environment variables accessible within the shell
         ["ENVVAR"] = "XYZ"  // Example environment variable
     }
     // Specifies the timeout duration (in seconds) for the shell execution
-    timeoutDuration = 60.s
+    TimeoutDuration = 60.s
 }
 ```
 
 Key elements of the `exec` block includes:
 
-- **`command`**: Specifies the shell command(s) to execute, enclosed in triple double-quotes (`"""`) for multi-line support.
-- **`env`**: Defines environment variables to be available during execution.
-- **`timeoutDuration`**: Determines the exectuion timeout in s (seconds), min (minutes), etc., after which the shell command will be terminated.
+- **`Command`**: Specifies the shell command(s) to execute, enclosed in triple double-quotes (`"""`) for multi-line support.
+- **`Env`**: Defines environment variables to be available during execution.
+- **`TimeoutDuration`**: Determines the exectuion timeout in s (seconds), min (minutes), etc., after which the shell command will be terminated.
 
 When the resource is executed, you can leverage Exec functions like `exec.stdout("id")` to access the output. For
 further details, refer to the [Exec Functions](../resources/functions.md#exec-resource-functions) documentation.

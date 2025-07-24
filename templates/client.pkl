@@ -1,9 +1,9 @@
 {{ .Header }}
 
-actionID = "httpResource"
-name = "HTTP Client"
-description = "This resource allows for making API requests using an HTTP client."
-category = ""
+ActionID = "httpResource"
+Name = "HTTP Client"
+Description = "This resource allows for making API requests using an HTTP client."
+Category = ""
 requires {
         // Define the ID of any dependency resource that must be executed before this resource.
 }
@@ -86,16 +86,16 @@ run {
         // Note: Each resource is restricted to a single dedicated action. Combining multiple
         // actions within the same resource is not allowed.
         HTTPClient {
-                method = "GET"  // Specifies the HTTP method to be used for the request.
-                url = ""        // The URL endpoint for the HTTP request.
-                data {
+                Method = "GET"  // Specifies the HTTP method to be used for the request.
+                Url = ""        // The URL endpoint for the HTTP request.
+                Data {
                         // Any data that will be sent with the HTTP request.
                 }
-                headers {
+                Headers {
                         // Headers to be included in the HTTP request.
                         // ["X-API-KEY"] = "@(request.header("X-API-KEY"))"  // Example header.
                 }
                 // Timeout duration in seconds. This specifies when to terminate the request.
-                timeoutDuration = 60.s
+                TimeoutDuration = 60.s
         }
 }

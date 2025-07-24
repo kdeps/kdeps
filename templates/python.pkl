@@ -1,9 +1,9 @@
 {{ .Header }}
 
-actionID = "pythonResource"
-name = "Python Resource"
-description = "This resource creates a python script session."
-category = ""
+ActionID = "pythonResource"
+Name = "Python Resource"
+Description = "This resource creates a python script session."
+Category = ""
 requires {
         // Define the ID of any dependency resource that must be executed before this resource.
 }
@@ -92,12 +92,12 @@ run {
         //
         // Note: Each resource is restricted to a single dedicated action. Combining multiple
         // actions within the same resource is not allowed.
-        python {
+        Python {
                 // Specifies the conda environment in which this Python script will execute, if Anaconda is
                 // installed.
-                condaEnvironment = "base"
+                CondaEnvironment = "base"
 
-                script =
+                Script =
 """
 def main():
     print("Hello, World!")
@@ -105,11 +105,11 @@ def main():
 if __name__ == "__main__":
     main()
 """
-                env {
+                Env {
                         // Environment variables that would be accessible inside the shell
                         ["ENVVAR"] = "XYZ"  // Example ENVVAR.
                 }
                 // Timeout duration in seconds. This specifies when to terminate the shell exec.
-                timeoutDuration = 60.s
+                TimeoutDuration = 60.s
         }
 }

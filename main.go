@@ -212,7 +212,7 @@ func runGraphResolverActions(ctx context.Context, dr *resolver.DependencyResolve
 	}
 
 	// Handle run action
-	
+
 	fatal, err := dr.HandleRunAction()
 	if err != nil {
 		return fmt.Errorf("failed to handle run action: %w", err)

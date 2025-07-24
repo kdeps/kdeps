@@ -79,7 +79,7 @@ targetActionID = "responseResource"
 Here, `responseResource` refers to the ID of the target resource file, located in `resources/response.pkl`:
 
 ```apl
-actionID = "responseResource"
+ActionID = "responseResource"
 ```
 
 This resource will be executed as the default action whenever the AI agent runs.
@@ -93,11 +93,11 @@ configuration:
 APIServerMode = true
 APIServer {
 ...
-    portNum = 3000
+    PortNum = 3000
     routes {
         new {
             path = "/api/v1/whois"
-            methods {
+            Methods {
                 "GET" // Enables data retrieval
                 "POST" // Allows data submission
             }
@@ -126,7 +126,7 @@ The `workflow.pkl` file defines the LLM models to be included in the Docker imag
 ```apl
 agentSettings {
 ...
-    models {
+    Models {
         "tinydolphin"
         // "llama3.2"
         // "llama3.1"
@@ -181,9 +181,9 @@ Within the `resources/response.pkl`, you'll find the following structure:
 
 ```apl
 APIResponse {
-    success = true
+    Success = true
     response {
-        data {
+        Data {
             "@(llm.response("chatResource"))"
             // "@(python.stdout("pythonResource"))"
             // "@(exec.stdout("shellResource"))"
@@ -261,8 +261,8 @@ depend on other resource in order to function.
 
 ```apl
 chat {
-    model = "llama3.1"
-    prompt = "Who is @(request.data())?"
+    Model = "llama3.1"
+    Prompt = "Who is @(request.data())?"
     JSONResponse = true
     JSONResponseKeys {
         "first_name"
@@ -272,7 +272,7 @@ chat {
         "famous_quotes"
         "known_for"
     }
-    timeoutDuration = 60.s
+    TimeoutDuration = 60.s
 }
 ```
 
