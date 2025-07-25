@@ -20,9 +20,9 @@ amends "package://schema.kdeps.com/core@0.2.30#/Resource.pkl"
 ActionID = "processLyrics"
 Name = "Process Lyrics Resource"
 Description = "This resource processes song lyrics line by line."
-category = ""
+Category = ""
 
-items {
+Items {
     "A long, long time ago"
     "I can still remember"
     "How that music used to make me smile"
@@ -30,10 +30,10 @@ items {
 }
 
 run {
-    restrictToHTTPMethods {
+    RestrictToHTTPMethods {
         "GET"
     }
-    restrictToRoutes {
+    RestrictToRoutes {
         "/api/v1/lyrics"
     }
     // Process the current lyric line (e.g., store, analyze, or pass to another system)
@@ -58,7 +58,7 @@ The following methods provide access to the current, previous, and next items du
 You can use the iteration context to build complex processing logic, such as combining lyric lines or maintaining sequence information.
 
 ```apl
-items {
+Items {
     "A long, long time ago"
     "I can still remember"
     "How that music used to make me smile"
@@ -94,7 +94,7 @@ Items iteration can be paired with other resource configurations, such as `skipC
 You can use a `skipCondition` to bypass certain items during iteration.
 
 ```apl
-items {
+Items {
     "A long, long time ago"
     "I can still remember"
     "How that music used to make me smile"
@@ -102,7 +102,7 @@ items {
 }
 
 run {
-    skipCondition {
+    SkipCondition {
         item.current() == "How that music used to make me smile" // Skip this lyric
     }
     // Process the current lyric (e.g., pass to a system or store)
@@ -117,7 +117,7 @@ In this case, the resource processes all lyrics except "How that music used to m
 Items iteration is also useful for processing a list of files or resources.
 
 ```apl
-items {
+Items {
     "/tmp/verse1.txt"
     "/tmp/verse2.txt"
     "/tmp/verse3.txt"
@@ -145,9 +145,9 @@ amends "package://schema.kdeps.com/core@0.2.30#/Resource.pkl"
 ActionID = "llmResource"
 Name = "LLM Chat Resource"
 Description = "This resource generates MTV video scenarios based on song lyrics."
-category = ""
+Category = ""
 
-items {
+Items {
     "A long, long time ago"
     "I can still remember"
     "How that music used to make me smile"
@@ -155,19 +155,19 @@ items {
 }
 
 run {
-    restrictToHTTPMethods {
+    RestrictToHTTPMethods {
         "GET"
     }
-    restrictToRoutes {
+    RestrictToRoutes {
         "/api/v1/mtv-scenarios"
     }
-    skipCondition {
+    SkipCondition {
         item.current() == "And I knew if I had my chance" // Skip this lyric
     }
-    chat {
-        model = "llama3.2:1b"
-        role = "user"
-        prompt = """
+    Chat {
+        Model = "llama3.2:1b"
+        Role = "user"
+        Prompt = """
         Based on the lyric "@(item.current())" from the song "American Pie," generate a suitable scenario for an MTV music video. The scenario should include a vivid setting, key visual elements, and a mood that matches the lyric's tone.
         """
         JSONResponse = true

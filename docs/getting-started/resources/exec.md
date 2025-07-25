@@ -36,7 +36,7 @@ Configurations](../resources/resources#common-resource-configurations) documenta
 Within the file, you’ll find the `exec` block, which is structured as follows:
 
 ```apl
-exec {
+Exec {
     Command = """
     echo "hello world"
     """

@@ -23,7 +23,7 @@ settings {
     APIServer {...}
     WebServerMode = false
     WebServer {...}
-    agentSettings {...}
+    AgentSettings {...}
 }
 ```
 
@@ -73,7 +73,7 @@ domains.
 Example:
 
 ```apl
-cors {
+CORS {
     EnableCORS = true
     AllowOrigins {
         "https://example.com"
@@ -104,15 +104,15 @@ See the [CORS Configuration](/getting-started/configuration/cors.md) for more de
 Example:
 
 ```apl
-routes {
+Routes {
     new {
-        path = "/api/v1/user"
+        Path = "/api/v1/user"
         Methods {
             "GET"
         }
     }
     new {
-        path = "/api/v1/items"
+        Path = "/api/v1/items"
         Methods {
             "POST"
         }
@@ -130,7 +130,7 @@ For instance, to run a resource only on the `"/api/v1/items"` route, you can def
 local allowedPath = "/api/v1/items"
 local requestPath = "@(request.path())"
 
-skipCondition {
+SkipCondition {
     requestPath != allowedPath
 }
 ```
@@ -202,16 +202,16 @@ Example:
 
 ```apl
 WebServer {
-    routes {
+    Routes {
         new {
-            path = "/dashboard"
-            serverType = "static"
-            publicPath = "/agentX/1.0.0/dashboard/"
+            Path = "/dashboard"
+            ServerType = "static"
+            PublicPath = "/agentX/1.0.0/dashboard/"
         }
         new {
-            path = "/app"
-            serverType = "app"
-            appPort = 8501
+            Path = "/app"
+            ServerType = "app"
+            AppPort = 8501
             Command = "streamlit run app.py"
         }
     }
@@ -224,18 +224,18 @@ enabling frontend integration with Kdeps' AI workflows.
 ##### Static File Serving
 
 - **`static`**: Serves files like HTML, CSS, or JS from a specified directory, ideal for hosting dashboards or
-  frontends. The block with `serverType = "static"` defines the path and directory relative to `/data/`,
+  frontends. The block with `ServerType = "static"` defines the path and directory relative to `/data/`,
   delivering files directly to clients.
 
 Example:
 
 ```apl
 WebServer {
-    routes {
+    Routes {
         new {
-            path = "/dashboard"
-            serverType = "static"
-            publicPath = "/agentX/1.0.0/dashboard/"
+            Path = "/dashboard"
+            ServerType = "static"
+            PublicPath = "/agentX/1.0.0/dashboard/"
         }
     }
 }
@@ -246,19 +246,19 @@ This serves files from `/data/agentX/1.0.0/dashboard/` at `http://<host>:8080/da
 ##### Reverse Proxying
 
 - **`app`**: Forwards requests to a local web application (e.g., Streamlit, Node.js) running on a specified port. The
-  block with `serverType = "app"` defines the path, port, and optional command to start the app, proxying client
+  block with `ServerType = "app"` defines the path, port, and optional command to start the app, proxying client
   requests to the app’s server.
 
 Example:
 
 ```apl
 WebServer {
-    routes {
+    Routes {
         new {
-            path = "/app"
-            serverType = "app"
-            publicPath = "/agentX/1.0.0/streamlit-app/"
-            appPort = 8501
+            Path = "/app"
+            ServerType = "app"
+            PublicPath = "/agentX/1.0.0/streamlit-app/"
+            AppPort = 8501
             Command = "streamlit run app.py"
         }
     }
@@ -273,15 +273,15 @@ app.py`. For more details, see the [Web Server](/getting-started/configuration/w
 This section contains the agent settings that will be used to build the agent's Docker image.
 
 ```apl
-agentSettings {
-    timezone = "Etc/UTC"
+AgentSettings {
+    Timezone = "Etc/UTC"
     installAnaconda = false
     condaPackages { ... }
-    pythonPackages { ... }
-    repositories { ... }
-    packages { ... }
+    PythonPackages { ... }
+    Repositories { ... }
+    Packages { ... }
     Models { ... }
-    ollamaImageTag = "0.5.4"
+    OllamaImageTag = "0.5.4"
     Env { ... }
     Args { ... }
 }
@@ -328,7 +328,7 @@ setting.
 Python packages can also be installed even without Anaconda installed.
 
 ```apl
-pythonPackages {
+PythonPackages {
     "diffusers[torch]"
     "streamlit"
     "openai-whisper"
@@ -340,7 +340,7 @@ pythonPackages {
 Additional Ubuntu and Ubuntu PPA repositories can be defined in the `repositories` settings.
 
 ```apl
-repositories {
+Repositories {
     "ppa:alex-p/tesseract-ocr-devel"
 }
 ```
@@ -352,7 +352,7 @@ In this example, a PPA repository is added for installing the latest `tesseract-
 Specify the Ubuntu packages that should be pre-installed when building this image.
 
 ```apl
-packages {
+Packages {
     "tesseract-ocr"
     "poppler-utils"
     "npm"

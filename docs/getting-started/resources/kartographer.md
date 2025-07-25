@@ -20,7 +20,7 @@ configuration. Additionally, the target node should be specified in the workflow
 Here’s an example of how to define a resource’s dependencies using `requires`:
 
 ```apl
-requires {
+Requires {
     "resourceID1"
     "resourceID2"
     "resourceID3"

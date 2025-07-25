@@ -25,7 +25,7 @@ HTTP methods.
 
 ```apl
 APIServer {
-    cors {
+    CORS {
         EnableCORS = true
         AllowOrigins {
             "https://example.com"
@@ -54,7 +54,7 @@ origin but restricts the allowed methods and headers.
 
 ```apl
 APIServer {
-    cors {
+    CORS {
         EnableCORS = true
         AllowOrigins {
             "*"

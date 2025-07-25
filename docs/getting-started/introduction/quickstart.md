@@ -73,7 +73,7 @@ The `workflow.pkl` file defines the workflow and settings for your AI agent. Wit
 configuration:
 
 ```apl
-targetActionID = "responseResource"
+TargetActionID = "responseResource"
 ```
 
 Here, `responseResource` refers to the ID of the target resource file, located in `resources/response.pkl`:
@@ -94,9 +94,9 @@ APIServerMode = true
 APIServer {
 ...
     PortNum = 3000
-    routes {
+    Routes {
         new {
-            path = "/api/v1/whois"
+            Path = "/api/v1/whois"
             Methods {
                 "GET" // Enables data retrieval
                 "POST" // Allows data submission
@@ -124,7 +124,7 @@ exiting upon completion.
 The `workflow.pkl` file defines the LLM models to be included in the Docker image. Here’s an example configuration:
 
 ```apl
-agentSettings {
+AgentSettings {
 ...
     Models {
         "tinydolphin"
@@ -163,7 +163,7 @@ Each resource contains a `requires` section that defines the dependencies needed
 resources by uncommenting the relevant lines.
 
 ```apl
-requires {
+Requires {
     "chatResource"
     // "pythonResource"
     // "shellResource"
@@ -182,7 +182,7 @@ Within the `resources/response.pkl`, you'll find the following structure:
 ```apl
 APIResponse {
     Success = true
-    response {
+    Response {
         Data {
             "@(llm.response("chatResource"))"
             // "@(python.stdout("pythonResource"))"
@@ -260,7 +260,7 @@ If we look at the pkl file, we notice that the `requires` section is blank. This
 depend on other resource in order to function.
 
 ```apl
-chat {
+Chat {
     Model = "llama3.1"
     Prompt = "Who is @(request.data())?"
     JSONResponse = true

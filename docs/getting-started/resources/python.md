@@ -39,7 +39,7 @@ Configurations](../resources/resources#common-resource-configurations) documenta
 Within the file, you’ll find the `python` block, which is structured as follows:
 
 ```apl
-python {
+Python {
     Script = """
     print("hello world")
     """

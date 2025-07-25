@@ -25,7 +25,7 @@ After installation, you must register the AI agent in your `workflow.pkl` file. 
 For example, to include the latest version of the AI agent in your workflow:
 
 ```apl
-workflows {
+Workflows {
   "@conveyour_counting_ai"
 }
 ```
@@ -35,7 +35,7 @@ version of the agent, include the `:version` specifier, like this:
 
 
 ```apl
-workflows {
+Workflows {
   "@conveyour_counting_ai:1.2.5"
 }
 ```
@@ -45,7 +45,7 @@ workflows {
 Once the agent is registered in your `workflow.pkl` file, you can include it in the `requires` block of your resources:
 
 ```apl
-requires {
+Requires {
   "@conveyour_counting_ai/countImageLLM:1.2.5"
   "@conveyour_counting_ai/sortImageItemsLLM:1.2.5"
 }

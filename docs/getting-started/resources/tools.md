@@ -31,41 +31,41 @@ kdeps scaffold [aiagent] llm
 Define the `tools` block in the `chat` block. Here’s an excerpt:
 
 ```apl
-chat {
-    model = "llama3.2" // Open-source AI model
-    role = "user"
-    prompt = "Run the task using tools: @(request.params("q"))"
+Chat {
+    Model = "llama3.2" // Open-source AI model
+    Role = "user"
+    Prompt = "Run the task using tools: @(request.params("q"))"
     JSONResponse = true
     JSONResponseKeys {
         "sum"      // Maps calculate_sum output to "result"
         "squared"  // Maps square_number output
         "saved"    // Maps write_result output
     }
-    tools {
+    Tools {
         new {
             Name = "calculate_sum"
             Script = "@(data.filepath("tools/1.0.0", "calculate_sum.py"))"
             Description = "Add two numbers"
-            parameters {
-                ["a"] { required = true; type = "number"; description = "First number" }
-                ["b"] { required = true; type = "number"; description = "Second number" }
+            Parameters {
+                ["a"] { Required = true; Type = "number"; Description = "First number" }
+                ["b"] { Required = true; Type = "number"; Description = "Second number" }
             }
         }
         new {
             Name = "square_number"
             Script = "@(data.filepath("tools/1.0.0", "square_number.js"))"
             Description = "Square a number"
-            parameters {
-                ["num"] { required = true; type = "number"; description = "Number to square" }
+            Parameters {
+                ["num"] { Required = true; Type = "number"; Description = "Number to square" }
             }
         }
         new {
             Name = "write_result"
             Script = "@(data.filepath("tools/1.0.0", "write_result.sh"))"
             Description = "Write a number to a file"
-            parameters {
-                ["path"] { required = true; type = "string"; description = "File path" }
-                ["content"] { required = true; type = "string"; description = "Number to write" }
+            Parameters {
+                ["path"] { Required = true; Type = "string"; Description = "File path" }
+                ["content"] { Required = true; Type = "string"; Description = "Number to write" }
             }
         }
     }

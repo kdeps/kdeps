@@ -33,7 +33,7 @@ The file includes essential metadata and common configurations, such as [Skip Co
 Within the file, you'll find the `chat` block, structured as follows:
 
 ``` apl
-chat {
+Chat {
     Model = "tinydolphin" // Specifies the LLM model to use, defined in the workflow.
 
     // Send the dedicated prompt and role to the LLM or utilize the scenario block.
@@ -43,7 +43,7 @@ chat {
     Prompt = "Who is @(request.data())?"
 
     // Scenario block allows adding multiple prompts and roles for this LLM session.
-    scenario {
+    Scenario {
         new {
             Role = "assistant"
             Prompt = "You are a knowledgeable and supportive AI assistant with expertise in general information."
@@ -58,13 +58,13 @@ chat {
         }
     }
 
-    tools {
+    Tools {
         new {
             Name = "lookup_db"
             Script = "@(data.filepath("tools/1.0.0", "lookup.py"))"
             Description = "Lookup information in the DB"
-            parameters {
-                ["keyword"] { required = true; type = "string"; description = "The string keyword to query the DB" }
+            Parameters {
+                ["keyword"] { Required = true; Type = "string"; Description = "The string keyword to query the DB" }
             }
         }
     }
@@ -83,7 +83,7 @@ chat {
     }
 
     // Specify the files that this LLM will process.
-    files {
+    Files {
         // "@(request.files()[0])"
     }
 
@@ -113,7 +113,7 @@ When the resource is executed, you can leverage LLM functions like `llm.response
 The `scenario` block is particularly useful for setting up complex interactions with the LLM. By defining multiple roles and prompts, you can create a conversational context that guides the LLM’s responses. For example:
 
 ``` apl
-scenario {
+Scenario {
     new {
         Role = "system"
         Prompt = "You are an expert in historical facts and provide detailed, accurate information."
@@ -136,7 +136,7 @@ This setup allows the LLM to maintain a consistent context across multiple inter
 The `files` block supports processing of various file types, such as images or documents, which is particularly beneficial for multimodal LLMs. For example:
 
 ``` apl
-files {
+Files {
     "@(request.files()[0])" // Processes the first uploaded file
     "data/document.pdf"     // Processes a specific PDF file
 }
@@ -166,21 +166,21 @@ The `tools` block allows open-source LLMs to utilize external tools to enhance t
 For example:
 
 ``` apl
-tools {
+Tools {
     new {
         Name = "lookup_db"
         Script = "@(data.filepath("tools/1.0.0", "lookup.py"))"
         Description = "Lookup information in the DB"
-        parameters {
-            ["keyword"] { required = true; type = "string"; description = "The string keyword to query the DB" }
+        Parameters {
+            ["keyword"] { Required = true; Type = "string"; Description = "The string keyword to query the DB" }
         }
     }
     new {
         Name = "process_results"
         Script = "@(data.filepath("tools/1.0.0", "process.py"))"
         Description = "Process DB lookup results"
-        parameters {
-            ["lookup_data"] { required = true; type = "object"; description = "The output data from lookup_db tool" }
+        Parameters {
+            ["lookup_data"] { Required = true; Type = "object"; Description = "The output data from lookup_db tool" }
         }
     }
 }
@@ -216,22 +216,22 @@ To enable chaining:
 For example, a chained weather data pipeline might look like:
 
 ``` apl
-tools {
+Tools {
     new {
         Name = "get_weather"
         Script = "@(data.filepath("tools/1.0.0", "weather.py"))"
         Description = "Fetches current weather data for a location"
-        parameters {
-            ["location"] { required = true; type = "string"; description = "The city or region to fetch weather for" }
-            ["unit"] { required = false; type = "string"; description = "Temperature unit (e.g., Celsius or Fahrenheit)" }
+        Parameters {
+            ["location"] { Required = true; Type = "string"; Description = "The city or region to fetch weather for" }
+            ["unit"] { Required = false; Type = "string"; Description = "Temperature unit (e.g., Celsius or Fahrenheit)" }
         }
     }
     new {
         Name = "format_weather"
         Script = "@(data.filepath("tools/1.0.0", "format_weather.py"))"
         Description = "Formats weather data into a user-friendly summary"
-        parameters {
-            ["weather_data"] { required = true; type = "object"; description = "The weather data from get_weather tool" }
+        Parameters {
+            ["weather_data"] { Required = true; Type = "object"; Description = "The weather data from get_weather tool" }
         }
     }
 }
@@ -259,23 +259,23 @@ Additionally, you can implement error handling using [Preflight Validations](../
 Suppose you want to create an LLM resource to retrieve structured information about a history figure based on user input, with a tool to query a database for additional details. The `chat` block might look like this:
 
 ``` apl
-chat {
+Chat {
     Model = "tinydolphin"
     Role = "user"
     Prompt = "Provide details about @(request.data('person'))"
-    scenario {
+    Scenario {
         new {
             Role = "assistant"
             Prompt = "You are a history expert AI, providing accurate and concise information about historical figures."
         }
     }
-    tools {
+    Tools {
         new {
             Name = "lookup_db"
             Script = "@(data.filepath("tools/1.0.0", "lookup.py"))"
             Description = "Lookup historical figure details in the database"
-            parameters {
-                ["name"] { required = true; type = "string"; description = "The name of the historical figure" }
+            Parameters {
+                ["name"] { Required = true; Type = "string"; Description = "The name of the historical figure" }
             }
         }
     }

@@ -26,7 +26,7 @@ utilizes the `llama3.2-vision` model with a file uploaded via the API:
 
 ```apl
 ActionID = "llamaVision"
-chat {
+Chat {
   Model = "llama3.2-vision"
   Prompt = "Describe this image"
   JSONResponse = true
@@ -35,7 +35,7 @@ chat {
     "style_text"
     "category_text"
   }
-  files {
+  Files {
     "@(request.files()[0])" // Uses the first uploaded file
   }
 }

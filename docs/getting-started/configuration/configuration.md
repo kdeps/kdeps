@@ -13,7 +13,7 @@ This file contains the following default settings:
 ```apl
 amends "package://schema.kdeps.com/core@0.1.30#/Kdeps.pkl"
 
-runMode = "docker"
+RunMode = "docker"
 dockerGPU = "cpu"
 kdepsDir = ".kdeps"
 kdepsPath = "user"

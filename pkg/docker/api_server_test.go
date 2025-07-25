@@ -655,7 +655,7 @@ func TestSetupRoutes(t *testing.T) {
 	}
 
 	// Create a test CORS configuration
-	corsConfig := &apiserver.CORS{
+	corsConfig := &apiserver.CORSConfig{
 		EnableCORS:       true,
 		AllowOrigins:     &[]string{"http://localhost:3000"},
 		AllowMethods:     &[]string{"GET", "POST"},
@@ -712,7 +712,7 @@ func TestSetupRoutes(t *testing.T) {
 	t.Run("CORSDisabled", func(t *testing.T) {
 		router := gin.New()
 		ctx := context.Background()
-		disabledCORS := &apiserver.CORS{
+		disabledCORS := &apiserver.CORSConfig{
 			EnableCORS: false,
 		}
 		setupRoutes(router, ctx, disabledCORS, []string{"127.0.0.1"}, routes, baseDr, semaphore)

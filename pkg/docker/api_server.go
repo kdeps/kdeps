@@ -145,7 +145,7 @@ func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 	semaphore := make(chan struct{}, 1)
 	router := gin.Default()
 
-	wfAPIServerCORS := wfAPIServer.Cors
+	wfAPIServerCORS := wfAPIServer.CORS
 
 	setupRoutes(router, ctx, wfAPIServerCORS, wfTrustedProxies, wfAPIServer.Routes, dr, semaphore)
 
@@ -159,7 +159,7 @@ func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 	return nil
 }
 
-func setupRoutes(router *gin.Engine, ctx context.Context, wfAPIServerCORS *apiserver.CORS, wfTrustedProxies []string, routes []*apiserver.APIServerRoutes, dr *resolver.DependencyResolver, semaphore chan struct{}) {
+func setupRoutes(router *gin.Engine, ctx context.Context, wfAPIServerCORS *apiserver.CORSConfig, wfTrustedProxies []string, routes []*apiserver.APIServerRoutes, dr *resolver.DependencyResolver, semaphore chan struct{}) {
 	for _, route := range routes {
 		if route == nil || route.Path == "" {
 			dr.Logger.Error("route configuration is invalid", "route", route)

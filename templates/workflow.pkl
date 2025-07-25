@@ -79,7 +79,7 @@ Settings {
                 }
 
                 // Cross-Origin Resource Sharing (CORS) configuration
-                Cors {
+                CORS {
                         // Enables or disables CORS support
                         EnableCORS = false
 
@@ -148,7 +148,7 @@ Settings {
 
                                 // Server type: "static" (serves files) or "app" (reverse-proxies to container).
                                 //
-                                // serverType = "static"
+                                // ServerType = "static"
 
                                 // Defines the base path to serve the web content, relative to /data/ folder.
                                 //
@@ -158,15 +158,15 @@ Settings {
                                 // During packaging (via `kdeps package`), the local directory /data/web/
                                 // is relocated to /data/<agentName>/<version>/web.
                                 //
-                                // publicPath = "/whois/1.0.0/web/"
+                                // PublicPath = "/whois/1.0.0/web/"
 
                                 // Port for app proxying (1–65535). Required for serverType="app".
                                 //
-                                // appPort = 3000
+                                // AppPort = 3000
 
                                 // Command to start the app (e.g., "npm start").
                                 //
-                                // command = "npm start"
+                                // Command = "npm start"
                         }
                 }
         }

@@ -26,7 +26,7 @@ In this example, the `@(request.path())` expression is wrapped with the promise 
 local allowedPath = "/api/v1/items"
 local requestPath = "@(request.path())"
 
-skipCondition {
+SkipCondition {
     requestPath != allowedPath
 }
 ```
@@ -38,11 +38,11 @@ In this scenario, a resource requires the uploaded file attachment to be of spec
 The promise operator is used to evaluate the MIME type of the uploaded file, as shown below:
 
 ```apl
-local filetype = "@(request.filetypes()[0])"
+local fileType = "@(request.filetypes()[0])"
 
-preflightCheck {
-    validations {
-        filetype == "application/pdf" || filetype == "image/png" || filetype == "image/jpeg"
+PreflightCheck {
+    Validations {
+        fileType == "application/pdf" || fileType == "image/png" || fileType == "image/jpeg"
     }
 }
 ```

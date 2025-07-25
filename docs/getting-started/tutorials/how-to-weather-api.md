@@ -56,9 +56,9 @@ APIServer {
     HostIP = "127.0.0.1"
     PortNum = 3000
 
-    routes {
+    Routes {
         new {
-            path = "/api/v1/forecast"
+            Path = "/api/v1/forecast"
             Methods {
                 "GET"
             }
@@ -72,7 +72,7 @@ APIServer {
 Finally, we will include the `llama3.1` model in the `models` block within the `agentSettings` section:
 
 ```diff
-agentSettings {
+AgentSettings {
     ...
     Models {
         "llama3.1"
@@ -141,7 +141,7 @@ Description = "An AI helper to parse input into structured data"
 Next, define the model, prompt, and structured response keys:
 
 ```diff
-chat {
+Chat {
     Model = "llama3.1"
     Prompt = """
 Extract the longitude, latitude, and timezone
@@ -181,7 +181,7 @@ First, update the `resources/exec.pkl` file as follows:
 ActionID = "execResource"
 Name = "Store LLM JSON response to a file"
 Description = "This resource will store the LLM JSON response to a file for processing later"
-requires {
+Requires {
     "llmInput"
 }
 ```
@@ -195,7 +195,7 @@ We also ensure that this file is recreated by deleting it first, so that we are 
 previously generated file that we might have reused.
 
 ```diff
-exec {
+Exec {
     Command = """
     rm -rf /tmp/llm_input.json
     echo $LLM_INPUT > /tmp/llm_input.json
@@ -219,7 +219,7 @@ First, update the `resources/client.pkl` file as follows:
 ActionID = "HTTPClient"
 Name = "HTTP Client for the Weather API"
 Description = "This resource enables API requests to the Weather API."
-requires {
+Requires {
     "execResource"
 }
 ```
@@ -297,7 +297,7 @@ Open the `resources/llm_output.pkl` file and update the resource details as foll
 ActionID = "llmOutput"
 Name = "AI Helper for Output"
 Description = "A resource to generate a polished output using LLM."
-requires {
+Requires {
     "HTTPClient"
 }
 ```
@@ -307,7 +307,7 @@ requires {
 Next, configure the output construction logic:
 
 ```diff
-chat {
+Chat {
     Model = "llama3.1"
     Prompt = """
 As if you're a weather reporter, present this response in an engaging way:
@@ -338,7 +338,7 @@ Edit the `resources/response.pkl` file as follows:
 ActionID = "APIResponse"
 Name = "API Response Resource"
 Description = "This resource provides a JSON response through the API."
-requires {
+Requires {
     "llmOutput"
 }
 ```
@@ -374,7 +374,7 @@ To ensure proper execution, update the workflow to set the default action to `we
 Open the `workflow.pkl` file and adjust the `targetActionID` field as follows:
 
 ```diff
-targetActionID = "weatherResponseResource"
+TargetActionID = "weatherResponseResource"
 ```
 
 By integrating the `response` resource and updating the workflow, the AI agent can deliver polished JSON responses via

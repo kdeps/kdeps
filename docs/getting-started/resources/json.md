@@ -149,7 +149,7 @@ Once you have obtained the file path, you can use the `read#text` function to re
 Here’s an example:
 
 ```apl
-local llmOutputFilepath = "@(llm.file("llmWeatherReport"))"
+local llmOutputFilePath = "@(llm.file("llmWeatherReport"))"
 
 local llmOutputJson = """
 @(read("\(llmOutputFilepath)")?.text)

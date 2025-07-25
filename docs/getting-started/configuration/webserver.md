@@ -35,22 +35,22 @@ WebServer {
     TrustedProxies {}
 
     // Routing rules for static files or reverse proxying.
-    routes {
+    Routes {
         new {
             // HTTP path to serve, e.g., "/ui" or "/dashboard".
-            path = "/ui"
+            Path = "/ui"
 
             // Server type: "static" for files, "app" for proxying.
-            serverType = "static"
+            ServerType = "static"
 
             // For serverType="static": Directory to serve files from.
             // Relative to /data/ in the agent.
             // Example: "/agentY/2.0.0/web" maps to /data/agentY/2.0.0/web
-            publicPath = "/agentY/2.0.0/web/"
+            PublicPath = "/agentY/2.0.0/web/"
 
             // For serverType="app": Local port of the web app.
             // Required for serverType="app".
-            // appPort = 3000
+            // AppPort = 3000
 
             // Optional: Shell command to start the app, run in publicPath.
             // Example: "streamlit run app.py" or "npm start"
@@ -85,7 +85,7 @@ This configuration serves a static frontend and proxies to a Streamlit app:
 
 ```apl
 APIServer {
-    cors {
+    CORS {
         AllowOrigins {
             "http://localhost:8080"
         }
@@ -107,18 +107,18 @@ WebServer {
     PortNum = 8080
     TrustedProxies { "192.168.1.0/24" }
 
-    routes {
+    Routes {
         new {
-            path = "/dashboard"
-            serverType = "static"
-            publicPath = "/agentX/1.0.0/dashboard/"
+            Path = "/dashboard"
+            ServerType = "static"
+            PublicPath = "/agentX/1.0.0/dashboard/"
         }
         new {
-            path = "/app"
-            serverType = "app"
-            appPort = 8501
+            Path = "/app"
+            ServerType = "app"
+            AppPort = 8501
             Command = "streamlit run app.py"
-            publicPath = "/agentX/1.0.0/streamlit/"
+            PublicPath = "/agentX/1.0.0/streamlit/"
         }
     }
 }

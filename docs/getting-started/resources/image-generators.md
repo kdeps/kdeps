@@ -22,17 +22,17 @@ Example `workflow.pkl` configuration:
 
 ```js
 Name = "sd35api"
-version = "1.0.0"
+Version = "1.0.0"
 ...
 settings {
   ...
   APIServer {
     HostIP = "127.0.0.1"
-    portNum = 3000
+    PortNum = 3000
 
-    routes {
+    Routes {
       new {
-        path = "/api/v1/image_generator"
+        Path = "/api/v1/image_generator"
         Methods {
           "POST"
         }
@@ -40,9 +40,9 @@ settings {
     }
   }
 
-  agentSettings {
+  AgentSettings {
     ...
-    pythonPackages {
+    PythonPackages {
       "torch"
       "diffusers"
       "huggingface_hub[cli]"
@@ -64,10 +64,10 @@ import torch
 from diffusers import StableDiffusion3Pipeline
 
 # Retrieve the prompt from the environment variable
-prompt = os.getenv("PROMPT", "A capybara holding a sign that reads 'Hello World'")
+Prompt = os.getenv("PROMPT", "A capybara holding a sign that reads 'Hello World'")
 
 # Remove the file if it already exists
-file_path = "/tmp/image.png"
+file_Path = "/tmp/image.png"
 if os.path.exists(file_path):
     os.remove(file_path)
 
@@ -96,7 +96,7 @@ using the `request.params("q")` function.
 ```json
 ActionID = "pythonResource"
 
-python {
+Python {
   local pythonScriptPath = "@(data.filepath("sd35api/1.0.0", "sd3_5.py"))"
   local pythonScript = "@(read?("\(pythonScriptPath)")?.text)"
 
@@ -117,7 +117,7 @@ script is executed as part of the workflow.
 
 ```js
 ActionID = "APIResponseResource"
-requires {
+Requires {
   "pythonResource"
 }
 ```
@@ -133,7 +133,7 @@ local responseJson = new Mapping {
 
 APIResponse {
 ...
-  response {
+  Response {
     Data {
         responseJson
     }
@@ -189,15 +189,15 @@ Add `huggingface_hub[cli]` to the `pythonPackages` block in the `workflow.pkl` f
 `HF_TOKEN`, which will reference the token stored in the `.env` file.
 
 ```js
-agentSettings {
+AgentSettings {
     ...
-    pythonPackages {
+    PythonPackages {
         "torch"
         "diffusers"
         "huggingface_hub[cli]"
     }
     ...
-    args {
+    Args {
         ["HF_TOKEN"] = "secret"
     }
 }
@@ -218,8 +218,8 @@ marker file (`/.kdeps/sd35-downloaded`) upon successful download.
 ```json
 ActionID = "execResource"
 ...
-exec {
-    command = """
+Exec {
+    Command = """
     huggingface-cli login --token $HF_TOKEN
     huggingface-cli download stabilityai/stable-diffusion-3.5-large --cache-dir /.kdeps/
     echo downloaded > /.kdeps/sd35-downloaded
@@ -242,7 +242,7 @@ ActionID = "execResource"
 run {
     local stampFile = read?("file:/.kdeps/sd35-downloaded")?.base64?.isEmpty
 
-    skipCondition {
+    SkipCondition {
         stampFile != null || stampFile != false
     }
 ...

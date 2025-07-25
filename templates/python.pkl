@@ -4,7 +4,7 @@ ActionID = "pythonResource"
 Name = "Python Resource"
 Description = "This resource creates a python script session."
 Category = ""
-requires {
+Requires {
         // Define the ID of any dependency resource that must be executed before this resource.
 }
 run {
@@ -12,7 +12,7 @@ run {
         // If none are specified, all HTTP methods are permitted. This restriction is only
         // in effect when APIServerMode is enabled. If the request method is not in this list,
         // the action will be skipped.
-        restrictToHTTPMethods {
+        RestrictToHTTPMethods {
             "GET"
         }
 
@@ -20,7 +20,7 @@ run {
         // If none are specified, all routes are permitted. This restriction is only
         // in effect when APIServerMode is enabled. If the request path is not in this list,
         // the action will be skipped.
-        restrictToRoutes {
+        RestrictToRoutes {
             "/api/v1/whois"
         }
 
@@ -41,8 +41,8 @@ run {
                 // If any evaluated condition returns true, the resource execution will be bypassed.
         }
 
-        preflightCheck {
-                validations {
+        PreflightCheck {
+                Validations {
                         // This section expects boolean validations.
                         // If any validation returns false, an exception will be thrown before proceeding to the next step.
                         //

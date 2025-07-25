@@ -36,47 +36,47 @@ func TestUpgradeSchemaVersionInContent(t *testing.T) {
 	}{
 		{
 			name: "upgrade workflow amends",
-			content: `amends "package://schema.kdeps.com/core@0.2.30#/Workflow.pkl"
+			content: `amends "package://schema.kdeps.com/core@0.2.41#/Workflow.pkl"
 name = "test"`,
-			targetVersion:  "0.2.40",
+			targetVersion:  "0.2.41",
 			expectedChange: true,
-			expectedResult: `amends "package://schema.kdeps.com/core@0.2.40#/Workflow.pkl"
+			expectedResult: `amends "package://schema.kdeps.com/core@0.2.41#/Workflow.pkl"
 name = "test"`,
 		},
 		{
 			name: "upgrade resource import",
-			content: `import "package://schema.kdeps.com/core@0.2.30#/Resource.pkl"
+			content: `import "package://schema.kdeps.com/core@0.2.41#/Resource.pkl"
 name = "test"`,
-			targetVersion:  "0.2.40",
+			targetVersion:  "0.2.41",
 			expectedChange: true,
-			expectedResult: `import "package://schema.kdeps.com/core@0.2.40#/Resource.pkl"
+			expectedResult: `import "package://schema.kdeps.com/core@0.2.41#/Resource.pkl"
 name = "test"`,
 		},
 		{
 			name: "already at target version",
-			content: `amends "package://schema.kdeps.com/core@0.2.40#/Workflow.pkl"
+			content: `amends "package://schema.kdeps.com/core@0.2.41#/Workflow.pkl"
 name = "test"`,
-			targetVersion:  "0.2.40",
+			targetVersion:  "0.2.41",
 			expectedChange: false,
-			expectedResult: `amends "package://schema.kdeps.com/core@0.2.40#/Workflow.pkl"
+			expectedResult: `amends "package://schema.kdeps.com/core@0.2.41#/Workflow.pkl"
 name = "test"`,
 		},
 		{
 			name: "multiple version references",
-			content: `amends "package://schema.kdeps.com/core@0.2.30#/Workflow.pkl"
-import "package://schema.kdeps.com/core@0.2.30#/Resource.pkl"
+			content: `amends "package://schema.kdeps.com/core@0.2.41#/Workflow.pkl"
+import "package://schema.kdeps.com/core@0.2.41#/Resource.pkl"
 name = "test"`,
-			targetVersion:  "0.2.40",
+			targetVersion:  "0.2.41",
 			expectedChange: true,
-			expectedResult: `amends "package://schema.kdeps.com/core@0.2.40#/Workflow.pkl"
-import "package://schema.kdeps.com/core@0.2.40#/Resource.pkl"
+			expectedResult: `amends "package://schema.kdeps.com/core@0.2.41#/Workflow.pkl"
+import "package://schema.kdeps.com/core@0.2.41#/Resource.pkl"
 name = "test"`,
 		},
 		{
 			name: "no schema references",
 			content: `name = "test"
 version = "1.0.0"`,
-			targetVersion:  "0.2.40",
+			targetVersion:  "0.2.41",
 			expectedChange: false,
 			expectedResult: `name = "test"
 version = "1.0.0"`,
@@ -104,11 +104,11 @@ func TestUpgradeSchemaVersions(t *testing.T) {
 	require.NoError(t, fs.MkdirAll(filepath.Join(testDir, "resources"), 0o755))
 
 	// Create test files
-	workflowContent := `amends "package://schema.kdeps.com/core@0.2.30#/Workflow.pkl"
+	workflowContent := `amends "package://schema.kdeps.com/core@0.2.41#/Workflow.pkl"
 name = "test-agent"
 version = "1.0.0"`
 
-	resourceContent := `import "package://schema.kdeps.com/core@0.2.30#/Resource.pkl"
+	resourceContent := `import "package://schema.kdeps.com/core@0.2.41#/Resource.pkl"
 name = "testResource"`
 
 	nonPklContent := `{
@@ -121,30 +121,30 @@ name = "testResource"`
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(testDir, "package.json"), []byte(nonPklContent), 0o644))
 
 	t.Run("dry run upgrade", func(t *testing.T) {
-		err := upgradeSchemaVersions(fs, testDir, "0.2.40", true, logger)
+		err := upgradeSchemaVersions(fs, testDir, "0.2.41", true, logger)
 		require.NoError(t, err)
 
 		// Files should not be modified in dry run
 		content, err := afero.ReadFile(fs, filepath.Join(testDir, "workflow.pkl"))
 		require.NoError(t, err)
-		assert.Contains(t, string(content), "0.2.30")
+		assert.Contains(t, string(content), "0.2.41")
 	})
 
 	t.Run("actual upgrade", func(t *testing.T) {
-		err := upgradeSchemaVersions(fs, testDir, "0.2.40", false, logger)
+		err := upgradeSchemaVersions(fs, testDir, "0.2.41", false, logger)
 		require.NoError(t, err)
 
 		// Check workflow.pkl was updated
 		content, err := afero.ReadFile(fs, filepath.Join(testDir, "workflow.pkl"))
 		require.NoError(t, err)
-		assert.Contains(t, string(content), "0.2.40")
-		assert.NotContains(t, string(content), "0.2.30")
+		assert.Contains(t, string(content), "0.2.41")
+		assert.NotContains(t, string(content), "0.2.41")
 
 		// Check resource file was updated
 		content, err = afero.ReadFile(fs, filepath.Join(testDir, "resources", "test.pkl"))
 		require.NoError(t, err)
-		assert.Contains(t, string(content), "0.2.40")
-		assert.NotContains(t, string(content), "0.2.30")
+		assert.Contains(t, string(content), "0.2.41")
+		assert.NotContains(t, string(content), "0.2.41")
 
 		// Check non-pkl file was not modified
 		content, err = afero.ReadFile(fs, filepath.Join(testDir, "package.json"))
@@ -192,7 +192,7 @@ func TestUpgradeCommandIntegration(t *testing.T) {
 	testDir := "/test-upgrade"
 	require.NoError(t, fs.MkdirAll(testDir, 0o755))
 
-	content := `amends "package://schema.kdeps.com/core@0.2.30#/Workflow.pkl"
+	content := `amends "package://schema.kdeps.com/core@0.2.41#/Workflow.pkl"
 name = "test"
 version = "1.0.0"`
 
@@ -209,5 +209,5 @@ version = "1.0.0"`
 	updatedContent, err := afero.ReadFile(fs, filepath.Join(testDir, "workflow.pkl"))
 	require.NoError(t, err)
 	assert.Contains(t, string(updatedContent), version.DefaultSchemaVersion)
-	assert.NotContains(t, string(updatedContent), "0.2.30")
+	assert.NotContains(t, string(updatedContent), "0.2.41")
 }
