@@ -632,7 +632,7 @@ func validateMethod(r *http.Request, allowedMethods []string) (string, error) {
 
 	for _, allowedMethod := range allowedMethods {
 		if allowedMethod == r.Method {
-			return fmt.Sprintf(`method = "%s"`, allowedMethod), nil
+			return fmt.Sprintf(`Method = "%s"`, allowedMethod), nil
 		}
 	}
 

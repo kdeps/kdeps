@@ -137,7 +137,7 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 
 	var pklContent strings.Builder
 	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/HTTP.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
-	pklContent.WriteString("resources {\n")
+	pklContent.WriteString("Resources {\n")
 
 	for id, res := range existingResources {
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
@@ -184,10 +184,10 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 
 func encodeResponseHeaders(response *pklHTTP.ResponseBlock) string {
 	if response == nil || response.Headers == nil {
-		return "    headers {[\"\"] = \"\"}\n"
+		return "    Headers {[\"\"] = \"\"}\n"
 	}
 	var builder strings.Builder
-	builder.WriteString("    headers {\n")
+	builder.WriteString("    Headers {\n")
 	for k, v := range *response.Headers {
 		builder.WriteString(fmt.Sprintf("      [\"%s\"] = #\"\"\"\n%s\n\"\"\"#\n", k, utils.EncodeValue(v)))
 	}

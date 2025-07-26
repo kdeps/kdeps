@@ -50,7 +50,7 @@ func TestPackageProjectHappyPath(t *testing.T) {
 	// Create required structure.
 	_ = fs.MkdirAll(filepath.Join(compiled, "resources"), 0o755)
 	// minimal resource file
-	_ = afero.WriteFile(fs, filepath.Join(compiled, "resources", "exec.pkl"), []byte("run { exec { ['x']='y' } }"), 0o644)
+	_ = afero.WriteFile(fs, filepath.Join(compiled, "resources", "exec.pkl"), []byte("run { Exec { ['x']='y' } }"), 0o644)
 	// workflow file at root
 	wfContent := `amends "package://schema.kdeps.com/core@0.0.0#/Workflow.pkl"`
 	_ = afero.WriteFile(fs, filepath.Join(compiled, "workflow.pkl"), []byte(wfContent), 0o644)

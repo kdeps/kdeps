@@ -65,7 +65,7 @@ var (
 func TestFeatures(t *testing.T) {
 	suite := godog.TestSuite{
 		ScenarioInitializer: func(ctx *godog.ScenarioContext) {
-			ctx.Step(`^a "([^"]*)" system configuration file with dockerGPU "([^"]*)" and runMode "([^"]*)" is defined in the "([^"]*)" directory$`, aSystemConfigurationFile)
+			ctx.Step(`^a "([^"]*)" system configuration file with DockerGPU "([^"]*)" and RunMode "([^"]*)" is defined in the "([^"]*)" directory$`, aSystemConfigurationFile)
 			ctx.Step(`^a valid ai-agent "([^"]*)" is present in the "([^"]*)" directory$`, aValidAiagentIsPresentInTheDirectory)
 			ctx.Step(`^"([^"]*)" directory exists in the "([^"]*)" directory$`, directoryExistsInTheDirectory)
 			ctx.Step(`^it should create the Dockerfile for the agent in the "([^"]*)" directory with package "([^"]*)" and copy the kdeps package to the "([^"]*)" directory$`, itShouldCreateTheDockerfile)
@@ -130,8 +130,8 @@ func aSystemConfigurationFile(arg1, arg2, arg3, arg4 string) error {
 	systemConfigurationContent := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Kdeps.pkl"
 
-runMode = "%s"
-dockerGPU = "%s"
+RunMode = "%s"
+DockerGPU = "%s"
 `, schema.SchemaVersion(ctx), arg3, arg2)
 
 	var filePath string
@@ -178,11 +178,11 @@ func aValidAiagentIsPresentInTheDirectory(arg1, arg2, arg3, arg4 string) error {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
 			pkgLines = append(pkgLines, fmt.Sprintf(`"%s"`, value))
 		}
-		pkgSection = "packages {\n" + strings.Join(pkgLines, "\n") + "\n}"
+		pkgSection = "Packages {\n" + strings.Join(pkgLines, "\n") + "\n}"
 	} else {
 		// Single value case
 		pkgSection = fmt.Sprintf(`
-packages {
+Packages {
   "%s"
 }`, arg3)
 	}
@@ -196,10 +196,10 @@ packages {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
 			modelLines = append(modelLines, fmt.Sprintf(`"%s"`, value))
 		}
-		modelSection = "models {\n" + strings.Join(modelLines, "\n") + "\n}"
+		modelSection = "Models {\n" + strings.Join(modelLines, "\n") + "\n}"
 	} else {
 		// Single value case
-		modelSection = fmt.Sprintf(`models {
+		modelSection = fmt.Sprintf(`Models {
   "%s"
 }`, arg4)
 	}
@@ -207,12 +207,12 @@ packages {
 	workflowConfigurationContent := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
-name = "%s"
-description = "AI Agent X"
-targetActionID = "%s"
-settings {
+Name = "%s"
+Description = "AI Agent X"
+TargetActionID = "%s"
+Settings {
   APIServerMode = false
-  agentSettings {
+  AgentSettings {
     %s
     %s
   }
@@ -247,8 +247,8 @@ settings {
 	resourceConfigurationContent := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-actionID = "%s"
-description = "An action from agent %s"
+ActionID = "%s"
+Description = "An action from agent %s"
 	`, schema.SchemaVersion(ctx), arg1, arg1)
 
 	resourceConfigurationFile := filepath.Join(resourcesDir, arg1+".pkl")
@@ -553,10 +553,10 @@ func itHasAFileWithIDPropertyAndDependentOn(arg1, arg2, arg3 string) error {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
 			requiresLines = append(requiresLines, fmt.Sprintf(`  "%s"`, value))
 		}
-		requiresSection = "requires {\n" + strings.Join(requiresLines, "\n") + "\n}"
+		requiresSection = "Requires {\n" + strings.Join(requiresLines, "\n") + "\n}"
 	} else {
 		// Single value case
-		requiresSection = fmt.Sprintf(`requires {
+		requiresSection = fmt.Sprintf(`Requires {
   "%s"
 }`, arg3)
 	}
@@ -565,10 +565,10 @@ func itHasAFileWithIDPropertyAndDependentOn(arg1, arg2, arg3 string) error {
 	doc := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-actionID = "%s"
+ActionID = "%s"
 %s
 run {
-  exec {
+  Exec {
   ["key"] = """
 @(exec.stdout["anAction"])
 @(exec.stdin["anAction2"])
@@ -609,9 +609,9 @@ func itHasAFileWithNoDependencyWithIDProperty(arg1, arg2 string) error {
 	doc := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-actionID = "%s"
+ActionID = "%s"
 run {
-  exec {
+  Exec {
   ["key"] = """
 @(exec.stdout["anAction"])
 @(exec.stdin["anAction2"])
@@ -640,10 +640,10 @@ func itHasAWorkflowFile(arg1, arg2, arg3 string) error {
 	doc := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
-targetActionID = "%s"
-name = "%s"
-description = "My awesome AI Agent"
-version = "%s"
+TargetActionID = "%s"
+Name = "%s"
+Description = "My awesome AI Agent"
+Version = "%s"
 `, schema.SchemaVersion(ctx), arg3, arg1, arg2)
 
 	file := filepath.Join(aiAgentDir, "workflow.pkl")
@@ -731,10 +731,10 @@ func theDataFilesWillBeCopiedTo(arg1 string) error {
 
 func thePklFilesIsInvalid() error {
 	doc := `
-	name = "invalid agent"
-	description = "a not valid configuration"
-	version = "five"
-	targetActionID = "hello World"
+	Name = "invalid agent"
+	Description = "a not valid configuration"
+	Version = "five"
+	TargetActionID = "hello World"
 	`
 	file := filepath.Join(aiAgentDir, "workflow1.pkl")
 
@@ -799,10 +799,10 @@ func itHasAWorkflowFileDependencies(arg1, arg2, arg3, arg4 string) error {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
 			workflowsLines = append(workflowsLines, fmt.Sprintf(`  "%s"`, value))
 		}
-		workflowsSection = "workflows {\n" + strings.Join(workflowsLines, "\n") + "\n}"
+		workflowsSection = "Workflows {\n" + strings.Join(workflowsLines, "\n") + "\n}"
 	} else {
 		// Single value case
-		workflowsSection = fmt.Sprintf(`workflows {
+		workflowsSection = fmt.Sprintf(`Workflows {
   "%s"
 }`, arg4)
 	}
@@ -810,10 +810,10 @@ func itHasAWorkflowFileDependencies(arg1, arg2, arg3, arg4 string) error {
 	doc := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
-targetActionID = "%s"
-name = "%s"
-description = "My awesome AI Agent"
-version = "%s"
+TargetActionID = "%s"
+Name = "%s"
+Description = "My awesome AI Agent"
+Version = "%s"
 %s
 `, schema.SchemaVersion(ctx), arg3, arg1, arg2, workflowsSection)
 

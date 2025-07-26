@@ -231,7 +231,7 @@ func TestGenerateResourceIDFilenameAndSanitizeArchivePathHelper(t *testing.T) {
 	got := GenerateResourceIDFilename(id, "req-")
 	want := "req-abc_def_ghi_jkl"
 	if filepath.Base(got) != want {
-		t.Errorf("GenerateResourceIDFilename = %s, want %s", got, want)
+		t.Errorf("GenerateResourceIDFileName = %s, want %s", got, want)
 	}
 
 	good, err := SanitizeArchivePath("/base", "sub/file.txt")
@@ -404,16 +404,16 @@ func TestCreateDirectoriesAndFiles(t *testing.T) {
 func TestWaitForFileReady(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
-	const filename = "/ready.txt"
+	const fileName = "/ready.txt"
 
 	// success case – create the file shortly after starting the wait
 	done := make(chan struct{})
 	go func() {
 		time.Sleep(200 * time.Millisecond)
-		_ = afero.WriteFile(fs, filename, []byte("ok"), 0o644)
+		_ = afero.WriteFile(fs, fileName, []byte("ok"), 0o644)
 	}()
 
-	assert.NoError(t, WaitForFileReady(fs, filename, logger))
+	assert.NoError(t, WaitForFileReady(fs, fileName, logger))
 	close(done)
 
 	// timeout case – file never appears

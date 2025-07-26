@@ -36,36 +36,36 @@ func TestLoadWorkflow(t *testing.T) {
 		tmpFile := t.TempDir() + "/valid.pkl"
 		validContent := `amends "package://schema.kdeps.com/core@0.2.41#/Workflow.pkl"
 
-name = "testworkflow"
-version = "1.0.0"
-description = "Test workflow"
-targetActionID = "testaction"
-settings {
+Name = "testworkflow"
+Version = "1.0.0"
+Description = "Test workflow"
+TargetActionID = "testaction"
+Settings {
   APIServerMode = true
   APIServer {
-    hostIP = "127.0.0.1"
-    portNum = 3000
-    routes {
+    HostIP = "127.0.0.1"
+    PortNum = 3000
+    Routes {
       new {
-        path = "/api/v1/test"
-        methods {
+        Path = "/api/v1/test"
+        Methods {
           "POST"
         }
       }
     }
-    cors {
-      enableCORS = true
-      allowOrigins {
+    CORS {
+      EnableCORS = true
+      AllowOrigins {
         "http://localhost:8080"
       }
     }
   }
-  agentSettings {
-    timezone = "Etc/UTC"
-    models {
+  AgentSettings {
+    Timezone = "Etc/UTC"
+    Models {
       "llama3.2:1b"
     }
-    ollamaImageTag = "0.8.0"
+    OllamaImageTag = "0.8.0"
   }
 }`
 		err := os.WriteFile(tmpFile, []byte(validContent), 0o644)

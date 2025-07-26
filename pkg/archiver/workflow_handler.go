@@ -146,8 +146,8 @@ func CompileWorkflow(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsD
 		return "", err
 	}
 
-	re := regexp.MustCompile(`targetActionID\s*=\s*".*"`)
-	updatedContent := re.ReplaceAllString(string(content), fmt.Sprintf("targetActionID = \"%s\"", compiledAction))
+	re := regexp.MustCompile(`TargetActionID\s*=\s*".*"`)
+	updatedContent := re.ReplaceAllString(string(content), fmt.Sprintf("TargetActionID = \"%s\"", compiledAction))
 
 	if err := afero.WriteFile(fs, compiledFilePath, []byte(updatedContent), 0o644); err != nil {
 		logger.Error("failed to write compiled workflow", "path", compiledFilePath, "error", err)

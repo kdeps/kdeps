@@ -300,7 +300,7 @@ func TestCreateAndProcessPklFile(t *testing.T) {
 		return "processed-content", nil
 	}
 
-	sections := []string{"name = \"unit-test\""}
+	sections := []string{"Name = \"unit-test\""}
 
 	// Execute the helper under test
 	err := CreateAndProcessPklFile(fs, ctx, sections, finalFile, "Kdeps.pkl", logger, processFunc, false)

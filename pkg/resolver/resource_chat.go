@@ -477,24 +477,24 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.Context, logger *logging.Logger) string {
 	var pklContent strings.Builder
 	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"\n\n", schema.SchemaVersion(ctx)))
-	pklContent.WriteString("resources {\n")
+	pklContent.WriteString("Resources {\n")
 
 	for id, res := range resources {
 		logger.Info("Generating PKL for resource", "id", id)
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
-		pklContent.WriteString(fmt.Sprintf("    model = %q\n", res.Model))
+		pklContent.WriteString(fmt.Sprintf("    Model = %q\n", res.Model))
 
 		prompt := ""
 		if res.Prompt != nil {
 			prompt = *res.Prompt
 		}
-		pklContent.WriteString(fmt.Sprintf("    prompt = %q\n", prompt))
+		pklContent.WriteString(fmt.Sprintf("    Prompt = %q\n", prompt))
 
 		role := RoleHuman
 		if res.Role != nil && *res.Role != "" {
 			role = *res.Role
 		}
-		pklContent.WriteString(fmt.Sprintf("    role = %q\n", role))
+		pklContent.WriteString(fmt.Sprintf("    Role = %q\n", role))
 
 		pklContent.WriteString("    scenario ")
 		if res.Scenario != nil && len(*res.Scenario) > 0 {
@@ -510,12 +510,12 @@ func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.C
 				if entry.Role != nil && *entry.Role != "" {
 					entryRole = *entry.Role
 				}
-				pklContent.WriteString(fmt.Sprintf("        role = %q\n", entryRole))
+				pklContent.WriteString(fmt.Sprintf("        Role = %q\n", entryRole))
 				entryPrompt := ""
 				if entry.Prompt != nil {
 					entryPrompt = *entry.Prompt
 				}
-				pklContent.WriteString(fmt.Sprintf("        prompt = %q\n", entryPrompt))
+				pklContent.WriteString(fmt.Sprintf("        Prompt = %q\n", entryPrompt))
 				logger.Info("Serialized scenario entry", "index", i, "role", entryRole, "prompt", entryPrompt)
 				pklContent.WriteString("      }\n")
 			}

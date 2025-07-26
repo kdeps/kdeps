@@ -29,7 +29,7 @@ func TestAppendDataEntry_Direct(t *testing.T) {
 	schemaVer := schema.SchemaVersion(ctx)
 
 	// Seed minimal valid PKL content so pklData.LoadFromPath succeeds.
-	initialContent := "extends \"package://schema.kdeps.com/core@" + schemaVer + "#/Data.pkl\"\n\nfiles {}\n"
+	initialContent := "extends \"package://schema.kdeps.com/core@" + schemaVer + "#/Data.pkl\"\n\nFiles {}\n"
 	pklPath := filepath.Join(dataDir, "req__data_output.pkl")
 	require.NoError(t, afero.WriteFile(fs, pklPath, []byte(initialContent), 0o644))
 

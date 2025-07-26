@@ -18,7 +18,7 @@ The `settings` block allows advanced configuration of the AI agent, covering API
 Ubuntu and Python packages, and default LLM models.
 
 ```apl
-settings {
+Settings {
     APIServerMode = true
     APIServer {...}
     WebServerMode = false

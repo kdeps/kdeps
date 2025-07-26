@@ -24,7 +24,7 @@ Example `workflow.pkl` configuration:
 Name = "sd35api"
 Version = "1.0.0"
 ...
-settings {
+Settings {
   ...
   APIServer {
     HostIP = "127.0.0.1"

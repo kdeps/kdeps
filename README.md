@@ -26,7 +26,7 @@ Name = "ticketResolutionAgent"
 Description = "Automates customer support ticket resolution with LLM responses."
 Version = "1.0.0"
 TargetActionID = "responseResource"
-settings {
+Settings {
   APIServerMode = true
   APIServer {
     HostIP = "127.0.0.1"
@@ -154,7 +154,7 @@ Name = "visualTicketAnalyzer"
 Description = "Analyzes images in support tickets for defects using a vision model."
 Version = "1.0.0"
 TargetActionID = "responseResource"
-settings {
+Settings {
   APIServerMode = true
   APIServer {
     HostIP = "127.0.0.1"
@@ -255,7 +255,7 @@ Name = "frontendAIApp"
 Description = "Pairs an AI API with a Streamlit frontend for text summarization."
 Version = "1.0.0"
 TargetActionID = "responseResource"
-settings {
+Settings {
   APIServerMode = true
   WebServerMode = true
   APIServer {
@@ -332,7 +332,7 @@ Name = "toolChainingAgent"
 Description = "Uses LLM to query a database and generate a report via tools."
 Version = "1.0.0"
 TargetActionID = "responseResource"
-settings {
+Settings {
   APIServerMode = true
   APIServer {
     HostIP = "127.0.0.1"
@@ -412,7 +412,7 @@ Name = "structuredOutputAgent"
 Description = "Generates structured JSON responses from LLM."
 Version = "1.0.0"
 TargetActionID = "responseResource"
-settings {
+Settings {
   APIServerMode = true
   APIServer {
     HostIP = "127.0.0.1"
@@ -459,7 +459,7 @@ Name = "mtvScenarioGenerator"
 Description = "Generates MTV video scenarios based on song lyrics."
 Version = "1.0.0"
 TargetActionID = "responseResource"
-settings {
+Settings {
   APIServerMode = true
   APIServer {
     HostIP = "127.0.0.1"
@@ -558,7 +558,7 @@ Name = "docAnalysisAgent"
 Description = "Analyzes uploaded documents with LLM."
 Version = "1.0.0"
 TargetActionID = "responseResource"
-settings {
+Settings {
   APIServerMode = true
   APIServer {
     HostIP = "127.0.0.1"
@@ -610,7 +610,7 @@ Description = "Analyzes uploaded documents with LLM."
 Version = "1.0.0"
 TargetActionID = "responseResource"
 Workflows { "@ticketResolutionAgent" }
-settings {
+Settings {
   APIServerMode = true
   APIServer {
     HostIP = "127.0.0.1"
@@ -733,7 +733,7 @@ Name = "frontendAIApp"
 Description = "Pairs an AI API with a Streamlit frontend for text summarization."
 Version = "1.0.0"
 TargetActionID = "responseResource"
-settings {
+Settings {
   APIServerMode = true
   WebServerMode = true
   APIServer {
