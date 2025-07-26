@@ -1,26 +1,39 @@
 {{ .Header }}
 
 ActionID = "responseResource"
-Name = "API Response Resource"
-Description = "This resource creates a API response."
+Name = "Response Resource"
+Description = "This resource creates an API response."
 Category = ""
 
-// Define the ID of any dependency resource that must be executed before this resource.
-// For example "aiChatResource1"
 Requires {
+        // Define the ID of any dependency resource that must be executed before this resource.
         "llmResource"
-        // "pythonResource"
-        // "execResource"
-        // "httpResource"
+        // Example: "httpResource"
+        // Example: "pythonResource"
 }
 
-run {
+Items {
+        // Items iteration enables a resource to process a sequence of items in a loop, by specifying a set of values
+        // to iterate over, which can be accessed using item.current(), item.prev(), and item.next() within the
+        // resource's Run block.
+        // "result1"
+        // "result2"
+        // "result3"
+        // "user1"
+        // "user2"
+        // "user3"
+}
+
+Run {
         // restrictToHTTPMethods specifies the HTTP methods required for the request.
         // If none are specified, all HTTP methods are permitted. This restriction is only
         // in effect when APIServerMode is enabled. If the request method is not in this list,
         // the action will be skipped.
         RestrictToHTTPMethods {
             "GET"
+            // "POST"
+            // "PUT"
+            // "DELETE"
         }
 
         // restrictToRoutes specifies the URL paths required for the request.
@@ -29,36 +42,48 @@ run {
         // the action will be skipped.
         RestrictToRoutes {
             "/api/v1/whois"
+            // "/api/v1/users"
+            // "/api/v1/data"
         }
 
         // allowedHeaders specifies the permitted HTTP headers for the request.
         // If none are specified, all headers are allowed. This restriction is only
         // in effect when APIServerMode is enabled.
-        allowedHeaders {
-            // "X-API-KEY"
+        AllowedHeaders {
+            "X-API-KEY"
+            "Authorization"
+            "Content-Type"
         }
 
         // allowedParams specifies the permitted query parameters for the request.
         // If none are specified, all parameters are allowed. This restriction is only
         // in effect when APIServerMode is enabled.
-        allowedParams {}
+        AllowedParams {
+            "q"
+            "format"
+            "limit"
+        }
 
-        skipCondition {
+        SkipCondition {
                 // Conditions under which the execution of this resource should be skipped.
                 // If any evaluated condition returns true, the resource execution will be bypassed.
+                // "@(request.params("q"))" == ""
+                // "@(request.method)" != "GET"
         }
 
         PreflightCheck {
                 Validations {
                         // This section expects boolean validations.
                         // If any validation returns false, an exception will be thrown before proceeding to the next step.
+                        // "@(request.params("q"))" != ""
+                        // "@(request.header("Authorization"))" != ""
                 }
                 //
                 // Custom error message and code to be returned immediately if the preflight check fails.
                 //
-                // error {
-                //         code = 0
-                //         message = ""
+                // Error {
+                //         Code = 400
+                //         Message = "Query parameter is required"
                 // }
         }
 
@@ -66,10 +91,9 @@ run {
         // expressions that produce side effects, such as updating resources or triggering actions, but also supports
         // general-purpose evaluation of any valid PKL expression, making it a place for inline logic and
         // scripting within a configuration.
-        expr {
-                // "@(memory.setRecord("foo", "bar"))" // Persistent data
-                // "@(memory.clear())"
-                // "@(session.setRecord("foo", "bar"))" // Temporary data only for this request
+        Expr {
+                // "@(memory.setRecord("last_response", "@(llm.response("llmResource"))"))" // Store response
+                // "@(session.setRecord("response_time", "@(request.params("time"))"))" // Store timestamp
         }
 
         // Initializes an api response for this agent.
@@ -95,6 +119,8 @@ run {
         //
         APIResponse {
                 Success = true
+                // Success = false
+                
                 Meta {
                         Headers {
                                 // ["X-Frame-Options"] = "DENY"
@@ -104,9 +130,19 @@ run {
                                 // ["Referrer-Policy"] = "strict-origin"
                                 // ["X-Content-Type-Options"] = "nosniff"
                                 // ["Permissions-Policy"] = "geolocation=(),midi=(),sync-xhr=(),microphone=(),camera=(),magnetometer=(),gyroscope=(),fullscreen=(self),payment=()"
+                                // ["Cache-Control"] = "no-cache, no-store, must-revalidate"
+                                // ["Pragma"] = "no-cache"
+                                // ["Expires"] = "0"
+                                // ["Access-Control-Allow-Origin"] = "*"
+                                // ["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+                                // ["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
                         }
                         Properties {
                                 // ["X-Custom-Properties"] = "value"
+                                // ["version"] = "1.0.0"
+                                // ["timestamp"] = "@(request.params("time"))"
+                                // ["request_id"] = "@(request.params("id"))"
+                                // ["user_agent"] = "@(request.header("User-Agent"))"
                         }
                 }
                 Response {
@@ -116,12 +152,27 @@ run {
                                 // "@(python.stdout("pythonResource"))"
                                 // "@(exec.stdout("shellResource"))"
                                 // "@(client.responseBody("httpResource"))"
+                                // "@(session.getRecord("temp_data"))"
+                                // "@(request.params("data"))"
+                                // "@(request.data())"
                         }
                 }
                 Errors {
                         // new {
                         //         Code = 0
                         //         Message = ""
+                        // }
+                        // new {
+                        //         Code = 404
+                        //         Message = "Resource not found"
+                        // }
+                        // new {
+                        //         Code = 500
+                        //         Message = "Internal server error"
+                        // }
+                        // new {
+                        //         Code = 400
+                        //         Message = "Bad request"
                         // }
                 }
         }

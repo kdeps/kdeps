@@ -1,20 +1,37 @@
 {{ .Header }}
 
 ActionID = "llmResource"
-Name = "LLM Chat Resource"
+Name = "LLM Resource"
 Description = "This resource creates a LLM chat session."
 Category = ""
+
 Requires {
         // Define the ID of any dependency resource that must be executed before this resource.
-        // For example "@aiChatResource1"
+        // Example: "httpResource"
+        // Example: "pythonResource"
 }
-run {
+
+Items {
+        // Items iteration enables a resource to process a sequence of items in a loop, by specifying a set of values
+        // to iterate over, which can be accessed using item.current(), item.prev(), and item.next() within the
+        // resource's Run block.
+        // "question1"
+        // "question2"
+        // "question3"
+        // "user1"
+        // "user2"
+        // "user3"
+}
+
+Run {
         // restrictToHTTPMethods specifies the HTTP methods required for the request.
         // If none are specified, all HTTP methods are permitted. This restriction is only
         // in effect when APIServerMode is enabled. If the request method is not in this list,
         // the action will be skipped.
         RestrictToHTTPMethods {
             "GET"
+            // "POST"
+            // "PUT"
         }
 
         // restrictToRoutes specifies the URL paths required for the request.
@@ -23,36 +40,48 @@ run {
         // the action will be skipped.
         RestrictToRoutes {
             "/api/v1/whois"
+            // "/api/v1/chat"
+            // "/api/v1/analyze"
         }
 
         // allowedHeaders specifies the permitted HTTP headers for the request.
         // If none are specified, all headers are allowed. This restriction is only
         // in effect when APIServerMode is enabled.
-        allowedHeaders {
-            // "X-API-KEY"
+        AllowedHeaders {
+            "X-API-KEY"
+            "Authorization"
+            "Content-Type"
         }
 
         // allowedParams specifies the permitted query parameters for the request.
         // If none are specified, all parameters are allowed. This restriction is only
         // in effect when APIServerMode is enabled.
-        allowedParams {}
+        AllowedParams {
+            "q"
+            "model"
+            "temperature"
+        }
 
-        skipCondition {
+        SkipCondition {
                 // Conditions under which the execution of this resource should be skipped.
                 // If any evaluated condition returns true, the resource execution will be bypassed.
+                // "@(request.params("q"))" == ""
+                // "@(request.method)" != "POST"
         }
 
         PreflightCheck {
                 Validations {
                         // This section expects boolean validations.
                         // If any validation returns false, an exception will be thrown before proceeding to the next step.
+                        // "@(request.params("q"))" != ""
+                        // "@(request.header("Authorization"))" != ""
                 }
                 //
                 // Custom error message and code to be returned immediately if the preflight check fails.
                 //
-                // error {
-                //         code = 0
-                //         message = ""
+                // Error {
+                //         Code = 400
+                //         Message = "Query parameter is required"
                 // }
         }
 
@@ -60,10 +89,9 @@ run {
         // expressions that produce side effects, such as updating resources or triggering actions, but also supports
         // general-purpose evaluation of any valid PKL expression, making it a place for inline logic and
         // scripting within a configuration.
-        expr {
-                // "@(memory.setRecord("foo", "bar"))" // Persistent data
-                // "@(memory.clear())"
-                // "@(session.setRecord("foo", "bar"))" // Temporary data only for this request
+        Expr {
+                // "@(memory.setRecord("last_query", "@(request.params("q"))"))" // Store query
+                // "@(session.setRecord("model_used", "@(request.params("model"))"))" // Store model
         }
 
         // Initializes a chat session with the LLM for this resource.
@@ -85,12 +113,23 @@ run {
         // actions within the same resource is not allowed.
         Chat {
                 Model = "llama3.2:1b" // This LLM model needs to be defined in the workflow
+                // Model = "llama3.2"
+                // Model = "llama3.2-vision"
+                // Model = "mistral"
+                // Model = "codellama"
+                // Model = "@(request.params("model"))"
 
                 // The dedicated prompt and role can be sent to the LLM, or use the scenario block.
                 // This LLM role context for this prompt. For example, "user", "assistant" or "system".
                 // If none is provided, "human" will be used.
                 Role = "user"
+                // Role = "system"
+                // Role = "assistant"
+                
                 Prompt = "Who is @(request.params("q"))?"
+                // Prompt = "Analyze the following text: @(request.params("text"))"
+                // Prompt = "Translate this to Spanish: @(request.params("text"))"
+                // Prompt = "Write a summary of: @(request.params("content"))"
 
                 // Scenario block can take multiple prompts and roles to be added to this LLM session.
                 Scenario {
@@ -101,6 +140,14 @@ run {
                         // new {
                         //         Role = "system"
                         //         Prompt = "If you are unsure, please just lookup the DB."
+                        // }
+                        // new {
+                        //         Role = "user"
+                        //         Prompt = "Please provide detailed and accurate information."
+                        // }
+                        // new {
+                        //         Role = "assistant"
+                        //         Prompt = "I will provide detailed and accurate information based on reliable sources."
                         // }
                 }
 
@@ -115,10 +162,27 @@ run {
                         //         ["name"] { Required = true; Type = "string"; Description = "Name of the historical figure to query" }
                         //     }
                         // }
+                        // new {
+                        //     Name = "web_search"
+                        //     Script = "@(data.filepath(\"tools/1.0.0\", \"search.py\"))"
+                        //     Description = "Searches the web for current information"
+                        //     Parameters {
+                        //         ["query"] { Required = true; Type = "string"; Description = "Search query" }
+                        //     }
+                        // }
+                        // new {
+                        //     Name = "calculate"
+                        //     Script = "@(data.filepath(\"tools/1.0.0\", \"math.py\"))"
+                        //     Description = "Performs mathematical calculations"
+                        //     Parameters {
+                        //         ["expression"] { Required = true; Type = "string"; Description = "Mathematical expression to evaluate" }
+                        //     }
+                        // }
                 }
 
                 // Specify if the LLM response should be a structured JSON
                 JSONResponse = true
+                // JSONResponse = false
 
                 // If JSONResponse is true, then the structured JSON data will need to have the
                 // following keys.
@@ -130,13 +194,23 @@ run {
                         "famous_quotes"
                         "known_for"
                 }
+                // JSONResponseKeys {
+                //         "summary"
+                //         "key_points"
+                //         "sentiment"
+                //         "confidence"
+                // }
 
                 // Specify the files that this LLM will process.
                 Files {
                         // "@(request.files()[0])"
+                        // "@(request.filepath("document.pdf"))"
+                        // "@(request.filepath("image.jpg"))"
                 }
 
                 // Timeout duration in seconds. This specifies when to terminate the llm session.
                 TimeoutDuration = 60.s
+                // TimeoutDuration = 30.s
+                // TimeoutDuration = 120.s
         }
 }

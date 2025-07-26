@@ -4,16 +4,34 @@ ActionID = "pythonResource"
 Name = "Python Resource"
 Description = "This resource creates a python script session."
 Category = ""
+
 Requires {
         // Define the ID of any dependency resource that must be executed before this resource.
+        // Example: "httpResource"
+        // Example: "llmResource"
 }
-run {
+
+Items {
+        // Items iteration enables a resource to process a sequence of items in a loop, by specifying a set of values
+        // to iterate over, which can be accessed using item.current(), item.prev(), and item.next() within the
+        // resource's Run block.
+        // "data1.csv"
+        // "data2.csv"
+        // "data3.csv"
+        // "user1"
+        // "user2"
+        // "user3"
+}
+
+Run {
         // restrictToHTTPMethods specifies the HTTP methods required for the request.
         // If none are specified, all HTTP methods are permitted. This restriction is only
         // in effect when APIServerMode is enabled. If the request method is not in this list,
         // the action will be skipped.
         RestrictToHTTPMethods {
             "GET"
+            // "POST"
+            // "PUT"
         }
 
         // restrictToRoutes specifies the URL paths required for the request.
@@ -22,40 +40,48 @@ run {
         // the action will be skipped.
         RestrictToRoutes {
             "/api/v1/whois"
+            // "/api/v1/process"
+            // "/api/v1/analyze"
         }
 
         // allowedHeaders specifies the permitted HTTP headers for the request.
         // If none are specified, all headers are allowed. This restriction is only
         // in effect when APIServerMode is enabled.
-        allowedHeaders {
-            // "X-API-KEY"
+        AllowedHeaders {
+            "X-API-KEY"
+            "Authorization"
+            "Content-Type"
         }
 
         // allowedParams specifies the permitted query parameters for the request.
         // If none are specified, all parameters are allowed. This restriction is only
         // in effect when APIServerMode is enabled.
-        allowedParams {}
+        AllowedParams {
+            "script"
+            "data"
+            "user"
+        }
 
-        skipCondition {
+        SkipCondition {
                 // Conditions under which the execution of this resource should be skipped.
                 // If any evaluated condition returns true, the resource execution will be bypassed.
+                // "@(request.params("script"))" == ""
+                // "@(request.method)" != "POST"
         }
 
         PreflightCheck {
                 Validations {
                         // This section expects boolean validations.
                         // If any validation returns false, an exception will be thrown before proceeding to the next step.
-                        //
-                        // For example, this expects that the 'file.txt' is in the 'data' folder.
-                        // All data files are mapped from 'data/file.txt' to 'data/<agentName>/<agentVersion>/file.txt'.
-                        // read("file:/agent/workflow/data/%s/1.0.0/file.txt").text != "" && read("file:/agent/workflow/data/%s/1.0.0/file.txt").base64 != ""
+                        // "@(request.params("script"))" != ""
+                        // "@(request.header("Authorization"))" != ""
                 }
                 //
                 // Custom error message and code to be returned immediately if the preflight check fails.
                 //
-                // error {
-                //         code = 0
-                //         message = ""
+                // Error {
+                //         Code = 400
+                //         Message = "Script parameter is required"
                 // }
         }
 
@@ -63,16 +89,15 @@ run {
         // expressions that produce side effects, such as updating resources or triggering actions, but also supports
         // general-purpose evaluation of any valid PKL expression, making it a place for inline logic and
         // scripting within a configuration.
-        expr {
-                // "@(memory.setRecord("foo", "bar"))" // Persistent data
-                // "@(memory.clear())"
-                // "@(session.setRecord("foo", "bar"))" // Temporary data only for this request
+        Expr {
+                // "@(memory.setRecord("last_script", "@(request.params("script"))"))" // Store script
+                // "@(session.setRecord("python_env", "@(request.params("env"))"))" // Store environment
         }
 
-        // Initiates a shell session for executing commands within this resource. Any packages
+        // Initiates a Python script session for executing Python code within this resource. Any packages
         // defined in the workflow are accessible here.
         //
-        // The exec resource provides the following helper functions:
+        // The Python resource provides the following helper functions:
         //
         // - "@(python.resource("ResourceID"))"
         // - "@(python.stderr("ResourceID"))"
@@ -96,6 +121,9 @@ run {
                 // Specifies the conda environment in which this Python script will execute, if Anaconda is
                 // installed.
                 CondaEnvironment = "base"
+                // CondaEnvironment = "ml"
+                // CondaEnvironment = "data"
+                // CondaEnvironment = "@(request.params("env"))"
 
                 Script =
 """
@@ -105,11 +133,73 @@ def main():
 if __name__ == "__main__":
     main()
 """
+                // Script =
+                // """
+                // import requests
+                // import json
+                // 
+                // def main():
+                //     response = requests.get("https://api.example.com/data")
+                //     data = response.json()
+                //     print(json.dumps(data, indent=2))
+                // 
+                // if __name__ == "__main__":
+                //     main()
+                // """
+                // Script =
+                // """
+                // import pandas as pd
+                // import numpy as np
+                // 
+                // def main():
+                //     # Read data from request parameter
+                //     data = "@(request.params("data"))"
+                //     df = pd.read_csv(data)
+                //     
+                //     # Process data
+                //     result = df.describe()
+                //     print(result.to_json())
+                // 
+                // if __name__ == "__main__":
+                //     main()
+                // """
+                // Script =
+                // """
+                // import sys
+                // import os
+                // 
+                // def main():
+                //     # Access environment variables
+                //     api_key = os.getenv("API_KEY")
+                //     user = os.getenv("USER")
+                //     
+                //     print(f"API Key: {api_key}")
+                //     print(f"User: {user}")
+                //     
+                //     # Process command line arguments
+                //     if len(sys.argv) > 1:
+                //         print(f"Argument: {sys.argv[1]}")
+                // 
+                // if __name__ == "__main__":
+                //     main()
+                // """
+                
                 Env {
                         // Environment variables that would be accessible inside the shell
                         ["ENVVAR"] = "XYZ"  // Example ENVVAR.
+                        // ["PATH"] = "/usr/local/bin:/usr/bin:/bin"
+                        // ["PYTHONPATH"] = "/usr/local/lib/python3.9/site-packages"
+                        // ["API_KEY"] = "@(request.header("X-API-KEY"))"
+                        // ["USER"] = "@(request.params("user"))"
+                        // ["DEBUG"] = "true"
+                        // ["LOG_LEVEL"] = "info"
+                        // ["DATA_DIR"] = "/data"
+                        // ["OUTPUT_DIR"] = "/output"
                 }
+                
                 // Timeout duration in seconds. This specifies when to terminate the shell exec.
                 TimeoutDuration = 60.s
+                // TimeoutDuration = 30.s
+                // TimeoutDuration = 300.s
         }
 }
