@@ -1629,8 +1629,8 @@ func TestFormatErrors(t *testing.T) {
 			},
 		}
 		result := formatErrors(errors, logger)
-		assert.Contains(t, result, "errors")
-		assert.Contains(t, result, "code = 404")
+		assert.Contains(t, result, "Errors")
+		assert.Contains(t, result, "Code = 404")
 		assert.Contains(t, result, "Resource not found")
 	})
 }

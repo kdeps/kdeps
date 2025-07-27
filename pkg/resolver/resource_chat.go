@@ -553,7 +553,7 @@ func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.C
 			timeoutValue = res.TimeoutDuration.Value
 			timeoutUnit = res.TimeoutDuration.Unit
 		}
-		pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", timeoutValue, timeoutUnit.String()))
+		pklContent.WriteString(fmt.Sprintf("    TimeoutDuration = %g.%s\n", timeoutValue, timeoutUnit.String()))
 
 		timestampValue := float64(time.Now().Unix())
 		timestampUnit := pkl.Nanosecond
@@ -561,18 +561,18 @@ func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.C
 			timestampValue = res.Timestamp.Value
 			timestampUnit = res.Timestamp.Unit
 		}
-		pklContent.WriteString(fmt.Sprintf("    timestamp = %g.%s\n", timestampValue, timestampUnit.String()))
+		pklContent.WriteString(fmt.Sprintf("    Timestamp = %g.%s\n", timestampValue, timestampUnit.String()))
 
 		if res.Response != nil {
-			pklContent.WriteString(fmt.Sprintf("    response = #\"\"\"\n%s\n\"\"\"#\n", *res.Response))
+			pklContent.WriteString(fmt.Sprintf("    Response = #\"\"\"\n%s\n\"\"\"#\n", *res.Response))
 		} else {
-			pklContent.WriteString("    response = \"\"\n")
+			pklContent.WriteString("    Response = \"\"\n")
 		}
 
 		if res.File != nil {
-			pklContent.WriteString(fmt.Sprintf("    file = %q\n", *res.File))
+			pklContent.WriteString(fmt.Sprintf("    File = %q\n", *res.File))
 		} else {
-			pklContent.WriteString("    file = \"\"\n")
+			pklContent.WriteString("    File = \"\"\n")
 		}
 
 		pklContent.WriteString("  }\n")

@@ -114,7 +114,7 @@ response {
 func formatResponseMeta(requestID string, meta *apiserverresponse.APIServerResponseMetaBlock) string {
 	if meta == nil || *meta.Headers == nil && *meta.Properties == nil {
 		return fmt.Sprintf(`
-meta {
+Meta {
   RequestID = "%s"
 }
 `, requestID)
@@ -125,14 +125,14 @@ meta {
 
 	if len(responseMetaHeaders) == 0 && len(responseMetaProperties) == 0 {
 		return fmt.Sprintf(`
-meta {
+Meta {
   RequestID = "%s"
 }
 `, requestID)
 	}
 
 	return fmt.Sprintf(`
-meta {
+Meta {
   RequestID = "%s"
   %s
   %s
@@ -217,8 +217,8 @@ func formatErrors(errors *[]*apiserverresponse.APIServerErrorsBlock, logger *log
 			decodedMessage := decodeErrorMessage(err.Message, logger)
 			newBlocks += fmt.Sprintf(`
   new {
-    code = %d
-    message = #"""
+    Code = %d
+    Message = #"""
 %s
 """#
   }`, err.Code, decodedMessage)
@@ -226,7 +226,7 @@ func formatErrors(errors *[]*apiserverresponse.APIServerErrorsBlock, logger *log
 	}
 
 	if newBlocks != "" {
-		return fmt.Sprintf(`errors {%s
+		return fmt.Sprintf(`Errors {%s
 }`, newBlocks)
 	}
 	return ""

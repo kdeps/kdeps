@@ -480,17 +480,17 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			return
 		}
 
-		urlSection := fmt.Sprintf(`path = "%s"`, c.Request.URL.Path)
+		urlSection := fmt.Sprintf(`Path = "%s"`, c.Request.URL.Path)
 		clientIPSection := fmt.Sprintf(`IP = "%s"`, c.ClientIP())
 		requestIDSection := fmt.Sprintf(`ID = "%s"`, graphID)
-		dataSection := fmt.Sprintf(`data = "%s"`, utils.EncodeBase64String(bodyData))
+		dataSection := fmt.Sprintf(`Data = "%s"`, utils.EncodeBase64String(bodyData))
 
 		var sb strings.Builder
-		sb.WriteString("files {\n")
+		sb.WriteString("Files {\n")
 		for _, fileInfo := range fileMap {
 			fileBlock := fmt.Sprintf(`
-	filepath = "%s"
-	filetype = "%s"
+	Filepath = "%s"
+	Filetype = "%s"
 `, fileInfo.Filename, fileInfo.Filetype)
 			sb.WriteString(fmt.Sprintf("    [\"%s\"] {\n%s\n}\n", filepath.Base(fileInfo.Filename), fileBlock))
 		}

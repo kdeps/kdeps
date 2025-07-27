@@ -168,8 +168,8 @@ local-update:
 	fi; \
 	if [ -d "local/project" ]; then \
 		docker exec $$CONTAINER rm -rf /agent/project || true; \
-		docker exec $$CONTAINER mkdir -p /agent/project/1.0.0; \
-		docker cp local/project/. $$CONTAINER:/agent/project/1.0.0/; \
+		docker exec $$CONTAINER mkdir -p /agent/project; \
+		docker cp local/project/. $$CONTAINER:/agent/project/; \
 		if [ -f "local/project/workflow.pkl" ]; then \
 			docker cp local/project/workflow.pkl $$CONTAINER:/agent/project/workflow.pkl; \
 		fi; \

@@ -205,7 +205,7 @@ func TestPackageProject_MinimalAndOverwrite(t *testing.T) {
 	projectDir, _ := afero.TempDir(fs, "", "agent")
 
 	// Minimal workflow file so EnforceFolderStructure passes.
-	_ = afero.WriteFile(fs, filepath.Join(projectDir, "workflow.pkl"), []byte("name='x'\nversion='0.0.1'"), 0o644)
+	_ = afero.WriteFile(fs, filepath.Join(projectDir, "workflow.pkl"), []byte("Name='x'\nVersion='0.0.1'"), 0o644)
 
 	wf := stubWorkflowPkg{}
 

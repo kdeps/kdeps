@@ -61,7 +61,7 @@ func (dr *DependencyResolver) AppendDataEntry(resourceID string, newData *pklDat
 	// Build the new PKL content
 	var pklContent strings.Builder
 	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Data.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
-	pklContent.WriteString("files {\n")
+	pklContent.WriteString("Files {\n")
 
 	for agentName, baseFileMap := range *existingFiles {
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", agentName))
