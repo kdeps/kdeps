@@ -149,19 +149,19 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 			switch key {
 			case "exec":
 				schemaFile = "Exec.pkl"
-				blockType = "resources"
+				blockType = "Resources"
 			case "python":
 				schemaFile = "Python.pkl"
-				blockType = "resources"
+				blockType = "Resources"
 			case "client":
 				schemaFile = "HTTP.pkl"
-				blockType = "resources"
+				blockType = "Resources"
 			case "llm":
 				schemaFile = "LLM.pkl"
-				blockType = "resources"
+				blockType = "Resources"
 			case "data":
 				schemaFile = "Data.pkl"
-				blockType = "files" // Special case for "data"
+				blockType = "Files" // Special case for "data" - capitalized for schema v0.2.41
 			}
 
 			// Write header using packageURL and schemaFile

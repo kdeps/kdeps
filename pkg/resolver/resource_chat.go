@@ -496,7 +496,7 @@ func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.C
 		}
 		pklContent.WriteString(fmt.Sprintf("    Role = %q\n", role))
 
-		pklContent.WriteString("    scenario ")
+		pklContent.WriteString("    Scenario ")
 		if res.Scenario != nil && len(*res.Scenario) > 0 {
 			logger.Info("Serializing scenario", "entry_count", len(*res.Scenario))
 			pklContent.WriteString("{\n")
@@ -540,7 +540,7 @@ func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.C
 			pklContent.WriteString("{}\n")
 		}
 
-		pklContent.WriteString("    files ")
+		pklContent.WriteString("    Files ")
 		if res.Files != nil && len(*res.Files) > 0 {
 			pklContent.WriteString(utils.EncodePklSlice(res.Files))
 		} else {
