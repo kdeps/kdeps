@@ -104,8 +104,8 @@ func formatResponseData(response *apiserverresponse.APIServerResponseBlock) stri
 	}
 
 	return fmt.Sprintf(`
-response {
-  data {
+Response {
+  Data {
 %s
   }
 }`, strings.Join(responseData, "\n    "))

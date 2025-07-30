@@ -890,7 +890,7 @@ func TestEncodeResponseHelpers(t *testing.T) {
 		t.Errorf("unexpected default headers: %s", emptyHeaders)
 	}
 	emptyBody := encodeResponseBody(nil, dr, resourceID)
-	if emptyBody != "    body=\"\"\n" {
+	if emptyBody != "    Body=\"\"\n" {
 		t.Errorf("unexpected default body: %s", emptyBody)
 	}
 }

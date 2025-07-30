@@ -197,12 +197,12 @@ func encodeResponseHeaders(response *pklHTTP.ResponseBlock) string {
 
 func encodeResponseBody(response *pklHTTP.ResponseBlock, dr *DependencyResolver, resourceID string) string {
 	if response == nil || response.Body == nil {
-		return "    body=\"\"\n"
+		return "    Body=\"\"\n"
 	}
 	if _, err := dr.WriteResponseBodyToFile(resourceID, response.Body); err != nil {
 		dr.Logger.Fatalf("unable to write HTTP response body to file for resource %s", resourceID)
 	}
-	return fmt.Sprintf("    body = #\"\"\"\n%s\n\"\"\"#\n", utils.EncodeValue(*response.Body))
+	return fmt.Sprintf("    Body = #\"\"\"\n%s\n\"\"\"#\n", utils.EncodeValue(*response.Body))
 }
 
 func (dr *DependencyResolver) DoRequest(client *pklHTTP.ResourceHTTPClient) error {
