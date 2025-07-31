@@ -34,9 +34,9 @@ func TestLoadWorkflow(t *testing.T) {
 	t.Run("ValidWorkflowFile", func(t *testing.T) {
 		// Create a temporary file with valid PKL content
 		tmpFile := t.TempDir() + "/valid.pkl"
-		validContent := `amends "package://schema.kdeps.com/core@0.2.41#/Workflow.pkl"
+		validContent := `amends "package://schema.kdeps.com/core@0.2.42#/Workflow.pkl"
 
-Name = "testworkflow"
+AgentID = "testworkflow"
 Version = "1.0.0"
 Description = "Test workflow"
 TargetActionID = "testaction"
@@ -74,7 +74,7 @@ Settings {
 		wf, err := LoadWorkflow(ctx, tmpFile, logger)
 		assert.NoError(t, err)
 		assert.NotNil(t, wf)
-		assert.Equal(t, "testworkflow", wf.GetName())
+		assert.Equal(t, "testworkflow", wf.GetAgentID())
 		assert.Equal(t, "1.0.0", wf.GetVersion())
 		assert.Equal(t, "Test workflow", wf.GetDescription())
 		assert.Equal(t, "testaction", wf.GetTargetActionID())

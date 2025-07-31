@@ -534,7 +534,7 @@ func TestCopyFileBackupAndOverwrite(t *testing.T) {
 // mockWorkflow implements the minimal subset of the generated Workflow interface we need.
 type mockWorkflow struct{ name, version string }
 
-func (m mockWorkflow) GetName() string                   { return m.name }
+func (m mockWorkflow) GetAgentID() string                   { return m.name }
 func (m mockWorkflow) GetVersion() string                { return m.version }
 func (m mockWorkflow) GetDescription() string            { return "" }
 func (m mockWorkflow) GetWebsite() *string               { return nil }
@@ -577,7 +577,7 @@ func TestCopyDataDirBasic(t *testing.T) {
 		t.Fatalf("CopyDataDir error: %v", err)
 	}
 
-	destFile := filepath.Join(compiledDir, "data", wf.GetName(), wf.GetVersion(), "sample.txt")
+	destFile := filepath.Join(compiledDir, "data", wf.GetAgentID(), wf.GetVersion(), "sample.txt")
 	if ok, _ := afero.Exists(fs, destFile); !ok {
 		t.Fatalf("destination file not copied")
 	}

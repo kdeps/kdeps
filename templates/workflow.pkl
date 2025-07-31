@@ -1,6 +1,6 @@
 {{ .Header }}
 
-Name = "{{ .Name }}"
+AgentID = "{{ .Name }}"
 Description = "My AI Agent"
 Website = ""
 Authors {}

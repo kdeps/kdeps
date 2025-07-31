@@ -31,7 +31,7 @@ func TestNewPackageCommandExecution(t *testing.T) {
 
 	workflowContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
-Name = "testagent"
+AgentID = "testagent"
 Description = "Test Agent"
 Version = "1.0.0"
 TargetActionID = "testAction"

@@ -873,7 +873,7 @@ func TestNewGraphResolver(t *testing.T) {
 	// Using the correct schema version and structure with proper amends
 	workflowContent := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
-Name = "testagent"
+AgentID = "testagent"
 Description = "Test agent for unit tests"
 TargetActionID = "testaction"
 Settings {

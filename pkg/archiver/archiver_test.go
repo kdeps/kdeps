@@ -315,7 +315,7 @@ func itHasAWorkflowFile(arg1, arg2, arg3 string) error {
 amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
 TargetActionID = "%s"
-Name = "%s"
+AgentID = "%s"
 Description = "My awesome AI Agent"
 Version = "%s"
 `, schema.SchemaVersion(ctx), arg3, arg1, arg2)
@@ -405,7 +405,7 @@ func theDataFilesWillBeCopiedTo(arg1 string) error {
 
 func thePklFilesIsInvalid() error {
 	doc := `
-	Name = "invalid agent"
+	AgentID = "invalid agent"
 	Description = "a not valid configuration"
 	Version = "five"
 	TargetActionID = "hello World"
@@ -485,7 +485,7 @@ func itHasAWorkflowFileDependencies(arg1, arg2, arg3, arg4 string) error {
 amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
 TargetActionID = "%s"
-Name = "%s"
+AgentID = "%s"
 Description = "My awesome AI Agent"
 Version = "%s"
 %s

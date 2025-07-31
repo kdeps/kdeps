@@ -502,7 +502,7 @@ func (w workflowWithNilSettings) GetDocumentation() *string { return nil }
 
 func (w workflowWithNilSettings) GetHeroImage() *string { return nil }
 
-func (w workflowWithNilSettings) GetName() string { return "" }
+func (w workflowWithNilSettings) GetAgentID() string { return "" }
 
 func (w workflowWithNilSettings) GetRepository() *string { return nil }
 

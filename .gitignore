@@ -224,4 +224,5 @@ pkg/**/**/*.cov
 *.cov
 kdeps
 local/
-localproject-1.0.0.kdeps
+*.kdeps
+*.pkl

@@ -49,14 +49,14 @@ func TestValidateSchemaVersion(t *testing.T) {
 		minimumVersion string
 		hasError       bool
 	}{
-		{"valid version above minimum", "0.2.41", "0.2.41", false},
-		{"valid version equal to minimum", "0.2.41", "0.2.41", false},
-		{"valid higher version", "1.0.0", "0.2.41", false},
-		{"below minimum", "0.1.9", "0.2.41", true},
-		{"empty version", "", "0.2.41", true},
-		{"invalid format", "1.2", "0.2.41", true},
-		{"non-numeric", "1.a.3", "0.2.41", true},
-		{"negative version", "-1.0.0", "0.2.41", true},
+		{"valid version above minimum", "0.2.42", "0.2.42", false},
+		{"valid version equal to minimum", "0.2.42", "0.2.42", false},
+		{"valid higher version", "1.0.0", "0.2.42", false},
+		{"below minimum", "0.1.9", "0.2.42", true},
+		{"empty version", "", "0.2.42", true},
+		{"invalid format", "1.2", "0.2.42", true},
+		{"non-numeric", "1.a.3", "0.2.42", true},
+		{"negative version", "-1.0.0", "0.2.42", true},
 	}
 
 	for _, tt := range tests {
@@ -79,12 +79,12 @@ func TestIsSchemaVersionSupported(t *testing.T) {
 		minimumVersion string
 		supported      bool
 	}{
-		{"version above minimum", "0.2.41", "0.2.41", true},
-		{"minimum version", "0.2.41", "0.2.41", true},
-		{"higher version", "1.0.0", "0.2.41", true},
-		{"below minimum", "0.1.9", "0.2.41", false},
-		{"empty version", "", "0.2.41", false},
-		{"invalid format", "1.2", "0.2.41", false},
+		{"version above minimum", "0.2.42", "0.2.42", true},
+		{"minimum version", "0.2.42", "0.2.42", true},
+		{"higher version", "1.0.0", "0.2.42", true},
+		{"below minimum", "0.1.9", "0.2.42", false},
+		{"empty version", "", "0.2.42", false},
+		{"invalid format", "1.2", "0.2.42", false},
 	}
 
 	for _, tt := range tests {

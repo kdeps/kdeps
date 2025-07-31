@@ -22,12 +22,16 @@ func UpgradeCommand(fs afero.Fs, ctx context.Context, kdepsDir string, logger *l
 
 	cmd := &cobra.Command{
 		Use:   "upgrade [directory]",
-		Short: "Upgrade schema versions in pkl files",
-		Long: `Upgrade schema versions in pkl files within a directory.
+		Short: "Upgrade schema versions and format in pkl files",
+		Long: `Upgrade schema versions and format in pkl files within a directory.
 		
-This command scans for pkl files containing schema version references and upgrades them to 
-the specified version or the latest default version. It validates that the new version 
-meets minimum requirements.
+This command scans for pkl files and performs two types of upgrades:
+1. Schema version references (e.g., @0.2.42 -> @0.2.50)
+2. Schema format migration (e.g., lowercase -> capitalized attributes/blocks)
+
+The format upgrade converts older lowercase PKL syntax to the new capitalized format:
+- actionID -> ActionID, name -> Name, requires -> Requires, etc.
+- Block names: run -> Run, chat -> Chat, exec -> Exec, etc.
 
 Examples:
   kdeps upgrade                        # Upgrade current directory to default version
@@ -146,13 +150,60 @@ func upgradeSchemaVersions(fs afero.Fs, dirPath, targetVersion string, dryRun bo
 	return nil
 }
 
-// upgradeSchemaVersionInContent upgrades schema version references in pkl file content
+// upgradeSchemaVersionInContent upgrades schema version references and format in pkl file content
 func upgradeSchemaVersionInContent(content, targetVersion string, logger *logging.Logger) (string, bool, error) {
+	logger.Debug("upgradeSchemaVersionInContent called", "targetVersion", targetVersion, "contentLength", len(content))
+	updatedContent := content
+	changed := false
+
+	// Step 1: Upgrade schema version references
+	logger.Debug("starting version upgrade step")
+	versionChanged, err := upgradeVersionReferences(updatedContent, targetVersion, logger)
+	if err != nil {
+		logger.Debug("version upgrade failed", "error", err)
+		return content, false, err
+	}
+	if versionChanged.changed {
+		logger.Debug("version upgrade made changes")
+		updatedContent = versionChanged.content
+		changed = true
+	} else {
+		logger.Debug("version upgrade made no changes")
+	}
+
+	// Step 2: Upgrade schema format (lowercase to capitalized attributes/blocks)
+	logger.Debug("starting format upgrade step")
+	formatChanged, err := upgradeSchemaFormat(updatedContent, logger)
+	if err != nil {
+		logger.Debug("format upgrade failed", "error", err)
+		return content, false, err
+	}
+	if formatChanged.changed {
+		logger.Debug("format upgrade made changes")
+		updatedContent = formatChanged.content
+		changed = true
+	} else {
+		logger.Debug("format upgrade made no changes")
+	}
+
+	logger.Debug("upgradeSchemaVersionInContent finished", "totalChanged", changed, "finalContentLength", len(updatedContent))
+	return updatedContent, changed, nil
+}
+
+type upgradeResult struct {
+	content string
+	changed bool
+}
+
+// upgradeVersionReferences upgrades schema version references in pkl file content
+func upgradeVersionReferences(content, targetVersion string, logger *logging.Logger) (upgradeResult, error) {
+	logger.Debug("upgradeVersionReferences called", "targetVersion", targetVersion, "contentLength", len(content))
+
 	// Regex patterns to match schema version references
 	patterns := []string{
-		// Match: amends "package://schema.kdeps.com/core@0.2.41#/Workflow.pkl"
+		// Match: amends "package://schema.kdeps.com/core@0.2.42#/Workflow.pkl"
 		`(amends\s+"package://schema\.kdeps\.com/core@)([^"#]+)(#/[^"]+")`,
-		// Match: import "package://schema.kdeps.com/core@0.2.41#/Resource.pkl"
+		// Match: import "package://schema.kdeps.com/core@0.2.42#/Resource.pkl"
 		`(import\s+"package://schema\.kdeps\.com/core@)([^"#]+)(#/[^"]+")`,
 		// Match other similar patterns
 		`("package://schema\.kdeps\.com/core@)([^"#]+)(#/[^"]+")`,
@@ -161,30 +212,42 @@ func upgradeSchemaVersionInContent(content, targetVersion string, logger *loggin
 	updatedContent := content
 	changed := false
 
-	for _, pattern := range patterns {
+	for i, pattern := range patterns {
+		logger.Debug("testing pattern", "index", i, "pattern", pattern)
 		re := regexp.MustCompile(pattern)
 		matches := re.FindAllStringSubmatch(updatedContent, -1)
+		logger.Debug("pattern matches", "index", i, "matchCount", len(matches))
 
-		for _, match := range matches {
+		for j, match := range matches {
+			logger.Debug("processing match", "patternIndex", i, "matchIndex", j, "match", match)
 			if len(match) >= 4 {
 				currentVersion := match[2]
+				logger.Debug("found version", "currentVersion", currentVersion, "targetVersion", targetVersion)
 
 				// Skip if already at target version
 				if currentVersion == targetVersion {
+					logger.Debug("skipping - already at target version")
 					continue
 				}
 
-				// Validate current version format (if it's a valid version)
-				if err := utils.ValidateSchemaVersion(currentVersion, version.MinimumSchemaVersion); err != nil {
-					logger.Debug("skipping invalid current version", "version", currentVersion, "error", err)
-					continue
-				}
+				// Skip validation - we want to upgrade FROM older versions TO newer versions
+				// The whole point of upgrade is to handle versions below the minimum
 
 				// Replace with target version
 				oldRef := match[1] + currentVersion + match[3]
 				newRef := match[1] + targetVersion + match[3]
 
+				logger.Debug("performing replacement", "oldRef", oldRef, "newRef", newRef)
+
+				beforeReplace := updatedContent
 				updatedContent = strings.ReplaceAll(updatedContent, oldRef, newRef)
+				afterReplace := updatedContent
+
+				logger.Debug("replacement result",
+					"beforeLength", len(beforeReplace),
+					"afterLength", len(afterReplace),
+					"contentChanged", beforeReplace != afterReplace)
+
 				changed = true
 
 				logger.Debug("upgrading schema version reference",
@@ -194,5 +257,119 @@ func upgradeSchemaVersionInContent(content, targetVersion string, logger *loggin
 		}
 	}
 
-	return updatedContent, changed, nil
+	logger.Debug("upgradeVersionReferences finished", "changed", changed, "finalContentLength", len(updatedContent))
+	return upgradeResult{content: updatedContent, changed: changed}, nil
+}
+
+// upgradeSchemaFormat upgrades PKL format from lowercase to capitalized attributes/blocks
+func upgradeSchemaFormat(content string, logger *logging.Logger) (upgradeResult, error) {
+	updatedContent := content
+	changed := false
+
+	// Define attribute/block name mappings (lowercase -> capitalized)
+	attributeMappings := map[string]string{
+		// Common PKL attributes that were changed in schema migration
+		"actionID":              "ActionID",
+		"targetActionID":        "TargetActionID",
+		"name":                  "AgentID",
+		"description":           "Description",
+		"category":              "Category",
+		"version":               "Version",
+		"requires":              "Requires",
+		"items":                 "Items",
+		"run":                   "Run",
+		"settings":              "Settings",
+		"workflows":             "Workflows",
+		"model":                 "Model",
+		"prompt":                "Prompt",
+		"role":                  "Role",
+		"scenario":              "Scenario",
+		"tools":                 "Tools",
+		"jsonResponse":          "JSONResponse",
+		"jsonResponseKeys":      "JSONResponseKeys",
+		"files":                 "Files",
+		"timeoutDuration":       "TimeoutDuration",
+		"timestamp":             "Timestamp",
+		"skipCondition":         "SkipCondition",
+		"preflightCheck":        "PreflightCheck",
+		"validations":           "Validations",
+		"error":                 "Error",
+		"code":                  "Code",
+		"message":               "Message",
+		"expr":                  "Expr",
+		"chat":                  "Chat",
+		"exec":                  "Exec",
+		"python":                "Python",
+		"httpClient":            "HTTPClient",
+		"apiResponse":           "APIResponse",
+		"method":                "Method",
+		"url":                   "Url",
+		"body":                  "Body",
+		"headers":               "Headers",
+		"data":                  "Data",
+		"response":              "Response",
+		"meta":                  "Meta",
+		"success":               "Success",
+		"errors":                "Errors",
+		"requestID":             "RequestID",
+		"properties":            "Properties",
+		"script":                "Script",
+		"env":                   "Env",
+		"command":               "Command",
+		"stdout":                "Stdout",
+		"stderr":                "Stderr",
+		"exitCode":              "ExitCode",
+		"restrictToHTTPMethods": "RestrictToHTTPMethods",
+		"restrictToRoutes":      "RestrictToRoutes",
+		"allowedHeaders":        "AllowedHeaders",
+		"allowedParams":         "AllowedParams",
+		"installAnaconda":       "InstallAnaconda",
+		"condaPackages":         "CondaPackages",
+		"pythonPackages":        "PythonPackages",
+		"packages":              "Packages",
+		"repositories":          "Repositories",
+		"models":                "Models",
+		"ollamaImageTag":        "OllamaImageTag",
+		"args":                  "Args",
+		"timezone":              "Timezone",
+		"apiServerMode":         "APIServerMode",
+		"apiServer":             "APIServer",
+		"webServerMode":         "WebServerMode",
+		"webServer":             "WebServer",
+		"agentSettings":         "AgentSettings",
+		"hostIP":                "HostIP",
+		"portNum":               "PortNum",
+		"trustedProxies":        "TrustedProxies",
+		"routes":                "Routes",
+		"path":                  "Path",
+		"methods":               "Methods",
+		"cors":                  "CORS",
+		"enableCORS":            "EnableCORS",
+		"allowOrigins":          "AllowOrigins",
+		"allowMethods":          "AllowMethods",
+		"allowCredentials":      "AllowCredentials",
+		"exposeHeaders":         "ExposeHeaders",
+		"maxAge":                "MaxAge",
+	}
+
+	// Apply attribute/block name transformations
+	for oldName, newName := range attributeMappings {
+		// Pattern 1: Attribute assignment (attribute = value)
+		attributePattern := regexp.MustCompile(`\b` + regexp.QuoteMeta(oldName) + `\s*=`)
+		if attributePattern.MatchString(updatedContent) {
+			updatedContent = attributePattern.ReplaceAllString(updatedContent, newName+" =")
+			changed = true
+			logger.Debug("upgraded attribute", "from", oldName, "to", newName)
+		}
+
+		// Pattern 2: Block definition (blockName {)
+		blockPattern := regexp.MustCompile(`\b` + regexp.QuoteMeta(oldName) + `\s*\{`)
+		if blockPattern.MatchString(updatedContent) {
+			updatedContent = blockPattern.ReplaceAllString(updatedContent, newName+" {")
+			changed = true
+			logger.Debug("upgraded block", "from", oldName, "to", newName)
+		}
+	}
+
+	return upgradeResult{content: updatedContent, changed: changed}, nil
 }

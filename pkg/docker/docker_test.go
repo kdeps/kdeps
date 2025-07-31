@@ -207,7 +207,7 @@ Packages {
 	workflowConfigurationContent := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
-Name = "%s"
+AgentID = "%s"
 Description = "AI Agent X"
 TargetActionID = "%s"
 Settings {
@@ -641,7 +641,7 @@ func itHasAWorkflowFile(arg1, arg2, arg3 string) error {
 amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
 TargetActionID = "%s"
-Name = "%s"
+AgentID = "%s"
 Description = "My awesome AI Agent"
 Version = "%s"
 `, schema.SchemaVersion(ctx), arg3, arg1, arg2)
@@ -811,7 +811,7 @@ func itHasAWorkflowFileDependencies(arg1, arg2, arg3, arg4 string) error {
 amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
 TargetActionID = "%s"
-Name = "%s"
+AgentID = "%s"
 Description = "My awesome AI Agent"
 Version = "%s"
 %s
@@ -848,7 +848,7 @@ func PackageProject(fs afero.Fs, ctx context.Context, wf wfPkl.Workflow, kdepsDi
 	}
 
 	// Create package file path
-	packageFile := filepath.Join(packageDir, fmt.Sprintf("%s-%s.tar.gz", wf.GetName(), wf.GetVersion()))
+	packageFile := filepath.Join(packageDir, fmt.Sprintf("%s-%s.tar.gz", wf.GetAgentID(), wf.GetVersion()))
 
 	// Create package file
 	file, err := fs.Create(packageFile)

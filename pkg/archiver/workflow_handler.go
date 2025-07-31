@@ -23,7 +23,7 @@ import (
 )
 
 func PrepareRunDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, pkgFilePath string, logger *logging.Logger) (string, error) {
-	agentName, agentVersion := wf.GetName(), wf.GetVersion()
+	agentName, agentVersion := wf.GetAgentID(), wf.GetVersion()
 	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion+"/workflow")
 
 	if exists, err := afero.Exists(fs, runDir); err != nil {
@@ -114,7 +114,7 @@ func CompileWorkflow(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsD
 		return "", errors.New("please specify the default action in the workflow")
 	}
 
-	name, version := wf.GetName(), wf.GetVersion()
+	name, version := wf.GetAgentID(), wf.GetVersion()
 	compiledAction := action
 	if !strings.HasPrefix(action, "@") {
 		compiledAction = fmt.Sprintf("@%s/%s:%s", name, action, version)

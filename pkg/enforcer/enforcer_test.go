@@ -59,7 +59,7 @@ Settings {
     }
   }
 }
-Name = "myAgent"
+AgentID = "myAgent"
 Description = "My awesome AI Agent"
 Version = "1.0.0"
 TargetActionID = "helloWorld"
