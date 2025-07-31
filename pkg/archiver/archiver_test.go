@@ -539,12 +539,13 @@ func itHasAFileWithIDPropertyAndDependentOnWithRunBlockAndIsNotNull(arg1, arg2, 
 		var fieldLines []string
 		for _, value := range values {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
+			value = strings.Title(value)     // Capitalize for new schema
 			fieldLines = append(fieldLines, value+" {\n[\"key\"] = \"\"\"\n@(exec.stdout[\"anAction\"])\n@(exec.stdin[\"anAction2\"])\n@(exec.stderr[\"anAction2\"])\n@(http.client[\"anAction3\"].response)\n@(llm.chat[\"anAction4\"].response)\n\"\"\"\n}")
 		}
-		fieldSection = "run {\n" + strings.Join(fieldLines, "\n") + "\n}"
+		fieldSection = "Run {\n" + strings.Join(fieldLines, "\n") + "\n}"
 	} else {
 		// Single value case
-		fieldSection = fmt.Sprintf(`run {
+		fieldSection = fmt.Sprintf(`Run {
   %s {
 ["key"] = """
 @(exec.stdout["anAction"])
@@ -554,7 +555,7 @@ func itHasAFileWithIDPropertyAndDependentOnWithRunBlockAndIsNotNull(arg1, arg2, 
 @(llm.chat["anAction4"].response)
 """
   }
-}`, arg4)
+}`, strings.Title(arg4))
 	}
 
 	// Create the document with the id and requires block
@@ -606,14 +607,15 @@ func itHasAFileWithIDPropertyAndDependentOnWithRunBlockAndIsNull(arg1, arg2, arg
 		var fieldLines []string
 		for _, value := range values {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
+			value = strings.Title(value)     // Capitalize for new schema
 			fieldLines = append(fieldLines, value+"=null")
 		}
-		fieldSection = "run {\n" + strings.Join(fieldLines, "\n") + "\n}"
+		fieldSection = "Run {\n" + strings.Join(fieldLines, "\n") + "\n}"
 	} else {
 		// Single value case
-		fieldSection = fmt.Sprintf(`run {
+		fieldSection = fmt.Sprintf(`Run {
   %s=null
-}`, arg4)
+}`, strings.Title(arg4))
 	}
 
 	// Create the document with the id and requires block

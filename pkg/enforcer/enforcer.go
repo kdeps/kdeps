@@ -16,11 +16,11 @@ import (
 )
 
 var runBlockRegexes = []*regexp.Regexp{
-	regexp.MustCompile(`(?i)\s*exec\s*{`),
-	regexp.MustCompile(`(?i)\s*python\s*{`),
-	regexp.MustCompile(`(?i)\s*chat\s*{`),
-	regexp.MustCompile(`(?i)\s*HTTPClient\s*{`),
-	regexp.MustCompile(`(?i)\s*APIResponse\s*{`),
+	regexp.MustCompile(`\s*Exec\s*{`),
+	regexp.MustCompile(`\s*Python\s*{`),
+	regexp.MustCompile(`\s*Chat\s*{`),
+	regexp.MustCompile(`\s*HTTPClient\s*{`),
+	regexp.MustCompile(`\s*APIResponse\s*{`),
 }
 
 type pklFileInfo struct {

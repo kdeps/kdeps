@@ -1247,16 +1247,16 @@ TargetActionID = "testaction"
 Settings {
 	APIServerMode = false
 	AgentSettings {
-		installAnaconda = false
+		InstallAnaconda = false
 	}
 }
 PreflightCheck {
 	Validations {
 		false  // This will always fail and trigger our error stacking
 	}
-	error {
-		code = 500
-		message = "Preflight validation failed"
+	Error {
+		Code = 500
+		Message = "Preflight validation failed"
 	}
 }`
 		require.NoError(t, afero.WriteFile(fs, workflowFile, []byte(workflowContent), 0o644))

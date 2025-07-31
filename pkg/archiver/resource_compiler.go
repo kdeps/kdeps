@@ -20,7 +20,7 @@ import (
 var (
 	idPattern       = regexp.MustCompile(`(?i)^\s*actionID\s*=\s*"(.+)"`)
 	actionIDRegex   = regexp.MustCompile(`(?i)\b(resources|resource|responseBody|responseHeader|stderr|stdout|env|response|prompt|exitCode|file)\s*\(\s*"([^"]+)"\s*(?:,\s*"([^"]+)")?\s*\)`)
-	requiresPattern = regexp.MustCompile(`^\s*requires\s*{`)
+	requiresPattern = regexp.MustCompile(`^\s*Requires\s*{`)
 )
 
 // CompileResources processes .pkl files and copies them to resources directory.

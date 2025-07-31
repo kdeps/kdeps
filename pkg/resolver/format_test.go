@@ -1573,8 +1573,8 @@ func TestFormatResponseData(t *testing.T) {
 			Data: []any{"test"},
 		}
 		result := formatResponseData(response)
-		assert.Contains(t, result, "response")
-		assert.Contains(t, result, "data")
+		assert.Contains(t, result, "Response")
+		assert.Contains(t, result, "Data")
 	})
 }
 

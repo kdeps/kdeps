@@ -342,14 +342,14 @@ func (dr *DependencyResolver) validateRequestParams(file string, allowedParams [
 	// Split file into lines to check each line individually
 	lines := strings.Split(file, "\n")
 	re := regexp.MustCompile(`request\.params\("([^"]+)"\)`)
-	
+
 	for _, line := range lines {
 		// Skip commented lines (lines that start with // after any whitespace)
 		trimmedLine := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmedLine, "//") {
 			continue
 		}
-		
+
 		// Find matches in non-commented lines only
 		matches := re.FindAllStringSubmatch(line, -1)
 		for _, match := range matches {
@@ -371,14 +371,14 @@ func (dr *DependencyResolver) validateRequestHeaders(file string, allowedHeaders
 	// Split file into lines to check each line individually
 	lines := strings.Split(file, "\n")
 	re := regexp.MustCompile(`request\.header\("([^"]+)"\)`)
-	
+
 	for _, line := range lines {
 		// Skip commented lines (lines that start with // after any whitespace)
 		trimmedLine := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmedLine, "//") {
 			continue
 		}
-		
+
 		// Find matches in non-commented lines only
 		matches := re.FindAllStringSubmatch(line, -1)
 		for _, match := range matches {
