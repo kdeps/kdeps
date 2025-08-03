@@ -26,13 +26,13 @@ func simpleConfirm(title, description string) (bool, error) {
 		fmt.Printf("%s\n", description)
 	}
 	fmt.Print("Do you want to continue? (y/N): ")
-	
+
 	reader := bufio.NewReader(os.Stdin)
 	response, err := reader.ReadString('\n')
 	if err != nil {
 		return false, err
 	}
-	
+
 	response = strings.TrimSpace(strings.ToLower(response))
 	return response == "y" || response == "yes", nil
 }

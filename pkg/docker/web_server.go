@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/resolver"
@@ -144,6 +145,12 @@ func handleAppRequest(c *gin.Context, hostIP string, route *webserver.WebServerR
 		return
 	}
 
+	// Check if this is a WebSocket upgrade request
+	if websocket.IsWebSocketUpgrade(c.Request) {
+		handleWebSocketProxy(c, targetURL, route, logger)
+		return
+	}
+
 	proxy := httputil.NewSingleHostReverseProxy(targetURL)
 	proxy.Transport = &http.Transport{
 		ResponseHeaderTimeout: 30 * time.Second,
@@ -152,7 +159,15 @@ func handleAppRequest(c *gin.Context, hostIP string, route *webserver.WebServerR
 	proxy.Director = func(req *http.Request) {
 		req.URL.Scheme = targetURL.Scheme
 		req.URL.Host = targetURL.Host
-		req.URL.Path = strings.TrimPrefix(c.Request.URL.Path, route.Path)
+
+		// Handle path forwarding correctly
+		trimmedPath := strings.TrimPrefix(c.Request.URL.Path, route.Path)
+		// Ensure the path starts with / for root routes
+		if route.Path == "/" && !strings.HasPrefix(trimmedPath, "/") {
+			trimmedPath = "/" + trimmedPath
+		}
+		req.URL.Path = trimmedPath
+
 		req.URL.RawQuery = c.Request.URL.RawQuery
 		req.Host = targetURL.Host
 		for key, values := range c.Request.Header {
@@ -169,4 +184,98 @@ func handleAppRequest(c *gin.Context, hostIP string, route *webserver.WebServerR
 	}
 
 	proxy.ServeHTTP(c.Writer, c.Request)
+}
+
+func handleWebSocketProxy(c *gin.Context, targetURL *url.URL, route *webserver.WebServerRoutes, logger *logging.Logger) {
+	// Create WebSocket dialer
+	dialer := websocket.Dialer{
+		Proxy: http.ProxyFromEnvironment,
+	}
+
+	// Prepare the target WebSocket URL
+	targetWSURL := *targetURL
+	targetWSURL.Scheme = "ws"
+
+	// Handle path forwarding correctly
+	trimmedPath := strings.TrimPrefix(c.Request.URL.Path, route.Path)
+	// Ensure the path starts with / for root routes
+	if route.Path == "/" && !strings.HasPrefix(trimmedPath, "/") {
+		trimmedPath = "/" + trimmedPath
+	}
+	targetWSURL.Path = trimmedPath
+	targetWSURL.RawQuery = c.Request.URL.RawQuery
+
+	logger.Debug("proxying WebSocket connection", "url", targetWSURL.String())
+
+	// Filter out WebSocket-specific headers to avoid duplicates
+	wsHeaders := make(http.Header)
+	for key, values := range c.Request.Header {
+		// Skip headers that the WebSocket dialer handles automatically
+		lowerKey := strings.ToLower(key)
+		if lowerKey != "upgrade" &&
+			lowerKey != "connection" &&
+			lowerKey != "sec-websocket-key" &&
+			lowerKey != "sec-websocket-version" &&
+			lowerKey != "sec-websocket-protocol" &&
+			lowerKey != "sec-websocket-extensions" {
+			wsHeaders[key] = values
+		}
+	}
+
+	// Connect to the target WebSocket server
+	targetConn, _, err := dialer.Dial(targetWSURL.String(), wsHeaders)
+	if err != nil {
+		logger.Error("failed to connect to target WebSocket", "url", targetWSURL.String(), "error", err)
+		c.String(http.StatusBadGateway, "Failed to connect to WebSocket server")
+		return
+	}
+	defer targetConn.Close()
+
+	// Upgrade the client connection to WebSocket
+	upgrader := websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true // Allow all origins for proxy
+		},
+	}
+	clientConn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		logger.Error("failed to upgrade client connection to WebSocket", "error", err)
+		return
+	}
+	defer clientConn.Close()
+
+	// Start bidirectional data transfer
+	go func() {
+		defer targetConn.Close()
+		defer clientConn.Close()
+
+		for {
+			messageType, message, err := targetConn.ReadMessage()
+			if err != nil {
+				logger.Debug("target WebSocket read error", "error", err)
+				return
+			}
+
+			err = clientConn.WriteMessage(messageType, message)
+			if err != nil {
+				logger.Debug("client WebSocket write error", "error", err)
+				return
+			}
+		}
+	}()
+
+	// Transfer data from client to target
+	for {
+		messageType, message, err := clientConn.ReadMessage()
+		if err != nil {
+			logger.Debug("client WebSocket read error", "error", err)
+			return
+		}
+
+		err = targetConn.WriteMessage(messageType, message)
+		if err != nil {
+			logger.Debug("target WebSocket write error", "error", err)
+			return
+		}
+	}
 }

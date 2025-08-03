@@ -534,7 +534,7 @@ func TestCopyFileBackupAndOverwrite(t *testing.T) {
 // mockWorkflow implements the minimal subset of the generated Workflow interface we need.
 type mockWorkflow struct{ name, version string }
 
-func (m mockWorkflow) GetAgentID() string                   { return m.name }
+func (m mockWorkflow) GetAgentID() string                { return m.name }
 func (m mockWorkflow) GetVersion() string                { return m.version }
 func (m mockWorkflow) GetDescription() string            { return "" }
 func (m mockWorkflow) GetWebsite() *string               { return nil }
