@@ -361,7 +361,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	if dockerSettings.PythonPackages != nil {
 		for _, value := range *pythonPkgList {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
-			pythonPkgLines = append(pythonPkgLines, "RUN pip install --upgrade --no-input "+value)
+			pythonPkgLines = append(pythonPkgLines, "RUN pip install --upgrade --no-input --break-system-packages "+value)
 		}
 	}
 
