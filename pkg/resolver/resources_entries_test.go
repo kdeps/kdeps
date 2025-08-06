@@ -31,7 +31,7 @@ func TestLoadResourceEntries(t *testing.T) {
 	for _, f := range files {
 		p := filepath.Join(resourcesDir, f)
 		id := strings.TrimSuffix(f, filepath.Ext(f))
-		content := "extends \"dummy\"\n\n" + "actionID = \"" + id + "\"\n"
+		content := "extends \"dummy\"\n\n" + "ActionID = \"" + id + "\"\n"
 		if err := afero.WriteFile(fs, p, []byte(content), 0o644); err != nil {
 			t.Fatalf("failed to write dummy pkl: %v", err)
 		}

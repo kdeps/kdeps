@@ -217,7 +217,7 @@ func GenerateSpecificAgentFile(fs afero.Fs, ctx context.Context, logger *logging
 	}
 
 	headerTemplate := `amends "package://schema.kdeps.com/core@%s#/Resource.pkl"`
-	if strings.ToLower(agentName) == "workflow.pkl" {
+	if strings.ToLower(agentName) == "workflow" {
 		headerTemplate = `amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"`
 	}
 
@@ -237,7 +237,7 @@ func GenerateSpecificAgentFile(fs afero.Fs, ctx context.Context, logger *logging
 
 	// Determine the output directory
 	var outputDir string
-	if strings.ToLower(agentName) == "workflow.pkl" {
+	if strings.ToLower(agentName) == "workflow" {
 		outputDir = mainDir // Place workflow.pkl in the main directory
 	} else {
 		outputDir = filepath.Join(mainDir, "resources") // Place other files in the resources folder

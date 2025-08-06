@@ -281,28 +281,28 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 
 	var pklContent strings.Builder
 	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Python.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
-	pklContent.WriteString("resources {\n")
+	pklContent.WriteString("Resources {\n")
 
 	for id, res := range existingResources {
 		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
-		pklContent.WriteString(fmt.Sprintf("    script = \"%s\"\n", res.Script))
+		pklContent.WriteString(fmt.Sprintf("    Script = \"%s\"\n", res.Script))
 
 		if res.TimeoutDuration != nil {
-			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
+			pklContent.WriteString(fmt.Sprintf("    TimeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
 		} else {
-			pklContent.WriteString(fmt.Sprintf("    timeoutDuration = %d.s\n", dr.DefaultTimeoutSec))
+			pklContent.WriteString(fmt.Sprintf("    TimeoutDuration = %d.s\n", dr.DefaultTimeoutSec))
 		}
 
 		if res.Timestamp != nil {
-			pklContent.WriteString(fmt.Sprintf("    timestamp = %g.%s\n", res.Timestamp.Value, res.Timestamp.Unit.String()))
+			pklContent.WriteString(fmt.Sprintf("    Timestamp = %g.%s\n", res.Timestamp.Value, res.Timestamp.Unit.String()))
 		}
 
-		pklContent.WriteString("    env ")
+		pklContent.WriteString("    Env ")
 		pklContent.WriteString(utils.EncodePklMap(res.Env))
 
 		pklContent.WriteString(dr.encodePythonStderr(res.Stderr))
 		pklContent.WriteString(dr.encodePythonStdout(res.Stdout))
-		pklContent.WriteString(fmt.Sprintf("    file = \"%s\"\n", *res.File))
+		pklContent.WriteString(fmt.Sprintf("    File = \"%s\"\n", *res.File))
 
 		pklContent.WriteString("  }\n")
 	}
@@ -338,14 +338,14 @@ func (dr *DependencyResolver) encodePythonOutputs(stderr, stdout *string) (*stri
 
 func (dr *DependencyResolver) encodePythonStderr(stderr *string) string {
 	if stderr == nil {
-		return "    stderr = \"\"\n"
+		return "    Stderr = \"\"\n"
 	}
-	return fmt.Sprintf("    stderr = #\"\"\"\n%s\n\"\"\"#\n", *stderr)
+	return fmt.Sprintf("    Stderr = #\"\"\"\n%s\n\"\"\"#\n", *stderr)
 }
 
 func (dr *DependencyResolver) encodePythonStdout(stdout *string) string {
 	if stdout == nil {
-		return "    stdout = \"\"\n"
+		return "    Stdout = \"\"\n"
 	}
-	return fmt.Sprintf("    stdout = #\"\"\"\n%s\n\"\"\"#\n", *stdout)
+	return fmt.Sprintf("    Stdout = #\"\"\"\n%s\n\"\"\"#\n", *stdout)
 }

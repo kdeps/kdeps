@@ -16,7 +16,7 @@ import (
 // Only Name and Version are significant for transformation functions; all other methods return zero values.
 type stubWf struct{}
 
-func (stubWf) GetName() string                { return "agent" }
+func (stubWf) GetAgentID() string             { return "agent" }
 func (stubWf) GetDescription() string         { return "" }
 func (stubWf) GetWebsite() *string            { return nil }
 func (stubWf) GetAuthors() *[]string          { return nil }
@@ -33,7 +33,7 @@ func (stubWf) GetSettings() *project.Settings { return nil }
 var (
 	_ pklWf.Workflow = stubWf{}
 	_ interface {
-		GetName() string
+		GetAgentID() string
 		GetVersion() string
 	} = stubWf{}
 )
@@ -67,21 +67,22 @@ func TestProcessActionPatternsEdge(t *testing.T) {
 }
 
 func TestProcessActionIDLineEdge(t *testing.T) {
-	got := processActionIDLine("myAction", "myAction", "agent", "2.0.0")
+	// Test the actionID processing logic that's now in processLine
+	got, _ := processLine("actionID = \"myAction\"", "agent", "2.0.0")
 	if !strings.Contains(got, "@agent/myAction:2.0.0") {
 		t.Fatalf("expected namespaced id, got %s", got)
 	}
 
 	// Already namespaced should remain unchanged.
-	original := "call @other/that:1.1.1"
-	if res := processActionIDLine(original, "@other/that:1.1.1", "agent", "2.0.0"); res != original {
+	original := "actionID = \"@other/that:1.1.1\""
+	if res, _ := processLine(original, "agent", "2.0.0"); res != original {
 		t.Fatalf("should not modify already namespaced string")
 	}
 }
 
 func TestStubWfAllMethods(t *testing.T) {
 	wf := stubWf{}
-	if wf.GetName() == "" || wf.GetVersion() == "" {
+	if wf.GetAgentID() == "" || wf.GetVersion() == "" {
 		t.Fatalf("name or version empty")
 	}
 	_ = wf.GetDescription()

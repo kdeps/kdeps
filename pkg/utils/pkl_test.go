@@ -141,10 +141,10 @@ func TestFormatRequestHeadersAndParamsExtra(t *testing.T) {
 	prmOut := FormatRequestParams(params)
 
 	// Basic structural checks
-	if !strings.HasPrefix(hdrOut, "headers {") || !strings.HasSuffix(hdrOut, "}") {
+	if !strings.HasPrefix(hdrOut, "Headers {") || !strings.HasSuffix(hdrOut, "}") {
 		t.Fatalf("unexpected headers formatting: %q", hdrOut)
 	}
-	if !strings.HasPrefix(prmOut, "params {") || !strings.HasSuffix(prmOut, "}") {
+	if !strings.HasPrefix(prmOut, "Params {") || !strings.HasSuffix(prmOut, "}") {
 		t.Fatalf("unexpected params formatting: %q", prmOut)
 	}
 
@@ -214,14 +214,14 @@ func TestFormatRequestHeaders(t *testing.T) {
 		{
 			name:     "EmptyHeaders",
 			input:    map[string][]string{},
-			expected: "headers {\n\n}",
+			expected: "Headers {\n\n}",
 		},
 		{
 			name: "SingleHeader",
 			input: map[string][]string{
 				"Content-Type": {"application/json"},
 			},
-			expected: "headers {\n[\"Content-Type\"] = \"YXBwbGljYXRpb24vanNvbg==\"\n}",
+			expected: "Headers {\n[\"Content-Type\"] = \"YXBwbGljYXRpb24vanNvbg==\"\n}",
 		},
 		{
 			name: "MultipleHeaders",
@@ -229,21 +229,21 @@ func TestFormatRequestHeaders(t *testing.T) {
 				"Content-Type": {"application/json"},
 				"Accept":       {"text/plain"},
 			},
-			expected: "headers {\n[\"Content-Type\"] = \"YXBwbGljYXRpb24vanNvbg==\"\n[\"Accept\"] = \"dGV4dC9wbGFpbg==\"\n}",
+			expected: "Headers {\n[\"Content-Type\"] = \"YXBwbGljYXRpb24vanNvbg==\"\n[\"Accept\"] = \"dGV4dC9wbGFpbg==\"\n}",
 		},
 		{
 			name: "MultipleValues",
 			input: map[string][]string{
 				"Accept": {"text/plain", "application/json"},
 			},
-			expected: "headers {\n[\"Accept\"] = \"dGV4dC9wbGFpbg==\"\n[\"Accept\"] = \"YXBwbGljYXRpb24vanNvbg==\"\n}",
+			expected: "Headers {\n[\"Accept\"] = \"dGV4dC9wbGFpbg==\"\n[\"Accept\"] = \"YXBwbGljYXRpb24vanNvbg==\"\n}",
 		},
 		{
 			name: "SpecialCharacters",
 			input: map[string][]string{
 				"X-Custom": {"value with spaces and \"quotes\""},
 			},
-			expected: "headers {\n[\"X-Custom\"] = \"dmFsdWUgd2l0aCBzcGFjZXMgYW5kICJxdW90ZXMi\"\n}",
+			expected: "Headers {\n[\"X-Custom\"] = \"dmFsdWUgd2l0aCBzcGFjZXMgYW5kICJxdW90ZXMi\"\n}",
 		},
 	}
 
@@ -254,7 +254,7 @@ func TestFormatRequestHeaders(t *testing.T) {
 				// Since map iteration order is not guaranteed, check that both lines are present
 				assert.Contains(t, result, `["Content-Type"] = "YXBwbGljYXRpb24vanNvbg=="`)
 				assert.Contains(t, result, `["Accept"] = "dGV4dC9wbGFpbg=="`)
-				assert.Contains(t, result, "headers {")
+				assert.Contains(t, result, "Headers {")
 				assert.Contains(t, result, "}")
 			} else {
 				assert.Equal(t, tt.expected, result)
@@ -272,14 +272,14 @@ func TestFormatRequestParams(t *testing.T) {
 		{
 			name:     "EmptyParams",
 			input:    map[string][]string{},
-			expected: "params {\n\n}",
+			expected: "Params {\n\n}",
 		},
 		{
 			name: "SingleParam",
 			input: map[string][]string{
 				"query": {"search"},
 			},
-			expected: "params {\n[\"query\"] = \"c2VhcmNo\"\n}",
+			expected: "Params {\n[\"query\"] = \"c2VhcmNo\"\n}",
 		},
 		{
 			name: "MultipleParams",
@@ -287,21 +287,21 @@ func TestFormatRequestParams(t *testing.T) {
 				"query":  {"search"},
 				"filter": {"active"},
 			},
-			expected: "params {\n[\"query\"] = \"c2VhcmNo\"\n[\"filter\"] = \"YWN0aXZl\"\n}",
+			expected: "Params {\n[\"query\"] = \"c2VhcmNo\"\n[\"filter\"] = \"YWN0aXZl\"\n}",
 		},
 		{
 			name: "MultipleValues",
 			input: map[string][]string{
 				"tags": {"tag1", "tag2"},
 			},
-			expected: "params {\n[\"tags\"] = \"dGFnMQ==\"\n[\"tags\"] = \"dGFnMg==\"\n}",
+			expected: "Params {\n[\"tags\"] = \"dGFnMQ==\"\n[\"tags\"] = \"dGFnMg==\"\n}",
 		},
 		{
 			name: "SpecialCharacters",
 			input: map[string][]string{
 				"search": {"value with spaces and \"quotes\""},
 			},
-			expected: "params {\n[\"search\"] = \"dmFsdWUgd2l0aCBzcGFjZXMgYW5kICJxdW90ZXMi\"\n}",
+			expected: "Params {\n[\"search\"] = \"dmFsdWUgd2l0aCBzcGFjZXMgYW5kICJxdW90ZXMi\"\n}",
 		},
 	}
 
@@ -312,7 +312,7 @@ func TestFormatRequestParams(t *testing.T) {
 				// Since map iteration order is not guaranteed, check that both lines are present
 				assert.Contains(t, result, `["query"] = "c2VhcmNo"`)
 				assert.Contains(t, result, `["filter"] = "YWN0aXZl"`)
-				assert.Contains(t, result, "params {")
+				assert.Contains(t, result, "Params {")
 				assert.Contains(t, result, "}")
 			} else {
 				assert.Equal(t, tt.expected, result)
@@ -330,14 +330,14 @@ func TestFormatResponseHeaders(t *testing.T) {
 		{
 			name:     "EmptyHeaders",
 			input:    map[string]string{},
-			expected: "headers {\n\n}",
+			expected: "Headers {\n\n}",
 		},
 		{
 			name: "SingleHeader",
 			input: map[string]string{
 				"Content-Type": "application/json",
 			},
-			expected: "headers {\n[\"Content-Type\"] = \"application/json\"\n}",
+			expected: "Headers {\n[\"Content-Type\"] = \"application/json\"\n}",
 		},
 		{
 			name: "MultipleHeaders",
@@ -345,14 +345,14 @@ func TestFormatResponseHeaders(t *testing.T) {
 				"Content-Type": "application/json",
 				"Accept":       "text/plain",
 			},
-			expected: "headers {\n[\"Content-Type\"] = \"application/json\"\n[\"Accept\"] = \"text/plain\"\n}",
+			expected: "Headers {\n[\"Content-Type\"] = \"application/json\"\n[\"Accept\"] = \"text/plain\"\n}",
 		},
 		{
 			name: "SpecialCharacters",
 			input: map[string]string{
 				"X-Custom": "value with spaces and \"quotes\"",
 			},
-			expected: "headers {\n[\"X-Custom\"] = \"value with spaces and \"quotes\"\"\n}",
+			expected: "Headers {\n[\"X-Custom\"] = \"value with spaces and \"quotes\"\"\n}",
 		},
 	}
 
@@ -363,7 +363,7 @@ func TestFormatResponseHeaders(t *testing.T) {
 				// Since map iteration order is not guaranteed, check that both lines are present
 				assert.Contains(t, result, `["Content-Type"] = "application/json"`)
 				assert.Contains(t, result, `["Accept"] = "text/plain"`)
-				assert.Contains(t, result, "headers {")
+				assert.Contains(t, result, "Headers {")
 				assert.Contains(t, result, "}")
 			} else {
 				assert.Equal(t, tt.expected, result)
@@ -381,14 +381,14 @@ func TestFormatResponseProperties(t *testing.T) {
 		{
 			name:     "EmptyProperties",
 			input:    map[string]string{},
-			expected: "properties {\n\n}",
+			expected: "Properties {\n\n}",
 		},
 		{
 			name: "SingleProperty",
 			input: map[string]string{
 				"status": "success",
 			},
-			expected: "properties {\n[\"status\"] = \"success\"\n}",
+			expected: "Properties {\n[\"status\"] = \"success\"\n}",
 		},
 		{
 			name: "MultipleProperties",
@@ -396,14 +396,14 @@ func TestFormatResponseProperties(t *testing.T) {
 				"status":  "success",
 				"message": "operation completed",
 			},
-			expected: "properties {\n[\"status\"] = \"success\"\n[\"message\"] = \"operation completed\"\n}",
+			expected: "Properties {\n[\"status\"] = \"success\"\n[\"message\"] = \"operation completed\"\n}",
 		},
 		{
 			name: "SpecialCharacters",
 			input: map[string]string{
 				"description": "value with spaces and \"quotes\"",
 			},
-			expected: "properties {\n[\"description\"] = \"value with spaces and \"quotes\"\"\n}",
+			expected: "Properties {\n[\"description\"] = \"value with spaces and \"quotes\"\"\n}",
 		},
 	}
 
@@ -414,7 +414,7 @@ func TestFormatResponseProperties(t *testing.T) {
 				// Since map iteration order is not guaranteed, check that both lines are present
 				assert.Contains(t, result, `["status"] = "success"`)
 				assert.Contains(t, result, `["message"] = "operation completed"`)
-				assert.Contains(t, result, "properties {")
+				assert.Contains(t, result, "Properties {")
 				assert.Contains(t, result, "}")
 			} else {
 				assert.Equal(t, tt.expected, result)

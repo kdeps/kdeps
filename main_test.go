@@ -253,7 +253,7 @@ func TestHandleDockerMode_Flow(t *testing.T) {
 			bootCalled <- struct{}{}
 			return true, nil // apiServerMode
 		}
-		// runGraphResolverActions should NOT be called because apiServerMode == true; panic if invoked
+		// runGraphResolverActions should NOT be called because ApiServerMode == true; panic if invoked
 		runGraphResolverActionsFn = func(ctx context.Context, dr *resolver.DependencyResolver, apiServer bool) error {
 			t.Fatalf("runGraphResolverActions should not be called in apiServerMode")
 			return nil
@@ -324,7 +324,7 @@ func TestHandleNonDockerMode_Flow(t *testing.T) {
 }
 
 // TestHandleDockerMode_APIServerMode validates the code path where bootstrapDockerSystemFn
-// indicates that the current execution is in API-server mode (apiServerMode == true).
+// indicates that the current execution is in API-server mode (ApiServerMode == true).
 // In this branch handleDockerMode should *not* invoke runGraphResolverActionsFn but must
 // still perform cleanup before returning. This test exercises those control-flow paths
 // which previously had little or no coverage.
@@ -355,7 +355,7 @@ func TestHandleDockerMode_APIServerMode(t *testing.T) {
 	// Stub bootstrap to enter API-server mode.
 	bootstrapDockerSystemFn = func(_ context.Context, _ *resolver.DependencyResolver) (bool, error) {
 		atomic.StoreInt32(&bootstrapCalled, 1)
-		return true, nil // apiServerMode == true
+		return true, nil // ApiServerMode == true
 	}
 
 	// If runGraphResolverActionsFn is invoked we record it – it should NOT be for this path.
@@ -426,7 +426,7 @@ func TestHandleDockerMode_NoAPIServer(t *testing.T) {
 	// Stub implementations.
 	bootstrapDockerSystemFn = func(_ context.Context, _ *resolver.DependencyResolver) (bool, error) {
 		atomic.StoreInt32(&bootstrapCalled, 1)
-		return false, nil // apiServerMode = false
+		return false, nil // ApiServerMode = false
 	}
 
 	runGraphResolverActionsFn = func(_ context.Context, _ *resolver.DependencyResolver, _ bool) error {

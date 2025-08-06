@@ -6,7 +6,7 @@ outline: deep
 
 The `workflow.pkl` contains configuration about the AI Agent, namely:
 
-- AI agent `name`, `description`, `website`, `authors`, `documentation`, and `repository`.
+- AI agent `Name`, `Description`, `website`, `authors`, `documentation`, and `repository`.
 - The semver `version` of this AI agent.
 - The `targetActionID` resource to be executed when running the AI agent. This is the ID of the resource.
 - Existing AI agents `workflows` to be reused in this AI agent. The agent needs to be installed first via
@@ -18,12 +18,12 @@ The `settings` block allows advanced configuration of the AI agent, covering API
 Ubuntu and Python packages, and default LLM models.
 
 ```apl
-settings {
+Settings {
     APIServerMode = true
     APIServer {...}
     WebServerMode = false
     WebServer {...}
-    agentSettings {...}
+    AgentSettings {...}
 }
 ```
 
@@ -33,10 +33,10 @@ The `settings` block includes the following configurations:
 
 - `APIServerMode`: A boolean flag that enables or disables API server mode for the project. When set to `false`, the
   default action is executed directly, and the program exits upon completion.
-- `APIServer`: A configuration block that specifies API settings such as `hostIP`, `portNum`, and `routes`.
+- `APIServer`: A configuration block that specifies API settings such as `HostIP`, `PortNum`, and `routes`.
 - `WebServerMode`: A boolean flag that enables or disables the web server for serving frontends or proxying web
   applications.
-- `WebServer`: A configuration block that specifies web server settings such as `hostIP`, `portNum`, and `routes`.
+- `WebServer`: A configuration block that specifies web server settings such as `HostIP`, `PortNum`, and `routes`.
 - `agentSettings`: A configuration block that includes settings for installing Anaconda, `condaPackages`,
   `pythonPackages`, custom or PPA Ubuntu `repositories`, Ubuntu `packages`, and Ollama LLM `models`.
 
@@ -46,18 +46,18 @@ The `settings` block includes the following configurations:
 The `APIServer` block defines API routing configurations for the AI agent. These settings are only applied when
 `APIServerMode` is set to `true`.
 
-- `hostIP` **and** `portNum`: Define the IP address and port for the Docker container. The default values are
-  `"127.0.0.1"` for `hostIP` and `3000` for `portNum`.
+- `HostIP` **and** `PortNum`: Define the IP address and port for the Docker container. The default values are
+  `"127.0.0.1"` for `HostIP` and `3000` for `PortNum`.
 
 #### TrustedProxies
 
-The `trustedProxies` allows setting the allowable `X-Forwarded-For` header IPv4, IPv6, or CIDR addresses, used to limit
+The `TrustedProxies` allows setting the allowable `X-Forwarded-For` header IPv4, IPv6, or CIDR addresses, used to limit
 trusted requests to the service. You can obtain the client's IP address through `@(request.IP())`.
 
 Example:
 
 ```apl
-trustedProxies {
+TrustedProxies {
   "127.0.0.1"
   "192.168.1.2"
   "10.0.0.0/8"
@@ -73,21 +73,21 @@ domains.
 Example:
 
 ```apl
-cors {
-    enableCORS = true
-    allowOrigins {
+CORS {
+    EnableCORS = true
+    AllowOrigins {
         "https://example.com"
     }
-    allowMethods {
+    AllowMethods {
         "GET"
         "POST"
     }
-    allowHeaders {
+    AllowHeaders {
         "Content-Type"
         "Authorization"
     }
-    allowCredentials = true
-    maxAge = 24.h
+    AllowCredentials = true
+    MaxAge = 24.h
 }
 ```
 
@@ -104,16 +104,16 @@ See the [CORS Configuration](/getting-started/configuration/cors.md) for more de
 Example:
 
 ```apl
-routes {
+Routes {
     new {
-        path = "/api/v1/user"
-        methods {
+        Path = "/api/v1/user"
+        Methods {
             "GET"
         }
     }
     new {
-        path = "/api/v1/items"
-        methods {
+        Path = "/api/v1/items"
+        Methods {
             "POST"
         }
     }
@@ -130,7 +130,7 @@ For instance, to run a resource only on the `"/api/v1/items"` route, you can def
 local allowedPath = "/api/v1/items"
 local requestPath = "@(request.path())"
 
-skipCondition {
+SkipCondition {
     requestPath != allowedPath
 }
 ```
@@ -158,8 +158,8 @@ The `WebServer` block defines configurations for serving frontend interfaces or 
 Kdeps to deliver full-stack AI applications with integrated UIs. These settings are only applied when `WebServerMode` is
 set to `true`.
 
-- `hostIP` **and** `portNum`: Define the IP address and port for the web server. The default values are `"127.0.0.1"`
-  for `hostIP` and `8080` for `portNum`.
+- `HostIP` **and** `PortNum`: Define the IP address and port for the web server. The default values are `"127.0.0.1"`
+  for `HostIP` and `8080` for `PortNum`.
 
 
 #### WebServerMode
@@ -176,16 +176,16 @@ WebServerMode = true
 
 #### WebServer
 
-- `WebServer`: A configuration block that defines settings for the web server, including `hostIP`, `portNum`,
-  `trustedProxies`, and `routes`. It is only active when `WebServerMode` is `true`.
+- `WebServer`: A configuration block that defines settings for the web server, including `HostIP`, `PortNum`,
+  `TrustedProxies`, and `routes`. It is only active when `WebServerMode` is `true`.
 
 Example:
 
 ```apl
 WebServer {
-    hostIP = "0.0.0.0"
-    portNum = 8080
-    trustedProxies {
+    HostIP = "0.0.0.0"
+    PortNum = 8080
+    TrustedProxies {
         "192.168.1.0/24"
     }
 }
@@ -202,17 +202,17 @@ Example:
 
 ```apl
 WebServer {
-    routes {
+    Routes {
         new {
-            path = "/dashboard"
-            serverType = "static"
-            publicPath = "/agentX/1.0.0/dashboard/"
+            Path = "/dashboard"
+            ServerType = "static"
+            PublicPath = "/agentX/1.0.0/dashboard/"
         }
         new {
-            path = "/app"
-            serverType = "app"
-            appPort = 8501
-            command = "streamlit run app.py"
+            Path = "/app"
+            ServerType = "app"
+            AppPort = 8501
+            Command = "streamlit run app.py"
         }
     }
 }
@@ -224,18 +224,18 @@ enabling frontend integration with Kdeps' AI workflows.
 ##### Static File Serving
 
 - **`static`**: Serves files like HTML, CSS, or JS from a specified directory, ideal for hosting dashboards or
-  frontends. The block with `serverType = "static"` defines the path and directory relative to `/data/`,
+  frontends. The block with `ServerType = "static"` defines the path and directory relative to `/data/`,
   delivering files directly to clients.
 
 Example:
 
 ```apl
 WebServer {
-    routes {
+    Routes {
         new {
-            path = "/dashboard"
-            serverType = "static"
-            publicPath = "/agentX/1.0.0/dashboard/"
+            Path = "/dashboard"
+            ServerType = "static"
+            PublicPath = "/agentX/1.0.0/dashboard/"
         }
     }
 }
@@ -246,20 +246,20 @@ This serves files from `/data/agentX/1.0.0/dashboard/` at `http://<host>:8080/da
 ##### Reverse Proxying
 
 - **`app`**: Forwards requests to a local web application (e.g., Streamlit, Node.js) running on a specified port. The
-  block with `serverType = "app"` defines the path, port, and optional command to start the app, proxying client
+  block with `ServerType = "app"` defines the path, port, and optional command to start the app, proxying client
   requests to the app’s server.
 
 Example:
 
 ```apl
 WebServer {
-    routes {
+    Routes {
         new {
-            path = "/app"
-            serverType = "app"
-            publicPath = "/agentX/1.0.0/streamlit-app/"
-            appPort = 8501
-            command = "streamlit run app.py"
+            Path = "/app"
+            ServerType = "app"
+            PublicPath = "/agentX/1.0.0/streamlit-app/"
+            AppPort = 8501
+            Command = "streamlit run app.py"
         }
     }
 }
@@ -273,17 +273,17 @@ app.py`. For more details, see the [Web Server](/getting-started/configuration/w
 This section contains the agent settings that will be used to build the agent's Docker image.
 
 ```apl
-agentSettings {
-    timezone = "Etc/UTC"
+AgentSettings {
+    Timezone = "Etc/UTC"
     installAnaconda = false
     condaPackages { ... }
-    pythonPackages { ... }
-    repositories { ... }
-    packages { ... }
-    models { ... }
-    ollamaImageTag = "0.5.4"
-    env { ... }
-    args { ... }
+    PythonPackages { ... }
+    Repositories { ... }
+    Packages { ... }
+    Models { ... }
+    OllamaImageTag = "0.5.4"
+    Env { ... }
+    Args { ... }
 }
 ```
 
@@ -320,7 +320,7 @@ This configuration will:
 - Use the `pytorch` channel to install `pytorch`.
 - Use the `conda-forge` channel to install `tensorflow`, `pandas`, `keras`, and `transformers`.
 
-To use the isolated environment, the Python resource should specify the Anaconda environment via the `condaEnvironment`
+To use the isolated environment, the Python resource should specify the Anaconda environment via the `CondaEnvironment`
 setting.
 
 #### Python Packages
@@ -328,7 +328,7 @@ setting.
 Python packages can also be installed even without Anaconda installed.
 
 ```apl
-pythonPackages {
+PythonPackages {
     "diffusers[torch]"
     "streamlit"
     "openai-whisper"
@@ -340,7 +340,7 @@ pythonPackages {
 Additional Ubuntu and Ubuntu PPA repositories can be defined in the `repositories` settings.
 
 ```apl
-repositories {
+Repositories {
     "ppa:alex-p/tesseract-ocr-devel"
 }
 ```
@@ -352,7 +352,7 @@ In this example, a PPA repository is added for installing the latest `tesseract-
 Specify the Ubuntu packages that should be pre-installed when building this image.
 
 ```apl
-packages {
+Packages {
     "tesseract-ocr"
     "poppler-utils"
     "npm"
@@ -365,7 +365,7 @@ packages {
 List the local Ollama LLM models that will be pre-installed. You can specify multiple models.
 
 ```apl
-models {
+Models {
     "tinydolphin"
     "llama3.3"
     "llama3.2-vision"
@@ -396,11 +396,11 @@ runtime, and `ARG` (arguments) that are used for passing values during the build
 To declare `ENV` or `ARG` parameters, use the `env` and `args` sections in your workflow configuration:
 
 ```apl
-env {
+Env {
   ["API_KEY"] = "example_value"
 }
 
-args {
+Args {
   ["API_TOKEN"] = ""
 }
 ```

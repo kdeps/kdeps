@@ -171,7 +171,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		apiServerMode = workflowConfiguration.GetSettings().APIServerMode
 		agentSettings := workflowConfiguration.GetSettings().AgentSettings
 		installAnaconda = agentSettings.InstallAnaconda
-		agentName = workflowConfiguration.GetName()
+		agentName = workflowConfiguration.GetAgentID()
 	}
 
 	// Use configurable kdeps path for tests or default to /.kdeps/
@@ -339,13 +339,24 @@ func (dr *DependencyResolver) validateRequestParams(file string, allowedParams [
 		return nil // Allow all if empty
 	}
 
+	// Split file into lines to check each line individually
+	lines := strings.Split(file, "\n")
 	re := regexp.MustCompile(`request\.params\("([^"]+)"\)`)
-	matches := re.FindAllStringSubmatch(file, -1)
 
-	for _, match := range matches {
-		param := match[1]
-		if !utils.ContainsStringInsensitive(allowedParams, param) {
-			return fmt.Errorf("param %s not in the allowed params", param)
+	for _, line := range lines {
+		// Skip commented lines (lines that start with // after any whitespace)
+		trimmedLine := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmedLine, "//") {
+			continue
+		}
+
+		// Find matches in non-commented lines only
+		matches := re.FindAllStringSubmatch(line, -1)
+		for _, match := range matches {
+			param := match[1]
+			if !utils.ContainsStringInsensitive(allowedParams, param) {
+				return fmt.Errorf("param %s not in the allowed params", param)
+			}
 		}
 	}
 	return nil
@@ -357,13 +368,24 @@ func (dr *DependencyResolver) validateRequestHeaders(file string, allowedHeaders
 		return nil // Allow all if empty
 	}
 
+	// Split file into lines to check each line individually
+	lines := strings.Split(file, "\n")
 	re := regexp.MustCompile(`request\.header\("([^"]+)"\)`)
-	matches := re.FindAllStringSubmatch(file, -1)
 
-	for _, match := range matches {
-		header := match[1]
-		if !utils.ContainsStringInsensitive(allowedHeaders, header) {
-			return fmt.Errorf("header %s not in the allowed headers", header)
+	for _, line := range lines {
+		// Skip commented lines (lines that start with // after any whitespace)
+		trimmedLine := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmedLine, "//") {
+			continue
+		}
+
+		// Find matches in non-commented lines only
+		matches := re.FindAllStringSubmatch(line, -1)
+		for _, match := range matches {
+			header := match[1]
+			if !utils.ContainsStringInsensitive(allowedHeaders, header) {
+				return fmt.Errorf("header %s not in the allowed headers", header)
+			}
 		}
 	}
 	return nil

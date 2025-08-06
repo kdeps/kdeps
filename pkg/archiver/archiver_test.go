@@ -139,10 +139,10 @@ func itHasAFileWithIDPropertyAndDependentOn(arg1, arg2, arg3 string) error {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
 			requiresLines = append(requiresLines, fmt.Sprintf(`  "%s"`, value))
 		}
-		requiresSection = "requires {\n" + strings.Join(requiresLines, "\n") + "\n}"
+		requiresSection = "Requires {\n" + strings.Join(requiresLines, "\n") + "\n}"
 	} else {
 		// Single value case
-		requiresSection = fmt.Sprintf(`requires {
+		requiresSection = fmt.Sprintf(`Requires {
   "%s"
 }`, arg3)
 	}
@@ -151,10 +151,10 @@ func itHasAFileWithIDPropertyAndDependentOn(arg1, arg2, arg3 string) error {
 	doc := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-actionID = "%s"
+ActionID = "%s"
 %s
 run {
-  exec {
+  Exec {
   ["key"] = """
 @(exec.stdout["anAction"])
 @(exec.stdin["anAction2"])
@@ -283,9 +283,9 @@ func itHasAFileWithNoDependencyWithIDProperty(arg1, arg2 string) error {
 	doc := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-actionID = "%s"
+ActionID = "%s"
 run {
-  exec {
+  Exec {
   ["key"] = """
 @(exec.stdout["anAction"])
 @(exec.stdin["anAction2"])
@@ -314,10 +314,10 @@ func itHasAWorkflowFile(arg1, arg2, arg3 string) error {
 	doc := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
-targetActionID = "%s"
-name = "%s"
-description = "My awesome AI Agent"
-version = "%s"
+TargetActionID = "%s"
+AgentID = "%s"
+Description = "My awesome AI Agent"
+Version = "%s"
 `, schema.SchemaVersion(ctx), arg3, arg1, arg2)
 
 	file := filepath.Join(aiAgentDir, "workflow.pkl")
@@ -405,10 +405,10 @@ func theDataFilesWillBeCopiedTo(arg1 string) error {
 
 func thePklFilesIsInvalid() error {
 	doc := `
-	name = "invalid agent"
-	description = "a not valid configuration"
-	version = "five"
-	targetActionID = "hello World"
+	AgentID = "invalid agent"
+	Description = "a not valid configuration"
+	Version = "five"
+	TargetActionID = "hello World"
 	`
 	file := filepath.Join(aiAgentDir, "workflow1.pkl")
 
@@ -473,10 +473,10 @@ func itHasAWorkflowFileDependencies(arg1, arg2, arg3, arg4 string) error {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
 			workflowsLines = append(workflowsLines, fmt.Sprintf(`  "%s"`, value))
 		}
-		workflowsSection = "workflows {\n" + strings.Join(workflowsLines, "\n") + "\n}"
+		workflowsSection = "Workflows {\n" + strings.Join(workflowsLines, "\n") + "\n}"
 	} else {
 		// Single value case
-		workflowsSection = fmt.Sprintf(`workflows {
+		workflowsSection = fmt.Sprintf(`Workflows {
   "%s"
 }`, arg4)
 	}
@@ -484,10 +484,10 @@ func itHasAWorkflowFileDependencies(arg1, arg2, arg3, arg4 string) error {
 	doc := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
-targetActionID = "%s"
-name = "%s"
-description = "My awesome AI Agent"
-version = "%s"
+TargetActionID = "%s"
+AgentID = "%s"
+Description = "My awesome AI Agent"
+Version = "%s"
 %s
 `, schema.SchemaVersion(ctx), arg3, arg1, arg2, workflowsSection)
 
@@ -524,10 +524,10 @@ func itHasAFileWithIDPropertyAndDependentOnWithRunBlockAndIsNotNull(arg1, arg2, 
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
 			requiresLines = append(requiresLines, fmt.Sprintf(`  "%s"`, value))
 		}
-		requiresSection = "requires {\n" + strings.Join(requiresLines, "\n") + "\n}"
+		requiresSection = "Requires {\n" + strings.Join(requiresLines, "\n") + "\n}"
 	} else {
 		// Single value case
-		requiresSection = fmt.Sprintf(`requires {
+		requiresSection = fmt.Sprintf(`Requires {
   "%s"
 }`, arg3)
 	}
@@ -539,12 +539,13 @@ func itHasAFileWithIDPropertyAndDependentOnWithRunBlockAndIsNotNull(arg1, arg2, 
 		var fieldLines []string
 		for _, value := range values {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
+			value = strings.Title(value)     // Capitalize for new schema
 			fieldLines = append(fieldLines, value+" {\n[\"key\"] = \"\"\"\n@(exec.stdout[\"anAction\"])\n@(exec.stdin[\"anAction2\"])\n@(exec.stderr[\"anAction2\"])\n@(http.client[\"anAction3\"].response)\n@(llm.chat[\"anAction4\"].response)\n\"\"\"\n}")
 		}
-		fieldSection = "run {\n" + strings.Join(fieldLines, "\n") + "\n}"
+		fieldSection = "Run {\n" + strings.Join(fieldLines, "\n") + "\n}"
 	} else {
 		// Single value case
-		fieldSection = fmt.Sprintf(`run {
+		fieldSection = fmt.Sprintf(`Run {
   %s {
 ["key"] = """
 @(exec.stdout["anAction"])
@@ -554,14 +555,14 @@ func itHasAFileWithIDPropertyAndDependentOnWithRunBlockAndIsNotNull(arg1, arg2, 
 @(llm.chat["anAction4"].response)
 """
   }
-}`, arg4)
+}`, strings.Title(arg4))
 	}
 
 	// Create the document with the id and requires block
 	doc := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-actionID = "%s"
+ActionID = "%s"
 %s
 %s
 `, schema.SchemaVersion(ctx), arg2, requiresSection, fieldSection)
@@ -591,10 +592,10 @@ func itHasAFileWithIDPropertyAndDependentOnWithRunBlockAndIsNull(arg1, arg2, arg
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
 			requiresLines = append(requiresLines, fmt.Sprintf(`  "%s"`, value))
 		}
-		requiresSection = "requires {\n" + strings.Join(requiresLines, "\n") + "\n}"
+		requiresSection = "Requires {\n" + strings.Join(requiresLines, "\n") + "\n}"
 	} else {
 		// Single value case
-		requiresSection = fmt.Sprintf(`requires {
+		requiresSection = fmt.Sprintf(`Requires {
   "%s"
 }`, arg3)
 	}
@@ -606,21 +607,22 @@ func itHasAFileWithIDPropertyAndDependentOnWithRunBlockAndIsNull(arg1, arg2, arg
 		var fieldLines []string
 		for _, value := range values {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
+			value = strings.Title(value)     // Capitalize for new schema
 			fieldLines = append(fieldLines, value+"=null")
 		}
-		fieldSection = "run {\n" + strings.Join(fieldLines, "\n") + "\n}"
+		fieldSection = "Run {\n" + strings.Join(fieldLines, "\n") + "\n}"
 	} else {
 		// Single value case
-		fieldSection = fmt.Sprintf(`run {
+		fieldSection = fmt.Sprintf(`Run {
   %s=null
-}`, arg4)
+}`, strings.Title(arg4))
 	}
 
 	// Create the document with the id and requires block
 	doc := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-actionID = "%s"
+ActionID = "%s"
 %s
 %s
 `, schema.SchemaVersion(ctx), arg2, requiresSection, fieldSection)

@@ -35,34 +35,34 @@ var (
 	configAmendsLine    = fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Kdeps.pkl"`, schema.SchemaVersion(ctx))
 	resourceAmendsLine  = fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"`, schema.SchemaVersion(ctx))
 	resourceValues      = `
-actionID = "helloWorld"
-name = "name"
-description = "description"
-category = "category"
+ActionID = "helloWorld"
+Name = "name"
+Description = "description"
+Category = "category"
 `
 	configValues = `
-runMode = "docker"
-dockerGPU = "cpu"
+RunMode = "docker"
+DockerGPU = "cpu"
 `
 	workflowValues = `
-settings {
+Settings {
   APIServerMode = false
   APIServer {
-    portNum = 3000
-    routes {
+    PortNum = 3000
+    Routes {
       new {
-	path = "/api"
-	methods {
+	Path = "/api"
+	Methods {
 	  "POST"
 	}
       }
     }
   }
 }
-name = "myAgent"
-description = "My awesome AI Agent"
-version = "1.0.0"
-targetActionID = "helloWorld"
+AgentID = "myAgent"
+Description = "My awesome AI Agent"
+Version = "1.0.0"
+TargetActionID = "helloWorld"
 `
 	testingT *testing.T
 )
@@ -495,7 +495,7 @@ func TestEnforceResourceRunBlock(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	dir := t.TempDir()
 	fileOne := filepath.Join(dir, "single.pkl")
-	contentSingle := "chat {\n}" // one run block
+	contentSingle := "Chat {\n}" // one run block
 	_ = afero.WriteFile(fs, fileOne, []byte(contentSingle), 0o644)
 
 	if err := EnforceResourceRunBlock(fs, context.Background(), fileOne, logging.NewTestLogger()); err != nil {
@@ -503,7 +503,7 @@ func TestEnforceResourceRunBlock(t *testing.T) {
 	}
 
 	fileMulti := filepath.Join(dir, "multi.pkl")
-	contentMulti := "chat {\n}\npython {\n}" // two run blocks
+	contentMulti := "Chat {\n}\nPython {\n}" // two run blocks
 	_ = afero.WriteFile(fs, fileMulti, []byte(contentMulti), 0o644)
 
 	if err := EnforceResourceRunBlock(fs, context.Background(), fileMulti, logging.NewTestLogger()); err == nil {

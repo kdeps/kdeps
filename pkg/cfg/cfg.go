@@ -1,13 +1,14 @@
 package cfg
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/adrg/xdg"
-	"github.com/charmbracelet/huh"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -17,6 +18,24 @@ import (
 	"github.com/kdeps/schema/gen/kdeps/path"
 	"github.com/spf13/afero"
 )
+
+// simpleConfirm provides a simple Yes/No prompt without TUI complications
+func simpleConfirm(title, description string) (bool, error) {
+	fmt.Printf("\n%s\n", title)
+	if description != "" {
+		fmt.Printf("%s\n", description)
+	}
+	fmt.Print("Do you want to continue? (y/N): ")
+
+	reader := bufio.NewReader(os.Stdin)
+	response, err := reader.ReadString('\n')
+	if err != nil {
+		return false, err
+	}
+
+	response = strings.TrimSpace(strings.ToLower(response))
+	return response == "y" || response == "yes", nil
+}
 
 func FindConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
 	logger.Debug("finding configuration...")
@@ -80,12 +99,12 @@ func EditConfiguration(fs afero.Fs, ctx context.Context, env *environment.Enviro
 	if _, err := fs.Stat(configFile); err == nil {
 		var confirm bool
 		if !skipPrompts {
-			if err := huh.Run(
-				huh.NewConfirm().
-					Title("Do you want to edit the configuration file now?").
-					Description("This will open the file in your default text editor.").
-					Value(&confirm),
-			); err != nil {
+			var err error
+			confirm, err = simpleConfirm(
+				"Do you want to edit the configuration file now?",
+				"This will open the file in your default text editor.",
+			)
+			if err != nil {
 				return configFile, fmt.Errorf("could not prompt for editing configuration file: %w", err)
 			}
 		}

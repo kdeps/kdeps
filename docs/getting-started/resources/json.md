@@ -27,7 +27,7 @@ When you create a route in the workflow, the resulting response is always a JSON
 }
 ```
 
-Here, the most important part of this response is the `data` array. In the API Server Response resource, the `data {
+Here, the most important part of this response is the `data` array. In the API Server Response resource, the `Data {
 ... }` block is where you populate your JSON response. This block accepts all native PKL types.
 
 ### Creating a JSON Response
@@ -49,7 +49,7 @@ local JSONResponse = new Mapping {
 
 ...
 
-data {
+Data {
     JSONResponse
 }
 
@@ -149,7 +149,7 @@ Once you have obtained the file path, you can use the `read#text` function to re
 Here’s an example:
 
 ```apl
-local llmOutputFilepath = "@(llm.file("llmWeatherReport"))"
+local llmOutputFilePath = "@(llm.file("llmWeatherReport"))"
 
 local llmOutputJson = """
 @(read("\(llmOutputFilepath)")?.text)

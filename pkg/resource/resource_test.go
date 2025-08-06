@@ -140,8 +140,8 @@ func aKdepsContainerWithEndpointAPI(arg1, arg2, arg3 string) error {
 	systemConfigurationContent := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Kdeps.pkl"
 
-runMode = "docker"
-dockerGPU = "cpu"
+RunMode = "docker"
+DockerGPU = "cpu"
 `, schema.SchemaVersion(ctx))
 
 	systemConfigurationFile = filepath.Join(homeDirPath, ".kdeps.pkl")
@@ -176,11 +176,11 @@ dockerGPU = "cpu"
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
 			methodLines = append(methodLines, fmt.Sprintf(`"%s"`, value))
 		}
-		methodSection = "methods {\n" + strings.Join(methodLines, "\n") + "\n}"
+		methodSection = "Methods {\n" + strings.Join(methodLines, "\n") + "\n}"
 	} else {
 		// Single value case
 		methodSection = fmt.Sprintf(`
-methods {
+Methods {
   "%s"
 }`, arg1)
 	}
@@ -188,21 +188,21 @@ methods {
 	workflowConfigurationContent := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
-name = "myAIAgentAPI"
-description = "AI Agent X API"
-targetActionID = "helloWorld"
-settings {
+Name = "myAIAgentAPI"
+Description = "AI Agent X API"
+TargetActionID = "helloWorld"
+Settings {
   APIServerMode = true
-  agentSettings {
-    packages {}
-    models {
+  AgentSettings {
+    Packages {}
+    Models {
       "llama3.2"
     }
   }
   APIServer {
-    routes {
+    Routes {
       new {
-	path = "/resource1"
+	Path = "/resource1"
 	%s
       }
     }
@@ -236,11 +236,11 @@ local execResponse = "@(exec.stdout("action2"))"
 local clientResponse = "@(client.responseBody("action3"))"
 local clientResponse2 = "@(client.responseBody("action4"))"
 
-actionID = "helloWorld"
-name = "default action"
-category = "kdepsdockerai"
-description = "this is a description for helloWorld @(request.params)"
-requires {
+ActionID = "helloWorld"
+Name = "default action"
+Category = "kdepsdockerai"
+Description = "this is a description for helloWorld @(request.params)"
+Requires {
   "action1"
   "action2"
   "action3"
@@ -248,16 +248,16 @@ requires {
 }
 
 run {
-  preflightCheck {
-    validations {
+  PreflightCheck {
+    Validations {
       llmResponse != "hello world"
       1 + 1 == 2
     }
   }
   APIResponse {
-    success = true
-    response {
-      data {
+    Success = true
+    Response {
+      Data {
 	"@(llmResponse)"
 	"@(execResponse)"
 	"@(clientResponse)"
@@ -279,18 +279,18 @@ amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
 local clientResponse = "@(client.responseBody("action3"))"
 
-actionID = "action1"
-category = "kdepsdockerai"
-description = "this is a description for action1 - @(request.url)"
-requires {
+ActionID = "action1"
+Category = "kdepsdockerai"
+Description = "this is a description for action1 - @(request.url)"
+Requires {
   "action2"
   "helloWorld"
 }
-name = "default action"
+Name = "default action"
 run {
-  chat {
-    model = "llama3.2"
-    prompt = "@(request.data)"
+  Chat {
+    Model = "llama3.2"
+    Prompt = "@(request.data)"
     JSONResponse = true
     JSONResponseKeys {
       "translation"
@@ -298,10 +298,10 @@ run {
       "synonyms"
       "antonyms"
     }
-    timeoutDuration = 0
+    TimeoutDuration = 0
   }
-  preflightCheck {
-    validations {
+  PreflightCheck {
+    Validations {
       1 + 1 == 2
       2 + 2 == 4
     }
@@ -318,21 +318,21 @@ run {
 	resourceConfigurationContent = fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-actionID = "action2"
-category = "kdepsdockerai"
-description = "this is a description for action2 - @(request.method)"
-name = "default action"
-requires {
+ActionID = "action2"
+Category = "kdepsdockerai"
+Description = "this is a description for action2 - @(request.method)"
+Name = "default action"
+Requires {
   "action1"
   "action3"
   "helloWorld"
 }
 run {
-  exec {
-    env {
+  Exec {
+    Env {
       ["RESPONSE"] = "@(client.responseBody("action3"))"
     }
-    command = "echo $RESPONSE"
+    Command = "echo $RESPONSE"
   }
 }
 `, schema.SchemaVersion(ctx))
@@ -346,19 +346,19 @@ run {
 	resourceConfigurationContent = fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-actionID = "action3"
-category = "kdepsdockerai"
-description = "this is a description for action3 - @(request.url)"
-requires {
+ActionID = "action3"
+Category = "kdepsdockerai"
+Description = "this is a description for action3 - @(request.url)"
+Requires {
   "helloWorld"
   "action2"
   "action1"
 }
-name = "default action"
+Name = "default action"
 run {
   HTTPClient {
-    method = "GET"
-    url = "https://dog.ceo/api/breeds/list/all"
+    Method = "GET"
+    Url = "https://dog.ceo/api/breeds/list/all"
   }
 }
 `, schema.SchemaVersion(ctx))
@@ -372,20 +372,20 @@ run {
 	resourceConfigurationContent = fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-actionID = "action4"
-category = "kdepsdockerai"
-description = "this is a description for action4 - @(request.url)"
-requires {
+ActionID = "action4"
+Category = "kdepsdockerai"
+Description = "this is a description for action4 - @(request.url)"
+Requires {
   "helloWorld"
   "action2"
   "action1"
   "action3"
 }
-name = "default action"
+Name = "default action"
 run {
   HTTPClient {
-    method = "GET"
-    url = "https://google.com"
+    Method = "GET"
+    Url = "https://google.com"
   }
 }
 `, schema.SchemaVersion(ctx))
@@ -447,7 +447,7 @@ run {
 
 	runDir = rd
 	hostPort = hPort
-	hostIP = hIP
+	HostIP = hIP
 	APIServerMode = asm
 	gpuType = gpu
 
@@ -488,7 +488,7 @@ func iFillInTheWithSuccessResponseData(arg1, arg2, arg3 string) error {
 	}
 
 	responsePath := filepath.Join(compiledProjectDir, arg1)
-	content := fmt.Sprintf("success = %s\nresponse {\n  data {\n    \"%s\"\n  }\n}\n", arg2, arg3)
+	content := fmt.Sprintf("Success = %s\nResponse {\n  Data {\n    \"%s\"\n  }\n}\n", arg2, arg3)
 	return afero.WriteFile(testFs, responsePath, []byte(content), 0o644)
 }
 
@@ -657,17 +657,17 @@ func TestLoadResource(t *testing.T) {
 		defer os.RemoveAll(tmpDir)
 
 		// Create a valid resource file content
-		validContent := `amends "package://schema.kdeps.com/core@0.2.30#/Resource.pkl"
+		validContent := `amends "package://schema.kdeps.com/core@0.2.42#/Resource.pkl"
 
-actionID = "testaction"
-name = "Test Action"
-category = "test"
-description = "Test resource"
+ActionID = "testaction"
+Name = "Test Action"
+Category = "test"
+Description = "Test resource"
 run {
   APIResponse {
-    success = true
-    response {
-      data {
+    Success = true
+    Response {
+      Data {
         "test"
       }
     }
@@ -775,17 +775,17 @@ func TestLoadResourceLogging(t *testing.T) {
 		defer os.RemoveAll(tmpDir)
 
 		// Create a valid resource file content
-		validContent := `amends "package://schema.kdeps.com/core@0.2.30#/Resource.pkl"
+		validContent := `amends "package://schema.kdeps.com/core@0.2.42#/Resource.pkl"
 
-actionID = "testaction"
-name = "Test Action"
-category = "test"
-description = "Test resource"
+ActionID = "testaction"
+Name = "Test Action"
+Category = "test"
+Description = "Test resource"
 run {
   APIResponse {
-    success = true
-    response {
-      data {
+    Success = true
+    Response {
+      Data {
         "test"
       }
     }
