@@ -38,9 +38,9 @@ jobs:
           ARCH=$(uname -m)
           echo "Detected architecture: $ARCH"
           if [ "$ARCH" = "arm64" ]; then
-            curl -L -o ~/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.28.1/pkl-linux-aarch64'
+            curl -L -o ~/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.28.2/pkl-linux-aarch64'
           elif [ "$ARCH" = "x86_64" ]; then
-            curl -L -o ~/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.28.1/pkl-linux-amd64'
+            curl -L -o ~/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.28.2/pkl-linux-amd64'
           else
             echo "Unsupported architecture: $ARCH" && exit 1
           fi
@@ -56,9 +56,9 @@ jobs:
           ARCH=$(uname -m)
           echo "Detected architecture: $ARCH"
           if [ "$ARCH" = "arm64" ]; then
-            curl -L -o ~/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.28.1/pkl-macos-aarch64'
+            curl -L -o ~/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.28.2/pkl-macos-aarch64'
           elif [ "$ARCH" = "x86_64" ]; then
-            curl -L -o ~/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.28.1/pkl-macos-amd64'
+            curl -L -o ~/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.28.2/pkl-macos-amd64'
           else
             echo "Unsupported architecture: $ARCH" && exit 1
           fi
@@ -71,7 +71,7 @@ jobs:
         if: matrix.platform == 'windows-latest'
         run: |
           Write-Host "Downloading PKL..."
-          Invoke-WebRequest 'https://github.com/apple/pkl/releases/download/0.28.1/pkl-windows-amd64.exe' -OutFile pkl.exe
+          Invoke-WebRequest 'https://github.com/apple/pkl/releases/download/0.28.2/pkl-windows-amd64.exe' -OutFile pkl.exe
           if (!(Test-Path .\pkl.exe)) {
               Write-Host "pkl.exe not found!"
               exit 1
@@ -264,7 +264,7 @@ jobs:
         run: curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/refs/heads/main/install.sh | sh -s -- -d ${GITHUB_REF##*/}
       - name: Install pkl
         run: |
-          curl -L -o /c/Users/runneradmin/.local/bin/pkl.exe 'https://github.com/apple/pkl/releases/download/0.28.1/pkl-windows-amd64.exe'
+          curl -L -o /c/Users/runneradmin/.local/bin/pkl.exe 'https://github.com/apple/pkl/releases/download/0.28.2/pkl-windows-amd64.exe'
           chmod +x /c/Users/runneradmin/.local/bin/pkl.exe
           /c/Users/runneradmin/.local/bin/pkl.exe --version
         shell: bash
@@ -306,9 +306,9 @@ jobs:
         run: |
           ARCH=$(uname -m)
           if [ "$ARCH" = "aarch64" ]; then
-            curl -L -o ~/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.28.1/pkl-linux-aarch64'
+            curl -L -o ~/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.28.2/pkl-linux-aarch64'
           elif [ "$ARCH" = "x86_64" ]; then
-            curl -L -o ~/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.28.1/pkl-linux-amd64'
+            curl -L -o ~/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.28.2/pkl-linux-amd64'
           else
             echo "Unsupported architecture: $ARCH" && exit 1
           fi
