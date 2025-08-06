@@ -38,9 +38,9 @@ The file contains the `APIResponse` block, structured as follows:
 
 ```apl
 APIResponse {
-    success = true
-    meta {
-        headers {
+    Success = true
+    Meta {
+        Headers {
             // ["X-Frame-Options"] = "DENY"
             // ["Content-Security-Policy"] = "default-src 'self'; connect-src *; font-src *; script-src-elem * 'unsafe-inline'; img-src * data:; style-src * 'unsafe-inline';"
             // ["X-XSS-Protection"] = "1; mode=block"
@@ -49,19 +49,19 @@ APIResponse {
             // ["X-Content-Type-Options"] = "nosniff"
             // ["Permissions-Policy"] = "geolocation=(),midi=(),sync-xhr=(),microphone=(),camera=(),magnetometer=(),gyroscope=(),fullscreen=(self),payment=()"
         }
-        properties {
+        Properties {
             // ["X-Custom-Properties"] = "value"
         }
     }
-    response {
-        data {
+    Response {
+        Data {
             "@(llm.response("llmResource"))"
             // "@(python.stdout("pythonResource"))"
             // "@(exec.stdout("shellResource"))"
             // "@(client.responseBody("httpResource"))"
         }
     }
-    errors {
+    Errors {
         new {
             code = 0
             message = ""
@@ -72,10 +72,10 @@ APIResponse {
 
 Key Elements of the `APIResponse` Block:
 
-- **`success`**: Indicates whether the response signifies a successful operation.
-- **`meta`**: Meta block includes the `custom response headers`, `custom response properties`, and `requestID`.
-- **`response`**: Populates the response `data` with outputs from resources such as `llm`, `python`, `exec`, or
+- **`Success`**: Indicates whether the response signifies a successful operation.
+- **`Meta`**: Meta block includes the `custom response Headers`, `custom response Properties`, and `requestID`.
+- **`Response`**: Populates the response `Data` with outputs from resources such as `llm`, `python`, `exec`, or
   `client`.
-- **`errors`**: Defines custom error codes and messages to handle various error cases. Multiple errors can be defined
+- **`Errors`**: Defines custom error codes and messages to handle various error cases. Multiple errors can be defined
   and returned.
-- **`timeoutDuration`**: Sets the timeout duration in seconds, after which the execution will be terminated.
+- **`TimeoutDuration`**: Sets the timeout duration in seconds, after which the execution will be terminated.

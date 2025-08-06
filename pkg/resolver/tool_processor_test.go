@@ -151,7 +151,7 @@ func TestEncodeToolsAndParamsUnit(t *testing.T) {
 	var sb strings.Builder
 	serializeTools(&sb, &tools)
 	serialized := sb.String()
-	assert.Contains(t, serialized, "name = \"mytool\"")
+	assert.Contains(t, serialized, "Name = \"mytool\"")
 }
 
 func TestConstructToolCallsFromJSONAndDeduplication(t *testing.T) {

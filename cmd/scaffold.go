@@ -22,7 +22,8 @@ func NewScaffoldCommand(fs afero.Fs, ctx context.Context, logger *logging.Logger
   - exec: Execute shell commands and scripts
   - llm: Large Language Model interaction
   - python: Run Python scripts
-  - response: API response handling`,
+  - response: API response handling
+  - workflow: Workflow automation and orchestration`,
 		Args: cobra.MinimumNArgs(1), // Require at least one argument (agentName)
 		Run: func(cmd *cobra.Command, args []string) {
 			agentName := args[0]
@@ -36,6 +37,7 @@ func NewScaffoldCommand(fs afero.Fs, ctx context.Context, logger *logging.Logger
 				fmt.Println("  - llm: Large Language Model interaction")
 				fmt.Println("  - python: Run Python scripts")
 				fmt.Println("  - response: API response handling")
+				fmt.Println("  - workflow: Workflow automation and orchestration")
 				return
 			}
 
@@ -46,6 +48,7 @@ func NewScaffoldCommand(fs afero.Fs, ctx context.Context, logger *logging.Logger
 				"llm":      true,
 				"python":   true,
 				"response": true,
+				"workflow": true,
 			}
 
 			var invalidResources []string
@@ -61,7 +64,13 @@ func NewScaffoldCommand(fs afero.Fs, ctx context.Context, logger *logging.Logger
 					logger.Error("error scaffolding file:", err)
 					fmt.Println(errorStyle.Render("Error:"), err)
 				} else {
-					fmt.Println(successStyle.Render("Successfully scaffolded file:"), primaryStyle.Render(filepath.Join(agentName, "resources", resourceName+".pkl")))
+					var filePath string
+					if resourceName == "workflow" {
+						filePath = filepath.Join(agentName, "workflow.pkl")
+					} else {
+						filePath = filepath.Join(agentName, "resources", resourceName+".pkl")
+					}
+					fmt.Println(successStyle.Render("Successfully scaffolded file:"), primaryStyle.Render(filePath))
 				}
 			}
 
@@ -74,6 +83,7 @@ func NewScaffoldCommand(fs afero.Fs, ctx context.Context, logger *logging.Logger
 				fmt.Println("  - llm: Large Language Model interaction")
 				fmt.Println("  - python: Run Python scripts")
 				fmt.Println("  - response: API response handling")
+				fmt.Println("  - workflow: Workflow automation and orchestration")
 			}
 		},
 	}

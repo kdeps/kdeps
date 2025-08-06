@@ -6,16 +6,17 @@ import (
 )
 
 func TestProcessActionIDLine(t *testing.T) {
-	line := "action = \"myAction\""
-	got := processActionIDLine(line, "myAction", "agent", "1.0.0")
-	want := "action = \"@agent/myAction:1.0.0\""
+	// Test the actionID processing logic that's now in processLine
+	line := "actionID = \"myAction\""
+	got, _ := processLine(line, "agent", "1.0.0")
+	want := "actionID = \"@agent/myAction:1.0.0\""
 	if got != want {
 		t.Errorf("unexpected replacement: got %s want %s", got, want)
 	}
 
 	// Already prefixed with @ should be unchanged
-	orig := "action = \"@agent/other:1.0.0\""
-	if res := processActionIDLine(orig, "@agent/other:1.0.0", "agent", "1.0.0"); res != orig {
+	orig := "actionID = \"@agent/other:1.0.0\""
+	if res, _ := processLine(orig, "agent", "1.0.0"); res != orig {
 		t.Errorf("line should remain unchanged when already prefixed; got %s", res)
 	}
 }

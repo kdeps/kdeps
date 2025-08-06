@@ -34,8 +34,8 @@ local OCROutputFile = """
 @(read?("file:/tmp/ocrOutput.txt")?.text)
 """
 
-preflightCheck {
-    validations {
+PreflightCheck {
+    Validations {
         OCROutputFile.length != 0
     }
 

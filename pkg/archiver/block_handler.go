@@ -9,7 +9,7 @@ import (
 
 // Handle the values inside the requires { ... } block.
 func handleRequiresBlock(blockContent string, wf workflow.Workflow) string {
-	name, version := wf.GetName(), wf.GetVersion()
+	name, version := wf.GetAgentID(), wf.GetVersion()
 
 	// Split the block by newline and process each line
 	lines := strings.Split(blockContent, "\n")

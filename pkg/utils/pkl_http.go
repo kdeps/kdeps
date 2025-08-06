@@ -15,7 +15,7 @@ func FormatRequestHeaders(headers map[string][]string) string {
 		}
 	}
 
-	return "headers {\n" + strings.Join(headersLines, "\n") + "\n}"
+	return "Headers {\n" + strings.Join(headersLines, "\n") + "\n}"
 }
 
 // FormatRequestParams formats the query parameters into a string representation for inclusion in the .pkl file.
@@ -27,7 +27,7 @@ func FormatRequestParams(params map[string][]string) string {
 			paramsLines = append(paramsLines, fmt.Sprintf(`["%s"] = "%s"`, param, encodedValue))
 		}
 	}
-	return "params {\n" + strings.Join(paramsLines, "\n") + "\n}"
+	return "Params {\n" + strings.Join(paramsLines, "\n") + "\n}"
 }
 
 // FormatResponseHeaders formats the HTTP headers into a string representation for inclusion in the .pkl file.
@@ -38,7 +38,7 @@ func FormatResponseHeaders(headers map[string]string) string {
 		headersLines = append(headersLines, fmt.Sprintf(`["%s"] = "%s"`, name, strings.TrimSpace(value)))
 	}
 
-	return "headers {\n" + strings.Join(headersLines, "\n") + "\n}"
+	return "Headers {\n" + strings.Join(headersLines, "\n") + "\n}"
 }
 
 // FormatResponseProperties formats the HTTP properties into a string representation for inclusion in the .pkl file.
@@ -49,5 +49,5 @@ func FormatResponseProperties(properties map[string]string) string {
 		propertiesLines = append(propertiesLines, fmt.Sprintf(`["%s"] = "%s"`, name, strings.TrimSpace(value)))
 	}
 
-	return "properties {\n" + strings.Join(propertiesLines, "\n") + "\n}"
+	return "Properties {\n" + strings.Join(propertiesLines, "\n") + "\n}"
 }

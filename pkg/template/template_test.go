@@ -239,8 +239,8 @@ func TestTemplateLoadingEdgeCases(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotEmpty(t, content)
 		// Verify that the template still loads even with empty data
-		assert.Contains(t, content, "name =")
-		assert.Contains(t, content, "description =")
+		assert.Contains(t, content, "AgentID =")
+		assert.Contains(t, content, "Description =")
 	})
 
 	t.Run("TemplateWithMissingVariables", func(t *testing.T) {
@@ -256,7 +256,7 @@ func TestTemplateLoadingEdgeCases(t *testing.T) {
 		assert.NotEmpty(t, content)
 		// Verify that the template still loads but with empty variables
 		assert.Contains(t, content, "test header")
-		assert.Contains(t, content, "name =")
+		assert.Contains(t, content, "AgentID =")
 	})
 
 	t.Run("TemplateWithSpecialCharacters", func(t *testing.T) {

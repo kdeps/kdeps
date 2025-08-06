@@ -18,7 +18,7 @@ import (
 // minimal workflow stub satisfying the two getters used by PackageProject.
 type simpleWf struct{}
 
-func (simpleWf) GetName() string    { return "agent" }
+func (simpleWf) GetAgentID() string { return "agent" }
 func (simpleWf) GetVersion() string { return "0.0.1" }
 
 // Unused methods – provide zero values to satisfy interface.
@@ -35,7 +35,7 @@ func (simpleWf) GetSettings() *pklProj.Settings { return nil }
 
 // compile-time assertion
 var _ interface {
-	GetName() string
+	GetAgentID() string
 	GetVersion() string
 } = simpleWf{}
 
@@ -50,7 +50,7 @@ func TestPackageProjectHappyPath(t *testing.T) {
 	// Create required structure.
 	_ = fs.MkdirAll(filepath.Join(compiled, "resources"), 0o755)
 	// minimal resource file
-	_ = afero.WriteFile(fs, filepath.Join(compiled, "resources", "exec.pkl"), []byte("run { exec { ['x']='y' } }"), 0o644)
+	_ = afero.WriteFile(fs, filepath.Join(compiled, "resources", "exec.pkl"), []byte("run { Exec { ['x']='y' } }"), 0o644)
 	// workflow file at root
 	wfContent := `amends "package://schema.kdeps.com/core@0.0.0#/Workflow.pkl"`
 	_ = afero.WriteFile(fs, filepath.Join(compiled, "workflow.pkl"), []byte(wfContent), 0o644)
@@ -183,7 +183,7 @@ func TestPackageProjectHappy(t *testing.T) {
 // stubWorkflow implements the required methods of pklWf.Workflow for this unit test.
 type stubWorkflowPkg struct{}
 
-func (stubWorkflowPkg) GetName() string                   { return "mini-agent" }
+func (stubWorkflowPkg) GetAgentID() string                { return "mini-agent" }
 func (stubWorkflowPkg) GetVersion() string                { return "0.0.1" }
 func (stubWorkflowPkg) GetDescription() string            { return "" }
 func (stubWorkflowPkg) GetWebsite() *string               { return nil }
@@ -205,7 +205,7 @@ func TestPackageProject_MinimalAndOverwrite(t *testing.T) {
 	projectDir, _ := afero.TempDir(fs, "", "agent")
 
 	// Minimal workflow file so EnforceFolderStructure passes.
-	_ = afero.WriteFile(fs, filepath.Join(projectDir, "workflow.pkl"), []byte("name='x'\nversion='0.0.1'"), 0o644)
+	_ = afero.WriteFile(fs, filepath.Join(projectDir, "workflow.pkl"), []byte("Name='x'\nVersion='0.0.1'"), 0o644)
 
 	wf := stubWorkflowPkg{}
 

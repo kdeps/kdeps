@@ -271,7 +271,7 @@ func (m *MockWorkflow) GetSettings() *project.Settings {
 	return m.settings
 }
 
-func (m *MockWorkflow) GetName() string           { return "" }
+func (m *MockWorkflow) GetAgentID() string        { return "" }
 func (m *MockWorkflow) GetVersion() string        { return "" }
 func (m *MockWorkflow) GetAgentIcon() *string     { return nil }
 func (m *MockWorkflow) GetTargetActionID() string { return "" }

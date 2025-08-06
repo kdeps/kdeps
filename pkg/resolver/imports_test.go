@@ -271,12 +271,12 @@ func TestAddPlaceholderImports(t *testing.T) {
 
 	// create minimal pkl file expected by AppendDataEntry
 	dataPklPath := filepath.Join(actionDir, "data", requestID+"__data_output.pkl")
-	minimalContent := []byte("files {}\n")
+	minimalContent := []byte("Files {}\n")
 	assert.NoError(t, afero.WriteFile(fs, dataPklPath, minimalContent, 0o644))
 
 	// create input file containing actionID
 	targetPkl := filepath.Join(actionDir, "exec", "sample.pkl")
-	fileContent := []byte("actionID = \"myAction\"\n")
+	fileContent := []byte("ActionID = \"myAction\"\n")
 	assert.NoError(t, afero.WriteFile(fs, targetPkl, fileContent, 0o644))
 
 	dr := &DependencyResolver{

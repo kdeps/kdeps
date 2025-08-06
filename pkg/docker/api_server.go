@@ -145,7 +145,7 @@ func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 	semaphore := make(chan struct{}, 1)
 	router := gin.Default()
 
-	wfAPIServerCORS := wfAPIServer.Cors
+	wfAPIServerCORS := wfAPIServer.CORS
 
 	setupRoutes(router, ctx, wfAPIServerCORS, wfTrustedProxies, wfAPIServer.Routes, dr, semaphore)
 
@@ -159,7 +159,7 @@ func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 	return nil
 }
 
-func setupRoutes(router *gin.Engine, ctx context.Context, wfAPIServerCORS *apiserver.CORS, wfTrustedProxies []string, routes []*apiserver.APIServerRoutes, dr *resolver.DependencyResolver, semaphore chan struct{}) {
+func setupRoutes(router *gin.Engine, ctx context.Context, wfAPIServerCORS *apiserver.CORSConfig, wfTrustedProxies []string, routes []*apiserver.APIServerRoutes, dr *resolver.DependencyResolver, semaphore chan struct{}) {
 	for _, route := range routes {
 		if route == nil || route.Path == "" {
 			dr.Logger.Error("route configuration is invalid", "route", route)
@@ -480,17 +480,17 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			return
 		}
 
-		urlSection := fmt.Sprintf(`path = "%s"`, c.Request.URL.Path)
+		urlSection := fmt.Sprintf(`Path = "%s"`, c.Request.URL.Path)
 		clientIPSection := fmt.Sprintf(`IP = "%s"`, c.ClientIP())
 		requestIDSection := fmt.Sprintf(`ID = "%s"`, graphID)
-		dataSection := fmt.Sprintf(`data = "%s"`, utils.EncodeBase64String(bodyData))
+		dataSection := fmt.Sprintf(`Data = "%s"`, utils.EncodeBase64String(bodyData))
 
 		var sb strings.Builder
-		sb.WriteString("files {\n")
+		sb.WriteString("Files {\n")
 		for _, fileInfo := range fileMap {
 			fileBlock := fmt.Sprintf(`
-	filepath = "%s"
-	filetype = "%s"
+	Filepath = "%s"
+	Filetype = "%s"
 `, fileInfo.Filename, fileInfo.Filetype)
 			sb.WriteString(fmt.Sprintf("    [\"%s\"] {\n%s\n}\n", filepath.Base(fileInfo.Filename), fileBlock))
 		}
@@ -632,7 +632,7 @@ func validateMethod(r *http.Request, allowedMethods []string) (string, error) {
 
 	for _, allowedMethod := range allowedMethods {
 		if allowedMethod == r.Method {
-			return fmt.Sprintf(`method = "%s"`, allowedMethod), nil
+			return fmt.Sprintf(`Method = "%s"`, allowedMethod), nil
 		}
 	}
 

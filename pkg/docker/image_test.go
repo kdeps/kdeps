@@ -361,7 +361,7 @@ func TestGenerateDockerfile_Minimal(t *testing.T) {
 	assert.Contains(t, df, "FROM ollama/ollama:1.0")
 	assert.Contains(t, df, "ENV SCHEMA_VERSION="+schemaVersion)
 	assert.Contains(t, df, "ENV KDEPS_HOST=127.0.0.1:3000")
-	// No ports should be exposed because apiServerMode == false && exposedPort == ""
+	// No ports should be exposed because ApiServerMode == false && exposedPort == ""
 	assert.NotContains(t, df, "EXPOSE")
 }
 
@@ -618,8 +618,8 @@ func TestBuildDockerfileContent(t *testing.T) {
 
 	// Create a dummy workflow file to avoid module not found error
 	workflowPath := "/test/kdeps/testWorkflow"
-	dummyWorkflowContent := `name = "test"
-version = "1.0"
+	dummyWorkflowContent := `Name = "test"
+Version = "1.0"
 `
 	afero.WriteFile(fs, workflowPath, []byte(dummyWorkflowContent), 0o644)
 

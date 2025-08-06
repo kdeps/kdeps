@@ -49,7 +49,7 @@ func TestEncodePythonStderrStdoutFormatting(t *testing.T) {
 		t.Errorf("unexpected format: %s", got)
 	}
 	got2 := dr.encodePythonStdout(nil)
-	if got2 != "    stdout = \"\"\n" {
+	if got2 != "    Stdout = \"\"\n" {
 		t.Errorf("unexpected default stdout: %s", got2)
 	}
 }
@@ -68,7 +68,7 @@ func TestAppendPythonEntry_CreatesResource(t *testing.T) {
 	pythonPklPath := filepath.Join(actionDir, "python", requestID+"__python_output.pkl")
 
 	// Create minimal initial PKL file with empty resources map
-	minimal := "extends \"package://schema.kdeps.com/core@" + schema.SchemaVersion(ctx) + "#/Python.pkl\"\n\nresources {}\n"
+	minimal := "extends \"package://schema.kdeps.com/core@" + schema.SchemaVersion(ctx) + "#/Python.pkl\"\n\nResources {}\n"
 	require.NoError(t, afero.WriteFile(fs, pythonPklPath, []byte(minimal), 0o644))
 
 	dr := &DependencyResolver{

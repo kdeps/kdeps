@@ -145,7 +145,7 @@ func TestFormatErrorsMultiple(t *testing.T) {
 		{Code: 500, Message: msg},
 	}
 	out := formatErrors(errorsSlice, logger)
-	if !strings.Contains(out, "code = 400") || !strings.Contains(out, "code = 500") {
+	if !strings.Contains(out, "Code = 400") || !strings.Contains(out, "Code = 500") {
 		t.Errorf("codes missing: %s", out)
 	}
 	if !strings.Contains(out, "decoded msg") {

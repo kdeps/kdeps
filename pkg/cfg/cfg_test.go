@@ -85,8 +85,8 @@ func aFileExistsInTheCurrentDirectory(arg1 string) error {
 	doc := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Kdeps.pkl"
 
-runMode = "docker"
-dockerGPU = "cpu"
+RunMode = "docker"
+DockerGPU = "cpu"
 `, schema.SchemaVersion(ctx))
 	file := filepath.Join(currentDirPath, arg1)
 
@@ -105,8 +105,8 @@ func aFileExistsInTheHomeDirectory(arg1 string) error {
 	doc := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Kdeps.pkl"
 
-runMode = "docker"
-dockerGPU = "cpu"
+RunMode = "docker"
+DockerGPU = "cpu"
 `, schema.SchemaVersion(ctx))
 	file := filepath.Join(homeDirPath, arg1)
 
@@ -578,8 +578,8 @@ func TestValidateConfigurationAdditional(t *testing.T) {
 		validConfig := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Kdeps.pkl"
 
-runMode = "docker"
-dockerGPU = "cpu"
+RunMode = "docker"
+DockerGPU = "cpu"
 `, schema.SchemaVersion(ctx))
 		afero.WriteFile(fs, "/test/home/.kdeps.pkl", []byte(validConfig), 0o644)
 
@@ -605,8 +605,8 @@ func TestLoadConfigurationAdditional(t *testing.T) {
 		validConfig := fmt.Sprintf(`
 amends "package://schema.kdeps.com/core@%s#/Kdeps.pkl"
 
-runMode = "docker"
-dockerGPU = "cpu"
+RunMode = "docker"
+DockerGPU = "cpu"
 `, schema.SchemaVersion(ctx))
 		afero.WriteFile(fs, "/test/valid.pkl", []byte(validConfig), 0o644)
 

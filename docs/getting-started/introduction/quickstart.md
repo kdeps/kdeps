@@ -73,13 +73,13 @@ The `workflow.pkl` file defines the workflow and settings for your AI agent. Wit
 configuration:
 
 ```apl
-targetActionID = "responseResource"
+TargetActionID = "responseResource"
 ```
 
 Here, `responseResource` refers to the ID of the target resource file, located in `resources/response.pkl`:
 
 ```apl
-actionID = "responseResource"
+ActionID = "responseResource"
 ```
 
 This resource will be executed as the default action whenever the AI agent runs.
@@ -93,11 +93,11 @@ configuration:
 APIServerMode = true
 APIServer {
 ...
-    portNum = 3000
-    routes {
+    PortNum = 3000
+    Routes {
         new {
-            path = "/api/v1/whois"
-            methods {
+            Path = "/api/v1/whois"
+            Methods {
                 "GET" // Enables data retrieval
                 "POST" // Allows data submission
             }
@@ -124,9 +124,9 @@ exiting upon completion.
 The `workflow.pkl` file defines the LLM models to be included in the Docker image. Here’s an example configuration:
 
 ```apl
-agentSettings {
+AgentSettings {
 ...
-    models {
+    Models {
         "tinydolphin"
         // "llama3.2"
         // "llama3.1"
@@ -163,7 +163,7 @@ Each resource contains a `requires` section that defines the dependencies needed
 resources by uncommenting the relevant lines.
 
 ```apl
-requires {
+Requires {
     "chatResource"
     // "pythonResource"
     // "shellResource"
@@ -181,9 +181,9 @@ Within the `resources/response.pkl`, you'll find the following structure:
 
 ```apl
 APIResponse {
-    success = true
-    response {
-        data {
+    Success = true
+    Response {
+        Data {
             "@(llm.response("chatResource"))"
             // "@(python.stdout("pythonResource"))"
             // "@(exec.stdout("shellResource"))"
@@ -260,9 +260,9 @@ If we look at the pkl file, we notice that the `requires` section is blank. This
 depend on other resource in order to function.
 
 ```apl
-chat {
-    model = "llama3.1"
-    prompt = "Who is @(request.data())?"
+Chat {
+    Model = "llama3.1"
+    Prompt = "Who is @(request.data())?"
     JSONResponse = true
     JSONResponseKeys {
         "first_name"
@@ -272,7 +272,7 @@ chat {
         "famous_quotes"
         "known_for"
     }
-    timeoutDuration = 60.s
+    TimeoutDuration = 60.s
 }
 ```
 

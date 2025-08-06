@@ -18,9 +18,9 @@ import (
 )
 
 var (
-	idPattern       = regexp.MustCompile(`(?i)^\s*actionID\s*=\s*"(.+)"`)
-	actionIDRegex   = regexp.MustCompile(`(?i)\b(resources|resource|responseBody|responseHeader|stderr|stdout|env|response|prompt|exitCode|file)\s*\(\s*"([^"]+)"\s*(?:,\s*"([^"]+)")?\s*\)`)
-	requiresPattern = regexp.MustCompile(`^\s*requires\s*{`)
+	idPattern       = regexp.MustCompile(`(?i)^\s*actionID\s*=\s*"([^"]+)"`)
+	actionIDRegex   = regexp.MustCompile(`(?i)\b(resources|resource|responseBody|responseHeader|stderr|stdout|env|response|prompt|exitCode|file)\s*\(\s*"((?:[^"\\]|\\.)*)"\s*(?:,\s*"([^"]+)")?\s*\)`)
+	requiresPattern = regexp.MustCompile(`^\s*Requires\s*{`)
 )
 
 // CompileResources processes .pkl files and copies them to resources directory.
@@ -60,7 +60,7 @@ func processPklFile(fs afero.Fs, file string, wf pklWf.Workflow, resourcesDir st
 		return fmt.Errorf("no valid action found in file: %s", file)
 	}
 
-	name, version := parseActionID(action, wf.GetName(), wf.GetVersion())
+	name, version := parseActionID(action, wf.GetAgentID(), wf.GetVersion())
 	fname := fmt.Sprintf("%s_%s-%s.pkl", name, action, version)
 	targetPath := filepath.Join(resourcesDir, fname)
 
@@ -87,7 +87,7 @@ func processFileContent(fs afero.Fs, file string, wf pklWf.Workflow, logger *log
 		currentAction   string
 		requiresWritten bool // Tracks if a 'requires' block is already processed
 		scanner         = bufio.NewScanner(bytes.NewReader(content))
-		name            = wf.GetName()
+		name            = wf.GetAgentID()
 		version         = wf.GetVersion()
 	)
 
@@ -150,27 +150,40 @@ func handleRequiresSection(line *string, inBlock *bool, wf pklWf.Workflow, requi
 }
 
 func processLine(line, name, version string) (string, string) {
+	var actionModified string
+
+	// Process actionID if present
 	if idMatch := idPattern.FindStringSubmatch(line); idMatch != nil {
-		return processActionIDLine(line, idMatch[1], name, version), idMatch[1]
+		action := idMatch[1]
+		if !strings.HasPrefix(action, "@") {
+			// Unescape the action ID if it contains escaped quotes
+			unescapedAction := strings.ReplaceAll(action, `\"`, `"`)
+			unescapedAction = strings.Trim(unescapedAction, `"`)
+			line = strings.ReplaceAll(line, action, fmt.Sprintf("@%s/%s:%s", name, unescapedAction, version))
+		}
+		actionModified = idMatch[1]
 	}
-	return processActionPatterns(line, name, version), ""
+
+	// Always process resource functions (even if actionID was processed)
+	line = processActionPatterns(line, name, version)
+
+	return line, actionModified
 }
 
-func processActionIDLine(line, action, name, version string) string {
-	if !strings.HasPrefix(action, "@") {
-		return strings.ReplaceAll(line, action, fmt.Sprintf("@%s/%s:%s", name, action, version))
-	}
-	return line
-}
-
-func processActionPatterns(line, name, version string) string {
+func processActionPatterns(line, actionID, version string) string {
 	return actionIDRegex.ReplaceAllStringFunc(line, func(match string) string {
 		parts := actionIDRegex.FindStringSubmatch(match)
 		if strings.HasPrefix(parts[2], "@") {
 			return match
 		}
 
-		newID := fmt.Sprintf("@%s/%s:%s", name, parts[2], version)
+		// Unescape the action ID if it contains escaped quotes
+		// Handle cases like "\"actionName\"" -> "actionName" -> actionName
+		unescapedActionID := strings.ReplaceAll(parts[2], `\"`, `"`)
+		// Remove surrounding quotes if they exist
+		unescapedActionID = strings.Trim(unescapedActionID, `"`)
+
+		newID := fmt.Sprintf("@%s/%s:%s", actionID, unescapedActionID, version)
 		switch parts[1] {
 		case "responseHeader", "env":
 			return fmt.Sprintf("%s(\"%s\", \"%s\")", parts[1], newID, parts[3])

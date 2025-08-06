@@ -17,7 +17,7 @@ data/aiagentx/1.0.0/<files_here>
 ```
 
 ### Including Dependencies
-If your AI agent depends on other AI agents through the `workflows {...}` configuration, the data folders for those agents are also packaged. Each agent’s files are stored separately, structured by its name and version:
+If your AI agent depends on other AI agents through the `Workflows {...}` configuration, the data folders for those agents are also packaged. Each agent’s files are stored separately, structured by its name and version:
 
 ```bash
 data/anotheragent/2.1.3/<files_here>

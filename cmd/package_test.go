@@ -31,45 +31,45 @@ func TestNewPackageCommandExecution(t *testing.T) {
 
 	workflowContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
-name = "testagent"
-description = "Test Agent"
-version = "1.0.0"
-targetActionID = "testAction"
+AgentID = "testagent"
+Description = "Test Agent"
+Version = "1.0.0"
+TargetActionID = "testAction"
 
-workflows {
+Workflows {
 	default {
-		name = "Default Workflow"
-		description = "Default workflow for testing"
+		Name = "Default Workflow"
+		Description = "Default workflow for testing"
 		steps {
 			step1 {
-				name = "Test Step"
-				description = "A test step"
-				actionID = "testAction"
+				Name = "Test Step"
+				Description = "A test step"
+				ActionID = "testAction"
 			}
 		}
 	}
 }
 
-settings {
+Settings {
 	APIServerMode = true
 	APIServer {
-		hostIP = "127.0.0.1"
-		portNum = 3000
-		routes {
+		HostIP = "127.0.0.1"
+		PortNum = 3000
+		Routes {
 			new {
-				path = "/api/v1/test"
-				methods {
+				Path = "/api/v1/test"
+				Methods {
 					"GET"
 				}
 			}
 		}
 	}
-	agentSettings {
-		timezone = "Etc/UTC"
-		models {
+	AgentSettings {
+		Timezone = "Etc/UTC"
+		Models {
 			"llama3.2:1b"
 		}
-		ollamaImageTag = "0.6.8"
+		OllamaImageTag = "0.6.8"
 	}
 }`, schema.SchemaVersion(ctx))
 
@@ -84,9 +84,9 @@ settings {
 
 	resourceContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
-actionID = "testAction"
+ActionID = "testAction"
 run {
-	exec {
+	Exec {
 		test = "echo 'test'"
 	}
 }`, schema.SchemaVersion(ctx))

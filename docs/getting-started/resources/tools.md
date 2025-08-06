@@ -31,41 +31,41 @@ kdeps scaffold [aiagent] llm
 Define the `tools` block in the `chat` block. Here’s an excerpt:
 
 ```apl
-chat {
-    model = "llama3.2" // Open-source AI model
-    role = "user"
-    prompt = "Run the task using tools: @(request.params("q"))"
+Chat {
+    Model = "llama3.2" // Open-source AI model
+    Role = "user"
+    Prompt = "Run the task using tools: @(request.params("q"))"
     JSONResponse = true
     JSONResponseKeys {
         "sum"      // Maps calculate_sum output to "result"
         "squared"  // Maps square_number output
         "saved"    // Maps write_result output
     }
-    tools {
+    Tools {
         new {
-            name = "calculate_sum"
-            script = "@(data.filepath("tools/1.0.0", "calculate_sum.py"))"
-            description = "Add two numbers"
-            parameters {
-                ["a"] { required = true; type = "number"; description = "First number" }
-                ["b"] { required = true; type = "number"; description = "Second number" }
+            Name = "calculate_sum"
+            Script = "@(data.filepath("tools/1.0.0", "calculate_sum.py"))"
+            Description = "Add two numbers"
+            Parameters {
+                ["a"] { Required = true; Type = "number"; Description = "First number" }
+                ["b"] { Required = true; Type = "number"; Description = "Second number" }
             }
         }
         new {
-            name = "square_number"
-            script = "@(data.filepath("tools/1.0.0", "square_number.js"))"
-            description = "Square a number"
-            parameters {
-                ["num"] { required = true; type = "number"; description = "Number to square" }
+            Name = "square_number"
+            Script = "@(data.filepath("tools/1.0.0", "square_number.js"))"
+            Description = "Square a number"
+            Parameters {
+                ["num"] { Required = true; Type = "number"; Description = "Number to square" }
             }
         }
         new {
-            name = "write_result"
-            script = "@(data.filepath("tools/1.0.0", "write_result.sh"))"
-            description = "Write a number to a file"
-            parameters {
-                ["path"] { required = true; type = "string"; description = "File path" }
-                ["content"] { required = true; type = "string"; description = "Number to write" }
+            Name = "write_result"
+            Script = "@(data.filepath("tools/1.0.0", "write_result.sh"))"
+            Description = "Write a number to a file"
+            Parameters {
+                ["path"] { Required = true; Type = "string"; Description = "File path" }
+                ["content"] { Required = true; Type = "string"; Description = "Number to write" }
             }
         }
     }

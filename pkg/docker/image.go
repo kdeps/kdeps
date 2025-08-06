@@ -42,7 +42,7 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 		return "", "", err
 	}
 
-	agentName := wfCfg.GetName()
+	agentName := wfCfg.GetAgentID()
 	agentVersion := wfCfg.GetVersion()
 	cName := strings.Join([]string{"kdeps", agentName}, "-")
 	cName = strings.ToLower(cName)
@@ -275,7 +275,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		return "", false, false, "", "", "", "", "", err
 	}
 
-	agentName := wfCfg.GetName()
+	agentName := wfCfg.GetAgentID()
 	agentVersion := wfCfg.GetVersion()
 
 	wfSettings := wfCfg.GetSettings()
@@ -361,7 +361,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	if dockerSettings.PythonPackages != nil {
 		for _, value := range *pythonPkgList {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
-			pythonPkgLines = append(pythonPkgLines, "RUN pip install --upgrade --no-input "+value)
+			pythonPkgLines = append(pythonPkgLines, "RUN pip install --upgrade --no-input --break-system-packages "+value)
 		}
 	}
 

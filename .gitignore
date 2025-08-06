@@ -223,3 +223,6 @@ pkg/**/**/*.cover
 pkg/**/**/*.cov
 *.cov
 kdeps
+local/
+*.kdeps
+*.pkl

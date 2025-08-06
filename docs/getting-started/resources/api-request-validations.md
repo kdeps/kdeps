@@ -33,7 +33,7 @@ run {
     // If none are specified, all HTTP methods are permitted. This restriction is only
     // in effect when APIServerMode is enabled. If the request method is not in this list,
     // the action will be skipped.
-    restrictToHTTPMethods {
+    RestrictToHTTPMethods {
         "GET"
     }
 
@@ -41,7 +41,7 @@ run {
     // If none are specified, all routes are permitted. This restriction is only
     // in effect when APIServerMode is enabled. If the request path is not in this list,
     // the action will be skipped.
-    restrictToRoutes {
+    RestrictToRoutes {
         "/api/v1/whois"
     }
 

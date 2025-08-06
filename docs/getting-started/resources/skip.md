@@ -28,7 +28,7 @@ local bearerToken = """
 @(read?("file:/tmp/bearer.txt")?.text)
 """
 
-skipCondition {
+SkipCondition {
     bearerToken.length != 0 // If the bearerToken file contains data,
                             // authentication is unnecessary.
 }
@@ -44,7 +44,7 @@ Here, the resource only runs if the `requestPath` matches the specified `allowed
 local allowedPath = "/api/v1/items"
 local requestPath = "@(request.path())"
 
-skipCondition {
+SkipCondition {
     requestPath != allowedPath // Skip execution for paths other than the allowedPath.
 }
 ```
