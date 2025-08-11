@@ -95,11 +95,25 @@ func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 		return nil
 	}
 
-	// Add the imports after the "amends" line
-	amendsIndex := strings.Index(contentStr, "amends")
-	if amendsIndex != -1 {
-		amendsLineEnd := strings.Index(contentStr[amendsIndex:], "\n") + amendsIndex + 1
-		newContent := contentStr[:amendsLineEnd] + importFiles + contentStr[amendsLineEnd:]
+	// Find the last "amends" line to insert imports after it
+	// This handles multiple amends statements properly
+	lines := strings.Split(contentStr, "\n")
+	lastAmendsIndex := -1
+
+	for i, line := range lines {
+		if strings.TrimSpace(line) != "" && strings.HasPrefix(strings.TrimSpace(line), "amends") {
+			lastAmendsIndex = i
+		}
+	}
+
+	if lastAmendsIndex != -1 {
+		// Insert imports after the last amends line
+		newLines := make([]string, 0, len(lines)+1)
+		newLines = append(newLines, lines[:lastAmendsIndex+1]...)
+		newLines = append(newLines, importFiles)
+		newLines = append(newLines, lines[lastAmendsIndex+1:]...)
+
+		newContent := strings.Join(newLines, "\n")
 		newContent = re.ReplaceAllString(newContent, `\($1)`)
 
 		// Write the updated content back to the file

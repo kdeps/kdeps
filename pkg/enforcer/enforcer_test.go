@@ -562,3 +562,94 @@ func TestCompareVersionsAdditional(t *testing.T) {
 		assert.Equal(t, tc.want, got, tc.name)
 	}
 }
+
+func TestEnforcePklTemplateAmendsRules_MultipleAmends(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	// Create a test file with multiple amends statements
+	content := `amends "package://schema.kdeps.com/core@0.2.42#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.2.42#/Utils.pkl"
+
+import "pkl:json"
+import "pkl:math"
+
+ActionID = "testResource"
+Name = "Test Resource"
+Description = "A test resource with multiple amends"
+Category = ""
+
+Run {
+  Exec {
+    Command = "echo test"
+  }
+}
+`
+	filePath := "/test.pkl"
+	err := afero.WriteFile(fs, filePath, []byte(content), 0o644)
+	require.NoError(t, err)
+
+	// Test that validation passes with multiple amends statements
+	err = EnforcePklTemplateAmendsRules(fs, ctx, filePath, logger)
+	assert.NoError(t, err, "Validation should pass with multiple amends statements")
+}
+
+func TestEnforcePklTemplateAmendsRules_InvalidAmends(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	// Create a test file with one valid and one invalid amends statement
+	content := `amends "package://schema.kdeps.com/core@0.2.42#/Resource.pkl"
+amends "package://invalid.com/core@0.2.42#/Invalid.pkl"
+
+ActionID = "testResource"
+Name = "Test Resource"
+Description = "A test resource with invalid amends"
+Category = ""
+
+Run {
+  Exec {
+    Command = "echo test"
+  }
+}
+`
+	filePath := "/test.pkl"
+	err := afero.WriteFile(fs, filePath, []byte(content), 0o644)
+	require.NoError(t, err)
+
+	// Test that validation fails with invalid amends statement
+	err = EnforcePklTemplateAmendsRules(fs, ctx, filePath, logger)
+	assert.Error(t, err, "Validation should fail with invalid amends statement")
+	assert.Contains(t, err.Error(), "schema URL validation failed")
+}
+
+func TestEnforcePklTemplateAmendsRules_NoAmends(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	// Create a test file with no amends statements
+	content := `import "pkl:json"
+
+ActionID = "testResource"
+Name = "Test Resource"
+Description = "A test resource with no amends"
+Category = ""
+
+Run {
+  Exec {
+    Command = "echo test"
+  }
+}
+`
+	filePath := "/test.pkl"
+	err := afero.WriteFile(fs, filePath, []byte(content), 0o644)
+	require.NoError(t, err)
+
+	// Test that validation fails with no amends statements
+	err = EnforcePklTemplateAmendsRules(fs, ctx, filePath, logger)
+	assert.Error(t, err, "Validation should fail with no amends statements")
+	assert.Contains(t, err.Error(), "no valid 'amends' line found")
+}
