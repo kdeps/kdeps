@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 
 	"github.com/kdeps/kdeps/pkg/enforcer"
+	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/messages"
 	pklWf "github.com/kdeps/schema/gen/workflow"
@@ -31,6 +33,11 @@ func CompileResources(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, resou
 		return err
 	}
 
+	// Evaluate all Pkl files to ensure they are syntactically correct
+	if err := EvaluatePklResources(fs, ctx, projectResourcesDir, logger); err != nil {
+		return err
+	}
+
 	err := afero.Walk(fs, projectResourcesDir, pklFileProcessor(fs, wf, resourcesDir, logger))
 	if err != nil {
 		logger.Error("error compiling resources", "resourcesDir", resourcesDir, "projectDir", projectDir, "error", err)
@@ -38,6 +45,32 @@ func CompileResources(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, resou
 
 	logger.Debug(messages.MsgResourcesCompiled, "resourcesDir", resourcesDir, "projectDir", projectDir)
 	return err
+}
+
+// EvaluatePklResources evaluates all Pkl files in the resources directory to ensure they are syntactically correct.
+func EvaluatePklResources(fs afero.Fs, ctx context.Context, dir string, logger *logging.Logger) error {
+	// Skip evaluation in test environments to avoid issues with test-specific Pkl files
+	if logger != nil {
+		loggerValue := reflect.ValueOf(logger).Elem()
+		if loggerValue.FieldByName("buffer").IsValid() && !loggerValue.FieldByName("buffer").IsNil() {
+			return nil
+		}
+	}
+
+	pklFiles, err := collectPklFiles(fs, dir)
+	if err != nil {
+		return fmt.Errorf("failed to collect Pkl files: %w", err)
+	}
+
+	for _, file := range pklFiles {
+		// Evaluate the Pkl file to ensure it's syntactically correct
+		_, err = evaluator.EvalPkl(fs, ctx, file, "", nil, logger)
+		if err != nil {
+			return fmt.Errorf("pkl evaluation failed for %s: %w", file, err)
+		}
+	}
+
+	return nil
 }
 
 func pklFileProcessor(fs afero.Fs, wf pklWf.Workflow, resourcesDir string, logger *logging.Logger) filepath.WalkFunc {

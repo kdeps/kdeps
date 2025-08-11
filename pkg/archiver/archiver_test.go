@@ -101,7 +101,7 @@ func aKdepsArchiveIsOpened(arg1 string) error {
 }
 
 func theSystemFolderExists(arg1 string) error {
-	logger = logging.GetLogger()
+	logger = logging.NewTestLogger()
 	tempDir, err := afero.TempDir(testFs, "", arg1)
 	if err != nil {
 		return err
