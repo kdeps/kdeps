@@ -33,18 +33,21 @@ func CompileResources(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, resou
 		return err
 	}
 
-	// Evaluate all Pkl files to ensure they are syntactically correct
-	if err := EvaluatePklResources(fs, ctx, projectResourcesDir, logger); err != nil {
-		return err
-	}
-
+	// Process and copy Pkl files to the compiled resources directory
 	err := afero.Walk(fs, projectResourcesDir, pklFileProcessor(fs, wf, resourcesDir, logger))
 	if err != nil {
 		logger.Error("error compiling resources", "resourcesDir", resourcesDir, "projectDir", projectDir, "error", err)
+		return err
+	}
+
+	// Evaluate all Pkl files in the COMPILED resources directory to ensure they are syntactically correct
+	// This ensures we don't modify the original project directory
+	if err := EvaluatePklResources(fs, ctx, resourcesDir, logger); err != nil {
+		return err
 	}
 
 	logger.Debug(messages.MsgResourcesCompiled, "resourcesDir", resourcesDir, "projectDir", projectDir)
-	return err
+	return nil
 }
 
 // EvaluatePklResources evaluates all Pkl files in the resources directory to ensure they are syntactically correct.
