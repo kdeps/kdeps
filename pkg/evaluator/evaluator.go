@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
+	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/kdepsexec"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
@@ -29,9 +32,39 @@ func EnsurePklBinaryExists(ctx context.Context, logger *logging.Logger) error {
 	return nil // Unreachable, but included for clarity
 }
 
-// EvalPkl evaluates the resource file at resourcePath using the 'pkl' binary.
-// It expects the resourcePath to have a .pkl extension.
-func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSection string, logger *logging.Logger) (string, error) {
+// NewConfiguredEvaluator creates a Pkl evaluator with preconfigured defaults and optional readers.
+// Use outputFormat to override the default renderer (e.g., "pcf", "json").
+func NewConfiguredEvaluator(ctx context.Context, outputFormat string, readers []pkl.ResourceReader) (pkl.Evaluator, error) {
+	opts := func(options *pkl.EvaluatorOptions) {
+		pkl.WithDefaultAllowedResources(options)
+		pkl.WithOsEnv(options)
+		pkl.WithDefaultAllowedModules(options)
+		pkl.WithDefaultCacheDir(options)
+		options.Logger = pkl.NoopLogger
+		if outputFormat != "" {
+			options.OutputFormat = outputFormat
+		}
+		// Allow all; actual access is governed by registered readers and sources used
+		options.AllowedModules = []string{".*"}
+		options.AllowedResources = []string{".*"}
+		if len(readers) > 0 {
+			options.ResourceReaders = readers
+		}
+	}
+	return pkl.NewEvaluator(ctx, opts)
+}
+
+// EvalPkl evaluates the resource at resourcePath using the Pkl SDK.
+// If the file content is a quoted PKL code string like "new <Dynamic,Listing,Mapping,etc..> {...}",
+// it removes the quotes and writes it to a temporary file for evaluation.
+func EvalPkl(
+	fs afero.Fs,
+	ctx context.Context,
+	resourcePath string,
+	headerSection string,
+	opts func(options *pkl.EvaluatorOptions),
+	logger *logging.Logger,
+) (string, error) {
 	// Validate that the file has a .pkl extension
 	if filepath.Ext(resourcePath) != ".pkl" {
 		errMsg := fmt.Sprintf("file '%s' must have a .pkl extension", resourcePath)
@@ -39,24 +72,123 @@ func EvalPkl(fs afero.Fs, ctx context.Context, resourcePath string, headerSectio
 		return "", errors.New(errMsg)
 	}
 
-	// Ensure that the 'pkl' binary is available
-	if err := EnsurePklBinaryExists(ctx, logger); err != nil {
-		return "", err
-	}
-
-	stdout, stderr, exitCode, err := kdepsexec.KdepsExec(ctx, "pkl", []string{"eval", resourcePath}, "", false, false, logger)
+	// Read the file content or URI
+	content, err := afero.ReadFile(fs, resourcePath)
 	if err != nil {
-		logger.Error("command execution failed", "stderr", stderr, "error", err)
-		return "", err
+		// Not all resourcePaths are filesystem paths (could be package:// URI).
+		// Only log debug here; continue with SDK source resolution below.
+		logger.Debug("failed to read file content (may be a URI)", "resourcePath", resourcePath, "error", err)
+	}
+	contentStr := string(content)
+
+	// Detect quoted PKL code pattern: "new <Type> { ... }" or 'new <Type> { ... }'
+	pklPattern := regexp.MustCompile(`(?s)^(?:\"|\')\s*new\s+(Dynamic|Listing|Mapping|[a-zA-Z][a-zA-Z0-9]*)\s*\{[\s\S]*?\}\s*(?:\"|\')$`)
+	dataToEvaluate := contentStr
+	evalPath := resourcePath
+	if contentStr != "" && pklPattern.MatchString(contentStr) {
+		// Remove surrounding quotes
+		dataToEvaluate = strings.Trim(contentStr, "\"'")
+		// Write modified content to a temp file for evaluation
+		tempFile, err := afero.TempFile(fs, "", "pkl-*.pkl")
+		if err != nil {
+			logger.Error("failed to create temporary file", "error", err)
+			return "", fmt.Errorf("error creating temporary file: %w", err)
+		}
+		tempPath := tempFile.Name()
+		if _, err := tempFile.Write([]byte(dataToEvaluate)); err != nil {
+			_ = tempFile.Close()
+			_ = fs.Remove(tempPath)
+			logger.Error("failed to write modified PKL content to temporary file", "tempPath", tempPath, "error", err)
+			return "", fmt.Errorf("error writing modified content to %s: %w", tempPath, err)
+		}
+		if err := tempFile.Close(); err != nil {
+			_ = fs.Remove(tempPath)
+			logger.Error("failed to close temporary file", "tempPath", tempPath, "error", err)
+			return "", fmt.Errorf("error closing temporary file %s: %w", tempPath, err)
+		}
+		defer func() { _ = fs.Remove(tempPath) }()
+		evalPath = tempPath
 	}
 
-	if exitCode != 0 {
-		errMsg := fmt.Sprintf("command failed with exit code %d: %s", exitCode, stderr)
-		logger.Error(errMsg)
-		return "", errors.New(errMsg)
+	// Build module source: UriSource if has scheme, else FileSource
+	var moduleSource *pkl.ModuleSource
+	if parsed, err := url.Parse(evalPath); err == nil && parsed.Scheme != "" {
+		moduleSource = pkl.UriSource(evalPath)
+	} else {
+		moduleSource = pkl.FileSource(evalPath)
 	}
 
-	formattedResult := fmt.Sprintf("%s\n%s", headerSection, stdout)
+	var evaluator pkl.Evaluator
+	if opts == nil {
+		var eErr error
+		evaluator, eErr = NewConfiguredEvaluator(ctx, "pcf", nil)
+		if eErr != nil {
+			err = eErr
+		}
+	} else {
+		var eErr error
+		evaluator, eErr = pkl.NewEvaluator(ctx, opts)
+		if eErr != nil {
+			err = eErr
+		}
+	}
+	if err != nil {
+		// Fallback to CLI if SDK cannot initialize (e.g., version detection issue)
+		logger.Warn("SDK evaluator initialization failed; falling back to CLI eval", "error", err)
+		stdout, stderr, exitCode, execErr := kdepsexec.KdepsExec(ctx, "pkl", []string{"eval", evalPath}, "", false, false, logger)
+		if execErr != nil {
+			logger.Error("CLI command execution failed", "stderr", stderr, "error", execErr)
+			return "", fmt.Errorf("sdk init error: %v; cli error: %w", err, execErr)
+		}
+		if exitCode != 0 {
+			errMsg := fmt.Sprintf("cli command failed with exit code %d: %s", exitCode, stderr)
+			logger.Error(errMsg)
+			return "", errors.New(errMsg)
+		}
+		formattedResult := fmt.Sprintf("%s\n%s", headerSection, stdout)
+		if u, err := url.Parse(resourcePath); err != nil || u.Scheme == "" || u.Scheme == "file" {
+			if err := afero.WriteFile(fs, resourcePath, []byte(formattedResult), 0o644); err != nil {
+				logger.Error("failed to write formatted result to file", "resourcePath", resourcePath, "error", err)
+				return "", fmt.Errorf("error writing formatted result to %s: %w", resourcePath, err)
+			}
+		}
+		return formattedResult, nil
+	}
+
+	// Evaluate text output
+	result, err := evaluator.EvaluateOutputText(ctx, moduleSource)
+	if err != nil {
+		// Fallback to CLI on evaluation error
+		logger.Warn("SDK evaluation failed; falling back to CLI eval", "error", err)
+		stdout, stderr, exitCode, execErr := kdepsexec.KdepsExec(ctx, "pkl", []string{"eval", evalPath}, "", false, false, logger)
+		if execErr != nil {
+			logger.Error("CLI command execution failed", "stderr", stderr, "error", execErr)
+			return "", fmt.Errorf("sdk eval error: %v; cli error: %w", err, execErr)
+		}
+		if exitCode != 0 {
+			errMsg := fmt.Sprintf("cli command failed with exit code %d: %s", exitCode, stderr)
+			logger.Error(errMsg)
+			return "", errors.New(errMsg)
+		}
+		formattedResult := fmt.Sprintf("%s\n%s", headerSection, stdout)
+		if u, err := url.Parse(resourcePath); err != nil || u.Scheme == "" || u.Scheme == "file" {
+			if err := afero.WriteFile(fs, resourcePath, []byte(formattedResult), 0o644); err != nil {
+				logger.Error("failed to write formatted result to file", "resourcePath", resourcePath, "error", err)
+				return "", fmt.Errorf("error writing formatted result to %s: %w", resourcePath, err)
+			}
+		}
+		return formattedResult, nil
+	}
+
+	formattedResult := fmt.Sprintf("%s\n%s", headerSection, result)
+
+	// Write the formatted result back to the original path if it is a filesystem path
+	if u, err := url.Parse(resourcePath); err != nil || u.Scheme == "" || u.Scheme == "file" {
+		if err := afero.WriteFile(fs, resourcePath, []byte(formattedResult), 0o644); err != nil {
+			logger.Error("failed to write formatted result to file", "resourcePath", resourcePath, "error", err)
+			return "", fmt.Errorf("error writing formatted result to %s: %w", resourcePath, err)
+		}
+	}
 
 	return formattedResult, nil
 }
@@ -67,8 +199,9 @@ func CreateAndProcessPklFile(
 	sections []string,
 	finalFileName string,
 	pklTemplate string,
+	opts func(options *pkl.EvaluatorOptions),
 	logger *logging.Logger,
-	processFunc func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, logger *logging.Logger) (string, error),
+	processFunc func(fs afero.Fs, ctx context.Context, tmpFile string, headerSection string, opts func(options *pkl.EvaluatorOptions), logger *logging.Logger) (string, error),
 	isExtension bool, // New parameter to control amends vs extends
 ) error {
 	// Create a temporary directory
@@ -111,7 +244,7 @@ func CreateAndProcessPklFile(
 	}
 
 	// Process the temporary file using the provided function
-	processedContent, err := processFunc(fs, ctx, tmpFile.Name(), relationshipSection, logger)
+	processedContent, err := processFunc(fs, ctx, tmpFile.Name(), relationshipSection, opts, logger)
 	if err != nil {
 		logger.Error("failed to process temporary file", "path", tmpFile.Name(), "error", err)
 		return fmt.Errorf("failed to process temporary file: %w", err)

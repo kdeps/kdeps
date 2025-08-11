@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"path/filepath"
 	"reflect"
 	"strings"
 
+	"github.com/apple/pkl-go/pkl"
 	"github.com/google/uuid"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/kdepsexec"
@@ -39,7 +41,17 @@ func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverre
 	}
 
 	sections := dr.buildResponseSections(dr.RequestID, apiResponseBlock)
-	if err := evaluator.CreateAndProcessPklFile(dr.Fs, dr.Context, sections, dr.ResponsePklFile, "APIServerResponse.pkl", dr.Logger, evaluator.EvalPkl, false); err != nil {
+	if err := evaluator.CreateAndProcessPklFile(
+		dr.Fs,
+		dr.Context,
+		sections,
+		dr.ResponsePklFile,
+		"APIServerResponse.pkl",
+		nil,
+		dr.Logger,
+		evaluator.EvalPkl,
+		false,
+	); err != nil {
 		return fmt.Errorf("create/process PKL file: %w", err)
 	}
 
@@ -262,15 +274,57 @@ func (dr *DependencyResolver) EvalPklFormattedResponseFile() (string, error) {
 		return "", fmt.Errorf("ensure target file not exists: %w", err)
 	}
 
-	if err := evaluator.EnsurePklBinaryExists(dr.Context, dr.Logger); err != nil {
-		return "", fmt.Errorf("PKL binary check: %w", err)
-	}
-
-	result, err := dr.executePklEvalCommand()
+	// Execute evaluation preferring SDK but falling back to CLI so environments
+	// with a stubbed `pkl` binary (e.g., tests) still succeed.
+	res, err := dr.executePklEvalCommand()
 	if err != nil {
 		return "", fmt.Errorf("execute PKL eval: %w", err)
 	}
-	return result.Stdout, nil
+	return res.Stdout, nil
+}
+
+// evaluateResponseWithSDK evaluates the response PKL file using the pkl-go SDK
+// and writes the JSON output to ResponseTargetFile.
+func (dr *DependencyResolver) evaluateResponseWithSDK() (string, error) {
+	// Build module source from path or URI
+	var moduleSource *pkl.ModuleSource
+	if u, err := url.Parse(dr.ResponsePklFile); err == nil && u.Scheme != "" {
+		moduleSource = pkl.UriSource(dr.ResponsePklFile)
+	} else {
+		moduleSource = pkl.FileSource(dr.ResponsePklFile)
+	}
+
+	// Create evaluator via centralized helper in pkg/evaluator with readers
+	readers := make([]pkl.ResourceReader, 0, 4)
+	if dr.MemoryReader != nil {
+		readers = append(readers, dr.MemoryReader)
+	}
+	if dr.SessionReader != nil {
+		readers = append(readers, dr.SessionReader)
+	}
+	if dr.ToolReader != nil {
+		readers = append(readers, dr.ToolReader)
+	}
+	if dr.ItemReader != nil {
+		readers = append(readers, dr.ItemReader)
+	}
+	ev, err := evaluator.NewConfiguredEvaluator(dr.Context, "json", dr.getResourceReaders())
+	if err != nil {
+		return "", fmt.Errorf("create evaluator: %w", err)
+	}
+
+	// Evaluate to JSON string
+	jsonOut, err := ev.EvaluateOutputText(dr.Context, moduleSource)
+	if err != nil {
+		return "", fmt.Errorf("evaluate response pkl: %w", err)
+	}
+
+	// Write JSON output to target file
+	if err := afero.WriteFile(dr.Fs, dr.ResponseTargetFile, []byte(jsonOut), 0o644); err != nil {
+		return "", fmt.Errorf("write response json: %w", err)
+	}
+
+	return jsonOut, nil
 }
 
 func (dr *DependencyResolver) validatePklFileExtension() error {
@@ -299,7 +353,16 @@ func (dr *DependencyResolver) executePklEvalCommand() (kdepsexecStd struct {
 	ExitCode       int
 }, err error,
 ) {
-	stdout, stderr, exitCode, err := kdepsexec.KdepsExec(
+	// Prefer SDK, but fall back to CLI if SDK fails
+	stdout, err := dr.evaluateResponseWithSDK()
+	if err == nil {
+		kdepsexecStd.Stdout = stdout
+		kdepsexecStd.Stderr = ""
+		kdepsexecStd.ExitCode = 0
+		return kdepsexecStd, nil
+	}
+	// Fallback to CLI to preserve behavior in constrained environments
+	out, stderr, exitCode, execErr := kdepsexec.KdepsExec(
 		dr.Context,
 		"pkl",
 		[]string{"eval", "--format", "json", "--output-path", dr.ResponseTargetFile, dr.ResponsePklFile},
@@ -308,13 +371,13 @@ func (dr *DependencyResolver) executePklEvalCommand() (kdepsexecStd struct {
 		false,
 		dr.Logger,
 	)
-	if err != nil {
-		return kdepsexecStd, err
+	if execErr != nil {
+		return kdepsexecStd, execErr
 	}
 	if exitCode != 0 {
 		return kdepsexecStd, fmt.Errorf("command failed with exit code %d: %s", exitCode, stderr)
 	}
-	kdepsexecStd.Stdout = stdout
+	kdepsexecStd.Stdout = out
 	kdepsexecStd.Stderr = stderr
 	kdepsexecStd.ExitCode = exitCode
 	return kdepsexecStd, nil

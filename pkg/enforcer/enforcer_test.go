@@ -227,7 +227,7 @@ func itIsAValidPklFile() error {
 		return err
 	}
 
-	if _, err := evaluator.EvalPkl(testFs, ctx, fileThatExist, "", logger); err != nil {
+	if _, err := evaluator.EvalPkl(testFs, ctx, fileThatExist, "", nil, logger); err != nil {
 		return err
 	}
 
