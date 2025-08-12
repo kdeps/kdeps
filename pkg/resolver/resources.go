@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/apple/pkl-go/pkl"
+	"github.com/kdeps/kdeps/pkg/evaluator"
 	pklExec "github.com/kdeps/schema/gen/exec"
 	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
@@ -129,25 +130,8 @@ func (dr *DependencyResolver) LoadResource(ctx context.Context, resourceFile str
 	// Log additional info before reading the resource
 	dr.Logger.Debug("reading resource file", "resource-file", resourceFile, "resource-type", resourceType)
 
-	// Define an option function to configure EvaluatorOptions
-	opts := func(options *pkl.EvaluatorOptions) {
-		pkl.WithDefaultAllowedResources(options)
-		pkl.WithOsEnv(options)
-		pkl.WithDefaultAllowedModules(options)
-		pkl.WithDefaultCacheDir(options)
-		options.Logger = pkl.NoopLogger
-		options.ResourceReaders = []pkl.ResourceReader{
-			dr.MemoryReader,
-			dr.SessionReader,
-			dr.ToolReader,
-			dr.ItemReader,
-		}
-		options.AllowedModules = []string{".*"}
-		options.AllowedResources = []string{".*"}
-	}
-
-	// Create evaluator with custom options
-	evaluator, err := pkl.NewEvaluator(ctx, opts)
+	// Create evaluator using centralized helper in pkg/evaluator with readers
+	evaluator, err := evaluator.NewConfiguredEvaluator(ctx, "", dr.getResourceReaders())
 	if err != nil {
 		dr.Logger.Error("error creating evaluator", "error", err)
 		return nil, fmt.Errorf("error creating evaluator: %w", err)

@@ -279,27 +279,41 @@ func EnforcePklTemplateAmendsRules(fs afero.Fs, ctx context.Context, filePath st
 	}
 
 	scanner := bufio.NewScanner(file)
+	amendsCount := 0
+	validAmendsFound := false
+	validFileTypeFound := false
+	filename := strings.ToLower(filepath.Base(filePath))
+
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
 			continue
 		}
 
-		logger.Debug("processing line", "line", line)
-		if err := EnforceSchemaURL(ctx, line, filePath, logger); err != nil {
-			return fmt.Errorf("schema URL validation failed: %w", err)
-		}
+		// Check if this line is an amends statement
+		if strings.HasPrefix(line, "amends") {
+			amendsCount++
+			logger.Debug("processing amends line", "line", line, "count", amendsCount)
 
-		if err := EnforcePklVersion(ctx, line, filePath, schema.SchemaVersion(ctx), logger); err != nil {
-			return fmt.Errorf("version validation failed: %w", err)
-		}
+			if err := EnforceSchemaURL(ctx, line, filePath, logger); err != nil {
+				return fmt.Errorf("schema URL validation failed for amends statement %d: %w", amendsCount, err)
+			}
 
-		if err := EnforcePklFilename(ctx, line, filePath, logger); err != nil {
-			return fmt.Errorf("filename validation failed: %w", err)
-		}
+			if err := EnforcePklVersion(ctx, line, filePath, schema.SchemaVersion(ctx), logger); err != nil {
+				return fmt.Errorf("version validation failed for amends statement %d: %w", amendsCount, err)
+			}
 
-		logger.Debug("all validations passed for the line", "line", line)
-		return nil
+			// Check if this amends statement is valid for the file type
+			if err := EnforcePklFilename(ctx, line, filePath, logger); err == nil {
+				validFileTypeFound = true
+				logger.Debug("amends statement valid for file type", "line", line, "count", amendsCount)
+			} else {
+				logger.Debug("amends statement not valid for file type, but continuing validation", "line", line, "count", amendsCount, "error", err)
+			}
+
+			validAmendsFound = true
+			logger.Debug("amends statement validated successfully", "line", line, "count", amendsCount)
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -307,6 +321,16 @@ func EnforcePklTemplateAmendsRules(fs afero.Fs, ctx context.Context, filePath st
 		return err
 	}
 
-	logger.Error("no valid 'amends' line found in the file", "filePath", filePath)
-	return errors.New("no valid 'amends' line found")
+	if !validAmendsFound {
+		logger.Error("no valid 'amends' line found in the file", "filePath", filePath)
+		return errors.New("no valid 'amends' line found")
+	}
+
+	if !validFileTypeFound {
+		logger.Error("no amends statement valid for file type", "filePath", filePath, "filename", filename)
+		return fmt.Errorf("no amends statement valid for file type %s", filename)
+	}
+
+	logger.Debug("all amends statements validated successfully", "filePath", filePath, "amendsCount", amendsCount)
+	return nil
 }

@@ -80,7 +80,14 @@ func (dr *DependencyResolver) AppendDataEntry(resourceID string, newData *pklDat
 	}
 
 	// Evaluate the PKL file using EvalPkl
-	evaluatedContent, err := evaluator.EvalPkl(dr.Fs, dr.Context, pklPath, fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Data.pkl\"", schema.SchemaVersion(dr.Context)), dr.Logger)
+	evaluatedContent, err := evaluator.EvalPkl(
+		dr.Fs,
+		dr.Context,
+		pklPath,
+		fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/Data.pkl\"", schema.SchemaVersion(dr.Context)),
+		nil,
+		dr.Logger,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to evaluate PKL file: %w", err)
 	}

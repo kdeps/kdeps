@@ -117,7 +117,9 @@ Run {
                 // Model = "llama3.2-vision"
                 // Model = "mistral"
                 // Model = "codellama"
-                // Model = "@(request.params("model"))"
+                // Model = """
+                //         @(request.params("model"))
+                // """
 
                 // The dedicated prompt and role can be sent to the LLM, or use the scenario block.
                 // This LLM role context for this prompt. For example, "user", "assistant" or "system".
@@ -126,10 +128,18 @@ Run {
                 // Role = "system"
                 // Role = "assistant"
                 
-                Prompt = "Who is @(request.params("q"))?"
-                // Prompt = "Analyze the following text: @(request.params("text"))"
-                // Prompt = "Translate this to Spanish: @(request.params("text"))"
-                // Prompt = "Write a summary of: @(request.params("content"))"
+                Prompt = """
+                        Who is @(request.params("q"))?
+                """
+                // Prompt = """
+                //         Analyze the following text: @(request.params("text"))
+                // """
+                // Prompt = """
+                //         Translate this to Spanish: @(request.params("text"))
+                // """
+                // Prompt = """
+                //         Write a summary of: @(request.params("content"))
+                // """
 
                 // Scenario block can take multiple prompts and roles to be added to this LLM session.
                 Scenario {

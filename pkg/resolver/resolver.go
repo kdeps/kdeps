@@ -106,6 +106,26 @@ type ResourceNodeEntry struct {
 	File     string `pkl:"file"`
 }
 
+// getResourceReaders returns all configured custom resource readers.
+func (dr *DependencyResolver) getResourceReaders() []pkl.ResourceReader {
+	readers := make([]pkl.ResourceReader, 0, 4)
+	if dr.MemoryReader != nil {
+		readers = append(readers, dr.MemoryReader)
+	}
+	if dr.SessionReader != nil {
+		readers = append(readers, dr.SessionReader)
+	}
+	if dr.ToolReader != nil {
+		readers = append(readers, dr.ToolReader)
+	}
+	if dr.ItemReader != nil {
+		readers = append(readers, dr.ItemReader)
+	}
+	return readers
+}
+
+// (removed) createEvaluator: use pkg/evaluator.NewConfiguredEvaluator instead
+
 func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment, req *gin.Context, logger *logging.Logger) (*DependencyResolver, error) {
 	var agentDir, graphID, actionDir string
 

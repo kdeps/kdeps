@@ -123,7 +123,9 @@ Run {
                 CondaEnvironment = "base"
                 // CondaEnvironment = "ml"
                 // CondaEnvironment = "data"
-                // CondaEnvironment = "@(request.params("env"))"
+                // CondaEnvironment = """
+                //         @(request.params("env"))
+                // """
 
                 Script =
 """
@@ -153,7 +155,9 @@ if __name__ == "__main__":
                 // 
                 // def main():
                 //     # Read data from request parameter
-                //     data = "@(request.params("data"))"
+                //     data = """
+                //             @(request.params("data"))
+                //     """
                 //     df = pd.read_csv(data)
                 //     
                 //     # Process data
@@ -189,8 +193,12 @@ if __name__ == "__main__":
                         ["ENVVAR"] = "XYZ"  // Example ENVVAR.
                         // ["PATH"] = "/usr/local/bin:/usr/bin:/bin"
                         // ["PYTHONPATH"] = "/usr/local/lib/python3.9/site-packages"
-                        // ["API_KEY"] = "@(request.header("X-API-KEY"))"
-                        // ["USER"] = "@(request.params("user"))"
+                        // ["API_KEY"] = """
+                        //         @(request.header("X-API-KEY"))
+                        // """
+                        // ["USER"] = """
+                        //         @(request.params("user"))
+                        // """
                         // ["DEBUG"] = "true"
                         // ["LOG_LEVEL"] = "info"
                         // ["DATA_DIR"] = "/data"

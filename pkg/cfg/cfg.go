@@ -40,10 +40,7 @@ func simpleConfirm(title, description string) (bool, error) {
 func FindConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
 	logger.Debug("finding configuration...")
 
-	// Ensure PKL binary exists before proceeding
-	if err := evaluator.EnsurePklBinaryExists(ctx, logger); err != nil {
-		return "", err
-	}
+	// No need to ensure PKL CLI; we use the SDK now
 
 	// Use the initialized environment's Pwd directory
 	configFilePwd := filepath.Join(env.Pwd, environment.SystemConfigFileName)
@@ -75,7 +72,7 @@ func GenerateConfiguration(fs afero.Fs, ctx context.Context, env *environment.En
 		url := fmt.Sprintf("package://schema.kdeps.com/core@%s#/Kdeps.pkl", schema.SchemaVersion(ctx))
 		headerSection := fmt.Sprintf("amends \"%s\"\n", url)
 
-		content, err := evaluator.EvalPkl(fs, ctx, url, headerSection, logger)
+		content, err := evaluator.EvalPkl(fs, ctx, url, headerSection, nil, logger)
 		if err != nil {
 			return "", fmt.Errorf("failed to evaluate .pkl file: %w", err)
 		}
@@ -130,7 +127,7 @@ func ValidateConfiguration(fs afero.Fs, ctx context.Context, env *environment.En
 
 	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
 
-	if _, err := evaluator.EvalPkl(fs, ctx, configFile, "", logger); err != nil {
+	if _, err := evaluator.EvalPkl(fs, ctx, configFile, "", nil, logger); err != nil {
 		return configFile, fmt.Errorf("configuration validation failed: %w", err)
 	}
 
