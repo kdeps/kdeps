@@ -12,6 +12,8 @@
 Kdeps is an all-in-one AI framework for building Dockerized full-stack AI applications (FE and BE) that includes
 open-source LLM models out-of-the-box.
 
+> 📋 **New**: Read our comprehensive [**KDeps Whitepaper**](./KDeps_Whitepaper.md) for detailed technical insights, architecture overview, and competitive analysis.
+
 ## Key Features
 
 Kdeps is loaded with features to streamline full-stack AI app development:
@@ -882,3 +884,15 @@ curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/refs/heads/main/install
 Ready to explore Kdeps? Install it with a single command: [Installation Guide](https://kdeps.com/getting-started/introduction/installation.html).
 
 Check out practical [examples](https://github.com/kdeps/examples) to jumpstart your projects.
+
+## 📋 Whitepaper
+
+For a comprehensive technical overview of KDeps, including architecture, use cases, and competitive analysis, read our [**KDeps Whitepaper**](./KDeps_Whitepaper.md).
+
+The whitepaper covers:
+- **Architecture Overview**: Detailed breakdown of KDeps' modular design
+- **Core Components**: Workflow engine, resource system, and dependency resolver
+- **Technical Implementation**: Technology stack and performance characteristics
+- **Use Cases**: Real-world applications and implementation examples
+- **Competitive Analysis**: Comparison with existing AI development platforms
+- **Future Roadmap**: Development plans and strategic vision
