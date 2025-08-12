@@ -140,21 +140,43 @@ Run {
                         Properties {
                                 // ["X-Custom-Properties"] = "value"
                                 // ["version"] = "1.0.0"
-                                // ["timestamp"] = "@(request.params("time"))"
-                                // ["request_id"] = "@(request.params("id"))"
-                                // ["user_agent"] = "@(request.header("User-Agent"))"
+                                // ["timestamp"] = """
+                                //         @(request.params("time"))
+                                // """
+                                // ["request_id"] = """
+                                //         @(request.params("id"))
+                                // """
+                                // ["user_agent"] = """
+                                //         @(request.header("User-Agent"))
+                                // """
                         }
                 }
                 Response {
                         Data {
-                                "@(llm.response("llmResource"))"
-                                // "@(memory.getRecord("foo"))"
-                                // "@(python.stdout("pythonResource"))"
-                                // "@(exec.stdout("shellResource"))"
-                                // "@(client.responseBody("httpResource"))"
-                                // "@(session.getRecord("temp_data"))"
-                                // "@(request.params("data"))"
-                                // "@(request.data())"
+                                """
+                                @(llm.response("llmResource"))
+                                """
+                                // """
+                                // @(memory.getRecord("foo"))
+                                // """
+                                // """
+                                // @(python.stdout("pythonResource"))
+                                // """
+                                // """
+                                // @(exec.stdout("shellResource"))
+                                // """
+                                // """
+                                // @(client.responseBody("httpResource"))
+                                // """
+                                // """
+                                // @(session.getRecord("temp_data"))
+                                // """
+                                // """
+                                // @(request.params("data"))
+                                // """
+                                // """
+                                // @(request.data())
+                                // """
                         }
                 }
                 Errors {

@@ -161,16 +161,16 @@ func CompileWorkflow(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsD
 		return "", err
 	}
 
-	// Evaluate the compiled workflow to ensure it's syntactically correct
-	// Skip evaluation in test environments to avoid issues with test-specific Pkl files
+	// Validate the compiled workflow to ensure it's syntactically correct
+	// Skip validation in test environments to avoid issues with test-specific Pkl files
 	if logger != nil && reflect.ValueOf(logger).Elem().FieldByName("buffer").IsValid() {
-		logger.Debug("skipping workflow Pkl evaluation in test environment")
+		logger.Debug("skipping workflow Pkl validation in test environment")
 	} else {
-		if _, err := evaluator.EvalPkl(fs, ctx, compiledFilePath, "", nil, logger); err != nil {
-			logger.Error("Pkl evaluation failed for workflow", "file", compiledFilePath, "error", err)
-			return "", fmt.Errorf("pkl evaluation failed for workflow: %w", err)
+		if err := evaluator.ValidatePkl(fs, ctx, compiledFilePath, logger); err != nil {
+			logger.Error("Pkl validation failed for workflow", "file", compiledFilePath, "error", err)
+			return "", fmt.Errorf("pkl validation failed for workflow: %w", err)
 		}
-		logger.Debug("workflow Pkl file evaluated successfully", "file", compiledFilePath)
+		logger.Debug("workflow Pkl file validated successfully", "file", compiledFilePath)
 	}
 
 	return filepath.Dir(compiledFilePath), nil
@@ -267,12 +267,12 @@ func EvaluateAllPklFiles(fs afero.Fs, ctx context.Context, compiledProjectDir st
 		return fmt.Errorf("failed to walk compiled project directory: %w", err)
 	}
 
-	// Evaluate each Pkl file
+	// Validate each Pkl file
 	for _, file := range pklFiles {
-		// Evaluate the Pkl file to ensure it's syntactically correct
-		_, err := evaluator.EvalPkl(fs, ctx, file, "", nil, logger)
+		// Validate the Pkl file to ensure it's syntactically correct without modifying it
+		err := evaluator.ValidatePkl(fs, ctx, file, logger)
 		if err != nil {
-			return fmt.Errorf("pkl evaluation failed for %s: %w", file, err)
+			return fmt.Errorf("pkl validation failed for %s: %w", file, err)
 		}
 	}
 

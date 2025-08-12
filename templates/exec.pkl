@@ -141,8 +141,12 @@ Run {
                         ["ENVVAR"] = "XYZ"  // Example ENVVAR.
                         // ["PATH"] = "/usr/local/bin:/usr/bin:/bin"
                         // ["HOME"] = "/home/user"
-                        // ["USER"] = "@(request.params("user"))"
-                        // ["API_KEY"] = "@(request.header("X-API-KEY"))"
+                        // ["USER"] = """
+                        //         @(request.params("user"))
+                        // """
+                        // ["API_KEY"] = """
+                        //         @(request.header("X-API-KEY"))
+                        // """
                         // ["DEBUG"] = "true"
                         // ["LOG_LEVEL"] = "info"
                 }

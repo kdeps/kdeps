@@ -66,10 +66,10 @@ func EvaluatePklResources(fs afero.Fs, ctx context.Context, dir string, logger *
 	}
 
 	for _, file := range pklFiles {
-		// Evaluate the Pkl file to ensure it's syntactically correct
-		_, err = evaluator.EvalPkl(fs, ctx, file, "", nil, logger)
+		// Validate the Pkl file to ensure it's syntactically correct without modifying it
+		err = evaluator.ValidatePkl(fs, ctx, file, logger)
 		if err != nil {
-			return fmt.Errorf("pkl evaluation failed for %s: %w", file, err)
+			return fmt.Errorf("pkl validation failed for %s: %w", file, err)
 		}
 	}
 
