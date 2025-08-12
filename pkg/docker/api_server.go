@@ -502,8 +502,17 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 
 		sections := []string{urlSection, clientIPSection, requestIDSection, method, requestHeaderSection, dataSection, paramSection, fileSection}
 
-		if err := evaluator.CreateAndProcessPklFile(dr.Fs, ctx, sections, dr.RequestPklFile,
-			"APIServerRequest.pkl", dr.Logger, evaluator.EvalPkl, true); err != nil {
+		if err := evaluator.CreateAndProcessPklFile(
+			dr.Fs,
+			ctx,
+			sections,
+			dr.RequestPklFile,
+			"APIServerRequest.pkl",
+			nil,
+			dr.Logger,
+			evaluator.EvalPkl,
+			true,
+		); err != nil {
 			errors = append(errors, ErrorResponse{
 				Code:     http.StatusInternalServerError,
 				Message:  messages.ErrProcessRequestFile,

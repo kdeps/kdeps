@@ -122,14 +122,22 @@ Run {
                 Data {
                         // Any data that will be sent with the HTTP request.
                         // ["key"] = "value"
-                        // ["user_id"] = "@(request.params("user_id"))"
-                        // ["query"] = "@(request.params("q"))"
+                        // ["user_id"] = """
+                        //         @(request.params("user_id"))
+                        // """
+                        // ["query"] = """
+                        //         @(request.params("q"))
+                        // """
                 }
                 
                 Headers {
                         // Headers to be included in the HTTP request.
-                        ["X-API-KEY"] = "@(request.header("X-API-KEY"))"
-                        ["Authorization"] = "Bearer @(request.header("Authorization"))"
+                        ["X-API-KEY"] = """
+                                @(request.header("X-API-KEY"))
+                        """
+                        ["Authorization"] = """
+                                Bearer @(request.header("Authorization"))
+                        """
                         ["Content-Type"] = "application/json"
                         ["User-Agent"] = "KDeps-HTTP-Client/1.0"
                 }

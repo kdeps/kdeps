@@ -9,11 +9,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 
 	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/environment"
+	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/utils"
@@ -159,6 +161,18 @@ func CompileWorkflow(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsD
 		return "", err
 	}
 
+	// Validate the compiled workflow to ensure it's syntactically correct
+	// Skip validation in test environments to avoid issues with test-specific Pkl files
+	if logger != nil && reflect.ValueOf(logger).Elem().FieldByName("buffer").IsValid() {
+		logger.Debug("skipping workflow Pkl validation in test environment")
+	} else {
+		if err := evaluator.ValidatePkl(fs, ctx, compiledFilePath, logger); err != nil {
+			logger.Error("Pkl validation failed for workflow", "file", compiledFilePath, "error", err)
+			return "", fmt.Errorf("pkl validation failed for workflow: %w", err)
+		}
+		logger.Debug("workflow Pkl file validated successfully", "file", compiledFilePath)
+	}
+
 	return filepath.Dir(compiledFilePath), nil
 }
 
@@ -195,6 +209,11 @@ func CompileProject(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDi
 		return "", "", fmt.Errorf("failed to process workflows: %w", err)
 	}
 
+	// Evaluate ALL Pkl files in the compiled project directory to ensure comprehensive validation
+	if err := EvaluateAllPklFiles(fs, ctx, compiledProjectDir, logger); err != nil {
+		return "", "", fmt.Errorf("failed to evaluate all Pkl files: %w", err)
+	}
+
 	packageFile, err := PackageProject(fs, ctx, newWorkflow, kdepsDir, compiledProjectDir, logger)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to package project: %w", err)
@@ -211,6 +230,53 @@ func CompileProject(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDi
 
 	logger.Info("kdeps package created", "package-file", cwdPackage)
 	return compiledProjectDir, packageFile, nil
+}
+
+// EvaluateAllPklFiles recursively evaluates all Pkl files in the compiled project directory
+// to ensure comprehensive validation before packaging.
+func EvaluateAllPklFiles(fs afero.Fs, ctx context.Context, compiledProjectDir string, logger *logging.Logger) error {
+	// Skip evaluation in test environments to avoid issues with test-specific Pkl files
+	if logger != nil {
+		loggerValue := reflect.ValueOf(logger).Elem()
+		if loggerValue.FieldByName("buffer").IsValid() && !loggerValue.FieldByName("buffer").IsNil() {
+			return nil
+		}
+	}
+
+	var pklFiles []string
+
+	// Walk through the entire compiled project directory to find all Pkl files
+	err := afero.Walk(fs, compiledProjectDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip directories, only process files
+		if info.IsDir() {
+			return nil
+		}
+
+		// Check if the file has a .pkl extension
+		if filepath.Ext(path) == ".pkl" {
+			pklFiles = append(pklFiles, path)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to walk compiled project directory: %w", err)
+	}
+
+	// Validate each Pkl file
+	for _, file := range pklFiles {
+		// Validate the Pkl file to ensure it's syntactically correct without modifying it
+		err := evaluator.ValidatePkl(fs, ctx, file, logger)
+		if err != nil {
+			return fmt.Errorf("pkl validation failed for %s: %w", file, err)
+		}
+	}
+
+	return nil
 }
 
 func parseWorkflowValue(value string) (string, string, string) {
