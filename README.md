@@ -9,8 +9,8 @@
 [![tests](https://img.shields.io/endpoint?style=flat-square&url=https://gist.githubusercontent.com/jjuliano/ce695f832cd51d014ae6d37353311c59/raw/kdeps-go-tests.json)](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml)
 [![coverage](https://img.shields.io/endpoint?style=flat-square&url=https://gist.githubusercontent.com/jjuliano/ce695f832cd51d014ae6d37353311c59/raw/kdeps-go-coverage.json)](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml)
 
-Kdeps is an all-in-one AI framework for building Dockerized full-stack AI applications (FE and BE) that includes
-open-source LLM models out-of-the-box.
+Kdeps is an all-in-one AI framework for building Dockerized full-stack applications with declarative PKL configuration, 
+featuring integrated open-source LLMs for AI-powered APIs and workflows.
 
 > 📋 **New**: Read our comprehensive [**KDeps Whitepaper**](./docs/KDeps_Whitepaper.md) for detailed technical insights, architecture overview, and competitive analysis.
 
