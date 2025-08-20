@@ -16,7 +16,21 @@ featuring integrated open-source LLMs for AI-powered APIs and workflows. Runs fu
 
 ## About the name
 
-KDeps, short for "knowledge dependencies," is a name inspired by the principle that knowledge—whether from AI, machines, or humans—can be orchestrated, represented, organized, and interacted with through graph-based systems. The concept grew out of my work on Kartographer, a lightweight graph library designed for organizing and interacting with information. KDeps builds on Kartographer’s foundation and serves as a RAG-first (Retrieval-Augmented Generation) AI agent framework.
+> “KDeps, short for ‘knowledge dependencies,’ is inspired by the principle that knowledge—whether from AI, machines, or humans—can be represented, organized, orchestrated, and interacted with through graph-based systems. The name grew out of my work on Kartographer, a lightweight graph library for organizing and interacting with information. KDeps builds on Kartographer’s foundation and serves as a RAG-first (Retrieval-Augmented Generation) AI agent framework.” — Joel Bryan Juliano, KDeps creator
+
+## Why Offline-First?
+
+- **Privacy and compliance**: Keep sensitive data on your own machines to satisfy PII, GDPR, HIPAA, and enterprise policies.
+- **Reliability**: Apps continue to work without internet or with degraded networks.
+- **Low latency**: Local inference eliminates network round-trips for faster responses.
+- **Predictable cost**: No per-token fees or SaaS subscriptions; run models locally.
+- **Control and independence**: Avoid vendor lock-in and ensure reproducible, auditable deployments.
+- **Data residency**: Run on-premises or at the edge to meet jurisdictional requirements.
+- **Security**: Reduce external attack surface by eliminating third-party AI API dependencies.
+- **Edge readiness**: Process data close to where it’s generated for real-time use cases.
+- **Developer productivity**: Fully local dev loop; everything runs in self-contained Docker images.
+
+KDeps enables offline-first by integrating open-source LLMs via Ollama and packaging complete applications (FE/BE, models, and runtimes) into Docker images—no external AI APIs required.
 
 ## Key Features
 
