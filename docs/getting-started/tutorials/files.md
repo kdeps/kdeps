@@ -1,8 +1,8 @@
 # File Uploads
 
-Kdeps supports uploading files via its [API](../configuration/workflow#api-server-settings) in addition to sourcing files from the [Data Folder](../resources/data).
+KDeps supports uploading files via its [API](../configuration/workflow#api-server-settings) in addition to sourcing files from the [Data Folder](../resources/data).
 
-To enable file uploads through the Kdeps API, you must configure the HTTP `POST` method in the `methods` section of your configuration. For further details, refer to the [API Routes](../configuration/workflow#api-routes) documentation.
+To enable file uploads through the KDeps API, you must configure the HTTP `POST` method in the `methods` section of your configuration. For further details, refer to the [API Routes](../configuration/workflow#api-routes) documentation.
 
 ## Uploading Files as `FORM` Data
 

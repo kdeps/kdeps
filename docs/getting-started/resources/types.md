@@ -2,9 +2,9 @@
 outline: deep
 ---
 
-# Kdeps Resource Types
+# KDeps Resource Types
 
-Kdeps currently supports the following resource types:
+KDeps currently supports the following resource types:
 
 - **`Exec`**: [Exec Resource](../resources/exec.md)
   Executes shell scripts and commands.

@@ -4,11 +4,11 @@ outline: deep
 
 # Working with JSON
 
-Depending on your use case, you can use JSON anywhere in Kdeps. There are primary resources where you can use JSON,
+Depending on your use case, you can use JSON anywhere in KDeps. There are primary resources where you can use JSON,
 including the API Response Resource (which requires the `APIServerMode` to be enabled), the HTTP client resource, and
 the LLM resource.
 
-Kdeps includes JSON helpers to parse and generate JSON documents that you can use in your resources.
+KDeps includes JSON helpers to parse and generate JSON documents that you can use in your resources.
 
 ## API Server Response
 
@@ -69,7 +69,7 @@ structure your JSON responses.
 
 ### Creating and Parsing JSON Documents
 
-If you need to preprocess or consume a JSON document prior to a response, Kdeps offers several helper functions in order
+If you need to preprocess or consume a JSON document prior to a response, KDeps offers several helper functions in order
 to create or parse JSON documents.
 
 

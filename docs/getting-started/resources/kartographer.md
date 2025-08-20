@@ -4,11 +4,11 @@ outline: deep
 
 # Graph Dependency
 
-Kdeps utilizes its custom graph library, [Kartographer](https://github.com/kdeps/kartographer), to manage resource
-dependencies. Kartographer enables the traversal and resolution of dependent nodes, allowing Kdeps to
+KDeps utilizes its custom graph library, [Kartographer](https://github.com/kdeps/kartographer), to manage resource
+dependencies. Kartographer enables the traversal and resolution of dependent nodes, allowing KDeps to
 orchestrate the execution order of resources.
 
-This capability makes Kdeps particularly well-suited for building context-aware RAG (Retrieval-Augmented Generation) AI
+This capability makes KDeps particularly well-suited for building context-aware RAG (Retrieval-Augmented Generation) AI
 agents that require chaining large language models (LLMs) and other components. It also allows reusing and remixing
 other AI agents.
 
@@ -47,6 +47,6 @@ resource, it should be under a unique ID, as shown below:
 `LLMResourceJSON -> PythonResource -> LLMResourceJSON2 -> JSONResponder`
 
 > *Note:*
-> Kdeps executes resource in a top-down queue manner. By design, Kdeps does not allow multiple resource actions to be
+> KDeps executes resource in a top-down queue manner. By design, KDeps does not allow multiple resource actions to be
 > executed in a single resource file. If you need to perform a new resource action, you have to create a new resource
 > file with a unique ID, then define it as a dependency.

@@ -26,7 +26,7 @@ data/aiagentx/1.0.0/<files_here>
 
 ## Accessing `data` Files
 
-To simplify file access within the resources and the containerized environment, Kdeps provides a helper function:
+To simplify file access within the resources and the containerized environment, KDeps provides a helper function:
 `data.filepath("agentName/version", "filename")`. This function takes two parameters: the agent name with its version
 and the file name.
 

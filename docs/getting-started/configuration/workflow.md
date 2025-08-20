@@ -155,7 +155,7 @@ for maintaining an ongoing state or connection.
 ### Web Server Settings
 
 The `WebServer` block defines configurations for serving frontend interfaces or proxying to web applications, enabling
-Kdeps to deliver full-stack AI applications with integrated UIs. These settings are only applied when `WebServerMode` is
+KDeps to deliver full-stack AI applications with integrated UIs. These settings are only applied when `WebServerMode` is
 set to `true`.
 
 - `HostIP` **and** `PortNum`: Define the IP address and port for the web server. The default values are `"127.0.0.1"`
@@ -164,7 +164,7 @@ set to `true`.
 
 #### WebServerMode
 
-- `WebServerMode`: A boolean flag that enables or disables the web server. When set to `true`, Kdeps can serve static
+- `WebServerMode`: A boolean flag that enables or disables the web server. When set to `true`, KDeps can serve static
   frontends (e.g., HTML, CSS, JS) or proxy to local web applications (e.g., Streamlit, Node.js). When `false`, the web
   server is disabled.
 
@@ -219,7 +219,7 @@ WebServer {
 ```
 
 Each route directs requests to static files (e.g., HTML, CSS, JS) or a local web app (e.g., Streamlit, Node.js),
-enabling frontend integration with Kdeps' AI workflows.
+enabling frontend integration with KDeps' AI workflows.
 
 ##### Static File Serving
 
@@ -376,7 +376,7 @@ Models {
 }
 ```
 
-Kdeps uses Ollama as its LLM backend. You can define as many Ollama-compatible models as needed to fit your use case.
+KDeps uses Ollama as its LLM backend. You can define as many Ollama-compatible models as needed to fit your use case.
 
 For a comprehensive list of available Ollama-compatible models, visit the Ollama model library.
 
@@ -390,7 +390,7 @@ the image version to include hardware-specific extensions, such as `1.0.0-rocm` 
 
 #### Arguments and Environment Variables
 
-Kdeps allows you to define `ENV` (environment variables) that persist across both the Docker image and container
+KDeps allows you to define `ENV` (environment variables) that persist across both the Docker image and container
 runtime, and `ARG` (arguments) that are used for passing values during the build process.
 
 To declare `ENV` or `ARG` parameters, use the `env` and `args` sections in your workflow configuration:

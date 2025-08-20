@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-KDeps is an innovative, all-in-one AI framework designed to democratize the development of full-stack applications with integrated AI capabilities. Built with high-performance Golang and leveraging Apple's PKL (Package Language) for configuration, KDeps provides a low-code/no-code platform that enables developers and non-technical users alike to create sophisticated applications featuring integrated open-source Large Language Models (LLMs) for AI-powered APIs and workflows with minimal complexity.
+KDeps is an innovative, all-in-one, offline-ready AI framework designed to democratize the development of full-stack applications with integrated AI capabilities. Built with high-performance Golang and leveraging Apple's PKL (Package Language) for configuration, KDeps provides a low-code/no-code platform that enables developers and non-technical users alike to create sophisticated applications featuring integrated open-source Large Language Models (LLMs) for AI-powered APIs and workflows with minimal complexity.
 
 The framework's core value proposition lies in its ability to package complete applications into portable, Dockerized containers that include integrated open-source LLMs as the AI engine. These LLMs power the application's AI capabilities through APIs and workflows, eliminating the traditional barriers to AI application development, including complex infrastructure setup, model deployment, and API integration challenges.
 
@@ -19,6 +19,10 @@ The framework's core value proposition lies in its ability to package complete a
 9. [Conclusion](#conclusion)
 
 ## Introduction
+
+### About the name
+
+KDeps, short for "knowledge dependencies," is a name inspired by the principle that knowledge—whether from AI, machines, or humans—can be orchestrated, represented, organized, and interacted with through graph-based systems. The concept grew out of my work on Kartographer, a lightweight graph library designed for organizing and interacting with information. KDeps builds on Kartographer’s foundation and serves as a RAG-first (Retrieval-Augmented Generation) AI agent framework.
 
 ### Problem Statement
 
@@ -39,6 +43,28 @@ KDeps addresses these challenges through a comprehensive framework that provides
 - **Open-Source LLM Integration**: Built-in support for Ollama and other open-source models that power application AI capabilities
 - **Full-Stack Capabilities**: Integrated API and web server functionality with AI-powered endpoints
 - **Low-Code Development**: Visual workflow design with minimal programming required for AI features
+- **Offline-First Design**: Complete offline operation with local LLM inference, no external API dependencies required
+
+## Current Capabilities
+
+### Offline AI Processing
+
+KDeps is designed from the ground up for offline operation, providing complete AI capabilities without requiring external API calls:
+
+- **Local LLM Inference**: Integrated Ollama support enables full offline AI processing with open-source models
+- **Self-Contained Applications**: Dockerized applications include all necessary AI components and dependencies
+- **No External Dependencies**: Applications can run entirely offline without internet connectivity
+- **Resource-Constrained Environments**: Optimized for deployment in edge computing and IoT environments
+- **Privacy-First**: All AI processing happens locally, ensuring data privacy and security
+
+### Edge Computing Ready
+
+KDeps applications are immediately deployable in edge computing scenarios:
+
+- **Portable Containers**: Self-contained Docker images work in any environment with Docker support
+- **Minimal Resource Requirements**: Optimized for resource-constrained edge devices
+- **Local Model Management**: Built-in model downloading and management for offline operation
+- **Scalable Architecture**: Can be deployed across distributed edge networks
 
 ## Architecture Overview
 
@@ -271,9 +297,9 @@ PreflightCheck {
         "@(request.data().query.length)" > 5
         "@(request.filetype('document'))" == "image/jpeg"
     }
-    error {
-        code = 422
-        message = "Invalid input: File required and query must be at least 5 characters"
+    Error {
+        Code = 422
+        Message = "Invalid input: File required and query must be at least 5 characters"
     }
 }
 
@@ -296,7 +322,7 @@ KDeps provides comprehensive state management capabilities:
 
 ```pkl
 // Memory operations for persistent state
-expr {
+Expr {
     "@(memory.setRecord('user_preferences', request.data().preferences))"
 }
 
@@ -319,7 +345,7 @@ local toolResult = "@(tool.run('script_name', 'parameters'))"
 KDeps supports expression blocks for executing side effects and inline logic:
 
 ```pkl
-expr {
+Expr {
     "@(memory.setRecord('status', 'active'))"
     "@(memory.setRecord('timestamp', request.data().timestamp))"
     "@(session.setRecord('user_id', request.data().user_id))"
@@ -856,7 +882,7 @@ KDeps targets the intersection of several market segments:
 - **AI Application Development**: Simplifying AI application creation
 - **DevOps and MLOps**: Streamlining AI model deployment and management
 - **Enterprise AI**: Providing on-premises AI capabilities
-- **Edge Computing**: Enabling AI applications in resource-constrained environments
+- **Edge Computing**: Enabling offline AI applications in resource-constrained environments with local model inference
 
 ## Future Roadmap
 
@@ -926,9 +952,9 @@ KDeps targets the intersection of several market segments:
    - Intelligent resource composition and orchestration
    - Natural language workflow definition
 
-2. **Edge AI Capabilities**
-   - Mobile and IoT deployment with resource constraints
-   - Offline AI processing with local model inference
+2. **Advanced Edge AI Capabilities**
+   - Enhanced mobile and IoT deployment with resource constraints
+   - Advanced offline AI processing with local model inference (already available)
    - Edge-cloud synchronization and data management
    - Distributed AI across edge networks
 

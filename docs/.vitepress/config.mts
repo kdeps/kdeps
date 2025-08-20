@@ -281,7 +281,7 @@ export default defineConfig({
         items: [
           { text: "Selling your AI agent in the Marketplace" },
           { text: "Managing your AI agents" },
-          { text: "Developing AI agents in the Kdeps Cloud" },
+          { text: "Developing AI agents in the KDeps Cloud" },
           { text: "Hosting and Deploying your AI Agents" },
         ],
       },

@@ -281,7 +281,7 @@ We use the built-in `JSONParser.parse(file)` to obtain the three values from the
 The fields `latitude_str`, `longitude_str`, and `timezone_str` are parsed and added to the params.
 
 > **Important:**
-> Please note that we use the `?` between functions, which serves as the `null-safe` operator. During runtime, Kdeps
+> Please note that we use the `?` between functions, which serves as the `null-safe` operator. During runtime, KDeps
 > will first parse all PKL files to gather file metadata, then build and post-process the configurations and graphs. To
 > prevent the actual execution of the functions, ensure that the function call is `null-safe`.
 

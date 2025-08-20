@@ -4,13 +4,13 @@ outline: deep
 
 # Promise Operator
 
-Kdeps uses the `"@()"` post-execution template convention to defer the execution of resource functions to a later stage.
+KDeps uses the `"@()"` post-execution template convention to defer the execution of resource functions to a later stage.
 
-Since Kdeps relies on a number of [Apple PKL](https://pkl-lang.org) functions, any function that depends on values
+Since KDeps relies on a number of [Apple PKL](https://pkl-lang.org) functions, any function that depends on values
 generated during resource execution must be wrapped in this template convention.
 
 > *Note:* The `"@()"` operator must always be enclosed in double quotes. In Apple PKL, it is treated as a string, which is
-> later post-processed by Kdeps.
+> later post-processed by KDeps.
 
 Without the promise operator, such functions would execute prematurely, causing an exception.
 
