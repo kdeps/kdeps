@@ -9,7 +9,21 @@ featuring integrated open-source LLMs for AI-powered APIs and workflows. Runs fu
 
 ## About the name
 
-KDeps, short for "knowledge dependencies," is a name inspired by the principle that knowledge—whether from AI, machines, or humans—can be orchestrated, represented, organized, and interacted with through graph-based systems. The concept grew out of my work on Kartographer, a lightweight graph library designed for organizing and interacting with information. KDeps builds on Kartographer’s foundation and serves as a RAG-first (Retrieval-Augmented Generation) AI agent framework.
+> “KDeps, short for ‘knowledge dependencies,’ is inspired by the principle that knowledge—whether from AI, machines, or humans—can be represented, organized, orchestrated, and interacted with through graph-based systems. The name grew out of my work on Kartographer, a lightweight graph library for organizing and interacting with information. KDeps builds on Kartographer’s foundation and serves as a RAG-first (Retrieval-Augmented Generation) AI agent framework.” — Joel Bryan Juliano, KDeps creator
+
+## Why Offline-First?
+
+- **Privacy and compliance**: Keep sensitive data on your own machines (PII, GDPR, HIPAA).
+- **Reliability**: Operates without internet or in degraded networks.
+- **Low latency**: Local inference avoids network round-trips.
+- **Predictable cost**: No per-token fees; models run locally.
+- **Control and independence**: Avoids vendor lock-in; reproducible on-prem.
+- **Data residency**: Meets jurisdictional requirements.
+- **Security**: Minimizes external attack surface, no third-party AI APIs.
+- **Edge readiness**: Process data where it’s generated.
+- **Productivity**: Self-contained Docker images for local dev and deployment.
+
+KDeps achieves offline-first by integrating open-source LLMs via Ollama and packaging full applications—including models and runtimes—into Docker images. No external AI APIs are required.
 
 ## Key Features
 
