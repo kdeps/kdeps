@@ -9,14 +9,18 @@
 [![tests](https://img.shields.io/endpoint?style=flat-square&url=https://gist.githubusercontent.com/jjuliano/ce695f832cd51d014ae6d37353311c59/raw/kdeps-go-tests.json)](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml)
 [![coverage](https://img.shields.io/endpoint?style=flat-square&url=https://gist.githubusercontent.com/jjuliano/ce695f832cd51d014ae6d37353311c59/raw/kdeps-go-coverage.json)](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml)
 
-Kdeps is an all-in-one AI framework for building Dockerized full-stack applications with declarative PKL configuration, 
-featuring integrated open-source LLMs for AI-powered APIs and workflows.
+KDeps is an all-in-one, offline-ready AI framework for building Dockerized full-stack applications with declarative PKL configuration, 
+featuring integrated open-source LLMs for AI-powered APIs and workflows. Runs fully local with no external AI APIs required.
 
 > 📋 **New**: Read our comprehensive [**KDeps Whitepaper**](./docs/KDeps_Whitepaper.md) for detailed technical insights, architecture overview, and competitive analysis.
 
+## About the name
+
+KDeps, short for "knowledge dependencies," is a name inspired by the principle that knowledge—whether from AI, machines, or humans—can be orchestrated, represented, organized, and interacted with through graph-based systems. The concept grew out of my work on Kartographer, a lightweight graph library designed for organizing and interacting with information. KDeps builds on Kartographer’s foundation and serves as a RAG-first (Retrieval-Augmented Generation) AI agent framework.
+
 ## Key Features
 
-Kdeps is loaded with features to streamline full-stack AI app development:
+KDeps is loaded with features to streamline full-stack AI app development:
 
 <details>
   <summary>🧩 Low-code/no-code capabilities</summary>
@@ -869,7 +873,7 @@ Repositories {
 
 <details>
   <summary>📥 Easy to install</summary>
-  Install and use Kdeps with a single command, as outlined in the <a href="https://kdeps.com/getting-started/introduction/installation.html">installation guide</a>.
+  Install and use KDeps with a single command, as outlined in the <a href="https://kdeps.com/getting-started/introduction/installation.html">installation guide</a>.
 
 ```shell
 # On macOS
@@ -881,7 +885,7 @@ curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/refs/heads/main/install
 
 ## Getting Started
 
-Ready to explore Kdeps? Install it with a single command: [Installation Guide](https://kdeps.com/getting-started/introduction/installation.html).
+Ready to explore KDeps? Install it with a single command: [Installation Guide](https://kdeps.com/getting-started/introduction/installation.html).
 
 Check out practical [examples](https://github.com/kdeps/examples) to jumpstart your projects.
 

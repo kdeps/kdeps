@@ -99,7 +99,7 @@ Below is a list of the global functions available for each resource:
 
 ## PKL Modules
 
-These PKL modules come pre-included in Kdeps via `import "pkl:<module>"`. They are readily available for use via
+These PKL modules come pre-included in KDeps via `import "pkl:<module>"`. They are readily available for use via
 `<functon>.<property>` or `<functon>.<methods>`, allowing you to extend and enhance your resource functions further.
 
 

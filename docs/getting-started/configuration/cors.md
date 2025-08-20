@@ -4,7 +4,7 @@ outline: deep
 
 # CORS Configuration
 
-Cross-Origin Resource Sharing (CORS) configuration allows you to control how the Kdeps API Server handles cross-origin
+Cross-Origin Resource Sharing (CORS) configuration allows you to control how the KDeps API Server handles cross-origin
 HTTP requests. By defining CORS settings, you can specify which origins, methods, and headers are allowed, ensuring
 secure and controlled access to your API resources.
 

@@ -4,7 +4,7 @@ outline: deep
 
 # Multi-Modal LLM Models
 
-Kdeps enables seamless interaction with multi-modal LLM models such as `llava` and `llama3.2-vision`. For a
+KDeps enables seamless interaction with multi-modal LLM models such as `llava` and `llama3.2-vision`. For a
 comprehensive list of supported multi-modal LLM models, refer to the [Ollama Vision](https://ollama.com/search?c=vision)
 models page.
 

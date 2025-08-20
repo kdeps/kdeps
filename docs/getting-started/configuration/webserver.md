@@ -4,15 +4,15 @@ outline: deep
 
 # Web Server Mode
 
-Kdeps can be extended to be a full-stack AI application by serving both backend APIs (powered by open-source LLMs) and
+KDeps can be extended to be a full-stack AI application by serving both backend APIs (powered by open-source LLMs) and
 frontend interfaces. The Web Server Mode enables hosting static frontends (e.g., React, Vue, HTML dashboards) or
-reverse-proxying to dynamic web apps (e.g., Streamlit, Node.js, Django, Rails). This makes Kdeps ideal for building,
+reverse-proxying to dynamic web apps (e.g., Streamlit, Node.js, Django, Rails). This makes KDeps ideal for building,
 testing, and deploying self-contained AI apps with integrated UIs and APIs.
 
 
 ## Configuration Overview
 
-The `WebServerMode` setting toggles the web server. When enabled, Kdeps can serve static files or proxy to a local web
+The `WebServerMode` setting toggles the web server. When enabled, KDeps can serve static files or proxy to a local web
 application. Configurations are defined in the `WebServer` block, specifying host, port, trusted proxies, and
 routing rules.
 
@@ -64,7 +64,7 @@ WebServer {
 
 Set `WebServerMode = true` to activate the web server. This enables:
 
-- **Static File Serving**: Host HTML, CSS, JavaScript, or images (e.g., React, Vue, Svelte SPAs) for dashboards, documentation, or UIs, seamlessly integrated with Kdeps' backend APIs and open-source LLMs.
+- **Static File Serving**: Host HTML, CSS, JavaScript, or images (e.g., React, Vue, Svelte SPAs) for dashboards, documentation, or UIs, seamlessly integrated with KDeps' backend APIs and open-source LLMs.
 - **Reverse Proxying**: Forward requests to a local web server (e.g., Node.js, Streamlit, Django) for dynamic applications like admin panels or interactive dashboards.
 - **CORS Support**: Configure Cross-Origin Resource Sharing for secure API access from external frontends, with customizable origins, methods, and headers.
 
@@ -75,7 +75,7 @@ Each `routes` entry can independently serve static files or proxy to an app, sup
 | Server Type | Use Case | Description |
 |-------------|---------------------------------------|--------------------------------------------------------------|
 | `static` | Serve React/Vue SPA | Host a frontend UI for visualizing LLM outputs or dashboards. |
-| `app` | Proxy to Streamlit | Run an interactive data exploration app alongside Kdeps APIs. |
+| `app` | Proxy to Streamlit | Run an interactive data exploration app alongside KDeps APIs. |
 | `static` | Serve documentation | Deliver HTML-based model docs or reports. |
 | `app` | Proxy to Django admin | Host an admin panel for managing AI workflows. |
 

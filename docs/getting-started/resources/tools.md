@@ -181,7 +181,7 @@ local output = "@(tools.getRecord("square_number_123"))"
 
 - **MCP**: Claude’s tool-calling, not supported in kdeps (open-source only).
 - **A2A**: Google’s agent-connection system, unrelated to kdeps’ tool focus.
-- **Kdeps**: Tool-calling with JSON outputs for open-source AI, like MCP but simpler.
+- **KDeps**: Tool-calling with JSON outputs for open-source AI, like MCP but simpler.
 
 ## Tips
 

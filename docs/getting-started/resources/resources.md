@@ -4,7 +4,7 @@ outline: deep
 
 # Resources
 
-Resources are the fundamental units of action in an AI agent and serve as the workhorses of Kdeps. Each resource is
+Resources are the fundamental units of action in an AI agent and serve as the workhorses of KDeps. Each resource is
 designed to perform a specific task, making them essential for executing workflows efficiently.
 
 ## Key Characteristics
@@ -13,9 +13,9 @@ designed to perform a specific task, making them essential for executing workflo
   [Apple PKL Official Website](https://pkl-lang.org/).
 
 - They enable the AI agent to perform diverse operations, such as running scripts, processing API requests, and
-  interacting with language models. See [Kdeps Resource Types](../resources/types.md)
+  interacting with language models. See [KDeps Resource Types](../resources/types.md)
 
-- Resources can be remixed and reused by other Kdeps AI Agents.
+- Resources can be remixed and reused by other KDeps AI Agents.
 
 - They form a dependency graph that determines the execution order of the workflow.
 

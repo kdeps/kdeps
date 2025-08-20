@@ -4,10 +4,10 @@ outline: deep
 
 # Reusing and Remixing AI Agents
 
-Kdeps makes it easy to integrate existing AI agents, enabling reusing and remixing of pre-built AI agents
+KDeps makes it easy to integrate existing AI agents, enabling reusing and remixing of pre-built AI agents
 into your own AI workflows.
 
-## Installing a Kdeps AI Agent
+## Installing a KDeps AI Agent
 
 To begin, install the AI agent using the `kdeps install` command:
 

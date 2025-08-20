@@ -4,7 +4,7 @@ outline: deep
 
 # AI Image Generators
 
-Kdeps does not directly generate images using an LLM (Large Language Model). However, it includes a dedicated Python
+KDeps does not directly generate images using an LLM (Large Language Model). However, it includes a dedicated Python
 resource capable of executing Python scripts that can produce images through advanced models such as
 `stable-diffusion`. You can optionally use using Anaconda. Additionally, any `GGUF` models from HuggingFace can also
 be used for image generation.
@@ -212,7 +212,7 @@ kdeps scaffold sd35api exec
 ```
 
 In the `exec` resource, include a script that logs in to Hugging Face using the `HF_TOKEN` from the `.env` file and
-downloads the model. Additionally, set the cache directory to `/.kdeps/`, a shared folder for Kdeps, and create a
+downloads the model. Additionally, set the cache directory to `/.kdeps/`, a shared folder for KDeps, and create a
 marker file (`/.kdeps/sd35-downloaded`) upon successful download.
 
 ```json
