@@ -396,7 +396,7 @@ When `OfflineMode` is set to `true`:
 - At runtime, models are copied from the image (`/models`) into `${OLLAMA_MODELS}` (e.g., the mounted volume) instead of being downloaded
 - This enables true offline operation without requiring internet connectivity
 
-When `OfflineMode` is set to `false` (default):
+When `OfflineMode` is set to `false`:
 - Models are pulled at runtime from the internet when the container starts
 - Requires internet connectivity during container startup
 
