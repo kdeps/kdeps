@@ -390,8 +390,10 @@ OfflineMode = true
 
 When `OfflineMode` is set to `true`:
 - Models specified in the `Models` block are pulled during Docker image build time
-- Models are stored within the Docker image at `/models`
-- At runtime, models are copied from the image to the shared volume instead of being downloaded
+- KDeps uses `OLLAMA_MODELS` exclusively to control model storage locations:
+  - Build-time: `OLLAMA_MODELS=/models` inside the image (baked into the image)
+  - Runtime: `OLLAMA_MODELS` environment variable (defaults to `/root/.ollama` if unset)
+- At runtime, models are copied from the image (`/models`) into `${OLLAMA_MODELS}` (e.g., the mounted volume) instead of being downloaded
 - This enables true offline operation without requiring internet connectivity
 
 When `OfflineMode` is set to `false` (default):

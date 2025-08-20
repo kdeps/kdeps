@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -109,8 +110,8 @@ func pullModels(ctx context.Context, models []string, logger *logging.Logger) er
 
 		stdout, stderr, exitCode, err := KdepsExec(
 			ctx,
-			"ollama",
-			[]string{"pull", model},
+			"sh",
+			[]string{"-c", "OLLAMA_MODELS=${OLLAMA_MODELS:-/root/.ollama} ollama pull " + model},
 			"",
 			false,
 			false,
@@ -127,7 +128,10 @@ func pullModels(ctx context.Context, models []string, logger *logging.Logger) er
 func copyOfflineModels(ctx context.Context, models []string, logger *logging.Logger) error {
 	// Copy models from build-time location to ollama's shared volume location
 	modelsSourceDir := "/models"
-	modelsTargetDir := "/root/.ollama"
+	modelsTargetDir := os.Getenv("OLLAMA_MODELS")
+	if strings.TrimSpace(modelsTargetDir) == "" {
+		modelsTargetDir = "/root/.ollama"
+	}
 	modelsTargetRoot := modelsTargetDir + "/models"
 
 	// Check if source models directory exists
