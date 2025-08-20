@@ -67,7 +67,7 @@ func generateDockerfile(
 		devBuildMode,
 		apiServerMode,
 		useLatest,
-		false, // offlineMode default for tests
+		false,      // offlineMode default for tests
 		[]string{}, // models default for tests
 	)
 	if err != nil {
