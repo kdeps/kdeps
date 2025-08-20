@@ -1,14 +1,17 @@
 import { defineConfig } from "vitepress";
 
 export default defineConfig({
-  title: "kdeps",
-  description: "A robust framework for building AI agents",
+  title: "KDeps",
+  description: "All-in-one offline-ready AI framework for building Dockerized full-stack applications with declarative PKL configuration, featuring integrated open-source LLMs for AI-powered APIs and workflows.",
   themeConfig: {
     outline: "deep",
     search: {
       provider: "local",
     },
-    nav: [{ text: "Home", link: "/" }],
+    nav: [
+      { text: "Home", link: "/" },
+      { text: "Why Offline-First?", link: "/#why-offline-first" }
+    ],
     sidebar: [
       {
         text: "Introduction",
@@ -85,6 +88,10 @@ export default defineConfig({
                 text: "AI Agent Settings",
                 link: "/getting-started/configuration/workflow#ai-agent-settings",
                 items: [
+                  {
+                    text: "Offline Mode",
+                    link: "/getting-started/configuration/workflow#offline-mode",
+                  },
                   {
                     text: "Anaconda Packages",
                     link: "/getting-started/configuration/workflow#anaconda-packages",
