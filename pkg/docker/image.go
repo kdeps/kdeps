@@ -183,7 +183,9 @@ func generateDockerfileFromTemplate(
 	installAnaconda,
 	devBuildMode,
 	apiServerMode,
-	useLatest bool,
+	useLatest,
+	offlineMode bool,
+	models []string,
 ) (string, error) {
 	if useLatest {
 		anacondaVersion = "latest"
@@ -209,6 +211,8 @@ func generateDockerfileFromTemplate(
 		"InstallAnaconda":  installAnaconda,
 		"DevBuildMode":     devBuildMode,
 		"ApiServerMode":    apiServerMode,
+		"OfflineMode":      offlineMode,
+		"Models":           models,
 	}
 
 	return template.GenerateDockerfileFromTemplate(templateData)
@@ -445,6 +449,8 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 		devBuildMode,
 		APIServerMode,
 		schema.UseLatest,
+		dockerSettings.OfflineMode,
+		dockerSettings.Models,
 	)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
