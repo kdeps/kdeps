@@ -10,15 +10,15 @@ operations. It supports Python (`.py`), TypeScript (`.ts`), JavaScript (`.js`), 
 with: `.py` uses `python3`, `.ts` uses `ts-node`, `.js` uses `node`, `.rb` uses `ruby`, others use `sh`. The LLM can
 automatically pick and chain multiple tools based on a prompt, using one tool’s output as input for the next. With
 and `JSONResponseKeys`, tool outputs are structured as JSON for easier parsing. Tools are triggered via prompts or
-manually with `@(tools.getRecord(id))`, `runScript`, or `history`. This is like Anthropic’s MCP or Google’s A2A but for
-open-source models only.
+manually with `@(tools.getRecord(id))`, `runScript`, or `history`. KDeps tools are script-based by design and can be
+extended via adapters to connect to external tool protocols if needed.
 
 
 ## What It Does
 
 Inside a `chat` resource, the `tools` block lets the AI call scripts automatically via prompts or manually. The LLM can
-chain tools, passing outputs as inputs, and with `JSONResponseKeys` structures results as JSON. It’s kdeps’ open-source
-tool-calling system, similar to MCP or A2A but simpler.
+chain tools, passing outputs as inputs, and with `JSONResponseKeys` structures results as JSON. It’s KDeps’ open-source
+script-based tool-calling system.
 
 ## How It Looks
 
@@ -177,11 +177,14 @@ local result = "@(tools.runScript("square_number_123", "<path_to_script>", "10")
 local output = "@(tools.getRecord("square_number_123"))"
 ```
 
-## How It’s Like MCP or A2A
+## Extending to External Protocols
 
-- **MCP**: Claude’s tool-calling, not supported in kdeps (open-source only).
-- **A2A**: Google’s agent-connection system, unrelated to kdeps’ tool focus.
-- **KDeps**: Tool-calling with JSON outputs for open-source AI, like MCP but simpler.
+- KDeps tools are script-first. If you need to integrate external tool protocols, implement a script adapter that bridges
+  between KDeps’ tool interface and the external client/SDK.
+- Examples:
+  - Call an Anthropic MCP server from a tool script using the vendor’s client/SDK or a thin wrapper/CLI.
+  - Call Google A2A from a tool script via its client/SDK or an HTTP bridge you control.
+  - Translate KDeps tool JSON inputs/outputs to the external protocol’s request/response format.
 
 ## Tips
 
@@ -194,6 +197,6 @@ local output = "@(tools.getRecord("square_number_123"))"
 
 ## Open-Source Only
 
-kdeps only supports open-source AI models, not Claude or MCP.
+KDeps focuses on open-source AI models and local inference.
 
 See [LLM Resource Functions](../resources/functions.md#llm-resource-functions) for more.

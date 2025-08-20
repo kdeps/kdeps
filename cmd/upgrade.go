@@ -26,7 +26,7 @@ func UpgradeCommand(fs afero.Fs, ctx context.Context, kdepsDir string, logger *l
 		Long: `Upgrade schema versions and format in pkl files within a directory.
 		
 This command scans for pkl files and performs two types of upgrades:
-1. Schema version references (e.g., @0.2.42 -> @0.2.50)
+1. Schema version references (e.g., @0.2.43 -> @0.2.50)
 2. Schema format migration (e.g., lowercase -> capitalized attributes/blocks)
 
 The format upgrade converts older lowercase PKL syntax to the new capitalized format:
@@ -201,9 +201,9 @@ func upgradeVersionReferences(content, targetVersion string, logger *logging.Log
 
 	// Regex patterns to match schema version references
 	patterns := []string{
-		// Match: amends "package://schema.kdeps.com/core@0.2.42#/Workflow.pkl"
+		// Match: amends "package://schema.kdeps.com/core@0.2.43#/Workflow.pkl"
 		`(amends\s+"package://schema\.kdeps\.com/core@)([^"#]+)(#/[^"]+")`,
-		// Match: import "package://schema.kdeps.com/core@0.2.42#/Resource.pkl"
+		// Match: import "package://schema.kdeps.com/core@0.2.43#/Resource.pkl"
 		`(import\s+"package://schema\.kdeps\.com/core@)([^"#]+)(#/[^"]+")`,
 		// Match other similar patterns
 		`("package://schema\.kdeps\.com/core@)([^"#]+)(#/[^"]+")`,
