@@ -125,7 +125,14 @@ func pullModels(ctx context.Context, models []string, logger *logging.Logger) er
 		cancel()
 
 		if err != nil || exitCode != 0 {
-			// Warn and continue; do not block runtime when offline or registry unreachable
+			// Check if this is likely a "binary not found" error vs network/registry issues
+			if strings.Contains(stderr, "command not found") || strings.Contains(stderr, "not found") || 
+			   strings.Contains(stdout, "could not find ollama app") ||
+			   strings.Contains(stderr, "could not find ollama app") ||
+			   strings.Contains(err.Error(), "executable file not found") {
+				return fmt.Errorf("ollama binary not found: %w", err)
+			}
+			// For other errors (network, registry unavailable, etc.), warn and continue
 			logger.Warn("model pull skipped or failed (continuing)", "model", model, "stdout", stdout, "stderr", stderr, "exitCode", exitCode, "error", err)
 			continue
 		}
