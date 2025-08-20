@@ -261,6 +261,14 @@ export default defineConfig({
             text: "How to create an AI assisted Weather Forecaster API",
             link: "/getting-started/tutorials/how-to-weather-api",
           },
+          {
+            text: "Use the auto-generated Docker Compose",
+            link: "/getting-started/tutorials/use-docker-compose",
+          },
+          {
+            text: "Publish to a Docker Registry",
+            link: "/getting-started/tutorials/publish-docker-registry",
+          },
 //          {
 //            text: "How to create structured LLM response APIs",
 //            link: "/getting-started/tutorials/how-to-structure-llm",

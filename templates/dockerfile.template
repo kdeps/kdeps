@@ -21,7 +21,7 @@ RUN apt-get update --fix-missing && apt-get install -y --no-install-recommends \
     bzip2 ca-certificates git subversion mercurial libglib2.0-0 \
     libsm6 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxinerama1 libxrandr2 libxrender1 \
     gpg-agent openssh-client procps software-properties-common wget curl nano jq python3 python3-pip musl musl-dev \
-    musl-tools
+    rsync musl-tools
 
 # Determine the architecture and download the appropriate pkl binary
 RUN arch=$(uname -m) && \
@@ -72,16 +72,14 @@ ENV PATH="/opt/conda/bin:$PATH"
 
 {{ if .PythonPkgSection }}{{ .PythonPkgSection }}{{ end }}
 
-{{ if .OfflineMode }}
-# Pull models during build time for offline mode
-# Store models under /models (baked into the image). The runtime will copy them into /root/.ollama (mounted volume).
+# Pull models during build time for faster startup and offline readiness
+# Store models under /models (baked into the image). Runtime will sync them into OLLAMA_MODELS when OfflineMode=true.
 RUN mkdir -p /models && \
     (OLLAMA_HOST=127.0.0.1 OLLAMA_MODELS=/models ollama serve &) && \
     sleep 10 && \{{ range $i, $model := .Models }}{{ if $i }} && \{{ end }}
     OLLAMA_HOST=127.0.0.1 OLLAMA_MODELS=/models ollama pull {{ $model }}{{ end }} && \
     pkill -f ollama && \
     sleep 2
-{{ end }}
 
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 RUN rm -rf /cache

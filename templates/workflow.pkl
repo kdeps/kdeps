@@ -221,7 +221,7 @@ Settings {
                 // When set to true, models are pulled during Docker build time and stored offline.
                 // At runtime, models are copied from the image to the shared volume instead of being downloaded.
                 // This enables true offline operation without internet connectivity.
-                OfflineMode = false
+                OfflineMode = true
 
                 // The Ollama image tag version to be used as a base Docker image for this AI agent.
                 OllamaImageTag = "{{ .OllamaImageTag }}"
