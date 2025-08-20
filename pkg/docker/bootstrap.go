@@ -106,10 +106,15 @@ func startAndWaitForOllama(ctx context.Context, host, port string, logger *loggi
 func pullModels(ctx context.Context, models []string, logger *logging.Logger) error {
 	for _, model := range models {
 		model = strings.TrimSpace(model)
+		if model == "" {
+			continue
+		}
 		logger.Debug("pulling model", "model", model)
 
+		// Apply a per-model timeout so we don't hang indefinitely when offline
+		tctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		stdout, stderr, exitCode, err := KdepsExec(
-			ctx,
+			tctx,
 			"sh",
 			[]string{"-c", "OLLAMA_MODELS=${OLLAMA_MODELS:-/root/.ollama} ollama pull " + model},
 			"",
@@ -117,9 +122,12 @@ func pullModels(ctx context.Context, models []string, logger *logging.Logger) er
 			false,
 			logger,
 		)
-		if err != nil {
-			logger.Error("model pull failed", "model", model, "stdout", stdout, "stderr", stderr, "exitCode", exitCode, "error", err)
-			return fmt.Errorf("failed to pull model %s: %w", model, err)
+		cancel()
+
+		if err != nil || exitCode != 0 {
+			// Warn and continue; do not block runtime when offline or registry unreachable
+			logger.Warn("model pull skipped or failed (continuing)", "model", model, "stdout", stdout, "stderr", stderr, "exitCode", exitCode, "error", err)
+			continue
 		}
 	}
 	return nil
