@@ -2,9 +2,9 @@
 
 ## Executive Summary
 
-KDeps is an innovative, all-in-one AI framework designed to democratize the development of full-stack AI applications. Built with high-performance Golang and leveraging Apple's PKL (Package Language) for configuration, KDeps provides a low-code/no-code platform that enables developers and non-technical users alike to create sophisticated AI-powered applications with minimal complexity.
+KDeps is an innovative, all-in-one AI framework designed to democratize the development of full-stack applications with integrated AI capabilities. Built with high-performance Golang and leveraging Apple's PKL (Package Language) for configuration, KDeps provides a low-code/no-code platform that enables developers and non-technical users alike to create sophisticated applications featuring integrated open-source Large Language Models (LLMs) for AI-powered APIs and workflows with minimal complexity.
 
-The framework's core value proposition lies in its ability to package complete AI workflows into portable, Dockerized applications that include open-source Large Language Models (LLMs) out-of-the-box. This approach eliminates the traditional barriers to AI application development, including complex infrastructure setup, model deployment, and API integration challenges.
+The framework's core value proposition lies in its ability to package complete applications into portable, Dockerized containers that include integrated open-source LLMs as the AI engine. These LLMs power the application's AI capabilities through APIs and workflows, eliminating the traditional barriers to AI application development, including complex infrastructure setup, model deployment, and API integration challenges.
 
 ## Table of Contents
 
@@ -24,21 +24,21 @@ The framework's core value proposition lies in its ability to package complete A
 
 The current landscape of AI application development presents significant challenges:
 
-- **Complexity**: Building AI applications requires expertise in multiple domains including machine learning, infrastructure, API development, and frontend development
-- **Infrastructure Overhead**: Deploying and managing AI models requires substantial infrastructure setup and maintenance
+- **Complexity**: Building applications with integrated AI capabilities requires expertise in multiple domains including machine learning, infrastructure, API development, and frontend development
+- **Infrastructure Overhead**: Deploying and managing AI models as part of applications requires substantial infrastructure setup and maintenance
 - **Vendor Lock-in**: Many AI platforms create dependencies on proprietary services and APIs
-- **Scalability Issues**: Traditional AI application architectures struggle with scaling and resource management
-- **Development Velocity**: The time-to-market for AI applications is often extended due to integration complexity
+- **Scalability Issues**: Traditional application architectures struggle with scaling AI components and resource management
+- **Development Velocity**: The time-to-market for applications with AI features is often extended due to integration complexity
 
 ### Solution Overview
 
 KDeps addresses these challenges through a comprehensive framework that provides:
 
 - **Declarative Configuration**: Uses PKL (Package Language) for human-readable, type-safe configuration
-- **Dockerized Deployment**: Complete applications packaged as portable containers
-- **Open-Source LLM Integration**: Built-in support for Ollama and other open-source models
-- **Full-Stack Capabilities**: Integrated API and web server functionality
-- **Low-Code Development**: Visual workflow design with minimal programming required
+- **Dockerized Deployment**: Complete applications packaged as portable containers with integrated AI engines
+- **Open-Source LLM Integration**: Built-in support for Ollama and other open-source models that power application AI capabilities
+- **Full-Stack Capabilities**: Integrated API and web server functionality with AI-powered endpoints
+- **Low-Code Development**: Visual workflow design with minimal programming required for AI features
 
 ## Architecture Overview
 
@@ -153,17 +153,17 @@ Requires {
 KDeps provides comprehensive Docker support for application packaging and deployment:
 
 **Capabilities:**
-- **Image Generation**: Creates optimized Docker images with all dependencies
-- **Model Management**: Integrates Ollama for LLM model deployment
-- **Environment Setup**: Configures Ubuntu packages, Python environments, and system dependencies
-- **Compose Integration**: Generates docker-compose files for multi-service deployments
-- **Volume Management**: Handles persistent storage for models and data
+- **Image Generation**: Creates optimized Docker images with all dependencies including integrated AI engines
+- **Model Management**: Integrates Ollama for LLM model deployment as the application's AI engine
+- **Environment Setup**: Configures Ubuntu packages, Python environments, and system dependencies for AI-powered applications
+- **Compose Integration**: Generates docker-compose files for multi-service deployments with AI capabilities
+- **Volume Management**: Handles persistent storage for models and application data
 
 ## Key Features
 
 ### 1. Low-Code/No-Code Development
 
-KDeps enables rapid application development through declarative configuration:
+KDeps enables rapid development of applications with integrated AI capabilities through declarative configuration:
 
 ```pkl
 // Example: Customer Support AI Agent
@@ -190,7 +190,7 @@ Settings {
 
 ### 2. Multimodal AI Support
 
-KDeps supports vision and multimodal LLMs for comprehensive AI capabilities:
+KDeps supports vision and multimodal LLMs as integrated AI engines for comprehensive application capabilities:
 
 - **Image Processing**: Analyze and extract information from images
 - **Document Analysis**: Process PDFs, images, and other document formats
@@ -199,7 +199,7 @@ KDeps supports vision and multimodal LLMs for comprehensive AI capabilities:
 
 ### 3. Tool Integration and Automation
 
-KDeps enables LLMs to automatically execute tools and scripts with sophisticated tool management:
+KDeps enables integrated LLMs to automatically execute tools and scripts with sophisticated tool management:
 
 ```pkl
 Chat {
@@ -219,7 +219,7 @@ Chat {
 ```
 
 **Tool Management Features:**
-- **Automatic Tool Execution**: LLMs can automatically invoke tools based on context
+- **Automatic Tool Execution**: Integrated LLMs can automatically invoke tools based on context
 - **Tool History Tracking**: All tool executions are logged and can be retrieved
 - **Parameter Validation**: Tools validate input parameters before execution
 - **Output Caching**: Tool results are cached to avoid redundant executions
@@ -228,7 +228,7 @@ Chat {
 
 ### 4. Structured Output Generation
 
-KDeps ensures consistent, machine-readable responses from LLMs:
+KDeps ensures consistent, machine-readable responses from integrated LLMs:
 
 ```pkl
 Chat {
@@ -946,15 +946,15 @@ KDeps targets the intersection of several market segments:
 
 ## Conclusion
 
-KDeps represents a significant advancement in AI application development, addressing the fundamental challenges that have hindered widespread adoption of AI technologies. By providing a unified, containerized platform with declarative configuration, KDeps enables developers and organizations to rapidly build and deploy sophisticated AI applications without the traditional complexity and infrastructure overhead.
+KDeps represents a significant advancement in application development with integrated AI capabilities, addressing the fundamental challenges that have hindered widespread adoption of AI technologies. By providing a unified, containerized platform with declarative configuration and integrated open-source LLMs, KDeps enables developers and organizations to rapidly build and deploy sophisticated applications with AI-powered features without the traditional complexity and infrastructure overhead.
 
 ### Key Value Propositions
 
-1. **Democratization of AI**: Makes AI application development accessible to non-experts
-2. **Operational Efficiency**: Reduces time-to-market and development costs
-3. **Vendor Independence**: Eliminates lock-in to proprietary AI services
-4. **Scalability**: Provides enterprise-grade scalability and reliability
-5. **Innovation Acceleration**: Enables rapid prototyping and iteration
+1. **Democratization of AI**: Makes application development with integrated AI capabilities accessible to non-experts
+2. **Operational Efficiency**: Reduces time-to-market and development costs for AI-powered applications
+3. **Vendor Independence**: Eliminates lock-in to proprietary AI services through open-source LLM integration
+4. **Scalability**: Provides enterprise-grade scalability and reliability for applications with AI features
+5. **Innovation Acceleration**: Enables rapid prototyping and iteration of AI-powered applications
 
 ### Strategic Impact
 
