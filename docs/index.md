@@ -336,8 +336,8 @@ run {
 </details>
 
 <details>
-  <summary>🛠️ Let LLMs run tools automatically (aka MCP or A2A)</summary>
-  Enhance functionality through scripts and sequential tool pipelines with <a href="https://kdeps.com/getting-started/resources/llm.html#tools-configuration">external tools and chained tool workflows</a>.
+  <summary>🛠️ Let LLMs run tools automatically (script-based)</summary>
+  Enhance functionality through scripts and sequential tool pipelines with <a href="https://kdeps.com/getting-started/resources/llm.html#tools-configuration">external tools and chained tool workflows</a>. Scripts can also call external systems via adapters (e.g., an MCP server or Google A2A) when needed.
 
 ```pkl
 // workflow.pkl

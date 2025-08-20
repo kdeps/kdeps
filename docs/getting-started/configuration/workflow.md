@@ -38,7 +38,7 @@ The `settings` block includes the following configurations:
   applications.
 - `WebServer`: A configuration block that specifies web server settings such as `HostIP`, `PortNum`, and `routes`.
 - `agentSettings`: A configuration block that includes settings for installing Anaconda, `condaPackages`,
-  `pythonPackages`, custom or PPA Ubuntu `repositories`, Ubuntu `packages`, and Ollama LLM `models`.
+  `pythonPackages`, custom or PPA Ubuntu `repositories`, Ubuntu `packages`, Ollama LLM `models`, and `OfflineMode` for offline model deployment.
 
 
 ### API Server Settings
@@ -379,6 +379,29 @@ Models {
 KDeps uses Ollama as its LLM backend. You can define as many Ollama-compatible models as needed to fit your use case.
 
 For a comprehensive list of available Ollama-compatible models, visit the Ollama model library.
+
+#### Offline Mode
+
+The `OfflineMode` setting controls whether models are pulled during Docker build time for offline operation:
+
+```apl
+OfflineMode = true
+```
+
+When `OfflineMode` is set to `true`:
+- Models specified in the `Models` block are pulled during Docker image build time
+- Models are stored within the Docker image at `/models`
+- At runtime, models are copied from the image to the shared volume instead of being downloaded
+- This enables true offline operation without requiring internet connectivity
+
+When `OfflineMode` is set to `false` (default):
+- Models are pulled at runtime from the internet when the container starts
+- Requires internet connectivity during container startup
+
+This feature is particularly useful for:
+- Deployments in air-gapped environments
+- Reducing container startup time by avoiding model downloads
+- Ensuring consistent model availability regardless of internet connectivity
 
 #### Ollama Docker Image Tag
 

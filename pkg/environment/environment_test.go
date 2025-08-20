@@ -319,10 +319,10 @@ func TestHelperFunctions(t *testing.T) {
 	pwd := "/work"
 	home := "/home/user"
 	if err := fs.MkdirAll(pwd, 0o755); err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("failed to create pwd directory: %v", err)
 	}
 	if err := fs.MkdirAll(home, 0o755); err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("failed to create home directory: %v", err)
 	}
 
 	// no config yet

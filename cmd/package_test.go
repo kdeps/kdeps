@@ -25,7 +25,7 @@ func TestNewPackageCommandExecution(t *testing.T) {
 	require.NoError(t, fs.MkdirAll(filepath.Join(projectDir, "resources"), 0o755))
 
 	// Create a workflow file
-	wfContent := `amends "package://schema.kdeps.com/core@0.2.42#/Workflow.pkl"
+	wfContent := `amends "package://schema.kdeps.com/core@0.2.43#/Workflow.pkl"
 
 Name = "test-agent"
 Version = "1.0.0"
@@ -34,7 +34,7 @@ TargetActionID = "test-action"
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(projectDir, "workflow.pkl"), []byte(wfContent), 0o644))
 
 	// Create a resource file
-	resourceContent := `amends "package://schema.kdeps.com/core@0.2.42#/Resource.pkl"
+	resourceContent := `amends "package://schema.kdeps.com/core@0.2.43#/Resource.pkl"
 
 ActionID = "test-action"
 

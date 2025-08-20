@@ -72,6 +72,17 @@ ENV PATH="/opt/conda/bin:$PATH"
 
 {{ if .PythonPkgSection }}{{ .PythonPkgSection }}{{ end }}
 
+{{ if .OfflineMode }}
+# Pull models during build time for offline mode
+# Store models under /models (baked into the image). The runtime will copy them into /root/.ollama (mounted volume).
+RUN mkdir -p /models && \
+    (OLLAMA_HOST=127.0.0.1 OLLAMA_MODELS=/models ollama serve &) && \
+    sleep 10 && \{{ range $i, $model := .Models }}{{ if $i }} && \{{ end }}
+    OLLAMA_HOST=127.0.0.1 OLLAMA_MODELS=/models ollama pull {{ $model }}{{ end }} && \
+    pkill -f ollama && \
+    sleep 2
+{{ end }}
+
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 RUN rm -rf /cache
 

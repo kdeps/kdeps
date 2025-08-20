@@ -52,8 +52,16 @@ func setupDockerEnvironment(ctx context.Context, dr *resolver.DependencyResolver
 	}
 
 	wfSettings := dr.Workflow.GetSettings()
-	if err := pullModels(ctx, wfSettings.AgentSettings.Models, dr.Logger); err != nil {
-		return wfSettings.APIServerMode || wfSettings.WebServerMode, fmt.Errorf("failed to pull models: %w", err)
+
+	// Handle model initialization based on offline mode
+	if wfSettings.AgentSettings.OfflineMode {
+		if err := copyOfflineModels(ctx, wfSettings.AgentSettings.Models, dr.Logger); err != nil {
+			return wfSettings.APIServerMode || wfSettings.WebServerMode, fmt.Errorf("failed to copy offline models: %w", err)
+		}
+	} else {
+		if err := pullModels(ctx, wfSettings.AgentSettings.Models, dr.Logger); err != nil {
+			return wfSettings.APIServerMode || wfSettings.WebServerMode, fmt.Errorf("failed to pull models: %w", err)
+		}
 	}
 
 	if err := dr.Fs.MkdirAll(apiServerPath, 0o777); err != nil {
@@ -113,6 +121,93 @@ func pullModels(ctx context.Context, models []string, logger *logging.Logger) er
 			return fmt.Errorf("failed to pull model %s: %w", model, err)
 		}
 	}
+	return nil
+}
+
+func copyOfflineModels(ctx context.Context, models []string, logger *logging.Logger) error {
+	// Copy models from build-time location to ollama's shared volume location
+	modelsSourceDir := "/models"
+	modelsTargetDir := "/root/.ollama"
+	modelsTargetRoot := modelsTargetDir + "/models"
+
+	// Check if source models directory exists
+	stdout, stderr, exitCode, err := KdepsExec(
+		ctx,
+		"test",
+		[]string{"-d", modelsSourceDir},
+		"",
+		false,
+		false,
+		logger,
+	)
+	if err != nil {
+		logger.Warn("offline models directory not found, skipping offline model setup", "path", modelsSourceDir)
+		return nil
+	}
+
+	// Create target root directory if it doesn't exist
+	stdout, stderr, exitCode, err = KdepsExec(
+		ctx,
+		"mkdir",
+		[]string{"-p", modelsTargetRoot},
+		"",
+		false,
+		false,
+		logger,
+	)
+	if err != nil {
+		logger.Error("failed to create ollama models root directory", "stdout", stdout, "stderr", stderr, "exitCode", exitCode, "error", err)
+		return fmt.Errorf("failed to create ollama models root directory: %w", err)
+	}
+
+	// Copy blobs if present to /root/.ollama/models/blobs
+	if _, _, _, err := KdepsExec(ctx, "test", []string{"-d", modelsSourceDir + "/blobs"}, "", false, false, logger); err == nil {
+		if out, errStr, ec, errM := KdepsExec(ctx, "mkdir", []string{"-p", modelsTargetRoot + "/blobs"}, "", false, false, logger); errM != nil {
+			logger.Error("failed to create ollama models/blobs", "stdout", out, "stderr", errStr, "exitCode", ec, "error", errM)
+			return fmt.Errorf("failed to create ollama models/blobs: %w", errM)
+		}
+		if out, errStr, ec, errC := KdepsExec(ctx, "sh", []string{"-c", "cp -a /models/blobs/. /root/.ollama/models/blobs/"}, "", false, false, logger); errC != nil {
+			logger.Error("failed to copy blobs", "stdout", out, "stderr", errStr, "exitCode", ec, "error", errC)
+			return fmt.Errorf("failed to copy blobs: %w", errC)
+		}
+	}
+
+	// Copy manifests if present to /root/.ollama/models/manifests
+	if _, _, _, err := KdepsExec(ctx, "test", []string{"-d", modelsSourceDir + "/manifests"}, "", false, false, logger); err == nil {
+		if out, errStr, ec, errM := KdepsExec(ctx, "mkdir", []string{"-p", modelsTargetRoot + "/manifests"}, "", false, false, logger); errM != nil {
+			logger.Error("failed to create ollama models/manifests", "stdout", out, "stderr", errStr, "exitCode", ec, "error", errM)
+			return fmt.Errorf("failed to create ollama models/manifests: %w", errM)
+		}
+		if out, errStr, ec, errC := KdepsExec(ctx, "sh", []string{"-c", "cp -a /models/manifests/. /root/.ollama/models/manifests/"}, "", false, false, logger); errC != nil {
+			logger.Error("failed to copy manifests", "stdout", out, "stderr", errStr, "exitCode", ec, "error", errC)
+			return fmt.Errorf("failed to copy manifests: %w", errC)
+		}
+	}
+
+	// If neither blobs nor manifests were found, copy entire /models root into /root/.ollama/models
+	if _, _, _, errB := KdepsExec(ctx, "test", []string{"-d", modelsSourceDir + "/blobs"}, "", false, false, logger); errB != nil {
+		if _, _, _, errM := KdepsExec(ctx, "test", []string{"-d", modelsSourceDir + "/manifests"}, "", false, false, logger); errM != nil {
+			stdout, stderr, exitCode, err = KdepsExec(
+				ctx,
+				"sh",
+				[]string{"-c", "cp -a /models/. /root/.ollama/models/"},
+				"",
+				false,
+				false,
+				logger,
+			)
+			if err != nil {
+				logger.Error("failed to copy offline models root to models/", "stdout", stdout, "stderr", stderr, "exitCode", exitCode, "error", err)
+				return fmt.Errorf("failed to copy offline models root to models/: %w", err)
+			}
+		}
+	}
+	if err != nil {
+		logger.Error("failed to copy offline models", "stdout", stdout, "stderr", stderr, "exitCode", exitCode, "error", err)
+		return fmt.Errorf("failed to copy offline models: %w", err)
+	}
+
+	logger.Info("offline models copied successfully", "source", modelsSourceDir, "target", modelsTargetDir)
 	return nil
 }
 
