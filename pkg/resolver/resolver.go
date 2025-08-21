@@ -213,21 +213,21 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		return nil, fmt.Errorf("failed to initialize DB memory: %w", err)
 	}
 
-	sessionDBPath = filepath.Join(actionDir, graphID+"_session.db")
+	sessionDBPath = ":memory:"
 	sessionReader, err := session.InitializeSession(sessionDBPath)
 	if err != nil {
 		sessionReader.DB.Close()
 		return nil, fmt.Errorf("failed to initialize session DB: %w", err)
 	}
 
-	toolDBPath = filepath.Join(actionDir, graphID+"_tool.db")
+	toolDBPath = ":memory:"
 	toolReader, err := tool.InitializeTool(toolDBPath)
 	if err != nil {
 		toolReader.DB.Close()
 		return nil, fmt.Errorf("failed to initialize tool DB: %w", err)
 	}
 
-	itemDBPath = filepath.Join(actionDir, graphID+"_item.db")
+	itemDBPath = ":memory:"
 	itemReader, err := item.InitializeItem(itemDBPath, nil)
 	if err != nil {
 		itemReader.DB.Close()
@@ -584,10 +584,12 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 		return false, err
 	}
 
-	// Remove the session DB file
-	if err := dr.Fs.RemoveAll(dr.SessionDBPath); err != nil {
-		dr.Logger.Error("failed to delete the SessionDB file", "file", dr.SessionDBPath, "error", err)
-		return false, err
+	// Remove the session DB file if it's not in-memory
+	if dr.SessionDBPath != ":memory:" {
+		if err := dr.Fs.RemoveAll(dr.SessionDBPath); err != nil {
+			dr.Logger.Error("failed to delete the SessionDB file", "file", dr.SessionDBPath, "error", err)
+			return false, err
+		}
 	}
 
 	// Log the final file run counts
