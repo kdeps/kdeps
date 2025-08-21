@@ -43,6 +43,15 @@ func setupDockerEnvironment(ctx context.Context, dr *resolver.DependencyResolver
 		return false, fmt.Errorf("failed to prepare workflow directory: %w", err)
 	}
 
+	// Ensure default kdeps directories exist in Docker mode
+	kdepsBase := os.Getenv("KDEPS_PATH")
+	if strings.TrimSpace(kdepsBase) == "" {
+		kdepsBase = "/.kdeps/"
+	}
+	if err := ensureKdepsDirectories(dr.Fs, kdepsBase, dr.Logger); err != nil {
+		return false, fmt.Errorf("failed to ensure kdeps directories: %w", err)
+	}
+
 	host, port, err := parseOLLAMAHost(dr.Logger)
 	if err != nil {
 		return false, fmt.Errorf("failed to parse OLLAMA host: %w", err)
@@ -126,10 +135,10 @@ func pullModels(ctx context.Context, models []string, logger *logging.Logger) er
 
 		if err != nil || exitCode != 0 {
 			// Check if this is likely a "binary not found" error vs network/registry issues
-			if strings.Contains(stderr, "command not found") || strings.Contains(stderr, "not found") || 
-			   strings.Contains(stdout, "could not find ollama app") ||
-			   strings.Contains(stderr, "could not find ollama app") ||
-			   strings.Contains(err.Error(), "executable file not found") {
+			if strings.Contains(stderr, "command not found") || strings.Contains(stderr, "not found") ||
+				strings.Contains(stdout, "could not find ollama app") ||
+				strings.Contains(stderr, "could not find ollama app") ||
+				strings.Contains(err.Error(), "executable file not found") {
 				return fmt.Errorf("ollama binary not found: %w", err)
 			}
 			// For other errors (network, registry unavailable, etc.), warn and continue
@@ -186,10 +195,6 @@ func copyOfflineModels(ctx context.Context, models []string, logger *logging.Log
 		logger.Error("failed to sync offline models via rsync", "stdout", stdout, "stderr", stderr, "exitCode", exitCode, "error", err)
 		return fmt.Errorf("failed to sync offline models via rsync: %w", err)
 	}
-	if err != nil {
-		logger.Error("failed to copy offline models", "stdout", stdout, "stderr", stderr, "exitCode", exitCode, "error", err)
-		return fmt.Errorf("failed to copy offline models: %w", err)
-	}
 
 	logger.Info("offline models copied successfully", "source", modelsSourceDir, "target", modelsTargetDir)
 	return nil
@@ -226,4 +231,29 @@ func CreateFlagFile(fs afero.Fs, ctx context.Context, filename string) error {
 
 	currentTime := time.Now().UTC()
 	return fs.Chtimes(filename, currentTime, currentTime)
+}
+
+// ensureKdepsDirectories creates the kdeps base and default subdirectories if missing.
+func ensureKdepsDirectories(fs afero.Fs, base string, logger *logging.Logger) error {
+	// Normalize base to end with a single trailing slash
+	trimmed := strings.TrimSpace(base)
+	if trimmed == "" {
+		trimmed = "/.kdeps/"
+	}
+	if !strings.HasSuffix(trimmed, "/") {
+		trimmed += "/"
+	}
+
+	dirs := []string{
+		trimmed,
+		filepath.Join(trimmed, "agents"),
+		filepath.Join(trimmed, "cache"),
+	}
+	for _, d := range dirs {
+		if err := fs.MkdirAll(d, 0o777); err != nil {
+			return fmt.Errorf("failed to create directory %s: %w", d, err)
+		}
+	}
+	logger.Debug("ensured kdeps directories", "base", trimmed)
+	return nil
 }
