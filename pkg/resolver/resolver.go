@@ -194,15 +194,22 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		agentName = workflowConfiguration.GetAgentID()
 	}
 
-	// Use configurable kdeps path for tests or default to /.kdeps/
-	kdepsBase := os.Getenv("KDEPS_PATH")
+	// Use configurable kdeps path; in Docker default to /agent/volume/, otherwise /.kdeps/
+	kdepsBase := os.Getenv("KDEPS_VOLUME_PATH")
 	if kdepsBase == "" {
-		kdepsBase = "/.kdeps/"
+		if env != nil && env.DockerMode == "1" {
+			kdepsBase = "/agent/volume/"
+		} else {
+			kdepsBase = "/.kdeps/"
+		}
+	}
+	// Ensure kdeps base directory exists before initializing SQLite
+	if err := fs.MkdirAll(kdepsBase, 0o777); err != nil {
+		return nil, fmt.Errorf("failed to create kdeps base directory %s: %w", kdepsBase, err)
 	}
 	memoryDBPath = filepath.Join(kdepsBase, agentName+"_memory.db")
 	memoryReader, err := memory.InitializeMemory(memoryDBPath)
 	if err != nil {
-		memoryReader.DB.Close()
 		return nil, fmt.Errorf("failed to initialize DB memory: %w", err)
 	}
 

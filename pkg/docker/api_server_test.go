@@ -1235,7 +1235,7 @@ func TestAPIServerErrorHandling(t *testing.T) {
 		require.NoError(t, fs.MkdirAll(kdepsDir, 0o755))
 
 		// Set environment variables for test
-		t.Setenv("KDEPS_PATH", kdepsDir)
+		t.Setenv("KDEPS_VOLUME_PATH", kdepsDir)
 
 		// Create a valid workflow.pkl file that will pass initial validation
 		// but fail during processing (due to missing resources)

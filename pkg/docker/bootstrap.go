@@ -44,9 +44,9 @@ func setupDockerEnvironment(ctx context.Context, dr *resolver.DependencyResolver
 	}
 
 	// Ensure default kdeps directories exist in Docker mode
-	kdepsBase := os.Getenv("KDEPS_PATH")
+	kdepsBase := os.Getenv("KDEPS_VOLUME_PATH")
 	if strings.TrimSpace(kdepsBase) == "" {
-		kdepsBase = "/.kdeps/"
+		kdepsBase = "/agent/volume/"
 	}
 	if err := ensureKdepsDirectories(dr.Fs, kdepsBase, dr.Logger); err != nil {
 		return false, fmt.Errorf("failed to ensure kdeps directories: %w", err)
@@ -238,7 +238,7 @@ func ensureKdepsDirectories(fs afero.Fs, base string, logger *logging.Logger) er
 	// Normalize base to end with a single trailing slash
 	trimmed := strings.TrimSpace(base)
 	if trimmed == "" {
-		trimmed = "/.kdeps/"
+		trimmed = "/agent/volume/"
 	}
 	if !strings.HasSuffix(trimmed, "/") {
 		trimmed += "/"

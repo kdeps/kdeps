@@ -146,7 +146,7 @@ services:
     restart: on-failure
     volumes:
       - ollama:/root/.ollama
-      - kdeps:/.kdeps
+      - kdeps:/agent/volume
 volumes:
   ollama:
     external:
