@@ -17,7 +17,7 @@ When you run or build a KDeps agent, a Docker Compose file is generated to help 
 - Service entry with the agent image name (e.g., `whois:1.0.0`)
 - Volumes (external):
   - `ollama:/root/.ollama` (models and cache shared across runs)
-  - `kdeps:/.kdeps` (agent data/state)
+  - `kdeps:/agent/volume` (agent data/state)
 - Port mappings (if API/Web servers are enabled in your workflow)
 - GPU configuration for `nvidia` or `amd` variants
 
