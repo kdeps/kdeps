@@ -9,6 +9,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -182,12 +183,29 @@ func setupRoutes(router *gin.Engine, ctx context.Context, wfAPIServerCORS *apise
 				exposeHeaders = *wfAPIServerCORS.ExposeHeaders
 			}
 
+			// Always allow local development hosts in addition to configured origins
+			localHosts := map[string]struct{}{
+				"127.0.0.1": {},
+				"0.0.0.0":   {},
+				"::1":       {},
+				"localhost": {},
+			}
+
 			router.Use(cors.New(cors.Config{
 				AllowOrigins:     allowOrigins,
 				AllowMethods:     allowMethods,
 				AllowHeaders:     allowHeaders,
 				ExposeHeaders:    exposeHeaders,
 				AllowCredentials: wfAPIServerCORS.AllowCredentials,
+				AllowOriginFunc: func(origin string) bool {
+					parsed, err := url.Parse(origin)
+					if err != nil {
+						return false
+					}
+					host := parsed.Hostname()
+					_, ok := localHosts[host]
+					return ok
+				},
 				MaxAge: func() time.Duration {
 					if wfAPIServerCORS.MaxAge != nil {
 						return wfAPIServerCORS.MaxAge.GoDuration()
