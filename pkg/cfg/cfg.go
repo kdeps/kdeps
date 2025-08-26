@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/adrg/xdg"
+	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
@@ -135,15 +136,64 @@ func ValidateConfiguration(fs afero.Fs, ctx context.Context, env *environment.En
 	return configFile, nil
 }
 
-func LoadConfiguration(fs afero.Fs, ctx context.Context, configFile string, logger *logging.Logger) (*kdeps.Kdeps, error) {
+func LoadConfiguration(fs afero.Fs, ctx context.Context, configFile string, logger *logging.Logger) (konfig *kdeps.Kdeps, err error) {
 	logger.Debug("loading configuration", "config-file", configFile)
 
-	konfig, err := kdeps.LoadFromPath(ctx, configFile)
+	// Try using the generated LoadFromPath first, but recover from panics
+	defer func() {
+		if r := recover(); r != nil {
+			// If we get a reflection panic, use our workaround
+			if errStr, ok := r.(string); ok && strings.Contains(errStr, "reflect.Set: value of type *kdeps.Kdeps is not assignable to type kdeps.Kdeps") {
+				logger.Debug("recovering from pkl-go reflection panic, using workaround", "config-file", configFile)
+				konfig, err = loadConfigurationWorkaround(ctx, configFile, logger)
+				return
+			}
+			// Re-panic if it's not the specific error we're handling
+			panic(r)
+		}
+	}()
+
+	konfig, err = kdeps.LoadFromPath(ctx, configFile)
+	if err == nil {
+		logger.Debug("successfully read and parsed config file", "config-file", configFile)
+		return konfig, nil
+	}
+
+	// Check if it's the specific reflection error we need to work around
+	if strings.Contains(err.Error(), "reflect.Set: value of type *kdeps.Kdeps is not assignable to type kdeps.Kdeps") {
+		logger.Debug("working around pkl-go reflection issue", "config-file", configFile)
+		return loadConfigurationWorkaround(ctx, configFile, logger)
+	}
+
+	// If it's a different error, propagate it
+	logger.Error("error reading config file", "config-file", configFile, "error", err)
+	return nil, fmt.Errorf("error reading config file '%s': %w", configFile, err)
+}
+
+func loadConfigurationWorkaround(ctx context.Context, configFile string, logger *logging.Logger) (*kdeps.Kdeps, error) {
+	// Use direct evaluation as a workaround
+	evaluator, err := pkl.NewEvaluator(ctx, pkl.PreconfiguredOptions)
 	if err != nil {
+		logger.Error("error creating pkl evaluator", "config-file", configFile, "error", err)
+		return nil, fmt.Errorf("error creating pkl evaluator for config file '%s': %w", configFile, err)
+	}
+	defer evaluator.Close()
+
+	source := pkl.FileSource(configFile)
+	var module interface{}
+	err = evaluator.EvaluateModule(ctx, source, &module)
+	if err != nil {
+		logger.Error("error reading config file", "config-file", configFile, "error", err)
 		return nil, fmt.Errorf("error reading config file '%s': %w", configFile, err)
 	}
 
-	return konfig, nil
+	// The module should be a *Kdeps
+	if kdepsPtr, ok := module.(*kdeps.Kdeps); ok {
+		logger.Debug("successfully read and parsed config file via workaround", "config-file", configFile)
+		return kdepsPtr, nil
+	}
+
+	return nil, fmt.Errorf("unexpected module type for config file '%s': %T", configFile, module)
 }
 
 func GetKdepsPath(ctx context.Context, kdepsCfg kdeps.Kdeps) (string, error) {

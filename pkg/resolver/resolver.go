@@ -29,6 +29,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/session"
 	"github.com/kdeps/kdeps/pkg/tool"
 	"github.com/kdeps/kdeps/pkg/utils"
+	"github.com/kdeps/kdeps/pkg/workflow"
 	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
 	pklRes "github.com/kdeps/schema/gen/resource"
@@ -179,9 +180,10 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	responsePklFile := filepath.Join(actionDir, "/api/"+graphID+"__response.pkl")
 	responseTargetFile := filepath.Join(actionDir, "/api/"+graphID+"__response.json")
 
-	workflowConfiguration, err := pklWf.LoadFromPath(ctx, pklWfFile)
+	// Use our patched workflow loading function
+	workflowConfiguration, err := workflow.LoadWorkflow(ctx, pklWfFile, logger)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error reading workflow file '%s': %w", pklWfFile, err)
 	}
 
 	var apiServerMode, installAnaconda bool
