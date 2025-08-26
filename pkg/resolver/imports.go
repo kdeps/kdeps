@@ -175,7 +175,7 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 				blockType = "Resources"
 			case "data":
 				schemaFile = "Data.pkl"
-				blockType = "Files" // Special case for "data" - capitalized for schema v0.2.43
+				blockType = "Files" // Special case for "data" - capitalized for schema v0.2.44
 			}
 
 			// Write header using packageURL and schemaFile
