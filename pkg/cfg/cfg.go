@@ -169,19 +169,15 @@ func loadConfigurationFromEmbeddedAssets(ctx context.Context, configFile string,
 
 	// Use the user's config file but with embedded asset support
 	source := pkl.FileSource(configFile)
-	var module interface{}
-	err = evaluator.EvaluateModule(ctx, source, &module)
+	var conf *kdeps.Kdeps
+	err = evaluator.EvaluateModule(ctx, source, &conf)
 	if err != nil {
 		logger.Error("error reading config file", "config-file", configFile, "error", err)
 		return nil, fmt.Errorf("error reading config file '%s': %w", configFile, err)
 	}
 
-	if kdepsPtr, ok := module.(*kdeps.Kdeps); ok {
-		logger.Debug("successfully read and parsed config file from embedded assets", "config-file", configFile)
-		return kdepsPtr, nil
-	}
-
-	return nil, fmt.Errorf("unexpected module type for config file '%s': %T", configFile, module)
+	logger.Debug("successfully read and parsed config file from embedded assets", "config-file", configFile)
+	return conf, nil
 }
 
 // loadConfigurationFromFile loads configuration using direct file evaluation (original method)
@@ -194,19 +190,15 @@ func loadConfigurationFromFile(ctx context.Context, configFile string, logger *l
 	defer evaluator.Close()
 
 	source := pkl.FileSource(configFile)
-	var module interface{}
-	err = evaluator.EvaluateModule(ctx, source, &module)
+	var conf *kdeps.Kdeps
+	err = evaluator.EvaluateModule(ctx, source, &conf)
 	if err != nil {
 		logger.Error("error reading config file", "config-file", configFile, "error", err)
 		return nil, fmt.Errorf("error reading config file '%s': %w", configFile, err)
 	}
 
-	if kdepsPtr, ok := module.(*kdeps.Kdeps); ok {
-		logger.Debug("successfully read and parsed config file", "config-file", configFile)
-		return kdepsPtr, nil
-	}
-
-	return nil, fmt.Errorf("unexpected module type for config file '%s': %T", configFile, module)
+	logger.Debug("successfully read and parsed config file", "config-file", configFile)
+	return conf, nil
 }
 
 func GetKdepsPath(ctx context.Context, kdepsCfg kdeps.Kdeps) (string, error) {
