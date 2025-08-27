@@ -9,7 +9,7 @@ func TestIsDockerMode(t *testing.T) {
 	// Test environment variable detection
 	os.Setenv("KDEPS_DOCKER_MODE", "true")
 	defer os.Unsetenv("KDEPS_DOCKER_MODE")
-	
+
 	if !IsDockerMode() {
 		t.Error("Expected IsDockerMode to return true when KDEPS_DOCKER_MODE is set")
 	}
@@ -34,7 +34,7 @@ func TestIsTestMode(t *testing.T) {
 	if !IsTestMode(t) {
 		t.Error("Expected IsTestMode to return true when passed a valid testing.T")
 	}
-	
+
 	// Test with nil
 	if IsTestMode(nil) {
 		t.Error("Expected IsTestMode to return false when passed nil")

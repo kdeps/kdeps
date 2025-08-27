@@ -13,6 +13,52 @@ import (
 	"github.com/spf13/afero"
 )
 
+// makeUniquePortBindings creates a slice of unique port bindings with default hostIPs and the provided hostIP
+func makeUniquePortBindings(portNum, hostIP string) []nat.PortBinding {
+	// Create a map to track unique hostIPs
+	uniqueHostIPs := make(map[string]bool)
+	var bindings []nat.PortBinding
+
+	// Add default hostIPs
+	defaultHostIPs := []string{"0.0.0.0", "localhost", "127.0.0.1"}
+	for _, defaultIP := range defaultHostIPs {
+		if !uniqueHostIPs[defaultIP] {
+			uniqueHostIPs[defaultIP] = true
+			bindings = append(bindings, nat.PortBinding{HostIP: defaultIP, HostPort: portNum})
+		}
+	}
+
+	// Add the provided hostIP if it's not already included
+	if hostIP != "" && !uniqueHostIPs[hostIP] {
+		bindings = append(bindings, nat.PortBinding{HostIP: hostIP, HostPort: portNum})
+	}
+
+	return bindings
+}
+
+// makeUniquePortStrings creates a slice of unique port strings with default hostIPs and the provided hostIP
+func makeUniquePortStrings(portNum, hostIP string) []string {
+	// Create a map to track unique hostIPs
+	uniqueHostIPs := make(map[string]bool)
+	var ports []string
+
+	// Add default hostIPs
+	defaultHostIPs := []string{"0.0.0.0", "localhost", "127.0.0.1"}
+	for _, defaultIP := range defaultHostIPs {
+		if !uniqueHostIPs[defaultIP] {
+			uniqueHostIPs[defaultIP] = true
+			ports = append(ports, fmt.Sprintf("%s:%s", defaultIP, portNum))
+		}
+	}
+
+	// Add the provided hostIP if it's not already included
+	if hostIP != "" && !uniqueHostIPs[hostIP] {
+		ports = append(ports, fmt.Sprintf("%s:%s", hostIP, portNum))
+	}
+
+	return ports
+}
+
 func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerName, hostIP, portNum, webHostIP,
 	webPortNum, gpu string, apiMode, webMode bool, cli *client.Client,
 ) (string, error) {
@@ -40,11 +86,13 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 	portBindings := map[nat.Port][]nat.PortBinding{}
 	if apiMode && hostIP != "" && portNum != "" {
 		tcpPort := portNum + "/tcp"
-		portBindings[nat.Port(tcpPort)] = []nat.PortBinding{{HostIP: hostIP, HostPort: portNum}}
+		bindings := makeUniquePortBindings(portNum, hostIP)
+		portBindings[nat.Port(tcpPort)] = bindings
 	}
 	if webMode && webHostIP != "" && webPortNum != "" {
 		webTCPPort := webPortNum + "/tcp"
-		portBindings[nat.Port(webTCPPort)] = []nat.PortBinding{{HostIP: webHostIP, HostPort: webPortNum}}
+		bindings := makeUniquePortBindings(webPortNum, webHostIP)
+		portBindings[nat.Port(webTCPPort)] = bindings
 	}
 
 	// Initialize hostConfig with default settings
@@ -193,10 +241,12 @@ func GenerateDockerCompose(fs afero.Fs, cName, containerName, containerNameWithG
 	// Build ports section based on apiMode and webMode independently
 	var ports []string
 	if apiMode && hostIP != "" && portNum != "" {
-		ports = append(ports, fmt.Sprintf("%s:%s", hostIP, portNum))
+		uniquePorts := makeUniquePortStrings(portNum, hostIP)
+		ports = append(ports, uniquePorts...)
 	}
 	if webMode && webHostIP != "" && webPortNum != "" {
-		ports = append(ports, fmt.Sprintf("%s:%s", webHostIP, webPortNum))
+		uniquePorts := makeUniquePortStrings(webPortNum, webHostIP)
+		ports = append(ports, uniquePorts...)
 	}
 
 	// Format ports section for YAML

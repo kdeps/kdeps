@@ -16,23 +16,23 @@ func IsDockerMode() bool {
 	// Check for Docker environment variables that kdeps uses
 	dockerEnvVars := []string{
 		"KDEPS_DOCKER_MODE",
-		"DOCKER_KDEPS_DIR", 
+		"DOCKER_KDEPS_DIR",
 		"DOCKER_KDEPS_PATH",
 		"DOCKER_RUN_MODE",
 		"DOCKER_GPU",
 	}
-	
+
 	for _, envVar := range dockerEnvVars {
 		if os.Getenv(envVar) != "" {
 			return true
 		}
 	}
-	
+
 	// Also check if we're inside a Docker container
 	if _, err := os.Stat("/.dockerenv"); err == nil {
 		return true
 	}
-	
+
 	return false
 }
 
@@ -47,18 +47,18 @@ func IsTestEnvironment() bool {
 			return true
 		}
 	}
-	
+
 	// Check for test-related environment variables
 	if strings.HasSuffix(os.Args[0], ".test") {
 		return true
 	}
-	
+
 	// Check if testing.Testing() would return true (this is a bit of a hack)
 	// We can't call testing.Testing() directly since it's not always available
 	if os.Getenv("GO_TEST_TIMEOUT_SCALE") != "" {
 		return true
 	}
-	
+
 	return false
 }
 
