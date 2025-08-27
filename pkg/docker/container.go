@@ -20,7 +20,7 @@ func makeUniquePortBindings(portNum, hostIP string) []nat.PortBinding {
 	var bindings []nat.PortBinding
 
 	// Add default hostIPs
-	defaultHostIPs := []string{"0.0.0.0", "localhost", "127.0.0.1"}
+	defaultHostIPs := []string{"::1"}
 	for _, defaultIP := range defaultHostIPs {
 		if !uniqueHostIPs[defaultIP] {
 			uniqueHostIPs[defaultIP] = true
@@ -43,7 +43,7 @@ func makeUniquePortStrings(portNum, hostIP string) []string {
 	var ports []string
 
 	// Add default hostIPs
-	defaultHostIPs := []string{"0.0.0.0", "localhost", "127.0.0.1"}
+	defaultHostIPs := []string{"::1"}
 	for _, defaultIP := range defaultHostIPs {
 		if !uniqueHostIPs[defaultIP] {
 			uniqueHostIPs[defaultIP] = true
