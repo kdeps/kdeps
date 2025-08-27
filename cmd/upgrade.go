@@ -201,9 +201,9 @@ func upgradeVersionReferences(content, targetVersion string, logger *logging.Log
 
 	// Regex patterns to match schema version references
 	patterns := []string{
-		// Match: amends "package://schema.kdeps.com/core@0.2.44#/Workflow.pkl"
+		// Match: amends "package://schema.kdeps.com/core@0.2.50#/Workflow.pkl"
 		`(amends\s+"package://schema\.kdeps\.com/core@)([^"#]+)(#/[^"]+")`,
-		// Match: import "package://schema.kdeps.com/core@0.2.44#/Resource.pkl"
+		// Match: import "package://schema.kdeps.com/core@0.2.50#/Resource.pkl"
 		`(import\s+"package://schema\.kdeps\.com/core@)([^"#]+)(#/[^"]+")`,
 		// Match other similar patterns
 		`("package://schema\.kdeps\.com/core@)([^"#]+)(#/[^"]+")`,

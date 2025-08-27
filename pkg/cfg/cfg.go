@@ -10,11 +10,13 @@ import (
 
 	"github.com/adrg/xdg"
 	"github.com/apple/pkl-go/pkl"
+	"github.com/kdeps/kdeps/pkg/assets"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/texteditor"
+	schemaAssets "github.com/kdeps/schema/assets"
 	"github.com/kdeps/schema/gen/kdeps"
 	"github.com/kdeps/schema/gen/kdeps/path"
 	"github.com/spf13/afero"
@@ -139,6 +141,51 @@ func ValidateConfiguration(fs afero.Fs, ctx context.Context, env *environment.En
 func LoadConfiguration(fs afero.Fs, ctx context.Context, configFile string, logger *logging.Logger) (*kdeps.Kdeps, error) {
 	logger.Debug("loading configuration", "config-file", configFile)
 
+	// Check if we should use embedded assets
+	if assets.ShouldUseEmbeddedAssets() {
+		return loadConfigurationFromEmbeddedAssets(ctx, configFile, logger)
+	}
+
+	return loadConfigurationFromFile(ctx, configFile, logger)
+}
+
+// loadConfigurationFromEmbeddedAssets loads configuration using embedded PKL assets
+func loadConfigurationFromEmbeddedAssets(ctx context.Context, configFile string, logger *logging.Logger) (*kdeps.Kdeps, error) {
+	logger.Debug("loading configuration from embedded assets", "config-file", configFile)
+
+	// Use GetPKLFileWithFullConversion to get the embedded Kdeps.pkl template
+	_, err := schemaAssets.GetPKLFileWithFullConversion("Kdeps.pkl")
+	if err != nil {
+		logger.Error("error reading embedded kdeps template", "error", err)
+		return nil, fmt.Errorf("error reading embedded kdeps template: %w", err)
+	}
+
+	evaluator, err := pkl.NewEvaluator(ctx, pkl.PreconfiguredOptions)
+	if err != nil {
+		logger.Error("error creating pkl evaluator", "config-file", configFile, "error", err)
+		return nil, fmt.Errorf("error creating pkl evaluator for config file '%s': %w", configFile, err)
+	}
+	defer evaluator.Close()
+
+	// Use the user's config file but with embedded asset support
+	source := pkl.FileSource(configFile)
+	var module interface{}
+	err = evaluator.EvaluateModule(ctx, source, &module)
+	if err != nil {
+		logger.Error("error reading config file", "config-file", configFile, "error", err)
+		return nil, fmt.Errorf("error reading config file '%s': %w", configFile, err)
+	}
+
+	if kdepsPtr, ok := module.(*kdeps.Kdeps); ok {
+		logger.Debug("successfully read and parsed config file from embedded assets", "config-file", configFile)
+		return kdepsPtr, nil
+	}
+
+	return nil, fmt.Errorf("unexpected module type for config file '%s': %T", configFile, module)
+}
+
+// loadConfigurationFromFile loads configuration using direct file evaluation (original method)
+func loadConfigurationFromFile(ctx context.Context, configFile string, logger *logging.Logger) (*kdeps.Kdeps, error) {
 	evaluator, err := pkl.NewEvaluator(ctx, pkl.PreconfiguredOptions)
 	if err != nil {
 		logger.Error("error creating pkl evaluator", "config-file", configFile, "error", err)

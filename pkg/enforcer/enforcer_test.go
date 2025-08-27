@@ -569,8 +569,8 @@ func TestEnforcePklTemplateAmendsRules_MultipleAmends(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Create a test file with multiple amends statements
-	content := `amends "package://schema.kdeps.com/core@0.2.44#/Resource.pkl"
-amends "package://schema.kdeps.com/core@0.2.44#/Utils.pkl"
+	content := `amends "package://schema.kdeps.com/core@0.2.50#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.2.50#/Utils.pkl"
 
 import "pkl:json"
 import "pkl:math"
@@ -601,8 +601,8 @@ func TestEnforcePklTemplateAmendsRules_InvalidAmends(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Create a test file with one valid and one invalid amends statement
-	content := `amends "package://schema.kdeps.com/core@0.2.44#/Resource.pkl"
-amends "package://invalid.com/core@0.2.44#/Invalid.pkl"
+	content := `amends "package://schema.kdeps.com/core@0.2.50#/Resource.pkl"
+amends "package://invalid.com/core@0.2.50#/Invalid.pkl"
 
 ActionID = "testResource"
 Name = "Test Resource"
