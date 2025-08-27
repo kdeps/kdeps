@@ -18,7 +18,6 @@ import (
 	"github.com/spf13/afero"
 )
 
-
 // ResourceType defines the type of resource to load.
 type ResourceType string
 

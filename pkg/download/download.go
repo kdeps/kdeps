@@ -42,7 +42,7 @@ func (wc *WriteCounter) Write(p []byte) (int, error) {
 // PrintProgress displays the download progress in the terminal.
 func (wc *WriteCounter) PrintProgress() {
 	fmt.Printf("\r%s", strings.Repeat(" ", 80)) // Clear the line with more space
-	
+
 	// Choose appropriate icon and message based on context
 	icon := "📥"
 	prefix := "Downloading"
@@ -50,17 +50,17 @@ func (wc *WriteCounter) PrintProgress() {
 		icon = "🔄"
 		prefix = "Caching"
 	}
-	
+
 	// Use item name if available, otherwise show URL
 	name := wc.ItemName
 	if name == "" {
 		name = filepath.Base(wc.DownloadURL)
 	}
-	
+
 	// Show progress with percentage if expected size is known
 	if wc.Expected > 0 {
 		percent := float64(wc.Total) / float64(wc.Expected) * 100
-		fmt.Printf("\r%s %s %s - %s/%s (%.1f%%)", icon, prefix, name, 
+		fmt.Printf("\r%s %s %s - %s/%s (%.1f%%)", icon, prefix, name,
 			humanize.Bytes(wc.Total), humanize.Bytes(wc.Expected), percent)
 	} else {
 		fmt.Printf("\r%s %s %s - %s", icon, prefix, name, humanize.Bytes(wc.Total))
@@ -75,7 +75,13 @@ func DownloadFiles(fs afero.Fs, ctx context.Context, downloadDir string, items [
 		return fmt.Errorf("failed to create downloads directory: %w", err)
 	}
 
-	for _, item := range items {
+	// Check if this is cache downloads
+	isCache := strings.Contains(downloadDir, "cache")
+	if isCache && len(items) > 0 {
+		fmt.Printf("🔄 Downloading cache dependencies (%d items)...\n", len(items))
+	}
+
+	for i, item := range items {
 		localPath := filepath.Join(downloadDir, item.LocalName)
 
 		// If using "latest", remove any existing file to avoid stale downloads
@@ -87,13 +93,28 @@ func DownloadFiles(fs afero.Fs, ctx context.Context, downloadDir string, items [
 			}
 		}
 
+		// Show progress for multiple files
+		if isCache && len(items) > 1 {
+			fmt.Printf("[%d/%d] ", i+1, len(items))
+		}
+
 		// Download the file
 		err := DownloadFile(fs, ctx, item.URL, localPath, logger, useLatest)
 		if err != nil {
 			logger.Error("failed to download", "url", item.URL, "err", err)
+			if isCache {
+				fmt.Printf("\n❌ Failed to download %s\n", filepath.Base(localPath))
+			}
 		} else {
 			logger.Info("successfully downloaded", "url", item.URL, "path", localPath)
+			if isCache {
+				fmt.Printf("\n✅ Downloaded %s\n", filepath.Base(localPath))
+			}
 		}
+	}
+
+	if isCache && len(items) > 0 {
+		fmt.Printf("🎉 Cache downloads completed!\n")
 	}
 
 	return nil
@@ -155,15 +176,27 @@ func DownloadFile(fs afero.Fs, ctx context.Context, url, filePath string, logger
 		return errors.New(errMsg)
 	}
 
+	// Get content length for progress percentage
+	contentLength := uint64(0)
+	if resp.ContentLength > 0 {
+		contentLength = uint64(resp.ContentLength)
+	}
+
 	// Create a WriteCounter to track and display download progress
 	counter := &WriteCounter{
 		LocalFilePath: filePath,
 		DownloadURL:   url,
+		Expected:      contentLength,
+		ItemName:      filepath.Base(filePath),
+		IsCache:       strings.Contains(filePath, "cache"),
 	}
 	if _, err = io.Copy(out, io.TeeReader(resp.Body, counter)); err != nil {
 		logger.Error("failed to copy data", "error", err)
 		return fmt.Errorf("failed to copy data: %w", err)
 	}
+
+	// Clear the progress line
+	fmt.Printf("\r%s\r", strings.Repeat(" ", 80))
 
 	logger.Debug(messages.MsgDownloadComplete, "url", url, "file-path", filePath)
 

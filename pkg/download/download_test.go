@@ -35,10 +35,12 @@ func TestWriteCounter_Write(t *testing.T) {
 func TestWriteCounter_PrintProgress(t *testing.T) {
 	counter := &WriteCounter{
 		DownloadURL: "example.com/file.txt",
+		ItemName:    "file.txt",
+		IsCache:     false,
 	}
 	counter.Total = 1024
 
-	expectedOutput := "\r                                                  \rDownloading example.com/file.txt - 1.0 kB complete "
+	expectedOutput := "\r                                                                                \r📥 Downloading file.txt - 1.0 kB"
 
 	// Capture the output of PrintProgress
 	r, w, err := os.Pipe()
