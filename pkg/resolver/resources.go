@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/evaluator"
@@ -16,6 +17,7 @@ import (
 	pklResource "github.com/kdeps/schema/gen/resource"
 	"github.com/spf13/afero"
 )
+
 
 // ResourceType defines the type of resource to load.
 type ResourceType string
@@ -97,7 +99,16 @@ func (dr *DependencyResolver) handleFileImports(path string) error {
 }
 
 // processPklFile processes an individual .pkl file and updates dependencies.
-func (dr *DependencyResolver) processPklFile(file string) error {
+func (dr *DependencyResolver) processPklFile(file string) (err error) {
+	// Recover from unexpected panics while processing individual PKL files
+	defer func() {
+		if r := recover(); r != nil {
+			buf := make([]byte, 1<<16)
+			n := runtime.Stack(buf, false)
+			dr.Logger.Error("panic while processing .pkl file", "file", file, "panic", r, "stack", string(buf[:n]))
+			err = fmt.Errorf("panic processing file %s: %v", file, r)
+		}
+	}()
 	// Load the resource file
 	res, err := dr.LoadResourceFn(dr.Context, file, Resource)
 	if err != nil {
@@ -147,46 +158,67 @@ func (dr *DependencyResolver) LoadResource(ctx context.Context, resourceFile str
 	source := pkl.FileSource(resourceFile)
 	switch resourceType {
 	case Resource:
-		res, err := pklResource.Load(ctx, evaluator, source)
-		if err != nil {
+		// Use direct evaluation to concrete type to avoid interface reflection issues
+		var res *pklResource.Resource
+		if err := evaluator.EvaluateModule(ctx, source, &res); err != nil {
 			dr.Logger.Error("error reading resource file", "resource-file", resourceFile, "error", err)
 			return nil, fmt.Errorf("error reading resource file '%s': %w", resourceFile, err)
+		}
+		if res == nil {
+			dr.Logger.Error("got nil resource after evaluation", "resource-file", resourceFile)
+			return nil, fmt.Errorf("got nil resource after evaluation for '%s'", resourceFile)
 		}
 		dr.Logger.Debug("successfully loaded resource", "resource-file", resourceFile)
 		return res, nil
 
 	case ExecResource:
-		res, err := pklExec.Load(ctx, evaluator, source)
-		if err != nil {
+		var res *pklExec.ExecImpl
+		if err := evaluator.EvaluateModule(ctx, source, &res); err != nil {
 			dr.Logger.Error("error reading exec resource file", "resource-file", resourceFile, "error", err)
 			return nil, fmt.Errorf("error reading exec resource file '%s': %w", resourceFile, err)
+		}
+		if res == nil {
+			dr.Logger.Error("got nil exec resource after evaluation", "resource-file", resourceFile)
+			return nil, fmt.Errorf("got nil exec resource after evaluation for '%s'", resourceFile)
 		}
 		dr.Logger.Debug("successfully loaded exec resource", "resource-file", resourceFile)
 		return res, nil
 
 	case PythonResource:
-		res, err := pklPython.Load(ctx, evaluator, source)
-		if err != nil {
+		var res *pklPython.PythonImpl
+		if err := evaluator.EvaluateModule(ctx, source, &res); err != nil {
 			dr.Logger.Error("error reading python resource file", "resource-file", resourceFile, "error", err)
 			return nil, fmt.Errorf("error reading python resource file '%s': %w", resourceFile, err)
+		}
+		if res == nil {
+			dr.Logger.Error("got nil python resource after evaluation", "resource-file", resourceFile)
+			return nil, fmt.Errorf("got nil python resource after evaluation for '%s'", resourceFile)
 		}
 		dr.Logger.Debug("successfully loaded python resource", "resource-file", resourceFile)
 		return res, nil
 
 	case LLMResource:
-		res, err := pklLLM.Load(ctx, evaluator, source)
-		if err != nil {
+		var res *pklLLM.LLMImpl
+		if err := evaluator.EvaluateModule(ctx, source, &res); err != nil {
 			dr.Logger.Error("error reading llm resource file", "resource-file", resourceFile, "error", err)
 			return nil, fmt.Errorf("error reading llm resource file '%s': %w", resourceFile, err)
+		}
+		if res == nil {
+			dr.Logger.Error("got nil llm resource after evaluation", "resource-file", resourceFile)
+			return nil, fmt.Errorf("got nil llm resource after evaluation for '%s'", resourceFile)
 		}
 		dr.Logger.Debug("successfully loaded llm resource", "resource-file", resourceFile)
 		return res, nil
 
 	case HTTPResource:
-		res, err := pklHTTP.Load(ctx, evaluator, source)
-		if err != nil {
+		var res *pklHTTP.HTTPImpl
+		if err := evaluator.EvaluateModule(ctx, source, &res); err != nil {
 			dr.Logger.Error("error reading http resource file", "resource-file", resourceFile, "error", err)
 			return nil, fmt.Errorf("error reading http resource file '%s': %w", resourceFile, err)
+		}
+		if res == nil {
+			dr.Logger.Error("got nil http resource after evaluation", "resource-file", resourceFile)
+			return nil, fmt.Errorf("got nil http resource after evaluation for '%s'", resourceFile)
 		}
 		dr.Logger.Debug("successfully loaded http resource", "resource-file", resourceFile)
 		return res, nil

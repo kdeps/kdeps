@@ -19,8 +19,11 @@ import (
 // WriteCounter tracks the total number of bytes written and prints download progress.
 type WriteCounter struct {
 	Total         uint64
+	Expected      uint64
 	LocalFilePath string
 	DownloadURL   string
+	ItemName      string
+	IsCache       bool
 }
 
 type DownloadItem struct {
@@ -38,8 +41,30 @@ func (wc *WriteCounter) Write(p []byte) (int, error) {
 
 // PrintProgress displays the download progress in the terminal.
 func (wc *WriteCounter) PrintProgress() {
-	fmt.Printf("\r%s", strings.Repeat(" ", 50)) // Clear the line
-	fmt.Printf("\rDownloading %s - %s complete ", wc.DownloadURL, humanize.Bytes(wc.Total))
+	fmt.Printf("\r%s", strings.Repeat(" ", 80)) // Clear the line with more space
+	
+	// Choose appropriate icon and message based on context
+	icon := "📥"
+	prefix := "Downloading"
+	if wc.IsCache {
+		icon = "🔄"
+		prefix = "Caching"
+	}
+	
+	// Use item name if available, otherwise show URL
+	name := wc.ItemName
+	if name == "" {
+		name = filepath.Base(wc.DownloadURL)
+	}
+	
+	// Show progress with percentage if expected size is known
+	if wc.Expected > 0 {
+		percent := float64(wc.Total) / float64(wc.Expected) * 100
+		fmt.Printf("\r%s %s %s - %s/%s (%.1f%%)", icon, prefix, name, 
+			humanize.Bytes(wc.Total), humanize.Bytes(wc.Expected), percent)
+	} else {
+		fmt.Printf("\r%s %s %s - %s", icon, prefix, name, humanize.Bytes(wc.Total))
+	}
 }
 
 // Given a list of URLs, download it to a target.
