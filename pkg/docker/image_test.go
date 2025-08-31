@@ -166,7 +166,7 @@ func TestGenerateDockerfile(t *testing.T) {
 			"",
 			"",
 			"",
-			"2023.09",
+			"20.3.1-dev9",
 			"",
 			"UTC",
 			"8080",
