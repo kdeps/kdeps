@@ -113,6 +113,24 @@ func startAndWaitForOllama(ctx context.Context, host, port string, logger *loggi
 }
 
 func pullModels(ctx context.Context, models []string, logger *logging.Logger) error {
+	// First check if ollama is available by checking version
+	checkCtx, checkCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer checkCancel()
+	
+	_, stderr, exitCode, err := KdepsExec(
+		checkCtx,
+		"ollama",
+		[]string{"--version"},
+		"",
+		false,
+		false,
+		logger,
+	)
+	
+	if err != nil || exitCode != 0 {
+		return fmt.Errorf("ollama binary not available: %w (stderr: %s)", err, stderr)
+	}
+	
 	for _, model := range models {
 		model = strings.TrimSpace(model)
 		if model == "" {
