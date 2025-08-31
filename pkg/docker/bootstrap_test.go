@@ -207,7 +207,7 @@ func TestStartWebServerWrapper_Success(t *testing.T) {
 		WebServer: &webserver.WebServerSettings{
 			HostIP:  "127.0.0.1",
 			PortNum: portNum,
-			Routes:  []*webserver.WebServerRoutes{},
+			Routes:  []webserver.WebServerRoutes{},
 		},
 	}
 

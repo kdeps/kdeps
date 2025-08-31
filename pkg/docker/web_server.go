@@ -50,14 +50,15 @@ func StartWebServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 	return nil
 }
 
-func setupWebRoutes(router *gin.Engine, ctx context.Context, hostIP string, wfTrustedProxies []string, routes []*webserver.WebServerRoutes, dr *resolver.DependencyResolver) {
+func setupWebRoutes(router *gin.Engine, ctx context.Context, hostIP string, wfTrustedProxies []string, routes []webserver.WebServerRoutes, dr *resolver.DependencyResolver) {
 	for _, route := range routes {
-		if route == nil || route.Path == "" {
+		// WebServerRoutes is a struct, not a pointer, so we can always access it
+		if route.Path == "" {
 			dr.Logger.Error("route configuration is invalid", "route", route)
 			continue
 		}
 
-		handler := WebServerHandler(ctx, hostIP, route, dr)
+		handler := WebServerHandler(ctx, hostIP, &route, dr)
 
 		if len(wfTrustedProxies) > 0 {
 			dr.Logger.Printf("Found trusted proxies %v", wfTrustedProxies)

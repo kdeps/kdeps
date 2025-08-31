@@ -441,7 +441,7 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 
 	resources := pklRes.GetResources()
 	if resources == nil {
-		emptyMap := make(map[string]*pklLLM.ResourceChat)
+		emptyMap := make(map[string]pklLLM.ResourceChat)
 		resources = &emptyMap
 	}
 	existingResources := *resources
@@ -456,7 +456,7 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 	}
 
 	encodedChat := encodeChat(newChat, dr.Logger)
-	existingResources[resourceID] = encodedChat
+	existingResources[resourceID] = *encodedChat
 
 	pklContent := generatePklContent(existingResources, dr.Context, dr.Logger)
 
@@ -480,7 +480,7 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 }
 
 // generatePklContent generates Pkl content from resources.
-func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.Context, logger *logging.Logger) string {
+func generatePklContent(resources map[string]pklLLM.ResourceChat, ctx context.Context, logger *logging.Logger) string {
 	var pklContent strings.Builder
 	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"\n\n", schema.SchemaVersion(ctx)))
 	pklContent.WriteString("Resources {\n")
@@ -507,10 +507,7 @@ func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.C
 			logger.Info("Serializing scenario", "entry_count", len(*res.Scenario))
 			pklContent.WriteString("{\n")
 			for i, entry := range *res.Scenario {
-				if entry == nil {
-					logger.Warn("Skipping nil scenario entry in generatePklContent", "index", i)
-					continue
-				}
+				// MultiChat is a struct, not a pointer, so we can always access it
 				pklContent.WriteString("      new {\n")
 				entryRole := RoleHuman
 				if entry.Role != nil && *entry.Role != "" {

@@ -267,8 +267,11 @@ type MockWorkflow struct {
 	settings *project.Settings
 }
 
-func (m *MockWorkflow) GetSettings() *project.Settings {
-	return m.settings
+func (m *MockWorkflow) GetSettings() project.Settings {
+	if m.settings == nil {
+		return project.Settings{}
+	}
+	return *m.settings
 }
 
 func (m *MockWorkflow) GetAgentID() string        { return "" }
@@ -291,7 +294,7 @@ func TestStartWebServerMode(t *testing.T) {
 			WebServer: &webserver.WebServerSettings{
 				HostIP:  "localhost",
 				PortNum: portNum,
-				Routes:  []*webserver.WebServerRoutes{},
+				Routes:  []webserver.WebServerRoutes{},
 			},
 		}
 
@@ -345,7 +348,7 @@ func TestStartWebServerMode(t *testing.T) {
 				HostIP:         "localhost",
 				PortNum:        portNum,
 				TrustedProxies: &trustedProxies,
-				Routes:         []*webserver.WebServerRoutes{},
+				Routes:         []webserver.WebServerRoutes{},
 			},
 		}
 
@@ -397,7 +400,7 @@ func TestStartWebServerMode(t *testing.T) {
 			WebServer: &webserver.WebServerSettings{
 				HostIP:  "localhost",
 				PortNum: portNum,
-				Routes:  []*webserver.WebServerRoutes{},
+				Routes:  []webserver.WebServerRoutes{},
 			},
 		}
 
@@ -443,7 +446,7 @@ func TestStartWebServerMode(t *testing.T) {
 			WebServer: &webserver.WebServerSettings{
 				HostIP:  "localhost",
 				PortNum: portNum,
-				Routes:  []*webserver.WebServerRoutes{},
+				Routes:  []webserver.WebServerRoutes{},
 			},
 		}
 
@@ -526,7 +529,7 @@ func TestStartWebServerMode(t *testing.T) {
 				WebServer: &webserver.WebServerSettings{
 					HostIP:         "localhost",
 					PortNum:        uint16(8090), // Use a different port to avoid conflicts
-					Routes:         []*webserver.WebServerRoutes{},
+					Routes:         []webserver.WebServerRoutes{},
 					TrustedProxies: &[]string{},
 				},
 			},
@@ -557,7 +560,7 @@ func TestStartWebServerMode(t *testing.T) {
 				WebServer: &webserver.WebServerSettings{
 					HostIP:         "localhost",
 					PortNum:        uint16(8081),
-					Routes:         []*webserver.WebServerRoutes{},
+					Routes:         []webserver.WebServerRoutes{},
 					TrustedProxies: &[]string{},
 				},
 			},
@@ -586,7 +589,7 @@ func TestStartWebServerMode(t *testing.T) {
 			WebServer: &webserver.WebServerSettings{
 				HostIP:  "invalid-ip",
 				PortNum: uint16(8080),
-				Routes:  []*webserver.WebServerRoutes{},
+				Routes:  []webserver.WebServerRoutes{},
 			},
 		}
 
@@ -620,7 +623,7 @@ func TestSetupWebRoutes(t *testing.T) {
 			DataDir: "/tmp",
 		}
 
-		routes := []*webserver.WebServerRoutes{
+		routes := []webserver.WebServerRoutes{
 			{
 				Path:       "/static",
 				PublicPath: "static",
@@ -646,7 +649,7 @@ func TestSetupWebRoutes(t *testing.T) {
 			DataDir: "/tmp",
 		}
 
-		routes := []*webserver.WebServerRoutes{nil}
+		routes := []webserver.WebServerRoutes{}
 
 		setupWebRoutes(router, ctx, "localhost", nil, routes, dr)
 	})
@@ -660,7 +663,7 @@ func TestSetupWebRoutes(t *testing.T) {
 			DataDir: "/tmp",
 		}
 
-		routes := []*webserver.WebServerRoutes{
+		routes := []webserver.WebServerRoutes{
 			{
 				Path:       "",
 				PublicPath: "static",
@@ -680,7 +683,7 @@ func TestSetupWebRoutes(t *testing.T) {
 			DataDir: "/tmp",
 		}
 
-		routes := []*webserver.WebServerRoutes{
+		routes := []webserver.WebServerRoutes{
 			{
 				Path:       "/static",
 				PublicPath: "static",
@@ -700,7 +703,7 @@ func TestSetupWebRoutes(t *testing.T) {
 			DataDir: "/tmp",
 		}
 
-		routes := []*webserver.WebServerRoutes{
+		routes := []webserver.WebServerRoutes{
 			{
 				Path:       "/test",
 				PublicPath: "test",
@@ -722,7 +725,7 @@ func TestSetupWebRoutes(t *testing.T) {
 			DataDir: "/tmp",
 		}
 
-		routes := []*webserver.WebServerRoutes{
+		routes := []webserver.WebServerRoutes{
 			{
 				Path:       "/test",
 				PublicPath: "test",
@@ -762,7 +765,7 @@ func TestSetupWebRoutes(t *testing.T) {
 		router := gin.Default()
 
 		// Create routes with invalid trusted proxy
-		routes := []*webserver.WebServerRoutes{
+		routes := []webserver.WebServerRoutes{
 			{
 				Path:       "/test",
 				PublicPath: "test",
@@ -780,7 +783,7 @@ func TestSetupWebRoutes(t *testing.T) {
 		router := gin.New()
 
 		// Create mock route
-		route := &webserver.WebServerRoutes{
+		route := webserver.WebServerRoutes{
 			Path:       "/test",
 			PublicPath: "test",
 			ServerType: webservertype.Static,
@@ -797,7 +800,7 @@ func TestSetupWebRoutes(t *testing.T) {
 		ctx := context.Background()
 
 		// Call function with invalid trusted proxies
-		setupWebRoutes(router, ctx, "localhost", []string{"invalid-proxy"}, []*webserver.WebServerRoutes{route}, dr)
+		setupWebRoutes(router, ctx, "localhost", []string{"invalid-proxy"}, []webserver.WebServerRoutes{route}, dr)
 	})
 }
 

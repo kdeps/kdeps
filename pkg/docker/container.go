@@ -43,7 +43,7 @@ func makeUniquePortStrings(portNum, hostIP string) []string {
 	var ports []string
 
 	// Add default hostIPs
-	defaultHostIPs := []string{"::1"}
+	defaultHostIPs := []string{"0.0.0.0", "localhost"}
 	for _, defaultIP := range defaultHostIPs {
 		if !uniqueHostIPs[defaultIP] {
 			uniqueHostIPs[defaultIP] = true

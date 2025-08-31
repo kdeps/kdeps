@@ -189,12 +189,12 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	var apiServerMode, installAnaconda bool
 	var agentName, memoryDBPath, sessionDBPath, toolDBPath, itemDBPath string
 
-	if workflowConfiguration.GetSettings() != nil {
-		apiServerMode = workflowConfiguration.GetSettings().APIServerMode
-		agentSettings := workflowConfiguration.GetSettings().AgentSettings
-		installAnaconda = agentSettings.InstallAnaconda
-		agentName = workflowConfiguration.GetAgentID()
-	}
+	// GetSettings() returns a struct, not a pointer, so we can always access it
+	settings := workflowConfiguration.GetSettings()
+	apiServerMode = settings.APIServerMode
+	agentSettings := settings.AgentSettings
+	installAnaconda = agentSettings.InstallAnaconda
+	agentName = workflowConfiguration.GetAgentID()
 
 	// Use configurable kdeps path; in Docker default to /agent/volume/, otherwise /.kdeps/
 	kdepsBase := os.Getenv("KDEPS_VOLUME_PATH")
@@ -566,7 +566,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			}
 
 			// Process APIResponse once, outside the items loop
-			if dr.APIServerMode && rsc.Run != nil && rsc.Run.APIResponse != nil {
+			if dr.APIServerMode && rsc.Run.APIResponse != nil {
 				if err := dr.CreateResponsePklFile(*rsc.Run.APIResponse); err != nil {
 					return dr.HandleAPIErrorResponse(500, err.Error(), true)
 				}
@@ -610,9 +610,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 	dr.Logger.Info("processing run block for file", "file", res.File, "runCount", dr.FileRunCounter[res.File], "actionID", actionID)
 
 	runBlock := rsc.Run
-	if runBlock == nil {
-		return false, nil
-	}
+	// ResourceAction is a struct, not a pointer, so we can always access it
 
 	// When items are enabled, wait for the items database to have at least one item in the list
 	if hasItems {
@@ -798,6 +796,18 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 			dr.Logger.Error("HTTP client error:", res.ActionID)
 			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("HTTP client failed for resource: %s - %s", res.ActionID, err), true)
 		}
+	}
+
+	// Check if any action was actually performed
+	hasExec := runBlock.Exec != nil && runBlock.Exec.Command != ""
+	hasPython := runBlock.Python != nil && runBlock.Python.Script != ""
+	hasChat := runBlock.Chat != nil && runBlock.Chat.Model != "" && (runBlock.Chat.Prompt != nil || runBlock.Chat.Scenario != nil)
+	hasHTTP := runBlock.HTTPClient != nil && runBlock.HTTPClient.Method != "" && runBlock.HTTPClient.Url != ""
+	
+	// If no actions were performed, return false to indicate no processing occurred
+	if !hasExec && !hasPython && !hasChat && !hasHTTP {
+		dr.Logger.Debug("No run actions defined, skipping resource processing", "actionID", res.ActionID)
+		return false, nil
 	}
 
 	return true, nil

@@ -125,9 +125,7 @@ func processFile(fileHeader *multipart.FileHeader, dr *resolver.DependencyResolv
 // It validates the API server configuration, sets up routes, and starts the server on the configured port.
 func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) error {
 	wfSettings := dr.Workflow.GetSettings()
-	if wfSettings == nil {
-		return errors.New("the API server configuration is missing")
-	}
+	// Settings is a struct, not a pointer, so we can always access it
 
 	wfAPIServer := wfSettings.APIServer
 	if wfAPIServer == nil {
@@ -160,14 +158,15 @@ func StartAPIServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 	return nil
 }
 
-func setupRoutes(router *gin.Engine, ctx context.Context, wfAPIServerCORS *apiserver.CORSConfig, wfTrustedProxies []string, routes []*apiserver.APIServerRoutes, dr *resolver.DependencyResolver, semaphore chan struct{}) {
+func setupRoutes(router *gin.Engine, ctx context.Context, wfAPIServerCORS apiserver.CORSConfig, wfTrustedProxies []string, routes []apiserver.APIServerRoutes, dr *resolver.DependencyResolver, semaphore chan struct{}) {
 	for _, route := range routes {
-		if route == nil || route.Path == "" {
+		// APIServerRoutes is a struct, not a pointer, so we can always access it
+		if route.Path == "" {
 			dr.Logger.Error("route configuration is invalid", "route", route)
 			continue
 		}
 
-		if wfAPIServerCORS != nil && wfAPIServerCORS.EnableCORS {
+		if wfAPIServerCORS.EnableCORS {
 			var allowOrigins, allowMethods, allowHeaders, exposeHeaders []string
 
 			if wfAPIServerCORS.AllowOrigins != nil {
@@ -207,10 +206,8 @@ func setupRoutes(router *gin.Engine, ctx context.Context, wfAPIServerCORS *apise
 					return ok
 				},
 				MaxAge: func() time.Duration {
-					if wfAPIServerCORS.MaxAge != nil {
-						return wfAPIServerCORS.MaxAge.GoDuration()
-					}
-					return 12 * time.Hour
+					// MaxAge is a struct, not a pointer, so we can always access it
+					return wfAPIServerCORS.MaxAge.GoDuration()
 				}(),
 			}))
 		}
@@ -224,7 +221,7 @@ func setupRoutes(router *gin.Engine, ctx context.Context, wfAPIServerCORS *apise
 			}
 		}
 
-		handler := APIServerHandler(ctx, route, dr, semaphore)
+		handler := APIServerHandler(ctx, &route, dr, semaphore)
 		for _, method := range route.Methods {
 			switch method {
 			case http.MethodGet:

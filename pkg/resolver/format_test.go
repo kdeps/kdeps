@@ -196,7 +196,7 @@ func TestGeneratePklContent_Minimal(t *testing.T) {
 		JSONResponse:    &jsonResp,
 		TimeoutDuration: &pkl.Duration{Value: 5, Unit: pkl.Second},
 	}
-	m := map[string]*pklLLM.ResourceChat{"id1": res}
+	m := map[string]pklLLM.ResourceChat{"id1": *res}
 
 	pklStr := generatePklContent(m, ctx, logger)
 
@@ -415,7 +415,7 @@ func TestGetRoleAndType(t *testing.T) {
 func TestProcessScenarioMessages(t *testing.T) {
 	tests := []struct {
 		name     string
-		scenario *[]*pklLLM.MultiChat
+		scenario *[]pklLLM.MultiChat
 		expected []llms.MessageContent
 	}{
 		{
@@ -425,12 +425,12 @@ func TestProcessScenarioMessages(t *testing.T) {
 		},
 		{
 			name:     "empty scenario",
-			scenario: &[]*pklLLM.MultiChat{},
+			scenario: &[]pklLLM.MultiChat{},
 			expected: []llms.MessageContent{},
 		},
 		{
 			name: "single message",
-			scenario: &[]*pklLLM.MultiChat{
+			scenario: &[]pklLLM.MultiChat{
 				{
 					Role:   stringPtr("human"),
 					Prompt: stringPtr("Hello"),
@@ -445,7 +445,7 @@ func TestProcessScenarioMessages(t *testing.T) {
 		},
 		{
 			name: "multiple messages",
-			scenario: &[]*pklLLM.MultiChat{
+			scenario: &[]pklLLM.MultiChat{
 				{
 					Role:   stringPtr("human"),
 					Prompt: stringPtr("Hello"),
@@ -468,7 +468,7 @@ func TestProcessScenarioMessages(t *testing.T) {
 		},
 		{
 			name: "generic role",
-			scenario: &[]*pklLLM.MultiChat{
+			scenario: &[]pklLLM.MultiChat{
 				{
 					Role:   stringPtr("custom"),
 					Prompt: stringPtr("Custom message"),
@@ -1616,13 +1616,13 @@ func TestFormatErrors(t *testing.T) {
 	})
 
 	t.Run("EmptyErrors", func(t *testing.T) {
-		errors := &[]*apiserverresponse.APIServerErrorsBlock{}
+		errors := &[]apiserverresponse.APIServerErrorsBlock{}
 		result := formatErrors(errors, logger)
 		assert.Empty(t, result)
 	})
 
 	t.Run("WithErrors", func(t *testing.T) {
-		errors := &[]*apiserverresponse.APIServerErrorsBlock{
+		errors := &[]apiserverresponse.APIServerErrorsBlock{
 			{
 				Code:    404,
 				Message: "Resource not found",

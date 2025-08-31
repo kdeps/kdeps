@@ -46,7 +46,7 @@ func buildEncodedChat() (*pklLLM.ResourceChat, map[string]string) {
 	// Scenario
 	scenarioRole := ec(RoleHuman)
 	scenarioPrompt := ec(original["scenarioPrompt"])
-	scenario := []*pklLLM.MultiChat{{
+	scenario := []pklLLM.MultiChat{{
 		Role:   &scenarioRole,
 		Prompt: &scenarioPrompt,
 	}}
@@ -58,7 +58,7 @@ func buildEncodedChat() (*pklLLM.ResourceChat, map[string]string) {
 	paramType := original["paramType"]
 	paramDesc := original["paramDescription"]
 	req := true
-	params := map[string]*pklLLM.ToolProperties{
+	params := map[string]pklLLM.ToolProperties{
 		"value": {
 			Type:        &paramType,
 			Description: &paramDesc,
@@ -69,7 +69,7 @@ func buildEncodedChat() (*pklLLM.ResourceChat, map[string]string) {
 	toolName := original["toolName"]
 	toolScript := original["toolScript"]
 	toolDesc := original["toolDescription"]
-	tools := []*pklLLM.Tool{{
+	tools := []pklLLM.Tool{{
 		Name:        &toolName,
 		Script:      &toolScript,
 		Description: &toolDesc,
@@ -226,7 +226,7 @@ func TestHandleLLMChat(t *testing.T) {
 
 	// stub LoadResourceFn so AppendChatEntry loads an empty map
 	dr.LoadResourceFn = func(_ context.Context, _ string, _ ResourceType) (interface{}, error) {
-		empty := make(map[string]*pklLLM.ResourceChat)
+		empty := make(map[string]pklLLM.ResourceChat)
 		return &pklLLM.LLMImpl{Resources: &empty}, nil
 	}
 
@@ -277,7 +277,7 @@ func TestHandleHTTPClient(t *testing.T) {
 	_ = fs.MkdirAll(dr.FilesDir, 0o755)
 
 	dr.LoadResourceFn = func(_ context.Context, _ string, _ ResourceType) (interface{}, error) {
-		empty := make(map[string]*pklHTTP.ResourceHTTPClient)
+		empty := make(map[string]pklHTTP.ResourceHTTPClient)
 		return &pklHTTP.HTTPImpl{Resources: &empty}, nil
 	}
 
@@ -404,8 +404,8 @@ func TestProcessToolCalls_Success(t *testing.T) {
 	req := true
 	ptype := "string"
 	desc := "value"
-	params := map[string]*pklLLM.ToolProperties{"val": {Required: &req, Type: &ptype, Description: &desc}}
-	tools := []*pklLLM.Tool{{Name: &name, Script: &script, Parameters: &params}}
+	params := map[string]pklLLM.ToolProperties{"val": {Required: &req, Type: &ptype, Description: &desc}}
+	tools := []pklLLM.Tool{{Name: &name, Script: &script, Parameters: &params}}
 	chat := &pklLLM.ResourceChat{Tools: &tools}
 
 	// ToolCall JSON string
@@ -497,8 +497,8 @@ func TestEncodeToolsAndParams(t *testing.T) {
 	req := true
 	ptype := "string"
 	pdesc := "value"
-	params := map[string]*pklLLM.ToolProperties{"v": {Required: &req, Type: &ptype, Description: &pdesc}}
-	tools := []*pklLLM.Tool{{Name: &name, Script: &script, Description: &desc, Parameters: &params}}
+	params := map[string]pklLLM.ToolProperties{"v": {Required: &req, Type: &ptype, Description: &pdesc}}
+	tools := []pklLLM.Tool{{Name: &name, Script: &script, Description: &desc, Parameters: &params}}
 
 	encoded := encodeTools(&tools)
 	if len(encoded) != 1 {
@@ -529,8 +529,8 @@ func TestGenerateAvailableTools(t *testing.T) {
 	req := true
 	ptype := "string"
 	pdesc := "number"
-	params := map[string]*pklLLM.ToolProperties{"n": {Required: &req, Type: &ptype, Description: &pdesc}}
-	tools := []*pklLLM.Tool{{Name: &name, Script: &script, Description: &desc, Parameters: &params}}
+	params := map[string]pklLLM.ToolProperties{"n": {Required: &req, Type: &ptype, Description: &pdesc}}
+	tools := []pklLLM.Tool{{Name: &name, Script: &script, Description: &desc, Parameters: &params}}
 	chat.Tools = &tools
 
 	avail := generateAvailableTools(chat, logger)
@@ -600,12 +600,12 @@ func TestExtractToolParams(t *testing.T) {
 	req := true
 	ptype := "string"
 	pdesc := "value"
-	params := map[string]*pklLLM.ToolProperties{
+	params := map[string]pklLLM.ToolProperties{
 		"val": {Required: &req, Type: &ptype, Description: &pdesc},
 	}
 	name := "echo"
 	script := "echo"
-	tools := []*pklLLM.Tool{{Name: &name, Script: &script, Parameters: &params}}
+	tools := []pklLLM.Tool{{Name: &name, Script: &script, Parameters: &params}}
 	chat := &pklLLM.ResourceChat{Tools: &tools}
 
 	args := map[string]interface{}{"val": "hi"}
@@ -656,11 +656,11 @@ func TestSerializeTools(t *testing.T) {
 	req := true
 	ptype := "string"
 	pdesc := "greeting"
-	params := map[string]*pklLLM.ToolProperties{
+	params := map[string]pklLLM.ToolProperties{
 		"msg": {Required: &req, Type: &ptype, Description: &pdesc},
 	}
 
-	entries := []*pklLLM.Tool{{
+	entries := []pklLLM.Tool{{
 		Name:        &name,
 		Script:      &scriptEnc,
 		Description: &descEnc,

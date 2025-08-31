@@ -22,16 +22,16 @@ func (simpleWf) GetAgentID() string { return "agent" }
 func (simpleWf) GetVersion() string { return "0.0.1" }
 
 // Unused methods – provide zero values to satisfy interface.
-func (simpleWf) GetDescription() string         { return "" }
-func (simpleWf) GetWebsite() *string            { return nil }
-func (simpleWf) GetAuthors() *[]string          { return nil }
-func (simpleWf) GetDocumentation() *string      { return nil }
-func (simpleWf) GetRepository() *string         { return nil }
-func (simpleWf) GetHeroImage() *string          { return nil }
-func (simpleWf) GetAgentIcon() *string          { return nil }
-func (simpleWf) GetTargetActionID() string      { return "" }
-func (simpleWf) GetWorkflows() []string         { return nil }
-func (simpleWf) GetSettings() *pklProj.Settings { return nil }
+func (simpleWf) GetDescription() string        { return "" }
+func (simpleWf) GetWebsite() *string           { return nil }
+func (simpleWf) GetAuthors() *[]string         { return nil }
+func (simpleWf) GetDocumentation() *string     { return nil }
+func (simpleWf) GetRepository() *string        { return nil }
+func (simpleWf) GetHeroImage() *string         { return nil }
+func (simpleWf) GetAgentIcon() *string         { return nil }
+func (simpleWf) GetTargetActionID() string     { return "" }
+func (simpleWf) GetWorkflows() []string        { return nil }
+func (simpleWf) GetSettings() pklProj.Settings { return pklProj.Settings{} }
 
 // compile-time assertion
 var _ interface {
@@ -183,18 +183,18 @@ func TestPackageProjectHappy(t *testing.T) {
 // stubWorkflow implements the required methods of pklWf.Workflow for this unit test.
 type stubWorkflowPkg struct{}
 
-func (stubWorkflowPkg) GetAgentID() string                { return "mini-agent" }
-func (stubWorkflowPkg) GetVersion() string                { return "0.0.1" }
-func (stubWorkflowPkg) GetDescription() string            { return "" }
-func (stubWorkflowPkg) GetWebsite() *string               { return nil }
-func (stubWorkflowPkg) GetAuthors() *[]string             { return nil }
-func (stubWorkflowPkg) GetDocumentation() *string         { return nil }
-func (stubWorkflowPkg) GetRepository() *string            { return nil }
-func (stubWorkflowPkg) GetHeroImage() *string             { return nil }
-func (stubWorkflowPkg) GetAgentIcon() *string             { return nil }
-func (stubWorkflowPkg) GetTargetActionID() string         { return "run" }
-func (stubWorkflowPkg) GetWorkflows() []string            { return nil }
-func (stubWorkflowPkg) GetSettings() *pklProject.Settings { return nil }
+func (stubWorkflowPkg) GetAgentID() string               { return "mini-agent" }
+func (stubWorkflowPkg) GetVersion() string               { return "0.0.1" }
+func (stubWorkflowPkg) GetDescription() string           { return "" }
+func (stubWorkflowPkg) GetWebsite() *string              { return nil }
+func (stubWorkflowPkg) GetAuthors() *[]string            { return nil }
+func (stubWorkflowPkg) GetDocumentation() *string        { return nil }
+func (stubWorkflowPkg) GetRepository() *string           { return nil }
+func (stubWorkflowPkg) GetHeroImage() *string            { return nil }
+func (stubWorkflowPkg) GetAgentIcon() *string            { return nil }
+func (stubWorkflowPkg) GetTargetActionID() string        { return "run" }
+func (stubWorkflowPkg) GetWorkflows() []string           { return nil }
+func (stubWorkflowPkg) GetSettings() pklProject.Settings { return pklProject.Settings{} }
 
 func TestPackageProject_MinimalAndOverwrite(t *testing.T) {
 	ctx := context.Background()

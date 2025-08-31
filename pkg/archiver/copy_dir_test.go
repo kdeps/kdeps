@@ -534,18 +534,18 @@ func TestCopyFileBackupAndOverwrite(t *testing.T) {
 // mockWorkflow implements the minimal subset of the generated Workflow interface we need.
 type mockWorkflow struct{ name, version string }
 
-func (m mockWorkflow) GetAgentID() string                { return m.name }
-func (m mockWorkflow) GetVersion() string                { return m.version }
-func (m mockWorkflow) GetDescription() string            { return "" }
-func (m mockWorkflow) GetWebsite() *string               { return nil }
-func (m mockWorkflow) GetAuthors() *[]string             { return nil }
-func (m mockWorkflow) GetDocumentation() *string         { return nil }
-func (m mockWorkflow) GetRepository() *string            { return nil }
-func (m mockWorkflow) GetHeroImage() *string             { return nil }
-func (m mockWorkflow) GetAgentIcon() *string             { return nil }
-func (m mockWorkflow) GetTargetActionID() string         { return "" }
-func (m mockWorkflow) GetWorkflows() []string            { return nil }
-func (m mockWorkflow) GetSettings() *pklProject.Settings { return nil }
+func (m mockWorkflow) GetAgentID() string               { return m.name }
+func (m mockWorkflow) GetVersion() string               { return m.version }
+func (m mockWorkflow) GetDescription() string           { return "" }
+func (m mockWorkflow) GetWebsite() *string              { return nil }
+func (m mockWorkflow) GetAuthors() *[]string            { return nil }
+func (m mockWorkflow) GetDocumentation() *string        { return nil }
+func (m mockWorkflow) GetRepository() *string           { return nil }
+func (m mockWorkflow) GetHeroImage() *string            { return nil }
+func (m mockWorkflow) GetAgentIcon() *string            { return nil }
+func (m mockWorkflow) GetTargetActionID() string        { return "" }
+func (m mockWorkflow) GetWorkflows() []string           { return nil }
+func (m mockWorkflow) GetSettings() pklProject.Settings { return pklProject.Settings{} }
 
 // TestCopyDataDirBasic verifies that CopyDataDir copies files when present.
 func TestCopyDataDirBasic(t *testing.T) {

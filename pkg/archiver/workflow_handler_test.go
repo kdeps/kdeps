@@ -16,18 +16,18 @@ import (
 // testWorkflow implements the minimal subset of the Workflow interface we need for testing
 type testWorkflow struct{}
 
-func (m testWorkflow) GetAgentID() string                { return "test-agent" }
-func (m testWorkflow) GetVersion() string                { return "1.0.0" }
-func (m testWorkflow) GetDescription() string            { return "" }
-func (m testWorkflow) GetWebsite() *string               { return nil }
-func (m testWorkflow) GetAuthors() *[]string             { return nil }
-func (m testWorkflow) GetDocumentation() *string         { return nil }
-func (m testWorkflow) GetRepository() *string            { return nil }
-func (m testWorkflow) GetHeroImage() *string             { return nil }
-func (m testWorkflow) GetAgentIcon() *string             { return nil }
-func (m testWorkflow) GetTargetActionID() string         { return "test-action" }
-func (m testWorkflow) GetWorkflows() []string            { return nil }
-func (m testWorkflow) GetSettings() *pklProject.Settings { return nil }
+func (m testWorkflow) GetAgentID() string               { return "test-agent" }
+func (m testWorkflow) GetVersion() string               { return "1.0.0" }
+func (m testWorkflow) GetDescription() string           { return "" }
+func (m testWorkflow) GetWebsite() *string              { return nil }
+func (m testWorkflow) GetAuthors() *[]string            { return nil }
+func (m testWorkflow) GetDocumentation() *string        { return nil }
+func (m testWorkflow) GetRepository() *string           { return nil }
+func (m testWorkflow) GetHeroImage() *string            { return nil }
+func (m testWorkflow) GetAgentIcon() *string            { return nil }
+func (m testWorkflow) GetTargetActionID() string        { return "test-action" }
+func (m testWorkflow) GetWorkflows() []string           { return nil }
+func (m testWorkflow) GetSettings() pklProject.Settings { return pklProject.Settings{} }
 
 func TestCompileProjectDoesNotModifyOriginalFiles(t *testing.T) {
 	fs := afero.NewMemMapFs()

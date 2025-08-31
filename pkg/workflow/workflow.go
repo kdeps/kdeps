@@ -51,7 +51,7 @@ func loadWorkflowFromEmbeddedAssets(ctx context.Context, workflowFile string, lo
 		return nil, fmt.Errorf("error reading workflow file '%s': %w", workflowFile, err)
 	}
 
-	if workflowPtr, ok := module.(*pklWf.WorkflowImpl); ok {
+	if workflowPtr, ok := module.(pklWf.Workflow); ok {
 		logger.Debug("successfully read and parsed workflow file from embedded assets", "workflow-file", workflowFile)
 		return workflowPtr, nil
 	}
@@ -76,7 +76,7 @@ func loadWorkflowFromFile(ctx context.Context, workflowFile string, logger *logg
 		return nil, fmt.Errorf("error reading workflow file '%s': %w", workflowFile, err)
 	}
 
-	if workflowPtr, ok := module.(*pklWf.WorkflowImpl); ok {
+	if workflowPtr, ok := module.(pklWf.Workflow); ok {
 		logger.Debug("successfully read and parsed workflow file", "workflow-file", workflowFile)
 		return workflowPtr, nil
 	}

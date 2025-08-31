@@ -76,7 +76,7 @@ func (dr *DependencyResolver) ensureResponsePklFileNotExists() error {
 
 func (dr *DependencyResolver) buildResponseSections(requestID string, apiResponseBlock apiserverresponse.APIServerResponse) []string {
 	// Get new errors from the current response resource only
-	var responseErrors []*apiserverresponse.APIServerErrorsBlock
+	var responseErrors []apiserverresponse.APIServerErrorsBlock
 	if apiResponseBlock.GetErrors() != nil {
 		responseErrors = *apiResponseBlock.GetErrors()
 	}
@@ -218,23 +218,21 @@ else
 `, uuidVal, val, uuidVal, uuidVal, uuidVal, uuidVal, uuidVal, uuidVal, uuidVal)
 }
 
-func formatErrors(errors *[]*apiserverresponse.APIServerErrorsBlock, logger *logging.Logger) string {
+func formatErrors(errors *[]apiserverresponse.APIServerErrorsBlock, logger *logging.Logger) string {
 	if errors == nil || len(*errors) == 0 {
 		return ""
 	}
 
 	var newBlocks string
 	for _, err := range *errors {
-		if err != nil {
-			decodedMessage := decodeErrorMessage(err.Message, logger)
-			newBlocks += fmt.Sprintf(`
+		decodedMessage := decodeErrorMessage(err.Message, logger)
+		newBlocks += fmt.Sprintf(`
   new {
     Code = %d
     Message = #"""
 %s
 """#
   }`, err.Code, decodedMessage)
-		}
 	}
 
 	if newBlocks != "" {
@@ -405,7 +403,7 @@ func (dr *DependencyResolver) HandleAPIErrorResponse(code int, message string, f
 		// that includes all accumulated errors, not just the current one
 		if fatal {
 			// Get all accumulated errors and merge with the current error
-			currentErrors := []*apiserverresponse.APIServerErrorsBlock{
+			currentErrors := []apiserverresponse.APIServerErrorsBlock{
 				{Code: code, Message: message},
 			}
 			allErrors := utils.MergeAllErrors(dr.RequestID, currentErrors)

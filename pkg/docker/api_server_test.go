@@ -486,7 +486,7 @@ func (m *mockResolver) EvalPklFormattedResponseFile() (string, error) {
 // workflowWithNilSettings is a mock Workflow with GetSettings() and GetAgentIcon() returning nil
 type workflowWithNilSettings struct{}
 
-func (w workflowWithNilSettings) GetSettings() *project.Settings { return nil }
+func (w workflowWithNilSettings) GetSettings() project.Settings { return project.Settings{} }
 
 func (w workflowWithNilSettings) GetTargetActionID() string { return "test-action" }
 
@@ -604,7 +604,7 @@ func TestProcessWorkflow(t *testing.T) {
 		mock.BuildDependencyStackFn = func(string, map[string]bool) []string { return []string{"test-action"} }
 		mock.LoadResourceFn = func(context.Context, string, resolver.ResourceType) (interface{}, error) {
 			items := []string{}
-			return &resource.Resource{Items: &items, Run: nil}, nil
+			return &resource.Resource{Items: &items, Run: resource.ResourceAction{}}, nil
 		}
 		mock.ProcessRunBlockFn = func(resolver.ResourceNodeEntry, *resource.Resource, string, bool) (bool, error) {
 			return false, fmt.Errorf("failed to handle run action")
@@ -662,7 +662,7 @@ func TestSetupRoutes(t *testing.T) {
 		AllowHeaders:     &[]string{"Content-Type"},
 		ExposeHeaders:    &[]string{"X-Custom-Header"},
 		AllowCredentials: true,
-		MaxAge:           &pkl.Duration{Value: 3600, Unit: pkl.Second},
+		MaxAge:           pkl.Duration{Value: 3600, Unit: pkl.Second},
 	}
 
 	// Create test routes
@@ -683,7 +683,7 @@ func TestSetupRoutes(t *testing.T) {
 	t.Run("ValidRoutes", func(t *testing.T) {
 		router := gin.New()
 		ctx := context.Background()
-		setupRoutes(router, ctx, corsConfig, []string{"127.0.0.1"}, routes, baseDr, semaphore)
+		setupRoutes(router, ctx, *corsConfig, []string{"127.0.0.1"}, convertRoutesToStructs(routes), baseDr, semaphore)
 
 		// Test GET request
 		w := httptest.NewRecorder()
@@ -705,7 +705,7 @@ func TestSetupRoutes(t *testing.T) {
 			nil,
 			{Path: ""},
 		}
-		setupRoutes(router, ctx, corsConfig, []string{"127.0.0.1"}, invalidRoutes, baseDr, semaphore)
+		setupRoutes(router, ctx, *corsConfig, []string{"127.0.0.1"}, convertRoutesToStructs(invalidRoutes), baseDr, semaphore)
 		// No assertions needed as the function should log errors and continue
 	})
 
@@ -715,14 +715,14 @@ func TestSetupRoutes(t *testing.T) {
 		disabledCORS := &apiserver.CORSConfig{
 			EnableCORS: false,
 		}
-		setupRoutes(router, ctx, disabledCORS, []string{"127.0.0.1"}, routes, baseDr, semaphore)
+		setupRoutes(router, ctx, *disabledCORS, []string{"127.0.0.1"}, convertRoutesToStructs(routes), baseDr, semaphore)
 		// No assertions needed as the function should skip CORS setup
 	})
 
 	t.Run("NoTrustedProxies", func(t *testing.T) {
 		router := gin.New()
 		ctx := context.Background()
-		setupRoutes(router, ctx, corsConfig, nil, routes, baseDr, semaphore)
+		setupRoutes(router, ctx, *corsConfig, nil, convertRoutesToStructs(routes), baseDr, semaphore)
 		// No assertions needed as the function should skip proxy setup
 	})
 
@@ -735,9 +735,20 @@ func TestSetupRoutes(t *testing.T) {
 				Methods: []string{"UNSUPPORTED"},
 			},
 		}
-		setupRoutes(router, ctx, corsConfig, []string{"127.0.0.1"}, unsupportedRoutes, baseDr, semaphore)
+		setupRoutes(router, ctx, *corsConfig, []string{"127.0.0.1"}, convertRoutesToStructs(unsupportedRoutes), baseDr, semaphore)
 		// No assertions needed as the function should log a warning and continue
 	})
+}
+
+// convertRoutesToStructs converts a slice of route pointers to a slice of route structs
+func convertRoutesToStructs(routes []*apiserver.APIServerRoutes) []apiserver.APIServerRoutes {
+	result := make([]apiserver.APIServerRoutes, len(routes))
+	for i, route := range routes {
+		if route != nil {
+			result[i] = *route
+		}
+	}
+	return result
 }
 
 // Ensure schema version gets referenced at least once in this test file.
