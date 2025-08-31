@@ -289,7 +289,7 @@ func (m *MockWorkflow) GetWebsite() *string       { return nil }
 func TestStartWebServerMode(t *testing.T) {
 	t.Run("WithValidSettings", func(t *testing.T) {
 		// Create mock workflow settings
-		portNum := uint16(8080)
+		portNum := uint16(9999) // Use a less common port
 		settings := &project.Settings{
 			WebServer: &webserver.WebServerSettings{
 				HostIP:  "localhost",
@@ -320,10 +320,10 @@ func TestStartWebServerMode(t *testing.T) {
 		require.NoError(t, err)
 
 		// Give server time to start
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
 
 		// Test server is running
-		req, err := http.NewRequest("GET", "http://localhost:8080/", nil)
+		req, err := http.NewRequest("GET", "http://localhost:9999/", nil)
 		require.NoError(t, err)
 
 		client := &http.Client{
