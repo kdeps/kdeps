@@ -116,7 +116,7 @@ func pullModels(ctx context.Context, models []string, logger *logging.Logger) er
 	// First check if ollama is available by checking version
 	checkCtx, checkCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer checkCancel()
-	
+
 	_, stderr, exitCode, err := KdepsExec(
 		checkCtx,
 		"ollama",
@@ -126,11 +126,11 @@ func pullModels(ctx context.Context, models []string, logger *logging.Logger) er
 		false,
 		logger,
 	)
-	
+
 	if err != nil || exitCode != 0 {
 		return fmt.Errorf("ollama binary not available: %w (stderr: %s)", err, stderr)
 	}
-	
+
 	for _, model := range models {
 		model = strings.TrimSpace(model)
 		if model == "" {

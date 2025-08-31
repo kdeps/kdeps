@@ -49,18 +49,18 @@ func parseVersion(version string) ([3]int, error) {
 		// Find the first occurrence of either - or + and extract the numeric part before it
 		numPart := part
 		minIndex := len(part)
-		
+
 		if hyphenIndex := strings.Index(part, "-"); hyphenIndex != -1 && hyphenIndex < minIndex {
 			minIndex = hyphenIndex
 		}
 		if plusIndex := strings.Index(part, "+"); plusIndex != -1 && plusIndex < minIndex {
 			minIndex = plusIndex
 		}
-		
+
 		if minIndex < len(part) {
 			numPart = part[:minIndex]
 		}
-		
+
 		num, err := strconv.Atoi(numPart)
 		if err != nil {
 			return [3]int{}, fmt.Errorf("invalid version part '%s': must be a number", numPart)

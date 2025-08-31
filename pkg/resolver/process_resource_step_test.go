@@ -7,7 +7,7 @@ import (
 
 	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/logging"
-	pklRes "github.com/kdeps/schema/gen/resource"
+	pklResource "github.com/kdeps/schema/gen/resource"
 )
 
 // TestProcessResourceStep_Success verifies that the happy-path executes the handler
@@ -115,7 +115,7 @@ func TestProcessRunBlock_NoRunBlock(t *testing.T) {
 	}
 
 	resEntry := ResourceNodeEntry{ActionID: "act1", File: "foo.pkl"}
-	rsc := &pklRes.Resource{} // Run is nil by default
+	rsc := &pklResource.Resource{} // Run is nil by default
 
 	proceed, err := dr.processRunBlock(resEntry, rsc, "act1", false)
 	if err != nil {

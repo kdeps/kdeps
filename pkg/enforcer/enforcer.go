@@ -51,18 +51,18 @@ func compareVersions(v1, v2 string, logger *logging.Logger) (int, error) {
 			// Handle version suffixes like "-dev", "+build", "-alpha+1000", etc.
 			numPart := v1Parts[i]
 			minIndex := len(numPart)
-			
+
 			if hyphenIndex := strings.Index(numPart, "-"); hyphenIndex != -1 && hyphenIndex < minIndex {
 				minIndex = hyphenIndex
 			}
 			if plusIndex := strings.Index(numPart, "+"); plusIndex != -1 && plusIndex < minIndex {
 				minIndex = plusIndex
 			}
-			
+
 			if minIndex < len(numPart) {
 				numPart = numPart[:minIndex]
 			}
-			
+
 			v1Part, err = strconv.Atoi(numPart)
 			if err != nil {
 				logger.Error("invalid version format")
@@ -74,18 +74,18 @@ func compareVersions(v1, v2 string, logger *logging.Logger) (int, error) {
 			// Handle version suffixes like "-dev", "+build", "-alpha+1000", etc.
 			numPart := v2Parts[i]
 			minIndex := len(numPart)
-			
+
 			if hyphenIndex := strings.Index(numPart, "-"); hyphenIndex != -1 && hyphenIndex < minIndex {
 				minIndex = hyphenIndex
 			}
 			if plusIndex := strings.Index(numPart, "+"); plusIndex != -1 && plusIndex < minIndex {
 				minIndex = plusIndex
 			}
-			
+
 			if minIndex < len(numPart) {
 				numPart = numPart[:minIndex]
 			}
-			
+
 			v2Part, err = strconv.Atoi(numPart)
 			if err != nil {
 				logger.Error("invalid version format")

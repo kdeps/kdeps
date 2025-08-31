@@ -17,7 +17,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
-	pklRes "github.com/kdeps/schema/gen/resource"
+	pklResource "github.com/kdeps/schema/gen/resource"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/tmc/langchaingo/llms"
@@ -367,7 +367,7 @@ func TestLoadResourceEntriesInjected(t *testing.T) {
 		ResourceDependencies: make(map[string][]string),
 		Resources:            []ResourceNodeEntry{},
 		LoadResourceFn: func(_ context.Context, _ string, _ ResourceType) (interface{}, error) {
-			return &pklRes.Resource{ActionID: "action1"}, nil
+			return &pklResource.Resource{ActionID: "action1"}, nil
 		},
 		PrependDynamicImportsFn: func(string) error { return nil },
 		AddPlaceholderImportsFn: func(string) error { return nil },

@@ -30,9 +30,11 @@ import (
 	"github.com/kdeps/kdeps/pkg/tool"
 	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/kdeps/kdeps/pkg/workflow"
+	pklExec "github.com/kdeps/schema/gen/exec"
 	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
-	pklRes "github.com/kdeps/schema/gen/resource"
+	pklPython "github.com/kdeps/schema/gen/python"
+	pklResource "github.com/kdeps/schema/gen/resource"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 	"github.com/tmc/langchaingo/llms/ollama"
@@ -81,11 +83,11 @@ type DependencyResolver struct {
 	WaitForTimestampChangeFn func(string, pkl.Duration, time.Duration, string) error `json:"-"`
 
 	// Additional injectable helpers for broader unit testing
-	LoadResourceEntriesFn  func() error                                                          `json:"-"`
-	LoadResourceFn         func(context.Context, string, ResourceType) (interface{}, error)      `json:"-"`
-	BuildDependencyStackFn func(string, map[string]bool) []string                                `json:"-"`
-	ProcessRunBlockFn      func(ResourceNodeEntry, *pklRes.Resource, string, bool) (bool, error) `json:"-"`
-	ClearItemDBFn          func() error                                                          `json:"-"`
+	LoadResourceEntriesFn  func() error                                                               `json:"-"`
+	LoadResourceFn         func(context.Context, string, ResourceType) (interface{}, error)           `json:"-"`
+	BuildDependencyStackFn func(string, map[string]bool) []string                                     `json:"-"`
+	ProcessRunBlockFn      func(ResourceNodeEntry, *pklResource.Resource, string, bool) (bool, error) `json:"-"`
+	ClearItemDBFn          func() error                                                               `json:"-"`
 
 	// Chat / HTTP injection helpers
 	NewLLMFn               func(model string) (*ollama.LLM, error)                                                                                      `json:"-"`
@@ -493,16 +495,18 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			// Set the current resource actionID for error context
 			dr.CurrentResourceActionID = res.ActionID
 
-			// Load the resource
-			resPkl, err := dr.LoadResourceFn(dr.Context, res.File, Resource)
+			// Load the resource with robust fallback
+			resPkl, err := dr.loadResourceWithFallbackResolver(res.File)
 			if err != nil {
-				return dr.HandleAPIErrorResponse(500, err.Error(), true)
+				dr.Logger.Error("failed to load resource with fallback", "file", res.File, "error", err)
+				return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to load resource %s: %v", res.File, err), true)
 			}
 
-			// Explicitly type rsc as *pklRes.Resource
-			rsc, ok := resPkl.(*pklRes.Resource)
-			if !ok {
-				return dr.HandleAPIErrorResponse(500, "failed to cast resource to *pklRes.Resource for file "+res.File, true)
+			// Robustly cast to pklResource.Resource
+			rsc, err := dr.castToResource(resPkl, res.File)
+			if err != nil {
+				dr.Logger.Error("failed to cast resource", "file", res.File, "error", err)
+				return dr.HandleAPIErrorResponse(500, err.Error(), true)
 			}
 
 			// Reinitialize item database with items, if any
@@ -526,9 +530,9 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 				proceed, err := dr.ProcessRunBlockFn(res, rsc, nodeActionID, false)
 				if err != nil {
 					return false, err
-				} else if !proceed {
-					continue
 				}
+				// For resources with no items, we still want to process APIResponse even if no run actions were performed
+				_ = proceed
 			} else {
 				for _, itemValue := range items {
 					dr.Logger.Info("processing item", "actionID", res.ActionID, "item", itemValue)
@@ -540,16 +544,18 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 						return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to set item %s: %v", itemValue, err), true)
 					}
 
-					// reload the resource
-					resPkl, err = dr.LoadResourceFn(dr.Context, res.File, Resource)
+					// reload the resource with robust fallback
+					resPkl, err = dr.loadResourceWithFallbackResolver(res.File)
 					if err != nil {
-						return dr.HandleAPIErrorResponse(500, err.Error(), true)
+						dr.Logger.Error("failed to reload resource with fallback", "file", res.File, "error", err)
+						return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to reload resource %s: %v", res.File, err), true)
 					}
 
-					// Explicitly type rsc as *pklRes.Resource
-					rsc, ok = resPkl.(*pklRes.Resource)
-					if !ok {
-						return dr.HandleAPIErrorResponse(500, "failed to cast resource to *pklRes.Resource for file "+res.File, true)
+					// Robustly cast to pklResource.Resource
+					rsc, err = dr.castToResource(resPkl, res.File)
+					if err != nil {
+						dr.Logger.Error("failed to cast reloaded resource", "file", res.File, "error", err)
+						return dr.HandleAPIErrorResponse(500, err.Error(), true)
 					}
 
 					// Process runBlock for the current item
@@ -565,7 +571,8 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 				}
 			}
 
-			// Process APIResponse once, outside the items loop
+			// Process APIResponse regardless of whether run block proceeded
+			// This ensures response resources that only have apiResponse (no exec/python/chat/http actions) are still processed
 			if dr.APIServerMode && rsc.Run.APIResponse != nil {
 				if err := dr.CreateResponsePklFile(*rsc.Run.APIResponse); err != nil {
 					return dr.HandleAPIErrorResponse(500, err.Error(), true)
@@ -604,7 +611,7 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 }
 
 // processRunBlock handles the runBlock processing for a resource, excluding APIResponse.
-func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes.Resource, actionID string, hasItems bool) (bool, error) {
+func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklResource.Resource, actionID string, hasItems bool) (bool, error) {
 	// Increment the run counter for this file
 	dr.FileRunCounter[res.File]++
 	dr.Logger.Info("processing run block for file", "file", res.File, "runCount", dr.FileRunCounter[res.File], "actionID", actionID)
@@ -803,7 +810,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 	hasPython := runBlock.Python != nil && runBlock.Python.Script != ""
 	hasChat := runBlock.Chat != nil && runBlock.Chat.Model != "" && (runBlock.Chat.Prompt != nil || runBlock.Chat.Scenario != nil)
 	hasHTTP := runBlock.HTTPClient != nil && runBlock.HTTPClient.Method != "" && runBlock.HTTPClient.Url != ""
-	
+
 	// If no actions were performed, return false to indicate no processing occurred
 	if !hasExec && !hasPython && !hasChat && !hasHTTP {
 		dr.Logger.Debug("No run actions defined, skipping resource processing", "actionID", res.ActionID)
@@ -811,4 +818,71 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 	}
 
 	return true, nil
+}
+
+// loadResourceWithFallbackResolver tries to load a resource file with different resource types as fallback
+func (dr *DependencyResolver) loadResourceWithFallbackResolver(file string) (interface{}, error) {
+	resourceTypes := []ResourceType{Resource, LLMResource, HTTPResource, PythonResource, ExecResource}
+
+	for _, resourceType := range resourceTypes {
+		res, err := dr.LoadResourceFn(dr.Context, file, resourceType)
+		if err != nil {
+			dr.Logger.Debug("failed to load resource with type", "file", file, "type", resourceType, "error", err)
+			continue
+		}
+
+		dr.Logger.Debug("successfully loaded resource", "file", file, "type", resourceType)
+
+		// If we successfully loaded as a specific resource type, try to convert it to Resource type
+		if resourceType != Resource {
+			// Try to load the same file as Resource type
+			resourceRes, err := dr.LoadResourceFn(dr.Context, file, Resource)
+			if err != nil {
+				dr.Logger.Debug("failed to convert resource to Resource type", "file", file, "originalType", resourceType, "error", err)
+				// Continue with the original loaded resource if conversion fails
+			} else {
+				return resourceRes, nil
+			}
+		}
+
+		return res, nil
+	}
+
+	return nil, fmt.Errorf("failed to load resource with any type for file %s", file)
+}
+
+// castToResource robustly casts a loaded resource to pklResource.Resource
+func (dr *DependencyResolver) castToResource(res interface{}, file string) (*pklResource.Resource, error) {
+	// Try direct pointer cast first
+	if ptr, ok := res.(*pklResource.Resource); ok {
+		return ptr, nil
+	}
+
+	// Try value cast
+	if resource, ok := res.(pklResource.Resource); ok {
+		return &resource, nil
+	}
+
+	// Check if we loaded a specific resource type instead of Resource
+	if _, ok := res.(*pklLLM.LLMImpl); ok {
+		dr.Logger.Warn("loaded LLM resource as specific type, this may indicate a schema issue", "file", file)
+		return nil, fmt.Errorf("resource loaded as LLM type but expected Resource type for file %s", file)
+	}
+
+	if _, ok := res.(*pklHTTP.HTTPImpl); ok {
+		dr.Logger.Warn("loaded HTTP resource as specific type, this may indicate a schema issue", "file", file)
+		return nil, fmt.Errorf("resource loaded as HTTP type but expected Resource type for file %s", file)
+	}
+
+	if _, ok := res.(*pklPython.PythonImpl); ok {
+		dr.Logger.Warn("loaded Python resource as specific type, this may indicate a schema issue", "file", file)
+		return nil, fmt.Errorf("resource loaded as Python type but expected Resource type for file %s", file)
+	}
+
+	if _, ok := res.(*pklExec.ExecImpl); ok {
+		dr.Logger.Warn("loaded Exec resource as specific type, this may indicate a schema issue", "file", file)
+		return nil, fmt.Errorf("resource loaded as Exec type but expected Resource type for file %s", file)
+	}
+
+	return nil, fmt.Errorf("failed to cast resource to pklResource.Resource for file %s (actual type: %T)", file, res)
 }

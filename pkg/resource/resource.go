@@ -8,11 +8,11 @@ import (
 	"github.com/kdeps/kdeps/pkg/assets"
 	"github.com/kdeps/kdeps/pkg/logging"
 	schemaAssets "github.com/kdeps/schema/assets"
-	pklRes "github.com/kdeps/schema/gen/resource"
+	pklResource "github.com/kdeps/schema/gen/resource"
 )
 
 // LoadResource reads a resource file and returns the parsed resource object or an error.
-func LoadResource(ctx context.Context, resourceFile string, logger *logging.Logger) (*pklRes.Resource, error) {
+func LoadResource(ctx context.Context, resourceFile string, logger *logging.Logger) (*pklResource.Resource, error) {
 	logger.Debug("reading resource file", "resource-file", resourceFile)
 
 	// Check if we should use embedded assets
@@ -24,7 +24,7 @@ func LoadResource(ctx context.Context, resourceFile string, logger *logging.Logg
 }
 
 // loadResourceFromEmbeddedAssets loads resource using embedded PKL assets
-func loadResourceFromEmbeddedAssets(ctx context.Context, resourceFile string, logger *logging.Logger) (*pklRes.Resource, error) {
+func loadResourceFromEmbeddedAssets(ctx context.Context, resourceFile string, logger *logging.Logger) (*pklResource.Resource, error) {
 	logger.Debug("loading resource from embedded assets", "resource-file", resourceFile)
 
 	// Use GetPKLFileWithFullConversion to get the embedded Resource.pkl template
@@ -50,7 +50,7 @@ func loadResourceFromEmbeddedAssets(ctx context.Context, resourceFile string, lo
 		return nil, fmt.Errorf("error reading resource file '%s': %w", resourceFile, err)
 	}
 
-	if resourcePtr, ok := module.(*pklRes.Resource); ok {
+	if resourcePtr, ok := module.(*pklResource.Resource); ok {
 		logger.Debug("successfully loaded resource from embedded assets", "resource-file", resourceFile)
 		return resourcePtr, nil
 	}
@@ -59,7 +59,7 @@ func loadResourceFromEmbeddedAssets(ctx context.Context, resourceFile string, lo
 }
 
 // loadResourceFromFile loads resource using direct file evaluation (original method)
-func loadResourceFromFile(ctx context.Context, resourceFile string, logger *logging.Logger) (*pklRes.Resource, error) {
+func loadResourceFromFile(ctx context.Context, resourceFile string, logger *logging.Logger) (*pklResource.Resource, error) {
 	evaluator, err := pkl.NewEvaluator(ctx, pkl.PreconfiguredOptions)
 	if err != nil {
 		logger.Error("error creating pkl evaluator", "resource-file", resourceFile, "error", err)
@@ -75,7 +75,7 @@ func loadResourceFromFile(ctx context.Context, resourceFile string, logger *logg
 		return nil, fmt.Errorf("error reading resource file '%s': %w", resourceFile, err)
 	}
 
-	if resourcePtr, ok := module.(*pklRes.Resource); ok {
+	if resourcePtr, ok := module.(*pklResource.Resource); ok {
 		logger.Debug("successfully loaded resource", "resource-file", resourceFile)
 		return resourcePtr, nil
 	}

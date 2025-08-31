@@ -124,14 +124,13 @@ func TestWaitForTimestampChange(t *testing.T) {
 
 	t.Run("missing PKL file", func(t *testing.T) {
 		// Test with a very short timeout
-		previousTimestamp := pkl.Duration{
-			Value: 0,
-			Unit:  pkl.Second,
-		}
+		// Use the zero value which is what GetCurrentTimestamp returns when file doesn't exist
+		previousTimestamp := pkl.Duration{}
 		err := dr.WaitForTimestampChange("test-resource", previousTimestamp, 100*time.Millisecond, "exec")
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "Cannot find module")
-		assert.Contains(t, err.Error(), "test123__exec_output.pkl")
+		// With the new robust error handling, the function should timeout gracefully
+		// instead of failing with PKL loading errors
+		assert.Contains(t, err.Error(), "timeout exceeded while waiting for timestamp change")
 	})
 
 	// Note: Testing the successful case would require mocking the PKL file loading

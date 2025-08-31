@@ -12,7 +12,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/memory"
 	"github.com/kdeps/kdeps/pkg/session"
 	"github.com/kdeps/kdeps/pkg/tool"
-	pklRes "github.com/kdeps/schema/gen/resource"
+	pklResource "github.com/kdeps/schema/gen/resource"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 )
@@ -70,11 +70,11 @@ func TestHandleRunAction_BasicFlow(t *testing.T) {
 	var loadCalled bool
 	dr.LoadResourceFn = func(_ context.Context, file string, _ ResourceType) (interface{}, error) {
 		loadCalled = true
-		return &pklRes.Resource{ActionID: "act1"}, nil // Run is nil
+		return &pklResource.Resource{ActionID: "act1"}, nil // Run is nil
 	}
 
 	var prbCalled bool
-	dr.ProcessRunBlockFn = func(res ResourceNodeEntry, rsc *pklRes.Resource, actionID string, hasItems bool) (bool, error) {
+	dr.ProcessRunBlockFn = func(res ResourceNodeEntry, rsc *pklResource.Resource, actionID string, hasItems bool) (bool, error) {
 		prbCalled = true
 		return false, nil // do not proceed further
 	}

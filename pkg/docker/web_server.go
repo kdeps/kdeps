@@ -38,7 +38,7 @@ func StartWebServerMode(ctx context.Context, dr *resolver.DependencyResolver) er
 	router := gin.Default()
 
 	setupWebRoutes(router, ctx, hostIP, wfTrustedProxies, wfWebServer.Routes, dr)
-	
+
 	// Add a catch-all handler that returns 404 for unmatched routes
 	router.NoRoute(func(c *gin.Context) {
 		c.JSON(404, gin.H{"error": "Not Found"})
