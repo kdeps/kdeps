@@ -36,7 +36,7 @@ func CompareVersions(v1, v2 string) (int, error) {
 	return 0, nil
 }
 
-// parseVersion parses a semantic version string (e.g., "1.2.3") into parts
+// parseVersion parses a semantic version string (e.g., "1.2.3", "1.2.3-dev", "1.2.3+build", "1.2.3-alpha+1000", "1.2.3+build-time") into parts
 func parseVersion(version string) ([3]int, error) {
 	parts := strings.Split(version, ".")
 	if len(parts) != 3 {
@@ -45,9 +45,25 @@ func parseVersion(version string) ([3]int, error) {
 
 	var result [3]int
 	for i, part := range parts {
-		num, err := strconv.Atoi(part)
+		// Handle version suffixes like "-dev", "+build", "-alpha+1000", "+build-time", etc.
+		// Find the first occurrence of either - or + and extract the numeric part before it
+		numPart := part
+		minIndex := len(part)
+		
+		if hyphenIndex := strings.Index(part, "-"); hyphenIndex != -1 && hyphenIndex < minIndex {
+			minIndex = hyphenIndex
+		}
+		if plusIndex := strings.Index(part, "+"); plusIndex != -1 && plusIndex < minIndex {
+			minIndex = plusIndex
+		}
+		
+		if minIndex < len(part) {
+			numPart = part[:minIndex]
+		}
+		
+		num, err := strconv.Atoi(numPart)
 		if err != nil {
-			return [3]int{}, fmt.Errorf("invalid version part '%s': must be a number", part)
+			return [3]int{}, fmt.Errorf("invalid version part '%s': must be a number", numPart)
 		}
 		if num < 0 {
 			return [3]int{}, fmt.Errorf("version part cannot be negative: %d", num)

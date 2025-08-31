@@ -56,7 +56,7 @@ func TestDefaultVersionValues(t *testing.T) {
 	assert.NotEmpty(t, MinimumSchemaVersion, "MinimumSchemaVersion should not be empty")
 
 	// Test that they follow expected version format patterns
-	semverPattern := `^\d+\.\d+\.\d+$`
+	semverPattern := `^\d+\.\d+\.\d+(?:[-+][a-zA-Z0-9.-]+)?$`
 	dateVersionPattern := `^\d{4}\.\d{2}-\d+$`
 
 	// Schema version should follow semantic versioning
