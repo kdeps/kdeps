@@ -1,4 +1,4 @@
-package utils_test
+package utils
 
 import (
 	"bytes"
@@ -6,21 +6,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
 
-	"github.com/kdeps/kdeps/pkg/schema"
-	utilspkg "github.com/kdeps/kdeps/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// Bridge exported functions so previous unqualified references still work.
-var GetLatestGitHubRelease = utilspkg.GetLatestGitHubRelease
 
 func TestGetLatestGitHubRelease(t *testing.T) {
 	// Mock GitHub API server
@@ -69,9 +63,9 @@ func (m mockStatusTransport) RoundTrip(req *http.Request) (*http.Response, error
 	switch m.status {
 	case http.StatusOK:
 		body, _ := json.Marshal(map[string]string{"tag_name": "v1.2.3"})
-		return &http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(bytes.NewReader(body)), Header: make(http.Header)}, nil
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(body)), Header: make(http.Header)}, nil
 	default:
-		return &http.Response{StatusCode: m.status, Body: ioutil.NopCloser(bytes.NewReader([]byte("err"))), Header: make(http.Header)}, nil
+		return &http.Response{StatusCode: m.status, Body: io.NopCloser(bytes.NewReader([]byte("err"))), Header: make(http.Header)}, nil
 	}
 }
 
@@ -227,7 +221,7 @@ type ghRoundTrip func(*http.Request) (*http.Response, error)
 func (f ghRoundTrip) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 func mockResp(code int, body string) *http.Response {
-	return &http.Response{StatusCode: code, Header: make(http.Header), Body: ioutil.NopCloser(bytes.NewBufferString(body))}
+	return &http.Response{StatusCode: code, Header: make(http.Header), Body: io.NopCloser(bytes.NewBufferString(body))}
 }
 
 func TestGetLatestGitHubReleaseExtra(t *testing.T) {
@@ -241,7 +235,7 @@ func TestGetLatestGitHubReleaseExtra(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	v, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", ts.URL)
+	v, err := GetLatestGitHubRelease(ctx, "owner/repo", ts.URL)
 	require.NoError(t, err)
 	require.Equal(t, "1.2.3", v)
 
@@ -250,7 +244,7 @@ func TestGetLatestGitHubReleaseExtra(t *testing.T) {
 		w.WriteHeader(http.StatusUnauthorized)
 	}))
 	defer ts401.Close()
-	_, err = utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", ts401.URL)
+	_, err = GetLatestGitHubRelease(ctx, "owner/repo", ts401.URL)
 	require.Error(t, err)
 
 	// Non-OK generic error path
@@ -258,7 +252,7 @@ func TestGetLatestGitHubReleaseExtra(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer ts500.Close()
-	_, err = utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", ts500.URL)
+	_, err = GetLatestGitHubRelease(ctx, "owner/repo", ts500.URL)
 	require.Error(t, err)
 
 	// Forbidden path (rate limit)
@@ -266,7 +260,7 @@ func TestGetLatestGitHubReleaseExtra(t *testing.T) {
 		w.WriteHeader(http.StatusForbidden)
 	}))
 	defer ts403.Close()
-	_, err = utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", ts403.URL)
+	_, err = GetLatestGitHubRelease(ctx, "owner/repo", ts403.URL)
 	require.Error(t, err)
 
 	// Malformed JSON path – should error on JSON parse
@@ -275,7 +269,7 @@ func TestGetLatestGitHubReleaseExtra(t *testing.T) {
 		_, _ = w.Write([]byte(`{ "tag_name": 123 }`)) // tag_name not string
 	}))
 	defer tsBadJSON.Close()
-	_, err = utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", tsBadJSON.URL)
+	_, err = GetLatestGitHubRelease(ctx, "owner/repo", tsBadJSON.URL)
 	require.Error(t, err)
 }
 
@@ -330,7 +324,7 @@ func TestGetLatestGitHubReleaseWithToken(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	ver, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", srv.URL)
+	ver, err := GetLatestGitHubRelease(ctx, "owner/repo", srv.URL)
 	require.NoError(t, err)
 	assert.Equal(t, "9.9.9", ver)
 }
@@ -338,7 +332,7 @@ func TestGetLatestGitHubReleaseWithToken(t *testing.T) {
 // TestGetLatestGitHubReleaseInvalidURL ensures that malformed URLs trigger an error
 func TestGetLatestGitHubReleaseInvalidURL(t *testing.T) {
 	ctx := context.Background()
-	ver, err := utilspkg.GetLatestGitHubRelease(ctx, "owner/repo", "://bad url")
+	ver, err := GetLatestGitHubRelease(ctx, "owner/repo", "://bad url")
 	require.Error(t, err)
 	assert.Empty(t, ver)
 }
@@ -353,15 +347,13 @@ func TestGetLatestGitHubRelease_Success_Dup(t *testing.T) {
 	})
 	defer func() { http.DefaultClient.Transport = old }()
 
-	ver, err := utilspkg.GetLatestGitHubRelease(context.Background(), "owner/repo", "https://api.github.com")
+	ver, err := GetLatestGitHubRelease(context.Background(), "owner/repo", "https://api.github.com")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if ver != "1.2.3" {
 		t.Fatalf("expected 1.2.3, got %s", ver)
 	}
-
-	_ = schema.SchemaVersion(context.Background())
 }
 
 // TestGetLatestGitHubRelease_Errors checks status-code error branches.
@@ -380,14 +372,12 @@ func TestGetLatestGitHubRelease_Errors_Dup(t *testing.T) {
 		http.DefaultClient.Transport = ghRoundTrip(func(r *http.Request) (*http.Response, error) {
 			return mockResp(c.status, "{}"), nil
 		})
-		_, err := utilspkg.GetLatestGitHubRelease(context.Background(), "owner/repo", "https://api.github.com")
+		_, err := GetLatestGitHubRelease(context.Background(), "owner/repo", "https://api.github.com")
 		if err == nil || !contains(err.Error(), c.expect) {
 			t.Fatalf("status %d expected error containing %q, got %v", c.status, c.expect, err)
 		}
 		http.DefaultClient.Transport = old
 	}
-
-	_ = schema.SchemaVersion(context.Background())
 }
 
 func contains(s, substr string) bool { return bytes.Contains([]byte(s), []byte(substr)) }
@@ -403,7 +393,7 @@ func TestGetLatestGitHubRelease_MockServer2(t *testing.T) {
 	defer ts.Close()
 
 	ctx := context.Background()
-	ver, err := utilspkg.GetLatestGitHubRelease(ctx, "org/repo", ts.URL)
+	ver, err := GetLatestGitHubRelease(ctx, "org/repo", ts.URL)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -416,7 +406,7 @@ func TestGetLatestGitHubRelease_MockServer2(t *testing.T) {
 		w.WriteHeader(http.StatusUnauthorized)
 	}))
 	defer u401.Close()
-	if _, err := utilspkg.GetLatestGitHubRelease(ctx, "org/repo", u401.URL); err == nil {
+	if _, err := GetLatestGitHubRelease(ctx, "org/repo", u401.URL); err == nil {
 		t.Fatalf("expected unauthorized error")
 	}
 
@@ -425,7 +415,7 @@ func TestGetLatestGitHubRelease_MockServer2(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer u500.Close()
-	if _, err := utilspkg.GetLatestGitHubRelease(ctx, "org/repo", u500.URL); err == nil {
+	if _, err := GetLatestGitHubRelease(ctx, "org/repo", u500.URL); err == nil {
 		t.Fatalf("expected error for 500 status")
 	}
 }

@@ -16,7 +16,7 @@ import (
 )
 
 // UpgradeCommand creates the 'upgrade' command for upgrading schema versions in pkl files.
-func UpgradeCommand(fs afero.Fs, ctx context.Context, kdepsDir string, logger *logging.Logger) *cobra.Command {
+func UpgradeCommand(ctx context.Context, fs afero.Fs, kdepsDir string, logger *logging.Logger) *cobra.Command {
 	var targetVersion string
 	var dryRun bool
 

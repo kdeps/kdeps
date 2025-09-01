@@ -165,12 +165,12 @@ func aSystemConfigurationIsDefined() error {
 		return err
 	}
 
-	cfgFile, err := cfg.GenerateConfiguration(testFs, ctx, environ, logger)
+	cfgFile, err := cfg.GenerateConfiguration(ctx, testFs, environ, logger)
 	if err != nil {
 		return err
 	}
 
-	scfg, err := cfg.LoadConfiguration(testFs, ctx, cfgFile, logger)
+	scfg, err := cfg.LoadConfiguration(ctx, testFs, cfgFile, logger)
 	if err != nil {
 		return err
 	}

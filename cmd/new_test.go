@@ -37,7 +37,7 @@ func TestNewAgentCommandExecution(t *testing.T) {
 	}()
 
 	// Test with agent name
-	cmd := NewAgentCommand(fs, ctx, kdepsDir, logger)
+	cmd := NewAgentCommand(ctx, fs, kdepsDir, logger)
 	cmd.SetArgs([]string{"testagent"})
 	err = cmd.Execute()
 	assert.NoError(t, err)
@@ -70,7 +70,7 @@ func TestNewAgentCommandExecution(t *testing.T) {
 	}
 
 	// Test without agent name - should fail because agent name is required
-	cmd = NewAgentCommand(fs, ctx, kdepsDir, logger)
+	cmd = NewAgentCommand(ctx, fs, kdepsDir, logger)
 	cmd.SetArgs([]string{})
 	err = cmd.Execute()
 	assert.Error(t, err)
@@ -85,7 +85,7 @@ func TestNewAgentCommandFlags(t *testing.T) {
 	kdepsDir := "/tmp/kdeps"
 	logger := logging.NewTestLogger()
 
-	cmd := NewAgentCommand(fs, ctx, kdepsDir, logger)
+	cmd := NewAgentCommand(ctx, fs, kdepsDir, logger)
 	assert.Equal(t, "new [agentName]", cmd.Use)
 	assert.Equal(t, []string{"n"}, cmd.Aliases)
 	assert.Equal(t, "Create a new AI agent", cmd.Short)
@@ -97,7 +97,7 @@ func TestNewAgentCommandMaxArgs(t *testing.T) {
 	kdepsDir := "/tmp/kdeps"
 	logger := logging.NewTestLogger()
 
-	cmd := NewAgentCommand(fs, ctx, kdepsDir, logger)
+	cmd := NewAgentCommand(ctx, fs, kdepsDir, logger)
 	cmd.SetArgs([]string{"test-agent", "extra-arg"})
 	err := cmd.Execute()
 	assert.Error(t, err)
@@ -110,7 +110,7 @@ func TestNewAgentCommandEmptyName(t *testing.T) {
 	kdepsDir := "/tmp/kdeps"
 	logger := logging.NewTestLogger()
 
-	cmd := NewAgentCommand(fs, ctx, kdepsDir, logger)
+	cmd := NewAgentCommand(ctx, fs, kdepsDir, logger)
 	cmd.SetArgs([]string{"   "})
 	err := cmd.Execute()
 	assert.Error(t, err)
@@ -140,7 +140,7 @@ func TestNewAgentCommandTemplateError(t *testing.T) {
 		}
 	}()
 
-	cmd := NewAgentCommand(fs, ctx, kdepsDir, logger)
+	cmd := NewAgentCommand(ctx, fs, kdepsDir, logger)
 	cmd.SetArgs([]string{"test-agent"})
 	err = cmd.Execute()
 	assert.Error(t, err)

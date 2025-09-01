@@ -16,7 +16,7 @@ func TestNewAddCommandFlags(t *testing.T) {
 	kdepsDir := "/tmp/kdeps"
 	logger := logging.NewTestLogger()
 
-	cmd := NewAddCommand(fs, ctx, kdepsDir, logger)
+	cmd := NewAddCommand(ctx, fs, kdepsDir, logger)
 	assert.Equal(t, "install [package]", cmd.Use)
 	assert.Equal(t, []string{"i"}, cmd.Aliases)
 	assert.Equal(t, "Install an AI agent locally", cmd.Short)
@@ -40,18 +40,18 @@ func TestNewAddCommandExecution(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Test error case - no arguments
-	cmd := NewAddCommand(fs, ctx, kdepsDir, logger)
+	cmd := NewAddCommand(ctx, fs, kdepsDir, logger)
 	err = cmd.Execute()
 	assert.Error(t, err)
 
 	// Test error case - invalid package file
-	cmd = NewAddCommand(fs, ctx, kdepsDir, logger)
+	cmd = NewAddCommand(ctx, fs, kdepsDir, logger)
 	cmd.SetArgs([]string{filepath.Join(testDir, "nonexistent.kdeps")})
 	err = cmd.Execute()
 	assert.Error(t, err)
 
 	// Test error case - invalid package content
-	cmd = NewAddCommand(fs, ctx, kdepsDir, logger)
+	cmd = NewAddCommand(ctx, fs, kdepsDir, logger)
 	cmd.SetArgs([]string{agentKdepsPath})
 	err = cmd.Execute()
 	assert.Error(t, err)
@@ -91,7 +91,7 @@ func TestNewAddCommandValidPackage(t *testing.T) {
 	err = afero.WriteFile(fs, validKdepsPath, []byte("valid package"), 0o644)
 	assert.NoError(t, err)
 
-	cmd := NewAddCommand(fs, ctx, kdepsDir, logger)
+	cmd := NewAddCommand(ctx, fs, kdepsDir, logger)
 	cmd.SetArgs([]string{validKdepsPath})
 	err = cmd.Execute()
 	assert.Error(t, err) // Should fail due to invalid package format, but in a different way
@@ -105,7 +105,7 @@ func TestNewAddCommand_RunE(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	cmd := NewAddCommand(fs, ctx, "/kdeps", logger)
+	cmd := NewAddCommand(ctx, fs, "/kdeps", logger)
 
 	// Supply non-existent path so that ExtractPackage fails and RunE returns
 	// an error. Success isn't required – only execution.
@@ -119,7 +119,7 @@ func TestNewAddCommand_ErrorPath(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
 
-	cmd := NewAddCommand(fs, ctx, "/tmp/kdeps", logging.NewTestLogger())
+	cmd := NewAddCommand(ctx, fs, "/tmp/kdeps", logging.NewTestLogger())
 	cmd.SetArgs([]string{"nonexistent.kdeps"})
 
 	err := cmd.Execute()
@@ -129,7 +129,7 @@ func TestNewAddCommand_ErrorPath(t *testing.T) {
 func TestNewAddCommand_MetadataAndArgs(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
-	cmd := NewAddCommand(fs, ctx, "/tmp/kdeps", logging.NewTestLogger())
+	cmd := NewAddCommand(ctx, fs, "/tmp/kdeps", logging.NewTestLogger())
 
 	assert.Equal(t, "install [package]", cmd.Use)
 	assert.Contains(t, cmd.Short, "Install")
@@ -147,7 +147,7 @@ func TestNewAddCommand_MetadataAndArgs(t *testing.T) {
 // wiring rather than validate its behaviour.
 func TestNewAddCommandRunE(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	cmd := NewAddCommand(fs, context.Background(), "/kdeps", logging.NewTestLogger())
+	cmd := NewAddCommand(context.Background(), fs, "/kdeps", logging.NewTestLogger())
 
 	if err := cmd.RunE(cmd, []string{"dummy.kdeps"}); err == nil {
 		t.Fatalf("expected error due to missing package file, got nil")

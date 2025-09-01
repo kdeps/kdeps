@@ -40,7 +40,7 @@ func TestNewTestLogger(t *testing.T) {
 
 func TestGetOutput(t *testing.T) {
 	testLogger := NewTestLogger()
-	assert.Equal(t, "", testLogger.GetOutput())
+	assert.Empty(t, testLogger.GetOutput())
 
 	testLogger.Info("test message")
 	output := testLogger.GetOutput()
@@ -51,7 +51,7 @@ func TestGetOutput(t *testing.T) {
 		Logger: testLogger.Logger,
 		buffer: nil,
 	}
-	assert.Equal(t, "", loggerWithNilBuffer.GetOutput())
+	assert.Empty(t, loggerWithNilBuffer.GetOutput())
 }
 
 func TestLogLevels(t *testing.T) {

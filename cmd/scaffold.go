@@ -13,7 +13,7 @@ import (
 )
 
 // NewScaffoldCommand creates the 'scaffold' subcommand for generating specific agent files.
-func NewScaffoldCommand(fs afero.Fs, ctx context.Context, logger *logging.Logger) *cobra.Command {
+func NewScaffoldCommand(ctx context.Context, fs afero.Fs, logger *logging.Logger) *cobra.Command {
 	return &cobra.Command{
 		Use:   "scaffold [agentName] [fileNames...]",
 		Short: "Scaffold specific files for an agent",
@@ -60,7 +60,7 @@ func NewScaffoldCommand(fs afero.Fs, ctx context.Context, logger *logging.Logger
 					continue
 				}
 
-				if err := template.GenerateSpecificAgentFile(fs, ctx, logger, agentName, resourceName); err != nil {
+				if err := template.GenerateSpecificAgentFile(ctx, fs, logger, agentName, resourceName); err != nil {
 					logger.Error("error scaffolding file:", err)
 					fmt.Println(errorStyle.Render("Error:"), err)
 				} else {

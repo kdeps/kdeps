@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -17,13 +16,12 @@ import (
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/kdeps/kdeps/pkg/version"
 	kdCfg "github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/kdeps/kdeps/pkg/utils"
 )
 
 // generateDockerfile is a wrapper function for tests to maintain compatibility
@@ -1366,7 +1364,7 @@ func TestGenerateURLs_GitHubError(t *testing.T) {
 		if r.URL.Host == "api.github.com" {
 			return &http.Response{
 				StatusCode: 403,
-				Body:       ioutil.NopCloser(bytes.NewBufferString("forbidden")),
+				Body:       io.NopCloser(bytes.NewBufferString("forbidden")),
 				Header:     make(http.Header),
 			}, nil
 		}
@@ -1402,7 +1400,7 @@ func TestGenerateURLs_AnacondaError(t *testing.T) {
 		if r.URL.Host == "repo.anaconda.com" {
 			return &http.Response{
 				StatusCode: 500,
-				Body:       ioutil.NopCloser(bytes.NewBufferString("server error")),
+				Body:       io.NopCloser(bytes.NewBufferString("server error")),
 				Header:     make(http.Header),
 			}, nil
 		}

@@ -20,7 +20,7 @@ func TestNewRunCommandFlags(t *testing.T) {
 	systemCfg := &kdeps.Kdeps{}
 	logger := logging.NewTestLogger()
 
-	cmd := NewRunCommand(fs, ctx, kdepsDir, systemCfg, logger)
+	cmd := NewRunCommand(ctx, fs, kdepsDir, systemCfg, logger)
 	assert.Equal(t, "run [package]", cmd.Use)
 	assert.Equal(t, []string{"r"}, cmd.Aliases)
 	assert.Equal(t, "Build and run a dockerized AI agent container", cmd.Short)
@@ -45,18 +45,18 @@ func TestNewRunCommandExecution(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Test error case - no arguments
-	cmd := NewRunCommand(fs, ctx, kdepsDir, systemCfg, logger)
+	cmd := NewRunCommand(ctx, fs, kdepsDir, systemCfg, logger)
 	err = cmd.Execute()
 	assert.Error(t, err)
 
 	// Test error case - invalid package file
-	cmd = NewRunCommand(fs, ctx, kdepsDir, systemCfg, logger)
+	cmd = NewRunCommand(ctx, fs, kdepsDir, systemCfg, logger)
 	cmd.SetArgs([]string{filepath.Join(testDir, "nonexistent.kdeps")})
 	err = cmd.Execute()
 	assert.Error(t, err)
 
 	// Test error case - invalid package content
-	cmd = NewRunCommand(fs, ctx, kdepsDir, systemCfg, logger)
+	cmd = NewRunCommand(ctx, fs, kdepsDir, systemCfg, logger)
 	cmd.SetArgs([]string{agentKdepsPath})
 	err = cmd.Execute()
 	assert.Error(t, err)
@@ -138,7 +138,7 @@ run {
 	err = afero.WriteFile(fs, validKdepsPath, []byte("valid package"), 0o644)
 	assert.NoError(t, err)
 
-	cmd := NewRunCommand(fs, ctx, kdepsDir, systemCfg, logger)
+	cmd := NewRunCommand(ctx, fs, kdepsDir, systemCfg, logger)
 	cmd.SetArgs([]string{validKdepsPath})
 	err = cmd.Execute()
 	assert.Error(t, err) // Should fail due to docker client initialization
@@ -148,7 +148,7 @@ func TestNewRunCommand_MetadataAndErrorPath(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
 
-	cmd := NewRunCommand(fs, ctx, "/tmp/kdeps", nil, logging.NewTestLogger())
+	cmd := NewRunCommand(ctx, fs, "/tmp/kdeps", nil, logging.NewTestLogger())
 
 	// metadata assertions
 	assert.Equal(t, "run [package]", cmd.Use)

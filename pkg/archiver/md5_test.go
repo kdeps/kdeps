@@ -1,9 +1,8 @@
-package archiver_test
+package archiver
 
 import (
 	"testing"
 
-	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/spf13/afero"
 )
 
@@ -17,7 +16,7 @@ func TestGetFileMD5(t *testing.T) {
 	}
 
 	// Compute MD5 with full length.
-	md5Full, err := archiver.GetFileMD5(memFs, "/tmp.txt", 32)
+	md5Full, err := GetFileMD5(memFs, "/tmp.txt", 32)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -26,7 +25,7 @@ func TestGetFileMD5(t *testing.T) {
 	}
 
 	// Same call with truncated length should return prefix.
-	md5Short, err := archiver.GetFileMD5(memFs, "/tmp.txt", 8)
+	md5Short, err := GetFileMD5(memFs, "/tmp.txt", 8)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -35,7 +34,7 @@ func TestGetFileMD5(t *testing.T) {
 	}
 
 	// Non-existent file should raise an error.
-	if _, err := archiver.GetFileMD5(memFs, "/does-not-exist", 8); err == nil {
+	if _, err := GetFileMD5(memFs, "/does-not-exist", 8); err == nil {
 		t.Fatalf("expected error for missing file")
 	}
 }

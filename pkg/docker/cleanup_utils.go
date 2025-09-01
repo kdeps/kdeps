@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
@@ -20,7 +19,7 @@ import (
 
 // DockerPruneClient is a minimal interface for Docker operations used in CleanupDockerBuildImages
 type DockerPruneClient interface {
-	ContainerList(ctx context.Context, options container.ListOptions) ([]types.Container, error)
+	ContainerList(ctx context.Context, options container.ListOptions) ([]container.Summary, error)
 	ContainerRemove(ctx context.Context, containerID string, options container.RemoveOptions) error
 	ImagesPrune(ctx context.Context, pruneFilters filters.Args) (image.PruneReport, error)
 }

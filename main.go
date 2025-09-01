@@ -18,7 +18,9 @@ import (
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/utils"
 	v "github.com/kdeps/kdeps/pkg/version"
+	"github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -30,14 +32,14 @@ var (
 	bootstrapDockerSystemFn   = docker.BootstrapDockerSystem
 	runGraphResolverActionsFn = runGraphResolverActions
 
-	findConfigurationFn     = cfg.FindConfiguration
-	generateConfigurationFn = cfg.GenerateConfiguration
-	editConfigurationFn     = cfg.EditConfiguration
-	validateConfigurationFn = cfg.ValidateConfiguration
-	loadConfigurationFn     = cfg.LoadConfiguration
-	getKdepsPathFn          = cfg.GetKdepsPath
+	findConfigurationFn     func(context.Context, afero.Fs, *environment.Environment, *logging.Logger) (string, error) = cfg.FindConfiguration
+	generateConfigurationFn func(context.Context, afero.Fs, *environment.Environment, *logging.Logger) (string, error) = cfg.GenerateConfiguration
+	editConfigurationFn     func(context.Context, afero.Fs, *environment.Environment, *logging.Logger) (string, error) = cfg.EditConfiguration
+	validateConfigurationFn func(context.Context, afero.Fs, *environment.Environment, *logging.Logger) (string, error) = cfg.ValidateConfiguration
+	loadConfigurationFn     func(context.Context, afero.Fs, string, *logging.Logger) (*kdeps.Kdeps, error)             = cfg.LoadConfiguration
+	getKdepsPathFn          func(context.Context, kdeps.Kdeps) (string, error)                                         = cfg.GetKdepsPath
 
-	newRootCommandFn = cmd.NewRootCommand
+	newRootCommandFn func(context.Context, afero.Fs, string, *kdeps.Kdeps, *environment.Environment, *logging.Logger) *cobra.Command = cmd.NewRootCommand
 
 	cleanupFn = cleanup
 )
@@ -104,13 +106,13 @@ func handleDockerMode(ctx context.Context, dr *resolver.DependencyResolver, canc
 }
 
 func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) {
-	cfgFile, err := findConfigurationFn(fs, ctx, env, logger)
+	cfgFile, err := findConfigurationFn(ctx, fs, env, logger)
 	if err != nil {
 		logger.Error("error occurred finding configuration")
 	}
 
 	if cfgFile == "" {
-		cfgFile, err = generateConfigurationFn(fs, ctx, env, logger)
+		cfgFile, err = generateConfigurationFn(ctx, fs, env, logger)
 		if err != nil {
 			logger.Fatal("error occurred generating configuration", "error", err)
 			return
@@ -118,7 +120,7 @@ func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Envi
 
 		logger.Info("configuration file generated", "file", cfgFile)
 
-		cfgFile, err = editConfigurationFn(fs, ctx, env, logger)
+		cfgFile, err = editConfigurationFn(ctx, fs, env, logger)
 		if err != nil {
 			logger.Error("error occurred editing configuration")
 		}
@@ -130,15 +132,20 @@ func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Envi
 
 	logger.Info("configuration file ready", "file", cfgFile)
 
-	cfgFile, err = validateConfigurationFn(fs, ctx, env, logger)
+	cfgFile, err = validateConfigurationFn(ctx, fs, env, logger)
 	if err != nil {
 		logger.Fatal("error occurred validating configuration", "error", err)
 		return
 	}
 
-	systemCfg, err := loadConfigurationFn(fs, ctx, cfgFile, logger)
+	systemCfg, err := loadConfigurationFn(ctx, fs, cfgFile, logger)
 	if err != nil {
 		logger.Error("error occurred loading configuration")
+		return
+	}
+
+	if systemCfg == nil {
+		logger.Error("system configuration is nil")
 		return
 	}
 
@@ -148,7 +155,7 @@ func handleNonDockerMode(fs afero.Fs, ctx context.Context, env *environment.Envi
 		return
 	}
 
-	rootCmd := newRootCommandFn(fs, ctx, kdepsDir, systemCfg, env, logger)
+	rootCmd := newRootCommandFn(ctx, fs, kdepsDir, systemCfg, env, logger)
 	if err := rootCmd.Execute(); err != nil {
 		logger.Fatal(err)
 	}

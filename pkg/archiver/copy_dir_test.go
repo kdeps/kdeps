@@ -7,16 +7,15 @@ import (
 	"errors"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 
-	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/schema"
 	pklProject "github.com/kdeps/schema/gen/project"
@@ -799,7 +798,7 @@ func TestMoveFolder(t *testing.T) {
 	require.Equal(t, "content", string(data))
 }
 
-func TestGetFileMD5(t *testing.T) {
+func TestGetFileMD5InCopyContext(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	content := []byte("hello world")
 	_ = afero.WriteFile(fs, "/file.txt", content, 0o644)
@@ -941,7 +940,7 @@ func TestCopyFileCreatesBackup(t *testing.T) {
 	}
 
 	// ensure only one dst exists and no backup yet
-	files, err := ioutil.ReadDir(root)
+	files, err := os.ReadDir(root)
 	if err != nil {
 		t.Fatalf("ReadDir: %v", err)
 	}
@@ -959,7 +958,7 @@ func TestCopyFileCreatesBackup(t *testing.T) {
 	}
 
 	// Now we expect a backup file in addition to dst and src
-	files, err = ioutil.ReadDir(root)
+	files, err = os.ReadDir(root)
 	if err != nil {
 		t.Fatalf("ReadDir: %v", err)
 	}
@@ -1966,7 +1965,7 @@ func TestMoveFolderAndGetFileMD5Small(t *testing.T) {
 	}
 
 	h := md5.New()
-	_, _ = io.WriteString(h, string(data))
+	h.Write([]byte(data))
 	wantFull := hex.EncodeToString(h.Sum(nil))
 	want := wantFull[:6]
 	if got != want {

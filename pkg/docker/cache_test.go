@@ -97,7 +97,7 @@ func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { retu
 func buildResp(status int, body string) *http.Response {
 	return &http.Response{
 		StatusCode: status,
-		Body:       ioutil.NopCloser(bytes.NewBufferString(body)),
+		Body:       io.NopCloser(bytes.NewBufferString(body)),
 		Header:     make(http.Header),
 	}
 }
@@ -163,7 +163,7 @@ func (archHTMLTransport) RoundTrip(req *http.Request) (*http.Response, error) {
         <a href="Anaconda3-2023.12-0-Linux-x86_64.sh">old-x</a>
         <a href="Anaconda3-20.3.1-dev1-0-Linux-aarch64.sh">old-y</a>
         </body></html>`
-	return &http.Response{StatusCode: 200, Body: ioutil.NopCloser(bytes.NewBufferString(html)), Header: make(http.Header)}, nil
+	return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewBufferString(html)), Header: make(http.Header)}, nil
 }
 
 func TestGetLatestAnacondaVersionsMultiArch(t *testing.T) {
@@ -418,12 +418,12 @@ func (m multiMockTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	switch req.URL.Host {
 	case "api.github.com":
 		body, _ := json.Marshal(map[string]string{"tag_name": "v9.9.9"})
-		return &http.Response{StatusCode: 200, Body: ioutil.NopCloser(bytes.NewReader(body)), Header: make(http.Header)}, nil
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader(body)), Header: make(http.Header)}, nil
 	case "repo.anaconda.com":
 		html := `<a href="Anaconda3-2025.01-0-Linux-x86_64.sh">Anaconda3-2025.01-0-Linux-x86_64.sh</a>`
-		return &http.Response{StatusCode: 200, Body: ioutil.NopCloser(bytes.NewBufferString(html)), Header: make(http.Header)}, nil
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewBufferString(html)), Header: make(http.Header)}, nil
 	default:
-		return &http.Response{StatusCode: 404, Body: ioutil.NopCloser(bytes.NewBuffer(nil)), Header: make(http.Header)}, nil
+		return &http.Response{StatusCode: 404, Body: io.NopCloser(bytes.NewBuffer(nil)), Header: make(http.Header)}, nil
 	}
 }
 
@@ -540,7 +540,7 @@ Anaconda3-2024.05-0-Linux-aarch64.sh`
 	}
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
-		Body:       ioutil.NopCloser(strings.NewReader(body)),
+		Body:       io.NopCloser(strings.NewReader(body)),
 		Header:     make(http.Header),
 	}
 	return resp, nil
@@ -987,7 +987,7 @@ func (m mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
-		Body:       ioutil.NopCloser(bytes.NewBufferString(body)),
+		Body:       io.NopCloser(bytes.NewBufferString(body)),
 		Header:     make(http.Header),
 	}
 	return resp, nil
@@ -1019,7 +1019,7 @@ func TestGetLatestAnacondaVersions_StatusError(t *testing.T) {
 	ctx := context.Background()
 	original := http.DefaultTransport
 	http.DefaultTransport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
-		return &http.Response{StatusCode: 500, Header: make(http.Header), Body: ioutil.NopCloser(bytes.NewBufferString(""))}, nil
+		return &http.Response{StatusCode: 500, Header: make(http.Header), Body: io.NopCloser(bytes.NewBufferString(""))}, nil
 	})
 	defer func() { http.DefaultTransport = original }()
 
@@ -1034,7 +1034,7 @@ func TestGetLatestAnacondaVersions_NoMatches(t *testing.T) {
 	html := "<html><body>no versions here</body></html>"
 	original := http.DefaultTransport
 	http.DefaultTransport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
-		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: ioutil.NopCloser(bytes.NewBufferString(html))}, nil
+		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(bytes.NewBufferString(html))}, nil
 	})
 	defer func() { http.DefaultTransport = original }()
 
@@ -1087,7 +1087,7 @@ func TestGetLatestAnacondaVersionsMock(t *testing.T) {
 			return &http.Response{
 				StatusCode: 200,
 				Header:     make(http.Header),
-				Body:       ioutil.NopCloser(bytes.NewBufferString(html)),
+				Body:       io.NopCloser(bytes.NewBufferString(html)),
 			}, nil
 		}
 		return orig.RoundTrip(r)

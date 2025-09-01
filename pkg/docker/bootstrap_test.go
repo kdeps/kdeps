@@ -10,13 +10,12 @@ import (
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
+	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/schema/gen/project"
 	webserver "github.com/kdeps/schema/gen/web_server"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/kdeps/kdeps/pkg/schema"
 )
 
 func TestBootstrapDockerSystem(t *testing.T) {

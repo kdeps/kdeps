@@ -20,10 +20,12 @@ import (
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/memory"
+	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/session"
 	"github.com/kdeps/kdeps/pkg/tool"
+	"github.com/kdeps/kdeps/pkg/utils"
 	apiserver "github.com/kdeps/schema/gen/api_server"
 	"github.com/kdeps/schema/gen/project"
 	"github.com/kdeps/schema/gen/resource"
@@ -31,9 +33,6 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/kdeps/kdeps/pkg/messages"
-	"github.com/kdeps/kdeps/pkg/utils"
 )
 
 func TestValidateMethodExtra2(t *testing.T) {
@@ -759,7 +758,7 @@ func TestSchemaVersionReference(t *testing.T) {
 }
 
 func TestValidateMethodUtilsExtra(t *testing.T) {
-	_ = schema.SchemaVersion(nil)
+	_ = schema.SchemaVersion(context.TODO())
 
 	req, _ := http.NewRequest(http.MethodGet, "http://example.com", nil)
 	got, err := validateMethod(req, []string{http.MethodGet, http.MethodPost})
@@ -780,7 +779,7 @@ func TestValidateMethodUtilsExtra(t *testing.T) {
 }
 
 func TestDecodeResponseContentUtilsExtra(t *testing.T) {
-	_ = schema.SchemaVersion(nil)
+	_ = schema.SchemaVersion(context.TODO())
 
 	helloB64 := base64.StdEncoding.EncodeToString([]byte("hello"))
 	invalidB64 := "@@invalid@@"

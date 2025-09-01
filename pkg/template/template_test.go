@@ -302,7 +302,7 @@ func TestGenerateResourceFiles(t *testing.T) {
 	mainDir := "test-agent"
 	name := "test-agent"
 
-	err := GenerateResourceFiles(fs, ctx, logger, mainDir, name)
+	err := GenerateResourceFiles(ctx, fs, logger, mainDir, name)
 	if err != nil {
 		t.Fatalf("GenerateResourceFiles() error = %v", err)
 	}
@@ -316,7 +316,7 @@ func TestGenerateResourceFiles(t *testing.T) {
 
 	// Check that we have the expected number of files
 	expectedFiles := []string{"client.pkl", "exec.pkl", "llm.pkl", "python.pkl", "response.pkl"}
-	assert.Equal(t, len(expectedFiles), len(files), "Unexpected number of resource files")
+	assert.Len(t, files, len(expectedFiles), "Unexpected number of resource files")
 
 	// Check each expected file exists
 	for _, expectedFile := range expectedFiles {
@@ -334,7 +334,7 @@ func TestGenerateSpecificAgentFile(t *testing.T) {
 	mainDir := "test-agent"
 	name := "client"
 
-	err := GenerateSpecificAgentFile(fs, ctx, logger, mainDir, name)
+	err := GenerateSpecificAgentFile(ctx, fs, logger, mainDir, name)
 	if err != nil {
 		t.Fatalf("GenerateSpecificAgentFile() error = %v", err)
 	}
@@ -368,13 +368,13 @@ func TestGenerateAgent(t *testing.T) {
 	name := "test-agent"
 
 	// First, generate the workflow file
-	err := GenerateWorkflowFile(fs, ctx, logger, name, name)
+	err := GenerateWorkflowFile(ctx, fs, logger, name, name)
 	if err != nil {
 		t.Fatalf("GenerateWorkflowFile() error = %v", err)
 	}
 
 	// Then generate resource files
-	err = GenerateResourceFiles(fs, ctx, logger, name, name)
+	err = GenerateResourceFiles(ctx, fs, logger, name, name)
 	if err != nil {
 		t.Fatalf("GenerateResourceFiles() error = %v", err)
 	}
@@ -397,7 +397,7 @@ func TestGenerateAgent(t *testing.T) {
 
 	// Check that we have the expected number of files
 	expectedFiles := []string{"client.pkl", "exec.pkl", "llm.pkl", "python.pkl", "response.pkl"}
-	assert.Equal(t, len(expectedFiles), len(files), "Unexpected number of resource files")
+	assert.Len(t, files, len(expectedFiles), "Unexpected number of resource files")
 
 	// Check each expected file exists
 	for _, expectedFile := range expectedFiles {
@@ -421,7 +421,7 @@ func TestSchemaVersionInTemplates(t *testing.T) {
 		require.NoError(t, err)
 		defer fs.RemoveAll(tempDir)
 
-		err = GenerateWorkflowFile(fs, ctx, logger, tempDir, "testAgent")
+		err = GenerateWorkflowFile(ctx, fs, logger, tempDir, "testAgent")
 		require.NoError(t, err)
 
 		content, err := afero.ReadFile(fs, filepath.Join(tempDir, "workflow.pkl"))
@@ -436,7 +436,7 @@ func TestSchemaVersionInTemplates(t *testing.T) {
 		require.NoError(t, err)
 		defer fs.RemoveAll(tempDir)
 
-		err = GenerateResourceFiles(fs, ctx, logger, tempDir, "testAgent")
+		err = GenerateResourceFiles(ctx, fs, logger, tempDir, "testAgent")
 		require.NoError(t, err)
 
 		// Check all generated resource files
@@ -491,7 +491,7 @@ func TestFileGenerationEdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// First, generate the workflow file
-			err := GenerateWorkflowFile(fs, ctx, logger, filepath.Join(tt.baseDir, tt.agentName), tt.agentName)
+			err := GenerateWorkflowFile(ctx, fs, logger, filepath.Join(tt.baseDir, tt.agentName), tt.agentName)
 			if tt.expectedError {
 				assert.Error(t, err)
 				return
@@ -499,7 +499,7 @@ func TestFileGenerationEdgeCases(t *testing.T) {
 			assert.NoError(t, err)
 
 			// Then generate resource files
-			err = GenerateResourceFiles(fs, ctx, logger, filepath.Join(tt.baseDir, tt.agentName), tt.agentName)
+			err = GenerateResourceFiles(ctx, fs, logger, filepath.Join(tt.baseDir, tt.agentName), tt.agentName)
 			if tt.expectedError {
 				assert.Error(t, err)
 				return
@@ -572,7 +572,7 @@ func TestCreateFileEdgeCases(t *testing.T) {
 		assert.NoError(t, err, "Expected no error for empty content")
 		data, err := afero.ReadFile(fs, path)
 		assert.NoError(t, err)
-		assert.Equal(t, "", string(data), "File content should be empty")
+		assert.Empty(t, string(data), "File content should be empty")
 	})
 }
 
@@ -657,7 +657,7 @@ func TestGenerateWorkflowFileExtra(t *testing.T) {
 	defer os.Unsetenv("NON_INTERACTIVE")
 
 	// Invalid name should return error
-	err := GenerateWorkflowFile(fs, context.Background(), logger, "outdir", "bad name")
+	err := GenerateWorkflowFile(context.Background(), fs, logger, "outdir", "bad name")
 	require.Error(t, err)
 
 	// Setup disk template
@@ -669,7 +669,7 @@ func TestGenerateWorkflowFileExtra(t *testing.T) {
 
 	// Successful generation
 	mainDir := "agentdir"
-	err = GenerateWorkflowFile(fs, context.Background(), logger, mainDir, "Agent")
+	err = GenerateWorkflowFile(context.Background(), fs, logger, mainDir, "Agent")
 	require.NoError(t, err)
 	output, err := afero.ReadFile(fs, filepath.Join(mainDir, "workflow.pkl"))
 	require.NoError(t, err)
@@ -684,7 +684,7 @@ func TestGenerateResourceFilesExtra(t *testing.T) {
 	defer os.Unsetenv("NON_INTERACTIVE")
 
 	// Invalid name
-	err := GenerateResourceFiles(fs, context.Background(), logger, "outdir", "bad name")
+	err := GenerateResourceFiles(context.Background(), fs, logger, "outdir", "bad name")
 	require.Error(t, err)
 
 	// Setup disk templates directory matching embedded FS
@@ -700,7 +700,7 @@ func TestGenerateResourceFilesExtra(t *testing.T) {
 	}
 
 	mainDir := "agentdir2"
-	err = GenerateResourceFiles(fs, context.Background(), logger, mainDir, "Agent")
+	err = GenerateResourceFiles(context.Background(), fs, logger, mainDir, "Agent")
 	require.NoError(t, err)
 
 	// client.pkl should be created with expected content
@@ -769,7 +769,7 @@ func TestGenerateAgentEndToEndExtra(t *testing.T) {
 	baseDir := "/tmp"
 	agentName := "client" // corresponds to existing embedded template client.pkl
 
-	if err := GenerateAgent(fs, ctx, logger, baseDir, agentName); err != nil {
+	if err := GenerateAgent(ctx, fs, logger, baseDir, agentName); err != nil {
 		t.Fatalf("GenerateAgent error: %v", err)
 	}
 
@@ -814,7 +814,7 @@ func TestGenerateAgentBasic(t *testing.T) {
 	baseDir := "/workspace"
 	agentName := "client"
 
-	if err := GenerateAgent(fs, ctx, logger, baseDir, agentName); err != nil {
+	if err := GenerateAgent(ctx, fs, logger, baseDir, agentName); err != nil {
 		t.Fatalf("GenerateAgent failed: %v", err)
 	}
 

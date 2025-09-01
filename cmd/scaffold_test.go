@@ -19,7 +19,7 @@ func TestNewScaffoldCommandFlags(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	cmd := NewScaffoldCommand(fs, ctx, logger)
+	cmd := NewScaffoldCommand(ctx, fs, logger)
 	assert.Equal(t, "scaffold [agentName] [fileNames...]", cmd.Use)
 	assert.Equal(t, "Scaffold specific files for an agent", cmd.Short)
 	assert.Contains(t, cmd.Long, "Available resources:")
@@ -35,7 +35,7 @@ func TestNewScaffoldCommandNoFiles(t *testing.T) {
 	err := fs.MkdirAll(testAgentDir, 0o755)
 	assert.NoError(t, err)
 
-	cmd := NewScaffoldCommand(fs, ctx, logger)
+	cmd := NewScaffoldCommand(ctx, fs, logger)
 	cmd.SetArgs([]string{testAgentDir})
 	err = cmd.Execute()
 	assert.NoError(t, err)
@@ -54,7 +54,7 @@ func TestNewScaffoldCommandValidResources(t *testing.T) {
 	validResources := []string{"client", "exec", "llm", "python", "response"}
 
 	for _, resource := range validResources {
-		cmd := NewScaffoldCommand(fs, ctx, logger)
+		cmd := NewScaffoldCommand(ctx, fs, logger)
 		cmd.SetArgs([]string{testAgentDir, resource})
 		err := cmd.Execute()
 		assert.NoError(t, err)
@@ -77,7 +77,7 @@ func TestNewScaffoldCommandInvalidResources(t *testing.T) {
 	err := fs.MkdirAll(testAgentDir, 0o755)
 	assert.NoError(t, err)
 
-	cmd := NewScaffoldCommand(fs, ctx, logger)
+	cmd := NewScaffoldCommand(ctx, fs, logger)
 	cmd.SetArgs([]string{testAgentDir, "invalid-resource"})
 	err = cmd.Execute()
 	assert.NoError(t, err) // Command doesn't return error for invalid resources
@@ -99,7 +99,7 @@ func TestNewScaffoldCommandMultipleResources(t *testing.T) {
 	err := fs.MkdirAll(testAgentDir, 0o755)
 	assert.NoError(t, err)
 
-	cmd := NewScaffoldCommand(fs, ctx, logger)
+	cmd := NewScaffoldCommand(ctx, fs, logger)
 	cmd.SetArgs([]string{testAgentDir, "client", "exec", "invalid-resource"})
 	err = cmd.Execute()
 	assert.NoError(t, err)
@@ -127,7 +127,7 @@ func TestNewScaffoldCommandNoArgs(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	cmd := NewScaffoldCommand(fs, ctx, logger)
+	cmd := NewScaffoldCommand(ctx, fs, logger)
 	err := cmd.Execute()
 	assert.Error(t, err) // Should fail due to missing required argument
 }
@@ -137,7 +137,7 @@ func TestNewScaffoldCommand_ListResources(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	cmd := NewScaffoldCommand(fs, ctx, logger)
+	cmd := NewScaffoldCommand(ctx, fs, logger)
 
 	// Just ensure it completes without panic when no resource names are supplied.
 	cmd.Run(cmd, []string{"myagent"})
@@ -148,7 +148,7 @@ func TestNewScaffoldCommand_InvalidResource(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	cmd := NewScaffoldCommand(fs, ctx, logger)
+	cmd := NewScaffoldCommand(ctx, fs, logger)
 	cmd.Run(cmd, []string{"agent", "unknown"}) // should handle gracefully without panic
 }
 
@@ -159,7 +159,7 @@ func TestNewScaffoldCommand_GenerateFile(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	cmd := NewScaffoldCommand(fs, ctx, logger)
+	cmd := NewScaffoldCommand(ctx, fs, logger)
 
 	cmd.Run(cmd, []string{"agentx", "client"})
 
@@ -199,7 +199,7 @@ func TestScaffoldCommand_Happy(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	cmd := NewScaffoldCommand(fs, ctx, logger)
+	cmd := NewScaffoldCommand(ctx, fs, logger)
 
 	agent := "myagent"
 	args := []string{agent, "client", "exec"}
@@ -231,7 +231,7 @@ func TestScaffoldCommand_InvalidResource(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	cmd := NewScaffoldCommand(fs, ctx, logger)
+	cmd := NewScaffoldCommand(ctx, fs, logger)
 	agent := "badagent"
 
 	buf, restore := captureOutput()

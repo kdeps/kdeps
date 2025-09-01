@@ -14,7 +14,7 @@ import (
 )
 
 // NewRunCommand creates the 'run' command and passes the necessary dependencies.
-func NewRunCommand(fs afero.Fs, ctx context.Context, kdepsDir string, systemCfg *kdeps.Kdeps, logger *logging.Logger) *cobra.Command {
+func NewRunCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCfg *kdeps.Kdeps, logger *logging.Logger) *cobra.Command {
 	return &cobra.Command{
 		Use:     "run [package]",
 		Aliases: []string{"r"},

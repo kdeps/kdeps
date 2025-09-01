@@ -9,13 +9,12 @@ import (
 	"testing"
 
 	"github.com/docker/docker/client"
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	crand "crypto/rand"
-
-	"github.com/kdeps/kdeps/pkg/logging"
 )
 
 func TestLoadEnvFile(t *testing.T) {

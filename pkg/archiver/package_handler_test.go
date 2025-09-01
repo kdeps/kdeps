@@ -11,7 +11,6 @@ import (
 
 	"github.com/kdeps/kdeps/pkg/logging"
 	pklProj "github.com/kdeps/schema/gen/project"
-	pklProject "github.com/kdeps/schema/gen/project"
 	"github.com/spf13/afero"
 )
 
@@ -183,18 +182,18 @@ func TestPackageProjectHappy(t *testing.T) {
 // stubWorkflow implements the required methods of pklWf.Workflow for this unit test.
 type stubWorkflowPkg struct{}
 
-func (stubWorkflowPkg) GetAgentID() string               { return "mini-agent" }
-func (stubWorkflowPkg) GetVersion() string               { return "0.0.1" }
-func (stubWorkflowPkg) GetDescription() string           { return "" }
-func (stubWorkflowPkg) GetWebsite() *string              { return nil }
-func (stubWorkflowPkg) GetAuthors() *[]string            { return nil }
-func (stubWorkflowPkg) GetDocumentation() *string        { return nil }
-func (stubWorkflowPkg) GetRepository() *string           { return nil }
-func (stubWorkflowPkg) GetHeroImage() *string            { return nil }
-func (stubWorkflowPkg) GetAgentIcon() *string            { return nil }
-func (stubWorkflowPkg) GetTargetActionID() string        { return "run" }
-func (stubWorkflowPkg) GetWorkflows() []string           { return nil }
-func (stubWorkflowPkg) GetSettings() pklProject.Settings { return pklProject.Settings{} }
+func (stubWorkflowPkg) GetAgentID() string            { return "mini-agent" }
+func (stubWorkflowPkg) GetVersion() string            { return "0.0.1" }
+func (stubWorkflowPkg) GetDescription() string        { return "" }
+func (stubWorkflowPkg) GetWebsite() *string           { return nil }
+func (stubWorkflowPkg) GetAuthors() *[]string         { return nil }
+func (stubWorkflowPkg) GetDocumentation() *string     { return nil }
+func (stubWorkflowPkg) GetRepository() *string        { return nil }
+func (stubWorkflowPkg) GetHeroImage() *string         { return nil }
+func (stubWorkflowPkg) GetAgentIcon() *string         { return nil }
+func (stubWorkflowPkg) GetTargetActionID() string     { return "run" }
+func (stubWorkflowPkg) GetWorkflows() []string        { return nil }
+func (stubWorkflowPkg) GetSettings() pklProj.Settings { return pklProj.Settings{} }
 
 func TestPackageProject_MinimalAndOverwrite(t *testing.T) {
 	ctx := context.Background()

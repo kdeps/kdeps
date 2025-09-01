@@ -17,7 +17,7 @@ func TestUpgradeCommand(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	cmd := UpgradeCommand(fs, ctx, "/tmp", logger)
+	cmd := UpgradeCommand(ctx, fs, "/tmp", logger)
 
 	assert.Contains(t, cmd.Use, "upgrade")
 	assert.NotEmpty(t, cmd.Short)
@@ -158,7 +158,7 @@ func TestUpgradeCommandValidation(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	cmd := UpgradeCommand(fs, ctx, "/tmp", logger)
+	cmd := UpgradeCommand(ctx, fs, "/tmp", logger)
 
 	t.Run("invalid target version", func(t *testing.T) {
 		cmd.SetArgs([]string{"--version", "invalid", "."})
@@ -175,7 +175,7 @@ func TestUpgradeCommandValidation(t *testing.T) {
 	})
 
 	t.Run("nonexistent directory", func(t *testing.T) {
-		cmd := UpgradeCommand(fs, ctx, "/tmp", logger)
+		cmd := UpgradeCommand(ctx, fs, "/tmp", logger)
 		cmd.SetArgs([]string{"/nonexistent"})
 		err := cmd.Execute()
 		assert.Error(t, err)
@@ -199,7 +199,7 @@ Version = "1.0.0"`
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(testDir, "workflow.pkl"), []byte(content), 0o644))
 
 	// Test upgrade command
-	cmd := UpgradeCommand(fs, ctx, "/tmp", logger)
+	cmd := UpgradeCommand(ctx, fs, "/tmp", logger)
 	cmd.SetArgs([]string{"--version", version.DefaultSchemaVersion, testDir})
 
 	err := cmd.Execute()

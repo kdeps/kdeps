@@ -581,38 +581,38 @@ func serializeTools(builder *strings.Builder, tools *[]pklLLM.Tool) {
 		if entry.Name != nil {
 			name = *entry.Name
 		}
-		builder.WriteString(fmt.Sprintf("        Name = %q\n", name))
+		fmt.Fprintf(builder, "        Name = %q\n", name)
 		script := ""
 		if entry.Script != nil {
 			script = *entry.Script
 		}
-		builder.WriteString(fmt.Sprintf("        Script = #\"\"\"\n%s\n\"\"\"#\n", script))
+		fmt.Fprintf(builder, "        Script = #\"\"\"\n%s\n\"\"\"#\n", script)
 		description := ""
 		if entry.Description != nil {
 			description = *entry.Description
 		}
-		builder.WriteString(fmt.Sprintf("        Description = %q\n", description))
+		fmt.Fprintf(builder, "        Description = %q\n", description)
 		builder.WriteString("        Parameters ")
 		if entry.Parameters != nil && len(*entry.Parameters) > 0 {
 			builder.WriteString("{\n")
 			for pname, param := range *entry.Parameters {
 				// ToolProperties is a struct, not a pointer, so we can always access it
-				builder.WriteString(fmt.Sprintf("          [\"%s\"] {\n", pname))
+				fmt.Fprintf(builder, "          [\"%s\"] {\n", pname)
 				required := false
 				if param.Required != nil {
 					required = *param.Required
 				}
-				builder.WriteString(fmt.Sprintf("            Required = %t\n", required))
+				fmt.Fprintf(builder, "            Required = %t\n", required)
 				paramType := ""
 				if param.Type != nil {
 					paramType = *param.Type
 				}
-				builder.WriteString(fmt.Sprintf("            Type = %q\n", paramType))
+				fmt.Fprintf(builder, "            Type = %q\n", paramType)
 				paramDescription := ""
 				if param.Description != nil {
 					paramDescription = *param.Description
 				}
-				builder.WriteString(fmt.Sprintf("            Description = %q\n", paramDescription))
+				fmt.Fprintf(builder, "            Description = %q\n", paramDescription)
 				builder.WriteString("          }\n")
 			}
 			builder.WriteString("        }\n")

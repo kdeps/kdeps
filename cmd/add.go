@@ -11,7 +11,7 @@ import (
 )
 
 // NewAddCommand creates the 'add' command and passes the necessary dependencies.
-func NewAddCommand(fs afero.Fs, ctx context.Context, kdepsDir string, logger *logging.Logger) *cobra.Command {
+func NewAddCommand(ctx context.Context, fs afero.Fs, kdepsDir string, logger *logging.Logger) *cobra.Command {
 	return &cobra.Command{
 		Use:     "install [package]",
 		Aliases: []string{"i"},

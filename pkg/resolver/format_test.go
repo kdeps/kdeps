@@ -25,7 +25,6 @@ import (
 	"github.com/kdeps/schema/gen/exec"
 	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
-	"github.com/kdeps/schema/gen/python"
 	pklPython "github.com/kdeps/schema/gen/python"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -81,7 +80,7 @@ func setupTestResolverWithRealFS(t *testing.T) *DependencyResolver {
 	filesDir := filepath.Join(tmpDir, "files")
 	actionDir := filepath.Join(tmpDir, "action")
 	_ = fs.MkdirAll(filepath.Join(actionDir, "exec"), 0o755)
-	_ = fs.MkdirAll(filepath.Join(actionDir, "python"), 0o755)
+	_ = fs.MkdirAll(filepath.Join(actionDir, "pklPython"), 0o755)
 	_ = fs.MkdirAll(filepath.Join(actionDir, "llm"), 0o755)
 	_ = fs.MkdirAll(filesDir, 0o755)
 
@@ -105,7 +104,7 @@ func setupTestResolverWithMemFS(t *testing.T) *DependencyResolver {
 	filesDir := "/files"
 	actionDir := "/action"
 	_ = fs.MkdirAll(filepath.Join(actionDir, "exec"), 0o755)
-	_ = fs.MkdirAll(filepath.Join(actionDir, "python"), 0o755)
+	_ = fs.MkdirAll(filepath.Join(actionDir, "pklPython"), 0o755)
 	_ = fs.MkdirAll(filepath.Join(actionDir, "llm"), 0o755)
 	_ = fs.MkdirAll(filesDir, 0o755)
 
@@ -968,7 +967,7 @@ func TestAppendPythonEntryExtra(t *testing.T) {
 
 	newResolver := func(t *testing.T) (*DependencyResolver, string) {
 		dr := setupTestPyResolver(t)
-		pklPath := filepath.Join(dr.ActionDir, "python/"+dr.RequestID+"__python_output.pkl")
+		pklPath := filepath.Join(dr.ActionDir, "pklPython/"+dr.RequestID+"__pklPython_output.pkl")
 		return dr, pklPath
 	}
 
@@ -1072,20 +1071,20 @@ func TestHandlePython(t *testing.T) {
 	dr := setupTestResolver(t)
 
 	t.Run("SuccessfulExecution", func(t *testing.T) {
-		pythonBlock := &python.ResourcePython{
+		pklPythonBlock := &pklPython.ResourcePython{
 			Script: "print('Hello, World!')",
 		}
 
-		err := dr.HandlePython("test-action", pythonBlock)
+		err := dr.HandlePython("test-action", pklPythonBlock)
 		assert.NoError(t, err)
 	})
 
 	t.Run("DecodeError", func(t *testing.T) {
-		pythonBlock := &python.ResourcePython{
+		pklPythonBlock := &pklPython.ResourcePython{
 			Script: "invalid base64",
 		}
 
-		err := dr.HandlePython("test-action", pythonBlock)
+		err := dr.HandlePython("test-action", pklPythonBlock)
 		assert.NoError(t, err)
 	})
 }
@@ -1095,35 +1094,35 @@ func TestDecodePythonBlock(t *testing.T) {
 
 	t.Run("ValidBase64Script", func(t *testing.T) {
 		encodedScript := "cHJpbnQoJ0hlbGxvLCBXb3JsZCEnKQ==" // "print('Hello, World!')"
-		pythonBlock := &python.ResourcePython{
+		pklPythonBlock := &pklPython.ResourcePython{
 			Script: encodedScript,
 		}
 
-		err := dr.decodePythonBlock(pythonBlock)
+		err := dr.decodePythonBlock(pklPythonBlock)
 		assert.NoError(t, err)
-		assert.Equal(t, "print('Hello, World!')", pythonBlock.Script)
+		assert.Equal(t, "print('Hello, World!')", pklPythonBlock.Script)
 	})
 
 	t.Run("ValidBase64Env", func(t *testing.T) {
 		env := map[string]string{
 			"TEST_KEY": "dGVzdF92YWx1ZQ==", // "test_value"
 		}
-		pythonBlock := &python.ResourcePython{
+		pklPythonBlock := &pklPython.ResourcePython{
 			Script: "print('test')",
 			Env:    &env,
 		}
 
-		err := dr.decodePythonBlock(pythonBlock)
+		err := dr.decodePythonBlock(pklPythonBlock)
 		assert.NoError(t, err)
-		assert.Equal(t, "test_value", (*pythonBlock.Env)["TEST_KEY"])
+		assert.Equal(t, "test_value", (*pklPythonBlock.Env)["TEST_KEY"])
 	})
 
 	t.Run("InvalidBase64Script", func(t *testing.T) {
-		pythonBlock := &python.ResourcePython{
+		pklPythonBlock := &pklPython.ResourcePython{
 			Script: "invalid base64",
 		}
 
-		err := dr.decodePythonBlock(pythonBlock)
+		err := dr.decodePythonBlock(pklPythonBlock)
 		assert.NoError(t, err)
 	})
 }

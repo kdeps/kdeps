@@ -40,7 +40,7 @@ func simpleConfirm(title, description string) (bool, error) {
 	return response == "y" || response == "yes", nil
 }
 
-func FindConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
+func FindConfiguration(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 	logger.Debug("finding configuration...")
 
 	// No need to ensure PKL CLI; we use the SDK now
@@ -63,7 +63,7 @@ func FindConfiguration(fs afero.Fs, ctx context.Context, env *environment.Enviro
 	return "", nil
 }
 
-func GenerateConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
+func GenerateConfiguration(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 	logger.Debug("generating configuration...")
 
 	// Set configFile path in Home directory
@@ -90,7 +90,7 @@ func GenerateConfiguration(fs afero.Fs, ctx context.Context, env *environment.En
 	return configFile, nil
 }
 
-func EditConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
+func EditConfiguration(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 	logger.Debug("editing configuration...")
 
 	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
@@ -125,7 +125,7 @@ func EditConfiguration(fs afero.Fs, ctx context.Context, env *environment.Enviro
 	return configFile, nil
 }
 
-func ValidateConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
+func ValidateConfiguration(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 	logger.Debug("validating configuration...")
 
 	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
@@ -138,7 +138,7 @@ func ValidateConfiguration(fs afero.Fs, ctx context.Context, env *environment.En
 	return configFile, nil
 }
 
-func LoadConfiguration(fs afero.Fs, ctx context.Context, configFile string, logger *logging.Logger) (*kdeps.Kdeps, error) {
+func LoadConfiguration(ctx context.Context, fs afero.Fs, configFile string, logger *logging.Logger) (*kdeps.Kdeps, error) {
 	logger.Debug("loading configuration", "config-file", configFile)
 
 	// Check if we should use embedded assets

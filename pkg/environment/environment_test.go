@@ -265,7 +265,7 @@ func TestNewEnvironment_Provided_ConfigInHomeOnly(t *testing.T) {
 func TestNewEnvironment_DockerDetection(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	_ = afero.WriteFile(fs, "/.dockerenv", []byte("x"), 0o644)
-	os.Setenv("SCHEMA_VERSION", schema.SchemaVersion(nil))
+	os.Setenv("SCHEMA_VERSION", schema.SchemaVersion(context.TODO()))
 	os.Setenv("OLLAMA_HOST", "0.0.0.0:1234")
 	os.Setenv("KDEPS_HOST", "host")
 	t.Cleanup(func() {

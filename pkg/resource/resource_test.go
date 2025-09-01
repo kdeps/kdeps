@@ -1,7 +1,7 @@
 //go:build integration
 // +build integration
 
-package resource_test
+package resource
 
 import (
 	"bytes"
@@ -151,7 +151,7 @@ DockerGPU = "cpu"
 		return err
 	}
 
-	systemConfigurationFile, err = cfg.FindConfiguration(testFs, ctx, environ, logger)
+	systemConfigurationFile, err = cfg.FindConfiguration(ctx, testFs, environ, logger)
 	if err != nil {
 		return err
 	}
@@ -160,7 +160,7 @@ DockerGPU = "cpu"
 		return err
 	}
 
-	syscfg, err := cfg.LoadConfiguration(testFs, ctx, systemConfigurationFile, logger)
+	syscfg, err := cfg.LoadConfiguration(ctx, testFs, systemConfigurationFile, logger)
 	if err != nil {
 		return err
 	}

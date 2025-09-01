@@ -128,7 +128,7 @@ func loadTemplate(templatePath string, data map[string]string) (string, error) {
 }
 
 // GenerateWorkflowFile generates a workflow file for the agent.
-func GenerateWorkflowFile(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, name string) error {
+func GenerateWorkflowFile(ctx context.Context, fs afero.Fs, logger *logging.Logger, mainDir, name string) error {
 	// Validate agent name first
 	if err := validateAgentName(name); err != nil {
 		return err
@@ -160,7 +160,7 @@ func GenerateWorkflowFile(fs afero.Fs, ctx context.Context, logger *logging.Logg
 }
 
 // GenerateResourceFiles generates resource files for the agent.
-func GenerateResourceFiles(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, name string) error {
+func GenerateResourceFiles(ctx context.Context, fs afero.Fs, logger *logging.Logger, mainDir, name string) error {
 	// Validate agent name first
 	if err := validateAgentName(name); err != nil {
 		return err
@@ -210,7 +210,7 @@ func GenerateResourceFiles(fs afero.Fs, ctx context.Context, logger *logging.Log
 	return nil
 }
 
-func GenerateSpecificAgentFile(fs afero.Fs, ctx context.Context, logger *logging.Logger, mainDir, agentName string) error {
+func GenerateSpecificAgentFile(ctx context.Context, fs afero.Fs, logger *logging.Logger, mainDir, agentName string) error {
 	// Validate agent name
 	if err := validateAgentName(agentName); err != nil {
 		return err
@@ -252,7 +252,7 @@ func GenerateSpecificAgentFile(fs afero.Fs, ctx context.Context, logger *logging
 	return createFile(fs, logger, outputPath, content)
 }
 
-func GenerateAgent(fs afero.Fs, ctx context.Context, logger *logging.Logger, baseDir, agentName string) error {
+func GenerateAgent(ctx context.Context, fs afero.Fs, logger *logging.Logger, baseDir, agentName string) error {
 	// Validate agent name
 	if err := validateAgentName(agentName); err != nil {
 		return err
@@ -265,17 +265,17 @@ func GenerateAgent(fs afero.Fs, ctx context.Context, logger *logging.Logger, bas
 	}
 
 	// Generate workflow file
-	if err := GenerateWorkflowFile(fs, ctx, logger, mainDir, agentName); err != nil {
+	if err := GenerateWorkflowFile(ctx, fs, logger, mainDir, agentName); err != nil {
 		return err
 	}
 
 	// Generate resource files
-	if err := GenerateResourceFiles(fs, ctx, logger, mainDir, agentName); err != nil {
+	if err := GenerateResourceFiles(ctx, fs, logger, mainDir, agentName); err != nil {
 		return err
 	}
 
 	// Generate the agent file
-	if err := GenerateSpecificAgentFile(fs, ctx, logger, mainDir, agentName); err != nil {
+	if err := GenerateSpecificAgentFile(ctx, fs, logger, mainDir, agentName); err != nil {
 		return err
 	}
 

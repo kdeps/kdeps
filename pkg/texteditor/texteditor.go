@@ -76,7 +76,7 @@ func realEditorCmdFactory(editorName, filePath string) (EditorCmd, error) {
 	return &realEditorCmd{cmd: cmd}, nil
 }
 
-// EditPkl is the function that opens the file at filePath with the 'kdeps' editor
+// EditPklWithFactory opens the file at filePath with the 'kdeps' editor using the provided factory function.
 func EditPklWithFactory(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger, factory EditorCmdFunc) error {
 	if os.Getenv("NON_INTERACTIVE") == "1" {
 		logger.Info("NON_INTERACTIVE=1, skipping editor")
@@ -122,7 +122,7 @@ func EditPklWithFactory(fs afero.Fs, ctx context.Context, filePath string, logge
 	return nil
 }
 
-// For backward compatibility
+// EditPkl provides backward compatibility for editing PKL files.
 var EditPkl EditPklFunc = func(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
 	return EditPklWithFactory(fs, ctx, filePath, logger, nil)
 }
