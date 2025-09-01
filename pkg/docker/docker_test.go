@@ -154,7 +154,7 @@ DockerGPU = "%s"
 		return err
 	}
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, systemConfigurationFile, logger); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, systemConfigurationFile, ctx, logger); err != nil {
 		return err
 	}
 
@@ -275,7 +275,7 @@ Description = "An action from agent %s"
 		f.Close()
 	}
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowConfigurationFile, logger); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowConfigurationFile, ctx, logger); err != nil {
 		return err
 	}
 
@@ -669,7 +669,7 @@ func theContentOfThatArchiveFileWillBeExtractedTo(arg1 string) error {
 }
 
 func thePklFilesIsValid() error {
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowFile, logger); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowFile, ctx, logger); err != nil {
 		return err
 	}
 
@@ -746,7 +746,7 @@ func thePklFilesIsInvalid() error {
 
 	workflowFile = file
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowFile, logger); err == nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowFile, ctx, logger); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 

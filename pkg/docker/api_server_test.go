@@ -46,7 +46,7 @@ func TestValidateMethodExtra2(t *testing.T) {
 	}
 
 	// invalid method
-	badReq := httptest.NewRequest("DELETE", "/", nil)
+	badReq := httptest.NewRequest(http.MethodDelete, "/", nil)
 	if _, err := validateMethod(badReq, []string{"GET"}); err == nil {
 		t.Fatalf("expected error for disallowed method")
 	}
@@ -196,7 +196,7 @@ func TestHandleMultipartForm(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("POST", "/", body)
+		c.Request = httptest.NewRequest(http.MethodPost, "/", body)
 		c.Request.Header.Set("Content-Type", writer.FormDataContentType())
 
 		fileMap := make(map[string]struct{ Filename, Filetype string })
@@ -225,7 +225,7 @@ func TestHandleMultipartForm(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("POST", "/", body)
+		c.Request = httptest.NewRequest(http.MethodPost, "/", body)
 		c.Request.Header.Set("Content-Type", writer.FormDataContentType())
 
 		fileMap := make(map[string]struct{ Filename, Filetype string })
@@ -250,7 +250,7 @@ func TestProcessFile(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("POST", "/", body)
+		c.Request = httptest.NewRequest(http.MethodPost, "/", body)
 		c.Request.Header.Set("Content-Type", writer.FormDataContentType())
 		_, fileHeader, err := c.Request.FormFile("file")
 		require.NoError(t, err)
@@ -263,14 +263,14 @@ func TestProcessFile(t *testing.T) {
 
 func TestValidateMethod(t *testing.T) {
 	t.Run("ValidMethod", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/", nil)
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		method, err := validateMethod(req, []string{"GET", "POST"})
 		assert.NoError(t, err)
 		assert.Equal(t, "Method = \"GET\"", method)
 	})
 
 	t.Run("InvalidMethod", func(t *testing.T) {
-		req := httptest.NewRequest("PUT", "/", nil)
+		req := httptest.NewRequest(http.MethodPut, "/", nil)
 		_, err := validateMethod(req, []string{"GET", "POST"})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "HTTP method \"PUT\" not allowed")
@@ -433,7 +433,7 @@ func TestAPIServerHandler(t *testing.T) {
 		// Simulate an HTTP request
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
+		c.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
 		handler(c)
 
 		// Verify the response
@@ -994,7 +994,7 @@ func TestFormatResponseJSONInlineData(t *testing.T) {
 }
 
 func TestValidateMethodSimple(t *testing.T) {
-	req, _ := http.NewRequest("POST", "http://example.com", nil)
+	req, _ := http.NewRequest(http.MethodPost, "http://example.com", nil)
 	methodStr, err := validateMethod(req, []string{"GET", "POST"})
 	if err != nil {
 		t.Fatalf("validateMethod unexpected error: %v", err)
@@ -1123,7 +1123,7 @@ func TestValidateMethodDefaultGET(t *testing.T) {
 // TestValidateMethodNotAllowed verifies that validateMethod returns an error
 // when an HTTP method that is not in the allowed list is provided.
 func TestValidateMethodNotAllowed(t *testing.T) {
-	req := &http.Request{Method: "POST"}
+	req := &http.Request{Method: http.MethodPost}
 
 	if _, err := validateMethod(req, []string{"GET"}); err == nil {
 		t.Fatalf("expected method not allowed error, got nil")
@@ -1182,7 +1182,7 @@ func TestAPIServerErrorHandling(t *testing.T) {
 
 		// Create a request
 		body := []byte("test data")
-		req := httptest.NewRequest("POST", "/api/v1/test", bytes.NewReader(body))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/test", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 
 		// Create response recorder
@@ -1304,7 +1304,7 @@ PreflightCheck {
 
 		// Create a request that will trigger processWorkflow failure
 		body := []byte("Neil Armstrong")
-		req := httptest.NewRequest("GET", "/api/v1/whois", bytes.NewReader(body))
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/whois", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 		// Create response recorder
@@ -1385,7 +1385,7 @@ PreflightCheck {
 		handler := APIServerHandler(context.Background(), route, testResolver, semaphore)
 
 		// Send a GET request (invalid method) with invalid resolver
-		req := httptest.NewRequest("GET", "/api/v1/test", bytes.NewReader([]byte("test")))
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/test", bytes.NewReader([]byte("test")))
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = req

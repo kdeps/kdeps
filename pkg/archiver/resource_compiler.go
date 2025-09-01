@@ -257,7 +257,7 @@ func ValidatePklResources(fs afero.Fs, ctx context.Context, dir string, logger *
 	}
 
 	for _, file := range pklFiles {
-		if err := enforcer.EnforcePklTemplateAmendsRules(fs, ctx, file, logger); err != nil {
+		if err := enforcer.EnforcePklTemplateAmendsRules(fs, file, ctx, logger); err != nil {
 			return fmt.Errorf("validation failed for %s: %w", file, err)
 		}
 	}

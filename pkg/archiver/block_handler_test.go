@@ -43,7 +43,7 @@ func TestHandleRequiresBlock(t *testing.T) {
 	got := handleRequiresBlock(input, wf)
 	lines := strings.Split(got, "\n")
 
-	require.Equal(t, "", lines[0], "blank line must stay blank")
+	require.Empty(t, lines[0], "blank line must stay blank")
 	require.Equal(t, "\"\"", strings.TrimSpace(lines[1]))
 	require.Equal(t, "\"@foo:1.2.3\"", strings.TrimSpace(lines[2]), "@otherAgent/foo should map to version only")
 	require.Equal(t, "\"@chatBot/localAction:1.2.3\"", strings.TrimSpace(lines[3]))

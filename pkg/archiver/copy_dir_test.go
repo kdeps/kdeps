@@ -1650,10 +1650,10 @@ func TestGetFileMD5AndCopyFile(t *testing.T) {
 
 	src := "/src.txt"
 	content := []byte("hello world")
-	assert.NoError(t, afero.WriteFile(fsys, src, content, 0o644))
+	require.NoError(t, afero.WriteFile(fsys, src, content, 0o644))
 
 	md5short, err := GetFileMD5(fsys, src, 8)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, md5short, 8)
 
 	dest := "/dest.txt"
@@ -1690,14 +1690,14 @@ func TestMoveFolderAndCopyDir(t *testing.T) {
 
 	for _, rel := range []string{"file1.txt", "nested/file2.txt"} {
 		data, err := afero.ReadFile(fsys, filepath.Join(destDir, rel))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotEmpty(t, data)
 	}
 
 	compiledDir := "/compiled"
-	assert.NoError(t, CopyDir(fsys, ctx, destDir, compiledDir, logger))
+	require.NoError(t, CopyDir(fsys, ctx, destDir, compiledDir, logger))
 	d, err := afero.ReadFile(fsys, filepath.Join(compiledDir, "file1.txt"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, []byte("a"), d)
 }
 

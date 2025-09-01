@@ -42,7 +42,7 @@ func TestHandleAppRequest_Misconfiguration(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/app", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
 
 	handler(c)
 
@@ -187,7 +187,7 @@ func TestHandleAppRequest_BadGateway(t *testing.T) {
 	// Wrap recorder to implement CloseNotify for reverse proxy compatibility.
 	cn := closeNotifyRecorder{rec}
 	c, _ := gin.CreateTestContext(cn)
-	c.Request = httptest.NewRequest("GET", "/app/foo", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/app/foo", nil)
 
 	// set a small timeout on proxy transport via context deadline guarantee not needed; request returns fast.
 	handler(c)
@@ -237,7 +237,7 @@ func TestHandleStaticRequest_Static(t *testing.T) {
 	// Prepare gin context
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
-	ctx.Request = httptest.NewRequest("GET", "/static/index.txt", nil)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/static/index.txt", nil)
 
 	// Invoke static handler directly
 	handleStaticRequest(ctx, filepath.Join(dataDir, route.PublicPath), route)
@@ -323,7 +323,7 @@ func TestStartWebServerMode(t *testing.T) {
 		time.Sleep(500 * time.Millisecond)
 
 		// Test server is running
-		req, err := http.NewRequest("GET", "http://localhost:9999/", nil)
+		req, err := http.NewRequest(http.MethodGet, "http://localhost:9999/", nil)
 		require.NoError(t, err)
 
 		client := &http.Client{
@@ -377,7 +377,7 @@ func TestStartWebServerMode(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 
 		// Test server is running
-		req, err := http.NewRequest("GET", "http://localhost:8081/", nil)
+		req, err := http.NewRequest(http.MethodGet, "http://localhost:8081/", nil)
 		require.NoError(t, err)
 
 		client := &http.Client{
@@ -429,7 +429,7 @@ func TestStartWebServerMode(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 
 		// Test server is running
-		req, err := http.NewRequest("GET", "http://localhost:0/", nil)
+		req, err := http.NewRequest(http.MethodGet, "http://localhost:0/", nil)
 		require.NoError(t, err)
 
 		client := &http.Client{
@@ -475,7 +475,7 @@ func TestStartWebServerMode(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 
 		// Test server is running
-		req, err := http.NewRequest("GET", "http://localhost:0/", nil)
+		req, err := http.NewRequest(http.MethodGet, "http://localhost:0/", nil)
 		require.NoError(t, err)
 
 		client := &http.Client{
@@ -843,7 +843,7 @@ func TestWebServerHandler(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				// Create request
-				req, err := http.NewRequest("GET", tt.path, nil)
+				req, err := http.NewRequest(http.MethodGet, tt.path, nil)
 				require.NoError(t, err)
 
 				// Create response recorder
@@ -877,7 +877,7 @@ func TestWebServerHandler(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
+		c.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
 
 		handler := WebServerHandler(context.Background(), "localhost", route, &resolver.DependencyResolver{
 			Logger:  logger,
@@ -911,7 +911,7 @@ func TestWebServerHandler(t *testing.T) {
 		// Create request
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
+		c.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
 
 		// Call handler
 		handler(c)
@@ -939,7 +939,7 @@ func TestWebServerHandler(t *testing.T) {
 		// Create request
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
+		c.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
 
 		// Call handler
 		handler(c)

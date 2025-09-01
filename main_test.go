@@ -60,7 +60,7 @@ func TestSetupEnvironmentError(t *testing.T) {
 
 func TestSetupSignalHandler(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	env := &environment.Environment{}
@@ -68,7 +68,7 @@ func TestSetupSignalHandler(t *testing.T) {
 
 	// Test that setupSignalHandler doesn't panic
 	assert.NotPanics(t, func() {
-		setupSignalHandler(fs, ctx, cancel, env, false, logger)
+		setupSignalHandler(ctx, fs, cancel, env, false, logger)
 	})
 
 	// Cancel the context to clean up the goroutine
@@ -77,7 +77,7 @@ func TestSetupSignalHandler(t *testing.T) {
 
 func TestCleanup(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	ctx := context.Background()
+	ctx := t.Context()
 	env := &environment.Environment{}
 	logger := logging.NewTestLogger()
 
@@ -86,7 +86,7 @@ func TestCleanup(t *testing.T) {
 
 	// Test that cleanup doesn't panic
 	assert.NotPanics(t, func() {
-		cleanup(fs, ctx, env, true, logger) // Use apiServerMode=true to avoid os.Exit
+		cleanup(ctx, fs, env, true, logger) // Use apiServerMode=true to avoid os.Exit
 	})
 
 	// Check that the cleanup flag file was removed
@@ -100,7 +100,7 @@ func TestCleanup(t *testing.T) {
 func TestHandleNonDockerMode_Stubbed(t *testing.T) {
 	// Prepare a memory backed filesystem and minimal context / environment
 	fs := afero.NewMemMapFs()
-	ctx := context.Background()
+	ctx := t.Context()
 	ctx = ktx.CreateContext(ctx, ktx.CtxKeyGraphID, "test-graph")
 	env := &environment.Environment{Home: "/home", Pwd: "/pwd"}
 	logger := logging.NewTestLogger()
@@ -143,31 +143,31 @@ func TestHandleNonDockerMode_Stubbed(t *testing.T) {
 		return "/kdeps", nil
 	}
 	newRootCommandFn = func(_ context.Context, _ afero.Fs, _ string, _ *kdeps.Kdeps, _ *environment.Environment, _ *logging.Logger) *cobra.Command {
-		return &cobra.Command{Run: func(cmd *cobra.Command, args []string) {}}
+		return &cobra.Command{Run: func(_ *cobra.Command, _ []string) {}}
 	}
 
 	// Execute the function under test – if any of our stubs return an unexpected error the
 	// function itself will log.Fatal / log.Error. The absence of panics or fatal exits is our
 	// success criteria here.
-	handleNonDockerMode(fs, ctx, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger)
 }
 
 func TestHandleNonDockerMode_NoConfig(t *testing.T) {
 	// Test case: No configuration file found, should not panic
 	fs := afero.NewMemMapFs()
-	ctx := context.Background()
+	ctx := t.Context()
 	env := &environment.Environment{DockerMode: "0"}
 	logger := logging.GetLogger()
 
 	// Mock functions to avoid actual file operations
 	originalFindConfigurationFn := findConfigurationFn
-	findConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	findConfigurationFn = func(_ context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 		return "", nil
 	}
 	defer func() { findConfigurationFn = originalFindConfigurationFn }()
 
 	originalGenerateConfigurationFn := generateConfigurationFn
-	generateConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	generateConfigurationFn = func(_ context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 		return "", nil
 	}
 	defer func() { generateConfigurationFn = originalGenerateConfigurationFn }()
@@ -185,15 +185,15 @@ func TestHandleNonDockerMode_NoConfig(t *testing.T) {
 	defer func() { validateConfigurationFn = originalValidateConfigurationFn }()
 
 	// Call the function, it should return without panicking
-	handleNonDockerMode(fs, ctx, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger)
 	t.Log("handleNonDockerMode with no config test passed")
 }
 
 func TestCleanupFlagRemovalMemFS(t *testing.T) {
-	_ = schema.SchemaVersion(context.TODO())
+	_ = schema.SchemaVersion(t.Context())
 
 	fs := afero.NewMemMapFs()
-	ctx := context.Background()
+	ctx := t.Context()
 	logger := logging.NewTestLogger()
 
 	flag := "/.dockercleanup"
@@ -203,7 +203,7 @@ func TestCleanupFlagRemovalMemFS(t *testing.T) {
 
 	env := &environment.Environment{DockerMode: "0"}
 
-	cleanup(fs, ctx, env, true, logger)
+	cleanup(ctx, fs, env, true, logger)
 
 	if exists, _ := afero.Exists(fs, flag); exists {
 		t.Fatalf("cleanup did not remove %s", flag)
@@ -244,21 +244,21 @@ func TestHandleDockerMode_Flow(t *testing.T) {
 	cleanupCalled := make(chan struct{}, 1)
 
 	withInjects(func() {
-		bootstrapDockerSystemFn = func(ctx context.Context, _ *resolver.DependencyResolver) (bool, error) {
+		bootstrapDockerSystemFn = func(_ context.Context, _ *resolver.DependencyResolver) (bool, error) {
 			bootCalled <- struct{}{}
 			return true, nil // apiServerMode
 		}
 		// runGraphResolverActions should NOT be called because ApiServerMode == true; panic if invoked
-		runGraphResolverActionsFn = func(ctx context.Context, dr *resolver.DependencyResolver, apiServer bool) error {
+		runGraphResolverActionsFn = func(_ context.Context, dr *resolver.DependencyResolver, apiServer bool) error {
 			t.Fatalf("runGraphResolverActions should not be called in apiServerMode")
 			return nil
 		}
-		cleanupFn = func(_ afero.Fs, _ context.Context, _ *environment.Environment, _ bool, _ *logging.Logger) {
+		cleanupFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ bool, _ *logging.Logger) {
 			cleanupCalled <- struct{}{}
 		}
 	}, t)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -310,12 +310,12 @@ func TestHandleNonDockerMode_Flow(t *testing.T) {
 		}
 		getKdepsPathFn = func(context.Context, kdeps.Kdeps) (string, error) { return "/tmp/kdeps", nil }
 		newRootCommandFn = func(context.Context, afero.Fs, string, *kdeps.Kdeps, *environment.Environment, *logging.Logger) *cobra.Command {
-			return &cobra.Command{Run: func(cmd *cobra.Command, args []string) {}}
+			return &cobra.Command{Run: func(_ *cobra.Command, _ []string) {}}
 		}
 	}, t)
 
-	ctx := context.Background()
-	handleNonDockerMode(fs, ctx, env, logger) // should complete without panic
+	ctx := t.Context()
+	handleNonDockerMode(ctx, fs, env, logger) // should complete without panic
 }
 
 // TestHandleDockerMode_APIServerMode validates the code path where bootstrapDockerSystemFn
@@ -325,7 +325,7 @@ func TestHandleNonDockerMode_Flow(t *testing.T) {
 // which previously had little or no coverage.
 func TestHandleDockerMode_APIServerMode(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	dr := &resolver.DependencyResolver{
@@ -360,7 +360,7 @@ func TestHandleDockerMode_APIServerMode(t *testing.T) {
 	}
 
 	// Stub cleanup so we do not touch the real docker cleanup logic.
-	cleanupFn = func(_ afero.Fs, _ context.Context, _ *environment.Environment, _ bool, _ *logging.Logger) {
+	cleanupFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ bool, _ *logging.Logger) {
 		atomic.StoreInt32(&cleanupCalled, 1)
 	}
 
@@ -394,7 +394,7 @@ func TestHandleDockerMode_APIServerMode(t *testing.T) {
 // TestHandleDockerMode_NoAPIServer exercises the docker-mode loop with all helpers stubbed.
 func TestHandleDockerMode_NoAPIServer(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// Fake dependency resolver with only the fields used by handleDockerMode.
@@ -429,7 +429,7 @@ func TestHandleDockerMode_NoAPIServer(t *testing.T) {
 		return nil
 	}
 
-	cleanupFn = func(_ afero.Fs, _ context.Context, _ *environment.Environment, _ bool, _ *logging.Logger) {
+	cleanupFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ bool, _ *logging.Logger) {
 		atomic.StoreInt32(&cleanupCalled, 1)
 	}
 
@@ -509,7 +509,7 @@ func TestHandleNonDockerModeExercise(t *testing.T) {
 	}()
 
 	fs := afero.NewMemMapFs()
-	ctx := context.Background()
+	ctx := t.Context()
 	env := &environment.Environment{DockerMode: "0"}
 	logger := logging.NewTestLogger()
 
@@ -535,24 +535,24 @@ func TestHandleNonDockerModeExercise(t *testing.T) {
 
 	executed := false
 	newRootCommandFn = func(context.Context, afero.Fs, string, *kdeps.Kdeps, *environment.Environment, *logging.Logger) *cobra.Command {
-		return &cobra.Command{RunE: func(cmd *cobra.Command, args []string) error { executed = true; return nil }}
+		return &cobra.Command{RunE: func(_ *cobra.Command, _ []string) error { executed = true; return nil }}
 	}
 
-	handleNonDockerMode(fs, ctx, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger)
 	require.True(t, executed, "root command Execute should be called")
 }
 
 // TestCleanupFlagRemoval verifies cleanup deletes the /.dockercleanup flag file.
 func TestCleanupFlagRemoval(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	ctx := context.Background()
+	ctx := t.Context()
 	env := &environment.Environment{DockerMode: "0"} // skip docker specific logic
 	logger := logging.NewTestLogger()
 
 	// Create flag file
 	require.NoError(t, afero.WriteFile(fs, "/.dockercleanup", []byte("flag"), 0644))
 
-	cleanup(fs, ctx, env, true, logger)
+	cleanup(ctx, fs, env, true, logger)
 
 	exists, _ := afero.Exists(fs, "/.dockercleanup")
 	require.False(t, exists, "cleanup should remove /.dockercleanup")
@@ -598,7 +598,7 @@ func TestHandleDockerMode(t *testing.T) {
 				return nil
 			}
 			cleanCalled := false
-			cleanupFn = func(_ afero.Fs, _ context.Context, _ *environment.Environment, _ bool, _ *logging.Logger) {
+			cleanupFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ bool, _ *logging.Logger) {
 				cleanCalled = true
 			}
 
@@ -609,7 +609,7 @@ func TestHandleDockerMode(t *testing.T) {
 				Environment: &environment.Environment{DockerMode: "1"},
 			}
 
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(t.Context())
 			wg := sync.WaitGroup{}
 			wg.Add(1)
 			go func() {
@@ -685,13 +685,13 @@ func TestHandleNonDockerMode(t *testing.T) {
 
 	executed := false
 	newRootCommandFn = func(_ context.Context, _ afero.Fs, _ string, _ *kdeps.Kdeps, _ *environment.Environment, _ *logging.Logger) *cobra.Command {
-		return &cobra.Command{Run: func(cmd *cobra.Command, args []string) { executed = true }}
+		return &cobra.Command{Run: func(_ *cobra.Command, _ []string) { executed = true }}
 	}
 
 	env := &environment.Environment{DockerMode: "0"}
-	ctx := context.Background()
+	ctx := t.Context()
 
-	handleNonDockerMode(fs, ctx, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger)
 
 	if !executed {
 		t.Fatalf("expected root command to be executed")
@@ -736,9 +736,9 @@ func TestMainEntry_NoDocker(t *testing.T) {
 		}
 		getKdepsPathFn = func(context.Context, kdeps.Kdeps) (string, error) { return "/tmp", nil }
 		newRootCommandFn = func(context.Context, afero.Fs, string, *kdeps.Kdeps, *environment.Environment, *logging.Logger) *cobra.Command {
-			return &cobra.Command{Run: func(cmd *cobra.Command, args []string) {}}
+			return &cobra.Command{Run: func(_ *cobra.Command, _ []string) {}}
 		}
-		cleanupFn = func(afero.Fs, context.Context, *environment.Environment, bool, *logging.Logger) {}
+		cleanupFn = func(context.Context, afero.Fs, *environment.Environment, bool, *logging.Logger) {}
 	}, t)
 
 	// Run main. It should return without panic.
@@ -747,7 +747,7 @@ func TestMainEntry_NoDocker(t *testing.T) {
 
 func TestHandleNonDockerModeFlow(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	ctx := context.Background()
+	ctx := t.Context()
 	env := &environment.Environment{}
 	logger := logging.NewTestLogger()
 
@@ -800,10 +800,9 @@ func TestHandleNonDockerModeFlow(t *testing.T) {
 	}
 
 	// execute function
-	handleNonDockerMode(fs, ctx, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger)
 
 	// if we reach here, function executed without fatal panic.
-	assert.True(t, true)
 }
 
 // TestHandleNonDockerModeExistingConfig exercises the code path where a
@@ -811,7 +810,7 @@ func TestHandleNonDockerModeFlow(t *testing.T) {
 // several lines that were previously unexecuted.
 func TestHandleNonDockerModeExistingConfig(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	ctx := context.Background()
+	ctx := t.Context()
 	env := &environment.Environment{}
 	logger := logging.NewTestLogger()
 
@@ -852,7 +851,7 @@ func TestHandleNonDockerModeExistingConfig(t *testing.T) {
 	}
 
 	// Execute.
-	handleNonDockerMode(fs, ctx, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger)
 }
 
 // TestHandleNonDockerModeEditError triggers the branch where editing the
@@ -860,7 +859,7 @@ func TestHandleNonDockerModeExistingConfig(t *testing.T) {
 // logger.Error path and early return when cfgFile remains empty.
 func TestHandleNonDockerModeEditError(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	ctx := context.Background()
+	ctx := t.Context()
 	env := &environment.Environment{}
 	logger := logging.NewTestLogger()
 
@@ -896,7 +895,7 @@ func TestHandleNonDockerModeEditError(t *testing.T) {
 	}
 
 	// Execute – should not panic or fatal.
-	handleNonDockerMode(fs, ctx, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger)
 }
 
 // TestHandleNonDockerModeGenerateFlow covers the branch where no existing
@@ -905,7 +904,7 @@ func TestHandleNonDockerModeEditError(t *testing.T) {
 // handleNonDockerMode.
 func TestHandleNonDockerModeGenerateFlow(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	ctx := context.Background()
+	ctx := t.Context()
 	env := &environment.Environment{}
 	logger := logging.NewTestLogger()
 
@@ -956,12 +955,12 @@ func TestHandleNonDockerModeGenerateFlow(t *testing.T) {
 	newRootCommandFn = func(_ context.Context, _ afero.Fs, _ string, _ *kdeps.Kdeps, _ *environment.Environment, _ *logging.Logger) *cobra.Command {
 		// Define a no-op RunE so that Execute() does not error.
 		cmd := &cobra.Command{Use: "root"}
-		cmd.RunE = func(cmd *cobra.Command, args []string) error { return nil }
+		cmd.RunE = func(_ *cobra.Command, _ []string) error { return nil }
 		return cmd
 	}
 
 	// Execute.
-	handleNonDockerMode(fs, ctx, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger)
 }
 
 func TestHandleNonDockerModeBasic(t *testing.T) {
@@ -980,14 +979,14 @@ func TestHandleNonDockerModeBasic(t *testing.T) {
 		NonInteractive: "1",
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	logger := logging.NewTestLogger()
 
 	// Inject stubbed dependency functions
-	findConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	findConfigurationFn = func(_ context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 		return "", nil // force generation path
 	}
-	generateConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	generateConfigurationFn = func(_ context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 		confPath := env.Home + "/.kdeps.pkl"
 		if err := afero.WriteFile(fs, confPath, []byte("dummy"), 0o644); err != nil {
 			t.Fatalf("failed to write config: %v", err)
@@ -1003,11 +1002,11 @@ func TestHandleNonDockerModeBasic(t *testing.T) {
 	loadConfigurationFn = func(ctx context.Context, fs afero.Fs, path string, logger *logging.Logger) (*kdeps.Kdeps, error) {
 		return &kdeps.Kdeps{}, nil
 	}
-	getKdepsPathFn = func(_ context.Context, k kdeps.Kdeps) (string, error) {
+	getKdepsPathFn = func(_ context.Context, _ kdeps.Kdeps) (string, error) {
 		return "/tmp/kdeps", nil
 	}
-	newRootCommandFn = func(_ context.Context, _ afero.Fs, kdepsDir string, cfg *kdeps.Kdeps, env *environment.Environment, logger *logging.Logger) *cobra.Command {
-		return &cobra.Command{Use: "root", Run: func(_ *cobra.Command, args []string) {}}
+	newRootCommandFn = func(_ context.Context, _ afero.Fs, _ string, _ *kdeps.Kdeps, _ *environment.Environment, _ *logging.Logger) *cobra.Command {
+		return &cobra.Command{Use: "root", Run: func(_ *cobra.Command, _ []string) {}}
 	}
 
 	// Add context keys to mimic main
@@ -1015,7 +1014,7 @@ func TestHandleNonDockerModeBasic(t *testing.T) {
 	ctx = ktx.CreateContext(ctx, ktx.CtxKeyActionDir, "/tmp/action")
 
 	// Invoke the function under test. It should complete without panicking or fatal logging.
-	handleNonDockerMode(fs, ctx, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger)
 }
 
 // TestHandleNonDockerModeMinimal exercises the happy path of handleNonDockerMode
@@ -1025,7 +1024,7 @@ func TestHandleNonDockerModeMinimal(t *testing.T) {
 	fs := afero.NewOsFs()
 	tmp := t.TempDir()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	env := &environment.Environment{DockerMode: "0"}
 	logger := logging.NewTestLogger()
 
@@ -1053,7 +1052,7 @@ func TestHandleNonDockerModeMinimal(t *testing.T) {
 	}
 
 	// execute function under test; should not panic
-	handleNonDockerMode(fs, ctx, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger)
 }
 
 // TestHandleNonDockerMode_Happy mocks dependencies so the flow completes without fatal errors.
@@ -1111,13 +1110,13 @@ func TestHandleNonDockerMode_Happy(t *testing.T) {
 		return filepath.Join(tmp, "agents"), nil
 	}
 	newRootCommandFn = func(_ context.Context, _ afero.Fs, kdepsDir string, _ *kdeps.Kdeps, _ *environment.Environment, _ *logging.Logger) *cobra.Command {
-		return &cobra.Command{Run: func(_ *cobra.Command, args []string) {}}
+		return &cobra.Command{Run: func(_ *cobra.Command, _ []string) {}}
 	}
 
 	logger := logging.NewTestLogger()
 
 	// Execute the function under test; expect it to run without panics or exits.
-	handleNonDockerMode(fs, context.Background(), env, logger)
+	handleNonDockerMode(context.Background(), fs, env, logger)
 
 	// Sanity: ensure our logger captured the ready message.
 	if out := logger.GetOutput(); out == "" {

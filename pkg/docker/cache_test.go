@@ -80,7 +80,7 @@ func TestGenerateURLs_DefaultVersion(t *testing.T) {
 	ctx := context.Background()
 	items, err := GenerateURLs(ctx, true)
 	assert.NoError(t, err)
-	assert.Greater(t, len(items), 0)
+	assert.NotEmpty(t, items)
 
 	// verify each item has URL and LocalName populated
 	for _, item := range items {
@@ -195,7 +195,7 @@ func (m mockHTMLTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 <a href="Anaconda3-2024.09-1-Linux-aarch64.sh">Anaconda3-2024.09-1-Linux-aarch64.sh</a>
 </body></html>`
 		resp := &http.Response{
-			StatusCode: 200,
+			StatusCode: http.StatusOK,
 			Body:       ioutil.NopCloser(bytes.NewBufferString(html)),
 			Header:     make(http.Header),
 		}
@@ -423,7 +423,7 @@ func (m multiMockTransport) RoundTrip(req *http.Request) (*http.Response, error)
 		html := `<a href="Anaconda3-2025.01-0-Linux-x86_64.sh">Anaconda3-2025.01-0-Linux-x86_64.sh</a>`
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewBufferString(html)), Header: make(http.Header)}, nil
 	default:
-		return &http.Response{StatusCode: 404, Body: io.NopCloser(bytes.NewBuffer(nil)), Header: make(http.Header)}, nil
+		return &http.Response{StatusCode: http.StatusNotFound, Body: io.NopCloser(bytes.NewBuffer(nil)), Header: make(http.Header)}, nil
 	}
 }
 
@@ -1019,7 +1019,7 @@ func TestGetLatestAnacondaVersions_StatusError(t *testing.T) {
 	ctx := context.Background()
 	original := http.DefaultTransport
 	http.DefaultTransport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
-		return &http.Response{StatusCode: 500, Header: make(http.Header), Body: io.NopCloser(bytes.NewBufferString(""))}, nil
+		return &http.Response{StatusCode: http.StatusInternalServerError, Header: make(http.Header), Body: io.NopCloser(bytes.NewBufferString(""))}, nil
 	})
 	defer func() { http.DefaultTransport = original }()
 
@@ -1085,7 +1085,7 @@ func TestGetLatestAnacondaVersionsMock(t *testing.T) {
 	http.DefaultTransport = rtFunc(func(r *http.Request) (*http.Response, error) {
 		if r.URL.Host == "repo.anaconda.com" {
 			return &http.Response{
-				StatusCode: 200,
+				StatusCode: http.StatusOK,
 				Header:     make(http.Header),
 				Body:       io.NopCloser(bytes.NewBufferString(html)),
 			}, nil

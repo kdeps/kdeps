@@ -15,7 +15,7 @@ import (
 func TestHandleNonDockerMode_GenerateFlow(t *testing.T) {
 	// Prepare filesystem and env
 	fs := afero.NewMemMapFs()
-	ctx := context.Background()
+	ctx := t.Context()
 	env, _ := environment.NewEnvironment(fs, nil)
 	logger := logging.GetLogger()
 
@@ -60,18 +60,18 @@ func TestHandleNonDockerMode_GenerateFlow(t *testing.T) {
 	newRootCommandFn = func(context.Context, afero.Fs, string, *kdeps.Kdeps, *environment.Environment, *logging.Logger) *cobra.Command {
 		return &cobra.Command{
 			Use: "root",
-			Run: func(cmd *cobra.Command, args []string) {},
+			Run: func(_ *cobra.Command, _ []string) {},
 		}
 	}
 
 	// Call the function; expecting graceful completion without panic.
-	handleNonDockerMode(fs, ctx, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger)
 }
 
 // TestHandleNonDockerMode_ExistingConfig exercises the flow when a configuration already exists.
 func TestHandleNonDockerMode_ExistingConfig(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	ctx := context.Background()
+	ctx := t.Context()
 	env, _ := environment.NewEnvironment(fs, nil)
 	logger := logging.GetLogger()
 
@@ -108,7 +108,7 @@ func TestHandleNonDockerMode_ExistingConfig(t *testing.T) {
 	}
 
 	// Execute
-	handleNonDockerMode(fs, ctx, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger)
 }
 
 func TestSetupEnvironmentSuccess(t *testing.T) {

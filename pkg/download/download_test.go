@@ -548,7 +548,7 @@ func TestDownloadFile_InvalidStatus(t *testing.T) {
 
 	// Spin up a server that returns 500.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(500)
+		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer srv.Close()
 

@@ -1363,7 +1363,7 @@ func TestGenerateURLs_GitHubError(t *testing.T) {
 	http.DefaultTransport = rtFunc(func(r *http.Request) (*http.Response, error) {
 		if r.URL.Host == "api.github.com" {
 			return &http.Response{
-				StatusCode: 403,
+				StatusCode: http.StatusForbidden,
 				Body:       io.NopCloser(bytes.NewBufferString("forbidden")),
 				Header:     make(http.Header),
 			}, nil
@@ -1399,7 +1399,7 @@ func TestGenerateURLs_AnacondaError(t *testing.T) {
 	http.DefaultTransport = rtFunc(func(r *http.Request) (*http.Response, error) {
 		if r.URL.Host == "repo.anaconda.com" {
 			return &http.Response{
-				StatusCode: 500,
+				StatusCode: http.StatusInternalServerError,
 				Body:       io.NopCloser(bytes.NewBufferString("server error")),
 				Header:     make(http.Header),
 			}, nil

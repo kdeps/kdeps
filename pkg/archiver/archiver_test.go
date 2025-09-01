@@ -345,7 +345,7 @@ func theContentOfThatArchiveFileWillBeExtractedTo(arg1 string) error {
 }
 
 func thePklFilesIsValid() error {
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowFile, logger); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowFile, ctx, logger); err != nil {
 		return err
 	}
 
@@ -422,7 +422,7 @@ func thePklFilesIsInvalid() error {
 
 	workflowFile = file
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowFile, logger); err == nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowFile, ctx, logger); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 

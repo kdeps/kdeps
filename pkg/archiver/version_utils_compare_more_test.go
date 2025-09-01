@@ -70,14 +70,14 @@ func TestCompareVersionsAndGetLatest(t *testing.T) {
 
 		// create version dirs
 		for _, v := range []string{"0.1.0", "1.2.3", "1.2.10"} {
-			assert.NoError(t, fs.MkdirAll(filepath.Join(tmpDir, v), 0o755))
+			require.NoError(t, fs.MkdirAll(filepath.Join(tmpDir, v), 0o755))
 		}
 		latest, err := GetLatestVersion(tmpDir, logger)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "1.2.3", latest)
 
 		emptyDir := filepath.Join(tmpDir, "empty")
-		assert.NoError(t, fs.MkdirAll(emptyDir, 0o755))
+		require.NoError(t, fs.MkdirAll(emptyDir, 0o755))
 		_, err = GetLatestVersion(emptyDir, logger)
 		assert.Error(t, err)
 	})
@@ -137,12 +137,12 @@ func TestGetLatestVersion(t *testing.T) {
 		emptyDir := t.TempDir()
 		latestVersion, err := GetLatestVersion(emptyDir, logger)
 		require.Error(t, err, "Expected error for no versions found")
-		assert.Equal(t, "", latestVersion, "Expected empty latest version")
+		assert.Empty(t, latestVersion, "Expected empty latest version")
 	})
 
 	t.Run("Invalid directory path", func(t *testing.T) {
 		latestVersion, err := GetLatestVersion("/invalid/path", logger)
 		require.Error(t, err, "Expected error for invalid path")
-		assert.Equal(t, "", latestVersion, "Expected empty latest version")
+		assert.Empty(t, latestVersion, "Expected empty latest version")
 	})
 }
