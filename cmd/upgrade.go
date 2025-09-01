@@ -16,7 +16,7 @@ import (
 )
 
 // UpgradeCommand creates the 'upgrade' command for upgrading schema versions in pkl files.
-func UpgradeCommand(ctx context.Context, fs afero.Fs, kdepsDir string, logger *logging.Logger) *cobra.Command {
+func UpgradeCommand(_ context.Context, fs afero.Fs, kdepsDir string, logger *logging.Logger) *cobra.Command {
 	var targetVersion string
 	var dryRun bool
 
@@ -40,7 +40,7 @@ Examples:
   kdeps upgrade --dry-run ./my-agent  # Preview changes without applying
 		`,
 		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			// Determine target directory
 			targetDir := "."
 			if len(args) > 0 {

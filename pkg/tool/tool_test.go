@@ -499,6 +499,7 @@ func TestInitializeTool(t *testing.T) {
 	}
 	if reader == nil {
 		t.Error("InitializeTool returned nil reader")
+		return
 	}
 	if reader.DB == nil {
 		t.Error("InitializeTool returned reader with nil DB")

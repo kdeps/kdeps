@@ -21,7 +21,7 @@ func NewBuildCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCf
 		Example: "$ kdeps build ./myAgent.kdeps",
 		Short:   "Build a dockerized AI agent",
 		Args:    cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			pkgFile := args[0]
 			// Use the passed dependencies
 			pkgProject, err := archiver.ExtractPackage(fs, ctx, kdepsDir, pkgFile, logger)

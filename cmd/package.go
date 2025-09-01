@@ -28,7 +28,7 @@ func NewPackageCommand(ctx context.Context, fs afero.Fs, kdepsDir string, env *e
 		Example: "$ kdeps package ./myAgent/",
 		Short:   "Package an AI agent to .kdeps file",
 		Args:    cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			agentDir := args[0]
 
 			// Find the workflow file associated with the agent directory

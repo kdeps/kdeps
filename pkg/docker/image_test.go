@@ -808,7 +808,7 @@ func TestGenerateParamsSection_Extra(t *testing.T) {
 	got := generateParamsSection("ENV", input)
 
 	// The slice order is not guaranteed; ensure both expected lines exist.
-	if !(containsLine(got, `ENV USER="root"`) && containsLine(got, `ENV DEBUG`)) {
+	if !containsLine(got, `ENV USER="root"`) || !containsLine(got, `ENV DEBUG`) {
 		t.Fatalf("unexpected section: %s", got)
 	}
 }
@@ -1450,12 +1450,12 @@ type roundTripperLatest struct{}
 
 func (roundTripperLatest) RoundTrip(req *http.Request) (*http.Response, error) {
 	// Distinguish responses based on requested URL path.
-	switch {
-	case req.URL.Host == "api.github.com":
+	switch req.URL.Host {
+	case "api.github.com":
 		// Fake GitHub release JSON.
 		body, _ := json.Marshal(map[string]string{"tag_name": "v0.29.0"})
 		return &http.Response{StatusCode: http.StatusOK, Body: ioNopCloser(bytes.NewReader(body)), Header: make(http.Header)}, nil
-	case req.URL.Host == "repo.anaconda.com":
+	case "repo.anaconda.com":
 		html := `<a href="Anaconda3-2024.05-0-Linux-x86_64.sh">file</a><a href="Anaconda3-2024.05-0-Linux-aarch64.sh">file</a>`
 		return &http.Response{StatusCode: http.StatusOK, Body: ioNopCloser(bytes.NewReader([]byte(html))), Header: make(http.Header)}, nil
 	default:

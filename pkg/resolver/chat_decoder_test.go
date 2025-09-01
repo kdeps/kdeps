@@ -317,7 +317,7 @@ func TestGenerateChatResponseBasic(t *testing.T) {
 			// Return NDJSON single line with completed message
 			body := `{"message":{"content":"stub-response"},"done":true}` + "\n"
 			resp := &http.Response{
-				StatusCode: 200,
+				StatusCode: http.StatusOK,
 				Header:     make(http.Header),
 				Body:       io.NopCloser(strings.NewReader(body)),
 			}

@@ -99,7 +99,7 @@ func DownloadFiles(fs afero.Fs, ctx context.Context, downloadDir string, items [
 		}
 
 		// Download the file
-		err := DownloadFile(fs, ctx, item.URL, localPath, logger, useLatest)
+		err := DownloadFile(ctx, fs, item.URL, localPath, logger, useLatest)
 		if err != nil {
 			logger.Error("failed to download", "url", item.URL, "err", err)
 			if isCache {
@@ -122,7 +122,7 @@ func DownloadFiles(fs afero.Fs, ctx context.Context, downloadDir string, items [
 
 // DownloadFile downloads a file from the specified URL and saves it to the given path.
 // If useLatest is true, it overwrites the destination file regardless of its existence.
-func DownloadFile(fs afero.Fs, ctx context.Context, url, filePath string, logger *logging.Logger, useLatest bool) error {
+func DownloadFile(ctx context.Context, fs afero.Fs, url, filePath string, logger *logging.Logger, useLatest bool) error {
 	logger.Debug(messages.MsgCheckingFileExistsDownload, "destination", filePath)
 
 	if filePath == "" {

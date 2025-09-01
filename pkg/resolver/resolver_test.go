@@ -896,6 +896,8 @@ Settings {
 			strings.Contains(msg, "Received unexpected status code") ||
 			strings.Contains(msg, "apple PKL not found") ||
 			strings.Contains(msg, "Invalid token") {
+			// Skip test when PKL is not available
+			t.Skip("PKL not available in test environment")
 		}
 	}
 

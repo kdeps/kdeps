@@ -40,11 +40,11 @@ func TestNewAgentCommandExecution(t *testing.T) {
 	cmd := NewAgentCommand(ctx, fs, kdepsDir, logger)
 	cmd.SetArgs([]string{"testagent"})
 	err = cmd.Execute()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify agent directory was created
 	exists, err := afero.DirExists(fs, "testagent")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, exists)
 
 	// Verify required files were created
@@ -60,12 +60,12 @@ func TestNewAgentCommandExecution(t *testing.T) {
 	for _, file := range requiredFiles {
 		filePath := filepath.Join("testagent", file)
 		exists, err := afero.Exists(fs, filePath)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, exists, "File %s should exist", filePath)
 
 		// Verify file contents
 		content, err := afero.ReadFile(fs, filePath)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotEmpty(t, content, "File %s should not be empty", filePath)
 	}
 
@@ -73,7 +73,7 @@ func TestNewAgentCommandExecution(t *testing.T) {
 	cmd = NewAgentCommand(ctx, fs, kdepsDir, logger)
 	cmd.SetArgs([]string{})
 	err = cmd.Execute()
-	assert.Error(t, err)
+	require.Error(t, err)
 	if err != nil {
 		assert.Contains(t, err.Error(), "accepts 1 arg", "unexpected error message")
 	}
@@ -100,7 +100,7 @@ func TestNewAgentCommandMaxArgs(t *testing.T) {
 	cmd := NewAgentCommand(ctx, fs, kdepsDir, logger)
 	cmd.SetArgs([]string{"test-agent", "extra-arg"})
 	err := cmd.Execute()
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "accepts 1 arg(s), received 2")
 }
 
@@ -113,7 +113,7 @@ func TestNewAgentCommandEmptyName(t *testing.T) {
 	cmd := NewAgentCommand(ctx, fs, kdepsDir, logger)
 	cmd.SetArgs([]string{"   "})
 	err := cmd.Execute()
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "agent name cannot be empty or only whitespace")
 }
 
@@ -143,6 +143,6 @@ func TestNewAgentCommandTemplateError(t *testing.T) {
 	cmd := NewAgentCommand(ctx, fs, kdepsDir, logger)
 	cmd.SetArgs([]string{"test-agent"})
 	err = cmd.Execute()
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read template from disk")
 }

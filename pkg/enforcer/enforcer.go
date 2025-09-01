@@ -103,7 +103,7 @@ func compareVersions(v1, v2 string, logger *logging.Logger) (int, error) {
 	return 0, nil
 }
 
-func EnforceSchemaURL(line, filePath string, ctx context.Context, logger *logging.Logger) error {
+func EnforceSchemaURL(ctx context.Context, line, filePath string, logger *logging.Logger) error {
 	const amendErr = "the pkl file does not start with 'amends'"
 	const schemaErr = "the pkl file does not contain 'schema.kdeps.com/core'"
 
@@ -119,7 +119,7 @@ func EnforceSchemaURL(line, filePath string, ctx context.Context, logger *loggin
 	return nil
 }
 
-func EnforcePklVersion(line, filePath, schemaVersion string, ctx context.Context, logger *logging.Logger) error {
+func EnforcePklVersion(ctx context.Context, line, filePath, schemaVersion string, logger *logging.Logger) error {
 	start := strings.Index(line, "@")
 	end := strings.Index(line, "#")
 	if start == -1 || end == -1 || start >= end {
@@ -146,7 +146,7 @@ func EnforcePklVersion(line, filePath, schemaVersion string, ctx context.Context
 	return nil
 }
 
-func EnforcePklFilename(line string, filePath string, ctx context.Context, logger *logging.Logger) error {
+func EnforcePklFilename(ctx context.Context, line string, filePath string, logger *logging.Logger) error {
 	filename := strings.ToLower(filepath.Base(filePath))
 	start := strings.Index(line, "#/")
 	if start == -1 {
@@ -222,7 +222,7 @@ func EnforceFolderStructure(fs afero.Fs, ctx context.Context, filePath string, l
 			expectedFolders[file.Name()] = true
 
 			if file.Name() == "resources" {
-				if err := enforceResourcesFolder(fs, filepath.Join(absTargetDir, "resources"), ctx, logger); err != nil {
+				if err := enforceResourcesFolder(ctx, fs, filepath.Join(absTargetDir, "resources"), logger); err != nil {
 					return err
 				}
 			}
@@ -240,7 +240,7 @@ func EnforceFolderStructure(fs afero.Fs, ctx context.Context, filePath string, l
 	return nil
 }
 
-func EnforceResourceRunBlock(fs afero.Fs, file string, ctx context.Context, logger *logging.Logger) error {
+func EnforceResourceRunBlock(ctx context.Context, fs afero.Fs, file string, logger *logging.Logger) error {
 	pklData, err := afero.ReadFile(fs, file)
 	if err != nil {
 		logger.Error("failed to read .pkl file", "file", file, "error", err)
@@ -265,7 +265,7 @@ func EnforceResourceRunBlock(fs afero.Fs, file string, ctx context.Context, logg
 	return nil
 }
 
-func enforceResourcesFolder(fs afero.Fs, resourcesPath string, ctx context.Context, logger *logging.Logger) error {
+func enforceResourcesFolder(ctx context.Context, fs afero.Fs, resourcesPath string, logger *logging.Logger) error {
 	files, err := afero.ReadDir(fs, resourcesPath)
 	if err != nil {
 		logger.Error("error reading resources folder", "path", resourcesPath, "error", err)
@@ -287,7 +287,7 @@ func enforceResourcesFolder(fs afero.Fs, resourcesPath string, ctx context.Conte
 		}
 
 		fullPath := filepath.Join(resourcesPath, file.Name())
-		if err := EnforceResourceRunBlock(fs, fullPath, ctx, logger); err != nil {
+		if err := EnforceResourceRunBlock(ctx, fs, fullPath, logger); err != nil {
 			logger.Error("failed to process .pkl file", "file", fullPath, "error", err)
 			return err
 		}
@@ -325,16 +325,16 @@ func EnforcePklTemplateAmendsRules(fs afero.Fs, filePath string, ctx context.Con
 			amendsCount++
 			logger.Debug("processing amends line", "line", line, "count", amendsCount)
 
-			if err := EnforceSchemaURL(line, filePath, ctx, logger); err != nil {
+			if err := EnforceSchemaURL(ctx, line, filePath, logger); err != nil {
 				return fmt.Errorf("schema URL validation failed for amends statement %d: %w", amendsCount, err)
 			}
 
-			if err := EnforcePklVersion(line, filePath, schema.SchemaVersion(ctx), ctx, logger); err != nil {
+			if err := EnforcePklVersion(ctx, line, filePath, schema.SchemaVersion(ctx), logger); err != nil {
 				return fmt.Errorf("version validation failed for amends statement %d: %w", amendsCount, err)
 			}
 
 			// Check if this amends statement is valid for the file type
-			if err := EnforcePklFilename(line, filePath, ctx, logger); err == nil {
+			if err := EnforcePklFilename(ctx, line, filePath, logger); err == nil {
 				validFileTypeFound = true
 				logger.Debug("amends statement valid for file type", "line", line, "count", amendsCount)
 			} else {

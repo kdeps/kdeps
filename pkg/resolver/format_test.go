@@ -972,6 +972,7 @@ func TestAppendPythonEntryExtra(t *testing.T) {
 	}
 
 	t.Run("NewEntry", func(t *testing.T) {
+		t.Parallel()
 		dr, pklPath := newResolver(t)
 
 		initial := fmt.Sprintf(`extends "package://schema.kdeps.com/core@%s#/Python.pkl"
@@ -1000,6 +1001,7 @@ Resources {
 	})
 
 	t.Run("ExistingEntry", func(t *testing.T) {
+		t.Parallel()
 		dr, pklPath := newResolver(t)
 
 		initial := fmt.Sprintf(`extends "package://schema.kdeps.com/core@%s#/Python.pkl"

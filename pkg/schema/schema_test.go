@@ -144,11 +144,11 @@ func TestSchemaVersionSpecified(t *testing.T) {
 // TestSchemaVersionLatestSuccess exercises the successful latest-fetch path.
 func TestSchemaVersionLatestSuccess(t *testing.T) {
 	// Save globals
-	origLatest := UseLatest
-	origFetcher := utils.GitHubReleaseFetcher
+	originalUseLatest := UseLatest
+	originalFetcher := utils.GitHubReleaseFetcher
 	defer func() {
-		UseLatest = origLatest
-		utils.GitHubReleaseFetcher = origFetcher
+		UseLatest = originalUseLatest
+		utils.GitHubReleaseFetcher = originalFetcher
 		versionCache.Delete("version")
 	}()
 
@@ -168,13 +168,13 @@ func TestSchemaVersionLatestSuccess(t *testing.T) {
 
 // TestSchemaVersionLatestFailure hits the error branch and verifies exitFunc is called.
 func TestSchemaVersionLatestFailure(t *testing.T) {
-	origLatest := UseLatest
-	origFetcher := utils.GitHubReleaseFetcher
-	origExit := exitFunc
+	originalUseLatest := UseLatest
+	originalFetcher := utils.GitHubReleaseFetcher
+	originalExit := exitFunc
 	defer func() {
-		UseLatest = origLatest
-		utils.GitHubReleaseFetcher = origFetcher
-		exitFunc = origExit
+		UseLatest = originalUseLatest
+		utils.GitHubReleaseFetcher = originalFetcher
+		exitFunc = originalExit
 	}()
 
 	UseLatest = true
@@ -209,12 +209,12 @@ func TestSchemaVersionSpecifiedExtra(t *testing.T) {
 func TestSchemaVersionLatestCachingExtra(t *testing.T) {
 	// Prepare stub fetcher.
 	fetchCount := 0
-	oldFetcher := utils.GitHubReleaseFetcher
+	originalFetcher := utils.GitHubReleaseFetcher
 	utils.GitHubReleaseFetcher = func(ctx context.Context, repo, baseURL string) (string, error) {
 		fetchCount++
 		return "1.2.3", nil
 	}
-	defer func() { utils.GitHubReleaseFetcher = oldFetcher }()
+	defer func() { utils.GitHubReleaseFetcher = originalFetcher }()
 
 	// Activate latest mode and clear cache.
 	UseLatest = true

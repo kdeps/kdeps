@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"runtime"
 	"strings"
@@ -73,9 +72,9 @@ func TestBuildURL(t *testing.T) {
 
 func TestGenerateURLs_DefaultVersion(t *testing.T) {
 	// Ensure we are not in latest mode to avoid network calls
-	schemaUseLatestBackup := schema.UseLatest
+	originalUseLatest := schema.UseLatest
+	defer func() { schema.UseLatest = originalUseLatest }()
 	schema.UseLatest = false
-	defer func() { schema.UseLatest = schemaUseLatestBackup }()
 
 	ctx := context.Background()
 	items, err := GenerateURLs(ctx, true)
@@ -107,14 +106,14 @@ func TestGetLatestAnacondaVersionsSuccess(t *testing.T) {
 		` Anaconda3-2024.10-1-Linux-x86_64.sh Anaconda3-2024.08-1-Linux-aarch64.sh`
 
 	// mock transport
-	old := http.DefaultTransport
+	originalTransport := http.DefaultTransport
+	defer func() { http.DefaultTransport = originalTransport }()
 	http.DefaultTransport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		if r.URL.Host == "repo.anaconda.com" {
 			return buildResp(http.StatusOK, html), nil
 		}
-		return old.RoundTrip(r)
+		return originalTransport.RoundTrip(r)
 	})
-	defer func() { http.DefaultTransport = old }()
 
 	ctx := context.Background()
 	versions, err := GetLatestAnacondaVersions(ctx)
@@ -139,7 +138,8 @@ func TestGetLatestAnacondaVersionsErrors(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		old := http.DefaultTransport
+		originalTransport := http.DefaultTransport
+		defer func() { http.DefaultTransport = originalTransport }()
 		http.DefaultTransport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
 			return buildResp(c.status, c.body), nil
 		})
@@ -148,7 +148,6 @@ func TestGetLatestAnacondaVersionsErrors(t *testing.T) {
 		if err == nil {
 			t.Fatalf("expected error for case %+v", c)
 		}
-		http.DefaultTransport = old
 	}
 
 	_ = schema.SchemaVersion(context.Background())
@@ -169,9 +168,9 @@ func (archHTMLTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 func TestGetLatestAnacondaVersionsMultiArch(t *testing.T) {
 	ctx := context.Background()
 
-	oldTransport := http.DefaultTransport
+	originalTransport := http.DefaultTransport
+	defer func() { http.DefaultTransport = originalTransport }()
 	http.DefaultTransport = archHTMLTransport{}
-	defer func() { http.DefaultTransport = oldTransport }()
 
 	versions, err := GetLatestAnacondaVersions(ctx)
 	if err != nil {
@@ -196,7 +195,7 @@ func (m mockHTMLTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 </body></html>`
 		resp := &http.Response{
 			StatusCode: http.StatusOK,
-			Body:       ioutil.NopCloser(bytes.NewBufferString(html)),
+			Body:       io.NopCloser(bytes.NewBufferString(html)),
 			Header:     make(http.Header),
 		}
 		return resp, nil
@@ -206,9 +205,9 @@ func (m mockHTMLTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 
 func TestGetLatestAnacondaVersionsMockSimple(t *testing.T) {
 	// Replace the default transport
-	origTransport := http.DefaultTransport
+	originalTransport := http.DefaultTransport
+	defer func() { http.DefaultTransport = originalTransport }()
 	http.DefaultTransport = mockHTMLTransport{}
-	defer func() { http.DefaultTransport = origTransport }()
 
 	ctx := context.Background()
 	vers, err := GetLatestAnacondaVersions(ctx)
@@ -396,9 +395,9 @@ func TestBuildURLExtra(t *testing.T) {
 
 func TestGenerateURLs_NoLatest(t *testing.T) {
 	ctx := context.Background()
-	originalLatest := schema.UseLatest
+	originalUseLatest := schema.UseLatest
+	defer func() { schema.UseLatest = originalUseLatest }()
 	schema.UseLatest = false
-	defer func() { schema.UseLatest = originalLatest }()
 
 	items, err := GenerateURLs(ctx, true)
 	require.NoError(t, err)
@@ -429,12 +428,13 @@ func (m multiMockTransport) RoundTrip(req *http.Request) (*http.Response, error)
 
 func TestGenerateURLsLatestMode(t *testing.T) {
 	// Enable latest mode
+	originalUseLatest := schema.UseLatest
+	defer func() { schema.UseLatest = originalUseLatest }()
 	schema.UseLatest = true
-	defer func() { schema.UseLatest = false }()
 
-	origTransport := http.DefaultTransport
+	originalTransport := http.DefaultTransport
+	defer func() { http.DefaultTransport = originalTransport }()
 	http.DefaultTransport = multiMockTransport{}
-	defer func() { http.DefaultTransport = origTransport }()
 
 	ctx := context.Background()
 	items, err := GenerateURLs(ctx, true)
@@ -486,14 +486,15 @@ func (f stubRoundTrip) RoundTrip(r *http.Request) (*http.Response, error) { retu
 
 func TestGenerateURLs_UseLatestWithStubsLow(t *testing.T) {
 	// Stub GitHub release fetcher to avoid network
-	origFetcher := utils.GitHubReleaseFetcher
+	originalFetcher := utils.GitHubReleaseFetcher
+	defer func() { utils.GitHubReleaseFetcher = originalFetcher }()
 	utils.GitHubReleaseFetcher = func(ctx context.Context, repo, baseURL string) (string, error) {
 		return "99.99.99", nil
 	}
-	defer func() { utils.GitHubReleaseFetcher = origFetcher }()
 
 	// Intercept HTTP requests for both Anaconda archive and GitHub API
-	origTransport := http.DefaultTransport
+	originalTransport := http.DefaultTransport
+	defer func() { http.DefaultTransport = originalTransport }()
 	http.DefaultTransport = stubRoundTrip(func(req *http.Request) (*http.Response, error) {
 		var body string
 		if strings.Contains(req.URL.Host, "repo.anaconda.com") {
@@ -507,10 +508,10 @@ func TestGenerateURLs_UseLatestWithStubsLow(t *testing.T) {
 			Header:     make(http.Header),
 		}, nil
 	})
-	defer func() { http.DefaultTransport = origTransport }()
 
+	originalUseLatest := schema.UseLatest
+	defer func() { schema.UseLatest = originalUseLatest }()
 	schema.UseLatest = true
-	defer func() { schema.UseLatest = false }()
 
 	items, err := GenerateURLs(context.Background(), true)
 	if err != nil {
@@ -548,13 +549,13 @@ Anaconda3-2024.05-0-Linux-aarch64.sh`
 
 func TestGenerateURLs_UseLatest(t *testing.T) {
 	// Save and restore globals we mutate.
-	origLatest := schema.UseLatest
-	origFetcher := utils.GitHubReleaseFetcher
-	origTransport := http.DefaultTransport
+	originalUseLatest := schema.UseLatest
+	originalFetcher := utils.GitHubReleaseFetcher
+	originalTransport := http.DefaultTransport
 	defer func() {
-		schema.UseLatest = origLatest
-		utils.GitHubReleaseFetcher = origFetcher
-		http.DefaultTransport = origTransport
+		schema.UseLatest = originalUseLatest
+		utils.GitHubReleaseFetcher = originalFetcher
+		http.DefaultTransport = originalTransport
 	}()
 
 	schema.UseLatest = true
@@ -598,7 +599,8 @@ func TestGetLatestAnacondaVersions(t *testing.T) {
     `
 
 	// Mock transport to return above HTML for any request
-	origTransport := http.DefaultTransport
+	originalTransport := http.DefaultTransport
+	defer func() { http.DefaultTransport = originalTransport }()
 	http.DefaultTransport = roundTripFuncAnaconda(func(r *http.Request) (*http.Response, error) {
 		resp := &http.Response{
 			StatusCode: http.StatusOK,
@@ -607,7 +609,6 @@ func TestGetLatestAnacondaVersions(t *testing.T) {
 		}
 		return resp, nil
 	})
-	defer func() { http.DefaultTransport = origTransport }()
 
 	versions, err := GetLatestAnacondaVersions(context.Background())
 	assert.NoError(t, err)
@@ -643,6 +644,8 @@ func TestBuildURLAndArchMappingLow(t *testing.T) {
 
 func TestGenerateURLs_NoLatestLow(t *testing.T) {
 	// Ensure UseLatest is false for deterministic output
+	originalUseLatest := schema.UseLatest
+	defer func() { schema.UseLatest = originalUseLatest }()
 	schema.UseLatest = false
 	ctx := context.Background()
 	urls, err := GenerateURLs(ctx, true)
@@ -670,9 +673,9 @@ func TestGenerateURLsDefault(t *testing.T) {
 	ctx := context.Background()
 
 	// Ensure we are testing the static version path.
-	original := schema.UseLatest
+	originalUseLatest := schema.UseLatest
+	defer func() { schema.UseLatest = originalUseLatest }()
 	schema.UseLatest = false
-	defer func() { schema.UseLatest = original }()
 
 	items, err := GenerateURLs(ctx, true)
 	if err != nil {
@@ -911,9 +914,10 @@ func TestGetCurrentArchitecture(t *testing.T) {
 	// Unknown repo should fallback to default mapping
 	arch = GetCurrentArchitecture(ctx, "some/unknown")
 	expected := runtime.GOARCH
-	if runtime.GOARCH == "amd64" {
+	switch runtime.GOARCH {
+	case "amd64":
 		expected = "x86_64"
-	} else if runtime.GOARCH == "arm64" {
+	case "arm64":
 		expected = "aarch64"
 	}
 	if arch != expected {
@@ -995,9 +999,9 @@ func (m mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 
 func TestGetLatestAnacondaVersionsMocked(t *testing.T) {
 	// Swap the default transport for our mock and restore afterwards.
-	origTransport := http.DefaultTransport
+	originalTransport := http.DefaultTransport
+	defer func() { http.DefaultTransport = originalTransport }()
 	http.DefaultTransport = mockRoundTripper{}
-	defer func() { http.DefaultTransport = origTransport }()
 
 	ctx := context.Background()
 	versions, err := GetLatestAnacondaVersions(ctx)
@@ -1017,11 +1021,11 @@ func TestGetLatestAnacondaVersionsMocked(t *testing.T) {
 // TestGetLatestAnacondaVersions_StatusError ensures non-200 response returns error.
 func TestGetLatestAnacondaVersions_StatusError(t *testing.T) {
 	ctx := context.Background()
-	original := http.DefaultTransport
+	originalTransport := http.DefaultTransport
+	defer func() { http.DefaultTransport = originalTransport }()
 	http.DefaultTransport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: http.StatusInternalServerError, Header: make(http.Header), Body: io.NopCloser(bytes.NewBufferString(""))}, nil
 	})
-	defer func() { http.DefaultTransport = original }()
 
 	if _, err := GetLatestAnacondaVersions(ctx); err == nil {
 		t.Fatalf("expected error for non-OK status")
@@ -1032,11 +1036,11 @@ func TestGetLatestAnacondaVersions_StatusError(t *testing.T) {
 func TestGetLatestAnacondaVersions_NoMatches(t *testing.T) {
 	ctx := context.Background()
 	html := "<html><body>no versions here</body></html>"
-	original := http.DefaultTransport
+	originalTransport := http.DefaultTransport
+	defer func() { http.DefaultTransport = originalTransport }()
 	http.DefaultTransport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(bytes.NewBufferString(html))}, nil
 	})
-	defer func() { http.DefaultTransport = original }()
 
 	if _, err := GetLatestAnacondaVersions(ctx); err == nil {
 		t.Fatalf("expected error when no versions found")
@@ -1046,11 +1050,11 @@ func TestGetLatestAnacondaVersions_NoMatches(t *testing.T) {
 // TestGetLatestAnacondaVersions_NetworkError simulates transport failure.
 func TestGetLatestAnacondaVersions_NetworkError(t *testing.T) {
 	ctx := context.Background()
-	original := http.DefaultTransport
+	originalTransport := http.DefaultTransport
+	defer func() { http.DefaultTransport = originalTransport }()
 	http.DefaultTransport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		return nil, context.DeadlineExceeded
 	})
-	defer func() { http.DefaultTransport = original }()
 
 	if _, err := GetLatestAnacondaVersions(ctx); err == nil {
 		t.Fatalf("expected network error")
@@ -1081,7 +1085,8 @@ func TestGetLatestAnacondaVersionsMock(t *testing.T) {
     </body></html>`
 
 	// Save original transport and replace
-	orig := http.DefaultTransport
+	originalTransport := http.DefaultTransport
+	defer func() { http.DefaultTransport = originalTransport }()
 	http.DefaultTransport = rtFunc(func(r *http.Request) (*http.Response, error) {
 		if r.URL.Host == "repo.anaconda.com" {
 			return &http.Response{
@@ -1090,9 +1095,8 @@ func TestGetLatestAnacondaVersionsMock(t *testing.T) {
 				Body:       io.NopCloser(bytes.NewBufferString(html)),
 			}, nil
 		}
-		return orig.RoundTrip(r)
+		return originalTransport.RoundTrip(r)
 	})
-	defer func() { http.DefaultTransport = orig }()
 
 	versions, err := GetLatestAnacondaVersions(ctx)
 	if err != nil {
@@ -1183,9 +1187,9 @@ func TestGenerateURLsStatic(t *testing.T) {
 
 func TestGenerateURLs_NoAnaconda(t *testing.T) {
 	ctx := context.Background()
-	originalLatest := schema.UseLatest
+	originalUseLatest := schema.UseLatest
+	defer func() { schema.UseLatest = originalUseLatest }()
 	schema.UseLatest = false
-	defer func() { schema.UseLatest = originalLatest }()
 
 	items, err := GenerateURLs(ctx, false) // installAnaconda = false
 	require.NoError(t, err)

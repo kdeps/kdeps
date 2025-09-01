@@ -10,6 +10,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kdeps/kdeps/pkg/environment"
 	kdeps "github.com/kdeps/schema/gen/kdeps"
@@ -39,12 +40,12 @@ func TestNewBuildCommandExecution(t *testing.T) {
 	// Create test directory
 	testDir := filepath.Join("/test")
 	err := fs.MkdirAll(testDir, 0o755)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Create a valid workflow file
 	validAgentDir := filepath.Join(testDir, "valid-agent")
 	err = fs.MkdirAll(validAgentDir, 0o755)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	workflowContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
@@ -80,12 +81,12 @@ Settings {
 
 	workflowPath := filepath.Join(validAgentDir, "workflow.pkl")
 	err = afero.WriteFile(fs, workflowPath, []byte(workflowContent), 0o644)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Create resources directory and add required resources
 	resourcesDir := filepath.Join(validAgentDir, "resources")
 	err = fs.MkdirAll(resourcesDir, 0o755)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	resourceContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
@@ -101,33 +102,33 @@ run {
 	for _, resource := range requiredResources {
 		resourcePath := filepath.Join(resourcesDir, resource)
 		err = afero.WriteFile(fs, resourcePath, []byte(resourceContent), 0o644)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	}
 
 	// Create a valid .kdeps file
 	validKdepsPath := filepath.Join(testDir, "valid-agent.kdeps")
 	err = afero.WriteFile(fs, validKdepsPath, []byte("valid package"), 0o644)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Test error case - no arguments
 	cmd := NewBuildCommand(ctx, fs, kdepsDir, systemCfg, logger)
 	err = cmd.Execute()
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	// Test error case - nonexistent file
 	cmd = NewBuildCommand(ctx, fs, kdepsDir, systemCfg, logger)
 	cmd.SetArgs([]string{filepath.Join(testDir, "nonexistent.kdeps")})
 	err = cmd.Execute()
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	// Test error case - invalid package content
 	invalidKdepsPath := filepath.Join(testDir, "invalid.kdeps")
 	err = afero.WriteFile(fs, invalidKdepsPath, []byte("invalid package"), 0o644)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	cmd = NewBuildCommand(ctx, fs, kdepsDir, systemCfg, logger)
 	cmd.SetArgs([]string{invalidKdepsPath})
 	err = cmd.Execute()
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestNewBuildCommandDockerErrors(t *testing.T) {
@@ -141,7 +142,7 @@ func TestNewBuildCommandDockerErrors(t *testing.T) {
 	testDir := filepath.Join("/test")
 	validAgentDir := filepath.Join(testDir, "valid-agent")
 	err := fs.MkdirAll(validAgentDir, 0o755)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	workflowContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
 
@@ -177,12 +178,12 @@ Settings {
 
 	workflowPath := filepath.Join(validAgentDir, "workflow.pkl")
 	err = afero.WriteFile(fs, workflowPath, []byte(workflowContent), 0o644)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Create resources directory and add required resources
 	resourcesDir := filepath.Join(validAgentDir, "resources")
 	err = fs.MkdirAll(resourcesDir, 0o755)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	resourceContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
 
@@ -198,18 +199,18 @@ run {
 	for _, resource := range requiredResources {
 		resourcePath := filepath.Join(resourcesDir, resource)
 		err = afero.WriteFile(fs, resourcePath, []byte(resourceContent), 0o644)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 	}
 
 	// Create a valid .kdeps file
 	validKdepsPath := filepath.Join(testDir, "valid-agent.kdeps")
 	err = afero.WriteFile(fs, validKdepsPath, []byte("valid package"), 0o644)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	cmd := NewBuildCommand(ctx, fs, kdepsDir, systemCfg, logger)
 	cmd.SetArgs([]string{validKdepsPath})
 	err = cmd.Execute()
-	assert.Error(t, err) // Should fail due to docker client initialization
+	require.Error(t, err) // Should fail due to docker client initialization
 }
 
 func TestNewBuildCommand_MetadataAndErrorPath(t *testing.T) {
@@ -224,12 +225,12 @@ func TestNewBuildCommand_MetadataAndErrorPath(t *testing.T) {
 
 	// Execute with missing arg should error due to cobra Args check
 	err := cmd.Execute()
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	// Provide non-existent file – RunE should propagate ExtractPackage error.
 	cmd.SetArgs([]string{"nonexistent.kdeps"})
 	err = cmd.Execute()
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 func TestNewBuildCommandMetadata(t *testing.T) {

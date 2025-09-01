@@ -18,7 +18,7 @@ func NewAddCommand(ctx context.Context, fs afero.Fs, kdepsDir string, logger *lo
 		Example: "$ kdeps install ./myAgent.kdeps",
 		Short:   "Install an AI agent locally",
 		Args:    cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			pkgFile := args[0]
 			// Use the passed dependencies
 			_, err := archiver.ExtractPackage(fs, ctx, kdepsDir, pkgFile, logger)

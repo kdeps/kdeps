@@ -556,20 +556,20 @@ func (m *MockDockerClient) ContainerInspectWithRaw(ctx context.Context, containe
 	return container.InspectResponse{}, nil, nil
 }
 
-func (m *MockDockerClient) ContainerStats(ctx context.Context, containerID string, stream bool) (container.Stats, error) {
-	return container.Stats{}, nil
+func (m *MockDockerClient) ContainerStats(ctx context.Context, containerID string, stream bool) (container.StatsResponse, error) {
+	return container.StatsResponse{}, nil
 }
 
-func (m *MockDockerClient) ContainerStatsOneShot(ctx context.Context, containerID string) (container.Stats, error) {
-	return container.Stats{}, nil
+func (m *MockDockerClient) ContainerStatsOneShot(ctx context.Context, containerID string) (container.StatsResponse, error) {
+	return container.StatsResponse{}, nil
 }
 
-func (m *MockDockerClient) ContainerTop(ctx context.Context, containerID string, arguments []string) (container.ContainerTopOKBody, error) {
-	return container.ContainerTopOKBody{}, nil
+func (m *MockDockerClient) ContainerTop(ctx context.Context, containerID string, arguments []string) (container.TopResponse, error) {
+	return container.TopResponse{}, nil
 }
 
-func (m *MockDockerClient) ContainerUpdate(ctx context.Context, containerID string, updateConfig container.UpdateConfig) (container.ContainerUpdateOKBody, error) {
-	return container.ContainerUpdateOKBody{}, nil
+func (m *MockDockerClient) ContainerUpdate(ctx context.Context, containerID string, updateConfig container.UpdateConfig) (container.UpdateResponse, error) {
+	return container.UpdateResponse{}, nil
 }
 
 func (m *MockDockerClient) ContainerPause(ctx context.Context, containerID string) error {

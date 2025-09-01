@@ -25,6 +25,7 @@ func TestNewRootCommand(t *testing.T) {
 	// Test case 1: Check if root command is created
 	if rootCmd == nil {
 		t.Errorf("Expected non-nil root command, got nil")
+		return
 	}
 	if rootCmd.Use != "kdeps" {
 		t.Errorf("Expected root command use to be 'kdeps', got '%s'", rootCmd.Use)

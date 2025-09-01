@@ -161,13 +161,13 @@ func TestHandleNonDockerMode_NoConfig(t *testing.T) {
 
 	// Mock functions to avoid actual file operations
 	originalFindConfigurationFn := findConfigurationFn
-	findConfigurationFn = func(_ context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	findConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 		return "", nil
 	}
 	defer func() { findConfigurationFn = originalFindConfigurationFn }()
 
 	originalGenerateConfigurationFn := generateConfigurationFn
-	generateConfigurationFn = func(_ context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	generateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 		return "", nil
 	}
 	defer func() { generateConfigurationFn = originalGenerateConfigurationFn }()
@@ -249,7 +249,7 @@ func TestHandleDockerMode_Flow(t *testing.T) {
 			return true, nil // apiServerMode
 		}
 		// runGraphResolverActions should NOT be called because ApiServerMode == true; panic if invoked
-		runGraphResolverActionsFn = func(_ context.Context, dr *resolver.DependencyResolver, apiServer bool) error {
+		runGraphResolverActionsFn = func(_ context.Context, _ *resolver.DependencyResolver, apiServer bool) error {
 			t.Fatalf("runGraphResolverActions should not be called in apiServerMode")
 			return nil
 		}
@@ -589,11 +589,11 @@ func TestHandleDockerMode(t *testing.T) {
 			}()
 
 			// Stubs
-			bootstrapDockerSystemFn = func(ctx context.Context, dr *resolver.DependencyResolver) (bool, error) {
+			bootstrapDockerSystemFn = func(_ context.Context, _ *resolver.DependencyResolver) (bool, error) {
 				return apiServerMode, nil
 			}
 			runCalled := false
-			runGraphResolverActionsFn = func(ctx context.Context, dr *resolver.DependencyResolver, api bool) error {
+			runGraphResolverActionsFn = func(_ context.Context, _ *resolver.DependencyResolver, _ bool) error {
 				runCalled = true
 				return nil
 			}
@@ -983,23 +983,23 @@ func TestHandleNonDockerModeBasic(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Inject stubbed dependency functions
-	findConfigurationFn = func(_ context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	findConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 		return "", nil // force generation path
 	}
-	generateConfigurationFn = func(_ context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	generateConfigurationFn = func(_ context.Context, fs afero.Fs, env *environment.Environment, _ *logging.Logger) (string, error) {
 		confPath := env.Home + "/.kdeps.pkl"
 		if err := afero.WriteFile(fs, confPath, []byte("dummy"), 0o644); err != nil {
 			t.Fatalf("failed to write config: %v", err)
 		}
 		return confPath, nil
 	}
-	editConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	editConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, _ *logging.Logger) (string, error) {
 		return env.Home + "/.kdeps.pkl", nil
 	}
-	validateConfigurationFn = func(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	validateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, _ *logging.Logger) (string, error) {
 		return env.Home + "/.kdeps.pkl", nil
 	}
-	loadConfigurationFn = func(ctx context.Context, fs afero.Fs, path string, logger *logging.Logger) (*kdeps.Kdeps, error) {
+	loadConfigurationFn = func(_ context.Context, _ afero.Fs, path string, _ *logging.Logger) (*kdeps.Kdeps, error) {
 		return &kdeps.Kdeps{}, nil
 	}
 	getKdepsPathFn = func(_ context.Context, _ kdeps.Kdeps) (string, error) {
@@ -1091,25 +1091,25 @@ func TestHandleNonDockerMode_Happy(t *testing.T) {
 	})
 
 	// Stubs.
-	findConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	findConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, logger *logging.Logger) (string, error) {
 		return "", nil // force generate path
 	}
-	generateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	generateConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, logger *logging.Logger) (string, error) {
 		return cfgPath, nil
 	}
-	editConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	editConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, logger *logging.Logger) (string, error) {
 		return cfgPath, nil
 	}
-	validateConfigurationFn = func(_ context.Context, _ afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
+	validateConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, logger *logging.Logger) (string, error) {
 		return cfgPath, nil
 	}
-	loadConfigurationFn = func(_ context.Context, _ afero.Fs, configFile string, logger *logging.Logger) (*kdeps.Kdeps, error) {
+	loadConfigurationFn = func(_ context.Context, _ afero.Fs, _ string, logger *logging.Logger) (*kdeps.Kdeps, error) {
 		return &kdeps.Kdeps{}, nil
 	}
 	getKdepsPathFn = func(_ context.Context, _ kdeps.Kdeps) (string, error) {
 		return filepath.Join(tmp, "agents"), nil
 	}
-	newRootCommandFn = func(_ context.Context, _ afero.Fs, kdepsDir string, _ *kdeps.Kdeps, _ *environment.Environment, _ *logging.Logger) *cobra.Command {
+	newRootCommandFn = func(_ context.Context, _ afero.Fs, _ string, _ *kdeps.Kdeps, _ *environment.Environment, _ *logging.Logger) *cobra.Command {
 		return &cobra.Command{Run: func(_ *cobra.Command, _ []string) {}}
 	}
 

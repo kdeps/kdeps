@@ -25,7 +25,7 @@ func NewScaffoldCommand(ctx context.Context, fs afero.Fs, logger *logging.Logger
   - response: API response handling
   - workflow: Workflow automation and orchestration`,
 		Args: cobra.MinimumNArgs(1), // Require at least one argument (agentName)
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, args []string) {
 			agentName := args[0]
 			fileNames := args[1:]
 

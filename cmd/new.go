@@ -11,13 +11,13 @@ import (
 )
 
 // NewAgentCommand creates the 'new' command and passes the necessary dependencies.
-func NewAgentCommand(ctx context.Context, fs afero.Fs, kdepsDir string, logger *logging.Logger) *cobra.Command {
+func NewAgentCommand(ctx context.Context, fs afero.Fs, _ string, logger *logging.Logger) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "new [agentName]",
 		Aliases: []string{"n"},
 		Short:   "Create a new AI agent",
 		Args:    cobra.ExactArgs(1), // Require exactly one argument (agentName)
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			agentName := args[0]
 
 			// Create the main directory under baseDir

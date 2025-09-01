@@ -163,14 +163,14 @@ func TestUpgradeCommandValidation(t *testing.T) {
 	t.Run("invalid target version", func(t *testing.T) {
 		cmd.SetArgs([]string{"--version", "invalid", "."})
 		err := cmd.Execute()
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid target version")
 	})
 
 	t.Run("version below minimum", func(t *testing.T) {
 		cmd.SetArgs([]string{"--version", "0.1.0", "."})
 		err := cmd.Execute()
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "below minimum supported version")
 	})
 
@@ -178,7 +178,7 @@ func TestUpgradeCommandValidation(t *testing.T) {
 		cmd := UpgradeCommand(ctx, fs, "/tmp", logger)
 		cmd.SetArgs([]string{"/nonexistent"})
 		err := cmd.Execute()
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "directory does not exist")
 	})
 }
