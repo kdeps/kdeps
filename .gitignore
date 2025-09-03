@@ -226,3 +226,4 @@ kdeps
 local/
 *.kdeps
 *.pkl
+*.html

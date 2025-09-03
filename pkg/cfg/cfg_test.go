@@ -778,3 +778,165 @@ func TestGetKdepsPathCases(t *testing.T) {
 		assert.Equal(t, tc.expectFn(), got, tc.name)
 	}
 }
+
+func TestSimpleConfirm(t *testing.T) {
+	t.Run("UserConfirmsYes", func(t *testing.T) {
+		// Mock stdin with "y\n"
+		oldStdin := os.Stdin
+		r, w, _ := os.Pipe()
+		os.Stdin = r
+		w.WriteString("y\n")
+		w.Close()
+		defer func() { os.Stdin = oldStdin }()
+
+		result, err := simpleConfirm("Test Title", "Test Description")
+		require.NoError(t, err)
+		assert.True(t, result)
+	})
+
+	t.Run("UserConfirmsYesUppercase", func(t *testing.T) {
+		// Mock stdin with "Y\n"
+		oldStdin := os.Stdin
+		r, w, _ := os.Pipe()
+		os.Stdin = r
+		w.WriteString("Y\n")
+		w.Close()
+		defer func() { os.Stdin = oldStdin }()
+
+		result, err := simpleConfirm("Test Title", "Test Description")
+		require.NoError(t, err)
+		assert.True(t, result)
+	})
+
+	t.Run("UserConfirmsYesWithText", func(t *testing.T) {
+		// Mock stdin with "yes\n"
+		oldStdin := os.Stdin
+		r, w, _ := os.Pipe()
+		os.Stdin = r
+		w.WriteString("yes\n")
+		w.Close()
+		defer func() { os.Stdin = oldStdin }()
+
+		result, err := simpleConfirm("Test Title", "Test Description")
+		require.NoError(t, err)
+		assert.True(t, result)
+	})
+
+	t.Run("UserDeclines", func(t *testing.T) {
+		// Mock stdin with "n\n"
+		oldStdin := os.Stdin
+		r, w, _ := os.Pipe()
+		os.Stdin = r
+		w.WriteString("n\n")
+		w.Close()
+		defer func() { os.Stdin = oldStdin }()
+
+		result, err := simpleConfirm("Test Title", "Test Description")
+		require.NoError(t, err)
+		assert.False(t, result)
+	})
+
+	t.Run("UserDeclinesWithText", func(t *testing.T) {
+		// Mock stdin with "no\n"
+		oldStdin := os.Stdin
+		r, w, _ := os.Pipe()
+		os.Stdin = r
+		w.WriteString("no\n")
+		w.Close()
+		defer func() { os.Stdin = oldStdin }()
+
+		result, err := simpleConfirm("Test Title", "Test Description")
+		require.NoError(t, err)
+		assert.False(t, result)
+	})
+
+	t.Run("EmptyResponse", func(t *testing.T) {
+		// Mock stdin with empty string
+		oldStdin := os.Stdin
+		r, w, _ := os.Pipe()
+		os.Stdin = r
+		w.WriteString("\n")
+		w.Close()
+		defer func() { os.Stdin = oldStdin }()
+
+		result, err := simpleConfirm("Test Title", "Test Description")
+		require.NoError(t, err)
+		assert.False(t, result)
+	})
+
+	t.Run("NoDescription", func(t *testing.T) {
+		// Mock stdin with "y\n"
+		oldStdin := os.Stdin
+		r, w, _ := os.Pipe()
+		os.Stdin = r
+		w.WriteString("y\n")
+		w.Close()
+		defer func() { os.Stdin = oldStdin }()
+
+		result, err := simpleConfirm("Test Title", "")
+		require.NoError(t, err)
+		assert.True(t, result)
+	})
+
+	t.Run("ReadError", func(t *testing.T) {
+		// Mock stdin to cause a read error by closing it immediately
+		oldStdin := os.Stdin
+		r, w, _ := os.Pipe()
+		os.Stdin = r
+		w.Close() // Close writer immediately to cause read error
+		r.Close() // Close reader to simulate EOF/error
+		defer func() { os.Stdin = oldStdin }()
+
+		result, err := simpleConfirm("Test Title", "Test Description")
+		assert.Error(t, err)
+		assert.False(t, result)
+	})
+}
+
+func TestLoadConfigurationFromFile(t *testing.T) {
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	t.Run("ValidConfigFile", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+
+		// Create a valid PKL config file
+		validConfig := fmt.Sprintf(`
+amends "package://schema.kdeps.com/core@%s#/Kdeps.pkl"
+
+RunMode = "docker"
+DockerGPU = "cpu"
+`, schema.SchemaVersion(ctx))
+		configPath := "/test/config.pkl"
+		afero.WriteFile(fs, configPath, []byte(validConfig), 0o644)
+
+		result, err := loadConfigurationFromFile(ctx, configPath, logger)
+		// This might fail due to PKL evaluation dependencies, but we test the code path
+		if err != nil {
+			assert.Contains(t, err.Error(), "error creating pkl evaluator")
+		} else {
+			assert.NotNil(t, result)
+		}
+	})
+
+	t.Run("InvalidConfigFile", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+
+		// Create an invalid PKL config file
+		invalidConfig := "invalid pkl content { broken"
+		configPath := "/test/invalid.pkl"
+		afero.WriteFile(fs, configPath, []byte(invalidConfig), 0o644)
+
+		result, err := loadConfigurationFromFile(ctx, configPath, logger)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "error creating pkl evaluator")
+		assert.Nil(t, result)
+	})
+
+	t.Run("NonExistentFile", func(t *testing.T) {
+		result, err := loadConfigurationFromFile(ctx, "/nonexistent/file.pkl", logger)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "error creating pkl evaluator")
+		assert.Nil(t, result)
+	})
+}

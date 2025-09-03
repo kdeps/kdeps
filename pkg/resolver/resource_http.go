@@ -88,6 +88,44 @@ func (dr *DependencyResolver) WriteResponseBodyToFile(resourceID string, respons
 	return outputFilePath, nil
 }
 
+func buildHTTPPKLContent(existingResources map[string]pklHTTP.ResourceHTTPClient, dr *DependencyResolver, resourceID string) strings.Builder {
+	var pklContent strings.Builder
+	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/HTTP.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
+	pklContent.WriteString("Resources {\n")
+
+	for id, res := range existingResources {
+		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
+		pklContent.WriteString(fmt.Sprintf("    Method = \"%s\"\n", res.Method))
+		pklContent.WriteString(fmt.Sprintf("    Url = \"%s\"\n", res.Url))
+
+		if res.TimeoutDuration != nil {
+			pklContent.WriteString(fmt.Sprintf("    TimeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
+		} else {
+			pklContent.WriteString(fmt.Sprintf("    TimeoutDuration = %d.s\n", dr.DefaultTimeoutSec))
+		}
+
+		if res.Timestamp != nil {
+			pklContent.WriteString(fmt.Sprintf("    Timestamp = %g.%s\n", res.Timestamp.Value, res.Timestamp.Unit.String()))
+		}
+
+		pklContent.WriteString("    Data ")
+		pklContent.WriteString(utils.EncodePklSlice(res.Data))
+		pklContent.WriteString("    Headers ")
+		pklContent.WriteString(utils.EncodePklMap(res.Headers))
+		pklContent.WriteString("    Params ")
+		pklContent.WriteString(utils.EncodePklMap(res.Params))
+		pklContent.WriteString("    Response {\n")
+		pklContent.WriteString(encodeResponseHeaders(res.Response))
+		pklContent.WriteString(encodeResponseBody(res.Response, dr, resourceID))
+		pklContent.WriteString("    }\n")
+		pklContent.WriteString(fmt.Sprintf("    File = \"%s\"\n", *res.File))
+		pklContent.WriteString("  }\n")
+	}
+	pklContent.WriteString("}\n")
+
+	return pklContent
+}
+
 func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP.ResourceHTTPClient) error {
 	pklPath := filepath.Join(dr.ActionDir, "client/"+dr.RequestID+"__client_output.pkl")
 
@@ -139,39 +177,7 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 		TimeoutDuration: client.TimeoutDuration,
 	}
 
-	var pklContent strings.Builder
-	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/HTTP.pkl\"\n\n", schema.SchemaVersion(dr.Context)))
-	pklContent.WriteString("Resources {\n")
-
-	for id, res := range existingResources {
-		pklContent.WriteString(fmt.Sprintf("  [\"%s\"] {\n", id))
-		pklContent.WriteString(fmt.Sprintf("    Method = \"%s\"\n", res.Method))
-		pklContent.WriteString(fmt.Sprintf("    Url = \"%s\"\n", res.Url))
-
-		if res.TimeoutDuration != nil {
-			pklContent.WriteString(fmt.Sprintf("    TimeoutDuration = %g.%s\n", res.TimeoutDuration.Value, res.TimeoutDuration.Unit.String()))
-		} else {
-			pklContent.WriteString(fmt.Sprintf("    TimeoutDuration = %d.s\n", dr.DefaultTimeoutSec))
-		}
-
-		if res.Timestamp != nil {
-			pklContent.WriteString(fmt.Sprintf("    Timestamp = %g.%s\n", res.Timestamp.Value, res.Timestamp.Unit.String()))
-		}
-
-		pklContent.WriteString("    Data ")
-		pklContent.WriteString(utils.EncodePklSlice(res.Data))
-		pklContent.WriteString("    Headers ")
-		pklContent.WriteString(utils.EncodePklMap(res.Headers))
-		pklContent.WriteString("    Params ")
-		pklContent.WriteString(utils.EncodePklMap(res.Params))
-		pklContent.WriteString("    Response {\n")
-		pklContent.WriteString(encodeResponseHeaders(res.Response))
-		pklContent.WriteString(encodeResponseBody(res.Response, dr, resourceID))
-		pklContent.WriteString("    }\n")
-		pklContent.WriteString(fmt.Sprintf("    File = \"%s\"\n", *res.File))
-		pklContent.WriteString("  }\n")
-	}
-	pklContent.WriteString("}\n")
+	pklContent := buildHTTPPKLContent(existingResources, dr, resourceID)
 
 	if err := afero.WriteFile(dr.Fs, pklPath, []byte(pklContent.String()), 0o644); err != nil {
 		return fmt.Errorf("failed to write PKL: %w", err)

@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"testing"
 	"time"
@@ -1077,4 +1078,85 @@ func TestHandleAppRequest(t *testing.T) {
 
 func TestHandleStaticRequest(t *testing.T) {
 	t.Skip("Skipping TestHandleStaticRequest due to filesystem handling issues in test environment")
+}
+
+func TestHandleWebSocketProxy(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	logger := logging.NewTestLogger()
+
+	t.Run("InvalidTargetURL", func(t *testing.T) {
+		// Create a gin context
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodGet, "/ws", nil)
+
+		// Create invalid target URL
+		targetURL, _ := url.Parse("invalid-url")
+
+		route := &webserver.WebServerRoutes{
+			Path: "/ws",
+		}
+
+		// This should cause an error when trying to dial the WebSocket
+		handleWebSocketProxy(c, targetURL, route, logger)
+
+		// Should return bad gateway error
+		assert.Equal(t, http.StatusBadGateway, w.Code)
+	})
+
+	t.Run("NilTargetURL", func(t *testing.T) {
+		// Create a gin context
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodGet, "/ws", nil)
+
+		route := &webserver.WebServerRoutes{
+			Path: "/ws",
+		}
+
+		// This should cause a panic or error due to nil target URL
+		assert.Panics(t, func() {
+			handleWebSocketProxy(c, nil, route, logger)
+		})
+	})
+
+	t.Run("RootPathRoute", func(t *testing.T) {
+		// Create a gin context
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodGet, "/ws", nil)
+
+		// Create target URL
+		targetURL, _ := url.Parse("http://localhost:3000")
+
+		route := &webserver.WebServerRoutes{
+			Path: "/",
+		}
+
+		// This should handle root path correctly (add leading slash to trimmed path)
+		handleWebSocketProxy(c, targetURL, route, logger)
+
+		// Should return bad gateway error since no actual server is running
+		assert.Equal(t, http.StatusBadGateway, w.Code)
+	})
+
+	t.Run("NonRootPathRoute", func(t *testing.T) {
+		// Create a gin context
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodGet, "/api/ws", nil)
+
+		// Create target URL
+		targetURL, _ := url.Parse("http://localhost:3000")
+
+		route := &webserver.WebServerRoutes{
+			Path: "/api",
+		}
+
+		// This should handle non-root path correctly
+		handleWebSocketProxy(c, targetURL, route, logger)
+
+		// Should return bad gateway error since no actual server is running
+		assert.Equal(t, http.StatusBadGateway, w.Code)
+	})
 }

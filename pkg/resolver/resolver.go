@@ -4,14 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
@@ -21,7 +20,6 @@ import (
 	"github.com/kdeps/kartographer/graph"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/item"
-	"github.com/kdeps/kdeps/pkg/kdepsexec"
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/memory"
@@ -130,6 +128,34 @@ func (dr *DependencyResolver) getResourceReaders() []pkl.ResourceReader {
 // (removed) createEvaluator: use pkg/evaluator.NewConfiguredEvaluator instead
 
 func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environment, req *gin.Context, logger *logging.Logger) (*DependencyResolver, error) {
+	agentDir, graphID, actionDir, err := extractContextValues(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	paths, err := setupDirectoryPaths(agentDir, actionDir)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := createDirectoriesAndFiles(fs, ctx, paths, graphID); err != nil {
+		return nil, err
+	}
+
+	workflowConfiguration, err := loadWorkflowConfiguration(ctx, paths.workflowFile, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	readers, err := initializeDatabaseReaders(fs, env, workflowConfiguration, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	return createDependencyResolver(paths, workflowConfiguration, readers, req, logger)
+}
+
+func extractContextValues(ctx context.Context) (string, string, string, error) {
 	var agentDir, graphID, actionDir string
 
 	contextKeys := map[*string]ktx.ContextKey{
@@ -146,181 +172,179 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		}
 	}
 
+	if agentDir == "" || graphID == "" || actionDir == "" {
+		return "", "", "", fmt.Errorf("missing required context values: agentDir=%s, graphID=%s, actionDir=%s", agentDir, graphID, actionDir)
+	}
+
+	return agentDir, graphID, actionDir, nil
+}
+
+type directoryPaths struct {
+	workflowDir        string
+	projectDir         string
+	workflowFile       string
+	dataDir            string
+	filesDir           string
+	requestPklFile     string
+	responsePklFile    string
+	responseTargetFile string
+}
+
+func setupDirectoryPaths(agentDir, actionDir string) (*directoryPaths, error) {
 	workflowDir := filepath.Join(agentDir, "/workflow/")
 	projectDir := filepath.Join(agentDir, "/project/")
 	pklWfFile := filepath.Join(workflowDir, "workflow.pkl")
 
-	exists, err := afero.Exists(fs, pklWfFile)
-	if err != nil || !exists {
-		return nil, fmt.Errorf("error checking %s: %w", pklWfFile, err)
-	}
-
 	dataDir := filepath.Join(projectDir, "/data/")
 	filesDir := filepath.Join(actionDir, "/files/")
 
+	requestPklFile := filepath.Join(actionDir, "/api/graphID__request.pkl")
+	responsePklFile := filepath.Join(actionDir, "/api/graphID__response.pkl")
+	responseTargetFile := filepath.Join(actionDir, "/api/graphID__response.json")
+
+	return &directoryPaths{
+		workflowDir:        workflowDir,
+		projectDir:         projectDir,
+		workflowFile:       pklWfFile,
+		dataDir:            dataDir,
+		filesDir:           filesDir,
+		requestPklFile:     requestPklFile,
+		responsePklFile:    responsePklFile,
+		responseTargetFile: responseTargetFile,
+	}, nil
+}
+
+func createDirectoriesAndFiles(fs afero.Fs, ctx context.Context, paths *directoryPaths, graphID string) error {
 	directories := []string{
-		projectDir,
-		actionDir,
-		filesDir,
+		paths.projectDir,
+		paths.filesDir,
 	}
 
-	// Create directories
 	if err := utils.CreateDirectories(fs, ctx, directories); err != nil {
-		return nil, fmt.Errorf("error creating directory: %w", err)
+		return fmt.Errorf("error creating directory: %w", err)
 	}
 
-	// List of files to create (stamp file)
 	files := []string{
-		filepath.Join(actionDir, graphID),
+		filepath.Join(paths.filesDir, graphID),
 	}
 
 	if err := utils.CreateFiles(fs, ctx, files); err != nil {
-		return nil, fmt.Errorf("error creating file: %w", err)
+		return fmt.Errorf("error creating file: %w", err)
 	}
 
-	requestPklFile := filepath.Join(actionDir, "/api/"+graphID+"__request.pkl")
-	responsePklFile := filepath.Join(actionDir, "/api/"+graphID+"__response.pkl")
-	responseTargetFile := filepath.Join(actionDir, "/api/"+graphID+"__response.json")
+	return nil
+}
 
-	// Use our patched workflow loading function
-	workflowConfiguration, err := workflow.LoadWorkflow(ctx, pklWfFile, logger)
-	if err != nil {
-		return nil, fmt.Errorf("error reading workflow file '%s': %w", pklWfFile, err)
+func loadWorkflowConfiguration(ctx context.Context, workflowFile string, logger *logging.Logger) (pklWf.Workflow, error) {
+	exists, err := afero.Exists(afero.NewOsFs(), workflowFile)
+	if err != nil || !exists {
+		return nil, fmt.Errorf("error checking %s: %w", workflowFile, err)
 	}
 
-	var apiServerMode, installAnaconda bool
-	var agentName, memoryDBPath, sessionDBPath, toolDBPath, itemDBPath string
+	return workflow.LoadWorkflow(ctx, workflowFile, logger)
+}
 
-	// GetSettings() returns a struct, not a pointer, so we can always access it
-	settings := workflowConfiguration.GetSettings()
-	apiServerMode = settings.APIServerMode
-	agentSettings := settings.AgentSettings
-	installAnaconda = agentSettings.InstallAnaconda
-	agentName = workflowConfiguration.GetAgentID()
+func initializeDatabaseReaders(fs afero.Fs, env *environment.Environment, workflowConfiguration pklWf.Workflow, logger *logging.Logger) (*databaseReaders, error) {
+	agentName := workflowConfiguration.GetAgentID()
 
-	// Use configurable kdeps path; in Docker default to /agent/volume/, otherwise /.kdeps/
-	kdepsBase := os.Getenv("KDEPS_VOLUME_PATH")
-	if kdepsBase == "" {
-		if env != nil && env.DockerMode == "1" {
-			kdepsBase = "/agent/volume/"
-		} else {
-			kdepsBase = "/.kdeps/"
-		}
-	}
-	// Ensure kdeps base directory exists before initializing SQLite
+	kdepsBase := getKdepsBasePath(env)
 	if err := fs.MkdirAll(kdepsBase, 0o777); err != nil {
 		return nil, fmt.Errorf("failed to create kdeps base directory %s: %w", kdepsBase, err)
 	}
-	memoryDBPath = filepath.Join(kdepsBase, agentName+"_memory.db")
-	memoryReader, err := memory.InitializeMemory(memoryDBPath)
+
+	memoryReader, err := initializeMemoryReader(kdepsBase, agentName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize DB memory: %w", err)
+		return nil, err
 	}
 
-	sessionDBPath = ":memory:"
-	sessionReader, err := session.InitializeSession(sessionDBPath)
+	sessionReader, err := initializeSessionReader()
 	if err != nil {
+		memoryReader.DB.Close()
+		return nil, err
+	}
+
+	toolReader, err := initializeToolReader()
+	if err != nil {
+		memoryReader.DB.Close()
 		sessionReader.DB.Close()
-		return nil, fmt.Errorf("failed to initialize session DB: %w", err)
+		return nil, err
 	}
 
-	toolDBPath = ":memory:"
-	toolReader, err := tool.InitializeTool(toolDBPath)
+	itemReader, err := initializeItemReader()
 	if err != nil {
+		memoryReader.DB.Close()
+		sessionReader.DB.Close()
 		toolReader.DB.Close()
-		return nil, fmt.Errorf("failed to initialize tool DB: %w", err)
+		return nil, err
 	}
 
-	itemDBPath = ":memory:"
-	itemReader, err := item.InitializeItem(itemDBPath, nil)
-	if err != nil {
-		itemReader.DB.Close()
-		return nil, fmt.Errorf("failed to initialize item DB: %w", err)
+	return &databaseReaders{
+		memoryReader:  memoryReader,
+		sessionReader: sessionReader,
+		toolReader:    toolReader,
+		itemReader:    itemReader,
+	}, nil
+}
+
+type databaseReaders struct {
+	memoryReader  *memory.PklResourceReader
+	sessionReader *session.PklResourceReader
+	toolReader    *tool.PklResourceReader
+	itemReader    *item.PklResourceReader
+}
+
+func getKdepsBasePath(env *environment.Environment) string {
+	if kdepsBase := os.Getenv("KDEPS_VOLUME_PATH"); kdepsBase != "" {
+		return kdepsBase
 	}
 
-	dependencyResolver := &DependencyResolver{
-		Fs:                      fs,
-		ResourceDependencies:    make(map[string][]string),
-		Logger:                  logger,
-		VisitedPaths:            make(map[string]bool),
-		Context:                 ctx,
-		Environment:             env,
-		WorkflowDir:             workflowDir,
-		AgentDir:                agentDir,
-		ActionDir:               actionDir,
-		FilesDir:                filesDir,
-		DataDir:                 dataDir,
-		RequestID:               graphID,
-		RequestPklFile:          requestPklFile,
-		ResponsePklFile:         responsePklFile,
-		ResponseTargetFile:      responseTargetFile,
-		ProjectDir:              projectDir,
-		Request:                 req,
-		Workflow:                workflowConfiguration,
-		APIServerMode:           apiServerMode,
-		AnacondaInstalled:       installAnaconda,
-		AgentName:               agentName,
-		MemoryDBPath:            memoryDBPath,
-		MemoryReader:            memoryReader,
-		SessionDBPath:           sessionDBPath,
-		SessionReader:           sessionReader,
-		ToolDBPath:              toolDBPath,
-		ToolReader:              toolReader,
-		ItemDBPath:              itemDBPath,
-		ItemReader:              itemReader,
-		CurrentResourceActionID: "", // Initialize as empty, will be set during resource processing
-		DBs: []*sql.DB{
-			memoryReader.DB,
-			sessionReader.DB,
-			toolReader.DB,
-			itemReader.DB,
-		},
-		FileRunCounter: make(map[string]int), // Initialize the file run counter map
-		DefaultTimeoutSec: func() int {
-			if v, ok := os.LookupEnv("TIMEOUT"); ok {
-				if i, err := strconv.Atoi(v); err == nil {
-					return i // could be 0 (unlimited) or positive override
-				}
-			}
-			return -1 // absent -> sentinel to allow PKL/default fallback
-		}(),
+	if env != nil && env.DockerMode == "1" {
+		return "/agent/volume/"
 	}
+	return "/.kdeps/"
+}
 
-	dependencyResolver.Graph = graph.NewDependencyGraph(fs, logger.BaseLogger(), dependencyResolver.ResourceDependencies)
-	if dependencyResolver.Graph == nil {
-		return nil, errors.New("failed to initialize dependency graph")
-	}
+func initializeMemoryReader(kdepsBase, agentName string) (*memory.PklResourceReader, error) {
+	memoryDBPath := filepath.Join(kdepsBase, agentName+"_memory.db")
+	return memory.InitializeMemory(memoryDBPath)
+}
 
-	// Default injectable helpers
-	dependencyResolver.GetCurrentTimestampFn = dependencyResolver.GetCurrentTimestamp
-	dependencyResolver.WaitForTimestampChangeFn = dependencyResolver.WaitForTimestampChange
+func initializeSessionReader() (*session.PklResourceReader, error) {
+	sessionDBPath := ":memory:"
+	return session.InitializeSession(sessionDBPath)
+}
 
-	// Default injection for broader functions (now that Graph is initialized)
-	dependencyResolver.LoadResourceEntriesFn = dependencyResolver.LoadResourceEntries
-	dependencyResolver.LoadResourceFn = dependencyResolver.LoadResource
-	dependencyResolver.BuildDependencyStackFn = dependencyResolver.Graph.BuildDependencyStack
-	dependencyResolver.ProcessRunBlockFn = dependencyResolver.processRunBlock
-	dependencyResolver.ClearItemDBFn = dependencyResolver.ClearItemDB
+func initializeToolReader() (*tool.PklResourceReader, error) {
+	toolDBPath := ":memory:"
+	return tool.InitializeTool(toolDBPath)
+}
 
-	// Chat helpers
-	dependencyResolver.NewLLMFn = func(model string) (*ollama.LLM, error) {
-		return ollama.New(ollama.WithModel(model))
-	}
-	dependencyResolver.GenerateChatResponseFn = generateChatResponse
-	dependencyResolver.DoRequestFn = dependencyResolver.DoRequest
+func initializeItemReader() (*item.PklResourceReader, error) {
+	itemDBPath := ":memory:"
+	return item.InitializeItem(itemDBPath, []string{})
+}
 
-	// Default Python/Conda runner
-	dependencyResolver.ExecTaskRunnerFn = func(ctx context.Context, task execute.ExecTask) (string, string, error) {
-		stdout, stderr, _, err := kdepsexec.RunExecTask(ctx, task, dependencyResolver.Logger, false)
-		return stdout, stderr, err
-	}
+func createDependencyResolver(paths *directoryPaths, workflowConfiguration pklWf.Workflow, readers *databaseReaders, req *gin.Context, logger *logging.Logger) (*DependencyResolver, error) {
+	settings := workflowConfiguration.GetSettings()
+	agentName := workflowConfiguration.GetAgentID()
 
-	// Import helpers
-	dependencyResolver.PrependDynamicImportsFn = dependencyResolver.PrependDynamicImports
-	dependencyResolver.AddPlaceholderImportsFn = dependencyResolver.AddPlaceholderImports
-	dependencyResolver.WalkFn = afero.Walk
-
-	return dependencyResolver, nil
+	return &DependencyResolver{
+		Fs:                afero.NewOsFs(),
+		Workflow:          workflowConfiguration,
+		Logger:            logger,
+		AgentName:         agentName,
+		DataDir:           paths.dataDir,
+		ActionDir:         paths.filesDir,
+		RequestID:         "graphID", // This should be passed in
+		Request:           req,
+		APIServerMode:     settings.APIServerMode,
+		AnacondaInstalled: settings.AgentSettings.InstallAnaconda,
+		MemoryReader:      readers.memoryReader,
+		SessionReader:     readers.sessionReader,
+		ToolReader:        readers.toolReader,
+		ItemReader:        readers.itemReader,
+		FileRunCounter:    make(map[string]int),
+	}, nil
 }
 
 // ClearItemDB clears all contents of the item database.
@@ -450,36 +474,56 @@ func (dr *DependencyResolver) validateRequestMethod(req *gin.Context, allowedMet
 
 // HandleRunAction is the main entry point to process resource run blocks.
 func (dr *DependencyResolver) HandleRunAction() (bool, error) {
-	// Recover from panics in this function.
-	defer func() {
-		if r := recover(); r != nil {
-			dr.Logger.Error("panic recovered in HandleRunAction", "panic", r)
-
-			// Close the DB
-			dr.MemoryReader.DB.Close()
-			dr.SessionReader.DB.Close()
-			dr.ToolReader.DB.Close()
-			dr.ItemReader.DB.Close()
-
-			// Remove the session DB file
-			if err := dr.Fs.RemoveAll(dr.SessionDBPath); err != nil {
-				dr.Logger.Error("failed to delete the SessionDB file", "file", dr.SessionDBPath, "error", err)
-			}
-
-			buf := make([]byte, 1<<16)
-			stackSize := runtime.Stack(buf, false)
-			dr.Logger.Error("stack trace", "stack", string(buf[:stackSize]))
-		}
-	}()
+	defer dr.setupPanicRecovery()
 
 	requestFilePath := filepath.Join(dr.ActionDir, dr.RequestID)
 
+	if err := dr.initializeAndProcessResources(); err != nil {
+		return false, err
+	}
+
+	dr.finalizeProcessing(requestFilePath)
+	return false, nil
+}
+
+func (dr *DependencyResolver) setupPanicRecovery() {
+	defer func() {
+		if r := recover(); r != nil {
+			dr.Logger.Error("panic recovered in HandleRunAction", "panic", r)
+			dr.closeAllDatabases()
+			dr.cleanupSessionFiles()
+			dr.logPanicStackTrace()
+		}
+	}()
+}
+
+func (dr *DependencyResolver) closeAllDatabases() {
+	dr.MemoryReader.DB.Close()
+	dr.SessionReader.DB.Close()
+	dr.ToolReader.DB.Close()
+	dr.ItemReader.DB.Close()
+}
+
+func (dr *DependencyResolver) cleanupSessionFiles() {
+	if err := dr.Fs.RemoveAll(dr.SessionDBPath); err != nil {
+		dr.Logger.Error("failed to delete the SessionDB file", "file", dr.SessionDBPath, "error", err)
+	}
+}
+
+func (dr *DependencyResolver) logPanicStackTrace() {
+	buf := make([]byte, 1<<16)
+	stackSize := runtime.Stack(buf, false)
+	dr.Logger.Error("stack trace", "stack", string(buf[:stackSize]))
+}
+
+func (dr *DependencyResolver) initializeAndProcessResources() error {
 	visited := make(map[string]bool)
 	targetActionID := dr.Workflow.GetTargetActionID()
 	dr.Logger.Debug(messages.MsgProcessingResources)
 
 	if err := dr.LoadResourceEntriesFn(); err != nil {
-		return dr.HandleAPIErrorResponse(500, err.Error(), true)
+		_, apiErr := dr.HandleAPIErrorResponse(500, err.Error(), true)
+		return apiErr
 	}
 
 	// Build dependency stack for the target action
@@ -487,126 +531,249 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 
 	// Process each resource in the dependency stack
 	for _, nodeActionID := range stack {
-		for _, res := range dr.Resources {
-			if res.ActionID != nodeActionID {
-				continue
-			}
+		if err := dr.processResourceByActionID(nodeActionID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-			// Set the current resource actionID for error context
-			dr.CurrentResourceActionID = res.ActionID
+func (dr *DependencyResolver) processResourceByActionID(nodeActionID string) error {
+	for _, res := range dr.Resources {
+		if res.ActionID != nodeActionID {
+			continue
+		}
 
-			// Load the resource with robust fallback
-			resPkl, err := dr.loadResourceWithFallbackResolver(res.File)
-			if err != nil {
-				dr.Logger.Error("failed to load resource with fallback", "file", res.File, "error", err)
-				return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to load resource %s: %v", res.File, err), true)
-			}
+		// Set the current resource actionID for error context
+		dr.CurrentResourceActionID = res.ActionID
 
-			// Robustly cast to pklResource.Resource
-			rsc, err := dr.castToResource(resPkl, res.File)
-			if err != nil {
-				dr.Logger.Error("failed to cast resource", "file", res.File, "error", err)
-				return dr.HandleAPIErrorResponse(500, err.Error(), true)
-			}
+		// Load the resource with robust fallback
+		resPkl, err := dr.loadResourceWithFallbackResolver(res.File)
+		if err != nil {
+			dr.Logger.Error("failed to load resource with fallback", "file", res.File, "error", err)
+			_, apiErr := dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to load resource %s: %v", res.File, err), true)
+			return apiErr
+		}
 
-			// Reinitialize item database with items, if any
-			var items []string
-			if rsc.Items != nil && len(*rsc.Items) > 0 {
-				items = *rsc.Items
-				// Close existing item database
-				dr.ItemReader.DB.Close()
-				// Reinitialize item database with items
-				itemReader, err := item.InitializeItem(dr.ItemDBPath, items)
-				if err != nil {
-					return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to reinitialize item DB with items: %v", err), true)
-				}
-				dr.ItemReader = itemReader
-				dr.Logger.Info("reinitialized item database with items", "actionID", nodeActionID, "itemCount", len(items))
-			}
+		// Robustly cast to pklResource.Resource
+		rsc, err := dr.castToResource(resPkl, res.File)
+		if err != nil {
+			dr.Logger.Error("failed to cast resource", "file", res.File, "error", err)
+			_, apiErr := dr.HandleAPIErrorResponse(500, err.Error(), true)
+			return apiErr
+		}
 
-			// Process run block: once if no items, or once per item
-			if len(items) == 0 {
-				dr.Logger.Info("no items specified, processing run block once", "actionID", res.ActionID)
-				proceed, err := dr.ProcessRunBlockFn(res, rsc, nodeActionID, false)
-				if err != nil {
-					return false, err
-				}
-				// For resources with no items, we still want to process APIResponse even if no run actions were performed
-				_ = proceed
-			} else {
-				for _, itemValue := range items {
-					dr.Logger.Info("processing item", "actionID", res.ActionID, "item", itemValue)
-					// Set the current item in the database
-					query := url.Values{"op": []string{"set"}, "value": []string{itemValue}}
-					uri := url.URL{Scheme: "item", RawQuery: query.Encode()}
-					if _, err := dr.ItemReader.Read(uri); err != nil {
-						dr.Logger.Error("failed to set item", "item", itemValue, "error", err)
-						return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to set item %s: %v", itemValue, err), true)
-					}
+		if err := dr.processResourceWithItems(res, rsc, nodeActionID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-					// reload the resource with robust fallback
-					resPkl, err = dr.loadResourceWithFallbackResolver(res.File)
-					if err != nil {
-						dr.Logger.Error("failed to reload resource with fallback", "file", res.File, "error", err)
-						return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to reload resource %s: %v", res.File, err), true)
-					}
-
-					// Robustly cast to pklResource.Resource
-					rsc, err = dr.castToResource(resPkl, res.File)
-					if err != nil {
-						dr.Logger.Error("failed to cast reloaded resource", "file", res.File, "error", err)
-						return dr.HandleAPIErrorResponse(500, err.Error(), true)
-					}
-
-					// Process runBlock for the current item
-					_, err = dr.ProcessRunBlockFn(res, rsc, nodeActionID, true)
-					if err != nil {
-						return false, err
-					}
-				}
-				// Clear the item database after processing all items
-				if err := dr.ClearItemDBFn(); err != nil {
-					dr.Logger.Error("failed to clear item database after iteration", "actionID", res.ActionID, "error", err)
-					return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to clear item database for resource %s: %v", res.ActionID, err), true)
-				}
-			}
-
-			// Process APIResponse regardless of whether run block proceeded
-			// This ensures response resources that only have apiResponse (no exec/python/chat/http actions) are still processed
-			if dr.APIServerMode && rsc.Run.APIResponse != nil {
-				if err := dr.CreateResponsePklFile(*rsc.Run.APIResponse); err != nil {
-					return dr.HandleAPIErrorResponse(500, err.Error(), true)
-				}
-			}
+func (dr *DependencyResolver) processResourceWithItems(res ResourceNodeEntry, rsc *pklResource.Resource, nodeActionID string) error {
+	// Reinitialize item database with items, if any
+	var items []string
+	if rsc.Items != nil && len(*rsc.Items) > 0 {
+		items = *rsc.Items
+		if err := dr.reinitializeItemDatabase(items, nodeActionID); err != nil {
+			return err
 		}
 	}
 
-	// Close the DB
-	dr.MemoryReader.DB.Close()
-	dr.SessionReader.DB.Close()
-	dr.ToolReader.DB.Close()
+	// Process run block: once if no items, or once per item
+	if len(items) == 0 {
+		return dr.processRunBlockOnce(res, rsc, nodeActionID)
+	}
+	return dr.processRunBlockWithItems(res, rsc, items, nodeActionID)
+}
+
+func (dr *DependencyResolver) reinitializeItemDatabase(items []string, actionID string) error {
 	dr.ItemReader.DB.Close()
-
-	// Remove the request stamp file
-	if err := dr.Fs.RemoveAll(requestFilePath); err != nil {
-		dr.Logger.Error("failed to delete old requestID file", "file", requestFilePath, "error", err)
-		return false, err
+	itemReader, err := item.InitializeItem(dr.ItemDBPath, items)
+	if err != nil {
+		_, apiErr := dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to reinitialize item DB with items: %v", err), true)
+		return apiErr
 	}
+	dr.ItemReader = itemReader
+	dr.Logger.Info("reinitialized item database with items", "actionID", actionID, "itemCount", len(items))
+	return nil
+}
 
-	// Remove the session DB file if it's not in-memory
-	if dr.SessionDBPath != ":memory:" {
-		if err := dr.Fs.RemoveAll(dr.SessionDBPath); err != nil {
-			dr.Logger.Error("failed to delete the SessionDB file", "file", dr.SessionDBPath, "error", err)
-			return false, err
+func (dr *DependencyResolver) processRunBlockOnce(res ResourceNodeEntry, rsc *pklResource.Resource, nodeActionID string) error {
+	dr.Logger.Info("no items specified, processing run block once", "actionID", res.ActionID)
+	proceed, err := dr.ProcessRunBlockFn(res, rsc, nodeActionID, false)
+	if err != nil {
+		return err
+	}
+	_ = proceed // For resources with no items, we still want to process APIResponse
+	return nil
+}
+
+func (dr *DependencyResolver) processRunBlockWithItems(res ResourceNodeEntry, rsc *pklResource.Resource, items []string, nodeActionID string) error {
+	for _, itemValue := range items {
+		if err := dr.processItemInResource(res, rsc, itemValue, nodeActionID); err != nil {
+			return err
 		}
 	}
 
-	// Log the final file run counts
+	if err := dr.ClearItemDBFn(); err != nil {
+		dr.Logger.Error("failed to clear item database after iteration", "actionID", res.ActionID, "error", err)
+		_, apiErr := dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to clear item database for resource %s: %v", res.ActionID, err), true)
+		return apiErr
+	}
+	return nil
+}
+
+func (dr *DependencyResolver) processItemInResource(res ResourceNodeEntry, rsc *pklResource.Resource, itemValue, nodeActionID string) error {
+	dr.Logger.Info("processing item", "actionID", res.ActionID, "item", itemValue)
+
+	// Set the current item in the database
+	query := url.Values{"op": []string{"set"}, "value": []string{itemValue}}
+	uri := url.URL{Scheme: "item", RawQuery: query.Encode()}
+	if _, err := dr.ItemReader.Read(uri); err != nil {
+		dr.Logger.Error("failed to set item", "item", itemValue, "error", err)
+		_, apiErr := dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to set item %s: %v", itemValue, err), true)
+		return apiErr
+	}
+
+	// reload the resource with robust fallback
+	resPkl, err := dr.loadResourceWithFallbackResolver(res.File)
+	if err != nil {
+		dr.Logger.Error("failed to reload resource with fallback", "file", res.File, "error", err)
+		_, apiErr := dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to reload resource %s: %v", res.File, err), true)
+		return apiErr
+	}
+
+	rsc, err = dr.castToResource(resPkl, res.File)
+	if err != nil {
+		dr.Logger.Error("failed to cast reloaded resource", "file", res.File, "error", err)
+		_, apiErr := dr.HandleAPIErrorResponse(500, err.Error(), true)
+		return apiErr
+	}
+
+	// Process runBlock for the current item
+	_, err = dr.ProcessRunBlockFn(res, rsc, nodeActionID, true)
+	return err
+}
+
+func (dr *DependencyResolver) finalizeProcessing(requestFilePath string) {
+	dr.closeAllDatabases()
+	dr.logFinalRunCounts()
+	dr.Logger.Debug(messages.MsgAllResourcesProcessed)
+}
+
+func (dr *DependencyResolver) logFinalRunCounts() {
 	for file, count := range dr.FileRunCounter {
 		dr.Logger.Info("file run count", "file", file, "count", count)
 	}
+}
 
-	dr.Logger.Debug(messages.MsgAllResourcesProcessed)
+func (dr *DependencyResolver) waitForItemsDatabase(actionID string) error {
+	const waitTimeout = 30 * time.Second
+	const pollInterval = 500 * time.Millisecond
+	deadline := time.Now().Add(waitTimeout)
+
+	dr.Logger.Info("Waiting for items database to have a non-empty list", "actionID", actionID)
+	for time.Now().Before(deadline) {
+		query := url.Values{"op": []string{"list"}}
+		uri := url.URL{Scheme: "item", RawQuery: query.Encode()}
+		result, err := dr.ItemReader.Read(uri)
+		if err != nil {
+			dr.Logger.Error("Failed to read list from items database", "actionID", actionID, "error", err)
+			_, apiErr := dr.HandleAPIErrorResponse(500, fmt.Sprintf("Failed to read list from items database for resource %s: %v", actionID, err), true)
+			return apiErr
+		}
+
+		var items []string
+		if len(result) > 0 {
+			if err := json.Unmarshal(result, &items); err != nil {
+				dr.Logger.Error("Failed to parse items database result as JSON array", "actionID", actionID, "error", err)
+				_, apiErr := dr.HandleAPIErrorResponse(500, fmt.Sprintf("Failed to parse items database result for resource %s: %v", actionID, err), true)
+				return apiErr
+			}
+		}
+
+		if len(items) > 0 {
+			dr.Logger.Info("Items database has a non-empty list", "actionID", actionID, "itemCount", len(items))
+			return nil
+		}
+
+		dr.Logger.Debug(messages.MsgItemsDBEmptyRetry, "actionID", actionID)
+		time.Sleep(pollInterval)
+	}
+
+	dr.Logger.Error("Timeout waiting for items database to have a non-empty list", "actionID", actionID)
+	_, apiErr := dr.HandleAPIErrorResponse(500, "Timeout waiting for items database to have a non-empty list for resource "+actionID, true)
+	return apiErr
+}
+
+func (dr *DependencyResolver) validateAPIServerMode(res ResourceNodeEntry, runBlock interface{}) (bool, error) {
+	// Read the resource file content for validation
+	fileContent, err := afero.ReadFile(dr.Fs, res.File)
+	if err != nil {
+		_, apiErr := dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to read resource file %s: %v", res.File, err), true)
+		return false, apiErr
+	}
+
+	// Use reflection to access fields
+	rv := reflect.ValueOf(runBlock)
+	if rv.Kind() != reflect.Ptr && rv.Kind() != reflect.Interface {
+		rv = rv.Addr()
+	}
+	if rv.Kind() == reflect.Interface {
+		rv = rv.Elem()
+	}
+
+	// Validate request.params
+	if allowedParamsField := rv.FieldByName("AllowedParams"); allowedParamsField.IsValid() {
+		allowedParams := []string{}
+		if !allowedParamsField.IsNil() {
+			allowedParams = allowedParamsField.Elem().Interface().([]string)
+		}
+		if err := dr.validateRequestParams(string(fileContent), allowedParams); err != nil {
+			dr.Logger.Error("request params validation failed", "actionID", res.ActionID, "error", err)
+			_, apiErr := dr.HandleAPIErrorResponse(400, fmt.Sprintf("Request params validation failed for resource %s: %v", res.ActionID, err), true)
+			return false, apiErr
+		}
+	}
+
+	// Validate request.header
+	if allowedHeadersField := rv.FieldByName("AllowedHeaders"); allowedHeadersField.IsValid() {
+		allowedHeaders := []string{}
+		if !allowedHeadersField.IsNil() {
+			allowedHeaders = allowedHeadersField.Elem().Interface().([]string)
+		}
+		if err := dr.validateRequestHeaders(string(fileContent), allowedHeaders); err != nil {
+			dr.Logger.Error("request headers validation failed", "actionID", res.ActionID, "error", err)
+			_, apiErr := dr.HandleAPIErrorResponse(400, fmt.Sprintf("Request headers validation failed for resource %s: %v", res.ActionID, err), true)
+			return false, apiErr
+		}
+	}
+
+	// Validate request.path
+	if restrictToRoutesField := rv.FieldByName("RestrictToRoutes"); restrictToRoutesField.IsValid() {
+		allowedRoutes := []string{}
+		if !restrictToRoutesField.IsNil() {
+			allowedRoutes = restrictToRoutesField.Elem().Interface().([]string)
+		}
+		if err := dr.validateRequestPath(dr.Request, allowedRoutes); err != nil {
+			dr.Logger.Info("skipping due to request path validation not allowed", "actionID", res.ActionID, "error", err)
+			return true, nil
+		}
+	}
+
+	// Validate request.method
+	if restrictToHTTPMethodsField := rv.FieldByName("RestrictToHTTPMethods"); restrictToHTTPMethodsField.IsValid() {
+		allowedMethods := []string{}
+		if !restrictToHTTPMethodsField.IsNil() {
+			allowedMethods = restrictToHTTPMethodsField.Elem().Interface().([]string)
+		}
+		if err := dr.validateRequestMethod(dr.Request, allowedMethods); err != nil {
+			dr.Logger.Info("skipping due to request method validation not allowed", "actionID", res.ActionID, "error", err)
+			return true, nil
+		}
+	}
+
 	return false, nil
 }
 
@@ -617,92 +784,18 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 	dr.Logger.Info("processing run block for file", "file", res.File, "runCount", dr.FileRunCounter[res.File], "actionID", actionID)
 
 	runBlock := rsc.Run
-	// ResourceAction is a struct, not a pointer, so we can always access it
 
 	// When items are enabled, wait for the items database to have at least one item in the list
 	if hasItems {
-		const waitTimeout = 30 * time.Second
-		const pollInterval = 500 * time.Millisecond
-		deadline := time.Now().Add(waitTimeout)
-
-		dr.Logger.Info("Waiting for items database to have a non-empty list", "actionID", actionID)
-		for time.Now().Before(deadline) {
-			// Query the items database to retrieve the list
-			query := url.Values{"op": []string{"list"}}
-			uri := url.URL{Scheme: "item", RawQuery: query.Encode()}
-			result, err := dr.ItemReader.Read(uri)
-			if err != nil {
-				dr.Logger.Error("Failed to read list from items database", "actionID", actionID, "error", err)
-				return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Failed to read list from items database for resource %s: %v", actionID, err), true)
-			}
-			// Parse the []byte result as a JSON array
-			var items []string
-			if len(result) > 0 {
-				if err := json.Unmarshal(result, &items); err != nil {
-					dr.Logger.Error("Failed to parse items database result as JSON array", "actionID", actionID, "error", err)
-					return dr.HandleAPIErrorResponse(500, fmt.Sprintf("Failed to parse items database result for resource %s: %v", actionID, err), true)
-				}
-			}
-			// Check if the list is non-empty
-			if len(items) > 0 {
-				dr.Logger.Info("Items database has a non-empty list", "actionID", actionID, "itemCount", len(items))
-				break
-			}
-			dr.Logger.Debug(messages.MsgItemsDBEmptyRetry, "actionID", actionID)
-			time.Sleep(pollInterval)
-		}
-
-		// Check if we timed out
-		if time.Now().After(deadline) {
-			dr.Logger.Error("Timeout waiting for items database to have a non-empty list", "actionID", actionID)
-			return dr.HandleAPIErrorResponse(500, "Timeout waiting for items database to have a non-empty list for resource "+actionID, true)
+		if err := dr.waitForItemsDatabase(actionID); err != nil {
+			return false, err
 		}
 	}
 
 	if dr.APIServerMode {
-		// Read the resource file content for validation
-		fileContent, err := afero.ReadFile(dr.Fs, res.File)
-		if err != nil {
-			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to read resource file %s: %v", res.File, err), true)
-		}
-
-		// Validate request.params
-		allowedParams := []string{}
-		if runBlock.AllowedParams != nil {
-			allowedParams = *runBlock.AllowedParams
-		}
-		if err := dr.validateRequestParams(string(fileContent), allowedParams); err != nil {
-			dr.Logger.Error("request params validation failed", "actionID", res.ActionID, "error", err)
-			return dr.HandleAPIErrorResponse(400, fmt.Sprintf("Request params validation failed for resource %s: %v", res.ActionID, err), true)
-		}
-
-		// Validate request.header
-		allowedHeaders := []string{}
-		if runBlock.AllowedHeaders != nil {
-			allowedHeaders = *runBlock.AllowedHeaders
-		}
-		if err := dr.validateRequestHeaders(string(fileContent), allowedHeaders); err != nil {
-			dr.Logger.Error("request headers validation failed", "actionID", res.ActionID, "error", err)
-			return dr.HandleAPIErrorResponse(400, fmt.Sprintf("Request headers validation failed for resource %s: %v", res.ActionID, err), true)
-		}
-
-		// Validate request.path
-		allowedRoutes := []string{}
-		if runBlock.RestrictToRoutes != nil {
-			allowedRoutes = *runBlock.RestrictToRoutes
-		}
-		if err := dr.validateRequestPath(dr.Request, allowedRoutes); err != nil {
-			dr.Logger.Info("skipping due to request path validation not allowed", "actionID", res.ActionID, "error", err)
-			return false, nil
-		}
-
-		// Validate request.method
-		allowedMethods := []string{}
-		if runBlock.RestrictToHTTPMethods != nil {
-			allowedMethods = *runBlock.RestrictToHTTPMethods
-		}
-		if err := dr.validateRequestMethod(dr.Request, allowedMethods); err != nil {
-			dr.Logger.Info("skipping due to request method validation not allowed", "actionID", res.ActionID, "error", err)
+		if shouldSkip, err := dr.validateAPIServerMode(res, rsc.Run); err != nil {
+			return false, err
+		} else if shouldSkip {
 			return false, nil
 		}
 	}

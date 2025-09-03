@@ -24,7 +24,7 @@ func UpgradeCommand(_ context.Context, fs afero.Fs, _ string, logger *logging.Lo
 		Use:   "upgrade [directory]",
 		Short: "Upgrade schema versions and format in pkl files",
 		Long: `Upgrade schema versions and format in pkl files within a directory.
-		
+
 This command scans for pkl files and performs two types of upgrades:
 1. Schema version references (e.g., @0.2.44 -> @0.3.1-dev)
 2. Schema format migration (e.g., lowercase -> capitalized attributes/blocks)
@@ -35,45 +35,13 @@ The format upgrade converts older lowercase PKL syntax to the new capitalized fo
 
 Examples:
   kdeps upgrade                        # Upgrade current directory to default version
-  kdeps upgrade ./my-agent            # Upgrade specific directory to default version  
+  kdeps upgrade ./my-agent            # Upgrade specific directory to default version
   kdeps upgrade --version 0.3.1-dev .    # Upgrade to specific version
   kdeps upgrade --dry-run ./my-agent  # Preview changes without applying
 		`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			// Determine target directory
-			targetDir := "."
-			if len(args) > 0 {
-				targetDir = args[0]
-			}
-
-			// Determine target version
-			if targetVersion == "" {
-				targetVersion = version.DefaultSchemaVersion
-			}
-
-			// Validate target version
-			if err := utils.ValidateSchemaVersion(targetVersion, version.MinimumSchemaVersion); err != nil {
-				return fmt.Errorf("invalid target version: %w", err)
-			}
-
-			// Convert to absolute path
-			absPath, err := filepath.Abs(targetDir)
-			if err != nil {
-				return fmt.Errorf("failed to resolve directory path: %w", err)
-			}
-
-			// Check if directory exists
-			if exists, err := afero.DirExists(fs, absPath); err != nil {
-				return fmt.Errorf("failed to check directory: %w", err)
-			} else if !exists {
-				return fmt.Errorf("directory does not exist: %s", absPath)
-			}
-
-			logger.Info("upgrading schema versions", "directory", absPath, "target_version", targetVersion, "dry_run", dryRun)
-
-			// Perform the upgrade
-			return upgradeSchemaVersions(fs, absPath, targetVersion, dryRun, logger)
+			return executeUpgradeCommand(fs, logger, args, targetVersion, dryRun)
 		},
 	}
 
@@ -81,6 +49,61 @@ Examples:
 	cmd.Flags().BoolVarP(&dryRun, "dry-run", "n", false, "Preview changes without applying them")
 
 	return cmd
+}
+
+func executeUpgradeCommand(fs afero.Fs, logger *logging.Logger, args []string, targetVersion string, dryRun bool) error {
+	targetDir := determineTargetDirectory(args)
+	targetVersion = determineTargetVersion(targetVersion)
+
+	if err := validateTargetVersion(targetVersion); err != nil {
+		return err
+	}
+
+	absPath, err := validateAndResolveDirectory(fs, targetDir)
+	if err != nil {
+		return err
+	}
+
+	logger.Info("upgrading schema versions", "directory", absPath, "target_version", targetVersion, "dry_run", dryRun)
+
+	return upgradeSchemaVersions(fs, absPath, targetVersion, dryRun, logger)
+}
+
+func determineTargetDirectory(args []string) string {
+	targetDir := "."
+	if len(args) > 0 {
+		targetDir = args[0]
+	}
+	return targetDir
+}
+
+func determineTargetVersion(targetVersion string) string {
+	if targetVersion == "" {
+		return version.DefaultSchemaVersion
+	}
+	return targetVersion
+}
+
+func validateTargetVersion(targetVersion string) error {
+	if err := utils.ValidateSchemaVersion(targetVersion, version.MinimumSchemaVersion); err != nil {
+		return fmt.Errorf("invalid target version: %w", err)
+	}
+	return nil
+}
+
+func validateAndResolveDirectory(fs afero.Fs, targetDir string) (string, error) {
+	absPath, err := filepath.Abs(targetDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve directory path: %w", err)
+	}
+
+	if exists, err := afero.DirExists(fs, absPath); err != nil {
+		return "", fmt.Errorf("failed to check directory: %w", err)
+	} else if !exists {
+		return "", fmt.Errorf("directory does not exist: %s", absPath)
+	}
+
+	return absPath, nil
 }
 
 // upgradeSchemaVersions scans a directory for pkl files and upgrades schema versions.

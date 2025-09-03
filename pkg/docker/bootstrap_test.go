@@ -3,6 +3,7 @@ package docker
 import (
 	"context"
 	"net"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -373,4 +374,103 @@ func TestPullModels_Error(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected error when pulling models with missing binary")
 	}
+}
+
+func TestCopyOfflineModels(t *testing.T) {
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	t.Run("SourceDirectoryNotFound", func(t *testing.T) {
+		// Test when source models directory doesn't exist
+		err := copyOfflineModels(ctx, []string{"model1"}, logger)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to check offline models directory")
+	})
+
+	t.Run("EmptyModelsList", func(t *testing.T) {
+		// Test with empty models list - should still check directory existence
+		err := copyOfflineModels(ctx, []string{}, logger)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to check offline models directory")
+	})
+
+	t.Run("OLLAMA_MODELS_Empty", func(t *testing.T) {
+		// Test with empty OLLAMA_MODELS env var
+		originalEnv := os.Getenv("OLLAMA_MODELS")
+		defer func() { os.Setenv("OLLAMA_MODELS", originalEnv) }()
+		os.Unsetenv("OLLAMA_MODELS")
+
+		err := copyOfflineModels(ctx, []string{"model1"}, logger)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to check offline models directory")
+	})
+
+	t.Run("OLLAMA_MODELS_CustomPath", func(t *testing.T) {
+		// Test with custom OLLAMA_MODELS path
+		originalEnv := os.Getenv("OLLAMA_MODELS")
+		defer func() { os.Setenv("OLLAMA_MODELS", originalEnv) }()
+		os.Setenv("OLLAMA_MODELS", "/custom/path")
+
+		err := copyOfflineModels(ctx, []string{"model1"}, logger)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to check offline models directory")
+	})
+}
+
+func TestEnsureKdepsDirectories(t *testing.T) {
+	logger := logging.NewTestLogger()
+
+	t.Run("ValidBasePath", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		base := "/agent/volume"
+		err := ensureKdepsDirectories(fs, base, logger)
+		assert.NoError(t, err)
+
+		// Check that directories were created
+		exists, _ := afero.DirExists(fs, base)
+		assert.True(t, exists)
+		exists, _ = afero.DirExists(fs, filepath.Join(base, "agents"))
+		assert.True(t, exists)
+		exists, _ = afero.DirExists(fs, filepath.Join(base, "cache"))
+		assert.True(t, exists)
+	})
+
+	t.Run("EmptyBasePath", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		base := ""
+		err := ensureKdepsDirectories(fs, base, logger)
+		assert.NoError(t, err)
+
+		// Should use default path
+		exists, _ := afero.DirExists(fs, "/agent/volume/")
+		assert.True(t, exists)
+		exists, _ = afero.DirExists(fs, "/agent/volume/agents")
+		assert.True(t, exists)
+		exists, _ = afero.DirExists(fs, "/agent/volume/cache")
+		assert.True(t, exists)
+	})
+
+	t.Run("BasePathWithoutTrailingSlash", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		base := "/custom/path"
+		err := ensureKdepsDirectories(fs, base, logger)
+		assert.NoError(t, err)
+
+		// Should add trailing slash
+		exists, _ := afero.DirExists(fs, "/custom/path/")
+		assert.True(t, exists)
+		exists, _ = afero.DirExists(fs, "/custom/path/agents")
+		assert.True(t, exists)
+		exists, _ = afero.DirExists(fs, "/custom/path/cache")
+		assert.True(t, exists)
+	})
+
+	t.Run("MkdirAllError", func(t *testing.T) {
+		// Use a read-only filesystem to simulate error
+		fs := afero.NewReadOnlyFs(afero.NewMemMapFs())
+		base := "/test/path"
+		err := ensureKdepsDirectories(fs, base, logger)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to create directory")
+	})
 }

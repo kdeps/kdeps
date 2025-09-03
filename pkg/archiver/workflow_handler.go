@@ -177,59 +177,85 @@ func CompileWorkflow(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsD
 }
 
 func CompileProject(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir string, projectDir string, env *environment.Environment, logger *logging.Logger) (string, string, error) {
+	compiledProjectDir, newWorkflow, err := prepareProjectCompilation(fs, ctx, wf, kdepsDir, projectDir, logger)
+	if err != nil {
+		return "", "", err
+	}
+
+	err = compileProjectComponents(fs, ctx, newWorkflow, kdepsDir, projectDir, compiledProjectDir, logger)
+	if err != nil {
+		return "", "", err
+	}
+
+	packageFile, err := finalizeProjectCompilation(fs, ctx, newWorkflow, kdepsDir, compiledProjectDir, env, logger)
+	if err != nil {
+		return "", "", err
+	}
+
+	return compiledProjectDir, packageFile, nil
+}
+
+func prepareProjectCompilation(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, projectDir string, logger *logging.Logger) (string, pklWf.Workflow, error) {
 	compiledProjectDir, err := CompileWorkflow(fs, ctx, wf, kdepsDir, projectDir, logger)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to compile workflow: %w", err)
+		return "", nil, fmt.Errorf("failed to compile workflow: %w", err)
 	}
 
 	if exists, err := afero.DirExists(fs, compiledProjectDir); !exists || err != nil {
-		return "", "", fmt.Errorf("compiled project directory error: %w", err)
+		return "", nil, fmt.Errorf("compiled project directory error: %w", err)
 	}
 
 	newWorkflowFile := filepath.Join(compiledProjectDir, "workflow.pkl")
 	if _, err := fs.Stat(newWorkflowFile); err != nil {
-		return "", "", fmt.Errorf("compiled workflow missing: %w", err)
+		return "", nil, fmt.Errorf("compiled workflow missing: %w", err)
 	}
 
 	newWorkflow, err := workflow.LoadWorkflow(ctx, newWorkflowFile, logger)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to load workflow: %w", err)
+		return "", nil, fmt.Errorf("failed to load workflow: %w", err)
 	}
 
+	return compiledProjectDir, newWorkflow, nil
+}
+
+func compileProjectComponents(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, projectDir, compiledProjectDir string, logger *logging.Logger) error {
 	resourcesDir := filepath.Join(compiledProjectDir, "resources")
-	if err := CompileResources(fs, ctx, newWorkflow, resourcesDir, projectDir, logger); err != nil {
-		return "", "", fmt.Errorf("failed to compile resources: %w", err)
+	if err := CompileResources(fs, ctx, wf, resourcesDir, projectDir, logger); err != nil {
+		return fmt.Errorf("failed to compile resources: %w", err)
 	}
 
-	if err := CopyDataDir(fs, ctx, newWorkflow, kdepsDir, projectDir, compiledProjectDir, "", "", "", false, logger); err != nil {
-		return "", "", fmt.Errorf("failed to copy project: %w", err)
+	if err := CopyDataDir(fs, ctx, wf, kdepsDir, projectDir, compiledProjectDir, "", "", "", false, logger); err != nil {
+		return fmt.Errorf("failed to copy project: %w", err)
 	}
 
-	if err := ProcessExternalWorkflows(fs, ctx, newWorkflow, kdepsDir, projectDir, compiledProjectDir, logger); err != nil {
-		return "", "", fmt.Errorf("failed to process workflows: %w", err)
+	if err := ProcessExternalWorkflows(fs, ctx, wf, kdepsDir, projectDir, compiledProjectDir, logger); err != nil {
+		return fmt.Errorf("failed to process workflows: %w", err)
 	}
 
-	// Evaluate ALL Pkl files in the compiled project directory to ensure comprehensive validation
 	if err := EvaluateAllPklFiles(fs, ctx, compiledProjectDir, logger); err != nil {
-		return "", "", fmt.Errorf("failed to evaluate all Pkl files: %w", err)
+		return fmt.Errorf("failed to evaluate all Pkl files: %w", err)
 	}
 
-	packageFile, err := PackageProject(fs, ctx, newWorkflow, kdepsDir, compiledProjectDir, logger)
+	return nil
+}
+
+func finalizeProjectCompilation(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, compiledProjectDir string, env *environment.Environment, logger *logging.Logger) (string, error) {
+	packageFile, err := PackageProject(fs, ctx, wf, kdepsDir, compiledProjectDir, logger)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to package project: %w", err)
+		return "", fmt.Errorf("failed to package project: %w", err)
 	}
 
 	if _, err := fs.Stat(packageFile); err != nil {
-		return "", "", fmt.Errorf("package file missing: %w", err)
+		return "", fmt.Errorf("package file missing: %w", err)
 	}
 
 	cwdPackage := filepath.Join(env.Pwd, filepath.Base(packageFile))
 	if err := CopyFile(fs, ctx, packageFile, cwdPackage, logger); err != nil {
-		return "", "", err
+		return "", err
 	}
 
 	logger.Info("kdeps package created", "package-file", cwdPackage)
-	return compiledProjectDir, packageFile, nil
+	return cwdPackage, nil
 }
 
 // EvaluateAllPklFiles recursively evaluates all Pkl files in the compiled project directory

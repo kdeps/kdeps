@@ -22,30 +22,49 @@ func NewBuildCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCf
 		Short:   "Build a dockerized AI agent",
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			pkgFile := args[0]
-			// Use the passed dependencies
-			pkgProject, err := archiver.ExtractPackage(fs, ctx, kdepsDir, pkgFile, logger)
-			if err != nil {
-				return err
-			}
-			runDir, _, _, _, _, _, _, _, err := docker.BuildDockerfile(fs, ctx, systemCfg, kdepsDir, pkgProject, logger)
-			if err != nil {
-				return err
-			}
-			dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-			if err != nil {
-				return err
-			}
-			agentContainerName, agentContainerNameAndVersion, err := docker.BuildDockerImage(fs, ctx, systemCfg, dockerClient, runDir, kdepsDir, pkgProject, logger)
-			if err != nil {
-				return err
-			}
-
-			if err := docker.CleanupDockerBuildImages(fs, ctx, agentContainerName, dockerClient); err != nil {
-				return err
-			}
-			fmt.Println("Kdeps AI Agent docker image created:", agentContainerNameAndVersion) //nolint:forbidigo // CLI user feedback
-			return nil
+			return executeBuildCommand(ctx, fs, kdepsDir, systemCfg, logger, args[0])
 		},
 	}
+}
+
+func executeBuildCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCfg *kdeps.Kdeps, logger *logging.Logger, pkgFile string) error {
+	pkgProject, err := extractPackageForBuild(fs, ctx, kdepsDir, pkgFile, logger)
+	if err != nil {
+		return err
+	}
+
+	runDir, err := buildDockerfileForBuild(fs, ctx, systemCfg, kdepsDir, pkgProject, logger)
+	if err != nil {
+		return err
+	}
+
+	return createDockerImage(ctx, fs, systemCfg, runDir, kdepsDir, pkgProject, logger)
+}
+
+func extractPackageForBuild(fs afero.Fs, ctx context.Context, kdepsDir, pkgFile string, logger *logging.Logger) (*archiver.KdepsPackage, error) {
+	return archiver.ExtractPackage(fs, ctx, kdepsDir, pkgFile, logger)
+}
+
+func buildDockerfileForBuild(fs afero.Fs, ctx context.Context, systemCfg *kdeps.Kdeps, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *logging.Logger) (string, error) {
+	runDir, _, _, _, _, _, _, _, err := docker.BuildDockerfile(fs, ctx, systemCfg, kdepsDir, pkgProject, logger)
+	return runDir, err
+}
+
+func createDockerImage(ctx context.Context, fs afero.Fs, systemCfg *kdeps.Kdeps, runDir, kdepsDir string, pkgProject *archiver.KdepsPackage, logger *logging.Logger) error {
+	dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return err
+	}
+
+	agentContainerName, agentContainerNameAndVersion, err := docker.BuildDockerImage(fs, ctx, systemCfg, dockerClient, runDir, kdepsDir, pkgProject, logger)
+	if err != nil {
+		return err
+	}
+
+	if err := docker.CleanupDockerBuildImages(fs, ctx, agentContainerName, dockerClient); err != nil {
+		return err
+	}
+
+	fmt.Println("Kdeps AI Agent docker image created:", agentContainerNameAndVersion) //nolint:forbidigo // CLI user feedback
+	return nil
 }

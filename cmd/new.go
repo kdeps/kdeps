@@ -18,27 +18,44 @@ func NewAgentCommand(ctx context.Context, fs afero.Fs, _ string, logger *logging
 		Short:   "Create a new AI agent",
 		Args:    cobra.ExactArgs(1), // Require exactly one argument (agentName)
 		RunE: func(_ *cobra.Command, args []string) error {
-			agentName := args[0]
-
-			// Create the main directory under baseDir
-			mainDir := agentName
-			if err := fs.MkdirAll(mainDir, 0o755); err != nil {
-				return fmt.Errorf("failed to create main directory: %w", err)
-			}
-
-			// Generate workflow file
-			if err := template.GenerateWorkflowFile(ctx, fs, logger, mainDir, agentName); err != nil {
-				return fmt.Errorf("failed to generate workflow file: %w", err)
-			}
-
-			// Generate resource files
-			if err := template.GenerateResourceFiles(ctx, fs, logger, mainDir, agentName); err != nil {
-				return fmt.Errorf("failed to generate resource files: %w", err)
-			}
-
-			return nil
+			return executeNewCommand(ctx, fs, logger, args[0])
 		},
 	}
 
 	return cmd
+}
+
+func executeNewCommand(ctx context.Context, fs afero.Fs, logger *logging.Logger, agentName string) error {
+	mainDir := agentName
+
+	if err := createAgentDirectory(fs, mainDir); err != nil {
+		return err
+	}
+
+	if err := generateAgentWorkflow(ctx, fs, logger, mainDir, agentName); err != nil {
+		return err
+	}
+
+	return generateAgentResources(ctx, fs, logger, mainDir, agentName)
+}
+
+func createAgentDirectory(fs afero.Fs, mainDir string) error {
+	if err := fs.MkdirAll(mainDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create main directory: %w", err)
+	}
+	return nil
+}
+
+func generateAgentWorkflow(ctx context.Context, fs afero.Fs, logger *logging.Logger, mainDir, agentName string) error {
+	if err := template.GenerateWorkflowFile(ctx, fs, logger, mainDir, agentName); err != nil {
+		return fmt.Errorf("failed to generate workflow file: %w", err)
+	}
+	return nil
+}
+
+func generateAgentResources(ctx context.Context, fs afero.Fs, logger *logging.Logger, mainDir, agentName string) error {
+	if err := template.GenerateResourceFiles(ctx, fs, logger, mainDir, agentName); err != nil {
+		return fmt.Errorf("failed to generate resource files: %w", err)
+	}
+	return nil
 }

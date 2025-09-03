@@ -115,6 +115,23 @@ func buildURL(baseURL, version, arch string) string {
 }
 
 func GenerateURLs(ctx context.Context, installAnaconda bool) ([]download.DownloadItem, error) {
+	urlInfos := setupURLInfos(installAnaconda)
+	var items []download.DownloadItem
+
+	for _, info := range urlInfos {
+		item, err := processURLInfo(ctx, info)
+		if err != nil {
+			return nil, err
+		}
+		if item != nil {
+			items = append(items, *item)
+		}
+	}
+
+	return items, nil
+}
+
+func setupURLInfos(installAnaconda bool) []URLInfo {
 	urlInfos := []URLInfo{
 		{
 			BaseURL:           "https://github.com/apple/pkl/releases/download/{version}/pkl-linux-{arch}",
@@ -136,50 +153,63 @@ func GenerateURLs(ctx context.Context, installAnaconda bool) ([]download.Downloa
 		})
 	}
 
-	var items []download.DownloadItem
-	for _, info := range urlInfos {
-		currentArch := GetCurrentArchitecture(ctx, info.Repo)
-		version := info.Version
+	return urlInfos
+}
 
-		if info.IsAnaconda && schema.UseLatest {
-			versions, err := GetLatestAnacondaVersions(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get Anaconda versions: %w", err)
-			}
-			if version = versions[currentArch]; version == "" {
-				return nil, fmt.Errorf("no Anaconda version for %s", currentArch)
-			}
-		} else if schema.UseLatest {
-			latest, err := utils.GetLatestGitHubRelease(ctx, info.Repo, "")
-			if err != nil {
-				return nil, fmt.Errorf("failed to get latest GitHub release: %w", err)
-			}
-			version = latest
-		}
-
-		if utils.ContainsString(info.Architectures, currentArch) {
-			url := buildURL(info.BaseURL, version, currentArch)
-
-			// Use "latest" in local filenames when UseLatest is true to match Dockerfile template expectations
-			localVersion := version
-			if schema.UseLatest {
-				localVersion = "latest"
-			}
-
-			var localName string
-			if info.LocalNameTemplate != "" {
-				localName = strings.NewReplacer(
-					"{version}", localVersion,
-					"{arch}", currentArch,
-				).Replace(info.LocalNameTemplate)
-			}
-
-			items = append(items, download.DownloadItem{
-				URL:       url,       // full URL with actual version
-				LocalName: localName, // friendly/stable name like "anaconda-latest-aarch64.sh"
-			})
-		}
+func processURLInfo(ctx context.Context, info URLInfo) (*download.DownloadItem, error) {
+	currentArch := GetCurrentArchitecture(ctx, info.Repo)
+	version, err := resolveVersion(ctx, info, currentArch)
+	if err != nil {
+		return nil, err
 	}
 
-	return items, nil
+	if !utils.ContainsString(info.Architectures, currentArch) {
+		return nil, nil
+	}
+
+	url := buildURL(info.BaseURL, version, currentArch)
+	localName := buildLocalName(info, version, currentArch)
+
+	return &download.DownloadItem{
+		URL:       url,
+		LocalName: localName,
+	}, nil
+}
+
+func resolveVersion(ctx context.Context, info URLInfo, currentArch string) (string, error) {
+	version := info.Version
+
+	if info.IsAnaconda && schema.UseLatest {
+		versions, err := GetLatestAnacondaVersions(ctx)
+		if err != nil {
+			return "", fmt.Errorf("failed to get Anaconda versions: %w", err)
+		}
+		if version = versions[currentArch]; version == "" {
+			return "", fmt.Errorf("no Anaconda version for %s", currentArch)
+		}
+	} else if schema.UseLatest {
+		latest, err := utils.GetLatestGitHubRelease(ctx, info.Repo, "")
+		if err != nil {
+			return "", fmt.Errorf("failed to get latest GitHub release: %w", err)
+		}
+		version = latest
+	}
+
+	return version, nil
+}
+
+func buildLocalName(info URLInfo, version, currentArch string) string {
+	if info.LocalNameTemplate == "" {
+		return ""
+	}
+
+	localVersion := version
+	if schema.UseLatest {
+		localVersion = "latest"
+	}
+
+	return strings.NewReplacer(
+		"{version}", localVersion,
+		"{arch}", currentArch,
+	).Replace(info.LocalNameTemplate)
 }

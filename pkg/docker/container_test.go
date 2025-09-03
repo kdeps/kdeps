@@ -352,6 +352,75 @@ func TestParseOLLAMAHost(t *testing.T) {
 	}
 }
 
+func TestMakeUniquePortBindings(t *testing.T) {
+	t.Run("EmptyHostIP", func(t *testing.T) {
+		portNum := "8080"
+		hostIP := ""
+		bindings := makeUniquePortBindings(portNum, hostIP)
+
+		// Should only have the default binding
+		assert.Len(t, bindings, 1)
+		assert.Equal(t, "::1", bindings[0].HostIP)
+		assert.Equal(t, portNum, bindings[0].HostPort)
+	})
+
+	t.Run("ValidHostIP", func(t *testing.T) {
+		portNum := "3000"
+		hostIP := "127.0.0.1"
+		bindings := makeUniquePortBindings(portNum, hostIP)
+
+		// Should have default + provided hostIP
+		assert.Len(t, bindings, 2)
+
+		// Check that default binding is present
+		found := false
+		for _, binding := range bindings {
+			if binding.HostIP == "::1" && binding.HostPort == portNum {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "default binding not found")
+
+		// Check that provided hostIP binding is present
+		found = false
+		for _, binding := range bindings {
+			if binding.HostIP == hostIP && binding.HostPort == portNum {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "provided hostIP binding not found")
+	})
+
+	t.Run("DuplicateHostIP", func(t *testing.T) {
+		portNum := "5000"
+		hostIP := "::1" // Same as default
+		bindings := makeUniquePortBindings(portNum, hostIP)
+
+		// Should only have one binding since hostIP duplicates default
+		assert.Len(t, bindings, 1)
+		assert.Equal(t, "::1", bindings[0].HostIP)
+		assert.Equal(t, portNum, bindings[0].HostPort)
+	})
+
+	t.Run("MultipleCallsConsistency", func(t *testing.T) {
+		portNum := "9090"
+		hostIP := "10.0.0.1"
+
+		// Call multiple times to ensure consistency
+		for i := 0; i < 10; i++ {
+			bindings := makeUniquePortBindings(portNum, hostIP)
+			assert.Len(t, bindings, 2)
+
+			// Check that all bindings have the correct port
+			for _, binding := range bindings {
+				assert.Equal(t, portNum, binding.HostPort)
+			}
+		}
+	})
+}
+
 func TestGenerateUniqueOllamaPort(t *testing.T) {
 	existing := uint16(12345)
 	for range 10 {

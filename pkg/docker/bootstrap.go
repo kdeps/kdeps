@@ -168,35 +168,54 @@ func pullModels(ctx context.Context, models []string, logger *logging.Logger) er
 }
 
 func copyOfflineModels(ctx context.Context, models []string, logger *logging.Logger) error {
-	// Copy models from build-time location to ollama's shared volume location
-	modelsSourceDir := "/models"
-	modelsTargetDir := os.Getenv("OLLAMA_MODELS")
-	if strings.TrimSpace(modelsTargetDir) == "" {
-		modelsTargetDir = "/root/.ollama"
+	sourceDir, targetDir := setupModelDirectories()
+	if err := checkSourceDirectoryExists(ctx, sourceDir, logger); err != nil {
+		return err
 	}
-	modelsTargetRoot := modelsTargetDir + "/models"
 
-	var stdout string
-	// Check if source models directory exists
+	if err := createTargetDirectory(ctx, targetDir+"/models", logger); err != nil {
+		return err
+	}
+
+	if err := syncModelsViaRsync(ctx, sourceDir, targetDir+"/models", logger); err != nil {
+		return err
+	}
+
+	logger.Info("offline models copied successfully", "source", sourceDir, "target", targetDir)
+	return nil
+}
+
+func setupModelDirectories() (string, string) {
+	sourceDir := "/models"
+	targetDir := os.Getenv("OLLAMA_MODELS")
+	if strings.TrimSpace(targetDir) == "" {
+		targetDir = "/root/.ollama"
+	}
+	return sourceDir, targetDir
+}
+
+func checkSourceDirectoryExists(ctx context.Context, sourceDir string, logger *logging.Logger) error {
 	_, _, _, err := KdepsExec(
 		ctx,
 		"test",
-		[]string{"-d", modelsSourceDir},
+		[]string{"-d", sourceDir},
 		"",
 		false,
 		false,
 		logger,
 	)
 	if err != nil {
-		logger.Warn("offline models directory not found, skipping offline model setup", "path", modelsSourceDir, "error", err)
+		logger.Warn("offline models directory not found, skipping offline model setup", "path", sourceDir, "error", err)
 		return fmt.Errorf("failed to check offline models directory: %w", err)
 	}
+	return nil
+}
 
-	// Create target root directory if it doesn't exist
-	stdout, _, _, err = KdepsExec(
+func createTargetDirectory(ctx context.Context, targetDir string, logger *logging.Logger) error {
+	stdout, _, _, err := KdepsExec(
 		ctx,
 		"mkdir",
-		[]string{"-p", modelsTargetRoot},
+		[]string{"-p", targetDir},
 		"",
 		false,
 		false,
@@ -206,16 +225,16 @@ func copyOfflineModels(ctx context.Context, models []string, logger *logging.Log
 		logger.Error("failed to create ollama models root directory", "stdout", stdout, "error", err)
 		return fmt.Errorf("failed to create ollama models root directory: %w", err)
 	}
+	return nil
+}
 
-	// Sync /models into ${OLLAMA_MODELS}/models using rsync (preserves attrs, handles dots, shows progress)
-	cmd := fmt.Sprintf("mkdir -p %s && rsync -avrPtz --human-readable %s/. %s/", modelsTargetRoot, modelsSourceDir, modelsTargetRoot)
-	stdout, _, _, err = KdepsExec(ctx, "sh", []string{"-c", cmd}, "", false, false, logger)
+func syncModelsViaRsync(ctx context.Context, sourceDir, targetDir string, logger *logging.Logger) error {
+	cmd := fmt.Sprintf("mkdir -p %s && rsync -avrPtz --human-readable %s/. %s/", targetDir, sourceDir, targetDir)
+	stdout, _, _, err := KdepsExec(ctx, "sh", []string{"-c", cmd}, "", false, false, logger)
 	if err != nil {
 		logger.Error("failed to sync offline models via rsync", "stdout", stdout, "error", err)
 		return fmt.Errorf("failed to sync offline models via rsync: %w", err)
 	}
-
-	logger.Info("offline models copied successfully", "source", modelsSourceDir, "target", modelsTargetDir)
 	return nil
 }
 

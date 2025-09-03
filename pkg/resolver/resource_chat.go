@@ -56,8 +56,7 @@ func (dr *DependencyResolver) HandleLLMChat(actionID string, chatBlock *pklLLM.R
 	return nil
 }
 
-// generateChatResponse generates a response from the LLM based on the chat block, executing tools via toolreader.
-func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, chatBlock *pklLLM.ResourceChat, toolreader *tool.PklResourceReader, logger *logging.Logger) (string, error) {
+func logChatBlockInfo(chatBlock *pklLLM.ResourceChat, logger *logging.Logger) {
 	logger.Info("Processing chatBlock",
 		"model", chatBlock.Model,
 		"prompt", utils.SafeDerefString(chatBlock.Prompt),
@@ -67,18 +66,16 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		"tool_count", len(utils.SafeDerefSlice(chatBlock.Tools)),
 		"scenario_count", len(utils.SafeDerefSlice(chatBlock.Scenario)),
 		"file_count", len(utils.SafeDerefSlice(chatBlock.Files)))
+}
 
-	// Generate dynamic tools with enhanced logging
-	availableTools := generateAvailableTools(chatBlock, logger)
+func logGeneratedTools(availableTools []llms.Tool, logger *logging.Logger) {
 	logger.Info("Generated tools",
 		"tool_count", len(availableTools),
 		"tool_names", extractToolNamesFromTools(availableTools))
+}
 
-	// Build message history
+func buildMessageHistory(ctx context.Context, fs afero.Fs, chatBlock *pklLLM.ResourceChat, availableTools []llms.Tool, logger *logging.Logger) ([]llms.MessageContent, llms.ChatMessageType, error) {
 	messageHistory := make([]llms.MessageContent, 0)
-
-	// Store tool outputs to influence subsequent calls
-	toolOutputs := make(map[string]string) // Key: tool_call_id, Value: output
 
 	// Build system prompt that encourages tool usage and considers previous outputs
 	systemPrompt := buildSystemPrompt(chatBlock.JSONResponse, chatBlock.JSONResponseKeys, availableTools)
@@ -111,7 +108,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 			fileBytes, err := afero.ReadFile(fs, filePath)
 			if err != nil {
 				logger.Error("Failed to read file", "index", i, "path", filePath, "error", err)
-				return "", fmt.Errorf("failed to read file %s: %w", filePath, err)
+				return nil, "", fmt.Errorf("failed to read file %s: %w", filePath, err)
 			}
 			fileType := mimetype.Detect(fileBytes).String()
 			logger.Info("Detected MIME type for file", "index", i, "path", filePath, "mimeType", fileType)
@@ -125,6 +122,29 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 			})
 		}
 	}
+
+	return messageHistory, roleType, nil
+}
+
+// generateChatResponse generates a response from the LLM based on the chat block, executing tools via toolreader.
+func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, chatBlock *pklLLM.ResourceChat, toolreader *tool.PklResourceReader, logger *logging.Logger) (string, error) {
+	logChatBlockInfo(chatBlock, logger)
+
+	// Generate dynamic tools with enhanced logging
+	availableTools := generateAvailableTools(chatBlock, logger)
+	logGeneratedTools(availableTools, logger)
+
+	// Store tool outputs to influence subsequent calls
+	toolOutputs := make(map[string]string) // Key: tool_call_id, Value: output
+
+	messageHistory, _, err := buildMessageHistory(ctx, fs, chatBlock, availableTools, logger)
+	if err != nil {
+		return "", err
+	}
+
+	// Get prompt and system prompt for later use in tool processing
+	prompt := utils.SafeDerefString(chatBlock.Prompt)
+	systemPrompt := buildSystemPrompt(chatBlock.JSONResponse, chatBlock.JSONResponseKeys, availableTools)
 
 	// Call options
 	opts := []llms.CallOption{}
