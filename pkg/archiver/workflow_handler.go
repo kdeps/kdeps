@@ -25,127 +25,220 @@ import (
 )
 
 func PrepareRunDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, pkgFilePath string, logger *logging.Logger) (string, error) {
-	agentName, agentVersion := wf.GetAgentID(), wf.GetVersion()
-	runDir := filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion+"/workflow")
-
-	if exists, err := afero.Exists(fs, runDir); err != nil {
-		return "", err
-	} else if exists {
-		if err := fs.RemoveAll(runDir); err != nil {
-			return "", err
-		}
-	}
-
-	if err := fs.MkdirAll(runDir, 0o755); err != nil {
+	runDir := setupRunDirectory(fs, wf, kdepsDir)
+	if err := prepareRunDirectory(fs, runDir); err != nil {
 		return "", err
 	}
 
-	file, err := os.Open(pkgFilePath)
+	extractor, err := createExtractor(pkgFilePath, logger)
 	if err != nil {
-		logger.Error("error opening file: %v\n", err)
 		return "", err
 	}
-	defer file.Close()
+	defer extractor.Close()
 
-	gzr, err := gzip.NewReader(file)
-	if err != nil {
-		logger.Error("error creating gzip reader: %v\n", err)
+	if err := extractFiles(fs, extractor, runDir, logger); err != nil {
 		return "", err
-	}
-	defer gzr.Close()
-
-	tarReader := tar.NewReader(gzr)
-
-	for {
-		header, err := tarReader.Next()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			logger.Error("error reading tar file: %v\n", err)
-			return "", err
-		}
-
-		target, err := utils.SanitizeArchivePath(runDir, header.Name)
-		if err != nil {
-			return "", err
-		}
-
-		switch header.Typeflag {
-		case tar.TypeDir:
-			if err := fs.MkdirAll(target, 0o755); err != nil {
-				logger.Error("error creating directory: %v\n", err)
-				return "", err
-			}
-		case tar.TypeReg:
-			dir := filepath.Dir(target)
-			if err := fs.MkdirAll(dir, 0o755); err != nil {
-				logger.Error("error creating file directory: %v\n", err)
-				return "", err
-			}
-
-			outFile, err := fs.Create(target)
-			if err != nil {
-				logger.Error("error creating file: %v\n", err)
-				return "", err
-			}
-
-			for {
-				_, err := io.CopyN(outFile, tarReader, 1024)
-				if err != nil {
-					if errors.Is(err, io.EOF) {
-						break
-					}
-					logger.Error("error writing file: %v\n", err)
-					return "", fmt.Errorf("failed to copy file: %w", err)
-				}
-			}
-			outFile.Close()
-		default:
-			logger.Error("unknown type: %v in %s\n", header.Typeflag, header.Name)
-		}
 	}
 
 	logger.Debug(messages.MsgExtractionRuntimeDone, runDir)
 	return runDir, nil
 }
 
+func setupRunDirectory(fs afero.Fs, wf pklWf.Workflow, kdepsDir string) string {
+	agentName, agentVersion := wf.GetAgentID(), wf.GetVersion()
+	return filepath.Join(kdepsDir, "run/"+agentName+"/"+agentVersion+"/workflow")
+}
+
+func prepareRunDirectory(fs afero.Fs, runDir string) error {
+	if exists, err := afero.Exists(fs, runDir); err != nil {
+		return err
+	} else if exists {
+		if err := fs.RemoveAll(runDir); err != nil {
+			return err
+		}
+	}
+
+	return fs.MkdirAll(runDir, 0o755)
+}
+
+func createExtractor(pkgFilePath string, logger *logging.Logger) (*extractor, error) {
+	file, err := os.Open(pkgFilePath)
+	if err != nil {
+		logger.Error("error opening file: %v\n", err)
+		return nil, err
+	}
+
+	gzr, err := gzip.NewReader(file)
+	if err != nil {
+		logger.Error("error creating gzip reader: %v\n", err)
+		file.Close()
+		return nil, err
+	}
+
+	return &extractor{
+		tarReader: tar.NewReader(gzr),
+		gzr:       gzr,
+		file:      file,
+	}, nil
+}
+
+type extractor struct {
+	tarReader *tar.Reader
+	gzr       *gzip.Reader
+	file      *os.File
+}
+
+func (e *extractor) Close() error {
+	if e.gzr != nil {
+		e.gzr.Close()
+	}
+	if e.file != nil {
+		return e.file.Close()
+	}
+	return nil
+}
+
+func extractFiles(fs afero.Fs, extractor *extractor, runDir string, logger *logging.Logger) error {
+	for {
+		header, err := extractor.tarReader.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			logger.Error("error reading tar file: %v\n", err)
+			return err
+		}
+
+		target, err := utils.SanitizeArchivePath(runDir, header.Name)
+		if err != nil {
+			return err
+		}
+
+		if err := extractFile(fs, extractor, header, target, logger); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func extractFile(fs afero.Fs, extractor *extractor, header *tar.Header, target string, logger *logging.Logger) error {
+	switch header.Typeflag {
+	case tar.TypeDir:
+		if err := fs.MkdirAll(target, 0o755); err != nil {
+			logger.Error("error creating directory: %v\n", err)
+			return err
+		}
+	case tar.TypeReg:
+		return extractRegularFile(fs, extractor.tarReader, target, logger)
+	default:
+		logger.Error("unknown type: %v in %s\n", header.Typeflag, header.Name)
+	}
+	return nil
+}
+
+func extractRegularFile(fs afero.Fs, tarReader *tar.Reader, target string, logger *logging.Logger) error {
+	dir := filepath.Dir(target)
+	if err := fs.MkdirAll(dir, 0o755); err != nil {
+		logger.Error("error creating file directory: %v\n", err)
+		return err
+	}
+
+	outFile, err := fs.Create(target)
+	if err != nil {
+		logger.Error("error creating file: %v\n", err)
+		return err
+	}
+	defer outFile.Close()
+
+	for {
+		_, err := io.CopyN(outFile, tarReader, 1024)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			logger.Error("error writing file: %v\n", err)
+			return fmt.Errorf("failed to copy file: %w", err)
+		}
+	}
+	return nil
+}
+
 func CompileWorkflow(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, projectDir string, logger *logging.Logger) (string, error) {
+	compiledAction, err := prepareActionID(wf)
+	if err != nil {
+		return "", err
+	}
+
+	dirs, err := setupWorkflowDirectories(fs, wf, kdepsDir, logger)
+	if err != nil {
+		return "", err
+	}
+
+	if err := compileWorkflowContent(fs, ctx, wf, projectDir, dirs.compiledFilePath, compiledAction, logger); err != nil {
+		return "", err
+	}
+
+	if err := validateCompiledWorkflow(fs, ctx, dirs.compiledFilePath, logger); err != nil {
+		return "", err
+	}
+
+	return filepath.Dir(dirs.compiledFilePath), nil
+}
+
+func prepareActionID(wf pklWf.Workflow) (string, error) {
 	action := wf.GetTargetActionID()
 	if action == "" {
 		return "", errors.New("please specify the default action in the workflow")
 	}
 
-	name, version := wf.GetAgentID(), wf.GetVersion()
-	compiledAction := action
-	if !strings.HasPrefix(action, "@") {
-		compiledAction = fmt.Sprintf("@%s/%s:%s", name, action, version)
+	if strings.HasPrefix(action, "@") {
+		return action, nil
 	}
 
+	name, version := wf.GetAgentID(), wf.GetVersion()
+	return fmt.Sprintf("@%s/%s:%s", name, action, version), nil
+}
+
+type workflowDirectories struct {
+	agentDir         string
+	resourcesDir     string
+	compiledFilePath string
+}
+
+func setupWorkflowDirectories(fs afero.Fs, wf pklWf.Workflow, kdepsDir string, logger *logging.Logger) (*workflowDirectories, error) {
+	name, version := wf.GetAgentID(), wf.GetVersion()
 	agentDir := filepath.Join(kdepsDir, fmt.Sprintf("agents/%s/%s", name, version))
 	resourcesDir := filepath.Join(agentDir, "resources")
 	compiledFilePath := filepath.Join(agentDir, "workflow.pkl")
 
 	if exists, err := afero.DirExists(fs, agentDir); err != nil {
 		logger.Error("error checking agent directory", "path", agentDir, "error", err)
-		return "", err
+		return nil, err
 	} else if exists {
 		if err := fs.RemoveAll(agentDir); err != nil {
 			logger.Error(messages.MsgRemovedAgentDirectory, "path", agentDir, "error", err)
-			return "", err
+			return nil, err
 		}
 		logger.Debug(messages.MsgRemovedAgentDirectory, "path", agentDir)
 	}
 
 	if err := fs.MkdirAll(resourcesDir, 0o755); err != nil {
 		logger.Error("failed to create resources directory", "path", resourcesDir, "error", err)
-		return "", err
+		return nil, err
 	}
 
+	return &workflowDirectories{
+		agentDir:         agentDir,
+		resourcesDir:     resourcesDir,
+		compiledFilePath: compiledFilePath,
+	}, nil
+}
+
+func compileWorkflowContent(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, projectDir, compiledFilePath, compiledAction string, logger *logging.Logger) error {
 	content, err := afero.ReadFile(fs, filepath.Join(projectDir, "workflow.pkl"))
 	if err != nil {
 		logger.Error("failed to read workflow file", "error", err)
-		return "", err
+		return err
 	}
 
 	re := regexp.MustCompile(`TargetActionID\s*=\s*".*"`)
@@ -153,27 +246,31 @@ func CompileWorkflow(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsD
 
 	if err := afero.WriteFile(fs, compiledFilePath, []byte(updatedContent), 0o644); err != nil {
 		logger.Error("failed to write compiled workflow", "path", compiledFilePath, "error", err)
-		return "", err
+		return err
 	}
 
 	if err := enforcer.EnforcePklTemplateAmendsRules(fs, compiledFilePath, ctx, logger); err != nil {
 		logger.Error("validation failed for .pkl file", "file", compiledFilePath, "error", err)
-		return "", err
+		return err
 	}
 
-	// Validate the compiled workflow to ensure it's syntactically correct
+	return nil
+}
+
+func validateCompiledWorkflow(fs afero.Fs, ctx context.Context, compiledFilePath string, logger *logging.Logger) error {
 	// Skip validation in test environments to avoid issues with test-specific Pkl files
 	if logger != nil && reflect.ValueOf(logger).Elem().FieldByName("buffer").IsValid() {
 		logger.Debug("skipping workflow Pkl validation in test environment")
-	} else {
-		if err := evaluator.ValidatePkl(fs, ctx, compiledFilePath, logger); err != nil {
-			logger.Error("Pkl validation failed for workflow", "file", compiledFilePath, "error", err)
-			return "", fmt.Errorf("pkl validation failed for workflow: %w", err)
-		}
-		logger.Debug("workflow Pkl file validated successfully", "file", compiledFilePath)
+		return nil
 	}
 
-	return filepath.Dir(compiledFilePath), nil
+	if err := evaluator.ValidatePkl(fs, ctx, compiledFilePath, logger); err != nil {
+		logger.Error("Pkl validation failed for workflow", "file", compiledFilePath, "error", err)
+		return fmt.Errorf("pkl validation failed for workflow: %w", err)
+	}
+
+	logger.Debug("workflow Pkl file validated successfully", "file", compiledFilePath)
+	return nil
 }
 
 func CompileProject(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir string, projectDir string, env *environment.Environment, logger *logging.Logger) (string, string, error) {

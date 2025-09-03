@@ -193,12 +193,29 @@ func handleAppRequest(c *gin.Context, hostIP string, route *webserver.WebServerR
 }
 
 func handleWebSocketProxy(c *gin.Context, targetURL *url.URL, route *webserver.WebServerRoutes, logger *logging.Logger) {
-	// Create WebSocket dialer
-	dialer := websocket.Dialer{
-		Proxy: http.ProxyFromEnvironment,
-	}
+	targetWSURL := prepareWebSocketURL(targetURL, c, route)
+	logger.Debug("proxying WebSocket connection", "url", targetWSURL.String())
 
-	// Prepare the target WebSocket URL
+	wsHeaders := filterWebSocketHeaders(c.Request.Header)
+
+	targetConn, err := connectToTargetWebSocket(targetWSURL, wsHeaders, logger)
+	if err != nil {
+		c.String(http.StatusBadGateway, "Failed to connect to WebSocket server")
+		return
+	}
+	defer targetConn.Close()
+
+	clientConn, err := upgradeClientConnection(c, logger)
+	if err != nil {
+		return
+	}
+	defer clientConn.Close()
+
+	// Start bidirectional data transfer
+	startWebSocketProxy(targetConn, clientConn, logger)
+}
+
+func prepareWebSocketURL(targetURL *url.URL, c *gin.Context, route *webserver.WebServerRoutes) *url.URL {
 	targetWSURL := *targetURL
 	targetWSURL.Scheme = "ws"
 
@@ -211,11 +228,12 @@ func handleWebSocketProxy(c *gin.Context, targetURL *url.URL, route *webserver.W
 	targetWSURL.Path = trimmedPath
 	targetWSURL.RawQuery = c.Request.URL.RawQuery
 
-	logger.Debug("proxying WebSocket connection", "url", targetWSURL.String())
+	return &targetWSURL
+}
 
-	// Filter out WebSocket-specific headers to avoid duplicates
+func filterWebSocketHeaders(headers http.Header) http.Header {
 	wsHeaders := make(http.Header)
-	for key, values := range c.Request.Header {
+	for key, values := range headers {
 		// Skip headers that the WebSocket dialer handles automatically
 		lowerKey := strings.ToLower(key)
 		if lowerKey != "upgrade" &&
@@ -227,32 +245,42 @@ func handleWebSocketProxy(c *gin.Context, targetURL *url.URL, route *webserver.W
 			wsHeaders[key] = values
 		}
 	}
+	return wsHeaders
+}
 
-	// Connect to the target WebSocket server
+func connectToTargetWebSocket(targetWSURL *url.URL, wsHeaders http.Header, logger *logging.Logger) (*websocket.Conn, error) {
+	dialer := websocket.Dialer{
+		Proxy: http.ProxyFromEnvironment,
+	}
+
 	targetConn, resp, err := dialer.Dial(targetWSURL.String(), wsHeaders)
 	if err != nil {
 		logger.Error("failed to connect to target WebSocket", "url", targetWSURL.String(), "error", err)
-		c.String(http.StatusBadGateway, "Failed to connect to WebSocket server")
-		return
+		return nil, err
 	}
-	defer targetConn.Close()
+
 	if resp != nil && resp.Body != nil {
 		defer resp.Body.Close()
 	}
+	return targetConn, nil
+}
 
-	// Upgrade the client connection to WebSocket
+func upgradeClientConnection(c *gin.Context, logger *logging.Logger) (*websocket.Conn, error) {
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
 			return true // Allow all origins for proxy
 		},
 	}
+
 	clientConn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		logger.Error("failed to upgrade client connection to WebSocket", "error", err)
-		return
+		return nil, err
 	}
-	defer clientConn.Close()
+	return clientConn, nil
+}
 
+func startWebSocketProxy(targetConn, clientConn *websocket.Conn, logger *logging.Logger) {
 	// Start bidirectional data transfer
 	go func() {
 		defer targetConn.Close()

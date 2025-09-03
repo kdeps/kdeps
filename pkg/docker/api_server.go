@@ -253,398 +253,455 @@ func setupRoutes(router *gin.Engine, ctx context.Context, wfAPIServerCORS apiser
 	}
 }
 
+type requestHandler struct {
+	ctx            context.Context
+	route          *apiserver.APIServerRoutes
+	baseDr         *resolver.DependencyResolver
+	semaphore      chan struct{}
+	allowedMethods []string
+	c              *gin.Context
+
+	graphID        string
+	logger         *logging.Logger
+	errorResponses []ErrorResponse
+	dr             *resolver.DependencyResolver
+
+	bodyData string
+	fileMap  map[string]struct{ Filename, Filetype string }
+}
+
 func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, baseDr *resolver.DependencyResolver, semaphore chan struct{}) gin.HandlerFunc {
-	// Validate route parameter
-	if route == nil || route.Path == "" || len(route.Methods) == 0 {
-		baseDr.Logger.Error("invalid route configuration provided to APIServerHandler", "route", route)
-		return func(c *gin.Context) {
-			graphID := uuid.New().String()
-			response := APIResponse{
-				Success: false,
-				Response: ResponseData{
-					Data: nil,
-				},
-				Meta: ResponseMeta{
-					RequestID: graphID,
-				},
-				Errors: []ErrorResponse{
-					{
-						Code:     http.StatusInternalServerError,
-						Message:  "Invalid route configuration",
-						ActionID: UnknownActionID, // No action context available for route configuration errors
-					},
-				},
-			}
-			jsonBytes, err := json.MarshalIndent(response, "", "  ")
-			if err != nil {
-				c.AbortWithStatusJSON(http.StatusInternalServerError, response)
-				return
-			}
-			c.Header("Content-Type", "application/json; charset=utf-8")
-			c.AbortWithStatus(http.StatusInternalServerError)
-			if _, err := c.Writer.Write(jsonBytes); err != nil {
-				// Log error to stderr since logger is not available in this scope
-				fmt.Fprintf(os.Stderr, "failed to write error response: %v\n", err)
-			}
-		}
+	if err := validateRouteConfig(route, baseDr.Logger); err != nil {
+		return createInvalidRouteHandler()
 	}
 
 	allowedMethods := route.Methods
 
 	return func(c *gin.Context) {
-		// Initialize errors slice to collect all errors
-		var errorResponses []ErrorResponse
-
-		graphID := uuid.New().String()
-		baseLogger := logging.GetLogger()
-		logger := baseLogger.With("requestID", graphID)
-
-		// Ensure cleanup of request-specific errors when request completes
-		defer func() {
-			utils.ClearRequestErrors(graphID)
-		}()
-
-		// Helper function to create APIResponse with requestID
-		createErrorResponse := func(errs []ErrorResponse) APIResponse {
-			return APIResponse{
-				Success: false,
-				Response: ResponseData{
-					Data: nil,
-				},
-				Meta: ResponseMeta{
-					RequestID: graphID,
-				},
-				Errors: errs,
-			}
+		handler := &requestHandler{
+			ctx:            ctx,
+			route:          route,
+			baseDr:         baseDr,
+			semaphore:      semaphore,
+			allowedMethods: allowedMethods,
+			c:              c,
 		}
+		handler.processRequest()
+	}
+}
 
-		// Helper function to add unique errors (prevents duplicates)
-		// Action ID will be added after resolver is created
-		addUniqueError := func(errs *[]ErrorResponse, code int, message, actionID string) {
-			// Skip empty messages
-			if message == "" {
-				return
-			}
+func (h *requestHandler) processRequest() {
+	h.initializeRequest()
+	defer h.cleanup()
 
-			// Use "unknown" if actionID is empty
-			if actionID == "" {
-				actionID = UnknownActionID
-			}
+	if !h.acquireSemaphore() {
+		return
+	}
+	defer h.releaseSemaphore()
 
-			// Check if error already exists (same message, code, and actionID)
-			for _, existingError := range *errs {
-				if existingError.Message == message && existingError.Code == code && existingError.ActionID == actionID {
-					return // Skip duplicate
-				}
-			}
+	if !h.createResolver() {
+		return
+	}
 
-			// Add new unique error
-			*errs = append(*errs, ErrorResponse{
-				Code:     code,
-				Message:  message,
-				ActionID: actionID,
-			})
+	if !h.validateAndProcessRequest() {
+		return
+	}
+
+	h.processAndSendResponse()
+}
+
+func (h *requestHandler) initializeRequest() {
+	h.graphID = uuid.New().String()
+	baseLogger := logging.GetLogger()
+	h.logger = baseLogger.With("requestID", h.graphID)
+	h.errorResponses = []ErrorResponse{}
+	h.fileMap = make(map[string]struct{ Filename, Filetype string })
+}
+
+func (h *requestHandler) cleanup() {
+	utils.ClearRequestErrors(h.graphID)
+}
+
+func (h *requestHandler) acquireSemaphore() bool {
+	select {
+	case h.semaphore <- struct{}{}:
+		return true
+	default:
+		h.addUniqueError(http.StatusTooManyRequests, "Only one active connection is allowed", UnknownActionID)
+		h.sendErrorResponse(http.StatusTooManyRequests)
+		return false
+	}
+}
+
+func (h *requestHandler) releaseSemaphore() {
+	<-h.semaphore
+}
+
+func (h *requestHandler) createResolver() bool {
+	newCtx := ktx.UpdateContext(h.ctx, ktx.CtxKeyGraphID, h.graphID)
+	dr, err := resolver.NewGraphResolver(h.baseDr.Fs, newCtx, h.baseDr.Environment, h.c, h.logger)
+	if err != nil {
+		h.errorResponses = append(h.errorResponses, ErrorResponse{
+			Code:     http.StatusInternalServerError,
+			Message:  "Failed to initialize resolver",
+			ActionID: UnknownActionID,
+		})
+		h.sendErrorResponse(http.StatusInternalServerError)
+		return false
+	}
+	h.dr = dr
+	return true
+}
+
+func (h *requestHandler) validateAndProcessRequest() bool {
+	if !h.cleanOldFiles() {
+		return false
+	}
+
+	if !h.validateMethod() {
+		return false
+	}
+
+	if !h.handleSpecialMethods() {
+		return false
+	}
+
+	if !h.processRequestBody() {
+		return false
+	}
+
+	if !h.createRequestFile() {
+		return false
+	}
+
+	if !h.processWorkflow() {
+		return false
+	}
+
+	return true
+}
+
+func (h *requestHandler) cleanOldFiles() bool {
+	if err := cleanOldFiles(h.dr); err != nil {
+		h.addUniqueError(http.StatusInternalServerError, "Failed to clean old files", h.getActionID())
+		h.sendErrorResponse(http.StatusInternalServerError)
+		return false
+	}
+	return true
+}
+
+func (h *requestHandler) validateMethod() bool {
+	_, err := validateMethod(h.c.Request, h.allowedMethods)
+	if err != nil {
+		h.addUniqueError(http.StatusBadRequest, err.Error(), h.getActionID())
+		h.sendErrorResponse(http.StatusInternalServerError)
+		return false
+	}
+	return true
+}
+
+func (h *requestHandler) handleSpecialMethods() bool {
+	switch h.c.Request.Method {
+	case http.MethodOptions:
+		h.c.Header("Allow", "OPTIONS, GET, HEAD, POST, PUT, PATCH, DELETE")
+		h.c.Status(http.StatusNoContent)
+		return false
+	case http.MethodHead:
+		h.c.Header("Content-Type", "application/json")
+		h.c.Status(http.StatusOK)
+		return false
+	}
+	return true
+}
+
+func (h *requestHandler) processRequestBody() bool {
+	switch h.c.Request.Method {
+	case http.MethodGet:
+		return h.processGetRequest()
+	case http.MethodPost, http.MethodPut, http.MethodPatch:
+		return h.processPostLikeRequest()
+	case http.MethodDelete:
+		h.bodyData = "Delete request received"
+		return true
+	default:
+		h.addUniqueError(http.StatusMethodNotAllowed, "Unsupported method", h.getActionID())
+		h.sendErrorResponse(http.StatusInternalServerError)
+		return false
+	}
+}
+
+func (h *requestHandler) processGetRequest() bool {
+	body, err := io.ReadAll(h.c.Request.Body)
+	if err != nil {
+		h.addUniqueError(http.StatusBadRequest, "Failed to read request body", h.getActionID())
+		h.sendErrorResponse(http.StatusBadRequest)
+		return false
+	}
+	defer h.c.Request.Body.Close()
+	h.bodyData = string(body)
+	return true
+}
+
+func (h *requestHandler) processPostLikeRequest() bool {
+	contentType := h.c.GetHeader("Content-Type")
+	if strings.Contains(contentType, "multipart/form-data") {
+		return h.processMultipartForm()
+	}
+
+	// Read non-multipart body
+	body, err := io.ReadAll(h.c.Request.Body)
+	if err != nil {
+		h.addUniqueError(http.StatusBadRequest, "Failed to read request body", h.getActionID())
+		h.sendErrorResponse(http.StatusInternalServerError)
+		return false
+	}
+	defer h.c.Request.Body.Close()
+	h.bodyData = string(body)
+	return true
+}
+
+func (h *requestHandler) processMultipartForm() bool {
+	if err := handleMultipartForm(h.c, h.dr, h.fileMap); err != nil {
+		var he *handlerError
+		if errors.As(err, &he) {
+			h.addUniqueError(he.statusCode, he.message, h.getActionID())
+			h.sendErrorResponse(he.statusCode)
+		} else {
+			h.addUniqueError(http.StatusInternalServerError, err.Error(), h.getActionID())
+			h.sendErrorResponse(http.StatusInternalServerError)
 		}
+		return false
+	}
+	return true
+}
 
-		// Helper function to send properly formatted JSON error responses
-		sendErrorResponse := func(statusCode int, errs []ErrorResponse) {
-			response := createErrorResponse(errs)
-			jsonBytes, err := json.MarshalIndent(response, "", "  ")
-			if err != nil {
-				// Fallback to non-indented JSON if marshal fails
-				c.AbortWithStatusJSON(statusCode, response)
-				return
-			}
-			c.Header("Content-Type", "application/json; charset=utf-8")
-			c.AbortWithStatus(statusCode)
-			if _, err := c.Writer.Write(jsonBytes); err != nil {
-				// Log error to stderr since logger is not available in this scope
-				fmt.Fprintf(os.Stderr, "failed to write error response: %v\n", err)
-			}
-		}
+func (h *requestHandler) processRequestData(bodyData string, fileMap map[string]struct{ Filename, Filetype string }) {
+	// Store the processed data for use in createRequestFile
+	// This is just a placeholder - the actual data is stored in the struct if needed
+}
 
-		// Try to acquire the semaphore (non-blocking)
-		select {
-		case semaphore <- struct{}{}:
-			// Successfully acquired the semaphore
-			defer func() { <-semaphore }() // Release the semaphore when done
-		default:
-			// Semaphore is full, append error
-			addUniqueError(&errorResponses, http.StatusTooManyRequests, "Only one active connection is allowed", UnknownActionID)
-			sendErrorResponse(http.StatusTooManyRequests, errorResponses)
-			return
-		}
+func (h *requestHandler) createRequestFile() bool {
+	method, _ := validateMethod(h.c.Request, h.allowedMethods)
 
-		newCtx := ktx.UpdateContext(ctx, ktx.CtxKeyGraphID, graphID)
+	urlSection := fmt.Sprintf(`Path = "%s"`, h.c.Request.URL.Path)
+	clientIPSection := fmt.Sprintf(`IP = "%s"`, h.c.ClientIP())
+	requestIDSection := fmt.Sprintf(`ID = "%s"`, h.graphID)
+	dataSection := fmt.Sprintf(`Data = "%s"`, utils.EncodeBase64String(h.bodyData))
 
-		dr, err := resolver.NewGraphResolver(baseDr.Fs, newCtx, baseDr.Environment, c, logger)
-		if err != nil {
-			errorResponses = append(errorResponses, ErrorResponse{
-				Code:     http.StatusInternalServerError,
-				Message:  "Failed to initialize resolver",
-				ActionID: UnknownActionID, // No resolver available yet
-			})
-			sendErrorResponse(http.StatusInternalServerError, errorResponses)
-			return
-		}
-
-		// Helper function to get action ID safely
-		getActionID := func() string {
-			if dr != nil {
-				// First try to get the current resource actionID being processed
-				if dr.CurrentResourceActionID != "" {
-					return dr.CurrentResourceActionID
-				}
-				// Fall back to workflow's target action ID if no current resource
-				if dr.Workflow != nil {
-					actionID := dr.Workflow.GetTargetActionID()
-					if actionID != "" {
-						return actionID
-					}
-				}
-			}
-			return UnknownActionID
-		}
-
-		if err := cleanOldFiles(dr); err != nil {
-			errorResponses = append(errorResponses, ErrorResponse{
-				Code:     http.StatusInternalServerError,
-				Message:  "Failed to clean old files",
-				ActionID: getActionID(),
-			})
-			sendErrorResponse(http.StatusInternalServerError, errorResponses)
-			return
-		}
-
-		method, err := validateMethod(c.Request, allowedMethods)
-		if err != nil {
-			errorResponses = append(errorResponses, ErrorResponse{
-				Code:     http.StatusBadRequest,
-				Message:  err.Error(),
-				ActionID: getActionID(),
-			})
-			sendErrorResponse(http.StatusInternalServerError, errorResponses)
-			return
-		}
-
-		if c.Request.Method == http.MethodOptions {
-			c.Header("Allow", "OPTIONS, GET, HEAD, POST, PUT, PATCH, DELETE")
-			c.Status(http.StatusNoContent)
-			return
-		}
-
-		if c.Request.Method == http.MethodHead {
-			c.Header("Content-Type", "application/json")
-			c.Status(http.StatusOK)
-			return
-		}
-
-		var bodyData string
-		fileMap := make(map[string]struct{ Filename, Filetype string })
-
-		switch c.Request.Method {
-		case http.MethodGet:
-			body, err := io.ReadAll(c.Request.Body)
-			if err != nil {
-				errorResponses = append(errorResponses, ErrorResponse{
-					Code:     http.StatusBadRequest,
-					Message:  "Failed to read request body",
-					ActionID: getActionID(),
-				})
-				sendErrorResponse(http.StatusBadRequest, errorResponses)
-				return
-			}
-			defer c.Request.Body.Close()
-			bodyData = string(body)
-
-		case http.MethodPost, http.MethodPut, http.MethodPatch:
-			contentType := c.GetHeader("Content-Type")
-			if strings.Contains(contentType, "multipart/form-data") {
-				if err := handleMultipartForm(c, dr, fileMap); err != nil {
-
-					var he *handlerError
-					if errors.As(err, &he) {
-						errorResponses = append(errorResponses, ErrorResponse{
-							Code:     he.statusCode,
-							Message:  he.message,
-							ActionID: getActionID(),
-						})
-						sendErrorResponse(he.statusCode, errorResponses)
-					} else {
-						errorResponses = append(errorResponses, ErrorResponse{
-							Code:     http.StatusInternalServerError,
-							Message:  err.Error(),
-							ActionID: getActionID(),
-						})
-						sendErrorResponse(http.StatusInternalServerError, errorResponses)
-					}
-					return
-				}
-			} else {
-				// Read non-multipart body
-				body, err := io.ReadAll(c.Request.Body)
-				if err != nil {
-					errorResponses = append(errorResponses, ErrorResponse{
-						Code:     http.StatusBadRequest,
-						Message:  "Failed to read request body",
-						ActionID: getActionID(),
-					})
-					sendErrorResponse(http.StatusInternalServerError, errorResponses)
-					return
-				}
-				defer c.Request.Body.Close()
-				bodyData = string(body)
-			}
-
-		case http.MethodDelete:
-			bodyData = "Delete request received"
-		default:
-			errorResponses = append(errorResponses, ErrorResponse{
-				Code:     http.StatusMethodNotAllowed,
-				Message:  "Unsupported method",
-				ActionID: getActionID(),
-			})
-			sendErrorResponse(http.StatusInternalServerError, errorResponses)
-			return
-		}
-
-		urlSection := fmt.Sprintf(`Path = "%s"`, c.Request.URL.Path)
-		clientIPSection := fmt.Sprintf(`IP = "%s"`, c.ClientIP())
-		requestIDSection := fmt.Sprintf(`ID = "%s"`, graphID)
-		dataSection := fmt.Sprintf(`Data = "%s"`, utils.EncodeBase64String(bodyData))
-
-		var sb strings.Builder
-		sb.WriteString("Files {\n")
-		for _, fileInfo := range fileMap {
-			fileBlock := fmt.Sprintf(`
+	var sb strings.Builder
+	sb.WriteString("Files {\n")
+	for _, fileInfo := range h.fileMap {
+		fileBlock := fmt.Sprintf(`
 	Filepath = "%s"
 	Filetype = "%s"
 `, fileInfo.Filename, fileInfo.Filetype)
-			sb.WriteString(fmt.Sprintf("    [\"%s\"] {\n%s\n}\n", filepath.Base(fileInfo.Filename), fileBlock))
+		sb.WriteString(fmt.Sprintf("    [\"%s\"] {\n%s\n}\n", filepath.Base(fileInfo.Filename), fileBlock))
+	}
+	sb.WriteString("}\n")
+	fileSection := sb.String()
+
+	paramSection := utils.FormatRequestParams(h.c.Request.URL.Query())
+	requestHeaderSection := utils.FormatRequestHeaders(h.c.Request.Header)
+
+	sections := []string{urlSection, clientIPSection, requestIDSection, method, requestHeaderSection, dataSection, paramSection, fileSection}
+
+	if err := evaluator.CreateAndProcessPklFile(
+		h.dr.Fs,
+		h.ctx,
+		sections,
+		h.dr.RequestPklFile,
+		"APIServerRequest.pkl",
+		nil,
+		h.dr.Logger,
+		evaluator.EvalPkl,
+		true,
+	); err != nil {
+		h.addUniqueError(http.StatusInternalServerError, messages.ErrProcessRequestFile, h.getActionID())
+		h.sendErrorResponse(http.StatusInternalServerError)
+		return false
+	}
+	return true
+}
+
+func (h *requestHandler) processWorkflow() bool {
+	if err := processWorkflow(h.ctx, h.dr); err != nil {
+		actionID := h.getActionID()
+		h.addUniqueError(http.StatusInternalServerError, err.Error(), actionID)
+		h.addUniqueError(http.StatusInternalServerError, messages.ErrEmptyResponse, actionID)
+		h.sendErrorResponse(http.StatusInternalServerError)
+		return false
+	}
+	return true
+}
+
+func (h *requestHandler) processAndSendResponse() {
+	content, err := afero.ReadFile(h.dr.Fs, h.dr.ResponseTargetFile)
+	if err != nil {
+		h.addUniqueError(http.StatusInternalServerError, messages.ErrReadResponseFile, h.getActionID())
+		h.sendErrorResponse(http.StatusInternalServerError)
+		return
+	}
+
+	decodedResp, err := decodeResponseContent(content, h.dr.Logger)
+	if err != nil {
+		h.addUniqueError(http.StatusInternalServerError, messages.ErrDecodeResponseContent, h.getActionID())
+		h.sendErrorResponse(http.StatusInternalServerError)
+		return
+	}
+
+	h.mergeAccumulatedErrors()
+	h.mergeAPIResponseErrors(decodedResp)
+
+	if len(h.errorResponses) > 0 {
+		h.addUniqueError(http.StatusInternalServerError, messages.ErrEmptyResponse, h.getActionID())
+		h.sendErrorResponse(http.StatusInternalServerError)
+		return
+	}
+
+	h.sendSuccessResponse(decodedResp)
+}
+
+func (h *requestHandler) mergeAccumulatedErrors() {
+	allAccumulatedErrors := utils.GetRequestErrorsWithActionID(h.graphID)
+	for _, accError := range allAccumulatedErrors {
+		if accError != nil {
+			actionID := accError.ActionID
+			if actionID == "" {
+				actionID = UnknownActionID
+			}
+			h.addUniqueError(accError.Code, accError.Message, actionID)
 		}
-		sb.WriteString("}\n")
-		fileSection := sb.String()
+	}
+}
 
-		paramSection := utils.FormatRequestParams(c.Request.URL.Query())
-		requestHeaderSection := utils.FormatRequestHeaders(c.Request.Header)
-
-		sections := []string{urlSection, clientIPSection, requestIDSection, method, requestHeaderSection, dataSection, paramSection, fileSection}
-
-		if err := evaluator.CreateAndProcessPklFile(
-			dr.Fs,
-			ctx,
-			sections,
-			dr.RequestPklFile,
-			"APIServerRequest.pkl",
-			nil,
-			dr.Logger,
-			evaluator.EvalPkl,
-			true,
-		); err != nil {
-			errorResponses = append(errorResponses, ErrorResponse{
-				Code:     http.StatusInternalServerError,
-				Message:  messages.ErrProcessRequestFile,
-				ActionID: getActionID(),
-			})
-			sendErrorResponse(http.StatusInternalServerError, errorResponses)
-			return
+func (h *requestHandler) mergeAPIResponseErrors(decodedResp *APIResponse) {
+	for _, apiError := range decodedResp.Errors {
+		actionID := apiError.ActionID
+		if actionID == "" {
+			actionID = h.getActionID()
 		}
+		h.addUniqueError(apiError.Code, apiError.Message, actionID)
+	}
+}
 
-		if err := processWorkflow(ctx, dr); err != nil {
-			// Get action ID for error context
-			actionID := getActionID()
-
-			// Add the specific error first (if not empty and unique)
-			errorMessage := err.Error()
-			addUniqueError(&errorResponses, http.StatusInternalServerError, errorMessage, actionID)
-
-			// Add the generic error message as additional context (if unique)
-			addUniqueError(&errorResponses, http.StatusInternalServerError, messages.ErrEmptyResponse, actionID)
-
-			sendErrorResponse(http.StatusInternalServerError, errorResponses)
-			return
+func (h *requestHandler) sendSuccessResponse(decodedResp *APIResponse) {
+	if decodedResp.Meta.Headers != nil {
+		for key, value := range decodedResp.Meta.Headers {
+			h.c.Header(key, value)
 		}
+	}
 
-		content, err := afero.ReadFile(dr.Fs, dr.ResponseTargetFile)
-		if err != nil {
-			errorResponses = append(errorResponses, ErrorResponse{
-				Code:     http.StatusInternalServerError,
-				Message:  messages.ErrReadResponseFile,
-				ActionID: getActionID(),
-			})
-			sendErrorResponse(http.StatusInternalServerError, errorResponses)
-			return
+	decodedResp.Meta.RequestID = h.graphID
+	decodedContent, err := json.Marshal(decodedResp)
+	if err != nil {
+		h.addUniqueError(http.StatusInternalServerError, messages.ErrMarshalResponseContent, h.getActionID())
+		h.sendErrorResponse(http.StatusInternalServerError)
+		return
+	}
+
+	decodedContent = formatResponseJSON(decodedContent)
+	h.c.Data(http.StatusOK, "application/json; charset=utf-8", decodedContent)
+}
+
+func (h *requestHandler) getActionID() string {
+	if h.dr != nil {
+		if h.dr.CurrentResourceActionID != "" {
+			return h.dr.CurrentResourceActionID
 		}
-
-		decodedResp, err := decodeResponseContent(content, dr.Logger)
-		if err != nil {
-			errorResponses = append(errorResponses, ErrorResponse{
-				Code:     http.StatusInternalServerError,
-				Message:  messages.ErrDecodeResponseContent,
-				ActionID: getActionID(),
-			})
-			sendErrorResponse(http.StatusInternalServerError, errorResponses)
-			return
-		}
-
-		// Always check for all accumulated errors from workflow processing
-		// This includes preflight validation errors, exec errors, python errors, etc.
-		allAccumulatedErrors := utils.GetRequestErrorsWithActionID(graphID)
-
-		// Convert accumulated errors to our ErrorResponse format using their captured actionID
-		for _, accError := range allAccumulatedErrors {
-			if accError != nil {
-				// Use the actionID that was captured when the error was created
-				actionID := accError.ActionID
-				if actionID == "" {
-					actionID = UnknownActionID
-				}
-				addUniqueError(&errorResponses, accError.Code, accError.Message, actionID)
+		if h.dr.Workflow != nil {
+			actionID := h.dr.Workflow.GetTargetActionID()
+			if actionID != "" {
+				return actionID
 			}
 		}
+	}
+	return UnknownActionID
+}
 
-		// Merge APIResponse errors with workflow processing errors
-		if len(decodedResp.Errors) > 0 {
-			for _, apiError := range decodedResp.Errors {
-				// Extract actionID from existing error if present, otherwise use current actionID
-				actionID := apiError.ActionID
-				if actionID == "" {
-					actionID = getActionID()
-				}
-				addUniqueError(&errorResponses, apiError.Code, apiError.Message, actionID)
-			}
-		}
+func (h *requestHandler) addUniqueError(code int, message, actionID string) {
+	if message == "" {
+		return
+	}
 
-		// If there are any errors (workflow or APIResponse), send error response (fail-fast behavior)
-		if len(errorResponses) > 0 {
-			// Add generic context error for fail-fast scenarios
-			addUniqueError(&errorResponses, http.StatusInternalServerError, messages.ErrEmptyResponse, getActionID())
-			sendErrorResponse(http.StatusInternalServerError, errorResponses)
+	if actionID == "" {
+		actionID = UnknownActionID
+	}
+
+	for _, existingError := range h.errorResponses {
+		if existingError.Message == message && existingError.Code == code && existingError.ActionID == actionID {
 			return
 		}
+	}
 
-		if decodedResp.Meta.Headers != nil {
-			for key, value := range decodedResp.Meta.Headers {
-				c.Header(key, value)
-			}
+	h.errorResponses = append(h.errorResponses, ErrorResponse{
+		Code:     code,
+		Message:  message,
+		ActionID: actionID,
+	})
+}
+
+func (h *requestHandler) sendErrorResponse(statusCode int) {
+	response := APIResponse{
+		Success: false,
+		Response: ResponseData{
+			Data: nil,
+		},
+		Meta: ResponseMeta{
+			RequestID: h.graphID,
+		},
+		Errors: h.errorResponses,
+	}
+
+	jsonBytes, err := json.MarshalIndent(response, "", "  ")
+	if err != nil {
+		h.c.AbortWithStatusJSON(statusCode, response)
+		return
+	}
+
+	h.c.Header("Content-Type", "application/json; charset=utf-8")
+	h.c.AbortWithStatus(statusCode)
+	if _, err := h.c.Writer.Write(jsonBytes); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to write error response: %v\n", err)
+	}
+}
+
+func validateRouteConfig(route *apiserver.APIServerRoutes, logger *logging.Logger) error {
+	if route == nil || route.Path == "" || len(route.Methods) == 0 {
+		logger.Error("invalid route configuration provided to APIServerHandler", "route", route)
+		return errors.New("invalid route configuration")
+	}
+	return nil
+}
+
+func createInvalidRouteHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		graphID := uuid.New().String()
+		response := APIResponse{
+			Success: false,
+			Response: ResponseData{
+				Data: nil,
+			},
+			Meta: ResponseMeta{
+				RequestID: graphID,
+			},
+			Errors: []ErrorResponse{
+				{
+					Code:     http.StatusInternalServerError,
+					Message:  "Invalid route configuration",
+					ActionID: UnknownActionID,
+				},
+			},
 		}
-
-		// Ensure requestID is set in the response
-		decodedResp.Meta.RequestID = graphID
-
-		decodedContent, err := json.Marshal(decodedResp)
+		jsonBytes, err := json.MarshalIndent(response, "", "  ")
 		if err != nil {
-			errorResponses = append(errorResponses, ErrorResponse{
-				Code:     http.StatusInternalServerError,
-				Message:  messages.ErrMarshalResponseContent,
-				ActionID: getActionID(),
-			})
-			sendErrorResponse(http.StatusInternalServerError, errorResponses)
+			c.AbortWithStatusJSON(http.StatusInternalServerError, response)
 			return
 		}
-
-		decodedContent = formatResponseJSON(decodedContent)
-		c.Data(http.StatusOK, "application/json; charset=utf-8", decodedContent)
+		c.Header("Content-Type", "application/json; charset=utf-8")
+		c.AbortWithStatus(http.StatusInternalServerError)
+		if _, err := c.Writer.Write(jsonBytes); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to write error response: %v\n", err)
+		}
 	}
 }
 
