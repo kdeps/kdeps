@@ -779,80 +779,146 @@ func (dr *DependencyResolver) validateAPIServerMode(res ResourceNodeEntry, runBl
 
 // processRunBlock handles the runBlock processing for a resource, excluding APIResponse.
 func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklResource.Resource, actionID string, hasItems bool) (bool, error) {
-	// Increment the run counter for this file
-	dr.FileRunCounter[res.File]++
-	dr.Logger.Info("processing run block for file", "file", res.File, "runCount", dr.FileRunCounter[res.File], "actionID", actionID)
+	dr.incrementRunCounter(res, actionID)
 
 	runBlock := rsc.Run
 
-	// When items are enabled, wait for the items database to have at least one item in the list
+	if err := dr.handlePrerequisites(res, runBlock, actionID, hasItems); err != nil {
+		return false, err
+	}
+
+	if dr.shouldSkipRunBlock(res, runBlock) {
+		return false, nil
+	}
+
+	if err := dr.validatePreflightCheck(res, runBlock); err != nil {
+		return false, err
+	}
+
+	if dr.shouldSkipExpensiveOperations(res) {
+		return true, nil
+	}
+
+	return dr.processAllRunBlockSteps(res, runBlock)
+}
+
+// loadResourceWithFallbackResolver tries to load a resource file with different resource types as fallback.
+func (dr *DependencyResolver) loadResourceWithFallbackResolver(file string) (interface{}, error) {
+	resourceTypes := []ResourceType{Resource, LLMResource, HTTPResource, PythonResource, ExecResource}
+
+	for _, resourceType := range resourceTypes {
+		res, err := dr.LoadResourceFn(dr.Context, file, resourceType)
+		if err != nil {
+			dr.Logger.Debug("failed to load resource with type", "file", file, "type", resourceType, "error", err)
+			continue
+		}
+
+		dr.Logger.Debug("successfully loaded resource", "file", file, "type", resourceType)
+
+		// If we successfully loaded as a specific resource type, try to convert it to Resource type
+		if resourceType != Resource {
+			// Try to load the same file as Resource type
+			resourceRes, err := dr.LoadResourceFn(dr.Context, file, Resource)
+			if err != nil {
+				dr.Logger.Debug("failed to convert resource to Resource type", "file", file, "originalType", resourceType, "error", err)
+				// Continue with the original loaded resource if conversion fails
+			} else {
+				return resourceRes, nil
+			}
+		}
+
+		return res, nil
+	}
+
+	return nil, fmt.Errorf("failed to load resource with any type for file %s", file)
+}
+
+// castToResource robustly casts a loaded resource to pklResource.Resource
+func (dr *DependencyResolver) incrementRunCounter(res ResourceNodeEntry, actionID string) {
+	dr.FileRunCounter[res.File]++
+	dr.Logger.Info("processing run block for file", "file", res.File, "runCount", dr.FileRunCounter[res.File], "actionID", actionID)
+}
+
+func (dr *DependencyResolver) handlePrerequisites(res ResourceNodeEntry, runBlock pklResource.ResourceAction, actionID string, hasItems bool) error {
 	if hasItems {
 		if err := dr.waitForItemsDatabase(actionID); err != nil {
-			return false, err
+			return err
 		}
 	}
 
 	if dr.APIServerMode {
-		if shouldSkip, err := dr.validateAPIServerMode(res, rsc.Run); err != nil {
-			return false, err
+		if shouldSkip, err := dr.validateAPIServerMode(res, runBlock); err != nil {
+			return err
 		} else if shouldSkip {
-			return false, nil
+			return fmt.Errorf("api server mode validation failed")
 		}
 	}
 
-	// Skip condition
+	return nil
+}
+
+func (dr *DependencyResolver) shouldSkipRunBlock(res ResourceNodeEntry, runBlock pklResource.ResourceAction) bool {
 	if runBlock.SkipCondition != nil && utils.ShouldSkip(runBlock.SkipCondition) {
 		dr.Logger.Infof("skip condition met, skipping: %s", res.ActionID)
-		return false, nil
+		return true
+	}
+	return false
+}
+
+func (dr *DependencyResolver) validatePreflightCheck(res ResourceNodeEntry, runBlock pklResource.ResourceAction) error {
+	if runBlock.PreflightCheck == nil || runBlock.PreflightCheck.Validations == nil {
+		return nil
 	}
 
-	// Preflight check
-	if runBlock.PreflightCheck != nil && runBlock.PreflightCheck.Validations != nil {
-		conditionsMet, failedConditions := utils.AllConditionsMetWithDetails(runBlock.PreflightCheck.Validations)
-		if !conditionsMet {
-			dr.Logger.Error("preflight check not met, collecting error and continuing to gather all errors:", res.ActionID, "failedConditions", failedConditions)
+	conditionsMet, failedConditions := utils.AllConditionsMetWithDetails(runBlock.PreflightCheck.Validations)
+	if !conditionsMet {
+		dr.Logger.Error("preflight check not met, collecting error and continuing to gather all errors:", res.ActionID, "failedConditions", failedConditions)
 
-			// Build user-friendly error message
-			var errorMessage string
-			if runBlock.PreflightCheck.Error != nil && runBlock.PreflightCheck.Error.Message != "" {
-				// Use the custom error message if provided
-				errorMessage = runBlock.PreflightCheck.Error.Message
-			} else {
-				// Default error message
-				errorMessage = fmt.Sprintf("Validation failed for %s", res.ActionID)
-			}
+		errorMessage := dr.buildPreflightErrorMessage(res, runBlock, failedConditions)
 
-			// Add specific validation failure details for debugging
-			if len(failedConditions) > 0 {
-				if len(failedConditions) == 1 {
-					errorMessage += fmt.Sprintf(" (%s)", failedConditions[0])
-				} else {
-					errorMessage += fmt.Sprintf(" (%s)", strings.Join(failedConditions, ", "))
-				}
+		// Collect error but continue processing to gather ALL errors
+		if runBlock.PreflightCheck.Error != nil {
+			if _, err := dr.HandleAPIErrorResponse(runBlock.PreflightCheck.Error.Code, errorMessage, false); err != nil {
+				dr.Logger.Error("failed to handle API error response", "error", err)
 			}
+		} else {
+			if _, err := dr.HandleAPIErrorResponse(500, errorMessage, false); err != nil {
+				dr.Logger.Error("failed to handle API error response", "error", err)
+			}
+		}
+	}
+	return nil
+}
 
-			// Collect error but continue processing to gather ALL errors
-			if runBlock.PreflightCheck.Error != nil {
-				if _, err := dr.HandleAPIErrorResponse(runBlock.PreflightCheck.Error.Code, errorMessage, false); err != nil {
-					dr.Logger.Error("failed to handle API error response", "error", err)
-				}
-			} else {
-				if _, err := dr.HandleAPIErrorResponse(500, errorMessage, false); err != nil {
-					dr.Logger.Error("failed to handle API error response", "error", err)
-				}
-			}
-			// Continue processing instead of returning early - this allows collection of all errors
+func (dr *DependencyResolver) buildPreflightErrorMessage(res ResourceNodeEntry, runBlock pklResource.ResourceAction, failedConditions []string) string {
+	var errorMessage string
+	if runBlock.PreflightCheck.Error != nil && runBlock.PreflightCheck.Error.Message != "" {
+		errorMessage = runBlock.PreflightCheck.Error.Message
+	} else {
+		errorMessage = fmt.Sprintf("Validation failed for %s", res.ActionID)
+	}
+
+	if len(failedConditions) > 0 {
+		if len(failedConditions) == 1 {
+			errorMessage += fmt.Sprintf(" (%s)", failedConditions[0])
+		} else {
+			errorMessage += fmt.Sprintf(" (%s)", strings.Join(failedConditions, ", "))
 		}
 	}
 
-	// Check if there are already accumulated errors - if so, skip expensive operations for fail-fast behavior
+	return errorMessage
+}
+
+func (dr *DependencyResolver) shouldSkipExpensiveOperations(res ResourceNodeEntry) bool {
 	existingErrorsWithID := utils.GetRequestErrorsWithActionID(dr.RequestID)
 	if len(existingErrorsWithID) > 0 {
 		dr.Logger.Info("errors already accumulated, skipping expensive operations for fail-fast behavior", "actionID", res.ActionID, "errorCount", len(existingErrorsWithID))
-		// Skip all expensive operations (LLM, Python, HTTP, Exec) but continue to process response resource
-		return true, nil
+		return true
 	}
+	return false
+}
 
+func (dr *DependencyResolver) processAllRunBlockSteps(res ResourceNodeEntry, runBlock pklResource.ResourceAction) (bool, error) {
 	// Process Exec step, if defined
 	if runBlock.Exec != nil && runBlock.Exec.Command != "" {
 		if err := dr.processResourceStep(res.ActionID, "exec", runBlock.Exec.TimeoutDuration, func() error {
@@ -917,38 +983,6 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 	return true, nil
 }
 
-// loadResourceWithFallbackResolver tries to load a resource file with different resource types as fallback.
-func (dr *DependencyResolver) loadResourceWithFallbackResolver(file string) (interface{}, error) {
-	resourceTypes := []ResourceType{Resource, LLMResource, HTTPResource, PythonResource, ExecResource}
-
-	for _, resourceType := range resourceTypes {
-		res, err := dr.LoadResourceFn(dr.Context, file, resourceType)
-		if err != nil {
-			dr.Logger.Debug("failed to load resource with type", "file", file, "type", resourceType, "error", err)
-			continue
-		}
-
-		dr.Logger.Debug("successfully loaded resource", "file", file, "type", resourceType)
-
-		// If we successfully loaded as a specific resource type, try to convert it to Resource type
-		if resourceType != Resource {
-			// Try to load the same file as Resource type
-			resourceRes, err := dr.LoadResourceFn(dr.Context, file, Resource)
-			if err != nil {
-				dr.Logger.Debug("failed to convert resource to Resource type", "file", file, "originalType", resourceType, "error", err)
-				// Continue with the original loaded resource if conversion fails
-			} else {
-				return resourceRes, nil
-			}
-		}
-
-		return res, nil
-	}
-
-	return nil, fmt.Errorf("failed to load resource with any type for file %s", file)
-}
-
-// castToResource robustly casts a loaded resource to pklResource.Resource
 func (dr *DependencyResolver) castToResource(res interface{}, file string) (*pklResource.Resource, error) {
 	// Try direct pointer cast first
 	if ptr, ok := res.(*pklResource.Resource); ok {
