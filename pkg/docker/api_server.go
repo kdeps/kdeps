@@ -404,11 +404,12 @@ func (h *requestHandler) handleSpecialMethods() bool {
 	switch h.c.Request.Method {
 	case http.MethodOptions:
 		h.c.Header("Allow", "OPTIONS, GET, HEAD, POST, PUT, PATCH, DELETE")
-		h.c.Status(http.StatusNoContent)
+		h.c.AbortWithStatus(http.StatusNoContent)
 		return false
 	case http.MethodHead:
 		h.c.Header("Content-Type", "application/json")
 		h.c.Status(http.StatusOK)
+		h.c.Abort()
 		return false
 	}
 	return true

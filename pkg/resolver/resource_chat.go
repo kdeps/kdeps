@@ -76,81 +76,116 @@ func logGeneratedTools(availableTools []llms.Tool, logger *logging.Logger) {
 
 func buildMessageHistory(ctx context.Context, fs afero.Fs, chatBlock *pklLLM.ResourceChat, availableTools []llms.Tool, logger *logging.Logger) ([]llms.MessageContent, llms.ChatMessageType, error) {
 	messageHistory := make([]llms.MessageContent, 0)
-
-	// Build system prompt that encourages tool usage and considers previous outputs
-	systemPrompt := buildSystemPrompt(chatBlock.JSONResponse, chatBlock.JSONResponseKeys, availableTools)
-	logger.Info("Generated system prompt", "content", utils.TruncateString(systemPrompt, 200))
-
-	messageHistory = append(messageHistory, llms.MessageContent{
-		Role:  llms.ChatMessageTypeSystem,
-		Parts: []llms.ContentPart{llms.TextContent{Text: systemPrompt}},
-	})
-
-	// Add main prompt if present
 	role, roleType := getRoleAndType(chatBlock.Role)
-	prompt := utils.SafeDerefString(chatBlock.Prompt)
-	if strings.TrimSpace(prompt) != "" {
-		if roleType == llms.ChatMessageTypeGeneric {
-			prompt = "[" + role + "]: " + prompt
-		}
-		messageHistory = append(messageHistory, llms.MessageContent{
-			Role:  roleType,
-			Parts: []llms.ContentPart{llms.TextContent{Text: prompt}},
-		})
+
+	if err := addSystemPrompt(&messageHistory, chatBlock, availableTools, logger); err != nil {
+		return nil, "", err
 	}
 
-	// Add scenario messages
-	messageHistory = append(messageHistory, processScenarioMessages(chatBlock.Scenario, logger)...)
+	if err := addMainPrompt(&messageHistory, chatBlock, role, roleType); err != nil {
+		return nil, "", err
+	}
 
-	// Process files if present
-	if chatBlock.Files != nil && len(*chatBlock.Files) > 0 {
-		for i, filePath := range *chatBlock.Files {
-			fileBytes, err := afero.ReadFile(fs, filePath)
-			if err != nil {
-				logger.Error("Failed to read file", "index", i, "path", filePath, "error", err)
-				return nil, "", fmt.Errorf("failed to read file %s: %w", filePath, err)
-			}
-			fileType := mimetype.Detect(fileBytes).String()
-			logger.Info("Detected MIME type for file", "index", i, "path", filePath, "mimeType", fileType)
+	if err := addScenarioMessages(&messageHistory, chatBlock, logger); err != nil {
+		return nil, "", err
+	}
 
-			// Add binary content directly instead of base64-encoded text
-			messageHistory = append(messageHistory, llms.MessageContent{
-				Role: roleType,
-				Parts: []llms.ContentPart{
-					llms.BinaryPart(fileType, fileBytes),
-				},
-			})
-		}
+	if err := addFileContents(&messageHistory, fs, chatBlock, roleType, logger); err != nil {
+		return nil, "", err
 	}
 
 	return messageHistory, roleType, nil
+}
+
+func addSystemPrompt(messageHistory *[]llms.MessageContent, chatBlock *pklLLM.ResourceChat, availableTools []llms.Tool, logger *logging.Logger) error {
+	systemPrompt := buildSystemPrompt(chatBlock.JSONResponse, chatBlock.JSONResponseKeys, availableTools)
+	logger.Info("Generated system prompt", "content", utils.TruncateString(systemPrompt, 200))
+
+	*messageHistory = append(*messageHistory, llms.MessageContent{
+		Role:  llms.ChatMessageTypeSystem,
+		Parts: []llms.ContentPart{llms.TextContent{Text: systemPrompt}},
+	})
+	return nil
+}
+
+func addMainPrompt(messageHistory *[]llms.MessageContent, chatBlock *pklLLM.ResourceChat, role string, roleType llms.ChatMessageType) error {
+	prompt := utils.SafeDerefString(chatBlock.Prompt)
+	if strings.TrimSpace(prompt) == "" {
+		return nil
+	}
+
+	if roleType == llms.ChatMessageTypeGeneric {
+		prompt = "[" + role + "]: " + prompt
+	}
+
+	*messageHistory = append(*messageHistory, llms.MessageContent{
+		Role:  roleType,
+		Parts: []llms.ContentPart{llms.TextContent{Text: prompt}},
+	})
+	return nil
+}
+
+func addScenarioMessages(messageHistory *[]llms.MessageContent, chatBlock *pklLLM.ResourceChat, logger *logging.Logger) error {
+	*messageHistory = append(*messageHistory, processScenarioMessages(chatBlock.Scenario, logger)...)
+	return nil
+}
+
+func addFileContents(messageHistory *[]llms.MessageContent, fs afero.Fs, chatBlock *pklLLM.ResourceChat, roleType llms.ChatMessageType, logger *logging.Logger) error {
+	if chatBlock.Files == nil || len(*chatBlock.Files) == 0 {
+		return nil
+	}
+
+	for i, filePath := range *chatBlock.Files {
+		if err := addSingleFile(messageHistory, fs, filePath, i, roleType, logger); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func addSingleFile(messageHistory *[]llms.MessageContent, fs afero.Fs, filePath string, index int, roleType llms.ChatMessageType, logger *logging.Logger) error {
+	fileBytes, err := afero.ReadFile(fs, filePath)
+	if err != nil {
+		logger.Error("Failed to read file", "index", index, "path", filePath, "error", err)
+		return fmt.Errorf("failed to read file %s: %w", filePath, err)
+	}
+
+	fileType := mimetype.Detect(fileBytes).String()
+	logger.Info("Detected MIME type for file", "index", index, "path", filePath, "mimeType", fileType)
+
+	*messageHistory = append(*messageHistory, llms.MessageContent{
+		Role: roleType,
+		Parts: []llms.ContentPart{
+			llms.BinaryPart(fileType, fileBytes),
+		},
+	})
+	return nil
 }
 
 // generateChatResponse generates a response from the LLM based on the chat block, executing tools via toolreader.
 func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, chatBlock *pklLLM.ResourceChat, toolreader *tool.PklResourceReader, logger *logging.Logger) (string, error) {
 	logChatBlockInfo(chatBlock, logger)
 
-	// Generate dynamic tools with enhanced logging
 	availableTools := generateAvailableTools(chatBlock, logger)
 	logGeneratedTools(availableTools, logger)
-
-	// Store tool outputs to influence subsequent calls
-	toolOutputs := make(map[string]string) // Key: tool_call_id, Value: output
 
 	messageHistory, _, err := buildMessageHistory(ctx, fs, chatBlock, availableTools, logger)
 	if err != nil {
 		return "", err
 	}
 
-	// Get prompt and system prompt for later use in tool processing
-	prompt := utils.SafeDerefString(chatBlock.Prompt)
-	systemPrompt := buildSystemPrompt(chatBlock.JSONResponse, chatBlock.JSONResponseKeys, availableTools)
+	opts := prepareCallOptions(chatBlock, availableTools, logger)
 
-	// Call options
+	return generateChatResponseWithTools(ctx, llm, chatBlock, toolreader, messageHistory, availableTools, opts, logger)
+}
+
+func prepareCallOptions(chatBlock *pklLLM.ResourceChat, availableTools []llms.Tool, logger *logging.Logger) []llms.CallOption {
 	opts := []llms.CallOption{}
+
 	if chatBlock.JSONResponse != nil && *chatBlock.JSONResponse {
 		opts = append(opts, llms.WithJSONMode())
 	}
+
 	if len(availableTools) > 0 {
 		opts = append(opts,
 			llms.WithTools(availableTools),
@@ -161,6 +196,12 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 	logger.Info("Calling LLM with options",
 		"json_mode", utils.SafeDerefBool(chatBlock.JSONResponse),
 		"tool_count", len(availableTools))
+
+	return opts
+}
+
+func generateChatResponseWithTools(ctx context.Context, llm *ollama.LLM, chatBlock *pklLLM.ResourceChat, toolreader *tool.PklResourceReader, messageHistory []llms.MessageContent, availableTools []llms.Tool, opts []llms.CallOption, logger *logging.Logger) (string, error) {
+	toolOutputs := make(map[string]string)
 
 	// First GenerateContent call
 	response, err := llm.GenerateContent(ctx, messageHistory, opts...)
@@ -174,27 +215,74 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		return "", errors.New("no choices in LLM response")
 	}
 
-	// Select choice with tool calls, if any
-	var respChoice *llms.ContentChoice
+	return handleLLMResponseWithTools(ctx, llm, toolreader, response, &messageHistory, availableTools, opts, toolOutputs, logger)
+}
+
+func handleLLMResponseWithTools(ctx context.Context, llm *ollama.LLM, toolreader *tool.PklResourceReader, response *llms.ContentResponse, messageHistory *[]llms.MessageContent, availableTools []llms.Tool, opts []llms.CallOption, toolOutputs map[string]string, logger *logging.Logger) (string, error) {
+	respChoice := selectBestChoice(response, availableTools)
+
+	return processLLMResponseLoop(ctx, llm, toolreader, respChoice, messageHistory, availableTools, opts, toolOutputs, logger)
+}
+
+func selectBestChoice(response *llms.ContentResponse, availableTools []llms.Tool) *llms.ContentChoice {
 	if len(availableTools) > 0 {
 		for _, choice := range response.Choices {
 			if len(choice.ToolCalls) > 0 {
-				respChoice = choice
-				break
+				return choice
 			}
 		}
 	}
-	if respChoice == nil && len(response.Choices) > 0 {
-		respChoice = response.Choices[0]
+	return response.Choices[0]
+}
+
+func processLLMResponseLoop(ctx context.Context, llm *ollama.LLM, toolreader *tool.PklResourceReader, respChoice *llms.ContentChoice, messageHistory *[]llms.MessageContent, availableTools []llms.Tool, opts []llms.CallOption, toolOutputs map[string]string, logger *logging.Logger) (string, error) {
+	const maxIterations = 5
+	const maxLogContentLength = 500
+
+	for iteration := 0; iteration < maxIterations; iteration++ {
+		logger.Info("Processing iteration", "iteration", iteration, "max_iterations", maxIterations)
+
+		toolCalls := processResponseToolCalls(respChoice, availableTools, logger)
+
+		if err := addResponseToHistory(respChoice, toolCalls, messageHistory, logger); err != nil {
+			return "", err
+		}
+
+		if len(toolCalls) == 0 {
+			logger.Info("No tool calls in response, returning content")
+			return respChoice.Content, nil
+		}
+
+		if err := executeToolCalls(ctx, toolCalls, toolreader, toolOutputs, messageHistory, logger); err != nil {
+			return "", err
+		}
+
+		if iteration == maxIterations-1 {
+			logger.Warn("Reached maximum iterations", "max_iterations", maxIterations)
+			return getFinalResponse(toolOutputs, respChoice, maxLogContentLength, logger)
+		}
+
+		// Generate next response with tool results
+		nextResponse, err := llm.GenerateContent(ctx, *messageHistory, opts...)
+		if err != nil {
+			logger.Error("Failed to generate content in iteration", "iteration", iteration, "error", err)
+			return "", fmt.Errorf("failed to generate content in iteration %d: %w", iteration, err)
+		}
+
+		if len(nextResponse.Choices) == 0 {
+			logger.Error("No choices in LLM response for iteration", "iteration", iteration)
+			return "", fmt.Errorf("no choices in LLM response for iteration %d", iteration)
+		}
+
+		respChoice = nextResponse.Choices[0]
+		logger.Info("Next LLM response", "iteration", iteration, "content", utils.TruncateString(respChoice.Content, maxLogContentLength))
 	}
 
-	logger.Info("First LLM response",
-		"content", utils.TruncateString(respChoice.Content, maxLogContentLength),
-		"tool_calls", len(respChoice.ToolCalls),
-		"stop_reason", respChoice.StopReason,
-		"tool_names", extractToolNames(respChoice.ToolCalls))
+	logger.Info("Received final LLM response", "content", utils.TruncateString(respChoice.Content, maxLogContentLength))
+	return respChoice.Content, nil
+}
 
-	// Process first response
+func processResponseToolCalls(respChoice *llms.ContentChoice, availableTools []llms.Tool, logger *logging.Logger) []llms.ToolCall {
 	toolCalls := respChoice.ToolCalls
 	if len(toolCalls) == 0 && len(availableTools) > 0 {
 		logger.Info("No direct ToolCalls, attempting to construct from JSON")
@@ -204,12 +292,15 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 
 	// Deduplicate tool calls
 	toolCalls = deduplicateToolCalls(toolCalls, logger)
+	return toolCalls
+}
 
-	// Add response to history
+func addResponseToHistory(respChoice *llms.ContentChoice, toolCalls []llms.ToolCall, messageHistory *[]llms.MessageContent, logger *logging.Logger) error {
 	assistantParts := []string{}
 	if respChoice.Content != "" {
 		assistantParts = append(assistantParts, respChoice.Content)
 	}
+
 	for _, tc := range toolCalls {
 		toolCallJSON, err := json.Marshal(map[string]interface{}{
 			"id":   tc.ID,
@@ -233,197 +324,44 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 
 	assistantContent := strings.Join(assistantParts, "\n")
 	if assistantContent != "" {
-		messageHistory = append(messageHistory, llms.MessageContent{
+		*messageHistory = append(*messageHistory, llms.MessageContent{
 			Role:  llms.ChatMessageTypeAI,
 			Parts: []llms.ContentPart{llms.TextContent{Text: assistantContent}},
 		})
 	}
 
-	// Track tool calls to prevent duplicates and looping
-	toolCallHistory := make(map[string]int)
-	const maxIterations = 5 // Allow more iterations to process chained tool calls
+	return nil
+}
 
-	// Process tool calls iteratively
-	for iteration := 0; len(toolCalls) > 0 && iteration < maxIterations; iteration++ {
-		logger.Info("Processing tool calls",
-			"iteration", iteration+1,
-			"count", len(toolCalls),
-			"tool_names", extractToolNames(toolCalls))
-
-		err = processToolCalls(toolCalls, toolreader, chatBlock, logger, &messageHistory, prompt, toolOutputs)
-		if err != nil {
-			logger.Error("Failed to process tool calls", "iteration", iteration+1, "error", err)
-			return "", fmt.Errorf("failed to process tool calls in iteration %d: %w", iteration+1, err)
-		}
-
-		// Include tool outputs in the system prompt for the next call
-		systemPrompt = buildSystemPrompt(chatBlock.JSONResponse, chatBlock.JSONResponseKeys, availableTools)
-		if len(toolOutputs) > 0 {
-			var toolOutputSummary strings.Builder
-			toolOutputSummary.WriteString("\nPrevious Tool Outputs:\n")
-			for toolID, output := range toolOutputs {
-				toolOutputSummary.WriteString("- ToolCall ID " + toolID + ": " + utils.TruncateString(output, maxLogContentLength) + "\n")
-			}
-			systemPrompt += toolOutputSummary.String()
-		}
-
-		// Update system message in history
-		messageHistory[0] = llms.MessageContent{
-			Role:  llms.ChatMessageTypeSystem,
-			Parts: []llms.ContentPart{llms.TextContent{Text: systemPrompt}},
-		}
-
-		// Generate content with updated history
-		logger.Debug("Message history before LLM call", "iteration", iteration+1, "history", summarizeMessageHistory(messageHistory))
-		response, err = llm.GenerateContent(ctx, messageHistory, opts...)
-		if err != nil {
-			logger.Error("Failed to generate content", "iteration", iteration+1, "error", err)
-			return "", fmt.Errorf("failed to generate content in iteration %d: %w", iteration+1, err)
-		}
-
-		if len(response.Choices) == 0 {
-			logger.Error("No choices in LLM response", "iteration", iteration+1)
-			return "", errors.New("no choices in LLM response")
-		}
-
-		// Select choice with tool calls, if any
-		respChoice = nil
-		for _, choice := range response.Choices {
-			if len(choice.ToolCalls) > 0 {
-				respChoice = choice
-				break
-			}
-		}
-		if respChoice == nil && len(response.Choices) > 0 {
-			respChoice = response.Choices[0]
-		}
-
-		logger.Info("LLM response",
-			"iteration", iteration+1,
-			"content", utils.TruncateString(respChoice.Content, maxLogContentLength),
-			"tool_calls", len(respChoice.ToolCalls),
-			"stop_reason", respChoice.StopReason,
-			"tool_names", extractToolNames(respChoice.ToolCalls))
-
-		// Check for tool calls
-		toolCalls = respChoice.ToolCalls
-		if len(toolCalls) == 0 && len(availableTools) > 0 {
-			logger.Info("No direct ToolCalls, attempting to construct from JSON", "iteration", iteration+1)
-			constructedToolCalls := constructToolCallsFromJSON(respChoice.Content, logger)
-			toolCalls = constructedToolCalls
-		}
-
-		// Deduplicate tool calls
-		toolCalls = deduplicateToolCalls(toolCalls, logger)
-
-		// Exit if no new tool calls or LLM stopped
-		if len(toolCalls) == 0 || respChoice.StopReason == "stop" {
-			logger.Info("No valid tool calls or LLM stopped, returning response", "iteration", iteration+1, "content", utils.TruncateString(respChoice.Content, maxLogContentLength))
-			// If response is empty, use the last tool output
-			if respChoice.Content == "{}" || respChoice.Content == "" {
-				logger.Warn("Empty response detected, falling back to last tool output")
-				for _, output := range toolOutputs {
-					respChoice.Content = output
-				}
-				if respChoice.Content == "" {
-					logger.Error("No tool outputs available, returning default response")
-					respChoice.Content = "No result available"
-				}
-			}
-			logger.Info("Final response", "content", utils.TruncateString(respChoice.Content, maxLogContentLength))
-			return respChoice.Content, nil
-		}
-
-		// Check for repeated tool calls
-		for _, tc := range toolCalls {
-			if tc.FunctionCall != nil {
-				// Normalize arguments
-				argsMap := make(map[string]interface{})
-				if err := json.Unmarshal([]byte(tc.FunctionCall.Arguments), &argsMap); err != nil {
-					logger.Warn("Failed to normalize tool arguments", "tool", tc.FunctionCall.Name, "error", err)
-					continue
-				}
-				normalizedArgs, err := json.Marshal(argsMap)
-				if err != nil {
-					logger.Warn("Failed to normalize tool arguments", "tool", tc.FunctionCall.Name, "error", err)
-					continue
-				}
-				toolKey := tc.FunctionCall.Name + ":" + string(normalizedArgs)
-				toolCallHistory[toolKey]++
-				if toolCallHistory[toolKey] > 1 {
-					logger.Info("Detected repeated tool call, returning response",
-						"tool", tc.FunctionCall.Name,
-						"arguments", tc.FunctionCall.Arguments,
-						"count", toolCallHistory[toolKey])
-					// Use last tool output if available
-					for _, output := range toolOutputs {
-						logger.Info("Final response from repeated tool call", "content", utils.TruncateString(output, maxLogContentLength))
-						return output, nil
-					}
-					return respChoice.Content, nil
-				}
-			}
-		}
-
-		// Add response to history
-		assistantParts = []string{}
-		if respChoice.Content != "" {
-			assistantParts = append(assistantParts, respChoice.Content)
-		}
-		for _, tc := range toolCalls {
-			toolCallJSON, err := json.Marshal(map[string]interface{}{
-				"id":   tc.ID,
-				"type": tc.Type,
-				"function": map[string]interface{}{
-					"name":      tc.FunctionCall.Name,
-					"arguments": tc.FunctionCall.Arguments,
-				},
-			})
-			if err != nil {
-				logger.Error("Failed to serialize ToolCall to JSON", "tool_call_id", tc.ID, "error", err)
-				continue
-			}
-			assistantParts = append(assistantParts, "ToolCall: "+string(toolCallJSON))
-		}
-
-		if len(toolCalls) > 0 {
-			toolNames := extractToolNames(toolCalls)
-			assistantParts = append(assistantParts, "Suggested tools: "+strings.Join(toolNames, ", "))
-		}
-
-		assistantContent = strings.Join(assistantParts, "\n")
-		if assistantContent != "" {
-			messageHistory = append(messageHistory, llms.MessageContent{
-				Role:  llms.ChatMessageTypeAI,
-				Parts: []llms.ContentPart{llms.TextContent{Text: assistantContent}},
-			})
-		}
-
-		if iteration == maxIterations-1 && len(toolCalls) > 0 {
-			logger.Error("Reached maximum tool call iterations", "max_iterations", maxIterations)
-			// Return last tool output if available
-			for _, output := range toolOutputs {
-				logger.Info("Final response from max iterations", "content", utils.TruncateString(output, maxLogContentLength))
-				return output, nil
-			}
-			return respChoice.Content, fmt.Errorf("reached maximum tool call iterations (%d)", maxIterations)
-		}
+func executeToolCalls(ctx context.Context, toolCalls []llms.ToolCall, toolreader *tool.PklResourceReader, toolOutputs map[string]string, messageHistory *[]llms.MessageContent, logger *logging.Logger) error {
+	// Process all tool calls
+	err := processToolCalls(toolCalls, toolreader, nil, logger, messageHistory, "", toolOutputs)
+	if err != nil {
+		logger.Error("Tool calls processing failed", "error", err)
+		return err
 	}
 
-	logger.Info("Received final LLM response", "content", utils.TruncateString(respChoice.Content, maxLogContentLength))
-	// Ensure non-empty response
-	if respChoice.Content == "{}" || respChoice.Content == "" {
-		logger.Warn("Empty response detected, falling back to last tool output")
-		for _, output := range toolOutputs {
-			respChoice.Content = output
-		}
-		if respChoice.Content == "" {
-			logger.Error("No tool outputs available, returning default response")
-			respChoice.Content = "No result available"
+	// Update toolOutputs with results from the processing
+	for _, toolCall := range toolCalls {
+		// The processToolCalls function should populate toolOutputs
+		if output, exists := toolOutputs[toolCall.ID]; exists {
+			// Add tool result to message history
+			*messageHistory = append(*messageHistory, llms.MessageContent{
+				Role:  llms.ChatMessageTypeTool,
+				Parts: []llms.ContentPart{llms.TextContent{Text: output}},
+			})
 		}
 	}
-	logger.Info("Final response", "content", utils.TruncateString(respChoice.Content, maxLogContentLength))
-	return respChoice.Content, nil
+	return nil
+}
+
+func getFinalResponse(toolOutputs map[string]string, respChoice *llms.ContentChoice, maxLogContentLength int, logger *logging.Logger) (string, error) {
+	// Return last tool output if available
+	for _, output := range toolOutputs {
+		logger.Info("Final response from max iterations", "content", utils.TruncateString(output, maxLogContentLength))
+		return output, nil
+	}
+	return respChoice.Content, fmt.Errorf("reached maximum tool call iterations")
 }
 
 // processLLMChat processes the LLM chat and saves the response.

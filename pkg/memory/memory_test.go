@@ -203,6 +203,13 @@ func TestInitializeDatabase(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("InvalidDatabasePath", func(t *testing.T) {
+		// Use an invalid path that should cause an error
+		db, err := InitializeDatabase("/invalid/path/database.db")
+		require.Error(t, err)
+		require.Nil(t, db)
+	})
 }
 
 func TestInitializeMemory(t *testing.T) {
@@ -212,4 +219,127 @@ func TestInitializeMemory(t *testing.T) {
 	require.NotNil(t, reader.DB)
 	require.Equal(t, "file::memory:", reader.DBPath)
 	defer reader.DB.Close()
+}
+
+func TestReadWithNilReceiver(t *testing.T) {
+	// Test that Read handles nil receiver correctly by creating a reader with nil DB
+	reader := &PklResourceReader{DBPath: "file::memory:"} // DB is nil, DBPath is set
+	uri, _ := url.Parse("memory:///test?op=get")
+
+	// This should initialize the database and return empty data for non-existent record
+	data, err := reader.Read(*uri)
+	require.NoError(t, err) // Should succeed with empty data
+	require.Equal(t, []byte(""), data)
+}
+
+func TestReadOperations(t *testing.T) {
+	reader, err := InitializeMemory("file::memory:")
+	require.NoError(t, err)
+	defer reader.DB.Close()
+
+	t.Run("SetOperation", func(t *testing.T) {
+		uri, _ := url.Parse("memory:///test1?op=set&value=testvalue")
+		data, err := reader.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte("testvalue"), data)
+
+		// Verify it was stored
+		uri, _ = url.Parse("memory:///test1")
+		data, err = reader.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte("testvalue"), data)
+	})
+
+	t.Run("SetOperationNoValue", func(t *testing.T) {
+		uri, _ := url.Parse("memory:///test2?op=set")
+		data, err := reader.Read(*uri)
+		require.Error(t, err)
+		require.Nil(t, data)
+		require.Contains(t, err.Error(), "set operation requires a value parameter")
+	})
+
+	t.Run("SetOperationNoID", func(t *testing.T) {
+		uri, _ := url.Parse("memory:///?op=set&value=test")
+		data, err := reader.Read(*uri)
+		require.Error(t, err)
+		require.Nil(t, data)
+		require.Contains(t, err.Error(), "no record ID provided for set operation")
+	})
+
+	t.Run("DeleteOperation", func(t *testing.T) {
+		// First set a value
+		uri, _ := url.Parse("memory:///delete_test?op=set&value=to_delete")
+		_, err := reader.Read(*uri)
+		require.NoError(t, err)
+
+		// Now delete it
+		uri, _ = url.Parse("memory:///delete_test?op=delete")
+		data, err := reader.Read(*uri)
+		require.NoError(t, err)
+		require.Contains(t, string(data), "Deleted")
+
+		// Verify it's gone
+		uri, _ = url.Parse("memory:///delete_test")
+		data, err = reader.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte(""), data)
+	})
+
+	t.Run("DeleteOperationNoID", func(t *testing.T) {
+		uri, _ := url.Parse("memory:///?op=delete")
+		data, err := reader.Read(*uri)
+		require.Error(t, err)
+		require.Nil(t, data)
+		require.Contains(t, err.Error(), "no record ID provided for delete operation")
+	})
+
+	t.Run("ClearOperation", func(t *testing.T) {
+		// Set some values
+		uris := []string{
+			"memory:///clear1?op=set&value=value1",
+			"memory:///clear2?op=set&value=value2",
+		}
+		for _, uriStr := range uris {
+			uri, _ := url.Parse(uriStr)
+			_, err := reader.Read(*uri)
+			require.NoError(t, err)
+		}
+
+		// Clear all
+		uri, _ := url.Parse("memory:///_?op=clear")
+		data, err := reader.Read(*uri)
+		require.NoError(t, err)
+		require.Contains(t, string(data), "Cleared")
+
+		// Verify they're gone
+		for _, uriStr := range []string{"memory:///clear1", "memory:///clear2"} {
+			uri, _ := url.Parse(uriStr)
+			data, err := reader.Read(*uri)
+			require.NoError(t, err)
+			require.Equal(t, []byte(""), data)
+		}
+	})
+
+	t.Run("ClearOperationInvalidPath", func(t *testing.T) {
+		uri, _ := url.Parse("memory:///invalid?op=clear")
+		data, err := reader.Read(*uri)
+		require.Error(t, err)
+		require.Nil(t, data)
+		require.Contains(t, err.Error(), "clear operation requires path '/_'")
+	})
+
+	t.Run("GetOperationNonexistent", func(t *testing.T) {
+		uri, _ := url.Parse("memory:///nonexistent")
+		data, err := reader.Read(*uri)
+		require.NoError(t, err)
+		require.Equal(t, []byte(""), data)
+	})
+
+	t.Run("GetOperationNoID", func(t *testing.T) {
+		uri, _ := url.Parse("memory:///")
+		data, err := reader.Read(*uri)
+		require.Error(t, err)
+		require.Nil(t, data)
+		require.Contains(t, err.Error(), "no record ID provided")
+	})
 }

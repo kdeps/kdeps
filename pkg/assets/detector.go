@@ -38,9 +38,14 @@ func IsDockerMode() bool {
 
 // IsTestEnvironment checks if we're running in a test environment.
 func IsTestEnvironment() bool {
+	// Check if os.Args is empty
+	if len(os.Args) == 0 {
+		return false
+	}
+
 	// Check if we're running under go test
 	for _, arg := range os.Args {
-		if strings.Contains(arg, "go-build") && strings.Contains(arg, "_test") {
+		if strings.Contains(arg, "_test") {
 			return true
 		}
 		if strings.HasSuffix(arg, ".test") {

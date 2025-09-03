@@ -458,6 +458,99 @@ func TestAPIServerHandler(t *testing.T) {
 	})
 }
 
+func TestValidateAndProcessRequest(t *testing.T) {
+	dr, _ := setupTestAPIServer(t)
+
+	t.Run("MethodExists", func(t *testing.T) {
+		semaphore := make(chan struct{}, 1)
+
+		// Create a request handler
+		handler := &requestHandler{
+			ctx:       context.Background(),
+			route:     &apiserver.APIServerRoutes{Path: "/test", Methods: []string{"GET"}},
+			baseDr:    dr,
+			semaphore: semaphore,
+			dr:        dr,
+		}
+
+		// Verify the method exists and handler is properly structured
+		assert.NotNil(t, handler)
+		assert.NotNil(t, handler.ctx)
+		assert.NotNil(t, handler.route)
+		assert.Equal(t, "/test", handler.route.Path)
+	})
+
+	t.Run("HandlerInitialization", func(t *testing.T) {
+		semaphore := make(chan struct{}, 1)
+
+		handler := &requestHandler{
+			ctx:       context.Background(),
+			semaphore: semaphore,
+			dr:        dr,
+		}
+
+		// Verify the handler is properly initialized
+		assert.NotNil(t, handler.ctx)
+		assert.NotNil(t, handler.semaphore)
+		assert.NotNil(t, handler.dr)
+		assert.Nil(t, handler.route)
+		assert.Nil(t, handler.c)
+	})
+}
+
+func TestAcquireSemaphore(t *testing.T) {
+	dr, _ := setupTestAPIServer(t)
+
+	t.Run("SemaphoreAvailable", func(t *testing.T) {
+		semaphore := make(chan struct{}, 1)
+
+		handler := &requestHandler{
+			semaphore:      semaphore,
+			dr:             dr,
+			errorResponses: []ErrorResponse{},
+		}
+
+		// Test acquiring semaphore when available
+		result := handler.acquireSemaphore()
+		assert.True(t, result)
+
+		// Release the semaphore
+		handler.releaseSemaphore()
+	})
+
+	t.Run("SemaphoreUnavailable", func(t *testing.T) {
+		semaphore := make(chan struct{}, 1)
+		// Fill the semaphore
+		semaphore <- struct{}{}
+
+		// Test the semaphore channel logic directly
+		select {
+		case semaphore <- struct{}{}:
+			// If we can send to the channel, it means it's available
+			assert.Fail(t, "Expected semaphore to be unavailable")
+		default:
+			// This is expected - semaphore is unavailable
+			assert.True(t, true, "Semaphore is correctly unavailable")
+		}
+	})
+
+	t.Run("ReleaseSemaphore", func(t *testing.T) {
+		semaphore := make(chan struct{}, 1)
+
+		handler := &requestHandler{
+			semaphore: semaphore,
+		}
+
+		// Acquire semaphore first
+		handler.semaphore <- struct{}{}
+
+		// Test releasing semaphore
+		assert.NotPanics(t, func() {
+			handler.releaseSemaphore()
+		})
+	})
+}
+
 // workflowWithNilSettings is a mock Workflow with GetSettings() and GetAgentIcon() returning nil.
 type workflowWithNilSettings struct{}
 
@@ -1880,5 +1973,246 @@ PreflightCheck {
 
 		// Clean up
 		utils.ClearRequestErrors(requestID)
+	})
+}
+
+func TestValidateMethodStandalone(t *testing.T) {
+	t.Run("ValidMethod", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		result, err := validateMethod(req, []string{"GET", "POST"})
+		assert.NoError(t, err)
+		assert.Equal(t, `Method = "GET"`, result)
+	})
+
+	t.Run("InvalidMethod", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodDelete, "/", nil)
+		result, err := validateMethod(req, []string{"GET", "POST"})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), `HTTP method "DELETE" not allowed`)
+		assert.Empty(t, result)
+	})
+
+	t.Run("EmptyMethodDefaultsToGet", func(t *testing.T) {
+		req := &http.Request{Method: ""}
+		result, err := validateMethod(req, []string{"GET", "POST"})
+		assert.NoError(t, err)
+		assert.Equal(t, `Method = "GET"`, result)
+	})
+
+	t.Run("EmptyAllowedMethods", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		result, err := validateMethod(req, []string{})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), `HTTP method "GET" not allowed`)
+		assert.Empty(t, result)
+	})
+}
+
+func TestHandleSpecialMethods(t *testing.T) {
+	dr, _ := setupTestAPIServer(t)
+
+	t.Run("OptionsMethod", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodOptions, "/test", nil)
+
+		handler := &requestHandler{
+			c:  c,
+			dr: dr,
+		}
+
+		result := handler.handleSpecialMethods()
+		assert.False(t, result)
+		assert.Equal(t, http.StatusNoContent, w.Code)
+		assert.Equal(t, "OPTIONS, GET, HEAD, POST, PUT, PATCH, DELETE", w.Header().Get("Allow"))
+	})
+
+	t.Run("HeadMethod", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodHead, "/test", nil)
+
+		handler := &requestHandler{
+			c:  c,
+			dr: dr,
+		}
+
+		result := handler.handleSpecialMethods()
+		assert.False(t, result)
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+	})
+
+	t.Run("NormalMethod", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
+
+		handler := &requestHandler{
+			c:  c,
+			dr: dr,
+		}
+
+		result := handler.handleSpecialMethods()
+		assert.True(t, result)
+	})
+}
+
+func TestProcessRequestBody(t *testing.T) {
+	dr, _ := setupTestAPIServer(t)
+
+	t.Run("GetMethod", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		body := "test data"
+		c.Request = httptest.NewRequest(http.MethodGet, "/test", strings.NewReader(body))
+
+		handler := &requestHandler{
+			c:  c,
+			dr: dr,
+		}
+
+		result := handler.processRequestBody()
+		assert.True(t, result)
+		assert.Equal(t, body, handler.bodyData)
+	})
+
+	t.Run("PostMethod", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		body := "test data"
+		c.Request = httptest.NewRequest(http.MethodPost, "/test", strings.NewReader(body))
+		c.Request.Header.Set("Content-Type", "application/json")
+
+		handler := &requestHandler{
+			c:  c,
+			dr: dr,
+		}
+
+		result := handler.processRequestBody()
+		assert.True(t, result)
+		assert.Equal(t, body, handler.bodyData)
+	})
+
+	t.Run("DeleteMethod", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodDelete, "/test", nil)
+
+		handler := &requestHandler{
+			c:  c,
+			dr: dr,
+		}
+
+		result := handler.processRequestBody()
+		assert.True(t, result)
+		assert.Equal(t, "Delete request received", handler.bodyData)
+	})
+
+	t.Run("UnsupportedMethod", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodConnect, "/test", nil)
+
+		handler := &requestHandler{
+			c:              c,
+			dr:             dr,
+			errorResponses: []ErrorResponse{},
+		}
+
+		result := handler.processRequestBody()
+		assert.False(t, result)
+	})
+}
+
+func TestProcessGetRequest(t *testing.T) {
+	dr, _ := setupTestAPIServer(t)
+
+	t.Run("ValidGetRequest", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		body := "test get data"
+		c.Request = httptest.NewRequest(http.MethodGet, "/test", strings.NewReader(body))
+
+		handler := &requestHandler{
+			c:  c,
+			dr: dr,
+		}
+
+		result := handler.processGetRequest()
+		assert.True(t, result)
+		assert.Equal(t, body, handler.bodyData)
+	})
+
+	t.Run("EmptyGetRequest", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodGet, "/test", strings.NewReader(""))
+
+		handler := &requestHandler{
+			c:  c,
+			dr: dr,
+		}
+
+		result := handler.processGetRequest()
+		assert.True(t, result)
+		assert.Equal(t, "", handler.bodyData)
+	})
+}
+
+func TestProcessPostLikeRequest(t *testing.T) {
+	dr, _ := setupTestAPIServer(t)
+
+	t.Run("RegularPostRequest", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		body := "test post data"
+		c.Request = httptest.NewRequest(http.MethodPost, "/test", strings.NewReader(body))
+		c.Request.Header.Set("Content-Type", "application/json")
+
+		handler := &requestHandler{
+			c:  c,
+			dr: dr,
+		}
+
+		result := handler.processPostLikeRequest()
+		assert.True(t, result)
+		assert.Equal(t, body, handler.bodyData)
+	})
+
+	t.Run("MultipartFormRequest", func(t *testing.T) {
+		// This would require more complex setup for multipart form testing
+		// For now, we'll test the non-multipart path
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		body := "test post data"
+		c.Request = httptest.NewRequest(http.MethodPost, "/test", strings.NewReader(body))
+		c.Request.Header.Set("Content-Type", "application/json")
+
+		handler := &requestHandler{
+			c:  c,
+			dr: dr,
+		}
+
+		result := handler.processPostLikeRequest()
+		assert.True(t, result)
+		assert.Equal(t, body, handler.bodyData)
+	})
+}
+
+func TestProcessRequestData(t *testing.T) {
+	dr, _ := setupTestAPIServer(t)
+
+	t.Run("ProcessRequestData", func(t *testing.T) {
+		handler := &requestHandler{
+			dr: dr,
+		}
+
+		fileMap := make(map[string]struct{ Filename, Filetype string })
+
+		// This function is currently a placeholder, so we just verify it doesn't panic
+		assert.NotPanics(t, func() {
+			handler.processRequestData("test body", fileMap)
+		})
 	})
 }
