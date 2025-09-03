@@ -17,7 +17,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-// DockerPruneClient is a minimal interface for Docker operations used in CleanupDockerBuildImages
+// DockerPruneClient is a minimal interface for Docker operations used in CleanupDockerBuildImages.
 type DockerPruneClient interface {
 	ContainerList(ctx context.Context, options container.ListOptions) ([]container.Summary, error)
 	ContainerRemove(ctx context.Context, containerID string, options container.RemoveOptions) error
@@ -34,10 +34,10 @@ func CleanupDockerBuildImages(fs afero.Fs, ctx context.Context, cName string, cl
 	for _, c := range containers {
 		for _, name := range c.Names {
 			if name == "/"+cName { // Ensure name match is exact
-				fmt.Printf("Deleting container: %s\n", c.ID)
+				fmt.Printf("Deleting container: %s\n", c.ID) //nolint:forbidigo // Status reporting
 				if err := cli.ContainerRemove(ctx, c.ID, container.RemoveOptions{Force: true}); err != nil {
 					// Log error and continue
-					fmt.Printf("Error removing container %s: %v\n", c.ID, err)
+					fmt.Printf("Error removing container %s: %v\n", c.ID, err) //nolint:forbidigo // Error reporting
 					continue
 				}
 			}
@@ -49,7 +49,7 @@ func CleanupDockerBuildImages(fs afero.Fs, ctx context.Context, cName string, cl
 		return fmt.Errorf("error pruning images: %w", err)
 	}
 
-	fmt.Println("Pruned dangling images.")
+	fmt.Println("Pruned dangling images.") //nolint:forbidigo // Status reporting
 	return nil
 }
 

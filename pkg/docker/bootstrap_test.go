@@ -37,14 +37,14 @@ func TestBootstrapDockerSystem(t *testing.T) {
 	t.Run("NonDockerMode", func(t *testing.T) {
 		dr.Environment.DockerMode = "0"
 		apiServerMode, err := BootstrapDockerSystem(ctx, dr)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.False(t, apiServerMode)
 	})
 
 	t.Run("DockerMode", func(t *testing.T) {
 		dr.Environment.DockerMode = "1"
 		apiServerMode, err := BootstrapDockerSystem(ctx, dr)
-		assert.Error(t, err) // Expected error due to missing OLLAMA_HOST
+		require.Error(t, err) // Expected error due to missing OLLAMA_HOST
 		assert.False(t, apiServerMode)
 	})
 }
@@ -55,7 +55,7 @@ func TestCreateFlagFile(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		err := CreateFlagFile(fs, ctx, "/tmp/flag")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		exists, _ := afero.Exists(fs, "/tmp/flag")
 		assert.True(t, exists)
 	})

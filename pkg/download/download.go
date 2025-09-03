@@ -41,7 +41,7 @@ func (wc *WriteCounter) Write(p []byte) (int, error) {
 
 // PrintProgress displays the download progress in the terminal.
 func (wc *WriteCounter) PrintProgress() {
-	fmt.Printf("\r%s", strings.Repeat(" ", 80)) // Clear the line with more space
+	fmt.Printf("\r%s", strings.Repeat(" ", 80)) //nolint:forbidigo // Progress display
 
 	// Choose appropriate icon and message based on context
 	icon := "📥"
@@ -60,17 +60,17 @@ func (wc *WriteCounter) PrintProgress() {
 	// Show progress with percentage if expected size is known
 	if wc.Expected > 0 {
 		percent := float64(wc.Total) / float64(wc.Expected) * 100
-		fmt.Printf("\r%s %s %s - %s/%s (%.1f%%)", icon, prefix, name,
+		fmt.Printf("\r%s %s %s - %s/%s (%.1f%%)", icon, prefix, name, //nolint:forbidigo // Progress display
 			humanize.Bytes(wc.Total), humanize.Bytes(wc.Expected), percent)
 	} else {
-		fmt.Printf("\r%s %s %s - %s", icon, prefix, name, humanize.Bytes(wc.Total))
+		fmt.Printf("\r%s %s %s - %s", icon, prefix, name, humanize.Bytes(wc.Total)) //nolint:forbidigo // Progress display
 	}
 }
 
 // Given a list of URLs, download it to a target.
 func DownloadFiles(fs afero.Fs, ctx context.Context, downloadDir string, items []DownloadItem, logger *logging.Logger, useLatest bool) error {
 	// Create the downloads directory if it doesn't exist
-	err := os.MkdirAll(downloadDir, 0o755)
+	err := os.MkdirAll(downloadDir, 0o755) //nolint:gosec // Directory permissions 0o755 are appropriate for downloads directory
 	if err != nil {
 		return fmt.Errorf("failed to create downloads directory: %w", err)
 	}
@@ -78,7 +78,7 @@ func DownloadFiles(fs afero.Fs, ctx context.Context, downloadDir string, items [
 	// Check if this is cache downloads
 	isCache := strings.Contains(downloadDir, "cache")
 	if isCache && len(items) > 0 {
-		fmt.Printf("🔄 Downloading cache dependencies (%d items)...\n", len(items))
+		fmt.Printf("🔄 Downloading cache dependencies (%d items)...\n", len(items)) //nolint:forbidigo // Progress display
 	}
 
 	for i, item := range items {
@@ -95,7 +95,7 @@ func DownloadFiles(fs afero.Fs, ctx context.Context, downloadDir string, items [
 
 		// Show progress for multiple files
 		if isCache && len(items) > 1 {
-			fmt.Printf("[%d/%d] ", i+1, len(items))
+			fmt.Printf("[%d/%d] ", i+1, len(items)) //nolint:forbidigo // Progress display
 		}
 
 		// Download the file
@@ -103,18 +103,18 @@ func DownloadFiles(fs afero.Fs, ctx context.Context, downloadDir string, items [
 		if err != nil {
 			logger.Error("failed to download", "url", item.URL, "err", err)
 			if isCache {
-				fmt.Printf("\n❌ Failed to download %s\n", filepath.Base(localPath))
+				fmt.Printf("\n❌ Failed to download %s\n", filepath.Base(localPath)) //nolint:forbidigo // Progress display
 			}
 		} else {
 			logger.Info("successfully downloaded", "url", item.URL, "path", localPath)
 			if isCache {
-				fmt.Printf("\n✅ Downloaded %s\n", filepath.Base(localPath))
+				fmt.Printf("\n✅ Downloaded %s\n", filepath.Base(localPath)) //nolint:forbidigo // Progress display
 			}
 		}
 	}
 
 	if isCache && len(items) > 0 {
-		fmt.Printf("🎉 Cache downloads completed!\n")
+		fmt.Printf("🎉 Cache downloads completed!\n") //nolint:forbidigo // Progress display
 	}
 
 	return nil
@@ -196,7 +196,7 @@ func DownloadFile(ctx context.Context, fs afero.Fs, url, filePath string, logger
 	}
 
 	// Clear the progress line
-	fmt.Printf("\r%s\r", strings.Repeat(" ", 80))
+	fmt.Printf("\r%s\r", strings.Repeat(" ", 80)) //nolint:forbidigo // Progress display
 
 	logger.Debug(messages.MsgDownloadComplete, "url", url, "file-path", filePath)
 

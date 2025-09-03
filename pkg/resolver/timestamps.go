@@ -3,6 +3,7 @@ package resolver
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/apple/pkl-go/pkl"
@@ -152,8 +153,8 @@ func (dr *DependencyResolver) GetCurrentTimestamp(resourceID, resourceType strin
 	if _, err := dr.Fs.Stat(pklPath); err != nil {
 		// If the timestamp file doesn't exist, return a default timestamp
 		// This can happen for workflow resources that don't have timestamp tracking
-		dr.Logger.Debug("timestamp file does not exist, returning default", "path", pklPath, "resourceID", resourceID, "resourceType", resourceType)
-		return pkl.Duration{}, nil
+		dr.Logger.Debug("timestamp file does not exist, returning default", "path", pklPath, "resourceID", resourceID, "resourceType", resourceType, "error", err)
+		return pkl.Duration{}, fmt.Errorf("timestamp file does not exist: %w", err)
 	}
 
 	pklRes, err := dr.loadPKLFile(resourceType, pklPath)
@@ -214,7 +215,13 @@ func (dr *DependencyResolver) WaitForTimestampChange(resourceID string, previous
 
 		currentTimestamp, err := dr.GetCurrentTimestamp(resourceID, resourceType)
 		if err != nil {
-			return fmt.Errorf("failed to get current timestamp for resource %s: %w", resourceID, err)
+			// If the timestamp file doesn't exist, treat it as unchanged (same as previous timestamp)
+			// This allows the function to wait for the file to be created
+			if strings.Contains(err.Error(), "timestamp file does not exist") {
+				currentTimestamp = previousTimestamp
+			} else {
+				return fmt.Errorf("failed to get current timestamp for resource %s: %w", resourceID, err)
+			}
 		}
 
 		// If the timestamp has changed from the initial previous timestamp, the resource has completed

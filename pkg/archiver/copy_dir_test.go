@@ -783,7 +783,7 @@ func TestSetPermissionsErrorPaths(t *testing.T) {
 }
 
 // ensure test files call schema version at least once to satisfy repo conventions
-// go:generate echo "schema version: v0.0.0" > /dev/null
+//go:generate echo "schema version: v0.0.0" > /dev/null
 
 func TestMoveFolder(t *testing.T) {
 	fs := afero.NewMemMapFs()
@@ -1239,7 +1239,7 @@ func TestCopyFileVariants(t *testing.T) {
 	// a backup file should exist with md5 of previous dst ("different")
 	// Walk directory to locate any file with pattern dst_*.txt
 	foundBackup := false
-	_ = afero.Walk(fsys, filepath.Dir(dstPath), func(p string, info fs.FileInfo, err error) error {
+	_ = afero.Walk(fsys, filepath.Dir(dstPath), func(p string, _ fs.FileInfo, err error) error {
 		if strings.HasPrefix(filepath.Base(p), "dst_") && strings.HasSuffix(p, filepath.Ext(dstPath)) {
 			foundBackup = true
 		}
@@ -1657,15 +1657,15 @@ func TestGetFileMD5AndCopyFile(t *testing.T) {
 	assert.Len(t, md5short, 8)
 
 	dest := "/dest.txt"
-	assert.NoError(t, CopyFile(fsys, ctx, src, dest, logger))
+	require.NoError(t, CopyFile(fsys, ctx, src, dest, logger))
 
 	// identical copy should not create backup
-	assert.NoError(t, CopyFile(fsys, ctx, src, dest, logger))
+	require.NoError(t, CopyFile(fsys, ctx, src, dest, logger))
 
 	// modify src and copy again -> backup expected
 	newContent := []byte("hello new world")
-	assert.NoError(t, afero.WriteFile(fsys, src, newContent, 0o644))
-	assert.NoError(t, CopyFile(fsys, ctx, src, dest, logger))
+	require.NoError(t, afero.WriteFile(fsys, src, newContent, 0o644))
+	require.NoError(t, CopyFile(fsys, ctx, src, dest, logger))
 
 	backupName := "dest_" + md5short + ".txt"
 	exists, _ := afero.Exists(fsys, "/"+backupName)
@@ -1678,12 +1678,12 @@ func TestMoveFolderAndCopyDir(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	srcDir := "/source"
-	assert.NoError(t, fsys.MkdirAll(filepath.Join(srcDir, "nested"), 0o755))
-	assert.NoError(t, afero.WriteFile(fsys, filepath.Join(srcDir, "file1.txt"), []byte("a"), 0o644))
-	assert.NoError(t, afero.WriteFile(fsys, filepath.Join(srcDir, "nested", "file2.txt"), []byte("b"), 0o644))
+	require.NoError(t, fsys.MkdirAll(filepath.Join(srcDir, "nested"), 0o755))
+	require.NoError(t, afero.WriteFile(fsys, filepath.Join(srcDir, "file1.txt"), []byte("a"), 0o644))
+	require.NoError(t, afero.WriteFile(fsys, filepath.Join(srcDir, "nested", "file2.txt"), []byte("b"), 0o644))
 
 	destDir := "/destination"
-	assert.NoError(t, MoveFolder(fsys, srcDir, destDir))
+	require.NoError(t, MoveFolder(fsys, srcDir, destDir))
 
 	exists, _ := afero.DirExists(fsys, srcDir)
 	assert.False(t, exists)
@@ -1759,7 +1759,7 @@ type errFs struct {
 }
 
 // Override Chmod to simulate permission failure.
-func (e *errFs) Chmod(name string, mode os.FileMode) error {
+func (e *errFs) Chmod(_ string, mode os.FileMode) error {
 	return errors.New("chmod not allowed")
 }
 
@@ -1965,7 +1965,7 @@ func TestMoveFolderAndGetFileMD5Small(t *testing.T) {
 	}
 
 	h := md5.New()
-	h.Write([]byte(data))
+	h.Write(data)
 	wantFull := hex.EncodeToString(h.Sum(nil))
 	want := wantFull[:6]
 	if got != want {

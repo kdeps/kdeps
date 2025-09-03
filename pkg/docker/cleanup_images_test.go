@@ -508,8 +508,8 @@ func TestCleanupDockerBuildImagesStub(t *testing.T) {
 	}
 }
 
-// MockDockerClient is a mock implementation of the DockerPruneClient interface
-// Only the required methods are implemented
+// MockDockerClient is a mock implementation of the DockerPruneClient interface.
+// Only the required methods are implemented.
 type MockDockerClient struct {
 	mock.Mock
 }
@@ -531,7 +531,7 @@ func (m *MockDockerClient) ImagesPrune(ctx context.Context, pruneFilters filters
 	return args.Get(0).(image.PruneReport), args.Error(1)
 }
 
-// Implement other required interface methods with empty implementations
+// Implement other required interface methods with empty implementations.
 func (m *MockDockerClient) ContainerStart(ctx context.Context, containerID string, options container.StartOptions) error {
 	return nil
 }
@@ -545,7 +545,7 @@ func (m *MockDockerClient) ContainerWait(ctx context.Context, containerID string
 }
 
 func (m *MockDockerClient) ContainerLogs(ctx context.Context, containerID string, options container.LogsOptions) (io.ReadCloser, error) {
-	return nil, nil
+	return nil, errors.New("mock error")
 }
 
 func (m *MockDockerClient) ContainerInspect(ctx context.Context, containerID string) (container.InspectResponse, error) {
@@ -633,11 +633,11 @@ func (m *MockDockerClient) ContainerCopyToContainer(ctx context.Context, contain
 }
 
 func (m *MockDockerClient) ContainerExport(ctx context.Context, containerID string) (io.ReadCloser, error) {
-	return nil, nil
+	return nil, errors.New("mock error")
 }
 
 func (m *MockDockerClient) ContainerArchive(ctx context.Context, containerID, srcPath string) (io.ReadCloser, error) {
-	return nil, nil
+	return nil, errors.New("mock error")
 }
 
 func (m *MockDockerClient) ContainerArchiveInfo(ctx context.Context, containerID, srcPath string) (container.PathStat, error) {

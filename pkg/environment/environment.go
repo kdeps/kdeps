@@ -25,11 +25,11 @@ type Environment struct {
 // checkConfig checks if the .kdeps.pkl file exists in the given directory.
 func checkConfig(fs afero.Fs, baseDir string) (string, error) {
 	configFile := filepath.Join(baseDir, SystemConfigFileName)
-	if exists, err := afero.Exists(fs, configFile); err == nil && exists {
+	exists, err := afero.Exists(fs, configFile)
+	if err == nil && exists {
 		return configFile, nil
-	} else {
-		return "", err
 	}
+	return "", err
 }
 
 // findKdepsConfig searches for the .kdeps.pkl file in both the Pwd and Home directories.

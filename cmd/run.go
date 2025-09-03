@@ -49,7 +49,7 @@ func NewRunCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCfg 
 			if err != nil {
 				return err
 			}
-			fmt.Println("Kdeps AI Agent docker container created:", containerID)
+			fmt.Println("Kdeps AI Agent docker container created:", containerID) //nolint:forbidigo // CLI user feedback
 			return nil
 		},
 	}

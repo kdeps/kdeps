@@ -18,6 +18,7 @@ import (
 	"github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	kpath "github.com/kdeps/schema/gen/kdeps/path"
 )
@@ -303,7 +304,7 @@ func TestFindConfigurationUnit(t *testing.T) {
 		afero.WriteFile(fs, "/test/pwd/.kdeps.pkl", []byte("test"), 0o644)
 
 		result, err := FindConfiguration(ctx, fs, env, logger)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "/test/pwd/.kdeps.pkl", result)
 	})
 
@@ -319,7 +320,7 @@ func TestFindConfigurationUnit(t *testing.T) {
 		afero.WriteFile(fs, "/test/home/.kdeps.pkl", []byte("test"), 0o644)
 
 		result, err := FindConfiguration(ctx, fs, env, logger)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "/test/home/.kdeps.pkl", result)
 	})
 
@@ -331,7 +332,7 @@ func TestFindConfigurationUnit(t *testing.T) {
 		}
 
 		result, err := FindConfiguration(ctx, fs, env, logger)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "", result)
 	})
 }
@@ -369,7 +370,7 @@ func TestGenerateConfigurationUnit(t *testing.T) {
 		afero.WriteFile(fs, "/test/home/.kdeps.pkl", []byte("existing"), 0o644)
 
 		result, err := GenerateConfiguration(ctx, fs, env, logger)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "/test/home/.kdeps.pkl", result)
 	})
 }
@@ -389,7 +390,7 @@ func TestEditConfigurationUnit(t *testing.T) {
 		afero.WriteFile(fs, "/test/home/.kdeps.pkl", []byte("test"), 0o644)
 
 		result, err := EditConfiguration(ctx, fs, env, logger)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "/test/home/.kdeps.pkl", result)
 	})
 
@@ -403,7 +404,7 @@ func TestEditConfigurationUnit(t *testing.T) {
 		fs.MkdirAll("/test/home", 0o755)
 
 		result, err := EditConfiguration(ctx, fs, env, logger)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "/test/home/.kdeps.pkl", result)
 	})
 }
@@ -587,7 +588,7 @@ DockerGPU = "cpu"
 		if err != nil {
 			assert.Contains(t, err.Error(), "configuration validation failed")
 		} else {
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		}
 		assert.Equal(t, "/test/home/.kdeps.pkl", result)
 	})
@@ -625,7 +626,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// helper to construct minimal config
+// helper to construct minimal config.
 func newKdepsCfg(dir string, p kpath.Path) kdeps.Kdeps {
 	return kdeps.Kdeps{
 		KdepsDir:  dir,
@@ -673,7 +674,7 @@ func TestGetKdepsPathXDG(t *testing.T) {
 
 func TestGetKdepsPathUnknown(t *testing.T) {
 	// Provide invalid path using numeric constant outside defined ones.
-	type customPath string
+
 	bad := newKdepsCfg("dir", kpath.Path("bogus"))
 	if _, err := GetKdepsPath(context.Background(), bad); err == nil {
 		t.Fatalf("expected error for unknown path type")

@@ -17,7 +17,7 @@ import (
 type EditPklFunc func(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error
 
 // MockEditPkl is a mock version of EditPkl that doesn't actually open an editor
-var MockEditPkl EditPklFunc = func(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
+var MockEditPkl EditPklFunc = func(fs afero.Fs, _ context.Context, filePath string, logger *logging.Logger) error {
 	// Ensure the file has a .pkl extension
 	if filepath.Ext(filePath) != ".pkl" {
 		err := errors.New("file '" + filePath + "' does not have a .pkl extension")
@@ -77,7 +77,7 @@ func realEditorCmdFactory(editorName, filePath string) (EditorCmd, error) {
 }
 
 // EditPklWithFactory opens the file at filePath with the 'kdeps' editor using the provided factory function.
-func EditPklWithFactory(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger, factory EditorCmdFunc) error {
+func EditPklWithFactory(fs afero.Fs, _ context.Context, filePath string, logger *logging.Logger, factory EditorCmdFunc) error {
 	if os.Getenv("NON_INTERACTIVE") == "1" {
 		logger.Info("NON_INTERACTIVE=1, skipping editor")
 		return nil

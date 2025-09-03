@@ -32,7 +32,7 @@ func (simpleWf) GetTargetActionID() string     { return "" }
 func (simpleWf) GetWorkflows() []string        { return nil }
 func (simpleWf) GetSettings() pklProj.Settings { return pklProj.Settings{} }
 
-// compile-time assertion
+// compile-time assertion.
 var _ interface {
 	GetAgentID() string
 	GetVersion() string

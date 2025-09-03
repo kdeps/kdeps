@@ -20,15 +20,17 @@ import (
 	"github.com/spf13/afero"
 )
 
+const defaultDirPermissions = 0o755
+
 var (
 	lightBlue  = lipgloss.NewStyle().Foreground(lipgloss.Color("#6495ED")).Bold(true)
 	lightGreen = lipgloss.NewStyle().Foreground(lipgloss.Color("#90EE90")).Bold(true)
 )
 
 func printWithDots(message string) {
-	fmt.Print(lightBlue.Render(message))
-	fmt.Print("...")
-	fmt.Println()
+	fmt.Print(lightBlue.Render(message)) //nolint:forbidigo // Progress display
+	fmt.Print("...")                     //nolint:forbidigo // Progress display
+	fmt.Println()                        //nolint:forbidigo // Progress display
 }
 
 func validateAgentName(agentName string) error {
@@ -79,7 +81,7 @@ func createDirectory(fs afero.Fs, logger *logging.Logger, path string) error {
 
 func createFile(fs afero.Fs, logger *logging.Logger, path string, content string) error {
 	if path == "" {
-		return fmt.Errorf("file path cannot be empty")
+		return errors.New("file path cannot be empty")
 	}
 	printWithDots("Creating file: " + lightGreen.Render(path))
 	if err := afero.WriteFile(fs, path, []byte(content), 0o644); err != nil {
@@ -135,7 +137,7 @@ func GenerateWorkflowFile(ctx context.Context, fs afero.Fs, logger *logging.Logg
 	}
 
 	// Create the directory if it doesn't exist
-	if err := fs.MkdirAll(mainDir, 0o755); err != nil {
+	if err := fs.MkdirAll(mainDir, defaultDirPermissions); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
@@ -167,7 +169,7 @@ func GenerateResourceFiles(ctx context.Context, fs afero.Fs, logger *logging.Log
 	}
 
 	resourceDir := filepath.Join(mainDir, "resources")
-	if err := fs.MkdirAll(resourceDir, 0o755); err != nil {
+	if err := fs.MkdirAll(resourceDir, defaultDirPermissions); err != nil {
 		return fmt.Errorf("failed to create resources directory: %w", err)
 	}
 
@@ -244,7 +246,7 @@ func GenerateSpecificAgentFile(ctx context.Context, fs afero.Fs, logger *logging
 	}
 
 	// Create the output directory if it doesn't exist
-	if err := fs.MkdirAll(outputDir, 0o755); err != nil {
+	if err := fs.MkdirAll(outputDir, defaultDirPermissions); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
@@ -260,7 +262,7 @@ func GenerateAgent(ctx context.Context, fs afero.Fs, logger *logging.Logger, bas
 
 	// Create the main directory under baseDir
 	mainDir := filepath.Join(baseDir, agentName)
-	if err := fs.MkdirAll(mainDir, 0o755); err != nil {
+	if err := fs.MkdirAll(mainDir, defaultDirPermissions); err != nil {
 		return fmt.Errorf("failed to create main directory: %w", err)
 	}
 

@@ -23,11 +23,11 @@ import (
 // CreateResponsePklFile generates a PKL file from the API response and processes it.
 func (dr *DependencyResolver) CreateResponsePklFile(apiResponseBlock apiserverresponse.APIServerResponse) error {
 	if dr == nil || len(dr.DBs) == 0 || dr.DBs[0] == nil {
-		return fmt.Errorf("dependency resolver or database is nil")
+		return errors.New("dependency resolver or database is nil")
 	}
 
 	if err := dr.DBs[0].PingContext(context.Background()); err != nil {
-		return fmt.Errorf("failed to ping database: %v", err)
+		return fmt.Errorf("failed to ping database: %w", err)
 	}
 
 	dr.Logger.Debug("starting CreateResponsePklFile", "response", apiResponseBlock)
@@ -293,19 +293,6 @@ func (dr *DependencyResolver) evaluateResponseWithSDK() (string, error) {
 	}
 
 	// Create evaluator via centralized helper in pkg/evaluator with readers
-	readers := make([]pkl.ResourceReader, 0, 4)
-	if dr.MemoryReader != nil {
-		readers = append(readers, dr.MemoryReader)
-	}
-	if dr.SessionReader != nil {
-		readers = append(readers, dr.SessionReader)
-	}
-	if dr.ToolReader != nil {
-		readers = append(readers, dr.ToolReader)
-	}
-	if dr.ItemReader != nil {
-		readers = append(readers, dr.ItemReader)
-	}
 	ev, err := evaluator.NewConfiguredEvaluator(dr.Context, "json", dr.getResourceReaders())
 	if err != nil {
 		return "", fmt.Errorf("create evaluator: %w", err)
@@ -346,18 +333,19 @@ func (dr *DependencyResolver) ensureResponseTargetFileNotExists() error {
 	return nil
 }
 
-func (dr *DependencyResolver) executePklEvalCommand() (kdepsexecStd struct {
+func (dr *DependencyResolver) executePklEvalCommand() (struct {
 	Stdout, Stderr string
 	ExitCode       int
-}, err error,
+}, error,
 ) {
 	// Prefer SDK, but fall back to CLI if SDK fails
 	stdout, err := dr.evaluateResponseWithSDK()
 	if err == nil {
-		kdepsexecStd.Stdout = stdout
-		kdepsexecStd.Stderr = ""
-		kdepsexecStd.ExitCode = 0
-		return kdepsexecStd, nil
+		result := struct {
+			Stdout, Stderr string
+			ExitCode       int
+		}{Stdout: stdout, Stderr: "", ExitCode: 0}
+		return result, nil
 	}
 	// Fallback to CLI to preserve behavior in constrained environments
 	out, stderr, exitCode, execErr := kdepsexec.KdepsExec(
@@ -370,15 +358,22 @@ func (dr *DependencyResolver) executePklEvalCommand() (kdepsexecStd struct {
 		dr.Logger,
 	)
 	if execErr != nil {
-		return kdepsexecStd, execErr
+		return struct {
+			Stdout, Stderr string
+			ExitCode       int
+		}{}, execErr
 	}
 	if exitCode != 0 {
-		return kdepsexecStd, fmt.Errorf("command failed with exit code %d: %s", exitCode, stderr)
+		return struct {
+			Stdout, Stderr string
+			ExitCode       int
+		}{}, fmt.Errorf("command failed with exit code %d: %s", exitCode, stderr)
 	}
-	kdepsexecStd.Stdout = out
-	kdepsexecStd.Stderr = stderr
-	kdepsexecStd.ExitCode = exitCode
-	return kdepsexecStd, nil
+	result := struct {
+		Stdout, Stderr string
+		ExitCode       int
+	}{Stdout: out, Stderr: stderr, ExitCode: exitCode}
+	return result, nil
 }
 
 // HandleAPIErrorResponse creates an error response PKL file when in API server mode,

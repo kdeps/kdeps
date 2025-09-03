@@ -16,7 +16,7 @@ import (
 )
 
 // UpgradeCommand creates the 'upgrade' command for upgrading schema versions in pkl files.
-func UpgradeCommand(_ context.Context, fs afero.Fs, kdepsDir string, logger *logging.Logger) *cobra.Command {
+func UpgradeCommand(_ context.Context, fs afero.Fs, _ string, logger *logging.Logger) *cobra.Command {
 	var targetVersion string
 	var dryRun bool
 
@@ -83,7 +83,7 @@ Examples:
 	return cmd
 }
 
-// upgradeSchemaVersions scans a directory for pkl files and upgrades schema versions
+// upgradeSchemaVersions scans a directory for pkl files and upgrades schema versions.
 func upgradeSchemaVersions(fs afero.Fs, dirPath, targetVersion string, dryRun bool, logger *logging.Logger) error {
 	var filesProcessed int
 	var filesUpdated int
@@ -150,7 +150,7 @@ func upgradeSchemaVersions(fs afero.Fs, dirPath, targetVersion string, dryRun bo
 	return nil
 }
 
-// upgradeSchemaVersionInContent upgrades schema version references and format in pkl file content
+// upgradeSchemaVersionInContent upgrades schema version references and format in pkl file content.
 func upgradeSchemaVersionInContent(content, targetVersion string, logger *logging.Logger) (string, bool, error) {
 	logger.Debug("upgradeSchemaVersionInContent called", "targetVersion", targetVersion, "contentLength", len(content))
 	updatedContent := content
@@ -195,7 +195,7 @@ type upgradeResult struct {
 	changed bool
 }
 
-// upgradeVersionReferences upgrades schema version references in pkl file content
+// upgradeVersionReferences upgrades schema version references in pkl file content.
 func upgradeVersionReferences(content, targetVersion string, logger *logging.Logger) (upgradeResult, error) {
 	logger.Debug("upgradeVersionReferences called", "targetVersion", targetVersion, "contentLength", len(content))
 
@@ -214,7 +214,10 @@ func upgradeVersionReferences(content, targetVersion string, logger *logging.Log
 
 	for i, pattern := range patterns {
 		logger.Debug("testing pattern", "index", i, "pattern", pattern)
-		re := regexp.MustCompile(pattern)
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			return upgradeResult{}, fmt.Errorf("failed to compile regex pattern %d: %w", i, err)
+		}
 		matches := re.FindAllStringSubmatch(updatedContent, -1)
 		logger.Debug("pattern matches", "index", i, "matchCount", len(matches))
 
@@ -261,7 +264,7 @@ func upgradeVersionReferences(content, targetVersion string, logger *logging.Log
 	return upgradeResult{content: updatedContent, changed: changed}, nil
 }
 
-// upgradeSchemaFormat upgrades PKL format from lowercase to capitalized attributes/blocks
+// upgradeSchemaFormat upgrades PKL format from lowercase to capitalized attributes/blocks.
 func upgradeSchemaFormat(content string, logger *logging.Logger) (upgradeResult, error) {
 	updatedContent := content
 	changed := false
@@ -355,7 +358,10 @@ func upgradeSchemaFormat(content string, logger *logging.Logger) (upgradeResult,
 	// Apply attribute/block name transformations
 	for oldName, newName := range attributeMappings {
 		// Pattern 1: Attribute assignment (attribute = value)
-		attributePattern := regexp.MustCompile(`\b` + regexp.QuoteMeta(oldName) + `\s*=`)
+		attributePattern, err := regexp.Compile(`\b` + regexp.QuoteMeta(oldName) + `\s*=`)
+		if err != nil {
+			return upgradeResult{}, fmt.Errorf("failed to compile attribute regex for %s: %w", oldName, err)
+		}
 		if attributePattern.MatchString(updatedContent) {
 			updatedContent = attributePattern.ReplaceAllString(updatedContent, newName+" =")
 			changed = true
@@ -363,7 +369,10 @@ func upgradeSchemaFormat(content string, logger *logging.Logger) (upgradeResult,
 		}
 
 		// Pattern 2: Block definition (blockName {)
-		blockPattern := regexp.MustCompile(`\b` + regexp.QuoteMeta(oldName) + `\s*\{`)
+		blockPattern, err := regexp.Compile(`\b` + regexp.QuoteMeta(oldName) + `\s*\{`)
+		if err != nil {
+			return upgradeResult{}, fmt.Errorf("failed to compile block regex for %s: %w", oldName, err)
+		}
 		if blockPattern.MatchString(updatedContent) {
 			updatedContent = blockPattern.ReplaceAllString(updatedContent, newName+" {")
 			changed = true

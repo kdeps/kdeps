@@ -79,7 +79,11 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 			return err
 		}
 
-		defer dr.deactivateCondaEnvironment()
+		defer func() {
+			if err := dr.deactivateCondaEnvironment(); err != nil {
+				dr.Logger.Warn("failed to deactivate conda environment", "error", err)
+			}
+		}()
 	}
 
 	env := dr.formatPythonEnv(pythonBlock.Env)

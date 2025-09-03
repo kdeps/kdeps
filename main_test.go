@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 
@@ -9,10 +10,9 @@ import (
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
-	// The following imports are required for stubbing the functions used in handleNonDockerMode
-	"fmt"
+	// The following imports are required for stubbing the functions used in handleNonDockerMode.
 	"path/filepath"
 	"sync"
 	"sync/atomic"
@@ -28,7 +28,6 @@ import (
 	"github.com/kdeps/schema/gen/kdeps"
 	kpath "github.com/kdeps/schema/gen/kdeps/path"
 	"github.com/spf13/cobra"
-	"github.com/stretchr/testify/require"
 )
 
 func TestSetupEnvironment(t *testing.T) {
@@ -52,9 +51,9 @@ func TestSetupEnvironmentError(t *testing.T) {
 	// The function should still return an environment even if there are minor issues
 	// This depends on the actual implementation of environment.NewEnvironment
 	if err != nil {
-		assert.Nil(t, env)
+		require.Nil(t, env)
 	} else {
-		assert.NotNil(t, env)
+		require.NotNil(t, env)
 	}
 }
 
@@ -67,7 +66,7 @@ func TestSetupSignalHandler(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Test that setupSignalHandler doesn't panic
-	assert.NotPanics(t, func() {
+	require.NotPanics(t, func() {
 		setupSignalHandler(ctx, fs, cancel, env, false, logger)
 	})
 
@@ -85,13 +84,13 @@ func TestCleanup(t *testing.T) {
 	fs.Create("/.dockercleanup")
 
 	// Test that cleanup doesn't panic
-	assert.NotPanics(t, func() {
+	require.NotPanics(t, func() {
 		cleanup(ctx, fs, env, true, logger) // Use apiServerMode=true to avoid os.Exit
 	})
 
 	// Check that the cleanup flag file was removed
 	_, err := fs.Stat("/.dockercleanup")
-	assert.True(t, os.IsNotExist(err))
+	require.True(t, os.IsNotExist(err))
 }
 
 // TestHandleNonDockerMode_Stubbed exercises the main.handleNonDockerMode logic using stubbed dependency
@@ -456,7 +455,7 @@ func TestHandleDockerMode_NoAPIServer(t *testing.T) {
 
 	// Touch rule-required reference
 	_ = utils.SafeDerefBool(nil) // uses utils to avoid unused import
-	_ = schema.SchemaVersion(context.Background())
+	_ = schema.SchemaVersion(t.Context())
 }
 
 // TestRunGraphResolverActions_PrepareWorkflowDirError verifies that an error in
@@ -479,7 +478,7 @@ func TestRunGraphResolverActions_PrepareWorkflowDirError(t *testing.T) {
 		ProjectDir:  "/nonexistent/project", // source dir intentionally missing
 		WorkflowDir: "/tmp/workflow",
 		Environment: env,
-		Context:     context.Background(),
+		Context:     t.Context(),
 	}
 
 	err := runGraphResolverActions(dr.Context, dr, false)
@@ -575,8 +574,6 @@ func TestHandleDockerMode(t *testing.T) {
 	tests := []bool{false, true} // apiServerMode flag returned by bootstrap stub
 
 	for _, apiServerMode := range tests {
-		// Capture range variable
-		apiServerMode := apiServerMode
 		t.Run("apiServerMode="+boolToStr(apiServerMode), func(t *testing.T) {
 			// Preserve originals and restore after test
 			origBootstrap := bootstrapDockerSystemFn
@@ -885,7 +882,7 @@ func TestHandleNonDockerModeEditError(t *testing.T) {
 	}
 	// Editing fails
 	editConfigurationFn = func(_ context.Context, _ afero.Fs, _ *environment.Environment, _ *logging.Logger) (string, error) {
-		return "", fmt.Errorf("edit failed")
+		return "", errors.New("edit failed")
 	}
 
 	// Other functions should not be called; keep minimal safe stubs.
@@ -1116,12 +1113,12 @@ func TestHandleNonDockerMode_Happy(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Execute the function under test; expect it to run without panics or exits.
-	handleNonDockerMode(context.Background(), fs, env, logger)
+	handleNonDockerMode(t.Context(), fs, env, logger)
 
 	// Sanity: ensure our logger captured the ready message.
 	if out := logger.GetOutput(); out == "" {
 		t.Fatalf("expected some log output, got none")
 	}
 
-	_ = schema.SchemaVersion(context.Background())
+	_ = schema.SchemaVersion(t.Context())
 }

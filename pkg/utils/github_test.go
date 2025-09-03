@@ -380,7 +380,7 @@ func TestGetLatestGitHubRelease_Errors_Dup(t *testing.T) {
 	}
 }
 
-func contains(s, substr string) bool { return bytes.Contains([]byte(s), []byte(substr)) }
+func contains(s, substr string) bool { return strings.Contains(s, substr) }
 
 func TestGetLatestGitHubRelease_MockServer2(t *testing.T) {
 	// Successful path

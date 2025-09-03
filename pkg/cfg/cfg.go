@@ -22,13 +22,13 @@ import (
 	"github.com/spf13/afero"
 )
 
-// simpleConfirm provides a simple Yes/No prompt without TUI complications
+// simpleConfirm provides a simple Yes/No prompt without TUI complications.
 func simpleConfirm(title, description string) (bool, error) {
-	fmt.Printf("\n%s\n", title)
+	fmt.Printf("\n%s\n", title) //nolint:forbidigo // CLI user interaction
 	if description != "" {
-		fmt.Printf("%s\n", description)
+		fmt.Printf("%s\n", description) //nolint:forbidigo // CLI user interaction
 	}
-	fmt.Print("Do you want to continue? (y/N): ")
+	fmt.Print("Do you want to continue? (y/N): ") //nolint:forbidigo // CLI user interaction
 
 	reader := bufio.NewReader(os.Stdin)
 	response, err := reader.ReadString('\n')
@@ -149,7 +149,7 @@ func LoadConfiguration(ctx context.Context, fs afero.Fs, configFile string, logg
 	return loadConfigurationFromFile(ctx, configFile, logger)
 }
 
-// loadConfigurationFromEmbeddedAssets loads configuration using embedded PKL assets
+// loadConfigurationFromEmbeddedAssets loads configuration using embedded PKL assets.
 func loadConfigurationFromEmbeddedAssets(ctx context.Context, configFile string, logger *logging.Logger) (*kdeps.Kdeps, error) {
 	logger.Debug("loading configuration from embedded assets", "config-file", configFile)
 
@@ -180,7 +180,7 @@ func loadConfigurationFromEmbeddedAssets(ctx context.Context, configFile string,
 	return conf, nil
 }
 
-// loadConfigurationFromFile loads configuration using direct file evaluation (original method)
+// loadConfigurationFromFile loads configuration using direct file evaluation (original method).
 func loadConfigurationFromFile(ctx context.Context, configFile string, logger *logging.Logger) (*kdeps.Kdeps, error) {
 	evaluator, err := pkl.NewEvaluator(ctx, pkl.PreconfiguredOptions)
 	if err != nil {

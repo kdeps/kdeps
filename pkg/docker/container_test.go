@@ -188,7 +188,7 @@ func TestParseOLLAMAHostAdditional(t *testing.T) {
 
 func TestGenerateUniqueOllamaPortAdditional(t *testing.T) {
 	existing := uint16(11434)
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		portStr := generateUniqueOllamaPort(existing)
 		port, err := strconv.Atoi(portStr)
 		if err != nil {
@@ -236,7 +236,7 @@ func TestParseOLLAMAHostExtra(t *testing.T) {
 func TestGenerateUniqueOllamaPortRange(t *testing.T) {
 	existing := uint16(12000)
 	count := 20 // sample multiple generations to reduce flake risk
-	for i := 0; i < count; i++ {
+	for range count {
 		portStr := generateUniqueOllamaPort(existing)
 		port, err := strconv.Atoi(portStr)
 		assert.NoError(t, err)
@@ -299,7 +299,7 @@ func TestGenerateUniqueOllamaPort_CollisionLoop(t *testing.T) {
 
 func TestGenerateUniqueOllamaPortDiffersFromExisting(t *testing.T) {
 	existing := uint16(12345)
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		pStr := generateUniqueOllamaPort(existing)
 		if pStr == "" {
 			t.Fatalf("empty port returned")
@@ -311,7 +311,7 @@ func TestGenerateUniqueOllamaPortDiffersFromExisting(t *testing.T) {
 }
 
 func TestGenerateUniqueOllamaPortWithinRange(t *testing.T) {
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		pStr := generateUniqueOllamaPort(0)
 		port, err := strconv.Atoi(pStr)
 		if err != nil {
@@ -354,7 +354,7 @@ func TestParseOLLAMAHost(t *testing.T) {
 
 func TestGenerateUniqueOllamaPort(t *testing.T) {
 	existing := uint16(12345)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		pStr := generateUniqueOllamaPort(existing)
 		port, err := strconv.Atoi(pStr)
 		if err != nil {

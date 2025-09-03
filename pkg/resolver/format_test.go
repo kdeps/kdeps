@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -129,7 +128,7 @@ func TestFormatMapSimple(t *testing.T) {
 	}
 }
 
-// Helper to check substring presence
+// Helper to check substring presence.
 func containsAll(s string, subs []string) bool {
 	for _, sub := range subs {
 		if !strings.Contains(s, sub) {
@@ -141,7 +140,7 @@ func containsAll(s string, subs []string) bool {
 
 func TestFormatValueVariants(t *testing.T) {
 	// Case 1: nil interface -> "null"
-	var v interface{} = nil
+	var v interface{}
 	if out := formatValue(v); out != "null" {
 		t.Errorf("expected 'null' for nil, got %s", out)
 	}
@@ -523,7 +522,7 @@ func TestMapRoleToLLMMessageType(t *testing.T) {
 	}
 }
 
-// Helper functions
+// Helper functions.
 func boolPtr(b bool) *bool {
 	return &b
 }
@@ -569,7 +568,7 @@ func TestDecodeExecBlock(t *testing.T) {
 		}
 
 		err := dr.decodeExecBlock(execBlock)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "echo 'Hello, World!'", execBlock.Command)
 	})
 
@@ -583,7 +582,7 @@ func TestDecodeExecBlock(t *testing.T) {
 		}
 
 		err := dr.decodeExecBlock(execBlock)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "test_value", (*execBlock.Env)["TEST_KEY"])
 	})
 
@@ -1033,35 +1032,6 @@ Resources {
 	})
 }
 
-type mockExecute struct {
-	command     string
-	args        []string
-	env         []string
-	shouldError bool
-	stdout      string
-	stderr      string
-}
-
-func (m *mockExecute) Execute(ctx context.Context) (struct {
-	Stdout string
-	Stderr string
-}, error,
-) {
-	if m.shouldError {
-		return struct {
-			Stdout string
-			Stderr string
-		}{}, errors.New("mock execution error")
-	}
-	return struct {
-		Stdout string
-		Stderr string
-	}{
-		Stdout: m.stdout,
-		Stderr: m.stderr,
-	}, nil
-}
-
 func setupTestResolver(t *testing.T) *DependencyResolver {
 	// Use real filesystem for tests that might need PKL
 	dr := setupTestResolverWithRealFS(t)
@@ -1265,7 +1235,7 @@ func TestHandleAPIErrorResponse_Extra(t *testing.T) {
 }
 
 // createStubPkl creates a dummy executable named `pkl` that prints JSON and exits 0.
-func createStubPkl(t *testing.T) (stubDir string, cleanup func()) {
+func createStubPkl(t *testing.T) (string, func()) {
 	t.Helper()
 	dir := t.TempDir()
 	exeName := "pkl"
@@ -1726,7 +1696,7 @@ func TestDecodeErrorMessageExtra(t *testing.T) {
 	require.Equal(t, src, decodeErrorMessage(src, logger))
 }
 
-// Simple struct for structToMap / formatValue tests
+// Simple struct for structToMap / formatValue tests.
 type demo struct {
 	FieldA string
 	FieldB int

@@ -740,9 +740,13 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 
 			// Collect error but continue processing to gather ALL errors
 			if runBlock.PreflightCheck.Error != nil {
-				dr.HandleAPIErrorResponse(runBlock.PreflightCheck.Error.Code, errorMessage, false)
+				if _, err := dr.HandleAPIErrorResponse(runBlock.PreflightCheck.Error.Code, errorMessage, false); err != nil {
+					dr.Logger.Error("failed to handle API error response", "error", err)
+				}
 			} else {
-				dr.HandleAPIErrorResponse(500, errorMessage, false)
+				if _, err := dr.HandleAPIErrorResponse(500, errorMessage, false); err != nil {
+					dr.Logger.Error("failed to handle API error response", "error", err)
+				}
 			}
 			// Continue processing instead of returning early - this allows collection of all errors
 		}
@@ -820,7 +824,7 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 	return true, nil
 }
 
-// loadResourceWithFallbackResolver tries to load a resource file with different resource types as fallback
+// loadResourceWithFallbackResolver tries to load a resource file with different resource types as fallback.
 func (dr *DependencyResolver) loadResourceWithFallbackResolver(file string) (interface{}, error) {
 	resourceTypes := []ResourceType{Resource, LLMResource, HTTPResource, PythonResource, ExecResource}
 

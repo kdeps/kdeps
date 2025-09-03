@@ -13,7 +13,12 @@ import (
 	"github.com/spf13/afero"
 )
 
-// makeUniquePortBindings creates a slice of unique port bindings with default hostIPs and the provided hostIP
+const (
+	// GPUTypeAMD represents AMD GPU type
+	GPUTypeAMD = "amd"
+)
+
+// makeUniquePortBindings creates a slice of unique port bindings with default hostIPs and the provided hostIP.
 func makeUniquePortBindings(portNum, hostIP string) []nat.PortBinding {
 	// Create a map to track unique hostIPs
 	uniqueHostIPs := make(map[string]bool)
@@ -36,7 +41,7 @@ func makeUniquePortBindings(portNum, hostIP string) []nat.PortBinding {
 	return bindings
 }
 
-// makeUniquePortStrings creates a slice of unique port strings with default hostIPs and the provided hostIP
+// makeUniquePortStrings creates a slice of unique port strings with default hostIPs and the provided hostIP.
 func makeUniquePortStrings(portNum, hostIP string) []string {
 	// Create a map to track unique hostIPs
 	uniqueHostIPs := make(map[string]bool)
@@ -65,7 +70,7 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 	// Load environment variables from .env file (if it exists)
 	envSlice, err := loadEnvFile(fs, ".env")
 	if err != nil {
-		fmt.Println("Error loading .env file, proceeding without it:", err)
+		fmt.Println("Error loading .env file, proceeding without it:", err) //nolint:forbidigo // Error reporting
 	}
 
 	// Validate port numbers based on modes
@@ -110,7 +115,7 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 
 	// Adjust host configuration based on GPU type
 	switch gpu {
-	case "amd":
+	case GPUTypeAMD:
 		hostConfig.Devices = []container.DeviceMapping{
 			{PathOnHost: "/dev/kfd", PathInContainer: "/dev/kfd", CgroupPermissions: "rwm"},
 			{PathOnHost: "/dev/dri", PathInContainer: "/dev/dri", CgroupPermissions: "rwm"},
@@ -152,9 +157,9 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 					if err != nil {
 						return "", fmt.Errorf("error starting existing container: %w", err)
 					}
-					fmt.Println("Started existing container:", containerNameWithGpu)
+					fmt.Println("Started existing container:", containerNameWithGpu) //nolint:forbidigo // Status reporting
 				} else {
-					fmt.Println("Container is already running:", containerNameWithGpu)
+					fmt.Println("Container is already running:", containerNameWithGpu) //nolint:forbidigo // Status reporting
 				}
 				return resp.ID, nil
 			}
@@ -172,7 +177,7 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 		return "", fmt.Errorf("error starting new container: %w", err)
 	}
 
-	fmt.Println("Kdeps container is running:", containerNameWithGpu)
+	fmt.Println("Kdeps container is running:", containerNameWithGpu) //nolint:forbidigo // Status reporting
 
 	return resp.ID, nil
 }
@@ -186,7 +191,7 @@ func loadEnvFile(fs afero.Fs, filename string) ([]string, error) {
 
 	if !exists {
 		// If the file doesn't exist, return an empty slice
-		fmt.Printf("%s does not exist, skipping .env loading.\n", filename)
+		fmt.Printf("%s does not exist, skipping .env loading.\n", filename) //nolint:forbidigo // Status reporting
 		return nil, nil
 	}
 
@@ -216,7 +221,7 @@ func GenerateDockerCompose(fs afero.Fs, cName, containerName, containerNameWithG
 
 	// GPU-specific configurations
 	switch gpu {
-	case "amd":
+	case GPUTypeAMD:
 		gpuConfig = `
 	devices:
 	  - /dev/kfd
@@ -291,6 +296,6 @@ volumes:
 		return fmt.Errorf("error writing Docker Compose file: %w", err)
 	}
 
-	fmt.Println("Docker Compose file generated successfully at:", filePath)
+	fmt.Println("Docker Compose file generated successfully at:", filePath) //nolint:forbidigo // Status reporting
 	return nil
 }

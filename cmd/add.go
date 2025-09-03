@@ -25,7 +25,7 @@ func NewAddCommand(ctx context.Context, fs afero.Fs, kdepsDir string, logger *lo
 			if err != nil {
 				return err
 			}
-			fmt.Println("AI agent installed locally:", pkgFile)
+			fmt.Println("AI agent installed locally:", pkgFile) //nolint:forbidigo // CLI user feedback
 			return nil
 		},
 	}

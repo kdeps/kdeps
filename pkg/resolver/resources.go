@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -101,7 +102,7 @@ func (dr *DependencyResolver) loadResourceWithFallback(file string) (interface{}
 		return res, nil
 	}
 
-	return nil, fmt.Errorf("failed to load resource with any type")
+	return nil, errors.New("failed to load resource with any type")
 }
 
 // convertToResourceType attempts to convert a loaded resource to Resource type

@@ -20,6 +20,7 @@ import (
 	pklResource "github.com/kdeps/schema/gen/resource"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/ollama"
 )
@@ -202,7 +203,7 @@ func TestDecodeField_NonBase64(t *testing.T) {
 	}
 }
 
-// TestHandleLLMChat ensures that the handler spawns the processing goroutine and writes a PKL file
+// TestHandleLLMChat ensures that the handler spawns the processing goroutine and writes a PKL file.
 func TestHandleLLMChat(t *testing.T) {
 	// reuse helper from other tests to stub the pkl binary
 	_, restore := createStubPkl(t)
@@ -230,11 +231,14 @@ func TestHandleLLMChat(t *testing.T) {
 		return &pklLLM.LLMImpl{Resources: &empty}, nil
 	}
 
-	// stub chat helpers
-	dr.NewLLMFn = func(model string) (*ollama.LLM, error) { return nil, nil }
+	// stub chat helpers - return a mock LLM to allow GenerateChatResponseFn to be called
+	dr.NewLLMFn = func(_ string) (*ollama.LLM, error) {
+		// Create a mock LLM that we can use for testing
+		return &ollama.LLM{}, nil
+	}
 
 	done := make(chan struct{})
-	dr.GenerateChatResponseFn = func(ctx context.Context, fs afero.Fs, _ *ollama.LLM, chat *pklLLM.ResourceChat, _ *tool.PklResourceReader, _ *logging.Logger) (string, error) {
+	dr.GenerateChatResponseFn = func(_ context.Context, fs afero.Fs, _ *ollama.LLM, chat *pklLLM.ResourceChat, _ *tool.PklResourceReader, _ *logging.Logger) (string, error) {
 		close(done)
 		return "stub", nil
 	}
@@ -257,7 +261,7 @@ func TestHandleLLMChat(t *testing.T) {
 	}
 }
 
-// TestHandleHTTPClient verifies DoRequestFn is invoked and PKL file written
+// TestHandleHTTPClient verifies DoRequestFn is invoked and PKL file written.
 func TestHandleHTTPClient(t *testing.T) {
 	_, restore := createStubPkl(t)
 	defer restore()
@@ -313,7 +317,7 @@ func TestHandleHTTPClient(t *testing.T) {
 func TestGenerateChatResponseBasic(t *testing.T) {
 	// Create stub HTTP client to satisfy Ollama client without network
 	httpClient := &http.Client{
-		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		Transport: roundTripFunc(func(_ *http.Request) (*http.Response, error) {
 			// Return NDJSON single line with completed message
 			body := `{"message":{"content":"stub-response"},"done":true}` + "\n"
 			resp := &http.Response{
@@ -330,7 +334,7 @@ func TestGenerateChatResponseBasic(t *testing.T) {
 		ollama.WithHTTPClient(httpClient),
 		ollama.WithServerURL("http://stub"),
 	)
-	assert.NoError(t, errNew)
+	require.NoError(t, errNew)
 
 	fs := afero.NewMemMapFs()
 	logger := logging.GetLogger()
@@ -345,7 +349,7 @@ func TestGenerateChatResponseBasic(t *testing.T) {
 	}
 
 	resp, err := generateChatResponse(ctx, fs, llm, chatBlock, nil, logger)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "stub-response", resp)
 }
 
@@ -374,7 +378,7 @@ func TestLoadResourceEntriesInjected(t *testing.T) {
 	}
 
 	err := dr.LoadResourceEntries()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, dr.Resources, 1)
 	assert.Contains(t, dr.ResourceDependencies, "action1")
 }

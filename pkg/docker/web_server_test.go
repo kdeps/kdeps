@@ -51,7 +51,7 @@ func TestHandleAppRequest_Misconfiguration(t *testing.T) {
 	}
 }
 
-// helper to expose handleAppRequest (unexported) via closure
+// helper to expose handleAppRequest (unexported) via closure.
 func handleAppRequestWrapper(hostIP string, route *webserver.WebServerRoutes, logger *logging.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		handleAppRequest(c, hostIP, route, logger)
@@ -1066,16 +1066,8 @@ func TestStartAppCommand(t *testing.T) {
 	})
 }
 
-// Helper functions
+// Helper functions.
 func uint16Ptr(n uint16) *uint16 {
-	return &n
-}
-
-func stringPtr(s string) *string {
-	return &s
-}
-
-func uint32Ptr(n uint32) *uint32 {
 	return &n
 }
 

@@ -6,12 +6,12 @@ import (
 	"testing"
 )
 
-// ShouldUseEmbeddedAssets determines if we should use embedded PKL assets instead of external URLs
+// ShouldUseEmbeddedAssets determines if we should use embedded PKL assets instead of external URLs.
 func ShouldUseEmbeddedAssets() bool {
 	return IsDockerMode() || IsTestEnvironment()
 }
 
-// IsDockerMode checks if we're running in Docker mode
+// IsDockerMode checks if we're running in Docker mode.
 func IsDockerMode() bool {
 	// Check for Docker environment variables that kdeps uses
 	dockerEnvVars := []string{
@@ -36,7 +36,7 @@ func IsDockerMode() bool {
 	return false
 }
 
-// IsTestEnvironment checks if we're running in a test environment
+// IsTestEnvironment checks if we're running in a test environment.
 func IsTestEnvironment() bool {
 	// Check if we're running under go test
 	for _, arg := range os.Args {
@@ -62,7 +62,7 @@ func IsTestEnvironment() bool {
 	return false
 }
 
-// IsTestMode is a helper that can be called from test contexts
+// IsTestMode is a helper that can be called from test contexts.
 func IsTestMode(t *testing.T) bool {
 	return t != nil
 }

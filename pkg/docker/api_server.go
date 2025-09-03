@@ -10,6 +10,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -27,6 +28,11 @@ import (
 	"github.com/kdeps/kdeps/pkg/utils"
 	apiserver "github.com/kdeps/schema/gen/api_server"
 	"github.com/spf13/afero"
+)
+
+const (
+	// UnknownActionID represents the default action ID when no specific action context is available
+	UnknownActionID = "unknown"
 )
 
 // ErrorResponse defines the structure of each error.
@@ -265,7 +271,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 					{
 						Code:     http.StatusInternalServerError,
 						Message:  "Invalid route configuration",
-						ActionID: "unknown", // No action context available for route configuration errors
+						ActionID: UnknownActionID, // No action context available for route configuration errors
 					},
 				},
 			}
@@ -276,7 +282,10 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			}
 			c.Header("Content-Type", "application/json; charset=utf-8")
 			c.AbortWithStatus(http.StatusInternalServerError)
-			c.Writer.Write(jsonBytes)
+			if _, err := c.Writer.Write(jsonBytes); err != nil {
+				// Log error to stderr since logger is not available in this scope
+				fmt.Fprintf(os.Stderr, "failed to write error response: %v\n", err)
+			}
 		}
 	}
 
@@ -284,7 +293,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 
 	return func(c *gin.Context) {
 		// Initialize errors slice to collect all errors
-		var errors []ErrorResponse
+		var errorResponses []ErrorResponse
 
 		graphID := uuid.New().String()
 		baseLogger := logging.GetLogger()
@@ -319,7 +328,7 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 
 			// Use "unknown" if actionID is empty
 			if actionID == "" {
-				actionID = "unknown"
+				actionID = UnknownActionID
 			}
 
 			// Check if error already exists (same message, code, and actionID)
@@ -348,7 +357,10 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			}
 			c.Header("Content-Type", "application/json; charset=utf-8")
 			c.AbortWithStatus(statusCode)
-			c.Writer.Write(jsonBytes)
+			if _, err := c.Writer.Write(jsonBytes); err != nil {
+				// Log error to stderr since logger is not available in this scope
+				fmt.Fprintf(os.Stderr, "failed to write error response: %v\n", err)
+			}
 		}
 
 		// Try to acquire the semaphore (non-blocking)
@@ -358,8 +370,8 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			defer func() { <-semaphore }() // Release the semaphore when done
 		default:
 			// Semaphore is full, append error
-			addUniqueError(&errors, http.StatusTooManyRequests, "Only one active connection is allowed", "unknown")
-			sendErrorResponse(http.StatusTooManyRequests, errors)
+			addUniqueError(&errorResponses, http.StatusTooManyRequests, "Only one active connection is allowed", UnknownActionID)
+			sendErrorResponse(http.StatusTooManyRequests, errorResponses)
 			return
 		}
 
@@ -367,12 +379,12 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 
 		dr, err := resolver.NewGraphResolver(baseDr.Fs, newCtx, baseDr.Environment, c, logger)
 		if err != nil {
-			errors = append(errors, ErrorResponse{
+			errorResponses = append(errorResponses, ErrorResponse{
 				Code:     http.StatusInternalServerError,
 				Message:  "Failed to initialize resolver",
-				ActionID: "unknown", // No resolver available yet
+				ActionID: UnknownActionID, // No resolver available yet
 			})
-			sendErrorResponse(http.StatusInternalServerError, errors)
+			sendErrorResponse(http.StatusInternalServerError, errorResponses)
 			return
 		}
 
@@ -391,27 +403,27 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 					}
 				}
 			}
-			return "unknown"
+			return UnknownActionID
 		}
 
 		if err := cleanOldFiles(dr); err != nil {
-			errors = append(errors, ErrorResponse{
+			errorResponses = append(errorResponses, ErrorResponse{
 				Code:     http.StatusInternalServerError,
 				Message:  "Failed to clean old files",
 				ActionID: getActionID(),
 			})
-			sendErrorResponse(http.StatusInternalServerError, errors)
+			sendErrorResponse(http.StatusInternalServerError, errorResponses)
 			return
 		}
 
 		method, err := validateMethod(c.Request, allowedMethods)
 		if err != nil {
-			errors = append(errors, ErrorResponse{
+			errorResponses = append(errorResponses, ErrorResponse{
 				Code:     http.StatusBadRequest,
 				Message:  err.Error(),
 				ActionID: getActionID(),
 			})
-			sendErrorResponse(http.StatusBadRequest, errors)
+			sendErrorResponse(http.StatusInternalServerError, errorResponses)
 			return
 		}
 
@@ -434,12 +446,12 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		case http.MethodGet:
 			body, err := io.ReadAll(c.Request.Body)
 			if err != nil {
-				errors = append(errors, ErrorResponse{
+				errorResponses = append(errorResponses, ErrorResponse{
 					Code:     http.StatusBadRequest,
 					Message:  "Failed to read request body",
 					ActionID: getActionID(),
 				})
-				sendErrorResponse(http.StatusBadRequest, errors)
+				sendErrorResponse(http.StatusBadRequest, errorResponses)
 				return
 			}
 			defer c.Request.Body.Close()
@@ -450,20 +462,21 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			if strings.Contains(contentType, "multipart/form-data") {
 				if err := handleMultipartForm(c, dr, fileMap); err != nil {
 
-					if he, ok := err.(*handlerError); ok {
-						errors = append(errors, ErrorResponse{
+					var he *handlerError
+					if errors.As(err, &he) {
+						errorResponses = append(errorResponses, ErrorResponse{
 							Code:     he.statusCode,
 							Message:  he.message,
 							ActionID: getActionID(),
 						})
-						sendErrorResponse(he.statusCode, errors)
+						sendErrorResponse(he.statusCode, errorResponses)
 					} else {
-						errors = append(errors, ErrorResponse{
+						errorResponses = append(errorResponses, ErrorResponse{
 							Code:     http.StatusInternalServerError,
 							Message:  err.Error(),
 							ActionID: getActionID(),
 						})
-						sendErrorResponse(http.StatusInternalServerError, errors)
+						sendErrorResponse(http.StatusInternalServerError, errorResponses)
 					}
 					return
 				}
@@ -471,12 +484,12 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 				// Read non-multipart body
 				body, err := io.ReadAll(c.Request.Body)
 				if err != nil {
-					errors = append(errors, ErrorResponse{
+					errorResponses = append(errorResponses, ErrorResponse{
 						Code:     http.StatusBadRequest,
 						Message:  "Failed to read request body",
 						ActionID: getActionID(),
 					})
-					sendErrorResponse(http.StatusBadRequest, errors)
+					sendErrorResponse(http.StatusInternalServerError, errorResponses)
 					return
 				}
 				defer c.Request.Body.Close()
@@ -486,12 +499,12 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 		case http.MethodDelete:
 			bodyData = "Delete request received"
 		default:
-			errors = append(errors, ErrorResponse{
+			errorResponses = append(errorResponses, ErrorResponse{
 				Code:     http.StatusMethodNotAllowed,
 				Message:  "Unsupported method",
 				ActionID: getActionID(),
 			})
-			sendErrorResponse(http.StatusMethodNotAllowed, errors)
+			sendErrorResponse(http.StatusInternalServerError, errorResponses)
 			return
 		}
 
@@ -528,12 +541,12 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 			evaluator.EvalPkl,
 			true,
 		); err != nil {
-			errors = append(errors, ErrorResponse{
+			errorResponses = append(errorResponses, ErrorResponse{
 				Code:     http.StatusInternalServerError,
 				Message:  messages.ErrProcessRequestFile,
 				ActionID: getActionID(),
 			})
-			sendErrorResponse(http.StatusInternalServerError, errors)
+			sendErrorResponse(http.StatusInternalServerError, errorResponses)
 			return
 		}
 
@@ -543,34 +556,34 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 
 			// Add the specific error first (if not empty and unique)
 			errorMessage := err.Error()
-			addUniqueError(&errors, http.StatusInternalServerError, errorMessage, actionID)
+			addUniqueError(&errorResponses, http.StatusInternalServerError, errorMessage, actionID)
 
 			// Add the generic error message as additional context (if unique)
-			addUniqueError(&errors, http.StatusInternalServerError, messages.ErrEmptyResponse, actionID)
+			addUniqueError(&errorResponses, http.StatusInternalServerError, messages.ErrEmptyResponse, actionID)
 
-			sendErrorResponse(http.StatusInternalServerError, errors)
+			sendErrorResponse(http.StatusInternalServerError, errorResponses)
 			return
 		}
 
 		content, err := afero.ReadFile(dr.Fs, dr.ResponseTargetFile)
 		if err != nil {
-			errors = append(errors, ErrorResponse{
+			errorResponses = append(errorResponses, ErrorResponse{
 				Code:     http.StatusInternalServerError,
 				Message:  messages.ErrReadResponseFile,
 				ActionID: getActionID(),
 			})
-			sendErrorResponse(http.StatusInternalServerError, errors)
+			sendErrorResponse(http.StatusInternalServerError, errorResponses)
 			return
 		}
 
 		decodedResp, err := decodeResponseContent(content, dr.Logger)
 		if err != nil {
-			errors = append(errors, ErrorResponse{
+			errorResponses = append(errorResponses, ErrorResponse{
 				Code:     http.StatusInternalServerError,
 				Message:  messages.ErrDecodeResponseContent,
 				ActionID: getActionID(),
 			})
-			sendErrorResponse(http.StatusInternalServerError, errors)
+			sendErrorResponse(http.StatusInternalServerError, errorResponses)
 			return
 		}
 
@@ -584,9 +597,9 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 				// Use the actionID that was captured when the error was created
 				actionID := accError.ActionID
 				if actionID == "" {
-					actionID = "unknown"
+					actionID = UnknownActionID
 				}
-				addUniqueError(&errors, accError.Code, accError.Message, actionID)
+				addUniqueError(&errorResponses, accError.Code, accError.Message, actionID)
 			}
 		}
 
@@ -598,15 +611,15 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 				if actionID == "" {
 					actionID = getActionID()
 				}
-				addUniqueError(&errors, apiError.Code, apiError.Message, actionID)
+				addUniqueError(&errorResponses, apiError.Code, apiError.Message, actionID)
 			}
 		}
 
 		// If there are any errors (workflow or APIResponse), send error response (fail-fast behavior)
-		if len(errors) > 0 {
+		if len(errorResponses) > 0 {
 			// Add generic context error for fail-fast scenarios
-			addUniqueError(&errors, http.StatusInternalServerError, messages.ErrEmptyResponse, getActionID())
-			sendErrorResponse(http.StatusInternalServerError, errors)
+			addUniqueError(&errorResponses, http.StatusInternalServerError, messages.ErrEmptyResponse, getActionID())
+			sendErrorResponse(http.StatusInternalServerError, errorResponses)
 			return
 		}
 
@@ -621,12 +634,12 @@ func APIServerHandler(ctx context.Context, route *apiserver.APIServerRoutes, bas
 
 		decodedContent, err := json.Marshal(decodedResp)
 		if err != nil {
-			errors = append(errors, ErrorResponse{
+			errorResponses = append(errorResponses, ErrorResponse{
 				Code:     http.StatusInternalServerError,
 				Message:  messages.ErrMarshalResponseContent,
 				ActionID: getActionID(),
 			})
-			sendErrorResponse(http.StatusInternalServerError, errors)
+			sendErrorResponse(http.StatusInternalServerError, errorResponses)
 			return
 		}
 

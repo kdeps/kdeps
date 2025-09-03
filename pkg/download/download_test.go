@@ -428,7 +428,7 @@ func TestMakeGetRequestError(t *testing.T) {
 	require.Error(t, err)
 }
 
-// TestDownloadFileSkipExisting verifies DownloadFile skips downloading when file exists and non-empty
+// TestDownloadFileSkipExisting verifies DownloadFile skips downloading when file exists and non-empty.
 func TestDownloadFileSkipExisting(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
@@ -444,7 +444,7 @@ func TestDownloadFileSkipExisting(t *testing.T) {
 	require.Equal(t, "old", string(data))
 }
 
-// TestDownloadFileUseLatest ensures existing files are removed when useLatest is true
+// TestDownloadFileUseLatest ensures existing files are removed when useLatest is true.
 func TestDownloadFileUseLatest(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()

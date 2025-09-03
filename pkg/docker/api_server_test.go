@@ -6,11 +6,12 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/apple/pkl-go/pkl"
@@ -172,7 +173,7 @@ func TestFormatResponseJSONFormatTest(t *testing.T) {
 	}
 }
 
-func setupTestAPIServer(t *testing.T) (*resolver.DependencyResolver, *logging.Logger) {
+func setupTestAPIServer(_ *testing.T) (*resolver.DependencyResolver, *logging.Logger) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 	dr := &resolver.DependencyResolver{
@@ -201,14 +202,14 @@ func TestHandleMultipartForm(t *testing.T) {
 
 		fileMap := make(map[string]struct{ Filename, Filetype string })
 		err = handleMultipartForm(c, dr, fileMap)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, fileMap, 1)
 	})
 
 	t.Run("InvalidContentType", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("POST", "/", bytes.NewBuffer([]byte("test")))
+		c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString("test"))
 		c.Request.Header.Set("Content-Type", "text/plain")
 
 		fileMap := make(map[string]struct{ Filename, Filetype string })
@@ -230,7 +231,7 @@ func TestHandleMultipartForm(t *testing.T) {
 
 		fileMap := make(map[string]struct{ Filename, Filetype string })
 		err := handleMultipartForm(c, dr, fileMap)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "No file uploaded")
 	})
 }
@@ -272,14 +273,14 @@ func TestValidateMethod(t *testing.T) {
 	t.Run("InvalidMethod", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPut, "/", nil)
 		_, err := validateMethod(req, []string{"GET", "POST"})
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "HTTP method \"PUT\" not allowed")
 	})
 
 	t.Run("EmptyMethodDefaultsToGet", func(t *testing.T) {
 		req := httptest.NewRequest("", "/", nil)
 		method, err := validateMethod(req, []string{"GET", "POST"})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "Method = \"GET\"", method)
 	})
 }
@@ -315,7 +316,7 @@ func TestDecodeResponseContent(t *testing.T) {
 	t.Run("EmptyResponse", func(t *testing.T) {
 		content := []byte("{}")
 		decoded, err := decodeResponseContent(content, logger)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.False(t, decoded.Success)
 	})
 }
@@ -457,32 +458,7 @@ func TestAPIServerHandler(t *testing.T) {
 	})
 }
 
-// mockResolver implements the necessary methods for testing processWorkflow
-type mockResolver struct {
-	*resolver.DependencyResolver
-	prepareWorkflowDirFn           func() error
-	prepareImportFilesFn           func() error
-	handleRunActionFn              func() (bool, error)
-	evalPklFormattedResponseFileFn func() (string, error)
-}
-
-func (m *mockResolver) PrepareWorkflowDir() error {
-	return m.prepareWorkflowDirFn()
-}
-
-func (m *mockResolver) PrepareImportFiles() error {
-	return m.prepareImportFilesFn()
-}
-
-func (m *mockResolver) HandleRunAction() (bool, error) {
-	return m.handleRunActionFn()
-}
-
-func (m *mockResolver) EvalPklFormattedResponseFile() (string, error) {
-	return m.evalPklFormattedResponseFileFn()
-}
-
-// workflowWithNilSettings is a mock Workflow with GetSettings() and GetAgentIcon() returning nil
+// workflowWithNilSettings is a mock Workflow with GetSettings() and GetAgentIcon() returning nil.
 type workflowWithNilSettings struct{}
 
 func (w workflowWithNilSettings) GetSettings() project.Settings { return project.Settings{} }
@@ -606,7 +582,7 @@ func TestProcessWorkflow(t *testing.T) {
 			return &resource.Resource{Items: &items, Run: resource.ResourceAction{}}, nil
 		}
 		mock.ProcessRunBlockFn = func(resolver.ResourceNodeEntry, *resource.Resource, string, bool) (bool, error) {
-			return false, fmt.Errorf("failed to handle run action")
+			return false, errors.New("failed to handle run action")
 		}
 		mock.ClearItemDBFn = func() error { return nil }
 		err := processWorkflow(ctx, mock)
@@ -697,7 +673,7 @@ func TestSetupRoutes(t *testing.T) {
 		assert.Equal(t, http.StatusInternalServerError, w.Code) // Expected error due to missing resolver setup
 	})
 
-	t.Run("InvalidRoute", func(t *testing.T) {
+	t.Run("InvalidRoute", func(_ *testing.T) {
 		router := gin.New()
 		ctx := context.Background()
 		invalidRoutes := []*apiserver.APIServerRoutes{
@@ -708,7 +684,7 @@ func TestSetupRoutes(t *testing.T) {
 		// No assertions needed as the function should log errors and continue
 	})
 
-	t.Run("CORSDisabled", func(t *testing.T) {
+	t.Run("CORSDisabled", func(_ *testing.T) {
 		router := gin.New()
 		ctx := context.Background()
 		disabledCORS := &apiserver.CORSConfig{
@@ -718,14 +694,14 @@ func TestSetupRoutes(t *testing.T) {
 		// No assertions needed as the function should skip CORS setup
 	})
 
-	t.Run("NoTrustedProxies", func(t *testing.T) {
+	t.Run("NoTrustedProxies", func(_ *testing.T) {
 		router := gin.New()
 		ctx := context.Background()
 		setupRoutes(router, ctx, *corsConfig, nil, convertRoutesToStructs(routes), baseDr, semaphore)
 		// No assertions needed as the function should skip proxy setup
 	})
 
-	t.Run("UnsupportedMethod", func(t *testing.T) {
+	t.Run("UnsupportedMethod", func(_ *testing.T) {
 		router := gin.New()
 		ctx := context.Background()
 		unsupportedRoutes := []*apiserver.APIServerRoutes{
@@ -739,7 +715,7 @@ func TestSetupRoutes(t *testing.T) {
 	})
 }
 
-// convertRoutesToStructs converts a slice of route pointers to a slice of route structs
+// convertRoutesToStructs converts a slice of route pointers to a slice of route structs.
 func convertRoutesToStructs(routes []*apiserver.APIServerRoutes) []apiserver.APIServerRoutes {
 	result := make([]apiserver.APIServerRoutes, len(routes))
 	for i, route := range routes {
@@ -827,7 +803,7 @@ func TestDecodeResponseContentFormattingUtilsExtra(t *testing.T) {
 	}
 
 	first := decoded.Response.Data[0]
-	if !bytes.Contains([]byte(first), []byte("foo")) || !bytes.Contains([]byte(first), []byte("bar")) {
+	if !strings.Contains(first, "foo") || !strings.Contains(first, "bar") {
 		t.Fatalf("decoded data does not contain expected JSON: %s", first)
 	}
 

@@ -179,7 +179,7 @@ func TestEncodeExecHelpers(t *testing.T) {
 
 func newMemResolver() *DependencyResolver {
 	fs := afero.NewMemMapFs()
-	fs.MkdirAll("/files", 0o755) // nolint:errcheck
+	fs.MkdirAll("/files", 0o755)
 	return &DependencyResolver{
 		Fs:        fs,
 		FilesDir:  "/files",

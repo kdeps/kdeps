@@ -13,7 +13,7 @@ import (
 
 func TestNewAddCommandFlags(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	ctx := context.Background()
+	ctx := t.Context()
 	kdepsDir := "/tmp/kdeps"
 	logger := logging.NewTestLogger()
 
@@ -26,7 +26,7 @@ func TestNewAddCommandFlags(t *testing.T) {
 
 func TestNewAddCommandExecution(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	ctx := context.Background()
+	ctx := t.Context()
 	kdepsDir := "/tmp/kdeps"
 	logger := logging.NewTestLogger()
 

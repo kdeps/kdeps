@@ -229,13 +229,16 @@ func handleWebSocketProxy(c *gin.Context, targetURL *url.URL, route *webserver.W
 	}
 
 	// Connect to the target WebSocket server
-	targetConn, _, err := dialer.Dial(targetWSURL.String(), wsHeaders)
+	targetConn, resp, err := dialer.Dial(targetWSURL.String(), wsHeaders)
 	if err != nil {
 		logger.Error("failed to connect to target WebSocket", "url", targetWSURL.String(), "error", err)
 		c.String(http.StatusBadGateway, "Failed to connect to WebSocket server")
 		return
 	}
 	defer targetConn.Close()
+	if resp != nil && resp.Body != nil {
+		defer resp.Body.Close()
+	}
 
 	// Upgrade the client connection to WebSocket
 	upgrader := websocket.Upgrader{

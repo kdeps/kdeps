@@ -17,18 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Save the original EditPkl function
-var originalEditPkl = texteditor.EditPkl
-
-func setNonInteractive(t *testing.T) func() {
-	t.Helper()
-	oldValue := os.Getenv("NON_INTERACTIVE")
-	os.Setenv("NON_INTERACTIVE", "1")
-	return func() {
-		os.Setenv("NON_INTERACTIVE", oldValue)
-	}
-}
-
 func TestValidateAgentName(t *testing.T) {
 	// Test case 1: Valid agent name
 	err := validateAgentName("test-agent")
@@ -707,7 +695,7 @@ func TestGenerateResourceFilesExtra(t *testing.T) {
 	clientPath := filepath.Join(mainDir, "resources", "client.pkl")
 	output, err := afero.ReadFile(fs, clientPath)
 	require.NoError(t, err)
-	require.Equal(t, fmt.Sprintf("CONTENT:client.pkl:Agent"), string(output))
+	require.Equal(t, "CONTENT:client.pkl:Agent", string(output))
 	// workflow.pkl should be skipped
 	exists, err := afero.Exists(fs, filepath.Join(mainDir, "resources", "workflow.pkl"))
 	require.NoError(t, err)

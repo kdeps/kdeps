@@ -92,7 +92,7 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
-// helper to build *http.Response
+// helper to build *http.Response.
 func buildResp(status int, body string) *http.Response {
 	return &http.Response{
 		StatusCode: status,
@@ -456,7 +456,7 @@ func TestGenerateURLsLatestMode(t *testing.T) {
 	}
 }
 
-func contains(s, sub string) bool { return bytes.Contains([]byte(s), []byte(sub)) }
+func contains(s, sub string) bool { return strings.Contains(s, sub) }
 
 func TestGenerateURLsBasic(t *testing.T) {
 	ctx := context.Background()

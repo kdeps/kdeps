@@ -97,7 +97,7 @@ func aKdepsArchiveIsOpened(arg1 string) error {
 		return err
 	}
 
-	fmt.Printf("%# v", pretty.Formatter(proj))
+	fmt.Printf("%# v", pretty.Formatter(proj)) //nolint:forbidigo // Test debug output
 
 	return nil
 }
@@ -360,7 +360,7 @@ func theProjectIsValid() error {
 	return nil
 }
 
-func theProjectWillBeArchivedTo(arg1 string) error {
+func theProjectWillBeArchivedTo(_ string) error {
 	wf, err := workflow.LoadWorkflow(ctx, workflowFile, logger)
 	if err != nil {
 		return err
@@ -437,7 +437,7 @@ func theProjectIsInvalid() error {
 	return nil
 }
 
-func theProjectWillNotBeArchivedTo(arg1 string) error {
+func theProjectWillNotBeArchivedTo(_ string) error {
 	wf, err := workflow.LoadWorkflow(ctx, workflowFile, logger)
 	if err != nil {
 		return err
@@ -506,7 +506,7 @@ Version = "%s"
 	return nil
 }
 
-func theResourceFileExistsInTheAgent(arg1, arg2, arg3 string) error {
+func theResourceFileExistsInTheAgent(arg1, arg2, _ string) error {
 	fpath := filepath.Join(kdepsDir, "agents/"+arg2+"/1.0.0/resources/"+arg1)
 	if _, err := testFs.Stat(fpath); err != nil {
 		return errors.New("expected a package, but got none")

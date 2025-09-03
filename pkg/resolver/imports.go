@@ -20,6 +20,11 @@ import (
 	"github.com/spf13/afero"
 )
 
+const (
+	// ResourcesBlockType represents the "Resources" block type in PKL files
+	ResourcesBlockType = "Resources"
+)
+
 func (dr *DependencyResolver) PrependDynamicImports(pklFile string) error {
 	// Read the file content
 	content, err := afero.ReadFile(dr.Fs, pklFile)
@@ -163,16 +168,16 @@ func (dr *DependencyResolver) PrepareImportFiles() error {
 			switch key {
 			case "exec":
 				schemaFile = "Exec.pkl"
-				blockType = "Resources"
+				blockType = ResourcesBlockType
 			case "python":
 				schemaFile = "Python.pkl"
-				blockType = "Resources"
+				blockType = ResourcesBlockType
 			case "client":
 				schemaFile = "HTTP.pkl"
-				blockType = "Resources"
+				blockType = ResourcesBlockType
 			case "llm":
 				schemaFile = "LLM.pkl"
-				blockType = "Resources"
+				blockType = ResourcesBlockType
 			case "data":
 				schemaFile = "Data.pkl"
 				blockType = "Files" // Special case for "data" - capitalized for schema v0.3.1-dev

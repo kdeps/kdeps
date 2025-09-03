@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
+	"log" //nolint:depguard // Database debugging requires simple log output
 	"net/url"
 	"os"
 	"path/filepath"

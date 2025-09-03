@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"reflect"
@@ -194,7 +195,8 @@ func TestFatal_Subprocess(t *testing.T) {
 	output, err := cmd.CombinedOutput()
 
 	// The child process must exit with non-zero due to Fatal.
-	if exitErr, ok := err.(*exec.ExitError); ok {
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
 		if exitErr.ExitCode() == 0 {
 			t.Fatalf("expected non-zero exit code, got 0, output: %s", string(output))
 		}

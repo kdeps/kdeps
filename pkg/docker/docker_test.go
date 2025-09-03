@@ -59,7 +59,6 @@ var (
 	lastCreatedPackage        string
 	resourcesDir              string
 	dataDir                   string
-	projectDir                string
 )
 
 func TestFeatures(t *testing.T) {
@@ -839,7 +838,7 @@ func theResourceFileExistsInTheAgent(arg1, arg2, arg3 string) error {
 	return nil
 }
 
-// PackageProject is a helper function to package a project
+// PackageProject is a helper function to package a project.
 func PackageProject(fs afero.Fs, ctx context.Context, wf wfPkl.Workflow, kdepsDir, aiAgentDir string, logger *logging.Logger) (string, error) {
 	// Create package directory if it doesn't exist
 	packageDir := filepath.Join(kdepsDir, "packages")

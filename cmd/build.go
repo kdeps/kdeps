@@ -44,7 +44,7 @@ func NewBuildCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCf
 			if err := docker.CleanupDockerBuildImages(fs, ctx, agentContainerName, dockerClient); err != nil {
 				return err
 			}
-			fmt.Println("Kdeps AI Agent docker image created:", agentContainerNameAndVersion)
+			fmt.Println("Kdeps AI Agent docker image created:", agentContainerNameAndVersion) //nolint:forbidigo // CLI user feedback
 			return nil
 		},
 	}

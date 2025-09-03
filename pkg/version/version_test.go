@@ -76,7 +76,7 @@ func TestDefaultVersionValues(t *testing.T) {
 
 	// Default schema version should be >= minimum using utils.CompareVersions
 	cmp, err := utils.CompareVersions(DefaultSchemaVersion, MinimumSchemaVersion)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.GreaterOrEqual(t, cmp, 0, "DefaultSchemaVersion should be >= MinimumSchemaVersion")
 }
 

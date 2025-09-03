@@ -244,7 +244,7 @@ func aFileExistsInThe(arg1, arg2 string) error {
 	}
 
 	file := filepath.Join(p, arg1)
-	fmt.Printf("Creating %s file!", file)
+	fmt.Printf("Creating %s file!", file) //nolint:forbidigo // Test debug output
 
 	f, _ := testFs.Create(file)
 	if _, err := f.WriteString(doc); err != nil {
@@ -262,7 +262,7 @@ func anAgentFolderExistsInTheCurrentDirectory(arg1 string) error {
 	if err := testFs.MkdirAll(agentPath, 0o755); err != nil {
 		return err
 	}
-	fmt.Printf("Agent path %s created!", agentPath)
+	fmt.Printf("Agent path %s created!", agentPath) //nolint:forbidigo // Test debug output
 
 	return nil
 }
@@ -285,7 +285,7 @@ func aFolderNamedExistsInThe(arg1, arg2 string) error {
 	if err := testFs.MkdirAll(subfolderPath, 0o755); err != nil {
 		return err
 	}
-	fmt.Printf("Agent path %s created!", subfolderPath)
+	fmt.Printf("Agent path %s created!", subfolderPath) //nolint:forbidigo // Test debug output
 
 	return nil
 }
@@ -531,7 +531,6 @@ func TestCompareVersions(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc // capture
 		t.Run(tc.name, func(t *testing.T) {
 			result, err := compareVersions(tc.v1, tc.v2, logger)
 			if tc.wantErr {

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log" //nolint:depguard // Database debugging requires simple log output
 	"net/url"
 	"time"
 

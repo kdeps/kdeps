@@ -3,7 +3,6 @@ package texteditor
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -363,14 +362,14 @@ func TestEditPklWithFactory(t *testing.T) {
 			factory: func(editorName, filePath string) (EditorCmd, error) {
 				return &mockEditorCmd{}, nil
 			},
-			mockStatError: fmt.Errorf("permission denied"),
+			mockStatError: errors.New("permission denied"),
 			expectedError: true,
 		},
 		{
 			name:     "factory error",
 			filePath: "test.pkl",
 			factory: func(editorName, filePath string) (EditorCmd, error) {
-				return nil, fmt.Errorf("factory error")
+				return nil, errors.New("factory error")
 			},
 			expectedError: true,
 		},
@@ -378,7 +377,7 @@ func TestEditPklWithFactory(t *testing.T) {
 			name:     "command run error",
 			filePath: "test.pkl",
 			factory: func(editorName, filePath string) (EditorCmd, error) {
-				return &mockEditorCmd{runErr: fmt.Errorf("run error")}, nil
+				return &mockEditorCmd{runErr: errors.New("run error")}, nil
 			},
 			expectedError: true,
 		},

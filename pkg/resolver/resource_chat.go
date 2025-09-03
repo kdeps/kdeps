@@ -24,19 +24,20 @@ import (
 
 // Constants for role strings.
 const (
-	RoleHuman     = "human"
-	RoleUser      = "user"
-	RolePerson    = "person"
-	RoleClient    = "client"
-	RoleSystem    = "system"
-	RoleAI        = "ai"
-	RoleAssistant = "assistant"
-	RoleBot       = "bot"
-	RoleChatbot   = "chatbot"
-	RoleLLM       = "llm"
-	RoleFunction  = "function"
-	RoleAction    = "action"
-	RoleTool      = "tool"
+	RoleHuman           = "human"
+	RoleUser            = "user"
+	RolePerson          = "person"
+	RoleClient          = "client"
+	RoleSystem          = "system"
+	RoleAI              = "ai"
+	RoleAssistant       = "assistant"
+	RoleBot             = "bot"
+	RoleChatbot         = "chatbot"
+	RoleLLM             = "llm"
+	RoleFunction        = "function"
+	RoleAction          = "action"
+	RoleTool            = "tool"
+	maxLogContentLength = 100
 )
 
 // HandleLLMChat initiates asynchronous processing of an LLM chat interaction.
@@ -168,7 +169,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 	}
 
 	logger.Info("First LLM response",
-		"content", utils.TruncateString(respChoice.Content, 100),
+		"content", utils.TruncateString(respChoice.Content, maxLogContentLength),
 		"tool_calls", len(respChoice.ToolCalls),
 		"stop_reason", respChoice.StopReason,
 		"tool_names", extractToolNames(respChoice.ToolCalls))
@@ -241,7 +242,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 			var toolOutputSummary strings.Builder
 			toolOutputSummary.WriteString("\nPrevious Tool Outputs:\n")
 			for toolID, output := range toolOutputs {
-				toolOutputSummary.WriteString("- ToolCall ID " + toolID + ": " + utils.TruncateString(output, 100) + "\n")
+				toolOutputSummary.WriteString("- ToolCall ID " + toolID + ": " + utils.TruncateString(output, maxLogContentLength) + "\n")
 			}
 			systemPrompt += toolOutputSummary.String()
 		}
@@ -279,7 +280,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 
 		logger.Info("LLM response",
 			"iteration", iteration+1,
-			"content", utils.TruncateString(respChoice.Content, 100),
+			"content", utils.TruncateString(respChoice.Content, maxLogContentLength),
 			"tool_calls", len(respChoice.ToolCalls),
 			"stop_reason", respChoice.StopReason,
 			"tool_names", extractToolNames(respChoice.ToolCalls))
@@ -297,7 +298,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 
 		// Exit if no new tool calls or LLM stopped
 		if len(toolCalls) == 0 || respChoice.StopReason == "stop" {
-			logger.Info("No valid tool calls or LLM stopped, returning response", "iteration", iteration+1, "content", utils.TruncateString(respChoice.Content, 100))
+			logger.Info("No valid tool calls or LLM stopped, returning response", "iteration", iteration+1, "content", utils.TruncateString(respChoice.Content, maxLogContentLength))
 			// If response is empty, use the last tool output
 			if respChoice.Content == "{}" || respChoice.Content == "" {
 				logger.Warn("Empty response detected, falling back to last tool output")
@@ -309,7 +310,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 					respChoice.Content = "No result available"
 				}
 			}
-			logger.Info("Final response", "content", utils.TruncateString(respChoice.Content, 100))
+			logger.Info("Final response", "content", utils.TruncateString(respChoice.Content, maxLogContentLength))
 			return respChoice.Content, nil
 		}
 
@@ -336,7 +337,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 						"count", toolCallHistory[toolKey])
 					// Use last tool output if available
 					for _, output := range toolOutputs {
-						logger.Info("Final response from repeated tool call", "content", utils.TruncateString(output, 100))
+						logger.Info("Final response from repeated tool call", "content", utils.TruncateString(output, maxLogContentLength))
 						return output, nil
 					}
 					return respChoice.Content, nil
@@ -382,14 +383,14 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 			logger.Error("Reached maximum tool call iterations", "max_iterations", maxIterations)
 			// Return last tool output if available
 			for _, output := range toolOutputs {
-				logger.Info("Final response from max iterations", "content", utils.TruncateString(output, 100))
+				logger.Info("Final response from max iterations", "content", utils.TruncateString(output, maxLogContentLength))
 				return output, nil
 			}
 			return respChoice.Content, fmt.Errorf("reached maximum tool call iterations (%d)", maxIterations)
 		}
 	}
 
-	logger.Info("Received final LLM response", "content", utils.TruncateString(respChoice.Content, 100))
+	logger.Info("Received final LLM response", "content", utils.TruncateString(respChoice.Content, maxLogContentLength))
 	// Ensure non-empty response
 	if respChoice.Content == "{}" || respChoice.Content == "" {
 		logger.Warn("Empty response detected, falling back to last tool output")
@@ -401,7 +402,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 			respChoice.Content = "No result available"
 		}
 	}
-	logger.Info("Final response", "content", utils.TruncateString(respChoice.Content, 100))
+	logger.Info("Final response", "content", utils.TruncateString(respChoice.Content, maxLogContentLength))
 	return respChoice.Content, nil
 }
 

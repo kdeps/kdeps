@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// testWorkflow implements the minimal subset of the Workflow interface we need for testing
+// testWorkflow implements the minimal subset of the Workflow interface we need for testing.
 type testWorkflow struct{}
 
 func (m testWorkflow) GetAgentID() string               { return "test-agent" }
@@ -72,7 +72,7 @@ Run {
 	wf := testWorkflow{}
 
 	// Call CompileProject (this will fail due to missing Pkl binary, but we can test the file protection)
-	_, _, err := CompileProject(fs, ctx, wf, kdepsDir, projectDir, env, logger)
+	CompileProject(fs, ctx, wf, kdepsDir, projectDir, env, logger)
 
 	// The compilation will fail due to missing Pkl binary, but that's expected
 	// The important thing is that our original files were not modified

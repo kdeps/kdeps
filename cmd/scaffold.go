@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/template"
 	"github.com/spf13/afero"
@@ -26,18 +27,23 @@ func NewScaffoldCommand(ctx context.Context, fs afero.Fs, logger *logging.Logger
   - workflow: Workflow automation and orchestration`,
 		Args: cobra.MinimumNArgs(1), // Require at least one argument (agentName)
 		Run: func(_ *cobra.Command, args []string) {
+			// Define styles using lipgloss
+			primaryStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("75"))
+			successStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("76")).Bold(true)
+			errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
+
 			agentName := args[0]
 			fileNames := args[1:]
 
 			// If no file names provided, show available resources
 			if len(fileNames) == 0 {
-				fmt.Println("Available resources:")
-				fmt.Println("  - client: HTTP client for making API calls")
-				fmt.Println("  - exec: Execute shell commands and scripts")
-				fmt.Println("  - llm: Large Language Model interaction")
-				fmt.Println("  - python: Run Python scripts")
-				fmt.Println("  - response: API response handling")
-				fmt.Println("  - workflow: Workflow automation and orchestration")
+				fmt.Println("Available resources:")                                //nolint:forbidigo // CLI user feedback
+				fmt.Println("  - client: HTTP client for making API calls")        //nolint:forbidigo // CLI user feedback
+				fmt.Println("  - exec: Execute shell commands and scripts")        //nolint:forbidigo // CLI user feedback
+				fmt.Println("  - llm: Large Language Model interaction")           //nolint:forbidigo // CLI user feedback
+				fmt.Println("  - python: Run Python scripts")                      //nolint:forbidigo // CLI user feedback
+				fmt.Println("  - response: API response handling")                 //nolint:forbidigo // CLI user feedback
+				fmt.Println("  - workflow: Workflow automation and orchestration") //nolint:forbidigo // CLI user feedback
 				return
 			}
 
@@ -62,7 +68,7 @@ func NewScaffoldCommand(ctx context.Context, fs afero.Fs, logger *logging.Logger
 
 				if err := template.GenerateSpecificAgentFile(ctx, fs, logger, agentName, resourceName); err != nil {
 					logger.Error("error scaffolding file:", err)
-					fmt.Println(errorStyle.Render("Error:"), err)
+					fmt.Println(errorStyle.Render("Error:"), err) //nolint:forbidigo // CLI user feedback
 				} else {
 					var filePath string
 					if resourceName == "workflow" {
@@ -70,20 +76,20 @@ func NewScaffoldCommand(ctx context.Context, fs afero.Fs, logger *logging.Logger
 					} else {
 						filePath = filepath.Join(agentName, "resources", resourceName+".pkl")
 					}
-					fmt.Println(successStyle.Render("Successfully scaffolded file:"), primaryStyle.Render(filePath))
+					fmt.Println(successStyle.Render("Successfully scaffolded file:"), primaryStyle.Render(filePath)) //nolint:forbidigo // CLI user feedback
 				}
 			}
 
 			// If there were invalid resources, show them and the available options
 			if len(invalidResources) > 0 {
-				fmt.Println("\nInvalid resource(s):", strings.Join(invalidResources, ", "))
-				fmt.Println("\nAvailable resources:")
-				fmt.Println("  - client: HTTP client for making API calls")
-				fmt.Println("  - exec: Execute shell commands and scripts")
-				fmt.Println("  - llm: Large Language Model interaction")
-				fmt.Println("  - python: Run Python scripts")
-				fmt.Println("  - response: API response handling")
-				fmt.Println("  - workflow: Workflow automation and orchestration")
+				fmt.Println("\nInvalid resource(s):", strings.Join(invalidResources, ", ")) //nolint:forbidigo // CLI user feedback
+				fmt.Println("\nAvailable resources:")                                       //nolint:forbidigo // CLI user feedback
+				fmt.Println("  - client: HTTP client for making API calls")                 //nolint:forbidigo // CLI user feedback
+				fmt.Println("  - exec: Execute shell commands and scripts")                 //nolint:forbidigo // CLI user feedback
+				fmt.Println("  - llm: Large Language Model interaction")                    //nolint:forbidigo // CLI user feedback
+				fmt.Println("  - python: Run Python scripts")                               //nolint:forbidigo // CLI user feedback
+				fmt.Println("  - response: API response handling")                          //nolint:forbidigo // CLI user feedback
+				fmt.Println("  - workflow: Workflow automation and orchestration")          //nolint:forbidigo // CLI user feedback
 			}
 		},
 	}
