@@ -69,7 +69,7 @@ func setupDockerEnvironment(ctx context.Context, dr *resolver.DependencyResolver
 			return wfSettings.APIServerMode || wfSettings.WebServerMode, fmt.Errorf("failed to copy offline models: %w", err)
 		}
 	} else {
-		if err := pullModels(ctx, wfSettings.AgentSettings.Models, dr.Logger); err != nil {
+		if err := PullModels(ctx, wfSettings.AgentSettings.Models, dr.Logger); err != nil {
 			return wfSettings.APIServerMode || wfSettings.WebServerMode, fmt.Errorf("failed to pull models: %w", err)
 		}
 	}
@@ -112,7 +112,8 @@ func startAndWaitForOllama(ctx context.Context, host, port string, logger *loggi
 	return waitForServer(host, port, 60*time.Second, logger)
 }
 
-func pullModels(ctx context.Context, models []string, logger *logging.Logger) error {
+// PullModels pulls multiple Ollama models using the existing batch pull functionality
+func PullModels(ctx context.Context, models []string, logger *logging.Logger) error {
 	// First check if ollama is available by checking version
 	checkCtx, checkCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer checkCancel()

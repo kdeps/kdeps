@@ -361,6 +361,15 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	dependencyResolver.AddPlaceholderImportsFn = dependencyResolver.AddPlaceholderImports
 	dependencyResolver.WalkFn = afero.Walk
 
+	// Ensure all models defined in the workflow are available
+	// Note: workflowConfiguration is already loaded earlier in the function
+	if workflowConfiguration != nil {
+		if err := dependencyResolver.ensureWorkflowModelsAvailable(workflowConfiguration); err != nil {
+			logger.Error("failed to ensure workflow models are available", "error", err)
+			// Don't fail the entire operation, just log the warning
+		}
+	}
+
 	return dependencyResolver, nil
 }
 
@@ -1070,6 +1079,196 @@ func (dr *DependencyResolver) syncModelToPersistentStorage(model string) error {
 	}
 
 	dr.Logger.Info("successfully synced model to persistent storage", "model", model, "target", targetDir)
+	return nil
+}
+
+// extractModelsFromWorkflow extracts all model names from a workflow configuration
+func (dr *DependencyResolver) extractModelsFromWorkflow(workflow pklWf.Workflow) []string {
+	modelSet := make(map[string]bool)
+	var models []string
+
+	dr.Logger.Info("extracting models from workflow", "agentID", workflow.GetAgentID())
+
+	// Extract models from AgentSettings.Models (batch models)
+	settings := workflow.GetSettings()
+
+	// Access AgentSettings and Models directly from the settings struct
+	// settings is of type pklProject.Settings, AgentSettings is a struct not a pointer
+	if len(settings.AgentSettings.Models) > 0 {
+		for _, model := range settings.AgentSettings.Models {
+			if model != "" && !modelSet[model] {
+				modelSet[model] = true
+				models = append(models, model)
+				dr.Logger.Debug("found model in AgentSettings", "model", model)
+			}
+		}
+	}
+
+	dr.Logger.Info("extracted models from workflow", "modelCount", len(models), "models", models)
+	return models
+}
+
+// getAvailableModels gets the list of currently available Ollama models
+func (dr *DependencyResolver) getAvailableModels() ([]string, error) {
+	dr.Logger.Debug("checking available Ollama models")
+
+	// Use a timeout for the model list command
+	listCtx, cancel := context.WithTimeout(dr.Context, 10*time.Second)
+	defer cancel()
+
+	stdout, stderr, exitCode, err := kdepsexec.KdepsExec(
+		listCtx,
+		"ollama",
+		[]string{"list"},
+		"",
+		false,
+		false,
+		dr.Logger,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute ollama list: %w", err)
+	}
+
+	if exitCode != 0 {
+		return nil, fmt.Errorf("ollama list failed with exit code %d: stdout=%s, stderr=%s", exitCode, stdout, stderr)
+	}
+
+	var availableModels []string
+	lines := strings.Split(stdout, "\n")
+
+	// Skip the header line and parse model names
+	for i, line := range lines {
+		if i == 0 || strings.TrimSpace(line) == "" {
+			continue // Skip header and empty lines
+		}
+
+		// Parse model name from the first column
+		fields := strings.Fields(line)
+		if len(fields) > 0 {
+			modelName := fields[0]
+			availableModels = append(availableModels, modelName)
+		}
+	}
+
+	dr.Logger.Debug("available models retrieved", "count", len(availableModels), "models", availableModels)
+	return availableModels, nil
+}
+
+// ensureWorkflowModelsAvailable ensures all models defined in the workflow are available
+func (dr *DependencyResolver) ensureWorkflowModelsAvailable(workflow pklWf.Workflow) error {
+	dr.Logger.Info("ensuring workflow models are available", "agentID", workflow.GetAgentID())
+
+	// Extract all required models from the workflow
+	requiredModels := dr.extractModelsFromWorkflow(workflow)
+
+	if len(requiredModels) == 0 {
+		dr.Logger.Info("no models required by workflow")
+		return nil
+	}
+
+	// Get currently available models
+	availableModels, err := dr.getAvailableModels()
+	if err != nil {
+		dr.Logger.Warn("failed to get available models, proceeding with model pulls", "error", err)
+		availableModels = []string{} // Empty slice to force all models to be pulled
+	}
+
+	// Create a set of available models for quick lookup
+	availableSet := make(map[string]bool)
+	for _, model := range availableModels {
+		availableSet[model] = true
+	}
+
+	// Find missing models
+	var missingModels []string
+	for _, requiredModel := range requiredModels {
+		if !availableSet[requiredModel] {
+			missingModels = append(missingModels, requiredModel)
+		}
+	}
+
+	if len(missingModels) == 0 {
+		dr.Logger.Info("all required models are already available")
+		return nil
+	}
+
+	dr.Logger.Info("pulling missing models", "missingCount", len(missingModels), "models", missingModels)
+
+	// Pull the missing models using local implementation to avoid circular dependency
+	if err := dr.pullWorkflowModels(dr.Context, missingModels); err != nil {
+		return fmt.Errorf("failed to pull workflow models: %w", err)
+	}
+
+	dr.Logger.Info("successfully pulled all missing workflow models", "modelCount", len(missingModels))
+
+	// Sync models to persistent storage after successful pulls
+	for _, model := range missingModels {
+		if syncErr := dr.syncModelToPersistentStorage(model); syncErr != nil {
+			dr.Logger.Warn("failed to sync model to persistent storage", "model", model, "error", syncErr)
+			// Don't fail the whole operation if sync fails
+		}
+	}
+
+	return nil
+}
+
+// pullWorkflowModels pulls multiple Ollama models for workflow processing
+func (dr *DependencyResolver) pullWorkflowModels(ctx context.Context, models []string) error {
+	// First check if ollama is available by checking version
+	checkCtx, checkCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer checkCancel()
+
+	_, stderr, exitCode, err := kdepsexec.KdepsExec(
+		checkCtx,
+		"ollama",
+		[]string{"--version"},
+		"",
+		false,
+		false,
+		dr.Logger,
+	)
+
+	if err != nil || exitCode != 0 {
+		return fmt.Errorf("ollama binary not available: %w (stderr: %s)", err, stderr)
+	}
+
+	for _, model := range models {
+		model = strings.TrimSpace(model)
+		if model == "" {
+			continue
+		}
+		dr.Logger.Debug("pulling workflow model", "model", model)
+
+		// Apply a per-model timeout so we don't hang indefinitely when offline
+		tctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		stdout, stderr, exitCode, err := kdepsexec.KdepsExec(
+			tctx,
+			"sh",
+			[]string{"-c", "OLLAMA_MODELS=${OLLAMA_MODELS:-/root/.ollama} ollama pull " + model},
+			"",
+			false,
+			false,
+			dr.Logger,
+		)
+		cancel()
+
+		if err != nil || exitCode != 0 {
+			// Check if this is likely a "binary not found" error vs network/registry issues
+			if strings.Contains(stderr, "command not found") || strings.Contains(stderr, "not found") ||
+				strings.Contains(stdout, "could not find ollama app") ||
+				strings.Contains(stderr, "could not find ollama app") ||
+				strings.Contains(err.Error(), "executable file not found") {
+				return fmt.Errorf("ollama binary not found: %w", err)
+			}
+			// For other errors (network, registry unavailable, etc.), warn and continue
+			dr.Logger.Warn("model pull skipped or failed (continuing)", "model", model, "stdout", stdout, "stderr", stderr, "exitCode", exitCode, "error", err)
+			continue
+		}
+
+		dr.Logger.Info("successfully pulled workflow model", "model", model)
+	}
+
 	return nil
 }
 

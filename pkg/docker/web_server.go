@@ -193,9 +193,12 @@ func handleAppRequest(c *gin.Context, hostIP string, route *webserver.WebServerR
 }
 
 func handleWebSocketProxy(c *gin.Context, targetURL *url.URL, route *webserver.WebServerRoutes, logger *logging.Logger) {
-	// Create WebSocket dialer
+	// Create WebSocket dialer with proper configuration
 	dialer := websocket.Dialer{
-		Proxy: http.ProxyFromEnvironment,
+		Proxy:            http.ProxyFromEnvironment,
+		HandshakeTimeout: 30 * time.Second,
+		// Allow connections to any origin since this is a proxy
+		// The CheckOrigin will be handled by the upgrader on the client side
 	}
 
 	// Prepare the target WebSocket URL
@@ -211,7 +214,8 @@ func handleWebSocketProxy(c *gin.Context, targetURL *url.URL, route *webserver.W
 	targetWSURL.Path = trimmedPath
 	targetWSURL.RawQuery = c.Request.URL.RawQuery
 
-	logger.Debug("proxying WebSocket connection", "url", targetWSURL.String())
+	logger.Debug("WebSocket URL construction", "originalPath", c.Request.URL.Path, "routePath", route.Path, "trimmedPath", trimmedPath, "finalURL", targetWSURL.String())
+	logger.Debug("proxying WebSocket connection", "url", targetWSURL.String(), "originalHeaders", c.Request.Header)
 
 	// Filter out WebSocket-specific headers to avoid duplicates
 	wsHeaders := make(http.Header)
@@ -228,16 +232,55 @@ func handleWebSocketProxy(c *gin.Context, targetURL *url.URL, route *webserver.W
 		}
 	}
 
+	logger.Debug("filtered WebSocket headers", "headers", wsHeaders)
+
 	// Connect to the target WebSocket server
+	logger.Debug("attempting WebSocket connection", "targetURL", targetWSURL.String(), "headers", wsHeaders)
 	targetConn, resp, err := dialer.Dial(targetWSURL.String(), wsHeaders)
 	if err != nil {
-		logger.Error("failed to connect to target WebSocket", "url", targetWSURL.String(), "error", err)
-		c.String(http.StatusBadGateway, "Failed to connect to WebSocket server")
+		logger.Error("failed to connect to target WebSocket", "url", targetWSURL.String(), "error", err, "headers", wsHeaders)
+
+		// Fallback to HTTP proxying if WebSocket fails
+		logger.Info("falling back to HTTP proxy for WebSocket request", "url", targetURL.String())
+		proxy := httputil.NewSingleHostReverseProxy(targetURL)
+		proxy.Transport = &http.Transport{
+			ResponseHeaderTimeout: 30 * time.Second,
+		}
+
+		proxy.Director = func(req *http.Request) {
+			req.URL.Scheme = targetURL.Scheme
+			req.URL.Host = targetURL.Host
+			req.URL.Path = c.Request.URL.Path
+			req.URL.RawQuery = c.Request.URL.RawQuery
+
+			// Forward all headers
+			for key, values := range c.Request.Header {
+				req.Header[key] = values
+			}
+		}
+
+		proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, proxyErr error) {
+			logger.Error("HTTP proxy fallback failed", "url", r.URL.String(), "error", proxyErr)
+			c.String(http.StatusBadGateway, "Failed to proxy request")
+		}
+
+		proxy.ServeHTTP(c.Writer, c.Request)
 		return
 	}
 	defer targetConn.Close()
-	if resp != nil && resp.Body != nil {
-		defer resp.Body.Close()
+
+	if resp != nil {
+		logger.Debug("WebSocket handshake response", "status", resp.StatusCode, "headers", resp.Header)
+		if resp.Body != nil {
+			defer resp.Body.Close()
+		}
+
+		// Check if the handshake was successful
+		if resp.StatusCode != 101 {
+			logger.Error("WebSocket handshake failed", "statusCode", resp.StatusCode, "status", resp.Status)
+			c.String(http.StatusBadGateway, "WebSocket handshake failed")
+			return
+		}
 	}
 
 	// Upgrade the client connection to WebSocket
@@ -254,6 +297,9 @@ func handleWebSocketProxy(c *gin.Context, targetURL *url.URL, route *webserver.W
 	defer clientConn.Close()
 
 	// Start bidirectional data transfer
+	errChan := make(chan error, 2)
+
+	// Goroutine for target to client data transfer
 	go func() {
 		defer targetConn.Close()
 		defer clientConn.Close()
@@ -261,30 +307,53 @@ func handleWebSocketProxy(c *gin.Context, targetURL *url.URL, route *webserver.W
 		for {
 			messageType, message, err := targetConn.ReadMessage()
 			if err != nil {
-				logger.Debug("target WebSocket read error", "error", err)
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+					logger.Debug("target WebSocket closed unexpectedly", "error", err)
+				} else {
+					logger.Debug("target WebSocket read error", "error", err)
+				}
+				errChan <- err
 				return
 			}
 
 			err = clientConn.WriteMessage(messageType, message)
 			if err != nil {
 				logger.Debug("client WebSocket write error", "error", err)
+				errChan <- err
 				return
 			}
 		}
 	}()
 
-	// Transfer data from client to target
-	for {
-		messageType, message, err := clientConn.ReadMessage()
-		if err != nil {
-			logger.Debug("client WebSocket read error", "error", err)
-			return
-		}
+	// Goroutine for client to target data transfer
+	go func() {
+		defer targetConn.Close()
+		defer clientConn.Close()
 
-		err = targetConn.WriteMessage(messageType, message)
-		if err != nil {
-			logger.Debug("target WebSocket write error", "error", err)
-			return
+		for {
+			messageType, message, err := clientConn.ReadMessage()
+			if err != nil {
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+					logger.Debug("client WebSocket closed unexpectedly", "error", err)
+				} else {
+					logger.Debug("client WebSocket read error", "error", err)
+				}
+				errChan <- err
+				return
+			}
+
+			err = targetConn.WriteMessage(messageType, message)
+			if err != nil {
+				logger.Debug("target WebSocket write error", "error", err)
+				errChan <- err
+				return
+			}
 		}
+	}()
+
+	// Wait for either connection to close
+	select {
+	case err := <-errChan:
+		logger.Debug("WebSocket proxy connection closed", "error", err)
 	}
 }

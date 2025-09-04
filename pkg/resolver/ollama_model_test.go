@@ -5,6 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kdeps/kdeps/pkg/logging"
+	pklDocker "github.com/kdeps/schema/gen/docker"
+	pklProject "github.com/kdeps/schema/gen/project"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -492,4 +495,87 @@ func TestSyncModelToPersistentStorage(t *testing.T) {
 	// 2. Copy test files to source directory
 	// 3. Call syncModelToPersistentStorage
 	// 4. Verify files were synced correctly
+}
+
+// TestExtractModelsFromWorkflow tests the model extraction functionality
+func TestExtractModelsFromWorkflow(t *testing.T) {
+	logger := logging.NewTestLogger()
+
+	// Create a mock dependency resolver
+	dr := &DependencyResolver{
+		Logger: logger,
+	}
+
+	// Create a mock workflow with models in AgentSettings
+	mockWorkflow := &mockWorkflowForModels{
+		agentID: "test-agent",
+		models:  []string{"llama3.2:1b", "mistral:7b", "codellama:13b"},
+	}
+
+	// Test the extraction
+	models := dr.extractModelsFromWorkflow(mockWorkflow)
+
+	// Verify results
+	expectedModels := []string{"llama3.2:1b", "mistral:7b", "codellama:13b"}
+	assert.ElementsMatch(t, expectedModels, models, "extracted models should match expected models")
+	assert.Equal(t, 3, len(models), "should extract 3 unique models")
+}
+
+// mockWorkflowForModels is a mock workflow for testing model extraction
+type mockWorkflowForModels struct {
+	agentID string
+	models  []string
+}
+
+func (m *mockWorkflowForModels) GetAgentID() string {
+	return m.agentID
+}
+
+func (m *mockWorkflowForModels) GetVersion() string {
+	return "1.0.0"
+}
+
+func (m *mockWorkflowForModels) GetDescription() string {
+	return "Test workflow"
+}
+
+func (m *mockWorkflowForModels) GetWebsite() *string {
+	return nil
+}
+
+func (m *mockWorkflowForModels) GetAuthors() *[]string {
+	return nil
+}
+
+func (m *mockWorkflowForModels) GetDocumentation() *string {
+	return nil
+}
+
+func (m *mockWorkflowForModels) GetRepository() *string {
+	return nil
+}
+
+func (m *mockWorkflowForModels) GetHeroImage() *string {
+	return nil
+}
+
+func (m *mockWorkflowForModels) GetAgentIcon() *string {
+	return nil
+}
+
+func (m *mockWorkflowForModels) GetTargetActionID() string {
+	return "test-action"
+}
+
+func (m *mockWorkflowForModels) GetWorkflows() []string {
+	return nil
+}
+
+func (m *mockWorkflowForModels) GetSettings() pklProject.Settings {
+	// Return a mock settings struct with AgentSettings
+	return pklProject.Settings{
+		AgentSettings: pklDocker.DockerSettings{
+			Models: m.models,
+		},
+	}
 }

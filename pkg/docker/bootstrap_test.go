@@ -72,7 +72,7 @@ func TestPullModels(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	t.Run("EmptyModels", func(t *testing.T) {
-		err := pullModels(ctx, []string{}, logger)
+		err := PullModels(ctx, []string{}, logger)
 		assert.NoError(t, err)
 	})
 
@@ -369,7 +369,7 @@ func TestPullModels_Error(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// Provide some dummy model names; expect error as 'ollama' binary likely unavailable
-	err := pullModels(ctx, []string{"nonexistent-model-1"}, logger)
+	err := PullModels(ctx, []string{"nonexistent-model-1"}, logger)
 	if err == nil {
 		t.Fatalf("expected error when pulling models with missing binary")
 	}
