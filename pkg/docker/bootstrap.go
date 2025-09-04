@@ -114,6 +114,12 @@ func startAndWaitForOllama(ctx context.Context, host, port string, logger *loggi
 
 // PullModels pulls multiple Ollama models using the existing batch pull functionality
 func PullModels(ctx context.Context, models []string, logger *logging.Logger) error {
+	// If no models to pull, return early without checking ollama availability
+	if len(models) == 0 {
+		logger.Debug("no models to pull")
+		return nil
+	}
+
 	// First check if ollama is available by checking version
 	checkCtx, checkCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer checkCancel()
