@@ -21,7 +21,7 @@ var (
 func SchemaVersion(ctx context.Context) string {
 	if UseLatest { // Reference the global Latest flag from cmd package
 		// Try to get from cache first
-		if cached, ok := versionCache.Load("version"); ok {
+		if cached, ok := versionCache.Load("latest"); ok {
 			if version, ok := cached.(string); ok {
 				return version
 			}
@@ -35,7 +35,7 @@ func SchemaVersion(ctx context.Context) string {
 		}
 
 		// Store in cache
-		versionCache.Store("version", schemaVersion)
+		versionCache.Store("latest", schemaVersion)
 		return schemaVersion
 	}
 

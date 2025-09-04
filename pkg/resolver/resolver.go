@@ -152,7 +152,7 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 		return nil, err
 	}
 
-	return createDependencyResolver(paths, workflowConfiguration, readers, req, logger)
+	return createDependencyResolver(paths, workflowConfiguration, readers, req, logger, env)
 }
 
 func extractContextValues(ctx context.Context) (string, string, string, error) {
@@ -188,6 +188,8 @@ type directoryPaths struct {
 	requestPklFile     string
 	responsePklFile    string
 	responseTargetFile string
+	agentDir           string
+	actionDir          string
 }
 
 func setupDirectoryPaths(agentDir, actionDir string) (*directoryPaths, error) {
@@ -211,6 +213,8 @@ func setupDirectoryPaths(agentDir, actionDir string) (*directoryPaths, error) {
 		requestPklFile:     requestPklFile,
 		responsePklFile:    responsePklFile,
 		responseTargetFile: responseTargetFile,
+		agentDir:           agentDir,
+		actionDir:          actionDir,
 	}, nil
 }
 
@@ -324,27 +328,159 @@ func initializeItemReader() (*item.PklResourceReader, error) {
 	return item.InitializeItem(itemDBPath, []string{})
 }
 
-func createDependencyResolver(paths *directoryPaths, workflowConfiguration pklWf.Workflow, readers *databaseReaders, req *gin.Context, logger *logging.Logger) (*DependencyResolver, error) {
+func createDependencyResolver(paths *directoryPaths, workflowConfiguration pklWf.Workflow, readers *databaseReaders, req *gin.Context, logger *logging.Logger, env *environment.Environment) (*DependencyResolver, error) {
 	settings := workflowConfiguration.GetSettings()
 	agentName := workflowConfiguration.GetAgentID()
 
-	return &DependencyResolver{
-		Fs:                afero.NewOsFs(),
-		Workflow:          workflowConfiguration,
-		Logger:            logger,
-		AgentName:         agentName,
-		DataDir:           paths.dataDir,
-		ActionDir:         paths.filesDir,
-		RequestID:         "graphID", // This should be passed in
-		Request:           req,
-		APIServerMode:     settings.APIServerMode,
-		AnacondaInstalled: settings.AgentSettings.InstallAnaconda,
-		MemoryReader:      readers.memoryReader,
-		SessionReader:     readers.sessionReader,
-		ToolReader:        readers.toolReader,
-		ItemReader:        readers.itemReader,
-		FileRunCounter:    make(map[string]int),
-	}, nil
+	dr := &DependencyResolver{
+		Fs:                   afero.NewOsFs(),
+		Workflow:             workflowConfiguration,
+		Logger:               logger,
+		AgentName:            agentName,
+		ResourceDependencies: make(map[string][]string),
+		VisitedPaths:         make(map[string]bool),
+		DataDir:              paths.dataDir,
+		ActionDir:            paths.actionDir,
+		FilesDir:             paths.filesDir,
+		ProjectDir:           paths.projectDir,
+		WorkflowDir:          paths.workflowDir,
+		AgentDir:             paths.agentDir,
+		RequestID:            "graphID", // This should be passed in
+		RequestPklFile:       paths.requestPklFile,
+		ResponsePklFile:      paths.responsePklFile,
+		ResponseTargetFile:   paths.responseTargetFile,
+		Request:              req,
+		Environment:          env,
+		APIServerMode:        settings.APIServerMode,
+		AnacondaInstalled:    settings.AgentSettings.InstallAnaconda,
+		MemoryReader:         readers.memoryReader,
+		SessionReader:        readers.sessionReader,
+		ToolReader:           readers.toolReader,
+		ItemReader:           readers.itemReader,
+		FileRunCounter:       make(map[string]int),
+	}
+
+	// Initialize injectable function fields
+	dr.LoadResourceEntriesFn = dr.LoadResourceEntries
+	dr.LoadResourceFn = dr.LoadResource
+	dr.BuildDependencyStackFn = dr.buildRealDependencyStack
+	dr.ProcessRunBlockFn = dr.processRunBlock
+	dr.ClearItemDBFn = dr.ClearItemDB
+	dr.PrependDynamicImportsFn = dr.PrependDynamicImports
+	dr.AddPlaceholderImportsFn = dr.AddPlaceholderImports
+	dr.WalkFn = afero.Walk
+	dr.GetCurrentTimestampFn = dr.GetCurrentTimestamp
+	dr.WaitForTimestampChangeFn = dr.WaitForTimestampChange
+
+	return dr, nil
+}
+
+// buildRealDependencyStack analyzes PKL content for runtime dependencies and builds proper execution order
+func (dr *DependencyResolver) buildRealDependencyStack(target string, visited map[string]bool) []string {
+	// Initialize dependency graph if not already done
+	if dr.Graph == nil {
+		dr.initializeDependencyGraph()
+	}
+
+	// Use kartographer to build the dependency stack
+	return dr.Graph.BuildDependencyStack(target, visited)
+}
+
+// initializeDependencyGraph scans PKL files and builds the dependency graph
+func (dr *DependencyResolver) initializeDependencyGraph() {
+	// Scan all PKL files for runtime dependencies
+	runtimeDeps := dr.scanRuntimeDependencies()
+
+	// Merge explicit dependencies (from Requires field) with runtime dependencies
+	allDeps := make(map[string][]string)
+
+	// Add explicit dependencies
+	for resourceID, deps := range dr.ResourceDependencies {
+		allDeps[resourceID] = append(allDeps[resourceID], deps...)
+	}
+
+	// Add runtime dependencies
+	for dependent, dependencies := range runtimeDeps {
+		if existing, exists := allDeps[dependent]; exists {
+			allDeps[dependent] = append(existing, dependencies...)
+		} else {
+			allDeps[dependent] = dependencies
+		}
+	}
+
+	// Create kartographer graph
+	dr.Graph = graph.NewDependencyGraph(dr.Fs, dr.Logger.Logger, allDeps)
+}
+
+// scanRuntimeDependencies scans PKL files for runtime dependency calls
+func (dr *DependencyResolver) scanRuntimeDependencies() map[string][]string {
+	runtimeDeps := make(map[string][]string)
+
+	// Regex patterns for different runtime dependency types
+	patterns := map[string]*regexp.Regexp{
+		"llm":     regexp.MustCompile(`llm\.response\(["']([^"']+)["']`),
+		"exec":    regexp.MustCompile(`exec\.(stdout|stderr|exitCode)\(["']([^"']+)["']`),
+		"python":  regexp.MustCompile(`python\.stdout\(["']([^"']+)["']`),
+		"client":  regexp.MustCompile(`client\.(responseBody|responseHeader)\(["']([^"']+)["']`),
+		"memory":  regexp.MustCompile(`memory\.(getRecord|setRecord)\(["']([^"']+)["']`),
+		"session": regexp.MustCompile(`session\.(getRecord|setRecord)\(["']([^"']+)["']`),
+	}
+
+	// Scan all PKL files in the workflow resources directory
+	resourcesDir := filepath.Join(dr.WorkflowDir, "resources")
+	err := afero.Walk(dr.Fs, resourcesDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".pkl") {
+			return nil
+		}
+
+		// Read PKL file content
+		content, err := afero.ReadFile(dr.Fs, path)
+		if err != nil {
+			dr.Logger.Debug("failed to read PKL file", "path", path, "error", err)
+			return nil
+		}
+
+		// Extract the resource ID from the file (usually from ActionID)
+		resourceID := dr.extractResourceIDFromContent(string(content))
+		if resourceID == "" {
+			return nil
+		}
+
+		// Scan for runtime dependencies
+		dependencies := make([]string, 0)
+		for _, pattern := range patterns {
+			matches := pattern.FindAllStringSubmatch(string(content), -1)
+			for _, match := range matches {
+				if len(match) >= 2 {
+					depResourceID := match[len(match)-1] // Last capture group contains the resource ID
+					dependencies = append(dependencies, depResourceID)
+				}
+			}
+		}
+
+		if len(dependencies) > 0 {
+			runtimeDeps[resourceID] = dependencies
+			dr.Logger.Debug("found runtime dependencies", "resource", resourceID, "dependencies", dependencies)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		dr.Logger.Error("error scanning PKL files for dependencies", "error", err)
+	}
+
+	return runtimeDeps
+}
+
+// extractResourceIDFromContent extracts the ActionID from PKL content
+func (dr *DependencyResolver) extractResourceIDFromContent(content string) string {
+	actionIDPattern := regexp.MustCompile(`ActionID\s*=\s*["']([^"']+)["']`)
+	matches := actionIDPattern.FindStringSubmatch(content)
+	if len(matches) >= 2 {
+		return matches[1]
+	}
+	return ""
 }
 
 // ClearItemDB clears all contents of the item database.
@@ -717,18 +853,22 @@ func (dr *DependencyResolver) validateAPIServerMode(res ResourceNodeEntry, runBl
 
 	// Use reflection to access fields
 	rv := reflect.ValueOf(runBlock)
-	if rv.Kind() != reflect.Ptr && rv.Kind() != reflect.Interface {
-		rv = rv.Addr()
-	}
 	if rv.Kind() == reflect.Interface {
+		rv = rv.Elem()
+	}
+
+	// If it's not a pointer, we can't address it, so we'll work with the value directly
+	// but we need to be careful with pointer-only operations
+	isPtr := rv.Kind() == reflect.Ptr
+	if isPtr {
 		rv = rv.Elem()
 	}
 
 	// Validate request.params
 	if allowedParamsField := rv.FieldByName("AllowedParams"); allowedParamsField.IsValid() {
 		allowedParams := []string{}
-		if !allowedParamsField.IsNil() {
-			allowedParams = allowedParamsField.Elem().Interface().([]string)
+		if allowedParamsField.Kind() == reflect.Slice && allowedParamsField.Len() > 0 {
+			allowedParams = allowedParamsField.Interface().([]string)
 		}
 		if err := dr.validateRequestParams(string(fileContent), allowedParams); err != nil {
 			dr.Logger.Error("request params validation failed", "actionID", res.ActionID, "error", err)
@@ -740,8 +880,8 @@ func (dr *DependencyResolver) validateAPIServerMode(res ResourceNodeEntry, runBl
 	// Validate request.header
 	if allowedHeadersField := rv.FieldByName("AllowedHeaders"); allowedHeadersField.IsValid() {
 		allowedHeaders := []string{}
-		if !allowedHeadersField.IsNil() {
-			allowedHeaders = allowedHeadersField.Elem().Interface().([]string)
+		if allowedHeadersField.Kind() == reflect.Slice && allowedHeadersField.Len() > 0 {
+			allowedHeaders = allowedHeadersField.Interface().([]string)
 		}
 		if err := dr.validateRequestHeaders(string(fileContent), allowedHeaders); err != nil {
 			dr.Logger.Error("request headers validation failed", "actionID", res.ActionID, "error", err)
@@ -753,8 +893,8 @@ func (dr *DependencyResolver) validateAPIServerMode(res ResourceNodeEntry, runBl
 	// Validate request.path
 	if restrictToRoutesField := rv.FieldByName("RestrictToRoutes"); restrictToRoutesField.IsValid() {
 		allowedRoutes := []string{}
-		if !restrictToRoutesField.IsNil() {
-			allowedRoutes = restrictToRoutesField.Elem().Interface().([]string)
+		if restrictToRoutesField.Kind() == reflect.Slice && restrictToRoutesField.Len() > 0 {
+			allowedRoutes = restrictToRoutesField.Interface().([]string)
 		}
 		if err := dr.validateRequestPath(dr.Request, allowedRoutes); err != nil {
 			dr.Logger.Info("skipping due to request path validation not allowed", "actionID", res.ActionID, "error", err)
@@ -765,8 +905,8 @@ func (dr *DependencyResolver) validateAPIServerMode(res ResourceNodeEntry, runBl
 	// Validate request.method
 	if restrictToHTTPMethodsField := rv.FieldByName("RestrictToHTTPMethods"); restrictToHTTPMethodsField.IsValid() {
 		allowedMethods := []string{}
-		if !restrictToHTTPMethodsField.IsNil() {
-			allowedMethods = restrictToHTTPMethodsField.Elem().Interface().([]string)
+		if restrictToHTTPMethodsField.Kind() == reflect.Slice && restrictToHTTPMethodsField.Len() > 0 {
+			allowedMethods = restrictToHTTPMethodsField.Interface().([]string)
 		}
 		if err := dr.validateRequestMethod(dr.Request, allowedMethods); err != nil {
 			dr.Logger.Info("skipping due to request method validation not allowed", "actionID", res.ActionID, "error", err)
@@ -968,14 +1108,37 @@ func (dr *DependencyResolver) processAllRunBlockSteps(res ResourceNodeEntry, run
 		}
 	}
 
+	// Process API Response step, if defined
+	if runBlock.APIResponse != nil {
+		if err := dr.processResourceStep(res.ActionID, "apiresponse", nil, func() error {
+			if runBlock.APIResponse == nil {
+				return fmt.Errorf("APIResponse became nil during processing")
+			}
+			// Safely dereference the pointer to interface
+			apiRespPtr := runBlock.APIResponse
+			if apiRespPtr == nil {
+				return fmt.Errorf("APIResponse pointer is nil")
+			}
+			apiResp := *apiRespPtr
+			if apiResp == nil {
+				return fmt.Errorf("APIResponse interface is nil after dereference")
+			}
+			return dr.CreateResponsePklFile(apiResp)
+		}); err != nil {
+			dr.Logger.Error("API response error:", res.ActionID)
+			return dr.HandleAPIErrorResponse(500, fmt.Sprintf("API response failed for resource: %s - %s", res.ActionID, err), true)
+		}
+	}
+
 	// Check if any action was actually performed
 	hasExec := runBlock.Exec != nil && runBlock.Exec.Command != ""
 	hasPython := runBlock.Python != nil && runBlock.Python.Script != ""
 	hasChat := runBlock.Chat != nil && runBlock.Chat.Model != "" && (runBlock.Chat.Prompt != nil || runBlock.Chat.Scenario != nil)
 	hasHTTP := runBlock.HTTPClient != nil && runBlock.HTTPClient.Method != "" && runBlock.HTTPClient.Url != ""
+	hasAPIResponse := runBlock.APIResponse != nil
 
 	// If no actions were performed, return false to indicate no processing occurred
-	if !hasExec && !hasPython && !hasChat && !hasHTTP {
+	if !hasExec && !hasPython && !hasChat && !hasHTTP && !hasAPIResponse {
 		dr.Logger.Debug("No run actions defined, skipping resource processing", "actionID", res.ActionID)
 		return false, nil
 	}

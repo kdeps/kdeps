@@ -752,6 +752,12 @@ func processWorkflow(ctx context.Context, dr *resolver.DependencyResolver) error
 		return err
 	}
 
+	// Create successful response PKL file
+	successResponse := utils.NewAPIServerResponse(true, nil, 0, "", dr.RequestID)
+	if err := dr.CreateResponsePklFile(successResponse); err != nil {
+		return fmt.Errorf("create successful response PKL file: %w", err)
+	}
+
 	stdout, err := dr.EvalPklFormattedResponseFile()
 	if err != nil {
 		dr.Logger.Errorf("%s: %v", stdout, err)

@@ -27,7 +27,7 @@ func TestSchemaVersion(t *testing.T) {
 	t.Run("caches and returns latest version when UseLatest is true", func(t *testing.T) {
 		UseLatest = true
 		// Clear any existing cache
-		versionCache.Delete("version")
+		versionCache.Delete("latest")
 
 		// First call should fetch and cache
 		result1 := SchemaVersion(ctx)
@@ -38,7 +38,7 @@ func TestSchemaVersion(t *testing.T) {
 		assert.Equal(t, result1, result2, "expected cached version")
 
 		// Verify it's in cache
-		cached, ok := versionCache.Load("version")
+		cached, ok := versionCache.Load("latest")
 		assert.True(t, ok, "expected version to be cached")
 		assert.Equal(t, result1, cached.(string), "cached version mismatch")
 	})
@@ -57,7 +57,7 @@ func TestSchemaVersionCaching(t *testing.T) {
 	UseLatest = true
 
 	// Clear any existing cache
-	versionCache.Delete("version")
+	versionCache.Delete("latest")
 
 	// First call should fetch and cache
 	result1 := SchemaVersion(ctx)
@@ -68,7 +68,7 @@ func TestSchemaVersionCaching(t *testing.T) {
 	assert.Equal(t, result1, result2, "expected cached version")
 
 	// Verify it's in cache
-	cached, ok := versionCache.Load("version")
+	cached, ok := versionCache.Load("latest")
 	assert.True(t, ok, "expected version to be cached")
 	assert.Equal(t, result1, cached.(string), "cached version mismatch")
 }
@@ -85,7 +85,7 @@ func TestSchemaVersionErrorHandling(t *testing.T) {
 	}()
 
 	UseLatest = true
-	versionCache.Delete("version")
+	versionCache.Delete("latest")
 
 	// Mock exitFunc to prevent actual exit
 	exitCalled := false
@@ -118,7 +118,7 @@ func TestSchemaVersionCachedValue(t *testing.T) {
 
 	// Pre-populate cache
 	testVersion := "1.2.3"
-	versionCache.Store("version", testVersion)
+	versionCache.Store("latest", testVersion)
 
 	// Call SchemaVersion
 	result := SchemaVersion(ctx)
@@ -149,7 +149,7 @@ func TestSchemaVersionLatestSuccess(t *testing.T) {
 	defer func() {
 		UseLatest = originalUseLatest
 		utils.GitHubReleaseFetcher = originalFetcher
-		versionCache.Delete("version")
+		versionCache.Delete("latest")
 	}()
 
 	UseLatest = true

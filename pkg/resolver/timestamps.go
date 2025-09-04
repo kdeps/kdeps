@@ -142,6 +142,11 @@ func getResourceTimestamp(resourceID string, pklRes interface{}) (*pkl.Duration,
 
 // GetCurrentTimestamp retrieves the current timestamp for the given resourceID and resourceType.
 func (dr *DependencyResolver) GetCurrentTimestamp(resourceID, resourceType string) (pkl.Duration, error) {
+	// APIResponse doesn't need file-based timestamp tracking, return default
+	if resourceType == "apiresponse" {
+		return pkl.Duration{}, nil
+	}
+
 	pklPath, err := dr.getResourceFilePath(resourceType)
 	if err != nil {
 		// If we can't get the file path, return a default timestamp for workflow resources
@@ -194,6 +199,12 @@ func formatDuration(d time.Duration) string {
 
 // WaitForTimestampChange waits until the timestamp for the specified resourceID changes from the provided previous timestamp.
 func (dr *DependencyResolver) WaitForTimestampChange(resourceID string, previousTimestamp pkl.Duration, timeout time.Duration, resourceType string) error {
+	// APIResponse doesn't need to wait for timestamp changes, return immediately
+	if resourceType == "apiresponse" {
+		dr.Logger.Debug("skipping timestamp change wait for apiresponse", "resourceID", resourceID)
+		return nil
+	}
+
 	startTime := time.Now()
 
 	for {
