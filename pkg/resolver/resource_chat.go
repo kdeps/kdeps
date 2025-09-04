@@ -12,6 +12,7 @@ import (
 	"github.com/apple/pkl-go/pkl"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/kdeps/kdeps/pkg/evaluator"
+	"github.com/kdeps/kdeps/pkg/kdepsexec"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/tool"
@@ -145,8 +146,40 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 	// First GenerateContent call
 	response, err := llm.GenerateContent(ctx, messageHistory, opts...)
 	if err != nil {
-		logger.Error("Failed to generate content in first call", "error", err)
-		return "", fmt.Errorf("failed to generate content in first call: %w", err)
+		errMsg := strings.ToLower(err.Error())
+
+		// Check for various Ollama error conditions that indicate we should try to pull the model
+		shouldTryPull := strings.Contains(errMsg, "not found") ||
+			strings.Contains(errMsg, "model") && strings.Contains(errMsg, "not found") ||
+			strings.Contains(errMsg, "no such file or directory") ||
+			strings.Contains(errMsg, "connection refused") ||
+			strings.Contains(errMsg, "eof") ||
+			strings.Contains(errMsg, "try pulling it first")
+
+		if shouldTryPull {
+			logger.Info("model error during content generation, attempting to pull", "model", chatBlock.Model, "error", err.Error())
+
+			// Try to pull the model - this will also ensure Ollama server is running
+			if pullErr := pullOllamaModel(ctx, chatBlock.Model, logger); pullErr != nil {
+				logger.Error("failed to pull model during content generation", "model", chatBlock.Model, "error", pullErr)
+				return "", fmt.Errorf("failed to pull model %s during content generation: %w", chatBlock.Model, pullErr)
+			}
+
+			// Retry GenerateContent after pulling
+			response, err = llm.GenerateContent(ctx, messageHistory, opts...)
+			if err != nil {
+				// Try once more after a brief delay to allow server to fully start
+				time.Sleep(1 * time.Second)
+				response, err = llm.GenerateContent(ctx, messageHistory, opts...)
+				if err != nil {
+					logger.Error("Failed to generate content after model pull retry", "error", err)
+					return "", fmt.Errorf("failed to generate content after model pull: %w", err)
+				}
+			}
+		} else {
+			logger.Error("Failed to generate content in first call", "error", err)
+			return "", fmt.Errorf("failed to generate content in first call: %w", err)
+		}
 	}
 
 	if len(response.Choices) == 0 {
@@ -404,6 +437,147 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 	}
 	logger.Info("Final response", "content", utils.TruncateString(respChoice.Content, maxLogContentLength))
 	return respChoice.Content, nil
+}
+
+// pullOllamaModel pulls a single Ollama model using the ollama CLI (standalone version)
+func pullOllamaModel(ctx context.Context, model string, logger *logging.Logger) error {
+	logger.Info("pulling Ollama model (standalone)", "model", model)
+
+	// First ensure Ollama server is running
+	if err := ensureOllamaServerRunningStandalone(ctx, logger); err != nil {
+		return fmt.Errorf("failed to ensure Ollama server is running: %w", err)
+	}
+
+	// Use a timeout for the model pull to prevent hanging
+	pullCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	// Try to pull the exact model first
+	stdout, stderr, exitCode, err := kdepsexec.KdepsExec(
+		pullCtx,
+		"ollama",
+		[]string{"pull", model},
+		"",    // use current directory
+		false, // don't use env file
+		false, // don't run in background
+		logger,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to execute ollama pull: %w", err)
+	}
+
+	if exitCode == 0 {
+		logger.Info("successfully pulled Ollama model (standalone)", "model", model)
+		return nil
+	}
+
+	// If exact model pull failed, try to find and pull a variant
+	logger.Info("exact model pull failed, trying to find similar models (standalone)", "model", model, "exitCode", exitCode, "stderr", stderr)
+	if variantModel, err := findModelVariantStandalone(ctx, model, logger); err == nil && variantModel != "" {
+		logger.Info("found similar model variant (standalone), attempting to pull", "original", model, "variant", variantModel)
+
+		// Try pulling the variant
+		stdout, stderr, exitCode, err = kdepsexec.KdepsExec(
+			pullCtx,
+			"ollama",
+			[]string{"pull", variantModel},
+			"",    // use current directory
+			false, // don't use env file
+			false, // don't run in background
+			logger,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to execute ollama pull for variant: %w", err)
+		}
+
+		if exitCode == 0 {
+			logger.Info("successfully pulled Ollama model variant (standalone)", "original", model, "variant", variantModel)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("ollama pull failed with exit code %d: stdout=%s, stderr=%s", exitCode, stdout, stderr)
+}
+
+// ensureOllamaServerRunningStandalone ensures the Ollama server is running (standalone version)
+func ensureOllamaServerRunningStandalone(ctx context.Context, logger *logging.Logger) error {
+	// Check if server is running by trying to list models
+	checkCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	_, _, exitCode, err := kdepsexec.KdepsExec(
+		checkCtx,
+		"ollama",
+		[]string{"list"},
+		"",
+		false,
+		false,
+		logger,
+	)
+
+	if err == nil && exitCode == 0 {
+		// Server is already running
+		return nil
+	}
+
+	logger.Info("Ollama server not running (standalone), starting it")
+
+	// Start Ollama server in background
+	serverCtx, serverCancel := context.WithTimeout(ctx, 30*time.Second)
+	defer serverCancel()
+
+	_, _, _, err = kdepsexec.KdepsExec(
+		serverCtx,
+		"ollama",
+		[]string{"serve"},
+		"",
+		false,
+		true, // run in background
+		logger,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to start Ollama server (standalone): %w", err)
+	}
+
+	// Wait a bit for server to start
+	time.Sleep(2 * time.Second)
+
+	return nil
+}
+
+// findModelVariantStandalone tries to find a similar model variant (standalone version)
+func findModelVariantStandalone(ctx context.Context, model string, logger *logging.Logger) (string, error) {
+	checkCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	stdout, _, exitCode, err := kdepsexec.KdepsExec(
+		checkCtx,
+		"ollama",
+		[]string{"list"},
+		"",
+		false,
+		false,
+		logger,
+	)
+
+	if err != nil || exitCode != 0 {
+		return "", fmt.Errorf("failed to list models: %w", err)
+	}
+
+	lines := strings.Split(stdout, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, model+":") {
+			// Found a variant like "llama3.2:1b"
+			fields := strings.Fields(line)
+			if len(fields) > 0 {
+				return fields[0], nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no variant found for model %s", model)
 }
 
 // processLLMChat processes the LLM chat and saves the response.

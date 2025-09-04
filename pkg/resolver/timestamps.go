@@ -70,67 +70,83 @@ func getResourceTimestamp(resourceID string, pklRes interface{}) (*pkl.Duration,
 	switch res := pklRes.(type) {
 	case *pklExec.ExecImpl:
 		// ExecImpl resources are of type *ResourceExec
-		if resource, exists := (*res.GetResources())[resourceID]; exists {
-			if resource.Timestamp == nil {
-				return nil, fmt.Errorf("timestamp for exec resource ID %s is nil", resourceID)
+		if resResources := res.GetResources(); resResources != nil {
+			if resource, exists := (*resResources)[resourceID]; exists {
+				if resource.Timestamp == nil {
+					return nil, fmt.Errorf("timestamp for exec resource ID %s is nil", resourceID)
+				}
+				return resource.Timestamp, nil
 			}
-			return resource.Timestamp, nil
 		}
 	case pklExec.ExecImpl:
 		// Handle value type as well
-		if resource, exists := (*res.GetResources())[resourceID]; exists {
-			if resource.Timestamp == nil {
-				return nil, fmt.Errorf("timestamp for exec resource ID %s is nil", resourceID)
+		if resResources := res.GetResources(); resResources != nil {
+			if resource, exists := (*resResources)[resourceID]; exists {
+				if resource.Timestamp == nil {
+					return nil, fmt.Errorf("timestamp for exec resource ID %s is nil", resourceID)
+				}
+				return resource.Timestamp, nil
 			}
-			return resource.Timestamp, nil
 		}
 	case *pklPython.PythonImpl:
 		// PythonImpl resources are of type *ResourcePython
-		if resource, exists := (*res.GetResources())[resourceID]; exists {
-			if resource.Timestamp == nil {
-				return nil, fmt.Errorf("timestamp for python resource ID %s is nil", resourceID)
+		if resResources := res.GetResources(); resResources != nil {
+			if resource, exists := (*resResources)[resourceID]; exists {
+				if resource.Timestamp == nil {
+					return nil, fmt.Errorf("timestamp for python resource ID %s is nil", resourceID)
+				}
+				return resource.Timestamp, nil
 			}
-			return resource.Timestamp, nil
 		}
 	case pklPython.PythonImpl:
 		// Handle value type as well
-		if resource, exists := (*res.GetResources())[resourceID]; exists {
-			if resource.Timestamp == nil {
-				return nil, fmt.Errorf("timestamp for python resource ID %s is nil", resourceID)
+		if resResources := res.GetResources(); resResources != nil {
+			if resource, exists := (*resResources)[resourceID]; exists {
+				if resource.Timestamp == nil {
+					return nil, fmt.Errorf("timestamp for python resource ID %s is nil", resourceID)
+				}
+				return resource.Timestamp, nil
 			}
-			return resource.Timestamp, nil
 		}
 	case *pklLLM.LLMImpl:
 		// LLMImpl resources are of type *ResourceChat
-		if resource, exists := (*res.GetResources())[resourceID]; exists {
-			if resource.Timestamp == nil {
-				return nil, fmt.Errorf("timestamp for llm resource ID %s is nil", resourceID)
+		if resResources := res.GetResources(); resResources != nil {
+			if resource, exists := (*resResources)[resourceID]; exists {
+				if resource.Timestamp == nil {
+					return nil, fmt.Errorf("timestamp for llm resource ID %s is nil", resourceID)
+				}
+				return resource.Timestamp, nil
 			}
-			return resource.Timestamp, nil
 		}
 	case pklLLM.LLMImpl:
 		// Handle value type as well
-		if resource, exists := (*res.GetResources())[resourceID]; exists {
-			if resource.Timestamp == nil {
-				return nil, fmt.Errorf("timestamp for llm resource ID %s is nil", resourceID)
+		if resResources := res.GetResources(); resResources != nil {
+			if resource, exists := (*resResources)[resourceID]; exists {
+				if resource.Timestamp == nil {
+					return nil, fmt.Errorf("timestamp for llm resource ID %s is nil", resourceID)
+				}
+				return resource.Timestamp, nil
 			}
-			return resource.Timestamp, nil
 		}
 	case *pklHTTP.HTTPImpl:
 		// HTTPImpl resources are of type *ResourceHTTPClient
-		if resource, exists := (*res.GetResources())[resourceID]; exists {
-			if resource.Timestamp == nil {
-				return nil, fmt.Errorf("timestamp for http resource ID %s is nil", resourceID)
+		if resResources := res.GetResources(); resResources != nil {
+			if resource, exists := (*resResources)[resourceID]; exists {
+				if resource.Timestamp == nil {
+					return nil, fmt.Errorf("timestamp for http resource ID %s is nil", resourceID)
+				}
+				return resource.Timestamp, nil
 			}
-			return resource.Timestamp, nil
 		}
 	case pklHTTP.HTTPImpl:
 		// Handle value type as well
-		if resource, exists := (*res.GetResources())[resourceID]; exists {
-			if resource.Timestamp == nil {
-				return nil, fmt.Errorf("timestamp for http resource ID %s is nil", resourceID)
+		if resResources := res.GetResources(); resResources != nil {
+			if resource, exists := (*resResources)[resourceID]; exists {
+				if resource.Timestamp == nil {
+					return nil, fmt.Errorf("timestamp for http resource ID %s is nil", resourceID)
+				}
+				return resource.Timestamp, nil
 			}
-			return resource.Timestamp, nil
 		}
 	default:
 		return nil, fmt.Errorf("unknown PKL result type %T for resource ID %s", pklRes, resourceID)

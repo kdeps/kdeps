@@ -42,6 +42,11 @@ func (dr *DependencyResolver) AppendDataEntry(_ string, newData *pklData.DataImp
 		return errors.New("new data or its files map is nil")
 	}
 
+	// Ensure existingFiles is not nil
+	if existingFiles == nil {
+		return errors.New("existing files map is nil")
+	}
+
 	// Merge new data into the existing files map
 	for agentName, baseFileMap := range *newData.Files {
 		// Ensure the agent name exists in the existing files map

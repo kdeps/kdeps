@@ -304,7 +304,42 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 
 	// Chat helpers
 	dependencyResolver.NewLLMFn = func(model string) (*ollama.LLM, error) {
-		return ollama.New(ollama.WithModel(model))
+		llm, err := ollama.New(ollama.WithModel(model))
+		if err != nil {
+			errMsg := strings.ToLower(err.Error())
+
+			// Check for various Ollama error conditions that indicate we should try to pull the model
+			shouldTryPull := strings.Contains(errMsg, "not found") ||
+				strings.Contains(errMsg, "model") && strings.Contains(errMsg, "not found") ||
+				strings.Contains(errMsg, "no such file or directory") ||
+				strings.Contains(errMsg, "connection refused") ||
+				strings.Contains(errMsg, "eof") ||
+				strings.Contains(errMsg, "try pulling it first")
+
+			if shouldTryPull {
+				dependencyResolver.Logger.Info("model not available or server not running, attempting to pull", "model", model, "error", err.Error())
+
+				// Try to pull the model (this will also ensure Ollama server is running)
+				if pullErr := dependencyResolver.pullOllamaModel(dependencyResolver.Context, model); pullErr != nil {
+					dependencyResolver.Logger.Error("failed to pull model", "model", model, "error", pullErr)
+					return nil, fmt.Errorf("failed to pull model %s: %w", model, pullErr)
+				}
+
+				// Retry creating LLM after pulling
+				llm, err = ollama.New(ollama.WithModel(model))
+				if err != nil {
+					// Try once more after a brief delay to allow server to fully start
+					time.Sleep(1 * time.Second)
+					llm, err = ollama.New(ollama.WithModel(model))
+					if err != nil {
+						return nil, fmt.Errorf("failed to create LLM after pulling model %s: %w", model, err)
+					}
+				}
+			} else {
+				return nil, fmt.Errorf("failed to create LLM: %w", err)
+			}
+		}
+		return llm, nil
 	}
 	dependencyResolver.GenerateChatResponseFn = generateChatResponse
 	dependencyResolver.DoRequestFn = dependencyResolver.DoRequest
@@ -889,4 +924,145 @@ func (dr *DependencyResolver) castToResource(res interface{}, file string) (*pkl
 	}
 
 	return nil, fmt.Errorf("failed to cast resource to pklResource.Resource for file %s (actual type: %T)", file, res)
+}
+
+// pullOllamaModel pulls a single Ollama model using the ollama CLI
+func (dr *DependencyResolver) pullOllamaModel(ctx context.Context, model string) error {
+	dr.Logger.Info("pulling Ollama model", "model", model)
+
+	// First ensure Ollama server is running
+	if err := dr.ensureOllamaServerRunning(ctx); err != nil {
+		return fmt.Errorf("failed to ensure Ollama server is running: %w", err)
+	}
+
+	// Use a timeout for the model pull to prevent hanging
+	pullCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	// Try to pull the exact model first
+	stdout, stderr, exitCode, err := kdepsexec.KdepsExec(
+		pullCtx,
+		"ollama",
+		[]string{"pull", model},
+		"",    // use current directory
+		false, // don't use env file
+		false, // don't run in background
+		dr.Logger,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to execute ollama pull: %w", err)
+	}
+
+	if exitCode == 0 {
+		dr.Logger.Info("successfully pulled Ollama model", "model", model)
+		return nil
+	}
+
+	// If exact model pull failed, try to find and pull a variant
+	dr.Logger.Info("exact model pull failed, trying to find similar models", "model", model, "exitCode", exitCode, "stderr", stderr)
+	if variantModel, err := dr.findModelVariant(ctx, model); err == nil && variantModel != "" {
+		dr.Logger.Info("found similar model variant, attempting to pull", "original", model, "variant", variantModel)
+
+		// Try pulling the variant
+		stdout, stderr, exitCode, err = kdepsexec.KdepsExec(
+			pullCtx,
+			"ollama",
+			[]string{"pull", variantModel},
+			"",    // use current directory
+			false, // don't use env file
+			false, // don't run in background
+			dr.Logger,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to execute ollama pull for variant: %w", err)
+		}
+
+		if exitCode == 0 {
+			dr.Logger.Info("successfully pulled Ollama model variant", "original", model, "variant", variantModel)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("ollama pull failed with exit code %d: stdout=%s, stderr=%s", exitCode, stdout, stderr)
+}
+
+// ensureOllamaServerRunning ensures the Ollama server is running
+func (dr *DependencyResolver) ensureOllamaServerRunning(ctx context.Context) error {
+	// Check if server is running by trying to list models
+	checkCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	_, _, exitCode, err := kdepsexec.KdepsExec(
+		checkCtx,
+		"ollama",
+		[]string{"list"},
+		"",
+		false,
+		false,
+		dr.Logger,
+	)
+
+	if err == nil && exitCode == 0 {
+		// Server is already running
+		return nil
+	}
+
+	dr.Logger.Info("Ollama server not running, starting it")
+
+	// Start Ollama server in background
+	serverCtx, serverCancel := context.WithTimeout(ctx, 30*time.Second)
+	defer serverCancel()
+
+	_, _, _, err = kdepsexec.KdepsExec(
+		serverCtx,
+		"ollama",
+		[]string{"serve"},
+		"",
+		false,
+		true, // run in background
+		dr.Logger,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to start Ollama server: %w", err)
+	}
+
+	// Wait a bit for server to start
+	time.Sleep(2 * time.Second)
+
+	return nil
+}
+
+// findModelVariant tries to find a similar model variant
+func (dr *DependencyResolver) findModelVariant(ctx context.Context, model string) (string, error) {
+	checkCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	stdout, _, exitCode, err := kdepsexec.KdepsExec(
+		checkCtx,
+		"ollama",
+		[]string{"list"},
+		"",
+		false,
+		false,
+		dr.Logger,
+	)
+
+	if err != nil || exitCode != 0 {
+		return "", fmt.Errorf("failed to list models: %w", err)
+	}
+
+	lines := strings.Split(stdout, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, model+":") {
+			// Found a variant like "llama3.2:1b"
+			fields := strings.Fields(line)
+			if len(fields) > 0 {
+				return fields[0], nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no variant found for model %s", model)
 }
