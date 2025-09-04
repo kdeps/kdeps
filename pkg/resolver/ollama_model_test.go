@@ -65,6 +65,11 @@ func TestErrorDetection(t *testing.T) {
 			errorMsg:      "context deadline exceeded",
 			shouldTryPull: false,
 		},
+		{
+			name:          "model not found try pulling it first",
+			errorMsg:      "model \"llama3.2\" not found, try pulling it first",
+			shouldTryPull: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -471,12 +476,20 @@ func BenchmarkErrorDetection(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		for _, msg := range testMsgs {
 			errMsg := strings.ToLower(msg)
-			_ = strings.Contains(errMsg, "not found") ||
-				strings.Contains(errMsg, "model") && strings.Contains(errMsg, "not found") ||
-				strings.Contains(errMsg, "no such file or directory") ||
-				strings.Contains(errMsg, "connection refused") ||
-				strings.Contains(errMsg, "eof") ||
-				strings.Contains(errMsg, "try pulling it first")
+			_ = strings.Contains(errMsg, "try pulling it first")
 		}
 	}
+}
+
+// TestSyncModelToPersistentStorage tests the model syncing functionality
+func TestSyncModelToPersistentStorage(t *testing.T) {
+	// Note: This test would require setting up actual directories and files
+	// For now, we skip it as it requires system-level setup and rsync binary
+	t.Skip("Skipping sync test - requires system directories and rsync binary")
+
+	// Future test implementation would:
+	// 1. Create temporary directories
+	// 2. Copy test files to source directory
+	// 3. Call syncModelToPersistentStorage
+	// 4. Verify files were synced correctly
 }

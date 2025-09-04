@@ -48,12 +48,71 @@ func (dr *DependencyResolver) HandleLLMChat(actionID string, chatBlock *pklLLM.R
 		return err
 	}
 
+	// Check if the model needs to be pulled before processing
+	if err := dr.ensureModelAvailable(chatBlock.Model); err != nil {
+		dr.Logger.Error("failed to ensure model availability", "actionID", actionID, "model", chatBlock.Model, "error", err)
+		return err
+	}
+
 	go func(aID string, block *pklLLM.ResourceChat) {
 		if err := dr.processLLMChat(aID, block); err != nil {
 			dr.Logger.Error("failed to process LLM chat", "actionID", aID, "error", err)
 		}
 	}(actionID, chatBlock)
 
+	return nil
+}
+
+// ensureModelAvailable checks if the specified model is available and pulls it if necessary
+func (dr *DependencyResolver) ensureModelAvailable(model string) error {
+	if model == "" {
+		return fmt.Errorf("model name cannot be empty")
+	}
+
+	dr.Logger.Info("checking model availability", "model", model)
+
+	// Try to create an LLM instance to check if the model is available
+	llm, err := ollama.New(ollama.WithModel(model))
+	if err != nil {
+		errMsg := strings.ToLower(err.Error())
+
+		// Check for the specific "model not found, try pulling it first" error
+		shouldTryPull := strings.Contains(errMsg, "try pulling it first")
+
+		if shouldTryPull {
+			dr.Logger.Info("model not available, pulling model", "model", model)
+
+			// Try to pull the model
+			if pullErr := dr.pullOllamaModel(dr.Context, model); pullErr != nil {
+				dr.Logger.Error("failed to pull model", "model", model, "error", pullErr)
+				return fmt.Errorf("failed to pull model %s: %w", model, pullErr)
+			}
+
+			dr.Logger.Info("successfully pulled model", "model", model)
+
+			// Sync the pulled model to /models/ directory for persistence
+			if syncErr := dr.syncModelToPersistentStorage(model); syncErr != nil {
+				dr.Logger.Warn("failed to sync model to persistent storage", "model", model, "error", syncErr)
+				// Don't fail the whole operation if sync fails, just log it
+			}
+
+			// Verify the model is now available by trying to create it again
+			llm, err = ollama.New(ollama.WithModel(model))
+			if err != nil {
+				return fmt.Errorf("model still not available after pulling %s: %w", model, err)
+			}
+		} else {
+			return fmt.Errorf("unexpected error when checking model availability: %w", err)
+		}
+	}
+
+	// Clean up the test LLM instance
+	if llm != nil {
+		// Note: ollama.LLM doesn't have a Close method in the current version
+		// The LLM will be cleaned up by the garbage collector
+	}
+
+	dr.Logger.Info("model is available", "model", model)
 	return nil
 }
 

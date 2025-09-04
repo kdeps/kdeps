@@ -325,6 +325,12 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 					return nil, fmt.Errorf("failed to pull model %s: %w", model, pullErr)
 				}
 
+				// Sync the pulled model to persistent storage
+				if syncErr := dependencyResolver.syncModelToPersistentStorage(model); syncErr != nil {
+					dependencyResolver.Logger.Warn("failed to sync model to persistent storage", "model", model, "error", syncErr)
+					// Don't fail the whole operation if sync fails, just log it
+				}
+
 				// Retry creating LLM after pulling
 				llm, err = ollama.New(ollama.WithModel(model))
 				if err != nil {
@@ -1030,6 +1036,40 @@ func (dr *DependencyResolver) ensureOllamaServerRunning(ctx context.Context) err
 	// Wait a bit for server to start
 	time.Sleep(2 * time.Second)
 
+	return nil
+}
+
+// syncModelToPersistentStorage syncs pulled models from /root/.ollama/models/ to /models/ using rsync
+func (dr *DependencyResolver) syncModelToPersistentStorage(model string) error {
+	sourceDir := "/root/.ollama/models"
+	targetDir := "/models"
+
+	dr.Logger.Info("syncing model to persistent storage", "model", model, "source", sourceDir, "target", targetDir)
+
+	// Use rsync with progress for reliable file synchronization
+	// Flags: -a (archive), -v (verbose), -r (recursive), -P (progress), -t (preserve times), --delete (remove deleted files)
+	// TODO: Consider using a pure Go rsync library like github.com/gokrazy/rsync for better portability
+	cmd := fmt.Sprintf("mkdir -p %s && rsync -avrPt --delete --progress %s/. %s/", targetDir, sourceDir, targetDir)
+
+	stdout, stderr, exitCode, err := kdepsexec.KdepsExec(
+		dr.Context,
+		"sh",
+		[]string{"-c", cmd},
+		"",
+		false,
+		false,
+		dr.Logger,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to execute rsync command: %w", err)
+	}
+
+	if exitCode != 0 {
+		return fmt.Errorf("rsync command failed with exit code %d: stdout=%s, stderr=%s", exitCode, stdout, stderr)
+	}
+
+	dr.Logger.Info("successfully synced model to persistent storage", "model", model, "target", targetDir)
 	return nil
 }
 
