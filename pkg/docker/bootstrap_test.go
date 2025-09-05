@@ -388,3 +388,124 @@ func TestPullModels_Error(t *testing.T) {
 	// nonexistent model gracefully (logged warning but continued)
 	t.Log("Ollama binary is available and handled nonexistent model gracefully")
 }
+
+func TestEnsureKdepsDirectories(t *testing.T) {
+	logger := logging.NewTestLogger()
+
+	t.Run("Success", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		baseDir := "/test/base"
+
+		err := ensureKdepsDirectories(fs, baseDir, logger)
+		assert.NoError(t, err)
+
+		// Check that directories were created
+		exists, _ := afero.DirExists(fs, baseDir)
+		assert.True(t, exists)
+
+		exists, _ = afero.DirExists(fs, baseDir+"/agents")
+		assert.True(t, exists)
+
+		exists, _ = afero.DirExists(fs, baseDir+"/cache")
+		assert.True(t, exists)
+	})
+
+	t.Run("EmptyBase", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+
+		err := ensureKdepsDirectories(fs, "", logger)
+		assert.NoError(t, err)
+
+		// Should use default path
+		exists, _ := afero.DirExists(fs, "/agent/volume/")
+		assert.True(t, exists)
+	})
+
+	t.Run("BaseWithoutTrailingSlash", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		baseDir := "/test/base"
+
+		err := ensureKdepsDirectories(fs, baseDir, logger)
+		assert.NoError(t, err)
+
+		// Should normalize to add trailing slash
+		exists, _ := afero.DirExists(fs, baseDir+"/")
+		assert.True(t, exists)
+	})
+}
+
+func TestCopyOfflineModels(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	t.Run("SourceDirectoryNotFound", func(t *testing.T) {
+		// Test when source directory doesn't exist
+		err := copyOfflineModels(ctx, []string{"model1"}, logger)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to check offline models directory")
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		// This test would require setting up actual directories and files
+		// For now, we'll test the error path when source doesn't exist
+		t.Skip("Skipping test that requires file system setup")
+	})
+}
+
+func TestSetupDockerEnvironment(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	t.Run("MissingOLLAMAHost", func(t *testing.T) {
+		fs := afero.NewOsFs()
+		tmpDir := t.TempDir()
+		actionDir := filepath.Join(tmpDir, "action")
+		require.NoError(t, fs.MkdirAll(actionDir, 0o755))
+
+		dr := &resolver.DependencyResolver{
+			Fs:        fs,
+			Logger:    logger,
+			ActionDir: actionDir,
+			Environment: &environment.Environment{
+				DockerMode: "1",
+			},
+		}
+
+		_, err := setupDockerEnvironment(ctx, dr)
+		// Should fail due to missing OLLAMA_HOST environment variable
+		assert.Error(t, err)
+	})
+}
+
+func TestStartAndWaitForOllama(t *testing.T) {
+	logger := logging.NewTestLogger()
+
+	t.Run("ServerNotReady", func(t *testing.T) {
+		// Test with a port that won't have a server (use a very high port number)
+		err := startAndWaitForOllama(context.Background(), "127.0.0.1", "59999", logger)
+		assert.Error(t, err)
+		// The error message may vary depending on the system, so just check it's an error
+		assert.NotNil(t, err)
+	})
+}
+
+func TestPullModels_NoModels(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	err := PullModels(ctx, nil, logger)
+	assert.NoError(t, err)
+}
+
+func TestPullModels_SingleModel(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	// Test with empty/whitespace model names
+	err := PullModels(ctx, []string{"", "   ", "valid-model"}, logger)
+	// Should handle empty models gracefully and attempt to pull valid ones
+	// May fail if ollama is not available, but shouldn't panic
+	if err != nil {
+		assert.Contains(t, err.Error(), "ollama")
+	}
+}

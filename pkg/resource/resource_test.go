@@ -804,3 +804,104 @@ run {
 		assert.NotNil(t, resource)
 	})
 }
+
+// Unit tests for resource functions (not integration tests)
+func TestLoadResourceFromFile(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	t.Run("Success", func(t *testing.T) {
+		// Create a temporary file on the real filesystem
+		tmpDir, err := os.MkdirTemp("", "resource_test")
+		require.NoError(t, err)
+		defer os.RemoveAll(tmpDir)
+
+		// Create a valid resource file content
+		validContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+
+ActionID = "testaction"
+Name = "Test Action"
+Category = "test"
+Description = "Test resource"
+run {
+  APIResponse {
+    Success = true
+    Response {
+      Data {
+        "test"
+      }
+    }
+  }
+}
+`, schema.SchemaVersion(ctx))
+
+		resourceFile := filepath.Join(tmpDir, "test.pkl")
+		err = os.WriteFile(resourceFile, []byte(validContent), 0o644)
+		require.NoError(t, err)
+
+		// Test loadResourceFromFile directly
+		resource, err := loadResourceFromFile(ctx, resourceFile, logger)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, resource)
+		assert.Equal(t, "testaction", resource.ActionID)
+	})
+
+	t.Run("InvalidFile", func(t *testing.T) {
+		ctx := context.Background()
+		logger := logging.NewTestLogger()
+
+		_, err := loadResourceFromFile(ctx, "/nonexistent/file.pkl", logger)
+		assert.Error(t, err)
+	})
+}
+
+func TestLoadResourceFromEmbeddedAssets(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger()
+
+	t.Run("Success", func(t *testing.T) {
+		// Create a temporary file on the real filesystem
+		tmpDir, err := os.MkdirTemp("", "resource_test")
+		require.NoError(t, err)
+		defer os.RemoveAll(tmpDir)
+
+		// Create a valid resource file content
+		validContent := fmt.Sprintf(`amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+
+ActionID = "testaction"
+Name = "Test Action"
+Category = "test"
+Description = "Test resource"
+run {
+  APIResponse {
+    Success = true
+    Response {
+      Data {
+        "test"
+      }
+    }
+  }
+}
+`, schema.SchemaVersion(ctx))
+
+		resourceFile := filepath.Join(tmpDir, "test.pkl")
+		err = os.WriteFile(resourceFile, []byte(validContent), 0o644)
+		require.NoError(t, err)
+
+		// Test loadResourceFromEmbeddedAssets directly
+		resource, err := loadResourceFromEmbeddedAssets(ctx, resourceFile, logger)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, resource)
+		assert.Equal(t, "testaction", resource.ActionID)
+	})
+
+	t.Run("InvalidFile", func(t *testing.T) {
+		ctx := context.Background()
+		logger := logging.NewTestLogger()
+
+		_, err := loadResourceFromEmbeddedAssets(ctx, "/nonexistent/file.pkl", logger)
+		assert.Error(t, err)
+	})
+}

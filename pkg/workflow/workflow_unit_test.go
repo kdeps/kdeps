@@ -1,4 +1,4 @@
-package resource
+package workflow
 
 import (
 	"context"
@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Unit tests for resource functions
-func TestLoadResourceFromFile(t *testing.T) {
+// Unit tests for workflow functions
+func TestLoadWorkflowFromFile(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
@@ -20,30 +20,30 @@ func TestLoadResourceFromFile(t *testing.T) {
 		ctx := context.Background()
 		logger := logging.NewTestLogger()
 
-		_, err := loadResourceFromFile(ctx, "/nonexistent/file.pkl", logger)
+		_, err := loadWorkflowFromFile(ctx, "/nonexistent/file.pkl", logger)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "error reading resource file")
+		assert.Contains(t, err.Error(), "error reading workflow file")
 	})
 
 	t.Run("InvalidPKL", func(t *testing.T) {
 		// Create a temporary file with invalid PKL content
-		tmpDir, err := os.MkdirTemp("", "resource_test")
+		tmpDir, err := os.MkdirTemp("", "workflow_test")
 		require.NoError(t, err)
 		defer os.RemoveAll(tmpDir)
 
 		invalidContent := `invalid pkl content that will cause parsing error`
 
-		resourceFile := filepath.Join(tmpDir, "invalid.pkl")
-		err = os.WriteFile(resourceFile, []byte(invalidContent), 0o644)
+		workflowFile := filepath.Join(tmpDir, "invalid.pkl")
+		err = os.WriteFile(workflowFile, []byte(invalidContent), 0o644)
 		require.NoError(t, err)
 
-		_, err = loadResourceFromFile(ctx, resourceFile, logger)
+		_, err = loadWorkflowFromFile(ctx, workflowFile, logger)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "error reading resource file")
+		assert.Contains(t, err.Error(), "error reading workflow file")
 	})
 }
 
-func TestLoadResourceFromEmbeddedAssets(t *testing.T) {
+func TestLoadWorkflowFromEmbeddedAssets(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
@@ -51,36 +51,36 @@ func TestLoadResourceFromEmbeddedAssets(t *testing.T) {
 		ctx := context.Background()
 		logger := logging.NewTestLogger()
 
-		_, err := loadResourceFromEmbeddedAssets(ctx, "/nonexistent/file.pkl", logger)
+		_, err := loadWorkflowFromEmbeddedAssets(ctx, "/nonexistent/file.pkl", logger)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "error reading resource file")
+		assert.Contains(t, err.Error(), "error reading workflow file")
 	})
 
 	t.Run("InvalidPKL", func(t *testing.T) {
 		// Create a temporary file with invalid PKL content
-		tmpDir, err := os.MkdirTemp("", "resource_test")
+		tmpDir, err := os.MkdirTemp("", "workflow_test")
 		require.NoError(t, err)
 		defer os.RemoveAll(tmpDir)
 
 		invalidContent := `invalid pkl content that will cause parsing error`
 
-		resourceFile := filepath.Join(tmpDir, "invalid.pkl")
-		err = os.WriteFile(resourceFile, []byte(invalidContent), 0o644)
+		workflowFile := filepath.Join(tmpDir, "invalid.pkl")
+		err = os.WriteFile(workflowFile, []byte(invalidContent), 0o644)
 		require.NoError(t, err)
 
-		_, err = loadResourceFromEmbeddedAssets(ctx, resourceFile, logger)
+		_, err = loadWorkflowFromEmbeddedAssets(ctx, workflowFile, logger)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "error reading resource file")
+		assert.Contains(t, err.Error(), "error reading workflow file")
 	})
 }
 
-func TestLoadResource_EmbeddedAssets(t *testing.T) {
+func TestLoadWorkflow_EmbeddedAssets(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
 	t.Run("InvalidFile", func(t *testing.T) {
-		_, err := LoadResource(ctx, "/nonexistent/file.pkl", logger)
+		_, err := LoadWorkflow(ctx, "/nonexistent/file.pkl", logger)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "error reading resource file")
+		assert.Contains(t, err.Error(), "error reading workflow file")
 	})
 }
