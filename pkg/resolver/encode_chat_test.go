@@ -25,19 +25,19 @@ func TestEncodeChat_AllFields(t *testing.T) {
 	// Scenario entry
 	scRole := RoleSystem
 	scPrompt := "contextual prompt"
-	scenario := []*pklLLM.MultiChat{{Role: &scRole, Prompt: &scPrompt}}
+	scenario := []pklLLM.MultiChat{{Role: &scRole, Prompt: &scPrompt}}
 
 	// Tool definition with one parameter
 	req := true
 	paramType := "string"
 	paramDesc := "echo value"
-	params := map[string]*pklLLM.ToolProperties{
+	params := map[string]pklLLM.ToolProperties{
 		"value": {Required: &req, Type: &paramType, Description: &paramDesc},
 	}
 	toolName := "echo"
 	toolScript := "echo foo"
 	toolDesc := "simple echo"
-	tools := []*pklLLM.Tool{{
+	tools := []pklLLM.Tool{{
 		Name:        &toolName,
 		Script:      &toolScript,
 		Description: &toolDesc,
@@ -179,7 +179,7 @@ func TestEncodeExecHelpers(t *testing.T) {
 
 func newMemResolver() *DependencyResolver {
 	fs := afero.NewMemMapFs()
-	fs.MkdirAll("/files", 0o755) // nolint:errcheck
+	fs.MkdirAll("/files", 0o755)
 	return &DependencyResolver{
 		Fs:        fs,
 		FilesDir:  "/files",

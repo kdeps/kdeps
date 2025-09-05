@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"reflect"
@@ -40,7 +41,7 @@ func TestNewTestLogger(t *testing.T) {
 
 func TestGetOutput(t *testing.T) {
 	testLogger := NewTestLogger()
-	assert.Equal(t, "", testLogger.GetOutput())
+	assert.Empty(t, testLogger.GetOutput())
 
 	testLogger.Info("test message")
 	output := testLogger.GetOutput()
@@ -51,7 +52,7 @@ func TestGetOutput(t *testing.T) {
 		Logger: testLogger.Logger,
 		buffer: nil,
 	}
-	assert.Equal(t, "", loggerWithNilBuffer.GetOutput())
+	assert.Empty(t, loggerWithNilBuffer.GetOutput())
 }
 
 func TestLogLevels(t *testing.T) {
@@ -194,7 +195,8 @@ func TestFatal_Subprocess(t *testing.T) {
 	output, err := cmd.CombinedOutput()
 
 	// The child process must exit with non-zero due to Fatal.
-	if exitErr, ok := err.(*exec.ExitError); ok {
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
 		if exitErr.ExitCode() == 0 {
 			t.Fatalf("expected non-zero exit code, got 0, output: %s", string(output))
 		}

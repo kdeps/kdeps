@@ -75,9 +75,9 @@ func TestAppendChatEntry_Basic(t *testing.T) {
 		ActionDir: "/action",
 		FilesDir:  "/files",
 		RequestID: "req1",
-		LoadResourceFn: func(_ context.Context, path string, _ ResourceType) (interface{}, error) {
+		LoadResourceFn: func(_ context.Context, _ string, _ ResourceType) (interface{}, error) {
 			// Return empty LLMImpl so AppendChatEntry has a map to update
-			empty := make(map[string]*pklLLM.ResourceChat)
+			empty := make(map[string]pklLLM.ResourceChat)
 			return &pklLLM.LLMImpl{Resources: &empty}, nil
 		},
 	}
@@ -116,8 +116,8 @@ func TestAppendHTTPEntry_Basic(t *testing.T) {
 		ActionDir: "/action",
 		FilesDir:  "/files",
 		RequestID: "req1",
-		LoadResourceFn: func(_ context.Context, path string, _ ResourceType) (interface{}, error) {
-			empty := make(map[string]*pklHTTP.ResourceHTTPClient)
+		LoadResourceFn: func(_ context.Context, _ string, _ ResourceType) (interface{}, error) {
+			empty := make(map[string]pklHTTP.ResourceHTTPClient)
 			return &pklHTTP.HTTPImpl{Resources: &empty}, nil
 		},
 	}

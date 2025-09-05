@@ -79,7 +79,11 @@ func (dr *DependencyResolver) processPythonBlock(actionID string, pythonBlock *p
 			return err
 		}
 
-		defer dr.deactivateCondaEnvironment()
+		defer func() {
+			if err := dr.deactivateCondaEnvironment(); err != nil {
+				dr.Logger.Warn("failed to deactivate conda environment", "error", err)
+			}
+		}()
 	}
 
 	env := dr.formatPythonEnv(pythonBlock.Env)
@@ -230,14 +234,14 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 		return fmt.Errorf("failed to load PKL: %w", err)
 	}
 
-	pklRes, ok := res.(*pklPython.PythonImpl)
+	pklRes, ok := res.(pklPython.PythonImpl)
 	if !ok {
-		return errors.New("failed to cast pklRes to *pklPython.Resource")
+		return errors.New("failed to cast pklRes to pklPython.PythonImpl")
 	}
 
 	resources := pklRes.GetResources()
 	if resources == nil {
-		emptyMap := make(map[string]*pklPython.ResourcePython)
+		emptyMap := make(map[string]pklPython.ResourcePython)
 		resources = &emptyMap
 	}
 	existingResources := *resources
@@ -269,7 +273,7 @@ func (dr *DependencyResolver) AppendPythonEntry(resourceID string, newPython *pk
 		Unit:  pkl.Nanosecond,
 	}
 
-	existingResources[resourceID] = &pklPython.ResourcePython{
+	existingResources[resourceID] = pklPython.ResourcePython{
 		Env:             encodedEnv,
 		Script:          encodedScript,
 		Stderr:          encodedStderr,

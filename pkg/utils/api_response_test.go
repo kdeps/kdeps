@@ -117,7 +117,7 @@ func TestNewAPIServerResponse(t *testing.T) {
 		assert.Len(t, workflowErrors, 2, "Should have 2 workflow errors")
 
 		// Now simulate response resource with new errors
-		responseErrors := []*apiserverresponse.APIServerErrorsBlock{
+		responseErrors := []apiserverresponse.APIServerErrorsBlock{
 			{Code: 400, Message: "Response validation error"},
 			{Code: 500, Message: "Response processing error"},
 		}
@@ -136,7 +136,7 @@ func TestNewAPIServerResponse(t *testing.T) {
 		ClearRequestErrors(requestID)
 		NewAPIServerResponse(false, nil, 500, "Workflow error only", requestID)
 
-		emptyResponseErrors := []*apiserverresponse.APIServerErrorsBlock{}
+		emptyResponseErrors := []apiserverresponse.APIServerErrorsBlock{}
 		finalErrors := MergeAllErrors(requestID, emptyResponseErrors)
 
 		assert.Len(t, finalErrors, 1, "Should preserve workflow error even when response has no errors")

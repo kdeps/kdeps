@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/build"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/kdeps/kdeps/pkg/archiver"
@@ -57,7 +57,7 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 	for _, image := range images {
 		for _, tag := range image.RepoTags {
 			if tag == containerName {
-				fmt.Println("Image already exists:", containerName)
+				fmt.Println("Image already exists:", containerName) //nolint:forbidigo // Status reporting
 				return cName, containerName, nil
 			}
 		}
@@ -111,7 +111,7 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 	}
 
 	// Docker build options
-	buildOptions := types.ImageBuildOptions{
+	buildOptions := build.ImageBuildOptions{
 		Tags:           []string{containerName}, // Image name and tag
 		Dockerfile:     "Dockerfile",            // The Dockerfile is in the root of the build context
 		Remove:         true,                    // Remove intermediate containers after a successful build
@@ -133,7 +133,7 @@ func BuildDockerImage(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, cli 
 		return cName, containerName, err
 	}
 
-	fmt.Println("Docker image build completed successfully!")
+	fmt.Println("Docker image build completed successfully!") //nolint:forbidigo // Status reporting
 
 	return cName, containerName, nil
 }
@@ -458,7 +458,7 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 
 	// Write the Dockerfile to the run directory
 	resourceConfigurationFile := filepath.Join(runDir, "Dockerfile")
-	fmt.Println(resourceConfigurationFile)
+	fmt.Println(resourceConfigurationFile) //nolint:forbidigo // File path output
 	err = afero.WriteFile(fs, resourceConfigurationFile, []byte(dockerfileContent), 0o644)
 	if err != nil {
 		return "", false, false, "", "", "", "", "", err
@@ -478,13 +478,13 @@ func printDockerBuildOutput(rd io.Reader) error {
 		err := json.Unmarshal([]byte(line), buildLine)
 		if err != nil {
 			// If unmarshalling fails, print the raw line (non-JSON output)
-			fmt.Println(line)
+			fmt.Println(line) //nolint:forbidigo // Docker build output
 			continue
 		}
 
 		// Print the build logs (stream output)
 		if buildLine.Stream != "" {
-			fmt.Print(buildLine.Stream) // Docker logs often include newlines, so no need to add extra
+			fmt.Print(buildLine.Stream) //nolint:forbidigo // Docker build output
 		}
 
 		// If there's an error in the build process, return it

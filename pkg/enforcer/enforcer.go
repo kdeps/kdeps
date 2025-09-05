@@ -48,7 +48,22 @@ func compareVersions(v1, v2 string, logger *logging.Logger) (int, error) {
 		var err error
 
 		if i < len(v1Parts) {
-			v1Part, err = strconv.Atoi(v1Parts[i])
+			// Handle version suffixes like "-dev", "+build", "-alpha+1000", etc.
+			numPart := v1Parts[i]
+			minIndex := len(numPart)
+
+			if hyphenIndex := strings.Index(numPart, "-"); hyphenIndex != -1 && hyphenIndex < minIndex {
+				minIndex = hyphenIndex
+			}
+			if plusIndex := strings.Index(numPart, "+"); plusIndex != -1 && plusIndex < minIndex {
+				minIndex = plusIndex
+			}
+
+			if minIndex < len(numPart) {
+				numPart = numPart[:minIndex]
+			}
+
+			v1Part, err = strconv.Atoi(numPart)
 			if err != nil {
 				logger.Error("invalid version format")
 				return 0, errors.New("invalid version format")
@@ -56,7 +71,22 @@ func compareVersions(v1, v2 string, logger *logging.Logger) (int, error) {
 		}
 
 		if i < len(v2Parts) {
-			v2Part, err = strconv.Atoi(v2Parts[i])
+			// Handle version suffixes like "-dev", "+build", "-alpha+1000", etc.
+			numPart := v2Parts[i]
+			minIndex := len(numPart)
+
+			if hyphenIndex := strings.Index(numPart, "-"); hyphenIndex != -1 && hyphenIndex < minIndex {
+				minIndex = hyphenIndex
+			}
+			if plusIndex := strings.Index(numPart, "+"); plusIndex != -1 && plusIndex < minIndex {
+				minIndex = plusIndex
+			}
+
+			if minIndex < len(numPart) {
+				numPart = numPart[:minIndex]
+			}
+
+			v2Part, err = strconv.Atoi(numPart)
 			if err != nil {
 				logger.Error("invalid version format")
 				return 0, errors.New("invalid version format")
@@ -192,7 +222,7 @@ func EnforceFolderStructure(fs afero.Fs, ctx context.Context, filePath string, l
 			expectedFolders[file.Name()] = true
 
 			if file.Name() == "resources" {
-				if err := enforceResourcesFolder(fs, ctx, filepath.Join(absTargetDir, "resources"), logger); err != nil {
+				if err := enforceResourcesFolder(ctx, fs, filepath.Join(absTargetDir, "resources"), logger); err != nil {
 					return err
 				}
 			}
@@ -210,7 +240,7 @@ func EnforceFolderStructure(fs afero.Fs, ctx context.Context, filePath string, l
 	return nil
 }
 
-func EnforceResourceRunBlock(fs afero.Fs, ctx context.Context, file string, logger *logging.Logger) error {
+func EnforceResourceRunBlock(ctx context.Context, fs afero.Fs, file string, logger *logging.Logger) error {
 	pklData, err := afero.ReadFile(fs, file)
 	if err != nil {
 		logger.Error("failed to read .pkl file", "file", file, "error", err)
@@ -235,7 +265,7 @@ func EnforceResourceRunBlock(fs afero.Fs, ctx context.Context, file string, logg
 	return nil
 }
 
-func enforceResourcesFolder(fs afero.Fs, ctx context.Context, resourcesPath string, logger *logging.Logger) error {
+func enforceResourcesFolder(ctx context.Context, fs afero.Fs, resourcesPath string, logger *logging.Logger) error {
 	files, err := afero.ReadDir(fs, resourcesPath)
 	if err != nil {
 		logger.Error("error reading resources folder", "path", resourcesPath, "error", err)
@@ -257,7 +287,7 @@ func enforceResourcesFolder(fs afero.Fs, ctx context.Context, resourcesPath stri
 		}
 
 		fullPath := filepath.Join(resourcesPath, file.Name())
-		if err := EnforceResourceRunBlock(fs, ctx, fullPath, logger); err != nil {
+		if err := EnforceResourceRunBlock(ctx, fs, fullPath, logger); err != nil {
 			logger.Error("failed to process .pkl file", "file", fullPath, "error", err)
 			return err
 		}
@@ -265,7 +295,7 @@ func enforceResourcesFolder(fs afero.Fs, ctx context.Context, resourcesPath stri
 	return nil
 }
 
-func EnforcePklTemplateAmendsRules(fs afero.Fs, ctx context.Context, filePath string, logger *logging.Logger) error {
+func EnforcePklTemplateAmendsRules(fs afero.Fs, filePath string, ctx context.Context, logger *logging.Logger) error {
 	file, err := fs.Open(filePath)
 	if err != nil {
 		logger.Error("failed to open file", "filePath", filePath, "error", err)

@@ -2,19 +2,20 @@ package main
 
 import (
 	"context"
+	"testing"
+
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
-	schemaK "github.com/kdeps/schema/gen/kdeps"
+	kdeps "github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
-	"testing"
 )
 
 // TestHandleNonDockerMode_GenerateFlow exercises the path where no config exists and it must be generated.
 func TestHandleNonDockerMode_GenerateFlow(t *testing.T) {
 	// Prepare filesystem and env
 	fs := afero.NewMemMapFs()
-	ctx := context.Background()
+	ctx := t.Context()
 	env, _ := environment.NewEnvironment(fs, nil)
 	logger := logging.GetLogger()
 
@@ -38,39 +39,39 @@ func TestHandleNonDockerMode_GenerateFlow(t *testing.T) {
 	}()
 
 	// Stubbed behaviours
-	findConfigurationFn = func(afero.Fs, context.Context, *environment.Environment, *logging.Logger) (string, error) {
+	findConfigurationFn = func(context.Context, afero.Fs, *environment.Environment, *logging.Logger) (string, error) {
 		return "", nil // trigger generation path
 	}
-	generateConfigurationFn = func(afero.Fs, context.Context, *environment.Environment, *logging.Logger) (string, error) {
+	generateConfigurationFn = func(context.Context, afero.Fs, *environment.Environment, *logging.Logger) (string, error) {
 		return "/generated/config.yml", nil
 	}
-	editConfigurationFn = func(afero.Fs, context.Context, *environment.Environment, *logging.Logger) (string, error) {
+	editConfigurationFn = func(context.Context, afero.Fs, *environment.Environment, *logging.Logger) (string, error) {
 		return "/generated/config.yml", nil
 	}
-	validateConfigurationFn = func(afero.Fs, context.Context, *environment.Environment, *logging.Logger) (string, error) {
+	validateConfigurationFn = func(context.Context, afero.Fs, *environment.Environment, *logging.Logger) (string, error) {
 		return "/generated/config.yml", nil
 	}
-	loadConfigurationFn = func(afero.Fs, context.Context, string, *logging.Logger) (*schemaK.Kdeps, error) {
-		return &schemaK.Kdeps{}, nil
+	loadConfigurationFn = func(context.Context, afero.Fs, string, *logging.Logger) (*kdeps.Kdeps, error) {
+		return &kdeps.Kdeps{}, nil
 	}
-	getKdepsPathFn = func(context.Context, schemaK.Kdeps) (string, error) {
+	getKdepsPathFn = func(context.Context, kdeps.Kdeps) (string, error) {
 		return "/kdeps", nil
 	}
-	newRootCommandFn = func(afero.Fs, context.Context, string, *schemaK.Kdeps, *environment.Environment, *logging.Logger) *cobra.Command {
+	newRootCommandFn = func(context.Context, afero.Fs, string, *kdeps.Kdeps, *environment.Environment, *logging.Logger) *cobra.Command {
 		return &cobra.Command{
 			Use: "root",
-			Run: func(cmd *cobra.Command, args []string) {},
+			Run: func(_ *cobra.Command, _ []string) {},
 		}
 	}
 
 	// Call the function; expecting graceful completion without panic.
-	handleNonDockerMode(fs, ctx, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger)
 }
 
 // TestHandleNonDockerMode_ExistingConfig exercises the flow when a configuration already exists.
 func TestHandleNonDockerMode_ExistingConfig(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	ctx := context.Background()
+	ctx := t.Context()
 	env, _ := environment.NewEnvironment(fs, nil)
 	logger := logging.GetLogger()
 
@@ -90,24 +91,24 @@ func TestHandleNonDockerMode_ExistingConfig(t *testing.T) {
 	}()
 
 	// Stubs
-	findConfigurationFn = func(afero.Fs, context.Context, *environment.Environment, *logging.Logger) (string, error) {
+	findConfigurationFn = func(context.Context, afero.Fs, *environment.Environment, *logging.Logger) (string, error) {
 		return "/existing/config.yml", nil
 	}
-	validateConfigurationFn = func(afero.Fs, context.Context, *environment.Environment, *logging.Logger) (string, error) {
+	validateConfigurationFn = func(context.Context, afero.Fs, *environment.Environment, *logging.Logger) (string, error) {
 		return "/existing/config.yml", nil
 	}
-	loadConfigurationFn = func(afero.Fs, context.Context, string, *logging.Logger) (*schemaK.Kdeps, error) {
-		return &schemaK.Kdeps{}, nil
+	loadConfigurationFn = func(context.Context, afero.Fs, string, *logging.Logger) (*kdeps.Kdeps, error) {
+		return &kdeps.Kdeps{}, nil
 	}
-	getKdepsPathFn = func(context.Context, schemaK.Kdeps) (string, error) {
+	getKdepsPathFn = func(context.Context, kdeps.Kdeps) (string, error) {
 		return "/kdeps", nil
 	}
-	newRootCommandFn = func(afero.Fs, context.Context, string, *schemaK.Kdeps, *environment.Environment, *logging.Logger) *cobra.Command {
+	newRootCommandFn = func(context.Context, afero.Fs, string, *kdeps.Kdeps, *environment.Environment, *logging.Logger) *cobra.Command {
 		return &cobra.Command{Use: "root"}
 	}
 
 	// Execute
-	handleNonDockerMode(fs, ctx, env, logger)
+	handleNonDockerMode(ctx, fs, env, logger)
 }
 
 func TestSetupEnvironmentSuccess(t *testing.T) {

@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -62,7 +63,8 @@ func TestSendSigterm_Subprocess(t *testing.T) {
 	cmd := exec.Command(os.Args[0], "-test.run=TestSendSigterm_Subprocess")
 	cmd.Env = append(os.Environ(), "SIGTERM_HELPER=1")
 	if err := cmd.Run(); err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			t.Fatalf("child exited with code %d: %v", exitErr.ExitCode(), err)
 		}
 		t.Fatalf("failed to run child process: %v", err)

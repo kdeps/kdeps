@@ -13,22 +13,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Define styles using lipgloss.
-var (
-	primaryStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("75"))
-	successStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("76")).Bold(true)
-	errorStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
-)
+// Define styles using lipgloss (moved inside functions to avoid global variables)
 
 // NewPackageCommand creates the 'package' command and passes the necessary dependencies.
-func NewPackageCommand(fs afero.Fs, ctx context.Context, kdepsDir string, env *environment.Environment, logger *logging.Logger) *cobra.Command {
+func NewPackageCommand(ctx context.Context, fs afero.Fs, kdepsDir string, env *environment.Environment, logger *logging.Logger) *cobra.Command {
 	return &cobra.Command{
 		Use:     "package [agent-dir]",
 		Aliases: []string{"p"},
 		Example: "$ kdeps package ./myAgent/",
 		Short:   "Package an AI agent to .kdeps file",
 		Args:    cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
+			// Define styles using lipgloss
+			primaryStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("75"))
+			successStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("76")).Bold(true)
+			errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
+
 			agentDir := args[0]
 
 			// Find the workflow file associated with the agent directory
@@ -50,7 +50,7 @@ func NewPackageCommand(fs afero.Fs, ctx context.Context, kdepsDir string, env *e
 			}
 
 			// Print success message
-			fmt.Println(successStyle.Render("AI agent packaged successfully:"), primaryStyle.Render(agentDir))
+			fmt.Println(successStyle.Render("AI agent packaged successfully:"), primaryStyle.Render(agentDir)) //nolint:forbidigo // CLI user feedback
 			return nil
 		},
 	}

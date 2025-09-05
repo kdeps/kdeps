@@ -7,16 +7,15 @@ import (
 	"errors"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 
-	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 
+	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/schema"
 	pklProject "github.com/kdeps/schema/gen/project"
@@ -534,18 +533,18 @@ func TestCopyFileBackupAndOverwrite(t *testing.T) {
 // mockWorkflow implements the minimal subset of the generated Workflow interface we need.
 type mockWorkflow struct{ name, version string }
 
-func (m mockWorkflow) GetAgentID() string                { return m.name }
-func (m mockWorkflow) GetVersion() string                { return m.version }
-func (m mockWorkflow) GetDescription() string            { return "" }
-func (m mockWorkflow) GetWebsite() *string               { return nil }
-func (m mockWorkflow) GetAuthors() *[]string             { return nil }
-func (m mockWorkflow) GetDocumentation() *string         { return nil }
-func (m mockWorkflow) GetRepository() *string            { return nil }
-func (m mockWorkflow) GetHeroImage() *string             { return nil }
-func (m mockWorkflow) GetAgentIcon() *string             { return nil }
-func (m mockWorkflow) GetTargetActionID() string         { return "" }
-func (m mockWorkflow) GetWorkflows() []string            { return nil }
-func (m mockWorkflow) GetSettings() *pklProject.Settings { return nil }
+func (m mockWorkflow) GetAgentID() string               { return m.name }
+func (m mockWorkflow) GetVersion() string               { return m.version }
+func (m mockWorkflow) GetDescription() string           { return "" }
+func (m mockWorkflow) GetWebsite() *string              { return nil }
+func (m mockWorkflow) GetAuthors() *[]string            { return nil }
+func (m mockWorkflow) GetDocumentation() *string        { return nil }
+func (m mockWorkflow) GetRepository() *string           { return nil }
+func (m mockWorkflow) GetHeroImage() *string            { return nil }
+func (m mockWorkflow) GetAgentIcon() *string            { return nil }
+func (m mockWorkflow) GetTargetActionID() string        { return "" }
+func (m mockWorkflow) GetWorkflows() []string           { return nil }
+func (m mockWorkflow) GetSettings() pklProject.Settings { return pklProject.Settings{} }
 
 // TestCopyDataDirBasic verifies that CopyDataDir copies files when present.
 func TestCopyDataDirBasic(t *testing.T) {
@@ -784,7 +783,7 @@ func TestSetPermissionsErrorPaths(t *testing.T) {
 }
 
 // ensure test files call schema version at least once to satisfy repo conventions
-// go:generate echo "schema version: v0.0.0" > /dev/null
+//go:generate echo "schema version: v0.0.0" > /dev/null
 
 func TestMoveFolder(t *testing.T) {
 	fs := afero.NewMemMapFs()
@@ -799,7 +798,7 @@ func TestMoveFolder(t *testing.T) {
 	require.Equal(t, "content", string(data))
 }
 
-func TestGetFileMD5(t *testing.T) {
+func TestGetFileMD5InCopyContext(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	content := []byte("hello world")
 	_ = afero.WriteFile(fs, "/file.txt", content, 0o644)
@@ -941,7 +940,7 @@ func TestCopyFileCreatesBackup(t *testing.T) {
 	}
 
 	// ensure only one dst exists and no backup yet
-	files, err := ioutil.ReadDir(root)
+	files, err := os.ReadDir(root)
 	if err != nil {
 		t.Fatalf("ReadDir: %v", err)
 	}
@@ -959,7 +958,7 @@ func TestCopyFileCreatesBackup(t *testing.T) {
 	}
 
 	// Now we expect a backup file in addition to dst and src
-	files, err = ioutil.ReadDir(root)
+	files, err = os.ReadDir(root)
 	if err != nil {
 		t.Fatalf("ReadDir: %v", err)
 	}
@@ -1240,7 +1239,7 @@ func TestCopyFileVariants(t *testing.T) {
 	// a backup file should exist with md5 of previous dst ("different")
 	// Walk directory to locate any file with pattern dst_*.txt
 	foundBackup := false
-	_ = afero.Walk(fsys, filepath.Dir(dstPath), func(p string, info fs.FileInfo, err error) error {
+	_ = afero.Walk(fsys, filepath.Dir(dstPath), func(p string, _ fs.FileInfo, err error) error {
 		if strings.HasPrefix(filepath.Base(p), "dst_") && strings.HasSuffix(p, filepath.Ext(dstPath)) {
 			foundBackup = true
 		}
@@ -1567,8 +1566,8 @@ func TestParseActionIDEdgeCases(t *testing.T) {
 	}
 
 	// Missing explicit name
-	name2, ver2 := parseActionID("myAction:0.3.0", "agent", "1.0.0")
-	if name2 != "agent" || ver2 != "0.3.0" {
+	name2, ver2 := parseActionID("myAction:0.3.1-dev", "agent", "1.0.0")
+	if name2 != "agent" || ver2 != "0.3.1-dev" {
 		t.Fatalf("unexpected default name parse")
 	}
 
@@ -1651,22 +1650,22 @@ func TestGetFileMD5AndCopyFile(t *testing.T) {
 
 	src := "/src.txt"
 	content := []byte("hello world")
-	assert.NoError(t, afero.WriteFile(fsys, src, content, 0o644))
+	require.NoError(t, afero.WriteFile(fsys, src, content, 0o644))
 
 	md5short, err := GetFileMD5(fsys, src, 8)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, md5short, 8)
 
 	dest := "/dest.txt"
-	assert.NoError(t, CopyFile(fsys, ctx, src, dest, logger))
+	require.NoError(t, CopyFile(fsys, ctx, src, dest, logger))
 
 	// identical copy should not create backup
-	assert.NoError(t, CopyFile(fsys, ctx, src, dest, logger))
+	require.NoError(t, CopyFile(fsys, ctx, src, dest, logger))
 
 	// modify src and copy again -> backup expected
 	newContent := []byte("hello new world")
-	assert.NoError(t, afero.WriteFile(fsys, src, newContent, 0o644))
-	assert.NoError(t, CopyFile(fsys, ctx, src, dest, logger))
+	require.NoError(t, afero.WriteFile(fsys, src, newContent, 0o644))
+	require.NoError(t, CopyFile(fsys, ctx, src, dest, logger))
 
 	backupName := "dest_" + md5short + ".txt"
 	exists, _ := afero.Exists(fsys, "/"+backupName)
@@ -1679,26 +1678,26 @@ func TestMoveFolderAndCopyDir(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	srcDir := "/source"
-	assert.NoError(t, fsys.MkdirAll(filepath.Join(srcDir, "nested"), 0o755))
-	assert.NoError(t, afero.WriteFile(fsys, filepath.Join(srcDir, "file1.txt"), []byte("a"), 0o644))
-	assert.NoError(t, afero.WriteFile(fsys, filepath.Join(srcDir, "nested", "file2.txt"), []byte("b"), 0o644))
+	require.NoError(t, fsys.MkdirAll(filepath.Join(srcDir, "nested"), 0o755))
+	require.NoError(t, afero.WriteFile(fsys, filepath.Join(srcDir, "file1.txt"), []byte("a"), 0o644))
+	require.NoError(t, afero.WriteFile(fsys, filepath.Join(srcDir, "nested", "file2.txt"), []byte("b"), 0o644))
 
 	destDir := "/destination"
-	assert.NoError(t, MoveFolder(fsys, srcDir, destDir))
+	require.NoError(t, MoveFolder(fsys, srcDir, destDir))
 
 	exists, _ := afero.DirExists(fsys, srcDir)
 	assert.False(t, exists)
 
 	for _, rel := range []string{"file1.txt", "nested/file2.txt"} {
 		data, err := afero.ReadFile(fsys, filepath.Join(destDir, rel))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotEmpty(t, data)
 	}
 
 	compiledDir := "/compiled"
-	assert.NoError(t, CopyDir(fsys, ctx, destDir, compiledDir, logger))
+	require.NoError(t, CopyDir(fsys, ctx, destDir, compiledDir, logger))
 	d, err := afero.ReadFile(fsys, filepath.Join(compiledDir, "file1.txt"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, []byte("a"), d)
 }
 
@@ -1760,7 +1759,7 @@ type errFs struct {
 }
 
 // Override Chmod to simulate permission failure.
-func (e *errFs) Chmod(name string, mode os.FileMode) error {
+func (e *errFs) Chmod(_ string, mode os.FileMode) error {
 	return errors.New("chmod not allowed")
 }
 
@@ -1966,7 +1965,7 @@ func TestMoveFolderAndGetFileMD5Small(t *testing.T) {
 	}
 
 	h := md5.New()
-	_, _ = io.WriteString(h, string(data))
+	h.Write(data)
 	wantFull := hex.EncodeToString(h.Sum(nil))
 	want := wantFull[:6]
 	if got != want {

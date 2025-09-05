@@ -29,9 +29,12 @@ import (
 	"github.com/kdeps/kdeps/pkg/session"
 	"github.com/kdeps/kdeps/pkg/tool"
 	"github.com/kdeps/kdeps/pkg/utils"
+	"github.com/kdeps/kdeps/pkg/workflow"
+	pklExec "github.com/kdeps/schema/gen/exec"
 	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
-	pklRes "github.com/kdeps/schema/gen/resource"
+	pklPython "github.com/kdeps/schema/gen/python"
+	pklResource "github.com/kdeps/schema/gen/resource"
 	pklWf "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
 	"github.com/tmc/langchaingo/llms/ollama"
@@ -80,11 +83,11 @@ type DependencyResolver struct {
 	WaitForTimestampChangeFn func(string, pkl.Duration, time.Duration, string) error `json:"-"`
 
 	// Additional injectable helpers for broader unit testing
-	LoadResourceEntriesFn  func() error                                                          `json:"-"`
-	LoadResourceFn         func(context.Context, string, ResourceType) (interface{}, error)      `json:"-"`
-	BuildDependencyStackFn func(string, map[string]bool) []string                                `json:"-"`
-	ProcessRunBlockFn      func(ResourceNodeEntry, *pklRes.Resource, string, bool) (bool, error) `json:"-"`
-	ClearItemDBFn          func() error                                                          `json:"-"`
+	LoadResourceEntriesFn  func() error                                                               `json:"-"`
+	LoadResourceFn         func(context.Context, string, ResourceType) (interface{}, error)           `json:"-"`
+	BuildDependencyStackFn func(string, map[string]bool) []string                                     `json:"-"`
+	ProcessRunBlockFn      func(ResourceNodeEntry, *pklResource.Resource, string, bool) (bool, error) `json:"-"`
+	ClearItemDBFn          func() error                                                               `json:"-"`
 
 	// Chat / HTTP injection helpers
 	NewLLMFn               func(model string) (*ollama.LLM, error)                                                                                      `json:"-"`
@@ -179,20 +182,21 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	responsePklFile := filepath.Join(actionDir, "/api/"+graphID+"__response.pkl")
 	responseTargetFile := filepath.Join(actionDir, "/api/"+graphID+"__response.json")
 
-	workflowConfiguration, err := pklWf.LoadFromPath(ctx, pklWfFile)
+	// Use our patched workflow loading function
+	workflowConfiguration, err := workflow.LoadWorkflow(ctx, pklWfFile, logger)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error reading workflow file '%s': %w", pklWfFile, err)
 	}
 
 	var apiServerMode, installAnaconda bool
 	var agentName, memoryDBPath, sessionDBPath, toolDBPath, itemDBPath string
 
-	if workflowConfiguration.GetSettings() != nil {
-		apiServerMode = workflowConfiguration.GetSettings().APIServerMode
-		agentSettings := workflowConfiguration.GetSettings().AgentSettings
-		installAnaconda = agentSettings.InstallAnaconda
-		agentName = workflowConfiguration.GetAgentID()
-	}
+	// GetSettings() returns a struct, not a pointer, so we can always access it
+	settings := workflowConfiguration.GetSettings()
+	apiServerMode = settings.APIServerMode
+	agentSettings := settings.AgentSettings
+	installAnaconda = agentSettings.InstallAnaconda
+	agentName = workflowConfiguration.GetAgentID()
 
 	// Use configurable kdeps path; in Docker default to /agent/volume/, otherwise /.kdeps/
 	kdepsBase := os.Getenv("KDEPS_VOLUME_PATH")
@@ -300,7 +304,48 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 
 	// Chat helpers
 	dependencyResolver.NewLLMFn = func(model string) (*ollama.LLM, error) {
-		return ollama.New(ollama.WithModel(model))
+		llm, err := ollama.New(ollama.WithModel(model))
+		if err != nil {
+			errMsg := strings.ToLower(err.Error())
+
+			// Check for various Ollama error conditions that indicate we should try to pull the model
+			shouldTryPull := strings.Contains(errMsg, "not found") ||
+				strings.Contains(errMsg, "model") && strings.Contains(errMsg, "not found") ||
+				strings.Contains(errMsg, "no such file or directory") ||
+				strings.Contains(errMsg, "connection refused") ||
+				strings.Contains(errMsg, "eof") ||
+				strings.Contains(errMsg, "try pulling it first")
+
+			if shouldTryPull {
+				dependencyResolver.Logger.Info("model not available or server not running, attempting to pull", "model", model, "error", err.Error())
+
+				// Try to pull the model (this will also ensure Ollama server is running)
+				if pullErr := dependencyResolver.pullOllamaModel(dependencyResolver.Context, model); pullErr != nil {
+					dependencyResolver.Logger.Error("failed to pull model", "model", model, "error", pullErr)
+					return nil, fmt.Errorf("failed to pull model %s: %w", model, pullErr)
+				}
+
+				// Sync the pulled model to persistent storage
+				if syncErr := dependencyResolver.syncModelToPersistentStorage(model); syncErr != nil {
+					dependencyResolver.Logger.Warn("failed to sync model to persistent storage", "model", model, "error", syncErr)
+					// Don't fail the whole operation if sync fails, just log it
+				}
+
+				// Retry creating LLM after pulling
+				llm, err = ollama.New(ollama.WithModel(model))
+				if err != nil {
+					// Try once more after a brief delay to allow server to fully start
+					time.Sleep(1 * time.Second)
+					llm, err = ollama.New(ollama.WithModel(model))
+					if err != nil {
+						return nil, fmt.Errorf("failed to create LLM after pulling model %s: %w", model, err)
+					}
+				}
+			} else {
+				return nil, fmt.Errorf("failed to create LLM: %w", err)
+			}
+		}
+		return llm, nil
 	}
 	dependencyResolver.GenerateChatResponseFn = generateChatResponse
 	dependencyResolver.DoRequestFn = dependencyResolver.DoRequest
@@ -315,6 +360,15 @@ func NewGraphResolver(fs afero.Fs, ctx context.Context, env *environment.Environ
 	dependencyResolver.PrependDynamicImportsFn = dependencyResolver.PrependDynamicImports
 	dependencyResolver.AddPlaceholderImportsFn = dependencyResolver.AddPlaceholderImports
 	dependencyResolver.WalkFn = afero.Walk
+
+	// Ensure all models defined in the workflow are available
+	// Note: workflowConfiguration is already loaded earlier in the function
+	if workflowConfiguration != nil {
+		if err := dependencyResolver.ensureWorkflowModelsAvailable(workflowConfiguration); err != nil {
+			logger.Error("failed to ensure workflow models are available", "error", err)
+			// Don't fail the entire operation, just log the warning
+		}
+	}
 
 	return dependencyResolver, nil
 }
@@ -491,16 +545,18 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 			// Set the current resource actionID for error context
 			dr.CurrentResourceActionID = res.ActionID
 
-			// Load the resource
-			resPkl, err := dr.LoadResourceFn(dr.Context, res.File, Resource)
+			// Load the resource with robust fallback
+			resPkl, err := dr.loadResourceWithFallbackResolver(res.File)
 			if err != nil {
-				return dr.HandleAPIErrorResponse(500, err.Error(), true)
+				dr.Logger.Error("failed to load resource with fallback", "file", res.File, "error", err)
+				return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to load resource %s: %v", res.File, err), true)
 			}
 
-			// Explicitly type rsc as *pklRes.Resource
-			rsc, ok := resPkl.(*pklRes.Resource)
-			if !ok {
-				return dr.HandleAPIErrorResponse(500, "failed to cast resource to *pklRes.Resource for file "+res.File, true)
+			// Robustly cast to pklResource.Resource
+			rsc, err := dr.castToResource(resPkl, res.File)
+			if err != nil {
+				dr.Logger.Error("failed to cast resource", "file", res.File, "error", err)
+				return dr.HandleAPIErrorResponse(500, err.Error(), true)
 			}
 
 			// Reinitialize item database with items, if any
@@ -524,9 +580,9 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 				proceed, err := dr.ProcessRunBlockFn(res, rsc, nodeActionID, false)
 				if err != nil {
 					return false, err
-				} else if !proceed {
-					continue
 				}
+				// For resources with no items, we still want to process APIResponse even if no run actions were performed
+				_ = proceed
 			} else {
 				for _, itemValue := range items {
 					dr.Logger.Info("processing item", "actionID", res.ActionID, "item", itemValue)
@@ -538,16 +594,18 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 						return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to set item %s: %v", itemValue, err), true)
 					}
 
-					// reload the resource
-					resPkl, err = dr.LoadResourceFn(dr.Context, res.File, Resource)
+					// reload the resource with robust fallback
+					resPkl, err = dr.loadResourceWithFallbackResolver(res.File)
 					if err != nil {
-						return dr.HandleAPIErrorResponse(500, err.Error(), true)
+						dr.Logger.Error("failed to reload resource with fallback", "file", res.File, "error", err)
+						return dr.HandleAPIErrorResponse(500, fmt.Sprintf("failed to reload resource %s: %v", res.File, err), true)
 					}
 
-					// Explicitly type rsc as *pklRes.Resource
-					rsc, ok = resPkl.(*pklRes.Resource)
-					if !ok {
-						return dr.HandleAPIErrorResponse(500, "failed to cast resource to *pklRes.Resource for file "+res.File, true)
+					// Robustly cast to pklResource.Resource
+					rsc, err = dr.castToResource(resPkl, res.File)
+					if err != nil {
+						dr.Logger.Error("failed to cast reloaded resource", "file", res.File, "error", err)
+						return dr.HandleAPIErrorResponse(500, err.Error(), true)
 					}
 
 					// Process runBlock for the current item
@@ -563,8 +621,9 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 				}
 			}
 
-			// Process APIResponse once, outside the items loop
-			if dr.APIServerMode && rsc.Run != nil && rsc.Run.APIResponse != nil {
+			// Process APIResponse regardless of whether run block proceeded
+			// This ensures response resources that only have apiResponse (no exec/python/chat/http actions) are still processed
+			if dr.APIServerMode && rsc.Run.APIResponse != nil {
 				if err := dr.CreateResponsePklFile(*rsc.Run.APIResponse); err != nil {
 					return dr.HandleAPIErrorResponse(500, err.Error(), true)
 				}
@@ -602,15 +661,13 @@ func (dr *DependencyResolver) HandleRunAction() (bool, error) {
 }
 
 // processRunBlock handles the runBlock processing for a resource, excluding APIResponse.
-func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes.Resource, actionID string, hasItems bool) (bool, error) {
+func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklResource.Resource, actionID string, hasItems bool) (bool, error) {
 	// Increment the run counter for this file
 	dr.FileRunCounter[res.File]++
 	dr.Logger.Info("processing run block for file", "file", res.File, "runCount", dr.FileRunCounter[res.File], "actionID", actionID)
 
 	runBlock := rsc.Run
-	if runBlock == nil {
-		return false, nil
-	}
+	// ResourceAction is a struct, not a pointer, so we can always access it
 
 	// When items are enabled, wait for the items database to have at least one item in the list
 	if hasItems {
@@ -733,9 +790,13 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 
 			// Collect error but continue processing to gather ALL errors
 			if runBlock.PreflightCheck.Error != nil {
-				dr.HandleAPIErrorResponse(runBlock.PreflightCheck.Error.Code, errorMessage, false)
+				if _, err := dr.HandleAPIErrorResponse(runBlock.PreflightCheck.Error.Code, errorMessage, false); err != nil {
+					dr.Logger.Error("failed to handle API error response", "error", err)
+				}
 			} else {
-				dr.HandleAPIErrorResponse(500, errorMessage, false)
+				if _, err := dr.HandleAPIErrorResponse(500, errorMessage, false); err != nil {
+					dr.Logger.Error("failed to handle API error response", "error", err)
+				}
 			}
 			// Continue processing instead of returning early - this allows collection of all errors
 		}
@@ -798,5 +859,449 @@ func (dr *DependencyResolver) processRunBlock(res ResourceNodeEntry, rsc *pklRes
 		}
 	}
 
+	// Check if any action was actually performed
+	hasExec := runBlock.Exec != nil && runBlock.Exec.Command != ""
+	hasPython := runBlock.Python != nil && runBlock.Python.Script != ""
+	hasChat := runBlock.Chat != nil && runBlock.Chat.Model != "" && (runBlock.Chat.Prompt != nil || runBlock.Chat.Scenario != nil)
+	hasHTTP := runBlock.HTTPClient != nil && runBlock.HTTPClient.Method != "" && runBlock.HTTPClient.Url != ""
+
+	// If no actions were performed, return false to indicate no processing occurred
+	if !hasExec && !hasPython && !hasChat && !hasHTTP {
+		dr.Logger.Debug("No run actions defined, skipping resource processing", "actionID", res.ActionID)
+		return false, nil
+	}
+
 	return true, nil
+}
+
+// loadResourceWithFallbackResolver tries to load a resource file with different resource types as fallback.
+func (dr *DependencyResolver) loadResourceWithFallbackResolver(file string) (interface{}, error) {
+	resourceTypes := []ResourceType{Resource, LLMResource, HTTPResource, PythonResource, ExecResource}
+
+	for _, resourceType := range resourceTypes {
+		res, err := dr.LoadResourceFn(dr.Context, file, resourceType)
+		if err != nil {
+			dr.Logger.Debug("failed to load resource with type", "file", file, "type", resourceType, "error", err)
+			continue
+		}
+
+		dr.Logger.Debug("successfully loaded resource", "file", file, "type", resourceType)
+
+		// If we successfully loaded as a specific resource type, try to convert it to Resource type
+		if resourceType != Resource {
+			// Try to load the same file as Resource type
+			resourceRes, err := dr.LoadResourceFn(dr.Context, file, Resource)
+			if err != nil {
+				dr.Logger.Debug("failed to convert resource to Resource type", "file", file, "originalType", resourceType, "error", err)
+				// Continue with the original loaded resource if conversion fails
+			} else {
+				return resourceRes, nil
+			}
+		}
+
+		return res, nil
+	}
+
+	return nil, fmt.Errorf("failed to load resource with any type for file %s", file)
+}
+
+// castToResource robustly casts a loaded resource to pklResource.Resource
+func (dr *DependencyResolver) castToResource(res interface{}, file string) (*pklResource.Resource, error) {
+	// Try direct pointer cast first
+	if ptr, ok := res.(*pklResource.Resource); ok {
+		return ptr, nil
+	}
+
+	// Try value cast
+	if resource, ok := res.(pklResource.Resource); ok {
+		return &resource, nil
+	}
+
+	// Check if we loaded a specific resource type instead of Resource
+	if _, ok := res.(*pklLLM.LLMImpl); ok {
+		dr.Logger.Warn("loaded LLM resource as specific type, this may indicate a schema issue", "file", file)
+		return nil, fmt.Errorf("resource loaded as LLM type but expected Resource type for file %s", file)
+	}
+
+	if _, ok := res.(*pklHTTP.HTTPImpl); ok {
+		dr.Logger.Warn("loaded HTTP resource as specific type, this may indicate a schema issue", "file", file)
+		return nil, fmt.Errorf("resource loaded as HTTP type but expected Resource type for file %s", file)
+	}
+
+	if _, ok := res.(*pklPython.PythonImpl); ok {
+		dr.Logger.Warn("loaded Python resource as specific type, this may indicate a schema issue", "file", file)
+		return nil, fmt.Errorf("resource loaded as Python type but expected Resource type for file %s", file)
+	}
+
+	if _, ok := res.(*pklExec.ExecImpl); ok {
+		dr.Logger.Warn("loaded Exec resource as specific type, this may indicate a schema issue", "file", file)
+		return nil, fmt.Errorf("resource loaded as Exec type but expected Resource type for file %s", file)
+	}
+
+	return nil, fmt.Errorf("failed to cast resource to pklResource.Resource for file %s (actual type: %T)", file, res)
+}
+
+// pullOllamaModel pulls a single Ollama model using the ollama CLI
+func (dr *DependencyResolver) pullOllamaModel(ctx context.Context, model string) error {
+	dr.Logger.Info("pulling Ollama model", "model", model)
+
+	// First ensure Ollama server is running
+	if err := dr.ensureOllamaServerRunning(ctx); err != nil {
+		return fmt.Errorf("failed to ensure Ollama server is running: %w", err)
+	}
+
+	// Use a timeout for the model pull to prevent hanging
+	pullCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	// Try to pull the exact model first
+	stdout, stderr, exitCode, err := kdepsexec.KdepsExec(
+		pullCtx,
+		"ollama",
+		[]string{"pull", model},
+		"",    // use current directory
+		false, // don't use env file
+		false, // don't run in background
+		dr.Logger,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to execute ollama pull: %w", err)
+	}
+
+	if exitCode == 0 {
+		dr.Logger.Info("successfully pulled Ollama model", "model", model)
+		return nil
+	}
+
+	// If exact model pull failed, try to find and pull a variant
+	dr.Logger.Info("exact model pull failed, trying to find similar models", "model", model, "exitCode", exitCode, "stderr", stderr)
+	if variantModel, err := dr.findModelVariant(ctx, model); err == nil && variantModel != "" {
+		dr.Logger.Info("found similar model variant, attempting to pull", "original", model, "variant", variantModel)
+
+		// Try pulling the variant
+		stdout, stderr, exitCode, err = kdepsexec.KdepsExec(
+			pullCtx,
+			"ollama",
+			[]string{"pull", variantModel},
+			"",    // use current directory
+			false, // don't use env file
+			false, // don't run in background
+			dr.Logger,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to execute ollama pull for variant: %w", err)
+		}
+
+		if exitCode == 0 {
+			dr.Logger.Info("successfully pulled Ollama model variant", "original", model, "variant", variantModel)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("ollama pull failed with exit code %d: stdout=%s, stderr=%s", exitCode, stdout, stderr)
+}
+
+// ensureOllamaServerRunning ensures the Ollama server is running
+func (dr *DependencyResolver) ensureOllamaServerRunning(ctx context.Context) error {
+	// Check if server is running by trying to list models
+	checkCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	_, _, exitCode, err := kdepsexec.KdepsExec(
+		checkCtx,
+		"ollama",
+		[]string{"list"},
+		"",
+		false,
+		false,
+		dr.Logger,
+	)
+
+	if err == nil && exitCode == 0 {
+		// Server is already running
+		return nil
+	}
+
+	dr.Logger.Info("Ollama server not running, starting it")
+
+	// Start Ollama server in background
+	serverCtx, serverCancel := context.WithTimeout(ctx, 30*time.Second)
+	defer serverCancel()
+
+	_, _, _, err = kdepsexec.KdepsExec(
+		serverCtx,
+		"ollama",
+		[]string{"serve"},
+		"",
+		false,
+		true, // run in background
+		dr.Logger,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to start Ollama server: %w", err)
+	}
+
+	// Wait a bit for server to start
+	time.Sleep(2 * time.Second)
+
+	return nil
+}
+
+// syncModelToPersistentStorage syncs pulled models from /root/.ollama/models/ to /models/ using rsync
+func (dr *DependencyResolver) syncModelToPersistentStorage(model string) error {
+	sourceDir := "/root/.ollama/models"
+	targetDir := "/models"
+
+	dr.Logger.Info("syncing model to persistent storage", "model", model, "source", sourceDir, "target", targetDir)
+
+	// Use rsync with progress for reliable file synchronization
+	// Flags: -a (archive), -v (verbose), -r (recursive), -P (progress), -t (preserve times), --delete (remove deleted files)
+	// TODO: Consider using a pure Go rsync library like github.com/gokrazy/rsync for better portability
+	cmd := fmt.Sprintf("mkdir -p %s && rsync -avrPt --delete --progress %s/. %s/", targetDir, sourceDir, targetDir)
+
+	stdout, stderr, exitCode, err := kdepsexec.KdepsExec(
+		dr.Context,
+		"sh",
+		[]string{"-c", cmd},
+		"",
+		false,
+		false,
+		dr.Logger,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to execute rsync command: %w", err)
+	}
+
+	if exitCode != 0 {
+		return fmt.Errorf("rsync command failed with exit code %d: stdout=%s, stderr=%s", exitCode, stdout, stderr)
+	}
+
+	dr.Logger.Info("successfully synced model to persistent storage", "model", model, "target", targetDir)
+	return nil
+}
+
+// extractModelsFromWorkflow extracts all model names from a workflow configuration
+func (dr *DependencyResolver) extractModelsFromWorkflow(workflow pklWf.Workflow) []string {
+	modelSet := make(map[string]bool)
+	var models []string
+
+	dr.Logger.Info("extracting models from workflow", "agentID", workflow.GetAgentID())
+
+	// Extract models from AgentSettings.Models (batch models)
+	settings := workflow.GetSettings()
+
+	// Access AgentSettings and Models directly from the settings struct
+	// settings is of type pklProject.Settings, AgentSettings is a struct not a pointer
+	if len(settings.AgentSettings.Models) > 0 {
+		for _, model := range settings.AgentSettings.Models {
+			if model != "" && !modelSet[model] {
+				modelSet[model] = true
+				models = append(models, model)
+				dr.Logger.Debug("found model in AgentSettings", "model", model)
+			}
+		}
+	}
+
+	dr.Logger.Info("extracted models from workflow", "modelCount", len(models), "models", models)
+	return models
+}
+
+// getAvailableModels gets the list of currently available Ollama models
+func (dr *DependencyResolver) getAvailableModels() ([]string, error) {
+	dr.Logger.Debug("checking available Ollama models")
+
+	// Use a timeout for the model list command
+	listCtx, cancel := context.WithTimeout(dr.Context, 10*time.Second)
+	defer cancel()
+
+	stdout, stderr, exitCode, err := kdepsexec.KdepsExec(
+		listCtx,
+		"ollama",
+		[]string{"list"},
+		"",
+		false,
+		false,
+		dr.Logger,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute ollama list: %w", err)
+	}
+
+	if exitCode != 0 {
+		return nil, fmt.Errorf("ollama list failed with exit code %d: stdout=%s, stderr=%s", exitCode, stdout, stderr)
+	}
+
+	var availableModels []string
+	lines := strings.Split(stdout, "\n")
+
+	// Skip the header line and parse model names
+	for i, line := range lines {
+		if i == 0 || strings.TrimSpace(line) == "" {
+			continue // Skip header and empty lines
+		}
+
+		// Parse model name from the first column
+		fields := strings.Fields(line)
+		if len(fields) > 0 {
+			modelName := fields[0]
+			availableModels = append(availableModels, modelName)
+		}
+	}
+
+	dr.Logger.Debug("available models retrieved", "count", len(availableModels), "models", availableModels)
+	return availableModels, nil
+}
+
+// ensureWorkflowModelsAvailable ensures all models defined in the workflow are available
+func (dr *DependencyResolver) ensureWorkflowModelsAvailable(workflow pklWf.Workflow) error {
+	dr.Logger.Info("ensuring workflow models are available", "agentID", workflow.GetAgentID())
+
+	// Extract all required models from the workflow
+	requiredModels := dr.extractModelsFromWorkflow(workflow)
+
+	if len(requiredModels) == 0 {
+		dr.Logger.Info("no models required by workflow")
+		return nil
+	}
+
+	// Get currently available models
+	availableModels, err := dr.getAvailableModels()
+	if err != nil {
+		dr.Logger.Warn("failed to get available models, proceeding with model pulls", "error", err)
+		availableModels = []string{} // Empty slice to force all models to be pulled
+	}
+
+	// Create a set of available models for quick lookup
+	availableSet := make(map[string]bool)
+	for _, model := range availableModels {
+		availableSet[model] = true
+	}
+
+	// Find missing models
+	var missingModels []string
+	for _, requiredModel := range requiredModels {
+		if !availableSet[requiredModel] {
+			missingModels = append(missingModels, requiredModel)
+		}
+	}
+
+	if len(missingModels) == 0 {
+		dr.Logger.Info("all required models are already available")
+		return nil
+	}
+
+	dr.Logger.Info("pulling missing models", "missingCount", len(missingModels), "models", missingModels)
+
+	// Pull the missing models using local implementation to avoid circular dependency
+	if err := dr.pullWorkflowModels(dr.Context, missingModels); err != nil {
+		return fmt.Errorf("failed to pull workflow models: %w", err)
+	}
+
+	dr.Logger.Info("successfully pulled all missing workflow models", "modelCount", len(missingModels))
+
+	// Sync models to persistent storage after successful pulls
+	for _, model := range missingModels {
+		if syncErr := dr.syncModelToPersistentStorage(model); syncErr != nil {
+			dr.Logger.Warn("failed to sync model to persistent storage", "model", model, "error", syncErr)
+			// Don't fail the whole operation if sync fails
+		}
+	}
+
+	return nil
+}
+
+// pullWorkflowModels pulls multiple Ollama models for workflow processing
+func (dr *DependencyResolver) pullWorkflowModels(ctx context.Context, models []string) error {
+	// First check if ollama is available by checking version
+	checkCtx, checkCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer checkCancel()
+
+	_, stderr, exitCode, err := kdepsexec.KdepsExec(
+		checkCtx,
+		"ollama",
+		[]string{"--version"},
+		"",
+		false,
+		false,
+		dr.Logger,
+	)
+
+	if err != nil || exitCode != 0 {
+		return fmt.Errorf("ollama binary not available: %w (stderr: %s)", err, stderr)
+	}
+
+	for _, model := range models {
+		model = strings.TrimSpace(model)
+		if model == "" {
+			continue
+		}
+		dr.Logger.Debug("pulling workflow model", "model", model)
+
+		// Apply a per-model timeout so we don't hang indefinitely when offline
+		tctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		stdout, stderr, exitCode, err := kdepsexec.KdepsExec(
+			tctx,
+			"sh",
+			[]string{"-c", "OLLAMA_MODELS=${OLLAMA_MODELS:-/root/.ollama} ollama pull " + model},
+			"",
+			false,
+			false,
+			dr.Logger,
+		)
+		cancel()
+
+		if err != nil || exitCode != 0 {
+			// Check if this is likely a "binary not found" error vs network/registry issues
+			if strings.Contains(stderr, "command not found") || strings.Contains(stderr, "not found") ||
+				strings.Contains(stdout, "could not find ollama app") ||
+				strings.Contains(stderr, "could not find ollama app") ||
+				strings.Contains(err.Error(), "executable file not found") {
+				return fmt.Errorf("ollama binary not found: %w", err)
+			}
+			// For other errors (network, registry unavailable, etc.), warn and continue
+			dr.Logger.Warn("model pull skipped or failed (continuing)", "model", model, "stdout", stdout, "stderr", stderr, "exitCode", exitCode, "error", err)
+			continue
+		}
+
+		dr.Logger.Info("successfully pulled workflow model", "model", model)
+	}
+
+	return nil
+}
+
+// findModelVariant tries to find a similar model variant
+func (dr *DependencyResolver) findModelVariant(ctx context.Context, model string) (string, error) {
+	checkCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	stdout, _, exitCode, err := kdepsexec.KdepsExec(
+		checkCtx,
+		"ollama",
+		[]string{"list"},
+		"",
+		false,
+		false,
+		dr.Logger,
+	)
+
+	if err != nil || exitCode != 0 {
+		return "", fmt.Errorf("failed to list models: %w", err)
+	}
+
+	lines := strings.Split(stdout, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, model+":") {
+			// Found a variant like "llama3.2:1b"
+			fields := strings.Fields(line)
+			if len(fields) > 0 {
+				return fields[0], nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no variant found for model %s", model)
 }

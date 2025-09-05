@@ -42,7 +42,7 @@ func TestHandleAppRequest_Misconfiguration(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/app", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/app", nil)
 
 	handler(c)
 
@@ -51,7 +51,7 @@ func TestHandleAppRequest_Misconfiguration(t *testing.T) {
 	}
 }
 
-// helper to expose handleAppRequest (unexported) via closure
+// helper to expose handleAppRequest (unexported) via closure.
 func handleAppRequestWrapper(hostIP string, route *webserver.WebServerRoutes, logger *logging.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		handleAppRequest(c, hostIP, route, logger)
@@ -187,7 +187,7 @@ func TestHandleAppRequest_BadGateway(t *testing.T) {
 	// Wrap recorder to implement CloseNotify for reverse proxy compatibility.
 	cn := closeNotifyRecorder{rec}
 	c, _ := gin.CreateTestContext(cn)
-	c.Request = httptest.NewRequest("GET", "/app/foo", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/app/foo", nil)
 
 	// set a small timeout on proxy transport via context deadline guarantee not needed; request returns fast.
 	handler(c)
@@ -237,7 +237,7 @@ func TestHandleStaticRequest_Static(t *testing.T) {
 	// Prepare gin context
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
-	ctx.Request = httptest.NewRequest("GET", "/static/index.txt", nil)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/static/index.txt", nil)
 
 	// Invoke static handler directly
 	handleStaticRequest(ctx, filepath.Join(dataDir, route.PublicPath), route)
@@ -267,8 +267,11 @@ type MockWorkflow struct {
 	settings *project.Settings
 }
 
-func (m *MockWorkflow) GetSettings() *project.Settings {
-	return m.settings
+func (m *MockWorkflow) GetSettings() project.Settings {
+	if m.settings == nil {
+		return project.Settings{}
+	}
+	return *m.settings
 }
 
 func (m *MockWorkflow) GetAgentID() string        { return "" }
@@ -286,12 +289,12 @@ func (m *MockWorkflow) GetWebsite() *string       { return nil }
 func TestStartWebServerMode(t *testing.T) {
 	t.Run("WithValidSettings", func(t *testing.T) {
 		// Create mock workflow settings
-		portNum := uint16(8080)
+		portNum := uint16(9999) // Use a less common port
 		settings := &project.Settings{
 			WebServer: &webserver.WebServerSettings{
 				HostIP:  "localhost",
 				PortNum: portNum,
-				Routes:  []*webserver.WebServerRoutes{},
+				Routes:  []webserver.WebServerRoutes{},
 			},
 		}
 
@@ -317,10 +320,10 @@ func TestStartWebServerMode(t *testing.T) {
 		require.NoError(t, err)
 
 		// Give server time to start
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
 
 		// Test server is running
-		req, err := http.NewRequest("GET", "http://localhost:8080/", nil)
+		req, err := http.NewRequest(http.MethodGet, "http://localhost:9999/", nil)
 		require.NoError(t, err)
 
 		client := &http.Client{
@@ -345,7 +348,7 @@ func TestStartWebServerMode(t *testing.T) {
 				HostIP:         "localhost",
 				PortNum:        portNum,
 				TrustedProxies: &trustedProxies,
-				Routes:         []*webserver.WebServerRoutes{},
+				Routes:         []webserver.WebServerRoutes{},
 			},
 		}
 
@@ -374,7 +377,7 @@ func TestStartWebServerMode(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 
 		// Test server is running
-		req, err := http.NewRequest("GET", "http://localhost:8081/", nil)
+		req, err := http.NewRequest(http.MethodGet, "http://localhost:8081/", nil)
 		require.NoError(t, err)
 
 		client := &http.Client{
@@ -397,7 +400,7 @@ func TestStartWebServerMode(t *testing.T) {
 			WebServer: &webserver.WebServerSettings{
 				HostIP:  "localhost",
 				PortNum: portNum,
-				Routes:  []*webserver.WebServerRoutes{},
+				Routes:  []webserver.WebServerRoutes{},
 			},
 		}
 
@@ -426,7 +429,7 @@ func TestStartWebServerMode(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 
 		// Test server is running
-		req, err := http.NewRequest("GET", "http://localhost:0/", nil)
+		req, err := http.NewRequest(http.MethodGet, "http://localhost:0/", nil)
 		require.NoError(t, err)
 
 		client := &http.Client{
@@ -443,7 +446,7 @@ func TestStartWebServerMode(t *testing.T) {
 			WebServer: &webserver.WebServerSettings{
 				HostIP:  "localhost",
 				PortNum: portNum,
-				Routes:  []*webserver.WebServerRoutes{},
+				Routes:  []webserver.WebServerRoutes{},
 			},
 		}
 
@@ -472,7 +475,7 @@ func TestStartWebServerMode(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 
 		// Test server is running
-		req, err := http.NewRequest("GET", "http://localhost:0/", nil)
+		req, err := http.NewRequest(http.MethodGet, "http://localhost:0/", nil)
 		require.NoError(t, err)
 
 		client := &http.Client{
@@ -526,7 +529,7 @@ func TestStartWebServerMode(t *testing.T) {
 				WebServer: &webserver.WebServerSettings{
 					HostIP:         "localhost",
 					PortNum:        uint16(8090), // Use a different port to avoid conflicts
-					Routes:         []*webserver.WebServerRoutes{},
+					Routes:         []webserver.WebServerRoutes{},
 					TrustedProxies: &[]string{},
 				},
 			},
@@ -557,7 +560,7 @@ func TestStartWebServerMode(t *testing.T) {
 				WebServer: &webserver.WebServerSettings{
 					HostIP:         "localhost",
 					PortNum:        uint16(8081),
-					Routes:         []*webserver.WebServerRoutes{},
+					Routes:         []webserver.WebServerRoutes{},
 					TrustedProxies: &[]string{},
 				},
 			},
@@ -586,7 +589,7 @@ func TestStartWebServerMode(t *testing.T) {
 			WebServer: &webserver.WebServerSettings{
 				HostIP:  "invalid-ip",
 				PortNum: uint16(8080),
-				Routes:  []*webserver.WebServerRoutes{},
+				Routes:  []webserver.WebServerRoutes{},
 			},
 		}
 
@@ -620,7 +623,7 @@ func TestSetupWebRoutes(t *testing.T) {
 			DataDir: "/tmp",
 		}
 
-		routes := []*webserver.WebServerRoutes{
+		routes := []webserver.WebServerRoutes{
 			{
 				Path:       "/static",
 				PublicPath: "static",
@@ -646,7 +649,7 @@ func TestSetupWebRoutes(t *testing.T) {
 			DataDir: "/tmp",
 		}
 
-		routes := []*webserver.WebServerRoutes{nil}
+		routes := []webserver.WebServerRoutes{}
 
 		setupWebRoutes(router, ctx, "localhost", nil, routes, dr)
 	})
@@ -660,7 +663,7 @@ func TestSetupWebRoutes(t *testing.T) {
 			DataDir: "/tmp",
 		}
 
-		routes := []*webserver.WebServerRoutes{
+		routes := []webserver.WebServerRoutes{
 			{
 				Path:       "",
 				PublicPath: "static",
@@ -680,7 +683,7 @@ func TestSetupWebRoutes(t *testing.T) {
 			DataDir: "/tmp",
 		}
 
-		routes := []*webserver.WebServerRoutes{
+		routes := []webserver.WebServerRoutes{
 			{
 				Path:       "/static",
 				PublicPath: "static",
@@ -700,7 +703,7 @@ func TestSetupWebRoutes(t *testing.T) {
 			DataDir: "/tmp",
 		}
 
-		routes := []*webserver.WebServerRoutes{
+		routes := []webserver.WebServerRoutes{
 			{
 				Path:       "/test",
 				PublicPath: "test",
@@ -722,7 +725,7 @@ func TestSetupWebRoutes(t *testing.T) {
 			DataDir: "/tmp",
 		}
 
-		routes := []*webserver.WebServerRoutes{
+		routes := []webserver.WebServerRoutes{
 			{
 				Path:       "/test",
 				PublicPath: "test",
@@ -762,7 +765,7 @@ func TestSetupWebRoutes(t *testing.T) {
 		router := gin.Default()
 
 		// Create routes with invalid trusted proxy
-		routes := []*webserver.WebServerRoutes{
+		routes := []webserver.WebServerRoutes{
 			{
 				Path:       "/test",
 				PublicPath: "test",
@@ -780,7 +783,7 @@ func TestSetupWebRoutes(t *testing.T) {
 		router := gin.New()
 
 		// Create mock route
-		route := &webserver.WebServerRoutes{
+		route := webserver.WebServerRoutes{
 			Path:       "/test",
 			PublicPath: "test",
 			ServerType: webservertype.Static,
@@ -797,7 +800,7 @@ func TestSetupWebRoutes(t *testing.T) {
 		ctx := context.Background()
 
 		// Call function with invalid trusted proxies
-		setupWebRoutes(router, ctx, "localhost", []string{"invalid-proxy"}, []*webserver.WebServerRoutes{route}, dr)
+		setupWebRoutes(router, ctx, "localhost", []string{"invalid-proxy"}, []webserver.WebServerRoutes{route}, dr)
 	})
 }
 
@@ -840,7 +843,7 @@ func TestWebServerHandler(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				// Create request
-				req, err := http.NewRequest("GET", tt.path, nil)
+				req, err := http.NewRequest(http.MethodGet, tt.path, nil)
 				require.NoError(t, err)
 
 				// Create response recorder
@@ -874,7 +877,7 @@ func TestWebServerHandler(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
+		c.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
 
 		handler := WebServerHandler(context.Background(), "localhost", route, &resolver.DependencyResolver{
 			Logger:  logger,
@@ -908,7 +911,7 @@ func TestWebServerHandler(t *testing.T) {
 		// Create request
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
+		c.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
 
 		// Call handler
 		handler(c)
@@ -936,7 +939,7 @@ func TestWebServerHandler(t *testing.T) {
 		// Create request
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
+		c.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
 
 		// Call handler
 		handler(c)
@@ -1063,16 +1066,8 @@ func TestStartAppCommand(t *testing.T) {
 	})
 }
 
-// Helper functions
+// Helper functions.
 func uint16Ptr(n uint16) *uint16 {
-	return &n
-}
-
-func stringPtr(s string) *string {
-	return &s
-}
-
-func uint32Ptr(n uint32) *uint32 {
 	return &n
 }
 

@@ -17,7 +17,7 @@ func TestUpgradeCommand(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	cmd := UpgradeCommand(fs, ctx, "/tmp", logger)
+	cmd := UpgradeCommand(ctx, fs, "/tmp", logger)
 
 	assert.Contains(t, cmd.Use, "upgrade")
 	assert.NotEmpty(t, cmd.Short)
@@ -38,27 +38,27 @@ func TestUpgradeSchemaVersionInContent(t *testing.T) {
 			name: "upgrade workflow amends",
 			content: `amends "package://schema.kdeps.com/core@0.2.42#/Workflow.pkl"
 Name = "test"`,
-			targetVersion:  "0.2.50",
+			targetVersion:  "0.2.49",
 			expectedChange: true,
-			expectedResult: `amends "package://schema.kdeps.com/core@0.2.50#/Workflow.pkl"
+			expectedResult: `amends "package://schema.kdeps.com/core@0.2.49#/Workflow.pkl"
 Name = "test"`,
 		},
 		{
 			name: "upgrade resource import",
 			content: `import "package://schema.kdeps.com/core@0.2.42#/Resource.pkl"
 Name = "test"`,
-			targetVersion:  "0.2.50",
+			targetVersion:  "0.2.49",
 			expectedChange: true,
-			expectedResult: `import "package://schema.kdeps.com/core@0.2.50#/Resource.pkl"
+			expectedResult: `import "package://schema.kdeps.com/core@0.2.49#/Resource.pkl"
 Name = "test"`,
 		},
 		{
 			name: "already at target version",
-			content: `amends "package://schema.kdeps.com/core@0.2.50#/Workflow.pkl"
+			content: `amends "package://schema.kdeps.com/core@0.2.49#/Workflow.pkl"
 Name = "test"`,
-			targetVersion:  "0.2.50",
+			targetVersion:  "0.2.49",
 			expectedChange: false,
-			expectedResult: `amends "package://schema.kdeps.com/core@0.2.50#/Workflow.pkl"
+			expectedResult: `amends "package://schema.kdeps.com/core@0.2.49#/Workflow.pkl"
 Name = "test"`,
 		},
 		{
@@ -66,17 +66,17 @@ Name = "test"`,
 			content: `amends "package://schema.kdeps.com/core@0.2.42#/Workflow.pkl"
 import "package://schema.kdeps.com/core@0.2.42#/Resource.pkl"
 Name = "test"`,
-			targetVersion:  "0.2.50",
+			targetVersion:  "0.2.49",
 			expectedChange: true,
-			expectedResult: `amends "package://schema.kdeps.com/core@0.2.50#/Workflow.pkl"
-import "package://schema.kdeps.com/core@0.2.50#/Resource.pkl"
+			expectedResult: `amends "package://schema.kdeps.com/core@0.2.49#/Workflow.pkl"
+import "package://schema.kdeps.com/core@0.2.49#/Resource.pkl"
 Name = "test"`,
 		},
 		{
 			name: "no schema references",
 			content: `Name = "test"
 Version = "1.0.0"`,
-			targetVersion:  "0.2.50",
+			targetVersion:  "0.2.49",
 			expectedChange: false,
 			expectedResult: `Name = "test"
 Version = "1.0.0"`,
@@ -121,7 +121,7 @@ Name = "testResource"`
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(testDir, "package.json"), []byte(nonPklContent), 0o644))
 
 	t.Run("dry run upgrade", func(t *testing.T) {
-		err := upgradeSchemaVersions(fs, testDir, "0.2.50", true, logger)
+		err := upgradeSchemaVersions(fs, testDir, "0.2.49", true, logger)
 		require.NoError(t, err)
 
 		// Files should not be modified in dry run
@@ -131,19 +131,19 @@ Name = "testResource"`
 	})
 
 	t.Run("actual upgrade", func(t *testing.T) {
-		err := upgradeSchemaVersions(fs, testDir, "0.2.50", false, logger)
+		err := upgradeSchemaVersions(fs, testDir, "0.2.49", false, logger)
 		require.NoError(t, err)
 
 		// Check workflow.pkl was updated
 		content, err := afero.ReadFile(fs, filepath.Join(testDir, "workflow.pkl"))
 		require.NoError(t, err)
-		assert.Contains(t, string(content), "0.2.50")
+		assert.Contains(t, string(content), "0.2.49")
 		assert.NotContains(t, string(content), "0.2.42")
 
 		// Check resource file was updated
 		content, err = afero.ReadFile(fs, filepath.Join(testDir, "resources", "test.pkl"))
 		require.NoError(t, err)
-		assert.Contains(t, string(content), "0.2.50")
+		assert.Contains(t, string(content), "0.2.49")
 		assert.NotContains(t, string(content), "0.2.42")
 
 		// Check non-pkl file was not modified
@@ -158,27 +158,27 @@ func TestUpgradeCommandValidation(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	cmd := UpgradeCommand(fs, ctx, "/tmp", logger)
+	cmd := UpgradeCommand(ctx, fs, "/tmp", logger)
 
 	t.Run("invalid target version", func(t *testing.T) {
 		cmd.SetArgs([]string{"--version", "invalid", "."})
 		err := cmd.Execute()
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid target version")
 	})
 
 	t.Run("version below minimum", func(t *testing.T) {
 		cmd.SetArgs([]string{"--version", "0.1.0", "."})
 		err := cmd.Execute()
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "below minimum supported version")
 	})
 
 	t.Run("nonexistent directory", func(t *testing.T) {
-		cmd := UpgradeCommand(fs, ctx, "/tmp", logger)
+		cmd := UpgradeCommand(ctx, fs, "/tmp", logger)
 		cmd.SetArgs([]string{"/nonexistent"})
 		err := cmd.Execute()
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "directory does not exist")
 	})
 }
@@ -199,7 +199,7 @@ Version = "1.0.0"`
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(testDir, "workflow.pkl"), []byte(content), 0o644))
 
 	// Test upgrade command
-	cmd := UpgradeCommand(fs, ctx, "/tmp", logger)
+	cmd := UpgradeCommand(ctx, fs, "/tmp", logger)
 	cmd.SetArgs([]string{"--version", version.DefaultSchemaVersion, testDir})
 
 	err := cmd.Execute()

@@ -16,7 +16,7 @@ import (
 
 func BootstrapDockerSystem(ctx context.Context, dr *resolver.DependencyResolver) (bool, error) {
 	if dr.Logger == nil {
-		return false, errors.New("Bootstrapping Docker system failed")
+		return false, errors.New("bootstrapping Docker system failed")
 	}
 
 	if dr.Environment.DockerMode != "1" {
@@ -69,7 +69,7 @@ func setupDockerEnvironment(ctx context.Context, dr *resolver.DependencyResolver
 			return wfSettings.APIServerMode || wfSettings.WebServerMode, fmt.Errorf("failed to copy offline models: %w", err)
 		}
 	} else {
-		if err := pullModels(ctx, wfSettings.AgentSettings.Models, dr.Logger); err != nil {
+		if err := PullModels(ctx, wfSettings.AgentSettings.Models, dr.Logger); err != nil {
 			return wfSettings.APIServerMode || wfSettings.WebServerMode, fmt.Errorf("failed to pull models: %w", err)
 		}
 	}
@@ -112,7 +112,32 @@ func startAndWaitForOllama(ctx context.Context, host, port string, logger *loggi
 	return waitForServer(host, port, 60*time.Second, logger)
 }
 
-func pullModels(ctx context.Context, models []string, logger *logging.Logger) error {
+// PullModels pulls multiple Ollama models using the existing batch pull functionality
+func PullModels(ctx context.Context, models []string, logger *logging.Logger) error {
+	// If no models to pull, return early without checking ollama availability
+	if len(models) == 0 {
+		logger.Debug("no models to pull")
+		return nil
+	}
+
+	// First check if ollama is available by checking version
+	checkCtx, checkCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer checkCancel()
+
+	_, stderr, exitCode, err := KdepsExec(
+		checkCtx,
+		"ollama",
+		[]string{"--version"},
+		"",
+		false,
+		false,
+		logger,
+	)
+
+	if err != nil || exitCode != 0 {
+		return fmt.Errorf("ollama binary not available: %w (stderr: %s)", err, stderr)
+	}
+
 	for _, model := range models {
 		model = strings.TrimSpace(model)
 		if model == "" {
@@ -158,8 +183,9 @@ func copyOfflineModels(ctx context.Context, models []string, logger *logging.Log
 	}
 	modelsTargetRoot := modelsTargetDir + "/models"
 
+	var stdout string
 	// Check if source models directory exists
-	stdout, stderr, exitCode, err := KdepsExec(
+	_, _, _, err := KdepsExec(
 		ctx,
 		"test",
 		[]string{"-d", modelsSourceDir},
@@ -169,12 +195,12 @@ func copyOfflineModels(ctx context.Context, models []string, logger *logging.Log
 		logger,
 	)
 	if err != nil {
-		logger.Warn("offline models directory not found, skipping offline model setup", "path", modelsSourceDir)
-		return nil
+		logger.Warn("offline models directory not found, skipping offline model setup", "path", modelsSourceDir, "error", err)
+		return fmt.Errorf("failed to check offline models directory: %w", err)
 	}
 
 	// Create target root directory if it doesn't exist
-	stdout, stderr, exitCode, err = KdepsExec(
+	stdout, _, _, err = KdepsExec(
 		ctx,
 		"mkdir",
 		[]string{"-p", modelsTargetRoot},
@@ -184,15 +210,15 @@ func copyOfflineModels(ctx context.Context, models []string, logger *logging.Log
 		logger,
 	)
 	if err != nil {
-		logger.Error("failed to create ollama models root directory", "stdout", stdout, "stderr", stderr, "exitCode", exitCode, "error", err)
+		logger.Error("failed to create ollama models root directory", "stdout", stdout, "error", err)
 		return fmt.Errorf("failed to create ollama models root directory: %w", err)
 	}
 
 	// Sync /models into ${OLLAMA_MODELS}/models using rsync (preserves attrs, handles dots, shows progress)
 	cmd := fmt.Sprintf("mkdir -p %s && rsync -avrPtz --human-readable %s/. %s/", modelsTargetRoot, modelsSourceDir, modelsTargetRoot)
-	stdout, stderr, exitCode, err = KdepsExec(ctx, "sh", []string{"-c", cmd}, "", false, false, logger)
+	stdout, _, _, err = KdepsExec(ctx, "sh", []string{"-c", cmd}, "", false, false, logger)
 	if err != nil {
-		logger.Error("failed to sync offline models via rsync", "stdout", stdout, "stderr", stderr, "exitCode", exitCode, "error", err)
+		logger.Error("failed to sync offline models via rsync", "stdout", stdout, "error", err)
 		return fmt.Errorf("failed to sync offline models via rsync: %w", err)
 	}
 
@@ -227,7 +253,9 @@ func CreateFlagFile(fs afero.Fs, ctx context.Context, filename string) error {
 	if err != nil {
 		return err
 	}
-	file.Close()
+	if err := file.Close(); err != nil {
+		return err
+	}
 
 	currentTime := time.Now().UTC()
 	return fs.Chtimes(filename, currentTime, currentTime)

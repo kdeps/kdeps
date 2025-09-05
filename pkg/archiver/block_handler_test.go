@@ -18,16 +18,16 @@ func (s stubWorkflow) GetAgentID() string { return s.name }
 func (s stubWorkflow) GetVersion() string { return s.version }
 
 // Below we satisfy the full interface with dummy methods so the compiler is happy.
-func (s stubWorkflow) GetDescription() string            { return "" }
-func (s stubWorkflow) GetWebsite() *string               { return nil }
-func (s stubWorkflow) GetAuthors() *[]string             { return nil }
-func (s stubWorkflow) GetDocumentation() *string         { return nil }
-func (s stubWorkflow) GetRepository() *string            { return nil }
-func (s stubWorkflow) GetHeroImage() *string             { return nil }
-func (s stubWorkflow) GetAgentIcon() *string             { return nil }
-func (s stubWorkflow) GetTargetActionID() string         { return "" }
-func (s stubWorkflow) GetWorkflows() []string            { return nil }
-func (s stubWorkflow) GetSettings() *pklProject.Settings { return nil }
+func (s stubWorkflow) GetDescription() string           { return "" }
+func (s stubWorkflow) GetWebsite() *string              { return nil }
+func (s stubWorkflow) GetAuthors() *[]string            { return nil }
+func (s stubWorkflow) GetDocumentation() *string        { return nil }
+func (s stubWorkflow) GetRepository() *string           { return nil }
+func (s stubWorkflow) GetHeroImage() *string            { return nil }
+func (s stubWorkflow) GetAgentIcon() *string            { return nil }
+func (s stubWorkflow) GetTargetActionID() string        { return "" }
+func (s stubWorkflow) GetWorkflows() []string           { return nil }
+func (s stubWorkflow) GetSettings() pklProject.Settings { return pklProject.Settings{} }
 
 func TestHandleRequiresBlock(t *testing.T) {
 	wf := stubWorkflow{name: "chatBot", version: "1.2.3"}
@@ -43,7 +43,7 @@ func TestHandleRequiresBlock(t *testing.T) {
 	got := handleRequiresBlock(input, wf)
 	lines := strings.Split(got, "\n")
 
-	require.Equal(t, "", lines[0], "blank line must stay blank")
+	require.Empty(t, lines[0], "blank line must stay blank")
 	require.Equal(t, "\"\"", strings.TrimSpace(lines[1]))
 	require.Equal(t, "\"@foo:1.2.3\"", strings.TrimSpace(lines[2]), "@otherAgent/foo should map to version only")
 	require.Equal(t, "\"@chatBot/localAction:1.2.3\"", strings.TrimSpace(lines[3]))

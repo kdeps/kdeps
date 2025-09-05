@@ -25,7 +25,7 @@ func TestNewPackageCommandExecution(t *testing.T) {
 	require.NoError(t, fs.MkdirAll(filepath.Join(projectDir, "resources"), 0o755))
 
 	// Create a workflow file
-	wfContent := `amends "package://schema.kdeps.com/core@0.2.43#/Workflow.pkl"
+	wfContent := `amends "package://schema.kdeps.com/core@0.3.1-dev#/Workflow.pkl"
 
 Name = "test-agent"
 Version = "1.0.0"
@@ -34,7 +34,7 @@ TargetActionID = "test-action"
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(projectDir, "workflow.pkl"), []byte(wfContent), 0o644))
 
 	// Create a resource file
-	resourceContent := `amends "package://schema.kdeps.com/core@0.2.43#/Resource.pkl"
+	resourceContent := `amends "package://schema.kdeps.com/core@0.3.1-dev#/Resource.pkl"
 
 ActionID = "test-action"
 
@@ -51,7 +51,7 @@ Run {
 	testFilePath := filepath.Join(projectDir, "test.txt")
 	require.NoError(t, afero.WriteFile(fs, testFilePath, []byte(testFileContent), 0o644))
 
-	cmd := NewPackageCommand(fs, ctx, kdepsDir, env, logger)
+	cmd := NewPackageCommand(ctx, fs, kdepsDir, env, logger)
 	cmd.SetArgs([]string{projectDir})
 
 	// Note: We don't actually execute the command because it requires a real Pkl binary
@@ -87,7 +87,7 @@ func TestPackageCommandFlags(t *testing.T) {
 	env := &environment.Environment{}
 	logger := logging.NewTestLogger()
 
-	cmd := NewPackageCommand(fs, ctx, kdepsDir, env, logger)
+	cmd := NewPackageCommand(ctx, fs, kdepsDir, env, logger)
 	assert.Equal(t, "package [agent-dir]", cmd.Use)
 	assert.Equal(t, []string{"p"}, cmd.Aliases)
 	assert.Equal(t, "Package an AI agent to .kdeps file", cmd.Short)
@@ -99,7 +99,7 @@ func TestNewPackageCommand_MetadataAndArgs(t *testing.T) {
 	ctx := context.Background()
 	env := &environment.Environment{}
 
-	cmd := NewPackageCommand(fs, ctx, "/tmp/kdeps", env, logging.NewTestLogger())
+	cmd := NewPackageCommand(ctx, fs, "/tmp/kdeps", env, logging.NewTestLogger())
 
 	assert.Equal(t, "package [agent-dir]", cmd.Use)
 	assert.Contains(t, cmd.Short, "Package")

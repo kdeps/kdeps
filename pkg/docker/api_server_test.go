@@ -6,11 +6,12 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/apple/pkl-go/pkl"
@@ -20,10 +21,12 @@ import (
 	"github.com/kdeps/kdeps/pkg/ktx"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/memory"
+	"github.com/kdeps/kdeps/pkg/messages"
 	"github.com/kdeps/kdeps/pkg/resolver"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/session"
 	"github.com/kdeps/kdeps/pkg/tool"
+	"github.com/kdeps/kdeps/pkg/utils"
 	apiserver "github.com/kdeps/schema/gen/api_server"
 	"github.com/kdeps/schema/gen/project"
 	"github.com/kdeps/schema/gen/resource"
@@ -31,9 +34,6 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/kdeps/kdeps/pkg/messages"
-	"github.com/kdeps/kdeps/pkg/utils"
 )
 
 func TestValidateMethodExtra2(t *testing.T) {
@@ -47,7 +47,7 @@ func TestValidateMethodExtra2(t *testing.T) {
 	}
 
 	// invalid method
-	badReq := httptest.NewRequest("DELETE", "/", nil)
+	badReq := httptest.NewRequest(http.MethodDelete, "/", nil)
 	if _, err := validateMethod(badReq, []string{"GET"}); err == nil {
 		t.Fatalf("expected error for disallowed method")
 	}
@@ -173,7 +173,7 @@ func TestFormatResponseJSONFormatTest(t *testing.T) {
 	}
 }
 
-func setupTestAPIServer(t *testing.T) (*resolver.DependencyResolver, *logging.Logger) {
+func setupTestAPIServer(_ *testing.T) (*resolver.DependencyResolver, *logging.Logger) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 	dr := &resolver.DependencyResolver{
@@ -197,19 +197,19 @@ func TestHandleMultipartForm(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("POST", "/", body)
+		c.Request = httptest.NewRequest(http.MethodPost, "/", body)
 		c.Request.Header.Set("Content-Type", writer.FormDataContentType())
 
 		fileMap := make(map[string]struct{ Filename, Filetype string })
 		err = handleMultipartForm(c, dr, fileMap)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Len(t, fileMap, 1)
 	})
 
 	t.Run("InvalidContentType", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("POST", "/", bytes.NewBuffer([]byte("test")))
+		c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString("test"))
 		c.Request.Header.Set("Content-Type", "text/plain")
 
 		fileMap := make(map[string]struct{ Filename, Filetype string })
@@ -226,12 +226,12 @@ func TestHandleMultipartForm(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("POST", "/", body)
+		c.Request = httptest.NewRequest(http.MethodPost, "/", body)
 		c.Request.Header.Set("Content-Type", writer.FormDataContentType())
 
 		fileMap := make(map[string]struct{ Filename, Filetype string })
 		err := handleMultipartForm(c, dr, fileMap)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "No file uploaded")
 	})
 }
@@ -251,7 +251,7 @@ func TestProcessFile(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("POST", "/", body)
+		c.Request = httptest.NewRequest(http.MethodPost, "/", body)
 		c.Request.Header.Set("Content-Type", writer.FormDataContentType())
 		_, fileHeader, err := c.Request.FormFile("file")
 		require.NoError(t, err)
@@ -264,23 +264,23 @@ func TestProcessFile(t *testing.T) {
 
 func TestValidateMethod(t *testing.T) {
 	t.Run("ValidMethod", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/", nil)
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		method, err := validateMethod(req, []string{"GET", "POST"})
 		assert.NoError(t, err)
 		assert.Equal(t, "Method = \"GET\"", method)
 	})
 
 	t.Run("InvalidMethod", func(t *testing.T) {
-		req := httptest.NewRequest("PUT", "/", nil)
+		req := httptest.NewRequest(http.MethodPut, "/", nil)
 		_, err := validateMethod(req, []string{"GET", "POST"})
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "HTTP method \"PUT\" not allowed")
 	})
 
 	t.Run("EmptyMethodDefaultsToGet", func(t *testing.T) {
 		req := httptest.NewRequest("", "/", nil)
 		method, err := validateMethod(req, []string{"GET", "POST"})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "Method = \"GET\"", method)
 	})
 }
@@ -316,7 +316,7 @@ func TestDecodeResponseContent(t *testing.T) {
 	t.Run("EmptyResponse", func(t *testing.T) {
 		content := []byte("{}")
 		decoded, err := decodeResponseContent(content, logger)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.False(t, decoded.Success)
 	})
 }
@@ -434,7 +434,7 @@ func TestAPIServerHandler(t *testing.T) {
 		// Simulate an HTTP request
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
+		c.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
 		handler(c)
 
 		// Verify the response
@@ -458,35 +458,10 @@ func TestAPIServerHandler(t *testing.T) {
 	})
 }
 
-// mockResolver implements the necessary methods for testing processWorkflow
-type mockResolver struct {
-	*resolver.DependencyResolver
-	prepareWorkflowDirFn           func() error
-	prepareImportFilesFn           func() error
-	handleRunActionFn              func() (bool, error)
-	evalPklFormattedResponseFileFn func() (string, error)
-}
-
-func (m *mockResolver) PrepareWorkflowDir() error {
-	return m.prepareWorkflowDirFn()
-}
-
-func (m *mockResolver) PrepareImportFiles() error {
-	return m.prepareImportFilesFn()
-}
-
-func (m *mockResolver) HandleRunAction() (bool, error) {
-	return m.handleRunActionFn()
-}
-
-func (m *mockResolver) EvalPklFormattedResponseFile() (string, error) {
-	return m.evalPklFormattedResponseFileFn()
-}
-
-// workflowWithNilSettings is a mock Workflow with GetSettings() and GetAgentIcon() returning nil
+// workflowWithNilSettings is a mock Workflow with GetSettings() and GetAgentIcon() returning nil.
 type workflowWithNilSettings struct{}
 
-func (w workflowWithNilSettings) GetSettings() *project.Settings { return nil }
+func (w workflowWithNilSettings) GetSettings() project.Settings { return project.Settings{} }
 
 func (w workflowWithNilSettings) GetTargetActionID() string { return "test-action" }
 
@@ -604,10 +579,10 @@ func TestProcessWorkflow(t *testing.T) {
 		mock.BuildDependencyStackFn = func(string, map[string]bool) []string { return []string{"test-action"} }
 		mock.LoadResourceFn = func(context.Context, string, resolver.ResourceType) (interface{}, error) {
 			items := []string{}
-			return &resource.Resource{Items: &items, Run: nil}, nil
+			return &resource.Resource{Items: &items, Run: resource.ResourceAction{}}, nil
 		}
 		mock.ProcessRunBlockFn = func(resolver.ResourceNodeEntry, *resource.Resource, string, bool) (bool, error) {
-			return false, fmt.Errorf("failed to handle run action")
+			return false, errors.New("failed to handle run action")
 		}
 		mock.ClearItemDBFn = func() error { return nil }
 		err := processWorkflow(ctx, mock)
@@ -662,7 +637,7 @@ func TestSetupRoutes(t *testing.T) {
 		AllowHeaders:     &[]string{"Content-Type"},
 		ExposeHeaders:    &[]string{"X-Custom-Header"},
 		AllowCredentials: true,
-		MaxAge:           &pkl.Duration{Value: 3600, Unit: pkl.Second},
+		MaxAge:           pkl.Duration{Value: 3600, Unit: pkl.Second},
 	}
 
 	// Create test routes
@@ -683,7 +658,7 @@ func TestSetupRoutes(t *testing.T) {
 	t.Run("ValidRoutes", func(t *testing.T) {
 		router := gin.New()
 		ctx := context.Background()
-		setupRoutes(router, ctx, corsConfig, []string{"127.0.0.1"}, routes, baseDr, semaphore)
+		setupRoutes(router, ctx, *corsConfig, []string{"127.0.0.1"}, convertRoutesToStructs(routes), baseDr, semaphore)
 
 		// Test GET request
 		w := httptest.NewRecorder()
@@ -698,35 +673,35 @@ func TestSetupRoutes(t *testing.T) {
 		assert.Equal(t, http.StatusInternalServerError, w.Code) // Expected error due to missing resolver setup
 	})
 
-	t.Run("InvalidRoute", func(t *testing.T) {
+	t.Run("InvalidRoute", func(_ *testing.T) {
 		router := gin.New()
 		ctx := context.Background()
 		invalidRoutes := []*apiserver.APIServerRoutes{
 			nil,
 			{Path: ""},
 		}
-		setupRoutes(router, ctx, corsConfig, []string{"127.0.0.1"}, invalidRoutes, baseDr, semaphore)
+		setupRoutes(router, ctx, *corsConfig, []string{"127.0.0.1"}, convertRoutesToStructs(invalidRoutes), baseDr, semaphore)
 		// No assertions needed as the function should log errors and continue
 	})
 
-	t.Run("CORSDisabled", func(t *testing.T) {
+	t.Run("CORSDisabled", func(_ *testing.T) {
 		router := gin.New()
 		ctx := context.Background()
 		disabledCORS := &apiserver.CORSConfig{
 			EnableCORS: false,
 		}
-		setupRoutes(router, ctx, disabledCORS, []string{"127.0.0.1"}, routes, baseDr, semaphore)
+		setupRoutes(router, ctx, *disabledCORS, []string{"127.0.0.1"}, convertRoutesToStructs(routes), baseDr, semaphore)
 		// No assertions needed as the function should skip CORS setup
 	})
 
-	t.Run("NoTrustedProxies", func(t *testing.T) {
+	t.Run("NoTrustedProxies", func(_ *testing.T) {
 		router := gin.New()
 		ctx := context.Background()
-		setupRoutes(router, ctx, corsConfig, nil, routes, baseDr, semaphore)
+		setupRoutes(router, ctx, *corsConfig, nil, convertRoutesToStructs(routes), baseDr, semaphore)
 		// No assertions needed as the function should skip proxy setup
 	})
 
-	t.Run("UnsupportedMethod", func(t *testing.T) {
+	t.Run("UnsupportedMethod", func(_ *testing.T) {
 		router := gin.New()
 		ctx := context.Background()
 		unsupportedRoutes := []*apiserver.APIServerRoutes{
@@ -735,9 +710,20 @@ func TestSetupRoutes(t *testing.T) {
 				Methods: []string{"UNSUPPORTED"},
 			},
 		}
-		setupRoutes(router, ctx, corsConfig, []string{"127.0.0.1"}, unsupportedRoutes, baseDr, semaphore)
+		setupRoutes(router, ctx, *corsConfig, []string{"127.0.0.1"}, convertRoutesToStructs(unsupportedRoutes), baseDr, semaphore)
 		// No assertions needed as the function should log a warning and continue
 	})
+}
+
+// convertRoutesToStructs converts a slice of route pointers to a slice of route structs.
+func convertRoutesToStructs(routes []*apiserver.APIServerRoutes) []apiserver.APIServerRoutes {
+	result := make([]apiserver.APIServerRoutes, len(routes))
+	for i, route := range routes {
+		if route != nil {
+			result[i] = *route
+		}
+	}
+	return result
 }
 
 // Ensure schema version gets referenced at least once in this test file.
@@ -748,7 +734,7 @@ func TestSchemaVersionReference(t *testing.T) {
 }
 
 func TestValidateMethodUtilsExtra(t *testing.T) {
-	_ = schema.SchemaVersion(nil)
+	_ = schema.SchemaVersion(context.TODO())
 
 	req, _ := http.NewRequest(http.MethodGet, "http://example.com", nil)
 	got, err := validateMethod(req, []string{http.MethodGet, http.MethodPost})
@@ -769,7 +755,7 @@ func TestValidateMethodUtilsExtra(t *testing.T) {
 }
 
 func TestDecodeResponseContentUtilsExtra(t *testing.T) {
-	_ = schema.SchemaVersion(nil)
+	_ = schema.SchemaVersion(context.TODO())
 
 	helloB64 := base64.StdEncoding.EncodeToString([]byte("hello"))
 	invalidB64 := "@@invalid@@"
@@ -817,7 +803,7 @@ func TestDecodeResponseContentFormattingUtilsExtra(t *testing.T) {
 	}
 
 	first := decoded.Response.Data[0]
-	if !bytes.Contains([]byte(first), []byte("foo")) || !bytes.Contains([]byte(first), []byte("bar")) {
+	if !strings.Contains(first, "foo") || !strings.Contains(first, "bar") {
 		t.Fatalf("decoded data does not contain expected JSON: %s", first)
 	}
 
@@ -984,7 +970,7 @@ func TestFormatResponseJSONInlineData(t *testing.T) {
 }
 
 func TestValidateMethodSimple(t *testing.T) {
-	req, _ := http.NewRequest("POST", "http://example.com", nil)
+	req, _ := http.NewRequest(http.MethodPost, "http://example.com", nil)
 	methodStr, err := validateMethod(req, []string{"GET", "POST"})
 	if err != nil {
 		t.Fatalf("validateMethod unexpected error: %v", err)
@@ -1113,7 +1099,7 @@ func TestValidateMethodDefaultGET(t *testing.T) {
 // TestValidateMethodNotAllowed verifies that validateMethod returns an error
 // when an HTTP method that is not in the allowed list is provided.
 func TestValidateMethodNotAllowed(t *testing.T) {
-	req := &http.Request{Method: "POST"}
+	req := &http.Request{Method: http.MethodPost}
 
 	if _, err := validateMethod(req, []string{"GET"}); err == nil {
 		t.Fatalf("expected method not allowed error, got nil")
@@ -1172,7 +1158,7 @@ func TestAPIServerErrorHandling(t *testing.T) {
 
 		// Create a request
 		body := []byte("test data")
-		req := httptest.NewRequest("POST", "/api/v1/test", bytes.NewReader(body))
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/test", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 
 		// Create response recorder
@@ -1294,7 +1280,7 @@ PreflightCheck {
 
 		// Create a request that will trigger processWorkflow failure
 		body := []byte("Neil Armstrong")
-		req := httptest.NewRequest("GET", "/api/v1/whois", bytes.NewReader(body))
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/whois", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 		// Create response recorder
@@ -1375,7 +1361,7 @@ PreflightCheck {
 		handler := APIServerHandler(context.Background(), route, testResolver, semaphore)
 
 		// Send a GET request (invalid method) with invalid resolver
-		req := httptest.NewRequest("GET", "/api/v1/test", bytes.NewReader([]byte("test")))
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/test", bytes.NewReader([]byte("test")))
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = req

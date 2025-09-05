@@ -14,14 +14,14 @@ import (
 )
 
 // NewBuildCommand creates the 'build' command and passes the necessary dependencies.
-func NewBuildCommand(fs afero.Fs, ctx context.Context, kdepsDir string, systemCfg *kdeps.Kdeps, logger *logging.Logger) *cobra.Command {
+func NewBuildCommand(ctx context.Context, fs afero.Fs, kdepsDir string, systemCfg *kdeps.Kdeps, logger *logging.Logger) *cobra.Command {
 	return &cobra.Command{
 		Use:     "build [package]",
 		Aliases: []string{"b"},
 		Example: "$ kdeps build ./myAgent.kdeps",
 		Short:   "Build a dockerized AI agent",
 		Args:    cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			pkgFile := args[0]
 			// Use the passed dependencies
 			pkgProject, err := archiver.ExtractPackage(fs, ctx, kdepsDir, pkgFile, logger)
@@ -44,7 +44,7 @@ func NewBuildCommand(fs afero.Fs, ctx context.Context, kdepsDir string, systemCf
 			if err := docker.CleanupDockerBuildImages(fs, ctx, agentContainerName, dockerClient); err != nil {
 				return err
 			}
-			fmt.Println("Kdeps AI Agent docker image created:", agentContainerNameAndVersion)
+			fmt.Println("Kdeps AI Agent docker image created:", agentContainerNameAndVersion) //nolint:forbidigo // CLI user feedback
 			return nil
 		},
 	}

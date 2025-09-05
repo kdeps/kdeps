@@ -69,7 +69,8 @@ func TruncateString(s string, maxLength int) string {
 	if len(s) <= maxLength {
 		return s
 	}
-	if maxLength < 3 {
+	const minStringLength = 3
+	if maxLength < minStringLength {
 		return "..."
 	}
 	return s[:maxLength-3] + "..."

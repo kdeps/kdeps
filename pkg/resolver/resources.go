@@ -66,11 +66,53 @@ func (dr *DependencyResolver) LoadResourceEntries() error {
 	for _, file := range pklFiles {
 		if err := dr.processPklFile(file); err != nil {
 			dr.Logger.Errorf("error processing .pkl file %s: %v", file, err)
-			return err
+			// Continue processing other files instead of failing completely
+			// This allows the system to work even if some resource files are malformed
+			continue
 		}
 	}
 
 	return nil
+}
+
+// loadResourceWithFallback tries to load a resource file with different resource types as fallback
+func (dr *DependencyResolver) loadResourceWithFallback(file string) (interface{}, error) {
+	resourceTypes := []ResourceType{Resource, LLMResource, HTTPResource, PythonResource, ExecResource}
+
+	for _, resourceType := range resourceTypes {
+		res, err := dr.LoadResourceFn(dr.Context, file, resourceType)
+		if err != nil {
+			dr.Logger.Debug("failed to load resource with type", "file", file, "type", resourceType, "error", err)
+			continue
+		}
+
+		dr.Logger.Debug("successfully loaded resource", "file", file, "type", resourceType)
+
+		// If we successfully loaded as a specific resource type, try to convert it to Resource type
+		if resourceType != Resource {
+			// Try to convert the loaded resource to Resource type
+			convertedRes, convertErr := dr.convertToResourceType(res, resourceType, file)
+			if convertErr == nil {
+				return convertedRes, nil
+			}
+			dr.Logger.Debug("failed to convert resource to Resource type", "file", file, "originalType", resourceType, "error", convertErr)
+			// Continue with the original loaded resource if conversion fails
+		}
+
+		return res, nil
+	}
+
+	return nil, errors.New("failed to load resource with any type")
+}
+
+// convertToResourceType attempts to convert a loaded resource to Resource type
+func (dr *DependencyResolver) convertToResourceType(res interface{}, originalType ResourceType, file string) (interface{}, error) {
+	// Try to load the same file as Resource type
+	resourceRes, err := dr.LoadResourceFn(dr.Context, file, Resource)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load as Resource type: %w", err)
+	}
+	return resourceRes, nil
 }
 
 // handleFileImports handles dynamic and placeholder imports for a given file.
@@ -98,15 +140,29 @@ func (dr *DependencyResolver) handleFileImports(path string) error {
 
 // processPklFile processes an individual .pkl file and updates dependencies.
 func (dr *DependencyResolver) processPklFile(file string) error {
-	// Load the resource file
-	res, err := dr.LoadResourceFn(dr.Context, file, Resource)
-	if err != nil {
-		return fmt.Errorf("failed to load PKL file: %w", err)
+	// Check if file exists before trying to load it
+	if _, err := dr.Fs.Stat(file); err != nil {
+		dr.Logger.Warn("PKL file does not exist, skipping", "file", file, "error", err)
+		return nil // Skip missing files instead of failing
 	}
 
-	pklRes, ok := res.(*pklResource.Resource)
-	if !ok {
-		return errors.New("failed to cast pklRes to *pklLLM.Resource")
+	// Try to load the resource file, with fallback to different resource types
+	res, err := dr.loadResourceWithFallback(file)
+	if err != nil {
+		dr.Logger.Error("failed to load PKL file with any resource type", "file", file, "error", err)
+		return fmt.Errorf("failed to load PKL file %s with any resource type: %w", file, err)
+	}
+
+	var pklRes pklResource.Resource
+	if ptr, ok := res.(*pklResource.Resource); ok {
+		pklRes = *ptr
+	} else if resource, ok := res.(pklResource.Resource); ok {
+		pklRes = resource
+	} else {
+		dr.Logger.Error("failed to cast resource to pklResource.Resource",
+			"file", file,
+			"actualType", fmt.Sprintf("%T", res))
+		return fmt.Errorf("failed to cast resource to pklResource.Resource for file %s (actual type: %T)", file, res)
 	}
 
 	// Append the resource to the list of resources

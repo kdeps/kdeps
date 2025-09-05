@@ -16,18 +16,18 @@ import (
 // Only Name and Version are significant for transformation functions; all other methods return zero values.
 type stubWf struct{}
 
-func (stubWf) GetAgentID() string             { return "agent" }
-func (stubWf) GetDescription() string         { return "" }
-func (stubWf) GetWebsite() *string            { return nil }
-func (stubWf) GetAuthors() *[]string          { return nil }
-func (stubWf) GetDocumentation() *string      { return nil }
-func (stubWf) GetRepository() *string         { return nil }
-func (stubWf) GetHeroImage() *string          { return nil }
-func (stubWf) GetAgentIcon() *string          { return nil }
-func (stubWf) GetVersion() string             { return "1.2.3" }
-func (stubWf) GetTargetActionID() string      { return "" }
-func (stubWf) GetWorkflows() []string         { return nil }
-func (stubWf) GetSettings() *project.Settings { return nil }
+func (stubWf) GetAgentID() string            { return "agent" }
+func (stubWf) GetDescription() string        { return "" }
+func (stubWf) GetWebsite() *string           { return nil }
+func (stubWf) GetAuthors() *[]string         { return nil }
+func (stubWf) GetDocumentation() *string     { return nil }
+func (stubWf) GetRepository() *string        { return nil }
+func (stubWf) GetHeroImage() *string         { return nil }
+func (stubWf) GetAgentIcon() *string         { return nil }
+func (stubWf) GetVersion() string            { return "1.2.3" }
+func (stubWf) GetTargetActionID() string     { return "" }
+func (stubWf) GetWorkflows() []string        { return nil }
+func (stubWf) GetSettings() project.Settings { return project.Settings{} }
 
 // Ensure interface compliance at compile-time.
 var (

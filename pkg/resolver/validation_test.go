@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -46,7 +47,7 @@ func TestValidateRequestPathAndMethod(t *testing.T) {
 	dr := newValidationTestResolver()
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/api/resource", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/resource", nil)
 
 	// Path allowed
 	if err := dr.validateRequestPath(c, []string{"/api/resource", "/foo"}); err != nil {
@@ -83,7 +84,7 @@ func TestValidationFunctions_EmptyAllowedLists(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("PATCH", "/any/path", nil)
+	c.Request = httptest.NewRequest(http.MethodPatch, "/any/path", nil)
 
 	if err := dr.validateRequestPath(c, nil); err != nil {
 		t.Fatalf("validateRequestPath unexpected error: %v", err)

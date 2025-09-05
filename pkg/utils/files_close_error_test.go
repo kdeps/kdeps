@@ -108,7 +108,7 @@ func TestWaitForFileReady_SuccessAndTimeout(t *testing.T) {
 	require.Less(t, time.Since(start), 1500*time.Millisecond)
 }
 
-func TestWaitForFileReady_Success(t *testing.T) {
+func TestWaitForFileReady_Success_InCloseErrorContext(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	logger := logging.NewTestLogger()
 	filename := "ready.txt"

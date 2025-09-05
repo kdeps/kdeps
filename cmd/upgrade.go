@@ -16,7 +16,7 @@ import (
 )
 
 // UpgradeCommand creates the 'upgrade' command for upgrading schema versions in pkl files.
-func UpgradeCommand(fs afero.Fs, ctx context.Context, kdepsDir string, logger *logging.Logger) *cobra.Command {
+func UpgradeCommand(_ context.Context, fs afero.Fs, _ string, logger *logging.Logger) *cobra.Command {
 	var targetVersion string
 	var dryRun bool
 
@@ -26,7 +26,7 @@ func UpgradeCommand(fs afero.Fs, ctx context.Context, kdepsDir string, logger *l
 		Long: `Upgrade schema versions and format in pkl files within a directory.
 		
 This command scans for pkl files and performs two types of upgrades:
-1. Schema version references (e.g., @0.2.43 -> @0.2.50)
+1. Schema version references (e.g., @0.2.44 -> @0.3.1-dev)
 2. Schema format migration (e.g., lowercase -> capitalized attributes/blocks)
 
 The format upgrade converts older lowercase PKL syntax to the new capitalized format:
@@ -36,11 +36,11 @@ The format upgrade converts older lowercase PKL syntax to the new capitalized fo
 Examples:
   kdeps upgrade                        # Upgrade current directory to default version
   kdeps upgrade ./my-agent            # Upgrade specific directory to default version  
-  kdeps upgrade --version 0.2.50 .    # Upgrade to specific version
+  kdeps upgrade --version 0.3.1-dev .    # Upgrade to specific version
   kdeps upgrade --dry-run ./my-agent  # Preview changes without applying
 		`,
 		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			// Determine target directory
 			targetDir := "."
 			if len(args) > 0 {
@@ -83,7 +83,7 @@ Examples:
 	return cmd
 }
 
-// upgradeSchemaVersions scans a directory for pkl files and upgrades schema versions
+// upgradeSchemaVersions scans a directory for pkl files and upgrades schema versions.
 func upgradeSchemaVersions(fs afero.Fs, dirPath, targetVersion string, dryRun bool, logger *logging.Logger) error {
 	var filesProcessed int
 	var filesUpdated int
@@ -150,7 +150,7 @@ func upgradeSchemaVersions(fs afero.Fs, dirPath, targetVersion string, dryRun bo
 	return nil
 }
 
-// upgradeSchemaVersionInContent upgrades schema version references and format in pkl file content
+// upgradeSchemaVersionInContent upgrades schema version references and format in pkl file content.
 func upgradeSchemaVersionInContent(content, targetVersion string, logger *logging.Logger) (string, bool, error) {
 	logger.Debug("upgradeSchemaVersionInContent called", "targetVersion", targetVersion, "contentLength", len(content))
 	updatedContent := content
@@ -195,15 +195,15 @@ type upgradeResult struct {
 	changed bool
 }
 
-// upgradeVersionReferences upgrades schema version references in pkl file content
+// upgradeVersionReferences upgrades schema version references in pkl file content.
 func upgradeVersionReferences(content, targetVersion string, logger *logging.Logger) (upgradeResult, error) {
 	logger.Debug("upgradeVersionReferences called", "targetVersion", targetVersion, "contentLength", len(content))
 
 	// Regex patterns to match schema version references
 	patterns := []string{
-		// Match: amends "package://schema.kdeps.com/core@0.2.43#/Workflow.pkl"
+		// Match: amends "package://schema.kdeps.com/core@0.3.1-dev#/Workflow.pkl"
 		`(amends\s+"package://schema\.kdeps\.com/core@)([^"#]+)(#/[^"]+")`,
-		// Match: import "package://schema.kdeps.com/core@0.2.43#/Resource.pkl"
+		// Match: import "package://schema.kdeps.com/core@0.3.1-dev#/Resource.pkl"
 		`(import\s+"package://schema\.kdeps\.com/core@)([^"#]+)(#/[^"]+")`,
 		// Match other similar patterns
 		`("package://schema\.kdeps\.com/core@)([^"#]+)(#/[^"]+")`,
@@ -214,7 +214,10 @@ func upgradeVersionReferences(content, targetVersion string, logger *logging.Log
 
 	for i, pattern := range patterns {
 		logger.Debug("testing pattern", "index", i, "pattern", pattern)
-		re := regexp.MustCompile(pattern)
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			return upgradeResult{}, fmt.Errorf("failed to compile regex pattern %d: %w", i, err)
+		}
 		matches := re.FindAllStringSubmatch(updatedContent, -1)
 		logger.Debug("pattern matches", "index", i, "matchCount", len(matches))
 
@@ -261,7 +264,7 @@ func upgradeVersionReferences(content, targetVersion string, logger *logging.Log
 	return upgradeResult{content: updatedContent, changed: changed}, nil
 }
 
-// upgradeSchemaFormat upgrades PKL format from lowercase to capitalized attributes/blocks
+// upgradeSchemaFormat upgrades PKL format from lowercase to capitalized attributes/blocks.
 func upgradeSchemaFormat(content string, logger *logging.Logger) (upgradeResult, error) {
 	updatedContent := content
 	changed := false
@@ -355,7 +358,10 @@ func upgradeSchemaFormat(content string, logger *logging.Logger) (upgradeResult,
 	// Apply attribute/block name transformations
 	for oldName, newName := range attributeMappings {
 		// Pattern 1: Attribute assignment (attribute = value)
-		attributePattern := regexp.MustCompile(`\b` + regexp.QuoteMeta(oldName) + `\s*=`)
+		attributePattern, err := regexp.Compile(`\b` + regexp.QuoteMeta(oldName) + `\s*=`)
+		if err != nil {
+			return upgradeResult{}, fmt.Errorf("failed to compile attribute regex for %s: %w", oldName, err)
+		}
 		if attributePattern.MatchString(updatedContent) {
 			updatedContent = attributePattern.ReplaceAllString(updatedContent, newName+" =")
 			changed = true
@@ -363,7 +369,10 @@ func upgradeSchemaFormat(content string, logger *logging.Logger) (upgradeResult,
 		}
 
 		// Pattern 2: Block definition (blockName {)
-		blockPattern := regexp.MustCompile(`\b` + regexp.QuoteMeta(oldName) + `\s*\{`)
+		blockPattern, err := regexp.Compile(`\b` + regexp.QuoteMeta(oldName) + `\s*\{`)
+		if err != nil {
+			return upgradeResult{}, fmt.Errorf("failed to compile block regex for %s: %w", oldName, err)
+		}
 		if blockPattern.MatchString(updatedContent) {
 			updatedContent = blockPattern.ReplaceAllString(updatedContent, newName+" {")
 			changed = true

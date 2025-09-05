@@ -16,7 +16,7 @@ type ErrorWithActionID struct {
 
 // Map to hold error blocks per request ID with thread-safe access
 var (
-	requestErrors        = make(map[string][]*apiserverresponse.APIServerErrorsBlock)
+	requestErrors        = make(map[string][]apiserverresponse.APIServerErrorsBlock)
 	requestErrorsWithIDs = make(map[string][]*ErrorWithActionID)
 	errorsMutex          sync.RWMutex
 )
@@ -29,7 +29,7 @@ func NewAPIServerResponse(success bool, data []any, errorCode int, errorMessage 
 
 	// If there is an error, append it to the request-specific errors slice
 	if errorCode != 0 || errorMessage != "" {
-		newError := &apiserverresponse.APIServerErrorsBlock{
+		newError := apiserverresponse.APIServerErrorsBlock{
 			Code:    errorCode,
 			Message: errorMessage,
 		}
@@ -65,7 +65,7 @@ func NewAPIServerResponseWithActionID(success bool, data []any, errorCode int, e
 		requestErrorsWithIDs[requestID] = append(requestErrorsWithIDs[requestID], newErrorWithID)
 
 		// Also store in the old collection for backward compatibility
-		newError := &apiserverresponse.APIServerErrorsBlock{
+		newError := apiserverresponse.APIServerErrorsBlock{
 			Code:    errorCode,
 			Message: errorMessage,
 		}
@@ -92,12 +92,12 @@ func ClearRequestErrors(requestID string) {
 }
 
 // GetRequestErrors returns a copy of the errors for a specific request ID
-func GetRequestErrors(requestID string) []*apiserverresponse.APIServerErrorsBlock {
+func GetRequestErrors(requestID string) []apiserverresponse.APIServerErrorsBlock {
 	errorsMutex.RLock()
 	defer errorsMutex.RUnlock()
 	errors := requestErrors[requestID]
 	// Return a copy to avoid race conditions
-	result := make([]*apiserverresponse.APIServerErrorsBlock, len(errors))
+	result := make([]apiserverresponse.APIServerErrorsBlock, len(errors))
 	copy(result, errors)
 	return result
 }
@@ -115,7 +115,7 @@ func GetRequestErrorsWithActionID(requestID string) []*ErrorWithActionID {
 
 // MergeAllErrors ensures all accumulated errors are included in the response
 // This function merges existing workflow errors with any new response errors
-func MergeAllErrors(requestID string, newErrors []*apiserverresponse.APIServerErrorsBlock) []*apiserverresponse.APIServerErrorsBlock {
+func MergeAllErrors(requestID string, newErrors []apiserverresponse.APIServerErrorsBlock) []apiserverresponse.APIServerErrorsBlock {
 	errorsMutex.Lock()
 	defer errorsMutex.Unlock()
 
@@ -123,26 +123,22 @@ func MergeAllErrors(requestID string, newErrors []*apiserverresponse.APIServerEr
 	existingErrors := requestErrors[requestID]
 
 	// Create a map to track unique errors (by code + message combination)
-	uniqueErrors := make(map[string]*apiserverresponse.APIServerErrorsBlock)
+	uniqueErrors := make(map[string]apiserverresponse.APIServerErrorsBlock)
 
 	// Add existing errors first
 	for _, err := range existingErrors {
-		if err != nil {
-			key := fmt.Sprintf("%d:%s", err.Code, err.Message)
-			uniqueErrors[key] = err
-		}
+		key := fmt.Sprintf("%d:%s", err.Code, err.Message)
+		uniqueErrors[key] = err
 	}
 
 	// Add new errors, avoiding duplicates
 	for _, err := range newErrors {
-		if err != nil {
-			key := fmt.Sprintf("%d:%s", err.Code, err.Message)
-			uniqueErrors[key] = err
-		}
+		key := fmt.Sprintf("%d:%s", err.Code, err.Message)
+		uniqueErrors[key] = err
 	}
 
 	// Convert back to slice
-	var allErrors []*apiserverresponse.APIServerErrorsBlock
+	var allErrors []apiserverresponse.APIServerErrorsBlock
 	for _, err := range uniqueErrors {
 		allErrors = append(allErrors, err)
 	}

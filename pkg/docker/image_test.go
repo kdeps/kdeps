@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -17,13 +16,12 @@ import (
 	"github.com/kdeps/kdeps/pkg/archiver"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/kdeps/kdeps/pkg/version"
 	kdCfg "github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/kdeps/kdeps/pkg/utils"
 )
 
 // generateDockerfile is a wrapper function for tests to maintain compatibility
@@ -166,7 +164,7 @@ func TestGenerateDockerfile(t *testing.T) {
 			"",
 			"",
 			"",
-			"2023.09",
+			"20.3.1-dev9",
 			"",
 			"UTC",
 			"8080",
@@ -319,7 +317,6 @@ func TestGenerateParamsSectionAdditional(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			got := generateParamsSection(tc.prefix, tc.items)
@@ -810,7 +807,7 @@ func TestGenerateParamsSection_Extra(t *testing.T) {
 	got := generateParamsSection("ENV", input)
 
 	// The slice order is not guaranteed; ensure both expected lines exist.
-	if !(containsLine(got, `ENV USER="root"`) && containsLine(got, `ENV DEBUG`)) {
+	if !containsLine(got, `ENV USER="root"`) || !containsLine(got, `ENV DEBUG`) {
 		t.Fatalf("unexpected section: %s", got)
 	}
 }
@@ -1365,8 +1362,8 @@ func TestGenerateURLs_GitHubError(t *testing.T) {
 	http.DefaultTransport = rtFunc(func(r *http.Request) (*http.Response, error) {
 		if r.URL.Host == "api.github.com" {
 			return &http.Response{
-				StatusCode: 403,
-				Body:       ioutil.NopCloser(bytes.NewBufferString("forbidden")),
+				StatusCode: http.StatusForbidden,
+				Body:       io.NopCloser(bytes.NewBufferString("forbidden")),
 				Header:     make(http.Header),
 			}, nil
 		}
@@ -1401,8 +1398,8 @@ func TestGenerateURLs_AnacondaError(t *testing.T) {
 	http.DefaultTransport = rtFunc(func(r *http.Request) (*http.Response, error) {
 		if r.URL.Host == "repo.anaconda.com" {
 			return &http.Response{
-				StatusCode: 500,
-				Body:       ioutil.NopCloser(bytes.NewBufferString("server error")),
+				StatusCode: http.StatusInternalServerError,
+				Body:       io.NopCloser(bytes.NewBufferString("server error")),
 				Header:     make(http.Header),
 			}, nil
 		}
@@ -1452,12 +1449,12 @@ type roundTripperLatest struct{}
 
 func (roundTripperLatest) RoundTrip(req *http.Request) (*http.Response, error) {
 	// Distinguish responses based on requested URL path.
-	switch {
-	case req.URL.Host == "api.github.com":
+	switch req.URL.Host {
+	case "api.github.com":
 		// Fake GitHub release JSON.
 		body, _ := json.Marshal(map[string]string{"tag_name": "v0.29.0"})
 		return &http.Response{StatusCode: http.StatusOK, Body: ioNopCloser(bytes.NewReader(body)), Header: make(http.Header)}, nil
-	case req.URL.Host == "repo.anaconda.com":
+	case "repo.anaconda.com":
 		html := `<a href="Anaconda3-2024.05-0-Linux-x86_64.sh">file</a><a href="Anaconda3-2024.05-0-Linux-aarch64.sh">file</a>`
 		return &http.Response{StatusCode: http.StatusOK, Body: ioNopCloser(bytes.NewReader([]byte(html))), Header: make(http.Header)}, nil
 	default:

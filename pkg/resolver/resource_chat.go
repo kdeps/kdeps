@@ -12,6 +12,7 @@ import (
 	"github.com/apple/pkl-go/pkl"
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/kdeps/kdeps/pkg/evaluator"
+	"github.com/kdeps/kdeps/pkg/kdepsexec"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/tool"
@@ -24,19 +25,20 @@ import (
 
 // Constants for role strings.
 const (
-	RoleHuman     = "human"
-	RoleUser      = "user"
-	RolePerson    = "person"
-	RoleClient    = "client"
-	RoleSystem    = "system"
-	RoleAI        = "ai"
-	RoleAssistant = "assistant"
-	RoleBot       = "bot"
-	RoleChatbot   = "chatbot"
-	RoleLLM       = "llm"
-	RoleFunction  = "function"
-	RoleAction    = "action"
-	RoleTool      = "tool"
+	RoleHuman           = "human"
+	RoleUser            = "user"
+	RolePerson          = "person"
+	RoleClient          = "client"
+	RoleSystem          = "system"
+	RoleAI              = "ai"
+	RoleAssistant       = "assistant"
+	RoleBot             = "bot"
+	RoleChatbot         = "chatbot"
+	RoleLLM             = "llm"
+	RoleFunction        = "function"
+	RoleAction          = "action"
+	RoleTool            = "tool"
+	maxLogContentLength = 100
 )
 
 // HandleLLMChat initiates asynchronous processing of an LLM chat interaction.
@@ -46,12 +48,71 @@ func (dr *DependencyResolver) HandleLLMChat(actionID string, chatBlock *pklLLM.R
 		return err
 	}
 
+	// Check if the model needs to be pulled before processing
+	if err := dr.ensureModelAvailable(chatBlock.Model); err != nil {
+		dr.Logger.Error("failed to ensure model availability", "actionID", actionID, "model", chatBlock.Model, "error", err)
+		return err
+	}
+
 	go func(aID string, block *pklLLM.ResourceChat) {
 		if err := dr.processLLMChat(aID, block); err != nil {
 			dr.Logger.Error("failed to process LLM chat", "actionID", aID, "error", err)
 		}
 	}(actionID, chatBlock)
 
+	return nil
+}
+
+// ensureModelAvailable checks if the specified model is available and pulls it if necessary
+func (dr *DependencyResolver) ensureModelAvailable(model string) error {
+	if model == "" {
+		return fmt.Errorf("model name cannot be empty")
+	}
+
+	dr.Logger.Info("checking model availability", "model", model)
+
+	// Try to create an LLM instance to check if the model is available
+	llm, err := ollama.New(ollama.WithModel(model))
+	if err != nil {
+		errMsg := strings.ToLower(err.Error())
+
+		// Check for the specific "model not found, try pulling it first" error
+		shouldTryPull := strings.Contains(errMsg, "try pulling it first")
+
+		if shouldTryPull {
+			dr.Logger.Info("model not available, pulling model", "model", model)
+
+			// Try to pull the model
+			if pullErr := dr.pullOllamaModel(dr.Context, model); pullErr != nil {
+				dr.Logger.Error("failed to pull model", "model", model, "error", pullErr)
+				return fmt.Errorf("failed to pull model %s: %w", model, pullErr)
+			}
+
+			dr.Logger.Info("successfully pulled model", "model", model)
+
+			// Sync the pulled model to /models/ directory for persistence
+			if syncErr := dr.syncModelToPersistentStorage(model); syncErr != nil {
+				dr.Logger.Warn("failed to sync model to persistent storage", "model", model, "error", syncErr)
+				// Don't fail the whole operation if sync fails, just log it
+			}
+
+			// Verify the model is now available by trying to create it again
+			llm, err = ollama.New(ollama.WithModel(model))
+			if err != nil {
+				return fmt.Errorf("model still not available after pulling %s: %w", model, err)
+			}
+		} else {
+			return fmt.Errorf("unexpected error when checking model availability: %w", err)
+		}
+	}
+
+	// Clean up the test LLM instance
+	if llm != nil {
+		// Note: ollama.LLM doesn't have a Close method in the current version
+		// The LLM will be cleaned up by the garbage collector
+	}
+
+	dr.Logger.Info("model is available", "model", model)
 	return nil
 }
 
@@ -144,8 +205,40 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 	// First GenerateContent call
 	response, err := llm.GenerateContent(ctx, messageHistory, opts...)
 	if err != nil {
-		logger.Error("Failed to generate content in first call", "error", err)
-		return "", fmt.Errorf("failed to generate content in first call: %w", err)
+		errMsg := strings.ToLower(err.Error())
+
+		// Check for various Ollama error conditions that indicate we should try to pull the model
+		shouldTryPull := strings.Contains(errMsg, "not found") ||
+			strings.Contains(errMsg, "model") && strings.Contains(errMsg, "not found") ||
+			strings.Contains(errMsg, "no such file or directory") ||
+			strings.Contains(errMsg, "connection refused") ||
+			strings.Contains(errMsg, "eof") ||
+			strings.Contains(errMsg, "try pulling it first")
+
+		if shouldTryPull {
+			logger.Info("model error during content generation, attempting to pull", "model", chatBlock.Model, "error", err.Error())
+
+			// Try to pull the model - this will also ensure Ollama server is running
+			if pullErr := pullOllamaModel(ctx, chatBlock.Model, logger); pullErr != nil {
+				logger.Error("failed to pull model during content generation", "model", chatBlock.Model, "error", pullErr)
+				return "", fmt.Errorf("failed to pull model %s during content generation: %w", chatBlock.Model, pullErr)
+			}
+
+			// Retry GenerateContent after pulling
+			response, err = llm.GenerateContent(ctx, messageHistory, opts...)
+			if err != nil {
+				// Try once more after a brief delay to allow server to fully start
+				time.Sleep(1 * time.Second)
+				response, err = llm.GenerateContent(ctx, messageHistory, opts...)
+				if err != nil {
+					logger.Error("Failed to generate content after model pull retry", "error", err)
+					return "", fmt.Errorf("failed to generate content after model pull: %w", err)
+				}
+			}
+		} else {
+			logger.Error("Failed to generate content in first call", "error", err)
+			return "", fmt.Errorf("failed to generate content in first call: %w", err)
+		}
 	}
 
 	if len(response.Choices) == 0 {
@@ -168,7 +261,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 	}
 
 	logger.Info("First LLM response",
-		"content", utils.TruncateString(respChoice.Content, 100),
+		"content", utils.TruncateString(respChoice.Content, maxLogContentLength),
 		"tool_calls", len(respChoice.ToolCalls),
 		"stop_reason", respChoice.StopReason,
 		"tool_names", extractToolNames(respChoice.ToolCalls))
@@ -241,7 +334,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 			var toolOutputSummary strings.Builder
 			toolOutputSummary.WriteString("\nPrevious Tool Outputs:\n")
 			for toolID, output := range toolOutputs {
-				toolOutputSummary.WriteString("- ToolCall ID " + toolID + ": " + utils.TruncateString(output, 100) + "\n")
+				toolOutputSummary.WriteString("- ToolCall ID " + toolID + ": " + utils.TruncateString(output, maxLogContentLength) + "\n")
 			}
 			systemPrompt += toolOutputSummary.String()
 		}
@@ -279,7 +372,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 
 		logger.Info("LLM response",
 			"iteration", iteration+1,
-			"content", utils.TruncateString(respChoice.Content, 100),
+			"content", utils.TruncateString(respChoice.Content, maxLogContentLength),
 			"tool_calls", len(respChoice.ToolCalls),
 			"stop_reason", respChoice.StopReason,
 			"tool_names", extractToolNames(respChoice.ToolCalls))
@@ -297,7 +390,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 
 		// Exit if no new tool calls or LLM stopped
 		if len(toolCalls) == 0 || respChoice.StopReason == "stop" {
-			logger.Info("No valid tool calls or LLM stopped, returning response", "iteration", iteration+1, "content", utils.TruncateString(respChoice.Content, 100))
+			logger.Info("No valid tool calls or LLM stopped, returning response", "iteration", iteration+1, "content", utils.TruncateString(respChoice.Content, maxLogContentLength))
 			// If response is empty, use the last tool output
 			if respChoice.Content == "{}" || respChoice.Content == "" {
 				logger.Warn("Empty response detected, falling back to last tool output")
@@ -309,7 +402,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 					respChoice.Content = "No result available"
 				}
 			}
-			logger.Info("Final response", "content", utils.TruncateString(respChoice.Content, 100))
+			logger.Info("Final response", "content", utils.TruncateString(respChoice.Content, maxLogContentLength))
 			return respChoice.Content, nil
 		}
 
@@ -336,7 +429,7 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 						"count", toolCallHistory[toolKey])
 					// Use last tool output if available
 					for _, output := range toolOutputs {
-						logger.Info("Final response from repeated tool call", "content", utils.TruncateString(output, 100))
+						logger.Info("Final response from repeated tool call", "content", utils.TruncateString(output, maxLogContentLength))
 						return output, nil
 					}
 					return respChoice.Content, nil
@@ -382,14 +475,14 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 			logger.Error("Reached maximum tool call iterations", "max_iterations", maxIterations)
 			// Return last tool output if available
 			for _, output := range toolOutputs {
-				logger.Info("Final response from max iterations", "content", utils.TruncateString(output, 100))
+				logger.Info("Final response from max iterations", "content", utils.TruncateString(output, maxLogContentLength))
 				return output, nil
 			}
 			return respChoice.Content, fmt.Errorf("reached maximum tool call iterations (%d)", maxIterations)
 		}
 	}
 
-	logger.Info("Received final LLM response", "content", utils.TruncateString(respChoice.Content, 100))
+	logger.Info("Received final LLM response", "content", utils.TruncateString(respChoice.Content, maxLogContentLength))
 	// Ensure non-empty response
 	if respChoice.Content == "{}" || respChoice.Content == "" {
 		logger.Warn("Empty response detected, falling back to last tool output")
@@ -401,8 +494,149 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 			respChoice.Content = "No result available"
 		}
 	}
-	logger.Info("Final response", "content", utils.TruncateString(respChoice.Content, 100))
+	logger.Info("Final response", "content", utils.TruncateString(respChoice.Content, maxLogContentLength))
 	return respChoice.Content, nil
+}
+
+// pullOllamaModel pulls a single Ollama model using the ollama CLI (standalone version)
+func pullOllamaModel(ctx context.Context, model string, logger *logging.Logger) error {
+	logger.Info("pulling Ollama model (standalone)", "model", model)
+
+	// First ensure Ollama server is running
+	if err := ensureOllamaServerRunningStandalone(ctx, logger); err != nil {
+		return fmt.Errorf("failed to ensure Ollama server is running: %w", err)
+	}
+
+	// Use a timeout for the model pull to prevent hanging
+	pullCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	// Try to pull the exact model first
+	stdout, stderr, exitCode, err := kdepsexec.KdepsExec(
+		pullCtx,
+		"ollama",
+		[]string{"pull", model},
+		"",    // use current directory
+		false, // don't use env file
+		false, // don't run in background
+		logger,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to execute ollama pull: %w", err)
+	}
+
+	if exitCode == 0 {
+		logger.Info("successfully pulled Ollama model (standalone)", "model", model)
+		return nil
+	}
+
+	// If exact model pull failed, try to find and pull a variant
+	logger.Info("exact model pull failed, trying to find similar models (standalone)", "model", model, "exitCode", exitCode, "stderr", stderr)
+	if variantModel, err := findModelVariantStandalone(ctx, model, logger); err == nil && variantModel != "" {
+		logger.Info("found similar model variant (standalone), attempting to pull", "original", model, "variant", variantModel)
+
+		// Try pulling the variant
+		stdout, stderr, exitCode, err = kdepsexec.KdepsExec(
+			pullCtx,
+			"ollama",
+			[]string{"pull", variantModel},
+			"",    // use current directory
+			false, // don't use env file
+			false, // don't run in background
+			logger,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to execute ollama pull for variant: %w", err)
+		}
+
+		if exitCode == 0 {
+			logger.Info("successfully pulled Ollama model variant (standalone)", "original", model, "variant", variantModel)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("ollama pull failed with exit code %d: stdout=%s, stderr=%s", exitCode, stdout, stderr)
+}
+
+// ensureOllamaServerRunningStandalone ensures the Ollama server is running (standalone version)
+func ensureOllamaServerRunningStandalone(ctx context.Context, logger *logging.Logger) error {
+	// Check if server is running by trying to list models
+	checkCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	_, _, exitCode, err := kdepsexec.KdepsExec(
+		checkCtx,
+		"ollama",
+		[]string{"list"},
+		"",
+		false,
+		false,
+		logger,
+	)
+
+	if err == nil && exitCode == 0 {
+		// Server is already running
+		return nil
+	}
+
+	logger.Info("Ollama server not running (standalone), starting it")
+
+	// Start Ollama server in background
+	serverCtx, serverCancel := context.WithTimeout(ctx, 30*time.Second)
+	defer serverCancel()
+
+	_, _, _, err = kdepsexec.KdepsExec(
+		serverCtx,
+		"ollama",
+		[]string{"serve"},
+		"",
+		false,
+		true, // run in background
+		logger,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to start Ollama server (standalone): %w", err)
+	}
+
+	// Wait a bit for server to start
+	time.Sleep(2 * time.Second)
+
+	return nil
+}
+
+// findModelVariantStandalone tries to find a similar model variant (standalone version)
+func findModelVariantStandalone(ctx context.Context, model string, logger *logging.Logger) (string, error) {
+	checkCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	stdout, _, exitCode, err := kdepsexec.KdepsExec(
+		checkCtx,
+		"ollama",
+		[]string{"list"},
+		"",
+		false,
+		false,
+		logger,
+	)
+
+	if err != nil || exitCode != 0 {
+		return "", fmt.Errorf("failed to list models: %w", err)
+	}
+
+	lines := strings.Split(stdout, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, model+":") {
+			// Found a variant like "llama3.2:1b"
+			fields := strings.Fields(line)
+			if len(fields) > 0 {
+				return fields[0], nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no variant found for model %s", model)
 }
 
 // processLLMChat processes the LLM chat and saves the response.
@@ -434,14 +668,18 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 		return fmt.Errorf("failed to load PKL file: %w", err)
 	}
 
-	pklRes, ok := llmRes.(*pklLLM.LLMImpl)
-	if !ok {
-		return errors.New("failed to cast pklRes to *pklLLM.Resource")
+	var pklRes pklLLM.LLMImpl
+	if ptr, ok := llmRes.(*pklLLM.LLMImpl); ok {
+		pklRes = *ptr
+	} else if impl, ok := llmRes.(pklLLM.LLMImpl); ok {
+		pklRes = impl
+	} else {
+		return errors.New("failed to cast pklRes to pklLLM.LLMImpl")
 	}
 
 	resources := pklRes.GetResources()
 	if resources == nil {
-		emptyMap := make(map[string]*pklLLM.ResourceChat)
+		emptyMap := make(map[string]pklLLM.ResourceChat)
 		resources = &emptyMap
 	}
 	existingResources := *resources
@@ -456,7 +694,7 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 	}
 
 	encodedChat := encodeChat(newChat, dr.Logger)
-	existingResources[resourceID] = encodedChat
+	existingResources[resourceID] = *encodedChat
 
 	pklContent := generatePklContent(existingResources, dr.Context, dr.Logger)
 
@@ -480,7 +718,7 @@ func (dr *DependencyResolver) AppendChatEntry(resourceID string, newChat *pklLLM
 }
 
 // generatePklContent generates Pkl content from resources.
-func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.Context, logger *logging.Logger) string {
+func generatePklContent(resources map[string]pklLLM.ResourceChat, ctx context.Context, logger *logging.Logger) string {
 	var pklContent strings.Builder
 	pklContent.WriteString(fmt.Sprintf("extends \"package://schema.kdeps.com/core@%s#/LLM.pkl\"\n\n", schema.SchemaVersion(ctx)))
 	pklContent.WriteString("Resources {\n")
@@ -507,10 +745,7 @@ func generatePklContent(resources map[string]*pklLLM.ResourceChat, ctx context.C
 			logger.Info("Serializing scenario", "entry_count", len(*res.Scenario))
 			pklContent.WriteString("{\n")
 			for i, entry := range *res.Scenario {
-				if entry == nil {
-					logger.Warn("Skipping nil scenario entry in generatePklContent", "index", i)
-					continue
-				}
+				// MultiChat is a struct, not a pointer, so we can always access it
 				pklContent.WriteString("      new {\n")
 				entryRole := RoleHuman
 				if entry.Role != nil && *entry.Role != "" {

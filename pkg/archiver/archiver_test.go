@@ -19,6 +19,8 @@ import (
 	"github.com/kdeps/kdeps/pkg/workflow"
 	"github.com/kr/pretty"
 	"github.com/spf13/afero"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 var (
@@ -95,7 +97,7 @@ func aKdepsArchiveIsOpened(arg1 string) error {
 		return err
 	}
 
-	fmt.Printf("%# v", pretty.Formatter(proj))
+	fmt.Printf("%# v", pretty.Formatter(proj)) //nolint:forbidigo // Test debug output
 
 	return nil
 }
@@ -343,7 +345,7 @@ func theContentOfThatArchiveFileWillBeExtractedTo(arg1 string) error {
 }
 
 func thePklFilesIsValid() error {
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowFile, logger); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowFile, ctx, logger); err != nil {
 		return err
 	}
 
@@ -358,7 +360,7 @@ func theProjectIsValid() error {
 	return nil
 }
 
-func theProjectWillBeArchivedTo(arg1 string) error {
+func theProjectWillBeArchivedTo(_ string) error {
 	wf, err := workflow.LoadWorkflow(ctx, workflowFile, logger)
 	if err != nil {
 		return err
@@ -420,7 +422,7 @@ func thePklFilesIsInvalid() error {
 
 	workflowFile = file
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowFile, logger); err == nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowFile, ctx, logger); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 
@@ -435,7 +437,7 @@ func theProjectIsInvalid() error {
 	return nil
 }
 
-func theProjectWillNotBeArchivedTo(arg1 string) error {
+func theProjectWillNotBeArchivedTo(_ string) error {
 	wf, err := workflow.LoadWorkflow(ctx, workflowFile, logger)
 	if err != nil {
 		return err
@@ -504,7 +506,7 @@ Version = "%s"
 	return nil
 }
 
-func theResourceFileExistsInTheAgent(arg1, arg2, arg3 string) error {
+func theResourceFileExistsInTheAgent(arg1, arg2, _ string) error {
 	fpath := filepath.Join(kdepsDir, "agents/"+arg2+"/1.0.0/resources/"+arg1)
 	if _, err := testFs.Stat(fpath); err != nil {
 		return errors.New("expected a package, but got none")
@@ -539,7 +541,8 @@ func itHasAFileWithIDPropertyAndDependentOnWithRunBlockAndIsNotNull(arg1, arg2, 
 		var fieldLines []string
 		for _, value := range values {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
-			value = strings.Title(value)     // Capitalize for new schema
+			caser := cases.Title(language.English)
+			value = caser.String(value) // Capitalize for new schema
 			fieldLines = append(fieldLines, value+" {\n[\"key\"] = \"\"\"\n@(exec.stdout[\"anAction\"])\n@(exec.stdin[\"anAction2\"])\n@(exec.stderr[\"anAction2\"])\n@(http.client[\"anAction3\"].response)\n@(llm.chat[\"anAction4\"].response)\n\"\"\"\n}")
 		}
 		fieldSection = "Run {\n" + strings.Join(fieldLines, "\n") + "\n}"
@@ -555,7 +558,7 @@ func itHasAFileWithIDPropertyAndDependentOnWithRunBlockAndIsNotNull(arg1, arg2, 
 @(llm.chat["anAction4"].response)
 """
   }
-}`, strings.Title(arg4))
+}`, cases.Title(language.English).String(arg4))
 	}
 
 	// Create the document with the id and requires block
@@ -607,7 +610,8 @@ func itHasAFileWithIDPropertyAndDependentOnWithRunBlockAndIsNull(arg1, arg2, arg
 		var fieldLines []string
 		for _, value := range values {
 			value = strings.TrimSpace(value) // Trim any leading/trailing whitespace
-			value = strings.Title(value)     // Capitalize for new schema
+			caser := cases.Title(language.English)
+			value = caser.String(value) // Capitalize for new schema
 			fieldLines = append(fieldLines, value+"=null")
 		}
 		fieldSection = "Run {\n" + strings.Join(fieldLines, "\n") + "\n}"
@@ -615,7 +619,7 @@ func itHasAFileWithIDPropertyAndDependentOnWithRunBlockAndIsNull(arg1, arg2, arg
 		// Single value case
 		fieldSection = fmt.Sprintf(`Run {
   %s=null
-}`, strings.Title(arg4))
+}`, cases.Title(language.English).String(arg4))
 	}
 
 	// Create the document with the id and requires block

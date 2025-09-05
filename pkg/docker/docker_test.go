@@ -59,7 +59,6 @@ var (
 	lastCreatedPackage        string
 	resourcesDir              string
 	dataDir                   string
-	projectDir                string
 )
 
 func TestFeatures(t *testing.T) {
@@ -149,16 +148,16 @@ DockerGPU = "%s"
 		return err
 	}
 
-	systemConfigurationFile, err := cfg.FindConfiguration(testFs, ctx, environ, logger)
+	systemConfigurationFile, err := cfg.FindConfiguration(ctx, testFs, environ, logger)
 	if err != nil {
 		return err
 	}
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, systemConfigurationFile, logger); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, systemConfigurationFile, ctx, logger); err != nil {
 		return err
 	}
 
-	syscfg, err := cfg.LoadConfiguration(testFs, ctx, systemConfigurationFile, logger)
+	syscfg, err := cfg.LoadConfiguration(ctx, testFs, systemConfigurationFile, logger)
 	if err != nil {
 		return err
 	}
@@ -275,7 +274,7 @@ Description = "An action from agent %s"
 		f.Close()
 	}
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowConfigurationFile, logger); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowConfigurationFile, ctx, logger); err != nil {
 		return err
 	}
 
@@ -669,7 +668,7 @@ func theContentOfThatArchiveFileWillBeExtractedTo(arg1 string) error {
 }
 
 func thePklFilesIsValid() error {
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowFile, logger); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowFile, ctx, logger); err != nil {
 		return err
 	}
 
@@ -746,7 +745,7 @@ func thePklFilesIsInvalid() error {
 
 	workflowFile = file
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, ctx, workflowFile, logger); err == nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(testFs, workflowFile, ctx, logger); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 
@@ -839,7 +838,7 @@ func theResourceFileExistsInTheAgent(arg1, arg2, arg3 string) error {
 	return nil
 }
 
-// PackageProject is a helper function to package a project
+// PackageProject is a helper function to package a project.
 func PackageProject(fs afero.Fs, ctx context.Context, wf wfPkl.Workflow, kdepsDir, aiAgentDir string, logger *logging.Logger) (string, error) {
 	// Create package directory if it doesn't exist
 	packageDir := filepath.Join(kdepsDir, "packages")

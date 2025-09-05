@@ -23,6 +23,7 @@ var (
 	idPattern       = regexp.MustCompile(`(?i)^\s*actionID\s*=\s*"([^"]+)"`)
 	actionIDRegex   = regexp.MustCompile(`(?i)\b(resources|resource|responseBody|responseHeader|stderr|stdout|env|response|prompt|exitCode|file)\s*\(\s*"((?:[^"\\]|\\.)*)"\s*(?:,\s*"([^"]+)")?\s*\)`)
 	requiresPattern = regexp.MustCompile(`^\s*Requires\s*{`)
+	pklExtension    = ".pkl"
 )
 
 // CompileResources processes .pkl files and copies them to resources directory.
@@ -78,7 +79,7 @@ func EvaluatePklResources(fs afero.Fs, ctx context.Context, dir string, logger *
 
 func pklFileProcessor(fs afero.Fs, wf pklWf.Workflow, resourcesDir string, logger *logging.Logger) filepath.WalkFunc {
 	return func(file string, info os.FileInfo, err error) error {
-		if err != nil || filepath.Ext(file) != ".pkl" || info.IsDir() {
+		if err != nil || filepath.Ext(file) != pklExtension || info.IsDir() {
 			return err
 		}
 
@@ -257,7 +258,7 @@ func ValidatePklResources(fs afero.Fs, ctx context.Context, dir string, logger *
 	}
 
 	for _, file := range pklFiles {
-		if err := enforcer.EnforcePklTemplateAmendsRules(fs, ctx, file, logger); err != nil {
+		if err := enforcer.EnforcePklTemplateAmendsRules(fs, file, ctx, logger); err != nil {
 			return fmt.Errorf("validation failed for %s: %w", file, err)
 		}
 	}
@@ -272,7 +273,7 @@ func collectPklFiles(fs afero.Fs, dir string) ([]string, error) {
 
 	var pklFiles []string
 	for _, f := range files {
-		if !f.IsDir() && filepath.Ext(f.Name()) == ".pkl" {
+		if !f.IsDir() && filepath.Ext(f.Name()) == pklExtension {
 			pklFiles = append(pklFiles, filepath.Join(dir, f.Name()))
 		}
 	}

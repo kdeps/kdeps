@@ -16,11 +16,13 @@ import (
 func WaitForFileReady(fs afero.Fs, filepath string, logger *logging.Logger) error {
 	logger.Debug(messages.MsgWaitingForFileReady, "file", filepath)
 
-	ticker := time.NewTicker(500 * time.Millisecond)
+	const fileCheckInterval = 500 * time.Millisecond
+	ticker := time.NewTicker(fileCheckInterval)
 	defer ticker.Stop()
 
 	// Introduce a timeout
-	timeout := time.After(1 * time.Second)
+	const fileReadyTimeout = 1 * time.Second
+	timeout := time.After(fileReadyTimeout)
 
 	for {
 		select {
@@ -55,7 +57,8 @@ func GenerateResourceIDFilename(input string, requestID string) string {
 func CreateDirectories(fs afero.Fs, ctx context.Context, dirs []string) error {
 	for _, dir := range dirs {
 		// Use fs.MkdirAll to create the directory and its parents if they don't exist
-		err := fs.MkdirAll(dir, 0o755)
+		const defaultDirPerms = 0o755
+		err := fs.MkdirAll(dir, defaultDirPerms)
 		if err != nil {
 			return fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}

@@ -9,6 +9,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Test that activate/deactivate use the injected ExecTaskRunnerFn and succeed.
@@ -19,7 +20,7 @@ func TestCondaEnvironmentExecutionInjectedSuccess(t *testing.T) {
 		Fs:      afero.NewMemMapFs(),
 		Logger:  logging.GetLogger(),
 		Context: context.Background(),
-		ExecTaskRunnerFn: func(ctx context.Context, task execute.ExecTask) (string, string, error) {
+		ExecTaskRunnerFn: func(_ context.Context, task execute.ExecTask) (string, string, error) {
 			if task.Command == "conda" && len(task.Args) >= 1 {
 				switch task.Args[0] {
 				case "activate":
@@ -45,13 +46,13 @@ func TestCondaEnvironmentExecutionInjectedFailure(t *testing.T) {
 		Fs:      afero.NewMemMapFs(),
 		Logger:  logging.GetLogger(),
 		Context: context.Background(),
-		ExecTaskRunnerFn: func(ctx context.Context, task execute.ExecTask) (string, string, error) {
+		ExecTaskRunnerFn: func(_ context.Context, task execute.ExecTask) (string, string, error) {
 			return "", "", expectedErr
 		},
 	}
 
 	err := dr.activateCondaEnvironment("myenv")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), expectedErr.Error())
 }
 
@@ -62,18 +63,18 @@ func TestHandleFileImportsUsesInjection(t *testing.T) {
 	dr := &DependencyResolver{
 		Fs:     afero.NewMemMapFs(),
 		Logger: logging.GetLogger(),
-		PrependDynamicImportsFn: func(path string) error {
+		PrependDynamicImportsFn: func(_ string) error {
 			prependCalled = true
 			return nil
 		},
-		AddPlaceholderImportsFn: func(path string) error {
+		AddPlaceholderImportsFn: func(_ string) error {
 			placeholderCalled = true
 			return nil
 		},
 	}
 
 	err := dr.handleFileImports("dummy.pkl")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, prependCalled, "PrependDynamicImportsFn was not called")
 	assert.True(t, placeholderCalled, "AddPlaceholderImportsFn was not called")
 }

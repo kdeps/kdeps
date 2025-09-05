@@ -9,23 +9,26 @@ import (
 	"strings"
 
 	"github.com/adrg/xdg"
+	"github.com/apple/pkl-go/pkl"
+	"github.com/kdeps/kdeps/pkg/assets"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/evaluator"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/texteditor"
+	schemaAssets "github.com/kdeps/schema/assets"
 	"github.com/kdeps/schema/gen/kdeps"
 	"github.com/kdeps/schema/gen/kdeps/path"
 	"github.com/spf13/afero"
 )
 
-// simpleConfirm provides a simple Yes/No prompt without TUI complications
+// simpleConfirm provides a simple Yes/No prompt without TUI complications.
 func simpleConfirm(title, description string) (bool, error) {
-	fmt.Printf("\n%s\n", title)
+	fmt.Printf("\n%s\n", title) //nolint:forbidigo // CLI user interaction
 	if description != "" {
-		fmt.Printf("%s\n", description)
+		fmt.Printf("%s\n", description) //nolint:forbidigo // CLI user interaction
 	}
-	fmt.Print("Do you want to continue? (y/N): ")
+	fmt.Print("Do you want to continue? (y/N): ") //nolint:forbidigo // CLI user interaction
 
 	reader := bufio.NewReader(os.Stdin)
 	response, err := reader.ReadString('\n')
@@ -37,7 +40,7 @@ func simpleConfirm(title, description string) (bool, error) {
 	return response == "y" || response == "yes", nil
 }
 
-func FindConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
+func FindConfiguration(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 	logger.Debug("finding configuration...")
 
 	// No need to ensure PKL CLI; we use the SDK now
@@ -60,7 +63,7 @@ func FindConfiguration(fs afero.Fs, ctx context.Context, env *environment.Enviro
 	return "", nil
 }
 
-func GenerateConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
+func GenerateConfiguration(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 	logger.Debug("generating configuration...")
 
 	// Set configFile path in Home directory
@@ -87,7 +90,7 @@ func GenerateConfiguration(fs afero.Fs, ctx context.Context, env *environment.En
 	return configFile, nil
 }
 
-func EditConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
+func EditConfiguration(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 	logger.Debug("editing configuration...")
 
 	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
@@ -122,7 +125,7 @@ func EditConfiguration(fs afero.Fs, ctx context.Context, env *environment.Enviro
 	return configFile, nil
 }
 
-func ValidateConfiguration(fs afero.Fs, ctx context.Context, env *environment.Environment, logger *logging.Logger) (string, error) {
+func ValidateConfiguration(ctx context.Context, fs afero.Fs, env *environment.Environment, logger *logging.Logger) (string, error) {
 	logger.Debug("validating configuration...")
 
 	configFile := filepath.Join(env.Home, environment.SystemConfigFileName)
@@ -135,15 +138,67 @@ func ValidateConfiguration(fs afero.Fs, ctx context.Context, env *environment.En
 	return configFile, nil
 }
 
-func LoadConfiguration(fs afero.Fs, ctx context.Context, configFile string, logger *logging.Logger) (*kdeps.Kdeps, error) {
+func LoadConfiguration(ctx context.Context, fs afero.Fs, configFile string, logger *logging.Logger) (*kdeps.Kdeps, error) {
 	logger.Debug("loading configuration", "config-file", configFile)
 
-	konfig, err := kdeps.LoadFromPath(ctx, configFile)
+	// Check if we should use embedded assets
+	if assets.ShouldUseEmbeddedAssets() {
+		return loadConfigurationFromEmbeddedAssets(ctx, configFile, logger)
+	}
+
+	return loadConfigurationFromFile(ctx, configFile, logger)
+}
+
+// loadConfigurationFromEmbeddedAssets loads configuration using embedded PKL assets.
+func loadConfigurationFromEmbeddedAssets(ctx context.Context, configFile string, logger *logging.Logger) (*kdeps.Kdeps, error) {
+	logger.Debug("loading configuration from embedded assets", "config-file", configFile)
+
+	// Use GetPKLFileWithFullConversion to get the embedded Kdeps.pkl template
+	_, err := schemaAssets.GetPKLFileWithFullConversion("Kdeps.pkl")
 	if err != nil {
+		logger.Error("error reading embedded kdeps template", "error", err)
+		return nil, fmt.Errorf("error reading embedded kdeps template: %w", err)
+	}
+
+	evaluator, err := pkl.NewEvaluator(ctx, pkl.PreconfiguredOptions)
+	if err != nil {
+		logger.Error("error creating pkl evaluator", "config-file", configFile, "error", err)
+		return nil, fmt.Errorf("error creating pkl evaluator for config file '%s': %w", configFile, err)
+	}
+	defer evaluator.Close()
+
+	// Use the user's config file but with embedded asset support
+	source := pkl.FileSource(configFile)
+	var conf *kdeps.Kdeps
+	err = evaluator.EvaluateModule(ctx, source, &conf)
+	if err != nil {
+		logger.Error("error reading config file", "config-file", configFile, "error", err)
 		return nil, fmt.Errorf("error reading config file '%s': %w", configFile, err)
 	}
 
-	return konfig, nil
+	logger.Debug("successfully read and parsed config file from embedded assets", "config-file", configFile)
+	return conf, nil
+}
+
+// loadConfigurationFromFile loads configuration using direct file evaluation (original method).
+func loadConfigurationFromFile(ctx context.Context, configFile string, logger *logging.Logger) (*kdeps.Kdeps, error) {
+	evaluator, err := pkl.NewEvaluator(ctx, pkl.PreconfiguredOptions)
+	if err != nil {
+		logger.Error("error creating pkl evaluator", "config-file", configFile, "error", err)
+		return nil, fmt.Errorf("error creating pkl evaluator for config file '%s': %w", configFile, err)
+	}
+	defer evaluator.Close()
+
+	source := pkl.FileSource(configFile)
+	var conf *kdeps.Kdeps
+	err = evaluator.EvaluateModule(ctx, source, &conf)
+	if err != nil {
+		logger.Error("error reading config file", "config-file", configFile, "error", err)
+		return nil, fmt.Errorf("error reading config file '%s': %w", configFile, err)
+	}
+
+	logger.Debug("successfully read and parsed config file", "config-file", configFile)
+	return conf, nil
 }
 
 func GetKdepsPath(ctx context.Context, kdepsCfg kdeps.Kdeps) (string, error) {

@@ -20,8 +20,8 @@ func IsBase64Encoded(str string) bool {
 
 	// Check if the string contains only Base64 valid characters
 	for _, char := range str {
-		if !(('A' <= char && char <= 'Z') || ('a' <= char && char <= 'z') ||
-			('0' <= char && char <= '9') || char == '+' || char == '/' || char == '=') {
+		if !('A' <= char && char <= 'Z') && !('a' <= char && char <= 'z') &&
+			!('0' <= char && char <= '9') && char != '+' && char != '/' && char != '=' {
 			return false
 		}
 	}

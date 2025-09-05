@@ -13,21 +13,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// testWorkflow implements the minimal subset of the Workflow interface we need for testing
+// testWorkflow implements the minimal subset of the Workflow interface we need for testing.
 type testWorkflow struct{}
 
-func (m testWorkflow) GetAgentID() string                { return "test-agent" }
-func (m testWorkflow) GetVersion() string                { return "1.0.0" }
-func (m testWorkflow) GetDescription() string            { return "" }
-func (m testWorkflow) GetWebsite() *string               { return nil }
-func (m testWorkflow) GetAuthors() *[]string             { return nil }
-func (m testWorkflow) GetDocumentation() *string         { return nil }
-func (m testWorkflow) GetRepository() *string            { return nil }
-func (m testWorkflow) GetHeroImage() *string             { return nil }
-func (m testWorkflow) GetAgentIcon() *string             { return nil }
-func (m testWorkflow) GetTargetActionID() string         { return "test-action" }
-func (m testWorkflow) GetWorkflows() []string            { return nil }
-func (m testWorkflow) GetSettings() *pklProject.Settings { return nil }
+func (m testWorkflow) GetAgentID() string               { return "test-agent" }
+func (m testWorkflow) GetVersion() string               { return "1.0.0" }
+func (m testWorkflow) GetDescription() string           { return "" }
+func (m testWorkflow) GetWebsite() *string              { return nil }
+func (m testWorkflow) GetAuthors() *[]string            { return nil }
+func (m testWorkflow) GetDocumentation() *string        { return nil }
+func (m testWorkflow) GetRepository() *string           { return nil }
+func (m testWorkflow) GetHeroImage() *string            { return nil }
+func (m testWorkflow) GetAgentIcon() *string            { return nil }
+func (m testWorkflow) GetTargetActionID() string        { return "test-action" }
+func (m testWorkflow) GetWorkflows() []string           { return nil }
+func (m testWorkflow) GetSettings() pklProject.Settings { return pklProject.Settings{} }
 
 func TestCompileProjectDoesNotModifyOriginalFiles(t *testing.T) {
 	fs := afero.NewMemMapFs()
@@ -42,7 +42,7 @@ func TestCompileProjectDoesNotModifyOriginalFiles(t *testing.T) {
 	require.NoError(t, fs.MkdirAll(filepath.Join(projectDir, "resources"), 0o755))
 
 	// Create a workflow file
-	wfContent := `amends "package://schema.kdeps.com/core@0.2.43#/Workflow.pkl"
+	wfContent := `amends "package://schema.kdeps.com/core@0.3.1-dev#/Workflow.pkl"
 
 Name = "test-agent"
 Version = "1.0.0"
@@ -51,7 +51,7 @@ TargetActionID = "test-action"
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(projectDir, "workflow.pkl"), []byte(wfContent), 0o644))
 
 	// Create a resource file
-	resourceContent := `amends "package://schema.kdeps.com/core@0.2.43#/Resource.pkl"
+	resourceContent := `amends "package://schema.kdeps.com/core@0.3.1-dev#/Resource.pkl"
 
 ActionID = "test-action"
 
@@ -72,7 +72,7 @@ Run {
 	wf := testWorkflow{}
 
 	// Call CompileProject (this will fail due to missing Pkl binary, but we can test the file protection)
-	_, _, err := CompileProject(fs, ctx, wf, kdepsDir, projectDir, env, logger)
+	CompileProject(fs, ctx, wf, kdepsDir, projectDir, env, logger)
 
 	// The compilation will fail due to missing Pkl binary, but that's expected
 	// The important thing is that our original files were not modified
