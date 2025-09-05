@@ -141,14 +141,14 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 		return fmt.Errorf("failed to load PKL: %w", err)
 	}
 
-	pklRes, ok := res.(*pklExec.ExecImpl)
+	pklRes, ok := res.(pklExec.ExecImpl)
 	if !ok {
-		return errors.New("failed to cast pklRes to *pklExec.ExecImpl")
+		return errors.New("failed to cast pklRes to pklExec.ExecImpl")
 	}
 
 	resources := pklRes.GetResources()
 	if resources == nil {
-		emptyMap := make(map[string]*pklExec.ResourceExec)
+		emptyMap := make(map[string]pklExec.ResourceExec)
 		resources = &emptyMap
 	}
 	existingResources := *resources
@@ -176,7 +176,7 @@ func (dr *DependencyResolver) AppendExecEntry(resourceID string, newExec *pklExe
 		}
 	}
 
-	existingResources[resourceID] = &pklExec.ResourceExec{
+	existingResources[resourceID] = pklExec.ResourceExec{
 		Env:             encodedEnv,
 		Command:         encodedCommand,
 		Stderr:          encodedStderr,

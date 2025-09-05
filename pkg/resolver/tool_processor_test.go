@@ -21,7 +21,7 @@ func TestGenerateAvailableToolsAndRelatedHelpers(t *testing.T) {
 	desc := "echo something"
 	req := true
 	// Parameters definition
-	params := map[string]*pklLLM.ToolProperties{
+	params := map[string]pklLLM.ToolProperties{
 		"msg": {
 			Required:    &req,
 			Type:        strPtr("string"),
@@ -47,7 +47,7 @@ func TestGenerateAvailableToolsAndRelatedHelpers(t *testing.T) {
 		Script:      strPtr("expr $a + $b"),
 	}
 
-	toolsSlice := []*pklLLM.Tool{tool1, toolDup, tool2}
+	toolsSlice := []pklLLM.Tool{*tool1, *toolDup, *tool2}
 	chat := &pklLLM.ResourceChat{Tools: &toolsSlice}
 
 	available := generateAvailableTools(chat, logger)
@@ -69,7 +69,7 @@ func TestBuildToolURIAndExtractParams(t *testing.T) {
 	// Build chatBlock for extractToolParams
 	req := true
 	script := "echo $msg"
-	toolProps := map[string]*pklLLM.ToolProperties{
+	toolProps := map[string]pklLLM.ToolProperties{
 		"msg": {Required: &req, Type: strPtr("string"), Description: strPtr("m")},
 	}
 	toolEntry := &pklLLM.Tool{
@@ -77,7 +77,7 @@ func TestBuildToolURIAndExtractParams(t *testing.T) {
 		Script:     &script,
 		Parameters: &toolProps,
 	}
-	tools := []*pklLLM.Tool{toolEntry}
+	tools := []pklLLM.Tool{*toolEntry}
 	chat := &pklLLM.ResourceChat{Tools: &tools}
 
 	// Arguments map simulating parsed JSON args
@@ -107,7 +107,7 @@ func TestEncodeToolsAndParamsUnit(t *testing.T) {
 	req := true
 	ptype := "string"
 
-	params := map[string]*pklLLM.ToolProperties{
+	params := map[string]pklLLM.ToolProperties{
 		"arg1": {
 			Required:    &req,
 			Type:        &ptype,
@@ -121,7 +121,7 @@ func TestEncodeToolsAndParamsUnit(t *testing.T) {
 		Description: &desc,
 		Parameters:  &params,
 	}
-	tools := []*pklLLM.Tool{tool}
+	tools := []pklLLM.Tool{*tool}
 
 	encoded := encodeTools(&tools)
 	assert.Len(t, encoded, 1)

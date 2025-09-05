@@ -44,7 +44,7 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 	}()
 
 	// Ensure the temporary directory exists
-	err = fs.MkdirAll(tempDir, 0o777)
+	err = fs.MkdirAll(tempDir, os.ModePerm)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temporary directory: %w", err)
 	}
@@ -87,13 +87,13 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 		switch header.Typeflag {
 		case tar.TypeDir:
 			// Create directories
-			err = fs.MkdirAll(targetPath, 0o777)
+			err = fs.MkdirAll(targetPath, os.ModePerm)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create directory: %w", err)
 			}
 		case tar.TypeReg:
 			// Create parent directories
-			err = fs.MkdirAll(parentDir, 0o777)
+			err = fs.MkdirAll(parentDir, os.ModePerm)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create parent directories: %w", err)
 			}
@@ -117,7 +117,7 @@ func ExtractPackage(fs afero.Fs, ctx context.Context, kdepsDir string, kdepsPack
 			}
 
 			// Set file permissions
-			err = fs.Chmod(targetPath, 0o666)
+			err = fs.Chmod(targetPath, 0o644)
 			if err != nil {
 				return nil, fmt.Errorf("failed to set file permissions: %w", err)
 			}

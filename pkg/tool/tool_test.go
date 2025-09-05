@@ -2,6 +2,7 @@ package tool
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -312,7 +313,7 @@ func TestPklResourceReader(t *testing.T) {
 		mockDB.db.Exec(`CREATE TABLE IF NOT EXISTS history (id TEXT, value TEXT, timestamp INTEGER)`)
 
 		// Create a mock result that fails RowsAffected
-		mockResult := &mockResult{rowsAffectedErr: fmt.Errorf("mock rows affected error")}
+		mockResult := &mockResult{rowsAffectedErr: errors.New("mock rows affected error")}
 		mockDB.execFunc = func(query string, args ...interface{}) (sql.Result, error) {
 			return mockResult, nil
 		}
@@ -342,7 +343,7 @@ func TestPklResourceReader(t *testing.T) {
 		// Create a mock DB that fails Query
 		mockDB := newMockDB()
 		mockDB.queryFunc = func(query string, args ...interface{}) (*sql.Rows, error) {
-			return nil, fmt.Errorf("mock query error")
+			return nil, errors.New("mock query error")
 		}
 
 		mockReader := &PklResourceReader{DB: mockDB.db}
@@ -463,30 +464,6 @@ func (m *mockDB) QueryRow(query string, args ...interface{}) *sql.Row {
 func (m *mockDB) Close() error { return m.db.Close() }
 func (m *mockDB) Ping() error  { return m.db.Ping() }
 
-// mockRows implements the Rows interface for testing
-type mockRows struct {
-	nextFunc  func() bool
-	scanFunc  func(dest ...interface{}) error
-	errFunc   func() error
-	closeFunc func() error
-}
-
-func (m *mockRows) Next() bool {
-	return m.nextFunc()
-}
-
-func (m *mockRows) Scan(dest ...interface{}) error {
-	return m.scanFunc(dest...)
-}
-
-func (m *mockRows) Err() error {
-	return m.errFunc()
-}
-
-func (m *mockRows) Close() error {
-	return m.closeFunc()
-}
-
 func TestInitializeTool(t *testing.T) {
 	// Create a temporary directory for the test database
 	tmpDir := t.TempDir()
@@ -499,6 +476,7 @@ func TestInitializeTool(t *testing.T) {
 	}
 	if reader == nil {
 		t.Error("InitializeTool returned nil reader")
+		return
 	}
 	if reader.DB == nil {
 		t.Error("InitializeTool returned reader with nil DB")

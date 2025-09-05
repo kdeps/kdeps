@@ -165,12 +165,12 @@ func aSystemConfigurationIsDefined() error {
 		return err
 	}
 
-	cfgFile, err := cfg.GenerateConfiguration(testFs, ctx, environ, logger)
+	cfgFile, err := cfg.GenerateConfiguration(ctx, testFs, environ, logger)
 	if err != nil {
 		return err
 	}
 
-	scfg, err := cfg.LoadConfiguration(testFs, ctx, cfgFile, logger)
+	scfg, err := cfg.LoadConfiguration(ctx, testFs, cfgFile, logger)
 	if err != nil {
 		return err
 	}
@@ -215,7 +215,7 @@ func itIsAValidAgent() error {
 }
 
 func itIsAnInvalidPklFile() error {
-	if err := EnforcePklTemplateAmendsRules(testFs, ctx, fileThatExist, logger); err == nil {
+	if err := EnforcePklTemplateAmendsRules(testFs, fileThatExist, context.Background(), logger); err == nil {
 		return errors.New("expected an error, but got nil")
 	}
 
@@ -223,7 +223,7 @@ func itIsAnInvalidPklFile() error {
 }
 
 func itIsAValidPklFile() error {
-	if err := EnforcePklTemplateAmendsRules(testFs, ctx, fileThatExist, logger); err != nil {
+	if err := EnforcePklTemplateAmendsRules(testFs, fileThatExist, context.Background(), logger); err != nil {
 		return err
 	}
 
@@ -244,7 +244,7 @@ func aFileExistsInThe(arg1, arg2 string) error {
 	}
 
 	file := filepath.Join(p, arg1)
-	fmt.Printf("Creating %s file!", file)
+	fmt.Printf("Creating %s file!", file) //nolint:forbidigo // Test debug output
 
 	f, _ := testFs.Create(file)
 	if _, err := f.WriteString(doc); err != nil {
@@ -262,7 +262,7 @@ func anAgentFolderExistsInTheCurrentDirectory(arg1 string) error {
 	if err := testFs.MkdirAll(agentPath, 0o755); err != nil {
 		return err
 	}
-	fmt.Printf("Agent path %s created!", agentPath)
+	fmt.Printf("Agent path %s created!", agentPath) //nolint:forbidigo // Test debug output
 
 	return nil
 }
@@ -285,7 +285,7 @@ func aFolderNamedExistsInThe(arg1, arg2 string) error {
 	if err := testFs.MkdirAll(subfolderPath, 0o755); err != nil {
 		return err
 	}
-	fmt.Printf("Agent path %s created!", subfolderPath)
+	fmt.Printf("Agent path %s created!", subfolderPath) //nolint:forbidigo // Test debug output
 
 	return nil
 }
@@ -306,7 +306,7 @@ func itDoesNotHaveAResourceAmendsLineOnTopOfTheFile() error {
 
 func TestEnforcePklVersion(t *testing.T) {
 	logger := logging.NewTestLogger()
-	ctx := context.Background()
+	ctx := t.Context()
 	schemaVersion := "1.2.3"
 
 	goodLine := "amends \"package://schema.kdeps.com/core@1.2.3#/Kdeps.pkl\""
@@ -327,7 +327,7 @@ func TestEnforcePklVersion(t *testing.T) {
 
 func TestEnforcePklFilename(t *testing.T) {
 	logger := logging.NewTestLogger()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Good configuration .kdeps.pkl
 	lineCfg := "amends \"package://schema.kdeps.com/core@1.0.0#/Kdeps.pkl\""
@@ -357,12 +357,12 @@ func TestEnforcePklFilename(t *testing.T) {
 
 func TestEnforcePklFilenameValid(t *testing.T) {
 	line := "amends \"package://schema.kdeps.com/core@0.0.0#/Workflow.pkl\""
-	if err := EnforcePklFilename(context.Background(), line, "/tmp/workflow.pkl", logging.NewTestLogger()); err != nil {
+	if err := EnforcePklFilename(t.Context(), line, "/tmp/workflow.pkl", logging.NewTestLogger()); err != nil {
 		t.Fatalf("unexpected error for valid filename: %v", err)
 	}
 
 	lineConf := "amends \"package://schema.kdeps.com/core@0.0.0#/Kdeps.pkl\""
-	if err := EnforcePklFilename(context.Background(), lineConf, "/tmp/.kdeps.pkl", logging.NewTestLogger()); err != nil {
+	if err := EnforcePklFilename(t.Context(), lineConf, "/tmp/.kdeps.pkl", logging.NewTestLogger()); err != nil {
 		t.Fatalf("unexpected error for config filename: %v", err)
 	}
 }
@@ -370,13 +370,13 @@ func TestEnforcePklFilenameValid(t *testing.T) {
 func TestEnforcePklFilenameInvalid(t *testing.T) {
 	line := "amends \"package://schema.kdeps.com/core@0.0.0#/Workflow.pkl\""
 	// wrong actual file name
-	if err := EnforcePklFilename(context.Background(), line, "/tmp/other.pkl", logging.NewTestLogger()); err == nil {
+	if err := EnforcePklFilename(t.Context(), line, "/tmp/other.pkl", logging.NewTestLogger()); err == nil {
 		t.Fatalf("expected error for mismatched filename")
 	}
 
 	// invalid pkl reference
 	badLine := "amends \"package://schema.kdeps.com/core@0.0.0#/Unknown.pkl\""
-	if err := EnforcePklFilename(context.Background(), badLine, "/tmp/foo.pkl", logging.NewTestLogger()); err == nil {
+	if err := EnforcePklFilename(t.Context(), badLine, "/tmp/foo.pkl", logging.NewTestLogger()); err == nil {
 		t.Fatalf("expected error for unknown pkl file")
 	}
 }
@@ -417,11 +417,11 @@ func TestEnforceFolderStructure_Happy(t *testing.T) {
 		filepath.Join(tmpDir, "data", "agent", "1.0", "file.txt"),
 	})
 
-	if err := EnforceFolderStructure(fsys, context.Background(), tmpDir, logging.NewTestLogger()); err != nil {
+	if err := EnforceFolderStructure(fsys, t.Context(), tmpDir, logging.NewTestLogger()); err != nil {
 		t.Fatalf("expected success, got error: %v", err)
 	}
 
-	_ = schema.SchemaVersion(context.Background())
+	_ = schema.SchemaVersion(t.Context())
 }
 
 func TestEnforceFolderStructure_BadExtraDir(t *testing.T) {
@@ -438,19 +438,19 @@ func TestEnforceFolderStructure_BadExtraDir(t *testing.T) {
 		t.Fatalf("expected error for unexpected folder")
 	}
 
-	_ = schema.SchemaVersion(context.Background())
+	_ = schema.SchemaVersion(t.Context())
 }
 
 func TestEnforcePklTemplateAmendsRules(t *testing.T) {
 	fsys := afero.NewOsFs()
 	tmp := t.TempDir()
 	validFile := filepath.Join(tmp, "workflow.pkl")
-	content := "amends \"package://schema.kdeps.com/core@" + schema.SchemaVersion(context.Background()) + "#/Workflow.pkl\"\n"
+	content := "amends \"package://schema.kdeps.com/core@" + schema.SchemaVersion(t.Context()) + "#/Workflow.pkl\"\n"
 	if err := afero.WriteFile(fsys, validFile, []byte(content), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 
-	if err := EnforcePklTemplateAmendsRules(fsys, context.Background(), validFile, logging.NewTestLogger()); err != nil {
+	if err := EnforcePklTemplateAmendsRules(fsys, validFile, t.Context(), logging.NewTestLogger()); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -458,14 +458,14 @@ func TestEnforcePklTemplateAmendsRules(t *testing.T) {
 	if err := afero.WriteFile(fsys, invalidFile, []byte("invalid line\n"), 0o644); err != nil {
 		t.Fatalf("write2: %v", err)
 	}
-	if err := EnforcePklTemplateAmendsRules(fsys, context.Background(), invalidFile, logging.NewTestLogger()); err == nil {
+	if err := EnforcePklTemplateAmendsRules(fsys, invalidFile, t.Context(), logging.NewTestLogger()); err == nil {
 		t.Fatalf("expected error for bad amends line")
 	}
 }
 
 func TestEnforcePklVersionComparisons(t *testing.T) {
 	logger := logging.NewTestLogger()
-	ctx := context.Background()
+	ctx := t.Context()
 	ver := schema.SchemaVersion(ctx)
 
 	lineSame := "amends \"package://schema.kdeps.com/core@" + ver + "#/Workflow.pkl\""
@@ -498,7 +498,7 @@ func TestEnforceResourceRunBlock(t *testing.T) {
 	contentSingle := "Chat {\n}" // one run block
 	_ = afero.WriteFile(fs, fileOne, []byte(contentSingle), 0o644)
 
-	if err := EnforceResourceRunBlock(fs, context.Background(), fileOne, logging.NewTestLogger()); err != nil {
+	if err := EnforceResourceRunBlock(t.Context(), fs, fileOne, logging.NewTestLogger()); err != nil {
 		t.Fatalf("unexpected error for single run block: %v", err)
 	}
 
@@ -506,7 +506,7 @@ func TestEnforceResourceRunBlock(t *testing.T) {
 	contentMulti := "Chat {\n}\nPython {\n}" // two run blocks
 	_ = afero.WriteFile(fs, fileMulti, []byte(contentMulti), 0o644)
 
-	if err := EnforceResourceRunBlock(fs, context.Background(), fileMulti, logging.NewTestLogger()); err == nil {
+	if err := EnforceResourceRunBlock(t.Context(), fs, fileMulti, logging.NewTestLogger()); err == nil {
 		t.Fatalf("expected error for multiple run blocks, got nil")
 	}
 }
@@ -531,7 +531,6 @@ func TestCompareVersions(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc // capture
 		t.Run(tc.name, func(t *testing.T) {
 			result, err := compareVersions(tc.v1, tc.v2, logger)
 			if tc.wantErr {
@@ -565,12 +564,11 @@ func TestCompareVersionsAdditional(t *testing.T) {
 
 func TestEnforcePklTemplateAmendsRules_MultipleAmends(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
 	// Create a test file with multiple amends statements
-	content := `amends "package://schema.kdeps.com/core@0.2.43#/Resource.pkl"
-amends "package://schema.kdeps.com/core@0.2.43#/Utils.pkl"
+	content := `amends "package://schema.kdeps.com/core@0.3.1-dev#/Resource.pkl"
+amends "package://schema.kdeps.com/core@0.3.1-dev#/Utils.pkl"
 
 import "pkl:json"
 import "pkl:math"
@@ -591,18 +589,17 @@ Run {
 	require.NoError(t, err)
 
 	// Test that validation passes with multiple amends statements
-	err = EnforcePklTemplateAmendsRules(fs, ctx, filePath, logger)
+	err = EnforcePklTemplateAmendsRules(fs, filePath, t.Context(), logger)
 	assert.NoError(t, err, "Validation should pass with multiple amends statements")
 }
 
 func TestEnforcePklTemplateAmendsRules_InvalidAmends(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
 	// Create a test file with one valid and one invalid amends statement
-	content := `amends "package://schema.kdeps.com/core@0.2.43#/Resource.pkl"
-amends "package://invalid.com/core@0.2.43#/Invalid.pkl"
+	content := `amends "package://schema.kdeps.com/core@0.3.1-dev#/Resource.pkl"
+amends "package://invalid.com/core@0.3.1-dev#/Invalid.pkl"
 
 ActionID = "testResource"
 Name = "Test Resource"
@@ -620,14 +617,13 @@ Run {
 	require.NoError(t, err)
 
 	// Test that validation fails with invalid amends statement
-	err = EnforcePklTemplateAmendsRules(fs, ctx, filePath, logger)
+	err = EnforcePklTemplateAmendsRules(fs, filePath, t.Context(), logger)
 	assert.Error(t, err, "Validation should fail with invalid amends statement")
 	assert.Contains(t, err.Error(), "schema URL validation failed")
 }
 
 func TestEnforcePklTemplateAmendsRules_NoAmends(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
 	// Create a test file with no amends statements
@@ -649,7 +645,7 @@ Run {
 	require.NoError(t, err)
 
 	// Test that validation fails with no amends statements
-	err = EnforcePklTemplateAmendsRules(fs, ctx, filePath, logger)
+	err = EnforcePklTemplateAmendsRules(fs, filePath, t.Context(), logger)
 	assert.Error(t, err, "Validation should fail with no amends statements")
 	assert.Contains(t, err.Error(), "no valid 'amends' line found")
 }

@@ -36,7 +36,7 @@ func FixJSON(input string) string {
 	inString := false   // Currently inside a JSON string literal
 	escapeNext := false // The previous byte was a backslash
 
-	for i := 0; i < len(input); i++ {
+	for i := range input {
 		ch := input[i]
 
 		if inString {

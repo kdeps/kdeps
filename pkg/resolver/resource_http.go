@@ -96,14 +96,18 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 		return fmt.Errorf("failed to load PKL: %w", err)
 	}
 
-	pklRes, ok := res.(*pklHTTP.HTTPImpl)
-	if !ok {
-		return errors.New("failed to cast pklRes to *pklHTTP.Resource")
+	var pklRes pklHTTP.HTTPImpl
+	if ptr, ok := res.(*pklHTTP.HTTPImpl); ok {
+		pklRes = *ptr
+	} else if impl, ok := res.(pklHTTP.HTTPImpl); ok {
+		pklRes = impl
+	} else {
+		return errors.New("failed to cast pklRes to pklHTTP.HTTPImpl")
 	}
 
 	resources := pklRes.GetResources()
 	if resources == nil {
-		emptyMap := make(map[string]*pklHTTP.ResourceHTTPClient)
+		emptyMap := make(map[string]pklHTTP.ResourceHTTPClient)
 		resources = &emptyMap
 	}
 	existingResources := *resources
@@ -124,7 +128,7 @@ func (dr *DependencyResolver) AppendHTTPEntry(resourceID string, client *pklHTTP
 		}
 	}
 
-	existingResources[resourceID] = &pklHTTP.ResourceHTTPClient{
+	existingResources[resourceID] = pklHTTP.ResourceHTTPClient{
 		Method:          client.Method,
 		Url:             encodedURL,
 		Data:            client.Data,

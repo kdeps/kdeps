@@ -156,7 +156,7 @@ func CompileWorkflow(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsD
 		return "", err
 	}
 
-	if err := enforcer.EnforcePklTemplateAmendsRules(fs, ctx, compiledFilePath, logger); err != nil {
+	if err := enforcer.EnforcePklTemplateAmendsRules(fs, compiledFilePath, ctx, logger); err != nil {
 		logger.Error("validation failed for .pkl file", "file", compiledFilePath, "error", err)
 		return "", err
 	}

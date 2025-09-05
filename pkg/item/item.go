@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log" //nolint:depguard // Database debugging requires simple log output
 	"net/url"
 	"time"
 
 	"github.com/apple/pkl-go/pkl"
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/mattn/go-sqlite3" // Register SQLite driver
 )
 
 // PklResourceReader implements the pkl.ResourceReader interface for the item scheme.

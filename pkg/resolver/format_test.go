@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -25,7 +24,6 @@ import (
 	"github.com/kdeps/schema/gen/exec"
 	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
-	"github.com/kdeps/schema/gen/python"
 	pklPython "github.com/kdeps/schema/gen/python"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -81,7 +79,7 @@ func setupTestResolverWithRealFS(t *testing.T) *DependencyResolver {
 	filesDir := filepath.Join(tmpDir, "files")
 	actionDir := filepath.Join(tmpDir, "action")
 	_ = fs.MkdirAll(filepath.Join(actionDir, "exec"), 0o755)
-	_ = fs.MkdirAll(filepath.Join(actionDir, "python"), 0o755)
+	_ = fs.MkdirAll(filepath.Join(actionDir, "pklPython"), 0o755)
 	_ = fs.MkdirAll(filepath.Join(actionDir, "llm"), 0o755)
 	_ = fs.MkdirAll(filesDir, 0o755)
 
@@ -105,7 +103,7 @@ func setupTestResolverWithMemFS(t *testing.T) *DependencyResolver {
 	filesDir := "/files"
 	actionDir := "/action"
 	_ = fs.MkdirAll(filepath.Join(actionDir, "exec"), 0o755)
-	_ = fs.MkdirAll(filepath.Join(actionDir, "python"), 0o755)
+	_ = fs.MkdirAll(filepath.Join(actionDir, "pklPython"), 0o755)
 	_ = fs.MkdirAll(filepath.Join(actionDir, "llm"), 0o755)
 	_ = fs.MkdirAll(filesDir, 0o755)
 
@@ -130,7 +128,7 @@ func TestFormatMapSimple(t *testing.T) {
 	}
 }
 
-// Helper to check substring presence
+// Helper to check substring presence.
 func containsAll(s string, subs []string) bool {
 	for _, sub := range subs {
 		if !strings.Contains(s, sub) {
@@ -142,7 +140,7 @@ func containsAll(s string, subs []string) bool {
 
 func TestFormatValueVariants(t *testing.T) {
 	// Case 1: nil interface -> "null"
-	var v interface{} = nil
+	var v interface{}
 	if out := formatValue(v); out != "null" {
 		t.Errorf("expected 'null' for nil, got %s", out)
 	}
@@ -196,7 +194,7 @@ func TestGeneratePklContent_Minimal(t *testing.T) {
 		JSONResponse:    &jsonResp,
 		TimeoutDuration: &pkl.Duration{Value: 5, Unit: pkl.Second},
 	}
-	m := map[string]*pklLLM.ResourceChat{"id1": res}
+	m := map[string]pklLLM.ResourceChat{"id1": *res}
 
 	pklStr := generatePklContent(m, ctx, logger)
 
@@ -415,7 +413,7 @@ func TestGetRoleAndType(t *testing.T) {
 func TestProcessScenarioMessages(t *testing.T) {
 	tests := []struct {
 		name     string
-		scenario *[]*pklLLM.MultiChat
+		scenario *[]pklLLM.MultiChat
 		expected []llms.MessageContent
 	}{
 		{
@@ -425,12 +423,12 @@ func TestProcessScenarioMessages(t *testing.T) {
 		},
 		{
 			name:     "empty scenario",
-			scenario: &[]*pklLLM.MultiChat{},
+			scenario: &[]pklLLM.MultiChat{},
 			expected: []llms.MessageContent{},
 		},
 		{
 			name: "single message",
-			scenario: &[]*pklLLM.MultiChat{
+			scenario: &[]pklLLM.MultiChat{
 				{
 					Role:   stringPtr("human"),
 					Prompt: stringPtr("Hello"),
@@ -445,7 +443,7 @@ func TestProcessScenarioMessages(t *testing.T) {
 		},
 		{
 			name: "multiple messages",
-			scenario: &[]*pklLLM.MultiChat{
+			scenario: &[]pklLLM.MultiChat{
 				{
 					Role:   stringPtr("human"),
 					Prompt: stringPtr("Hello"),
@@ -468,7 +466,7 @@ func TestProcessScenarioMessages(t *testing.T) {
 		},
 		{
 			name: "generic role",
-			scenario: &[]*pklLLM.MultiChat{
+			scenario: &[]pklLLM.MultiChat{
 				{
 					Role:   stringPtr("custom"),
 					Prompt: stringPtr("Custom message"),
@@ -524,7 +522,7 @@ func TestMapRoleToLLMMessageType(t *testing.T) {
 	}
 }
 
-// Helper functions
+// Helper functions.
 func boolPtr(b bool) *bool {
 	return &b
 }
@@ -570,7 +568,7 @@ func TestDecodeExecBlock(t *testing.T) {
 		}
 
 		err := dr.decodeExecBlock(execBlock)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "echo 'Hello, World!'", execBlock.Command)
 	})
 
@@ -584,7 +582,7 @@ func TestDecodeExecBlock(t *testing.T) {
 		}
 
 		err := dr.decodeExecBlock(execBlock)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "test_value", (*execBlock.Env)["TEST_KEY"])
 	})
 
@@ -968,11 +966,12 @@ func TestAppendPythonEntryExtra(t *testing.T) {
 
 	newResolver := func(t *testing.T) (*DependencyResolver, string) {
 		dr := setupTestPyResolver(t)
-		pklPath := filepath.Join(dr.ActionDir, "python/"+dr.RequestID+"__python_output.pkl")
+		pklPath := filepath.Join(dr.ActionDir, "pklPython/"+dr.RequestID+"__pklPython_output.pkl")
 		return dr, pklPath
 	}
 
 	t.Run("NewEntry", func(t *testing.T) {
+		t.Parallel()
 		dr, pklPath := newResolver(t)
 
 		initial := fmt.Sprintf(`extends "package://schema.kdeps.com/core@%s#/Python.pkl"
@@ -1001,6 +1000,7 @@ Resources {
 	})
 
 	t.Run("ExistingEntry", func(t *testing.T) {
+		t.Parallel()
 		dr, pklPath := newResolver(t)
 
 		initial := fmt.Sprintf(`extends "package://schema.kdeps.com/core@%s#/Python.pkl"
@@ -1032,35 +1032,6 @@ Resources {
 	})
 }
 
-type mockExecute struct {
-	command     string
-	args        []string
-	env         []string
-	shouldError bool
-	stdout      string
-	stderr      string
-}
-
-func (m *mockExecute) Execute(ctx context.Context) (struct {
-	Stdout string
-	Stderr string
-}, error,
-) {
-	if m.shouldError {
-		return struct {
-			Stdout string
-			Stderr string
-		}{}, errors.New("mock execution error")
-	}
-	return struct {
-		Stdout string
-		Stderr string
-	}{
-		Stdout: m.stdout,
-		Stderr: m.stderr,
-	}, nil
-}
-
 func setupTestResolver(t *testing.T) *DependencyResolver {
 	// Use real filesystem for tests that might need PKL
 	dr := setupTestResolverWithRealFS(t)
@@ -1072,20 +1043,20 @@ func TestHandlePython(t *testing.T) {
 	dr := setupTestResolver(t)
 
 	t.Run("SuccessfulExecution", func(t *testing.T) {
-		pythonBlock := &python.ResourcePython{
+		pklPythonBlock := &pklPython.ResourcePython{
 			Script: "print('Hello, World!')",
 		}
 
-		err := dr.HandlePython("test-action", pythonBlock)
+		err := dr.HandlePython("test-action", pklPythonBlock)
 		assert.NoError(t, err)
 	})
 
 	t.Run("DecodeError", func(t *testing.T) {
-		pythonBlock := &python.ResourcePython{
+		pklPythonBlock := &pklPython.ResourcePython{
 			Script: "invalid base64",
 		}
 
-		err := dr.HandlePython("test-action", pythonBlock)
+		err := dr.HandlePython("test-action", pklPythonBlock)
 		assert.NoError(t, err)
 	})
 }
@@ -1095,35 +1066,35 @@ func TestDecodePythonBlock(t *testing.T) {
 
 	t.Run("ValidBase64Script", func(t *testing.T) {
 		encodedScript := "cHJpbnQoJ0hlbGxvLCBXb3JsZCEnKQ==" // "print('Hello, World!')"
-		pythonBlock := &python.ResourcePython{
+		pklPythonBlock := &pklPython.ResourcePython{
 			Script: encodedScript,
 		}
 
-		err := dr.decodePythonBlock(pythonBlock)
+		err := dr.decodePythonBlock(pklPythonBlock)
 		assert.NoError(t, err)
-		assert.Equal(t, "print('Hello, World!')", pythonBlock.Script)
+		assert.Equal(t, "print('Hello, World!')", pklPythonBlock.Script)
 	})
 
 	t.Run("ValidBase64Env", func(t *testing.T) {
 		env := map[string]string{
 			"TEST_KEY": "dGVzdF92YWx1ZQ==", // "test_value"
 		}
-		pythonBlock := &python.ResourcePython{
+		pklPythonBlock := &pklPython.ResourcePython{
 			Script: "print('test')",
 			Env:    &env,
 		}
 
-		err := dr.decodePythonBlock(pythonBlock)
+		err := dr.decodePythonBlock(pklPythonBlock)
 		assert.NoError(t, err)
-		assert.Equal(t, "test_value", (*pythonBlock.Env)["TEST_KEY"])
+		assert.Equal(t, "test_value", (*pklPythonBlock.Env)["TEST_KEY"])
 	})
 
 	t.Run("InvalidBase64Script", func(t *testing.T) {
-		pythonBlock := &python.ResourcePython{
+		pklPythonBlock := &pklPython.ResourcePython{
 			Script: "invalid base64",
 		}
 
-		err := dr.decodePythonBlock(pythonBlock)
+		err := dr.decodePythonBlock(pklPythonBlock)
 		assert.NoError(t, err)
 	})
 }
@@ -1264,7 +1235,7 @@ func TestHandleAPIErrorResponse_Extra(t *testing.T) {
 }
 
 // createStubPkl creates a dummy executable named `pkl` that prints JSON and exits 0.
-func createStubPkl(t *testing.T) (stubDir string, cleanup func()) {
+func createStubPkl(t *testing.T) (string, func()) {
 	t.Helper()
 	dir := t.TempDir()
 	exeName := "pkl"
@@ -1616,13 +1587,13 @@ func TestFormatErrors(t *testing.T) {
 	})
 
 	t.Run("EmptyErrors", func(t *testing.T) {
-		errors := &[]*apiserverresponse.APIServerErrorsBlock{}
+		errors := &[]apiserverresponse.APIServerErrorsBlock{}
 		result := formatErrors(errors, logger)
 		assert.Empty(t, result)
 	})
 
 	t.Run("WithErrors", func(t *testing.T) {
-		errors := &[]*apiserverresponse.APIServerErrorsBlock{
+		errors := &[]apiserverresponse.APIServerErrorsBlock{
 			{
 				Code:    404,
 				Message: "Resource not found",
@@ -1725,7 +1696,7 @@ func TestDecodeErrorMessageExtra(t *testing.T) {
 	require.Equal(t, src, decodeErrorMessage(src, logger))
 }
 
-// Simple struct for structToMap / formatValue tests
+// Simple struct for structToMap / formatValue tests.
 type demo struct {
 	FieldA string
 	FieldB int

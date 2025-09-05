@@ -14,7 +14,7 @@ func TestVersionVariables(t *testing.T) {
 	assert.Equal(t, "dev", Version)
 
 	// Test that Commit has a default value
-	assert.Equal(t, "", Commit)
+	assert.Empty(t, Commit)
 
 	// Test that we can modify the variables
 	originalVersion := Version
@@ -31,7 +31,7 @@ func TestVersionVariables(t *testing.T) {
 	Commit = originalCommit
 
 	assert.Equal(t, "dev", Version)
-	assert.Equal(t, "", Commit)
+	assert.Empty(t, Commit)
 }
 
 func TestVersion(t *testing.T) {
@@ -44,7 +44,7 @@ func TestVersion(t *testing.T) {
 
 func TestVersionDefaults(t *testing.T) {
 	require.Equal(t, "dev", Version)
-	require.Equal(t, "", Commit)
+	require.Empty(t, Commit)
 }
 
 func TestDefaultVersionValues(t *testing.T) {
@@ -56,25 +56,27 @@ func TestDefaultVersionValues(t *testing.T) {
 	assert.NotEmpty(t, MinimumSchemaVersion, "MinimumSchemaVersion should not be empty")
 
 	// Test that they follow expected version format patterns
-	semverPattern := `^\d+\.\d+\.\d+$`
+	semverPattern := `^\d+\.\d+\.\d+(?:[-+][a-zA-Z0-9.-]+)?$`
 	dateVersionPattern := `^\d{4}\.\d{2}-\d+$`
 
 	// Schema version should follow semantic versioning
-	assert.Regexp(t, regexp.MustCompile(semverPattern), DefaultSchemaVersion, "DefaultSchemaVersion should follow semantic versioning")
-	assert.Regexp(t, regexp.MustCompile(semverPattern), MinimumSchemaVersion, "MinimumSchemaVersion should follow semantic versioning")
+	semverRegex := regexp.MustCompile(semverPattern)
+	assert.Regexp(t, semverRegex, DefaultSchemaVersion, "DefaultSchemaVersion should follow semantic versioning")
+	assert.Regexp(t, semverRegex, MinimumSchemaVersion, "MinimumSchemaVersion should follow semantic versioning")
 
 	// Anaconda version should follow date-based versioning
-	assert.Regexp(t, regexp.MustCompile(dateVersionPattern), DefaultAnacondaVersion, "DefaultAnacondaVersion should follow date-based versioning")
+	dateRegex := regexp.MustCompile(dateVersionPattern)
+	assert.Regexp(t, dateRegex, DefaultAnacondaVersion, "DefaultAnacondaVersion should follow date-based versioning")
 
 	// PKL version should follow semantic versioning
-	assert.Regexp(t, regexp.MustCompile(semverPattern), DefaultPklVersion, "DefaultPklVersion should follow semantic versioning")
+	assert.Regexp(t, semverRegex, DefaultPklVersion, "DefaultPklVersion should follow semantic versioning")
 
 	// Ollama image tag should follow semantic versioning
-	assert.Regexp(t, regexp.MustCompile(semverPattern), DefaultOllamaImageTag, "DefaultOllamaImageTag should follow semantic versioning")
+	assert.Regexp(t, semverRegex, DefaultOllamaImageTag, "DefaultOllamaImageTag should follow semantic versioning")
 
 	// Default schema version should be >= minimum using utils.CompareVersions
 	cmp, err := utils.CompareVersions(DefaultSchemaVersion, MinimumSchemaVersion)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.GreaterOrEqual(t, cmp, 0, "DefaultSchemaVersion should be >= MinimumSchemaVersion")
 }
 

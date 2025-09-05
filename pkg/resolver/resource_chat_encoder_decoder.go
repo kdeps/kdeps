@@ -76,19 +76,16 @@ func decodeField(field **string, fieldName string, deref func(*string) string, d
 func decodeScenario(chatBlock *pklLLM.ResourceChat, logger *logging.Logger) error {
 	if chatBlock.Scenario == nil {
 		logger.Info("Scenario is nil, initializing empty slice")
-		emptyScenario := make([]*pklLLM.MultiChat, 0)
+		emptyScenario := make([]pklLLM.MultiChat, 0)
 		chatBlock.Scenario = &emptyScenario
 		return nil
 	}
 
 	logger.Info("Decoding Scenario", "length", len(*chatBlock.Scenario))
-	decodedScenario := make([]*pklLLM.MultiChat, 0, len(*chatBlock.Scenario))
+	decodedScenario := make([]pklLLM.MultiChat, 0, len(*chatBlock.Scenario))
 	for i, entry := range *chatBlock.Scenario {
-		if entry == nil {
-			logger.Warn("Scenario entry is nil", "index", i)
-			continue
-		}
-		decodedEntry := &pklLLM.MultiChat{}
+		// MultiChat is a struct, not a pointer, so we can always access it
+		decodedEntry := pklLLM.MultiChat{}
 		if entry.Role != nil {
 			decodedRole, err := utils.DecodeBase64IfNeeded(utils.SafeDerefString(entry.Role))
 			if err != nil {
@@ -146,30 +143,26 @@ func decodeTools(chatBlock *pklLLM.ResourceChat, logger *logging.Logger) error {
 
 	if chatBlock.Tools == nil {
 		logger.Info("Tools is nil, initializing empty slice")
-		emptyTools := make([]*pklLLM.Tool, 0)
+		emptyTools := make([]pklLLM.Tool, 0)
 		chatBlock.Tools = &emptyTools
 		return nil
 	}
 
 	logger.Info("Decoding Tools", "length", len(*chatBlock.Tools))
-	decodedTools := make([]*pklLLM.Tool, 0, len(*chatBlock.Tools))
+	decodedTools := make([]pklLLM.Tool, 0, len(*chatBlock.Tools))
 	var errs []error
 
 	for i, entry := range *chatBlock.Tools {
-		if entry == nil {
-			logger.Warn("Tools entry is nil", "index", i)
-			errs = append(errs, fmt.Errorf("tool entry at index %d is nil", i))
-			continue
-		}
+		// Tool is a struct, not a pointer, so we can always access it
 		logger.Debug("Processing tool entry", "index", i, "name", utils.SafeDerefString(entry.Name), "script", utils.SafeDerefString(entry.Script))
-		decodedTool, err := decodeToolEntry(entry, i, logger)
+		decodedTool, err := decodeToolEntry(&entry, i, logger)
 		if err != nil {
 			logger.Error("Failed to decode tool entry", "index", i, "error", err)
 			errs = append(errs, err)
 			continue
 		}
 		logger.Info("Decoded Tools entry", "index", i, "name", utils.SafeDerefString(decodedTool.Name))
-		decodedTools = append(decodedTools, decodedTool)
+		decodedTools = append(decodedTools, *decodedTool)
 	}
 	chatBlock.Tools = &decodedTools
 
@@ -253,7 +246,7 @@ func decodeToolEntry(entry *pklLLM.Tool, index int, logger *logging.Logger) (*pk
 		logger.Debug("Decoded tool parameters", "index", index, "param_count", len(*params))
 	} else {
 		logger.Warn("Tool parameters are nil", "index", index)
-		emptyParams := make(map[string]*pklLLM.ToolProperties)
+		emptyParams := make(map[string]pklLLM.ToolProperties)
 		decodedTool.Parameters = &emptyParams
 	}
 
@@ -261,14 +254,11 @@ func decodeToolEntry(entry *pklLLM.Tool, index int, logger *logging.Logger) (*pk
 }
 
 // decodeToolParameters decodes tool parameters.
-func decodeToolParameters(params *map[string]*pklLLM.ToolProperties, index int, logger *logging.Logger) (*map[string]*pklLLM.ToolProperties, error) {
-	decodedParams := make(map[string]*pklLLM.ToolProperties, len(*params))
+func decodeToolParameters(params *map[string]pklLLM.ToolProperties, index int, logger *logging.Logger) (*map[string]pklLLM.ToolProperties, error) {
+	decodedParams := make(map[string]pklLLM.ToolProperties, len(*params))
 	for paramName, param := range *params {
-		if param == nil {
-			logger.Info("Tools parameter is nil", "index", index, "paramName", paramName)
-			continue
-		}
-		decodedParam := &pklLLM.ToolProperties{Required: param.Required}
+		// ToolProperties is a struct, not a pointer, so we can always access it
+		decodedParam := pklLLM.ToolProperties{Required: param.Required}
 
 		// Decode Type
 		if param.Type != nil {
@@ -313,14 +303,11 @@ func decodeToolParameters(params *map[string]*pklLLM.ToolProperties, index int, 
 
 // encodeChat encodes a ResourceChat for Pkl storage.
 func encodeChat(chat *pklLLM.ResourceChat, logger *logging.Logger) *pklLLM.ResourceChat {
-	var encodedScenario *[]*pklLLM.MultiChat
+	var encodedScenario *[]pklLLM.MultiChat
 	if chat.Scenario != nil && len(*chat.Scenario) > 0 {
-		encodedEntries := make([]*pklLLM.MultiChat, 0, len(*chat.Scenario))
+		encodedEntries := make([]pklLLM.MultiChat, 0, len(*chat.Scenario))
 		for i, entry := range *chat.Scenario {
-			if entry == nil {
-				logger.Warn("Skipping nil scenario entry in encodeChat", "index", i)
-				continue
-			}
+			// MultiChat is a struct, not a pointer, so we can always access it
 			role := utils.SafeDerefString(entry.Role)
 			if role == "" {
 				role = RoleHuman
@@ -330,7 +317,7 @@ func encodeChat(chat *pklLLM.ResourceChat, logger *logging.Logger) *pklLLM.Resou
 			logger.Info("Encoding scenario entry", "index", i, "role", role, "prompt", prompt)
 			encodedRole := utils.EncodeValue(role)
 			encodedPrompt := utils.EncodeValue(prompt)
-			encodedEntries = append(encodedEntries, &pklLLM.MultiChat{
+			encodedEntries = append(encodedEntries, pklLLM.MultiChat{
 				Role:   &encodedRole,
 				Prompt: &encodedPrompt,
 			})
@@ -344,7 +331,7 @@ func encodeChat(chat *pklLLM.ResourceChat, logger *logging.Logger) *pklLLM.Resou
 		logger.Info("Scenario is nil or empty in encodeChat")
 	}
 
-	var encodedTools *[]*pklLLM.Tool
+	var encodedTools *[]pklLLM.Tool
 	if chat.Tools != nil {
 		encodedEntries := encodeTools(chat.Tools)
 		encodedTools = &encodedEntries

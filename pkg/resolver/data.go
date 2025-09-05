@@ -14,7 +14,7 @@ import (
 )
 
 // AppendDataEntry appends a data entry to the existing files map.
-func (dr *DependencyResolver) AppendDataEntry(resourceID string, newData *pklData.DataImpl) error {
+func (dr *DependencyResolver) AppendDataEntry(_ string, newData *pklData.DataImpl) error {
 	// Ensure dr.Context is not nil
 	if dr.Context == nil {
 		return errors.New("context is nil")
@@ -40,6 +40,11 @@ func (dr *DependencyResolver) AppendDataEntry(resourceID string, newData *pklDat
 	// Ensure newData is not nil
 	if newData == nil || newData.Files == nil {
 		return errors.New("new data or its files map is nil")
+	}
+
+	// Ensure existingFiles is not nil
+	if existingFiles == nil {
+		return errors.New("existing files map is nil")
 	}
 
 	// Merge new data into the existing files map

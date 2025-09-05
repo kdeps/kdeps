@@ -140,7 +140,7 @@ func TestFormatDataValue(t *testing.T) {
 func TestFormatErrorsMultiple(t *testing.T) {
 	logger := logging.NewTestLogger()
 	msg := base64.StdEncoding.EncodeToString([]byte("decoded msg"))
-	errorsSlice := &[]*apiserverresponse.APIServerErrorsBlock{
+	errorsSlice := &[]apiserverresponse.APIServerErrorsBlock{
 		{Code: 400, Message: "bad"},
 		{Code: 500, Message: msg},
 	}

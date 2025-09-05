@@ -78,8 +78,10 @@ func TestGenerateDockerCompose_GeneratesFileForGPUs(t *testing.T) {
 				break
 			}
 		}
-		require.Len(t, portLines, 1, "expected exactly one exposed port")
+		require.Len(t, portLines, 3, "expected exactly three exposed ports (0.0.0.0, localhost, 127.0.0.1)")
 		require.Contains(t, portLines[0], "9090")
+		require.Contains(t, portLines[1], "9090")
+		require.Contains(t, portLines[2], "9090")
 	})
 
 	t.Run("no-ports", func(t *testing.T) {

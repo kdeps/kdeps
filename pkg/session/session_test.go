@@ -252,23 +252,23 @@ func TestPklResourceReader_Read_EdgeCases(t *testing.T) {
 		timeout := time.After(5 * time.Second)
 
 		// Launch multiple goroutines to set records
-		for i := 0; i < 10; i++ {
-			go func(i int) {
+		for i := range 10 {
+			go func(id int) {
 				uri := url.URL{
 					Scheme:   "session",
-					Path:     fmt.Sprintf("/test%d", i),
-					RawQuery: fmt.Sprintf("op=set&value=value%d", i),
+					Path:     fmt.Sprintf("/test%d", id),
+					RawQuery: fmt.Sprintf("op=set&value=value%d", id),
 				}
 				_, err := reader.Read(uri)
 				if err != nil {
-					t.Errorf("Failed to set record %d: %v", i, err)
+					t.Errorf("Failed to set record %d: %v", id, err)
 				}
 				done <- struct{}{}
 			}(i)
 		}
 
 		// Wait for all goroutines to complete or timeout
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			select {
 			case <-done:
 				// Success
@@ -278,7 +278,7 @@ func TestPklResourceReader_Read_EdgeCases(t *testing.T) {
 		}
 
 		// Verify all records were set
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			uri := url.URL{Scheme: "session", Path: fmt.Sprintf("/test%d", i)}
 			result, err := reader.Read(uri)
 			require.NoError(t, err)

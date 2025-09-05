@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
-	pklRes "github.com/kdeps/schema/gen/resource"
+	pklResource "github.com/kdeps/schema/gen/resource"
 	"github.com/spf13/afero"
 )
 
@@ -53,7 +53,7 @@ func TestLoadResourceEntries(t *testing.T) {
 	dr.LoadResourceFn = func(_ context.Context, path string, _ ResourceType) (interface{}, error) {
 		base := filepath.Base(path)
 		id := strings.TrimSuffix(base, filepath.Ext(base))
-		return &pklRes.Resource{ActionID: id}, nil
+		return &pklResource.Resource{ActionID: id}, nil
 	}
 
 	// Manually invoke processPklFile for each dummy file instead of walking the directory

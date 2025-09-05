@@ -18,19 +18,20 @@ func PopulateDataFileRegistry(fs afero.Fs, baseDir string) (*map[string]map[stri
 	separator := string(filepath.Separator) // Use constant for clarity
 
 	// Check if the base directory exists
-	exists, err := afero.DirExists(fs, baseDir)
+	baseDirExists, err := afero.DirExists(fs, baseDir)
 	if err != nil {
 		return &files, fmt.Errorf("error checking existence of base directory %s: %w", baseDir, err)
 	}
-	if !exists {
+	if !baseDirExists {
 		// If the directory does not exist, return an empty registry
 		return &files, nil
 	}
 
 	// Walk through the base directory
 	err = afero.Walk(fs, baseDir, func(path string, info os.FileInfo, walkErr error) error {
+		// If there was an error accessing this file, skip it and continue walking
 		if walkErr != nil {
-			return nil // Ignore individual path errors, but continue walking
+			return nil
 		}
 
 		// Skip directories
@@ -39,14 +40,15 @@ func PopulateDataFileRegistry(fs afero.Fs, baseDir string) (*map[string]map[stri
 		}
 
 		// Get the relative path from the base directory
-		relPath, err := filepath.Rel(baseDir, path)
-		if err != nil {
-			return nil // Ignore errors in computing relative paths
+		relPath, walkRelErr := filepath.Rel(baseDir, path)
+		if walkRelErr != nil {
+			return fmt.Errorf("error computing relative path for %s: %w", path, walkRelErr)
 		}
 
 		// Split the relative path into components
 		parts := strings.Split(relPath, separator)
-		if len(parts) < 2 {
+		const minPartsRequired = 2
+		if len(parts) < minPartsRequired {
 			// Skip entries without at least agentName and version
 			return nil
 		}
@@ -58,7 +60,7 @@ func PopulateDataFileRegistry(fs afero.Fs, baseDir string) (*map[string]map[stri
 		key := strings.Join(parts[2:], separator)
 
 		// Ensure the map for this agent exists
-		if _, exists := files[agentName]; !exists {
+		if _, agentExists := files[agentName]; !agentExists {
 			files[agentName] = make(map[string]string)
 		}
 
@@ -67,9 +69,9 @@ func PopulateDataFileRegistry(fs afero.Fs, baseDir string) (*map[string]map[stri
 
 		return nil
 	})
-	// If walking fails entirely (e.g., directory read error), return an empty registry
+	// If walking fails entirely (e.g., directory read error), return the error
 	if err != nil {
-		return &files, nil
+		return &files, fmt.Errorf("error walking directory %s: %w", baseDir, err)
 	}
 
 	return &files, nil

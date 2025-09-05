@@ -88,7 +88,7 @@ func TestPrependDynamicImportsAddsLines(t *testing.T) {
 	}
 }
 
-// helpers
+// helpers.
 func containsImport(s string) bool {
 	return strings.Contains(s, "import \"package://schema.kdeps.com") || strings.Contains(s, "import \"/action")
 }

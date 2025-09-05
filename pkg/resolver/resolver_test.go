@@ -17,6 +17,9 @@ import (
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklData "github.com/kdeps/schema/gen/data"
 	pklExec "github.com/kdeps/schema/gen/exec"
+	pklHTTP "github.com/kdeps/schema/gen/http"
+	pklLLM "github.com/kdeps/schema/gen/llm"
+	pklPython "github.com/kdeps/schema/gen/python"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -62,6 +65,14 @@ func TestDependencyResolver(t *testing.T) {
 		switch rt {
 		case ExecResource:
 			return &pklExec.ExecImpl{}, nil
+		case PythonResource:
+			return &pklPython.PythonImpl{}, nil
+		case LLMResource:
+			return &pklLLM.LLMImpl{}, nil
+		case HTTPResource:
+			return &pklHTTP.HTTPImpl{}, nil
+		case Resource:
+			return map[string]interface{}{"actionID": "test-resource"}, nil
 		default:
 			return nil, fmt.Errorf("unsupported resource type in stub: %v", rt)
 		}
@@ -70,20 +81,20 @@ func TestDependencyResolver(t *testing.T) {
 	t.Run("ConcurrentResourceLoading", func(t *testing.T) {
 		// Test concurrent loading of multiple resources
 		done := make(chan bool)
-		for i := 0; i < 5; i++ {
+		for i := range 5 {
 			go func(id int) {
 				resourceID := fmt.Sprintf("test-resource-%d", id)
 				execBlock := &pklExec.ResourceExec{
 					Command: fmt.Sprintf("echo 'Test %d'", id),
 				}
 				err := dr.HandleExec(resourceID, execBlock)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				done <- true
 			}(i)
 		}
 
 		// Wait for all goroutines to complete
-		for i := 0; i < 5; i++ {
+		for range 5 {
 			<-done
 		}
 	})
@@ -96,12 +107,12 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		err := dr.HandleExec(resourceID, execBlock)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Verify temporary files are cleaned up
 		tmpDir := filepath.Join(dr.ActionDir, "exec")
 		files, err := afero.ReadDir(dr.Fs, tmpDir)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		// Allow the stub exec output file created during setup
 		var nonStubFiles []os.FileInfo
 		for _, f := range files {
@@ -168,7 +179,7 @@ func TestDependencyResolver(t *testing.T) {
 	t.Run("ConcurrentFileAccess", func(t *testing.T) {
 		// Test concurrent access to output files
 		done := make(chan bool)
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			go func(id int) {
 				resourceID := fmt.Sprintf("concurrent-file-%d", id)
 				execBlock := &pklExec.ResourceExec{
@@ -181,7 +192,7 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		// Wait for all goroutines to complete
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			<-done
 		}
 	})
@@ -247,7 +258,7 @@ func TestDependencyResolver(t *testing.T) {
 	t.Run("ConcurrentEnvironmentAccess", func(t *testing.T) {
 		// Test concurrent access to environment variables
 		done := make(chan bool)
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			go func(id int) {
 				env := map[string]string{
 					"TEST_VAR": fmt.Sprintf("value_%d", id),
@@ -264,7 +275,7 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		// Wait for all goroutines to complete
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			<-done
 		}
 	})
@@ -382,7 +393,6 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
@@ -422,7 +432,6 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
@@ -461,7 +470,6 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
@@ -510,7 +518,6 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
@@ -550,7 +557,6 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
@@ -584,7 +590,6 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
@@ -634,7 +639,6 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
@@ -669,7 +673,6 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
@@ -704,7 +707,6 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
@@ -744,7 +746,6 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
@@ -783,7 +784,6 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
@@ -823,7 +823,6 @@ func TestDependencyResolver(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
-			tc := tc // Capture range variable
 			t.Run(tc.name, func(t *testing.T) {
 				execBlock := &pklExec.ResourceExec{
 					Command: tc.command,
@@ -896,6 +895,8 @@ Settings {
 			strings.Contains(msg, "Received unexpected status code") ||
 			strings.Contains(msg, "apple PKL not found") ||
 			strings.Contains(msg, "Invalid token") {
+			// Skip test when PKL is not available
+			t.Skip("PKL not available in test environment")
 		}
 	}
 

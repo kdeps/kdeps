@@ -17,9 +17,10 @@ import (
 	"github.com/kdeps/kdeps/pkg/utils"
 	pklHTTP "github.com/kdeps/schema/gen/http"
 	pklLLM "github.com/kdeps/schema/gen/llm"
-	pklRes "github.com/kdeps/schema/gen/resource"
+	pklResource "github.com/kdeps/schema/gen/resource"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/ollama"
 )
@@ -46,7 +47,7 @@ func buildEncodedChat() (*pklLLM.ResourceChat, map[string]string) {
 	// Scenario
 	scenarioRole := ec(RoleHuman)
 	scenarioPrompt := ec(original["scenarioPrompt"])
-	scenario := []*pklLLM.MultiChat{{
+	scenario := []pklLLM.MultiChat{{
 		Role:   &scenarioRole,
 		Prompt: &scenarioPrompt,
 	}}
@@ -58,7 +59,7 @@ func buildEncodedChat() (*pklLLM.ResourceChat, map[string]string) {
 	paramType := original["paramType"]
 	paramDesc := original["paramDescription"]
 	req := true
-	params := map[string]*pklLLM.ToolProperties{
+	params := map[string]pklLLM.ToolProperties{
 		"value": {
 			Type:        &paramType,
 			Description: &paramDesc,
@@ -69,7 +70,7 @@ func buildEncodedChat() (*pklLLM.ResourceChat, map[string]string) {
 	toolName := original["toolName"]
 	toolScript := original["toolScript"]
 	toolDesc := original["toolDescription"]
-	tools := []*pklLLM.Tool{{
+	tools := []pklLLM.Tool{{
 		Name:        &toolName,
 		Script:      &toolScript,
 		Description: &toolDesc,
@@ -202,7 +203,7 @@ func TestDecodeField_NonBase64(t *testing.T) {
 	}
 }
 
-// TestHandleLLMChat ensures that the handler spawns the processing goroutine and writes a PKL file
+// TestHandleLLMChat ensures that the handler spawns the processing goroutine and writes a PKL file.
 func TestHandleLLMChat(t *testing.T) {
 	// reuse helper from other tests to stub the pkl binary
 	_, restore := createStubPkl(t)
@@ -226,15 +227,18 @@ func TestHandleLLMChat(t *testing.T) {
 
 	// stub LoadResourceFn so AppendChatEntry loads an empty map
 	dr.LoadResourceFn = func(_ context.Context, _ string, _ ResourceType) (interface{}, error) {
-		empty := make(map[string]*pklLLM.ResourceChat)
+		empty := make(map[string]pklLLM.ResourceChat)
 		return &pklLLM.LLMImpl{Resources: &empty}, nil
 	}
 
-	// stub chat helpers
-	dr.NewLLMFn = func(model string) (*ollama.LLM, error) { return nil, nil }
+	// stub chat helpers - return a mock LLM to allow GenerateChatResponseFn to be called
+	dr.NewLLMFn = func(_ string) (*ollama.LLM, error) {
+		// Create a mock LLM that we can use for testing
+		return &ollama.LLM{}, nil
+	}
 
 	done := make(chan struct{})
-	dr.GenerateChatResponseFn = func(ctx context.Context, fs afero.Fs, _ *ollama.LLM, chat *pklLLM.ResourceChat, _ *tool.PklResourceReader, _ *logging.Logger) (string, error) {
+	dr.GenerateChatResponseFn = func(_ context.Context, fs afero.Fs, _ *ollama.LLM, chat *pklLLM.ResourceChat, _ *tool.PklResourceReader, _ *logging.Logger) (string, error) {
 		close(done)
 		return "stub", nil
 	}
@@ -257,7 +261,7 @@ func TestHandleLLMChat(t *testing.T) {
 	}
 }
 
-// TestHandleHTTPClient verifies DoRequestFn is invoked and PKL file written
+// TestHandleHTTPClient verifies DoRequestFn is invoked and PKL file written.
 func TestHandleHTTPClient(t *testing.T) {
 	_, restore := createStubPkl(t)
 	defer restore()
@@ -277,7 +281,7 @@ func TestHandleHTTPClient(t *testing.T) {
 	_ = fs.MkdirAll(dr.FilesDir, 0o755)
 
 	dr.LoadResourceFn = func(_ context.Context, _ string, _ ResourceType) (interface{}, error) {
-		empty := make(map[string]*pklHTTP.ResourceHTTPClient)
+		empty := make(map[string]pklHTTP.ResourceHTTPClient)
 		return &pklHTTP.HTTPImpl{Resources: &empty}, nil
 	}
 
@@ -313,11 +317,11 @@ func TestHandleHTTPClient(t *testing.T) {
 func TestGenerateChatResponseBasic(t *testing.T) {
 	// Create stub HTTP client to satisfy Ollama client without network
 	httpClient := &http.Client{
-		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		Transport: roundTripFunc(func(_ *http.Request) (*http.Response, error) {
 			// Return NDJSON single line with completed message
 			body := `{"message":{"content":"stub-response"},"done":true}` + "\n"
 			resp := &http.Response{
-				StatusCode: 200,
+				StatusCode: http.StatusOK,
 				Header:     make(http.Header),
 				Body:       io.NopCloser(strings.NewReader(body)),
 			}
@@ -330,7 +334,7 @@ func TestGenerateChatResponseBasic(t *testing.T) {
 		ollama.WithHTTPClient(httpClient),
 		ollama.WithServerURL("http://stub"),
 	)
-	assert.NoError(t, errNew)
+	require.NoError(t, errNew)
 
 	fs := afero.NewMemMapFs()
 	logger := logging.GetLogger()
@@ -345,7 +349,7 @@ func TestGenerateChatResponseBasic(t *testing.T) {
 	}
 
 	resp, err := generateChatResponse(ctx, fs, llm, chatBlock, nil, logger)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "stub-response", resp)
 }
 
@@ -367,14 +371,14 @@ func TestLoadResourceEntriesInjected(t *testing.T) {
 		ResourceDependencies: make(map[string][]string),
 		Resources:            []ResourceNodeEntry{},
 		LoadResourceFn: func(_ context.Context, _ string, _ ResourceType) (interface{}, error) {
-			return &pklRes.Resource{ActionID: "action1"}, nil
+			return &pklResource.Resource{ActionID: "action1"}, nil
 		},
 		PrependDynamicImportsFn: func(string) error { return nil },
 		AddPlaceholderImportsFn: func(string) error { return nil },
 	}
 
 	err := dr.LoadResourceEntries()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, dr.Resources, 1)
 	assert.Contains(t, dr.ResourceDependencies, "action1")
 }
@@ -404,8 +408,8 @@ func TestProcessToolCalls_Success(t *testing.T) {
 	req := true
 	ptype := "string"
 	desc := "value"
-	params := map[string]*pklLLM.ToolProperties{"val": {Required: &req, Type: &ptype, Description: &desc}}
-	tools := []*pklLLM.Tool{{Name: &name, Script: &script, Parameters: &params}}
+	params := map[string]pklLLM.ToolProperties{"val": {Required: &req, Type: &ptype, Description: &desc}}
+	tools := []pklLLM.Tool{{Name: &name, Script: &script, Parameters: &params}}
 	chat := &pklLLM.ResourceChat{Tools: &tools}
 
 	// ToolCall JSON string
@@ -497,8 +501,8 @@ func TestEncodeToolsAndParams(t *testing.T) {
 	req := true
 	ptype := "string"
 	pdesc := "value"
-	params := map[string]*pklLLM.ToolProperties{"v": {Required: &req, Type: &ptype, Description: &pdesc}}
-	tools := []*pklLLM.Tool{{Name: &name, Script: &script, Description: &desc, Parameters: &params}}
+	params := map[string]pklLLM.ToolProperties{"v": {Required: &req, Type: &ptype, Description: &pdesc}}
+	tools := []pklLLM.Tool{{Name: &name, Script: &script, Description: &desc, Parameters: &params}}
 
 	encoded := encodeTools(&tools)
 	if len(encoded) != 1 {
@@ -529,8 +533,8 @@ func TestGenerateAvailableTools(t *testing.T) {
 	req := true
 	ptype := "string"
 	pdesc := "number"
-	params := map[string]*pklLLM.ToolProperties{"n": {Required: &req, Type: &ptype, Description: &pdesc}}
-	tools := []*pklLLM.Tool{{Name: &name, Script: &script, Description: &desc, Parameters: &params}}
+	params := map[string]pklLLM.ToolProperties{"n": {Required: &req, Type: &ptype, Description: &pdesc}}
+	tools := []pklLLM.Tool{{Name: &name, Script: &script, Description: &desc, Parameters: &params}}
 	chat.Tools = &tools
 
 	avail := generateAvailableTools(chat, logger)
@@ -600,12 +604,12 @@ func TestExtractToolParams(t *testing.T) {
 	req := true
 	ptype := "string"
 	pdesc := "value"
-	params := map[string]*pklLLM.ToolProperties{
+	params := map[string]pklLLM.ToolProperties{
 		"val": {Required: &req, Type: &ptype, Description: &pdesc},
 	}
 	name := "echo"
 	script := "echo"
-	tools := []*pklLLM.Tool{{Name: &name, Script: &script, Parameters: &params}}
+	tools := []pklLLM.Tool{{Name: &name, Script: &script, Parameters: &params}}
 	chat := &pklLLM.ResourceChat{Tools: &tools}
 
 	args := map[string]interface{}{"val": "hi"}
@@ -656,11 +660,11 @@ func TestSerializeTools(t *testing.T) {
 	req := true
 	ptype := "string"
 	pdesc := "greeting"
-	params := map[string]*pklLLM.ToolProperties{
+	params := map[string]pklLLM.ToolProperties{
 		"msg": {Required: &req, Type: &ptype, Description: &pdesc},
 	}
 
-	entries := []*pklLLM.Tool{{
+	entries := []pklLLM.Tool{{
 		Name:        &name,
 		Script:      &scriptEnc,
 		Description: &descEnc,

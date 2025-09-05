@@ -22,7 +22,9 @@ func SchemaVersion(ctx context.Context) string {
 	if UseLatest { // Reference the global Latest flag from cmd package
 		// Try to get from cache first
 		if cached, ok := versionCache.Load("version"); ok {
-			return cached.(string)
+			if version, ok := cached.(string); ok {
+				return version
+			}
 		}
 
 		// If not in cache, fetch it

@@ -1,30 +1,16 @@
-package cmd_test
+package cmd
 
 import (
 	"context"
 	"testing"
 
-	"github.com/kdeps/kdeps/cmd"
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
-	"github.com/kdeps/schema/gen/kdeps"
-	kschema "github.com/kdeps/schema/gen/kdeps"
-	schemaKdeps "github.com/kdeps/schema/gen/kdeps"
+	kdeps "github.com/kdeps/schema/gen/kdeps"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
-)
-
-// Aliases to cmd package constructors so we can use them without prefix in tests.
-var (
-	NewAddCommand      = cmd.NewAddCommand
-	NewBuildCommand    = cmd.NewBuildCommand
-	NewPackageCommand  = cmd.NewPackageCommand
-	NewRunCommand      = cmd.NewRunCommand
-	NewScaffoldCommand = cmd.NewScaffoldCommand
-	NewAgentCommand    = cmd.NewAgentCommand
-	NewRootCommand     = cmd.NewRootCommand
 )
 
 // TestCommandConstructors simply ensures that constructing each top-level Cobra command
@@ -40,12 +26,12 @@ func TestCommandConstructors(t *testing.T) {
 		name string
 		fn   func() interface{}
 	}{
-		{name: "Add", fn: func() interface{} { return cmd.NewAddCommand(fs, ctx, "", logger) }},
-		{name: "Build", fn: func() interface{} { return cmd.NewBuildCommand(fs, ctx, "", nil, logger) }},
-		{name: "Package", fn: func() interface{} { return cmd.NewPackageCommand(fs, ctx, "", nil, logger) }},
-		{name: "Run", fn: func() interface{} { return cmd.NewRunCommand(fs, ctx, "", nil, logger) }},
-		{name: "Scaffold", fn: func() interface{} { return cmd.NewScaffoldCommand(fs, ctx, logger) }},
-		{name: "Agent", fn: func() interface{} { return cmd.NewAgentCommand(fs, ctx, "", logger) }},
+		{name: "Add", fn: func() interface{} { return NewAddCommand(ctx, fs, "", logger) }},
+		{name: "Build", fn: func() interface{} { return NewBuildCommand(ctx, fs, "", nil, logger) }},
+		{name: "Package", fn: func() interface{} { return NewPackageCommand(ctx, fs, "", nil, logger) }},
+		{name: "Run", fn: func() interface{} { return NewRunCommand(ctx, fs, "", nil, logger) }},
+		{name: "Scaffold", fn: func() interface{} { return NewScaffoldCommand(ctx, fs, logger) }},
+		{name: "Agent", fn: func() interface{} { return NewAgentCommand(ctx, fs, "", logger) }},
 	}
 
 	for _, tc := range tests {
@@ -72,7 +58,7 @@ func TestNewAddCommand_RunE_Error(t *testing.T) {
 	logger := logging.NewTestLogger()
 	kdepsDir := "/tmp/kdeps"
 
-	cmd := NewAddCommand(fs, ctx, kdepsDir, logger)
+	cmd := NewAddCommand(ctx, fs, kdepsDir, logger)
 	if cmd == nil {
 		t.Fatalf("expected command, got nil")
 	}
@@ -96,7 +82,7 @@ func TestNewPackageCommand_Error(t *testing.T) {
 	// Minimal environment stub.
 	env := &environment.Environment{}
 
-	cmd := NewPackageCommand(fs, ctx, "/kdeps", env, logger)
+	cmd := NewPackageCommand(ctx, fs, "/kdeps", env, logger)
 	if cmd == nil {
 		t.Fatalf("expected command, got nil")
 	}
@@ -116,7 +102,7 @@ func TestNewAgentCommand_Success(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	agentName := "testagent"
-	cmd := NewAgentCommand(fs, ctx, "/tmp", logger)
+	cmd := NewAgentCommand(ctx, fs, "/tmp", logger)
 	if cmd == nil {
 		t.Fatalf("expected command, got nil")
 	}
@@ -148,9 +134,9 @@ func TestNewBuildCommand_Error(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	systemCfg := &schemaKdeps.Kdeps{}
+	systemCfg := &kdeps.Kdeps{}
 
-	cmd := NewBuildCommand(fs, ctx, "/kdeps", systemCfg, logger)
+	cmd := NewBuildCommand(ctx, fs, "/kdeps", systemCfg, logger)
 	if cmd == nil {
 		t.Fatalf("expected command, got nil")
 	}
@@ -169,9 +155,9 @@ func TestNewRunCommand_Error(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	systemCfg := &schemaKdeps.Kdeps{}
+	systemCfg := &kdeps.Kdeps{}
 
-	cmd := NewRunCommand(fs, ctx, "/kdeps", systemCfg, logger)
+	cmd := NewRunCommand(ctx, fs, "/kdeps", systemCfg, logger)
 	if cmd == nil {
 		t.Fatalf("expected command, got nil")
 	}
@@ -194,11 +180,11 @@ func TestCommandConstructorsUseStrings(t *testing.T) {
 		name string
 		cmd  func() string
 	}{
-		{"build", func() string { return NewBuildCommand(fs, ctx, dir, nil, logger).Use }},
-		{"new", func() string { return NewAgentCommand(fs, ctx, dir, logger).Use }},
-		{"package", func() string { return NewPackageCommand(fs, ctx, dir, nil, logger).Use }},
-		{"run", func() string { return NewRunCommand(fs, ctx, dir, nil, logger).Use }},
-		{"scaffold", func() string { return NewScaffoldCommand(fs, ctx, logger).Use }},
+		{"build", func() string { return NewBuildCommand(ctx, fs, dir, nil, logger).Use }},
+		{"new", func() string { return NewAgentCommand(ctx, fs, dir, logger).Use }},
+		{"package", func() string { return NewPackageCommand(ctx, fs, dir, nil, logger).Use }},
+		{"run", func() string { return NewRunCommand(ctx, fs, dir, nil, logger).Use }},
+		{"scaffold", func() string { return NewScaffoldCommand(ctx, fs, logger).Use }},
 	}
 
 	for _, c := range constructors {
@@ -223,18 +209,18 @@ func TestCommandConstructorsAdditional(t *testing.T) {
 	}
 
 	// Dummy config object for Build / Run commands
-	dummyCfg := &kschema.Kdeps{}
+	dummyCfg := &kdeps.Kdeps{}
 
 	cases := []struct {
 		name string
 		cmd  *cobra.Command
 	}{
-		{"add", NewAddCommand(fs, ctx, tmpDir, logger)},
-		{"build", NewBuildCommand(fs, ctx, tmpDir, dummyCfg, logger)},
-		{"new", NewAgentCommand(fs, ctx, tmpDir, logger)},
-		{"package", NewPackageCommand(fs, ctx, tmpDir, env, logger)},
-		{"run", NewRunCommand(fs, ctx, tmpDir, dummyCfg, logger)},
-		{"scaffold", NewScaffoldCommand(fs, ctx, logger)},
+		{"add", NewAddCommand(ctx, fs, tmpDir, logger)},
+		{"build", NewBuildCommand(ctx, fs, tmpDir, dummyCfg, logger)},
+		{"new", NewAgentCommand(ctx, fs, tmpDir, logger)},
+		{"package", NewPackageCommand(ctx, fs, tmpDir, env, logger)},
+		{"run", NewRunCommand(ctx, fs, tmpDir, dummyCfg, logger)},
+		{"scaffold", NewScaffoldCommand(ctx, fs, logger)},
 	}
 
 	for _, c := range cases {
@@ -249,7 +235,7 @@ func TestCommandConstructorsAdditional(t *testing.T) {
 
 func TestNewAddCommand_Meta(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	cmd := NewAddCommand(fs, context.Background(), "/tmp/kdeps", logging.NewTestLogger())
+	cmd := NewAddCommand(context.Background(), fs, "/tmp/kdeps", logging.NewTestLogger())
 
 	if cmd.Use != "install [package]" {
 		t.Fatalf("unexpected Use: %s", cmd.Use)
@@ -262,8 +248,8 @@ func TestNewAddCommand_Meta(t *testing.T) {
 
 func TestNewBuildCommand_Meta(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	systemCfg := &kschema.Kdeps{}
-	cmd := NewBuildCommand(fs, context.Background(), "/tmp/kdeps", systemCfg, logging.NewTestLogger())
+	systemCfg := &kdeps.Kdeps{}
+	cmd := NewBuildCommand(context.Background(), fs, "/tmp/kdeps", systemCfg, logging.NewTestLogger())
 
 	if cmd.Use != "build [package]" {
 		t.Fatalf("unexpected Use: %s", cmd.Use)
@@ -281,13 +267,13 @@ func TestCommandConstructorsMetadata(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	env, _ := environment.NewEnvironment(fs, nil)
-	root := NewRootCommand(fs, ctx, tmpDir, &kdeps.Kdeps{}, env, logger)
+	root := NewRootCommand(ctx, fs, tmpDir, &kdeps.Kdeps{}, env, logger)
 	assert.Equal(t, "kdeps", root.Use)
 
-	addCmd := NewAddCommand(fs, ctx, tmpDir, logger)
+	addCmd := NewAddCommand(ctx, fs, tmpDir, logger)
 	assert.Contains(t, addCmd.Aliases, "i")
 	assert.Equal(t, "install [package]", addCmd.Use)
 
-	scaffold := NewScaffoldCommand(fs, ctx, logger)
+	scaffold := NewScaffoldCommand(ctx, fs, logger)
 	assert.Equal(t, "scaffold", scaffold.Name())
 }

@@ -17,11 +17,11 @@ func TestFormatRequestAndResponseHelpers(t *testing.T) {
 
 	rh := map[string]string{"Content-Type": "application/json"}
 	resp := FormatResponseHeaders(rh)
-	if !contains(resp, "Headers") {
+	if !containsSubstring(resp, "Headers") {
 		t.Fatalf("expected response Headers block")
 	}
 }
 
-func contains(s, sub string) bool {
-	return len(s) >= len(sub) && (s == sub || len(s) > 0 && (s[0:len(sub)] == sub || contains(s[1:], sub)))
+func containsSubstring(s, sub string) bool {
+	return len(s) >= len(sub) && (s == sub || len(s) > 0 && (s[0:len(sub)] == sub || containsSubstring(s[1:], sub)))
 }

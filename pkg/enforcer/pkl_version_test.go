@@ -1,11 +1,10 @@
-package enforcer_test
+package enforcer
 
 import (
 	"context"
 	"fmt"
 	"testing"
 
-	"github.com/kdeps/kdeps/pkg/enforcer"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 )
@@ -27,7 +26,7 @@ func TestEnforcePklVersionScenarios(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			line := fmt.Sprintf("amends \"package://schema.kdeps.com/core@%s#/Kdeps.pkl\"", tc.amendVersion)
-			if err := enforcer.EnforcePklVersion(ctx, line, "dummy.pkl", schemaVer, logger); err != nil {
+			if err := EnforcePklVersion(ctx, line, "dummy.pkl", schemaVer, logger); err != nil {
 				t.Fatalf("unexpected error for version %s: %v", tc.amendVersion, err)
 			}
 		})

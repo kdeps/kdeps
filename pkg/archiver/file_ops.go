@@ -16,6 +16,11 @@ import (
 	"github.com/spf13/afero"
 )
 
+const (
+	// MD5BufferSize is the buffer size used for MD5 calculations
+	MD5BufferSize = 8
+)
+
 // MoveFolder moves a directory by copying its contents and then deleting the original.
 func MoveFolder(fs afero.Fs, src, dest string) error {
 	err := afero.Walk(fs, src, func(path string, info os.FileInfo, err error) error {
@@ -73,7 +78,7 @@ func GetFileMD5(fs afero.Fs, filePath string, length int) (string, error) {
 	}
 	defer file.Close()
 
-	hash := md5.New()
+	hash := md5.New() //nolint:gosec // MD5 is used for file integrity checking, not security purposes
 	if _, err := io.Copy(hash, file); err != nil {
 		return "", err
 	}
@@ -88,19 +93,19 @@ func GetFileMD5(fs afero.Fs, filePath string, length int) (string, error) {
 }
 
 // CopyFile copies a file from src to dst, handling existing files by creating backups.
-func CopyFile(fs afero.Fs, ctx context.Context, src, dst string, logger *logging.Logger) error {
+func CopyFile(fs afero.Fs, _ context.Context, src, dst string, logger *logging.Logger) error {
 	exists, err := afero.Exists(fs, dst)
 	if err != nil {
 		return fmt.Errorf("failed to check destination existence: %w", err)
 	}
 
 	if exists {
-		srcMD5, err := GetFileMD5(fs, src, 8)
+		srcMD5, err := GetFileMD5(fs, src, MD5BufferSize)
 		if err != nil {
 			return fmt.Errorf("failed to calculate MD5 for source file: %w", err)
 		}
 
-		dstMD5, err := GetFileMD5(fs, dst, 8)
+		dstMD5, err := GetFileMD5(fs, dst, MD5BufferSize)
 		if err != nil {
 			return fmt.Errorf("failed to calculate MD5 for destination file: %w", err)
 		}
@@ -168,7 +173,7 @@ func setPermissions(fs afero.Fs, src, dst string) error {
 
 // CopyDataDir copies data directories, handling workflows and resources.
 func CopyDataDir(fs afero.Fs, ctx context.Context, wf pklWf.Workflow, kdepsDir, projectDir, compiledProjectDir, agentName, agentVersion,
-	agentAction string, processWorkflows bool, logger *logging.Logger,
+	_ string, processWorkflows bool, logger *logging.Logger,
 ) error {
 	srcDir := filepath.Join(projectDir, "data")
 	destDir := filepath.Join(compiledProjectDir, fmt.Sprintf("data/%s/%s", wf.GetAgentID(), wf.GetVersion()))

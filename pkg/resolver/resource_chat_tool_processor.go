@@ -28,7 +28,8 @@ func generateAvailableTools(chatBlock *pklLLM.ResourceChat, logger *logging.Logg
 	seenNames := make(map[string]struct{})
 
 	for i, toolDef := range *chatBlock.Tools {
-		if toolDef == nil || toolDef.Name == nil || *toolDef.Name == "" {
+		// Tool is a struct, not a pointer, so we can always access it
+		if toolDef.Name == nil || *toolDef.Name == "" {
 			logger.Warn("Skipping invalid tool entry", "index", i)
 			continue
 		}
@@ -53,10 +54,7 @@ func generateAvailableTools(chatBlock *pklLLM.ResourceChat, logger *logging.Logg
 
 		if toolDef.Parameters != nil {
 			for paramName, param := range *toolDef.Parameters {
-				if param == nil {
-					logger.Warn("Skipping nil parameter", "tool", name, "paramName", paramName)
-					continue
-				}
+				// ToolProperties is a struct, not a pointer, so we can always access it
 
 				paramType := "string"
 				if param.Type != nil && *param.Type != "" {
@@ -189,10 +187,11 @@ func extractToolParams(args map[string]interface{}, chatBlock *pklLLM.ResourceCh
 	}
 
 	var name, script string
-	var toolParams *map[string]*pklLLM.ToolProperties
+	var toolParams *map[string]pklLLM.ToolProperties
 
 	for i, toolDef := range *chatBlock.Tools {
-		if toolDef == nil || toolDef.Name == nil || *toolDef.Name == "" {
+		// Tool is a struct, not a pointer, so we can always access it
+		if toolDef.Name == nil || *toolDef.Name == "" {
 			logger.Warn("Skipping invalid tool entry", "index", i)
 			continue
 		}
@@ -225,10 +224,7 @@ func extractToolParams(args map[string]interface{}, chatBlock *pklLLM.ResourceCh
 		// Process parameters in order
 		for _, paramName := range paramOrder {
 			param := (*toolParams)[paramName]
-			if param == nil {
-				logger.Warn("Skipping nil parameter", "tool", toolName, "paramName", paramName)
-				continue
-			}
+			// ToolProperties is a struct, not a pointer, so we can always access it
 
 			if value, exists := args[paramName]; exists {
 				strVal := convertToolParamsToString(value, paramName, toolName, logger)
@@ -465,23 +461,21 @@ func parseToolCallArgs(arguments string, logger *logging.Logger) (map[string]int
 }
 
 // encodeTools encodes the Tools field.
-func encodeTools(tools *[]*pklLLM.Tool) []*pklLLM.Tool {
-	encodedEntries := make([]*pklLLM.Tool, len(*tools))
+func encodeTools(tools *[]pklLLM.Tool) []pklLLM.Tool {
+	encodedEntries := make([]pklLLM.Tool, len(*tools))
 	for i, entry := range *tools {
-		if entry == nil {
-			continue
-		}
+		// Tool is a struct, not a pointer, so we can always access it
 		encodedName := utils.EncodeValue(utils.SafeDerefString(entry.Name))
 		encodedScript := utils.EncodeValue(utils.SafeDerefString(entry.Script))
 		encodedDescription := utils.EncodeValue(utils.SafeDerefString(entry.Description))
 
-		var encodedParameters *map[string]*pklLLM.ToolProperties
+		var encodedParameters *map[string]pklLLM.ToolProperties
 		if entry.Parameters != nil {
 			params := encodeToolParameters(entry.Parameters)
 			encodedParameters = params
 		}
 
-		encodedEntries[i] = &pklLLM.Tool{
+		encodedEntries[i] = pklLLM.Tool{
 			Name:        &encodedName,
 			Script:      &encodedScript,
 			Description: &encodedDescription,
@@ -492,15 +486,13 @@ func encodeTools(tools *[]*pklLLM.Tool) []*pklLLM.Tool {
 }
 
 // encodeToolParameters encodes tool parameters.
-func encodeToolParameters(params *map[string]*pklLLM.ToolProperties) *map[string]*pklLLM.ToolProperties {
-	encodedParams := make(map[string]*pklLLM.ToolProperties, len(*params))
+func encodeToolParameters(params *map[string]pklLLM.ToolProperties) *map[string]pklLLM.ToolProperties {
+	encodedParams := make(map[string]pklLLM.ToolProperties, len(*params))
 	for paramName, param := range *params {
-		if param == nil {
-			continue
-		}
+		// ToolProperties is a struct, not a pointer, so we can always access it
 		encodedType := utils.EncodeValue(utils.SafeDerefString(param.Type))
 		encodedDescription := utils.EncodeValue(utils.SafeDerefString(param.Description))
-		encodedParams[paramName] = &pklLLM.ToolProperties{
+		encodedParams[paramName] = pklLLM.ToolProperties{
 			Required:    param.Required,
 			Type:        &encodedType,
 			Description: &encodedDescription,
@@ -574,7 +566,7 @@ func convertToolParamsToString(value interface{}, paramName, toolName string, lo
 }
 
 // serializeTools serializes the Tools field to Pkl format.
-func serializeTools(builder *strings.Builder, tools *[]*pklLLM.Tool) {
+func serializeTools(builder *strings.Builder, tools *[]pklLLM.Tool) {
 	builder.WriteString("    Tools ")
 	if tools == nil || len(*tools) == 0 {
 		builder.WriteString("{}\n")
@@ -583,48 +575,44 @@ func serializeTools(builder *strings.Builder, tools *[]*pklLLM.Tool) {
 
 	builder.WriteString("{\n")
 	for _, entry := range *tools {
-		if entry == nil {
-			continue
-		}
+		// Tool is a struct, not a pointer, so we can always access it
 		builder.WriteString("      new {\n")
 		name := ""
 		if entry.Name != nil {
 			name = *entry.Name
 		}
-		builder.WriteString(fmt.Sprintf("        Name = %q\n", name))
+		fmt.Fprintf(builder, "        Name = %q\n", name)
 		script := ""
 		if entry.Script != nil {
 			script = *entry.Script
 		}
-		builder.WriteString(fmt.Sprintf("        Script = #\"\"\"\n%s\n\"\"\"#\n", script))
+		fmt.Fprintf(builder, "        Script = #\"\"\"\n%s\n\"\"\"#\n", script)
 		description := ""
 		if entry.Description != nil {
 			description = *entry.Description
 		}
-		builder.WriteString(fmt.Sprintf("        Description = %q\n", description))
+		fmt.Fprintf(builder, "        Description = %q\n", description)
 		builder.WriteString("        Parameters ")
 		if entry.Parameters != nil && len(*entry.Parameters) > 0 {
 			builder.WriteString("{\n")
 			for pname, param := range *entry.Parameters {
-				if param == nil {
-					continue
-				}
-				builder.WriteString(fmt.Sprintf("          [\"%s\"] {\n", pname))
+				// ToolProperties is a struct, not a pointer, so we can always access it
+				fmt.Fprintf(builder, "          [\"%s\"] {\n", pname)
 				required := false
 				if param.Required != nil {
 					required = *param.Required
 				}
-				builder.WriteString(fmt.Sprintf("            Required = %t\n", required))
+				fmt.Fprintf(builder, "            Required = %t\n", required)
 				paramType := ""
 				if param.Type != nil {
 					paramType = *param.Type
 				}
-				builder.WriteString(fmt.Sprintf("            Type = %q\n", paramType))
+				fmt.Fprintf(builder, "            Type = %q\n", paramType)
 				paramDescription := ""
 				if param.Description != nil {
 					paramDescription = *param.Description
 				}
-				builder.WriteString(fmt.Sprintf("            Description = %q\n", paramDescription))
+				fmt.Fprintf(builder, "            Description = %q\n", paramDescription)
 				builder.WriteString("          }\n")
 			}
 			builder.WriteString("        }\n")

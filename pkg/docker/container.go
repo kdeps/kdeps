@@ -13,13 +13,64 @@ import (
 	"github.com/spf13/afero"
 )
 
+const (
+	// GPUTypeAMD represents AMD GPU type
+	GPUTypeAMD = "amd"
+)
+
+// makeUniquePortBindings creates a slice of unique port bindings with default hostIPs and the provided hostIP.
+func makeUniquePortBindings(portNum, hostIP string) []nat.PortBinding {
+	// Create a map to track unique hostIPs
+	uniqueHostIPs := make(map[string]bool)
+	var bindings []nat.PortBinding
+
+	// Add default hostIPs
+	defaultHostIPs := []string{"::1"}
+	for _, defaultIP := range defaultHostIPs {
+		if !uniqueHostIPs[defaultIP] {
+			uniqueHostIPs[defaultIP] = true
+			bindings = append(bindings, nat.PortBinding{HostIP: defaultIP, HostPort: portNum})
+		}
+	}
+
+	// Add the provided hostIP if it's not already included
+	if hostIP != "" && !uniqueHostIPs[hostIP] {
+		bindings = append(bindings, nat.PortBinding{HostIP: hostIP, HostPort: portNum})
+	}
+
+	return bindings
+}
+
+// makeUniquePortStrings creates a slice of unique port strings with default hostIPs and the provided hostIP.
+func makeUniquePortStrings(portNum, hostIP string) []string {
+	// Create a map to track unique hostIPs
+	uniqueHostIPs := make(map[string]bool)
+	var ports []string
+
+	// Add default hostIPs
+	defaultHostIPs := []string{"0.0.0.0", "localhost"}
+	for _, defaultIP := range defaultHostIPs {
+		if !uniqueHostIPs[defaultIP] {
+			uniqueHostIPs[defaultIP] = true
+			ports = append(ports, fmt.Sprintf("%s:%s", defaultIP, portNum))
+		}
+	}
+
+	// Add the provided hostIP if it's not already included
+	if hostIP != "" && !uniqueHostIPs[hostIP] {
+		ports = append(ports, fmt.Sprintf("%s:%s", hostIP, portNum))
+	}
+
+	return ports
+}
+
 func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerName, hostIP, portNum, webHostIP,
 	webPortNum, gpu string, apiMode, webMode bool, cli *client.Client,
 ) (string, error) {
 	// Load environment variables from .env file (if it exists)
 	envSlice, err := loadEnvFile(fs, ".env")
 	if err != nil {
-		fmt.Println("Error loading .env file, proceeding without it:", err)
+		fmt.Println("Error loading .env file, proceeding without it:", err) //nolint:forbidigo // Error reporting
 	}
 
 	// Validate port numbers based on modes
@@ -40,11 +91,13 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 	portBindings := map[nat.Port][]nat.PortBinding{}
 	if apiMode && hostIP != "" && portNum != "" {
 		tcpPort := portNum + "/tcp"
-		portBindings[nat.Port(tcpPort)] = []nat.PortBinding{{HostIP: hostIP, HostPort: portNum}}
+		bindings := makeUniquePortBindings(portNum, hostIP)
+		portBindings[nat.Port(tcpPort)] = bindings
 	}
 	if webMode && webHostIP != "" && webPortNum != "" {
 		webTCPPort := webPortNum + "/tcp"
-		portBindings[nat.Port(webTCPPort)] = []nat.PortBinding{{HostIP: webHostIP, HostPort: webPortNum}}
+		bindings := makeUniquePortBindings(webPortNum, webHostIP)
+		portBindings[nat.Port(webTCPPort)] = bindings
 	}
 
 	// Initialize hostConfig with default settings
@@ -62,7 +115,7 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 
 	// Adjust host configuration based on GPU type
 	switch gpu {
-	case "amd":
+	case GPUTypeAMD:
 		hostConfig.Devices = []container.DeviceMapping{
 			{PathOnHost: "/dev/kfd", PathInContainer: "/dev/kfd", CgroupPermissions: "rwm"},
 			{PathOnHost: "/dev/dri", PathInContainer: "/dev/dri", CgroupPermissions: "rwm"},
@@ -104,9 +157,9 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 					if err != nil {
 						return "", fmt.Errorf("error starting existing container: %w", err)
 					}
-					fmt.Println("Started existing container:", containerNameWithGpu)
+					fmt.Println("Started existing container:", containerNameWithGpu) //nolint:forbidigo // Status reporting
 				} else {
-					fmt.Println("Container is already running:", containerNameWithGpu)
+					fmt.Println("Container is already running:", containerNameWithGpu) //nolint:forbidigo // Status reporting
 				}
 				return resp.ID, nil
 			}
@@ -124,7 +177,7 @@ func CreateDockerContainer(fs afero.Fs, ctx context.Context, cName, containerNam
 		return "", fmt.Errorf("error starting new container: %w", err)
 	}
 
-	fmt.Println("Kdeps container is running:", containerNameWithGpu)
+	fmt.Println("Kdeps container is running:", containerNameWithGpu) //nolint:forbidigo // Status reporting
 
 	return resp.ID, nil
 }
@@ -138,7 +191,7 @@ func loadEnvFile(fs afero.Fs, filename string) ([]string, error) {
 
 	if !exists {
 		// If the file doesn't exist, return an empty slice
-		fmt.Printf("%s does not exist, skipping .env loading.\n", filename)
+		fmt.Printf("%s does not exist, skipping .env loading.\n", filename) //nolint:forbidigo // Status reporting
 		return nil, nil
 	}
 
@@ -168,7 +221,7 @@ func GenerateDockerCompose(fs afero.Fs, cName, containerName, containerNameWithG
 
 	// GPU-specific configurations
 	switch gpu {
-	case "amd":
+	case GPUTypeAMD:
 		gpuConfig = `
 	devices:
 	  - /dev/kfd
@@ -193,10 +246,12 @@ func GenerateDockerCompose(fs afero.Fs, cName, containerName, containerNameWithG
 	// Build ports section based on apiMode and webMode independently
 	var ports []string
 	if apiMode && hostIP != "" && portNum != "" {
-		ports = append(ports, fmt.Sprintf("%s:%s", hostIP, portNum))
+		uniquePorts := makeUniquePortStrings(portNum, hostIP)
+		ports = append(ports, uniquePorts...)
 	}
 	if webMode && webHostIP != "" && webPortNum != "" {
-		ports = append(ports, fmt.Sprintf("%s:%s", webHostIP, webPortNum))
+		uniquePorts := makeUniquePortStrings(webPortNum, webHostIP)
+		ports = append(ports, uniquePorts...)
 	}
 
 	// Format ports section for YAML
@@ -241,6 +296,6 @@ volumes:
 		return fmt.Errorf("error writing Docker Compose file: %w", err)
 	}
 
-	fmt.Println("Docker Compose file generated successfully at:", filePath)
+	fmt.Println("Docker Compose file generated successfully at:", filePath) //nolint:forbidigo // Status reporting
 	return nil
 }

@@ -76,7 +76,7 @@ func getRoleAndType(rolePtr *string) (string, llms.ChatMessageType) {
 }
 
 // processScenarioMessages processes scenario entries into LLM messages.
-func processScenarioMessages(scenario *[]*pklLLM.MultiChat, logger *logging.Logger) []llms.MessageContent {
+func processScenarioMessages(scenario *[]pklLLM.MultiChat, logger *logging.Logger) []llms.MessageContent {
 	if scenario == nil {
 		logger.Info("No scenario messages to process")
 		return make([]llms.MessageContent, 0)
@@ -86,10 +86,7 @@ func processScenarioMessages(scenario *[]*pklLLM.MultiChat, logger *logging.Logg
 	content := make([]llms.MessageContent, 0, len(*scenario))
 
 	for i, entry := range *scenario {
-		if entry == nil {
-			logger.Info("Skipping nil scenario entry", "index", i)
-			continue
-		}
+		// MultiChat is a struct, not a pointer, so we can always access it
 		prompt := utils.SafeDerefString(entry.Prompt)
 		if strings.TrimSpace(prompt) == "" {
 			logger.Info("Processing empty scenario prompt", "index", i, "role", utils.SafeDerefString(entry.Role))

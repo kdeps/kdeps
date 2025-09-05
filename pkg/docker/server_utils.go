@@ -21,7 +21,9 @@ func isServerReady(host string, port string, logger *logging.Logger) bool {
 		logger.Warn(messages.MsgServerNotReady, "error", err)
 		return false
 	}
-	conn.Close()
+	if err := conn.Close(); err != nil {
+		logger.Warn("failed to close connection", "error", err)
+	}
 
 	return true
 }

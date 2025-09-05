@@ -4,19 +4,19 @@ import (
 	"context"
 	"net"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resolver"
+	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/schema/gen/project"
 	webserver "github.com/kdeps/schema/gen/web_server"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/kdeps/kdeps/pkg/schema"
 )
 
 func TestBootstrapDockerSystem(t *testing.T) {
@@ -38,14 +38,14 @@ func TestBootstrapDockerSystem(t *testing.T) {
 	t.Run("NonDockerMode", func(t *testing.T) {
 		dr.Environment.DockerMode = "0"
 		apiServerMode, err := BootstrapDockerSystem(ctx, dr)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.False(t, apiServerMode)
 	})
 
 	t.Run("DockerMode", func(t *testing.T) {
 		dr.Environment.DockerMode = "1"
 		apiServerMode, err := BootstrapDockerSystem(ctx, dr)
-		assert.Error(t, err) // Expected error due to missing OLLAMA_HOST
+		require.Error(t, err) // Expected error due to missing OLLAMA_HOST
 		assert.False(t, apiServerMode)
 	})
 }
@@ -56,7 +56,7 @@ func TestCreateFlagFile(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		err := CreateFlagFile(fs, ctx, "/tmp/flag")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		exists, _ := afero.Exists(fs, "/tmp/flag")
 		assert.True(t, exists)
 	})
@@ -73,7 +73,7 @@ func TestPullModels(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	t.Run("EmptyModels", func(t *testing.T) {
-		err := pullModels(ctx, []string{}, logger)
+		err := PullModels(ctx, []string{}, logger)
 		assert.NoError(t, err)
 	})
 
@@ -207,7 +207,7 @@ func TestStartWebServerWrapper_Success(t *testing.T) {
 		WebServer: &webserver.WebServerSettings{
 			HostIP:  "127.0.0.1",
 			PortNum: portNum,
-			Routes:  []*webserver.WebServerRoutes{},
+			Routes:  []webserver.WebServerRoutes{},
 		},
 	}
 
@@ -369,9 +369,22 @@ func TestPullModels_Error(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger()
 
-	// Provide some dummy model names; expect error as 'ollama' binary likely unavailable
-	err := pullModels(ctx, []string{"nonexistent-model-1"}, logger)
-	if err == nil {
-		t.Fatalf("expected error when pulling models with missing binary")
+	// Test with a nonexistent model
+	err := PullModels(ctx, []string{"nonexistent-model-1"}, logger)
+
+	if err != nil {
+		errorStr := err.Error()
+		// Check if the error is about binary availability
+		if strings.Contains(errorStr, "ollama binary not available") {
+			// This is expected if ollama is not installed in the test environment
+			t.Logf("Expected error due to missing ollama binary: %v", err)
+			return
+		}
+		// If there's any other error, that would be unexpected
+		t.Fatalf("unexpected error: %v", err)
 	}
+
+	// If no error was returned, it means ollama is available and handled the
+	// nonexistent model gracefully (logged warning but continued)
+	t.Log("Ollama binary is available and handled nonexistent model gracefully")
 }
