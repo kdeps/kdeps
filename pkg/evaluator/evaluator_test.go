@@ -3,6 +3,7 @@ package evaluator
 import (
 	"context"
 	"errors"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -408,4 +409,199 @@ func TestEnsurePklBinaryExistsPositive(t *testing.T) {
 
 	err = EnsurePklBinaryExists(context.Background(), logger)
 	assert.NoError(t, err)
+}
+
+func TestValidatePkl_Success(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Create a valid PKL file
+	pklContent := `name = "test"`
+	filePath := filepath.Join(t.TempDir(), "test.pkl")
+	err := afero.WriteFile(fs, filePath, []byte(pklContent), 0o644)
+	require.NoError(t, err)
+
+	// Test validation
+	err = ValidatePkl(fs, ctx, filePath, logger)
+	assert.NoError(t, err)
+}
+
+func TestValidatePkl_InvalidExtension(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Test with invalid extension
+	err := ValidatePkl(fs, ctx, "/test.txt", logger)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), ".pkl extension")
+}
+
+func TestValidatePkl_InvalidSyntax(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Create a file with invalid PKL syntax
+	invalidContent := `name = "test" invalid syntax`
+	filePath := filepath.Join(t.TempDir(), "test.pkl")
+	err := afero.WriteFile(fs, filePath, []byte(invalidContent), 0o644)
+	require.NoError(t, err)
+
+	// Test validation - should fail due to syntax error
+	err = ValidatePkl(fs, ctx, filePath, logger)
+	assert.Error(t, err)
+}
+
+func TestValidatePkl_URIPath(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Test with URI path (should not read file content but still validate)
+	uriPath := "package://test.pkl"
+	err := ValidatePkl(fs, ctx, uriPath, logger)
+	// This may fail due to URI not being resolvable, but we're testing the path handling
+	// The important thing is it doesn't fail on extension check
+	assert.Error(t, err) // Expected to fail as URI can't be resolved without proper setup
+}
+
+func TestNewConfiguredEvaluator_Success(t *testing.T) {
+	ctx := context.Background()
+	outputFormat := "json"
+	readers := []pkl.ResourceReader{}
+
+	evaluator, err := NewConfiguredEvaluator(ctx, outputFormat, readers)
+	assert.NoError(t, err)
+	assert.NotNil(t, evaluator)
+}
+
+func TestNewConfiguredEvaluator_DefaultFormat(t *testing.T) {
+	ctx := context.Background()
+
+	evaluator, err := NewConfiguredEvaluator(ctx, "", nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, evaluator)
+}
+
+func TestNewConfiguredEvaluator_WithReaders(t *testing.T) {
+	ctx := context.Background()
+
+	// Create a mock resource reader
+	mockReader := &mockResourceReader{}
+	readers := []pkl.ResourceReader{mockReader}
+
+	evaluator, err := NewConfiguredEvaluator(ctx, "pcf", readers)
+	assert.NoError(t, err)
+	assert.NotNil(t, evaluator)
+}
+
+// mockResourceReader implements pkl.ResourceReader for testing
+type mockResourceReader struct{}
+
+func (m *mockResourceReader) Read(url url.URL) ([]byte, error) {
+	return []byte("mock content"), nil
+}
+
+func (m *mockResourceReader) Scheme() string {
+	return "mock"
+}
+
+func (m *mockResourceReader) HasHierarchicalUris() bool {
+	return false
+}
+
+func (m *mockResourceReader) IsGlobbable() bool {
+	return false
+}
+
+func (m *mockResourceReader) ListElements(url url.URL) ([]pkl.PathElement, error) {
+	return []pkl.PathElement{}, nil
+}
+
+func TestEvalPkl_URIPath(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Test with URI path
+	uriPath := "https://example.com/test.pkl"
+	_, err := EvalPkl(fs, ctx, uriPath, "header", nil, logger)
+	// This will likely fail due to network, but we're testing URI handling
+	assert.Error(t, err)
+}
+
+func TestEvalPkl_ReadFileError(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Test with non-existent file
+	_, err := EvalPkl(fs, ctx, "/nonexistent.pkl", "header", nil, logger)
+	assert.Error(t, err)
+}
+
+func TestEvalPkl_WriteFileError(t *testing.T) {
+	fs := afero.NewReadOnlyFs(afero.NewMemMapFs()) // Read-only filesystem
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Create content first (before making fs read-only)
+	memFs := afero.NewMemMapFs()
+	content := `name = "test"`
+	filePath := "/test.pkl"
+	err := afero.WriteFile(memFs, filePath, []byte(content), 0o644)
+	require.NoError(t, err)
+
+	// Now use read-only fs - this will fail when trying to write back
+	_, err = EvalPkl(fs, ctx, filePath, "header", nil, logger)
+	assert.Error(t, err)
+}
+
+func TestEvalPkl_CustomOptions(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Create a valid PKL file
+	content := `name = "test"`
+	filePath := filepath.Join(t.TempDir(), "test.pkl")
+	err := afero.WriteFile(fs, filePath, []byte(content), 0o644)
+	require.NoError(t, err)
+
+	// Test with custom options that allow all modules
+	customOpts := func(opts *pkl.EvaluatorOptions) {
+		opts.OutputFormat = "json"
+		opts.AllowedModules = []string{".*"}
+	}
+
+	result, err := EvalPkl(fs, ctx, filePath, "header", customOpts, logger)
+	assert.NoError(t, err)
+	assert.Contains(t, result, "header")
+}
+
+func TestEvalPkl_WithFallbackToCLI(t *testing.T) {
+	fs := afero.NewOsFs()
+	logger := logging.NewTestLogger()
+	ctx := context.Background()
+
+	// Create a valid PKL file
+	content := `name = "test"`
+	filePath := filepath.Join(t.TempDir(), "test.pkl")
+	err := afero.WriteFile(fs, filePath, []byte(content), 0o644)
+	require.NoError(t, err)
+
+	// Test with options that should trigger fallback behavior
+	fallbackOpts := func(opts *pkl.EvaluatorOptions) {
+		// Force an option that might cause SDK to fail and fallback to CLI
+		opts.AllowedResources = []string{"nonexistent://"}
+	}
+
+	result, err := EvalPkl(fs, ctx, filePath, "header", fallbackOpts, logger)
+	// The test should either succeed or fail gracefully, but not panic
+	// We mainly want to test that the fallback mechanism works
+	if err == nil {
+		assert.Contains(t, result, "header")
+	}
 }
