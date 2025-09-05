@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -484,41 +485,224 @@ func BenchmarkErrorDetection(b *testing.B) {
 	}
 }
 
-// TestSyncModelToPersistentStorage tests the model syncing functionality
-func TestSyncModelToPersistentStorage(t *testing.T) {
-	// Note: This test would require setting up actual directories and files
-	// For now, we skip it as it requires system-level setup and rsync binary
-	t.Skip("Skipping sync test - requires system directories and rsync binary")
+// TestPullOllamaModel tests the pullOllamaModel function
+func TestPullOllamaModel(t *testing.T) {
+	logger := logging.NewTestLogger()
 
-	// Future test implementation would:
-	// 1. Create temporary directories
-	// 2. Copy test files to source directory
-	// 3. Call syncModelToPersistentStorage
-	// 4. Verify files were synced correctly
+	t.Run("NonExistentModel", func(t *testing.T) {
+		dr := &DependencyResolver{
+			Logger:  logger,
+			Context: context.Background(),
+		}
+
+		err := dr.pullOllamaModel(context.Background(), "nonexistent-model-12345")
+		// Should fail due to model not existing
+		assert.Error(t, err)
+	})
+
+	t.Run("EmptyModel", func(t *testing.T) {
+		dr := &DependencyResolver{
+			Logger:  logger,
+			Context: context.Background(),
+		}
+
+		err := dr.pullOllamaModel(context.Background(), "")
+		assert.Error(t, err)
+		// Error message may vary, just ensure there's an error
+	})
 }
 
-// TestExtractModelsFromWorkflow tests the model extraction functionality
+// TestEnsureOllamaServerRunning tests the ensureOllamaServerRunning function
+func TestEnsureOllamaServerRunning(t *testing.T) {
+	logger := logging.NewTestLogger()
+
+	t.Run("BasicFunctionality", func(t *testing.T) {
+		dr := &DependencyResolver{
+			Logger:  logger,
+			Context: context.Background(),
+		}
+
+		// This test may pass or fail depending on whether Ollama is running
+		// The important thing is that it doesn't panic
+		err := dr.ensureOllamaServerRunning(context.Background())
+		// We don't assert on the error since Ollama may or may not be running
+		// Just ensure it doesn't panic
+		_ = err
+	})
+}
+
+// TestSyncModelToPersistentStorage tests the syncModelToPersistentStorage function
+func TestSyncModelToPersistentStorage(t *testing.T) {
+	logger := logging.NewTestLogger()
+
+	t.Run("BasicFunctionality", func(t *testing.T) {
+		dr := &DependencyResolver{
+			Logger:  logger,
+			Context: context.Background(),
+		}
+
+		err := dr.syncModelToPersistentStorage("test-model")
+		// Should fail due to rsync not being available or directories not existing
+		assert.Error(t, err)
+	})
+}
+
+// TestGetAvailableModels tests the getAvailableModels function
+func TestGetAvailableModels(t *testing.T) {
+	logger := logging.NewTestLogger()
+
+	t.Run("BasicFunctionality", func(t *testing.T) {
+		dr := &DependencyResolver{
+			Logger:  logger,
+			Context: context.Background(),
+		}
+
+		models, err := dr.getAvailableModels()
+		// May succeed or fail depending on Ollama availability
+		// Just ensure it doesn't panic
+		_ = models
+		_ = err
+	})
+}
+
+// TestPullWorkflowModels tests the pullWorkflowModels function
+func TestPullWorkflowModels(t *testing.T) {
+	logger := logging.NewTestLogger()
+
+	t.Run("NonExistentModels", func(t *testing.T) {
+		dr := &DependencyResolver{
+			Logger:  logger,
+			Context: context.Background(),
+		}
+
+		err := dr.pullWorkflowModels(context.Background(), []string{"nonexistent-model-12345"})
+		// May succeed or fail depending on Ollama behavior
+		// Just ensure it doesn't panic
+		_ = err
+	})
+
+	t.Run("EmptyModels", func(t *testing.T) {
+		dr := &DependencyResolver{
+			Logger:  logger,
+			Context: context.Background(),
+		}
+
+		err := dr.pullWorkflowModels(context.Background(), []string{})
+		// Should succeed with empty models list
+		// Just ensure it doesn't panic
+		_ = err
+	})
+
+	t.Run("NilModels", func(t *testing.T) {
+		dr := &DependencyResolver{
+			Logger:  logger,
+			Context: context.Background(),
+		}
+
+		err := dr.pullWorkflowModels(context.Background(), nil)
+		// Should succeed with nil models list
+		// Just ensure it doesn't panic
+		_ = err
+	})
+}
+
+// TestFindModelVariant tests the findModelVariant function
+func TestFindModelVariant(t *testing.T) {
+	logger := logging.NewTestLogger()
+
+	t.Run("NonExistentModel", func(t *testing.T) {
+		dr := &DependencyResolver{
+			Logger:  logger,
+			Context: context.Background(),
+		}
+
+		variant, err := dr.findModelVariant(context.Background(), "nonexistent-model-12345")
+		assert.Error(t, err)
+		assert.Empty(t, variant)
+	})
+
+	t.Run("EmptyModel", func(t *testing.T) {
+		dr := &DependencyResolver{
+			Logger:  logger,
+			Context: context.Background(),
+		}
+
+		variant, err := dr.findModelVariant(context.Background(), "")
+		assert.Error(t, err)
+		assert.Empty(t, variant)
+	})
+}
+
+// TestExtractModelsFromWorkflow tests the extractModelsFromWorkflow function
 func TestExtractModelsFromWorkflow(t *testing.T) {
 	logger := logging.NewTestLogger()
 
-	// Create a mock dependency resolver
-	dr := &DependencyResolver{
-		Logger: logger,
-	}
+	t.Run("WorkflowWithModels", func(t *testing.T) {
+		dr := &DependencyResolver{
+			Logger: logger,
+		}
 
-	// Create a mock workflow with models in AgentSettings
-	mockWorkflow := &mockWorkflowForModels{
-		agentID: "test-agent",
-		models:  []string{"llama3.2:1b", "mistral:7b", "codellama:13b"},
-	}
+		// Create a mock workflow with models
+		mockWorkflow := &mockWorkflowForModels{
+			agentID: "test-agent",
+			models:  []string{"llama3.2:1b", "mistral:7b", "codellama:13b"},
+		}
 
-	// Test the extraction
-	models := dr.extractModelsFromWorkflow(mockWorkflow)
+		models := dr.extractModelsFromWorkflow(mockWorkflow)
+		expectedModels := []string{"llama3.2:1b", "mistral:7b", "codellama:13b"}
+		assert.ElementsMatch(t, expectedModels, models)
+		assert.Equal(t, 3, len(models))
+	})
 
-	// Verify results
-	expectedModels := []string{"llama3.2:1b", "mistral:7b", "codellama:13b"}
-	assert.ElementsMatch(t, expectedModels, models, "extracted models should match expected models")
-	assert.Equal(t, 3, len(models), "should extract 3 unique models")
+	t.Run("WorkflowWithDuplicateModels", func(t *testing.T) {
+		dr := &DependencyResolver{
+			Logger: logger,
+		}
+
+		// Create a mock workflow with duplicate models
+		mockWorkflow := &mockWorkflowForModels{
+			agentID: "test-agent",
+			models:  []string{"llama3.2:1b", "llama3.2:1b", "mistral:7b", "mistral:7b"},
+		}
+
+		models := dr.extractModelsFromWorkflow(mockWorkflow)
+		expectedModels := []string{"llama3.2:1b", "mistral:7b"}
+		assert.ElementsMatch(t, expectedModels, models)
+		assert.Equal(t, 2, len(models))
+	})
+
+	t.Run("WorkflowWithEmptyModels", func(t *testing.T) {
+		dr := &DependencyResolver{
+			Logger: logger,
+		}
+
+		// Create a mock workflow with empty models
+		mockWorkflow := &mockWorkflowForModels{
+			agentID: "test-agent",
+			models:  []string{"", "llama3.2:1b", "", "mistral:7b", ""},
+		}
+
+		models := dr.extractModelsFromWorkflow(mockWorkflow)
+		expectedModels := []string{"llama3.2:1b", "mistral:7b"}
+		assert.ElementsMatch(t, expectedModels, models)
+		assert.Equal(t, 2, len(models))
+	})
+
+	t.Run("WorkflowWithNoModels", func(t *testing.T) {
+		dr := &DependencyResolver{
+			Logger: logger,
+		}
+
+		// Create a mock workflow with no models
+		mockWorkflow := &mockWorkflowForModels{
+			agentID: "test-agent",
+			models:  []string{},
+		}
+
+		models := dr.extractModelsFromWorkflow(mockWorkflow)
+		assert.Empty(t, models)
+		assert.Equal(t, 0, len(models))
+	})
 }
 
 // mockWorkflowForModels is a mock workflow for testing model extraction

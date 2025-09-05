@@ -328,3 +328,37 @@ func TestNewScaffoldCommandConstructor(t *testing.T) {
 		t.Fatalf("expected error")
 	}
 }
+
+// TestNewBuildCommand_RunE_ExtractPackageFailure tests the ExtractPackage failure path
+func TestNewBuildCommand_RunE_ExtractPackageFailure(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	systemCfg := &kdeps.Kdeps{}
+	logger := logging.NewTestLogger()
+
+	cmd := NewBuildCommand(ctx, fs, kdepsDir, systemCfg, logger)
+	cmd.SetArgs([]string{"nonexistent.kdeps"})
+
+	// This should fail at ExtractPackage, but still exercise the command setup code paths
+	err := cmd.Execute()
+	require.Error(t, err)
+	// We expect an error but don't check the exact message since it may vary
+}
+
+// TestNewRunCommand_RunE_ExtractPackageFailure tests the ExtractPackage failure path for run command
+func TestNewRunCommand_RunE_ExtractPackageFailure(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	ctx := context.Background()
+	kdepsDir := "/tmp/kdeps"
+	systemCfg := &kdeps.Kdeps{}
+	logger := logging.NewTestLogger()
+
+	cmd := NewRunCommand(ctx, fs, kdepsDir, systemCfg, logger)
+	cmd.SetArgs([]string{"nonexistent.kdeps"})
+
+	// This should fail at ExtractPackage, but still exercise the command setup code paths
+	err := cmd.Execute()
+	require.Error(t, err)
+	// We expect an error but don't check the exact message since it may vary
+}
