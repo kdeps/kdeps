@@ -375,7 +375,7 @@ func TestPullModels_Error(t *testing.T) {
 	if err != nil {
 		errorStr := err.Error()
 		// Check if the error is about binary availability
-		if strings.Contains(errorStr, "ollama binary not available") {
+		if strings.Contains(errorStr, "ollama binary not available") || strings.Contains(errorStr, "ollama binary not found") {
 			// This is expected if ollama is not installed in the test environment
 			t.Logf("Expected error due to missing ollama binary: %v", err)
 			return
