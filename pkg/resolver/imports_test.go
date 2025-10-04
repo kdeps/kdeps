@@ -248,7 +248,7 @@ func TestAddPlaceholderImports_Errors(t *testing.T) {
 
 	// 2) file without actionID line
 	filePath := filepath.Join(tmp, "no_id.pkl")
-	_ = afero.WriteFile(fs, filePath, []byte("extends \"package://schema.kdeps.com/core@1.0.0#/Exec.pkl\"\n"), 0o644)
+	_ = afero.WriteFile(fs, filePath, []byte("extends \"package://schema.kdeps.com/core@0.3.1-dev#/Exec.pkl\"\n"), 0o644)
 
 	if err := dr.AddPlaceholderImports(filePath); err == nil {
 		t.Errorf("expected error when action id missing but got nil")

@@ -313,7 +313,7 @@ func TestEnforcePklVersion(t *testing.T) {
 	require.NoError(t, EnforcePklVersion(ctx, goodLine, "file.pkl", schemaVersion, logger))
 
 	// lower version should warn but not error
-	lowLine := "amends \"package://schema.kdeps.com/core@1.0.0#/Kdeps.pkl\""
+	lowLine := "amends \"package://schema.kdeps.com/core@0.3.1-dev#/Kdeps.pkl\""
 	require.NoError(t, EnforcePklVersion(ctx, lowLine, "file.pkl", schemaVersion, logger))
 
 	// higher version also no error
@@ -330,15 +330,15 @@ func TestEnforcePklFilename(t *testing.T) {
 	ctx := t.Context()
 
 	// Good configuration .kdeps.pkl
-	lineCfg := "amends \"package://schema.kdeps.com/core@1.0.0#/Kdeps.pkl\""
+	lineCfg := "amends \"package://schema.kdeps.com/core@0.3.1-dev#/Kdeps.pkl\""
 	require.NoError(t, EnforcePklFilename(ctx, lineCfg, "/path/to/.kdeps.pkl", logger))
 
 	// Good workflow.pkl
-	lineWf := "amends \"package://schema.kdeps.com/core@1.0.0#/Workflow.pkl\""
+	lineWf := "amends \"package://schema.kdeps.com/core@0.3.1-dev#/Workflow.pkl\""
 	require.NoError(t, EnforcePklFilename(ctx, lineWf, "/some/workflow.pkl", logger))
 
 	// Resource.pkl must not have those filenames
-	lineResource := "amends \"package://schema.kdeps.com/core@1.0.0#/Resource.pkl\""
+	lineResource := "amends \"package://schema.kdeps.com/core@0.3.1-dev#/Resource.pkl\""
 	require.NoError(t, EnforcePklFilename(ctx, lineResource, "/path/to/resources/custom.pkl", logger))
 
 	// Invalid file extension for config
@@ -350,7 +350,7 @@ func TestEnforcePklFilename(t *testing.T) {
 	require.Error(t, err)
 
 	// Unknown pkl filename in amends line -> expect error
-	unknownLine := "amends \"package://schema.kdeps.com/core@1.0.0#/Unknown.pkl\""
+	unknownLine := "amends \"package://schema.kdeps.com/core@0.3.1-dev#/Unknown.pkl\""
 	err = EnforcePklFilename(ctx, unknownLine, "/path/to/unknown.pkl", logger)
 	require.Error(t, err)
 }

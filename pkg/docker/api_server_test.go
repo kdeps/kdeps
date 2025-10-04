@@ -1226,23 +1226,14 @@ func TestAPIServerErrorHandling(t *testing.T) {
 		// Create a valid workflow.pkl file that will pass initial validation
 		// but fail during processing (due to missing resources)
 		workflowContent := `
-amends "package://schema.kdeps.com/core@1.0.0#/Workflow.pkl"
-Name = "testagent"
+amends "package://schema.kdeps.com/core@0.3.1-dev#/Workflow.pkl"
+AgentID = "testagent"
 Description = "Test agent for error stacking"
 TargetActionID = "testaction"
 Settings {
 	APIServerMode = false
 	AgentSettings {
 		InstallAnaconda = false
-	}
-}
-PreflightCheck {
-	Validations {
-		false  // This will always fail and trigger our error stacking
-	}
-	Error {
-		Code = 500
-		Message = "Preflight validation failed"
 	}
 }`
 		require.NoError(t, afero.WriteFile(fs, workflowFile, []byte(workflowContent), 0o644))
