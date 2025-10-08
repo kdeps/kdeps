@@ -153,13 +153,15 @@ func LoadConfiguration(ctx context.Context, fs afero.Fs, configFile string, logg
 func loadConfigurationFromEmbeddedAssets(ctx context.Context, configFile string, logger *logging.Logger) (*kdeps.Kdeps, error) {
 	logger.Debug("loading configuration from embedded assets", "config-file", configFile)
 
-	// Use GetPKLFileWithFullConversion to get the embedded Kdeps.pkl template
-	_, err := schemaAssets.GetPKLFileWithFullConversion("Kdeps.pkl")
+	// Copy assets to temp directory with URL conversion
+	tempDir, err := schemaAssets.CopyAssetsToTempDirWithConversion()
 	if err != nil {
-		logger.Error("error reading embedded kdeps template", "error", err)
-		return nil, fmt.Errorf("error reading embedded kdeps template: %w", err)
+		logger.Error("error copying assets to temp directory", "error", err)
+		return nil, fmt.Errorf("error copying assets to temp directory: %w", err)
 	}
+	defer os.RemoveAll(tempDir)
 
+	// Create evaluator with the temp directory as a module path
 	evaluator, err := pkl.NewEvaluator(ctx, pkl.PreconfiguredOptions)
 	if err != nil {
 		logger.Error("error creating pkl evaluator", "config-file", configFile, "error", err)
