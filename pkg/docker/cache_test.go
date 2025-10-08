@@ -102,7 +102,7 @@ func buildResp(status int, body string) *http.Response {
 }
 
 func TestGetLatestAnacondaVersionsSuccess(t *testing.T) {
-	html := `Anaconda3-20.3.1-dev7-1-Linux-x86_64.sh Anaconda3-20.3.1-dev5-1-Linux-aarch64.sh` +
+	html := `Anaconda3-20.4.0-dev7-1-Linux-x86_64.sh Anaconda3-20.4.0-dev5-1-Linux-aarch64.sh` +
 		` Anaconda3-2024.10-1-Linux-x86_64.sh Anaconda3-2024.08-1-Linux-aarch64.sh`
 
 	// mock transport
@@ -160,7 +160,7 @@ func (archHTMLTransport) RoundTrip(req *http.Request) (*http.Response, error) {
         <a href="Anaconda3-2024.10-1-Linux-x86_64.sh">x</a>
         <a href="Anaconda3-2024.09-1-Linux-aarch64.sh">y</a>
         <a href="Anaconda3-2023.12-0-Linux-x86_64.sh">old-x</a>
-        <a href="Anaconda3-20.3.1-dev1-0-Linux-aarch64.sh">old-y</a>
+        <a href="Anaconda3-20.4.0-dev1-0-Linux-aarch64.sh">old-y</a>
         </body></html>`
 	return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewBufferString(html)), Header: make(http.Header)}, nil
 }
