@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/assets"
@@ -27,12 +28,13 @@ func LoadWorkflow(ctx context.Context, workflowFile string, logger *logging.Logg
 func loadWorkflowFromEmbeddedAssets(ctx context.Context, workflowFile string, logger *logging.Logger) (pklWf.Workflow, error) {
 	logger.Debug("loading workflow from embedded assets", "workflow-file", workflowFile)
 
-	// Use GetPKLFileWithFullConversion to get the embedded Workflow.pkl template
-	_, err := schemaAssets.GetPKLFileWithFullConversion("Workflow.pkl")
+	// Copy assets to temp directory with URL conversion
+	tempDir, err := schemaAssets.CopyAssetsToTempDirWithConversion()
 	if err != nil {
-		logger.Error("error reading embedded workflow template", "error", err)
-		return nil, fmt.Errorf("error reading embedded workflow template: %w", err)
+		logger.Error("error copying assets to temp directory", "error", err)
+		return nil, fmt.Errorf("error copying assets to temp directory: %w", err)
 	}
+	defer os.RemoveAll(tempDir)
 
 	evaluator, err := pkl.NewEvaluator(ctx, pkl.PreconfiguredOptions)
 	if err != nil {
@@ -41,8 +43,7 @@ func loadWorkflowFromEmbeddedAssets(ctx context.Context, workflowFile string, lo
 	}
 	defer evaluator.Close()
 
-	// Use TextSource with the embedded content as base, but we still need to evaluate the user's file
-	// that amends the base template. For now, let's try to load the user file and use it.
+	// Use the user's workflow file but with embedded asset support
 	source := pkl.FileSource(workflowFile)
 	var module interface{}
 	err = evaluator.EvaluateModule(ctx, source, &module)
