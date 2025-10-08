@@ -657,7 +657,7 @@ func TestLoadResource(t *testing.T) {
 		defer os.RemoveAll(tmpDir)
 
 		// Create a valid resource file content
-		validContent := `amends "package://schema.kdeps.com/core@0.3.1-dev#/Resource.pkl"
+		validContent := `amends "package://schema.kdeps.com/core@0.4.0-dev#/Resource.pkl"
 
 ActionID = "testaction"
 Name = "Test Action"
@@ -775,7 +775,7 @@ func TestLoadResourceLogging(t *testing.T) {
 		defer os.RemoveAll(tmpDir)
 
 		// Create a valid resource file content
-		validContent := `amends "package://schema.kdeps.com/core@0.3.1-dev#/Resource.pkl"
+		validContent := `amends "package://schema.kdeps.com/core@0.4.0-dev#/Resource.pkl"
 
 ActionID = "testaction"
 Name = "Test Action"

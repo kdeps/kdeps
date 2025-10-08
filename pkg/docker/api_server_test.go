@@ -1226,7 +1226,7 @@ func TestAPIServerErrorHandling(t *testing.T) {
 		// Create a valid workflow.pkl file that will pass initial validation
 		// but fail during processing (due to missing resources)
 		workflowContent := `
-amends "package://schema.kdeps.com/core@0.3.1-dev#/Workflow.pkl"
+amends "package://schema.kdeps.com/core@0.4.0-dev#/Workflow.pkl"
 AgentID = "testagent"
 Description = "Test agent for error stacking"
 TargetActionID = "testaction"
