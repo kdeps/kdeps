@@ -3,6 +3,7 @@ package resource
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/apple/pkl-go/pkl"
 	"github.com/kdeps/kdeps/pkg/assets"
@@ -27,12 +28,13 @@ func LoadResource(ctx context.Context, resourceFile string, logger *logging.Logg
 func loadResourceFromEmbeddedAssets(ctx context.Context, resourceFile string, logger *logging.Logger) (*pklResource.Resource, error) {
 	logger.Debug("loading resource from embedded assets", "resource-file", resourceFile)
 
-	// Use GetPKLFileWithFullConversion to get the embedded Resource.pkl template
-	_, err := schemaAssets.GetPKLFileWithFullConversion("Resource.pkl")
+	// Copy assets to temp directory with URL conversion
+	tempDir, err := schemaAssets.CopyAssetsToTempDirWithConversion()
 	if err != nil {
-		logger.Error("error reading embedded resource template", "error", err)
-		return nil, fmt.Errorf("error reading embedded resource template: %w", err)
+		logger.Error("error copying assets to temp directory", "error", err)
+		return nil, fmt.Errorf("error copying assets to temp directory: %w", err)
 	}
+	defer os.RemoveAll(tempDir)
 
 	evaluator, err := pkl.NewEvaluator(ctx, pkl.PreconfiguredOptions)
 	if err != nil {
