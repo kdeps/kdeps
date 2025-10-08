@@ -3,9 +3,11 @@ package workflow
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/schema/assets"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -32,9 +34,15 @@ func TestLoadWorkflow(t *testing.T) {
 	})
 
 	t.Run("ValidWorkflowFile", func(t *testing.T) {
-		// Create a temporary file with valid PKL content
-		tmpFile := t.TempDir() + "/valid.pkl"
-		validContent := `amends "package://schema.kdeps.com/core@0.4.0-dev#/Workflow.pkl"
+		// Copy schema assets to temp directory for offline testing
+		schemaDir, err := assets.CopyAssetsToTempDirWithConversion()
+		require.NoError(t, err)
+		defer os.RemoveAll(schemaDir)
+
+		// Create a temporary file with valid PKL content using local schema
+		tmpDir := t.TempDir()
+		tmpFile := filepath.Join(tmpDir, "valid.pkl")
+		validContent := `amends "` + filepath.Join(schemaDir, "Workflow.pkl") + `"
 
 AgentID = "testworkflow"
 Version = "1.0.0"
@@ -68,7 +76,7 @@ Settings {
     OllamaImageTag = "0.8.0"
   }
 }`
-		err := os.WriteFile(tmpFile, []byte(validContent), 0o644)
+		err = os.WriteFile(tmpFile, []byte(validContent), 0o644)
 		require.NoError(t, err)
 
 		wf, err := LoadWorkflow(ctx, tmpFile, logger)

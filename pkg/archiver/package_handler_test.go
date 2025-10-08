@@ -10,8 +10,10 @@ import (
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/schema/assets"
 	pklProj "github.com/kdeps/schema/gen/project"
 	"github.com/spf13/afero"
+	"github.com/stretchr/testify/require"
 )
 
 // minimal workflow stub satisfying the two getters used by PackageProject.
@@ -50,8 +52,13 @@ func TestPackageProjectHappyPath(t *testing.T) {
 	_ = fs.MkdirAll(filepath.Join(compiled, "resources"), 0o755)
 	// minimal resource file
 	_ = afero.WriteFile(fs, filepath.Join(compiled, "resources", "exec.pkl"), []byte("run { Exec { ['x']='y' } }"), 0o644)
-	// workflow file at root
-	wfContent := `amends "package://schema.kdeps.com/core@0.0.0#/Workflow.pkl"`
+	// Copy schema assets to temp directory for offline testing
+	schemaDir, err := assets.CopyAssetsToTempDirWithConversion()
+	require.NoError(t, err)
+	defer os.RemoveAll(schemaDir)
+
+	// workflow file at root using local schema
+	wfContent := `amends "` + filepath.Join(schemaDir, "Workflow.pkl") + `"`
 	_ = afero.WriteFile(fs, filepath.Join(compiled, "workflow.pkl"), []byte(wfContent), 0o644)
 
 	wf := simpleWf{}
@@ -152,6 +159,11 @@ func TestPrepareRunDir(t *testing.T) {
 
 // TestPackageProjectHappy creates minimal compiled project and ensures .kdeps created.
 func TestPackageProjectHappy(t *testing.T) {
+	// Copy schema assets to temp directory for offline testing
+	schemaDir, err := assets.CopyAssetsToTempDirWithConversion()
+	require.NoError(t, err)
+	defer os.RemoveAll(schemaDir)
+
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
 	wf := stubWf{}
@@ -161,7 +173,7 @@ func TestPackageProjectHappy(t *testing.T) {
 	// build minimal structure
 	_ = fs.MkdirAll(filepath.Join(compiled, "resources"), 0o755)
 	_ = afero.WriteFile(fs, filepath.Join(compiled, "resources", "client.pkl"), []byte("run { }"), 0o644)
-	_ = afero.WriteFile(fs, filepath.Join(compiled, "workflow.pkl"), []byte("amends \"package://schema.kdeps.com/core@0.0.1#/Workflow.pkl\"\n"), 0o644)
+	_ = afero.WriteFile(fs, filepath.Join(compiled, "workflow.pkl"), []byte("amends \""+filepath.Join(schemaDir, "Workflow.pkl")+"\"\n"), 0o644)
 	_ = fs.MkdirAll(kdepsDir, 0o755)
 
 	pkg, err := PackageProject(fs, ctx, wf, kdepsDir, compiled, logging.NewTestLogger())

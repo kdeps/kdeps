@@ -27,6 +27,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/workflow"
+	"github.com/kdeps/schema/assets"
 	"github.com/kdeps/schema/gen/kdeps"
 	wfPkl "github.com/kdeps/schema/gen/workflow"
 	"github.com/spf13/afero"
@@ -656,8 +657,13 @@ func TestLoadResource(t *testing.T) {
 		require.NoError(t, err)
 		defer os.RemoveAll(tmpDir)
 
-		// Create a valid resource file content
-		validContent := `amends "package://schema.kdeps.com/core@0.4.0-dev#/Resource.pkl"
+		// Copy schema assets to temp directory for offline testing
+		schemaDir, err := assets.CopyAssetsToTempDirWithConversion()
+		require.NoError(t, err)
+		defer os.RemoveAll(schemaDir)
+
+		// Create a valid resource file content using local schema
+		validContent := `amends "` + filepath.Join(schemaDir, "Resource.pkl") + `"
 
 ActionID = "testaction"
 Name = "Test Action"
@@ -774,8 +780,13 @@ func TestLoadResourceLogging(t *testing.T) {
 		require.NoError(t, err)
 		defer os.RemoveAll(tmpDir)
 
-		// Create a valid resource file content
-		validContent := `amends "package://schema.kdeps.com/core@0.4.0-dev#/Resource.pkl"
+		// Copy schema assets to temp directory for offline testing
+		schemaDir, err := assets.CopyAssetsToTempDirWithConversion()
+		require.NoError(t, err)
+		defer os.RemoveAll(schemaDir)
+
+		// Create a valid resource file content using local schema
+		validContent := `amends "` + filepath.Join(schemaDir, "Resource.pkl") + `"
 
 ActionID = "testaction"
 Name = "Test Action"

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -15,8 +16,8 @@ import (
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/resource"
-	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/workflow"
+	"github.com/kdeps/schema/assets"
 	"github.com/kr/pretty"
 	"github.com/spf13/afero"
 	"golang.org/x/text/cases"
@@ -37,9 +38,15 @@ var (
 	packageDir         string
 	lastCreatedPackage string
 	ctx                context.Context
+	schemaDir          string
+	schemaCleanup      func()
 )
 
 func TestFeatures(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in -short mode")
+	}
+
 	suite := godog.TestSuite{
 		ScenarioInitializer: func(ctx *godog.ScenarioContext) {
 			ctx.Step(`^a kdeps archive "([^"]*)" is opened$`, aKdepsArchiveIsOpened)
@@ -78,6 +85,17 @@ func TestFeatures(t *testing.T) {
 	}
 
 	testingT = t
+
+	// Setup schema assets for offline testing
+	var err error
+	schemaDir, err = assets.CopyAssetsToTempDirWithConversion()
+	if err != nil {
+		t.Fatalf("failed to copy schema assets: %v", err)
+	}
+	schemaCleanup = func() {
+		os.RemoveAll(schemaDir)
+	}
+	defer schemaCleanup()
 
 	if suite.Run() != 0 {
 		t.Fatal("non-zero status returned, failed to run feature tests")
@@ -151,7 +169,7 @@ func itHasAFileWithIDPropertyAndDependentOn(arg1, arg2, arg3 string) error {
 
 	// Create the document with the id and requires block
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+amends "%s"
 
 ActionID = "%s"
 %s
@@ -166,7 +184,7 @@ run {
 """
   }
 }
-`, schema.SchemaVersion(ctx), arg2, requiresSection)
+`, filepath.Join(schemaDir, "Resource.pkl"), arg2, requiresSection)
 
 	// Write to the file
 	file := filepath.Join(resourcesDir, arg1)
@@ -283,7 +301,7 @@ func theResourcesAndDataFolderExists() error {
 
 func itHasAFileWithNoDependencyWithIDProperty(arg1, arg2 string) error {
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+amends "%s"
 
 ActionID = "%s"
 run {
@@ -297,7 +315,7 @@ run {
 """
   }
 }
-`, schema.SchemaVersion(ctx), arg2)
+`, filepath.Join(schemaDir, "Resource.pkl"), arg2)
 
 	file := filepath.Join(resourcesDir, arg1)
 
@@ -314,13 +332,13 @@ run {
 
 func itHasAWorkflowFile(arg1, arg2, arg3 string) error {
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
+amends "%s"
 
 TargetActionID = "%s"
 AgentID = "%s"
 Description = "My awesome AI Agent"
 Version = "%s"
-`, schema.SchemaVersion(ctx), arg3, arg1, arg2)
+`, filepath.Join(schemaDir, "Workflow.pkl"), arg3, arg1, arg2)
 
 	file := filepath.Join(aiAgentDir, "workflow.pkl")
 
@@ -484,14 +502,14 @@ func itHasAWorkflowFileDependencies(arg1, arg2, arg3, arg4 string) error {
 	}
 
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Workflow.pkl"
+amends "%s"
 
 TargetActionID = "%s"
 AgentID = "%s"
 Description = "My awesome AI Agent"
 Version = "%s"
 %s
-`, schema.SchemaVersion(ctx), arg3, arg1, arg2, workflowsSection)
+`, filepath.Join(schemaDir, "Workflow.pkl"), arg3, arg1, arg2, workflowsSection)
 
 	file := filepath.Join(aiAgentDir, "workflow.pkl")
 
@@ -563,12 +581,12 @@ func itHasAFileWithIDPropertyAndDependentOnWithRunBlockAndIsNotNull(arg1, arg2, 
 
 	// Create the document with the id and requires block
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+amends "%s"
 
 ActionID = "%s"
 %s
 %s
-`, schema.SchemaVersion(ctx), arg2, requiresSection, fieldSection)
+`, filepath.Join(schemaDir, "Resource.pkl"), arg2, requiresSection, fieldSection)
 
 	// Write to the file
 	file := filepath.Join(resourcesDir, arg1)
@@ -624,12 +642,12 @@ func itHasAFileWithIDPropertyAndDependentOnWithRunBlockAndIsNull(arg1, arg2, arg
 
 	// Create the document with the id and requires block
 	doc := fmt.Sprintf(`
-amends "package://schema.kdeps.com/core@%s#/Resource.pkl"
+amends "%s"
 
 ActionID = "%s"
 %s
 %s
-`, schema.SchemaVersion(ctx), arg2, requiresSection, fieldSection)
+`, filepath.Join(schemaDir, "Resource.pkl"), arg2, requiresSection, fieldSection)
 
 	// Write to the file
 	file := filepath.Join(resourcesDir, arg1)
