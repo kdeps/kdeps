@@ -2,11 +2,13 @@ package archiver
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
+	"github.com/kdeps/schema/assets"
 	pklProject "github.com/kdeps/schema/gen/project"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -30,6 +32,11 @@ func (m testWorkflow) GetWorkflows() []string           { return nil }
 func (m testWorkflow) GetSettings() pklProject.Settings { return pklProject.Settings{} }
 
 func TestCompileProjectDoesNotModifyOriginalFiles(t *testing.T) {
+	// Copy schema assets to temp directory for offline testing
+	schemaDir, err := assets.CopyAssetsToTempDirWithConversion()
+	require.NoError(t, err)
+	defer os.RemoveAll(schemaDir)
+
 	fs := afero.NewMemMapFs()
 	ctx := context.Background()
 	kdepsDir := "/tmp/kdeps"
@@ -41,8 +48,8 @@ func TestCompileProjectDoesNotModifyOriginalFiles(t *testing.T) {
 	require.NoError(t, fs.MkdirAll(projectDir, 0o755))
 	require.NoError(t, fs.MkdirAll(filepath.Join(projectDir, "resources"), 0o755))
 
-	// Create a workflow file
-	wfContent := `amends "package://schema.kdeps.com/core@0.4.0-dev#/Workflow.pkl"
+	// Create a workflow file using local schema
+	wfContent := `amends "` + filepath.Join(schemaDir, "Workflow.pkl") + `"
 
 Name = "test-agent"
 Version = "1.0.0"
@@ -50,8 +57,8 @@ TargetActionID = "test-action"
 `
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(projectDir, "workflow.pkl"), []byte(wfContent), 0o644))
 
-	// Create a resource file
-	resourceContent := `amends "package://schema.kdeps.com/core@0.4.0-dev#/Resource.pkl"
+	// Create a resource file using local schema
+	resourceContent := `amends "` + filepath.Join(schemaDir, "Resource.pkl") + `"
 
 ActionID = "test-action"
 

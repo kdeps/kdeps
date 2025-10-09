@@ -62,6 +62,10 @@ var (
 )
 
 func TestFeatures(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in -short mode")
+	}
+
 	suite := godog.TestSuite{
 		ScenarioInitializer: func(ctx *godog.ScenarioContext) {
 			ctx.Step(`^a "([^"]*)" system configuration file with DockerGPU "([^"]*)" and RunMode "([^"]*)" is defined in the "([^"]*)" directory$`, aSystemConfigurationFile)

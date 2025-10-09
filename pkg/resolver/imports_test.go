@@ -13,6 +13,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/environment"
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
+	"github.com/kdeps/schema/assets"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -246,9 +247,13 @@ func TestAddPlaceholderImports_Errors(t *testing.T) {
 		t.Errorf("expected error for missing file path")
 	}
 
-	// 2) file without actionID line
+	// 2) file without actionID line (using local schema)
+	schemaDir, err := assets.CopyAssetsToTempDirWithConversion()
+	require.NoError(t, err)
+	defer os.RemoveAll(schemaDir)
+
 	filePath := filepath.Join(tmp, "no_id.pkl")
-	_ = afero.WriteFile(fs, filePath, []byte("extends \"package://schema.kdeps.com/core@0.4.0-dev#/Exec.pkl\"\n"), 0o644)
+	_ = afero.WriteFile(fs, filePath, []byte("extends \""+filepath.Join(schemaDir, "Exec.pkl")+"\"\n"), 0o644)
 
 	if err := dr.AddPlaceholderImports(filePath); err == nil {
 		t.Errorf("expected error when action id missing but got nil")
