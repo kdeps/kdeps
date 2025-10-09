@@ -10,6 +10,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -27,6 +28,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/session"
 	"github.com/kdeps/kdeps/pkg/tool"
 	"github.com/kdeps/kdeps/pkg/utils"
+	"github.com/kdeps/schema/assets"
 	apiserver "github.com/kdeps/schema/gen/api_server"
 	"github.com/kdeps/schema/gen/project"
 	"github.com/kdeps/schema/gen/resource"
@@ -1223,10 +1225,15 @@ func TestAPIServerErrorHandling(t *testing.T) {
 		// Set environment variables for test
 		t.Setenv("KDEPS_VOLUME_PATH", kdepsDir)
 
+		// Copy schema assets to temp directory for offline testing
+		schemaDir, err := assets.CopyAssetsToTempDirWithConversion()
+		require.NoError(t, err)
+		defer os.RemoveAll(schemaDir)
+
 		// Create a valid workflow.pkl file that will pass initial validation
 		// but fail during processing (due to missing resources)
 		workflowContent := `
-amends "package://schema.kdeps.com/core@0.4.0-dev#/Workflow.pkl"
+amends "` + filepath.Join(schemaDir, "Workflow.pkl") + `"
 AgentID = "testagent"
 Description = "Test agent for error stacking"
 TargetActionID = "testaction"
@@ -1286,7 +1293,7 @@ Settings {
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
 
 		var resp APIResponse
-		err := json.Unmarshal(w.Body.Bytes(), &resp)
+		err = json.Unmarshal(w.Body.Bytes(), &resp)
 		require.NoError(t, err)
 
 		assert.False(t, resp.Success)
