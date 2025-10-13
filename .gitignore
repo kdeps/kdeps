@@ -227,3 +227,4 @@ local/
 *.kdeps
 *.pkl
 *.html
+libssl*

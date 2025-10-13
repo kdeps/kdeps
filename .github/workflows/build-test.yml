@@ -201,4 +201,9 @@ jobs:
 
       - name: Run GoReleaser
         run: |
-          docker run -e VERSION=0.0.0 -e COMMIT_SHA=${{ github.sha }} -v $(pwd):/src -w /src goreleaser/goreleaser-cross:v1.25.2 build --snapshot --clean --id kdeps-darwin --id kdeps-linux-amd64 --id kdeps-linux-arm64  --single-target
+          docker run --entrypoint /bin/bash -e VERSION=0.0.0 -e COMMIT_SHA=${{ github.sha }} -v $(pwd):/src -w /src goreleaser/goreleaser-cross:v1.25.2 -c "
+            apt-get update && apt-get install -y libssl1.1 ||
+            (wget http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb &&
+             dpkg -i libssl1.1_1.1.1f-1ubuntu2_amd64.deb) &&
+            goreleaser build --snapshot --clean --id kdeps-darwin --id kdeps-linux-amd64 --id kdeps-linux-arm64 --single-target
+          "
