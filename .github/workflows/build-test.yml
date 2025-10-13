@@ -183,7 +183,7 @@ jobs:
       - name: Install GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
-          version: v2.3.2
+          version: v2.12.5
           args: build --clean --snapshot --single-target --id kdeps-windows-amd64
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
@@ -201,4 +201,4 @@ jobs:
 
       - name: Run GoReleaser
         run: |
-          docker run -e VERSION=0.0.0 -e COMMIT_SHA=${{ github.sha }} -v $(pwd):/src -w /src goreleaser/goreleaser-cross:v1.22 build --snapshot --clean --id kdeps-darwin --id kdeps-linux-amd64 --id kdeps-linux-arm64  --single-target
+          docker run -e VERSION=0.0.0 -e COMMIT_SHA=${{ github.sha }} -v $(pwd):/src -w /src goreleaser/goreleaser-cross:v1.25.2 build --snapshot --clean --id kdeps-darwin --id kdeps-linux-amd64 --id kdeps-linux-arm64  --single-target
