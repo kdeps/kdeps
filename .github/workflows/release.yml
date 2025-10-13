@@ -111,7 +111,7 @@ jobs:
       - name: Run GoReleaser
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
-          docker run --privileged   -v /var/run/docker.sock:/var/run/docker.sock -e GGOOS=darwin -e GORELEASER_KEY=${{ secrets.GORELEASER_KEY }} -e COMMIT_SHA=${{ github.sha }} -e VERSION=${{ github.ref_name }} -e GITHUB_TOKEN=${{ secrets.RELEASE_TOKEN }} -v $(pwd):/src -w /src ghcr.io/goreleaser/goreleaser-cross-pro:v1.22 release --clean --split --verbose
+          docker run --privileged   -v /var/run/docker.sock:/var/run/docker.sock -e GGOOS=darwin -e GORELEASER_KEY=${{ secrets.GORELEASER_KEY }} -e COMMIT_SHA=${{ github.sha }} -e VERSION=${{ github.ref_name }} -e GITHUB_TOKEN=${{ secrets.RELEASE_TOKEN }} -v $(pwd):/src -w /src ghcr.io/goreleaser/goreleaser-cross-pro:v1.25.2 release --clean --split --verbose
 
   prepare-linux:
     runs-on: ubuntu-latest
@@ -140,7 +140,7 @@ jobs:
       - name: Run GoReleaser
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
-          docker run --privileged   -v /var/run/docker.sock:/var/run/docker.sock -e GGOOS=linux -e GORELEASER_KEY=${{ secrets.GORELEASER_KEY }} -e COMMIT_SHA=${{ github.sha }} -e VERSION=${{ github.ref_name }} -e GITHUB_TOKEN=${{ secrets.RELEASE_TOKEN }} -v $(pwd):/src -w /src ghcr.io/goreleaser/goreleaser-cross-pro:v1.22 release --clean --split --verbose
+          docker run --privileged   -v /var/run/docker.sock:/var/run/docker.sock -e GGOOS=linux -e GORELEASER_KEY=${{ secrets.GORELEASER_KEY }} -e COMMIT_SHA=${{ github.sha }} -e VERSION=${{ github.ref_name }} -e GITHUB_TOKEN=${{ secrets.RELEASE_TOKEN }} -v $(pwd):/src -w /src ghcr.io/goreleaser/goreleaser-cross-pro:v1.25.2 release --clean --split --verbose
 
   release-unix:
     runs-on: ubuntu-latest
@@ -165,10 +165,10 @@ jobs:
         with:
           path: dist/darwin
           key: darwin-${{ env.sha_short }}
-      - uses: goreleaser/goreleaser-action@v3
+      - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser-pro
-          version: v2.3.2
+          version: v2.12.5
           args: continue --merge
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
@@ -196,7 +196,7 @@ jobs:
       - name: Release
         uses: goreleaser/goreleaser-action@v6
         with:
-          version: v2.3.2
+          version: v2.12.5
           distribution: goreleaser-pro
           args: release --clean --split
         env:
