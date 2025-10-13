@@ -72,8 +72,9 @@ release:
   prerelease: true
 
 archives:
-  - format: tar.gz
-    builds:
+  - formats:
+      - tar.gz
+    ids:
       - kdeps-linux-arm64
       - kdeps-linux-amd64
       - kdeps-darwin
