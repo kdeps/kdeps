@@ -4,6 +4,7 @@ FROM ollama/ollama:{{ .ImageVersion }}
 ENV SCHEMA_VERSION={{ .SchemaVersion }}
 ENV OLLAMA_HOST={{ .HostIP }}:{{ .OllamaPortNum }}
 ENV KDEPS_HOST={{ .KdepsHost }}
+ENV DOCKER_MODE=1
 ENV DEBUG=1
 
 {{ if .EnvsSection }}{{ .EnvsSection }}{{ end }}
