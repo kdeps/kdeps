@@ -293,6 +293,7 @@ jobs:
           EOF
       - name: Install winget
         uses: Cyberboss/install-winget@v1
+        continue-on-error: true
       # TODO: This is disabled for now due to ongoing Windows support.
       # - name: Test Pipeline
       #   shell: bash
