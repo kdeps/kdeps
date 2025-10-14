@@ -115,6 +115,7 @@ jobs:
             apt-get update && apt-get install -y libssl1.1 ||
             (wget http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb &&
              dpkg -i libssl1.1_1.1.1f-1ubuntu2_amd64.deb) &&
+            git config --global --add safe.directory /src &&
             goreleaser release --clean --split --verbose
           "
 
@@ -149,6 +150,7 @@ jobs:
             apt-get update && apt-get install -y libssl1.1 ||
             (wget http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb &&
              dpkg -i libssl1.1_1.1.1f-1ubuntu2_amd64.deb) &&
+            git config --global --add safe.directory /src &&
             goreleaser release --clean --split --verbose
           "
 
