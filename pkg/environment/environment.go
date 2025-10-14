@@ -71,8 +71,9 @@ func NewEnvironment(fs afero.Fs, environ *Environment) (*Environment, error) {
 	if environ != nil {
 		// If an environment is provided, prioritize overriding configurations
 		kdepsConfigFile := findKdepsConfig(fs, environ.Pwd, environ.Home)
-		dockerMode := "0"
-		if isDockerEnvironment(fs, environ.Root) {
+		// Use OR condition: check env var first, then auto-detect
+		dockerMode := environ.DockerMode
+		if dockerMode != "1" && isDockerEnvironment(fs, environ.Root) {
 			dockerMode = "1"
 		}
 
@@ -100,8 +101,9 @@ func NewEnvironment(fs afero.Fs, environ *Environment) (*Environment, error) {
 
 	// Find kdepsConfig file and check if running in Docker
 	kdepsConfigFile := findKdepsConfig(fs, environment.Pwd, environment.Home)
-	dockerMode := "0"
-	if isDockerEnvironment(fs, environment.Root) {
+	// Use OR condition: check env var first (already loaded), then auto-detect
+	dockerMode := environment.DockerMode
+	if dockerMode != "1" && isDockerEnvironment(fs, environment.Root) {
 		dockerMode = "1"
 	}
 

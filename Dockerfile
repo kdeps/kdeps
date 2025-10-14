@@ -27,5 +27,8 @@ RUN ARCH=$(uname -m) && \
     chmod +x /home/kdeps/.local/bin/pkl && \
     /home/kdeps/.local/bin/pkl --version
 
+# Set Docker mode environment variable to skip config file lookup
+ENV DOCKER_MODE=1
+
 # Set the default command
 CMD ["/home/kdeps/.local/bin/kdeps"]
