@@ -1566,8 +1566,8 @@ func TestParseActionIDEdgeCases(t *testing.T) {
 	}
 
 	// Missing explicit name
-	name2, ver2 := parseActionID("myAction:0.4.0-dev", "agent", "1.0.0")
-	if name2 != "agent" || ver2 != "0.4.0-dev" {
+	name2, ver2 := parseActionID("myAction:0.4.1-dev", "agent", "1.0.0")
+	if name2 != "agent" || ver2 != "0.4.1-dev" {
 		t.Fatalf("unexpected default name parse")
 	}
 
