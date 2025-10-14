@@ -203,6 +203,26 @@ func loadConfigurationFromFile(ctx context.Context, configFile string, logger *l
 	return conf, nil
 }
 
+// DefaultConfiguration returns a Kdeps configuration with default values.
+// This is used in Docker mode where ~/.kdeps.pkl is not loaded, or as a fallback
+// when configuration loading fails.
+//
+// Default values:
+//   - RunMode: "docker"
+//   - DockerGPU: "cpu"
+//   - KdepsDir: ".kdeps"
+//   - KdepsPath: "user"
+//
+// These defaults match the values defined in the Kdeps.pkl schema.
+func DefaultConfiguration() *kdeps.Kdeps {
+	return &kdeps.Kdeps{
+		RunMode:   "docker",
+		DockerGPU: "cpu",
+		KdepsDir:  ".kdeps",
+		KdepsPath: path.User,
+	}
+}
+
 func GetKdepsPath(ctx context.Context, kdepsCfg kdeps.Kdeps) (string, error) {
 	kdepsDir := kdepsCfg.KdepsDir
 	p := kdepsCfg.KdepsPath
