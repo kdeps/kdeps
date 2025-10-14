@@ -70,7 +70,6 @@ func allDockerEnvVarsSet() bool {
 func NewEnvironment(fs afero.Fs, environ *Environment) (*Environment, error) {
 	if environ != nil {
 		// If an environment is provided, prioritize overriding configurations
-		kdepsConfigFile := findKdepsConfig(fs, environ.Pwd, environ.Home)
 		// Use OR condition: check env var first, then auto-detect
 		dockerMode := environ.DockerMode
 		if dockerMode == "" {
@@ -78,6 +77,12 @@ func NewEnvironment(fs afero.Fs, environ *Environment) (*Environment, error) {
 		}
 		if dockerMode != "1" && isDockerEnvironment(fs, environ.Root) {
 			dockerMode = "1"
+		}
+
+		// Only search for config file if NOT in Docker mode
+		kdepsConfigFile := ""
+		if dockerMode != "1" {
+			kdepsConfigFile = findKdepsConfig(fs, environ.Pwd, environ.Home)
 		}
 
 		return &Environment{
@@ -102,12 +107,16 @@ func NewEnvironment(fs afero.Fs, environ *Environment) (*Environment, error) {
 	// Ensure NonInteractive is set from the environment variable
 	environment.NonInteractive = os.Getenv("NON_INTERACTIVE")
 
-	// Find kdepsConfig file and check if running in Docker
-	kdepsConfigFile := findKdepsConfig(fs, environment.Pwd, environment.Home)
 	// Use OR condition: check env var first (already loaded), then auto-detect
 	dockerMode := environment.DockerMode
 	if dockerMode != "1" && isDockerEnvironment(fs, environment.Root) {
 		dockerMode = "1"
+	}
+
+	// Only search for config file if NOT in Docker mode
+	kdepsConfigFile := ""
+	if dockerMode != "1" {
+		kdepsConfigFile = findKdepsConfig(fs, environment.Pwd, environment.Home)
 	}
 
 	return &Environment{
