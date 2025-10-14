@@ -79,9 +79,10 @@ func NewEnvironment(fs afero.Fs, environ *Environment) (*Environment, error) {
 			dockerMode = "1"
 		}
 
-		// Only search for config file if NOT in Docker mode
+		// Skip config file lookup if Docker mode is enabled (via env var OR auto-detection)
+		skipConfigLookup := dockerMode == "1"
 		kdepsConfigFile := ""
-		if dockerMode != "1" {
+		if !skipConfigLookup {
 			kdepsConfigFile = findKdepsConfig(fs, environ.Pwd, environ.Home)
 		}
 
@@ -113,9 +114,10 @@ func NewEnvironment(fs afero.Fs, environ *Environment) (*Environment, error) {
 		dockerMode = "1"
 	}
 
-	// Only search for config file if NOT in Docker mode
+	// Skip config file lookup if Docker mode is enabled (via env var OR auto-detection)
+	skipConfigLookup := dockerMode == "1"
 	kdepsConfigFile := ""
-	if dockerMode != "1" {
+	if !skipConfigLookup {
 		kdepsConfigFile = findKdepsConfig(fs, environment.Pwd, environment.Home)
 	}
 
