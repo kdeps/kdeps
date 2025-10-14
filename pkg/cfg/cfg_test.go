@@ -836,3 +836,14 @@ func TestLoadConfigurationFromEmbeddedAssets(t *testing.T) {
 		_ = result
 	})
 }
+
+// TestDefaultConfiguration tests that DefaultConfiguration returns expected default values
+func TestDefaultConfiguration(t *testing.T) {
+	cfg := DefaultConfiguration()
+
+	require.NotNil(t, cfg)
+	assert.Equal(t, "docker", string(cfg.RunMode))
+	assert.Equal(t, "cpu", string(cfg.DockerGPU))
+	assert.Equal(t, ".kdeps", cfg.KdepsDir)
+	assert.Equal(t, kpath.User, cfg.KdepsPath)
+}
