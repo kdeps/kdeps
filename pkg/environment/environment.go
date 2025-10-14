@@ -73,6 +73,9 @@ func NewEnvironment(fs afero.Fs, environ *Environment) (*Environment, error) {
 		kdepsConfigFile := findKdepsConfig(fs, environ.Pwd, environ.Home)
 		// Use OR condition: check env var first, then auto-detect
 		dockerMode := environ.DockerMode
+		if dockerMode == "" {
+			dockerMode = "0" // Default to not in Docker
+		}
 		if dockerMode != "1" && isDockerEnvironment(fs, environ.Root) {
 			dockerMode = "1"
 		}

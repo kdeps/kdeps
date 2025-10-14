@@ -67,13 +67,6 @@ func fallbackToCLI(ctx context.Context, evalPath string, headerSection string, f
 		return "", errors.New(errMsg)
 	}
 	formattedResult := fmt.Sprintf("%s\n%s", headerSection, stdout)
-
-	if u, err := url.Parse(resourcePath); err != nil || u.Scheme == "" || u.Scheme == "file" {
-		if err := afero.WriteFile(fs, resourcePath, []byte(formattedResult), 0o644); err != nil {
-			logger.Error("failed to write formatted result to file", "resourcePath", resourcePath, "error", err)
-			return "", fmt.Errorf("error writing formatted result to %s: %w", resourcePath, err)
-		}
-	}
 	return formattedResult, nil
 }
 
@@ -177,15 +170,6 @@ func EvalPkl(
 	}
 
 	formattedResult := fmt.Sprintf("%s\n%s", headerSection, result)
-
-	// Write the formatted result back to the original path if it is a filesystem path
-	if u, err := url.Parse(resourcePath); err != nil || u.Scheme == "" || u.Scheme == "file" {
-		if err := afero.WriteFile(fs, resourcePath, []byte(formattedResult), 0o644); err != nil {
-			logger.Error("failed to write formatted result to file", "resourcePath", resourcePath, "error", err)
-			return "", fmt.Errorf("error writing formatted result to %s: %w", resourcePath, err)
-		}
-	}
-
 	return formattedResult, nil
 }
 
