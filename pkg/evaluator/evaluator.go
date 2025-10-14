@@ -156,7 +156,7 @@ func EvalPkl(
 	}
 	if err != nil {
 		// Fallback to CLI if SDK cannot initialize (e.g., version detection issue)
-		logger.Warn("SDK evaluator initialization failed; falling back to CLI eval", "error", err)
+		logger.Debug("SDK evaluator initialization failed; falling back to CLI eval", "error", err)
 		result, cliErr := fallbackToCLI(ctx, evalPath, headerSection, fs, resourcePath, logger)
 		if cliErr != nil {
 			return "", fmt.Errorf("sdk init error: %w; cli error: %w", err, cliErr)
