@@ -283,6 +283,25 @@ func TestNewEnvironment_DockerDetection(t *testing.T) {
 	}
 }
 
+func TestNewEnvironment_DockerMode_SkipsConfigLookup(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	// Create a config file in home directory
+	_ = fs.MkdirAll("/home", 0o755)
+	_ = afero.WriteFile(fs, "/home/.kdeps.pkl", []byte("test"), 0o644)
+
+	// Set Docker mode via env var
+	os.Setenv("DOCKER_MODE", "1")
+	t.Cleanup(func() {
+		os.Unsetenv("DOCKER_MODE")
+	})
+
+	env, err := NewEnvironment(fs, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, "1", env.DockerMode)
+	// Config file should NOT be found even though it exists
+	assert.Empty(t, env.KdepsConfig, "KdepsConfig should be empty in Docker mode")
+}
+
 func TestNewEnvironment_NonDocker(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	env, err := NewEnvironment(fs, nil)
