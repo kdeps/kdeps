@@ -26,7 +26,7 @@ func UpgradeCommand(_ context.Context, fs afero.Fs, _ string, logger *logging.Lo
 		Long: `Upgrade schema versions and format in pkl files within a directory.
 		
 This command scans for pkl files and performs two types of upgrades:
-1. Schema version references (e.g., @0.2.44 -> @0.4.0-dev)
+1. Schema version references (e.g., @0.2.44 -> @0.4.1-dev)
 2. Schema format migration (e.g., lowercase -> capitalized attributes/blocks)
 
 The format upgrade converts older lowercase PKL syntax to the new capitalized format:
@@ -36,7 +36,7 @@ The format upgrade converts older lowercase PKL syntax to the new capitalized fo
 Examples:
   kdeps upgrade                        # Upgrade current directory to default version
   kdeps upgrade ./my-agent            # Upgrade specific directory to default version  
-  kdeps upgrade --version 0.4.0-dev .    # Upgrade to specific version
+  kdeps upgrade --version 0.4.1-dev .    # Upgrade to specific version
   kdeps upgrade --dry-run ./my-agent  # Preview changes without applying
 		`,
 		Args: cobra.MaximumNArgs(1),
@@ -201,9 +201,9 @@ func upgradeVersionReferences(content, targetVersion string, logger *logging.Log
 
 	// Regex patterns to match schema version references
 	patterns := []string{
-		// Match: amends "package://schema.kdeps.com/core@0.4.0-dev#/Workflow.pkl"
+		// Match: amends "package://schema.kdeps.com/core@0.4.1-dev#/Workflow.pkl"
 		`(amends\s+"package://schema\.kdeps\.com/core@)([^"#]+)(#/[^"]+")`,
-		// Match: import "package://schema.kdeps.com/core@0.4.0-dev#/Resource.pkl"
+		// Match: import "package://schema.kdeps.com/core@0.4.1-dev#/Resource.pkl"
 		`(import\s+"package://schema\.kdeps\.com/core@)([^"#]+)(#/[^"]+")`,
 		// Match other similar patterns
 		`("package://schema\.kdeps\.com/core@)([^"#]+)(#/[^"]+")`,
