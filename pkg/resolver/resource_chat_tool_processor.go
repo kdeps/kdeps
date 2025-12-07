@@ -100,10 +100,11 @@ func generateAvailableTools(chatBlock *pklLLM.ResourceChat, logger *logging.Logg
 }
 
 // constructToolCallsFromJSON parses a JSON string into a slice of llms.ToolCall.
-func constructToolCallsFromJSON(jsonContent string, logger *logging.Logger) []llms.ToolCall {
+// Returns the tool calls and a detailed error if JSON parsing fails.
+func constructToolCallsFromJSON(jsonContent string, logger *logging.Logger) ([]llms.ToolCall, error) {
 	if jsonContent == "" {
 		logger.Info("JSON content is empty, returning empty ToolCalls")
-		return nil
+		return nil, nil
 	}
 
 	type jsonToolCall struct {
@@ -117,32 +118,36 @@ func constructToolCallsFromJSON(jsonContent string, logger *logging.Logger) []ll
 	err := json.Unmarshal([]byte(jsonContent), &toolCalls)
 	if err != nil {
 		if err := json.Unmarshal([]byte(jsonContent), &singleCall); err != nil {
-			logger.Warn("Failed to unmarshal JSON content as array or single object", "content", utils.TruncateString(jsonContent, 100), "error", err)
-			return nil
+			detailedError := fmt.Errorf("failed to unmarshal JSON as array or single object: %w. Content preview: %s",
+				err, utils.TruncateString(jsonContent, 150))
+			logger.Warn("Failed to unmarshal JSON content", "content", utils.TruncateString(jsonContent, 100), "error", err)
+			return nil, detailedError
 		}
 		toolCalls = []jsonToolCall{singleCall}
 	}
 
 	if len(toolCalls) == 0 {
 		logger.Info("No tool calls found in JSON content")
-		return nil
+		return nil, nil
 	}
 
 	result := make([]llms.ToolCall, 0, len(toolCalls))
 	seen := make(map[string]struct{})
-	var errors []string
+	var validationErrors []string
 
 	for i, tc := range toolCalls {
 		if tc.Name == "" || tc.Arguments == nil {
+			errMsg := fmt.Sprintf("tool call at index %d has empty name or nil arguments", i)
 			logger.Warn("Skipping invalid tool call", "index", i, "name", tc.Name)
-			errors = append(errors, "tool call at index "+strconv.Itoa(i)+" has empty name or nil arguments")
+			validationErrors = append(validationErrors, errMsg)
 			continue
 		}
 
 		argsJSON, err := json.Marshal(tc.Arguments)
 		if err != nil {
+			errMsg := fmt.Sprintf("failed to marshal arguments for %s at index %d: %v", tc.Name, i, err)
 			logger.Warn("Failed to marshal arguments", "index", i, "name", tc.Name, "error", err)
-			errors = append(errors, "failed to marshal arguments for "+tc.Name+" at index "+strconv.Itoa(i)+": "+err.Error())
+			validationErrors = append(validationErrors, errMsg)
 			continue
 		}
 
@@ -170,13 +175,14 @@ func constructToolCallsFromJSON(jsonContent string, logger *logging.Logger) []ll
 			"arguments", utils.TruncateString(string(argsJSON), 100))
 	}
 
-	if len(result) == 0 && len(errors) > 0 {
-		logger.Warn("No valid tool calls constructed", "errors", errors)
-		return nil
+	if len(result) == 0 && len(validationErrors) > 0 {
+		combinedError := fmt.Errorf("no valid tool calls constructed. Errors: %s", strings.Join(validationErrors, "; "))
+		logger.Warn("No valid tool calls constructed", "errors", validationErrors)
+		return nil, combinedError
 	}
 
 	logger.Info("Constructed tool calls", "count", len(result))
-	return result
+	return result, nil
 }
 
 // extractToolParams extracts and validates tool call parameters.
