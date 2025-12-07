@@ -550,13 +550,19 @@ func TestConstructToolCallsFromJSON(t *testing.T) {
 	logger := logging.GetLogger()
 	// Array form
 	jsonStr := `[{"name": "echo", "arguments": {"msg": "hi"}}]`
-	calls := constructToolCallsFromJSON(jsonStr, logger)
+	calls, err := constructToolCallsFromJSON(jsonStr, logger)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
 	if len(calls) != 1 || calls[0].FunctionCall.Name != "echo" {
 		t.Errorf("unexpected calls parsed: %v", calls)
 	}
 	// Single object form
 	single := `{"name":"sum","arguments": {"a":1}}`
-	calls2 := constructToolCallsFromJSON(single, logger)
+	calls2, err2 := constructToolCallsFromJSON(single, logger)
+	if err2 != nil {
+		t.Errorf("unexpected error: %v", err2)
+	}
 	if len(calls2) != 1 || calls2[0].FunctionCall.Name != "sum" {
 		t.Errorf("single object parse failed: %v", calls2)
 	}

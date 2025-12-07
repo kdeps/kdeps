@@ -9,14 +9,35 @@
 [![tests](https://img.shields.io/endpoint?style=flat-square&url=https://gist.githubusercontent.com/jjuliano/ce695f832cd51d014ae6d37353311c59/raw/kdeps-go-tests.json)](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml)
 [![coverage](https://img.shields.io/endpoint?style=flat-square&url=https://gist.githubusercontent.com/jjuliano/ce695f832cd51d014ae6d37353311c59/raw/kdeps-go-coverage.json)](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml)
 
-KDeps is an all-in-one, offline-ready AI framework for building Dockerized full-stack applications with declarative PKL configuration, 
-featuring integrated open-source LLMs for AI-powered APIs and workflows. Runs fully local with no external AI APIs required.
+KDeps is a framework that packages everything needed for RAG and AI agents in a single Dockerized image, eliminating the complexity of building self-hosted APIs with open-source LLMs. Instead of juggling multiple tools and dependencies, you can use KDeps to run Python scripts in isolated environments, execute custom shell commands, integrate with external APIs, and leverage endless opinionated LLM combinations and configurations—all while maintaining control over your infrastructure.
+
+The framework uses atomic configurations and a graph-based dependency workflow for orchestrating resources, with built-in support for multimodal LLMs, making it particularly appealing for teams looking to avoid vendor lock-in or subscription costs.
 
 > 📋 **New**: Read our comprehensive [**KDeps Whitepaper**](./docs/KDeps_Whitepaper.md) for detailed technical insights, architecture overview, and competitive analysis.
 
+## Key Highlights
+
+### Atomic Configurations
+Build AI agents using small, self-contained configuration blocks that can be combined and reused. Each resource is an atomic unit with its own dependencies, validations, and logic—making it easy to compose complex workflows from simple, maintainable pieces.
+
+### Endless LLM Combinations
+Mix and match different open-source LLMs within a single workflow. Use vision models for image analysis, small models for fast responses, and larger models for complex reasoning—all configured declaratively. Create opinionated LLM pipelines tailored to your specific use case without being locked into a single provider or model.
+
+### Docker-First Development
+Package everything your RAG AI agent needs into a single Docker image—LLMs, dependencies, scripts, and workflows. Run locally during development, then deploy the same container to any environment without modification. No need to manage multiple systems or complex setups.
+
+### Graph-Based Workflow Engine
+Build complex AI agent logic using a dependency-driven workflow system. Chain together different components like LLM calls, scripts, and API requests while the framework automatically handles the execution order and data flow between them.
+
+### Mix-and-Match Components
+Run Python scripts in isolated Anaconda environments, execute shell commands, make HTTP requests, and interact with LLMs—all orchestrated through a unified workflow. Resources can be shared and remixed between different AI agents, promoting code reuse.
+
+### Production-Ready Features
+Built-in support for structured JSON outputs, file uploads, and multimodal LLM interactions. The framework includes preflight validations, skip conditions, and custom error handling to help you build reliable AI agents. API routes can be defined with granular control over HTTP methods and request handling.
+
 ## About the name
 
-> “KDeps, short for ‘knowledge dependencies,’ is inspired by the principle that knowledge—whether from AI, machines, or humans—can be represented, organized, orchestrated, and interacted with through graph-based systems. The name grew out of my work on Kartographer, a lightweight graph library for organizing and interacting with information. KDeps builds on Kartographer’s foundation and serves as a RAG-first (Retrieval-Augmented Generation) AI agent framework.” — Joel Bryan Juliano, KDeps creator
+> "KDeps, short for 'knowledge dependencies,' is inspired by the principle that knowledge—whether from AI, machines, or humans—can be represented, organized, orchestrated, and interacted with through graph-based systems. The name grew out of my work on Kartographer, a lightweight graph library for organizing and interacting with information. KDeps builds on Kartographer's foundation and serves as a RAG-first (Retrieval-Augmented Generation) AI agent framework." — Joel Bryan Juliano, KDeps creator
 
 ## Why Offline-First?
 
@@ -27,7 +48,7 @@ featuring integrated open-source LLMs for AI-powered APIs and workflows. Runs fu
 - **Control and independence**: Avoid vendor lock-in and ensure reproducible, auditable deployments.
 - **Data residency**: Run on-premises or at the edge to meet jurisdictional requirements.
 - **Security**: Reduce external attack surface by eliminating third-party AI API dependencies.
-- **Edge readiness**: Process data close to where it’s generated for real-time use cases.
+- **Edge readiness**: Process data close to where it's generated for real-time use cases.
 - **Developer productivity**: Fully local dev loop; everything runs in self-contained Docker images.
 
 KDeps enables offline-first by integrating open-source LLMs via Ollama and packaging complete applications (FE/BE, models, and runtimes) into Docker images—no external AI APIs required.

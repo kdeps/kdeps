@@ -39,6 +39,7 @@ const (
 	RoleAction          = "action"
 	RoleTool            = "tool"
 	maxLogContentLength = 100
+	maxJSONRetries      = 3 // Maximum number of retries for JSON validation failures
 )
 
 // HandleLLMChat initiates asynchronous processing of an LLM chat interaction.
@@ -113,6 +114,68 @@ func (dr *DependencyResolver) ensureModelAvailable(model string) error {
 	}
 
 	dr.Logger.Info("model is available", "model", model)
+	return nil
+}
+
+// jsonErrorAttempt tracks a single failed JSON validation attempt
+type jsonErrorAttempt struct {
+	attempt  int
+	response string
+	error    string
+}
+
+// buildRetryPrompt constructs a prompt that includes previous JSON errors for self-correction
+func buildRetryPrompt(errorHistory []jsonErrorAttempt) string {
+	if len(errorHistory) == 0 {
+		return ""
+	}
+
+	var promptBuilder strings.Builder
+	promptBuilder.WriteString(fmt.Sprintf("\n\nPREVIOUS ATTEMPTS FAILED (%d attempts):\n", len(errorHistory)))
+
+	for _, hist := range errorHistory {
+		promptBuilder.WriteString(fmt.Sprintf("\n--- Attempt %d ---\n", hist.attempt))
+		promptBuilder.WriteString(fmt.Sprintf("Your Response: %s\n", utils.TruncateString(hist.response, 200)))
+		promptBuilder.WriteString(fmt.Sprintf("Error That Occurred: %s\n", hist.error))
+	}
+
+	promptBuilder.WriteString("\nINSTRUCTIONS FOR RETRY:\n")
+	promptBuilder.WriteString("Please analyze ALL the errors above and fix them in your next response.\n")
+	promptBuilder.WriteString("Avoid repeating the same mistakes.\n")
+	promptBuilder.WriteString("Common patterns to avoid:\n")
+	promptBuilder.WriteString("- Including explanatory text before/after JSON\n")
+	promptBuilder.WriteString("- Using markdown code blocks (```)\n")
+	promptBuilder.WriteString("- Missing required fields\n")
+	promptBuilder.WriteString("- Incorrect data types\n")
+	promptBuilder.WriteString("- Malformed JSON syntax (missing brackets, commas, quotes)\n")
+	promptBuilder.WriteString("Return ONLY valid JSON with no additional commentary.\n")
+
+	return promptBuilder.String()
+}
+
+// validateJSONResponse validates that a response is valid JSON
+func validateJSONResponse(response string, logger *logging.Logger) error {
+	if response == "" {
+		return fmt.Errorf("response is empty")
+	}
+
+	trimmed := strings.TrimSpace(response)
+	if trimmed == "" {
+		return fmt.Errorf("response contains only whitespace")
+	}
+
+	// Check for markdown code blocks
+	if strings.HasPrefix(trimmed, "```") {
+		return fmt.Errorf("response contains markdown code blocks - must return raw JSON only")
+	}
+
+	// Try to unmarshal to validate JSON structure
+	var jsonData interface{}
+	if err := json.Unmarshal([]byte(trimmed), &jsonData); err != nil {
+		return fmt.Errorf("invalid JSON syntax: %w", err)
+	}
+
+	logger.Info("JSON validation successful")
 	return nil
 }
 
@@ -202,76 +265,179 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		"json_mode", utils.SafeDerefBool(chatBlock.JSONResponse),
 		"tool_count", len(availableTools))
 
-	// First GenerateContent call
-	response, err := llm.GenerateContent(ctx, messageHistory, opts...)
-	if err != nil {
-		errMsg := strings.ToLower(err.Error())
+	// Initialize error history for self-correcting retries
+	var jsonErrorHistory []jsonErrorAttempt
+	var response *llms.ContentResponse
+	var respChoice *llms.ContentChoice
+	var toolCalls []llms.ToolCall
+	var err error
 
-		// Check for various Ollama error conditions that indicate we should try to pull the model
-		shouldTryPull := strings.Contains(errMsg, "not found") ||
-			strings.Contains(errMsg, "model") && strings.Contains(errMsg, "not found") ||
-			strings.Contains(errMsg, "no such file or directory") ||
-			strings.Contains(errMsg, "connection refused") ||
-			strings.Contains(errMsg, "eof") ||
-			strings.Contains(errMsg, "try pulling it first")
+	// Self-correcting retry loop for JSON validation
+	for attempt := 1; attempt <= maxJSONRetries; attempt++ {
+		logger.Info("LLM generation attempt", "attempt", attempt, "max_retries", maxJSONRetries)
 
-		if shouldTryPull {
-			logger.Info("model error during content generation, attempting to pull", "model", chatBlock.Model, "error", err.Error())
+		// First GenerateContent call
+		response, err = llm.GenerateContent(ctx, messageHistory, opts...)
+		if err != nil {
+			errMsg := strings.ToLower(err.Error())
 
-			// Try to pull the model - this will also ensure Ollama server is running
-			if pullErr := pullOllamaModel(ctx, chatBlock.Model, logger); pullErr != nil {
-				logger.Error("failed to pull model during content generation", "model", chatBlock.Model, "error", pullErr)
-				return "", fmt.Errorf("failed to pull model %s during content generation: %w", chatBlock.Model, pullErr)
-			}
+			// Check for various Ollama error conditions that indicate we should try to pull the model
+			shouldTryPull := strings.Contains(errMsg, "not found") ||
+				strings.Contains(errMsg, "model") && strings.Contains(errMsg, "not found") ||
+				strings.Contains(errMsg, "no such file or directory") ||
+				strings.Contains(errMsg, "connection refused") ||
+				strings.Contains(errMsg, "eof") ||
+				strings.Contains(errMsg, "try pulling it first")
 
-			// Retry GenerateContent after pulling
-			response, err = llm.GenerateContent(ctx, messageHistory, opts...)
-			if err != nil {
-				// Try once more after a brief delay to allow server to fully start
-				time.Sleep(1 * time.Second)
+			if shouldTryPull {
+				logger.Info("model error during content generation, attempting to pull", "model", chatBlock.Model, "error", err.Error())
+
+				// Try to pull the model - this will also ensure Ollama server is running
+				if pullErr := pullOllamaModel(ctx, chatBlock.Model, logger); pullErr != nil {
+					logger.Error("failed to pull model during content generation", "model", chatBlock.Model, "error", pullErr)
+					return "", fmt.Errorf("failed to pull model %s during content generation: %w", chatBlock.Model, pullErr)
+				}
+
+				// Retry GenerateContent after pulling
 				response, err = llm.GenerateContent(ctx, messageHistory, opts...)
 				if err != nil {
-					logger.Error("Failed to generate content after model pull retry", "error", err)
-					return "", fmt.Errorf("failed to generate content after model pull: %w", err)
+					// Try once more after a brief delay to allow server to fully start
+					time.Sleep(1 * time.Second)
+					response, err = llm.GenerateContent(ctx, messageHistory, opts...)
+					if err != nil {
+						logger.Error("Failed to generate content after model pull retry", "error", err)
+						return "", fmt.Errorf("failed to generate content after model pull: %w", err)
+					}
+				}
+			} else {
+				logger.Error("Failed to generate content in first call", "error", err)
+				return "", fmt.Errorf("failed to generate content in first call: %w", err)
+			}
+		}
+
+		if len(response.Choices) == 0 {
+			logger.Error("No choices in LLM response")
+			return "", errors.New("no choices in LLM response")
+		}
+
+		// Select choice with tool calls, if any
+		respChoice = nil
+		if len(availableTools) > 0 {
+			for _, choice := range response.Choices {
+				if len(choice.ToolCalls) > 0 {
+					respChoice = choice
+					break
 				}
 			}
-		} else {
-			logger.Error("Failed to generate content in first call", "error", err)
-			return "", fmt.Errorf("failed to generate content in first call: %w", err)
 		}
-	}
+		if respChoice == nil && len(response.Choices) > 0 {
+			respChoice = response.Choices[0]
+		}
 
-	if len(response.Choices) == 0 {
-		logger.Error("No choices in LLM response")
-		return "", errors.New("no choices in LLM response")
-	}
+		logger.Info("LLM response received",
+			"attempt", attempt,
+			"content", utils.TruncateString(respChoice.Content, maxLogContentLength),
+			"tool_calls", len(respChoice.ToolCalls),
+			"stop_reason", respChoice.StopReason,
+			"tool_names", extractToolNames(respChoice.ToolCalls))
 
-	// Select choice with tool calls, if any
-	var respChoice *llms.ContentChoice
-	if len(availableTools) > 0 {
-		for _, choice := range response.Choices {
-			if len(choice.ToolCalls) > 0 {
-				respChoice = choice
-				break
+		// Validate JSON if JSON mode is enabled or tools are available
+		shouldValidateJSON := (chatBlock.JSONResponse != nil && *chatBlock.JSONResponse) || len(availableTools) > 0
+		var jsonValidationErr error
+
+		if shouldValidateJSON && len(availableTools) == 0 {
+			// Pure JSON response mode (not tool calls)
+			jsonValidationErr = validateJSONResponse(respChoice.Content, logger)
+			if jsonValidationErr != nil {
+				logger.Warn("JSON validation failed",
+					"attempt", attempt,
+					"error", jsonValidationErr.Error(),
+					"content", utils.TruncateString(respChoice.Content, 150))
+
+				// Record the error for self-correction
+				jsonErrorHistory = append(jsonErrorHistory, jsonErrorAttempt{
+					attempt:  attempt,
+					response: respChoice.Content,
+					error:    jsonValidationErr.Error(),
+				})
+
+				// If we haven't exhausted retries, add error context and retry
+				if attempt < maxJSONRetries {
+					retryPrompt := buildRetryPrompt(jsonErrorHistory)
+					// Update the last message (user prompt) to include error history
+					if len(messageHistory) > 0 {
+						lastMsgIdx := len(messageHistory) - 1
+						for i := lastMsgIdx; i >= 0; i-- {
+							if messageHistory[i].Role == llms.ChatMessageTypeHuman {
+								if len(messageHistory[i].Parts) > 0 {
+									if textPart, ok := messageHistory[i].Parts[0].(llms.TextContent); ok {
+										messageHistory[i].Parts[0] = llms.TextContent{Text: textPart.Text + retryPrompt}
+										logger.Info("Added error context to prompt for retry", "attempt", attempt+1)
+										break
+									}
+								}
+							}
+						}
+					}
+					continue
+				} else {
+					// All retries exhausted
+					logger.Error("JSON validation failed after all retries",
+						"attempts", maxJSONRetries,
+						"final_error", jsonValidationErr.Error())
+					return "", fmt.Errorf("JSON validation failed after %d attempts: %w", maxJSONRetries, jsonValidationErr)
+				}
 			}
 		}
-	}
-	if respChoice == nil && len(response.Choices) > 0 {
-		respChoice = response.Choices[0]
-	}
 
-	logger.Info("First LLM response",
-		"content", utils.TruncateString(respChoice.Content, maxLogContentLength),
-		"tool_calls", len(respChoice.ToolCalls),
-		"stop_reason", respChoice.StopReason,
-		"tool_names", extractToolNames(respChoice.ToolCalls))
+		// Process tool calls
+		toolCalls = respChoice.ToolCalls
+		if len(toolCalls) == 0 && len(availableTools) > 0 {
+			logger.Info("No direct ToolCalls, attempting to construct from JSON")
+			var toolCallErr error
+			toolCalls, toolCallErr = constructToolCallsFromJSON(respChoice.Content, logger)
+			if toolCallErr != nil {
+				logger.Warn("Tool call JSON parsing failed",
+					"attempt", attempt,
+					"error", toolCallErr.Error(),
+					"content", utils.TruncateString(respChoice.Content, 150))
 
-	// Process first response
-	toolCalls := respChoice.ToolCalls
-	if len(toolCalls) == 0 && len(availableTools) > 0 {
-		logger.Info("No direct ToolCalls, attempting to construct from JSON")
-		constructedToolCalls := constructToolCallsFromJSON(respChoice.Content, logger)
-		toolCalls = constructedToolCalls
+				// Record the error for self-correction
+				jsonErrorHistory = append(jsonErrorHistory, jsonErrorAttempt{
+					attempt:  attempt,
+					response: respChoice.Content,
+					error:    fmt.Sprintf("Tool call parsing failed: %v", toolCallErr),
+				})
+
+				// If we haven't exhausted retries, add error context and retry
+				if attempt < maxJSONRetries {
+					retryPrompt := buildRetryPrompt(jsonErrorHistory)
+					// Update the system prompt to include error history for tool calls
+					systemPrompt := buildSystemPrompt(chatBlock.JSONResponse, chatBlock.JSONResponseKeys, availableTools)
+					systemPrompt += retryPrompt
+					messageHistory[0] = llms.MessageContent{
+						Role:  llms.ChatMessageTypeSystem,
+						Parts: []llms.ContentPart{llms.TextContent{Text: systemPrompt}},
+					}
+					logger.Info("Added tool call error context to system prompt for retry", "attempt", attempt+1)
+					continue
+				} else {
+					// All retries exhausted
+					logger.Error("Tool call JSON parsing failed after all retries",
+						"attempts", maxJSONRetries,
+						"final_error", toolCallErr.Error())
+					return "", fmt.Errorf("tool call JSON parsing failed after %d attempts: %w", maxJSONRetries, toolCallErr)
+				}
+			}
+		}
+
+		// Success! Break out of retry loop
+		if jsonValidationErr == nil {
+			if attempt > 1 {
+				logger.Info("JSON validation succeeded after retry", "successful_attempt", attempt)
+			}
+			break
+		}
 	}
 
 	// Deduplicate tool calls
@@ -381,8 +547,17 @@ func generateChatResponse(ctx context.Context, fs afero.Fs, llm *ollama.LLM, cha
 		toolCalls = respChoice.ToolCalls
 		if len(toolCalls) == 0 && len(availableTools) > 0 {
 			logger.Info("No direct ToolCalls, attempting to construct from JSON", "iteration", iteration+1)
-			constructedToolCalls := constructToolCallsFromJSON(respChoice.Content, logger)
-			toolCalls = constructedToolCalls
+			constructedToolCalls, toolCallErr := constructToolCallsFromJSON(respChoice.Content, logger)
+			if toolCallErr != nil {
+				logger.Warn("Failed to construct tool calls from JSON in iteration",
+					"iteration", iteration+1,
+					"error", toolCallErr.Error(),
+					"content", utils.TruncateString(respChoice.Content, 150))
+				// Continue with empty tool calls, will exit iteration
+				toolCalls = nil
+			} else {
+				toolCalls = constructedToolCalls
+			}
 		}
 
 		// Deduplicate tool calls
