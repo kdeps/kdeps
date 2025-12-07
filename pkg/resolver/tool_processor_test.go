@@ -158,16 +158,19 @@ func TestConstructToolCallsFromJSONAndDeduplication(t *testing.T) {
 	logger := logging.NewTestLogger()
 
 	// case 1: empty string returns nil
-	result := constructToolCallsFromJSON("", logger)
+	result, err := constructToolCallsFromJSON("", logger)
 	assert.Nil(t, result)
+	assert.Nil(t, err)
 
-	// case 2: invalid json returns nil
-	result = constructToolCallsFromJSON("{bad json}", logger)
+	// case 2: invalid json returns error
+	result, err = constructToolCallsFromJSON("{bad json}", logger)
 	assert.Nil(t, result)
+	assert.NotNil(t, err)
 
 	// case 3: single valid object
 	single := `{"name":"echo","arguments":{"msg":"hi"}}`
-	result = constructToolCallsFromJSON(single, logger)
+	result, err = constructToolCallsFromJSON(single, logger)
+	assert.Nil(t, err)
 	assert.Len(t, result, 1)
 	assert.Equal(t, "echo", result[0].FunctionCall.Name)
 
@@ -177,7 +180,8 @@ func TestConstructToolCallsFromJSONAndDeduplication(t *testing.T) {
         {"name":"echo","arguments":{"msg":"hi"}},
         {"name":"sum","arguments":{"a":1,"b":2}}
     ]`
-	result = constructToolCallsFromJSON(arr, logger)
+	result, err = constructToolCallsFromJSON(arr, logger)
+	assert.Nil(t, err)
 	// before dedup, duplicates exist; after dedup should be 2 unique
 	dedup := deduplicateToolCalls(result, logger)
 	assert.Len(t, dedup, 2)
