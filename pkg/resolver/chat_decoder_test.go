@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -285,12 +284,9 @@ func TestHandleHTTPClient(t *testing.T) {
 		return &pklHTTP.HTTPImpl{Resources: &empty}, nil
 	}
 
-	var mu sync.Mutex
-	called := false
+	done := make(chan struct{})
 	dr.DoRequestFn = func(*pklHTTP.ResourceHTTPClient) error {
-		mu.Lock()
-		called = true
-		mu.Unlock()
+		close(done)
 		return nil
 	}
 
@@ -299,14 +295,15 @@ func TestHandleHTTPClient(t *testing.T) {
 		t.Fatalf("HandleHTTPClient error: %v", err)
 	}
 
-	// wait a bit for goroutine
-	time.Sleep(100 * time.Millisecond)
-
-	mu.Lock()
-	if !called {
-		t.Fatal("DoRequestFn not called")
+	// Wait for goroutine to complete with timeout
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("DoRequestFn not called within timeout")
 	}
-	mu.Unlock()
+
+	// Give evaluator time to clean up
+	time.Sleep(200 * time.Millisecond)
 
 	pklPath := filepath.Join(dr.ActionDir, "client", dr.RequestID+"__client_output.pkl")
 	if exists, _ := afero.Exists(fs, pklPath); !exists {
