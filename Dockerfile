@@ -15,12 +15,14 @@ ARG VERSION=latest
 # Install kdeps
 RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/refs/heads/main/install.sh | sh -s -- -d ${VERSION}
 
-# Determine architecture and install pkl accordingly
+# Determine architecture and install latest pkl version
 RUN ARCH=$(uname -m) && \
+    PKL_VERSION=$(curl -s https://api.github.com/repos/apple/pkl/releases/latest | grep -o '"tag_name": *"[^"]*"' | sed 's/"tag_name": *"\(.*\)"/\1/') && \
+    echo "Installing pkl version: $PKL_VERSION" && \
     if [ "$ARCH" = "aarch64" ]; then \
-        curl -L -o /home/kdeps/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.29.1/pkl-linux-aarch64'; \
+        curl -L -o /home/kdeps/.local/bin/pkl "https://github.com/apple/pkl/releases/download/${PKL_VERSION}/pkl-linux-aarch64"; \
     elif [ "$ARCH" = "x86_64" ]; then \
-        curl -L -o /home/kdeps/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.29.1/pkl-linux-amd64'; \
+        curl -L -o /home/kdeps/.local/bin/pkl "https://github.com/apple/pkl/releases/download/${PKL_VERSION}/pkl-linux-amd64"; \
     else \
         echo "Unsupported architecture: $ARCH" && exit 1; \
     fi && \

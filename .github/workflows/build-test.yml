@@ -54,10 +54,12 @@ jobs:
         run: |
           mkdir -p ~/.local/bin
           ARCH=$(uname -m)
+          PKL_VERSION=$(curl -s https://api.github.com/repos/apple/pkl/releases/latest | grep -o '"tag_name": *"[^"]*"' | sed 's/"tag_name": *"\(.*\)"/\1/')
+          echo "Installing pkl version: $PKL_VERSION"
           if [ "$ARCH" = "aarch64" ]; then
-            curl -L -o ~/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.29.1/pkl-linux-aarch64'
+            curl -L -o ~/.local/bin/pkl "https://github.com/apple/pkl/releases/download/${PKL_VERSION}/pkl-linux-aarch64"
           elif [ "$ARCH" = "x86_64" ]; then
-            curl -L -o ~/.local/bin/pkl 'https://github.com/apple/pkl/releases/download/0.29.1/pkl-linux-amd64'
+            curl -L -o ~/.local/bin/pkl "https://github.com/apple/pkl/releases/download/${PKL_VERSION}/pkl-linux-amd64"
           else
             echo "Unsupported architecture: $ARCH" && exit 1
           fi
@@ -69,7 +71,9 @@ jobs:
       - name: Install pkl on Windows
         if: matrix.platform == 'windows-latest'
         run: |
-          Invoke-WebRequest 'https://github.com/apple/pkl/releases/download/0.29.1/pkl-windows-amd64.exe' -OutFile pkl.exe
+          $PKL_VERSION = (Invoke-RestMethod -Uri 'https://api.github.com/repos/apple/pkl/releases/latest').tag_name
+          Write-Host "Installing pkl version: $PKL_VERSION"
+          Invoke-WebRequest "https://github.com/apple/pkl/releases/download/$PKL_VERSION/pkl-windows-amd64.exe" -OutFile pkl.exe
           echo "PATH=$env:GITHUB_WORKSPACE;$env:PATH" >> $env:GITHUB_ENV
           .\pkl.exe --version
         shell: pwsh
