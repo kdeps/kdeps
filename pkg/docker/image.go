@@ -22,6 +22,7 @@ import (
 	"github.com/kdeps/kdeps/pkg/logging"
 	"github.com/kdeps/kdeps/pkg/schema"
 	"github.com/kdeps/kdeps/pkg/template"
+	"github.com/kdeps/kdeps/pkg/utils"
 	"github.com/kdeps/kdeps/pkg/version"
 	"github.com/kdeps/kdeps/pkg/workflow"
 	kdCfg "github.com/kdeps/schema/gen/kdeps"
@@ -328,6 +329,19 @@ func BuildDockerfile(fs afero.Fs, ctx context.Context, kdeps *kdCfg.Kdeps, kdeps
 	}
 
 	imageVersion := dockerSettings.OllamaImageTag
+
+	// Fetch latest Ollama version if not specified or set to "latest"
+	if imageVersion == "" || imageVersion == "latest" {
+		latestVersion, err := utils.GetLatestOllamaVersion(ctx)
+		if err != nil {
+			logger.Warn("failed to fetch latest Ollama version, using default", "error", err, "default", version.DefaultOllamaImageTag)
+			imageVersion = version.DefaultOllamaImageTag
+		} else {
+			logger.Info("using latest Ollama version", "version", latestVersion)
+			imageVersion = latestVersion
+		}
+	}
+
 	if gpuType == "amd" {
 		imageVersion += "-rocm"
 	}

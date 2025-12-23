@@ -1,0 +1,266 @@
+name: Auto-update Dependencies
+
+on:
+  schedule:
+    # Run daily at 00:00 UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-and-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch latest PKL release
+        id: latest_pkl
+        run: |
+          LATEST_VERSION=$(curl -s https://api.github.com/repos/apple/pkl/releases/latest | jq -r '.tag_name')
+          echo "Latest PKL version: $LATEST_VERSION"
+          echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Get current PKL version
+        id: current_pkl
+        run: |
+          CURRENT_VERSION=$(grep 'DefaultPklVersion = ' pkg/version/version.go | sed 's/.*"\(.*\)".*/\1/')
+          echo "Current PKL version: $CURRENT_VERSION"
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Compare PKL versions
+        id: compare_pkl
+        run: |
+          LATEST="${{ steps.latest_pkl.outputs.version }}"
+          CURRENT="${{ steps.current_pkl.outputs.version }}"
+
+          # Remove 'v' prefix if present
+          LATEST_NUM="${LATEST#v}"
+
+          if [ "$LATEST_NUM" != "$CURRENT" ]; then
+            echo "New PKL version available: $LATEST_NUM (current: $CURRENT)"
+            echo "needs_update=true" >> $GITHUB_OUTPUT
+            echo "new_version=$LATEST_NUM" >> $GITHUB_OUTPUT
+          else
+            echo "Already on latest PKL version: $CURRENT"
+            echo "needs_update=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Fetch latest Ollama version from Docker Hub
+        id: latest_ollama
+        run: |
+          # Fetch the latest semver tag from Docker Hub
+          LATEST_VERSION=$(curl -s 'https://hub.docker.com/v2/repositories/ollama/ollama/tags?page_size=100' | \
+            jq -r '.results[] | select(.name | test("^[0-9]+\\.[0-9]+\\.[0-9]+$")) | .name' | \
+            head -1)
+
+          echo "Latest Ollama version: $LATEST_VERSION"
+          echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Get current Ollama version
+        id: current_ollama
+        run: |
+          CURRENT_VERSION=$(grep 'DefaultOllamaImageTag = ' pkg/version/version.go | sed 's/.*"\(.*\)".*/\1/')
+          echo "Current Ollama version: $CURRENT_VERSION"
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Compare Ollama versions
+        id: compare_ollama
+        run: |
+          LATEST="${{ steps.latest_ollama.outputs.version }}"
+          CURRENT="${{ steps.current_ollama.outputs.version }}"
+
+          if [ "$LATEST" != "$CURRENT" ]; then
+            echo "New Ollama version available: $LATEST (current: $CURRENT)"
+            echo "needs_update=true" >> $GITHUB_OUTPUT
+            echo "new_version=$LATEST" >> $GITHUB_OUTPUT
+          else
+            echo "Already on latest Ollama version: $CURRENT"
+            echo "needs_update=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check if any updates needed
+        id: check_updates
+        run: |
+          PKL_UPDATE="${{ steps.compare_pkl.outputs.needs_update }}"
+          OLLAMA_UPDATE="${{ steps.compare_ollama.outputs.needs_update }}"
+
+          if [ "$PKL_UPDATE" = "true" ] || [ "$OLLAMA_UPDATE" = "true" ]; then
+            echo "needs_update=true" >> $GITHUB_OUTPUT
+            echo "Updates needed:"
+            [ "$PKL_UPDATE" = "true" ] && echo "  - PKL: ${{ steps.current_pkl.outputs.version }} → ${{ steps.compare_pkl.outputs.new_version }}"
+            [ "$OLLAMA_UPDATE" = "true" ] && echo "  - Ollama: ${{ steps.current_ollama.outputs.version }} → ${{ steps.compare_ollama.outputs.new_version }}"
+          else
+            echo "needs_update=false" >> $GITHUB_OUTPUT
+            echo "All dependencies are up to date"
+          fi
+
+      - name: Update PKL version in files
+        if: steps.compare_pkl.outputs.needs_update == 'true'
+        run: |
+          OLD_VERSION="${{ steps.current_pkl.outputs.version }}"
+          NEW_VERSION="${{ steps.compare_pkl.outputs.new_version }}"
+
+          echo "Updating PKL from $OLD_VERSION to $NEW_VERSION"
+
+          # Update Dockerfile
+          sed -i "s|pkl/releases/download/$OLD_VERSION/|pkl/releases/download/$NEW_VERSION/|g" Dockerfile
+
+          # Update build-test.yml
+          sed -i "s|pkl/releases/download/$OLD_VERSION/|pkl/releases/download/$NEW_VERSION/|g" .github/workflows/build-test.yml
+
+          # Update release.yml
+          sed -i "s|pkl/releases/download/$OLD_VERSION/|pkl/releases/download/$NEW_VERSION/|g" .github/workflows/release.yml
+
+          # Update version.go
+          sed -i "s|DefaultPklVersion = \"$OLD_VERSION\"|DefaultPklVersion = \"$NEW_VERSION\"|g" pkg/version/version.go
+
+          # Update test file
+          sed -i "s|\"tag_name\": \"v$OLD_VERSION\"|\"tag_name\": \"v$NEW_VERSION\"|g" pkg/docker/image_test.go
+
+      - name: Update Ollama version in files
+        if: steps.compare_ollama.outputs.needs_update == 'true'
+        run: |
+          OLD_VERSION="${{ steps.current_ollama.outputs.version }}"
+          NEW_VERSION="${{ steps.compare_ollama.outputs.new_version }}"
+
+          echo "Updating Ollama from $OLD_VERSION to $NEW_VERSION"
+
+          # Update version.go (main version constant)
+          sed -i "s|DefaultOllamaImageTag = \"$OLD_VERSION\"|DefaultOllamaImageTag = \"$NEW_VERSION\"|g" pkg/version/version.go
+
+          # Update README.md examples
+          sed -i "s|OllamaImageTag = \"[0-9.]*\"|OllamaImageTag = \"$NEW_VERSION\"|g" README.md
+
+          # Update docs/index.md examples
+          sed -i "s|OllamaImageTag = \"[0-9.]*\"|OllamaImageTag = \"$NEW_VERSION\"|g" docs/index.md
+
+          # Update whitepaper examples
+          sed -i "s|OllamaImageTag = \"[0-9.]*\"|OllamaImageTag = \"$NEW_VERSION\"|g" docs/KDeps_Whitepaper.md
+
+          # Update workflow configuration docs
+          sed -i "s|OllamaImageTag = \"[0-9.]*\"|OllamaImageTag = \"$NEW_VERSION\"|g" docs/getting-started/configuration/workflow.md
+
+      - name: Verify Ollama image exists
+        if: steps.compare_ollama.outputs.needs_update == 'true'
+        run: |
+          NEW_VERSION="${{ steps.compare_ollama.outputs.new_version }}"
+
+          # Try to pull the image to verify it exists
+          if docker pull ollama/ollama:$NEW_VERSION; then
+            echo "✓ Successfully verified ollama/ollama:$NEW_VERSION exists"
+          else
+            echo "✗ Failed to verify ollama/ollama:$NEW_VERSION"
+            exit 1
+          fi
+
+      - name: Generate PR body
+        if: steps.check_updates.outputs.needs_update == 'true'
+        id: pr_body
+        run: |
+          PKL_UPDATE="${{ steps.compare_pkl.outputs.needs_update }}"
+          OLLAMA_UPDATE="${{ steps.compare_ollama.outputs.needs_update }}"
+
+          # Start PR body
+          cat > pr_body.md << 'EOF'
+          ## Auto-update Dependencies
+
+          This PR automatically updates dependencies to their latest versions.
+
+          EOF
+
+          # Add PKL section if updated
+          if [ "$PKL_UPDATE" = "true" ]; then
+            cat >> pr_body.md << EOF
+          ### PKL Update
+
+          **Version:** \`${{ steps.current_pkl.outputs.version }}\` → \`${{ steps.compare_pkl.outputs.new_version }}\`
+
+          **Changes:**
+          - Updated Dockerfile
+          - Updated .github/workflows/build-test.yml
+          - Updated .github/workflows/release.yml
+          - Updated pkg/version/version.go
+          - Updated pkg/docker/image_test.go
+
+          **Release Notes:** https://github.com/apple/pkl/releases/tag/v${{ steps.compare_pkl.outputs.new_version }}
+
+          EOF
+          fi
+
+          # Add Ollama section if updated
+          if [ "$OLLAMA_UPDATE" = "true" ]; then
+            cat >> pr_body.md << EOF
+          ### Ollama Update
+
+          **Version:** \`${{ steps.current_ollama.outputs.version }}\` → \`${{ steps.compare_ollama.outputs.new_version }}\`
+
+          **Changes:**
+          - Updated pkg/version/version.go (DefaultOllamaImageTag)
+          - Updated README.md examples
+          - Updated docs/index.md examples
+          - Updated docs/KDeps_Whitepaper.md examples
+          - Updated docs/getting-started/configuration/workflow.md examples
+
+          **Docker Image:** \`ollama/ollama:${{ steps.compare_ollama.outputs.new_version }}\`
+          **Verified:** ✓ Image exists and is pullable
+
+          **Release Notes:** https://github.com/ollama/ollama/releases/tag/v${{ steps.compare_ollama.outputs.new_version }}
+
+          EOF
+          fi
+
+          # Add footer
+          cat >> pr_body.md << 'EOF'
+
+          ---
+          *This PR was automatically created by the auto-update-dependencies workflow.*
+          EOF
+
+          # Output for use in next step
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          cat pr_body.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Generate commit message and branch name
+        if: steps.check_updates.outputs.needs_update == 'true'
+        id: commit_info
+        run: |
+          PKL_UPDATE="${{ steps.compare_pkl.outputs.needs_update }}"
+          OLLAMA_UPDATE="${{ steps.compare_ollama.outputs.needs_update }}"
+
+          # Generate commit message
+          if [ "$PKL_UPDATE" = "true" ] && [ "$OLLAMA_UPDATE" = "true" ]; then
+            COMMIT_MSG="chore: auto-update pkl to ${{ steps.compare_pkl.outputs.new_version }} and ollama to ${{ steps.compare_ollama.outputs.new_version }}"
+            BRANCH_NAME="autoupdate-dependencies-pkl-${{ steps.compare_pkl.outputs.new_version }}-ollama-${{ steps.compare_ollama.outputs.new_version }}"
+            PR_TITLE="chore: auto-update PKL to ${{ steps.compare_pkl.outputs.new_version }} and Ollama to ${{ steps.compare_ollama.outputs.new_version }}"
+          elif [ "$PKL_UPDATE" = "true" ]; then
+            COMMIT_MSG="chore: auto-update pkl to ${{ steps.compare_pkl.outputs.new_version }}"
+            BRANCH_NAME="autoupdate-pkl-${{ steps.compare_pkl.outputs.new_version }}"
+            PR_TITLE="chore: auto-update PKL to ${{ steps.compare_pkl.outputs.new_version }}"
+          else
+            COMMIT_MSG="chore: auto-update ollama to ${{ steps.compare_ollama.outputs.new_version }}"
+            BRANCH_NAME="autoupdate-ollama-${{ steps.compare_ollama.outputs.new_version }}"
+            PR_TITLE="chore: auto-update Ollama to ${{ steps.compare_ollama.outputs.new_version }}"
+          fi
+
+          echo "commit_message=$COMMIT_MSG" >> $GITHUB_OUTPUT
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "pr_title=$PR_TITLE" >> $GITHUB_OUTPUT
+
+      - name: Create Pull Request
+        if: steps.check_updates.outputs.needs_update == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: ${{ steps.commit_info.outputs.commit_message }}
+          title: ${{ steps.commit_info.outputs.pr_title }}
+          body: ${{ steps.pr_body.outputs.body }}
+          branch: ${{ steps.commit_info.outputs.branch_name }}
+          delete-branch: true
+          labels: dependencies,autoupdate
