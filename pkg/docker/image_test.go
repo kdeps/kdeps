@@ -1452,7 +1452,7 @@ func (roundTripperLatest) RoundTrip(req *http.Request) (*http.Response, error) {
 	switch req.URL.Host {
 	case "api.github.com":
 		// Fake GitHub release JSON.
-		body, _ := json.Marshal(map[string]string{"tag_name": "v0.29.1"})
+		body, _ := json.Marshal(map[string]string{"tag_name": "v0.30.2"})
 		return &http.Response{StatusCode: http.StatusOK, Body: ioNopCloser(bytes.NewReader(body)), Header: make(http.Header)}, nil
 	case "repo.anaconda.com":
 		html := `<a href="Anaconda3-2024.05-0-Linux-x86_64.sh">file</a><a href="Anaconda3-2024.05-0-Linux-aarch64.sh">file</a>`

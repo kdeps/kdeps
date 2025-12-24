@@ -15,10 +15,10 @@ const (
 	DefaultAnacondaVersion = "2024.10-1"
 
 	// Default PKL version for Docker images
-	DefaultPklVersion = "0.29.1"
+	DefaultPklVersion = "0.30.2"
 
 	// Default Ollama image tag version for base Docker images
-	DefaultOllamaImageTag = "0.9.6"
+	DefaultOllamaImageTag = "0.13.5"
 
 	// Default kdeps installation version tag
 	DefaultKdepsInstallVersion = "latest"
