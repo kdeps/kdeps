@@ -224,7 +224,7 @@ Settings {
   }
   AgentSettings {
     Models { "llama3.2:1b" }
-    OllamaImageTag = "0.6.8"
+    OllamaImageTag = "0.13.5"
   }
 }
 ```

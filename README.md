@@ -80,7 +80,7 @@ Settings {
   AgentSettings {
     Timezone = "Etc/UTC"
     Models { "llama3.2:1b" }
-    OllamaImageTag = "0.6.8"
+    OllamaImageTag = "0.13.5"
   }
 }
 ```
@@ -208,7 +208,7 @@ Settings {
   AgentSettings {
     Timezone = "Etc/UTC"
     Models { "llama3.2-vision" }
-    OllamaImageTag = "0.6.8"
+    OllamaImageTag = "0.13.5"
   }
 }
 ```
@@ -323,7 +323,7 @@ Settings {
     Timezone = "Etc/UTC"
     PythonPackages { "streamlit" }
     Models { "llama3.2:1b" }
-    OllamaImageTag = "0.6.8"
+    OllamaImageTag = "0.13.5"
   }
 }
 ```
@@ -385,7 +385,7 @@ Settings {
   AgentSettings {
     Timezone = "Etc/UTC"
     Models { "llama3.2:1b" }
-    OllamaImageTag = "0.6.8"
+    OllamaImageTag = "0.13.5"
   }
 }
 ```
@@ -465,7 +465,7 @@ Settings {
   AgentSettings {
     Timezone = "Etc/UTC"
     Models { "llama3.2:1b" }
-    OllamaImageTag = "0.6.8"
+    OllamaImageTag = "0.13.5"
   }
 }
 ```
@@ -513,7 +513,7 @@ Settings {
   AgentSettings {
     Timezone = "Etc/UTC"
     Models { "llama3.2:1b" }
-    OllamaImageTag = "0.6.8"
+    OllamaImageTag = "0.13.5"
   }
 }
 ```
@@ -612,7 +612,7 @@ Settings {
   AgentSettings {
     Timezone = "Etc/UTC"
     Models { "llama3.2-vision" }
-    OllamaImageTag = "0.6.8"
+    OllamaImageTag = "0.13.5"
   }
 }
 ```
@@ -664,7 +664,7 @@ Settings {
   AgentSettings {
     Timezone = "Etc/UTC"
     Models { "llama3.2-vision" }
-    OllamaImageTag = "0.6.8"
+    OllamaImageTag = "0.13.5"
   }
 }
 ```
@@ -801,7 +801,7 @@ Settings {
     Timezone = "Etc/UTC"
     PythonPackages { "streamlit" }
     Models { "llama3.2:1b" }
-    OllamaImageTag = "0.6.8"
+    OllamaImageTag = "0.13.5"
   }
 }
 ```
@@ -885,7 +885,7 @@ AgentSettings {
     "npm"
     "ffmpeg"
   }
-  OllamaImageTag = "0.6.8"
+  OllamaImageTag = "0.13.5"
 }
 ```
 </details>

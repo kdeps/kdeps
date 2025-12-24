@@ -281,7 +281,7 @@ AgentSettings {
     Repositories { ... }
     Packages { ... }
     Models { ... }
-    OllamaImageTag = "0.5.4"
+    OllamaImageTag = "0.13.5"
     Env { ... }
     Args { ... }
 }
