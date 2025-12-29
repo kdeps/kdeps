@@ -84,17 +84,51 @@ jobs:
             echo "needs_update=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Fetch latest kdeps/schema release
+        id: latest_schema
+        run: |
+          LATEST_VERSION=$(curl -s https://api.github.com/repos/kdeps/schema/releases/latest | jq -r '.tag_name')
+          echo "Latest kdeps/schema version: $LATEST_VERSION"
+          echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Get current kdeps/schema version
+        id: current_schema
+        run: |
+          CURRENT_VERSION=$(grep 'DefaultSchemaVersion = ' pkg/version/version.go | sed 's/.*"\(.*\)".*/\1/')
+          echo "Current kdeps/schema version: $CURRENT_VERSION"
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Compare kdeps/schema versions
+        id: compare_schema
+        run: |
+          LATEST="${{ steps.latest_schema.outputs.version }}"
+          CURRENT="${{ steps.current_schema.outputs.version }}"
+
+          # Remove 'v' prefix if present
+          LATEST_NUM="${LATEST#v}"
+
+          if [ "$LATEST_NUM" != "$CURRENT" ]; then
+            echo "New kdeps/schema version available: $LATEST_NUM (current: $CURRENT)"
+            echo "needs_update=true" >> $GITHUB_OUTPUT
+            echo "new_version=$LATEST_NUM" >> $GITHUB_OUTPUT
+          else
+            echo "Already on latest kdeps/schema version: $CURRENT"
+            echo "needs_update=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Check if any updates needed
         id: check_updates
         run: |
           PKL_UPDATE="${{ steps.compare_pkl.outputs.needs_update }}"
           OLLAMA_UPDATE="${{ steps.compare_ollama.outputs.needs_update }}"
+          SCHEMA_UPDATE="${{ steps.compare_schema.outputs.needs_update }}"
 
-          if [ "$PKL_UPDATE" = "true" ] || [ "$OLLAMA_UPDATE" = "true" ]; then
+          if [ "$PKL_UPDATE" = "true" ] || [ "$OLLAMA_UPDATE" = "true" ] || [ "$SCHEMA_UPDATE" = "true" ]; then
             echo "needs_update=true" >> $GITHUB_OUTPUT
             echo "Updates needed:"
             [ "$PKL_UPDATE" = "true" ] && echo "  - PKL: ${{ steps.current_pkl.outputs.version }} → ${{ steps.compare_pkl.outputs.new_version }}"
             [ "$OLLAMA_UPDATE" = "true" ] && echo "  - Ollama: ${{ steps.current_ollama.outputs.version }} → ${{ steps.compare_ollama.outputs.new_version }}"
+            [ "$SCHEMA_UPDATE" = "true" ] && echo "  - kdeps/schema: ${{ steps.current_schema.outputs.version }} → ${{ steps.compare_schema.outputs.new_version }}"
           else
             echo "needs_update=false" >> $GITHUB_OUTPUT
             echo "All dependencies are up to date"
@@ -146,6 +180,18 @@ jobs:
           # Update workflow configuration docs
           sed -i "s|OllamaImageTag = \"[0-9.]*\"|OllamaImageTag = \"$NEW_VERSION\"|g" docs/getting-started/configuration/workflow.md
 
+      - name: Update kdeps/schema version in files
+        if: steps.compare_schema.outputs.needs_update == 'true'
+        run: |
+          OLD_VERSION="${{ steps.current_schema.outputs.version }}"
+          NEW_VERSION="${{ steps.compare_schema.outputs.new_version }}"
+
+          echo "Updating kdeps/schema from $OLD_VERSION to $NEW_VERSION"
+
+          # Update version.go (DefaultSchemaVersion and MinimumSchemaVersion)
+          sed -i "s|DefaultSchemaVersion = \"$OLD_VERSION\"|DefaultSchemaVersion = \"$NEW_VERSION\"|g" pkg/version/version.go
+          sed -i "s|MinimumSchemaVersion = \"$OLD_VERSION\"|MinimumSchemaVersion = \"$NEW_VERSION\"|g" pkg/version/version.go
+
       - name: Verify Ollama image exists
         if: steps.compare_ollama.outputs.needs_update == 'true'
         run: |
@@ -165,6 +211,7 @@ jobs:
         run: |
           PKL_UPDATE="${{ steps.compare_pkl.outputs.needs_update }}"
           OLLAMA_UPDATE="${{ steps.compare_ollama.outputs.needs_update }}"
+          SCHEMA_UPDATE="${{ steps.compare_schema.outputs.needs_update }}"
 
           # Start PR body
           cat > pr_body.md << 'EOF'
@@ -173,6 +220,22 @@ jobs:
           This PR automatically updates dependencies to their latest versions.
 
           EOF
+
+          # Add kdeps/schema section if updated
+          if [ "$SCHEMA_UPDATE" = "true" ]; then
+            cat >> pr_body.md << EOF
+          ### KDeps Schema Update
+
+          **Version:** \`${{ steps.current_schema.outputs.version }}\` → \`${{ steps.compare_schema.outputs.new_version }}\`
+
+          **Changes:**
+          - Updated pkg/version/version.go (DefaultSchemaVersion)
+          - Updated pkg/version/version.go (MinimumSchemaVersion)
+
+          **Release Notes:** https://github.com/kdeps/schema/releases/tag/v${{ steps.compare_schema.outputs.new_version }}
+
+          EOF
+          fi
 
           # Add PKL section if updated
           if [ "$PKL_UPDATE" = "true" ]; then
@@ -233,21 +296,52 @@ jobs:
         run: |
           PKL_UPDATE="${{ steps.compare_pkl.outputs.needs_update }}"
           OLLAMA_UPDATE="${{ steps.compare_ollama.outputs.needs_update }}"
+          SCHEMA_UPDATE="${{ steps.compare_schema.outputs.needs_update }}"
 
-          # Generate commit message
-          if [ "$PKL_UPDATE" = "true" ] && [ "$OLLAMA_UPDATE" = "true" ]; then
-            COMMIT_MSG="chore: auto-update pkl to ${{ steps.compare_pkl.outputs.new_version }} and ollama to ${{ steps.compare_ollama.outputs.new_version }}"
-            BRANCH_NAME="autoupdate-dependencies-pkl-${{ steps.compare_pkl.outputs.new_version }}-ollama-${{ steps.compare_ollama.outputs.new_version }}"
-            PR_TITLE="chore: auto-update PKL to ${{ steps.compare_pkl.outputs.new_version }} and Ollama to ${{ steps.compare_ollama.outputs.new_version }}"
-          elif [ "$PKL_UPDATE" = "true" ]; then
-            COMMIT_MSG="chore: auto-update pkl to ${{ steps.compare_pkl.outputs.new_version }}"
-            BRANCH_NAME="autoupdate-pkl-${{ steps.compare_pkl.outputs.new_version }}"
-            PR_TITLE="chore: auto-update PKL to ${{ steps.compare_pkl.outputs.new_version }}"
-          else
-            COMMIT_MSG="chore: auto-update ollama to ${{ steps.compare_ollama.outputs.new_version }}"
-            BRANCH_NAME="autoupdate-ollama-${{ steps.compare_ollama.outputs.new_version }}"
-            PR_TITLE="chore: auto-update Ollama to ${{ steps.compare_ollama.outputs.new_version }}"
+          # Build component lists
+          COMPONENTS_LOWER=()
+          COMPONENTS_UPPER=()
+          BRANCH_PARTS=()
+
+          if [ "$SCHEMA_UPDATE" = "true" ]; then
+            COMPONENTS_LOWER+=("schema to ${{ steps.compare_schema.outputs.new_version }}")
+            COMPONENTS_UPPER+=("Schema to ${{ steps.compare_schema.outputs.new_version }}")
+            BRANCH_PARTS+=("schema-${{ steps.compare_schema.outputs.new_version }}")
           fi
+
+          if [ "$PKL_UPDATE" = "true" ]; then
+            COMPONENTS_LOWER+=("pkl to ${{ steps.compare_pkl.outputs.new_version }}")
+            COMPONENTS_UPPER+=("PKL to ${{ steps.compare_pkl.outputs.new_version }}")
+            BRANCH_PARTS+=("pkl-${{ steps.compare_pkl.outputs.new_version }}")
+          fi
+
+          if [ "$OLLAMA_UPDATE" = "true" ]; then
+            COMPONENTS_LOWER+=("ollama to ${{ steps.compare_ollama.outputs.new_version }}")
+            COMPONENTS_UPPER+=("Ollama to ${{ steps.compare_ollama.outputs.new_version }}")
+            BRANCH_PARTS+=("ollama-${{ steps.compare_ollama.outputs.new_version }}")
+          fi
+
+          # Join components with "and" or ", "
+          join_with_and() {
+            local IFS="${1}"
+            shift
+            echo "$*"
+          }
+
+          if [ ${#COMPONENTS_LOWER[@]} -eq 1 ]; then
+            LOWER_MSG="${COMPONENTS_LOWER[0]}"
+            UPPER_MSG="${COMPONENTS_UPPER[0]}"
+          elif [ ${#COMPONENTS_LOWER[@]} -eq 2 ]; then
+            LOWER_MSG="${COMPONENTS_LOWER[0]} and ${COMPONENTS_LOWER[1]}"
+            UPPER_MSG="${COMPONENTS_UPPER[0]} and ${COMPONENTS_UPPER[1]}"
+          else
+            LOWER_MSG="${COMPONENTS_LOWER[0]}, ${COMPONENTS_LOWER[1]}, and ${COMPONENTS_LOWER[2]}"
+            UPPER_MSG="${COMPONENTS_UPPER[0]}, ${COMPONENTS_UPPER[1]}, and ${COMPONENTS_UPPER[2]}"
+          fi
+
+          COMMIT_MSG="chore: auto-update $LOWER_MSG"
+          BRANCH_NAME="auto-update-$(IFS='-'; echo "${BRANCH_PARTS[*]}")"
+          PR_TITLE="chore: auto-update $UPPER_MSG"
 
           echo "commit_message=$COMMIT_MSG" >> $GITHUB_OUTPUT
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
