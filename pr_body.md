@@ -4,13 +4,15 @@ This PR automatically updates dependencies to their latest versions.
 
 ### KDeps Schema Update
 
-**Version:** `0.4.1-dev` → `0.4.1-pkldocs`
+**Version:** `0.4.1-pkldocs` → `0.5.0`
 
 **Changes:**
 - Updated pkg/version/version.go (DefaultSchemaVersion)
 - Updated pkg/version/version.go (MinimumSchemaVersion)
+- Updated go.mod (github.com/kdeps/schema dependency)
+- Updated go.sum (ran go get -u ./...)
 
-**Release Notes:** https://github.com/kdeps/schema/releases/tag/v0.4.1-pkldocs
+**Release Notes:** https://github.com/kdeps/schema/releases/tag/v0.5.0
 
 
 ---
