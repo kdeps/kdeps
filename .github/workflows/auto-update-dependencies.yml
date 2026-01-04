@@ -192,8 +192,8 @@ jobs:
           sed -i "s|DefaultSchemaVersion = \"$OLD_VERSION\"|DefaultSchemaVersion = \"$NEW_VERSION\"|g" pkg/version/version.go
           sed -i "s|MinimumSchemaVersion = \"$OLD_VERSION\"|MinimumSchemaVersion = \"$NEW_VERSION\"|g" pkg/version/version.go
 
-          # Update go.mod (github.com/kdeps/schema version)
-          sed -i "s|github.com/kdeps/schema v$OLD_VERSION|github.com/kdeps/schema v$NEW_VERSION|g" go.mod
+          # Update go.mod (github.com/kdeps/schema version - replace entire line regardless of old version)
+          sed -i "s|^\tgithub.com/kdeps/schema v.*|	github.com/kdeps/schema v$NEW_VERSION|g" go.mod
 
       - name: Verify Ollama image exists
         if: steps.compare_ollama.outputs.needs_update == 'true'
