@@ -195,6 +195,9 @@ jobs:
           # Update go.mod (github.com/kdeps/schema version - replace entire line regardless of old version)
           sed -i "s|^\tgithub.com/kdeps/schema v.*|	github.com/kdeps/schema v$NEW_VERSION|g" go.mod
 
+          # Run go get to update dependencies and go.sum
+          go get -u ./...
+
       - name: Verify Ollama image exists
         if: steps.compare_ollama.outputs.needs_update == 'true'
         run: |
@@ -235,6 +238,7 @@ jobs:
           - Updated pkg/version/version.go (DefaultSchemaVersion)
           - Updated pkg/version/version.go (MinimumSchemaVersion)
           - Updated go.mod (github.com/kdeps/schema dependency)
+          - Updated go.sum (ran go get -u ./...)
 
           **Release Notes:** https://github.com/kdeps/schema/releases/tag/v${{ steps.compare_schema.outputs.new_version }}
 
