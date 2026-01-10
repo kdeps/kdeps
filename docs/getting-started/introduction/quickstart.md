@@ -3,6 +3,9 @@ outline: deep
 ---
 
 # Quickstart
+
+> ⚠️ **DEPRECATION NOTICE**: The PKL-based schema is now legacy and being deprecated. This version (v0.5.0) will be the last release using PKL for schema definitions. Future versions of Kdeps will migrate to YAML for schema definitions.
+
 To get started, make sure the KDeps CLI is already [installed](./installation.md) on your device.
 
 In this quickstart, we’ll guide you through creating a simple AI agent. We will:

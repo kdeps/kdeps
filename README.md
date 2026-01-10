@@ -9,6 +9,8 @@
 [![tests](https://img.shields.io/endpoint?style=flat-square&url=https://gist.githubusercontent.com/jjuliano/ce695f832cd51d014ae6d37353311c59/raw/kdeps-go-tests.json)](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml)
 [![coverage](https://img.shields.io/endpoint?style=flat-square&url=https://gist.githubusercontent.com/jjuliano/ce695f832cd51d014ae6d37353311c59/raw/kdeps-go-coverage.json)](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml)
 
+> ⚠️ **DEPRECATION NOTICE**: The PKL-based schema is now legacy and being deprecated. This version (v0.5.0) will be the last release using PKL for schema definitions. Future versions of Kdeps will migrate to YAML for schema definitions.
+
 KDeps is a framework that packages everything needed for RAG and AI agents in a single Dockerized image, eliminating the complexity of building self-hosted APIs with open-source LLMs. Instead of juggling multiple tools and dependencies, you can use KDeps to run Python scripts in isolated environments, execute custom shell commands, integrate with external APIs, and leverage endless opinionated LLM combinations and configurations—all while maintaining control over your infrastructure.
 
 The framework uses atomic configurations and a graph-based dependency workflow for orchestrating resources, with built-in support for multimodal LLMs, making it particularly appealing for teams looking to avoid vendor lock-in or subscription costs.
