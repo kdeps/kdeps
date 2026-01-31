@@ -25,6 +25,8 @@ jobs:
         with:
           version: v2.8.0
           args: --timeout=5m
+          config: .golangci.yml
+          only-new-issues: false
 
   test:
     runs-on: ubuntu-latest
