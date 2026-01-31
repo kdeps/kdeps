@@ -41,8 +41,7 @@ jobs:
 
     - name: Install ollama
       run: |
-        curl -L https://ollama.com/download/ollama-linux-amd64.tgz -o ollama.tgz
-        sudo tar -C /usr -xzf ollama.tgz
+        curl -fsSL https://ollama.com/install.sh | sh
         ollama --version
 
     # We need golangci-lint installed because 'make test-unit' depends on 'lint'
