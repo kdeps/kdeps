@@ -26,6 +26,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // Manager manages Python virtual environments using uv.
@@ -36,6 +37,8 @@ type Manager struct {
 const (
 	// MaxPackagesInVenvName is the maximum number of packages to include in venv name.
 	MaxPackagesInVenvName = 3
+	// UVTimeout is the timeout for uv commands.
+	UVTimeout = 5 * time.Minute
 )
 
 // NewManager creates a new uv manager.
@@ -76,8 +79,11 @@ func (m *Manager) EnsureVenv(
 	}
 
 	// Create virtual environment with uv
+	ctx, cancel := context.WithTimeout(context.Background(), UVTimeout)
+	defer cancel()
+
 	cmd := exec.CommandContext(
-		context.Background(),
+		ctx,
 		"uv",
 		"venv",
 		"--python",
@@ -131,7 +137,10 @@ func (m *Manager) InstallPackages(venvPath string, packages []string) error {
 	args := []string{"pip", "install"}
 	args = append(args, packages...)
 
-	cmd := exec.CommandContext(context.Background(), "uv", args...)
+	ctx, cancel := context.WithTimeout(context.Background(), UVTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "uv", args...)
 	cmd.Env = append(os.Environ(), "VIRTUAL_ENV="+venvPath)
 	cmd.Env = append(
 		cmd.Env,
@@ -153,7 +162,10 @@ func (m *Manager) InstallRequirements(venvPath string, requirementsFile string) 
 		pythonPath = filepath.Join(venvPath, "Scripts", "python.exe")
 	}
 
-	cmd := exec.CommandContext(context.Background(), "uv", "pip", "install", "-r", requirementsFile)
+	ctx, cancel := context.WithTimeout(context.Background(), UVTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "uv", "pip", "install", "-r", requirementsFile)
 	cmd.Env = append(os.Environ(), "VIRTUAL_ENV="+venvPath)
 	cmd.Env = append(
 		cmd.Env,

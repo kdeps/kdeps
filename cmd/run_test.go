@@ -751,27 +751,12 @@ func findAvailablePort(t *testing.T) (int, func()) {
 
 // Helper function to run port availability test.
 func runPortAvailabilityTest(t *testing.T, host string, port int, shouldBeAvailable bool) {
-	workflow := &domain.Workflow{
-		Settings: domain.WorkflowSettings{
-			APIServer: &domain.APIServerConfig{
-				HostIP:  host,
-				PortNum: port,
-			},
-		},
-	}
-
-	err := cmd.StartHTTPServer(workflow, "", false, false)
+	err := cmd.CheckPortAvailable(host, port)
 
 	if shouldBeAvailable {
-		// For available port, server might start and then error for other reasons
-		// We just care that it doesn't fail due to port availability
-		if err != nil {
-			assert.NotContains(t, err.Error(), "port is not available")
-		}
+		assert.NoError(t, err)
 	} else {
-		// For port in use, it should fail with port availability error
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "API server cannot start")
+		assert.Error(t, err)
 	}
 }
 
@@ -799,7 +784,7 @@ func TestCheckPortAvailable(t *testing.T) {
 	t.Run("find available port", func(t *testing.T) {
 		// Find a port that's definitely available
 		availablePort, cleanup := findAvailablePort(t)
-		defer cleanup()
+		cleanup() // Close it to make it available for the test
 
 		// Test that the found port is available
 		runPortAvailabilityTest(t, "127.0.0.1", availablePort, true)
