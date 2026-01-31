@@ -4,7 +4,17 @@ This guide walks you through building your first AI agent with KDeps. You'll cre
 
 ## Prerequisites
 
-Make sure [KDeps is installed](installation) on your system.
+Make sure KDeps is installed on your system:
+
+```bash
+# Install via script (Mac/Linux)
+curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
+
+# Or via Homebrew (Mac)
+brew install kdeps/tap/kdeps
+```
+
+For more options, see the [Installation Guide](installation).
 
 ## Option 1: Use the New Command (Easiest)
 

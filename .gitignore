@@ -229,3 +229,4 @@ local/
 *.html
 libssl*
 kdeps-io
+claude-guides

@@ -22,7 +22,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
-	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -305,12 +304,9 @@ func TestBuilder_CreateBuildContext(t *testing.T) {
 
 	dockerfile := "FROM python:3.12\nWORKDIR /app\nCOPY . .\n"
 
-	// This test runs from a temp directory without kdeps source,
-	// so it expects an error about kdeps source not being found
 	contextReader, err := builder.CreateBuildContext(workflow, dockerfile)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kdeps source not found")
-	assert.Nil(t, contextReader)
+	require.NoError(t, err)
+	assert.NotNil(t, contextReader)
 }
 
 func TestNewClient(t *testing.T) {
@@ -488,83 +484,6 @@ func TestClient_TagImage(t *testing.T) {
 				strings.Contains(err.Error(), "daemon"),
 			"Error should be related to Docker: %v", err)
 	}
-}
-
-func TestBuilder_CreateBuildContext_WithKdepsRoot(t *testing.T) {
-	builder := &docker.Builder{BaseOS: "alpine"}
-
-	// Create a temporary directory with required files
-	tmpDir := t.TempDir()
-
-	// Create workflow.yaml
-	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
-	err := os.WriteFile(workflowPath, []byte("test workflow"), 0644)
-	require.NoError(t, err)
-
-	// Create resources directory
-	resourcesDir := filepath.Join(tmpDir, "resources")
-	err = os.MkdirAll(resourcesDir, 0755)
-	require.NoError(t, err)
-
-	// Change to temp directory
-	t.Chdir(tmpDir)
-
-	// Create a fake kdeps root structure to test addKdepsFileToTar and addKdepsDirToTar
-	// We'll create go.mod to trigger the kdeps root detection
-	goModPath := filepath.Join(tmpDir, "go.mod")
-	err = os.WriteFile(goModPath, []byte("module test\n"), 0644)
-	require.NoError(t, err)
-
-	// Create go.sum
-	goSumPath := filepath.Join(tmpDir, "go.sum")
-	err = os.WriteFile(goSumPath, []byte("test sum\n"), 0644)
-	require.NoError(t, err)
-
-	// Create main.go
-	mainPath := filepath.Join(tmpDir, "main.go")
-	err = os.WriteFile(mainPath, []byte("package main\n"), 0644)
-	require.NoError(t, err)
-
-	// Create cmd directory
-	cmdDir := filepath.Join(tmpDir, "cmd")
-	err = os.MkdirAll(cmdDir, 0755)
-	require.NoError(t, err)
-	cmdFile := filepath.Join(cmdDir, "main.go")
-	err = os.WriteFile(cmdFile, []byte("package main\n"), 0644)
-	require.NoError(t, err)
-
-	// Create pkg directory
-	pkgDir := filepath.Join(tmpDir, "pkg")
-	err = os.MkdirAll(pkgDir, 0755)
-	require.NoError(t, err)
-	pkgFile := filepath.Join(pkgDir, "test.go")
-	err = os.WriteFile(pkgFile, []byte("package pkg\n"), 0644)
-	require.NoError(t, err)
-
-	workflow := &domain.Workflow{
-		Metadata: domain.WorkflowMetadata{
-			Name:    "test-app",
-			Version: "1.0.0",
-		},
-		Settings: domain.WorkflowSettings{
-			AgentSettings: domain.AgentSettings{
-				PythonVersion: "3.12",
-			},
-		},
-	}
-
-	dockerfile := "FROM python:3.12\nWORKDIR /app\nCOPY . .\n"
-
-	contextReader, err := builder.CreateBuildContext(workflow, dockerfile)
-	require.NoError(t, err)
-	assert.NotNil(t, contextReader)
-
-	// Read the context to verify it contains the Dockerfile
-	data, err := io.ReadAll(contextReader)
-	require.NoError(t, err)
-
-	assert.Contains(t, string(data), "FROM python:3.12")
-	assert.Contains(t, string(data), "Dockerfile")
 }
 
 func TestBuilder_GenerateDockerfile_WithOllamaBackend(t *testing.T) {
@@ -1036,7 +955,10 @@ func TestBuilder_Build_ErrorCases(t *testing.T) {
 }
 
 func TestBuilder_Build_SuccessCase(t *testing.T) {
-	builder := &docker.Builder{BaseOS: "alpine"}
+	builder, _ := docker.NewBuilder()
+	if builder == nil {
+		builder = &docker.Builder{BaseOS: "alpine", Client: &docker.Client{}}
+	}
 
 	tmpDir := t.TempDir()
 	t.Chdir(tmpDir)
@@ -1370,10 +1292,8 @@ func TestBuilder_addFileToTar(t *testing.T) {
 	dockerfile := "FROM alpine\nCOPY test.txt /app/\n"
 
 	contextReader, err := builder.CreateBuildContext(workflow, dockerfile)
-	// In test environment, this will fail because no kdeps source is found
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kdeps source not found")
-	assert.Nil(t, contextReader)
+	require.NoError(t, err)
+	assert.NotNil(t, contextReader)
 }
 
 func TestBuilder_addDirectoryToTar(t *testing.T) {
@@ -1423,265 +1343,6 @@ func TestBuilder_addDirectoryToTar(t *testing.T) {
 	data, err := io.ReadAll(contextReader)
 	require.NoError(t, err)
 	assert.NotEmpty(t, data, "Tar file should contain directory data")
-}
-
-func TestBuilder_addKdepsFileToTar_and_addKdepsDirToTar(t *testing.T) {
-	builder := &docker.Builder{BaseOS: "alpine"}
-
-	tmpDir := t.TempDir()
-	origDir, _ := os.Getwd()
-	t.Chdir(tmpDir)
-	defer t.Chdir(origDir)
-
-	// Create workflow.yaml first
-	workflowFile := filepath.Join(tmpDir, "workflow.yaml")
-	err := os.WriteFile(workflowFile, []byte("test workflow"), 0644)
-	require.NoError(t, err)
-
-	// Create minimal kdeps structure
-	goModPath := filepath.Join(tmpDir, "go.mod")
-	err = os.WriteFile(goModPath, []byte("module github.com/kdeps/kdeps/v2"), 0644)
-	require.NoError(t, err)
-
-	mainPath := filepath.Join(tmpDir, "main.go")
-	err = os.WriteFile(mainPath, []byte("package main"), 0644)
-	require.NoError(t, err)
-
-	// Create cmd directory with files
-	cmdDir := filepath.Join(tmpDir, "cmd")
-	err = os.MkdirAll(cmdDir, 0755)
-	require.NoError(t, err)
-
-	cmdFile := filepath.Join(cmdDir, "main.go")
-	err = os.WriteFile(cmdFile, []byte("package main"), 0644)
-	require.NoError(t, err)
-
-	workflow := &domain.Workflow{
-		Metadata: domain.WorkflowMetadata{
-			Name:    "test",
-			Version: "1.0.0",
-		},
-	}
-
-	dockerfile := "FROM golang:1.21\nCOPY . /kdeps\n"
-
-	contextReader, err := builder.CreateBuildContext(workflow, dockerfile)
-	require.NoError(t, err)
-	assert.NotNil(t, contextReader)
-
-	// Verify tar was created successfully
-	data, err := io.ReadAll(contextReader)
-	require.NoError(t, err)
-	assert.NotEmpty(t, data, "Tar should contain kdeps files")
-}
-
-func TestBuilder_addCurrentBinary(t *testing.T) {
-	// Skip this test in CI or environments without full kdeps source tree
-	// This is an integration test that requires specific build environment
-	if os.Getenv("KDEPS_INTEGRATION_TESTS") == "" {
-		t.Skip("Skipping integration test - set KDEPS_INTEGRATION_TESTS=1 to run")
-	}
-	tmpDir := t.TempDir()
-
-	// Create a fake binary file first, so we can reference its path
-	binaryPath := filepath.Join(tmpDir, "kdeps-binary")
-	err := os.WriteFile(binaryPath, []byte("fake binary content"), 0755)
-	require.NoError(t, err)
-
-	builder := &docker.Builder{
-		BaseOS: "alpine",
-		ExecutableFunc: func() (string, error) {
-			// Return path to the fake binary we created
-			return binaryPath, nil
-		},
-	}
-
-	origDir, _ := os.Getwd()
-	t.Chdir(tmpDir)
-	defer t.Chdir(origDir)
-
-	// Create workflow.yaml (required by CreateBuildContext)
-	workflowFile := filepath.Join(tmpDir, "workflow.yaml")
-	err = os.WriteFile(workflowFile, []byte("test workflow"), 0644)
-	require.NoError(t, err)
-
-	workflow := &domain.Workflow{
-		Metadata: domain.WorkflowMetadata{
-			Name:    "test",
-			Version: "1.0.0",
-		},
-	}
-
-	dockerfile := "FROM alpine\nCOPY kdeps-binary /usr/local/bin/kdeps\n"
-
-	contextReader, err := builder.CreateBuildContext(workflow, dockerfile)
-	require.NoError(t, err)
-	assert.NotNil(t, contextReader)
-
-	// Verify binary was included in tar
-	data, err := io.ReadAll(contextReader)
-	require.NoError(t, err)
-	assert.NotEmpty(t, data, "Tar should contain binary file")
-}
-
-// MockCompiler implements the Compiler interface for testing.
-type MockCompiler struct {
-	CreateTempDirFunc  func() (string, error)
-	RemoveAllFunc      func(path string) error
-	ExecuteCommandFunc func(ctx context.Context, dir string, env []string, name string, args ...string) ([]byte, error)
-	ReadFileFunc       func(path string) ([]byte, error)
-	WriteTarHeaderFunc func(tw *tar.Writer, header *tar.Header) error
-	WriteTarDataFunc   func(tw *tar.Writer, data []byte) error
-}
-
-func (m *MockCompiler) CreateTempDir() (string, error) {
-	if m.CreateTempDirFunc != nil {
-		return m.CreateTempDirFunc()
-	}
-	return os.MkdirTemp("", "test-*")
-}
-
-func (m *MockCompiler) RemoveAll(path string) error {
-	if m.RemoveAllFunc != nil {
-		return m.RemoveAllFunc(path)
-	}
-	return os.RemoveAll(path)
-}
-
-func (m *MockCompiler) ExecuteCommand(
-	ctx context.Context,
-	dir string,
-	env []string,
-	name string,
-	args ...string,
-) ([]byte, error) {
-	if m.ExecuteCommandFunc != nil {
-		return m.ExecuteCommandFunc(ctx, dir, env, name, args...)
-	}
-	return []byte(""), nil
-}
-
-func (m *MockCompiler) ReadFile(path string) ([]byte, error) {
-	if m.ReadFileFunc != nil {
-		return m.ReadFileFunc(path)
-	}
-	return []byte("fake binary"), nil
-}
-
-func (m *MockCompiler) WriteTarHeader(tw *tar.Writer, header *tar.Header) error {
-	if m.WriteTarHeaderFunc != nil {
-		return m.WriteTarHeaderFunc(tw, header)
-	}
-	return tw.WriteHeader(header)
-}
-
-func (m *MockCompiler) WriteTarData(tw *tar.Writer, data []byte) error {
-	if m.WriteTarDataFunc != nil {
-		return m.WriteTarDataFunc(tw, data)
-	}
-	_, err := tw.Write(data)
-	return err
-}
-
-func TestCrossCompiler_NewCrossCompiler(t *testing.T) {
-	mockCompiler := &MockCompiler{}
-	cc := docker.NewCrossCompiler(mockCompiler)
-	assert.NotNil(t, cc)
-	assert.Equal(t, mockCompiler, cc.Compiler)
-}
-
-func TestCrossCompiler_CompileArchitectures_Success(t *testing.T) {
-	mockCompiler := &MockCompiler{
-		CreateTempDirFunc: func() (string, error) {
-			return t.TempDir(), nil
-		},
-		ExecuteCommandFunc: func(_ context.Context, _ string, _ []string, _ string, _ ...string) ([]byte, error) {
-			// Simulate successful Go build
-			return []byte(""), nil
-		},
-		ReadFileFunc: func(_ string) ([]byte, error) {
-			return []byte("fake binary content"), nil
-		},
-	}
-
-	var buf bytes.Buffer
-	tw := tar.NewWriter(&buf)
-	defer tw.Close()
-
-	cc := docker.NewCrossCompiler(mockCompiler)
-	err := cc.CompileArchitectures(tw, "/fake/kdeps/root")
-	require.NoError(t, err)
-
-	// Verify tar contains expected files
-	tw.Close()
-	data := buf.Bytes()
-	assert.NotEmpty(t, data)
-
-	// Check for expected binary names and install script
-	assert.Contains(t, string(data), "kdeps-binary-amd64")
-	assert.Contains(t, string(data), "kdeps-binary-arm64")
-	assert.Contains(t, string(data), "install-kdeps.sh")
-}
-
-func TestCrossCompiler_CompileArchitectures_BuildFailure(t *testing.T) {
-	mockCompiler := &MockCompiler{
-		CreateTempDirFunc: func() (string, error) {
-			return t.TempDir(), nil
-		},
-		ExecuteCommandFunc: func(_ context.Context, _ string, _ []string, _ string, _ ...string) ([]byte, error) {
-			// Simulate build failure
-			return []byte("build failed"), errors.New("go build failed")
-		},
-	}
-
-	var buf bytes.Buffer
-	tw := tar.NewWriter(&buf)
-	defer tw.Close()
-
-	cc := docker.NewCrossCompiler(mockCompiler)
-	err := cc.CompileArchitectures(tw, "/fake/kdeps/root")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to cross-compile kdeps for linux/amd64")
-}
-
-func TestCrossCompiler_compileForArchitecture_ReadFileFailure(t *testing.T) {
-	mockCompiler := &MockCompiler{
-		CreateTempDirFunc: func() (string, error) {
-			return t.TempDir(), nil
-		},
-		ExecuteCommandFunc: func(_ context.Context, _ string, _ []string, _ string, _ ...string) ([]byte, error) {
-			return []byte(""), nil
-		},
-		ReadFileFunc: func(_ string) ([]byte, error) {
-			return nil, errors.New("read file failed")
-		},
-	}
-
-	var buf bytes.Buffer
-	tw := tar.NewWriter(&buf)
-	defer tw.Close()
-
-	cc := docker.NewCrossCompiler(mockCompiler)
-	err := cc.CompileArchitectures(tw, "/fake/kdeps/root")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to read compiled binary for amd64")
-}
-
-func TestCrossCompiler_addArchitectureDetectionScript_WriteFailure(t *testing.T) {
-	mockCompiler := &MockCompiler{
-		WriteTarHeaderFunc: func(_ *tar.Writer, _ *tar.Header) error {
-			return errors.New("write header failed")
-		},
-	}
-
-	var buf bytes.Buffer
-	tw := tar.NewWriter(&buf)
-	defer tw.Close()
-
-	cc := docker.NewCrossCompiler(mockCompiler)
-	err := cc.CompileArchitectures(tw, "/fake/kdeps/root")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "write header failed")
 }
 
 func TestDefaultCompiler_InterfaceMethods(t *testing.T) {

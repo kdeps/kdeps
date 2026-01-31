@@ -1,18 +1,3 @@
-{{ .BackendStage }}
-{{- if not .UsePrebuiltBinary }}
-
-# Stage: Build kdeps binary
-FROM golang:1.24-alpine AS kdeps-builder
-WORKDIR /build
-RUN apk add --no-cache git gcc musl-dev
-COPY go.mod go.sum ./
-RUN go mod download
-COPY main.go ./
-COPY cmd/ ./cmd/
-COPY pkg/ ./pkg/
-RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o kdeps .
-{{- end }}
-
 # Stage 2: Final image
 FROM alpine:3.18
 
@@ -36,6 +21,9 @@ RUN apk add --no-cache \
     gcompat \
     libstdc++ \
     rsync
+
+# Install kdeps via official install script
+RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh -s -- -b /usr/local/bin
 
 # Install Python and ensure pip is up to date
 RUN python3 -m ensurepip && \
@@ -68,17 +56,6 @@ RUN uv pip install{{ range .PythonPackages }} {{ . }}{{ end }}
 # Install from requirements file
 COPY {{ .RequirementsFile }} /tmp/requirements.txt
 RUN uv pip install -r /tmp/requirements.txt
-{{- end }}
-
-# Copy kdeps binary
-{{- if .UsePrebuiltBinary }}
-# Copy both architecture binaries and install the correct one
-COPY kdeps-binary-amd64 /kdeps-binary-amd64
-COPY kdeps-binary-arm64 /kdeps-binary-arm64
-COPY install-kdeps.sh /install-kdeps.sh
-RUN /install-kdeps.sh && rm /kdeps-binary-amd64 /kdeps-binary-arm64 /install-kdeps.sh
-{{- else }}
-COPY --from=kdeps-builder /build/kdeps /usr/local/bin/kdeps
 {{- end }}
 
 # Copy workflow files
