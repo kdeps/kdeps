@@ -27,11 +27,6 @@ import (
 	"github.com/kdeps/kdeps/v2/pkg/version"
 )
 
-var (
-	Version = "2.0.0-dev"
-	Commit  = "dev"
-)
-
 // AppConfig holds the application configuration variables.
 type AppConfig struct {
 	// Version is set during build.
@@ -65,10 +60,6 @@ func NewAppConfigForTesting(executeCmd func(string, string) error) *AppConfig {
 }
 
 func main() {
-	// Initialize global version variables (v1 pattern)
-	version.Version = Version
-	version.Commit = Commit
-
 	runMain(NewAppConfig())
 }
 

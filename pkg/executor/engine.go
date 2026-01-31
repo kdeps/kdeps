@@ -609,6 +609,8 @@ func (e *Engine) RunPreflightCheck(resource *domain.Resource, ctx *ExecutionCont
 }
 
 // ExecuteResource executes a single resource.
+//
+//nolint:gocognit // resource execution handles multiple pathways
 func (e *Engine) ExecuteResource(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
@@ -661,14 +663,14 @@ func (e *Engine) ExecuteResource(
 
 	// Execute expr blocks (run AFTER primary execution type for backward compatibility).
 	if len(resource.Run.Expr) > 0 {
-		if err := e.executeExpressions(resource.Run.Expr, ctx); err != nil {
+		if err = e.executeExpressions(resource.Run.Expr, ctx); err != nil {
 			return nil, err
 		}
 	}
 
 	// Execute exprAfter blocks (alias for expr, also runs after primary execution).
 	if len(resource.Run.ExprAfter) > 0 {
-		if err := e.executeExpressions(resource.Run.ExprAfter, ctx); err != nil {
+		if err = e.executeExpressions(resource.Run.ExprAfter, ctx); err != nil {
 			return nil, err
 		}
 	}
@@ -1159,26 +1161,7 @@ func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (i
 		"backend", backendName)
 
 	// Store LLM metadata in context (for API response meta)
-	// Evaluate model string BEFORE acquiring lock (evaluation may call ctx.Get which needs RLock)
-	evaluatedModel := resource.Run.Chat.Model
-	if modelExpr, parseErr := expression.NewParser().ParseValue(resource.Run.Chat.Model); parseErr == nil {
-		evaluator := expression.NewEvaluator(ctx.API)
-		env := e.buildEvaluationEnvironment(ctx)
-		if modelValue, evalErr := evaluator.Evaluate(modelExpr, env); evalErr == nil {
-			if modelStr, ok := modelValue.(string); ok {
-				evaluatedModel = modelStr
-			}
-		}
-	}
-
-	// Now acquire lock only for updating metadata
-	ctx.mu.Lock()
-	if ctx.LLMMetadata == nil {
-		ctx.LLMMetadata = &LLMMetadata{}
-	}
-	ctx.LLMMetadata.Model = evaluatedModel
-	ctx.LLMMetadata.Backend = backendName
-	ctx.mu.Unlock()
+	e.updateLLMMetadata(ctx, resource.Run.Chat.Model, backendName)
 
 	// Set tool executor interface for tool execution (via adapter pattern to avoid import cycle)
 	// The adapter wraps the LLM executor and implements SetToolExecutor
@@ -1720,4 +1703,26 @@ func (e *Engine) FormatDuration(d time.Duration) string {
 	default:
 		return fmt.Sprintf("%ds", seconds)
 	}
+}
+
+// updateLLMMetadata evaluates the model string and updates the LLM metadata in the context.
+func (e *Engine) updateLLMMetadata(ctx *ExecutionContext, model string, backendName string) {
+	evaluatedModel := model
+	if modelExpr, parseErr := expression.NewParser().ParseValue(model); parseErr == nil {
+		evaluator := expression.NewEvaluator(ctx.API)
+		env := e.buildEvaluationEnvironment(ctx)
+		if modelValue, evalErr := evaluator.Evaluate(modelExpr, env); evalErr == nil {
+			if modelStr, ok := modelValue.(string); ok {
+				evaluatedModel = modelStr
+			}
+		}
+	}
+
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+	if ctx.LLMMetadata == nil {
+		ctx.LLMMetadata = &LLMMetadata{}
+	}
+	ctx.LLMMetadata.Model = evaluatedModel
+	ctx.LLMMetadata.Backend = backendName
 }

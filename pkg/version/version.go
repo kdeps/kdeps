@@ -21,7 +21,9 @@ package version
 
 var (
 	// Version is the current version of KDeps.
+	//nolint:gochecknoglobals // Version is injected at build time via ldflags
 	Version = "2.0.0-dev"
 	// Commit is the git commit SHA of the current build.
+	//nolint:gochecknoglobals // Commit is injected at build time via ldflags
 	Commit = "dev"
 )

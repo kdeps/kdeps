@@ -3115,7 +3115,7 @@ func TestEngine_Execute_EdgeCases(t *testing.T) {
 		engine := executor.NewEngine(slog.Default())
 
 		// Override the newExecutionContext function to simulate failure
-		engine.SetAfterEvaluatorInitForTesting(func(e *executor.Engine, ctx *executor.ExecutionContext) {
+		engine.SetAfterEvaluatorInitForTesting(func(_ *executor.Engine, _ *executor.ExecutionContext) {
 			// Simulate a failure in execution context creation by setting a callback
 			// that would cause issues, but for now we'll test the basic path
 		})
