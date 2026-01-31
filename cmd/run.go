@@ -465,8 +465,8 @@ func (a *RequestContextAdapter) Execute(workflow *domain.Workflow, req interface
 	return result, err
 }
 
-// checkPortAvailable checks if a port is available for binding.
-func checkPortAvailable(host string, port int) error {
+// CheckPortAvailable checks if a port is available for binding (exported for testing).
+func CheckPortAvailable(host string, port int) error {
 	addr := fmt.Sprintf("%s:%d", host, port)
 	listener, err := (&net.ListenConfig{
 		Control:   nil,
@@ -633,7 +633,7 @@ func StartHTTPServer(workflow *domain.Workflow, workflowPath string, devMode boo
 	addr := fmt.Sprintf("%s:%d", serverConfig.HostIP, serverConfig.PortNum)
 
 	// Check if port is available before starting
-	if err := checkPortAvailable(serverConfig.HostIP, serverConfig.PortNum); err != nil {
+	if err := CheckPortAvailable(serverConfig.HostIP, serverConfig.PortNum); err != nil {
 		return fmt.Errorf("API server cannot start: %w", err)
 	}
 
@@ -750,7 +750,7 @@ func StartWebServer(workflow *domain.Workflow, workflowPath string, _ bool) erro
 	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 
 	// Check if port is available before starting
-	if err := checkPortAvailable(hostIP, portNum); err != nil {
+	if err := CheckPortAvailable(hostIP, portNum); err != nil {
 		return fmt.Errorf("web server cannot start: %w", err)
 	}
 
