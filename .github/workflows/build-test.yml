@@ -21,9 +21,9 @@ jobs:
         with:
           go-version-file: 'go.mod'
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v4
+        uses: golangci/golangci-lint-action@v9
         with:
-          version: latest
+          version: v2.8.0
           args: --timeout=5m
 
   test:
@@ -38,7 +38,7 @@ jobs:
 
     # We need golangci-lint installed because 'make test-unit' depends on 'lint'
     - name: Install golangci-lint
-      run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.61.0
+      run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.8.0
 
     - name: Build
       run: make build
