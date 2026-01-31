@@ -29,6 +29,8 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    env:
+      UV_NO_CACHE: 1
     steps:
     - uses: actions/checkout@v4
 

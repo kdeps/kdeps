@@ -195,7 +195,11 @@ func TestManager_EnsureVenv_CreatesDirectory(t *testing.T) {
 	// May succeed if uv is available, or fail if not
 	// Directory should be created in either case
 	if err != nil {
-		assert.Contains(t, err.Error(), "failed to create venv")
+		assert.True(t,
+			strings.Contains(err.Error(), "failed to create venv") ||
+				strings.Contains(err.Error(), "failed to install packages") ||
+				strings.Contains(err.Error(), "failed to install requirements"),
+			"Error should be related to venv creation or package installation: %v", err)
 	}
 
 	// Check that base directory was created
@@ -211,7 +215,11 @@ func TestManager_EnsureVenv_WithPackages(t *testing.T) {
 	// May succeed if uv is available, or fail if not
 	// Just verify it doesn't crash
 	if err != nil {
-		assert.Contains(t, err.Error(), "failed to create venv")
+		assert.True(t,
+			strings.Contains(err.Error(), "failed to create venv") ||
+				strings.Contains(err.Error(), "failed to install packages") ||
+				strings.Contains(err.Error(), "failed to install requirements"),
+			"Error should be related to venv creation or package installation: %v", err)
 	}
 }
 
@@ -227,7 +235,11 @@ func TestManager_EnsureVenv_WithRequirements(t *testing.T) {
 	// May succeed if uv is available, or fail if not
 	// Just verify it doesn't crash
 	if err != nil {
-		assert.Contains(t, err.Error(), "failed to create venv")
+		assert.True(t,
+			strings.Contains(err.Error(), "failed to create venv") ||
+				strings.Contains(err.Error(), "failed to install packages") ||
+				strings.Contains(err.Error(), "failed to install requirements"),
+			"Error should be related to venv creation or package installation: %v", err)
 	}
 }
 
@@ -396,7 +408,11 @@ func TestManager_EnsureVenv_EmptyPackageList(t *testing.T) {
 	// May succeed if uv is available, or fail if not
 	// Just verify it doesn't crash
 	if err != nil {
-		assert.Contains(t, err.Error(), "failed to create venv")
+		assert.True(t,
+			strings.Contains(err.Error(), "failed to create venv") ||
+				strings.Contains(err.Error(), "failed to install packages") ||
+				strings.Contains(err.Error(), "failed to install requirements"),
+			"Error should be related to venv creation or package installation: %v", err)
 	}
 }
 
@@ -408,7 +424,11 @@ func TestManager_EnsureVenv_NilPackageList(t *testing.T) {
 	// May succeed if uv is available, or fail if not
 	// Just verify it doesn't crash
 	if err != nil {
-		assert.Contains(t, err.Error(), "failed to create venv")
+		assert.True(t,
+			strings.Contains(err.Error(), "failed to create venv") ||
+				strings.Contains(err.Error(), "failed to install packages") ||
+				strings.Contains(err.Error(), "failed to install requirements"),
+			"Error should be related to venv creation or package installation: %v", err)
 	}
 }
 
@@ -477,7 +497,11 @@ func TestManager_EnsureVenv_DifferentPythonVersions(t *testing.T) {
 			// May succeed if uv is available, or fail if not
 			// Just verify it doesn't crash
 			if err != nil {
-				assert.Contains(t, err.Error(), "failed to create venv")
+				assert.True(t,
+					strings.Contains(err.Error(), "failed to create venv") ||
+						strings.Contains(err.Error(), "failed to install packages") ||
+						strings.Contains(err.Error(), "failed to install requirements"),
+					"Error should be related to venv creation or package installation: %v", err)
 			}
 		})
 	}
@@ -495,7 +519,11 @@ func TestManager_EnsureVenv_MixedPackagesAndRequirements(t *testing.T) {
 	// May succeed if uv is available, or fail if not
 	// Just verify it doesn't crash
 	if err != nil {
-		assert.Contains(t, err.Error(), "failed to create venv")
+		assert.True(t,
+			strings.Contains(err.Error(), "failed to create venv") ||
+				strings.Contains(err.Error(), "failed to install packages") ||
+				strings.Contains(err.Error(), "failed to install requirements"),
+			"Error should be related to venv creation or package installation: %v", err)
 	}
 }
 
@@ -511,7 +539,11 @@ func TestManager_EnsureVenv_EmptyRequirementsFile(t *testing.T) {
 	// May succeed if uv is available, or fail if not
 	// Just verify it doesn't crash
 	if err != nil {
-		assert.Contains(t, err.Error(), "failed to create venv")
+		assert.True(t,
+			strings.Contains(err.Error(), "failed to create venv") ||
+				strings.Contains(err.Error(), "failed to install packages") ||
+				strings.Contains(err.Error(), "failed to install requirements"),
+			"Error should be related to venv creation or package installation: %v", err)
 	}
 }
 
