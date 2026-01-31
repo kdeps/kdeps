@@ -21,7 +21,7 @@ package version
 
 var (
 	// Version is the current version of KDeps.
-	Version = "dev"
+	Version = "2.0.0-dev"
 	// Commit is the git commit SHA of the current build.
-	Commit = "none"
+	Commit = "dev"
 )

@@ -36,6 +36,15 @@ jobs:
       with:
         go-version-file: 'go.mod'
 
+    - name: Install uv
+      run: curl -LsSf https://astral.sh/uv/install.sh | sh && echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+    - name: Install ollama
+      run: |
+        curl -L https://ollama.com/download/ollama-linux-amd64.tgz -o ollama.tgz
+        sudo tar -C /usr -xzf ollama.tgz
+        ollama --version
+
     # We need golangci-lint installed because 'make test-unit' depends on 'lint'
     - name: Install golangci-lint
       run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.8.0
