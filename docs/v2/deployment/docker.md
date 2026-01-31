@@ -248,24 +248,33 @@ Run with:
 docker-compose up -d
 ```
 
-## Multi-Stage Build
+## Optimized Build Process
 
-The generated Dockerfile uses multi-stage builds for optimization:
+KDeps uses a streamlined build process that leverages the official installation script. This ensures the smallest possible image size and maximum compatibility.
 
 ```dockerfile
-# Stage 1: Build Python environment
-FROM python:3.12-alpine AS python-builder
-RUN pip install uv
-COPY requirements.txt .
-RUN uv pip install -r requirements.txt
+# Example of generated Dockerfile logic
+FROM alpine:3.18
 
-# Stage 2: Final image
-FROM alpine:3.19
-COPY --from=python-builder /venv /venv
-COPY . /agent
-WORKDIR /agent
-ENTRYPOINT ["./entrypoint.sh"]
+# Install dependencies
+RUN apk add --no-cache curl bash python3 py3-pip
+
+# Install kdeps via official install script
+RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh -s -- -b /usr/local/bin
+
+# Copy agent files
+COPY workflow.yaml /app/workflow.yaml
+COPY resources/ /app/resources/
+
+WORKDIR /app
+ENTRYPOINT ["kdeps"]
+CMD ["run", "workflow.yaml"]
 ```
+
+The build process also automatically handles:
+- **Python environments**: Integrated `uv` for 97% smaller virtual environments.
+- **Model management**: Pre-pulling models for offline readiness.
+- **Service orchestration**: Lightweight `supervisor` to manage API and LLM processes.
 
 ## Health Checks
 
@@ -433,7 +442,7 @@ docker info
 
 1. Use `alpine` base OS
 2. Remove unnecessary packages
-3. Use multi-stage builds (automatic)
+3. Use optimized templates (automatic)
 4. Avoid `offlineMode` unless needed
 
 ### Model Download Slow

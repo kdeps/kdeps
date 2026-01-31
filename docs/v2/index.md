@@ -113,14 +113,14 @@ Use any LLM backend - local or cloud. Mix and match different models in the same
 ## Quick Start
 
 ```bash
-# Install KDeps
+# Install KDeps (Mac/Linux)
 curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
+
+# Or via Homebrew (Mac)
+brew install kdeps/tap/kdeps
 
 # Create a new agent interactively
 kdeps new my-agent
-
-# Or run an existing workflow
-kdeps run examples/chatbot/workflow.yaml
 ```
 
 ## Example: Simple Chatbot

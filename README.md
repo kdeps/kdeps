@@ -34,6 +34,9 @@ This v2 release is a complete rewrite focusing on developer experience and perfo
 # Install via script (Mac/Linux)
 curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
 
+# Or via Homebrew (Mac)
+brew install kdeps/tap/kdeps
+
 # Or build from source
 go install github.com/kdeps/kdeps/v2@latest
 ```
