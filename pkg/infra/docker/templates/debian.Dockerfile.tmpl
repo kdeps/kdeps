@@ -1,0 +1,120 @@
+{{ .BackendStage }}
+{{- if not .UsePrebuiltBinary }}
+
+# Stage: Build kdeps binary
+FROM golang:1.24 AS kdeps-builder
+WORKDIR /build
+RUN apt-get update && apt-get install -y git gcc libc6-dev && rm -rf /var/lib/apt/lists/*
+COPY go.mod go.sum ./
+RUN go mod download
+COPY main.go ./
+COPY cmd/ ./cmd/
+COPY pkg/ ./pkg/
+RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o kdeps .
+{{- end }}
+
+# Stage 2: Final image
+FROM debian:12-slim
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PATH=/opt/venv/bin:$PATH \
+    {{- if .InstallOllama }}
+    OLLAMA_HOST=127.0.0.1 \
+    OLLAMA_PORT={{ .BackendPort }} \
+    {{- end }}
+    BACKEND_PORT={{ .BackendPort }}
+
+# Install base dependencies
+RUN apt-get update && \
+    apt-get install -y \
+        python3 \
+        python3-venv \
+        python3-pip \
+        curl \
+        wget \
+        ca-certificates \
+        supervisor \
+        bash \
+        rsync && \
+    rm -rf /var/lib/apt/lists/*
+
+{{- if .OSPackages }}
+
+# Install OS packages
+RUN apt-get update && \
+    apt-get install -y{{ range .OSPackages }} {{ . }}{{ end }} && \
+    rm -rf /var/lib/apt/lists/*
+{{- end }}
+
+# Install LLM backend
+{{ .BackendInstall }}
+
+# Install uv for Python package management
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+RUN chmod +x /usr/local/bin/uv
+
+# Create virtual environment
+RUN uv venv /opt/venv
+
+{{- if .PythonPackages }}
+
+# Install Python packages
+RUN uv pip install{{ range .PythonPackages }} {{ . }}{{ end }}
+{{- end }}
+
+{{- if .RequirementsFile }}
+
+# Install from requirements file
+COPY {{ .RequirementsFile }} /tmp/requirements.txt
+RUN uv pip install -r /tmp/requirements.txt
+{{- end }}
+
+# Copy kdeps binary
+{{- if .UsePrebuiltBinary }}
+# Copy both architecture binaries and install the correct one
+COPY kdeps-binary-amd64 /kdeps-binary-amd64
+COPY kdeps-binary-arm64 /kdeps-binary-arm64
+COPY install-kdeps.sh /install-kdeps.sh
+RUN /install-kdeps.sh && rm /kdeps-binary-amd64 /kdeps-binary-arm64 /install-kdeps.sh
+{{- else }}
+COPY --from=kdeps-builder /build/kdeps /usr/local/bin/kdeps
+{{- end }}
+
+# Copy workflow files
+COPY workflow.yaml /app/workflow.yaml
+{{- if .HasResources }}
+COPY resources/ /app/resources/
+{{- end }}
+{{- if .HasData }}
+COPY data/ /app/data/
+{{- end }}
+
+# Copy entrypoint and supervisor config
+COPY entrypoint.sh /entrypoint.sh
+COPY supervisord.conf /etc/supervisord.conf
+RUN chmod +x /entrypoint.sh
+
+{{- if and .OfflineMode .Models .InstallOllama }}
+
+# Download models during build time for offline mode
+RUN mkdir -p /models
+
+# Download Ollama models
+RUN (OLLAMA_HOST=127.0.0.1 OLLAMA_MODELS=/models ollama serve &) && \
+    sleep 10 && \
+    {{- range $i, $model := .Models }}{{ if $i }} && \{{ end }}
+    OLLAMA_HOST=127.0.0.1 OLLAMA_MODELS=/models ollama pull {{ $model }}{{ end }} && \
+    pkill -f ollama && \
+    sleep 2
+{{- end }}
+
+WORKDIR /app
+
+# Expose ports
+EXPOSE {{ .APIPort }} {{ .BackendPort }}
+
+# Use entrypoint for backend management
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["supervisord", "-c", "/etc/supervisord.conf"]

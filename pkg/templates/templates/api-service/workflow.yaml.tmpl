@@ -1,0 +1,104 @@
+apiVersion: v2
+kind: Workflow
+metadata:
+  name: {{ .Name }}
+  description: {{ .Description }}
+  version: {{ .Version }}
+  targetActionId: response
+
+settings:
+  apiServerMode: true
+  apiServer:
+    hostIp: "0.0.0.0"
+    portNum: {{ .Port }}
+    routes:
+      - path: /api/process
+        methods: [POST]
+    cors:
+      enableCors: true
+      allowOrigins:
+        - "http://localhost:3000"
+        - "http://localhost:{{ .Port }}"
+      allowMethods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+      allowHeaders:
+        - "Content-Type"
+        - "Authorization"
+
+  agentSettings:
+    timezone: "UTC"
+    offlineMode: false
+
+resources:
+{{- if has .Resources "http-client" }}
+  - apiVersion: v2
+    kind: Resource
+    metadata:
+      actionId: fetchData
+      name: Fetch Data
+    run:
+      httpClient:
+        method: GET
+        url: "https://api.example.com/data/{{ "{{" }} get('id') {{ "}}" }}"
+        headers:
+          Authorization: "Bearer {{ "{{" }} get('api_token') {{ "}}" }}"
+        timeoutDuration: "30s"
+      validation:
+        required:
+          - id
+        rules:
+          - field: id
+            type: string
+            minLength: 1
+            message: "ID is required"
+{{- end }}
+
+{{- if has .Resources "llm" }}
+  - apiVersion: v2
+    kind: Resource
+    metadata:
+      actionId: processWithLLM
+      name: LLM Processing
+      requires:
+        {{- if has .Resources "http-client" }}
+        - fetchData
+        {{- end }}
+    run:
+      chat:
+        model: llama3.2:1b
+        prompt: |
+          Process the following data:
+          {{ "{{" }} get('fetchData') {{ "}}" }}
+
+          Provide a summary and key insights.
+        jsonResponse: true
+        jsonResponseKeys:
+          - summary
+          - insights
+        timeoutDuration: "60s"
+{{- end }}
+
+{{- if has .Resources "response" }}
+  - apiVersion: v2
+    kind: Resource
+    metadata:
+      actionId: response
+      name: API Response
+      requires:
+        {{- if has .Resources "llm" }}
+        - processWithLLM
+        {{- else if has .Resources "http-client" }}
+        - fetchData
+        {{- end }}
+    run:
+      apiResponse:
+        response:
+          success: true
+          data:
+            result: "{{ "{{" }} get('processWithLLM') {{ "}}" }}"
+          meta:
+            processedAt: "{{ "{{" }} info('current_time') {{ "}}" }}"
+{{- end }}

@@ -1,0 +1,20 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: visionLLM
+  name: Vision LLM
+
+run:
+  chat:
+    model: "moondream:1.8b"
+    role: "user"
+    prompt: "{{ get('q', 'param') }}"
+    files:
+      # Get uploaded file path - use 'file' field name from upload
+      - "{{ get('file', 'filepath') }}"
+    jsonResponse: true
+    jsonResponseKeys:
+      - description
+      - objects
+      - scene

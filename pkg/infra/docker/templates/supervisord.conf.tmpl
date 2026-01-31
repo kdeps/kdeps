@@ -1,0 +1,31 @@
+[supervisord]
+nodaemon=true
+logfile=/var/log/supervisord.log
+pidfile=/var/run/supervisord.pid
+loglevel=info
+
+{{- if .InstallOllama }}
+
+[program:ollama]
+command=/usr/local/bin/ollama serve
+autostart=true
+autorestart=true
+startretries=10
+stderr_logfile=/var/log/ollama.err.log
+stdout_logfile=/var/log/ollama.out.log
+priority=10
+stopwaitsecs=30
+
+{{- end }}
+
+[program:kdeps]
+command=kdeps run /app/workflow.yaml
+autostart=true
+autorestart=true
+startretries=3
+stderr_logfile=/var/log/kdeps.err.log
+stdout_logfile=/var/log/kdeps.out.log
+priority=20
+{{- if .InstallOllama }}
+depends_on=ollama
+{{- end }}

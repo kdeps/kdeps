@@ -1,0 +1,21 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: fileProcessor
+  name: File Processor
+
+run:
+  restrictToHttpMethods: [POST]
+  restrictToRoutes: [/api/v1/upload]
+  apiResponse:
+    success: true
+    response:
+      message: "File processed successfully"
+      file_count: "{{ info('filecount') }}"
+      files: "{{ info('files') }}"
+      file_types: "{{ info('filetypes') }}"
+      first_file:
+        filename: "{{ get('file', 'filepath') }}"
+        path: "{{ get('file', 'filepath') }}"
+        type: "{{ get('file', 'filetype') }}"

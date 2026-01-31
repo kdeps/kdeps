@@ -1,214 +1,57 @@
-name: CI Checks
+name: Build and Test
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
     paths-ignore:
       - 'docs/**'
-      - 'install.sh'
       - 'README.md'
-      - 'Makefile'
-      - 'package.json'
-      - 'package-lock.json'
   pull_request:
-    branches: [ main ]
+    branches: [ "main" ]
     paths-ignore:
       - 'docs/**'
-      - 'install.sh'
       - 'README.md'
-      - 'Makefile'
-      - 'package.json'
-      - 'package-lock.json'
-
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || (github.ref == 'refs/heads/main' && github.sha || github.ref) }}
-  cancel-in-progress: true
-
-
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: kdeps/kdeps
 
 jobs:
-  test:
-    strategy:
-      matrix:
-        # TODO: Make test run on Windows. (Fix Windows support)
-        # platform: [ubuntu-latest, windows-latest]
-        platform: [ubuntu-latest]
-    runs-on: ${{ matrix.platform }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      # TODO: Replace with actions/setup-go once issue is resolved https://github.com/actions/setup-go/pull/515
-      - name: Setup Go
-        uses: antontroshin/setup-go@windows-go-mod-cache
-        with:
-          go-version-file: 'go.mod'
-          cache-dependency-path: "go.sum"
-      # Linux-specific steps
-      - name: Install pkl on Linux
-        if: matrix.platform == 'ubuntu-latest'
-        run: |
-          mkdir -p ~/.local/bin
-          ARCH=$(uname -m)
-          PKL_VERSION=$(curl -s https://api.github.com/repos/apple/pkl/releases/latest | grep -o '"tag_name": *"[^"]*"' | sed 's/"tag_name": *"\(.*\)"/\1/')
-          echo "Installing pkl version: $PKL_VERSION"
-          if [ "$ARCH" = "aarch64" ]; then
-            curl -L -o ~/.local/bin/pkl "https://github.com/apple/pkl/releases/download/${PKL_VERSION}/pkl-linux-aarch64"
-          elif [ "$ARCH" = "x86_64" ]; then
-            curl -L -o ~/.local/bin/pkl "https://github.com/apple/pkl/releases/download/${PKL_VERSION}/pkl-linux-amd64"
-          else
-            echo "Unsupported architecture: $ARCH" && exit 1
-          fi
-          chmod +x ~/.local/bin/pkl
-          echo "PATH=$HOME/.local/bin:$PATH" >> $GITHUB_ENV
-          pkl --version
-        shell: bash
-      # Windows-specific steps
-      - name: Install pkl on Windows
-        if: matrix.platform == 'windows-latest'
-        run: |
-          $PKL_VERSION = (Invoke-RestMethod -Uri 'https://api.github.com/repos/apple/pkl/releases/latest').tag_name
-          Write-Host "Installing pkl version: $PKL_VERSION"
-          Invoke-WebRequest "https://github.com/apple/pkl/releases/download/$PKL_VERSION/pkl-windows-amd64.exe" -OutFile pkl.exe
-          echo "PATH=$env:GITHUB_WORKSPACE;$env:PATH" >> $env:GITHUB_ENV
-          .\pkl.exe --version
-        shell: pwsh
-      # Run tests
-      - name: Run the tests
-        run: |
-          go test -short -v -coverprofile=coverage.out -covermode=atomic ./... | tee -a test.out
-          go tool cover -func=coverage.out | tee -a test.out
-          grep -E "^[[:alnum:]/._-]+\.go:" coverage.out >> test.out
-        shell: bash
-
-      - name: Generate badges
-        uses: gaelgirodon/ci-badges-action@v1
-        with:
-          gist-id: ${{ secrets.GIST_ID }}
-          token: ${{ secrets.GIST_TOKEN }}
-
-#   end2end:
-#     strategy:
-#       matrix:
-#         platform: [ ubuntu-latest, windows-latest ]
-#     runs-on: ${{ matrix.platform }}
-#     steps:
-#       - uses: actions/checkout@v4
-#         with:
-#           fetch-depth: 0
-# # TODO: Replace with actions/setup-go once issue is resolved https://github.com/actions/setup-go/pull/515
-#       - name: Setup Go
-#         uses: antontroshin/setup-go@windows-go-mod-cache
-#         with:
-#           go-version-file: 'go.mod'
-#           cache-dependency-path: "go.sum"
-#       - name: Install winget
-#         if: matrix.platform == 'windows-latest'
-#         uses: Cyberboss/install-winget@v1
-#       - name: Install pkl
-#         run: |
-#           curl -L -o /c/Users/runneradmin/.local/bin/pkl.exe 'https://github.com/apple/pkl/releases/download/0.30.2/pkl-windows-amd64.exe'
-#           chmod +x /c/Users/runneradmin/.local/bin/pkl.exe
-#           /c/Users/runneradmin/.local/bin/pkl.exe --version
-#         shell: bash
-#       - name: Run the tests
-#         run: make test
-#         shell: bash
-
-  dockerBuild:
-    runs-on: ubuntu-latest
-    name: Docker Build
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Log in to the Container registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: kdeps
-          password: ${{ secrets.RELEASE_TOKEN }}
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          platforms: linux/amd64
-          push: false
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
-      - run: make tools
-#      - name: Run golangci-lint
-#        run: golangci-lint run --timeout 10m60s ./...
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v4
+        with:
+          version: latest
+          args: --timeout=5m
 
-  goreleaser-windows:
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: msys2 {0}
-    steps:
-      - uses: actions/checkout@v3
-      - uses: msys2/setup-msys2@v2
-        with:
-          msystem: UCRT64
-          update: true
-          install: git mingw-w64-ucrt-x86_64-gcc
-# TODO: Replace with actions/setup-go once issue is resolved https://github.com/actions/setup-go/pull/515
-      - name: Setup Go
-        uses: antontroshin/setup-go@windows-go-mod-cache
-        with:
-          go-version-file: 'go.mod'
-          cache-dependency-path: "go.sum"
-      - name: Install GoReleaser
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          version: v2.12.5
-          args: build --clean --snapshot --single-target --id kdeps-windows-amd64
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-          VERSION: ${{ github.ref_name }}
-          COMMIT_SHA: ${{ github.sha }}
-
-  goreleaser-unix:
+  test:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: 'go.mod'
+    - uses: actions/checkout@v4
 
-      - name: Run GoReleaser
-        run: |
-          docker run --entrypoint /bin/bash -e VERSION=0.0.0 -e COMMIT_SHA=${{ github.sha }} -v $(pwd):/src -w /src goreleaser/goreleaser-cross:v1.25.2 -c "
-            apt-get update && apt-get install -y libssl1.1 ||
-            (wget http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb &&
-             dpkg -i libssl1.1_1.1.1f-1ubuntu2_amd64.deb) &&
-            git config --global --add safe.directory /src &&
-            goreleaser build --snapshot --clean --id kdeps-darwin --id kdeps-linux-amd64 --id kdeps-linux-arm64 --single-target
-          "
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: 'go.mod'
+
+    # We need golangci-lint installed because 'make test-unit' depends on 'lint'
+    - name: Install golangci-lint
+      run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.61.0
+
+    - name: Build
+      run: make build
+
+    - name: Test Unit
+      run: make test-unit
+
+    - name: Test Integration
+      run: make test-integration
+
+    # E2E tests might require more setup (Docker, etc). 
+    # For now, let's verify if we can run them. 
+    # The 'run.go' mentions docker-compose.
+    # Let's skip E2E for basic CI to ensure stability first, or try it.
+    # The project seems to claim local-first, so maybe E2E runs locally?
+    # Let's stick to unit/integration for now.

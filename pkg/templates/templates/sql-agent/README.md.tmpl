@@ -1,0 +1,72 @@
+# {{ .Name }}
+
+{{ .Description }}
+
+## Quick Start
+
+1. Set up database connection:
+   ```bash
+   export DATABASE_URL="postgres://user:password@localhost/dbname?sslmode=disable"
+   ```
+
+2. Run in development mode:
+   ```bash
+   kdeps run workflow.yaml --dev
+   ```
+
+3. Test the API:
+   ```bash
+   curl -X POST http://localhost:{{ .Port }}/api/query \
+     -H "Content-Type: application/json" \
+     -d '{"status": "active", "limit": 10}'
+   ```
+
+## Configuration
+
+### Database Connection
+
+Configure your database connection in `workflow.yaml`:
+
+```yaml
+settings:
+  sqlConnections:
+    main:
+      driver: postgres  # or mysql, sqlite, sqlserver, oracle
+      dsn: "${DATABASE_URL}"
+```
+
+Supported drivers:
+- `postgres` - PostgreSQL
+- `mysql` - MySQL/MariaDB
+- `sqlite` - SQLite
+- `sqlserver` - Microsoft SQL Server
+- `oracle` - Oracle Database
+
+## API Endpoints
+
+### POST /api/query
+
+Execute SQL query.
+
+**Request**:
+```json
+{
+  "status": "active",
+  "limit": 10
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "results": [...],
+    "count": 10
+  }
+}
+```
+
+## License
+
+MIT

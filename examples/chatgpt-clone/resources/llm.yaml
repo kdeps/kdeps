@@ -1,0 +1,46 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: llmResource
+  name: LLM Chat Handler
+  description: Handles chat requests with the selected LLM model
+
+run:
+  # Only respond to POST requests on /api/v1/chat
+  restrictToHttpMethods:
+    - POST
+  restrictToRoutes:
+    - /api/v1/chat
+
+  # Validate required input
+  validation:
+    required:
+      - message
+    rules:
+      - field: message
+        type: string
+        minLength: 1
+        message: "Message cannot be empty"
+
+  # Set default model if not provided
+  expr:
+    - set('selectedModel', default(get('model'), 'llama3.2:1b'))
+    - set('userMessage', get('message'))
+    - set('systemPrompt', 'You are a helpful AI assistant. Respond clearly and concisely.')
+
+  chat:
+    backend: ollama
+    baseUrl: http://localhost:11434
+    model: "{{ get('selectedModel') }}"
+    role: user
+    prompt: "{{ get('userMessage') }}"
+    scenario:
+      - role: system
+        prompt: "{{ get('systemPrompt') }}"
+    timeoutDuration: 120s
+
+  onError:
+    action: continue
+    fallback:
+      error: true
+      message: "Failed to get response from LLM. Please try again."

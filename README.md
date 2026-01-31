@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="./docs/public/logo.png" width="500" />
-</p>
-
 ![version](https://img.shields.io/github/v/tag/kdeps/kdeps?style=flat-square&label=version)
 ![license](https://img.shields.io/github/license/kdeps/kdeps?style=flat-square)
 ![build](https://img.shields.io/github/actions/workflow/status/kdeps/kdeps/build-test.yml?branch=main&style=flat-square)
@@ -9,930 +5,197 @@
 [![tests](https://img.shields.io/endpoint?style=flat-square&url=https://gist.githubusercontent.com/jjuliano/ce695f832cd51d014ae6d37353311c59/raw/kdeps-go-tests.json)](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml)
 [![coverage](https://img.shields.io/endpoint?style=flat-square&url=https://gist.githubusercontent.com/jjuliano/ce695f832cd51d014ae6d37353311c59/raw/kdeps-go-coverage.json)](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml)
 
-KDeps is a framework that packages everything needed for RAG and AI agents in a single Dockerized image, eliminating the complexity of building self-hosted APIs with open-source LLMs. Instead of juggling multiple tools and dependencies, you can use KDeps to run Python scripts in isolated environments, execute custom shell commands, integrate with external APIs, and leverage endless opinionated LLM combinations and configurations—all while maintaining control over your infrastructure.
+# kdeps - AI Workflows
 
-The framework uses atomic configurations and a graph-based dependency workflow for orchestrating resources, with built-in support for multimodal LLMs, making it particularly appealing for teams looking to avoid vendor lock-in or subscription costs.
+KDeps is a framework that packages everything needed for RAG and AI agents into a single, portable unit. It eliminates the complexity of building self-hosted APIs with open-source LLMs by offering a **local-first** approach that can be easily containerized.
 
-> 📋 **New**: Read our comprehensive [**KDeps Whitepaper**](./docs/KDeps_Whitepaper.md) for detailed technical insights, architecture overview, and competitive analysis.
+Instead of juggling multiple tools and dependencies, you can use KDeps to run Python scripts in isolated environments, execute custom shell commands, integrate with external APIs, and leverage endless opinionated LLM combinations—all configured via simple YAML.
 
-## Key Highlights
-
-### Atomic Configurations
-Build AI agents using small, self-contained configuration blocks that can be combined and reused. Each resource is an atomic unit with its own dependencies, validations, and logic—making it easy to compose complex workflows from simple, maintainable pieces.
-
-### Endless LLM Combinations
-Mix and match different open-source LLMs within a single workflow. Use vision models for image analysis, small models for fast responses, and larger models for complex reasoning—all configured declaratively. Create opinionated LLM pipelines tailored to your specific use case without being locked into a single provider or model.
-
-### Docker-First Development
-Package everything your RAG AI agent needs into a single Docker image—LLMs, dependencies, scripts, and workflows. Run locally during development, then deploy the same container to any environment without modification. No need to manage multiple systems or complex setups.
-
-### Graph-Based Workflow Engine
-Build complex AI agent logic using a dependency-driven workflow system. Chain together different components like LLM calls, scripts, and API requests while the framework automatically handles the execution order and data flow between them.
-
-### Mix-and-Match Components
-Run Python scripts in isolated Anaconda environments, execute shell commands, make HTTP requests, and interact with LLMs—all orchestrated through a unified workflow. Resources can be shared and remixed between different AI agents, promoting code reuse.
-
-### Production-Ready Features
-Built-in support for structured JSON outputs, file uploads, and multimodal LLM interactions. The framework includes preflight validations, skip conditions, and custom error handling to help you build reliable AI agents. API routes can be defined with granular control over HTTP methods and request handling.
-
-## About the name
-
-> "KDeps, short for 'knowledge dependencies,' is inspired by the principle that knowledge—whether from AI, machines, or humans—can be represented, organized, orchestrated, and interacted with through graph-based systems. The name grew out of my work on Kartographer, a lightweight graph library for organizing and interacting with information. KDeps builds on Kartographer's foundation and serves as a RAG-first (Retrieval-Augmented Generation) AI agent framework." — Joel Bryan Juliano, KDeps creator
-
-## Why Offline-First?
-
-- **Privacy and compliance**: Keep sensitive data on your own machines to satisfy PII, GDPR, HIPAA, and enterprise policies.
-- **Reliability**: Apps continue to work without internet or with degraded networks.
-- **Low latency**: Local inference eliminates network round-trips for faster responses.
-- **Predictable cost**: No per-token fees or SaaS subscriptions; run models locally.
-- **Control and independence**: Avoid vendor lock-in and ensure reproducible, auditable deployments.
-- **Data residency**: Run on-premises or at the edge to meet jurisdictional requirements.
-- **Security**: Reduce external attack surface by eliminating third-party AI API dependencies.
-- **Edge readiness**: Process data close to where it's generated for real-time use cases.
-- **Developer productivity**: Fully local dev loop; everything runs in self-contained Docker images.
-
-KDeps enables offline-first by integrating open-source LLMs via Ollama and packaging complete applications (FE/BE, models, and runtimes) into Docker images—no external AI APIs required.
+> **Note:** Prior to v0.6.12, this project used PKL syntax. This new release uses YAML. If you prefer the old PKL syntax, please use version v0.6.12.
 
 ## Key Features
 
-KDeps is loaded with features to streamline full-stack AI app development:
+This v2 release is a complete rewrite focusing on developer experience and performance:
 
-<details>
-  <summary>🧩 Low-code/no-code capabilities</summary>
-  Build <a href="https://kdeps.com/getting-started/configuration/workflow.html">operational full-stack AI apps</a>, enabling accessible development for non-technical users.
+- ✅ **YAML Configuration** - Familiar syntax, no new language to learn (replaced PKL).
+- ✅ **Unified API** - Smart `get()` and `set()` functions that auto-detect data sources, replacing 15+ specific functions.
+- ✅ **Local-First Execution** - Runs locally by default with < 1 sec startup time. Docker is optional.
+- ✅ **uv for Python** - Integrated `uv` support for 97% smaller images and 11x faster builds.
+- ✅ **SQL Integration** - Native support for PostgreSQL, MySQL, SQLite, SQL Server, and Oracle with connection pooling and transactions.
+- ✅ **Interactive Wizard** - Create new agents easily with `kdeps new` (no YAML knowledge needed initially).
+- ✅ **Hot Reload** - Auto-reload workflows on file changes in dev mode.
+- **Graph-Based Engine** - Automatically handles execution order and data flow between resources.
 
-```pkl
-// workflow.pkl
-Name = "ticketResolutionAgent"
-Description = "Automates customer support ticket resolution with LLM responses."
-Version = "1.0.0"
-TargetActionID = "responseResource"
-Settings {
-  APIServerMode = true
-  APIServer {
-    HostIP = "127.0.0.1"
-    PortNum = 3000
-    Routes {
-      new { Path = "/api/v1/ticket"; Methods { "POST" } }
-    }
-    CORS { EnableCORS = true; AllowOrigins { "http://localhost:8080" } }
-  }
-  AgentSettings {
-    Timezone = "Etc/UTC"
-    Models { "llama3.2:1b" }
-    OllamaImageTag = "0.13.5"
-  }
-}
+## Quick Start
+
+### Installation
+
+```bash
+# Install via script (Mac/Linux)
+curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh
+
+# Or build from source
+go install github.com/kdeps/kdeps/v2@latest
 ```
 
-```pkl
-// resources/fetch_data.pkl
-ActionID = "httpFetchResource"
-Name = "CRM Fetch"
-Description = "Fetches ticket data via CRM API."
-run {
-  RestrictToHTTPMethods { "POST" }
-  RestrictToRoutes { "/api/v1/ticket" }
-  PreflightCheck {
-    Validations { "@(request.data().ticket_id)" != "" }
-  }
-  HTTPClient {
-    Method = "GET"
-    Url = "https://crm.example.com/api/ticket/@(request.data().ticket_id)"
-    Headers { ["Authorization"] = "Bearer @(session.getRecord('crm_token'))" }
-    TimeoutDuration = 30.s
-  }
-}
+### Usage
+
+```bash
+# Create a new agent interactively
+kdeps new my-agent
+
+# Run an existing workflow locally
+kdeps run workflow.yaml
+
+# Run with hot reload (dev mode)
+kdeps run workflow.yaml --dev
+
+# Validate workflow syntax
+kdeps validate workflow.yaml
+
+# Package for Docker (optional deployment)
+kdeps package workflow.yaml
+kdeps build my-agent-1.0.0.kdeps
 ```
 
-```pkl
-// resources/llm.pkl
-ActionID = "llmResource"
-Name = "LLM Ticket Response"
-Description = "Generates responses for customer tickets."
-Requires { "httpFetchResource" }
-run {
-  RestrictToHTTPMethods { "POST" }
-  RestrictToRoutes { "/api/v1/ticket" }
-  Chat {
-    Model = "llama3.2:1b"
-    Role = "assistant"
-    Prompt = "Provide a professional response to the customer query: @(request.data().query)"
-    Scenario {
-      new { Role = "system"; Prompt = "You are a customer support assistant. Be polite and concise." }
-      new { Role = "system"; Prompt = "Ticket data: @(client.responseBody("httpFetchResource"))" }
-    }
-    JSONResponse = true
-    JSONResponseKeys { "response_text" }
-    TimeoutDuration = 60.s
-  }
-}
+## Unified API
+
+The core of KDeps v2 is the Unified API, which simplifies data access. The `get()` function automatically detects where your data is coming from based on a priority chain:
+
+### Priority Chain
+1. **Items** (Iteration context)
+2. **Memory** (In-memory storage)
+3. **Session** (Persistent session storage)
+4. **Outputs** (Resource execution results)
+5. **Query** (URL query parameters)
+6. **Body** (Request body data)
+7. **Headers** (HTTP headers)
+8. **Files** (Uploaded files & specific patterns)
+9. **Metadata** (System info)
+
+### Examples
+
+```yaml
+# Get query parameter (auto-detected)
+query: get('q')
+
+# Get header (auto-detected)
+auth: get('Authorization')
+
+# Get resource output (auto-detected)
+data: get('httpResource')
+
+# String interpolation in any field
+prompt: "Who is {{ get('q') }}?"
+
+# Store in memory
+expr:
+  - set('last_query', get('q'))
+
+# Store in session (persists across requests)
+expr:
+  - set('user_id', get('id'), 'session')
 ```
 
-```pkl
-// resources/response.pkl
-ActionID = "responseResource"
-Name = "API Response"
-Description = "Returns ticket resolution response."
-Requires { "llmResource" }
-run {
-  RestrictToHTTPMethods { "POST" }
-  RestrictToRoutes { "/api/v1/ticket" }
-  APIResponse {
-    Success = true
-    Response {
-      Data { "@(llm.response('llmResource'))" }
-    }
-    Meta { Headers { ["Content-Type"] = "application/json" } }
-  }
-}
-```
-</details>
+## Resource Examples
 
-<details>
-  <summary>🐳 Dockerized full-stack AI apps</summary>
-  Build applications with <a href="https://kdeps.com/getting-started/introduction/quickstart.html#quickstart">batteries included</a> for seamless development and deployment, as detailed in the <a href="https://kdeps.com/getting-started/configuration/workflow.html#ai-agent-settings">AI agent settings</a>.
+### LLM Resource
+Connect to local Ollama models or remote APIs.
 
-```pkl
-# Creating a Docker image of the kdeps AI agent is easy!
-# First, package the AI agent project.
-$ kdeps package tickets-ai/
-INFO kdeps package created package-file=tickets-ai-1.0.0.kdeps
-# Then build a docker image and run.
-$ kdeps run tickets-ai-1.0.0.kdeps
-# It also creates a Docker compose configuration file.
+```yaml
+run:
+  chat:
+    model: llama3.2:1b
+    prompt: "{{ get('q') }}"
+    jsonResponse: true
+    jsonResponseKeys:
+      - answer
+      - confidence
 ```
 
-```pkl
-# docker-compose.yml
-version: '3.8'
-services:
-  kdeps-tickets-ai-cpu:
-    image: kdeps-tickets-ai:1.0.0
-    ports:
-      - "127.0.0.1:3000"
-    restart: on-failure
-    volumes:
-      - ollama:/root/.ollama
-      - kdeps:/agent/volume
-volumes:
-  ollama:
-    external:
-      name: ollama
-  kdeps:
-    external:
-      name: kdeps
-```
-</details>
+### HTTP Client
+Make external API calls.
 
-<details>
-  <summary>🖼️ Support for vision or multimodal LLMs</summary>
-  Process text, images, and other data types in a single workflow with <a href="https://kdeps.com/getting-started/resources/multimodal.html">vision or multimodal LLMs</a>.
-
-```pkl
-// workflow.pkl
-Name = "visualTicketAnalyzer"
-Description = "Analyzes images in support tickets for defects using a vision model."
-Version = "1.0.0"
-TargetActionID = "responseResource"
-Settings {
-  APIServerMode = true
-  APIServer {
-    HostIP = "127.0.0.1"
-    PortNum = 3000
-    Routes {
-      new { Path = "/api/v1/visual-ticket"; Methods { "POST" } }
-    }
-    CORS { EnableCORS = true; AllowOrigins { "http://localhost:8080" } }
-  }
-  AgentSettings {
-    Timezone = "Etc/UTC"
-    Models { "llama3.2-vision" }
-    OllamaImageTag = "0.13.5"
-  }
-}
+```yaml
+run:
+  httpClient:
+    method: GET
+    url: "https://api.example.com/data/{{ get('id') }}"
+    headers:
+      Authorization: "Bearer {{ get('token') }}"
 ```
 
-```pkl
-// resources/fetch_data.pkl
-ActionID = "httpFetchResource"
-Name = "CRM Fetch"
-Description = "Fetches ticket data via CRM API."
-run {
-  RestrictToHTTPMethods { "POST" }
-  RestrictToRoutes { "/api/v1/ticket" }
-  PreflightCheck {
-    Validations { "@(request.data().ticket_id)" != "" }
-  }
-  HTTPClient {
-    Method = "GET"
-    Url = "https://crm.example.com/api/ticket/@(request.data().ticket_id)"
-    Headers { ["Authorization"] = "Bearer @(session.getRecord('crm_token'))" }
-    TimeoutDuration = 30.s
-  }
-}
+### SQL Database
+Execute queries with transaction support.
+
+```yaml
+run:
+  sql:
+    connectionName: analytics
+    query: "SELECT * FROM users WHERE id = $1"
+    params:
+      - get('user_id')
+    format: json
 ```
 
-```pkl
-// resources/llm.pkl
-ActionID = "llmResource"
-Name = "Visual Defect Analyzer"
-Description = "Analyzes ticket images for defects."
-Requires { "httpFetchResource" }
-run {
-  RestrictToHTTPMethods { "POST" }
-  RestrictToRoutes { "/api/v1/visual-ticket" }
-  PreflightCheck {
-    Validations { "@(request.filecount())" > 0 }
-  }
-  Chat {
-    Model = "llama3.2-vision"
-    Role = "assistant"
-    Prompt = "Analyze the image for product defects and describe any issues found."
-    Files { "@(request.files()[0])" }
-    Scenario {
-      new { Role = "system"; Prompt = "You are a support assistant specializing in visual defect detection." }
-      new { Role = "system"; Prompt = "Ticket data: @(client.responseBody("httpFetchResource"))" }
-    }
-    JSONResponse = true
-    JSONResponseKeys { "defect_description"; "severity" }
-    TimeoutDuration = 60.s
-  }
-}
+### Python Script
+Run Python code in an isolated environment using `uv`.
+
+```yaml
+run:
+  python:
+    script: |
+      import pandas as pd
+      data = {{ get('httpResource') }}
+      df = pd.DataFrame(data)
+      print(df.describe().to_json())
 ```
 
-```pkl
-// resources/response.pkl
-ActionID = "responseResource"
-Name = "API Response"
-Description = "Returns defect analysis result."
-Requires { "llmResource" }
-run {
-  RestrictToHTTPMethods { "POST" }
-  RestrictToRoutes { "/api/v1/visual-ticket" }
-  APIResponse {
-    Success = true
-    Response {
-      Data { "@(llm.response('llmResource'))" }
-    }
-    Meta { Headers { ["Content-Type"] = "application/json" } }
-  }
-}
+## Architecture
+
+KDeps follows a clean architecture to ensure separation of concerns and maintainability.
+
 ```
-</details>
-
-<details>
-  <summary>🔌 Create custom AI APIs</summary>
-  Serve <a href="https://kdeps.com/getting-started/configuration/workflow.html#llm-models">open-source LLMs</a> through custom <a href="https://kdeps.com/getting-started/configuration/workflow.html#api-server-settings">AI APIs</a> for robust AI-driven applications.
-</details>
-
-<details>
-  <summary>🌐 Pair APIs with frontend apps</summary>
-  Integrate with frontend apps like Streamlit, NodeJS, and more for interactive AI-driven user interfaces, as outlined in <a href="https://kdeps.com/getting-started/configuration/workflow.html#web-server-settings">web server settings</a>.
-
-```pkl
-// workflow.pkl
-Name = "frontendAIApp"
-Description = "Pairs an AI API with a Streamlit frontend for text summarization."
-Version = "1.0.0"
-TargetActionID = "responseResource"
-Settings {
-  APIServerMode = true
-  WebServerMode = true
-  APIServer {
-    HostIP = "127.0.0.1"
-    PortNum = 3000
-    Routes {
-      new { Path = "/api/v1/summarize"; Methods { "POST" } }
-    }
-  }
-  WebServer {
-    HostIP = "127.0.0.1"
-    PortNum = 8501
-    Routes {
-      new {
-        Path = "/app"
-        PublicPath = "/fe/1.0.0/web/"
-        ServerType = "app"
-        AppPort = 8501
-        Command = "streamlit run app.py"
-      }
-    }
-  }
-  AgentSettings {
-    Timezone = "Etc/UTC"
-    PythonPackages { "streamlit" }
-    Models { "llama3.2:1b" }
-    OllamaImageTag = "0.13.5"
-  }
-}
+/
+├── cmd/                     # CLI commands
+│   ├── root.go              # Root command
+│   ├── run.go               # Run workflow locally
+│   ├── new.go               # Interactive wizard
+│   ├── validate.go          # Validate YAML
+│   └── build.go             # Build Docker image
+│
+├── pkg/                     # Core packages
+│   ├── domain/              # Domain models (no dependencies)
+│   ├── parser/              # YAML & expression parsing
+│   ├── validator/           # Schema & business validation
+│   ├── executor/            # Resource execution engine
+│   └── infra/               # External integrations (Docker, FS)
+│
+├── examples/                # Example workflows
+└── main.go                  # Entry point
 ```
 
-```pkl
-// data/fe/web/app.py (Streamlit frontend)
-import streamlit as st
-import requests
+## Why KDeps?
 
-st.title("Text Summarizer")
-text = st.text_area("Enter text to summarize")
-if st.button("Summarize"):
-  response = requests.post("http://localhost:3000/api/v1/summarize", json={"text": text})
-  if response.ok:
-    st.write(response.json()['response']['data']['summary'])
-  else:
-    st.error("Error summarizing text")
+- **Privacy & Compliance**: Keep sensitive data on your own machines.
+- **Reliability**: Apps continue to work without internet or with degraded networks.
+- **Low Latency**: Local inference eliminates network round-trips.
+- **Predictable Cost**: No per-token fees; run models locally on your hardware.
+- **Control**: Avoid vendor lock-in and ensure reproducible deployments.
+
+## About the Name
+
+> "KDeps, short for 'knowledge dependencies,' is inspired by the principle that knowledge—whether from AI, machines, or humans—can be represented, organized, orchestrated, and interacted with through graph-based systems. The name grew out of my work on Kartographer, a lightweight graph library for organizing and interacting with information." — Joel Bryan Juliano, KDeps creator
+
+## Development
+
+```bash
+# Run tests
+go test ./...
+
+# Run integration tests
+go test ./tests/integration/...
+
+# Build binary
+go build -o kdeps main.go
 ```
-
-```pkl
-// resources/llm.pkl
-ActionID = "llmResource"
-Name = "Text Summarizer"
-Description = "Summarizes input text using an LLM."
-run {
-  RestrictToHTTPMethods { "POST" }
-  RestrictToRoutes { "/api/v1/summarize" }
-  Chat {
-    Model = "llama3.2:1b"
-    Role = "assistant"
-    Prompt = "Summarize this text in 50 words or less: @(request.data().text)"
-    JSONResponse = true
-    JSONResponseKeys { "summary" }
-    TimeoutDuration = 60.s
-  }
-}
-```
-</details>
-
-<details>
-  <summary>🛠️ Let LLMs run tools automatically (script-based)</summary>
-  Enhance functionality through scripts and sequential tool pipelines with <a href="https://kdeps.com/getting-started/resources/llm.html#tools-configuration">external tools and chained tool workflows</a>. Scripts can also call external systems via adapters (e.g., an MCP server or Google A2A) when needed.
-
-```pkl
-// workflow.pkl
-Name = "toolChainingAgent"
-Description = "Uses LLM to query a database and generate a report via tools."
-Version = "1.0.0"
-TargetActionID = "responseResource"
-Settings {
-  APIServerMode = true
-  APIServer {
-    HostIP = "127.0.0.1"
-    PortNum = 3000
-    Routes {
-      new { Path = "/api/v1/report"; Methods { "POST" } }
-    }
-  }
-  AgentSettings {
-    Timezone = "Etc/UTC"
-    Models { "llama3.2:1b" }
-    OllamaImageTag = "0.13.5"
-  }
-}
-```
-
-```pkl
-// resources/llm.pkl
-ActionID = "llmResource"
-Name = "Report Generator"
-Description = "Generates a report using a database query tool."
-run {
-  RestrictToHTTPMethods { "POST" }
-  RestrictToRoutes { "/api/v1/report" }
-  Chat {
-    Model = "llama3.2:1b"
-    Role = "assistant"
-    Prompt = "Generate a sales report based on database query results. Date range: @(request.params("date_range"))"
-    Tools {
-      new {
-        Name = "query_sales_db"
-        Script = "@(data.filepath('tools/1.0.0', 'query_sales.py'))"
-        Description = "Queries the sales database for recent transactions"
-        Parameters {
-          ["date_range"] { Required = true; Type = "string"; Description = "Date range for query (e.g., '2025-01-01:2025-05-01')" }
-        }
-      }
-    }
-    JSONResponse = true
-    JSONResponseKeys { "report" }
-    TimeoutDuration = 60.s
-  }
-}
-```
-
-```pkl
-// data/tools/query_sales.py
-import sqlite3
-import sys
-
-def query_sales(date_range):
-  start, end = date_range.split(':')
-  conn = sqlite3.connect('sales.db')
-  cursor = conn.execute("SELECT * FROM transactions WHERE date BETWEEN ? AND ?", (start, end))
-  results = cursor.fetchall()
-  conn.close()
-  return results
-
-print(query_sales(sys.argv[1]))
-```
-</details>
-
-## Additional Features
-
-<details>
-  <summary>📈 Context-aware RAG workflows</summary>
-  Enable accurate, knowledge-intensive tasks with <a href="https://kdeps.com/getting-started/resources/kartographer.html">RAG workflows</a>.
-</details>
-
-<details>
-  <summary>📊 Generate structured outputs</summary>
-  Create consistent, machine-readable responses from LLMs, as described in the <a href="https://kdeps.com/getting-started/resources/llm.html#chat-block">chat block documentation</a>.
-
-```pkl
-// workflow.pkl
-Name = "structuredOutputAgent"
-Description = "Generates structured JSON responses from LLM."
-Version = "1.0.0"
-TargetActionID = "responseResource"
-Settings {
-  APIServerMode = true
-  APIServer {
-    HostIP = "127.0.0.1"
-    PortNum = 3000
-    Routes {
-      new { Path = "/api/v1/structured"; Methods { "POST" } }
-    }
-  }
-  AgentSettings {
-    Timezone = "Etc/UTC"
-    Models { "llama3.2:1b" }
-    OllamaImageTag = "0.13.5"
-  }
-}
-```
-
-```pkl
-// resources/llm.pkl
-ActionID = "llmResource"
-Name = "Structured Response Generator"
-Description = "Generates structured JSON output."
-run {
-  RestrictToHTTPMethods { "POST" }
-  RestrictToRoutes { "/api/v1/structured" }
-  Chat {
-    Model = "llama3.2:1b"
-    Role = "assistant"
-    Prompt = "Analyze this text and return a structured response: @(request.data().text)"
-    JSONResponse = true
-    JSONResponseKeys { "summary"; "keywords" }
-    TimeoutDuration = 60.s
-  }
-}
-```
-</details>
-
-<details>
-  <summary>🔄 Items iteration</summary>
-  Iterate over multiple items in a resource to process them sequentially, using <a href="https://kdeps.com/getting-started/resources/items.html">items iteration</a> with `item.current()`, `item.prev()`, and `item.next()`.
-
-```pkl
-// workflow.pkl
-Name = "mtvScenarioGenerator"
-Description = "Generates MTV video scenarios based on song lyrics."
-Version = "1.0.0"
-TargetActionID = "responseResource"
-Settings {
-  APIServerMode = true
-  APIServer {
-    HostIP = "127.0.0.1"
-    PortNum = 3000
-    Routes {
-      new { Path = "/api/v1/mtv-scenarios"; Methods { "GET" } }
-    }
-    CORS { EnableCORS = true; AllowOrigins { "http://localhost:8080" } }
-  }
-  AgentSettings {
-    Timezone = "Etc/UTC"
-    Models { "llama3.2:1b" }
-    OllamaImageTag = "0.13.5"
-  }
-}
-```
-
-```pkl
-// resources/llm.pkl
-ActionID = "llmResource"
-Name = "MTV Scenario Generator"
-Description = "Generates MTV video scenarios for song lyrics."
-Items {
-  "A long, long time ago"
-  "I can still remember"
-  "How that music used to make me smile"
-  "And I knew if I had my chance"
-}
-run {
-  RestrictToHTTPMethods { "GET" }
-  RestrictToRoutes { "/api/v1/mtv-scenarios" }
-  SkipCondition {
-    "@(item.current())" == "And I knew if I had my chance" // Skip this lyric
-  }
-  Chat {
-    Model = "llama3.2:1b"
-    Role = "assistant"
-    Prompt = """
-    Based on the lyric @(item.current()) from the song "American Pie," generate a suitable scenario for an MTV music video. The scenario should include a vivid setting, key visual elements, and a mood that matches the lyric's tone.
-    """
-    Scenario {
-      new { Role = "system"; Prompt = "You are a creative director specializing in music video production." }
-    }
-    JSONResponse = true
-    JSONResponseKeys { "setting"; "visual_elements"; "mood" }
-    TimeoutDuration = 60.s
-  }
-}
-```
-
-```pkl
-// resources/response.pkl
-ActionID = "responseResource"
-Name = "API Response"
-Description = "Returns MTV video scenarios."
-Requires { "llmResource" }
-run {
-  RestrictToHTTPMethods { "GET" }
-  RestrictToRoutes { "/api/v1/mtv-scenarios" }
-  APIResponse {
-    Success = true
-    Response {
-      Data { "@(llm.response('llmResource'))" }
-    }
-    Meta { Headers { ["Content-Type"] = "application/json" } }
-  }
-}
-```
-</details>
-
-<details>
-  <summary>🤖 Leverage multiple open-source LLMs</summary>
-  Use LLMs from <a href="https://kdeps.com/getting-started/configuration/workflow.html#llm-models">Ollama</a> and <a href="https://github.com/kdeps/examples/tree/main/huggingface_imagegen_api">Huggingface</a> for diverse AI capabilities.
-
-```pkl
-// workflow.pkl
-Models {
-  "tinydolphin"
-  "llama3.3"
-  "llama3.2-vision"
-  "llama3.2:1b"
-  "mistral"
-  "gemma"
-  "mistral"
-}
-OfflineMode = false
-```
-</details>
-
-<details>
-  <summary>🗂️ Upload documents or files</summary>
-  Process documents for LLM analysis, ideal for document analysis tasks, as shown in the <a href="https://kdeps.com/getting-started/tutorials/files.html">file upload tutorial</a>.
-
-```pkl
-// workflow.pkl
-Name = "docAnalysisAgent"
-Description = "Analyzes uploaded documents with LLM."
-Version = "1.0.0"
-TargetActionID = "responseResource"
-Settings {
-  APIServerMode = true
-  APIServer {
-    HostIP = "127.0.0.1"
-    PortNum = 3000
-    Routes {
-      new { Path = "/api/v1/doc-analyze"; Methods { "POST" } }
-    }
-  }
-  AgentSettings {
-    Timezone = "Etc/UTC"
-    Models { "llama3.2-vision" }
-    OllamaImageTag = "0.13.5"
-  }
-}
-```
-
-```pkl
-// resources/llm.pkl
-ActionID = "llmResource"
-Name = "Document Analyzer"
-Description = "Extracts text from uploaded documents."
-run {
-  RestrictToHTTPMethods { "POST" }
-  RestrictToRoutes { "/api/v1/doc-analyze" }
-  PreflightCheck {
-    Validations { "@(request.filecount())" > 0 }
-  }
-  Chat {
-    Model = "llama3.2-vision"
-    Role = "assistant"
-    Prompt = "Extract key information from this document."
-    Files { "@(request.files()[0])" }
-    JSONResponse = true
-    JSONResponseKeys { "key_info" }
-    TimeoutDuration = 60.s
-  }
-}
-```
-</details>
-
-<details>
-  <summary>🔄 Reusable AI agents</summary>
-  Create flexible workflows with <a href="https://kdeps.com/getting-started/resources/remix.html">reusable AI agents</a>.
-
-```pkl
-// workflow.pkl
-Name = "docAnalysisAgent"
-Description = "Analyzes uploaded documents with LLM."
-Version = "1.0.0"
-TargetActionID = "responseResource"
-Workflows { "@ticketResolutionAgent" }
-Settings {
-  APIServerMode = true
-  APIServer {
-    HostIP = "127.0.0.1"
-    PortNum = 3000
-    Routes {
-      new { Path = "/api/v1/doc-analyze"; Methods { "POST" } }
-    }
-  }
-  AgentSettings {
-    Timezone = "Etc/UTC"
-    Models { "llama3.2-vision" }
-    OllamaImageTag = "0.13.5"
-  }
-}
-```
-
-```pkl
-// resources/response.pkl
-ActionID = "responseResource"
-Name = "API Response"
-Description = "Returns defect analysis result."
-Requires {
-  "llmResource"
-  "@ticketResolutionAgent/llmResource:1.0.0"
-}
-run {
-  RestrictToHTTPMethods { "POST" }
-  RestrictToRoutes { "/api/v1/doc-analyze" }
-  APIResponse {
-    Success = true
-    Response {
-      Data {
-        "@(llm.response("llmResource"))"
-        "@(llm.response('@ticketResolutionAgent/llmResource:1.0.0'))"
-      }
-    }
-    Meta { Headers { ["Content-Type"] = "application/json" } }
-  }
-}
-```
-</details>
-
-<details>
-  <summary>🐍 Execute Python in isolated environments</summary>
-  Run Python code securely using <a href="https://kdeps.com/getting-started/resources/python.html">Anaconda</a> in isolated environments.
-
-```pkl
-// resources/python.pkl
-ActionID = "pythonResource"
-Name = "Data Formatter"
-Description = "Formats extracted data for storage."
-run {
-  RestrictToHTTPMethods { "POST" }
-  RestrictToRoutes { "/api/v1/scan-document" }
-  Python {
-    Script = """
-import pandas as pd
-
-def format_data(data):
-  df = pd.DataFrame([data])
-  return df.to_json()
-
-print(format_data(@(llm.response('llmResource'))))
-"""
-    TimeoutDuration = 60.s
-  }
-}
-```
-</details>
-
-<details>
-  <summary>🌍 Make API calls</summary>
-  Perform API calls directly from configuration, as detailed in the <a href="https://kdeps.com/getting-started/resources/client.html">client documentation</a>.
-
-```pkl
-// resources/http_client.pkl
-ActionID = "httpResource"
-Name = "DMS Submission"
-Description = "Submits extracted data to document management system."
-run {
-  RestrictToHTTPMethods { "POST" }
-  RestrictToRoutes { "/api/v1/scan-document" }
-  HTTPClient {
-    Method = "POST"
-    Url = "https://dms.example.com/api/documents"
-    Data { "@(python.stdout('pythonResource'))" }
-    Headers { ["Authorization"] = "Bearer @(session.getRecord('dms_token'))" }
-    TimeoutDuration = 30.s
-  }
-}
-```
-</details>
-
-<details>
-  <summary>🚀 Run in Lambda or API mode</summary>
-  Operate in <a href="https://kdeps.com/getting-started/configuration/workflow.html#lambda-mode">Lambda mode</a> or <a href="https://kdeps.com/getting-started/configuration/workflow.html#api-server-settings">API mode</a> for flexible deployment.
-</details>
-
-<details>
-  <summary>✅ Built-in validations and checks</summary>
-  Utilize <a href="https://kdeps.com/getting-started/resources/api-request-validations.html#api-request-validations">API request validations</a>, <a href="https://kdeps.com/getting-started/resources/validations.html">custom validation checks</a>, and <a href="https://kdeps.com/getting-started/resources/skip.html">skip conditions</a> for robust workflows.
-
-```pkl
-RestrictToHTTPMethods { "POST" }
-RestrictToRoutes { "/api/v1/scan-document" }
-PreflightCheck {
-  Validations { "@(request.filetype('document'))" == "image/jpeg" }
-}
-SkipCondition { "@(request.data().query.length)" < 5 }
-```
-</details>
-
-<details>
-  <summary>📁 Serve static websites or reverse-proxied apps</summary>
-  Host <a href="https://kdeps.com/getting-started/configuration/workflow.html#static-file-serving">static websites</a> or <a href="https://kdeps.com/getting-started/configuration/workflow.html#reverse-proxying">reverse-proxied apps</a> directly.
-
-```pkl
-// workflow.pkl
-Name = "frontendAIApp"
-Description = "Pairs an AI API with a Streamlit frontend for text summarization."
-Version = "1.0.0"
-TargetActionID = "responseResource"
-Settings {
-  APIServerMode = true
-  WebServerMode = true
-  APIServer {
-    HostIP = "127.0.0.1"
-    PortNum = 3000
-    Routes {
-      new { Path = "/api/v1/summarize"; Methods { "POST" } }
-    }
-  }
-  WebServer {
-    HostIP = "127.0.0.1"
-    PortNum = 8501
-    Routes {
-      new {
-        Path = "/app"
-        ServerType = "app"
-        AppPort = 8501
-        Command = "streamlit run app.py"
-      }
-    }
-  }
-  AgentSettings {
-    Timezone = "Etc/UTC"
-    PythonPackages { "streamlit" }
-    Models { "llama3.2:1b" }
-    OllamaImageTag = "0.13.5"
-  }
-}
-```
-</details>
-
-<details>
-  <summary>💾 Manage state with memory operations</summary>
-  Store, retrieve, and clear persistent data using <a href="https://kdeps.com/getting-started/resources/memory.html">memory operations</a>.
-
-```pkl
-expr {
-  "@(memory.setRecord('user_data', request.data().data))"
-}
-local user_data = "@(memory.getRecord('user_data'))"
-```
-</details>
-
-<details>
-  <summary>🔒 Configure CORS rules</summary>
-  Set <a href="https://kdeps.com/getting-started/configuration/workflow.html#cors-configuration">CORS rules</a> directly in the workflow for secure API access.
-
-```pkl
-// workflow.pkl
-CORS {
-  EnableCORS = true
-  AllowOrigins { "https://example.com" }
-  AllowMethods { "GET"; "POST" }
-}
-```
-</details>
-
-<details>
-  <summary>🛡️ Set trusted proxies</summary>
-  Enhance API and frontend security with <a href="https://kdeps.com/getting-started/configuration/workflow.html#trustedproxies">trusted proxies</a>.
-
-```pkl
-// workflow.pkl
-APIServerMode = true
-APIServer {
-      HostIP = "127.0.0.1"
-    PortNum = 3000
-    Routes {
-      new { Path = "/api/v1/proxy"; Methods { "GET" } }
-    }
-    TrustedProxies { "192.168.1.1"; "10.0.0.0/8" }
-}
-```
-</details>
-
-<details>
-  <summary>🖥️ Run shell scripts</summary>
-  Execute <a href="https://kdeps.com/getting-started/resources/exec.html">shell scripts</a> seamlessly within workflows.
-
-```pkl
-// resources/exec.pkl
-ActionID = "execResource"
-Name = "Shell Script Runner"
-Description = "Runs a shell script."
-run {
-  Exec {
-    Command = """
-echo "Processing request at $(date)"
-"""
-    TimeoutDuration = 60.s
-  }
-}
-```
-</details>
-
-<details>
-  <summary>📦 Install Ubuntu packages</summary>
-  Install <a href="https://kdeps.com/getting-started/configuration/workflow.html#ubuntu-packages">Ubuntu packages</a> via configuration for customized environments.
-
-```pkl
-// workflow.pkl
-AgentSettings {
-  Timezone = "Etc/UTC"
-  Packages {
-    "tesseract-ocr"
-    "poppler-utils"
-    "npm"
-    "ffmpeg"
-  }
-  OllamaImageTag = "0.13.5"
-}
-```
-</details>
-
-<details>
-  <summary>📜 Define Ubuntu repositories or PPAs</summary>
-  Configure <a href="https://kdeps.com/getting-started/configuration/workflow.html#ubuntu-repositories">Ubuntu repositories or PPAs</a> for additional package sources.
-
-```pkl
-// workflow.pkl
-Repositories {
-  "ppa:alex-p/tesseract-ocr-devel"
-}
-```
-</details>
-
-<details>
-  <summary>⚡ Written in high-performance Golang</summary>
-  Benefit from the speed and efficiency of Golang for high-performance applications.
-</details>
-
-<details>
-  <summary>📥 Easy to install</summary>
-  Install and use KDeps with a single command, as outlined in the <a href="https://kdeps.com/getting-started/introduction/installation.html">installation guide</a>.
-
-```shell
-# On macOS
-brew install kdeps/tap/kdeps
-# Windows, Linux, and macOS
-curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/refs/heads/main/install.sh | sh
-```
-</details>
-
-## Getting Started
-
-Ready to explore KDeps? Install it with a single command: [Installation Guide](https://kdeps.com/getting-started/introduction/installation.html).
-
-Check out practical [examples](https://github.com/kdeps/examples) to jumpstart your projects.
-
-## 📋 Whitepaper
-
-For a comprehensive technical overview of KDeps, including architecture, use cases, and competitive analysis, read our [**KDeps Whitepaper**](./docs/KDeps_Whitepaper.md).
-
-The whitepaper covers:
-- **Architecture Overview**: Detailed breakdown of KDeps' modular design
-- **Core Components**: Workflow engine, resource system, and dependency resolver
-- **Technical Implementation**: Technology stack and performance characteristics
-- **Use Cases**: Real-world applications and implementation examples
-- **Competitive Analysis**: Comparison with existing AI development platforms
-- **Future Roadmap**: Development plans and strategic vision

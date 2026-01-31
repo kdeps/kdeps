@@ -1,0 +1,28 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: chatbot
+  description: Simple LLM chatbot
+  version: "1.0.0"
+  targetActionId: responseResource
+
+settings:
+  apiServerMode: true
+  apiServer:
+    hostIp: "127.0.0.1"
+    portNum: 3000
+    routes:
+      - path: /api/v1/chat
+        methods: [POST]
+    cors:
+      enableCors: true
+      allowOrigins:
+        - http://localhost:8080
+
+  agentSettings:
+    timezone: Etc/UTC
+    pythonVersion: "3.12"
+    installOllama: true
+    models:
+      - llama3.2:1b

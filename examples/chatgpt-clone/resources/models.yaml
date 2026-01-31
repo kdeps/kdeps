@@ -1,0 +1,29 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: modelsResource
+  name: Available Models
+  description: Returns list of available LLM models
+
+run:
+  # Only respond to GET requests on /api/v1/models
+  restrictToHttpMethods:
+    - GET
+  restrictToRoutes:
+    - /api/v1/models
+
+  expr:
+    - >-
+      set('availableModels', [
+        {"id": "llama3.2:1b", "name": "Llama 3.2 (1B)", "description": "Meta's smallest and fastest model"},
+        {"id": "llama3.2:3b", "name": "Llama 3.2 (3B)", "description": "Meta's efficient model, good balance of speed and quality"},
+        {"id": "mistral:7b", "name": "Mistral (7B)", "description": "Excellent performance across various tasks"},
+        {"id": "phi3:3.8b", "name": "Phi-3 (3.8B)", "description": "Microsoft's fast and efficient model"},
+        {"id": "gemma2:2b", "name": "Gemma 2 (2B)", "description": "Google's lightweight yet powerful model"},
+        {"id": "qwen2.5:3b", "name": "Qwen 2.5 (3B)", "description": "Alibaba's model with strong multilingual support"}
+      ])
+
+  apiResponse:
+    success: true
+    response:
+      models: "{{ get('availableModels') }}"

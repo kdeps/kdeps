@@ -1,0 +1,46 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: loginHandler
+  name: Login Handler
+  requires: []
+
+run:
+  restrictToRoutes: [/api/v1/login]
+
+  validation:
+    required:
+      - username
+      - password
+
+  # Python validates credentials - exits with error if invalid
+  python:
+    script: |
+      import json
+      import sys
+
+      username = "{{ get('username') }}"
+      password = "{{ get('password') }}"
+
+      # Demo credentials: admin/secret
+      if username == "admin" and password == "secret":
+          print(json.dumps({"success": True, "user": username}))
+      else:
+          # Exit with error to prevent session from being set
+          print(json.dumps({"success": False, "error": "Invalid credentials"}), file=sys.stderr)
+          sys.exit(1)
+    timeoutDuration: 10s
+
+  # These expr blocks only run if Python succeeds (exit 0)
+  expr:
+    - "{{ set('user_id', get('username'), 'session') }}"
+    - "{{ set('logged_in', 'true', 'session') }}"
+    - "{{ set('login_time', info('current_time'), 'session') }}"
+
+  apiResponse:
+    success: true
+    response:
+      message: "Login successful"
+      user_id: "{{ get('user_id', 'session') }}"
+      session_id: "{{ info('session_id') }}"

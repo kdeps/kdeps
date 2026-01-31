@@ -228,3 +228,4 @@ local/
 *.pkl
 *.html
 libssl*
+kdeps-io

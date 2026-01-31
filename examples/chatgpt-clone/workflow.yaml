@@ -1,0 +1,54 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: chatgpt-clone
+  version: "1.0.0"
+  description: A ChatGPT-like interface with multiple open-source LLMs
+  targetActionId: responseResource
+
+settings:
+  # Enable API server for chat endpoint
+  apiServerMode: true
+  apiServer:
+    hostIp: "127.0.0.1"
+    portNum: 3000
+    routes:
+      - path: /api/v1/chat
+        methods: [POST]
+      - path: /api/v1/models
+        methods: [GET]
+    cors:
+      enableCors: true
+      allowOrigins:
+        - "http://localhost:8080"
+        - "http://127.0.0.1:8080"
+      allowMethods:
+        - GET
+        - POST
+        - OPTIONS
+      allowHeaders:
+        - Content-Type
+        - Authorization
+
+  # Enable WebServer for serving the frontend
+  webServerMode: true
+  webServer:
+    hostIp: "127.0.0.1"
+    portNum: 8080
+    routes:
+      - serverType: static
+        path: /
+        publicPath: ./public
+
+  # Agent settings for Docker builds
+  agentSettings:
+    timezone: Etc/UTC
+    installOllama: true
+    # Pre-load these models when building Docker image
+    models:
+      - llama3.2:1b
+      - llama3.2:3b
+      - mistral:7b
+      - phi3:3.8b
+      - gemma2:2b
+      - qwen2.5:3b

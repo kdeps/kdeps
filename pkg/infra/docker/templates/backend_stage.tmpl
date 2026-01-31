@@ -1,0 +1,5 @@
+{{- if .InstallOllama }}
+# Ollama backend - installed from official install script (no Docker image stage needed)
+{{- else }}
+# No LLM backend required
+{{- end }}

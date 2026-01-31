@@ -1,0 +1,33 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+metadata:
+  actionId: responseResource
+  name: API Response Router
+  description: Routes and formats responses based on the endpoint called
+  requires:
+    - llmResource
+    - modelsResource
+
+run:
+  # Determine which endpoint was called
+  expr:
+    - set('isModelsEndpoint', info('method') == 'GET' && info('path') == '/api/v1/models')
+    - set('isChatEndpoint', info('method') == 'POST' && info('path') == '/api/v1/chat')
+    # Get results from appropriate resource
+    - set('llmResult', get('llmResource'))
+    - set('modelsResult', get('modelsResource'))
+    - set('hasLLMError', safe(get('llmResult'), 'error') == true)
+    # Extract just the message content from LLM result (llmResult.message.content)
+    - set('messageContent', safe(safe(get('llmResult'), 'message'), 'content'))
+
+  apiResponse:
+    success: true
+    response:
+      # Return models for models endpoint, chat for chat endpoint
+      models: "{{ get('isModelsEndpoint') ? get('availableModels') : '' }}"
+      message: "{{ get('isChatEndpoint') ? (get('hasLLMError') ? safe(get('llmResult'), 'error') : get('messageContent')) : '' }}"
+      model: "{{ get('isChatEndpoint') ? get('selectedModel') : '' }}"
+      query: "{{ get('isChatEndpoint') ? get('userMessage') : '' }}"
+    meta:
+      headers:
+        Content-Type: application/json

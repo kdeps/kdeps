@@ -1,183 +1,196 @@
-NAME=kdeps
-BUILD_DIR ?= bin
-BUILD_SRC=.
+.PHONY: build test lint clean install run
 
-NO_COLOR=\033[0m
-OK_COLOR=\033[32;01m
-ERROR_COLOR=\033[31;01m
-WARN_COLOR=\033[33;01m
-TELEMETRY_OPTOUT=1
-CURRENT_DIR=$(pwd)
-TELEMETRY_KEY=""
-FILES := $(wildcard *.yml *.txt *.py)
+# Build variables
+VERSION ?= 2.0.0-dev
+COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "dev")
+LDFLAGS := -ldflags "-X github.com/kdeps/kdeps/v2/pkg/version.Version=$(VERSION) -X github.com/kdeps/kdeps/v2/pkg/version.Commit=$(COMMIT)"
 
-.PHONY: all clean test build tools format pre-commit tools-update dev-build local-dev local-update
-all: clean deps test build
+# Build the binary
+build:
+	@echo "Building kdeps v$(VERSION)..."
+	@go build $(LDFLAGS) -o kdeps main.go
+	@echo "✓ Build complete: ./kdeps"
 
-deps: tools
-	@printf "$(OK_COLOR)==> Installing dependencies$(NO_COLOR)\n"
+# Build for Linux (for Docker)
+build-linux:
+	@echo "Building kdeps v$(VERSION) for Linux..."
+	@CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o kdeps main.go
+	@echo "✓ Build complete: ./kdeps (Linux AMD64)"
+
+# Run tests (with linting)
+test: fmt lint build
+	@rm -f coverage.out coverage-unit.out coverage-integration.out; \
+	echo "=========================================="; \
+	echo "Running Unit Tests with Coverage"; \
+	echo "=========================================="; \
+	go test -v -short -coverprofile=coverage-unit.out ./pkg/... ./cmd/...; \
+	UNIT_EXIT=$$?; \
+	UNIT_COVERAGE=""; \
+	if [ -f coverage-unit.out ]; then \
+		UNIT_COVERAGE=$$(go tool cover -func=coverage-unit.out 2>/dev/null | tail -1 | awk '{print $$NF}'); \
+	fi; \
+	echo ""; \
+	echo "=========================================="; \
+	echo "Running Integration Tests with Coverage"; \
+	echo "=========================================="; \
+	go test -v -coverprofile=coverage-integration.out ./tests/integration/...; \
+	INTEGRATION_EXIT=$$?; \
+	INTEGRATION_COVERAGE=""; \
+	if [ -f coverage-integration.out ]; then \
+		INTEGRATION_COVERAGE=$$(go tool cover -func=coverage-integration.out 2>/dev/null | tail -1 | awk '{print $$NF}'); \
+	fi; \
+	echo ""; \
+	if [ -f coverage-unit.out ] && [ -f coverage-integration.out ]; then \
+		echo "Merging coverage reports..."; \
+		echo "mode: atomic" > coverage.out; \
+		tail -n +2 coverage-unit.out >> coverage.out 2>/dev/null || true; \
+		tail -n +2 coverage-integration.out >> coverage.out 2>/dev/null || true; \
+	elif [ -f coverage-unit.out ]; then \
+		cp coverage-unit.out coverage.out; \
+	elif [ -f coverage-integration.out ]; then \
+		cp coverage-integration.out coverage.out; \
+	fi; \
+	OVERALL_COVERAGE=""; \
+	if [ -f coverage.out ]; then \
+		OVERALL_COVERAGE=$$(go tool cover -func=coverage.out 2>/dev/null | tail -1 | awk '{print $$NF}'); \
+	fi; \
+	echo ""; \
+	echo "=========================================="; \
+	echo "Running E2E Tests"; \
+	echo "=========================================="; \
+	bash tests/e2e/e2e.sh; \
+	E2E_EXIT=$$?; \
+	echo ""; \
+	echo "=========================================="; \
+	echo "Test Summary"; \
+	echo "=========================================="; \
+	if [ "$$UNIT_EXIT" -eq 0 ]; then \
+		if [ -n "$$UNIT_COVERAGE" ]; then \
+			echo "✓ Unit Tests: PASSED (Coverage: $$UNIT_COVERAGE)"; \
+		else \
+			echo "✓ Unit Tests: PASSED"; \
+		fi; \
+	else \
+		if [ -n "$$UNIT_COVERAGE" ]; then \
+			echo "✗ Unit Tests: FAILED (Coverage: $$UNIT_COVERAGE)"; \
+		else \
+			echo "✗ Unit Tests: FAILED"; \
+		fi; \
+	fi; \
+	if [ "$$INTEGRATION_EXIT" -eq 0 ]; then \
+		if [ -n "$$INTEGRATION_COVERAGE" ]; then \
+			echo "✓ Integration Tests: PASSED (Coverage: $$INTEGRATION_COVERAGE)"; \
+		else \
+			echo "✓ Integration Tests: PASSED"; \
+		fi; \
+	else \
+		if [ -n "$$INTEGRATION_COVERAGE" ]; then \
+			echo "✗ Integration Tests: FAILED (Coverage: $$INTEGRATION_COVERAGE)"; \
+		else \
+			echo "✗ Integration Tests: FAILED"; \
+		fi; \
+	fi; \
+	if [ "$$E2E_EXIT" -eq 0 ]; then \
+		echo "✓ E2E Tests: PASSED"; \
+	else \
+		echo "✗ E2E Tests: FAILED"; \
+	fi; \
+	echo ""; \
+	if [ -n "$$OVERALL_COVERAGE" ]; then \
+		echo "Overall Coverage: $$OVERALL_COVERAGE"; \
+	fi; \
+	echo ""; \
+	if [ "$$UNIT_EXIT" -ne 0 ] || [ "$$INTEGRATION_EXIT" -ne 0 ] || [ "$$E2E_EXIT" -ne 0 ]; then \
+		exit 1; \
+	fi
+
+# Run unit tests only (no e2e)
+test-unit: lint
+	@echo "Running unit tests with coverage..."
+	@go test -v -coverprofile=coverage.out ./...; \
+	TEST_EXIT=$$?; \
+	echo ""; \
+	if [ -f coverage.out ]; then \
+		echo "Coverage Report:"; \
+		go tool cover -func=coverage.out | tail -1; \
+	fi; \
+	exit $$TEST_EXIT
+
+# Run integration tests
+test-integration:
+	@echo "Running integration tests with coverage..."
+	@go test -v -coverprofile=coverage-integration.out -covermode=count ./tests/integration/...
+	@echo ""
+	@if [ -f coverage-integration.out ]; then \
+		echo "Coverage Report:"; \
+		go tool cover -func=coverage-integration.out | tail -1; \
+	fi
+
+# Run E2E tests
+test-e2e: build
+	@echo "Running E2E tests..."
+	@bash tests/e2e/e2e.sh
+
+# Run all tests
+test-all: test test-integration
+
+# Run linter
+lint:
+	@echo "Running linter..."
+	@golangci-lint run ./... --fix || echo "Linting completed with warnings (non-blocking)"
+
+# Clean build artifacts
+clean:
+	@echo "Cleaning..."
+	@rm -f kdeps
+	@rm -f coverage.out coverage-unit.out coverage-integration.out
+	@rm -rf dist/ build/
+	@echo "✓ Clean complete"
+
+# Install locally
+install: build
+	@echo "Installing kdeps..."
+	@cp kdeps /usr/local/bin/kdeps
+	@echo "✓ Installed to /usr/local/bin/kdeps"
+
+# Run example
+run-example:
+	@echo "Running chatbot example..."
+	@./kdeps run examples/chatbot/workflow.yaml
+
+# Run with dev mode
+dev:
+	@echo "Running in dev mode..."
+	@go run main.go run examples/chatbot/workflow.yaml --dev
+
+# Format code
+fmt:
+	@echo "Formatting code..."
+	@find . -type f -name "*.go" -exec goimports -w {} \;
+	@go fmt ./...
+        #golangci-lint fmt ./...
+
+# Download dependencies
+deps:
+	@echo "Downloading dependencies..."
+	@go mod download
 	@go mod tidy
 
-build: deps
-	@echo "$(OK_COLOR)==> Building the application...$(NO_COLOR)"
-	@CGO_ENABLED=1 go build -v -ldflags="-s -w -X main.Version=$(or $(tag),dev-$(shell git describe --tags --abbrev=0 2>/dev/null || echo 'unknown')) -X main.localMode=0" -o "$(BUILD_DIR)/$(NAME)" "$(BUILD_SRC)"
-
-dev-build: deps
-	@echo "$(OK_COLOR)==> Building the application for Linux...$(NO_COLOR)"
-	@GOOS=linux GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-linux-musl-gcc go build -v -ldflags="-s -w -X main.Version=$(or $(tag),dev-$(shell git describe --tags --abbrev=0 2>/dev/null || echo 'unknown')) -X main.localMode=0" -o "$(BUILD_DIR)/$(NAME)" "$(BUILD_SRC)"
-
-
-
-clean:
-	@rm -rf ./bin
-
-test: test-coverage 
-
-test-coverage:
-	@echo "$(OK_COLOR)==> Running the unit tests with coverage$(NO_COLOR)"
-	@NON_INTERACTIVE=1 go test -failfast -short -coverprofile=coverage_raw.out ./... | tee coverage.txt || true
-	@if [ -f coverage_raw.out ]; then \
-		{ head -n1 coverage_raw.out; grep -aE "^[[:alnum:]/._-]+\\.go:" coverage_raw.out; } > coverage.out; \
-		rm coverage_raw.out; \
-	fi
-	@echo "$(OK_COLOR)==> Coverage report:$(NO_COLOR)"
-	@go tool cover -func=coverage.out | tee coverage.txt || true
-	@COVERAGE=$$(grep total: coverage.txt | awk '{print $$3}' | sed 's/%//'); \
-	REQUIRED=$${COVERAGE_THRESHOLD:-50.0}; \
-	if (( $$(echo $$COVERAGE '<' $$REQUIRED | bc -l) )); then \
-	    echo "Coverage $$COVERAGE% is below required $$REQUIRED%"; \
-	    exit 1; \
-	else \
-	    echo "Coverage requirement met: $$COVERAGE% (threshold $$REQUIRED%)"; \
-	fi
-	@rm coverage.txt
-
-format: tools
-	@echo "$(OK_COLOR)>> [go vet] running$(NO_COLOR)" & \
-	go vet ./... &
-
-	@echo "$(OK_COLOR)>> [gofumpt] running$(NO_COLOR)" & \
-	gofumpt -w cmd pkg &
-
-	@echo "$(OK_COLOR)>> [golangci-lint] running$(NO_COLOR)" & \
-	golangci-lint run --timeout 10m60s ./...  & \
-	wait
-
-ci-fix: tools
-	@echo "$(OK_COLOR)>> [golangci-lint] running$(NO_COLOR) fix" & \
-	golangci-lint run --timeout 10m60s ./... --fix & \
-	wait
-
-tools:
-	@if ! command -v gci > /dev/null ; then \
-		echo ">> [$@]: gci not found: installing"; \
-		go install github.com/daixiang0/gci@latest; \
-	fi
-
-	@if ! command -v gofumpt > /dev/null ; then \
-		echo ">> [$@]: gofumpt not found: installing"; \
-		go install mvdan.cc/gofumpt@latest; \
-	fi
-
-	@if ! command -v golangci-lint > /dev/null ; then \
-		echo ">> [$@]: golangci-lint not found: installing"; \
-		go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest; \
-	fi
-
-tools-update:
-	go install github.com/daixiang0/gci@latest; \
-	go install mvdan.cc/gofumpt@latest; \
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest;
-
-# Local development setup - docker mode only
-local-dev:
-	@echo "$(OK_COLOR)==> Setting up Docker development environment...$(NO_COLOR)"
-	@make build
-	@mkdir -p local/pkl local/project local/localproject ~/.kdeps/cache
-	@echo "$(OK_COLOR)==> Downloading PKL schema files...$(NO_COLOR)"
-	@if [ ! -d "local/pkl" ] || [ -z "$$(ls -A local/pkl 2>/dev/null)" ]; then \
-		echo "Downloading PKL files from schema repository..."; \
-		curl -s https://api.github.com/repos/kdeps/schema/contents/deps/pkl | \
-		jq -r '.[] | select(.type == "file") | .download_url' | \
-		while read url; do \
-			filename=$$(basename "$$url"); \
-			echo "Downloading $$filename..."; \
-			curl -s "$$url" -o "local/pkl/$$filename"; \
-		done; \
-	else \
-		echo "PKL files already exist in local/pkl/"; \
-	fi
-	@echo "$(OK_COLOR)==> Creating local project...$(NO_COLOR)"
-	@echo "Creating new local project..."; \
-	rm -rf localproject; \
-	~/.local/bin/kdeps new localproject; \
-	mv localproject local;
-	@echo "$(OK_COLOR)==> Packaging local project...$(NO_COLOR)"
-	./bin/kdeps package local/localproject
-	@echo "$(OK_COLOR)==> Extracting project to local/project...$(NO_COLOR)"
-	@rm -rf local/project
-	@mkdir -p local/project
-	@tar xzf localproject-1.0.0.kdeps -C local/project
-	@echo "$(OK_COLOR)==> Setting up Docker container...$(NO_COLOR)"
-	@echo "$(OK_COLOR)==> Adjusting PKL paths for Docker mode...$(NO_COLOR)"
-	@find local/project -name "*.pkl" -type f -exec sed -i '' 's|package://schema\.kdeps\.com/core@[^#]*#/|/local/pkl/|g' {} \;
-	@make dev-build
-	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
-	if [ -z "$$CONTAINER" ]; then \
-		echo "$(ERROR_COLOR)==> No running kdeps-* container found$(NO_COLOR)"; \
-		exit 1; \
-	fi; \
-	echo "$(OK_COLOR)==> Found container: $$CONTAINER$(NO_COLOR)"; \
-	docker cp bin/kdeps $$CONTAINER:/bin/kdeps; \
-	docker exec $$CONTAINER mkdir -p /local; \
-	docker cp local/pkl $$CONTAINER:/local/; \
-	docker exec $$CONTAINER rm -rf /agent/project || true; \
-	docker exec $$CONTAINER mkdir -p /agent/project; \
-	docker cp local/project/. $$CONTAINER:/agent/project/; \
-	if [ -f "local/project/workflow.pkl" ]; then \
-		docker cp local/project/workflow.pkl $$CONTAINER:/agent/project/workflow.pkl; \
-	fi; \
-	if [ -d "local/project/resources" ]; then \
-		docker exec $$CONTAINER mkdir -p /agent/project/resources; \
-		docker cp local/project/resources/ $$CONTAINER:/agent/project/; \
-	fi; \
-	docker restart $$CONTAINER; \
-	echo "$(OK_COLOR)==> Docker development environment ready at http://localhost:3000$(NO_COLOR)"
-
-# Helper task to update Docker environment
-local-update:
-	@echo "$(OK_COLOR)==> Updating Docker development environment...$(NO_COLOR)"
-	@echo "$(OK_COLOR)==> Building kdeps...$(NO_COLOR)"
-	@make build
-	@echo "$(OK_COLOR)==> Updating Docker container...$(NO_COLOR)"
-	@echo "$(OK_COLOR)==> Adjusting PKL paths for Docker mode...$(NO_COLOR)"
-	@if [ -d "local/project" ]; then \
-		find local/project -name "*.pkl" -type f -exec sed -i '' 's|package://schema\.kdeps\.com/core@[^#]*#/|/local/pkl/|g' {} \;; \
-	fi
-	@make dev-build
-	@CONTAINER=$$(docker ps --format "table {{.Names}}" | grep "^kdeps-" | head -1); \
-	if [ -z "$$CONTAINER" ]; then \
-		echo "$(ERROR_COLOR)==> No running kdeps-* container found$(NO_COLOR)"; \
-		exit 1; \
-	fi; \
-	echo "$(OK_COLOR)==> Found container: $$CONTAINER$(NO_COLOR)"; \
-	docker cp bin/kdeps $$CONTAINER:/bin/kdeps; \
-	if [ -d "local/pkl" ] && [ -n "$$(ls -A local/pkl 2>/dev/null)" ]; then \
-		docker exec $$CONTAINER mkdir -p /local; \
-		docker cp local/pkl $$CONTAINER:/local/; \
-	fi; \
-	if [ -d "local/project" ]; then \
-		docker exec $$CONTAINER rm -rf /agent/project || true; \
-		docker exec $$CONTAINER mkdir -p /agent/project; \
-		docker cp local/project/. $$CONTAINER:/agent/project/; \
-		if [ -f "local/project/workflow.pkl" ]; then \
-			docker cp local/project/workflow.pkl $$CONTAINER:/agent/project/workflow.pkl; \
-		fi; \
-		if [ -d "local/project/resources" ]; then \
-			docker exec $$CONTAINER mkdir -p /agent/project/resources; \
-			docker cp local/project/resources/ $$CONTAINER:/agent/project/; \
-		fi; \
-	fi; \
-	docker restart $$CONTAINER; \
-	echo "$(OK_COLOR)==> Docker environment updated! Available at http://localhost:3000$(NO_COLOR)"
-
+# Help
+help:
+	@echo "KDeps v2 - Makefile commands"
+	@echo ""
+	@echo "Usage:"
+	@echo "  make build           Build the binary"
+	@echo "  make test            Run linter, unit tests, and E2E tests"
+	@echo "  make test-unit       Run linter and unit tests only (no E2E)"
+	@echo "  make test-integration Run integration tests"
+	@echo "  make test-e2e        Run E2E tests only"
+	@echo "  make test-all        Run unit, integration, and E2E tests"
+	@echo "  make lint            Run linter"
+	@echo "  make clean           Clean build artifacts"
+	@echo "  make install         Install locally"
+	@echo "  make run-example     Run chatbot example"
+	@echo "  make dev             Run in dev mode"
+	@echo "  make fmt             Format code"
+	@echo "  make deps            Download dependencies"

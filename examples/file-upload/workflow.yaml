@@ -1,0 +1,25 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: file-upload
+  description: File upload handling example with multipart form-data
+  version: "1.0.0"
+  targetActionId: fileProcessor
+
+settings:
+  apiServerMode: true
+  apiServer:
+    hostIp: "127.0.0.1"
+    portNum: 3000
+    routes:
+      - path: /api/v1/upload
+        methods: [POST]
+    cors:
+      enableCors: true
+      allowOrigins:
+        - http://localhost:8080
+
+  agentSettings:
+    timezone: Etc/UTC
+    pythonVersion: "3.12"

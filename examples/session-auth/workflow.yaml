@@ -1,0 +1,34 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: session-auth
+  description: Session management example with persistent storage
+  version: "1.0.0"
+  targetActionId: sessionResponse
+
+settings:
+  apiServerMode: true
+  apiServer:
+    hostIp: "127.0.0.1"
+    portNum: 3000
+    routes:
+      - path: /api/v1/login
+        methods: [POST]
+      - path: /api/v1/session
+        methods: [GET, POST]
+    cors:
+      enableCors: true
+      allowOrigins:
+        - http://localhost:8080
+
+  agentSettings:
+    timezone: Etc/UTC
+    pythonVersion: "3.12"
+
+  # Session storage configuration
+  session:
+    type: "sqlite"              # Use SQLite for persistent storage
+    path: ".kdeps/sessions.db"  # Relative to workflow directory
+    ttl: "30m"                  # 30 minute session expiration
+    cleanupInterval: "5m"       # Cleanup expired sessions every 5 minutes

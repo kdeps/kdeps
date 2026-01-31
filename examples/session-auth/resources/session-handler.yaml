@@ -1,0 +1,40 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: sessionHandler
+  name: Session Handler
+  requires: []
+
+run:
+  restrictToRoutes: [/api/v1/session]
+
+  # Require user to be logged in
+  preflightCheck:
+    validations:
+      - "{{ get('logged_in', 'session') == 'true' }}"
+    error:
+      code: 401
+      message: "Not logged in. Please login first."
+
+  # Return session data using Python
+  python:
+    script: |
+      import json
+
+      # Get all session data
+      session_data = {{ session() }}
+      print(json.dumps({
+          "message": "Session data retrieved",
+          "session": session_data
+      }))
+    timeoutDuration: 10s
+
+  apiResponse:
+    success: true
+    response:
+      message: "Session data retrieved"
+      user_id: "{{ get('user_id', 'session') }}"
+      logged_in: "{{ get('logged_in', 'session') }}"
+      login_time: "{{ get('login_time', 'session') }}"
+      all_session: "{{ session() }}"

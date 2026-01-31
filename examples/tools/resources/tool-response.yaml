@@ -1,0 +1,18 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: toolResponse
+  name: Tool Response
+  requires:
+    - llmWithTools
+
+run:
+  restrictToHttpMethods: [POST]
+  restrictToRoutes: [/api/v1/tools]
+  apiResponse:
+    success: true
+    response:
+      query: "{{ get('q', 'param') }}"
+      llm_response: "{{ get('llmWithTools') }}"
+      tools_available: true

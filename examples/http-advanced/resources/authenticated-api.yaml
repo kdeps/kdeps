@@ -1,0 +1,33 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: authenticatedApi
+  name: Authenticated API Call
+
+run:
+  restrictToHttpMethods: [GET]
+  restrictToRoutes: [/api/v1/http-demo]
+
+  httpClient:
+    method: GET
+    url: "https://httpbin.org/bearer"
+    timeoutDuration: 10s
+
+    # Bearer token authentication
+    auth:
+      type: bearer
+      token: "{{ get('api_token', 'your-bearer-token-here') }}"
+
+    # Retry configuration
+    retry:
+      maxAttempts: 3
+      backoff: 1s
+      maxBackoff: 5s
+      retryOn: [500, 502, 503, 504]
+
+    # Response caching
+    cache:
+      enabled: true
+      ttl: 5m
+      key: "bearer_auth_test"

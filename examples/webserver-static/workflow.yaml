@@ -1,0 +1,22 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: webserver-static
+  description: Static file serving with WebServer mode
+  version: 1.0.0
+  targetActionId: "none"
+
+settings:
+  webServerMode: true
+
+  webServer:
+    hostIp: "127.0.0.1"
+    portNum: 8080
+    routes:
+      - path: "/"
+        serverType: "static"
+        publicPath: "./public"
+
+  agentSettings:
+    timezone: "UTC"

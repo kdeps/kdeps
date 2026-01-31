@@ -1,0 +1,28 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: tools
+  description: LLM tool calling example with automatic tool execution
+  version: "1.0.0"
+  targetActionId: toolResponse
+
+settings:
+  apiServerMode: true
+  apiServer:
+    hostIp: "127.0.0.1"
+    portNum: 3000
+    routes:
+      - path: /api/v1/tools
+        methods: [POST]
+    cors:
+      enableCors: true
+      allowOrigins:
+        - http://localhost:8080
+
+  agentSettings:
+    timezone: Etc/UTC
+    pythonVersion: "3.12"
+    installOllama: true
+    models:
+      - llama3.2:1b

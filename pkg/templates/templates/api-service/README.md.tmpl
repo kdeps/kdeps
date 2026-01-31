@@ -1,0 +1,143 @@
+# {{ .Name }}
+
+{{ .Description }}
+
+## Quick Start
+
+1. Install dependencies:
+   ```bash
+   # No dependencies needed - KDeps runs locally!
+   ```
+
+2. Configure environment:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
+
+3. Run in development mode:
+   ```bash
+   kdeps run workflow.yaml --dev
+   ```
+
+4. Test the API:
+   ```bash
+   curl -X POST http://localhost:{{ .Port }}/api/process \
+     -H "Content-Type: application/json" \
+     -d '{"id": "123"}'
+   ```
+
+## Project Structure
+
+```
+{{ .Name }}/
+├── workflow.yaml       # Main workflow configuration
+├── resources/          # Resource definitions
+│   {{- if has .Resources "http-client" }}
+│   ├── http_client.yaml
+│   {{- end }}
+│   {{- if has .Resources "llm" }}
+│   ├── llm.yaml
+│   {{- end }}
+│   {{- if has .Resources "response" }}
+│   └── response.yaml
+│   {{- end }}
+├── .env.example        # Environment variables template
+└── README.md          # This file
+```
+
+## Configuration
+
+### Workflow (`workflow.yaml`)
+
+The main configuration file defines:
+- Agent metadata (name, version, description)
+- API server settings (port, routes, CORS)
+- Resource references
+
+### Resources (`resources/*.yaml`)
+
+Individual resource files define:
+{{- if has .Resources "http-client" }}
+- HTTP clients for API calls
+{{- end }}
+{{- if has .Resources "llm" }}
+- LLM interactions
+{{- end }}
+{{- if has .Resources "response" }}
+- Response formatting
+{{- end }}
+
+## API Endpoints
+
+### POST /api/process
+
+Process data using AI.
+
+**Request**:
+```json
+{
+  "id": "123"
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "result": {
+      "summary": "...",
+      "insights": ["...", "..."]
+    }
+  },
+  "meta": {
+    "processedAt": "2026-01-09T12:00:00Z"
+  }
+}
+```
+
+## Development
+
+### Hot Reload
+
+Changes to YAML files are automatically reloaded in dev mode:
+```bash
+kdeps run workflow.yaml --dev
+```
+
+### Validation
+
+Validate configuration before running:
+```bash
+kdeps validate workflow.yaml
+```
+
+## Deployment
+
+### Package for Docker
+
+1. Package the agent:
+   ```bash
+   kdeps package .
+   ```
+
+2. Build Docker image:
+   ```bash
+   kdeps build {{ .Name }}-{{ .Version }}.kdeps
+   ```
+
+3. Run with Docker:
+   ```bash
+   docker run -p {{ .Port }}:{{ .Port }} {{ .Name }}:{{ .Version }}
+   ```
+
+## Resources
+
+- [KDeps Documentation](https://kdeps.com)
+- [API Reference](https://kdeps.com/api)
+- [Examples](https://kdeps.com/examples)
+
+## License
+
+MIT

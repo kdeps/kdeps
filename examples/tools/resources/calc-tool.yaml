@@ -1,0 +1,37 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: calcTool
+  name: Calculator Tool
+
+run:
+  python:
+    script: |
+      import json
+      import math
+      
+      # Get expression from tool arguments (evaluated from template)
+      expression = "{{ get('expression', 'memory') }}"
+      
+      try:
+          # Safely evaluate mathematical expression
+          # Only allow safe math operations and functions
+          allowed_names = {
+              "__builtins__": {},
+              'abs': abs, 'round': round, 'min': min, 'max': max,
+              'sum': sum, 'pow': pow, 'int': int, 'float': float,
+              # Math module functions
+              'sqrt': math.sqrt, 'sin': math.sin, 'cos': math.cos, 'tan': math.tan,
+              'asin': math.asin, 'acos': math.acos, 'atan': math.atan,
+              'sinh': math.sinh, 'cosh': math.cosh, 'tanh': math.tanh,
+              'log': math.log, 'log10': math.log10, 'log2': math.log2,
+              'exp': math.exp, 'ceil': math.ceil, 'floor': math.floor,
+              'pi': math.pi, 'e': math.e,
+              # Additional useful functions
+              'degrees': math.degrees, 'radians': math.radians
+          }
+          result = eval(expression, allowed_names, {})
+          print(json.dumps({"result": result, "expression": expression}))
+      except Exception as e:
+          print(json.dumps({"error": str(e), "expression": expression}))

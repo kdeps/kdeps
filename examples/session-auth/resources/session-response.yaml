@@ -1,0 +1,18 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: sessionResponse
+  name: Response
+  requires: [loginHandler, sessionHandler]
+
+run:
+  apiResponse:
+    success: true
+    response:
+      endpoint: "{{ get('path') }}"
+      login: "{{ output('loginHandler') }}"
+      session: "{{ session() }}"
+      user_id: "{{ get('user_id', 'session') }}"
+      logged_in: "{{ get('logged_in', 'session') }}"
+      login_time: "{{ get('login_time', 'session') }}"

@@ -1,0 +1,24 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: shell-exec
+  description: Shell command execution examples
+  version: "1.0.0"
+  targetActionId: finalResult
+
+settings:
+  apiServerMode: true
+  apiServer:
+    hostIp: "127.0.0.1"
+    portNum: 3000
+    routes:
+      - path: /api/v1/exec
+        methods: [GET, POST]
+    cors:
+      enableCors: true
+      allowOrigins:
+        - http://localhost:8080
+
+  agentSettings:
+    timezone: Etc/UTC

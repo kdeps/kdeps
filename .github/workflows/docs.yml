@@ -1,0 +1,75 @@
+name: Deploy Documentation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/v1/**'
+      - 'docs/v2/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: docs/v2/package-lock.json
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Install dependencies (v1)
+        run: npm ci
+        working-directory: docs/v1
+
+      - name: Build v1
+        run: npm run build
+        working-directory: docs/v1
+
+      - name: Install dependencies (v2)
+        run: npm ci
+        working-directory: docs/v2
+
+      - name: Build with VitePress (v2)
+        run: npm run build
+        working-directory: docs/v2
+
+      - name: Move v1 to dist
+        run: |
+          mkdir -p docs/v2/.vitepress/dist/v1
+          cp -r docs/v1/.vitepress/dist/* docs/v2/.vitepress/dist/v1/
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/v2/.vitepress/dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,49 +1,73 @@
-# Contributing to Kdeps
+# Contributing to KDeps
 
-First off, thank you for considering contributing to Kdeps!
+First off, thank you for considering contributing to KDeps!
 
-There are a few ways to contribute:
-- [Reporting bugs](https://github.com/kdeps/kdeps/issues)
-- Suggesting features
-- Writing documentation
-- Contributing code
+KDeps v2 is a complete rewrite focusing on a "local-first" execution model, YAML configuration, and a Unified API. We welcome contributions that help make AI workflow orchestration simpler and more efficient.
 
-We are pretty chill about the format of the contribution, although having an issue first to discuss the change is always
-a good idea. Feel free to deliver a PR early, we can always iterate on it.
+## Ways to Contribute
+- **Reporting Bugs**: Open an issue with a clear description, reproduction steps, and expected vs. actual behavior.
+- **Suggesting Features**: We love new ideas! Open an issue to discuss your proposal.
+- **Documentation**: Help us improve the `docs/v2` folder. Documentation is as important as code.
+- **Code**: Submit Pull Requests for bug fixes or new features.
 
-## Writing Code
-There are a few guidelines that you should follow when writing code:
-- All new features should be covered by tests.
-- All new features should be documented.
-- The pull request should contain detailed description of the changes made, as well as the reasoning behind them.
-- The code should be formatted and the linters should be passing: `make format`.
+## Getting Started
 
-We use Makefile to build the code, which contains a set of commands to lint, test, build, and run the code.
+### Prerequisites
+- **Go**: v1.22 or later.
+- **uv**: Recommended for Python-related features.
+- **Docker**: Optional, needed for containerization features.
+- **golangci-lint**: For code linting.
 
-### Installing dependencies
+### Environment Setup
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/kdeps/kdeps.git
+   cd kdeps
+   ```
+2. Install dependencies:
+   ```bash
+   make deps
+   ```
 
-- Kdeps requires Golang to be installed on your machine. You can install it [here](https://go.dev/doc/install).
-- Once installed, you can install the dependencies by running `make deps`.
+## Development Workflow
 
-### Building & running the code
-
-#### Host machine
-
-- To build the binary code, run `make build`.
-- The resulting binary will be placed in the `bin` directory.
-
-You can simply run it:
-```sh
-./bin/kdeps --help
+### Building
+To build the `kdeps` binary locally:
+```bash
+make build
 ```
-
-#### Docker machine
-
-- To build the binary code used by the Docker machine, run `make dev-build`.
-- The resulting binary will be placed in the `bin` directory.
-- The binary should be copied to `.kdeps/cache/` directory.
-- Running `kdeps run`, will install the binary inside the docker machine on build time.
+The binary will be created in the root directory as `./kdeps`.
 
 ### Testing
+We maintain high test coverage across unit, integration, and E2E tests.
 
-You can run the tests by running `make test`.
+- **Run all tests**: `make test`
+- **Unit Tests**: `make test-unit` (tests in `pkg/` and `cmd/`)
+- **Integration Tests**: `make test-integration` (tests in `tests/integration/`)
+- **E2E Tests**: `make test-e2e` (tests in `tests/e2e/`)
+
+### Linting and Formatting
+Before submitting a PR, ensure your code is formatted and linted:
+```bash
+make fmt
+make lint
+```
+
+## Pull Request Guidelines
+1. **Discuss First**: For large changes, please open an issue first to discuss the approach.
+2. **Feature Branch**: Create a new branch for your changes (e.g., `feat/add-new-resource`).
+3. **Tests Required**: Every code change should include corresponding tests.
+4. **Documentation**: Update relevant files in `docs/v2` if you change or add configuration options.
+5. **Clean History**: Keep your commits focused and provide clear commit messages.
+6. **PR Description**: Describe *why* the change is needed and *what* it accomplishes.
+
+## Project Architecture
+- `cmd/`: CLI command implementations (using Cobra).
+- `pkg/domain/`: Core data models and interfaces (no external dependencies).
+- `pkg/parser/`: YAML and Expression parsing logic.
+- `pkg/executor/`: The execution engine and individual resource executors (LLM, SQL, etc.).
+- `pkg/infra/`: External integrations like Docker and Storage.
+- `docs/v2/`: VitePress documentation source.
+
+## License
+By contributing to KDeps, you agree that your contributions will be licensed under the project's [Apache 2.0 License](LICENSE).
