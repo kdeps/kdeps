@@ -1,0 +1,253 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: complex-workflow
+  description: Complex multi-resource workflow with dependencies
+  version: 1.0.0
+  targetActionId: api-response
+
+settings:
+  apiServerMode: true
+
+  apiServer:
+    hostIp: "127.0.0.1"
+    portNum: 3000
+    routes:
+      - path: "/analyze"
+        methods: ["POST"]
+
+  agentSettings:
+    timezone: "UTC"
+    installOllama: true
+
+resources:
+  # Step 1: Fetch repository data
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: fetch-repo-data
+      name: fetch-repo-data
+      description: "Fetch GitHub repository information"
+      requires: []
+    run:
+      httpClient:
+        method: GET
+        url: "https://api.github.com/repos/{{get('owner')}}/{{get('repo')}}"
+        headers:
+          Accept: "application/vnd.github.v3+json"
+          User-Agent: "KDeps-Workflow"
+        timeoutDuration: 10s
+
+  # Step 2: Fetch recent commits (parallel with step 3)
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: fetch-commits
+      name: fetch-commits
+      description: "Fetch recent commits"
+      requires: ["fetch-repo-data"]
+    run:
+      httpClient:
+        method: GET
+        url: "https://api.github.com/repos/{{get('owner')}}/{{get('repo')}}/commits?per_page=10"
+        headers:
+          Accept: "application/vnd.github.v3+json"
+          User-Agent: "KDeps-Workflow"
+        timeoutDuration: 10s
+
+  # Step 3: Fetch contributors (parallel with step 2)
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: fetch-contributors
+      name: fetch-contributors
+      description: "Fetch repository contributors"
+      requires: ["fetch-repo-data"]
+    run:
+      httpClient:
+        method: GET
+        url: "https://api.github.com/repos/{{get('owner')}}/{{get('repo')}}/contributors?per_page=5"
+        headers:
+          Accept: "application/vnd.github.v3+json"
+          User-Agent: "KDeps-Workflow"
+        timeoutDuration: 10s
+
+  # Step 4: Fetch issues (parallel with steps 2 & 3)
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: fetch-issues
+      name: fetch-issues
+      description: "Fetch recent issues"
+      requires: ["fetch-repo-data"]
+    run:
+      httpClient:
+        method: GET
+        url: "https://api.github.com/repos/{{get('owner')}}/{{get('repo')}}/issues?state=open&per_page=10"
+        headers:
+          Accept: "application/vnd.github.v3+json"
+          User-Agent: "KDeps-Workflow"
+        timeoutDuration: 10s
+
+  # Step 5: Analyze repository activity
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: analyze-activity
+      name: analyze-activity
+      description: "Analyze repository activity with AI"
+      requires: ["fetch-commits", "fetch-contributors", "fetch-issues"]
+    run:
+      chat:
+        backend: "ollama"
+        model: "llama3.2"
+        role: "user"
+        prompt: |
+          Analyze this GitHub repository activity:
+
+          Repository: {{safe(get('fetch-repo-data'), 'data.name')}}
+          Stars: {{safe(get('fetch-repo-data'), 'data.stargazers_count')}}
+          Forks: {{safe(get('fetch-repo-data'), 'data.forks_count')}}
+          Open Issues: {{safe(get('fetch-repo-data'), 'data.open_issues_count')}}
+
+          Recent Commits: {{len(safe(get('fetch-commits'), 'data'))}}
+          Contributors: {{len(safe(get('fetch-contributors'), 'data'))}}
+
+          Provide a brief analysis (2-3 sentences) of:
+          1. Repository health and activity level
+          2. Community engagement
+          3. Overall project status
+
+          Format as JSON with fields: health, engagement, status
+        scenario:
+          - role: "assistant"
+            prompt: "You are a software development analyst."
+        jsonResponse: true
+        timeoutDuration: 60s
+
+  # Step 6: Generate recommendations
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: generate-recommendations
+      name: generate-recommendations
+      description: "Generate improvement recommendations"
+      requires: ["analyze-activity"]
+    run:
+      chat:
+        backend: "ollama"
+        model: "llama3.2"
+        role: "user"
+        prompt: |
+          Based on this repository analysis:
+          {{get('analyze-activity')}}
+
+          Generate 3 specific, actionable recommendations for improving the repository.
+          Focus on:
+          - Code quality and maintenance
+          - Community engagement
+          - Documentation and usability
+
+          Format as a JSON array of objects with "title" and "description" fields.
+        scenario:
+          - role: "assistant"
+            prompt: "You are a DevOps and open source community expert."
+        jsonResponse: true
+        timeoutDuration: 60s
+
+  # Step 7: Save analysis to file
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: save-analysis
+      name: save-analysis
+      description: "Save analysis results to file"
+      requires: ["analyze-activity", "generate-recommendations"]
+    run:
+      exec:
+        command: "sh"
+        args:
+          - "-c"
+          - |
+            # Create output directory
+            mkdir -p ./output
+
+            # Generate filename
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            REPO_NAME="{{get('owner')}}_{{get('repo')}}"
+            OUTPUT_FILE="./output/${REPO_NAME}_${TIMESTAMP}.json"
+
+            # Create JSON report
+            cat > "$OUTPUT_FILE" << 'EOF'
+            {
+              "repository": "{{get('owner') + '/' + get('repo')}}",
+              "analyzed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+              "stats": {
+                "stars": {{safe(get('fetch-repo-data'), 'data.stargazers_count')}},
+                "forks": {{safe(get('fetch-repo-data'), 'data.forks_count')}},
+                "open_issues": {{safe(get('fetch-repo-data'), 'data.open_issues_count')}},
+                "commits_analyzed": {{len(safe(get('fetch-commits'), 'data'))}},
+                "contributors": {{len(safe(get('fetch-contributors'), 'data'))}}
+              },
+              "analysis": {{get('analyze-activity')}},
+              "recommendations": {{get('generate-recommendations')}}
+            }
+            EOF
+
+            echo "Analysis saved to: $OUTPUT_FILE"
+            cat "$OUTPUT_FILE"
+        timeoutDuration: 30s
+
+  # Step 8: Final report
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: final-report
+      name: final-report
+      description: "Generate final summary report"
+      requires: ["save-analysis"]
+    run:
+      exec:
+        command: "echo"
+        args:
+          - |
+            ═══════════════════════════════════════════
+            Repository Analysis Complete
+            ═══════════════════════════════════════════
+
+            Repository: {{get('owner') + '/' + get('repo')}}
+            Stars: {{safe(get('fetch-repo-data'), 'data.stargazers_count')}} ⭐
+            Forks: {{safe(get('fetch-repo-data'), 'data.forks_count')}} 🔱
+            Open Issues: {{safe(get('fetch-repo-data'), 'data.open_issues_count')}} 📋
+
+            Analysis saved to ./output/
+
+            ═══════════════════════════════════════════
+        timeoutDuration: 10s
+
+  # Step 9: API Response
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: api-response
+      name: api-response
+      description: "Format results as API response"
+      requires: ["final-report"]
+    run:
+      apiResponse:
+        success: true
+        response:
+          repository: "{{get('owner') + '/' + get('repo')}}"
+          stats:
+            stars: "{{safe(get('fetch-repo-data'), 'data.stargazers_count')}}"
+            forks: "{{safe(get('fetch-repo-data'), 'data.forks_count')}}"
+            open_issues: "{{safe(get('fetch-repo-data'), 'data.open_issues_count')}}"
+            commits_analyzed: "{{len(safe(get('fetch-commits'), 'data'))}}"
+            contributors: "{{len(safe(get('fetch-contributors'), 'data'))}}"
+          analysis: "{{get('analyze-activity')}}"
+          recommendations: "{{get('generate-recommendations')}}"
+          message: "Repository analysis completed successfully. Results saved to ./output/"
+        meta:
+          headers:
+            Content-Type: "application/json"

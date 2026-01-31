@@ -1,0 +1,7 @@
+{{- if .InstallOllama }}
+# Install Ollama from official install script
+# Note: The install script automatically detects architecture and downloads the appropriate binary
+RUN curl -fsSL https://ollama.com/install.sh | sh
+{{- else }}
+# No LLM backend to install
+{{- end }}

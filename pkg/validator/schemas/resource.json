@@ -1,0 +1,508 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "run"],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "enum": ["kdeps.io/v1"]
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["Resource"]
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["actionId", "name"],
+      "properties": {
+        "actionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "requires": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "run": {
+      "type": "object",
+      "properties": {
+        "restrictToHttpMethods": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"]
+          }
+        },
+        "restrictToRoutes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^/"
+          }
+        },
+        "skipCondition": {
+          "type": "array"
+        },
+        "preflightCheck": {
+          "type": "object",
+          "properties": {
+            "validations": {
+              "type": "array"
+            },
+            "error": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "integer"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "chat": {
+          "type": "object",
+          "properties": {
+            "model": {
+              "type": "string"
+            },
+            "backend": {
+              "type": "string",
+              "enum": ["ollama", "openai", "anthropic", "google", "cohere", "mistral", "together", "perplexity", "groq", "deepseek"]
+            },
+            "baseUrl": {
+              "type": "string"
+            },
+            "apiKey": {
+              "type": "string"
+            },
+            "contextLength": {
+              "type": "integer",
+              "enum": [4096, 8192, 16384, 32768, 65536, 131072, 262144]
+            },
+            "role": {
+              "type": "string"
+            },
+            "prompt": {
+              "type": "string"
+            },
+            "scenario": {
+              "type": "array"
+            },
+            "tools": {
+              "type": "array"
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "jsonResponse": {
+              "type": "boolean"
+            },
+            "jsonResponseKeys": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "timeoutDuration": {
+              "type": "string"
+            },
+            "temperature": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2
+            },
+            "maxTokens": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "topP": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "frequencyPenalty": {
+              "type": "number",
+              "minimum": -2,
+              "maximum": 2
+            },
+            "presencePenalty": {
+              "type": "number",
+              "minimum": -2,
+              "maximum": 2
+            }
+          }
+        },
+        "httpClient": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string"
+            },
+            "method": {
+              "type": "string",
+              "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"]
+            },
+            "headers": {
+              "type": "object"
+            },
+            "body": {
+              "type": "object"
+            }
+          }
+        },
+        "sql": {
+          "type": "object",
+          "properties": {
+            "connection": {
+              "type": "string"
+            },
+            "connectionName": {
+              "type": "string"
+            },
+            "query": {
+              "type": "string"
+            },
+            "params": {
+              "type": "array"
+            },
+            "format": {
+              "type": "string",
+              "enum": ["json", "csv", "table"]
+            },
+            "maxRows": {
+              "type": "integer"
+            },
+            "timeoutDuration": {
+              "type": "string"
+            }
+          }
+        },
+        "python": {
+          "type": "object",
+          "properties": {
+            "script": {
+              "type": "string"
+            },
+            "file": {
+              "type": "string"
+            },
+            "scriptFile": {
+              "type": "string"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "timeoutDuration": {
+              "type": "string"
+            },
+            "venvName": {
+              "type": "string",
+              "description": "Custom virtual environment name for Python environment isolation"
+            }
+          }
+        },
+        "exec": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "timeoutDuration": {
+              "type": "string"
+            },
+            "workingDir": {
+              "type": "string",
+              "description": "Working directory for command execution"
+            },
+            "env": {
+              "type": "object",
+              "description": "Environment variables",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "apiResponse": {
+          "type": "object",
+          "properties": {
+            "success": {
+              "type": "boolean"
+            },
+            "response": {
+              "type": "object"
+            },
+            "meta": {
+              "type": "object",
+              "properties": {
+                "headers": {
+                  "type": "object"
+                },
+                "statusCode": {
+                  "type": "integer",
+                  "description": "HTTP status code for the response"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "backend": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "validation": {
+          "type": "object",
+          "description": "Input validation rules for the resource",
+          "properties": {
+            "required": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "List of required field names"
+            },
+            "rules": {
+              "type": "array",
+              "description": "Field-specific validation rules",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "field": {
+                    "type": "string",
+                    "description": "Field name to validate"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": ["string", "integer", "number", "boolean", "array", "object", "email", "url", "uuid", "date"],
+                    "description": "Expected field type"
+                  },
+                  "minLength": {
+                    "type": "integer",
+                    "description": "Minimum string length"
+                  },
+                  "maxLength": {
+                    "type": "integer",
+                    "description": "Maximum string length"
+                  },
+                  "pattern": {
+                    "type": "string",
+                    "description": "Regex pattern for string validation"
+                  },
+                  "min": {
+                    "type": "number",
+                    "description": "Minimum value for numbers"
+                  },
+                  "max": {
+                    "type": "number",
+                    "description": "Maximum value for numbers"
+                  },
+                  "minimum": {
+                    "type": "number",
+                    "description": "Minimum value for numbers (alias for min)"
+                  },
+                  "maximum": {
+                    "type": "number",
+                    "description": "Maximum value for numbers (alias for max)"
+                  },
+                  "minItems": {
+                    "type": "integer",
+                    "description": "Minimum array length"
+                  },
+                  "maxItems": {
+                    "type": "integer",
+                    "description": "Maximum array length"
+                  },
+                  "enum": {
+                    "type": "array",
+                    "description": "Allowed values"
+                  },
+                  "message": {
+                    "type": "string",
+                    "description": "Custom error message"
+                  }
+                }
+              }
+            },
+            "fields": {
+              "type": "object",
+              "description": "Field validation rules in map format (alternative to rules array)",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": ["string", "integer", "number", "boolean", "array", "object", "email", "url", "uuid", "date"]
+                  },
+                  "minLength": {
+                    "type": "integer"
+                  },
+                  "maxLength": {
+                    "type": "integer"
+                  },
+                  "pattern": {
+                    "type": "string"
+                  },
+                  "min": {
+                    "type": "number"
+                  },
+                  "max": {
+                    "type": "number"
+                  },
+                  "minimum": {
+                    "type": "number"
+                  },
+                  "maximum": {
+                    "type": "number"
+                  },
+                  "minItems": {
+                    "type": "integer"
+                  },
+                  "maxItems": {
+                    "type": "integer"
+                  },
+                  "enum": {
+                    "type": "array"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "properties": {
+              "type": "object",
+              "description": "Field validation rules in map format (alias for fields, matches JSON Schema convention)",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": ["string", "integer", "number", "boolean", "array", "object", "email", "url", "uuid", "date"]
+                  },
+                  "minLength": {
+                    "type": "integer"
+                  },
+                  "maxLength": {
+                    "type": "integer"
+                  },
+                  "pattern": {
+                    "type": "string"
+                  },
+                  "min": {
+                    "type": "number"
+                  },
+                  "max": {
+                    "type": "number"
+                  },
+                  "minimum": {
+                    "type": "number"
+                  },
+                  "maximum": {
+                    "type": "number"
+                  },
+                  "minItems": {
+                    "type": "integer"
+                  },
+                  "maxItems": {
+                    "type": "integer"
+                  },
+                  "enum": {
+                    "type": "array"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "customRules": {
+              "type": "array",
+              "description": "Custom expression-based validation rules",
+              "items": {
+                "type": "object",
+                "required": ["expr", "message"],
+                "properties": {
+                  "expr": {
+                    "type": "string",
+                    "description": "Expression to evaluate (must return boolean)"
+                  },
+                  "message": {
+                    "type": "string",
+                    "description": "Error message if validation fails"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "onError": {
+          "type": "object",
+          "description": "Error handling configuration for the resource",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": ["continue", "fail", "retry"],
+              "description": "Action to take when an error occurs: continue (proceed with fallback), fail (stop execution), retry (retry with backoff)"
+            },
+            "maxRetries": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10,
+              "description": "Maximum number of retry attempts (only for action: retry)"
+            },
+            "retryDelay": {
+              "type": "string",
+              "pattern": "^[0-9]+(ms|s|m)$",
+              "description": "Delay between retry attempts (e.g., '1s', '500ms')"
+            },
+            "fallback": {
+              "description": "Fallback value to use when error occurs and action is 'continue'"
+            },
+            "expr": {
+              "type": "array",
+              "description": "Expressions to execute when an error occurs (has access to 'error' object)"
+            },
+            "when": {
+              "type": "array",
+              "description": "Conditions for when to apply this error handler (has access to 'error' object)"
+            }
+          }
+        }
+      }
+    }
+  }
+}

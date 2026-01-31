@@ -1,0 +1,34 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: llmWithTools
+  name: LLM with Tools
+
+run:
+  chat:
+    model: "llama3.2:1b"
+    role: "user"
+    prompt: "{{ get('q', 'param') }}"
+    tools:
+      - name: calculate
+        description: "Perform a mathematical calculation. Supports basic arithmetic (+, -, *, /, **), math functions (sqrt, sin, cos, tan, log, exp, etc.), and constants (pi, e)"
+        script: "calcTool"  # References calcTool resource
+        parameters:
+          expression:
+            type: "string"
+            description: "Mathematical expression to evaluate, e.g. '2 + 2', 'sqrt(16)', 'sin(pi/2)'"
+            required: true
+      - name: search_database
+        description: "Search the product database"
+        script: "dbSearchTool"  # References dbSearchTool resource
+        parameters:
+          query:
+            type: "string"
+            description: "Search query"
+            required: true
+          category:
+            type: "string"
+            description: "Product category filter"
+            required: false
+    jsonResponse: true

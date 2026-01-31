@@ -1,0 +1,19 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: dbSearchTool
+  name: Database Search Tool
+
+run:
+  # This is a placeholder - in a real scenario, this would query a database
+  # For the example, we'll return mock results
+  apiResponse:
+    success: true
+    response:
+      results:
+        - id: 1
+          name: "Product 1"
+          category: "{{ get('category', 'memory') }}"
+          query: "{{ get('query', 'memory') }}"
+      message: "Search completed (mock results)"

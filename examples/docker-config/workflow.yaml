@@ -1,0 +1,74 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: docker-config-example
+  description: Example showing Docker configuration features
+  version: 1.0.0
+  targetActionId: response
+
+settings:
+  apiServerMode: true
+  apiServer:
+    hostIp: "127.0.0.1"
+    portNum: 3000
+    routes:
+      - path: /api/v1/chat
+        methods: [POST]
+
+  agentSettings:
+    timezone: "UTC"
+    pythonVersion: "3.12"
+
+    # Base OS for Docker build (alpine, ubuntu, or debian)
+    # Can be overridden with: kdeps build --os ubuntu
+    baseOS: "alpine"
+
+    # Install Ollama for local LLM support
+    installOllama: true
+
+    # Python packages to install
+    pythonPackages:
+      - requests
+      - numpy
+      - pandas
+
+    # OS-level packages to install
+    # For alpine: apk packages
+    # For ubuntu/debian: apt packages
+    osPackages:
+      - git
+      - vim
+      - curl
+      - jq
+
+    # LLM models to download (optional)
+    models:
+      - llama3.2:1b
+
+resources:
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: llm
+      name: LLM Chat
+    run:
+      chat:
+        # Backend will be auto-detected and installed in Docker image
+        # Local backend: ollama (default). Online providers: openai, anthropic, google, cohere, mistral, together, perplexity, groq, deepseek
+        backend: "ollama"
+        model: "llama3.2:1b"
+        role: "user"
+        prompt: "{{ get('q', 'param') }}"
+
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: response
+      name: API Response
+      requires: [llm]
+    run:
+      apiResponse:
+        success: true
+        response:
+          answer: "{{ llm.response('llm') }}"

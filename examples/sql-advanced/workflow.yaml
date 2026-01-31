@@ -1,0 +1,39 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: sql-advanced
+  description: Advanced SQL operations with batch processing and multiple formats
+  version: "1.0.0"
+  targetActionId: results
+
+settings:
+  apiServerMode: true
+  apiServer:
+    hostIp: "127.0.0.1"
+    portNum: 3000
+    routes:
+      - path: /api/v1/sql-demo
+        methods: [GET, POST]
+    cors:
+      enableCors: true
+      allowOrigins:
+        - http://localhost:8080
+
+  agentSettings:
+    timezone: Etc/UTC
+    pythonVersion: "3.12"
+    models:
+      - llama3.2:1b
+
+  sqlConnections:
+    analytics:
+      connection: "postgres://user:pass@localhost:5432/analytics"
+      pool:
+        maxConnections: 10
+        minConnections: 2
+    inventory:
+      connection: "mysql://user:pass@localhost:3306/inventory"
+      pool:
+        maxConnections: 5
+        minConnections: 1

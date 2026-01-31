@@ -1,0 +1,27 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: http-advanced
+  description: Advanced HTTP client features with authentication, caching, and retries
+  version: "1.0.0"
+  targetActionId: finalResult
+
+settings:
+  apiServerMode: true
+  apiServer:
+    hostIp: "127.0.0.1"
+    portNum: 3000
+    routes:
+      - path: /api/v1/http-demo
+        methods: [GET, POST]
+    cors:
+      enableCors: true
+      allowOrigins:
+        - http://localhost:8080
+
+  agentSettings:
+    timezone: Etc/UTC
+    pythonVersion: "3.12"
+    models:
+      - llama3.2:1b

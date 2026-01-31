@@ -1,0 +1,20 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: visionResponse
+  name: Vision Response
+  requires:
+    - visionLLM
+
+run:
+  restrictToHttpMethods: [POST]
+  restrictToRoutes: [/api/v1/vision]
+  apiResponse:
+    success: true
+    response:
+      query: "{{ get('q', 'param') }}"
+      analysis: "{{ get('visionLLM') }}"
+      file_info:
+        filename: "{{ info('files') }}"
+        filetype: "{{ info('filetypes') }}"

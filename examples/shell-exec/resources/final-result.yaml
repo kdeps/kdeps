@@ -1,0 +1,15 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: finalResult
+  name: Final Result
+  requires: [systemInfo]
+
+run:
+  apiResponse:
+    success: true
+    response:
+      system_info: "{{ get('systemInfo') }}"
+      timestamp: "{{ info('current_time') }}"
+      workflow: "{{ info('name') }}"

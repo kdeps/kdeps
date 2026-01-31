@@ -1,0 +1,33 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: analytics
+  name: User Analytics Query
+
+run:
+  restrictToHttpMethods: [GET]
+  restrictToRoutes: [/api/v1/sql-demo]
+
+  sql:
+    connectionName: analytics
+    query: |
+      SELECT
+        DATE(created_at) as date,
+        COUNT(*) as total_users,
+        COUNT(DISTINCT email) as unique_emails,
+        AVG(age) as avg_age
+      FROM users
+      WHERE created_at >= $1
+        AND created_at < $2
+      GROUP BY DATE(created_at)
+      ORDER BY date DESC
+      LIMIT 30
+
+    params:
+      - get('start_date', '2024-01-01')
+      - get('end_date', '2024-12-31')
+
+    format: csv
+    maxRows: 30
+    timeoutDuration: 30s

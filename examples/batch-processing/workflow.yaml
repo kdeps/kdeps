@@ -1,0 +1,93 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: batch-processing
+  description: Batch processing with items iteration
+  version: 1.0.0
+  targetActionId: api-response
+
+settings:
+  apiServerMode: true
+
+  apiServer:
+    hostIp: "127.0.0.1"
+    portNum: 3000
+    routes:
+      - path: "/process"
+        methods: ["POST"]
+
+  agentSettings:
+    timezone: "UTC"
+
+resources:
+  # Process multiple items in parallel
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: process-items
+      name: process-items
+      description: "Fetch data for each item"
+      requires: []
+    items:
+      - "{{input.items}}"  # Iterate over items from request
+    run:
+      httpClient:
+        method: GET
+        url: "https://api.github.com/repos/{{item.org}}/{{item.repo}}"
+        headers:
+          Accept: "application/vnd.github.v3+json"
+        timeout: 10s
+
+  # Transform each result
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: transform-results
+      name: transform-results
+      description: "Extract key information from each result"
+      requires: ["process-items"]
+    items:
+      - "{{get('process-items')}}"  # Iterate over previous results
+    run:
+      exec:
+        command: "echo"
+        args:
+          - "{{default(safe(item, 'data.name'), 'N/A')}} has {{default(safe(item, 'data.stargazers_count'), 0)}} stars"
+
+  # Aggregate all results (for debugging/logging)
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: aggregate-results
+      name: aggregate-results
+      description: "Aggregate all processed items"
+      requires: ["transform-results"]
+    run:
+      exec:
+        command: "sh"
+        args:
+          - "-c"
+          - |
+            echo "Processed {{len(get('transform-results'))}} items:"
+            echo {{json(get('transform-results'))}}
+
+  # Format and return API response
+  - apiVersion: kdeps.io/v1
+    kind: Resource
+    metadata:
+      actionId: api-response
+      name: api-response
+      description: "Format results as API response"
+      requires: ["transform-results"]
+    run:
+      apiResponse:
+        success: true
+        response:
+          summary:
+            totalItems: "{{len(get('transform-results'))}}"
+            message: "Successfully processed {{len(get('transform-results'))}} repositories"
+          results: "{{get('transform-results')}}"
+        meta:
+          headers:
+            Content-Type: "application/json"

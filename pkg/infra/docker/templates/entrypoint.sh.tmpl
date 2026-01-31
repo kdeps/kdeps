@@ -1,0 +1,60 @@
+#!/bin/bash
+set -e
+
+echo "=== KDeps Docker Container Starting ==="
+{{- if .InstallOllama }}
+echo "Ollama enabled on port: ${BACKEND_PORT:-11434}"
+{{- else }}
+echo "No local LLM backend installed"
+{{- end }}
+
+{{- if .InstallOllama }}
+# Function to wait for Ollama to be ready
+wait_for_ollama() {
+    local port=$1
+    local max_attempts=30
+    local attempt=0
+
+    echo "Waiting for Ollama to be ready on port $port..."
+
+    while [ $attempt -lt $max_attempts ]; do
+        if curl -s http://localhost:$port/api/tags >/dev/null 2>&1; then
+            echo "Ollama is ready!"
+            return 0
+        fi
+        attempt=$((attempt + 1))
+        echo "Attempt $attempt/$max_attempts: Ollama not ready yet..."
+        sleep 2
+    done
+
+    echo "WARNING: Ollama did not become ready after $max_attempts attempts"
+    return 1
+}
+{{- end }}
+
+# Handle models based on offline mode
+{{- if and .OfflineMode .Models .InstallOllama }}
+if [ -d "/models" ]; then
+    echo "Offline mode: Copying pre-downloaded models from /models..."
+
+    # Copy Ollama models
+    OLLAMA_MODELS_DIR="${OLLAMA_MODELS:-/root/.ollama}"
+    mkdir -p "${OLLAMA_MODELS_DIR}/models"
+    if [ -d "/models/models" ]; then
+        rsync -avrPtz --human-readable /models/models/. "${OLLAMA_MODELS_DIR}/models/" || \
+        cp -r /models/models/* "${OLLAMA_MODELS_DIR}/models/" 2>/dev/null || true
+        echo "Ollama models copied successfully"
+    else
+        echo "WARNING: No Ollama models found in /models/models directory"
+    fi
+fi
+{{- else if and .Models .InstallOllama }}
+# Download models if specified (not in offline mode)
+echo "Pre-pulling Ollama models..."
+{{- range .Models }}
+/usr/local/bin/ollama pull {{ . }} || echo "Failed to pull {{ . }}, will retry at runtime"
+{{- end }}
+{{- end }}
+
+# Execute the command passed to docker run
+exec "$@"

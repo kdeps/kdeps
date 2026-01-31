@@ -1,0 +1,14 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: systemInfo
+  name: System Information
+
+run:
+  restrictToHttpMethods: [GET]
+  restrictToRoutes: [/api/v1/exec]
+
+  exec:
+    command: "echo 'System Info:' && uname -a && echo 'Current Directory:' && pwd && echo 'Date:' && date"
+    timeoutDuration: 10s
