@@ -137,7 +137,7 @@ test-all: test test-integration
 # Run linter
 lint:
 	@echo "Running linter..."
-	@golangci-lint run ./... --fix || echo "Linting completed with warnings (non-blocking)"
+	@golangci-lint run --config=.golangci.yml ./... --fix || echo "Linting completed with warnings (non-blocking)"
 
 # Clean build artifacts
 clean:
