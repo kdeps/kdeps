@@ -156,7 +156,7 @@ func (e *Evaluator) evaluateInterpolated(
 			valueStr = ""
 		} else {
 			// Check if value is a map or slice - serialize as JSON for valid Python/JS syntax
-			switch reflect.TypeOf(value).Kind() {
+			switch reflect.TypeOf(value).Kind() { //nolint:exhaustive // only maps and slices need special handling
 			case reflect.Map, reflect.Slice:
 				jsonBytes, jsonErr := json.Marshal(value)
 				if jsonErr != nil {

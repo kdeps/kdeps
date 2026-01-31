@@ -187,7 +187,7 @@ func extractHostPortFromParsedURL(parsedURL *url.URL, defaultHost string, defaul
 
 // Execute executes an LLM chat resource.
 //
-//nolint:gocognit,gocyclo,cyclop,funlen // LLM execution handles many configuration paths
+//nolint:gocognit,funlen // LLM execution handles many configuration paths
 func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
 	config *domain.ChatConfig,
@@ -1116,7 +1116,7 @@ type MockHTTPClient struct {
 }
 
 // Do implements the HTTPClient interface for mocking.
-func (m *MockHTTPClient) Do(req *stdhttp.Request) (*stdhttp.Response, error) {
+func (m *MockHTTPClient) Do(_ *stdhttp.Request) (*stdhttp.Response, error) {
 	if m.Error != nil {
 		return nil, m.Error
 	}

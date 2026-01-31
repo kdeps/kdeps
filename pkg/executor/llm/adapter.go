@@ -79,8 +79,10 @@ func NewAdapterWithMockClient(ollamaURL string, mockClient HTTPClient) *Adapter 
 	}
 
 	// Wire model manager to executor
-	modelManager := NewModelManagerFromServiceInterface(adapter.modelService.(*MockModelService))
-	adapter.executor.SetModelManager(modelManager)
+	if mockService, ok := adapter.modelService.(*MockModelService); ok {
+		modelManager := NewModelManagerFromServiceInterface(mockService)
+		adapter.executor.SetModelManager(modelManager)
+	}
 
 	return adapter
 }

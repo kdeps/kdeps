@@ -16,6 +16,7 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
+//nolint:mnd // test data uses literal values
 package llm
 
 import (
