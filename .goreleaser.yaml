@@ -6,7 +6,7 @@ builds:
   - id: kdeps-darwin
     binary: kdeps
     ldflags:
-      - -s -w -X github.com/kdeps/kdeps/v2/pkg/version.Version={{ .Env.VERSION }} -X github.com/kdeps/kdeps/v2/pkg/version.Commit={{ .Env.COMMIT_SHA }}
+      - -s -w -X github.com/kdeps/kdeps/v2/pkg/version.Version={{ .Version }} -X github.com/kdeps/kdeps/v2/pkg/version.Commit={{ .Commit }}
     main: ./
     goarch:
       - amd64
@@ -36,7 +36,7 @@ builds:
       - -trimpath
       - -buildvcs=false
     ldflags:
-      - -s -w -X github.com/kdeps/kdeps/v2/pkg/version.Version={{ .Env.VERSION }} -X github.com/kdeps/kdeps/v2/pkg/version.Commit={{ .Env.COMMIT_SHA }}
+      - -s -w -X github.com/kdeps/kdeps/v2/pkg/version.Version={{ .Version }} -X github.com/kdeps/kdeps/v2/pkg/version.Commit={{ .Commit }}
   - id: kdeps-linux-arm64
     binary: kdeps
     main: ./
@@ -52,7 +52,7 @@ builds:
       - -trimpath
       - -buildvcs=false
     ldflags:
-      - -s -w -X github.com/kdeps/kdeps/v2/pkg/version.Version={{ .Env.VERSION }} -X github.com/kdeps/kdeps/v2/pkg/version.Commit={{ .Env.COMMIT_SHA }}
+      - -s -w -X github.com/kdeps/kdeps/v2/pkg/version.Version={{ .Version }} -X github.com/kdeps/kdeps/v2/pkg/version.Commit={{ .Commit }}
   - id: kdeps-windows-amd64
     binary: kdeps
     main: ./
@@ -65,7 +65,7 @@ builds:
       - CXX=x86_64-w64-mingw32-g++
       - CGO_ENABLED=1
     ldflags:
-      - -s -w -X github.com/kdeps/kdeps/v2/pkg/version.Version={{ .Env.VERSION }} -X github.com/kdeps/kdeps/v2/pkg/version.Commit={{ .Env.COMMIT_SHA }}
+      - -s -w -X github.com/kdeps/kdeps/v2/pkg/version.Version={{ .Version }} -X github.com/kdeps/kdeps/v2/pkg/version.Commit={{ .Commit }}
     flags:
       - -trimpath
       - -buildmode=exe
