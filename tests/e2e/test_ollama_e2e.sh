@@ -94,7 +94,7 @@ else
     test_failed "Ollama CLI not installed - required for E2E tests"
     echo ""
     echo "FATAL: Ollama must be installed for E2E tests"
-    exit 1
+    return 1
 fi
 
 # =============================================================================
@@ -107,7 +107,7 @@ else
     test_skipped "Ollama server not running - run 'ollama serve' to start"
     echo ""
     echo "Skipping remaining Ollama tests (Ollama server not running)"
-    exit 0
+    return 0
 fi
 
 # =============================================================================
@@ -121,7 +121,7 @@ else
     test_skipped "No small model available - run 'ollama pull tinydolphin' to download"
     echo ""
     echo "Skipping remaining Ollama tests (no model available)"
-    exit 0
+    return 0
 fi
 
 echo ""

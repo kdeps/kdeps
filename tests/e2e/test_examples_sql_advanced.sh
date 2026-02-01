@@ -30,7 +30,7 @@ WORKFLOW_PATH="$PROJECT_ROOT/examples/sql-advanced/workflow.yaml"
 
 if [ ! -f "$WORKFLOW_PATH" ]; then
     test_skipped "SQL Advanced example (workflow not found)"
-    exit 0
+    return 0
 fi
 
 # Extract port from workflow
@@ -42,7 +42,7 @@ if "$KDEPS_BIN" validate "$WORKFLOW_PATH" &> /dev/null; then
     test_passed "SQL Advanced - Workflow validation"
 else
     test_failed "SQL Advanced - Workflow validation" "Validation failed"
-    exit 0
+    return 0
 fi
 
 # Test 2: Check resources exist
@@ -116,7 +116,7 @@ if grep -qi "failed to parse\|validation failed\|syntax error" "$SERVER_LOG" 2>/
     wait $SERVER_PID 2>/dev/null || true
     rm -f "$SERVER_LOG"
     test_failed "SQL Advanced - Server startup" "Workflow parsing failed"
-    exit 0
+    return 0
 fi
 
 if [ "$SERVER_READY" = true ]; then
