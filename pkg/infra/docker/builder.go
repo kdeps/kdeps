@@ -41,22 +41,6 @@ const (
 	baseOSDebian  = "debian"
 	backendOllama = "ollama"
 
-	// Architecture constants for cross-compilation.
-	archAMD64 = "amd64"
-	archARM64 = "arm64"
-
-	// Binary names for cross-compiled binaries.
-	binaryAMD64 = "kdeps-binary-amd64"
-	binaryARM64 = "kdeps-binary-arm64"
-
-	// File permissions.
-	defaultFilePermissions = 0644
-	executablePermissions  = 0755
-
-	// Go build flags.
-	goOSLinux     = "linux"
-	goCGODisabled = "0"
-
 	// Default port for Ollama.
 	defaultOllamaPort = 11434
 
@@ -137,22 +121,22 @@ func (c *DefaultCompiler) WriteTarData(tw *tar.Writer, data []byte) error {
 
 // DockerfileData contains data for Dockerfile template rendering.
 type DockerfileData struct {
-	OS                string
-	InstallOllama     bool   // Whether to install Ollama in the Docker image
-	BackendPort       int    // Port for Ollama (11434)
-	GPUType           string // GPU type: "", "cuda", "rocm", "intel", "vulkan"
-	BackendStage      string // Rendered backend stage comment
-	BackendInstall    string // Rendered backend install section
-	PythonVersion     string
-	PythonPackages    []string
-	OSPackages        []string
-	RequirementsFile  string
-	APIPort           int
-	Models            []string
-	DefaultModel      string
-	OfflineMode       bool // Whether offline mode is enabled (download models during build)
-	HasResources      bool // Whether resources directory exists
-	HasData           bool // Whether data directory exists
+	OS               string
+	InstallOllama    bool // Whether to install Ollama in the Docker image
+	BackendPort      int  // Port for Ollama (11434)
+	GPUType          string
+	BackendStage     string
+	BackendInstall   string
+	PythonVersion    string
+	PythonPackages   []string
+	OSPackages       []string
+	RequirementsFile string
+	APIPort          int
+	Models           []string
+	DefaultModel     string
+	OfflineMode      bool // Whether offline mode is enabled (download models during build)
+	HasResources     bool // Whether resources directory exists
+	HasData          bool // Whether data directory exists
 }
 
 // Builder builds Docker images from workflows.
@@ -365,22 +349,22 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 	}
 
 	return &DockerfileData{
-		OS:             b.BaseOS,
-		InstallOllama:  installOllama,
-		BackendPort:    b.GetBackendPort(""),
-		GPUType:        b.GPUType,
-		BackendStage:   backendStageBuf.String(),
-		BackendInstall: backendInstallBuf.String(),
-		PythonVersion:  pythonVersion,
-		PythonPackages: workflow.Settings.AgentSettings.PythonPackages,
-		OSPackages:     workflow.Settings.AgentSettings.OSPackages,
+		OS:               b.BaseOS,
+		InstallOllama:    installOllama,
+		BackendPort:      b.GetBackendPort(""),
+		GPUType:          b.GPUType,
+		BackendStage:     backendStageBuf.String(),
+		BackendInstall:   backendInstallBuf.String(),
+		PythonVersion:    pythonVersion,
+		PythonPackages:   workflow.Settings.AgentSettings.PythonPackages,
+		OSPackages:       workflow.Settings.AgentSettings.OSPackages,
 		RequirementsFile: workflow.Settings.AgentSettings.RequirementsFile,
-		APIPort:        b.getAPIPort(workflow),
-		Models:         workflow.Settings.AgentSettings.Models,
-		DefaultModel:   b.getDefaultModel(workflow),
-		OfflineMode:    workflow.Settings.AgentSettings.OfflineMode,
-		HasResources:   hasResources,
-		HasData:        hasData,
+		APIPort:          b.getAPIPort(workflow),
+		Models:           workflow.Settings.AgentSettings.Models,
+		DefaultModel:     b.getDefaultModel(workflow),
+		OfflineMode:      workflow.Settings.AgentSettings.OfflineMode,
+		HasResources:     hasResources,
+		HasData:          hasData,
 	}, nil
 }
 
@@ -494,6 +478,3 @@ func (b *Builder) addDirectoryToTar(tw *tar.Writer, dirPath string) error {
 		return b.addFileFromPath(tw, path)
 	})
 }
-
-
-

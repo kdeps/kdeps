@@ -33,6 +33,7 @@ import (
 )
 
 func TestNewExecutionContext(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{
 			Name: "Test Workflow",
@@ -78,6 +79,7 @@ func TestNewExecutionContext(t *testing.T) {
 }
 
 func TestExecutionContext_SetAndGetOutput(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
 	if err != nil {
 		t.Fatalf("NewExecutionContext failed: %v", err)
@@ -109,6 +111,7 @@ func TestExecutionContext_SetAndGetOutput(t *testing.T) {
 }
 
 func TestExecutionContext_Get(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
 	if err != nil {
 		t.Fatalf("NewExecutionContext failed: %v", err)

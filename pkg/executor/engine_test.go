@@ -89,6 +89,7 @@ func (m *mockExecExecutor) Execute(_ *executor.ExecutionContext, _ interface{}) 
 }
 
 func TestEngine_Execute_SingleResource(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	engine := executor.NewEngine(slog.Default())
 	registry := executor.NewRegistry()
 
@@ -146,6 +147,7 @@ func TestEngine_Execute_SingleResource(t *testing.T) {
 }
 
 func TestEngine_Execute_MultipleResources(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	engine := executor.NewEngine(slog.Default())
 	registry := executor.NewRegistry()
 
@@ -207,6 +209,7 @@ func TestEngine_Execute_MultipleResources(t *testing.T) {
 }
 
 func TestEngine_Execute_WithDependencies(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	engine := executor.NewEngine(slog.Default())
 	registry := executor.NewRegistry()
 
@@ -274,6 +277,7 @@ print(result)
 }
 
 func TestEngine_Execute_SkipConditions(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	engine := executor.NewEngine(slog.Default())
 	registry := executor.NewRegistry()
 
