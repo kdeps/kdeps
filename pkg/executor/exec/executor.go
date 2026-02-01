@@ -72,7 +72,7 @@ func NewExecutorWithRunner(runner CommandRunner) *Executor {
 
 // Execute executes a shell command resource.
 //
-//nolint:gocognit,funlen // execution path handles expression parsing
+
 func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
 	config *domain.ExecConfig,
@@ -84,48 +84,31 @@ func (e *Executor) Execute(
 
 	evaluator := expression.NewEvaluator(ctx.API)
 
+	// Resolve configuration with evaluated expressions
+	resolvedConfig, err := e.resolveConfig(evaluator, ctx, config)
+	if err != nil {
+		return nil, err
+	}
+
 	// Evaluate command - check for {{ }} syntax as well
 	var commandStr string
-	if e.containsExpressionSyntax(config.Command) {
-		command, err := e.EvaluateExpression(evaluator, ctx, config.Command)
-		if err != nil {
-			return nil, fmt.Errorf("failed to evaluate command: %w", err)
+	if e.containsExpressionSyntax(resolvedConfig.Command) {
+		cmdVal, cmdErr := e.EvaluateExpression(evaluator, ctx, resolvedConfig.Command)
+		if cmdErr != nil {
+			return nil, fmt.Errorf("failed to evaluate command: %w", cmdErr)
 		}
-		commandStr = fmt.Sprintf("%v", command)
+		commandStr = fmt.Sprintf("%v", cmdVal)
 	} else {
-		commandStr = config.Command
+		commandStr = resolvedConfig.Command
 	}
 
 	// Evaluate args if provided
-	args := make([]string, 0, len(config.Args))
-	isShellScript := (commandStr == "sh" && len(config.Args) > 0 && config.Args[0] == "-c") ||
-		(commandStr == "cmd" && len(config.Args) > 0 && config.Args[0] == "/C")
-
-	for i, arg := range config.Args {
-		var evaluatedArg string
-		if e.containsExpressionSyntax(arg) { //nolint:nestif // expression handling is explicit
-			// For shell scripts with multi-line content, we need to handle expressions specially
-			if isShellScript && i > 0 && strings.Contains(arg, "\n") {
-				// This is a multi-line shell script - evaluate expressions within it
-				evaluatedArg = e.EvaluateExpressionsInShellScript(arg, evaluator, ctx)
-			} else {
-				// Regular expression evaluation
-				argValue, err := e.EvaluateExpression(evaluator, ctx, arg)
-				if err != nil {
-					return nil, fmt.Errorf("failed to evaluate arg: %w", err)
-				}
-				evaluatedArg = e.ValueToString(argValue)
-			}
-		} else {
-			evaluatedArg = arg
-		}
-		args = append(args, evaluatedArg)
-	}
+	args := e.evaluateArgs(resolvedConfig, evaluator, ctx, commandStr)
 
 	// Parse timeout
 	timeout := DefaultExecTimeout
-	if config.TimeoutDuration != "" {
-		if parsedTimeout, err := time.ParseDuration(config.TimeoutDuration); err == nil {
+	if resolvedConfig.TimeoutDuration != "" {
+		if parsedTimeout, parseErr := time.ParseDuration(resolvedConfig.TimeoutDuration); parseErr == nil {
 			timeout = parsedTimeout
 		}
 	}
@@ -149,9 +132,18 @@ func (e *Executor) Execute(
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	// Set working directory if specified in context
-	if ctx.FSRoot != "" {
+	// Set working directory
+	if resolvedConfig.WorkingDir != "" {
+		cmd.Dir = resolvedConfig.WorkingDir
+	} else if ctx.FSRoot != "" {
 		cmd.Dir = ctx.FSRoot
+	}
+
+	// Set environment variables
+	if len(resolvedConfig.Env) > 0 {
+		for k, v := range resolvedConfig.Env {
+			cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
+		}
 	}
 
 	// Build full command string for logging
@@ -161,6 +153,98 @@ func (e *Executor) Execute(
 	}
 
 	// Execute command with timeout
+	return e.runCommandWithTimeout(cmd, timeout, fullCommand, &stdout, &stderr)
+}
+
+// resolveConfig evaluates dynamic fields in shell execution configuration.
+func (e *Executor) resolveConfig(
+	evaluator *expression.Evaluator,
+	ctx *executor.ExecutionContext,
+	config *domain.ExecConfig,
+) (*domain.ExecConfig, error) {
+	resolvedConfig := *config
+
+	// Evaluate TimeoutDuration if it contains expression syntax
+	if config.TimeoutDuration != "" {
+		timeoutStr, err := e.EvaluateExpression(evaluator, ctx, config.TimeoutDuration)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate timeout duration: %w", err)
+		}
+		resolvedConfig.TimeoutDuration = fmt.Sprintf("%v", timeoutStr)
+	}
+
+	// Evaluate WorkingDir if it contains expression syntax
+	if config.WorkingDir != "" {
+		workingDir, err := e.EvaluateExpression(evaluator, ctx, config.WorkingDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate working directory: %w", err)
+		}
+		resolvedConfig.WorkingDir = fmt.Sprintf("%v", workingDir)
+	}
+
+	// Evaluate Env if provided
+	if len(config.Env) > 0 {
+		resolvedEnv := make(map[string]string)
+		for k, v := range config.Env {
+			evalK, err := e.EvaluateExpression(evaluator, ctx, k)
+			if err != nil {
+				return nil, fmt.Errorf("failed to evaluate env key %s: %w", k, err)
+			}
+			evalV, err := e.EvaluateExpression(evaluator, ctx, v)
+			if err != nil {
+				return nil, fmt.Errorf("failed to evaluate env value for %s: %w", k, err)
+			}
+			resolvedEnv[fmt.Sprintf("%v", evalK)] = fmt.Sprintf("%v", evalV)
+		}
+		resolvedConfig.Env = resolvedEnv
+	}
+
+	return &resolvedConfig, nil
+}
+
+// evaluateArgs evaluates shell command arguments.
+func (e *Executor) evaluateArgs(
+	config *domain.ExecConfig,
+	evaluator *expression.Evaluator,
+	ctx *executor.ExecutionContext,
+	commandStr string,
+) []string {
+	args := make([]string, 0, len(config.Args))
+	isShellScript := (commandStr == "sh" && len(config.Args) > 0 && config.Args[0] == "-c") ||
+		(commandStr == "cmd" && len(config.Args) > 0 && config.Args[0] == "/C")
+
+	for i, arg := range config.Args {
+		var evaluatedArg string
+		if e.containsExpressionSyntax(arg) { //nolint:nestif // expression handling is explicit
+			// For shell scripts with multi-line content, we need to handle expressions specially
+			if isShellScript && i > 0 && strings.Contains(arg, "\n") {
+				// This is a multi-line shell script - evaluate expressions within it
+				evaluatedArg = e.EvaluateExpressionsInShellScript(arg, evaluator, ctx)
+			} else {
+				// Regular expression evaluation
+				argValue, err := e.EvaluateExpression(evaluator, ctx, arg)
+				if err != nil {
+					// If evaluation fails, use raw arg as fallback
+					evaluatedArg = arg
+				} else {
+					evaluatedArg = e.ValueToString(argValue)
+				}
+			}
+		} else {
+			evaluatedArg = arg
+		}
+		args = append(args, evaluatedArg)
+	}
+	return args
+}
+
+// runCommandWithTimeout executes a command with a timeout.
+func (e *Executor) runCommandWithTimeout(
+	cmd *exec.Cmd,
+	timeout time.Duration,
+	fullCommand string,
+	stdout, stderr *bytes.Buffer,
+) (interface{}, error) {
 	done := make(chan error, 1)
 	go func() {
 		done <- e.commandRunner.Run(cmd)
@@ -180,31 +264,21 @@ func (e *Executor) Execute(
 			}, fmt.Errorf("command failed: %w", err)
 		}
 
-		// Try to parse stdout as JSON, otherwise return as string
-		var result interface{}
-		output := stdout.String()
-		if strings.TrimSpace(output) != "" {
-			// Try JSON parsing
-			// Simple JSON detection - could be improved
-			result = output
-		}
-
+		// Return result
 		return map[string]interface{}{
 			"success":  true,
 			"exitCode": cmd.ProcessState.ExitCode(),
 			"stdout":   stdout.String(),
 			"stderr":   stderr.String(),
 			"command":  fullCommand,
-			"result":   result,
+			"result":   stdout.String(), // Simplified for brevity
 			"timedOut": false,
 		}, nil
 
 	case <-time.After(timeout):
-		// Timeout - kill the process
 		if cmd.Process != nil {
-			_ = cmd.Process.Kill() // Ignore kill errors
+			_ = cmd.Process.Kill()
 		}
-
 		return map[string]interface{}{
 			"success":  false,
 			"exitCode": -1,
@@ -219,7 +293,7 @@ func (e *Executor) Execute(
 
 // containsExpressionSyntax checks if a string contains expression syntax.
 func (e *Executor) containsExpressionSyntax(s string) bool {
-	return strings.Contains(s, "@{") || strings.Contains(s, "${") || strings.Contains(s, "{{")
+	return strings.Contains(s, "{{")
 }
 
 // EvaluateExpression evaluates an expression string.

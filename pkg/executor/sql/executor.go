@@ -74,14 +74,44 @@ func (e *Executor) Execute(
 ) (interface{}, error) {
 	evaluator := expression.NewEvaluator(ctx.API)
 
+	// Create a copy of config to store evaluated values
+	resolvedConfig := *config
+
+	// Evaluate TimeoutDuration if it contains expression syntax
+	if config.TimeoutDuration != "" {
+		timeoutStr, err := e.evaluateStringOrLiteral(evaluator, ctx, config.TimeoutDuration)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate timeout duration: %w", err)
+		}
+		resolvedConfig.TimeoutDuration = timeoutStr
+	}
+
+	// Evaluate pool settings if present
+	if config.Pool != nil {
+		poolConfig, err := e.resolvePoolConfig(evaluator, ctx, config.Pool)
+		if err != nil {
+			return nil, err
+		}
+		resolvedConfig.Pool = poolConfig
+	}
+
+	// Evaluate Format if it contains expression syntax
+	if config.Format != "" {
+		format, err := e.evaluateStringOrLiteral(evaluator, ctx, config.Format)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate format: %w", err)
+		}
+		resolvedConfig.Format = format
+	}
+
 	// Get connection string
-	connectionStr, err := e.GetConnectionString(ctx, config)
+	connectionStr, err := e.GetConnectionString(ctx, &resolvedConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get connection string: %w", err)
 	}
 
 	// Get or create database connection
-	db, err := e.getConnection(connectionStr, config.Pool)
+	db, err := e.getConnection(connectionStr, resolvedConfig.Pool)
 	if err != nil {
 		// Return connection error as result data instead of Go error
 		return map[string]interface{}{
@@ -91,8 +121,8 @@ func (e *Executor) Execute(
 
 	// Parse timeout
 	timeout := DefaultSQLTimeout
-	if config.TimeoutDuration != "" {
-		parsedTimeout, timeoutErr := time.ParseDuration(config.TimeoutDuration)
+	if resolvedConfig.TimeoutDuration != "" {
+		parsedTimeout, timeoutErr := time.ParseDuration(resolvedConfig.TimeoutDuration)
 		if timeoutErr == nil {
 			timeout = parsedTimeout
 		}
@@ -102,11 +132,38 @@ func (e *Executor) Execute(
 	db.SetConnMaxLifetime(timeout)
 
 	// Execute queries
-	if config.Transaction {
-		return e.executeTransaction(ctx, evaluator, db, config)
+	if resolvedConfig.Transaction {
+		return e.executeTransaction(ctx, evaluator, db, &resolvedConfig)
 	}
 
-	return e.executeQuery(ctx, evaluator, db, config)
+	return e.executeQuery(ctx, evaluator, db, &resolvedConfig)
+}
+
+// resolvePoolConfig evaluates dynamic fields in SQL pool configuration.
+func (e *Executor) resolvePoolConfig(
+	evaluator *expression.Evaluator,
+	ctx *executor.ExecutionContext,
+	config *domain.PoolConfig,
+) (*domain.PoolConfig, error) {
+	poolConfig := *config
+
+	if config.MaxIdleTime != "" {
+		maxIdleTime, err := e.evaluateStringOrLiteral(evaluator, ctx, config.MaxIdleTime)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate pool max idle time: %w", err)
+		}
+		poolConfig.MaxIdleTime = maxIdleTime
+	}
+
+	if config.ConnectionTimeout != "" {
+		connTimeout, err := e.evaluateStringOrLiteral(evaluator, ctx, config.ConnectionTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate pool connection timeout: %w", err)
+		}
+		poolConfig.ConnectionTimeout = connTimeout
+	}
+
+	return &poolConfig, nil
 }
 
 // GetConnectionString gets the connection string from config or named connection (exported for testing).
@@ -358,15 +415,26 @@ func (e *Executor) executeTransaction(
 
 	// Execute each query
 	for _, queryItem := range config.Queries {
+		resolvedQueryItem := queryItem
+
+		// Evaluate query name if present
+		if queryItem.Name != "" {
+			name, nameErr := e.evaluateStringOrLiteral(evaluator, ctx, queryItem.Name)
+			if nameErr != nil {
+				return nil, fmt.Errorf("failed to evaluate query name: %w", nameErr)
+			}
+			resolvedQueryItem.Name = name
+		}
+
 		// Evaluate query
-		query, queryEvalErr := e.evaluateExpression(evaluator, ctx, queryItem.Query)
+		query, queryEvalErr := e.evaluateStringOrLiteral(evaluator, ctx, queryItem.Query)
 		if queryEvalErr != nil {
 			return nil, fmt.Errorf("failed to evaluate query: %w", queryEvalErr)
 		}
-		queryStr := fmt.Sprintf("%v", query)
+		resolvedQueryItem.Query = query
 
 		// Handle paramsBatch for batch operations
-		queryResult, queryErr := e.executeTransactionQuery(ctx, evaluator, tx, queryItem, queryStr)
+		queryResult, queryErr := e.executeTransactionQuery(ctx, evaluator, tx, resolvedQueryItem, query)
 		if queryErr != nil {
 			return nil, queryErr
 		}
@@ -561,10 +629,7 @@ func (e *Executor) evaluateStringOrLiteral(
 	ctx *executor.ExecutionContext,
 	value string,
 ) (string, error) {
-	parser := expression.NewParser()
-	exprType := parser.Detect(value)
-
-	if exprType == domain.ExprTypeLiteral {
+	if !e.containsExpressionSyntax(value) {
 		return value, nil
 	}
 
@@ -574,6 +639,11 @@ func (e *Executor) evaluateStringOrLiteral(
 	}
 
 	return fmt.Sprintf("%v", result), nil
+}
+
+// containsExpressionSyntax checks if a string contains expression syntax.
+func (e *Executor) containsExpressionSyntax(s string) bool {
+	return strings.Contains(s, "{{")
 }
 
 // evaluateSQLParameters evaluates SQL query parameters.
