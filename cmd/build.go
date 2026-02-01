@@ -309,16 +309,17 @@ func buildImageInternal(_ *cobra.Command, args []string, flags *BuildFlags) erro
 		return fmt.Errorf("failed to get absolute path: %w", err)
 	}
 
-	originalDir, getwdErr := os.Getwd()
-	if getwdErr != nil {
-		return fmt.Errorf("failed to get current directory: %w", getwdErr)
-	}
+	// Try to get current directory for restoring later
+	// If this fails (e.g. directory deleted), we just won't restore it
+	originalDir, _ := os.Getwd()
 
 	if chdirErr := os.Chdir(absPackageDir); chdirErr != nil {
 		return fmt.Errorf("failed to change to package directory: %w", chdirErr)
 	}
 	defer func() {
-		_ = os.Chdir(originalDir)
+		if originalDir != "" {
+			_ = os.Chdir(originalDir)
+		}
 	}()
 
 	// Create Docker builder
