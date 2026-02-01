@@ -107,7 +107,7 @@ test: fmt lint build
 # Run unit tests only (no e2e)
 test-unit:
 	@echo "Running unit tests with coverage..."
-	@go test -v -coverprofile=coverage.out ./...; \
+	@go test -v -coverprofile=coverage.out ./pkg/... ./cmd/... ./; \
 	TEST_EXIT=$$?; \
 	echo ""; \
 	if [ -f coverage.out ]; then \

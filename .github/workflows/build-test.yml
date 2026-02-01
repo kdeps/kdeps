@@ -54,14 +54,15 @@ jobs:
     - name: Build
       run: make build
 
-    - name: Test Unit
-      run: make test-unit
-      timeout-minutes: 15
-
     - name: Start Ollama
       run: |
         ollama serve &
         sleep 5
+        ollama pull tinydolphin
+
+    - name: Test Unit
+      run: make test-unit
+      timeout-minutes: 15
 
     - name: Test Integration
       run: make test-integration

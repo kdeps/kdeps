@@ -30,7 +30,7 @@ WORKFLOW_PATH="$PROJECT_ROOT/examples/shell-exec/workflow.yaml"
 
 if [ ! -f "$WORKFLOW_PATH" ]; then
     test_skipped "Shell Exec example (workflow not found)"
-    exit 0
+    return 0
 fi
 
 # Extract port from workflow
@@ -42,7 +42,7 @@ if "$KDEPS_BIN" validate "$WORKFLOW_PATH" &> /dev/null; then
     test_passed "Shell Exec - Workflow validation"
 else
     test_failed "Shell Exec - Workflow validation" "Validation failed"
-    exit 0
+    return 0
 fi
 
 # Test 2: Check resources exist
@@ -91,7 +91,7 @@ if [ "$SERVER_READY" = false ]; then
     wait $SERVER_PID 2>/dev/null || true
     rm -f "$SERVER_LOG"
     test_failed "Shell Exec - Server startup" "Server did not start"
-    exit 0
+    return 0
 fi
 
 test_passed "Shell Exec - Server startup"

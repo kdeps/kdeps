@@ -31,13 +31,13 @@ echo ""
 # Check if Ollama CLI is installed
 if ! command -v ollama &> /dev/null; then
     test_failed "Ollama CLI not installed - run 'brew install ollama' on macOS" "Please install Ollama locally to run LLM tests"
-    exit 1
+    return 1
 fi
 
 # Check if Ollama server is running
 if ! curl -s --connect-timeout 5 http://localhost:11434/api/tags > /dev/null 2>&1; then
     test_failed "Ollama server not running - run 'ollama serve' in another terminal" "Local Ollama server must be running on localhost:11434"
-    exit 1
+    return 1
 fi
 
 # Get available small model
@@ -247,7 +247,7 @@ MODEL=$(get_available_model)
 
 if [ -z "$MODEL" ]; then
     test_skipped "No suitable small model available - run 'ollama pull tinydolphin' or 'ollama pull llama3.2:1b'"
-    exit 0
+    return 0
 fi
 
 echo "Using model: $MODEL"

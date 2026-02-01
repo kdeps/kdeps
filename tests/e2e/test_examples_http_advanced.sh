@@ -30,7 +30,7 @@ WORKFLOW_PATH="$PROJECT_ROOT/examples/http-advanced/workflow.yaml"
 
 if [ ! -f "$WORKFLOW_PATH" ]; then
     test_skipped "HTTP Advanced example (workflow not found)"
-    exit 0
+    return 0
 fi
 
 # Extract port from workflow
@@ -42,7 +42,7 @@ if "$KDEPS_BIN" validate "$WORKFLOW_PATH" &> /dev/null; then
     test_passed "HTTP Advanced - Workflow validation"
 else
     test_failed "HTTP Advanced - Workflow validation" "Validation failed"
-    exit 0
+    return 0
 fi
 
 # Test 2: Check resources exist
@@ -104,7 +104,7 @@ if [ "$SERVER_READY" = false ]; then
     wait $SERVER_PID 2>/dev/null || true
     rm -f "$SERVER_LOG"
     test_failed "HTTP Advanced - Server startup" "Server did not start"
-    exit 0
+    return 0
 fi
 
 test_passed "HTTP Advanced - Server startup"
