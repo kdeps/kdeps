@@ -202,7 +202,10 @@ func (e *Executor) Execute(
 
 	// Ensure model is downloaded and served if model manager is available
 	if e.modelManager != nil {
-		if ensureErr := e.modelManager.EnsureModel(config); ensureErr != nil {
+		// Use a temporary copy of config with evaluated model for model manager
+		configCopy := *config
+		configCopy.Model = modelStr
+		if ensureErr := e.modelManager.EnsureModel(&configCopy); ensureErr != nil {
 			// Log warning but continue - model might already be available
 			// In production, you might want to return an error here
 			_ = ensureErr

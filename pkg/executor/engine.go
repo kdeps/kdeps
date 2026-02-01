@@ -1152,16 +1152,27 @@ func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (i
 		backendName = "ollama" // Default
 	}
 
+	// Evaluate model (only if it contains expression syntax)
+	modelStr := resource.Run.Chat.Model
+	if modelExpr, parseErr := expression.NewParser().ParseValue(modelStr); parseErr == nil {
+		env := e.buildEvaluationEnvironment(ctx)
+		if modelValue, evalErr := e.evaluator.Evaluate(modelExpr, env); evalErr == nil {
+			if ms, ok := modelValue.(string); ok {
+				modelStr = ms
+			}
+		}
+	}
+
 	// Use Info level to match v1's logging behavior - log before execution
 	e.logger.Info("LLM resource configuration",
 		"actionID", resource.Metadata.ActionID,
-		"model", resource.Run.Chat.Model,
+		"model", modelStr,
 		"timeoutDuration", timeoutDurationStr,
 		"jsonResponse", resource.Run.Chat.JSONResponse,
 		"backend", backendName)
 
 	// Store LLM metadata in context (for API response meta)
-	e.updateLLMMetadata(ctx, resource.Run.Chat.Model, backendName)
+	e.updateLLMMetadata(ctx, modelStr, backendName)
 
 	// Set tool executor interface for tool execution (via adapter pattern to avoid import cycle)
 	// The adapter wraps the LLM executor and implements SetToolExecutor
