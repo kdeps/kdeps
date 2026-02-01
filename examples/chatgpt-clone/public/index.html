@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatGPT Clone - Powered by KDeps</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <button class="new-chat-btn" onclick="clearChat()">
+                    <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="16" width="16" xmlns="http://www.w3.org/2000/svg">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    New chat
+                </button>
+            </div>
+
+            <div class="model-selector">
+                <label for="model-select">Model</label>
+                <select id="model-select" onchange="updateModel()">
+                    <option value="llama3.2:1b">Llama 3.2 (1B)</option>
+                    <option value="llama3.2:3b" selected>Llama 3.2 (3B)</option>
+                    <option value="mistral:7b">Mistral (7B)</option>
+                    <option value="phi3:3.8b">Phi-3 (3.8B)</option>
+                    <option value="gemma2:2b">Gemma 2 (2B)</option>
+                    <option value="qwen2.5:3b">Qwen 2.5 (3B)</option>
+                </select>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="model-info">
+                    <span class="model-label">Current Model</span>
+                    <span id="current-model-name">Llama 3.2 (3B)</span>
+                </div>
+                <div class="stats">
+                    Messages: <span id="message-count">0</span>
+                </div>
+                <a href="https://kdeps.com" target="_blank" class="powered-by">
+                    Powered by KDeps
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="chat-main">
+            <div id="chat-container" class="chat-container">
+                <!-- Welcome Message -->
+                <div id="welcome-message" class="welcome-message">
+                    <div class="welcome-icon">
+                        <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="32" width="32" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                    </div>
+                    <h1>ChatGPT Clone</h1>
+                    <p>How can I help you today?</p>
+                    
+                    <div class="suggestions">
+                        <button class="suggestion" onclick="sendSuggestion('Explain quantum computing in simple terms')">
+                            "Explain quantum computing in simple terms" →
+                        </button>
+                        <button class="suggestion" onclick="sendSuggestion('Write a Python script to scrape a website')">
+                            "Write a Python script to scrape a website" →
+                        </button>
+                        <button class="suggestion" onclick="sendSuggestion('How do I make an HTTP request in Javascript?')">
+                            "How do I make an HTTP request in Javascript?" →
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Messages -->
+                <div id="messages"></div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="input-area">
+                <form id="chat-form" onsubmit="sendMessage(event)">
+                    <div class="input-container">
+                        <textarea 
+                            id="message-input" 
+                            placeholder="Message ChatGPT..." 
+                            rows="1" 
+                            oninput="autoResize(this)" 
+                            onkeydown="handleKeyDown(event)"
+                        ></textarea>
+                        <button type="submit" id="send-btn" disabled>
+                            <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="16" width="16" xmlns="http://www.w3.org/2000/svg">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                            </svg>
+                        </button>
+                    </div>
+                </form>
+                <div class="disclaimer">
+                    KDeps ChatGPT Clone. LLMs can make mistakes. Check important info.
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
