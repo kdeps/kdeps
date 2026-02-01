@@ -34,6 +34,7 @@ import (
 )
 
 func TestHTTPExecutorIntegration_GetWithCache(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	var callCount int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&callCount, 1)
@@ -74,6 +75,7 @@ func TestHTTPExecutorIntegration_GetWithCache(t *testing.T) {
 }
 
 func TestHTTPExecutorIntegration_PostJSONBody(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPost, r.Method)
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))

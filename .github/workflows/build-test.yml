@@ -55,14 +55,15 @@ jobs:
       run: make build
 
     - name: Test Unit
-      run: make test-unit
+      run: timeout 5m make test-unit
+
+    - name: Start Ollama
+      run: |
+        ollama serve &
+        sleep 5
 
     - name: Test Integration
-      run: make test-integration
+      run: timeout 5m make test-integration
 
-    # E2E tests might require more setup (Docker, etc). 
-    # For now, let's verify if we can run them. 
-    # The 'run.go' mentions docker-compose.
-    # Let's skip E2E for basic CI to ensure stability first, or try it.
-    # The project seems to claim local-first, so maybe E2E runs locally?
-    # Let's stick to unit/integration for now.
+    - name: Test E2E
+      run: timeout 5m make test-e2e

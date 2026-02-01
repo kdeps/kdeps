@@ -30,6 +30,7 @@ import (
 )
 
 func TestPythonIntegration_Manager(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	// Skip if Python is not available
 	if testing.Short() {
 		t.Skip("Skipping Python integration tests in short mode")
@@ -125,6 +126,7 @@ func TestPythonIntegration_Manager(t *testing.T) {
 }
 
 func TestPythonIntegration_ErrorHandling(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	tmpDir := t.TempDir()
 	manager := python.NewManager(tmpDir)
 

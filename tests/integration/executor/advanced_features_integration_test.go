@@ -31,6 +31,7 @@ import (
 
 // TestAdvancedFeatures_SkipCondition tests skip condition in integration.
 func TestAdvancedFeatures_SkipCondition(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
@@ -111,6 +112,7 @@ func TestAdvancedFeatures_SkipCondition(t *testing.T) {
 
 // TestAdvancedFeatures_PreflightCheck tests preflight check in integration.
 func TestAdvancedFeatures_PreflightCheck(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
@@ -132,7 +134,7 @@ func TestAdvancedFeatures_PreflightCheck(t *testing.T) {
 					Name:     "Set Data",
 				},
 				Run: domain.RunConfig{
-					Expr: []domain.Expression{
+					ExprBefore: []domain.Expression{
 						{Raw: "set('userId', '123')"},
 						{Raw: "set('apiToken', 'token-abc')"},
 					},
@@ -148,18 +150,18 @@ func TestAdvancedFeatures_PreflightCheck(t *testing.T) {
 				Metadata: domain.ResourceMetadata{
 					ActionID: "validated-resource",
 					Name:     "Validated Resource",
+					Requires: []string{"set-data"},
 				},
-				Run: domain.RunConfig{
-					PreflightCheck: &domain.PreflightCheck{
-						Validations: []domain.Expression{
-							{Raw: "get('userId') != nil"},
-							{Raw: "get('apiToken') != nil"},
-						},
-						Error: &domain.ErrorConfig{
-							Code:    400,
-							Message: "Missing required parameters",
-						},
+				Run: domain.RunConfig{PreflightCheck: &domain.PreflightCheck{
+					Validations: []domain.Expression{
+						{Raw: "get('userId') != nil"},
+						{Raw: "get('apiToken') != nil"},
 					},
+					Error: &domain.ErrorConfig{
+						Code:    400,
+						Message: "Missing required parameters",
+					},
+				},
 					APIResponse: &domain.APIResponseConfig{
 						Success: true,
 						Response: map[string]interface{}{
@@ -185,6 +187,7 @@ func TestAdvancedFeatures_PreflightCheck(t *testing.T) {
 
 // TestAdvancedFeatures_PreflightCheck_Failure tests preflight check failure.
 func TestAdvancedFeatures_PreflightCheck_Failure(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
@@ -208,7 +211,7 @@ func TestAdvancedFeatures_PreflightCheck_Failure(t *testing.T) {
 				Run: domain.RunConfig{
 					PreflightCheck: &domain.PreflightCheck{
 						Validations: []domain.Expression{
-							{Raw: "get('userId') == nil"}, // Will fail - userId not set
+							{Raw: "get('userId') != nil"}, // Will fail - userId not set
 						},
 						Error: &domain.ErrorConfig{
 							Code:    400,
@@ -236,6 +239,7 @@ func TestAdvancedFeatures_PreflightCheck_Failure(t *testing.T) {
 
 // TestAdvancedFeatures_ItemsIteration tests Items iteration in integration.
 func TestAdvancedFeatures_ItemsIteration(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
@@ -284,6 +288,7 @@ func TestAdvancedFeatures_ItemsIteration(t *testing.T) {
 
 // TestAdvancedFeatures_RestrictToHTTPMethods tests HTTP method restrictions in integration.
 func TestAdvancedFeatures_RestrictToHTTPMethods(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
@@ -339,6 +344,7 @@ func TestAdvancedFeatures_RestrictToHTTPMethods(t *testing.T) {
 
 // TestAdvancedFeatures_RestrictToRoutes tests route restrictions in integration.
 func TestAdvancedFeatures_RestrictToRoutes(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
@@ -394,6 +400,7 @@ func TestAdvancedFeatures_RestrictToRoutes(t *testing.T) {
 
 // TestAdvancedFeatures_ExprBlock tests expression blocks in integration.
 func TestAdvancedFeatures_ExprBlock(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
@@ -446,6 +453,7 @@ func TestAdvancedFeatures_ExprBlock(t *testing.T) {
 
 // TestAdvancedFeatures_CombinedFeatures tests multiple advanced features together.
 func TestAdvancedFeatures_CombinedFeatures(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
 		Kind:       "Workflow",
@@ -467,7 +475,7 @@ func TestAdvancedFeatures_CombinedFeatures(t *testing.T) {
 					Name:     "Setup",
 				},
 				Run: domain.RunConfig{
-					Expr: []domain.Expression{
+					ExprBefore: []domain.Expression{
 						{Raw: "set('userId', '123')"},
 					},
 					APIResponse: &domain.APIResponseConfig{

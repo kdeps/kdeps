@@ -30,6 +30,7 @@ import (
 )
 
 func TestStorageIntegration_MemoryStorage(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	// Test complete memory storage lifecycle
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "memory.db")
@@ -95,6 +96,7 @@ func TestStorageIntegration_MemoryStorage(t *testing.T) {
 }
 
 func TestStorageIntegration_SessionStorage(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	// Test session storage
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "sessions.db")
@@ -169,6 +171,7 @@ func TestStorageIntegration_SessionStorage(t *testing.T) {
 }
 
 func TestStorageIntegration_ErrorHandling(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	tmpDir := t.TempDir()
 
 	// Test memory storage errors
@@ -189,6 +192,7 @@ func TestStorageIntegration_ErrorHandling(t *testing.T) {
 }
 
 func TestStorageIntegration_ConstructorErrorHandling(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	// Test memory storage constructor with invalid paths
 	invalidPath := "/nonexistent/parent/directory/memory.db"
 	_, err := storage.NewMemoryStorage(invalidPath)
@@ -207,6 +211,7 @@ func TestStorageIntegration_ConstructorErrorHandling(t *testing.T) {
 }
 
 func TestStorageIntegration_DatabaseOperations(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	tmpDir := t.TempDir()
 
 	// Test memory storage database operations
@@ -269,6 +274,7 @@ func TestStorageIntegration_DatabaseOperations(t *testing.T) {
 }
 
 func TestStorageIntegration_CleanupOperations(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	tmpDir := t.TempDir()
 	sessionPath := filepath.Join(tmpDir, "sessions.db")
 
@@ -315,6 +321,7 @@ func TestStorageIntegration_CleanupOperations(t *testing.T) {
 }
 
 func TestStorageIntegration_PathHandling(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	tmpDir := t.TempDir()
 
 	// Test memory storage with custom path
@@ -353,6 +360,7 @@ func TestStorageIntegration_PathHandling(t *testing.T) {
 }
 
 func TestStorageIntegration_Concurrency(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	tmpDir := t.TempDir()
 
 	// Test memory storage concurrency

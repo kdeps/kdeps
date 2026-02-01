@@ -18,6 +18,8 @@
 
 package domain
 
+import "gopkg.in/yaml.v3"
+
 // Resource represents a KDeps resource.
 type Resource struct {
 	APIVersion string           `yaml:"apiVersion"`
@@ -115,13 +117,32 @@ type ChatConfig struct {
 	Files            []string       `yaml:"files,omitempty"`
 	JSONResponse     bool           `yaml:"jsonResponse"`
 	JSONResponseKeys []string       `yaml:"jsonResponseKeys,omitempty"`
-	TimeoutDuration  string         `yaml:"timeoutDuration"`
+	TimeoutDuration  string         `yaml:"timeoutDuration,omitempty"`
+	Timeout          string         `yaml:"timeout,omitempty"` // Alias for timeoutDuration
 	// Advanced LLM parameters (may not be supported by all backends)
 	Temperature      *float64 `yaml:"temperature,omitempty"`      // Sampling temperature (0.0-2.0)
 	MaxTokens        *int     `yaml:"maxTokens,omitempty"`        // Maximum tokens to generate
 	TopP             *float64 `yaml:"topP,omitempty"`             // Nucleus sampling parameter (0.0-1.0)
 	FrequencyPenalty *float64 `yaml:"frequencyPenalty,omitempty"` // Frequency penalty (-2.0 to 2.0)
 	PresencePenalty  *float64 `yaml:"presencePenalty,omitempty"`  // Presence penalty (-2.0 to 2.0)
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling to support "timeout" alias for "timeoutDuration".
+func (c *ChatConfig) UnmarshalYAML(node *yaml.Node) error {
+	type rawChatConfig ChatConfig
+	var raw rawChatConfig
+	if err := node.Decode(&raw); err != nil {
+		return err
+	}
+
+	*c = ChatConfig(raw)
+
+	// Handle timeout alias
+	if c.Timeout != "" && c.TimeoutDuration == "" {
+		c.TimeoutDuration = c.Timeout
+	}
+
+	return nil
 }
 
 // ScenarioItem represents a chat scenario item.
@@ -154,7 +175,8 @@ type HTTPClientConfig struct {
 	URL             string            `yaml:"url"`
 	Headers         map[string]string `yaml:"headers,omitempty"`
 	Data            interface{}       `yaml:"data,omitempty"`
-	TimeoutDuration string            `yaml:"timeoutDuration"`
+	TimeoutDuration string            `yaml:"timeoutDuration,omitempty" alias:"timeout"`
+	Timeout         string            `yaml:"timeout,omitempty"` // Alias for timeoutDuration
 
 	// Retry configuration
 	Retry *RetryConfig `yaml:"retry,omitempty"`
@@ -170,6 +192,24 @@ type HTTPClientConfig struct {
 	FollowRedirects *bool          `yaml:"followRedirects,omitempty"`
 	Proxy           string         `yaml:"proxy,omitempty"`
 	TLS             *HTTPTLSConfig `yaml:"tls,omitempty"`
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling to support "timeout" alias for "timeoutDuration".
+func (h *HTTPClientConfig) UnmarshalYAML(node *yaml.Node) error {
+	type rawHTTPClientConfig HTTPClientConfig
+	var raw rawHTTPClientConfig
+	if err := node.Decode(&raw); err != nil {
+		return err
+	}
+
+	*h = HTTPClientConfig(raw)
+
+	// Handle timeout alias
+	if h.Timeout != "" && h.TimeoutDuration == "" {
+		h.TimeoutDuration = h.Timeout
+	}
+
+	return nil
 }
 
 // RetryConfig represents retry configuration.
@@ -216,7 +256,26 @@ type SQLConfig struct {
 	Queries         []QueryItem   `yaml:"queries,omitempty"`
 	Format          string        `yaml:"format,omitempty"`
 	TimeoutDuration string        `yaml:"timeoutDuration,omitempty"`
+	Timeout         string        `yaml:"timeout,omitempty"` // Alias for timeoutDuration
 	MaxRows         int           `yaml:"maxRows,omitempty"`
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling to support "timeout" alias for "timeoutDuration".
+func (s *SQLConfig) UnmarshalYAML(node *yaml.Node) error {
+	type rawSQLConfig SQLConfig
+	var raw rawSQLConfig
+	if err := node.Decode(&raw); err != nil {
+		return err
+	}
+
+	*s = SQLConfig(raw)
+
+	// Handle timeout alias
+	if s.Timeout != "" && s.TimeoutDuration == "" {
+		s.TimeoutDuration = s.Timeout
+	}
+
+	return nil
 }
 
 // QueryItem represents a query in a transaction.
@@ -232,17 +291,55 @@ type PythonConfig struct {
 	Script          string   `yaml:"script,omitempty"`
 	ScriptFile      string   `yaml:"scriptFile,omitempty"`
 	Args            []string `yaml:"args,omitempty"`
-	TimeoutDuration string   `yaml:"timeoutDuration"`
+	TimeoutDuration string   `yaml:"timeoutDuration,omitempty"`
+	Timeout         string   `yaml:"timeout,omitempty"`  // Alias for timeoutDuration
 	VenvName        string   `yaml:"venvName,omitempty"` // Custom virtual environment name for isolation
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling to support "timeout" alias for "timeoutDuration".
+func (p *PythonConfig) UnmarshalYAML(node *yaml.Node) error {
+	type rawPythonConfig PythonConfig
+	var raw rawPythonConfig
+	if err := node.Decode(&raw); err != nil {
+		return err
+	}
+
+	*p = PythonConfig(raw)
+
+	// Handle timeout alias
+	if p.Timeout != "" && p.TimeoutDuration == "" {
+		p.TimeoutDuration = p.Timeout
+	}
+
+	return nil
 }
 
 // ExecConfig represents shell execution configuration.
 type ExecConfig struct {
 	Command         string            `yaml:"command"`
 	Args            []string          `yaml:"args,omitempty"`
-	TimeoutDuration string            `yaml:"timeoutDuration"`
+	TimeoutDuration string            `yaml:"timeoutDuration,omitempty"`
+	Timeout         string            `yaml:"timeout,omitempty"`    // Alias for timeoutDuration
 	WorkingDir      string            `yaml:"workingDir,omitempty"` // Working directory for command execution
 	Env             map[string]string `yaml:"env,omitempty"`        // Environment variables
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling to support "timeout" alias for "timeoutDuration".
+func (e *ExecConfig) UnmarshalYAML(node *yaml.Node) error {
+	type rawExecConfig ExecConfig
+	var raw rawExecConfig
+	if err := node.Decode(&raw); err != nil {
+		return err
+	}
+
+	*e = ExecConfig(raw)
+
+	// Handle timeout alias
+	if e.Timeout != "" && e.TimeoutDuration == "" {
+		e.TimeoutDuration = e.Timeout
+	}
+
+	return nil
 }
 
 // APIResponseConfig represents API response configuration.
