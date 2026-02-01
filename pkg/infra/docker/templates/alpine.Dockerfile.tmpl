@@ -20,7 +20,8 @@ RUN apk add --no-cache \
     ca-certificates \
     gcompat \
     libstdc++ \
-    rsync
+    rsync \
+    zstd
 
 # Install kdeps via official install script
 RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh -s -- -b /usr/local/bin
