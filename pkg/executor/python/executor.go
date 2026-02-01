@@ -76,9 +76,45 @@ func (e *Executor) Execute(
 	ctx *executor.ExecutionContext,
 	config *domain.PythonConfig,
 ) (interface{}, error) {
+	evaluator := expression.NewEvaluator(ctx.API)
+
+	// Create a copy of config to store evaluated values
+	resolvedConfig := *config
+
+	// Evaluate VenvName if it contains expression syntax
+	if config.VenvName != "" {
+		venvName, err := e.EvaluateStringOrLiteral(evaluator, ctx, config.VenvName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate venv name: %w", err)
+		}
+		resolvedConfig.VenvName = venvName
+	}
+
+	// Evaluate TimeoutDuration if it contains expression syntax
+	if config.TimeoutDuration != "" {
+		timeoutStr, err := e.EvaluateStringOrLiteral(evaluator, ctx, config.TimeoutDuration)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate timeout duration: %w", err)
+		}
+		resolvedConfig.TimeoutDuration = timeoutStr
+	}
+
+	// Evaluate Args
+	if len(config.Args) > 0 {
+		evaluatedArgs := make([]string, len(config.Args))
+		for i, arg := range config.Args {
+			evaluatedArg, evalErr := e.EvaluateStringOrLiteral(evaluator, ctx, arg)
+			if evalErr != nil {
+				return nil, fmt.Errorf("failed to evaluate argument %d: %w", i, evalErr)
+			}
+			evaluatedArgs[i] = evaluatedArg
+		}
+		resolvedConfig.Args = evaluatedArgs
+	}
+
 	pythonVersion := e.getPythonVersion(ctx)
 	packages, requirementsFile := e.getPythonDependencies(ctx)
-	venvName := config.VenvName
+	venvName := resolvedConfig.VenvName
 
 	// Ensure virtual environment exists
 	venvPath, err := e.uvManager.EnsureVenv(pythonVersion, packages, requirementsFile, venvName)
@@ -93,16 +129,16 @@ func (e *Executor) Execute(
 	}
 
 	// Prepare script execution
-	scriptContent, scriptFile, err := e.prepareScript(ctx, config)
+	scriptContent, scriptFile, err := e.prepareScript(ctx, &resolvedConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	// Parse timeout
-	timeout := e.parseTimeout(config)
+	timeout := e.parseTimeout(&resolvedConfig)
 
 	// Execute the script
-	return e.executeScript(pythonPath, venvPath, ctx.FSRoot, scriptContent, scriptFile, config.Args, timeout)
+	return e.executeScript(pythonPath, venvPath, ctx.FSRoot, scriptContent, scriptFile, resolvedConfig.Args, timeout)
 }
 
 // getPythonVersion extracts Python version from workflow settings.
@@ -135,7 +171,11 @@ func (e *Executor) prepareScript(ctx *executor.ExecutionContext, config *domain.
 	switch {
 	case config.ScriptFile != "":
 		// Use script file
-		scriptFile := config.ScriptFile
+		scriptFile, err := e.EvaluateStringOrLiteral(evaluator, ctx, config.ScriptFile)
+		if err != nil {
+			return "", "", fmt.Errorf("failed to evaluate script file path: %w", err)
+		}
+
 		// Resolve relative to workflow directory
 		if !filepath.IsAbs(scriptFile) {
 			scriptFile = filepath.Join(ctx.FSRoot, scriptFile)
@@ -250,10 +290,7 @@ func (e *Executor) EvaluateStringOrLiteral(
 	ctx *executor.ExecutionContext,
 	value string,
 ) (string, error) {
-	parser := expression.NewParser()
-	exprType := parser.Detect(value)
-
-	if exprType == domain.ExprTypeLiteral {
+	if !e.containsExpressionSyntax(value) {
 		return value, nil
 	}
 
@@ -263,6 +300,11 @@ func (e *Executor) EvaluateStringOrLiteral(
 	}
 
 	return fmt.Sprintf("%v", result), nil
+}
+
+// containsExpressionSyntax checks if a string contains expression syntax.
+func (e *Executor) containsExpressionSyntax(s string) bool {
+	return strings.Contains(s, "{{")
 }
 
 // evaluateInterpolatedString evaluates a string with interpolation syntax {{ }}.

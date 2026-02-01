@@ -194,8 +194,14 @@ func (e *Executor) Execute(
 ) (interface{}, error) {
 	evaluator := expression.NewEvaluator(ctx.API)
 
+	// Resolve configuration with evaluated expressions
+	resolvedConfig, err := e.resolveConfig(evaluator, ctx, config)
+	if err != nil {
+		return nil, err
+	}
+
 	// Evaluate model (only if it contains expression syntax)
-	modelStr, err := e.evaluateStringOrLiteral(evaluator, ctx, config.Model)
+	modelStr, err := e.evaluateStringOrLiteral(evaluator, ctx, resolvedConfig.Model)
 	if err != nil {
 		return nil, fmt.Errorf("failed to evaluate model: %w", err)
 	}
@@ -203,29 +209,28 @@ func (e *Executor) Execute(
 	// Ensure model is downloaded and served if model manager is available
 	if e.modelManager != nil {
 		// Use a temporary copy of config with evaluated model for model manager
-		configCopy := *config
+		configCopy := *resolvedConfig
 		configCopy.Model = modelStr
 		if ensureErr := e.modelManager.EnsureModel(&configCopy); ensureErr != nil {
 			// Log warning but continue - model might already be available
-			// In production, you might want to return an error here
 			_ = ensureErr
 		}
 	}
 
 	// Evaluate prompt (only if it contains expression syntax)
-	promptStr, err := e.evaluateStringOrLiteral(evaluator, ctx, config.Prompt)
+	promptStr, err := e.evaluateStringOrLiteral(evaluator, ctx, resolvedConfig.Prompt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to evaluate prompt: %w", err)
 	}
 
 	// Build messages
-	messages, msgErr := e.buildMessages(evaluator, ctx, config, promptStr)
+	messages, msgErr := e.buildMessages(evaluator, ctx, resolvedConfig, promptStr)
 	if msgErr != nil {
 		return nil, msgErr
 	}
 
 	// Determine backend
-	backendName := config.Backend
+	backendName := resolvedConfig.Backend
 	if backendName == "" {
 		backendName = "ollama" // Default backend
 	}
@@ -236,13 +241,13 @@ func (e *Executor) Execute(
 	}
 
 	// Determine base URL
-	baseURL := config.BaseURL
+	baseURL := resolvedConfig.BaseURL
 	if baseURL == "" {
 		baseURL = backend.DefaultURL()
 	}
 
 	// Set default context length if not specified
-	contextLength := config.ContextLength
+	contextLength := resolvedConfig.ContextLength
 	if contextLength == 0 {
 		contextLength = 4096 // Default: 4k tokens
 	}
@@ -250,8 +255,8 @@ func (e *Executor) Execute(
 	// Prepare request using backend-specific builder
 	requestConfig := ChatRequestConfig{
 		ContextLength: contextLength,
-		JSONResponse:  config.JSONResponse,
-		Tools:         e.buildTools(config.Tools),
+		JSONResponse:  resolvedConfig.JSONResponse,
+		Tools:         e.buildTools(resolvedConfig.Tools),
 	}
 	requestBody, err := backend.BuildRequest(modelStr, messages, requestConfig)
 	if err != nil {
@@ -260,19 +265,14 @@ func (e *Executor) Execute(
 
 	// Parse timeout
 	timeout := DefaultLLMTimeout
-	if config.TimeoutDuration != "" {
-		parsedTimeout, timeoutErr := time.ParseDuration(config.TimeoutDuration)
-		if timeoutErr == nil {
+	if resolvedConfig.TimeoutDuration != "" {
+		if parsedTimeout, parseErr := time.ParseDuration(resolvedConfig.TimeoutDuration); parseErr == nil {
 			timeout = parsedTimeout
 		}
 	}
 
-	// Log timeout configuration (v1 compatibility)
-	// Note: We don't have direct logger access here, but the engine will log resource execution
-	// The timeout is used in the HTTP client which will handle timeouts appropriately
-
 	// Call backend API (may be called multiple times for tool execution)
-	response, err := e.callBackend(backend, baseURL, requestBody, timeout, config.APIKey)
+	response, err := e.callBackend(backend, baseURL, requestBody, timeout, resolvedConfig.APIKey)
 	if err != nil {
 		// Return network error as result data instead of Go error
 		return map[string]interface{}{ //nolint:nilerr // intentionally return error as data
@@ -281,47 +281,31 @@ func (e *Executor) Execute(
 	}
 
 	// Check for tool calls and execute them if tools are configured and executor is available
-	if len(config.Tools) > 0 && e.toolExecutor != nil {
+	if len(resolvedConfig.Tools) > 0 && e.toolExecutor != nil {
 		// Process tool calls iteratively (up to max iterations)
-		maxIterations := 5
-		for range maxIterations {
-			toolCalls, hasToolCalls := e.extractToolCalls(response)
-			if !hasToolCalls || len(toolCalls) == 0 {
-				break // No more tool calls, return final response
-			}
-
-			// Execute tools and collect results
-			toolResults, execErr := e.executeToolCalls(toolCalls, config.Tools, ctx)
-			if execErr != nil {
-				return nil, fmt.Errorf("tool execution failed: %w", execErr)
-			}
-
-			// Add tool results to message history and call LLM again
-			messages = e.addToolResultsToMessages(messages, toolCalls, toolResults)
-
-			// Rebuild request with updated messages
-			requestBody, err = backend.BuildRequest(modelStr, messages, requestConfig)
-			if err != nil {
-				return nil, fmt.Errorf("failed to build follow-up request: %w", err)
-			}
-
-			// Call backend again with tool results (no retry for follow-up calls)
-			response, err = e.callBackend(backend, baseURL, requestBody, timeout, config.APIKey)
-			if err != nil {
-				return nil, fmt.Errorf("follow-up LLM call failed: %w", err)
-			}
+		response, err = e.handleToolCalls(
+			ctx,
+			resolvedConfig,
+			modelStr,
+			messages,
+			requestConfig,
+			backend,
+			baseURL,
+			response,
+			timeout,
+		)
+		if err != nil {
+			return nil, err
 		}
 	}
 
 	// Parse response
-	if config.JSONResponse { //nolint:nestif // JSON response handling is explicit
-		parsed, parseErr := e.parseJSONResponse(response, config.JSONResponseKeys)
+	if resolvedConfig.JSONResponse { //nolint:nestif // JSON response handling is explicit
+		parsed, parseErr := e.parseJSONResponse(response, resolvedConfig.JSONResponseKeys)
 		if parseErr != nil {
 			// If JSON parsing fails, fall back to raw content for better debugging
-			// Extract the raw content string so users can see what the LLM actually returned
 			if message, okMessage := response["message"].(map[string]interface{}); okMessage {
 				if content, okContent := message["content"].(string); okContent {
-					// Return the raw content as a map with error info for debugging
 					return map[string]interface{}{
 						"error":   "Failed to parse JSON response: " + parseErr.Error(),
 						"content": content,
@@ -329,13 +313,120 @@ func (e *Executor) Execute(
 					}, nil
 				}
 			}
-			// If we can't extract content, return error
 			return nil, fmt.Errorf("failed to parse JSON response and cannot extract raw content: %w", parseErr)
 		}
 		return parsed, nil
 	}
 
 	return response, nil
+}
+
+// resolveConfig evaluates dynamic fields in LLM chat configuration.
+func (e *Executor) resolveConfig(
+	evaluator *expression.Evaluator,
+	ctx *executor.ExecutionContext,
+	config *domain.ChatConfig,
+) (*domain.ChatConfig, error) {
+	resolvedConfig := *config
+
+	// Evaluate Backend if it contains expression syntax
+	if config.Backend != "" {
+		val, err := e.evaluateStringOrLiteral(evaluator, ctx, config.Backend)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate backend: %w", err)
+		}
+		resolvedConfig.Backend = val
+	}
+
+	// Evaluate BaseURL if it contains expression syntax
+	if config.BaseURL != "" {
+		val, err := e.evaluateStringOrLiteral(evaluator, ctx, config.BaseURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate base URL: %w", err)
+		}
+		resolvedConfig.BaseURL = val
+	}
+
+	// Evaluate APIKey if it contains expression syntax
+	if config.APIKey != "" {
+		val, err := e.evaluateStringOrLiteral(evaluator, ctx, config.APIKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate API key: %w", err)
+		}
+		resolvedConfig.APIKey = val
+	}
+
+	// Evaluate Role if it contains expression syntax
+	if config.Role != "" {
+		val, err := e.evaluateStringOrLiteral(evaluator, ctx, config.Role)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate role: %w", err)
+		}
+		resolvedConfig.Role = val
+	}
+
+	// Evaluate JSONResponseKeys if present
+	if len(config.JSONResponseKeys) > 0 {
+		resolvedKeys := make([]string, len(config.JSONResponseKeys))
+		for i, key := range config.JSONResponseKeys {
+			val, err := e.evaluateStringOrLiteral(evaluator, ctx, key)
+			if err != nil {
+				return nil, fmt.Errorf("failed to evaluate JSON response key %d: %w", i, err)
+			}
+			resolvedKeys[i] = val
+		}
+		resolvedConfig.JSONResponseKeys = resolvedKeys
+	}
+
+	return &resolvedConfig, nil
+}
+
+// handleToolCalls manages the iterative tool call execution loop.
+func (e *Executor) handleToolCalls(
+	ctx *executor.ExecutionContext,
+	config *domain.ChatConfig,
+	modelStr string,
+	messages []map[string]interface{},
+	requestConfig ChatRequestConfig,
+	backend Backend,
+	baseURL string,
+	response map[string]interface{},
+	timeout time.Duration,
+) (map[string]interface{}, error) {
+	maxIterations := 5
+	currentResponse := response
+	currentMessages := messages
+
+	for range maxIterations {
+		toolCalls, hasToolCalls := e.extractToolCalls(currentResponse)
+		if !hasToolCalls || len(toolCalls) == 0 {
+			break
+		}
+
+		// Execute tools and collect results
+		toolResults, execErr := e.executeToolCalls(toolCalls, config.Tools, ctx)
+		if execErr != nil {
+			return nil, fmt.Errorf("tool execution failed: %w", execErr)
+		}
+
+		// Add tool results to message history and call LLM again
+		currentMessages = e.addToolResultsToMessages(currentMessages, toolCalls, toolResults)
+
+		// Rebuild request with updated messages
+		requestBody, err := backend.BuildRequest(modelStr, currentMessages, requestConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build follow-up request: %w", err)
+		}
+
+		// Call backend again
+		nextResponse, err := e.callBackend(backend, baseURL, requestBody, timeout, config.APIKey)
+		if err != nil {
+			return nil, fmt.Errorf("follow-up LLM call failed: %w", err)
+		}
+		currentResponse = nextResponse
+	}
+
+	return currentResponse, nil
 }
 
 // buildMessages builds the messages array for the LLM request.
@@ -385,11 +476,26 @@ func (e *Executor) buildMessages(
 		if scenarioErr != nil {
 			return nil, fmt.Errorf("failed to evaluate scenario prompt: %w", scenarioErr)
 		}
+
+		scenarioRole, roleErr := e.evaluateStringOrLiteral(evaluator, ctx, scenarioItem.Role)
+		if roleErr != nil {
+			return nil, fmt.Errorf("failed to evaluate scenario role: %w", roleErr)
+		}
+
+		scenarioName, nameErr := e.evaluateStringOrLiteral(evaluator, ctx, scenarioItem.Name)
+		if nameErr != nil {
+			return nil, fmt.Errorf("failed to evaluate scenario name: %w", nameErr)
+		}
+
 		// Insert scenario message after the main user message
-		messages = append(messages, map[string]interface{}{
-			"role":    scenarioItem.Role,
+		msg := map[string]interface{}{
+			"role":    scenarioRole,
 			"content": scenarioPrompt,
-		})
+		}
+		if scenarioName != "" {
+			msg["name"] = scenarioName
+		}
+		messages = append(messages, msg)
 	}
 
 	return messages, nil
@@ -732,7 +838,7 @@ func (e *Executor) evaluateStringOrLiteral(
 	value string,
 ) (string, error) {
 	// Check if value should be treated as a literal (e.g., file paths)
-	if e.shouldTreatAsLiteral(value) {
+	if e.shouldTreatAsLiteral(value) || !e.containsExpressionSyntax(value) {
 		return value, nil
 	}
 
@@ -754,6 +860,11 @@ func (e *Executor) evaluateStringOrLiteral(
 	}
 
 	return fmt.Sprintf("%v", result), nil
+}
+
+// containsExpressionSyntax checks if a string contains expression syntax.
+func (e *Executor) containsExpressionSyntax(s string) bool {
+	return strings.Contains(s, "{{")
 }
 
 // shouldTreatAsLiteral determines if a value should be treated as a literal string

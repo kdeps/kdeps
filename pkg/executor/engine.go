@@ -578,34 +578,59 @@ func (e *Engine) RunPreflightCheck(resource *domain.Resource, ctx *ExecutionCont
 
 	// Evaluate all validations.
 	for _, validation := range resource.Run.PreflightCheck.Validations {
-		// Parse expression if needed (handle {{ }} syntax)
-		exprStr := validation.Raw
-		if strings.HasPrefix(exprStr, "{{") && strings.HasSuffix(exprStr, "}}") {
-			exprStr = strings.TrimSpace(exprStr[2 : len(exprStr)-2])
-		}
-
-		// Build environment - evaluator already has API access via its constructor
-		// The evaluator's buildEnvironment will add get/set functions automatically
-		env := e.buildEvaluationEnvironment(ctx)
-
-		valid, err := e.evaluator.EvaluateCondition(exprStr, env)
+		valid, err := e.evaluatePreflightValidation(validation, ctx)
 		if err != nil {
-			return fmt.Errorf("validation expression error: %w", err)
+			return err
 		}
 
 		if !valid {
-			// Return preflight error.
-			if resource.Run.PreflightCheck.Error != nil {
-				return &PreflightError{
-					Code:    resource.Run.PreflightCheck.Error.Code,
-					Message: resource.Run.PreflightCheck.Error.Message,
-				}
-			}
-			return fmt.Errorf("preflight validation failed: %s", validation.Raw)
+			return e.createPreflightError(resource, validation, ctx)
 		}
 	}
 
 	return nil
+}
+
+// evaluatePreflightValidation evaluates a single preflight validation expression.
+func (e *Engine) evaluatePreflightValidation(validation domain.Expression, ctx *ExecutionContext) (bool, error) {
+	// Parse expression if needed (handle {{ }} syntax)
+	exprStr := validation.Raw
+	if strings.HasPrefix(exprStr, "{{") && strings.HasSuffix(exprStr, "}}") {
+		exprStr = strings.TrimSpace(exprStr[2 : len(exprStr)-2])
+	}
+
+	// Build environment - evaluator already has API access via its constructor
+	env := e.buildEvaluationEnvironment(ctx)
+
+	valid, err := e.evaluator.EvaluateCondition(exprStr, env)
+	if err != nil {
+		return false, fmt.Errorf("validation expression error: %w", err)
+	}
+	return valid, nil
+}
+
+// createPreflightError creates a PreflightError with an evaluated error message.
+func (e *Engine) createPreflightError(
+	resource *domain.Resource,
+	validation domain.Expression,
+	ctx *ExecutionContext,
+) error {
+	if resource.Run.PreflightCheck.Error != nil {
+		// Evaluate error message if it's an expression
+		msg := resource.Run.PreflightCheck.Error.Message
+		if strings.Contains(msg, "{{") {
+			evaluatedMsg, evalErr := e.evaluateFallback(msg, ctx)
+			if evalErr == nil {
+				msg = fmt.Sprintf("%v", evaluatedMsg)
+			}
+		}
+
+		return &PreflightError{
+			Code:    resource.Run.PreflightCheck.Error.Code,
+			Message: msg,
+		}
+	}
+	return fmt.Errorf("preflight validation failed: %s", validation.Raw)
 }
 
 // ExecuteResource executes a single resource.
@@ -716,7 +741,14 @@ func (e *Engine) executeResourceWithErrorHandling(
 	// Parse retry delay
 	retryDelay := time.Duration(0)
 	if onError.RetryDelay != "" {
-		if parsed, err := time.ParseDuration(onError.RetryDelay); err == nil {
+		// Evaluate retry delay if it's an expression
+		evaluatedDelay, evalErr := e.evaluateFallback(onError.RetryDelay, ctx)
+		delayStr := onError.RetryDelay
+		if evalErr == nil {
+			delayStr = fmt.Sprintf("%v", evaluatedDelay)
+		}
+
+		if parsed, parseErr := time.ParseDuration(delayStr); parseErr == nil {
 			retryDelay = parsed
 		}
 	}
@@ -1155,6 +1187,9 @@ func (e *Engine) executeLLM(resource *domain.Resource, ctx *ExecutionContext) (i
 	// Evaluate model (only if it contains expression syntax)
 	modelStr := resource.Run.Chat.Model
 	if modelExpr, parseErr := expression.NewParser().ParseValue(modelStr); parseErr == nil {
+		if e.evaluator == nil {
+			e.evaluator = expression.NewEvaluator(ctx.API)
+		}
 		env := e.buildEvaluationEnvironment(ctx)
 		if modelValue, evalErr := e.evaluator.Evaluate(modelExpr, env); evalErr == nil {
 			if ms, ok := modelValue.(string); ok {
@@ -1352,15 +1387,37 @@ func (e *Engine) executeAPIResponse(
 
 		// Add headers if present
 		if apiResponseConfig.Meta.Headers != nil {
-			metaMap["headers"] = apiResponseConfig.Meta.Headers
+			evaluatedHeaders, evalErr := e.evaluateResponseValue(apiResponseConfig.Meta.Headers, env)
+			if evalErr == nil {
+				headers := make(map[string]string)
+				if hMap, ok := evaluatedHeaders.(map[string]interface{}); ok {
+					for k, v := range hMap {
+						headers[k] = fmt.Sprintf("%v", v)
+					}
+					metaMap["headers"] = headers
+				} else if sMap, okS := evaluatedHeaders.(map[string]string); okS {
+					for k, v := range sMap {
+						// Evaluate individual values if they are strings (literal map[string]string)
+						val, _ := e.evaluateResponseValue(v, env)
+						headers[k] = fmt.Sprintf("%v", val)
+					}
+					metaMap["headers"] = headers
+				}
+			}
 		}
 
 		// Add additional metadata fields from YAML (if specified)
 		if apiResponseConfig.Meta.Model != "" {
-			metaMap["model"] = apiResponseConfig.Meta.Model
+			evaluatedModel, evalErr := e.evaluateResponseValue(apiResponseConfig.Meta.Model, env)
+			if evalErr == nil {
+				metaMap["model"] = fmt.Sprintf("%v", evaluatedModel)
+			}
 		}
 		if apiResponseConfig.Meta.Backend != "" {
-			metaMap["backend"] = apiResponseConfig.Meta.Backend
+			evaluatedBackend, evalErr := e.evaluateResponseValue(apiResponseConfig.Meta.Backend, env)
+			if evalErr == nil {
+				metaMap["backend"] = fmt.Sprintf("%v", evaluatedBackend)
+			}
 		}
 
 		if len(metaMap) > 0 {

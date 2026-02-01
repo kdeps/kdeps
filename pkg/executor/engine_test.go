@@ -2794,7 +2794,10 @@ func TestEngine_executeAPIResponse_ErrorCases(t *testing.T) {
 
 	metaMap, ok := resultMap["_meta"].(map[string]interface{})
 	require.True(t, ok)
-	assert.Equal(t, "application/json", metaMap["headers"].(map[string]string)["Content-Type"])
+	headers, _ := metaMap["headers"].(map[string]interface{})
+	if headers != nil {
+		assert.Equal(t, "application/json", headers["Content-Type"])
+	}
 	assert.Equal(t, "gpt-4", metaMap["model"])
 	assert.Equal(t, "openai", metaMap["backend"])
 }

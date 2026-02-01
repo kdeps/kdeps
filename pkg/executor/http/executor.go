@@ -138,30 +138,36 @@ func (e *Executor) Execute(
 ) (interface{}, error) {
 	evaluator := expression.NewEvaluator(ctx.API)
 
-	urlStr, method, headers, err := e.prepareRequest(evaluator, ctx, config)
+	// Resolve configuration with evaluated expressions
+	resolvedConfig, err := e.resolveResolvedConfig(evaluator, ctx, config)
+	if err != nil {
+		return nil, err
+	}
+
+	urlStr, method, headers, err := e.prepareRequest(evaluator, ctx, resolvedConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	// Check cache first
-	if config.Cache != nil && config.Cache.Enabled {
-		if cached, found := e.checkCache(ctx, config.Cache, urlStr, method, headers); found {
+	if resolvedConfig.Cache != nil && resolvedConfig.Cache.Enabled {
+		if cached, found := e.checkCache(ctx, resolvedConfig.Cache, urlStr, method, headers); found {
 			return cached, nil
 		}
 	}
 
-	body, updatedHeaders, err := e.prepareRequestBody(evaluator, ctx, config, headers)
+	body, updatedHeaders, err := e.prepareRequestBody(evaluator, ctx, resolvedConfig, headers)
 	if err != nil {
 		return nil, err
 	}
 	headers = updatedHeaders
 
-	req, client, err := e.createRequest(config, method, urlStr, body, headers)
+	req, client, err := e.createRequest(resolvedConfig, method, urlStr, body, headers)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := e.executeRequestWithRetry(client, req, config.Retry)
+	resp, err := e.executeRequestWithRetry(client, req, resolvedConfig.Retry)
 	if err != nil {
 		// Return network error as result data instead of Go error
 		return map[string]interface{}{
@@ -172,12 +178,152 @@ func (e *Executor) Execute(
 		_ = resp.Body.Close()
 	}()
 
-	response, err := e.processResponse(resp, config, ctx, urlStr, method, headers)
-	if err != nil {
-		return nil, err
+	return e.processResponse(resp, resolvedConfig, ctx, urlStr, method, headers)
+}
+
+// resolveResolvedConfig evaluates dynamic fields in HTTP client configuration.
+func (e *Executor) resolveResolvedConfig(
+	evaluator *expression.Evaluator,
+	ctx *executor.ExecutionContext,
+	config *domain.HTTPClientConfig,
+) (*domain.HTTPClientConfig, error) {
+	resolvedConfig := *config
+
+	// Evaluate Proxy if it contains expression syntax
+	if config.Proxy != "" {
+		proxyStr, err := e.evaluateStringOrLiteral(evaluator, ctx, config.Proxy)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate proxy URL: %w", err)
+		}
+		resolvedConfig.Proxy = proxyStr
 	}
 
-	return response, nil
+	// Evaluate TimeoutDuration if it contains expression syntax
+	if config.TimeoutDuration != "" {
+		timeoutStr, err := e.evaluateStringOrLiteral(evaluator, ctx, config.TimeoutDuration)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate timeout duration: %w", err)
+		}
+		resolvedConfig.TimeoutDuration = timeoutStr
+	}
+
+	// Evaluate TLS configuration if present
+	if config.TLS != nil {
+		tlsConfig, err := e.resolveTLSConfig(evaluator, ctx, config.TLS)
+		if err != nil {
+			return nil, err
+		}
+		resolvedConfig.TLS = tlsConfig
+	}
+
+	// Evaluate Retry configuration if present
+	if config.Retry != nil {
+		retryConfig, err := e.resolveRetryConfig(evaluator, ctx, config.Retry)
+		if err != nil {
+			return nil, err
+		}
+		resolvedConfig.Retry = retryConfig
+	}
+
+	// Evaluate Cache configuration if present
+	if config.Cache != nil {
+		cacheConfig, err := e.resolveCacheConfig(evaluator, ctx, config.Cache)
+		if err != nil {
+			return nil, err
+		}
+		resolvedConfig.Cache = cacheConfig
+	}
+
+	return &resolvedConfig, nil
+}
+
+// resolveRetryConfig evaluates dynamic fields in Retry configuration.
+func (e *Executor) resolveRetryConfig(
+	evaluator *expression.Evaluator,
+	ctx *executor.ExecutionContext,
+	config *domain.RetryConfig,
+) (*domain.RetryConfig, error) {
+	retryConfig := *config
+
+	if config.Backoff != "" {
+		backoff, err := e.evaluateStringOrLiteral(evaluator, ctx, config.Backoff)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate retry backoff: %w", err)
+		}
+		retryConfig.Backoff = backoff
+	}
+
+	if config.MaxBackoff != "" {
+		maxBackoff, err := e.evaluateStringOrLiteral(evaluator, ctx, config.MaxBackoff)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate retry max backoff: %w", err)
+		}
+		retryConfig.MaxBackoff = maxBackoff
+	}
+
+	return &retryConfig, nil
+}
+
+// resolveCacheConfig evaluates dynamic fields in Cache configuration.
+func (e *Executor) resolveCacheConfig(
+	evaluator *expression.Evaluator,
+	ctx *executor.ExecutionContext,
+	config *domain.HTTPCacheConfig,
+) (*domain.HTTPCacheConfig, error) {
+	cacheConfig := *config
+
+	if config.TTL != "" {
+		ttl, err := e.evaluateStringOrLiteral(evaluator, ctx, config.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate cache TTL: %w", err)
+		}
+		cacheConfig.TTL = ttl
+	}
+
+	if config.Key != "" {
+		key, err := e.evaluateStringOrLiteral(evaluator, ctx, config.Key)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate cache key: %w", err)
+		}
+		cacheConfig.Key = key
+	}
+
+	return &cacheConfig, nil
+}
+
+// resolveTLSConfig evaluates dynamic fields in TLS configuration.
+func (e *Executor) resolveTLSConfig(
+	evaluator *expression.Evaluator,
+	ctx *executor.ExecutionContext,
+	config *domain.HTTPTLSConfig,
+) (*domain.HTTPTLSConfig, error) {
+	tlsConfig := *config
+
+	if config.CertFile != "" {
+		certFile, err := e.evaluateStringOrLiteral(evaluator, ctx, config.CertFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate TLS cert file path: %w", err)
+		}
+		tlsConfig.CertFile = certFile
+	}
+
+	if config.KeyFile != "" {
+		keyFile, err := e.evaluateStringOrLiteral(evaluator, ctx, config.KeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate TLS key file path: %w", err)
+		}
+		tlsConfig.KeyFile = keyFile
+	}
+
+	if config.CAFile != "" {
+		caFile, err := e.evaluateStringOrLiteral(evaluator, ctx, config.CAFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate TLS CA file path: %w", err)
+		}
+		tlsConfig.CAFile = caFile
+	}
+
+	return &tlsConfig, nil
 }
 
 // evaluateExpression evaluates an expression string.
@@ -213,10 +359,7 @@ func (e *Executor) evaluateStringOrLiteral(
 	ctx *executor.ExecutionContext,
 	value string,
 ) (string, error) {
-	parser := expression.NewParser()
-	exprType := parser.Detect(value)
-
-	if exprType == domain.ExprTypeLiteral {
+	if !e.containsExpressionSyntax(value) {
 		return value, nil
 	}
 
@@ -226,6 +369,11 @@ func (e *Executor) evaluateStringOrLiteral(
 	}
 
 	return fmt.Sprintf("%v", result), nil
+}
+
+// containsExpressionSyntax checks if a string contains expression syntax.
+func (e *Executor) containsExpressionSyntax(s string) bool {
+	return strings.Contains(s, "{{")
 }
 
 // evaluateData evaluates request body data.
