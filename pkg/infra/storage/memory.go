@@ -40,17 +40,27 @@ type MemoryStorage struct {
 // NewMemoryStorage creates a new memory storage.
 func NewMemoryStorage(dbPath string) (*MemoryStorage, error) {
 	if dbPath == "" {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			// Fallback to current directory if home directory is not available
-			homeDir = "."
+		// Check for environment variable override (useful for tests)
+		if envPath := os.Getenv("KDEPS_MEMORY_DB_PATH"); envPath != "" {
+			dbPath = envPath
+		} else {
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				// Fallback to current directory if home directory is not available
+				homeDir = "."
+			}
+			dbPath = filepath.Join(homeDir, ".kdeps", "memory.db")
 		}
-		dbPath = filepath.Join(homeDir, ".kdeps", "memory.db")
 	}
 
-	// Create directory if needed
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0750); err != nil {
-		return nil, fmt.Errorf("failed to create directory: %w", err)
+	// Create directory if needed and not using in-memory DB
+	if dbPath != ":memory:" {
+		dir := filepath.Dir(dbPath)
+		if dir != "." && dir != "/" {
+			if err := os.MkdirAll(dir, 0750); err != nil {
+				return nil, fmt.Errorf("failed to create directory: %w", err)
+			}
+		}
 	}
 
 	// Open database
