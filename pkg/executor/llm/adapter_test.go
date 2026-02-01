@@ -40,6 +40,7 @@ func TestNewAdapter_EmptyURL(t *testing.T) {
 }
 
 func TestAdapter_Execute_InvalidConfig(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	adapter := llm.NewAdapter("http://localhost:11434")
 	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
 	require.NoError(t, err)
@@ -51,6 +52,7 @@ func TestAdapter_Execute_InvalidConfig(t *testing.T) {
 }
 
 func TestAdapter_Execute_ValidConfig(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	if testing.Short() {
 		t.Skip("skipping test that connects to external services in short mode")
 	}

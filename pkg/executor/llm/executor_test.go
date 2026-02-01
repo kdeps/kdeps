@@ -44,6 +44,7 @@ func TestNewExecutor_DefaultURL(t *testing.T) {
 }
 
 func TestExecutor_Execute_Success(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	// Create mock Ollama server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
@@ -98,6 +99,7 @@ func TestExecutor_Execute_Success(t *testing.T) {
 }
 
 func TestExecutor_Execute_WithScenario(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req map[string]interface{}
 		json.NewDecoder(r.Body).Decode(&req)
