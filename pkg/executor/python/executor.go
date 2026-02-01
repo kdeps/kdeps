@@ -78,7 +78,47 @@ func (e *Executor) Execute(
 ) (interface{}, error) {
 	evaluator := expression.NewEvaluator(ctx.API)
 
-	// Create a copy of config to store evaluated values
+	// Resolve configuration with evaluated expressions
+	resolvedConfig, err := e.resolveConfig(evaluator, ctx, config)
+	if err != nil {
+		return nil, err
+	}
+
+	pythonVersion := e.getPythonVersion(ctx)
+	packages, requirementsFile := e.getPythonDependencies(ctx)
+	venvName := resolvedConfig.VenvName
+
+	// Ensure virtual environment exists
+	venvPath, err := e.uvManager.EnsureVenv(pythonVersion, packages, requirementsFile, venvName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to ensure venv: %w", err)
+	}
+
+	// Get Python executable path
+	pythonPath, err := e.uvManager.GetPythonPath(venvPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get python path: %w", err)
+	}
+
+	// Prepare script execution
+	scriptContent, scriptFile, err := e.prepareScript(ctx, resolvedConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse timeout
+	timeout := e.parseTimeout(resolvedConfig)
+
+	// Execute the script
+	return e.executeScript(pythonPath, venvPath, ctx.FSRoot, scriptContent, scriptFile, resolvedConfig.Args, timeout)
+}
+
+// resolveConfig evaluates dynamic fields in Python execution configuration.
+func (e *Executor) resolveConfig(
+	evaluator *expression.Evaluator,
+	ctx *executor.ExecutionContext,
+	config *domain.PythonConfig,
+) (*domain.PythonConfig, error) {
 	resolvedConfig := *config
 
 	// Evaluate VenvName if it contains expression syntax
@@ -112,33 +152,7 @@ func (e *Executor) Execute(
 		resolvedConfig.Args = evaluatedArgs
 	}
 
-	pythonVersion := e.getPythonVersion(ctx)
-	packages, requirementsFile := e.getPythonDependencies(ctx)
-	venvName := resolvedConfig.VenvName
-
-	// Ensure virtual environment exists
-	venvPath, err := e.uvManager.EnsureVenv(pythonVersion, packages, requirementsFile, venvName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to ensure venv: %w", err)
-	}
-
-	// Get Python executable path
-	pythonPath, err := e.uvManager.GetPythonPath(venvPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get python path: %w", err)
-	}
-
-	// Prepare script execution
-	scriptContent, scriptFile, err := e.prepareScript(ctx, &resolvedConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	// Parse timeout
-	timeout := e.parseTimeout(&resolvedConfig)
-
-	// Execute the script
-	return e.executeScript(pythonPath, venvPath, ctx.FSRoot, scriptContent, scriptFile, resolvedConfig.Args, timeout)
+	return &resolvedConfig, nil
 }
 
 // getPythonVersion extracts Python version from workflow settings.

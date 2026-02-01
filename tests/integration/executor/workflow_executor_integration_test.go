@@ -31,6 +31,7 @@ import (
 )
 
 func TestWorkflowExecutor_SingleResourceExecution(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	// Create test workflow with single resource
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -82,6 +83,7 @@ func TestWorkflowExecutor_SingleResourceExecution(t *testing.T) {
 }
 
 func TestWorkflowExecutor_MultiResourceExecution(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	// Create test workflow with multiple resources
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -165,6 +167,7 @@ func TestWorkflowExecutor_MultiResourceExecution(t *testing.T) {
 }
 
 func TestWorkflowExecutor_ResourceWithDependencies(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	// Create workflow with resources that reference each other
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -261,6 +264,7 @@ func TestWorkflowExecutor_ResourceWithDependencies(t *testing.T) {
 }
 
 func TestWorkflowExecutor_ErrorHandling(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	// Test workflow with error conditions
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -312,6 +316,7 @@ func TestWorkflowExecutor_ErrorHandling(t *testing.T) {
 }
 
 func TestWorkflowExecutor_EmptyWorkflow(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	// Test with minimal workflow that has no target resource
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -340,6 +345,7 @@ func TestWorkflowExecutor_EmptyWorkflow(t *testing.T) {
 }
 
 func TestWorkflowExecutor_ResourceExecutionOrder(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	// Test that resources are executed in dependency order
 	// Create workflow with dependencies
 	workflow := &domain.Workflow{
@@ -424,6 +430,7 @@ func TestWorkflowExecutor_ResourceExecutionOrder(t *testing.T) {
 }
 
 func TestWorkflowExecutor_ResourceDataFlow(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	// Test data flow between resources
 	workflow := &domain.Workflow{
 		APIVersion: "kdeps.io/v1",
@@ -512,6 +519,7 @@ func TestWorkflowExecutor_ResourceDataFlow(t *testing.T) {
 }
 
 func TestWorkflowExecutor_LargeWorkflow(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	if testing.Short() {
 		t.Skip("Skipping large workflow test in short mode")
 	}

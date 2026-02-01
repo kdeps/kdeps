@@ -31,6 +31,7 @@ import (
 )
 
 func TestSessionStorage_TTL(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	// Test TTL functionality
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "sessions_ttl.db")
@@ -64,6 +65,7 @@ func TestSessionStorage_TTL(t *testing.T) {
 }
 
 func TestSessionStorage_TTL_Extension(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	// Test that accessing data extends TTL
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "sessions_ttl_extend.db")
@@ -99,6 +101,7 @@ func TestSessionStorage_TTL_Extension(t *testing.T) {
 }
 
 func TestSessionStorage_Touch(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	// Test manual TTL extension via Touch
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "sessions_touch.db")
@@ -137,6 +140,7 @@ func TestSessionStorage_Touch(t *testing.T) {
 }
 
 func TestSessionStorage_TouchWithTTL(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	// Test TouchWithTTL with custom TTL
 	// Note: Get() extends TTL using DefaultTTL, so we create a store with no default TTL
 	tmpDir := t.TempDir()
@@ -170,6 +174,7 @@ func TestSessionStorage_TouchWithTTL(t *testing.T) {
 }
 
 func TestSessionStorage_IsExpired(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	// Test IsExpired check
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "sessions_expired.db")
@@ -200,6 +205,7 @@ func TestSessionStorage_IsExpired(t *testing.T) {
 }
 
 func TestSessionStorage_Cleanup(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	// Test automatic cleanup of expired sessions
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "sessions_cleanup.db")
@@ -238,6 +244,7 @@ func TestSessionStorage_Cleanup(t *testing.T) {
 }
 
 func TestSessionStorage_NoTTL(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	// Test session storage without TTL (default behavior)
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "sessions_no_ttl.db")

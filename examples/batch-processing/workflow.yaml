@@ -37,7 +37,7 @@ resources:
         url: "https://api.github.com/repos/{{item.org}}/{{item.repo}}"
         headers:
           Accept: "application/vnd.github.v3+json"
-        timeout: 10s
+        timeoutDuration: 10s
 
   # Transform each result
   - apiVersion: kdeps.io/v1
