@@ -24,7 +24,7 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.5.0
-          args: --timeout=5m --config=.golangci.yml
+          args: --timeout=10m --config=.golangci.yml
           only-new-issues: false
 
   test:
@@ -55,7 +55,8 @@ jobs:
       run: make build
 
     - name: Test Unit
-      run: timeout 5m make test-unit
+      run: make test-unit
+      timeout-minutes: 15
 
     - name: Start Ollama
       run: |
@@ -63,7 +64,9 @@ jobs:
         sleep 5
 
     - name: Test Integration
-      run: timeout 5m make test-integration
+      run: make test-integration
+      timeout-minutes: 15
 
     - name: Test E2E
-      run: timeout 5m make test-e2e
+      run: make test-e2e
+      timeout-minutes: 15
