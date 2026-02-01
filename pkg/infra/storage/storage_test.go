@@ -60,6 +60,7 @@ func TestNewMemoryStorage(t *testing.T) {
 }
 
 func TestNewMemoryStorage_EmptyPath(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	// Test with empty path (should use default)
 	storage, err := storage.NewMemoryStorage("")
 	require.NoError(t, err)
@@ -110,6 +111,7 @@ func TestNewSessionStorage(t *testing.T) {
 }
 
 func TestNewSessionStorage_EmptyPath(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	// Test with empty path (should use default)
 	sessionID := "default-session"
 	storage, err := storage.NewSessionStorage("", sessionID)
