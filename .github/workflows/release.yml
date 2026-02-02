@@ -27,4 +27,12 @@ jobs:
             -v $(pwd):/src \
             -w /src \
             ghcr.io/goreleaser/goreleaser-cross:latest \
-            -c "git config --global --add safe.directory /src && goreleaser release --clean"
+            -c "
+              apt-get update && apt-get install -y wget xz-utils &&
+              mkdir -p /musl-cross &&
+              wget -qO- https://musl.cc/x86_64-linux-musl-cross.tgz | tar xz -C /musl-cross --strip-components=1 &&
+              wget -qO- https://musl.cc/aarch64-linux-musl-cross.tgz | tar xz -C /musl-cross --strip-components=1 &&
+              export PATH=/musl-cross/bin:\$PATH &&
+              git config --global --add safe.directory /src &&
+              goreleaser release --clean
+            "
