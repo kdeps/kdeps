@@ -111,7 +111,8 @@ release:
   prerelease: true
 
 archives:
-  - formats:
+  - id: kdeps-standard
+    formats:
       - tar.gz
     ids:
       - kdeps-linux-arm64
@@ -129,7 +130,8 @@ archives:
       - goos: windows
         format: zip
 
-  - formats:
+  - id: kdeps-musl
+    formats:
       - tar.gz
     ids:
       - kdeps-linux-arm64-musl
