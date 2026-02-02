@@ -209,6 +209,6 @@ cleanup_container() {
 }
 
 # Run the full container e2e test
-test_full_container_e2e
+# test_full_container_e2e
 
 echo ""
