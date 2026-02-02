@@ -13,13 +13,15 @@ The `expr` block executes expressions **before** the resource's main action (cha
 
 ## Basic Usage
 
+<div v-pre>
+
 ```yaml
 apiVersion: kdeps.io/v1
 kind: Resource
 
 metadata:
-  actionId: preprocessData
-  name: Preprocess Data
+  actionId: preProcessor
+  name: Pre-Processor
 
 run:
   expr:
@@ -29,9 +31,10 @@ run:
   
   chat:
     model: llama3.2:1b
-    prompt: <span v-pre>"Process: {{ get('normalized_input') }}"</span>
-
+    prompt: "Process: {{ get('normalized_input') }}"
 ```
+
+</div>
 
 ## When to Use expr Blocks
 
@@ -336,20 +339,16 @@ run:
       code: 400
       message: Invalid email or age
   
-<div v-pre>
-
-```yaml
   chat:
     model: llama3.2:1b
     prompt: "Process user: {{ get('email') }}, age {{ get('age') }}"
 ```
 
 </div>
-```
-
-</div>
 
 ### Example 3: Session Management
+
+<div v-pre>
 
 ```yaml
 apiVersion: kdeps.io/v1
@@ -371,6 +370,8 @@ run:
       visit_count: get('visit_count')
       last_visit: get('last_visit')
 ```
+
+</div>
 
 ## Related Documentation
 
