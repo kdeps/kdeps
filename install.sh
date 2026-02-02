@@ -456,9 +456,18 @@ log_debug "OS adjusted to ${OS}"
 adjust_arch
 log_debug "ARCH adjusted to ${ARCH}"
 
-log_info "found version: ${VERSION} for ${TAG}/${OS}/${ARCH}"
+# Check for musl (Alpine Linux)
+MUSL=""
+if [ "${OS}" = "Linux" ]; then
+    if [ -f /etc/alpine-release ] || ldd /bin/sh 2>&1 | grep -q musl; then
+        MUSL="_musl"
+        log_debug "MUSL detection: found musl"
+    fi
+fi
 
-NAME=${PROJECT_NAME}_${OS}_${ARCH}
+log_info "found version: ${VERSION} for ${TAG}/${OS}/${ARCH}${MUSL}"
+
+NAME=${PROJECT_NAME}_${OS}_${ARCH}${MUSL}
 TARBALL=${NAME}.${FORMAT}
 TARBALL_URL=${GITHUB_DOWNLOAD}/${TAG}/${TARBALL}
 
