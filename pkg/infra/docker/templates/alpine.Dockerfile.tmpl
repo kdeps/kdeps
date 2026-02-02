@@ -12,6 +12,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 # Install base dependencies including gcompat for Ollama
 RUN apk add --no-cache \
+    zstd \
     python3 \
     py3-pip \
     curl \
@@ -20,8 +21,7 @@ RUN apk add --no-cache \
     ca-certificates \
     gcompat \
     libstdc++ \
-    rsync \
-    zstd
+    rsync
 
 # Install kdeps via official install script
 RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh -s -- -b /usr/local/bin
