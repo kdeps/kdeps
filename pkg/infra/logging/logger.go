@@ -48,6 +48,7 @@ func NewLogger(debug bool) *slog.Logger {
 	handler := NewPrettyHandler(os.Stderr, opts)
 	return slog.New(handler)
 }
+
 // NewLoggerWithLevel creates a new logger with a specific log level.
 func NewLoggerWithLevel(level slog.Level, addSource bool) *slog.Logger {
 	opts := &PrettyHandlerOptions{
