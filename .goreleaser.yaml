@@ -54,39 +54,23 @@ builds:
     ldflags:
       - -s -w -X github.com/kdeps/kdeps/v2/pkg/version.Version={{ .Version }} -X github.com/kdeps/kdeps/v2/pkg/version.Commit={{ .Commit }}
   - id: kdeps-linux-amd64-musl
+    builder: prebuilt
+    prebuilt:
+      path: dist/kdeps-linux-amd64-musl_linux_amd64_v1/kdeps
     binary: kdeps
-    main: ./
-    env:
-      - CC=x86_64-linux-musl-gcc
-      - CXX=x86_64-linux-musl-g++
-      - CGO_ENABLED=1
     goarch:
       - amd64
     goos:
       - linux
-    flags:
-      - -trimpath
-      - -buildvcs=false
-    ldflags:
-      - -s -w -X github.com/kdeps/kdeps/v2/pkg/version.Version={{ .Version }} -X github.com/kdeps/kdeps/v2/pkg/version.Commit={{ .Commit }}
-      - -linkmode external -extldflags "-static"
   - id: kdeps-linux-arm64-musl
+    builder: prebuilt
+    prebuilt:
+      path: dist/kdeps-linux-arm64-musl_linux_arm64_v8.0/kdeps
     binary: kdeps
-    main: ./
     goarch:
       - arm64
     goos:
       - linux
-    env:
-      - CC=aarch64-linux-musl-gcc
-      - CXX=aarch64-linux-musl-g++
-      - CGO_ENABLED=1
-    flags:
-      - -trimpath
-      - -buildvcs=false
-    ldflags:
-      - -s -w -X github.com/kdeps/kdeps/v2/pkg/version.Version={{ .Version }} -X github.com/kdeps/kdeps/v2/pkg/version.Commit={{ .Commit }}
-      - -linkmode external -extldflags "-static"
   - id: kdeps-windows-amd64
     binary: kdeps
     main: ./
