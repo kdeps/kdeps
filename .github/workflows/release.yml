@@ -79,7 +79,7 @@ jobs:
             ghcr.io/goreleaser/goreleaser-cross:latest \
             -c "
               git config --global --add safe.directory /src &&
-              goreleaser release --clean
+              goreleaser release --clean --dirty
             "
 
       - name: Get version
