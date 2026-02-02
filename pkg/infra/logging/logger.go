@@ -24,8 +24,16 @@ import (
 )
 
 // NewLogger creates a new logger with pretty formatting.
-// If debug is true, it sets the log level to Debug and enables source location.
+// If debug is true, or if KDEPS_DEBUG or DEBUG env var is set,
+// it sets the log level to Debug and enables source location.
 func NewLogger(debug bool) *slog.Logger {
+	if !debug {
+		// Check environment variables
+		if os.Getenv("KDEPS_DEBUG") == "true" || os.Getenv("DEBUG") == "true" {
+			debug = true
+		}
+	}
+
 	opts := &PrettyHandlerOptions{
 		Level:      slog.LevelInfo,
 		AddSource:  debug,
@@ -40,7 +48,6 @@ func NewLogger(debug bool) *slog.Logger {
 	handler := NewPrettyHandler(os.Stderr, opts)
 	return slog.New(handler)
 }
-
 // NewLoggerWithLevel creates a new logger with a specific log level.
 func NewLoggerWithLevel(level slog.Level, addSource bool) *slog.Logger {
 	opts := &PrettyHandlerOptions{
