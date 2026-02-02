@@ -68,15 +68,6 @@ jobs:
         with:
           path: musl-binaries
 
-      - name: Prepare musl binaries for GoReleaser
-        run: |
-          mkdir -p dist/kdeps-linux-amd64-musl_linux_amd64_v1
-          mkdir -p dist/kdeps-linux-arm64-musl_linux_arm64_v8.0
-          cp musl-binaries/kdeps-linux-amd64-musl/kdeps-linux-amd64-musl dist/kdeps-linux-amd64-musl_linux_amd64_v1/kdeps
-          cp musl-binaries/kdeps-linux-arm64-musl/kdeps-linux-arm64-musl dist/kdeps-linux-arm64-musl_linux_arm64_v8.0/kdeps
-          chmod +x dist/kdeps-linux-amd64-musl_linux_amd64_v1/kdeps
-          chmod +x dist/kdeps-linux-arm64-musl_linux_arm64_v8.0/kdeps
-
       - name: Release with GoReleaser Cross
         run: |
           docker run \
@@ -90,3 +81,80 @@ jobs:
               git config --global --add safe.directory /src &&
               goreleaser release --clean
             "
+
+      - name: Get version
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create musl archives and APK packages
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+
+          # Create tar.gz archives for musl binaries
+          mkdir -p musl-dist
+
+          # amd64 musl archive
+          mkdir -p musl-dist/kdeps_Linux_x86_64_musl
+          cp musl-binaries/kdeps-linux-amd64-musl/kdeps-linux-amd64-musl musl-dist/kdeps_Linux_x86_64_musl/kdeps
+          chmod +x musl-dist/kdeps_Linux_x86_64_musl/kdeps
+          tar -czvf musl-dist/kdeps_Linux_x86_64_musl.tar.gz -C musl-dist kdeps_Linux_x86_64_musl
+
+          # arm64 musl archive
+          mkdir -p musl-dist/kdeps_Linux_arm64_musl
+          cp musl-binaries/kdeps-linux-arm64-musl/kdeps-linux-arm64-musl musl-dist/kdeps_Linux_arm64_musl/kdeps
+          chmod +x musl-dist/kdeps_Linux_arm64_musl/kdeps
+          tar -czvf musl-dist/kdeps_Linux_arm64_musl.tar.gz -C musl-dist kdeps_Linux_arm64_musl
+
+          # Create APK packages using nfpm
+          cat > nfpm-amd64.yaml << EOF
+          name: kdeps
+          arch: amd64
+          platform: linux
+          version: ${VERSION#v}
+          maintainer: Joel Bryan Juliano <joelbryan.juliano@gmail.com>
+          description: Kdeps is a framework for creating dockerized AI Agent APIs
+          vendor: Kdeps
+          homepage: https://kdeps.com
+          license: Apache-2.0
+          depends:
+            - git
+          contents:
+            - src: musl-binaries/kdeps-linux-amd64-musl/kdeps-linux-amd64-musl
+              dst: /usr/bin/kdeps
+              file_info:
+                mode: 0755
+          EOF
+
+          cat > nfpm-arm64.yaml << EOF
+          name: kdeps
+          arch: arm64
+          platform: linux
+          version: ${VERSION#v}
+          maintainer: Joel Bryan Juliano <joelbryan.juliano@gmail.com>
+          description: Kdeps is a framework for creating dockerized AI Agent APIs
+          vendor: Kdeps
+          homepage: https://kdeps.com
+          license: Apache-2.0
+          depends:
+            - git
+          contents:
+            - src: musl-binaries/kdeps-linux-arm64-musl/kdeps-linux-arm64-musl
+              dst: /usr/bin/kdeps
+              file_info:
+                mode: 0755
+          EOF
+
+          # Install nfpm and create APK packages
+          curl -sfL https://github.com/goreleaser/nfpm/releases/download/v2.41.1/nfpm_2.41.1_linux_amd64.tar.gz | tar xz -C /tmp nfpm
+          /tmp/nfpm package -p apk -f nfpm-amd64.yaml -t musl-dist/kdeps_${VERSION#v}_amd64.apk
+          /tmp/nfpm package -p apk -f nfpm-arm64.yaml -t musl-dist/kdeps_${VERSION#v}_arm64.apk
+
+      - name: Upload musl assets to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          gh release upload $VERSION musl-dist/kdeps_Linux_x86_64_musl.tar.gz --clobber
+          gh release upload $VERSION musl-dist/kdeps_Linux_arm64_musl.tar.gz --clobber
+          gh release upload $VERSION musl-dist/kdeps_${VERSION#v}_amd64.apk --clobber
+          gh release upload $VERSION musl-dist/kdeps_${VERSION#v}_arm64.apk --clobber
