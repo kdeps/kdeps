@@ -18,6 +18,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Download musl cross-compilers
+        run: |
+          mkdir -p musl-cross
+          curl -fsSL --retry 3 --retry-delay 5 -o x86_64-linux-musl-cross.tgz https://musl.cc/x86_64-linux-musl-cross.tgz
+          curl -fsSL --retry 3 --retry-delay 5 -o aarch64-linux-musl-cross.tgz https://musl.cc/aarch64-linux-musl-cross.tgz
+          tar xzf x86_64-linux-musl-cross.tgz -C musl-cross --strip-components=1
+          tar xzf aarch64-linux-musl-cross.tgz -C musl-cross --strip-components=1
+          rm -f x86_64-linux-musl-cross.tgz aarch64-linux-musl-cross.tgz
+
       - name: Release with GoReleaser Cross
         run: |
           docker run \
@@ -25,13 +34,10 @@ jobs:
             --entrypoint /bin/sh \
             -e GITHUB_TOKEN=${{ secrets.RELEASE_TOKEN }} \
             -v $(pwd):/src \
+            -v $(pwd)/musl-cross:/musl-cross \
             -w /src \
             ghcr.io/goreleaser/goreleaser-cross:latest \
             -c "
-              apt-get update && apt-get install -y wget xz-utils &&
-              mkdir -p /musl-cross &&
-              wget -qO- https://musl.cc/x86_64-linux-musl-cross.tgz | tar xz -C /musl-cross --strip-components=1 &&
-              wget -qO- https://musl.cc/aarch64-linux-musl-cross.tgz | tar xz -C /musl-cross --strip-components=1 &&
               export PATH=/musl-cross/bin:\$PATH &&
               git config --global --add safe.directory /src &&
               goreleaser release --clean
