@@ -171,29 +171,28 @@ run:
       password:
         type: string
         minLength: 8
-      age:
-        type: integer
-        minimum: 0
-        maximum: 150
-
-<div v-pre>
-
-```yaml
-  sql:
-    queries:
-      - query: "INSERT INTO users (username, email, password, age) VALUES (?, ?, ?, ?)"
-        params:
-          - "{{ get('username') }}"
-          - "{{ get('email') }}"
-          - "{{ get('password') }}"
-          - "{{ get('age') }}"
-```
-
-</div>
-```
-
-### Validation Properties
-
+              age:
+                type: integer
+                minimum: 0
+                maximum: 150
+      ```
+      
+      <div v-pre>
+      
+      ```yaml
+        sql:
+          queries:
+            - query: "INSERT INTO users (username, email, password, age) VALUES (?, ?, ?, ?)"
+              params:
+                - "{{ get('username') }}"
+                - "{{ get('email') }}"
+                - "{{ get('password') }}"
+                - "{{ get('age') }}"
+      ```
+      
+      </div>
+      
+      ### Validation Properties
 | Property | Type | Description |
 |----------|------|-------------|
 | `required` | array | List of required fields |
