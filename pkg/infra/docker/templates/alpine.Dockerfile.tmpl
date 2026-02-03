@@ -74,6 +74,9 @@ COPY entrypoint.sh /entrypoint.sh
 COPY supervisord.conf /etc/supervisord.conf
 RUN chmod +x /entrypoint.sh
 
+# Ensure log directory exists
+RUN mkdir -p /var/log
+
 {{- if and .OfflineMode .Models .InstallOllama }}
 
 # Download models during build time for offline mode
