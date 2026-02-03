@@ -1,13 +1,7 @@
 {{- if .InstallOllama }}
-# Install Ollama from official install script
-# Note: The install script automatically detects architecture and downloads the appropriate binary
-# We explicitly ensure zstd is installed right before the script runs to avoid extraction errors
-RUN if command -v apt-get >/dev/null; then \
-      apt-get update && apt-get install -y zstd; \
-    elif command -v apk >/dev/null; then \
-      apk add --no-cache zstd; \
-    fi && \
-    curl -fsSL https://ollama.com/install.sh | sh
+# Ollama is pre-installed via base image (ollama/ollama or alpine/ollama)
+# We ensure it's available in /usr/local/bin
+RUN if [ ! -f /usr/local/bin/ollama ] && [ -f /bin/ollama ]; then ln -s /bin/ollama /usr/local/bin/ollama; fi
 {{- else }}
 # No LLM backend to install
 {{- end }}

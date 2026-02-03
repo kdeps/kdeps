@@ -67,13 +67,12 @@ func TestBuilder_GenerateDockerfile_Basic(t *testing.T) {
 	require.NoError(t, err)
 
 	// Template-based output
-	assert.Contains(t, dockerfile, "FROM alpine:3.18")
+	assert.Contains(t, dockerfile, "FROM alpine:latest")
 	assert.Contains(t, dockerfile, "WORKDIR /app")
 	assert.Contains(t, dockerfile, "COPY workflow.yaml")
 	assert.Contains(t, dockerfile, "supervisord")
 	assert.Contains(t, dockerfile, "ENTRYPOINT")
 }
-
 func TestBuilder_GenerateDockerfile_WithPackages(t *testing.T) {
 	builder := &docker.Builder{BaseOS: "alpine"}
 
@@ -205,9 +204,7 @@ func TestBuilder_GenerateDockerfile_Ubuntu(t *testing.T) {
 	dockerfile, err := builder.GenerateDockerfile(workflow)
 	require.NoError(t, err)
 
-	assert.Contains(t, dockerfile, "FROM ubuntu:22.04")
-	// Ollama is now installed from official install script, not Docker image
-	assert.Contains(t, dockerfile, "curl -fsSL https://ollama.com/install.sh | sh")
+	assert.Contains(t, dockerfile, "FROM ollama/ollama:latest")
 	assert.Contains(t, dockerfile, "curl")
 	assert.Contains(t, dockerfile, "python3")
 	assert.Contains(t, dockerfile, "uv venv")
@@ -215,7 +212,6 @@ func TestBuilder_GenerateDockerfile_Ubuntu(t *testing.T) {
 	assert.Contains(t, dockerfile, "supervisord")
 	assert.Contains(t, dockerfile, "WORKDIR /app")
 }
-
 func TestBuilder_GetBackendPort(t *testing.T) {
 	builder := &docker.Builder{BaseOS: "alpine"}
 
@@ -520,8 +516,7 @@ func TestBuilder_GenerateDockerfile_WithOllamaBackend(t *testing.T) {
 	dockerfile, err := builder.GenerateDockerfile(workflow)
 	require.NoError(t, err)
 
-	assert.Contains(t, dockerfile, "FROM ubuntu:22.04")
-	assert.Contains(t, dockerfile, "curl -fsSL https://ollama.com/install.sh | sh") // Ollama install script
+	assert.Contains(t, dockerfile, "FROM ollama/ollama:latest")
 	assert.Contains(
 		t,
 		dockerfile,
@@ -553,11 +548,9 @@ func TestBuilder_GenerateDockerfile_WithInstallOllamaFlag(t *testing.T) {
 	dockerfile, err := builder.GenerateDockerfile(workflow)
 	require.NoError(t, err)
 
-	assert.Contains(t, dockerfile, "FROM ubuntu:22.04")
-	assert.Contains(t, dockerfile, "curl -fsSL https://ollama.com/install.sh | sh") // Ollama install script
-	assert.Contains(t, dockerfile, "11434")                                         // Ollama port in EXPOSE statement
+	assert.Contains(t, dockerfile, "FROM ollama/ollama:latest")
+	assert.Contains(t, dockerfile, "11434") // Ollama port in EXPOSE statement
 }
-
 func TestBuilder_GenerateDockerfile_MultiplePythonVersions(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -590,9 +583,9 @@ func TestBuilder_GenerateDockerfile_MultiplePythonVersions(t *testing.T) {
 			require.NoError(t, err)
 
 			if tt.baseOS == "alpine" {
-				assert.Contains(t, dockerfile, "FROM alpine:3.18")
+				assert.Contains(t, dockerfile, "FROM alpine:latest")
 			} else {
-				assert.Contains(t, dockerfile, "FROM ubuntu:22.04")
+				assert.Contains(t, dockerfile, "FROM ubuntu:latest")
 			}
 			assert.Contains(t, dockerfile, "python3")
 			assert.Contains(t, dockerfile, "supervisord")
@@ -648,9 +641,7 @@ func TestBuilder_GenerateDockerfile_ComplexWorkflow(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check all components are included
-	assert.Contains(t, dockerfile, "FROM ubuntu:22.04")
-	// Ollama is now installed from official install script, not Docker image
-	assert.Contains(t, dockerfile, "curl -fsSL https://ollama.com/install.sh | sh")
+	assert.Contains(t, dockerfile, "FROM ollama/ollama:latest")
 	assert.Contains(t, dockerfile, "9000")  // API server port in EXPOSE statement
 	assert.Contains(t, dockerfile, "11434") // Ollama port in EXPOSE statement
 	assert.Contains(t, dockerfile, "fastapi")
@@ -674,14 +665,13 @@ func TestBuilder_GenerateDockerfile_MinimalWorkflow(t *testing.T) {
 	require.NoError(t, err)
 
 	// Should generate basic Dockerfile with defaults
-	assert.Contains(t, dockerfile, "FROM alpine:3.18")
+	assert.Contains(t, dockerfile, "FROM alpine:latest")
 	assert.Contains(t, dockerfile, "python3")
 	assert.Contains(t, dockerfile, "supervisord")
 	assert.Contains(t, dockerfile, "EXPOSE 3000") // Default API port
 	assert.Contains(t, dockerfile, "WORKDIR /app")
 	assert.Contains(t, dockerfile, "ENTRYPOINT")
 }
-
 func TestBuilder_GenerateDockerfile_LargePackageList(t *testing.T) {
 	builder := &docker.Builder{BaseOS: "alpine"}
 
@@ -712,7 +702,7 @@ func TestBuilder_GenerateDockerfile_LargePackageList(t *testing.T) {
 	dockerfile, err := builder.GenerateDockerfile(workflow)
 	require.NoError(t, err)
 
-	assert.Contains(t, dockerfile, "FROM alpine:3.18")
+	assert.Contains(t, dockerfile, "FROM alpine:latest")
 	for _, pkg := range workflow.Settings.AgentSettings.PythonPackages {
 		assert.Contains(t, dockerfile, pkg)
 	}
@@ -738,13 +728,12 @@ func TestBuilder_GenerateDockerfile_SpecialCharactersInPackages(t *testing.T) {
 	dockerfile, err := builder.GenerateDockerfile(workflow)
 	require.NoError(t, err)
 
-	assert.Contains(t, dockerfile, "FROM alpine:3.18")
+	assert.Contains(t, dockerfile, "FROM alpine:latest")
 	assert.Contains(t, dockerfile, "package-with-dashes")
 	assert.Contains(t, dockerfile, "package_with_underscores")
 	assert.Contains(t, dockerfile, "package.with.dots")
 	assert.Contains(t, dockerfile, "supervisord")
 }
-
 func TestBuilderTemplates_generateDockerfile(t *testing.T) {
 	// Test various template data combinations with proper workflows
 	installOllama := true
@@ -763,7 +752,7 @@ func TestBuilderTemplates_generateDockerfile(t *testing.T) {
 					AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 				},
 			},
-			contains: []string{"FROM alpine:3.18", "python3", "supervisord", "3000"},
+			contains: []string{"FROM alpine:latest", "python3", "supervisord", "3000"},
 		},
 		{
 			name:   "ubuntu with ollama",
@@ -781,7 +770,7 @@ func TestBuilderTemplates_generateDockerfile(t *testing.T) {
 					},
 				},
 			},
-			contains: []string{"FROM ubuntu:22.04", "curl -fsSL https://ollama.com/install.sh | sh", "ollama"},
+			contains: []string{"FROM ollama/ollama:latest", "ollama"},
 		},
 		{
 			name:   "debian with installOllama flag",
@@ -795,9 +784,8 @@ func TestBuilderTemplates_generateDockerfile(t *testing.T) {
 					},
 				},
 			},
-			contains: []string{"FROM debian:12-slim", "curl -fsSL https://ollama.com/install.sh | sh", "11434"},
-		},
-	}
+			contains: []string{"FROM ollama/ollama:latest", "11434"},
+		}}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1067,7 +1055,7 @@ func TestBuilder_BuildImage_WithTags(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a simple Dockerfile
-	dockerfileContent := `FROM alpine:3.18
+	dockerfileContent := `FROM alpine:latest
 RUN echo "test" > /test.txt
 CMD ["cat", "/test.txt"]
 `
@@ -1128,14 +1116,13 @@ func TestBuilder_BuildTemplateData(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify template data was processed correctly
-	assert.Contains(t, dockerfile, "FROM alpine:3.18")
+	assert.Contains(t, dockerfile, "FROM alpine/ollama")
 	assert.Contains(t, dockerfile, "8080")  // API server port
 	assert.Contains(t, dockerfile, "11434") // Ollama port
 	assert.Contains(t, dockerfile, "requests")
 	assert.Contains(t, dockerfile, "pandas")
 	assert.Contains(t, dockerfile, "python3")
 }
-
 func TestBuilder_shouldInstallOllama(t *testing.T) {
 	builder := &docker.Builder{BaseOS: "ubuntu"}
 
@@ -1158,21 +1145,21 @@ func TestBuilder_shouldInstallOllama(t *testing.T) {
 					},
 				},
 			},
-			contains: []string{"FROM ubuntu:22.04", "curl -fsSL https://ollama.com/install.sh | sh"},
+			contains: []string{"FROM ollama/ollama:latest"},
 		},
 		{
 			name: "explicit installOllama flag",
 			settings: domain.AgentSettings{
 				InstallOllama: &installOllama,
 			},
-			contains: []string{"FROM ubuntu:22.04", "curl -fsSL https://ollama.com/install.sh | sh"},
+			contains: []string{"FROM ollama/ollama:latest"},
 		},
 		{
 			name: "auto-detect from models setting",
 			settings: domain.AgentSettings{
 				Models: []string{"llama3.2:1b"},
 			},
-			contains: []string{"FROM ubuntu:22.04", "curl -fsSL https://ollama.com/install.sh | sh"},
+			contains: []string{"FROM ollama/ollama:latest"},
 		},
 		{
 			name: "no LLM resources - no ollama",
@@ -1186,7 +1173,7 @@ func TestBuilder_shouldInstallOllama(t *testing.T) {
 					},
 				},
 			},
-			contains: []string{"FROM ubuntu:22.04", "No LLM backend to install"},
+			contains: []string{"FROM ubuntu:latest", "No LLM backend to install"},
 		},
 	}
 
@@ -1289,7 +1276,7 @@ func TestBuilder_addFileToTar(t *testing.T) {
 		},
 	}
 
-	dockerfile := "FROM alpine\nCOPY test.txt /app/\n"
+	dockerfile := "FROM alpine:latest\nCOPY test.txt /app/\n"
 
 	contextReader, err := builder.CreateBuildContext(workflow, dockerfile)
 	require.NoError(t, err)
@@ -1333,7 +1320,7 @@ func TestBuilder_addDirectoryToTar(t *testing.T) {
 		},
 	}
 
-	dockerfile := "FROM alpine\nCOPY testdir /app/testdir\n"
+	dockerfile := "FROM alpine:latest\nCOPY testdir /app/testdir\n"
 
 	contextReader, err := builder.CreateBuildContext(workflow, dockerfile)
 	require.NoError(t, err)
@@ -1507,8 +1494,7 @@ func TestBuilder_TemplateFunctions_ComprehensiveCoverage(t *testing.T) {
 				},
 			},
 			expectedInDockerfile: []string{
-				"FROM alpine:3.18",
-				"curl -fsSL https://ollama.com/install.sh | sh",
+				"FROM alpine/ollama",
 				"requests",
 			},
 		},
@@ -1533,8 +1519,7 @@ func TestBuilder_TemplateFunctions_ComprehensiveCoverage(t *testing.T) {
 				},
 			},
 			expectedInDockerfile: []string{
-				"FROM ubuntu:22.04",
-				"curl -fsSL https://ollama.com/install.sh | sh",
+				"FROM ollama/ollama:latest",
 				"pandas",
 				"numpy",
 				"torch",
@@ -1557,7 +1542,7 @@ func TestBuilder_TemplateFunctions_ComprehensiveCoverage(t *testing.T) {
 					},
 				},
 			},
-			expectedInDockerfile: []string{"FROM alpine:3.18", "EXPOSE 9000", "python3"},
+			expectedInDockerfile: []string{"FROM alpine:latest", "EXPOSE 9000", "python3"},
 		},
 		{
 			name:   "ubuntu with multiple backends (first wins)",
@@ -1582,7 +1567,7 @@ func TestBuilder_TemplateFunctions_ComprehensiveCoverage(t *testing.T) {
 					},
 				},
 			},
-			expectedInDockerfile: []string{"FROM ubuntu:22.04", "curl -fsSL https://ollama.com/install.sh | sh"},
+			expectedInDockerfile: []string{"FROM ollama/ollama:latest"},
 		},
 		{
 			name:   "alpine with offline mode enabled",
@@ -1597,10 +1582,9 @@ func TestBuilder_TemplateFunctions_ComprehensiveCoverage(t *testing.T) {
 					},
 				},
 			},
-			expectedInDockerfile: []string{"FROM alpine:3.18", "python3"},
+			expectedInDockerfile: []string{"FROM alpine/ollama", "python3"},
 		},
 	}
-
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			builder := &docker.Builder{BaseOS: tc.baseOS}

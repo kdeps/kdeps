@@ -1,5 +1,5 @@
 # Stage 2: Final image
-FROM debian:12-slim
+FROM {{ .BaseImage }}
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -50,14 +50,16 @@ RUN uv venv /opt/venv
 {{- if .PythonPackages }}
 
 # Install Python packages
-RUN uv pip install{{ range .PythonPackages }} {{ . }}{{ end }}
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install{{ range .PythonPackages }} {{ . }}{{ end }}
 {{- end }}
 
 {{- if .RequirementsFile }}
 
 # Install from requirements file
 COPY {{ .RequirementsFile }} /tmp/requirements.txt
-RUN uv pip install -r /tmp/requirements.txt
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install -r /tmp/requirements.txt
 {{- end }}
 
 # Copy workflow files
@@ -79,13 +81,16 @@ RUN chmod +x /entrypoint.sh
 # Download models during build time for offline mode
 RUN mkdir -p /models
 
-# Download Ollama models
-RUN (OLLAMA_HOST=127.0.0.1 OLLAMA_MODELS=/models ollama serve &) && \
+# Download Ollama models with cache mount to speed up subsequent builds
+RUN --mount=type=cache,target=/root/.ollama \
+    (OLLAMA_HOST=127.0.0.1 ollama serve &) && \
     sleep 10 && \
     {{- range $i, $model := .Models }}{{ if $i }} && \{{ end }}
-    OLLAMA_HOST=127.0.0.1 OLLAMA_MODELS=/models ollama pull {{ $model }}{{ end }} && \
+    OLLAMA_HOST=127.0.0.1 ollama pull {{ $model }}{{ end }} && \
     pkill -f ollama && \
-    sleep 2
+    sleep 2 && \
+    # Copy from cache to the image layer
+    cp -r /root/.ollama/* /models/
 {{- end }}
 
 WORKDIR /app
