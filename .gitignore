@@ -231,3 +231,4 @@ libssl*
 kdeps-io
 claude-guides
 sqlite3::memory:
+musl-binaries/
