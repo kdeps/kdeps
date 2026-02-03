@@ -145,7 +145,7 @@ jobs:
           EOF
 
           # Install nfpm and create APK packages
-          curl -fL --retry 3 --retry-delay 5 -o /tmp/nfpm.tar.gz https://github.com/goreleaser/nfpm/releases/download/v2.41.1/nfpm_2.41.1_linux_amd64.tar.gz
+          curl -fL --retry 3 --retry-delay 5 -o /tmp/nfpm.tar.gz https://github.com/goreleaser/nfpm/releases/download/v2.44.2/nfpm_2.44.2_linux_amd64.tar.gz
           tar xzf /tmp/nfpm.tar.gz -C /tmp nfpm
           /tmp/nfpm package -p apk -f nfpm-amd64.yaml -t musl-dist/kdeps_${VERSION#v}_amd64.apk
           /tmp/nfpm package -p apk -f nfpm-arm64.yaml -t musl-dist/kdeps_${VERSION#v}_arm64.apk
