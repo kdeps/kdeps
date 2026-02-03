@@ -51,9 +51,26 @@ fi
 {{- else if and .Models .InstallOllama }}
 # Download models if specified (not in offline mode)
 echo "Pre-pulling Ollama models..."
+
+# Start Ollama temporarily in the background if it's not already running
+# so we can pull models during the entrypoint phase.
+if ! curl -s http://localhost:${BACKEND_PORT:-11434}/api/tags >/dev/null 2>&1; then
+    echo "Starting Ollama server temporarily for model pulling..."
+    /usr/local/bin/ollama serve > /tmp/ollama_entrypoint.log 2>&1 &
+    TEMP_OLLAMA_PID=$!
+    wait_for_ollama ${BACKEND_PORT:-11434}
+fi
+
 {{- range .Models }}
 /usr/local/bin/ollama pull {{ . }} || echo "Failed to pull {{ . }}, will retry at runtime"
 {{- end }}
+
+# Kill the temporary Ollama process if we started one
+if [ ! -z "$TEMP_OLLAMA_PID" ]; then
+    echo "Stopping temporary Ollama server..."
+    kill $TEMP_OLLAMA_PID || true
+    sleep 2
+fi
 {{- end }}
 
 # Execute the command passed to docker run
