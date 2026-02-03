@@ -121,6 +121,7 @@ func (c *DefaultCompiler) WriteTarData(tw *tar.Writer, data []byte) error {
 
 // DockerfileData contains data for Dockerfile template rendering.
 type DockerfileData struct {
+	BaseImage        string
 	OS               string
 	InstallOllama    bool // Whether to install Ollama in the Docker image
 	BackendPort      int  // Port for Ollama (11434)
@@ -299,6 +300,25 @@ func (b *Builder) getDefaultModel(workflow *domain.Workflow) string {
 func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData, error) {
 	installOllama := b.shouldInstallOllama(workflow)
 
+	// Determine base image
+	var baseImage string
+	if installOllama {
+		if b.BaseOS == baseOSAlpine {
+			baseImage = "alpine/ollama"
+		} else {
+			// For Ubuntu/Debian, use the official Ollama image which is Ubuntu-based
+			baseImage = "ollama/ollama:latest"
+		}
+	} else {
+		switch b.BaseOS {
+		case baseOSUbuntu:
+			baseImage = "ubuntu:latest"
+		case baseOSDebian:
+			baseImage = "debian:latest"
+		default:
+			baseImage = "alpine:latest"
+		}
+	}
 	// Template data for backend sections
 	backendData := struct {
 		InstallOllama bool
@@ -349,6 +369,7 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 	}
 
 	return &DockerfileData{
+		BaseImage:        baseImage,
 		OS:               b.BaseOS,
 		InstallOllama:    installOllama,
 		BackendPort:      b.GetBackendPort(""),
