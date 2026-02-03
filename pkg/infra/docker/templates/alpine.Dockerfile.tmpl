@@ -10,7 +10,7 @@ ENV PYTHONUNBUFFERED=1 \
     {{- end }}
     BACKEND_PORT={{ .BackendPort }}
 
-# Install base dependencies including gcompat for Ollama
+# Install base dependencies
 RUN apk add --no-cache \
     zstd \
     python3 \
@@ -19,7 +19,6 @@ RUN apk add --no-cache \
     bash \
     supervisor \
     ca-certificates \
-    gcompat \
     libstdc++ \
     rsync
 
