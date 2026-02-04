@@ -69,6 +69,7 @@ func (c *Client) BuildImage(
 		Dockerfile: dockerfilePath,
 		Tags:       []string{imageName},
 		Remove:     true,
+		Version:    types.BuilderBuildKit,
 	}
 
 	resp, err := c.Cli.ImageBuild(ctx, buildContext, buildOptions)
