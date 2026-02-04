@@ -53,14 +53,14 @@ jobs:
         run: npm ci
         working-directory: docs/v2
 
-      - name: Build with VitePress (v2)
+      - name: Build v2
         run: npm run build
         working-directory: docs/v2
 
       - name: Move v1 to dist
         run: |
           mkdir -p docs/v2/.vitepress/dist/v1
-          cp -r docs/v1/.vitepress/dist/* docs/v2/.vitepress/dist/v1/
+          cp -rp docs/v1/.vitepress/dist/. docs/v2/.vitepress/dist/v1/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
