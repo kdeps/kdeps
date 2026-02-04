@@ -25,10 +25,6 @@ RUN apk add --no-cache \
 # Install kdeps via official install script
 RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh -s -- -b /usr/local/bin
 
-# Install Python and ensure pip is up to date
-RUN python3 -m ensurepip && \
-    pip3 install --upgrade pip
-
 {{- if .OSPackages }}
 
 # Install OS packages
@@ -39,7 +35,7 @@ RUN apk add --no-cache{{ range .OSPackages }} {{ . }}{{ end }}
 {{ .BackendInstall }}
 
 # Install uv for Python package management
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:alpine /uv /usr/local/bin/uv
 RUN chmod +x /usr/local/bin/uv
 
 # Create virtual environment

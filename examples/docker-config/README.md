@@ -214,12 +214,29 @@ kdeps build . --show-dockerfile --os ubuntu
 ### Example Output (Alpine + Ollama):
 
 ```dockerfile
-FROM alpine:3.18
+FROM alpine:latest
 
-# Install Python and base dependencies (Alpine)
-RUN apk add --no-cache python3 py3-pip curl bash && \
-    python3 -m ensurepip && \
-    pip3 install --upgrade pip
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PATH=/opt/venv/bin:$PATH \
+    OLLAMA_HOST=127.0.0.1 \
+    OLLAMA_PORT=11434 \
+    BACKEND_PORT=11434
+
+# Install base dependencies
+RUN apk add --no-cache \
+    zstd \
+    python3 \
+    py3-pip \
+    curl \
+    bash \
+    supervisor \
+    ca-certificates \
+    libstdc++ \
+    rsync
+
+# Install kdeps via official install script
+RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh -s -- -b /usr/local/bin
 
 # Install OS packages
 RUN apk add --no-cache git vim curl jq
@@ -227,26 +244,35 @@ RUN apk add --no-cache git vim curl jq
 # Install Ollama
 RUN curl -fsSL https://ollama.com/install.sh | sh
 
-# Install uv
+# Install uv for Python package management
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 RUN chmod +x /usr/local/bin/uv
 
 # Create virtual environment
 RUN uv venv /opt/venv
-ENV PATH=/opt/venv/bin:$PATH
 
 # Install Python packages
-RUN uv pip install requests numpy pandas
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install requests numpy pandas
 
 # Copy workflow files
 COPY workflow.yaml /app/workflow.yaml
 COPY resources/ /app/resources/
 COPY data/ /app/data/
 
+# Copy entrypoint and supervisor config
+COPY entrypoint.sh /entrypoint.sh
+COPY supervisord.conf /etc/supervisord.conf
+RUN chmod +x /entrypoint.sh
+
 WORKDIR /app
 
-# Run kdeps
-CMD ["kdeps", "run", "workflow.yaml"]
+# Expose ports
+EXPOSE 3000 11434
+
+# Use entrypoint for backend management
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["supervisord", "-c", "/etc/supervisord.conf"]
 ```
 
 ---
