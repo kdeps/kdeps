@@ -19,7 +19,7 @@ stopwaitsecs=30
 {{- end }}
 
 [program:kdeps]
-command=kdeps run /app/workflow.yaml
+command=/usr/local/bin/kdeps run /app/workflow.yaml
 autostart=true
 autorestart=true
 startretries=3
