@@ -1,5 +1,5 @@
+# Stage 1: Pull binaries
+FROM ghcr.io/astral-sh/uv:{{ if eq .OS "alpine" }}alpine{{ else }}debian{{ end }} AS uv-bin
 {{- if .InstallOllama }}
-# Ollama backend - installed from official install script (no Docker image stage needed)
-{{- else }}
-# No LLM backend required
+FROM ollama/ollama:latest AS ollama-bin
 {{- end }}

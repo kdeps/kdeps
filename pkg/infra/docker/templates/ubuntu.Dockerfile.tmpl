@@ -1,3 +1,5 @@
+{{ .BackendStage }}
+
 # Stage 2: Final image
 FROM {{ .BaseImage }}
 
@@ -41,7 +43,7 @@ RUN apt-get update && \
 {{ .BackendInstall }}
 
 # Install uv for Python package management
-COPY --from=ghcr.io/astral-sh/uv:debian /uv /usr/local/bin/uv
+COPY --from=uv-bin /usr/local/bin/uv /usr/local/bin/uv
 RUN chmod +x /usr/local/bin/uv
 
 # Create virtual environment

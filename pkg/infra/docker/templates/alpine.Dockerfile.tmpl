@@ -1,3 +1,5 @@
+{{ .BackendStage }}
+
 # Stage 2: Final image
 FROM {{ .BaseImage }}
 
@@ -35,7 +37,7 @@ RUN apk add --no-cache{{ range .OSPackages }} {{ . }}{{ end }}
 {{ .BackendInstall }}
 
 # Install uv for Python package management
-COPY --from=ghcr.io/astral-sh/uv:alpine /uv /usr/local/bin/uv
+COPY --from=uv-bin /usr/local/bin/uv /usr/local/bin/uv
 RUN chmod +x /usr/local/bin/uv
 
 # Create virtual environment
