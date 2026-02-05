@@ -18,6 +18,8 @@
 
 package domain
 
+import "gopkg.in/yaml.v3"
+
 // Workflow represents a KDeps workflow configuration.
 type Workflow struct {
 	APIVersion string           `yaml:"apiVersion"`
@@ -45,6 +47,41 @@ type WorkflowSettings struct {
 	AgentSettings  AgentSettings            `yaml:"agentSettings"`
 	SQLConnections map[string]SQLConnection `yaml:"sqlConnections,omitempty"`
 	Session        *SessionConfig           `yaml:"session,omitempty"`
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
+func (w *WorkflowSettings) UnmarshalYAML(node *yaml.Node) error {
+	// Decode into an alias type to avoid recursion, with booleans as interface{}
+	type Alias struct {
+		APIServerMode  interface{}              `yaml:"apiServerMode"`
+		WebServerMode  interface{}              `yaml:"webServerMode"`
+		APIServer      *APIServerConfig         `yaml:"apiServer,omitempty"`
+		WebServer      *WebServerConfig         `yaml:"webServer,omitempty"`
+		AgentSettings  AgentSettings            `yaml:"agentSettings"`
+		SQLConnections map[string]SQLConnection `yaml:"sqlConnections,omitempty"`
+		Session        *SessionConfig           `yaml:"session,omitempty"`
+	}
+	var alias Alias
+	if err := node.Decode(&alias); err != nil {
+		return err
+	}
+
+	// Parse boolean fields that might be strings
+	if b, ok := parseBool(alias.APIServerMode); ok {
+		w.APIServerMode = b
+	}
+	if b, ok := parseBool(alias.WebServerMode); ok {
+		w.WebServerMode = b
+	}
+
+	// Copy other fields
+	w.APIServer = alias.APIServer
+	w.WebServer = alias.WebServer
+	w.AgentSettings = alias.AgentSettings
+	w.SQLConnections = alias.SQLConnections
+	w.Session = alias.Session
+
+	return nil
 }
 
 // SessionConfig contains session storage configuration.
@@ -195,6 +232,33 @@ type APIServerConfig struct {
 	CORS           *CORS    `yaml:"cors,omitempty"`
 }
 
+// UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
+func (a *APIServerConfig) UnmarshalYAML(node *yaml.Node) error {
+	type Alias struct {
+		HostIP         string      `yaml:"hostIp"`
+		PortNum        interface{} `yaml:"portNum"`
+		TrustedProxies []string    `yaml:"trustedProxies,omitempty"`
+		Routes         []Route     `yaml:"routes"`
+		CORS           *CORS       `yaml:"cors,omitempty"`
+	}
+	var alias Alias
+	if err := node.Decode(&alias); err != nil {
+		return err
+	}
+
+	// Parse integer field that might be string
+	if i, ok := parseInt(alias.PortNum); ok {
+		a.PortNum = i
+	}
+
+	a.HostIP = alias.HostIP
+	a.TrustedProxies = alias.TrustedProxies
+	a.Routes = alias.Routes
+	a.CORS = alias.CORS
+
+	return nil
+}
+
 // Route represents an API route.
 type Route struct {
 	Path    string   `yaml:"path"`
@@ -212,12 +276,70 @@ type CORS struct {
 	MaxAge           string   `yaml:"maxAge,omitempty"`
 }
 
+// UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
+func (c *CORS) UnmarshalYAML(node *yaml.Node) error {
+	type Alias struct {
+		EnableCORS       interface{} `yaml:"enableCors"`
+		AllowOrigins     []string    `yaml:"allowOrigins,omitempty"`
+		AllowMethods     []string    `yaml:"allowMethods,omitempty"`
+		AllowHeaders     []string    `yaml:"allowHeaders,omitempty"`
+		ExposeHeaders    []string    `yaml:"exposeHeaders,omitempty"`
+		AllowCredentials interface{} `yaml:"allowCredentials,omitempty"`
+		MaxAge           string      `yaml:"maxAge,omitempty"`
+	}
+	var alias Alias
+	if err := node.Decode(&alias); err != nil {
+		return err
+	}
+
+	// Parse boolean fields that might be strings
+	if b, ok := parseBool(alias.EnableCORS); ok {
+		c.EnableCORS = b
+	}
+	if b, ok := parseBool(alias.AllowCredentials); ok {
+		c.AllowCredentials = b
+	}
+
+	c.AllowOrigins = alias.AllowOrigins
+	c.AllowMethods = alias.AllowMethods
+	c.AllowHeaders = alias.AllowHeaders
+	c.ExposeHeaders = alias.ExposeHeaders
+	c.MaxAge = alias.MaxAge
+
+	return nil
+}
+
 // WebServerConfig contains web server configuration.
 type WebServerConfig struct {
 	HostIP         string     `yaml:"hostIp"`
 	PortNum        int        `yaml:"portNum"`
 	TrustedProxies []string   `yaml:"trustedProxies,omitempty"`
 	Routes         []WebRoute `yaml:"routes"`
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
+func (w *WebServerConfig) UnmarshalYAML(node *yaml.Node) error {
+	type Alias struct {
+		HostIP         string      `yaml:"hostIp"`
+		PortNum        interface{} `yaml:"portNum"`
+		TrustedProxies []string    `yaml:"trustedProxies,omitempty"`
+		Routes         []WebRoute  `yaml:"routes"`
+	}
+	var alias Alias
+	if err := node.Decode(&alias); err != nil {
+		return err
+	}
+
+	// Parse integer field that might be string
+	if i, ok := parseInt(alias.PortNum); ok {
+		w.PortNum = i
+	}
+
+	w.HostIP = alias.HostIP
+	w.TrustedProxies = alias.TrustedProxies
+	w.Routes = alias.Routes
+
+	return nil
 }
 
 // WebRoute represents a web server route.
@@ -227,6 +349,33 @@ type WebRoute struct {
 	PublicPath string `yaml:"publicPath,omitempty"`
 	AppPort    int    `yaml:"appPort,omitempty"`
 	Command    string `yaml:"command,omitempty"`
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
+func (w *WebRoute) UnmarshalYAML(node *yaml.Node) error {
+	type Alias struct {
+		Path       string      `yaml:"path"`
+		ServerType string      `yaml:"serverType,omitempty"`
+		PublicPath string      `yaml:"publicPath,omitempty"`
+		AppPort    interface{} `yaml:"appPort,omitempty"`
+		Command    string      `yaml:"command,omitempty"`
+	}
+	var alias Alias
+	if err := node.Decode(&alias); err != nil {
+		return err
+	}
+
+	// Parse integer field that might be string
+	if i, ok := parseInt(alias.AppPort); ok {
+		w.AppPort = i
+	}
+
+	w.Path = alias.Path
+	w.ServerType = alias.ServerType
+	w.PublicPath = alias.PublicPath
+	w.Command = alias.Command
+
+	return nil
 }
 
 // AgentSettings contains agent configuration.
@@ -249,6 +398,55 @@ type AgentSettings struct {
 	Env              map[string]string `yaml:"env,omitempty"`
 }
 
+// UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
+func (a *AgentSettings) UnmarshalYAML(node *yaml.Node) error {
+	type Alias struct {
+		Timezone         string            `yaml:"timezone"`
+		PythonVersion    string            `yaml:"pythonVersion,omitempty"`
+		PythonPackages   []string          `yaml:"pythonPackages,omitempty"`
+		RequirementsFile string            `yaml:"requirementsFile,omitempty"`
+		PyprojectFile    string            `yaml:"pyprojectFile,omitempty"`
+		LockFile         string            `yaml:"lockFile,omitempty"`
+		Repositories     []string          `yaml:"repositories,omitempty"`
+		Packages         []string          `yaml:"packages,omitempty"`
+		OSPackages       []string          `yaml:"osPackages,omitempty"`
+		BaseOS           string            `yaml:"baseOS,omitempty"`
+		InstallOllama    interface{}       `yaml:"installOllama,omitempty"`
+		Models           []string          `yaml:"models,omitempty"`
+		OfflineMode      interface{}       `yaml:"offlineMode"`
+		OllamaURL        string            `yaml:"ollamaUrl,omitempty"`
+		Args             map[string]string `yaml:"args,omitempty"`
+		Env              map[string]string `yaml:"env,omitempty"`
+	}
+	var alias Alias
+	if err := node.Decode(&alias); err != nil {
+		return err
+	}
+
+	// Parse boolean fields that might be strings
+	if b, ok := parseBool(alias.OfflineMode); ok {
+		a.OfflineMode = b
+	}
+	a.InstallOllama = parseBoolPtr(alias.InstallOllama)
+
+	a.Timezone = alias.Timezone
+	a.PythonVersion = alias.PythonVersion
+	a.PythonPackages = alias.PythonPackages
+	a.RequirementsFile = alias.RequirementsFile
+	a.PyprojectFile = alias.PyprojectFile
+	a.LockFile = alias.LockFile
+	a.Repositories = alias.Repositories
+	a.Packages = alias.Packages
+	a.OSPackages = alias.OSPackages
+	a.BaseOS = alias.BaseOS
+	a.Models = alias.Models
+	a.OllamaURL = alias.OllamaURL
+	a.Args = alias.Args
+	a.Env = alias.Env
+
+	return nil
+}
+
 // SQLConnection represents a named SQL connection.
 type SQLConnection struct {
 	Connection string      `yaml:"connection"`
@@ -261,4 +459,31 @@ type PoolConfig struct {
 	MinConnections    int    `yaml:"minConnections"`
 	MaxIdleTime       string `yaml:"maxIdleTime"`
 	ConnectionTimeout string `yaml:"connectionTimeout"`
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
+func (p *PoolConfig) UnmarshalYAML(node *yaml.Node) error {
+	type Alias struct {
+		MaxConnections    interface{} `yaml:"maxConnections"`
+		MinConnections    interface{} `yaml:"minConnections"`
+		MaxIdleTime       string      `yaml:"maxIdleTime"`
+		ConnectionTimeout string      `yaml:"connectionTimeout"`
+	}
+	var alias Alias
+	if err := node.Decode(&alias); err != nil {
+		return err
+	}
+
+	// Parse integer fields that might be strings
+	if i, ok := parseInt(alias.MaxConnections); ok {
+		p.MaxConnections = i
+	}
+	if i, ok := parseInt(alias.MinConnections); ok {
+		p.MinConnections = i
+	}
+
+	p.MaxIdleTime = alias.MaxIdleTime
+	p.ConnectionTimeout = alias.ConnectionTimeout
+
+	return nil
 }
