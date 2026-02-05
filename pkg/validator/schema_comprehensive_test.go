@@ -414,25 +414,8 @@ func TestSchemaValidator_AllResourceTypes_TypeErrors(t *testing.T) {
 			expectedField: "run.apiResponse.success",
 			expectedType:  "boolean",
 		},
-		{
-			name: "apiResponse.response wrong type - string",
-			data: map[string]interface{}{
-				"apiVersion": "kdeps.io/v1",
-				"kind":       "Resource",
-				"metadata": map[string]interface{}{
-					"actionId": "test",
-					"name":     "Test",
-				},
-				"run": map[string]interface{}{
-					"apiResponse": map[string]interface{}{
-						"success":  true,
-						"response": "invalid",
-					},
-				},
-			},
-			expectedField: "run.apiResponse.response",
-			expectedType:  "object",
-		},
+		// Note: apiResponse.response now accepts any type (string, array, object, etc.)
+		// so we don't have a type validation test for it
 		{
 			name: "chat.baseUrl wrong type - number",
 			data: map[string]interface{}{

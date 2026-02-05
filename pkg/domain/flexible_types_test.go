@@ -16,12 +16,14 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
+//nolint:testpackage // Testing internal functions requires same package
 package domain
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
 
@@ -210,9 +212,9 @@ func TestParseFloatPtr(t *testing.T) {
 	}
 }
 
-// Helper functions
-func boolPtr(b bool) *bool       { return &b }
-func intPtr(i int) *int          { return &i }
+// Helper functions.
+func boolPtr(b bool) *bool        { return &b }
+func intPtr(i int) *int           { return &i }
 func floatPtr(f float64) *float64 { return &f }
 
 // Test YAML unmarshaling with string values for booleans and integers
@@ -224,7 +226,7 @@ webServerMode: "yes"
 `
 	var settings WorkflowSettings
 	err := yaml.Unmarshal([]byte(yamlData), &settings)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, settings.APIServerMode)
 	assert.True(t, settings.WebServerMode)
 }
@@ -236,7 +238,7 @@ webServerMode: "no"
 `
 	var settings WorkflowSettings
 	err := yaml.Unmarshal([]byte(yamlData), &settings)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.False(t, settings.APIServerMode)
 	assert.False(t, settings.WebServerMode)
 }
@@ -249,7 +251,7 @@ routes: []
 `
 	var config APIServerConfig
 	err := yaml.Unmarshal([]byte(yamlData), &config)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 3000, config.PortNum)
 }
 
@@ -261,7 +263,7 @@ routes: []
 `
 	var config WebServerConfig
 	err := yaml.Unmarshal([]byte(yamlData), &config)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 8080, config.PortNum)
 }
 
@@ -273,7 +275,7 @@ appPort: "3001"
 `
 	var route WebRoute
 	err := yaml.Unmarshal([]byte(yamlData), &route)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 3001, route.AppPort)
 }
 
@@ -286,7 +288,7 @@ allowOrigins:
 `
 	var cors CORS
 	err := yaml.Unmarshal([]byte(yamlData), &cors)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, cors.EnableCORS)
 	assert.True(t, cors.AllowCredentials)
 }
@@ -299,7 +301,7 @@ installOllama: "yes"
 `
 	var settings AgentSettings
 	err := yaml.Unmarshal([]byte(yamlData), &settings)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, settings.OfflineMode)
 	assert.NotNil(t, settings.InstallOllama)
 	assert.True(t, *settings.InstallOllama)
@@ -314,7 +316,7 @@ connectionTimeout: "30s"
 `
 	var config PoolConfig
 	err := yaml.Unmarshal([]byte(yamlData), &config)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 10, config.MaxConnections)
 	assert.Equal(t, 2, config.MinConnections)
 }
@@ -331,7 +333,7 @@ temperature: "0.7"
 `
 	var config ChatConfig
 	err := yaml.Unmarshal([]byte(yamlData), &config)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, config.JSONResponse)
 	assert.Equal(t, 8192, config.ContextLength)
 	assert.NotNil(t, config.MaxTokens)
@@ -348,7 +350,7 @@ maxRows: "100"
 `
 	var config SQLConfig
 	err := yaml.Unmarshal([]byte(yamlData), &config)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, config.Transaction)
 	assert.Equal(t, 100, config.MaxRows)
 }
@@ -360,7 +362,7 @@ backoff: "1s"
 `
 	var config RetryConfig
 	err := yaml.Unmarshal([]byte(yamlData), &config)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 5, config.MaxAttempts)
 }
 
@@ -371,7 +373,7 @@ ttl: "5m"
 `
 	var config HTTPCacheConfig
 	err := yaml.Unmarshal([]byte(yamlData), &config)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, config.Enabled)
 }
 
@@ -381,7 +383,7 @@ insecureSkipVerify: "true"
 `
 	var config HTTPTLSConfig
 	err := yaml.Unmarshal([]byte(yamlData), &config)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, config.InsecureSkipVerify)
 }
 
@@ -393,7 +395,7 @@ required: "true"
 `
 	var param ToolParam
 	err := yaml.Unmarshal([]byte(yamlData), &param)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, param.Required)
 }
 
@@ -405,7 +407,7 @@ response:
 `
 	var config APIResponseConfig
 	err := yaml.Unmarshal([]byte(yamlData), &config)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, config.Success)
 }
 
@@ -416,7 +418,7 @@ model: llama3.2:1b
 `
 	var meta ResponseMeta
 	err := yaml.Unmarshal([]byte(yamlData), &meta)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 201, meta.StatusCode)
 }
 
@@ -427,7 +429,7 @@ message: "Bad Request"
 `
 	var config ErrorConfig
 	err := yaml.Unmarshal([]byte(yamlData), &config)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 400, config.Code)
 }
 
@@ -439,7 +441,7 @@ retryDelay: "1s"
 `
 	var config OnErrorConfig
 	err := yaml.Unmarshal([]byte(yamlData), &config)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 5, config.MaxRetries)
 }
 
@@ -452,7 +454,7 @@ webServerMode: false
 `
 	var settings WorkflowSettings
 	err := yaml.Unmarshal([]byte(yamlData), &settings)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, settings.APIServerMode)
 	assert.False(t, settings.WebServerMode)
 }
@@ -465,6 +467,6 @@ routes: []
 `
 	var config APIServerConfig
 	err := yaml.Unmarshal([]byte(yamlData), &config)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 3000, config.PortNum)
 }

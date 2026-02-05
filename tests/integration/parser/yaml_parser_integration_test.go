@@ -451,9 +451,10 @@ run:
 
 	assert.Equal(t, "dynamic-response", resource.Metadata.ActionID)
 	assert.NotNil(t, resource.Run.APIResponse)
+	responseMap := resource.Run.APIResponse.Response.(map[string]interface{})
 	assert.Contains(
 		t,
-		resource.Run.APIResponse.Response["message"].(string),
+		responseMap["message"].(string),
 		"@{request.query.name",
 	)
 }
