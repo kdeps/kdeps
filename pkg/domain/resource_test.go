@@ -288,10 +288,14 @@ meta:
 		t.Error("Success should be true")
 	}
 
-	if config.Response["message"] != "Operation successful" {
+	responseMap, ok := config.Response.(map[string]interface{})
+	if !ok {
+		t.Fatal("Response should be a map")
+	}
+	if responseMap["message"] != "Operation successful" {
 		t.Errorf(
 			"Response message = %v, want %v",
-			config.Response["message"],
+			responseMap["message"],
 			"Operation successful",
 		)
 	}

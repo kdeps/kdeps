@@ -262,7 +262,7 @@
               "type": "boolean"
             },
             "response": {
-              "type": "object"
+              "description": "Response data - can be any type: string, array, object, number, etc."
             },
             "meta": {
               "type": "object",

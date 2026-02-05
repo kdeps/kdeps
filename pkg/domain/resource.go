@@ -572,17 +572,17 @@ func (e *ExecConfig) UnmarshalYAML(node *yaml.Node) error {
 
 // APIResponseConfig represents API response configuration.
 type APIResponseConfig struct {
-	Success  bool                   `yaml:"success"`
-	Response map[string]interface{} `yaml:"response"`
-	Meta     *ResponseMeta          `yaml:"meta,omitempty"`
+	Success  bool          `yaml:"success"`
+	Response interface{}   `yaml:"response"` // Can be any type: string, array, map, number, etc.
+	Meta     *ResponseMeta `yaml:"meta,omitempty"`
 }
 
 // UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
 func (a *APIResponseConfig) UnmarshalYAML(node *yaml.Node) error {
 	type Alias struct {
-		Success  interface{}            `yaml:"success"`
-		Response map[string]interface{} `yaml:"response"`
-		Meta     *ResponseMeta          `yaml:"meta,omitempty"`
+		Success  interface{}   `yaml:"success"`
+		Response interface{}   `yaml:"response"` // Can be any type
+		Meta     *ResponseMeta `yaml:"meta,omitempty"`
 	}
 	var alias Alias
 	if err := node.Decode(&alias); err != nil {
