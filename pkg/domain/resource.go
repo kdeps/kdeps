@@ -80,6 +80,27 @@ type ErrorConfig struct {
 	Message string `yaml:"message"`
 }
 
+// UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
+func (e *ErrorConfig) UnmarshalYAML(node *yaml.Node) error {
+	type Alias struct {
+		Code    interface{} `yaml:"code"`
+		Message string      `yaml:"message"`
+	}
+	var alias Alias
+	if err := node.Decode(&alias); err != nil {
+		return err
+	}
+
+	// Parse integer field that might be string
+	if i, ok := parseInt(alias.Code); ok {
+		e.Code = i
+	}
+
+	e.Message = alias.Message
+
+	return nil
+}
+
 // OnErrorConfig represents error handling configuration for resources.
 type OnErrorConfig struct {
 	// Action defines what to do when an error occurs: "continue", "fail", "retry"
@@ -101,6 +122,35 @@ type OnErrorConfig struct {
 	// Conditions for when to apply this error handler (if empty, applies to all errors)
 	// Expressions that have access to 'error' object with: error.message, error.code, error.type
 	When []Expression `yaml:"when,omitempty"`
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
+func (o *OnErrorConfig) UnmarshalYAML(node *yaml.Node) error {
+	type Alias struct {
+		Action     string       `yaml:"action,omitempty"`
+		MaxRetries interface{}  `yaml:"maxRetries,omitempty"`
+		RetryDelay string       `yaml:"retryDelay,omitempty"`
+		Fallback   interface{}  `yaml:"fallback,omitempty"`
+		Expr       []Expression `yaml:"expr,omitempty"`
+		When       []Expression `yaml:"when,omitempty"`
+	}
+	var alias Alias
+	if err := node.Decode(&alias); err != nil {
+		return err
+	}
+
+	// Parse integer field that might be string
+	if i, ok := parseInt(alias.MaxRetries); ok {
+		o.MaxRetries = i
+	}
+
+	o.Action = alias.Action
+	o.RetryDelay = alias.RetryDelay
+	o.Fallback = alias.Fallback
+	o.Expr = alias.Expr
+	o.When = alias.When
+
+	return nil
 }
 
 // ChatConfig represents LLM chat configuration.
@@ -127,15 +177,63 @@ type ChatConfig struct {
 	PresencePenalty  *float64 `yaml:"presencePenalty,omitempty"`  // Presence penalty (-2.0 to 2.0)
 }
 
-// UnmarshalYAML implements custom YAML unmarshaling to support "timeout" alias for "timeoutDuration".
+// UnmarshalYAML implements custom YAML unmarshaling to support "timeout" alias and string values.
 func (c *ChatConfig) UnmarshalYAML(node *yaml.Node) error {
-	type rawChatConfig ChatConfig
-	var raw rawChatConfig
-	if err := node.Decode(&raw); err != nil {
+	type Alias struct {
+		Model            string         `yaml:"model"`
+		Backend          string         `yaml:"backend,omitempty"`
+		BaseURL          string         `yaml:"baseUrl,omitempty"`
+		APIKey           string         `yaml:"apiKey,omitempty"`
+		ContextLength    interface{}    `yaml:"contextLength,omitempty"`
+		Role             string         `yaml:"role"`
+		Prompt           string         `yaml:"prompt"`
+		Scenario         []ScenarioItem `yaml:"scenario,omitempty"`
+		Tools            []Tool         `yaml:"tools,omitempty"`
+		Files            []string       `yaml:"files,omitempty"`
+		JSONResponse     interface{}    `yaml:"jsonResponse"`
+		JSONResponseKeys []string       `yaml:"jsonResponseKeys,omitempty"`
+		TimeoutDuration  string         `yaml:"timeoutDuration,omitempty"`
+		Timeout          string         `yaml:"timeout,omitempty"`
+		Temperature      interface{}    `yaml:"temperature,omitempty"`
+		MaxTokens        interface{}    `yaml:"maxTokens,omitempty"`
+		TopP             interface{}    `yaml:"topP,omitempty"`
+		FrequencyPenalty interface{}    `yaml:"frequencyPenalty,omitempty"`
+		PresencePenalty  interface{}    `yaml:"presencePenalty,omitempty"`
+	}
+	var alias Alias
+	if err := node.Decode(&alias); err != nil {
 		return err
 	}
 
-	*c = ChatConfig(raw)
+	// Parse boolean field that might be string
+	if b, ok := parseBool(alias.JSONResponse); ok {
+		c.JSONResponse = b
+	}
+
+	// Parse integer fields that might be strings
+	if i, ok := parseInt(alias.ContextLength); ok {
+		c.ContextLength = i
+	}
+	c.MaxTokens = parseIntPtr(alias.MaxTokens)
+
+	// Parse float fields that might be strings
+	c.Temperature = parseFloatPtr(alias.Temperature)
+	c.TopP = parseFloatPtr(alias.TopP)
+	c.FrequencyPenalty = parseFloatPtr(alias.FrequencyPenalty)
+	c.PresencePenalty = parseFloatPtr(alias.PresencePenalty)
+
+	c.Model = alias.Model
+	c.Backend = alias.Backend
+	c.BaseURL = alias.BaseURL
+	c.APIKey = alias.APIKey
+	c.Role = alias.Role
+	c.Prompt = alias.Prompt
+	c.Scenario = alias.Scenario
+	c.Tools = alias.Tools
+	c.Files = alias.Files
+	c.JSONResponseKeys = alias.JSONResponseKeys
+	c.TimeoutDuration = alias.TimeoutDuration
+	c.Timeout = alias.Timeout
 
 	// Handle timeout alias
 	if c.Timeout != "" && c.TimeoutDuration == "" {
@@ -167,6 +265,33 @@ type ToolParam struct {
 	Required    bool        `yaml:"required,omitempty"`
 	Enum        []string    `yaml:"enum,omitempty"`    // Allowed values for string type
 	Default     interface{} `yaml:"default,omitempty"` // Default value
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
+func (t *ToolParam) UnmarshalYAML(node *yaml.Node) error {
+	type Alias struct {
+		Type        string      `yaml:"type"`
+		Description string      `yaml:"description"`
+		Required    interface{} `yaml:"required,omitempty"`
+		Enum        []string    `yaml:"enum,omitempty"`
+		Default     interface{} `yaml:"default,omitempty"`
+	}
+	var alias Alias
+	if err := node.Decode(&alias); err != nil {
+		return err
+	}
+
+	// Parse boolean field that might be string
+	if b, ok := parseBool(alias.Required); ok {
+		t.Required = b
+	}
+
+	t.Type = alias.Type
+	t.Description = alias.Description
+	t.Enum = alias.Enum
+	t.Default = alias.Default
+
+	return nil
 }
 
 // HTTPClientConfig represents HTTP client configuration.
@@ -220,11 +345,59 @@ type RetryConfig struct {
 	RetryOn     []int  `yaml:"retryOn,omitempty"`    // HTTP status codes to retry on
 }
 
+// UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
+func (r *RetryConfig) UnmarshalYAML(node *yaml.Node) error {
+	type Alias struct {
+		MaxAttempts interface{} `yaml:"maxAttempts"`
+		Backoff     string      `yaml:"backoff,omitempty"`
+		MaxBackoff  string      `yaml:"maxBackoff,omitempty"`
+		RetryOn     []int       `yaml:"retryOn,omitempty"`
+	}
+	var alias Alias
+	if err := node.Decode(&alias); err != nil {
+		return err
+	}
+
+	// Parse integer field that might be string
+	if i, ok := parseInt(alias.MaxAttempts); ok {
+		r.MaxAttempts = i
+	}
+
+	r.Backoff = alias.Backoff
+	r.MaxBackoff = alias.MaxBackoff
+	r.RetryOn = alias.RetryOn
+
+	return nil
+}
+
 // HTTPCacheConfig represents HTTP caching configuration.
 type HTTPCacheConfig struct {
 	Enabled bool   `yaml:"enabled"`
 	TTL     string `yaml:"ttl,omitempty"` // Time to live
 	Key     string `yaml:"key,omitempty"` // Custom cache key
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
+func (h *HTTPCacheConfig) UnmarshalYAML(node *yaml.Node) error {
+	type Alias struct {
+		Enabled interface{} `yaml:"enabled"`
+		TTL     string      `yaml:"ttl,omitempty"`
+		Key     string      `yaml:"key,omitempty"`
+	}
+	var alias Alias
+	if err := node.Decode(&alias); err != nil {
+		return err
+	}
+
+	// Parse boolean field that might be string
+	if b, ok := parseBool(alias.Enabled); ok {
+		h.Enabled = b
+	}
+
+	h.TTL = alias.TTL
+	h.Key = alias.Key
+
+	return nil
 }
 
 // HTTPAuthConfig represents HTTP authentication configuration.
@@ -245,6 +418,31 @@ type HTTPTLSConfig struct {
 	CAFile             string `yaml:"caFile,omitempty"`
 }
 
+// UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
+func (h *HTTPTLSConfig) UnmarshalYAML(node *yaml.Node) error {
+	type Alias struct {
+		InsecureSkipVerify interface{} `yaml:"insecureSkipVerify,omitempty"`
+		CertFile           string      `yaml:"certFile,omitempty"`
+		KeyFile            string      `yaml:"keyFile,omitempty"`
+		CAFile             string      `yaml:"caFile,omitempty"`
+	}
+	var alias Alias
+	if err := node.Decode(&alias); err != nil {
+		return err
+	}
+
+	// Parse boolean field that might be string
+	if b, ok := parseBool(alias.InsecureSkipVerify); ok {
+		h.InsecureSkipVerify = b
+	}
+
+	h.CertFile = alias.CertFile
+	h.KeyFile = alias.KeyFile
+	h.CAFile = alias.CAFile
+
+	return nil
+}
+
 // SQLConfig represents SQL query configuration.
 type SQLConfig struct {
 	ConnectionName  string        `yaml:"connectionName,omitempty"`
@@ -260,15 +458,45 @@ type SQLConfig struct {
 	MaxRows         int           `yaml:"maxRows,omitempty"`
 }
 
-// UnmarshalYAML implements custom YAML unmarshaling to support "timeout" alias for "timeoutDuration".
+// UnmarshalYAML implements custom YAML unmarshaling to support "timeout" alias and string values.
 func (s *SQLConfig) UnmarshalYAML(node *yaml.Node) error {
-	type rawSQLConfig SQLConfig
-	var raw rawSQLConfig
-	if err := node.Decode(&raw); err != nil {
+	type Alias struct {
+		ConnectionName  string        `yaml:"connectionName,omitempty"`
+		Connection      string        `yaml:"connection,omitempty"`
+		Pool            *PoolConfig   `yaml:"pool,omitempty"`
+		Query           string        `yaml:"query,omitempty"`
+		Params          []interface{} `yaml:"params,omitempty"`
+		Transaction     interface{}   `yaml:"transaction,omitempty"`
+		Queries         []QueryItem   `yaml:"queries,omitempty"`
+		Format          string        `yaml:"format,omitempty"`
+		TimeoutDuration string        `yaml:"timeoutDuration,omitempty"`
+		Timeout         string        `yaml:"timeout,omitempty"`
+		MaxRows         interface{}   `yaml:"maxRows,omitempty"`
+	}
+	var alias Alias
+	if err := node.Decode(&alias); err != nil {
 		return err
 	}
 
-	*s = SQLConfig(raw)
+	// Parse boolean field that might be string
+	if b, ok := parseBool(alias.Transaction); ok {
+		s.Transaction = b
+	}
+
+	// Parse integer field that might be string
+	if i, ok := parseInt(alias.MaxRows); ok {
+		s.MaxRows = i
+	}
+
+	s.ConnectionName = alias.ConnectionName
+	s.Connection = alias.Connection
+	s.Pool = alias.Pool
+	s.Query = alias.Query
+	s.Params = alias.Params
+	s.Queries = alias.Queries
+	s.Format = alias.Format
+	s.TimeoutDuration = alias.TimeoutDuration
+	s.Timeout = alias.Timeout
 
 	// Handle timeout alias
 	if s.Timeout != "" && s.TimeoutDuration == "" {
@@ -349,6 +577,29 @@ type APIResponseConfig struct {
 	Meta     *ResponseMeta          `yaml:"meta,omitempty"`
 }
 
+// UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
+func (a *APIResponseConfig) UnmarshalYAML(node *yaml.Node) error {
+	type Alias struct {
+		Success  interface{}            `yaml:"success"`
+		Response map[string]interface{} `yaml:"response"`
+		Meta     *ResponseMeta          `yaml:"meta,omitempty"`
+	}
+	var alias Alias
+	if err := node.Decode(&alias); err != nil {
+		return err
+	}
+
+	// Parse boolean field that might be string
+	if b, ok := parseBool(alias.Success); ok {
+		a.Success = b
+	}
+
+	a.Response = alias.Response
+	a.Meta = alias.Meta
+
+	return nil
+}
+
 // ResponseMeta represents response metadata.
 type ResponseMeta struct {
 	Headers    map[string]string `yaml:"headers,omitempty"`
@@ -356,4 +607,29 @@ type ResponseMeta struct {
 	// Additional metadata fields (model, backend, etc.)
 	Model   string `yaml:"model,omitempty"`
 	Backend string `yaml:"backend,omitempty"`
+}
+
+// UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
+func (r *ResponseMeta) UnmarshalYAML(node *yaml.Node) error {
+	type Alias struct {
+		Headers    map[string]string `yaml:"headers,omitempty"`
+		StatusCode interface{}       `yaml:"statusCode,omitempty"`
+		Model      string            `yaml:"model,omitempty"`
+		Backend    string            `yaml:"backend,omitempty"`
+	}
+	var alias Alias
+	if err := node.Decode(&alias); err != nil {
+		return err
+	}
+
+	// Parse integer field that might be string
+	if i, ok := parseInt(alias.StatusCode); ok {
+		r.StatusCode = i
+	}
+
+	r.Headers = alias.Headers
+	r.Model = alias.Model
+	r.Backend = alias.Backend
+
+	return nil
 }
