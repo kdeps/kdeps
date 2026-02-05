@@ -1,6 +1,3 @@
-{{ .BackendStage }}
-
-# Stage 2: Final image
 FROM {{ .BaseImage }}
 
 # Set environment variables
@@ -24,8 +21,13 @@ RUN apk add --no-cache \
     libstdc++ \
     rsync
 
-# Install kdeps via official install script
-RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh -s -- -b /usr/local/bin
+# Install kdeps via local cache if available, otherwise via official install script
+COPY cache /cache
+RUN if [ -f /cache/kdeps ]; then \
+        cp /cache/kdeps /usr/local/bin/kdeps && chmod +x /usr/local/bin/kdeps; \
+    else \
+        curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh -s -- -b /usr/local/bin; \
+    fi
 
 {{- if .OSPackages }}
 
@@ -36,9 +38,15 @@ RUN apk add --no-cache{{ range .OSPackages }} {{ . }}{{ end }}
 # Install LLM backend
 {{ .BackendInstall }}
 
-# Install uv for Python package management
-COPY --from=uv-bin /usr/local/bin/uv /usr/local/bin/uv
-RUN chmod +x /usr/local/bin/uv
+# Install uv for Python package management from cache if available
+RUN if [ -f /cache/uv.tar.gz ]; then \
+        tar -xzf /cache/uv.tar.gz -C /tmp && \
+        # Find the uv binary in the extracted directory (it's usually in a subfolder)
+        find /tmp -name uv -type f -exec cp {} /usr/local/bin/uv \; && \
+        chmod +x /usr/local/bin/uv; \
+    else \
+        curl -LsSf https://astral.sh/uv/install.sh | sh; \
+    fi
 
 # Create virtual environment
 RUN uv venv /opt/venv
@@ -46,16 +54,14 @@ RUN uv venv /opt/venv
 {{- if .PythonPackages }}
 
 # Install Python packages
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install{{ range .PythonPackages }} {{ . }}{{ end }}
+RUN uv pip install{{ range .PythonPackages }} {{ . }}{{ end }}
 {{- end }}
 
 {{- if .RequirementsFile }}
 
 # Install from requirements file
 COPY {{ .RequirementsFile }} /tmp/requirements.txt
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install -r /tmp/requirements.txt
+RUN uv pip install -r /tmp/requirements.txt
 {{- end }}
 
 # Copy workflow files
@@ -80,17 +86,18 @@ RUN mkdir -p /var/log
 # Download models during build time for offline mode
 RUN mkdir -p /models
 
-# Download Ollama models with cache mount to speed up subsequent builds
-RUN --mount=type=cache,target=/root/.ollama \
-    (OLLAMA_HOST=127.0.0.1 ollama serve &) && \
+# Download Ollama models
+RUN (OLLAMA_HOST=127.0.0.1 ollama serve &) && \
     sleep 10 && \
     {{- range $i, $model := .Models }}{{ if $i }} && \{{ end }}
     OLLAMA_HOST=127.0.0.1 ollama pull {{ $model }}{{ end }} && \
     pkill -f ollama && \
     sleep 2 && \
-    # Copy from cache to the image layer
+    # Copy to the image layer
     cp -r /root/.ollama/* /models/
 {{- end }}
+
+RUN rm -rf /cache
 
 WORKDIR /app
 
