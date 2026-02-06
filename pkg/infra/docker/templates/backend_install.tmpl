@@ -1,6 +1,6 @@
 {{- if .InstallOllama }}
 # Install Ollama
-COPY --from={{ if eq .OS "alpine" }}alpine/ollama{{ else }}ollama/ollama:latest{{ end }} /usr/local/bin/ollama /usr/local/bin/ollama
+COPY --from={{ if eq .OS "alpine" }}alpine/ollama{{ else }}ollama/ollama:latest{{ end }} /usr/bin/ollama /usr/local/bin/ollama
 {{- else }}
 # No LLM backend to install
 {{- end }}
