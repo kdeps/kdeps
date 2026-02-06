@@ -131,9 +131,10 @@ type DockerfileData struct {
 	APIPort          int
 	Models           []string
 	DefaultModel     string
-	OfflineMode      bool // Whether offline mode is enabled (download models during build)
-	HasResources     bool // Whether resources directory exists
-	HasData          bool // Whether data directory exists
+	OfflineMode      bool              // Whether offline mode is enabled (download models during build)
+	HasResources     bool              // Whether resources directory exists
+	HasData          bool              // Whether data directory exists
+	Env              map[string]string // User-defined environment variables
 }
 
 // Builder builds Docker images from workflows.
@@ -370,6 +371,7 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 		OfflineMode:      workflow.Settings.AgentSettings.OfflineMode,
 		HasResources:     hasResources,
 		HasData:          hasData,
+		Env:              workflow.Settings.AgentSettings.Env,
 	}, nil
 }
 

@@ -9,6 +9,13 @@ ENV DEBIAN_FRONTEND=noninteractive \
     OLLAMA_PORT={{ .BackendPort }} \
     {{- end }}
     BACKEND_PORT={{ .BackendPort }}
+{{- if .Env }}
+
+# User-defined environment variables
+{{- range $key, $value := .Env }}
+ENV {{ $key }}="{{ $value }}"
+{{- end }}
+{{- end }}
 
 # Install base dependencies
 RUN apt-get update && \
