@@ -47,7 +47,8 @@ RUN apt-get update && \
 {{ .BackendInstall }}
 
 # Install uv for Python package management
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+COPY --from=ghcr.io/astral-sh/uv:latest /usr/local/bin/uv /usr/local/bin/uv
+RUN chmod +x /usr/local/bin/uv
 
 # Create virtual environment
 RUN uv venv /opt/venv
