@@ -25,13 +25,8 @@ RUN apt-get update && \
         rsync && \
     rm -rf /var/lib/apt/lists/*
 
-# Install kdeps via local cache if available, otherwise via official install script
-COPY cache /cache
-RUN if [ -f /cache/kdeps ]; then \
-        cp /cache/kdeps /usr/local/bin/kdeps && chmod +x /usr/local/bin/kdeps; \
-    else \
-        curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh -s -- -b /usr/local/bin; \
-    fi
+# Install kdeps
+RUN curl -LsSf https://raw.githubusercontent.com/kdeps/kdeps/main/install.sh | sh -s -- -b /usr/local/bin
 
 {{- if .OSPackages }}
 
@@ -44,15 +39,8 @@ RUN apt-get update && \
 # Install LLM backend
 {{ .BackendInstall }}
 
-# Install uv for Python package management from cache if available
-RUN if [ -f /cache/uv.tar.gz ]; then \
-        tar -xzf /cache/uv.tar.gz -C /tmp && \
-        # Find the uv binary in the extracted directory (it's usually in a subfolder)
-        find /tmp -name uv -type f -exec cp {} /usr/local/bin/uv \; && \
-        chmod +x /usr/local/bin/uv; \
-    else \
-        curl -LsSf https://astral.sh/uv/install.sh | sh; \
-    fi
+# Install uv for Python package management
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Create virtual environment
 RUN uv venv /opt/venv
@@ -102,8 +90,6 @@ RUN (OLLAMA_HOST=127.0.0.1 ollama serve &) && \
     # Copy to the image layer
     cp -r /root/.ollama/* /models/
 {{- end }}
-
-RUN rm -rf /cache
 
 WORKDIR /app
 

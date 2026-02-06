@@ -436,72 +436,11 @@ func (b *Builder) CreateBuildContext(
 		}
 	}
 
-	// Prepare and add cache directory
-	if err := b.prepareAndAddCache(tw); err != nil {
-		// Log warning but don't fail the build
-		fmt.Fprintf(os.Stderr, "Warning: failed to prepare cache: %v\n", err)
-	}
-
 	if closeErr := tw.Close(); closeErr != nil {
 		return nil, fmt.Errorf("failed to close tar writer: %w", closeErr)
 	}
 
 	return &buf, nil
-}
-
-// prepareAndAddCache prepares the cache directory and adds it to the tar archive.
-func (b *Builder) prepareAndAddCache(tw *tar.Writer) error {
-	// Create a temporary cache directory
-	cacheDir, err := os.MkdirTemp("", "kdeps-cache-*")
-	if err != nil {
-		return fmt.Errorf("failed to create temp cache dir: %w", err)
-	}
-	defer os.RemoveAll(cacheDir)
-
-	// Download dependencies to cache
-	ctx := context.Background()
-	if downloadErr := b.DownloadDependencies(ctx, cacheDir); downloadErr != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to download some dependencies: %v\n", downloadErr)
-	}
-
-	// Add current kdeps binary to cache if possible
-	executable, err := os.Executable()
-	if err == nil {
-		kdepsPath := filepath.Join(cacheDir, "kdeps")
-		content, readErr := os.ReadFile(executable)
-		if readErr == nil {
-			//nolint:gosec // Binary needs to be executable
-			_ = os.WriteFile(kdepsPath, content, 0755)
-		}
-	}
-
-	// Add the cache directory to the tar archive
-	return b.addDirectoryEntriesToTar(tw, cacheDir, "cache")
-}
-
-// addDirectoryEntriesToTar adds entries from a directory to tar archive under a specific prefix.
-func (b *Builder) addDirectoryEntriesToTar(tw *tar.Writer, srcDir, targetPrefix string) error {
-	return filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if info.IsDir() {
-			return nil
-		}
-
-		relPath, err := filepath.Rel(srcDir, path)
-		if err != nil {
-			return err
-		}
-
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-
-		return b.addFileToTar(tw, filepath.Join(targetPrefix, relPath), content)
-	})
 }
 
 // addFileToTar adds a file to tar archive.
