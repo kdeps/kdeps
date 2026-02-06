@@ -2,7 +2,7 @@ FROM {{ .BaseImage }}
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
-    PATH=/opt/venv/bin:$PATH \
+    PATH=/root/.local/bin:/opt/venv/bin:$PATH \
     {{- if .InstallOllama }}
     OLLAMA_HOST=127.0.0.1 \
     OLLAMA_PORT={{ .BackendPort }} \
@@ -41,7 +41,8 @@ RUN apk add --no-cache{{ range .OSPackages }} {{ . }}{{ end }}
 {{ .BackendInstall }}
 
 # Install uv for Python package management
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+COPY --from=ghcr.io/astral-sh/uv:latest /usr/local/bin/uv /usr/local/bin/uv
+RUN chmod +x /usr/local/bin/uv
 
 # Create virtual environment
 RUN uv venv /opt/venv

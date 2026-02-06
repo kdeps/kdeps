@@ -1,7 +1,6 @@
 {{- if .InstallOllama }}
-# Ollama is pre-installed via base image (ollama/ollama or alpine/ollama)
-# We ensure it's available in /usr/local/bin
-RUN if [ ! -f /usr/local/bin/ollama ] && [ -f /bin/ollama ]; then ln -s /bin/ollama /usr/local/bin/ollama; fi
+# Install Ollama
+COPY --from={{ if eq .OS "alpine" }}alpine/ollama{{ else }}ollama/ollama:latest{{ end }} /usr/local/bin/ollama /usr/local/bin/ollama
 {{- else }}
 # No LLM backend to install
 {{- end }}
