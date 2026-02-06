@@ -121,6 +121,7 @@ type DockerfileData struct {
 	BaseImage        string
 	OS               string
 	InstallOllama    bool // Whether to install Ollama in the Docker image
+	InstallUV        bool // Whether to install uv in the Docker image
 	BackendPort      int  // Port for Ollama (11434)
 	GPUType          string
 	BackendInstall   string
@@ -181,7 +182,7 @@ func NewBuilderWithOS(baseOS string) (*Builder, error) {
 }
 
 // Build builds a Docker image from a workflow.
-func (b *Builder) Build(workflow *domain.Workflow, _ string) (string, error) {
+func (b *Builder) Build(workflow *domain.Workflow, _ string, noCache bool) (string, error) {
 	// Validate workflow
 	if workflow == nil {
 		return "", errors.New("workflow cannot be nil")
@@ -225,7 +226,7 @@ func (b *Builder) Build(workflow *domain.Workflow, _ string) (string, error) {
 	imageName := fmt.Sprintf("%s:%s", workflow.Metadata.Name, workflow.Metadata.Version)
 	ctx := context.Background()
 
-	if buildErr := b.Client.BuildImage(ctx, "Dockerfile", imageName, buildContext); buildErr != nil {
+	if buildErr := b.Client.BuildImage(ctx, "Dockerfile", imageName, buildContext, noCache); buildErr != nil {
 		return "", fmt.Errorf("failed to build image: %w", buildErr)
 	}
 
@@ -267,6 +268,29 @@ func (b *Builder) shouldInstallOllama(workflow *domain.Workflow) bool {
 	return false
 }
 
+// shouldInstallUV determines if uv should be installed in the Docker image.
+// Install if there are Python resources, Python packages, requirements file, or if it's explicitly enabled.
+func (b *Builder) shouldInstallUV(workflow *domain.Workflow) bool {
+	// Check if Python packages are defined
+	if len(workflow.Settings.AgentSettings.PythonPackages) > 0 {
+		return true
+	}
+
+	// Check if requirements file is defined
+	if workflow.Settings.AgentSettings.RequirementsFile != "" {
+		return true
+	}
+
+	// Check if any resource is a Python resource
+	for _, resource := range workflow.Resources {
+		if resource.Run.Python != nil {
+			return true
+		}
+	}
+
+	return false
+}
+
 // GetBackendPort returns the default port for Ollama.
 func (b *Builder) GetBackendPort(_ string) int {
 	return defaultOllamaPort
@@ -296,6 +320,7 @@ func (b *Builder) getDefaultModel(workflow *domain.Workflow) string {
 // buildTemplateData builds data for template rendering.
 func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData, error) {
 	installOllama := b.shouldInstallOllama(workflow)
+	installUV := b.shouldInstallUV(workflow)
 
 	// Determine base image
 	var baseImage string
@@ -358,6 +383,7 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 		BaseImage:        baseImage,
 		OS:               b.BaseOS,
 		InstallOllama:    installOllama,
+		InstallUV:        installUV,
 		BackendPort:      b.GetBackendPort(""),
 		GPUType:          b.GPUType,
 		BackendInstall:   backendInstallBuf.String(),

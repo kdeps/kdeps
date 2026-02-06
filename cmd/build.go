@@ -40,6 +40,7 @@ type BuildFlags struct {
 	Tag            string
 	ShowDockerfile bool
 	GPU            string
+	NoCache        bool
 }
 
 // newBuildCmd creates the build command.
@@ -64,6 +65,7 @@ Features:
   • Optimized image size
   • uv for Python (97% smaller than Anaconda)
   • Offline mode support
+  • Build cache control
 
 Examples:
   # Build from directory (CPU-only on Alpine)
@@ -75,14 +77,14 @@ Examples:
   # Build with GPU support (NVIDIA CUDA on Ubuntu)
   kdeps build examples/chatbot --gpu cuda
 
-  # Build with AMD ROCm GPU support (on Ubuntu)
-  kdeps build examples/chatbot --gpu rocm
-
   # Build with custom tag
   kdeps build examples/chatbot --tag myregistry/myagent:latest
 
   # Show generated Dockerfile
-  kdeps build examples/chatbot --show-dockerfile`,
+  kdeps build examples/chatbot --show-dockerfile
+
+  # Build without cache
+  kdeps build examples/chatbot --no-cache`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return BuildImageWithFlagsInternal(cmd, args, flags)
@@ -94,6 +96,8 @@ Examples:
 		BoolVar(&flags.ShowDockerfile, "show-dockerfile", false, "Show generated Dockerfile")
 	buildCmd.Flags().
 		StringVar(&flags.GPU, "gpu", "", "GPU type for backend (cuda, rocm, intel, vulkan). Auto-selects Ubuntu.")
+	buildCmd.Flags().
+		BoolVar(&flags.NoCache, "no-cache", false, "Do not use cache when building the image")
 
 	return buildCmd
 }
@@ -255,7 +259,7 @@ func performDockerBuild(
 	fmt.Fprintln(os.Stdout, "✓ Dockerfile generated")
 	fmt.Fprintln(os.Stdout, "✓ Building image...")
 
-	imageName, err := builder.Build(workflow, packagePath)
+	imageName, err := builder.Build(workflow, packagePath, flags.NoCache)
 	if err != nil {
 		return fmt.Errorf("failed to build image: %w", err)
 	}

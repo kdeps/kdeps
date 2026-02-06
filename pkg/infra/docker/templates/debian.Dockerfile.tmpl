@@ -46,12 +46,15 @@ RUN apt-get update && \
 # Install LLM backend
 {{ .BackendInstall }}
 
+{{- if .InstallUV }}
+
 # Install uv for Python package management
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 RUN chmod +x /usr/local/bin/uv
 
 # Create virtual environment
 RUN uv venv /opt/venv
+{{- end }}
 
 {{- if .PythonPackages }}
 

@@ -327,7 +327,7 @@ func TestClient_BuildImage(t *testing.T) {
 	ctx := context.Background()
 	reader := strings.NewReader("FROM alpine\n")
 
-	err = client.BuildImage(ctx, "Dockerfile", "test-image:latest", reader)
+	err = client.BuildImage(ctx, "Dockerfile", "test-image:latest", reader, false)
 	// May fail due to Docker daemon not running or permissions
 	if err != nil {
 		t.Logf("Expected error due to Docker daemon: %v", err)
@@ -426,7 +426,7 @@ func TestBuilder_Build(t *testing.T) {
 		},
 	}
 
-	imageID, err := builder.Build(workflow, "test-output.tar")
+	imageID, err := builder.Build(workflow, "test-output.tar", false)
 	// Will fail during Docker build since Docker daemon may not be available
 	if err != nil {
 		t.Logf("Expected error during build: %v", err)
@@ -920,7 +920,7 @@ func TestBuilder_Build_ErrorCases(t *testing.T) {
 	builder := &docker.Builder{BaseOS: "alpine"}
 
 	// Test with nil workflow
-	_, err := builder.Build(nil, "output.tar")
+	_, err := builder.Build(nil, "output.tar", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "workflow cannot be nil")
 
@@ -929,7 +929,7 @@ func TestBuilder_Build_ErrorCases(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 	}
-	_, err = builderInvalid.Build(workflow, "output.tar")
+	_, err = builderInvalid.Build(workflow, "output.tar", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid base OS")
 
@@ -937,7 +937,7 @@ func TestBuilder_Build_ErrorCases(t *testing.T) {
 	workflowInvalid := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Version: "1.0.0"},
 	}
-	_, err = builder.Build(workflowInvalid, "output.tar")
+	_, err = builder.Build(workflowInvalid, "output.tar", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "workflow name cannot be empty")
 }
@@ -970,7 +970,7 @@ func TestBuilder_Build_SuccessCase(t *testing.T) {
 
 	// This will likely fail due to Docker not being available in test environment,
 	// but we can test that the initial validation passes
-	_, err = builder.Build(workflow, "test-output.tar")
+	_, err = builder.Build(workflow, "test-output.tar", false)
 	// We expect this to fail at the Docker client creation or build step
 	if err != nil {
 		// Should not fail due to our validation, but due to Docker unavailability
@@ -1009,13 +1009,13 @@ func TestClient_BuildImage_ErrorCases(t *testing.T) {
 	ctx := context.Background()
 
 	// Test with nil reader
-	err = client.BuildImage(ctx, "Dockerfile", "test:latest", nil)
+	err = client.BuildImage(ctx, "Dockerfile", "test:latest", nil, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "reader cannot be nil")
 
 	// Test with empty image name
 	reader := strings.NewReader("FROM alpine")
-	err = client.BuildImage(ctx, "Dockerfile", "", reader)
+	err = client.BuildImage(ctx, "Dockerfile", "", reader, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "image name cannot be empty")
 }
@@ -1065,7 +1065,7 @@ CMD ["cat", "/test.txt"]
 	tags := []string{"test:v1", "test:latest", "test:build"}
 	for _, tag := range tags {
 		t.Run("tag_"+tag, func(t *testing.T) {
-			err = client.BuildImage(ctx, "Dockerfile", tag, reader)
+			err = client.BuildImage(ctx, "Dockerfile", tag, reader, false)
 			// May fail due to Docker daemon not running
 			if err != nil {
 				t.Logf("BuildImage error for tag %s: %v", tag, err)
@@ -1395,7 +1395,7 @@ func TestBuilder_Build_PruneDanglingImages(t *testing.T) {
 	}
 
 	// This will fail due to Docker not being available, but we test the prune logic
-	_, err := builder.Build(workflow, "output.tar")
+	_, err := builder.Build(workflow, "output.tar", false)
 	require.Error(t, err)
 	// The error should be Docker-related, not about workflow validation
 	assert.NotContains(t, err.Error(), "workflow cannot be nil")
@@ -1421,7 +1421,7 @@ func TestBuilder_Build_DockerClientFailure(t *testing.T) {
 		},
 	}
 
-	_, err = builder.Build(workflow, "output.tar")
+	_, err = builder.Build(workflow, "output.tar", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "workflow name cannot be empty")
 }
@@ -1436,7 +1436,7 @@ func TestBuilder_Build_BaseOSValidation(t *testing.T) {
 		},
 	}
 
-	_, err := builder.Build(workflow, "output.tar")
+	_, err := builder.Build(workflow, "output.tar", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid base OS")
 }
@@ -1445,7 +1445,7 @@ func TestBuilder_Build_WorkflowValidation(t *testing.T) {
 	builder := &docker.Builder{BaseOS: "alpine"}
 
 	// Test nil workflow
-	_, err := builder.Build(nil, "output.tar")
+	_, err := builder.Build(nil, "output.tar", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "workflow cannot be nil")
 }
@@ -1460,7 +1460,7 @@ func TestBuilder_Build_WorkflowNameValidation(t *testing.T) {
 		},
 	}
 
-	_, err := builder.Build(workflow, "output.tar")
+	_, err := builder.Build(workflow, "output.tar", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "workflow name cannot be empty")
 }
