@@ -55,6 +55,7 @@ func (c *Client) BuildImage(
 	dockerfilePath string,
 	imageName string,
 	buildContext io.Reader,
+	noCache bool,
 ) error {
 	// Validate inputs
 	if buildContext == nil {
@@ -70,6 +71,7 @@ func (c *Client) BuildImage(
 		Tags:       []string{imageName},
 		Remove:     true,
 		Version:    types.BuilderV1,
+		NoCache:    noCache,
 	}
 
 	resp, err := c.Cli.ImageBuild(ctx, buildContext, buildOptions)
