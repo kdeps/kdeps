@@ -1,0 +1,38 @@
+# Stage 1: Reference the built kdeps application image
+FROM {{ .KdepsImageName }} AS app
+
+# Stage 2: ISO assembler with all required tools
+FROM alpine:latest AS assembler
+
+# Install ISO creation tools and base system packages
+RUN apk add --no-cache \
+    alpine-base \
+    linux-lts \
+    linux-firmware-none \
+    mkinitfs \
+    squashfs-tools \
+    xorriso \
+    syslinux \
+    bash \
+    coreutils \
+    openrc \
+    dhcpcd \
+    supervisor \
+    curl
+
+# Copy the application rootfs from the kdeps image
+COPY --from=app / /build/rootfs/
+
+# Copy assembly scripts and configurations
+COPY iso-assembly.sh /build/iso-assembly.sh
+COPY syslinux.cfg /build/syslinux.cfg
+COPY kdeps-init.sh /build/kdeps-init.sh
+COPY interfaces /build/interfaces
+RUN chmod +x /build/iso-assembly.sh /build/kdeps-init.sh
+
+# Run the assembly
+RUN /build/iso-assembly.sh
+
+# Stage 3: Minimal output - just the ISO
+FROM scratch
+COPY --from=assembler /output/kdeps.iso /kdeps.iso

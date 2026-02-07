@@ -1,0 +1,143 @@
+#!/bin/bash
+set -euo pipefail
+
+echo "=== KDeps ISO Assembly ==="
+
+ROOTFS=/build/rootfs
+ISODIR=/build/isodir
+OUTPUT=/output
+
+mkdir -p "${ISODIR}/boot/syslinux"
+mkdir -p "${ISODIR}/kdeps"
+mkdir -p "${OUTPUT}"
+
+# -------------------------------------------------------
+# 1. Prepare the rootfs with Alpine base system
+# -------------------------------------------------------
+echo "[1/6] Preparing rootfs..."
+
+mkdir -p "${ROOTFS}/dev" "${ROOTFS}/proc" "${ROOTFS}/sys" "${ROOTFS}/tmp"
+mkdir -p "${ROOTFS}/run" "${ROOTFS}/var/log" "${ROOTFS}/var/run"
+mkdir -p "${ROOTFS}/etc/init.d" "${ROOTFS}/etc/conf.d"
+mkdir -p "${ROOTFS}/etc/network"
+mkdir -p "${ROOTFS}/root"
+
+# Install Alpine base packages into rootfs if not already present
+if [ ! -f "${ROOTFS}/sbin/init" ]; then
+    echo "  Installing Alpine base system..."
+    apk add --root "${ROOTFS}" --initdb --no-cache \
+        alpine-base \
+        openrc \
+        busybox \
+        busybox-initscripts \
+        dhcpcd \
+        supervisor \
+        curl \
+        bash
+fi
+
+# -------------------------------------------------------
+# 2. Configure networking (DHCP)
+# -------------------------------------------------------
+echo "[2/6] Configuring networking..."
+
+cp /build/interfaces "${ROOTFS}/etc/network/interfaces"
+
+mkdir -p "${ROOTFS}/etc/runlevels/default"
+mkdir -p "${ROOTFS}/etc/runlevels/boot"
+mkdir -p "${ROOTFS}/etc/runlevels/sysinit"
+mkdir -p "${ROOTFS}/etc/runlevels/shutdown"
+
+ln -sf /etc/init.d/networking "${ROOTFS}/etc/runlevels/default/networking" 2>/dev/null || true
+ln -sf /etc/init.d/dhcpcd "${ROOTFS}/etc/runlevels/default/dhcpcd" 2>/dev/null || true
+
+# -------------------------------------------------------
+# 3. Configure init system (OpenRC)
+# -------------------------------------------------------
+echo "[3/6] Configuring init system..."
+
+echo "{{ .Hostname }}" > "${ROOTFS}/etc/hostname"
+echo "127.0.0.1 {{ .Hostname }} localhost" > "${ROOTFS}/etc/hosts"
+
+# Install kdeps OpenRC service
+cp /build/kdeps-init.sh "${ROOTFS}/etc/init.d/kdeps"
+chmod +x "${ROOTFS}/etc/init.d/kdeps"
+
+# Enable kdeps service at boot
+ln -sf /etc/init.d/kdeps "${ROOTFS}/etc/runlevels/default/kdeps" 2>/dev/null || true
+
+# Allow console login (empty root password)
+sed -i 's|root:.*|root::0:0:root:/root:/bin/bash|' "${ROOTFS}/etc/passwd" 2>/dev/null || true
+
+# Configure inittab for console access
+cat > "${ROOTFS}/etc/inittab" << 'INITTAB'
+::sysinit:/sbin/openrc sysinit
+::sysinit:/sbin/openrc boot
+::wait:/sbin/openrc default
+tty1::respawn:/sbin/getty 38400 tty1
+ttyS0::respawn:/sbin/getty -L ttyS0 115200 vt100
+::ctrlaltdel:/sbin/reboot
+::shutdown:/sbin/openrc shutdown
+INITTAB
+
+{{- if .Env }}
+
+# Set environment variables system-wide
+cat >> "${ROOTFS}/etc/environment" << 'ENVVARS'
+{{- range $key, $value := .Env }}
+{{ $key }}="{{ $value }}"
+{{- end }}
+ENVVARS
+{{- end }}
+
+# -------------------------------------------------------
+# 4. Create squashfs from rootfs
+# -------------------------------------------------------
+echo "[4/6] Creating squashfs..."
+
+mksquashfs "${ROOTFS}" "${ISODIR}/kdeps/rootfs.sfs" \
+    -comp xz \
+    -b 1048576 \
+    -no-exports \
+    -noappend
+
+# -------------------------------------------------------
+# 5. Setup bootloader
+# -------------------------------------------------------
+echo "[5/6] Setting up bootloader..."
+
+# Use the assembler's kernel
+cp /boot/vmlinuz-lts "${ISODIR}/boot/vmlinuz" 2>/dev/null || true
+
+# Generate initramfs
+KERNEL_VERSION=$(ls /lib/modules/ | head -1)
+if [ -n "${KERNEL_VERSION}" ]; then
+    mkinitfs -o "${ISODIR}/boot/initramfs" "${KERNEL_VERSION}" 2>/dev/null || \
+        cp /boot/initramfs-lts "${ISODIR}/boot/initramfs" 2>/dev/null || true
+fi
+
+# Copy syslinux files
+cp /usr/share/syslinux/isolinux.bin "${ISODIR}/boot/syslinux/" 2>/dev/null || true
+cp /usr/share/syslinux/ldlinux.c32 "${ISODIR}/boot/syslinux/" 2>/dev/null || true
+cp /usr/share/syslinux/libutil.c32 "${ISODIR}/boot/syslinux/" 2>/dev/null || true
+cp /usr/share/syslinux/libcom32.c32 "${ISODIR}/boot/syslinux/" 2>/dev/null || true
+cp /build/syslinux.cfg "${ISODIR}/boot/syslinux/syslinux.cfg"
+
+# -------------------------------------------------------
+# 6. Create the ISO image
+# -------------------------------------------------------
+echo "[6/6] Creating ISO image..."
+
+xorriso -as mkisofs \
+    -o "${OUTPUT}/kdeps.iso" \
+    -isohybrid-mbr /usr/share/syslinux/isohdpfx.bin \
+    -c boot/syslinux/boot.cat \
+    -b boot/syslinux/isolinux.bin \
+    -no-emul-boot \
+    -boot-load-size 4 \
+    -boot-info-table \
+    "${ISODIR}"
+
+echo ""
+echo "=== ISO created successfully ==="
+ls -lh "${OUTPUT}/kdeps.iso"

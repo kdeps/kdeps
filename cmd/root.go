@@ -118,4 +118,7 @@ func addSubcommands(rootCmd *cobra.Command) {
 
 	// Add scaffold command
 	rootCmd.AddCommand(newScaffoldCmd())
+
+	// Add export command
+	rootCmd.AddCommand(newExportCmd())
 }

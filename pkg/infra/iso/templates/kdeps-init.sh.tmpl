@@ -1,0 +1,20 @@
+#!/sbin/openrc-run
+# KDeps Agent Service
+
+name="kdeps"
+description="KDeps AI Agent"
+command="/usr/bin/supervisord"
+command_args="-c /etc/supervisord.conf"
+pidfile="/var/run/supervisord.pid"
+
+depend() {
+    need net
+    after firewall
+}
+
+start_pre() {
+    mkdir -p /var/log
+{{- if .InstallOllama }}
+    mkdir -p /root/.ollama
+{{- end }}
+}
