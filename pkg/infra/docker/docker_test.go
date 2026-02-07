@@ -523,7 +523,7 @@ func TestBuilder_GenerateDockerfile_WithOllamaBackend(t *testing.T) {
 		"11434",
 	) // Ollama default port (in EXPOSE statement)
 	assert.Contains(t, dockerfile, "python3")
-	assert.Contains(t, dockerfile, "uv venv")
+	assert.NotContains(t, dockerfile, "uv venv") // No Python resource, so uv should not be installed
 	assert.Contains(t, dockerfile, "supervisord")
 	assert.Contains(t, dockerfile, "WORKDIR /app")
 }
@@ -1169,6 +1169,38 @@ func TestBuilder_shouldInstallOllama(t *testing.T) {
 						HTTPClient: &domain.HTTPClientConfig{
 							Method: "GET",
 							URL:    "https://api.example.com",
+						},
+					},
+				},
+			},
+			contains: []string{"FROM ubuntu:latest", "No LLM backend to install"},
+		},
+		{
+			name: "online provider with apiKey - no ollama",
+			resources: []*domain.Resource{
+				{
+					Run: domain.RunConfig{
+						Chat: &domain.ChatConfig{
+							Model:  "gpt-4",
+							APIKey: "sk-test-key",
+							Role:   "user",
+							Prompt: "test",
+						},
+					},
+				},
+			},
+			contains: []string{"FROM ubuntu:latest", "No LLM backend to install"},
+		},
+		{
+			name: "online provider with external baseURL - no ollama",
+			resources: []*domain.Resource{
+				{
+					Run: domain.RunConfig{
+						Chat: &domain.ChatConfig{
+							Model:   "gpt-4",
+							BaseURL: "https://api.openai.com/v1",
+							Role:    "user",
+							Prompt:  "test",
 						},
 					},
 				},

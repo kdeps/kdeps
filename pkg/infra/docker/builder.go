@@ -30,6 +30,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"text/template"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -249,12 +250,15 @@ func (b *Builder) shouldInstallOllama(workflow *domain.Workflow) bool {
 		return *workflow.Settings.AgentSettings.InstallOllama
 	}
 
-	// Auto-detect: install if there are Chat resources using ollama backend (or default)
+	// Auto-detect: install if there are Chat resources using ollama backend
 	for _, resource := range workflow.Resources {
 		if resource.Run.Chat != nil {
 			backend := resource.Run.Chat.Backend
-			// Install Ollama if backend is "ollama" or empty (default)
-			if backend == "" || backend == backendOllama {
+			if backend == backendOllama {
+				return true
+			}
+			// Empty backend defaults to ollama only if no online provider indicators
+			if backend == "" && resource.Run.Chat.APIKey == "" && !isOnlineBaseURL(resource.Run.Chat.BaseURL) {
 				return true
 			}
 		}
@@ -289,6 +293,14 @@ func (b *Builder) shouldInstallUV(workflow *domain.Workflow) bool {
 	}
 
 	return false
+}
+
+// isOnlineBaseURL checks if a baseURL points to an external (non-local) service.
+func isOnlineBaseURL(baseURL string) bool {
+	if baseURL == "" {
+		return false
+	}
+	return !strings.Contains(baseURL, "localhost") && !strings.Contains(baseURL, "127.0.0.1")
 }
 
 // GetBackendPort returns the default port for Ollama.
