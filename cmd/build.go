@@ -29,6 +29,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/infra/cloud"
 	"github.com/kdeps/kdeps/v2/pkg/infra/docker"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
@@ -41,6 +42,7 @@ type BuildFlags struct {
 	ShowDockerfile bool
 	GPU            string
 	NoCache        bool
+	Cloud          bool
 }
 
 // newBuildCmd creates the build command.
@@ -98,6 +100,8 @@ Examples:
 		StringVar(&flags.GPU, "gpu", "", "GPU type for backend (cuda, rocm, intel, vulkan). Auto-selects Ubuntu.")
 	buildCmd.Flags().
 		BoolVar(&flags.NoCache, "no-cache", false, "Do not use cache when building the image")
+	buildCmd.Flags().
+		BoolVar(&flags.Cloud, "cloud", false, "Build using kdeps.io cloud infrastructure")
 
 	return buildCmd
 }
@@ -286,6 +290,10 @@ func performDockerBuild(
 
 // buildImageInternal executes the build command with flags parameter.
 func buildImageInternal(_ *cobra.Command, args []string, flags *BuildFlags) error {
+	if flags.Cloud {
+		return cloudBuild(args[0], "docker", "amd64", flags.NoCache)
+	}
+
 	packagePath := args[0]
 
 	fmt.Fprintf(os.Stdout, "Building Docker image from: %s\n\n", packagePath)
@@ -340,4 +348,75 @@ func buildImageInternal(_ *cobra.Command, args []string, flags *BuildFlags) erro
 
 	// Build image
 	return performDockerBuild(builder, workflow, packagePath, flags)
+}
+
+// cloudBuild executes a build via kdeps.io cloud infrastructure.
+func cloudBuild(packagePath, format, arch string, noCache bool) error {
+	config, err := LoadCloudConfig()
+	if err != nil {
+		return err
+	}
+
+	// Package workflow to temp .kdeps file
+	tmpFile, err := os.CreateTemp("", "kdeps-cloud-*.kdeps")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	tmpFile.Close()
+	defer os.Remove(tmpPath)
+
+	// Resolve workflow and create archive
+	workflowPath, packageDir, cleanupFunc, err := resolveBuildWorkflowPaths(packagePath)
+	if err != nil {
+		return err
+	}
+	if cleanupFunc != nil {
+		defer cleanupFunc()
+	}
+
+	workflow, err := parseWorkflow(workflowPath)
+	if err != nil {
+		return err
+	}
+
+	if archiveErr := CreatePackageArchive(packageDir, tmpPath, workflow); archiveErr != nil {
+		return fmt.Errorf("failed to package workflow: %w", archiveErr)
+	}
+
+	// Open archive for upload
+	file, err := os.Open(tmpPath)
+	if err != nil {
+		return fmt.Errorf("failed to open package: %w", err)
+	}
+	defer file.Close()
+
+	fmt.Fprintf(os.Stdout, "Uploading to kdeps.io cloud...\n")
+
+	client := cloud.NewClient(config.APIKey, config.APIURL)
+	ctx := context.Background()
+
+	buildResp, err := client.StartBuild(ctx, file, format, arch, noCache)
+	if err != nil {
+		return fmt.Errorf("cloud build failed: %w", err)
+	}
+
+	fmt.Fprintf(os.Stdout, "Build started (ID: %s)\n\n", buildResp.BuildID)
+
+	status, err := client.StreamBuildLogs(ctx, buildResp.BuildID, os.Stdout)
+	if err != nil {
+		return err
+	}
+
+	if status.ImageRef != "" {
+		fmt.Fprintf(os.Stdout, "\nImage: %s\n", status.ImageRef)
+	}
+
+	if status.DownloadURL != "" {
+		fmt.Fprintf(os.Stdout, "Download: %s\n", status.DownloadURL)
+	}
+
+	fmt.Fprintln(os.Stdout, "\nCloud build completed successfully!")
+
+	return nil
 }

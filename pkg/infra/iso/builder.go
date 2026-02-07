@@ -45,12 +45,17 @@ var FormatExtensions = map[string]string{
 	"qcow2-efi":  ".qcow2",
 }
 
+// RawBIOSAssembleFunc assembles a raw-bios disk from kernel+initrd files.
+type RawBIOSAssembleFunc func(ctx context.Context, kernelPath, initrdPath, cmdlinePath, outputPath string) error
+
 // Builder builds bootable images from kdeps Docker images using LinuxKit.
 type Builder struct {
-	Runner   LinuxKitRunner
-	Hostname string
-	Format   string // Output format: "iso-efi" (default), "raw-bios", "qcow2-bios", etc.
-	Arch     string // Target architecture: "amd64" (default), "arm64".
+	Runner              LinuxKitRunner
+	Hostname            string
+	Format              string              // Output format: "iso-efi" (default), "raw-bios", "qcow2-bios", etc.
+	Arch                string              // Target architecture: "amd64" (default), "arm64".
+	Size                string              // Disk image size (e.g. "4096M"). Empty = linuxkit default (1024M).
+	RawBIOSAssembleFunc RawBIOSAssembleFunc // Override for testing; nil = use Docker-based assembleRawBIOS.
 }
 
 // NewBuilder creates a new LinuxKit-based image builder.
@@ -77,6 +82,17 @@ func NewBuilderWithRunner(runner LinuxKitRunner) *Builder {
 		Format:   defaultFormat,
 		Arch:     runtime.GOARCH,
 	}
+}
+
+// CacheImportImage imports a Docker image tar into linuxkit's local cache.
+// This must be called before Build when using locally built Docker images
+// that aren't available in a remote registry.
+func (b *Builder) CacheImportImage(ctx context.Context, tarPath string) error {
+	if b.Runner == nil {
+		return errors.New("runner is nil")
+	}
+
+	return b.Runner.CacheImport(ctx, tarPath)
 }
 
 // Build creates a bootable image from a kdeps Docker image.
@@ -140,14 +156,34 @@ func (b *Builder) Build(
 		arch = runtime.GOARCH
 	}
 
-	if buildErr := b.Runner.Build(ctx, tmpPath, format, arch, buildDir); buildErr != nil {
-		return buildErr
-	}
+	var outputFile string
 
-	// Find the output file produced by linuxkit
-	outputFile, err := findLinuxKitOutput(buildDir, format)
-	if err != nil {
-		return err
+	if format == "raw-bios" {
+		// Two-step build: linuxkit produces kernel+initrd, then we assemble
+		// the raw-bios disk with proper FAT headroom (bypasses upstream bug).
+		assembler := b.RawBIOSAssembleFunc
+		if assembler == nil {
+			assembler = assembleRawBIOS
+		}
+
+		built, rawErr := buildRawBIOS(ctx, b.Runner, assembler, tmpPath, arch, buildDir)
+		if rawErr != nil {
+			return rawErr
+		}
+
+		outputFile = built
+	} else {
+		if buildErr := b.Runner.Build(ctx, tmpPath, format, arch, buildDir, b.Size); buildErr != nil {
+			return buildErr
+		}
+
+		// Find the output file produced by linuxkit
+		found, findErr := findLinuxKitOutput(buildDir, format)
+		if findErr != nil {
+			return findErr
+		}
+
+		outputFile = found
 	}
 
 	// Move to the desired output path

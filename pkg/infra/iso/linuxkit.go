@@ -26,7 +26,8 @@ const (
 
 // LinuxKitRunner executes linuxkit CLI commands.
 type LinuxKitRunner interface {
-	Build(ctx context.Context, configPath, format, arch, outputDir string) error
+	Build(ctx context.Context, configPath, format, arch, outputDir, size string) error
+	CacheImport(ctx context.Context, tarPath string) error
 }
 
 // DefaultLinuxKitRunner runs the actual linuxkit binary.
@@ -35,8 +36,15 @@ type DefaultLinuxKitRunner struct {
 }
 
 // Build runs "linuxkit build" with the given config, format, architecture, and output directory.
-func (r *DefaultLinuxKitRunner) Build(ctx context.Context, configPath, format, arch, outputDir string) error {
-	args := []string{"build", "--format", format, "--arch", arch, "--dir", outputDir, configPath}
+// Uses --docker so linuxkit reads images from the local Docker daemon instead of a registry.
+// Standard LinuxKit images (kernel, init, etc.) are pulled from Docker Hub automatically.
+// If size is non-empty it is passed as --size (e.g. "4096M") to override the default 1024M.
+func (r *DefaultLinuxKitRunner) Build(ctx context.Context, configPath, format, arch, outputDir, size string) error {
+	args := []string{"build", "--docker", "--format", format, "--arch", arch, "--dir", outputDir}
+	if size != "" {
+		args = append(args, "--size", size)
+	}
+	args = append(args, configPath)
 
 	cmd := exec.CommandContext(ctx, r.BinaryPath, args...)
 	cmd.Stdout = os.Stdout
@@ -46,6 +54,23 @@ func (r *DefaultLinuxKitRunner) Build(ctx context.Context, configPath, format, a
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("linuxkit build failed: %w", err)
+	}
+
+	return nil
+}
+
+// CacheImport imports a Docker image tar into linuxkit's local cache.
+func (r *DefaultLinuxKitRunner) CacheImport(ctx context.Context, tarPath string) error {
+	args := []string{"cache", "import", tarPath}
+
+	cmd := exec.CommandContext(ctx, r.BinaryPath, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	fmt.Fprintf(os.Stdout, "Running: linuxkit %v\n", args)
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("linuxkit cache import failed: %w", err)
 	}
 
 	return nil

@@ -258,6 +258,35 @@ func (c *Client) CopyFromContainer(
 	return nil
 }
 
+// SaveImage exports a Docker image to a tar file on disk.
+func (c *Client) SaveImage(ctx context.Context, imageName, destPath string) error {
+	if imageName == "" {
+		return errors.New("image name cannot be empty")
+	}
+
+	reader, err := c.Cli.ImageSave(ctx, []string{imageName})
+	if err != nil {
+		return fmt.Errorf("failed to save image: %w", err)
+	}
+	defer func() {
+		_ = reader.Close()
+	}()
+
+	outFile, err := os.Create(destPath)
+	if err != nil {
+		return fmt.Errorf("failed to create output file: %w", err)
+	}
+	defer func() {
+		_ = outFile.Close()
+	}()
+
+	if _, copyErr := io.Copy(outFile, reader); copyErr != nil {
+		return fmt.Errorf("failed to write image tar: %w", copyErr)
+	}
+
+	return nil
+}
+
 // RemoveImage removes a Docker image.
 func (c *Client) RemoveImage(ctx context.Context, imageName string) error {
 	if imageName == "" {
@@ -270,6 +299,20 @@ func (c *Client) RemoveImage(ctx context.Context, imageName string) error {
 	}
 
 	return nil
+}
+
+// ImageSize returns the size of a Docker image in bytes.
+func (c *Client) ImageSize(ctx context.Context, imageName string) (int64, error) {
+	if imageName == "" {
+		return 0, errors.New("image name cannot be empty")
+	}
+
+	inspect, _, err := c.Cli.ImageInspectWithRaw(ctx, imageName)
+	if err != nil {
+		return 0, fmt.Errorf("failed to inspect image %s: %w", imageName, err)
+	}
+
+	return inspect.Size, nil
 }
 
 // PruneDanglingImages removes all dangling (untagged) images.

@@ -121,4 +121,9 @@ func addSubcommands(rootCmd *cobra.Command) {
 
 	// Add export command
 	rootCmd.AddCommand(newExportCmd())
+
+	// Add cloud auth commands
+	rootCmd.AddCommand(newLoginCmd())
+	rootCmd.AddCommand(newWhoamiCmd())
+	rootCmd.AddCommand(newLogoutCmd())
 }

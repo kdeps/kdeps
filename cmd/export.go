@@ -22,12 +22,16 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/spf13/cobra"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/infra/cloud"
 	"github.com/kdeps/kdeps/v2/pkg/infra/docker"
 	"github.com/kdeps/kdeps/v2/pkg/infra/iso"
 )
@@ -41,6 +45,8 @@ type ExportFlags struct {
 	Hostname   string
 	Format     string
 	Arch       string
+	Cloud      bool
+	Size       string
 }
 
 // newExportCmd creates the export parent command.
@@ -129,6 +135,10 @@ Examples:
 		StringVar(&flags.Format, "format", "iso", "Output format: iso (EFI), raw (BIOS), qcow2")
 	isoCmd.Flags().
 		StringVar(&flags.Arch, "arch", "", "Target architecture: amd64 (default), arm64")
+	isoCmd.Flags().
+		BoolVar(&flags.Cloud, "cloud", false, "Build using kdeps.io cloud infrastructure (no local Docker/LinuxKit needed)")
+	isoCmd.Flags().
+		StringVar(&flags.Size, "size", "", "Disk image size (e.g. 4096M, 8G). Auto-computed from Docker image if not set.")
 
 	return isoCmd
 }
@@ -142,6 +152,15 @@ const bytesPerMB = 1024 * 1024
 
 // exportISOInternal executes the export iso command.
 func exportISOInternal(_ *cobra.Command, args []string, flags *ExportFlags) error {
+	if flags.Cloud {
+		arch := flags.Arch
+		if arch == "" {
+			arch = runtime.GOARCH
+		}
+
+		return cloudExport(args[0], flags.Format, arch, flags.NoCache, flags.Output)
+	}
+
 	packagePath := args[0]
 
 	fmt.Fprintf(os.Stdout, "Exporting workflow from: %s\n\n", packagePath)
@@ -180,6 +199,19 @@ func exportISOInternal(_ *cobra.Command, args []string, flags *ExportFlags) erro
 	// Show LinuxKit config if requested (no Docker needed)
 	if flags.ShowConfig {
 		return showLinuxKitConfig(workflow, flags)
+	}
+
+	// Force offline mode for ISO exports — models must be baked into the image
+	// since the VM may not have internet access at runtime
+	if len(workflow.Settings.AgentSettings.Models) > 0 {
+		workflow.Settings.AgentSettings.OfflineMode = true
+
+		// ISO 9660 has a 4 GiB per-file limit which Ollama model blobs exceed.
+		// Auto-switch to raw format unless the user explicitly chose a format.
+		if flags.Format == "iso" {
+			fmt.Fprintln(os.Stdout, "Note: Switching to raw format (ISO 9660 has a 4 GiB file size limit incompatible with large model files)")
+			flags.Format = "raw"
+		}
 	}
 
 	// Create Docker builder for building the app image
@@ -240,8 +272,6 @@ func performISOBuild(
 
 	outputPath := resolveOutputPath(flags.Output, flags.Format, workflow, originalDir)
 
-	fmt.Fprintln(os.Stdout, "Step 2: Building bootable image with LinuxKit...")
-
 	isoBuilder, err := iso.NewBuilder()
 	if err != nil {
 		return fmt.Errorf("failed to initialize LinuxKit builder: %w", err)
@@ -253,13 +283,30 @@ func performISOBuild(
 		isoBuilder.Arch = flags.Arch
 	}
 
+	// Compute disk image size: use explicit --size if given, otherwise auto-compute
+	// from the Docker image size (image * 2 + 512 MB overhead for kernel, init, fs).
+	if flags.Size != "" {
+		isoBuilder.Size = flags.Size
+	} else {
+		ctx := context.Background()
+		imgBytes, sizeErr := builder.Client.ImageSize(ctx, imageName)
+		if sizeErr == nil && imgBytes > 0 {
+			sizeMB := int(imgBytes/int64(bytesPerMB))*2 + 512
+			isoBuilder.Size = fmt.Sprintf("%dM", sizeMB)
+			fmt.Fprintf(os.Stdout, "Auto-computed disk image size: %s\n", isoBuilder.Size)
+		}
+	}
+
 	ctx := context.Background()
+
+	fmt.Fprintln(os.Stdout, "Step 2: Building bootable image with LinuxKit...")
+
 	err = isoBuilder.Build(ctx, imageName, workflow, outputPath, flags.NoCache)
 	if err != nil {
 		return fmt.Errorf("failed to build image: %w", err)
 	}
 
-	printBuildResult(outputPath, linuxkitFormat, isoBuilder.Arch)
+	printBuildResult(outputPath, linuxkitFormat, isoBuilder.Arch, workflow)
 
 	return nil
 }
@@ -292,8 +339,177 @@ func qemuSystem(arch string) string {
 	return "qemu-system-x86_64"
 }
 
-// printBuildResult prints the build result.
-func printBuildResult(outputPath, format, arch string) {
+// cloudExport executes an export build via kdeps.io cloud infrastructure.
+func cloudExport(packagePath, format, arch string, noCache bool, output string) error {
+	config, err := LoadCloudConfig()
+	if err != nil {
+		return err
+	}
+
+	// Package workflow to temp .kdeps file
+	tmpFile, err := os.CreateTemp("", "kdeps-cloud-*.kdeps")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	tmpFile.Close()
+	defer os.Remove(tmpPath)
+
+	workflowPath, packageDir, cleanupFunc, err := resolveBuildWorkflowPaths(packagePath)
+	if err != nil {
+		return err
+	}
+	if cleanupFunc != nil {
+		defer cleanupFunc()
+	}
+
+	workflow, err := parseWorkflow(workflowPath)
+	if err != nil {
+		return err
+	}
+
+	if archiveErr := CreatePackageArchive(packageDir, tmpPath, workflow); archiveErr != nil {
+		return fmt.Errorf("failed to package workflow: %w", archiveErr)
+	}
+
+	file, err := os.Open(tmpPath)
+	if err != nil {
+		return fmt.Errorf("failed to open package: %w", err)
+	}
+	defer file.Close()
+
+	fmt.Fprintf(os.Stdout, "Uploading to kdeps.io cloud (format: %s, arch: %s)...\n", format, arch)
+
+	client := cloud.NewClient(config.APIKey, config.APIURL)
+	ctx := context.Background()
+
+	buildResp, err := client.StartBuild(ctx, file, format, arch, noCache)
+	if err != nil {
+		return fmt.Errorf("cloud build failed: %w", err)
+	}
+
+	fmt.Fprintf(os.Stdout, "Build started (ID: %s)\n\n", buildResp.BuildID)
+
+	status, err := client.StreamBuildLogs(ctx, buildResp.BuildID, os.Stdout)
+	if err != nil {
+		return err
+	}
+
+	// Determine output path
+	outputPath := output
+	if outputPath == "" {
+		ext := ".iso"
+		if linuxkitFormat, ok := FormatMap[format]; ok {
+			if fmtExt, extOk := iso.FormatExtensions[linuxkitFormat]; extOk {
+				ext = fmtExt
+			}
+		}
+		outputPath = fmt.Sprintf("%s-%s%s", workflow.Metadata.Name, workflow.Metadata.Version, ext)
+	}
+
+	// Download artifact if URL is provided
+	if status.DownloadURL != "" {
+		fmt.Fprintf(os.Stdout, "\nDownloading artifact to %s...\n", outputPath)
+
+		if dlErr := downloadCloudArtifact(ctx, status.DownloadURL, outputPath); dlErr != nil {
+			return fmt.Errorf("failed to download artifact: %w", dlErr)
+		}
+
+		info, statErr := os.Stat(outputPath)
+		sizeStr := ""
+		if statErr == nil {
+			sizeMB := float64(info.Size()) / float64(bytesPerMB)
+			sizeStr = fmt.Sprintf(" (%.1f MB)", sizeMB)
+		}
+
+		fmt.Fprintf(os.Stdout, "Downloaded: %s%s\n", outputPath, sizeStr)
+	}
+
+	fmt.Fprintln(os.Stdout, "\nCloud export completed successfully!")
+
+	return nil
+}
+
+// downloadCloudArtifact downloads a build artifact from the given URL to disk.
+func downloadCloudArtifact(ctx context.Context, url, dest string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("download failed: HTTP %d", resp.StatusCode)
+	}
+
+	out, err := os.Create(dest)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+
+	return err
+}
+
+// workflowPorts extracts the configured ports from a workflow and returns
+// a QEMU hostfwd string and a human-readable port list.
+func workflowPorts(workflow *domain.Workflow) (hostfwd string, portList string) {
+	var ports []int
+	if workflow != nil {
+		if workflow.Settings.APIServer != nil && workflow.Settings.APIServer.PortNum > 0 {
+			ports = append(ports, workflow.Settings.APIServer.PortNum)
+		}
+		if workflow.Settings.WebServer != nil && workflow.Settings.WebServer.PortNum > 0 {
+			p := workflow.Settings.WebServer.PortNum
+			// Avoid duplicates
+			dup := false
+			for _, existing := range ports {
+				if existing == p {
+					dup = true
+					break
+				}
+			}
+			if !dup {
+				ports = append(ports, p)
+			}
+		}
+	}
+	if len(ports) == 0 {
+		ports = []int{3000}
+	}
+
+	var fwdParts []string
+	var listParts []string
+	for _, p := range ports {
+		fwdParts = append(fwdParts, fmt.Sprintf("hostfwd=tcp::%d-:%d", p, p))
+		listParts = append(listParts, fmt.Sprintf("%d", p))
+	}
+
+	return fmt.Sprintf("-net nic -net user,%s", joinStrings(fwdParts, ",")),
+		joinStrings(listParts, ", ")
+}
+
+// joinStrings joins string slices (avoids importing strings package for one use).
+func joinStrings(parts []string, sep string) string {
+	result := ""
+	for i, p := range parts {
+		if i > 0 {
+			result += sep
+		}
+		result += p
+	}
+	return result
+}
+
+// printBuildResult prints the build result with deployment instructions.
+func printBuildResult(outputPath, format, arch string, workflow *domain.Workflow) {
 	info, statErr := os.Stat(outputPath)
 	sizeStr := ""
 	if statErr == nil {
@@ -304,26 +520,137 @@ func printBuildResult(outputPath, format, arch string) {
 	fmt.Fprintln(os.Stdout)
 	fmt.Fprintln(os.Stdout, "Image built successfully!")
 	fmt.Fprintf(os.Stdout, "  File: %s%s\n", outputPath, sizeStr)
-	fmt.Fprintln(os.Stdout)
 
+	fileName := filepath.Base(outputPath)
 	qemu := qemuSystem(arch)
+	hostfwd, portList := workflowPorts(workflow)
+
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "=== Deployment Instructions ===")
+	fmt.Fprintf(os.Stdout, "  Exposed ports: %s\n", portList)
 
 	switch format {
 	case "iso-efi":
-		fmt.Fprintln(os.Stdout, "Boot with QEMU (EFI):")
-		fmt.Fprintf(
-			os.Stdout,
-			"  %s -bios /usr/share/OVMF/OVMF_CODE.fd -cdrom %s -m 2048\n",
-			qemu, outputPath,
-		)
+		printISOInstructions(qemu, outputPath, fileName, hostfwd)
 	case "raw-bios":
-		fmt.Fprintln(os.Stdout, "Boot with QEMU (BIOS):")
-		fmt.Fprintf(os.Stdout, "  %s -drive file=%s,format=raw -m 2048\n", qemu, outputPath)
+		printRawInstructions(qemu, outputPath, fileName, hostfwd)
 	case "qcow2-bios":
-		fmt.Fprintln(os.Stdout, "Boot with QEMU:")
-		fmt.Fprintf(os.Stdout, "  %s -drive file=%s,format=qcow2 -m 2048\n", qemu, outputPath)
+		printQcow2Instructions(qemu, outputPath, fileName, hostfwd)
 	default:
-		fmt.Fprintln(os.Stdout, "Boot with QEMU:")
-		fmt.Fprintf(os.Stdout, "  %s -cdrom %s -m 2048\n", qemu, outputPath)
+		fmt.Fprintln(os.Stdout)
+		fmt.Fprintln(os.Stdout, "QEMU:")
+		fmt.Fprintf(os.Stdout, "  %s -cdrom %s -m 2048 %s\n", qemu, outputPath, hostfwd)
 	}
+}
+
+func printISOInstructions(qemu, outputPath, fileName, hostfwd string) {
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "--- Bare Metal ---")
+	fmt.Fprintln(os.Stdout, "  1. Write to USB drive:")
+	fmt.Fprintf(os.Stdout, "       sudo dd if=%s of=/dev/sdX bs=4M status=progress\n", outputPath)
+	fmt.Fprintln(os.Stdout, "  2. Boot from USB in UEFI mode (disable Secure Boot)")
+	fmt.Fprintln(os.Stdout, "  3. The agent starts automatically on boot")
+
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "--- QEMU/KVM ---")
+	fmt.Fprintln(os.Stdout, "  Install OVMF (EFI firmware) first:")
+	fmt.Fprintln(os.Stdout, "    macOS:         brew install qemu  (includes OVMF)")
+	fmt.Fprintln(os.Stdout, "    Ubuntu/Debian:  sudo apt install ovmf")
+	fmt.Fprintln(os.Stdout, "    Fedora/RHEL:    sudo dnf install edk2-ovmf")
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "  Then run (adjust OVMF path and accel for your platform):")
+	fmt.Fprintf(os.Stdout, "    %s -cpu host \\\n", qemu)
+	fmt.Fprintln(os.Stdout, "      -accel kvm \\  # Linux (use -accel hvf on macOS)")
+	fmt.Fprintln(os.Stdout, "      -drive if=pflash,format=raw,readonly=on,file=OVMF_CODE \\")
+	fmt.Fprintf(os.Stdout, "      -cdrom %s -m 2048 -smp 2 %s\n", outputPath, hostfwd)
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "  OVMF_CODE path by platform:")
+	fmt.Fprintln(os.Stdout, "    macOS (Apple Silicon): /opt/homebrew/share/qemu/edk2-x86_64-code.fd")
+	fmt.Fprintln(os.Stdout, "    macOS (Intel):         /usr/local/share/qemu/edk2-x86_64-code.fd")
+	fmt.Fprintln(os.Stdout, "    Ubuntu/Debian:         /usr/share/OVMF/OVMF_CODE.fd")
+	fmt.Fprintln(os.Stdout, "    Fedora/RHEL:           /usr/share/edk2/ovmf/OVMF_CODE.fd")
+
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "--- VMware (ESXi / Workstation / Fusion) ---")
+	fmt.Fprintln(os.Stdout, "  1. Create a new VM: Guest OS = Other Linux (64-bit), firmware = EFI")
+	fmt.Fprintf(os.Stdout, "  2. Attach %s as CD/DVD ISO image\n", fileName)
+	fmt.Fprintln(os.Stdout, "  3. Allocate at least 2 GB RAM, then power on")
+	fmt.Fprintln(os.Stdout, "  Tip: For ESXi, upload the ISO to a datastore first")
+
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "--- VirtualBox ---")
+	fmt.Fprintln(os.Stdout, "  1. New VM > Type: Linux, Version: Other Linux (64-bit)")
+	fmt.Fprintln(os.Stdout, "  2. Settings > System > Enable EFI")
+	fmt.Fprintf(os.Stdout, "  3. Settings > Storage > Add optical drive > Choose %s\n", fileName)
+	fmt.Fprintln(os.Stdout, "  4. Allocate at least 2 GB RAM, then Start")
+
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "--- Proxmox VE ---")
+	fmt.Fprintf(os.Stdout, "  1. Upload %s to local storage (Datacenter > Storage > ISO Images)\n", fileName)
+	fmt.Fprintln(os.Stdout, "  2. Create VM: OS type = Linux, BIOS = OVMF (UEFI), Machine = q35")
+	fmt.Fprintln(os.Stdout, "  3. Add CD/DVD drive with the uploaded ISO")
+	fmt.Fprintln(os.Stdout, "  4. Set 2+ GB RAM, 2+ CPU cores, then Start")
+
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "--- Hyper-V ---")
+	fmt.Fprintln(os.Stdout, "  1. New VM > Generation 2 (UEFI)")
+	fmt.Fprintln(os.Stdout, "  2. Disable Secure Boot: Settings > Security > uncheck Secure Boot")
+	fmt.Fprintf(os.Stdout, "  3. Add %s as DVD drive, set boot order to DVD first\n", fileName)
+	fmt.Fprintln(os.Stdout, "  4. Allocate at least 2 GB RAM, then Start")
+}
+
+func printRawInstructions(qemu, outputPath, fileName, hostfwd string) {
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "--- Bare Metal ---")
+	fmt.Fprintln(os.Stdout, "  Write directly to disk:")
+	fmt.Fprintf(os.Stdout, "    sudo dd if=%s of=/dev/sdX bs=4M status=progress\n", outputPath)
+	fmt.Fprintln(os.Stdout, "  Boot in BIOS/Legacy mode")
+
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "--- QEMU/KVM ---")
+	fmt.Fprintf(os.Stdout, "  %s -cpu host -drive file=%s,format=raw \\\n", qemu, outputPath)
+	fmt.Fprintf(os.Stdout, "    -m 2048 -smp 2 %s\n", hostfwd)
+
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "--- VMware ---")
+	fmt.Fprintln(os.Stdout, "  Convert to VMDK first:")
+	fmt.Fprintf(os.Stdout, "    qemu-img convert -f raw -O vmdk %s %s.vmdk\n", outputPath, fileName)
+	fmt.Fprintf(os.Stdout, "  Then attach %s.vmdk as the VM disk (firmware = BIOS)\n", fileName)
+
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "--- VirtualBox ---")
+	fmt.Fprintln(os.Stdout, "  Convert to VDI first:")
+	fmt.Fprintf(os.Stdout, "    VBoxManage convertfromraw %s %s.vdi --format VDI\n", outputPath, fileName)
+	fmt.Fprintf(os.Stdout, "  Then attach %s.vdi as the VM disk\n", fileName)
+
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "--- Proxmox VE ---")
+	fmt.Fprintln(os.Stdout, "  Import as disk:")
+	fmt.Fprintf(os.Stdout, "    qm importdisk <vmid> %s local-lvm\n", outputPath)
+	fmt.Fprintln(os.Stdout, "  Then attach the imported disk to the VM (BIOS mode)")
+}
+
+func printQcow2Instructions(qemu, outputPath, fileName, hostfwd string) {
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "--- QEMU/KVM ---")
+	fmt.Fprintf(os.Stdout, "  %s -cpu host -drive file=%s,format=qcow2 \\\n", qemu, outputPath)
+	fmt.Fprintf(os.Stdout, "    -m 2048 -smp 2 %s\n", hostfwd)
+
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "--- Proxmox VE ---")
+	fmt.Fprintln(os.Stdout, "  Import as disk:")
+	fmt.Fprintf(os.Stdout, "    qm importdisk <vmid> %s local-lvm\n", outputPath)
+	fmt.Fprintln(os.Stdout, "  Then attach the imported disk to the VM")
+
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "--- VMware ---")
+	fmt.Fprintln(os.Stdout, "  Convert to VMDK first:")
+	fmt.Fprintf(os.Stdout, "    qemu-img convert -f qcow2 -O vmdk %s %s.vmdk\n", outputPath, fileName)
+	fmt.Fprintf(os.Stdout, "  Then attach %s.vmdk as the VM disk\n", fileName)
+
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "--- VirtualBox ---")
+	fmt.Fprintln(os.Stdout, "  Convert to VDI first:")
+	fmt.Fprintf(os.Stdout, "    qemu-img convert -f qcow2 -O vdi %s %s.vdi\n", outputPath, fileName)
+	fmt.Fprintf(os.Stdout, "  Then attach %s.vdi as the VM disk\n", fileName)
 }

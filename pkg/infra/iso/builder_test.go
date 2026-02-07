@@ -25,8 +25,10 @@ import (
 
 // mockRunner records calls and returns configurable results.
 type mockRunner struct {
-	buildCalls []mockBuildCall
-	buildErr   error
+	buildCalls       []mockBuildCall
+	cacheImportCalls []string
+	buildErr         error
+	cacheImportErr   error
 }
 
 type mockBuildCall struct {
@@ -34,18 +36,36 @@ type mockBuildCall struct {
 	Format     string
 	Arch       string
 	OutputDir  string
+	Size       string
 }
 
-func (m *mockRunner) Build(_ context.Context, configPath, format, arch, outputDir string) error {
+func (m *mockRunner) CacheImport(_ context.Context, tarPath string) error {
+	m.cacheImportCalls = append(m.cacheImportCalls, tarPath)
+	return m.cacheImportErr
+}
+
+func (m *mockRunner) Build(_ context.Context, configPath, format, arch, outputDir, size string) error {
 	m.buildCalls = append(m.buildCalls, mockBuildCall{
 		ConfigPath: configPath,
 		Format:     format,
 		Arch:       arch,
 		OutputDir:  outputDir,
+		Size:       size,
 	})
 
 	if m.buildErr != nil {
 		return m.buildErr
+	}
+
+	// For kernel+initrd format (used by raw-bios two-step build),
+	// produce the expected kernel, initrd, and cmdline files.
+	if format == "kernel+initrd" {
+		base := filepath.Base(configPath)
+		base = base[:len(base)-len(filepath.Ext(base))] // strip .yml
+		_ = os.WriteFile(filepath.Join(outputDir, base+"-kernel"), []byte("fake-kernel"), 0644)
+		_ = os.WriteFile(filepath.Join(outputDir, base+"-initrd.img"), []byte("fake-initrd"), 0644)
+		_ = os.WriteFile(filepath.Join(outputDir, base+"-cmdline"), []byte("console=ttyS0"), 0644)
+		return nil
 	}
 
 	// Create a fake output file to simulate linuxkit producing output
@@ -56,6 +76,11 @@ func (m *mockRunner) Build(_ context.Context, configPath, format, arch, outputDi
 
 	fakeOutput := filepath.Join(outputDir, "kdeps"+ext)
 	return os.WriteFile(fakeOutput, []byte("fake-image-data"), 0644)
+}
+
+// mockAssembleRawBIOS simulates the raw-bios disk assembly (no Docker needed).
+func mockAssembleRawBIOS(_ context.Context, _, _, _, outputPath string) error {
+	return os.WriteFile(outputPath, []byte("fake-raw-bios-disk"), 0644)
 }
 
 // ========================
@@ -76,13 +101,13 @@ func TestGenerateConfig_Basic(t *testing.T) {
 	assert.Contains(t, config.Kernel.Image, "linuxkit/kernel:")
 	assert.Contains(t, config.Kernel.Cmdline, "console=ttyS0")
 	assert.Len(t, config.Init, 3)
-	assert.Len(t, config.Onboot, 1)
-	assert.Equal(t, "dhcpcd", config.Onboot[0].Name)
-	assert.Len(t, config.Services, 2) // getty + kdeps
-	assert.Equal(t, "kdeps", config.Services[1].Name)
-	assert.Equal(t, "test-app:1.0.0", config.Services[1].Image)
-	assert.Equal(t, "host", config.Services[1].Net)
-	assert.Contains(t, config.Services[1].Capabilities, "all")
+	assert.Len(t, config.Services, 3) // dhcpcd + getty + kdeps
+	assert.Equal(t, "dhcpcd", config.Services[0].Name)
+	assert.Equal(t, "getty", config.Services[1].Name)
+	assert.Equal(t, "kdeps", config.Services[2].Name)
+	assert.Equal(t, "test-app:1.0.0", config.Services[2].Image)
+	assert.Equal(t, "host", config.Services[2].Net)
+	assert.Contains(t, config.Services[2].Capabilities, "all")
 }
 
 func TestGenerateConfig_WithEnvVars(t *testing.T) {
@@ -103,12 +128,14 @@ func TestGenerateConfig_WithEnvVars(t *testing.T) {
 	config, err := iso.GenerateConfig("env-app:1.0.0", "kdeps", "", workflow)
 	require.NoError(t, err)
 
-	kdepsService := config.Services[1]
+	kdepsService := config.Services[2]
+	assert.Contains(t, kdepsService.Env, "KDEPS_BIND_HOST=0.0.0.0")
 	assert.Contains(t, kdepsService.Env, "BAZ=qux")
 	assert.Contains(t, kdepsService.Env, "FOO=bar")
-	// Should be sorted
-	assert.Equal(t, "BAZ=qux", kdepsService.Env[0])
-	assert.Equal(t, "FOO=bar", kdepsService.Env[1])
+	// KDEPS_BIND_HOST first, then sorted user env vars
+	assert.Equal(t, "KDEPS_BIND_HOST=0.0.0.0", kdepsService.Env[0])
+	assert.Equal(t, "BAZ=qux", kdepsService.Env[1])
+	assert.Equal(t, "FOO=bar", kdepsService.Env[2])
 }
 
 func TestGenerateConfig_Hostname(t *testing.T) {
@@ -175,7 +202,7 @@ func TestGenerateConfig_WithOllama(t *testing.T) {
 	require.NoError(t, err)
 
 	// Ollama images should have /dev bind mount
-	kdepsService := config.Services[1]
+	kdepsService := config.Services[2]
 	assert.Contains(t, kdepsService.Binds, "/dev:/dev")
 }
 
@@ -189,7 +216,7 @@ func TestGenerateConfig_WithoutOllama(t *testing.T) {
 	config, err := iso.GenerateConfig("simple-app:1.0.0", "kdeps", "", workflow)
 	require.NoError(t, err)
 
-	kdepsService := config.Services[1]
+	kdepsService := config.Services[2]
 	assert.NotContains(t, kdepsService.Binds, "/dev:/dev")
 	assert.Contains(t, kdepsService.Binds, "/var/run:/var/run")
 }
@@ -219,8 +246,8 @@ func TestGenerateConfig_YAMLRoundtrip(t *testing.T) {
 	assert.Equal(t, config.Kernel.Image, parsed.Kernel.Image)
 	assert.Equal(t, config.Kernel.Cmdline, parsed.Kernel.Cmdline)
 	assert.Equal(t, config.Init, parsed.Init)
-	assert.Len(t, parsed.Services, 2)
-	assert.Equal(t, "roundtrip-app:1.0.0", parsed.Services[1].Image)
+	assert.Len(t, parsed.Services, 3)
+	assert.Equal(t, "roundtrip-app:1.0.0", parsed.Services[2].Image)
 	assert.Equal(t, "test-host", parsed.Files[0].Contents)
 }
 
@@ -240,11 +267,11 @@ func TestMarshalConfig_ContainsExpectedKeys(t *testing.T) {
 	yamlStr := string(data)
 	assert.Contains(t, yamlStr, "kernel:")
 	assert.Contains(t, yamlStr, "init:")
-	assert.Contains(t, yamlStr, "onboot:")
 	assert.Contains(t, yamlStr, "services:")
 	assert.Contains(t, yamlStr, "files:")
 	assert.Contains(t, yamlStr, "linuxkit/kernel:")
 	assert.Contains(t, yamlStr, "yaml-app:1.0.0")
+	assert.Contains(t, yamlStr, "dhcpcd")
 }
 
 // ========================
@@ -321,10 +348,11 @@ func TestBuilder_DefaultFormat(t *testing.T) {
 	assert.Equal(t, "iso-efi", builder.Format)
 }
 
-func TestBuilder_CustomFormat(t *testing.T) {
+func TestBuilder_CustomFormat_RawBIOS(t *testing.T) {
 	runner := &mockRunner{}
 	builder := iso.NewBuilderWithRunner(runner)
 	builder.Format = "raw-bios"
+	builder.RawBIOSAssembleFunc = mockAssembleRawBIOS
 
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{
@@ -337,8 +365,10 @@ func TestBuilder_CustomFormat(t *testing.T) {
 	err := builder.Build(t.Context(), "app:1.0.0", workflow, outputPath, false)
 	require.NoError(t, err)
 
+	// raw-bios uses two-step build: linuxkit builds kernel+initrd first
 	require.Len(t, runner.buildCalls, 1)
-	assert.Equal(t, "raw-bios", runner.buildCalls[0].Format)
+	assert.Equal(t, "kernel+initrd", runner.buildCalls[0].Format)
+	assert.FileExists(t, outputPath)
 }
 
 func TestBuilder_GenerateConfigYAML(t *testing.T) {
@@ -384,7 +414,7 @@ func TestOllamaDetection_ExplicitFlag(t *testing.T) {
 
 	config, err := iso.GenerateConfig("app:1.0.0", "kdeps", "", workflow)
 	require.NoError(t, err)
-	assert.Contains(t, config.Services[1].Binds, "/dev:/dev")
+	assert.Contains(t, config.Services[2].Binds, "/dev:/dev")
 }
 
 func TestOllamaDetection_BackendOllama(t *testing.T) {
@@ -403,7 +433,7 @@ func TestOllamaDetection_BackendOllama(t *testing.T) {
 
 	config, err := iso.GenerateConfig("app:1.0.0", "kdeps", "", workflow)
 	require.NoError(t, err)
-	assert.Contains(t, config.Services[1].Binds, "/dev:/dev")
+	assert.Contains(t, config.Services[2].Binds, "/dev:/dev")
 }
 
 func TestOllamaDetection_OnlineProvider(t *testing.T) {
@@ -422,7 +452,7 @@ func TestOllamaDetection_OnlineProvider(t *testing.T) {
 
 	config, err := iso.GenerateConfig("app:1.0.0", "kdeps", "", workflow)
 	require.NoError(t, err)
-	assert.NotContains(t, config.Services[1].Binds, "/dev:/dev")
+	assert.NotContains(t, config.Services[2].Binds, "/dev:/dev")
 }
 
 // ========================
@@ -477,6 +507,45 @@ func TestKernelCmdline(t *testing.T) {
 	assert.Equal(t, "console=ttyAMA0 console=tty0", iso.KernelCmdline("arm64"))
 	assert.Equal(t, "console=ttyS0 console=tty0", iso.KernelCmdline("amd64"))
 	assert.Equal(t, "console=ttyS0 console=tty0", iso.KernelCmdline(""))
+}
+
+func TestBuilder_Build_PassesSize(t *testing.T) {
+	runner := &mockRunner{}
+	builder := iso.NewBuilderWithRunner(runner)
+	builder.Size = "4096M"
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "big-app",
+		},
+	}
+
+	outputPath := filepath.Join(t.TempDir(), "output.iso")
+
+	err := builder.Build(t.Context(), "big-app:1.0.0", workflow, outputPath, false)
+	require.NoError(t, err)
+
+	require.Len(t, runner.buildCalls, 1)
+	assert.Equal(t, "4096M", runner.buildCalls[0].Size)
+}
+
+func TestBuilder_Build_EmptySize(t *testing.T) {
+	runner := &mockRunner{}
+	builder := iso.NewBuilderWithRunner(runner)
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "small-app",
+		},
+	}
+
+	outputPath := filepath.Join(t.TempDir(), "output.iso")
+
+	err := builder.Build(t.Context(), "small-app:1.0.0", workflow, outputPath, false)
+	require.NoError(t, err)
+
+	require.Len(t, runner.buildCalls, 1)
+	assert.Equal(t, "", runner.buildCalls[0].Size)
 }
 
 func TestBuilder_Build_ARM64PassesArch(t *testing.T) {

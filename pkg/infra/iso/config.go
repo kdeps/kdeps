@@ -89,7 +89,8 @@ func GenerateConfig(imageName, hostname, arch string, workflow *domain.Workflow)
 	}
 
 	// Build env vars for the service container
-	var envList []string
+	// Always bind to 0.0.0.0 in VM so ports are reachable via virtual NIC
+	envList := []string{"KDEPS_BIND_HOST=0.0.0.0"}
 	if workflow.Settings.AgentSettings.Env != nil {
 		keys := make([]string, 0, len(workflow.Settings.AgentSettings.Env))
 		for k := range workflow.Settings.AgentSettings.Env {
@@ -120,13 +121,11 @@ func GenerateConfig(imageName, hostname, arch string, workflow *domain.Workflow)
 			fmt.Sprintf("linuxkit/runc:%s", linuxkitComponentTag),
 			fmt.Sprintf("linuxkit/containerd:%s", linuxkitComponentTag),
 		},
-		Onboot: []LinuxKitImage{
+		Services: []LinuxKitImage{
 			{
 				Name:  "dhcpcd",
 				Image: fmt.Sprintf("linuxkit/dhcpcd:%s", linuxkitComponentTag),
 			},
-		},
-		Services: []LinuxKitImage{
 			{
 				Name:  "getty",
 				Image: fmt.Sprintf("linuxkit/getty:%s", linuxkitComponentTag),

@@ -3,6 +3,7 @@ FROM {{ .BaseImage }}
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PATH=/root/.local/bin:/opt/venv/bin:$PATH \
+    KDEPS_BIND_HOST=0.0.0.0 \
     {{- if .InstallOllama }}
     OLLAMA_HOST=127.0.0.1 \
     OLLAMA_PORT={{ .BackendPort }} \
@@ -99,7 +100,15 @@ RUN (OLLAMA_HOST=127.0.0.1 ollama serve &) && \
 WORKDIR /app
 
 # Expose ports
-EXPOSE {{ .APIPort }} {{ .BackendPort }}
+{{- if .HasAPIServer }}
+EXPOSE {{ .APIPort }}
+{{- end }}
+{{- if .HasWebServer }}
+EXPOSE {{ .WebServerPort }}
+{{- end }}
+{{- if .InstallOllama }}
+EXPOSE {{ .BackendPort }}
+{{- end }}
 
 # Use entrypoint for backend management
 ENTRYPOINT ["/entrypoint.sh"]
