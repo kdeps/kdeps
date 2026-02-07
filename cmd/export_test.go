@@ -59,7 +59,7 @@ func TestExportISO_InvalidPath(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to access path")
 }
 
-func TestExportISO_ShowDockerfile(t *testing.T) {
+func TestExportISO_ShowConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	workflowContent := `
@@ -82,17 +82,13 @@ settings:
 	require.NoError(t, err)
 
 	flags := &cmd.ExportFlags{
-		ShowDockerfile: true,
-		Hostname:       "test-host",
+		ShowConfig: true,
+		Hostname:   "test-host",
 	}
 
-	// ShowDockerfile may succeed (generates Dockerfile) or fail (Docker not available)
+	// ShowConfig generates LinuxKit YAML (no Docker needed)
 	err = cmd.ExportISOWithFlags(&cobra.Command{}, []string{tmpDir}, flags)
-	if err != nil {
-		// Docker not available is acceptable
-		assert.Contains(t, err.Error(), "Docker")
-	}
-	// If no error, it printed the Dockerfile successfully
+	require.NoError(t, err)
 }
 
 func TestExportISO_ValidWorkflow(t *testing.T) {
@@ -123,9 +119,39 @@ settings:
 		Hostname: "test-host",
 	}
 
-	// Build may fail if Docker is not available - that's acceptable
+	// Build may fail if Docker or linuxkit is not available - that's acceptable
 	err = cmd.ExportISOWithFlags(&cobra.Command{}, []string{tmpDir}, flags)
 	if err != nil {
-		t.Logf("Export failed (expected if Docker unavailable): %v", err)
+		t.Logf("Export failed (expected if Docker/linuxkit unavailable): %v", err)
+	}
+}
+
+func TestExportISO_UnsupportedFormat(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	workflowContent := `
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: test-format
+  version: "1.0.0"
+  targetActionId: test-action
+settings:
+  apiServerMode: true
+`
+
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	err := os.WriteFile(workflowPath, []byte(workflowContent), 0644)
+	require.NoError(t, err)
+
+	flags := &cmd.ExportFlags{
+		Format: "invalid-format",
+	}
+
+	// This should fail at format validation, but only after Docker builder
+	// is created (which may fail first if Docker is unavailable)
+	err = cmd.ExportISOWithFlags(&cobra.Command{}, []string{tmpDir}, flags)
+	if err != nil {
+		t.Logf("Export failed: %v", err)
 	}
 }

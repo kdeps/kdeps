@@ -9,20 +9,60 @@
 package iso_test
 
 import (
-	"archive/tar"
-	"io"
+	"context"
+	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/infra/iso"
 )
 
-func TestISOBuilder_GenerateDockerfile_Basic(t *testing.T) {
-	builder := iso.NewBuilder(nil)
+// mockRunner records calls and returns configurable results.
+type mockRunner struct {
+	buildCalls []mockBuildCall
+	buildErr   error
+}
 
+type mockBuildCall struct {
+	ConfigPath string
+	Format     string
+	Arch       string
+	OutputDir  string
+}
+
+func (m *mockRunner) Build(_ context.Context, configPath, format, arch, outputDir string) error {
+	m.buildCalls = append(m.buildCalls, mockBuildCall{
+		ConfigPath: configPath,
+		Format:     format,
+		Arch:       arch,
+		OutputDir:  outputDir,
+	})
+
+	if m.buildErr != nil {
+		return m.buildErr
+	}
+
+	// Create a fake output file to simulate linuxkit producing output
+	ext, ok := iso.FormatExtensions[format]
+	if !ok {
+		ext = ".iso"
+	}
+
+	fakeOutput := filepath.Join(outputDir, "kdeps"+ext)
+	return os.WriteFile(fakeOutput, []byte("fake-image-data"), 0644)
+}
+
+// ========================
+// Config generation tests
+// ========================
+
+func TestGenerateConfig_Basic(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{
 			Name:    "test-app",
@@ -30,25 +70,99 @@ func TestISOBuilder_GenerateDockerfile_Basic(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile("test-app:1.0.0", workflow)
+	config, err := iso.GenerateConfig("test-app:1.0.0", "kdeps", "", workflow)
 	require.NoError(t, err)
 
-	assert.Contains(t, dockerfile, "FROM test-app:1.0.0 AS app")
-	assert.Contains(t, dockerfile, "FROM alpine:latest AS assembler")
-	assert.Contains(t, dockerfile, "COPY --from=app / /build/rootfs/")
-	assert.Contains(t, dockerfile, "iso-assembly.sh")
-	assert.Contains(t, dockerfile, "FROM scratch")
-	assert.Contains(t, dockerfile, "COPY --from=assembler /output/kdeps.iso /kdeps.iso")
+	assert.Contains(t, config.Kernel.Image, "linuxkit/kernel:")
+	assert.Contains(t, config.Kernel.Cmdline, "console=ttyS0")
+	assert.Len(t, config.Init, 3)
+	assert.Len(t, config.Onboot, 1)
+	assert.Equal(t, "dhcpcd", config.Onboot[0].Name)
+	assert.Len(t, config.Services, 2) // getty + kdeps
+	assert.Equal(t, "kdeps", config.Services[1].Name)
+	assert.Equal(t, "test-app:1.0.0", config.Services[1].Image)
+	assert.Equal(t, "host", config.Services[1].Net)
+	assert.Contains(t, config.Services[1].Capabilities, "all")
 }
 
-func TestISOBuilder_GenerateDockerfile_WithOllama(t *testing.T) {
-	builder := iso.NewBuilder(nil)
+func TestGenerateConfig_WithEnvVars(t *testing.T) {
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "env-app",
+		},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				Env: map[string]string{
+					"FOO": "bar",
+					"BAZ": "qux",
+				},
+			},
+		},
+	}
 
+	config, err := iso.GenerateConfig("env-app:1.0.0", "kdeps", "", workflow)
+	require.NoError(t, err)
+
+	kdepsService := config.Services[1]
+	assert.Contains(t, kdepsService.Env, "BAZ=qux")
+	assert.Contains(t, kdepsService.Env, "FOO=bar")
+	// Should be sorted
+	assert.Equal(t, "BAZ=qux", kdepsService.Env[0])
+	assert.Equal(t, "FOO=bar", kdepsService.Env[1])
+}
+
+func TestGenerateConfig_Hostname(t *testing.T) {
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "host-app",
+		},
+	}
+
+	config, err := iso.GenerateConfig("host-app:1.0.0", "my-custom-host", "", workflow)
+	require.NoError(t, err)
+
+	require.Len(t, config.Files, 1)
+	assert.Equal(t, "etc/hostname", config.Files[0].Path)
+	assert.Equal(t, "my-custom-host", config.Files[0].Contents)
+}
+
+func TestGenerateConfig_DefaultHostname(t *testing.T) {
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "app",
+		},
+	}
+
+	config, err := iso.GenerateConfig("app:1.0.0", "", "", workflow)
+	require.NoError(t, err)
+
+	require.Len(t, config.Files, 1)
+	assert.Equal(t, "kdeps", config.Files[0].Contents)
+}
+
+func TestGenerateConfig_NilWorkflow(t *testing.T) {
+	_, err := iso.GenerateConfig("test:1.0.0", "kdeps", "", nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "workflow cannot be nil")
+}
+
+func TestGenerateConfig_EmptyImageName(t *testing.T) {
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "app",
+		},
+	}
+
+	_, err := iso.GenerateConfig("", "kdeps", "", workflow)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "image name cannot be empty")
+}
+
+func TestGenerateConfig_WithOllama(t *testing.T) {
 	installOllama := true
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{
-			Name:    "ollama-app",
-			Version: "1.0.0",
+			Name: "ollama-app",
 		},
 		Settings: domain.WorkflowSettings{
 			AgentSettings: domain.AgentSettings{
@@ -57,188 +171,330 @@ func TestISOBuilder_GenerateDockerfile_WithOllama(t *testing.T) {
 		},
 	}
 
-	dockerfile, err := builder.GenerateDockerfile("ollama-app:1.0.0", workflow)
+	config, err := iso.GenerateConfig("ollama-app:1.0.0", "kdeps", "", workflow)
 	require.NoError(t, err)
 
-	assert.Contains(t, dockerfile, "FROM ollama-app:1.0.0 AS app")
+	// Ollama images should have /dev bind mount
+	kdepsService := config.Services[1]
+	assert.Contains(t, kdepsService.Binds, "/dev:/dev")
 }
 
-func TestISOBuilder_GenerateDockerfile_NilWorkflow(t *testing.T) {
-	builder := iso.NewBuilder(nil)
+func TestGenerateConfig_WithoutOllama(t *testing.T) {
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "simple-app",
+		},
+	}
 
-	_, err := builder.GenerateDockerfile("test:1.0.0", nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "workflow cannot be nil")
+	config, err := iso.GenerateConfig("simple-app:1.0.0", "kdeps", "", workflow)
+	require.NoError(t, err)
+
+	kdepsService := config.Services[1]
+	assert.NotContains(t, kdepsService.Binds, "/dev:/dev")
+	assert.Contains(t, kdepsService.Binds, "/var/run:/var/run")
 }
 
-func TestISOBuilder_Build_NilWorkflow(t *testing.T) {
-	builder := iso.NewBuilder(nil)
+func TestGenerateConfig_YAMLRoundtrip(t *testing.T) {
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "roundtrip-app",
+		},
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				Env: map[string]string{"KEY": "value"},
+			},
+		},
+	}
 
-	err := builder.Build(t.Context(), "test:1.0.0", nil, "output.iso", false)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "workflow cannot be nil")
+	config, err := iso.GenerateConfig("roundtrip-app:1.0.0", "test-host", "", workflow)
+	require.NoError(t, err)
+
+	data, err := iso.MarshalConfig(config)
+	require.NoError(t, err)
+
+	// Verify valid YAML
+	var parsed iso.LinuxKitConfig
+	require.NoError(t, yaml.Unmarshal(data, &parsed))
+
+	assert.Equal(t, config.Kernel.Image, parsed.Kernel.Image)
+	assert.Equal(t, config.Kernel.Cmdline, parsed.Kernel.Cmdline)
+	assert.Equal(t, config.Init, parsed.Init)
+	assert.Len(t, parsed.Services, 2)
+	assert.Equal(t, "roundtrip-app:1.0.0", parsed.Services[1].Image)
+	assert.Equal(t, "test-host", parsed.Files[0].Contents)
 }
 
-func TestISOBuilder_Build_EmptyImageName(t *testing.T) {
-	builder := iso.NewBuilder(nil)
+func TestMarshalConfig_ContainsExpectedKeys(t *testing.T) {
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "yaml-app",
+		},
+	}
+
+	config, err := iso.GenerateConfig("yaml-app:1.0.0", "kdeps", "", workflow)
+	require.NoError(t, err)
+
+	data, err := iso.MarshalConfig(config)
+	require.NoError(t, err)
+
+	yamlStr := string(data)
+	assert.Contains(t, yamlStr, "kernel:")
+	assert.Contains(t, yamlStr, "init:")
+	assert.Contains(t, yamlStr, "onboot:")
+	assert.Contains(t, yamlStr, "services:")
+	assert.Contains(t, yamlStr, "files:")
+	assert.Contains(t, yamlStr, "linuxkit/kernel:")
+	assert.Contains(t, yamlStr, "yaml-app:1.0.0")
+}
+
+// ========================
+// Builder tests (mock)
+// ========================
+
+func TestBuilder_Build_CallsRunner(t *testing.T) {
+	runner := &mockRunner{}
+	builder := iso.NewBuilderWithRunner(runner)
 
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{
 			Name:    "test-app",
 			Version: "1.0.0",
+		},
+	}
+
+	outputPath := filepath.Join(t.TempDir(), "output.iso")
+
+	err := builder.Build(t.Context(), "test-app:1.0.0", workflow, outputPath, false)
+	require.NoError(t, err)
+
+	require.Len(t, runner.buildCalls, 1)
+	assert.Equal(t, "iso-efi", runner.buildCalls[0].Format)
+	assert.FileExists(t, outputPath)
+}
+
+func TestBuilder_Build_NilWorkflow(t *testing.T) {
+	runner := &mockRunner{}
+	builder := iso.NewBuilderWithRunner(runner)
+
+	err := builder.Build(t.Context(), "test:1.0.0", nil, "output.iso", false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "workflow cannot be nil")
+	assert.Empty(t, runner.buildCalls)
+}
+
+func TestBuilder_Build_EmptyImage(t *testing.T) {
+	runner := &mockRunner{}
+	builder := iso.NewBuilderWithRunner(runner)
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "app",
 		},
 	}
 
 	err := builder.Build(t.Context(), "", workflow, "output.iso", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "image name cannot be empty")
+	assert.Empty(t, runner.buildCalls)
 }
 
-func TestISOBuilder_BuildTemplateData(t *testing.T) {
-	builder := iso.NewBuilder(nil)
+func TestBuilder_Build_RunnerError(t *testing.T) {
+	runner := &mockRunner{buildErr: errors.New("linuxkit failed")}
+	builder := iso.NewBuilderWithRunner(runner)
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "app",
+		},
+	}
+
+	outputPath := filepath.Join(t.TempDir(), "output.iso")
+
+	err := builder.Build(t.Context(), "app:1.0.0", workflow, outputPath, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "linuxkit failed")
+}
+
+func TestBuilder_DefaultFormat(t *testing.T) {
+	runner := &mockRunner{}
+	builder := iso.NewBuilderWithRunner(runner)
+	assert.Equal(t, "iso-efi", builder.Format)
+}
+
+func TestBuilder_CustomFormat(t *testing.T) {
+	runner := &mockRunner{}
+	builder := iso.NewBuilderWithRunner(runner)
+	builder.Format = "raw-bios"
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "app",
+		},
+	}
+
+	outputPath := filepath.Join(t.TempDir(), "output.raw")
+
+	err := builder.Build(t.Context(), "app:1.0.0", workflow, outputPath, false)
+	require.NoError(t, err)
+
+	require.Len(t, runner.buildCalls, 1)
+	assert.Equal(t, "raw-bios", runner.buildCalls[0].Format)
+}
+
+func TestBuilder_GenerateConfigYAML(t *testing.T) {
+	builder := iso.NewBuilderWithRunner(nil)
 	builder.Hostname = "my-host"
 
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name:    "preview-app",
+			Version: "2.0.0",
+		},
+	}
+
+	yamlStr, err := builder.GenerateConfigYAML("preview-app:2.0.0", workflow)
+	require.NoError(t, err)
+
+	assert.Contains(t, yamlStr, "preview-app:2.0.0")
+	assert.Contains(t, yamlStr, "my-host")
+	assert.Contains(t, yamlStr, "linuxkit/kernel:")
+}
+
+func TestBuilder_GenerateConfigYAML_NilWorkflow(t *testing.T) {
+	builder := iso.NewBuilderWithRunner(nil)
+
+	_, err := builder.GenerateConfigYAML("app:1.0.0", nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "workflow cannot be nil")
+}
+
+// ========================
+// Ollama detection tests
+// ========================
+
+func TestOllamaDetection_ExplicitFlag(t *testing.T) {
 	installOllama := true
 	workflow := &domain.Workflow{
-		Metadata: domain.WorkflowMetadata{
-			Name:    "test-app",
-			Version: "1.0.0",
-		},
 		Settings: domain.WorkflowSettings{
-			APIServer: &domain.APIServerConfig{
-				PortNum: 8080,
-			},
 			AgentSettings: domain.AgentSettings{
 				InstallOllama: &installOllama,
-				Models:        []string{"llama3.2:1b"},
-				OfflineMode:   true,
-				Env:           map[string]string{"FOO": "bar"},
 			},
 		},
 	}
 
-	// Test via GenerateDockerfile which uses buildTemplateData internally
-	dockerfile, err := builder.GenerateDockerfile("test-app:1.0.0", workflow)
+	config, err := iso.GenerateConfig("app:1.0.0", "kdeps", "", workflow)
 	require.NoError(t, err)
-
-	assert.Contains(t, dockerfile, "FROM test-app:1.0.0 AS app")
+	assert.Contains(t, config.Services[1].Binds, "/dev:/dev")
 }
 
-func TestISOBuilder_BuildTemplateData_DefaultPorts(t *testing.T) {
-	builder := iso.NewBuilder(nil)
-
+func TestOllamaDetection_BackendOllama(t *testing.T) {
 	workflow := &domain.Workflow{
-		Metadata: domain.WorkflowMetadata{
-			Name:    "simple-app",
-			Version: "1.0.0",
-		},
-	}
-
-	dockerfile, err := builder.GenerateDockerfile("simple-app:1.0.0", workflow)
-	require.NoError(t, err)
-
-	// Should use default hostname
-	assert.Contains(t, dockerfile, "FROM simple-app:1.0.0 AS app")
-}
-
-func TestISOBuilder_ShouldInstallOllama(t *testing.T) {
-	tests := []struct {
-		name      string
-		workflow  *domain.Workflow
-		expectStr string // String that should be present in the init script
-	}{
-		{
-			name: "explicit installOllama flag",
-			workflow: func() *domain.Workflow {
-				b := true
-				return &domain.Workflow{
-					Settings: domain.WorkflowSettings{
-						AgentSettings: domain.AgentSettings{
-							InstallOllama: &b,
-						},
-					},
-				}
-			}(),
-			expectStr: "mkdir -p /root/.ollama",
-		},
-		{
-			name: "ollama backend from resource",
-			workflow: &domain.Workflow{
-				Resources: []*domain.Resource{
-					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Backend: "ollama",
-								Model:   "llama2:7b",
-							},
-						},
+		Resources: []*domain.Resource{
+			{
+				Run: domain.RunConfig{
+					Chat: &domain.ChatConfig{
+						Backend: "ollama",
+						Model:   "llama2:7b",
 					},
 				},
 			},
-			expectStr: "mkdir -p /root/.ollama",
 		},
-		{
-			name: "online provider with apiKey - no ollama",
-			workflow: &domain.Workflow{
-				Resources: []*domain.Resource{
-					{
-						Run: domain.RunConfig{
-							Chat: &domain.ChatConfig{
-								Model:  "gpt-4",
-								APIKey: "sk-test",
-							},
-						},
+	}
+
+	config, err := iso.GenerateConfig("app:1.0.0", "kdeps", "", workflow)
+	require.NoError(t, err)
+	assert.Contains(t, config.Services[1].Binds, "/dev:/dev")
+}
+
+func TestOllamaDetection_OnlineProvider(t *testing.T) {
+	workflow := &domain.Workflow{
+		Resources: []*domain.Resource{
+			{
+				Run: domain.RunConfig{
+					Chat: &domain.ChatConfig{
+						Model:  "gpt-4",
+						APIKey: "sk-test",
 					},
 				},
 			},
-			expectStr: "", // Should NOT contain ollama dir
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			builder := iso.NewBuilder(nil)
-			dockerfile, err := builder.GenerateDockerfile("test:1.0.0", tt.workflow)
-			require.NoError(t, err)
-
-			assert.Contains(t, dockerfile, "FROM test:1.0.0 AS app")
-		})
-	}
+	config, err := iso.GenerateConfig("app:1.0.0", "kdeps", "", workflow)
+	require.NoError(t, err)
+	assert.NotContains(t, config.Services[1].Binds, "/dev:/dev")
 }
 
-func TestCreateBuildContext(t *testing.T) {
-	builder := iso.NewBuilder(nil)
+// ========================
+// LinuxKit URL tests
+// ========================
+
+func TestLinuxKitDownloadURL(t *testing.T) {
+	url := iso.LinuxKitDownloadURL()
+	assert.Contains(t, url, "github.com/linuxkit/linuxkit/releases/download")
+	assert.Contains(t, url, "linuxkit-")
+}
+
+func TestFormatExtensions(t *testing.T) {
+	assert.Equal(t, ".iso", iso.FormatExtensions["iso-efi"])
+	assert.Equal(t, ".raw", iso.FormatExtensions["raw-bios"])
+	assert.Equal(t, ".qcow2", iso.FormatExtensions["qcow2-bios"])
+}
+
+// ========================
+// Architecture tests
+// ========================
+
+func TestGenerateConfig_ARM64Cmdline(t *testing.T) {
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "arm-app",
+		},
+	}
+
+	config, err := iso.GenerateConfig("arm-app:1.0.0", "kdeps", "arm64", workflow)
+	require.NoError(t, err)
+
+	assert.Contains(t, config.Kernel.Cmdline, "console=ttyAMA0")
+	assert.NotContains(t, config.Kernel.Cmdline, "console=ttyS0")
+}
+
+func TestGenerateConfig_AMD64Cmdline(t *testing.T) {
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name: "amd-app",
+		},
+	}
+
+	config, err := iso.GenerateConfig("amd-app:1.0.0", "kdeps", "amd64", workflow)
+	require.NoError(t, err)
+
+	assert.Contains(t, config.Kernel.Cmdline, "console=ttyS0")
+	assert.NotContains(t, config.Kernel.Cmdline, "console=ttyAMA0")
+}
+
+func TestKernelCmdline(t *testing.T) {
+	assert.Equal(t, "console=ttyAMA0 console=tty0", iso.KernelCmdline("arm64"))
+	assert.Equal(t, "console=ttyS0 console=tty0", iso.KernelCmdline("amd64"))
+	assert.Equal(t, "console=ttyS0 console=tty0", iso.KernelCmdline(""))
+}
+
+func TestBuilder_Build_ARM64PassesArch(t *testing.T) {
+	runner := &mockRunner{}
+	builder := iso.NewBuilderWithRunner(runner)
+	builder.Arch = "arm64"
 
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{
-			Name:    "test-app",
-			Version: "1.0.0",
+			Name: "arm-app",
 		},
 	}
 
-	// Use BuildContext to verify it creates a valid tar
-	ctx := builder.CreateBuildContextForTest("test-app:1.0.0", workflow)
-	require.NotNil(t, ctx)
+	outputPath := filepath.Join(t.TempDir(), "output.iso")
 
-	// Read tar entries
-	reader, err := ctx()
+	err := builder.Build(t.Context(), "arm-app:1.0.0", workflow, outputPath, false)
 	require.NoError(t, err)
 
-	tarReader := tar.NewReader(reader)
-	files := make(map[string]bool)
-	for {
-		header, readErr := tarReader.Next()
-		if readErr == io.EOF {
-			break
-		}
-		require.NoError(t, readErr)
-		files[header.Name] = true
-	}
-
-	assert.True(t, files["Dockerfile"], "tar should contain Dockerfile")
-	assert.True(t, files["iso-assembly.sh"], "tar should contain iso-assembly.sh")
-	assert.True(t, files["syslinux.cfg"], "tar should contain syslinux.cfg")
-	assert.True(t, files["kdeps-init.sh"], "tar should contain kdeps-init.sh")
-	assert.True(t, files["interfaces"], "tar should contain interfaces")
-	assert.Len(t, files, 5, "tar should contain exactly 5 files")
+	require.Len(t, runner.buildCalls, 1)
+	assert.Equal(t, "arm64", runner.buildCalls[0].Arch)
 }
