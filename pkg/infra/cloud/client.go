@@ -48,14 +48,60 @@ type WhoamiResponse struct {
 
 // PlanInfo represents plan details.
 type PlanInfo struct {
-	Name string `json:"name"`
-	Slug string `json:"slug"`
+	Name     string       `json:"name"`
+	Slug     string       `json:"slug"`
+	Features PlanFeatures `json:"features"`
+	Limits   PlanLimits   `json:"limits"`
+}
+
+// PlanFeatures represents plan feature flags.
+type PlanFeatures struct {
+	APIAccess    bool `json:"apiAccess"`
+	ExportDocker bool `json:"exportDocker"`
+	ExportISO    bool `json:"exportIso"`
+}
+
+// PlanLimits represents plan resource limits.
+type PlanLimits struct {
+	MaxWorkflows   int `json:"maxWorkflows"`
+	MaxDeployments int `json:"maxDeployments"`
 }
 
 // UsageInfo represents usage details.
 type UsageInfo struct {
 	BuildsThisMonth   int `json:"buildsThisMonth"`
 	APICallsThisMonth int `json:"apiCallsThisMonth"`
+	WorkflowsCount    int `json:"workflowsCount"`
+	DeploymentsCount  int `json:"deploymentsCount"`
+}
+
+// WorkflowEntry represents a workflow in the list response.
+type WorkflowEntry struct {
+	ID          string              `json:"id"`
+	Name        string              `json:"name"`
+	Description string              `json:"description"`
+	Version     string              `json:"version"`
+	IsPublic    bool                `json:"isPublic"`
+	Deployment  *WorkflowDeployment `json:"deployment"`
+	CreatedAt   string              `json:"createdAt"`
+	UpdatedAt   string              `json:"updatedAt"`
+}
+
+// WorkflowDeployment represents a deployment associated with a workflow.
+type WorkflowDeployment struct {
+	Status string `json:"status"`
+	URL    string `json:"url"`
+}
+
+// DeploymentEntry represents a deployment in the list response.
+type DeploymentEntry struct {
+	ID           string `json:"id"`
+	WorkflowName string `json:"workflowName"`
+	Status       string `json:"status"`
+	URL          string `json:"url"`
+	Subdomain    string `json:"subdomain"`
+	CreatedAt    string `json:"createdAt"`
+	UpdatedAt    string `json:"updatedAt"`
 }
 
 // BuildResponse represents the /api/cli/builds POST response.
@@ -248,4 +294,47 @@ func (c *Client) StreamBuildLogs(ctx context.Context, buildID string, w io.Write
 			// Continue polling
 		}
 	}
+}
+
+// ListWorkflows returns the user's workflows from the cloud.
+func (c *Client) ListWorkflows(ctx context.Context) ([]WorkflowEntry, error) {
+	return getJSON[[]WorkflowEntry](c, ctx, "/api/cli/workflows")
+}
+
+// ListDeployments returns the user's deployments from the cloud.
+func (c *Client) ListDeployments(ctx context.Context) ([]DeploymentEntry, error) {
+	return getJSON[[]DeploymentEntry](c, ctx, "/api/cli/deployments")
+}
+
+// getJSON performs an authenticated GET request and decodes the JSON response.
+func getJSON[T any](c *Client, ctx context.Context, path string) (T, error) {
+	var zero T
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.APIURL+path, nil)
+	if err != nil {
+		return zero, err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.APIKey)
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return zero, fmt.Errorf("failed to connect to kdeps.io: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		return zero, fmt.Errorf("invalid API key. Run 'kdeps login' to re-authenticate")
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return zero, fmt.Errorf("server returned %d", resp.StatusCode)
+	}
+
+	var result T
+	if decodeErr := json.NewDecoder(resp.Body).Decode(&result); decodeErr != nil {
+		return zero, fmt.Errorf("failed to parse response: %w", decodeErr)
+	}
+
+	return result, nil
 }

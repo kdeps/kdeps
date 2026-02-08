@@ -202,16 +202,9 @@ func exportISOInternal(_ *cobra.Command, args []string, flags *ExportFlags) erro
 	}
 
 	// Force offline mode for ISO exports — models must be baked into the image
-	// since the VM may not have internet access at runtime
+	// since the VM may not have internet access at runtime.
 	if len(workflow.Settings.AgentSettings.Models) > 0 {
 		workflow.Settings.AgentSettings.OfflineMode = true
-
-		// ISO 9660 has a 4 GiB per-file limit which Ollama model blobs exceed.
-		// Auto-switch to raw format unless the user explicitly chose a format.
-		if flags.Format == "iso" {
-			fmt.Fprintln(os.Stdout, "Note: Switching to raw format (ISO 9660 has a 4 GiB file size limit incompatible with large model files)")
-			flags.Format = "raw"
-		}
 	}
 
 	// Create Docker builder for building the app image
@@ -299,6 +292,9 @@ func performISOBuild(
 
 	ctx := context.Background()
 
+	// LinuxKit build uses --docker to pull the local image directly from
+	// the Docker daemon, avoiding the docker-save/cache-import pipeline
+	// (which corrupts layers due to gzip format mismatch).
 	fmt.Fprintln(os.Stdout, "Step 2: Building bootable image with LinuxKit...")
 
 	err = isoBuilder.Build(ctx, imageName, workflow, outputPath, flags.NoCache)
@@ -346,6 +342,29 @@ func cloudExport(packagePath, format, arch string, noCache bool, output string) 
 		return err
 	}
 
+	// Pre-flight: check plan access before uploading
+	client := cloud.NewClient(config.APIKey, config.APIURL)
+	ctx := context.Background()
+
+	whoami, whoamiErr := client.Whoami(ctx)
+	if whoamiErr != nil {
+		return fmt.Errorf("failed to verify account: %w", whoamiErr)
+	}
+
+	if !whoami.Plan.Features.APIAccess {
+		return fmt.Errorf(
+			"cloud builds require a Pro or Max plan (current: %s)\nUpgrade at https://kdeps.io/settings/billing",
+			whoami.Plan.Name,
+		)
+	}
+
+	if !whoami.Plan.Features.ExportISO && format != "docker" {
+		return fmt.Errorf(
+			"ISO/raw/qcow2 cloud exports require a Max plan (current: %s)\nUpgrade at https://kdeps.io/settings/billing",
+			whoami.Plan.Name,
+		)
+	}
+
 	// Package workflow to temp .kdeps file
 	tmpFile, err := os.CreateTemp("", "kdeps-cloud-*.kdeps")
 	if err != nil {
@@ -379,9 +398,6 @@ func cloudExport(packagePath, format, arch string, noCache bool, output string) 
 	defer file.Close()
 
 	fmt.Fprintf(os.Stdout, "Uploading to kdeps.io cloud (format: %s, arch: %s)...\n", format, arch)
-
-	client := cloud.NewClient(config.APIKey, config.APIURL)
-	ctx := context.Background()
 
 	buildResp, err := client.StartBuild(ctx, file, format, arch, noCache)
 	if err != nil {
@@ -461,29 +477,7 @@ func downloadCloudArtifact(ctx context.Context, url, dest string) error {
 // workflowPorts extracts the configured ports from a workflow and returns
 // a QEMU hostfwd string and a human-readable port list.
 func workflowPorts(workflow *domain.Workflow) (hostfwd string, portList string) {
-	var ports []int
-	if workflow != nil {
-		if workflow.Settings.APIServer != nil && workflow.Settings.APIServer.PortNum > 0 {
-			ports = append(ports, workflow.Settings.APIServer.PortNum)
-		}
-		if workflow.Settings.WebServer != nil && workflow.Settings.WebServer.PortNum > 0 {
-			p := workflow.Settings.WebServer.PortNum
-			// Avoid duplicates
-			dup := false
-			for _, existing := range ports {
-				if existing == p {
-					dup = true
-					break
-				}
-			}
-			if !dup {
-				ports = append(ports, p)
-			}
-		}
-	}
-	if len(ports) == 0 {
-		ports = []int{3000}
-	}
+	ports := getWorkflowPorts(workflow)
 
 	var fwdParts []string
 	var listParts []string
@@ -562,7 +556,7 @@ func printISOInstructions(qemu, outputPath, fileName, hostfwd string) {
 	fmt.Fprintf(os.Stdout, "    %s -cpu host \\\n", qemu)
 	fmt.Fprintln(os.Stdout, "      -accel kvm \\  # Linux (use -accel hvf on macOS)")
 	fmt.Fprintln(os.Stdout, "      -drive if=pflash,format=raw,readonly=on,file=OVMF_CODE \\")
-	fmt.Fprintf(os.Stdout, "      -cdrom %s -m 2048 -smp 2 %s\n", outputPath, hostfwd)
+	fmt.Fprintf(os.Stdout, "      -cdrom %s -m 4096 -smp 2 %s\n", outputPath, hostfwd)
 	fmt.Fprintln(os.Stdout)
 	fmt.Fprintln(os.Stdout, "  OVMF_CODE path by platform:")
 	fmt.Fprintln(os.Stdout, "    macOS (Apple Silicon): /opt/homebrew/share/qemu/edk2-x86_64-code.fd")
@@ -608,8 +602,11 @@ func printRawInstructions(qemu, outputPath, fileName, hostfwd string) {
 
 	fmt.Fprintln(os.Stdout)
 	fmt.Fprintln(os.Stdout, "--- QEMU/KVM ---")
-	fmt.Fprintf(os.Stdout, "  %s -cpu host -drive file=%s,format=raw \\\n", qemu, outputPath)
-	fmt.Fprintf(os.Stdout, "    -m 2048 -smp 2 %s\n", hostfwd)
+	fmt.Fprintf(os.Stdout, "  %s -cpu host -drive file=%s,format=raw,if=virtio \\\n", qemu, outputPath)
+	fmt.Fprintf(os.Stdout, "    -m 4096 -smp 2 %s\n", hostfwd)
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "  Tip: If you see 'initrd error' or 'kernel failed', try adjusting RAM (-m).")
+	fmt.Fprintln(os.Stdout, "  Note: On Apple Silicon, you must build for arm64 and use qemu-system-aarch64.")
 
 	fmt.Fprintln(os.Stdout)
 	fmt.Fprintln(os.Stdout, "--- VMware ---")
@@ -633,8 +630,8 @@ func printRawInstructions(qemu, outputPath, fileName, hostfwd string) {
 func printQcow2Instructions(qemu, outputPath, fileName, hostfwd string) {
 	fmt.Fprintln(os.Stdout)
 	fmt.Fprintln(os.Stdout, "--- QEMU/KVM ---")
-	fmt.Fprintf(os.Stdout, "  %s -cpu host -drive file=%s,format=qcow2 \\\n", qemu, outputPath)
-	fmt.Fprintf(os.Stdout, "    -m 2048 -smp 2 %s\n", hostfwd)
+	fmt.Fprintf(os.Stdout, "  %s -cpu host -drive file=%s,format=qcow2,if=virtio \\\n", qemu, outputPath)
+	fmt.Fprintf(os.Stdout, "    -m 4096 -smp 2 %s\n", hostfwd)
 
 	fmt.Fprintln(os.Stdout)
 	fmt.Fprintln(os.Stdout, "--- Proxmox VE ---")

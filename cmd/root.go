@@ -126,4 +126,9 @@ func addSubcommands(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(newLoginCmd())
 	rootCmd.AddCommand(newWhoamiCmd())
 	rootCmd.AddCommand(newLogoutCmd())
+
+	// Add cloud management commands
+	rootCmd.AddCommand(newAccountCmd())
+	rootCmd.AddCommand(newWorkflowsCmd())
+	rootCmd.AddCommand(newDeploymentsCmd())
 }

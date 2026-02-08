@@ -36,7 +36,7 @@ type DefaultLinuxKitRunner struct {
 }
 
 // Build runs "linuxkit build" with the given config, format, architecture, and output directory.
-// Uses --docker so linuxkit reads images from the local Docker daemon instead of a registry.
+// Images must be pre-imported into linuxkit's cache via CacheImport before building.
 // Standard LinuxKit images (kernel, init, etc.) are pulled from Docker Hub automatically.
 // If size is non-empty it is passed as --size (e.g. "4096M") to override the default 1024M.
 func (r *DefaultLinuxKitRunner) Build(ctx context.Context, configPath, format, arch, outputDir, size string) error {
@@ -168,5 +168,10 @@ func downloadFile(ctx context.Context, url, dest string) error {
 		return err
 	}
 
-	return os.Rename(tmpFile, dest)
+	if renameErr := os.Rename(tmpFile, dest); renameErr != nil {
+		os.Remove(tmpFile)
+		return renameErr
+	}
+
+	return nil
 }

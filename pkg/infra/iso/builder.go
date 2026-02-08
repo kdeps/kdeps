@@ -46,7 +46,7 @@ var FormatExtensions = map[string]string{
 }
 
 // RawBIOSAssembleFunc assembles a raw-bios disk from kernel+initrd files.
-type RawBIOSAssembleFunc func(ctx context.Context, kernelPath, initrdPath, cmdlinePath, outputPath string) error
+type RawBIOSAssembleFunc func(ctx context.Context, kernelPath, initrdPath, cmdlinePath, outputPath, imageName, bootScript string) error
 
 // Builder builds bootable images from kdeps Docker images using LinuxKit.
 type Builder struct {
@@ -111,7 +111,16 @@ func (b *Builder) Build(
 		return errors.New("image name cannot be empty")
 	}
 
-	// Generate LinuxKit YAML config
+	format := b.Format
+	if format == "" {
+		format = defaultFormat
+	}
+
+	// Generate LinuxKit YAML config.
+	// The app image is bundled directly in the initrd (fat build). A thin
+	// build with a separate data partition would boot faster, but LinuxKit's
+	// device cgroup blocks all container access to raw block devices, making
+	// it impossible to mount the partition from onboot or service containers.
 	configYAML, err := b.GenerateConfigYAML(kdepsImageName, workflow)
 	if err != nil {
 		return fmt.Errorf("failed to generate LinuxKit config: %w", err)
@@ -144,11 +153,6 @@ func (b *Builder) Build(
 	}
 	defer os.RemoveAll(buildDir)
 
-	format := b.Format
-	if format == "" {
-		format = defaultFormat
-	}
-
 	fmt.Fprintf(os.Stdout, "Building bootable image (format: %s)...\n", format)
 
 	arch := b.Arch
@@ -160,13 +164,15 @@ func (b *Builder) Build(
 
 	if format == "raw-bios" {
 		// Two-step build: linuxkit produces kernel+initrd, then we assemble
-		// the raw-bios disk with proper FAT headroom (bypasses upstream bug).
+		// the raw-bios disk with our custom assembler (which fixes the
+		// upstream linuxkit mkimage-raw-bios FAT headroom bug).
 		assembler := b.RawBIOSAssembleFunc
 		if assembler == nil {
 			assembler = assembleRawBIOS
 		}
 
-		built, rawErr := buildRawBIOS(ctx, b.Runner, assembler, tmpPath, arch, buildDir)
+		// Fat build: the app image is in the initrd, no data partition needed.
+		built, rawErr := buildRawBIOSWithImage(ctx, b.Runner, assembler, tmpPath, arch, buildDir, "", "")
 		if rawErr != nil {
 			return rawErr
 		}

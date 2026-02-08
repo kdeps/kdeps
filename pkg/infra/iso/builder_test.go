@@ -79,7 +79,7 @@ func (m *mockRunner) Build(_ context.Context, configPath, format, arch, outputDi
 }
 
 // mockAssembleRawBIOS simulates the raw-bios disk assembly (no Docker needed).
-func mockAssembleRawBIOS(_ context.Context, _, _, _, outputPath string) error {
+func mockAssembleRawBIOS(_ context.Context, _, _, _, outputPath, _, _ string) error {
 	return os.WriteFile(outputPath, []byte("fake-raw-bios-disk"), 0644)
 }
 
@@ -100,7 +100,7 @@ func TestGenerateConfig_Basic(t *testing.T) {
 
 	assert.Contains(t, config.Kernel.Image, "linuxkit/kernel:")
 	assert.Contains(t, config.Kernel.Cmdline, "console=ttyS0")
-	assert.Len(t, config.Init, 3)
+	assert.Len(t, config.Init, 4) // init + runc + containerd + ca-certificates
 	assert.Len(t, config.Services, 3) // dhcpcd + getty + kdeps
 	assert.Equal(t, "dhcpcd", config.Services[0].Name)
 	assert.Equal(t, "getty", config.Services[1].Name)
@@ -132,10 +132,11 @@ func TestGenerateConfig_WithEnvVars(t *testing.T) {
 	assert.Contains(t, kdepsService.Env, "KDEPS_BIND_HOST=0.0.0.0")
 	assert.Contains(t, kdepsService.Env, "BAZ=qux")
 	assert.Contains(t, kdepsService.Env, "FOO=bar")
-	// KDEPS_BIND_HOST first, then sorted user env vars
+	// KDEPS_BIND_HOST first, then KDEPS_PLATFORM, then sorted user env vars
 	assert.Equal(t, "KDEPS_BIND_HOST=0.0.0.0", kdepsService.Env[0])
-	assert.Equal(t, "BAZ=qux", kdepsService.Env[1])
-	assert.Equal(t, "FOO=bar", kdepsService.Env[2])
+	assert.Equal(t, "KDEPS_PLATFORM=iso", kdepsService.Env[1])
+	assert.Equal(t, "BAZ=qux", kdepsService.Env[2])
+	assert.Equal(t, "FOO=bar", kdepsService.Env[3])
 }
 
 func TestGenerateConfig_Hostname(t *testing.T) {
@@ -201,9 +202,11 @@ func TestGenerateConfig_WithOllama(t *testing.T) {
 	config, err := iso.GenerateConfig("ollama-app:1.0.0", "kdeps", "", workflow)
 	require.NoError(t, err)
 
-	// Ollama images should have /dev bind mount
+	// Ollama images should have /dev bind mount and ollama env vars
 	kdepsService := config.Services[2]
 	assert.Contains(t, kdepsService.Binds, "/dev:/dev")
+	assert.Contains(t, kdepsService.Env, "OLLAMA_HOST=127.0.0.1")
+	assert.Contains(t, kdepsService.Env, "OLLAMA_MODELS=/root/.ollama/models")
 }
 
 func TestGenerateConfig_WithoutOllama(t *testing.T) {

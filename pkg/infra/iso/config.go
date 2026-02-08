@@ -23,6 +23,8 @@ const (
 	// LinuxKit component versions.
 	linuxkitKernelTag    = "6.6.71"
 	linuxkitComponentTag = "v1.3.0"
+	linuxkitMountTag     = "v1.1.0"
+	linuxkitFormatTag    = "v1.1.0"
 
 	backendOllama = "ollama"
 )
@@ -44,13 +46,14 @@ type LinuxKitKernel struct {
 
 // LinuxKitImage configures a service or onboot container.
 type LinuxKitImage struct {
-	Name         string   `yaml:"name"`
-	Image        string   `yaml:"image"`
-	Net          string   `yaml:"net,omitempty"`
-	Capabilities []string `yaml:"capabilities,omitempty"`
-	Binds        []string `yaml:"binds,omitempty"`
-	Env          []string `yaml:"env,omitempty"`
-	Command      []string `yaml:"command,omitempty"`
+	Name              string   `yaml:"name"`
+	Image             string   `yaml:"image"`
+	Net               string   `yaml:"net,omitempty"`
+	Capabilities      []string `yaml:"capabilities,omitempty"`
+	Binds             []string `yaml:"binds,omitempty"`
+	Env               []string `yaml:"env,omitempty"`
+	Command           []string `yaml:"command,omitempty"`
+	RootfsPropagation string   `yaml:"rootfsPropagation,omitempty"`
 }
 
 // LinuxKitFile adds a file to the root filesystem.
@@ -69,8 +72,6 @@ func KernelCmdline(arch string) string {
 }
 
 // GenerateConfig creates a LinuxKit configuration from a workflow and image name.
-// The arch parameter specifies the target architecture ("amd64" or "arm64").
-// If arch is empty, it defaults to the host architecture.
 func GenerateConfig(imageName, hostname, arch string, workflow *domain.Workflow) (*LinuxKitConfig, error) {
 	if workflow == nil {
 		return nil, errors.New("workflow cannot be nil")
@@ -89,8 +90,16 @@ func GenerateConfig(imageName, hostname, arch string, workflow *domain.Workflow)
 	}
 
 	// Build env vars for the service container
-	// Always bind to 0.0.0.0 in VM so ports are reachable via virtual NIC
-	envList := []string{"KDEPS_BIND_HOST=0.0.0.0"}
+	envList := []string{
+		"KDEPS_BIND_HOST=0.0.0.0",
+		"KDEPS_PLATFORM=iso",
+	}
+	if ShouldInstallOllama(workflow) {
+		envList = append(envList,
+			"OLLAMA_HOST=127.0.0.1",
+			"OLLAMA_MODELS=/root/.ollama/models",
+		)
+	}
 	if workflow.Settings.AgentSettings.Env != nil {
 		keys := make([]string, 0, len(workflow.Settings.AgentSettings.Env))
 		for k := range workflow.Settings.AgentSettings.Env {
@@ -107,7 +116,7 @@ func GenerateConfig(imageName, hostname, arch string, workflow *domain.Workflow)
 	binds := []string{
 		"/var/run:/var/run",
 	}
-	if shouldInstallOllama(workflow) {
+	if ShouldInstallOllama(workflow) {
 		binds = append(binds, "/dev:/dev")
 	}
 
@@ -120,6 +129,7 @@ func GenerateConfig(imageName, hostname, arch string, workflow *domain.Workflow)
 			fmt.Sprintf("linuxkit/init:%s", linuxkitComponentTag),
 			fmt.Sprintf("linuxkit/runc:%s", linuxkitComponentTag),
 			fmt.Sprintf("linuxkit/containerd:%s", linuxkitComponentTag),
+			fmt.Sprintf("linuxkit/ca-certificates:%s", linuxkitComponentTag),
 		},
 		Services: []LinuxKitImage{
 			{
@@ -131,13 +141,18 @@ func GenerateConfig(imageName, hostname, arch string, workflow *domain.Workflow)
 				Image: fmt.Sprintf("linuxkit/getty:%s", linuxkitComponentTag),
 				Env:   []string{"INSECURE=true"},
 			},
+		},
+		Onboot: []LinuxKitImage{
 			{
-				Name:         "kdeps",
-				Image:        imageName,
-				Net:          "host",
-				Capabilities: []string{"all"},
-				Binds:        binds,
-				Env:          envList,
+				Name:  "utils",
+				Image: "alpine:3.19",
+				Command: []string{
+					"sh", "-c",
+					"apk add --no-cache curl busybox-extras && cp /usr/bin/curl /usr/bin/telnet /usr/local/bin/",
+				},
+				Binds: []string{
+					"/usr/local/bin:/usr/local/bin",
+				},
 			},
 		},
 		Files: []LinuxKitFile{
@@ -147,6 +162,20 @@ func GenerateConfig(imageName, hostname, arch string, workflow *domain.Workflow)
 			},
 		},
 	}
+
+	// Bundle the app image directly in the initrd (fat build).
+	// Explicitly invoke entrypoint.sh → supervisord so both kdeps and ollama
+	// run properly. We can't rely on containerd merging ENTRYPOINT + CMD
+	// from the image config, so we set the full command chain here.
+	config.Services = append(config.Services, LinuxKitImage{
+		Name:         "kdeps",
+		Image:        imageName,
+		Net:          "host",
+		Capabilities: []string{"all"},
+		Binds:        binds,
+		Env:          envList,
+		Command:      []string{"/entrypoint.sh", "/usr/bin/supervisord", "-c", "/etc/supervisord.conf"},
+	})
 
 	return config, nil
 }
@@ -161,8 +190,8 @@ func MarshalConfig(config *LinuxKitConfig) ([]byte, error) {
 	return data, nil
 }
 
-// shouldInstallOllama determines if Ollama is needed (mirrors docker builder logic).
-func shouldInstallOllama(workflow *domain.Workflow) bool {
+// ShouldInstallOllama determines if Ollama is needed (mirrors docker builder logic).
+func ShouldInstallOllama(workflow *domain.Workflow) bool {
 	if workflow.Settings.AgentSettings.InstallOllama != nil {
 		return *workflow.Settings.AgentSettings.InstallOllama
 	}

@@ -34,19 +34,17 @@ wait_for_ollama() {
 
 # Handle models based on offline mode
 {{- if and .OfflineMode .Models .InstallOllama }}
-if [ -d "/models" ]; then
-    echo "Offline mode: Copying pre-downloaded models from /models..."
+if [ -d "/llm/models" ]; then
+    echo "Offline mode: Copying pre-downloaded models to Ollama directory..."
 
-    # Copy Ollama models
-    OLLAMA_MODELS_DIR="${OLLAMA_MODELS:-/root/.ollama}"
-    mkdir -p "${OLLAMA_MODELS_DIR}/models"
-    if [ -d "/models/models" ]; then
-        rsync -avrPtz --human-readable /models/models/. "${OLLAMA_MODELS_DIR}/models/" || \
-        cp -r /models/models/* "${OLLAMA_MODELS_DIR}/models/" 2>/dev/null || true
-        echo "Ollama models copied successfully"
-    else
-        echo "WARNING: No Ollama models found in /models/models directory"
-    fi
+    # OLLAMA_MODELS points to the models dir (default: /root/.ollama/models)
+    MODELS_DIR="${OLLAMA_MODELS:-/root/.ollama/models}"
+    mkdir -p "$MODELS_DIR"
+    rsync -avrPtz --human-readable /llm/models/. "$MODELS_DIR/" || \
+    cp -r /llm/models/* "$MODELS_DIR/" 2>/dev/null || true
+    echo "Ollama models copied successfully"
+else
+    echo "WARNING: No pre-downloaded Ollama models found in /llm/models"
 fi
 {{- else if and .Models .InstallOllama }}
 # Download models if specified (not in offline mode)
