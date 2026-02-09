@@ -92,8 +92,8 @@ settings:
 		t.Fatal("APIServer is nil")
 	}
 
-	if workflow.Settings.APIServer.PortNum != 3000 {
-		t.Errorf("PortNum = %v, want %v", workflow.Settings.APIServer.PortNum, 3000)
+	if workflow.Settings.PortNum != 3000 {
+		t.Errorf("PortNum = %v, want %v", workflow.Settings.PortNum, 3000)
 	}
 
 	if len(workflow.Settings.APIServer.Routes) != 1 {
@@ -137,9 +137,9 @@ func TestWorkflowYAMLMarshal(t *testing.T) {
 		},
 		Settings: domain.WorkflowSettings{
 			APIServerMode: true,
+			HostIP:        "0.0.0.0",
+			PortNum:       3000,
 			APIServer: &domain.APIServerConfig{
-				HostIP:  "0.0.0.0",
-				PortNum: 3000,
 				Routes: []domain.Route{
 					{
 						Path:    "/api/test",
@@ -170,11 +170,11 @@ func TestWorkflowYAMLMarshal(t *testing.T) {
 		t.Fatal("APIServer is nil after round-trip")
 	}
 
-	if result.Settings.APIServer.PortNum != workflow.Settings.APIServer.PortNum {
+	if result.Settings.PortNum != workflow.Settings.PortNum {
 		t.Errorf(
 			"PortNum = %v, want %v",
-			result.Settings.APIServer.PortNum,
-			workflow.Settings.APIServer.PortNum,
+			result.Settings.PortNum,
+			workflow.Settings.PortNum,
 		)
 	}
 }
@@ -208,14 +208,6 @@ cors:
 	err := yaml.Unmarshal([]byte(yamlData), &config)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal YAML: %v", err)
-	}
-
-	if config.HostIP != "127.0.0.1" {
-		t.Errorf("HostIP = %v, want %v", config.HostIP, "127.0.0.1")
-	}
-
-	if config.PortNum != 8080 {
-		t.Errorf("PortNum = %v, want %v", config.PortNum, 8080)
 	}
 
 	if len(config.TrustedProxies) != 2 {
@@ -354,14 +346,6 @@ routes:
 	err := yaml.Unmarshal([]byte(yamlData), &config)
 	if err != nil {
 		t.Fatalf("Failed to unmarshal YAML: %v", err)
-	}
-
-	if config.HostIP != "0.0.0.0" {
-		t.Errorf("HostIP = %v, want %v", config.HostIP, "0.0.0.0")
-	}
-
-	if config.PortNum != 8080 {
-		t.Errorf("PortNum = %v, want %v", config.PortNum, 8080)
 	}
 
 	if len(config.Routes) != 2 {

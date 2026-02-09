@@ -139,9 +139,9 @@ func TestBuilder_GenerateDockerfile_APIServerPort(t *testing.T) {
 		},
 		Settings: domain.WorkflowSettings{
 			APIServerMode: true,
+			HostIP:        "0.0.0.0",
+			PortNum:       8080,
 			APIServer: &domain.APIServerConfig{
-				HostIP:  "0.0.0.0",
-				PortNum: 8080,
 			},
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
@@ -604,14 +604,14 @@ func TestBuilder_GenerateDockerfile_ComplexWorkflow(t *testing.T) {
 		},
 		Settings: domain.WorkflowSettings{
 			APIServerMode: true,
+			HostIP:        "0.0.0.0",
+			PortNum:       9000,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion:  "3.11",
 				PythonPackages: []string{"fastapi", "uvicorn", "pydantic"},
 				BaseOS:         "ubuntu",
 			},
 			APIServer: &domain.APIServerConfig{
-				HostIP:  "0.0.0.0",
-				PortNum: 9000,
 			},
 			SQLConnections: map[string]domain.SQLConnection{
 				"main": {
@@ -1096,14 +1096,14 @@ func TestBuilder_BuildTemplateData(t *testing.T) {
 		},
 		Settings: domain.WorkflowSettings{
 			APIServerMode: true,
+			HostIP:        "0.0.0.0",
+			PortNum:       8080,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion:  "3.12",
 				PythonPackages: []string{"requests", "pandas"},
 				BaseOS:         "alpine",
 			},
 			APIServer: &domain.APIServerConfig{
-				HostIP:  "0.0.0.0",
-				PortNum: 8080,
 			},
 		},
 		Resources: []*domain.Resource{
@@ -1573,9 +1573,9 @@ func TestBuilder_TemplateFunctions_ComprehensiveCoverage(t *testing.T) {
 				Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 				Settings: domain.WorkflowSettings{
 					APIServerMode: true,
+					HostIP:        "0.0.0.0",
+					PortNum:       9000,
 					APIServer: &domain.APIServerConfig{
-						HostIP:  "0.0.0.0",
-						PortNum: 9000,
 					},
 					AgentSettings: domain.AgentSettings{
 						PythonVersion: "3.12",
@@ -1653,9 +1653,9 @@ func TestBuilder_GenerateDockerfile_WebServerPort(t *testing.T) {
 		},
 		Settings: domain.WorkflowSettings{
 			WebServerMode: true,
+			HostIP:        "0.0.0.0",
+			PortNum:       8080,
 			WebServer: &domain.WebServerConfig{
-				HostIP:  "0.0.0.0",
-				PortNum: 8080,
 			},
 		},
 	}
@@ -1678,13 +1678,11 @@ func TestBuilder_GenerateDockerfile_APIAndWebServerPorts(t *testing.T) {
 		Settings: domain.WorkflowSettings{
 			APIServerMode: true,
 			WebServerMode: true,
+			HostIP:        "0.0.0.0",
+			PortNum:       3000,
 			APIServer: &domain.APIServerConfig{
-				HostIP:  "0.0.0.0",
-				PortNum: 3000,
 			},
 			WebServer: &domain.WebServerConfig{
-				HostIP:  "0.0.0.0",
-				PortNum: 8080,
 			},
 		},
 	}
@@ -1693,7 +1691,7 @@ func TestBuilder_GenerateDockerfile_APIAndWebServerPorts(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Contains(t, dockerfile, "EXPOSE 3000")
-	assert.Contains(t, dockerfile, "EXPOSE 8080")
+	assert.NotContains(t, dockerfile, "EXPOSE 8080")
 }
 
 func TestBuilder_GenerateDockerfile_NoModesNoPorts(t *testing.T) {

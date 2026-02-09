@@ -215,9 +215,9 @@ services:
 `,
 		strings.ReplaceAll(workflow.Metadata.Name, "-", ""),
 		pkgName,
-		workflow.Settings.APIServer.PortNum,
-		workflow.Settings.APIServer.PortNum,
-		workflow.Settings.APIServer.PortNum,
+		workflow.Settings.GetPortNum(),
+		workflow.Settings.GetPortNum(),
+		workflow.Settings.GetPortNum(),
 	)
 
 	return os.WriteFile(composePath, []byte(composeContent), 0600)

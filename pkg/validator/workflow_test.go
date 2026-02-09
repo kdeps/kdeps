@@ -99,8 +99,8 @@ func TestWorkflowValidator_ValidateSettings(t *testing.T) {
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
 					APIServerMode: true,
+					PortNum:       3000,
 					APIServer: &domain.APIServerConfig{
-						PortNum: 3000,
 						Routes: []domain.Route{
 							{Path: "/api/test", Methods: []string{"GET"}},
 						},
@@ -124,8 +124,8 @@ func TestWorkflowValidator_ValidateSettings(t *testing.T) {
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
 					APIServerMode: true,
+					PortNum:       -1,
 					APIServer: &domain.APIServerConfig{
-						PortNum: 0,
 						Routes: []domain.Route{
 							{Path: "/api/test", Methods: []string{"GET"}},
 						},
@@ -139,8 +139,8 @@ func TestWorkflowValidator_ValidateSettings(t *testing.T) {
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
 					APIServerMode: true,
+					PortNum:       70000,
 					APIServer: &domain.APIServerConfig{
-						PortNum: 70000,
 						Routes: []domain.Route{
 							{Path: "/api/test", Methods: []string{"GET"}},
 						},
@@ -154,9 +154,9 @@ func TestWorkflowValidator_ValidateSettings(t *testing.T) {
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
 					APIServerMode: true,
+					PortNum:       3000,
 					APIServer: &domain.APIServerConfig{
-						PortNum: 3000,
-						Routes:  []domain.Route{},
+						Routes: []domain.Route{},
 					},
 				},
 			},
@@ -167,8 +167,8 @@ func TestWorkflowValidator_ValidateSettings(t *testing.T) {
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
 					APIServerMode: true,
+					PortNum:       3000,
 					APIServer: &domain.APIServerConfig{
-						PortNum: 3000,
 						Routes: []domain.Route{
 							{Path: "", Methods: []string{"GET"}},
 						},
@@ -182,8 +182,8 @@ func TestWorkflowValidator_ValidateSettings(t *testing.T) {
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
 					APIServerMode: true,
+					PortNum:       3000,
 					APIServer: &domain.APIServerConfig{
-						PortNum: 3000,
 						Routes: []domain.Route{
 							{Path: "api/test", Methods: []string{"GET"}},
 						},

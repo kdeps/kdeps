@@ -110,6 +110,18 @@ func (w *WorkflowSettings) UnmarshalYAML(node *yaml.Node) error {
 	w.SQLConnections = alias.SQLConnections
 	w.Session = alias.Session
 
+	// Set defaults if not provided
+	if w.HostIP == "" {
+		w.HostIP = "0.0.0.0"
+	}
+	if w.PortNum == 0 {
+		if w.WebServerMode && !w.APIServerMode {
+			w.PortNum = 8080
+		} else {
+			w.PortNum = 3000
+		}
+	}
+
 	return nil
 }
 

@@ -35,9 +35,8 @@ func TestWebServer_StartAppCommand_WithCommand(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
-			WebServer: &domain.WebServerConfig{
-				HostIP: "127.0.0.1",
-			},
+			HostIP:    "127.0.0.1",
+			WebServer: &domain.WebServerConfig{},
 		},
 	}
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
@@ -69,9 +68,8 @@ func TestWebServer_StartAppCommand_EmptyCommand(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
-			WebServer: &domain.WebServerConfig{
-				HostIP: "127.0.0.1",
-			},
+			HostIP:    "127.0.0.1",
+			WebServer: &domain.WebServerConfig{},
 		},
 	}
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
@@ -99,9 +97,8 @@ func TestWebServer_StartAppCommand_ContextCancellation(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
-			WebServer: &domain.WebServerConfig{
-				HostIP: "127.0.0.1",
-			},
+			HostIP:    "127.0.0.1",
+			WebServer: &domain.WebServerConfig{},
 		},
 	}
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
@@ -131,9 +128,8 @@ func TestWebServer_StartAppCommand_CommandError(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
-			WebServer: &domain.WebServerConfig{
-				HostIP: "127.0.0.1",
-			},
+			HostIP:    "127.0.0.1",
+			WebServer: &domain.WebServerConfig{},
 		},
 	}
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
