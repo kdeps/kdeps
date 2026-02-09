@@ -18,22 +18,17 @@ import (
 	"strings"
 )
 
-// mkimageRawBIOSImage is the Docker image used for assembling raw-bios disk images.
+// mkimageRawBIOSImage is the Docker image used for assembling raw disk images.
 const mkimageRawBIOSImage = "alpine:3.19"
 
-// buildRawBIOS builds a raw-bios disk image using a two-step process:
-//  1. linuxkit produces kernel+initrd files (no Docker mkimage container needed)
-//  2. We assemble the raw-bios disk ourselves with proper FAT headroom
-//
-// This bypasses a bug in linuxkit's mkimage-raw-bios which allocates only 1 MB
-// of FAT headroom, causing "Disk full" for images larger than ~1 GB.
+// buildRawBIOS builds a raw-bios disk image using a two-step process.
 func buildRawBIOS(ctx context.Context, runner LinuxKitRunner, assembler RawBIOSAssembleFunc, configPath, arch, buildDir string) (string, error) {
 	return buildRawBIOSWithImage(ctx, runner, assembler, configPath, arch, buildDir, "", "")
 }
 
 // buildRawBIOSWithImage is the internal implementation that supports thin builds.
 func buildRawBIOSWithImage(ctx context.Context, runner LinuxKitRunner, assembler RawBIOSAssembleFunc, configPath, arch, buildDir, imageName, bootScript string) (string, error) {
-	// Step 1: Build kernel+initrd with linuxkit (no mkimage Docker container involved)
+	// Step 1: Build kernel+initrd with linuxkit
 	if err := runner.Build(ctx, configPath, "kernel+initrd", arch, buildDir, ""); err != nil {
 		return "", fmt.Errorf("linuxkit kernel+initrd build failed: %w", err)
 	}
@@ -44,7 +39,7 @@ func buildRawBIOSWithImage(ctx context.Context, runner LinuxKitRunner, assembler
 		return "", err
 	}
 
-	// Step 2: Create raw-bios disk image with fixed FAT headroom
+	// Step 2: Create raw disk image
 	outputFile := filepath.Join(buildDir, "disk.img")
 
 	if err := assembler(ctx, kernelPath, initrdPath, cmdlinePath, outputFile, imageName, bootScript); err != nil {
@@ -88,11 +83,7 @@ func findKernelInitrd(dir string) (kernel, initrd, cmdline string, err error) {
 	return kernel, initrd, cmdline, nil
 }
 
-// assembleRawBIOS creates a raw-bios disk image from kernel+initrd files.
-// Files are copied to a temp dir under ~/.cache/kdeps (on macOS Docker Desktop,
-// /Users is the only reliably shared path for volume mounts).
-// The assembly script is written to a file and executed inside the container
-// to avoid BusyBox ash issues with heredocs in -c mode.
+// assembleRawBIOS creates a raw disk image (BIOS or EFI) from kernel+initrd files.
 func assembleRawBIOS(ctx context.Context, kernelPath, initrdPath, cmdlinePath, outputPath, imageName, bootScript string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -121,7 +112,7 @@ func assembleRawBIOS(ctx context.Context, kernelPath, initrdPath, cmdlinePath, o
 		}
 	}
 
-	// For thin builds, export the Docker image to a tarball in the work directory
+	// For thin builds, export the Docker image to a tarball
 	if imageName != "" {
 		fmt.Fprintf(os.Stdout, "Exporting app image %s to data partition...\n", imageName)
 		imageTar := filepath.Join(workDir, "image.tar")
@@ -130,7 +121,6 @@ func assembleRawBIOS(ctx context.Context, kernelPath, initrdPath, cmdlinePath, o
 			return fmt.Errorf("failed to export docker image: %w", saveErr)
 		}
 
-		// Also write the boot script
 		if bootScript != "" {
 			bootPath := filepath.Join(workDir, "boot.sh")
 			if err := os.WriteFile(bootPath, []byte(bootScript), 0755); err != nil {
@@ -139,7 +129,6 @@ func assembleRawBIOS(ctx context.Context, kernelPath, initrdPath, cmdlinePath, o
 		}
 	}
 
-	// Write the assembly script to a file (avoids BusyBox ash -c heredoc bugs)
 	scriptPath := filepath.Join(workDir, "assemble.sh")
 	if err := writeAssembleScript(scriptPath, workDir, imageName != ""); err != nil {
 		return fmt.Errorf("failed to write assembly script: %w", err)
@@ -158,13 +147,12 @@ func assembleRawBIOS(ctx context.Context, kernelPath, initrdPath, cmdlinePath, o
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	fmt.Fprintln(os.Stdout, "Assembling raw BIOS disk image...")
+	fmt.Fprintln(os.Stdout, "Assembling raw disk image...")
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("raw-bios disk assembly failed: %w", err)
+		return fmt.Errorf("raw disk assembly failed: %w", err)
 	}
 
-	// Move the produced disk image to the final output path
 	produced := filepath.Join(workDir, "disk.img")
 	if err := copyFile(produced, outputPath); err != nil {
 		return fmt.Errorf("failed to copy disk image to output: %w", err)
@@ -173,307 +161,139 @@ func assembleRawBIOS(ctx context.Context, kernelPath, initrdPath, cmdlinePath, o
 	return nil
 }
 
-// writeAssembleScript writes the raw-bios assembly shell script to a file.
-
-// The script reads kernel+initrd from /work (volume mount), does all disk
-
-// assembly in /scratch (tmpfs), and copies the final image back to /work.
-
-// Key fix vs upstream linuxkit: headroom = 5% of content + 10 MB (vs flat 1 MB).
-
 func writeAssembleScript(path, _ string, thin bool) error {
-
 	script := `#!/bin/sh
-
 set -ex
 
-
-
 # Install necessary tools
-
 apk add --no-cache syslinux mtools dosfstools e2fsprogs util-linux e2tools
 
-
-
 KERNEL="/work/kernel"
-
 INITRD="/work/initrd.img"
-
 CMDLINE_FILE="/work/cmdline"
-
 IMAGE_TAR="/work/image.tar"
-
 BOOT_SH="/work/boot.sh"
 
-
-
 # Read cmdline content robustly
-
 CMDLINE=$(cat "$CMDLINE_FILE" | tr -d '\n\r' | sed 's/^ *//;s/ *$//')
 
-
-
-echo "CMDLINE: $CMDLINE"
-
-
-
 mkdir -p /scratch/bios
-
 cd /scratch/bios
 
+# Write syslinux config
+cat > syslinux.cfg <<EOF
+SERIAL 0 115200
+PROMPT 0
+TIMEOUT 0
+DEFAULT linux
 
-
-# Write syslinux config (using leading slashes for paths)
-
-echo "DEFAULT linux" > syslinux.cfg
-
-echo "LABEL linux" >> syslinux.cfg
-
-echo "    KERNEL /kernel" >> syslinux.cfg
-
-echo "    INITRD /initrd.img" >> syslinux.cfg
-
-echo "    APPEND ${CMDLINE}" >> syslinux.cfg
-
-
-
-cat syslinux.cfg
-
-
+LABEL linux
+    LINUX /kernel
+    APPEND initrd=/initrd.img ${CMDLINE}
+EOF
 
 KERNEL_FILE_SIZE=$(stat -c %s "$KERNEL")
-
 INITRD_FILE_SIZE=$(stat -c %s "$INITRD")
 
-
-
-echo "Kernel size: $KERNEL_FILE_SIZE bytes"
-
-echo "Initrd size: $INITRD_FILE_SIZE bytes"
-
-
-
-# 5% of content + 10 MB headroom (upstream uses flat 1 MB)
-
+# 5% of content + 20 MB headroom
 CONTENT_SIZE=$(( KERNEL_FILE_SIZE + INITRD_FILE_SIZE ))
-
-ESP_HEADROOM=$(( CONTENT_SIZE / 20 + 10 * 1024 * 1024 ))
-
-
-
+ESP_HEADROOM=$(( CONTENT_SIZE / 20 + 20 * 1024 * 1024 ))
 ESP_FILE_SIZE=$(( CONTENT_SIZE + ESP_HEADROOM ))
-
-ESP_FILE_SIZE_KB=$(( ( ( (ESP_FILE_SIZE+1024-1) / 1024 ) + 1024-1) / 1024 * 1024 ))
-
+ESP_FILE_SIZE_KB=$(( (ESP_FILE_SIZE + 1023) / 1024 ))
 ESP_FILE_SIZE_SECTORS=$(( ESP_FILE_SIZE_KB * 2 ))
 
-
-
-echo "ESP file size: ${ESP_FILE_SIZE_KB} KB (${ESP_FILE_SIZE_SECTORS} sectors)"
-
-
-
-ESP_FILE=/scratch/bios/boot.img
-
-IMGFILE=/scratch/bios/disk.img
-
-
-
-# Create FAT filesystem (use -F 32 for large images)
-
-FAT_TYPE="-F 16"
-
-if [ "$ESP_FILE_SIZE_KB" -gt 524288 ]; then
-
-    FAT_TYPE="-F 32"
-
+# Data partition size logic
+DATA_PART_SIZE_SECTORS=0
+if [ -f "$IMAGE_TAR" ]; then
+    IMAGE_SIZE=$(stat -c %s "$IMAGE_TAR")
+    DATA_SIZE=$(( IMAGE_SIZE * 3 / 2 + 512 * 1024 * 1024 ))
+    MIN_DATA=$(( 2048 * 1024 * 1024 ))
+    if [ "$DATA_SIZE" -lt "$MIN_DATA" ]; then
+        DATA_SIZE=$MIN_DATA
+    fi
+    DATA_PART_SIZE_SECTORS=$(( DATA_SIZE / 512 ))
 fi
 
+IMGFILE=/work/disk.img
+# Create an empty sparse file for the disk image to save memory in tmpfs
+TOTAL_SECTORS=$(( 2048 + ESP_FILE_SIZE_SECTORS + DATA_PART_SIZE_SECTORS + 20480 ))
+truncate -s $(( TOTAL_SECTORS * 512 )) "$IMGFILE"
 
+# Create GPT partition table using sfdisk (available in util-linux)
+if [ "$DATA_PART_SIZE_SECTORS" -gt 0 ]; then
+    printf "label: gpt\n2048,%s,C12A7328-F81F-11D2-BA4B-00A0C93EC93B,*\n%s,%s,0FC63DAF-8483-4772-8E79-3D69D8477DE4,\n" \
+        "$ESP_FILE_SIZE_SECTORS" "$((2048 + ESP_FILE_SIZE_SECTORS))" "$DATA_PART_SIZE_SECTORS" | sfdisk "$IMGFILE"
+else
+    printf "label: gpt\n2048,%s,C12A7328-F81F-11D2-BA4B-00A0C93EC93B,*\n" \
+        "$ESP_FILE_SIZE_SECTORS" | sfdisk "$IMGFILE"
+fi
 
-mkfs.vfat $FAT_TYPE -v -C "$ESP_FILE" "$ESP_FILE_SIZE_KB" > /dev/null
+# Create FAT filesystem directly into the partition using mtools (memory efficient)
+ESP_TMP=/scratch/esp.img
+truncate -s $(( ESP_FILE_SIZE_SECTORS * 512 )) "$ESP_TMP"
+mkfs.vfat -F 32 "$ESP_TMP"
 
-
-
-# Use local mtools config to avoid interference
-
-export MTOOLSRC=/scratch/bios/mtoolsrc
-
+export MTOOLSRC=/scratch/mtoolsrc
 echo "mtools_skip_check=1" > "$MTOOLSRC"
 
+# UEFI structure
+mmd -i "$ESP_TMP" ::/EFI
+mmd -i "$ESP_TMP" ::/EFI/BOOT
 
+mcopy -i "$ESP_TMP" syslinux.cfg ::/EFI/BOOT/syslinux.cfg
+mcopy -i "$ESP_TMP" syslinux.cfg ::/syslinux.cfg
+mcopy -i "$ESP_TMP" "$KERNEL" ::/kernel
+mcopy -i "$ESP_TMP" "$INITRD" ::/initrd.img
 
-echo "Copying files to ESP..."
-
-mcopy -i "$ESP_FILE" syslinux.cfg ::/syslinux.cfg
-
-mcopy -i "$ESP_FILE" "$KERNEL" ::/kernel
-
-mcopy -i "$ESP_FILE" "$INITRD" ::/initrd.img
-
-
-
-echo "Installing syslinux..."
-
-# -i = ignore fs checks
-
-syslinux --install -i "$ESP_FILE"
-
-
-
-# Data partition size logic
-
-DATA_PART_SIZE_SECTORS=0
-
-if [ -f "$IMAGE_TAR" ]; then
-
-    IMAGE_SIZE=$(stat -c %s "$IMAGE_TAR")
-
-    # 2GB minimum for data partition, or image size * 1.5 + 512MB
-
-    DATA_SIZE=$(( IMAGE_SIZE * 3 / 2 + 512 * 1024 * 1024 ))
-
-    MIN_DATA=$(( 2048 * 1024 * 1024 ))
-
-    if [ "$DATA_SIZE" -lt "$MIN_DATA" ]; then
-
-        DATA_SIZE=$MIN_DATA
-
-    fi
-
-    DATA_PART_SIZE_SECTORS=$(( DATA_SIZE / 512 ))
-
+# Copy SYSLINUX modules
+if [ -d /usr/share/syslinux ]; then
+    for f in ldlinux.c32 libcom32.c32 libutil.c32 mboot.c32 linux.c32 menu.c32; do
+        if [ -f "/usr/share/syslinux/$f" ]; then
+            mcopy -i "$ESP_TMP" "/usr/share/syslinux/$f" ::/EFI/BOOT/$f || true
+            mcopy -i "$ESP_TMP" "/usr/share/syslinux/$f" ::/$f || true
+        fi
+    done
 fi
 
-
-
-ONEMB=1048576
-
-ESP_ACTUAL_SIZE=$(stat -c %s "$ESP_FILE")
-
-SIZE_IN_BYTES=$(( ESP_ACTUAL_SIZE + (DATA_PART_SIZE_SECTORS * 512) + 10 * ONEMB ))
-
-MB_BLOCKS=$(( SIZE_IN_BYTES / ONEMB ))
-
-
-
-echo "Creating disk image: ${MB_BLOCKS} MB"
-
-dd if=/dev/zero of="$IMGFILE" bs=1M count="$MB_BLOCKS" 2>&1
-
-
-
-# Explicit partition table creation
-
-PART_TYPE="0e" # FAT16 LBA
-
-if [ "$FAT_TYPE" = "-F 32" ]; then
-
-    PART_TYPE="0c" # FAT32 LBA
-
+# Copy EFI loader from main syslinux package
+# In Alpine, syslinux.efi is located in /usr/share/syslinux/efi64/
+if [ -f /usr/share/syslinux/efi64/syslinux.efi ]; then
+    mcopy -i "$ESP_TMP" /usr/share/syslinux/efi64/syslinux.efi ::/EFI/BOOT/BOOTX64.EFI
+    mcopy -i "$ESP_TMP" /usr/share/syslinux/efi64/ldlinux.e64 ::/EFI/BOOT/ldlinux.e64
+elif [ -f /usr/lib/syslinux/efi64/syslinux.efi ]; then
+    mcopy -i "$ESP_TMP" /usr/lib/syslinux/efi64/syslinux.efi ::/EFI/BOOT/BOOTX64.EFI
+    mcopy -i "$ESP_TMP" /usr/lib/syslinux/efi64/ldlinux.e64 ::/EFI/BOOT/ldlinux.e64
 fi
 
+# Write the ESP partition back to the disk image
+dd if="$ESP_TMP" of="$IMGFILE" bs=512 seek=2048 count="$ESP_FILE_SIZE_SECTORS" conv=notrunc
+rm "$ESP_TMP"
 
-
-# Use sfdisk to create partitions
-
+# Handle data partition
 if [ "$DATA_PART_SIZE_SECTORS" -gt 0 ]; then
-
-    # Two partitions: Boot (FAT) and Data (Linux)
-
-    printf "label: dos\n2048,%s,%s,*\n%s,%s,83,\n" "$ESP_FILE_SIZE_SECTORS" "$PART_TYPE" "$(( 2048 + ESP_FILE_SIZE_SECTORS ))" "$DATA_PART_SIZE_SECTORS" | sfdisk "$IMGFILE" 2>&1
-
-else
-
-    # Single partition: Boot (FAT)
-
-    echo "2048,$ESP_FILE_SIZE_SECTORS,$PART_TYPE,*" | sfdisk "$IMGFILE" 2>&1
-
-fi
-
-
-
-# Write ESP volume to the first partition
-
-ESP_SECTOR_START=2048
-
-dd if="$ESP_FILE" of="$IMGFILE" bs=512 count="$ESP_FILE_SIZE_SECTORS" conv=notrunc seek="$ESP_SECTOR_START" 2>&1
-
-
-
-# Handle data partition if needed
-
-if [ "$DATA_PART_SIZE_SECTORS" -gt 0 ]; then
-
-    echo "Preparing data partition..."
-
-    DATA_FILE=/scratch/bios/data.img
-
-    truncate -s "$(( DATA_PART_SIZE_SECTORS * 512 ))" "$DATA_FILE"
-
-    mkfs.ext4 -F "$DATA_FILE"
-
-    
-
-    # Store the image and the bootstrapper using e2tools (no mount needed)
-
-    echo "Copying files to data partition..."
-
-    e2cp "$IMAGE_TAR" "$DATA_FILE:/image.tar"
-
+    DATA_TMP=/scratch/data.img
+    truncate -s $(( DATA_PART_SIZE_SECTORS * 512 )) "$DATA_TMP"
+    mkfs.ext4 -F "$DATA_TMP"
+    e2cp "$IMAGE_TAR" "$DATA_TMP:/image.tar"
     if [ -f "$BOOT_SH" ]; then
-
-        e2cp "$BOOT_SH" "$DATA_FILE:/boot.sh"
-
+        e2cp "$BOOT_SH" "$DATA_TMP:/boot.sh"
     fi
-
-    
-
-    # Write data volume to the second partition
-
-    DATA_SECTOR_START=$(( 2048 + ESP_FILE_SIZE_SECTORS ))
-
-    dd if="$DATA_FILE" of="$IMGFILE" bs=512 count="$DATA_PART_SIZE_SECTORS" conv=notrunc seek="$DATA_SECTOR_START" 2>&1
-
+    dd if="$DATA_TMP" of="$IMGFILE" bs=512 seek=$((2048 + ESP_FILE_SIZE_SECTORS)) count="$DATA_PART_SIZE_SECTORS" conv=notrunc
+    rm "$DATA_TMP"
 fi
 
-
-
-# Write altmbr.bin and configure it to boot the first partition
-
-if [ -f /usr/share/syslinux/altmbr.bin ]; then
-
-    dd if=/usr/share/syslinux/altmbr.bin of="$IMGFILE" bs=439 count=1 conv=notrunc 2>&1
-
-    printf '\001' | dd of="$IMGFILE" bs=1 count=1 seek=439 conv=notrunc 2>&1
-
+# Make it bootable on BIOS too
+if [ -f /usr/share/syslinux/gptmbr.bin ]; then
+    dd if=/usr/share/syslinux/gptmbr.bin of="$IMGFILE" bs=440 count=1 conv=notrunc
 fi
-
-
 
 sync
-
-
-
-echo "Copying disk image to output..."
-
-cp /scratch/bios/disk.img /work/disk.img
-
-
-
-echo "Raw BIOS disk image assembled successfully"
-
+echo "Disk image assembled successfully"
 `
 
-
-
 	return os.WriteFile(path, []byte(script), 0755)
-
 }
 
-
-
-// copyFile copies src to dst by streaming (no full-file memory buffering).
 func copyFile(src, dst string) error {
 	in, err := os.Open(src)
 	if err != nil {

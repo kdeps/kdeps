@@ -116,12 +116,12 @@ func (b *Builder) Build(
 		format = defaultFormat
 	}
 
+	// For raw and qcow2 formats, we use a "thin" build strategy to handle large images.
+	// The app image is moved to a separate data partition instead of initrd.
+	isRaw := strings.HasPrefix(format, "raw") || strings.HasPrefix(format, "qcow2")
+
 	// Generate LinuxKit YAML config.
-	// The app image is bundled directly in the initrd (fat build). A thin
-	// build with a separate data partition would boot faster, but LinuxKit's
-	// device cgroup blocks all container access to raw block devices, making
-	// it impossible to mount the partition from onboot or service containers.
-	configYAML, err := b.GenerateConfigYAML(kdepsImageName, workflow)
+	configYAML, err := b.GenerateConfigYAMLExtended(kdepsImageName, workflow, isRaw)
 	if err != nil {
 		return fmt.Errorf("failed to generate LinuxKit config: %w", err)
 	}
@@ -162,17 +162,16 @@ func (b *Builder) Build(
 
 	var outputFile string
 
-	if format == "raw-bios" {
+	if isRaw {
 		// Two-step build: linuxkit produces kernel+initrd, then we assemble
-		// the raw-bios disk with our custom assembler (which fixes the
-		// upstream linuxkit mkimage-raw-bios FAT headroom bug).
+		// the raw disk with our custom assembler which supports a data partition.
 		assembler := b.RawBIOSAssembleFunc
 		if assembler == nil {
 			assembler = assembleRawBIOS
 		}
 
-		// Fat build: the app image is in the initrd, no data partition needed.
-		built, rawErr := buildRawBIOSWithImage(ctx, b.Runner, assembler, tmpPath, arch, buildDir, "", "")
+		// Data partition build: pass the image name so the assembler can export it.
+		built, rawErr := buildRawBIOSWithImage(ctx, b.Runner, assembler, tmpPath, arch, buildDir, kdepsImageName, "")
 		if rawErr != nil {
 			return rawErr
 		}
@@ -205,6 +204,15 @@ func (b *Builder) GenerateConfigYAML(
 	kdepsImageName string,
 	workflow *domain.Workflow,
 ) (string, error) {
+	return b.GenerateConfigYAMLExtended(kdepsImageName, workflow, false)
+}
+
+// GenerateConfigYAMLExtended generates and returns the LinuxKit YAML config with support for thin builds.
+func (b *Builder) GenerateConfigYAMLExtended(
+	kdepsImageName string,
+	workflow *domain.Workflow,
+	thin bool,
+) (string, error) {
 	if workflow == nil {
 		return "", errors.New("workflow cannot be nil")
 	}
@@ -214,7 +222,7 @@ func (b *Builder) GenerateConfigYAML(
 		hostname = defaultHostname
 	}
 
-	config, err := GenerateConfig(kdepsImageName, hostname, b.Arch, workflow)
+	config, err := GenerateConfigExtended(kdepsImageName, hostname, b.Arch, workflow, thin)
 	if err != nil {
 		return "", err
 	}

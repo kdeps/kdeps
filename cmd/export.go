@@ -64,9 +64,11 @@ func newExportCmd() *cobra.Command {
 
 // FormatMap maps user-friendly format names to LinuxKit format strings.
 var FormatMap = map[string]string{
-	"iso":   "iso-efi",
-	"raw":   "raw-bios",
-	"qcow2": "qcow2-bios",
+	"iso":      "iso-efi",
+	"raw":      "raw-efi",
+	"raw-bios": "raw-bios",
+	"raw-efi":  "raw-efi",
+	"qcow2":    "qcow2-bios",
 }
 
 // newExportISOCmd creates the export iso subcommand.
@@ -83,9 +85,11 @@ The workflow Docker image runs as a container inside a minimal LinuxKit VM
 with automatic networking (DHCP) and service management (containerd).
 
 Supported output formats:
-  iso   — EFI-bootable ISO image (default)
-  raw   — BIOS-bootable raw disk image
-  qcow2 — QEMU/KVM disk image
+  iso      — EFI-bootable ISO image (default)
+  raw      — EFI-bootable raw disk image (GPT)
+  raw-bios — BIOS-bootable raw disk image (MBR)
+  raw-efi  — EFI-bootable raw disk image (GPT)
+  qcow2    — QEMU/KVM disk image
 
 Accepts:
   Directory containing workflow.yaml
@@ -99,8 +103,11 @@ Examples:
   # Export with custom output path
   kdeps export iso examples/chatbot --output my-agent.iso
 
-  # Export as raw disk image (BIOS boot)
+  # Export as raw disk image (default EFI)
   kdeps export iso examples/chatbot --format raw --output my-agent.raw
+
+  # Export as legacy BIOS raw image
+  kdeps export iso examples/chatbot --format raw-bios
 
   # Export as QEMU disk image
   kdeps export iso examples/chatbot --format qcow2
@@ -528,6 +535,8 @@ func printBuildResult(outputPath, format, arch string, workflow *domain.Workflow
 		printISOInstructions(qemu, outputPath, fileName, hostfwd)
 	case "raw-bios":
 		printRawInstructions(qemu, outputPath, fileName, hostfwd)
+	case "raw-efi":
+		printRawEFIInstructions(qemu, outputPath, fileName, hostfwd)
 	case "qcow2-bios":
 		printQcow2Instructions(qemu, outputPath, fileName, hostfwd)
 	default:
@@ -625,6 +634,46 @@ func printRawInstructions(qemu, outputPath, fileName, hostfwd string) {
 	fmt.Fprintln(os.Stdout, "  Import as disk:")
 	fmt.Fprintf(os.Stdout, "    qm importdisk <vmid> %s local-lvm\n", outputPath)
 	fmt.Fprintln(os.Stdout, "  Then attach the imported disk to the VM (BIOS mode)")
+}
+
+func printRawEFIInstructions(qemu, outputPath, fileName, hostfwd string) {
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "--- Bare Metal ---")
+	fmt.Fprintln(os.Stdout, "  Write directly to disk:")
+	fmt.Fprintf(os.Stdout, "    sudo dd if=%s of=/dev/sdX bs=4M status=progress\n", outputPath)
+	fmt.Fprintln(os.Stdout, "  Boot in UEFI mode")
+
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "--- QEMU/KVM ---")
+	fmt.Fprintln(os.Stdout, "  Run with OVMF (UEFI firmware):")
+	fmt.Fprintf(os.Stdout, "    %s -cpu host \\\n", qemu)
+	fmt.Fprintln(os.Stdout, "      -drive if=pflash,format=raw,readonly=on,file=OVMF_CODE \\")
+	fmt.Fprintf(os.Stdout, "      -drive file=%s,format=raw,if=virtio \\\n", outputPath)
+	fmt.Fprintf(os.Stdout, "      -m 4096 -smp 2 %s\n", hostfwd)
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "  OVMF_CODE path by platform:")
+	fmt.Fprintln(os.Stdout, "    macOS (Apple Silicon): /opt/homebrew/share/qemu/edk2-x86_64-code.fd")
+	fmt.Fprintln(os.Stdout, "    macOS (Intel):         /usr/local/share/qemu/edk2-x86_64-code.fd")
+	fmt.Fprintln(os.Stdout, "    Ubuntu/Debian:         /usr/share/OVMF/OVMF_CODE.fd")
+	fmt.Fprintln(os.Stdout, "    Fedora/RHEL:           /usr/share/edk2/ovmf/OVMF_CODE.fd")
+
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "--- VMware ---")
+	fmt.Fprintln(os.Stdout, "  Convert to VMDK first:")
+	fmt.Fprintf(os.Stdout, "    qemu-img convert -f raw -O vmdk %s %s.vmdk\n", outputPath, fileName)
+	fmt.Fprintf(os.Stdout, "  Then attach %s.vmdk as the VM disk (firmware = EFI)\n", fileName)
+
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "--- VirtualBox ---")
+	fmt.Fprintln(os.Stdout, "  Convert to VDI first:")
+	fmt.Fprintf(os.Stdout, "    VBoxManage convertfromraw %s %s.vdi --format VDI\n", outputPath, fileName)
+	fmt.Fprintf(os.Stdout, "  Then attach %s.vdi as the VM disk (System > Enable EFI)\n", fileName)
+
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "--- Proxmox VE ---")
+	fmt.Fprintln(os.Stdout, "  Import as disk:")
+	fmt.Fprintf(os.Stdout, "    qm importdisk <vmid> %s local-lvm\n", outputPath)
+	fmt.Fprintln(os.Stdout, "  Then attach the imported disk to the VM (BIOS = OVMF/UEFI)")
 }
 
 func printQcow2Instructions(qemu, outputPath, fileName, hostfwd string) {

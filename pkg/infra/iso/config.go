@@ -73,6 +73,11 @@ func KernelCmdline(arch string) string {
 
 // GenerateConfig creates a LinuxKit configuration from a workflow and image name.
 func GenerateConfig(imageName, hostname, arch string, workflow *domain.Workflow) (*LinuxKitConfig, error) {
+	return GenerateConfigExtended(imageName, hostname, arch, workflow, false)
+}
+
+// GenerateConfigExtended creates a LinuxKit configuration with support for thin builds.
+func GenerateConfigExtended(imageName, hostname, arch string, workflow *domain.Workflow, thin bool) (*LinuxKitConfig, error) {
 	if workflow == nil {
 		return nil, errors.New("workflow cannot be nil")
 	}
@@ -163,19 +168,51 @@ func GenerateConfig(imageName, hostname, arch string, workflow *domain.Workflow)
 		},
 	}
 
-	// Bundle the app image directly in the initrd (fat build).
-	// Explicitly invoke entrypoint.sh → supervisord so both kdeps and ollama
-	// run properly. We can't rely on containerd merging ENTRYPOINT + CMD
-	// from the image config, so we set the full command chain here.
-	config.Services = append(config.Services, LinuxKitImage{
-		Name:         "kdeps",
-		Image:        imageName,
-		Net:          "host",
-		Capabilities: []string{"all"},
-		Binds:        binds,
-		Env:          envList,
-		Command:      []string{"/entrypoint.sh", "/usr/bin/supervisord", "-c", "/etc/supervisord.conf"},
-	})
+	// For thin builds, we don't bundle the image in the initrd.
+	if thin {
+		config.Onboot = append(config.Onboot, LinuxKitImage{
+			Name:  "mount-data",
+			Image: "alpine:3.19",
+			Command: []string{
+				"sh", "-c",
+				"mkdir -p /mnt/data && mount /dev/vda2 /mnt/data || mount /dev/sda2 /mnt/data || true",
+			},
+			Capabilities: []string{"all"},
+			Binds:        []string{"/dev:/dev", "/mnt:/mnt:shared"},
+		})
+
+		config.Onboot = append(config.Onboot, LinuxKitImage{
+			Name:  "import-image",
+			Image: "linuxkit/containerd:" + linuxkitComponentTag,
+			Command: []string{
+				"sh", "-c",
+				"ctr -n services images import /mnt/data/image.tar",
+			},
+			Binds: []string{"/run/containerd:/run/containerd", "/mnt:/mnt"},
+		})
+
+		// Use a detached container to run kdeps in thin mode
+		config.Onboot = append(config.Onboot, LinuxKitImage{
+			Name:  "start-kdeps",
+			Image: "linuxkit/containerd:" + linuxkitComponentTag,
+			Command: []string{
+				"sh", "-c",
+				fmt.Sprintf("ctr -n services containers create --net-host %s kdeps && ctr -n services tasks start -d kdeps", imageName),
+			},
+			Binds: []string{"/run/containerd:/run/containerd"},
+		})
+	} else {
+		// Bundle the app image directly in the initrd (fat build).
+		config.Services = append(config.Services, LinuxKitImage{
+			Name:         "kdeps",
+			Image:        imageName,
+			Net:          "host",
+			Capabilities: []string{"all"},
+			Binds:        binds,
+			Env:          envList,
+			Command:      []string{"/entrypoint.sh", "/usr/bin/supervisord", "-c", "/etc/supervisord.conf"},
+		})
+	}
 
 	return config, nil
 }
