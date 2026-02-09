@@ -128,6 +128,11 @@ func (s *WebServer) Shutdown(ctx context.Context) error {
 
 // SetupWebRoutes sets up web server routes.
 func (s *WebServer) SetupWebRoutes(ctx context.Context) {
+	s.RegisterRoutesOn(s.Router, ctx)
+}
+
+// RegisterRoutesOn registers web server routes on an external router.
+func (s *WebServer) RegisterRoutesOn(router *Router, ctx context.Context) {
 	config := s.Workflow.Settings.WebServer
 
 	for _, route := range config.Routes {
@@ -138,12 +143,12 @@ func (s *WebServer) SetupWebRoutes(ctx context.Context) {
 		if !strings.HasSuffix(path, "/") {
 			path += "/"
 		}
-		s.Router.GET(path+"*", handler)
-		s.Router.POST(path+"*", handler)
-		s.Router.PUT(path+"*", handler)
-		s.Router.DELETE(path+"*", handler)
-		s.Router.PATCH(path+"*", handler)
-		s.Router.OPTIONS(path+"*", handler)
+		router.GET(path+"*", handler)
+		router.POST(path+"*", handler)
+		router.PUT(path+"*", handler)
+		router.DELETE(path+"*", handler)
+		router.PATCH(path+"*", handler)
+		router.OPTIONS(path+"*", handler)
 
 		s.logger.InfoContext(
 			context.Background(),
@@ -206,10 +211,8 @@ func (s *WebServer) HandleAppRequest(w stdhttp.ResponseWriter, r *stdhttp.Reques
 	}
 
 	// Build target URL
-	hostIP := s.Workflow.Settings.WebServer.HostIP
-	if hostIP == "" {
-		hostIP = "127.0.0.1"
-	}
+	// The proxy target should always be 127.0.0.1 (connect to the local app process)
+	hostIP := "127.0.0.1"
 	targetURL, err := url.Parse(fmt.Sprintf("http://%s", net.JoinHostPort(hostIP, strconv.Itoa(route.AppPort))))
 	if err != nil {
 		s.logger.ErrorContext(

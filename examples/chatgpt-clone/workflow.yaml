@@ -34,7 +34,6 @@ settings:
   webServerMode: true
   webServer:
     hostIp: "0.0.0.0"
-    portNum: 8080
     routes:
       - serverType: static
         path: /
