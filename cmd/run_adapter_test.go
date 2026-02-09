@@ -105,9 +105,9 @@ func TestStartHTTPServer_InvalidAddr(t *testing.T) {
 	workflow := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
 			APIServerMode: true,
+			HostIP:        "127.0.0.1",
+			PortNum:       -1,
 			APIServer: &domain.APIServerConfig{
-				HostIP:  "127.0.0.1",
-				PortNum: -1,
 				Routes: []domain.Route{
 					{
 						Path:    "/api/test",

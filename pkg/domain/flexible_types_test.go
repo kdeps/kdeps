@@ -243,28 +243,20 @@ webServerMode: "no"
 	assert.False(t, settings.WebServerMode)
 }
 
-func TestAPIServerConfig_StringInteger(t *testing.T) {
+func TestWorkflowSettings_TopLevelSettings(t *testing.T) {
 	yamlData := `
-hostIp: "0.0.0.0"
-portNum: "3000"
-routes: []
+apiServerMode: "true"
+webServerMode: "false"
+hostIp: "127.0.0.1"
+portNum: "4000"
 `
-	var config APIServerConfig
-	err := yaml.Unmarshal([]byte(yamlData), &config)
+	var settings WorkflowSettings
+	err := yaml.Unmarshal([]byte(yamlData), &settings)
 	require.NoError(t, err)
-	assert.Equal(t, 3000, config.PortNum)
-}
-
-func TestWebServerConfig_StringInteger(t *testing.T) {
-	yamlData := `
-hostIp: "0.0.0.0"
-portNum: "8080"
-routes: []
-`
-	var config WebServerConfig
-	err := yaml.Unmarshal([]byte(yamlData), &config)
-	require.NoError(t, err)
-	assert.Equal(t, 8080, config.PortNum)
+	assert.True(t, settings.APIServerMode)
+	assert.False(t, settings.WebServerMode)
+	assert.Equal(t, "127.0.0.1", settings.HostIP)
+	assert.Equal(t, 4000, settings.PortNum)
 }
 
 func TestWebRoute_StringInteger(t *testing.T) {
@@ -459,14 +451,3 @@ webServerMode: false
 	assert.False(t, settings.WebServerMode)
 }
 
-func TestAPIServerConfig_NativeInteger(t *testing.T) {
-	yamlData := `
-hostIp: "0.0.0.0"
-portNum: 3000
-routes: []
-`
-	var config APIServerConfig
-	err := yaml.Unmarshal([]byte(yamlData), &config)
-	require.NoError(t, err)
-	assert.Equal(t, 3000, config.PortNum)
-}

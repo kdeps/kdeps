@@ -77,22 +77,15 @@ func (s *WebServer) Start(ctx context.Context) error {
 		return errors.New("webServer configuration is required")
 	}
 
-	config := s.Workflow.Settings.WebServer
-
 	// Setup routes
 	s.SetupWebRoutes(ctx)
 
 	// Configure address (KDEPS_BIND_HOST overrides for VM/container deployments)
-	hostIP := config.HostIP
+	hostIP := s.Workflow.Settings.GetHostIP()
 	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
 		hostIP = override
-	} else if hostIP == "" {
-		hostIP = "0.0.0.0"
 	}
-	portNum := config.PortNum
-	if portNum == 0 {
-		portNum = 8080
-	}
+	portNum := s.Workflow.Settings.GetPortNum()
 	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 
 	s.logger.InfoContext(context.Background(), "starting web server", "addr", addr)
@@ -134,6 +127,9 @@ func (s *WebServer) SetupWebRoutes(ctx context.Context) {
 // RegisterRoutesOn registers web server routes on an external router.
 func (s *WebServer) RegisterRoutesOn(router *Router, ctx context.Context) {
 	config := s.Workflow.Settings.WebServer
+	if config == nil {
+		return
+	}
 
 	for _, route := range config.Routes {
 		handler := s.CreateWebHandler(ctx, &route)

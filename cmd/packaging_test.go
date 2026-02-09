@@ -250,9 +250,9 @@ func TestGenerateDockerCompose(t *testing.T) {
 					Name: "test-agent",
 				},
 				Settings: domain.WorkflowSettings{
-					APIServer: &domain.APIServerConfig{
-						PortNum: 3000,
-					},
+					APIServerMode: true,
+					PortNum:       3000,
+					APIServer:     &domain.APIServerConfig{},
 				},
 			},
 			wantErr: false,
@@ -274,9 +274,9 @@ func TestGenerateDockerCompose(t *testing.T) {
 			pkgName:   "test-agent",
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
-					APIServer: &domain.APIServerConfig{
-						PortNum: 8080,
-					},
+					APIServerMode: true,
+					PortNum:       3000,
+					APIServer:     &domain.APIServerConfig{},
 				},
 			},
 			wantErr: false,
