@@ -10,7 +10,7 @@ settings:
   # Enable API server for chat endpoint
   apiServerMode: true
   apiServer:
-    hostIp: "127.0.0.1"
+    hostIp: "0.0.0.0"
     portNum: 3000
     routes:
       - path: /api/v1/chat
@@ -21,7 +21,7 @@ settings:
       enableCors: true
       allowOrigins:
         - "http://localhost:8080"
-        - "http://127.0.0.1:8080"
+        - "http://0.0.0.0:8080"
       allowMethods:
         - GET
         - POST
@@ -33,7 +33,7 @@ settings:
   # Enable WebServer for serving the frontend
   webServerMode: true
   webServer:
-    hostIp: "127.0.0.1"
+    hostIp: "0.0.0.0"
     portNum: 8080
     routes:
       - serverType: static

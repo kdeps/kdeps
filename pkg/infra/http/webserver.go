@@ -87,7 +87,7 @@ func (s *WebServer) Start(ctx context.Context) error {
 	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
 		hostIP = override
 	} else if hostIP == "" {
-		hostIP = "127.0.0.1"
+		hostIP = "0.0.0.0"
 	}
 	portNum := config.PortNum
 	if portNum == 0 {

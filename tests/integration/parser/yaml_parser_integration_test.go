@@ -52,7 +52,7 @@ metadata:
 settings:
   apiServerMode: true
   apiServer:
-    hostIp: "127.0.0.1"
+    hostIp: "0.0.0.0"
     portNum: 3000
     routes:
       - path: /api/v1/test
@@ -77,7 +77,7 @@ settings:
 	assert.Equal(t, "testAgent", workflow.Metadata.Name)
 	assert.Equal(t, "1.0.0", workflow.Metadata.Version)
 	assert.True(t, workflow.Settings.APIServerMode)
-	assert.Equal(t, "127.0.0.1", workflow.Settings.APIServer.HostIP)
+	assert.Equal(t, "0.0.0.0", workflow.Settings.APIServer.HostIP)
 	assert.Equal(t, 3000, workflow.Settings.APIServer.PortNum)
 }
 
@@ -567,7 +567,7 @@ metadata:
 settings:
   apiServerMode: true
   apiServer:
-    hostIp: "127.0.0.1"
+    hostIp: "0.0.0.0"
     portNum: 9090
   agentSettings:
     pythonVersion: "3.12"
@@ -605,7 +605,7 @@ settings:
 	assert.Equal(t, "final-aggregation", workflow.Metadata.TargetActionID)
 
 	assert.True(t, workflow.Settings.APIServerMode)
-	assert.Equal(t, "127.0.0.1", workflow.Settings.APIServer.HostIP)
+	assert.Equal(t, "0.0.0.0", workflow.Settings.APIServer.HostIP)
 	assert.Equal(t, 9090, workflow.Settings.APIServer.PortNum)
 
 	assert.Equal(t, "3.12", workflow.Settings.AgentSettings.PythonVersion)

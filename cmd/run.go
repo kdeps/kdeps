@@ -747,7 +747,7 @@ func StartWebServer(workflow *domain.Workflow, workflowPath string, _ bool) erro
 	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
 		hostIP = override
 	} else if hostIP == "" {
-		hostIP = "127.0.0.1"
+		hostIP = "0.0.0.0"
 	}
 	portNum := serverConfig.PortNum
 	if portNum == 0 {

@@ -44,7 +44,7 @@ metadata:
 settings:
   apiServerMode: true
   apiServer:
-    hostIp: "127.0.0.1"
+    hostIp: "0.0.0.0"
     portNum: 3030
     routes:
       - path: /api/v1/session
@@ -225,7 +225,7 @@ metadata:
 settings:
   apiServerMode: true
   apiServer:
-    hostIp: "127.0.0.1"
+    hostIp: "0.0.0.0"
     portNum: 3031
     routes:
       - path: /api/v1/set
