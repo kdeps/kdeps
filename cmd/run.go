@@ -630,10 +630,14 @@ const gracefulShutdownTimeout = 10 * time.Second
 //nolint:funlen // startup logic requires multiple setup steps
 func StartHTTPServer(workflow *domain.Workflow, workflowPath string, devMode bool, debugMode bool) error {
 	serverConfig := workflow.Settings.APIServer
-	addr := fmt.Sprintf("%s:%d", serverConfig.HostIP, serverConfig.PortNum)
+	hostIP := serverConfig.HostIP
+	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
+		hostIP = override
+	}
+	addr := fmt.Sprintf("%s:%d", hostIP, serverConfig.PortNum)
 
 	// Check if port is available before starting
-	if err := CheckPortAvailable(serverConfig.HostIP, serverConfig.PortNum); err != nil {
+	if err := CheckPortAvailable(hostIP, serverConfig.PortNum); err != nil {
 		return fmt.Errorf("API server cannot start: %w", err)
 	}
 
@@ -740,7 +744,9 @@ func StartWebServer(workflow *domain.Workflow, workflowPath string, _ bool) erro
 
 	serverConfig := workflow.Settings.WebServer
 	hostIP := serverConfig.HostIP
-	if hostIP == "" {
+	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
+		hostIP = override
+	} else if hostIP == "" {
 		hostIP = "127.0.0.1"
 	}
 	portNum := serverConfig.PortNum

@@ -29,7 +29,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/infra/cloud"
 	"github.com/kdeps/kdeps/v2/pkg/infra/docker"
+	"github.com/kdeps/kdeps/v2/pkg/infra/iso"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v2/pkg/validator"
@@ -41,6 +43,7 @@ type BuildFlags struct {
 	ShowDockerfile bool
 	GPU            string
 	NoCache        bool
+	Cloud          bool
 }
 
 // newBuildCmd creates the build command.
@@ -98,6 +101,8 @@ Examples:
 		StringVar(&flags.GPU, "gpu", "", "GPU type for backend (cuda, rocm, intel, vulkan). Auto-selects Ubuntu.")
 	buildCmd.Flags().
 		BoolVar(&flags.NoCache, "no-cache", false, "Do not use cache when building the image")
+	buildCmd.Flags().
+		BoolVar(&flags.Cloud, "cloud", false, "Build using kdeps.io cloud infrastructure")
 
 	return buildCmd
 }
@@ -248,6 +253,42 @@ func handleDockerfileShow(builder *docker.Builder, workflow *domain.Workflow) er
 	return nil
 }
 
+// getWorkflowPorts extracts enabled ports from a workflow.
+func getWorkflowPorts(workflow *domain.Workflow) []int {
+	var ports []int
+	if workflow != nil {
+		// API Server port
+		apiPort := 3000 // default
+		if workflow.Settings.APIServer != nil && workflow.Settings.APIServer.PortNum > 0 {
+			apiPort = workflow.Settings.APIServer.PortNum
+		}
+		if workflow.Settings.APIServerMode {
+			ports = append(ports, apiPort)
+		}
+
+		// Web Server port
+		webPort := 8080 // default
+		if workflow.Settings.WebServer != nil && workflow.Settings.WebServer.PortNum > 0 {
+			webPort = workflow.Settings.WebServer.PortNum
+		}
+		if workflow.Settings.WebServerMode {
+			// Avoid duplicate if same as API port
+			if apiPort != webPort || !workflow.Settings.APIServerMode {
+				ports = append(ports, webPort)
+			}
+		}
+
+		if iso.ShouldInstallOllama(workflow) {
+			// Add Ollama port (default 11434)
+			ports = append(ports, 11434)
+		}
+	}
+	if len(ports) == 0 {
+		ports = []int{3000}
+	}
+	return ports
+}
+
 // performDockerBuild executes the actual Docker build and tagging.
 func performDockerBuild(
 	builder *docker.Builder,
@@ -278,14 +319,25 @@ func performDockerBuild(
 	fmt.Fprintln(os.Stdout, "✅ Image built successfully!")
 	fmt.Fprintf(os.Stdout, "  Image: %s\n", imageName)
 	fmt.Fprintln(os.Stdout)
+
+	ports := getWorkflowPorts(workflow)
+	var portFlags []string
+	for _, p := range ports {
+		portFlags = append(portFlags, fmt.Sprintf("-p %d:%d", p, p))
+	}
+
 	fmt.Fprintln(os.Stdout, "Run with:")
-	fmt.Fprintf(os.Stdout, "  docker run -p 3000:3000 %s\n", imageName)
+	fmt.Fprintf(os.Stdout, "  docker run %s %s\n", strings.Join(portFlags, " "), imageName)
 
 	return nil
 }
 
 // buildImageInternal executes the build command with flags parameter.
 func buildImageInternal(_ *cobra.Command, args []string, flags *BuildFlags) error {
+	if flags.Cloud {
+		return cloudBuild(args[0], "docker", "amd64", flags.NoCache)
+	}
+
 	packagePath := args[0]
 
 	fmt.Fprintf(os.Stdout, "Building Docker image from: %s\n\n", packagePath)
@@ -340,4 +392,88 @@ func buildImageInternal(_ *cobra.Command, args []string, flags *BuildFlags) erro
 
 	// Build image
 	return performDockerBuild(builder, workflow, packagePath, flags)
+}
+
+// cloudBuild executes a build via kdeps.io cloud infrastructure.
+func cloudBuild(packagePath, format, arch string, noCache bool) error {
+	config, err := LoadCloudConfig()
+	if err != nil {
+		return err
+	}
+
+	// Pre-flight: check plan access before uploading
+	client := cloud.NewClient(config.APIKey, config.APIURL)
+	ctx := context.Background()
+
+	whoami, whoamiErr := client.Whoami(ctx)
+	if whoamiErr != nil {
+		return fmt.Errorf("failed to verify account: %w", whoamiErr)
+	}
+
+	if !whoami.Plan.Features.APIAccess {
+		return fmt.Errorf(
+			"cloud builds require a Pro or Max plan (current: %s)\nUpgrade at https://kdeps.io/settings/billing",
+			whoami.Plan.Name,
+		)
+	}
+
+	// Package workflow to temp .kdeps file
+	tmpFile, err := os.CreateTemp("", "kdeps-cloud-*.kdeps")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	tmpFile.Close()
+	defer os.Remove(tmpPath)
+
+	// Resolve workflow and create archive
+	workflowPath, packageDir, cleanupFunc, err := resolveBuildWorkflowPaths(packagePath)
+	if err != nil {
+		return err
+	}
+	if cleanupFunc != nil {
+		defer cleanupFunc()
+	}
+
+	workflow, err := parseWorkflow(workflowPath)
+	if err != nil {
+		return err
+	}
+
+	if archiveErr := CreatePackageArchive(packageDir, tmpPath, workflow); archiveErr != nil {
+		return fmt.Errorf("failed to package workflow: %w", archiveErr)
+	}
+
+	// Open archive for upload
+	file, err := os.Open(tmpPath)
+	if err != nil {
+		return fmt.Errorf("failed to open package: %w", err)
+	}
+	defer file.Close()
+
+	fmt.Fprintf(os.Stdout, "Uploading to kdeps.io cloud...\n")
+
+	buildResp, err := client.StartBuild(ctx, file, format, arch, noCache)
+	if err != nil {
+		return fmt.Errorf("cloud build failed: %w", err)
+	}
+
+	fmt.Fprintf(os.Stdout, "Build started (ID: %s)\n\n", buildResp.BuildID)
+
+	status, err := client.StreamBuildLogs(ctx, buildResp.BuildID, os.Stdout)
+	if err != nil {
+		return err
+	}
+
+	if status.ImageRef != "" {
+		fmt.Fprintf(os.Stdout, "\nImage: %s\n", status.ImageRef)
+	}
+
+	if status.DownloadURL != "" {
+		fmt.Fprintf(os.Stdout, "Download: %s\n", status.DownloadURL)
+	}
+
+	fmt.Fprintln(os.Stdout, "\nCloud build completed successfully!")
+
+	return nil
 }

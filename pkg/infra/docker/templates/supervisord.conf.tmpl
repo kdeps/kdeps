@@ -15,6 +15,7 @@ stderr_logfile=/var/log/ollama.err.log
 stdout_logfile=/var/log/ollama.out.log
 priority=10
 stopwaitsecs=30
+environment=OLLAMA_HOST="127.0.0.1",OLLAMA_MODELS="/root/.ollama/models"
 
 {{- end }}
 
