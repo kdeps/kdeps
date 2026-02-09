@@ -90,7 +90,7 @@ func TestWebServer_CreateWebHandler_App(t *testing.T) {
 						Path:       "/app",
 						ServerType: "app",
 						Command:    "echo test",
-						AppPort:    3000,
+						AppPort:    16395,
 					},
 				},
 			},
@@ -105,7 +105,7 @@ func TestWebServer_CreateWebHandler_App(t *testing.T) {
 		Path:       "/app",
 		ServerType: "app",
 		Command:    "echo test",
-		AppPort:    3000,
+		AppPort:    16395,
 	}
 
 	handler := webServer.CreateWebHandler(ctx, route)
@@ -274,7 +274,7 @@ func TestWebServer_SetupWebRoutes(t *testing.T) {
 						Path:       "/app",
 						ServerType: "app",
 						Command:    "echo test",
-						AppPort:    3000,
+						AppPort:    16395,
 					},
 				},
 			},
@@ -339,7 +339,7 @@ func TestWebServer_Stop_WithRunningCommands(t *testing.T) {
 						Path:       "/app1",
 						ServerType: "app",
 						Command:    "sleep 10", // Long running command
-						AppPort:    3000,
+						AppPort:    16395,
 					},
 					{
 						Path:       "/app2",

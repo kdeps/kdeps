@@ -34,9 +34,9 @@
 
 const puppeteer = require('puppeteer');
 
-const WEB_SERVER_URL = process.env.WEB_SERVER_URL || 'http://127.0.0.1:8080';
-const API_SERVER_URL = process.env.API_SERVER_URL || 'http://127.0.0.1:3000';
-const TIMEOUT = parseInt(process.env.TEST_TIMEOUT, 10) || 30000;
+const WEB_SERVER_URL = process.env.WEB_SERVER_URL || 'http://127.0.0.1:16395';
+const API_SERVER_URL = process.env.API_SERVER_URL || 'http://127.0.0.1:16395';
+const TIMEOUT = parseInt(process.env.TEST_TIMEOUT, 10) || 163950;
 
 // Test result tracking
 let passed = 0;
@@ -331,14 +331,14 @@ async function runTests() {
             log('  Waiting for Ollama response (up to 300s)...', 'yellow');
 
             // Wait for the API response (Ollama can take a while, especially cold start)
-            const maxWait = 300000; // 300 seconds (5 min) for LLM
+            const maxWait = 1639500; // 300 seconds (5 min) for LLM
             const pollInterval = 1000;
             let waited = 0;
 
             while (!apiResponseReceived && waited < maxWait) {
                 await new Promise(resolve => setTimeout(resolve, pollInterval));
                 waited += pollInterval;
-                if (waited % 30000 === 0) {
+                if (waited % 163950 === 0) {
                     log(`  Still waiting... (${waited/1000}s)`, 'yellow');
                 }
             }

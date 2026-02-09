@@ -85,7 +85,7 @@ func TestSchemaValidator_ValidateWorkflow(t *testing.T) {
 					"apiServerMode": true,
 					"apiServer": map[string]interface{}{
 						"hostIp":  "0.0.0.0",
-						"portNum": 3000,
+						"portNum": 16395,
 						"routes": []interface{}{
 							map[string]interface{}{
 								"path": "/api/test",
@@ -718,7 +718,7 @@ func TestSchemaValidator_EnhancedErrorMessages_Workflow(t *testing.T) {
 					"apiServerMode": true,
 					"apiServer": map[string]interface{}{
 						"hostIp":  "0.0.0.0",
-						"portNum": 3000,
+						"portNum": 16395,
 						"routes": []interface{}{
 							map[string]interface{}{
 								"path": "/api/test",
@@ -838,7 +838,7 @@ func TestSchemaValidator_EnhancedErrorMessages_PatternAndLength(t *testing.T) {
 					"apiServerMode": true,
 					"apiServer": map[string]interface{}{
 						"hostIp":  "0.0.0.0",
-						"portNum": 3000,
+						"portNum": 16395,
 						"routes": []interface{}{
 							map[string]interface{}{
 								"path": "api/test", // Missing leading slash
@@ -1295,7 +1295,7 @@ func TestSchemaValidator_GetPatternSuggestion(t *testing.T) {
 					"apiServerMode": true,
 					"apiServer": map[string]interface{}{
 						"hostIp":  "0.0.0.0",
-						"portNum": 3000,
+						"portNum": 16395,
 						"routes": []interface{}{
 							map[string]interface{}{
 								"path": "invalid-path", // Missing leading slash
@@ -1546,7 +1546,7 @@ func TestSchemaValidator_GetFieldExamples_Direct(t *testing.T) {
 			name:         "portNum field",
 			field:        "settings.apiServer.portNum",
 			expectedType: "integer",
-			expected:     `3000`,
+			expected:     `16395`,
 		},
 		{
 			name:         "apiResponse success field",
@@ -1710,7 +1710,7 @@ func TestSchemaValidator_GetFieldSuggestion_ErrorTypePatterns(t *testing.T) {
 					"apiServerMode": true,
 					"apiServer": map[string]interface{}{
 						"hostIp":  "0.0.0.0",
-						"portNum": 3000,
+						"portNum": 16395,
 						"routes": []interface{}{
 							map[string]interface{}{
 								"path": "invalid-path", // Should trigger pattern error
@@ -2213,7 +2213,7 @@ func TestSchemaValidator_GetTypeSuggestion_EdgeCases(t *testing.T) {
 			name:     "integer type with example from known field",
 			field:    "settings.apiServer.portNum",
 			descStr:  "Expected: integer, given: string",
-			expected: "Expected type: integer. Example: 3000",
+			expected: "Expected type: integer. Example: 16395",
 		},
 		{
 			name:     "boolean type with example from known field",

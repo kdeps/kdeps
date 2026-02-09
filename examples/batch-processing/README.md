@@ -24,7 +24,7 @@ Items iteration allows you to process arrays of data efficiently:
 kdeps run examples/batch-processing/workflow.yaml
 
 # In another terminal, send a batch request
-curl -X POST http://localhost:3000/process \
+curl -X POST http://localhost:16395/process \
   -H "Content-Type: application/json" \
   -d @test-request.json
 ```

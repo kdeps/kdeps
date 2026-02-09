@@ -23,7 +23,7 @@ kdeps run examples/chatbot/workflow.yaml
 ## Test
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/chat \
+curl -X POST http://localhost:16395/api/v1/chat \
   -H "Content-Type: application/json" \
   -d '{"q": "What is artificial intelligence?"}'
 ```

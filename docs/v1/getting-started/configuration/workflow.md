@@ -47,7 +47,7 @@ The `APIServer` block defines API routing configurations for the AI agent. These
 `APIServerMode` is set to `true`.
 
 - `HostIP` **and** `PortNum`: Define the IP address and port for the Docker container. The default values are
-  `"127.0.0.1"` for `HostIP` and `3000` for `PortNum`.
+  `"127.0.0.1"` for `HostIP` and `16395` for `PortNum`.
 
 #### TrustedProxies
 
@@ -159,7 +159,7 @@ KDeps to deliver full-stack AI applications with integrated UIs. These settings 
 set to `true`.
 
 - `HostIP` **and** `PortNum`: Define the IP address and port for the web server. The default values are `"127.0.0.1"`
-  for `HostIP` and `8080` for `PortNum`.
+  for `HostIP` and `16395` for `PortNum`.
 
 
 #### WebServerMode
@@ -184,7 +184,7 @@ Example:
 ```apl
 WebServer {
     HostIP = "0.0.0.0"
-    PortNum = 8080
+    PortNum = 16395
     TrustedProxies {
         "192.168.1.0/24"
     }
@@ -241,7 +241,7 @@ WebServer {
 }
 ```
 
-This serves files from `/data/agentX/1.0.0/dashboard/` at `http://<host>:8080/dashboard`.
+This serves files from `/data/agentX/1.0.0/dashboard/` at `http://<host>:16395/dashboard`.
 
 ##### Reverse Proxying
 
@@ -265,7 +265,7 @@ WebServer {
 }
 ```
 
-This proxies requests from `http://<host>:8080/app` to a Streamlit app on port 8501, launched with `streamlit run
+This proxies requests from `http://<host>:16395/app` to a Streamlit app on port 8501, launched with `streamlit run
 app.py`. For more details, see the [Web Server](/getting-started/configuration/webserver.md) documentation.
 
 ### AI Agent Settings

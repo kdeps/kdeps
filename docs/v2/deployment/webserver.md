@@ -25,7 +25,7 @@ settings:
   apiServerMode: true
   apiServer:
     hostIp: "127.0.0.1"
-    portNum: 3000
+    portNum: 16395
     routes:
       - path: /api/v1/chat
         methods: [POST]
@@ -33,7 +33,7 @@ settings:
   webServerMode: true
   webServer:
     hostIp: "127.0.0.1"
-    portNum: 8080
+    portNum: 16395
     routes:
       - path: "/"
         serverType: "static"
@@ -49,7 +49,7 @@ settings:
   webServerMode: true
   webServer:
     hostIp: "0.0.0.0"
-    portNum: 8080
+    portNum: 16395
     routes:
       - path: "/"
         serverType: "static"
@@ -98,7 +98,7 @@ settings:
   webServerMode: true
   webServer:
     hostIp: "0.0.0.0"
-    portNum: 8080
+    portNum: 16395
     routes:
       - path: "/app"
         serverType: "app"
@@ -130,7 +130,7 @@ st.title("AI Dashboard")
 query = st.text_input("Ask a question:")
 if st.button("Submit"):
     response = requests.post(
-        "http://localhost:3000/api/v1/chat",
+        "http://localhost:16395/api/v1/chat",
         json={"q": query}
     )
     st.write(response.json()["response"]["answer"])
@@ -154,7 +154,7 @@ import requests
 
 def chat(message):
     response = requests.post(
-        "http://localhost:3000/api/v1/chat",
+        "http://localhost:16395/api/v1/chat",
         json={"q": message}
     )
     return response.json()["response"]["answer"]
@@ -223,7 +223,7 @@ settings:
   webServerMode: true
   webServer:
     hostIp: "0.0.0.0"
-    portNum: 8080
+    portNum: 16395
     routes:
       # Landing page (static)
       - path: "/"
@@ -257,7 +257,7 @@ settings:
   webServerMode: true
   webServer:
     hostIp: "0.0.0.0"
-    portNum: 8080
+    portNum: 16395
     trustedProxies:
       - "10.0.0.0/8"
       - "172.16.0.0/12"
@@ -286,7 +286,7 @@ settings:
   apiServerMode: true
   apiServer:
     hostIp: "0.0.0.0"
-    portNum: 3000
+    portNum: 16395
     routes:
       - path: /api/v1/chat
         methods: [POST]
@@ -297,13 +297,13 @@ settings:
     cors:
       enableCors: true
       allowOrigins:
-        - http://localhost:8080
+        - http://localhost:16395
 
   # Web Server
   webServerMode: true
   webServer:
     hostIp: "0.0.0.0"
-    portNum: 8080
+    portNum: 16395
     routes:
       # React frontend
       - path: "/"
@@ -333,7 +333,7 @@ When deploying with Docker:
 
 ```dockerfile
 # Expose both ports
-EXPOSE 3000 8080
+EXPOSE 16395 16395
 
 # Run both servers
 CMD ["./entrypoint.sh"]
@@ -346,8 +346,8 @@ services:
   myagent:
     image: kdeps-myagent:1.0.0
     ports:
-      - "3000:3000"  # API
-      - "8080:8080"  # Web
+      - "16395:16395"  # API
+      - "16395:16395"  # Web
 ```
 
 ## Best Practices
@@ -392,7 +392,7 @@ apiServer:
   cors:
     enableCors: true
     allowOrigins:
-      - http://localhost:8080
+      - http://localhost:16395
     allowMethods:
       - GET
       - POST

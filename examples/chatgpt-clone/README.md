@@ -30,10 +30,10 @@ kdeps run examples/chatgpt-clone
 ```
 
 This starts both servers:
-- **API Server** on http://localhost:3000 (handles chat requests)
-- **Web Interface** on http://localhost:8080 (serves the frontend)
+- **API Server** on http://localhost:16395 (handles chat requests)
+- **Web Interface** on http://localhost:16395 (serves the frontend)
 
-Open http://localhost:8080 in your browser to use the chat interface.
+Open http://localhost:16395 in your browser to use the chat interface.
 
 ## Architecture
 
@@ -127,7 +127,7 @@ The resulting image will include:
 
 Run the container:
 ```bash
-docker run -p 3000:3000 -p 8080:8080 chatgpt-clone:latest
+docker run -p 16395:16395 -p 16395:16395 chatgpt-clone:latest
 ```
 
 ## Customization
@@ -158,7 +158,7 @@ Edit `public/styles.css` to customize colors, fonts, and layout.
 
 1. Check if KDeps is running: `kdeps run workflow.yaml`
 2. Check if Ollama is running: `ollama list`
-3. Verify the API: `curl http://localhost:3000/api/v1/models`
+3. Verify the API: `curl http://localhost:16395/api/v1/models`
 
 ### "Model not found"
 

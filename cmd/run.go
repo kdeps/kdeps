@@ -93,14 +93,14 @@ Examples:
   kdeps run workflow.yaml --debug
 
   # Specify port
-  kdeps run workflow.yaml --port 3000`,
+  kdeps run workflow.yaml --port 16395`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return RunWorkflowWithFlags(cmd, args, flags)
 		},
 	}
 
-	runCmd.Flags().IntVar(&flags.Port, "port", 3000, "Port to listen on") //nolint:mnd // default port
+	runCmd.Flags().IntVar(&flags.Port, "port", 16395, "Port to listen on") //nolint:mnd // default port
 	runCmd.Flags().BoolVar(&flags.DevMode, "dev", false, "Enable dev mode (hot reload)")
 
 	return runCmd
@@ -627,7 +627,7 @@ const gracefulShutdownTimeout = 10 * time.Second
 
 // StartHTTPServer starts the HTTP API server (exported for testing).
 //
-//nolint:funlen // startup logic requires multiple setup steps
+
 func StartHTTPServer(workflow *domain.Workflow, workflowPath string, devMode bool, debugMode bool) error {
 	hostIP := workflow.Settings.GetHostIP()
 	portNum := workflow.Settings.GetPortNum()
@@ -643,19 +643,7 @@ func StartHTTPServer(workflow *domain.Workflow, workflowPath string, devMode boo
 	}
 
 	fmt.Fprintf(os.Stdout, "  ✓ Starting HTTP server on %s\n", addr)
-	fmt.Fprintln(os.Stdout, "\nRoutes:")
-	serverConfig := workflow.Settings.APIServer
-	if serverConfig != nil {
-		for _, route := range serverConfig.Routes {
-			methods := route.Methods
-			if len(methods) == 0 {
-				methods = []string{"GET", "POST", "PUT", "DELETE", "PATCH"}
-			}
-			for _, method := range methods {
-				fmt.Fprintf(os.Stdout, "  %s %s\n", method, route.Path)
-			}
-		}
-	}
+	printRoutes(workflow.Settings.APIServer)
 	fmt.Fprintln(os.Stdout, "\n✓ Server ready!")
 
 	if devMode {
@@ -664,23 +652,7 @@ func StartHTTPServer(workflow *domain.Workflow, workflowPath string, devMode boo
 
 	// Create executor with beautiful Rails-like logging
 	logger := logging.NewLogger(debugMode)
-	engine := executor.NewEngine(logger)
-	engine.SetDebugMode(debugMode)
-
-	// Initialize executor registry (done here to avoid import cycles)
-	registry := executor.NewRegistry()
-	registry.SetHTTPExecutor(executorHTTP.NewAdapter())
-	registry.SetSQLExecutor(executorSQL.NewAdapter())
-	registry.SetPythonExecutor(executorPython.NewAdapter())
-	registry.SetExecExecutor(executorExec.NewAdapter())
-
-	ollamaURL := ollamaDefaultURL
-	if workflow.Settings.AgentSettings.OllamaURL != "" {
-		ollamaURL = workflow.Settings.AgentSettings.OllamaURL
-	}
-	registry.SetLLMExecutor(executorLLM.NewAdapter(ollamaURL))
-
-	engine.SetRegistry(registry)
+	engine := setupEngine(workflow, debugMode)
 
 	// Create executor adapter that converts http.RequestContext to executor.RequestContext
 	executorAdapter := &RequestContextAdapter{Engine: engine}
@@ -693,22 +665,7 @@ func StartHTTPServer(workflow *domain.Workflow, workflowPath string, devMode boo
 
 	// Setup file watcher for hot reload
 	if devMode {
-		// Set workflow path on server for hot reload
-		httpServer.SetWorkflowPath(workflowPath)
-
-		// Create and set parser for hot reload
-		schemaValidator, schemaErr := validator.NewSchemaValidator()
-		if schemaErr == nil {
-			exprParser := expression.NewParser()
-			yamlParser := yaml.NewParser(schemaValidator, exprParser)
-			httpServer.SetParser(yamlParser)
-		}
-
-		watcher, watcherErr := http.NewFileWatcher()
-		if watcherErr == nil {
-			httpServer.SetWatcher(watcher)
-			defer watcher.Close()
-		}
+		setupDevMode(httpServer, workflowPath)
 	}
 
 	// Setup signal handling for graceful shutdown
@@ -737,6 +694,61 @@ func StartHTTPServer(workflow *domain.Workflow, workflowPath string, devMode boo
 			return chanErr
 		}
 		return nil
+	}
+}
+
+func printRoutes(serverConfig *domain.APIServerConfig) {
+	fmt.Fprintln(os.Stdout, "\nRoutes:")
+	if serverConfig != nil {
+		for _, route := range serverConfig.Routes {
+			methods := route.Methods
+			if len(methods) == 0 {
+				methods = []string{"GET", "POST", "PUT", "DELETE", "PATCH"}
+			}
+			for _, method := range methods {
+				fmt.Fprintf(os.Stdout, "  %s %s\n", method, route.Path)
+			}
+		}
+	}
+}
+
+func setupEngine(workflow *domain.Workflow, debugMode bool) *executor.Engine {
+	logger := logging.NewLogger(debugMode)
+	engine := executor.NewEngine(logger)
+	engine.SetDebugMode(debugMode)
+
+	// Initialize executor registry (done here to avoid import cycles)
+	registry := executor.NewRegistry()
+	registry.SetHTTPExecutor(executorHTTP.NewAdapter())
+	registry.SetSQLExecutor(executorSQL.NewAdapter())
+	registry.SetPythonExecutor(executorPython.NewAdapter())
+	registry.SetExecExecutor(executorExec.NewAdapter())
+
+	ollamaURL := ollamaDefaultURL
+	if workflow.Settings.AgentSettings.OllamaURL != "" {
+		ollamaURL = workflow.Settings.AgentSettings.OllamaURL
+	}
+	registry.SetLLMExecutor(executorLLM.NewAdapter(ollamaURL))
+
+	engine.SetRegistry(registry)
+	return engine
+}
+
+func setupDevMode(httpServer *http.Server, workflowPath string) {
+	// Set workflow path on server for hot reload
+	httpServer.SetWorkflowPath(workflowPath)
+
+	// Create and set parser for hot reload
+	schemaValidator, schemaErr := validator.NewSchemaValidator()
+	if schemaErr == nil {
+		exprParser := expression.NewParser()
+		yamlParser := yaml.NewParser(schemaValidator, exprParser)
+		httpServer.SetParser(yamlParser)
+	}
+
+	watcher, watcherErr := http.NewFileWatcher()
+	if watcherErr == nil {
+		httpServer.SetWatcher(watcher)
 	}
 }
 
@@ -935,27 +947,13 @@ func ExecuteSingleRun(workflow *domain.Workflow) error {
 
 // StartBothServers starts both the API server and WebServer on a single port.
 //
-//nolint:funlen,gocognit // startup logic requires handling multiple servers
+
 func StartBothServers(workflow *domain.Workflow, workflowPath string, devMode bool, debugMode bool) error {
 	// Create logger
 	logger := logging.NewLogger(debugMode)
 
-	// Create API server
-	engine := executor.NewEngine(logger)
-	engine.SetDebugMode(debugMode)
-
-	registry := executor.NewRegistry()
-	registry.SetHTTPExecutor(executorHTTP.NewAdapter())
-	registry.SetSQLExecutor(executorSQL.NewAdapter())
-	registry.SetPythonExecutor(executorPython.NewAdapter())
-	registry.SetExecExecutor(executorExec.NewAdapter())
-
-	ollamaURL := ollamaDefaultURL
-	if workflow.Settings.AgentSettings.OllamaURL != "" {
-		ollamaURL = workflow.Settings.AgentSettings.OllamaURL
-	}
-	registry.SetLLMExecutor(executorLLM.NewAdapter(ollamaURL))
-	engine.SetRegistry(registry)
+	// Create API server engine
+	engine := setupEngine(workflow, debugMode)
 
 	executorAdapter := &RequestContextAdapter{Engine: engine}
 	httpServer, err := http.NewServer(workflow, executorAdapter, logger)
@@ -965,18 +963,7 @@ func StartBothServers(workflow *domain.Workflow, workflowPath string, devMode bo
 
 	// Setup dev mode for API server
 	if devMode {
-		httpServer.SetWorkflowPath(workflowPath)
-		schemaValidator, schemaErr := validator.NewSchemaValidator()
-		if schemaErr == nil {
-			exprParser := expression.NewParser()
-			yamlParser := yaml.NewParser(schemaValidator, exprParser)
-			httpServer.SetParser(yamlParser)
-		}
-		watcher, watcherErr := http.NewFileWatcher()
-		if watcherErr == nil {
-			httpServer.SetWatcher(watcher)
-			defer watcher.Close()
-		}
+		setupDevMode(httpServer, workflowPath)
 	}
 
 	// Create web server
@@ -987,7 +974,7 @@ func StartBothServers(workflow *domain.Workflow, workflowPath string, devMode bo
 	webServer.SetWorkflowDir(workflowPath)
 
 	// Merge web routes onto API router
-	webServer.RegisterRoutesOn(httpServer.Router, context.Background())
+	webServer.RegisterRoutesOn(context.Background(), httpServer.Router)
 
 	// Print server info
 	hostIP := workflow.Settings.GetHostIP()

@@ -143,13 +143,13 @@ httpClient:
 
 1. **Bearer Token Authentication:**
 ```bash
-curl "http://localhost:3000/api/v1/http-demo"
+curl "http://localhost:16395/api/v1/http-demo"
 # Uses cached response on subsequent calls
 ```
 
 2. **API Key Authentication:**
 ```bash
-curl -X POST "http://localhost:3000/api/v1/http-demo" \
+curl -X POST "http://localhost:16395/api/v1/http-demo" \
   -H "Content-Type: application/json" \
   -d '{"custom_header": "test-value"}'
 ```
@@ -171,7 +171,7 @@ export API_KEY="your-api-key-here"
 
 Or pass them as query parameters:
 ```bash
-curl "http://localhost:3000/api/v1/http-demo?api_token=your-token&api_key=your-key"
+curl "http://localhost:16395/api/v1/http-demo?api_token=your-token&api_key=your-key"
 ```
 
 ## 🚀 Performance Benefits

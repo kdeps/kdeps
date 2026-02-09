@@ -33,12 +33,13 @@ import (
 
 // TestServer_SetCorsOrigin tests setCorsOrigin method.
 func TestServer_SetCorsOrigin(t *testing.T) {
+	enabled := true
 	workflow := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
 				CORS: &domain.CORS{
-					EnableCORS:   true,
-					AllowOrigins: []string{"http://localhost:3000", "http://example.com"},
+					EnableCORS:   &enabled,
+					AllowOrigins: []string{"http://localhost:16395", "http://example.com"},
 				},
 			},
 		},
@@ -49,7 +50,7 @@ func TestServer_SetCorsOrigin(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(stdhttp.MethodGet, "/api/test", nil)
-	req.Header.Set("Origin", "http://localhost:3000")
+	req.Header.Set("Origin", "http://localhost:16395")
 
 	// Test CORS middleware which calls setCorsOrigin
 	middleware := server.CorsMiddleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
@@ -59,16 +60,17 @@ func TestServer_SetCorsOrigin(t *testing.T) {
 	middleware(w, req)
 	// Should set CORS origin header
 	origin := w.Header().Get("Access-Control-Allow-Origin")
-	assert.Equal(t, "http://localhost:3000", origin)
+	assert.Equal(t, "http://localhost:16395", origin)
 }
 
 // TestServer_SetCorsOrigin_Wildcard tests setCorsOrigin with wildcard.
 func TestServer_SetCorsOrigin_Wildcard(t *testing.T) {
+	enabled := true
 	workflow := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
 				CORS: &domain.CORS{
-					EnableCORS:   true,
+					EnableCORS:   &enabled,
 					AllowOrigins: []string{"*"},
 				},
 			},
@@ -94,12 +96,13 @@ func TestServer_SetCorsOrigin_Wildcard(t *testing.T) {
 
 // TestServer_SetCorsOrigin_NoMatch tests setCorsOrigin when origin doesn't match.
 func TestServer_SetCorsOrigin_NoMatch(t *testing.T) {
+	enabled := true
 	workflow := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
 				CORS: &domain.CORS{
-					EnableCORS:   true,
-					AllowOrigins: []string{"http://localhost:3000"},
+					EnableCORS:   &enabled,
+					AllowOrigins: []string{"http://localhost:16395"},
 				},
 			},
 		},
@@ -124,11 +127,12 @@ func TestServer_SetCorsOrigin_NoMatch(t *testing.T) {
 
 // TestServer_SetCorsMethods tests setCorsMethods method.
 func TestServer_SetCorsMethods(t *testing.T) {
+	enabled := true
 	workflow := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
 				CORS: &domain.CORS{
-					EnableCORS:   true,
+					EnableCORS:   &enabled,
 					AllowMethods: []string{"GET", "POST", "PUT"},
 				},
 			},
@@ -154,11 +158,12 @@ func TestServer_SetCorsMethods(t *testing.T) {
 
 // TestServer_SetCorsHeaders tests setCorsHeaders method.
 func TestServer_SetCorsHeaders(t *testing.T) {
+	enabled := true
 	workflow := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
 				CORS: &domain.CORS{
-					EnableCORS:   true,
+					EnableCORS:   &enabled,
 					AllowHeaders: []string{"Content-Type", "Authorization"},
 				},
 			},
@@ -183,12 +188,13 @@ func TestServer_SetCorsHeaders(t *testing.T) {
 
 // TestServer_CorsMiddleware_OptionsRequest_Coverage tests CORS preflight OPTIONS request (coverage variant).
 func TestServer_CorsMiddleware_OptionsRequest_Coverage(t *testing.T) {
+	enabled := true
 	workflow := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
 				CORS: &domain.CORS{
-					EnableCORS:   true,
-					AllowOrigins: []string{"http://localhost:3000"},
+					EnableCORS:   &enabled,
+					AllowOrigins: []string{"http://localhost:16395"},
 					AllowMethods: []string{"GET", "POST"},
 				},
 			},
@@ -200,7 +206,7 @@ func TestServer_CorsMiddleware_OptionsRequest_Coverage(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(stdhttp.MethodOptions, "/api/test", nil)
-	req.Header.Set("Origin", "http://localhost:3000")
+	req.Header.Set("Origin", "http://localhost:16395")
 	req.Header.Set("Access-Control-Request-Method", "POST")
 
 	middleware := server.CorsMiddleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
@@ -268,11 +274,12 @@ func TestServer_ParseRequest_FormDataOverridesJSON(t *testing.T) {
 
 // TestServer_Start_WithCORS_Coverage tests server start with CORS enabled (coverage variant).
 func TestServer_Start_WithCORS_Coverage(t *testing.T) {
+	enabled := true
 	workflow := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
 				CORS: &domain.CORS{
-					EnableCORS: true,
+					EnableCORS: &enabled,
 				},
 				Routes: []domain.Route{
 					{Path: "/api/test", Methods: []string{"GET"}},

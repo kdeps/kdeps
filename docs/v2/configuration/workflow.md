@@ -46,7 +46,7 @@ settings:
   apiServerMode: true
   apiServer:
     hostIp: "127.0.0.1"      # IP to bind (default: 127.0.0.1)
-    portNum: 3000            # Port number (default: 3000)
+    portNum: 16395            # Port number (default: 16395)
     trustedProxies:          # Optional: For X-Forwarded-For
       - "192.168.1.0/24"
     routes:
@@ -57,7 +57,7 @@ settings:
     cors:
       enableCors: true
       allowOrigins:
-        - http://localhost:8080
+        - http://localhost:16395
         - https://myapp.com
       allowMethods:
         - GET
@@ -90,7 +90,7 @@ Supported HTTP methods: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, `HEA
 cors:
   enableCors: true           # Enable CORS headers
   allowOrigins:              # Allowed origins (* for all)
-    - http://localhost:3000
+    - http://localhost:16395
   allowMethods:              # Allowed HTTP methods
     - GET
     - POST
@@ -125,7 +125,7 @@ settings:
   webServerMode: true
   webServer:
     hostIp: "127.0.0.1"
-    portNum: 8080
+    portNum: 16395
     routes:
       # Static file serving
       - path: "/"
@@ -369,7 +369,7 @@ settings:
   apiServerMode: true
   apiServer:
     hostIp: "0.0.0.0"
-    portNum: 3000
+    portNum: 16395
     trustedProxies:
       - "10.0.0.0/8"
     routes:
@@ -388,7 +388,7 @@ settings:
   webServerMode: true
   webServer:
     hostIp: "0.0.0.0"
-    portNum: 8080
+    portNum: 16395
     routes:
       - path: "/"
         serverType: "static"

@@ -225,7 +225,7 @@ settings:
     cors:
       enableCors: true
       allowOrigins:
-        - http://localhost:8080
+        - http://localhost:16395
 
   agentSettings:
     timezone: Etc/UTC

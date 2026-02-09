@@ -301,7 +301,7 @@ settings:
   apiServerMode: true
   apiServer:
     hostIp: "0.0.0.0"
-    portNum: 3000
+    portNum: 16395
     trustedProxies:
       - "10.0.0.0/8"
       - "172.16.0.0/12"
@@ -315,7 +315,7 @@ settings:
   webServerMode: true
   webServer:
     hostIp: "0.0.0.0"
-    portNum: 8080
+    portNum: 16395
     trustedProxies:
       - "127.0.0.1"
       - "10.0.0.1"
@@ -358,7 +358,7 @@ Define multiple routes with different methods and paths.
 settings:
   apiServerMode: true
   apiServer:
-    portNum: 3000
+    portNum: 16395
     routes:
       # Chat endpoint
       - path: /api/v1/chat

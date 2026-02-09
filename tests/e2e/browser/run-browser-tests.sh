@@ -30,8 +30,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 # Default configuration
-WEB_PORT="${WEB_PORT:-8080}"
-API_PORT="${API_PORT:-3000}"
+WEB_PORT="${WEB_PORT:-16395}"
+API_PORT="${API_PORT:-16395}"
 INSTALL_DEPS=false
 START_SERVER=false
 
@@ -54,9 +54,9 @@ for arg in "$@"; do
             echo "  --start-server  Start the kdeps server before running tests"
             echo ""
             echo "Environment variables:"
-            echo "  WEB_PORT        Web server port (default: 8080)"
-            echo "  API_PORT        API server port (default: 3000)"
-            echo "  TEST_TIMEOUT    Test timeout in ms (default: 30000)"
+            echo "  WEB_PORT        Web server port (default: 16395)"
+            echo "  API_PORT        API server port (default: 16395)"
+            echo "  TEST_TIMEOUT    Test timeout in ms (default: 163950)"
             exit 0
             ;;
     esac
@@ -171,7 +171,7 @@ echo ""
 
 export WEB_SERVER_URL="http://127.0.0.1:$WEB_PORT"
 export API_SERVER_URL="http://127.0.0.1:$API_PORT"
-export TEST_TIMEOUT="${TEST_TIMEOUT:-30000}"
+export TEST_TIMEOUT="${TEST_TIMEOUT:-163950}"
 
 cd "$PROJECT_ROOT"
 node "$SCRIPT_DIR/chatgpt-clone.test.js"

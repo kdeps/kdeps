@@ -37,7 +37,7 @@ resource usage, and available features.
 
 Examples:
   kdeps account`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			return runAccount()
 		},
 	}
@@ -84,11 +84,11 @@ func runAccount() error {
 	return nil
 }
 
-func printUsageLine(label string, current, max int) {
-	if max == -1 {
+func printUsageLine(label string, current, limit int) {
+	if limit == -1 {
 		fmt.Fprintf(os.Stdout, "  %-12s %d (unlimited)\n", label+":", current)
 	} else {
-		fmt.Fprintf(os.Stdout, "  %-12s %d / %d\n", label+":", current, max)
+		fmt.Fprintf(os.Stdout, "  %-12s %d / %d\n", label+":", current, limit)
 	}
 }
 

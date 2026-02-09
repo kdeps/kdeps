@@ -87,20 +87,20 @@ func (m *ModelManager) EnsureModel(config *domain.ChatConfig) error {
 	}
 
 	// Determine host and port from baseURL if provided, otherwise use backend-specific defaults
-	defaultPort := 8080
+	defaultPort := 16395
 
 	// Set backend-specific default port
 	switch backend {
 	case backendOllama:
 		defaultPort = 11434
 	case "llamacpp":
-		defaultPort = 8080
+		defaultPort = 16395
 	case "vllm":
 		defaultPort = 8000
 	case "tgi":
-		defaultPort = 8080
+		defaultPort = 16395
 	case "localai":
-		defaultPort = 8080
+		defaultPort = 16395
 	}
 
 	// Parse host and port from BaseURL

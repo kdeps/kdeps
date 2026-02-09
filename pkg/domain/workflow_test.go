@@ -40,7 +40,7 @@ settings:
   apiServerMode: true
   apiServer:
     hostIp: "0.0.0.0"
-    portNum: 3000
+    portNum: 16395
     routes:
       - path: /api/test
         methods:
@@ -92,8 +92,8 @@ settings:
 		t.Fatal("APIServer is nil")
 	}
 
-	if workflow.Settings.PortNum != 3000 {
-		t.Errorf("PortNum = %v, want %v", workflow.Settings.PortNum, 3000)
+	if workflow.Settings.PortNum != 16395 {
+		t.Errorf("PortNum = %v, want %v", workflow.Settings.PortNum, 16395)
 	}
 
 	if len(workflow.Settings.APIServer.Routes) != 1 {
@@ -138,7 +138,7 @@ func TestWorkflowYAMLMarshal(t *testing.T) {
 		Settings: domain.WorkflowSettings{
 			APIServerMode: true,
 			HostIP:        "0.0.0.0",
-			PortNum:       3000,
+			PortNum:       16395,
 			APIServer: &domain.APIServerConfig{
 				Routes: []domain.Route{
 					{
@@ -182,7 +182,7 @@ func TestWorkflowYAMLMarshal(t *testing.T) {
 func TestAPIServerConfigYAML(t *testing.T) {
 	yamlData := `
 hostIp: "127.0.0.1"
-portNum: 8080
+portNum: 16395
 trustedProxies:
   - "10.0.0.0/8"
   - "172.16.0.0/12"
@@ -222,7 +222,7 @@ cors:
 		t.Fatal("CORS is nil")
 	}
 
-	if !config.CORS.EnableCORS {
+	if config.CORS.EnableCORS == nil || !*config.CORS.EnableCORS {
 		t.Error("EnableCORS should be true")
 	}
 
@@ -332,14 +332,14 @@ pool:
 func TestWebServerConfigYAML(t *testing.T) {
 	yamlData := `
 hostIp: "0.0.0.0"
-portNum: 8080
+portNum: 16395
 routes:
   - path: /app
     serverType: static
     publicPath: /static
   - path: /api
     serverType: proxy
-    appPort: 3000
+    appPort: 16395
 `
 
 	var config domain.WebServerConfig
@@ -356,8 +356,8 @@ routes:
 		t.Errorf("domain.Routes[0].ServerType = %v, want %v", config.Routes[0].ServerType, "static")
 	}
 
-	if config.Routes[1].AppPort != 3000 {
-		t.Errorf("domain.Routes[1].AppPort = %v, want %v", config.Routes[1].AppPort, 3000)
+	if config.Routes[1].AppPort != 16395 {
+		t.Errorf("domain.Routes[1].AppPort = %v, want %v", config.Routes[1].AppPort, 16395)
 	}
 }
 
@@ -726,5 +726,68 @@ metadata:
 
 	if workflow.Metadata.Name != "Test Workflow" {
 		t.Errorf("Name = %v, want %v", workflow.Metadata.Name, "Test Workflow")
+	}
+}
+
+func TestGetCORSConfig(t *testing.T) {
+	trueVal := true
+	falseVal := false
+
+	tests := []struct {
+		name     string
+		settings domain.WorkflowSettings
+		expected bool
+	}{
+		{
+			name:     "default settings (no APIServer)",
+			settings: domain.WorkflowSettings{},
+			expected: true,
+		},
+		{
+			name: "explicitly enabled",
+			settings: domain.WorkflowSettings{
+				APIServer: &domain.APIServerConfig{
+					CORS: &domain.CORS{EnableCORS: &trueVal},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "explicitly disabled",
+			settings: domain.WorkflowSettings{
+				APIServer: &domain.APIServerConfig{
+					CORS: &domain.CORS{EnableCORS: &falseVal},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "partially overridden - should merge",
+			settings: domain.WorkflowSettings{
+				APIServer: &domain.APIServerConfig{
+					CORS: &domain.CORS{
+						AllowOrigins: []string{"https://custom.com"},
+					},
+				},
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := tt.settings.GetCORSConfig()
+			if config.EnableCORS == nil || *config.EnableCORS != tt.expected {
+				t.Errorf("GetCORSConfig().EnableCORS = %v, want %v", config.EnableCORS, tt.expected)
+			}
+			if tt.name == "partially overridden - should merge" {
+				if len(config.AllowOrigins) != 1 || config.AllowOrigins[0] != "https://custom.com" {
+					t.Errorf("AllowOrigins not merged correctly: %v", config.AllowOrigins)
+				}
+				if len(config.AllowMethods) == 0 {
+					t.Error("AllowMethods should have defaults")
+				}
+			}
+		})
 	}
 }

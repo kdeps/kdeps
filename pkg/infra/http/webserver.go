@@ -121,11 +121,11 @@ func (s *WebServer) Shutdown(ctx context.Context) error {
 
 // SetupWebRoutes sets up web server routes.
 func (s *WebServer) SetupWebRoutes(ctx context.Context) {
-	s.RegisterRoutesOn(s.Router, ctx)
+	s.RegisterRoutesOn(ctx, s.Router)
 }
 
 // RegisterRoutesOn registers web server routes on an external router.
-func (s *WebServer) RegisterRoutesOn(router *Router, ctx context.Context) {
+func (s *WebServer) RegisterRoutesOn(ctx context.Context, router *Router) {
 	config := s.Workflow.Settings.WebServer
 	if config == nil {
 		return

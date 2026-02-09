@@ -4,7 +4,7 @@ This example demonstrates KDeps WebServer mode with **reverse proxying** to a ba
 
 ## Overview
 
-KDeps acts as a reverse proxy, forwarding requests from port 8080 to a Python backend running on port 8501. The backend app is automatically started by KDeps.
+KDeps acts as a reverse proxy, forwarding requests from port 16395 to a Python backend running on port 8501. The backend app is automatically started by KDeps.
 
 ## Features Demonstrated
 
@@ -18,7 +18,7 @@ KDeps acts as a reverse proxy, forwarding requests from port 8080 to a Python ba
 ```
 Client Request
       ↓
-http://127.0.0.1:8080/ (KDeps WebServer)
+http://127.0.0.1:16395/ (KDeps WebServer)
       ↓ [Proxy]
 http://127.0.0.1:8501/ (Python Backend)
       ↓
@@ -32,9 +32,9 @@ Response
 kdeps run examples/webserver-proxy/workflow.yaml
 
 # In another terminal, make requests
-curl http://127.0.0.1:8080/
-curl http://127.0.0.1:8080/api/data
-curl http://127.0.0.1:8080/health
+curl http://127.0.0.1:16395/
+curl http://127.0.0.1:16395/api/data
+curl http://127.0.0.1:16395/health
 ```
 
 ## How It Works
@@ -59,13 +59,13 @@ KDeps executes `python3 server.py` in the `./backend` directory, starting the ba
 
 ### 3. Proxy Forwards Requests
 
-All requests to `http://127.0.0.1:8080/*` are proxied to `http://127.0.0.1:8501/*`.
+All requests to `http://127.0.0.1:16395/*` are proxied to `http://127.0.0.1:8501/*`.
 
 ## Response Examples
 
 ### Root Endpoint
 ```bash
-$ curl http://127.0.0.1:8080/
+$ curl http://127.0.0.1:16395/
 {
   "message": "Hello from Python backend!",
   "timestamp": "2026-01-12T02:10:13.657447",
@@ -76,7 +76,7 @@ $ curl http://127.0.0.1:8080/
 
 ### API Endpoint
 ```bash
-$ curl http://127.0.0.1:8080/api/data
+$ curl http://127.0.0.1:16395/api/data
 {
   "items": [
     {"id": 1, "name": "Item 1"},
@@ -88,7 +88,7 @@ $ curl http://127.0.0.1:8080/api/data
 
 ### Health Check
 ```bash
-$ curl http://127.0.0.1:8080/health
+$ curl http://127.0.0.1:16395/health
 {
   "status": "healthy"
 }
@@ -112,7 +112,7 @@ routes:
   - path: "/"
     serverType: "app"
     publicPath: "./frontend"
-    appPort: 3000
+    appPort: 16395
     command: "npm start"
 ```
 
@@ -186,7 +186,7 @@ If the backend is down, KDeps returns a 502 Bad Gateway error.
 
 ### Path Rewriting
 Paths are automatically rewritten:
-- Request: `http://127.0.0.1:8080/api/users`
+- Request: `http://127.0.0.1:16395/api/users`
 - Forwarded to: `http://127.0.0.1:8501/api/users`
 
 ## Advantages
@@ -223,7 +223,7 @@ tail -f /tmp/proxy-test.log
 ### Nginx:
 ```nginx
 server {
-    listen 8080;
+    listen 16395;
     location / {
         proxy_pass http://127.0.0.1:8501;
     }

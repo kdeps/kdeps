@@ -170,7 +170,7 @@ func TestChatbotExample(t *testing.T) {
 	engine := setupExecutorWithMockLLM()
 
 	// Create request context as described in README:
-	// curl -X POST http://localhost:3000/api/v1/chat \
+	// curl -X POST http://localhost:16395/api/v1/chat \
 	//   -H "Content-Type: application/json" \
 	//   -d '{"q": "What is artificial intelligence?"}'
 	reqCtx := &executor.RequestContext{
@@ -336,7 +336,7 @@ func TestHTTPAdvancedExample_GET(t *testing.T) {
 	engine := setupExecutor()
 
 	// Create request context for GET /api/v1/http-demo
-	// As described in README: curl "http://localhost:3000/api/v1/http-demo"
+	// As described in README: curl "http://localhost:16395/api/v1/http-demo"
 	reqCtx := &executor.RequestContext{
 		Method: "GET",
 		Path:   "/api/v1/http-demo",
@@ -401,7 +401,7 @@ func TestHTTPAdvancedExample_POST(t *testing.T) {
 
 	// Create request context for POST /api/v1/http-demo
 	// As described in README:
-	// curl -X POST "http://localhost:3000/api/v1/http-demo" \
+	// curl -X POST "http://localhost:16395/api/v1/http-demo" \
 	//   -H "Content-Type: application/json" \
 	//   -d '{"custom_header": "test-value"}'
 	reqCtx := &executor.RequestContext{
@@ -557,7 +557,7 @@ func TestSQLAdvancedExample_GET(t *testing.T) {
 	engine := setupExecutor()
 
 	// Create request context for GET /api/v1/sql-demo
-	// As described in README: curl http://localhost:3000/api/v1/sql-demo
+	// As described in README: curl http://localhost:16395/api/v1/sql-demo
 	reqCtx := &executor.RequestContext{
 		Method:  "GET",
 		Path:    "/api/v1/sql-demo",
@@ -631,7 +631,7 @@ func TestSQLAdvancedExample_POST(t *testing.T) {
 
 	// Create request context for POST /api/v1/sql-demo
 	// As described in README:
-	// curl -X POST http://localhost:3000/api/v1/sql-demo \
+	// curl -X POST http://localhost:16395/api/v1/sql-demo \
 	//   -H "Content-Type: application/json" \
 	//   -d '{"user_updates": [["active", 1], ["inactive", 2]]}'
 	reqCtx := &executor.RequestContext{

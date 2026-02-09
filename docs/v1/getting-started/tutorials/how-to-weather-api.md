@@ -54,7 +54,7 @@ Next, let's modify the `workflow.pkl` file by adding a new route to the `APIServ
 ```diff
 APIServer {
     HostIP = "127.0.0.1"
-    PortNum = 3000
+    PortNum = 16395
 
     Routes {
         new {
@@ -123,7 +123,7 @@ This data will be used to retrieve:
 We'll use natural language queries to obtain weather information and pass these as parameters to the API. The query will use the key `q` for the parameter. Here's an example API request:
 
 ```bash
-http://localhost:3000/api/v1/forecast?q=What+is+the+weather+in+Amsterdam?
+http://localhost:16395/api/v1/forecast?q=What+is+the+weather+in+Amsterdam?
 ```
 
 ### Updating `llm_input.pkl`
@@ -407,7 +407,7 @@ This command initializes the AI agent, making it ready to handle API requests.
 You can query the AI agent via an API request as follows:
 
 ```bash
-curl "http://localhost:3000/api/v1/forecast?q=What+is+the+weather+in+Amsterdam?" -X GET
+curl "http://localhost:16395/api/v1/forecast?q=What+is+the+weather+in+Amsterdam?" -X GET
 ```
 
 ### Expected Response

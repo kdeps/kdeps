@@ -21,6 +21,7 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -51,7 +52,7 @@ Examples:
 
   # Non-interactive login (for CI/CD)
   kdeps login --api-key kdeps_abc123...`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			return runLogin(flags)
 		},
 	}
@@ -80,11 +81,11 @@ func runLogin(flags *loginFlags) error {
 	}
 
 	if apiKey == "" {
-		return fmt.Errorf("API key is required")
+		return errors.New("API key is required")
 	}
 
 	if !strings.HasPrefix(apiKey, "kdeps_") {
-		return fmt.Errorf("invalid API key format (must start with 'kdeps_')")
+		return errors.New("invalid API key format (must start with 'kdeps_')")
 	}
 
 	// Validate the key by calling whoami

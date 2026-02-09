@@ -70,7 +70,7 @@ settings:
     pythonVersion: "3.12"
   apiServerMode: true
   apiServer:
-    portNum: 3000
+    portNum: 16395
 `
 
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
@@ -103,7 +103,7 @@ settings:
     pythonVersion: "3.12"
   apiServerMode: true
   apiServer:
-    portNum: 3000
+    portNum: 16395
 `
 
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
@@ -211,7 +211,7 @@ settings:
     pythonVersion: "3.12"
   apiServerMode: true
   apiServer:
-    portNum: 3000
+    portNum: 16395
 `
 
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
@@ -246,7 +246,7 @@ settings:
     pythonVersion: "3.12"
   apiServerMode: true
   apiServer:
-    portNum: 3000
+    portNum: 16395
 `
 
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
@@ -397,7 +397,7 @@ settings:
       - numpy
   apiServerMode: true
   apiServer:
-    portNum: 8080
+    portNum: 16395
     routes:
       - path: "/api"
         methods: ["POST"]
@@ -451,7 +451,7 @@ metadata:
 settings:
   webServerMode: true
   webServer:
-    portNum: 8080
+    portNum: 16395
     routes:
       - path: "/"
         serverType: static

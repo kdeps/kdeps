@@ -110,7 +110,7 @@ func TestModelService_ServeModel_UnsupportedBackend_Service(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(nil, nil))
 	service := llm.NewModelService(logger)
 
-	err := service.ServeModel("unsupported-backend", "some-model", "localhost", 8080)
+	err := service.ServeModel("unsupported-backend", "some-model", "localhost", 16395)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported backend")
 }
@@ -163,7 +163,7 @@ func TestModelService_EdgeCases(t *testing.T) {
 		if testing.Short() {
 			t.Skip("skipping test that may trigger Docker operations in short mode")
 		}
-		err := service.ServeModel("ollama", "llama2", "", 8080)
+		err := service.ServeModel("ollama", "llama2", "", 16395)
 		// Should handle empty host gracefully
 		_ = err
 	})

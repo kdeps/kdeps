@@ -60,7 +60,7 @@ run:
 
     # Advanced Options
     followRedirects: true
-    proxy: "http://proxy:8080"
+    proxy: "http://proxy:16395"
     tls:
       insecureSkipVerify: false
       certFile: "/path/to/cert.pem"
@@ -240,7 +240,7 @@ httpClient:
 httpClient:
   method: GET
   url: "https://api.example.com/data"
-  proxy: "http://proxy.internal:8080"
+  proxy: "http://proxy.internal:16395"
 ```
 
 ## Redirect Handling

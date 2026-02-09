@@ -448,7 +448,7 @@ func (sv *SchemaValidator) getFieldExamples(field, expectedType string) string {
 		// Workflow fields
 		"metadata.targetActionId":        `"main"`,
 		"settings.apiServer.hostIp":      `"0.0.0.0"`,
-		"settings.apiServer.portNum":     `3000`,
+		"settings.apiServer.portNum":     `16395`,
 		"settings.apiServer.routes.path": `"/api/users"`,
 	}
 

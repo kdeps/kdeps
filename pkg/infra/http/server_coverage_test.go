@@ -226,7 +226,7 @@ func TestServer_CorsMiddleware_NoCORS(t *testing.T) {
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
 				CORS: &domain.CORS{
-					EnableCORS: false,
+					EnableCORS: &[]bool{false}[0],
 				},
 			},
 		},
@@ -253,8 +253,8 @@ func TestServer_CorsMiddleware_WithCORS(t *testing.T) {
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
 				CORS: &domain.CORS{
-					EnableCORS:   true,
-					AllowOrigins: []string{"http://localhost:3000"},
+					EnableCORS:   &[]bool{true}[0],
+					AllowOrigins: []string{"http://localhost:16395"},
 					AllowMethods: []string{"GET", "POST"},
 					AllowHeaders: []string{"Content-Type"},
 				},
@@ -267,7 +267,7 @@ func TestServer_CorsMiddleware_WithCORS(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(stdhttp.MethodOptions, "/api/test", nil)
-	req.Header.Set("Origin", "http://localhost:3000")
+	req.Header.Set("Origin", "http://localhost:16395")
 
 	middleware := server.CorsMiddleware(func(w stdhttp.ResponseWriter, _ *stdhttp.Request) {
 		w.WriteHeader(stdhttp.StatusOK)

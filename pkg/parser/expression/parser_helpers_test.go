@@ -72,7 +72,7 @@ func TestParser_looksLikeURL(t *testing.T) {
 		},
 		{
 			name:     "localhost URL",
-			input:    "localhost:3000",
+			input:    "localhost:16395",
 			expected: true,
 		},
 		{

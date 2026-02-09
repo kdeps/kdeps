@@ -36,7 +36,7 @@ kdeps run examples/tools/workflow.yaml --dev
 ### Query with Tools Available
 
 ```bash
-curl -X POST 'http://localhost:3000/api/v1/tools?q=What%20is%20the%20weather%20in%20San%20Francisco?' \
+curl -X POST 'http://localhost:16395/api/v1/tools?q=What%20is%20the%20weather%20in%20San%20Francisco?' \
   -H "Content-Type: application/json"
 ```
 

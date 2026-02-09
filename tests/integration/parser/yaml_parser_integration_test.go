@@ -53,7 +53,7 @@ settings:
   apiServerMode: true
   apiServer:
     hostIp: "0.0.0.0"
-    portNum: 3000
+    portNum: 16395
     routes:
       - path: /api/v1/test
         methods: [GET, POST]
@@ -77,8 +77,8 @@ settings:
 	assert.Equal(t, "testAgent", workflow.Metadata.Name)
 	assert.Equal(t, "1.0.0", workflow.Metadata.Version)
 	assert.True(t, workflow.Settings.APIServerMode)
-	assert.Equal(t, "0.0.0.0", workflow.Settings.APIServer.HostIP)
-	assert.Equal(t, 3000, workflow.Settings.APIServer.PortNum)
+	assert.Equal(t, "0.0.0.0", workflow.Settings.HostIP)
+	assert.Equal(t, 16395, workflow.Settings.PortNum)
 }
 
 func TestYAMLParser_ParseAndValidate_Resource(t *testing.T) {
@@ -137,7 +137,7 @@ settings:
   apiServerMode: true
   apiServer:
     hostIp: "0.0.0.0"
-    portNum: 8080
+    portNum: 16395
   agentSettings:
     pythonVersion: "3.11"
     pythonPackages:
@@ -167,8 +167,8 @@ settings:
 
 	// Verify API server settings
 	assert.True(t, workflow.Settings.APIServerMode)
-	assert.Equal(t, "0.0.0.0", workflow.Settings.APIServer.HostIP)
-	assert.Equal(t, 8080, workflow.Settings.APIServer.PortNum)
+	assert.Equal(t, "0.0.0.0", workflow.Settings.HostIP)
+	assert.Equal(t, 16395, workflow.Settings.PortNum)
 
 	// Verify agent settings
 	assert.Equal(t, "3.11", workflow.Settings.AgentSettings.PythonVersion)
@@ -605,8 +605,8 @@ settings:
 	assert.Equal(t, "final-aggregation", workflow.Metadata.TargetActionID)
 
 	assert.True(t, workflow.Settings.APIServerMode)
-	assert.Equal(t, "0.0.0.0", workflow.Settings.APIServer.HostIP)
-	assert.Equal(t, 9090, workflow.Settings.APIServer.PortNum)
+	assert.Equal(t, "0.0.0.0", workflow.Settings.HostIP)
+	assert.Equal(t, 9090, workflow.Settings.PortNum)
 
 	assert.Equal(t, "3.12", workflow.Settings.AgentSettings.PythonVersion)
 	assert.Len(t, workflow.Settings.AgentSettings.PythonPackages, 8)

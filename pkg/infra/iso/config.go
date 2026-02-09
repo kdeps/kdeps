@@ -77,13 +77,13 @@ func GenerateConfig(imageName, hostname, arch string, workflow *domain.Workflow)
 }
 
 // GenerateConfigExtended creates a LinuxKit configuration with support for thin builds.
-func GenerateConfigExtended(imageName, hostname, arch string, workflow *domain.Workflow, thin bool) (*LinuxKitConfig, error) {
-	if workflow == nil {
-		return nil, errors.New("workflow cannot be nil")
-	}
-
-	if imageName == "" {
-		return nil, errors.New("image name cannot be empty")
+func GenerateConfigExtended(
+	imageName, hostname, arch string,
+	workflow *domain.Workflow,
+	thin bool,
+) (*LinuxKitConfig, error) {
+	if err := validateGenerateConfigArgs(imageName, workflow); err != nil {
+		return nil, err
 	}
 
 	if hostname == "" {
@@ -94,38 +94,32 @@ func GenerateConfigExtended(imageName, hostname, arch string, workflow *domain.W
 		arch = runtime.GOARCH
 	}
 
-	// Build env vars for the service container
-	envList := []string{
-		"KDEPS_BIND_HOST=0.0.0.0",
-		"KDEPS_PLATFORM=iso",
-	}
-	if ShouldInstallOllama(workflow) {
-		envList = append(envList,
-			"OLLAMA_HOST=127.0.0.1",
-			"OLLAMA_MODELS=/root/.ollama/models",
-		)
-	}
-	if workflow.Settings.AgentSettings.Env != nil {
-		keys := make([]string, 0, len(workflow.Settings.AgentSettings.Env))
-		for k := range workflow.Settings.AgentSettings.Env {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
+	config := buildBaseConfig(hostname, arch)
 
-		for _, k := range keys {
-			envList = append(envList, fmt.Sprintf("%s=%s", k, workflow.Settings.AgentSettings.Env[k]))
-		}
+	// For thin builds, we don't bundle the image in the initrd.
+	if thin {
+		addThinBuildSteps(config, imageName)
+	} else {
+		// Bundle the app image directly in the initrd (fat build).
+		addFatBuildService(config, imageName, workflow)
 	}
 
-	// Build service binds
-	binds := []string{
-		"/var/run:/var/run",
-	}
-	if ShouldInstallOllama(workflow) {
-		binds = append(binds, "/dev:/dev")
+	return config, nil
+}
+
+func validateGenerateConfigArgs(imageName string, workflow *domain.Workflow) error {
+	if workflow == nil {
+		return errors.New("workflow cannot be nil")
 	}
 
-	config := &LinuxKitConfig{
+	if imageName == "" {
+		return errors.New("image name cannot be empty")
+	}
+	return nil
+}
+
+func buildBaseConfig(hostname, arch string) *LinuxKitConfig {
+	return &LinuxKitConfig{
 		Kernel: LinuxKitKernel{
 			Image:   fmt.Sprintf("linuxkit/kernel:%s", linuxkitKernelTag),
 			Cmdline: KernelCmdline(arch),
@@ -167,54 +161,86 @@ func GenerateConfigExtended(imageName, hostname, arch string, workflow *domain.W
 			},
 		},
 	}
+}
 
-	// For thin builds, we don't bundle the image in the initrd.
-	if thin {
-		config.Onboot = append(config.Onboot, LinuxKitImage{
-			Name:  "mount-data",
-			Image: "alpine:3.19",
-			Command: []string{
-				"sh", "-c",
-				"mkdir -p /mnt/data && mount /dev/vda2 /mnt/data || mount /dev/sda2 /mnt/data || true",
-			},
-			Capabilities: []string{"all"},
-			Binds:        []string{"/dev:/dev", "/mnt:/mnt:shared"},
-		})
+func addThinBuildSteps(config *LinuxKitConfig, imageName string) {
+	config.Onboot = append(config.Onboot, LinuxKitImage{
+		Name:  "mount-data",
+		Image: "alpine:3.19",
+		Command: []string{
+			"sh", "-c",
+			"mkdir -p /mnt/data && mount /dev/vda2 /mnt/data || mount /dev/sda2 /mnt/data || true",
+		},
+		Capabilities: []string{"all"},
+		Binds:        []string{"/dev:/dev", "/mnt:/mnt:shared"},
+	})
 
-		config.Onboot = append(config.Onboot, LinuxKitImage{
-			Name:  "import-image",
-			Image: "linuxkit/containerd:" + linuxkitComponentTag,
-			Command: []string{
-				"sh", "-c",
-				"ctr -n services images import /mnt/data/image.tar",
-			},
-			Binds: []string{"/run/containerd:/run/containerd", "/mnt:/mnt"},
-		})
+	config.Onboot = append(config.Onboot, LinuxKitImage{
+		Name:  "import-image",
+		Image: "linuxkit/containerd:" + linuxkitComponentTag,
+		Command: []string{
+			"sh", "-c",
+			"ctr -n services images import /mnt/data/image.tar",
+		},
+		Binds: []string{"/run/containerd:/run/containerd", "/mnt:/mnt"},
+	})
 
-		// Use a detached container to run kdeps in thin mode
-		config.Onboot = append(config.Onboot, LinuxKitImage{
-			Name:  "start-kdeps",
-			Image: "linuxkit/containerd:" + linuxkitComponentTag,
-			Command: []string{
-				"sh", "-c",
-				fmt.Sprintf("ctr -n services containers create --net-host %s kdeps && ctr -n services tasks start -d kdeps", imageName),
-			},
-			Binds: []string{"/run/containerd:/run/containerd"},
-		})
-	} else {
-		// Bundle the app image directly in the initrd (fat build).
-		config.Services = append(config.Services, LinuxKitImage{
-			Name:         "kdeps",
-			Image:        imageName,
-			Net:          "host",
-			Capabilities: []string{"all"},
-			Binds:        binds,
-			Env:          envList,
-			Command:      []string{"/entrypoint.sh", "/usr/bin/supervisord", "-c", "/etc/supervisord.conf"},
-		})
+	// Use a detached container to run kdeps in thin mode
+	config.Onboot = append(config.Onboot, LinuxKitImage{
+		Name:  "start-kdeps",
+		Image: "linuxkit/containerd:" + linuxkitComponentTag,
+		Command: []string{
+			"sh", "-c",
+			fmt.Sprintf(
+				"ctr -n services containers create --net-host %s kdeps && ctr -n services tasks start -d kdeps",
+				imageName,
+			),
+		},
+		Binds: []string{"/run/containerd:/run/containerd"},
+	})
+}
+
+func addFatBuildService(config *LinuxKitConfig, imageName string, workflow *domain.Workflow) {
+	// Build env vars for the service container
+	envList := []string{
+		"KDEPS_BIND_HOST=0.0.0.0",
+		"KDEPS_PLATFORM=iso",
+	}
+	if ShouldInstallOllama(workflow) {
+		envList = append(envList,
+			"OLLAMA_HOST=127.0.0.1",
+			"OLLAMA_MODELS=/root/.ollama/models",
+		)
+	}
+	if workflow.Settings.AgentSettings.Env != nil {
+		keys := make([]string, 0, len(workflow.Settings.AgentSettings.Env))
+		for k := range workflow.Settings.AgentSettings.Env {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		for _, k := range keys {
+			envList = append(envList, fmt.Sprintf("%s=%s", k, workflow.Settings.AgentSettings.Env[k]))
+		}
 	}
 
-	return config, nil
+	// Build service binds
+	binds := []string{
+		"/var/run:/var/run",
+	}
+	if ShouldInstallOllama(workflow) {
+		binds = append(binds, "/dev:/dev")
+	}
+
+	config.Services = append(config.Services, LinuxKitImage{
+		Name:         "kdeps",
+		Image:        imageName,
+		Net:          "host",
+		Capabilities: []string{"all"},
+		Binds:        binds,
+		Env:          envList,
+		Command:      []string{"/entrypoint.sh", "/usr/bin/supervisord", "-c", "/etc/supervisord.conf"},
+	})
 }
 
 // MarshalConfig marshals a LinuxKitConfig to YAML.
