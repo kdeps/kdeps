@@ -49,7 +49,7 @@ func PromptForBasicInfo(defaultName string) (TemplateData, error) {
 		Name:        defaultName,
 		Description: "AI agent powered by KDeps",
 		Version:     "1.0.0",
-		Port:        3000,
+		Port:        16395,
 		Resources:   []string{"http-client", "llm", "response"},
 		Features:    make(map[string]bool),
 	}

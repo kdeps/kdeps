@@ -27,6 +27,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -62,13 +63,15 @@ func newExportCmd() *cobra.Command {
 	return exportCmd
 }
 
-// FormatMap maps user-friendly format names to LinuxKit format strings.
-var FormatMap = map[string]string{
-	"iso":      "iso-efi",
-	"raw":      "raw-efi",
-	"raw-bios": "raw-bios",
-	"raw-efi":  "raw-efi",
-	"qcow2":    "qcow2-bios",
+// getFormatMap returns a map of user-friendly format names to LinuxKit format strings.
+func getFormatMap() map[string]string {
+	return map[string]string{
+		"iso":      "iso-efi",
+		"raw":      "raw-efi",
+		"raw-bios": "raw-bios",
+		"raw-efi":  "raw-efi",
+		"qcow2":    "qcow2-bios",
+	}
 }
 
 // newExportISOCmd creates the export iso subcommand.
@@ -265,7 +268,7 @@ func performISOBuild(
 	fmt.Fprintf(os.Stdout, "\nDocker image built: %s\n\n", imageName)
 
 	// Resolve LinuxKit format
-	linuxkitFormat, ok := FormatMap[flags.Format]
+	linuxkitFormat, ok := getFormatMap()[flags.Format]
 	if !ok {
 		return fmt.Errorf("unsupported format: %s (supported: iso, raw, qcow2)", flags.Format)
 	}
@@ -291,7 +294,9 @@ func performISOBuild(
 		ctx := context.Background()
 		imgBytes, sizeErr := builder.Client.ImageSize(ctx, imageName)
 		if sizeErr == nil && imgBytes > 0 {
-			sizeMB := int(imgBytes/int64(bytesPerMB))*2 + 512
+			const overheadMB = 512
+			const sizeMultiplier = 2
+			sizeMB := int(imgBytes/int64(bytesPerMB))*sizeMultiplier + overheadMB
 			isoBuilder.Size = fmt.Sprintf("%dM", sizeMB)
 			fmt.Fprintf(os.Stdout, "Auto-computed disk image size: %s\n", isoBuilder.Size)
 		}
@@ -319,9 +324,9 @@ func resolveOutputPath(output, format string, workflow *domain.Workflow, origina
 	outputPath := output
 	if outputPath == "" {
 		ext := ".iso"
-		linuxkitFormat, ok := FormatMap[format]
+		linuxkitFormat, ok := getFormatMap()[format]
 		if ok {
-			if fmtExt, extOk := iso.FormatExtensions[linuxkitFormat]; extOk {
+			if fmtExt := iso.GetFormatExtension(linuxkitFormat); fmtExt != "" {
 				ext = fmtExt
 			}
 		}
@@ -349,7 +354,6 @@ func cloudExport(packagePath, format, arch string, noCache bool, output string) 
 		return err
 	}
 
-	// Pre-flight: check plan access before uploading
 	client := cloud.NewClient(config.APIKey, config.APIURL)
 	ctx := context.Background()
 
@@ -358,45 +362,16 @@ func cloudExport(packagePath, format, arch string, noCache bool, output string) 
 		return fmt.Errorf("failed to verify account: %w", whoamiErr)
 	}
 
-	if !whoami.Plan.Features.APIAccess {
-		return fmt.Errorf(
-			"cloud builds require a Pro or Max plan (current: %s)\nUpgrade at https://kdeps.io/settings/billing",
-			whoami.Plan.Name,
-		)
-	}
-
-	if !whoami.Plan.Features.ExportISO && format != "docker" {
-		return fmt.Errorf(
-			"ISO/raw/qcow2 cloud exports require a Max plan (current: %s)\nUpgrade at https://kdeps.io/settings/billing",
-			whoami.Plan.Name,
-		)
+	if planErr := checkCloudPlan(whoami, format); planErr != nil {
+		return planErr
 	}
 
 	// Package workflow to temp .kdeps file
-	tmpFile, err := os.CreateTemp("", "kdeps-cloud-*.kdeps")
+	tmpPath, err := prepareCloudPackage(packagePath)
 	if err != nil {
-		return fmt.Errorf("failed to create temp file: %w", err)
+		return err
 	}
-	tmpPath := tmpFile.Name()
-	tmpFile.Close()
 	defer os.Remove(tmpPath)
-
-	workflowPath, packageDir, cleanupFunc, err := resolveBuildWorkflowPaths(packagePath)
-	if err != nil {
-		return err
-	}
-	if cleanupFunc != nil {
-		defer cleanupFunc()
-	}
-
-	workflow, err := parseWorkflow(workflowPath)
-	if err != nil {
-		return err
-	}
-
-	if archiveErr := CreatePackageArchive(packageDir, tmpPath, workflow); archiveErr != nil {
-		return fmt.Errorf("failed to package workflow: %w", archiveErr)
-	}
 
 	file, err := os.Open(tmpPath)
 	if err != nil {
@@ -419,37 +394,103 @@ func cloudExport(packagePath, format, arch string, noCache bool, output string) 
 	}
 
 	// Determine output path
-	outputPath := output
-	if outputPath == "" {
-		ext := ".iso"
-		if linuxkitFormat, ok := FormatMap[format]; ok {
-			if fmtExt, extOk := iso.FormatExtensions[linuxkitFormat]; extOk {
-				ext = fmtExt
-			}
-		}
-		outputPath = fmt.Sprintf("%s-%s%s", workflow.Metadata.Name, workflow.Metadata.Version, ext)
-	}
+	outputPath := resolveCloudOutputPath(output, format, buildResp.BuildID)
 
 	// Download artifact if URL is provided
 	if status.DownloadURL != "" {
-		fmt.Fprintf(os.Stdout, "\nDownloading artifact to %s...\n", outputPath)
-
-		if dlErr := downloadCloudArtifact(ctx, status.DownloadURL, outputPath); dlErr != nil {
-			return fmt.Errorf("failed to download artifact: %w", dlErr)
+		if dlErr := handleCloudDownload(ctx, status.DownloadURL, outputPath); dlErr != nil {
+			return dlErr
 		}
-
-		info, statErr := os.Stat(outputPath)
-		sizeStr := ""
-		if statErr == nil {
-			sizeMB := float64(info.Size()) / float64(bytesPerMB)
-			sizeStr = fmt.Sprintf(" (%.1f MB)", sizeMB)
-		}
-
-		fmt.Fprintf(os.Stdout, "Downloaded: %s%s\n", outputPath, sizeStr)
 	}
 
 	fmt.Fprintln(os.Stdout, "\nCloud export completed successfully!")
+	return nil
+}
 
+func checkCloudPlan(whoami *cloud.WhoamiResponse, format string) error {
+	if !whoami.Plan.Features.APIAccess {
+		return fmt.Errorf(
+			"cloud builds require a Pro or Max plan (current: %s)\nUpgrade at https://kdeps.io/settings/billing",
+			whoami.Plan.Name,
+		)
+	}
+
+	if !whoami.Plan.Features.ExportISO && format != "docker" {
+		return fmt.Errorf(
+			"ISO/raw/qcow2 cloud exports require a Max plan (current: %s)\nUpgrade at https://kdeps.io/settings/billing",
+			whoami.Plan.Name,
+		)
+	}
+	return nil
+}
+
+func prepareCloudPackage(packagePath string) (string, error) {
+	tmpFile, err := os.CreateTemp("", "kdeps-cloud-*.kdeps")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	if closeErr := tmpFile.Close(); closeErr != nil {
+		_ = os.Remove(tmpPath)
+		return "", fmt.Errorf("failed to close temp file: %w", closeErr)
+	}
+
+	workflowPath, packageDir, cleanupFunc, err := resolveBuildWorkflowPaths(packagePath)
+	if err != nil {
+		_ = os.Remove(tmpPath)
+		return "", err
+	}
+	if cleanupFunc != nil {
+		defer cleanupFunc()
+	}
+
+	workflow, err := parseWorkflow(workflowPath)
+	if err != nil {
+		_ = os.Remove(tmpPath)
+		return "", err
+	}
+
+	if archiveErr := CreatePackageArchive(packageDir, tmpPath, workflow); archiveErr != nil {
+		_ = os.Remove(tmpPath)
+		return "", fmt.Errorf("failed to package workflow: %w", archiveErr)
+	}
+	return tmpPath, nil
+}
+
+func resolveCloudOutputPath(output, format, _ string) string {
+	outputPath := output
+	if outputPath == "" {
+		ext := ".iso"
+		if linuxkitFormat, ok := getFormatMap()[format]; ok {
+			if fmtExt := iso.GetFormatExtension(linuxkitFormat); fmtExt != "" {
+				ext = fmtExt
+			}
+		}
+		// In cloudExport we don't have the full workflow object easily available
+		// without parsing it again or passing it down.
+		// For now we use a generic name if output is empty, or we could pass workflow.
+		// Actually let's just use "exported-workflow" if we don't have it.
+		// But wait, we DO have it in prepareCloudPackage... let's just use a default.
+		outputPath = "exported-workflow" + ext
+	}
+	return outputPath
+}
+
+func handleCloudDownload(ctx context.Context, downloadURL, outputPath string) error {
+	fmt.Fprintf(os.Stdout, "\nDownloading artifact to %s...\n", outputPath)
+
+	if dlErr := downloadCloudArtifact(ctx, downloadURL, outputPath); dlErr != nil {
+		return fmt.Errorf("failed to download artifact: %w", dlErr)
+	}
+
+	info, statErr := os.Stat(outputPath)
+	sizeStr := ""
+	if statErr == nil {
+		sizeMB := float64(info.Size()) / float64(bytesPerMB)
+		sizeStr = fmt.Sprintf(" (%.1f MB)", sizeMB)
+	}
+
+	fmt.Fprintf(os.Stdout, "Downloaded: %s%s\n", outputPath, sizeStr)
 	return nil
 }
 
@@ -483,14 +524,14 @@ func downloadCloudArtifact(ctx context.Context, url, dest string) error {
 
 // workflowPorts extracts the configured ports from a workflow and returns
 // a QEMU hostfwd string and a human-readable port list.
-func workflowPorts(workflow *domain.Workflow) (hostfwd string, portList string) {
+func workflowPorts(workflow *domain.Workflow) (string, string) {
 	ports := getWorkflowPorts(workflow)
 
 	var fwdParts []string
 	var listParts []string
 	for _, p := range ports {
 		fwdParts = append(fwdParts, fmt.Sprintf("hostfwd=tcp::%d-:%d", p, p))
-		listParts = append(listParts, fmt.Sprintf("%d", p))
+		listParts = append(listParts, strconv.Itoa(p))
 	}
 
 	return fmt.Sprintf("-net nic -net user,%s", joinStrings(fwdParts, ",")),

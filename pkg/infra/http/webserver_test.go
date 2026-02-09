@@ -44,7 +44,7 @@ func TestNewWebServer(t *testing.T) {
 		Settings: domain.WorkflowSettings{
 			WebServerMode: true,
 			HostIP:        "127.0.0.1",
-			PortNum:       8080,
+			PortNum:       16395,
 			WebServer: &domain.WebServerConfig{
 				Routes: []domain.WebRoute{},
 			},
@@ -115,7 +115,7 @@ func TestWebServer_StaticFileServing(t *testing.T) {
 		Settings: domain.WorkflowSettings{
 			WebServerMode: true,
 			HostIP:        "127.0.0.1",
-			PortNum:       18080, // Use different port to avoid conflicts
+			PortNum:       26395, // Use different port to avoid conflicts
 			WebServer: &domain.WebServerConfig{
 				Routes: []domain.WebRoute{
 					{
@@ -152,7 +152,7 @@ func TestWebServer_StaticFileServing(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	// Test static file serving
-	resp, err := http.Get("http://127.0.0.1:18080/")
+	resp, err := http.Get("http://127.0.0.1:26395/")
 	if err != nil {
 		t.Fatalf("Failed to GET /: %v", err)
 	}
@@ -243,7 +243,7 @@ func TestWebServer_RouteConfiguration(t *testing.T) {
 		Settings: domain.WorkflowSettings{
 			WebServerMode: true,
 			HostIP:        "127.0.0.1",
-			PortNum:       8080,
+			PortNum:       16395,
 			WebServer: &domain.WebServerConfig{
 				Routes: []domain.WebRoute{
 					{
@@ -302,7 +302,7 @@ func TestWebServer_HandleWebSocketProxy(t *testing.T) {
 		Settings: domain.WorkflowSettings{
 			WebServerMode: true,
 			HostIP:        "127.0.0.1",
-			PortNum:       8080,
+			PortNum:       16395,
 			WebServer: &domain.WebServerConfig{
 				Routes: []domain.WebRoute{
 					{
@@ -412,9 +412,8 @@ func TestWebServer_HandleWebSocketProxy_ErrorCases(t *testing.T) {
 		Settings: domain.WorkflowSettings{
 			WebServerMode: true,
 			HostIP:        "127.0.0.1",
-			PortNum:       8080,
-			WebServer: &domain.WebServerConfig{
-			},
+			PortNum:       16395,
+			WebServer:     &domain.WebServerConfig{},
 		},
 	}
 

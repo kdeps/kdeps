@@ -397,7 +397,7 @@ settings:
   apiServerMode: true
   apiServer:
     hostIp: 0.0.0.0
-    portNum: 3000
+    portNum: 16395
     routes:
       - path: /api/test
         methods:
@@ -738,7 +738,7 @@ settings:
   apiServerMode: true
   apiServer:
     hostIp: 0.0.0.0
-    portNum: 3000
+    portNum: 16395
     routes:
       - path: api/test
         methods:

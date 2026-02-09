@@ -90,13 +90,13 @@ test_chatbot_workflow() {
     timeout 180 "$KDEPS_BIN" run "$temp_workflow" &
     local kdeps_pid=$!
 
-    # Wait for server to start (chatbot uses port 3000)
-    echo "Waiting for chatbot server to start on port 3000..."
+    # Wait for server to start (chatbot uses port 16395)
+    echo "Waiting for chatbot server to start on port 16395..."
     local retries=30
     local server_ready=false
 
     for ((i=1; i<=retries; i++)); do
-        if curl -s --connect-timeout 2 http://localhost:3000/api/v1/chat > /dev/null 2>&1; then
+        if curl -s --connect-timeout 2 http://localhost:16395/api/v1/chat > /dev/null 2>&1; then
             server_ready=true
             break
         fi
@@ -120,7 +120,7 @@ test_chatbot_workflow() {
         -X POST \
         -H "Content-Type: application/json" \
         -d '{"q": "Hello, can you tell me what AI language model you are? Keep your response under 50 words."}' \
-        "http://localhost:3000/api/v1/chat" 2>/dev/null || echo "")
+        "http://localhost:16395/api/v1/chat" 2>/dev/null || echo "")
 
     # Clean up
     kill $kdeps_pid 2>/dev/null || true

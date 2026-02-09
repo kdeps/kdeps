@@ -25,14 +25,14 @@ kdeps run examples/file-upload/workflow.yaml --dev
 ### Single File Upload
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/upload \
+curl -X POST http://localhost:16395/api/v1/upload \
   -F "file=@example.txt"
 ```
 
 ### Multiple File Upload
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/upload \
+curl -X POST http://localhost:16395/api/v1/upload \
   -F "file[]=@file1.txt" \
   -F "file[]=@file2.pdf" \
   -F "file[]=@file3.jpg"

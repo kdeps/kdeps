@@ -140,9 +140,8 @@ func TestBuilder_GenerateDockerfile_APIServerPort(t *testing.T) {
 		Settings: domain.WorkflowSettings{
 			APIServerMode: true,
 			HostIP:        "0.0.0.0",
-			PortNum:       8080,
-			APIServer: &domain.APIServerConfig{
-			},
+			PortNum:       16395,
+			APIServer:     &domain.APIServerConfig{},
 			AgentSettings: domain.AgentSettings{
 				PythonVersion: "3.12",
 			},
@@ -153,7 +152,7 @@ func TestBuilder_GenerateDockerfile_APIServerPort(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Contains(t, dockerfile, "FROM alpine")
-	assert.Contains(t, dockerfile, "EXPOSE 8080")
+	assert.Contains(t, dockerfile, "EXPOSE 16395")
 }
 
 func TestBuilder_GenerateDockerfile_EmptyWorkflow(t *testing.T) {
@@ -351,7 +350,7 @@ func TestClient_RunContainer(t *testing.T) {
 
 	ctx := context.Background()
 	config := &docker.ContainerConfig{
-		PortBindings: map[string]string{"8080": "8080"},
+		PortBindings: map[string]string{"16395": "16395"},
 	}
 
 	containerID, err := client.RunContainer(ctx, "test-image:latest", config)
@@ -611,8 +610,7 @@ func TestBuilder_GenerateDockerfile_ComplexWorkflow(t *testing.T) {
 				PythonPackages: []string{"fastapi", "uvicorn", "pydantic"},
 				BaseOS:         "ubuntu",
 			},
-			APIServer: &domain.APIServerConfig{
-			},
+			APIServer: &domain.APIServerConfig{},
 			SQLConnections: map[string]domain.SQLConnection{
 				"main": {
 					Connection: "postgresql://user:pass@db:5432/app",
@@ -673,7 +671,7 @@ func TestBuilder_GenerateDockerfile_MinimalWorkflow(t *testing.T) {
 	assert.Contains(t, dockerfile, "FROM alpine:latest")
 	assert.Contains(t, dockerfile, "python3")
 	assert.Contains(t, dockerfile, "supervisord")
-	assert.Contains(t, dockerfile, "EXPOSE 3000") // Default API port
+	assert.Contains(t, dockerfile, "EXPOSE 16395") // Default API port
 	assert.Contains(t, dockerfile, "WORKDIR /app")
 	assert.Contains(t, dockerfile, "ENTRYPOINT")
 }
@@ -758,7 +756,7 @@ func TestBuilderTemplates_generateDockerfile(t *testing.T) {
 					AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 				},
 			},
-			contains: []string{"FROM alpine:latest", "python3", "supervisord", "3000"},
+			contains: []string{"FROM alpine:latest", "python3", "supervisord", "16395"},
 		},
 		{
 			name:   "ubuntu with ollama",
@@ -1097,14 +1095,13 @@ func TestBuilder_BuildTemplateData(t *testing.T) {
 		Settings: domain.WorkflowSettings{
 			APIServerMode: true,
 			HostIP:        "0.0.0.0",
-			PortNum:       8080,
+			PortNum:       16395,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion:  "3.12",
 				PythonPackages: []string{"requests", "pandas"},
 				BaseOS:         "alpine",
 			},
-			APIServer: &domain.APIServerConfig{
-			},
+			APIServer: &domain.APIServerConfig{},
 		},
 		Resources: []*domain.Resource{
 			{
@@ -1124,7 +1121,7 @@ func TestBuilder_BuildTemplateData(t *testing.T) {
 
 	// Verify template data was processed correctly
 	assert.Contains(t, dockerfile, "FROM alpine/ollama")
-	assert.Contains(t, dockerfile, "8080")  // API server port
+	assert.Contains(t, dockerfile, "16395") // API server port
 	assert.Contains(t, dockerfile, "11434") // Ollama port
 	assert.Contains(t, dockerfile, "requests")
 	assert.Contains(t, dockerfile, "pandas")
@@ -1575,8 +1572,7 @@ func TestBuilder_TemplateFunctions_ComprehensiveCoverage(t *testing.T) {
 					APIServerMode: true,
 					HostIP:        "0.0.0.0",
 					PortNum:       9000,
-					APIServer: &domain.APIServerConfig{
-					},
+					APIServer:     &domain.APIServerConfig{},
 					AgentSettings: domain.AgentSettings{
 						PythonVersion: "3.12",
 					},
@@ -1654,16 +1650,15 @@ func TestBuilder_GenerateDockerfile_WebServerPort(t *testing.T) {
 		Settings: domain.WorkflowSettings{
 			WebServerMode: true,
 			HostIP:        "0.0.0.0",
-			PortNum:       8080,
-			WebServer: &domain.WebServerConfig{
-			},
+			PortNum:       16395,
+			WebServer:     &domain.WebServerConfig{},
 		},
 	}
 
 	dockerfile, err := builder.GenerateDockerfile(workflow)
 	require.NoError(t, err)
 
-	assert.Contains(t, dockerfile, "EXPOSE 8080")
+	assert.Contains(t, dockerfile, "EXPOSE 16395")
 	assert.Contains(t, dockerfile, "KDEPS_BIND_HOST=0.0.0.0")
 }
 
@@ -1679,19 +1674,16 @@ func TestBuilder_GenerateDockerfile_APIAndWebServerPorts(t *testing.T) {
 			APIServerMode: true,
 			WebServerMode: true,
 			HostIP:        "0.0.0.0",
-			PortNum:       3000,
-			APIServer: &domain.APIServerConfig{
-			},
-			WebServer: &domain.WebServerConfig{
-			},
+			PortNum:       16395,
+			APIServer:     &domain.APIServerConfig{},
+			WebServer:     &domain.WebServerConfig{},
 		},
 	}
 
 	dockerfile, err := builder.GenerateDockerfile(workflow)
 	require.NoError(t, err)
 
-	assert.Contains(t, dockerfile, "EXPOSE 3000")
-	assert.NotContains(t, dockerfile, "EXPOSE 8080")
+	assert.Contains(t, dockerfile, "EXPOSE 16395")
 }
 
 func TestBuilder_GenerateDockerfile_NoModesNoPorts(t *testing.T) {

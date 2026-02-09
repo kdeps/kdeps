@@ -251,7 +251,7 @@ func TestGenerateDockerCompose(t *testing.T) {
 				},
 				Settings: domain.WorkflowSettings{
 					APIServerMode: true,
-					PortNum:       3000,
+					PortNum:       16395,
 					APIServer:     &domain.APIServerConfig{},
 				},
 			},
@@ -264,7 +264,7 @@ func TestGenerateDockerCompose(t *testing.T) {
 				assert.Contains(t, contentStr, "version: '3.8'")
 				assert.Contains(t, contentStr, "testagent:")
 				assert.Contains(t, contentStr, "image: test-agent-1.0.0:latest")
-				assert.Contains(t, contentStr, "3000:3000")
+				assert.Contains(t, contentStr, "16395:16395")
 				assert.Contains(t, contentStr, "healthcheck:")
 			},
 		},
@@ -275,7 +275,7 @@ func TestGenerateDockerCompose(t *testing.T) {
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
 					APIServerMode: true,
-					PortNum:       3000,
+					PortNum:       16395,
 					APIServer:     &domain.APIServerConfig{},
 				},
 			},
@@ -591,7 +591,7 @@ settings:
   agentSettings:
     pythonVersion: "3.12"
   apiServer:
-    portNum: 8080
+    portNum: 16395
 `
 				require.NoError(
 					t,
@@ -701,7 +701,7 @@ settings:
   agentSettings:
     pythonVersion: "3.12"
   apiServer:
-    portNum: 8080
+    portNum: 16395
 `
 				require.NoError(
 					t,

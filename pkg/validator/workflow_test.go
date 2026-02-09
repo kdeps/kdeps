@@ -99,7 +99,7 @@ func TestWorkflowValidator_ValidateSettings(t *testing.T) {
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
 					APIServerMode: true,
-					PortNum:       3000,
+					PortNum:       16395,
 					APIServer: &domain.APIServerConfig{
 						Routes: []domain.Route{
 							{Path: "/api/test", Methods: []string{"GET"}},
@@ -154,7 +154,7 @@ func TestWorkflowValidator_ValidateSettings(t *testing.T) {
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
 					APIServerMode: true,
-					PortNum:       3000,
+					PortNum:       16395,
 					APIServer: &domain.APIServerConfig{
 						Routes: []domain.Route{},
 					},
@@ -167,7 +167,7 @@ func TestWorkflowValidator_ValidateSettings(t *testing.T) {
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
 					APIServerMode: true,
-					PortNum:       3000,
+					PortNum:       16395,
 					APIServer: &domain.APIServerConfig{
 						Routes: []domain.Route{
 							{Path: "", Methods: []string{"GET"}},
@@ -182,7 +182,7 @@ func TestWorkflowValidator_ValidateSettings(t *testing.T) {
 			workflow: &domain.Workflow{
 				Settings: domain.WorkflowSettings{
 					APIServerMode: true,
-					PortNum:       3000,
+					PortNum:       16395,
 					APIServer: &domain.APIServerConfig{
 						Routes: []domain.Route{
 							{Path: "api/test", Methods: []string{"GET"}},

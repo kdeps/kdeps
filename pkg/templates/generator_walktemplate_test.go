@@ -40,7 +40,7 @@ func TestGenerator_WalkTemplate_WithSubdirectories(t *testing.T) {
 		Name:        "test-agent",
 		Description: "Test agent",
 		Version:     "1.0.0",
-		Port:        3000,
+		Port:        16395,
 		Resources:   []string{"http-client", "llm"},
 		Features:    make(map[string]bool),
 	}
@@ -96,7 +96,7 @@ func TestGenerator_GenerateFile_TemplateWithHasFunction(t *testing.T) {
 		Name:        "test-agent",
 		Description: "Test agent",
 		Version:     "1.0.0",
-		Port:        3000,
+		Port:        16395,
 		Resources:   []string{"http-client", "llm", "response"},
 		Features:    make(map[string]bool),
 	}

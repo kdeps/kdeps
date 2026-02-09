@@ -245,7 +245,7 @@ metadata:
 settings:
   apiServerMode: true
   apiServer:
-    portNum: 3000
+    portNum: 16395
     routes:
       - path: /api/users
         methods: [GET, POST]

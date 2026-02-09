@@ -281,7 +281,8 @@ allowOrigins:
 	var cors CORS
 	err := yaml.Unmarshal([]byte(yamlData), &cors)
 	require.NoError(t, err)
-	assert.True(t, cors.EnableCORS)
+	assert.NotNil(t, cors.EnableCORS)
+	assert.True(t, *cors.EnableCORS)
 	assert.True(t, cors.AllowCredentials)
 }
 
@@ -450,4 +451,3 @@ webServerMode: false
 	assert.True(t, settings.APIServerMode)
 	assert.False(t, settings.WebServerMode)
 }
-

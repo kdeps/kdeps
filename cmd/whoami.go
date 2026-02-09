@@ -36,7 +36,7 @@ func newWhoamiCmd() *cobra.Command {
 
 Examples:
   kdeps whoami`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			return runWhoami()
 		},
 	}

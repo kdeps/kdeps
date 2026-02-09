@@ -165,7 +165,7 @@ else
     echo "Testing chatbot example with real LLM..."
     
     # Extract port from workflow
-    PORT=$(grep -E "portNum:\s*[0-9]+" "$WORKFLOW_PATH" | head -1 | sed 's/.*portNum:[[:space:]]*\([0-9]*\).*/\1/' || echo "3000")
+    PORT=$(grep -E "portNum:\s*[0-9]+" "$WORKFLOW_PATH" | head -1 | sed 's/.*portNum:[[:space:]]*\([0-9]*\).*/\1/' || echo "16395")
     ENDPOINT="/api/v1/chat"
     
     # Start server

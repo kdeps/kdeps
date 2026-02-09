@@ -22,12 +22,12 @@ services:
   testworkflow:
     image: test-workflow-1.0.0:latest
     ports:
-      - "8080:8080"
+      - "16395:16395"
     environment:
       - NODE_ENV=production
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:16395/health"]
       interval: 30s
       timeout: 10s
       retries: 3

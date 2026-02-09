@@ -45,9 +45,6 @@ const (
 	// Default port for Ollama.
 	defaultOllamaPort = 11434
 
-	// Default API server port.
-	defaultAPIServerPort = 3000
-
 	// Memory calculation constants.
 	bytesPerMB = 1024 * 1024
 )
@@ -131,9 +128,9 @@ type DockerfileData struct {
 	OSPackages       []string
 	RequirementsFile string
 	APIPort          int
-	WebServerPort    int               // Port for the web server
-	HasAPIServer     bool              // Whether API server mode is enabled
-	HasWebServer     bool              // Whether web server mode is enabled
+	WebServerPort    int  // Port for the web server
+	HasAPIServer     bool // Whether API server mode is enabled
+	HasWebServer     bool // Whether web server mode is enabled
 	Models           []string
 	DefaultModel     string
 	OfflineMode      bool              // Whether offline mode is enabled (download models during build)
@@ -315,9 +312,6 @@ func (b *Builder) GetBackendPort(_ string) int {
 func (b *Builder) getAPIPort(workflow *domain.Workflow) int {
 	return workflow.Settings.GetPortNum()
 }
-
-// defaultWebServerPort is the default port for the web server.
-const defaultWebServerPort = 8080
 
 // getWebServerPort returns the web server port from workflow or default.
 func (b *Builder) getWebServerPort(workflow *domain.Workflow) int {

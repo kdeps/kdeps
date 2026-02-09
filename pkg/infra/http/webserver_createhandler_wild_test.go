@@ -81,7 +81,7 @@ func TestWebServer_CreateWebHandler_App2(t *testing.T) {
 		Path:       "/app",
 		ServerType: "app",
 		Command:    "echo test",
-		AppPort:    8080,
+		AppPort:    16395,
 	}
 
 	handler := webServer.CreateWebHandler(ctx, route)
@@ -144,7 +144,7 @@ func TestWebServer_CreateWebHandler_AppWithCommand2(t *testing.T) {
 		Path:       "/app",
 		ServerType: "app",
 		Command:    "echo test",
-		AppPort:    8080,
+		AppPort:    16395,
 	}
 
 	handler := webServer.CreateWebHandler(ctx, route)

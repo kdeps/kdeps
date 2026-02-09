@@ -160,11 +160,8 @@ func (s *Server) Start(addr string, devMode bool) error {
 	// Setup routes
 	s.SetupRoutes()
 
-	// Setup CORS if enabled
-	if s.Workflow != nil && s.Workflow.Settings.APIServer != nil && s.Workflow.Settings.APIServer.CORS != nil &&
-		s.Workflow.Settings.APIServer.CORS.EnableCORS {
-		s.Router.Use(s.CorsMiddleware)
-	}
+	// Setup CORS (defaults to enabled)
+	s.Router.Use(s.CorsMiddleware)
 
 	// Setup hot reload in dev mode
 	if devMode && s.Watcher != nil {
@@ -545,11 +542,20 @@ func (s *Server) RespondError(w stdhttp.ResponseWriter, statusCode int, message 
 // CorsMiddleware handles CORS.
 func (s *Server) CorsMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 	return func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
-		cors := s.Workflow.Settings.APIServer.CORS
+		cors := s.Workflow.Settings.GetCORSConfig()
+
+		if cors.EnableCORS != nil && !*cors.EnableCORS {
+			next(w, r)
+			return
+		}
 
 		s.setCorsOrigin(w, r, cors)
 		s.setCorsMethods(w, cors)
 		s.setCorsHeaders(w, cors)
+
+		if cors.AllowCredentials {
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+		}
 
 		// Handle preflight
 		if r.Method == stdhttp.MethodOptions {
@@ -563,14 +569,20 @@ func (s *Server) CorsMiddleware(next stdhttp.HandlerFunc) stdhttp.HandlerFunc {
 
 // setCorsOrigin sets the CORS origin header.
 func (s *Server) setCorsOrigin(w stdhttp.ResponseWriter, r *stdhttp.Request, cors *domain.CORS) {
-	if !cors.EnableCORS {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
 		return
 	}
 
-	origin := r.Header.Get("Origin")
+	// Smart auto-configuration: if WebServer is enabled, allow its host.
+	// Most common case: frontend on localhost:5173, backend on localhost:16395.
+	// If AllowOrigins is "*", we can just return the origin if we want to support credentials,
+	// or return "*" if not.
 	for _, allowedOrigin := range cors.AllowOrigins {
 		if allowedOrigin == "*" || allowedOrigin == origin {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
+			// Add Vary header to support multiple origins and proxies
+			w.Header().Add("Vary", "Origin")
 			return
 		}
 	}

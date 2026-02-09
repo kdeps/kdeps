@@ -69,8 +69,8 @@ func (m *mockRunner) Build(_ context.Context, configPath, format, arch, outputDi
 	}
 
 	// Create a fake output file to simulate linuxkit producing output
-	ext, ok := iso.FormatExtensions[format]
-	if !ok {
+	ext := iso.GetFormatExtension(format)
+	if ext == "" {
 		ext = ".iso"
 	}
 
@@ -100,7 +100,7 @@ func TestGenerateConfig_Basic(t *testing.T) {
 
 	assert.Contains(t, config.Kernel.Image, "linuxkit/kernel:")
 	assert.Contains(t, config.Kernel.Cmdline, "console=ttyS0")
-	assert.Len(t, config.Init, 4) // init + runc + containerd + ca-certificates
+	assert.Len(t, config.Init, 4)     // init + runc + containerd + ca-certificates
 	assert.Len(t, config.Services, 3) // dhcpcd + getty + kdeps
 	assert.Equal(t, "dhcpcd", config.Services[0].Name)
 	assert.Equal(t, "getty", config.Services[1].Name)
@@ -468,10 +468,10 @@ func TestLinuxKitDownloadURL(t *testing.T) {
 	assert.Contains(t, url, "linuxkit-")
 }
 
-func TestFormatExtensions(t *testing.T) {
-	assert.Equal(t, ".iso", iso.FormatExtensions["iso-efi"])
-	assert.Equal(t, ".raw", iso.FormatExtensions["raw-bios"])
-	assert.Equal(t, ".qcow2", iso.FormatExtensions["qcow2-bios"])
+func TestGetFormatExtension(t *testing.T) {
+	assert.Equal(t, ".iso", iso.GetFormatExtension("iso-efi"))
+	assert.Equal(t, ".raw", iso.GetFormatExtension("raw-bios"))
+	assert.Equal(t, ".qcow2", iso.GetFormatExtension("qcow2-bios"))
 }
 
 // ========================
@@ -548,7 +548,7 @@ func TestBuilder_Build_EmptySize(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, runner.buildCalls, 1)
-	assert.Equal(t, "", runner.buildCalls[0].Size)
+	assert.Empty(t, runner.buildCalls[0].Size)
 }
 
 func TestBuilder_Build_ARM64PassesArch(t *testing.T) {

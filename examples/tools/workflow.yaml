@@ -10,7 +10,7 @@ metadata:
 settings:
   apiServerMode: true
   hostIp: "0.0.0.0"
-  portNum: 3000
+  portNum: 16395
 
   apiServer:
     routes:

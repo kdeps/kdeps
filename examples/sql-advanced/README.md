@@ -98,10 +98,10 @@ kdeps run workflow.yaml --dev
 3. Test the endpoints:
 ```bash
 # Get analytics (CSV)
-curl http://localhost:3000/api/v1/sql-demo
+curl http://localhost:16395/api/v1/sql-demo
 
 # Batch update users
-curl -X POST http://localhost:3000/api/v1/sql-demo \
+curl -X POST http://localhost:16395/api/v1/sql-demo \
   -H "Content-Type: application/json" \
   -d '{"user_updates": [["active", 1], ["inactive", 2]]}'
 ```

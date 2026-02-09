@@ -221,8 +221,8 @@ services:
   myagent:
     image: kdeps-myagent:1.0.0
     ports:
-      - "3000:3000"      # API server
-      - "8080:8080"      # Web server (if enabled)
+      - "16395:16395"      # API server
+      - "16395:16395"      # Web server (if enabled)
     environment:
       - LOG_LEVEL=info
     volumes:
@@ -293,7 +293,7 @@ In Docker Compose:
 services:
   myagent:
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:16395/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -359,7 +359,7 @@ services:
     networks:
       - internal
     ports:
-      - "127.0.0.1:3000:3000"  # Only local access
+      - "127.0.0.1:16395:16395"  # Only local access
 
 networks:
   internal:
@@ -389,7 +389,7 @@ spec:
       - name: myagent
         image: myregistry/myagent:1.0.0
         ports:
-        - containerPort: 3000
+        - containerPort: 16395
         env:
         - name: LOG_LEVEL
           value: "info"
@@ -403,13 +403,13 @@ spec:
         livenessProbe:
           httpGet:
             path: /health
-            port: 3000
+            port: 16395
           initialDelaySeconds: 30
           periodSeconds: 10
         readinessProbe:
           httpGet:
             path: /health
-            port: 3000
+            port: 16395
           initialDelaySeconds: 5
           periodSeconds: 5
 
@@ -423,7 +423,7 @@ spec:
     app: myagent
   ports:
   - port: 80
-    targetPort: 3000
+    targetPort: 16395
 ```
 
 ## Troubleshooting

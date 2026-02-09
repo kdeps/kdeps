@@ -21,13 +21,13 @@ import (
 // mkimageRawBIOSImage is the Docker image used for assembling raw disk images.
 const mkimageRawBIOSImage = "alpine:3.19"
 
-// buildRawBIOS builds a raw-bios disk image using a two-step process.
-func buildRawBIOS(ctx context.Context, runner LinuxKitRunner, assembler RawBIOSAssembleFunc, configPath, arch, buildDir string) (string, error) {
-	return buildRawBIOSWithImage(ctx, runner, assembler, configPath, arch, buildDir, "", "")
-}
-
 // buildRawBIOSWithImage is the internal implementation that supports thin builds.
-func buildRawBIOSWithImage(ctx context.Context, runner LinuxKitRunner, assembler RawBIOSAssembleFunc, configPath, arch, buildDir, imageName, bootScript string) (string, error) {
+func buildRawBIOSWithImage(
+	ctx context.Context,
+	runner LinuxKitRunner,
+	assembler RawBIOSAssembleFunc,
+	configPath, arch, buildDir, imageName, bootScript string,
+) (string, error) {
 	// Step 1: Build kernel+initrd with linuxkit
 	if err := runner.Build(ctx, configPath, "kernel+initrd", arch, buildDir, ""); err != nil {
 		return "", fmt.Errorf("linuxkit kernel+initrd build failed: %w", err)
@@ -42,20 +42,21 @@ func buildRawBIOSWithImage(ctx context.Context, runner LinuxKitRunner, assembler
 	// Step 2: Create raw disk image
 	outputFile := filepath.Join(buildDir, "disk.img")
 
-	if err := assembler(ctx, kernelPath, initrdPath, cmdlinePath, outputFile, imageName, bootScript); err != nil {
-		return "", err
+	if assembleErr := assembler(ctx, kernelPath, initrdPath, cmdlinePath, outputFile, imageName, bootScript); assembleErr != nil {
+		return "", assembleErr
 	}
 
 	return outputFile, nil
 }
 
 // findKernelInitrd locates the kernel, initrd, and cmdline files in the build directory.
-func findKernelInitrd(dir string) (kernel, initrd, cmdline string, err error) {
+func findKernelInitrd(dir string) (string, string, string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to read build directory: %w", err)
 	}
 
+	var kernel, initrd, cmdline string
 	for _, entry := range entries {
 		name := entry.Name()
 		switch {
@@ -84,14 +85,17 @@ func findKernelInitrd(dir string) (kernel, initrd, cmdline string, err error) {
 }
 
 // assembleRawBIOS creates a raw disk image (BIOS or EFI) from kernel+initrd files.
-func assembleRawBIOS(ctx context.Context, kernelPath, initrdPath, cmdlinePath, outputPath, imageName, bootScript string) error {
+func assembleRawBIOS(
+	ctx context.Context,
+	kernelPath, initrdPath, cmdlinePath, outputPath, imageName, bootScript string,
+) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("failed to get home directory: %w", err)
 	}
 
 	cacheDir := filepath.Join(home, ".cache", "kdeps")
-	if mkdirErr := os.MkdirAll(cacheDir, 0755); mkdirErr != nil {
+	if mkdirErr := os.MkdirAll(cacheDir, 0750); mkdirErr != nil {
 		return fmt.Errorf("failed to create cache directory: %w", mkdirErr)
 	}
 
@@ -107,8 +111,8 @@ func assembleRawBIOS(ctx context.Context, kernelPath, initrdPath, cmdlinePath, o
 		{initrdPath, filepath.Join(workDir, "initrd.img")},
 		{cmdlinePath, filepath.Join(workDir, "cmdline")},
 	} {
-		if err := copyFile(src.from, src.to); err != nil {
-			return fmt.Errorf("failed to copy %s: %w", filepath.Base(src.from), err)
+		if copyErr := copyFile(src.from, src.to); copyErr != nil {
+			return fmt.Errorf("failed to copy %s: %w", filepath.Base(src.from), copyErr)
 		}
 	}
 
@@ -123,15 +127,15 @@ func assembleRawBIOS(ctx context.Context, kernelPath, initrdPath, cmdlinePath, o
 
 		if bootScript != "" {
 			bootPath := filepath.Join(workDir, "boot.sh")
-			if err := os.WriteFile(bootPath, []byte(bootScript), 0755); err != nil {
-				return fmt.Errorf("failed to write boot script: %w", err)
+			if writeErr := os.WriteFile(bootPath, []byte(bootScript), 0600); writeErr != nil {
+				return fmt.Errorf("failed to write boot script: %w", writeErr)
 			}
 		}
 	}
 
 	scriptPath := filepath.Join(workDir, "assemble.sh")
-	if err := writeAssembleScript(scriptPath, workDir, imageName != ""); err != nil {
-		return fmt.Errorf("failed to write assembly script: %w", err)
+	if writeScriptErr := writeAssembleScript(scriptPath, workDir, imageName != ""); writeScriptErr != nil {
+		return fmt.Errorf("failed to write assembly script: %w", writeScriptErr)
 	}
 
 	args := []string{
@@ -149,20 +153,21 @@ func assembleRawBIOS(ctx context.Context, kernelPath, initrdPath, cmdlinePath, o
 
 	fmt.Fprintln(os.Stdout, "Assembling raw disk image...")
 
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("raw disk assembly failed: %w", err)
+	if runErr := cmd.Run(); runErr != nil {
+		return fmt.Errorf("raw disk assembly failed: %w", runErr)
 	}
 
 	produced := filepath.Join(workDir, "disk.img")
-	if err := copyFile(produced, outputPath); err != nil {
-		return fmt.Errorf("failed to copy disk image to output: %w", err)
+	if copyDiskErr := copyFile(produced, outputPath); copyDiskErr != nil {
+		return fmt.Errorf("failed to copy disk image to output: %w", copyDiskErr)
 	}
 
 	return nil
 }
 
-func writeAssembleScript(path, _ string, thin bool) error {
-	script := `#!/bin/sh
+//nolint:funlen // generating a large shell script
+func writeAssembleScript(path, _ string, _ bool) error {
+	const scriptHeader = `#!/bin/sh
 set -ex
 
 # Install necessary tools
@@ -201,7 +206,9 @@ ESP_HEADROOM=$(( CONTENT_SIZE / 20 + 20 * 1024 * 1024 ))
 ESP_FILE_SIZE=$(( CONTENT_SIZE + ESP_HEADROOM ))
 ESP_FILE_SIZE_KB=$(( (ESP_FILE_SIZE + 1023) / 1024 ))
 ESP_FILE_SIZE_SECTORS=$(( ESP_FILE_SIZE_KB * 2 ))
+`
 
+	const scriptDataPart = `
 # Data partition size logic
 DATA_PART_SIZE_SECTORS=0
 if [ -f "$IMAGE_TAR" ]; then
@@ -227,7 +234,9 @@ else
     printf "label: gpt\n2048,%s,C12A7328-F81F-11D2-BA4B-00A0C93EC93B,*\n" \
         "$ESP_FILE_SIZE_SECTORS" | sfdisk "$IMGFILE"
 fi
+`
 
+	const scriptESP = `
 # Create FAT filesystem directly into the partition using mtools (memory efficient)
 ESP_TMP=/scratch/esp.img
 truncate -s $(( ESP_FILE_SIZE_SECTORS * 512 )) "$ESP_TMP"
@@ -256,7 +265,6 @@ if [ -d /usr/share/syslinux ]; then
 fi
 
 # Copy EFI loader from main syslinux package
-# In Alpine, syslinux.efi is located in /usr/share/syslinux/efi64/
 if [ -f /usr/share/syslinux/efi64/syslinux.efi ]; then
     mcopy -i "$ESP_TMP" /usr/share/syslinux/efi64/syslinux.efi ::/EFI/BOOT/BOOTX64.EFI
     mcopy -i "$ESP_TMP" /usr/share/syslinux/efi64/ldlinux.e64 ::/EFI/BOOT/ldlinux.e64
@@ -268,7 +276,9 @@ fi
 # Write the ESP partition back to the disk image
 dd if="$ESP_TMP" of="$IMGFILE" bs=512 seek=2048 count="$ESP_FILE_SIZE_SECTORS" conv=notrunc
 rm "$ESP_TMP"
+`
 
+	const scriptFooter = `
 # Handle data partition
 if [ "$DATA_PART_SIZE_SECTORS" -gt 0 ]; then
     DATA_TMP=/scratch/data.img
@@ -291,7 +301,8 @@ sync
 echo "Disk image assembled successfully"
 `
 
-	return os.WriteFile(path, []byte(script), 0755)
+	script := scriptHeader + scriptDataPart + scriptESP + scriptFooter
+	return os.WriteFile(path, []byte(script), 0600)
 }
 
 func copyFile(src, dst string) error {

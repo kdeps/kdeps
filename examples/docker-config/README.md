@@ -268,7 +268,7 @@ RUN chmod +x /entrypoint.sh
 WORKDIR /app
 
 # Expose ports
-EXPOSE 3000 11434
+EXPOSE 16395 11434
 
 # Use entrypoint for backend management
 ENTRYPOINT ["/entrypoint.sh"]
@@ -364,13 +364,13 @@ resources:
 kdeps run workflow.yaml --dev
 
 # Test the API
-curl -X POST 'http://localhost:3000/api/v1/chat?q=Hello'
+curl -X POST 'http://localhost:16395/api/v1/chat?q=Hello'
 
 # Build Docker image
 kdeps build . --tag docker-config:latest
 
 # Run Docker image
-docker run -p 3000:3000 docker-config:latest
+docker run -p 16395:16395 docker-config:latest
 ```
 
 ---

@@ -28,7 +28,7 @@ Settings {
   ...
   APIServer {
     HostIP = "127.0.0.1"
-    PortNum = 3000
+    PortNum = 16395
 
     Routes {
       new {
@@ -146,7 +146,7 @@ APIResponse {
 To test our newly created AI image generator API, we can use `curl`, which will output the file as a base64 string.
 
 ```bash
-curl "http://localhost:3000/api/v1/image_generator?q=A+Teddy+Bear"
+curl "http://localhost:16395/api/v1/image_generator?q=A+Teddy+Bear"
 
 {
   "errors": [

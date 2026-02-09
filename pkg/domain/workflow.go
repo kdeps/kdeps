@@ -20,6 +20,11 @@ package domain
 
 import "gopkg.in/yaml.v3"
 
+const (
+	// DefaultPort is the default port for API and Web servers.
+	DefaultPort = 16395
+)
+
 // Workflow represents a KDeps workflow configuration.
 type Workflow struct {
 	APIVersion string           `yaml:"apiVersion"`
@@ -64,10 +69,62 @@ func (w *WorkflowSettings) GetPortNum() int {
 	if w.PortNum > 0 {
 		return w.PortNum
 	}
-	if w.WebServerMode && !w.APIServerMode {
-		return 8080 // default for web-only
+	return DefaultPort // default for all modes
+}
+
+// GetCORSConfig returns the CORS configuration, providing defaults if not set.
+func (w *WorkflowSettings) GetCORSConfig() *CORS {
+	// 1. Default configuration
+	enabled := true
+	defaults := &CORS{
+		EnableCORS:       &enabled,
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
+		AllowHeaders:     []string{"Content-Type", "Authorization", "Accept", "X-Requested-With", "X-Session-Id"},
+		AllowCredentials: true,
 	}
-	return 3000 // default for API or combined
+
+	// 2. If no config at all, return defaults
+	if w.APIServer == nil || w.APIServer.CORS == nil {
+		return defaults
+	}
+
+	// 3. User provided some config, merge it with defaults
+	config := w.APIServer.CORS
+
+	// If enableCors is explicitly nil, it means it wasn't set, so we default to true
+	if config.EnableCORS == nil {
+		config.EnableCORS = &enabled
+	}
+
+	// If explicitly disabled, return as is (EnableCORS will be false)
+	if !*config.EnableCORS {
+		return config
+	}
+
+	// Merge missing fields from defaults
+	if len(config.AllowOrigins) == 0 {
+		config.AllowOrigins = defaults.AllowOrigins
+	}
+	if len(config.AllowMethods) == 0 {
+		config.AllowMethods = defaults.AllowMethods
+	}
+	if len(config.AllowHeaders) == 0 {
+		config.AllowHeaders = defaults.AllowHeaders
+	}
+
+	// AllowCredentials defaults to true in our new behavior,
+	// but since it's a bool, we can't easily tell if user set it to false
+	// vs it defaulting to false.
+	// However, the user request says "make enableCors: true the default behavior",
+	// and typically if they specify a cors block they might want to override.
+	// For now, we follow the logic that if they didn't specify credentials in YAML,
+	// it will be false by standard Go defaulting if they provided a cors block.
+	// But to be "smart", if they didn't specify it, we might want it true.
+	// Given the previous implementation of GetCORSConfig, it was returning true
+	// only if no config was present.
+
+	return config
 }
 
 // UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
@@ -115,11 +172,7 @@ func (w *WorkflowSettings) UnmarshalYAML(node *yaml.Node) error {
 		w.HostIP = "0.0.0.0"
 	}
 	if w.PortNum == 0 {
-		if w.WebServerMode && !w.APIServerMode {
-			w.PortNum = 8080
-		} else {
-			w.PortNum = 3000
-		}
+		w.PortNum = DefaultPort
 	}
 
 	return nil
@@ -298,7 +351,7 @@ type Route struct {
 
 // CORS represents CORS configuration.
 type CORS struct {
-	EnableCORS       bool     `yaml:"enableCors"`
+	EnableCORS       *bool    `yaml:"enableCors"`
 	AllowOrigins     []string `yaml:"allowOrigins,omitempty"`
 	AllowMethods     []string `yaml:"allowMethods,omitempty"`
 	AllowHeaders     []string `yaml:"allowHeaders,omitempty"`
@@ -324,9 +377,7 @@ func (c *CORS) UnmarshalYAML(node *yaml.Node) error {
 	}
 
 	// Parse boolean fields that might be strings
-	if b, ok := parseBool(alias.EnableCORS); ok {
-		c.EnableCORS = b
-	}
+	c.EnableCORS = parseBoolPtr(alias.EnableCORS)
 	if b, ok := parseBool(alias.AllowCredentials); ok {
 		c.AllowCredentials = b
 	}

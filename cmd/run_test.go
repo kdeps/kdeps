@@ -313,15 +313,15 @@ func TestParseOllamaURL(t *testing.T) {
 		},
 		{
 			name:         "custom host and port",
-			ollamaURL:    "192.168.1.100:8080",
+			ollamaURL:    "192.168.1.100:16395",
 			expectedHost: "192.168.1.100",
-			expectedPort: 8080,
+			expectedPort: 16395,
 		},
 		{
 			name:         "localhost with port",
-			ollamaURL:    "localhost:8080",
+			ollamaURL:    "localhost:16395",
 			expectedHost: "localhost",
-			expectedPort: 8080,
+			expectedPort: 16395,
 		},
 		{
 			name:         "with http protocol",
@@ -801,8 +801,8 @@ func TestStartHTTPServer_InvalidPort(t *testing.T) {
 
 	workflow := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
-			HostIP:  "127.0.0.1",
-			PortNum: addr.Port, // Port already in use
+			HostIP:    "127.0.0.1",
+			PortNum:   addr.Port, // Port already in use
 			APIServer: &domain.APIServerConfig{},
 		},
 	}
@@ -1254,9 +1254,9 @@ func TestOllamaURLParsing(t *testing.T) {
 		},
 		{
 			name:       "host and port",
-			ollamaURL:  "192.168.1.100:8080",
+			ollamaURL:  "192.168.1.100:16395",
 			expectHost: "192.168.1.100",
-			expectPort: 8080,
+			expectPort: 16395,
 		},
 		{
 			name:       "localhost with port",
@@ -1641,9 +1641,9 @@ func TestParseOllamaURL_Extensive(t *testing.T) {
 		},
 		{
 			name:         "host and port",
-			ollamaURL:    "192.168.1.100:8080",
+			ollamaURL:    "192.168.1.100:16395",
 			expectedHost: "192.168.1.100",
-			expectedPort: 8080,
+			expectedPort: 16395,
 		},
 		{
 			name:         "localhost with port",
@@ -1683,9 +1683,9 @@ func TestParseOllamaURL_Extensive(t *testing.T) {
 		},
 		{
 			name:         "port only (invalid but should handle gracefully)",
-			ollamaURL:    ":8080",
+			ollamaURL:    ":16395",
 			expectedHost: "",
-			expectedPort: 8080,
+			expectedPort: 16395,
 		},
 	}
 
@@ -1788,9 +1788,9 @@ func TestOllamaURLParsingEdgeCases(t *testing.T) {
 		},
 		{
 			name:         "host and port",
-			ollamaURL:    "192.168.1.100:8080",
+			ollamaURL:    "192.168.1.100:16395",
 			expectedHost: "192.168.1.100",
-			expectedPort: 8080,
+			expectedPort: 16395,
 		},
 		{
 			name:         "localhost with port",
@@ -1824,9 +1824,9 @@ func TestOllamaURLParsingEdgeCases(t *testing.T) {
 		},
 		{
 			name:         "just colon uses default host",
-			ollamaURL:    ":8080",
+			ollamaURL:    ":16395",
 			expectedHost: "",
-			expectedPort: 8080,
+			expectedPort: 16395,
 		},
 		{
 			name:         "multiple colons",

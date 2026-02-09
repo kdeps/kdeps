@@ -262,11 +262,11 @@ func getWorkflowPorts(workflow *domain.Workflow) []int {
 
 		if iso.ShouldInstallOllama(workflow) {
 			// Add Ollama port (default 11434)
-			ports = append(ports, 11434)
+			ports = append(ports, ollamaDefaultPort)
 		}
 	}
 	if len(ports) == 0 {
-		ports = []int{3000}
+		ports = []int{16395}
 	}
 	return ports
 }
@@ -405,7 +405,10 @@ func cloudBuild(packagePath, format, arch string, noCache bool) error {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
 	tmpPath := tmpFile.Name()
-	tmpFile.Close()
+	if closeErr := tmpFile.Close(); closeErr != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("failed to close temp file: %w", closeErr)
+	}
 	defer os.Remove(tmpPath)
 
 	// Resolve workflow and create archive
