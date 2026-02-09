@@ -933,13 +933,10 @@ func ExecuteSingleRun(workflow *domain.Workflow) error {
 	return nil
 }
 
-// StartBothServers starts both the API server and WebServer concurrently.
+// StartBothServers starts both the API server and WebServer on a single port.
 //
 //nolint:funlen,gocognit // startup logic requires handling multiple servers
 func StartBothServers(workflow *domain.Workflow, workflowPath string, devMode bool, debugMode bool) error {
-	const numServers = 2
-	errChan := make(chan error, numServers)
-
 	// Create logger
 	logger := logging.NewLogger(debugMode)
 
@@ -989,38 +986,28 @@ func StartBothServers(workflow *domain.Workflow, workflowPath string, devMode bo
 	}
 	webServer.SetWorkflowDir(workflowPath)
 
+	// Merge web routes onto API router
+	webServer.RegisterRoutesOn(httpServer.Router, context.Background())
+
 	// Print server info
 	apiConfig := workflow.Settings.APIServer
-	apiAddr := fmt.Sprintf("%s:%d", apiConfig.HostIP, apiConfig.PortNum)
-	fmt.Fprintf(os.Stdout, "  ✓ Starting API server on %s\n", apiAddr)
-
-	webConfig := workflow.Settings.WebServer
-	webHostIP := webConfig.HostIP
-	if webHostIP == "" {
-		webHostIP = "127.0.0.1"
+	hostIP := apiConfig.HostIP
+	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
+		hostIP = override
 	}
-	webPortNum := webConfig.PortNum
-	if webPortNum == 0 {
-		webPortNum = 8080
-	}
-	webAddr := fmt.Sprintf("%s:%d", webHostIP, webPortNum)
-	fmt.Fprintf(os.Stdout, "  ✓ Starting web server on %s\n", webAddr)
-	fmt.Fprintln(os.Stdout, "\n✓ Both servers ready!")
+	addr := fmt.Sprintf("%s:%d", hostIP, apiConfig.PortNum)
+	fmt.Fprintf(os.Stdout, "  ✓ Starting server on %s (API + Web)\n", addr)
+	fmt.Fprintln(os.Stdout, "\n✓ Server ready!")
 
 	// Setup signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// Start both servers in goroutines
+	// Start server in goroutine
+	errChan := make(chan error, 1)
 	go func() {
-		if startErr := httpServer.Start(apiAddr, devMode); startErr != nil {
-			errChan <- fmt.Errorf("api server error: %w", startErr)
-		}
-	}()
-
-	go func() {
-		if startErr := webServer.Start(context.Background()); startErr != nil {
-			errChan <- fmt.Errorf("webserver error: %w", startErr)
+		if startErr := httpServer.Start(addr, devMode); startErr != nil {
+			errChan <- fmt.Errorf("server error: %w", startErr)
 		}
 	}()
 
@@ -1031,22 +1018,20 @@ func StartBothServers(workflow *domain.Workflow, workflowPath string, devMode bo
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
 		defer cancel()
 
-		// Shutdown both servers
+		// Shutdown servers
 		if shutdownErr := httpServer.Shutdown(shutdownCtx); shutdownErr != nil {
-			fmt.Fprintf(os.Stderr, "Error shutting down API server: %v\n", shutdownErr)
+			fmt.Fprintf(os.Stderr, "Error shutting down server: %v\n", shutdownErr)
 		}
-		if shutdownErr := webServer.Shutdown(shutdownCtx); shutdownErr != nil {
-			fmt.Fprintf(os.Stderr, "Error shutting down web server: %v\n", shutdownErr)
-		}
-		fmt.Fprintln(os.Stdout, "✓ All servers stopped")
+		webServer.Stop()
+		fmt.Fprintln(os.Stdout, "✓ Server stopped")
 		return nil
 	case chanErr := <-errChan:
-		// One server failed, shutdown the other gracefully
+		// Server failed, shutdown gracefully
 		fmt.Fprintf(os.Stdout, "\n🛑 Server error, shutting down...\n")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
 		defer cancel()
 		_ = httpServer.Shutdown(shutdownCtx)
-		_ = webServer.Shutdown(shutdownCtx)
+		webServer.Stop()
 
 		if chanErr != nil && !errors.Is(chanErr, stdhttp.ErrServerClosed) {
 			return chanErr

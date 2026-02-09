@@ -266,16 +266,13 @@ func getWorkflowPorts(workflow *domain.Workflow) []int {
 			ports = append(ports, apiPort)
 		}
 
-		// Web Server port
-		webPort := 8080 // default
-		if workflow.Settings.WebServer != nil && workflow.Settings.WebServer.PortNum > 0 {
-			webPort = workflow.Settings.WebServer.PortNum
-		}
-		if workflow.Settings.WebServerMode {
-			// Avoid duplicate if same as API port
-			if apiPort != webPort || !workflow.Settings.APIServerMode {
-				ports = append(ports, webPort)
+		// Web Server port - only added if NOT in combined mode
+		if workflow.Settings.WebServerMode && !workflow.Settings.APIServerMode {
+			webPort := 8080 // default
+			if workflow.Settings.WebServer != nil && workflow.Settings.WebServer.PortNum > 0 {
+				webPort = workflow.Settings.WebServer.PortNum
 			}
+			ports = append(ports, webPort)
 		}
 
 		if iso.ShouldInstallOllama(workflow) {
