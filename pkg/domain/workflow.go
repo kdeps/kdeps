@@ -51,32 +51,20 @@ type WorkflowSettings struct {
 	Session        *SessionConfig           `yaml:"session,omitempty"`
 }
 
-// GetHostIP returns the resolved host IP, checking top-level first, then individual server configs.
+// GetHostIP returns the resolved host IP from top-level settings or default.
 func (w *WorkflowSettings) GetHostIP() string {
 	if w.HostIP != "" {
 		return w.HostIP
 	}
-	if w.APIServerMode && w.APIServer != nil && w.APIServer.HostIP != "" {
-		return w.APIServer.HostIP
-	}
-	if w.WebServerMode && w.WebServer != nil && w.WebServer.HostIP != "" {
-		return w.WebServer.HostIP
-	}
 	return "0.0.0.0" // default
 }
 
-// GetPortNum returns the resolved port number, checking top-level first, then individual server configs.
+// GetPortNum returns the resolved port number from top-level settings or default.
 func (w *WorkflowSettings) GetPortNum() int {
 	if w.PortNum > 0 {
 		return w.PortNum
 	}
-	if w.APIServerMode && w.APIServer != nil && w.APIServer.PortNum > 0 {
-		return w.APIServer.PortNum
-	}
-	if w.WebServerMode && w.WebServer != nil && w.WebServer.PortNum > 0 {
-		return w.WebServer.PortNum
-	}
-	if w.WebServerMode {
+	if w.WebServerMode && !w.APIServerMode {
 		return 8080 // default for web-only
 	}
 	return 3000 // default for API or combined
@@ -266,33 +254,23 @@ func (s *SessionConfig) GetPath() string {
 
 // APIServerConfig contains API server configuration.
 type APIServerConfig struct {
-	HostIP         string   `yaml:"hostIp"`
-	PortNum        int      `yaml:"portNum"`
 	TrustedProxies []string `yaml:"trustedProxies,omitempty"`
 	Routes         []Route  `yaml:"routes"`
 	CORS           *CORS    `yaml:"cors,omitempty"`
 }
 
-// UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
+// UnmarshalYAML implements custom YAML unmarshaling.
 func (a *APIServerConfig) UnmarshalYAML(node *yaml.Node) error {
 	type Alias struct {
-		HostIP         string      `yaml:"hostIp"`
-		PortNum        interface{} `yaml:"portNum"`
-		TrustedProxies []string    `yaml:"trustedProxies,omitempty"`
-		Routes         []Route     `yaml:"routes"`
-		CORS           *CORS       `yaml:"cors,omitempty"`
+		TrustedProxies []string `yaml:"trustedProxies,omitempty"`
+		Routes         []Route  `yaml:"routes"`
+		CORS           *CORS    `yaml:"cors,omitempty"`
 	}
 	var alias Alias
 	if err := node.Decode(&alias); err != nil {
 		return err
 	}
 
-	// Parse integer field that might be string
-	if i, ok := parseInt(alias.PortNum); ok {
-		a.PortNum = i
-	}
-
-	a.HostIP = alias.HostIP
 	a.TrustedProxies = alias.TrustedProxies
 	a.Routes = alias.Routes
 	a.CORS = alias.CORS
@@ -352,31 +330,21 @@ func (c *CORS) UnmarshalYAML(node *yaml.Node) error {
 
 // WebServerConfig contains web server configuration.
 type WebServerConfig struct {
-	HostIP         string     `yaml:"hostIp"`
-	PortNum        int        `yaml:"portNum"`
 	TrustedProxies []string   `yaml:"trustedProxies,omitempty"`
 	Routes         []WebRoute `yaml:"routes"`
 }
 
-// UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
+// UnmarshalYAML implements custom YAML unmarshaling.
 func (w *WebServerConfig) UnmarshalYAML(node *yaml.Node) error {
 	type Alias struct {
-		HostIP         string      `yaml:"hostIp"`
-		PortNum        interface{} `yaml:"portNum"`
-		TrustedProxies []string    `yaml:"trustedProxies,omitempty"`
-		Routes         []WebRoute  `yaml:"routes"`
+		TrustedProxies []string   `yaml:"trustedProxies,omitempty"`
+		Routes         []WebRoute `yaml:"routes"`
 	}
 	var alias Alias
 	if err := node.Decode(&alias); err != nil {
 		return err
 	}
 
-	// Parse integer field that might be string
-	if i, ok := parseInt(alias.PortNum); ok {
-		w.PortNum = i
-	}
-
-	w.HostIP = alias.HostIP
 	w.TrustedProxies = alias.TrustedProxies
 	w.Routes = alias.Routes
 
