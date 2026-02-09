@@ -1244,3 +1244,4 @@ func (m *MockHTTPClient) Do(_ *stdhttp.Request) (*stdhttp.Response, error) {
 	response.Header.Set("Content-Type", "application/json")
 	return response, nil
 }
+

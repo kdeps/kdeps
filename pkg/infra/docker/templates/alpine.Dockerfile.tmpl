@@ -3,9 +3,11 @@ FROM {{ .BaseImage }}
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PATH=/root/.local/bin:/opt/venv/bin:$PATH \
+    KDEPS_BIND_HOST=0.0.0.0 \
     {{- if .InstallOllama }}
     OLLAMA_HOST=127.0.0.1 \
     OLLAMA_PORT={{ .BackendPort }} \
+    OLLAMA_MODELS=/root/.ollama/models \
     {{- end }}
     BACKEND_PORT={{ .BackendPort }}
 {{- if .Env }}
@@ -47,20 +49,20 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 RUN chmod +x /usr/local/bin/uv
 
 # Create virtual environment
-RUN uv venv /opt/venv
+RUN /usr/local/bin/uv venv /opt/venv
 {{- end }}
 
 {{- if .PythonPackages }}
 
 # Install Python packages
-RUN uv pip install{{ range .PythonPackages }} {{ . }}{{ end }}
+RUN /usr/local/bin/uv pip install{{ range .PythonPackages }} {{ . }}{{ end }}
 {{- end }}
 
 {{- if .RequirementsFile }}
 
 # Install from requirements file
 COPY {{ .RequirementsFile }} /tmp/requirements.txt
-RUN uv pip install -r /tmp/requirements.txt
+RUN /usr/local/bin/uv pip install -r /tmp/requirements.txt
 {{- end }}
 
 # Copy workflow files
@@ -83,24 +85,32 @@ RUN mkdir -p /var/log
 {{- if and .OfflineMode .Models .InstallOllama }}
 
 # Download models during build time for offline mode
-RUN mkdir -p /models
+RUN mkdir -p /llm
 
 # Download Ollama models
-RUN (OLLAMA_HOST=127.0.0.1 ollama serve &) && \
+RUN (OLLAMA_HOST=127.0.0.1 /usr/local/bin/ollama serve &) && \
     sleep 10 && \
     {{- range $i, $model := .Models }}{{ if $i }} && \{{ end }}
-    OLLAMA_HOST=127.0.0.1 ollama pull {{ $model }}{{ end }} && \
+    OLLAMA_HOST=127.0.0.1 /usr/local/bin/ollama pull {{ $model }}{{ end }} && \
     pkill -f ollama && \
     sleep 2 && \
     # Copy to the image layer
-    cp -r /root/.ollama/* /models/
+    cp -r /root/.ollama/* /llm/
 {{- end }}
 
 WORKDIR /app
 
 # Expose ports
-EXPOSE {{ .APIPort }} {{ .BackendPort }}
+{{- if .HasAPIServer }}
+EXPOSE {{ .APIPort }}
+{{- end }}
+{{- if .HasWebServer }}
+EXPOSE {{ .WebServerPort }}
+{{- end }}
+{{- if .InstallOllama }}
+EXPOSE {{ .BackendPort }}
+{{- end }}
 
 # Use entrypoint for backend management
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["supervisord", "-c", "/etc/supervisord.conf"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]

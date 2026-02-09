@@ -19,6 +19,7 @@
 package docker
 
 import (
+	"archive/tar"
 	"bufio"
 	"context"
 	"encoding/json"
@@ -26,10 +27,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 )
@@ -189,6 +192,127 @@ func (c *Client) TagImage(ctx context.Context, sourceImage, targetImage string) 
 // Close closes the Docker client.
 func (c *Client) Close() error {
 	return c.Cli.Close()
+}
+
+// CreateContainerNoStart creates a container without starting it.
+// This is used to extract files from an image via CopyFromContainer.
+func (c *Client) CreateContainerNoStart(ctx context.Context, imageName string) (string, error) {
+	if imageName == "" {
+		return "", errors.New("image name cannot be empty")
+	}
+
+	containerConfig := &container.Config{
+		Image: imageName,
+	}
+
+	resp, err := c.Cli.ContainerCreate(ctx, containerConfig, nil, nil, nil, "")
+	if err != nil {
+		return "", fmt.Errorf("failed to create container: %w", err)
+	}
+
+	return resp.ID, nil
+}
+
+// CopyFromContainer copies a file from a container to the host filesystem.
+func (c *Client) CopyFromContainer(
+	ctx context.Context,
+	containerID string,
+	srcPath string,
+	dstPath string,
+) error {
+	reader, _, err := c.Cli.CopyFromContainer(ctx, containerID, srcPath)
+	if err != nil {
+		return fmt.Errorf("failed to copy from container: %w", err)
+	}
+	defer func() {
+		_ = reader.Close()
+	}()
+
+	// Docker API returns a tar archive; extract the single file
+	tarReader := tar.NewReader(reader)
+
+	_, err = tarReader.Next()
+	if err != nil {
+		return fmt.Errorf("failed to read tar header: %w", err)
+	}
+
+	// Ensure output directory exists
+	if mkdirErr := os.MkdirAll(filepath.Dir(dstPath), 0750); mkdirErr != nil {
+		return fmt.Errorf("failed to create output directory: %w", mkdirErr)
+	}
+
+	outFile, err := os.Create(dstPath)
+	if err != nil {
+		return fmt.Errorf("failed to create output file: %w", err)
+	}
+	defer func() {
+		_ = outFile.Close()
+	}()
+
+	// Limit copy to 10GB to prevent decompression bombs
+	const maxISOSize = 10 * 1024 * 1024 * 1024 // 10 GB
+	if _, copyErr := io.Copy(outFile, io.LimitReader(tarReader, maxISOSize)); copyErr != nil {
+		return fmt.Errorf("failed to write file: %w", copyErr)
+	}
+
+	return nil
+}
+
+// SaveImage exports a Docker image to a tar file on disk.
+func (c *Client) SaveImage(ctx context.Context, imageName, destPath string) error {
+	if imageName == "" {
+		return errors.New("image name cannot be empty")
+	}
+
+	reader, err := c.Cli.ImageSave(ctx, []string{imageName})
+	if err != nil {
+		return fmt.Errorf("failed to save image: %w", err)
+	}
+	defer func() {
+		_ = reader.Close()
+	}()
+
+	outFile, err := os.Create(destPath)
+	if err != nil {
+		return fmt.Errorf("failed to create output file: %w", err)
+	}
+	defer func() {
+		_ = outFile.Close()
+	}()
+
+	if _, copyErr := io.Copy(outFile, reader); copyErr != nil {
+		return fmt.Errorf("failed to write image tar: %w", copyErr)
+	}
+
+	return nil
+}
+
+// RemoveImage removes a Docker image.
+func (c *Client) RemoveImage(ctx context.Context, imageName string) error {
+	if imageName == "" {
+		return errors.New("image name cannot be empty")
+	}
+
+	_, err := c.Cli.ImageRemove(ctx, imageName, image.RemoveOptions{Force: true})
+	if err != nil {
+		return fmt.Errorf("failed to remove image: %w", err)
+	}
+
+	return nil
+}
+
+// ImageSize returns the size of a Docker image in bytes.
+func (c *Client) ImageSize(ctx context.Context, imageName string) (int64, error) {
+	if imageName == "" {
+		return 0, errors.New("image name cannot be empty")
+	}
+
+	inspect, _, err := c.Cli.ImageInspectWithRaw(ctx, imageName)
+	if err != nil {
+		return 0, fmt.Errorf("failed to inspect image %s: %w", imageName, err)
+	}
+
+	return inspect.Size, nil
 }
 
 // PruneDanglingImages removes all dangling (untagged) images.

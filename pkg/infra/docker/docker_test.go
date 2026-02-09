@@ -138,6 +138,7 @@ func TestBuilder_GenerateDockerfile_APIServerPort(t *testing.T) {
 			Version: "1.0.0",
 		},
 		Settings: domain.WorkflowSettings{
+			APIServerMode: true,
 			APIServer: &domain.APIServerConfig{
 				HostIP:  "0.0.0.0",
 				PortNum: 8080,
@@ -602,6 +603,7 @@ func TestBuilder_GenerateDockerfile_ComplexWorkflow(t *testing.T) {
 			Version: "2.1.0",
 		},
 		Settings: domain.WorkflowSettings{
+			APIServerMode: true,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion:  "3.11",
 				PythonPackages: []string{"fastapi", "uvicorn", "pydantic"},
@@ -658,6 +660,9 @@ func TestBuilder_GenerateDockerfile_MinimalWorkflow(t *testing.T) {
 		Metadata: domain.WorkflowMetadata{
 			Name:    "minimal",
 			Version: "1.0.0",
+		},
+		Settings: domain.WorkflowSettings{
+			APIServerMode: true,
 		},
 	}
 
@@ -749,6 +754,7 @@ func TestBuilderTemplates_generateDockerfile(t *testing.T) {
 			workflow: &domain.Workflow{
 				Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 				Settings: domain.WorkflowSettings{
+					APIServerMode: true,
 					AgentSettings: domain.AgentSettings{PythonVersion: "3.12"},
 				},
 			},
@@ -1089,6 +1095,7 @@ func TestBuilder_BuildTemplateData(t *testing.T) {
 			Version: "1.0.0",
 		},
 		Settings: domain.WorkflowSettings{
+			APIServerMode: true,
 			AgentSettings: domain.AgentSettings{
 				PythonVersion:  "3.12",
 				PythonPackages: []string{"requests", "pandas"},
@@ -1565,6 +1572,7 @@ func TestBuilder_TemplateFunctions_ComprehensiveCoverage(t *testing.T) {
 			workflow: &domain.Workflow{
 				Metadata: domain.WorkflowMetadata{Name: "test", Version: "1.0.0"},
 				Settings: domain.WorkflowSettings{
+					APIServerMode: true,
 					APIServer: &domain.APIServerConfig{
 						HostIP:  "0.0.0.0",
 						PortNum: 9000,
@@ -1633,6 +1641,75 @@ func TestBuilder_TemplateFunctions_ComprehensiveCoverage(t *testing.T) {
 			// which calls generateDockerfile, generateEntrypoint, and generateSupervisord
 		})
 	}
+}
+
+func TestBuilder_GenerateDockerfile_WebServerPort(t *testing.T) {
+	builder := &docker.Builder{BaseOS: "alpine"}
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name:    "webserver-app",
+			Version: "1.0.0",
+		},
+		Settings: domain.WorkflowSettings{
+			WebServerMode: true,
+			WebServer: &domain.WebServerConfig{
+				HostIP:  "0.0.0.0",
+				PortNum: 8080,
+			},
+		},
+	}
+
+	dockerfile, err := builder.GenerateDockerfile(workflow)
+	require.NoError(t, err)
+
+	assert.Contains(t, dockerfile, "EXPOSE 8080")
+	assert.Contains(t, dockerfile, "KDEPS_BIND_HOST=0.0.0.0")
+}
+
+func TestBuilder_GenerateDockerfile_APIAndWebServerPorts(t *testing.T) {
+	builder := &docker.Builder{BaseOS: "alpine"}
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name:    "fullstack-app",
+			Version: "1.0.0",
+		},
+		Settings: domain.WorkflowSettings{
+			APIServerMode: true,
+			WebServerMode: true,
+			APIServer: &domain.APIServerConfig{
+				HostIP:  "0.0.0.0",
+				PortNum: 3000,
+			},
+			WebServer: &domain.WebServerConfig{
+				HostIP:  "0.0.0.0",
+				PortNum: 8080,
+			},
+		},
+	}
+
+	dockerfile, err := builder.GenerateDockerfile(workflow)
+	require.NoError(t, err)
+
+	assert.Contains(t, dockerfile, "EXPOSE 3000")
+	assert.Contains(t, dockerfile, "EXPOSE 8080")
+}
+
+func TestBuilder_GenerateDockerfile_NoModesNoPorts(t *testing.T) {
+	builder := &docker.Builder{BaseOS: "alpine"}
+
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name:    "no-servers",
+			Version: "1.0.0",
+		},
+	}
+
+	dockerfile, err := builder.GenerateDockerfile(workflow)
+	require.NoError(t, err)
+
+	assert.NotContains(t, dockerfile, "EXPOSE")
 }
 
 func TestBuilder_TemplateFunctions_ErrorCases(t *testing.T) {

@@ -131,6 +131,9 @@ type DockerfileData struct {
 	OSPackages       []string
 	RequirementsFile string
 	APIPort          int
+	WebServerPort    int               // Port for the web server
+	HasAPIServer     bool              // Whether API server mode is enabled
+	HasWebServer     bool              // Whether web server mode is enabled
 	Models           []string
 	DefaultModel     string
 	OfflineMode      bool              // Whether offline mode is enabled (download models during build)
@@ -316,6 +319,17 @@ func (b *Builder) getAPIPort(workflow *domain.Workflow) int {
 	return defaultAPIServerPort
 }
 
+// defaultWebServerPort is the default port for the web server.
+const defaultWebServerPort = 8080
+
+// getWebServerPort returns the web server port from workflow or default.
+func (b *Builder) getWebServerPort(workflow *domain.Workflow) int {
+	if workflow.Settings.WebServer != nil && workflow.Settings.WebServer.PortNum > 0 {
+		return workflow.Settings.WebServer.PortNum
+	}
+	return defaultWebServerPort
+}
+
 // getDefaultModel returns the first model from the workflow if available.
 func (b *Builder) getDefaultModel(workflow *domain.Workflow) string {
 	if len(workflow.Settings.AgentSettings.Models) > 0 {
@@ -404,6 +418,9 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 		OSPackages:       workflow.Settings.AgentSettings.OSPackages,
 		RequirementsFile: workflow.Settings.AgentSettings.RequirementsFile,
 		APIPort:          b.getAPIPort(workflow),
+		WebServerPort:    b.getWebServerPort(workflow),
+		HasAPIServer:     workflow.Settings.APIServerMode,
+		HasWebServer:     workflow.Settings.WebServerMode,
 		Models:           workflow.Settings.AgentSettings.Models,
 		DefaultModel:     b.getDefaultModel(workflow),
 		OfflineMode:      workflow.Settings.AgentSettings.OfflineMode,

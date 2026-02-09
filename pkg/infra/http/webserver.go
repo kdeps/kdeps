@@ -82,9 +82,11 @@ func (s *WebServer) Start(ctx context.Context) error {
 	// Setup routes
 	s.SetupWebRoutes(ctx)
 
-	// Configure address
+	// Configure address (KDEPS_BIND_HOST overrides for VM/container deployments)
 	hostIP := config.HostIP
-	if hostIP == "" {
+	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
+		hostIP = override
+	} else if hostIP == "" {
 		hostIP = "127.0.0.1"
 	}
 	portNum := config.PortNum
