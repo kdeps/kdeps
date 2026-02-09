@@ -12,7 +12,7 @@ settings:
 
   webServer:
     hostIp: "0.0.0.0"
-    portNum: 8080
+    portNum: 3000
     routes:
       - path: "/"
         serverType: "static"
