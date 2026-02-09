@@ -71,5 +71,12 @@ if [ ! -z "$TEMP_OLLAMA_PID" ]; then
 fi
 {{- end }}
 
+# Ensure the workflow binds to all interfaces inside containers
+# (overrides any hostIp: "127.0.0.1" in the workflow YAML)
+if [ -f /app/workflow.yaml ]; then
+    sed -i 's/hostIp: "127.0.0.1"/hostIp: "0.0.0.0"/g' /app/workflow.yaml
+    sed -i 's/hostIp: 127.0.0.1/hostIp: 0.0.0.0/g' /app/workflow.yaml
+fi
+
 # Execute the command passed to docker run
 exec "$@"

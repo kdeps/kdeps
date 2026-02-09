@@ -27,6 +27,7 @@ startretries=3
 stderr_logfile=/var/log/kdeps.err.log
 stdout_logfile=/var/log/kdeps.out.log
 priority=20
+environment=KDEPS_BIND_HOST="0.0.0.0"
 {{- if .InstallOllama }}
 depends_on=ollama
 {{- end }}
