@@ -7,11 +7,15 @@ metadata:
   targetActionId: responseResource
 
 settings:
-  # Enable API server for chat endpoint
+  # Enable both API and Web server modes
   apiServerMode: true
+  webServerMode: true
+
+  # Top-level server configuration
+  hostIp: "0.0.0.0"
+  portNum: 3000
+
   apiServer:
-    hostIp: "0.0.0.0"
-    portNum: 3000
     routes:
       - path: /api/v1/chat
         methods: [POST]
@@ -29,10 +33,7 @@ settings:
         - Content-Type
         - Authorization
 
-  # Enable WebServer for serving the frontend
-  webServerMode: true
   webServer:
-    hostIp: "0.0.0.0"
     routes:
       - serverType: static
         path: /

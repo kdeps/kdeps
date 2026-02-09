@@ -42,11 +42,44 @@ type WorkflowMetadata struct {
 type WorkflowSettings struct {
 	APIServerMode  bool                     `yaml:"apiServerMode"`
 	WebServerMode  bool                     `yaml:"webServerMode"`
+	HostIP         string                   `yaml:"hostIp,omitempty"`
+	PortNum        int                      `yaml:"portNum,omitempty"`
 	APIServer      *APIServerConfig         `yaml:"apiServer,omitempty"`
 	WebServer      *WebServerConfig         `yaml:"webServer,omitempty"`
 	AgentSettings  AgentSettings            `yaml:"agentSettings"`
 	SQLConnections map[string]SQLConnection `yaml:"sqlConnections,omitempty"`
 	Session        *SessionConfig           `yaml:"session,omitempty"`
+}
+
+// GetHostIP returns the resolved host IP, checking top-level first, then individual server configs.
+func (w *WorkflowSettings) GetHostIP() string {
+	if w.HostIP != "" {
+		return w.HostIP
+	}
+	if w.APIServerMode && w.APIServer != nil && w.APIServer.HostIP != "" {
+		return w.APIServer.HostIP
+	}
+	if w.WebServerMode && w.WebServer != nil && w.WebServer.HostIP != "" {
+		return w.WebServer.HostIP
+	}
+	return "0.0.0.0" // default
+}
+
+// GetPortNum returns the resolved port number, checking top-level first, then individual server configs.
+func (w *WorkflowSettings) GetPortNum() int {
+	if w.PortNum > 0 {
+		return w.PortNum
+	}
+	if w.APIServerMode && w.APIServer != nil && w.APIServer.PortNum > 0 {
+		return w.APIServer.PortNum
+	}
+	if w.WebServerMode && w.WebServer != nil && w.WebServer.PortNum > 0 {
+		return w.WebServer.PortNum
+	}
+	if w.WebServerMode {
+		return 8080 // default for web-only
+	}
+	return 3000 // default for API or combined
 }
 
 // UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
@@ -55,6 +88,8 @@ func (w *WorkflowSettings) UnmarshalYAML(node *yaml.Node) error {
 	type Alias struct {
 		APIServerMode  interface{}              `yaml:"apiServerMode"`
 		WebServerMode  interface{}              `yaml:"webServerMode"`
+		HostIP         string                   `yaml:"hostIp"`
+		PortNum        interface{}              `yaml:"portNum"`
 		APIServer      *APIServerConfig         `yaml:"apiServer,omitempty"`
 		WebServer      *WebServerConfig         `yaml:"webServer,omitempty"`
 		AgentSettings  AgentSettings            `yaml:"agentSettings"`
@@ -74,7 +109,13 @@ func (w *WorkflowSettings) UnmarshalYAML(node *yaml.Node) error {
 		w.WebServerMode = b
 	}
 
+	// Parse portNum if it's a string
+	if i, ok := parseInt(alias.PortNum); ok {
+		w.PortNum = i
+	}
+
 	// Copy other fields
+	w.HostIP = alias.HostIP
 	w.APIServer = alias.APIServer
 	w.WebServer = alias.WebServer
 	w.AgentSettings = alias.AgentSettings
