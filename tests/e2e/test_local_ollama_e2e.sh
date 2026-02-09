@@ -102,7 +102,7 @@ metadata:
 settings:
   apiServerMode: true
   apiServer:
-    hostIp: "127.0.0.1"
+    hostIp: "0.0.0.0"
     portNum: 3001
     routes:
       - path: /api/v1/test
