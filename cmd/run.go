@@ -629,27 +629,31 @@ const gracefulShutdownTimeout = 10 * time.Second
 //
 //nolint:funlen // startup logic requires multiple setup steps
 func StartHTTPServer(workflow *domain.Workflow, workflowPath string, devMode bool, debugMode bool) error {
-	serverConfig := workflow.Settings.APIServer
-	hostIP := serverConfig.HostIP
+	hostIP := workflow.Settings.GetHostIP()
+	portNum := workflow.Settings.GetPortNum()
+
 	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
 		hostIP = override
 	}
-	addr := fmt.Sprintf("%s:%d", hostIP, serverConfig.PortNum)
+	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 
 	// Check if port is available before starting
-	if err := CheckPortAvailable(hostIP, serverConfig.PortNum); err != nil {
+	if err := CheckPortAvailable(hostIP, portNum); err != nil {
 		return fmt.Errorf("API server cannot start: %w", err)
 	}
 
 	fmt.Fprintf(os.Stdout, "  ✓ Starting HTTP server on %s\n", addr)
 	fmt.Fprintln(os.Stdout, "\nRoutes:")
-	for _, route := range serverConfig.Routes {
-		methods := route.Methods
-		if len(methods) == 0 {
-			methods = []string{"GET", "POST", "PUT", "DELETE", "PATCH"}
-		}
-		for _, method := range methods {
-			fmt.Fprintf(os.Stdout, "  %s %s\n", method, route.Path)
+	serverConfig := workflow.Settings.APIServer
+	if serverConfig != nil {
+		for _, route := range serverConfig.Routes {
+			methods := route.Methods
+			if len(methods) == 0 {
+				methods = []string{"GET", "POST", "PUT", "DELETE", "PATCH"}
+			}
+			for _, method := range methods {
+				fmt.Fprintf(os.Stdout, "  %s %s\n", method, route.Path)
+			}
 		}
 	}
 	fmt.Fprintln(os.Stdout, "\n✓ Server ready!")
@@ -743,15 +747,11 @@ func StartWebServer(workflow *domain.Workflow, workflowPath string, _ bool) erro
 	}
 
 	serverConfig := workflow.Settings.WebServer
-	hostIP := serverConfig.HostIP
+	hostIP := workflow.Settings.GetHostIP()
+	portNum := workflow.Settings.GetPortNum()
+
 	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
 		hostIP = override
-	} else if hostIP == "" {
-		hostIP = "0.0.0.0"
-	}
-	portNum := serverConfig.PortNum
-	if portNum == 0 {
-		portNum = 8080
 	}
 	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 
@@ -990,12 +990,13 @@ func StartBothServers(workflow *domain.Workflow, workflowPath string, devMode bo
 	webServer.RegisterRoutesOn(httpServer.Router, context.Background())
 
 	// Print server info
-	apiConfig := workflow.Settings.APIServer
-	hostIP := apiConfig.HostIP
+	hostIP := workflow.Settings.GetHostIP()
+	portNum := workflow.Settings.GetPortNum()
+
 	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
 		hostIP = override
 	}
-	addr := fmt.Sprintf("%s:%d", hostIP, apiConfig.PortNum)
+	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 	fmt.Fprintf(os.Stdout, "  ✓ Starting server on %s (API + Web)\n", addr)
 	fmt.Fprintln(os.Stdout, "\n✓ Server ready!")
 

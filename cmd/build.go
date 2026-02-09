@@ -257,23 +257,8 @@ func handleDockerfileShow(builder *docker.Builder, workflow *domain.Workflow) er
 func getWorkflowPorts(workflow *domain.Workflow) []int {
 	var ports []int
 	if workflow != nil {
-		// API Server port
-		apiPort := 3000 // default
-		if workflow.Settings.APIServer != nil && workflow.Settings.APIServer.PortNum > 0 {
-			apiPort = workflow.Settings.APIServer.PortNum
-		}
-		if workflow.Settings.APIServerMode {
-			ports = append(ports, apiPort)
-		}
-
-		// Web Server port - only added if NOT in combined mode
-		if workflow.Settings.WebServerMode && !workflow.Settings.APIServerMode {
-			webPort := 8080 // default
-			if workflow.Settings.WebServer != nil && workflow.Settings.WebServer.PortNum > 0 {
-				webPort = workflow.Settings.WebServer.PortNum
-			}
-			ports = append(ports, webPort)
-		}
+		// Use resolved port from settings
+		ports = append(ports, workflow.Settings.GetPortNum())
 
 		if iso.ShouldInstallOllama(workflow) {
 			// Add Ollama port (default 11434)
