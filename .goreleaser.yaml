@@ -3,73 +3,57 @@ before:
   hooks:
     - go mod tidy
 builds:
-  - id: kdeps-darwin
-    binary: kdeps
-    ldflags:
-      - -s -w -X github.com/kdeps/kdeps/v2/pkg/version.Version={{ .Version }} -X github.com/kdeps/kdeps/v2/pkg/version.Commit={{ .Commit }}
+  - binary: kdeps
     main: ./
-    goarch:
-      - amd64
-      - arm64
     goos:
       - darwin
-    env:
-      - CC=o64-clang
-      - CXX=o64-clang++
-      - CGO_ENABLED=1
-    flags:
-      - -trimpath
-      - -buildvcs=false
-
-  - id: kdeps-linux-amd64
-    binary: kdeps
-    main: ./
-    env:
-      - CC=x86_64-linux-gnu-gcc
-      - CXX=x86_64-linux-gnu-g++
-      - CGO_ENABLED=1
-    goarch:
-      - amd64
-    goos:
       - linux
-    flags:
-      - -trimpath
-      - -buildvcs=false
-    ldflags:
-      - -s -w -X github.com/kdeps/kdeps/v2/pkg/version.Version={{ .Version }} -X github.com/kdeps/kdeps/v2/pkg/version.Commit={{ .Commit }}
-  - id: kdeps-linux-arm64
-    binary: kdeps
-    main: ./
-    goarch:
-      - arm64
-    goos:
-      - linux
-    env:
-      - CC=aarch64-linux-gnu-gcc
-      - CXX=aarch64-linux-gnu-g++
-      - CGO_ENABLED=1
-    flags:
-      - -trimpath
-      - -buildvcs=false
-    ldflags:
-      - -s -w -X github.com/kdeps/kdeps/v2/pkg/version.Version={{ .Version }} -X github.com/kdeps/kdeps/v2/pkg/version.Commit={{ .Commit }}
-  - id: kdeps-windows-amd64
-    binary: kdeps
-    main: ./
-    goarch:
-      - amd64
-    goos:
       - windows
-    env:
-      - CC=x86_64-w64-mingw32-gcc
-      - CXX=x86_64-w64-mingw32-g++
-      - CGO_ENABLED=1
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
     ldflags:
       - -s -w -X github.com/kdeps/kdeps/v2/pkg/version.Version={{ .Version }} -X github.com/kdeps/kdeps/v2/pkg/version.Commit={{ .Commit }}
+      - >-
+        {{- if eq .Os "linux" }}-linkmode external -extldflags "-static"{{- end }}
     flags:
       - -trimpath
-      - -buildmode=exe
       - -buildvcs=false
+    env:
+      - CGO_ENABLED=1
+      - >-
+        {{- if eq .Os "darwin" }}SDKROOT={{ .Env.SDK_PATH }}{{- end }}
+      - >-
+        {{- if eq .Os "darwin" }}MACOSX_DEPLOYMENT_TARGET=11.0{{- end }}
+      - >-
+        {{- if eq .Os "darwin" }}CGO_CFLAGS=-isysroot {{ .Env.SDK_PATH }} -mmacosx-version-min=11.0{{- end }}
+      - >-
+        {{- if eq .Os "darwin" }}CGO_CXXFLAGS=-isysroot {{ .Env.SDK_PATH }} -mmacosx-version-min=11.0{{- end }}
+      - >-
+        {{- if eq .Os "darwin" }}CGO_LDFLAGS=-isysroot {{ .Env.SDK_PATH }}{{- end }}
+      - >-
+        {{- if eq .Os "darwin" }}
+          {{- if eq .Arch "amd64"}}CC=clang -arch x86_64 -isysroot {{ .Env.SDK_PATH }}{{- end }}
+          {{- if eq .Arch "arm64"}}CC=clang -arch arm64 -isysroot {{ .Env.SDK_PATH }}{{- end }}
+        {{- else if eq .Os "linux" }}
+          {{- if eq .Arch "amd64" }}CC=zig cc -target x86_64-linux-musl -lc{{- end }}
+          {{- if eq .Arch "arm64"}}CC=zig cc -target aarch64-linux-musl -lc{{- end }}
+        {{- else if eq .Os "windows" }}
+          {{- if eq .Arch "amd64" }}CC=zig cc -target x86_64-windows-gnu -lc{{- end }}
+        {{- end }}
+      - >-
+        {{- if eq .Os "darwin" }}
+          {{- if eq .Arch "amd64"}}CXX=clang++ -arch x86_64 -isysroot {{ .Env.SDK_PATH }}{{- end }}
+          {{- if eq .Arch "arm64"}}CXX=clang++ -arch arm64 -isysroot {{ .Env.SDK_PATH }}{{- end }}
+        {{- else if eq .Os "linux" }}
+          {{- if eq .Arch "amd64" }}CXX=zig c++ -target x86_64-linux-musl -lc{{- end }}
+          {{- if eq .Arch "arm64"}}CXX=zig c++ -target aarch64-linux-musl -lc{{- end }}
+        {{- else if eq .Os "windows" }}
+          {{- if eq .Arch "amd64" }}CXX=zig c++ -target x86_64-windows-gnu -lc{{- end }}
+        {{- end }}
 
 release:
   make_latest: false
@@ -79,21 +63,16 @@ archives:
   - id: default
     formats:
       - tar.gz
-    ids:
-      - kdeps-linux-arm64
-      - kdeps-linux-amd64
-      - kdeps-darwin
-      - kdeps-windows-amd64
     name_template: >-
       {{ .ProjectName }}_
       {{- title .Os }}_
       {{- if eq .Arch "amd64" }}x86_64
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
-    # use zip for windows archives
     format_overrides:
       - goos: windows
-        format: zip
+        formats:
+          - zip
 
 changelog:
   sort: asc
@@ -102,40 +81,24 @@ changelog:
       - "^docs:"
       - "^test:"
 
-# .goreleaser.yaml
 brews:
   - name: kdeps
-
-    # Git author used to commit to the repository.
     commit_author:
       name: jjuliano
       email: joelbryan.julianoe@gmail.com
-
-    # Folder inside the repository to put the formula.
     directory: Formula
-
-    # The project name and current git tag are used in the format string.
-    #
-    # Templates: allowed
     commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
-
-    # Your app's homepage.
     homepage: "https://kdeps.com"
     description: "Kdeps is a framework for creating dockerized AI Agent APIs"
-
     dependencies:
       - name: git
-
     repository:
       owner: kdeps
       name: homebrew-tap
 
 nfpms:
-  - id: kdeps-deb
+  - id: kdeps-pkg
     package_name: kdeps
-    builds:
-      - kdeps-linux-amd64
-      - kdeps-linux-arm64
     homepage: https://kdeps.com
     maintainer: Joel Bryan Juliano <joelbryan.juliano@gmail.com>
     description: "Kdeps is a framework for creating dockerized AI Agent APIs"
@@ -143,5 +106,6 @@ nfpms:
     license: Apache-2.0 license
     formats:
       - deb
+      - apk
     dependencies:
       - git
