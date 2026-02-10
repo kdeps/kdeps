@@ -104,6 +104,16 @@ func (v *WorkflowValidator) ValidateMetadata(workflow *domain.Workflow) error {
 
 // ValidateSettings validates workflow settings.
 func (v *WorkflowValidator) ValidateSettings(workflow *domain.Workflow) error {
+	// Validate port if specified
+	port := workflow.Settings.PortNum
+	if port != 0 && (port < 1 || port > 65535) {
+		return domain.NewError(
+			domain.ErrCodeInvalidWorkflow,
+			"server port must be between 1 and 65535",
+			nil,
+		)
+	}
+
 	// Validate API server settings
 	if workflow.Settings.APIServerMode {
 		if err := v.ValidateAPIServerSettings(workflow.Settings.APIServer); err != nil {
@@ -120,15 +130,6 @@ func (v *WorkflowValidator) ValidateAPIServerSettings(apiServer *domain.APIServe
 		return domain.NewError(
 			domain.ErrCodeInvalidWorkflow,
 			"apiServer settings required when apiServerMode is true",
-			nil,
-		)
-	}
-
-	// Validate port.
-	if apiServer.PortNum < 1 || apiServer.PortNum > 65535 {
-		return domain.NewError(
-			domain.ErrCodeInvalidWorkflow,
-			"apiServer port must be between 1 and 65535",
 			nil,
 		)
 	}

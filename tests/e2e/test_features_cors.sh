@@ -52,7 +52,7 @@ settings:
     cors:
       enableCors: true
       allowOrigins:
-        - http://localhost:3000
+        - http://localhost:16395
         - https://example.com
         - "*"
 
@@ -144,13 +144,13 @@ test_passed "CORS - Server startup"
 # Test 3: Test OPTIONS preflight request
 if command -v curl &> /dev/null; then
     RESPONSE=$(curl -s -w "\n%{http_code}" -X OPTIONS \
-        -H "Origin: http://localhost:3000" \
+        -H "Origin: http://localhost:16395" \
         -H "Access-Control-Request-Method: POST" \
         -H "Access-Control-Request-Headers: Content-Type" \
         "http://127.0.0.1:$PORT/api/v1/cors" 2>/dev/null || echo -e "\n000")
     STATUS_CODE=$(echo "$RESPONSE" | tail -n 1)
     HEADERS=$(curl -s -I -X OPTIONS \
-        -H "Origin: http://localhost:3000" \
+        -H "Origin: http://localhost:16395" \
         -H "Access-Control-Request-Method: POST" \
         "http://127.0.0.1:$PORT/api/v1/cors" 2>/dev/null || echo "")
     
@@ -162,7 +162,7 @@ if command -v curl &> /dev/null; then
             test_passed "CORS - Preflight response has Access-Control-Allow-Origin header"
             
             ORIGIN_HEADER=$(echo "$HEADERS" | grep -i "Access-Control-Allow-Origin" | head -1)
-            if echo "$ORIGIN_HEADER" | grep -qi "localhost:3000\|*"; then
+            if echo "$ORIGIN_HEADER" | grep -qi "localhost:16395\|*"; then
                 test_passed "CORS - Access-Control-Allow-Origin header has correct value"
             fi
         else
@@ -182,11 +182,11 @@ if command -v curl &> /dev/null; then
     
     # Test 4: Test actual request with Origin header
     RESPONSE2=$(curl -s -w "\n%{http_code}" -X GET \
-        -H "Origin: http://localhost:3000" \
+        -H "Origin: http://localhost:16395" \
         "http://127.0.0.1:$PORT/api/v1/cors" 2>/dev/null || echo -e "\n000")
     STATUS_CODE2=$(echo "$RESPONSE2" | tail -n 1)
     HEADERS2=$(curl -s -I -X GET \
-        -H "Origin: http://localhost:3000" \
+        -H "Origin: http://localhost:16395" \
         "http://127.0.0.1:$PORT/api/v1/cors" 2>/dev/null || echo "")
     
     if [ "$STATUS_CODE2" = "200" ]; then
@@ -219,13 +219,13 @@ if command -v curl &> /dev/null; then
     
     # Test 6: Test POST request with CORS
     RESPONSE4=$(curl -s -w "\n%{http_code}" -X POST \
-        -H "Origin: http://localhost:3000" \
+        -H "Origin: http://localhost:16395" \
         -H "Content-Type: application/json" \
         -d '{}' \
         "http://127.0.0.1:$PORT/api/v1/cors" 2>/dev/null || echo -e "\n000")
     STATUS_CODE4=$(echo "$RESPONSE4" | tail -n 1)
     HEADERS4=$(curl -s -I -X POST \
-        -H "Origin: http://localhost:3000" \
+        -H "Origin: http://localhost:16395" \
         -H "Content-Type: application/json" \
         -d '{}' \
         "http://127.0.0.1:$PORT/api/v1/cors" 2>/dev/null || echo "")

@@ -147,7 +147,7 @@ test_full_container_e2e() {
     fi
 
     # Run the container in detached mode
-    if ! docker run -d --name "$container_name" -p 8080:8080 "$container_name:latest" &> /dev/null; then
+    if ! docker run -d --name "$container_name" -p 16395:16395 "$container_name:latest" &> /dev/null; then
         test_failed "$test_name (failed to start container)"
         docker rmi "$container_name:latest" &> /dev/null || true
         rm -rf "$TMP_DIR"
@@ -183,7 +183,7 @@ test_full_container_e2e() {
 
     # Test health endpoint (optional - main goal is both services running in container)
     if command -v curl &> /dev/null; then
-        if curl -f -s --max-time 5 "http://localhost:8080/health" &> /dev/null; then
+        if curl -f -s --max-time 5 "http://localhost:16395/health" &> /dev/null; then
             test_passed "$test_name"
         else
             # Health check failed, but kdeps is running - this is still success for the main goal

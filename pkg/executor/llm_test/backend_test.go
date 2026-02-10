@@ -80,7 +80,7 @@ func TestOllamaBackend(t *testing.T) {
 	assert.Equal(t, "ollama", backend.Name())
 	assert.Equal(t, "http://localhost:11434", backend.DefaultURL())
 	assert.Equal(t, "http://localhost:11434/api/chat", backend.ChatEndpoint("http://localhost:11434"))
-	assert.Equal(t, "http://custom:8080/api/chat", backend.ChatEndpoint("http://custom:8080"))
+	assert.Equal(t, "http://custom:16395/api/chat", backend.ChatEndpoint("http://custom:16395"))
 
 	// Test BuildRequest
 	req, err := backend.BuildRequest("test-model", []map[string]interface{}{

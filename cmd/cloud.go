@@ -20,6 +20,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -43,7 +44,7 @@ func LoadCloudConfig() (*CloudConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("not logged in. Run 'kdeps login' first")
+			return nil, errors.New("not logged in. Run 'kdeps login' first")
 		}
 
 		return nil, fmt.Errorf("failed to read config: %w", err)

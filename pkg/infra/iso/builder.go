@@ -36,13 +36,18 @@ const (
 	defaultFormat   = "iso-efi"
 )
 
-// FormatExtensions maps LinuxKit output formats to file extensions.
-var FormatExtensions = map[string]string{
-	"iso-efi":    ".iso",
-	"raw-bios":   ".raw",
-	"raw-efi":    ".raw",
-	"qcow2-bios": ".qcow2",
-	"qcow2-efi":  ".qcow2",
+// GetFormatExtension maps LinuxKit output formats to file extensions.
+func GetFormatExtension(format string) string {
+	switch format {
+	case "iso-efi":
+		return ".iso"
+	case "raw-bios", "raw-efi":
+		return ".raw"
+	case "qcow2-bios", "qcow2-efi":
+		return ".qcow2"
+	default:
+		return ""
+	}
 }
 
 // RawBIOSAssembleFunc assembles a raw-bios disk from kernel+initrd files.
@@ -135,14 +140,16 @@ func (b *Builder) Build(
 	defer os.Remove(tmpPath)
 
 	if _, writeErr := tmpFile.WriteString(configYAML); writeErr != nil {
-		tmpFile.Close()
+		_ = tmpFile.Close()
 		return fmt.Errorf("failed to write LinuxKit config: %w", writeErr)
 	}
-	tmpFile.Close()
+	if closeErr := tmpFile.Close(); closeErr != nil {
+		return fmt.Errorf("failed to close temp config file: %w", closeErr)
+	}
 
 	// Determine output directory and ensure it exists
 	outputDir := filepath.Dir(outputPath)
-	if mkdirErr := os.MkdirAll(outputDir, 0755); mkdirErr != nil {
+	if mkdirErr := os.MkdirAll(outputDir, 0750); mkdirErr != nil {
 		return fmt.Errorf("failed to create output directory: %w", mkdirErr)
 	}
 
@@ -163,19 +170,10 @@ func (b *Builder) Build(
 	var outputFile string
 
 	if isRaw {
-		// Two-step build: linuxkit produces kernel+initrd, then we assemble
-		// the raw disk with our custom assembler which supports a data partition.
-		assembler := b.RawBIOSAssembleFunc
-		if assembler == nil {
-			assembler = assembleRawBIOS
-		}
-
-		// Data partition build: pass the image name so the assembler can export it.
-		built, rawErr := buildRawBIOSWithImage(ctx, b.Runner, assembler, tmpPath, arch, buildDir, kdepsImageName, "")
+		built, rawErr := b.buildRawImage(ctx, tmpPath, arch, buildDir, kdepsImageName)
 		if rawErr != nil {
 			return rawErr
 		}
-
 		outputFile = built
 	} else {
 		if buildErr := b.Runner.Build(ctx, tmpPath, format, arch, buildDir, b.Size); buildErr != nil {
@@ -197,6 +195,21 @@ func (b *Builder) Build(
 	}
 
 	return nil
+}
+
+func (b *Builder) buildRawImage(
+	ctx context.Context,
+	tmpPath, arch, buildDir, kdepsImageName string,
+) (string, error) {
+	// Two-step build: linuxkit produces kernel+initrd, then we assemble
+	// the raw disk with our custom assembler which supports a data partition.
+	assembler := b.RawBIOSAssembleFunc
+	if assembler == nil {
+		assembler = assembleRawBIOS
+	}
+
+	// Data partition build: pass the image name so the assembler can export it.
+	return buildRawBIOSWithImage(ctx, b.Runner, assembler, tmpPath, arch, buildDir, kdepsImageName, "")
 }
 
 // GenerateConfigYAML generates and returns the LinuxKit YAML config as a string.
@@ -244,10 +257,7 @@ func findLinuxKitOutput(dir, format string) (string, error) {
 
 	// LinuxKit names output files based on the config filename and format.
 	// Look for files matching the expected extension.
-	ext, ok := FormatExtensions[format]
-	if !ok {
-		ext = ""
-	}
+	ext := GetFormatExtension(format)
 
 	for _, entry := range entries {
 		if entry.IsDir() {

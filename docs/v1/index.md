@@ -64,11 +64,11 @@ Settings {
   APIServerMode = true
   APIServer {
     HostIP = "127.0.0.1"
-    PortNum = 3000
+    PortNum = 16395
     Routes {
       new { Path = "/api/v1/ticket"; Methods { "POST" } }
     }
-    CORS { EnableCORS = true; AllowOrigins { "http://localhost:8080" } }
+    CORS { EnableCORS = true; AllowOrigins { "http://localhost:16395" } }
   }
   AgentSettings {
     Timezone = "Etc/UTC"
@@ -163,7 +163,7 @@ services:
   kdeps-tickets-ai-cpu:
     image: kdeps-tickets-ai:1.0.0
     ports:
-      - "127.0.0.1:3000"
+      - "127.0.0.1:16395"
     restart: on-failure
     volumes:
       - ollama:/root/.ollama
@@ -192,11 +192,11 @@ Settings {
   APIServerMode = true
   APIServer {
     HostIP = "127.0.0.1"
-    PortNum = 3000
+    PortNum = 16395
     Routes {
       new { Path = "/api/v1/visual-ticket"; Methods { "POST" } }
     }
-    CORS { EnableCORS = true; AllowOrigins { "http://localhost:8080" } }
+    CORS { EnableCORS = true; AllowOrigins { "http://localhost:16395" } }
   }
   AgentSettings {
     Timezone = "Etc/UTC"
@@ -294,7 +294,7 @@ Settings {
   WebServerMode = true
   APIServer {
     HostIP = "127.0.0.1"
-    PortNum = 3000
+    PortNum = 16395
     Routes {
       new { Path = "/api/v1/summarize"; Methods { "POST" } }
     }
@@ -329,7 +329,7 @@ import requests
 st.title("Text Summarizer")
 text = st.text_area("Enter text to summarize")
 if st.button("Summarize"):
-  response = requests.post("http://localhost:3000/api/v1/summarize", json={"text": text})
+  response = requests.post("http://localhost:16395/api/v1/summarize", json={"text": text})
   if response.ok:
     st.write(response.json()['response']['data']['summary'])
   else:
@@ -370,7 +370,7 @@ Settings {
   APIServerMode = true
   APIServer {
     HostIP = "127.0.0.1"
-    PortNum = 3000
+    PortNum = 16395
     Routes {
       new { Path = "/api/v1/report"; Methods { "POST" } }
     }
@@ -450,7 +450,7 @@ Settings {
   APIServerMode = true
   APIServer {
     HostIP = "127.0.0.1"
-    PortNum = 3000
+    PortNum = 16395
     Routes {
       new { Path = "/api/v1/structured"; Methods { "POST" } }
     }
@@ -497,11 +497,11 @@ Settings {
   APIServerMode = true
   APIServer {
     HostIP = "127.0.0.1"
-    PortNum = 3000
+    PortNum = 16395
     Routes {
       new { Path = "/api/v1/mtv-scenarios"; Methods { "GET" } }
     }
-    CORS { EnableCORS = true; AllowOrigins { "http://localhost:8080" } }
+    CORS { EnableCORS = true; AllowOrigins { "http://localhost:16395" } }
   }
   AgentSettings {
     Timezone = "Etc/UTC"
@@ -596,7 +596,7 @@ Settings {
   APIServerMode = true
   APIServer {
     HostIP = "127.0.0.1"
-    PortNum = 3000
+    PortNum = 16395
     Routes {
       new { Path = "/api/v1/doc-analyze"; Methods { "POST" } }
     }
@@ -648,7 +648,7 @@ Settings {
   APIServerMode = true
   APIServer {
     HostIP = "127.0.0.1"
-    PortNum = 3000
+    PortNum = 16395
     Routes {
       new { Path = "/api/v1/doc-analyze"; Methods { "POST" } }
     }
@@ -772,7 +772,7 @@ Settings {
   WebServerMode = true
   APIServer {
     HostIP = "127.0.0.1"
-    PortNum = 3000
+    PortNum = 16395
     Routes {
       new { Path = "/api/v1/summarize"; Methods { "POST" } }
     }
@@ -834,7 +834,7 @@ CORS {
 APIServerMode = true
 APIServer {
   HostIP = "127.0.0.1"
-  PortNum = 3000
+  PortNum = 16395
   Routes {
     new { Path = "/api/v1/proxy"; Methods { "GET" } }
   }

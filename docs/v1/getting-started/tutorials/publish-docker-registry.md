@@ -120,7 +120,7 @@ gcloud run deploy kdeps-whois \
   --region=us-central1 \
   --platform=managed \
   --allow-unauthenticated \
-  --port=3000 \
+  --port=16395 \
   --memory=8Gi \
   --cpu=2 \
   --min-instances=1 \

@@ -74,7 +74,7 @@ settings:
     pythonVersion: "3.12"
   apiServerMode: true
   apiServer:
-    portNum: 3000
+    portNum: 16395
 `
 
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
@@ -106,7 +106,7 @@ settings:
     pythonVersion: "3.12"
   apiServerMode: true
   apiServer:
-    portNum: 3000
+    portNum: 16395
 `
 
 	workflowPath := filepath.Join(tmpDir, "workflow.yaml")

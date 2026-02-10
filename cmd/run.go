@@ -93,14 +93,14 @@ Examples:
   kdeps run workflow.yaml --debug
 
   # Specify port
-  kdeps run workflow.yaml --port 3000`,
+  kdeps run workflow.yaml --port 16395`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return RunWorkflowWithFlags(cmd, args, flags)
 		},
 	}
 
-	runCmd.Flags().IntVar(&flags.Port, "port", 3000, "Port to listen on") //nolint:mnd // default port
+	runCmd.Flags().IntVar(&flags.Port, "port", 16395, "Port to listen on") //nolint:mnd // default port
 	runCmd.Flags().BoolVar(&flags.DevMode, "dev", false, "Enable dev mode (hot reload)")
 
 	return runCmd
@@ -627,31 +627,23 @@ const gracefulShutdownTimeout = 10 * time.Second
 
 // StartHTTPServer starts the HTTP API server (exported for testing).
 //
-//nolint:funlen // startup logic requires multiple setup steps
+
 func StartHTTPServer(workflow *domain.Workflow, workflowPath string, devMode bool, debugMode bool) error {
-	serverConfig := workflow.Settings.APIServer
-	hostIP := serverConfig.HostIP
+	hostIP := workflow.Settings.GetHostIP()
+	portNum := workflow.Settings.GetPortNum()
+
 	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
 		hostIP = override
 	}
-	addr := fmt.Sprintf("%s:%d", hostIP, serverConfig.PortNum)
+	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 
 	// Check if port is available before starting
-	if err := CheckPortAvailable(hostIP, serverConfig.PortNum); err != nil {
+	if err := CheckPortAvailable(hostIP, portNum); err != nil {
 		return fmt.Errorf("API server cannot start: %w", err)
 	}
 
 	fmt.Fprintf(os.Stdout, "  ✓ Starting HTTP server on %s\n", addr)
-	fmt.Fprintln(os.Stdout, "\nRoutes:")
-	for _, route := range serverConfig.Routes {
-		methods := route.Methods
-		if len(methods) == 0 {
-			methods = []string{"GET", "POST", "PUT", "DELETE", "PATCH"}
-		}
-		for _, method := range methods {
-			fmt.Fprintf(os.Stdout, "  %s %s\n", method, route.Path)
-		}
-	}
+	printRoutes(workflow.Settings.APIServer)
 	fmt.Fprintln(os.Stdout, "\n✓ Server ready!")
 
 	if devMode {
@@ -660,23 +652,7 @@ func StartHTTPServer(workflow *domain.Workflow, workflowPath string, devMode boo
 
 	// Create executor with beautiful Rails-like logging
 	logger := logging.NewLogger(debugMode)
-	engine := executor.NewEngine(logger)
-	engine.SetDebugMode(debugMode)
-
-	// Initialize executor registry (done here to avoid import cycles)
-	registry := executor.NewRegistry()
-	registry.SetHTTPExecutor(executorHTTP.NewAdapter())
-	registry.SetSQLExecutor(executorSQL.NewAdapter())
-	registry.SetPythonExecutor(executorPython.NewAdapter())
-	registry.SetExecExecutor(executorExec.NewAdapter())
-
-	ollamaURL := ollamaDefaultURL
-	if workflow.Settings.AgentSettings.OllamaURL != "" {
-		ollamaURL = workflow.Settings.AgentSettings.OllamaURL
-	}
-	registry.SetLLMExecutor(executorLLM.NewAdapter(ollamaURL))
-
-	engine.SetRegistry(registry)
+	engine := setupEngine(workflow, debugMode)
 
 	// Create executor adapter that converts http.RequestContext to executor.RequestContext
 	executorAdapter := &RequestContextAdapter{Engine: engine}
@@ -689,22 +665,7 @@ func StartHTTPServer(workflow *domain.Workflow, workflowPath string, devMode boo
 
 	// Setup file watcher for hot reload
 	if devMode {
-		// Set workflow path on server for hot reload
-		httpServer.SetWorkflowPath(workflowPath)
-
-		// Create and set parser for hot reload
-		schemaValidator, schemaErr := validator.NewSchemaValidator()
-		if schemaErr == nil {
-			exprParser := expression.NewParser()
-			yamlParser := yaml.NewParser(schemaValidator, exprParser)
-			httpServer.SetParser(yamlParser)
-		}
-
-		watcher, watcherErr := http.NewFileWatcher()
-		if watcherErr == nil {
-			httpServer.SetWatcher(watcher)
-			defer watcher.Close()
-		}
+		setupDevMode(httpServer, workflowPath)
 	}
 
 	// Setup signal handling for graceful shutdown
@@ -736,6 +697,61 @@ func StartHTTPServer(workflow *domain.Workflow, workflowPath string, devMode boo
 	}
 }
 
+func printRoutes(serverConfig *domain.APIServerConfig) {
+	fmt.Fprintln(os.Stdout, "\nRoutes:")
+	if serverConfig != nil {
+		for _, route := range serverConfig.Routes {
+			methods := route.Methods
+			if len(methods) == 0 {
+				methods = []string{"GET", "POST", "PUT", "DELETE", "PATCH"}
+			}
+			for _, method := range methods {
+				fmt.Fprintf(os.Stdout, "  %s %s\n", method, route.Path)
+			}
+		}
+	}
+}
+
+func setupEngine(workflow *domain.Workflow, debugMode bool) *executor.Engine {
+	logger := logging.NewLogger(debugMode)
+	engine := executor.NewEngine(logger)
+	engine.SetDebugMode(debugMode)
+
+	// Initialize executor registry (done here to avoid import cycles)
+	registry := executor.NewRegistry()
+	registry.SetHTTPExecutor(executorHTTP.NewAdapter())
+	registry.SetSQLExecutor(executorSQL.NewAdapter())
+	registry.SetPythonExecutor(executorPython.NewAdapter())
+	registry.SetExecExecutor(executorExec.NewAdapter())
+
+	ollamaURL := ollamaDefaultURL
+	if workflow.Settings.AgentSettings.OllamaURL != "" {
+		ollamaURL = workflow.Settings.AgentSettings.OllamaURL
+	}
+	registry.SetLLMExecutor(executorLLM.NewAdapter(ollamaURL))
+
+	engine.SetRegistry(registry)
+	return engine
+}
+
+func setupDevMode(httpServer *http.Server, workflowPath string) {
+	// Set workflow path on server for hot reload
+	httpServer.SetWorkflowPath(workflowPath)
+
+	// Create and set parser for hot reload
+	schemaValidator, schemaErr := validator.NewSchemaValidator()
+	if schemaErr == nil {
+		exprParser := expression.NewParser()
+		yamlParser := yaml.NewParser(schemaValidator, exprParser)
+		httpServer.SetParser(yamlParser)
+	}
+
+	watcher, watcherErr := http.NewFileWatcher()
+	if watcherErr == nil {
+		httpServer.SetWatcher(watcher)
+	}
+}
+
 // StartWebServer starts the web server (static files and app proxying) (exported for testing).
 func StartWebServer(workflow *domain.Workflow, workflowPath string, _ bool) error {
 	if workflow.Settings.WebServer == nil {
@@ -743,15 +759,11 @@ func StartWebServer(workflow *domain.Workflow, workflowPath string, _ bool) erro
 	}
 
 	serverConfig := workflow.Settings.WebServer
-	hostIP := serverConfig.HostIP
+	hostIP := workflow.Settings.GetHostIP()
+	portNum := workflow.Settings.GetPortNum()
+
 	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
 		hostIP = override
-	} else if hostIP == "" {
-		hostIP = "0.0.0.0"
-	}
-	portNum := serverConfig.PortNum
-	if portNum == 0 {
-		portNum = 8080
 	}
 	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 
@@ -933,32 +945,15 @@ func ExecuteSingleRun(workflow *domain.Workflow) error {
 	return nil
 }
 
-// StartBothServers starts both the API server and WebServer concurrently.
+// StartBothServers starts both the API server and WebServer on a single port.
 //
-//nolint:funlen,gocognit // startup logic requires handling multiple servers
-func StartBothServers(workflow *domain.Workflow, workflowPath string, devMode bool, debugMode bool) error {
-	const numServers = 2
-	errChan := make(chan error, numServers)
 
+func StartBothServers(workflow *domain.Workflow, workflowPath string, devMode bool, debugMode bool) error {
 	// Create logger
 	logger := logging.NewLogger(debugMode)
 
-	// Create API server
-	engine := executor.NewEngine(logger)
-	engine.SetDebugMode(debugMode)
-
-	registry := executor.NewRegistry()
-	registry.SetHTTPExecutor(executorHTTP.NewAdapter())
-	registry.SetSQLExecutor(executorSQL.NewAdapter())
-	registry.SetPythonExecutor(executorPython.NewAdapter())
-	registry.SetExecExecutor(executorExec.NewAdapter())
-
-	ollamaURL := ollamaDefaultURL
-	if workflow.Settings.AgentSettings.OllamaURL != "" {
-		ollamaURL = workflow.Settings.AgentSettings.OllamaURL
-	}
-	registry.SetLLMExecutor(executorLLM.NewAdapter(ollamaURL))
-	engine.SetRegistry(registry)
+	// Create API server engine
+	engine := setupEngine(workflow, debugMode)
 
 	executorAdapter := &RequestContextAdapter{Engine: engine}
 	httpServer, err := http.NewServer(workflow, executorAdapter, logger)
@@ -968,18 +963,7 @@ func StartBothServers(workflow *domain.Workflow, workflowPath string, devMode bo
 
 	// Setup dev mode for API server
 	if devMode {
-		httpServer.SetWorkflowPath(workflowPath)
-		schemaValidator, schemaErr := validator.NewSchemaValidator()
-		if schemaErr == nil {
-			exprParser := expression.NewParser()
-			yamlParser := yaml.NewParser(schemaValidator, exprParser)
-			httpServer.SetParser(yamlParser)
-		}
-		watcher, watcherErr := http.NewFileWatcher()
-		if watcherErr == nil {
-			httpServer.SetWatcher(watcher)
-			defer watcher.Close()
-		}
+		setupDevMode(httpServer, workflowPath)
 	}
 
 	// Create web server
@@ -989,38 +973,29 @@ func StartBothServers(workflow *domain.Workflow, workflowPath string, devMode bo
 	}
 	webServer.SetWorkflowDir(workflowPath)
 
-	// Print server info
-	apiConfig := workflow.Settings.APIServer
-	apiAddr := fmt.Sprintf("%s:%d", apiConfig.HostIP, apiConfig.PortNum)
-	fmt.Fprintf(os.Stdout, "  ✓ Starting API server on %s\n", apiAddr)
+	// Merge web routes onto API router
+	webServer.RegisterRoutesOn(context.Background(), httpServer.Router)
 
-	webConfig := workflow.Settings.WebServer
-	webHostIP := webConfig.HostIP
-	if webHostIP == "" {
-		webHostIP = "127.0.0.1"
+	// Print server info
+	hostIP := workflow.Settings.GetHostIP()
+	portNum := workflow.Settings.GetPortNum()
+
+	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
+		hostIP = override
 	}
-	webPortNum := webConfig.PortNum
-	if webPortNum == 0 {
-		webPortNum = 8080
-	}
-	webAddr := fmt.Sprintf("%s:%d", webHostIP, webPortNum)
-	fmt.Fprintf(os.Stdout, "  ✓ Starting web server on %s\n", webAddr)
-	fmt.Fprintln(os.Stdout, "\n✓ Both servers ready!")
+	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
+	fmt.Fprintf(os.Stdout, "  ✓ Starting server on %s (API + Web)\n", addr)
+	fmt.Fprintln(os.Stdout, "\n✓ Server ready!")
 
 	// Setup signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// Start both servers in goroutines
+	// Start server in goroutine
+	errChan := make(chan error, 1)
 	go func() {
-		if startErr := httpServer.Start(apiAddr, devMode); startErr != nil {
-			errChan <- fmt.Errorf("api server error: %w", startErr)
-		}
-	}()
-
-	go func() {
-		if startErr := webServer.Start(context.Background()); startErr != nil {
-			errChan <- fmt.Errorf("webserver error: %w", startErr)
+		if startErr := httpServer.Start(addr, devMode); startErr != nil {
+			errChan <- fmt.Errorf("server error: %w", startErr)
 		}
 	}()
 
@@ -1031,22 +1006,20 @@ func StartBothServers(workflow *domain.Workflow, workflowPath string, devMode bo
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
 		defer cancel()
 
-		// Shutdown both servers
+		// Shutdown servers
 		if shutdownErr := httpServer.Shutdown(shutdownCtx); shutdownErr != nil {
-			fmt.Fprintf(os.Stderr, "Error shutting down API server: %v\n", shutdownErr)
+			fmt.Fprintf(os.Stderr, "Error shutting down server: %v\n", shutdownErr)
 		}
-		if shutdownErr := webServer.Shutdown(shutdownCtx); shutdownErr != nil {
-			fmt.Fprintf(os.Stderr, "Error shutting down web server: %v\n", shutdownErr)
-		}
-		fmt.Fprintln(os.Stdout, "✓ All servers stopped")
+		webServer.Stop()
+		fmt.Fprintln(os.Stdout, "✓ Server stopped")
 		return nil
 	case chanErr := <-errChan:
-		// One server failed, shutdown the other gracefully
+		// Server failed, shutdown gracefully
 		fmt.Fprintf(os.Stdout, "\n🛑 Server error, shutting down...\n")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
 		defer cancel()
 		_ = httpServer.Shutdown(shutdownCtx)
-		_ = webServer.Shutdown(shutdownCtx)
+		webServer.Stop()
 
 		if chanErr != nil && !errors.Is(chanErr, stdhttp.ErrServerClosed) {
 			return chanErr

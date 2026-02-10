@@ -63,14 +63,14 @@ settings:
   apiServerMode: true
   apiServer:
     hostIp: "127.0.0.1"
-    portNum: 3000
+    portNum: 16395
     routes:
       - path: /api/v1/chat
         methods: [POST]
     cors:
       enableCors: true
       allowOrigins:
-        - http://localhost:8080
+        - http://localhost:16395
 
   agentSettings:
     timezone: Etc/UTC
@@ -165,7 +165,7 @@ kdeps run workflow.yaml
 
 You'll see output like:
 ```
-Starting API server on 127.0.0.1:3000
+Starting API server on 127.0.0.1:16395
 Routes:
   POST /api/v1/chat
 ```
@@ -175,7 +175,7 @@ Routes:
 In another terminal:
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/chat \
+curl -X POST http://localhost:16395/api/v1/chat \
   -H "Content-Type: application/json" \
   -d '{"q": "What is artificial intelligence?"}'
 ```

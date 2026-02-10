@@ -1,6 +1,6 @@
 // ChatGPT Clone - JavaScript
 
-const API_URL = 'http://127.0.0.1:3000/api/v1/chat';
+const API_URL = '/api/v1/chat';
 
 // State
 let messages = [];
@@ -219,7 +219,7 @@ async function sendMessage(event) {
 
         let errorContent = 'Unable to connect to the server. Please make sure the kdeps agent is running.';
         if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-            errorContent = 'Network error: Could not reach the API server. Check if kdeps is running on port 3000.';
+            errorContent = 'Network error: Could not reach the API server. Check if kdeps is running.';
         } else if (error.name === 'SyntaxError') {
             errorContent = 'Server returned invalid response. The LLM might still be processing.';
         } else {

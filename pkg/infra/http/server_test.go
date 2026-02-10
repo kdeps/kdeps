@@ -346,8 +346,8 @@ func TestServer_CorsMiddleware_Enabled(t *testing.T) {
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
 				CORS: &domain.CORS{
-					EnableCORS:   true,
-					AllowOrigins: []string{"http://localhost:3000", "https://example.com"},
+					EnableCORS:   &[]bool{true}[0],
+					AllowOrigins: []string{"http://localhost:16395", "https://example.com"},
 					AllowMethods: []string{"GET", "POST"},
 					AllowHeaders: []string{"Content-Type", "Authorization"},
 				},
@@ -369,12 +369,12 @@ func TestServer_CorsMiddleware_Enabled(t *testing.T) {
 	// Test allowed origin
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(stdhttp.MethodGet, "/api/test", nil)
-	req.Header.Set("Origin", "http://localhost:3000")
+	req.Header.Set("Origin", "http://localhost:16395")
 
 	middleware(w, req)
 
 	assert.True(t, handlerCalled)
-	assert.Equal(t, "http://localhost:3000", w.Header().Get("Access-Control-Allow-Origin"))
+	assert.Equal(t, "http://localhost:16395", w.Header().Get("Access-Control-Allow-Origin"))
 	assert.Equal(t, "GET, POST", w.Header().Get("Access-Control-Allow-Methods"))
 	assert.Equal(t, "Content-Type, Authorization", w.Header().Get("Access-Control-Allow-Headers"))
 }
@@ -384,7 +384,7 @@ func TestServer_CorsMiddleware_Disabled(t *testing.T) {
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
 				CORS: &domain.CORS{
-					EnableCORS: false,
+					EnableCORS: &[]bool{false}[0],
 				},
 			},
 		},
@@ -403,7 +403,7 @@ func TestServer_CorsMiddleware_Disabled(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(stdhttp.MethodGet, "/api/test", nil)
-	req.Header.Set("Origin", "http://localhost:3000")
+	req.Header.Set("Origin", "http://localhost:16395")
 
 	middleware(w, req)
 
@@ -416,7 +416,7 @@ func TestServer_CorsMiddleware_OptionsRequest(t *testing.T) {
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
 				CORS: &domain.CORS{
-					EnableCORS:   true,
+					EnableCORS:   &[]bool{true}[0],
 					AllowOrigins: []string{"*"},
 				},
 			},
@@ -435,13 +435,13 @@ func TestServer_CorsMiddleware_OptionsRequest(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(stdhttp.MethodOptions, "/api/test", nil)
-	req.Header.Set("Origin", "http://localhost:3000")
+	req.Header.Set("Origin", "http://localhost:16395")
 
 	middleware(w, req)
 
 	assert.False(t, handlerCalled) // Handler should not be called for OPTIONS
 	assert.Equal(t, stdhttp.StatusOK, w.Code)
-	assert.Equal(t, "http://localhost:3000", w.Header().Get("Access-Control-Allow-Origin"))
+	assert.Equal(t, "http://localhost:16395", w.Header().Get("Access-Control-Allow-Origin"))
 }
 
 func TestServer_CorsMiddleware_DisallowedOrigin(t *testing.T) {
@@ -449,8 +449,8 @@ func TestServer_CorsMiddleware_DisallowedOrigin(t *testing.T) {
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
 				CORS: &domain.CORS{
-					EnableCORS:   true,
-					AllowOrigins: []string{"http://localhost:3000"},
+					EnableCORS:   &[]bool{true}[0],
+					AllowOrigins: []string{"http://localhost:16395"},
 				},
 			},
 		},
@@ -836,7 +836,7 @@ func TestServer_Start_WithCORS(t *testing.T) {
 		Settings: domain.WorkflowSettings{
 			APIServer: &domain.APIServerConfig{
 				CORS: &domain.CORS{
-					EnableCORS: true,
+					EnableCORS: &[]bool{true}[0],
 				},
 			},
 		},
@@ -868,10 +868,9 @@ func TestServer_Start_MethodExists(t *testing.T) {
 	// This helps improve code coverage by ensuring the method is reached
 	workflow := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
-			APIServer: &domain.APIServerConfig{
-				HostIP:  "127.0.0.1",
-				PortNum: 0,
-			},
+			HostIP:    "127.0.0.1",
+			PortNum:   0,
+			APIServer: &domain.APIServerConfig{},
 		},
 	}
 
@@ -885,8 +884,8 @@ func TestServer_Start_MethodExists(t *testing.T) {
 	assert.NotNil(t, server.Router)
 
 	// Test that the server has the expected initial state
-	assert.Equal(t, "127.0.0.1", server.Workflow.Settings.APIServer.HostIP)
-	assert.Equal(t, 0, server.Workflow.Settings.APIServer.PortNum)
+	assert.Equal(t, "127.0.0.1", server.Workflow.Settings.HostIP)
+	assert.Equal(t, 0, server.Workflow.Settings.PortNum)
 }
 
 func TestServer_RespondSuccess_VariousDataTypes(t *testing.T) {

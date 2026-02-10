@@ -29,14 +29,14 @@ settings:
   apiServerMode: true
   apiServer:
     hostIp: "127.0.0.1"
-    portNum: 3000
+    portNum: 16395
     routes:
       - path: /api/v1/upload
         methods: [POST]
     cors:
       enableCors: true
       allowOrigins:
-        - http://localhost:8080
+        - http://localhost:16395
 
   agentSettings:
     timezone: Etc/UTC
@@ -101,7 +101,7 @@ type: get('filename', 'filetype')
 ### Upload a File
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/upload \
+curl -X POST http://localhost:16395/api/v1/upload \
   -F "file=@example.txt"
 ```
 
@@ -121,7 +121,7 @@ run:
 ### Upload Multiple Files
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/upload \
+curl -X POST http://localhost:16395/api/v1/upload \
   -F "file[]=@file1.txt" \
   -F "file[]=@file2.pdf" \
   -F "file[]=@file3.jpg"
@@ -243,7 +243,7 @@ KDeps supports multiple field names for file uploads:
 
 ```bash
 # Upload with custom field name
-curl -X POST http://localhost:3000/api/v1/upload \
+curl -X POST http://localhost:16395/api/v1/upload \
   -F "document=@report.pdf"
 ```
 

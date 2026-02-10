@@ -36,14 +36,14 @@ kdeps run examples/vision/workflow.yaml --dev
 ### Upload Image and Query
 
 ```bash
-curl -X POST 'http://localhost:3000/api/v1/vision?q=What%20is%20in%20this%20image?' \
+curl -X POST 'http://localhost:16395/api/v1/vision?q=What%20is%20in%20this%20image?' \
   -F "file=@image.jpg"
 ```
 
 ### Multiple Images
 
 ```bash
-curl -X POST 'http://localhost:3000/api/v1/vision?q=Compare%20these%20images' \
+curl -X POST 'http://localhost:16395/api/v1/vision?q=Compare%20these%20images' \
   -F "file[]=@image1.jpg" \
   -F "file[]=@image2.jpg"
 ```

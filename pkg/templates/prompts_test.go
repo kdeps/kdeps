@@ -101,7 +101,7 @@ func TestPromptForBasicInfo(t *testing.T) {
 			assert.Equal(t, tt.wantName, data.Name)
 			assert.Equal(t, "AI agent powered by KDeps", data.Description)
 			assert.Equal(t, "1.0.0", data.Version)
-			assert.Equal(t, 3000, data.Port)
+			assert.Equal(t, 16395, data.Port)
 			assert.NotNil(t, data.Features)
 		})
 	}
@@ -116,14 +116,14 @@ func TestParsePort(t *testing.T) {
 	}{
 		{
 			name:    "valid port",
-			portStr: "8080",
-			want:    8080,
+			portStr: "16395",
+			want:    16395,
 			wantErr: false,
 		},
 		{
 			name:    "port with whitespace",
-			portStr: "  3000  ",
-			want:    3000,
+			portStr: "  16395  ",
+			want:    16395,
 			wantErr: false,
 		},
 		{

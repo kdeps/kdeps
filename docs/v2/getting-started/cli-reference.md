@@ -56,7 +56,7 @@ kdeps run workflow.yaml --dev
 kdeps run workflow.yaml --debug
 
 # Run on specific port
-kdeps run workflow.yaml --port 8080
+kdeps run workflow.yaml --port 16395
 ```
 
 **Features:**

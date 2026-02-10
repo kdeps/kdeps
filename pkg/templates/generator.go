@@ -212,7 +212,7 @@ func (g *Generator) GenerateResource(resourceName string, targetPath string) err
 	data := TemplateData{
 		Name:      "agent",
 		Version:   "1.0.0",
-		Port:      3000,
+		Port:      16395,
 		Resources: []string{resourceName},
 		Features:  make(map[string]bool),
 	}

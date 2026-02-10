@@ -306,7 +306,7 @@ func TestSchemaValidator_DirectFunctionCoverage(t *testing.T) {
 				name:     "Expected: integer format",
 				field:    "settings.apiServer.portNum",
 				descStr:  "Invalid type. Expected: integer, given: string",
-				expected: "Expected type: integer. Example: 3000",
+				expected: "Expected type: integer. Example: 16395",
 			},
 			{
 				name:     "Expected: boolean format",

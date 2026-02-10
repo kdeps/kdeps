@@ -31,7 +31,7 @@ import (
 
 const (
 	defaultTemplate = "api-service"
-	defaultPort     = 3000
+	defaultPort     = 16395
 )
 
 // NewFlags holds the flags for the new command.

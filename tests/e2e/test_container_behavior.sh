@@ -65,7 +65,7 @@ settings:
   apiServerMode: true
   apiServer:
     hostIp: "0.0.0.0"
-    portNum: 3000
+    portNum: 16395
     routes:
       - path: /health
         methods: [GET]
@@ -100,7 +100,7 @@ settings:
   apiServerMode: true
   apiServer:
     hostIp: "0.0.0.0"
-    portNum: 3000
+    portNum: 16395
     routes:
       - path: /health
         methods: [GET]
@@ -413,7 +413,7 @@ test_api_endpoint_internal() {
     while [ $attempt -lt $max_attempts ]; do
         # Check if server responds (any HTTP response is OK, including 500)
         local http_code
-        http_code=$(docker exec "$container_name" curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/health 2>/dev/null || echo "000")
+        http_code=$(docker exec "$container_name" curl -s -o /dev/null -w "%{http_code}" http://localhost:16395/health 2>/dev/null || echo "000")
 
         if [ "$http_code" != "000" ]; then
             # Server is responding - check for success or at least server is running
@@ -604,7 +604,7 @@ run_container_behavior_tests() {
     local container_name="kdeps-behavior-test-$timestamp"
     local image_name="$container_name:latest"
     local package_file="$tmp_dir/container-test.kdeps"
-    local host_port=13000  # Use a high port to avoid conflicts
+    local host_port=116395  # Use a high port to avoid conflicts
 
     echo "  Building test container..."
 
@@ -646,7 +646,7 @@ run_container_behavior_tests() {
     echo "  Starting test container..."
 
     # Run the container
-    if ! docker run -d --name "$container_name" -p "$host_port:3000" "$image_name" 2>/dev/null; then
+    if ! docker run -d --name "$container_name" -p "$host_port:16395" "$image_name" 2>/dev/null; then
         test_failed "$test_name" "Failed to start container"
         cleanup_test_container "$container_name" "$image_name"
         rm -rf "$tmp_dir"

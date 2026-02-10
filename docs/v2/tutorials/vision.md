@@ -49,14 +49,14 @@ settings:
   apiServerMode: true
   apiServer:
     hostIp: "127.0.0.1"
-    portNum: 3000
+    portNum: 16395
     routes:
       - path: /api/v1/vision
         methods: [POST]
     cors:
       enableCors: true
       allowOrigins:
-        - http://localhost:8080
+        - http://localhost:16395
 
   agentSettings:
     timezone: Etc/UTC
@@ -136,7 +136,7 @@ run:
 Upload an image and query it:
 
 ```bash
-curl -X POST 'http://localhost:3000/api/v1/vision?q=What%20is%20in%20this%20image?' \
+curl -X POST 'http://localhost:16395/api/v1/vision?q=What%20is%20in%20this%20image?' \
   -F "file=@image.jpg"
 ```
 
@@ -454,7 +454,7 @@ settings:
   apiServerMode: true
   apiServer:
     hostIp: "127.0.0.1"
-    portNum: 3000
+    portNum: 16395
     routes:
       - path: /api/v1/vision
         methods: [POST]
@@ -509,14 +509,14 @@ run:
 ### Single Image
 
 ```bash
-curl -X POST 'http://localhost:3000/api/v1/vision?q=Describe%20this%20image' \
+curl -X POST 'http://localhost:16395/api/v1/vision?q=Describe%20this%20image' \
   -F "file=@photo.jpg"
 ```
 
 ### Multiple Images
 
 ```bash
-curl -X POST 'http://localhost:3000/api/v1/vision?q=Compare%20these%20images' \
+curl -X POST 'http://localhost:16395/api/v1/vision?q=Compare%20these%20images' \
   -F "file[]=@image1.jpg" \
   -F "file[]=@image2.jpg"
 ```
