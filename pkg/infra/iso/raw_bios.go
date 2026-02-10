@@ -171,7 +171,7 @@ func writeAssembleScript(path, _ string, _ bool) error {
 set -ex
 
 # Install necessary tools
-apk add --no-cache syslinux mtools dosfstools e2fsprogs util-linux e2tools
+apk add --no-cache ncurses syslinux mtools dosfstools e2fsprogs util-linux e2tools
 
 KERNEL="/work/kernel"
 INITRD="/work/initrd.img"
