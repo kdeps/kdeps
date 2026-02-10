@@ -37,7 +37,7 @@ run:
     scenario:
       - role: system
         prompt: "{{ get('systemPrompt') }}"
-    timeoutDuration: 120s
+    timeoutDuration: 300s
 
   onError:
     action: continue

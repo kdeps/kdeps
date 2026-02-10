@@ -24,6 +24,7 @@ RUN apk add --no-cache \
     python3 \
     py3-pip \
     curl \
+    wget \
     bash \
     supervisor \
     ca-certificates \
@@ -110,6 +111,10 @@ EXPOSE {{ .WebServerPort }}
 {{- if .InstallOllama }}
 EXPOSE {{ .BackendPort }}
 {{- end }}
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD wget -qO- http://localhost:{{ .APIPort }}/health || exit 1
 
 # Use entrypoint for backend management
 ENTRYPOINT ["/entrypoint.sh"]
