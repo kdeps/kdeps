@@ -4,7 +4,7 @@ const API_URL = '/api/v1/chat';
 
 // State
 let messages = [];
-let selectedModel = 'llama3.2:3b';
+let selectedModel = 'llama3.2:1b';
 let isLoading = false;
 
 // Model display names

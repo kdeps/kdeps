@@ -117,6 +117,10 @@ EXPOSE {{ .WebServerPort }}
 EXPOSE {{ .BackendPort }}
 {{- end }}
 
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD wget -qO- http://localhost:{{ .APIPort }}/health || exit 1
+
 # Use entrypoint for backend management
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
