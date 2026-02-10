@@ -566,9 +566,12 @@ metadata:
   targetActionId: final-aggregation
 settings:
   apiServerMode: true
+  hostIp: "0.0.0.0"
+  portNum: 9090
   apiServer:
-    hostIp: "0.0.0.0"
-    portNum: 9090
+    routes:
+      - path: /api/test
+        methods: [GET]
   agentSettings:
     pythonVersion: "3.12"
     pythonPackages:
