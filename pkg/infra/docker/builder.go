@@ -223,8 +223,9 @@ func (b *Builder) Build(workflow *domain.Workflow, _ string, noCache bool) (stri
 		return "", fmt.Errorf("failed to create build context: %w", err)
 	}
 
-	// Build image
-	imageName := fmt.Sprintf("%s:%s", workflow.Metadata.Name, workflow.Metadata.Version)
+	// Build image (Docker requires lowercase repository names, no spaces)
+	sanitizedName := strings.ToLower(strings.ReplaceAll(workflow.Metadata.Name, " ", "-"))
+	imageName := fmt.Sprintf("%s:%s", sanitizedName, workflow.Metadata.Version)
 	ctx := context.Background()
 
 	if buildErr := b.Client.BuildImage(ctx, "Dockerfile", imageName, buildContext, noCache); buildErr != nil {
@@ -393,6 +394,17 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 		hasData = true
 	}
 
+	// When Ollama is not installed, disable offline mode and clear models
+	// so no Ollama-related prep/copy happens in the Docker build
+	models := workflow.Settings.AgentSettings.Models
+	offlineMode := workflow.Settings.AgentSettings.OfflineMode
+	defaultModel := b.getDefaultModel(workflow)
+	if !installOllama {
+		models = nil
+		offlineMode = false
+		defaultModel = ""
+	}
+
 	return &DockerfileData{
 		BaseImage:        baseImage,
 		OS:               b.BaseOS,
@@ -409,9 +421,9 @@ func (b *Builder) buildTemplateData(workflow *domain.Workflow) (*DockerfileData,
 		WebServerPort:    b.getWebServerPort(workflow),
 		HasAPIServer:     workflow.Settings.APIServerMode,
 		HasWebServer:     workflow.Settings.WebServerMode,
-		Models:           workflow.Settings.AgentSettings.Models,
-		DefaultModel:     b.getDefaultModel(workflow),
-		OfflineMode:      workflow.Settings.AgentSettings.OfflineMode,
+		Models:           models,
+		DefaultModel:     defaultModel,
+		OfflineMode:      offlineMode,
 		HasResources:     hasResources,
 		HasData:          hasData,
 		Env:              workflow.Settings.AgentSettings.Env,
