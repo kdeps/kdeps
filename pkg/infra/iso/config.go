@@ -147,7 +147,7 @@ func buildBaseConfig(hostname, arch string) *LinuxKitConfig {
 				Image: "alpine:3.19",
 				Command: []string{
 					"sh", "-c",
-					"apk add --no-cache curl busybox-extras && cp /usr/bin/curl /usr/bin/telnet /usr/local/bin/",
+					"apk add --no-cache ncurses curl busybox-extras && cp /usr/bin/curl /usr/bin/telnet /usr/local/bin/",
 				},
 				Binds: []string{
 					"/usr/local/bin:/usr/local/bin",
