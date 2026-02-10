@@ -20,6 +20,11 @@ package domain
 
 import "gopkg.in/yaml.v3"
 
+const (
+	// DefaultPort is the default port for API and Web servers.
+	DefaultPort = 16395
+)
+
 // Workflow represents a KDeps workflow configuration.
 type Workflow struct {
 	APIVersion string           `yaml:"apiVersion"`
@@ -42,11 +47,84 @@ type WorkflowMetadata struct {
 type WorkflowSettings struct {
 	APIServerMode  bool                     `yaml:"apiServerMode"`
 	WebServerMode  bool                     `yaml:"webServerMode"`
+	HostIP         string                   `yaml:"hostIp,omitempty"`
+	PortNum        int                      `yaml:"portNum,omitempty"`
 	APIServer      *APIServerConfig         `yaml:"apiServer,omitempty"`
 	WebServer      *WebServerConfig         `yaml:"webServer,omitempty"`
 	AgentSettings  AgentSettings            `yaml:"agentSettings"`
 	SQLConnections map[string]SQLConnection `yaml:"sqlConnections,omitempty"`
 	Session        *SessionConfig           `yaml:"session,omitempty"`
+}
+
+// GetHostIP returns the resolved host IP from top-level settings or default.
+func (w *WorkflowSettings) GetHostIP() string {
+	if w.HostIP != "" {
+		return w.HostIP
+	}
+	return "0.0.0.0" // default
+}
+
+// GetPortNum returns the resolved port number from top-level settings or default.
+func (w *WorkflowSettings) GetPortNum() int {
+	if w.PortNum > 0 {
+		return w.PortNum
+	}
+	return DefaultPort // default for all modes
+}
+
+// GetCORSConfig returns the CORS configuration, providing defaults if not set.
+func (w *WorkflowSettings) GetCORSConfig() *CORS {
+	// 1. Default configuration
+	enabled := true
+	defaults := &CORS{
+		EnableCORS:       &enabled,
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
+		AllowHeaders:     []string{"Content-Type", "Authorization", "Accept", "X-Requested-With", "X-Session-Id"},
+		AllowCredentials: true,
+	}
+
+	// 2. If no config at all, return defaults
+	if w.APIServer == nil || w.APIServer.CORS == nil {
+		return defaults
+	}
+
+	// 3. User provided some config, merge it with defaults
+	config := w.APIServer.CORS
+
+	// If enableCors is explicitly nil, it means it wasn't set, so we default to true
+	if config.EnableCORS == nil {
+		config.EnableCORS = &enabled
+	}
+
+	// If explicitly disabled, return as is (EnableCORS will be false)
+	if !*config.EnableCORS {
+		return config
+	}
+
+	// Merge missing fields from defaults
+	if len(config.AllowOrigins) == 0 {
+		config.AllowOrigins = defaults.AllowOrigins
+	}
+	if len(config.AllowMethods) == 0 {
+		config.AllowMethods = defaults.AllowMethods
+	}
+	if len(config.AllowHeaders) == 0 {
+		config.AllowHeaders = defaults.AllowHeaders
+	}
+
+	// AllowCredentials defaults to true in our new behavior,
+	// but since it's a bool, we can't easily tell if user set it to false
+	// vs it defaulting to false.
+	// However, the user request says "make enableCors: true the default behavior",
+	// and typically if they specify a cors block they might want to override.
+	// For now, we follow the logic that if they didn't specify credentials in YAML,
+	// it will be false by standard Go defaulting if they provided a cors block.
+	// But to be "smart", if they didn't specify it, we might want it true.
+	// Given the previous implementation of GetCORSConfig, it was returning true
+	// only if no config was present.
+
+	return config
 }
 
 // UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
@@ -55,6 +133,8 @@ func (w *WorkflowSettings) UnmarshalYAML(node *yaml.Node) error {
 	type Alias struct {
 		APIServerMode  interface{}              `yaml:"apiServerMode"`
 		WebServerMode  interface{}              `yaml:"webServerMode"`
+		HostIP         string                   `yaml:"hostIp"`
+		PortNum        interface{}              `yaml:"portNum"`
 		APIServer      *APIServerConfig         `yaml:"apiServer,omitempty"`
 		WebServer      *WebServerConfig         `yaml:"webServer,omitempty"`
 		AgentSettings  AgentSettings            `yaml:"agentSettings"`
@@ -74,12 +154,26 @@ func (w *WorkflowSettings) UnmarshalYAML(node *yaml.Node) error {
 		w.WebServerMode = b
 	}
 
+	// Parse portNum if it's a string
+	if i, ok := parseInt(alias.PortNum); ok {
+		w.PortNum = i
+	}
+
 	// Copy other fields
+	w.HostIP = alias.HostIP
 	w.APIServer = alias.APIServer
 	w.WebServer = alias.WebServer
 	w.AgentSettings = alias.AgentSettings
 	w.SQLConnections = alias.SQLConnections
 	w.Session = alias.Session
+
+	// Set defaults if not provided
+	if w.HostIP == "" {
+		w.HostIP = "0.0.0.0"
+	}
+	if w.PortNum == 0 {
+		w.PortNum = DefaultPort
+	}
 
 	return nil
 }
@@ -225,33 +319,23 @@ func (s *SessionConfig) GetPath() string {
 
 // APIServerConfig contains API server configuration.
 type APIServerConfig struct {
-	HostIP         string   `yaml:"hostIp"`
-	PortNum        int      `yaml:"portNum"`
 	TrustedProxies []string `yaml:"trustedProxies,omitempty"`
 	Routes         []Route  `yaml:"routes"`
 	CORS           *CORS    `yaml:"cors,omitempty"`
 }
 
-// UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
+// UnmarshalYAML implements custom YAML unmarshaling.
 func (a *APIServerConfig) UnmarshalYAML(node *yaml.Node) error {
 	type Alias struct {
-		HostIP         string      `yaml:"hostIp"`
-		PortNum        interface{} `yaml:"portNum"`
-		TrustedProxies []string    `yaml:"trustedProxies,omitempty"`
-		Routes         []Route     `yaml:"routes"`
-		CORS           *CORS       `yaml:"cors,omitempty"`
+		TrustedProxies []string `yaml:"trustedProxies,omitempty"`
+		Routes         []Route  `yaml:"routes"`
+		CORS           *CORS    `yaml:"cors,omitempty"`
 	}
 	var alias Alias
 	if err := node.Decode(&alias); err != nil {
 		return err
 	}
 
-	// Parse integer field that might be string
-	if i, ok := parseInt(alias.PortNum); ok {
-		a.PortNum = i
-	}
-
-	a.HostIP = alias.HostIP
 	a.TrustedProxies = alias.TrustedProxies
 	a.Routes = alias.Routes
 	a.CORS = alias.CORS
@@ -267,7 +351,7 @@ type Route struct {
 
 // CORS represents CORS configuration.
 type CORS struct {
-	EnableCORS       bool     `yaml:"enableCors"`
+	EnableCORS       *bool    `yaml:"enableCors"`
 	AllowOrigins     []string `yaml:"allowOrigins,omitempty"`
 	AllowMethods     []string `yaml:"allowMethods,omitempty"`
 	AllowHeaders     []string `yaml:"allowHeaders,omitempty"`
@@ -293,9 +377,7 @@ func (c *CORS) UnmarshalYAML(node *yaml.Node) error {
 	}
 
 	// Parse boolean fields that might be strings
-	if b, ok := parseBool(alias.EnableCORS); ok {
-		c.EnableCORS = b
-	}
+	c.EnableCORS = parseBoolPtr(alias.EnableCORS)
 	if b, ok := parseBool(alias.AllowCredentials); ok {
 		c.AllowCredentials = b
 	}
@@ -311,31 +393,21 @@ func (c *CORS) UnmarshalYAML(node *yaml.Node) error {
 
 // WebServerConfig contains web server configuration.
 type WebServerConfig struct {
-	HostIP         string     `yaml:"hostIp"`
-	PortNum        int        `yaml:"portNum"`
 	TrustedProxies []string   `yaml:"trustedProxies,omitempty"`
 	Routes         []WebRoute `yaml:"routes"`
 }
 
-// UnmarshalYAML implements custom YAML unmarshaling to support string values for integers.
+// UnmarshalYAML implements custom YAML unmarshaling.
 func (w *WebServerConfig) UnmarshalYAML(node *yaml.Node) error {
 	type Alias struct {
-		HostIP         string      `yaml:"hostIp"`
-		PortNum        interface{} `yaml:"portNum"`
-		TrustedProxies []string    `yaml:"trustedProxies,omitempty"`
-		Routes         []WebRoute  `yaml:"routes"`
+		TrustedProxies []string   `yaml:"trustedProxies,omitempty"`
+		Routes         []WebRoute `yaml:"routes"`
 	}
 	var alias Alias
 	if err := node.Decode(&alias); err != nil {
 		return err
 	}
 
-	// Parse integer field that might be string
-	if i, ok := parseInt(alias.PortNum); ok {
-		w.PortNum = i
-	}
-
-	w.HostIP = alias.HostIP
 	w.TrustedProxies = alias.TrustedProxies
 	w.Routes = alias.Routes
 

@@ -27,7 +27,7 @@ kdeps run examples/webserver-static/workflow.yaml
 kdeps run workflow.yaml
 ```
 
-The server will start on http://0.0.0.0:8080
+The server will start on http://0.0.0.0:16395
 
 ## Configuration
 
@@ -37,7 +37,7 @@ settings:
 
   webServer:
     hostIp: "0.0.0.0"  # Bind to localhost
-    portNum: 8080         # Port to listen on
+    portNum: 16395         # Port to listen on
     routes:
       - path: "/"          # URL path
         serverType: "static"  # Serve static files

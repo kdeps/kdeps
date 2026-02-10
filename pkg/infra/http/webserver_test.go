@@ -43,10 +43,10 @@ func TestNewWebServer(t *testing.T) {
 		},
 		Settings: domain.WorkflowSettings{
 			WebServerMode: true,
+			HostIP:        "127.0.0.1",
+			PortNum:       16395,
 			WebServer: &domain.WebServerConfig{
-				HostIP:  "127.0.0.1",
-				PortNum: 8080,
-				Routes:  []domain.WebRoute{},
+				Routes: []domain.WebRoute{},
 			},
 		},
 	}
@@ -114,9 +114,9 @@ func TestWebServer_StaticFileServing(t *testing.T) {
 		},
 		Settings: domain.WorkflowSettings{
 			WebServerMode: true,
+			HostIP:        "127.0.0.1",
+			PortNum:       26395, // Use different port to avoid conflicts
 			WebServer: &domain.WebServerConfig{
-				HostIP:  "127.0.0.1",
-				PortNum: 18080, // Use different port to avoid conflicts
 				Routes: []domain.WebRoute{
 					{
 						Path:       "/",
@@ -152,7 +152,7 @@ func TestWebServer_StaticFileServing(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	// Test static file serving
-	resp, err := http.Get("http://127.0.0.1:18080/")
+	resp, err := http.Get("http://127.0.0.1:26395/")
 	if err != nil {
 		t.Fatalf("Failed to GET /: %v", err)
 	}
@@ -242,9 +242,9 @@ func TestWebServer_RouteConfiguration(t *testing.T) {
 		},
 		Settings: domain.WorkflowSettings{
 			WebServerMode: true,
+			HostIP:        "127.0.0.1",
+			PortNum:       16395,
 			WebServer: &domain.WebServerConfig{
-				HostIP:  "127.0.0.1",
-				PortNum: 8080,
 				Routes: []domain.WebRoute{
 					{
 						Path:       "/",
@@ -301,9 +301,9 @@ func TestWebServer_HandleWebSocketProxy(t *testing.T) {
 		},
 		Settings: domain.WorkflowSettings{
 			WebServerMode: true,
+			HostIP:        "127.0.0.1",
+			PortNum:       16395,
 			WebServer: &domain.WebServerConfig{
-				HostIP:  "127.0.0.1",
-				PortNum: 8080,
 				Routes: []domain.WebRoute{
 					{
 						Path:       "/ws",
@@ -411,10 +411,9 @@ func TestWebServer_HandleWebSocketProxy_ErrorCases(t *testing.T) {
 	workflow := &domain.Workflow{
 		Settings: domain.WorkflowSettings{
 			WebServerMode: true,
-			WebServer: &domain.WebServerConfig{
-				HostIP:  "127.0.0.1",
-				PortNum: 8080,
-			},
+			HostIP:        "127.0.0.1",
+			PortNum:       16395,
+			WebServer:     &domain.WebServerConfig{},
 		},
 	}
 

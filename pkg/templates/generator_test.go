@@ -163,7 +163,7 @@ func TestGenerator_GenerateProject(t *testing.T) {
 		Name:        "test-agent",
 		Description: "Test agent",
 		Version:     "1.0.0",
-		Port:        3000,
+		Port:        16395,
 		Resources:   []string{"http-client", "llm", "response"},
 		Features:    make(map[string]bool),
 	}
@@ -290,7 +290,7 @@ func TestGenerator_GenerateProject_WithSubdirectories(t *testing.T) {
 		Name:        "test-agent",
 		Description: "Test agent with subdirs",
 		Version:     "1.0.0",
-		Port:        3000,
+		Port:        16395,
 		Resources:   []string{"http-client"},
 		Features:    make(map[string]bool),
 	}
@@ -689,7 +689,7 @@ func TestGenerator_GenerateFile_TemplateExecutionErrors(t *testing.T) {
 		Name:        "test",
 		Description: "test description",
 		Version:     "1.0.0",
-		Port:        3000,
+		Port:        16395,
 	}
 
 	err = generator.GenerateProject("api-service", outputDir, data)
@@ -1021,7 +1021,7 @@ func TestGenerator_GenerateFile_TemplateNotFound(t *testing.T) {
 		Name:        "test",
 		Description: "test desc",
 		Version:     "1.0.0",
-		Port:        3000,
+		Port:        16395,
 	}
 
 	// Generate project to exercise template processing
@@ -1337,7 +1337,7 @@ func TestGenerator_WalkEmbedFS_ReadFileErrorCoverage(t *testing.T) {
 		Name:        "test",
 		Description: "test desc",
 		Version:     "1.0.0",
-		Port:        3000,
+		Port:        16395,
 	}
 
 	// This exercises walkEmbedFS which calls ReadFile internally
@@ -1363,7 +1363,7 @@ func TestGenerator_WalkTemplate_ReadDirErrorCoverage(t *testing.T) {
 		Name:        "test",
 		Description: "test desc",
 		Version:     "1.0.0",
-		Port:        3000,
+		Port:        16395,
 	}
 
 	// Use sql-agent template which has subdirectories to exercise ReadDir in walkTemplate
@@ -1408,7 +1408,7 @@ func TestGenerator_GenerateFile_TemplateLookupFailureCoverage(t *testing.T) {
 		Name:        "test",
 		Description: "test desc",
 		Version:     "1.0.0",
-		Port:        3000,
+		Port:        16395,
 	}
 
 	// Generate project to exercise template lookup paths
@@ -1433,7 +1433,7 @@ func TestGenerator_WalkTemplate_DirectoryHandling(t *testing.T) {
 		Name:        "test",
 		Description: "test dir handling",
 		Version:     "1.0.0",
-		Port:        3000,
+		Port:        16395,
 	}
 
 	// Use sql-agent template which has subdirectories to test directory handling
@@ -1484,7 +1484,7 @@ func TestGenerator_WalkTemplate_FileHandling(t *testing.T) {
 		Name:        "test",
 		Description: "test file handling",
 		Version:     "1.0.0",
-		Port:        3000,
+		Port:        16395,
 	}
 
 	// Generate project to test file processing
@@ -1499,7 +1499,7 @@ func TestGenerator_WalkTemplate_FileHandling(t *testing.T) {
 	// Check that template variables were replaced
 	workflowStr := string(workflowContent)
 	assert.Contains(t, workflowStr, "test", "Should replace template variables")
-	assert.Contains(t, workflowStr, "3000", "Should include port number")
+	assert.Contains(t, workflowStr, "16395", "Should include port number")
 }
 
 func TestGenerator_WalkEmbedFS_DirectoryRecursion(t *testing.T) {
@@ -1539,7 +1539,7 @@ func TestGenerator_GenerateFile_FileCreation(t *testing.T) {
 		Name:        "test",
 		Description: "test file creation",
 		Version:     "1.0.0",
-		Port:        3000,
+		Port:        16395,
 	}
 
 	err = generator.GenerateProject("api-service", outputDir, data)
@@ -1568,7 +1568,7 @@ func TestGenerator_WalkEmbedFS_FileProcessing(t *testing.T) {
 		Name:        "test",
 		Description: "test file processing",
 		Version:     "1.0.0",
-		Port:        3000,
+		Port:        16395,
 	}
 
 	// Generate project to exercise file processing in walkEmbedFS
@@ -1601,7 +1601,7 @@ func TestGenerator_GenerateFile_TemplateParsing(t *testing.T) {
 		Name:        "test",
 		Description: "test parsing",
 		Version:     "1.0.0",
-		Port:        3000,
+		Port:        16395,
 	}
 
 	err = generator.GenerateProject("api-service", outputDir, data)

@@ -483,7 +483,7 @@ func TestExecutor_Execute_MissingPrompt(t *testing.T) {
 }
 
 func TestNewExecutor_CustomURL(t *testing.T) {
-	customURL := "http://custom-ollama:8080"
+	customURL := "http://custom-ollama:16395"
 	executor := llm.NewExecutor(customURL)
 	assert.NotNil(t, executor)
 }

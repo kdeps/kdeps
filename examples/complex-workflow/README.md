@@ -49,7 +49,7 @@ ollama pull llama3.2
 kdeps run examples/complex-workflow/workflow.yaml
 
 # In another terminal, analyze a repository
-curl -X POST http://localhost:3000/analyze \
+curl -X POST http://localhost:16395/analyze \
   -H "Content-Type: application/json" \
   -d '{
     "owner": "kubernetes",
@@ -127,21 +127,21 @@ curl -X POST http://localhost:3000/analyze \
 
 ### Analyze Kubernetes
 ```bash
-curl -X POST http://localhost:3000/analyze \
+curl -X POST http://localhost:16395/analyze \
   -H "Content-Type: application/json" \
   -d '{"owner": "kubernetes", "repo": "kubernetes"}'
 ```
 
 ### Analyze Docker
 ```bash
-curl -X POST http://localhost:3000/analyze \
+curl -X POST http://localhost:16395/analyze \
   -H "Content-Type: application/json" \
   -d '{"owner": "docker", "repo": "docker"}'
 ```
 
 ### Analyze Go Language
 ```bash
-curl -X POST http://localhost:3000/analyze \
+curl -X POST http://localhost:16395/analyze \
   -H "Content-Type: application/json" \
   -d '{"owner": "golang", "repo": "go"}'
 ```

@@ -128,7 +128,7 @@ settings:
   apiServerMode: true
   apiServer:
     hostIp: "0.0.0.0"
-    portNum: 3000
+    portNum: 16395
     routes:
       - path: /api/test
         methods:
@@ -477,7 +477,7 @@ func validateAPIServerWorkflow(t *testing.T, workflow *domain.Workflow) {
 	t.Helper()
 	assert.True(t, workflow.Settings.APIServerMode)
 	require.NotNil(t, workflow.Settings.APIServer)
-	assert.Equal(t, 3000, workflow.Settings.APIServer.PortNum)
+	assert.Equal(t, 16395, workflow.Settings.PortNum)
 	assert.Len(t, workflow.Settings.APIServer.Routes, 1)
 }
 

@@ -23,11 +23,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"time"
+)
+
+const (
+	defaultHTTPTimeout = 5 * time.Minute
+	pollInterval       = 2 * time.Second
 )
 
 // Client communicates with the kdeps.io cloud API.
@@ -39,11 +45,11 @@ type Client struct {
 
 // WhoamiResponse represents the /api/cli/whoami response.
 type WhoamiResponse struct {
-	UserID string       `json:"userId"`
-	Email  string       `json:"email"`
-	Name   string       `json:"name"`
-	Plan   PlanInfo     `json:"plan"`
-	Usage  UsageInfo    `json:"usage"`
+	UserID string    `json:"userId"`
+	Email  string    `json:"email"`
+	Name   string    `json:"name"`
+	Plan   PlanInfo  `json:"plan"`
+	Usage  UsageInfo `json:"usage"`
 }
 
 // PlanInfo represents plan details.
@@ -125,7 +131,7 @@ func NewClient(apiKey, apiURL string) *Client {
 		APIKey: apiKey,
 		APIURL: apiURL,
 		HTTPClient: &http.Client{
-			Timeout: 5 * time.Minute,
+			Timeout: defaultHTTPTimeout,
 		},
 	}
 }
@@ -146,7 +152,7 @@ func (c *Client) Whoami(ctx context.Context) (*WhoamiResponse, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusUnauthorized {
-		return nil, fmt.Errorf("invalid API key")
+		return nil, errors.New("invalid API key")
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -187,7 +193,9 @@ func (c *Client) StartBuild(
 		_ = writer.WriteField("noCache", "true")
 	}
 
-	writer.Close()
+	if closeErr := writer.Close(); closeErr != nil {
+		return nil, fmt.Errorf("failed to close multipart writer: %w", closeErr)
+	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.APIURL+"/api/cli/builds", &body)
 	if err != nil {
@@ -204,7 +212,7 @@ func (c *Client) StartBuild(
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusUnauthorized {
-		return nil, fmt.Errorf("invalid API key. Run 'kdeps login' to re-authenticate")
+		return nil, errors.New("invalid API key. Run 'kdeps login' to re-authenticate")
 	}
 
 	if resp.StatusCode == http.StatusForbidden {
@@ -212,7 +220,12 @@ func (c *Client) StartBuild(
 			Error string `json:"error"`
 		}
 
-		json.NewDecoder(resp.Body).Decode(&errResp)
+		if decodeErr := json.NewDecoder(resp.Body).Decode(&errResp); decodeErr != nil {
+			return nil, fmt.Errorf(
+				"server returned forbidden (status 403) and failed to parse error response: %w",
+				decodeErr,
+			)
+		}
 
 		return nil, fmt.Errorf("%s", errResp.Error)
 	}
@@ -284,13 +297,13 @@ func (c *Client) StreamBuildLogs(ctx context.Context, buildID string, w io.Write
 				return status, fmt.Errorf("build failed: %s", status.Error)
 			}
 
-			return status, fmt.Errorf("build failed")
+			return status, errors.New("build failed")
 		}
 
 		select {
 		case <-ctx.Done():
 			return status, ctx.Err()
-		case <-time.After(2 * time.Second):
+		case <-time.After(pollInterval):
 			// Continue polling
 		}
 	}
@@ -298,16 +311,16 @@ func (c *Client) StreamBuildLogs(ctx context.Context, buildID string, w io.Write
 
 // ListWorkflows returns the user's workflows from the cloud.
 func (c *Client) ListWorkflows(ctx context.Context) ([]WorkflowEntry, error) {
-	return getJSON[[]WorkflowEntry](c, ctx, "/api/cli/workflows")
+	return getJSON[[]WorkflowEntry](ctx, c, "/api/cli/workflows")
 }
 
 // ListDeployments returns the user's deployments from the cloud.
 func (c *Client) ListDeployments(ctx context.Context) ([]DeploymentEntry, error) {
-	return getJSON[[]DeploymentEntry](c, ctx, "/api/cli/deployments")
+	return getJSON[[]DeploymentEntry](ctx, c, "/api/cli/deployments")
 }
 
 // getJSON performs an authenticated GET request and decodes the JSON response.
-func getJSON[T any](c *Client, ctx context.Context, path string) (T, error) {
+func getJSON[T any](ctx context.Context, c *Client, path string) (T, error) {
 	var zero T
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.APIURL+path, nil)
@@ -324,7 +337,7 @@ func getJSON[T any](c *Client, ctx context.Context, path string) (T, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusUnauthorized {
-		return zero, fmt.Errorf("invalid API key. Run 'kdeps login' to re-authenticate")
+		return zero, errors.New("invalid API key. Run 'kdeps login' to re-authenticate")
 	}
 
 	if resp.StatusCode != http.StatusOK {

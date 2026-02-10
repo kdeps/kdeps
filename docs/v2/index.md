@@ -56,7 +56,7 @@ metadata:
 settings:
   apiServerMode: true
   apiServer:
-    portNum: 3000
+    portNum: 16395
     routes:
       - path: /api/v1/chat
         methods: [POST]
@@ -138,7 +138,7 @@ metadata:
 settings:
   apiServerMode: true
   apiServer:
-    portNum: 3000
+    portNum: 16395
     routes:
       - path: /api/v1/chat
         methods: [POST]
@@ -187,7 +187,7 @@ run:
 **Test it:**
 ```bash
 kdeps run workflow.yaml
-curl -X POST http://localhost:3000/api/v1/chat -d '{"q": "What is AI?"}'
+curl -X POST http://localhost:16395/api/v1/chat -d '{"q": "What is AI?"}'
 ```
 
 ### Documentation

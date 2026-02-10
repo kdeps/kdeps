@@ -257,34 +257,16 @@ func handleDockerfileShow(builder *docker.Builder, workflow *domain.Workflow) er
 func getWorkflowPorts(workflow *domain.Workflow) []int {
 	var ports []int
 	if workflow != nil {
-		// API Server port
-		apiPort := 3000 // default
-		if workflow.Settings.APIServer != nil && workflow.Settings.APIServer.PortNum > 0 {
-			apiPort = workflow.Settings.APIServer.PortNum
-		}
-		if workflow.Settings.APIServerMode {
-			ports = append(ports, apiPort)
-		}
-
-		// Web Server port
-		webPort := 8080 // default
-		if workflow.Settings.WebServer != nil && workflow.Settings.WebServer.PortNum > 0 {
-			webPort = workflow.Settings.WebServer.PortNum
-		}
-		if workflow.Settings.WebServerMode {
-			// Avoid duplicate if same as API port
-			if apiPort != webPort || !workflow.Settings.APIServerMode {
-				ports = append(ports, webPort)
-			}
-		}
+		// Use resolved port from settings
+		ports = append(ports, workflow.Settings.GetPortNum())
 
 		if iso.ShouldInstallOllama(workflow) {
 			// Add Ollama port (default 11434)
-			ports = append(ports, 11434)
+			ports = append(ports, ollamaDefaultPort)
 		}
 	}
 	if len(ports) == 0 {
-		ports = []int{3000}
+		ports = []int{16395}
 	}
 	return ports
 }
@@ -423,7 +405,10 @@ func cloudBuild(packagePath, format, arch string, noCache bool) error {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
 	tmpPath := tmpFile.Name()
-	tmpFile.Close()
+	if closeErr := tmpFile.Close(); closeErr != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("failed to close temp file: %w", closeErr)
+	}
 	defer os.Remove(tmpPath)
 
 	// Resolve workflow and create archive

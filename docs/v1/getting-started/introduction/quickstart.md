@@ -93,7 +93,7 @@ configuration:
 APIServerMode = true
 APIServer {
 ...
-    PortNum = 3000
+    PortNum = 16395
     Routes {
         new {
             Path = "/api/v1/whois"
@@ -106,14 +106,14 @@ APIServer {
 }
 ```
 
-This configuration creates an API server running on port `3000` with a route at `/api/v1/whois`. You can define multiple
+This configuration creates an API server running on port `16395` with a route at `/api/v1/whois`. You can define multiple
 routes as needed.
 
 
 With these settings, you can interact with the API using `curl` or similar tools. For example:
 
 ```bash
-curl 'http://localhost:3000/api/v1/whois' -X GET
+curl 'http://localhost:16395/api/v1/whois' -X GET
 ```
 
 If you set `APIServerMode` to `false`, the AI agent will bypass the API server and directly execute the default action,
@@ -283,7 +283,7 @@ In the `prompt`, we use the function `@(request.data())`, which inserts the requ
 to the route configuration, the `curl` command can send request data using the `-d` flag, as shown:
 
 ```bash
-curl 'http://localhost:3000/api/v1/whois' -X GET -d "Neil Armstrong"
+curl 'http://localhost:16395/api/v1/whois' -X GET -d "Neil Armstrong"
 ```
 
 Additionally, we have set `JSONResponse` to `true`, enabling the use of `JSONResponseKeys`. To ensure the output
@@ -331,7 +331,7 @@ will be not be available after Ollama have completed downloading the models.
 After the models has been downloaded, we can proceed on doing an API call using `curl`.
 
 ```json
-> curl 'http://localhost:3000/api/v1/whois' -X GET -d "Neil Armstrong"
+> curl 'http://localhost:16395/api/v1/whois' -X GET -d "Neil Armstrong"
 
 {
   "errors": [

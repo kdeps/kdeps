@@ -46,6 +46,7 @@ func (r *DefaultLinuxKitRunner) Build(ctx context.Context, configPath, format, a
 	}
 	args = append(args, configPath)
 
+	//nolint:gosec // binary path and args are internal
 	cmd := exec.CommandContext(ctx, r.BinaryPath, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -63,6 +64,7 @@ func (r *DefaultLinuxKitRunner) Build(ctx context.Context, configPath, format, a
 func (r *DefaultLinuxKitRunner) CacheImport(ctx context.Context, tarPath string) error {
 	args := []string{"cache", "import", tarPath}
 
+	//nolint:gosec // binary path and args are internal
 	cmd := exec.CommandContext(ctx, r.BinaryPath, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -100,7 +102,7 @@ func EnsureLinuxKit(ctx context.Context) (string, error) {
 
 	downloadURL := LinuxKitDownloadURL()
 
-	if mkdirErr := os.MkdirAll(cacheDir, 0755); mkdirErr != nil {
+	if mkdirErr := os.MkdirAll(cacheDir, 0750); mkdirErr != nil {
 		return "", fmt.Errorf("failed to create cache directory: %w", mkdirErr)
 	}
 
@@ -111,7 +113,8 @@ func EnsureLinuxKit(ctx context.Context) (string, error) {
 		)
 	}
 
-	if chmodErr := os.Chmod(cachedBinary, 0755); chmodErr != nil {
+	//nolint:gosec // binary needs to be executable by user
+	if chmodErr := os.Chmod(cachedBinary, 0700); chmodErr != nil {
 		return "", fmt.Errorf("failed to make linuxkit executable: %w", chmodErr)
 	}
 
@@ -161,15 +164,17 @@ func downloadFile(ctx context.Context, url, dest string) error {
 	}
 
 	_, err = io.Copy(out, resp.Body)
-	out.Close()
+	if closeErr := out.Close(); err == nil {
+		err = closeErr
+	}
 
 	if err != nil {
-		os.Remove(tmpFile)
+		_ = os.Remove(tmpFile)
 		return err
 	}
 
 	if renameErr := os.Rename(tmpFile, dest); renameErr != nil {
-		os.Remove(tmpFile)
+		_ = os.Remove(tmpFile)
 		return renameErr
 	}
 

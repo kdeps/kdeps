@@ -38,13 +38,18 @@ func newDeploymentsCmd() *cobra.Command {
 
 Examples:
   kdeps deployments`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			return runDeployments()
 		},
 	}
 }
 
 func runDeployments() error {
+	const (
+		tabPadding    = 2
+		maxDateLength = 10
+	)
+
 	config, err := LoadCloudConfig()
 	if err != nil {
 		return err
@@ -64,7 +69,7 @@ func runDeployments() error {
 		return nil
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, tabPadding, ' ', 0)
 	fmt.Fprintln(w, "WORKFLOW\tSTATUS\tURL\tUPDATED")
 
 	for _, d := range deps {
@@ -78,14 +83,16 @@ func runDeployments() error {
 			if idx := strings.IndexByte(d.UpdatedAt, 'T'); idx > 0 {
 				updated = d.UpdatedAt[:idx]
 			} else {
-				updated = d.UpdatedAt[:min(10, len(d.UpdatedAt))]
+				updated = d.UpdatedAt[:min(maxDateLength, len(d.UpdatedAt))]
 			}
 		}
 
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", d.WorkflowName, d.Status, url, updated)
 	}
 
-	w.Flush()
+	if flushErr := w.Flush(); flushErr != nil {
+		return fmt.Errorf("failed to flush table writer: %w", flushErr)
+	}
 
 	return nil
 }

@@ -77,22 +77,15 @@ func (s *WebServer) Start(ctx context.Context) error {
 		return errors.New("webServer configuration is required")
 	}
 
-	config := s.Workflow.Settings.WebServer
-
 	// Setup routes
 	s.SetupWebRoutes(ctx)
 
 	// Configure address (KDEPS_BIND_HOST overrides for VM/container deployments)
-	hostIP := config.HostIP
+	hostIP := s.Workflow.Settings.GetHostIP()
 	if override := os.Getenv("KDEPS_BIND_HOST"); override != "" {
 		hostIP = override
-	} else if hostIP == "" {
-		hostIP = "0.0.0.0"
 	}
-	portNum := config.PortNum
-	if portNum == 0 {
-		portNum = 8080
-	}
+	portNum := s.Workflow.Settings.GetPortNum()
 	addr := fmt.Sprintf("%s:%d", hostIP, portNum)
 
 	s.logger.InfoContext(context.Background(), "starting web server", "addr", addr)
@@ -128,7 +121,15 @@ func (s *WebServer) Shutdown(ctx context.Context) error {
 
 // SetupWebRoutes sets up web server routes.
 func (s *WebServer) SetupWebRoutes(ctx context.Context) {
+	s.RegisterRoutesOn(ctx, s.Router)
+}
+
+// RegisterRoutesOn registers web server routes on an external router.
+func (s *WebServer) RegisterRoutesOn(ctx context.Context, router *Router) {
 	config := s.Workflow.Settings.WebServer
+	if config == nil {
+		return
+	}
 
 	for _, route := range config.Routes {
 		handler := s.CreateWebHandler(ctx, &route)
@@ -138,12 +139,12 @@ func (s *WebServer) SetupWebRoutes(ctx context.Context) {
 		if !strings.HasSuffix(path, "/") {
 			path += "/"
 		}
-		s.Router.GET(path+"*", handler)
-		s.Router.POST(path+"*", handler)
-		s.Router.PUT(path+"*", handler)
-		s.Router.DELETE(path+"*", handler)
-		s.Router.PATCH(path+"*", handler)
-		s.Router.OPTIONS(path+"*", handler)
+		router.GET(path+"*", handler)
+		router.POST(path+"*", handler)
+		router.PUT(path+"*", handler)
+		router.DELETE(path+"*", handler)
+		router.PATCH(path+"*", handler)
+		router.OPTIONS(path+"*", handler)
 
 		s.logger.InfoContext(
 			context.Background(),
@@ -206,10 +207,8 @@ func (s *WebServer) HandleAppRequest(w stdhttp.ResponseWriter, r *stdhttp.Reques
 	}
 
 	// Build target URL
-	hostIP := s.Workflow.Settings.WebServer.HostIP
-	if hostIP == "" {
-		hostIP = "127.0.0.1"
-	}
+	// The proxy target should always be 127.0.0.1 (connect to the local app process)
+	hostIP := "127.0.0.1"
 	targetURL, err := url.Parse(fmt.Sprintf("http://%s", net.JoinHostPort(hostIP, strconv.Itoa(route.AppPort))))
 	if err != nil {
 		s.logger.ErrorContext(

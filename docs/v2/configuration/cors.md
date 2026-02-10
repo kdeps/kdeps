@@ -13,14 +13,14 @@ settings:
   apiServerMode: true
   apiServer:
     hostIp: "127.0.0.1"
-    portNum: 3000
+    portNum: 16395
     routes:
       - path: /api/v1/chat
         methods: [POST]
     cors:
       enableCors: true
       allowOrigins:
-        - http://localhost:8080
+        - http://localhost:16395
         - https://myapp.com
       allowMethods:
         - GET
@@ -37,40 +37,33 @@ settings:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `enableCors` | boolean | Enables or disables CORS support (default: `false`) |
-| `allowOrigins` | array | List of allowed origin domains. Use `"*"` for all origins. If unset, no origins are allowed unless CORS is disabled. |
-| `allowMethods` | array | List of HTTP methods allowed for CORS requests. Must be one of: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, `HEAD`. If unset, defaults to route methods. |
-| `allowHeaders` | array | List of request headers allowed in CORS requests (e.g., `Content-Type`, `Authorization`). If unset, no additional headers are allowed. |
+| `enableCors` | boolean | Enables or disables CORS support (default: `true`) |
+| `allowOrigins` | array | List of allowed origin domains. Use `"*"` for all origins (default: `["*"]`). KDeps smartly echoes the requested origin when `"*"` is used to support credentials. |
+| `allowMethods` | array | List of HTTP methods allowed for CORS requests. Must be one of: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, `HEAD`. Default: all common methods. |
+| `allowHeaders` | array | List of request headers allowed in CORS requests (e.g., `Content-Type`, `Authorization`). Default: common headers including `Content-Type`, `Authorization`, `Accept`, `X-Requested-With`. |
 | `exposeHeaders` | array | List of response headers exposed to clients (e.g., `X-Request-Id`). If unset, no headers are exposed beyond defaults. |
 | `allowCredentials` | boolean | Allows credentials (e.g., cookies, HTTP authentication) in CORS requests (default: `true`) |
 | `maxAge` | string | Maximum duration for caching CORS preflight responses (e.g., `"24h"`, `"12h"`). Default: `"12h"` |
 
 ## Common Scenarios
 
-### Development: Allow All Origins
+### Default Behavior: Smart Auto-configuration
 
-For development purposes, you might want to allow all origins temporarily:
+By default, KDeps enables CORS and allows all origins while supporting credentials. This is ideal for local development where your frontend might be on a different port (e.g., Vite on `:5173`) than your API (e.g., KDeps on `:16395`).
+
+KDeps achieves this by checking if the incoming `Origin` matches your `allowOrigins` list. If `"*"` is present in the list, KDeps echoes the specific `Origin` back in the `Access-Control-Allow-Origin` header instead of sending a literal `*`. This allows the browser to accept `Access-Control-Allow-Credentials: true`.
 
 ```yaml
+# Default behavior (no config needed)
 cors:
   enableCors: true
-  allowOrigins:
-    - "*"
-  allowMethods:
-    - GET
-    - POST
-    - OPTIONS
-  allowHeaders:
-    - Content-Type
-  allowCredentials: false
-  maxAge: "12h"
+  allowOrigins: ["*"]
+  allowCredentials: true
 ```
-
-**Note**: When using `"*"` for `allowOrigins`, you must set `allowCredentials: false` as browsers don't allow credentials with wildcard origins.
 
 ### Production: Specific Origins
 
-For production, restrict to specific domains:
+For production, it is highly recommended to restrict to specific domains:
 
 ```yaml
 cors:
@@ -104,9 +97,8 @@ You can configure different CORS settings for different environments:
 cors:
   enableCors: true
   allowOrigins:
-    - http://localhost:3000
-    - http://localhost:8080
-  allowCredentials: false
+    - http://localhost:16395
+  allowCredentials: true
 
 # Production
 cors:
@@ -183,7 +175,7 @@ settings:
   apiServerMode: true
   apiServer:
     hostIp: "127.0.0.1"
-    portNum: 3000
+    portNum: 16395
     routes:
       - path: /api/v1/data
         methods: [GET, POST, PUT, DELETE]

@@ -27,8 +27,8 @@ WebServer {
     // "127.0.0.1" for localhost; "0.0.0.0" for all interfaces.
     HostIP = "127.0.0.1"
 
-    // Port to listen on (1–65535). Defaults to 8080.
-    PortNum = 8080
+    // Port to listen on (1–65535). Defaults to 16395.
+    PortNum = 16395
 
     // Optional: Trusted proxy IPs or CIDR blocks.
     // Leave empty to trust all proxies (avoid in production).
@@ -50,7 +50,7 @@ WebServer {
 
             // For serverType="app": Local port of the web app.
             // Required for serverType="app".
-            // AppPort = 3000
+            // AppPort = 16395
 
             // Optional: Shell command to start the app, run in publicPath.
             // Example: "streamlit run app.py" or "npm start"
@@ -87,7 +87,7 @@ This configuration serves a static frontend and proxies to a Streamlit app:
 APIServer {
     CORS {
         AllowOrigins {
-            "http://localhost:8080"
+            "http://localhost:16395"
         }
         AllowMethods {
             "GET"
@@ -104,7 +104,7 @@ WebServerMode = true
 
 WebServer {
     HostIP = "0.0.0.0"
-    PortNum = 8080
+    PortNum = 16395
     TrustedProxies { "192.168.1.0/24" }
 
     Routes {
@@ -125,9 +125,9 @@ WebServer {
 ```
 
 This setup:
-- Serves a static dashboard from `/data/agentX/1.0.0/dashboard/` at `http://<host>:8080/dashboard`.
-- Proxies to a Streamlit app on port 8501 at `http://<host>:8080/app`, launched with `streamlit run app.py`.
-- Allows CORS for API calls from the frontend at `http://localhost:8080`.
+- Serves a static dashboard from `/data/agentX/1.0.0/dashboard/` at `http://<host>:16395/dashboard`.
+- Proxies to a Streamlit app on port 8501 at `http://<host>:16395/app`, launched with `streamlit run app.py`.
+- Allows CORS for API calls from the frontend at `http://localhost:16395`.
 
 ## Best Practices
 

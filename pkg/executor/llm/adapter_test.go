@@ -126,7 +126,7 @@ func TestAdapter_NewAdapter_Coverage(t *testing.T) {
 	assert.NotNil(t, adapter)
 
 	// Test with custom URL
-	adapter = llm.NewAdapter("http://custom:8080")
+	adapter = llm.NewAdapter("http://custom:16395")
 	assert.NotNil(t, adapter)
 }
 

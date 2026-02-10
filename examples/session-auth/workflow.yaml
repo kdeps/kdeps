@@ -9,9 +9,10 @@ metadata:
 
 settings:
   apiServerMode: true
+  hostIp: "0.0.0.0"
+  portNum: 16395
+
   apiServer:
-    hostIp: "0.0.0.0"
-    portNum: 3000
     routes:
       - path: /api/v1/login
         methods: [POST]
@@ -20,7 +21,7 @@ settings:
     cors:
       enableCors: true
       allowOrigins:
-        - http://localhost:8080
+        - "*"
 
   agentSettings:
     timezone: Etc/UTC

@@ -37,9 +37,8 @@ func TestWebServer_CreateWebHandler_Static2(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
-			WebServer: &domain.WebServerConfig{
-				HostIP: "127.0.0.1",
-			},
+			HostIP:    "127.0.0.1",
+			WebServer: &domain.WebServerConfig{},
 		},
 	}
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
@@ -69,9 +68,8 @@ func TestWebServer_CreateWebHandler_App2(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
-			WebServer: &domain.WebServerConfig{
-				HostIP: "127.0.0.1",
-			},
+			HostIP:    "127.0.0.1",
+			WebServer: &domain.WebServerConfig{},
 		},
 	}
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
@@ -83,7 +81,7 @@ func TestWebServer_CreateWebHandler_App2(t *testing.T) {
 		Path:       "/app",
 		ServerType: "app",
 		Command:    "echo test",
-		AppPort:    8080,
+		AppPort:    16395,
 	}
 
 	handler := webServer.CreateWebHandler(ctx, route)
@@ -102,9 +100,8 @@ func TestWebServer_CreateWebHandler_UnsupportedType(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
-			WebServer: &domain.WebServerConfig{
-				HostIP: "127.0.0.1",
-			},
+			HostIP:    "127.0.0.1",
+			WebServer: &domain.WebServerConfig{},
 		},
 	}
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
@@ -133,9 +130,8 @@ func TestWebServer_CreateWebHandler_AppWithCommand2(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
-			WebServer: &domain.WebServerConfig{
-				HostIP: "127.0.0.1",
-			},
+			HostIP:    "127.0.0.1",
+			WebServer: &domain.WebServerConfig{},
 		},
 	}
 	webServer, err := httppkg.NewWebServer(workflow, slog.Default())
@@ -148,7 +144,7 @@ func TestWebServer_CreateWebHandler_AppWithCommand2(t *testing.T) {
 		Path:       "/app",
 		ServerType: "app",
 		Command:    "echo test",
-		AppPort:    8080,
+		AppPort:    16395,
 	}
 
 	handler := webServer.CreateWebHandler(ctx, route)

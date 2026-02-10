@@ -46,7 +46,7 @@ kdeps run examples/session-auth/workflow.yaml --dev
 
 ```bash
 # Save cookie for session persistence
-curl -X POST http://localhost:3000/api/v1/login \
+curl -X POST http://localhost:16395/api/v1/login \
   -H "Content-Type: application/json" \
   -d '{"username": "admin", "password": "secret"}' \
   -c cookies.txt
@@ -69,7 +69,7 @@ curl -X POST http://localhost:3000/api/v1/login \
 
 **Response (invalid credentials)**:
 ```bash
-curl -X POST http://localhost:3000/api/v1/login \
+curl -X POST http://localhost:16395/api/v1/login \
   -H "Content-Type: application/json" \
   -d '{"username": "wrong", "password": "wrong"}'
 ```
@@ -85,7 +85,7 @@ curl -X POST http://localhost:3000/api/v1/login \
 
 ```bash
 # Use the saved cookie to access session
-curl http://localhost:3000/api/v1/session -b cookies.txt
+curl http://localhost:16395/api/v1/session -b cookies.txt
 ```
 
 **Response**:
@@ -106,7 +106,7 @@ curl http://localhost:3000/api/v1/session -b cookies.txt
 
 ```bash
 # Without cookie - returns 401
-curl http://localhost:3000/api/v1/session
+curl http://localhost:16395/api/v1/session
 ```
 
 **Response**:

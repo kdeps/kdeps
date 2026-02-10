@@ -33,14 +33,14 @@ settings:
   apiServerMode: true
   apiServer:
     hostIp: "127.0.0.1"
-    portNum: 3000
+    portNum: 16395
     routes:
       - path: /api/v1/chat
         methods: [POST]
     cors:
       enableCors: true
       allowOrigins:
-        - http://localhost:8080
+        - http://localhost:16395
 
   agentSettings:
     timezone: Etc/UTC
@@ -114,14 +114,14 @@ Start the workflow:
 kdeps run workflow.yaml
 ```
 
-You should see output indicating the server is running on port 3000.
+You should see output indicating the server is running on port 16395.
 
 ## Step 5: Test the Chatbot
 
 Send a test request:
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/chat \
+curl -X POST http://localhost:16395/api/v1/chat \
   -H "Content-Type: application/json" \
   -d '{"q": "What is artificial intelligence?"}'
 ```

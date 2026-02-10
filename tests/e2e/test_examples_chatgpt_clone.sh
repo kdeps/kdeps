@@ -21,7 +21,7 @@
 # This example features:
 # - POST /api/v1/chat - Chat with LLM (requires 'message' field, optional 'model')
 # - GET /api/v1/models - List available models
-# - Static file serving on port 8080
+# - Static file serving on port 16395
 # - CORS support
 # - Input validation
 # - Model selection
@@ -70,7 +70,7 @@ fi
 # =============================================================================
 
 # Extract ports from workflow
-API_PORT=$(grep -E "portNum:\s*[0-9]+" "$WORKFLOW_PATH" | head -1 | sed 's/.*portNum:[[:space:]]*\([0-9]*\).*/\1/' || echo "3000")
+API_PORT=$(grep -E "portNum:\s*[0-9]+" "$WORKFLOW_PATH" | head -1 | sed 's/.*portNum:[[:space:]]*\([0-9]*\).*/\1/' || echo "16395")
 
 CHAT_ENDPOINT="/api/v1/chat"
 MODELS_ENDPOINT="/api/v1/models"
@@ -274,7 +274,7 @@ fi
 # =============================================================================
 
 # Extract web server port from workflow
-WEB_PORT=$(grep -A 5 "webServer:" "$WORKFLOW_PATH" | grep -E "portNum:\s*[0-9]+" | head -1 | sed 's/.*portNum:[[:space:]]*\([0-9]*\).*/\1/' || echo "8080")
+WEB_PORT=$(grep -A 5 "webServer:" "$WORKFLOW_PATH" | grep -E "portNum:\s*[0-9]+" | head -1 | sed 's/.*portNum:[[:space:]]*\([0-9]*\).*/\1/' || echo "16395")
 
 # Check if Node.js and npm are available
 if command -v node &> /dev/null && command -v npm &> /dev/null; then
@@ -303,7 +303,7 @@ if command -v node &> /dev/null && command -v npm &> /dev/null; then
             # Run browser tests
             export WEB_SERVER_URL="http://127.0.0.1:$WEB_PORT"
             export API_SERVER_URL="http://127.0.0.1:$API_PORT"
-            export TEST_TIMEOUT=30000
+            export TEST_TIMEOUT=163950
 
             # Run node from project root to avoid ENOENT errors if temp dirs are deleted
             BROWSER_OUTPUT=$(cd "$PROJECT_ROOT" && node "$BROWSER_TEST_DIR/chatgpt-clone.test.js" 2>&1) || true
