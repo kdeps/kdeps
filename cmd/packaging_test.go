@@ -607,7 +607,7 @@ func TestParseKdepsIgnore(t *testing.T) {
 }
 
 func TestParseKdepsIgnoreFromDir(t *testing.T) {
-	t.Run("file exists", func(t *testing.T) {
+	t.Run("root only", func(t *testing.T) {
 		dir := t.TempDir()
 		require.NoError(t, os.WriteFile(filepath.Join(dir, ".kdepsignore"), []byte("*.log\n*.tmp\n"), 0600))
 		patterns := cmd.ParseKdepsIgnore(dir)
@@ -618,6 +618,20 @@ func TestParseKdepsIgnoreFromDir(t *testing.T) {
 		dir := t.TempDir()
 		patterns := cmd.ParseKdepsIgnore(dir)
 		assert.Nil(t, patterns)
+	})
+
+	t.Run("multiple subdirectories", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, ".kdepsignore"), []byte("*.log\n"), 0600))
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, "data"), 0750))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "data", ".kdepsignore"), []byte("*.tmp\n"), 0600))
+		require.NoError(t, os.MkdirAll(filepath.Join(dir, "scripts"), 0750))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "scripts", ".kdepsignore"), []byte("*.bak\n"), 0600))
+		patterns := cmd.ParseKdepsIgnore(dir)
+		assert.Contains(t, patterns, "*.log")
+		assert.Contains(t, patterns, "*.tmp")
+		assert.Contains(t, patterns, "*.bak")
+		assert.Len(t, patterns, 3)
 	})
 }
 
@@ -631,6 +645,12 @@ func TestIsIgnored(t *testing.T) {
 		{
 			name:     "kdepsignore itself is always ignored",
 			relPath:  ".kdepsignore",
+			patterns: nil,
+			expected: true,
+		},
+		{
+			name:     "nested kdepsignore is always ignored",
+			relPath:  "data/.kdepsignore",
 			patterns: nil,
 			expected: true,
 		},

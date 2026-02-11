@@ -167,13 +167,26 @@ func ValidateWorkflowDir(dir string) error {
 	return nil
 }
 
-// ParseKdepsIgnore reads .kdepsignore from a directory and returns patterns.
+// ParseKdepsIgnore walks a directory tree and collects patterns from all .kdepsignore files.
 func ParseKdepsIgnore(dir string) []string {
-	data, err := os.ReadFile(filepath.Join(dir, ".kdepsignore"))
-	if err != nil {
+	var patterns []string
+	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		// Skip dotfiles/dirs except .kdepsignore itself
+		if info.IsDir() && strings.HasPrefix(info.Name(), ".") {
+			return filepath.SkipDir
+		}
+		if info.Name() == ".kdepsignore" {
+			data, readErr := os.ReadFile(path)
+			if readErr == nil {
+				patterns = append(patterns, ParseIgnorePatterns(string(data))...)
+			}
+		}
 		return nil
-	}
-	return ParseIgnorePatterns(string(data))
+	})
+	return patterns
 }
 
 // ParseIgnorePatterns parses .kdepsignore content into a pattern list.
@@ -191,7 +204,7 @@ func ParseIgnorePatterns(content string) []string {
 
 // IsIgnored checks if a relative path matches any .kdepsignore pattern.
 func IsIgnored(relPath string, patterns []string) bool {
-	if relPath == ".kdepsignore" {
+	if filepath.Base(relPath) == ".kdepsignore" {
 		return true
 	}
 	baseName := filepath.Base(relPath)
