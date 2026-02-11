@@ -167,6 +167,71 @@ func ValidateWorkflowDir(dir string) error {
 	return nil
 }
 
+// ParseKdepsIgnore walks a directory tree and collects patterns from all .kdepsignore files.
+func ParseKdepsIgnore(dir string) []string {
+	var patterns []string
+	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		// Skip dotfiles/dirs except .kdepsignore itself
+		if info.IsDir() && strings.HasPrefix(info.Name(), ".") {
+			return filepath.SkipDir
+		}
+		if info.Name() == ".kdepsignore" {
+			data, readErr := os.ReadFile(path)
+			if readErr == nil {
+				patterns = append(patterns, ParseIgnorePatterns(string(data))...)
+			}
+		}
+		return nil
+	})
+	return patterns
+}
+
+// ParseIgnorePatterns parses .kdepsignore content into a pattern list.
+func ParseIgnorePatterns(content string) []string {
+	var patterns []string
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		patterns = append(patterns, line)
+	}
+	return patterns
+}
+
+// IsIgnored checks if a relative path matches any .kdepsignore pattern.
+func IsIgnored(relPath string, patterns []string) bool {
+	if filepath.Base(relPath) == ".kdepsignore" {
+		return true
+	}
+	baseName := filepath.Base(relPath)
+	for _, pattern := range patterns {
+		// Directory pattern (trailing /)
+		if strings.HasSuffix(pattern, "/") {
+			dirPattern := strings.TrimSuffix(pattern, "/")
+			// Check each path component
+			for _, part := range strings.Split(relPath, string(filepath.Separator)) {
+				if matched, _ := filepath.Match(dirPattern, part); matched {
+					return true
+				}
+			}
+			continue
+		}
+		// Match against basename
+		if matched, _ := filepath.Match(pattern, baseName); matched {
+			return true
+		}
+		// Match against full relative path
+		if matched, _ := filepath.Match(pattern, relPath); matched {
+			return true
+		}
+	}
+	return false
+}
+
 // CreatePackageArchive creates a .kdeps tar.gz archive.
 func CreatePackageArchive(sourceDir, archivePath string, _ *domain.Workflow) error {
 	// Create output directory if it doesn't exist
@@ -189,8 +254,11 @@ func CreatePackageArchive(sourceDir, archivePath string, _ *domain.Workflow) err
 	tarWriter := tar.NewWriter(gzipWriter)
 	defer tarWriter.Close()
 
+	// Parse .kdepsignore patterns
+	ignorePatterns := ParseKdepsIgnore(sourceDir)
+
 	// Walk through source directory and add files
-	return filepath.Walk(sourceDir, CreateArchiveWalkFunc(sourceDir, tarWriter))
+	return filepath.Walk(sourceDir, CreateArchiveWalkFunc(sourceDir, tarWriter, ignorePatterns))
 }
 
 // GenerateDockerCompose generates a docker-compose.yml for the package.
@@ -224,13 +292,22 @@ services:
 }
 
 // CreateArchiveWalkFunc returns a walk function for creating the archive.
-func CreateArchiveWalkFunc(sourceDir string, tarWriter *tar.Writer) filepath.WalkFunc {
+func CreateArchiveWalkFunc(sourceDir string, tarWriter *tar.Writer, ignorePatterns []string) filepath.WalkFunc {
 	return func(path string, info os.FileInfo, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
 
 		if ShouldSkipFile(info) {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Check .kdepsignore patterns
+		relPath, relErr := filepath.Rel(sourceDir, path)
+		if relErr == nil && relPath != "." && IsIgnored(relPath, ignorePatterns) {
 			if info.IsDir() {
 				return filepath.SkipDir
 			}

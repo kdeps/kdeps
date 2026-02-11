@@ -38,3 +38,11 @@ jobs:
         env:
           SDK_PATH: ${{ steps.macos_sdk.outputs.path }}
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Trigger build-server redeploy
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.RELEASE_TOKEN }}
+          repository: kdeps/kdeps-io
+          event-type: kdeps-release
+          client-payload: '{"version": "${{ github.ref_name }}"}'
