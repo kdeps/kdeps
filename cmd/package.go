@@ -170,9 +170,9 @@ func ValidateWorkflowDir(dir string) error {
 // ParseKdepsIgnore walks a directory tree and collects patterns from all .kdepsignore files.
 func ParseKdepsIgnore(dir string) []string {
 	var patterns []string
-	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return nil
+			return err
 		}
 		// Skip dotfiles/dirs except .kdepsignore itself
 		if info.IsDir() && strings.HasPrefix(info.Name(), ".") {
