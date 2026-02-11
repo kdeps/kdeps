@@ -343,7 +343,7 @@ func TestCreateArchiveWalkFunc(t *testing.T) {
 	defer tarWriter.Close()
 
 	sourceDir := t.TempDir()
-	walkFunc := cmd.CreateArchiveWalkFunc(sourceDir, tarWriter)
+	walkFunc := cmd.CreateArchiveWalkFunc(sourceDir, tarWriter, []string{})
 
 	// Create test files
 	require.NoError(t, os.WriteFile(filepath.Join(sourceDir, "workflow.yaml"), []byte("workflow"), 0600))
@@ -560,9 +560,191 @@ func TestCreateArchiveWalkFunc_ErrorHandling(t *testing.T) {
 	defer file.Close()
 
 	// This should fail when trying to write to the tar archive
-	walkFunc := cmd.CreateArchiveWalkFunc(sourceDir, tarWriter)
+	walkFunc := cmd.CreateArchiveWalkFunc(sourceDir, tarWriter, []string{})
 	err = walkFunc(testFile, &mockFileInfo{name: "test.txt", isDir: false}, nil)
 	require.Error(t, err)
+}
+
+func TestParseKdepsIgnore(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		expected []string
+	}{
+		{
+			name:     "empty file",
+			content:  "",
+			expected: nil,
+		},
+		{
+			name:     "comments and blanks",
+			content:  "# comment\n\n# another comment\n",
+			expected: nil,
+		},
+		{
+			name:     "simple patterns",
+			content:  "*.log\n*.tmp\nsecrets.json\n",
+			expected: []string{"*.log", "*.tmp", "secrets.json"},
+		},
+		{
+			name:     "mixed with comments and blanks",
+			content:  "# Logs\n*.log\n\n# Temp files\n*.tmp\n\nnode_modules/\n",
+			expected: []string{"*.log", "*.tmp", "node_modules/"},
+		},
+		{
+			name:     "whitespace trimmed",
+			content:  "  *.log  \n  *.tmp\n",
+			expected: []string{"*.log", "*.tmp"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := cmd.ParseIgnorePatterns(tt.content)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestParseKdepsIgnoreFromDir(t *testing.T) {
+	t.Run("file exists", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, ".kdepsignore"), []byte("*.log\n*.tmp\n"), 0600))
+		patterns := cmd.ParseKdepsIgnore(dir)
+		assert.Equal(t, []string{"*.log", "*.tmp"}, patterns)
+	})
+
+	t.Run("file does not exist", func(t *testing.T) {
+		dir := t.TempDir()
+		patterns := cmd.ParseKdepsIgnore(dir)
+		assert.Nil(t, patterns)
+	})
+}
+
+func TestIsIgnored(t *testing.T) {
+	tests := []struct {
+		name     string
+		relPath  string
+		patterns []string
+		expected bool
+	}{
+		{
+			name:     "kdepsignore itself is always ignored",
+			relPath:  ".kdepsignore",
+			patterns: nil,
+			expected: true,
+		},
+		{
+			name:     "wildcard match on basename",
+			relPath:  "data/test.log",
+			patterns: []string{"*.log"},
+			expected: true,
+		},
+		{
+			name:     "no match",
+			relPath:  "workflow.yaml",
+			patterns: []string{"*.log", "*.tmp"},
+			expected: false,
+		},
+		{
+			name:     "specific file match",
+			relPath:  "secrets.json",
+			patterns: []string{"secrets.json"},
+			expected: true,
+		},
+		{
+			name:     "directory pattern",
+			relPath:  "node_modules/foo.js",
+			patterns: []string{"node_modules/"},
+			expected: true,
+		},
+		{
+			name:     "nested directory pattern",
+			relPath:  "data/node_modules/package.json",
+			patterns: []string{"node_modules/"},
+			expected: true,
+		},
+		{
+			name:     "full path pattern match",
+			relPath:  "data/cache/temp.dat",
+			patterns: []string{"data/cache/*"},
+			expected: true,
+		},
+		{
+			name:     "question mark wildcard",
+			relPath:  "test-a.yaml",
+			patterns: []string{"test-?.yaml"},
+			expected: true,
+		},
+		{
+			name:     "empty patterns",
+			relPath:  "workflow.yaml",
+			patterns: []string{},
+			expected: false,
+		},
+		{
+			name:     "nested file basename match",
+			relPath:  "resources/test.bak",
+			patterns: []string{"*.bak"},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := cmd.IsIgnored(tt.relPath, tt.patterns)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestCreatePackageArchiveWithKdepsignore(t *testing.T) {
+	sourceDir := t.TempDir()
+	archivePath := filepath.Join(t.TempDir(), "test.kdeps")
+
+	// Create test files
+	require.NoError(t, os.WriteFile(filepath.Join(sourceDir, "workflow.yaml"), []byte("test workflow"), 0600))
+	require.NoError(t, os.Mkdir(filepath.Join(sourceDir, "resources"), 0750))
+	require.NoError(t, os.WriteFile(filepath.Join(sourceDir, "resources", "test.yaml"), []byte("resource"), 0600))
+	require.NoError(t, os.Mkdir(filepath.Join(sourceDir, "data"), 0750))
+	require.NoError(t, os.WriteFile(filepath.Join(sourceDir, "data", "keep.txt"), []byte("keep"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(sourceDir, "data", "debug.log"), []byte("log"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(sourceDir, "data", "temp.tmp"), []byte("tmp"), 0600))
+
+	// Create .kdepsignore
+	ignoreContent := "# Ignore log and tmp files\n*.log\n*.tmp\n"
+	require.NoError(t, os.WriteFile(filepath.Join(sourceDir, ".kdepsignore"), []byte(ignoreContent), 0600))
+
+	err := cmd.CreatePackageArchive(sourceDir, archivePath, &domain.Workflow{})
+	require.NoError(t, err)
+
+	// Read archive and verify contents
+	file, err := os.Open(archivePath)
+	require.NoError(t, err)
+	defer file.Close()
+
+	gzipReader, err := gzip.NewReader(file)
+	require.NoError(t, err)
+	defer gzipReader.Close()
+
+	tarReader := tar.NewReader(gzipReader)
+
+	var foundFiles []string
+	for {
+		header, nextErr := tarReader.Next()
+		if errors.Is(nextErr, io.EOF) {
+			break
+		}
+		require.NoError(t, nextErr)
+		foundFiles = append(foundFiles, header.Name)
+	}
+
+	assert.Contains(t, foundFiles, "workflow.yaml")
+	assert.Contains(t, foundFiles, "resources/test.yaml")
+	assert.Contains(t, foundFiles, "data/keep.txt")
+	assert.NotContains(t, foundFiles, "data/debug.log")
+	assert.NotContains(t, foundFiles, "data/temp.tmp")
+	assert.NotContains(t, foundFiles, ".kdepsignore")
 }
 
 func TestPackageWorkflow(t *testing.T) {
