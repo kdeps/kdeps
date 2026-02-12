@@ -1,0 +1,47 @@
+// kdeps WASM bootstrap — auto-generated, do not edit.
+// Loads the Go WASM binary, initializes the workflow, and exposes window.kdeps API.
+(async function() {
+    const __kdepsWorkflowYAML = `{{.WorkflowYAML}}`;
+
+    try {
+        if (typeof WebAssembly === 'undefined') {
+            console.error('[kdeps] WebAssembly is not supported in this browser.');
+            return;
+        }
+
+        const go = new Go();
+        const result = await WebAssembly.instantiateStreaming(
+            fetch('kdeps.wasm'),
+            go.importObject
+        );
+
+        go.run(result.instance);
+
+        // Wait a tick for Go to register global functions.
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        // Initialize with the embedded workflow.
+        await kdepsInit(__kdepsWorkflowYAML);
+
+        // Expose the kdeps API on window.
+        window.kdeps = {
+            execute: function(input) {
+                var inputJSON = typeof input === 'string' ? input : JSON.stringify(input);
+                return kdepsExecute(inputJSON);
+            },
+            stream: function(input, callback) {
+                var inputJSON = typeof input === 'string' ? input : JSON.stringify(input);
+                return kdepsExecute(inputJSON, callback);
+            },
+            validate: function() {
+                return kdepsValidate(__kdepsWorkflowYAML);
+            }
+        };
+
+        // Dispatch a custom event so user scripts can detect readiness.
+        window.dispatchEvent(new Event('kdeps:ready'));
+        console.log('[kdeps] WASM runtime ready.');
+    } catch (err) {
+        console.error('[kdeps] Init error:', err);
+    }
+})();

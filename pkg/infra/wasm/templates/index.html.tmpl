@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KDeps App</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; color: #1a1a1a; background: #fafafa; }
+        #kdeps-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; gap: 1rem; }
+        #kdeps-loading .spinner { width: 40px; height: 40px; border: 3px solid #e5e7eb; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #kdeps-loading .status { color: #6b7280; font-size: 0.875rem; }
+        #kdeps-app { display: none; max-width: 600px; margin: 2rem auto; padding: 0 1rem; }
+        #kdeps-app.ready { display: block; }
+    </style>
+</head>
+<body>
+    <div id="kdeps-loading">
+        <div class="spinner"></div>
+        <div class="status">Loading application...</div>
+    </div>
+
+    <div id="kdeps-app">
+        <h1 style="margin-bottom: 1rem;">KDeps App</h1>
+        <form id="kdeps-form" style="display: flex; flex-direction: column; gap: 1rem;">
+            <textarea id="kdeps-input" rows="4" placeholder="Enter your input..." style="padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 1rem; resize: vertical;"></textarea>
+            <button type="submit" style="padding: 0.75rem 1.5rem; background: #3b82f6; color: white; border: none; border-radius: 0.5rem; font-size: 1rem; cursor: pointer;">Submit</button>
+        </form>
+        <div id="kdeps-output" style="margin-top: 2rem; padding: 1rem; background: white; border: 1px solid #e5e7eb; border-radius: 0.5rem; min-height: 100px; white-space: pre-wrap; display: none;"></div>
+    </div>
+
+    <script src="wasm_exec.js"></script>
+    <script src="kdeps-bootstrap.js"></script>
+    <script>
+        // Default form handler — wire up after WASM is ready.
+        window.addEventListener('kdeps:ready', function() {
+            document.getElementById('kdeps-loading').style.display = 'none';
+            document.getElementById('kdeps-app').classList.add('ready');
+
+            var form = document.getElementById('kdeps-form');
+            if (form) {
+                form.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    var input = document.getElementById('kdeps-input').value;
+                    var output = document.getElementById('kdeps-output');
+                    output.style.display = 'block';
+                    output.textContent = 'Processing...';
+                    try {
+                        var result = await window.kdeps.execute({ prompt: input });
+                        output.textContent = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+                    } catch (err) {
+                        output.textContent = 'Error: ' + err.message;
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
