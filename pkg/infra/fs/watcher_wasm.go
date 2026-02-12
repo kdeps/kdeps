@@ -16,35 +16,32 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-//go:build !js
+//go:build js
 
-package exec
+// Package fs provides file system watching capabilities.
+package fs
 
-import (
-	"fmt"
+import "log/slog"
 
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
-)
+// Watcher is a no-op stub for WASM builds (no filesystem watching).
+type Watcher struct{}
 
-// Adapter adapts the ExecExecutor to the ResourceExecutor interface.
-type Adapter struct {
-	executor *Executor
+// NewWatcher creates a no-op file watcher for WASM.
+func NewWatcher() (*Watcher, error) {
+	return &Watcher{}, nil
 }
 
-// NewAdapter creates a new exec adapter.
-func NewAdapter() *Adapter {
-	return &Adapter{
-		executor: NewExecutor(),
-	}
+// NewWatcherWithLogger creates a no-op file watcher for WASM.
+func NewWatcherWithLogger(_ *slog.Logger) (*Watcher, error) {
+	return &Watcher{}, nil
 }
 
-// Execute executes a resource using the exec executor.
-func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
-	execConfig, ok := config.(*domain.ExecConfig)
-	if !ok {
-		return nil, fmt.Errorf("invalid config type for exec executor: %T", config)
-	}
+// Watch is a no-op in WASM builds.
+func (w *Watcher) Watch(_ string, _ func()) error {
+	return nil
+}
 
-	return a.executor.Execute(ctx, execConfig)
+// Close is a no-op in WASM builds.
+func (w *Watcher) Close() error {
+	return nil
 }
