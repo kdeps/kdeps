@@ -16,35 +16,13 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-//go:build !js
+//go:build js
 
-package exec
+package sql
 
+// WASM builds only include pure-Go SQL drivers (no CGO dependencies).
+// SQLite (go-sqlite3), SQL Server, and Oracle are excluded.
 import (
-	"fmt"
-
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
+	_ "github.com/go-sql-driver/mysql" // MySQL driver (pure Go)
+	_ "github.com/lib/pq"              // PostgreSQL driver (pure Go)
 )
-
-// Adapter adapts the ExecExecutor to the ResourceExecutor interface.
-type Adapter struct {
-	executor *Executor
-}
-
-// NewAdapter creates a new exec adapter.
-func NewAdapter() *Adapter {
-	return &Adapter{
-		executor: NewExecutor(),
-	}
-}
-
-// Execute executes a resource using the exec executor.
-func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
-	execConfig, ok := config.(*domain.ExecConfig)
-	if !ok {
-		return nil, fmt.Errorf("invalid config type for exec executor: %T", config)
-	}
-
-	return a.executor.Execute(ctx, execConfig)
-}

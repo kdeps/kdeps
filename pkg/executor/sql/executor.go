@@ -31,12 +31,6 @@ import (
 	"sync"
 	"time"
 
-	_ "github.com/denisenkom/go-mssqldb" // SQL Server driver
-	_ "github.com/go-sql-driver/mysql"   // MySQL driver
-	_ "github.com/lib/pq"                // PostgreSQL driver
-	_ "github.com/mattn/go-sqlite3"      // SQLite driver
-	_ "github.com/sijms/go-ora/v2"       // Oracle driver
-
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
