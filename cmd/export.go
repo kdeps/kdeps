@@ -16,6 +16,8 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
+//go:build !js
+
 // Package cmd provides CLI commands for the KDeps tool.
 package cmd
 

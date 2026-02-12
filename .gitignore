@@ -234,3 +234,4 @@ sqlite3::memory:
 musl-binaries/
 *.raw
 *.iso
+wasm

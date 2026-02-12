@@ -16,35 +16,45 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-//go:build !js
+//go:build js
 
 package exec
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/executor"
 )
 
-// Adapter adapts the ExecExecutor to the ResourceExecutor interface.
-type Adapter struct {
-	executor *Executor
+// ErrNotSupported is returned when exec is called in a WASM environment.
+var ErrNotSupported = errors.New("exec executor is not supported in WASM builds")
+
+// Executor is a stub for WASM builds.
+type Executor struct{}
+
+// NewExecutor creates a stub exec executor for WASM.
+func NewExecutor() *Executor {
+	return &Executor{}
 }
 
-// NewAdapter creates a new exec adapter.
+// Execute returns an error since exec is not supported in WASM.
+func (e *Executor) Execute(
+	_ *executor.ExecutionContext,
+	_ *domain.ExecConfig,
+) (any, error) {
+	return nil, ErrNotSupported
+}
+
+// Adapter is a stub adapter for WASM builds.
+type Adapter struct{}
+
+// NewAdapter creates a stub exec adapter for WASM.
 func NewAdapter() *Adapter {
-	return &Adapter{
-		executor: NewExecutor(),
-	}
+	return &Adapter{}
 }
 
-// Execute executes a resource using the exec executor.
-func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
-	execConfig, ok := config.(*domain.ExecConfig)
-	if !ok {
-		return nil, fmt.Errorf("invalid config type for exec executor: %T", config)
-	}
-
-	return a.executor.Execute(ctx, execConfig)
+// Execute returns an error since exec is not supported in WASM.
+func (a *Adapter) Execute(_ *executor.ExecutionContext, _ any) (any, error) {
+	return nil, ErrNotSupported
 }

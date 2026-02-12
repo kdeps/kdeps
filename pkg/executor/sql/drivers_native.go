@@ -18,33 +18,12 @@
 
 //go:build !js
 
-package exec
+package sql
 
 import (
-	"fmt"
-
-	"github.com/kdeps/kdeps/v2/pkg/domain"
-	"github.com/kdeps/kdeps/v2/pkg/executor"
+	_ "github.com/denisenkom/go-mssqldb" // SQL Server driver
+	_ "github.com/go-sql-driver/mysql"   // MySQL driver
+	_ "github.com/lib/pq"                // PostgreSQL driver
+	_ "github.com/mattn/go-sqlite3"      // SQLite driver (CGO)
+	_ "github.com/sijms/go-ora/v2"       // Oracle driver
 )
-
-// Adapter adapts the ExecExecutor to the ResourceExecutor interface.
-type Adapter struct {
-	executor *Executor
-}
-
-// NewAdapter creates a new exec adapter.
-func NewAdapter() *Adapter {
-	return &Adapter{
-		executor: NewExecutor(),
-	}
-}
-
-// Execute executes a resource using the exec executor.
-func (a *Adapter) Execute(ctx *executor.ExecutionContext, config interface{}) (interface{}, error) {
-	execConfig, ok := config.(*domain.ExecConfig)
-	if !ok {
-		return nil, fmt.Errorf("invalid config type for exec executor: %T", config)
-	}
-
-	return a.executor.Execute(ctx, execConfig)
-}
