@@ -54,15 +54,15 @@ type WorkflowSettings struct {
 	AgentSettings  AgentSettings            `yaml:"agentSettings"`
 	SQLConnections map[string]SQLConnection `yaml:"sqlConnections,omitempty"`
 	Session        *SessionConfig           `yaml:"session,omitempty"`
-	WebApp         *WebAppConfig            `yaml:"webApp,omitempty" json:"webApp,omitempty"`
+	WebApp         *WebAppConfig            `yaml:"webApp,omitempty"         json:"webApp,omitempty"`
 }
 
 // WebAppConfig contains WASM web application configuration.
 type WebAppConfig struct {
-	Enabled     bool   `yaml:"enabled"              json:"enabled"`
-	Title       string `yaml:"title"                json:"title"`
+	Enabled     bool   `yaml:"enabled"               json:"enabled"`
+	Title       string `yaml:"title"                 json:"title"`
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
-	Template    string `yaml:"template"             json:"template"`
+	Template    string `yaml:"template"              json:"template"`
 	Styles      string `yaml:"styles,omitempty"      json:"styles,omitempty"`
 	Scripts     string `yaml:"scripts,omitempty"     json:"scripts,omitempty"`
 }
