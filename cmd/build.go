@@ -23,6 +23,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -544,7 +545,7 @@ func findWASMBinary() (string, error) {
 		return abs, nil
 	}
 
-	return "", fmt.Errorf("kdeps.wasm not found; set KDEPS_WASM_BINARY env var or place it next to the kdeps binary")
+	return "", errors.New("kdeps.wasm not found; set KDEPS_WASM_BINARY env var or place it next to the kdeps binary")
 }
 
 // findWASMExecJS locates the wasm_exec.js file from the Go SDK.
@@ -584,7 +585,7 @@ func findWASMExecJS() (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("wasm_exec.js not found; set KDEPS_WASM_EXEC_JS env var or install Go SDK")
+	return "", errors.New("wasm_exec.js not found; set KDEPS_WASM_EXEC_JS env var or install Go SDK")
 }
 
 // cloudBuild executes a build via kdeps.io cloud infrastructure.
