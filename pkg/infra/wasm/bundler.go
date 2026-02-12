@@ -21,6 +21,7 @@ package wasm
 
 import (
 	"embed"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -43,13 +44,17 @@ type BundleConfig struct {
 	// web server configuration (e.g. "index.html", "styles.css").
 	// These are the user's HTML/CSS/JS files that get served alongside the WASM binary.
 	WebServerFiles map[string]string
+	// APIRoutes lists the API route paths from the workflow's apiServer config.
+	// These are intercepted by the fetch proxy so the WASM runtime handles them.
+	APIRoutes []string
 	// OutputDir is the directory to write the bundle to.
 	OutputDir string
 }
 
 // bootstrapData is passed to the bootstrap.js template.
 type bootstrapData struct {
-	WorkflowYAML string
+	WorkflowYAML  string
+	APIRoutesJSON string
 }
 
 // Bundle creates a static WASM bundle in the output directory.
@@ -122,13 +127,24 @@ func renderBootstrap(config *BundleConfig, distDir string) error {
 	escapedYAML := strings.ReplaceAll(config.WorkflowYAML, "`", "\\`")
 	escapedYAML = strings.ReplaceAll(escapedYAML, "${", "\\${")
 
+	// Serialize API routes to JSON for the fetch interceptor.
+	routesJSON := "[]"
+	if len(config.APIRoutes) > 0 {
+		if b, apiErr := json.Marshal(config.APIRoutes); apiErr == nil {
+			routesJSON = string(b)
+		}
+	}
+
 	outFile, err := os.Create(filepath.Join(distDir, "kdeps-bootstrap.js"))
 	if err != nil {
 		return fmt.Errorf("failed to create bootstrap.js: %w", err)
 	}
 	defer outFile.Close()
 
-	return tmpl.Execute(outFile, bootstrapData{WorkflowYAML: escapedYAML})
+	return tmpl.Execute(outFile, bootstrapData{
+		WorkflowYAML:  escapedYAML,
+		APIRoutesJSON: routesJSON,
+	})
 }
 
 // copyWebServerFiles copies user-provided web server files into the dist directory.
