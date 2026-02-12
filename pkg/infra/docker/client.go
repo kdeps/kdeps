@@ -31,7 +31,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/build"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
@@ -70,12 +70,12 @@ func (c *Client) BuildImage(
 		return errors.New("image name cannot be empty")
 	}
 
-	buildOptions := types.ImageBuildOptions{
+	buildOptions := build.ImageBuildOptions{
 		Context:    buildContext,
 		Dockerfile: dockerfilePath,
 		Tags:       []string{imageName},
 		Remove:     true,
-		Version:    types.BuilderV1,
+		Version:    build.BuilderV1,
 		NoCache:    noCache,
 	}
 
@@ -309,7 +309,7 @@ func (c *Client) ImageSize(ctx context.Context, imageName string) (int64, error)
 		return 0, errors.New("image name cannot be empty")
 	}
 
-	inspect, _, err := c.Cli.ImageInspectWithRaw(ctx, imageName)
+	inspect, err := c.Cli.ImageInspect(ctx, imageName)
 	if err != nil {
 		return 0, fmt.Errorf("failed to inspect image %s: %w", imageName, err)
 	}
