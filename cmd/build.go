@@ -25,15 +25,18 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
+	goyaml "gopkg.in/yaml.v3"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/infra/cloud"
 	"github.com/kdeps/kdeps/v2/pkg/infra/docker"
 	"github.com/kdeps/kdeps/v2/pkg/infra/iso"
+	wasmPkg "github.com/kdeps/kdeps/v2/pkg/infra/wasm"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/parser/yaml"
 	"github.com/kdeps/kdeps/v2/pkg/validator"
@@ -46,6 +49,7 @@ type BuildFlags struct {
 	GPU            string
 	NoCache        bool
 	Cloud          bool
+	WASM           bool
 }
 
 // newBuildCmd creates the build command.
@@ -105,6 +109,8 @@ Examples:
 		BoolVar(&flags.NoCache, "no-cache", false, "Do not use cache when building the image")
 	buildCmd.Flags().
 		BoolVar(&flags.Cloud, "cloud", false, "Build using kdeps.io cloud infrastructure")
+	buildCmd.Flags().
+		BoolVar(&flags.WASM, "wasm", false, "Build as WASM static web app (browser-side execution)")
 
 	return buildCmd
 }
@@ -322,6 +328,10 @@ func buildImageInternal(_ *cobra.Command, args []string, flags *BuildFlags) erro
 		return cloudBuild(args[0], "docker", "amd64", flags.NoCache)
 	}
 
+	if flags.WASM {
+		return buildWASMImage(args[0], flags)
+	}
+
 	packagePath := args[0]
 
 	fmt.Fprintf(os.Stdout, "Building Docker image from: %s\n\n", packagePath)
@@ -376,6 +386,205 @@ func buildImageInternal(_ *cobra.Command, args []string, flags *BuildFlags) erro
 
 	// Build image
 	return performDockerBuild(builder, workflow, packagePath, flags)
+}
+
+// buildWASMImage builds a WASM static web app from a workflow package.
+// It bundles the pre-compiled WASM binary with the workflow YAML and web server files
+// into a lightweight nginx Docker image.
+func buildWASMImage(packagePath string, flags *BuildFlags) error {
+	fmt.Fprintf(os.Stdout, "Building WASM web app from: %s\n\n", packagePath)
+
+	// Resolve workflow path and package directory.
+	workflowPath, packageDir, cleanupFunc, err := resolveBuildWorkflowPaths(packagePath)
+	if err != nil {
+		return err
+	}
+	if cleanupFunc != nil {
+		defer cleanupFunc()
+	}
+
+	// Parse workflow — this validates the YAML and loads resources from resources/ dir.
+	workflow, err := parseWorkflow(workflowPath)
+	if err != nil {
+		return err
+	}
+
+	// Marshal the combined workflow (with inline resources) to a single YAML string
+	// for embedding in the JavaScript bootstrap.
+	combinedYAML, err := goyaml.Marshal(workflow)
+	if err != nil {
+		return fmt.Errorf("failed to marshal combined workflow YAML: %w", err)
+	}
+
+	// Collect web server files from the data/ directory.
+	webServerFiles, err := collectWebServerFiles(packageDir)
+	if err != nil {
+		return fmt.Errorf("failed to collect web server files: %w", err)
+	}
+
+	// Locate pre-compiled WASM assets.
+	wasmBinary, err := findWASMBinary()
+	if err != nil {
+		return err
+	}
+	wasmExecJS, err := findWASMExecJS()
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(os.Stdout, "WASM binary: %s\n", wasmBinary)
+	fmt.Fprintf(os.Stdout, "wasm_exec.js: %s\n", wasmExecJS)
+	fmt.Fprintf(os.Stdout, "Web server files: %d\n\n", len(webServerFiles))
+
+	// Create temporary output directory for the bundle.
+	outputDir, err := os.MkdirTemp("", "kdeps-wasm-bundle-*")
+	if err != nil {
+		return fmt.Errorf("failed to create output directory: %w", err)
+	}
+	defer os.RemoveAll(outputDir)
+
+	// Run the WASM bundler.
+	bundleConfig := &wasmPkg.BundleConfig{
+		WASMBinaryPath: wasmBinary,
+		WASMExecJSPath: wasmExecJS,
+		WorkflowYAML:   string(combinedYAML),
+		WebServerFiles: webServerFiles,
+		OutputDir:      outputDir,
+	}
+
+	fmt.Fprintln(os.Stdout, "✓ Bundling WASM app...")
+	if err := wasmPkg.Bundle(bundleConfig); err != nil {
+		return fmt.Errorf("WASM bundling failed: %w", err)
+	}
+
+	// Build Docker image (nginx serving the static bundle).
+	imageTag := flags.Tag
+	if imageTag == "" {
+		imageTag = "kdeps-wasm:latest"
+	}
+
+	fmt.Fprintln(os.Stdout, "✓ Building Docker image...")
+
+	dockerArgs := []string{"build", "-t", imageTag}
+	if flags.NoCache {
+		dockerArgs = append(dockerArgs, "--no-cache")
+	}
+	dockerArgs = append(dockerArgs, outputDir)
+
+	cmd := exec.Command("docker", dockerArgs...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("Docker build failed: %w", err)
+	}
+
+	fmt.Fprintln(os.Stdout)
+	fmt.Fprintln(os.Stdout, "✅ WASM web app built successfully!")
+	fmt.Fprintf(os.Stdout, "  Image: %s\n\n", imageTag)
+	fmt.Fprintln(os.Stdout, "Run with:")
+	fmt.Fprintf(os.Stdout, "  docker run -p 80:80 %s\n", imageTag)
+
+	return nil
+}
+
+// collectWebServerFiles reads all files under the data/ directory in the package
+// and returns them as a map of relative path -> content for the WASM bundler.
+func collectWebServerFiles(packageDir string) (map[string]string, error) {
+	files := make(map[string]string)
+	dataDir := filepath.Join(packageDir, "data")
+
+	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
+		return files, nil
+	}
+
+	err := filepath.Walk(dataDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+
+		relPath, relErr := filepath.Rel(packageDir, path)
+		if relErr != nil {
+			return relErr
+		}
+
+		content, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return readErr
+		}
+
+		files[relPath] = string(content)
+		return nil
+	})
+
+	return files, err
+}
+
+// findWASMBinary locates the pre-compiled kdeps.wasm binary.
+// Search order: KDEPS_WASM_BINARY env var, next to kdeps binary, current directory.
+func findWASMBinary() (string, error) {
+	if p := os.Getenv("KDEPS_WASM_BINARY"); p != "" {
+		if _, err := os.Stat(p); err == nil {
+			return p, nil
+		}
+	}
+
+	if exePath, err := os.Executable(); err == nil {
+		candidate := filepath.Join(filepath.Dir(exePath), "kdeps.wasm")
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate, nil
+		}
+	}
+
+	if _, err := os.Stat("kdeps.wasm"); err == nil {
+		abs, _ := filepath.Abs("kdeps.wasm")
+		return abs, nil
+	}
+
+	return "", fmt.Errorf("kdeps.wasm not found; set KDEPS_WASM_BINARY env var or place it next to the kdeps binary")
+}
+
+// findWASMExecJS locates the wasm_exec.js file from the Go SDK.
+// Search order: KDEPS_WASM_EXEC_JS env var, next to kdeps binary, current directory, Go SDK.
+func findWASMExecJS() (string, error) {
+	if p := os.Getenv("KDEPS_WASM_EXEC_JS"); p != "" {
+		if _, err := os.Stat(p); err == nil {
+			return p, nil
+		}
+	}
+
+	if exePath, err := os.Executable(); err == nil {
+		candidate := filepath.Join(filepath.Dir(exePath), "wasm_exec.js")
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate, nil
+		}
+	}
+
+	if _, err := os.Stat("wasm_exec.js"); err == nil {
+		abs, _ := filepath.Abs("wasm_exec.js")
+		return abs, nil
+	}
+
+	// Check Go SDK locations via "go env GOROOT".
+	if gorootBytes, goErr := exec.Command("go", "env", "GOROOT").Output(); goErr == nil {
+		goroot := strings.TrimSpace(string(gorootBytes))
+		if goroot != "" {
+			candidates := []string{
+				filepath.Join(goroot, "misc", "wasm", "wasm_exec.js"),
+				filepath.Join(goroot, "lib", "wasm", "wasm_exec.js"),
+			}
+			for _, c := range candidates {
+				if _, err := os.Stat(c); err == nil {
+					return c, nil
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("wasm_exec.js not found; set KDEPS_WASM_EXEC_JS env var or install Go SDK")
 }
 
 // cloudBuild executes a build via kdeps.io cloud infrastructure.
