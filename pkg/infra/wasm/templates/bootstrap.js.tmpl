@@ -1,7 +1,9 @@
 // kdeps WASM bootstrap — auto-generated, do not edit.
 // Loads the Go WASM binary, initializes the workflow, and exposes window.kdeps API.
+// Intercepts fetch() calls to workflow API routes and routes them to the WASM runtime.
 (async function() {
     const __kdepsWorkflowYAML = `{{.WorkflowYAML}}`;
+    const __kdepsAPIRoutes = {{.APIRoutesJSON}};
 
     try {
         if (typeof WebAssembly === 'undefined') {
@@ -38,10 +40,83 @@
             }
         };
 
+        // Install fetch interceptor for API routes so the user's HTML can call
+        // the same API paths it would in a Docker deployment, but requests are
+        // handled in-browser by the WASM runtime instead of hitting a server.
+        if (__kdepsAPIRoutes.length > 0) {
+            var _originalFetch = window.fetch;
+            window.fetch = function(resource, init) {
+                try {
+                    var url = typeof resource === 'string' ? resource : (resource instanceof Request ? resource.url : String(resource));
+                    var parsed = new URL(url, window.location.origin);
+                    var pathname = parsed.pathname;
+
+                    for (var i = 0; i < __kdepsAPIRoutes.length; i++) {
+                        if (pathname === __kdepsAPIRoutes[i] || pathname.startsWith(__kdepsAPIRoutes[i] + '/')) {
+                            return __kdepsHandleAPIRequest(pathname, init);
+                        }
+                    }
+                } catch (e) {
+                    // URL parsing failed — fall through to real fetch.
+                }
+                return _originalFetch.call(window, resource, init);
+            };
+            console.log('[kdeps] Fetch interceptor installed for', __kdepsAPIRoutes.length, 'API route(s).');
+        }
+
         // Dispatch a custom event so user scripts can detect readiness.
         window.dispatchEvent(new Event('kdeps:ready'));
         console.log('[kdeps] WASM runtime ready.');
     } catch (err) {
         console.error('[kdeps] Init error:', err);
+    }
+
+    // Handle an intercepted API request by routing it to the WASM runtime.
+    async function __kdepsHandleAPIRequest(pathname, init) {
+        var method = (init && init.method) ? init.method.toUpperCase() : 'GET';
+        var headers = {};
+        if (init && init.headers) {
+            var h = new Headers(init.headers);
+            h.forEach(function(v, k) { headers[k] = v; });
+        }
+
+        var body = null;
+        if (init && init.body) {
+            try {
+                body = typeof init.body === 'string' ? JSON.parse(init.body) : init.body;
+            } catch (e) {
+                body = { _raw: init.body };
+            }
+        }
+
+        // Build request context matching executor.RequestContext.
+        var requestCtx = {
+            _kdeps_request: true,
+            method: method,
+            path: pathname,
+            headers: headers,
+            query: {},
+            body: body || {}
+        };
+
+        // Parse query parameters.
+        try {
+            var parsed = new URL(pathname, window.location.origin);
+            parsed.searchParams.forEach(function(v, k) { requestCtx.query[k] = v; });
+        } catch (e) { /* ignore */ }
+
+        try {
+            var result = await window.kdeps.execute(requestCtx);
+            var responseBody = typeof result === 'string' ? result : JSON.stringify(result);
+            return new Response(responseBody, {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        } catch (err) {
+            return new Response(JSON.stringify({ error: err.message || String(err) }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
     }
 })();

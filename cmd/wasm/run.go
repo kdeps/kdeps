@@ -72,6 +72,8 @@ func NewRuntime(
 }
 
 // Execute runs the workflow with the given input JSON.
+// The input can be either a plain body object (e.g. {"prompt": "Hello"}) or a full
+// request context from the fetch interceptor (with _kdeps_request, method, path, etc.).
 func (r *Runtime) Execute(inputJSON string, callback *js.Value) (interface{}, error) {
 	// Parse input into request context.
 	var req interface{}
@@ -81,12 +83,26 @@ func (r *Runtime) Execute(inputJSON string, callback *js.Value) (interface{}, er
 			return nil, fmt.Errorf("failed to parse input JSON: %w", err)
 		}
 
-		req = &executor.RequestContext{
-			Method:  "POST",
-			Path:    "/",
-			Headers: make(map[string]string),
-			Query:   make(map[string]string),
-			Body:    inputData,
+		// Check if this is a full request context from the fetch interceptor.
+		if _, ok := inputData["_kdeps_request"]; ok {
+			rc := &executor.RequestContext{
+				Method:  stringFromMap(inputData, "method", "POST"),
+				Path:    stringFromMap(inputData, "path", "/"),
+				Headers: stringMapFromMap(inputData, "headers"),
+				Query:   stringMapFromMap(inputData, "query"),
+			}
+			if body, ok := inputData["body"].(map[string]interface{}); ok {
+				rc.Body = body
+			}
+			req = rc
+		} else {
+			req = &executor.RequestContext{
+				Method:  "POST",
+				Path:    "/",
+				Headers: make(map[string]string),
+				Query:   make(map[string]string),
+				Body:    inputData,
+			}
 		}
 	}
 
@@ -149,6 +165,31 @@ func ValidateWorkflow(yamlStr string) []string {
 	}
 
 	return errors
+}
+
+// stringFromMap extracts a string from a map with a default fallback.
+func stringFromMap(m map[string]interface{}, key, fallback string) string {
+	if v, ok := m[key]; ok {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return fallback
+}
+
+// stringMapFromMap extracts a map[string]string from a map[string]interface{}.
+func stringMapFromMap(m map[string]interface{}, key string) map[string]string {
+	result := make(map[string]string)
+	if v, ok := m[key]; ok {
+		if sub, ok := v.(map[string]interface{}); ok {
+			for k, val := range sub {
+				if s, ok := val.(string); ok {
+					result[k] = s
+				}
+			}
+		}
+	}
+	return result
 }
 
 // validateWASMResource checks a resource for WASM compatibility.

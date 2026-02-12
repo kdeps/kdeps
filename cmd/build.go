@@ -444,7 +444,17 @@ func buildWASMImage(ctx context.Context, packagePath string, flags *BuildFlags) 
 	}
 	defer os.RemoveAll(outputDir)
 
-	if err = bundleWASMApp(wasmBinary, wasmExecJS, string(combinedYAML), webServerFiles, outputDir); err != nil {
+	// Extract API routes from the workflow for the fetch interceptor.
+	var apiRoutes []string
+	if workflow.Settings.APIServer != nil {
+		for _, route := range workflow.Settings.APIServer.Routes {
+			if route.Path != "" {
+				apiRoutes = append(apiRoutes, route.Path)
+			}
+		}
+	}
+
+	if err = bundleWASMApp(wasmBinary, wasmExecJS, string(combinedYAML), webServerFiles, apiRoutes, outputDir); err != nil {
 		return err
 	}
 
@@ -467,13 +477,19 @@ func buildWASMImage(ctx context.Context, packagePath string, flags *BuildFlags) 
 	return nil
 }
 
-func bundleWASMApp(wasmBinary, wasmExecJS, yaml string, files map[string]string, outDir string) error {
+func bundleWASMApp(
+	wasmBinary, wasmExecJS, yaml string,
+	files map[string]string,
+	apiRoutes []string,
+	outDir string,
+) error {
 	// Run the WASM bundler.
 	bundleConfig := &wasmPkg.BundleConfig{
 		WASMBinaryPath: wasmBinary,
 		WASMExecJSPath: wasmExecJS,
 		WorkflowYAML:   yaml,
 		WebServerFiles: files,
+		APIRoutes:      apiRoutes,
 		OutputDir:      outDir,
 	}
 
