@@ -467,10 +467,10 @@ func TestExecutor_Execute_MissingModel(t *testing.T) {
 	assert.Contains(t, resultMap, "error")
 	errorMsg := resultMap["error"].(string)
 	// Accept either "ollama API error" (when Ollama is running) or connection errors (when not running)
-	assert.True(t, 
-		strings.Contains(errorMsg, "ollama API error") || 
-		strings.Contains(errorMsg, "connection refused") ||
-		strings.Contains(errorMsg, "dial tcp"),
+	assert.True(t,
+		strings.Contains(errorMsg, "ollama API error") ||
+			strings.Contains(errorMsg, "connection refused") ||
+			strings.Contains(errorMsg, "dial tcp"),
 		"Expected error to contain 'ollama API error' or connection error, got: %s", errorMsg)
 }
 

@@ -34,7 +34,7 @@ import (
 
 func TestNewClient(t *testing.T) {
 	client := cloud.NewClient("test-api-key", "https://api.example.com")
-	
+
 	assert.NotNil(t, client)
 	assert.Equal(t, "test-api-key", client.APIKey)
 	assert.Equal(t, "https://api.example.com", client.APIURL)
@@ -47,7 +47,7 @@ func TestClient_Whoami_Success(t *testing.T) {
 		// Verify request
 		assert.Equal(t, "/api/cli/whoami", r.URL.Path)
 		assert.Equal(t, "Bearer test-key", r.Header.Get("Authorization"))
-		
+
 		// Return success response
 		response := cloud.WhoamiResponse{
 			UserID: "user123",
@@ -232,7 +232,7 @@ func TestClient_StartBuild_Forbidden(t *testing.T) {
 func TestClient_PollBuild_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/cli/builds/build123", r.URL.Path)
-		
+
 		response := cloud.BuildStatus{
 			Status:   "completed",
 			ImageRef: "registry.example.com/image:latest",
@@ -268,7 +268,7 @@ func TestClient_PollBuild_Unauthorized(t *testing.T) {
 func TestClient_ListWorkflows_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/cli/workflows", r.URL.Path)
-		
+
 		workflows := []cloud.WorkflowEntry{
 			{
 				ID:          "wf1",
@@ -301,7 +301,7 @@ func TestClient_ListWorkflows_Success(t *testing.T) {
 func TestClient_ListDeployments_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/cli/deployments", r.URL.Path)
-		
+
 		deployments := []cloud.DeploymentEntry{
 			{
 				ID:           "dep1",

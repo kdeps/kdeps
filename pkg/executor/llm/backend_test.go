@@ -270,11 +270,11 @@ func TestNewBackendRegistry(t *testing.T) {
 
 func TestOpenAIBackend_BuildRequest(t *testing.T) {
 	backend := &llm.OpenAIBackend{}
-	
+
 	messages := []map[string]interface{}{
 		{"role": "user", "content": "Hello"},
 	}
-	
+
 	tests := []struct {
 		name   string
 		config llm.ChatRequestConfig
@@ -338,7 +338,7 @@ func TestOpenAIBackend_BuildRequest(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req, err := backend.BuildRequest("test-model", messages, tt.config)
@@ -352,27 +352,27 @@ func TestOpenAIBackend_BuildRequest(t *testing.T) {
 
 func TestAnthropicBackend_BuildRequest(t *testing.T) {
 	backend := &llm.AnthropicBackend{}
-	
+
 	messages := []map[string]interface{}{
 		{"role": "user", "content": "Hello"},
 	}
-	
+
 	req, err := backend.BuildRequest("claude-3-opus", messages, llm.ChatRequestConfig{
 		ContextLength: 4096,
 	})
-	
+
 	if err != nil {
 		t.Fatalf("BuildRequest failed: %v", err)
 	}
-	
+
 	if req["model"] != "claude-3-opus" {
 		t.Errorf("Expected model 'claude-3-opus', got %v", req["model"])
 	}
-	
+
 	if req["max_tokens"] != 4096 {
 		t.Errorf("Expected max_tokens 4096, got %v", req["max_tokens"])
 	}
-	
+
 	// Anthropic doesn't have a stream field in the request
 	if _, hasStream := req["stream"]; hasStream {
 		t.Error("Anthropic request should not have stream field")
@@ -381,26 +381,26 @@ func TestAnthropicBackend_BuildRequest(t *testing.T) {
 
 func TestGoogleBackend_BuildRequest(t *testing.T) {
 	backend := &llm.GoogleBackend{}
-	
+
 	messages := []map[string]interface{}{
 		{"role": "user", "content": "Test message"},
 	}
-	
+
 	req, err := backend.BuildRequest("gemini-pro", messages, llm.ChatRequestConfig{})
-	
+
 	if err != nil {
 		t.Fatalf("BuildRequest failed: %v", err)
 	}
-	
+
 	// Google uses OpenAI-compatible format
 	if req["model"] != "gemini-pro" {
 		t.Errorf("Expected model 'gemini-pro', got %v", req["model"])
 	}
-	
+
 	if req["stream"] != false {
 		t.Error("Expected stream to be false")
 	}
-	
+
 	if msgs, ok := req["messages"].([]map[string]interface{}); !ok {
 		t.Error("Expected 'messages' field in request")
 	} else if len(msgs) == 0 {
@@ -410,17 +410,17 @@ func TestGoogleBackend_BuildRequest(t *testing.T) {
 
 func TestCohereBackend_BuildRequest(t *testing.T) {
 	backend := &llm.CohereBackend{}
-	
+
 	messages := []map[string]interface{}{
 		{"role": "user", "content": "Hello Cohere"},
 	}
-	
+
 	req, err := backend.BuildRequest("command-r-plus", messages, llm.ChatRequestConfig{})
-	
+
 	if err != nil {
 		t.Fatalf("BuildRequest failed: %v", err)
 	}
-	
+
 	if req["model"] != "command-r-plus" {
 		t.Errorf("Expected model 'command-r-plus', got %v", req["model"])
 	}
@@ -428,10 +428,10 @@ func TestCohereBackend_BuildRequest(t *testing.T) {
 
 func TestOpenAIBackend_ChatEndpoint(t *testing.T) {
 	backend := &llm.OpenAIBackend{}
-	
+
 	endpoint := backend.ChatEndpoint("https://api.openai.com")
 	expected := "https://api.openai.com/v1/chat/completions"
-	
+
 	if endpoint != expected {
 		t.Errorf("Expected endpoint '%s', got '%s'", expected, endpoint)
 	}
@@ -439,10 +439,10 @@ func TestOpenAIBackend_ChatEndpoint(t *testing.T) {
 
 func TestAnthropicBackend_ChatEndpoint(t *testing.T) {
 	backend := &llm.AnthropicBackend{}
-	
+
 	endpoint := backend.ChatEndpoint("https://api.anthropic.com")
 	expected := "https://api.anthropic.com/v1/messages"
-	
+
 	if endpoint != expected {
 		t.Errorf("Expected endpoint '%s', got '%s'", expected, endpoint)
 	}
@@ -450,9 +450,9 @@ func TestAnthropicBackend_ChatEndpoint(t *testing.T) {
 
 func TestGoogleBackend_ChatEndpoint(t *testing.T) {
 	backend := &llm.GoogleBackend{}
-	
+
 	endpoint := backend.ChatEndpoint("https://generativelanguage.googleapis.com")
-	
+
 	// Google endpoint includes model name, so just check it contains the base
 	if endpoint == "" {
 		t.Error("Expected non-empty endpoint")
@@ -461,12 +461,12 @@ func TestGoogleBackend_ChatEndpoint(t *testing.T) {
 
 func TestOpenAIBackend_GetAPIKeyHeader(t *testing.T) {
 	backend := &llm.OpenAIBackend{}
-	
+
 	tests := []struct {
-		name     string
-		apiKey   string
-		wantKey  string
-		wantVal  string
+		name    string
+		apiKey  string
+		wantKey string
+		wantVal string
 	}{
 		{
 			name:    "with provided key",
@@ -481,7 +481,7 @@ func TestOpenAIBackend_GetAPIKeyHeader(t *testing.T) {
 			wantVal: "",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			key, val := backend.GetAPIKeyHeader(tt.apiKey)
@@ -497,9 +497,9 @@ func TestOpenAIBackend_GetAPIKeyHeader(t *testing.T) {
 
 func TestAnthropicBackend_GetAPIKeyHeader(t *testing.T) {
 	backend := &llm.AnthropicBackend{}
-	
+
 	key, val := backend.GetAPIKeyHeader("test-key")
-	
+
 	if key != "x-api-key" {
 		t.Errorf("Expected key 'x-api-key', got '%s'", key)
 	}
@@ -523,7 +523,7 @@ func TestBackend_Names(t *testing.T) {
 		{&llm.GroqBackend{}, "groq"},
 		{&llm.DeepSeekBackend{}, "deepseek"},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.expectedName, func(t *testing.T) {
 			if tt.backend.Name() != tt.expectedName {
@@ -546,7 +546,7 @@ func TestBackend_DefaultURLs(t *testing.T) {
 		{&llm.GroqBackend{}, "https://api.groq.com"},
 		{&llm.DeepSeekBackend{}, "https://api.deepseek.com"},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.backend.Name(), func(t *testing.T) {
 			if tt.backend.DefaultURL() != tt.expectedURL {

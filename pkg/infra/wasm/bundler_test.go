@@ -97,7 +97,7 @@ func TestBundle_WithCustomHTML(t *testing.T) {
 
 	content, err := os.ReadFile(indexPath)
 	require.NoError(t, err)
-	
+
 	// Should contain original content plus injected bootstrap scripts
 	assert.Contains(t, string(content), "Custom Page")
 	assert.Contains(t, string(content), "wasm_exec.js")
@@ -208,8 +208,8 @@ func TestBundle_SpecialCharactersInYAML(t *testing.T) {
 
 	// Check that special characters are escaped
 	contentStr := string(content)
-	assert.Contains(t, contentStr, "\\`")    // Escaped backtick
-	assert.Contains(t, contentStr, "\\${")   // Escaped template literal
+	assert.Contains(t, contentStr, "\\`")  // Escaped backtick
+	assert.Contains(t, contentStr, "\\${") // Escaped template literal
 }
 
 func TestBundle_MultipleWebServerFiles(t *testing.T) {
@@ -226,9 +226,9 @@ func TestBundle_MultipleWebServerFiles(t *testing.T) {
 		WASMExecJSPath: wasmExecFile,
 		WorkflowYAML:   "test",
 		WebServerFiles: map[string]string{
-			"data/public/style.css":   "body { color: red; }",
-			"data/public/script.js":   "console.log('test');",
-			"data/public/logo.png":    "fake png data",
+			"data/public/style.css": "body { color: red; }",
+			"data/public/script.js": "console.log('test');",
+			"data/public/logo.png":  "fake png data",
 		},
 		APIRoutes: []string{},
 		OutputDir: outputDir,
