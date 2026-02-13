@@ -2521,7 +2521,14 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 			} else {
 				for i, expected := range tt.expected {
 					if result[i] != expected {
-						t.Errorf("GetEnumValues(%q, %q)[%d] = %v, expected %v", tt.field, tt.schemaType, i, result[i], expected)
+						t.Errorf(
+							"GetEnumValues(%q, %q)[%d] = %v, expected %v",
+							tt.field,
+							tt.schemaType,
+							i,
+							result[i],
+							expected,
+						)
 					}
 				}
 			}

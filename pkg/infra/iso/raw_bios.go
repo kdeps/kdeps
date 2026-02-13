@@ -44,7 +44,15 @@ func buildRawBIOSWithImage(
 	// Step 2: Create raw disk image
 	outputFile := filepath.Join(buildDir, "disk.img")
 
-	if assembleErr := assembler(ctx, kernelPath, initrdPath, cmdlinePath, outputFile, imageName, bootScript); assembleErr != nil {
+	if assembleErr := assembler(
+		ctx,
+		kernelPath,
+		initrdPath,
+		cmdlinePath,
+		outputFile,
+		imageName,
+		bootScript,
+	); assembleErr != nil {
 		return "", assembleErr
 	}
 

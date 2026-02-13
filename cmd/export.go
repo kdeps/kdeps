@@ -30,6 +30,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -543,12 +544,14 @@ func workflowPorts(workflow *domain.Workflow) (string, string) {
 // joinStrings joins string slices (avoids importing strings package for one use).
 func joinStrings(parts []string, sep string) string {
 	result := ""
+	var resultSb546 strings.Builder
 	for i, p := range parts {
 		if i > 0 {
-			result += sep
+			resultSb546.WriteString(sep)
 		}
-		result += p
+		resultSb546.WriteString(p)
 	}
+	result += resultSb546.String()
 	return result
 }
 
