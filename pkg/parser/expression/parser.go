@@ -161,6 +161,7 @@ func (p *Parser) isExpression(value string) bool {
 		`file\(`,
 		`info\(`,
 		`len\(`,
+		`env\(`,
 	}
 
 	for _, pattern := range functionPatterns {
