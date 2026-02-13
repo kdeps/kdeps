@@ -430,6 +430,14 @@ linters:
       - text: 'comment on exported \S+ \S+ should be of the form ".+"'
         source: '// ?(nolint|TODO)'
         linters: [ revive, staticcheck ]
+      # Exclude intentional stdlib package name conflicts (by design)
+      - text: 'var-naming: avoid package names that conflict with Go standard library package names'
+        linters: [ revive ]
+        path: '(pkg/executor/(exec|http|sql)/|pkg/infra/(fs|http)/|pkg/version/)'
+      # Exclude getEnumValues function length - complex validation logic requires length
+      - text: "Function 'getEnumValues' is too long"
+        linters: [ funlen ]
+        path: 'pkg/validator/schema\.go'
       - path: '_test\.go'
         linters:
           - bodyclose
