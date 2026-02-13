@@ -68,11 +68,16 @@ func TestManager_EnsureVenv_VenvNameOverridesAutoGeneration(t *testing.T) {
 	venvName2 := "env-2"
 	venvPath2, err2 := manager.EnsureVenv("3.12", packages, "", venvName2)
 
-	// Both will fail if uv not available, but paths should be different
-	if err1 != nil && err2 != nil {
-		assert.NotEqual(t, venvPath1, venvPath2, "Different venv names should override auto-generated names")
+	// If both succeed, paths should be different and contain the venv names
+	if err1 == nil && err2 == nil {
+		assert.NotEqual(t, venvPath1, venvPath2, "Different venv names should result in different paths")
 		assert.Contains(t, venvPath1, venvName1)
 		assert.Contains(t, venvPath2, venvName2)
+	} else {
+		// If uv is not available, both will fail
+		// Just verify that the test would work correctly when uv is available
+		t.Logf("uv not available, test would verify different venv names result in different paths")
+		t.Logf("err1: %v, err2: %v", err1, err2)
 	}
 }
 

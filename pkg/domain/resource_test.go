@@ -346,3 +346,74 @@ error:
 		t.Errorf("Error.Message = %v, want %v", check.Error.Message, "Unauthorized access")
 	}
 }
+
+func TestExecConfig_UnmarshalYAML(t *testing.T) {
+	tests := []struct {
+		name              string
+		yamlData          string
+		wantTimeoutDuration string
+		wantCommand       string
+		wantError         bool
+	}{
+		{
+			name: "timeout alias is used when timeoutDuration is not set",
+			yamlData: `
+command: echo test
+timeout: 5s
+`,
+			wantTimeoutDuration: "5s",
+			wantCommand:         "echo test",
+			wantError:           false,
+		},
+		{
+			name: "timeoutDuration takes precedence over timeout",
+			yamlData: `
+command: echo test
+timeout: 5s
+timeoutDuration: 10s
+`,
+			wantTimeoutDuration: "10s",
+			wantCommand:         "echo test",
+			wantError:           false,
+		},
+		{
+			name: "only timeoutDuration is set",
+			yamlData: `
+command: echo test
+timeoutDuration: 15s
+`,
+			wantTimeoutDuration: "15s",
+			wantCommand:         "echo test",
+			wantError:           false,
+		},
+		{
+			name: "neither timeout nor timeoutDuration is set",
+			yamlData: `
+command: echo test
+`,
+			wantTimeoutDuration: "",
+			wantCommand:         "echo test",
+			wantError:           false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var config domain.ExecConfig
+			err := yaml.Unmarshal([]byte(tt.yamlData), &config)
+
+			if (err != nil) != tt.wantError {
+				t.Errorf("ExecConfig.UnmarshalYAML() error = %v, wantError %v", err, tt.wantError)
+				return
+			}
+
+			if config.TimeoutDuration != tt.wantTimeoutDuration {
+				t.Errorf("ExecConfig.TimeoutDuration = %v, want %v", config.TimeoutDuration, tt.wantTimeoutDuration)
+			}
+
+			if config.Command != tt.wantCommand {
+				t.Errorf("ExecConfig.Command = %v, want %v", config.Command, tt.wantCommand)
+			}
+		})
+	}
+}
