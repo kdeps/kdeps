@@ -64,7 +64,7 @@ func TestParseBool(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, ok := parseBool(tt.input)
+			result, ok := ParseBool(tt.input)
 			assert.Equal(t, tt.ok, ok, "ok mismatch")
 			if ok {
 				assert.Equal(t, tt.expected, result, "value mismatch")
@@ -401,7 +401,22 @@ response:
 	var config APIResponseConfig
 	err := yaml.Unmarshal([]byte(yamlData), &config)
 	require.NoError(t, err)
-	assert.True(t, config.Success)
+	b, ok := ParseBool(config.Success)
+	assert.True(t, ok)
+	assert.True(t, b)
+}
+
+func TestAPIResponseConfig_ExpressionSuccess(t *testing.T) {
+	yamlData := `
+success: "{{ get('valid') }}"
+response:
+  message: "OK"
+`
+	var config APIResponseConfig
+	err := yaml.Unmarshal([]byte(yamlData), &config)
+	require.NoError(t, err)
+	// Should be stored as raw string for runtime evaluation
+	assert.Equal(t, "{{ get('valid') }}", config.Success)
 }
 
 func TestResponseMeta_StringInteger(t *testing.T) {
