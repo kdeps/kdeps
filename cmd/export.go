@@ -541,7 +541,7 @@ func workflowPorts(workflow *domain.Workflow) (string, string) {
 		joinStrings(listParts, ", ")
 }
 
-// joinStrings joins string slices (avoids importing strings package for one use).
+// joinStrings joins string slices efficiently using strings.Builder.
 func joinStrings(parts []string, sep string) string {
 	result := ""
 	var resultSb546 strings.Builder
