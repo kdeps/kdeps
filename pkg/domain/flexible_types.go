@@ -23,9 +23,9 @@ import (
 	"strings"
 )
 
-// parseBool parses a boolean from various types (bool, string, int).
+// ParseBool parses a boolean from various types (bool, string, int).
 // Returns the boolean value and true if parsing succeeded.
-func parseBool(v interface{}) (bool, bool) {
+func ParseBool(v interface{}) (bool, bool) {
 	switch val := v.(type) {
 	case bool:
 		return val, true
@@ -99,7 +99,7 @@ func parseBoolPtr(v interface{}) *bool {
 	if v == nil {
 		return nil
 	}
-	if b, ok := parseBool(v); ok {
+	if b, ok := ParseBool(v); ok {
 		return &b
 	}
 	return nil

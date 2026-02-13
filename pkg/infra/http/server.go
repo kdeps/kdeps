@@ -298,7 +298,11 @@ func (s *Server) HandleRequest(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	// Check if result is from an API response resource (has success and data fields)
 	// API response resources return: {"success": bool, "data": {...}, "_meta": {...}}
 	if resultMap, ok := result.(map[string]interface{}); ok {
-		if success, hasSuccess := resultMap["success"].(bool); hasSuccess {
+		if successRaw, hasSuccess := resultMap["success"]; hasSuccess {
+			success, validBool := domain.ParseBool(successRaw)
+			if !validBool {
+				success = false // treat unparseable as failure
+			}
 			s.logger.Debug("detected API response resource result", "path", r.URL.Path, "success", success)
 
 			// This is an API response resource result

@@ -159,10 +159,10 @@ func (w *WorkflowSettings) UnmarshalYAML(node *yaml.Node) error {
 	}
 
 	// Parse boolean fields that might be strings
-	if b, ok := parseBool(alias.APIServerMode); ok {
+	if b, ok := ParseBool(alias.APIServerMode); ok {
 		w.APIServerMode = b
 	}
-	if b, ok := parseBool(alias.WebServerMode); ok {
+	if b, ok := ParseBool(alias.WebServerMode); ok {
 		w.WebServerMode = b
 	}
 
@@ -391,7 +391,7 @@ func (c *CORS) UnmarshalYAML(node *yaml.Node) error {
 
 	// Parse boolean fields that might be strings
 	c.EnableCORS = parseBoolPtr(alias.EnableCORS)
-	if b, ok := parseBool(alias.AllowCredentials); ok {
+	if b, ok := ParseBool(alias.AllowCredentials); ok {
 		c.AllowCredentials = b
 	}
 
@@ -509,7 +509,7 @@ func (a *AgentSettings) UnmarshalYAML(node *yaml.Node) error {
 	}
 
 	// Parse boolean fields that might be strings
-	if b, ok := parseBool(alias.OfflineMode); ok {
+	if b, ok := ParseBool(alias.OfflineMode); ok {
 		a.OfflineMode = b
 	}
 	a.InstallOllama = parseBoolPtr(alias.InstallOllama)

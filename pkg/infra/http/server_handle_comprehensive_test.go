@@ -68,8 +68,9 @@ func TestServer_HandleRequest_ResultMapSuccessFalse(t *testing.T) {
 	assert.GreaterOrEqual(t, w.Code, 400)
 }
 
-// TestServer_HandleRequest_ResultMapNoHasSuccess tests HandleRequest with result map but success is not bool.
-func TestServer_HandleRequest_ResultMapNoHasSuccess(t *testing.T) {
+// TestServer_HandleRequest_ResultMapStringSuccess tests HandleRequest with result map where success is a string.
+// Flexible bool parsing should treat "yes" as true.
+func TestServer_HandleRequest_ResultMapStringSuccess(t *testing.T) {
 	workflow := &domain.Workflow{
 		Metadata: domain.WorkflowMetadata{Name: "test"},
 		Settings: domain.WorkflowSettings{
@@ -83,9 +84,9 @@ func TestServer_HandleRequest_ResultMapNoHasSuccess(t *testing.T) {
 
 	executor := &MockWorkflowExecutor{
 		executeFunc: func(_ *domain.Workflow, _ interface{}) (interface{}, error) {
-			// Return map with success as string (not bool)
+			// Return map with success as string — should be treated as bool via flexible parsing
 			return map[string]interface{}{
-				"success": "yes", // Not a bool
+				"success": "yes",
 				"data":    map[string]interface{}{"key": "value"},
 			}, nil
 		},
@@ -99,13 +100,14 @@ func TestServer_HandleRequest_ResultMapNoHasSuccess(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 
 	server.HandleRequest(w, req)
-	// Should treat as regular resource result (not API response)
+	// Should now be recognized as API response with flexible bool parsing
 	assert.Equal(t, stdhttp.StatusOK, w.Code)
 
 	var response map[string]interface{}
 	err = json.NewDecoder(w.Body).Decode(&response)
 	require.NoError(t, err)
 	assert.True(t, response["success"].(bool))
+	assert.NotNil(t, response["data"])
 }
 
 // TestServer_HandleRequest_APIResponseMetaHeadersNonString tests HandleRequest with API response meta headers non-string values.

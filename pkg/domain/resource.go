@@ -206,7 +206,7 @@ func (c *ChatConfig) UnmarshalYAML(node *yaml.Node) error {
 	}
 
 	// Parse boolean field that might be string
-	if b, ok := parseBool(alias.JSONResponse); ok {
+	if b, ok := ParseBool(alias.JSONResponse); ok {
 		c.JSONResponse = b
 	}
 
@@ -282,7 +282,7 @@ func (t *ToolParam) UnmarshalYAML(node *yaml.Node) error {
 	}
 
 	// Parse boolean field that might be string
-	if b, ok := parseBool(alias.Required); ok {
+	if b, ok := ParseBool(alias.Required); ok {
 		t.Required = b
 	}
 
@@ -390,7 +390,7 @@ func (h *HTTPCacheConfig) UnmarshalYAML(node *yaml.Node) error {
 	}
 
 	// Parse boolean field that might be string
-	if b, ok := parseBool(alias.Enabled); ok {
+	if b, ok := ParseBool(alias.Enabled); ok {
 		h.Enabled = b
 	}
 
@@ -432,7 +432,7 @@ func (h *HTTPTLSConfig) UnmarshalYAML(node *yaml.Node) error {
 	}
 
 	// Parse boolean field that might be string
-	if b, ok := parseBool(alias.InsecureSkipVerify); ok {
+	if b, ok := ParseBool(alias.InsecureSkipVerify); ok {
 		h.InsecureSkipVerify = b
 	}
 
@@ -479,7 +479,7 @@ func (s *SQLConfig) UnmarshalYAML(node *yaml.Node) error {
 	}
 
 	// Parse boolean field that might be string
-	if b, ok := parseBool(alias.Transaction); ok {
+	if b, ok := ParseBool(alias.Transaction); ok {
 		s.Transaction = b
 	}
 
@@ -572,32 +572,9 @@ func (e *ExecConfig) UnmarshalYAML(node *yaml.Node) error {
 
 // APIResponseConfig represents API response configuration.
 type APIResponseConfig struct {
-	Success  bool          `yaml:"success"`
+	Success  interface{}   `yaml:"success"`  // Flexible: bool, string, expression (e.g. "{{ get('valid') }}")
 	Response interface{}   `yaml:"response"` // Can be any type: string, array, map, number, etc.
 	Meta     *ResponseMeta `yaml:"meta,omitempty"`
-}
-
-// UnmarshalYAML implements custom YAML unmarshaling to support string values for booleans.
-func (a *APIResponseConfig) UnmarshalYAML(node *yaml.Node) error {
-	type Alias struct {
-		Success  interface{}   `yaml:"success"`
-		Response interface{}   `yaml:"response"` // Can be any type
-		Meta     *ResponseMeta `yaml:"meta,omitempty"`
-	}
-	var alias Alias
-	if err := node.Decode(&alias); err != nil {
-		return err
-	}
-
-	// Parse boolean field that might be string
-	if b, ok := parseBool(alias.Success); ok {
-		a.Success = b
-	}
-
-	a.Response = alias.Response
-	a.Meta = alias.Meta
-
-	return nil
 }
 
 // ResponseMeta represents response metadata.

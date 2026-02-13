@@ -1374,10 +1374,21 @@ func (e *Engine) executeAPIResponse(
 		return nil, fmt.Errorf("failed to evaluate API response: %w", err)
 	}
 
+	// Evaluate the success field (supports expressions like "{{ get('valid') }}")
+	evaluatedSuccess, successErr := e.evaluateResponseValue(apiResponseConfig.Success, env)
+	if successErr != nil {
+		return nil, fmt.Errorf("failed to evaluate API response success: %w", successErr)
+	}
+
+	successBool, validBool := domain.ParseBool(evaluatedSuccess)
+	if !validBool {
+		successBool = false // treat unparseable as failure
+	}
+
 	// Build the full API response structure
 	// This includes the success flag and meta information
 	apiResponse := map[string]interface{}{
-		"success": apiResponseConfig.Success,
+		"success": successBool,
 		"data":    evaluatedResponse,
 	}
 

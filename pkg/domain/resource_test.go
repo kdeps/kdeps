@@ -284,7 +284,7 @@ meta:
 		t.Fatalf("Failed to unmarshal YAML: %v", err)
 	}
 
-	if !config.Success {
+	if success, ok := config.Success.(bool); !ok || !success {
 		t.Error("Success should be true")
 	}
 

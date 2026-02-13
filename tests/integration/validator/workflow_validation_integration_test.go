@@ -503,7 +503,7 @@ settings:
 
 	// Verify API Response resource
 	responseRes := resourceMap["response-test"]
-	assert.True(t, responseRes.Run.APIResponse.Success)
+	assert.Equal(t, true, responseRes.Run.APIResponse.Success)
 	assert.Contains(t, responseRes.Run.APIResponse.Response, "message")
 	assert.Contains(t, responseRes.Run.APIResponse.Response, "code")
 }
