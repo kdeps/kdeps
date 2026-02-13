@@ -584,3 +584,35 @@ func TestExecutionContext_GetItem_ThroughItemAPI(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 5, count2)
 }
+
+func TestExecutionContext_Env(t *testing.T) {
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	require.NotNil(t, ctx)
+
+	// Test with an environment variable that should exist
+	t.Run("retrieve existing env var", func(t *testing.T) {
+		os.Setenv("TEST_ENV_VAR", "test_value")
+		defer os.Unsetenv("TEST_ENV_VAR")
+
+		value, err := ctx.Env("TEST_ENV_VAR")
+		require.NoError(t, err)
+		assert.Equal(t, "test_value", value)
+	})
+
+	// Test with a non-existent environment variable
+	t.Run("retrieve non-existent env var", func(t *testing.T) {
+		value, err := ctx.Env("NON_EXISTENT_VAR_12345")
+		require.NoError(t, err)
+		assert.Equal(t, "", value)
+	})
+
+	// Test with PATH (should exist in most environments)
+	t.Run("retrieve PATH env var", func(t *testing.T) {
+		value, err := ctx.Env("PATH")
+		require.NoError(t, err)
+		// PATH should exist and not be empty in most environments
+		// but we just check no error is returned
+		assert.NotNil(t, value)
+	})
+}
