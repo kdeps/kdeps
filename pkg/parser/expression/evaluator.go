@@ -295,6 +295,18 @@ func (e *Evaluator) buildEnvironment(env map[string]interface{}) map[string]inte
 			evalEnv["item"] = itemObj
 		}
 
+		// Wrap env() to read environment variables, returns empty string if not set
+		evalEnv["env"] = func(name string) interface{} {
+			if e.api.Env != nil {
+				val, err := e.api.Env(name)
+				if err != nil {
+					return ""
+				}
+				return val
+			}
+			return os.Getenv(name)
+		}
+
 		// Add json() helper function to format data as JSON string
 		evalEnv["json"] = func(data interface{}) interface{} {
 			jsonBytes, err := json.Marshal(data)

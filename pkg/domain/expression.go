@@ -91,4 +91,7 @@ type UnifiedAPI struct {
 
 	// Session retrieves all session data as a map.
 	Session func() (map[string]interface{}, error)
+
+	// Env retrieves an environment variable value.
+	Env func(name string) (string, error)
 }
