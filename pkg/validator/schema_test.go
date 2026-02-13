@@ -35,10 +35,7 @@ func TestNewSchemaValidator(t *testing.T) {
 	}
 
 	// Can't access unexported fields workflowSchema and resourceSchema directly in package_test
-	// Just verify validator is not nil (already checked above)
-	if validator == nil {
-		t.Error("NewSchemaValidator returned nil")
-	}
+	// Validator verified to be not nil above
 }
 
 func TestSchemaValidator_ValidateWorkflow(t *testing.T) {

@@ -507,6 +507,7 @@ func (s *Server) ParseRequest(r *stdhttp.Request, uploadedFiles []*domain.Upload
 }
 
 // RespondSuccess sends a successful response.
+//
 // Deprecated: Use RespondWithSuccess from response.go instead.
 func (s *Server) RespondSuccess(w stdhttp.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
@@ -521,6 +522,7 @@ func (s *Server) RespondSuccess(w stdhttp.ResponseWriter, data interface{}) {
 }
 
 // RespondError sends an error response.
+//
 // Deprecated: Use RespondWithError from response.go instead.
 func (s *Server) RespondError(w stdhttp.ResponseWriter, statusCode int, message string, err error) {
 	w.Header().Set("Content-Type", "application/json")
