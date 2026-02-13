@@ -152,7 +152,7 @@ func TestBundle_MissingWASMBinary(t *testing.T) {
 	}
 
 	err := wasm.Bundle(config)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to copy WASM binary")
 }
 
@@ -173,7 +173,7 @@ func TestBundle_MissingWASMExecJS(t *testing.T) {
 	}
 
 	err := wasm.Bundle(config)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to copy wasm_exec.js")
 }
 

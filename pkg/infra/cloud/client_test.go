@@ -92,7 +92,7 @@ func TestClient_Whoami_Success(t *testing.T) {
 }
 
 func TestClient_Whoami_Unauthorized(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 	}))
 	defer server.Close()
@@ -100,13 +100,13 @@ func TestClient_Whoami_Unauthorized(t *testing.T) {
 	client := cloud.NewClient("invalid-key", server.URL)
 	result, err := client.Whoami(context.Background())
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "invalid API key")
 }
 
 func TestClient_Whoami_ServerError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer server.Close()
@@ -114,13 +114,13 @@ func TestClient_Whoami_ServerError(t *testing.T) {
 	client := cloud.NewClient("test-key", server.URL)
 	result, err := client.Whoami(context.Background())
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "server returned 500")
 }
 
 func TestClient_Whoami_InvalidJSON(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte("invalid json"))
 	}))
@@ -129,12 +129,12 @@ func TestClient_Whoami_InvalidJSON(t *testing.T) {
 	client := cloud.NewClient("test-key", server.URL)
 	result, err := client.Whoami(context.Background())
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, result)
 }
 
 func TestClient_Whoami_ContextCanceled(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		// Never respond
 		<-r.Context().Done()
 	}))
@@ -146,7 +146,7 @@ func TestClient_Whoami_ContextCanceled(t *testing.T) {
 
 	result, err := client.Whoami(ctx)
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, result)
 }
 
@@ -158,7 +158,7 @@ func TestClient_StartBuild_Success(t *testing.T) {
 
 		// Parse multipart form
 		err := r.ParseMultipartForm(32 << 20)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		assert.Equal(t, "docker", r.FormValue("format"))
 		assert.Equal(t, "amd64", r.FormValue("arch"))
@@ -187,7 +187,7 @@ func TestClient_StartBuild_Success(t *testing.T) {
 }
 
 func TestClient_StartBuild_Unauthorized(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 	}))
 	defer server.Close()
@@ -201,13 +201,13 @@ func TestClient_StartBuild_Unauthorized(t *testing.T) {
 		false,
 	)
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "invalid API key")
 }
 
 func TestClient_StartBuild_Forbidden(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "plan limit exceeded",
@@ -224,7 +224,7 @@ func TestClient_StartBuild_Forbidden(t *testing.T) {
 		false,
 	)
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "plan limit exceeded")
 }
@@ -252,7 +252,7 @@ func TestClient_PollBuild_Success(t *testing.T) {
 }
 
 func TestClient_PollBuild_Unauthorized(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 	}))
 	defer server.Close()
@@ -260,7 +260,7 @@ func TestClient_PollBuild_Unauthorized(t *testing.T) {
 	client := cloud.NewClient("invalid-key", server.URL)
 	result, err := client.PollBuild(context.Background(), "build123")
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "server returned 401")
 }
