@@ -349,11 +349,11 @@ error:
 
 func TestExecConfig_UnmarshalYAML(t *testing.T) {
 	tests := []struct {
-		name              string
-		yamlData          string
+		name                string
+		yamlData            string
 		wantTimeoutDuration string
-		wantCommand       string
-		wantError         bool
+		wantCommand         string
+		wantError           bool
 	}{
 		{
 			name: "timeout alias is used when timeoutDuration is not set",

@@ -592,25 +592,24 @@ func TestExecutionContext_Env(t *testing.T) {
 
 	// Test with an environment variable that should exist
 	t.Run("retrieve existing env var", func(t *testing.T) {
-		os.Setenv("TEST_ENV_VAR", "test_value")
-		defer os.Unsetenv("TEST_ENV_VAR")
+		t.Setenv("TEST_ENV_VAR", "test_value")
 
-		value, err := ctx.Env("TEST_ENV_VAR")
-		require.NoError(t, err)
+		value, envErr := ctx.Env("TEST_ENV_VAR")
+		require.NoError(t, envErr)
 		assert.Equal(t, "test_value", value)
 	})
 
 	// Test with a non-existent environment variable
 	t.Run("retrieve non-existent env var", func(t *testing.T) {
-		value, err := ctx.Env("NON_EXISTENT_VAR_12345")
-		require.NoError(t, err)
-		assert.Equal(t, "", value)
+		value, envErr := ctx.Env("NON_EXISTENT_VAR_12345")
+		require.NoError(t, envErr)
+		assert.Empty(t, value)
 	})
 
 	// Test with PATH (should exist in most environments)
 	t.Run("retrieve PATH env var", func(t *testing.T) {
-		value, err := ctx.Env("PATH")
-		require.NoError(t, err)
+		value, envErr := ctx.Env("PATH")
+		require.NoError(t, envErr)
 		// PATH should exist and not be empty in most environments
 		// but we just check no error is returned
 		assert.NotNil(t, value)
@@ -653,6 +652,6 @@ func TestExecutionContext_GetAllSession(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.Equal(t, "value1", result["key1"])
-		assert.Equal(t, float64(42), result["key2"])
+		assert.InDelta(t, 42.0, result["key2"], 0.001)
 	})
 }
