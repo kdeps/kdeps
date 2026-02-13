@@ -228,9 +228,15 @@ func NewExecutionContext(workflow *domain.Workflow, sessionID ...string) (*Execu
 		Output:  ctx.Output,
 		Item:    ctx.Item,
 		Session: ctx.GetAllSession,
+		Env:     ctx.Env,
 	}
 
 	return ctx, nil
+}
+
+// Env retrieves an environment variable value.
+func (ctx *ExecutionContext) Env(name string) (string, error) {
+	return os.Getenv(name), nil
 }
 
 // Get retrieves a value with smart auto-detection.
