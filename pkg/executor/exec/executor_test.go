@@ -936,3 +936,94 @@ func TestExecutor_Execute_WithNilOutputs(t *testing.T) {
 	assert.True(t, resultMap["success"].(bool))
 	assert.Contains(t, resultMap["stdout"].(string), "test")
 }
+
+func TestExecutor_Execute_WithExpressionInTimeout(t *testing.T) {
+	execInstance := execexecutor.NewExecutor()
+
+	workflow := &domain.Workflow{}
+	ctx, err := executor.NewExecutionContext(workflow)
+	require.NoError(t, err)
+
+	// Set a value in the context outputs that will be used in the timeout expression
+	ctx.Outputs["timeoutValue"] = "5s"
+
+	config := &domain.ExecConfig{
+		Command:         "echo",
+		Args:            []string{"test"},
+		TimeoutDuration: "{{get('timeoutValue')}}",
+	}
+
+	result, err := execInstance.Execute(ctx, config)
+	require.NoError(t, err)
+
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.True(t, resultMap["success"].(bool))
+	assert.Contains(t, resultMap["stdout"].(string), "test")
+}
+
+func TestExecutor_Execute_WithExpressionInWorkingDir(t *testing.T) {
+	execInstance := execexecutor.NewExecutor()
+
+	workflow := &domain.Workflow{}
+	ctx, err := executor.NewExecutionContext(workflow)
+	require.NoError(t, err)
+
+	// Set a working directory in the context outputs
+	ctx.Outputs["workDir"] = "/tmp"
+
+	config := &domain.ExecConfig{
+		Command:    "pwd",
+		Args:       []string{},
+		WorkingDir: "{{get('workDir')}}",
+	}
+
+	result, err := execInstance.Execute(ctx, config)
+	require.NoError(t, err)
+
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.True(t, resultMap["success"].(bool))
+}
+
+func TestExecutor_Execute_WithExpressionInEnv(t *testing.T) {
+	execInstance := execexecutor.NewExecutor()
+
+	workflow := &domain.Workflow{}
+	ctx, err := executor.NewExecutionContext(workflow)
+	require.NoError(t, err)
+
+	// Set environment variable values in the context outputs
+	ctx.Outputs["envKey"] = "TEST_VAR"
+	ctx.Outputs["envValue"] = "test_value"
+
+	var cmd string
+	if runtime.GOOS == "windows" {
+		cmd = "cmd"
+	} else {
+		cmd = "sh"
+	}
+
+	var args []string
+	if runtime.GOOS == "windows" {
+		args = []string{"/C", "echo %TEST_VAR%"}
+	} else {
+		args = []string{"-c", "echo $TEST_VAR"}
+	}
+
+	config := &domain.ExecConfig{
+		Command: cmd,
+		Args:    args,
+		Env: map[string]string{
+			"{{get('envKey')}}": "{{get('envValue')}}",
+		},
+	}
+
+	result, err := execInstance.Execute(ctx, config)
+	require.NoError(t, err)
+
+	resultMap, ok := result.(map[string]interface{})
+	require.True(t, ok)
+	assert.True(t, resultMap["success"].(bool))
+	assert.Contains(t, resultMap["stdout"].(string), "test_value")
+}

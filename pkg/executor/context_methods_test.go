@@ -616,3 +616,43 @@ func TestExecutionContext_Env(t *testing.T) {
 		assert.NotNil(t, value)
 	})
 }
+
+func TestExecutionContext_GetAllSession(t *testing.T) {
+	t.Run("returns empty map when session is nil", func(t *testing.T) {
+		ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+		require.NoError(t, err)
+
+		// Intentionally set Session to nil to test that code path
+		ctx.Session = nil
+
+		result, err := ctx.GetAllSession()
+		require.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Empty(t, result)
+	})
+
+	t.Run("returns all session data when session exists", func(t *testing.T) {
+		workflow := &domain.Workflow{
+			Settings: domain.WorkflowSettings{
+				Session: &domain.SessionConfig{
+					Enabled: true,
+				},
+			},
+		}
+		ctx, err := executor.NewExecutionContext(workflow)
+		require.NoError(t, err)
+
+		// Set some session data using the Session storage API
+		err = ctx.Session.Set("key1", "value1")
+		require.NoError(t, err)
+		err = ctx.Session.Set("key2", 42)
+		require.NoError(t, err)
+
+		// Get all session data
+		result, err := ctx.GetAllSession()
+		require.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Equal(t, "value1", result["key1"])
+		assert.Equal(t, float64(42), result["key2"])
+	})
+}
