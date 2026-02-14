@@ -19,6 +19,10 @@
 package llm_test
 
 import (
+	"bytes"
+	"io"
+	stdhttp "net/http"
+	"strings"
 	"testing"
 
 	"github.com/kdeps/kdeps/v2/pkg/executor/llm"
@@ -554,4 +558,377 @@ func TestBackend_DefaultURLs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestOpenAIBackend_ParseResponse_Success(t *testing.T) {
+	backend := &llm.OpenAIBackend{}
+
+	// Create a mock HTTP response with OpenAI format
+	responseBody := `{
+		"choices": [
+			{
+				"message": {
+					"role": "assistant",
+					"content": "Hello! How can I help you?"
+				}
+			}
+		]
+	}`
+
+	resp := &stdhttp.Response{
+		StatusCode: stdhttp.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(responseBody)),
+	}
+
+	result, err := backend.ParseResponse(resp)
+
+	if err != nil {
+		t.Fatalf("ParseResponse failed: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("Expected non-nil result")
+	}
+
+	message, ok := result["message"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected message in result")
+	}
+
+	if message["role"] != "assistant" {
+		t.Errorf("Expected role 'assistant', got '%v'", message["role"])
+	}
+
+	if message["content"] != "Hello! How can I help you?" {
+		t.Errorf("Expected specific content, got '%v'", message["content"])
+	}
+}
+
+func TestOpenAIBackend_ParseResponse_Error(t *testing.T) {
+	backend := &llm.OpenAIBackend{}
+
+	responseBody := `{"error": {"message": "Invalid API key"}}`
+
+	resp := &stdhttp.Response{
+		StatusCode: stdhttp.StatusUnauthorized,
+		Body:       io.NopCloser(bytes.NewBufferString(responseBody)),
+	}
+
+	result, err := backend.ParseResponse(resp)
+
+	if err == nil {
+		t.Fatal("Expected error for non-OK status")
+	}
+
+	if result != nil {
+		t.Errorf("Expected nil result on error, got %v", result)
+	}
+
+	if !contains(err.Error(), "OpenAI API error") {
+		t.Errorf("Expected 'OpenAI API error' in error message, got: %v", err)
+	}
+}
+
+func TestOpenAIBackend_ParseResponse_InvalidJSON(t *testing.T) {
+	backend := &llm.OpenAIBackend{}
+
+	resp := &stdhttp.Response{
+		StatusCode: stdhttp.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString("invalid json")),
+	}
+
+	result, err := backend.ParseResponse(resp)
+
+	if err == nil {
+		t.Fatal("Expected error for invalid JSON")
+	}
+
+	if result != nil {
+		t.Errorf("Expected nil result on error, got %v", result)
+	}
+}
+
+func TestAnthropicBackend_ParseResponse_Success(t *testing.T) {
+	backend := &llm.AnthropicBackend{}
+
+	responseBody := `{
+		"content": [
+			{
+				"text": "Hello from Claude!"
+			}
+		]
+	}`
+
+	resp := &stdhttp.Response{
+		StatusCode: stdhttp.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(responseBody)),
+	}
+
+	result, err := backend.ParseResponse(resp)
+
+	if err != nil {
+		t.Fatalf("ParseResponse failed: %v", err)
+	}
+
+	message, ok := result["message"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected message in result")
+	}
+
+	if message["role"] != "assistant" {
+		t.Errorf("Expected role 'assistant', got '%v'", message["role"])
+	}
+
+	if message["content"] != "Hello from Claude!" {
+		t.Errorf("Expected specific content, got '%v'", message["content"])
+	}
+}
+
+func TestAnthropicBackend_ParseResponse_Error(t *testing.T) {
+	backend := &llm.AnthropicBackend{}
+
+	resp := &stdhttp.Response{
+		StatusCode: stdhttp.StatusForbidden,
+		Body:       io.NopCloser(bytes.NewBufferString(`{"error": "forbidden"}`)),
+	}
+
+	result, err := backend.ParseResponse(resp)
+
+	if err == nil {
+		t.Fatal("Expected error for non-OK status")
+	}
+
+	if result != nil {
+		t.Errorf("Expected nil result on error, got %v", result)
+	}
+
+	if !contains(err.Error(), "anthropic API error") {
+		t.Errorf("Expected 'anthropic API error' in error message, got: %v", err)
+	}
+}
+
+func TestGoogleBackend_ParseResponse_Success(t *testing.T) {
+	backend := &llm.GoogleBackend{}
+
+	responseBody := `{
+		"choices": [
+			{
+				"message": {
+					"role": "assistant",
+					"content": "Hello from Gemini!"
+				}
+			}
+		]
+	}`
+
+	resp := &stdhttp.Response{
+		StatusCode: stdhttp.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(responseBody)),
+	}
+
+	result, err := backend.ParseResponse(resp)
+
+	if err != nil {
+		t.Fatalf("ParseResponse failed: %v", err)
+	}
+
+	message, ok := result["message"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected message in result")
+	}
+
+	if message["content"] != "Hello from Gemini!" {
+		t.Errorf("Expected specific content, got '%v'", message["content"])
+	}
+}
+
+func TestGoogleBackend_GetAPIKeyHeader(t *testing.T) {
+	backend := &llm.GoogleBackend{}
+
+	// Google uses query parameters, not headers
+	key, val := backend.GetAPIKeyHeader("test-key")
+
+	if key != "" || val != "" {
+		t.Errorf("Expected empty header for Google backend, got key='%s', val='%s'", key, val)
+	}
+}
+
+func TestCohereBackend_ParseResponse_Success(t *testing.T) {
+	backend := &llm.CohereBackend{}
+
+	responseBody := `{
+		"text": "Hello from Cohere!"
+	}`
+
+	resp := &stdhttp.Response{
+		StatusCode: stdhttp.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(responseBody)),
+	}
+
+	result, err := backend.ParseResponse(resp)
+
+	if err != nil {
+		t.Fatalf("ParseResponse failed: %v", err)
+	}
+
+	message, ok := result["message"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected message in result")
+	}
+
+	if message["content"] != "Hello from Cohere!" {
+		t.Errorf("Expected specific content, got '%v'", message["content"])
+	}
+}
+
+func TestCohereBackend_GetAPIKeyHeader(t *testing.T) {
+	backend := &llm.CohereBackend{}
+
+	key, val := backend.GetAPIKeyHeader("test-key")
+
+	if key != "Authorization" {
+		t.Errorf("Expected key '%s', got '%s'", "Authorization", key)
+	}
+
+	if val != "Bearer test-key" {
+		t.Errorf("Expected value 'Bearer test-key', got '%s'", val)
+	}
+}
+
+func TestMistralBackend_ParseResponse_Success(t *testing.T) {
+	backend := &llm.MistralBackend{}
+
+	responseBody := `{
+		"choices": [
+			{
+				"message": {
+					"role": "assistant",
+					"content": "Hello from Mistral!"
+				}
+			}
+		]
+	}`
+
+	resp := &stdhttp.Response{
+		StatusCode: stdhttp.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(responseBody)),
+	}
+
+	result, err := backend.ParseResponse(resp)
+
+	if err != nil {
+		t.Fatalf("ParseResponse failed: %v", err)
+	}
+
+	message, ok := result["message"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected message in result")
+	}
+
+	if message["content"] != "Hello from Mistral!" {
+		t.Errorf("Expected specific content, got '%v'", message["content"])
+	}
+}
+
+func TestTogetherBackend_BuildRequest(t *testing.T) {
+	backend := &llm.TogetherBackend{}
+
+	messages := []map[string]interface{}{
+		{"role": "user", "content": "Hello"},
+	}
+
+	req, err := backend.BuildRequest("together-model", messages, llm.ChatRequestConfig{})
+
+	if err != nil {
+		t.Fatalf("BuildRequest failed: %v", err)
+	}
+
+	if req["model"] != "together-model" {
+		t.Errorf("Expected model 'together-model', got %v", req["model"])
+	}
+}
+
+func TestPerplexityBackend_BuildRequest(t *testing.T) {
+	backend := &llm.PerplexityBackend{}
+
+	messages := []map[string]interface{}{
+		{"role": "user", "content": "Search query"},
+	}
+
+	req, err := backend.BuildRequest("perplexity-model", messages, llm.ChatRequestConfig{})
+
+	if err != nil {
+		t.Fatalf("BuildRequest failed: %v", err)
+	}
+
+	if req["model"] != "perplexity-model" {
+		t.Errorf("Expected model 'perplexity-model', got %v", req["model"])
+	}
+}
+
+func TestGroqBackend_BuildRequest(t *testing.T) {
+	backend := &llm.GroqBackend{}
+
+	messages := []map[string]interface{}{
+		{"role": "user", "content": "Hello Groq"},
+	}
+
+	req, err := backend.BuildRequest("groq-model", messages, llm.ChatRequestConfig{})
+
+	if err != nil {
+		t.Fatalf("BuildRequest failed: %v", err)
+	}
+
+	if req["model"] != "groq-model" {
+		t.Errorf("Expected model 'groq-model', got %v", req["model"])
+	}
+}
+
+func TestDeepSeekBackend_BuildRequest(t *testing.T) {
+	backend := &llm.DeepSeekBackend{}
+
+	messages := []map[string]interface{}{
+		{"role": "user", "content": "Hello DeepSeek"},
+	}
+
+	req, err := backend.BuildRequest("deepseek-model", messages, llm.ChatRequestConfig{})
+
+	if err != nil {
+		t.Fatalf("BuildRequest failed: %v", err)
+	}
+
+	if req["model"] != "deepseek-model" {
+		t.Errorf("Expected model 'deepseek-model', got %v", req["model"])
+	}
+}
+
+func TestAnthropicBackend_GetAPIKeyHeader_WithEnv(t *testing.T) {
+	backend := &llm.AnthropicBackend{}
+
+	// Test with provided key
+	key, val := backend.GetAPIKeyHeader("my-api-key")
+
+	if key != "x-api-key" {
+		t.Errorf("Expected key 'x-api-key', got '%s'", key)
+	}
+
+	if val != "my-api-key" {
+		t.Errorf("Expected value 'my-api-key', got '%s'", val)
+	}
+}
+
+func TestOpenAIBackend_GetAPIKeyHeader_Empty(t *testing.T) {
+	backend := &llm.OpenAIBackend{}
+
+	// Test with empty key (and no env var)
+	key, val := backend.GetAPIKeyHeader("")
+
+	if key != "" || val != "" {
+		t.Errorf("Expected empty strings for empty API key, got key='%s', val='%s'", key, val)
+	}
+}
+
+// Helper function for string contains check.
+func contains(s, substr string) bool {
+	return strings.Contains(s, substr)
 }
