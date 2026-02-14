@@ -499,8 +499,18 @@ func TestExecutor_Execute_InvalidURL(t *testing.T) {
 
 	resultMap, ok := result.(map[string]interface{})
 	require.True(t, ok)
-	// Should get HTTP 429 response
-	assert.Equal(t, 429, resultMap["statusCode"])
+	// Should get error for invalid URL
+	assert.Contains(t, resultMap, "error")
+	errorMsg, ok := resultMap["error"].(string)
+	require.True(t, ok)
+	// Error message should indicate connection or DNS failure
+	assert.True(
+		t,
+		strings.Contains(errorMsg, "dial") || strings.Contains(errorMsg, "no such host") ||
+			strings.Contains(errorMsg, "lookup"),
+		"Expected DNS or connection error, got: %s",
+		errorMsg,
+	)
 }
 
 func TestExecutor_Execute_ExpressionEvaluation(t *testing.T) {
