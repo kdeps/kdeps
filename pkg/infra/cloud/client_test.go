@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -322,4 +323,118 @@ func TestClient_ListDeployments_Success(t *testing.T) {
 	assert.Len(t, result, 1)
 	assert.Equal(t, "dep1", result[0].ID)
 	assert.Equal(t, "active", result[0].Status)
+}
+
+func TestClient_StreamBuildLogs_Success(t *testing.T) {
+	pollCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/cli/builds/build-123", r.URL.Path)
+
+		pollCount++
+		var status cloud.BuildStatus
+		if pollCount == 1 {
+			status = cloud.BuildStatus{
+				Status: "building",
+				Logs:   []string{"Starting build...", "Installing dependencies..."},
+			}
+		} else {
+			status = cloud.BuildStatus{
+				Status: "completed",
+				Logs:   []string{"Starting build...", "Installing dependencies...", "Build complete!"},
+			}
+		}
+		json.NewEncoder(w).Encode(status)
+	}))
+	defer server.Close()
+
+	client := cloud.NewClient("test-key", server.URL)
+	var buf bytes.Buffer
+	result, err := client.StreamBuildLogs(context.Background(), "build-123", &buf)
+
+	require.NoError(t, err)
+	assert.Equal(t, "completed", result.Status)
+	assert.Contains(t, buf.String(), "Starting build...")
+	assert.Contains(t, buf.String(), "Build complete!")
+}
+
+func TestClient_StreamBuildLogs_Failed(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		status := cloud.BuildStatus{
+			Status: "failed",
+			Error:  "compilation error",
+			Logs:   []string{"Starting build...", "Error: compilation failed"},
+		}
+		json.NewEncoder(w).Encode(status)
+	}))
+	defer server.Close()
+
+	client := cloud.NewClient("test-key", server.URL)
+	var buf bytes.Buffer
+	result, err := client.StreamBuildLogs(context.Background(), "build-123", &buf)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "compilation error")
+	assert.Equal(t, "failed", result.Status)
+}
+
+func TestClient_StreamBuildLogs_ContextCanceled(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		status := cloud.BuildStatus{
+			Status: "building",
+			Logs:   []string{"Starting build..."},
+		}
+		json.NewEncoder(w).Encode(status)
+	}))
+	defer server.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	client := cloud.NewClient("test-key", server.URL)
+	var buf bytes.Buffer
+	_, err := client.StreamBuildLogs(ctx, "build-123", &buf)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "context canceled")
+}
+
+func TestClient_StartBuild_RequestBodyError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(cloud.BuildResponse{
+			BuildID: "build-123",
+			Status:  "queued",
+		})
+	}))
+	defer server.Close()
+
+	client := cloud.NewClient("test-key", server.URL)
+	// Test with invalid reader (closed reader)
+	reader := bytes.NewReader([]byte("test content"))
+	// Read all content to simulate exhausted reader
+	_, _ = io.ReadAll(reader)
+
+	result, err := client.StartBuild(context.Background(), reader, "iso", "amd64", false)
+
+	// Should succeed even with exhausted reader (just sends empty file)
+	require.NoError(t, err)
+	assert.Equal(t, "build-123", result.BuildID)
+}
+
+func TestClient_PollBuild_ErrorStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		status := cloud.BuildStatus{
+			Status: "error",
+			Error:  "internal error",
+		}
+		json.NewEncoder(w).Encode(status)
+	}))
+	defer server.Close()
+
+	client := cloud.NewClient("test-key", server.URL)
+	result, err := client.PollBuild(context.Background(), "build-123")
+
+	require.NoError(t, err)
+	assert.Equal(t, "error", result.Status)
+	assert.Equal(t, "internal error", result.Error)
 }
