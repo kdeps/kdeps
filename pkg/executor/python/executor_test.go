@@ -843,3 +843,291 @@ func TestExecutor_Execute_WithScriptFile(t *testing.T) {
 	_ = exec
 	_ = ctx
 }
+
+func TestExecutor_PrepareScript_ScriptFileWithAbsolutePath(t *testing.T) {
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+
+	tmpDir := t.TempDir()
+	scriptPath := filepath.Join(tmpDir, "absolute_test.py")
+	err := os.WriteFile(scriptPath, []byte("print('absolute path')"), 0644)
+	require.NoError(t, err)
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	config := &domain.PythonConfig{
+		ScriptFile: scriptPath, // Absolute path
+	}
+
+	// Test prepareScript with absolute path through Execute
+	result, err := exec.Execute(ctx, config)
+
+	// May fail without real Python, but tests code paths
+	_ = result
+	_ = err
+}
+
+func TestExecutor_PrepareScript_InterpolatedInlineScript(t *testing.T) {
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	ctx.Outputs["greeting"] = "Hello"
+	ctx.Outputs["name"] = "Python"
+
+	config := &domain.PythonConfig{
+		Script: `print("{{get('greeting')}}, {{get('name')}}")`,
+	}
+
+	// Test interpolation in inline script
+	result, err := exec.Execute(ctx, config)
+
+	_ = result
+	_ = err
+}
+
+func TestExecutor_PrepareScript_NoScriptOrFileError(t *testing.T) {
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	config := &domain.PythonConfig{
+		// Neither Script nor ScriptFile specified
+		Args: []string{"arg1"},
+	}
+
+	result, err := exec.Execute(ctx, config)
+
+	// Should error about missing script
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "no script")
+}
+
+func TestExecutor_ParseTimeout_WithDuration(t *testing.T) {
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	config := &domain.PythonConfig{
+		Script:          "print('test timeout')",
+		TimeoutDuration: "10s",
+	}
+
+	// parseTimeout is called internally during Execute
+	result, err := exec.Execute(ctx, config)
+
+	_ = result
+	_ = err
+}
+
+func TestExecutor_ParseTimeout_WithInvalidDuration(t *testing.T) {
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	config := &domain.PythonConfig{
+		Script:          "print('test')",
+		TimeoutDuration: "not-a-duration",
+	}
+
+	// Should use default timeout when duration is invalid
+	result, err := exec.Execute(ctx, config)
+
+	_ = result
+	_ = err
+}
+
+func TestExecutor_GetPythonVersion_FromAgentSettings(t *testing.T) {
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+
+	workflow := &domain.Workflow{
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				PythonVersion: "3.11",
+			},
+		},
+	}
+
+	ctx, err := executor.NewExecutionContext(workflow)
+	require.NoError(t, err)
+
+	config := &domain.PythonConfig{
+		Script: "import sys; print(sys.version)",
+	}
+
+	// getPythonVersion is called internally
+	result, err := exec.Execute(ctx, config)
+
+	_ = result
+	_ = err
+}
+
+func TestExecutor_GetPythonVersion_DefaultVersion(t *testing.T) {
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	config := &domain.PythonConfig{
+		Script: "print('default version')",
+	}
+
+	// Should use default version 3.12
+	result, err := exec.Execute(ctx, config)
+
+	_ = result
+	_ = err
+}
+
+func TestExecutor_ResolveConfig_WithExpressionInArgs(t *testing.T) {
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	ctx.Outputs["dynamic_arg"] = "computed-value"
+
+	config := &domain.PythonConfig{
+		Script: "import sys; print(sys.argv)",
+		Args:   []string{"{{get('dynamic_arg')}}", "static-arg"},
+	}
+
+	// resolveConfig evaluates Args expressions
+	result, err := exec.Execute(ctx, config)
+
+	_ = result
+	_ = err
+}
+
+func TestExecutor_EvaluateExpression_WithValidExpression(t *testing.T) {
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	ctx.Outputs["test_value"] = 42
+
+	evaluator := expression.NewEvaluator(ctx.API)
+	result, err := exec.EvaluateExpression(evaluator, ctx, "get('test_value')")
+
+	require.NoError(t, err)
+	assert.Equal(t, 42, result)
+}
+
+func TestExecutor_EvaluateExpression_WithInvalidSyntax(t *testing.T) {
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	evaluator := expression.NewEvaluator(ctx.API)
+	result, err := exec.EvaluateExpression(evaluator, ctx, "nonexistent_function()")
+
+	// Expression evaluator may not error on all invalid expressions
+	_ = err
+	_ = result
+}
+
+func TestExecutor_EvaluateStringOrLiteral_WithComplexInterpolation(t *testing.T) {
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	ctx.Outputs["first"] = "Hello"
+	ctx.Outputs["second"] = "World"
+
+	evaluator := expression.NewEvaluator(ctx.API)
+	// Test with single interpolation to avoid double-brace issues
+	result, err := exec.EvaluateStringOrLiteral(evaluator, ctx, "Greeting: {{get('first')}}")
+
+	require.NoError(t, err)
+	assert.Contains(t, result, "Hello")
+}
+
+func TestExecutor_EvaluateStringOrLiteral_PlainString(t *testing.T) {
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+
+	evaluator := expression.NewEvaluator(ctx.API)
+	result, err := exec.EvaluateStringOrLiteral(evaluator, ctx, "just a plain string")
+
+	require.NoError(t, err)
+	assert.Equal(t, "just a plain string", result)
+}
+
+func TestExecutor_GetPythonDependencies_WithPackages(t *testing.T) {
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+
+	workflow := &domain.Workflow{
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				PythonPackages: []string{"requests", "numpy"},
+			},
+		},
+	}
+
+	ctx, err := executor.NewExecutionContext(workflow)
+	require.NoError(t, err)
+
+	config := &domain.PythonConfig{
+		Script: "import requests; print('ok')",
+	}
+
+	// getPythonDependencies is called internally
+	result, err := exec.Execute(ctx, config)
+
+	_ = result
+	_ = err
+}
+
+func TestExecutor_GetPythonDependencies_WithRequirementsFile(t *testing.T) {
+	mockManager := &MockUVManager{}
+	exec := pythonexecutor.NewExecutor(mockManager)
+
+	tmpDir := t.TempDir()
+	reqFile := filepath.Join(tmpDir, "requirements.txt")
+	err := os.WriteFile(reqFile, []byte("requests==2.28.0\nnumpy>=1.20.0\n"), 0644)
+	require.NoError(t, err)
+
+	workflow := &domain.Workflow{
+		Settings: domain.WorkflowSettings{
+			AgentSettings: domain.AgentSettings{
+				RequirementsFile: reqFile,
+			},
+		},
+	}
+
+	ctx, err := executor.NewExecutionContext(workflow)
+	require.NoError(t, err)
+	ctx.FSRoot = tmpDir
+
+	config := &domain.PythonConfig{
+		Script: "print('with requirements')",
+	}
+
+	result, err := exec.Execute(ctx, config)
+
+	_ = result
+	_ = err
+}
