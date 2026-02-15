@@ -430,7 +430,7 @@ func TestCohereBackend_BuildRequest(t *testing.T) {
 	}
 }
 
-// Test Cohere with multiple messages (exercises handleUserMessage and handleAssistantMessage)
+// Test Cohere with multiple messages (exercises handleUserMessage and handleAssistantMessage).
 func TestCohereBackend_BuildRequest_MultipleMessages(t *testing.T) {
 	backend := &llm.CohereBackend{}
 
@@ -449,19 +449,19 @@ func TestCohereBackend_BuildRequest_MultipleMessages(t *testing.T) {
 	if req["model"] != "command-r-plus" {
 		t.Errorf("Expected model 'command-r-plus', got %v", req["model"])
 	}
-	
+
 	// Check that chat_history was created
 	if req["chat_history"] == nil {
 		t.Error("Expected chat_history to be set")
 	}
-	
+
 	// Check final message
 	if req["message"] == nil {
 		t.Error("Expected message to be set")
 	}
 }
 
-// Test Cohere with content array (exercises extractContent with array)
+// Test Cohere with content array (exercises extractContent with array).
 func TestCohereBackend_BuildRequest_ContentArray(t *testing.T) {
 	backend := &llm.CohereBackend{}
 
@@ -482,7 +482,7 @@ func TestCohereBackend_BuildRequest_ContentArray(t *testing.T) {
 	}
 }
 
-// Test Cohere with context length
+// Test Cohere with context length.
 func TestCohereBackend_BuildRequest_WithContextLength(t *testing.T) {
 	backend := &llm.CohereBackend{}
 
@@ -1006,11 +1006,11 @@ func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
 }
 
-// Tests for Mistral Backend
+// Tests for Mistral Backend.
 func TestMistralBackend_ChatEndpoint(t *testing.T) {
 	backend := &llm.MistralBackend{}
 	endpoint := backend.ChatEndpoint("https://api.mistral.ai")
-	
+
 	expected := "https://api.mistral.ai/v1/chat/completions"
 	if endpoint != expected {
 		t.Errorf("Expected endpoint '%s', got '%s'", expected, endpoint)
@@ -1026,20 +1026,20 @@ func TestMistralBackend_BuildRequest(t *testing.T) {
 		ContextLength: 1000,
 		JSONResponse:  true,
 	}
-	
+
 	req, err := backend.BuildRequest("mistral-model", messages, config)
 	if err != nil {
 		t.Fatalf("BuildRequest failed: %v", err)
 	}
-	
+
 	if req["model"] != "mistral-model" {
 		t.Errorf("Expected model 'mistral-model', got %v", req["model"])
 	}
-	
+
 	if req["max_tokens"] != 1000 {
 		t.Errorf("Expected max_tokens 1000, got %v", req["max_tokens"])
 	}
-	
+
 	if _, ok := req["response_format"]; !ok {
 		t.Error("Expected response_format for JSON response")
 	}
@@ -1047,19 +1047,19 @@ func TestMistralBackend_BuildRequest(t *testing.T) {
 
 func TestMistralBackend_ParseResponse(t *testing.T) {
 	backend := &llm.MistralBackend{}
-	
+
 	// Test successful response
 	respBody := `{"choices": [{"message": {"role": "assistant", "content": "test response"}}]}`
 	resp := &stdhttp.Response{
 		StatusCode: stdhttp.StatusOK,
 		Body:       io.NopCloser(bytes.NewBufferString(respBody)),
 	}
-	
+
 	result, err := backend.ParseResponse(resp)
 	if err != nil {
 		t.Fatalf("ParseResponse failed: %v", err)
 	}
-	
+
 	if result["message"] == nil {
 		t.Error("Expected message in result")
 	}
@@ -1067,23 +1067,23 @@ func TestMistralBackend_ParseResponse(t *testing.T) {
 
 func TestMistralBackend_GetAPIKeyHeader(t *testing.T) {
 	backend := &llm.MistralBackend{}
-	
+
 	key, val := backend.GetAPIKeyHeader("test-key")
-	
+
 	if key != "Authorization" {
 		t.Errorf("Expected key 'Authorization', got '%s'", key)
 	}
-	
+
 	if !strings.Contains(val, "Bearer test-key") {
 		t.Errorf("Expected Bearer token, got '%s'", val)
 	}
 }
 
-// Tests for Together Backend
+// Tests for Together Backend.
 func TestTogetherBackend_ChatEndpoint(t *testing.T) {
 	backend := &llm.TogetherBackend{}
 	endpoint := backend.ChatEndpoint("https://api.together.xyz")
-	
+
 	expected := "https://api.together.xyz/v1/chat/completions"
 	if endpoint != expected {
 		t.Errorf("Expected endpoint '%s', got '%s'", expected, endpoint)
@@ -1092,18 +1092,18 @@ func TestTogetherBackend_ChatEndpoint(t *testing.T) {
 
 func TestTogetherBackend_ParseResponse(t *testing.T) {
 	backend := &llm.TogetherBackend{}
-	
+
 	respBody := `{"choices": [{"message": {"role": "assistant", "content": "test"}}]}`
 	resp := &stdhttp.Response{
 		StatusCode: stdhttp.StatusOK,
 		Body:       io.NopCloser(bytes.NewBufferString(respBody)),
 	}
-	
+
 	result, err := backend.ParseResponse(resp)
 	if err != nil {
 		t.Fatalf("ParseResponse failed: %v", err)
 	}
-	
+
 	if result["message"] == nil {
 		t.Error("Expected message in result")
 	}
@@ -1111,23 +1111,23 @@ func TestTogetherBackend_ParseResponse(t *testing.T) {
 
 func TestTogetherBackend_GetAPIKeyHeader(t *testing.T) {
 	backend := &llm.TogetherBackend{}
-	
+
 	key, val := backend.GetAPIKeyHeader("test-key")
-	
+
 	if key != "Authorization" {
 		t.Errorf("Expected key 'Authorization', got '%s'", key)
 	}
-	
+
 	if !strings.Contains(val, "Bearer test-key") {
 		t.Errorf("Expected Bearer token, got '%s'", val)
 	}
 }
 
-// Tests for Perplexity Backend
+// Tests for Perplexity Backend.
 func TestPerplexityBackend_ChatEndpoint(t *testing.T) {
 	backend := &llm.PerplexityBackend{}
 	endpoint := backend.ChatEndpoint("https://api.perplexity.ai")
-	
+
 	expected := "https://api.perplexity.ai/chat/completions"
 	if endpoint != expected {
 		t.Errorf("Expected endpoint '%s', got '%s'", expected, endpoint)
@@ -1136,18 +1136,18 @@ func TestPerplexityBackend_ChatEndpoint(t *testing.T) {
 
 func TestPerplexityBackend_ParseResponse(t *testing.T) {
 	backend := &llm.PerplexityBackend{}
-	
+
 	respBody := `{"choices": [{"message": {"role": "assistant", "content": "test"}}]}`
 	resp := &stdhttp.Response{
 		StatusCode: stdhttp.StatusOK,
 		Body:       io.NopCloser(bytes.NewBufferString(respBody)),
 	}
-	
+
 	result, err := backend.ParseResponse(resp)
 	if err != nil {
 		t.Fatalf("ParseResponse failed: %v", err)
 	}
-	
+
 	if result["message"] == nil {
 		t.Error("Expected message in result")
 	}
@@ -1155,23 +1155,23 @@ func TestPerplexityBackend_ParseResponse(t *testing.T) {
 
 func TestPerplexityBackend_GetAPIKeyHeader(t *testing.T) {
 	backend := &llm.PerplexityBackend{}
-	
+
 	key, val := backend.GetAPIKeyHeader("test-key")
-	
+
 	if key != "Authorization" {
 		t.Errorf("Expected key 'Authorization', got '%s'", key)
 	}
-	
+
 	if !strings.Contains(val, "Bearer test-key") {
 		t.Errorf("Expected Bearer token, got '%s'", val)
 	}
 }
 
-// Tests for Groq Backend
+// Tests for Groq Backend.
 func TestGroqBackend_ChatEndpoint(t *testing.T) {
 	backend := &llm.GroqBackend{}
 	endpoint := backend.ChatEndpoint("https://api.groq.com")
-	
+
 	expected := "https://api.groq.com/openai/v1/chat/completions"
 	if endpoint != expected {
 		t.Errorf("Expected endpoint '%s', got '%s'", expected, endpoint)
@@ -1180,18 +1180,18 @@ func TestGroqBackend_ChatEndpoint(t *testing.T) {
 
 func TestGroqBackend_ParseResponse(t *testing.T) {
 	backend := &llm.GroqBackend{}
-	
+
 	respBody := `{"choices": [{"message": {"role": "assistant", "content": "test"}}]}`
 	resp := &stdhttp.Response{
 		StatusCode: stdhttp.StatusOK,
 		Body:       io.NopCloser(bytes.NewBufferString(respBody)),
 	}
-	
+
 	result, err := backend.ParseResponse(resp)
 	if err != nil {
 		t.Fatalf("ParseResponse failed: %v", err)
 	}
-	
+
 	if result["message"] == nil {
 		t.Error("Expected message in result")
 	}
@@ -1199,23 +1199,23 @@ func TestGroqBackend_ParseResponse(t *testing.T) {
 
 func TestGroqBackend_GetAPIKeyHeader(t *testing.T) {
 	backend := &llm.GroqBackend{}
-	
+
 	key, val := backend.GetAPIKeyHeader("test-key")
-	
+
 	if key != "Authorization" {
 		t.Errorf("Expected key 'Authorization', got '%s'", key)
 	}
-	
+
 	if !strings.Contains(val, "Bearer test-key") {
 		t.Errorf("Expected Bearer token, got '%s'", val)
 	}
 }
 
-// Tests for DeepSeek Backend
+// Tests for DeepSeek Backend.
 func TestDeepSeekBackend_ChatEndpoint(t *testing.T) {
 	backend := &llm.DeepSeekBackend{}
 	endpoint := backend.ChatEndpoint("https://api.deepseek.com")
-	
+
 	expected := "https://api.deepseek.com/v1/chat/completions"
 	if endpoint != expected {
 		t.Errorf("Expected endpoint '%s', got '%s'", expected, endpoint)
@@ -1224,18 +1224,18 @@ func TestDeepSeekBackend_ChatEndpoint(t *testing.T) {
 
 func TestDeepSeekBackend_ParseResponse(t *testing.T) {
 	backend := &llm.DeepSeekBackend{}
-	
+
 	respBody := `{"choices": [{"message": {"role": "assistant", "content": "test"}}]}`
 	resp := &stdhttp.Response{
 		StatusCode: stdhttp.StatusOK,
 		Body:       io.NopCloser(bytes.NewBufferString(respBody)),
 	}
-	
+
 	result, err := backend.ParseResponse(resp)
 	if err != nil {
 		t.Fatalf("ParseResponse failed: %v", err)
 	}
-	
+
 	if result["message"] == nil {
 		t.Error("Expected message in result")
 	}
@@ -1243,31 +1243,31 @@ func TestDeepSeekBackend_ParseResponse(t *testing.T) {
 
 func TestDeepSeekBackend_GetAPIKeyHeader(t *testing.T) {
 	backend := &llm.DeepSeekBackend{}
-	
+
 	key, val := backend.GetAPIKeyHeader("test-key")
-	
+
 	if key != "Authorization" {
 		t.Errorf("Expected key 'Authorization', got '%s'", key)
 	}
-	
+
 	if !strings.Contains(val, "Bearer test-key") {
 		t.Errorf("Expected Bearer token, got '%s'", val)
 	}
 }
 
-// Test for Google ChatEndpointWithKey
+// Test for Google ChatEndpointWithKey.
 func TestGoogleBackend_ChatEndpointWithKey(t *testing.T) {
 	backend := &llm.GoogleBackend{}
 	endpoint := backend.ChatEndpointWithKey("https://generativelanguage.googleapis.com", "test-api-key")
-	
+
 	if !strings.Contains(endpoint, "test-api-key") {
 		t.Errorf("Expected endpoint to contain API key, got '%s'", endpoint)
 	}
-	
+
 	if !strings.Contains(endpoint, "chat/completions") {
 		t.Errorf("Expected endpoint to contain 'chat/completions', got '%s'", endpoint)
 	}
-	
+
 	if !strings.Contains(endpoint, "key=") {
 		t.Errorf("Expected endpoint to contain 'key=' query parameter, got '%s'", endpoint)
 	}

@@ -58,7 +58,7 @@ func TestModelManager_ServeModel(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// Unit tests that don't require external services
+// Unit tests that don't require external services.
 func TestNewModelManager(t *testing.T) {
 	manager := llm.NewModelManager(nil)
 	assert.NotNil(t, manager)
@@ -67,7 +67,7 @@ func TestNewModelManager(t *testing.T) {
 func TestNewModelManagerWithOfflineMode(t *testing.T) {
 	manager := llm.NewModelManagerWithOfflineMode(nil, true)
 	assert.NotNil(t, manager)
-	
+
 	manager2 := llm.NewModelManagerWithOfflineMode(nil, false)
 	assert.NotNil(t, manager2)
 }
