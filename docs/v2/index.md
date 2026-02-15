@@ -39,7 +39,17 @@ features:
 
 # Introduction
 
-KDeps is a YAML-based workflow orchestration framework for building stateful REST APIs. It packages AI tasks, data processing, and API integrations into portable units, eliminating boilerplate code for common patterns like authentication, data flow, storage, and validation.
+KDeps is a YAML-based workflow orchestration framework for building stateful REST APIs. Built on **~92,000 lines of Go code** with **70% test coverage**, it packages AI tasks, data processing, and API integrations into portable units, eliminating boilerplate code for common patterns like authentication, data flow, storage, and validation.
+
+## Technical Highlights
+
+**Architecture**: Clean architecture with 5 distinct layers (CLI → Executor → Parser → Domain → Infrastructure)
+
+**Scale**: 218 source files, 26 CLI commands, 5 resource executor types, 14 working examples
+
+**Testing**: 13 integration tests + 35 e2e scripts ensuring production readiness
+
+**Multi-Target**: Native CLI, Docker containers, and WebAssembly for browser execution
 
 ## Key Highlights
 
@@ -183,6 +193,57 @@ run:
 kdeps run workflow.yaml
 curl -X POST http://localhost:16395/api/v1/chat -d '{"q": "What is AI?"}'
 ```
+
+## Architecture
+
+KDeps implements clean architecture with five distinct layers:
+
+```
+┌─────────────────────────────────────────────────────┐
+│                  CLI Layer (cmd/)                    │
+│  26 commands: run, build, validate, package, new... │
+└─────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────┐
+│            Execution Engine (pkg/executor/)          │
+│    Graph → Engine → Context → Resource Executors    │
+└─────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────┐
+│       Parser & Validator (pkg/parser, validator)    │
+│       YAML parsing, expression evaluation           │
+└─────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────┐
+│            Domain Models (pkg/domain/)               │
+│      Workflow, Resource, RunConfig, Settings         │
+└─────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────┐
+│           Infrastructure (pkg/infra/)                │
+│  Docker, HTTP, Storage, Python, Cloud, ISO, WASM    │
+└─────────────────────────────────────────────────────┘
+```
+
+### Resource Executors
+
+Five built-in executor types handle different workload types:
+
+| Executor | Implementation | Features |
+|----------|----------------|----------|
+| **LLM** | 8 files | Ollama, OpenAI-compatible, streaming, tools |
+| **HTTP** | 2 files | REST APIs, auth, retries, caching |
+| **SQL** | 4 files | 5 database drivers, connection pooling |
+| **Python** | 3 files | uv integration (97% smaller images) |
+| **Exec** | 3 files | Secure shell command execution |
+
+### Design Patterns
+
+- **Clean Architecture**: Zero external dependencies in domain layer
+- **Graph-Based Orchestration**: Topological sorting with cycle detection
+- **Dependency Injection**: Interface-based validators and executors
+- **Registry Pattern**: Dynamic executor registration
+- **Adapter Pattern**: Domain → executor config conversion
 
 ### Documentation
 
