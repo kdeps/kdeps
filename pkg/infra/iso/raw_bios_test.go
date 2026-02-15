@@ -130,8 +130,8 @@ func TestFindKernelInitrd_NonexistentDir(t *testing.T) {
 
 // Mock RawBIOSAssembleFunc for testing.
 func mockAssembleFunc(
-	ctx context.Context,
-	kernelPath, initrdPath, cmdlinePath, outputPath, imageName, bootScript string,
+	_ context.Context,
+	_, _, _, outputPath, _, _ string,
 ) error {
 	// Create a fake output file
 	return os.WriteFile(outputPath, []byte("fake disk image"), 0644)
@@ -142,7 +142,7 @@ type mockLinuxKitRunner struct {
 	buildErr error
 }
 
-func (m *mockLinuxKitRunner) Build(ctx context.Context, configPath, format, arch, buildDir, size string) error {
+func (m *mockLinuxKitRunner) Build(_ context.Context, _, _, _, buildDir, _ string) error {
 	if m.buildErr != nil {
 		return m.buildErr
 	}
@@ -161,7 +161,7 @@ func (m *mockLinuxKitRunner) Build(ctx context.Context, configPath, format, arch
 	return nil
 }
 
-func (m *mockLinuxKitRunner) CacheImport(ctx context.Context, imageName string) error {
+func (m *mockLinuxKitRunner) CacheImport(_ context.Context, _ string) error {
 	return nil
 }
 
@@ -198,7 +198,7 @@ func TestBuildRawBIOSWithImage_Success(t *testing.T) {
 	}
 
 	// Verify output file was created
-	if _, err := os.Stat(outputPath); os.IsNotExist(err) {
+	if _, statErr := os.Stat(outputPath); os.IsNotExist(statErr) {
 		t.Error("Output file was not created")
 	}
 }
