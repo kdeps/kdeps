@@ -584,3 +584,74 @@ func TestExecutionContext_GetItem_ThroughItemAPI(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 5, count2)
 }
+
+func TestExecutionContext_Env(t *testing.T) {
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+	require.NoError(t, err)
+	require.NotNil(t, ctx)
+
+	// Test with an environment variable that should exist
+	t.Run("retrieve existing env var", func(t *testing.T) {
+		t.Setenv("TEST_ENV_VAR", "test_value")
+
+		value, envErr := ctx.Env("TEST_ENV_VAR")
+		require.NoError(t, envErr)
+		assert.Equal(t, "test_value", value)
+	})
+
+	// Test with a non-existent environment variable
+	t.Run("retrieve non-existent env var", func(t *testing.T) {
+		value, envErr := ctx.Env("NON_EXISTENT_VAR_12345")
+		require.NoError(t, envErr)
+		assert.Empty(t, value)
+	})
+
+	// Test with PATH (should exist in most environments)
+	t.Run("retrieve PATH env var", func(t *testing.T) {
+		value, envErr := ctx.Env("PATH")
+		require.NoError(t, envErr)
+		// PATH should exist and not be empty in most environments
+		// but we just check no error is returned
+		assert.NotNil(t, value)
+	})
+}
+
+func TestExecutionContext_GetAllSession(t *testing.T) {
+	t.Run("returns empty map when session is nil", func(t *testing.T) {
+		ctx, err := executor.NewExecutionContext(&domain.Workflow{})
+		require.NoError(t, err)
+
+		// Intentionally set Session to nil to test that code path
+		ctx.Session = nil
+
+		result, err := ctx.GetAllSession()
+		require.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Empty(t, result)
+	})
+
+	t.Run("returns all session data when session exists", func(t *testing.T) {
+		workflow := &domain.Workflow{
+			Settings: domain.WorkflowSettings{
+				Session: &domain.SessionConfig{
+					Enabled: true,
+				},
+			},
+		}
+		ctx, err := executor.NewExecutionContext(workflow)
+		require.NoError(t, err)
+
+		// Set some session data using the Session storage API
+		err = ctx.Session.Set("key1", "value1")
+		require.NoError(t, err)
+		err = ctx.Session.Set("key2", 42)
+		require.NoError(t, err)
+
+		// Get all session data
+		result, err := ctx.GetAllSession()
+		require.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Equal(t, "value1", result["key1"])
+		assert.InDelta(t, 42.0, result["key2"], 0.001)
+	})
+}

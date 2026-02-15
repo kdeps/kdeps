@@ -83,10 +83,7 @@ func TestNewParser(t *testing.T) {
 	}
 
 	// Can't access unexported fields schemaValidator and exprParser directly in package_test
-	// Just verify parser is not nil
-	if parser == nil {
-		t.Error("Parser is nil")
-	}
+	// Parser verified to be not nil above
 }
 
 func TestParser_ParseWorkflow(t *testing.T) {

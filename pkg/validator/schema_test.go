@@ -35,10 +35,7 @@ func TestNewSchemaValidator(t *testing.T) {
 	}
 
 	// Can't access unexported fields workflowSchema and resourceSchema directly in package_test
-	// Just verify validator is not nil (already checked above)
-	if validator == nil {
-		t.Error("NewSchemaValidator returned nil")
-	}
+	// Validator verified to be not nil above
 }
 
 func TestSchemaValidator_ValidateWorkflow(t *testing.T) {
@@ -2521,7 +2518,14 @@ func TestSchemaValidator_GetEnumValues_EdgeCases(t *testing.T) {
 			} else {
 				for i, expected := range tt.expected {
 					if result[i] != expected {
-						t.Errorf("GetEnumValues(%q, %q)[%d] = %v, expected %v", tt.field, tt.schemaType, i, result[i], expected)
+						t.Errorf(
+							"GetEnumValues(%q, %q)[%d] = %v, expected %v",
+							tt.field,
+							tt.schemaType,
+							i,
+							result[i],
+							expected,
+						)
 					}
 				}
 			}

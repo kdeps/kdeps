@@ -791,3 +791,74 @@ func TestGetCORSConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestWorkflowSettings_GetHostIP(t *testing.T) {
+	tests := []struct {
+		name     string
+		settings *domain.WorkflowSettings
+		want     string
+	}{
+		{
+			name:     "returns default when HostIP is empty",
+			settings: &domain.WorkflowSettings{HostIP: ""},
+			want:     "0.0.0.0",
+		},
+		{
+			name:     "returns configured value when set",
+			settings: &domain.WorkflowSettings{HostIP: "127.0.0.1"},
+			want:     "127.0.0.1",
+		},
+		{
+			name:     "returns custom IP",
+			settings: &domain.WorkflowSettings{HostIP: "192.168.1.1"},
+			want:     "192.168.1.1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.settings.GetHostIP()
+			if got != tt.want {
+				t.Errorf("GetHostIP() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestWorkflowSettings_GetPortNum(t *testing.T) {
+	tests := []struct {
+		name     string
+		settings *domain.WorkflowSettings
+		want     int
+	}{
+		{
+			name:     "returns default when PortNum is 0",
+			settings: &domain.WorkflowSettings{PortNum: 0},
+			want:     domain.DefaultPort,
+		},
+		{
+			name:     "returns default when PortNum is negative",
+			settings: &domain.WorkflowSettings{PortNum: -1},
+			want:     domain.DefaultPort,
+		},
+		{
+			name:     "returns configured value when positive",
+			settings: &domain.WorkflowSettings{PortNum: 8080},
+			want:     8080,
+		},
+		{
+			name:     "returns custom port",
+			settings: &domain.WorkflowSettings{PortNum: 16395},
+			want:     16395,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.settings.GetPortNum()
+			if got != tt.want {
+				t.Errorf("GetPortNum() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

@@ -454,7 +454,14 @@ func buildWASMImage(ctx context.Context, packagePath string, flags *BuildFlags) 
 		}
 	}
 
-	if err = bundleWASMApp(wasmBinary, wasmExecJS, string(combinedYAML), webServerFiles, apiRoutes, outputDir); err != nil {
+	if err = bundleWASMApp(
+		wasmBinary,
+		wasmExecJS,
+		string(combinedYAML),
+		webServerFiles,
+		apiRoutes,
+		outputDir,
+	); err != nil {
 		return err
 	}
 
