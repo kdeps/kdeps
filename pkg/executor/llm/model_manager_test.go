@@ -57,3 +57,17 @@ func TestModelManager_ServeModel(t *testing.T) {
 	// The method should succeed when server is already running
 	assert.NoError(t, err)
 }
+
+// Unit tests that don't require external services
+func TestNewModelManager(t *testing.T) {
+	manager := llm.NewModelManager(nil)
+	assert.NotNil(t, manager)
+}
+
+func TestNewModelManagerWithOfflineMode(t *testing.T) {
+	manager := llm.NewModelManagerWithOfflineMode(nil, true)
+	assert.NotNil(t, manager)
+	
+	manager2 := llm.NewModelManagerWithOfflineMode(nil, false)
+	assert.NotNil(t, manager2)
+}

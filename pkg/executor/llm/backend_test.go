@@ -430,6 +430,79 @@ func TestCohereBackend_BuildRequest(t *testing.T) {
 	}
 }
 
+// Test Cohere with multiple messages (exercises handleUserMessage and handleAssistantMessage)
+func TestCohereBackend_BuildRequest_MultipleMessages(t *testing.T) {
+	backend := &llm.CohereBackend{}
+
+	messages := []map[string]interface{}{
+		{"role": "user", "content": "First question"},
+		{"role": "assistant", "content": "First answer"},
+		{"role": "user", "content": "Second question"},
+	}
+
+	req, err := backend.BuildRequest("command-r-plus", messages, llm.ChatRequestConfig{})
+
+	if err != nil {
+		t.Fatalf("BuildRequest failed: %v", err)
+	}
+
+	if req["model"] != "command-r-plus" {
+		t.Errorf("Expected model 'command-r-plus', got %v", req["model"])
+	}
+	
+	// Check that chat_history was created
+	if req["chat_history"] == nil {
+		t.Error("Expected chat_history to be set")
+	}
+	
+	// Check final message
+	if req["message"] == nil {
+		t.Error("Expected message to be set")
+	}
+}
+
+// Test Cohere with content array (exercises extractContent with array)
+func TestCohereBackend_BuildRequest_ContentArray(t *testing.T) {
+	backend := &llm.CohereBackend{}
+
+	messages := []map[string]interface{}{
+		{"role": "user", "content": []interface{}{
+			map[string]interface{}{"text": "Array content"},
+		}},
+	}
+
+	req, err := backend.BuildRequest("command-r-plus", messages, llm.ChatRequestConfig{})
+
+	if err != nil {
+		t.Fatalf("BuildRequest failed: %v", err)
+	}
+
+	if req["message"] == nil {
+		t.Error("Expected message to be extracted from content array")
+	}
+}
+
+// Test Cohere with context length
+func TestCohereBackend_BuildRequest_WithContextLength(t *testing.T) {
+	backend := &llm.CohereBackend{}
+
+	messages := []map[string]interface{}{
+		{"role": "user", "content": "test"},
+	}
+
+	req, err := backend.BuildRequest("command-r-plus", messages, llm.ChatRequestConfig{
+		ContextLength: 2000,
+	})
+
+	if err != nil {
+		t.Fatalf("BuildRequest failed: %v", err)
+	}
+
+	if req["max_tokens"] != 2000 {
+		t.Errorf("Expected max_tokens 2000, got %v", req["max_tokens"])
+	}
+}
+
 func TestOpenAIBackend_ChatEndpoint(t *testing.T) {
 	backend := &llm.OpenAIBackend{}
 
