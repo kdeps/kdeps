@@ -241,8 +241,22 @@ curl -X POST http://localhost:16395/api/v1/chat -d '{"q": "What is AI?"}'
 | Python env | Anaconda (~20GB) | uv (97% smaller) |
 | Learning curve | 2-3 days | ~1 hour |
 
+## Examples
+
+Explore working examples:
+
+- [Simple Chatbot](https://github.com/kdeps/kdeps/tree/main/examples/chatbot) - LLM chatbot
+- [ChatGPT Clone](https://github.com/kdeps/kdeps/tree/main/examples/chatgpt-clone) - Full chat UI
+- [File Upload](https://github.com/kdeps/kdeps/tree/main/examples/file-upload) - File processing
+- [HTTP Advanced](https://github.com/kdeps/kdeps/tree/main/examples/http-advanced) - API integration
+- [SQL Advanced](https://github.com/kdeps/kdeps/tree/main/examples/sql-advanced) - Multi-database
+- [Batch Processing](https://github.com/kdeps/kdeps/tree/main/examples/batch-processing) - Items iteration
+- [Tools](https://github.com/kdeps/kdeps/tree/main/examples/tools) - LLM function calling
+- [Vision](https://github.com/kdeps/kdeps/tree/main/examples/vision) - Image processing
+
 ## Community
 
 - **GitHub**: [github.com/kdeps/kdeps](https://github.com/kdeps/kdeps)
 - **Issues**: [Report bugs and request features](https://github.com/kdeps/kdeps/issues)
+- **Contributing**: [CONTRIBUTING.md](https://github.com/kdeps/kdeps/blob/main/CONTRIBUTING.md)
 - **Examples**: [Browse example workflows](https://github.com/kdeps/kdeps/tree/main/examples)

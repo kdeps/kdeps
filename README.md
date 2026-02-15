@@ -152,6 +152,68 @@ run:
       print(df.describe().to_json())
 ```
 
+### Shell Execution
+Execute shell commands securely.
+
+```yaml
+run:
+  exec:
+    command: "ls"
+    args:
+      - "-la"
+      - "{{ get('directory') }}"
+```
+
+## Examples
+
+Explore working examples in the [examples/](examples/) directory:
+
+- **[chatbot](examples/chatbot/)** - Simple LLM chatbot
+- **[chatgpt-clone](examples/chatgpt-clone/)** - Full-featured chat interface
+- **[file-upload](examples/file-upload/)** - File processing workflow
+- **[http-advanced](examples/http-advanced/)** - Complex HTTP integrations
+- **[sql-advanced](examples/sql-advanced/)** - Multi-database queries
+- **[batch-processing](examples/batch-processing/)** - Items iteration
+- **[session-auth](examples/session-auth/)** - Session management
+- **[tools](examples/tools/)** - LLM function calling
+- **[vision](examples/vision/)** - Image processing with LLMs
+
+## Troubleshooting
+
+### Common Issues
+
+**Binary not found after installation**
+```bash
+# Ensure $HOME/go/bin is in your PATH
+export PATH=$PATH:$HOME/go/bin
+```
+
+**Ollama connection refused**
+```bash
+# Start Ollama service
+ollama serve
+
+# Or specify custom URL in workflow
+settings:
+  agentSettings:
+    ollamaUrl: "http://localhost:11434"
+```
+
+**Docker build fails**
+```bash
+# Ensure Docker daemon is running
+docker info
+
+# Check Docker permissions
+sudo usermod -aG docker $USER
+```
+
+**Tests hanging**
+```bash
+# Run with short flag to skip Docker tests
+go test -short ./...
+```
+
 ## Architecture
 
 KDeps follows a clean architecture to ensure separation of concerns and maintainability.
@@ -190,13 +252,69 @@ KDeps follows a clean architecture to ensure separation of concerns and maintain
 
 ## Development
 
+### Building from Source
+
 ```bash
-# Run tests
-go test ./...
+# Clone the repository
+git clone https://github.com/kdeps/kdeps.git
+cd kdeps
 
-# Run integration tests
-go test ./tests/integration/...
+# Install dependencies
+go mod download
 
-# Build binary
+# Build the binary
+make build
+# or
 go build -o kdeps main.go
 ```
+
+### Running Tests
+
+```bash
+# Run all tests (unit + integration + e2e)
+make test
+
+# Run only unit tests
+make test-unit
+
+# Run integration tests
+make test-integration
+
+# Run e2e tests
+make test-e2e
+
+# Run linter
+make lint
+
+# Format code
+make fmt
+```
+
+### Project Structure
+
+```
+kdeps/
+├── cmd/                    # CLI commands (run, build, validate, etc.)
+├── pkg/
+│   ├── domain/            # Core domain models
+│   ├── executor/          # Resource execution engine
+│   ├── parser/            # YAML and expression parsing
+│   ├── validator/         # Configuration validation
+│   └── infra/             # External integrations
+├── examples/              # Example workflows
+├── tests/
+│   ├── integration/       # Integration tests
+│   └── e2e/               # End-to-end tests
+└── docs/                  # Documentation
+```
+
+## Community & Support
+
+- **Documentation**: [kdeps.io](https://kdeps.io) (coming soon)
+- **GitHub Issues**: [Report bugs or request features](https://github.com/kdeps/kdeps/issues)
+- **Examples**: [Browse example workflows](https://github.com/kdeps/kdeps/tree/main/examples)
+- **Contributing**: See [CONTRIBUTING.md](CONTRIBUTING.md)
+
+## License
+
+Apache 2.0 - See [LICENSE](LICENSE) for details.
