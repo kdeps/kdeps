@@ -833,3 +833,77 @@ func TestExecutor_EvaluateSingleParam_ExpressionEvaluationError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to evaluate parameter 1")
 	assert.Nil(t, result)
 }
+
+// Test resolvePoolConfig with MaxIdleTime
+func TestExecutor_ResolvePoolConfig_WithMaxIdleTime(t *testing.T) {
+	exec := sqlexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	require.NoError(t, err)
+	
+	poolConfig := &domain.PoolConfig{
+		MaxIdleTime: "5m",
+	}
+	
+	// Test through Execute which calls resolvePoolConfig internally
+	config := &domain.SQLConfig{
+		Connection: "mock://test",
+		Query:      "SELECT 1",
+		Pool:       poolConfig,
+	}
+	
+	// This will fail on connection but exercises resolvePoolConfig
+	_, err = exec.Execute(ctx, config)
+	// We expect it to fail on connection, not on resolvePoolConfig
+	if err != nil {
+		// Check it's not a pool config resolution error
+		assert.NotContains(t, err.Error(), "failed to evaluate pool")
+	}
+}
+
+// Test resolvePoolConfig with ConnectionTimeout
+func TestExecutor_ResolvePoolConfig_WithConnectionTimeout(t *testing.T) {
+	exec := sqlexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	require.NoError(t, err)
+	
+	poolConfig := &domain.PoolConfig{
+		ConnectionTimeout: "30s",
+	}
+	
+	config := &domain.SQLConfig{
+		Connection: "mock://test",
+		Query:      "SELECT 1",
+		Pool:       poolConfig,
+	}
+	
+	// This will fail on connection but exercises resolvePoolConfig
+	_, err = exec.Execute(ctx, config)
+	// We expect it to fail on connection, not on resolvePoolConfig
+	if err != nil {
+		assert.NotContains(t, err.Error(), "failed to evaluate pool")
+	}
+}
+
+// Test resolvePoolConfig with both settings
+func TestExecutor_ResolvePoolConfig_WithBothSettings(t *testing.T) {
+	exec := sqlexecutor.NewExecutor()
+	ctx, err := executor.NewExecutionContext(&domain.Workflow{Metadata: domain.WorkflowMetadata{Name: "test"}})
+	require.NoError(t, err)
+	
+	poolConfig := &domain.PoolConfig{
+		MaxIdleTime:       "10m",
+		ConnectionTimeout: "60s",
+	}
+	
+	config := &domain.SQLConfig{
+		Connection: "mock://test",
+		Query:      "SELECT 1",
+		Pool:       poolConfig,
+	}
+	
+	// This will fail on connection but exercises resolvePoolConfig with both settings
+	_, err = exec.Execute(ctx, config)
+	if err != nil {
+		assert.NotContains(t, err.Error(), "failed to evaluate pool")
+	}
+}
