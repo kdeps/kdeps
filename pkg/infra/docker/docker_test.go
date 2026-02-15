@@ -36,6 +36,10 @@ import (
 )
 
 func TestNewBuilder(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping Docker test in short mode")
+	}
+
 	builder, err := docker.NewBuilder()
 	// May fail if Docker is not available, but should not panic
 	if err != nil {
@@ -234,6 +238,10 @@ func TestBuilder_GetBackendPort(t *testing.T) {
 }
 
 func TestNewBuilderWithOS_ValidOS(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping Docker test in short mode")
+	}
+
 	tests := []struct {
 		name   string
 		os     string
@@ -306,6 +314,10 @@ func TestBuilder_CreateBuildContext(t *testing.T) {
 }
 
 func TestNewClient(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping Docker test in short mode")
+	}
+
 	client, err := docker.NewClient()
 	// May fail if Docker is not available
 	if err != nil {
@@ -319,6 +331,10 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestClient_BuildImage(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping Docker test in short mode")
+	}
+
 	client, err := docker.NewClient()
 	if err != nil {
 		t.Skip("Docker not available for testing")
@@ -343,6 +359,10 @@ func TestClient_BuildImage(t *testing.T) {
 }
 
 func TestClient_RunContainer(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping Docker test in short mode")
+	}
+
 	client, err := docker.NewClient()
 	if err != nil {
 		t.Skip("Docker not available for testing")
@@ -362,6 +382,10 @@ func TestClient_RunContainer(t *testing.T) {
 }
 
 func TestClient_StopContainer(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping Docker test in short mode")
+	}
+
 	client, err := docker.NewClient()
 	if err != nil {
 		t.Skip("Docker not available for testing")
@@ -377,6 +401,10 @@ func TestClient_StopContainer(t *testing.T) {
 }
 
 func TestClient_RemoveContainer(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping Docker test in short mode")
+	}
+
 	client, err := docker.NewClient()
 	if err != nil {
 		t.Skip("Docker not available for testing")
@@ -392,6 +420,10 @@ func TestClient_RemoveContainer(t *testing.T) {
 }
 
 func TestClient_Close(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping Docker test in short mode")
+	}
+
 	client, err := docker.NewClient()
 	if err != nil {
 		t.Skip("Docker not available for testing")
@@ -403,6 +435,10 @@ func TestClient_Close(t *testing.T) {
 }
 
 func TestBuilder_Build(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping Docker test in short mode")
+	}
+
 	builder, err := docker.NewBuilder()
 	if err != nil {
 		t.Skip("Docker not available for testing")
@@ -462,6 +498,10 @@ func TestBuilder_Build_BaseOSFromWorkflow(t *testing.T) {
 }
 
 func TestClient_TagImage(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping Docker test in short mode")
+	}
+
 	client, err := docker.NewClient()
 	if err != nil {
 		t.Skip("Docker not available for testing")
@@ -947,6 +987,10 @@ func TestBuilder_Build_ErrorCases(t *testing.T) {
 }
 
 func TestBuilder_Build_SuccessCase(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping Docker test in short mode")
+	}
+
 	builder, _ := docker.NewBuilder()
 	if builder == nil {
 		builder = &docker.Builder{BaseOS: "alpine", Client: &docker.Client{}}
@@ -985,6 +1029,10 @@ func TestBuilder_Build_SuccessCase(t *testing.T) {
 }
 
 func TestClient_RunContainer_ErrorCases(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping Docker test in short mode")
+	}
+
 	client, err := docker.NewClient()
 	if err != nil {
 		t.Skip("Docker not available for testing")
@@ -1005,6 +1053,10 @@ func TestClient_RunContainer_ErrorCases(t *testing.T) {
 }
 
 func TestClient_BuildImage_ErrorCases(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping Docker test in short mode")
+	}
+
 	client, err := docker.NewClient()
 	if err != nil {
 		t.Skip("Docker not available for testing")
@@ -1025,6 +1077,10 @@ func TestClient_BuildImage_ErrorCases(t *testing.T) {
 }
 
 func TestClient_PruneDanglingImages(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping Docker test in short mode")
+	}
+
 	client, err := docker.NewClient()
 	if err != nil {
 		t.Skip("Docker not available for testing")
@@ -1051,6 +1107,10 @@ func TestClient_PruneDanglingImages(t *testing.T) {
 }
 
 func TestBuilder_BuildImage_WithTags(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping Docker test in short mode")
+	}
+
 	client, err := docker.NewClient()
 	if err != nil {
 		t.Skip("Docker not available for testing")
@@ -1439,6 +1499,10 @@ func TestBuilder_Build_PruneDanglingImages(t *testing.T) {
 }
 
 func TestBuilder_Build_DockerClientFailure(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping Docker test in short mode")
+	}
+
 	// Test Build method when Docker client creation fails
 	// This tests the error handling in NewBuilder
 	_, err := docker.NewBuilder()

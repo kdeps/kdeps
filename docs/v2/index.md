@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: KDeps
-  text: AI Agent Framework
-  tagline: Build, configure, and deploy AI agent workflows with simple YAML configuration
+  text: Workflow Orchestration Framework
+  tagline: Build stateful REST APIs with YAML configuration - handle auth, data flow, storage, and validation without writing boilerplate code
   image:
     src: /logo.svg
     alt: KDeps Logo
@@ -19,32 +19,42 @@ hero:
 features:
   - icon: 📝
     title: YAML-First Configuration
-    details: Define AI agents with simple, readable YAML. No complex programming required.
+    details: Define workflows with simple, readable YAML. No complex programming required.
   - icon: ⚡
-    title: Local-First Execution
+    title: Fast Local Development
     details: Sub-second startup time. Run locally during development, Docker only for deployment.
   - icon: 🔌
     title: Unified API
     details: Just get() and set() - access data from any source without memorizing 15+ functions.
   - icon: 🤖
-    title: Multi-LLM Support
-    details: Ollama, OpenAI, Anthropic, Google, Mistral, and more. Mix and match in the same workflow.
+    title: LLM Integration
+    details: Ollama for local models, or any OpenAI-compatible API endpoint.
   - icon: 🗄️
     title: Built-in SQL Support
-    details: PostgreSQL, MySQL, SQLite, SQL Server with connection pooling and transactions.
+    details: PostgreSQL, MySQL, SQLite, SQL Server, Oracle with connection pooling.
   - icon: 🐳
     title: Docker Ready
-    details: Package everything into optimized Docker images with GPU support and offline mode.
+    details: Package everything into optimized Docker images with optional GPU support.
 ---
 
 # Introduction
 
-KDeps is a framework for building, configuring, and deploying AI agent workflows through simple YAML configuration. It packages everything needed for RAG and AI agents, eliminating the complexity of building self-hosted APIs with LLMs.
+KDeps is a YAML-based workflow orchestration framework for building stateful REST APIs. Built on **~92,000 lines of Go code** with **70% test coverage**, it packages AI tasks, data processing, and API integrations into portable units, eliminating boilerplate code for common patterns like authentication, data flow, storage, and validation.
+
+## Technical Highlights
+
+**Architecture**: Clean architecture with 5 distinct layers (CLI → Executor → Parser → Domain → Infrastructure)
+
+**Scale**: 218 source files, 26 CLI commands, 5 resource executor types, 14 working examples
+
+**Testing**: 13 integration tests + 35 e2e scripts ensuring production readiness
+
+**Multi-Target**: Native CLI, Docker containers, and WebAssembly for browser execution
 
 ## Key Highlights
 
 ### YAML-First Configuration
-Build AI agents using simple, self-contained YAML configuration blocks. No complex programming required - just define your resources and let KDeps handle the orchestration.
+Build workflows using simple, self-contained YAML configuration blocks. No complex programming required - just define your resources and let KDeps handle the orchestration.
 
 ```yaml
 apiVersion: kdeps.io/v1
@@ -62,7 +72,7 @@ settings:
         methods: [POST]
 ```
 
-### Local-First Execution
+### Fast Local Development
 Run workflows instantly on your local machine with sub-second startup time. Docker is optional and only needed for deployment.
 
 ```bash
@@ -88,21 +98,15 @@ user: get('user_name', 'session')  # Session storage
 
 </div>
 
-### Multi-LLM Support
-Use any LLM backend - local or cloud. Mix and match different models in the same workflow.
+### LLM Integration
+Use Ollama for local model serving, or connect to any OpenAI-compatible API endpoint.
 
 | Backend | Description |
 |---------|-------------|
 | Ollama | Local model serving (default) |
-| OpenAI | GPT-4, GPT-3.5 |
-| Anthropic | Claude models |
-| Google | Gemini models |
-| Mistral | Mistral AI |
-| Together | Together AI |
-| Groq | Fast inference |
-| + more | VLLM, TGI, LocalAI, LlamaCpp |
+| OpenAI-compatible | Any API endpoint with OpenAI-compatible interface |
 
-### Enterprise-Ready Features
+### Core Features
 - **Session persistence** with SQLite or in-memory storage
 - **Connection pooling** for databases
 - **Retry logic** with exponential backoff
@@ -190,11 +194,62 @@ kdeps run workflow.yaml
 curl -X POST http://localhost:16395/api/v1/chat -d '{"q": "What is AI?"}'
 ```
 
+## Architecture
+
+KDeps implements clean architecture with five distinct layers:
+
+```
+┌─────────────────────────────────────────────────────┐
+│                  CLI Layer (cmd/)                    │
+│  26 commands: run, build, validate, package, new... │
+└─────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────┐
+│            Execution Engine (pkg/executor/)          │
+│    Graph → Engine → Context → Resource Executors    │
+└─────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────┐
+│       Parser & Validator (pkg/parser, validator)    │
+│       YAML parsing, expression evaluation           │
+└─────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────┐
+│            Domain Models (pkg/domain/)               │
+│      Workflow, Resource, RunConfig, Settings         │
+└─────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────┐
+│           Infrastructure (pkg/infra/)                │
+│  Docker, HTTP, Storage, Python, Cloud, ISO, WASM    │
+└─────────────────────────────────────────────────────┘
+```
+
+### Resource Executors
+
+Five built-in executor types handle different workload types:
+
+| Executor | Implementation | Features |
+|----------|----------------|----------|
+| **LLM** | 8 files | Ollama, OpenAI-compatible, streaming, tools |
+| **HTTP** | 2 files | REST APIs, auth, retries, caching |
+| **SQL** | 4 files | 5 database drivers, connection pooling |
+| **Python** | 3 files | uv integration (97% smaller images) |
+| **Exec** | 3 files | Secure shell command execution |
+
+### Design Patterns
+
+- **Clean Architecture**: Zero external dependencies in domain layer
+- **Graph-Based Orchestration**: Topological sorting with cycle detection
+- **Dependency Injection**: Interface-based validators and executors
+- **Registry Pattern**: Dynamic executor registration
+- **Adapter Pattern**: Domain → executor config conversion
+
 ### Documentation
 
 ### Getting Started
 - [Installation](getting-started/installation) - Install KDeps on your system
-- [Quickstart](getting-started/quickstart) - Build your first AI agent
+- [Quickstart](getting-started/quickstart) - Build your first workflow
 
 ### Configuration
 - [Workflow](configuration/workflow) - Workflow configuration reference
@@ -205,7 +260,7 @@ curl -X POST http://localhost:16395/api/v1/chat -d '{"q": "What is AI?"}'
 ### Resources
 - [Overview](resources/overview) - Resource types and common configuration
 - [LLM (Chat)](resources/llm) - Language model integration
-- [LLM Backends](resources/llm-backends) - All supported LLM backends
+- [LLM Backends](resources/llm-backends) - Supported LLM backends
 - [HTTP Client](resources/http-client) - External API calls
 - [SQL](resources/sql) - Database queries
 - [Python](resources/python) - Python script execution
@@ -247,8 +302,22 @@ curl -X POST http://localhost:16395/api/v1/chat -d '{"q": "What is AI?"}'
 | Python env | Anaconda (~20GB) | uv (97% smaller) |
 | Learning curve | 2-3 days | ~1 hour |
 
+## Examples
+
+Explore working examples:
+
+- [Simple Chatbot](https://github.com/kdeps/kdeps/tree/main/examples/chatbot) - LLM chatbot
+- [ChatGPT Clone](https://github.com/kdeps/kdeps/tree/main/examples/chatgpt-clone) - Full chat UI
+- [File Upload](https://github.com/kdeps/kdeps/tree/main/examples/file-upload) - File processing
+- [HTTP Advanced](https://github.com/kdeps/kdeps/tree/main/examples/http-advanced) - API integration
+- [SQL Advanced](https://github.com/kdeps/kdeps/tree/main/examples/sql-advanced) - Multi-database
+- [Batch Processing](https://github.com/kdeps/kdeps/tree/main/examples/batch-processing) - Items iteration
+- [Tools](https://github.com/kdeps/kdeps/tree/main/examples/tools) - LLM function calling
+- [Vision](https://github.com/kdeps/kdeps/tree/main/examples/vision) - Image processing
+
 ## Community
 
 - **GitHub**: [github.com/kdeps/kdeps](https://github.com/kdeps/kdeps)
 - **Issues**: [Report bugs and request features](https://github.com/kdeps/kdeps/issues)
+- **Contributing**: [CONTRIBUTING.md](https://github.com/kdeps/kdeps/blob/main/CONTRIBUTING.md)
 - **Examples**: [Browse example workflows](https://github.com/kdeps/kdeps/tree/main/examples)
