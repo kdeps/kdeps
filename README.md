@@ -5,11 +5,9 @@
 [![tests](https://img.shields.io/endpoint?style=flat-square&url=https://gist.githubusercontent.com/jjuliano/ce695f832cd51d014ae6d37353311c59/raw/kdeps-go-tests.json)](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml)
 [![coverage](https://img.shields.io/endpoint?style=flat-square&url=https://gist.githubusercontent.com/jjuliano/ce695f832cd51d014ae6d37353311c59/raw/kdeps-go-coverage.json)](https://github.com/kdeps/kdeps/actions/workflows/build-test.yml)
 
-# kdeps - AI Workflows
+# kdeps - Workflow Orchestration for Stateful APIs
 
-KDeps is a framework that packages everything needed for RAG and AI agents into a single, portable unit. It eliminates the complexity of building self-hosted APIs with open-source LLMs by offering a **local-first** approach that can be easily containerized.
-
-Instead of juggling multiple tools and dependencies, you can use KDeps to run Python scripts in isolated environments, execute custom shell commands, integrate with external APIs, and leverage endless opinionated LLM combinations—all configured via simple YAML.
+KDeps is a YAML-based workflow orchestration framework that packages AI tasks, data processing, and API integrations into portable, containerized units. It simplifies building stateful REST APIs by handling common patterns like authentication, data flow, storage, and validation through configuration instead of code.
 
 > **Note:** Prior to v0.6.12, this project used PKL syntax. This new release uses YAML. If you prefer the old PKL syntax, please use version v0.6.12.
 
@@ -19,9 +17,9 @@ This v2 release is a complete rewrite focusing on developer experience and perfo
 
 - ✅ **YAML Configuration** - Familiar syntax, no new language to learn (replaced PKL).
 - ✅ **Unified API** - Smart `get()` and `set()` functions that auto-detect data sources, replacing 15+ specific functions.
-- ✅ **Local-First Execution** - Runs locally by default with < 1 sec startup time. Docker is optional.
+- ✅ **Fast Startup** - Runs locally with < 1 sec startup time. Docker is optional for deployment.
 - ✅ **uv for Python** - Integrated `uv` support for 97% smaller images and 11x faster builds.
-- ✅ **SQL Integration** - Native support for PostgreSQL, MySQL, SQLite, SQL Server, and Oracle with connection pooling and transactions.
+- ✅ **SQL Integration** - Native support for PostgreSQL, MySQL, SQLite, SQL Server, and Oracle with connection pooling.
 - ✅ **Interactive Wizard** - Create new agents easily with `kdeps new` (no YAML knowledge needed initially).
 - ✅ **Hot Reload** - Auto-reload workflows on file changes in dev mode.
 - **Graph-Based Engine** - Automatically handles execution order and data flow between resources.
@@ -103,7 +101,7 @@ expr:
 ## Resource Examples
 
 ### LLM Resource
-Connect to local Ollama models or remote APIs.
+Connect to local Ollama models or any OpenAI-compatible API.
 
 ```yaml
 run:
@@ -129,7 +127,7 @@ run:
 ```
 
 ### SQL Database
-Execute queries with transaction support.
+Execute queries with connection pooling.
 
 ```yaml
 run:
@@ -180,11 +178,11 @@ KDeps follows a clean architecture to ensure separation of concerns and maintain
 
 ## Why KDeps?
 
-- **Privacy & Compliance**: Keep sensitive data on your own machines.
-- **Reliability**: Apps continue to work without internet or with degraded networks.
-- **Low Latency**: Local inference eliminates network round-trips.
-- **Predictable Cost**: No per-token fees; run models locally on your hardware.
-- **Control**: Avoid vendor lock-in and ensure reproducible deployments.
+- **Simplified Development**: Configure workflows in YAML instead of writing boilerplate code.
+- **Portability**: Package everything (code, dependencies, config) into a single deployable unit.
+- **Flexibility**: Run locally during development, deploy to containers for production.
+- **Privacy**: Keep sensitive data on your own infrastructure when needed.
+- **Control**: Avoid vendor lock-in with containerized, reproducible deployments.
 
 ## About the Name
 

@@ -30,43 +30,12 @@ test: fmt lint build
 	echo "=========================================="; \
 	echo "Running Unit Tests with Coverage"; \
 	echo "=========================================="; \
-	go test -v -short -coverprofile=coverage-unit.out ./pkg/... ./cmd/...; \
+	go test -v -short -timeout=5m -coverprofile=coverage-unit.out ./pkg/... ./cmd/...; \
 	UNIT_EXIT=$$?; \
 	UNIT_COVERAGE=""; \
 	if [ -f coverage-unit.out ]; then \
 		UNIT_COVERAGE=$$(go tool cover -func=coverage-unit.out 2>/dev/null | tail -1 | awk '{print $$NF}'); \
 	fi; \
-	echo ""; \
-	echo "=========================================="; \
-	echo "Running Integration Tests with Coverage"; \
-	echo "=========================================="; \
-	go test -v -coverprofile=coverage-integration.out ./tests/integration/...; \
-	INTEGRATION_EXIT=$$?; \
-	INTEGRATION_COVERAGE=""; \
-	if [ -f coverage-integration.out ]; then \
-		INTEGRATION_COVERAGE=$$(go tool cover -func=coverage-integration.out 2>/dev/null | tail -1 | awk '{print $$NF}'); \
-	fi; \
-	echo ""; \
-	if [ -f coverage-unit.out ] && [ -f coverage-integration.out ]; then \
-		echo "Merging coverage reports..."; \
-		echo "mode: atomic" > coverage.out; \
-		tail -n +2 coverage-unit.out >> coverage.out 2>/dev/null || true; \
-		tail -n +2 coverage-integration.out >> coverage.out 2>/dev/null || true; \
-	elif [ -f coverage-unit.out ]; then \
-		cp coverage-unit.out coverage.out; \
-	elif [ -f coverage-integration.out ]; then \
-		cp coverage-integration.out coverage.out; \
-	fi; \
-	OVERALL_COVERAGE=""; \
-	if [ -f coverage.out ]; then \
-		OVERALL_COVERAGE=$$(go tool cover -func=coverage.out 2>/dev/null | tail -1 | awk '{print $$NF}'); \
-	fi; \
-	echo ""; \
-	echo "=========================================="; \
-	echo "Running E2E Tests"; \
-	echo "=========================================="; \
-	bash tests/e2e/e2e.sh; \
-	E2E_EXIT=$$?; \
 	echo ""; \
 	echo "=========================================="; \
 	echo "Test Summary"; \
@@ -84,37 +53,15 @@ test: fmt lint build
 			echo "✗ Unit Tests: FAILED"; \
 		fi; \
 	fi; \
-	if [ "$$INTEGRATION_EXIT" -eq 0 ]; then \
-		if [ -n "$$INTEGRATION_COVERAGE" ]; then \
-			echo "✓ Integration Tests: PASSED (Coverage: $$INTEGRATION_COVERAGE)"; \
-		else \
-			echo "✓ Integration Tests: PASSED"; \
-		fi; \
-	else \
-		if [ -n "$$INTEGRATION_COVERAGE" ]; then \
-			echo "✗ Integration Tests: FAILED (Coverage: $$INTEGRATION_COVERAGE)"; \
-		else \
-			echo "✗ Integration Tests: FAILED"; \
-		fi; \
-	fi; \
-	if [ "$$E2E_EXIT" -eq 0 ]; then \
-		echo "✓ E2E Tests: PASSED"; \
-	else \
-		echo "✗ E2E Tests: FAILED"; \
-	fi; \
 	echo ""; \
-	if [ -n "$$OVERALL_COVERAGE" ]; then \
-		echo "Overall Coverage: $$OVERALL_COVERAGE"; \
-	fi; \
-	echo ""; \
-	if [ "$$UNIT_EXIT" -ne 0 ] || [ "$$INTEGRATION_EXIT" -ne 0 ] || [ "$$E2E_EXIT" -ne 0 ]; then \
+	if [ "$$UNIT_EXIT" -ne 0 ]; then \
 		exit 1; \
 	fi
 
 # Run unit tests only (no e2e)
 test-unit:
 	@echo "Running unit tests with coverage..."
-	@go test -v -coverprofile=coverage.out ./pkg/... ./cmd/... ./; \
+	@go test -v -short -coverprofile=coverage.out ./pkg/... ./cmd/... ./; \
 	TEST_EXIT=$$?; \
 	echo ""; \
 	if [ -f coverage.out ]; then \

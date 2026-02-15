@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: KDeps
-  text: AI Agent Framework
-  tagline: Build, configure, and deploy AI agent workflows with simple YAML configuration
+  text: Workflow Orchestration Framework
+  tagline: Build stateful REST APIs with YAML configuration - handle auth, data flow, storage, and validation without writing boilerplate code
   image:
     src: /logo.svg
     alt: KDeps Logo
@@ -19,32 +19,32 @@ hero:
 features:
   - icon: 📝
     title: YAML-First Configuration
-    details: Define AI agents with simple, readable YAML. No complex programming required.
+    details: Define workflows with simple, readable YAML. No complex programming required.
   - icon: ⚡
-    title: Local-First Execution
+    title: Fast Local Development
     details: Sub-second startup time. Run locally during development, Docker only for deployment.
   - icon: 🔌
     title: Unified API
     details: Just get() and set() - access data from any source without memorizing 15+ functions.
   - icon: 🤖
-    title: Multi-LLM Support
-    details: Ollama, OpenAI, Anthropic, Google, Mistral, and more. Mix and match in the same workflow.
+    title: LLM Integration
+    details: Ollama for local models, or any OpenAI-compatible API endpoint.
   - icon: 🗄️
     title: Built-in SQL Support
-    details: PostgreSQL, MySQL, SQLite, SQL Server with connection pooling and transactions.
+    details: PostgreSQL, MySQL, SQLite, SQL Server, Oracle with connection pooling.
   - icon: 🐳
     title: Docker Ready
-    details: Package everything into optimized Docker images with GPU support and offline mode.
+    details: Package everything into optimized Docker images with optional GPU support.
 ---
 
 # Introduction
 
-KDeps is a framework for building, configuring, and deploying AI agent workflows through simple YAML configuration. It packages everything needed for RAG and AI agents, eliminating the complexity of building self-hosted APIs with LLMs.
+KDeps is a YAML-based workflow orchestration framework for building stateful REST APIs. It packages AI tasks, data processing, and API integrations into portable units, eliminating boilerplate code for common patterns like authentication, data flow, storage, and validation.
 
 ## Key Highlights
 
 ### YAML-First Configuration
-Build AI agents using simple, self-contained YAML configuration blocks. No complex programming required - just define your resources and let KDeps handle the orchestration.
+Build workflows using simple, self-contained YAML configuration blocks. No complex programming required - just define your resources and let KDeps handle the orchestration.
 
 ```yaml
 apiVersion: kdeps.io/v1
@@ -62,7 +62,7 @@ settings:
         methods: [POST]
 ```
 
-### Local-First Execution
+### Fast Local Development
 Run workflows instantly on your local machine with sub-second startup time. Docker is optional and only needed for deployment.
 
 ```bash
@@ -88,21 +88,15 @@ user: get('user_name', 'session')  # Session storage
 
 </div>
 
-### Multi-LLM Support
-Use any LLM backend - local or cloud. Mix and match different models in the same workflow.
+### LLM Integration
+Use Ollama for local model serving, or connect to any OpenAI-compatible API endpoint.
 
 | Backend | Description |
 |---------|-------------|
 | Ollama | Local model serving (default) |
-| OpenAI | GPT-4, GPT-3.5 |
-| Anthropic | Claude models |
-| Google | Gemini models |
-| Mistral | Mistral AI |
-| Together | Together AI |
-| Groq | Fast inference |
-| + more | VLLM, TGI, LocalAI, LlamaCpp |
+| OpenAI-compatible | Any API endpoint with OpenAI-compatible interface |
 
-### Enterprise-Ready Features
+### Core Features
 - **Session persistence** with SQLite or in-memory storage
 - **Connection pooling** for databases
 - **Retry logic** with exponential backoff
@@ -194,7 +188,7 @@ curl -X POST http://localhost:16395/api/v1/chat -d '{"q": "What is AI?"}'
 
 ### Getting Started
 - [Installation](getting-started/installation) - Install KDeps on your system
-- [Quickstart](getting-started/quickstart) - Build your first AI agent
+- [Quickstart](getting-started/quickstart) - Build your first workflow
 
 ### Configuration
 - [Workflow](configuration/workflow) - Workflow configuration reference
@@ -205,7 +199,7 @@ curl -X POST http://localhost:16395/api/v1/chat -d '{"q": "What is AI?"}'
 ### Resources
 - [Overview](resources/overview) - Resource types and common configuration
 - [LLM (Chat)](resources/llm) - Language model integration
-- [LLM Backends](resources/llm-backends) - All supported LLM backends
+- [LLM Backends](resources/llm-backends) - Supported LLM backends
 - [HTTP Client](resources/http-client) - External API calls
 - [SQL](resources/sql) - Database queries
 - [Python](resources/python) - Python script execution
