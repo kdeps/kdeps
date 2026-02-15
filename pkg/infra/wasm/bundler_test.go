@@ -247,3 +247,83 @@ func TestBundle_MultipleWebServerFiles(t *testing.T) {
 	cssContent, _ := os.ReadFile(filepath.Join(distDir, "style.css"))
 	assert.Equal(t, "body { color: red; }", string(cssContent))
 }
+
+func TestBundle_DistDirCreationError(t *testing.T) {
+	tmpDir := t.TempDir()
+	wasmFile := filepath.Join(tmpDir, "kdeps.wasm")
+	wasmExecFile := filepath.Join(tmpDir, "wasm_exec.js")
+
+	// Create a file where dist directory should be
+	outputDir := filepath.Join(tmpDir, "output")
+	require.NoError(t, os.MkdirAll(outputDir, 0750))
+	distFile := filepath.Join(outputDir, "dist")
+	require.NoError(t, os.WriteFile(distFile, []byte("blocking file"), 0644))
+
+	require.NoError(t, os.WriteFile(wasmFile, []byte("wasm"), 0644))
+	require.NoError(t, os.WriteFile(wasmExecFile, []byte("js"), 0644))
+
+	config := &wasm.BundleConfig{
+		WASMBinaryPath: wasmFile,
+		WASMExecJSPath: wasmExecFile,
+		WorkflowYAML:   "test",
+		WebServerFiles: map[string]string{},
+		APIRoutes:      []string{},
+		OutputDir:      outputDir,
+	}
+
+	err := wasm.Bundle(config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create dist directory")
+}
+
+func TestBundle_InvalidOutputPath(t *testing.T) {
+	tmpDir := t.TempDir()
+	wasmFile := filepath.Join(tmpDir, "kdeps.wasm")
+	wasmExecFile := filepath.Join(tmpDir, "wasm_exec.js")
+
+	require.NoError(t, os.WriteFile(wasmFile, []byte("wasm"), 0644))
+	require.NoError(t, os.WriteFile(wasmExecFile, []byte("js"), 0644))
+
+	// Use a path that contains invalid characters or is too long
+	config := &wasm.BundleConfig{
+		WASMBinaryPath: wasmFile,
+		WASMExecJSPath: wasmExecFile,
+		WorkflowYAML:   "test",
+		WebServerFiles: map[string]string{},
+		APIRoutes:      []string{},
+		OutputDir:      "/dev/null/invalid/path", // This path cannot be created
+	}
+
+	err := wasm.Bundle(config)
+	require.Error(t, err)
+	// Error will be in dist directory creation
+	assert.Error(t, err)
+}
+
+func TestBundle_EmptyAPIRoutes(t *testing.T) {
+	tmpDir := t.TempDir()
+	wasmFile := filepath.Join(tmpDir, "kdeps.wasm")
+	wasmExecFile := filepath.Join(tmpDir, "wasm_exec.js")
+	outputDir := filepath.Join(tmpDir, "output")
+
+	require.NoError(t, os.WriteFile(wasmFile, []byte("wasm"), 0644))
+	require.NoError(t, os.WriteFile(wasmExecFile, []byte("js"), 0644))
+
+	config := &wasm.BundleConfig{
+		WASMBinaryPath: wasmFile,
+		WASMExecJSPath: wasmExecFile,
+		WorkflowYAML:   "test",
+		WebServerFiles: map[string]string{},
+		APIRoutes:      []string{},
+		OutputDir:      outputDir,
+	}
+
+	err := wasm.Bundle(config)
+	require.NoError(t, err)
+
+	// Verify bootstrap still works with empty routes
+	bootstrapPath := filepath.Join(outputDir, "dist", "kdeps-bootstrap.js")
+	content, err := os.ReadFile(bootstrapPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "[]") // Empty array
+}
