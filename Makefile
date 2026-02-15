@@ -144,7 +144,12 @@ test-all: test test-integration
 # Run linter
 lint:
 	@echo "Running linter..."
-	@golangci-lint run --config=.golangci.yml ./... --fix
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run --config=.golangci.yml ./... --fix; \
+	else \
+		echo "Warning: golangci-lint not found in PATH. Skipping linter."; \
+		echo "Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
+	fi
 
 # Clean build artifacts
 clean:
@@ -173,9 +178,7 @@ dev:
 # Format code
 fmt:
 	@echo "Formatting code..."
-	@find . -type f -name "*.go" -exec goimports -w {} \;
 	@go fmt ./...
-        #golangci-lint fmt ./...
 
 # Download dependencies
 deps:
