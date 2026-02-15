@@ -1,6 +1,6 @@
 # LLM Backends Reference
 
-KDeps supports multiple LLM backends, both local and cloud-based. This reference covers all available backends and their configuration.
+KDeps supports LLM integrations through Ollama for local model serving and any OpenAI-compatible API endpoint for cloud or self-hosted models.
 
 ## Backend Overview
 
@@ -10,19 +10,15 @@ KDeps supports multiple LLM backends, both local and cloud-based. This reference
 |---------|------|-------------|-------------|
 | Ollama | `ollama` | `http://localhost:11434` | Local model serving (default) |
 
-### Cloud Backends
+### Cloud/Remote Backends
 
-| Backend | Name | API URL | Env Variable |
-|---------|------|---------|--------------|
-| OpenAI | `openai` | `https://api.openai.com` | `OPENAI_API_KEY` |
-| Anthropic | `anthropic` | `https://api.anthropic.com` | `ANTHROPIC_API_KEY` |
-| Google | `google` | `https://generativelanguage.googleapis.com` | `GOOGLE_API_KEY` |
-| Cohere | `cohere` | `https://api.cohere.ai` | `COHERE_API_KEY` |
-| Mistral | `mistral` | `https://api.mistral.ai` | `MISTRAL_API_KEY` |
-| Together | `together` | `https://api.together.xyz` | `TOGETHER_API_KEY` |
-| Perplexity | `perplexity` | `https://api.perplexity.ai` | `PERPLEXITY_API_KEY` |
-| Groq | `groq` | `https://api.groq.com` | `GROQ_API_KEY` |
-| DeepSeek | `deepseek` | `https://api.deepseek.com` | `DEEPSEEK_API_KEY` |
+KDeps supports **any OpenAI-compatible API endpoint**. This includes:
+- OpenAI (GPT-4, GPT-3.5)
+- Anthropic (Claude) - via compatibility layer
+- Google (Gemini) - via compatibility layer  
+- Groq - native OpenAI compatibility
+- Together AI - native OpenAI compatibility
+- Any self-hosted solution (vLLM, TGI, LocalAI, LlamaCpp)
 
 ## Local Backend
 
@@ -75,7 +71,9 @@ When building Docker images, Ollama is automatically installed if:
 
 You can also disable Ollama installation by setting `installOllama: false`.
 
-## Cloud Backends
+## OpenAI-Compatible Backends
+
+Any API that implements the OpenAI chat completions API can be used with KDeps. This includes major cloud providers and self-hosted solutions.
 
 ### OpenAI
 
@@ -98,6 +96,181 @@ run:
 ```yaml
 run:
   chat:
+    backend: openai
+    apiKey: "{{ get('OPENAI_API_KEY', 'env') }}"
+    model: gpt-4o
+    prompt: "{{ get('q') }}"
+```
+
+</div>
+
+**Available models:**
+
+| Model | Description |
+|-------|-------------|
+| `gpt-4o` | Latest GPT-4 Omni |
+| `gpt-4o-mini` | Smaller, faster GPT-4 |
+| `gpt-4-turbo` | GPT-4 Turbo |
+| `gpt-3.5-turbo` | Fast, cost-effective |
+
+### Other Cloud Providers
+
+For providers like Anthropic, Google, Mistral, and others, consult their documentation for OpenAI-compatible endpoints. Most modern LLM providers now offer OpenAI-compatible APIs.
+
+**Example with custom endpoint:**
+
+<div v-pre>
+
+```yaml
+run:
+  chat:
+    backend: openai  # Use openai backend
+    baseUrl: "https://api.provider.com/v1"  # Custom endpoint
+    apiKey: "{{ get('PROVIDER_API_KEY', 'env') }}"
+    model: provider-model-name
+    prompt: "{{ get('q') }}"
+```
+
+</div>
+
+### Self-Hosted Solutions
+
+KDeps works with any self-hosted LLM serving solution that implements the OpenAI API:
+
+- **vLLM** - High-performance inference server
+- **Text Generation Inference (TGI)** - Hugging Face's serving solution
+- **LocalAI** - Drop-in replacement for OpenAI API
+- **LlamaCpp Server** - Efficient CPU inference
+- **Ollama** - Local model serving (recommended)
+
+**Example:**
+
+<div v-pre>
+
+```yaml
+run:
+  chat:
+    backend: openai
+    baseUrl: "http://your-vllm-server:8000/v1"
+    model: meta-llama/Llama-2-7b-chat-hf
+    prompt: "{{ get('q') }}"
+```
+
+</div>
+
+## Configuration Options
+
+All backends support these common configuration options:
+
+### Basic Configuration
+
+<div v-pre>
+
+```yaml
+run:
+  chat:
+    backend: ollama  # ollama or openai
+    model: llama3.2:1b  # Model name
+    prompt: "{{ get('q') }}"  # Prompt text
+    systemPrompt: "You are a helpful assistant"  # Optional system prompt
+```
+
+</div>
+
+### Advanced Options
+
+<div v-pre>
+
+```yaml
+run:
+  chat:
+    backend: ollama
+    model: llama3.2:1b
+    prompt: "{{ get('q') }}"
+    
+    # Generation parameters
+    temperature: 0.7
+    maxTokens: 2048
+    topP: 0.9
+    
+    # Structured output
+    jsonResponse: true
+    jsonResponseKeys:
+      - answer
+      - reasoning
+    
+    # Context and history
+    contextLength: 4096
+    history: get('conversation_history', 'session')
+    
+    # Caching
+    cacheEnabled: true
+    cacheTTL: 3600  # 1 hour
+```
+
+</div>
+
+### Environment Variables
+
+Set API keys using environment variables:
+
+```bash
+export OPENAI_API_KEY="your-key-here"
+export ANTHROPIC_API_KEY="your-key-here"
+# ... etc
+```
+
+Or reference them in your workflow:
+
+<div v-pre>
+
+```yaml
+run:
+  chat:
+    backend: openai
+    apiKey: "{{ get('OPENAI_API_KEY', 'env') }}"
+    model: gpt-4o
+    prompt: "{{ get('q') }}"
+```
+
+</div>
+
+## Testing Your Configuration
+
+Test your LLM configuration quickly:
+
+```bash
+# Test locally
+kdeps run workflow.yaml
+
+# Send a test request
+curl -X POST http://localhost:16395/api/v1/chat \
+  -H "Content-Type: application/json" \
+  -d '{"q": "Hello, how are you?"}'
+```
+
+## Troubleshooting
+
+### Ollama Connection Issues
+
+If Ollama cannot be reached:
+1. Check Ollama is running: `ollama list`
+2. Verify the URL: default is `http://localhost:11434`
+3. Check firewall settings
+
+### API Key Issues
+
+If you get authentication errors:
+1. Verify the API key is set: `echo $OPENAI_API_KEY`
+2. Check the key has the correct permissions
+3. Ensure the key is being passed correctly in the workflow
+
+### Model Not Found
+
+If the model is not available:
+1. For Ollama: Pull the model first with `ollama pull model-name`
+2. For APIs: Verify the model name matches the provider's documentation
+3. Check you have access to the model in your API account
     backend: openai
     apiKey: "{{ get('OPENAI_API_KEY', 'env') }}"
     model: gpt-4o

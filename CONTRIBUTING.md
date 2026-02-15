@@ -13,10 +13,10 @@ KDeps v2 is a complete rewrite focusing on a "local-first" execution model, YAML
 ## Getting Started
 
 ### Prerequisites
-- **Go**: v1.22 or later.
+- **Go**: v1.24 or later.
 - **uv**: Recommended for Python-related features.
 - **Docker**: Optional, needed for containerization features.
-- **golangci-lint**: For code linting.
+- **golangci-lint v2**: For code linting (`go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest`).
 
 ### Environment Setup
 1. Clone the repository:
@@ -39,12 +39,14 @@ make build
 The binary will be created in the root directory as `./kdeps`.
 
 ### Testing
-We maintain high test coverage across unit, integration, and E2E tests.
+We maintain ~70% test coverage across unit, integration, and E2E tests.
 
-- **Run all tests**: `make test`
+- **Run all tests**: `make test` (runs fmt, lint, build, and unit tests)
 - **Unit Tests**: `make test-unit` (tests in `pkg/` and `cmd/`)
 - **Integration Tests**: `make test-integration` (tests in `tests/integration/`)
 - **E2E Tests**: `make test-e2e` (tests in `tests/e2e/`)
+
+**Note**: Some tests require Docker daemon to be running. Tests that interact with Docker are automatically skipped when using the `-short` flag.
 
 ### Linting and Formatting
 Before submitting a PR, ensure your code is formatted and linted:
