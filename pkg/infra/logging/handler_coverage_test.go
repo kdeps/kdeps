@@ -258,9 +258,11 @@ func TestPrettyHandler_Handle_LongMessage(t *testing.T) {
 
 	ctx := context.Background()
 	longMessage := ""
+	var longMessageSb261 strings.Builder
 	for range 1000 {
-		longMessage += "a"
+		longMessageSb261.WriteString("a")
 	}
+	longMessage += longMessageSb261.String()
 	record := slog.NewRecord(time.Now(), slog.LevelInfo, longMessage, 0)
 
 	err := handler.Handle(ctx, record)

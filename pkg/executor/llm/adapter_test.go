@@ -19,6 +19,9 @@
 package llm_test
 
 import (
+	"bytes"
+	"io"
+	stdhttp "net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -138,4 +141,54 @@ func (m *mockToolExecutor) ExecuteResource(
 	_ *executor.ExecutionContext,
 ) (interface{}, error) {
 	return "mock result", nil
+}
+
+func TestNewAdapterWithModelService(t *testing.T) {
+	mockService := &llm.MockModelService{}
+	adapter := llm.NewAdapterWithModelService("http://localhost:11434", mockService)
+
+	if adapter == nil {
+		t.Fatal("Expected non-nil adapter")
+	}
+
+	executor := adapter.GetExecutorForTesting()
+	if executor == nil {
+		t.Error("Expected non-nil executor")
+	}
+}
+
+func TestNewAdapterWithMockClient(t *testing.T) {
+	mockClient := &MockHTTPClient{}
+	adapter := llm.NewAdapterWithMockClient("http://localhost:11434", mockClient)
+
+	if adapter == nil {
+		t.Fatal("Expected non-nil adapter")
+	}
+
+	executor := adapter.GetExecutorForTesting()
+	if executor == nil {
+		t.Error("Expected non-nil executor")
+	}
+}
+
+func TestAdapter_GetExecutorForTesting(t *testing.T) {
+	adapter := llm.NewAdapter("http://localhost:11434")
+
+	executor := adapter.GetExecutorForTesting()
+
+	if executor == nil {
+		t.Error("Expected non-nil executor from GetExecutorForTesting")
+	}
+}
+
+// MockHTTPClient for testing.
+type MockHTTPClient struct{}
+
+func (m *MockHTTPClient) Do(_ *stdhttp.Request) (*stdhttp.Response, error) {
+	// Return a simple mock response
+	responseBody := `{"choices": [{"message": {"role": "assistant", "content": "mock response"}}]}`
+	return &stdhttp.Response{
+		StatusCode: stdhttp.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(responseBody)),
+	}, nil
 }

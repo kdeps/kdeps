@@ -304,7 +304,13 @@ func TestInputValidationIntegration_FieldRules(t *testing.T) {
 						} else {
 							// Fallback: check error message
 							errorStr := err.Error()
-							assert.Contains(t, errorStr, tc.expectedError, "Error message or details should contain '%s'", tc.expectedError)
+							assert.Contains(
+								t,
+								errorStr,
+								tc.expectedError,
+								"Error message or details should contain '%s'",
+								tc.expectedError,
+							)
 						}
 					} else {
 						// Fallback: check error message
@@ -469,7 +475,13 @@ func TestInputValidationIntegration_CustomRules(t *testing.T) {
 						} else {
 							// Fallback: check error message
 							errorStr := err.Error()
-							assert.Contains(t, errorStr, tc.expectedError, "Error message or details should contain '%s'", tc.expectedError)
+							assert.Contains(
+								t,
+								errorStr,
+								tc.expectedError,
+								"Error message or details should contain '%s'",
+								tc.expectedError,
+							)
 						}
 					} else {
 						// Fallback: check error message

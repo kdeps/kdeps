@@ -570,3 +570,133 @@ func TestBuilder_Build_ARM64PassesArch(t *testing.T) {
 	require.Len(t, runner.buildCalls, 1)
 	assert.Equal(t, "arm64", runner.buildCalls[0].Arch)
 }
+
+// ========================
+// LinuxKit Runner Tests
+// ========================
+
+func TestDefaultLinuxKitRunner_Build_ErrorPath(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping test that would execute external command")
+	}
+
+	runner := &iso.DefaultLinuxKitRunner{
+		BinaryPath: "/nonexistent/linuxkit",
+	}
+
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+	_ = os.WriteFile(configPath, []byte("kernel: {}"), 0644)
+
+	err := runner.Build(ctx, configPath, "iso-efi", "amd64", tmpDir, "")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "linuxkit build failed")
+}
+
+func TestDefaultLinuxKitRunner_Build_WithSize(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping test that would execute external command")
+	}
+
+	runner := &iso.DefaultLinuxKitRunner{
+		BinaryPath: "/nonexistent/linuxkit",
+	}
+
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+	_ = os.WriteFile(configPath, []byte("kernel: {}"), 0644)
+
+	err := runner.Build(ctx, configPath, "iso-efi", "amd64", tmpDir, "4096M")
+
+	// Should attempt to run with size parameter
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "linuxkit build failed")
+}
+
+func TestDefaultLinuxKitRunner_CacheImport_ErrorPath(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping test that would execute external command")
+	}
+
+	runner := &iso.DefaultLinuxKitRunner{
+		BinaryPath: "/nonexistent/linuxkit",
+	}
+
+	ctx := context.Background()
+	err := runner.CacheImport(ctx, "/fake/image.tar")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "linuxkit cache import failed")
+}
+
+// ========================
+// EnsureLinuxKit Tests
+// ========================
+
+func TestEnsureLinuxKit_Integration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	// This test attempts to find or download linuxkit
+	// It may succeed or fail depending on environment
+	_, err := iso.EnsureLinuxKit(context.Background())
+
+	// We just ensure it doesn't panic
+	// In CI without linuxkit, it should fail gracefully
+	_ = err
+}
+
+// ========================
+// Builder Constructor Tests
+// ========================
+
+func TestNewBuilder_Integration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test that may download linuxkit")
+	}
+
+	builder, err := iso.NewBuilder()
+
+	if err != nil {
+		// Expected in environments without linuxkit
+		assert.Contains(t, err.Error(), "linuxkit not available")
+		return
+	}
+
+	// If successful, verify builder is properly initialized
+	require.NotNil(t, builder)
+	require.NotNil(t, builder.Runner)
+	assert.Equal(t, "kdeps", builder.Hostname)
+	assert.Equal(t, "iso-efi", builder.Format)
+}
+
+func TestBuilder_CacheImportImage_Success(t *testing.T) {
+	mockRunner := &mockRunner{}
+	builder := iso.NewBuilderWithRunner(mockRunner)
+
+	tmpDir := t.TempDir()
+	tarPath := filepath.Join(tmpDir, "image.tar")
+	_ = os.WriteFile(tarPath, []byte("fake-tar"), 0644)
+
+	err := builder.CacheImportImage(context.Background(), tarPath)
+
+	require.NoError(t, err)
+	require.Len(t, mockRunner.cacheImportCalls, 1)
+	assert.Equal(t, tarPath, mockRunner.cacheImportCalls[0])
+}
+
+func TestBuilder_CacheImportImage_RunnerError(t *testing.T) {
+	mockRunner := &mockRunner{
+		cacheImportErr: errors.New("cache import failed"),
+	}
+	builder := iso.NewBuilderWithRunner(mockRunner)
+
+	err := builder.CacheImportImage(context.Background(), "image.tar")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cache import failed")
+}

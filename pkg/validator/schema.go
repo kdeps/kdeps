@@ -107,10 +107,12 @@ func (sv *SchemaValidator) ValidateWorkflow(data map[string]interface{}) error {
 
 	if !result.Valid() {
 		errMsg := "workflow validation failed:\n"
+		var errMsgSb110 strings.Builder
 		for _, desc := range result.Errors() {
 			enhancedMsg := sv.enhanceErrorMessage(desc, "workflow")
-			errMsg += fmt.Sprintf("  - %s\n", enhancedMsg)
+			errMsgSb110.WriteString(fmt.Sprintf("  - %s\n", enhancedMsg))
 		}
+		errMsg += errMsgSb110.String()
 		return errors.New(errMsg)
 	}
 
@@ -157,10 +159,12 @@ func (sv *SchemaValidator) ValidateResource(data map[string]interface{}) error {
 
 	if !result.Valid() {
 		errMsg := "resource validation failed:\n"
+		var errMsgSb160 strings.Builder
 		for _, desc := range result.Errors() {
 			enhancedMsg := sv.enhanceErrorMessage(desc, "resource")
-			errMsg += fmt.Sprintf("  - %s\n", enhancedMsg)
+			errMsgSb160.WriteString(fmt.Sprintf("  - %s\n", enhancedMsg))
 		}
+		errMsg += errMsgSb160.String()
 		return errors.New(errMsg)
 	}
 
@@ -501,7 +505,16 @@ func (sv *SchemaValidator) getEnumValues(field string, schemaType string) []inte
 	// Known enum fields and their values
 	enumMap := map[string][]interface{}{
 		"run.chat.backend": {
-			"ollama", "openai", "anthropic", "google", "cohere", "mistral", "together", "perplexity", "groq", "deepseek",
+			"ollama",
+			"openai",
+			"anthropic",
+			"google",
+			"cohere",
+			"mistral",
+			"together",
+			"perplexity",
+			"groq",
+			"deepseek",
 		},
 		"run.httpClient.method": {
 			"GET", "POST", "PUT", "DELETE", "PATCH",

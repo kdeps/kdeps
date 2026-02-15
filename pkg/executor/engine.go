@@ -335,7 +335,11 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 				// Build evaluation environment
 				env := e.buildEvaluationEnvironment(ctx)
 
-				if validateErr := e.exprValidator.ValidateCustomRules(resource.Run.Validation.CustomRules, e.evaluator, env); validateErr != nil {
+				if validateErr := e.exprValidator.ValidateCustomRules(
+					resource.Run.Validation.CustomRules,
+					e.evaluator,
+					env,
+				); validateErr != nil {
 					var validationErrors *validator.MultipleValidationError
 					if errors.As(validateErr, &validationErrors) {
 						appErr := domain.NewAppError(
