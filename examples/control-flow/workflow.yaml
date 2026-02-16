@@ -1,0 +1,33 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: control-flow-examples
+  description: Demonstrates control flow using ternary, logical operators, and list operations
+
+steps:
+  - name: demo
+    resource: control-flow-demo
+
+resources:
+  - name: control-flow-demo
+    type: response
+    config:
+      body: |
+        === CONTROL FLOW IN KDEPS ===
+        
+        1. IF-ELSE (Ternary Operator):
+        Age 20: {{20 >= 18 ? "adult" : "child"}}
+        Age 15: {{15 >= 18 ? "adult" : "child"}}
+        
+        2. LOGICAL OPERATORS:
+        AND: {{20 >= 18 && true}}
+        OR: {{false || true}}
+        NOT: {{!false}}
+        
+        3. LIST OPERATIONS (Loop Alternatives):
+        Filter adults: {{filter([{age: 20}, {age: 15}, {age: 30}], .age >= 18)}}
+        Map names: {{map([{name: "Alice"}, {name: "Bob"}], .name)}}
+        All adults: {{all([{age: 20}, {age: 30}], .age >= 18)}}
+        Any verified: {{any([{verified: false}, {verified: true}], .verified)}}
+        
+        ✅ All control flow features working!

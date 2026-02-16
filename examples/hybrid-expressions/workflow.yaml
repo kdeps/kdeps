@@ -1,0 +1,48 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+metadata:
+  name: hybrid-expressions-demo
+  description: Demonstrates hybrid expressions mixing get() functions with dot notation
+
+resources:
+  - id: set-user-data
+    type: response
+    config:
+      status: 200
+      body: |
+        Setting up user data
+    run:
+      # Store user object in memory
+      post:
+        - set("user", {"name": "Alice", "age": 30, "email": "alice@example.com", "discount": 15})
+        - set("multiplier", 2)
+        - set("basePrice", 50)
+
+  - id: demonstrate-hybrid
+    type: response
+    dependsOn:
+      - set-user-data
+    config:
+      status: 200
+      headers:
+        Content-Type: application/json
+      body: |
+        {
+          "user_name": "{{user.name}}",
+          "user_age": {{user.age}},
+          "doubled_age": {{get('multiplier') * user.age}},
+          "price_with_discount": {{get('basePrice') - user.discount}},
+          "personalized_price": {{(get('basePrice') * get('multiplier')) - user.discount}},
+          "is_adult": {{user.age >= 18}},
+          "discount_message": "{{user.premium ? 'Premium discount: ' + user.discount : 'Standard discount'}}",
+          "computed_total": {{(get('basePrice') * user.age) / get('multiplier')}}
+        }
+
+  - id: complex-calculation
+    type: response
+    dependsOn:
+      - demonstrate-hybrid
+    config:
+      status: 200
+      body: |
+        Complex hybrid expression result: {{(get('basePrice') * 3) + user.discount * 2}}

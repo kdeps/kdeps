@@ -1,0 +1,21 @@
+apiVersion: v2
+kind: Resource
+metadata:
+  actionId: httpClient
+  name: HTTP Client
+  description: HTTP client for making API calls
+run:
+  httpClient:
+    method: GET
+    url: "{{#url}}{{url}}{{/url}}{{^url}}https://api.example.com/data{{/url}}"
+    headers:
+      Content-Type: "application/json"
+      Authorization: "Bearer {{#token}}{{token}}{{/token}}"
+    timeoutDuration: "30s"
+  validation:
+    required:
+      - url
+    rules:
+      - field: url
+        type: url
+        message: "URL must be a valid HTTP/HTTPS URL"

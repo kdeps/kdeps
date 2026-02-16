@@ -52,6 +52,8 @@ const (
 	ExprTypeDirect // Direct expression (e.g., get('q')).
 	// ExprTypeInterpolated is a string with interpolation (e.g., "Hello {{ get('name') }}").
 	ExprTypeInterpolated
+	// ExprTypeMustache is a mustache-style template (e.g., "{{name}}" or "Hello {{name}}").
+	ExprTypeMustache
 )
 
 // ParsedExpr represents a parsed expression tree.

@@ -19,6 +19,7 @@
 package expression_test
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -45,7 +46,7 @@ func createMockAPI() *domain.UnifiedAPI {
 			case "enabled":
 				return true, nil
 			default:
-				return nil, nil
+				return nil, errors.New("not found")
 			}
 		},
 		Set: func(_ string, _ interface{}, _ ...string) error {
@@ -64,7 +65,7 @@ func createMockAPI() *domain.UnifiedAPI {
 			case "path":
 				return "/api/test", nil
 			default:
-				return nil, nil
+				return nil, errors.New("not found")
 			}
 		},
 	}

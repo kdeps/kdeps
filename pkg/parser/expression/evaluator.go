@@ -65,8 +65,9 @@ func (e *Evaluator) Evaluate(
 		// Evaluate direct expression.
 		return e.evaluateDirect(expression.Raw, env)
 
-	case domain.ExprTypeInterpolated:
+	case domain.ExprTypeInterpolated, domain.ExprTypeMustache:
 		// Evaluate interpolated string (may return value directly if single interpolation).
+		// ExprTypeMustache is kept for backward compatibility but handled the same way
 		return e.evaluateInterpolated(expression.Raw, env)
 
 	default:
@@ -104,26 +105,53 @@ func (e *Evaluator) evaluateDirect(
 
 // evaluateInterpolated evaluates a string with {{ }} interpolations.
 // Example: "Hello {{ get('name') }}, you are {{ get('age') }} years old".
+// Now supports mixed mustache and expr-lang: "Hello {{name}}, time is {{ info('time') }}"
 // If the template contains ONLY a single {{expr}} with no other text, returns the value directly (not stringified).
 func (e *Evaluator) evaluateInterpolated(
 	template string,
 	env map[string]interface{},
 ) (interface{}, error) {
-	// Check if the entire template is just a single interpolation (e.g., "{{input.items}}")
-	// If so, return the value directly instead of stringifying it
-	trimmed := strings.TrimSpace(template)
-	if strings.HasPrefix(trimmed, "{{") && strings.HasSuffix(trimmed, "}}") {
-		// Extract the expression
-		exprStr := strings.TrimSpace(trimmed[2 : len(trimmed)-2])
-		// Evaluate and return the value directly
-		value, err := e.evaluateDirect(exprStr, env)
-		if err != nil {
-			return nil, fmt.Errorf("interpolation failed for '{{ %s }}': %w", exprStr, err)
-		}
-		return value, nil
+	// Check if this is a single interpolation
+	if value, isSingle, err := e.evaluateSingleInterpolation(template, env); isSingle {
+		return value, err
 	}
 
 	// Multiple interpolations or mixed with text - process as string template
+	return e.evaluateMultipleInterpolations(template, env)
+}
+
+// evaluateSingleInterpolation checks if template is a single {{expr}} and evaluates it directly.
+func (e *Evaluator) evaluateSingleInterpolation(
+	template string,
+	env map[string]interface{},
+) (interface{}, bool, error) {
+	trimmed := strings.TrimSpace(template)
+	if !strings.HasPrefix(trimmed, "{{") || !strings.HasSuffix(trimmed, "}}") {
+		return nil, false, nil
+	}
+
+	// Extract the expression
+	exprStr := strings.TrimSpace(trimmed[2 : len(trimmed)-2])
+
+	// Try mustache first (simple variable lookup)
+	value := e.tryMustacheVariable(exprStr, env)
+	if value != nil {
+		return value, true, nil
+	}
+
+	// Fall back to expr-lang
+	value, err := e.evaluateDirect(exprStr, env)
+	if err != nil {
+		return nil, true, fmt.Errorf("interpolation failed for '{{ %s }}': %w", exprStr, err)
+	}
+	return value, true, nil
+}
+
+// evaluateMultipleInterpolations processes a template with multiple {{ }} blocks.
+func (e *Evaluator) evaluateMultipleInterpolations(
+	template string,
+	env map[string]interface{},
+) (string, error) {
 	result := template
 
 	// Find all {{ }} blocks.
@@ -139,39 +167,134 @@ func (e *Evaluator) evaluateInterpolated(
 		}
 		end += start + 2 //nolint:mnd // closing brackets length
 
-		// Extract expression between {{ }}.
+		// Extract and evaluate expression between {{ }}.
 		exprStr := strings.TrimSpace(result[start+2 : end-2])
-
-		// Evaluate the expression.
-		value, err := e.evaluateDirect(exprStr, env)
+		valueStr, err := e.evaluateAndFormatExpression(exprStr, env)
 		if err != nil {
-			return "", fmt.Errorf("interpolation failed for '{{ %s }}': %w", exprStr, err)
+			return "", err
 		}
 
-		// Replace {{ expr }} with result.
-		// Handle nil values - convert to empty string instead of "nil"
-		// For maps and slices, use JSON encoding to produce valid syntax
-		var valueStr string
-		if value == nil {
-			valueStr = ""
-		} else {
-			// Check if value is a map or slice - serialize as JSON for valid Python/JS syntax
-			switch reflect.TypeOf(value).Kind() { //nolint:exhaustive // only maps and slices need special handling
-			case reflect.Map, reflect.Slice:
-				jsonBytes, jsonErr := json.Marshal(value)
-				if jsonErr != nil {
-					valueStr = fmt.Sprintf("%v", value)
-				} else {
-					valueStr = string(jsonBytes)
-				}
-			default:
-				valueStr = fmt.Sprintf("%v", value)
-			}
-		}
 		result = result[:start] + valueStr + result[end:]
 	}
 
 	return result, nil
+}
+
+// evaluateAndFormatExpression evaluates an expression and formats it as a string.
+func (e *Evaluator) evaluateAndFormatExpression(
+	exprStr string,
+	env map[string]interface{},
+) (string, error) {
+	var value interface{}
+	var err error
+
+	// Try mustache first (simple variable lookup)
+	value = e.tryMustacheVariable(exprStr, env)
+	if value == nil {
+		// Fall back to expr-lang
+		value, err = e.evaluateDirect(exprStr, env)
+		if err != nil {
+			return "", fmt.Errorf("interpolation failed for '{{ %s }}': %w", exprStr, err)
+		}
+	}
+
+	return e.formatValue(value), nil
+}
+
+// formatValue converts a value to string representation.
+func (e *Evaluator) formatValue(value interface{}) string {
+	if value == nil {
+		return ""
+	}
+
+	// Check if value is a map or slice - serialize as JSON for valid Python/JS syntax
+	switch reflect.TypeOf(value).Kind() { //nolint:exhaustive // only maps and slices need special handling
+	case reflect.Map, reflect.Slice:
+		jsonBytes, jsonErr := json.Marshal(value)
+		if jsonErr != nil {
+			return fmt.Sprintf("%v", value)
+		}
+		return string(jsonBytes)
+	default:
+		return fmt.Sprintf("%v", value)
+	}
+}
+
+// tryMustacheVariable attempts to resolve a simple mustache variable from the environment.
+// Returns nil if not found or if the expression contains function call syntax.
+func (e *Evaluator) tryMustacheVariable(exprStr string, env map[string]interface{}) interface{} {
+	// Skip if it's a quoted string literal (expr-lang syntax)
+	trimmed := strings.TrimSpace(exprStr)
+	if (strings.HasPrefix(trimmed, "'") && strings.HasSuffix(trimmed, "'")) ||
+		(strings.HasPrefix(trimmed, "\"") && strings.HasSuffix(trimmed, "\"")) {
+		return nil
+	}
+
+	// Skip if it looks like a function call
+	if strings.Contains(exprStr, "(") {
+		return nil
+	}
+
+	// Skip if it contains operators (arithmetic, comparison, etc.)
+	// This ensures expressions like "2 + 2" or "x > 10" go to expr-lang
+	operators := []string{"+", "-", "*", "/", "==", "!=", ">=", "<=", ">", "<", "&&", "||", "?", ":"}
+	for _, op := range operators {
+		if strings.Contains(exprStr, op) {
+			return nil
+		}
+	}
+
+	// Skip mustache section syntax
+	if strings.HasPrefix(exprStr, "#") || strings.HasPrefix(exprStr, "/") ||
+		strings.HasPrefix(exprStr, "^") || strings.HasPrefix(exprStr, "!") {
+		return nil
+	}
+
+	// Try to look up the value with mustache-style dot notation
+	value := e.lookupMustacheValue(exprStr, env)
+
+	// If value found, return it
+	if value != nil {
+		return value
+	}
+
+	// Value not found. Check if it's a valid mustache identifier (for mustache behavior).
+	// Valid mustache identifiers are: alphanumeric, underscore, dot, and hyphen.
+	// If it contains other characters or spaces, it's likely expr-lang syntax, so return nil to fall back.
+	for _, char := range exprStr {
+		isValid := (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') ||
+			(char >= '0' && char <= '9') || char == '_' || char == '.' || char == '-'
+		if !isValid {
+			// Contains invalid characters for mustache identifier - fall back to expr-lang
+			return nil
+		}
+	}
+
+	// It's a valid mustache identifier but not found - return empty string (mustache behavior)
+	return ""
+}
+
+// lookupMustacheValue looks up a value in mustache context, supporting dot notation.
+func (e *Evaluator) lookupMustacheValue(path string, data map[string]interface{}) interface{} {
+	// Handle dot notation (e.g., "user.name")
+	parts := strings.Split(path, ".")
+
+	var current interface{} = data
+	for _, part := range parts {
+		switch v := current.(type) {
+		case map[string]interface{}:
+			var ok bool
+			current, ok = v[part]
+			if !ok {
+				return nil
+			}
+		default:
+			// Can't navigate further
+			return nil
+		}
+	}
+
+	return current
 }
 
 // buildEnvironment creates the evaluation environment with unified API functions.

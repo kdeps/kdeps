@@ -1,0 +1,111 @@
+apiVersion: v2
+kind: Workflow
+metadata:
+  name: {{name}}
+  description: {{description}}
+  version: {{version}}
+  targetActionId: response
+
+settings:
+  apiServerMode: true
+  apiServer:
+    hostIp: "0.0.0.0"
+    portNum: {{port}}
+    routes:
+      - path: /api/process
+        methods: [POST]
+    cors:
+      enableCors: true
+      allowOrigins:
+        - "http://localhost:{{port}}"
+      allowMethods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+      allowHeaders:
+        - "Content-Type"
+        - "Authorization"
+
+  agentSettings:
+    timezone: "UTC"
+    offlineMode: false
+
+resources:
+{{#hasHttpClient}}
+  - apiVersion: v2
+    kind: Resource
+    metadata:
+      actionId: fetchData
+      name: Fetch Data
+    run:
+      httpClient:
+        method: GET
+        url: "https://api.example.com/data/{{ "{{" }} get('id') {{ "}}" }}"
+        headers:
+          Authorization: "Bearer {{ "{{" }} get('api_token') {{ "}}" }}"
+        timeoutDuration: "30s"
+      validation:
+        required:
+          - id
+        rules:
+          - field: id
+            type: string
+            minLength: 1
+            message: "ID is required"
+{{/hasHttpClient}}
+
+{{#hasLlm}}
+  - apiVersion: v2
+    kind: Resource
+    metadata:
+      actionId: processWithLLM
+      name: LLM Processing
+      {{#hasHttpClient}}
+      requires:
+        - fetchData
+      {{/hasHttpClient}}
+    run:
+      chat:
+        model: llama3.2:1b
+        prompt: |
+          Process the following data:
+          {{#hasHttpClient}}
+          {{ "{{" }} get('fetchData') {{ "}}" }}
+          {{/hasHttpClient}}
+
+          Provide a summary and key insights.
+        jsonResponse: true
+        jsonResponseKeys:
+          - summary
+          - insights
+        timeoutDuration: "60s"
+{{/hasLlm}}
+
+  - apiVersion: v2
+    kind: Resource
+    metadata:
+      actionId: response
+      name: API Response
+      requires:
+        {{#hasLlm}}
+        - processWithLLM
+        {{/hasLlm}}
+        {{#hasHttpClient}}
+        {{^hasLlm}}
+        - fetchData
+        {{/hasLlm}}
+        {{/hasHttpClient}}
+    run:
+      apiResponse:
+        response:
+          success: true
+          data:
+            {{#hasLlm}}
+            result: "{{ "{{" }} get('processWithLLM') {{ "}}" }}"
+            {{/hasLlm}}
+            {{^hasLlm}}
+            message: "Hello from {{name}}"
+            {{/hasLlm}}
+          meta:
+            processedAt: "{{ "{{" }} info('current_time') {{ "}}" }}"

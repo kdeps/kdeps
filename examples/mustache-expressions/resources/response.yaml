@@ -1,0 +1,27 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: response
+  name: API Response
+
+run:
+  restrictToHttpMethods: [GET, POST]
+  restrictToRoutes: [/api/demo]
+
+  apiResponse:
+    response:
+      # Mustache-style (simpler for basic variables)
+      name: "{{name}}"
+      message: "Hello {{name}}!"
+      
+      # expr-lang style (for complex operations)  
+      timestamp: "{{ info('current_time') }}"
+      method: "{{ info('method') }}"
+      
+      # Both work! Mustache is simpler for basic access
+      query_mustache: "{{q}}"
+      query_exprLang: "{{ get('q') }}"
+      
+      # Nested objects work with mustache too
+      user_info: "{{user.name}} - {{user.email}}"
