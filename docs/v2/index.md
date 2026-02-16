@@ -124,15 +124,15 @@ message: "Hello {{name}}, your score is {{ get('points') * 2 }}"
 
 **Key Benefits:**
 - **56% less typing** for simple variables
-- **No whitespace rules** - `{{var}}` = `{{ var }}`
+- **No whitespace rules** - `{``{var}}` = `{``{ var }}`
 - **Backward compatible** - all existing workflows work
 - **Natural mixing** - simple and complex together
 
 **When to use:**
-- Mustache for simple variables: `{{name}}`, `{{email}}`
-- expr-lang for functions and logic: `{{ get('x') }}`, `{{ a + b }}`
+- Mustache for simple variables: `{``{name}}`, `{``{email}}`
+- expr-lang for functions and logic: `{``{ get('x') }}`, `{``{ a + b }}`
 
-[Learn more →](../README_EXPRESSIONS.md)
+[Learn more →](/concepts/expressions)
 
 ### LLM Integration
 Use Ollama for local model serving, or connect to any OpenAI-compatible API endpoint.
