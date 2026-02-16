@@ -39,7 +39,8 @@ Automatically updates Go modules and creates nightly releases. This workflow:
 - Validates changes with linting, building, and unit tests
 - Commits updated `go.mod` and `go.sum` to main branch
 - Creates a nightly tag with format `nightly-YYYYMMDD-HHMM`
-- Builds and publishes pre-release binaries with updated dependencies
+- Builds and publishes binaries with updated dependencies
+- **Release type**: Marked as "latest" when all validation checks pass, or as "prerelease" if any checks fail
 - Skips release if no module updates are available
 
 **Manual Trigger**:

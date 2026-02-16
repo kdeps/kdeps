@@ -48,6 +48,8 @@ jobs:
 
       - name: Run linter
         if: steps.update_modules.outputs.has_changes == 'true'
+        id: lint
+        continue-on-error: true
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.5.0
@@ -56,13 +58,35 @@ jobs:
 
       - name: Build
         if: steps.update_modules.outputs.has_changes == 'true'
+        id: build
+        continue-on-error: true
         run: make build
 
       - name: Run tests
         if: steps.update_modules.outputs.has_changes == 'true'
+        id: test
+        continue-on-error: true
         run: |
           echo "Running unit tests..."
           go test -v -short -timeout=5m ./pkg/... ./cmd/...
+
+      - name: Determine release type
+        if: steps.update_modules.outputs.has_changes == 'true'
+        id: release_type
+        run: |
+          # Check if all validation steps succeeded
+          if [ "${{ steps.lint.outcome }}" == "success" ] && \
+             [ "${{ steps.build.outcome }}" == "success" ] && \
+             [ "${{ steps.test.outcome }}" == "success" ]; then
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+            echo "All checks passed - releasing as latest"
+          else
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+            echo "Some checks failed - releasing as prerelease"
+            echo "Lint: ${{ steps.lint.outcome }}"
+            echo "Build: ${{ steps.build.outcome }}"
+            echo "Test: ${{ steps.test.outcome }}"
+          fi
 
       - name: Commit and push module updates
         if: steps.update_modules.outputs.has_changes == 'true'
@@ -111,11 +135,41 @@ jobs:
         env:
           SDK_PATH: ${{ steps.macos_sdk.outputs.path }}
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GORELEASER_CURRENT_TAG: ${{ steps.create_tag.outputs.tag }}
+
+      - name: Update release status
+        if: steps.update_modules.outputs.has_changes == 'true'
+        run: |
+          # Update the release to mark as latest or prerelease based on validation results
+          TAG="${{ steps.create_tag.outputs.tag }}"
+          IS_PRERELEASE="${{ steps.release_type.outputs.prerelease }}"
+          
+          # Get the release ID
+          RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/$TAG --jq '.id')
+          
+          if [ "$IS_PRERELEASE" == "false" ]; then
+            echo "Marking release as latest (not prerelease)"
+            gh api -X PATCH repos/${{ github.repository }}/releases/$RELEASE_ID \
+              -f prerelease=false \
+              -f make_latest=true
+          else
+            echo "Marking release as prerelease"
+            gh api -X PATCH repos/${{ github.repository }}/releases/$RELEASE_ID \
+              -f prerelease=true \
+              -f make_latest=false
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
 
       - name: Summary
         run: |
           if [ "${{ steps.update_modules.outputs.has_changes }}" == "true" ]; then
+            RELEASE_TYPE="latest"
+            if [ "${{ steps.release_type.outputs.prerelease }}" == "true" ]; then
+              RELEASE_TYPE="prerelease (validation checks failed)"
+            fi
             echo "✅ Nightly release created successfully: ${{ steps.create_tag.outputs.tag }}"
+            echo "📦 Release type: $RELEASE_TYPE"
           else
             echo "ℹ️ No module updates available. Skipping nightly release."
           fi

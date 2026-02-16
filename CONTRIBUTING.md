@@ -83,7 +83,8 @@ KDeps has an automated nightly release process that:
 - Validates the updates with linting, building, and testing
 - Commits the updated `go.mod` and `go.sum` to the main branch
 - Creates a nightly release with the tag format `nightly-YYYYMMDD-HHMM`
-- Publishes pre-release binaries with the latest dependencies
+- Publishes binaries with the latest dependencies
+- **Release status**: Marked as "latest" when all validation checks pass, or as "prerelease" if any linting, build, or test failures occur
 
 The nightly workflow can also be manually triggered via the GitHub Actions UI if needed. If no module updates are available, the workflow will skip the release process.
 
