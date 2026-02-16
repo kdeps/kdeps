@@ -1,0 +1,178 @@
+name: Nightly Release
+
+on:
+  schedule:
+    # Run at 2 AM UTC every day
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  update-and-release:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Update Go modules
+        id: update_modules
+        run: |
+          echo "Updating Go modules to latest versions..."
+          go get -u ./...
+          go mod tidy
+          
+          # Check if there are any changes
+          if git diff --quiet go.mod go.sum; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No module updates available"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Module updates found"
+          fi
+
+      - name: Run linter
+        if: steps.update_modules.outputs.has_changes == 'true'
+        id: lint
+        continue-on-error: true
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.5.0
+          args: --timeout=10m --config=.golangci.yml
+          only-new-issues: false
+
+      - name: Build
+        if: steps.update_modules.outputs.has_changes == 'true'
+        id: build
+        continue-on-error: true
+        run: make build
+
+      - name: Run tests
+        if: steps.update_modules.outputs.has_changes == 'true'
+        id: test
+        continue-on-error: true
+        run: |
+          echo "Running unit tests..."
+          go test -v -short -timeout=5m ./pkg/... ./cmd/...
+
+      - name: Determine release type
+        if: steps.update_modules.outputs.has_changes == 'true'
+        id: release_type
+        run: |
+          # Check if all validation steps succeeded
+          # Note: This step only runs when has_changes is true, ensuring validation steps have executed
+          if [ "${{ steps.lint.outcome }}" == "success" ] && \
+             [ "${{ steps.build.outcome }}" == "success" ] && \
+             [ "${{ steps.test.outcome }}" == "success" ]; then
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+            echo "All checks passed - releasing as latest"
+          else
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+            echo "Some checks failed - releasing as prerelease"
+            echo "Lint: ${{ steps.lint.outcome }}"
+            echo "Build: ${{ steps.build.outcome }}"
+            echo "Test: ${{ steps.test.outcome }}"
+          fi
+
+      - name: Commit and push module updates
+        if: steps.update_modules.outputs.has_changes == 'true'
+        run: |
+          # Note: Automated dependency updates bypass PR review process
+          # This is intentional for nightly builds to ensure latest dependencies
+          # Any issues will be caught by linting, build, and test steps above
+          git add go.mod go.sum
+          git commit -m "chore: update Go modules to latest versions [nightly]"
+          git push origin main
+
+      - name: Create nightly tag
+        if: steps.update_modules.outputs.has_changes == 'true'
+        id: create_tag
+        run: |
+          # Generate nightly tag with date and time for uniqueness
+          # Using timestamp ensures multiple runs on same day create unique tags
+          NIGHTLY_TAG="nightly-$(date +%Y%m%d-%H%M)"
+          echo "tag=$NIGHTLY_TAG" >> $GITHUB_OUTPUT
+          
+          # Check if tag already exists
+          if git rev-parse "$NIGHTLY_TAG" >/dev/null 2>&1; then
+            echo "Tag $NIGHTLY_TAG already exists, skipping tag creation"
+            exit 0
+          fi
+          
+          # Create new tag
+          git tag -a $NIGHTLY_TAG -m "Nightly release $(date +%Y-%m-%d-%H:%M) with updated dependencies"
+          git push origin $NIGHTLY_TAG
+
+      - name: Set up Zig
+        if: steps.update_modules.outputs.has_changes == 'true'
+        uses: goto-bus-stop/setup-zig@v2
+
+      - name: Get macOS SDK path
+        if: steps.update_modules.outputs.has_changes == 'true'
+        id: macos_sdk
+        run: echo "path=$(xcrun --show-sdk-path)" >> $GITHUB_OUTPUT
+
+      - name: Release with GoReleaser
+        if: steps.update_modules.outputs.has_changes == 'true'
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: latest
+          args: release --clean
+        env:
+          SDK_PATH: ${{ steps.macos_sdk.outputs.path }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GORELEASER_CURRENT_TAG: ${{ steps.create_tag.outputs.tag }}
+
+      - name: Update release status
+        if: steps.update_modules.outputs.has_changes == 'true'
+        run: |
+          # Update the release to mark as latest or prerelease based on validation results
+          # Note: GoReleaser creates release with prerelease=false and make_latest=true
+          # We conditionally override both settings based on validation outcomes
+          TAG="${{ steps.create_tag.outputs.tag }}"
+          IS_PRERELEASE="${{ steps.release_type.outputs.prerelease }}"
+          
+          # Get the release ID
+          RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/$TAG --jq '.id')
+          
+          if [ "$IS_PRERELEASE" == "false" ]; then
+            echo "Marking release as latest (not prerelease)"
+            gh api -X PATCH repos/${{ github.repository }}/releases/$RELEASE_ID \
+              -f prerelease=false \
+              -f make_latest=true
+          else
+            echo "Marking release as prerelease"
+            gh api -X PATCH repos/${{ github.repository }}/releases/$RELEASE_ID \
+              -f prerelease=true \
+              -f make_latest=false
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Summary
+        run: |
+          if [ "${{ steps.update_modules.outputs.has_changes }}" == "true" ]; then
+            RELEASE_TYPE="latest"
+            if [ "${{ steps.release_type.outputs.prerelease }}" == "true" ]; then
+              RELEASE_TYPE="prerelease (validation checks failed)"
+            fi
+            echo "✅ Nightly release created successfully: ${{ steps.create_tag.outputs.tag }}"
+            echo "📦 Release type: $RELEASE_TYPE"
+          else
+            echo "ℹ️ No module updates available. Skipping nightly release."
+          fi

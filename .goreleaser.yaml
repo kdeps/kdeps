@@ -56,8 +56,8 @@ builds:
         {{- end }}
 
 release:
-  make_latest: false
-  prerelease: true
+  make_latest: true
+  prerelease: false
 
 archives:
   - id: default
