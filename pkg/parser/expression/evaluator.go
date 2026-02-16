@@ -27,6 +27,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/cbroglie/mustache"
 	"github.com/expr-lang/expr"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -68,6 +69,10 @@ func (e *Evaluator) Evaluate(
 	case domain.ExprTypeInterpolated:
 		// Evaluate interpolated string (may return value directly if single interpolation).
 		return e.evaluateInterpolated(expression.Raw, env)
+
+	case domain.ExprTypeMustache:
+		// Evaluate mustache template.
+		return e.evaluateMustache(expression.Raw, env)
 
 	default:
 		return nil, fmt.Errorf("unknown expression type: %v", expression.Type)
@@ -172,6 +177,94 @@ func (e *Evaluator) evaluateInterpolated(
 	}
 
 	return result, nil
+}
+
+// evaluateMustache evaluates a mustache-style template.
+// Example: "{{name}}" or "Hello {{user.name}}, you scored {{score}}"
+func (e *Evaluator) evaluateMustache(
+	template string,
+	env map[string]interface{},
+) (interface{}, error) {
+	// Build data context for mustache from environment
+	data := e.buildMustacheContext(env)
+
+	// Check if the entire template is just a single mustache variable (e.g., "{{name}}")
+	// If so, return the value directly instead of stringifying it
+	trimmed := strings.TrimSpace(template)
+	if strings.HasPrefix(trimmed, "{{") && strings.HasSuffix(trimmed, "}}") &&
+		!strings.Contains(trimmed[2:len(trimmed)-2], "{{") {
+		// Single variable - extract the key
+		varName := strings.TrimSpace(trimmed[2 : len(trimmed)-2])
+		
+		// Skip mustache sections/comments
+		if strings.HasPrefix(varName, "#") || strings.HasPrefix(varName, "/") ||
+			strings.HasPrefix(varName, "^") || strings.HasPrefix(varName, "!") {
+			// This is a section/comment, not a simple variable - use full mustache rendering
+			result, err := mustache.Render(template, data)
+			if err != nil {
+				return "", fmt.Errorf("mustache rendering failed: %w", err)
+			}
+			return result, nil
+		}
+		
+		// Look up the value directly
+		value := e.lookupMustacheValue(varName, data)
+		if value != nil {
+			return value, nil
+		}
+		// Return empty string if not found (mustache behavior)
+		return "", nil
+	}
+
+	// Multiple interpolations or mixed with text - use full mustache rendering
+	result, err := mustache.Render(template, data)
+	if err != nil {
+		return "", fmt.Errorf("mustache rendering failed: %w", err)
+	}
+
+	// Debug: Print mustache evaluation
+	if e.debugMode {
+		resultJSON, _ := json.MarshalIndent(result, "", "  ")
+		fmt.Fprintf(os.Stderr, "DEBUG [mustache] template='%s' result=%s\n", template, string(resultJSON))
+	}
+
+	return result, nil
+}
+
+// buildMustacheContext builds a context map for mustache from the environment.
+func (e *Evaluator) buildMustacheContext(env map[string]interface{}) map[string]interface{} {
+	// Create a flattened context for mustache
+	// Include all env variables directly accessible
+	context := make(map[string]interface{})
+	
+	for k, v := range env {
+		context[k] = v
+	}
+	
+	return context
+}
+
+// lookupMustacheValue looks up a value in mustache context, supporting dot notation.
+func (e *Evaluator) lookupMustacheValue(path string, data map[string]interface{}) interface{} {
+	// Handle dot notation (e.g., "user.name")
+	parts := strings.Split(path, ".")
+	
+	var current interface{} = data
+	for _, part := range parts {
+		switch v := current.(type) {
+		case map[string]interface{}:
+			var ok bool
+			current, ok = v[part]
+			if !ok {
+				return nil
+			}
+		default:
+			// Can't navigate further
+			return nil
+		}
+	}
+	
+	return current
 }
 
 // buildEnvironment creates the evaluation environment with unified API functions.

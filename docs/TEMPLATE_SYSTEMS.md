@@ -2,33 +2,55 @@
 
 kdeps uses THREE different template/expression systems for different purposes. Understanding the distinction is crucial:
 
-## 1. Runtime Expression System (PRIMARY)
+## 1. Runtime Expression System (PRIMARY) - NOW WITH MUSTACHE!
 
 **Location**: `pkg/parser/expression/`  
 **Purpose**: Dynamic value evaluation in workflow YAML files at runtime  
-**Syntax**: `{{ get('variable') }}`, `{{ info('field') }}`, `{{ env('VAR') }}`  
-**Engine**: [expr-lang/expr](https://github.com/expr-lang/expr)
+**Syntax**: Two options!
+- **expr-lang**: `{{ get('variable') }}`, `{{ info('field') }}`, `{{ env('VAR') }}`  
+- **mustache**: `{{variable}}`, `{{user.name}}` (NEW! Simpler for basic access)
+**Engine**: [expr-lang/expr](https://github.com/expr-lang/expr) + [mustache](https://github.com/cbroglie/mustache)
 
 ### Examples from `examples/**/*.yaml`:
 
 ```yaml
-# examples/chatbot/resources/llm.yaml
+# Traditional expr-lang (still works!)
 chat:
   prompt: "{{ get('q') }}"  # Runtime expression - gets query parameter at runtime
   
-# examples/shell-exec/resources/final-result.yaml
+# NEW: Mustache style (simpler!)
+chat:
+  prompt: "{{q}}"  # Same result, simpler syntax!
+  
+# Both work in the same file
 apiResponse:
   response:
-    system_info: "{{ get('systemInfo') }}"  # Gets result from previous action
-    timestamp: "{{ info('current_time') }}"  # Gets workflow info
+    name: "{{name}}"  # Mustache - simple variable
+    timestamp: "{{ info('current_time') }}"  # expr-lang - function call
 ```
 
 ### Key Points:
 - ✅ Used in ALL workflow YAML files
 - ✅ Evaluated at runtime when workflow executes
+- ✅ **TWO syntaxes supported**: expr-lang (full power) OR mustache (simpler)
+- ✅ Automatic detection: `{{ get() }}` = expr-lang, `{{var}}` = mustache
 - ✅ Access to unified API: get(), set(), info(), env(), safe()
 - ✅ Supports conditionals: `{{ condition ? valueIfTrue : valueIfFalse }}`
 - ✅ This is the MAIN template system users interact with
+
+### When to Use Which Syntax?
+
+**Use Mustache** (`{{var}}`) for:
+- Simple variable access
+- Nested objects: `{{user.name}}`
+- Clean, readable templates
+- Beginners learning kdeps
+
+**Use expr-lang** (`{{ get('var') }}`) for:
+- Function calls: `get()`, `info()`, `env()`
+- Calculations: `{{ get('count') + 10 }}`
+- Conditionals: `{{ score > 80 ? 'Pass' : 'Fail' }}`
+- Complex expressions
 
 ## 2. Go Templates (text/template)
 
