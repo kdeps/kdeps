@@ -186,12 +186,40 @@ run:
       - "{{ get('directory') }}"
 ```
 
+### Inline Resources
+Execute multiple resources before or after the main resource.
+
+```yaml
+run:
+  # Run before main resource
+  before:
+    - httpClient:
+        method: GET
+        url: "https://api.example.com/config"
+    - exec:
+        command: "echo 'Preparing...'"
+  
+  # Main resource
+  chat:
+    model: llama3.2:1b
+    prompt: "{{ get('prompt') }}"
+  
+  # Run after main resource
+  after:
+    - sql:
+        connection: "sqlite3://./db.sqlite"
+        query: "INSERT INTO logs VALUES (?)"
+    - python:
+        script: "print('Done')"
+```
+
 ## Examples
 
 Explore working examples in the [examples/](examples/) directory:
 
 - **[chatbot](examples/chatbot/)** - Simple LLM chatbot
 - **[chatgpt-clone](examples/chatgpt-clone/)** - Full-featured chat interface
+- **[inline-resources](examples/inline-resources/)** - Before/after resource execution
 - **[file-upload](examples/file-upload/)** - File processing workflow
 - **[http-advanced](examples/http-advanced/)** - Complex HTTP integrations
 - **[sql-advanced](examples/sql-advanced/)** - Multi-database queries
