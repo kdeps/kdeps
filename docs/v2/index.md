@@ -124,13 +124,13 @@ message: "Hello {{name}}, your score is {{ get('points') * 2 }}"
 
 **Key Benefits:**
 - **56% less typing** for simple variables
-- **No whitespace rules** - `{``{var}}` = `{``{ var }}`
+- **No whitespace rules** - <code v-pre>{{var}}</code> = <code v-pre>{{ var }}</code>
 - **Backward compatible** - all existing workflows work
 - **Natural mixing** - simple and complex together
 
 **When to use:**
-- Mustache for simple variables: `{``{name}}`, `{``{email}}`
-- expr-lang for functions and logic: `{``{ get('x') }}`, `{``{ a + b }}`
+- Mustache for simple variables: <code v-pre>{{name}}</code>, <code v-pre>{{email}}</code>
+- expr-lang for functions and logic: <code v-pre>{{ get('x') }}</code>, <code v-pre>{{ a + b }}</code>
 
 [Learn more →](/concepts/expressions)
 
