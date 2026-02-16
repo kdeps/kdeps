@@ -262,8 +262,9 @@ func (e *Evaluator) tryMustacheVariable(exprStr string, env map[string]interface
 	// Valid mustache identifiers are: alphanumeric, underscore, dot, and hyphen.
 	// If it contains other characters or spaces, it's likely expr-lang syntax, so return nil to fall back.
 	for _, char := range exprStr {
-		if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') ||
-			(char >= '0' && char <= '9') || char == '_' || char == '.' || char == '-') {
+		isValid := (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') ||
+			(char >= '0' && char <= '9') || char == '_' || char == '.' || char == '-'
+		if !isValid {
 			// Contains invalid characters for mustache identifier - fall back to expr-lang
 			return nil
 		}
