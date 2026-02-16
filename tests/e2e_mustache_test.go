@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestE2EMustacheWorkflow tests a complete workflow using mustache expressions
+// TestE2EMustacheWorkflow tests a complete workflow using mustache expressions.
 func TestE2EMustacheWorkflow(t *testing.T) {
 	parser := expression.NewParser()
 
@@ -92,7 +92,7 @@ func TestE2EMustacheWorkflow(t *testing.T) {
 	}
 }
 
-// TestE2EMustacheTemplateGeneration tests E2E project generation with mustache
+// TestE2EMustacheTemplateGeneration tests E2E project generation with mustache.
 func TestE2EMustacheTemplateGeneration(t *testing.T) {
 	tmpDir := t.TempDir()
 
@@ -117,7 +117,7 @@ func TestE2EMustacheTemplateGeneration(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// TestE2EUnifiedExpressionSystem tests the unified expression system E2E
+// TestE2EUnifiedExpressionSystem tests the unified expression system E2E.
 func TestE2EUnifiedExpressionSystem(t *testing.T) {
 	parser := expression.NewParser()
 
@@ -173,7 +173,7 @@ func TestE2EUnifiedExpressionSystem(t *testing.T) {
 	}
 }
 
-// TestE2EMustachePerformance tests performance comparison
+// TestE2EMustachePerformance tests performance comparison.
 func TestE2EMustachePerformance(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping performance test in short mode")
@@ -195,15 +195,15 @@ func TestE2EMustachePerformance(t *testing.T) {
 	require.NoError(t, err)
 
 	iterations := 1000
-	for i := 0; i < iterations; i++ {
-		_, err := evaluator.Evaluate(exprObj, nil)
-		require.NoError(t, err)
+	for range iterations {
+		_, evalErr := evaluator.Evaluate(exprObj, nil)
+		require.NoError(t, evalErr)
 	}
 
 	t.Logf("Successfully evaluated mustache expression %d times", iterations)
 }
 
-// TestE2EMustacheMixedComplexity tests mixing simple and complex expressions
+// TestE2EMustacheMixedComplexity tests mixing simple and complex expressions.
 func TestE2EMustacheMixedComplexity(t *testing.T) {
 	parser := expression.NewParser()
 

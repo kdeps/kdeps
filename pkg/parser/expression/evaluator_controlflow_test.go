@@ -97,7 +97,7 @@ func TestControlFlowTernary(t *testing.T) {
 
 			eval := NewEvaluator(api)
 			parser := NewParser()
-			
+
 			expr, err := parser.Parse(tt.expr)
 			if err != nil {
 				t.Fatalf("parse error: %v", err)
@@ -193,7 +193,7 @@ func TestControlFlowLogicalOperators(t *testing.T) {
 			api := &domain.UnifiedAPI{}
 			eval := NewEvaluator(api)
 			parser := NewParser()
-			
+
 			expr, err := parser.Parse(tt.expr)
 			if err != nil {
 				t.Fatalf("parse error: %v", err)
@@ -229,15 +229,7 @@ func TestControlFlowListOperations(t *testing.T) {
 					{"name": "Charlie", "age": 30},
 				},
 			},
-			validate: func(t *testing.T, result interface{}) {
-				arr, ok := result.([]interface{})
-				if !ok {
-					t.Fatalf("expected array, got %T", result)
-				}
-				if len(arr) != 2 {
-					t.Errorf("expected 2 items, got %d", len(arr))
-				}
-			},
+			validate: validateFilterResult,
 		},
 		{
 			name: "map_array",
@@ -248,18 +240,7 @@ func TestControlFlowListOperations(t *testing.T) {
 					{"name": "Bob", "age": 15},
 				},
 			},
-			validate: func(t *testing.T, result interface{}) {
-				arr, ok := result.([]interface{})
-				if !ok {
-					t.Fatalf("expected array, got %T", result)
-				}
-				if len(arr) != 2 {
-					t.Errorf("expected 2 items, got %d", len(arr))
-				}
-				if arr[0] != "Alice" {
-					t.Errorf("expected 'Alice', got %v", arr[0])
-				}
-			},
+			validate: validateMapResult,
 		},
 		{
 			name: "all_predicate_true",
@@ -270,11 +251,7 @@ func TestControlFlowListOperations(t *testing.T) {
 					{"valid": true},
 				},
 			},
-			validate: func(t *testing.T, result interface{}) {
-				if result != true {
-					t.Errorf("expected true, got %v", result)
-				}
-			},
+			validate: validateBoolResult(true),
 		},
 		{
 			name: "all_predicate_false",
@@ -285,11 +262,7 @@ func TestControlFlowListOperations(t *testing.T) {
 					{"valid": false},
 				},
 			},
-			validate: func(t *testing.T, result interface{}) {
-				if result != false {
-					t.Errorf("expected false, got %v", result)
-				}
-			},
+			validate: validateBoolResult(false),
 		},
 		{
 			name: "any_predicate_true",
@@ -300,11 +273,7 @@ func TestControlFlowListOperations(t *testing.T) {
 					{"active": true},
 				},
 			},
-			validate: func(t *testing.T, result interface{}) {
-				if result != true {
-					t.Errorf("expected true, got %v", result)
-				}
-			},
+			validate: validateBoolResult(true),
 		},
 		{
 			name: "any_predicate_false",
@@ -315,32 +284,69 @@ func TestControlFlowListOperations(t *testing.T) {
 					{"active": false},
 				},
 			},
-			validate: func(t *testing.T, result interface{}) {
-				if result != false {
-					t.Errorf("expected false, got %v", result)
-				}
-			},
+			validate: validateBoolResult(false),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			api := &domain.UnifiedAPI{}
-			eval := NewEvaluator(api)
-			parser := NewParser()
-			
-			expr, err := parser.Parse(tt.expr)
-			if err != nil {
-				t.Fatalf("parse error: %v", err)
-			}
-
-			result, err := eval.Evaluate(expr, tt.env)
-			if err != nil {
-				t.Fatalf("evaluation error: %v", err)
-			}
-
+			result := evaluateExpression(t, tt.expr, tt.env)
 			tt.validate(t, result)
 		})
+	}
+}
+
+// Helper functions to reduce cognitive complexity.
+
+func evaluateExpression(t *testing.T, expr string, env map[string]interface{}) interface{} {
+	t.Helper()
+	api := &domain.UnifiedAPI{}
+	eval := NewEvaluator(api)
+	parser := NewParser()
+
+	exprObj, err := parser.Parse(expr)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	result, err := eval.Evaluate(exprObj, env)
+	if err != nil {
+		t.Fatalf("evaluation error: %v", err)
+	}
+	return result
+}
+
+func validateFilterResult(t *testing.T, result interface{}) {
+	t.Helper()
+	arr, ok := result.([]interface{})
+	if !ok {
+		t.Fatalf("expected array, got %T", result)
+	}
+	if len(arr) != 2 {
+		t.Errorf("expected 2 items, got %d", len(arr))
+	}
+}
+
+func validateMapResult(t *testing.T, result interface{}) {
+	t.Helper()
+	arr, ok := result.([]interface{})
+	if !ok {
+		t.Fatalf("expected array, got %T", result)
+	}
+	if len(arr) != 2 {
+		t.Errorf("expected 2 items, got %d", len(arr))
+	}
+	if arr[0] != "Alice" {
+		t.Errorf("expected 'Alice', got %v", arr[0])
+	}
+}
+
+func validateBoolResult(expected bool) func(*testing.T, interface{}) {
+	return func(t *testing.T, result interface{}) {
+		t.Helper()
+		if result != expected {
+			t.Errorf("expected %v, got %v", expected, result)
+		}
 	}
 }
 
@@ -412,7 +418,7 @@ func TestControlFlowCombined(t *testing.T) {
 			api := &domain.UnifiedAPI{}
 			eval := NewEvaluator(api)
 			parser := NewParser()
-			
+
 			expr, err := parser.Parse(tt.expr)
 			if err != nil {
 				t.Fatalf("parse error: %v", err)

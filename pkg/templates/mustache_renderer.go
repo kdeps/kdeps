@@ -144,7 +144,12 @@ func (g *Generator) walkMustacheTemplate(
 }
 
 // processMustacheDirectory processes a subdirectory in the template.
-func (g *Generator) processMustacheDirectory(renderer *MustacheRenderer, sourcePath, outputDir string, data TemplateData, dirName string) error {
+func (g *Generator) processMustacheDirectory(
+	renderer *MustacheRenderer,
+	sourcePath, outputDir string,
+	data TemplateData,
+	dirName string,
+) error {
 	// Create subdirectory
 	targetDir := filepath.Join(outputDir, dirName)
 	if mkdirErr := os.MkdirAll(targetDir, 0750); mkdirErr != nil {

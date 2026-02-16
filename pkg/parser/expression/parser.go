@@ -135,8 +135,8 @@ func (p *Parser) Detect(value string) domain.ExprType {
 }
 
 // isMustacheStyle checks if the interpolation uses mustache-style syntax.
-// Mustache style: {{var}} or {{object.field}} (no spaces, no function calls)
-// expr-lang style: {{ get('var') }} or {{ expr }} (spaces and/or function calls)
+// Mustache style: {{var}} or {{object.field}} (no spaces, no function calls).
+// expr-lang style: {{ get('var') }} or {{ expr }} (spaces and/or function calls).
 func (p *Parser) isMustacheStyle(value string) bool {
 	// Find all {{ }} blocks
 	remaining := value
@@ -145,39 +145,39 @@ func (p *Parser) isMustacheStyle(value string) bool {
 		if start == -1 {
 			break
 		}
-		
+
 		end := strings.Index(remaining[start:], "}}")
 		if end == -1 {
 			return false
 		}
 		end += start
-		
+
 		// Extract what's between {{ }}
 		content := remaining[start+2 : end]
-		
+
 		// Mustache style has NO spaces after {{ or before }}
 		// and NO function calls (no parentheses)
 		if strings.HasPrefix(content, " ") || strings.HasSuffix(content, " ") {
 			// Has spaces - this is expr-lang style
 			return false
 		}
-		
+
 		// Check for function calls (contains parentheses)
 		if strings.Contains(content, "(") {
 			// Has function call - this is expr-lang style
 			return false
 		}
-		
+
 		// Check for mustache-specific syntax (sections, etc.)
-		if strings.HasPrefix(content, "#") || strings.HasPrefix(content, "/") || 
-		   strings.HasPrefix(content, "^") || strings.HasPrefix(content, "!") {
+		if strings.HasPrefix(content, "#") || strings.HasPrefix(content, "/") ||
+			strings.HasPrefix(content, "^") || strings.HasPrefix(content, "!") {
 			// Mustache section/comment syntax
 			return true
 		}
-		
+
 		remaining = remaining[end+2:]
 	}
-	
+
 	// If we got here, all {{ }} blocks look like mustache style
 	return true
 }

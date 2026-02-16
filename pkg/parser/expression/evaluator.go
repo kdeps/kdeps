@@ -112,28 +112,47 @@ func (e *Evaluator) evaluateInterpolated(
 	template string,
 	env map[string]interface{},
 ) (interface{}, error) {
-	// Check if the entire template is just a single interpolation (e.g., "{{input.items}}")
-	// If so, return the value directly instead of stringifying it
-	trimmed := strings.TrimSpace(template)
-	if strings.HasPrefix(trimmed, "{{") && strings.HasSuffix(trimmed, "}}") {
-		// Extract the expression
-		exprStr := strings.TrimSpace(trimmed[2 : len(trimmed)-2])
-		
-		// Try mustache first (simple variable lookup)
-		value := e.tryMustacheVariable(exprStr, env)
-		if value != nil {
-			return value, nil
-		}
-		
-		// Fall back to expr-lang
-		value, err := e.evaluateDirect(exprStr, env)
-		if err != nil {
-			return nil, fmt.Errorf("interpolation failed for '{{ %s }}': %w", exprStr, err)
-		}
-		return value, nil
+	// Check if this is a single interpolation
+	if value, isSingle, err := e.evaluateSingleInterpolation(template, env); isSingle {
+		return value, err
 	}
 
 	// Multiple interpolations or mixed with text - process as string template
+	return e.evaluateMultipleInterpolations(template, env)
+}
+
+// evaluateSingleInterpolation checks if template is a single {{expr}} and evaluates it directly.
+func (e *Evaluator) evaluateSingleInterpolation(
+	template string,
+	env map[string]interface{},
+) (interface{}, bool, error) {
+	trimmed := strings.TrimSpace(template)
+	if !strings.HasPrefix(trimmed, "{{") || !strings.HasSuffix(trimmed, "}}") {
+		return nil, false, nil
+	}
+
+	// Extract the expression
+	exprStr := strings.TrimSpace(trimmed[2 : len(trimmed)-2])
+
+	// Try mustache first (simple variable lookup)
+	value := e.tryMustacheVariable(exprStr, env)
+	if value != nil {
+		return value, true, nil
+	}
+
+	// Fall back to expr-lang
+	value, err := e.evaluateDirect(exprStr, env)
+	if err != nil {
+		return nil, true, fmt.Errorf("interpolation failed for '{{ %s }}': %w", exprStr, err)
+	}
+	return value, true, nil
+}
+
+// evaluateMultipleInterpolations processes a template with multiple {{ }} blocks.
+func (e *Evaluator) evaluateMultipleInterpolations(
+	template string,
+	env map[string]interface{},
+) (string, error) {
 	result := template
 
 	// Find all {{ }} blocks.
@@ -149,46 +168,57 @@ func (e *Evaluator) evaluateInterpolated(
 		}
 		end += start + 2 //nolint:mnd // closing brackets length
 
-		// Extract expression between {{ }}.
+		// Extract and evaluate expression between {{ }}.
 		exprStr := strings.TrimSpace(result[start+2 : end-2])
-
-		var value interface{}
-		var err error
-		
-		// Try mustache first (simple variable lookup)
-		value = e.tryMustacheVariable(exprStr, env)
-		if value == nil {
-			// Fall back to expr-lang
-			value, err = e.evaluateDirect(exprStr, env)
-			if err != nil {
-				return "", fmt.Errorf("interpolation failed for '{{ %s }}': %w", exprStr, err)
-			}
+		valueStr, err := e.evaluateAndFormatExpression(exprStr, env)
+		if err != nil {
+			return "", err
 		}
 
-		// Replace {{ expr }} with result.
-		// Handle nil values - convert to empty string instead of "nil"
-		// For maps and slices, use JSON encoding to produce valid syntax
-		var valueStr string
-		if value == nil {
-			valueStr = ""
-		} else {
-			// Check if value is a map or slice - serialize as JSON for valid Python/JS syntax
-			switch reflect.TypeOf(value).Kind() { //nolint:exhaustive // only maps and slices need special handling
-			case reflect.Map, reflect.Slice:
-				jsonBytes, jsonErr := json.Marshal(value)
-				if jsonErr != nil {
-					valueStr = fmt.Sprintf("%v", value)
-				} else {
-					valueStr = string(jsonBytes)
-				}
-			default:
-				valueStr = fmt.Sprintf("%v", value)
-			}
-		}
 		result = result[:start] + valueStr + result[end:]
 	}
 
 	return result, nil
+}
+
+// evaluateAndFormatExpression evaluates an expression and formats it as a string.
+func (e *Evaluator) evaluateAndFormatExpression(
+	exprStr string,
+	env map[string]interface{},
+) (string, error) {
+	var value interface{}
+	var err error
+
+	// Try mustache first (simple variable lookup)
+	value = e.tryMustacheVariable(exprStr, env)
+	if value == nil {
+		// Fall back to expr-lang
+		value, err = e.evaluateDirect(exprStr, env)
+		if err != nil {
+			return "", fmt.Errorf("interpolation failed for '{{ %s }}': %w", exprStr, err)
+		}
+	}
+
+	return e.formatValue(value), nil
+}
+
+// formatValue converts a value to string representation.
+func (e *Evaluator) formatValue(value interface{}) string {
+	if value == nil {
+		return ""
+	}
+
+	// Check if value is a map or slice - serialize as JSON for valid Python/JS syntax
+	switch reflect.TypeOf(value).Kind() { //nolint:exhaustive // only maps and slices need special handling
+	case reflect.Map, reflect.Slice:
+		jsonBytes, jsonErr := json.Marshal(value)
+		if jsonErr != nil {
+			return fmt.Sprintf("%v", value)
+		}
+		return string(jsonBytes)
+	default:
+		return fmt.Sprintf("%v", value)
+	}
 }
 
 // tryMustacheVariable attempts to resolve a simple mustache variable from the environment.
@@ -198,7 +228,7 @@ func (e *Evaluator) tryMustacheVariable(exprStr string, env map[string]interface
 	if strings.Contains(exprStr, "(") {
 		return nil
 	}
-	
+
 	// Skip if it contains operators (arithmetic, comparison, etc.)
 	// This ensures expressions like "2 + 2" or "x > 10" go to expr-lang
 	operators := []string{"+", "-", "*", "/", "==", "!=", ">=", "<=", ">", "<", "&&", "||", "?", ":"}
@@ -207,27 +237,27 @@ func (e *Evaluator) tryMustacheVariable(exprStr string, env map[string]interface
 			return nil
 		}
 	}
-	
+
 	// Skip mustache section syntax
 	if strings.HasPrefix(exprStr, "#") || strings.HasPrefix(exprStr, "/") ||
 		strings.HasPrefix(exprStr, "^") || strings.HasPrefix(exprStr, "!") {
 		return nil
 	}
-	
+
 	// Try to look up the value with mustache-style dot notation
 	value := e.lookupMustacheValue(exprStr, env)
-	
+
 	// If not found, return empty string (mustache behavior) instead of nil
 	// This prevents falling back to expr-lang which would error on unknown variables
 	if value == nil {
 		return ""
 	}
-	
+
 	return value
 }
 
 // evaluateMustache evaluates a mustache-style template.
-// Example: "{{name}}" or "Hello {{user.name}}, you scored {{score}}"
+// Example: "{{name}}" or "Hello {{user.name}}, you scored {{score}}".
 func (e *Evaluator) evaluateMustache(
 	template string,
 	env map[string]interface{},
@@ -242,7 +272,7 @@ func (e *Evaluator) evaluateMustache(
 		!strings.Contains(trimmed[2:len(trimmed)-2], "{{") {
 		// Single variable - extract the key
 		varName := strings.TrimSpace(trimmed[2 : len(trimmed)-2])
-		
+
 		// Skip mustache sections/comments
 		if strings.HasPrefix(varName, "#") || strings.HasPrefix(varName, "/") ||
 			strings.HasPrefix(varName, "^") || strings.HasPrefix(varName, "!") {
@@ -253,7 +283,7 @@ func (e *Evaluator) evaluateMustache(
 			}
 			return result, nil
 		}
-		
+
 		// Look up the value directly
 		value := e.lookupMustacheValue(varName, data)
 		if value != nil {
@@ -283,11 +313,11 @@ func (e *Evaluator) buildMustacheContext(env map[string]interface{}) map[string]
 	// Create a flattened context for mustache
 	// Include all env variables directly accessible
 	context := make(map[string]interface{})
-	
+
 	for k, v := range env {
 		context[k] = v
 	}
-	
+
 	return context
 }
 
@@ -295,7 +325,7 @@ func (e *Evaluator) buildMustacheContext(env map[string]interface{}) map[string]
 func (e *Evaluator) lookupMustacheValue(path string, data map[string]interface{}) interface{} {
 	// Handle dot notation (e.g., "user.name")
 	parts := strings.Split(path, ".")
-	
+
 	var current interface{} = data
 	for _, part := range parts {
 		switch v := current.(type) {
@@ -310,7 +340,7 @@ func (e *Evaluator) lookupMustacheValue(path string, data map[string]interface{}
 			return nil
 		}
 	}
-	
+
 	return current
 }
 

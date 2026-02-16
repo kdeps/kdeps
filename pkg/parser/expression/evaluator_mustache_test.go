@@ -37,134 +37,110 @@ func TestMustacheExpressions(t *testing.T) {
 		{
 			name:     "simple variable",
 			template: "{{q}}",
-			env: map[string]interface{}{
-				"q": "hello world",
-			},
+			env:      map[string]interface{}{"q": "hello world"},
 			expected: "hello world",
-			wantErr:  false,
 		},
 		{
 			name:     "simple variable with spaces",
 			template: "{{ q }}",
-			env: map[string]interface{}{
-				"q": "hello world",
-			},
+			env:      map[string]interface{}{"q": "hello world"},
 			expected: "hello world",
-			wantErr:  false,
 		},
 		{
 			name:     "simple variable with text",
 			template: "Query: {{q}}",
-			env: map[string]interface{}{
-				"q": "test query",
-			},
+			env:      map[string]interface{}{"q": "test query"},
 			expected: "Query: test query",
-			wantErr:  false,
 		},
 		{
 			name:     "multiple variables",
 			template: "Hello {{name}}, you scored {{score}}",
-			env: map[string]interface{}{
-				"name":  "Alice",
-				"score": 95,
-			},
+			env:      map[string]interface{}{"name": "Alice", "score": 95},
 			expected: "Hello Alice, you scored 95",
-			wantErr:  false,
 		},
 		{
 			name:     "nested object",
 			template: "{{user.name}}",
 			env: map[string]interface{}{
-				"user": map[string]interface{}{
-					"name": "Bob",
-					"age":  30,
-				},
+				"user": map[string]interface{}{"name": "Bob", "age": 30},
 			},
 			expected: "Bob",
-			wantErr:  false,
 		},
 		{
 			name:     "missing variable returns empty",
 			template: "{{missing}}",
 			env:      map[string]interface{}{},
 			expected: "",
-			wantErr:  false,
 		},
 		{
 			name:     "integer value",
 			template: "{{count}}",
-			env: map[string]interface{}{
-				"count": 42,
-			},
+			env:      map[string]interface{}{"count": 42},
 			expected: 42,
-			wantErr:  false,
 		},
 		{
 			name:     "boolean value",
 			template: "{{active}}",
-			env: map[string]interface{}{
-				"active": true,
-			},
+			env:      map[string]interface{}{"active": true},
 			expected: true,
-			wantErr:  false,
 		},
 		{
 			name:     "mixed mustache and expr-lang",
 			template: "Hello {{name}}, time is {{ info('current_time') }}",
-			env: map[string]interface{}{
-				"name": "Alice",
-			},
-			expected: "",  // Will be set by the test
-			wantErr:  false,
+			env:      map[string]interface{}{"name": "Alice"},
+			expected: "", // Special case - checked separately
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			parser := expression.NewParser()
-			expr, err := parser.Parse(tt.template)
-			if err != nil {
-				t.Fatalf("Parse() error = %v", err)
-			}
-
-			// All interpolated expressions are now ExprTypeInterpolated
-			if expr.Type != domain.ExprTypeInterpolated {
-				t.Errorf("Expected ExprTypeInterpolated, got %v", expr.Type)
-			}
-
-			evaluator := expression.NewEvaluator(createMockAPI())
-			result, err := evaluator.Evaluate(expr, tt.env)
-
-			if tt.wantErr {
-				if err == nil {
-					t.Errorf("Expected error but got none")
-				}
-				return
-			}
-
-			if err != nil {
-				t.Errorf("Evaluate() error = %v", err)
-				return
-			}
-
-			// Special handling for mixed expression test
-			if tt.name == "mixed mustache and expr-lang" {
-				// Just verify it's a string and contains "Alice"
-				resultStr, ok := result.(string)
-				if !ok {
-					t.Errorf("Expected string result, got %T", result)
-					return
-				}
-				if !strings.Contains(resultStr, "Alice") {
-					t.Errorf("Result should contain 'Alice', got: %v", resultStr)
-				}
-				return
-			}
-
-			if result != tt.expected {
-				t.Errorf("Evaluate() = %v, want %v", result, tt.expected)
-			}
+			result := evaluateMustacheTemplate(t, tt.template, tt.env)
+			validateMustacheResult(t, tt.name, result, tt.expected, tt.wantErr)
 		})
+	}
+}
+
+// evaluateMustacheTemplate parses and evaluates a mustache template.
+func evaluateMustacheTemplate(t *testing.T, template string, env map[string]interface{}) interface{} {
+	t.Helper()
+	parser := expression.NewParser()
+	expr, err := parser.Parse(template)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+
+	// All interpolated expressions are now ExprTypeInterpolated
+	if expr.Type != domain.ExprTypeInterpolated {
+		t.Errorf("Expected ExprTypeInterpolated, got %v", expr.Type)
+	}
+
+	evaluator := expression.NewEvaluator(createMockAPI())
+	result, err := evaluator.Evaluate(expr, env)
+	if err != nil {
+		t.Fatalf("Evaluate() error = %v", err)
+	}
+	return result
+}
+
+// validateMustacheResult validates the result of a mustache expression.
+func validateMustacheResult(t *testing.T, testName string, result, expected interface{}, wantErr bool) {
+	t.Helper()
+
+	// Special handling for mixed expression test
+	if testName == "mixed mustache and expr-lang" {
+		resultStr, ok := result.(string)
+		if !ok {
+			t.Errorf("Expected string result, got %T", result)
+			return
+		}
+		if !strings.Contains(resultStr, "Alice") {
+			t.Errorf("Result should contain 'Alice', got: %v", resultStr)
+		}
+		return
+	}
+
+	if result != expected {
+		t.Errorf("Evaluate() = %v, want %v", result, expected)
 	}
 }
 
