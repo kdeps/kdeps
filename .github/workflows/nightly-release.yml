@@ -67,6 +67,9 @@ jobs:
       - name: Commit and push module updates
         if: steps.update_modules.outputs.has_changes == 'true'
         run: |
+          # Note: Automated dependency updates bypass PR review process
+          # This is intentional for nightly builds to ensure latest dependencies
+          # Any issues will be caught by linting, build, and test steps above
           git add go.mod go.sum
           git commit -m "chore: update Go modules to latest versions [nightly]"
           git push origin main
@@ -75,16 +78,19 @@ jobs:
         if: steps.update_modules.outputs.has_changes == 'true'
         id: create_tag
         run: |
-          # Generate nightly tag with date
-          NIGHTLY_TAG="nightly-$(date +%Y%m%d)"
+          # Generate nightly tag with date and time for uniqueness
+          # Using timestamp ensures multiple runs on same day create unique tags
+          NIGHTLY_TAG="nightly-$(date +%Y%m%d-%H%M)"
           echo "tag=$NIGHTLY_TAG" >> $GITHUB_OUTPUT
           
-          # Delete the tag if it exists (locally and remotely)
-          git tag -d $NIGHTLY_TAG 2>/dev/null || true
-          git push --delete origin $NIGHTLY_TAG 2>/dev/null || true
+          # Check if tag already exists
+          if git rev-parse "$NIGHTLY_TAG" >/dev/null 2>&1; then
+            echo "Tag $NIGHTLY_TAG already exists, skipping tag creation"
+            exit 0
+          fi
           
           # Create new tag
-          git tag -a $NIGHTLY_TAG -m "Nightly release $(date +%Y-%m-%d) with updated dependencies"
+          git tag -a $NIGHTLY_TAG -m "Nightly release $(date +%Y-%m-%d-%H:%M) with updated dependencies"
           git push origin $NIGHTLY_TAG
 
       - name: Set up Zig
