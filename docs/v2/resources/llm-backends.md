@@ -271,13 +271,6 @@ If the model is not available:
 1. For Ollama: Pull the model first with `ollama pull model-name`
 2. For APIs: Verify the model name matches the provider's documentation
 3. Check you have access to the model in your API account
-    backend: openai
-    apiKey: "{{ get('OPENAI_API_KEY', 'env') }}"
-    model: gpt-4o
-    prompt: "{{ get('q') }}"
-```
-
-</div>
 
 **Available models:**
 
