@@ -56,6 +56,11 @@ type RunConfig struct {
 	Expr       []Expression `yaml:"expr,omitempty"`
 	ExprAfter  []Expression `yaml:"exprAfter,omitempty"`
 
+	// Inline resources: allows multiple LLM, HTTP, Exec, SQL, Python resources
+	// to be configured to run before or after the main resource
+	Before []InlineResource `yaml:"before,omitempty"`
+	After  []InlineResource `yaml:"after,omitempty"`
+
 	// Action blocks (only one primary type should be set, apiResponse can be combined).
 	Chat        *ChatConfig        `yaml:"chat,omitempty"`
 	HTTPClient  *HTTPClientConfig  `yaml:"httpClient,omitempty"`
@@ -66,6 +71,16 @@ type RunConfig struct {
 
 	// Error handling
 	OnError *OnErrorConfig `yaml:"onError,omitempty"`
+}
+
+// InlineResource represents an inline resource that can be executed before or after the main resource.
+// Only one of the resource types should be set.
+type InlineResource struct {
+	Chat       *ChatConfig       `yaml:"chat,omitempty"`
+	HTTPClient *HTTPClientConfig `yaml:"httpClient,omitempty"`
+	SQL        *SQLConfig        `yaml:"sql,omitempty"`
+	Python     *PythonConfig     `yaml:"python,omitempty"`
+	Exec       *ExecConfig       `yaml:"exec,omitempty"`
 }
 
 // PreflightCheck represents preflight validation.

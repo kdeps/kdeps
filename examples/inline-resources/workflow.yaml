@@ -1,0 +1,12 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: Inline Resources Example
+  version: 1.0.0
+  description: Demonstrates inline resources that run before and after the main resource
+  targetActionId: main
+
+# This workflow demonstrates the inline resources feature which allows
+# multiple LLM, HTTP, Exec, SQL, and Python resources to be configured
+# to run before or after the main resource execution.
