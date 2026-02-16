@@ -639,7 +639,7 @@ func (e *Engine) createPreflightError(
 
 // ExecuteResource executes a single resource.
 //
-//nolint:gocognit // resource execution handles multiple pathways
+//nolint:gocognit,gocyclo,cyclop // resource execution handles multiple pathways
 func (e *Engine) ExecuteResource(
 	resource *domain.Resource,
 	ctx *ExecutionContext,
@@ -729,7 +729,9 @@ func (e *Engine) ExecuteResource(
 	}
 
 	// If only expressions (exprBefore, expr, exprAfter) or inline resources, return status
-	if len(resource.Run.ExprBefore) > 0 || len(resource.Run.Expr) > 0 || len(resource.Run.ExprAfter) > 0 || len(resource.Run.Before) > 0 || len(resource.Run.After) > 0 {
+	if len(resource.Run.ExprBefore) > 0 || len(resource.Run.Expr) > 0 ||
+		len(resource.Run.ExprAfter) > 0 || len(resource.Run.Before) > 0 ||
+		len(resource.Run.After) > 0 {
 		return map[string]interface{}{"status": "expressions_executed"}, nil
 	}
 
@@ -1903,7 +1905,7 @@ func (e *Engine) executeInlineSQL(config *domain.SQLConfig, ctx *ExecutionContex
 func (e *Engine) executeInlinePython(config *domain.PythonConfig, ctx *ExecutionContext) (interface{}, error) {
 	executor := e.registry.GetPythonExecutor()
 	if executor == nil {
-		return nil, errors.New("Python executor not available")
+		return nil, errors.New("python executor not available")
 	}
 
 	return executor.Execute(ctx, config)
@@ -1913,7 +1915,7 @@ func (e *Engine) executeInlinePython(config *domain.PythonConfig, ctx *Execution
 func (e *Engine) executeInlineExec(config *domain.ExecConfig, ctx *ExecutionContext) (interface{}, error) {
 	executor := e.registry.GetExecExecutor()
 	if executor == nil {
-		return nil, errors.New("Exec executor not available")
+		return nil, errors.New("exec executor not available")
 	}
 
 	return executor.Execute(ctx, config)
