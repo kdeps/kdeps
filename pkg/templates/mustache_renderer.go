@@ -210,7 +210,9 @@ func (g *Generator) generateMustacheFile(renderer *MustacheRenderer, templatePat
 
 // isMustacheTemplate checks if a file is a mustache template.
 // Files with .mustache extension are always mustache templates.
-// Files with .tmpl extension are detected based on content.
+// Files with .tmpl extension are detected based on content (see hasMustacheSyntax).
+// Note: .tmpl files can be either Go templates or Mustache templates.
+// The precedence is: content-based detection determines the template type.
 func isMustacheTemplate(filename string) bool {
 	return strings.HasSuffix(filename, ".mustache") || strings.HasSuffix(filename, ".tmpl")
 }

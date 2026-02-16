@@ -512,6 +512,10 @@ func detectMustacheTemplates(fs embed.FS, templateDir string) bool {
 }
 
 // hasMustacheSyntax checks if content contains mustache-style syntax.
+// hasMustacheSyntax detects if content contains mustache-specific syntax.
+// Note: Files with .mustache extension are always treated as mustache templates
+// regardless of their content (checked before calling this function).
+// This function is used for content-based detection of .tmpl files.
 func hasMustacheSyntax(content string) bool {
 	// Quick checks for Go template markers that mustache doesn't use
 	if containsGoTemplateMarkers(content) {
