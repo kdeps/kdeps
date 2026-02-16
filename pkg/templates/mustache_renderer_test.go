@@ -266,4 +266,3 @@ func TestGenerator_MustacheTemplateGeneration(t *testing.T) {
 		assert.Contains(t, string(content), "9000")
 	}
 }
-

@@ -546,22 +546,22 @@ func containsSimpleMustacheVariable(content string) bool {
 		if content[i] != '{' || content[i+1] != '{' {
 			continue
 		}
-		
+
 		if i+2 >= contentLen {
 			continue
 		}
-		
+
 		nextChar := content[i+2]
 		// Skip if it's a space, dash, dot, or quote (Go template indicators)
 		if nextChar == ' ' || nextChar == '-' || nextChar == '.' || nextChar == '"' {
 			continue
 		}
-		
+
 		// Check if previous char is a quote (would indicate Go template string literal)
 		if i > 0 && content[i-1] == '"' {
 			continue
 		}
-		
+
 		// This looks like a mustache variable
 		return true
 	}
