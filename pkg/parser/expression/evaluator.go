@@ -223,6 +223,13 @@ func (e *Evaluator) formatValue(value interface{}) string {
 // tryMustacheVariable attempts to resolve a simple mustache variable from the environment.
 // Returns nil if not found or if the expression contains function call syntax.
 func (e *Evaluator) tryMustacheVariable(exprStr string, env map[string]interface{}) interface{} {
+	// Skip if it's a quoted string literal (expr-lang syntax)
+	trimmed := strings.TrimSpace(exprStr)
+	if (strings.HasPrefix(trimmed, "'") && strings.HasSuffix(trimmed, "'")) ||
+		(strings.HasPrefix(trimmed, "\"") && strings.HasSuffix(trimmed, "\"")) {
+		return nil
+	}
+
 	// Skip if it looks like a function call
 	if strings.Contains(exprStr, "(") {
 		return nil
@@ -246,13 +253,24 @@ func (e *Evaluator) tryMustacheVariable(exprStr string, env map[string]interface
 	// Try to look up the value with mustache-style dot notation
 	value := e.lookupMustacheValue(exprStr, env)
 
-	// If not found, return empty string (mustache behavior) instead of nil
-	// This prevents falling back to expr-lang which would error on unknown variables
-	if value == nil {
-		return ""
+	// If value found, return it
+	if value != nil {
+		return value
 	}
 
-	return value
+	// Value not found. Check if it's a valid mustache identifier (for mustache behavior).
+	// Valid mustache identifiers are: alphanumeric, underscore, dot, and hyphen.
+	// If it contains other characters or spaces, it's likely expr-lang syntax, so return nil to fall back.
+	for _, char := range exprStr {
+		if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') ||
+			(char >= '0' && char <= '9') || char == '_' || char == '.' || char == '-') {
+			// Contains invalid characters for mustache identifier - fall back to expr-lang
+			return nil
+		}
+	}
+
+	// It's a valid mustache identifier but not found - return empty string (mustache behavior)
+	return ""
 }
 
 // lookupMustacheValue looks up a value in mustache context, supporting dot notation.
