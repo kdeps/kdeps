@@ -2,55 +2,61 @@
 
 kdeps uses THREE different template/expression systems for different purposes. Understanding the distinction is crucial:
 
-## 1. Runtime Expression System (PRIMARY) - NOW WITH MUSTACHE!
+## 1. Runtime Expression System (PRIMARY) - UNIFIED!
 
 **Location**: `pkg/parser/expression/`  
 **Purpose**: Dynamic value evaluation in workflow YAML files at runtime  
-**Syntax**: Two options!
-- **expr-lang**: `{{ get('variable') }}`, `{{ info('field') }}`, `{{ env('VAR') }}`  
-- **mustache**: `{{variable}}`, `{{user.name}}` (NEW! Simpler for basic access)
-**Engine**: [expr-lang/expr](https://github.com/expr-lang/expr) + [mustache](https://github.com/cbroglie/mustache)
+**Syntax**: Unified - use any style, mix freely!
+- **Simple vars**: `{{var}}` or `{{ var }}` (both work!)
+- **Functions**: `{{ get('var') }}`, `{{ info('field') }}`
+- **Mixed**: `"Hello {{name}}, time is {{ info('time') }}"`
+**Engine**: [expr-lang/expr](https://github.com/expr-lang/expr) + smart fallback
+
+### How It Works - Unified Evaluation
+
+Each `{{ }}` block is evaluated independently:
+1. **Try mustache first**: For simple variables (no operators, no functions)
+2. **Fall back to expr-lang**: For functions, calculations, conditionals
 
 ### Examples from `examples/**/*.yaml`:
 
 ```yaml
-# Traditional expr-lang (still works!)
-chat:
-  prompt: "{{ get('q') }}"  # Runtime expression - gets query parameter at runtime
+# Simple variables - all work the same:
+name: "{{name}}"              # No spaces
+name: "{{ name }}"            # With spaces - both work!
+email: "{{user.email}}"       # Dot notation
   
-# NEW: Mustache style (simpler!)
-chat:
-  prompt: "{{q}}"  # Same result, simpler syntax!
-  
-# Both work in the same file
-apiResponse:
-  response:
-    name: "{{name}}"  # Mustache - simple variable
-    timestamp: "{{ info('current_time') }}"  # expr-lang - function call
+# Functions and complex expressions:
+timestamp: "{{ info('current_time') }}"
+result: "{{ get('count') + 10 }}"
+status: "{{ score > 80 ? 'Pass' : 'Fail' }}"
+
+# Mix them naturally!
+message: "Hello {{name}}, you have {{ get('items') }} items at {{ info('time') }}"
 ```
 
 ### Key Points:
 - ✅ Used in ALL workflow YAML files
 - ✅ Evaluated at runtime when workflow executes
-- ✅ **TWO syntaxes supported**: expr-lang (full power) OR mustache (simpler)
-- ✅ Automatic detection: `{{ get() }}` = expr-lang, `{{var}}` = mustache
+- ✅ **No whitespace rules** - `{{var}}` and `{{ var }}` identical
+- ✅ **Mix freely** - simple vars + functions in same template
+- ✅ **Smart detection** - tries mustache first, falls back to expr-lang
 - ✅ Access to unified API: get(), set(), info(), env(), safe()
 - ✅ Supports conditionals: `{{ condition ? valueIfTrue : valueIfFalse }}`
 - ✅ This is the MAIN template system users interact with
 
-### When to Use Which Syntax?
+### When Each Engine is Used
 
-**Use Mustache** (`{{var}}`) for:
-- Simple variable access
-- Nested objects: `{{user.name}}`
-- Clean, readable templates
-- Beginners learning kdeps
+**Mustache lookup** (fast, simple):
+- ✅ Simple variables: `{{name}}`
+- ✅ Nested objects: `{{user.email}}`
+- ✅ No operators, no functions
 
-**Use expr-lang** (`{{ get('var') }}`) for:
-- Function calls: `get()`, `info()`, `env()`
-- Calculations: `{{ get('count') + 10 }}`
-- Conditionals: `{{ score > 80 ? 'Pass' : 'Fail' }}`
-- Complex expressions
+**expr-lang** (powerful):
+- ✅ Function calls: `{{ get() }}`, `{{ info() }}`
+- ✅ Calculations: `{{ count + 10 }}`
+- ✅ Conditionals: `{{ x > 80 ? 'Pass' : 'Fail' }}`
+- ✅ Any operators: `+`, `-`, `==`, etc.
 
 ## 2. Go Templates (text/template)
 
