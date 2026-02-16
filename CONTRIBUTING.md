@@ -71,5 +71,22 @@ make lint
 - `pkg/infra/`: External integrations like Docker and Storage.
 - `docs/v2/`: VitePress documentation source.
 
+## Release Process
+
+### Regular Releases
+Regular versioned releases are triggered when a tag matching `v*` is pushed to the repository. The release workflow automatically builds binaries for all supported platforms and publishes them.
+
+### Nightly Releases
+KDeps has an automated nightly release process that:
+- Runs daily at 2 AM UTC
+- Updates all Go modules to their latest versions
+- Validates the updates with linting, building, and testing
+- Commits the updated `go.mod` and `go.sum` to the main branch
+- Creates a nightly release with the tag format `nightly-YYYYMMDD-HHMM`
+- Publishes binaries with the latest dependencies
+- **Release status**: Marked as "latest" when all validation checks pass, or as "prerelease" if any linting, build, or test failures occur
+
+The nightly workflow can also be manually triggered via the GitHub Actions UI if needed. If no module updates are available, the workflow will skip the release process.
+
 ## License
 By contributing to KDeps, you agree that your contributions will be licensed under the project's [Apache 2.0 License](LICENSE).
