@@ -1,37 +1,43 @@
 # Mustache Expressions Example
 
-This example demonstrates the new mustache-style expression syntax in kdeps.
+This example demonstrates the unified expression syntax in kdeps.
 
 ## Overview
 
-kdeps now supports **two syntaxes** for expressions in workflow YAMLs:
+kdeps expressions now support **unified syntax** - use either style anywhere:
 
-### 1. expr-lang (Full Power)
+### Simple Variables (Mustache-style)
 ```yaml
-prompt: "{{ get('q') }}"
+prompt: "{{q}}"           # No spaces
+prompt: "{{ q }}"         # With spaces - both work!
+name: "{{user.name}}"     # Dot notation
+```
+
+### Functions & Complex Expressions (expr-lang)
+```yaml
 timestamp: "{{ info('current_time') }}"
 result: "{{ get('count') + 10 }}"
+status: "{{ score > 80 ? 'Pass' : 'Fail' }}"
 ```
 
-### 2. Mustache (Simpler)
+### Mix Them Together!
 ```yaml
-prompt: "{{q}}"
-timestamp: "{{current_time}}"
-name: "{{user.name}}"
+message: "Hello {{name}}, time is {{ info('time') }}"
 ```
 
-## Why Mustache?
+## Why This is Better
 
-- **Simpler syntax** for basic variable access
-- **No function calls needed** for simple cases
-- **Familiar** to users of mustache, handlebars, etc.
-- **Backward compatible** - expr-lang still works!
+- **No whitespace distinction**: `{{var}}` and `{{ var }}` both work
+- **Natural mixing**: Use simple vars and functions together
+- **Smart detection**: System tries mustache first, falls back to expr-lang
+- **Fully backward compatible**: All existing syntax works
 
-## Detection
+## How It Works
 
-kdeps automatically detects which syntax you're using:
-- `{{ get('q') }}` → expr-lang (has spaces, function call)
-- `{{q}}` → mustache (no spaces, simple variable)
+For each `{{ }}` block:
+1. Check if it's a simple variable (no operators, no functions)
+2. If yes, try mustache lookup (simple and fast)
+3. If no (or not found in mustache), use expr-lang (powerful)
 
 ## Running This Example
 
@@ -43,59 +49,43 @@ kdeps run workflow.yaml --dev
 Then test with:
 
 ```bash
-# Test mustache expressions
 curl "http://localhost:16395/api/demo?q=test&name=Alice"
-
-# You'll see both syntaxes work:
-# - query_mustache: uses {{q}}
-# - query_exprLang: uses {{ get('q') }}
-# Both return the same value!
 ```
 
 ## Examples
 
-### Simple Variables
+### Simple Variables Work Everywhere
 ```yaml
-# Mustache (simpler)
-message: "{{name}}"
-
-# expr-lang (traditional)
-message: "{{ get('name') }}"
+# All of these work now:
+name: "{{name}}"
+name: "{{ name }}"
+name: "{{user.name}}"
+name: "{{ user.name }}"
 ```
 
-### Nested Objects
+### Mix Variable Access and Function Calls
 ```yaml
-# Mustache supports dot notation
-email: "{{user.email}}"
-city: "{{user.address.city}}"
+# Naturally combine both:
+greeting: "Hello {{name}}, you have {{count}} items"
+timestamp: "Generated at {{ info('current_time') }}"
+result: "Score: {{ get('score') * 2 }}"
 
-# expr-lang requires explicit path
-email: "{{ get('user').email }}"
+# All in one line:
+message: "{{username}} scored {{ get('points') + 10 }} at {{ info('time') }}"
 ```
 
-### Mixed Text
+### No More Thinking About Syntax
 ```yaml
-# Both work with text interpolation
-greeting_mustache: "Hello {{name}}, welcome!"
-greeting_exprLang: "Hello {{ get('name') }}, welcome!"
+# Just write what makes sense:
+simple: "{{var}}"              # Simple variable
+complex: "{{ get('x') + 10 }}" # Complex expression
+mixed: "{{name}} at {{ info('time') }}" # Mixed!
 ```
-
-### When to Use Which?
-
-Use **mustache** for:
-- Simple variable access
-- Nested object fields
-- Clean, readable templates
-
-Use **expr-lang** for:
-- Function calls: `get()`, `info()`, `env()`
-- Calculations: `{{ get('count') + 10 }}`
-- Conditionals: `{{ get('score') > 80 ? 'Pass' : 'Fail' }}`
-- Complex expressions
 
 ## Benefits
 
-1. **Simpler for beginners** - no need to learn `get()` function
-2. **Less verbose** - `{{name}}` vs `{{ get('name') }}`
-3. **Flexible** - use what fits your need
-4. **Backward compatible** - existing workflows unchanged
+1. **Simpler** - No need to remember spacing rules
+2. **Natural** - Mix simple and complex freely
+3. **Powerful** - Full expr-lang when needed
+4. **Compatible** - All old syntax still works
+

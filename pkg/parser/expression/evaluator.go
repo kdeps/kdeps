@@ -66,13 +66,10 @@ func (e *Evaluator) Evaluate(
 		// Evaluate direct expression.
 		return e.evaluateDirect(expression.Raw, env)
 
-	case domain.ExprTypeInterpolated:
+	case domain.ExprTypeInterpolated, domain.ExprTypeMustache:
 		// Evaluate interpolated string (may return value directly if single interpolation).
+		// ExprTypeMustache is kept for backward compatibility but handled the same way
 		return e.evaluateInterpolated(expression.Raw, env)
-
-	case domain.ExprTypeMustache:
-		// Evaluate mustache template.
-		return e.evaluateMustache(expression.Raw, env)
 
 	default:
 		return nil, fmt.Errorf("unknown expression type: %v", expression.Type)
@@ -109,6 +106,7 @@ func (e *Evaluator) evaluateDirect(
 
 // evaluateInterpolated evaluates a string with {{ }} interpolations.
 // Example: "Hello {{ get('name') }}, you are {{ get('age') }} years old".
+// Now supports mixed mustache and expr-lang: "Hello {{name}}, time is {{ info('time') }}"
 // If the template contains ONLY a single {{expr}} with no other text, returns the value directly (not stringified).
 func (e *Evaluator) evaluateInterpolated(
 	template string,
@@ -120,7 +118,14 @@ func (e *Evaluator) evaluateInterpolated(
 	if strings.HasPrefix(trimmed, "{{") && strings.HasSuffix(trimmed, "}}") {
 		// Extract the expression
 		exprStr := strings.TrimSpace(trimmed[2 : len(trimmed)-2])
-		// Evaluate and return the value directly
+		
+		// Try mustache first (simple variable lookup)
+		value := e.tryMustacheVariable(exprStr, env)
+		if value != nil {
+			return value, nil
+		}
+		
+		// Fall back to expr-lang
 		value, err := e.evaluateDirect(exprStr, env)
 		if err != nil {
 			return nil, fmt.Errorf("interpolation failed for '{{ %s }}': %w", exprStr, err)
@@ -147,10 +152,17 @@ func (e *Evaluator) evaluateInterpolated(
 		// Extract expression between {{ }}.
 		exprStr := strings.TrimSpace(result[start+2 : end-2])
 
-		// Evaluate the expression.
-		value, err := e.evaluateDirect(exprStr, env)
-		if err != nil {
-			return "", fmt.Errorf("interpolation failed for '{{ %s }}': %w", exprStr, err)
+		var value interface{}
+		var err error
+		
+		// Try mustache first (simple variable lookup)
+		value = e.tryMustacheVariable(exprStr, env)
+		if value == nil {
+			// Fall back to expr-lang
+			value, err = e.evaluateDirect(exprStr, env)
+			if err != nil {
+				return "", fmt.Errorf("interpolation failed for '{{ %s }}': %w", exprStr, err)
+			}
 		}
 
 		// Replace {{ expr }} with result.
@@ -177,6 +189,41 @@ func (e *Evaluator) evaluateInterpolated(
 	}
 
 	return result, nil
+}
+
+// tryMustacheVariable attempts to resolve a simple mustache variable from the environment.
+// Returns nil if not found or if the expression contains function call syntax.
+func (e *Evaluator) tryMustacheVariable(exprStr string, env map[string]interface{}) interface{} {
+	// Skip if it looks like a function call
+	if strings.Contains(exprStr, "(") {
+		return nil
+	}
+	
+	// Skip if it contains operators (arithmetic, comparison, etc.)
+	// This ensures expressions like "2 + 2" or "x > 10" go to expr-lang
+	operators := []string{"+", "-", "*", "/", "==", "!=", ">=", "<=", ">", "<", "&&", "||", "?", ":"}
+	for _, op := range operators {
+		if strings.Contains(exprStr, op) {
+			return nil
+		}
+	}
+	
+	// Skip mustache section syntax
+	if strings.HasPrefix(exprStr, "#") || strings.HasPrefix(exprStr, "/") ||
+		strings.HasPrefix(exprStr, "^") || strings.HasPrefix(exprStr, "!") {
+		return nil
+	}
+	
+	// Try to look up the value with mustache-style dot notation
+	value := e.lookupMustacheValue(exprStr, env)
+	
+	// If not found, return empty string (mustache behavior) instead of nil
+	// This prevents falling back to expr-lang which would error on unknown variables
+	if value == nil {
+		return ""
+	}
+	
+	return value
 }
 
 // evaluateMustache evaluates a mustache-style template.

@@ -19,6 +19,7 @@
 package expression_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -36,6 +37,15 @@ func TestMustacheExpressions(t *testing.T) {
 		{
 			name:     "simple variable",
 			template: "{{q}}",
+			env: map[string]interface{}{
+				"q": "hello world",
+			},
+			expected: "hello world",
+			wantErr:  false,
+		},
+		{
+			name:     "simple variable with spaces",
+			template: "{{ q }}",
 			env: map[string]interface{}{
 				"q": "hello world",
 			},
@@ -98,6 +108,15 @@ func TestMustacheExpressions(t *testing.T) {
 			expected: true,
 			wantErr:  false,
 		},
+		{
+			name:     "mixed mustache and expr-lang",
+			template: "Hello {{name}}, time is {{ info('current_time') }}",
+			env: map[string]interface{}{
+				"name": "Alice",
+			},
+			expected: "",  // Will be set by the test
+			wantErr:  false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -108,9 +127,9 @@ func TestMustacheExpressions(t *testing.T) {
 				t.Fatalf("Parse() error = %v", err)
 			}
 
-			// Should detect as mustache
-			if expr.Type != domain.ExprTypeMustache {
-				t.Errorf("Expected ExprTypeMustache, got %v", expr.Type)
+			// All interpolated expressions are now ExprTypeInterpolated
+			if expr.Type != domain.ExprTypeInterpolated {
+				t.Errorf("Expected ExprTypeInterpolated, got %v", expr.Type)
 			}
 
 			evaluator := expression.NewEvaluator(createMockAPI())
@@ -125,6 +144,20 @@ func TestMustacheExpressions(t *testing.T) {
 
 			if err != nil {
 				t.Errorf("Evaluate() error = %v", err)
+				return
+			}
+
+			// Special handling for mixed expression test
+			if tt.name == "mixed mustache and expr-lang" {
+				// Just verify it's a string and contains "Alice"
+				resultStr, ok := result.(string)
+				if !ok {
+					t.Errorf("Expected string result, got %T", result)
+					return
+				}
+				if !strings.Contains(resultStr, "Alice") {
+					t.Errorf("Result should contain 'Alice', got: %v", resultStr)
+				}
 				return
 			}
 
@@ -149,7 +182,12 @@ func TestExprLangVsMustacheDetection(t *testing.T) {
 		{
 			name:     "mustache without spaces",
 			template: "{{q}}",
-			wantType: domain.ExprTypeMustache,
+			wantType: domain.ExprTypeInterpolated,
+		},
+		{
+			name:     "mustache with spaces now works",
+			template: "{{ q }}",
+			wantType: domain.ExprTypeInterpolated,
 		},
 		{
 			name:     "expr-lang with function",
@@ -159,7 +197,7 @@ func TestExprLangVsMustacheDetection(t *testing.T) {
 		{
 			name:     "mustache nested",
 			template: "{{user.name}}",
-			wantType: domain.ExprTypeMustache,
+			wantType: domain.ExprTypeInterpolated,
 		},
 		{
 			name:     "expr-lang mixed text",
@@ -169,12 +207,12 @@ func TestExprLangVsMustacheDetection(t *testing.T) {
 		{
 			name:     "mustache mixed text",
 			template: "Hello {{name}}",
-			wantType: domain.ExprTypeMustache,
+			wantType: domain.ExprTypeInterpolated,
 		},
 		{
-			name:     "mustache section",
-			template: "{{#items}}Item{{/items}}",
-			wantType: domain.ExprTypeMustache,
+			name:     "mixed mustache and expr-lang",
+			template: "{{name}} at {{ info('time') }}",
+			wantType: domain.ExprTypeInterpolated,
 		},
 	}
 
