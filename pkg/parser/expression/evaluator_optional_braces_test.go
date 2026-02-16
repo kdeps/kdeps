@@ -293,8 +293,8 @@ func TestBracesRequiredForInterpolation(t *testing.T) {
 		{
 			name:         "function_in_string_without_braces",
 			input:        "Result: get('q')",
-			expectedType: domain.ExprTypeLiteral,
-			reason:       "Function call in text without {{ }} is literal",
+			expectedType: domain.ExprTypeDirect,
+			reason:       "Function call is detected as expression even with prefix text",
 		},
 		{
 			name:         "function_in_string_with_braces",
