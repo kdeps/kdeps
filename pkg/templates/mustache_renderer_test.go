@@ -133,12 +133,12 @@ func TestMustacheRenderer_RenderFile(t *testing.T) {
 	})
 }
 
-func TestDetectMustacheTemplates(t *testing.T) {
+func TestDetectMustacheTemplates(_ *testing.T) {
 	// This function is tested through the public API via TestGenerator_MustacheTemplateGeneration
 	// which verifies that mustache templates are detected and rendered correctly
 }
 
-func TestIsMustacheTemplate(t *testing.T) {
+func TestIsMustacheTemplate(_ *testing.T) {
 	// This function is tested through the public API via TestGenerator_MustacheTemplateGeneration
 	// which verifies that template files are correctly identified and processed
 }
@@ -222,8 +222,8 @@ func TestGenerator_MustacheTemplateGeneration(t *testing.T) {
 		assert.FileExists(t, workflowPath)
 
 		// Verify content was rendered correctly
-		content, err := os.ReadFile(workflowPath)
-		require.NoError(t, err)
+		content, readErr := os.ReadFile(workflowPath)
+		require.NoError(t, readErr)
 		assert.Contains(t, string(content), "my-mustache-api")
 		assert.Contains(t, string(content), "9000")
 	}

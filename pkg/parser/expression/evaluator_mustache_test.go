@@ -123,7 +123,7 @@ func evaluateMustacheTemplate(t *testing.T, template string, env map[string]inte
 }
 
 // validateMustacheResult validates the result of a mustache expression.
-func validateMustacheResult(t *testing.T, testName string, result, expected interface{}, wantErr bool) {
+func validateMustacheResult(t *testing.T, testName string, result, expected interface{}, _ bool) {
 	t.Helper()
 
 	// Special handling for mixed expression test

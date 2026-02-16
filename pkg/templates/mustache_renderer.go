@@ -167,7 +167,12 @@ func (g *Generator) processMustacheDirectory(
 }
 
 // processMustacheFile processes a single file in the template.
-func (g *Generator) processMustacheFile(renderer *MustacheRenderer, sourcePath, outputDir string, data TemplateData, fileName string) error {
+func (g *Generator) processMustacheFile(
+	renderer *MustacheRenderer,
+	sourcePath, outputDir string,
+	data TemplateData,
+	fileName string,
+) error {
 	if !isMustacheTemplate(fileName) {
 		// Copy non-template files as-is
 		return copyFileFromFS(sourcePath, filepath.Join(outputDir, fileName))
@@ -194,7 +199,11 @@ func copyFileFromFS(sourcePath, targetPath string) error {
 }
 
 // generateMustacheFile generates a single file from a mustache template.
-func (g *Generator) generateMustacheFile(renderer *MustacheRenderer, templatePath, targetPath string, data TemplateData) error {
+func (g *Generator) generateMustacheFile(
+	renderer *MustacheRenderer,
+	templatePath, targetPath string,
+	data TemplateData,
+) error {
 	// Convert TemplateData to mustache-friendly format
 	mustacheData := data.ToMustacheData()
 

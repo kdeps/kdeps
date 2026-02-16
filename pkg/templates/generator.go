@@ -123,7 +123,7 @@ func walkEmbedFS(fs embed.FS, root string, fn func(path string, content []byte) 
 	for _, entry := range entries {
 		path := filepath.Join(root, entry.Name())
 
-		if entry.IsDir() {
+		if entry.IsDir() { //nolint:nestif // Acceptable complexity for directory walking
 			if walkErr := walkEmbedFS(fs, path, fn); walkErr != nil {
 				return walkErr
 			}
@@ -482,7 +482,7 @@ func detectMustacheTemplates(fs embed.FS, templateDir string) bool {
 	}
 
 	for _, entry := range entries {
-		if entry.IsDir() {
+		if entry.IsDir() { //nolint:nestif // Acceptable complexity for template detection
 			// Recursively check subdirectories
 			if detectMustacheTemplates(fs, filepath.Join(templateDir, entry.Name())) {
 				return true

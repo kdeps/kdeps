@@ -19,6 +19,7 @@
 package expression
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -143,7 +144,7 @@ func TestHybridExpressions(t *testing.T) {
 func TestHybridExpressionsWithAPI(t *testing.T) {
 	// Create a simple API with Get function
 	api := &domain.UnifiedAPI{
-		Get: func(name string, typeHint ...string) (interface{}, error) {
+		Get: func(name string, _ ...string) (interface{}, error) {
 			// Simulate a simple key-value store
 			store := map[string]interface{}{
 				"multiplier": 5,
@@ -154,7 +155,7 @@ func TestHybridExpressionsWithAPI(t *testing.T) {
 			if val, ok := store[name]; ok {
 				return val, nil
 			}
-			return nil, nil
+			return nil, errors.New("not found")
 		},
 	}
 

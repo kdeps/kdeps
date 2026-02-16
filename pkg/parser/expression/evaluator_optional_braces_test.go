@@ -19,6 +19,7 @@
 package expression
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -29,7 +30,7 @@ import (
 // but required for string interpolation.
 func TestOptionalBraces(t *testing.T) {
 	parser := NewParser()
-	
+
 	tests := []struct {
 		name         string
 		input        string
@@ -67,7 +68,7 @@ func TestOptionalBraces(t *testing.T) {
 			expectedType: domain.ExprTypeDirect,
 			description:  "Comparison without {{ }} should be direct expression",
 		},
-		
+
 		// Direct expressions WITH braces (backward compatibility)
 		{
 			name:         "function_call_with_braces",
@@ -81,7 +82,7 @@ func TestOptionalBraces(t *testing.T) {
 			expectedType: domain.ExprTypeInterpolated,
 			description:  "Dot notation with {{ }} should be interpolated",
 		},
-		
+
 		// String interpolation (braces REQUIRED)
 		{
 			name:         "string_interpolation_single",
@@ -101,7 +102,7 @@ func TestOptionalBraces(t *testing.T) {
 			expectedType: domain.ExprTypeInterpolated,
 			description:  "String with text and interpolation requires {{ }}",
 		},
-		
+
 		// Literals (no braces needed)
 		{
 			name:         "numeric_literal",
@@ -116,14 +117,14 @@ func TestOptionalBraces(t *testing.T) {
 			description:  "Plain string should be literal",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			expr, err := parser.Parse(tt.input)
 			if err != nil {
 				t.Fatalf("Parse() error = %v", err)
 			}
-			
+
 			if expr.Type != tt.expectedType {
 				t.Errorf("Parse() type = %v, want %v\nDescription: %s\nInput: '%s'",
 					expr.Type, tt.expectedType, tt.description, tt.input)
@@ -136,17 +137,17 @@ func TestOptionalBraces(t *testing.T) {
 // with or without braces.
 func TestOptionalBracesEvaluation(t *testing.T) {
 	parser := NewParser()
-	
+
 	// Create mock API
 	api := &domain.UnifiedAPI{
-		Get: func(name string, typeHint ...string) (interface{}, error) {
+		Get: func(name string, _ ...string) (interface{}, error) {
 			switch name {
 			case "q":
 				return "test query", nil
 			case "count":
 				return 42, nil
 			default:
-				return nil, fmt.Errorf("not found: %s", name)
+				return nil, errors.New("not found")
 			}
 		},
 		Info: func(field string) (interface{}, error) {
@@ -158,9 +159,9 @@ func TestOptionalBracesEvaluation(t *testing.T) {
 			}
 		},
 	}
-	
+
 	evaluator := NewEvaluator(api)
-	
+
 	// Test environment
 	env := map[string]interface{}{
 		"user": map[string]interface{}{
@@ -172,7 +173,7 @@ func TestOptionalBracesEvaluation(t *testing.T) {
 		"count":  5,
 		"active": true,
 	}
-	
+
 	tests := []struct {
 		name     string
 		input    string
@@ -204,7 +205,7 @@ func TestOptionalBracesEvaluation(t *testing.T) {
 			input:    "count > 3",
 			expected: true,
 		},
-		
+
 		// With braces (backward compatibility)
 		{
 			name:     "function_with_braces",
@@ -216,7 +217,7 @@ func TestOptionalBracesEvaluation(t *testing.T) {
 			input:    "{{user.email}}",
 			expected: "test@example.com",
 		},
-		
+
 		// String interpolation (braces required)
 		{
 			name:     "string_interpolation_single",
@@ -234,19 +235,19 @@ func TestOptionalBracesEvaluation(t *testing.T) {
 			expected: "Query: test query",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			expr, err := parser.Parse(tt.input)
 			if err != nil {
 				t.Fatalf("Parse() error = %v", err)
 			}
-			
+
 			result, err := evaluator.Evaluate(expr, env)
 			if err != nil {
 				t.Fatalf("Evaluate() error = %v", err)
 			}
-			
+
 			if result != tt.expected {
 				t.Errorf("Evaluate() = %v (%T), want %v (%T)",
 					result, result, tt.expected, tt.expected)
@@ -259,7 +260,7 @@ func TestOptionalBracesEvaluation(t *testing.T) {
 // when interpolating within strings.
 func TestBracesRequiredForInterpolation(t *testing.T) {
 	parser := NewParser()
-	
+
 	tests := []struct {
 		name         string
 		input        string
@@ -303,14 +304,14 @@ func TestBracesRequiredForInterpolation(t *testing.T) {
 			reason:       "Function call in text with {{ }} is interpolated",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			expr, err := parser.Parse(tt.input)
 			if err != nil {
 				t.Fatalf("Parse() error = %v", err)
 			}
-			
+
 			if expr.Type != tt.expectedType {
 				t.Errorf("Parse() type = %v, want %v\nReason: %s\nInput: '%s'",
 					expr.Type, tt.expectedType, tt.reason, tt.input)

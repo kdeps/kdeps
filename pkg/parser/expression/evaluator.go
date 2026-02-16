@@ -27,7 +27,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/cbroglie/mustache"
 	"github.com/expr-lang/expr"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -254,71 +253,6 @@ func (e *Evaluator) tryMustacheVariable(exprStr string, env map[string]interface
 	}
 
 	return value
-}
-
-// evaluateMustache evaluates a mustache-style template.
-// Example: "{{name}}" or "Hello {{user.name}}, you scored {{score}}".
-func (e *Evaluator) evaluateMustache(
-	template string,
-	env map[string]interface{},
-) (interface{}, error) {
-	// Build data context for mustache from environment
-	data := e.buildMustacheContext(env)
-
-	// Check if the entire template is just a single mustache variable (e.g., "{{name}}")
-	// If so, return the value directly instead of stringifying it
-	trimmed := strings.TrimSpace(template)
-	if strings.HasPrefix(trimmed, "{{") && strings.HasSuffix(trimmed, "}}") &&
-		!strings.Contains(trimmed[2:len(trimmed)-2], "{{") {
-		// Single variable - extract the key
-		varName := strings.TrimSpace(trimmed[2 : len(trimmed)-2])
-
-		// Skip mustache sections/comments
-		if strings.HasPrefix(varName, "#") || strings.HasPrefix(varName, "/") ||
-			strings.HasPrefix(varName, "^") || strings.HasPrefix(varName, "!") {
-			// This is a section/comment, not a simple variable - use full mustache rendering
-			result, err := mustache.Render(template, data)
-			if err != nil {
-				return "", fmt.Errorf("mustache rendering failed: %w", err)
-			}
-			return result, nil
-		}
-
-		// Look up the value directly
-		value := e.lookupMustacheValue(varName, data)
-		if value != nil {
-			return value, nil
-		}
-		// Return empty string if not found (mustache behavior)
-		return "", nil
-	}
-
-	// Multiple interpolations or mixed with text - use full mustache rendering
-	result, err := mustache.Render(template, data)
-	if err != nil {
-		return "", fmt.Errorf("mustache rendering failed: %w", err)
-	}
-
-	// Debug: Print mustache evaluation
-	if e.debugMode {
-		resultJSON, _ := json.MarshalIndent(result, "", "  ")
-		fmt.Fprintf(os.Stderr, "DEBUG [mustache] template='%s' result=%s\n", template, string(resultJSON))
-	}
-
-	return result, nil
-}
-
-// buildMustacheContext builds a context map for mustache from the environment.
-func (e *Evaluator) buildMustacheContext(env map[string]interface{}) map[string]interface{} {
-	// Create a flattened context for mustache
-	// Include all env variables directly accessible
-	context := make(map[string]interface{})
-
-	for k, v := range env {
-		context[k] = v
-	}
-
-	return context
 }
 
 // lookupMustacheValue looks up a value in mustache context, supporting dot notation.

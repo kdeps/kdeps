@@ -15,6 +15,7 @@
 package expression
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
@@ -84,14 +85,14 @@ func TestControlFlowTernary(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			api := &domain.UnifiedAPI{
-				Get: func(name string, typeHint ...string) (interface{}, error) {
+				Get: func(name string, _ ...string) (interface{}, error) {
 					store := map[string]interface{}{
 						"discount": 0.1,
 					}
 					if val, ok := store[name]; ok {
 						return val, nil
 					}
-					return nil, nil
+					return nil, errors.New("not found")
 				},
 			}
 

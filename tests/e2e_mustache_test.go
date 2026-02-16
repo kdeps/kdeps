@@ -3,16 +3,18 @@
 package tests
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/kdeps/kdeps/v2/pkg/domain"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/templates"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // TestE2EMustacheWorkflow tests a complete workflow using mustache expressions.
@@ -21,7 +23,7 @@ func TestE2EMustacheWorkflow(t *testing.T) {
 
 	// Simulate a workflow with mustache variables
 	api := &domain.UnifiedAPI{
-		Get: func(name string, typeHint ...string) (interface{}, error) {
+		Get: func(name string, _ ...string) (interface{}, error) {
 			values := map[string]interface{}{
 				"query":    "What is the weather?",
 				"username": "alice",
@@ -30,7 +32,7 @@ func TestE2EMustacheWorkflow(t *testing.T) {
 			if val, ok := values[name]; ok {
 				return val, nil
 			}
-			return nil, nil
+			return nil, errors.New("not found")
 		},
 		Info: func(field string) (interface{}, error) {
 			values := map[string]interface{}{
@@ -40,7 +42,7 @@ func TestE2EMustacheWorkflow(t *testing.T) {
 			if val, ok := values[field]; ok {
 				return val, nil
 			}
-			return nil, nil
+			return nil, errors.New("not found")
 		},
 		Env: func(name string) (string, error) {
 			if name == "API_KEY" {
@@ -122,7 +124,7 @@ func TestE2EUnifiedExpressionSystem(t *testing.T) {
 	parser := expression.NewParser()
 
 	api := &domain.UnifiedAPI{
-		Get: func(name string, typeHint ...string) (interface{}, error) {
+		Get: func(name string, _ ...string) (interface{}, error) {
 			values := map[string]interface{}{
 				"name":  "John",
 				"age":   30,
@@ -131,7 +133,7 @@ func TestE2EUnifiedExpressionSystem(t *testing.T) {
 			if val, ok := values[name]; ok {
 				return val, nil
 			}
-			return nil, nil
+			return nil, errors.New("not found")
 		},
 	}
 
@@ -182,7 +184,7 @@ func TestE2EMustachePerformance(t *testing.T) {
 	parser := expression.NewParser()
 
 	api := &domain.UnifiedAPI{
-		Get: func(name string, typeHint ...string) (interface{}, error) {
+		Get: func(_ string, _ ...string) (interface{}, error) {
 			return "test value", nil
 		},
 	}
@@ -208,7 +210,7 @@ func TestE2EMustacheMixedComplexity(t *testing.T) {
 	parser := expression.NewParser()
 
 	api := &domain.UnifiedAPI{
-		Get: func(name string, typeHint ...string) (interface{}, error) {
+		Get: func(name string, _ ...string) (interface{}, error) {
 			values := map[string]interface{}{
 				"name":   "Alice",
 				"points": 100,
@@ -216,13 +218,13 @@ func TestE2EMustacheMixedComplexity(t *testing.T) {
 			if val, ok := values[name]; ok {
 				return val, nil
 			}
-			return nil, nil
+			return nil, errors.New("not found")
 		},
 		Info: func(field string) (interface{}, error) {
 			if field == "current_time" {
 				return "2024-01-01", nil
 			}
-			return nil, nil
+			return nil, errors.New("not found")
 		},
 	}
 
