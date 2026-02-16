@@ -491,7 +491,7 @@ func TestExecutor_Execute_InvalidURL(t *testing.T) {
 
 	config := &domain.HTTPClientConfig{
 		Method: "GET",
-		URL:    "http://invalid-url-that-does-not-exist.com/api/test",
+		URL:    "http://this-domain-will-never-resolve.invalid/api/test",
 	}
 
 	result, err := exec.Execute(ctx, config)
