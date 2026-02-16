@@ -1,0 +1,115 @@
+name: Nightly Release
+
+on:
+  schedule:
+    # Run at 2 AM UTC every day
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  update-and-release:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Update Go modules
+        id: update_modules
+        run: |
+          echo "Updating Go modules to latest versions..."
+          go get -u ./...
+          go mod tidy
+          
+          # Check if there are any changes
+          if git diff --quiet go.mod go.sum; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No module updates available"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Module updates found"
+          fi
+
+      - name: Run linter
+        if: steps.update_modules.outputs.has_changes == 'true'
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.5.0
+          args: --timeout=10m --config=.golangci.yml
+          only-new-issues: false
+
+      - name: Build
+        if: steps.update_modules.outputs.has_changes == 'true'
+        run: make build
+
+      - name: Run tests
+        if: steps.update_modules.outputs.has_changes == 'true'
+        run: |
+          echo "Running unit tests..."
+          go test -v -short -timeout=5m ./pkg/... ./cmd/...
+
+      - name: Commit and push module updates
+        if: steps.update_modules.outputs.has_changes == 'true'
+        run: |
+          git add go.mod go.sum
+          git commit -m "chore: update Go modules to latest versions [nightly]"
+          git push origin main
+
+      - name: Create nightly tag
+        if: steps.update_modules.outputs.has_changes == 'true'
+        id: create_tag
+        run: |
+          # Generate nightly tag with date
+          NIGHTLY_TAG="nightly-$(date +%Y%m%d)"
+          echo "tag=$NIGHTLY_TAG" >> $GITHUB_OUTPUT
+          
+          # Delete the tag if it exists (locally and remotely)
+          git tag -d $NIGHTLY_TAG 2>/dev/null || true
+          git push --delete origin $NIGHTLY_TAG 2>/dev/null || true
+          
+          # Create new tag
+          git tag -a $NIGHTLY_TAG -m "Nightly release $(date +%Y-%m-%d) with updated dependencies"
+          git push origin $NIGHTLY_TAG
+
+      - name: Set up Zig
+        if: steps.update_modules.outputs.has_changes == 'true'
+        uses: goto-bus-stop/setup-zig@v2
+
+      - name: Get macOS SDK path
+        if: steps.update_modules.outputs.has_changes == 'true'
+        id: macos_sdk
+        run: echo "path=$(xcrun --show-sdk-path)" >> $GITHUB_OUTPUT
+
+      - name: Release with GoReleaser
+        if: steps.update_modules.outputs.has_changes == 'true'
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: latest
+          args: release --clean
+        env:
+          SDK_PATH: ${{ steps.macos_sdk.outputs.path }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          if [ "${{ steps.update_modules.outputs.has_changes }}" == "true" ]; then
+            echo "✅ Nightly release created successfully: ${{ steps.create_tag.outputs.tag }}"
+          else
+            echo "ℹ️ No module updates available. Skipping nightly release."
+          fi
