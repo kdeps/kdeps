@@ -138,8 +138,18 @@ func (g *Generator) walkMustacheTemplate(renderer *MustacheRenderer, templateDir
 				return walkErr
 			}
 		} else {
-			// Skip non-mustache files unless they should be copied as-is
+			// Process all template files
 			if !isMustacheTemplate(entry.Name()) {
+				// Copy non-template files as-is
+				content, err := templatesFS.ReadFile(sourcePath)
+				if err != nil {
+					return err
+				}
+				targetPath := filepath.Join(outputDir, entry.Name())
+				//nolint:gosec // G306: 0644 permissions needed for generated files to be readable
+				if writeErr := os.WriteFile(targetPath, content, 0644); writeErr != nil {
+					return writeErr
+				}
 				continue
 			}
 
@@ -158,8 +168,11 @@ func (g *Generator) walkMustacheTemplate(renderer *MustacheRenderer, templateDir
 
 // generateMustacheFile generates a single file from a mustache template.
 func (g *Generator) generateMustacheFile(renderer *MustacheRenderer, templatePath, targetPath string, data TemplateData) error {
+	// Convert TemplateData to mustache-friendly format
+	mustacheData := data.ToMustacheData()
+
 	// Render the mustache template
-	rendered, err := renderer.RenderFile(templatePath, data)
+	rendered, err := renderer.RenderFile(templatePath, mustacheData)
 	if err != nil {
 		return err
 	}

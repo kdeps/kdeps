@@ -40,6 +40,44 @@ type TemplateData struct {
 	Features    map[string]bool
 }
 
+// ToMustacheData converts TemplateData to a format suitable for mustache templates.
+// This adds boolean flags for each resource to make conditional rendering easier.
+func (t TemplateData) ToMustacheData() map[string]interface{} {
+	data := map[string]interface{}{
+		"name":        t.Name,
+		"description": t.Description,
+		"version":     t.Version,
+		"port":        t.Port,
+	}
+
+	// Add boolean flags for each resource type
+	for _, resource := range t.Resources {
+		switch resource {
+		case "http-client":
+			data["hasHttpClient"] = true
+		case "llm":
+			data["hasLlm"] = true
+		case "sql":
+			data["hasSql"] = true
+		case "python":
+			data["hasPython"] = true
+		case "exec":
+			data["hasExec"] = true
+		case "response":
+			data["hasResponse"] = true
+		}
+	}
+
+	// Add features
+	if t.Features != nil {
+		for k, v := range t.Features {
+			data[k] = v
+		}
+	}
+
+	return data
+}
+
 // Generator generates project files from templates.
 type Generator struct {
 	templates *template.Template
@@ -90,6 +128,11 @@ func walkEmbedFS(fs embed.FS, root string, fn func(path string, content []byte) 
 				return walkErr
 			}
 		} else {
+			// Skip mustache template files during Go template parsing
+			if strings.HasSuffix(entry.Name(), ".mustache") {
+				continue
+			}
+
 			content, readErr := fs.ReadFile(path)
 			if readErr != nil {
 				return readErr

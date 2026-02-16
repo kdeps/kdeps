@@ -1,0 +1,118 @@
+# {{name}}
+
+{{description}}
+
+## Quick Start
+
+1. Install dependencies:
+   ```bash
+   # No dependencies needed - KDeps runs locally!
+   ```
+
+2. Run in development mode:
+   ```bash
+   kdeps run workflow.yaml --dev
+   ```
+
+3. Test the API:
+   ```bash
+   curl -X POST http://localhost:{{port}}/api/process \
+     -H "Content-Type: application/json" \
+     -d '{"id": "123"}'
+   ```
+
+## Project Structure
+
+```
+{{name}}/
+├── workflow.yaml       # Main workflow configuration
+└── README.md          # This file
+```
+
+## Configuration
+
+### Workflow (`workflow.yaml`)
+
+The main configuration file defines:
+- Agent metadata (name, version, description)
+- API server settings (port, routes, CORS)
+- Resource definitions
+
+## API Endpoints
+
+### POST /api/process
+
+Process data{{#hasLlm}} using AI{{/hasLlm}}.
+
+**Request**:
+```json
+{
+  "id": "123"
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    {{#hasLlm}}
+    "result": {
+      "summary": "...",
+      "insights": ["...", "..."]
+    }
+    {{/hasLlm}}
+    {{^hasLlm}}
+    "message": "Hello from {{name}}"
+    {{/hasLlm}}
+  },
+  "meta": {
+    "processedAt": "2026-02-16T12:00:00Z"
+  }
+}
+```
+
+## Development
+
+### Hot Reload
+
+Changes to YAML files are automatically reloaded in dev mode:
+```bash
+kdeps run workflow.yaml --dev
+```
+
+### Validation
+
+Validate configuration before running:
+```bash
+kdeps validate workflow.yaml
+```
+
+## Deployment
+
+### Package for Docker
+
+1. Package the agent:
+   ```bash
+   kdeps package .
+   ```
+
+2. Build Docker image:
+   ```bash
+   kdeps build {{name}}-{{version}}.kdeps
+   ```
+
+3. Run with Docker:
+   ```bash
+   docker run -p {{port}}:{{port}} {{name}}:{{version}}
+   ```
+
+## Resources
+
+- [KDeps Documentation](https://kdeps.com)
+- [API Reference](https://kdeps.com/api)
+- [Examples](https://kdeps.com/examples)
+
+## License
+
+Apache 2.0

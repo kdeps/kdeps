@@ -20,6 +20,8 @@ package templates_test
 
 import (
 	"embed"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -197,3 +199,71 @@ func TestIsMustacheTemplate(t *testing.T) {
 		})
 	}
 }
+
+func TestTemplateData_ToMustacheData(t *testing.T) {
+	data := templates.TemplateData{
+		Name:        "test-api",
+		Description: "Test API Service",
+		Version:     "1.0.0",
+		Port:        8080,
+		Resources:   []string{"http-client", "llm", "response"},
+		Features: map[string]bool{
+			"enableCors": true,
+		},
+	}
+
+	result := data.ToMustacheData()
+
+	assert.Equal(t, "test-api", result["name"])
+	assert.Equal(t, "Test API Service", result["description"])
+	assert.Equal(t, "1.0.0", result["version"])
+	assert.Equal(t, 8080, result["port"])
+	assert.Equal(t, true, result["hasHttpClient"])
+	assert.Equal(t, true, result["hasLlm"])
+	assert.Equal(t, true, result["hasResponse"])
+	assert.Equal(t, true, result["enableCors"])
+	assert.Nil(t, result["hasSql"])
+}
+
+func TestGenerator_MustacheTemplateGeneration(t *testing.T) {
+	gen, err := templates.NewGenerator()
+	require.NoError(t, err)
+
+	tmpDir := t.TempDir()
+
+	data := templates.TemplateData{
+		Name:        "my-mustache-api",
+		Description: "API service using mustache templates",
+		Version:     "1.0.0",
+		Port:        9000,
+		Resources:   []string{"http-client", "llm"},
+	}
+
+	// Check if mustache-api-service template exists
+	templates, err := gen.ListTemplates()
+	require.NoError(t, err)
+
+	hasMustacheTemplate := false
+	for _, tmpl := range templates {
+		if tmpl == "mustache-api-service" {
+			hasMustacheTemplate = true
+			break
+		}
+	}
+
+	if hasMustacheTemplate {
+		err = gen.GenerateProject("mustache-api-service", tmpDir, data)
+		require.NoError(t, err)
+
+		// Verify files were created
+		workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+		assert.FileExists(t, workflowPath)
+
+		// Verify content was rendered correctly
+		content, err := os.ReadFile(workflowPath)
+		require.NoError(t, err)
+		assert.Contains(t, string(content), "my-mustache-api")
+		assert.Contains(t, string(content), "9000")
+	}
+}
+
