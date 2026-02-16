@@ -1,0 +1,88 @@
+apiVersion: kdeps.io/v1
+kind: Resource
+
+metadata:
+  actionId: main
+  name: Main Resource with Inline Resources
+  description: Demonstrates inline resources that execute before and after the main resource
+
+run:
+  # Restrict to specific routes and methods
+  restrictToHttpMethods: [POST]
+  restrictToRoutes: [/api/v1/process]
+
+  # Validate input
+  validation:
+    required:
+      - data
+    rules:
+      - field: data
+        type: string
+        minLength: 1
+        message: "Data field is required"
+
+  # Inline resources that run BEFORE the main resource
+  before:
+    # HTTP call to fetch additional data
+    - httpClient:
+        method: GET
+        url: "https://api.example.com/config"
+        timeout: 5s
+    
+    # Execute a shell command to prepare environment
+    - exec:
+        command: "echo 'Preparing environment...'"
+        timeout: 5s
+
+  # Main resource: Process data with LLM
+  chat:
+    backend: ollama
+    baseUrl: http://localhost:11434
+    model: llama3.2:1b
+    role: user
+    prompt: "Process this data: {{get('data')}}"
+    timeoutDuration: 30s
+
+  # Inline resources that run AFTER the main resource
+  after:
+    # Store result in database
+    - sql:
+        connection: "sqlite3://./results.db"
+        query: "INSERT INTO results (data, timestamp) VALUES (?, datetime('now'))"
+        params:
+          - "{{get('data')}}"
+        timeout: 5s
+    
+    # Run Python script for post-processing
+    - python:
+        script: |
+          print("Post-processing completed")
+          import json
+          result = {"status": "success"}
+          print(json.dumps(result))
+        timeout: 10s
+    
+    # Send notification via HTTP
+    - httpClient:
+        method: POST
+        url: "https://api.example.com/notify"
+        headers:
+          Content-Type: "application/json"
+        data:
+          status: "completed"
+          resource: "main"
+        timeout: 5s
+
+  # API response formatting
+  apiResponse:
+    data:
+      status: "success"
+      message: "Data processed with inline resources"
+      result: "{{get('_output')}}"
+
+  # Error handling
+  onError:
+    action: continue
+    fallback:
+      error: true
+      message: "Processing failed"
