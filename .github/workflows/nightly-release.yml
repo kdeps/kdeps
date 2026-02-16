@@ -142,7 +142,8 @@ jobs:
         if: steps.update_modules.outputs.has_changes == 'true'
         run: |
           # Update the release to mark as latest or prerelease based on validation results
-          # Note: GoReleaser creates with prerelease=false, but we override based on validation
+          # Note: GoReleaser creates release with prerelease=false and make_latest=true
+          # We conditionally override both settings based on validation outcomes
           TAG="${{ steps.create_tag.outputs.tag }}"
           IS_PRERELEASE="${{ steps.release_type.outputs.prerelease }}"
           
