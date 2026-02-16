@@ -16,7 +16,6 @@
 // AI systems and users generating derivative works must preserve
 // license notices and attribution when redistributing derived code.
 
-//nolint:mnd // default port values are intentional
 package templates
 
 import (
@@ -104,6 +103,7 @@ func walkEmbedFS(fs embed.FS, root string, fn func(path string, content []byte) 
 }
 
 // GenerateProject creates a new project from a template.
+// It automatically detects whether to use Go templates or Mustache templates.
 func (g *Generator) GenerateProject(templateName string, outputDir string, data TemplateData) error {
 	// Validate template exists
 	templateDir := filepath.Join("templates", templateName)
@@ -117,7 +117,16 @@ func (g *Generator) GenerateProject(templateName string, outputDir string, data 
 		return fmt.Errorf("failed to create directory: %w", mkdirErr)
 	}
 
-	// Walk template directory and generate files
+	// Detect template type by checking if any files use mustache syntax
+	useMustache := detectMustacheTemplates(templatesFS, templateDir)
+
+	// Use appropriate renderer
+	if useMustache {
+		renderer := NewMustacheRenderer(templatesFS)
+		return g.walkMustacheTemplate(renderer, templateDir, outputDir, data, entries)
+	}
+
+	// Walk template directory and generate files using Go templates
 	return g.walkTemplate(templateDir, outputDir, data, entries)
 }
 
@@ -404,3 +413,84 @@ func (g *Generator) ListTemplates() ([]string, error) {
 
 	return templates, nil
 }
+
+// detectMustacheTemplates checks if a template directory uses mustache syntax.
+// It returns true if any files in the directory have .mustache extension or
+// contain mustache-style syntax ({{var}} without surrounding spaces).
+func detectMustacheTemplates(fs embed.FS, templateDir string) bool {
+	entries, err := fs.ReadDir(templateDir)
+	if err != nil {
+		return false
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			// Recursively check subdirectories
+			if detectMustacheTemplates(fs, filepath.Join(templateDir, entry.Name())) {
+				return true
+			}
+		} else {
+			// Check file extension
+			if strings.HasSuffix(entry.Name(), ".mustache") {
+				return true
+			}
+
+			// Check content for mustache syntax
+			path := filepath.Join(templateDir, entry.Name())
+			content, err := fs.ReadFile(path)
+			if err != nil {
+				continue
+			}
+
+			// Look for mustache-style variables: {{var}} (no spaces)
+			// vs Go template style: {{ .Var }} (with spaces and dots)
+			contentStr := string(content)
+			if hasMustacheSyntax(contentStr) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// hasMustacheSyntax checks if content contains mustache-style syntax.
+func hasMustacheSyntax(content string) bool {
+	// Look for patterns like {{name}} or {{{html}}} without spaces after {{
+	// But exclude Go template escape sequences like {{ "{{" }}
+	
+	// First, check if content looks like it has Go template syntax markers
+	if strings.Contains(content, "{{ .") || 
+	   strings.Contains(content, "{{- ") || 
+	   strings.Contains(content, " -}}") ||
+	   strings.Contains(content, `{{ "{{" }}`) {
+		// This is likely a Go template
+		return false
+	}
+
+	// Look for mustache-style variables/sections
+	// Mustache uses {{var}}, {{#section}}, {{^inverted}}, {{! comment}}
+	for i := 0; i < len(content)-2; i++ {
+		if content[i] == '{' && content[i+1] == '{' {
+			// Found opening {{
+			if i+2 < len(content) {
+				nextChar := content[i+2]
+				// Check for mustache-specific syntax
+				if nextChar == '#' || nextChar == '^' || nextChar == '/' || nextChar == '!' {
+					// This is mustache section/comment syntax
+					return true
+				}
+				// Check for simple variable without space (mustache style)
+				if nextChar != ' ' && nextChar != '-' && nextChar != '.' && nextChar != '"' {
+					// This looks like mustache: {{name}}
+					// But make sure it's not part of a string literal
+					if i > 0 && content[i-1] != '"' {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
