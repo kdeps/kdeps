@@ -660,6 +660,13 @@ func (e *Engine) ExecuteResource(
 		}
 	}
 
+	// Execute inline "before" resources
+	if len(resource.Run.Before) > 0 {
+		if err := e.executeInlineResources(resource.Run.Before, ctx); err != nil {
+			return nil, fmt.Errorf("inline before resource failed: %w", err)
+		}
+	}
+
 	// Determine if we have a primary execution type (chat, httpClient, sql, python, exec)
 	hasPrimaryType := resource.Run.Chat != nil ||
 		resource.Run.HTTPClient != nil ||
@@ -690,6 +697,13 @@ func (e *Engine) ExecuteResource(
 		}
 	}
 
+	// Execute inline "after" resources
+	if len(resource.Run.After) > 0 {
+		if err = e.executeInlineResources(resource.Run.After, ctx); err != nil {
+			return nil, fmt.Errorf("inline after resource failed: %w", err)
+		}
+	}
+
 	// Execute expr blocks (run AFTER primary execution type for backward compatibility).
 	if len(resource.Run.Expr) > 0 {
 		if err = e.executeExpressions(resource.Run.Expr, ctx); err != nil {
@@ -714,8 +728,8 @@ func (e *Engine) ExecuteResource(
 		return primaryResult, nil
 	}
 
-	// If only expressions (exprBefore, expr, exprAfter), return status
-	if len(resource.Run.ExprBefore) > 0 || len(resource.Run.Expr) > 0 || len(resource.Run.ExprAfter) > 0 {
+	// If only expressions (exprBefore, expr, exprAfter) or inline resources, return status
+	if len(resource.Run.ExprBefore) > 0 || len(resource.Run.Expr) > 0 || len(resource.Run.ExprAfter) > 0 || len(resource.Run.Before) > 0 || len(resource.Run.After) > 0 {
 		return map[string]interface{}{"status": "expressions_executed"}, nil
 	}
 
@@ -1153,6 +1167,51 @@ func (e *Engine) ExecuteWithItems(
 	delete(ctx.Items, "all")
 
 	return results, nil
+}
+
+// executeInlineResources executes a list of inline resources.
+func (e *Engine) executeInlineResources(inlineResources []domain.InlineResource, ctx *ExecutionContext) error {
+	for i, inline := range inlineResources {
+		e.logger.Debug("Executing inline resource",
+			"index", i,
+			"hasChat", inline.Chat != nil,
+			"hasHTTPClient", inline.HTTPClient != nil,
+			"hasSQL", inline.SQL != nil,
+			"hasPython", inline.Python != nil,
+			"hasExec", inline.Exec != nil)
+
+		var result interface{}
+		var err error
+
+		// Execute the inline resource based on its type
+		switch {
+		case inline.Chat != nil:
+			result, err = e.executeInlineLLM(inline.Chat, ctx)
+		case inline.HTTPClient != nil:
+			result, err = e.executeInlineHTTP(inline.HTTPClient, ctx)
+		case inline.SQL != nil:
+			result, err = e.executeInlineSQL(inline.SQL, ctx)
+		case inline.Python != nil:
+			result, err = e.executeInlinePython(inline.Python, ctx)
+		case inline.Exec != nil:
+			result, err = e.executeInlineExec(inline.Exec, ctx)
+		default:
+			return fmt.Errorf("inline resource at index %d has no valid resource type", i)
+		}
+
+		if err != nil {
+			return fmt.Errorf("inline resource at index %d failed: %w", i, err)
+		}
+
+		// Store the result in the context (can be accessed by expressions)
+		if result != nil {
+			e.logger.Debug("Inline resource executed successfully",
+				"index", i,
+				"result", result)
+		}
+	}
+
+	return nil
 }
 
 // executeLLM executes an LLM chat resource.
@@ -1808,4 +1867,54 @@ func (e *Engine) updateLLMMetadata(ctx *ExecutionContext, model string, backendN
 	}
 	ctx.LLMMetadata.Model = evaluatedModel
 	ctx.LLMMetadata.Backend = backendName
+}
+
+// executeInlineLLM executes an inline LLM resource.
+func (e *Engine) executeInlineLLM(config *domain.ChatConfig, ctx *ExecutionContext) (interface{}, error) {
+	executor := e.registry.GetLLMExecutor()
+	if executor == nil {
+		return nil, errors.New("LLM executor not available")
+	}
+
+	return executor.Execute(ctx, config)
+}
+
+// executeInlineHTTP executes an inline HTTP resource.
+func (e *Engine) executeInlineHTTP(config *domain.HTTPClientConfig, ctx *ExecutionContext) (interface{}, error) {
+	executor := e.registry.GetHTTPExecutor()
+	if executor == nil {
+		return nil, errors.New("HTTP executor not available")
+	}
+
+	return executor.Execute(ctx, config)
+}
+
+// executeInlineSQL executes an inline SQL resource.
+func (e *Engine) executeInlineSQL(config *domain.SQLConfig, ctx *ExecutionContext) (interface{}, error) {
+	executor := e.registry.GetSQLExecutor()
+	if executor == nil {
+		return nil, errors.New("SQL executor not available")
+	}
+
+	return executor.Execute(ctx, config)
+}
+
+// executeInlinePython executes an inline Python resource.
+func (e *Engine) executeInlinePython(config *domain.PythonConfig, ctx *ExecutionContext) (interface{}, error) {
+	executor := e.registry.GetPythonExecutor()
+	if executor == nil {
+		return nil, errors.New("Python executor not available")
+	}
+
+	return executor.Execute(ctx, config)
+}
+
+// executeInlineExec executes an inline Exec resource.
+func (e *Engine) executeInlineExec(config *domain.ExecConfig, ctx *ExecutionContext) (interface{}, error) {
+	executor := e.registry.GetExecExecutor()
+	if executor == nil {
+		return nil, errors.New("Exec executor not available")
+	}
+
+	return executor.Execute(ctx, config)
 }
