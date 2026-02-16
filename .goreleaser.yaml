@@ -57,7 +57,7 @@ builds:
 
 release:
   make_latest: true
-  prerelease: auto
+  prerelease: false
 
 archives:
   - id: default

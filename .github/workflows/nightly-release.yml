@@ -75,6 +75,7 @@ jobs:
         id: release_type
         run: |
           # Check if all validation steps succeeded
+          # Note: This step only runs when has_changes is true, ensuring validation steps have executed
           if [ "${{ steps.lint.outcome }}" == "success" ] && \
              [ "${{ steps.build.outcome }}" == "success" ] && \
              [ "${{ steps.test.outcome }}" == "success" ]; then
@@ -141,6 +142,7 @@ jobs:
         if: steps.update_modules.outputs.has_changes == 'true'
         run: |
           # Update the release to mark as latest or prerelease based on validation results
+          # Note: GoReleaser creates with prerelease=false, but we override based on validation
           TAG="${{ steps.create_tag.outputs.tag }}"
           IS_PRERELEASE="${{ steps.release_type.outputs.prerelease }}"
           
