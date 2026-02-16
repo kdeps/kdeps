@@ -264,7 +264,7 @@ func (g *Generator) GenerateResource(resourceName string, targetPath string) err
 	data := TemplateData{
 		Name:      "agent",
 		Version:   "1.0.0",
-		Port:      16395,
+		Port:      16395, //nolint:mnd // default port value
 		Resources: []string{resourceName},
 		Features:  make(map[string]bool),
 	}
@@ -480,15 +480,14 @@ func detectMustacheTemplates(fs embed.FS, templateDir string) bool {
 
 			// Check content for mustache syntax
 			path := filepath.Join(templateDir, entry.Name())
-			content, err := fs.ReadFile(path)
-			if err != nil {
+			fileContent, readErr := fs.ReadFile(path)
+			if readErr != nil {
 				continue
 			}
 
 			// Look for mustache-style variables: {{var}} (no spaces)
 			// vs Go template style: {{ .Var }} (with spaces and dots)
-			contentStr := string(content)
-			if hasMustacheSyntax(contentStr) {
+			if hasMustacheSyntax(string(fileContent)) {
 				return true
 			}
 		}
@@ -499,41 +498,72 @@ func detectMustacheTemplates(fs embed.FS, templateDir string) bool {
 
 // hasMustacheSyntax checks if content contains mustache-style syntax.
 func hasMustacheSyntax(content string) bool {
-	// Look for patterns like {{name}} or {{{html}}} without spaces after {{
-	// But exclude Go template escape sequences like {{ "{{" }}
-	
-	// First, check if content looks like it has Go template syntax markers
-	if strings.Contains(content, "{{ .") || 
-	   strings.Contains(content, "{{- ") || 
-	   strings.Contains(content, " -}}") ||
-	   strings.Contains(content, `{{ "{{" }}`) {
-		// This is likely a Go template
+	// Quick checks for Go template markers that mustache doesn't use
+	if containsGoTemplateMarkers(content) {
 		return false
 	}
 
-	// Look for mustache-style variables/sections
-	// Mustache uses {{var}}, {{#section}}, {{^inverted}}, {{! comment}}
-	for i := 0; i < len(content)-2; i++ {
-		if content[i] == '{' && content[i+1] == '{' {
-			// Found opening {{
-			if i+2 < len(content) {
-				nextChar := content[i+2]
-				// Check for mustache-specific syntax
-				if nextChar == '#' || nextChar == '^' || nextChar == '/' || nextChar == '!' {
-					// This is mustache section/comment syntax
-					return true
-				}
-				// Check for simple variable without space (mustache style)
-				if nextChar != ' ' && nextChar != '-' && nextChar != '.' && nextChar != '"' {
-					// This looks like mustache: {{name}}
-					// But make sure it's not part of a string literal
-					if i > 0 && content[i-1] != '"' {
-						return true
-					}
-				}
-			}
+	// Look for mustache-specific syntax indicators
+	return containsMustacheMarkers(content)
+}
+
+// containsGoTemplateMarkers checks for Go template-specific patterns.
+func containsGoTemplateMarkers(content string) bool {
+	goMarkers := []string{
+		"{{ .",       // Go templates use dots for field access
+		"{{- ",       // Go templates trim whitespace
+		" -}}",       // Go templates trim whitespace
+		`{{ "{{" }}`, // Go templates escape braces
+	}
+
+	for _, marker := range goMarkers {
+		if strings.Contains(content, marker) {
+			return true
 		}
 	}
 	return false
 }
 
+// containsMustacheMarkers checks for mustache-specific syntax patterns.
+func containsMustacheMarkers(content string) bool {
+	// Mustache sections/comments: {{#, {{^, {{/, {{!
+	mustacheMarkers := []string{"{{#", "{{^", "{{/", "{{!"}
+	for _, marker := range mustacheMarkers {
+		if strings.Contains(content, marker) {
+			return true
+		}
+	}
+
+	// Look for simple variables like {{name}} without spaces
+	return containsSimpleMustacheVariable(content)
+}
+
+//nolint:intrange // Using traditional loop for clarity with multiple indices
+func containsSimpleMustacheVariable(content string) bool {
+	contentLen := len(content)
+	//nolint:intrange // Using traditional loop for clarity with multiple indices
+	for i := 0; i < contentLen-2; i++ {
+		if content[i] != '{' || content[i+1] != '{' {
+			continue
+		}
+		
+		if i+2 >= contentLen {
+			continue
+		}
+		
+		nextChar := content[i+2]
+		// Skip if it's a space, dash, dot, or quote (Go template indicators)
+		if nextChar == ' ' || nextChar == '-' || nextChar == '.' || nextChar == '"' {
+			continue
+		}
+		
+		// Check if previous char is a quote (would indicate Go template string literal)
+		if i > 0 && content[i-1] == '"' {
+			continue
+		}
+		
+		// This looks like a mustache variable
+		return true
+	}
+	return false
+}

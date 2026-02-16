@@ -115,55 +115,72 @@ func (g *Generator) GenerateProjectWithMustache(templateName string, outputDir s
 }
 
 // walkMustacheTemplate walks through template directory and generates files using Mustache.
-func (g *Generator) walkMustacheTemplate(renderer *MustacheRenderer, templateDir, outputDir string, data TemplateData, entries []os.DirEntry) error {
+func (g *Generator) walkMustacheTemplate(
+	renderer *MustacheRenderer,
+	templateDir, outputDir string,
+	data TemplateData,
+	entries []os.DirEntry,
+) error {
 	for _, entry := range entries {
 		sourcePath := filepath.Join(templateDir, entry.Name())
 
-		//nolint:nestif // recursive template walk is explicit
 		if entry.IsDir() {
-			// Create subdirectory
-			targetDir := filepath.Join(outputDir, entry.Name())
-			if mkdirErr := os.MkdirAll(targetDir, 0750); mkdirErr != nil {
-				return mkdirErr
-			}
-
-			// Read subdirectory entries
-			subEntries, readErr := templatesFS.ReadDir(sourcePath)
-			if readErr != nil {
-				return readErr
-			}
-
-			// Recurse into subdirectory
-			if walkErr := g.walkMustacheTemplate(renderer, sourcePath, targetDir, data, subEntries); walkErr != nil {
-				return walkErr
+			if err := g.processMustacheDirectory(renderer, sourcePath, outputDir, data, entry.Name()); err != nil {
+				return err
 			}
 		} else {
-			// Process all template files
-			if !isMustacheTemplate(entry.Name()) {
-				// Copy non-template files as-is
-				content, err := templatesFS.ReadFile(sourcePath)
-				if err != nil {
-					return err
-				}
-				targetPath := filepath.Join(outputDir, entry.Name())
-				//nolint:gosec // G306: 0644 permissions needed for generated files to be readable
-				if writeErr := os.WriteFile(targetPath, content, 0644); writeErr != nil {
-					return writeErr
-				}
-				continue
-			}
-
-			// Generate file from mustache template
-			targetName := stripMustacheExt(entry.Name())
-			targetPath := filepath.Join(outputDir, targetName)
-
-			if err := g.generateMustacheFile(renderer, sourcePath, targetPath, data); err != nil {
-				return fmt.Errorf("failed to generate %s: %w", targetPath, err)
+			if err := g.processMustacheFile(renderer, sourcePath, outputDir, data, entry.Name()); err != nil {
+				return err
 			}
 		}
 	}
 
 	return nil
+}
+
+// processMustacheDirectory processes a subdirectory in the template.
+func (g *Generator) processMustacheDirectory(renderer *MustacheRenderer, sourcePath, outputDir string, data TemplateData, dirName string) error {
+	// Create subdirectory
+	targetDir := filepath.Join(outputDir, dirName)
+	if mkdirErr := os.MkdirAll(targetDir, 0750); mkdirErr != nil {
+		return mkdirErr
+	}
+
+	// Read subdirectory entries
+	subEntries, readErr := templatesFS.ReadDir(sourcePath)
+	if readErr != nil {
+		return readErr
+	}
+
+	// Recurse into subdirectory
+	return g.walkMustacheTemplate(renderer, sourcePath, targetDir, data, subEntries)
+}
+
+// processMustacheFile processes a single file in the template.
+func (g *Generator) processMustacheFile(renderer *MustacheRenderer, sourcePath, outputDir string, data TemplateData, fileName string) error {
+	if !isMustacheTemplate(fileName) {
+		// Copy non-template files as-is
+		return copyFileFromFS(sourcePath, filepath.Join(outputDir, fileName))
+	}
+
+	// Generate file from mustache template
+	targetName := stripMustacheExt(fileName)
+	targetPath := filepath.Join(outputDir, targetName)
+
+	if err := g.generateMustacheFile(renderer, sourcePath, targetPath, data); err != nil {
+		return fmt.Errorf("failed to generate %s: %w", targetPath, err)
+	}
+	return nil
+}
+
+// copyFileFromFS copies a file from embedded filesystem to target path.
+func copyFileFromFS(sourcePath, targetPath string) error {
+	content, err := templatesFS.ReadFile(sourcePath)
+	if err != nil {
+		return err
+	}
+	//nolint:gosec // G306: 0644 permissions needed for generated files to be readable
+	return os.WriteFile(targetPath, content, 0644)
 }
 
 // generateMustacheFile generates a single file from a mustache template.
