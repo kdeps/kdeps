@@ -1,0 +1,15 @@
+apiVersion: v2
+kind: Resource
+metadata:
+  actionId: response
+  name: API Response
+  description: Format API response
+run:
+  apiResponse:
+    response:
+      success: true
+      data:
+        result: "{{#result}}{{result}}{{/result}}"
+      meta:
+        timestamp: "{{#current_time}}{{current_time}}{{/current_time}}"
+        requestId: "{{#requestId}}{{requestId}}{{/requestId}}"

@@ -1,0 +1,22 @@
+apiVersion: v2
+kind: Resource
+metadata:
+  actionId: python
+  name: Python Script
+  description: Execute Python code
+run:
+  python:
+    script: |
+      # Your Python code here
+      import json
+      import sys
+      
+      # Access input via environment or stdin
+      input_data = "{{#input}}{{input}}{{/input}}{{^input}}{}{{/input}}"
+      
+      # Process data
+      result = {"processed": True, "input": input_data}
+      
+      # Output result as JSON (will be captured as stdout)
+      print(json.dumps(result))
+    timeoutDuration: "60s"

@@ -73,6 +73,11 @@ type embedFSProvider struct {
 
 // Get retrieves a partial template from the embedded filesystem.
 func (p *embedFSProvider) Get(name string) (string, error) {
+	// Validate partial name to prevent path traversal
+	if strings.Contains(name, "..") || strings.ContainsAny(name, "/\\") {
+		return "", fmt.Errorf("invalid partial name: %s", name)
+	}
+
 	// Try different paths for the partial
 	possiblePaths := []string{
 		name,
@@ -204,6 +209,8 @@ func (g *Generator) generateMustacheFile(renderer *MustacheRenderer, templatePat
 }
 
 // isMustacheTemplate checks if a file is a mustache template.
+// Files with .mustache extension are always mustache templates.
+// Files with .tmpl extension are detected based on content.
 func isMustacheTemplate(filename string) bool {
 	return strings.HasSuffix(filename, ".mustache") || strings.HasSuffix(filename, ".tmpl")
 }

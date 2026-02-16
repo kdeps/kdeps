@@ -137,6 +137,12 @@ func walkEmbedFS(fs embed.FS, root string, fn func(path string, content []byte) 
 			if readErr != nil {
 				return readErr
 			}
+
+			// Skip files that contain mustache syntax (they'll be handled by mustache renderer)
+			if hasMustacheSyntax(string(content)) {
+				continue
+			}
+
 			if fnErr := fn(path, content); fnErr != nil {
 				return fnErr
 			}
@@ -273,11 +279,20 @@ func (g *Generator) GenerateResource(resourceName string, targetPath string) err
 	templatePath := filepath.Join("templates", "resources", resourceName+".yaml.tmpl")
 
 	// Check if template exists
-	if _, err := templatesFS.ReadFile(templatePath); err != nil {
+	content, err := templatesFS.ReadFile(templatePath)
+	if err != nil {
 		// If no template, generate a basic one
 		return g.generateBasicResource(resourceName, targetPath)
 	}
 
+	// Detect if this is a mustache template
+	if hasMustacheSyntax(string(content)) {
+		// Use mustache renderer
+		renderer := NewMustacheRenderer(templatesFS)
+		return g.generateMustacheFile(renderer, templatePath, targetPath, data)
+	}
+
+	// Use Go template renderer
 	return g.generateFile(templatePath, targetPath, data)
 }
 

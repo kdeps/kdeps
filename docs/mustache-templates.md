@@ -13,8 +13,12 @@ KDeps now supports [Mustache](https://mustache.github.io/) templates in addition
 
 KDeps automatically detects whether to use Go templates or Mustache templates based on:
 
-1. **File extension**: Files ending with `.mustache` are always processed as Mustache templates
-2. **Content analysis**: Files with `.tmpl` extension are analyzed to detect which type they are:
+1. **File extension**: 
+   - Files ending with `.mustache` are always processed as Mustache templates
+   - Files ending with `.tmpl` are analyzed for content and can be either Go or Mustache templates
+   - **YAML workflow and resource files don't need special extensions** - they use `.tmpl` and are detected by content
+   
+2. **Content analysis**: Files are analyzed to detect which type they are:
    - Mustache syntax: `{{name}}`, `{{#section}}`, `{{^inverted}}`, `{{! comment}}`
    - Go template syntax: `{{ .Name }}`, `{{- trim }}`, `{{ "escaped" }}`
 
