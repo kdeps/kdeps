@@ -1,0 +1,10 @@
+apiVersion: v2
+kind: Resource
+metadata:
+  actionId: exec
+  name: Shell Command
+  description: Execute shell commands
+run:
+  exec:
+    command: "echo '{{#message}}{{message}}{{/message}}{{^message}}Hello World{{/message}}'"
+    timeoutDuration: "30s"

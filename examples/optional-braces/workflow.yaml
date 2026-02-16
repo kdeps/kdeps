@@ -1,0 +1,43 @@
+apiVersion: kdeps.io/v1
+kind: Workflow
+
+metadata:
+  name: Optional Braces Demo
+  description: Demonstrates optional {{ }} syntax
+
+resources:
+  - id: withoutBraces
+    response:
+      # Direct expressions WITHOUT braces
+      userEmail: user.email
+      userName: user.name
+      userAge: user.age
+      isAdult: user.age >= 18
+      doubleAge: user.age * 2
+      query: get('q')
+      
+  - id: withBraces
+    response:
+      # Same expressions WITH braces (backward compatibility)
+      userEmail: "{{user.email}}"
+      userName: "{{user.name}}"
+      userAge: "{{user.age}}"
+      isAdult: "{{user.age >= 18}}"
+      doubleAge: "{{user.age * 2}}"
+      query: "{{get('q')}}"
+      
+  - id: stringInterpolation
+    response:
+      # String interpolation REQUIRES braces
+      greeting: "Hello {{user.name}}, you are {{user.age}} years old"
+      summary: "User {{user.name}} ({{user.email}}) - Adult: {{user.age >= 18}}"
+      queryResult: "Query: {{get('q')}}"
+      calculation: "Your age doubled is {{user.age * 2}}"
+      
+  - id: mixed
+    response:
+      # Mix both styles as needed
+      email: user.email                                    # Direct without braces
+      message: "Welcome {{user.name}}!"                    # Interpolation with braces
+      isValid: user.age >= 18                              # Expression without braces
+      status: "Status: {{user.age >= 18 ? 'adult' : 'minor'}}"  # Complex interpolation

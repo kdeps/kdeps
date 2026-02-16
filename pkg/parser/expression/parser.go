@@ -120,6 +120,8 @@ func (p *Parser) ParseMap(values map[string]interface{}) (map[string]*domain.Exp
 func (p *Parser) Detect(value string) domain.ExprType {
 	// Check for interpolation {{ }}.
 	if strings.Contains(value, "{{") && strings.Contains(value, "}}") {
+		// All interpolated expressions now use mixed evaluation
+		// Each {{ }} block is tried as mustache first, then expr-lang
 		return domain.ExprTypeInterpolated
 	}
 

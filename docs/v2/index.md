@@ -26,6 +26,9 @@ features:
   - icon: 🔌
     title: Unified API
     details: Just get() and set() - access data from any source without memorizing 15+ functions.
+  - icon: 🎨
+    title: Mustache Expressions
+    details: Simpler syntax for variables - 56% less typing. Mix with expr-lang for complex logic.
   - icon: 🤖
     title: LLM Integration
     details: Ollama for local models, or any OpenAI-compatible API endpoint.
@@ -97,6 +100,39 @@ user: get('user_name', 'session')  # Session storage
 ```
 
 </div>
+
+### Mustache Expressions
+
+KDeps v2 supports both traditional expr-lang and simpler Mustache-style expressions. Choose what fits your needs!
+
+<div v-pre>
+
+```yaml
+# Traditional expr-lang (full power)
+prompt: "{{ get('q') }}"
+time: "{{ info('current_time') }}"
+
+# Mustache (simpler - 56% less typing!)
+prompt: "{{q}}"
+time: "{{current_time}}"
+
+# Mix them naturally in the same workflow
+message: "Hello {{name}}, your score is {{ get('points') * 2 }}"
+```
+
+</div>
+
+**Key Benefits:**
+- **56% less typing** for simple variables
+- **No whitespace rules** - `{{var}}` = `{{ var }}`
+- **Backward compatible** - all existing workflows work
+- **Natural mixing** - simple and complex together
+
+**When to use:**
+- Mustache for simple variables: `{{name}}`, `{{email}}`
+- expr-lang for functions and logic: `{{ get('x') }}`, `{{ a + b }}`
+
+[Learn more →](../README_EXPRESSIONS.md)
 
 ### LLM Integration
 Use Ollama for local model serving, or connect to any OpenAI-compatible API endpoint.

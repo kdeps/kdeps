@@ -1,0 +1,22 @@
+apiVersion: v2
+kind: Resource
+metadata:
+  actionId: sql
+  name: SQL Query
+  description: Execute SQL database queries
+run:
+  sql:
+    connectionName: main
+    query: "SELECT * FROM users WHERE id = $1"
+    params:
+      - "{{#id}}{{id}}{{/id}}"
+    format: json
+    maxRows: 100
+    timeoutDuration: "30s"
+  validation:
+    required:
+      - id
+    rules:
+      - field: id
+        type: integer
+        message: "ID must be a valid integer"
