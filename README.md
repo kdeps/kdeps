@@ -121,6 +121,61 @@ expr:
   - set('user_id', get('id'), 'session')
 ```
 
+## Mustache Expressions
+
+KDeps v2 supports both traditional expr-lang syntax and simpler Mustache-style variable interpolation. Use whichever fits your needs!
+
+### Syntax Comparison
+
+```yaml
+# Traditional expr-lang (full power)
+prompt: "{{ get('q') }}"
+timestamp: "{{ info('current_time') }}"
+
+# Mustache (simpler - 56% less typing!)
+prompt: "{{q}}"
+timestamp: "{{current_time}}"
+
+# Both work identically - no whitespace rules
+prompt: "{{ q }}"  # Same as {{q}}
+```
+
+### Benefits
+
+- **56% less typing** for simple variables
+- **No whitespace rules** - `{{var}}` and `{{ var }}` work the same
+- **Mix freely** - simple variables and complex expressions together
+- **Backward compatible** - all existing workflows work unchanged
+
+### When to Use What
+
+**Use Mustache** for:
+- Simple variable access: `{{name}}`, `{{user.email}}`
+- Clean, readable templates
+- Familiar syntax (everyone knows `{{var}}`)
+
+**Use expr-lang** for:
+- Function calls: `{{ get('x') }}`, `{{ info('time') }}`
+- Arithmetic: `{{ price * quantity }}`
+- Conditionals: `{{ score > 80 ? 'Pass' : 'Fail' }}`
+
+### Examples
+
+```yaml
+# Simple variables with mustache
+name: "{{username}}"
+email: "{{user.email}}"
+
+# Mixed - simple and complex together
+message: "Hello {{name}}, your score is {{ get('points') * 2 }}"
+
+# Complex logic stays with expr-lang
+status: "{{ score > 80 ? 'Pass' : 'Fail' }}"
+total: "{{ price * quantity + tax }}"
+```
+
+**Learn more:** See [Mustache Expression Guide](docs/README_EXPRESSIONS.md) for complete documentation.
+
 ## Resource Examples
 
 ### LLM Resource
