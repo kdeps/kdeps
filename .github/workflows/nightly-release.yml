@@ -34,7 +34,7 @@ jobs:
         id: check_changes
         run: |
           # Check if there are code changes since the last release
-          LATEST_RELEASE_TAG=$(git tag -l 'v*' --sort=-version:refname | head -n 1 || true)
+          LATEST_RELEASE_TAG=$(git tag -l 'v*' --sort=-version:refname | head -n 1)
           
           if [ -z "$LATEST_RELEASE_TAG" ]; then
             echo "No previous release found, will create release"
@@ -77,8 +77,11 @@ jobs:
       - name: Determine if release needed
         id: should_release
         run: |
+          # Use default value 'false' if variables are not set
           HAS_CODE_CHANGES="${{ steps.check_changes.outputs.has_code_changes }}"
           HAS_MODULE_UPDATES="${{ steps.update_modules.outputs.has_module_updates }}"
+          HAS_CODE_CHANGES="${HAS_CODE_CHANGES:-false}"
+          HAS_MODULE_UPDATES="${HAS_MODULE_UPDATES:-false}"
           
           if [ "$HAS_CODE_CHANGES" = "true" ] || [ "$HAS_MODULE_UPDATES" = "true" ]; then
             echo "should_release=true" >> $GITHUB_OUTPUT
