@@ -30,6 +30,27 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Check for changes
+        id: check_changes
+        run: |
+          # Check if there are code changes since the last release
+          LATEST_RELEASE_TAG=$(git describe --tags --abbrev=0 --match="v*" 2>/dev/null || echo "")
+          
+          if [ -z "$LATEST_RELEASE_TAG" ]; then
+            echo "No previous release found, will create release"
+            echo "has_code_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "Latest release tag: $LATEST_RELEASE_TAG"
+            # Check if there are any differences between the latest release and HEAD
+            if git diff --quiet $LATEST_RELEASE_TAG HEAD; then
+              echo "has_code_changes=false" >> $GITHUB_OUTPUT
+              echo "No code changes since latest release"
+            else
+              echo "has_code_changes=true" >> $GITHUB_OUTPUT
+              echo "Code changes detected since latest release"
+            fi
+          fi
+
       - name: Update Go modules
         id: update_modules
         run: |
@@ -39,15 +60,29 @@ jobs:
           
           # Check if there are any changes
           if git diff --quiet go.mod go.sum; then
-            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "has_module_updates=false" >> $GITHUB_OUTPUT
             echo "No module updates available"
           else
-            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "has_module_updates=true" >> $GITHUB_OUTPUT
             echo "Module updates found"
           fi
 
+      - name: Determine if release needed
+        id: should_release
+        run: |
+          HAS_CODE_CHANGES="${{ steps.check_changes.outputs.has_code_changes }}"
+          HAS_MODULE_UPDATES="${{ steps.update_modules.outputs.has_module_updates }}"
+          
+          if [ "$HAS_CODE_CHANGES" == "true" ] || [ "$HAS_MODULE_UPDATES" == "true" ]; then
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "Release will be created (code_changes=$HAS_CODE_CHANGES, module_updates=$HAS_MODULE_UPDATES)"
+          else
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            echo "No release needed (no code changes or module updates)"
+          fi
+
       - name: Run linter
-        if: steps.update_modules.outputs.has_changes == 'true'
+        if: steps.should_release.outputs.should_release == 'true'
         id: lint
         continue-on-error: true
         uses: golangci/golangci-lint-action@v9
@@ -57,13 +92,13 @@ jobs:
           only-new-issues: false
 
       - name: Build
-        if: steps.update_modules.outputs.has_changes == 'true'
+        if: steps.should_release.outputs.should_release == 'true'
         id: build
         continue-on-error: true
         run: make build
 
       - name: Run tests
-        if: steps.update_modules.outputs.has_changes == 'true'
+        if: steps.should_release.outputs.should_release == 'true'
         id: test
         continue-on-error: true
         run: |
@@ -71,7 +106,7 @@ jobs:
           go test -v -short -timeout=5m ./pkg/... ./cmd/...
 
       - name: Determine release type
-        if: steps.update_modules.outputs.has_changes == 'true'
+        if: steps.should_release.outputs.should_release == 'true'
         id: release_type
         run: |
           # Check if all validation steps succeeded
@@ -90,7 +125,7 @@ jobs:
           fi
 
       - name: Commit and push module updates
-        if: steps.update_modules.outputs.has_changes == 'true'
+        if: steps.should_release.outputs.should_release == 'true' && steps.update_modules.outputs.has_module_updates == 'true'
         run: |
           # Note: Automated dependency updates bypass PR review process
           # This is intentional for nightly builds to ensure latest dependencies
@@ -100,7 +135,7 @@ jobs:
           git push origin main
 
       - name: Create nightly tag
-        if: steps.update_modules.outputs.has_changes == 'true'
+        if: steps.should_release.outputs.should_release == 'true'
         id: create_tag
         run: |
           # Get base version from version.go using portable sed syntax
@@ -129,16 +164,16 @@ jobs:
           git push origin $NIGHTLY_TAG
 
       - name: Set up Zig
-        if: steps.update_modules.outputs.has_changes == 'true'
+        if: steps.should_release.outputs.should_release == 'true'
         uses: goto-bus-stop/setup-zig@v2
 
       - name: Get macOS SDK path
-        if: steps.update_modules.outputs.has_changes == 'true'
+        if: steps.should_release.outputs.should_release == 'true'
         id: macos_sdk
         run: echo "path=$(xcrun --show-sdk-path)" >> $GITHUB_OUTPUT
 
       - name: Release with GoReleaser
-        if: steps.update_modules.outputs.has_changes == 'true'
+        if: steps.should_release.outputs.should_release == 'true'
         uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
@@ -149,7 +184,7 @@ jobs:
           GORELEASER_CURRENT_TAG: ${{ steps.create_tag.outputs.tag }}
 
       - name: Update release status
-        if: steps.update_modules.outputs.has_changes == 'true'
+        if: steps.should_release.outputs.should_release == 'true'
         run: |
           # Update the release to mark as latest or prerelease based on validation results
           # Note: GoReleaser creates release with prerelease=false and make_latest=true
@@ -176,13 +211,20 @@ jobs:
 
       - name: Summary
         run: |
-          if [ "${{ steps.update_modules.outputs.has_changes }}" == "true" ]; then
+          if [ "${{ steps.should_release.outputs.should_release }}" == "true" ]; then
             RELEASE_TYPE="latest"
             if [ "${{ steps.release_type.outputs.prerelease }}" == "true" ]; then
               RELEASE_TYPE="prerelease (validation checks failed)"
             fi
             echo "✅ Nightly release created successfully: ${{ steps.create_tag.outputs.tag }}"
             echo "📦 Release type: $RELEASE_TYPE"
+            
+            if [ "${{ steps.check_changes.outputs.has_code_changes }}" == "true" ]; then
+              echo "📝 Code changes detected since last release"
+            fi
+            if [ "${{ steps.update_modules.outputs.has_module_updates }}" == "true" ]; then
+              echo "📦 Module updates applied"
+            fi
           else
-            echo "ℹ️ No module updates available. Skipping nightly release."
+            echo "ℹ️ No changes since last release. Skipping nightly release."
           fi
