@@ -34,7 +34,7 @@ jobs:
         id: check_changes
         run: |
           # Check if there are code changes since the last release
-          LATEST_RELEASE_TAG=$(git tag -l 'v*' --sort=-version:refname 2>/dev/null | head -n 1 || true)
+          LATEST_RELEASE_TAG=$(git tag -l 'v*' --sort=-version:refname | head -n 1 || true)
           
           if [ -z "$LATEST_RELEASE_TAG" ]; then
             echo "No previous release found, will create release"
