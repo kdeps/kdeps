@@ -201,6 +201,7 @@ jobs:
           # We conditionally override both settings based on validation outcomes
           TAG="${{ steps.create_tag.outputs.tag }}"
           IS_PRERELEASE="${{ steps.release_type.outputs.prerelease }}"
+          IS_PRERELEASE="${IS_PRERELEASE:-true}"
           
           # Get the release ID
           RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/$TAG --jq '.id')
