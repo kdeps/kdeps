@@ -42,7 +42,7 @@ jobs:
           else
             echo "Latest release tag: $LATEST_RELEASE_TAG"
             # Check if there are any differences between the latest release and HEAD
-            if git diff --quiet $LATEST_RELEASE_TAG HEAD; then
+            if git diff --quiet "$LATEST_RELEASE_TAG" HEAD; then
               echo "has_code_changes=false" >> $GITHUB_OUTPUT
               echo "No code changes since latest release"
             else
