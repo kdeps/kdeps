@@ -34,20 +34,27 @@ jobs:
         id: check_changes
         run: |
           # Check if there are code changes since the last release
-          LATEST_RELEASE_TAG=$(git tag -l 'v*' --sort=-version:refname | head -n 1)
+          LATEST_RELEASE_TAG=$(git tag -l 'v*' --sort=-version:refname 2>/dev/null | head -n 1 || true)
           
           if [ -z "$LATEST_RELEASE_TAG" ]; then
             echo "No previous release found, will create release"
             echo "has_code_changes=true" >> $GITHUB_OUTPUT
           else
             echo "Latest release tag: $LATEST_RELEASE_TAG"
-            # Check if there are any differences between the latest release and HEAD
-            if git diff --quiet "$LATEST_RELEASE_TAG" HEAD; then
-              echo "has_code_changes=false" >> $GITHUB_OUTPUT
-              echo "No code changes since latest release"
-            else
+            
+            # Verify the tag exists before comparing
+            if ! git rev-parse --verify "$LATEST_RELEASE_TAG" >/dev/null 2>&1; then
+              echo "Warning: Tag $LATEST_RELEASE_TAG does not exist, will create release"
               echo "has_code_changes=true" >> $GITHUB_OUTPUT
-              echo "Code changes detected since latest release"
+            else
+              # Check if there are any differences between the latest release and HEAD
+              if git diff --quiet "$LATEST_RELEASE_TAG" HEAD; then
+                echo "has_code_changes=false" >> $GITHUB_OUTPUT
+                echo "No code changes since latest release"
+              else
+                echo "has_code_changes=true" >> $GITHUB_OUTPUT
+                echo "Code changes detected since latest release"
+              fi
             fi
           fi
 
