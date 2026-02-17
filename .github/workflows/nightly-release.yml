@@ -103,9 +103,13 @@ jobs:
         if: steps.update_modules.outputs.has_changes == 'true'
         id: create_tag
         run: |
-          # Generate nightly tag with date and time for uniqueness
-          # Using timestamp ensures multiple runs on same day create unique tags
-          NIGHTLY_TAG="nightly-$(date +%Y%m%d-%H%M)"
+          # Get base version from version.go
+          BASE_VERSION=$(grep -oP 'Version = "\K[0-9]+\.[0-9]+\.[0-9]+' pkg/version/version.go)
+          
+          # Generate nightly tag with date and time for uniqueness in semver format
+          # Format: vX.X.X-nightlyYYYYMMDDHHMM (e.g., v2.0.0-nightly202602170323)
+          # This is valid semver prerelease syntax that GoReleaser can parse
+          NIGHTLY_TAG="v${BASE_VERSION}-nightly$(date +%Y%m%d%H%M)"
           echo "tag=$NIGHTLY_TAG" >> $GITHUB_OUTPUT
           
           # Check if tag already exists
