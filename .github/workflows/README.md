@@ -34,14 +34,16 @@ git push origin v2.1.0
 **Trigger**: Daily at 2 AM UTC, Manual via workflow_dispatch
 
 Automatically updates Go modules and creates nightly releases. This workflow:
+- Checks for code changes since the last release tag
 - Updates all Go modules to their latest versions using `go get -u ./...`
 - Runs `go mod tidy` to clean up dependencies
 - Validates changes with linting, building, and unit tests
-- Commits updated `go.mod` and `go.sum` to main branch
-- Creates a nightly tag with format `nightly-YYYYMMDD-HHMM`
+- Commits updated `go.mod` and `go.sum` to main branch (if module updates exist)
+- Creates a nightly tag with format `vX.X.X-nightlyYYYYMMDDHHMM`
 - Builds and publishes binaries with updated dependencies
 - **Release type**: Marked as "latest" when all validation checks pass, or as "prerelease" if any checks fail
-- Skips release if no module updates are available
+- **Release trigger**: Creates a release if either code changes exist since last release OR module updates are available
+- Skips release only if no code changes AND no module updates exist
 
 **Manual Trigger**:
 1. Go to Actions tab in GitHub
@@ -85,9 +87,10 @@ If the nightly release workflow fails:
    - Update tests or pin problematic dependencies
    - Consider adding go.mod constraints if needed
 
-3. **No Updates**: Workflow skips if no module updates available
+3. **No Updates**: Workflow skips if no code changes AND no module updates exist
    - This is expected behavior
-   - Check logs to confirm "No module updates available" message
+   - Check logs to confirm "No changes since last release" message
+   - A release is triggered if either code changes or module updates exist
 
 4. **Authentication Issues**: RELEASE_TOKEN problems
    - Verify token has correct permissions
