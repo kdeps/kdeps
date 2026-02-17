@@ -104,7 +104,13 @@ jobs:
         id: create_tag
         run: |
           # Get base version from version.go
-          BASE_VERSION=$(grep -oP 'Version = "\K[0-9]+\.[0-9]+\.[0-9]+' pkg/version/version.go)
+          BASE_VERSION=$(grep -oP 'Version = "\K[0-9]+\.[0-9]+\.[0-9]+' pkg/version/version.go || echo "")
+          
+          # Verify version was extracted successfully
+          if [ -z "$BASE_VERSION" ]; then
+            echo "Error: Failed to extract version from pkg/version/version.go"
+            exit 1
+          fi
           
           # Generate nightly tag with date and time for uniqueness in semver format
           # Format: vX.X.X-nightlyYYYYMMDDHHMM (e.g., v2.0.0-nightly202602170323)
