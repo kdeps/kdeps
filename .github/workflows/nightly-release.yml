@@ -84,9 +84,14 @@ jobs:
             # Generate summary of updated modules using the helper script
             echo "Generating module updates summary..."
             MODULE_SUMMARY=$(go run .github/scripts/compare-modules.go 2>&1)
+            SCRIPT_EXIT_CODE=$?
             
-            # Fallback if script fails
-            if [ $? -ne 0 ] || [ -z "$MODULE_SUMMARY" ]; then
+            # Check if script succeeded
+            if [ $SCRIPT_EXIT_CODE -ne 0 ]; then
+              echo "Warning: Module comparison script failed with exit code $SCRIPT_EXIT_CODE"
+              MODULE_SUMMARY="### Module Updates"$'\n\n'"Updates detected in go.mod and go.sum. See commit diff for details."
+            elif [ -z "$MODULE_SUMMARY" ]; then
+              echo "Warning: Module comparison script returned empty output"
               MODULE_SUMMARY="### Module Updates"$'\n\n'"Updates detected in go.mod and go.sum. See commit diff for details."
             fi
             
@@ -203,9 +208,13 @@ jobs:
               gh release delete "$NIGHTLY_TAG" --yes --cleanup-tag || {
                 echo "Failed to delete release via gh CLI, trying API..."
                 # Fallback to API
-                RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/$NIGHTLY_TAG --jq '.id' 2>/dev/null || echo "")
-                if [ -n "$RELEASE_ID" ]; then
-                  gh api -X DELETE repos/${{ github.repository }}/releases/$RELEASE_ID || true
+                RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/$NIGHTLY_TAG --jq '.id' 2>&1)
+                API_EXIT_CODE=$?
+                if [ $API_EXIT_CODE -eq 0 ] && [ -n "$RELEASE_ID" ]; then
+                  echo "Found release ID: $RELEASE_ID, deleting..."
+                  gh api -X DELETE repos/${{ github.repository }}/releases/$RELEASE_ID || echo "Warning: API delete failed"
+                else
+                  echo "Warning: Could not retrieve release ID (exit code: $API_EXIT_CODE)"
                 fi
               }
             fi
