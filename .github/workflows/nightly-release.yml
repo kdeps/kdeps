@@ -64,8 +64,11 @@ jobs:
           echo "Updating Go modules to latest versions..."
           
           # Capture current module versions before update
-          if ! go list -m -json all > /tmp/modules_before.json 2>&1; then
+          if ! go list -m -json all > /tmp/modules_before.json 2>/tmp/go-list-before.err; then
             echo "Warning: Failed to capture module versions before update"
+            if [ -s /tmp/go-list-before.err ]; then
+              cat /tmp/go-list-before.err
+            fi
             # Continue anyway, comparison will fall back to generic message
           fi
           
@@ -82,8 +85,11 @@ jobs:
             echo "Module updates found"
             
             # Capture updated module versions
-            if ! go list -m -json all > /tmp/modules_after.json 2>&1; then
+            if ! go list -m -json all > /tmp/modules_after.json 2>/tmp/go-list-after.err; then
               echo "Warning: Failed to capture module versions after update"
+              if [ -s /tmp/go-list-after.err ]; then
+                cat /tmp/go-list-after.err
+              fi
               # Continue anyway, comparison will fall back to generic message
             fi
             
