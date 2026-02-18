@@ -36,14 +36,26 @@ git push origin v2.1.0
 Automatically updates Go modules and creates nightly releases. This workflow:
 - Checks for code changes since the last release tag
 - Updates all Go modules to their latest versions using `go get -u ./...`
+- Tracks which modules were updated and generates a detailed summary
 - Runs `go mod tidy` to clean up dependencies
 - Validates changes with linting, building, and unit tests
 - Commits updated `go.mod` and `go.sum` to main branch (if module updates exist)
+- Cleans up any existing release/tag with the same name (prevents 422 errors from failed uploads)
 - Creates a nightly tag with format `vX.X.X-nightlyYYYYMMDDHHMM`
 - Builds and publishes binaries with updated dependencies
+- Enhances release notes with module update information and build status
 - **Release type**: Marked as "latest" when all validation checks pass, or as "prerelease" if any checks fail
 - **Release trigger**: Creates a release if either code changes exist since last release OR module updates are available
 - Skips release only if no code changes AND no module updates exist
+
+**Module Update Tracking**:
+The workflow now includes detailed information about which modules were updated in the release notes, showing:
+- Module name
+- Old version → New version
+- Total count of updated modules
+
+**Error Recovery**:
+If a previous nightly release failed mid-upload, the workflow will automatically clean up the partial release and tag before creating a new one, preventing "422 Validation Failed: already_exists" errors.
 
 **Manual Trigger**:
 1. Go to Actions tab in GitHub
