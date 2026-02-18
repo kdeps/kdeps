@@ -81,21 +81,100 @@ jobs:
             # Capture updated module versions
             go list -m -json all > /tmp/modules_after.json 2>/dev/null || true
             
-            # Generate summary of updated modules using the helper script
+            # Generate summary of updated modules
             echo "Generating module updates summary..."
-            MODULE_SUMMARY=$(go run .github/scripts/compare-modules.go 2>&1)
+            MODULE_SUMMARY=$(go run - <<'EOF'
+package main
+
+import (
+  "bytes"
+  "encoding/json"
+  "fmt"
+  "os"
+  "sort"
+)
+
+type Module struct {
+  Path    string `json:"Path"`
+  Version string `json:"Version"`
+}
+
+func main() {
+  before := make(map[string]string)
+  after := make(map[string]string)
+  
+  // Read before modules
+  if data, err := os.ReadFile("/tmp/modules_before.json"); err == nil {
+    dec := json.NewDecoder(bytes.NewReader(data))
+    for {
+      var m Module
+      if err := dec.Decode(&m); err != nil {
+        break
+      }
+      if m.Version != "" {
+        before[m.Path] = m.Version
+      }
+    }
+  }
+  
+  // Read after modules
+  if data, err := os.ReadFile("/tmp/modules_after.json"); err == nil {
+    dec := json.NewDecoder(bytes.NewReader(data))
+    for {
+      var m Module
+      if err := dec.Decode(&m); err != nil {
+        break
+      }
+      if m.Version != "" {
+        after[m.Path] = m.Version
+      }
+    }
+  }
+  
+  // Find updates and sort them
+  type Update struct {
+    Path    string
+    OldVer  string
+    NewVer  string
+  }
+  var updates []Update
+  
+  for path, newVer := range after {
+    if oldVer, exists := before[path]; exists && oldVer != newVer {
+      updates = append(updates, Update{Path: path, OldVer: oldVer, NewVer: newVer})
+    }
+  }
+  
+  sort.Slice(updates, func(i, j int) bool {
+    return updates[i].Path < updates[j].Path
+  })
+  
+  // Print results
+  fmt.Println("### Module Updates")
+  fmt.Println("")
+  
+  if len(updates) == 0 {
+    fmt.Println("_No direct dependency updates (only transitive dependencies)_")
+  } else {
+    for _, u := range updates {
+      fmt.Printf("- **%s**: `%s` → `%s`\n", u.Path, u.OldVer, u.NewVer)
+    }
+  }
+  
+  fmt.Printf("\n**Total:** %d module(s) updated\n", len(updates))
+}
+EOF
+            )
             
-            # Fallback if script fails
-            if [ $? -ne 0 ] || [ -z "$MODULE_SUMMARY" ]; then
-              MODULE_SUMMARY="### Module Updates"$'\n\n'"Updates detected in go.mod and go.sum. See commit diff for details."
+            # Fallback if Go script fails - use git diff
+            if [ -z "$MODULE_SUMMARY" ]; then
+              MODULE_SUMMARY="### Module Updates\n\nUpdates detected in go.mod and go.sum. See commit diff for details."
             fi
             
-            # Save to output using proper multiline syntax
-            {
-              echo "module_updates_summary<<EOFMARKER"
-              echo "$MODULE_SUMMARY"
-              echo "EOFMARKER"
-            } >> $GITHUB_OUTPUT
+            # Save to output (escape newlines for GitHub Actions)
+            echo "module_updates_summary<<EOF" >> $GITHUB_OUTPUT
+            echo "$MODULE_SUMMARY" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
             
             # Also log to console
             echo "$MODULE_SUMMARY"
@@ -267,12 +346,23 @@ jobs:
           if [ "$HAS_MODULE_UPDATES" = "true" ]; then
             MODULE_SUMMARY="${{ steps.update_modules.outputs.module_updates_summary }}"
             if [ -n "$MODULE_SUMMARY" ]; then
-              RELEASE_NOTES="$RELEASE_NOTES"$'\n\n'"---"$'\n\n'"$MODULE_SUMMARY"
+              RELEASE_NOTES="$RELEASE_NOTES
+
+---
+
+$MODULE_SUMMARY"
             fi
           fi
           
           # Add validation status
-          RELEASE_NOTES="$RELEASE_NOTES"$'\n\n'"---"$'\n\n'"### Build Status"$'\n'"- 🔍 Linting: ${{ steps.lint.outcome }}"$'\n'"- 🔨 Build: ${{ steps.build.outcome }}"$'\n'"- ✅ Tests: ${{ steps.test.outcome }}"
+          RELEASE_NOTES="$RELEASE_NOTES
+
+---
+
+### Build Status
+- 🔍 Linting: ${{ steps.lint.outcome }}
+- 🔨 Build: ${{ steps.build.outcome }}
+- ✅ Tests: ${{ steps.test.outcome }}"
           
           # Update release with new notes and status
           if [ "$IS_PRERELEASE" = "false" ]; then
