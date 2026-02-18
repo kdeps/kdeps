@@ -64,7 +64,10 @@ jobs:
           echo "Updating Go modules to latest versions..."
           
           # Capture current module versions before update
-          go list -m -json all > /tmp/modules_before.json 2>/dev/null || true
+          if ! go list -m -json all > /tmp/modules_before.json 2>&1; then
+            echo "Warning: Failed to capture module versions before update"
+            # Continue anyway, comparison will fall back to generic message
+          fi
           
           go get -u ./...
           go mod tidy
@@ -79,16 +82,23 @@ jobs:
             echo "Module updates found"
             
             # Capture updated module versions
-            go list -m -json all > /tmp/modules_after.json 2>/dev/null || true
+            if ! go list -m -json all > /tmp/modules_after.json 2>&1; then
+              echo "Warning: Failed to capture module versions after update"
+              # Continue anyway, comparison will fall back to generic message
+            fi
             
             # Generate summary of updated modules using the helper script
             echo "Generating module updates summary..."
-            MODULE_SUMMARY=$(go run .github/scripts/compare-modules.go 2>&1)
+            MODULE_SUMMARY=$(go run .github/scripts/compare-modules.go 2>/tmp/compare-modules-stderr.log)
             SCRIPT_EXIT_CODE=$?
             
             # Check if script succeeded
             if [ $SCRIPT_EXIT_CODE -ne 0 ]; then
               echo "Warning: Module comparison script failed with exit code $SCRIPT_EXIT_CODE"
+              if [ -s /tmp/compare-modules-stderr.log ]; then
+                echo "Stderr from module comparison script:"
+                cat /tmp/compare-modules-stderr.log
+              fi
               MODULE_SUMMARY="### Module Updates"$'\n\n'"Updates detected in go.mod and go.sum. See commit diff for details."
             elif [ -z "$MODULE_SUMMARY" ]; then
               echo "Warning: Module comparison script returned empty output"

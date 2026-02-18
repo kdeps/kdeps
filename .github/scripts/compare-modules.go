@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 )
@@ -24,30 +25,46 @@ func main() {
 	after := make(map[string]string)
 
 	// Read before modules
-	if data, err := os.ReadFile("/tmp/modules_before.json"); err == nil {
-		dec := json.NewDecoder(bytes.NewReader(data))
-		for {
-			var m Module
-			if err := dec.Decode(&m); err != nil {
-				break
-			}
-			if m.Version != "" {
-				before[m.Path] = m.Version
-			}
+	dataBefore, err := os.ReadFile("/tmp/modules_before.json")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: failed to read /tmp/modules_before.json: %v\n", err)
+		os.Exit(1)
+	}
+	decBefore := json.NewDecoder(bytes.NewReader(dataBefore))
+	for {
+		var m Module
+		err := decBefore.Decode(&m)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: failed to decode module from /tmp/modules_before.json: %v\n", err)
+			os.Exit(1)
+		}
+		if m.Version != "" {
+			before[m.Path] = m.Version
 		}
 	}
 
 	// Read after modules
-	if data, err := os.ReadFile("/tmp/modules_after.json"); err == nil {
-		dec := json.NewDecoder(bytes.NewReader(data))
-		for {
-			var m Module
-			if err := dec.Decode(&m); err != nil {
-				break
-			}
-			if m.Version != "" {
-				after[m.Path] = m.Version
-			}
+	dataAfter, err := os.ReadFile("/tmp/modules_after.json")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: failed to read /tmp/modules_after.json: %v\n", err)
+		os.Exit(1)
+	}
+	decAfter := json.NewDecoder(bytes.NewReader(dataAfter))
+	for {
+		var m Module
+		err := decAfter.Decode(&m)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: failed to decode module from /tmp/modules_after.json: %v\n", err)
+			os.Exit(1)
+		}
+		if m.Version != "" {
+			after[m.Path] = m.Version
 		}
 	}
 
