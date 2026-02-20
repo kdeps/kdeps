@@ -133,4 +133,7 @@ func addSubcommands(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(newAccountCmd())
 	rootCmd.AddCommand(newWorkflowsCmd())
 	rootCmd.AddCommand(newDeploymentsCmd())
+
+	// Add Docker client management command
+	rootCmd.AddCommand(newPushCmd())
 }

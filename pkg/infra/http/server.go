@@ -197,6 +197,9 @@ func (s *Server) SetupRoutes() {
 	// Health check endpoint
 	s.Router.GET("/health", s.HandleHealth)
 
+	// Management API endpoints (always available for remote workflow management)
+	s.SetupManagementRoutes()
+
 	// Setup routes from workflow configuration
 	if s.Workflow != nil && s.Workflow.Settings.APIServer != nil {
 		for _, route := range s.Workflow.Settings.APIServer.Routes {
