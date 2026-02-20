@@ -235,3 +235,4 @@ musl-binaries/
 *.raw
 *.iso
 /wasm
+*.backup

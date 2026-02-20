@@ -62,6 +62,16 @@ jobs:
         id: update_modules
         run: |
           echo "Updating Go modules to latest versions..."
+          
+          # Capture current module versions before update
+          if ! go list -m -json all > /tmp/modules_before.json 2>/tmp/go-list-before.err; then
+            echo "Warning: Failed to capture module versions before update"
+            if [ -s /tmp/go-list-before.err ]; then
+              cat /tmp/go-list-before.err
+            fi
+            # Continue anyway, comparison will fall back to generic message
+          fi
+          
           go get -u ./...
           go mod tidy
           
@@ -69,9 +79,47 @@ jobs:
           if git diff --quiet go.mod go.sum; then
             echo "has_module_updates=false" >> $GITHUB_OUTPUT
             echo "No module updates available"
+            echo "module_updates_summary=" >> $GITHUB_OUTPUT
           else
             echo "has_module_updates=true" >> $GITHUB_OUTPUT
             echo "Module updates found"
+            
+            # Capture updated module versions
+            if ! go list -m -json all > /tmp/modules_after.json 2>/tmp/go-list-after.err; then
+              echo "Warning: Failed to capture module versions after update"
+              if [ -s /tmp/go-list-after.err ]; then
+                cat /tmp/go-list-after.err
+              fi
+              # Continue anyway, comparison will fall back to generic message
+            fi
+            
+            # Generate summary of updated modules using the helper script
+            echo "Generating module updates summary..."
+            MODULE_SUMMARY=$(go run .github/scripts/compare-modules.go 2>/tmp/compare-modules-stderr.log)
+            SCRIPT_EXIT_CODE=$?
+            
+            # Check if script succeeded
+            if [ $SCRIPT_EXIT_CODE -ne 0 ]; then
+              echo "Warning: Module comparison script failed with exit code $SCRIPT_EXIT_CODE"
+              if [ -s /tmp/compare-modules-stderr.log ]; then
+                echo "Stderr from module comparison script:"
+                cat /tmp/compare-modules-stderr.log
+              fi
+              MODULE_SUMMARY="### Module Updates"$'\n\n'"Updates detected in go.mod and go.sum. See commit diff for details."
+            elif [ -z "$MODULE_SUMMARY" ]; then
+              echo "Warning: Module comparison script returned empty output"
+              MODULE_SUMMARY="### Module Updates"$'\n\n'"Updates detected in go.mod and go.sum. See commit diff for details."
+            fi
+            
+            # Save to output using proper multiline syntax
+            {
+              echo "module_updates_summary<<EOFMARKER"
+              echo "$MODULE_SUMMARY"
+              echo "EOFMARKER"
+            } >> $GITHUB_OUTPUT
+            
+            # Also log to console
+            echo "$MODULE_SUMMARY"
           fi
 
       - name: Determine if release needed
@@ -144,9 +192,11 @@ jobs:
           git commit -m "chore: update Go modules to latest versions [nightly]"
           git push origin main
 
-      - name: Create nightly tag
+      - name: Create nightly tag and clean up existing release
         if: steps.should_release.outputs.should_release == 'true'
         id: create_tag
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
           # Get base version from version.go using portable sed syntax
           BASE_VERSION=$(sed -n 's/.*Version = "\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' pkg/version/version.go)
@@ -162,16 +212,42 @@ jobs:
           # This is valid semver prerelease syntax that GoReleaser can parse
           NIGHTLY_TAG="v${BASE_VERSION}-nightly$(date +%Y%m%d%H%M)"
           echo "tag=$NIGHTLY_TAG" >> $GITHUB_OUTPUT
+          echo "Generated tag: $NIGHTLY_TAG"
           
-          # Check if tag already exists
+          # Check if tag already exists (from a previous failed run)
           if git rev-parse "$NIGHTLY_TAG" >/dev/null 2>&1; then
-            echo "Tag $NIGHTLY_TAG already exists, skipping tag creation"
-            exit 0
+            echo "⚠️  Tag $NIGHTLY_TAG already exists - cleaning up previous release"
+            
+            # Try to delete the existing release (if it exists)
+            if gh release view "$NIGHTLY_TAG" >/dev/null 2>&1; then
+              echo "Deleting existing release $NIGHTLY_TAG..."
+              gh release delete "$NIGHTLY_TAG" --yes --cleanup-tag || {
+                echo "Failed to delete release via gh CLI, trying API..."
+                # Fallback to API
+                RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/$NIGHTLY_TAG --jq '.id' 2>&1)
+                API_EXIT_CODE=$?
+                if [ $API_EXIT_CODE -eq 0 ] && [ -n "$RELEASE_ID" ]; then
+                  echo "Found release ID: $RELEASE_ID, deleting..."
+                  gh api -X DELETE repos/${{ github.repository }}/releases/$RELEASE_ID || echo "Warning: API delete failed"
+                else
+                  echo "Warning: Could not retrieve release ID (exit code: $API_EXIT_CODE)"
+                fi
+              }
+            fi
+            
+            # Delete the tag locally and remotely
+            echo "Deleting tag $NIGHTLY_TAG..."
+            git tag -d "$NIGHTLY_TAG" 2>/dev/null || true
+            git push --delete origin "$NIGHTLY_TAG" 2>/dev/null || true
+            
+            echo "✓ Cleanup completed"
           fi
           
           # Create new tag
+          echo "Creating tag $NIGHTLY_TAG..."
           git tag -a $NIGHTLY_TAG -m "Nightly release $(date +%Y-%m-%d-%H:%M) with updated dependencies"
           git push origin $NIGHTLY_TAG
+          echo "✓ Tag created and pushed"
 
       - name: Set up Zig
         if: steps.should_release.outputs.should_release == 'true'
@@ -193,27 +269,47 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ steps.create_tag.outputs.tag }}
 
-      - name: Update release status
+      - name: Update release status and notes
         if: steps.should_release.outputs.should_release == 'true'
         run: |
           # Update the release to mark as latest or prerelease based on validation results
-          # Note: GoReleaser creates release with prerelease=false and make_latest=true
-          # We conditionally override both settings based on validation outcomes
+          # and add module update information to release notes
           TAG="${{ steps.create_tag.outputs.tag }}"
           IS_PRERELEASE="${{ steps.release_type.outputs.prerelease }}"
           IS_PRERELEASE="${IS_PRERELEASE:-true}"
+          HAS_MODULE_UPDATES="${{ steps.update_modules.outputs.has_module_updates }}"
           
           # Get the release ID
           RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/$TAG --jq '.id')
           
+          # Get current release body
+          CURRENT_BODY=$(gh api repos/${{ github.repository }}/releases/$RELEASE_ID --jq '.body')
+          
+          # Prepare enhanced release notes
+          RELEASE_NOTES="$CURRENT_BODY"
+          
+          # Add module updates section if applicable
+          if [ "$HAS_MODULE_UPDATES" = "true" ]; then
+            MODULE_SUMMARY="${{ steps.update_modules.outputs.module_updates_summary }}"
+            if [ -n "$MODULE_SUMMARY" ]; then
+              RELEASE_NOTES="$RELEASE_NOTES"$'\n\n'"---"$'\n\n'"$MODULE_SUMMARY"
+            fi
+          fi
+          
+          # Add validation status
+          RELEASE_NOTES="$RELEASE_NOTES"$'\n\n'"---"$'\n\n'"### Build Status"$'\n'"- 🔍 Linting: ${{ steps.lint.outcome }}"$'\n'"- 🔨 Build: ${{ steps.build.outcome }}"$'\n'"- ✅ Tests: ${{ steps.test.outcome }}"
+          
+          # Update release with new notes and status
           if [ "$IS_PRERELEASE" = "false" ]; then
             echo "Marking release as latest (not prerelease)"
             gh api -X PATCH repos/${{ github.repository }}/releases/$RELEASE_ID \
+              -f body="$RELEASE_NOTES" \
               -f prerelease=false \
               -f make_latest=true
           else
             echo "Marking release as prerelease"
             gh api -X PATCH repos/${{ github.repository }}/releases/$RELEASE_ID \
+              -f body="$RELEASE_NOTES" \
               -f prerelease=true \
               -f make_latest=false
           fi
