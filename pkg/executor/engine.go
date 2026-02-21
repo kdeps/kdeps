@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/kdeps/kdeps/v2/pkg/domain"
+	"github.com/kdeps/kdeps/v2/pkg/input"
 	"github.com/kdeps/kdeps/v2/pkg/parser/expression"
 	"github.com/kdeps/kdeps/v2/pkg/validator"
 )
@@ -190,6 +191,25 @@ func (e *Engine) Execute(workflow *domain.Workflow, req interface{}) (interface{
 	// Load resources into context map for tool execution
 	for _, resource := range workflow.Resources {
 		ctx.Resources[resource.Metadata.ActionID] = resource
+	}
+
+	// Process non-API input sources (audio/video/telephony).
+	// The processor captures hardware media and optionally transcribes it before
+	// any resources run, so the transcript/media path is available to all resources
+	// via inputTranscript() and inputMedia() expression functions.
+	if workflow.Settings.Input != nil && workflow.Settings.Input.Source != domain.InputSourceAPI {
+		processor, procErr := input.NewProcessor(workflow.Settings.Input, e.logger)
+		if procErr != nil {
+			return nil, fmt.Errorf("input processor init: %w", procErr)
+		}
+		if processor != nil {
+			result, procErr := processor.Process()
+			if procErr != nil {
+				return nil, fmt.Errorf("input processing failed: %w", procErr)
+			}
+			ctx.InputTranscript = result.Transcript
+			ctx.InputMediaFile = result.MediaFile
+		}
 	}
 
 	// Initialize evaluator with unified API.
@@ -1784,6 +1804,13 @@ func (e *Engine) buildEvaluationEnvironment(ctx *ExecutionContext) map[string]in
 				},
 			}
 		}
+	}
+
+	// Expose input processor results so resources can read the captured
+	// transcript text and media file path via expression functions.
+	if ctx != nil {
+		env["inputTranscript"] = func() string { return ctx.InputTranscript }
+		env["inputMedia"] = func() string { return ctx.InputMediaFile }
 	}
 
 	return env
