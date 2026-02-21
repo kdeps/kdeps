@@ -407,6 +407,39 @@ func TestInputSourcesIntegration_InvalidTelephonyType(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid telephony type")
 }
 
+func TestInputSourcesIntegration_TelephonyWithoutBlock(t *testing.T) {
+	schemaValidator, err := validator.NewSchemaValidator()
+	require.NoError(t, err)
+
+	workflowValidator := validator.NewWorkflowValidator(schemaValidator)
+
+	// source: telephony but no telephony block provided at all (nil)
+	workflow := &domain.Workflow{
+		Metadata: domain.WorkflowMetadata{
+			Name:           "nil-telephony-test",
+			TargetActionID: "main",
+		},
+		Settings: domain.WorkflowSettings{
+			Input: &domain.InputConfig{
+				Source: domain.InputSourceTelephony,
+				// Telephony is nil — should be rejected
+			},
+		},
+		Resources: []*domain.Resource{
+			{
+				Metadata: domain.ResourceMetadata{ActionID: "main", Name: "Main"},
+				Run: domain.RunConfig{
+					APIResponse: &domain.APIResponseConfig{Success: true},
+				},
+			},
+		},
+	}
+
+	err = workflowValidator.Validate(workflow)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "input.telephony is required when source is telephony")
+}
+
 func TestInputSourcesIntegration_MissingInputSource(t *testing.T) {
 	schemaValidator, err := validator.NewSchemaValidator()
 	require.NoError(t, err)

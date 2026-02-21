@@ -226,6 +226,13 @@ test_input_source_invalid "Input Sources - Telephony without type rejected" \
       device: /dev/ttyUSB0'
 
 # ---------------------------------------------------------------------------
+# Test 13b: Telephony source without any telephony block
+# ---------------------------------------------------------------------------
+test_input_source_invalid "Input Sources - Telephony source without telephony block rejected" \
+'  input:
+    source: telephony'
+
+# ---------------------------------------------------------------------------
 # Transcriber tests
 # ---------------------------------------------------------------------------
 

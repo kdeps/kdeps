@@ -1184,6 +1184,11 @@ func TestWorkflowValidator_ValidateInputConfig(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name:    "telephony without telephony block (nil)",
+			config:  &domain.InputConfig{Source: domain.InputSourceTelephony},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

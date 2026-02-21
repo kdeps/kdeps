@@ -189,7 +189,19 @@
                 }
               }
             }
-          }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "source": { "const": "telephony" }
+                }
+              },
+              "then": {
+                "required": ["telephony"]
+              }
+            }
+          ]
         }
       }
     },

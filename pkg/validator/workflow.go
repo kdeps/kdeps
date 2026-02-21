@@ -434,7 +434,14 @@ func (v *WorkflowValidator) ValidateInputConfig(config *domain.InputConfig) erro
 	}
 
 	// Validate telephony config when source is telephony
-	if config.Source == domain.InputSourceTelephony && config.Telephony != nil {
+	if config.Source == domain.InputSourceTelephony {
+		if config.Telephony == nil {
+			return domain.NewError(
+				domain.ErrCodeInvalidWorkflow,
+				"input.telephony is required when source is telephony",
+				nil,
+			)
+		}
 		if err := v.ValidateTelephonyConfig(config.Telephony); err != nil {
 			return err
 		}

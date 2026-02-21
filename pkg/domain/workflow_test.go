@@ -19,6 +19,7 @@
 package domain_test
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -1084,9 +1085,9 @@ func TestInputConfigConstants(t *testing.T) {
 	}
 }
 
-func TestInputConfig_JSONMarshal(t *testing.T) {
-	// Test that InputConfig structs marshal to/from JSON correctly (json tags are set).
-	config := domain.InputConfig{
+func TestInputConfig_JSONRoundTrip(t *testing.T) {
+	// Test that InputConfig structs round-trip through encoding/json correctly.
+	original := domain.InputConfig{
 		Source: domain.InputSourceTelephony,
 		Audio:  &domain.AudioConfig{Device: "hw:0,0"},
 		Video:  &domain.VideoConfig{Device: "/dev/video0"},
@@ -1094,46 +1095,61 @@ func TestInputConfig_JSONMarshal(t *testing.T) {
 			Type:     domain.TelephonyTypeOnline,
 			Provider: "twilio",
 		},
-	}
-	// Verify fields directly (no import of encoding/json needed).
-	if config.Source != domain.InputSourceTelephony {
-		t.Errorf("Source = %v", config.Source)
-	}
-	if config.Audio.Device != "hw:0,0" {
-		t.Errorf("Audio.Device = %v", config.Audio.Device)
-	}
-	if config.Video.Device != "/dev/video0" {
-		t.Errorf("Video.Device = %v", config.Video.Device)
-	}
-	if config.Telephony.Type != domain.TelephonyTypeOnline {
-		t.Errorf("Telephony.Type = %v", config.Telephony.Type)
-	}
-	if config.Telephony.Provider != "twilio" {
-		t.Errorf("Telephony.Provider = %v", config.Telephony.Provider)
-	}
-
-	// Verify transcriber fields
-	config.Transcriber = &domain.TranscriberConfig{
-		Mode:     domain.TranscriberModeOnline,
-		Output:   domain.TranscriberOutputText,
-		Language: "en-US",
-		Online: &domain.OnlineTranscriberConfig{
-			Provider:  domain.TranscriberProviderOpenAIWhisper,
-			APIKey:    "sk-test",
-			Region:    "us-east-1",
-			ProjectID: "my-project",
+		Transcriber: &domain.TranscriberConfig{
+			Mode:     domain.TranscriberModeOnline,
+			Output:   domain.TranscriberOutputText,
+			Language: "en-US",
+			Online: &domain.OnlineTranscriberConfig{
+				Provider:  domain.TranscriberProviderOpenAIWhisper,
+				APIKey:    "sk-test",
+				Region:    "us-east-1",
+				ProjectID: "my-project",
+			},
 		},
 	}
-	if config.Transcriber.Mode != domain.TranscriberModeOnline {
-		t.Errorf("Transcriber.Mode = %v", config.Transcriber.Mode)
+
+	// Marshal to JSON.
+	data, err := json.Marshal(&original)
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
 	}
-	if config.Transcriber.Online.Provider != domain.TranscriberProviderOpenAIWhisper {
-		t.Errorf("Transcriber.Online.Provider = %v", config.Transcriber.Online.Provider)
+
+	// Unmarshal back.
+	var restored domain.InputConfig
+	if err := json.Unmarshal(data, &restored); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
+
+	// Verify all fields survive the round-trip.
+	if restored.Source != original.Source {
+		t.Errorf("Source = %v, want %v", restored.Source, original.Source)
+	}
+	if restored.Audio == nil || restored.Audio.Device != original.Audio.Device {
+		t.Errorf("Audio.Device = %v, want %v", restored.Audio, original.Audio.Device)
+	}
+	if restored.Video == nil || restored.Video.Device != original.Video.Device {
+		t.Errorf("Video.Device = %v, want %v", restored.Video, original.Video.Device)
+	}
+	if restored.Telephony == nil || restored.Telephony.Type != original.Telephony.Type {
+		t.Errorf("Telephony.Type = %v, want %v", restored.Telephony, original.Telephony.Type)
+	}
+	if restored.Telephony.Provider != original.Telephony.Provider {
+		t.Errorf("Telephony.Provider = %v, want %v", restored.Telephony.Provider, original.Telephony.Provider)
+	}
+	if restored.Transcriber == nil {
+		t.Fatal("Transcriber should not be nil after JSON round-trip")
+	}
+	if restored.Transcriber.Mode != original.Transcriber.Mode {
+		t.Errorf("Transcriber.Mode = %v, want %v", restored.Transcriber.Mode, original.Transcriber.Mode)
+	}
+	if restored.Transcriber.Online == nil ||
+		restored.Transcriber.Online.Provider != original.Transcriber.Online.Provider {
+		t.Errorf("Transcriber.Online.Provider = %v", restored.Transcriber.Online)
 	}
 }
 
-func TestWorkflow_InputConfig_RoundTrip(t *testing.T) {
-	// Test full workflow YAML round-trip including input sources.
+func TestWorkflow_InputConfig_YAMLUnmarshal(t *testing.T) {
+	// Test full workflow YAML unmarshal including input sources.
 	yamlIn := `apiVersion: kdeps.io/v1
 kind: Workflow
 metadata:
@@ -1153,7 +1169,7 @@ settings:
 		t.Fatalf("Unmarshal: %v", err)
 	}
 	if wf.Settings.Input == nil {
-		t.Fatal("Input should not be nil after round-trip")
+		t.Fatal("Input should not be nil")
 	}
 	if wf.Settings.Input.Source != domain.InputSourceTelephony {
 		t.Errorf("Source = %v", wf.Settings.Input.Source)
@@ -1166,6 +1182,31 @@ settings:
 	}
 	if wf.Settings.Input.Telephony.Provider != "vonage" {
 		t.Errorf("Provider = %v", wf.Settings.Input.Telephony.Provider)
+	}
+
+	// Marshal back to YAML and unmarshal again to ensure a true round-trip.
+	out, err := yaml.Marshal(&wf)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	var wf2 domain.Workflow
+	if err := yaml.Unmarshal(out, &wf2); err != nil {
+		t.Fatalf("Re-unmarshal: %v", err)
+	}
+	if wf2.Settings.Input == nil {
+		t.Fatal("Input should not be nil after round-trip")
+	}
+	if wf2.Settings.Input.Source != domain.InputSourceTelephony {
+		t.Errorf("Source after round-trip = %v", wf2.Settings.Input.Source)
+	}
+	if wf2.Settings.Input.Telephony == nil {
+		t.Fatal("Telephony should not be nil after round-trip")
+	}
+	if wf2.Settings.Input.Telephony.Type != domain.TelephonyTypeOnline {
+		t.Errorf("Type after round-trip = %v", wf2.Settings.Input.Telephony.Type)
+	}
+	if wf2.Settings.Input.Telephony.Provider != "vonage" {
+		t.Errorf("Provider after round-trip = %v", wf2.Settings.Input.Telephony.Provider)
 	}
 }
 
